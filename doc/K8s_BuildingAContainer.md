@@ -185,7 +185,7 @@ k2s image build -n k2s.io/servicelin -t 1 --build-arg="BaseImage=debian:latest" 
 ```
 Here, we use the parameter **--build-arg** twice to supply the values of both the build arguments.
 
-For running linux pods in K8s please always specify the node selector for linux:
+For running Linux pods in K8s please always specify the node selector for Linux:
 ```
       nodeSelector:
         kubernetes.io/os: linux
@@ -193,7 +193,7 @@ For running linux pods in K8s please always specify the node selector for linux:
 
 ## k2s build internals
 
-Under the hood of k2s build is a powershell script ".\common\BuildImage.ps1" (and its batch-wrapper, both part of the k2s set up) automate the container build. A container image will be created in your local repository.
+Under the hood of k2s build is a PowerShell script ".\common\BuildImage.ps1" (and its batch-wrapper, both part of the K2s setup) automate the container build. A container image will be created in your local repository.
 
 In general the **BuildImage** support Linux (default) as well as Windows container.
 There are also two types of Dockerfile supported:

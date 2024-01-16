@@ -15,7 +15,7 @@ import (
 	"k2sTest/framework"
 )
 
-var suite *framework.k2sTestSuite
+var suite *framework.K2sTestSuite
 
 func TestStatus(t *testing.T) {
 	RegisterFailHandler(Fail)

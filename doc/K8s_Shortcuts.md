@@ -8,10 +8,10 @@ SPDX-License-Identifier: MIT
 
 [ Home ](../README.md)
 
-This page describes the shortcuts to interact with k2s cluster.
+This page describes the shortcuts to interact with K2s cluster.
 
 | Shortcut | Command                                                                | Description                                     |
-|----------|------------------------------------------------------------------------|-------------------------------------------------|
+| -------- | ---------------------------------------------------------------------- | ----------------------------------------------- |
 | c        | crictl                                                                 | Client for CRI                                  |
 | d        | docker                                                                 | A self-sufficient runtime for containers        |
 | k        | kubectl                                                                | kubectl controls the Kubernetes cluster manager |

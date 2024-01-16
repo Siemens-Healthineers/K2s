@@ -4,7 +4,7 @@ SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
 SPDX-License-Identifier: MIT
 -->
 
-## k2s Diagnostics
+## K2s Diagnostics
 
 ### Log Collection
 <br/>
@@ -15,7 +15,7 @@ Usage on a cmd prompt:
 	k2s system dump
 ```
 
-Would collect all the required logs to validate if k2s installation is successful.
+Would collect all the required logs to validate if K2s installation is successful.
 
 Final result will be a zip file under C:\var\log\k2s-dump-\<hostname\>-\<datetime\>.zip. 
 

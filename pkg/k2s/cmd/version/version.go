@@ -13,7 +13,7 @@ import (
 
 var VersionCmd = &cobra.Command{
 	Use:   "version",
-	Short: "Shows the current version of the k2s",
+	Short: "Shows the current version of K2s / k2s CLI",
 	RunE:  showVersion,
 }
 

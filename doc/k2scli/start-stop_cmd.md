@@ -45,4 +45,4 @@ The output will be similar to the following:
 
 ![Status Command Output](/doc/k2scli/img/status_cmd_output.png)
 
-&larr;&nbsp;[Install/Uninstall k2s](./install-uninstall_cmd.md)&nbsp;&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;&nbsp;[Home](../../README.md)&nbsp;&rarr;
+&larr;&nbsp;[Install/Uninstall K2s](./install-uninstall_cmd.md)&nbsp;&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;&nbsp;[Home](../../README.md)&nbsp;&rarr;

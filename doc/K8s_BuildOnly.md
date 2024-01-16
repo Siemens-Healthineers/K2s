@@ -13,7 +13,7 @@ as it enables the building of Windows and Linux containers without the need for 
 
 # Install Build Only Setup
 
-Create main directory and download k2s repository:
+Create main directory and download K2s repository:
 
 ```
 mkdir c:\g& cd c:\g

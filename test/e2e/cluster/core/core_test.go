@@ -21,7 +21,7 @@ const (
 var linuxDeploymentNames = []string{"albums-linux1", "albums-linux2"}
 var winDeploymentNames = []string{"albums-win1", "albums-win2"}
 
-var suite *framework.k2sTestSuite
+var suite *framework.K2sTestSuite
 
 var manifestDir string
 var proxy string
@@ -81,7 +81,7 @@ var _ = AfterSuite(func(ctx context.Context) {
 	GinkgoWriter.Println("Deleting workloads..")
 
 	if testFailed {
-		suite.k2sCli().Run(ctx, "system", "dump", "-S", "-o")
+		suite.K2sCli().Run(ctx, "system", "dump", "-S", "-o")
 	}
 
 	suite.Kubectl().Run(ctx, "delete", "-k", manifestDir)

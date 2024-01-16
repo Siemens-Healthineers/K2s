@@ -12,7 +12,7 @@ import (
 )
 
 var listExample = `
-	# List configured image registries in k2s 
+	# List configured image registries in K2s 
 	k2s image registry ls
 `
 

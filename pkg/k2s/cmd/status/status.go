@@ -93,7 +93,7 @@ const statusCommandExample = `
 
 var StatusCmd = &cobra.Command{
 	Use:     "status",
-	Short:   "Prints out status information about the k2s cluster on this machine",
+	Short:   "Prints out status information about the K2s cluster on this machine",
 	RunE:    printStatus,
 	Example: statusCommandExample,
 }
@@ -137,7 +137,7 @@ func printStatusAsJson() error {
 func printStatusUserFriendly(showAdditionalInfo bool) error {
 	printer := NewStatusPrinter()
 
-	printer.terminalPrinter.PrintHeader("k2s CLUSTER STATUS")
+	printer.terminalPrinter.PrintHeader("K2s CLUSTER STATUS")
 
 	startResult, err := printer.terminalPrinter.StartSpinner("Gathering status information...")
 	if err != nil {

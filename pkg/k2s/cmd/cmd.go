@@ -27,7 +27,7 @@ import (
 var (
 	rootCmd = &cobra.Command{
 		Use:           cm.CliName,
-		Short:         "k2s – command-line tool to interact with the k2s cluster",
+		Short:         "k2s – command-line tool to interact with the K2s cluster",
 		SilenceErrors: true,
 		SilenceUsage:  true,
 	}

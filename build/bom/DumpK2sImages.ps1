@@ -6,7 +6,7 @@
 
 <#
 .SYNOPSIS
-Creates a JSON file with list of all container images used in k2s.
+Creates a JSON file with list of all container images used in K2s.
 .DESCRIPTION
 Scraps container images from yaml manifest under addons folder and images configured in addon manifests.
 .NOTES

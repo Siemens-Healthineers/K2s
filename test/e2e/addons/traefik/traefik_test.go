@@ -9,9 +9,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"net/http"
 	"k2sTest/framework"
 	"k2sTest/framework/k8s"
+	"net/http"
 	"testing"
 	"time"
 
@@ -25,7 +25,7 @@ const (
 )
 
 var (
-	suite                 *framework.k2sTestSuite
+	suite                 *framework.K2sTestSuite
 	kubectl               *k8s.Kubectl
 	cluster               *k8s.Cluster
 	linuxOnly             bool
@@ -50,23 +50,23 @@ var _ = AfterSuite(func(ctx context.Context) {
 var _ = Describe("'traefik' addon", Ordered, func() {
 	AfterAll(func(ctx context.Context) {
 		suite.Kubectl().Run(ctx, "delete", "-k", "workloads")
-		suite.k2sCli().Run(ctx, "addons", "disable", "traefik", "-o")
+		suite.K2sCli().Run(ctx, "addons", "disable", "traefik", "-o")
 
 		suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "traefik", "traefik")
 		suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "albums-linux1", "traefik-test")
 
-		status := suite.k2sCli().GetStatus(ctx)
+		status := suite.K2sCli().GetStatus(ctx)
 		Expect(status.IsAddonEnabled("traefik")).To(BeFalse())
 	})
 
 	It("is in enabled state and pods are in running state", func(ctx context.Context) {
-		suite.k2sCli().Run(ctx, "addons", "enable", "traefik", "-o")
+		suite.K2sCli().Run(ctx, "addons", "enable", "traefik", "-o")
 
 		suite.Cluster().ExpectDeploymentToBeAvailable("traefik", "traefik")
 
 		suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "traefik", "traefik")
 
-		status := suite.k2sCli().GetStatus(ctx)
+		status := suite.K2sCli().GetStatus(ctx)
 		Expect(status.IsAddonEnabled("traefik")).To(BeTrue())
 	})
 

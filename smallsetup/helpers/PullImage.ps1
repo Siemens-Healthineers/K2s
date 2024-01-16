@@ -6,7 +6,7 @@
 
 <#
 .Description
-Pull container images in k2s
+Pull container images in K2s
 #>
 
 Param (

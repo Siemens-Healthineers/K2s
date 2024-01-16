@@ -101,7 +101,7 @@ if ($CheckOnly) {
 
 Write-Log 'Starting installation...'
 
-# Add k2s executables as part of environment variable
+# Add K2s executables as part of environment variable
 Set-EnvVars
 
 # make sure we are at the right place for install
@@ -180,7 +180,7 @@ Start-Sleep 2
 kubectl get nodes -o wide
 
 Write-Log '---------------------------------------------------------------'
-Write-Log "k2s setup finished.   Total duration: $('{0:hh\:mm\:ss}' -f $installStopwatch.Elapsed )"
+Write-Log "K2s setup finished.   Total duration: $('{0:hh\:mm\:ss}' -f $installStopwatch.Elapsed )"
 Write-Log '---------------------------------------------------------------'
 
 Write-RefreshEnvVariables

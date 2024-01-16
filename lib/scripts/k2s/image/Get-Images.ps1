@@ -13,10 +13,10 @@
 
 <#
 .SYNOPSIS
-List all container images present in k2s
+List all container images present in K2s
 
 .DESCRIPTION
-List all container images present in k2s
+List all container images present in K2s
 
 .PARAMETER IncludeK8sImages
 If set to true, will list k8s images as well
@@ -25,11 +25,11 @@ If set to true, will list k8s images as well
 If set to true, will encode and send result as structured data to the CLI
 
 .EXAMPLE
-# Outputs all container images present in k2s
+# Outputs all container images present in K2s
 PS> .\Get-Images.ps1
 
 .EXAMPLE
-# Outputs all container images present in k2s including k8s images and will encode and send result as structured data to the CLI
+# Outputs all container images present in K2s including K8s images and will encode and send result as structured data to the CLI
 PS> .\Get-Images.ps1 -IncludeK8sImages -EncodeStructuredOutput
 #>
 
@@ -55,14 +55,15 @@ class StoredImages {
 $StoredImages = [StoredImages]::new()
 $StoredImages.ContainerImages = @(Get-ContainerImagesInk2s -IncludeK8sImages $IncludeK8sImages)
 
-$StoredImages.ContainerRegistry = $(Get-RegistriesFromSetupJson) | Where-Object {$_ -match "k2s-registry.*"}
+$StoredImages.ContainerRegistry = $(Get-RegistriesFromSetupJson) | Where-Object { $_ -match 'k2s-registry.*' }
 $StoredImages.PushedImages = @(Get-PushedContainerImages)
 
 if ($EncodeStructuredOutput) {
     Send-ToCli -MessageType 'StoredImages' -Message $StoredImages
-} else {
+}
+else {
     Write-Host ($StoredImages.ContainerImages | Format-Table | Out-String).Trim()
-    Write-Host ""
+    Write-Host ''
     Write-Host "Pushed container images -> $StoredImages.ContainerRegistry"
     Write-Host ($StoredImages.PushedImages | Format-Table | Out-String).Trim() 
 }

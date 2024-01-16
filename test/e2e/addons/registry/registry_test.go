@@ -25,7 +25,7 @@ const (
 )
 
 var (
-	suite     *framework.k2sTestSuite
+	suite     *framework.K2sTestSuite
 	linuxOnly bool
 )
 
@@ -41,16 +41,16 @@ var _ = Describe("'registry' addon", Ordered, func() {
 	When("Nodeport", func() {
 		Context("addon is enabled {nodeport}", func() {
 			BeforeAll(func(ctx context.Context) {
-				suite.k2sCli().Run(ctx, "addons", "enable", "registry", "-d", "-n", "30007", "-o")
+				suite.K2sCli().Run(ctx, "addons", "enable", "registry", "-d", "-n", "30007", "-o")
 			})
 
 			It("registry addon with nodeport is in enabled state", func(ctx context.Context) {
-				status := suite.k2sCli().GetStatus(ctx)
+				status := suite.K2sCli().GetStatus(ctx)
 				Expect(status.IsAddonEnabled("registry")).To(BeTrue())
 			})
 
 			It("local container registry is configured", func(ctx context.Context) {
-				output := suite.k2sCli().Run(ctx, "image", "registry", "ls")
+				output := suite.K2sCli().Run(ctx, "image", "registry", "ls")
 				Expect(output).Should(ContainSubstring("k2s-registry.local:30007"), "Local Registry was not enabled")
 			})
 
@@ -62,16 +62,16 @@ var _ = Describe("'registry' addon", Ordered, func() {
 
 		Context("addon is disabled {nodeport}", func() {
 			BeforeAll(func(ctx context.Context) {
-				suite.k2sCli().Run(ctx, "addons", "disable", "registry", "-o")
+				suite.K2sCli().Run(ctx, "addons", "disable", "registry", "-o")
 			})
 
 			It("local container registry is not configured", func(ctx context.Context) {
-				output := suite.k2sCli().Run(ctx, "image", "registry", "ls")
+				output := suite.K2sCli().Run(ctx, "image", "registry", "ls")
 				Expect(output).ShouldNot(ContainSubstring("k2s-registry.local:30007"), "Local Registry was not disabled")
 			})
 
 			It("registry addon is disabled", func(ctx context.Context) {
-				status := suite.k2sCli().GetStatus(ctx)
+				status := suite.K2sCli().GetStatus(ctx)
 				enabledAddons := status.GetEnabledAddons()
 				Expect(enabledAddons).To(BeEmpty())
 			})
@@ -81,17 +81,17 @@ var _ = Describe("'registry' addon", Ordered, func() {
 	When("Default Ingress", func() {
 		Context("addon is enabled {nginx}", func() {
 			BeforeAll(func(ctx context.Context) {
-				suite.k2sCli().Run(ctx, "addons", "enable", "registry", "-d", "-o")
+				suite.K2sCli().Run(ctx, "addons", "enable", "registry", "-d", "-o")
 			})
 
 			It("registry addon with default ingress is in enabled state", func(ctx context.Context) {
-				status := suite.k2sCli().GetStatus(ctx)
+				status := suite.K2sCli().GetStatus(ctx)
 				Expect(status.IsAddonEnabled("registry")).To(BeTrue())
 				Expect(status.IsAddonEnabled("ingress-nginx")).To(BeTrue())
 			})
 
 			It("local container registry is configured", func(ctx context.Context) {
-				output := suite.k2sCli().Run(ctx, "image", "registry", "ls")
+				output := suite.K2sCli().Run(ctx, "image", "registry", "ls")
 				Expect(output).Should(ContainSubstring("k2s-registry.local"), "Local Registry was not enabled")
 			})
 
@@ -103,17 +103,17 @@ var _ = Describe("'registry' addon", Ordered, func() {
 
 		Context("addon is disabled {nginx}", func() {
 			BeforeAll(func(ctx context.Context) {
-				suite.k2sCli().Run(ctx, "addons", "disable", "registry", "-o")
-				suite.k2sCli().Run(ctx, "addons", "disable", "ingress-nginx", "-o")
+				suite.K2sCli().Run(ctx, "addons", "disable", "registry", "-o")
+				suite.K2sCli().Run(ctx, "addons", "disable", "ingress-nginx", "-o")
 			})
 
 			It("local container registry is not configured", func(ctx context.Context) {
-				output := suite.k2sCli().Run(ctx, "image", "registry", "ls")
+				output := suite.K2sCli().Run(ctx, "image", "registry", "ls")
 				Expect(output).ShouldNot(ContainSubstring("k2s-registry.local"), "Local Registry was not disabled")
 			})
 
 			It("nginx addon is disabled", func(ctx context.Context) {
-				status := suite.k2sCli().GetStatus(ctx)
+				status := suite.K2sCli().GetStatus(ctx)
 				enabledAddons := status.GetEnabledAddons()
 				Expect(enabledAddons).To(BeEmpty())
 			})
@@ -123,17 +123,17 @@ var _ = Describe("'registry' addon", Ordered, func() {
 	When("Traefik Ingress", func() {
 		Context("addon is enabled {traefik}", func() {
 			BeforeAll(func(ctx context.Context) {
-				suite.k2sCli().Run(ctx, "addons", "enable", "registry", "-d", "-o", "--ingress", "traefik")
+				suite.K2sCli().Run(ctx, "addons", "enable", "registry", "-d", "-o", "--ingress", "traefik")
 			})
 
 			It("registry addon with traefik ingress is in enabled state", func(ctx context.Context) {
-				status := suite.k2sCli().GetStatus(ctx)
+				status := suite.K2sCli().GetStatus(ctx)
 				Expect(status.IsAddonEnabled("registry")).To(BeTrue())
 				Expect(status.IsAddonEnabled("traefik")).To(BeTrue())
 			})
 
 			It("local container registry is configured", func(ctx context.Context) {
-				output := suite.k2sCli().Run(ctx, "image", "registry", "ls")
+				output := suite.K2sCli().Run(ctx, "image", "registry", "ls")
 				Expect(output).Should(ContainSubstring("k2s-registry.local"), "Local Registry was not enabled")
 			})
 
@@ -145,17 +145,17 @@ var _ = Describe("'registry' addon", Ordered, func() {
 
 		Context("addon is disabled {traefik}", func() {
 			BeforeAll(func(ctx context.Context) {
-				suite.k2sCli().Run(ctx, "addons", "disable", "registry", "-o")
-				suite.k2sCli().Run(ctx, "addons", "disable", "traefik", "-o")
+				suite.K2sCli().Run(ctx, "addons", "disable", "registry", "-o")
+				suite.K2sCli().Run(ctx, "addons", "disable", "traefik", "-o")
 			})
 
 			It("local container registry is not configured", func(ctx context.Context) {
-				output := suite.k2sCli().Run(ctx, "image", "registry", "ls")
+				output := suite.K2sCli().Run(ctx, "image", "registry", "ls")
 				Expect(output).ShouldNot(ContainSubstring("k2s-registry.local"), "Local Registry was not disabled")
 			})
 
 			It("traefik addon is disabled", func(ctx context.Context) {
-				status := suite.k2sCli().GetStatus(ctx)
+				status := suite.K2sCli().GetStatus(ctx)
 				enabledAddons := status.GetEnabledAddons()
 				Expect(enabledAddons).To(BeEmpty())
 			})

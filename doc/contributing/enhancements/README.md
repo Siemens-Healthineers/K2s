@@ -4,9 +4,9 @@ SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
 SPDX-License-Identifier: MIT
 -->
 
-# k2s Enhancement Proposals
+# K2s Enhancement Proposals
 
-This folder contains k2s enhancement proposals (SEPs) for the k2s project. Enhancement proposals provide a structured way to propose and discuss improvements, new features, or changes to the k2s project.
+This folder contains K2s enhancement proposals (SEPs) for the K2s project. Enhancement proposals provide a structured way to propose and discuss improvements, new features, or changes to the K2s project.
 
 ## How to Contribute
 

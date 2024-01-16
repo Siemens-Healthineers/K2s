@@ -4,12 +4,12 @@ SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
 SPDX-License-Identifier: MIT
 -->
 
-# Enhancement Proposal for Refactoring k2s PowerShell Codebase
+# Enhancement Proposal for Refactoring K2s PowerShell Codebase
 
 
 ## Motivation
 
-The motivation of this enhancement proposal is to refactor the k2s PowerShell codebase for better maintainability, modularity, and extensibility. The proposed structure organizes the code into distinct modules, each focused on specific functionalities, making it easier to understand, test, and enhance.
+The motivation of this enhancement proposal is to refactor the K2s PowerShell codebase for better maintainability, modularity, and extensibility. The proposed structure organizes the code into distinct modules, each focused on specific functionalities, making it easier to understand, test, and enhance.
 
 
 ## Proposed Module Structure

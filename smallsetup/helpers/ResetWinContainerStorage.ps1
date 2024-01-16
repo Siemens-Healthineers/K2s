@@ -97,7 +97,7 @@ if ($setupType.Name -eq $global:SetupType_k2s) {
     $clusterState = Get-RunningState -SetupType $setupType.Name
 
     if ($clusterState.IsRunning -eq $true) {
-        throw 'k2s is running. Please stop k2s before performing this operation. Please ensure that no workloads are running in k2s..'
+        throw 'K2s is running. Please stop K2s before performing this operation. Please ensure that no workloads are running in K2s..'
     }
 }
 

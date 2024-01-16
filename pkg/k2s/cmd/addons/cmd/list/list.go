@@ -27,7 +27,7 @@ const (
 func NewCommand(allAddons addons.Addons) *cobra.Command {
 	return &cobra.Command{
 		Use:   "ls",
-		Short: "List addons available for k2s",
+		Short: "List addons available for K2s",
 		RunE:  func(cmd *cobra.Command, args []string) error { return listAddons(allAddons) },
 	}
 }

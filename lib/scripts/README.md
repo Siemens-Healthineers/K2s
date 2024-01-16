@@ -5,4 +5,4 @@ SPDX-License-Identifier: MIT
 
 # **scripts**
 
-Contains APIs to perform operations with any variant of k2s.
+Contains APIs to perform operations with any variant of K2s.

@@ -50,7 +50,7 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'Name of the switch to use/create')]
     [string] $SwitchName = '',
     [parameter(Mandatory = $false, HelpMessage = 'IP address of the switch to use/create')]
-    [string] $SwitchIP =   '',
+    [string] $SwitchIP = '',
     [parameter(Mandatory = $false, HelpMessage = 'Create a switch with the given name, if TRUE.')]
     [bool] $CreateSwitch = $true,
     [parameter(Mandatory = $false, HelpMessage = 'IP address to assign to the VM. If none is defined, an IP address will be determined automatically.')]
@@ -119,7 +119,7 @@ if ($SwitchIP -eq '') {
 }
 
 # git PAT token encoded, token valid until 2023-07-03, to be cleaned up while migrating to github
-$encodedUrl = "aHR0cHM6Ly9wYXQ6ZDVqNHlyNmgzZzNxeHFxdXZ3NnpwbWRjcWRrZHc2aHNxbmNra2RyZXFoNWt4d2p3NWo0YUBkZXYuYXp1cmUuY29tL3Nocy1zeW5nby1wcmVkZXZlbG9wbWVudC9TeW5nb1ByZWRldmVsb3BtZW50"
+$encodedUrl = 'aHR0cHM6Ly9wYXQ6ZDVqNHlyNmgzZzNxeHFxdXZ3NnpwbWRjcWRrZHc2aHNxbmNra2RyZXFoNWt4d2p3NWo0YUBkZXYuYXp1cmUuY29tL3Nocy1zeW5nby1wcmVkZXZlbG9wbWVudC9TeW5nb1ByZWRldmVsb3BtZW50'
 $decodedBytes = [System.Convert]::FromBase64String($encodedUrl)
 $gitbaseUrl = [System.Text.Encoding]::UTF8.GetString($decodedBytes)
 
@@ -136,7 +136,7 @@ $DefaultImageDownloadPath = "$DefaultImageShare\Release-21H1"
 $virtualizedNetworkCIDR = '172.29.29.0/24'
 $virtualizedNAT = 'k2sSetup'
 
-Write-Log "Checking windows iso image location"
+Write-Log 'Checking windows iso image location'
 if ( !$Image -or !(Test-Path $Image) ) {
     Write-Log "Missing VM image: will downloaded from $DefaultImageShare ..."
 
@@ -199,7 +199,7 @@ if ($CreateSwitch -eq $true) {
     Write-Log "Check ip address $SwitchIP"
     $netip = Get-NetIPAddress -IPAddress $SwitchIP -ErrorAction SilentlyContinue
     if ( !($netip) ) {
-        Write-Log "IP address for switch, recreate it"
+        Write-Log 'IP address for switch, recreate it'
         New-NetIPAddress -IPAddress $SwitchIP -PrefixLength 24 -InterfaceAlias "vEthernet ($SwitchName)" | Out-Null
     }
 
@@ -220,7 +220,7 @@ if ($CreateSwitch -eq $true) {
 # download virtio image
 $virtioImgFile = ''
 if ( ($VirtioDrivers) ) {
-    Write-Log "Start to download virtio image ..."
+    Write-Log 'Start to download virtio image ...'
     $virtioImgFile = &"$global:KubernetesPath\smallsetup\common\vmtools\Get-VirtioImage.ps1" -Verbose -Proxy "$Proxy"
     Write-Log "Virtio image: $virtioImgFile"
 }
@@ -287,13 +287,13 @@ Invoke-Command -Session $session1 {
     Enable-WindowsOptionalFeature -Online -FeatureName VirtualMachinePlatform -All -NoRestart -WarningAction silentlyContinue
 }
 
-Write-Log "Sync time zone of VM with host"
+Write-Log 'Sync time zone of VM with host'
 Invoke-Command -Session $session1 {
     #Set timezone in VM
     tzutil /s $using:timezone
     Write-Output "Completed setting time zone: $using:timezone"
 
-    Write-Output "Check Host machine Keyboard layout ..."
+    Write-Output 'Check Host machine Keyboard layout ...'
     Add-Type -AssemblyName System.Windows.Forms
     $lang = [System.Windows.Forms.InputLanguage]::CurrentInputLanguage
     Write-Output "Found Keyboard on Host: '$($lang.LayoutName)' ..."
@@ -319,10 +319,10 @@ $session2 = Open-RemoteSession -VmName $Name -VmPwd $global:VMPwd
 
 # install other components needed in VM
 Invoke-Command -Session $session2 -WarningAction SilentlyContinue {
-    Write-Output "Change network policy"
+    Write-Output 'Change network policy'
     Get-NetConnectionprofile | Set-NetConnectionProfile -NetworkCategory Private -ErrorAction SilentlyContinue
 
-    Write-Output "Install choco and additional packages ..."
+    Write-Output 'Install choco and additional packages ...'
 
     $attempts = 0
     $MaxAttempts = 3
@@ -335,16 +335,17 @@ Invoke-Command -Session $session2 -WarningAction SilentlyContinue {
             [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072
 
             if ($using:Proxy) {
-                Write-Output "Installing choco using Proxy ..."
+                Write-Output 'Installing choco using Proxy ...'
                 [system.net.webrequest]::defaultwebproxy = New-Object system.net.webproxy($using:Proxy)
-                Invoke-Expression ((New-Object Net.WebClient).DownloadString('https://chocolatey.org/install.ps1')) 6>&1 3>&1
+                Invoke-Expression ((New-Object Net.WebClient).DownloadString('https://chocolatey.org/install.ps1')) 3>&1
                 choco config set proxy $using:Proxy
             }
             else {
-                Invoke-Expression ((New-Object Net.WebClient).DownloadString('https://chocolatey.org/install.ps1')) 6>&1 3>&1
+                Invoke-Expression ((New-Object Net.WebClient).DownloadString('https://chocolatey.org/install.ps1')) 3>&1
             }
             break
-        } catch {
+        }
+        catch {
             Write-Output "Attempt $($attempts + 1) failed with error: $($_.Exception.Message)"
             $attempts++
 
@@ -366,28 +367,28 @@ Invoke-Command -Session $session2 -ErrorAction SilentlyContinue {
     choco feature disable -n=showNonElevatedWarnings | Out-Null
 
     if ($using:VMEnv -eq 'Dev') {
-        Write-Output "Install code and golang"
+        Write-Output 'Install code and golang'
         choco install vscode | Out-Null
         choco install golang | Out-Null
     }
 
     choco install nssm | Out-Null
 
-    Write-Output "Install git"
+    Write-Output 'Install git'
     choco install git.install | Out-Null
 
-    Write-Output "Install kubernetes cli"
+    Write-Output 'Install kubernetes cli'
     choco install kubernetes-cli | Out-Null
 
-    Write-Output "Install open ssh"
+    Write-Output 'Install open ssh'
     choco install openssh --pre | Out-Null
-    New-NetFirewallRule -Name sshd -DisplayName 'OpenSSH Server (sshd)' -Group "k2s" -Enabled True -Direction Inbound -Protocol TCP -Action Allow -LocalPort 22 | Out-Null
+    New-NetFirewallRule -Name sshd -DisplayName 'OpenSSH Server (sshd)' -Group 'k2s' -Enabled True -Direction Inbound -Protocol TCP -Action Allow -LocalPort 22 | Out-Null
     &powershell 'C:\Program` Files\OpenSSH-Win64\install-sshd.ps1' | Out-Null
 
-    Write-Output "Install Powershell 7"
+    Write-Output 'Install Powershell 7'
     choco install powershell-core --version=7.3.4 -Force
 
-    Write-Output "Choco packages done"
+    Write-Output 'Choco packages done'
 }
 
 #Sync host git version with windows Node
@@ -396,24 +397,25 @@ Invoke-Command -Session $session2 -ErrorAction SilentlyContinue {
 #3. TBD Offline
 
 $currentGitCommitHash = git log --format="%H" -n 1
-$finalGitCheckout = ""
+$finalGitCheckout = ''
 
 if ($currentGitCommitHash) {
     Write-Log "Using commit hash for checkout $currentGitCommitHash"
     $finalGitCheckout = $currentGitCommitHash
-} else {
-    $finalGitCheckout = "main"
+}
+else {
+    $finalGitCheckout = 'main'
 }
 
 $currentGitUserName = git config --get user.name
 $currentGitUserEmail = git config --get user.email
 
-Write-Log "Download Small K8s Setup"
+Write-Log 'Download Small K8s Setup'
 Invoke-Command -Session $session2 -ErrorAction SilentlyContinue {
     New-Item -ItemType Directory -Force c:\k
     Set-Location c:\k
     if ($using:Proxy) {
-        Write-Output "Configuring Proxy for git"
+        Write-Output 'Configuring Proxy for git'
         &'C:\Program Files\Git\cmd\git.exe' config --global http.proxy $using:Proxy
     }
 
@@ -460,14 +462,15 @@ Invoke-Command -Session $session3 {
     Import-Module $env:SystemDrive\k\smallsetup\ps-modules\log\log.module.psm1
     Initialize-Logging -Nested:$true
     New-Item -ItemType Directory "$global:KubernetesPath\lib\NSSM"
-    Copy-Item -Path "C:\ProgramData\chocolatey\lib\NSSM\*" -Destination "$global:KubernetesPath\lib\NSSM" -Recurse -Force
-    Copy-Item -Path "C:\ProgramData\chocolatey\bin\nssm.exe" -Destination "$global:KubernetesPath\bin" -Force
+    Copy-Item -Path 'C:\ProgramData\chocolatey\lib\NSSM\*' -Destination "$global:KubernetesPath\lib\NSSM" -Recurse -Force
+    Copy-Item -Path 'C:\ProgramData\chocolatey\bin\nssm.exe' -Destination "$global:KubernetesPath\bin" -Force
 
     if ($using:DownloadNodeArtifacts) {
-        Write-Output "DownloadNodeArtifacts is set, downloading all windows node artifacts .."
+        Write-Output 'DownloadNodeArtifacts is set, downloading all windows node artifacts ..'
         &"$global:KubernetesPath\smallsetup\windowsnode\DeployWindowsNodeArtifacts.ps1" -KubernetesVersion $using:kubernetesVersion -Proxy $using:Proxy -ForceOnlineInstallation $true -SetupType $global:SetupType_MultiVMK8s
-    } else {
-        Write-Output "DownloadNodeArtifacts is not set, downloading docker  .."
+    }
+    else {
+        Write-Output 'DownloadNodeArtifacts is not set, downloading docker  ..'
         &"$global:KubernetesPath\smallsetup\windowsnode\downloader\DownloadDocker.ps1" -Proxy $using:Proxy -Deploy
     }
 
@@ -484,7 +487,7 @@ Invoke-Command -Session $session3 {
         &"$global:KubernetesPath\smallsetup\windowsnode\InstallDockerWin10.ps1" -Proxy $using:Proxy
     }
     else {
-        Write-Output "Installing Docker Engine with no proxy .."
+        Write-Output 'Installing Docker Engine with no proxy ..'
         &"$global:KubernetesPath\smallsetup\windowsnode\InstallDockerWin10.ps1"
     }
 }
@@ -502,7 +505,7 @@ Invoke-Command -Session $session4 {
     . $env:SystemDrive\k\smallsetup\common\GlobalFunctions.ps1
     Import-Module $env:SystemDrive\k\smallsetup\ps-modules\log\log.module.psm1
     Initialize-Logging -Nested:$true
-    Write-Output "Proxy settings, network discovery off"
+    Write-Output 'Proxy settings, network discovery off'
     if ($using:Proxy -and !$using:DontSetProxyInVM) {
         Write-Output "Simple proxy: $using:pr"
         netsh winhttp set proxy proxy-server=$using:pr bypass-list="<local>"
@@ -515,8 +518,8 @@ Invoke-Command -Session $session4 {
     reg ADD HKLM\SYSTEM\CurrentControlSet\Control\Network\NewNetworkWindowOff /f
 
     # add parts to path
-    Update-SystemPath -Action 'add' "c:\k\bin"
-    Update-SystemPath -Action 'add' "c:\k\bin\docker"
+    Update-SystemPath -Action 'add' 'c:\k\bin'
+    Update-SystemPath -Action 'add' 'c:\k\bin\docker'
 
     # create shell shortcut
     $WshShell = New-Object -comObject WScript.Shell
@@ -534,24 +537,24 @@ Invoke-Command -Session $session4 {
         reg Add 'HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate' /V 'TargetReleaseVersionInfo' /T REG_SZ /D $using:OsVersion /F
     }
 
-    # Stop Microsoft Defender interference with k2s setup
+    # Stop Microsoft Defender interference with K2s setup
     Add-MpPreference -Exclusionpath 'C:\k'
-    Add-MpPreference -ExclusionProcess "k2s.exe","vmmem.exe","vmcompute.exe","containerd.exe","kubelet.exe","httpproxy.exe","dnsproxy.exe","kubeadm.exe","kube-proxy.exe","containerd-shim-runhcs-v1.exe"
+    Add-MpPreference -ExclusionProcess 'k2s.exe', 'vmmem.exe', 'vmcompute.exe', 'containerd.exe', 'kubelet.exe', 'httpproxy.exe', 'dnsproxy.exe', 'kubeadm.exe', 'kube-proxy.exe', 'containerd-shim-runhcs-v1.exe'
     Set-MpPreference -DisableRealtimeMonitoring $true
     Set-MpPreference -DisableBehaviorMonitoring $true
 
     # enable RDP
-    Write-Log "Enable RDP"
+    Write-Log 'Enable RDP'
     Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -name 'fDenyTSConnections' -value 0
     Enable-NetFirewallRule -DisplayGroup 'Remote Desktop'
 }
 
-Write-Log "Restart VM"
+Write-Log 'Restart VM'
 Stop-VM -Name $Name -Force
 # enable nested virtualization
 $virt = Get-CimInstance Win32_Processor | where { ($_.Name.Contains('Intel')) }
 if ( $virt ) {
-    Write-Log "Enable nested virtualization"
+    Write-Log 'Enable nested virtualization'
     Set-VMProcessor -VMName $Name -ExposeVirtualizationExtensions $true
 }
 Start-VM -Name $Name
@@ -561,7 +564,7 @@ $session5 = Open-RemoteSession -VmName $Name -VmPwd $global:VMPwd
 Invoke-Command -Session $session5 -WarningAction SilentlyContinue {
     Set-ExecutionPolicy Bypass -Force -ErrorAction SilentlyContinue
     Import-Module $env:SystemDrive\k\smallsetup\ps-modules\log\log.module.psm1
-    Write-Output "Adjusting after reboot"
+    Write-Output 'Adjusting after reboot'
 
     Set-Service -Name sshd -StartupType Automatic
     Start-Service sshd
@@ -571,8 +574,8 @@ Invoke-Command -Session $session5 -WarningAction SilentlyContinue {
     Start-Service docker
     nssm status docker
 
-    Write-Output "Enable windows container version check skip"
-    REG ADD "HKLM\SYSTEM\CurrentControlSet\Control\Windows Containers" /v SkipVersionCheck /t REG_DWORD /d 2 /f
+    Write-Output 'Enable windows container version check skip'
+    REG ADD 'HKLM\SYSTEM\CurrentControlSet\Control\Windows Containers' /v SkipVersionCheck /t REG_DWORD /d 2 /f
 }
 
 # all done

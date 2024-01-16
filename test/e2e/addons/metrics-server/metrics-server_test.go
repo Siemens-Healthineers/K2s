@@ -22,7 +22,7 @@ const (
 )
 
 var (
-	suite                 *framework.k2sTestSuite
+	suite                 *framework.K2sTestSuite
 	kubectl               *k8s.Kubectl
 	cluster               *k8s.Cluster
 	linuxOnly             bool
@@ -46,21 +46,21 @@ var _ = AfterSuite(func(ctx context.Context) {
 
 var _ = Describe("'metrics-server' addon", Ordered, func() {
 	AfterAll(func(ctx context.Context) {
-		suite.k2sCli().Run(ctx, "addons", "disable", "metrics-server", "-o")
+		suite.K2sCli().Run(ctx, "addons", "disable", "metrics-server", "-o")
 		suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "k8s-app", "metrics-server", "kube-system")
 
-		status := suite.k2sCli().GetStatus(ctx)
+		status := suite.K2sCli().GetStatus(ctx)
 		Expect(status.IsAddonEnabled("metrics-server")).To(BeFalse())
 	})
 
 	It("is in enabled state and pods are in running state", func(ctx context.Context) {
-		suite.k2sCli().Run(ctx, "addons", "enable", "metrics-server", "-o")
+		suite.K2sCli().Run(ctx, "addons", "enable", "metrics-server", "-o")
 
 		suite.Cluster().ExpectDeploymentToBeAvailable("metrics-server", "kube-system")
 
 		suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "k8s-app", "metrics-server", "kube-system")
 
-		status := suite.k2sCli().GetStatus(ctx)
+		status := suite.K2sCli().GetStatus(ctx)
 		Expect(status.IsAddonEnabled("metrics-server")).To(BeTrue())
 	})
 })

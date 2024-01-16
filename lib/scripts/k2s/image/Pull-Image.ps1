@@ -6,10 +6,10 @@
 
 <#
 .SYNOPSIS
-Pull container images in k2s
+Pull container images in K2s
 
 .DESCRIPTION
-Pull container images in k2s
+Pull container images in K2s
 
 .PARAMETER ImageName
 The image name of the image to be pulled
@@ -18,11 +18,11 @@ The image name of the image to be pulled
 Indicates that it is a windows image
 
 .EXAMPLE
-# Pull linux container image with name "image:v1" in k2s
+# Pull linux container image with name "image:v1" in K2s
 PS> .\Pull-Image.ps1 -ImageName "image:v1"
 
 .EXAMPLE
-# Pull windows container image with name "image:v1" in k2s
+# Pull windows container image with name "image:v1" in K2s
 PS> .\Pull-Image.ps1 -ImageName "image:v1" -Windows
 #>
 

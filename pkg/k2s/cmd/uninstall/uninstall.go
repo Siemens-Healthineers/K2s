@@ -25,7 +25,7 @@ var (
 	skipPurge       = "skip-purge"
 	Uninstallk8sCmd = &cobra.Command{
 		Use:   "uninstall",
-		Short: "Uninstalls k2s cluster from the host machine",
+		Short: "Uninstalls K2s cluster from the host machine",
 		RunE:  uninstallk8s,
 	}
 )
@@ -41,12 +41,12 @@ func init() {
 func uninstallk8s(ccmd *cobra.Command, args []string) error {
 	version := version.GetVersion()
 
-	pterm.Printfln("🤖 Uninstalling k2s %s", version)
+	pterm.Printfln("🤖 Uninstalling K2s %s", version)
 
 	uninstallCmd, err := buildUninstallCmd(ccmd)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			pterm.Warning.Println("k2s is not installed")
+			pterm.Warning.Println("K2s is not installed")
 			return nil
 		}
 
@@ -100,7 +100,7 @@ func buildUninstallCmd(ccmd *cobra.Command) (string, error) {
 	case cd.SetupTypeMultiVMK8s:
 		cmd = buildMultiVMUninstallCmd(skipPurgeFlag, outputFlag, additionalHooksDir, deleteFilesForOfflineInstallation)
 	default:
-		return "", errors.New("could not determine the setup type, aborting. If you are sure you have a k2s setup installed, call the correct uninstall script directly")
+		return "", errors.New("could not determine the setup type, aborting. If you are sure you have a K2s setup installed, call the correct uninstall script directly")
 	}
 
 	return cmd, nil

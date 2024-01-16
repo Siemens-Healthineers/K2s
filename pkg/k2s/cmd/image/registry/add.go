@@ -18,10 +18,10 @@ import (
 )
 
 var addExample = `
-	# Add registry in k2s (enter credentials afterwards)
+	# Add registry in K2s (enter credentials afterwards)
 	k2s image registry add myregistry
 
-	# Add registry with username and password in k2s 
+	# Add registry with username and password in K2s 
 	k2s image registry add myregistry -u testuser -p testpassword
 `
 
@@ -55,7 +55,7 @@ func addRegistry(cmd *cobra.Command, args []string) error {
 
 	registryName := args[0]
 	klog.V(4).Infof("Adding registry %s", registryName)
-	pterm.Printfln("🤖 Adding %s to k2s cluster", registryName)
+	pterm.Printfln("🤖 Adding %s to K2s cluster", registryName)
 
 	addCmd, err := buildAddCmd(registryName, cmd)
 	if err != nil {

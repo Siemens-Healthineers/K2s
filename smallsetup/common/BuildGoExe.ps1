@@ -7,7 +7,7 @@
 Builds GO executable
 
 .DESCRIPTION
-Helps in building several GO executables which is provided from k2s.
+Helps in building several GO executables which is provided from K2s.
 bridge.exe, cloudinitisobuilder.exe, devgon.exe, httpproxy.exe, k2s.exe, vfprules.exe
 Provides options to inject flags for an executable.
 
@@ -25,7 +25,7 @@ Param(
     [string] $ProjectDir,
     [parameter(Mandatory = $false, HelpMessage = 'Folder path where executable shall be dumped')]
     [string] $ExeOutDir,
-    [parameter(Mandatory = $false, HelpMessage = 'Build all k2s executables with assumption all are under single git repository')]
+    [parameter(Mandatory = $false, HelpMessage = 'Build all K2s executables with assumption all are under single git repository')]
     [bool] $BuildAll
 )
 

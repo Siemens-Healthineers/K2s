@@ -142,7 +142,7 @@ function New-SmbHostOnWindowsIfNotExisting {
 
     Write-Log "Setting up '$windowsShareName' SMB host on Windows.."
 
-    New-LocalUser -Name $smbUserName -Password $smbPw -Description 'A k2s user account for SMB access' -ErrorAction Stop | Out-Null # Description max. length seems to be 48 chars ?!
+    New-LocalUser -Name $smbUserName -Password $smbPw -Description 'A K2s user account for SMB access' -ErrorAction Stop | Out-Null # Description max. length seems to be 48 chars ?!
     New-Item -Path "$global:ShareDrive\" -Name $global:ShareSubdir -ItemType 'directory' -ErrorAction SilentlyContinue | Out-Null
     New-SmbShare -Name $windowsShareName -Path $windowsLocalPath -FullAccess $smbFullUserNameWin -ErrorAction Stop | Out-Null
     Add-FirewallExceptions

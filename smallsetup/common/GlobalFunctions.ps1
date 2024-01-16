@@ -777,13 +777,13 @@ function Get-InstalledKubernetesVersion {
 
 <#
 .SYNOPSIS
-    Returns the setup type of the small K8s installation.
+    Returns the setup type of the K2s installation.
 .DESCRIPTION
-    Returns the setup type of the small K8s installation. If no entry was found, the 'default' setup type is returned.
+    Returns the setup type of the K2s installation. If no entry was found, the 'default' setup type is returned.
 .EXAMPLE
     $setupType = Get-Installedk2sSetupType
 .OUTPUTS
-    The setup type of the small K8s installation if present; otherwise 'k2s'
+    The setup type of the K2s installation if present; otherwise 'k2s'
 .NOTES
     Checks the local setup json file for the setup type
 #>
@@ -798,7 +798,7 @@ function Get-Installedk2sSetupType {
         return $result
     }
 
-    # if no entry exists (e.g. due to older setup), return the default (most likely the 'standard' small K8s setup)
+    # if no entry exists (e.g. due to older setup), return the default (most likely the 'standard' K2s setup)
     return $global:SetupType_k2s
 }
 
@@ -1651,7 +1651,7 @@ function CreateExternalSwitch {
     }
     else {
         Write-Log 'FAILURE: no NIC found which is appropriate !'
-        throw 'Fatal: no network interface found which works for k2s Setup!'
+        throw 'Fatal: no network interface found which works for K2s Setup!'
     }
 
     # get DNS server from NIC
@@ -1813,7 +1813,7 @@ function Stop-InstallationIfDockerDesktopIsRunning {
 }
 
 function Addk2sToDefenderExclusion {
-    # Stop Microsoft Defender interference with k2s setup
+    # Stop Microsoft Defender interference with K2s setup
     Add-MpPreference -Exclusionpath "$global:KubernetesPath" -ErrorAction SilentlyContinue
     Add-MpPreference -ExclusionProcess 'k2s.exe', 'vmmem.exe', 'vmcompute.exe', 'containerd.exe', 'kubelet.exe', 'httpproxy.exe', 'dnsproxy.exe', 'kubeadm.exe', 'kube-proxy.exe', 'bridge.exe', 'containerd-shim-runhcs-v1.exe' -ErrorAction SilentlyContinue
     Set-MpPreference -DisableRealtimeMonitoring $true -ErrorAction SilentlyContinue

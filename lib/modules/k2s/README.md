@@ -3,9 +3,9 @@ SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
 SPDX-License-Identifier: MIT
 -->
 
-# **k2s modules**
+# **K2s modules**
 
-Contains the reusable modules for default aka host variant of k2s.
+Contains the reusable modules for default aka host variant of K2s.
 
 * infra.module
 * node.module
