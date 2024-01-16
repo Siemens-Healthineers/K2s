@@ -59,6 +59,46 @@ param (
 $pesterVersion = '5.5.0'
 $ginkgoVersion = '2.13.2'
 
+function ExecuteCommandWithPowershell([string]$Command)
+{
+    $powershellExe = "powershell.exe"
+    $arguments = "-noprofile -Command `"$Command`""
+	Write-Host "Calling $powershellExe $arguments"
+	try{
+		$startInfo = New-Object System.Diagnostics.ProcessStartInfo
+		$startInfo.FileName = $powershellExe
+		$startInfo.RedirectStandardError = $true
+		$startInfo.RedirectStandardOutput = $true
+		$startInfo.UseShellExecute = $false
+		$startInfo.Arguments = $arguments
+		$process = New-Object System.Diagnostics.Process
+		$process.StartInfo = $startInfo
+        # Register Object Events for stdin\stdout reading
+		$OutEvent = Register-ObjectEvent -Action {
+		    Write-Host $Event.SourceEventArgs.Data
+		} -InputObject $process -EventName OutputDataReceived
+		$ErrEvent = Register-ObjectEvent -Action {
+		    Write-Host $Event.SourceEventArgs.Data
+		} -InputObject $process -EventName ErrorDataReceived
+		$process.Start() | Out-Null
+		$process.BeginOutputReadLine()
+		$process.BeginErrorReadLine()
+		$process.WaitForExit()
+        # Unregister events
+		$OutEvent.Name, $ErrEvent.Name |
+        ForEach-Object {Unregister-Event -SourceIdentifier $_}
+		$exitCode = $process.ExitCode
+		return $exitCode
+	}
+	finally
+	{
+		if($null -ne $process)
+		{
+			$process.Dispose()
+		}
+    }
+}
+
 function ExecuteGoCommand {
     param (
         [Parameter(Mandatory = $false)]
@@ -75,7 +115,11 @@ function ExecuteGoCommand {
     try {
         $env:http_proxy = $Proxy
         $env:https_proxy = $Proxy
-        Invoke-Expression -Command $Cmd
+        $exitCode = ExecuteCommandWithPowershell -Command $Cmd
+        if ($exitCode -ne 0) {
+            $errorMessage = "Command $cmd resulted in a non-zero exit code. Exit Code: $exitCode"
+            throw $errorMessage
+        }
     }
     finally {
         $env:http_proxy = $currentHttpProxy
