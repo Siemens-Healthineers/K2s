@@ -1,0 +1,3828 @@
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.4",
+  "serialNumber": "urn:uuid:7e4baba7-abeb-436b-a7d8-4b7a78e3cc4e",
+  "version": 1,
+  "metadata": {
+    "tools": [
+      {
+        "vendor": "cyclonedx",
+        "name": "cdxgen",
+        "version": "8.0.6"
+      },
+      {
+        "vendor": "cyclonedx",
+        "name": "cdxgen",
+        "version": "8.5.2"
+      },
+      {
+        "vendor": "cyclonedx",
+        "name": "cdxgen",
+        "version": "8.0.6"
+      },
+      {
+        "vendor": "cyclonedx",
+        "name": "cdxgen",
+        "version": "8.6.0"
+      },
+      {
+        "vendor": "cyclonedx",
+        "name": "cdxgen",
+        "version": "8.5.2"
+      },
+      {
+        "vendor": "cyclonedx",
+        "name": "cdxgen",
+        "version": "8.5.2"
+      },
+      {
+        "vendor": "cyclonedx",
+        "name": "cdxgen",
+        "version": "8.5.2"
+      },
+      {
+        "vendor": "cyclonedx",
+        "name": "cdxgen",
+        "version": "8.5.2"
+      },
+      {
+        "vendor": "cyclonedx",
+        "name": "cdxgen",
+        "version": "8.5.2"
+      },
+      {
+        "vendor": "cyclonedx",
+        "name": "cdxgen",
+        "version": "8.5.2"
+      }
+    ],
+    "component": {
+      "type": "application",
+      "group": "",
+      "name": "k2s",
+      "version": ""
+    }
+  },
+  "components": [
+    {
+      "type": "application",
+      "group": "https://github.com/AdguardTeam/dnsproxy",
+      "name": "dnsproxy",
+      "version": "v0.43.1",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0",
+            "url": "https://github.com/AdguardTeam/dnsproxy/blob/master/LICENSE"
+          }
+        }
+      ],
+      "purl": "pkg:https://github.com/AdguardTeam/dnsproxy/releases/download/v0.43.1/dnsproxy-windows-amd64-v0.43.1.zip"
+    },
+    {
+      "type": "application",
+      "group": "https://github.com/kubernetes-sigs/cri-tools",
+      "name": "crictl",
+      "version": "v1.25.0",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0",
+            "url": "https://github.com/kubernetes-sigs/cri-tools/blob/master/LICENSE"
+          }
+        }
+      ],
+      "purl": "pkg:https://github.com/kubernetes-sigs/cri-tools/releases/download/v1.25.0/crictl-v1.25.0-windows-amd64.tar.gz"
+    },
+    {
+      "type": "application",
+      "group": "https://dl.k8s.io/v1.25.13/bin/windows/amd64/kubelet.exe",
+      "name": "kubelet",
+      "version": "v1.25.13",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0",
+            "url": "https://github.com/kubernetes/kubernetes/blob/master/LICENSES/LICENSE"
+          }
+        }
+      ],
+      "purl": "pkg:https://dl.k8s.io/v1.25.13/bin/windows/amd64/kubelet.exe"
+    },
+    {
+      "type": "application",
+      "group": "https://dl.k8s.io/v1.25.13/bin/windows/amd64/kubeadm.exe",
+      "name": "kubeadm",
+      "version": "v1.25.13",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0",
+            "url": "https://github.com/kubernetes/kubernetes/blob/master/LICENSES/LICENSE"
+          }
+        }
+      ],
+      "purl": "pkg:https://dl.k8s.io/v1.25.13/bin/windows/amd64/kubeadm.exe"
+    },
+    {
+      "type": "application",
+      "group": "https://dl.k8s.io/v1.25.13/bin/windows/amd64/kube-proxy.exe",
+      "name": "kube-proxy",
+      "version": "v1.25.13",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0",
+            "url": "https://github.com/kubernetes/kubernetes/blob/master/LICENSES/LICENSE"
+          }
+        }
+      ],
+      "purl": "pkg:https://dl.k8s.io/v1.25.13/bin/windows/amd64/kube-proxy.exe"
+    },
+    {
+      "type": "application",
+      "group": "https://dl.k8s.io/v1.25.13/bin/windows/amd64/kubectl.exe",
+      "name": "kubectl",
+      "version": "v1.25.13",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0",
+            "url": "https://github.com/kubernetes/kubernetes/blob/master/LICENSES/LICENSE"
+          }
+        }
+      ],
+      "purl": "pkg:https://dl.k8s.io/v1.25.13/bin/windows/amd64/kubectl.exe"
+    },
+    {
+      "type": "application",
+      "group": "https://github.com/containerd/nerdctl/releases/download/v0.23.0/nerdctl-0.23.0-windows-amd64.tar.gz",
+      "name": "nerdctl",
+      "version": "v0.23.0",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0",
+            "url": "https://github.com/kubernetes/kubernetes/blob/master/LICENSES/LICENSE"
+          }
+        }
+      ],
+      "purl": "pkg:https://github.com/containerd/nerdctl/releases/download/v0.23.0/nerdctl-0.23.0-windows-amd64.tar.gz"
+    },
+    {
+      "type": "application",
+      "group": "https://k8stestinfrabinaries.blob.core.windows.net/nssm-mirror/nssm-2.24.zip",
+      "name": "nssm",
+      "version": "v2.24.0",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "WTFPL",
+            "url": "https://nssm.cc/download"
+          }
+        }
+      ],
+      "purl": "pkg:https://k8stestinfrabinaries.blob.core.windows.net/nssm-mirror/nssm-2.24.zip"
+    },
+    {
+      "type": "application",
+      "group": "https://www.chiark.greenend.org.uk/~sgtatham/putty/releases/0.76.html",
+      "name": "plink",
+      "version": "v0.76.0",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "url": "https://www.chiark.greenend.org.uk/~sgtatham/putty/licence.html"
+          }
+        }
+      ],
+      "purl": "pkg:https://the.earth.li/~sgtatham/putty/0.76/w64/plink.exe"
+    },
+    {
+      "type": "application",
+      "group": "https://www.chiark.greenend.org.uk/~sgtatham/putty/releases/0.76.html",
+      "name": "pscp",
+      "version": "v0.76.0",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "url": "https://www.chiark.greenend.org.uk/~sgtatham/putty/licence.html"
+          }
+        }
+      ],
+      "purl": "pkg:https://the.earth.li/~sgtatham/putty/0.76/w64/pscp.exe"
+    },
+    {
+      "type": "application",
+      "group": "https://download.docker.com/win/static/stable/x86_64/docker-20.10.21.zip",
+      "name": "dockerd",
+      "version": "v20.10.21",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0",
+            "url": "https://github.com/moby/moby/blob/master/LICENSE"
+          }
+        }
+      ],
+      "purl": "pkg:https://download.docker.com/win/static/stable/x86_64/docker-20.10.21.zip"
+    },
+    {
+      "type": "application",
+      "group": "https://download.docker.com/win/static/stable/x86_64/docker-20.10.21.zip",
+      "name": "dockerd",
+      "version": "v20.10.21",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0",
+            "url": "https://github.com/moby/moby/blob/master/LICENSE"
+          }
+        }
+      ],
+      "purl": "pkg:https://download.docker.com/win/static/stable/x86_64/docker-20.10.21.zip"
+    },
+    {
+      "type": "application",
+      "group": "https://download.docker.com/win/static/stable/x86_64/docker-20.10.21.zip",
+      "name": "docker",
+      "version": "v20.10.21",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0",
+            "url": "https://github.com/moby/moby/blob/master/LICENSE"
+          }
+        }
+      ],
+      "purl": "pkg:https://download.docker.com/win/static/stable/x86_64/docker-20.10.21.zip"
+    },
+    {
+      "type": "application",
+      "group": "https://download.docker.com/win/static/stable/x86_64/docker-20.10.21.zip",
+      "name": "docker-app",
+      "version": "v20.10.21",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0",
+            "url": "https://github.com/moby/moby/blob/master/LICENSE"
+          }
+        }
+      ],
+      "purl": "pkg:https://download.docker.com/win/static/stable/x86_64/docker-20.10.21.zip"
+    },
+    {
+      "type": "application",
+      "group": "https://download.docker.com/win/static/stable/x86_64/docker-20.10.21.zip",
+      "name": "docker-buildx",
+      "version": "v20.10.21",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0",
+            "url": "https://github.com/moby/moby/blob/master/LICENSE"
+          }
+        }
+      ],
+      "purl": "pkg:https://download.docker.com/win/static/stable/x86_64/docker-20.10.21.zip"
+    },
+    {
+      "type": "application",
+      "group": "https://github.com/flannel-io/flannel/releases/download/v0.17.0/flanneld.exe",
+      "name": "flanneld",
+      "version": "v0.17.0",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0",
+            "url": "https://github.com/flannel-io/flannel/blob/master/LICENSE"
+          }
+        }
+      ],
+      "purl": "pkg:https://github.com/flannel-io/flannel/releases/download/v0.17.0/flanneld.exe"
+    },
+    {
+      "type": "application",
+      "group": "https://github.com/flannel-io/flannel/releases/download/v0.17.0/flanneld.exe",
+      "name": "flannel",
+      "version": "v0.17.0",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0",
+            "url": "https://github.com/flannel-io/flannel/blob/master/LICENSE"
+          }
+        }
+      ],
+      "purl": "pkg:https://github.com/flannel-io/flannel/releases/download/v0.17.0/flanneld.exe"
+    },
+    {
+      "type": "application",
+      "group": "https://github.com/containernetworking/plugins/releases/download/v1.1.1/cni-plugins-windows-amd64-v1.1.1.tgz",
+      "name": "host-local",
+      "version": "v1.1.1",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0",
+            "url": "https://github.com/containernetworking/plugins/blob/main/LICENSE"
+          }
+        }
+      ],
+      "purl": "pkg:https://github.com/containernetworking/plugins/releases/download/v1.1.1/cni-plugins-windows-amd64-v1.1.1.tgz"
+    },
+    {
+      "type": "application",
+      "group": "https://github.com/containernetworking/plugins/releases/download/v1.1.1/cni-plugins-windows-amd64-v1.1.1.tgz",
+      "name": "win-bridge",
+      "version": "v1.1.1",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0",
+            "url": "https://github.com/containernetworking/plugins/blob/main/LICENSE"
+          }
+        }
+      ],
+      "purl": "pkg:https://github.com/containernetworking/plugins/releases/download/v1.1.1/cni-plugins-windows-amd64-v1.1.1.tgz"
+    },
+    {
+      "type": "application",
+      "group": "https://github.com/containernetworking/plugins/releases/download/v1.1.1/cni-plugins-windows-amd64-v1.1.1.tgz",
+      "name": "win-overlay",
+      "version": "v1.1.1",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0",
+            "url": "https://github.com/containernetworking/plugins/blob/main/LICENSE"
+          }
+        }
+      ],
+      "purl": "pkg:https://github.com/containernetworking/plugins/releases/download/v1.1.1/cni-plugins-windows-amd64-v1.1.1.tgz"
+    },
+    {
+      "type": "application",
+      "group": "https://github.com/prometheus-community/windows_exporter",
+      "name": "windows_exporter",
+      "version": "v0.16.0",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "url": "https://github.com/prometheus-community/windows_exporter/blob/master/LICENSE"
+          }
+        }
+      ],
+      "purl": "pkg:https://github.com/prometheus-community/windows_exporter/releases/download/v0.16.0/windows_exporter-0.16.0-amd64.exe"
+    },
+    {
+      "type": "application",
+      "group": "https://github.com/containerd/containerd/releases/download/v1.6.13/cri-containerd-cni-1.6.13-windows-amd64.tar.gz",
+      "name": "containerd-shim-runhcs-v1",
+      "version": "v1.6.13",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0",
+            "url": "https://github.com/containerd/containerd/blob/main/LICENSE"
+          }
+        }
+      ],
+      "purl": "pkg:https://github.com/containerd/containerd/releases/download/v1.6.13/cri-containerd-cni-1.6.13-windows-amd64.tar.gz"
+    },
+    {
+      "type": "application",
+      "group": "https://github.com/containerd/containerd/releases/download/v1.6.13/cri-containerd-cni-1.6.13-windows-amd64.tar.gz",
+      "name": "containerd-stress",
+      "version": "v1.6.13",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0",
+            "url": "https://github.com/containerd/containerd/blob/main/LICENSE"
+          }
+        }
+      ],
+      "purl": "pkg:https://github.com/containerd/containerd/releases/download/v1.6.13/cri-containerd-cni-1.6.13-windows-amd64.tar.gz"
+    },
+    {
+      "type": "application",
+      "group": "https://github.com/containerd/containerd/releases/download/v1.6.13/cri-containerd-cni-1.6.13-windows-amd64.tar.gz",
+      "name": "containerd",
+      "version": "v1.6.13",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0",
+            "url": "https://github.com/containerd/containerd/blob/main/LICENSE"
+          }
+        }
+      ],
+      "purl": "pkg:https://github.com/containerd/containerd/releases/download/v1.6.13/cri-containerd-cni-1.6.13-windows-amd64.tar.gz"
+    },
+    {
+      "type": "application",
+      "group": "https://github.com/containerd/containerd/releases/download/v1.6.13/cri-containerd-cni-1.6.13-windows-amd64.tar.gz",
+      "name": "ctr",
+      "version": "v1.6.13",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0",
+            "url": "https://github.com/containerd/containerd/blob/main/LICENSE"
+          }
+        }
+      ],
+      "purl": "pkg:https://github.com/containerd/containerd/releases/download/v1.6.13/cri-containerd-cni-1.6.13-windows-amd64.tar.gz"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:golang/github.com/kdomanski/iso9660@v0.3.4",
+      "publisher": "",
+      "group": "",
+      "name": "github.com/kdomanski/iso9660",
+      "version": "v0.3.4",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "BSD-2-Clause",
+            "url": "https://pkg.go.dev/github.com/kdomanski/iso9660?tab=licenses"
+          }
+        }
+      ],
+      "purl": "pkg:golang/github.com/kdomanski/iso9660@v0.3.4",
+      "properties": [
+        {
+          "name": "SrcGoMod",
+          "value": "C:\\Users\\z003kkww\\go\\pkg\\mod\\cache\\download\\github.com\\kdomanski\\iso9660\\@v\\v0.3.4.mod"
+        },
+        {
+          "name": "ModuleGoVersion",
+          "value": "1.16"
+        }
+      ]
+    },
+    {
+      "type": "application",
+      "group": "https://github.com/AdguardTeam/dnsproxy",
+      "name": "dnsproxy",
+      "version": "v0.43.1",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0",
+            "url": "https://github.com/AdguardTeam/dnsproxy/blob/master/LICENSE"
+          }
+        }
+      ],
+      "purl": "pkg:https://github.com/AdguardTeam/dnsproxy/releases/download/v0.43.1/dnsproxy-windows-amd64-v0.43.1.zip"
+    },
+    {
+      "type": "application",
+      "group": "https://github.com/kubernetes-sigs/cri-tools",
+      "name": "crictl",
+      "version": "v1.25.0",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0",
+            "url": "https://github.com/kubernetes-sigs/cri-tools/blob/master/LICENSE"
+          }
+        }
+      ],
+      "purl": "pkg:https://github.com/kubernetes-sigs/cri-tools/releases/download/v1.25.0/crictl-v1.25.0-windows-amd64.tar.gz"
+    },
+    {
+      "type": "application",
+      "group": "https://dl.k8s.io/v1.25.13/bin/windows/amd64/kubelet.exe",
+      "name": "kubelet",
+      "version": "v1.25.13",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0",
+            "url": "https://github.com/kubernetes/kubernetes/blob/master/LICENSES/LICENSE"
+          }
+        }
+      ],
+      "purl": "pkg:https://dl.k8s.io/v1.25.13/bin/windows/amd64/kubelet.exe"
+    },
+    {
+      "type": "application",
+      "group": "https://dl.k8s.io/v1.25.13/bin/windows/amd64/kubeadm.exe",
+      "name": "kubeadm",
+      "version": "v1.25.13",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0",
+            "url": "https://github.com/kubernetes/kubernetes/blob/master/LICENSES/LICENSE"
+          }
+        }
+      ],
+      "purl": "pkg:https://dl.k8s.io/v1.25.13/bin/windows/amd64/kubeadm.exe"
+    },
+    {
+      "type": "application",
+      "group": "https://dl.k8s.io/v1.25.13/bin/windows/amd64/kube-proxy.exe",
+      "name": "kube-proxy",
+      "version": "v1.25.13",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0",
+            "url": "https://github.com/kubernetes/kubernetes/blob/master/LICENSES/LICENSE"
+          }
+        }
+      ],
+      "purl": "pkg:https://dl.k8s.io/v1.25.13/bin/windows/amd64/kube-proxy.exe"
+    },
+    {
+      "type": "application",
+      "group": "https://dl.k8s.io/v1.25.13/bin/windows/amd64/kubectl.exe",
+      "name": "kubectl",
+      "version": "v1.25.13",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0",
+            "url": "https://github.com/kubernetes/kubernetes/blob/master/LICENSES/LICENSE"
+          }
+        }
+      ],
+      "purl": "pkg:https://dl.k8s.io/v1.25.13/bin/windows/amd64/kubectl.exe"
+    },
+    {
+      "type": "application",
+      "group": "https://github.com/containerd/nerdctl/releases/download/v0.23.0/nerdctl-0.23.0-windows-amd64.tar.gz",
+      "name": "nerdctl",
+      "version": "v0.23.0",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0",
+            "url": "https://github.com/kubernetes/kubernetes/blob/master/LICENSES/LICENSE"
+          }
+        }
+      ],
+      "purl": "pkg:https://github.com/containerd/nerdctl/releases/download/v0.23.0/nerdctl-0.23.0-windows-amd64.tar.gz"
+    },
+    {
+      "type": "application",
+      "group": "https://k8stestinfrabinaries.blob.core.windows.net/nssm-mirror/nssm-2.24.zip",
+      "name": "nssm",
+      "version": "v2.24.0",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "WTFPL",
+            "url": "https://nssm.cc/download"
+          }
+        }
+      ],
+      "purl": "pkg:https://k8stestinfrabinaries.blob.core.windows.net/nssm-mirror/nssm-2.24.zip"
+    },
+    {
+      "type": "application",
+      "group": "https://www.chiark.greenend.org.uk/~sgtatham/putty/releases/0.76.html",
+      "name": "plink",
+      "version": "v0.76.0",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "url": "https://www.chiark.greenend.org.uk/~sgtatham/putty/licence.html"
+          }
+        }
+      ],
+      "purl": "pkg:https://the.earth.li/~sgtatham/putty/0.76/w64/plink.exe"
+    },
+    {
+      "type": "application",
+      "group": "https://www.chiark.greenend.org.uk/~sgtatham/putty/releases/0.76.html",
+      "name": "pscp",
+      "version": "v0.76.0",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "url": "https://www.chiark.greenend.org.uk/~sgtatham/putty/licence.html"
+          }
+        }
+      ],
+      "purl": "pkg:https://the.earth.li/~sgtatham/putty/0.76/w64/pscp.exe"
+    },
+    {
+      "type": "application",
+      "group": "https://download.docker.com/win/static/stable/x86_64/docker-20.10.21.zip",
+      "name": "dockerd",
+      "version": "v20.10.21",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0",
+            "url": "https://github.com/moby/moby/blob/master/LICENSE"
+          }
+        }
+      ],
+      "purl": "pkg:https://download.docker.com/win/static/stable/x86_64/docker-20.10.21.zip"
+    },
+    {
+      "type": "application",
+      "group": "https://download.docker.com/win/static/stable/x86_64/docker-20.10.21.zip",
+      "name": "dockerd",
+      "version": "v20.10.21",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0",
+            "url": "https://github.com/moby/moby/blob/master/LICENSE"
+          }
+        }
+      ],
+      "purl": "pkg:https://download.docker.com/win/static/stable/x86_64/docker-20.10.21.zip"
+    },
+    {
+      "type": "application",
+      "group": "https://download.docker.com/win/static/stable/x86_64/docker-20.10.21.zip",
+      "name": "docker",
+      "version": "v20.10.21",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0",
+            "url": "https://github.com/moby/moby/blob/master/LICENSE"
+          }
+        }
+      ],
+      "purl": "pkg:https://download.docker.com/win/static/stable/x86_64/docker-20.10.21.zip"
+    },
+    {
+      "type": "application",
+      "group": "https://download.docker.com/win/static/stable/x86_64/docker-20.10.21.zip",
+      "name": "docker-app",
+      "version": "v20.10.21",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0",
+            "url": "https://github.com/moby/moby/blob/master/LICENSE"
+          }
+        }
+      ],
+      "purl": "pkg:https://download.docker.com/win/static/stable/x86_64/docker-20.10.21.zip"
+    },
+    {
+      "type": "application",
+      "group": "https://download.docker.com/win/static/stable/x86_64/docker-20.10.21.zip",
+      "name": "docker-buildx",
+      "version": "v20.10.21",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0",
+            "url": "https://github.com/moby/moby/blob/master/LICENSE"
+          }
+        }
+      ],
+      "purl": "pkg:https://download.docker.com/win/static/stable/x86_64/docker-20.10.21.zip"
+    },
+    {
+      "type": "application",
+      "group": "https://github.com/flannel-io/flannel/releases/download/v0.17.0/flanneld.exe",
+      "name": "flanneld",
+      "version": "v0.17.0",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0",
+            "url": "https://github.com/flannel-io/flannel/blob/master/LICENSE"
+          }
+        }
+      ],
+      "purl": "pkg:https://github.com/flannel-io/flannel/releases/download/v0.17.0/flanneld.exe"
+    },
+    {
+      "type": "application",
+      "group": "https://github.com/flannel-io/flannel/releases/download/v0.17.0/flanneld.exe",
+      "name": "flannel",
+      "version": "v0.17.0",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0",
+            "url": "https://github.com/flannel-io/flannel/blob/master/LICENSE"
+          }
+        }
+      ],
+      "purl": "pkg:https://github.com/flannel-io/flannel/releases/download/v0.17.0/flanneld.exe"
+    },
+    {
+      "type": "application",
+      "group": "https://github.com/containernetworking/plugins/releases/download/v1.1.1/cni-plugins-windows-amd64-v1.1.1.tgz",
+      "name": "host-local",
+      "version": "v1.1.1",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0",
+            "url": "https://github.com/containernetworking/plugins/blob/main/LICENSE"
+          }
+        }
+      ],
+      "purl": "pkg:https://github.com/containernetworking/plugins/releases/download/v1.1.1/cni-plugins-windows-amd64-v1.1.1.tgz"
+    },
+    {
+      "type": "application",
+      "group": "https://github.com/containernetworking/plugins/releases/download/v1.1.1/cni-plugins-windows-amd64-v1.1.1.tgz",
+      "name": "win-bridge",
+      "version": "v1.1.1",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0",
+            "url": "https://github.com/containernetworking/plugins/blob/main/LICENSE"
+          }
+        }
+      ],
+      "purl": "pkg:https://github.com/containernetworking/plugins/releases/download/v1.1.1/cni-plugins-windows-amd64-v1.1.1.tgz"
+    },
+    {
+      "type": "application",
+      "group": "https://github.com/containernetworking/plugins/releases/download/v1.1.1/cni-plugins-windows-amd64-v1.1.1.tgz",
+      "name": "win-overlay",
+      "version": "v1.1.1",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0",
+            "url": "https://github.com/containernetworking/plugins/blob/main/LICENSE"
+          }
+        }
+      ],
+      "purl": "pkg:https://github.com/containernetworking/plugins/releases/download/v1.1.1/cni-plugins-windows-amd64-v1.1.1.tgz"
+    },
+    {
+      "type": "application",
+      "group": "https://github.com/prometheus-community/windows_exporter",
+      "name": "windows_exporter",
+      "version": "v0.16.0",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "url": "https://github.com/prometheus-community/windows_exporter/blob/master/LICENSE"
+          }
+        }
+      ],
+      "purl": "pkg:https://github.com/prometheus-community/windows_exporter/releases/download/v0.16.0/windows_exporter-0.16.0-amd64.exe"
+    },
+    {
+      "type": "application",
+      "group": "https://github.com/containerd/containerd/releases/download/v1.6.13/cri-containerd-cni-1.6.13-windows-amd64.tar.gz",
+      "name": "containerd-shim-runhcs-v1",
+      "version": "v1.6.13",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0",
+            "url": "https://github.com/containerd/containerd/blob/main/LICENSE"
+          }
+        }
+      ],
+      "purl": "pkg:https://github.com/containerd/containerd/releases/download/v1.6.13/cri-containerd-cni-1.6.13-windows-amd64.tar.gz"
+    },
+    {
+      "type": "application",
+      "group": "https://github.com/containerd/containerd/releases/download/v1.6.13/cri-containerd-cni-1.6.13-windows-amd64.tar.gz",
+      "name": "containerd-stress",
+      "version": "v1.6.13",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0",
+            "url": "https://github.com/containerd/containerd/blob/main/LICENSE"
+          }
+        }
+      ],
+      "purl": "pkg:https://github.com/containerd/containerd/releases/download/v1.6.13/cri-containerd-cni-1.6.13-windows-amd64.tar.gz"
+    },
+    {
+      "type": "application",
+      "group": "https://github.com/containerd/containerd/releases/download/v1.6.13/cri-containerd-cni-1.6.13-windows-amd64.tar.gz",
+      "name": "containerd",
+      "version": "v1.6.13",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0",
+            "url": "https://github.com/containerd/containerd/blob/main/LICENSE"
+          }
+        }
+      ],
+      "purl": "pkg:https://github.com/containerd/containerd/releases/download/v1.6.13/cri-containerd-cni-1.6.13-windows-amd64.tar.gz"
+    },
+    {
+      "type": "application",
+      "group": "https://github.com/containerd/containerd/releases/download/v1.6.13/cri-containerd-cni-1.6.13-windows-amd64.tar.gz",
+      "name": "ctr",
+      "version": "v1.6.13",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0",
+            "url": "https://github.com/containerd/containerd/blob/main/LICENSE"
+          }
+        }
+      ],
+      "purl": "pkg:https://github.com/containerd/containerd/releases/download/v1.6.13/cri-containerd-cni-1.6.13-windows-amd64.tar.gz"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:swid/os-image@5.10.0-23-cloud-amd64#/boot/vmlinuz-5.10.0-23-cloud-amd64",
+      "author": "",
+      "publisher": "",
+      "group": "",
+      "name": "os-image",
+      "version": "5.10.0-23-cloud-amd64",
+      "description": "ro console=tty0 console=ttyS0,115200 earlyprintk=ttyS0,115200 consoleblank=0",
+      "licenses": [],
+      "purl": "pkg:swid/os-image@5.10.0-23-cloud-amd64#/boot/vmlinuz-5.10.0-23-cloud-amd64"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:swid/Debian GNU/Linux@11 (bullseye)",
+      "author": "",
+      "publisher": "",
+      "group": "",
+      "name": "Debian GNU/Linux",
+      "version": "11 (bullseye)",
+      "description": "bullseye",
+      "licenses": [],
+      "purl": "pkg:swid/Debian GNU/Linux@11 (bullseye)"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/adduser@3.118#/var/lib/dpkg",
+      "author": "",
+      "publisher": "Debian Adduser Developers \u003Cadduser@packages.debian.org\u003E",
+      "group": "",
+      "name": "adduser",
+      "version": "3.118",
+      "description": "admin",
+      "licenses": [],
+      "purl": "pkg:deb/adduser@3.118#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/apt@2.2.4#/var/lib/dpkg",
+      "author": "",
+      "publisher": "APT Development Team \u003Cdeity@lists.debian.org\u003E",
+      "group": "",
+      "name": "apt",
+      "version": "2.2.4",
+      "description": "admin",
+      "scope": "required",
+      "licenses": [],
+      "purl": "pkg:deb/apt@2.2.4#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/apt-listchanges@3.24#/var/lib/dpkg",
+      "author": "",
+      "publisher": "Debian QA Group \u003Cpackages@qa.debian.org\u003E",
+      "group": "",
+      "name": "apt-listchanges",
+      "version": "3.24",
+      "description": "utils",
+      "licenses": [],
+      "purl": "pkg:deb/apt-listchanges@3.24#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/apt-utils@2.2.4#/var/lib/dpkg",
+      "author": "",
+      "publisher": "APT Development Team \u003Cdeity@lists.debian.org\u003E",
+      "group": "",
+      "name": "apt-utils",
+      "version": "2.2.4",
+      "description": "admin",
+      "licenses": [],
+      "purl": "pkg:deb/apt-utils@2.2.4#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/base-files@11.1\u002Bdeb11u7#/var/lib/dpkg",
+      "author": "",
+      "publisher": "Santiago Vila \u003Csanvila@debian.org\u003E",
+      "group": "",
+      "name": "base-files",
+      "version": "11.1\u002Bdeb11u7",
+      "description": "admin",
+      "scope": "required",
+      "licenses": [],
+      "purl": "pkg:deb/base-files@11.1\u002Bdeb11u7#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/base-passwd@3.5.51#/var/lib/dpkg",
+      "author": "",
+      "publisher": "Colin Watson \u003Ccjwatson@debian.org\u003E",
+      "group": "",
+      "name": "base-passwd",
+      "version": "3.5.51",
+      "description": "admin",
+      "scope": "required",
+      "licenses": [],
+      "purl": "pkg:deb/base-passwd@3.5.51#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/bash@5.1-2\u002Bdeb11u1#/var/lib/dpkg",
+      "author": "",
+      "publisher": "Matthias Klose \u003Cdoko@debian.org\u003E",
+      "group": "",
+      "name": "bash",
+      "version": "5.1-2\u002Bdeb11u1",
+      "description": "shells",
+      "scope": "required",
+      "licenses": [],
+      "purl": "pkg:deb/bash@5.1-2\u002Bdeb11u1#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/bash-completion@1:2.11-2#/var/lib/dpkg",
+      "author": "",
+      "publisher": "Gabriel F. T. Gomes \u003Cgabriel@debian.org\u003E",
+      "group": "",
+      "name": "bash-completion",
+      "version": "1:2.11-2",
+      "description": "shells",
+      "licenses": [],
+      "purl": "pkg:deb/bash-completion@1:2.11-2#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/bind9-dnsutils@1:9.16.42-1~deb11u1#/var/lib/dpkg",
+      "author": "",
+      "publisher": "Debian DNS Team \u003Cteam\u002Bdns@tracker.debian.org\u003E",
+      "group": "",
+      "name": "bind9-dnsutils",
+      "version": "1:9.16.42-1~deb11u1",
+      "description": "net",
+      "licenses": [],
+      "purl": "pkg:deb/bind9-dnsutils@1:9.16.42-1~deb11u1#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/bind9-host@1:9.16.42-1~deb11u1#/var/lib/dpkg",
+      "author": "",
+      "publisher": "Debian DNS Team \u003Cteam\u002Bdns@tracker.debian.org\u003E",
+      "group": "",
+      "name": "bind9-host",
+      "version": "1:9.16.42-1~deb11u1",
+      "description": "net",
+      "licenses": [],
+      "purl": "pkg:deb/bind9-host@1:9.16.42-1~deb11u1#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/bind9-libs@1:9.16.42-1~deb11u1#/var/lib/dpkg",
+      "author": "",
+      "publisher": "Debian DNS Team \u003Cteam\u002Bdns@tracker.debian.org\u003E",
+      "group": "",
+      "name": "bind9-libs",
+      "version": "1:9.16.42-1~deb11u1",
+      "description": "libs",
+      "licenses": [],
+      "purl": "pkg:deb/bind9-libs@1:9.16.42-1~deb11u1#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/bsdutils@1:2.36.1-8\u002Bdeb11u1#/var/lib/dpkg",
+      "author": "",
+      "publisher": "util-linux packagers \u003Cutil-linux@packages.debian.org\u003E",
+      "group": "",
+      "name": "bsdutils",
+      "version": "1:2.36.1-8\u002Bdeb11u1",
+      "description": "utils",
+      "scope": "required",
+      "licenses": [],
+      "purl": "pkg:deb/bsdutils@1:2.36.1-8\u002Bdeb11u1#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/coreutils@8.32-4\u002Bb1#/var/lib/dpkg",
+      "author": "",
+      "publisher": "Michael Stone \u003Cmstone@debian.org\u003E",
+      "group": "",
+      "name": "coreutils",
+      "version": "8.32-4\u002Bb1",
+      "description": "utils",
+      "scope": "required",
+      "licenses": [],
+      "purl": "pkg:deb/coreutils@8.32-4\u002Bb1#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/cpio@2.13\u002Bdfsg-4#/var/lib/dpkg",
+      "author": "",
+      "publisher": "Anibal Monsalve Salazar \u003Canibal@debian.org\u003E",
+      "group": "",
+      "name": "cpio",
+      "version": "2.13\u002Bdfsg-4",
+      "description": "utils",
+      "licenses": [],
+      "purl": "pkg:deb/cpio@2.13\u002Bdfsg-4#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/cron@3.0pl1-137#/var/lib/dpkg",
+      "author": "",
+      "publisher": "Javier Fern\u00E1ndez-Sanguino Pe\u00F1a \u003Cjfs@debian.org\u003E",
+      "group": "",
+      "name": "cron",
+      "version": "3.0pl1-137",
+      "description": "admin",
+      "licenses": [],
+      "purl": "pkg:deb/cron@3.0pl1-137#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/dash@0.5.11\u002Bgit20200708\u002Bdd9ef66-5#/var/lib/dpkg",
+      "author": "",
+      "publisher": "Andrej Shadura \u003Candrewsh@debian.org\u003E",
+      "group": "",
+      "name": "dash",
+      "version": "0.5.11\u002Bgit20200708\u002Bdd9ef66-5",
+      "description": "shells",
+      "scope": "required",
+      "licenses": [],
+      "purl": "pkg:deb/dash@0.5.11\u002Bgit20200708\u002Bdd9ef66-5#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/dbus@1.12.24-0\u002Bdeb11u1#/var/lib/dpkg",
+      "author": "",
+      "publisher": "Utopia Maintenance Team \u003Cpkg-utopia-maintainers@lists.alioth.debian.org\u003E",
+      "group": "",
+      "name": "dbus",
+      "version": "1.12.24-0\u002Bdeb11u1",
+      "description": "admin",
+      "licenses": [],
+      "purl": "pkg:deb/dbus@1.12.24-0\u002Bdeb11u1#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/debconf@1.5.77#/var/lib/dpkg",
+      "author": "",
+      "publisher": "Debconf Developers \u003Cdebconf-devel@lists.alioth.debian.org\u003E",
+      "group": "",
+      "name": "debconf",
+      "version": "1.5.77",
+      "description": "admin",
+      "scope": "required",
+      "licenses": [],
+      "purl": "pkg:deb/debconf@1.5.77#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/debian-archive-keyring@2021.1.1\u002Bdeb11u1#/var/lib/dpkg",
+      "author": "",
+      "publisher": "Debian Release Team \u003Cpackages@release.debian.org\u003E",
+      "group": "",
+      "name": "debian-archive-keyring",
+      "version": "2021.1.1\u002Bdeb11u1",
+      "description": "misc",
+      "licenses": [],
+      "purl": "pkg:deb/debian-archive-keyring@2021.1.1\u002Bdeb11u1#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/debianutils@4.11.2#/var/lib/dpkg",
+      "author": "",
+      "publisher": "Clint Adams \u003Cclint@debian.org\u003E",
+      "group": "",
+      "name": "debianutils",
+      "version": "4.11.2",
+      "description": "utils",
+      "scope": "required",
+      "licenses": [],
+      "purl": "pkg:deb/debianutils@4.11.2#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/diffutils@1:3.7-5#/var/lib/dpkg",
+      "author": "",
+      "publisher": "Santiago Vila \u003Csanvila@debian.org\u003E",
+      "group": "",
+      "name": "diffutils",
+      "version": "1:3.7-5",
+      "description": "utils",
+      "scope": "required",
+      "licenses": [],
+      "purl": "pkg:deb/diffutils@1:3.7-5#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/dpkg@1.20.12#/var/lib/dpkg",
+      "author": "",
+      "publisher": "Dpkg Developers \u003Cdebian-dpkg@lists.debian.org\u003E",
+      "group": "",
+      "name": "dpkg",
+      "version": "1.20.12",
+      "description": "admin",
+      "scope": "required",
+      "licenses": [],
+      "purl": "pkg:deb/dpkg@1.20.12#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/e2fsprogs@1.46.2-2#/var/lib/dpkg",
+      "author": "",
+      "publisher": "Theodore Y. Ts\u0027o \u003Ctytso@mit.edu\u003E",
+      "group": "",
+      "name": "e2fsprogs",
+      "version": "1.46.2-2",
+      "description": "admin",
+      "scope": "required",
+      "licenses": [],
+      "purl": "pkg:deb/e2fsprogs@1.46.2-2#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/fdisk@2.36.1-8\u002Bdeb11u1#/var/lib/dpkg",
+      "author": "",
+      "publisher": "util-linux packagers \u003Cutil-linux@packages.debian.org\u003E",
+      "group": "",
+      "name": "fdisk",
+      "version": "2.36.1-8\u002Bdeb11u1",
+      "description": "utils",
+      "licenses": [],
+      "purl": "pkg:deb/fdisk@2.36.1-8\u002Bdeb11u1#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/file@1:5.39-3#/var/lib/dpkg",
+      "author": "",
+      "publisher": "Christoph Biedl \u003Cdebian.axhn@manchmal.in-ulm.de\u003E",
+      "group": "",
+      "name": "file",
+      "version": "1:5.39-3",
+      "description": "utils",
+      "licenses": [],
+      "purl": "pkg:deb/file@1:5.39-3#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/findutils@4.8.0-1#/var/lib/dpkg",
+      "author": "",
+      "publisher": "Andreas Metzler \u003Cametzler@debian.org\u003E",
+      "group": "",
+      "name": "findutils",
+      "version": "4.8.0-1",
+      "description": "utils",
+      "scope": "required",
+      "licenses": [],
+      "purl": "pkg:deb/findutils@4.8.0-1#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/gcc-10-base@10.2.1-6#/var/lib/dpkg",
+      "author": "",
+      "publisher": "Debian GCC Maintainers \u003Cdebian-gcc@lists.debian.org\u003E",
+      "group": "",
+      "name": "gcc-10-base",
+      "version": "10.2.1-6",
+      "description": "libs",
+      "scope": "required",
+      "licenses": [],
+      "purl": "pkg:deb/gcc-10-base@10.2.1-6#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/gcc-9-base@9.3.0-22#/var/lib/dpkg",
+      "author": "",
+      "publisher": "Debian GCC Maintainers \u003Cdebian-gcc@lists.debian.org\u003E",
+      "group": "",
+      "name": "gcc-9-base",
+      "version": "9.3.0-22",
+      "description": "libs",
+      "scope": "required",
+      "licenses": [],
+      "purl": "pkg:deb/gcc-9-base@9.3.0-22#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/gettext-base@0.21-4#/var/lib/dpkg",
+      "author": "",
+      "publisher": "Santiago Vila \u003Csanvila@debian.org\u003E",
+      "group": "",
+      "name": "gettext-base",
+      "version": "0.21-4",
+      "description": "utils",
+      "licenses": [],
+      "purl": "pkg:deb/gettext-base@0.21-4#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/gpgv@2.2.27-2\u002Bdeb11u2#/var/lib/dpkg",
+      "author": "",
+      "publisher": "Debian GnuPG Maintainers \u003Cpkg-gnupg-maint@lists.alioth.debian.org\u003E",
+      "group": "",
+      "name": "gpgv",
+      "version": "2.2.27-2\u002Bdeb11u2",
+      "description": "utils",
+      "licenses": [],
+      "purl": "pkg:deb/gpgv@2.2.27-2\u002Bdeb11u2#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/grep@3.6-1\u002Bdeb11u1#/var/lib/dpkg",
+      "author": "",
+      "publisher": "Anibal Monsalve Salazar \u003Canibal@debian.org\u003E",
+      "group": "",
+      "name": "grep",
+      "version": "3.6-1\u002Bdeb11u1",
+      "description": "utils",
+      "scope": "required",
+      "licenses": [],
+      "purl": "pkg:deb/grep@3.6-1\u002Bdeb11u1#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/groff-base@1.22.4-6#/var/lib/dpkg",
+      "author": "",
+      "publisher": "Colin Watson \u003Ccjwatson@debian.org\u003E",
+      "group": "",
+      "name": "groff-base",
+      "version": "1.22.4-6",
+      "description": "text",
+      "licenses": [],
+      "purl": "pkg:deb/groff-base@1.22.4-6#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/gzip@1.10-4\u002Bdeb11u1#/var/lib/dpkg",
+      "author": "",
+      "publisher": "Milan Kupcevic \u003Cmilan@debian.org\u003E",
+      "group": "",
+      "name": "gzip",
+      "version": "1.10-4\u002Bdeb11u1",
+      "description": "utils",
+      "scope": "required",
+      "licenses": [],
+      "purl": "pkg:deb/gzip@1.10-4\u002Bdeb11u1#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/hostname@3.23#/var/lib/dpkg",
+      "author": "",
+      "publisher": "Michael Meskes \u003Cmeskes@debian.org\u003E",
+      "group": "",
+      "name": "hostname",
+      "version": "3.23",
+      "description": "admin",
+      "scope": "required",
+      "licenses": [],
+      "purl": "pkg:deb/hostname@3.23#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/ifupdown@0.8.36#/var/lib/dpkg",
+      "author": "",
+      "publisher": "Josu\u00E9 Ortega \u003Cjosue@debian.org\u003E",
+      "group": "",
+      "name": "ifupdown",
+      "version": "0.8.36",
+      "description": "admin",
+      "licenses": [],
+      "purl": "pkg:deb/ifupdown@0.8.36#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/init@1.60#/var/lib/dpkg",
+      "author": "",
+      "publisher": "Debian systemd Maintainers \u003Cpkg-systemd-maintainers@lists.alioth.debian.org\u003E",
+      "group": "",
+      "name": "init",
+      "version": "1.60",
+      "description": "metapackages",
+      "licenses": [],
+      "purl": "pkg:deb/init@1.60#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/init-system-helpers@1.60#/var/lib/dpkg",
+      "author": "",
+      "publisher": "Debian systemd Maintainers \u003Cpkg-systemd-maintainers@lists.alioth.debian.org\u003E",
+      "group": "",
+      "name": "init-system-helpers",
+      "version": "1.60",
+      "description": "admin",
+      "scope": "required",
+      "licenses": [],
+      "purl": "pkg:deb/init-system-helpers@1.60#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/iproute2@5.10.0-4#/var/lib/dpkg",
+      "author": "",
+      "publisher": "Alexander Wirt \u003Cformorer@debian.org\u003E",
+      "group": "",
+      "name": "iproute2",
+      "version": "5.10.0-4",
+      "description": "net",
+      "licenses": [],
+      "purl": "pkg:deb/iproute2@5.10.0-4#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/iputils-ping@3:20210202-1#/var/lib/dpkg",
+      "author": "",
+      "publisher": "Noah Meyerhans \u003Cnoahm@debian.org\u003E",
+      "group": "",
+      "name": "iputils-ping",
+      "version": "3:20210202-1",
+      "description": "net",
+      "licenses": [],
+      "purl": "pkg:deb/iputils-ping@3:20210202-1#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/isc-dhcp-client@4.4.1-2.3\u002Bdeb11u2#/var/lib/dpkg",
+      "author": "",
+      "publisher": "Debian ISC DHCP Maintainers \u003Cisc-dhcp@packages.debian.org\u003E",
+      "group": "",
+      "name": "isc-dhcp-client",
+      "version": "4.4.1-2.3\u002Bdeb11u2",
+      "description": "net",
+      "licenses": [],
+      "purl": "pkg:deb/isc-dhcp-client@4.4.1-2.3\u002Bdeb11u2#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/kmod@28-1#/var/lib/dpkg",
+      "author": "",
+      "publisher": "Marco d\u0027Itri \u003Cmd@linux.it\u003E",
+      "group": "",
+      "name": "kmod",
+      "version": "28-1",
+      "description": "admin",
+      "licenses": [],
+      "purl": "pkg:deb/kmod@28-1#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/less@551-2#/var/lib/dpkg",
+      "author": "",
+      "publisher": "Milan Kupcevic \u003Cmilan@debian.org\u003E",
+      "group": "",
+      "name": "less",
+      "version": "551-2",
+      "description": "text",
+      "licenses": [],
+      "purl": "pkg:deb/less@551-2#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/libc-bin@2.37-6#/var/lib/dpkg",
+      "author": "",
+      "publisher": "GNU Libc Maintainers \u003Cdebian-glibc@lists.debian.org\u003E",
+      "group": "",
+      "name": "libc-bin",
+      "version": "2.37-6",
+      "description": "libs",
+      "scope": "required",
+      "licenses": [],
+      "purl": "pkg:deb/libc-bin@2.37-6#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/libc-l10n@2.37-6#/var/lib/dpkg",
+      "author": "",
+      "publisher": "GNU Libc Maintainers \u003Cdebian-glibc@lists.debian.org\u003E",
+      "group": "",
+      "name": "libc-l10n",
+      "version": "2.37-6",
+      "description": "localization",
+      "licenses": [],
+      "purl": "pkg:deb/libc-l10n@2.37-6#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/libcap2-bin@1:2.44-1#/var/lib/dpkg",
+      "author": "",
+      "publisher": "Christian Kastner \u003Cckk@debian.org\u003E",
+      "group": "",
+      "name": "libcap2-bin",
+      "version": "1:2.44-1",
+      "description": "utils",
+      "licenses": [],
+      "purl": "pkg:deb/libcap2-bin@1:2.44-1#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/libestr0@0.1.10-2.1\u002Bb1#/var/lib/dpkg",
+      "author": "",
+      "publisher": "Pierre Chifflier \u003Cpollux@debian.org\u003E",
+      "group": "",
+      "name": "libestr0",
+      "version": "0.1.10-2.1\u002Bb1",
+      "description": "libs",
+      "licenses": [],
+      "purl": "pkg:deb/libestr0@0.1.10-2.1\u002Bb1#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/libnfnetlink0@1.0.1-3\u002Bb1#/var/lib/dpkg",
+      "author": "",
+      "publisher": "Alexander Wirt \u003Cformorer@debian.org\u003E",
+      "group": "",
+      "name": "libnfnetlink0",
+      "version": "1.0.1-3\u002Bb1",
+      "description": "libs",
+      "licenses": [],
+      "purl": "pkg:deb/libnfnetlink0@1.0.1-3\u002Bb1#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/libpam-modules@1.4.0-9\u002Bdeb11u1#/var/lib/dpkg",
+      "author": "",
+      "publisher": "Steve Langasek \u003Cvorlon@debian.org\u003E",
+      "group": "",
+      "name": "libpam-modules",
+      "version": "1.4.0-9\u002Bdeb11u1",
+      "description": "admin",
+      "scope": "required",
+      "licenses": [],
+      "purl": "pkg:deb/libpam-modules@1.4.0-9\u002Bdeb11u1#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/libpam-modules-bin@1.4.0-9\u002Bdeb11u1#/var/lib/dpkg",
+      "author": "",
+      "publisher": "Steve Langasek \u003Cvorlon@debian.org\u003E",
+      "group": "",
+      "name": "libpam-modules-bin",
+      "version": "1.4.0-9\u002Bdeb11u1",
+      "description": "admin",
+      "scope": "required",
+      "licenses": [],
+      "purl": "pkg:deb/libpam-modules-bin@1.4.0-9\u002Bdeb11u1#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/libpam-runtime@1.4.0-9\u002Bdeb11u1#/var/lib/dpkg",
+      "author": "",
+      "publisher": "Steve Langasek \u003Cvorlon@debian.org\u003E",
+      "group": "",
+      "name": "libpam-runtime",
+      "version": "1.4.0-9\u002Bdeb11u1",
+      "description": "admin",
+      "scope": "required",
+      "licenses": [],
+      "purl": "pkg:deb/libpam-runtime@1.4.0-9\u002Bdeb11u1#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/libpam-systemd@247.3-7\u002Bdeb11u2#/var/lib/dpkg",
+      "author": "",
+      "publisher": "Debian systemd Maintainers \u003Cpkg-systemd-maintainers@lists.alioth.debian.org\u003E",
+      "group": "",
+      "name": "libpam-systemd",
+      "version": "247.3-7\u002Bdeb11u2",
+      "description": "admin",
+      "licenses": [],
+      "purl": "pkg:deb/libpam-systemd@247.3-7\u002Bdeb11u2#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/libsasl2-2@2.1.27\u002Bdfsg-2.1\u002Bdeb11u1#/var/lib/dpkg",
+      "author": "",
+      "publisher": "Debian Cyrus Team \u003Cteam\u002Bcyrus@tracker.debian.org\u003E",
+      "group": "",
+      "name": "libsasl2-2",
+      "version": "2.1.27\u002Bdfsg-2.1\u002Bdeb11u1",
+      "description": "libs",
+      "licenses": [],
+      "purl": "pkg:deb/libsasl2-2@2.1.27\u002Bdfsg-2.1\u002Bdeb11u1#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/libsasl2-modules-db@2.1.27\u002Bdfsg-2.1\u002Bdeb11u1#/var/lib/dpkg",
+      "author": "",
+      "publisher": "Debian Cyrus Team \u003Cteam\u002Bcyrus@tracker.debian.org\u003E",
+      "group": "",
+      "name": "libsasl2-modules-db",
+      "version": "2.1.27\u002Bdfsg-2.1\u002Bdeb11u1",
+      "description": "libs",
+      "licenses": [],
+      "purl": "pkg:deb/libsasl2-modules-db@2.1.27\u002Bdfsg-2.1\u002Bdeb11u1#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/libtext-iconv-perl@1.7-7\u002Bb1#/var/lib/dpkg",
+      "author": "",
+      "publisher": "Debian Perl Group \u003Cpkg-perl-maintainers@lists.alioth.debian.org\u003E",
+      "group": "",
+      "name": "libtext-iconv-perl",
+      "version": "1.7-7\u002Bb1",
+      "description": "perl",
+      "scope": "required",
+      "licenses": [],
+      "purl": "pkg:deb/libtext-iconv-perl@1.7-7\u002Bb1#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/locales@2.37-6#/var/lib/dpkg",
+      "author": "",
+      "publisher": "GNU Libc Maintainers \u003Cdebian-glibc@lists.debian.org\u003E",
+      "group": "",
+      "name": "locales",
+      "version": "2.37-6",
+      "description": "localization",
+      "licenses": [],
+      "purl": "pkg:deb/locales@2.37-6#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/login@1:4.8.1-1#/var/lib/dpkg",
+      "author": "",
+      "publisher": "Shadow package maintainers \u003Cpkg-shadow-devel@lists.alioth.debian.org\u003E",
+      "group": "",
+      "name": "login",
+      "version": "1:4.8.1-1",
+      "description": "admin",
+      "scope": "required",
+      "licenses": [],
+      "purl": "pkg:deb/login@1:4.8.1-1#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/logrotate@3.18.0-2\u002Bdeb11u1#/var/lib/dpkg",
+      "author": "",
+      "publisher": "Christian G\u00F6ttsche \u003Ccgzones@googlemail.com\u003E",
+      "group": "",
+      "name": "logrotate",
+      "version": "3.18.0-2\u002Bdeb11u1",
+      "description": "admin",
+      "licenses": [],
+      "purl": "pkg:deb/logrotate@3.18.0-2\u002Bdeb11u1#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/man-db@2.9.4-2#/var/lib/dpkg",
+      "author": "",
+      "publisher": "Colin Watson \u003Ccjwatson@debian.org\u003E",
+      "group": "",
+      "name": "man-db",
+      "version": "2.9.4-2",
+      "description": "doc",
+      "licenses": [],
+      "purl": "pkg:deb/man-db@2.9.4-2#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/manpages@5.10-1#/var/lib/dpkg",
+      "author": "",
+      "publisher": "Dr. Tobias Quathamer \u003Ctoddy@debian.org\u003E",
+      "group": "",
+      "name": "manpages",
+      "version": "5.10-1",
+      "description": "doc",
+      "licenses": [],
+      "purl": "pkg:deb/manpages@5.10-1#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/mawk@1.3.4.20200120-2#/var/lib/dpkg",
+      "author": "",
+      "publisher": "Boyuan Yang \u003Cbyang@debian.org\u003E",
+      "group": "",
+      "name": "mawk",
+      "version": "1.3.4.20200120-2",
+      "description": "interpreters",
+      "scope": "required",
+      "licenses": [],
+      "purl": "pkg:deb/mawk@1.3.4.20200120-2#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/media-types@4.0.0#/var/lib/dpkg",
+      "author": "",
+      "publisher": "Mime-Support Packagers \u003Cteam\u002Bdebian-mimesupport-packagers@tracker.debian.org\u003E",
+      "group": "",
+      "name": "media-types",
+      "version": "4.0.0",
+      "description": "net",
+      "licenses": [],
+      "purl": "pkg:deb/media-types@4.0.0#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/mount@2.36.1-8\u002Bdeb11u1#/var/lib/dpkg",
+      "author": "",
+      "publisher": "util-linux packagers \u003Cutil-linux@packages.debian.org\u003E",
+      "group": "",
+      "name": "mount",
+      "version": "2.36.1-8\u002Bdeb11u1",
+      "description": "admin",
+      "scope": "required",
+      "licenses": [],
+      "purl": "pkg:deb/mount@2.36.1-8\u002Bdeb11u1#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/nano@5.4-2\u002Bdeb11u2#/var/lib/dpkg",
+      "author": "",
+      "publisher": "Jordi Mallach \u003Cjordi@debian.org\u003E",
+      "group": "",
+      "name": "nano",
+      "version": "5.4-2\u002Bdeb11u2",
+      "description": "editors",
+      "licenses": [],
+      "purl": "pkg:deb/nano@5.4-2\u002Bdeb11u2#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/ncurses-base@6.2\u002B20201114-2\u002Bdeb11u1#/var/lib/dpkg",
+      "author": "",
+      "publisher": "Craig Small \u003Ccsmall@debian.org\u003E",
+      "group": "",
+      "name": "ncurses-base",
+      "version": "6.2\u002B20201114-2\u002Bdeb11u1",
+      "description": "misc",
+      "scope": "required",
+      "licenses": [],
+      "purl": "pkg:deb/ncurses-base@6.2\u002B20201114-2\u002Bdeb11u1#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/ncurses-bin@6.2\u002B20201114-2\u002Bdeb11u1#/var/lib/dpkg",
+      "author": "",
+      "publisher": "Craig Small \u003Ccsmall@debian.org\u003E",
+      "group": "",
+      "name": "ncurses-bin",
+      "version": "6.2\u002B20201114-2\u002Bdeb11u1",
+      "description": "utils",
+      "scope": "required",
+      "licenses": [],
+      "purl": "pkg:deb/ncurses-bin@6.2\u002B20201114-2\u002Bdeb11u1#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/net-tools@1.60\u002Bgit20181103.0eebece-1#/var/lib/dpkg",
+      "author": "",
+      "publisher": "net-tools Team \u003Cteam\u002Bnet-tools@tracker.debian.org\u003E",
+      "group": "",
+      "name": "net-tools",
+      "version": "1.60\u002Bgit20181103.0eebece-1",
+      "description": "net",
+      "licenses": [],
+      "purl": "pkg:deb/net-tools@1.60\u002Bgit20181103.0eebece-1#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/netbase@6.3#/var/lib/dpkg",
+      "author": "",
+      "publisher": "Marco d\u0027Itri \u003Cmd@linux.it\u003E",
+      "group": "",
+      "name": "netbase",
+      "version": "6.3",
+      "description": "admin",
+      "licenses": [],
+      "purl": "pkg:deb/netbase@6.3#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/node-wrappy@1.0.2-1.1#/var/lib/dpkg",
+      "author": "",
+      "publisher": "Debian Javascript Maintainers \u003Cpkg-javascript-devel@lists.alioth.debian.org\u003E",
+      "group": "",
+      "name": "node-wrappy",
+      "version": "1.0.2-1.1",
+      "description": "web",
+      "licenses": [],
+      "purl": "pkg:deb/node-wrappy@1.0.2-1.1#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/openssh-client@1:8.4p1-5\u002Bdeb11u1#/var/lib/dpkg",
+      "author": "",
+      "publisher": "Debian OpenSSH Maintainers \u003Cdebian-ssh@lists.debian.org\u003E",
+      "group": "",
+      "name": "openssh-client",
+      "version": "1:8.4p1-5\u002Bdeb11u1",
+      "description": "net",
+      "licenses": [],
+      "purl": "pkg:deb/openssh-client@1:8.4p1-5\u002Bdeb11u1#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/passwd@1:4.8.1-1#/var/lib/dpkg",
+      "author": "",
+      "publisher": "Shadow package maintainers \u003Cpkg-shadow-devel@lists.alioth.debian.org\u003E",
+      "group": "",
+      "name": "passwd",
+      "version": "1:4.8.1-1",
+      "description": "admin",
+      "scope": "required",
+      "licenses": [],
+      "purl": "pkg:deb/passwd@1:4.8.1-1#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/pciutils@1:3.7.0-5#/var/lib/dpkg",
+      "author": "",
+      "publisher": "Guillem Jover \u003Cguillem@debian.org\u003E",
+      "group": "",
+      "name": "pciutils",
+      "version": "1:3.7.0-5",
+      "description": "admin",
+      "licenses": [],
+      "purl": "pkg:deb/pciutils@1:3.7.0-5#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/perl@5.32.1-4\u002Bdeb11u2#/var/lib/dpkg",
+      "author": "",
+      "publisher": "Niko Tyni \u003Cntyni@debian.org\u003E",
+      "group": "",
+      "name": "perl",
+      "version": "5.32.1-4\u002Bdeb11u2",
+      "description": "perl",
+      "licenses": [],
+      "purl": "pkg:deb/perl@5.32.1-4\u002Bdeb11u2#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/perl-base@5.32.1-4\u002Bdeb11u2#/var/lib/dpkg",
+      "author": "",
+      "publisher": "Niko Tyni \u003Cntyni@debian.org\u003E",
+      "group": "",
+      "name": "perl-base",
+      "version": "5.32.1-4\u002Bdeb11u2",
+      "description": "perl",
+      "scope": "required",
+      "licenses": [],
+      "purl": "pkg:deb/perl-base@5.32.1-4\u002Bdeb11u2#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/perl-modules-5.32@5.32.1-4\u002Bdeb11u2#/var/lib/dpkg",
+      "author": "",
+      "publisher": "Niko Tyni \u003Cntyni@debian.org\u003E",
+      "group": "",
+      "name": "perl-modules-5.32",
+      "version": "5.32.1-4\u002Bdeb11u2",
+      "description": "libs",
+      "licenses": [],
+      "purl": "pkg:deb/perl-modules-5.32@5.32.1-4\u002Bdeb11u2#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/procps@2:3.3.17-5#/var/lib/dpkg",
+      "author": "",
+      "publisher": "Craig Small \u003Ccsmall@debian.org\u003E",
+      "group": "",
+      "name": "procps",
+      "version": "2:3.3.17-5",
+      "description": "admin",
+      "licenses": [],
+      "purl": "pkg:deb/procps@2:3.3.17-5#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/python3-reportbug@7.10.3\u002Bdeb11u1#/var/lib/dpkg",
+      "author": "",
+      "publisher": "Reportbug Maintainers \u003Cdebian-reportbug@lists.debian.org\u003E",
+      "group": "",
+      "name": "python3-reportbug",
+      "version": "7.10.3\u002Bdeb11u1",
+      "description": "python",
+      "licenses": [],
+      "purl": "pkg:deb/python3-reportbug@7.10.3\u002Bdeb11u1#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/reportbug@7.10.3\u002Bdeb11u1#/var/lib/dpkg",
+      "author": "",
+      "publisher": "Reportbug Maintainers \u003Cdebian-reportbug@lists.debian.org\u003E",
+      "group": "",
+      "name": "reportbug",
+      "version": "7.10.3\u002Bdeb11u1",
+      "description": "utils",
+      "licenses": [],
+      "purl": "pkg:deb/reportbug@7.10.3\u002Bdeb11u1#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/rsyslog@8.2102.0-2\u002Bdeb11u1#/var/lib/dpkg",
+      "author": "",
+      "publisher": "Michael Biebl \u003Cbiebl@debian.org\u003E",
+      "group": "",
+      "name": "rsyslog",
+      "version": "8.2102.0-2\u002Bdeb11u1",
+      "description": "admin",
+      "licenses": [],
+      "purl": "pkg:deb/rsyslog@8.2102.0-2\u002Bdeb11u1#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/screen@4.8.0-6#/var/lib/dpkg",
+      "author": "",
+      "publisher": "Axel Beckert \u003Cabe@debian.org\u003E",
+      "group": "",
+      "name": "screen",
+      "version": "4.8.0-6",
+      "description": "misc",
+      "licenses": [],
+      "purl": "pkg:deb/screen@4.8.0-6#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/sed@4.7-1#/var/lib/dpkg",
+      "author": "",
+      "publisher": "Clint Adams \u003Cclint@debian.org\u003E",
+      "group": "",
+      "name": "sed",
+      "version": "4.7-1",
+      "description": "utils",
+      "scope": "required",
+      "licenses": [],
+      "purl": "pkg:deb/sed@4.7-1#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/sensible-utils@0.0.14#/var/lib/dpkg",
+      "author": "",
+      "publisher": "Anibal Monsalve Salazar \u003Canibal@debian.org\u003E",
+      "group": "",
+      "name": "sensible-utils",
+      "version": "0.0.14",
+      "description": "utils",
+      "scope": "required",
+      "licenses": [],
+      "purl": "pkg:deb/sensible-utils@0.0.14#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/systemd@247.3-7\u002Bdeb11u2#/var/lib/dpkg",
+      "author": "",
+      "publisher": "Debian systemd Maintainers \u003Cpkg-systemd-maintainers@lists.alioth.debian.org\u003E",
+      "group": "",
+      "name": "systemd",
+      "version": "247.3-7\u002Bdeb11u2",
+      "description": "admin",
+      "licenses": [],
+      "purl": "pkg:deb/systemd@247.3-7\u002Bdeb11u2#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/systemd-sysv@247.3-7\u002Bdeb11u2#/var/lib/dpkg",
+      "author": "",
+      "publisher": "Debian systemd Maintainers \u003Cpkg-systemd-maintainers@lists.alioth.debian.org\u003E",
+      "group": "",
+      "name": "systemd-sysv",
+      "version": "247.3-7\u002Bdeb11u2",
+      "description": "admin",
+      "licenses": [],
+      "purl": "pkg:deb/systemd-sysv@247.3-7\u002Bdeb11u2#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/sysvinit-utils@2.96-7\u002Bdeb11u1#/var/lib/dpkg",
+      "author": "",
+      "publisher": "Debian sysvinit maintainers \u003Cdebian-init-diversity@chiark.greenend.org.uk\u003E",
+      "group": "",
+      "name": "sysvinit-utils",
+      "version": "2.96-7\u002Bdeb11u1",
+      "description": "admin",
+      "scope": "required",
+      "licenses": [],
+      "purl": "pkg:deb/sysvinit-utils@2.96-7\u002Bdeb11u1#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/tar@1.34\u002Bdfsg-1#/var/lib/dpkg",
+      "author": "",
+      "publisher": "Janos Lenart \u003Cocsi@debian.org\u003E",
+      "group": "",
+      "name": "tar",
+      "version": "1.34\u002Bdfsg-1",
+      "description": "utils",
+      "scope": "required",
+      "licenses": [],
+      "purl": "pkg:deb/tar@1.34\u002Bdfsg-1#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/traceroute@1:2.1.0-2\u002Bdeb11u1#/var/lib/dpkg",
+      "author": "",
+      "publisher": "Laszlo Boszormenyi (GCS) \u003Cgcs@debian.org\u003E",
+      "group": "",
+      "name": "traceroute",
+      "version": "1:2.1.0-2\u002Bdeb11u1",
+      "description": "net",
+      "licenses": [],
+      "purl": "pkg:deb/traceroute@1:2.1.0-2\u002Bdeb11u1#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/tzdata@2023c-7#/var/lib/dpkg",
+      "author": "",
+      "publisher": "GNU Libc Maintainers \u003Cdebian-glibc@lists.debian.org\u003E",
+      "group": "",
+      "name": "tzdata",
+      "version": "2023c-7",
+      "description": "localization",
+      "scope": "required",
+      "licenses": [],
+      "purl": "pkg:deb/tzdata@2023c-7#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/ucf@3.0043#/var/lib/dpkg",
+      "author": "",
+      "publisher": "Manoj Srivastava \u003Csrivasta@debian.org\u003E",
+      "group": "",
+      "name": "ucf",
+      "version": "3.0043",
+      "description": "utils",
+      "licenses": [],
+      "purl": "pkg:deb/ucf@3.0043#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/udev@247.3-7\u002Bdeb11u2#/var/lib/dpkg",
+      "author": "",
+      "publisher": "Debian systemd Maintainers \u003Cpkg-systemd-maintainers@lists.alioth.debian.org\u003E",
+      "group": "",
+      "name": "udev",
+      "version": "247.3-7\u002Bdeb11u2",
+      "description": "admin",
+      "licenses": [],
+      "purl": "pkg:deb/udev@247.3-7\u002Bdeb11u2#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/util-linux@2.36.1-8\u002Bdeb11u1#/var/lib/dpkg",
+      "author": "",
+      "publisher": "util-linux packagers \u003Cutil-linux@packages.debian.org\u003E",
+      "group": "",
+      "name": "util-linux",
+      "version": "2.36.1-8\u002Bdeb11u1",
+      "description": "utils",
+      "scope": "required",
+      "licenses": [],
+      "purl": "pkg:deb/util-linux@2.36.1-8\u002Bdeb11u1#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/vim-common@2:8.2.2434-3\u002Bdeb11u1#/var/lib/dpkg",
+      "author": "",
+      "publisher": "Debian Vim Maintainers \u003Cteam\u002Bvim@tracker.debian.org\u003E",
+      "group": "",
+      "name": "vim-common",
+      "version": "2:8.2.2434-3\u002Bdeb11u1",
+      "description": "editors",
+      "licenses": [],
+      "purl": "pkg:deb/vim-common@2:8.2.2434-3\u002Bdeb11u1#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/vim-tiny@2:8.2.2434-3\u002Bdeb11u1#/var/lib/dpkg",
+      "author": "",
+      "publisher": "Debian Vim Maintainers \u003Cteam\u002Bvim@tracker.debian.org\u003E",
+      "group": "",
+      "name": "vim-tiny",
+      "version": "2:8.2.2434-3\u002Bdeb11u1",
+      "description": "editors",
+      "licenses": [],
+      "purl": "pkg:deb/vim-tiny@2:8.2.2434-3\u002Bdeb11u1#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/wget@1.21-1\u002Bdeb11u1#/var/lib/dpkg",
+      "author": "",
+      "publisher": "No\u00EBl K\u00F6the \u003Cnoel@debian.org\u003E",
+      "group": "",
+      "name": "wget",
+      "version": "1.21-1\u002Bdeb11u1",
+      "description": "web",
+      "licenses": [],
+      "purl": "pkg:deb/wget@1.21-1\u002Bdeb11u1#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/xz-utils@5.2.5-2.1~deb11u1#/var/lib/dpkg",
+      "author": "",
+      "publisher": "Jonathan Nieder \u003Cjrnieder@gmail.com\u003E",
+      "group": "",
+      "name": "xz-utils",
+      "version": "5.2.5-2.1~deb11u1",
+      "description": "utils",
+      "licenses": [],
+      "purl": "pkg:deb/xz-utils@5.2.5-2.1~deb11u1#/var/lib/dpkg"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/deb.debian.org/debian bullseye@11.7#/etc/apt/sources.list",
+      "author": "",
+      "publisher": "Debian",
+      "group": "",
+      "name": "deb.debian.org/debian bullseye",
+      "version": "11.7",
+      "description": "main contrib non-free",
+      "licenses": [],
+      "purl": "pkg:deb/deb.debian.org/debian bullseye@11.7#/etc/apt/sources.list"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/security.debian.org/debian-security bullseye-security@11#/etc/apt/sources.list",
+      "author": "",
+      "publisher": "Debian",
+      "group": "",
+      "name": "security.debian.org/debian-security bullseye-security",
+      "version": "11",
+      "description": "updates/main updates/contrib updates/non-free",
+      "licenses": [],
+      "purl": "pkg:deb/security.debian.org/debian-security bullseye-security@11#/etc/apt/sources.list"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:deb/deb.debian.org/debian bullseye-updates@11-updates#/etc/apt/sources.list",
+      "author": "",
+      "publisher": "Debian",
+      "group": "",
+      "name": "deb.debian.org/debian bullseye-updates",
+      "version": "11-updates",
+      "description": "main contrib non-free",
+      "licenses": [],
+      "purl": "pkg:deb/deb.debian.org/debian bullseye-updates@11-updates#/etc/apt/sources.list"
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:golang/github.com/elazarl/goproxy@v0.0.0-20221015165544-a0805db90819",
+      "publisher": "",
+      "group": "",
+      "name": "github.com/elazarl/goproxy",
+      "version": "v0.0.0-20221015165544-a0805db90819",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "BSD-3-Clause",
+            "url": "https://pkg.go.dev/github.com/elazarl/goproxy?tab=licenses"
+          }
+        }
+      ],
+      "purl": "pkg:golang/github.com/elazarl/goproxy@v0.0.0-20221015165544-a0805db90819",
+      "properties": [
+        {
+          "name": "SrcGoMod",
+          "value": "C:\\Users\\z003kkww\\go\\pkg\\mod\\cache\\download\\github.com\\elazarl\\goproxy\\@v\\v0.0.0-20221015165544-a0805db90819.mod"
+        },
+        {
+          "name": "ModuleGoVersion",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:golang/github.com/google/uuid@v1.3.0",
+      "publisher": "",
+      "group": "",
+      "name": "github.com/google/uuid",
+      "version": "v1.3.0",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "BSD-3-Clause",
+            "url": "https://pkg.go.dev/github.com/google/uuid?tab=licenses"
+          }
+        }
+      ],
+      "purl": "pkg:golang/github.com/google/uuid@v1.3.0",
+      "properties": [
+        {
+          "name": "SrcGoMod",
+          "value": "C:\\Users\\z003kkww\\go\\pkg\\mod\\cache\\download\\github.com\\google\\uuid\\@v\\v1.3.0.mod"
+        },
+        {
+          "name": "ModuleGoVersion",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:golang/github.com/sirupsen/logrus@v1.9.0",
+      "publisher": "",
+      "group": "",
+      "name": "github.com/sirupsen/logrus",
+      "version": "v1.9.0",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "url": "https://pkg.go.dev/github.com/sirupsen/logrus?tab=licenses"
+          }
+        }
+      ],
+      "purl": "pkg:golang/github.com/sirupsen/logrus@v1.9.0",
+      "properties": [
+        {
+          "name": "SrcGoMod",
+          "value": "C:\\Users\\z003kkww\\go\\pkg\\mod\\cache\\download\\github.com\\sirupsen\\logrus\\@v\\v1.9.0.mod"
+        },
+        {
+          "name": "ModuleGoVersion",
+          "value": "1.13"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:golang/github.com/go-logr/logr@v1.2.4",
+      "publisher": "",
+      "group": "",
+      "name": "github.com/go-logr/logr",
+      "version": "v1.2.4",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0",
+            "url": "https://pkg.go.dev/github.com/go-logr/logr?tab=licenses"
+          }
+        }
+      ],
+      "purl": "pkg:golang/github.com/go-logr/logr@v1.2.4",
+      "properties": [
+        {
+          "name": "SrcGoMod",
+          "value": "C:\\Users\\z003kkww\\go\\pkg\\mod\\cache\\download\\github.com\\go-logr\\logr\\@v\\v1.2.4.mod"
+        },
+        {
+          "name": "ModuleGoVersion",
+          "value": "1.16"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:golang/k8s.io/klog/v2@v2.90.1",
+      "publisher": "",
+      "group": "",
+      "name": "k8s.io/klog/v2",
+      "version": "v2.90.1",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0",
+            "url": "https://pkg.go.dev/k8s.io/klog/v2?tab=licenses"
+          }
+        }
+      ],
+      "purl": "pkg:golang/k8s.io/klog/v2@v2.90.1",
+      "properties": [
+        {
+          "name": "SrcGoMod",
+          "value": "C:\\Users\\z003kkww\\go\\pkg\\mod\\cache\\download\\k8s.io\\klog\\v2\\@v\\v2.90.1.mod"
+        },
+        {
+          "name": "ModuleGoVersion",
+          "value": "1.13"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:golang/github.com/inconshreveable/mousetrap@v1.1.0",
+      "publisher": "",
+      "group": "",
+      "name": "github.com/inconshreveable/mousetrap",
+      "version": "v1.1.0",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0",
+            "url": "https://pkg.go.dev/github.com/inconshreveable/mousetrap?tab=licenses"
+          }
+        }
+      ],
+      "purl": "pkg:golang/github.com/inconshreveable/mousetrap@v1.1.0",
+      "properties": [
+        {
+          "name": "SrcGoMod",
+          "value": "C:\\Users\\z003kkww\\go\\pkg\\mod\\cache\\download\\github.com\\inconshreveable\\mousetrap\\@v\\v1.1.0.mod"
+        },
+        {
+          "name": "ModuleGoVersion",
+          "value": "1.18"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:golang/github.com/spf13/pflag@v1.0.5",
+      "publisher": "",
+      "group": "",
+      "name": "github.com/spf13/pflag",
+      "version": "v1.0.5",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "BSD-3-Clause",
+            "url": "https://pkg.go.dev/github.com/spf13/pflag?tab=licenses"
+          }
+        }
+      ],
+      "purl": "pkg:golang/github.com/spf13/pflag@v1.0.5",
+      "properties": [
+        {
+          "name": "SrcGoMod",
+          "value": "C:\\Users\\z003kkww\\go\\pkg\\mod\\cache\\download\\github.com\\spf13\\pflag\\@v\\v1.0.5.mod"
+        },
+        {
+          "name": "ModuleGoVersion",
+          "value": "1.12"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:golang/github.com/spf13/cobra@v1.6.1",
+      "publisher": "",
+      "group": "",
+      "name": "github.com/spf13/cobra",
+      "version": "v1.6.1",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0",
+            "url": "https://pkg.go.dev/github.com/spf13/cobra?tab=licenses"
+          }
+        }
+      ],
+      "purl": "pkg:golang/github.com/spf13/cobra@v1.6.1",
+      "properties": [
+        {
+          "name": "SrcGoMod",
+          "value": "C:\\Users\\z003kkww\\go\\pkg\\mod\\cache\\download\\github.com\\spf13\\cobra\\@v\\v1.6.1.mod"
+        },
+        {
+          "name": "ModuleGoVersion",
+          "value": "1.15"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:golang/atomicgo.dev/cursor@v0.1.1",
+      "publisher": "",
+      "group": "",
+      "name": "atomicgo.dev/cursor",
+      "version": "v0.1.1",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "url": "https://pkg.go.dev/atomicgo.dev/cursor?tab=licenses"
+          }
+        }
+      ],
+      "purl": "pkg:golang/atomicgo.dev/cursor@v0.1.1",
+      "properties": [
+        {
+          "name": "SrcGoMod",
+          "value": "C:\\Users\\z003kkww\\go\\pkg\\mod\\cache\\download\\atomicgo.dev\\cursor\\@v\\v0.1.1.mod"
+        },
+        {
+          "name": "ModuleGoVersion",
+          "value": "1.15"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:golang/atomicgo.dev/keyboard@v0.2.9",
+      "publisher": "",
+      "group": "",
+      "name": "atomicgo.dev/keyboard",
+      "version": "v0.2.9",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "url": "https://pkg.go.dev/atomicgo.dev/keyboard?tab=licenses"
+          }
+        }
+      ],
+      "purl": "pkg:golang/atomicgo.dev/keyboard@v0.2.9",
+      "properties": [
+        {
+          "name": "SrcGoMod",
+          "value": "C:\\Users\\z003kkww\\go\\pkg\\mod\\cache\\download\\atomicgo.dev\\keyboard\\@v\\v0.2.9.mod"
+        },
+        {
+          "name": "ModuleGoVersion",
+          "value": "1.15"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:golang/github.com/containerd/console@v1.0.3",
+      "publisher": "",
+      "group": "",
+      "name": "github.com/containerd/console",
+      "version": "v1.0.3",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0",
+            "url": "https://pkg.go.dev/github.com/containerd/console?tab=licenses"
+          }
+        }
+      ],
+      "purl": "pkg:golang/github.com/containerd/console@v1.0.3",
+      "properties": [
+        {
+          "name": "SrcGoMod",
+          "value": "C:\\Users\\z003kkww\\go\\pkg\\mod\\cache\\download\\github.com\\containerd\\console\\@v\\v1.0.3.mod"
+        },
+        {
+          "name": "ModuleGoVersion",
+          "value": "1.13"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:golang/github.com/xo/terminfo@v0.0.0-20210125001918-ca9a967f8778",
+      "publisher": "",
+      "group": "",
+      "name": "github.com/xo/terminfo",
+      "version": "v0.0.0-20210125001918-ca9a967f8778",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "url": "https://pkg.go.dev/github.com/xo/terminfo?tab=licenses"
+          }
+        }
+      ],
+      "purl": "pkg:golang/github.com/xo/terminfo@v0.0.0-20210125001918-ca9a967f8778",
+      "properties": [
+        {
+          "name": "SrcGoMod",
+          "value": "C:\\Users\\z003kkww\\go\\pkg\\mod\\cache\\download\\github.com\\xo\\terminfo\\@v\\v0.0.0-20210125001918-ca9a967f8778.mod"
+        },
+        {
+          "name": "ModuleGoVersion",
+          "value": "1.15"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:golang/github.com/gookit/color@v1.5.2",
+      "publisher": "",
+      "group": "",
+      "name": "github.com/gookit/color",
+      "version": "v1.5.2",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "url": "https://pkg.go.dev/github.com/gookit/color?tab=licenses"
+          }
+        }
+      ],
+      "purl": "pkg:golang/github.com/gookit/color@v1.5.2",
+      "properties": [
+        {
+          "name": "SrcGoMod",
+          "value": "C:\\Users\\z003kkww\\go\\pkg\\mod\\cache\\download\\github.com\\gookit\\color\\@v\\v1.5.2.mod"
+        },
+        {
+          "name": "ModuleGoVersion",
+          "value": "1.16"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:golang/github.com/rivo/uniseg@v0.2.0",
+      "publisher": "",
+      "group": "",
+      "name": "github.com/rivo/uniseg",
+      "version": "v0.2.0",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "url": "https://pkg.go.dev/github.com/rivo/uniseg?tab=licenses"
+          }
+        }
+      ],
+      "purl": "pkg:golang/github.com/rivo/uniseg@v0.2.0",
+      "properties": [
+        {
+          "name": "SrcGoMod",
+          "value": "C:\\Users\\z003kkww\\go\\pkg\\mod\\cache\\download\\github.com\\rivo\\uniseg\\@v\\v0.2.0.mod"
+        },
+        {
+          "name": "ModuleGoVersion",
+          "value": "1.12"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:golang/github.com/mattn/go-runewidth@v0.0.14",
+      "publisher": "",
+      "group": "",
+      "name": "github.com/mattn/go-runewidth",
+      "version": "v0.0.14",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "url": "https://pkg.go.dev/github.com/mattn/go-runewidth?tab=licenses"
+          }
+        }
+      ],
+      "purl": "pkg:golang/github.com/mattn/go-runewidth@v0.0.14",
+      "properties": [
+        {
+          "name": "SrcGoMod",
+          "value": "C:\\Users\\z003kkww\\go\\pkg\\mod\\cache\\download\\github.com\\mattn\\go-runewidth\\@v\\v0.0.14.mod"
+        },
+        {
+          "name": "ModuleGoVersion",
+          "value": "1.9"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:golang/github.com/pterm/pterm@v0.12.54",
+      "publisher": "",
+      "group": "",
+      "name": "github.com/pterm/pterm",
+      "version": "v0.12.54",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "url": "https://pkg.go.dev/github.com/pterm/pterm?tab=licenses"
+          }
+        }
+      ],
+      "purl": "pkg:golang/github.com/pterm/pterm@v0.12.54",
+      "properties": [
+        {
+          "name": "SrcGoMod",
+          "value": "C:\\Users\\z003kkww\\go\\pkg\\mod\\cache\\download\\github.com\\pterm\\pterm\\@v\\v0.12.54.mod"
+        },
+        {
+          "name": "ModuleGoVersion",
+          "value": "1.18"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:golang/golang.org/x/term@v0.0.0-20210927222741-03fcf44c2211",
+      "publisher": "",
+      "group": "",
+      "name": "golang.org/x/term",
+      "version": "v0.0.0-20210927222741-03fcf44c2211",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "BSD-3-Clause",
+            "url": "https://pkg.go.dev/golang.org/x/term?tab=licenses"
+          }
+        }
+      ],
+      "purl": "pkg:golang/golang.org/x/term@v0.0.0-20210927222741-03fcf44c2211",
+      "properties": [
+        {
+          "name": "SrcGoMod",
+          "value": "C:\\Users\\z003kkww\\go\\pkg\\mod\\cache\\download\\golang.org\\x\\term\\@v\\v0.0.0-20210927222741-03fcf44c2211.mod"
+        },
+        {
+          "name": "ModuleGoVersion",
+          "value": "1.17"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:golang/github.com/go-cmd/cmd@v1.4.1",
+      "publisher": "",
+      "group": "",
+      "name": "github.com/go-cmd/cmd",
+      "version": "v1.4.1",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "url": "https://pkg.go.dev/github.com/go-cmd/cmd?tab=licenses"
+          }
+        }
+      ],
+      "purl": "pkg:golang/github.com/go-cmd/cmd@v1.4.1",
+      "properties": [
+        {
+          "name": "SrcGoMod",
+          "value": "C:\\Users\\z003kkww\\go\\pkg\\mod\\cache\\download\\github.com\\go-cmd\\cmd\\@v\\v1.4.1.mod"
+        },
+        {
+          "name": "ModuleGoVersion",
+          "value": "1.17"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:golang/github.com/go-ole/go-ole@v1.2.6",
+      "publisher": "",
+      "group": "",
+      "name": "github.com/go-ole/go-ole",
+      "version": "v1.2.6",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "url": "https://pkg.go.dev/github.com/go-ole/go-ole?tab=licenses"
+          }
+        }
+      ],
+      "purl": "pkg:golang/github.com/go-ole/go-ole@v1.2.6",
+      "properties": [
+        {
+          "name": "SrcGoMod",
+          "value": "C:\\Users\\z003kkww\\go\\pkg\\mod\\cache\\download\\github.com\\go-ole\\go-ole\\@v\\v1.2.6.mod"
+        },
+        {
+          "name": "ModuleGoVersion",
+          "value": "1.12"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:golang/github.com/yusufpapurcu/wmi@v1.2.2",
+      "publisher": "",
+      "group": "",
+      "name": "github.com/yusufpapurcu/wmi",
+      "version": "v1.2.2",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "url": "https://pkg.go.dev/github.com/yusufpapurcu/wmi?tab=licenses"
+          }
+        }
+      ],
+      "purl": "pkg:golang/github.com/yusufpapurcu/wmi@v1.2.2",
+      "properties": [
+        {
+          "name": "SrcGoMod",
+          "value": "C:\\Users\\z003kkww\\go\\pkg\\mod\\cache\\download\\github.com\\yusufpapurcu\\wmi\\@v\\v1.2.2.mod"
+        },
+        {
+          "name": "ModuleGoVersion",
+          "value": "1.16"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:golang/github.com/fsnotify/fsnotify@v1.6.0",
+      "publisher": "",
+      "group": "",
+      "name": "github.com/fsnotify/fsnotify",
+      "version": "v1.6.0",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "BSD-3-Clause",
+            "url": "https://pkg.go.dev/github.com/fsnotify/fsnotify?tab=licenses"
+          }
+        }
+      ],
+      "purl": "pkg:golang/github.com/fsnotify/fsnotify@v1.6.0",
+      "properties": [
+        {
+          "name": "SrcGoMod",
+          "value": "C:\\Users\\z003kkww\\go\\pkg\\mod\\cache\\download\\github.com\\fsnotify\\fsnotify\\@v\\v1.6.0.mod"
+        },
+        {
+          "name": "ModuleGoVersion",
+          "value": "1.16"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:golang/github.com/mitchellh/mapstructure@v1.5.0",
+      "publisher": "",
+      "group": "",
+      "name": "github.com/mitchellh/mapstructure",
+      "version": "v1.5.0",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "url": "https://pkg.go.dev/github.com/mitchellh/mapstructure?tab=licenses"
+          }
+        }
+      ],
+      "purl": "pkg:golang/github.com/mitchellh/mapstructure@v1.5.0",
+      "properties": [
+        {
+          "name": "SrcGoMod",
+          "value": "C:\\Users\\z003kkww\\go\\pkg\\mod\\cache\\download\\github.com\\mitchellh\\mapstructure\\@v\\v1.5.0.mod"
+        },
+        {
+          "name": "ModuleGoVersion",
+          "value": "1.14"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:golang/github.com/spf13/afero@v1.9.2",
+      "publisher": "",
+      "group": "",
+      "name": "github.com/spf13/afero",
+      "version": "v1.9.2",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0",
+            "url": "https://pkg.go.dev/github.com/spf13/afero?tab=licenses"
+          }
+        }
+      ],
+      "purl": "pkg:golang/github.com/spf13/afero@v1.9.2",
+      "properties": [
+        {
+          "name": "SrcGoMod",
+          "value": "C:\\Users\\z003kkww\\go\\pkg\\mod\\cache\\download\\github.com\\spf13\\afero\\@v\\v1.9.2.mod"
+        },
+        {
+          "name": "ModuleGoVersion",
+          "value": "1.16"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:golang/github.com/spf13/cast@v1.5.0",
+      "publisher": "",
+      "group": "",
+      "name": "github.com/spf13/cast",
+      "version": "v1.5.0",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "url": "https://pkg.go.dev/github.com/spf13/cast?tab=licenses"
+          }
+        }
+      ],
+      "purl": "pkg:golang/github.com/spf13/cast@v1.5.0",
+      "properties": [
+        {
+          "name": "SrcGoMod",
+          "value": "C:\\Users\\z003kkww\\go\\pkg\\mod\\cache\\download\\github.com\\spf13\\cast\\@v\\v1.5.0.mod"
+        },
+        {
+          "name": "ModuleGoVersion",
+          "value": "1.18"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:golang/github.com/spf13/jwalterweatherman@v1.1.0",
+      "publisher": "",
+      "group": "",
+      "name": "github.com/spf13/jwalterweatherman",
+      "version": "v1.1.0",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "url": "https://pkg.go.dev/github.com/spf13/jwalterweatherman?tab=licenses"
+          }
+        }
+      ],
+      "purl": "pkg:golang/github.com/spf13/jwalterweatherman@v1.1.0",
+      "properties": [
+        {
+          "name": "SrcGoMod",
+          "value": "C:\\Users\\z003kkww\\go\\pkg\\mod\\cache\\download\\github.com\\spf13\\jwalterweatherman\\@v\\v1.1.0.mod"
+        },
+        {
+          "name": "ModuleGoVersion",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:golang/github.com/spf13/viper@v1.14.0",
+      "publisher": "",
+      "group": "",
+      "name": "github.com/spf13/viper",
+      "version": "v1.14.0",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "url": "https://pkg.go.dev/github.com/spf13/viper?tab=licenses"
+          }
+        }
+      ],
+      "purl": "pkg:golang/github.com/spf13/viper@v1.14.0",
+      "properties": [
+        {
+          "name": "SrcGoMod",
+          "value": "C:\\Users\\z003kkww\\go\\pkg\\mod\\cache\\download\\github.com\\spf13\\viper\\@v\\v1.14.0.mod"
+        },
+        {
+          "name": "ModuleGoVersion",
+          "value": "1.17"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:golang/github.com/subosito/gotenv@v1.4.1",
+      "publisher": "",
+      "group": "",
+      "name": "github.com/subosito/gotenv",
+      "version": "v1.4.1",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "url": "https://pkg.go.dev/github.com/subosito/gotenv?tab=licenses"
+          }
+        }
+      ],
+      "purl": "pkg:golang/github.com/subosito/gotenv@v1.4.1",
+      "properties": [
+        {
+          "name": "SrcGoMod",
+          "value": "C:\\Users\\z003kkww\\go\\pkg\\mod\\cache\\download\\github.com\\subosito\\gotenv\\@v\\v1.4.1.mod"
+        },
+        {
+          "name": "ModuleGoVersion",
+          "value": "1.18"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:golang/github.com/hashicorp/hcl@v1.0.0",
+      "publisher": "",
+      "group": "",
+      "name": "github.com/hashicorp/hcl",
+      "version": "v1.0.0",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "MPL-2.0",
+            "url": "https://pkg.go.dev/github.com/hashicorp/hcl?tab=licenses"
+          }
+        }
+      ],
+      "purl": "pkg:golang/github.com/hashicorp/hcl@v1.0.0",
+      "properties": [
+        {
+          "name": "SrcGoMod",
+          "value": "C:\\Users\\z003kkww\\go\\pkg\\mod\\cache\\download\\github.com\\hashicorp\\hcl\\@v\\v1.0.0.mod"
+        },
+        {
+          "name": "ModuleGoVersion",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:golang/gopkg.in/ini.v1@v1.67.0",
+      "publisher": "",
+      "group": "",
+      "name": "gopkg.in/ini.v1",
+      "version": "v1.67.0",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0",
+            "url": "https://pkg.go.dev/gopkg.in/ini.v1?tab=licenses"
+          }
+        }
+      ],
+      "purl": "pkg:golang/gopkg.in/ini.v1@v1.67.0",
+      "properties": [
+        {
+          "name": "SrcGoMod",
+          "value": "C:\\Users\\z003kkww\\go\\pkg\\mod\\cache\\download\\gopkg.in\\ini.v1\\@v\\v1.67.0.mod"
+        },
+        {
+          "name": "ModuleGoVersion",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:golang/github.com/magiconair/properties@v1.8.6",
+      "publisher": "",
+      "group": "",
+      "name": "github.com/magiconair/properties",
+      "version": "v1.8.6",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "BSD-2-Clause",
+            "url": "https://pkg.go.dev/github.com/magiconair/properties?tab=licenses"
+          }
+        }
+      ],
+      "purl": "pkg:golang/github.com/magiconair/properties@v1.8.6",
+      "properties": [
+        {
+          "name": "SrcGoMod",
+          "value": "C:\\Users\\z003kkww\\go\\pkg\\mod\\cache\\download\\github.com\\magiconair\\properties\\@v\\v1.8.6.mod"
+        },
+        {
+          "name": "ModuleGoVersion",
+          "value": "1.13"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:golang/github.com/pelletier/go-toml/v2@v2.0.5",
+      "publisher": "",
+      "group": "",
+      "name": "github.com/pelletier/go-toml/v2",
+      "version": "v2.0.5",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "url": "https://pkg.go.dev/github.com/pelletier/go-toml/v2?tab=licenses"
+          }
+        }
+      ],
+      "purl": "pkg:golang/github.com/pelletier/go-toml/v2@v2.0.5",
+      "properties": [
+        {
+          "name": "SrcGoMod",
+          "value": "C:\\Users\\z003kkww\\go\\pkg\\mod\\cache\\download\\github.com\\pelletier\\go-toml\\v2\\@v\\v2.0.5.mod"
+        },
+        {
+          "name": "ModuleGoVersion",
+          "value": "1.16"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:golang/gopkg.in/yaml.v3@v3.0.1",
+      "publisher": "",
+      "group": "",
+      "name": "gopkg.in/yaml.v3",
+      "version": "v3.0.1",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0",
+            "url": "https://pkg.go.dev/gopkg.in/yaml.v3?tab=licenses"
+          }
+        },
+        {
+          "license": {
+            "id": "MIT",
+            "url": "https://pkg.go.dev/gopkg.in/yaml.v3?tab=licenses"
+          }
+        }
+      ],
+      "purl": "pkg:golang/gopkg.in/yaml.v3@v3.0.1",
+      "properties": [
+        {
+          "name": "SrcGoMod",
+          "value": "C:\\Users\\z003kkww\\go\\pkg\\mod\\cache\\download\\gopkg.in\\yaml.v3\\@v\\v3.0.1.mod"
+        },
+        {
+          "name": "ModuleGoVersion",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:golang/github.com/gentlemanautomaton/windevice@v0.0.0-20230228225025-9f4f02d0964b",
+      "publisher": "",
+      "group": "",
+      "name": "github.com/gentlemanautomaton/windevice",
+      "version": "v0.0.0-20230228225025-9f4f02d0964b",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "url": "https://pkg.go.dev/github.com/gentlemanautomaton/windevice?tab=licenses"
+          }
+        }
+      ],
+      "purl": "pkg:golang/github.com/gentlemanautomaton/windevice@v0.0.0-20230228225025-9f4f02d0964b",
+      "properties": [
+        {
+          "name": "SrcGoMod",
+          "value": "C:\\Users\\z003kkww\\go\\pkg\\mod\\cache\\download\\github.com\\gentlemanautomaton\\windevice\\@v\\v0.0.0-20230228225025-9f4f02d0964b.mod"
+        },
+        {
+          "name": "ModuleGoVersion",
+          "value": "1.18"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:golang/github.com/gentlemanautomaton/winguid@v0.0.0-20230228224912-58d6d2d088e5",
+      "publisher": "",
+      "group": "",
+      "name": "github.com/gentlemanautomaton/winguid",
+      "version": "v0.0.0-20230228224912-58d6d2d088e5",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "url": "https://pkg.go.dev/github.com/gentlemanautomaton/winguid?tab=licenses"
+          }
+        }
+      ],
+      "purl": "pkg:golang/github.com/gentlemanautomaton/winguid@v0.0.0-20230228224912-58d6d2d088e5",
+      "properties": [
+        {
+          "name": "SrcGoMod",
+          "value": "C:\\Users\\z003kkww\\go\\pkg\\mod\\cache\\download\\github.com\\gentlemanautomaton\\winguid\\@v\\v0.0.0-20230228224912-58d6d2d088e5.mod"
+        },
+        {
+          "name": "ModuleGoVersion",
+          "value": "1.18"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:golang/github.com/inconshreveable/mousetrap@v1.1.0",
+      "publisher": "",
+      "group": "",
+      "name": "github.com/inconshreveable/mousetrap",
+      "version": "v1.1.0",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0",
+            "url": "https://pkg.go.dev/github.com/inconshreveable/mousetrap?tab=licenses"
+          }
+        }
+      ],
+      "purl": "pkg:golang/github.com/inconshreveable/mousetrap@v1.1.0",
+      "properties": [
+        {
+          "name": "SrcGoMod",
+          "value": "C:\\Users\\z003kkww\\go\\pkg\\mod\\cache\\download\\github.com\\inconshreveable\\mousetrap\\@v\\v1.1.0.mod"
+        },
+        {
+          "name": "ModuleGoVersion",
+          "value": "1.18"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:golang/github.com/spf13/pflag@v1.0.5",
+      "publisher": "",
+      "group": "",
+      "name": "github.com/spf13/pflag",
+      "version": "v1.0.5",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "BSD-3-Clause",
+            "url": "https://pkg.go.dev/github.com/spf13/pflag?tab=licenses"
+          }
+        }
+      ],
+      "purl": "pkg:golang/github.com/spf13/pflag@v1.0.5",
+      "properties": [
+        {
+          "name": "SrcGoMod",
+          "value": "C:\\Users\\z003kkww\\go\\pkg\\mod\\cache\\download\\github.com\\spf13\\pflag\\@v\\v1.0.5.mod"
+        },
+        {
+          "name": "ModuleGoVersion",
+          "value": "1.12"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:golang/github.com/spf13/cobra@v1.6.1",
+      "publisher": "",
+      "group": "",
+      "name": "github.com/spf13/cobra",
+      "version": "v1.6.1",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0",
+            "url": "https://pkg.go.dev/github.com/spf13/cobra?tab=licenses"
+          }
+        }
+      ],
+      "purl": "pkg:golang/github.com/spf13/cobra@v1.6.1",
+      "properties": [
+        {
+          "name": "SrcGoMod",
+          "value": "C:\\Users\\z003kkww\\go\\pkg\\mod\\cache\\download\\github.com\\spf13\\cobra\\@v\\v1.6.1.mod"
+        },
+        {
+          "name": "ModuleGoVersion",
+          "value": "1.15"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:golang/github.com/go-logr/logr@v1.2.4",
+      "publisher": "",
+      "group": "",
+      "name": "github.com/go-logr/logr",
+      "version": "v1.2.4",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0",
+            "url": "https://pkg.go.dev/github.com/go-logr/logr?tab=licenses"
+          }
+        }
+      ],
+      "purl": "pkg:golang/github.com/go-logr/logr@v1.2.4",
+      "properties": [
+        {
+          "name": "SrcGoMod",
+          "value": "C:\\Users\\z003kkww\\go\\pkg\\mod\\cache\\download\\github.com\\go-logr\\logr\\@v\\v1.2.4.mod"
+        },
+        {
+          "name": "ModuleGoVersion",
+          "value": "1.16"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:golang/k8s.io/klog/v2@v2.90.1",
+      "publisher": "",
+      "group": "",
+      "name": "k8s.io/klog/v2",
+      "version": "v2.90.1",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0",
+            "url": "https://pkg.go.dev/k8s.io/klog/v2?tab=licenses"
+          }
+        }
+      ],
+      "purl": "pkg:golang/k8s.io/klog/v2@v2.90.1",
+      "properties": [
+        {
+          "name": "SrcGoMod",
+          "value": "C:\\Users\\z003kkww\\go\\pkg\\mod\\cache\\download\\k8s.io\\klog\\v2\\@v\\v2.90.1.mod"
+        },
+        {
+          "name": "ModuleGoVersion",
+          "value": "1.13"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:golang/atomicgo.dev/cursor@v0.1.1",
+      "publisher": "",
+      "group": "",
+      "name": "atomicgo.dev/cursor",
+      "version": "v0.1.1",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "url": "https://pkg.go.dev/atomicgo.dev/cursor?tab=licenses"
+          }
+        }
+      ],
+      "purl": "pkg:golang/atomicgo.dev/cursor@v0.1.1",
+      "properties": [
+        {
+          "name": "SrcGoMod",
+          "value": "C:\\Users\\z003kkww\\go\\pkg\\mod\\cache\\download\\atomicgo.dev\\cursor\\@v\\v0.1.1.mod"
+        },
+        {
+          "name": "ModuleGoVersion",
+          "value": "1.15"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:golang/atomicgo.dev/keyboard@v0.2.9",
+      "publisher": "",
+      "group": "",
+      "name": "atomicgo.dev/keyboard",
+      "version": "v0.2.9",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "url": "https://pkg.go.dev/atomicgo.dev/keyboard?tab=licenses"
+          }
+        }
+      ],
+      "purl": "pkg:golang/atomicgo.dev/keyboard@v0.2.9",
+      "properties": [
+        {
+          "name": "SrcGoMod",
+          "value": "C:\\Users\\z003kkww\\go\\pkg\\mod\\cache\\download\\atomicgo.dev\\keyboard\\@v\\v0.2.9.mod"
+        },
+        {
+          "name": "ModuleGoVersion",
+          "value": "1.15"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:golang/github.com/containerd/console@v1.0.3",
+      "publisher": "",
+      "group": "",
+      "name": "github.com/containerd/console",
+      "version": "v1.0.3",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0",
+            "url": "https://pkg.go.dev/github.com/containerd/console?tab=licenses"
+          }
+        }
+      ],
+      "purl": "pkg:golang/github.com/containerd/console@v1.0.3",
+      "properties": [
+        {
+          "name": "SrcGoMod",
+          "value": "C:\\Users\\z003kkww\\go\\pkg\\mod\\cache\\download\\github.com\\containerd\\console\\@v\\v1.0.3.mod"
+        },
+        {
+          "name": "ModuleGoVersion",
+          "value": "1.13"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:golang/github.com/xo/terminfo@v0.0.0-20210125001918-ca9a967f8778",
+      "publisher": "",
+      "group": "",
+      "name": "github.com/xo/terminfo",
+      "version": "v0.0.0-20210125001918-ca9a967f8778",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "url": "https://pkg.go.dev/github.com/xo/terminfo?tab=licenses"
+          }
+        }
+      ],
+      "purl": "pkg:golang/github.com/xo/terminfo@v0.0.0-20210125001918-ca9a967f8778",
+      "properties": [
+        {
+          "name": "SrcGoMod",
+          "value": "C:\\Users\\z003kkww\\go\\pkg\\mod\\cache\\download\\github.com\\xo\\terminfo\\@v\\v0.0.0-20210125001918-ca9a967f8778.mod"
+        },
+        {
+          "name": "ModuleGoVersion",
+          "value": "1.15"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:golang/github.com/gookit/color@v1.5.2",
+      "publisher": "",
+      "group": "",
+      "name": "github.com/gookit/color",
+      "version": "v1.5.2",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "url": "https://pkg.go.dev/github.com/gookit/color?tab=licenses"
+          }
+        }
+      ],
+      "purl": "pkg:golang/github.com/gookit/color@v1.5.2",
+      "properties": [
+        {
+          "name": "SrcGoMod",
+          "value": "C:\\Users\\z003kkww\\go\\pkg\\mod\\cache\\download\\github.com\\gookit\\color\\@v\\v1.5.2.mod"
+        },
+        {
+          "name": "ModuleGoVersion",
+          "value": "1.16"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:golang/github.com/rivo/uniseg@v0.2.0",
+      "publisher": "",
+      "group": "",
+      "name": "github.com/rivo/uniseg",
+      "version": "v0.2.0",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "url": "https://pkg.go.dev/github.com/rivo/uniseg?tab=licenses"
+          }
+        }
+      ],
+      "purl": "pkg:golang/github.com/rivo/uniseg@v0.2.0",
+      "properties": [
+        {
+          "name": "SrcGoMod",
+          "value": "C:\\Users\\z003kkww\\go\\pkg\\mod\\cache\\download\\github.com\\rivo\\uniseg\\@v\\v0.2.0.mod"
+        },
+        {
+          "name": "ModuleGoVersion",
+          "value": "1.12"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:golang/github.com/mattn/go-runewidth@v0.0.14",
+      "publisher": "",
+      "group": "",
+      "name": "github.com/mattn/go-runewidth",
+      "version": "v0.0.14",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "url": "https://pkg.go.dev/github.com/mattn/go-runewidth?tab=licenses"
+          }
+        }
+      ],
+      "purl": "pkg:golang/github.com/mattn/go-runewidth@v0.0.14",
+      "properties": [
+        {
+          "name": "SrcGoMod",
+          "value": "C:\\Users\\z003kkww\\go\\pkg\\mod\\cache\\download\\github.com\\mattn\\go-runewidth\\@v\\v0.0.14.mod"
+        },
+        {
+          "name": "ModuleGoVersion",
+          "value": "1.9"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:golang/github.com/pterm/pterm@v0.12.54",
+      "publisher": "",
+      "group": "",
+      "name": "github.com/pterm/pterm",
+      "version": "v0.12.54",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "url": "https://pkg.go.dev/github.com/pterm/pterm?tab=licenses"
+          }
+        }
+      ],
+      "purl": "pkg:golang/github.com/pterm/pterm@v0.12.54",
+      "properties": [
+        {
+          "name": "SrcGoMod",
+          "value": "C:\\Users\\z003kkww\\go\\pkg\\mod\\cache\\download\\github.com\\pterm\\pterm\\@v\\v0.12.54.mod"
+        },
+        {
+          "name": "ModuleGoVersion",
+          "value": "1.18"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:golang/golang.org/x/term@v0.0.0-20210927222741-03fcf44c2211",
+      "publisher": "",
+      "group": "",
+      "name": "golang.org/x/term",
+      "version": "v0.0.0-20210927222741-03fcf44c2211",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "BSD-3-Clause",
+            "url": "https://pkg.go.dev/golang.org/x/term?tab=licenses"
+          }
+        }
+      ],
+      "purl": "pkg:golang/golang.org/x/term@v0.0.0-20210927222741-03fcf44c2211",
+      "properties": [
+        {
+          "name": "SrcGoMod",
+          "value": "C:\\Users\\z003kkww\\go\\pkg\\mod\\cache\\download\\golang.org\\x\\term\\@v\\v0.0.0-20210927222741-03fcf44c2211.mod"
+        },
+        {
+          "name": "ModuleGoVersion",
+          "value": "1.17"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:golang/github.com/sirupsen/logrus@v1.9.0",
+      "publisher": "",
+      "group": "",
+      "name": "github.com/sirupsen/logrus",
+      "version": "v1.9.0",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "url": "https://pkg.go.dev/github.com/sirupsen/logrus?tab=licenses"
+          }
+        }
+      ],
+      "purl": "pkg:golang/github.com/sirupsen/logrus@v1.9.0",
+      "properties": [
+        {
+          "name": "SrcGoMod",
+          "value": "C:\\Users\\z003kkww\\go\\pkg\\mod\\cache\\download\\github.com\\sirupsen\\logrus\\@v\\v1.9.0.mod"
+        },
+        {
+          "name": "ModuleGoVersion",
+          "value": "1.13"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:golang/github.com/Microsoft/hcsshim@v0.9.8",
+      "publisher": "",
+      "group": "",
+      "name": "github.com/Microsoft/hcsshim",
+      "version": "v0.9.8",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "url": "https://pkg.go.dev/github.com/Microsoft/hcsshim?tab=licenses"
+          }
+        }
+      ],
+      "purl": "pkg:golang/github.com/Microsoft/hcsshim@v0.9.8",
+      "properties": [
+        {
+          "name": "SrcGoMod",
+          "value": "C:\\Users\\z003kkww\\go\\pkg\\mod\\cache\\download\\github.com\\!microsoft\\hcsshim\\@v\\v0.9.8.mod"
+        },
+        {
+          "name": "ModuleGoVersion",
+          "value": "1.13"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:golang/github.com/pkg/errors@v0.9.1",
+      "publisher": "",
+      "group": "",
+      "name": "github.com/pkg/errors",
+      "version": "v0.9.1",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "BSD-2-Clause",
+            "url": "https://pkg.go.dev/github.com/pkg/errors?tab=licenses"
+          }
+        }
+      ],
+      "purl": "pkg:golang/github.com/pkg/errors@v0.9.1",
+      "properties": [
+        {
+          "name": "SrcGoMod",
+          "value": "C:\\Users\\z003kkww\\go\\pkg\\mod\\cache\\download\\github.com\\pkg\\errors\\@v\\v0.9.1.mod"
+        },
+        {
+          "name": "ModuleGoVersion",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:golang/github.com/pkg/errors@v0.9.1",
+      "publisher": "",
+      "group": "",
+      "name": "github.com/pkg/errors",
+      "version": "v0.9.1",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "BSD-2-Clause",
+            "url": "https://pkg.go.dev/github.com/pkg/errors?tab=licenses"
+          }
+        }
+      ],
+      "purl": "pkg:golang/github.com/pkg/errors@v0.9.1",
+      "properties": [
+        {
+          "name": "SrcGoMod",
+          "value": "C:\\Users\\z003kkww\\go\\pkg\\mod\\cache\\download\\github.com\\pkg\\errors\\@v\\v0.9.1.mod"
+        },
+        {
+          "name": "ModuleGoVersion",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:golang/github.com/Microsoft/hcsshim@v0.9.8",
+      "publisher": "",
+      "group": "",
+      "name": "github.com/Microsoft/hcsshim",
+      "version": "v0.9.8",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "url": "https://pkg.go.dev/github.com/Microsoft/hcsshim?tab=licenses"
+          }
+        }
+      ],
+      "purl": "pkg:golang/github.com/Microsoft/hcsshim@v0.9.8",
+      "properties": [
+        {
+          "name": "SrcGoMod",
+          "value": "C:\\Users\\z003kkww\\go\\pkg\\mod\\cache\\download\\github.com\\!microsoft\\hcsshim\\@v\\v0.9.8.mod"
+        },
+        {
+          "name": "ModuleGoVersion",
+          "value": "1.13"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:golang/github.com/sirupsen/logrus@v1.9.0",
+      "publisher": "",
+      "group": "",
+      "name": "github.com/sirupsen/logrus",
+      "version": "v1.9.0",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "url": "https://pkg.go.dev/github.com/sirupsen/logrus?tab=licenses"
+          }
+        }
+      ],
+      "purl": "pkg:golang/github.com/sirupsen/logrus@v1.9.0",
+      "properties": [
+        {
+          "name": "SrcGoMod",
+          "value": "C:\\Users\\z003kkww\\go\\pkg\\mod\\cache\\download\\github.com\\sirupsen\\logrus\\@v\\v1.9.0.mod"
+        },
+        {
+          "name": "ModuleGoVersion",
+          "value": "1.13"
+        }
+      ]
+    }
+  ],
+  "services": [],
+  "externalReferences": [
+    {
+      "url": "https://github.com/Siemens-Healthineers/K2s",
+      "type": "other",
+      "comment": "Base path"
+    },
+    {
+      "url": "C:\\k\\pkg\\util\\cloudinitisobuilder",
+      "type": "other",
+      "comment": "Base path"
+    },
+    {
+      "url": "C:\\k\\pkg\\util\\cloudinitisobuilder\\C:\\k\\pkg\\util\\cloudinitisobuilder\\go.mod",
+      "type": "other",
+      "comment": "Package file"
+    },
+    {
+      "url": "https://github.com/Siemens-Healthineers/K2s",
+      "type": "other",
+      "comment": "Base path"
+    },
+    {
+      "url": "C:\\k\\pkg\\network\\httpproxy",
+      "type": "other",
+      "comment": "Base path"
+    },
+    {
+      "url": "C:\\k\\pkg\\network\\httpproxy\\C:\\k\\pkg\\network\\httpproxy\\go.mod",
+      "type": "other",
+      "comment": "Package file"
+    },
+    {
+      "url": "C:\\k\\pkg\\network\\vfprules",
+      "type": "other",
+      "comment": "Base path"
+    },
+    {
+      "url": "C:\\k\\pkg\\network\\vfprules\\C:\\k\\pkg\\network\\vfprules\\go.mod",
+      "type": "other",
+      "comment": "Package file"
+    },
+    {
+      "url": "C:\\k\\pkg\\k2s",
+      "type": "other",
+      "comment": "Base path"
+    },
+    {
+      "url": "C:\\k\\pkg\\k2s\\C:\\k\\pkg\\k2s\\go.mod",
+      "type": "other",
+      "comment": "Package file"
+    },
+    {
+      "url": "C:\\k\\pkg\\network\\devgon",
+      "type": "other",
+      "comment": "Base path"
+    },
+    {
+      "url": "C:\\k\\pkg\\network\\devgon\\C:\\k\\pkg\\network\\devgon\\go.mod",
+      "type": "other",
+      "comment": "Package file"
+    },
+    {
+      "url": "C:\\k\\pkg\\network\\bridge",
+      "type": "other",
+      "comment": "Base path"
+    },
+    {
+      "url": "C:\\k\\pkg\\network\\bridge\\C:\\k\\pkg\\network\\bridge\\go.mod",
+      "type": "other",
+      "comment": "Package file"
+    },
+    {
+      "url": "C:\\k\\pkg\\util\\zap",
+      "type": "other",
+      "comment": "Base path"
+    },
+    {
+      "url": "C:\\k\\pkg\\util\\zap\\C:\\k\\pkg\\util\\zap\\go.mod",
+      "type": "other",
+      "comment": "Package file"
+    }
+  ],
+  "dependencies": []
+}

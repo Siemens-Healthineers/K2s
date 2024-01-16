@@ -1,0 +1,45 @@
+# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+#
+# SPDX-License-Identifier: MIT
+
+apiVersion: v1
+kind: AddonManifest
+metadata:
+  name: exthttpaccess
+  description: Handle HTTP/HTTPS request coming to windows machine from local or external network
+spec:
+  offline_usage:
+    linux:
+      repos: []
+      deb: []
+      curl: []
+      additionalImages: []
+    windows:
+      curl:
+        - url: https://nginx.org/download/nginx-1.23.2.zip
+          destination: bin\nginx\nginx.zip
+  commands:
+    enable:
+      cli:
+        flags:
+          - name: proxy
+            shorthand: p
+            default: ""
+            description: HTTP Proxy
+        examples:
+          - cmd: k2s addons enable exthttpaccess
+            comment: Enable exthttpaccess in k2s
+          - cmd: k2s addons enable exthttpaccess --proxy http://10.11.12.13:5000
+            comment: Enable exthttpaccess in k2s with proxy
+      script:
+        subPath: Enable.ps1
+        parameterMappings:
+          - cliFlagName: proxy
+            scriptParameterName: Proxy
+    disable:
+      cli:
+        examples:
+          - cmd: k2s addons disable exthttpaccess
+            comment: Disable addon exthttpaccess in k2s
+      script:
+        subPath: Disable.ps1

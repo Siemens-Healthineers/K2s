@@ -1,0 +1,49 @@
+# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+#
+# SPDX-License-Identifier: MIT
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: smb-share-test-linux
+  namespace: smb-share-test
+  labels:
+    app: smb-share-test-linux
+spec:
+  serviceName: smb-share-test-linux
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: smb-share-test-linux
+    spec:
+      nodeSelector:
+        "kubernetes.io/os": linux
+      terminationGracePeriodSeconds: 10
+      containers:
+        - name: smb-share-test-linux
+          image: curlimages/curl:8.5.0
+          command:
+            - "/bin/sh"
+            - "-c"
+            - set -euo pipefail; while true; do echo $(date) >> /mnt/smb/smb-share-test-linux.file; sleep 1; done
+          volumeMounts:
+            - name: persistent-storage
+              mountPath: /mnt/smb
+  updateStrategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app: smb-share-test-linux
+  volumeClaimTemplates:
+    - metadata:
+        name: persistent-storage
+        labels:
+          app: smb-share-test-linux
+      spec:
+        storageClassName: smb
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1Gi

@@ -1,0 +1,31 @@
+# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+#
+# SPDX-License-Identifier: MIT
+
+---
+apiVersion: kubevirt.io/v1
+kind: KubeVirt
+metadata:
+  name: kubevirt
+  namespace: kubevirt
+spec:
+  certificateRotateStrategy: {}
+  configuration:
+    developerConfiguration:
+      featureGates: []
+    # developerConfiguration:
+    #   featureGates:
+    #   - GPU
+    # permittedHostDevices:
+    #     pciHostDevices:
+    #       - pciVendorSelector: "10de:1eb0"
+    #         resourceName: "nvidia.com/TU104GL_QUADRO_RTX_5000"
+  customizeComponents: {}
+  imagePullPolicy: IfNotPresent
+  infra:
+    replicas: 1
+    nodePlacement:
+      nodeSelector:
+        kubernetes.io/os: linux
+  workloadUpdateStrategy: {}
+

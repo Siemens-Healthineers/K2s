@@ -1,0 +1,13 @@
+graph TD
+    CallScript["Installation scripts\n (Default, MultiVM, BuildOnlySetup)\n\n with\n [-DeleteFilesForOfflineInstallation]\n [-ForceOnlineInstallation]"] --> if_force_online_installation{"Switch\n ForceOnlineInstallation\n used ?"}
+    if_force_online_installation --> |yes| BuildAndProvisionKubemasterBaseImage
+    if_force_online_installation --> |no| if_base_image_available{"c\k\bin\Kubemaster-Base.vhdx\n available?"}
+    if_base_image_available --> |yes| CopyBaseImage
+    if_base_image_available --> |no| BuildAndProvisionKubemasterBaseImage
+    BuildAndProvisionKubemasterBaseImage("Build and provision base image") --> PublishBaseImage("Publish base image as\n c\k\bin\Kubemaster-Base.vhdx")
+    PublishBaseImage --> CopyBaseImage("Copy published base image to\n C\Users\Public\Documents\Hyper-V\Virtual hard disks")
+    CopyBaseImage --> InstallLinuxNode("Install Linux node")
+    InstallLinuxNode --> if_delete_files_for_offline_installation{"Switch\n -DeleteFilesForOfflineInstallation\n used ?"}
+    if_delete_files_for_offline_installation --> |yes| DeleteBaseImage("Delete file c\k\bin\Kubemaster-Base.vhdx")
+    if_delete_files_for_offline_installation --> |no| End
+    DeleteBaseImage --> End

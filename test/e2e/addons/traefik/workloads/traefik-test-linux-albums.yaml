@@ -1,0 +1,63 @@
+# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+#
+# SPDX-License-Identifier: MIT
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: albums-linux1
+  namespace: traefik-test
+spec:
+  selector:
+    matchLabels:
+      app: albums-linux1
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: albums-linux1
+    spec:
+      containers:
+        - name: albums-linux1
+          image: shsk2s.azurecr.io/example.albums-golang-linux:v1.0.0
+          ports:
+            - containerPort: 80
+          env:
+            - name: PORT
+              value: "80"
+            - name: RESOURCE
+              value: "albums-linux1" 
+      nodeSelector:
+        kubernetes.io/os: linux
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: albums-linux1
+  namespace: traefik-test
+spec:
+  selector:
+    app: albums-linux1
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: albums-linux1
+  namespace: traefik-test
+  annotations:
+    kubernetes.io/ingress.class: traefik
+spec:
+  entryPoints:
+    - web
+  routes:
+    - match: PathPrefix(`/albums-linux1`)
+      kind: Rule
+      services:
+        - name: albums-linux1
+          namespace: traefik-test
+          port: 80

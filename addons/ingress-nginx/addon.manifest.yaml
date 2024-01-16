@@ -1,0 +1,25 @@
+# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+#
+# SPDX-License-Identifier: MIT
+
+apiVersion: v1
+kind: AddonManifest
+metadata:
+  name: ingress-nginx
+  description: Ingress Controller for external access that uses nginx as a reverse proxy
+spec:
+  commands:
+    enable:
+      cli:
+        examples:
+          - cmd: k2s addons enable ingress-nginx
+            comment: Enable ingress-nginx in k2s
+      script:
+        subPath: Enable.ps1
+    disable:
+      cli:
+        examples:
+          - cmd: k2s addons disable ingress-nginx
+            comment: Disable addon ingress-nginx in k2s
+      script:
+        subPath: Disable.ps1

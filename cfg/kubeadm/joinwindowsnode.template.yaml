@@ -1,0 +1,17 @@
+# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+#
+# SPDX-License-Identifier: MIT
+
+apiVersion: kubeadm.k8s.io/v1beta3
+kind: JoinConfiguration
+caCertPath: __CA_CERT__
+nodeRegistration:
+    criSocket: npipe:////./pipe/containerd-containerd
+    kubeletExtraArgs:
+        node-ip: "__NODE_IP__"
+discovery:
+    bootstrapToken:
+        apiServerEndpoint: __API__
+        token: __TOKEN__
+        caCertHashes: 
+        - __SHA__

@@ -1,0 +1,24 @@
+# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+#
+# SPDX-License-Identifier: MIT
+
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: plutono-ingressroute
+  namespace: monitoring
+  annotations:
+    kubernetes.io/ingress.class: traefik
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: Host(`k2s-monitoring.local`) && PathPrefix(`/`)
+      kind: Rule
+      services:
+        - name: kube-prometheus-stack-plutono
+          namespace: monitoring
+          port: 443
+  tls:
+    secretName: certs-secret-plutono

@@ -1,0 +1,14 @@
+# SPDX-FileCopyrightText:  © 2023 Siemens Healthcare GmbH
+# SPDX-License-Identifier:   MIT
+
+# Build the contextfolder server container, after precompilation was done in Linux VM
+#
+# __BEGIN_BuildImage_Variables__
+# ImageName:      k2s-registry.local/weather-win
+# ExeName:        weatherwin.exe
+# __END_BuildImage_Variables__
+#
+
+FROM mcr.microsoft.com/windows/nanoserver:20H2
+COPY weatherwin.exe .
+ENTRYPOINT ["weatherwin.exe"]
