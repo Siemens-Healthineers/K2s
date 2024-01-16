@@ -1,0 +1,23 @@
+# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+#
+# SPDX-License-Identifier: MIT
+
+kind: k2s
+apiVersion: v1
+nodes:
+  - role: control-plane # required
+    resources:
+      cpu: 6 # default
+      memory: 6GB # default
+      disk: 50GB # default
+env:
+  httpProxy: # default
+  additionalHooksDir: # default
+  restartPostInstallCount: # default
+installBehavior:
+  showOutput: false # default
+  deleteFilesForOfflineInstallation: false # default
+  forceOnlineInstallation: false # default
+  wsl: false # default
+  appendLog: false # default
+  skipStart: false # default

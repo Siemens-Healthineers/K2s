@@ -1,0 +1,100 @@
+# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+#
+# SPDX-License-Identifier: MIT
+
+---
+# Source: loki-stack/charts/promtail/templates/daemonset.yaml
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: loki-stack-valitail
+  namespace: monitoring
+  labels:
+    helm.sh/chart: promtail-6.10.0
+    app.kubernetes.io/name: valitail
+    app.kubernetes.io/instance: loki-stack
+    app.kubernetes.io/version: "2.7.4"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: valitail
+      app.kubernetes.io/instance: loki-stack
+  updateStrategy:
+    {}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: valitail
+        app.kubernetes.io/instance: loki-stack
+      annotations:
+        checksum/config: 45b464eba21699fda2b6184e92c0ef28a37a4705c6b2bf663bb4f9f788da14ed
+    spec:
+      serviceAccountName: loki-stack-valitail
+      enableServiceLinks: true
+      securityContext:
+        runAsGroup: 0
+        runAsUser: 0
+      containers:
+        - name: promtail
+          image: "ghcr.io/credativ/valitail:v2.2.11"
+          imagePullPolicy: IfNotPresent
+          args:
+            - "-config.file=/etc/valitail/valitail.yaml"
+          volumeMounts:
+            - name: config
+              mountPath: /etc/valitail
+            - mountPath: /run/valitail
+              name: run
+            - mountPath: /var/lib/docker/containers
+              name: containers
+              readOnly: true
+            - mountPath: /var/log/pods
+              name: pods
+              readOnly: true
+          env:
+            - name: HOSTNAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+          ports:
+            - name: http-metrics
+              containerPort: 3101
+              protocol: TCP
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: true
+          readinessProbe:
+            failureThreshold: 5
+            httpGet:
+              path: '/ready'
+              port: http-metrics
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 1
+      tolerations:
+        - effect: NoSchedule
+          key: node-role.kubernetes.io/master
+          operator: Exists
+        - effect: NoSchedule
+          key: node-role.kubernetes.io/control-plane
+          operator: Exists
+      volumes:
+        - name: config
+          secret:
+            secretName: loki-stack-valitail
+        - hostPath:
+            path: /run/valitail
+          name: run
+        - hostPath:
+            path: /var/lib/docker/containers
+          name: containers
+        - hostPath:
+            path: /var/log/pods
+          name: pods
+      nodeSelector:
+        "kubernetes.io/os": linux

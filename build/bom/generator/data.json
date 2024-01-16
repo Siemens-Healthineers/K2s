@@ -1,0 +1,102 @@
+{
+  "project": {
+    "name": "k2s",
+    "version": "v0.6.0"
+  },
+  "preDefinedVcsUrls": [
+    {
+      "name": "nssm",
+      "version": "v2.24.0",
+      "url": "https://git.nssm.cc/nssm/nssm/archive/master.tar.gz"
+    },
+    {
+      "name": "plink",
+      "version": "v0.76.0",
+      "url": "https://the.earth.li/~sgtatham/putty/0.76/putty-src.zip"
+    },
+    {
+      "name": "pscp",
+      "version": "v0.76.0",
+      "url": "https://the.earth.li/~sgtatham/putty/0.76/putty-src.zip"
+    },
+    {
+      "name": "k8s.io/klog/v2",
+      "version": "v2.90.1",
+      "url": "https://github.com/kubernetes/klog"
+    },
+    {
+      "name": "atomicgo.dev/cursor",
+      "version": "v0.1.1",
+      "url": "https://github.com/atomicgo/cursor"
+    },
+    {
+      "name": "atomicgo.dev/keyboard",
+      "version": "v0.2.9",
+      "url": "https://github.com/atomicgo/keyboard"
+    },
+    {
+      "name": "gopkg.in/ini.v1",
+      "version": "v1.67.0",
+      "url": "https://github.com/go-ini/ini/tree/v1.67.0"
+    },
+    {
+      "name": "gopkg.in/yaml.v3",
+      "version": "v3.0.1",
+      "url": "https://github.com/go-yaml/yaml/tree/v3.0.1"
+    },
+    {
+      "name": "docker",
+      "version": "v20.10.21",
+      "url": "https://github.com/docker/cli"
+    },
+    {
+      "name": "dockerd",
+      "version": "v20.10.21",
+      "url": "https://github.com/moby/moby"
+    },
+    {
+      "name": "docker-app",
+      "version": "v20.10.21",
+      "url": "https://github.com/docker/app/archive/refs/tags/v0.9.1-beta3.zip"
+    },
+    {
+      "name": "docker-buildx",
+      "version": "v20.10.21",
+      "url": "https://github.com/docker/buildx/archive/refs/tags/v0.9.1.zip"
+    },
+    {
+      "name": "nerdctl",
+      "version": "v0.23.0",
+      "url": "https://github.com/containerd/nerdctl"
+    }
+  ],
+  "filters": [
+    {
+      "name": "os-image"
+    },
+    {
+      "name": "Debian GNU/Linux"
+    },
+    {
+      "name": "security.debian.org/debian-security bullseye-security"
+    },
+    {
+      "name": "deb.debian.org/debian bullseye"
+    },
+    {
+      "name": "deb.debian.org/debian bullseye-updates"
+    },
+    {
+      "name": "flanneld"
+    },
+    {
+      "name": "host-local"
+    },
+    {
+      "name": "win-overlay"
+    },
+    {
+      "name": "win-bridge"
+    }
+  ]
+}

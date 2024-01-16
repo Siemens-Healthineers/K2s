@@ -1,0 +1,36 @@
+# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+#
+# SPDX-License-Identifier: MIT
+
+---
+# Source: kube-prometheus-stack/charts/grafana/templates/ingress.yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: kube-prometheus-stack-plutono
+  namespace: monitoring
+  labels:
+    helm.sh/chart: grafana-6.57.4
+    app.kubernetes.io/name: kube-prometheus-stack-plutono
+    app.kubernetes.io/instance: kube-prometheus-stack
+    app.kubernetes.io/version: "9.5.5"
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+      - k2s-monitoring.local
+    secretName: certs-secret-plutono
+  rules:
+    - host: k2s-monitoring.local
+      http:
+        paths:
+          - backend:
+              service:
+                name: kube-prometheus-stack-plutono
+                port:
+                  number: 443
+            path: /
+            pathType: Prefix

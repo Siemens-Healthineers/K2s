@@ -1,0 +1,18 @@
+go 1.21
+
+use (
+	./pkg/base
+	./pkg/network/bridge
+	./pkg/network/devgon
+	./pkg/network/httpproxy
+	./pkg/network/vfprules
+	./pkg/k2s
+	./pkg/test
+	./pkg/util/cloudinitisobuilder
+	./pkg/util/yaml2json
+	./pkg/util/zap
+	./test
+	./test/e2e/addons/generic/build_image/weather
+	./test/e2e/addons/generic/build_image/weather-win
+	./test/e2e/addons/smb-share/diskwriter
+)

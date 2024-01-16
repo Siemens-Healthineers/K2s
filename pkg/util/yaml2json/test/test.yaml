@@ -1,0 +1,16 @@
+# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+#
+# SPDX-License-Identifier: MIT
+
+apiVersion: v1
+kind: test-file
+metadata:
+  name: conversion-test
+spec:
+  string-val: test-string
+  number-val: 123.45
+  list-val:
+    - prop1: val-1
+      prop2: 1
+    - prop1: val-2
+      prop2: 2

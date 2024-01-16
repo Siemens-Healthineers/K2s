@@ -1,0 +1,104 @@
+# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+#
+# SPDX-License-Identifier: MIT
+
+#Requires -RunAsAdministrator
+
+<#
+.SYNOPSIS
+Enables nginx on the windows machine from where this script is running
+
+.DESCRIPTION
+Nginx is needed to handle HTTP/HTTPS request coming to windows machine from local or external network
+in order to handle such request by kubernetes load balancer/ingress service
+
+.EXAMPLE
+# For k2sSetup
+powershell <installation folder>\addons\exthttpaccess\Enable.ps1
+# For k2sSetup behind proxy
+powershell <installation folder>\addons\exthttpaccess\Enable.ps1 -Proxy http://139.22.102.14:8888
+#>
+Param(
+  [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
+  [switch] $ShowLogs = $false,
+  [parameter(Mandatory = $false, HelpMessage = 'HTTP proxy if available')]
+  [string] $Proxy = '',
+  [parameter(Mandatory = $false, HelpMessage = 'JSON config object to override preceeding parameters')]
+  [pscustomobject] $Config
+)
+
+# load global settings
+&$PSScriptRoot\..\..\smallsetup\common\GlobalVariables.ps1
+# import global functions
+. $PSScriptRoot\..\..\smallsetup\common\GlobalFunctions.ps1
+
+Import-Module "$PSScriptRoot/../../smallsetup/ps-modules/log/log.module.psm1"
+Initialize-Logging -ShowLogs:$ShowLogs
+
+$addonsModule = "$PSScriptRoot\..\Addons.module.psm1"
+
+Import-Module $addonsModule
+
+Write-Log 'Obtaining IPs of active physical net adapters' -Console
+$na = (Get-NetAdapter -Physical | Where-Object { ($_.Status -eq 'Up') -and ($_.Name -ne 'Loopbackk2s') })
+$physicalIps = (Get-NetIPAddress -InterfaceAlias $na.ifAlias -AddressFamily IPv4).IPAddress
+
+if ($physicalIps.Count -lt 1) {
+  Log-ErrorWithThrow 'There is no physical net adapter detected that could be used to enable external HTTP/HTTPS access'
+}
+
+Write-Log 'Creating nginx configuration file' -Console
+$listen_block_443 = ''
+$listen_block_80 = ''
+foreach ($ip in $physicalIps) {
+  $listen_block_443 = "${listen_block_443}        listen ${ip}:443;`r`n"
+  $listen_block_80 = "${listen_block_80}        listen ${ip}:80;`r`n"
+}
+$variablesHash = @{}
+$variablesHash['listen_block_443'] = $listen_block_443;
+$variablesHash['listen_block_80'] = $listen_block_80;
+$variablesHash['master_ip'] = $global:IP_Master;
+
+mkdir -Force "$global:BinPath\nginx" | Out-Null
+$mustachePattern = '({{\s*[\w\-]+\s*(\|\s*[\w]+\s*)*}})|({{{\s*[\w\-]+\s*(\|\s*[\w]+\s*)*}}})'
+Get-Content "$global:KubernetesPath\addons\exthttpaccess\nginx.tmp" | ForEach-Object {
+  $line = $_
+  $matchResult = $line | Select-String $mustachePattern -AllMatches
+  ForEach ($match in $matchResult.Matches.Value) {
+    $variableName = $match -replace '[\s{}]', ''
+    $variableValue = $variablesHash[$variableName]
+    if (!$variablesHash.ContainsKey($variableName)) {
+      Log-ErrorWithThrow "Didn't you forget to specify variable `${variableName}` for your nginx.tmp template?"
+    }
+    $line = $line -replace [regex]::Escape($match), $variableValue
+  }
+  $line
+} | out-file "$global:BinPath\nginx\nginx.conf" -encoding ascii
+
+Write-Log 'Downloading nginx executable' -Console
+if (!(Test-Path "$global:BinPath\nginx\nginx.zip")) {
+  DownloadFile "$global:BinPath\nginx\nginx.zip" https://nginx.org/download/nginx-1.23.2.zip $true -ProxyToUse $Proxy
+}
+
+tar C "$global:BinPath\nginx" -xvf "$global:BinPath\nginx\nginx.zip" --strip-components 1 *.exe 2>&1 | % { "$_" }
+Remove-Item -Force "$global:BinPath\nginx\nginx.zip"
+mkdir -Force "$global:BinPath\nginx\temp" | Out-Null
+mkdir -Force "$global:BinPath\nginx\logs" | Out-Null
+
+Write-Log 'Registering nginx service' -Console
+mkdir -Force "$($global:SystemDriveLetter):\var\log\nginx" | Out-Null
+&$global:NssmInstallDirectory\nssm install ExtHttpAccess-nginx $global:BinPath\nginx\nginx.exe | Write-Log
+&$global:NssmInstallDirectory\nssm set ExtHttpAccess-nginx AppDirectory "$global:BinPath\nginx" | Out-Null
+&$global:NssmInstallDirectory\nssm set ExtHttpAccess-nginx AppParameters -c "`"""$global:BinPath\nginx\nginx.conf`"""" -e "$($global:SystemDriveLetter):\var\log\nginx\nginx_stderr.log" | Out-Null
+&$global:NssmInstallDirectory\nssm set ExtHttpAccess-nginx AppStdout "$($global:SystemDriveLetter):\var\log\nginx\nginx_stdout.log" | Out-Null
+&$global:NssmInstallDirectory\nssm set ExtHttpAccess-nginx AppStderr "$($global:SystemDriveLetter):\var\log\nginx\nginx_stderr.log" | Out-Null
+&$global:NssmInstallDirectory\nssm set ExtHttpAccess-nginx AppStdoutCreationDisposition 4 | Out-Null
+&$global:NssmInstallDirectory\nssm set ExtHttpAccess-nginx AppStderrCreationDisposition 4 | Out-Null
+&$global:NssmInstallDirectory\nssm set ExtHttpAccess-nginx AppRotateFiles 1 | Out-Null
+&$global:NssmInstallDirectory\nssm set ExtHttpAccess-nginx AppRotateOnline 1 | Out-Null
+&$global:NssmInstallDirectory\nssm set ExtHttpAccess-nginx AppRotateSeconds 0 | Out-Null
+&$global:NssmInstallDirectory\nssm set ExtHttpAccess-nginx AppRotateBytes 500000 | Out-Null
+&$global:NssmInstallDirectory\nssm set ExtHttpAccess-nginx Start SERVICE_AUTO_START | Out-Null
+&$global:NssmInstallDirectory\nssm start ExtHttpAccess-nginx | Write-Log
+
+Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'exthttpaccess' })

@@ -1,0 +1,24 @@
+worker_processes 1;
+
+events { worker_connections 1024; }
+
+stream {
+    upstream master {
+        server {{master_ip}}:443;
+    }
+
+    server {
+{{listen_block_443}}
+        proxy_pass master;
+    }
+} 
+
+http {
+    server {
+{{listen_block_80}}
+        
+        location / {
+            proxy_pass http://{{master_ip}}:80;
+        }
+    }
+}

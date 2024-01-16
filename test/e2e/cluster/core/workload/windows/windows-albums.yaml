@@ -1,0 +1,96 @@
+# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+#
+# SPDX-License-Identifier: MIT
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: albums-win1
+spec:
+  selector:
+    matchLabels:
+      app: albums-win1
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: albums-win1
+    spec:
+      containers:
+        - name: albums-win1
+          image: shsk2s.azurecr.io/example.albums-golang-win:v1.0.0
+          ports:
+            - containerPort: 80
+          env:
+            - name: PORT
+              value: "80"
+            - name: RESOURCE
+              value: "albums-win1"
+      nodeSelector:
+        kubernetes.io/os: windows
+      tolerations:
+        - key: "OS"
+          operator: "Equal"
+          value: "Windows"
+          effect: "NoSchedule"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: albums-win1
+spec:
+  selector:
+    app: albums-win1
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+  clusterIP: 172.21.1.200
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: albums-win2
+spec:
+  selector:
+    matchLabels:
+      app: albums-win2
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: albums-win2
+    spec:
+      containers:
+        - name: albums-win2
+          image: shsk2s.azurecr.io/example.albums-golang-win:v1.0.0
+          ports:
+            - containerPort: 80
+          env:
+            - name: PORT
+              value: "80"
+            - name: RESOURCE
+              value: "albums-win2"
+      nodeSelector:
+        kubernetes.io/os: windows
+      tolerations:
+        - key: "OS"
+          operator: "Equal"
+          value: "Windows"
+          effect: "NoSchedule"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: albums-win2
+spec:
+  selector:
+    app: albums-win2
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+  clusterIP: 172.21.1.201
+---
+

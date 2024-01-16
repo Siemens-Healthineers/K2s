@@ -1,0 +1,37 @@
+# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+#
+# SPDX-License-Identifier: MIT
+
+---
+# Source: kube-prometheus-stack/charts/grafana/templates/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kube-prometheus-stack-plutono
+  namespace: monitoring
+  labels:
+    helm.sh/chart: grafana-6.57.4
+    app.kubernetes.io/name: kube-prometheus-stack-plutono
+    app.kubernetes.io/instance: kube-prometheus-stack
+    app.kubernetes.io/version: "9.5.5"
+    app.kubernetes.io/managed-by: Helm
+data:
+  plutono.ini: |
+    [analytics]
+    check_for_updates = true
+    [grafana_net]
+    url = https://grafana.net
+    [log]
+    mode = console
+    [paths]
+    data = /var/lib/plutono/
+    logs = /var/log/plutono
+    plugins = /var/lib/plutono/plugins
+    provisioning = /etc/plutono/provisioning
+    [server]
+    # these settings needed to make it work with Ingress
+    root_url = https://k2s-monitoring.local
+    domain = k2s-monitoring.local
+    protocol = https
+    cert_key = /cert/tls.key
+    cert_file = /cert/tls.crt

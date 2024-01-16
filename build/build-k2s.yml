@@ -1,0 +1,58 @@
+# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+#
+# SPDX-License-Identifier: MIT
+
+# Build k2s Pipeline
+# Responsible for trigerring build for k2s executable when the source is changed.
+
+variables:
+  GOVERSION: "1.21.5"
+
+trigger:
+  batch: true
+  branches:
+    include:
+      - main
+    #- azure-pipelines
+  paths:
+    include:
+      - pkg/base
+      - pkg/k2s
+    exclude:
+      - k2s.exe
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - task: GoTool@0
+    inputs:
+      version: "$(GOVERSION)"
+    displayName: "Select Go Version"
+
+  - checkout: self
+    displayName: Checkout k2sSetup
+    clean: true
+    persistCredentials: true
+
+  - script: |
+      git fetch --all
+      git switch $(basename $(Build.SourceBranch))
+      git config --local user.email $BUILD_REQUESTEDFOREMAIL
+      git config --local user.name "$BUILD_REQUESTEDFOR"
+    displayName: Configure repo
+
+  - script: |
+      pwsh -Command ls
+    displayName: Current working directory
+
+  - script: |
+      pwsh ./smallsetup/common/BuildGoExe.ps1
+      pwsh -Command ls
+    displayName: Build k2s executable
+
+  - script: |
+      git add k2s.exe
+      git commit -m "Updated k2s.exe CLI"
+      git push
+    displayName: Commit k2s changes
