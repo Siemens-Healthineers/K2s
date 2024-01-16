@@ -8,12 +8,12 @@ SPDX-License-Identifier: MIT
 # k2s CLI
 
 
-## Building K2s CLI
+## Building k2s CLI
 
 ````sh
 PS> <install-dir>\smallsetup\common\BuildGoExe.ps1
 ````
-## Features of K2s CLI
+## Features of k2s CLI
 
 ### Basic commands 
 - start

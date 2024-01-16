@@ -84,7 +84,7 @@ See [Pester Code Coverage](https://pester.dev/docs/usage/code-coverage/) for mor
 See [Tags/Labels](./Contributing.md#tagslabels).
 
 ## Logging
-When executing k2s scripts inside Pester test functions, it is recommended to execute these scripts in a separate PowerShell session, so that the called scripts still log to the k2s log file due to the current logging implementation.
+When executing K2s scripts inside Pester test functions, it is recommended to execute these scripts in a separate PowerShell session, so that the called scripts still log to the K2s log files due to the current logging implementation.
 
 ### Dont
 ```PowerShell

@@ -43,7 +43,7 @@ if (((@($callstack.Command) -like 'Start*.ps1').Count -gt 0 -or (@($callstack.Co
     $smallsetup.psobject.properties['vfprules-k2s'].value | ConvertTo-Json | Out-File "$global:KubernetesPath\bin\cni\vfprules.json" -Encoding ascii
 }
 
-$global:ProductName = 'k2s'
+$global:ProductName = 'K2s' # TODO: utilize all over the PS scripts
 $global:ProductVersion = "$(Get-Content -Raw -Path "$global:KubernetesPath\VERSION")"
 $global:VMName = 'KubeMaster'
 $global:ControlPlaneNodeHostname = 'kubemaster'

@@ -8,11 +8,11 @@ import (
 	"context"
 	"fmt"
 	"io/fs"
+	"k2sTest/framework"
+	"k2sTest/framework/k2s"
+	sos "k2sTest/framework/os"
 	"os"
 	"path/filepath"
-	"k2sTest/framework"
-	sos "k2sTest/framework/os"
-	"k2sTest/framework/k2s"
 	"strings"
 	"testing"
 	"time"
@@ -29,7 +29,7 @@ const (
 )
 
 var (
-	suite      *framework.k2sTestSuite
+	suite      *framework.K2sTestSuite
 	linuxOnly  bool
 	exportPath string
 	addons     []k2s.Addon
@@ -78,9 +78,9 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 
 			GinkgoWriter.Printf("Exporting all addons to %s", exportPath)
 			if suite.Proxy() != "" {
-				suite.k2sCli().Run(ctx, "addons", "export", "-d", exportPath, "-o", "-p", suite.Proxy())
+				suite.K2sCli().Run(ctx, "addons", "export", "-d", exportPath, "-o", "-p", suite.Proxy())
 			} else {
-				suite.k2sCli().Run(ctx, "addons", "export", "-d", exportPath, "-o")
+				suite.K2sCli().Run(ctx, "addons", "export", "-d", exportPath, "-o")
 			}
 		})
 
@@ -170,24 +170,24 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 		BeforeAll(func(ctx context.Context) {
 			// clean up all images
 			GinkgoWriter.Println("cleanup images")
-			suite.k2sCli().Run(ctx, "image", "clean")
+			suite.K2sCli().Run(ctx, "image", "clean")
 
 			// clean all downloaded
 			GinkgoWriter.Println("remove all download debian packages")
 			for _, a := range addons {
-				suite.k2sCli().Run(ctx, "system", "ssh", "m", "--", "sudo rm -rf", fmt.Sprintf(".%s", a.Directory.Name))
+				suite.K2sCli().Run(ctx, "system", "ssh", "m", "--", "sudo rm -rf", fmt.Sprintf(".%s", a.Directory.Name))
 			}
 		})
 
 		It("no debian packages available before import", func(ctx context.Context) {
 			for _, a := range addons {
-				exists := suite.k2sCli().Run(ctx, "system", "ssh", "m", "--", fmt.Sprintf("[ -d .%s ] && echo .%s exists", a.Directory.Name, a.Directory.Name))
+				exists := suite.K2sCli().Run(ctx, "system", "ssh", "m", "--", fmt.Sprintf("[ -d .%s ] && echo .%s exists", a.Directory.Name, a.Directory.Name))
 				Expect(exists).To(BeEmpty())
 			}
 		})
 
 		It("no images available before import", func(ctx context.Context) {
-			images := suite.k2sCli().GetImages(ctx).GetContainerImages()
+			images := suite.K2sCli().GetImages(ctx).GetContainerImages()
 			Expect(len(images)).To(Equal(0))
 		})
 	})
@@ -196,7 +196,7 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 		BeforeAll(func(ctx context.Context) {
 			// clean up all images
 			zipFile := filepath.Join(exportPath, "addons.zip")
-			suite.k2sCli().Run(ctx, "addons", "import", "-z", zipFile)
+			suite.K2sCli().Run(ctx, "addons", "import", "-z", zipFile)
 		})
 
 		AfterAll(func(ctx context.Context) {
@@ -208,14 +208,14 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 		It("debian packages available after import", func(ctx context.Context) {
 			for _, a := range addons {
 				for _, v := range a.Spec.OfflineUsage.LinuxResources.DebPackages {
-					exists := suite.k2sCli().Run(ctx, "system", "ssh", "m", "--", fmt.Sprintf("[ -d .%s/%s ] && echo .%s/%s exists", a.Directory.Name, v, a.Directory.Name, v))
+					exists := suite.K2sCli().Run(ctx, "system", "ssh", "m", "--", fmt.Sprintf("[ -d .%s/%s ] && echo .%s/%s exists", a.Directory.Name, v, a.Directory.Name, v))
 					Expect(exists).ToNot(BeEmpty())
 				}
 			}
 		})
 
 		It("images available after import", func(ctx context.Context) {
-			importedImages := suite.k2sCli().GetImages(ctx).GetContainerImages()
+			importedImages := suite.K2sCli().GetImages(ctx).GetContainerImages()
 			for _, a := range addons {
 				images, err := suite.SetupInfo().GetImagesForAddon(a)
 				Expect(err).To(BeNil())
@@ -232,7 +232,7 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 		It("linux curl packagages available after import", func(ctx context.Context) {
 			for _, a := range addons {
 				for _, p := range a.Spec.OfflineUsage.LinuxResources.CurlPackages {
-					exists := suite.k2sCli().Run(ctx, "system", "ssh", "m", "--", fmt.Sprintf("[ -f %s ] && echo %s exists", p.Destination, p.Destination))
+					exists := suite.K2sCli().Run(ctx, "system", "ssh", "m", "--", fmt.Sprintf("[ -f %s ] && echo %s exists", p.Destination, p.Destination))
 					Expect(exists).ToNot(BeEmpty())
 				}
 			}
@@ -251,14 +251,14 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 	Describe("download test containers", func() {
 		It("test containers are available locally", func(ctx context.Context) {
 			for _, image := range linuxTestContainers {
-				suite.k2sCli().Run(ctx, "image", "pull", image)
-				images := suite.k2sCli().GetImages(ctx).GetContainerImages()
+				suite.K2sCli().Run(ctx, "image", "pull", image)
+				images := suite.K2sCli().GetImages(ctx).GetContainerImages()
 				Expect(images).To(ContainElement(image))
 			}
 
 			for _, image := range windowsTestContainers {
-				suite.k2sCli().Run(ctx, "image", "pull", image, "-w")
-				images := suite.k2sCli().GetImages(ctx).GetContainerImages()
+				suite.K2sCli().Run(ctx, "image", "pull", image, "-w")
+				images := suite.K2sCli().GetImages(ctx).GetContainerImages()
 				Expect(images).To(ContainElement(image))
 			}
 		})

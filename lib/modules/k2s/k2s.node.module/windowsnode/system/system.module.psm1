@@ -7,7 +7,7 @@ $configModule = "$PSScriptRoot\..\..\..\k2s.infra.module\config\config.module.ps
 Import-Module $logModule, $pathModule, $configModule
 
 function Addk2sToDefenderExclusion {
-    # Stop Microsoft Defender interference with k2s setup
+    # Stop Microsoft Defender interference with K2s setup
     $kubePath = Get-KubePath
     Add-MpPreference -Exclusionpath "$kubePath" -ErrorAction SilentlyContinue
     Add-MpPreference -ExclusionProcess 'k2s.exe', 'vmmem.exe', 'vmcompute.exe', 'containerd.exe', 'kubelet.exe', 'httpproxy.exe', 'dnsproxy.exe', 'kubeadm.exe', 'kube-proxy.exe', 'bridge.exe', 'containerd-shim-runhcs-v1.exe' -ErrorAction SilentlyContinue
@@ -155,8 +155,7 @@ processors=$MasterVMProcessorCount
 
 function Test-WindowsPrerequisites(
     [parameter(Mandatory = $false, HelpMessage = 'Use WSL2 for hosting control plane VM (Linux)')]
-    [switch] $WSL = $false)
-{
+    [switch] $WSL = $false) {
     Stop-InstallIfDockerDesktopIsRunning
 
     $ReleaseId = (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion').CurrentBuild

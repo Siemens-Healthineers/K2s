@@ -34,29 +34,29 @@ const (
 
 var (
 	example = `
-	# install k2s setup (online/offline - depending on offline files existence)
+	# install K2s setup (online/offline - depending on offline files existence)
 	k2s install
 
-	# install k2s setup overwriting control-plane memory
+	# install K2s setup overwriting control-plane memory
 	k2s install --master-memory 8GB
 
 	# install multi-vm setup without Windows worker node (effectively without Windows VM)
 	k2s install --linux-only
 	Note: same effect as running 'k2s install multivm --linux-only'
 
-	# install k2s setup setting a proxy
+	# install K2s setup setting a proxy
 	k2s install --proxy http://10.11.12.13:5000
 
-	# install k2s setup using a user-defined config file
+	# install K2s setup using a user-defined config file
 	k2s install -c 'c:\temp\my-config.yaml'
 
-	# install k2s setup using a user-defined config file overwriting the control-plane CPU number
+	# install K2s setup using a user-defined config file overwriting the control-plane CPU number
 	k2s install -c 'c:\temp\my-config.yaml' --master-cpus 4
 
-	# install k2s setup deleting the downloaded files for subsequent offline installations
+	# install K2s setup deleting the downloaded files for subsequent offline installations
 	k2s install --delete-files-for-offline-installation
 
-	# install k2s setup forcing an online installation, i.e. downloading files
+	# install K2s setup forcing an online installation, i.e. downloading files
 	k2s install --force-online-installation
 	`
 

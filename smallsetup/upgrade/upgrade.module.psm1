@@ -282,7 +282,7 @@ function Assert-ProductVersion {
     )
 
     # parse both versions
-    Write-Log 'Check k2s version installed'
+    Write-Log 'Check K2s version installed'
     $version1 = $VersionInstalled.Split('.')
     $version2 = $VersionToBeUsed.Split('.')
     if ($version1 -and $version2) {
@@ -379,7 +379,7 @@ function Enable-ClusterIsRunning {
         [switch] $ShowLogs = $false
     )
 
-    Write-Log 'Check k2s cluster is running' -Console
+    Write-Log 'Check K2s cluster is running' -Console
 
     $setupType = Get-SetupType
     $clusterState = Get-RunningState -SetupType $setupType.Name
@@ -392,7 +392,7 @@ function Enable-ClusterIsRunning {
             Write-Log 'Start call of cluster successfully called'
         }
         else {
-            Write-Log 'Error in calling start on k2s !'
+            Write-Log 'Error in calling start on K2s !'
         }
     }
 }
@@ -419,7 +419,7 @@ function Assert-UpgradeOperation {
     $installFolder = Get-ClusterInstalledFolder
     $currentVersion = Get-ClusterCurrentVersion
 
-    Write-Log "Preparing steps to upgrade from k2s version:$currentVersion ($installFolder) to k2s version:$global:ProductVersion ($global:KubernetesPath)" -Console
+    Write-Log "Preparing steps to upgrade from K2s version:$currentVersion ($installFolder) to K2s version:$global:ProductVersion ($global:KubernetesPath)" -Console
 
     # check of version (only lower minor version is supported)
     $validUpgrade = Assert-ProductVersion -VersionInstalled $currentVersion -VersionToBeUsed $global:ProductVersion
@@ -458,7 +458,7 @@ function Invoke-ClusterUninstall {
         Write-Log 'Uninstall of cluster successfully called'
     }
     else {
-        Write-Log 'Error in calling uninstall on k2s !'
+        Write-Log 'Error in calling uninstall on K2s !'
         throw 'Error: Not possible to uninstall old version !'
     }
 }
@@ -503,7 +503,7 @@ function Invoke-ClusterInstall {
         Write-Log 'Install of cluster successfully called'
     }
     else {
-        Write-Log 'Error in calling install on k2s !'
+        Write-Log 'Error in calling install on K2s !'
         # remove temporary executable
         if (Test-Path $texe) {
             Remove-Item $texe -verbose

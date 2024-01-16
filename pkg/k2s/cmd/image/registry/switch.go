@@ -19,7 +19,7 @@ import (
 )
 
 var switchExample = `
-	# Login to configured registry 'myregistry' registry in k2s 
+	# Login to configured registry 'myregistry' registry in K2s 
 	k2s image registry switch myregistry
 `
 

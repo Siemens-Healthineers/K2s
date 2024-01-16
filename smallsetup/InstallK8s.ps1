@@ -124,7 +124,7 @@ Addk2sToDefenderExclusion
 Stop-InstallationIfDockerDesktopIsRunning
 
 if ( $K8sSetup -eq 'SmallSetup' ) {
-    Write-Log 'Installing k2s'
+    Write-Log 'Installing K2s'
 }
 
 $UseDockerBackend = $false
@@ -314,7 +314,7 @@ Write-Log 'starting the join process'
 # set new limits for the windows node for disk pressure
 # kubelet is running now (caused by JoinWindowsHost.ps1), so we stop it. Will be restarted in StartK8s.ps1.
 Stop-Service kubelet
-$kubeletconfig = $global:KubeletConfigDir + "\config.yaml" 
+$kubeletconfig = $global:KubeletConfigDir + '\config.yaml' 
 Write-Log "kubelet config: $kubeletconfig"
 $content = Get-Content $kubeletconfig
 $content | ForEach-Object { $_ -replace 'evictionPressureTransitionPeriod:',
@@ -367,7 +367,7 @@ Start-Sleep 2
 kubectl get nodes -o wide
 
 Write-Log '---------------------------------------------------------------'
-Write-Log "k2s setup finished.   Total duration: $('{0:hh\:mm\:ss}' -f $installStopwatch.Elapsed )"
+Write-Log "K2s setup finished.   Total duration: $('{0:hh\:mm\:ss}' -f $installStopwatch.Elapsed )"
 Write-Log '---------------------------------------------------------------'
 
 Write-RefreshEnvVariables

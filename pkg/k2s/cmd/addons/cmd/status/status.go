@@ -47,7 +47,7 @@ func newStatusCmd(addon addons.Addon) *cobra.Command {
 	statusCmd := &cobra.Command{
 		Use:     addon.Metadata.Name,
 		Short:   fmt.Sprintf("Prints the %s status", addon.Metadata.Name),
-		Example: fmt.Sprintf("\n# Prints the %s status\nk2s addons status %s\n", addon.Metadata.Name, addon.Metadata.Name),
+		Example: fmt.Sprintf("\n# Prints the %s status\nK2s addons status %s\n", addon.Metadata.Name, addon.Metadata.Name),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runStatusCmd(cmd, addon, determinePrinter)
 		},

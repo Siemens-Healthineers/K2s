@@ -14,7 +14,7 @@ import (
 	"k2sTest/framework/k2s"
 )
 
-var suite *framework.k2sTestSuite
+var suite *framework.K2sTestSuite
 var addons []k2s.Addon
 
 func TestStatus(t *testing.T) {
@@ -35,7 +35,7 @@ var _ = Describe("addon ls command", Ordered, func() {
 	var output string
 
 	BeforeAll(func(ctx context.Context) {
-		output = suite.k2sCli().Run(ctx, "addons", "ls")
+		output = suite.K2sCli().Run(ctx, "addons", "ls")
 	})
 
 	It("prints the header", func() {

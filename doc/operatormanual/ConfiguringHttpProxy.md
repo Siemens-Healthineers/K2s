@@ -6,11 +6,11 @@ SPDX-License-Identifier: MIT
 # Configuring HTTPProxy Service
 The HTTPProxy service is a proxy server that can be used to provide external network access to Virtual Machines running in Hyper-V without setting up a NAT network. 
 
-During k2s installation, HTTPProxy is deployed as a Windows Service.
+During K2s installation, HTTPProxy is deployed as a Windows Service.
 
 By default, HTTPProxy service listens for requests on **ALL** available interfaces at port **8181**.
 
-The logs for HTTPProxy service are in directory **<InstallationDrive>\var\log\httpproxy**. For example, if k2s is installed in directory *D:\k2s* then HTTPProxy service logs will be available in directory *D:\var\log\httpproxy*
+The logs for HTTPProxy service are in directory **<InstallationDrive>\var\log\httpproxy**. For example, if K2s is installed in directory *D:\k2s* then HTTPProxy service logs will be available in directory *D:\var\log\httpproxy*
 
 ## Customize HTTPProxy listen port
 HTTPProxy can be started on a different port using the **addr** parameter. For example, if we want to start HTTPProxy service on Windows 10 Hyper-V host at port 30000, then the it can be achieved as follows:

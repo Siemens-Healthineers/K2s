@@ -5,10 +5,10 @@
 
 <#
 .SYNOPSIS
-Dumps k2s system status to target folder.
+Dumps K2s system status to target folder.
 
 .DESCRIPTION
-Collects information about k2s from the respective nodes into log files and config files.
+Collects information about K2s from the respective nodes into log files and config files.
 The log files and config files are later archived into a zip file.
 
 .PARAMETER OpenDumpFolder
@@ -53,7 +53,7 @@ function Invoke-k2sLogCollection(
     [string] $LogDirectory,
     [string] $LogCollectionDirectory
 ) {
-    if(-not (Test-Path $LogCollectionDirectory)) {
+    if (-not (Test-Path $LogCollectionDirectory)) {
         New-Item -ItemType Directory -Path $LogCollectionDirectory -Force | Out-Null
     }
     Copy-Item -Path "$LogDirectory\*" -Destination $LogCollectionDirectory -Exclude '*.zip' -Force -Recurse
@@ -62,7 +62,7 @@ function Invoke-k2sLogCollection(
 function Invoke-k2sConfigCollection(
     [string] $ConfigCollectionDirectory
 ) {
-    if(-not (Test-Path $ConfigCollectionDirectory)) {
+    if (-not (Test-Path $ConfigCollectionDirectory)) {
         New-Item -ItemType Directory -Path $ConfigCollectionDirectory -Force | Out-Null
     }
 
@@ -74,7 +74,7 @@ function Invoke-k2sConfigCollection(
         $k2sConfigFile
     )
 
-    foreach($config in $Configs) {
+    foreach ($config in $Configs) {
         Copy-Item -Path $config -Destination $ConfigCollectionDirectory -Force -ErrorAction SilentlyContinue
     }
 }
@@ -87,8 +87,8 @@ function Invoke-LinuxNodeDetailsCollection(
     Write-Log "Node name: $linuxNodeName"
     if ($isLinuxVMRunning) {
         $linuxNodeDumpFile = Join-Path $NodeDetailsDirectory "$($linuxNodeName)-node.txt"
-        Invoke-CmdOnControlPlaneViaSSHKey "uname -a" -NoLog | Out-String | Write-OutputIntoDumpFile -DumpFilePath $linuxNodeDumpFile -Description "KubeMaster~$ uname -a"
-        Invoke-CmdOnControlPlaneViaSSHKey "cat /proc/version" -NoLog | Out-String | Write-OutputIntoDumpFile -DumpFilePath $linuxNodeDumpFile -Description "KubeMaster~$ cat /proc/version"
+        Invoke-CmdOnControlPlaneViaSSHKey 'uname -a' -NoLog | Out-String | Write-OutputIntoDumpFile -DumpFilePath $linuxNodeDumpFile -Description 'KubeMaster~$ uname -a'
+        Invoke-CmdOnControlPlaneViaSSHKey 'cat /proc/version' -NoLog | Out-String | Write-OutputIntoDumpFile -DumpFilePath $linuxNodeDumpFile -Description 'KubeMaster~$ cat /proc/version'
     }
 }
 
@@ -96,18 +96,19 @@ function Invoke-HostDetailsCollection(
     [string] $NodeDetailsDirectory
 ) {
     $dumpFile = Join-Path $NodeDetailsDirectory "$(hostname)-node.txt"
-    ([System.Environment]::OSVersion).ToString() | Out-String | Write-OutputIntoDumpFile -DumpFilePath $dumpFile -Description "Host OS Version"
-    (Get-Item "HKLM:SOFTWARE\Microsoft\Windows NT\CurrentVersion").GetValue('DisplayVersion') | Out-String | Write-OutputIntoDumpFile -DumpFilePath $dumpFile -Description "Host DisplayVersion"
+    ([System.Environment]::OSVersion).ToString() | Out-String | Write-OutputIntoDumpFile -DumpFilePath $dumpFile -Description 'Host OS Version'
+    (Get-Item 'HKLM:SOFTWARE\Microsoft\Windows NT\CurrentVersion').GetValue('DisplayVersion') | Out-String | Write-OutputIntoDumpFile -DumpFilePath $dumpFile -Description 'Host DisplayVersion'
 
     if (Test-Path 'C:\Windows\System32\systeminfo.exe' -ErrorAction SilentlyContinue) {
-        systeminfo.exe | Out-String | Write-OutputIntoDumpFile -DumpFilePath $dumpFile -Description "systeminfo.exe"
-    } else {
+        systeminfo.exe | Out-String | Write-OutputIntoDumpFile -DumpFilePath $dumpFile -Description 'systeminfo.exe'
+    }
+    else {
         $hotFix = Get-HotFix
         if ($null -ne $hotFix) {
-            $hotFix | Out-String | Write-OutputIntoDumpFile -DumpFilePath $dumpFile -Description "Host HotFix details"
+            $hotFix | Out-String | Write-OutputIntoDumpFile -DumpFilePath $dumpFile -Description 'Host HotFix details'
         }
         else {
-            '<No hotfix>' | Write-OutputIntoDumpFile -DumpFilePath $dumpFile -Description "Host HotFix details"
+            '<No hotfix>' | Write-OutputIntoDumpFile -DumpFilePath $dumpFile -Description 'Host HotFix details'
         }
     }
 
@@ -119,7 +120,8 @@ try {
     $dumpDirName = ''
     if ($ZipFileName -eq '') {
         $dumpDirName = "k2s-dump-$env:COMPUTERNAME-$(Get-Date -Format 'yyyyMMddTHHmmssfff')"
-    } else {
+    }
+    else {
         $dumpDirName = $ZipFileName
     }
 
@@ -140,11 +142,11 @@ try {
     Invoke-LinuxNodeDetailsCollection -NodeDetailsDirectory $hostInfoDir
 
     # Log Collection
-    Write-Log "Gathering logs.." -Console
+    Write-Log 'Gathering logs..' -Console
     Invoke-k2sLogCollection -LogDirectory:$logsDir -LogCollectionDirectory:$tempLogsDir
 
     # Config file collection
-    Write-Log "Gathering config files.." -Console
+    Write-Log 'Gathering config files..' -Console
     Invoke-k2sConfigCollection -ConfigCollectionDirectory:$tempConfigDir
 
     # Network dump
@@ -168,7 +170,8 @@ try {
 
     exit 0
 
-} catch {
+}
+catch {
     $exceptionString = $_ | Out-String
     Write-Log "Error occured: $exceptionString" -Error
     exit -1

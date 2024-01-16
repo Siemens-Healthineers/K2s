@@ -107,7 +107,7 @@ function Start-ClusterUpgrade {
             throw "Upgrade is only available for 'k2s' setup type"
         }
 
-        # retrieve folder where current k2s package is located
+        # retrieve folder where current K2s package is located
         if ($ShowProgress -eq $true) {
             Write-Progress -Activity 'Checking if cluster is installed...' -Id 1 -Status '1/10' -PercentComplete 10 -CurrentOperation 'Cluster availability'
         }
@@ -188,7 +188,7 @@ function Start-ClusterUpgrade {
         Restore-LogFile -LogFile $logFilePathBeforeUninstall
 
         # final message
-        Write-Log "Upgraded successfully to k2s version:$global:ProductVersion ($global:KubernetesPath)" -Console
+        Write-Log "Upgraded successfully to K2s version:$global:ProductVersion ($global:KubernetesPath)" -Console
 
         # info on env variables
         Write-RefreshEnvVariables
@@ -212,9 +212,9 @@ function Start-ClusterUpgrade {
 ###############START OF UPGRADE######################
 
 #NOTE!!
-#Following conversion is necessary to convert existing log file from UTF-16 LE BOM (powershell default) to UTF-8 BOM (Standard k2s log file format)
+#Following conversion is necessary to convert existing log file from UTF-16 LE BOM (powershell default) to UTF-8 BOM (Standard K2s log file format)
 #This should be done before any upgrade operation as any Write-Log will use the new format UTF-8 and will corrupt existing log file.
-#This conversion shall be removed if the existing k2s version 0.7.0
+#This conversion shall be removed if the existing K2s version 0.7.0
 $installFolder = Get-ClusterInstalledFolder
 $driveLetter = $installFolder[0]
 $oldLogFile = "$driveLetter$global:k2sLogFilePart"

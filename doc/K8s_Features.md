@@ -35,5 +35,5 @@ This variant is also the default, it offers very low memory consumption and effi
 - main configuration possibility with central json config file
 - improved overall DNS support and extension possibilities with custom DNS servers
 - overall http(s) extension support for intranet resources or custom locations 
-- optional functionality for the K8s cluster in form of [k2s Addons](../addons/README.md)
+- optional functionality for the K8s cluster in form of [K2s Addons](../addons/README.md)
 

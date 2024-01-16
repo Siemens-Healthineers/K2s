@@ -27,7 +27,7 @@ const (
 	runtimeRegex   = "(cri-o|containerd)"
 )
 
-var suite *framework.k2sTestSuite
+var suite *framework.K2sTestSuite
 var addons []k2s.Addon
 
 func TestStatus(t *testing.T) {
@@ -49,13 +49,13 @@ var _ = Describe("status command", func() {
 		var output string
 
 		BeforeAll(func(ctx context.Context) {
-			suite.k2sCli().Run(ctx, "stop")
+			suite.K2sCli().Run(ctx, "stop")
 
-			output = suite.k2sCli().Run(ctx, "status")
+			output = suite.K2sCli().Run(ctx, "status")
 		})
 
 		It("prints a header", func(ctx context.Context) {
-			Expect(output).To(ContainSubstring("k2s CLUSTER STATUS"))
+			Expect(output).To(ContainSubstring("K2s CLUSTER STATUS"))
 		})
 
 		It("prints setup type", func(ctx context.Context) {
@@ -92,7 +92,7 @@ var _ = Describe("status command", func() {
 
 	When("cluster is running", Ordered, func() {
 		BeforeAll(func(ctx context.Context) {
-			suite.k2sCli().Run(ctx, "start")
+			suite.K2sCli().Run(ctx, "start")
 
 			GinkgoWriter.Println("Waiting for system Pods to be up and running..")
 
@@ -105,11 +105,11 @@ var _ = Describe("status command", func() {
 			var output string
 
 			BeforeAll(func(ctx context.Context) {
-				output = suite.k2sCli().Run(ctx, "status")
+				output = suite.K2sCli().Run(ctx, "status")
 			})
 
 			It("prints a header", func(ctx context.Context) {
-				Expect(output).To(ContainSubstring("k2s CLUSTER STATUS"))
+				Expect(output).To(ContainSubstring("K2s CLUSTER STATUS"))
 			})
 
 			It("prints setup type", func(ctx context.Context) {
@@ -175,11 +175,11 @@ var _ = Describe("status command", func() {
 			var output string
 
 			BeforeAll(func(ctx context.Context) {
-				output = suite.k2sCli().Run(ctx, "status", "-o", "wide")
+				output = suite.K2sCli().Run(ctx, "status", "-o", "wide")
 			})
 
 			It("prints a header", func(ctx context.Context) {
-				Expect(output).To(ContainSubstring("k2s CLUSTER STATUS"))
+				Expect(output).To(ContainSubstring("K2s CLUSTER STATUS"))
 			})
 
 			It("prints setup type", func(ctx context.Context) {
@@ -245,7 +245,7 @@ var _ = Describe("status command", func() {
 			var status load.Status
 
 			BeforeAll(func(ctx context.Context) {
-				output := suite.k2sCli().Run(ctx, "status", "-o", "json")
+				output := suite.K2sCli().Run(ctx, "status", "-o", "json")
 
 				Expect(json.Unmarshal([]byte(output), &status)).To(Succeed())
 			})

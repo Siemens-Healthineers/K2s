@@ -31,7 +31,7 @@ You can download the latest version from the following location:
 - **Extract** the contents of the downloaded package **to** that directory **c:\myFolder**
 
 # Alternative: Clone Git Repository
-To **perform an online installation** (i.e. all 3rd-party binaries get downloaded from the internet during installation) **or** to **contribute to k2s development**, clone the Git repository:
+To **perform an online installation** (i.e. all 3rd-party binaries get downloaded from the internet during installation) **or** to **contribute to K2s development**, clone the Git repository:
 
 ```shell
 > mkdir c:\myFolder; cd c:\myFolder
@@ -52,4 +52,4 @@ The *K2s* CLI tool provides an extensive help for all available commands and par
 C:\myFolder>.\k2s -h
 ```
 
-&larr;&nbsp;[Home](../README.md)&nbsp;&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;&nbsp;[Install k2s](./k2scli/install-uninstall_cmd.md#installing-small-k8s-setup-natively)&nbsp;&rarr;
+&larr;&nbsp;[Home](../README.md)&nbsp;&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;&nbsp;[Install K2s](./k2scli/install-uninstall_cmd.md#installing-small-k8s-setup-natively)&nbsp;&rarr;

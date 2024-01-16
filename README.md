@@ -70,7 +70,7 @@ way to do that.
 - [Upgrading your cluster](doc/K8s_Upgrade.md)
 
 # Addons
-k2s provides a [rich set of addons](./addons/README.md) to be used for testing and rapid prototyping purposes.
+K2s provides a [rich set of addons](./addons/README.md) to be used for testing and rapid prototyping purposes.
 
 # Troubleshoot
 - [Troubleshoot](doc/K8s_Troubleshoot.md)

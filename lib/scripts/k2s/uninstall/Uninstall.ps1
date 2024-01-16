@@ -64,4 +64,4 @@ Clear-WinNode -DeleteFilesForOfflineInstallation $DeleteFilesForOfflineInstallat
 
 Reset-EnvVars
 
-Write-Log 'Uninstalling k2s setup done.'
+Write-Log 'Uninstalling K2s setup done.'

@@ -6,10 +6,10 @@
 
 <#
 .SYNOPSIS
-Dumps k2s system status to target folder
+Dumps K2s system status to target folder
 
 .DESCRIPTION
-Dumps the k2s system status to target folder, gathering log and config files
+Dumps the K2s system status to target folder, gathering log and config files
 
 .PARAMETER OpenDumpFolder
 If set to $true, the dump target folder will be opened in Windows explorer afterwards. Default: $true
@@ -38,11 +38,12 @@ function DumpNodeDetails($DumpTargetDir, $LinuxNodeState, $setupType) {
     #Get host details
     $dumpfile = Join-Path $DumpTargetDir "$(hostname)-node.txt"
     ([System.Environment]::OSVersion).ToString() > $dumpfile
-    (Get-Item "HKLM:SOFTWARE\Microsoft\Windows NT\CurrentVersion").GetValue('DisplayVersion') >> $dumpfile
+    (Get-Item 'HKLM:SOFTWARE\Microsoft\Windows NT\CurrentVersion').GetValue('DisplayVersion') >> $dumpfile
 
     if (Test-Path 'C:\Windows\System32\systeminfo.exe' -ErrorAction SilentlyContinue) {
         systeminfo.exe >> $dumpfile
-    } else {
+    }
+    else {
         $hotFix = Get-HotFix
         if ($null -ne $hotFix) {
             $hotFix >> $dumpfile
@@ -120,12 +121,14 @@ function GetLinuxNodeStatus {
 
     $WSL = Get-WSLFromConfig
     if ($WSL) {
-        if ($(wsl -l --running) -notcontains "KubeMaster (Default)") {
+        if ($(wsl -l --running) -notcontains 'KubeMaster (Default)') {
             Write-Log "Linux node: $global:VMName based on WSL Distro is not running, will proceed with dump of host node.."
-        } else {
+        }
+        else {
             $KubeMasterState = [Microsoft.HyperV.PowerShell.VMState]::Running
         }
-    } else {
+    }
+    else {
 
         $vmStatus = Get-Vm -Name $global:VMName -ErrorAction SilentlyContinue
         if ($vmStatus) {
@@ -170,7 +173,8 @@ try {
     $dumpDirName = ''
     if ($ZipFileName -eq '') {
         $dumpDirName = "k2s-dump-$env:COMPUTERNAME-$(Get-Date -Format 'yyyyMMddTHHmmssfff')"
-    } else {
+    }
+    else {
         $dumpDirName = $ZipFileName
     }
 
@@ -199,7 +203,7 @@ try {
 
     # Config Collection
     Write-Log 'Gathering config files..' -Console
-    Copy-Item -Path $global:JsonConfigFile, $global:SetupJsonFile -Destination $tempConfigDir -Force -ErrorAction SilentlyContinue # Continue if the k2s is not installed and setup.json is not found
+    Copy-Item -Path $global:JsonConfigFile, $global:SetupJsonFile -Destination $tempConfigDir -Force -ErrorAction SilentlyContinue # Continue if K2s is not installed and setup.json is not found
     # Network dump
     & $PSScriptRoot\NetworkDump.ps1 -DumpDir $tempNetworkDir -LinuxMasterState $linuxNodeState
 

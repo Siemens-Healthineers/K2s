@@ -35,10 +35,10 @@ var listCmd = &cobra.Command{
 }
 
 const imagelistCommandExample = `
-  # List all the container images from the k2s cluster
+  # List all the container images from the K2s cluster
   k2s image ls
 
-  # List all the container images including kubernetes container images from the k2s cluster
+  # List all the container images including kubernetes container images from the K2s cluster
   k2s image ls -A
 
   # List all the container images in JSON output format

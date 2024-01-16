@@ -73,7 +73,7 @@ Remove-Item -Force "$($global:SystemDriveLetter):\var\log\kubelet\*.*" -Recurse 
 Remove-Item -Force "$($global:SystemDriveLetter):\var\log\kubeproxy\*.*" -Recurse -Confirm:$False -ErrorAction SilentlyContinue
 
 # remove firewall rules
-Remove-NetFirewallRule -Group "k2s" -ErrorAction SilentlyContinue
+Remove-NetFirewallRule -Group 'k2s' -ErrorAction SilentlyContinue
 
 Write-Log 'Uninstall containerd service if existent'
 &"$global:KubernetesPath\smallsetup\windowsnode\UninstallContainerd.ps1"
@@ -148,4 +148,4 @@ if (Test-Path $global:NssmInstallDirectoryLegacy) {
 
 Reset-EnvVars
 
-Write-Log 'Uninstalling k2s setup done.'
+Write-Log 'Uninstalling K2s setup done.'

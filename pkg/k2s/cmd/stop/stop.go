@@ -20,7 +20,7 @@ import (
 
 var Stopk8sCmd = &cobra.Command{
 	Use:   "stop",
-	Short: "Stops k2s cluster on the host machine",
+	Short: "Stops K2s cluster on the host machine",
 	RunE:  stopk8s,
 }
 
@@ -31,7 +31,7 @@ func init() {
 }
 
 func stopk8s(ccmd *cobra.Command, args []string) error {
-	pterm.Printfln("🛑 Stopping k2s cluster")
+	pterm.Printfln("🛑 Stopping K2s cluster")
 
 	stopCmd, err := buildStopCmd(ccmd)
 	if err != nil {
@@ -81,7 +81,7 @@ func buildStopCmd(ccmd *cobra.Command) (string, error) {
 	case cd.SetupTypeBuildOnlyEnv:
 		return "", errors.New("there is no cluster to stop in build-only setup mode ;-). Aborting")
 	default:
-		return "", errors.New("could not determine the setup type, aborting. If you are sure you have a k2s setup installed, call the correct stop script directly")
+		return "", errors.New("could not determine the setup type, aborting. If you are sure you have a K2s setup installed, call the correct stop script directly")
 	}
 
 	if outputFlag {

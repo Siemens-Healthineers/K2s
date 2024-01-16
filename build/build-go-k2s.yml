@@ -2,8 +2,8 @@
 #
 # SPDX-License-Identifier: MIT
 
-# Builds all k2s executables
-# Responsible for trigerring build for all k2s executables [bridge.exe, cloudinitisobuilder.exe, devgon.exe, httpproxy.exe, k2s.exe, vfprules.exe, zap.exe]
+# Builds all K2s executables
+# Responsible for trigerring build for all K2s executables [bridge.exe, cloudinitisobuilder.exe, devgon.exe, httpproxy.exe, k2s.exe, vfprules.exe, zap.exe]
 
 variables:
   GOVERSION: "1.21.5"

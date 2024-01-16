@@ -18,7 +18,7 @@ Executes all configured PowerShell and Go-based tests sequentially
 .PARAMETER ExcludeTags
     List of tags to exclude from test runs; test matches if none of the exclude tags match
 .NOTES
-    Requires a running k2s K8s cluster if acceptance tests are about to be executed
+    Requires a running K2s K8s cluster if acceptance tests are about to be executed
 .EXAMPLE
     $> .\test\execute_all_tests.ps1
     Execute all tests
@@ -33,7 +33,7 @@ Executes all configured PowerShell and Go-based tests sequentially
     Execute only tests marked as acceptance tests for addons
 .EXAMPLE
     $> .\test\execute_all_tests.ps1 -ExcludeTags "setup-required"
-    Exclude tests marked as requiring an installed k2s
+    Exclude tests marked as requiring an installed K2s
 #>
 [CmdletBinding()]
 param (

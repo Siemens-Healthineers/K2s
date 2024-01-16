@@ -132,7 +132,7 @@ k delete pvc  <volumaneName> -n <namespace> --f
 k delete pv  <volumaneName> -n <namespace>
 ```
 
-In k2s , we should reapply the volumes:
+In K2s, we should reapply the volumes:
 
 ```
 ka -f smallsetup\10-smallsetup.yaml
@@ -243,7 +243,7 @@ OU = RA106/02DE/02DE003/_Central/Computers/StdW10x64C
 
 # *k2s.exe* missing / *k2s* command not found
 ## Problem
-If the *k2s.exe* is missing in the install folder, most likely the *Windows Virus & thread protection* identified it as a thread and moved it to quarantine. Despite all exclusion lists this file was added to by the k2s team, this can happen from time to time.
+If the *k2s.exe* is missing in the install folder, most likely the *Windows Virus & thread protection* identified it as a thread and moved it to quarantine. Despite all exclusion lists this file was added to by the K2s team, this can happen from time to time.
 ## Solution
 - If the *Windows Virus & thread protection* asks for the appropriate action, allow the *k2s.exe* file on your system
 - To restore the file, go to *Windows Virus & thread protection* -> *Protection history* and restore *k2s.exe*. The result should look similar to this:
@@ -253,7 +253,7 @@ If the *k2s.exe* is missing in the install folder, most likely the *Windows Viru
 # Unable to run Windows container on a harderned machine (AppLocker Rules)
 ## Problem
 
-If the k2s cluster is installed on a machine where security hardening is applied using AppLocker rules, then running windows containers will be blocked. If you describe the windows container pod then you might see the following error, where the application is blocked by group policy.
+If the K2s cluster is installed on a machine where security hardening is applied using AppLocker rules, then running windows containers will be blocked. If you describe the windows container pod then you might see the following error, where the application is blocked by group policy.
 
 ```
 Warning  FailedCreatePodSandBox  0s    kubelet            Failed to create pod sandbox: rpc error: code = Unknown desc = failed to start sandbox container task "459fe28ca0da5a154964c80e1b5d74de3abefc83cf7ad77418a5d6cd9a7e5605": hcs::System::CreateProcess 459fe28ca0da5a154964c80e1b5d74de3abefc83cf7ad77418a5d6cd9a7e5605: This program is blocked by group policy. For more information, contact your system administrator.: unknown

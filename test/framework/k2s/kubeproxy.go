@@ -11,18 +11,18 @@ import (
 )
 
 type KubeProxyRestarter struct {
-	setupInfo         SetupInfo
-	cliExecutor       CliExecutor
-	k2sCliRunner k2sCliRunner
-	nssmPath          string
+	setupInfo    SetupInfo
+	cliExecutor  CliExecutor
+	K2sCliRunner K2sCliRunner
+	nssmPath     string
 }
 
-func NewKubeProxyRestarter(setupInfo SetupInfo, cliExecutor CliExecutor, k2sCliRunner k2sCliRunner) *KubeProxyRestarter {
+func NewKubeProxyRestarter(setupInfo SetupInfo, cliExecutor CliExecutor, K2sCliRunner K2sCliRunner) *KubeProxyRestarter {
 	return &KubeProxyRestarter{
-		setupInfo:         setupInfo,
-		cliExecutor:       cliExecutor,
-		k2sCliRunner: k2sCliRunner,
-		nssmPath:          filepath.Join(setupInfo.RootDir, "bin", "nssm.exe"),
+		setupInfo:    setupInfo,
+		cliExecutor:  cliExecutor,
+		K2sCliRunner: K2sCliRunner,
+		nssmPath:     filepath.Join(setupInfo.RootDir, "bin", "nssm.exe"),
 	}
 }
 
@@ -38,7 +38,7 @@ func (r *KubeProxyRestarter) restart(ctx context.Context) {
 	GinkgoWriter.Println("Restarting kubeproxy to clean all caches..")
 
 	if r.setupInfo.SetupType.Name == "MultiVMK8s" {
-		r.k2sCliRunner.Run(ctx, "system", "ssh", "w", "--", "nssm", "restart", "kubeproxy")
+		r.K2sCliRunner.Run(ctx, "system", "ssh", "w", "--", "nssm", "restart", "kubeproxy")
 	} else {
 		r.cliExecutor.ExecOrFail(ctx, r.nssmPath, "restart", "kubeproxy")
 	}

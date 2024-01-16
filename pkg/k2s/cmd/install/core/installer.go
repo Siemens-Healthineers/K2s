@@ -91,7 +91,7 @@ func (i *installer) Install(kind ic.Kind, flags *pflag.FlagSet, buildCmdFunc fun
 		psVersion = utils.PowerShellV7
 	}
 
-	i.printer.Printfln("🤖 Installing k2s '%s' %s in '%s' on %s using PowerShell %s", kind, i.getVersionFunc(), i.getInstallDirFunc(), i.getPlatformFunc(), psVersion)
+	i.printer.Printfln("🤖 Installing K2s '%s' %s in '%s' on %s using PowerShell %s", kind, i.getVersionFunc(), i.getInstallDirFunc(), i.getPlatformFunc(), psVersion)
 
 	duration, err := i.executor.ExecutePowershellScript(cmd, psVersion)
 	if err != nil {

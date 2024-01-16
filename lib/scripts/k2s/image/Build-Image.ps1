@@ -7,7 +7,7 @@
 Build a new image on the control plane VM or on Windows host
 
 .DESCRIPTION
-Builds a Linux container image or a Windows container image in the k2s setup.
+Builds a Linux container image or a Windows container image in the K2s setup.
 
 .PARAMETER InputFolder
 Directory with the Dockerfile
@@ -260,7 +260,7 @@ $GO_VERSION = '1.19'
 # Linux Precompile: build inside VM images
 if (!$Windows -and $PreCompile) {
     #Set-PSDebug -Trace 1
-    Write-Log "Pre-Compilation: Build inside control plane VM"
+    Write-Log 'Pre-Compilation: Build inside control plane VM'
 
     if ($GitConfigWithSecrets -ne '') {
         Write-Log 'Pre-Compilation: creating ~/.gitconfig in VM'
@@ -277,7 +277,7 @@ if (!$Windows -and $PreCompile) {
         Write-Log 'Pre-Compilation: Downloading needed binaries (go, gcc)...'
         Invoke-CmdOnControlPlaneViaSSHKey "echo 'debconf debconf/frontend select Noninteractive' | sudo debconf-set-selections"
         Invoke-CmdOnControlPlaneViaSSHKey "sudo apt-get update;DEBIAN_FRONTEND=noninteractive sudo apt-get install -q --yes golang-$GO_VERSION gcc git musl musl-tools;" -Retries 3 -Timeout 2
-        Invoke-CmdOnControlPlaneViaSSHKey "DEBIAN_FRONTEND=noninteractive sudo apt-get install -q --yes upx-ucl" -Retries 3 -Timeout 2
+        Invoke-CmdOnControlPlaneViaSSHKey 'DEBIAN_FRONTEND=noninteractive sudo apt-get install -q --yes upx-ucl' -Retries 3 -Timeout 2
         # Invoke-CmdOnControlPlaneViaSSHKey "sudo apt-get update >/dev/null ; sudo apt-get install -q --yes golang-$GO_VERSION gcc git musl musl-tools; sudo apt-get install -q --yes upx-ucl"
         if ($LASTEXITCODE -ne 0) {
             throw "'apt install' returned code $LASTEXITCODE. Aborting. In case of timeouts do a retry."
@@ -372,7 +372,7 @@ if ($Windows) {
     New-WindowsImage -InputFolder $InputFolder -Dockerfile 'Dockerfile.ForBuild.tmp' -ImageName $ImageName -ImageTag $ImageTag -NoCacheFlag $NoCacheFlag -BuildArgsString $buildArgsString
 }
 else {
-    Write-Log "Building container image using Buildah inside control plane VM" -Console
+    Write-Log 'Building container image using Buildah inside control plane VM' -Console
     Write-Log "with gitconfig and npmrc: $GitConfigWithSecretsArg $NpmSecretsArg"
     $buildContextFolder = $(Split-Path -Leaf $InputFolder)
     $buildahBudCommand = "cd ~/tmp/docker-build; sudo buildah bud -f Dockerfile.ForBuild.tmp --force-rm --no-cache $GitConfigWithSecretsArg $NpmSecretsArg -t ${ImageName}:$ImageTag $buildContextFolder $RemoveColorSequences 2>&1"
@@ -403,7 +403,8 @@ if ($Push) {
     $registry = Get-ConfiguredRegistryFromImageName -ImageName $ImageName
     if ($null -ne $registry) {
         &"$PSScriptRoot\registry\Switch-Registry.ps1" -RegistryName $registry
-    } else {
+    }
+    else {
         throw "Registry $registry is not configured! Please add it: k2s image registry add $registry"
     }
 
@@ -429,7 +430,7 @@ if ($Push) {
 
 # Cleanup inside VM
 if (!$Keep -and !$Windows) {
-    Write-Log "Cleaning up temporary disk space in control plane VM" -Console
+    Write-Log 'Cleaning up temporary disk space in control plane VM' -Console
     Invoke-CmdOnControlPlaneViaSSHKey 'find ~/tmp/docker-build -exec chmod a+w {} \; ; rm -rf ~/tmp/docker-build'
 }
 

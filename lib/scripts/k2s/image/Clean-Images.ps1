@@ -6,10 +6,10 @@
 
 <#
 .SYNOPSIS
-Remove all container images in k2s
+Remove all container images in K2s
 
 .DESCRIPTION
-Remove all container images in k2s
+Remove all container images in K2s
 #>
 
 param (
@@ -29,7 +29,7 @@ $allContainerImages = Get-ContainerImagesInk2s -IncludeK8sImages $false
 $deletedImages = @()
 
 if ($allContainerImages.Count -eq 0) {
-    Write-Log "Nothing to delete. "
+    Write-Log 'Nothing to delete. '
 }
 
 foreach ($containerImage in $allContainerImages) {
@@ -40,8 +40,9 @@ foreach ($containerImage in $allContainerImages) {
             $deletedImages += $imageToBeDeleted.ImageId
         }
         Show-ImageDeletionStatus -ContainerImage $containerImage -ErrorMessage $errorString
-    } else {
-        $image = $containerImage.Repository + ":" + $containerImage.Tag
+    }
+    else {
+        $image = $containerImage.Repository + ':' + $containerImage.Tag
         $imageId = $containerImage.ImageId
         $message = "No Action required for $image as Image Id $imageId is already deleted."
         Write-Log $message

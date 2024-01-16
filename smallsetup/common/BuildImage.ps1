@@ -7,7 +7,7 @@
 Build a new Docker image on the Linux VM or on Windows host
 
 .DESCRIPTION
-Builds a Linux docker image or a Windows container image in the k2s setup on the Linux VM.
+Builds a Linux docker image or a Windows container image in the K2s setup on the Linux VM.
 Optionally pushes the created image to the repository (only with -Push)
 
 With -Push, the image will be pushed even if there is already an image with same tag
@@ -423,7 +423,7 @@ if (!$Windows -and $PreCompile) {
         Write-Log 'Pre-Compilation: Downloading needed binaries (go, gcc)...'
         ExecCmdMaster "echo 'debconf debconf/frontend select Noninteractive' | sudo debconf-set-selections"
         ExecCmdMaster "sudo apt-get update;DEBIAN_FRONTEND=noninteractive sudo apt-get install -q --yes golang-$GO_Ver gcc git musl musl-tools;" -Retries 3 -Timeout 2
-        ExecCmdMaster "DEBIAN_FRONTEND=noninteractive sudo apt-get install -q --yes upx-ucl" -Retries 3 -Timeout 2
+        ExecCmdMaster 'DEBIAN_FRONTEND=noninteractive sudo apt-get install -q --yes upx-ucl' -Retries 3 -Timeout 2
         # ExecCmdMaster "sudo apt-get update >/dev/null ; sudo apt-get install -q --yes golang-$GO_Ver gcc git musl musl-tools; sudo apt-get install -q --yes upx-ucl"
         if ($LASTEXITCODE -ne 0) {
             throw "'apt install' returned code $LASTEXITCODE. Aborting. In case of timeouts do a retry."

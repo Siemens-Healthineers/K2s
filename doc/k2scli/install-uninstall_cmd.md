@@ -41,9 +41,9 @@ SPDX-License-Identifier: MIT
   <span style="color:orange;font-size:medium">**⚠**</span> For installing in *WSL* mode, add the **Microsoft-Windows-Subsystem-Linux** feature to the prior command.
 
 ## Introduction
-The K2s setup provides a variety of options, depending on the way k2s was acquired (online/offline, see [Get k2s](../K8s_Get-k2s.md)) and the desired setup type (see [k2s Variants](../../README.md)).
+The K2s setup provides a variety of options, depending on the way K2s was acquired (online/offline, see [Get K2s](../K8s_Get-k2s.md)) and the desired setup type (see [K2s Variants](../../README.md)).
 
-The *K2s* CLI tool provides an extensive help for all available commands and parameters/flags:
+The *k2s* CLI tool provides an extensive help for all available commands and parameters/flags:
 ```
 <installation folder>\k2s.exe -h
 ```
@@ -53,7 +53,7 @@ To specifically check the install options, run:
 <installation folder>\k2s.exe install -h
 ```
 
- <span style="color:orange;font-size:medium">**⚠**</span> By default, the installation assumes 6 CPU cores to be available on the host system. If less cores are available, reduce the number of virtual cores used by k2s according to the actual amount, e.g. when 4 cores are available, assign max. 4 virtual cores to k2s:
+ <span style="color:orange;font-size:medium">**⚠**</span> By default, the installation assumes 6 CPU cores to be available on the host system. If less cores are available, reduce the number of virtual cores used by K2s according to the actual amount, e.g. when 4 cores are available, assign max. 4 virtual cores to K2s:
   ```shell 
   <installation folder>\k2s.exe install --master-cpus 4
   ```
@@ -132,4 +132,4 @@ clusterIP: 172.21.1.x
 ```
 The option `-d` makes possible to delete the files needed for an offline installation on the disk drive, otherwise they are kept.
 
-&larr;&nbsp;[Get k2s](../K8s_Get-k2s.md)&nbsp;&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;&nbsp;[Start/Stop k2s](./start-stop_cmd.md)&nbsp;&rarr;
+&larr;&nbsp;[Get K2s](../K8s_Get-k2s.md)&nbsp;&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;&nbsp;[Start/Stop K2s](./start-stop_cmd.md)&nbsp;&rarr;

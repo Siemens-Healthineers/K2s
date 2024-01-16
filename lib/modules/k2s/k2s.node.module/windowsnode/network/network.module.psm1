@@ -47,7 +47,7 @@ function New-ExternalSwitch {
     }
     else {
         Write-Log 'FAILURE: no NIC found which is appropriate !'
-        throw 'Fatal: no network interface found which works for k2s Setup!'
+        throw 'Fatal: no network interface found which works for K2s Setup!'
     }
 
     # get DNS server from NIC

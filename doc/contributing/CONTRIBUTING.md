@@ -98,7 +98,7 @@ To build all *Go* executables:
 PS> C:\k\bin\bgo -BuildAll 1
 ```
 
-If *k2s* is installed then just simply execute command without full path.
+If *K2s* is installed then just simply execute command without full path.
 ```PowerShell
 PS> bgo -ProjectDir "C:\k\pkg\network\httpproxy\" -ExeOutDir "c:\k\bin"
 PS> bgo -BuildAll 1
@@ -113,7 +113,7 @@ When you have made changes either to PowerShell scripts or Go projects, you can 
 ```PowerShell
 PS> c:\k\test\execute_all_tests.ps1
 ```
-<span style="color:orange;font-size:medium">**⚠** </span> Acceptance/e2e/system tests might require a running *k2s* cluster. See also [*k2s* Acceptance Testing](../../test/README.md).
+<span style="color:orange;font-size:medium">**⚠** </span> Acceptance/e2e/system tests might require a running *K2s* cluster. See also [*K2s* Acceptance Testing](../../test/README.md).
 
 To filter tests for e.g. executing only unit tests, use the **-Tags** and **-ExcludeTags** parameters:
 ```PowerShell
@@ -155,19 +155,19 @@ PS> ginkgo --label-filter="unit" <dir-with-test-suites>
 ```
 
 #### Commonly Used Tags
-| Name                  | Description                                                                                                                     |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| **acceptance**        | end-to-end test/executable spec in production-like scenario                                                                     |
-| **integration**       | test requiring certain external resources/systems to be reachable or additional software to be installed                        |
-| **unit**              | test can be executed in isolation, all dependencies to the environment are mocked                                               |
-| **addon**             | test is addon-related and does not test *k2s* core functionality                                                           |
-| **internet-required** | test requires internet connectivity, e.g. for package downloads                                                                 |
-| **invasive**          | test changes either state of the host system or *k2s* installation                                                         |
-| **read-only**         | test does not change state of the host system or *k2s* installation; optional, since read-only tests should be the default |
-| **setup-required**    | test requires *k2s* to be installed; currently, the tests determine the setup type in the test runs                        |
+| Name                  | Description                                                                                                                |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| **acceptance**        | end-to-end test/executable spec in production-like scenario                                                                |
+| **integration**       | test requiring certain external resources/systems to be reachable or additional software to be installed                   |
+| **unit**              | test can be executed in isolation, all dependencies to the environment are mocked                                          |
+| **addon**             | test is addon-related and does not test *K2s* core functionality                                                           |
+| **internet-required** | test requires internet connectivity, e.g. for package downloads                                                            |
+| **invasive**          | test changes either state of the host system or *K2s* installation                                                         |
+| **read-only**         | test does not change state of the host system or *K2s* installation; optional, since read-only tests should be the default |
+| **setup-required**    | test requires *K2s* to be installed; currently, the tests determine the setup type in the test runs                        |
 
 ### Log Output Redirection
-For diagnostic logging, *k2s* uses the [klog](https://pkg.go.dev/k8s.io/klog/v2#section-readme) module. To redirect the log output to *Ginkgo*, set the *Ginkgo* logger as follows:
+For diagnostic logging, *k2s* CLI uses the [klog](https://pkg.go.dev/k8s.io/klog/v2#section-readme) module. To redirect the log output to *Ginkgo*, set the *Ginkgo* logger as follows:
 
 ```go
 var _ = BeforeSuite(func() {

@@ -21,7 +21,7 @@ import (
 
 var Startk8sCmd = &cobra.Command{
 	Use:   "start",
-	Short: "Starts k2s cluster on the host machine",
+	Short: "Starts K2s cluster on the host machine",
 	RunE:  startk8s,
 }
 
@@ -32,7 +32,7 @@ func init() {
 }
 
 func startk8s(ccmd *cobra.Command, args []string) error {
-	pterm.Printfln("🤖 Starting k2s on %s", utils.Platform())
+	pterm.Printfln("🤖 Starting K2s on %s", utils.Platform())
 
 	startCmd, err := buildStartCmd(ccmd)
 	if err != nil {
@@ -82,7 +82,7 @@ func buildStartCmd(ccmd *cobra.Command) (string, error) {
 	case cd.SetupTypeBuildOnlyEnv:
 		return "", errors.New("there is no cluster to start in build-only setup mode ;-). Aborting")
 	default:
-		return "", errors.New("could not determine the setup type, aborting. If you are sure you have a k2s setup installed, call the correct start script directly")
+		return "", errors.New("could not determine the setup type, aborting. If you are sure you have a K2s setup installed, call the correct start script directly")
 	}
 
 	return cmd, nil
