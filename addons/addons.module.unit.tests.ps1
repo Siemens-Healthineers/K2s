@@ -840,7 +840,7 @@ Describe 'Get-AddonStatus' -Tag 'unit', 'addon' {
     Context 'setup is not installed' {
         BeforeAll {
             Mock -ModuleName $moduleName Test-Path { return $true } 
-            Mock -ModuleName $moduleName Get-SetupType { return @{ValidationError = 'not installed' } } 
+            Mock -ModuleName $moduleName Get-SetupInfo { return @{ValidationError = 'not installed' } } 
         }
 
         It 'returns the addon name' {
@@ -866,7 +866,7 @@ Describe 'Get-AddonStatus' -Tag 'unit', 'addon' {
         BeforeAll {
             $setupTypeName = 'test-setup'
             Mock -ModuleName $moduleName Test-Path { return $true } 
-            Mock -ModuleName $moduleName Get-SetupType { return @{Name = $setupTypeName } } 
+            Mock -ModuleName $moduleName Get-SetupInfo { return @{Name = $setupTypeName } } 
             Mock -ModuleName $moduleName Get-RunningState { return @{IsRunning = $false } } -ParameterFilter { $SetupType -eq $setupTypeName }
         }
 
@@ -894,7 +894,7 @@ Describe 'Get-AddonStatus' -Tag 'unit', 'addon' {
             $addonName = 'test-addon'
             $setupTypeName = 'test-setup'
             Mock -ModuleName $moduleName Test-Path { return $true } 
-            Mock -ModuleName $moduleName Get-SetupType { return @{Name = $setupTypeName } } 
+            Mock -ModuleName $moduleName Get-SetupInfo { return @{Name = $setupTypeName } } 
             Mock -ModuleName $moduleName Get-RunningState { return @{IsRunning = $true } } -ParameterFilter { $SetupType -eq $setupTypeName }
             Mock -ModuleName $moduleName Test-IsAddonEnabled { return $false } -ParameterFilter { $Name -eq $addonName }
         }
@@ -923,7 +923,7 @@ Describe 'Get-AddonStatus' -Tag 'unit', 'addon' {
             $setupTypeName = 'test-setup'
             $props = @{Name = 'p1' }, @{Name = 'p2' }
             Mock -ModuleName $moduleName Test-Path { return $true } 
-            Mock -ModuleName $moduleName Get-SetupType { return @{Name = $setupTypeName } } 
+            Mock -ModuleName $moduleName Get-SetupInfo { return @{Name = $setupTypeName } } 
             Mock -ModuleName $moduleName Get-RunningState { return @{IsRunning = $true } } -ParameterFilter { $SetupType -eq $setupTypeName }
             Mock -ModuleName $moduleName Test-IsAddonEnabled { return $true } -ParameterFilter { $Name -eq $addonName }
             Mock -ModuleName $moduleName Invoke-Script { return $props } -ParameterFilter { $FilePath -match "$addonDirectory\\Get-Status.ps1" }

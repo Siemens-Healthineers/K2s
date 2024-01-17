@@ -53,8 +53,8 @@ Import-Module "$PSScriptRoot/../../smallsetup/ps-modules/log/log.module.psm1"
 Initialize-Logging -ShowLogs:$ShowLogs
 
 $addonsModule = "$PSScriptRoot\..\Addons.module.psm1"
-$setupTypeModule = "$PSScriptRoot\..\..\smallsetup\status\SetupType.module.psm1"
-Import-Module $addonsModule, $setupTypeModule
+$setupInfoModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.cluster.module\setupinfo\setupinfo.module.psm1"
+Import-Module $addonsModule, $setupInfoModule
 
 
 Write-Log 'Checking cluster status' -Console
@@ -160,12 +160,12 @@ if ( $K8sSetup -eq 'SmallSetup' ) {
     # NOTE: DO NOT USE `ExecCmdMaster` here to get the return value.
     ssh.exe -n -o StrictHostKeyChecking=no -i $global:LinuxVMKey $global:Remote_Master '[ -f /usr/local/bin/virtctl ]'
     if (!$?) {
-        $setupType = Get-SetupType
-        if ($setupType.ValidationError) {
-            throw $setupType.ValidationError
+        $setupInfo = Get-SetupInfo
+        if ($setupInfo.ValidationError) {
+            throw $setupInfo.ValidationError
         }
 
-        if ($setupType.Name -ne $global:SetupType_MultiVMK8s) {
+        if ($setupInfo.Name -ne $global:SetupType_MultiVMK8s) {
             ExecCmdMaster "sudo curl --retry 3 --retry-connrefused --proxy $IMPLICITPROXY -sL -o /usr/local/bin/virtctl https://github.com/kubevirt/kubevirt/releases/download/$VERSION_VCTRL/virtctl-$VERSION_VCTRL-linux-amd64 2>&1"
         }
         else {

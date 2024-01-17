@@ -30,9 +30,9 @@ Import-Module "$PSScriptRoot/../../smallsetup/ps-modules/log/log.module.psm1"
 Initialize-Logging -ShowLogs:$ShowLogs
 
 $addonsModule = "$PSScriptRoot\..\Addons.module.psm1"
-$setupTypeModule = "$PSScriptRoot\..\..\smallsetup\status\SetupType.module.psm1"
+$setupInfoModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.cluster.module\setupinfo\setupinfo.module.psm1"
 $registryFunctionsModule = "$PSScriptRoot\..\..\smallsetup\helpers\RegistryFunctions.module.psm1"
-Import-Module $addonsModule, $registryFunctionsModule, $setupTypeModule -DisableNameChecking
+Import-Module $addonsModule, $registryFunctionsModule, $setupInfoModule -DisableNameChecking
 
 Write-Log 'Checking Nvidia driver installation' -Console
 
@@ -155,12 +155,12 @@ else {
 # Install Nvidia container toolkit
 Write-Log 'Installing Nvidia Container Toolkit' -Console
 if (!(Get-DebianPackageAvailableOffline -addon 'gpu-node' -package 'nvidia-container-toolkit')) {
-    $setupType = Get-SetupType
-    if ($setupType.ValidationError) {
-        throw $setupType.ValidationError
+    $setupInfo = Get-SetupInfo
+    if ($setupInfo.ValidationError) {
+        throw $setupInfo.ValidationError
     }
 
-    if ($setupType.Name -ne $global:SetupType_MultiVMK8s) {
+    if ($setupInfo.Name -ne $global:SetupType_MultiVMK8s) {
         ExecCmdMaster "distribution=`$(. /etc/os-release;echo `$ID`$VERSION_ID) && curl --retry 3 --retry-connrefused -fsSL https://nvidia.github.io/libnvidia-container/gpgkey -x $global:HttpProxy | sudo gpg --dearmor --batch --yes -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg && curl --retry 3 --retry-connrefused -s -L https://nvidia.github.io/libnvidia-container/`$distribution/libnvidia-container.list -x $global:HttpProxy | sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list"
     }
     else {

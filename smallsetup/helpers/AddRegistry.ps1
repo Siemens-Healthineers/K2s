@@ -23,11 +23,11 @@ Param (
 . $PSScriptRoot\..\common\GlobalFunctions.ps1
 
 $registryFunctionsModule = "$PSScriptRoot\RegistryFunctions.module.psm1"
-$setupTypeModule = "$PSScriptRoot\..\status\SetupType.module.psm1"
+$setupInfoModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.cluster.module\setupinfo\setupinfo.module.psm1"
 $runningStateModule = "$PSScriptRoot\..\status\RunningState.module.psm1"
 $imageFunctionsModule = "$PSScriptRoot\ImageFunctions.module.psm1"
 $logModule = "$PSScriptRoot\..\ps-modules\log\log.module.psm1"
-Import-Module $registryFunctionsModule, $setupTypeModule, $runningStateModule, $imageFunctionsModule -DisableNameChecking
+Import-Module $registryFunctionsModule, $setupInfoModule, $runningStateModule, $imageFunctionsModule -DisableNameChecking
 
 if (-not (Get-Module -Name $logModule -ListAvailable)) { Import-Module $logModule; Initialize-Logging -ShowLogs:$ShowLogs }
 
@@ -136,17 +136,18 @@ if (!$?) {
     throw 'Login to private registry not possible! Please check credentials!'
 }
 
-$setupType = Get-SetupType
+$setupInfo = Get-SetupInfo
 
 $authJson = ExecCmdMaster 'sudo cat /root/.config/containers/auth.json' -NoLog | Out-String
 
 # Add dockerd parameters and restart docker daemon to push nondistributable artifacts and use insecure registry
-if ($setupType.Name -eq $global:SetupType_k2s -or $setupType.Name -eq $global:SetupType_BuildOnlyEnv) {
+if ($setupInfo.Name -eq $global:SetupType_k2s -or $setupInfo.Name -eq $global:SetupType_BuildOnlyEnv) {
     $storageLocalDrive = Get-StorageLocalDrive
     &"$global:NssmInstallDirectory\nssm" set docker AppParameters --exec-opt isolation=process --data-root "$storageLocalDrive\docker" --log-level debug --allow-nondistributable-artifacts "$RegistryName" --insecure-registry "$RegistryName" | Out-Null
-    if ($(Get-Service -Name "docker" -ErrorAction SilentlyContinue).Status -eq "Running") {
+    if ($(Get-Service -Name 'docker' -ErrorAction SilentlyContinue).Status -eq 'Running') {
         &"$global:NssmInstallDirectory\nssm" restart docker
-    } else {
+    }
+    else {
         &"$global:NssmInstallDirectory\nssm" start docker
     }
 
@@ -155,9 +156,9 @@ if ($setupType.Name -eq $global:SetupType_k2s -or $setupType.Name -eq $global:Se
     # set authentification for containerd
     Set-Containerd-Config -RegistryName $RegistryName -authJson $authJson
 
-    Restart-Services -setupType $setupType.Name
+    Restart-Services -setupType $setupInfo.Name
 }
-elseif ($setupType.Name -eq $global:SetupType_MultiVMK8s -and !$($setupType.LinuxOnly)) {
+elseif ($setupInfo.Name -eq $global:SetupType_MultiVMK8s -and !$($setupInfo.LinuxOnly)) {
     $session = Open-RemoteSessionViaSSHKey $global:Admin_WinNode $global:WindowsVMKey
 
     Invoke-Command -Session $session {
@@ -176,9 +177,10 @@ elseif ($setupType.Name -eq $global:SetupType_MultiVMK8s -and !$($setupType.Linu
 
 
         &"$global:NssmInstallDirectory\nssm" set docker AppParameters --exec-opt isolation=process --data-root 'C:\docker' --log-level debug --allow-nondistributable-artifacts "$using:RegistryName" --insecure-registry "$using:RegistryName" | Out-Null
-        if ($(Get-Service -Name "docker" -ErrorAction SilentlyContinue).Status -eq "Running") {
+        if ($(Get-Service -Name 'docker' -ErrorAction SilentlyContinue).Status -eq 'Running') {
             &"$global:NssmInstallDirectory\nssm" restart docker
-        } else {
+        }
+        else {
             &"$global:NssmInstallDirectory\nssm" start docker
         }
 
@@ -186,7 +188,7 @@ elseif ($setupType.Name -eq $global:SetupType_MultiVMK8s -and !$($setupType.Linu
     }
 
     Invoke-Command -Session $session -ScriptBlock ${Function:Set-Containerd-Config} -ArgumentList $RegistryName, $authJson
-    Invoke-Command -Session $session -ScriptBlock ${Function:Restart-Services} -ArgumentList $setupType.Name
+    Invoke-Command -Session $session -ScriptBlock ${Function:Restart-Services} -ArgumentList $setupInfo.Name
 
     if (!$?) {
         throw "Login to registry $RegistryName not possible! Please check credentials!"

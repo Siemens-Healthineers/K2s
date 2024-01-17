@@ -43,10 +43,10 @@ Param(
 # import global functions
 . $PSScriptRoot\..\common\GlobalFunctions.ps1
 
-$setupTypeModule = "$PSScriptRoot\..\status\SetupType.module.psm1"
+$setupInfoModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.cluster.module\setupinfo\setupinfo.module.psm1"
 $runningStateModule = "$PSScriptRoot\..\status\RunningState.module.psm1"
 $logModule = "$PSScriptRoot\..\ps-modules\log\log.module.psm1"
-Import-Module $setupTypeModule, $runningStateModule, $logModule -DisableNameChecking
+Import-Module $setupInfoModule, $runningStateModule, $logModule -DisableNameChecking
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -87,14 +87,14 @@ function Perform-CleanupOfContainerStorage([string]$Directory, [int]$MaxRetries,
     }
 }
 
-$setupType = Get-SetupType
+$setupInfo = Get-SetupInfo
 
-if ($setupType.Name -eq $global:SetupType_MultiVMK8s) {
+if ($setupInfo.Name -eq $global:SetupType_MultiVMK8s) {
     return (Write-Error 'In order to clean up WinContainerStorage for multi-vm, please reinstall the cluster!')
 }
 
-if ($setupType.Name -eq $global:SetupType_k2s) {
-    $clusterState = Get-RunningState -SetupType $setupType.Name
+if ($setupInfo.Name -eq $global:SetupType_k2s) {
+    $clusterState = Get-RunningState -SetupType $setupInfo.Name
 
     if ($clusterState.IsRunning -eq $true) {
         throw 'K2s is running. Please stop K2s before performing this operation. Please ensure that no workloads are running in K2s..'
