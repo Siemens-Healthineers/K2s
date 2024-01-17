@@ -258,7 +258,7 @@ function Initialize-KubernetesCluster {
     # set new limits for the windows node for disk pressure
     # kubelet is running now (caused by JoinWindowsHost.ps1), so we stop it. Will be restarted in StartK8s.ps1.
     Stop-Service kubelet
-    Write-Log 'using kubelet file:' + "$kubeletConfigDir\config.yaml"
+    Write-Log "using kubelet file: $kubeletConfigDir\config.yaml"
     $content = Get-Content "$kubeletConfigDir\config.yaml"
     $content | ForEach-Object { $_ -replace 'evictionPressureTransitionPeriod:',
         "evictionHard:`r`n  nodefs.available: 8Gi`r`n  imagefs.available: 8Gi`r`nevictionPressureTransitionPeriod:" } |

@@ -138,6 +138,47 @@ function GetNetworkAdapterNameFromInterfaceAlias([string]$interfaceAlias) {
     return $foundValue
 }
 
+function EnsureDirectoryPathExists(
+    [string]$DirPath
+) {
+    if (-not (Test-Path $DirPath)) {
+        New-Item -Path $DirPath -ItemType Directory -Force | Out-Null
+    }
+}
+
+# in case of other drives a specific flannel file needs to created automatically on drive
+# kubelet unfortunately has no central way to configure centrally drive in windows
+function CheckFlannelConfig () {
+    $flannelFile = "$(Get-InstallationDriveLetter):\run\flannel\subnet.env"
+    $existsFlannelFile = Test-Path -Path $flannelFile
+    if( $existsFlannelFile ) {
+        Write-Log "Flannel file $flannelFile exists"
+        return
+    }
+    # only in case that we used another drive than C for the installation
+    if( !(Get-InstallationDriveLetter -eq Get-SystemDriveLetter)) {
+        $i = 0
+        $flannelFileSource = "$(Get-SystemDriveLetter):\run\flannel\subnet.env"
+        Write-Log "Check $flannelFileSource file creation, this can take minutes depending on your network setup ..."
+        while ($true) {
+            $i++
+            Write-Log "flannel handling loop (iteration #$i):"
+            if( Test-Path -Path $flannelFileSource ) {
+                $targetPath = "$(Get-InstallationDriveLetter):\run\flannel"
+                New-Item -ItemType Directory -Path $targetPath -Force | Out-Null
+                Copy-Item -Path $flannelFileSource -Destination $targetPath -Force | Out-Null
+                break
+            }
+            Start-Sleep -s 5
+
+            # End the loop
+            if ($i -eq 50) {
+                throw "Fatal: Flannel failed to create file: $flannelFileSource for target drive $(Get-InstallationDriveLetter):\run\flannel\subnet.env !"
+            }
+        }
+    }
+}
+
 if ($SkipHeaderDisplay -ne $true) {
     Write-Log 'Starting kubernetes cluster on Windows host' -Console
 }
@@ -332,6 +373,19 @@ netsh int ipv4 set int 'vEthernet (Ethernet)' forwarding=enabled | Out-Null
 
 Invoke-Hook -HookName 'BeforeStartK8sNetwork' -AdditionalHooksDir $AdditionalHooksDir
 
+Write-Log "Ensure service log directories exists" -Console
+EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\containerd"
+EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\dnsproxy"
+EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\dockerd"
+EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\flanneld"
+EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\httpproxy"
+EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\kubelet"
+EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\windows_exporter"
+EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\containers"
+EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\pods"
+EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\bridge"
+EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\vfprules"
+
 Write-Log 'Starting Kubernetes services on the Windows node' -Console
 
 Start-ServiceAndSetToAutoStart -Name 'containerd'
@@ -471,6 +525,8 @@ while ($true) {
 Write-Log 'Starting dns proxy'
 Start-ServiceAndSetToAutoStart -Name 'httpproxy'
 Start-ServiceAndSetToAutoStart -Name 'dnsproxy'
+
+CheckFlannelConfig
 
 $currentErrorActionPreference = $ErrorActionPreference
 $ErrorActionPreference = 'Stop'
