@@ -5,10 +5,13 @@ package load
 
 import (
 	d "k2s/config/defs"
+
+	"k8s.io/klog/v2"
 )
 
 type FileReader interface {
 	Read(filename string) ([]byte, error)
+	IsFileNotExist(err error) bool
 }
 
 type JsonUnmarshaller interface {
@@ -32,7 +35,15 @@ func (cl ConfigLoader) Load(filePath string) (*d.Config, error) {
 }
 
 func (cl ConfigLoader) LoadForSetup(filePath string) (*d.SetupConfig, error) {
-	return load[d.SetupConfig](filePath, cl)
+	config, err := load[d.SetupConfig](filePath, cl)
+
+	if cl.fileReader.IsFileNotExist(err) {
+		klog.V(2).ErrorS(err, "setup config file not found, assuming setup is not installed")
+
+		return nil, d.ErrNotInstalled
+	}
+
+	return config, err
 }
 
 func load[T any](filePath string, cl ConfigLoader) (v *T, err error) {

@@ -15,3 +15,7 @@ func NewFileReader() FileReader {
 func (ofr FileReader) Read(filename string) ([]byte, error) {
 	return o.ReadFile(filename)
 }
+
+func (ofr FileReader) IsFileNotExist(err error) bool {
+	return o.IsNotExist(err)
+}

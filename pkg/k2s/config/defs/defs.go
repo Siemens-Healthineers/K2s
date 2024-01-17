@@ -3,6 +3,8 @@
 
 package defs
 
+import "errors"
+
 type SetupType string
 type SmbHostType string
 
@@ -64,10 +66,12 @@ type KubeUserData struct {
 }
 
 const (
-	SetupTypek2s     SetupType   = "k2s"
+	SetupTypek2s          SetupType   = "k2s"
 	SetupTypeMultiVMK8s   SetupType   = "MultiVMK8s"
 	SetupTypeBuildOnlyEnv SetupType   = "BuildOnlyEnv"
 	SmbHostTypeLinux      SmbHostType = "Linux"
 	SmbHostTypeWindows    SmbHostType = "Windows"
 	SmbHostTypeAuto       SmbHostType = "Auto"
 )
+
+var ErrNotInstalled = errors.New("not installed")
