@@ -109,7 +109,7 @@ if ($global:HeaderLineShown -ne $true) {
 }
 
 # in case of other drives a specific flannel file needs to created automatically on drive
-# kubelet unfortunately has no cetral way to configure centrally drive in windows 
+# kubelet unfortunately has no central way to configure centrally drive in windows
 function CheckFlannelConfig () {
     $flannelFile = "$($global:InstallationDriveLetter):\run\flannel\subnet.env"
     $existsFlannelFile = Test-Path -Path $flannelFile
@@ -133,7 +133,7 @@ function CheckFlannelConfig () {
             }
             Start-Sleep -s 5
 
-            # End the loop 
+            # End the loop
             if ($i -eq 50) {
                 throw "Fatal: Flannel failed to create file: $flannelFileSource for target drive $($global:InstallationDriveLetter):\run\flannel\subnet.env !"
             }
@@ -514,7 +514,7 @@ Write-Log 'Starting dns proxy'
 Start-ServiceAndSetToAutoStart -Name 'httpproxy'
 Start-ServiceAndSetToAutoStart -Name 'dnsproxy'
 
-CheckFlannelConfig 
+CheckFlannelConfig
 
 $currentErrorActionPreference = $ErrorActionPreference
 $ErrorActionPreference = 'Stop'
