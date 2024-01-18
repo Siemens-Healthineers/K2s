@@ -1,0 +1,46 @@
+# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+# SPDX-License-Identifier: MIT
+
+# CI Pipeline for running k2s Unit Tests
+name: ci
+
+on:
+  workflow_dispatch:
+  push:
+  pull_request:
+    paths-ignore: 
+      - 'LICENSES/**'
+      - 'bin/**'
+      - 'doc/**'
+      - 'k2s.exe'
+      - '*.md'
+
+env: 
+  GOVERSION: "1.21.5"
+
+jobs:
+  RunUnitTests:
+    timeout-minutes: 30
+    continue-on-error: false
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: ${{env.GOVERSION}}
+
+    - name: Set up Ginkgo
+      shell: pwsh
+      run: go install github.com/onsi/ginkgo/v2/ginkgo@v2.13.2
+
+    - name: Show Source Files
+      shell: pwsh
+      run: ls -r
+      
+    - name: Run Unit Tests
+      shell: powershell
+      run: |
+        $ErrorActionPreference = "Continue"
+        .\test\execute_all_tests.ps1 -Tags unit -V -ThrowOnFailure
