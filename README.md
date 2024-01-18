@@ -4,7 +4,8 @@ SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
 SPDX-License-Identifier: MIT
 -->
 
-# K2s (Kubernetes) Setup
+# K2s (Kubernetes) Setup 
+[![ci](https://github.com/Siemens-Healthineers/K2s/actions/workflows/ci.yml/badge.svg)](https://github.com/Siemens-Healthineers/K2s/actions/workflows/ci.yml)
 
 ***WORK IN PROGRESS ...***
 
