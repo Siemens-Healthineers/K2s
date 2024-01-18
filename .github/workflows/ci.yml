@@ -7,6 +7,12 @@ name: ci
 on:
   workflow_dispatch:
   push:
+    paths-ignore: 
+      - 'LICENSES/**'
+      - 'bin/**'
+      - 'doc/**'
+      - 'k2s.exe'
+      - '*.md'  
   pull_request:
     paths-ignore: 
       - 'LICENSES/**'
