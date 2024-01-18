@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+
+SPDX-License-Identifier: MIT
+-->
 <!-- markdownlint-disable MD041 -->
 
 <!--
@@ -29,11 +34,11 @@ Fixes #TODO
 
 <!-- TODO: Say how you tested your changes. -->
 
-<!-- 
+<!--
 ### Beyond this PR
 
-Thank you for submitting this! 
+Thank you for submitting this!
 
-K2s is seeking more community involvement to help to keep it viable. 
+K2s is seeking more community involvement to help to keep it viable.
 
 -->
