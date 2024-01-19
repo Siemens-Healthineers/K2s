@@ -8,6 +8,7 @@
 name: "Build k2s cli"
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - "main"
