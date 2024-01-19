@@ -22,8 +22,8 @@ Describe 'Get-Status' -Tag 'unit' {
             It 'returns status with setup type info immediately without gathering additional data' {
                 InModuleScope -ModuleName $moduleName {
                     $result = Get-Status
-                    $result.SetupType.Name | Should -Be 'invalid'
-                    $result.SetupType.ValidationError | Should -Be 'invalid type'
+                    $result.SetupInfo.Name | Should -Be 'invalid'
+                    $result.SetupInfo.ValidationError | Should -Be 'invalid type'
                     $result.SmbHostType | Should -BeNullOrEmpty
                 }
             }
@@ -42,8 +42,8 @@ Describe 'Get-Status' -Tag 'unit' {
             
             It 'returns setup type' {
                 InModuleScope -ModuleName $moduleName {
-                    $result.SetupType.Name | Should -Be 'valid'
-                    $result.SetupType.ValidationError | Should -BeNullOrEmpty
+                    $result.SetupInfo.Name | Should -Be 'valid'
+                    $result.SetupInfo.ValidationError | Should -BeNullOrEmpty
                 }
             }
 

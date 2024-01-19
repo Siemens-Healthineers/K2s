@@ -7,6 +7,8 @@ import (
 	"errors"
 	"fmt"
 	"k2s/providers/marshalling"
+
+	"k8s.io/klog/v2"
 )
 
 func LoadStructure[T any](psScriptPath string, msgType string, additionalParams ...string) (v T, err error) {
@@ -18,6 +20,8 @@ func LoadStructure[T any](psScriptPath string, msgType string, additionalParams 
 			cmd += " " + param
 		}
 	}
+
+	klog.V(4).Infoln("PS command created:", cmd)
 
 	messages, err := psExecutor.ExecuteWithStructuredResultData(cmd)
 	if err != nil {
@@ -38,12 +42,16 @@ func LoadStructure[T any](psScriptPath string, msgType string, additionalParams 
 		return v, errors.New(errorMessage)
 	}
 
+	klog.V(4).Infoln("unmarshalling message..")
+
 	marshaller := marshalling.NewJsonUnmarshaller()
 
 	err = marshaller.Unmarshal(message.Data(), &v)
 	if err != nil {
 		return v, fmt.Errorf("could not unmarshal structure: %s", err)
 	}
+
+	klog.V(4).Infoln("message unmarshalled")
 
 	return v, nil
 }

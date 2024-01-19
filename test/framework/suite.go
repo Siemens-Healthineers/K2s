@@ -10,6 +10,7 @@ import (
 	"k2sTest/framework/k2s"
 	"k2sTest/framework/k8s"
 	sos "k2sTest/framework/os"
+	"path"
 	"reflect"
 	"time"
 
@@ -22,6 +23,8 @@ import (
 
 type K2sTestSuite struct {
 	proxy                string
+	rootDir              string
+	setupInstalled       bool
 	testStepTimeout      time.Duration
 	testStepPollInterval time.Duration
 	cli                  *sos.CliExecutor
@@ -36,10 +39,12 @@ type ClusterTestStepPollInterval time.Duration
 
 type restartKubeProxyType bool
 type ensureAddonsAreDisabledType bool
+type noSetupInstalledType bool
 
 const (
 	RestartKubeProxy        = restartKubeProxyType(true)
 	EnsureAddonsAreDisabled = ensureAddonsAreDisabledType(true)
+	NoSetupInstalled        = noSetupInstalledType(true)
 )
 
 func Setup(ctx context.Context, args ...any) *K2sTestSuite {
@@ -50,6 +55,7 @@ func Setup(ctx context.Context, args ...any) *K2sTestSuite {
 	ensureAddonsAreDisabled := false
 	clusterTestStepTimeout := testStepTimeout
 	clusterTestStepPollInterval := testStepPollInterval
+	noSetupInstalled := false
 
 	for _, arg := range args {
 		switch t := reflect.TypeOf(arg); {
@@ -59,30 +65,46 @@ func Setup(ctx context.Context, args ...any) *K2sTestSuite {
 			clusterTestStepTimeout = time.Duration(arg.(ClusterTestStepTimeout))
 		case t == reflect.TypeOf(ClusterTestStepPollInterval(0)):
 			clusterTestStepPollInterval = time.Duration(arg.(ClusterTestStepPollInterval))
+		case t == reflect.TypeOf(NoSetupInstalled):
+			noSetupInstalled = bool(arg.(noSetupInstalledType))
 		default:
 			Fail(fmt.Sprintf("type < %v > invalid as parameter for suite.Setup() method", t))
 		}
 	}
 
-	setupInfo := loadSetupInfo()
-	cli := sos.NewCli(proxy, clusterTestStepTimeout, clusterTestStepPollInterval)
-	k2sCli := k2s.NewCli(setupInfo.CliPath, cli)
-
-	expectClusterToBeRunning(ctx, k2sCli, ensureAddonsAreDisabled)
-
 	rootDir := determineRootDir()
+	cliPath := path.Join(rootDir, "k2s.exe")
 
-	return &K2sTestSuite{
+	cli := sos.NewCli(proxy, clusterTestStepTimeout, clusterTestStepPollInterval)
+
+	k2sCli := k2s.NewCli(cliPath, cli)
+
+	testSuite := &K2sTestSuite{
 		proxy:                proxy,
+		rootDir:              rootDir,
+		setupInstalled:       !noSetupInstalled,
 		testStepTimeout:      clusterTestStepTimeout,
 		testStepPollInterval: clusterTestStepPollInterval,
 		cli:                  cli,
 		k2sCli:               k2sCli,
-		setupInfo:            setupInfo,
-		kubeProxyRestarter:   k2s.NewKubeProxyRestarter(*setupInfo, cli, *k2sCli),
-		kubectl:              k8s.NewCli(cli, rootDir),
-		cluster:              k8s.NewCluster(clusterTestStepTimeout, clusterTestStepPollInterval),
 	}
+
+	if noSetupInstalled {
+		GinkgoWriter.Println("Test Suite configured for runs without K2s being installed")
+
+		return testSuite
+	}
+
+	expectClusterToBeRunning(ctx, k2sCli, ensureAddonsAreDisabled)
+
+	setupInfo := loadSetupInfo(rootDir)
+
+	testSuite.setupInfo = setupInfo
+	testSuite.kubeProxyRestarter = k2s.NewKubeProxyRestarter(rootDir, setupInfo.SetupType, cli, *k2sCli)
+	testSuite.kubectl = k8s.NewCli(cli, rootDir)
+	testSuite.cluster = k8s.NewCluster(clusterTestStepTimeout, clusterTestStepPollInterval)
+
+	return testSuite
 }
 
 func (s *K2sTestSuite) TearDown(ctx context.Context, args ...any) {
@@ -97,7 +119,7 @@ func (s *K2sTestSuite) TearDown(ctx context.Context, args ...any) {
 		}
 	}
 
-	if restartKubeProxy {
+	if restartKubeProxy && s.setupInstalled {
 		s.kubeProxyRestarter.Restart(ctx)
 	}
 
@@ -122,6 +144,10 @@ func (s *K2sTestSuite) Proxy() string {
 	return s.proxy
 }
 
+func (s *K2sTestSuite) RootDir() string {
+	return s.rootDir
+}
+
 // OS cli for arbitrary executions
 func (s *K2sTestSuite) Cli() *sos.CliExecutor {
 	return s.cli
@@ -144,12 +170,12 @@ func (s *K2sTestSuite) Cluster() *k8s.Cluster {
 	return s.cluster
 }
 
-func loadSetupInfo() *k2s.SetupInfo {
-	setupInfo, err := k2s.GetSetupInfo()
+func loadSetupInfo(rootDir string) *k2s.SetupInfo {
+	setupInfo, err := k2s.GetSetupInfo(rootDir)
 
 	Expect(err).ToNot(HaveOccurred())
 
-	GinkgoWriter.Println("Found setup type <", setupInfo.SetupType.Name, "( Linux-only:", setupInfo.SetupType.LinuxOnly, ") > in dir <", setupInfo.RootDir, ">")
+	GinkgoWriter.Println("Found setup type <", setupInfo.SetupType.Name, "( Linux-only:", setupInfo.SetupType.LinuxOnly, ") > in dir <", rootDir, ">")
 
 	if setupInfo.SetupType.Name != "k2s" && setupInfo.SetupType.Name != "MultiVMK8s" {
 		Fail(fmt.Sprintf("Unsupported setup type detected: '%s'", setupInfo.SetupType.Name))

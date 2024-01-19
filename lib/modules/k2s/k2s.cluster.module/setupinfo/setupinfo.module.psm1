@@ -24,15 +24,20 @@ function Confirm-SetupTypeIsValid {
 
 function Get-SetupInfo {
     $setupType = Get-ConfigSetupType
-    $linuxOnly = Get-ConfigLinuxOnly
+    $linuxOnly = (Get-ConfigLinuxOnly) -eq $true
     $validationError = Confirm-SetupTypeIsValid -SetupType $setupType
-    $productVersion = Get-ProductVersion    
+    $productVersion = "v$(Get-ProductVersion)"
+
+    if ($validationError) {
+        $linuxOnly = $null
+        $productVersion = $null
+    }
 
     return [pscustomobject]@{
         Name            = $setupType; 
-        Version         = "v$productVersion"; 
+        Version         = $productVersion; 
         ValidationError = $validationError; 
-        LinuxOnly       = $linuxOnly -eq $true
+        LinuxOnly       = $linuxOnly
     }
 }
 

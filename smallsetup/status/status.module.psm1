@@ -47,10 +47,10 @@ function Get-Status {
         Write-Progress -Activity 'Gathering status information...' -Id 1 -Status '0/5' -PercentComplete 0 -CurrentOperation 'Getting setup type'
     }
 
-    $status = @{SetupType = Get-SetupInfo }
+    $status = @{SetupInfo = Get-SetupInfo }
 
-    if ($status.SetupType.ValidationError) {
-        Write-Log "[$script::$function] Setup type invalid, returning with error='$($status.SetupType.ValidationError)'"
+    if ($status.SetupInfo.ValidationError) {
+        Write-Log "[$script::$function] Setup type invalid, returning with error='$($status.SetupInfo.ValidationError)'"
         
         if ($ShowProgress -eq $true) {
             Write-Progress -Activity 'Gathering status information...' -Id 1 -Completed
@@ -68,7 +68,7 @@ function Get-Status {
         Write-Progress -Activity 'Gathering status information...' -Id 1 -Status '2/5' -PercentComplete 40 -CurrentOperation 'Determining running state'
     }
 
-    $status.RunningState = (Get-RunningState $status.SetupType.Name)
+    $status.RunningState = (Get-RunningState $status.SetupInfo.Name)
 
     if ($status.RunningState.IsRunning -ne $true) {
         Write-Log "[$script::$function] cluster not running, returning"

@@ -186,7 +186,7 @@ function Get-ConfigValue {
     )
 
     if (!(Test-Path $Path)) {
-        return
+        return $null
     }
 
     return $(Get-Content $Path -Raw | ConvertFrom-Json).$Key
