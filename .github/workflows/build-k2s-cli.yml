@@ -5,6 +5,8 @@
 # Build k2s Pipeline
 # Responsible for trigerring build for k2s executable when the source is changed.
 
+name: "Build k2s cli"
+
 on:
   push:
     branches:
