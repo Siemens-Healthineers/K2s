@@ -1,32 +1,25 @@
 # SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
-#
 # SPDX-License-Identifier: MIT
 
-# Build k2s Pipeline
-# Responsible for trigerring build for k2s executable when the source is changed.
+# Builds all K2s executables
+# Responsible for trigerring build for all K2s executables [bridge.exe, cloudinitisobuilder.exe, devgon.exe, httpproxy.exe, k2s.exe, vfprules.exe, zap.exe]
 
-name: "Build k2s cli"
+name: "Build k2s artifacts"
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - "main"
-    paths:
-      - 'pkg/base/**'
-      - 'pkg/k2s/**'
 
 env:
   GOVERSION: "1.21.5"
 
 
 jobs:
-  build-k2s-cli:
+  build-k2s-artifacts:
     timeout-minutes: 30
     continue-on-error: false
     runs-on: ubuntu-latest
     env:
-      CI_COMMIT_MESSAGE: Auto-commit k2s cli
+      CI_COMMIT_MESSAGE: Auto-commit k2s artifacts
     steps:
     - name: Checkout code
       uses: actions/checkout@v3
@@ -48,13 +41,14 @@ jobs:
       run: |
         pwsh -Command ls
 
-    - name: Build k2s executable
+    - name: Build all k2s executables
       run: |
-        pwsh ./smallsetup/common/BuildGoExe.ps1
+        pwsh ./smallsetup/common/BuildGoExe.ps1 -BuildAll:true
         pwsh -Command ls
 
-    - name: Commit k2s cli
+    - name: Commit k2s executables
       run: |
-        git add k2s.exe
+        git status
+        git add k2s.exe bin/cloudinitisobuilder.exe bin/devgon.exe bin/httpproxy.exe bin/zap.exe bin/yaml2json.exe bin/cni/bridge.exe bin/cni/vfprules.exe
         git commit -m "${{ env.CI_COMMIT_MESSAGE }}"
         git push
