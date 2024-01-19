@@ -1,0 +1,60 @@
+# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+#
+# SPDX-License-Identifier: MIT
+
+# Build k2s Pipeline
+# Responsible for trigerring build for k2s executable when the source is changed.
+
+on:
+  push:
+    branches:
+      - "main"
+    paths:
+      - 'pkg/base/**'
+      - 'pkg/k2s/**'
+
+env:
+  GOVERSION: "1.21.5"
+
+
+jobs:
+  build-k2s-cli:
+    timeout-minutes: 30
+    continue-on-error: false
+    runs-on: ubuntu-latest
+    env:
+      CI_COMMIT_MESSAGE: Auto-commit k2s cli
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Golang
+      uses: actions/setup-go@v4
+      with:
+        go-version: ${{env.GOVERSION}}
+    - name: Download all Golang modules
+      run: |
+        go mod dowload
+    - name: Show all diff
+      run: |
+        git diff --exit-code -- .
+
+    - name: Configure repo
+      run: |
+        git config --local user.email github-actions@github.com
+        git config --local user.name github-actions
+
+    - name: Current working directory
+      run: |
+        pwsh -Command ls
+
+    - name: Build k2s executable
+      run: |
+        pwsh ./smallsetup/common/BuildGoExe.ps1
+        pwsh -Command ls
+
+    - name: Commit k2s changes
+      run: |
+        git add k2s.exe
+        git commit -m "${{ env.CI_COMMIT_MESSAGE }}"
+        git push
