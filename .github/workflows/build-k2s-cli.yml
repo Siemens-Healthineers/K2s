@@ -34,9 +34,9 @@ jobs:
       uses: actions/setup-go@v4
       with:
         go-version: ${{env.GOVERSION}}
-    - name: Download all Golang modules
-      run: |
-        go mod dowload
+    # - name: Download all Golang modules
+    #   run: |
+    #     go mod dowload
     - name: Show all diff
       run: |
         git diff --exit-code -- .
