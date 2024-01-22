@@ -5,6 +5,7 @@ package load_test
 
 import (
 	"errors"
+	"test/reflection"
 	"testing"
 
 	cd "k2s/config/defs"
@@ -12,51 +13,29 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/stretchr/testify/mock"
 )
 
-type testReader struct {
-	result []byte
-	err    error
+type mockObject struct {
+	mock.Mock
 }
 
-type testUnmarshaller struct {
-	resultConfig      *cd.Config
-	resultSetupConfig *cd.SetupConfig
-	err               error
+func (m *mockObject) Read(filename string) ([]byte, error) {
+	args := m.Called(filename)
+
+	return args.Get(0).([]byte), args.Error(1)
 }
 
-func (t testReader) Read(filename string) ([]byte, error) {
-	return t.result, t.err
+func (m *mockObject) IsFileNotExist(err error) bool {
+	args := m.Called(err)
+
+	return args.Bool(0)
 }
 
-func (t testUnmarshaller) Unmarshal(data []byte, v any) error {
-	if t.err != nil {
-		return t.err
-	}
+func (m *mockObject) Unmarshal(data []byte, v any) error {
+	args := m.Called(data, v)
 
-	if t.resultConfig != nil {
-		ptr, ok := v.(**cd.Config)
-
-		if !ok {
-			return errors.New("Conversion error")
-		}
-
-		*ptr = t.resultConfig
-
-		return nil
-	} else if t.resultSetupConfig != nil {
-		ptr, ok := v.(**cd.SetupConfig)
-
-		if !ok {
-			return errors.New("Conversion error")
-		}
-
-		*ptr = t.resultSetupConfig
-
-		return nil
-	}
-
-	return errors.New("No expected test result defined.")
+	return args.Error(0)
 }
 
 func TestLoad(t *testing.T) {
@@ -68,80 +47,147 @@ var _ = Describe("load", func() {
 	Describe("Load", func() {
 		When("file read error occurred", func() {
 			It("returns the error", func() {
-				reader := &testReader{err: errors.New("oops")}
-				sut := load.NewConfigLoader(reader, nil)
+				path := "some-path"
+				expectedErr := errors.New("oops")
 
-				actual, err := sut.Load("some path")
+				readerMock := &mockObject{}
+				readerMock.On(reflection.GetFunctionName(readerMock.Read), path).Return([]byte{}, expectedErr)
+
+				sut := load.NewConfigLoader(readerMock, nil)
+
+				actual, err := sut.Load(path)
 
 				Expect(actual).To(BeNil())
-				Expect(err).To(MatchError(reader.err))
+				Expect(err).To(MatchError(expectedErr))
 			})
 		})
 
 		When("unmarshal error occurred", func() {
 			It("returns the error", func() {
-				reader := &testReader{}
-				unmarshaller := &testUnmarshaller{err: errors.New("oops")}
-				sut := load.NewConfigLoader(reader, unmarshaller)
+				path := "some-path"
+				expectedErr := errors.New("oops")
+				data := []byte{0, 1, 2}
 
-				actual, err := sut.Load("some path")
+				readerMock := &mockObject{}
+				readerMock.On(reflection.GetFunctionName(readerMock.Read), path).Return(data, nil)
+
+				umMock := &mockObject{}
+				umMock.On(reflection.GetFunctionName(umMock.Unmarshal), data, mock.Anything).Return(expectedErr)
+
+				sut := load.NewConfigLoader(readerMock, umMock)
+
+				actual, err := sut.Load(path)
 
 				Expect(actual).To(BeNil())
-				Expect(err).To(MatchError(unmarshaller.err))
+				Expect(err).To(MatchError(expectedErr))
 			})
 		})
 
 		It("returns correct result", func() {
-			config := &cd.Config{SmallSetup: cd.SmallSetupConfig{ConfigDir: cd.ConfigDir{Kube: "test"}}}
-			reader := &testReader{}
-			unmarshaller := &testUnmarshaller{resultConfig: config}
-			sut := load.NewConfigLoader(reader, unmarshaller)
+			path := "some-path"
+			data := []byte{0, 1, 2}
+			expectedConfig := &cd.Config{SmallSetup: cd.SmallSetupConfig{ConfigDir: cd.ConfigDir{Kube: "test"}}}
 
-			actual, err := sut.Load("some path")
+			readerMock := &mockObject{}
+			readerMock.On(reflection.GetFunctionName(readerMock.Read), path).Return(data, nil)
+
+			umMock := &mockObject{}
+			umMock.On(reflection.GetFunctionName(umMock.Unmarshal), data, mock.Anything).Run(func(args mock.Arguments) {
+				p := args.Get(1).(**cd.Config)
+				*p = expectedConfig
+			}).Return(nil)
+
+			sut := load.NewConfigLoader(readerMock, umMock)
+
+			actual, err := sut.Load(path)
 
 			Expect(err).ToNot(HaveOccurred())
 			Expect(actual).ToNot(BeNil())
-			Expect(actual.SmallSetup.ConfigDir.Kube).To(Equal(config.SmallSetup.ConfigDir.Kube))
+			Expect(actual.SmallSetup.ConfigDir.Kube).To(Equal(expectedConfig.SmallSetup.ConfigDir.Kube))
 		})
 	})
 
 	Describe("LoadForSetup", func() {
 		When("file read error occurred", func() {
 			It("returns the error", func() {
-				reader := &testReader{err: errors.New("oops")}
-				sut := load.NewConfigLoader(reader, nil)
+				path := "some-path"
+				expectedErr := errors.New("oops")
 
-				actual, err := sut.LoadForSetup("some path")
+				readerMock := &mockObject{}
+				readerMock.On(reflection.GetFunctionName(readerMock.Read), path).Return([]byte{}, expectedErr)
+				readerMock.On(reflection.GetFunctionName(readerMock.IsFileNotExist), expectedErr).Return(false)
+
+				sut := load.NewConfigLoader(readerMock, nil)
+
+				actual, err := sut.LoadForSetup(path)
 
 				Expect(actual).To(BeNil())
-				Expect(err).To(MatchError(reader.err))
+				Expect(err).To(MatchError(expectedErr))
+			})
+		})
+
+		When("file-non-existent error occurred", func() {
+			It("returns the not-installed-error", func() {
+				path := "some-path"
+				errNotExist := errors.New("gone")
+
+				readerMock := &mockObject{}
+				readerMock.On(reflection.GetFunctionName(readerMock.Read), path).Return([]byte{}, errNotExist)
+				readerMock.On(reflection.GetFunctionName(readerMock.IsFileNotExist), errNotExist).Return(true)
+
+				sut := load.NewConfigLoader(readerMock, nil)
+
+				actual, err := sut.LoadForSetup(path)
+
+				Expect(actual).To(BeNil())
+				Expect(err).To(MatchError(cd.ErrNotInstalled))
 			})
 		})
 
 		When("unmarshal error occurred", func() {
 			It("returns the error", func() {
-				reader := &testReader{}
-				unmarshaller := &testUnmarshaller{err: errors.New("oops")}
-				sut := load.NewConfigLoader(reader, unmarshaller)
+				path := "some-path"
+				expectedErr := errors.New("oops")
+				data := []byte{0, 1, 2}
 
-				actual, err := sut.LoadForSetup("some path")
+				readerMock := &mockObject{}
+				readerMock.On(reflection.GetFunctionName(readerMock.Read), path).Return(data, nil)
+				readerMock.On(reflection.GetFunctionName(readerMock.IsFileNotExist), expectedErr).Return(false)
+
+				umMock := &mockObject{}
+				umMock.On(reflection.GetFunctionName(umMock.Unmarshal), data, mock.Anything).Return(expectedErr)
+
+				sut := load.NewConfigLoader(readerMock, umMock)
+
+				actual, err := sut.LoadForSetup(path)
 
 				Expect(actual).To(BeNil())
-				Expect(err).To(MatchError(unmarshaller.err))
+				Expect(err).To(MatchError(expectedErr))
 			})
 		})
 
 		It("returns correct result", func() {
-			config := &cd.SetupConfig{SetupType: "test"}
-			reader := &testReader{}
-			unmarshaller := &testUnmarshaller{resultSetupConfig: config}
-			sut := load.NewConfigLoader(reader, unmarshaller)
+			path := "some-path"
+			data := []byte{0, 1, 2}
+			expectedConfig := &cd.SetupConfig{SetupType: "test"}
 
-			actual, err := sut.LoadForSetup("some path")
+			readerMock := &mockObject{}
+			readerMock.On(reflection.GetFunctionName(readerMock.Read), path).Return(data, nil)
+			readerMock.On(reflection.GetFunctionName(readerMock.IsFileNotExist), nil).Return(false)
+
+			umMock := &mockObject{}
+			umMock.On(reflection.GetFunctionName(umMock.Unmarshal), data, mock.Anything).Run(func(args mock.Arguments) {
+				p := args.Get(1).(**cd.SetupConfig)
+				*p = expectedConfig
+			}).Return(nil)
+
+			sut := load.NewConfigLoader(readerMock, umMock)
+
+			actual, err := sut.LoadForSetup(path)
 
 			Expect(err).ToNot(HaveOccurred())
 			Expect(actual).ToNot(BeNil())
-			Expect(actual.SetupType).To(Equal(config.SetupType))
+			Expect(actual.SetupType).To(Equal(expectedConfig.SetupType))
 		})
 	})
 })

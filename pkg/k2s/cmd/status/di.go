@@ -11,7 +11,7 @@ import (
 	"k2s/cmd/status/nodestatus"
 	"k2s/cmd/status/podstatus"
 	"k2s/cmd/status/runningstate"
-	"k2s/cmd/status/setuptype"
+	"k2s/cmd/status/setupinfo"
 	"k2s/providers/marshalling"
 	"k2s/providers/terminal"
 )
@@ -19,7 +19,7 @@ import (
 func NewStatusPrinter() StatusPrinter {
 	terminalPrinter := terminal.NewTerminalPrinter()
 	runningStatePrinter := runningstate.NewRunningStatePrinter(terminalPrinter)
-	setupTypePrinter := setuptype.NewSetupTypePrinter(terminalPrinter)
+	setupInfoPrinter := setupinfo.NewSetupInfoPrinter(terminalPrinter)
 	addonsPrinter := print.NewAddonsPrinter(terminalPrinter)
 	nodeStatusPrinter := nodestatus.NewNodeStatusPrinter(terminalPrinter)
 	podStatusPrinter := podstatus.NewPodStatusPrinter(terminalPrinter)
@@ -29,7 +29,7 @@ func NewStatusPrinter() StatusPrinter {
 	return StatusPrinter{
 		runningStatePrinter:   runningStatePrinter,
 		terminalPrinter:       terminalPrinter,
-		setupTypePrinter:      setupTypePrinter,
+		setupInfoPrinter:      setupInfoPrinter,
 		addonsPrinter:         addonsPrinter,
 		nodeStatusPrinter:     nodeStatusPrinter,
 		podStatusPrinter:      podStatusPrinter,

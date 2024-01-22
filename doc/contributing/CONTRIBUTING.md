@@ -155,16 +155,18 @@ PS> ginkgo --label-filter="unit" <dir-with-test-suites>
 ```
 
 #### Commonly Used Tags
-| Name                  | Description                                                                                                                |
-| --------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| **acceptance**        | end-to-end test/executable spec in production-like scenario                                                                |
-| **integration**       | test requiring certain external resources/systems to be reachable or additional software to be installed                   |
-| **unit**              | test can be executed in isolation, all dependencies to the environment are mocked                                          |
-| **addon**             | test is addon-related and does not test *K2s* core functionality                                                           |
-| **internet-required** | test requires internet connectivity, e.g. for package downloads                                                            |
-| **invasive**          | test changes either state of the host system or *K2s* installation                                                         |
-| **read-only**         | test does not change state of the host system or *K2s* installation; optional, since read-only tests should be the default |
-| **setup-required**    | test requires *K2s* to be installed; currently, the tests determine the setup type in the test runs                        |
+| Name                     | Description                                                                                                                |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
+| **acceptance**           | end-to-end test/executable spec in production-like scenario                                                                |
+| **integration**          | test requiring certain external resources/systems to be reachable or additional software to be installed                   |
+| **unit**                 | test can be executed in isolation, all dependencies to the environment are mocked                                          |
+| **addon**                | test is addon-related and does not test *K2s* core functionality                                                           |
+| **internet-required**    | test requires internet connectivity, e.g. for package downloads                                                            |
+| **invasive**             | test changes either state of the host system or *K2s* installation                                                         |
+| **read-only**            | test does not change state of the host system or *K2s* installation; optional, since read-only tests should be the default |
+| **setup-required**       | test requires *K2s* to be installed; currently, the tests determine the setup type in the test runs                        |
+| **no-setup**             | *K2s* must not be installed on the system to test pre-installation behavior                                                |
+| **setup=\<setup name\>** | *K2s* setup type must match, e.g. *setup=k2s* or *setup=MultiVMK8s*                                                        |
 
 ### Log Output Redirection
 For diagnostic logging, *k2s* CLI uses the [klog](https://pkg.go.dev/k8s.io/klog/v2#section-readme) module. To redirect the log output to *Ginkgo*, set the *Ginkgo* logger as follows:

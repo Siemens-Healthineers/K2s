@@ -23,17 +23,17 @@ Param (
 # import global functions
 . $PSScriptRoot\..\smallsetup\common\GlobalFunctions.ps1
 
-Import-Module $PSScriptRoot\..\smallsetup\status\SetupType.module.psm1
+Import-Module "$PSScriptRoot\..\lib\modules\k2s\k2s.cluster.module\setupinfo\setupinfo.module.psm1"
 Import-Module $PSScriptRoot\..\smallsetup\status\RunningState.module.psm1
 Import-Module $PSScriptRoot\..\smallsetup\ps-modules\log\log.module.psm1
 Initialize-Logging -ShowLogs:$ShowLogs
 
-$setupType = Get-SetupType
-if ($setupType.ValidationError) {
-    throw $setupType.ValidationError
+$setupInfo = Get-SetupInfo
+if ($setupInfo.ValidationError) {
+    throw $setupInfo.ValidationError
 }
 
-$clusterState = Get-RunningState -SetupType $setupType.Name
+$clusterState = Get-RunningState -SetupType $setupInfo.Name
 
 if ($clusterState.IsRunning -ne $true) {
     throw "Cannot import addons when cluster is not running. Please start the cluster with 'k2s start'."
@@ -84,7 +84,7 @@ foreach ($addon in $addonsToImport) {
 
     foreach ($image in $images) {
         if ($image.Contains('_win')) {
-            if (!$setupType.LinuxOnly) {
+            if (!$setupInfo.LinuxOnly) {
                 &$global:KubernetesPath\smallsetup\helpers\ImportImage.ps1 -Windows -ImagePath $image -ShowLogs:$ShowLogs
             }
         }

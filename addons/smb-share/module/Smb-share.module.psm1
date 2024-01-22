@@ -9,12 +9,12 @@ $k8sApiModule = "$PSScriptRoot\..\..\..\lib\modules\k2s\k2s.cluster.module\k8s-a
 $formattingModule = "$PSScriptRoot\..\..\..\lib\modules\k2s\k2s.cluster.module\k8s-api\formatting\formatting.module.psm1"
 
 $addonsModule = "$PSScriptRoot\..\..\Addons.module.psm1"
-$setupTypeModule = "$PSScriptRoot\..\..\..\smallsetup\status\SetupType.module.psm1"
+$setupInfoModule = "$PSScriptRoot\..\..\..\lib\modules\k2s\k2s.cluster.module\setupinfo\setupinfo.module.psm1"
 $runningStateModule = "$PSScriptRoot\..\..\..\smallsetup\status\RunningState.module.psm1"
 
 
 $logModule = "$PSScriptRoot\..\..\..\smallsetup\ps-modules\log\log.module.psm1"
-Import-Module $addonsModule, $setupTypeModule, $runningStateModule, $k8sApiModule, $formattingModule, $logModule
+Import-Module $addonsModule, $setupInfoModule, $runningStateModule, $k8sApiModule, $formattingModule, $logModule
 
 $AddonName = 'smb-share'
 $localHooksDir = "$PSScriptRoot\..\hooks"
@@ -63,8 +63,8 @@ function Test-CsiPodsCondition {
         return $false
     }
 
-    $setupType = Get-SetupType
-    if ($setupType.LinuxOnly -eq $true) {
+    $setupInfo = Get-SetupInfo
+    if ($setupInfo.LinuxOnly -eq $true) {
         return $true
     }
 
@@ -79,20 +79,20 @@ function Test-CsiPodsCondition {
 
 function Test-IsSmbShareWorking {
     $script:SmbShareWorking = $false
-    $setupType = Get-SetupType
+    $setupInfo = Get-SetupInfo
 
-    if ($setupType.ValidationError) {
-        throw $setupType.ValidationError
+    if ($setupInfo.ValidationError) {
+        throw $setupInfo.ValidationError
     }
 
     # validate setup type for SMB share as well
-    if ($setupType.Name -ne $global:SetupType_k2s -and $setupType.Name -ne $global:SetupType_MultiVMK8s) {
-        throw "Cannot determine if SMB share is working for invalid setup type '$($setupType.Name)'"
+    if ($setupInfo.Name -ne $global:SetupType_k2s -and $setupInfo.Name -ne $global:SetupType_MultiVMK8s) {
+        throw "Cannot determine if SMB share is working for invalid setup type '$($setupInfo.Name)'"
     }
 
     Test-SharedFolderMountOnWinNode
 
-    if ($SetupType.Name -ne $global:SetupType_MultiVMK8s -or $SetupType.LinuxOnly -eq $true) {
+    if ($setupInfo.Name -ne $global:SetupType_MultiVMK8s -or $setupInfo.LinuxOnly -eq $true) {
         $script:SmbShareWorking = $script:Success -eq $true
         return
     }
@@ -906,13 +906,13 @@ function Remove-SharedFolderFromWinVM {
 }
 
 function Test-ClusterAvailability {
-    $setupType = Get-SetupType
+    $setupInfo = Get-SetupInfo
 
-    if ($setupType.ValidationError) {
-        throw $setupType.ValidationError
+    if ($setupInfo.ValidationError) {
+        throw $setupInfo.ValidationError
     }
 
-    $clusterState = Get-RunningState -SetupType $setupType.Name
+    $clusterState = Get-RunningState -SetupType $setupInfo.Name
 
     if ($clusterState.IsRunning -ne $true) {
         throw "Cannot interact with '$AddonName' addon when cluster is not running. Please start the cluster with 'k2s start'."
@@ -934,10 +934,10 @@ function Remove-SmbShareAndFolder() {
     }
 
     $smbHostType = Get-SmbHostType
-    $setupType = Get-SetupType
+    $setupInfo = Get-SetupInfo
 
     if ($SkipNodesCleanup -ne $true) {
-        Remove-StorageClass -LinuxOnly $setupType.LinuxOnly
+        Remove-StorageClass -LinuxOnly $setupInfo.LinuxOnly
     }
 
     switch ($SmbHostType) {
@@ -958,7 +958,7 @@ function Remove-SmbShareAndFolder() {
         return
     }
 
-    if ($setupType.Name -eq $global:SetupType_MultiVMK8s -and $setupType.LinuxOnly -ne $true) {
+    if ($setupInfo.Name -eq $global:SetupType_MultiVMK8s -and $setupInfo.LinuxOnly -ne $true) {
         Write-Log 'Removing shared folder from Win VM..'
         Remove-SharedFolderFromWinVM -RemotePath $remotePath
     }
@@ -1032,16 +1032,16 @@ function Enable-SmbShare {
         return
     }
 
-    $setupType = Get-SetupType
+    $setupInfo = Get-SetupInfo
 
-    if ($setupType.Name -ne $global:SetupType_k2s -and $setupType.Name -ne $global:SetupType_MultiVMK8s) {
+    if ($setupInfo.Name -ne $global:SetupType_k2s -and $setupInfo.Name -ne $global:SetupType_MultiVMK8s) {
         throw "Addon '$AddonName' can only be enabled for '$global:SetupType_k2s' or '$global:SetupType_MultiVMK8s' setup type."
     }
 
     Copy-ScriptsToHooksDir -ScriptPaths $hookFilePaths
     Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = $AddonName; SmbHostType = $SmbHostType })
-    Restore-SmbShareAndFolder -SmbHostType $SmbHostType -SkipTest -SetupType $setupType
-    Restore-StorageClass -SmbHostType $SmbHostType -LinuxOnly $setupType.LinuxOnly
+    Restore-SmbShareAndFolder -SmbHostType $SmbHostType -SkipTest -SetupInfo $setupInfo
+    Restore-StorageClass -SmbHostType $SmbHostType -LinuxOnly $setupInfo.LinuxOnly
 
     Write-Log -Console '***************************************************************************************'
     Write-Log -Console '** IMPORTANT:                                                                        **' 
@@ -1093,6 +1093,9 @@ Type of the SMB host, either Windows or Linux
 
 .PARAMETER SkipTest
 If set to $true, checking for functional SMB share will be skipped, e.g. when enabling the addon. Default: $false
+
+.PARAMETER SetupInfo
+Current setup information
 #>
 function Restore-SmbShareAndFolder {
     param (
@@ -1100,7 +1103,7 @@ function Restore-SmbShareAndFolder {
         [ValidateSet('windows', 'linux')]
         [string]$SmbHostType,
         [parameter(Mandatory = $false)]
-        [pscustomobject]$SetupType,
+        [pscustomobject]$SetupInfo,
         [parameter(Mandatory = $false)]
         [switch]$SkipTest = $false
     )
@@ -1116,7 +1119,7 @@ function Restore-SmbShareAndFolder {
         }
     }
 
-    if ($SetupType.Name -eq $global:SetupType_MultiVMK8s -and $SetupType.LinuxOnly -ne $true) {
+    if ($SetupInfo.Name -eq $global:SetupType_MultiVMK8s -and $SetupInfo.LinuxOnly -ne $true) {
         Add-SharedFolderToWinVM -SmbHostType $SmbHostType
     }
 }

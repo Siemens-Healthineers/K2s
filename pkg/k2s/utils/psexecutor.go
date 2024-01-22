@@ -11,11 +11,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"k2s/config"
+	cd "k2s/config/defs"
 	"math"
 	"os"
 	"os/exec"
-	"k2s/config"
-	cd "k2s/config/defs"
 	"strings"
 	"time"
 
@@ -310,6 +310,12 @@ func determinePsVersion() (PowerShellVersion, error) {
 	configAccess := config.NewAccess()
 	setupType, err := configAccess.GetSetupType()
 	if err != nil {
+		if err == cd.ErrNotInstalled {
+			klog.V(2).ErrorS(err, "setup not installed, falling back to default PowerShell version", "PowerShell", PowerShellV5)
+
+			return PowerShellV5, nil
+		}
+
 		return "", err
 	}
 

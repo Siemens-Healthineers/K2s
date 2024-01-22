@@ -25,22 +25,22 @@ Param(
 Import-Module $PSScriptRoot\..\smallsetup\helpers\ImageFunctions.module.psm1 -DisableNameChecking
 Import-Module $PSScriptRoot\..\smallsetup\helpers\RegistryFunctions.module.psm1 -DisableNameChecking
 Import-Module $PSScriptRoot\Addons.module.psm1
-Import-Module $PSScriptRoot\..\smallsetup\status\SetupType.module.psm1
+Import-Module "$PSScriptRoot\..\lib\modules\k2s\k2s.cluster.module\setupinfo\setupinfo.module.psm1"
 Import-Module $PSScriptRoot\..\smallsetup\status\RunningState.module.psm1
 Import-Module $PSScriptRoot\..\smallsetup\ps-modules\log\log.module.psm1
 Import-Module $PSScriptRoot\..\lib\modules\k2s\k2s.infra.module\yaml\yaml.module.psm1
 Initialize-Logging -ShowLogs:$ShowLogs
 
-$setupType = Get-SetupType
-if ($setupType.ValidationError) {
-    throw $setupType.ValidationError
+$setupInfo = Get-SetupInfo
+if ($setupInfo.ValidationError) {
+    throw $setupInfo.ValidationError
 }
 
-if ($setupType.LinuxOnly) {
+if ($setupInfo.LinuxOnly) {
     throw 'Cannot export addons with linux-only setup.'
 }
 
-$clusterState = Get-RunningState -SetupType $setupType.Name
+$clusterState = Get-RunningState -SetupType $setupInfo.Name
 
 if ($clusterState.IsRunning -ne $true) {
     throw "Cannot export addons when cluster is not running. Please start the cluster with 'k2s start'."
@@ -134,7 +134,7 @@ try {
 
         foreach ($image in $windowsImages) {
             Write-Log "Pulling windows image $image"
-            if ($setupType.Name -eq $global:SetupType_MultiVMK8s) {
+            if ($setupInfo.Name -eq $global:SetupType_MultiVMK8s) {
                 $session = Open-RemoteSessionViaSSHKey $global:Admin_WinNode $global:WindowsVMKey
                 Invoke-Command -Session $session {
                     Set-Location "$env:SystemDrive\k"
@@ -207,13 +207,13 @@ try {
             $repos = $linuxPackages.repos
             if ($repos) {
                 Write-Log 'Adding repos for debian packages download'
-                $setupType = Get-SetupType
-                if ($setupType.ValidationError) {
-                    throw $setupType.ValidationError
+                $setupInfo = Get-SetupInfo
+                if ($setupInfo.ValidationError) {
+                    throw $setupInfo.ValidationError
                 }
 
                 foreach ($repo in $repos) {
-                    if ($setupType.Name -ne $global:SetupType_MultiVMK8s) {
+                    if ($setupInfo.Name -ne $global:SetupType_MultiVMK8s) {
                         $repoWithReplacedHttpProxyPlaceHolder = $repo.Replace('__LOCAL_HTTP_PROXY__', $global:HttpProxy)
                     }
                     else {

@@ -38,8 +38,8 @@ if ($Trace) {
 Import-Module "$PSScriptRoot/../ps-modules/log/log.module.psm1"
 Initialize-Logging -ShowLogs:$ShowLogs
 
-$setupTypeModule = "$PSScriptRoot\..\status\SetupType.module.psm1"
-Import-Module $setupTypeModule
+$setupInfoModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.cluster.module\setupinfo\setupinfo.module.psm1"
+Import-Module $setupInfoModule
 
 Write-Log "- Proxy to be used: $Proxy"
 Write-Log "- Target Directory: $TargetDirectory"
@@ -155,8 +155,8 @@ if ($ZipPackageFileName.EndsWith('.zip') -eq $false) {
     throw "The passed zip package name '$ZipPackageFileName' does not have the extension '.zip'"
 }
 
-$setupType = Get-SetupType
-if ($setupType.Name) {
+$setupInfo = Get-SetupInfo
+if ($setupInfo.Name) {
     $message = "Precondition not met: '$global:ProductName' is installed on your system. " + `
         "`nUninstall '$global:ProductName' first and then call this script again."
     throw $message

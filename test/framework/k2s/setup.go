@@ -8,16 +8,12 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
-	"path"
 	"path/filepath"
-	dir "k2sTest/framework/os"
 	"strings"
 )
 
 type SetupInfo struct {
 	SetupType                SetupType
-	RootDir                  string
-	CliPath                  string
 	WinNodeName              string
 	ControlPlaneNodeHostname string
 	SmbShareDir              string
@@ -53,12 +49,7 @@ type setupConfig struct {
 	Registries               []string `json:"Registries"`
 }
 
-func GetSetupInfo() (*SetupInfo, error) {
-	rootDir, err := dir.RootDir()
-	if err != nil {
-		return nil, err
-	}
-
+func GetSetupInfo(rootDir string) (*SetupInfo, error) {
 	configPath := filepath.Join(rootDir, "cfg", "config.json")
 
 	binaries, err := os.ReadFile(configPath)
@@ -98,9 +89,7 @@ func GetSetupInfo() (*SetupInfo, error) {
 			Name:      setupConfig.SetupType,
 			LinuxOnly: setupConfig.LinuxOnly,
 		},
-		RootDir:                  rootDir,
 		WinNodeName:              winNodeName,
-		CliPath:                  path.Join(rootDir, "k2s.exe"),
 		ControlPlaneNodeHostname: setupConfig.ControlPlaneNodeHostname,
 		SmbShareDir:              config.SmallSetup.ShareDir.WorkerNode,
 		Registries:               setupConfig.Registries,

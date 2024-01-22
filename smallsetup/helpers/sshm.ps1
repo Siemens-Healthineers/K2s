@@ -9,23 +9,23 @@ Param(
 
 &$PSScriptRoot\..\common\GlobalVariables.ps1
 
-$setupTypeModule = "$PSScriptRoot\..\status\SetupType.module.psm1"
+$setupInfoModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.cluster.module\setupinfo\setupinfo.module.psm1"
 $runningStateModule = "$PSScriptRoot\..\status\RunningState.module.psm1"
-Import-Module $setupTypeModule, $runningStateModule
+Import-Module $setupInfoModule, $runningStateModule
 
-$setupType = Get-SetupType
-if (!$($setupType.Name)) {
+$setupInfo = Get-SetupInfo
+if (!$($setupInfo.Name)) {
     throw 'No setup installed!'
 }
 
-if ($setupType.Name -eq $global:SetupType_BuildOnlyEnv) {
+if ($setupInfo.Name -eq $global:SetupType_BuildOnlyEnv) {
     $runningVMs = Get-VM -ErrorAction SilentlyContinue | Where-Object { $_.State -eq [Microsoft.HyperV.PowerShell.VMState]::Running }
     if (! $($runningVMs | Where-Object Name -eq $global:VMName)) {
         throw "VM $global:VMName is not started!"
     }
 }
 else {
-    $clusterState = Get-RunningState -SetupType $setupType.Name
+    $clusterState = Get-RunningState -SetupType $setupInfo.Name
 
     if ($clusterState.IsRunning -ne $true) {
         throw "Cannot connect to master via ssh when cluster is not running. Please start the cluster with 'k2s start'."

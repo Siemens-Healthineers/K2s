@@ -33,6 +33,10 @@ func (tp TerminalPrinter) PrintWarning(m ...any) {
 	pterm.Warning.Println(m...)
 }
 
+func (tp TerminalPrinter) PrintInfoln(m ...any) {
+	pterm.Info.Println(m...)
+}
+
 func (tp TerminalPrinter) PrintInfofln(format string, a ...any) {
 	pterm.Info.Printfln(format, a...)
 }

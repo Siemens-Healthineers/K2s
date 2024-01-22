@@ -27,10 +27,10 @@ Param (
 # import global functions
 . $PSScriptRoot\..\common\GlobalFunctions.ps1
 
-$setupTypeModule = "$PSScriptRoot\..\status\SetupType.module.psm1"
+$setupInfoModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.cluster.module\setupinfo\setupinfo.module.psm1"
 $imageFunctionsModule = "$PSScriptRoot\ImageFunctions.module.psm1"
 $loggingModule = "$PSScriptRoot\..\ps-modules\log\log.module.psm1"
-Import-Module $setupTypeModule, $imageFunctionsModule, $loggingModule -DisableNameChecking
+Import-Module $setupInfoModule, $imageFunctionsModule, $loggingModule -DisableNameChecking
 Initialize-Logging -ShowLogs:$ShowLogs
 
 Test-ClusterAvailabilityForImageFunctions
@@ -154,8 +154,8 @@ if ($foundWindowsImages.Count -eq 1) {
         $finalExportPath = $path + '\' + $newFileName
     }
 
-    $setupType = Get-SetupType
-    if ($setupType.Name -eq $global:SetupType_MultiVMK8s) {
+    $setupInfo = Get-SetupInfo
+    if ($setupInfo.Name -eq $global:SetupType_MultiVMK8s) {
         $session = Open-RemoteSessionViaSSHKey $global:Admin_WinNode $global:WindowsVMKey
         $tmpPath = 'C:\\temp\\tmp.tar'
         Invoke-Command -Session $session {

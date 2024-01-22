@@ -19,11 +19,11 @@ var suite *framework.K2sTestSuite
 
 func TestStatus(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "CLI Acceptance Tests", Label("cli", "acceptance", "setup-required"))
+	RunSpecs(t, "CLI Acceptance Tests", Label("cli", "acceptance", "no-setup"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
-	suite = framework.Setup(ctx)
+	suite = framework.Setup(ctx, framework.NoSetupInstalled)
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
@@ -36,7 +36,7 @@ var _ = Describe("CLI", func() {
 		var exitCode int
 
 		BeforeAll(func(ctx context.Context) {
-			erroneousCmd := exec.Command(suite.SetupInfo().CliPath, "invalid", "command")
+			erroneousCmd := exec.Command(suite.K2sCli().Path(), "invalid", "command")
 			session, err := gexec.Start(erroneousCmd, GinkgoWriter, GinkgoWriter)
 
 			Expect(err).ToNot(HaveOccurred())
@@ -67,7 +67,7 @@ var _ = Describe("CLI", func() {
 		var exitCode int
 
 		BeforeAll(func(ctx context.Context) {
-			erroneousCmd := exec.Command(suite.SetupInfo().CliPath, "addons", "ls")
+			erroneousCmd := exec.Command(suite.K2sCli().Path(), "addons", "ls")
 			session, err := gexec.Start(erroneousCmd, GinkgoWriter, GinkgoWriter)
 
 			Expect(err).ToNot(HaveOccurred())
@@ -96,7 +96,7 @@ var _ = Describe("CLI", func() {
 		var exitCode int
 
 		BeforeAll(func(ctx context.Context) {
-			erroneousCmd := exec.Command(suite.SetupInfo().CliPath, "addons")
+			erroneousCmd := exec.Command(suite.K2sCli().Path(), "addons")
 			session, err := gexec.Start(erroneousCmd, GinkgoWriter, GinkgoWriter)
 
 			Expect(err).ToNot(HaveOccurred())
@@ -125,7 +125,7 @@ var _ = Describe("CLI", func() {
 		var exitCode int
 
 		BeforeAll(func(ctx context.Context) {
-			erroneousCmd := exec.Command(suite.SetupInfo().CliPath, "addons", "ls", "-h")
+			erroneousCmd := exec.Command(suite.K2sCli().Path(), "addons", "ls", "-h")
 			session, err := gexec.Start(erroneousCmd, GinkgoWriter, GinkgoWriter)
 
 			Expect(err).ToNot(HaveOccurred())

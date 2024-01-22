@@ -24,7 +24,12 @@ func NewCli(cliPath string, cliExecutor CliExecutor) *K2sCliRunner {
 	}
 }
 
-// convenience wrapper around k2s.exe
+// Run is a convenience wrapper around k2s.exe
 func (s *K2sCliRunner) Run(ctx context.Context, cliArgs ...string) string {
 	return s.cliExecutor.ExecOrFail(ctx, s.cliPath, cliArgs...)
+}
+
+// Path returns the absolute file path of the k2s.exe
+func (s *K2sCliRunner) Path() string {
+	return s.cliPath
 }

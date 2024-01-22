@@ -5,9 +5,9 @@
 &$PSScriptRoot\..\smallsetup\common\GlobalVariables.ps1
 . $PSScriptRoot\..\smallsetup\common\GlobalFunctions.ps1
 $logModule = "$PSScriptRoot\..\smallsetup\ps-modules\log\log.module.psm1"
-$setupTypeModule = "$PSScriptRoot\..\smallsetup\status\SetupType.module.psm1"
+$setupInfoModule = "$PSScriptRoot\..\lib\modules\k2s\k2s.cluster.module\setupinfo\setupinfo.module.psm1"
 $runningStateModule = "$PSScriptRoot\..\smallsetup\status\RunningState.module.psm1"
-Import-Module $logModule, $setupTypeModule, $runningStateModule
+Import-Module $logModule, $setupInfoModule, $runningStateModule
 
 $script = $MyInvocation.MyCommand.Name
 $ConfigKey_EnabledAddons = 'EnabledAddons'
@@ -507,13 +507,13 @@ function Get-AddonStatus {
         return $status
     }
 
-    $setupType = Get-SetupType
-    if ($setupType.ValidationError) {
-        $status.Error = $setupType.ValidationError
+    $setupInfo = Get-SetupInfo
+    if ($setupInfo.ValidationError) {
+        $status.Error = $setupInfo.ValidationError
         return $status
     }
 
-    $clusterState = Get-RunningState -SetupType $setupType.Name
+    $clusterState = Get-RunningState -SetupType $setupInfo.Name
     if ($clusterState.IsRunning -ne $true) {
         $status.Error = "Cannot interact with '$Name' addon when cluster is not running. Please start the cluster with 'k2s start'."
         return $status

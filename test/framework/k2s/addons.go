@@ -4,11 +4,11 @@ package k2s
 
 import (
 	"io/fs"
+	sos "k2sTest/framework/os"
 	"log"
 	"os"
 	"path/filepath"
 	"regexp"
-	sos "k2sTest/framework/os"
 	"strings"
 
 	//lint:ignore ST1001 test framework code
@@ -62,8 +62,8 @@ type CurlPackages struct {
 
 const manifestFileName = "addon.manifest.yaml"
 
-func (setup *SetupInfo) AllAddons() []Addon {
-	addonsDir := filepath.Join(setup.RootDir, "addons")
+func AllAddons(rootDir string) []Addon {
+	addonsDir := filepath.Join(rootDir, "addons")
 	addons := []Addon{}
 
 	GinkgoWriter.Println("Scanning for addons in <", addonsDir, ">..")
@@ -106,7 +106,7 @@ func (setup *SetupInfo) AllAddons() []Addon {
 	return addons
 }
 
-func (setup *SetupInfo) GetImagesForAddon(addon Addon) ([]string, error) {
+func GetImagesForAddon(addon Addon) ([]string, error) {
 	yamlFiles, err := sos.GetFilesMatch(addon.Directory.Path, "*.yaml")
 	if err != nil {
 		return nil, err

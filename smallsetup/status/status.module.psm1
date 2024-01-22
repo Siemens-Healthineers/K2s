@@ -8,9 +8,9 @@ $addonModule = "$PSScriptRoot/../../addons/Addons.module.psm1"
 $k8sApiModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k8s-api/k8s-api.module.psm1"
 $logModule = "$PSScriptRoot\..\ps-modules\log\log.module.psm1"
 $runningStateModule = "$PSScriptRoot/RunningState.module.psm1"
-$setupTypeModule = "$PSScriptRoot/SetupType.module.psm1"
+$setupInfoModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.cluster.module\setupinfo\setupinfo.module.psm1"
 
-Import-Module $addonModule, $k8sApiModule, $runningStateModule, $setupTypeModule, $logModule
+Import-Module $addonModule, $k8sApiModule, $runningStateModule, $setupInfoModule, $logModule
 
 $script = $MyInvocation.MyCommand.Name
 
@@ -47,10 +47,10 @@ function Get-Status {
         Write-Progress -Activity 'Gathering status information...' -Id 1 -Status '0/5' -PercentComplete 0 -CurrentOperation 'Getting setup type'
     }
 
-    $status = @{SetupType = Get-SetupType }
+    $status = @{SetupInfo = Get-SetupInfo }
 
-    if ($status.SetupType.ValidationError) {
-        Write-Log "[$script::$function] Setup type invalid, returning with error='$($status.SetupType.ValidationError)'"
+    if ($status.SetupInfo.ValidationError) {
+        Write-Log "[$script::$function] Setup type invalid, returning with error='$($status.SetupInfo.ValidationError)'"
         
         if ($ShowProgress -eq $true) {
             Write-Progress -Activity 'Gathering status information...' -Id 1 -Completed
@@ -68,7 +68,7 @@ function Get-Status {
         Write-Progress -Activity 'Gathering status information...' -Id 1 -Status '2/5' -PercentComplete 40 -CurrentOperation 'Determining running state'
     }
 
-    $status.RunningState = (Get-RunningState $status.SetupType.Name)
+    $status.RunningState = (Get-RunningState $status.SetupInfo.Name)
 
     if ($status.RunningState.IsRunning -ne $true) {
         Write-Log "[$script::$function] cluster not running, returning"

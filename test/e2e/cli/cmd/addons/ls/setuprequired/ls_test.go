@@ -1,6 +1,6 @@
 // SPDX-FileCopyrightText:  © 2023 Siemens Healthcare GmbH
 // SPDX-License-Identifier:   MIT
-package ls
+package setuprequired
 
 import (
 	"context"
@@ -19,12 +19,12 @@ var addons []k2s.Addon
 
 func TestStatus(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "addons ls CLI Command Acceptance Tests", Label("cli", "acceptance", "setup-required", "invasive", "addon"))
+	RunSpecs(t, "addons ls CLI Command Acceptance Tests", Label("cli", "ls", "acceptance", "setup-required", "addon"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
 	suite = framework.Setup(ctx)
-	addons = suite.SetupInfo().AllAddons()
+	addons = k2s.AllAddons(suite.RootDir())
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
