@@ -777,15 +777,9 @@ function Get-InstalledKubernetesVersion {
 
 <#
 .SYNOPSIS
-    Returns the setup type of the K2s installation.
+    Deprecaded: use K2s\lib\modules\k2s\k2s.infra.module\config\config.module.psm1::Get-ConfigSetupType instead
 .DESCRIPTION
-    Returns the setup type of the K2s installation. If no entry was found, the 'default' setup type is returned.
-.EXAMPLE
-    $setupType = Get-Installedk2sSetupType
-.OUTPUTS
-    The setup type of the K2s installation if present; otherwise 'k2s'
-.NOTES
-    Checks the local setup json file for the setup type
+    Deprecaded: use K2s\lib\modules\k2s\k2s.infra.module\config\config.module.psm1::Get-ConfigSetupType instead
 #>
 function Get-Installedk2sSetupType {
     if (!$global:SetupJsonFile -or !$global:ConfigKey_SetupType) {

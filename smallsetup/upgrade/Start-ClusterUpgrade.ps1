@@ -46,8 +46,8 @@ Import-Module $upgradeModule # -Verbose
 $addonsModule = "$PSScriptRoot/../../addons/Addons.module.psm1"
 Import-Module $addonsModule # -Verbose
 
-$setupTypeModule = "$PSScriptRoot/../status/SetupType.module.psm1"
-Import-Module $setupTypeModule # -Verbose
+$setupInfoModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.cluster.module\setupinfo\setupinfo.module.psm1"
+Import-Module $setupInfoModule # -Verbose
 
 Import-Module "$PSScriptRoot/../ps-modules/log/log.module.psm1"
 Initialize-Logging -ShowLogs:$ShowLogs
@@ -99,11 +99,11 @@ function Start-ClusterUpgrade {
         }
 
         # check if cluster is installed
-        $setupType = Get-SetupType
-        if (!$($setupType.Name)) {
+        $setupInfo = Get-SetupInfo
+        if (!$($setupInfo.Name)) {
             throw 'No K8s cluster is available. Nothing needs to be done !'
         }
-        if ($setupType.Name -ne $global:SetupType_k2s) {
+        if ($setupInfo.Name -ne $global:SetupType_k2s) {
             throw "Upgrade is only available for 'k2s' setup type"
         }
 

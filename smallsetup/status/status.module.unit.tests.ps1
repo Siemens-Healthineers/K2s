@@ -16,14 +16,14 @@ Describe 'Get-Status' -Tag 'unit' {
     Context 'progress display disabled' {
         Context 'setup type is invalid' {
             BeforeAll {
-                Mock -ModuleName $moduleName Get-SetupType { return @{Name = 'invalid'; ValidationError = 'invalid type' } }
+                Mock -ModuleName $moduleName Get-SetupInfo { return @{Name = 'invalid'; ValidationError = 'invalid type' } }
             }
             
             It 'returns status with setup type info immediately without gathering additional data' {
                 InModuleScope -ModuleName $moduleName {
                     $result = Get-Status
-                    $result.SetupType.Name | Should -Be 'invalid'
-                    $result.SetupType.ValidationError | Should -Be 'invalid type'
+                    $result.SetupInfo.Name | Should -Be 'invalid'
+                    $result.SetupInfo.ValidationError | Should -Be 'invalid type'
                     $result.SmbHostType | Should -BeNullOrEmpty
                 }
             }
@@ -31,7 +31,7 @@ Describe 'Get-Status' -Tag 'unit' {
         
         Context 'setup type is valid' {
             BeforeAll {
-                Mock -ModuleName $moduleName Get-SetupType { return @{Name = 'valid' } }
+                Mock -ModuleName $moduleName Get-SetupInfo { return @{Name = 'valid' } }
                 Mock -ModuleName $moduleName Get-EnabledAddons { return @{Addons = 'a1', 'a2' } }
                 Mock -ModuleName $moduleName Get-RunningState { return @{IsRunning = $false } }
 
@@ -42,8 +42,8 @@ Describe 'Get-Status' -Tag 'unit' {
             
             It 'returns setup type' {
                 InModuleScope -ModuleName $moduleName {
-                    $result.SetupType.Name | Should -Be 'valid'
-                    $result.SetupType.ValidationError | Should -BeNullOrEmpty
+                    $result.SetupInfo.Name | Should -Be 'valid'
+                    $result.SetupInfo.ValidationError | Should -BeNullOrEmpty
                 }
             }
 
@@ -58,7 +58,7 @@ Describe 'Get-Status' -Tag 'unit' {
         
         Context 'cluster is not running' {
             BeforeAll {
-                Mock -ModuleName $moduleName Get-SetupType { return @{Name = 'valid' } }
+                Mock -ModuleName $moduleName Get-SetupInfo { return @{Name = 'valid' } }
                 Mock -ModuleName $moduleName Get-EnabledAddons {}
                 Mock -ModuleName $moduleName Get-RunningState { return @{IsRunning = $false } }
 
@@ -76,7 +76,7 @@ Describe 'Get-Status' -Tag 'unit' {
         
         Context 'cluster is running' {
             BeforeAll {
-                Mock -ModuleName $moduleName Get-SetupType { return @{Name = 'valid' } }
+                Mock -ModuleName $moduleName Get-SetupInfo { return @{Name = 'valid' } }
                 Mock -ModuleName $moduleName Get-EnabledAddons {}
                 Mock -ModuleName $moduleName Get-RunningState { return @{IsRunning = $true } }
                 Mock -ModuleName $moduleName Get-Nodes { return @{Name = 'n1' }, @{Name = 'n2' } }
@@ -122,7 +122,7 @@ Describe 'Get-Status' -Tag 'unit' {
     Context 'progress display enabled' {
         Context 'setup type is invalid' {
             BeforeAll {
-                Mock -ModuleName $moduleName Get-SetupType { return @{Name = 'invalid'; ValidationError = 'invalid type' } }
+                Mock -ModuleName $moduleName Get-SetupInfo { return @{Name = 'invalid'; ValidationError = 'invalid type' } }
                 Mock -ModuleName $moduleName Write-Progress {}
 
                 InModuleScope -ModuleName $moduleName {
@@ -146,7 +146,7 @@ Describe 'Get-Status' -Tag 'unit' {
        
         Context 'cluster is not running' {
             BeforeAll {
-                Mock -ModuleName $moduleName Get-SetupType { return @{Name = 'valid' } }
+                Mock -ModuleName $moduleName Get-SetupInfo { return @{Name = 'valid' } }
                 Mock -ModuleName $moduleName Write-Progress {}
                 Mock -ModuleName $moduleName Get-EnabledAddons {}
                 Mock -ModuleName $moduleName Get-RunningState { return @{IsRunning = $false } }
@@ -174,7 +174,7 @@ Describe 'Get-Status' -Tag 'unit' {
         
         Context 'cluster is running' {
             BeforeAll {
-                Mock -ModuleName $moduleName Get-SetupType { return @{Name = 'valid' } }
+                Mock -ModuleName $moduleName Get-SetupInfo { return @{Name = 'valid' } }
                 Mock -ModuleName $moduleName Write-Progress {}
                 Mock -ModuleName $moduleName Get-EnabledAddons {}
                 Mock -ModuleName $moduleName Get-RunningState { return @{IsRunning = $true } }

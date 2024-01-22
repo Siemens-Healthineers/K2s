@@ -6,37 +6,29 @@ package runningstate_test
 import (
 	"k2s/cmd/status/load"
 	rs "k2s/cmd/status/runningstate"
+	"strings"
+	"test/reflection"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/stretchr/testify/mock"
 )
 
-type logEntry struct {
-	logType string
-	value   any
+type mockObject struct {
+	mock.Mock
 }
 
-type testTerminalPrinter struct {
-	log []logEntry
+func (mo *mockObject) PrintSuccess(m ...any) {
+	mo.Called(m...)
 }
 
-const (
-	warningLogType = "warning"
-	successLogType = "success"
-	itemsLogType   = "items"
-)
-
-func (t *testTerminalPrinter) PrintSuccess(m ...any) {
-	t.log = append(t.log, logEntry{logType: successLogType, value: m})
+func (mo *mockObject) PrintInfoln(m ...any) {
+	mo.Called(m...)
 }
 
-func (t *testTerminalPrinter) PrintWarning(m ...any) {
-	t.log = append(t.log, logEntry{logType: warningLogType, value: m})
-}
-
-func (t *testTerminalPrinter) PrintTreeListItems(items []string) {
-	t.log = append(t.log, logEntry{logType: itemsLogType, value: items})
+func (mo *mockObject) PrintTreeListItems(items []string) {
+	mo.Called(items)
 }
 
 func TestRunningstate(t *testing.T) {
@@ -46,49 +38,57 @@ func TestRunningstate(t *testing.T) {
 
 var _ = Describe("runningstate", func() {
 	Describe("PrintRunningState", func() {
+		When("no info provided", func() {
+			It("returns error", func() {
+				sut := rs.NewRunningStatePrinter(nil)
+
+				actual, err := sut.PrintRunningState(nil)
+
+				Expect(err).To(MatchError(MatchRegexp("no.+info retrieved")))
+				Expect(actual).To(BeFalse())
+			})
+		})
+
 		When("cluster is running", func() {
 			It("logs success and proceeds", func() {
-				printer := &testTerminalPrinter{log: []logEntry{}}
-				state := load.RunningState{IsRunning: true}
-				sut := rs.NewRunningStatePrinter(printer)
+				state := &load.RunningState{IsRunning: true}
 
-				actual := sut.PrintRunningState(state)
+				printerMock := &mockObject{}
+				printerMock.On(reflection.GetFunctionName(printerMock.PrintSuccess), mock.MatchedBy(func(m string) bool {
+					return strings.Contains(m, "is running")
+				}))
 
+				sut := rs.NewRunningStatePrinter(printerMock)
+
+				actual, err := sut.PrintRunningState(state)
+
+				Expect(err).ToNot(HaveOccurred())
 				Expect(actual).To(BeTrue())
-				Expect(printer.log).To(HaveLen(1))
-				Expect(printer.log[0].logType).To(Equal(successLogType))
-				Expect(printer.log[0].value.([]any)[0]).To(ContainSubstring("cluster is running"))
+
+				printerMock.AssertExpectations(GinkgoT())
 			})
 		})
 
 		When("cluster is not running", func() {
-			It("logs warning and does not proceed", func() {
-				printer := &testTerminalPrinter{log: []logEntry{}}
-				state := load.RunningState{IsRunning: false}
-				sut := rs.NewRunningStatePrinter(printer)
+			It("logs info and does not proceed", func() {
+				state := &load.RunningState{
+					IsRunning: false,
+					Issues:    []string{"problem-1", "problem-2"}}
 
-				actual := sut.PrintRunningState(state)
+				printerMock := &mockObject{}
+				printerMock.On(reflection.GetFunctionName(printerMock.PrintInfoln), mock.MatchedBy(func(m string) bool {
+					return strings.Contains(m, "is not running")
+				}))
+				printerMock.On(reflection.GetFunctionName(printerMock.PrintTreeListItems), state.Issues)
 
+				sut := rs.NewRunningStatePrinter(printerMock)
+
+				actual, err := sut.PrintRunningState(state)
+
+				Expect(err).ToNot(HaveOccurred())
 				Expect(actual).To(BeFalse())
-				Expect(printer.log).To(HaveLen(2))
-				Expect(printer.log[0].logType).To(Equal(warningLogType))
-				Expect(printer.log[0].value.([]any)[0]).To(ContainSubstring("cluster is not running"))
-			})
 
-			It("prints the issue", func() {
-				expected := []string{"problem-1", "problem-2"}
-				state := load.RunningState{IsRunning: false, Issues: expected}
-				printer := &testTerminalPrinter{log: []logEntry{}}
-				sut := rs.NewRunningStatePrinter(printer)
-
-				sut.PrintRunningState(state)
-
-				Expect(printer.log).To(HaveLen(2))
-				Expect(printer.log[1].logType).To(Equal(itemsLogType))
-
-				items := printer.log[1].value.([]string)
-
-				Expect(items).To(HaveExactElements(expected))
+				printerMock.AssertExpectations(GinkgoT())
 			})
 		})
 	})

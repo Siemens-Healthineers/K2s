@@ -23,7 +23,7 @@ Describe 'Test-CsiPodsCondition' -Tag 'unit', 'addon' {
 
     Context 'Linux-only' {
         BeforeAll {
-            Mock -ModuleName $moduleName Get-SetupType { return [pscustomobject]@{LinuxOnly = $true } }
+            Mock -ModuleName $moduleName Get-SetupInfo { return [pscustomobject]@{LinuxOnly = $true } }
         }
 
         Context 'default values' {
@@ -119,7 +119,7 @@ Describe 'Test-CsiPodsCondition' -Tag 'unit', 'addon' {
 
     Context 'not Linux-only' {
         BeforeAll {
-            Mock -ModuleName $moduleName Get-SetupType { return [pscustomobject]@{LinuxOnly = $false } }
+            Mock -ModuleName $moduleName Get-SetupInfo { return [pscustomobject]@{LinuxOnly = $false } }
         }
 
         Context 'default values' {
@@ -241,7 +241,7 @@ Describe 'Test-CsiPodsCondition' -Tag 'unit', 'addon' {
 Describe 'Test-IsSmbShareWorking' -Tag 'unit', 'addon' {
     Context 'Setup type is invalid' {
         BeforeAll {
-            Mock -ModuleName $moduleName Get-SetupType { return [pscustomobject]@{Name = 'invalid'; ValidationError = 'setup type invalid' } }
+            Mock -ModuleName $moduleName Get-SetupInfo { return [pscustomobject]@{Name = 'invalid'; ValidationError = 'setup type invalid' } }
         }
 
         It 'throws' {
@@ -253,7 +253,7 @@ Describe 'Test-IsSmbShareWorking' -Tag 'unit', 'addon' {
 
     Context "Setup type is neither 'k2s' nor 'MultiVMK8s'" {
         BeforeAll {
-            Mock -ModuleName $moduleName Get-SetupType { return [pscustomobject]@{Name = 'TrippleK8s' } }
+            Mock -ModuleName $moduleName Get-SetupInfo { return [pscustomobject]@{Name = 'TrippleK8s' } }
         }
 
         It 'throws' {
@@ -266,7 +266,7 @@ Describe 'Test-IsSmbShareWorking' -Tag 'unit', 'addon' {
     Context 'Setup type is k2s' {
         Context 'SMB share is not working' {
             BeforeAll {
-                Mock -ModuleName $moduleName Get-SetupType { return [pscustomobject]@{Name = $global:SetupType_k2s; LinuxOnly = $false } }
+                Mock -ModuleName $moduleName Get-SetupInfo { return [pscustomobject]@{Name = $global:SetupType_k2s; LinuxOnly = $false } }
                 Mock -ModuleName $moduleName Test-SharedFolderMountOnWinNode {
                     InModuleScope -ModuleName $moduleName {
                         $script:Success = $false
@@ -287,7 +287,7 @@ Describe 'Test-IsSmbShareWorking' -Tag 'unit', 'addon' {
 
         Context 'SMB share is working' {
             BeforeAll {
-                Mock -ModuleName $moduleName Get-SetupType { return [pscustomobject]@{Name = $global:SetupType_k2s; LinuxOnly = $false } }
+                Mock -ModuleName $moduleName Get-SetupInfo { return [pscustomobject]@{Name = $global:SetupType_k2s; LinuxOnly = $false } }
                 Mock -ModuleName $moduleName Test-SharedFolderMountOnWinNode {
                     InModuleScope -ModuleName $moduleName {
                         $script:Success = $true
@@ -311,7 +311,7 @@ Describe 'Test-IsSmbShareWorking' -Tag 'unit', 'addon' {
         Context 'is Linux-only' {
             Context 'SMB share is not working' {
                 BeforeAll {
-                    Mock -ModuleName $moduleName Get-SetupType { return [pscustomobject]@{Name = $global:SetupType_MultiVMK8s; LinuxOnly = $true } }
+                    Mock -ModuleName $moduleName Get-SetupInfo { return [pscustomobject]@{Name = $global:SetupType_MultiVMK8s; LinuxOnly = $true } }
                     Mock -ModuleName $moduleName Test-SharedFolderMountOnWinNode {
                         InModuleScope -ModuleName $moduleName {
                             $script:Success = $false
@@ -332,7 +332,7 @@ Describe 'Test-IsSmbShareWorking' -Tag 'unit', 'addon' {
 
             Context 'SMB share is working' {
                 BeforeAll {
-                    Mock -ModuleName $moduleName Get-SetupType { return [pscustomobject]@{Name = $global:SetupType_MultiVMK8s; LinuxOnly = $true } }
+                    Mock -ModuleName $moduleName Get-SetupInfo { return [pscustomobject]@{Name = $global:SetupType_MultiVMK8s; LinuxOnly = $true } }
                     Mock -ModuleName $moduleName Test-SharedFolderMountOnWinNode {
                         InModuleScope -ModuleName $moduleName {
                             $script:Success = $true
@@ -355,7 +355,7 @@ Describe 'Test-IsSmbShareWorking' -Tag 'unit', 'addon' {
         Context 'is not Linux-only' {
             Context 'SMB share is not working on Win VM' {
                 BeforeAll {
-                    Mock -ModuleName $moduleName Get-SetupType { return [pscustomobject]@{Name = $global:SetupType_MultiVMK8s; LinuxOnly = $false } }
+                    Mock -ModuleName $moduleName Get-SetupInfo { return [pscustomobject]@{Name = $global:SetupType_MultiVMK8s; LinuxOnly = $false } }
                     Mock -ModuleName $moduleName Test-SharedFolderMountOnWinNode {
                         InModuleScope -ModuleName $moduleName {
                             $script:Success = $true
@@ -378,7 +378,7 @@ Describe 'Test-IsSmbShareWorking' -Tag 'unit', 'addon' {
 
             Context 'SMB share is not working on Win host' {
                 BeforeAll {
-                    Mock -ModuleName $moduleName Get-SetupType { return [pscustomobject]@{Name = $global:SetupType_MultiVMK8s; LinuxOnly = $false } }
+                    Mock -ModuleName $moduleName Get-SetupInfo { return [pscustomobject]@{Name = $global:SetupType_MultiVMK8s; LinuxOnly = $false } }
                     Mock -ModuleName $moduleName Test-SharedFolderMountOnWinNode {
                         InModuleScope -ModuleName $moduleName {
                             $script:Success = $false
@@ -401,7 +401,7 @@ Describe 'Test-IsSmbShareWorking' -Tag 'unit', 'addon' {
 
             Context 'SMB share is working' {
                 BeforeAll {
-                    Mock -ModuleName $moduleName Get-SetupType { return [pscustomobject]@{Name = $global:SetupType_MultiVMK8s; LinuxOnly = $false } }
+                    Mock -ModuleName $moduleName Get-SetupInfo { return [pscustomobject]@{Name = $global:SetupType_MultiVMK8s; LinuxOnly = $false } }
                     Mock -ModuleName $moduleName Test-SharedFolderMountOnWinNode {
                         InModuleScope -ModuleName $moduleName {
                             $script:Success = $true
@@ -1242,7 +1242,7 @@ Describe 'Remove-SmbShareAndFolderLinuxHost' -Tag 'unit', 'addon' {
 Describe 'Test-ClusterAvailability' -Tag 'unit', 'addon' {
     Context 'setup type invalid' {
         BeforeAll {
-            Mock -ModuleName $moduleName Get-SetupType { return [pscustomobject]@{ValidationError = 'oops' } }
+            Mock -ModuleName $moduleName Get-SetupInfo { return [pscustomobject]@{ValidationError = 'oops' } }
         }
 
         It 'throws' {
@@ -1254,7 +1254,7 @@ Describe 'Test-ClusterAvailability' -Tag 'unit', 'addon' {
 
     Context 'cluster not running' {
         BeforeAll {
-            Mock -ModuleName $moduleName Get-SetupType { return [pscustomobject]@{Name = 'test-type' } }
+            Mock -ModuleName $moduleName Get-SetupInfo { return [pscustomobject]@{Name = 'test-type' } }
             Mock -ModuleName $moduleName Get-RunningState { return [pscustomobject]@{IsRunning = $false } }
         }
 
@@ -1267,7 +1267,7 @@ Describe 'Test-ClusterAvailability' -Tag 'unit', 'addon' {
 
     Context 'cluster running' {
         BeforeAll {
-            Mock -ModuleName $moduleName Get-SetupType { return [pscustomobject]@{Name = 'test-type' } }
+            Mock -ModuleName $moduleName Get-SetupInfo { return [pscustomobject]@{Name = 'test-type' } }
             Mock -ModuleName $moduleName Get-RunningState { return [pscustomobject]@{IsRunning = $true } } -ParameterFilter { $SetupType -eq 'test-type' }
         }
 
@@ -1284,7 +1284,7 @@ Describe 'Remove-SmbShareAndFolder' -Tag 'unit', 'addon' {
         BeforeAll {
             Mock -ModuleName $moduleName Write-Log {}
             Mock -ModuleName $moduleName Get-SmbHostType { return 'invalid' }
-            Mock -ModuleName $moduleName Get-SetupType {}
+            Mock -ModuleName $moduleName Get-SetupInfo {}
         }
 
         It 'throws' {
@@ -1299,7 +1299,7 @@ Describe 'Remove-SmbShareAndFolder' -Tag 'unit', 'addon' {
             Mock -ModuleName $moduleName Write-Log {}
             Mock -ModuleName $moduleName Test-ClusterAvailability {}
             Mock -ModuleName $moduleName Get-SmbHostType {}
-            Mock -ModuleName $moduleName Get-SetupType {}
+            Mock -ModuleName $moduleName Get-SetupInfo {}
             Mock -ModuleName $moduleName Remove-StorageClass {}
             Mock -ModuleName $moduleName Remove-SmbShareAndFolderWindowsHost {}
             Mock -ModuleName $moduleName Remove-SmbShareAndFolderLinuxHost {}
@@ -1331,7 +1331,7 @@ Describe 'Remove-SmbShareAndFolder' -Tag 'unit', 'addon' {
         Context 'Windows host' {
             BeforeAll {
                 Mock -ModuleName $moduleName Get-SmbHostType { return 'Windows' }
-                Mock -ModuleName $moduleName Get-SetupType {}
+                Mock -ModuleName $moduleName Get-SetupInfo {}
                 Mock -ModuleName $moduleName Remove-SmbShareAndFolderWindowsHost {}
                 Mock -ModuleName $moduleName Remove-SmbShareAndFolderLinuxHost { throw 'unexpected' }
 
@@ -1350,7 +1350,7 @@ Describe 'Remove-SmbShareAndFolder' -Tag 'unit', 'addon' {
         Context 'Linux host' {
             BeforeAll {
                 Mock -ModuleName $moduleName Get-SmbHostType { return 'Linux' }
-                Mock -ModuleName $moduleName Get-SetupType {}
+                Mock -ModuleName $moduleName Get-SetupInfo {}
                 Mock -ModuleName $moduleName Remove-SmbShareAndFolderWindowsHost { throw 'unexpected' }
                 Mock -ModuleName $moduleName Remove-SmbShareAndFolderLinuxHost {}
 
@@ -1372,7 +1372,7 @@ Describe 'Remove-SmbShareAndFolder' -Tag 'unit', 'addon' {
             Mock -ModuleName $moduleName Write-Log {}
             Mock -ModuleName $moduleName Test-ClusterAvailability {}
             Mock -ModuleName $moduleName Get-SmbHostType { }
-            Mock -ModuleName $moduleName Get-SetupType { return [pscustomobject]@{LinuxOnly = $false } }
+            Mock -ModuleName $moduleName Get-SetupInfo { return [pscustomobject]@{LinuxOnly = $false } }
             Mock -ModuleName $moduleName Remove-StorageClass {}
             Mock -ModuleName $moduleName Remove-SmbShareAndFolderWindowsHost {}
             Mock -ModuleName $moduleName Remove-SmbShareAndFolderLinuxHost {}
@@ -1397,7 +1397,7 @@ Describe 'Remove-SmbShareAndFolder' -Tag 'unit', 'addon' {
 
         Context 'Linux-only' {
             BeforeAll {
-                Mock -ModuleName $moduleName Get-SetupType { return [pscustomobject]@{LinuxOnly = $true } }
+                Mock -ModuleName $moduleName Get-SetupInfo { return [pscustomobject]@{LinuxOnly = $true } }
 
                 InModuleScope -ModuleName $moduleName {
                     Remove-SmbShareAndFolder
@@ -1419,7 +1419,7 @@ Describe 'Remove-SmbShareAndFolder' -Tag 'unit', 'addon' {
 
         Context 'not Multivm, not Linux-only' {
             BeforeAll {
-                Mock -ModuleName $moduleName Get-SetupType { return [pscustomobject]@{LinuxOnly = $false; Name = 'not-multivm' } }
+                Mock -ModuleName $moduleName Get-SetupInfo { return [pscustomobject]@{LinuxOnly = $false; Name = 'not-multivm' } }
 
                 InModuleScope -ModuleName $moduleName {
                     Remove-SmbShareAndFolder
@@ -1435,7 +1435,7 @@ Describe 'Remove-SmbShareAndFolder' -Tag 'unit', 'addon' {
 
         Context 'Multivm, not Linux-only' {
             BeforeAll {
-                Mock -ModuleName $moduleName Get-SetupType { return [pscustomobject]@{LinuxOnly = $false; Name = $global:SetupType_MultiVMK8s } }
+                Mock -ModuleName $moduleName Get-SetupInfo { return [pscustomobject]@{LinuxOnly = $false; Name = $global:SetupType_MultiVMK8s } }
             }
 
             Context 'Windows host' {
@@ -1555,7 +1555,7 @@ Describe 'Enable-SmbShare' -Tag 'unit', 'addon' {
 
             Context 'setup type invalid for this addon' {
                 BeforeAll {
-                    Mock -ModuleName $moduleName Get-SetupType { return [pscustomobject]@{Name = 'invalid-type' } }
+                    Mock -ModuleName $moduleName Get-SetupInfo { return [pscustomobject]@{Name = 'invalid-type' } }
                 }
 
                 It 'throws' {
@@ -1565,9 +1565,9 @@ Describe 'Enable-SmbShare' -Tag 'unit', 'addon' {
 
             Context 'setup type valid for this addon' {
                 BeforeAll {
-                    $setupType = [pscustomobject]@{Name = $global:SetupType_MultiVMK8s; LinuxOnly = $true }
+                    $setupInfo = [pscustomobject]@{Name = $global:SetupType_MultiVMK8s; LinuxOnly = $true }
 
-                    Mock -ModuleName $moduleName Get-SetupType { return $setupType }
+                    Mock -ModuleName $moduleName Get-SetupInfo { return $setupInfo }
                     Mock -ModuleName $moduleName Copy-ScriptsToHooksDir { }
                     Mock -ModuleName $moduleName Add-AddonToSetupJson { }
                     Mock -ModuleName $moduleName Restore-SmbShareAndFolder { }
@@ -1584,7 +1584,7 @@ Describe 'Enable-SmbShare' -Tag 'unit', 'addon' {
                         Should -Invoke Copy-ScriptsToHooksDir -Times 1 -Scope Context
                         Should -Invoke Add-AddonToSetupJson -Times 1 -Scope Context -ParameterFilter { $Addon.Name -eq $AddonName -and $Addon.SmbHostType -eq $smbHostType }
                         Should -Invoke Restore-SmbShareAndFolder -Times 1 -Scope Context -ParameterFilter {
-                            $SmbHostType -eq $smbHostType -and $SkipTest -eq $true -and $SetupType.Name -eq $global:SetupType_MultiVMK8s -and $SetupType.LinuxOnly -eq $true
+                            $SmbHostType -eq $smbHostType -and $SkipTest -eq $true -and $SetupInfo.Name -eq $global:SetupType_MultiVMK8s -and $SetupInfo.LinuxOnly -eq $true
                         }
                         Should -Invoke Restore-StorageClass -Times 1 -Scope Context -ParameterFilter { $SmbHostType -eq $smbHostType -and $LinuxOnly -eq $true }
                     }
@@ -1685,7 +1685,7 @@ Describe 'Restore-SmbShareAndFolder' -Tag 'unit', 'addon' {
 
             It 'mounts SMB share on Windows VM' {
                 InModuleScope -ModuleName $moduleName {
-                    Restore-SmbShareAndFolder -SmbHostType 'Windows' -SetupType ([pscustomobject]@{Name = $global:SetupType_MultiVMK8s })
+                    Restore-SmbShareAndFolder -SmbHostType 'Windows' -SetupInfo ([pscustomobject]@{Name = $global:SetupType_MultiVMK8s })
 
                     Should -Invoke Add-SharedFolderToWinVM -Times 1 -Scope Context -ParameterFilter { $SmbHostType -eq 'Windows' }
                 }
@@ -1735,7 +1735,7 @@ Describe 'Restore-SmbShareAndFolder' -Tag 'unit', 'addon' {
 
             It 'mounts SMB share on Windows VM' {
                 InModuleScope -ModuleName $moduleName {
-                    Restore-SmbShareAndFolder -SmbHostType 'Linux' -SetupType ([pscustomobject]@{Name = $global:SetupType_MultiVMK8s })
+                    Restore-SmbShareAndFolder -SmbHostType 'Linux' -SetupInfo ([pscustomobject]@{Name = $global:SetupType_MultiVMK8s })
 
                     Should -Invoke Add-SharedFolderToWinVM -Times 1 -Scope Context -ParameterFilter { $SmbHostType -eq 'Linux' }
                 }

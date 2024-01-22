@@ -381,7 +381,7 @@ function Enable-ClusterIsRunning {
 
     Write-Log 'Check K2s cluster is running' -Console
 
-    $setupType = Get-SetupType
+    $setupType = Get-SetupInfo
     $clusterState = Get-RunningState -SetupType $setupType.Name
 
     if ($clusterState.IsRunning -ne $true) {

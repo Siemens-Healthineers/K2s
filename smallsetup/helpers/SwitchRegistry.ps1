@@ -18,17 +18,17 @@ Param (
 
 $registryFunctionsModule = "$PSScriptRoot\RegistryFunctions.module.psm1"
 $statusModule = "$PSScriptRoot\..\status\Status.module.psm1"
-$setupTypeModule = "$PSScriptRoot\..\status\SetupType.module.psm1"
+$setupInfoModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.cluster.module\setupinfo\setupinfo.module.psm1"
 $runningStateModule = "$PSScriptRoot\..\status\RunningState.module.psm1"
 $imageFunctionsModule = "$PSScriptRoot\ImageFunctions.module.psm1"
 $logModule = "$PSScriptRoot\..\ps-modules\log\log.module.psm1"
 
-Import-Module $registryFunctionsModule, $statusModule, $runningStateModule, $imageFunctionsModule, $setupTypeModule -DisableNameChecking
+Import-Module $registryFunctionsModule, $statusModule, $runningStateModule, $imageFunctionsModule, $setupInfoModule -DisableNameChecking
 if (-not (Get-Module -Name $logModule -ListAvailable)) { Import-Module $logModule; Initialize-Logging -ShowLogs:$ShowLogs }
 
 Test-ClusterAvailabilityForImageFunctions
 
-$setupType = Get-SetupType
+$setupInfo = Get-SetupInfo
 
 Write-Log "Trying to log in into $RegistryName" -Console
 $registries = $(Get-RegistriesFromSetupJson)
@@ -37,18 +37,19 @@ if ($registries) {
         Login-Buildah -registry $RegistryName
 
         # Add dockerd parameters and restart docker daemon to push nondistributable artifacts and use insecure registry
-        if ($setupType.Name -eq $global:SetupType_k2s -or $setupType.Name -eq $global:SetupType_BuildOnlyEnv) {
+        if ($setupInfo.Name -eq $global:SetupType_k2s -or $setupInfo.Name -eq $global:SetupType_BuildOnlyEnv) {
             $storageLocalDrive = Get-StorageLocalDrive
             &"$global:NssmInstallDirectory\nssm" set docker AppParameters --exec-opt isolation=process --data-root "$storageLocalDrive\docker" --log-level debug --allow-nondistributable-artifacts "$RegistryName" --insecure-registry "$RegistryName" | Out-Null
-            if ($(Get-Service -Name "docker" -ErrorAction SilentlyContinue).Status -eq "Running") {
+            if ($(Get-Service -Name 'docker' -ErrorAction SilentlyContinue).Status -eq 'Running') {
                 &"$global:NssmInstallDirectory\nssm" restart docker
-            } else {
+            }
+            else {
                 &"$global:NssmInstallDirectory\nssm" start docker
             }
 
             Login-Docker -registry $RegistryName
         }
-        elseif ($setupType.Name -eq $global:SetupType_MultiVMK8s -and !$($setupType.LinuxOnly)) {
+        elseif ($setupInfo.Name -eq $global:SetupType_MultiVMK8s -and !$($setupInfo.LinuxOnly)) {
             $session = Open-RemoteSessionViaSSHKey $global:Admin_WinNode $global:WindowsVMKey
 
             Invoke-Command -Session $session {
@@ -64,9 +65,10 @@ if ($registries) {
                 Import-Module $registryFunctionsModule -DisableNameChecking
 
                 &"$global:NssmInstallDirectory\nssm" set docker AppParameters --exec-opt isolation=process --data-root 'C:\docker' --log-level debug --allow-nondistributable-artifacts "$using:RegistryName" --insecure-registry "$using:RegistryName" | Out-Null
-                if ($(Get-Service -Name "docker" -ErrorAction SilentlyContinue).Status -eq "Running") {
+                if ($(Get-Service -Name 'docker' -ErrorAction SilentlyContinue).Status -eq 'Running') {
                     &"$global:NssmInstallDirectory\nssm" restart docker
-                } else {
+                }
+                else {
                     &"$global:NssmInstallDirectory\nssm" start docker
                 }
 
@@ -81,5 +83,5 @@ if ($registries) {
     }
 }
 else {
-    Write-Log "No registries configured!" -Console
+    Write-Log 'No registries configured!' -Console
 }

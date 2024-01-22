@@ -8,10 +8,10 @@
 . $PSScriptRoot\..\common\GlobalFunctions.ps1
 
 $registryFunctionsModule = "$PSScriptRoot\RegistryFunctions.module.psm1"
-$setupTypeModule = "$PSScriptRoot\..\status\SetupType.module.psm1"
+$setupInfoModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.cluster.module\setupinfo\setupinfo.module.psm1"
 $addonsModule = "$PSScriptRoot\..\..\addons\addons.module.psm1"
 $runningStateModule = "$PSScriptRoot\..\status\RunningState.module.psm1"
-Import-Module $registryFunctionsModule, $setupTypeModule, $addonsModule, $runningStateModule -DisableNameChecking
+Import-Module $registryFunctionsModule, $setupInfoModule, $addonsModule, $runningStateModule -DisableNameChecking
 
 $windowsPauseImageRepository = 'shsk2s.azurecr.io/pause-win'
 
@@ -29,16 +29,16 @@ class PushedImage {
 }
 
 $headers = @(
-    "application/vnd.oci.image.manifest.v1+json",
-    "application/vnd.oci.image.index.v1+json",
-    "application/vnd.oci.artifact.manifest.v1+json",
-    "application/vnd.docker.distribution.manifest.v2+json",
-    "application/vnd.docker.distribution.manifest.list.v2+json",
-    "application/vnd.docker.distribution.manifest.v1+prettyjws",
-    "application/vnd.docker.distribution.manifest.v1+json"
+    'application/vnd.oci.image.manifest.v1+json',
+    'application/vnd.oci.image.index.v1+json',
+    'application/vnd.oci.artifact.manifest.v1+json',
+    'application/vnd.docker.distribution.manifest.v2+json',
+    'application/vnd.docker.distribution.manifest.list.v2+json',
+    'application/vnd.docker.distribution.manifest.v1+prettyjws',
+    'application/vnd.docker.distribution.manifest.v1+json'
 )
-$concatinatedHeadersString = ""
-$headers | ForEach-Object { $concatinatedHeadersString += " -H `"Accept: $_`""  } 
+$concatinatedHeadersString = ''
+$headers | ForEach-Object { $concatinatedHeadersString += " -H `"Accept: $_`"" } 
 
 function Create-KubernetesImageJsonFileIfNotExists() {
     $fileExists = Test-Path -Path $global:KubernetesImagesJson
@@ -73,19 +73,19 @@ function Write-KubernetesImagesIntoJson() {
 
 function Test-ClusterAvailabilityForImageFunctions() {
     # Check setup type
-    $setupType = Get-SetupType
-    if (!$($setupType.Name)) {
+    $setupInfo = Get-SetupInfo
+    if (!$($setupInfo.Name)) {
         throw 'No setup installed!'
     }
 
-    if ($setupType.Name -eq $global:SetupType_BuildOnlyEnv) {
+    if ($setupInfo.Name -eq $global:SetupType_BuildOnlyEnv) {
         $runningVMs = Get-VM -ErrorAction SilentlyContinue | Where-Object { $_.State -eq [Microsoft.HyperV.PowerShell.VMState]::Running }
         if (! $($runningVMs | Where-Object Name -eq $global:VMName)) {
             throw "VM $global:VMName is not started!"
         }
     }
     else {
-        $clusterState = Get-RunningState -SetupType $setupType.Name
+        $clusterState = Get-RunningState -SetupType $setupInfo.Name
 
         if ($clusterState.IsRunning -ne $true) {
             throw "Cannot execute image command when cluster is not running. Please start the cluster with 'k2s start'."
@@ -129,13 +129,13 @@ function Get-ContainerImagesOnLinuxNode([bool]$IncludeK8sImages = $false) {
 }
 
 function Get-ContainerImagesOnWindowsNode([bool]$IncludeK8sImages = $false) {
-    $setupType = Get-SetupType
+    $setupInfo = Get-SetupInfo
     $KubernetesImages = Get-KubernetesImagesFromJson
-    if ($setupType.Name -ne "$global:SetupType_MultiVMK8s") {
+    if ($setupInfo.Name -ne "$global:SetupType_MultiVMK8s") {
         $output = crictl images 2> $null
         $node = $env:ComputerName.ToLower()
     }
-    elseif ($setupType.Name -eq "$global:SetupType_MultiVMK8s" -and !$($setupType.LinuxOnly)) {
+    elseif ($setupInfo.Name -eq "$global:SetupType_MultiVMK8s" -and !$($setupInfo.LinuxOnly)) {
         $output = ssh.exe -n -o StrictHostKeyChecking=no -i $global:WindowsVMKey $global:Admin_WinNode crictl images 2> $null
         $node = 'winnode'
     }

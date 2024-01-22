@@ -49,8 +49,6 @@ $clusterCIDR = $smallsetup.psobject.properties['podNetworkCIDR'].value
 $clusterCIDRServices = $smallsetup.psobject.properties['servicesCIDR'].value
 
 #CONSTANTS
-
-New-Variable -Name 'SetupType' -Value 'SetupType' -Option Constant
 New-Variable -Name 'SetupJsonFile' -Value "$kubeConfigDir\setup.json" -Option Constant
 
 
@@ -188,7 +186,7 @@ function Get-ConfigValue {
     )
 
     if (!(Test-Path $Path)) {
-        return
+        return $null
     }
 
     return $(Get-Content $Path -Raw | ConvertFrom-Json).$Key
@@ -287,14 +285,14 @@ function Get-ConfigUsedStorageLocalDriveLetter {
 }
 
 function Get-ConfigSetupType {
-    return Get-ConfigValue -Path $SetupJsonFile -Key $SetupType
+    return Get-ConfigValue -Path $SetupJsonFile -Key 'SetupType'
 }
 
 function Set-ConfigSetupType {
     param (
         [object] $Value = $(throw 'Please provide the config value.')
     )
-    Set-ConfigValue -Path $SetupJsonFile -Key $SetupType -Value $Value
+    Set-ConfigValue -Path $SetupJsonFile -Key 'SetupType' -Value $Value
 }
 
 function Get-ConfigWslFlag {
@@ -317,6 +315,17 @@ function Set-ConfigLinuxOsType {
         [object] $Value = $(throw 'Please provide the config value.')
     )
     Set-ConfigValue -Path $SetupJsonFile -Key 'LinuxOs' -Value $Value
+}
+
+function Get-ConfigLinuxOnly {
+    return Get-ConfigValue -Path $SetupJsonFile -Key 'LinuxOnly'
+}
+
+function Set-ConfigLinuxOnly {
+    param (
+        [object] $Value = $(throw 'Please provide the config value.')
+    )
+    Set-ConfigValue -Path $SetupJsonFile -Key 'LinuxOnly' -Value $Value
 }
 
 function Set-ConfigUsedStorageLocalDriveLetter {
@@ -398,6 +407,8 @@ Set-ConfigSetupType,
 Get-ConfigWslFlag,
 Set-ConfigWslFlag,
 Set-ConfigLinuxOsType,
+Get-ConfigLinuxOnly,
+Set-ConfigLinuxOnly,
 Get-RootConfigk2s,
 Set-ConfigUsedStorageLocalDriveLetter,
 Set-ConfigLoggedInRegistry,

@@ -102,11 +102,11 @@ Param(
 # import global functions
 . $PSScriptRoot\GlobalFunctions.ps1
 
-$setupTypeModule = "$PSScriptRoot\..\status\SetupType.module.psm1"
+$setupInfoModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.cluster.module\setupinfo\setupinfo.module.psm1"
 $runningStateModule = "$PSScriptRoot\..\status\RunningState.module.psm1"
 $imageFunctionsModule = "$PSScriptRoot\..\helpers\ImageFunctions.module.psm1"
 $logModule = "$PSScriptRoot\..\ps-modules\log\log.module.psm1"
-Import-Module $setupTypeModule, $runningStateModule, $imageFunctionsModule, $logModule
+Import-Module $setupInfoModule, $runningStateModule, $imageFunctionsModule, $logModule
 Initialize-Logging -ShowLogs:$ShowLogs
 
 function Get-DockerfileAbsolutePathAndPrecompileFlag() {
@@ -325,8 +325,8 @@ if ($ImageName -eq '') {
     Write-Log "Using ImageName from Dockerfile: $ImageName"
 }
 
-$setupType = Get-SetupType
-if ($Windows -and $setupType.LinuxOnly) {
+$setupInfo = Get-SetupInfo
+if ($Windows -and $setupInfo.LinuxOnly) {
     throw 'Linux-only setup does not support building Windows images'
 }
 
@@ -521,7 +521,7 @@ else {
 
 # Windows container
 if ($Windows) {
-    if ($setupType.Name -eq "$global:SetupType_MultiVMK8s") {
+    if ($setupInfo.Name -eq "$global:SetupType_MultiVMK8s") {
         $dockerBuildPath = 'C:\temp\docker-build'
         ssh.exe -n -o StrictHostKeyChecking=no -i $global:WindowsVMKey $global:Admin_WinNode rmdir /s /q $dockerBuildPath
         ssh.exe -n -o StrictHostKeyChecking=no -i $global:WindowsVMKey $global:Admin_WinNode mkdir $dockerBuildPath
@@ -576,7 +576,7 @@ if ($Push) {
     Write-Log "Trying to push image ${ImageName}:$ImageTag to repository" -Console
 
     if ($Windows) {
-        if ($setupType.Name -eq "$global:SetupType_MultiVMK8s") {
+        if ($setupInfo.Name -eq "$global:SetupType_MultiVMK8s") {
             ssh.exe -n -o StrictHostKeyChecking=no -i $global:WindowsVMKey docker push "${ImageName}:$ImageTag" 2>&1
         }
         else {
