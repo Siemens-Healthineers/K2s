@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
 # SPDX-License-Identifier: MIT
 
-# CI Pipeline for running k2s Unit Tests
+# CI Pipeline for short-running K2s tests
 name: ci
 
 on:
@@ -37,10 +37,6 @@ jobs:
       with:
         go-version: ${{env.GOVERSION}}
 
-    - name: Set up Ginkgo
-      shell: pwsh
-      run: go install github.com/onsi/ginkgo/v2/ginkgo@v2.13.2
-
     - name: Show all diff
       run: |
         git diff --exit-code -- .
@@ -49,8 +45,8 @@ jobs:
       shell: pwsh
       run: ls -r
 
-    - name: Run Unit Tests
+    - name: Run short-running Tests
       shell: powershell
       run: |
         $ErrorActionPreference = "Continue"
-        .\test\execute_all_tests.ps1 -Tags unit -V -ThrowOnFailure
+        .\test\execute_all_tests.ps1 -Tags unit, no-setup -V -ThrowOnFailure
