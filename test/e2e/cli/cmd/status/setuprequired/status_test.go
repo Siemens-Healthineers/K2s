@@ -61,11 +61,11 @@ var _ = Describe("status command", func() {
 				Expect(output).To(ContainSubstring("K2s CLUSTER STATUS"))
 			})
 
-			It("prints setup type", func(ctx context.Context) {
-				Expect(output).To(MatchRegexp("Setup type: .+%s.+,", suite.SetupInfo().SetupType.Name))
+			It("prints setup", func(ctx context.Context) {
+				Expect(output).To(MatchRegexp("Setup: .+%s.+,", suite.SetupInfo().SetupType.Name))
 			})
 
-			It("prints the version", func(ctx context.Context) {
+			It("prints version", func(ctx context.Context) {
 				Expect(output).To(MatchRegexp("Version: .+%s.+", versionRegex))
 			})
 
@@ -104,11 +104,11 @@ var _ = Describe("status command", func() {
 				Expect(output).To(ContainSubstring("K2s CLUSTER STATUS"))
 			})
 
-			It("prints setup type", func(ctx context.Context) {
-				Expect(output).To(MatchRegexp("Setup type: .+%s.+,", suite.SetupInfo().SetupType.Name))
+			It("prints setup", func(ctx context.Context) {
+				Expect(output).To(MatchRegexp("Setup: .+%s.+,", suite.SetupInfo().SetupType.Name))
 			})
 
-			It("prints the version", func(ctx context.Context) {
+			It("prints version", func(ctx context.Context) {
 				Expect(output).To(MatchRegexp("Version: .+%s.+", versionRegex))
 			})
 
@@ -192,11 +192,11 @@ var _ = Describe("status command", func() {
 				Expect(output).To(ContainSubstring("K2s CLUSTER STATUS"))
 			})
 
-			It("prints setup type", func(ctx context.Context) {
-				Expect(output).To(MatchRegexp("Setup type: .+%s.+,", suite.SetupInfo().SetupType.Name))
+			It("prints setup", func(ctx context.Context) {
+				Expect(output).To(MatchRegexp("Setup: .+%s.+,", suite.SetupInfo().SetupType.Name))
 			})
 
-			It("prints the version", func(ctx context.Context) {
+			It("prints version", func(ctx context.Context) {
 				Expect(output).To(MatchRegexp("Version: .+%s.+", versionRegex))
 			})
 
@@ -262,8 +262,8 @@ var _ = Describe("status command", func() {
 				Expect(output).To(ContainSubstring("K2s CLUSTER STATUS"))
 			})
 
-			It("prints setup type", func(ctx context.Context) {
-				Expect(output).To(MatchRegexp("Setup type: .+%s.+,", suite.SetupInfo().SetupType.Name))
+			It("prints setup", func(ctx context.Context) {
+				Expect(output).To(MatchRegexp("Setup: .+%s.+,", suite.SetupInfo().SetupType.Name))
 			})
 
 			It("prints the version", func(ctx context.Context) {
