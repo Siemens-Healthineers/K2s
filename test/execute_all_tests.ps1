@@ -59,43 +59,40 @@ param (
 $pesterVersion = '5.5.0'
 $ginkgoVersion = '2.13.2'
 
-function ExecuteCommandWithPowershell([string]$Command)
-{
-    $powershellExe = "powershell.exe"
+function ExecuteCommandWithPowershell([string]$Command) {
+    $powershellExe = 'powershell.exe'
     $arguments = "-noprofile -Command `"$Command`""
-	Write-Host "Calling $powershellExe $arguments"
-	try{
-		$startInfo = New-Object System.Diagnostics.ProcessStartInfo
-		$startInfo.FileName = $powershellExe
-		$startInfo.RedirectStandardError = $true
-		$startInfo.RedirectStandardOutput = $true
-		$startInfo.UseShellExecute = $false
-		$startInfo.Arguments = $arguments
-		$process = New-Object System.Diagnostics.Process
-		$process.StartInfo = $startInfo
+    Write-Host "Calling $powershellExe $arguments"
+    try {
+        $startInfo = New-Object System.Diagnostics.ProcessStartInfo
+        $startInfo.FileName = $powershellExe
+        $startInfo.RedirectStandardError = $true
+        $startInfo.RedirectStandardOutput = $true
+        $startInfo.UseShellExecute = $false
+        $startInfo.Arguments = $arguments
+        $process = New-Object System.Diagnostics.Process
+        $process.StartInfo = $startInfo
         # Register Object Events for stdin\stdout reading
-		$OutEvent = Register-ObjectEvent -Action {
-		    Write-Host $Event.SourceEventArgs.Data
-		} -InputObject $process -EventName OutputDataReceived
-		$ErrEvent = Register-ObjectEvent -Action {
-		    Write-Host $Event.SourceEventArgs.Data
-		} -InputObject $process -EventName ErrorDataReceived
-		$process.Start() | Out-Null
-		$process.BeginOutputReadLine()
-		$process.BeginErrorReadLine()
-		$process.WaitForExit()
+        $OutEvent = Register-ObjectEvent -Action {
+            Write-Host $Event.SourceEventArgs.Data
+        } -InputObject $process -EventName OutputDataReceived
+        $ErrEvent = Register-ObjectEvent -Action {
+            Write-Host $Event.SourceEventArgs.Data
+        } -InputObject $process -EventName ErrorDataReceived
+        $process.Start() | Out-Null
+        $process.BeginOutputReadLine()
+        $process.BeginErrorReadLine()
+        $process.WaitForExit()
         # Unregister events
-		$OutEvent.Name, $ErrEvent.Name |
-        ForEach-Object {Unregister-Event -SourceIdentifier $_}
-		$exitCode = $process.ExitCode
-		return $exitCode
-	}
-	finally
-	{
-		if($null -ne $process)
-		{
-			$process.Dispose()
-		}
+        $OutEvent.Name, $ErrEvent.Name |
+        ForEach-Object { Unregister-Event -SourceIdentifier $_ }
+        $exitCode = $process.ExitCode
+        return $exitCode
+    }
+    finally {
+        if ($null -ne $process) {
+            $process.Dispose()
+        }
     }
 }
 
@@ -214,15 +211,21 @@ function Start-GoTests {
         $goCommand += ' --label-filter="'
         $isFirstLabel = $true
 
-        foreach ($tag in $Tags) {
-            if ($isFirstLabel -eq $true) {
+        for ($i = 0; $i -lt $tags.Length; $i++) {
+            if ($i -eq 0) {
                 $isFirstLabel = $false
+
+                $goCommand += '( '
             }
             else {
                 $goCommand += ' || '
             }
 
-            $goCommand += $tag
+            $goCommand += $tags[$i]
+
+            if ($i -eq $tags.Length - 1) {
+                $goCommand += ' )'
+            }
         }
 
         foreach ($tag in $ExcludeTags) {
