@@ -25,7 +25,7 @@ env:
   GOVERSION: "1.21.5"
 
 jobs:
-  RunUnitTests:
+  RunTests:
     timeout-minutes: 30
     continue-on-error: false
     runs-on: windows-latest
