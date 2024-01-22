@@ -118,62 +118,14 @@ if ($SwitchIP -eq '') {
     $SwitchIP = '172.29.29.1'
 }
 
-# git PAT token encoded, token valid until 2023-07-03, to be cleaned up while migrating to github
-$encodedUrl = 'aHR0cHM6Ly9wYXQ6ZDVqNHlyNmgzZzNxeHFxdXZ3NnpwbWRjcWRrZHc2aHNxbmNra2RyZXFoNWt4d2p3NWo0YUBkZXYuYXp1cmUuY29tL3Nocy1zeW5nby1wcmVkZXZlbG9wbWVudC9TeW5nb1ByZWRldmVsb3BtZW50'
-$decodedBytes = [System.Convert]::FromBase64String($encodedUrl)
-$gitbaseUrl = [System.Text.Encoding]::UTF8.GetString($decodedBytes)
-
-$giturlk = "$gitbaseUrl/_git/k2sSetup"
-$giturls = "$gitbaseUrl/_git/Services"
-$giturlg = "$gitbaseUrl/_git/Kubernetes"
+$giturlk = "https://github.com/Siemens-Healthineers/K2s.git"
 Write-Log "Git url for k: $giturlk"
-Write-Log "Git url for g: $giturlg"
-Write-Log "Git url for s: $giturls"
 
 # check prerequisites
-$DefaultImageShare = '\\MD1Y9KRC.ad005.onehc.net\wds$\MicrosoftIsos\Windows10'
-$DefaultImageDownloadPath = "$DefaultImageShare\Release-21H1"
 $virtualizedNetworkCIDR = '172.29.29.0/24'
 $virtualizedNAT = 'k2sSetup'
 
 Write-Log 'Checking windows iso image location'
-if ( !$Image -or !(Test-Path $Image) ) {
-    Write-Log "Missing VM image: will downloaded from $DefaultImageShare ..."
-
-    # check access to path
-    $DriveLetter = [int][char]'Z'
-    # no direct access, try to map it with another user account
-    Write-Log "Getting access to $DefaultImageShare"
-    # get next free drive
-    WHILE ((Get-PSDrive -PSProvider filesystem).Name -contains [char]$DriveLetter) { $DriveLetter-- }
-    Write-Log "Found next free drive: $([char]$Driveletter):"
-    net use "$([char]$Driveletter):" $DefaultImageShare
-
-    $ImageLocation = "$([char]$Driveletter):\Release-$OsVersion\"
-    $ImagesToDownload = Get-ChildItem -Filter 'en_windows*business*.iso' -Path $ImageLocation
-    if ( !$ImagesToDownload ) {
-        Write-Log "No image found on $ImageLocation, please provide a image through -Image parameter !"
-        # unmap the drive
-        net use "$([char]$Driveletter):" /delete
-        throw 'Image check'
-    }
-    $ImageToDownload = "$ImageLocation\" + $ImagesToDownload[0].Name
-    $Image = $global:KubernetesPath + '\smallsetup\' + $ImagesToDownload[0].Name
-
-    # as this is a big download we use BitsTransfer to show the progress of the download
-    Write-Log " $Image to be made available"
-    if ( !(Test-Path $Image) ) {
-        Write-Log " Download $ImageToDownload to $Image"
-        Import-Module BitsTransfer
-        Start-BitsTransfer $ImageToDownload $Image
-    }
-    else {
-        Write-Log " $Image already available !"
-    }
-
-    # unmap the drive
-    net use "$([char]$Driveletter):" /delete
-}
 
 if (! (Test-Path $Image)) {
     throw "Missing VM image: $Image"
@@ -427,16 +379,6 @@ Invoke-Command -Session $session2 -ErrorAction SilentlyContinue {
     &'C:\Program Files\Git\cmd\git.exe' log --pretty=oneline -n 1
 
     if ($using:VMEnv -eq 'Dev') {
-        New-Item -ItemType Directory -Force c:\s
-        Set-Location c:\s
-        Write-Output "Clone respository: $using:giturls"
-        &'C:\Program Files\Git\cmd\git.exe' clone $using:giturls c:\s
-
-        New-Item -ItemType Directory -Force c:\g
-        Set-Location c:\g
-        Write-Output "Clone respository: $using:giturlg"
-        &'C:\Program Files\Git\cmd\git.exe' clone $using:giturlg c:\g
-
         # Configure host git user name and email for Dev setup
         if (! (git config --get user.name)) {
             Write-Output "Configuring user.name for git with: $currentGitUserName"
