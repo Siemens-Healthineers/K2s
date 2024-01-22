@@ -80,10 +80,9 @@ func startSpinner(terminalPrinter terminal.TerminalPrinter) error {
 }
 
 func getStoredImages(listImagesCommand string) (*StoredImages, error) {
-	powerShellExecutor := utils.NewPsExecutor()
 	unmarshaller := marshalling.NewJsonUnmarshaller()
 
-	messages, err := powerShellExecutor.ExecuteWithStructuredResultData(listImagesCommand)
+	messages, err := utils.ExecuteWithStructuredResultData(listImagesCommand)
 	if err != nil {
 		return nil, err
 	}

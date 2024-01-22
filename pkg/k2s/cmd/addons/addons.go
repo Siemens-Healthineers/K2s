@@ -6,8 +6,6 @@ package addons
 import (
 	"errors"
 	"fmt"
-	"os"
-	"slices"
 	"k2s/addons"
 	"k2s/cmd/addons/cmd/addonimport"
 	"k2s/cmd/addons/cmd/export"
@@ -15,11 +13,13 @@ import (
 	"k2s/cmd/addons/cmd/status"
 	"k2s/cmd/common"
 	"k2s/utils/logging"
+	"os"
+	"slices"
 	"strings"
 
-	"path/filepath"
 	"k2s/cmd/params"
 	"k2s/utils"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
 
@@ -36,6 +36,9 @@ func NewCmd() *cobra.Command {
 		Long:  "Addons add optional functionality to a K8s cluster",
 	}
 
+	cmd.AddCommand(addonimport.NewCommand())
+	cmd.AddCommand(export.NewCommand())
+
 	if !slices.Contains(os.Args, cmd.Use) {
 		return cmd
 	}
@@ -46,8 +49,6 @@ func NewCmd() *cobra.Command {
 
 	// TODO: create generic commands for all addons
 	cmd.AddCommand(list.NewCommand(addons))
-	cmd.AddCommand(addonimport.NewCommand())
-	cmd.AddCommand(export.NewCommand())
 	cmd.AddCommand(status.NewCommand(addons))
 
 	commands, err := createGenericCommands(addons, "enable", "disable")

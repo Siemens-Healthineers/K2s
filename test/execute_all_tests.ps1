@@ -311,6 +311,8 @@ function Start-PowerShellTests {
 }
 
 Write-Output 'All tests execution started.'
+$stopWatch = New-Object -TypeName 'System.Diagnostics.Stopwatch'
+$stopWatch.Start()
 
 $currentLocation = Get-Location
 
@@ -337,7 +339,9 @@ catch {
     throw $_
 }
 
-Write-Output 'All tests execution finished.'
+$stopWatch.Stop()
+
+Write-Output "All tests execution finished after $($stopWatch.ElapsedMilliseconds/1000)s."
 Write-Output ''
 Write-Output '------------------------------------------------'
 

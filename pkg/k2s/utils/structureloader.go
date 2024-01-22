@@ -11,9 +11,7 @@ import (
 	"k8s.io/klog/v2"
 )
 
-func LoadStructure[T any](psScriptPath string, msgType string, additionalParams ...string) (v T, err error) {
-	psExecutor := NewPsExecutor()
-
+func LoadStructure[T any](psScriptPath string, msgType string, options ExecOptions, additionalParams ...string) (v T, err error) {
 	cmd := psScriptPath + " -EncodeStructuredOutput -MessageType " + msgType
 	if len(additionalParams) > 0 {
 		for _, param := range additionalParams {
@@ -23,7 +21,7 @@ func LoadStructure[T any](psScriptPath string, msgType string, additionalParams 
 
 	klog.V(4).Infoln("PS command created:", cmd)
 
-	messages, err := psExecutor.ExecuteWithStructuredResultData(cmd)
+	messages, err := ExecuteWithStructuredResultData(cmd, options)
 	if err != nil {
 		return v, fmt.Errorf("could not load structure: %s", err)
 	}

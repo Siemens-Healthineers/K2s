@@ -79,7 +79,7 @@ func init() {
 	installer = core.NewInstaller(config.NewAccess(),
 		terminal.NewTerminalPrinter(),
 		ic.NewInstallConfigAccess(),
-		utils.NewPsExecutor(),
+		utils.ExecutePowershellScript,
 		version.GetVersion,
 		utils.Platform,
 		utils.GetInstallationDirectory,
