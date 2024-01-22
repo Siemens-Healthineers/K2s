@@ -30,15 +30,11 @@ type Printer interface {
 	Printfln(format string, m ...any)
 }
 
-type PsExecutor interface {
-	ExecutePowershellScript(cmd string, psVersion utils.PowerShellVersion) (time.Duration, error)
-}
-
 type installer struct {
 	configAccess              ConfigAccess
 	installConfigAccess       InstallConfigAccess
 	printer                   Printer
-	executor                  PsExecutor
+	executePsScript           func(cmd string, options ...utils.ExecOptions) (time.Duration, error)
 	getVersionFunc            func() version.Version
 	getPlatformFunc           func() string
 	getInstallDirFunc         func() string
@@ -48,7 +44,7 @@ type installer struct {
 func NewInstaller(configAccess ConfigAccess,
 	printer Printer,
 	installConfigAccess InstallConfigAccess,
-	executor PsExecutor,
+	executePsScript func(cmd string, options ...utils.ExecOptions) (time.Duration, error),
 	getVersionFunc func() version.Version,
 	getPlatformFunc func() string,
 	getInstallDirFunc func() string,
@@ -57,7 +53,7 @@ func NewInstaller(configAccess ConfigAccess,
 		configAccess:              configAccess,
 		printer:                   printer,
 		installConfigAccess:       installConfigAccess,
-		executor:                  executor,
+		executePsScript:           executePsScript,
 		getVersionFunc:            getVersionFunc,
 		getPlatformFunc:           getPlatformFunc,
 		getInstallDirFunc:         getInstallDirFunc,
@@ -93,7 +89,7 @@ func (i *installer) Install(kind ic.Kind, flags *pflag.FlagSet, buildCmdFunc fun
 
 	i.printer.Printfln("🤖 Installing K2s '%s' %s in '%s' on %s using PowerShell %s", kind, i.getVersionFunc(), i.getInstallDirFunc(), i.getPlatformFunc(), psVersion)
 
-	duration, err := i.executor.ExecutePowershellScript(cmd, psVersion)
+	duration, err := i.executePsScript(cmd, utils.ExecOptions{PowerShellVersion: psVersion})
 	if err != nil {
 		return err
 	}

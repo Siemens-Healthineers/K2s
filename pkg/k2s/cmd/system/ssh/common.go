@@ -6,9 +6,9 @@ package ssh
 import (
 	"errors"
 	"fmt"
+	"k2s/utils"
 	"os"
 	"os/exec"
-	"k2s/utils"
 	"strings"
 
 	"k8s.io/klog/v2"
@@ -25,7 +25,7 @@ var sshExecFunc func(proc string) = func(proc string) {
 }
 
 var cmdOverSshExecFunc func(cmd string) = func(cmd string) {
-	utils.ExecutePowershellScriptOptions(cmd, utils.ExecOption{NoProgress: true})
+	utils.ExecutePowershellScript(cmd, utils.ExecOptions{NoProgress: true})
 }
 
 var k2sInstallDirProviderFunc = func() string {
