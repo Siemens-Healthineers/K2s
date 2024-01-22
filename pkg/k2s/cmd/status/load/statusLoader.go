@@ -63,7 +63,7 @@ func NewStatusLoader() StatusLoader {
 func (sl StatusLoader) LoadStatus() (*Status, error) {
 	scriptPath := utils.FormatScriptFilePath(utils.GetInstallationDirectory() + `\lib\scripts\k2s\status\Get-Status.ps1`)
 
-	status, err := utils.LoadStructure[Status](scriptPath, "Status")
+	status, err := utils.LoadStructure[Status](scriptPath, "Status", utils.ExecOptions{IgnoreNotInstalledErr: true})
 	if err != nil {
 		return nil, err
 	}

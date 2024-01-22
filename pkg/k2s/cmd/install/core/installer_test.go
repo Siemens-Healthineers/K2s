@@ -47,8 +47,8 @@ func (m *myMock) Load(kind ic.Kind, cmdFlags *pflag.FlagSet) (*ic.InstallConfig,
 	return args.Get(0).(*ic.InstallConfig), args.Error(1)
 }
 
-func (m *myMock) ExecutePowershellScript(cmd string, psVersion utils.PowerShellVersion) (time.Duration, error) {
-	args := m.Called(cmd, psVersion)
+func (m *myMock) ExecutePowershellScript(cmd string, options ...utils.ExecOptions) (time.Duration, error) {
+	args := m.Called(cmd, options)
 
 	return args.Get(0).(time.Duration), args.Error(1)
 }
@@ -152,13 +152,13 @@ var _ = Describe("core", func() {
 				installConfigMock.On(r.GetFunctionName(configMock.Load), kind, flags).Return(config, nil)
 
 				executorMock := &myMock{}
-				executorMock.On(r.GetFunctionName(executorMock.ExecutePowershellScript), testCmd, utils.PowerShellV5).Return(time.Duration(0), expectedError)
+				executorMock.On(r.GetFunctionName(executorMock.ExecutePowershellScript), testCmd, []utils.ExecOptions{{PowerShellVersion: utils.PowerShellV5}}).Return(time.Duration(0), expectedError)
 
 				sut := core.NewInstaller(
 					configMock,
 					printerMock,
 					installConfigMock,
-					executorMock,
+					executorMock.ExecutePowershellScript,
 					func() version.Version { return version.Version{} },
 					func() string { return "test-os" },
 					func() string { return "test-dir" },
@@ -195,7 +195,7 @@ var _ = Describe("core", func() {
 				installConfigMock.On(r.GetFunctionName(configMock.Load), kind, flags).Return(config, nil)
 
 				executorMock := &myMock{}
-				executorMock.On(r.GetFunctionName(executorMock.ExecutePowershellScript), testCmd, utils.PowerShellV5).Return(expectedDuration, nil)
+				executorMock.On(r.GetFunctionName(executorMock.ExecutePowershellScript), testCmd, []utils.ExecOptions{{PowerShellVersion: utils.PowerShellV5}}).Return(expectedDuration, nil)
 
 				completedMsgPrinterMock := &myMock{}
 				completedMsgPrinterMock.On(r.GetFunctionName(completedMsgPrinterMock.PrintCompletedMessage), expectedDuration, mock.MatchedBy(func(m string) bool { return strings.Contains(m, string(kind)) }))
@@ -204,7 +204,7 @@ var _ = Describe("core", func() {
 					configMock,
 					printerMock,
 					installConfigMock,
-					executorMock,
+					executorMock.ExecutePowershellScript,
 					func() version.Version { return version.Version{} },
 					func() string { return "test-os" },
 					func() string { return "test-dir" },
@@ -243,7 +243,7 @@ var _ = Describe("core", func() {
 				installConfigMock.On(r.GetFunctionName(configMock.Load), kind, flags).Return(config, nil)
 
 				executorMock := &myMock{}
-				executorMock.On(r.GetFunctionName(executorMock.ExecutePowershellScript), testCmd, utils.PowerShellV7).Return(expectedDuration, nil)
+				executorMock.On(r.GetFunctionName(executorMock.ExecutePowershellScript), testCmd, []utils.ExecOptions{{PowerShellVersion: utils.PowerShellV7}}).Return(expectedDuration, nil)
 
 				completedMsgPrinterMock := &myMock{}
 				completedMsgPrinterMock.On(r.GetFunctionName(completedMsgPrinterMock.PrintCompletedMessage), expectedDuration, mock.MatchedBy(func(m string) bool { return strings.Contains(m, string(kind)) }))
@@ -252,7 +252,7 @@ var _ = Describe("core", func() {
 					configMock,
 					printerMock,
 					installConfigMock,
-					executorMock,
+					executorMock.ExecutePowershellScript,
 					func() version.Version { return version.Version{} },
 					func() string { return "test-os" },
 					func() string { return "test-dir" },
