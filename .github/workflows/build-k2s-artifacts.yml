@@ -1,0 +1,54 @@
+# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+# SPDX-License-Identifier: MIT
+
+# Builds all K2s executables
+# Responsible for trigerring build for all K2s executables [bridge.exe, cloudinitisobuilder.exe, devgon.exe, httpproxy.exe, k2s.exe, vfprules.exe, zap.exe]
+
+name: "Build k2s artifacts"
+
+on:
+  workflow_dispatch:
+
+env:
+  GOVERSION: "1.21.5"
+
+
+jobs:
+  build-k2s-artifacts:
+    timeout-minutes: 30
+    continue-on-error: false
+    runs-on: ubuntu-latest
+    env:
+      CI_COMMIT_MESSAGE: Auto-commit k2s artifacts
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Golang
+      uses: actions/setup-go@v4
+      with:
+        go-version: ${{env.GOVERSION}}
+    - name: Show all diff
+      run: |
+        git diff --exit-code -- .
+
+    - name: Configure repo
+      run: |
+        git config --local user.email github-actions@github.com
+        git config --local user.name github-actions
+
+    - name: Current working directory
+      run: |
+        pwsh -Command ls
+
+    - name: Build all k2s executables
+      run: |
+        pwsh ./smallsetup/common/BuildGoExe.ps1 -BuildAll:true
+        pwsh -Command ls
+
+    - name: Commit k2s executables
+      run: |
+        git status
+        git add k2s.exe bin/cloudinitisobuilder.exe bin/devgon.exe bin/httpproxy.exe bin/zap.exe bin/yaml2json.exe bin/cni/bridge.exe bin/cni/vfprules.exe
+        git commit -m "${{ env.CI_COMMIT_MESSAGE }}"
+        git push

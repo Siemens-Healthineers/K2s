@@ -7,21 +7,21 @@ name: ci
 on:
   workflow_dispatch:
   push:
-    paths-ignore: 
+    paths-ignore:
       - 'LICENSES/**'
       - 'bin/**'
       - 'doc/**'
       - 'k2s.exe'
-      - '*.md'  
+      - '*.md'
   pull_request:
-    paths-ignore: 
+    paths-ignore:
       - 'LICENSES/**'
       - 'bin/**'
       - 'doc/**'
       - 'k2s.exe'
       - '*.md'
 
-env: 
+env:
   GOVERSION: "1.21.5"
 
 jobs:
@@ -41,10 +41,14 @@ jobs:
       shell: pwsh
       run: go install github.com/onsi/ginkgo/v2/ginkgo@v2.13.2
 
+    - name: Show all diff
+      run: |
+        git diff --exit-code -- .
+
     - name: Show Source Files
       shell: pwsh
       run: ls -r
-      
+
     - name: Run Unit Tests
       shell: powershell
       run: |
