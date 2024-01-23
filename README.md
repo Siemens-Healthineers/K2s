@@ -6,7 +6,8 @@ SPDX-License-Identifier: MIT
 
 # K2s (Kubernetes) Setup 
 [![ci](https://github.com/Siemens-Healthineers/K2s/actions/workflows/ci-unit-tests.yml/badge.svg)](https://github.com/Siemens-Healthineers/K2s/actions/workflows/ci-unit-tests.yml)
-[![ci](https://github.com/Siemens-Healthineers/K2s/actions/workflows/ci-no-setup-acceptance-tests.yml/badge.svg)](https://github.com/Siemens-Healthineers/K2s/actions/workflows/ci-no-setup-acceptance-tests.yml)
+[![ci](https://github.com/Siemens-Healthineers/K2s/actions/workflows/build-k2s-cli.yml/badge.svg)](https://github.com/Siemens-Healthineers/K2s/actions/workflows/build-k2s-cli.yml)
+[![ci](https://github.com/Siemens-Healthineers/K2s/actions/workflows/build-k2s-artifacts.yml/badge.svg)](https://github.com/Siemens-Healthineers/K2s/actions/workflows/build-k2s-artifacts.yml)
 
 ***WORK IN PROGRESS ...***
 
