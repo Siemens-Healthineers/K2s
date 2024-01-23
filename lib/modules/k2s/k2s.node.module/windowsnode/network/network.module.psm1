@@ -10,6 +10,7 @@ Import-Module $logModule, $pathModule, $configModule, $hnsModule
 $l2BridgeSwitchName = 'cbr0'
 $netNatName = 'VMsNAT'
 $setupConfigRoot = Get-RootConfigk2s
+$ipControlPlaneCIDR = Get-ConfiguredControlPlaneCIDR
 $clusterCIDRNextHop = $setupConfigRoot.psobject.properties['cbr0'].value
 $clusterCIDRGateway = $setupConfigRoot.psobject.properties['cbr0Gateway'].value
 $clusterCIDRHost = $setupConfigRoot.psobject.properties['podNetworkWorkerCIDR'].value
@@ -111,6 +112,10 @@ function Invoke-RecreateNAT {
 
     # disable IPv6
     # Disable-NetAdapterBinding -Name "vEthernet ($global:SwitchName)" -ComponentID ms_tcpip6 | Out-Null
+}
+
+function New-DefaultNetNat {
+    New-NetNat -Name $netNatName -InternalIPInterfaceAddressPrefix $ipControlPlaneCIDR | Out-Null
 }
 
 function Remove-DefaultNetNat {
