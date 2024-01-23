@@ -9,7 +9,7 @@ import (
 
 var SshCmd = &cobra.Command{
 	Use:   "ssh",
-	Short: "Connects via SSH to a specific k8s node",
+	Short: "Connects via SSH to a specific K8s node",
 }
 
 func init() {
