@@ -35,7 +35,13 @@ func startk8s(ccmd *cobra.Command, args []string) error {
 	pterm.Printfln("🤖 Starting K2s on %s", utils.Platform())
 
 	startCmd, err := buildStartCmd(ccmd)
-	if err != nil {
+	switch err {
+	case nil:
+		break
+	case cd.ErrNotInstalled:
+		common.PrintNotInstalledMessage()
+		return nil
+	default:
 		return err
 	}
 
