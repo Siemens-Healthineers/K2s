@@ -1,0 +1,53 @@
+# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+# SPDX-License-Identifier: MIT
+
+# CI Pipeline for K2s Unit Tests
+name: ci-unit-tests
+
+on:
+  workflow_dispatch:
+  push:
+    paths-ignore:
+      - 'LICENSES/**'
+      - 'bin/**'
+      - 'doc/**'
+      - 'k2s.exe'
+      - '*.md'
+  pull_request:
+    paths-ignore:
+      - 'LICENSES/**'
+      - 'bin/**'
+      - 'doc/**'
+      - 'k2s.exe'
+      - '*.md'
+
+env:
+  GOVERSION: "1.21.5"
+
+jobs:
+  RunUnitTests:
+    timeout-minutes: 30
+    continue-on-error: false
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: ${{env.GOVERSION}}
+        cache-dependency-path: "**/*.sum"
+
+    - name: Show all diff
+      run: |
+        git diff --exit-code -- .
+
+    - name: Show Source Files
+      shell: pwsh
+      run: ls -r
+
+    - name: Run Unit Tests
+      shell: powershell
+      run: |
+        $ErrorActionPreference = "Continue"
+        .\test\execute_all_tests.ps1 -Tags unit -V -ThrowOnFailure
