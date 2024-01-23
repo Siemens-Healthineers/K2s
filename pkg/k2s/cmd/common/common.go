@@ -37,3 +37,7 @@ func PrintCompletedMessage(duration time.Duration, command string) {
 
 	pterm.Println(logHint)
 }
+
+func PrintNotInstalledMessage() {
+	pterm.Info.Println("You have not installed K2s setup yet, please start the installation with command 'k2s.exe install' first")
+}

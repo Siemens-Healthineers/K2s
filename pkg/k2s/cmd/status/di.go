@@ -5,6 +5,7 @@ package status
 
 import (
 	"k2s/addons/print"
+	"k2s/cmd/common"
 	"k2s/cmd/status/json"
 	"k2s/cmd/status/k8sversion"
 	"k2s/cmd/status/load"
@@ -19,7 +20,7 @@ import (
 func NewStatusPrinter() StatusPrinter {
 	terminalPrinter := terminal.NewTerminalPrinter()
 	runningStatePrinter := runningstate.NewRunningStatePrinter(terminalPrinter)
-	setupInfoPrinter := setupinfo.NewSetupInfoPrinter(terminalPrinter)
+	setupInfoPrinter := setupinfo.NewSetupInfoPrinter(terminalPrinter, common.PrintNotInstalledMessage)
 	addonsPrinter := print.NewAddonsPrinter(terminalPrinter)
 	nodeStatusPrinter := nodestatus.NewNodeStatusPrinter(terminalPrinter)
 	podStatusPrinter := podstatus.NewPodStatusPrinter(terminalPrinter)

@@ -9,6 +9,7 @@ import (
 	"k2s/cmd/common"
 	p "k2s/cmd/params"
 	c "k2s/config"
+	cd "k2s/config/defs"
 	"k2s/utils"
 	"strconv"
 
@@ -49,8 +50,8 @@ func includeAddCommand(cmd *cobra.Command) {
 }
 
 func addRegistry(cmd *cobra.Command, args []string) error {
-	if args[0] == "" {
-		return errors.New("no registry passed in CLI, use e.g. `k2s image registry add registryname`")
+	if len(args) == 0 || args[0] == "" {
+		return errors.New("no registry passed in CLI, use e.g. 'k2s image registry add <registry-name>'")
 	}
 
 	registryName := args[0]
@@ -65,7 +66,13 @@ func addRegistry(cmd *cobra.Command, args []string) error {
 	klog.V(3).Infof("Add command : %s", addCmd)
 
 	duration, err := utils.ExecutePowershellScript(addCmd)
-	if err != nil {
+	switch err {
+	case nil:
+		break
+	case cd.ErrNotInstalled:
+		common.PrintNotInstalledMessage()
+		return nil
+	default:
 		return err
 	}
 

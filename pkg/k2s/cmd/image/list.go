@@ -11,6 +11,8 @@ import (
 	"github.com/spf13/cobra"
 	"k8s.io/klog/v2"
 
+	"k2s/cmd/common"
+	"k2s/config/defs"
 	"k2s/providers/marshalling"
 	"k2s/providers/terminal"
 	"k2s/utils"
@@ -186,7 +188,13 @@ func listImages(cmd *cobra.Command, args []string) error {
 	}
 
 	storedImages, err := getStoredImages(listImagesCommand)
-	if err != nil {
+	switch err {
+	case nil:
+		break
+	case defs.ErrNotInstalled:
+		common.PrintNotInstalledMessage()
+		return nil
+	default:
 		return err
 	}
 

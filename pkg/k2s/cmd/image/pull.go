@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"k2s/cmd/common"
+	"k2s/config/defs"
 	"k2s/utils"
 	"strconv"
 
@@ -55,7 +56,13 @@ func pullImages(cmd *cobra.Command, args []string) error {
 	pullImagePowershellCommand := createPowershellCommandToPullImage(imageToPull, pullForWindows)
 
 	duration, err := utils.ExecutePowershellScript(pullImagePowershellCommand)
-	if err != nil {
+	switch err {
+	case nil:
+		break
+	case defs.ErrNotInstalled:
+		common.PrintNotInstalledMessage()
+		return nil
+	default:
 		return err
 	}
 

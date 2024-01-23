@@ -15,6 +15,7 @@ import (
 
 	"k2s/cmd/common"
 	p "k2s/cmd/params"
+	"k2s/config/defs"
 	"k2s/utils"
 )
 
@@ -128,7 +129,7 @@ func addInitFlagsForBuildCommand(cmd *cobra.Command) {
 }
 
 func buildImage(cmd *cobra.Command, args []string) error {
-	pterm.Println("🤖 Building container image ...")
+	pterm.Println("🤖 Building container image..")
 	buildOptions, err := extractBuildOptions(cmd)
 	if err != nil {
 		return err
@@ -138,7 +139,13 @@ func buildImage(cmd *cobra.Command, args []string) error {
 	klog.V(3).Infof("Build Command : %s", buildCommand)
 
 	duration, err := utils.ExecutePowershellScript(buildCommand)
-	if err != nil {
+	switch err {
+	case nil:
+		break
+	case defs.ErrNotInstalled:
+		common.PrintNotInstalledMessage()
+		return nil
+	default:
 		return err
 	}
 

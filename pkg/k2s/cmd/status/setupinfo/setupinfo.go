@@ -17,18 +17,21 @@ type TerminalPrinter interface {
 }
 
 type SetupInfoPrinter struct {
-	terminalPrinter TerminalPrinter
+	terminalPrinter          TerminalPrinter
+	printNotInstalledMsgFunc func()
 }
 
-func NewSetupInfoPrinter(terminalPrinter TerminalPrinter) SetupInfoPrinter {
-	return SetupInfoPrinter{terminalPrinter: terminalPrinter}
+func NewSetupInfoPrinter(terminalPrinter TerminalPrinter, printNotInstalledMsgFunc func()) SetupInfoPrinter {
+	return SetupInfoPrinter{
+		terminalPrinter:          terminalPrinter,
+		printNotInstalledMsgFunc: printNotInstalledMsgFunc}
 }
 
 func (s SetupInfoPrinter) PrintSetupInfo(setupInfo defs.SetupInfo) (bool, error) {
 	if setupInfo.ValidationError != nil {
 		switch *setupInfo.ValidationError {
 		case string(defs.ErrNotInstalled):
-			s.terminalPrinter.PrintInfoln("You have not installed K2s setup yet, please start the installation with command 'k2s.exe install' first")
+			s.printNotInstalledMsgFunc()
 		case string(defs.ErrNoClusterAvailable):
 			if setupInfo.Name == nil {
 				s.terminalPrinter.PrintWarning("The cluster is not available for an unknown reason. Consider re-installing K2s")
