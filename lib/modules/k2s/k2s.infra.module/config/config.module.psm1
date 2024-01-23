@@ -8,8 +8,8 @@ Import-Module $pathModule
 $kubePath = Get-KubePath
 $controlPlaneSwitchName = 'KubeSwitch'
 $configFile = "$kubePath\cfg\config.json"
-$clusterConfig = Get-Content $configFile | Out-String | ConvertFrom-Json
-$smallsetup = $clusterConfig.psobject.properties['smallsetup'].value
+$rootConfig = Get-Content $configFile | Out-String | ConvertFrom-Json
+$smallsetup = $rootConfig.psobject.properties['smallsetup'].value
 
 function Expand-Path {
     <#
@@ -53,6 +53,10 @@ New-Variable -Name 'SetupJsonFile' -Value "$kubeConfigDir\setup.json" -Option Co
 
 
 # PUBLIC FUNCTIONS
+
+function Get-RootConfig {
+    return $rootConfig
+}
 
 function Get-SshConfigDir {
     return $sshConfigDir
@@ -422,4 +426,5 @@ Get-ControlPlaneNodeDefaultSwitchName,
 Get-DefaultRegistry,
 Get-RegistryToken,
 Get-SshConfigDir,
-Get-DefaultProvisioningBaseImageDiskSize
+Get-DefaultProvisioningBaseImageDiskSize,
+Get-RootConfig
