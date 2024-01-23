@@ -14,6 +14,9 @@ K2s Features
 - support of mixed Windows and Linux K8s (Kubernetes) workloads
 - support for multiple Windows 10,11 and Server OS versions
 - multiple network card support, including support for LAN and WIFI network interfaces
+- offline support by being able to operate the K8s cluster and workloads without internet connectivity
+- [image command](K8s_BuildingAContainer.md) for building and testing Windows and Linux containers
+- [rich set of addons](../addons/README.md) which can be used optionally for additional functionality 
 - K2s supports 3 variants in hosting:
     
     1. **Host Variant**: here on the Windows host only one Virtual Machine is created and used as the Linux master and worker node.
