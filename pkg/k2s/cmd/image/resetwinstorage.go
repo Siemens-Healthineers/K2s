@@ -7,8 +7,8 @@ import (
 	"base/system"
 	"errors"
 	"fmt"
-	"path/filepath"
 	"k2s/utils"
+	"path/filepath"
 	"strconv"
 
 	"github.com/spf13/cobra"
@@ -87,7 +87,7 @@ func resetWinStorage(cmd *cobra.Command, args []string) error {
 
 	klog.V(3).Infof("Reset win storage command: %s", builtCommand)
 
-	_, err = utils.ExecutePowershellScript(builtCommand)
+	_, err = utils.ExecutePowershellScript(builtCommand, utils.ExecOptions{IgnoreNotInstalledErr: true})
 	if err != nil {
 		return err
 	}

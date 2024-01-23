@@ -37,6 +37,10 @@ func (mo *mockObject) PrintCyanFg(text string) string {
 	return args.String(0)
 }
 
+func (mo *mockObject) PrintNotInstalledMsg() {
+	mo.Called()
+}
+
 func TestSetupinfo(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "setupinfo Unit Tests", Label("unit"))
@@ -50,12 +54,10 @@ var _ = Describe("setupinfo", func() {
 				info := defs.SetupInfo{ValidationError: &setupError}
 
 				printerMock := &mockObject{}
-				printerMock.On(reflection.GetFunctionName(printerMock.PrintInfoln), mock.MatchedBy(func(m string) bool {
-					return strings.Contains(m, "not installed")
-				}))
+				printerMock.On(reflection.GetFunctionName(printerMock.PrintNotInstalledMsg)).Once()
 				printerMock.On(reflection.GetFunctionName(printerMock.Println))
 
-				sut := setupinfo.NewSetupInfoPrinter(printerMock)
+				sut := setupinfo.NewSetupInfoPrinter(printerMock, printerMock.PrintNotInstalledMsg)
 
 				actual, err := sut.PrintSetupInfo(info)
 
@@ -78,7 +80,7 @@ var _ = Describe("setupinfo", func() {
 					}))
 					printerMock.On(reflection.GetFunctionName(printerMock.Println))
 
-					sut := setupinfo.NewSetupInfoPrinter(printerMock)
+					sut := setupinfo.NewSetupInfoPrinter(printerMock, nil)
 
 					actual, err := sut.PrintSetupInfo(info)
 
@@ -103,7 +105,7 @@ var _ = Describe("setupinfo", func() {
 					}))
 					printerMock.On(reflection.GetFunctionName(printerMock.Println))
 
-					sut := setupinfo.NewSetupInfoPrinter(printerMock)
+					sut := setupinfo.NewSetupInfoPrinter(printerMock, nil)
 
 					actual, err := sut.PrintSetupInfo(info)
 
@@ -128,7 +130,7 @@ var _ = Describe("setupinfo", func() {
 				}))
 				printerMock.On(reflection.GetFunctionName(printerMock.Println))
 
-				sut := setupinfo.NewSetupInfoPrinter(printerMock)
+				sut := setupinfo.NewSetupInfoPrinter(printerMock, nil)
 
 				actual, err := sut.PrintSetupInfo(info)
 
@@ -145,7 +147,7 @@ var _ = Describe("setupinfo", func() {
 				name := "name-test"
 				info := defs.SetupInfo{Version: &version, Name: &name}
 
-				sut := setupinfo.NewSetupInfoPrinter(nil)
+				sut := setupinfo.NewSetupInfoPrinter(nil, nil)
 
 				actual, err := sut.PrintSetupInfo(info)
 
@@ -160,7 +162,7 @@ var _ = Describe("setupinfo", func() {
 				linuxonly := true
 				info := defs.SetupInfo{Version: &version, LinuxOnly: &linuxonly}
 
-				sut := setupinfo.NewSetupInfoPrinter(nil)
+				sut := setupinfo.NewSetupInfoPrinter(nil, nil)
 
 				actual, err := sut.PrintSetupInfo(info)
 
@@ -175,7 +177,7 @@ var _ = Describe("setupinfo", func() {
 				linuxonly := true
 				info := defs.SetupInfo{Name: &name, LinuxOnly: &linuxonly}
 
-				sut := setupinfo.NewSetupInfoPrinter(nil)
+				sut := setupinfo.NewSetupInfoPrinter(nil, nil)
 
 				actual, err := sut.PrintSetupInfo(info)
 
@@ -196,7 +198,7 @@ var _ = Describe("setupinfo", func() {
 				printerMock.On(reflection.GetFunctionName(printerMock.PrintCyanFg), version).Return(version)
 				printerMock.On(reflection.GetFunctionName(printerMock.Println), "Setup: 'name-test', Version: 'v-test'")
 
-				sut := setupinfo.NewSetupInfoPrinter(printerMock)
+				sut := setupinfo.NewSetupInfoPrinter(printerMock, nil)
 
 				actual, err := sut.PrintSetupInfo(info)
 
@@ -219,7 +221,7 @@ var _ = Describe("setupinfo", func() {
 				printerMock.On(reflection.GetFunctionName(printerMock.PrintCyanFg), version).Return(version)
 				printerMock.On(reflection.GetFunctionName(printerMock.Println), "Setup: 'name-test (Linux-only)', Version: 'v-test'")
 
-				sut := setupinfo.NewSetupInfoPrinter(printerMock)
+				sut := setupinfo.NewSetupInfoPrinter(printerMock, nil)
 
 				actual, err := sut.PrintSetupInfo(info)
 
