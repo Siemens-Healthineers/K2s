@@ -18,7 +18,7 @@ import (
 var suite *framework.K2sTestSuite
 var addons []k2s.Addon
 
-func TestStatus(t *testing.T) {
+func TestLs(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "addons ls CLI Command Acceptance Tests", Label("cli", "ls", "acceptance", "no-setup", "addon"))
 }

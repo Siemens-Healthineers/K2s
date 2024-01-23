@@ -1,0 +1,47 @@
+# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+# SPDX-License-Identifier: MIT
+
+# CI Pipeline for K2s Acceptance Test requiring no K2s installation
+name: ci-no-setup-acceptance-tests
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'bin/**'
+      - 'k2s.exe'
+  pull_request:
+    paths:
+      - 'bin/**'
+      - 'k2s.exe'
+
+env:
+  GOVERSION: "1.21.5"
+
+jobs:
+  RunAcceptanceTests:
+    timeout-minutes: 30
+    continue-on-error: false
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: ${{env.GOVERSION}}
+        cache-dependency-path: "**/*.sum"
+
+    - name: Show all diff
+      run: |
+        git diff --exit-code -- .
+
+    - name: Show Source Files
+      shell: pwsh
+      run: ls -r
+
+    - name: Run no-setup Acceptance Tests
+      shell: powershell
+      run: |
+        $ErrorActionPreference = "Continue"
+        .\test\execute_all_tests.ps1 -Tags no-setup -ExcludeTags unit,integration -V -ThrowOnFailure

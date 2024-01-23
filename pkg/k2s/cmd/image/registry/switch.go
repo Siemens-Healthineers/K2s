@@ -40,8 +40,8 @@ func includeSwitchCommand(cmd *cobra.Command) {
 }
 
 func switchRegistry(cmd *cobra.Command, args []string) error {
-	if args[0] == "" {
-		return errors.New("no registry passed in CLI, use e.g. `k2s image registry switch registryname`")
+	if len(args) == 0 || args[0] == "" {
+		return errors.New("no registry passed in CLI, use e.g. 'k2s image registry switch <registry-name>'")
 	}
 
 	registryName := args[0]
@@ -49,7 +49,13 @@ func switchRegistry(cmd *cobra.Command, args []string) error {
 	pterm.Printfln("🤖 Switching to registry %s", registryName)
 
 	addCmd, err := buildSwitchCmd(registryName, cmd)
-	if err != nil {
+	switch err {
+	case nil:
+		break
+	case cd.ErrNotInstalled:
+		common.PrintNotInstalledMessage()
+		return nil
+	default:
 		return err
 	}
 
