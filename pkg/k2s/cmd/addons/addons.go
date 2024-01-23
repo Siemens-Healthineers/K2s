@@ -12,6 +12,7 @@ import (
 	"k2s/cmd/addons/cmd/list"
 	"k2s/cmd/addons/cmd/status"
 	"k2s/cmd/common"
+	"k2s/config/defs"
 	"k2s/utils/logging"
 	"os"
 	"slices"
@@ -167,7 +168,13 @@ func runCmd(cmd *cobra.Command, addon addons.Addon, cmdName string) error {
 	klog.V(4).Info("PS cmd: ", psCmd)
 
 	duration, err := utils.ExecutePowershellScript(psCmd)
-	if err != nil {
+	switch err {
+	case nil:
+		break
+	case defs.ErrNotInstalled:
+		common.PrintNotInstalledMessage()
+		return nil
+	default:
 		return err
 	}
 

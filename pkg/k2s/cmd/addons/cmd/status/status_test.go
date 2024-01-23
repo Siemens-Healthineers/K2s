@@ -27,8 +27,10 @@ func (m *mockObject) mockDeterminePrinter(outputOption string) StatusPrinter {
 	return args.Get(0).(StatusPrinter)
 }
 
-func (m *mockObject) PrintStatus(addonName string, addonDirectory string) {
-	m.Called(addonName, addonDirectory)
+func (m *mockObject) PrintStatus(addonName string, addonDirectory string) error {
+	args := m.Called(addonName, addonDirectory)
+
+	return args.Error(0)
 }
 
 func TestStatus(t *testing.T) {
@@ -43,21 +45,25 @@ var _ = BeforeSuite(func() {
 var _ = Describe("status", func() {
 	Describe("runStatusCmd", func() {
 		When("flag value cannot be retrieved", func() {
-			It("returns", func() {
+			It("returns error", func() {
 				cmd := &cobra.Command{}
 
-				runStatusCmd(cmd, addons.Addon{}, nil)
+				err := runStatusCmd(cmd, addons.Addon{}, nil)
+
+				Expect(err).To(MatchError(ContainSubstring("not defined")))
 			})
 		})
 
 		When("flag value is invalid", func() {
-			It("returns", func() {
+			It("returns error", func() {
 				cmd := &cobra.Command{}
 				cmd.Flags().StringP(outputFlagName, "o", "invalid-value", "Test flag")
 				cmd.Flags().SortFlags = false
 				cmd.Flags().PrintDefaults()
 
-				runStatusCmd(cmd, addons.Addon{}, nil)
+				err := runStatusCmd(cmd, addons.Addon{}, nil)
+
+				Expect(err).To(MatchError(ContainSubstring("not supported")))
 			})
 		})
 
@@ -76,13 +82,14 @@ var _ = Describe("status", func() {
 				cmd.Flags().PrintDefaults()
 
 				printerMock := &mockObject{}
-				printerMock.On(r.GetFunctionName(printerMock.PrintStatus), addon.Metadata.Name, addon.Directory).Once()
+				printerMock.On(r.GetFunctionName(printerMock.PrintStatus), addon.Metadata.Name, addon.Directory).Return(nil).Once()
 
 				determinationMock := &mockObject{}
 				determinationMock.On(r.GetFunctionName(determinationMock.mockDeterminePrinter), jsonOption).Return(printerMock)
 
-				runStatusCmd(cmd, addon, determinationMock.mockDeterminePrinter)
+				err := runStatusCmd(cmd, addon, determinationMock.mockDeterminePrinter)
 
+				Expect(err).ToNot(HaveOccurred())
 				printerMock.AssertExpectations(GinkgoT())
 			})
 		})

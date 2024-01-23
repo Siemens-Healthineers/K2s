@@ -6,7 +6,7 @@ package setupinfo
 import (
 	"errors"
 	"fmt"
-	"k2s/cmd/status/defs"
+	si "k2s/setupinfo"
 )
 
 type TerminalPrinter interface {
@@ -27,12 +27,13 @@ func NewSetupInfoPrinter(terminalPrinter TerminalPrinter, printNotInstalledMsgFu
 		printNotInstalledMsgFunc: printNotInstalledMsgFunc}
 }
 
-func (s SetupInfoPrinter) PrintSetupInfo(setupInfo defs.SetupInfo) (bool, error) {
+// TODO: move load and print to setupinfo package (see addons package)
+func (s SetupInfoPrinter) PrintSetupInfo(setupInfo si.SetupInfo) (bool, error) {
 	if setupInfo.ValidationError != nil {
 		switch *setupInfo.ValidationError {
-		case string(defs.ErrNotInstalled):
+		case si.ErrNotInstalled:
 			s.printNotInstalledMsgFunc()
-		case string(defs.ErrNoClusterAvailable):
+		case si.ErrNoClusterAvailable:
 			if setupInfo.Name == nil {
 				s.terminalPrinter.PrintWarning("The cluster is not available for an unknown reason. Consider re-installing K2s")
 			} else {

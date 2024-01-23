@@ -4,7 +4,7 @@
 package load
 
 import (
-	"k2s/cmd/status/defs"
+	"k2s/setupinfo"
 	"k2s/utils"
 )
 
@@ -13,12 +13,12 @@ type StatusLoader struct {
 
 type Status struct {
 	// TODO: separate cluster status and addons status
-	EnabledAddons  []string        `json:"enabledAddons"`
-	SetupInfo      defs.SetupInfo  `json:"setupInfo"`
-	RunningState   *RunningState   `json:"runningState"`
-	Nodes          []Node          `json:"nodes"`
-	Pods           []Pod           `json:"pods"`
-	K8sVersionInfo *K8sVersionInfo `json:"k8sVersionInfo"`
+	EnabledAddons  []string            `json:"enabledAddons"`
+	SetupInfo      setupinfo.SetupInfo `json:"setupInfo"`
+	RunningState   *RunningState       `json:"runningState"`
+	Nodes          []Node              `json:"nodes"`
+	Pods           []Pod               `json:"pods"`
+	K8sVersionInfo *K8sVersionInfo     `json:"k8sVersionInfo"`
 }
 
 type Pod struct {

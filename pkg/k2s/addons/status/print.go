@@ -4,6 +4,9 @@
 package status
 
 import (
+	"errors"
+	"k2s/setupinfo"
+
 	"k8s.io/klog/v2"
 
 	"fmt"
@@ -20,7 +23,6 @@ type TerminalPrinter interface {
 
 type Spinner interface {
 	Stop() error
-	Fail(m ...any)
 }
 
 type StatusLoader interface {
@@ -42,9 +44,10 @@ type JsonPrinter struct {
 }
 
 type UserFriendlyPrinter struct {
-	terminalPrinter TerminalPrinter
-	statusLoader    StatusLoader
-	propPrinter     PropPrinter
+	terminalPrinter          TerminalPrinter
+	statusLoader             StatusLoader
+	propPrinter              PropPrinter
+	printNotInstalledMsgFunc func()
 }
 
 type propPrint struct {
@@ -59,7 +62,7 @@ func NewJsonPrinter(terminalPrinter TerminalPrinter, statusLoader StatusLoader, 
 	}
 }
 
-func NewUserFriendlyPrinter(terminalPrinter TerminalPrinter, statusLoader StatusLoader, propPrinters ...PropPrinter) *UserFriendlyPrinter {
+func NewUserFriendlyPrinter(terminalPrinter TerminalPrinter, statusLoader StatusLoader, printNotInstalledMsgFunc func(), propPrinters ...PropPrinter) *UserFriendlyPrinter {
 	var propPrinter PropPrinter
 	if len(propPrinters) > 0 {
 		propPrinter = propPrinters[0]
@@ -68,9 +71,10 @@ func NewUserFriendlyPrinter(terminalPrinter TerminalPrinter, statusLoader Status
 	}
 
 	return &UserFriendlyPrinter{
-		terminalPrinter: terminalPrinter,
-		statusLoader:    statusLoader,
-		propPrinter:     propPrinter,
+		terminalPrinter:          terminalPrinter,
+		statusLoader:             statusLoader,
+		propPrinter:              propPrinter,
+		printNotInstalledMsgFunc: printNotInstalledMsgFunc,
 	}
 }
 
@@ -80,70 +84,67 @@ func NewPropPrinter(terminalPrinter TerminalPrinter) *propPrint {
 	}
 }
 
-func (s *JsonPrinter) PrintStatus(addonName string, addonDirectory string) {
+func (s *JsonPrinter) PrintStatus(addonName string, addonDirectory string) error {
 	status, err := s.statusLoader.LoadAddonStatus(addonName, addonDirectory)
 	if err != nil {
-		klog.Error(err)
-		return
+		return err
 	}
 
 	bytes, err := s.jsonMarshaller.MarshalIndent(status)
 	if err != nil {
-		klog.Error(err)
-		return
+		return err
 	}
 
 	s.terminalPrinter.Println(string(bytes))
+
+	return nil
 }
 
-func (s *UserFriendlyPrinter) PrintStatus(addonName string, addonDirectory string) {
+func (s *UserFriendlyPrinter) PrintStatus(addonName string, addonDirectory string) error {
 	s.terminalPrinter.PrintHeader("ADDON STATUS")
 
 	startResult, err := s.terminalPrinter.StartSpinner("Gathering status information...")
 	if err != nil {
-		klog.Error(err)
-		s.terminalPrinter.Println()
-		return
+		return err
 	}
 
 	spinner, ok := startResult.(Spinner)
 	if !ok {
-		klog.Error("could not start operation")
-		s.terminalPrinter.Println()
-		return
-	}
-
-	status, err := s.statusLoader.LoadAddonStatus(addonName, addonDirectory)
-	if err != nil {
-		klog.Error(err)
-		spinner.Fail("Status could not be loaded")
-		s.terminalPrinter.Println()
-		return
+		return errors.New("could not start addon status operation")
 	}
 
 	defer func() {
 		err = spinner.Stop()
 		if err != nil {
 			klog.Error(err)
-			s.terminalPrinter.Println()
 		}
 	}()
 
+	status, err := s.statusLoader.LoadAddonStatus(addonName, addonDirectory)
+	if err != nil {
+		return err
+	}
+
 	if status.Error != nil {
+		if *status.Error == string(setupinfo.ErrNotInstalled) {
+			s.printNotInstalledMsgFunc()
+			return nil
+		}
+
 		s.terminalPrinter.Println(*status.Error)
-		return
+		klog.V(2).Infof("addon status for '%s' returned error '%s'", addonName, *status.Error)
+		return nil
 	}
 
 	if status.Enabled == nil {
-		klog.Error("Enabled/disabled info missing")
-		return
+		return fmt.Errorf("enabled/disabled info missing for '%s' addon", addonName)
 	}
 
 	coloredAddonName := s.terminalPrinter.PrintCyanFg(status.Name)
 
 	if !*status.Enabled {
 		s.terminalPrinter.Println("Addon", coloredAddonName, "is", s.terminalPrinter.PrintCyanFg("disabled"))
-		return
+		return nil
 	}
 
 	s.terminalPrinter.Println("Addon", coloredAddonName, "is", s.terminalPrinter.PrintCyanFg("enabled"))
@@ -151,6 +152,8 @@ func (s *UserFriendlyPrinter) PrintStatus(addonName string, addonDirectory strin
 	for _, prop := range status.Props {
 		s.propPrinter.PrintProp(prop)
 	}
+
+	return nil
 }
 
 func (p *propPrint) PrintProp(prop AddonStatusProp) {
