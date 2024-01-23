@@ -5,7 +5,6 @@ package uninstall
 
 import (
 	"errors"
-	"os"
 	"strconv"
 
 	"base/version"
@@ -44,12 +43,13 @@ func uninstallk8s(ccmd *cobra.Command, args []string) error {
 	pterm.Printfln("🤖 Uninstalling K2s %s", version)
 
 	uninstallCmd, err := buildUninstallCmd(ccmd)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			pterm.Warning.Println("K2s is not installed")
-			return nil
-		}
-
+	switch err {
+	case nil:
+		break
+	case cd.ErrNotInstalled:
+		common.PrintNotInstalledMessage()
+		return nil
+	default:
 		return err
 	}
 
