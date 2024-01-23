@@ -9,8 +9,8 @@ import (
 
 	"k2s/addons"
 	"k2s/addons/print"
-	"k2s/cmd/status/defs"
 	"k2s/cmd/status/load"
+	"k2s/setupinfo"
 
 	"github.com/spf13/cobra"
 )
@@ -28,7 +28,7 @@ type PodStatusPrinter interface {
 }
 
 type SetupInfoPrinter interface {
-	PrintSetupInfo(defs.SetupInfo) (proceed bool, err error)
+	PrintSetupInfo(setupinfo.SetupInfo) (proceed bool, err error)
 }
 
 type AddonsPrinter interface {

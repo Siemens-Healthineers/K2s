@@ -4,8 +4,8 @@
 package setupinfo_test
 
 import (
-	"k2s/cmd/status/defs"
 	"k2s/cmd/status/setupinfo"
+	si "k2s/setupinfo"
 	"strings"
 	"test/reflection"
 	"testing"
@@ -50,8 +50,8 @@ var _ = Describe("setupinfo", func() {
 	Describe("PrintSetupInfo", func() {
 		When("setup is not installed", func() {
 			It("prints not installed info without error", func() {
-				setupError := string(defs.ErrNotInstalled)
-				info := defs.SetupInfo{ValidationError: &setupError}
+				setupError := si.ErrNotInstalled
+				info := si.SetupInfo{ValidationError: &setupError}
 
 				printerMock := &mockObject{}
 				printerMock.On(reflection.GetFunctionName(printerMock.PrintNotInstalledMsg)).Once()
@@ -71,8 +71,8 @@ var _ = Describe("setupinfo", func() {
 		When("no cluster is available", func() {
 			When("setup name is unknown", func() {
 				It("prints unknown reason warning without error", func() {
-					setupError := string(defs.ErrNoClusterAvailable)
-					info := defs.SetupInfo{ValidationError: &setupError}
+					setupError := si.ErrNoClusterAvailable
+					info := si.SetupInfo{ValidationError: &setupError}
 
 					printerMock := &mockObject{}
 					printerMock.On(reflection.GetFunctionName(printerMock.PrintWarning), mock.MatchedBy(func(m string) bool {
@@ -93,9 +93,9 @@ var _ = Describe("setupinfo", func() {
 
 			When("setup name is known", func() {
 				It("prints unavailability info without error", func() {
-					setupError := string(defs.ErrNoClusterAvailable)
+					setupError := si.ErrNoClusterAvailable
 					setupName := "setup-without-cluster"
-					info := defs.SetupInfo{ValidationError: &setupError, Name: &setupName}
+					info := si.SetupInfo{ValidationError: &setupError, Name: &setupName}
 
 					printerMock := &mockObject{}
 					printerMock.On(reflection.GetFunctionName(printerMock.PrintInfoln), mock.MatchedBy(func(format string) bool {
@@ -119,13 +119,13 @@ var _ = Describe("setupinfo", func() {
 
 		When("validation error is unknown", func() {
 			It("prints error as warning", func() {
-				setupError := "unknown-error"
-				info := defs.SetupInfo{ValidationError: &setupError}
+				setupError := si.ValidationError("unknown-error")
+				info := si.SetupInfo{ValidationError: &setupError}
 
 				printerMock := &mockObject{}
 				printerMock.On(reflection.GetFunctionName(printerMock.PrintWarning), mock.MatchedBy(func(format string) bool {
 					return strings.Contains(format, "seems to be invalid: '%s'")
-				}), mock.MatchedBy(func(arg string) bool {
+				}), mock.MatchedBy(func(arg si.ValidationError) bool {
 					return arg == setupError
 				}))
 				printerMock.On(reflection.GetFunctionName(printerMock.Println))
@@ -145,7 +145,7 @@ var _ = Describe("setupinfo", func() {
 			It("returns error", func() {
 				version := "v-test"
 				name := "name-test"
-				info := defs.SetupInfo{Version: &version, Name: &name}
+				info := si.SetupInfo{Version: &version, Name: &name}
 
 				sut := setupinfo.NewSetupInfoPrinter(nil, nil)
 
@@ -160,7 +160,7 @@ var _ = Describe("setupinfo", func() {
 			It("returns error", func() {
 				version := "v-test"
 				linuxonly := true
-				info := defs.SetupInfo{Version: &version, LinuxOnly: &linuxonly}
+				info := si.SetupInfo{Version: &version, LinuxOnly: &linuxonly}
 
 				sut := setupinfo.NewSetupInfoPrinter(nil, nil)
 
@@ -175,7 +175,7 @@ var _ = Describe("setupinfo", func() {
 			It("returns error", func() {
 				name := "name-test"
 				linuxonly := true
-				info := defs.SetupInfo{Name: &name, LinuxOnly: &linuxonly}
+				info := si.SetupInfo{Name: &name, LinuxOnly: &linuxonly}
 
 				sut := setupinfo.NewSetupInfoPrinter(nil, nil)
 
@@ -191,7 +191,7 @@ var _ = Describe("setupinfo", func() {
 				name := "name-test"
 				version := "v-test"
 				linuxonly := false
-				info := defs.SetupInfo{Name: &name, LinuxOnly: &linuxonly, Version: &version}
+				info := si.SetupInfo{Name: &name, LinuxOnly: &linuxonly, Version: &version}
 
 				printerMock := &mockObject{}
 				printerMock.On(reflection.GetFunctionName(printerMock.PrintCyanFg), name).Return(name)
@@ -214,7 +214,7 @@ var _ = Describe("setupinfo", func() {
 				name := "name-test"
 				version := "v-test"
 				linuxonly := true
-				info := defs.SetupInfo{Name: &name, LinuxOnly: &linuxonly, Version: &version}
+				info := si.SetupInfo{Name: &name, LinuxOnly: &linuxonly, Version: &version}
 
 				printerMock := &mockObject{}
 				printerMock.On(reflection.GetFunctionName(printerMock.PrintCyanFg), "name-test (Linux-only)").Return("name-test (Linux-only)")

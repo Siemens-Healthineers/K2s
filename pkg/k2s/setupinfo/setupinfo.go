@@ -1,15 +1,15 @@
 // SPDX-FileCopyrightText:  © 2023 Siemens Healthcare GmbH
 // SPDX-License-Identifier:   MIT
 
-package defs
+package setupinfo
 
 type ValidationError string
 
 type SetupInfo struct {
-	Version         *string `json:"version"`
-	Name            *string `json:"name"`
-	ValidationError *string `json:"validationError"`
-	LinuxOnly       *bool   `json:"linuxOnly"`
+	Version         *string          `json:"version"`
+	Name            *string          `json:"name"`
+	ValidationError *ValidationError `json:"validationError"`
+	LinuxOnly       *bool            `json:"linuxOnly"`
 }
 
 const (
