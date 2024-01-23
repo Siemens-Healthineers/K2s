@@ -5,6 +5,8 @@ package scp
 
 import (
 	"errors"
+	"k2s/cmd/common"
+	"k2s/config/defs"
 	"k2s/utils"
 	"strconv"
 
@@ -34,7 +36,7 @@ func init() {
 }
 
 func scpWorker(ccmd *cobra.Command, args []string) error {
-	if args[0] == "" {
+	if len(args) == 0 || args[0] == "" {
 		return errors.New("no source path specified")
 	}
 
@@ -50,11 +52,13 @@ func scpWorker(ccmd *cobra.Command, args []string) error {
 	klog.V(3).Infof("scp command : %s", scpCmd)
 
 	_, err = utils.ExecutePowershellScript(scpCmd)
-	if err != nil {
-		return err
+
+	if err == defs.ErrNotInstalled {
+		common.PrintNotInstalledMessage()
+		return nil
 	}
 
-	return nil
+	return err
 }
 
 func buildScpCmdForMultiVM(ccmd *cobra.Command, args []string) (string, error) {
