@@ -22,6 +22,7 @@ env:
 
 jobs:
   build-k2s-cli:
+    name: Build k2s CLI
     timeout-minutes: 30
     continue-on-error: false
     runs-on: ubuntu-latest
@@ -61,6 +62,8 @@ jobs:
         git commit -m "${{ env.CI_COMMIT_MESSAGE }}"
         git push
   run-acceptance-tests:
+    name: Run Acceptance Tests
+    needs: build-k2s-cli
     timeout-minutes: 30
     continue-on-error: false
     runs-on: windows-latest
