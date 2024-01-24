@@ -156,7 +156,7 @@ function Install-WindowsVM() {
     Write-Log "Using image: $WindowsImage"
     Write-Log 'Using virtio image: none'
 
-    &"$global:KubernetesPath\smallsetup\common\vmtools\InstallWindowsVM.ps1" `
+    Initialize-WinVmNode `
         -Name $multiVMWindowsVMName `
         -Image $WindowsImage `
         -VMStartUpMemory $WinVMStartUpMemory `
@@ -645,8 +645,7 @@ else {
 
 Set-EnvVars
 
-Addk2sToDefenderExclusion
-
+Add-k2sToDefenderExclusion
 Stop-InstallIfDockerDesktopIsRunning
 
 Set-ConfigSetupType -Value $script:SetupType
@@ -698,26 +697,6 @@ if ($LinuxOnly -ne $true) {
     Write-Log 'Setting up WinNode worker VM' -Console
 
     Install-WindowsVM # needs kubeswitch being already setup with Install-Kubemaster
-
-    $session = Open-RemoteSession $multiVMWindowsVMName $global:VMPwd
-
-    Initialize-SSHConnectionToWinVM $session
-
-    Initialize-PhysicalNetworkAdapterOnVM $session
-
-    Initialize-WindowsNode $session
-
-    Install-ContainerdOnWinVM $session
-
-    Repair-WindowsAutoConfigOnVM $session
-
-    Restart-VM $multiVMWindowsVMName
-
-    $session = Open-RemoteSession $multiVMWindowsVMName $global:VMPwd
-
-    Install-K8sServicesOnWinVM $session
-
-    Save-ControlPlaneNodeHostnameIntoWinVM $session
 }
 
 Copy-KubeConfigFromMasterNode

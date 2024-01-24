@@ -1127,4 +1127,159 @@ function New-VMFromWinImage {
     Write-Log 'All done in Creation of VM from Windows Image!'
 }
 
-Export-ModuleMember Stop-VirtualMachine, Remove-VirtualMachine, Remove-VMSnapshots, Wait-ForDesiredVMState, New-VMFromWinImage
+function New-VMSession {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$VMName,
+        [Parameter(Mandatory = $true)]
+        [string]$AdminPwd,
+        [Parameter()]
+        [string]$DomainName,
+        [Parameter(Mandatory = $false)]
+        [int]$TimeoutInSeconds = 1800,
+        [Parameter(Mandatory = $false)]
+        [switch]$NoLog = $false
+    )
+
+    if ($DomainName) {
+        $userName = "$DomainName\administrator"
+    }
+    else {
+        $userName = 'administrator'
+    }
+
+    $pass = ConvertTo-SecureString $AdminPwd -AsPlainText -Force
+    $cred = New-Object System.Management.Automation.PSCredential($userName, $pass)
+    $secondsIncrement = 5
+    $elapsedSeconds = 0
+
+    if ($NoLog -ne $true) {
+        Write-Log "Waiting for connection with VM: '$VMName' (timeout: $($TimeoutInSeconds)s) ..."
+    }
+
+    do {
+        $result = New-PSSession -VMName $VMName -Credential $cred -ErrorAction SilentlyContinue
+
+        if (-not $result) {
+            Start-Sleep -Seconds $secondsIncrement
+            $elapsedSeconds += $secondsIncrement
+
+            if ($NoLog -ne $true) {
+                Write-Log "$($elapsedSeconds)s.. " -Progress
+            }
+        }
+    } while (-not $result -and $elapsedSeconds -lt $TimeoutInSeconds)
+
+    if ($elapsedSeconds -gt 0 -and $NoLog -ne $true) {
+        Write-Log '.'
+    }
+
+    return $result
+
+}
+
+<#
+.SYNOPSIS
+    Opens a remote session to the specified VM.
+.DESCRIPTION
+    Opens a remote session to the specified VM. Throws on error.
+.EXAMPLE
+    $session = Open-RemoteSession -VmName 'MyVm' -VmPwd 'my secret password'
+.PARAMETER VmName
+    Name of the VM to connect to
+.PARAMETER VmPwd
+    Password of the VM user (user 'administrator' is currently hard-coded)
+.PARAMETER TimeoutInSeconds
+    Connection timeout
+.PARAMETER DoNotThrowOnTimeout
+    Writes an error to error output instead of throwing an exception
+.PARAMETER NoLog
+    Suppresses any output if set
+.OUTPUTS
+    The session object
+.NOTES
+    This method will throw an error, if the connection could not be established within a certain amount of time.
+#>
+function Open-RemoteSession {
+    param (
+        [Parameter()]
+        [ValidateNotNullOrEmpty()]
+        [string] $VmName = $(throw 'Please provide the name of the VM.'),
+        [Parameter()]
+        [ValidateNotNullOrEmpty()]
+        [string] $VmPwd = $(throw 'Please provide the VM user password.'),
+        [Parameter(Mandatory = $false)]
+        [int]$TimeoutInSeconds = 1800,
+        [Parameter(Mandatory = $false)]
+        [switch]$DoNotThrowOnTimeout = $false,
+        [Parameter(Mandatory = $false)]
+        [switch]$NoLog = $false
+    )
+
+    if ($NoLog -ne $true) {
+        Write-Log "Connecting to VM '$VmName' ..."
+    }
+
+    $session = New-VMSession -VMName $VmName -AdminPwd $VmPwd -TimeoutInSeconds $TimeoutInSeconds -NoLog:$NoLog
+
+    if (! $session ) {
+        $errorMessage = "No session to VM '$VmName' possible."
+
+        if ($DoNotThrowOnTimeout -eq $true -and $NoLog -ne $true) {
+            Write-Error $errorMessage
+        }
+        else { throw $errorMessage }
+    }
+
+    if ($NoLog -ne $true) {
+        Write-Log "Connected to VM '$VmName'."
+    }
+
+    return $session
+}
+
+function Set-VmIPAddress {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [System.Management.Automation.Runspaces.PSSession[]]$PSSession,
+
+        [Parameter(Mandatory = $false)]
+        [string[]]$DnsAddr = @('8.8.8.8', '8.8.4.4'),
+
+        [Parameter(Mandatory = $true)]
+        [string]$IPAddr,
+
+        [Parameter(Mandatory = $true)]
+        [byte]$MaskPrefixLength,
+
+        [Parameter(Mandatory = $true)]
+        [string]$DefaultGatewayIpAddr
+    )
+
+    $ErrorActionPreference = 'Stop'
+
+    Invoke-Command -Session $PSSession {
+        Remove-NetRoute -NextHop $using:DefaultGatewayIpAddr -Confirm:$false -ErrorAction SilentlyContinue
+        $network = 'Ethernet'
+        $neta = Get-NetAdapter $network       # Use the exact adapter name for multi-adapter VMs
+
+        Write-Output 'Remove old ip address'
+        $neta | Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue | Remove-NetIPAddress -Confirm:$false
+
+        # New-NetIPAddress may fail for certain scenarios (e.g. PrefixLength = 32). Using netsh instead.
+        Write-Output 'Set new ip address'
+        $mask = [IPAddress](([UInt32]::MaxValue) -shl (32 - $using:MaskPrefixLength) -shr (32 - $using:MaskPrefixLength))
+        netsh interface ipv4 set address name="$($neta.InterfaceAlias)" static $using:IPAddr $mask.IPAddressToString $using:DefaultGatewayIpAddr
+
+        Write-Output 'Disable DHCP'
+        $neta | Set-NetIPInterface -Dhcp Disabled
+
+        Write-Output 'Set DNS servers'
+        $neta | Set-DnsClientServerAddress -Addresses $using:DnsAddr
+    }
+
+}
+
+Export-ModuleMember Stop-VirtualMachine, Remove-VirtualMachine, Remove-VMSnapshots, Wait-ForDesiredVMState, New-VMFromWinImage, Open-RemoteSession, New-VMSession, Set-VmIPAddress

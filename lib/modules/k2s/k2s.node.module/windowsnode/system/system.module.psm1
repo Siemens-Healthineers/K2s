@@ -6,7 +6,7 @@ $logModule = "$PSScriptRoot\..\..\..\k2s.infra.module\log\log.module.psm1"
 $configModule = "$PSScriptRoot\..\..\..\k2s.infra.module\config\config.module.psm1"
 Import-Module $logModule, $pathModule, $configModule
 
-function Addk2sToDefenderExclusion {
+function Add-K2sToDefenderExclusion {
     # Stop Microsoft Defender interference with K2s setup
     $kubePath = Get-KubePath
     Add-MpPreference -Exclusionpath "$kubePath" -ErrorAction SilentlyContinue
@@ -155,7 +155,9 @@ processors=$MasterVMProcessorCount
 
 function Test-WindowsPrerequisites(
     [parameter(Mandatory = $false, HelpMessage = 'Use WSL2 for hosting control plane VM (Linux)')]
-    [switch] $WSL = $false) {
+    [switch] $WSL = $false)
+{
+    Add-K2sToDefenderExclusion
     Stop-InstallIfDockerDesktopIsRunning
 
     $ReleaseId = (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion').CurrentBuild
@@ -253,7 +255,7 @@ function Invoke-DownloadFile($destination, $source, $forceDownload,
     }
 }
 
-Export-ModuleMember -Function Addk2sToDefenderExclusion,
+Export-ModuleMember -Function Add-K2sToDefenderExclusion,
 Stop-InstallIfDockerDesktopIsRunning,
 Test-WindowsPrerequisites,
 Test-ProxyConfiguration,
