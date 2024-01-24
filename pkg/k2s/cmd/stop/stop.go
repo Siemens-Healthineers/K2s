@@ -34,7 +34,13 @@ func stopk8s(ccmd *cobra.Command, args []string) error {
 	pterm.Printfln("🛑 Stopping K2s cluster")
 
 	stopCmd, err := buildStopCmd(ccmd)
-	if err != nil {
+	switch err {
+	case nil:
+		break
+	case cd.ErrNotInstalled:
+		common.PrintNotInstalledMessage()
+		return nil
+	default:
 		return err
 	}
 

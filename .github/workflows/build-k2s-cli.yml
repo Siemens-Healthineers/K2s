@@ -5,7 +5,7 @@
 # Build k2s Pipeline
 # Responsible for trigerring build for k2s executable when the source is changed.
 
-name: "Build k2s cli"
+name: "Build - k2s CLI"
 
 on:
   workflow_dispatch:
@@ -22,6 +22,7 @@ env:
 
 jobs:
   build-k2s-cli:
+    name: Build k2s CLI
     timeout-minutes: 30
     continue-on-error: false
     runs-on: ubuntu-latest
@@ -60,3 +61,31 @@ jobs:
         git add k2s.exe
         git commit -m "${{ env.CI_COMMIT_MESSAGE }}"
         git push
+  run-acceptance-tests:
+    name: Run Acceptance Tests
+    needs: build-k2s-cli
+    timeout-minutes: 30
+    continue-on-error: false
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: ${{env.GOVERSION}}
+        cache-dependency-path: "**/*.sum"
+
+    - name: Show all diff
+      run: |
+        git diff --exit-code -- .
+
+    - name: Show Source Files
+      shell: pwsh
+      run: ls -r
+
+    - name: Run no-setup Acceptance Tests
+      shell: powershell
+      run: |
+        $ErrorActionPreference = "Continue"
+        .\test\execute_all_tests.ps1 -Tags no-setup -ExcludeTags unit,integration -V -ThrowOnFailure

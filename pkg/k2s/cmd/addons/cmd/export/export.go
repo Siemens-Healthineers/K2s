@@ -12,6 +12,7 @@ import (
 
 	"k2s/cmd/common"
 	p "k2s/cmd/params"
+	"k2s/config/defs"
 	"k2s/providers/terminal"
 
 	"github.com/samber/lo"
@@ -91,7 +92,13 @@ func exportAddons(cmd *cobra.Command, args []string) error {
 		klog.V(3).Infof("export command : %s", exportCommand)
 
 		duration, err := utils.ExecutePowershellScript(exportCommand)
-		if err != nil {
+		switch err {
+		case nil:
+			break
+		case defs.ErrNotInstalled:
+			common.PrintNotInstalledMessage()
+			return nil
+		default:
 			return err
 		}
 

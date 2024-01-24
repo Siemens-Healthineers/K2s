@@ -10,12 +10,13 @@ import (
 
 	"k2s/addons"
 	"k2s/addons/status"
+	"k2s/cmd/common"
 	"k2s/providers/marshalling"
 	"k2s/providers/terminal"
 )
 
 type StatusPrinter interface {
-	PrintStatus(addonName string, addonDirectory string)
+	PrintStatus(addonName string, addonDirectory string) error
 }
 
 type statusLoader struct {
@@ -67,14 +68,12 @@ func runStatusCmd(cmd *cobra.Command, addon addons.Addon, determinePrinterFunc f
 	}
 
 	if outputOption != "" && outputOption != jsonOption {
-		return fmt.Errorf("Parameter '%s' not supported for flag 'o'", outputOption)
+		return fmt.Errorf("parameter '%s' not supported for flag '%s'", outputOption, outputFlagName)
 	}
 
 	printer := determinePrinterFunc(outputOption)
 
-	printer.PrintStatus(addon.Metadata.Name, addon.Directory)
-
-	return nil
+	return printer.PrintStatus(addon.Metadata.Name, addon.Directory)
 }
 
 func determinePrinter(outputOption string) StatusPrinter {
@@ -84,6 +83,6 @@ func determinePrinter(outputOption string) StatusPrinter {
 	if outputOption == jsonOption {
 		return status.NewJsonPrinter(terminalPrinter, statusLoader, marshalling.NewJsonMarshaller())
 	} else {
-		return status.NewUserFriendlyPrinter(terminalPrinter, statusLoader)
+		return status.NewUserFriendlyPrinter(terminalPrinter, statusLoader, common.PrintNotInstalledMessage)
 	}
 }

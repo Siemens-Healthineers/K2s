@@ -23,7 +23,7 @@ func LoadStructure[T any](psScriptPath string, msgType string, options ExecOptio
 
 	messages, err := ExecuteWithStructuredResultData(cmd, options)
 	if err != nil {
-		return v, fmt.Errorf("could not load structure: %s", err)
+		return v, err
 	}
 
 	if len(messages) != 1 {

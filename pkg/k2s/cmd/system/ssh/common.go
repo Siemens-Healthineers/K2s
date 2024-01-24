@@ -6,6 +6,7 @@ package ssh
 import (
 	"errors"
 	"fmt"
+	"k2s/config"
 	"k2s/utils"
 	"os"
 	"os/exec"
@@ -70,19 +71,27 @@ func (r *remoteCommandHandler) executeCommand(cmd string) {
 func getRemoteCommandToExecute(argsLenAtDash int, args []string) (string, error) {
 	if argsLenAtDash == -1 {
 		if len(args) == 0 {
-			klog.V(5).Infof("No args provided. Will proceed to start the shell.")
+			klog.V(5).Infoln("No args provided. Will proceed to start the shell.")
 			return "", nil
 		} else {
-			return "", errors.New(fmt.Sprintf("unknown option: %s", args[0]))
+			return "", fmt.Errorf("unknown option: %s", args[0])
 		}
 	}
 
 	if len(args) == 0 {
-		return "", errors.New("No command provided to execute")
+		return "", errors.New("no command provided to execute")
 	}
 
 	cmdToExecute := strings.Join(args[0:], " ")
-	klog.V(5).Infof(fmt.Sprintf("Command to execute : %s", cmdToExecute))
+	klog.V(5).Infof("Command to execute : %s", cmdToExecute)
 
 	return cmdToExecute, nil
+}
+
+func ensureSetupIsInstalled() error {
+	ca := config.NewAccess()
+
+	_, err := ca.GetSetupType()
+
+	return err
 }

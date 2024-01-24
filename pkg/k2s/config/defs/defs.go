@@ -7,7 +7,6 @@ import "errors"
 
 type SetupType string
 type SmbHostType string
-
 type RegistryName string
 
 type SetupConfig struct {

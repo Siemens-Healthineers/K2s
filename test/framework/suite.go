@@ -40,11 +40,13 @@ type ClusterTestStepPollInterval time.Duration
 type restartKubeProxyType bool
 type ensureAddonsAreDisabledType bool
 type noSetupInstalledType bool
+type skipClusterRunningCheckType bool
 
 const (
 	RestartKubeProxy        = restartKubeProxyType(true)
 	EnsureAddonsAreDisabled = ensureAddonsAreDisabledType(true)
 	NoSetupInstalled        = noSetupInstalledType(true)
+	SkipClusterRunningCheck = skipClusterRunningCheckType(true)
 )
 
 func Setup(ctx context.Context, args ...any) *K2sTestSuite {
@@ -56,6 +58,7 @@ func Setup(ctx context.Context, args ...any) *K2sTestSuite {
 	clusterTestStepTimeout := testStepTimeout
 	clusterTestStepPollInterval := testStepPollInterval
 	noSetupInstalled := false
+	skipClusterRunningCheck := false
 
 	for _, arg := range args {
 		switch t := reflect.TypeOf(arg); {
@@ -67,6 +70,8 @@ func Setup(ctx context.Context, args ...any) *K2sTestSuite {
 			clusterTestStepPollInterval = time.Duration(arg.(ClusterTestStepPollInterval))
 		case t == reflect.TypeOf(NoSetupInstalled):
 			noSetupInstalled = bool(arg.(noSetupInstalledType))
+		case t == reflect.TypeOf(SkipClusterRunningCheck):
+			skipClusterRunningCheck = bool(arg.(skipClusterRunningCheckType))
 		default:
 			Fail(fmt.Sprintf("type < %v > invalid as parameter for suite.Setup() method", t))
 		}
@@ -95,7 +100,11 @@ func Setup(ctx context.Context, args ...any) *K2sTestSuite {
 		return testSuite
 	}
 
-	expectClusterToBeRunning(ctx, k2sCli, ensureAddonsAreDisabled)
+	if skipClusterRunningCheck {
+		GinkgoWriter.Println("skipping cluster running check")
+	} else {
+		expectClusterToBeRunning(ctx, k2sCli, ensureAddonsAreDisabled)
+	}
 
 	setupInfo := loadSetupInfo(rootDir)
 

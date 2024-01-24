@@ -4,6 +4,8 @@
 package ssh
 
 import (
+	"k2s/cmd/common"
+	"k2s/config/defs"
 	"k2s/utils"
 
 	"github.com/spf13/cobra"
@@ -60,7 +62,18 @@ func init() {
 }
 
 func sshMaster(cmd *cobra.Command, args []string) error {
-	klog.V(3).Infof("Connecting to KubeMaster")
+	klog.V(3).Infof("Connecting to KubeMaster..")
+
+	err := ensureSetupIsInstalled()
+	switch err {
+	case nil:
+		break
+	case defs.ErrNotInstalled:
+		common.PrintNotInstalledMessage()
+		return nil
+	default:
+		return err
+	}
 
 	parsedArgs, err := getRemoteCommandToExecute(cmd.ArgsLenAtDash(), args)
 	if err != nil {
