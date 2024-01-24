@@ -5,9 +5,9 @@
 &$PSScriptRoot\..\common\GlobalVariables.ps1
 . $PSScriptRoot\..\common\GlobalFunctions.ps1
 
-$setupTypeModule = "$PSScriptRoot\..\status\SetupType.module.psm1"
+$setupInfoModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.cluster.module\setupinfo\setupinfo.module.psm1"
 $runningStateModule = "$PSScriptRoot\..\status\RunningState.module.psm1"
-Import-Module $setupTypeModule, $runningStateModule
+Import-Module $setupInfoModule, $runningStateModule
 
 $processTools = @'
 
@@ -381,8 +381,8 @@ function Enable-ClusterIsRunning {
 
     Write-Log 'Check K2s cluster is running' -Console
 
-    $setupType = Get-SetupInfo
-    $clusterState = Get-RunningState -SetupType $setupType.Name
+    $setupInfo = Get-SetupInfo
+    $clusterState = Get-RunningState -SetupType $setupInfo.Name
 
     if ($clusterState.IsRunning -ne $true) {
         $argsCall = 'start'
