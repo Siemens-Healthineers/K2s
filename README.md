@@ -38,7 +38,7 @@ See [Features](/doc/K8s_Features.md) for a full list of features.
 | Windows Server 2022     | 21H2    | 10.0.20348.xxxx |
 | Windows 11              | 21H2    | 10.0.22000.xxxx |
 | Windows 11              | 22H2    | 10.0.22621.xxxx |
-| Windows 11              | 23H2    | 10.0.20348.xxxx |
+| Windows 11              | 23H2    | 10.0.22631.xxxx |
 
 See also [Windows-based Images](./smallsetup/ps-modules/windows-support/README.md).
 
@@ -59,7 +59,7 @@ For development only cases where no K8s is needed and the focus is only on build
 way to do that.
 
 # Getting Started
-- [Get K2s](doc/K8s_Get-k2s.md)
+- [Get K2s](doc/K8s_Get-K2s.md)
 - [Install K2s](doc/k2scli/install-uninstall_cmd.md#installing-small-k8s-setup-natively)
 - [Start K2s](doc/k2scli/start-stop_cmd.md) (optional, K8s cluster starts automatically after installation)
 - [Inspect Cluster Status](doc/k2scli/start-stop_cmd.md#inspect-cluster-status)
