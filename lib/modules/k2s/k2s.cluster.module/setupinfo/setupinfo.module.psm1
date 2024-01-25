@@ -13,9 +13,6 @@ function Confirm-SetupTypeIsValid {
         'k2s' { $null }
         'MultiVMK8s' { $null }
         'BuildOnlyEnv' { 'no-cluster' }
-        # TODO: use these messages in CLI
-        # $global:SetupType_BuildOnlyEnv { 'There is no cluster installed for build-only ;-)' }
-        # Default { "You have not installed k2s setup yet, please start installation with command 'k2s install'" }
         Default { 'not-installed' }
     }
     

@@ -28,12 +28,12 @@ func (rs RunningStatePrinter) PrintRunningState(runningState *load.RunningState)
 	}
 
 	if runningState.IsRunning {
-		rs.terminalPrinter.PrintSuccess("The cluster is running")
+		rs.terminalPrinter.PrintSuccess("The system is running")
 
 		return true, nil
 	}
 
-	rs.terminalPrinter.PrintInfoln("The cluster is not running. Run 'k2s start' to start the cluster")
+	rs.terminalPrinter.PrintInfoln("The system is not running. Run 'k2s start' to start the system")
 	rs.terminalPrinter.PrintTreeListItems(runningState.Issues)
 
 	return false, nil

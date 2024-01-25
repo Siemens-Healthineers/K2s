@@ -126,7 +126,7 @@ func (s *UserFriendlyPrinter) PrintStatus(addonName string, addonDirectory strin
 	}
 
 	if status.Error != nil {
-		if *status.Error == string(setupinfo.ErrNotInstalled) {
+		if *status.Error == string(setupinfo.NotInstalledErrMsg) {
 			s.printNotInstalledMsgFunc()
 			return nil
 		}

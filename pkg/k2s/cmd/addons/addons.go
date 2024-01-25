@@ -12,7 +12,7 @@ import (
 	"k2s/cmd/addons/cmd/list"
 	"k2s/cmd/addons/cmd/status"
 	"k2s/cmd/common"
-	"k2s/config/defs"
+	"k2s/setupinfo"
 	"k2s/utils/logging"
 	"os"
 	"slices"
@@ -171,7 +171,7 @@ func runCmd(cmd *cobra.Command, addon addons.Addon, cmdName string) error {
 	switch err {
 	case nil:
 		break
-	case defs.ErrNotInstalled:
+	case setupinfo.ErrNotInstalled:
 		common.PrintNotInstalledMessage()
 		return nil
 	default:

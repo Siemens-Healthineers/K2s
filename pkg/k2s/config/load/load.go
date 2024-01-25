@@ -5,6 +5,7 @@ package load
 
 import (
 	d "k2s/config/defs"
+	"k2s/setupinfo"
 
 	"k8s.io/klog/v2"
 )
@@ -40,7 +41,7 @@ func (cl ConfigLoader) LoadForSetup(filePath string) (*d.SetupConfig, error) {
 	if cl.fileReader.IsFileNotExist(err) {
 		klog.V(2).ErrorS(err, "setup config file not found, assuming setup is not installed")
 
-		return nil, d.ErrNotInstalled
+		return nil, setupinfo.ErrNotInstalled
 	}
 
 	return config, err

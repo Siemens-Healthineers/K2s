@@ -4,6 +4,9 @@ package nosetup
 
 import (
 	"context"
+	"encoding/json"
+	"k2s/cmd/image"
+	"k2s/setupinfo"
 	"testing"
 	"time"
 
@@ -39,11 +42,28 @@ var _ = Describe("image commands", func() {
 		Entry("image clean", "image", "clean"),
 		Entry("image export", "image", "export", "-n", "non-existent", "-t", "non-existent"),
 		Entry("image import", "image", "import", "-t", "non-existent"),
-		Entry("image ls", "image", "ls"),
+		Entry("image ls default output", "image", "ls"),
 		Entry("image pull", "image", "pull", "non-existent"),
 		Entry("image registry add", "image", "registry", "add", "non-existent"),
 		Entry("image registry ls", "image", "registry", "ls"),
 		Entry("image registry switch", "image", "registry", "switch", "non-existent"),
 		Entry("image rm", "image", "rm", "--id", "non-existent"),
 	)
+
+	Describe("image ls JSON output", Ordered, func() {
+		var images image.StoredImages
+
+		BeforeAll(func(ctx context.Context) {
+			output := suite.K2sCli().Run(ctx, "image", "ls", "-o", "json")
+
+			Expect(json.Unmarshal([]byte(output), &images)).To(Succeed())
+		})
+
+		It("contains only not-installed info", func() {
+			Expect(images.ContainerImages).To(BeNil())
+			Expect(images.ContainerRegistry).To(BeNil())
+			Expect(images.PushedImages).To(BeNil())
+			Expect(*images.Error).To(Equal(setupinfo.NotInstalledErrMsg))
+		})
+	})
 })

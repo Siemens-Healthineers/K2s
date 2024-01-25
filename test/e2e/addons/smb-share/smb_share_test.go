@@ -54,7 +54,7 @@ func TestSmbshare(t *testing.T) {
 var _ = BeforeSuite(func(ctx context.Context) {
 	suite = framework.Setup(ctx, framework.EnsureAddonsAreDisabled, framework.ClusterTestStepTimeout(testClusterTimeout))
 
-	skipWindowsWorkloads = suite.SetupInfo().SetupType.LinuxOnly
+	skipWindowsWorkloads = suite.SetupInfo().LinuxOnly
 
 	GinkgoWriter.Println("Creating namespace <", namespace, "> and secret <", secretName, "> on cluster..")
 

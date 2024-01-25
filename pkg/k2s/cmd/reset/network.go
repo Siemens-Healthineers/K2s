@@ -27,9 +27,9 @@ func init() {
 func resetNetwork(cmd *cobra.Command, args []string) error {
 	config := c.NewAccess()
 
-	installationType, err := config.GetSetupType()
-	if err == nil && installationType != "" {
-		terminal.NewTerminalPrinter().PrintInfofln("'%s' setup type is installed, please uninstall with 'k2s uninstall' first or reset system with 'k2s reset sytem' and re-run the 'k2s reset network' command afterwards.", installationType)
+	setupName, err := config.GetSetupName()
+	if err == nil && setupName != "" {
+		terminal.NewTerminalPrinter().PrintInfofln("'%s' setup is installed, please uninstall with 'k2s uninstall' first or reset system with 'k2s reset sytem' and re-run the 'k2s reset network' command afterwards.", setupName)
 		return nil
 	}
 

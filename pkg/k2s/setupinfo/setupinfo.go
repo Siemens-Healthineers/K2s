@@ -3,16 +3,25 @@
 
 package setupinfo
 
-type ValidationError string
+import "errors"
+
+type SetupError string
+type SetupName string
 
 type SetupInfo struct {
-	Version         *string          `json:"version"`
-	Name            *string          `json:"name"`
-	ValidationError *ValidationError `json:"validationError"`
-	LinuxOnly       *bool            `json:"linuxOnly"`
+	Version   *string     `json:"version"`
+	Name      *SetupName  `json:"name"`
+	Error     *SetupError `json:"validationError"`
+	LinuxOnly *bool       `json:"linuxOnly"`
 }
 
 const (
-	ErrNotInstalled       ValidationError = "not-installed"
-	ErrNoClusterAvailable ValidationError = "no-cluster"
+	SetupNamek2s          SetupName = "k2s"
+	SetupNameMultiVMK8s   SetupName = "MultiVMK8s"
+	SetupNameBuildOnlyEnv SetupName = "BuildOnlyEnv"
+
+	NotInstalledErrMsg SetupError = "not-installed"
+	NotRunningErrMsg   SetupError = "not-running"
 )
+
+var ErrNotInstalled = errors.New(string(NotInstalledErrMsg))

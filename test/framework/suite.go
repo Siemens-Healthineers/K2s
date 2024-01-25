@@ -7,6 +7,7 @@ package framework
 import (
 	"context"
 	"fmt"
+	"k2s/setupinfo"
 	"k2sTest/framework/k2s"
 	"k2sTest/framework/k8s"
 	sos "k2sTest/framework/os"
@@ -109,7 +110,7 @@ func Setup(ctx context.Context, args ...any) *K2sTestSuite {
 	setupInfo := loadSetupInfo(rootDir)
 
 	testSuite.setupInfo = setupInfo
-	testSuite.kubeProxyRestarter = k2s.NewKubeProxyRestarter(rootDir, setupInfo.SetupType, cli, *k2sCli)
+	testSuite.kubeProxyRestarter = k2s.NewKubeProxyRestarter(rootDir, *setupInfo, cli, *k2sCli)
 	testSuite.kubectl = k8s.NewCli(cli, rootDir)
 	testSuite.cluster = k8s.NewCluster(clusterTestStepTimeout, clusterTestStepPollInterval)
 
@@ -180,17 +181,17 @@ func (s *K2sTestSuite) Cluster() *k8s.Cluster {
 }
 
 func loadSetupInfo(rootDir string) *k2s.SetupInfo {
-	setupInfo, err := k2s.GetSetupInfo(rootDir)
+	info, err := k2s.GetSetupInfo(rootDir)
 
 	Expect(err).ToNot(HaveOccurred())
 
-	GinkgoWriter.Println("Found setup type <", setupInfo.SetupType.Name, "( Linux-only:", setupInfo.SetupType.LinuxOnly, ") > in dir <", rootDir, ">")
+	GinkgoWriter.Println("Found setup type <", info.Name, "( Linux-only:", info.LinuxOnly, ") > in dir <", rootDir, ">")
 
-	if setupInfo.SetupType.Name != "k2s" && setupInfo.SetupType.Name != "MultiVMK8s" {
-		Fail(fmt.Sprintf("Unsupported setup type detected: '%s'", setupInfo.SetupType.Name))
+	if info.Name != setupinfo.SetupNamek2s && info.Name != setupinfo.SetupNameMultiVMK8s {
+		Fail(fmt.Sprintf("Unsupported setup type detected: '%s'", info.Name))
 	}
 
-	return setupInfo
+	return info
 }
 
 func expectClusterToBeRunning(ctx context.Context, k2sCli *k2s.K2sCliRunner, ensureAddonsAreDisabled bool) {

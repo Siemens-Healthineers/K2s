@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	cd "k2s/config/defs"
+	"k2s/setupinfo"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -69,18 +70,18 @@ var _ = Describe("config", func() {
 		})
 	})
 
-	Describe("GetSetupType", func() {
+	Describe("GetSetupName", func() {
 		When("already determined", func() {
-			It("returns setup type without file access", func() {
-				expected := cd.SetupTypeMultiVMK8s
+			It("returns setup name without file access", func() {
+				expected := setupinfo.SetupNameMultiVMK8s
 				config := &cd.SetupConfig{
-					SetupType: string(expected),
+					SetupName: expected,
 				}
 				loader := &testLoader{}
 				sut := NewConfigAccess(loader, nil)
 				sut.setupConfig = config
 
-				actual, err := sut.GetSetupType()
+				actual, err := sut.GetSetupName()
 
 				Expect(err).ToNot(HaveOccurred())
 				Expect(actual).To(Equal(expected))
@@ -92,7 +93,7 @@ var _ = Describe("config", func() {
 				loader := &testLoader{err: errors.New("oops")}
 				sut := NewConfigAccess(loader, nil)
 
-				actual, err := sut.GetSetupType()
+				actual, err := sut.GetSetupName()
 
 				Expect(err).To(MatchError(loader.err))
 				Expect(actual).To(BeEmpty())
@@ -110,7 +111,7 @@ var _ = Describe("config", func() {
 				builder := &testBuilder{err: errors.New("oops")}
 				sut := NewConfigAccess(loader, builder)
 
-				actual, err := sut.GetSetupType()
+				actual, err := sut.GetSetupName()
 
 				Expect(err).To(MatchError(builder.err))
 				Expect(actual).To(BeEmpty())
@@ -128,7 +129,7 @@ var _ = Describe("config", func() {
 				builder := &testBuilder{}
 				sut := NewConfigAccess(loader, builder)
 
-				actual, err := sut.GetSetupType()
+				actual, err := sut.GetSetupName()
 
 				Expect(err).To(MatchError(loader.err))
 				Expect(actual).To(BeEmpty())
@@ -137,18 +138,18 @@ var _ = Describe("config", func() {
 
 		When("successful", func() {
 			It("returns the correct result", func() {
-				var expected cd.SetupType = "correct type"
+				var expected setupinfo.SetupName = "correct name"
 				inputConfig := &cd.Config{
 					SmallSetup: cd.SmallSetupConfig{
 						ConfigDir: cd.ConfigDir{
 							Kube: ""}},
 				}
-				inputSetupConfig := &cd.SetupConfig{SetupType: string(expected)}
+				inputSetupConfig := &cd.SetupConfig{SetupName: expected}
 				loader := &testLoader{resultConfig: inputConfig, resultSetupConfig: inputSetupConfig}
 				builder := &testBuilder{}
 				sut := NewConfigAccess(loader, builder)
 
-				actual, err := sut.GetSetupType()
+				actual, err := sut.GetSetupName()
 
 				Expect(err).ToNot(HaveOccurred())
 				Expect(actual).To(Equal(expected))

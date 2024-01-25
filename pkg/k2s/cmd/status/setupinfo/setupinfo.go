@@ -29,18 +29,12 @@ func NewSetupInfoPrinter(terminalPrinter TerminalPrinter, printNotInstalledMsgFu
 
 // TODO: move load and print to setupinfo package (see addons package)
 func (s SetupInfoPrinter) PrintSetupInfo(setupInfo si.SetupInfo) (bool, error) {
-	if setupInfo.ValidationError != nil {
-		switch *setupInfo.ValidationError {
-		case si.ErrNotInstalled:
+	if setupInfo.Error != nil {
+		switch *setupInfo.Error {
+		case si.NotInstalledErrMsg:
 			s.printNotInstalledMsgFunc()
-		case si.ErrNoClusterAvailable:
-			if setupInfo.Name == nil {
-				s.terminalPrinter.PrintWarning("The cluster is not available for an unknown reason. Consider re-installing K2s")
-			} else {
-				s.terminalPrinter.PrintInfoln("There is no cluster available for '%s' setup", *setupInfo.Name)
-			}
 		default:
-			s.terminalPrinter.PrintWarning("The setup information seems to be invalid: '%s'", *setupInfo.ValidationError)
+			s.terminalPrinter.PrintWarning("The setup information seems to be invalid: '%s'", *setupInfo.Error)
 		}
 
 		s.terminalPrinter.Println()
@@ -60,7 +54,7 @@ func (s SetupInfoPrinter) PrintSetupInfo(setupInfo si.SetupInfo) (bool, error) {
 		return false, errors.New("no setup version retrieved")
 	}
 
-	typeText := *setupInfo.Name
+	typeText := string(*setupInfo.Name)
 	if *setupInfo.LinuxOnly {
 		typeText += " (Linux-only)"
 	}

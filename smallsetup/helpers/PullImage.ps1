@@ -2,8 +2,6 @@
 #
 # SPDX-License-Identifier: MIT
 
-# ListImages.ps1
-
 <#
 .Description
 Pull container images in K2s

@@ -6,7 +6,7 @@ package core
 import (
 	"fmt"
 	ic "k2s/cmd/install/config"
-	cd "k2s/config/defs"
+	"k2s/setupinfo"
 	"time"
 
 	"k8s.io/klog/v2"
@@ -18,7 +18,7 @@ import (
 )
 
 type ConfigAccess interface {
-	GetSetupType() (cd.SetupType, error)
+	GetSetupName() (setupinfo.SetupName, error)
 }
 
 type InstallConfigAccess interface {
@@ -62,9 +62,9 @@ func NewInstaller(configAccess ConfigAccess,
 }
 
 func (i *installer) Install(kind ic.Kind, flags *pflag.FlagSet, buildCmdFunc func(config *ic.InstallConfig) (cmd string, err error)) error {
-	setupType, err := i.configAccess.GetSetupType()
-	if err == nil && setupType != "" {
-		i.printer.PrintInfofln("'%s' setup already installed, please uninstall with 'k2s uninstall' first and re-run the install command afterwards", setupType)
+	setupName, err := i.configAccess.GetSetupName()
+	if err == nil && setupName != "" {
+		i.printer.PrintInfofln("'%s' setup already installed, please uninstall with 'k2s uninstall' first and re-run the install command afterwards", setupName)
 		return nil
 	}
 

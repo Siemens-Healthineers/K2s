@@ -140,7 +140,7 @@ func AllAddons() Addons {
 func LoadEnabledAddons() (*EnabledAddons, error) {
 	scriptPath := utils.FormatScriptFilePath(utils.GetInstallationDirectory() + fmt.Sprintf("\\%s\\Get-EnabledAddons.ps1", addonsDirName))
 
-	enabledAddons, err := utils.LoadStructure[*EnabledAddons](scriptPath, "EnabledAddons", utils.ExecOptions{IgnoreNotInstalledErr: true})
+	enabledAddons, err := utils.ExecutePsWithStructuredResult[*EnabledAddons](scriptPath, "EnabledAddons", utils.ExecOptions{IgnoreNotInstalledErr: true})
 	if err != nil {
 		return nil, fmt.Errorf("could not load enabled addons: %s", err)
 	}

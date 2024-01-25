@@ -8,7 +8,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"k2s/cmd/common"
-	"k2s/config/defs"
+	"k2s/setupinfo"
 	"k2s/utils"
 )
 
@@ -29,7 +29,7 @@ func cleanImages(cmd *cobra.Command, args []string) error {
 	switch err {
 	case nil:
 		break
-	case defs.ErrNotInstalled:
+	case setupinfo.ErrNotInstalled:
 		common.PrintNotInstalledMessage()
 		return nil
 	default:

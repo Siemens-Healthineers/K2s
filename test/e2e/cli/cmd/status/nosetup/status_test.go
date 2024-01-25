@@ -40,7 +40,7 @@ var _ = Describe("status command", func() {
 		})
 
 		It("prints a header", func(ctx context.Context) {
-			Expect(output).To(ContainSubstring("K2s CLUSTER STATUS"))
+			Expect(output).To(ContainSubstring("K2s SYSTEM STATUS"))
 		})
 
 		It("prints not-installed message", func(ctx context.Context) {
@@ -56,7 +56,7 @@ var _ = Describe("status command", func() {
 		})
 
 		It("prints a header", func(ctx context.Context) {
-			Expect(output).To(ContainSubstring("K2s CLUSTER STATUS"))
+			Expect(output).To(ContainSubstring("K2s SYSTEM STATUS"))
 		})
 
 		It("prints not-installed message", func(ctx context.Context) {
@@ -76,7 +76,7 @@ var _ = Describe("status command", func() {
 		It("contains not-installed info", func() {
 			Expect(status.SetupInfo.Name).To(BeNil())
 			Expect(status.SetupInfo.Version).To(BeNil())
-			Expect(*status.SetupInfo.ValidationError).To(Equal(setupinfo.ErrNotInstalled))
+			Expect(*status.SetupInfo.Error).To(Equal(setupinfo.NotInstalledErrMsg))
 			Expect(status.SetupInfo.LinuxOnly).To(BeNil())
 		})
 

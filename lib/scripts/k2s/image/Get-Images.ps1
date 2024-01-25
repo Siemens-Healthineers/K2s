@@ -2,13 +2,6 @@
 #
 # SPDX-License-Identifier: MIT
 
-# Images.ps1
-
-<#
-.Description
-
-#>
-
 #Requires -RunAsAdministrator
 
 <#
@@ -18,11 +11,14 @@ List all container images present in K2s
 .DESCRIPTION
 List all container images present in K2s
 
-.PARAMETER IncludeK8sImages
-If set to true, will list k8s images as well
-
 .PARAMETER EncodeStructuredOutput
 If set to true, will encode and send result as structured data to the CLI
+
+.PARAMETER MessageType
+Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true
+
+.PARAMETER IncludeK8sImages
+If set to true, will list K8s images as well
 
 .EXAMPLE
 # Outputs all container images present in K2s
@@ -30,40 +26,48 @@ PS> .\Get-Images.ps1
 
 .EXAMPLE
 # Outputs all container images present in K2s including K8s images and will encode and send result as structured data to the CLI
-PS> .\Get-Images.ps1 -IncludeK8sImages -EncodeStructuredOutput
+PS> .\Get-Images.ps1 -IncludeK8sImages -EncodeStructuredOutput -MessageType my-images
 #>
 
-Param (
-    [parameter(Mandatory = $false)]
-    [switch] $IncludeK8sImages,
+Param (    
     [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
-    [switch] $EncodeStructuredOutput
+    [switch] $EncodeStructuredOutput,
+    [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
+    [string] $MessageType,
+    [parameter(Mandatory = $false)]
+    [switch] $IncludeK8sImages
 )
-
 $infraModule = "$PSScriptRoot/../../../modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $clusterModule = "$PSScriptRoot/../../../modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
+
 Import-Module $infraModule, $clusterModule
 
-Test-ClusterAvailability
+Initialize-Logging 
 
-class StoredImages {
-    [System.Collections.ArrayList]$ContainerImages
-    [String]$ContainerRegistry
-    [System.Collections.ArrayList]$PushedImages
+$script = $MyInvocation.MyCommand.Name
+
+Write-Log "[$script] started with EncodeStructuredOutput='$EncodeStructuredOutput' and MessageType='$MessageType' and IncludeK8sImages='$IncludeK8sImages'"
+
+try {
+    Test-ClusterAvailability
+
+    $images = @{ContainerImages = @(Get-ContainerImagesInk2s -IncludeK8sImages $IncludeK8sImages) }
+    $images.ContainerRegistry = $(Get-RegistriesFromSetupJson) | Where-Object { $_ -match 'k2s-registry.*' }
+    $images.PushedImages = @(Get-PushedContainerImages)
+
+    if ($EncodeStructuredOutput) {
+        Write-Log "[$script] Sending images to CLI.."
+
+        Send-ToCli -MessageType $MessageType -Message $images
+    }
+    else {
+        $images
+    }
+
+    Write-Log "[$script] finished"
 }
+catch {
+    Write-Log "[$script] $($_.Exception.Message) - $($_.ScriptStackTrace)" -Error
 
-$StoredImages = [StoredImages]::new()
-$StoredImages.ContainerImages = @(Get-ContainerImagesInk2s -IncludeK8sImages $IncludeK8sImages)
-
-$StoredImages.ContainerRegistry = $(Get-RegistriesFromSetupJson) | Where-Object { $_ -match 'k2s-registry.*' }
-$StoredImages.PushedImages = @(Get-PushedContainerImages)
-
-if ($EncodeStructuredOutput) {
-    Send-ToCli -MessageType 'StoredImages' -Message $StoredImages
-}
-else {
-    Write-Host ($StoredImages.ContainerImages | Format-Table | Out-String).Trim()
-    Write-Host ''
-    Write-Host "Pushed container images -> $StoredImages.ContainerRegistry"
-    Write-Host ($StoredImages.PushedImages | Format-Table | Out-String).Trim() 
+    throw $_
 }

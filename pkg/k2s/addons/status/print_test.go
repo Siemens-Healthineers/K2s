@@ -236,7 +236,7 @@ var _ = Describe("addons status print", func() {
 					It("prints not-installed message and returns", func() {
 						addonName := "test-addon"
 						addonDirectory := "test-dir"
-						errTxt := string(setupinfo.ErrNotInstalled)
+						errTxt := string(setupinfo.NotInstalledErrMsg)
 						status := &AddonStatus{Error: &errTxt}
 
 						spinnerMock := &mockObject{}

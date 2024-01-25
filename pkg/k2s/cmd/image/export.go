@@ -6,7 +6,7 @@ package image
 import (
 	"errors"
 	"fmt"
-	"k2s/config/defs"
+	"k2s/setupinfo"
 	"k2s/utils"
 	"strconv"
 
@@ -54,7 +54,7 @@ func exportImage(cmd *cobra.Command, args []string) error {
 	switch err {
 	case nil:
 		break
-	case defs.ErrNotInstalled:
+	case setupinfo.ErrNotInstalled:
 		common.PrintNotInstalledMessage()
 		return nil
 	default:

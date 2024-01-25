@@ -24,7 +24,6 @@ func NewStatusPrinter() StatusPrinter {
 	addonsPrinter := print.NewAddonsPrinter(terminalPrinter)
 	nodeStatusPrinter := nodestatus.NewNodeStatusPrinter(terminalPrinter)
 	podStatusPrinter := podstatus.NewPodStatusPrinter(terminalPrinter)
-	statusLoader := load.NewStatusLoader()
 	k8sVersionPrinter := k8sversion.NewK8sVersionPrinter(terminalPrinter)
 
 	return StatusPrinter{
@@ -34,7 +33,7 @@ func NewStatusPrinter() StatusPrinter {
 		addonsPrinter:         addonsPrinter,
 		nodeStatusPrinter:     nodeStatusPrinter,
 		podStatusPrinter:      podStatusPrinter,
-		statusLoader:          statusLoader,
+		loadStatusFunc:        load.LoadStatus,
 		k8sVersionInfoPrinter: k8sVersionPrinter,
 	}
 }
@@ -44,7 +43,7 @@ func NewStatusJsonPrinter() StatusJsonPrinter {
 	terminalPrinter := terminal.NewTerminalPrinter()
 
 	return StatusJsonPrinter{
-		statusLoader: load.NewStatusLoader(),
-		jsonPrinter:  json.NewJsonPrinter(terminalPrinter, jsonMarshaller),
+		loadStatusFunc: load.LoadStatus,
+		jsonPrinter:    json.NewJsonPrinter(terminalPrinter, jsonMarshaller),
 	}
 }

@@ -3,17 +3,18 @@
 
 package defs
 
-import "errors"
+import (
+	"k2s/setupinfo"
+)
 
-type SetupType string
 type SmbHostType string
 type RegistryName string
 
 type SetupConfig struct {
-	SetupType        string         `json:"SetupType"`
-	Registries       []RegistryName `json:"Registries"`
-	LoggedInRegistry string         `json:"LoggedInRegistry"`
-	LinuxOnly        bool           `json:"LinuxOnly"`
+	SetupName        setupinfo.SetupName `json:"SetupType"`
+	Registries       []RegistryName      `json:"Registries"`
+	LoggedInRegistry string              `json:"LoggedInRegistry"`
+	LinuxOnly        bool                `json:"LinuxOnly"`
 }
 
 type Config struct {
@@ -65,12 +66,7 @@ type KubeUserData struct {
 }
 
 const (
-	SetupTypek2s          SetupType   = "k2s"
-	SetupTypeMultiVMK8s   SetupType   = "MultiVMK8s"
-	SetupTypeBuildOnlyEnv SetupType   = "BuildOnlyEnv"
-	SmbHostTypeLinux      SmbHostType = "Linux"
-	SmbHostTypeWindows    SmbHostType = "Windows"
-	SmbHostTypeAuto       SmbHostType = "Auto"
+	SmbHostTypeLinux   SmbHostType = "Linux"
+	SmbHostTypeWindows SmbHostType = "Windows"
+	SmbHostTypeAuto    SmbHostType = "Auto"
 )
-
-var ErrNotInstalled = errors.New("not installed")

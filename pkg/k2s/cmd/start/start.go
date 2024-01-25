@@ -14,7 +14,7 @@ import (
 	"k2s/cmd/common"
 	p "k2s/cmd/params"
 	c "k2s/config"
-	cd "k2s/config/defs"
+	"k2s/setupinfo"
 	"k2s/utils"
 	"k2s/utils/tz"
 )
@@ -38,7 +38,7 @@ func startk8s(ccmd *cobra.Command, args []string) error {
 	switch err {
 	case nil:
 		break
-	case cd.ErrNotInstalled:
+	case setupinfo.ErrNotInstalled:
 		common.PrintNotInstalledMessage()
 		return nil
 	default:
@@ -73,19 +73,19 @@ func buildStartCmd(ccmd *cobra.Command) (string, error) {
 
 	config := c.NewAccess()
 
-	installedSetupType, err := config.GetSetupType()
+	setupName, err := config.GetSetupName()
 	if err != nil {
 		return "", err
 	}
 
 	var cmd string
 
-	switch installedSetupType {
-	case cd.SetupTypek2s:
+	switch setupName {
+	case setupinfo.SetupNamek2s:
 		cmd = buildk2sStartCmd(outputFlag, additionalHooksDir)
-	case cd.SetupTypeMultiVMK8s:
+	case setupinfo.SetupNameMultiVMK8s:
 		cmd = buildMultiVMStartCmd(outputFlag, additionalHooksDir)
-	case cd.SetupTypeBuildOnlyEnv:
+	case setupinfo.SetupNameBuildOnlyEnv:
 		return "", errors.New("there is no cluster to start in build-only setup mode ;-). Aborting")
 	default:
 		return "", errors.New("could not determine the setup type, aborting. If you are sure you have a K2s setup installed, call the correct start script directly")
