@@ -156,7 +156,7 @@ function Install-WindowsVM() {
     Write-Log "Using image: $WindowsImage"
     Write-Log 'Using virtio image: none'
 
-    Initialize-WinVmNode `
+    Initialize-WinVM `
         -Name $multiVMWindowsVMName `
         -Image $WindowsImage `
         -VMStartUpMemory $WinVMStartUpMemory `
@@ -167,194 +167,17 @@ function Install-WindowsVM() {
         -SwitchName $switchname `
         -SwitchIP $kubeSwitchIp `
         -CreateSwitch $false `
-        -IpAddress $multiVMWinNodeIP `
-        -DownloadNodeArtifacts $true
+        -IpAddress $multiVMWinNodeIP
+
+    Initialize-WinVMNode -KubernetesVersion $KubernetesVersion `
+        -HostGW:$true `
+        -HostVM:$true `
+        -Proxy:"$Proxy" `
+        -DeleteFilesForOfflineInstallation $DeleteFilesForOfflineInstallation `
+        -ForceOnlineInstallation $ForceOnlineInstallation
 }
 
-function Initialize-PhysicalNetworkAdapterOnVM ($session) {
-    Write-Log 'Checking physical network adapter on Windows node ...'
 
-    Invoke-Command -Session $session {
-        Set-Location "$env:SystemDrive\k"
-        Set-ExecutionPolicy Bypass -Force -ErrorAction Stop
-
-        # load global settings
-        &$env:SystemDrive\k\smallsetup\common\GlobalVariables.ps1
-        # import global functions
-        . $env:SystemDrive\k\smallsetup\common\GlobalFunctions.ps1
-        Import-Module $env:SystemDrive\k\smallsetup\ps-modules\log\log.module.psm1
-        Initialize-Logging -Nested:$true
-
-        # Install loopback adapter for l2bridge
-        Import-Module "$global:KubernetesPath\smallsetup\LoopbackAdapter.psm1" -Force
-        New-LoopbackAdapter -Name $global:LoopbackAdapter -DevConExe $global:DevconExe | Out-Null
-        Set-LoopbackAdapterProperties -Name $global:LoopbackAdapter -IPAddress $global:IP_LoopbackAdapter -Gateway $global:Gateway_LoopbackAdapter
-    }
-}
-
-function Initialize-SSHConnectionToWinVM($session) {
-    # remove previous VM key from known hosts
-    $file = $global:SshConfigDir + '\known_hosts'
-    if (Test-Path $file) {
-        Write-Log 'Remove previous VM key from known_hosts file'
-        $ErrorActionPreference = 'Continue'
-        ssh-keygen.exe -R $global:MultiVMWinNodeIP 2>&1 | % { "$_" }
-        $ErrorActionPreference = 'Stop'
-    }
-
-    # Create SSH connection with VM
-    $sshDir = Split-Path -parent $global:WindowsVMKey
-
-    if (!(Test-Path $sshDir)) {
-        mkdir $sshDir | Out-Null
-    }
-
-    if (!(Test-Path $global:WindowsVMKey)) {
-        Write-Log "Creating SSH key $global:WindowsVMKey ..."
-
-        if ($PSVersionTable.PSVersion.Major -gt 5) {
-            echo y | ssh-keygen.exe -t rsa -b 2048 -f $global:WindowsVMKey -N ''
-        } else {
-            echo y | ssh-keygen.exe -t rsa -b 2048 -f $global:WindowsVMKey -N '""'
-        }
-    }
-
-    if (!(Test-Path $global:WindowsVMKey)) {
-        throw "Unable to generate SSH keys ($global:WindowsVMKey)"
-    }
-
-    $rootPublicKey = Get-Content "$global:WindowsVMKey.pub" -Raw
-
-    Invoke-Command -Session $session {
-        Set-Location c:\k
-        Set-ExecutionPolicy Bypass -Force -ErrorAction SilentlyContinue
-
-        $authorizedkeypath = 'C:\ProgramData\ssh\administrators_authorized_keys'
-
-        Write-Output 'Adding public key for SSH connection'
-
-        if ((Test-Path $authorizedkeypath -PathType Leaf)) {
-            Write-Output "$authorizedkeypath already exists! overwriting new key"
-
-            Set-Content $authorizedkeypath -Value $using:rootPublicKey
-        }
-        else {
-            New-Item $authorizedkeypath -ItemType File -Value $using:rootPublicKey
-
-            $acl = Get-Acl C:\ProgramData\ssh\administrators_authorized_keys
-            $acl.SetAccessRuleProtection($true, $false)
-            $administratorsRule = New-Object system.security.accesscontrol.filesystemaccessrule('Administrators', 'FullControl', 'Allow')
-            $systemRule = New-Object system.security.accesscontrol.filesystemaccessrule('SYSTEM', 'FullControl', 'Allow')
-            $acl.SetAccessRule($administratorsRule)
-            $acl.SetAccessRule($systemRule)
-            $acl | Set-Acl
-        }
-    }
-}
-
-function Install-ContainerdOnWinVM($session) {
-    Write-Log 'Installing containerd on Windows node ...'
-
-    Invoke-Command -Session $session {
-        Set-Location "$env:SystemDrive\k"
-        Set-ExecutionPolicy Bypass -Force -ErrorAction Stop
-
-        # load global settings
-        &$env:SystemDrive\k\smallsetup\common\GlobalVariables.ps1
-        # import global functions
-        . $env:SystemDrive\k\smallsetup\common\GlobalFunctions.ps1
-        Import-Module $env:SystemDrive\k\smallsetup\ps-modules\log\log.module.psm1
-        Initialize-Logging -Nested:$true
-
-        &"$global:KubernetesPath\smallsetup\windowsnode\InstallContainerd.ps1" -Proxy $using:Proxy
-    }
-
-    Write-Log 'containerd installed on Windows node.'
-}
-
-function Install-K8sServicesOnWinVM($session) {
-    Write-Log 'Installing K8s services on Windows node ...'
-
-    Invoke-Command -Session $session {
-        Set-Location "$env:SystemDrive\k"
-        Set-ExecutionPolicy Bypass -Force -ErrorAction Stop
-
-        # load global settings
-        &$env:SystemDrive\k\smallsetup\common\GlobalVariables.ps1
-        # import global functions
-        . $env:SystemDrive\k\smallsetup\common\GlobalFunctions.ps1
-        Import-Module $env:SystemDrive\k\smallsetup\ps-modules\log\log.module.psm1
-        Initialize-Logging -Nested:$true
-
-        &"$global:KubernetesPath\smallsetup\windowsnode\publisher\PublishKubetools.ps1"
-        &"$global:KubernetesPath\smallsetup\windowsnode\InstallKubelet.ps1" -UseContainerd:$true
-        &"$global:KubernetesPath\smallsetup\windowsnode\publisher\PublishFlannel.ps1"
-        &"$global:KubernetesPath\smallsetup\windowsnode\InstallFlannel.ps1"
-        &"$global:KubernetesPath\smallsetup\windowsnode\InstallKubeProxy.ps1"
-        &"$global:KubernetesPath\smallsetup\windowsnode\publisher\PublishWindowsExporter.ps1"
-        &"$global:KubernetesPath\smallsetup\windowsnode\InstallWinExporter.ps1"
-        &"$global:KubernetesPath\smallsetup\windowsnode\publisher\PublishPuttytools.ps1"
-        &"$global:KubernetesPath\smallsetup\windowsnode\InstallHttpProxy.ps1" -Proxy $using:Proxy
-
-        # remove folder with windows node artifacts since all of them are already published to the expected locations
-        Remove-Item "$using:WindowsNodeArtifactsDirectory" -Recurse -Force -ErrorAction SilentlyContinue
-
-        &"$global:NssmInstallDirectory\nssm" set kubeproxy Start SERVICE_DEMAND_START | Out-Null
-        &"$global:NssmInstallDirectory\nssm" set kubelet Start SERVICE_DEMAND_START | Out-Null
-        &"$global:NssmInstallDirectory\nssm" set flanneld Start SERVICE_DEMAND_START | Out-Null
-    }
-
-    Write-Log 'K8s services installed on Windows node.'
-}
-
-function Initialize-WindowsNode($session) {
-    $kubernetesVersion = $global:KubernetesVersion
-    $masterIP = $global:IP_Master
-
-    $targetDirectory = '~\.ssh\kubemaster'
-    Write-Log "Creating target directory '$targetDirectory' on VM ..."
-
-    $remoteTargetDirectory = Invoke-Command -Session $session {
-        Set-Location "$env:SystemDrive\k"
-        Set-ExecutionPolicy Bypass -Force -ErrorAction Stop
-
-        mkdir $using:targetDirectory
-    }
-
-    Write-Log "Target directory '$remoteTargetDirectory' created on remote VM."
-
-    $localSourceFiles = "$global:SshConfigDir\kubemaster\*"
-
-    Copy-Item -ToSession $session $localSourceFiles -Destination "$remoteTargetDirectory" -Recurse -Force
-
-    Write-Log "Copied private key from local '$localSourceFiles' to remote '$remoteTargetDirectory'."
-
-    $ErrorActionPreference = 'Continue'
-
-    Invoke-Command -Session $session {
-        Set-Location "$env:SystemDrive\k"
-        Set-ExecutionPolicy Bypass -Force -ErrorAction Stop
-
-        # load global settings
-        &$env:SystemDrive\k\smallsetup\common\GlobalVariables.ps1
-        # import global functions
-        . $env:SystemDrive\k\smallsetup\common\GlobalFunctions.ps1
-        Import-Module $env:SystemDrive\k\smallsetup\ps-modules\log\log.module.psm1
-        Initialize-Logging -Nested:$true
-
-        # set environment variable for avoiding VFP rules
-        # [Environment]::SetEnvironmentVariable('BRIDGE_NO_VFPRULES', 'true', [System.EnvironmentVariableTarget]::Machine)
-
-        &"$global:KubernetesPath\smallsetup\windowsnode\SetupNode.ps1" -KubernetesVersion $using:kubernetesVersion -MasterIp $using:masterIP -MinSetup: $false -HostGW: $true -Proxy: $using:Proxy
-
-        Wait-ForSSHConnectionToLinuxVMViaSshKey -Nested:$true
-        Copy-KubeConfigFromMasterNode -Nested:$true
-    }
-
-    $ErrorActionPreference = 'Stop'
-
-    Write-Log 'Windows node initialized.'
-}
 
 function Install-KubectlOnHost() {
     $previousKubernetesVersion = Get-InstalledKubernetesVersion
@@ -697,6 +520,8 @@ if ($LinuxOnly -ne $true) {
     Write-Log 'Setting up WinNode worker VM' -Console
 
     Install-WindowsVM # needs kubeswitch being already setup with Install-Kubemaster
+
+    #Save-ControlPlaneNodeHostnameIntoWinVM $session
 }
 
 Copy-KubeConfigFromMasterNode

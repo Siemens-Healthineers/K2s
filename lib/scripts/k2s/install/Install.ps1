@@ -121,7 +121,6 @@ New-DefaultLoopbackAdater
 
 # PREPARE WINDOWS NODE
 Initialize-WinNode -KubernetesVersion $KubernetesVersion `
-    -MinSetup:$true `
     -HostGW:$HostGW `
     -Proxy:"$Proxy" `
     -DeleteFilesForOfflineInstallation $DeleteFilesForOfflineInstallation `

@@ -324,7 +324,9 @@ function Invoke-DeployWinArtifacts {
 function Install-WinNodeArtifacts {
     Param(
         [parameter(Mandatory = $false, HelpMessage = 'HTTP proxy if available')]
-        [string] $Proxy = ''
+        [string] $Proxy = '',
+        [parameter(Mandatory = $true, HelpMessage = 'Host machine is a VM: true, Host machine is not a VM')]
+        [bool] $HostVM
     )
 
     Invoke-DeployDockerArtifacts $windowsNodeArtifactsDirectory
@@ -334,7 +336,6 @@ function Install-WinNodeArtifacts {
     Invoke-DeployWindowsImages $windowsNodeArtifactsDirectory
 
     Invoke-DeployKubetoolsArtifacts $windowsNodeArtifactsDirectory
-
     Install-WinKubelet
 
     Invoke-DeployFlannelArtifacts $windowsNodeArtifactsDirectory
@@ -349,9 +350,12 @@ function Install-WinNodeArtifacts {
 
     Install-WinHttpProxy -Proxy "$Proxy"
 
-    Invoke-DeployDnsProxyArtifacts $windowsNodeArtifactsDirectory
+    if (!($HostVM)) {
+        # DNS Proxy is not required if Host machine is a VM
+        Invoke-DeployDnsProxyArtifacts $windowsNodeArtifactsDirectory
+        Install-WinDnsProxy
+    }
 
-    Install-WinDnsProxy
     Invoke-DeployPuttytoolsArtifacts $windowsNodeArtifactsDirectory
 
     # remove folder with windows node artifacts since all of them are already published to the expected locations
@@ -381,4 +385,3 @@ function Invoke-DownloadsCleanup {
         }
     }
 }
-
