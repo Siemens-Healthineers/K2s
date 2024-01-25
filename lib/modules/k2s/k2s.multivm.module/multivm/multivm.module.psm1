@@ -9,12 +9,14 @@ Import-Module $pathModule, $logModule, $vmnodeModule
 $rootConfig = Get-RootConfig
 
 $multivmRootConfig = $rootConfig.psobject.properties['multivm'].value
+# Password for Linux/Windows VMs during installation
+$vmPwd = 'admin'
 
 function Get-RootConfigMultivm {
     return $multivmRootConfig
 }
 
-function Initialize-WinVmNode {
+function Initialize-WinVM {
     Param(
         [parameter(Mandatory = $true, HelpMessage = 'Windows VM Name to use')]
         [string] $Name,
@@ -53,9 +55,7 @@ function Initialize-WinVmNode {
         [parameter(Mandatory = $false, HelpMessage = 'IP address to assign to the VM. If none is defined, an IP address will be determined automatically.')]
         [string] $IpAddress,
         [parameter(Mandatory = $false, HelpMessage = 'Locale of the Windows Image, ensure the iso supplied has the locale')]
-        [string]$Locale = 'en-US',
-        [parameter(Mandatory = $false, HelpMessage = 'Based on flag complete download of artifacts needed for k2s install are download')]
-        [switch] $DownloadNodeArtifacts = $false
+        [string]$Locale = 'en-US'
     )
 
     $ErrorActionPreference = 'Continue'
@@ -171,9 +171,6 @@ function Initialize-WinVmNode {
     Write-Log "Using generation: $Generation"
     Write-Log "Using edition: $Edition"
     Write-Log "Using locale: $Locale"
-
-    # Password for Linux/Windows VMs during installation
-    $vmPwd = 'admin'
 
     New-VMFromWinImage -ImgDir $Image `
         -WinEdition $Edition `
@@ -348,7 +345,7 @@ function Initialize-WinVmNode {
     Write-Log 'Download Small K8s Setup'
     Invoke-Command -Session $session2 -ErrorAction SilentlyContinue {
         New-Item -ItemType Directory -Force c:\k
-        Set-Location c:\k
+        Set-Location $env:SystemDrive\k
         if ($using:Proxy) {
             Write-Output 'Configuring Proxy for git'
             &'C:\Program Files\Git\cmd\git.exe' config --global http.proxy $using:Proxy
@@ -375,41 +372,13 @@ function Initialize-WinVmNode {
         }
     }
 
-    $kubernetesVersion = $global:KubernetesVersion
-
-    $session3 = Open-RemoteSession -VmName $Name -VmPwd $vmPwd
-
-    Invoke-Command -Session $session3 {
-        Set-Location c:\k
-        Set-ExecutionPolicy Bypass -Force -ErrorAction SilentlyContinue
-
-        Import-Module $env:SystemDrive\k\lib\modules\k2s.infra.module\k2s.infra.module.psm1
-        Import-Module $env:SystemDrive\k\lib\modules\k2s.node.module\k2s.node.module.psm1
-        Initialize-Logging -Nested:$true
-        New-Item -ItemType Directory "c:\k\lib\NSSM"
-        Copy-Item -Path 'C:\ProgramData\chocolatey\lib\NSSM\*' -Destination "c:\k\lib\NSSM" -Recurse -Force
-        Copy-Item -Path 'C:\ProgramData\chocolatey\bin\nssm.exe' -Destination "c:\k\bin" -Force
-
-        Write-Output 'DownloadNodeArtifacts is set, downloading all windows node artifacts ..'
-        Invoke-DeployWinArtifacts -KubernetesVersion $using:kubernetesVersion -Proxy $using:Proxy -ForceOnlineInstallation $true
-
-        if ($using:Proxy) {
-            Write-Output "Installing Docker Engine using Proxy $using:Proxy .."
-            Install-WinDocker -Proxy "$using:Proxy"
-        }
-        else {
-            Write-Output 'Installing Docker Engine with no proxy ..'
-            Install-WinDocker
-        }
-    }
-
     $session4 = Open-RemoteSession -VmName $Name -VmPwd $vmPwd
 
     $pr = ''
     if ( $Proxy ) { $pr = $Proxy.Replace('http://', '') }
 
     Invoke-Command -Session $session4 {
-        Set-Location c:\k
+        Set-Location $env:SystemDrive\k
         Set-ExecutionPolicy Bypass -Force -ErrorAction SilentlyContinue
 
         Import-Module $env:SystemDrive\k\lib\modules\k2s.infra.module\k2s.infra.module.psm1
@@ -470,41 +439,70 @@ function Initialize-WinVmNode {
     $session5 = Open-RemoteSession -VmName $Name -VmPwd $vmPwd
 
     Invoke-Command -Session $session5 -WarningAction SilentlyContinue {
+        Set-Location $env:SystemDrive\k
         Set-ExecutionPolicy Bypass -Force -ErrorAction SilentlyContinue
+        New-Item -ItemType Directory "c:\k\lib\NSSM"
+        Copy-Item -Path 'C:\ProgramData\chocolatey\lib\NSSM\*' -Destination "c:\k\lib\NSSM" -Recurse -Force
+        Copy-Item -Path 'C:\ProgramData\chocolatey\bin\nssm.exe' -Destination "c:\k\bin" -Force
 
         Set-Service -Name sshd -StartupType Automatic
         Start-Service sshd
         nssm status sshd
-
-        Set-Service -Name docker -StartupType Automatic
-        Start-Service docker
-        nssm status docker
 
         REG ADD 'HKLM\SYSTEM\CurrentControlSet\Control\Windows Containers' /v SkipVersionCheck /t REG_DWORD /d 2 /f
     }
 
     # all done
     Write-Log "All steps done, VM $Name now available !"
+}
 
-    $session = Open-RemoteSession $Name $vmPwd
+function Initialize-WinVMNode {
+    Param(
+        [parameter(Mandatory = $true, HelpMessage = 'Kubernetes version to use')]
+        [string] $KubernetesVersion,
+        [parameter(Mandatory = $false, HelpMessage = 'Host machine is a VM: true, Host machine is not a VM')]
+        [bool] $HostVM = $false,
+        [parameter(Mandatory = $false, HelpMessage = 'HTTP proxy if available')]
+        [string] $Proxy = '',
+        [parameter(Mandatory = $true, HelpMessage = 'Host-GW or VXLAN, Host-GW: true, false for vxlan')]
+        [bool] $HostGW,
+        [parameter(Mandatory = $false, HelpMessage = 'Deletes the needed files to perform an offline installation')]
+        [boolean] $DeleteFilesForOfflineInstallation = $false,
+        [parameter(Mandatory = $false, HelpMessage = 'Force the installation online. This option is needed if the files for an offline installation are available but you want to recreate them.')]
+        [boolean] $ForceOnlineInstallation = $false
+    )
+
+    $session = Open-RemoteSession -VmName $Name -VmPwd $vmPwd
 
     Initialize-SSHConnectionToWinVM $session
 
     Initialize-PhysicalNetworkAdapterOnVM $session
 
-    Initialize-WindowsNode $session
-
-    Install-ContainerdOnWinVM $session
-
     Repair-WindowsAutoConfigOnVM $session
 
     Restart-VM $Name
-
     $session = Open-RemoteSession -VmName $Name -VmPwd $vmPwd
 
-    Install-K8sServicesOnWinVM $session
+    Invoke-Command -Session $session {
+        Set-Location "$env:SystemDrive\k"
+        Set-ExecutionPolicy Bypass -Force -ErrorAction Stop
 
-    Save-ControlPlaneNodeHostnameIntoWinVM $session
+        Import-Module $env:SystemDrive\k\lib\modules\k2s.infra.module\k2s.infra.module.psm1
+        Import-Module $env:SystemDrive\k\lib\modules\k2s.node.module\k2s.node.module.psm1
+        Initialize-Logging -Nested:$true
+
+        Initialize-WinNode -KubernetesVersion $using:KubernetesVersion `
+            -HostGW:$using:HostGW `
+            -HostVM:$using:HostVM `
+            -Proxy:"$using:Proxy" `
+            -DeleteFilesForOfflineInstallation $using:DeleteFilesForOfflineInstallation `
+            -ForceOnlineInstallation $using:ForceOnlineInstallation
+
+        Wait-ForSSHConnectionToLinuxVMViaSshKey -Nested:$true
+        Copy-KubeConfigFromControlPlaneNode -Nested:$true
+    }
+
+    Write-Log 'Windows node initialized.'
 }
 
 function Initialize-SSHConnectionToWinVM($session) {
@@ -601,35 +599,4 @@ function Initialize-PhysicalNetworkAdapterOnVM ($session) {
     }
 }
 
-function Initialize-WindowsNode($session) {
-    $kubernetesVersion = $global:KubernetesVersion
-    $masterIP = $global:IP_Master
-
-    $ErrorActionPreference = 'Continue'
-
-    Invoke-Command -Session $session {
-        Set-Location "$env:SystemDrive\k"
-        Set-ExecutionPolicy Bypass -Force -ErrorAction Stop
-
-        # load global settings
-        &$env:SystemDrive\k\smallsetup\common\GlobalVariables.ps1
-        # import global functions
-        . $env:SystemDrive\k\smallsetup\common\GlobalFunctions.ps1
-        Import-Module $env:SystemDrive\k\smallsetup\ps-modules\log\log.module.psm1
-        Initialize-Logging -Nested:$true
-
-        # set environment variable for avoiding VFP rules
-        # [Environment]::SetEnvironmentVariable('BRIDGE_NO_VFPRULES', 'true', [System.EnvironmentVariableTarget]::Machine)
-
-        &"$global:KubernetesPath\smallsetup\windowsnode\SetupNode.ps1" -KubernetesVersion $using:kubernetesVersion -MasterIp $using:masterIP -MinSetup: $false -HostGW: $true -Proxy: $using:Proxy
-
-        Wait-ForSSHConnectionToLinuxVMViaSshKey -Nested:$true
-        Copy-KubeConfigFromMasterNode -Nested:$true
-    }
-
-    $ErrorActionPreference = 'Stop'
-
-    Write-Log 'Windows node initialized.'
-}
-
-Export-ModuleMember Get-RootConfigMultivm, Initialize-WinVmNode
+Export-ModuleMember Get-RootConfigMultivm, Initialize-WinVMNode, Initialize-WinVM
