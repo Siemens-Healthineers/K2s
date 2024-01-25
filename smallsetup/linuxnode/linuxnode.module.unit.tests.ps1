@@ -1538,46 +1538,6 @@ Describe 'New-MasterNode' -Tag 'unit', 'linuxnode' {
     }
 }
 
-Describe 'Set-UpComputerWithSpecificOsBeforeProvisioning' -Tag 'unit', 'linuxnode' {
-    It "contains expected parameters" {
-        InModuleScope $linuxNodeModuleName {
-            # arrange
-            $expectedUserName = 'myUserName'
-            $expectedUserPwd = 'myUserPwd'
-            $expectedIpAddress = 'myIpAddress'
-
-            Mock Set-UpComputerWithSpecificOsBeforeProvisioning { $global:actualUserName = $UserName; $global:actualUserPwd = $UserPwd; $global:actualIpAddress = $IpAddress }
-
-            # act
-            Set-UpComputerWithSpecificOsBeforeProvisioning -UserName $expectedUserName -UserPwd $expectedUserPwd -IpAddress $expectedIpAddress
-
-            # assert
-            $global:actualUserName | Should -Be $expectedUserName
-            $global:actualUserPwd | Should -Be $expectedUserPwd
-            $global:actualIpAddress | Should -Be $expectedIpAddress
-        }
-    }
-}
-
-Describe 'Set-UpComputerWithSpecificOsAfterProvisioning' -Tag 'unit', 'linuxnode' {
-    It 'contains expected parameters' {
-        InModuleScope $linuxNodeModuleName {
-            # arrange
-            $expectedUserName = 'myUserName'
-            $expectedUserPwd = 'myUserPwd'
-            $expectedIpAddress = 'myIpAddress'
-            Mock Set-UpComputerWithSpecificOsAfterProvisioning { $global:actualUserName = $UserName; $global:actualUserPwd = $UserPwd; $global:actualIpAddress = $IpAddress; $global:actualProxy = $Proxy }
-
-            # act
-            Set-UpComputerWithSpecificOsAfterProvisioning -UserName $expectedUserName -UserPwd $expectedUserPwd -IpAddress $expectedIpAddress
-
-            # assert
-            $global:actualUserName | Should -Be $expectedUserName
-            $global:actualUserPwd | Should -Be $expectedUserPwd
-            $global:actualIpAddress | Should -Be $expectedIpAddress
-        }
-    }
-}
 
 
 
