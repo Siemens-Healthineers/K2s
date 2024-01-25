@@ -8,7 +8,6 @@ param (
     [ValidateScript({ !([string]::IsNullOrWhiteSpace($_))})]
     [string]$UserName = $(throw "Argument missing: UserName"),
     [string]$UserPwd = $(throw "Argument missing: UserPwd"),
-    [ValidateScript({ Get-IsValidIPv4Address($_) })]
     [string]$IpAddress = $(throw "Argument missing: IpAddress"),
     [string] $Proxy = ''
 )
@@ -21,7 +20,7 @@ $validationModule = "$global:KubernetesPath\lib\modules\k2s\k2s.infra.module\val
 $baseImageModule = "$global:KubernetesPath\smallsetup\baseimage\baseimage.module.psm1"
 $linuxNodeModule = "$global:KubernetesPath\smallsetup\linuxnode\linuxnode.module.psm1"
 $linuxNodeUbuntuModule = "$PSScriptRoot\linuxnode.ubuntu.module.psm1"
-Import-Module $validationModule,$baseImageModule,$linuxNodeModule,$linuxNodeUbuntuModule -Force
+Import-Module $validationModule,$baseImageModule,$linuxNodeModule,$linuxNodeUbuntuModule
 
 $remoteUser = "$UserName@$IpAddress"
 $remoteUserName = "$UserName"
