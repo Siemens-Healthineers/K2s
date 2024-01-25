@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"k2s/cmd/status/load"
+	"k2s/setupinfo"
 
 	"testing"
 
@@ -45,7 +46,7 @@ var _ = AfterSuite(func(ctx context.Context) {
 })
 
 var _ = Describe("status command", func() {
-	When("cluster is not running", Ordered, func() {
+	When("system is not running", Ordered, func() {
 		BeforeAll(func(ctx context.Context) {
 			suite.K2sCli().Run(ctx, "stop")
 		})
@@ -58,11 +59,11 @@ var _ = Describe("status command", func() {
 			})
 
 			It("prints a header", func(ctx context.Context) {
-				Expect(output).To(ContainSubstring("K2s CLUSTER STATUS"))
+				Expect(output).To(ContainSubstring("K2s SYSTEM STATUS"))
 			})
 
 			It("prints setup", func(ctx context.Context) {
-				Expect(output).To(MatchRegexp("Setup: .+%s.+,", suite.SetupInfo().SetupType.Name))
+				Expect(output).To(MatchRegexp("Setup: .+%s.+,", suite.SetupInfo().Name))
 			})
 
 			It("prints version", func(ctx context.Context) {
@@ -73,18 +74,18 @@ var _ = Describe("status command", func() {
 				expectAddonsGetPrinted(output)
 			})
 
-			It("states that cluster is not running with details about what is not running", func(ctx context.Context) {
+			It("states that system is not running with details about what is not running", func(ctx context.Context) {
 				matchers := []types.GomegaMatcher{
-					ContainSubstring("The cluster is not running."),
+					ContainSubstring("The system is not running."),
 					ContainSubstring("'KubeMaster' not running, state is 'Off' (VM)"),
 				}
 
-				if suite.SetupInfo().SetupType.Name == "k2s" {
+				if suite.SetupInfo().Name == setupinfo.SetupNamek2s {
 					matchers = append(matchers,
 						ContainSubstring("'flanneld' not running (service)"),
 						ContainSubstring("'kubelet' not running (service)"),
 						ContainSubstring("'kubeproxy' not running (service)"))
-				} else if suite.SetupInfo().SetupType.Name == "MultiVMK8s" && !suite.SetupInfo().SetupType.LinuxOnly {
+				} else if suite.SetupInfo().Name == setupinfo.SetupNameMultiVMK8s && !suite.SetupInfo().LinuxOnly {
 					matchers = append(matchers,
 						ContainSubstring("'WinNode' not running, state is 'Off' (VM)"))
 				}
@@ -101,11 +102,11 @@ var _ = Describe("status command", func() {
 			})
 
 			It("prints a header", func(ctx context.Context) {
-				Expect(output).To(ContainSubstring("K2s CLUSTER STATUS"))
+				Expect(output).To(ContainSubstring("K2s SYSTEM STATUS"))
 			})
 
 			It("prints setup", func(ctx context.Context) {
-				Expect(output).To(MatchRegexp("Setup: .+%s.+,", suite.SetupInfo().SetupType.Name))
+				Expect(output).To(MatchRegexp("Setup: .+%s.+,", suite.SetupInfo().Name))
 			})
 
 			It("prints version", func(ctx context.Context) {
@@ -116,18 +117,18 @@ var _ = Describe("status command", func() {
 				expectAddonsGetPrinted(output)
 			})
 
-			It("states that cluster is not running with details about what is not running", func(ctx context.Context) {
+			It("states that system is not running with details about what is not running", func(ctx context.Context) {
 				matchers := []types.GomegaMatcher{
-					ContainSubstring("The cluster is not running."),
+					ContainSubstring("The system is not running."),
 					ContainSubstring("'KubeMaster' not running, state is 'Off' (VM)"),
 				}
 
-				if suite.SetupInfo().SetupType.Name == "k2s" {
+				if suite.SetupInfo().Name == setupinfo.SetupNamek2s {
 					matchers = append(matchers,
 						ContainSubstring("'flanneld' not running (service)"),
 						ContainSubstring("'kubelet' not running (service)"),
 						ContainSubstring("'kubeproxy' not running (service)"))
-				} else if suite.SetupInfo().SetupType.Name == "MultiVMK8s" && !suite.SetupInfo().SetupType.LinuxOnly {
+				} else if suite.SetupInfo().Name == setupinfo.SetupNameMultiVMK8s && !suite.SetupInfo().LinuxOnly {
 					matchers = append(matchers,
 						ContainSubstring("'WinNode' not running, state is 'Off' (VM)"))
 				}
@@ -146,10 +147,10 @@ var _ = Describe("status command", func() {
 			})
 
 			It("contains setup info", func() {
-				Expect(*status.SetupInfo.Name).To(Equal(suite.SetupInfo().SetupType.Name))
+				Expect(*status.SetupInfo.Name).To(Equal(suite.SetupInfo().Name))
 				Expect(*status.SetupInfo.Version).To(MatchRegexp(versionRegex))
-				Expect(status.SetupInfo.ValidationError).To(BeNil())
-				Expect(*status.SetupInfo.LinuxOnly).To(Equal(suite.SetupInfo().SetupType.LinuxOnly))
+				Expect(status.SetupInfo.Error).To(BeNil())
+				Expect(*status.SetupInfo.LinuxOnly).To(Equal(suite.SetupInfo().LinuxOnly))
 			})
 
 			It("contains running state", func() {
@@ -171,7 +172,7 @@ var _ = Describe("status command", func() {
 		})
 	})
 
-	When("cluster is running", Ordered, func() {
+	When("system is running", Ordered, func() {
 		BeforeAll(func(ctx context.Context) {
 			suite.K2sCli().Run(ctx, "start")
 
@@ -189,11 +190,11 @@ var _ = Describe("status command", func() {
 			})
 
 			It("prints a header", func(ctx context.Context) {
-				Expect(output).To(ContainSubstring("K2s CLUSTER STATUS"))
+				Expect(output).To(ContainSubstring("K2s SYSTEM STATUS"))
 			})
 
 			It("prints setup", func(ctx context.Context) {
-				Expect(output).To(MatchRegexp("Setup: .+%s.+,", suite.SetupInfo().SetupType.Name))
+				Expect(output).To(MatchRegexp("Setup: .+%s.+,", suite.SetupInfo().Name))
 			})
 
 			It("prints version", func(ctx context.Context) {
@@ -204,8 +205,8 @@ var _ = Describe("status command", func() {
 				expectAddonsGetPrinted(output)
 			})
 
-			It("prints info that the cluster is running", func(ctx context.Context) {
-				Expect(output).To(ContainSubstring("The cluster is running"))
+			It("prints info that the system is running", func(ctx context.Context) {
+				Expect(output).To(ContainSubstring("The system is running"))
 			})
 
 			It("prints K8s server version", func(ctx context.Context) {
@@ -222,7 +223,7 @@ var _ = Describe("status command", func() {
 					MatchRegexp("Ready.+\\|.+%s.+\\|.+control-plane.+\\|.+%s.+\\|.+%s", suite.SetupInfo().ControlPlaneNodeHostname, ageRegex, versionRegex),
 				}
 
-				if !suite.SetupInfo().SetupType.LinuxOnly {
+				if !suite.SetupInfo().LinuxOnly {
 					matchers = append(matchers, MatchRegexp("Ready.+\\|.+%s.+\\|.+worker.+\\|.+%s.+\\|.+%s", suite.SetupInfo().WinNodeName, ageRegex, versionRegex))
 				}
 
@@ -259,11 +260,11 @@ var _ = Describe("status command", func() {
 			})
 
 			It("prints a header", func(ctx context.Context) {
-				Expect(output).To(ContainSubstring("K2s CLUSTER STATUS"))
+				Expect(output).To(ContainSubstring("K2s SYSTEM STATUS"))
 			})
 
 			It("prints setup", func(ctx context.Context) {
-				Expect(output).To(MatchRegexp("Setup: .+%s.+,", suite.SetupInfo().SetupType.Name))
+				Expect(output).To(MatchRegexp("Setup: .+%s.+,", suite.SetupInfo().Name))
 			})
 
 			It("prints the version", func(ctx context.Context) {
@@ -274,8 +275,8 @@ var _ = Describe("status command", func() {
 				expectAddonsGetPrinted(output)
 			})
 
-			It("prints info that the cluster is running", func(ctx context.Context) {
-				Expect(output).To(ContainSubstring("The cluster is running"))
+			It("prints info that the system is running", func(ctx context.Context) {
+				Expect(output).To(ContainSubstring("The system is running"))
 			})
 
 			It("prints K8s server version", func(ctx context.Context) {
@@ -292,7 +293,7 @@ var _ = Describe("status command", func() {
 					MatchRegexp("Ready.+\\|.+%s.+\\|.+control-plane.+\\|.+%s.+\\|.+%s.+\\|.+%s.+\\|.+%s.+\\|.+.+\\|.+%s", suite.SetupInfo().ControlPlaneNodeHostname, ageRegex, versionRegex, ipAddressRegex, osRegex, runtimeRegex),
 				}
 
-				if !suite.SetupInfo().SetupType.LinuxOnly {
+				if !suite.SetupInfo().LinuxOnly {
 					matchers = append(matchers, MatchRegexp("Ready.+\\|.+%s.+\\|.+worker.+\\|.+%s.+\\|.+%s.+\\|.+%s.+\\|.+%s.+\\|.+.+\\|.+%s", suite.SetupInfo().WinNodeName, ageRegex, versionRegex, ipAddressRegex, osRegex, runtimeRegex))
 				}
 
@@ -331,10 +332,10 @@ var _ = Describe("status command", func() {
 			})
 
 			It("contains setup info", func() {
-				Expect(*status.SetupInfo.Name).To(Equal(suite.SetupInfo().SetupType.Name))
+				Expect(*status.SetupInfo.Name).To(Equal(suite.SetupInfo().Name))
 				Expect(*status.SetupInfo.Version).To(MatchRegexp(versionRegex))
-				Expect(status.SetupInfo.ValidationError).To(BeNil())
-				Expect(*status.SetupInfo.LinuxOnly).To(Equal(suite.SetupInfo().SetupType.LinuxOnly))
+				Expect(status.SetupInfo.Error).To(BeNil())
+				Expect(*status.SetupInfo.LinuxOnly).To(Equal(suite.SetupInfo().LinuxOnly))
 			})
 
 			It("contains K8s version info", func() {
@@ -342,7 +343,7 @@ var _ = Describe("status command", func() {
 				Expect(status.K8sVersionInfo.K8sServerVersion).To(MatchRegexp(versionRegex))
 			})
 
-			It("contains info that the cluster is running", func() {
+			It("contains info that the system is running", func() {
 				Expect(status.RunningState.IsRunning).To(BeTrue())
 				Expect(status.RunningState.Issues).To(BeEmpty())
 			})
@@ -353,7 +354,7 @@ var _ = Describe("status command", func() {
 					SatisfyAll(HaveField("Role", "control-plane"), HaveField("Name", suite.SetupInfo().ControlPlaneNodeHostname)),
 				}
 
-				if !suite.SetupInfo().SetupType.LinuxOnly {
+				if !suite.SetupInfo().LinuxOnly {
 					expectedNodesLength = 2
 					nodesMatchers = append(nodesMatchers, SatisfyAll(HaveField("Role", "worker"), HaveField("Name", suite.SetupInfo().WinNodeName)))
 				}

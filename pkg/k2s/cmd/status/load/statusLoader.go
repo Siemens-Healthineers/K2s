@@ -56,16 +56,16 @@ type K8sVersionInfo struct {
 	K8sClientVersion string `json:"k8sClientVersion"`
 }
 
-func NewStatusLoader() StatusLoader {
-	return StatusLoader{}
-}
-
-func (sl StatusLoader) LoadStatus() (*Status, error) {
+func LoadStatus() (*Status, error) {
 	scriptPath := utils.FormatScriptFilePath(utils.GetInstallationDirectory() + `\lib\scripts\k2s\status\Get-Status.ps1`)
 
-	status, err := utils.LoadStructure[Status](scriptPath, "Status", utils.ExecOptions{IgnoreNotInstalledErr: true})
+	status, err := utils.ExecutePsWithStructuredResult[Status](scriptPath, "Status", utils.ExecOptions{})
 	if err != nil {
-		return nil, err
+		if err != setupinfo.ErrNotInstalled {
+			return nil, err
+		}
+		errMsg := setupinfo.NotInstalledErrMsg
+		status = Status{SetupInfo: setupinfo.SetupInfo{Error: &errMsg}}
 	}
 
 	return &status, nil

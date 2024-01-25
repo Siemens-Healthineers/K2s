@@ -10,6 +10,7 @@ import (
 
 	cd "k2s/config/defs"
 	"k2s/config/load"
+	"k2s/setupinfo"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -140,7 +141,7 @@ var _ = Describe("load", func() {
 				actual, err := sut.LoadForSetup(path)
 
 				Expect(actual).To(BeNil())
-				Expect(err).To(MatchError(cd.ErrNotInstalled))
+				Expect(err).To(MatchError(setupinfo.ErrNotInstalled))
 			})
 		})
 
@@ -169,7 +170,7 @@ var _ = Describe("load", func() {
 		It("returns correct result", func() {
 			path := "some-path"
 			data := []byte{0, 1, 2}
-			expectedConfig := &cd.SetupConfig{SetupType: "test"}
+			expectedConfig := &cd.SetupConfig{SetupName: "test"}
 
 			readerMock := &mockObject{}
 			readerMock.On(reflection.GetFunctionName(readerMock.Read), path).Return(data, nil)
@@ -187,7 +188,7 @@ var _ = Describe("load", func() {
 
 			Expect(err).ToNot(HaveOccurred())
 			Expect(actual).ToNot(BeNil())
-			Expect(actual.SetupType).To(Equal(expectedConfig.SetupType))
+			Expect(actual.SetupName).To(Equal(expectedConfig.SetupName))
 		})
 	})
 })

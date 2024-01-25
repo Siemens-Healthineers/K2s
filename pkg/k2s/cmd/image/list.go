@@ -4,7 +4,6 @@
 package image
 
 import (
-	"errors"
 	"fmt"
 	"strconv"
 
@@ -12,9 +11,9 @@ import (
 	"k8s.io/klog/v2"
 
 	"k2s/cmd/common"
-	"k2s/config/defs"
 	"k2s/providers/marshalling"
 	"k2s/providers/terminal"
+	"k2s/setupinfo"
 	"k2s/utils"
 )
 
@@ -61,9 +60,10 @@ type pushedImages struct {
 }
 
 type StoredImages struct {
-	ContainerImages   []containerImages `json:"containerimages"`
-	ContainerRegistry string            `json:"containerregistry"`
-	PushedImages      []pushedImages    `json:"pushedimages"`
+	ContainerImages   []containerImages     `json:"containerimages"`
+	ContainerRegistry *string               `json:"containerregistry"`
+	PushedImages      []pushedImages        `json:"pushedimages"`
+	Error             *setupinfo.SetupError `json:"error"`
 }
 
 func init() {
@@ -81,33 +81,21 @@ func startSpinner(terminalPrinter terminal.TerminalPrinter) error {
 	return nil
 }
 
-func getStoredImages(listImagesCommand string) (*StoredImages, error) {
-	unmarshaller := marshalling.NewJsonUnmarshaller()
+func getStoredImages(includeK8sImages bool) (*StoredImages, error) {
+	cmd := utils.FormatScriptFilePath(utils.GetInstallationDirectory() + "\\lib\\scripts\\k2s\\image\\Get-Images.ps1")
 
-	messages, err := utils.ExecuteWithStructuredResultData(listImagesCommand)
-	if err != nil {
-		return nil, err
+	var params []string
+	if includeK8sImages {
+		params = []string{"-IncludeK8sImages"}
 	}
 
-	if len(messages) != 1 {
-		errorMessage := fmt.Sprintf("unexpected number of messages. Expected 1, but got %d", len(messages))
-		return nil, errors.New(errorMessage)
+	images, err := utils.ExecutePsWithStructuredResult[*StoredImages](cmd, "StoredImages", utils.ExecOptions{}, params...)
+	if err == setupinfo.ErrNotInstalled {
+		errMsg := setupinfo.NotInstalledErrMsg
+		return &StoredImages{Error: &errMsg}, nil
 	}
 
-	message := messages[0]
-
-	if message.Type() != "StoredImages" {
-		errorMessage := fmt.Sprintf("unexpected message type. Expected 'Addons', but got '%s'", message.Type())
-		return nil, errors.New(errorMessage)
-	}
-
-	var storedImages StoredImages
-	err = unmarshaller.Unmarshal(message.Data(), &storedImages)
-	if err != nil {
-		return nil, err
-	}
-
-	return &storedImages, nil
+	return images, err
 }
 
 func printAvailableImages(terminalPrinter terminal.TerminalPrinter, containerImages []containerImages) {
@@ -134,30 +122,32 @@ func printAvailableImagesInContainerRegistry(terminalPrinter terminal.TerminalPr
 	terminalPrinter.PrintTableWithHeaders(pushedImagesTable)
 }
 
-func printStatusAsJson(storedImages *StoredImages, tp terminal.TerminalPrinter) {
+func printImagesAsJson(storedImages *StoredImages, tp terminal.TerminalPrinter) {
 	jsonMarshaller := marshalling.NewJsonMarshaller()
 	bytes, err := jsonMarshaller.MarshalIndent(storedImages)
 	if err != nil {
-		klog.Errorf("Error happened during list images. Error: %s", err)
+		klog.Errorf("error happened during list images. Error: %s", err)
 	}
 
 	tp.Println(string(bytes))
 }
 
-func printStatusToUser(storedImages *StoredImages, tp terminal.TerminalPrinter) {
-	if len(storedImages.ContainerImages) > 0 {
-		printAvailableImages(tp, storedImages.ContainerImages)
+func printImagesToUser(images *StoredImages, printer terminal.TerminalPrinter) error {
+	if len(images.ContainerImages) > 0 {
+		printAvailableImages(printer, images.ContainerImages)
 	} else {
-		tp.Println("No container images were found stored in the cluster")
+		printer.PrintInfoln("No container images were found in the cluster")
 	}
 
-	if storedImages.ContainerRegistry != "" {
-		if len(storedImages.PushedImages) == 0 {
-			tp.Println("No pushed images in registry " + storedImages.ContainerRegistry)
+	if images.ContainerRegistry != nil && *images.ContainerRegistry != "" {
+		if len(images.PushedImages) == 0 {
+			printer.PrintInfoln("No pushed images in registry " + *images.ContainerRegistry)
 		} else {
-			printAvailableImagesInContainerRegistry(tp, storedImages.ContainerRegistry, storedImages.PushedImages)
+			printAvailableImagesInContainerRegistry(printer, *images.ContainerRegistry, images.PushedImages)
 		}
 	}
+
+	return nil
 }
 
 func listImages(cmd *cobra.Command, args []string) error {
@@ -167,17 +157,10 @@ func listImages(cmd *cobra.Command, args []string) error {
 	}
 
 	if outputOption != "" && outputOption != jsonOption {
-		return fmt.Errorf("Parameter '%s' not supported for flag 'o'", outputOption)
+		return fmt.Errorf("parameter '%s' not supported for flag 'o'", outputOption)
 	}
 
 	includeK8sImagesFlag, _ := strconv.ParseBool(cmd.Flags().Lookup(includeK8sImages).Value.String())
-	listImagesCommand := utils.FormatScriptFilePath(utils.GetInstallationDirectory() + "\\smallsetup\\helpers\\ListImages.ps1")
-	if includeK8sImagesFlag {
-		listImagesCommand += " -IncludeK8sImages"
-	}
-	listImagesCommand += " -EncodeStructuredOutput"
-
-	klog.V(3).Infof("List images command: %s", listImagesCommand)
 
 	terminalPrinter := terminal.NewTerminalPrinter()
 
@@ -187,21 +170,34 @@ func listImages(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	storedImages, err := getStoredImages(listImagesCommand)
-	switch err {
-	case nil:
-		break
-	case defs.ErrNotInstalled:
-		common.PrintNotInstalledMessage()
-		return nil
-	default:
+	images, err := getStoredImages(includeK8sImagesFlag)
+	if err != nil {
 		return err
 	}
 
+	if images.Error != nil {
+		switch *images.Error {
+		case setupinfo.NotInstalledErrMsg:
+			if outputOption == jsonOption {
+				break
+			}
+			common.PrintNotInstalledMessage()
+			return nil
+		case setupinfo.NotRunningErrMsg:
+			if outputOption == jsonOption {
+				break
+			}
+			common.PrintNotRunningMessage()
+			return nil
+		default:
+			return fmt.Errorf("unknown error while listing images: %s", *images.Error)
+		}
+	}
+
 	if outputOption == jsonOption {
-		printStatusAsJson(storedImages, terminalPrinter)
+		printImagesAsJson(images, terminalPrinter)
 	} else {
-		printStatusToUser(storedImages, terminalPrinter)
+		printImagesToUser(images, terminalPrinter)
 	}
 
 	return nil

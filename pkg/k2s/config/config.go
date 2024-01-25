@@ -4,9 +4,10 @@
 package config
 
 import (
+	d "k2s/config/defs"
+	"k2s/setupinfo"
 	"os"
 	"path/filepath"
-	d "k2s/config/defs"
 )
 
 type ConfigLoader interface {
@@ -59,9 +60,9 @@ func (c *ConfigAccess) SmallSetupDir() string {
 	return SmallSetupDir()
 }
 
-func (c *ConfigAccess) GetSetupType() (d.SetupType, error) {
+func (c *ConfigAccess) GetSetupName() (setupinfo.SetupName, error) {
 	if c.setupConfig != nil {
-		return d.SetupType(c.setupConfig.SetupType), nil
+		return setupinfo.SetupName(c.setupConfig.SetupName), nil
 	}
 
 	config, err := c.loadSetupConfig()
@@ -71,7 +72,7 @@ func (c *ConfigAccess) GetSetupType() (d.SetupType, error) {
 
 	c.setupConfig = config
 
-	return d.SetupType(config.SetupType), nil
+	return setupinfo.SetupName(config.SetupName), nil
 }
 
 func (c *ConfigAccess) IsLinuxOnly() (bool, error) {

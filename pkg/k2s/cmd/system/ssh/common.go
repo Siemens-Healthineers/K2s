@@ -91,7 +91,7 @@ func getRemoteCommandToExecute(argsLenAtDash int, args []string) (string, error)
 func ensureSetupIsInstalled() error {
 	ca := config.NewAccess()
 
-	_, err := ca.GetSetupType()
+	_, err := ca.GetSetupName()
 
 	return err
 }
