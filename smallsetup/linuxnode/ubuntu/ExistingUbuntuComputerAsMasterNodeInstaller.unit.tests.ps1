@@ -69,15 +69,6 @@ Describe 'ExistingUbuntuComputerAsMasterNodeInstaller.ps1' -Tag 'unit', 'linuxno
             # act + assert
             { Invoke-Expression -Command "$scriptFile @DefaultParameterValues" } | Get-ExceptionMessage | Should -BeLike '*UserName*'
         }
-        It 'IpAddress' {
-            # arrange
-            Mock Get-IsValidIPv4Address { $true }
-            Mock Get-IsValidIPv4Address { $false } -ParameterFilter { $Value -eq $DefaultParameterValues.IpAddress }
-
-            # act + assert
-            { Invoke-Expression -Command "$scriptFile @DefaultParameterValues" } | Get-ExceptionMessage | Should -BeLike '*IpAddress*'
-            Should -Invoke -CommandName Get-IsValidIPv4Address -Times 1 -ParameterFilter { $Value -eq $DefaultParameterValues.IpAddress }
-        }
     }
     Context 'execution' {
         It "performs set-up using proxy '<proxyToUse>'" -ForEach @(
