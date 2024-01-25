@@ -13,6 +13,7 @@ import (
 	"k2s/setupinfo"
 
 	"github.com/spf13/cobra"
+	"k8s.io/klog/v2"
 )
 
 type RunningStatePrinter interface {
@@ -47,10 +48,6 @@ type Spinner interface {
 	Fail(m ...any)
 }
 
-type StatusLoader interface {
-	LoadStatus() (*load.Status, error)
-}
-
 type JsonPrinter interface {
 	PrintJson(*load.Status) error
 }
@@ -66,13 +63,13 @@ type StatusPrinter struct {
 	addonsPrinter         AddonsPrinter
 	nodeStatusPrinter     NodeStatusPrinter
 	podStatusPrinter      PodStatusPrinter
-	statusLoader          StatusLoader
 	k8sVersionInfoPrinter K8sVersionInfoPrinter
+	loadStatusFunc        func() (*load.Status, error)
 }
 
 type StatusJsonPrinter struct {
-	statusLoader StatusLoader
-	jsonPrinter  JsonPrinter
+	loadStatusFunc func() (*load.Status, error)
+	jsonPrinter    JsonPrinter
 }
 
 const (
@@ -127,7 +124,7 @@ func printStatus(cmd *cobra.Command, args []string) error {
 func printStatusAsJson() error {
 	printer := NewStatusJsonPrinter()
 
-	status, err := printer.statusLoader.LoadStatus()
+	status, err := printer.loadStatusFunc()
 	if err != nil {
 		return err
 	}
@@ -138,7 +135,7 @@ func printStatusAsJson() error {
 func printStatusUserFriendly(showAdditionalInfo bool) error {
 	printer := NewStatusPrinter()
 
-	printer.terminalPrinter.PrintHeader("K2s CLUSTER STATUS")
+	printer.terminalPrinter.PrintHeader("K2s SYSTEM STATUS")
 
 	startResult, err := printer.terminalPrinter.StartSpinner("Gathering status information...")
 	if err != nil {
@@ -150,18 +147,19 @@ func printStatusUserFriendly(showAdditionalInfo bool) error {
 		return errors.New("could not start operation")
 	}
 
-	status, err := printer.statusLoader.LoadStatus()
+	status, err := printer.loadStatusFunc()
 	if err != nil {
 		spinner.Fail("Status could not be loaded")
+		return err
+	}
+	if err := spinner.Stop(); err != nil {
 		return err
 	}
 
 	proceed, err := printer.setupInfoPrinter.PrintSetupInfo(status.SetupInfo)
 	if err != nil {
-		spinner.Fail("Setup info could not be printed")
 		return err
 	}
-
 	if !proceed {
 		return nil
 	}
@@ -172,25 +170,20 @@ func printStatusUserFriendly(showAdditionalInfo bool) error {
 
 	proceed, err = printer.runningStatePrinter.PrintRunningState(status.RunningState)
 	if err != nil {
-		spinner.Fail("Running state could not be printed")
 		return err
 	}
-
 	if !proceed {
-		if err := spinner.Stop(); err != nil {
-			return err
-		}
+		return nil
+	}
+
+	if *status.SetupInfo.Name == setupinfo.SetupNameBuildOnlyEnv {
+		klog.V(4).Infof("setup '%s' has no K8s components, skipping them", setupinfo.SetupNameBuildOnlyEnv)
 		return nil
 	}
 
 	printer.terminalPrinter.Println()
 
 	if err := printer.k8sVersionInfoPrinter.PrintK8sVersionInfo(status.K8sVersionInfo); err != nil {
-		spinner.Fail("K8s version info could not be printed")
-		return err
-	}
-
-	if err := spinner.Stop(); err != nil {
 		return err
 	}
 

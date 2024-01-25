@@ -2,8 +2,6 @@
 #
 # SPDX-License-Identifier: MIT
 
-# ListImages.ps1
-
 <#
 .Description
 Pull container images in K2s
@@ -36,7 +34,7 @@ else {
         $success = $false
         while ($retries -gt 0) {
             $retries--
-            crictl pull $ImageName
+            &$global:BinPath\crictl pull $ImageName
 
             if ($?) {
                 $success = $true

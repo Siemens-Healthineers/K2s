@@ -7,22 +7,19 @@ package k2s
 import (
 	"encoding/json"
 	"errors"
+	"k2s/setupinfo"
 	"os"
 	"path/filepath"
 	"strings"
 )
 
 type SetupInfo struct {
-	SetupType                SetupType
 	WinNodeName              string
 	ControlPlaneNodeHostname string
 	SmbShareDir              string
 	Registries               []string
-}
-
-type SetupType struct {
-	Name      string
-	LinuxOnly bool
+	Name                     setupinfo.SetupName
+	LinuxOnly                bool
 }
 
 type config struct {
@@ -43,10 +40,10 @@ type shareDir struct {
 }
 
 type setupConfig struct {
-	SetupType                string   `json:"SetupType"`
-	ControlPlaneNodeHostname string   `json:"ControlPlaneNodeHostname"`
-	LinuxOnly                bool     `json:"LinuxOnly"`
-	Registries               []string `json:"Registries"`
+	SetupName                setupinfo.SetupName `json:"SetupType"`
+	ControlPlaneNodeHostname string              `json:"ControlPlaneNodeHostname"`
+	LinuxOnly                bool                `json:"LinuxOnly"`
+	Registries               []string            `json:"Registries"`
 }
 
 func GetSetupInfo(rootDir string) (*SetupInfo, error) {
@@ -79,32 +76,30 @@ func GetSetupInfo(rootDir string) (*SetupInfo, error) {
 		return nil, err
 	}
 
-	winNodeName, err := getWinNodeName(setupConfig.SetupType)
+	winNodeName, err := getWinNodeName(setupConfig.SetupName)
 	if err != nil {
 		return nil, err
 	}
 
 	return &SetupInfo{
-		SetupType: SetupType{
-			Name:      setupConfig.SetupType,
-			LinuxOnly: setupConfig.LinuxOnly,
-		},
 		WinNodeName:              winNodeName,
 		ControlPlaneNodeHostname: setupConfig.ControlPlaneNodeHostname,
 		SmbShareDir:              config.SmallSetup.ShareDir.WorkerNode,
 		Registries:               setupConfig.Registries,
+		Name:                     setupConfig.SetupName,
+		LinuxOnly:                setupConfig.LinuxOnly,
 	}, nil
 }
 
-func getWinNodeName(setupType string) (string, error) {
-	switch setupType {
-	case "k2s":
+func getWinNodeName(setupName setupinfo.SetupName) (string, error) {
+	switch setupName {
+	case setupinfo.SetupNamek2s:
 		name, err := os.Hostname()
 		if err != nil {
 			return "", err
 		}
 		return strings.ToLower(name), nil
-	case "MultiVMK8s":
+	case setupinfo.SetupNameMultiVMK8s:
 		return "winnode", nil
 	default:
 		return "", errors.New("no setup type defined")
