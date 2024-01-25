@@ -678,23 +678,4 @@ Function New-MasterNode {
     Set-UpMasterNode @masterNodeParams
 }
 
-
-Function Set-UpComputerWithSpecificOsBeforeProvisioning {
-    param (
-        [string] $UserName,
-        [string] $UserPwd,
-        [string] $IpAddress
-    )
-    # empty by intention
-}
-
-Function Set-UpComputerWithSpecificOsAfterProvisioning {
-    param (
-        [string]$UserName,
-        [string]$UserPwd,
-        [string]$IpAddress
-    )
-    # empty by intention
-}
-
 Export-ModuleMember -Function Install-Tools, Add-SupportForWSL, Set-UpMasterNode, New-KubernetesNode, New-MasterNode
