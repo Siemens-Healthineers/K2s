@@ -12,11 +12,11 @@ Import-Module $logModule, $configModule, $pathModule, $systemModule
 $kubeBinPath = Get-KubeBinPath
 # Putty tools
 $windowsNode_PuttytoolsDirectory = "puttytools"
+$windowsNode_Plink = "plink.exe"
+$windowsNode_Pscp = "pscp.exe"
 
 function Invoke-DownloadPuttyArtifacts($downloadsBaseDirectory, $Proxy) {
     $puttytoolsDownloadsDirectory = "$downloadsBaseDirectory\$windowsNode_PuttytoolsDirectory"
-    $windowsNode_Plink = "plink.exe"
-    $windowsNode_Pscp = "pscp.exe"
     Write-Log "Create folder '$puttytoolsDownloadsDirectory'"
     mkdir $puttytoolsDownloadsDirectory | Out-Null
 

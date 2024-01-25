@@ -170,6 +170,8 @@ function Install-WindowsVM() {
         -IpAddress $multiVMWinNodeIP
 
     Initialize-WinVMNode -KubernetesVersion $KubernetesVersion `
+        -VMName $multiVMWindowsVMName `
+        -IpAddress $multiVMWinNodeIP `
         -HostGW:$true `
         -HostVM:$true `
         -Proxy:"$Proxy" `
@@ -348,23 +350,6 @@ function Write-K8sNodesStatus {
     $ErrorActionPreference = 'Stop'
 }
 
-function Repair-WindowsAutoConfigOnVM($session) {
-    Invoke-Command -Session $session {
-        Set-Location "$env:SystemDrive\k"
-        Set-ExecutionPolicy Bypass -Force -ErrorAction SilentlyContinue
-
-        # load global settings
-        &$env:SystemDrive\k\smallsetup\common\GlobalVariables.ps1
-
-        # import global functions
-        . $env:SystemDrive\k\smallsetup\common\GlobalFunctions.ps1
-        Import-Module $env:SystemDrive\k\smallsetup\ps-modules\log\log.module.psm1
-        Initialize-Logging -Nested:$true
-
-        & "$global:KubernetesPath\smallsetup\FixAutoconfiguration.ps1"
-    }
-}
-
 function Enable-SSHRemotingViaSSHKeyToWinNode ($session) {
     Invoke-Command -Session $session {
         Set-Location "$env:SystemDrive\k"
@@ -491,13 +476,6 @@ if ($WSL) {
 }
 
 Test-ProxyConfiguration
-
-# if ($WSL) {
-#     Write-Log "Setting up $global:VMName Distro" -Console
-# }
-# else {
-#     Write-Log "Setting up $global:VMName VM" -Console
-# }
 
 $ErrorActionPreference = 'Continue'
 

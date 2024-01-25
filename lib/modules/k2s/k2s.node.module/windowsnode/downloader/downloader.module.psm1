@@ -385,3 +385,23 @@ function Invoke-DownloadsCleanup {
         }
     }
 }
+
+function Install-DefaultTools {
+    Param(
+        [parameter(Mandatory = $false, HelpMessage = 'HTTP proxy if available')]
+        [string] $Proxy = ''
+    )
+
+    if (Test-Path($windowsNodeArtifactsDownloadsDirectory)) {
+        Write-Log "Windows Node artifacts downloads directory already exists"
+    }
+    else {
+        Write-Log "Create folder '$windowsNodeArtifactsDownloadsDirectory'"
+        mkdir $windowsNodeArtifactsDownloadsDirectory | Out-Null
+    }
+
+    Invoke-DownloadPuttyArtifacts $windowsNodeArtifactsDownloadsDirectory $Proxy
+    Invoke-DeployPuttytoolsArtifacts $windowsNodeArtifactsDownloadsDirectory
+}
+
+Export-ModuleMember Invoke-DeployWinArtifacts, Invoke-DownloadsCleanup, Install-WinNodeArtifacts, Install-DefaultTools

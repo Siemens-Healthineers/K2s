@@ -6,7 +6,7 @@ $logModule = "$PSScriptRoot\..\..\k2s.infra.module\log\log.module.psm1"
 $vmnodeModule = "$PSScriptRoot\..\..\k2s.node.module\vmnode\vmnode.module.psm1"
 Import-Module $pathModule, $logModule, $vmnodeModule
 
-$rootConfig = Get-RootConfig
+$rootConfig = Get-RootConfigk2s
 
 $multivmRootConfig = $rootConfig.psobject.properties['multivm'].value
 # Password for Linux/Windows VMs during installation
@@ -381,8 +381,8 @@ function Initialize-WinVM {
         Set-Location $env:SystemDrive\k
         Set-ExecutionPolicy Bypass -Force -ErrorAction SilentlyContinue
 
-        Import-Module $env:SystemDrive\k\lib\modules\k2s.infra.module\k2s.infra.module.psm1
-        Import-Module $env:SystemDrive\k\lib\modules\k2s.node.module\k2s.node.module.psm1
+        Import-Module $env:SystemDrive\k\lib\modules\k2s\k2s.infra.module\k2s.infra.module.psm1
+        Import-Module $env:SystemDrive\k\lib\modules\k2s\k2s.node.module\k2s.node.module.psm1
         Initialize-Logging -Nested:$true
 
         Write-Output 'Proxy settings, network discovery off'
@@ -458,6 +458,10 @@ function Initialize-WinVM {
 
 function Initialize-WinVMNode {
     Param(
+        [parameter(Mandatory = $true, HelpMessage = 'Windows VM Name to use')]
+        [string] $VMName,
+        [parameter(Mandatory = $false, HelpMessage = 'IP address of the VM')]
+        [string] $IpAddress,
         [parameter(Mandatory = $true, HelpMessage = 'Kubernetes version to use')]
         [string] $KubernetesVersion,
         [parameter(Mandatory = $false, HelpMessage = 'Host machine is a VM: true, Host machine is not a VM')]
@@ -472,23 +476,23 @@ function Initialize-WinVMNode {
         [boolean] $ForceOnlineInstallation = $false
     )
 
-    $session = Open-RemoteSession -VmName $Name -VmPwd $vmPwd
+    $session = Open-RemoteSession -VmName $VMName -VmPwd $vmPwd
 
-    Initialize-SSHConnectionToWinVM $session
+    Initialize-SSHConnectionToWinVM $session $IpAddress
 
     Initialize-PhysicalNetworkAdapterOnVM $session
 
     Repair-WindowsAutoConfigOnVM $session
 
-    Restart-VM $Name
-    $session = Open-RemoteSession -VmName $Name -VmPwd $vmPwd
+    Restart-VM $VMName
+    $session = Open-RemoteSession -VmName $VMName -VmPwd $vmPwd
 
     Invoke-Command -Session $session {
         Set-Location "$env:SystemDrive\k"
         Set-ExecutionPolicy Bypass -Force -ErrorAction Stop
 
-        Import-Module $env:SystemDrive\k\lib\modules\k2s.infra.module\k2s.infra.module.psm1
-        Import-Module $env:SystemDrive\k\lib\modules\k2s.node.module\k2s.node.module.psm1
+        Import-Module $env:SystemDrive\k\lib\modules\k2s\k2s.infra.module\k2s.infra.module.psm1
+        Import-Module $env:SystemDrive\k\lib\modules\k2s\k2s.node.module\k2s.node.module.psm1
         Initialize-Logging -Nested:$true
 
         Initialize-WinNode -KubernetesVersion $using:KubernetesVersion `
@@ -505,7 +509,7 @@ function Initialize-WinVMNode {
     Write-Log 'Windows node initialized.'
 }
 
-function Initialize-SSHConnectionToWinVM($session) {
+function Initialize-SSHConnectionToWinVM($session, $IpAddress) {
     # remove previous VM key from known hosts
     $sshConfigDir = Get-SshConfigDir
     $file = $sshConfigDir + '\known_hosts'
@@ -590,12 +594,26 @@ function Initialize-PhysicalNetworkAdapterOnVM ($session) {
         Set-Location "$env:SystemDrive\k"
         Set-ExecutionPolicy Bypass -Force -ErrorAction Stop
 
-        Import-Module $env:SystemDrive\k\lib\modules\k2s.infra.module\k2s.infra.module.psm1
-        Import-Module $env:SystemDrive\k\lib\modules\k2s.node.module\k2s.node.module.psm1
+        Import-Module $env:SystemDrive\k\lib\modules\k2s\k2s.infra.module\k2s.infra.module.psm1
+        Import-Module $env:SystemDrive\k\lib\modules\k2s\k2s.node.module\k2s.node.module.psm1
         Initialize-Logging -Nested:$true
 
         # Install loopback adapter for l2bridge
         New-DefaultLoopbackAdater
+    }
+}
+
+function Repair-WindowsAutoConfigOnVM($session) {
+    Invoke-Command -Session $session {
+        Set-Location "$env:SystemDrive\k"
+        Set-ExecutionPolicy Bypass -Force -ErrorAction SilentlyContinue
+
+        Import-Module $env:SystemDrive\k\lib\modules\k2s\k2s.infra.module\k2s.infra.module.psm1
+        Import-Module $env:SystemDrive\k\lib\modules\k2s\k2s.node.module\k2s.node.module.psm1
+        Initialize-Logging -Nested:$true
+
+        # TODO Convert as function? or move to helpers
+        & "$env:SystemDrive\k\smallsetup\FixAutoconfiguration.ps1"
     }
 }
 
