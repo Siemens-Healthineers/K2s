@@ -56,7 +56,6 @@ $global:BinPath = "$global:KubernetesPath\bin"
 $global:ExecutableFolderPath = "$global:KubernetesPath\bin\exe"
 $global:DockerDir = "$global:KubernetesPath\bin\docker"
 $global:DockerExe = "$global:DockerDir\docker.exe"
-$global:HelmExe = "$global:BinPath\helm.exe"
 $global:KubernetesVersion = 'v1.25.13'
 $global:CrioVersion = '1.25.2'
 $global:FlannelVersion = 'v0.17.0'
