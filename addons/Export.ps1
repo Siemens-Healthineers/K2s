@@ -149,7 +149,7 @@ try {
             }
             else {
                 &$global:NerdctlExe -n 'k8s.io' pull $image --platform windows/amd64 2>&1 | Out-Null
-                crictl pull $image
+                &$global:BinPath\crictl pull $image
             }
         }
 

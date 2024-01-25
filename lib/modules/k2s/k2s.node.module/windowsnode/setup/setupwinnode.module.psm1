@@ -16,8 +16,8 @@ $kubeBinPath = Get-KubeBinPath
 
 function Initialize-Networking {
     Param(
-        [parameter(Mandatory = $true, HelpMessage = 'Min setup as host only: true, false for normal node in medium/high kubernetes cluster')]
-        [bool] $MinSetup,
+        [parameter(Mandatory = $true, HelpMessage = 'Host machine is a VM: true, Host machine is not a VM')]
+        [bool] $HostVM,
         [parameter(Mandatory = $true, HelpMessage = 'Host-GW or VXLAN, Host-GW: true, false for vxlan')]
         [bool] $HostGW
     )
@@ -40,15 +40,8 @@ function Initialize-Networking {
         Remove-NetFirewallRule -DisplayName 'kubelet'
     }
 
-    if ($MinSetup) {
+    if (!($HostVM)) {
         $kubeVMFirewallRuleName = 'KubeMaster VM'
-        $legacyVMFirewallRuleName = 'Edgemaster VM' # still referenced in few setups, to be removed in subsequent releases.
-
-        $r = Get-NetFirewallRule -DisplayName $legacyVMFirewallRuleName -ErrorAction SilentlyContinue
-        if ( $r ) {
-            Remove-NetFirewallRule -DisplayName $legacyVMFirewallRuleName -ErrorAction SilentlyContinue
-        }
-
         $r = Get-NetFirewallRule -DisplayName $kubeVMFirewallRuleName -ErrorAction SilentlyContinue
         if ( $r ) {
             Remove-NetFirewallRule -DisplayName $kubeVMFirewallRuleName -ErrorAction SilentlyContinue
@@ -92,7 +85,7 @@ function Initialize-Networking {
         }
     }
 
-    if ($MinSetup) {
+    if (!($HostVM)) {
         # save the current IP address to make a later check possible
         Set-ConfigHostGW -Value $HostGW
     }
@@ -110,8 +103,8 @@ function Initialize-WinNode {
     Param(
         [parameter(Mandatory = $true, HelpMessage = 'Kubernetes version to use')]
         [string] $KubernetesVersion,
-        [parameter(Mandatory = $true, HelpMessage = 'Min setup as host only: true, false for normal node in medium/high kubernetes cluster')]
-        [bool] $MinSetup,
+        [parameter(Mandatory = $false, HelpMessage = 'Host machine is a VM: true, Host machine is not a VM')]
+        [bool] $HostVM = $false,
         [parameter(Mandatory = $false, HelpMessage = 'HTTP proxy if available')]
         [string] $Proxy = '',
         [parameter(Mandatory = $true, HelpMessage = 'Host-GW or VXLAN, Host-GW: true, false for vxlan')]
@@ -132,7 +125,7 @@ function Initialize-WinNode {
     mkdir -force "$kubePath" | Out-Null
     #Set-EnvVars
 
-    if (!($MinSetup)) {
+    if ($HostVM) {
         [Environment]::SetEnvironmentVariable('KUBECONFIG', "$kubePath\config", [System.EnvironmentVariableTarget]::Machine)
     }
 
@@ -149,9 +142,9 @@ function Initialize-WinNode {
         New-Item -ItemType 'directory' -Path "$kubeBinPath\exe" | Out-Null
     }
 
-    Initialize-Networking -MinSetup:$MinSetup -HostGW:$HostGW
+    Initialize-Networking -HostVM:$HostVM -HostGW:$HostGW
 
-    Install-WinNodeArtifacts -Proxy "$Proxy"
+    Install-WinNodeArtifacts -Proxy "$Proxy" -HostVM:$HostVM
 
     Reset-WinServices
 }

@@ -34,7 +34,7 @@ else {
         $success = $false
         while ($retries -gt 0) {
             $retries--
-            crictl pull $ImageName
+            &$global:BinPath\crictl pull $ImageName
 
             if ($?) {
                 $success = $true

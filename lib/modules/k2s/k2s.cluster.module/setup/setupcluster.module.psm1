@@ -123,7 +123,7 @@ function Join-WindowsNode {
         Write-Log 'Build join command ..'
 
         $tokenCreationCommand = 'sudo kubeadm token create --print-join-command'
-        $cmdjoin = Invoke-CmdOnControlPlaneViaSSHKey "$tokenCreationCommand" -NoLog 2>&1 | Select-String -Pattern 'kubeadm join' -CaseSensitive -SimpleMatch
+        $cmdjoin = Invoke-CmdOnControlPlaneViaSSHKey "$tokenCreationCommand" -Nested:$Nested -NoLog 2>&1 | Select-String -Pattern 'kubeadm join' -CaseSensitive -SimpleMatch
         $cmdjoin.Line = $cmdjoin.Line.replace("`n", '').replace("`r", '')
 
         $searchPattern = 'kubeadm join (?<api>[^\s]*) --token (?<token>[^\s]*) --discovery-token-ca-cert-hash (?<hash>[^\s]*)'

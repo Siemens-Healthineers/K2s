@@ -35,16 +35,26 @@ function Invoke-CmdOnControlPlaneViaSSHKey(
     [Parameter(Mandatory = $false)]
     [uint16]$Timeout = 1,
     [Parameter(Mandatory = $false)]
-    [switch]$NoLog = $false){
+    [switch]$NoLog = $false,
+    [Parameter(Mandatory = $false ,HelpMessage = 'When executing ssh.exe in nested environment[host=>VM=>VM], -n flag should not be used.')]
+    [switch]$Nested = $false)
+{
 
     if (!$NoLog) {
-        Write-Log "cmd: $CmdToExecute, retries: $Retries, timeout: $Timeout sec, ignore err: $IgnoreErrors, nested: $nested"
+        Write-Log "cmd: $CmdToExecute, retries: $Retries, timeout: $Timeout sec, ignore err: $IgnoreErrors, nested: $Nested"
     }
     $Stoploop = $false
     [uint16]$Retrycount = 1
     do {
         try {
-            ssh.exe -n -o StrictHostKeyChecking=no -i $key $remoteUser $CmdToExecute 2>&1 | ForEach-Object { Write-Log $_ -Console -Raw }
+
+            if ($Nested) {
+                ssh.exe -o StrictHostKeyChecking=no -i $key $remoteUser $CmdToExecute 2>&1 | ForEach-Object { Write-Log $_ -Console -Raw }
+            }
+            else {
+                ssh.exe -n -o StrictHostKeyChecking=no -i $key $remoteUser $CmdToExecute 2>&1 | ForEach-Object { Write-Log $_ -Console -Raw }
+            }
+
             if ($LASTEXITCODE -ne 0 -and !$IgnoreErrors) { throw "Error occurred while executing command '$CmdToExecute' in control plane (exit code: '$LASTEXITCODE')" }
             $Stoploop = $true
         }
@@ -80,7 +90,7 @@ function Invoke-CmdOnControlPlaneViaUserAndPwd(
     [switch]$NoLog = $false){
 
     if (!$NoLog) {
-        Write-Log "cmd: $CmdToExecute, retries: $Retries, timeout: $Timeout sec, ignore err: $IgnoreErrors, nested: $nested"
+        Write-Log "cmd: $CmdToExecute, retries: $Retries, timeout: $Timeout sec, ignore err: $IgnoreErrors"
     }
     $Stoploop = $false
     [uint16]$Retrycount = 1
@@ -349,7 +359,12 @@ function Wait-ForSSHConnectionToLinuxVMViaPwd(
 .EXAMPLE
     Wait-ForSSHConnectionToLinuxVMViaSshKey
 #>
-function Wait-ForSSHConnectionToLinuxVMViaSshKey($Nested = $false) {
+function Wait-ForSSHConnectionToLinuxVMViaSshKey {
+    Param(
+        [parameter(Mandatory = $false, HelpMessage = 'When executing ssh.exe in nested environment[host=>VM=>VM], -n flag should not be used.')]
+        [switch] $Nested = $false
+    )
+
     Wait-ForSshPossible -User $remoteUser -SshKey $key -SshTestCommand 'which curl' -ExpectedSshTestCommandResult '/bin/curl' -Nested:$Nested
 }
 
@@ -370,6 +385,11 @@ function Get-DefaultUserPwdControlPlane {
     Copy-KubeConfigFromMasterNode
 #>
 function Copy-KubeConfigFromControlPlaneNode {
+    Param(
+        [parameter(Mandatory = $false, HelpMessage = 'When executing ssh.exe in nested environment[host=>VM=>VM], -n flag should not be used.')]
+        [switch] $Nested = $false
+    )
+
     # getting kube config from VM to windows host
     Write-Log "Retrieving kube config from master VM, writing to '$kubePath\config'"
     Remove-Item -Path "$kubePath\config" -Force -ErrorAction SilentlyContinue
@@ -381,9 +401,9 @@ function Copy-KubeConfigFromControlPlaneNode {
         Start-Sleep -s 3
 
         Write-Log 'Trying to get kube config from /etc/kubernetes/admin.conf'
-        Invoke-CmdOnControlPlaneViaSSHKey 'sudo cp /etc/kubernetes/admin.conf /home'
+        Invoke-CmdOnControlPlaneViaSSHKey 'sudo cp /etc/kubernetes/admin.conf /home' -Nested:$Nested
         Write-Log 'Trying to chmod file from /home/admin.conf'
-        Invoke-CmdOnControlPlaneViaSSHKey 'sudo chmod 775 /home/admin.conf'
+        Invoke-CmdOnControlPlaneViaSSHKey 'sudo chmod 775 /home/admin.conf' -Nested:$Nested
         Write-Log 'Trying to scp file from /home/admin.conf'
         $source = '/home/admin.conf'
         Copy-FromControlPlaneViaSSHKey -Source $source -Target "$kubePath\config"

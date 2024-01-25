@@ -256,6 +256,7 @@ function Invoke-DownloadFile($destination, $source, $forceDownload,
 }
 
 Export-ModuleMember -Function Add-K2sToDefenderExclusion,
+Enable-MissingWindowsFeatures,
 Stop-InstallIfDockerDesktopIsRunning,
 Test-WindowsPrerequisites,
 Test-ProxyConfiguration,

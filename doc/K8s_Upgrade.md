@@ -4,6 +4,8 @@ SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
 SPDX-License-Identifier: MIT
 -->
 
+[Home](../README.md)
+
 # Upgrade your cluster from previous released version
 
 The K2s CLI **upgrade** command offers the possibility to upgrade your cluster from the previous released version.

@@ -27,6 +27,7 @@ You can download the latest version from the following location:
 ![Unblock Zip Package](/doc/assets/UnblockZipPackage.png)
 
 ## 2. Extract
+- **K2s** works from any drive, but it is recommended to use **C:** drive
 - **Create** the folder **c:\myFolder**, e.g. via `mkdir c:\myFolder`
 - **Extract** the contents of the downloaded package **to** that directory **c:\myFolder**
 

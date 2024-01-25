@@ -4,6 +4,8 @@ SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
 SPDX-License-Identifier: MIT
 -->
 
+[Home](../README.md)
+
 # Build Only Setup (no Kubernetes cluster, build containers through k2s CLI) 
 
 The Build Only Setup is designed for scenarios where a Kubernetes (K8s) cluster is unnecessary, 
