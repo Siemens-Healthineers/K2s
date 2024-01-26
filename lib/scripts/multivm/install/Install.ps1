@@ -281,6 +281,7 @@ Install-WindowsVM # needs kubeswitch being already setup with Install-Kubemaster
 Initialize-VMKubernetesCluster -VMName $multiVMWindowsVMName `
     -IpAddress $multiVMWinNodeIP `
     -Proxy:"$Proxy" `
+    -KubernetesVersion $KubernetesVersion `
     -AdditionalHooksDir $AdditionalHooksDir
 
 & "$global:KubernetesPath\smallsetup\multivm\Stop_MultiVMK8sSetup.ps1" -ShowLogs:$ShowLogs
