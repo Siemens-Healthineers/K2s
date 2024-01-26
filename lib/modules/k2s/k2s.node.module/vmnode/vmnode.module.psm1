@@ -50,6 +50,42 @@ function Stop-VirtualMachine {
 }
 
 <#
+.Description
+Restart-VM restarts the VM and wait till it's available.
+#>
+function Restart-VirtualMachine($VMName, $VmPwd) {
+    # restart VM
+    Write-Log "Restart VM $VMName"
+    $i = 0;
+    while ($true) {
+        $i++
+        Write-Log "VM Handling loop (iteration #$i):"
+        Start-Sleep -s 1
+
+        if ( $i -eq 1 ) {
+            Write-Log "           stopping VM ($i)"
+            Stop-VM -Name $VMName -Force -WarningAction SilentlyContinue
+
+            $state = (Get-VM -Name $VMName).State -eq [Microsoft.HyperV.PowerShell.VMState]::Off
+            while (!$state) {
+                Write-Log '           still waiting for stop...'
+                Start-Sleep -s 1
+            }
+
+            Write-Log "           re-starting VM ($i)"
+            Start-VM -Name $VMName
+            Start-Sleep -s 4
+        }
+
+        $con = New-VMSession -VMName $VMName -AdminPwd $VmPwd
+        if ($con) {
+            Write-Log "           connect succeeded to $VMName VM"
+            break;
+        }
+    }
+}
+
+<#
 .SYNOPSIS
     Removes a given VM completely
 .DESCRIPTION
@@ -1239,6 +1275,88 @@ function Open-RemoteSession {
     return $session
 }
 
+function Open-RemoteSessionViaSSHKey {
+    param (
+        [Parameter()]
+        [ValidateNotNullOrEmpty()]
+        [string] $Hostname = $(throw 'Please provide the hostname.'),
+        [Parameter()]
+        [ValidateNotNullOrEmpty()]
+        [string] $KeyFilePath = $(throw 'Please provide the path of ssh key.'),
+        [Parameter(Mandatory = $false)]
+        [int]$TimeoutInSeconds = 1800,
+        [Parameter(Mandatory = $false)]
+        [switch]$DoNotThrowOnTimeout = $false,
+        [Parameter(Mandatory = $false)]
+        [switch]$NoLog = $false
+    )
+
+    if ($PSVersionTable.PSVersion.Major -le 5) {
+        throw 'Remote session via ssh key pair is only available in Powershell version > 5.1'
+    }
+
+    if ($NoLog -ne $true) {
+        Write-Log "Connecting to '$Hostname' ..."
+    }
+
+    $session = New-VMSessionViaSSHKey -Hostname $Hostname -KeyFilePath $KeyFilePath -TimeoutInSeconds $TimeoutInSeconds -NoLog:$NoLog
+
+    if (! $session ) {
+        $errorMessage = "No session to '$Hostname' possible."
+
+        if ($DoNotThrowOnTimeout -eq $true -and $NoLog -ne $true) {
+            Write-Error $errorMessage
+        }
+        else { throw $errorMessage }
+    }
+
+    if ($NoLog -ne $true) {
+        Write-Log "Connected to '$Hostname'."
+    }
+
+    return $session
+}
+
+function New-VMSessionViaSSHKey {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Hostname,
+        [Parameter(Mandatory = $true)]
+        [string]$KeyFilePath,
+        [Parameter(Mandatory = $false)]
+        [int]$TimeoutInSeconds = 1800,
+        [Parameter(Mandatory = $false)]
+        [switch]$NoLog = $false
+    )
+
+    $secondsIncrement = 5
+    $elapsedSeconds = 0
+
+    if ($NoLog -ne $true) {
+        Write-Log "Waiting for connection with Hostname: '$Hostname' (timeout: $($TimeoutInSeconds)s) ..."
+    }
+
+    do {
+        $result = New-PSSession -Hostname $Hostname -KeyFilePath $KeyFilePath -ErrorAction SilentlyContinue
+
+        if (-not $result) {
+            Start-Sleep -Seconds $secondsIncrement
+            $elapsedSeconds += $secondsIncrement
+
+            if ($NoLog -ne $true) {
+                Write-Log "$($elapsedSeconds)s..<<<"
+            }
+        }
+    } while (-not $result -and $elapsedSeconds -lt $TimeoutInSeconds)
+
+    if ($elapsedSeconds -gt 0 -and $NoLog -ne $true) {
+        Write-Log '.'
+    }
+
+    return $result
+}
+
 function Set-VmIPAddress {
     [CmdletBinding()]
     param(
@@ -1282,4 +1400,14 @@ function Set-VmIPAddress {
 
 }
 
-Export-ModuleMember Stop-VirtualMachine, Remove-VirtualMachine, Remove-VMSnapshots, Wait-ForDesiredVMState, New-VMFromWinImage, Open-RemoteSession, New-VMSession, Set-VmIPAddress
+Export-ModuleMember Stop-VirtualMachine,
+Restart-VirtualMachine,
+Remove-VirtualMachine,
+Remove-VMSnapshots,
+Wait-ForDesiredVMState,
+New-VMFromWinImage,
+Open-RemoteSession,
+New-VMSession,
+Set-VmIPAddress,
+Open-RemoteSessionViaSSHKey,
+New-VMSessionViaSSHKey

@@ -247,7 +247,7 @@ function Set-ConfigValue {
 .DESCRIPTION
     Returns the installed K8s version if present.
 .EXAMPLE
-    $version = Get-InstalledKubernetesVersion
+    $version = Get-ConfigInstalledKubernetesVersion
 .OUTPUTS
     The installed K8s version if present; otherwise 'unknown'
 .NOTES

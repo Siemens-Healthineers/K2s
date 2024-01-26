@@ -4,7 +4,8 @@
 $pathModule = "$PSScriptRoot\..\..\k2s.infra.module\path\path.module.psm1"
 $logModule = "$PSScriptRoot\..\..\k2s.infra.module\log\log.module.psm1"
 $vmnodeModule = "$PSScriptRoot\..\..\k2s.node.module\vmnode\vmnode.module.psm1"
-Import-Module $pathModule, $logModule, $vmnodeModule
+$setupClusterModule = "$PSScriptRoot\..\..\k2s.cluster.module\setup\setupcluster.module.psm1"
+Import-Module $pathModule, $logModule, $vmnodeModule, $setupClusterModule
 
 $rootConfig = Get-RootConfigk2s
 
@@ -484,7 +485,7 @@ function Initialize-WinVMNode {
 
     Repair-WindowsAutoConfigOnVM $session
 
-    Restart-VM $VMName
+    Restart-VirtualMachine $VMName $vmPwd
     $session = Open-RemoteSession -VmName $VMName -VmPwd $vmPwd
 
     Invoke-Command -Session $session {
@@ -509,6 +510,48 @@ function Initialize-WinVMNode {
     Write-Log 'Windows node initialized.'
 }
 
+
+function Initialize-VMKubernetesCluster {
+    Param(
+        [parameter(Mandatory = $true, HelpMessage = 'Windows VM Name to use')]
+        [string] $VMName,
+        [parameter(Mandatory = $false, HelpMessage = 'IP address of the VM')]
+        [string] $IpAddress,
+        [parameter(Mandatory = $false, HelpMessage = 'HTTP proxy if available')]
+        [string] $Proxy,
+        [parameter(Mandatory = $false, HelpMessage = 'Directory containing additional hooks to be executed after local hooks are executed')]
+        [string] $AdditionalHooksDir = ''
+    )
+
+    $session = Open-RemoteSession -VmName $VMName -VmPwd $vmPwd
+
+    Save-ControlPlaneNodeHostnameIntoWinVM $session
+
+    Copy-KubeConfigFromControlPlaneNode
+
+    Install-KubectlOnHost
+
+    Add-K8sContext
+
+    Invoke-Hook -HookName 'AfterVmInitialized' -AdditionalHooksDir $AdditionalHooksDir
+
+    Write-Log 'Joining Nodes' -Console
+
+    Join-WindowsNode $session
+
+    Set-DiskPressureLimitsOnWindowsNode $session # TODO: check if this is necessary
+
+    Add-IPsToHostsFiles $session $VMName $IpAddress
+
+    Write-K8sNodesStatus
+
+    Write-Log "Collecting kubernetes images and storing them to $global:KubernetesImagesJson."
+    Write-KubernetesImagesIntoJson
+
+    Enable-SSHRemotingViaSSHKeyToWinNode $session $Proxy
+    Disable-PasswordAuthenticationToWinNode
+}
+
 function Initialize-SSHConnectionToWinVM($session, $IpAddress) {
     # remove previous VM key from known hosts
     $sshConfigDir = Get-SshConfigDir
@@ -520,7 +563,7 @@ function Initialize-SSHConnectionToWinVM($session, $IpAddress) {
         $ErrorActionPreference = 'Stop'
     }
 
-    $windowsVMKey = $sshConfigDir + "\windowsvm\$(Get-SSHKeyFileName)"
+    $windowsVMKey = Get-DefaultWinVMKey
     # Create SSH connection with VM
     $sshDir = Split-Path -parent $windowsVMKey
 
@@ -617,4 +660,193 @@ function Repair-WindowsAutoConfigOnVM($session) {
     }
 }
 
-Export-ModuleMember Get-RootConfigMultivm, Initialize-WinVMNode, Initialize-WinVM
+function Install-KubectlOnHost() {
+    $previousKubernetesVersion = Get-ConfigInstalledKubernetesVersion
+
+    if (!(Test-Path "$global:ExecutableFolderPath")) {
+        New-Item -Path $global:ExecutableFolderPath -ItemType Directory | Out-Null
+    }
+
+    # TODO: clone from SetupNode.ps1
+    if (!(Test-Path "$global:ExecutableFolderPath\kubectl.exe") -or ($previousKubernetesVersion -ne $global:KubernetesVersion)) {
+        DownloadFile "$global:ExecutableFolderPath\kubectl.exe" https://dl.k8s.io/release/$global:KubernetesVersion/bin/windows/amd64/kubectl.exe $true
+        # put a second copy in the bin folder, which is in the PATH
+        Copy-Item -Force "$global:ExecutableFolderPath\kubectl.exe" "$global:KubernetesPath\bin\kubectl.exe"
+    }
+}
+
+function Save-ControlPlaneNodeHostnameIntoWinVM($session) {
+    $hostname = Get-ConfigControlPlaneNodeHostname
+    Write-Log "Saving VM hostname '$hostname' into Windows node ..."
+    Invoke-Command -Session $session {
+        Set-Location "$env:SystemDrive\k"
+        Set-ExecutionPolicy Bypass -Force -ErrorAction Stop
+
+        Import-Module $env:SystemDrive\k\lib\modules\k2s\k2s.infra.module\k2s.infra.module.psm1
+        Initialize-Logging -Nested:$true
+
+        Set-ConfigControlPlaneNodeHostname $($using:hostname)
+    }
+    Write-Log '  done.'
+}
+
+function Join-WindowsNode($session) {
+    Write-Log 'Joining Windows node ...'
+
+    $ErrorActionPreference = 'Continue'
+
+    Invoke-Command -Session $session {
+        Set-Location "$env:SystemDrive\k"
+        Set-ExecutionPolicy Bypass -Force -ErrorAction Stop
+
+        # disable IPv6 completely
+        Get-NetAdapterBinding -ComponentID ms_tcpip6 | ForEach-Object {
+            Disable-NetAdapterBinding -Name $_.Name -ComponentID ms_tcpip6
+        }
+
+        Import-Module $env:SystemDrive\k\lib\modules\k2s\k2s.infra.module\k2s.infra.module.psm1
+        Import-Module $env:SystemDrive\k\lib\modules\k2s\k2s.node.module\k2s.node.module.psm1
+        Import-Module $env:SystemDrive\k\lib\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1
+        Initialize-Logging -Nested:$true
+
+        Join-WindowsNode -Nested:$true
+    }
+
+    $ErrorActionPreference = 'Stop'
+
+    Write-Log 'Windows node joined.'
+}
+
+function Set-DiskPressureLimitsOnWindowsNode($session) {
+    Write-Log 'Setting disk pressure limits on Windows node ...'
+
+    Invoke-Command -Session $session {
+        Set-Location "$env:SystemDrive\k"
+        Set-ExecutionPolicy Bypass -Force -ErrorAction Stop
+
+        Import-Module $env:SystemDrive\k\lib\modules\k2s\k2s.infra.module\k2s.infra.module.psm1
+        Import-Module $env:SystemDrive\k\lib\modules\k2s\k2s.node.module\k2s.node.module.psm1
+        Import-Module $env:SystemDrive\k\lib\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1
+        Initialize-Logging -Nested:$true
+
+        Set-KubeletDiskPressure
+    }
+
+    Write-Log 'Disk pressure limits on Windows node set.'
+}
+
+function Add-IPsToHostsFiles($session, $VMName, $IpAddress) {
+    Write-Log 'Adding IPs to hosts files ...'
+
+    Add-ClusterDnsNameToHost -Hostname 'k2s.cluster.net'
+    Add-ClusterDnsNameToHost -DesiredIP $IpAddress -Hostname $VMName
+
+    Invoke-Command -Session $session {
+        Set-Location "$env:SystemDrive\k"
+        Set-ExecutionPolicy Bypass -Force -ErrorAction Stop
+
+        Import-Module $env:SystemDrive\k\lib\modules\k2s\k2s.infra.module\k2s.infra.module.psm1
+        Import-Module $env:SystemDrive\k\lib\modules\k2s\k2s.node.module\k2s.node.module.psm1
+        Import-Module $env:SystemDrive\k\lib\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1
+        Initialize-Logging -Nested:$true
+
+        Add-ClusterDnsNameToHost -Hostname 'k2s.cluster.net'
+    }
+
+    Write-Log 'IPs added to hosts files.'
+}
+
+function Write-K8sNodesStatus {
+    $retryIteration = 0
+    $ErrorActionPreference = 'Continue'
+    while ($true) {
+        #Check whether node information is available from the cluster
+        kubectl get nodes 2>$null | Out-Null
+        if ($?) {
+            Write-Log 'Current state of kubernetes nodes:'
+            kubectl get nodes -o wide
+            break
+        }
+        else {
+            Write-Log "Iteration: $retryIteration Node status not available yet, retrying in a moment..."
+            Start-Sleep -Seconds 5
+        }
+
+        if ($retryIteration -eq 10) {
+            throw "Unable to get cluster node status information"
+        }
+        $retryIteration++
+    }
+    $ErrorActionPreference = 'Stop'
+}
+
+function Enable-SSHRemotingViaSSHKeyToWinNode ($session, $Proxy) {
+    Invoke-Command -Session $session {
+        Set-Location "$env:SystemDrive\k"
+        Set-ExecutionPolicy Bypass -Force -ErrorAction SilentlyContinue
+
+        if ($using:Proxy -ne "") {
+            pwsh -Command "`$ENV:HTTPS_PROXY='$using:Proxy';Install-Module -Name Microsoft.PowerShell.RemotingTools -Force -Confirm:`$false"
+        } else {
+            pwsh -Command "Install-Module -Name Microsoft.PowerShell.RemotingTools -Force -Confirm:`$false"
+        }
+
+        pwsh -Command "Get-InstalledModule"
+        pwsh -Command "Enable-SSHRemoting -Force"
+
+        Restart-Service sshd
+    }
+}
+
+function Disable-PasswordAuthenticationToWinNode () {
+    $session = Open-DefaultWinVMRemoteSessionViaSSHKey
+
+    Invoke-Command -Session $session {
+        Set-Location "$env:SystemDrive\k"
+        Set-ExecutionPolicy Bypass -Force -ErrorAction SilentlyContinue
+
+        # Change password on next login
+        cmd.exe /c "wmic UserAccount where name='Administrator' set Passwordexpires=true"
+        cmd.exe /c "net user Administrator /logonpasswordchg:yes"
+
+        # Disable password authentication over ssh
+        Add-Content "C:\ProgramData\ssh\sshd_config" "`nPasswordAuthentication no"
+        Restart-Service sshd
+
+        # Disable WinRM
+        netsh advfirewall firewall set rule name="Windows Remote Management (HTTP-In)" new enable=yes action=block
+        netsh advfirewall firewall set rule group="Windows Remote Management" new enable=yes
+        $winrmService = Get-Service -Name WinRM
+        if ($winrmService.Status -eq "Running"){
+            Disable-PSRemoting -Force
+        }
+        Stop-Service winrm
+        Set-Service -Name winrm -StartupType Disabled
+
+        # Disable Powershell Direct
+        Stop-Service vmicvmsession
+        Set-Service -Name vmicvmsession -StartupType Disabled
+    }
+}
+
+function Get-DefaultWinVMKey {
+    $sshConfigDir = Get-SshConfigDir
+    $windowsVMKey = $sshConfigDir + "\windowsvm\$(Get-SSHKeyFileName)"
+
+    return $windowsVMKey
+}
+
+function Open-DefaultWinVMRemoteSessionViaSSHKey {
+    $multivmRootConfig = Get-RootConfigMultivm
+    $multiVMWinNodeIP = $multivmRootConfig.psobject.properties['multiVMK8sWindowsVMIP'].value
+    $adminWinNode = "administrator@$multiVMWinNodeIP"
+
+    $windowsVMKey = Get-DefaultWinVMKey
+
+    $session = Open-RemoteSessionViaSSHKey $adminWinNode $windowsVMKey
+
+    return $session
+}
+
+
+Export-ModuleMember Get-RootConfigMultivm, Initialize-WinVMNode, Initialize-WinVM, Initialize-VMKubernetesCluster, Open-DefaultWinVMRemoteSessionViaSSHKey, Get-DefaultWinVMKey

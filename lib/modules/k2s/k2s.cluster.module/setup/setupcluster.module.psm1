@@ -242,6 +242,17 @@ function Write-RefreshEnvVariables {
     Write-Log ' ' -Console
 }
 
+function Set-KubeletDiskPressure {
+    # set new limits for the windows node for disk pressure
+    # kubelet is running now (caused by JoinWindowsHost.ps1), so we stop it. Will be restarted in StartK8s.ps1.
+    Stop-Service kubelet
+    Write-Log "using kubelet file: $kubeletConfigDir\config.yaml"
+    $content = Get-Content "$kubeletConfigDir\config.yaml"
+    $content | ForEach-Object { $_ -replace 'evictionPressureTransitionPeriod:',
+        "evictionHard:`r`n  nodefs.available: 8Gi`r`n  imagefs.available: 8Gi`r`nevictionPressureTransitionPeriod:" } |
+    Set-Content "$kubeletConfigDir\config.yaml"
+}
+
 function Initialize-KubernetesCluster {
     Param(
         [parameter(Mandatory = $false, HelpMessage = 'Directory containing additional hooks to be executed after local hooks are executed')]
@@ -255,14 +266,7 @@ function Initialize-KubernetesCluster {
     Write-Log 'starting the join process'
     Join-WindowsNode
 
-    # set new limits for the windows node for disk pressure
-    # kubelet is running now (caused by JoinWindowsHost.ps1), so we stop it. Will be restarted in StartK8s.ps1.
-    Stop-Service kubelet
-    Write-Log "using kubelet file: $kubeletConfigDir\config.yaml"
-    $content = Get-Content "$kubeletConfigDir\config.yaml"
-    $content | ForEach-Object { $_ -replace 'evictionPressureTransitionPeriod:',
-        "evictionHard:`r`n  nodefs.available: 8Gi`r`n  imagefs.available: 8Gi`r`nevictionPressureTransitionPeriod:" } |
-    Set-Content "$kubeletConfigDir\config.yaml"
+    Set-KubeletDiskPressure
 
     # add ip to hosts file
     Add-ClusterDnsNameToHost
@@ -283,4 +287,7 @@ function Uninstall-Cluster {
     }
 }
 
-Export-ModuleMember Initialize-KubernetesCluster, Write-RefreshEnvVariables, Uninstall-Cluster
+Export-ModuleMember Initialize-KubernetesCluster, Write-RefreshEnvVariables,
+Uninstall-Cluster, Set-KubeletDiskPressure,
+Join-WindowsNode, Add-K8sContext,
+Add-ClusterDnsNameToHost
