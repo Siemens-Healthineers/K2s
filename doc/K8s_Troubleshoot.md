@@ -27,7 +27,7 @@ Get the list of all mounted volume claims and their current usage:
 ```
 kg pvc -A
 
-# unbound immediate PersistentVolumeClaims
+# Unbound immediate PersistentVolumeClaims
 
 Error Pattern
 
@@ -174,22 +174,22 @@ the script is waiting cbr0 switch to be created by flanneld. Example of such a s
 
 There are several reasons which can cause this. Basically the _flanneld_ process is
 waiting for a new virtual switch to be created which has the same IP as the original, physical
-ethernet adapter. Then it tries to attach to that switch in promiscuous mode.
+ethernet adapter. 
 
 ## Major Network problems
 
 If you face network errors especially between Linux and Microsoft Services, you may need to reset your networking.
 
 - small solution:
-    - stopk8s
+    - k2s stop
     - ipconfig
     - Cleanup within a powershell: get-hnsnetwork | remove-hnsnetwork
     - ipconfig (to check cleanup result)
-    - startk8s
+    - k2s start
 
 - big solution:
     - netcfg -d
-    - booten
+    - reboot
 
 ## Microsoft APIPA / Link-local address
 
