@@ -25,7 +25,7 @@ Import-Module $PSScriptRoot\ImageFunctions.module.psm1 -DisableNameChecking
 Test-ClusterAvailabilityForImageFunctions
 
 if ($FromRegistry) {
-    kubectl get namespace registry 2> $null | Out-Null
+    &$global:KubectlExe get namespace registry 2> $null | Out-Null
     if (!$?) {
         Write-Error 'k2s-registry.local is not running.'
         return

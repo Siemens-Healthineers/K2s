@@ -40,14 +40,14 @@ Write-Log 'Checking cluster status' -Console
 Test-ClusterAvailability
 
 Write-Log "Check whether traefik addon is already disabled"
-if ($null -eq (kubectl get namespace traefik --ignore-not-found)) {
+if ($null -eq (&$global:KubectlExe get namespace traefik --ignore-not-found)) {
     Write-Log 'Addon already disabled.' -Console
     exit 0
 }
 
 Write-Log 'Uninstalling Traefik addon' -Console
 $traefikYamlDir = Get-TraefikYamlDir
-&$global:BinPath\kubectl.exe delete -k "$traefikYamlDir" | Write-Log
-&$global:BinPath\kubectl.exe delete namespace traefik | Write-Log
+&$global:KubectlExe delete -k "$traefikYamlDir" | Write-Log
+&$global:KubectlExe delete namespace traefik | Write-Log
 Remove-AddonFromSetupJson -Name 'traefik'
 Write-Log 'Uninstallation of Traefik addon finished' -Console

@@ -46,6 +46,6 @@ if ((Test-IsAddonEnabled -Name "metrics-server") -eq $false) {
 
 Write-Log 'Uninstalling Kubernetes Metrics Server' -Console
 $metricServerConfig = Get-MetricsServerConfig
-kubectl delete -f $metricServerConfig | Write-Log
+&$global:KubectlExe delete -f $metricServerConfig | Write-Log
 Remove-AddonFromSetupJson -Name 'metrics-server'
 Write-Log 'Uninstallation of Kubernetes Metrics Server finished' -Console

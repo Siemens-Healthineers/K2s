@@ -137,18 +137,18 @@ Write-Log "Use of software virtualization: $UseSoftwareVirtualization"
 # use software virtualization
 if ( $UseSoftwareVirtualization ) {
     Write-Log 'enable the software virtualization'
-    kubectl create namespace kubevirt | Write-Log
+    &$global:KubectlExe create namespace kubevirt | Write-Log
     # enable feature
-    kubectl create configmap kubevirt-config -n kubevirt --from-literal=feature-gates=HostDisk --from-literal=debug.useEmulation=true | Write-Log
+    &$global:KubectlExe create configmap kubevirt-config -n kubevirt --from-literal=feature-gates=HostDisk --from-literal=debug.useEmulation=true | Write-Log
 }
 
 # deploy kubevirt
 $VERSION_KV = 'v0.59.2'
 Write-Log "deploy kubevirt version $VERSION_KV"
-# kubectl apply -f https://github.com/kubevirt/kubevirt/releases/download/$VERSION_KV/kubevirt-operator.yaml
-# kubectl apply -f https://github.com/kubevirt/kubevirt/releases/download/$VERSION_KV/kubevirt-cr.yaml
-kubectl apply -f "$global:KubernetesPath\addons\kubevirt\kubevirt-operator.yaml" | Write-Log
-kubectl apply -f "$global:KubernetesPath\addons\kubevirt\kubevirt-cr.yaml" | Write-Log
+# &$global:KubectlExe apply -f https://github.com/kubevirt/kubevirt/releases/download/$VERSION_KV/kubevirt-operator.yaml
+# &$global:KubectlExe apply -f https://github.com/kubevirt/kubevirt/releases/download/$VERSION_KV/kubevirt-cr.yaml
+&$global:KubectlExe apply -f "$global:KubernetesPath\addons\kubevirt\kubevirt-operator.yaml" | Write-Log
+&$global:KubectlExe apply -f "$global:KubernetesPath\addons\kubevirt\kubevirt-cr.yaml" | Write-Log
 
 # deploy virtctrl
 $VERSION_VCTRL = 'v0.59.2'
@@ -180,9 +180,9 @@ if (!(Test-Path "$global:KubernetesPath\bin\virtctl.exe")) {
 
 $hostname = Get-ControlPlaneNodeHostname
 # enable config
-kubectl wait --timeout=180s --for=condition=Ready -n kube-system "pod/kube-apiserver-$hostname" | Write-Log
-kubectl wait --timeout=30s --for=condition=Available -n kubevirt deployment/virt-operator | Write-Log
-kubectl apply -f "$global:KubernetesPath\addons\kubevirt\kubevirt-cr.yaml" | Write-Log
+&$global:KubectlExe wait --timeout=180s --for=condition=Ready -n kube-system "pod/kube-apiserver-$hostname" | Write-Log
+&$global:KubectlExe wait --timeout=30s --for=condition=Available -n kubevirt deployment/virt-operator | Write-Log
+&$global:KubectlExe apply -f "$global:KubernetesPath\addons\kubevirt\kubevirt-cr.yaml" | Write-Log
 
 # for small setup restart VM
 if ( $K8sSetup -eq 'SmallSetup' ) {
@@ -219,12 +219,12 @@ if (!(Test-Path "$global:KubernetesPath\bin\$virtviewer")) {
 
 # wait for kubevirt components to be running
 Write-Log 'wait for kubevirt components to be running ...'
-kubectl wait --timeout=180s --for=condition=Ready -n kube-system "pod/kube-apiserver-$hostname" | Write-Log
-kubectl wait --timeout=180s --for=condition=Available -n kubevirt kv/kubevirt | Write-Log
+&$global:KubectlExe wait --timeout=180s --for=condition=Ready -n kube-system "pod/kube-apiserver-$hostname" | Write-Log
+&$global:KubectlExe wait --timeout=180s --for=condition=Available -n kubevirt kv/kubevirt | Write-Log
 
 # label master node with kubevirt label
 if ( $K8sSetup -eq 'SmallSetup' ) {
-    kubectl label node $hostname kubevirt=true --overwrite | Write-Log
+    &$global:KubectlExe label node $hostname kubevirt=true --overwrite | Write-Log
 }
 
 Write-Log 'kubevirt components are running !'

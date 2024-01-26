@@ -57,8 +57,8 @@ if ((Test-IsAddonEnabled -Name "gateway-nginx") -eq $true) {
 
 Write-Log 'Installing Traefik Ingress controller' -Console
 $traefikYamlDir = Get-TraefikYamlDir
-&$global:BinPath\kubectl.exe create namespace traefik | Write-Log
-&$global:BinPath\kubectl.exe apply -k "$traefikYamlDir" | Write-Log
+&$global:KubectlExe create namespace traefik | Write-Log
+&$global:KubectlExe apply -k "$traefikYamlDir" | Write-Log
 $allPodsAreUp = Wait-ForPodsReady -Selector 'app.kubernetes.io/name=traefik' -Namespace 'traefik'
 
 Write-Log "Setting $global:IP_Master as an external IP for traefik service" -Console
@@ -68,7 +68,7 @@ if ($PSVersionTable.PSVersion.Major -gt 5) {
 } else {
     $patchJson = '{\"spec\":{\"externalIPs\":[\"' + $global:IP_Master + '\"]}}'
 }
-&$global:BinPath\kubectl.exe patch svc traefik -p "$patchJson" -n traefik | Write-Log
+&$global:KubectlExe patch svc traefik -p "$patchJson" -n traefik | Write-Log
 
 if ($allPodsAreUp) {
     Write-Log 'All traefik pods are up and ready.' -Console

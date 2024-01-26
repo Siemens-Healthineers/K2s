@@ -65,6 +65,7 @@ $global:SshExe = "$global:BinPath\plink.exe"
 $global:ScpExe = "$global:BinPath\pscp.exe"
 $global:DevconExe = "$global:BinPath\devgon.exe"
 $global:NerdctlExe = "$global:BinPath\nerdctl.exe"
+$global:KubectlExe = "$global:ExecutableFolderPath\kubectl.exe"
 $global:k2sExe = "$global:KubernetesPath\k2s.exe"
 $shareDir = $smallsetup.psobject.properties['shareDir'].value
 $global:ShareMountPointInVm = $shareDir.psobject.properties['master'].value

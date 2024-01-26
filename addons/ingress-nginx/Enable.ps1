@@ -54,7 +54,7 @@ if ((Test-IsAddonEnabled -Name "gateway-nginx") -eq $true) {
     throw "Addon 'gateway-nginx' is enabled. Disable it first to avoid port conflicts."
 }
 
-$existingServices = $(&$global:BinPath\kubectl.exe get service -n ingress-nginx -o yaml)
+$existingServices = $(&$global:KubectlExe get service -n ingress-nginx -o yaml)
 if ("$existingServices" -match '.*ingress-nginx-controller.*') {
     Write-Log 'It seems as if ingress nginx is already installed in the namespace ingress-nginx. Disable it before enabling it again.' -Console
     return 0;
@@ -62,10 +62,10 @@ if ("$existingServices" -match '.*ingress-nginx-controller.*') {
 
 Write-Log 'Installing ingress-nginx' -Console
 $ingressNginxNamespace = 'ingress-nginx'
-&$global:BinPath\kubectl.exe create ns $ingressNginxNamespace | Write-Log
+&$global:KubectlExe create ns $ingressNginxNamespace | Write-Log
 
 $ingressNginxConfig = Get-IngressNginxConfig
-&$global:BinPath\kubectl.exe apply -f "$ingressNginxConfig" | Write-Log
+&$global:KubectlExe apply -f "$ingressNginxConfig" | Write-Log
 
 Write-Log "Setting $global:IP_Master as an external IP for ingress-nginx-controller service" -Console
 $patchJson = ""
@@ -75,7 +75,7 @@ if ($PSVersionTable.PSVersion.Major -gt 5) {
     $patchJson = '{\"spec\":{\"externalIPs\":[\"' + $global:IP_Master + '\"]}}'
 }
 $ingressNginxSvc = 'ingress-nginx-controller'
-&$global:BinPath\kubectl.exe patch svc $ingressNginxSvc -p "$patchJson" -n $ingressNginxNamespace | Write-Log
+&$global:KubectlExe patch svc $ingressNginxSvc -p "$patchJson" -n $ingressNginxNamespace | Write-Log
 
 $allPodsAreUp = Wait-ForPodsReady -Selector 'app.kubernetes.io/name=ingress-nginx' -Namespace 'ingress-nginx'
 

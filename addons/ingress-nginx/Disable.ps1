@@ -41,16 +41,16 @@ Write-Log 'Checking cluster status' -Console
 Test-ClusterAvailability
 
 Write-Log "Check whether ingress-nginx addon is already disabled"
-if ($null -eq (kubectl get namespace ingress-nginx --ignore-not-found)) {
+if ($null -eq (&$global:KubectlExe get namespace ingress-nginx --ignore-not-found)) {
     Write-Log 'Addon already disabled.' -Console
     exit 0
 }
 
 Write-Log 'Uninstalling Ingress-Nginx' -Console
 $ingressNginxConfig = Get-IngressNginxConfig
-&$global:BinPath\kubectl.exe delete -f "$ingressNginxConfig" | Write-Log
+&$global:KubectlExe delete -f "$ingressNginxConfig" | Write-Log
 
-&$global:BinPath\kubectl.exe delete ns 'ingress-nginx' | Write-Log
+&$global:KubectlExe delete ns 'ingress-nginx' | Write-Log
 
 Remove-AddonFromSetupJson -Name 'ingress-nginx'
 

@@ -20,9 +20,9 @@ if (!(Test-Path $env:KUBECONFIG)) {
 }
 else {
     #kubectl config view
-    kubectl config unset contexts.kubernetes-admin@kubernetes
-    kubectl config unset clusters.kubernetes
-    kubectl config unset users.kubernetes-admin
+    &$global:KubectlExe config unset contexts.kubernetes-admin@kubernetes
+    &$global:KubectlExe config unset clusters.kubernetes
+    &$global:KubectlExe config unset users.kubernetes-admin
     Write-Log 'Adding new context and new cluster to Kubernetes config...'
     $source = $global:KubeConfigDir + '\config'
     $target = $global:KubeConfigDir + '\config_backup'
@@ -31,12 +31,12 @@ else {
     #kubectl config view
     $target1 = $global:KubeConfigDir + '\config_new'
     Remove-Item -Path $target1 -Force -ErrorAction SilentlyContinue
-    kubectl config view --raw > $target1
+    &$global:KubectlExe config view --raw > $target1
     $target2 = $global:KubeConfigDir + '\config'
     Remove-Item -Path $target2 -Force -ErrorAction SilentlyContinue
     Move-Item -Path $target1 -Destination $target2 -Force
 }
-kubectl config use-context kubernetes-admin@kubernetes
+&$global:KubectlExe config use-context kubernetes-admin@kubernetes
 Write-Log "Config from user directory:"
 $env:KUBECONFIG = ''
-kubectl config view
+&$global:KubectlExe config view

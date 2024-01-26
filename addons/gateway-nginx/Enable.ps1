@@ -43,7 +43,7 @@ if ((Test-IsAddonEnabled -Name "gateway-nginx") -eq $true) {
     exit 0
 }
 
-$existingServices = $(kubectl get deployment -n nginx-gateway -o yaml)
+$existingServices = $(&$global:KubectlExe get deployment -n nginx-gateway -o yaml)
 if ("$existingServices" -match 'nginx-gateway') {
     Write-Log 'gateway-nginx addon is already enabled.' -Console
     exit 0;
@@ -58,11 +58,11 @@ if ((Test-IsAddonEnabled -Name "traefik") -eq $true) {
 }
 
 Write-Log 'Installing Gateway API' -Console
-&$global:BinPath\kubectl.exe apply -f "$global:KubernetesPath\addons\gateway-nginx\manifests\gateway-api-v1.0.0.yaml" | Write-Log
+&$global:KubectlExe apply -f "$global:KubernetesPath\addons\gateway-nginx\manifests\gateway-api-v1.0.0.yaml" | Write-Log
 
 Write-Log 'Installing NGINX Kubernetes Gateway' -Console
-&$global:BinPath\kubectl.exe apply -f "$global:KubernetesPath\addons\gateway-nginx\manifests\crds" | Write-Log
-&$global:BinPath\kubectl.exe apply -f "$global:KubernetesPath\addons\gateway-nginx\manifests\nginx-gateway-fabric-v1.1.0.yaml" | Write-Log
+&$global:KubectlExe apply -f "$global:KubernetesPath\addons\gateway-nginx\manifests\crds" | Write-Log
+&$global:KubectlExe apply -f "$global:KubernetesPath\addons\gateway-nginx\manifests\nginx-gateway-fabric-v1.1.0.yaml" | Write-Log
 
 # Access via 172.19.1.100
 Write-Log "Setting $global:IP_Master as an external IP for NGINX Kubernetes Gateway service" -Console
@@ -73,9 +73,9 @@ if ($PSVersionTable.PSVersion.Major -gt 5) {
     $patchJson = '{\"spec\":{\"externalIPs\":[\"' + $global:IP_Master + '\"]}}'
 }
 $gatewayNginxSvc = 'nginx-gateway'
-&$global:BinPath\kubectl.exe patch svc $gatewayNginxSvc -p "$patchJson" -n nginx-gateway | Write-Log
+&$global:KubectlExe patch svc $gatewayNginxSvc -p "$patchJson" -n nginx-gateway | Write-Log
 
-&$global:BinPath\kubectl.exe wait --timeout=60s --for=condition=Available -n nginx-gateway deployment/nginx-gateway
+&$global:KubectlExe wait --timeout=60s --for=condition=Available -n nginx-gateway deployment/nginx-gateway
 if (!$?) {
     Write-Error 'Not all pods could become ready. Please use kubectl describe for more details.'
     Log-ErrorWithThrow 'Installation of gateway-nginx addon failed.'
@@ -84,7 +84,7 @@ if (!$?) {
 
 Write-Log 'gateway-nginx addon installed successfully' -Console
 if ($SharedGateway) {
-    &$global:BinPath\kubectl.exe apply -f "$global:KubernetesPath\addons\gateway-nginx\manifests\shared-gateway.yaml" | Write-Log
+    &$global:KubectlExe apply -f "$global:KubernetesPath\addons\gateway-nginx\manifests\shared-gateway.yaml" | Write-Log
 
 @"
                                         USAGE NOTES

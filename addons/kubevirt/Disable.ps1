@@ -41,7 +41,7 @@ Write-Log 'Checking cluster status' -Console
 Test-ClusterAvailability
 
 Write-Log "Check whether kubevirt addon is already disabled"
-if ($null -eq (kubectl get namespace kubevirt --ignore-not-found)) {
+if ($null -eq (&$global:KubectlExe get namespace kubevirt --ignore-not-found)) {
     Write-Log 'Addon already disabled.' -Console
     exit 0
 }
@@ -50,7 +50,7 @@ Write-Log 'Uninstalling kubevirt addon' -Console
 
 # show all pods
 Write-Log "`nKubernetes pods before:`n"
-kubectl get pods -A -o wide | Write-Log
+&$global:KubectlExe get pods -A -o wide | Write-Log
 
 $ScriptBlockNamespaces = {
     param (
@@ -61,45 +61,45 @@ $ScriptBlockNamespaces = {
     Remove-Item -Path $Namespace-namespace.json -Force -ErrorAction SilentlyContinue
     Remove-Item -Path $Namespace-namespace-cleaned.json -Force -ErrorAction SilentlyContinue
     Start-Sleep -Seconds 60
-    $n = kubectl get namespace $Namespace
+    $n = &$global:KubectlExe get namespace $Namespace
     if ($n) {
-        kubectl get namespace $Namespace -o json > $Namespace-namespace.json
+        &$global:KubectlExe get namespace $Namespace -o json > $Namespace-namespace.json
         $json = Get-Content $Namespace-namespace.json -Encoding Ascii | ConvertFrom-Json
         if ( $json ) {
             Write-Log ($json.spec.finalizers | Format-List | Out-String)
             $json.spec.finalizers = @()
             $json | ConvertTo-Json -depth 100 | Out-File $Namespace-namespace-cleaned.json -Encoding Ascii
-            kubectl replace --raw "/api/v1/namespaces/$Namespace/finalize" -f $Namespace-namespace-cleaned.json | Write-Log
+            &$global:KubectlExe replace --raw "/api/v1/namespaces/$Namespace/finalize" -f $Namespace-namespace-cleaned.json | Write-Log
         }
     }
     Write-Log "Namespace $Namespace clean now !"
 }
 
 # delete kubevirt
-kubectl delete -n kubevirt kubevirt kubevirt --wait=true >$null 2>&1 | Write-Log
-kubectl delete apiservices v1alpha3.subresources.kubevirt.io >$null 2>&1 | Write-Log
-kubectl delete mutatingwebhookconfigurations virt-api-mutator >$null 2>&1 | Write-Log
-kubectl delete validatingwebhookconfigurations virt-api-validator >$null 2>&1 | Write-Log
-kubectl delete validatingwebhookconfigurations virt-operator-validator >$null 2>&1 | Write-Log
-kubectl delete -f "$global:KubernetesPath\addons\kubevirt\kubevirt-operator.yaml" --wait=false >$null 2>&1 | Write-Log
+&$global:KubectlExe delete -n kubevirt kubevirt kubevirt --wait=true >$null 2>&1 | Write-Log
+&$global:KubectlExe delete apiservices v1alpha3.subresources.kubevirt.io >$null 2>&1 | Write-Log
+&$global:KubectlExe delete mutatingwebhookconfigurations virt-api-mutator >$null 2>&1 | Write-Log
+&$global:KubectlExe delete validatingwebhookconfigurations virt-api-validator >$null 2>&1 | Write-Log
+&$global:KubectlExe delete validatingwebhookconfigurations virt-operator-validator >$null 2>&1 | Write-Log
+&$global:KubectlExe delete -f "$global:KubernetesPath\addons\kubevirt\kubevirt-operator.yaml" --wait=false >$null 2>&1 | Write-Log
 
 # delete kubevirt
 Write-Log "delete kubevirt"
 if ($PSVersionTable.PSVersion.Major -gt 5) {
-    kubectl patch namespace kubevirt -p '{"metadata":{"finalizers":null}}' >$null 2>&1 | Write-Log
+    &$global:KubectlExe patch namespace kubevirt -p '{"metadata":{"finalizers":null}}' >$null 2>&1 | Write-Log
 } else {
-    kubectl patch namespace kubevirt -p '{\"metadata\":{\"finalizers\":null}}' >$null 2>&1 | Write-Log
+    &$global:KubectlExe patch namespace kubevirt -p '{\"metadata\":{\"finalizers\":null}}' >$null 2>&1 | Write-Log
 }
 
 Start-Job $ScriptBlockNamespaces -ArgumentList 'kubevirt'
 
 # delete entire namespace
-kubectl delete namespace kubevirt --force --grace-period=0 >$null 2>&1 | Write-Log
+&$global:KubectlExe delete namespace kubevirt --force --grace-period=0 >$null 2>&1 | Write-Log
 Write-Log "Total duration: $('{0:hh\:mm\:ss}' -f $mainStopwatch.Elapsed )"
 
 # show all pods
 Write-Log "`nKubernetes pods after:`n"
-kubectl get pods -A -o wide | Write-Log
+&$global:KubectlExe get pods -A -o wide | Write-Log
 
 # remove runtime settings
 # only for Small K8s Setup we use software virtualization
