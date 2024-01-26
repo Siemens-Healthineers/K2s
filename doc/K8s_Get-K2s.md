@@ -20,7 +20,7 @@ The **recommended** way of installing K2s is using our latest, officially cleare
 
 ## 1. Download
 You can download the latest version from the following location: 
-- [k2s Downloads](https://github.com/Siemens-Healthineers/K2s) 
+- [**K2s** Downloads](https://github.com/Siemens-Healthineers/K2s) 
 
 **NOTE:** Please make sure you ckeck *Unblock* in file properties before extracting zip file in case this option is available: 
 
@@ -41,7 +41,7 @@ C:\myFolder> git clone https://github.com/Siemens-Healthineers/K2s .
 
 > Contact [dieter.krotz@siemens-healthineers.com](mailto:dieter.krotz@siemens-healthineers.com) if access to the repository is needed.
 
-By default, the main branch with all cutting-edge changes is checked out. If you want to checkout a specific version, e.g. v0.5:
+By default, the main branch with all cutting-edge changes is checked out. If you want to checkout a specific version, e.g. v1.0.0:
 
 ```shell
 C:\myFolder> git checkout v1.0.0

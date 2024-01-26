@@ -29,6 +29,4 @@ PS> <install-dir>\smallsetup\common\BuildGoExe.ps1
 - addons
 - image
 - reset
-- scp
-- ssh
 - upgrade
