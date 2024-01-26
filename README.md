@@ -19,9 +19,11 @@ into one small and easy to use solution for development and testing purposes. It
 The problems that **K2s** solves are the following:
 1. It offers the possibility to build a K8s cluster by reusing the Windows host as a node.
 By this no extra Windows license is needed for a mixed Windows & Linux cluster
-2. It's build on 100% open source, no additional licenses needed
-3. Very low footprint by only having one virtual machine for the Linux workloads (Hyper-V or WSL)
-4. It offers an easy path for migrating bare metal Windows applications to K8s workloads
+2. Offline support for all of the use cases (no internet connection needed)
+3. It offers an easy path for migrating bare metal Windows applications to K8s workloads
+4. Very low footprint by only having one virtual machine for the Linux workloads (Hyper-V or WSL)
+5. It's build on 100% open source, no additional licenses needed
+
 
 The name **K2s** comes from the fact that we start with the default setting of 2 K8s nodes (Windows & Linux) and it relates to K8s with the intention to solve the problems mentioned above.
 

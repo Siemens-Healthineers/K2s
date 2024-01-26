@@ -18,7 +18,7 @@ as it enables the building of Windows and Linux containers without the need for 
 Create main directory and download K2s repository:
 
 ```
-mkdir c:\g& cd c:\g
+mkdir c:\k2s& cd c:\k2s
 git clone https://github.com/Siemens-Healthineers/K2s .
 ```
 
@@ -33,13 +33,13 @@ After installation Linux & Windows container images can be build with BuildImage
 Build Linux container from current directory:
 
 ```
-bi -tag 1
+k2s image build --image-tag 1
 ```
 
 or
 
 ```
-powershell <installation folder>\common\BuildImage.ps1 -tag 1
+bi -tag 1
 ```
 
 More details on BuildImage (bi): [Build a container](/doc/K8s_BuildingAContainer.md)

@@ -10,7 +10,7 @@ SPDX-License-Identifier: MIT
 
 This page describes how to add a registry for pulling and pushing images.
 
-# registry options of K2s
+# Registry options of **K2s**
 
 K2s provides an option to add a registry. You can find the help for registry options with following command:
 
