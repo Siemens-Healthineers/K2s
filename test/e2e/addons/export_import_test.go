@@ -46,7 +46,7 @@ func TestExportImportAddons(t *testing.T) {
 var _ = BeforeSuite(func(ctx context.Context) {
 	suite = framework.Setup(ctx, framework.EnsureAddonsAreDisabled, framework.ClusterTestStepTimeout(testClusterTimeout))
 	exportPath = filepath.Join(suite.RootDir(), "tmp")
-	linuxOnly = suite.SetupInfo().SetupType.LinuxOnly
+	linuxOnly = suite.SetupInfo().LinuxOnly
 	addons = k2s.AllAddons(suite.RootDir())
 
 	windowsTestContainers = []string{

@@ -7,7 +7,7 @@ import (
 	"base/version"
 	"errors"
 	ic "k2s/cmd/install/config"
-	cd "k2s/config/defs"
+	"k2s/setupinfo"
 	"k2s/utils"
 	"strings"
 	r "test/reflection"
@@ -35,10 +35,10 @@ func (m *myMock) Printfln(format string, a ...any) {
 	m.Called(format, a)
 }
 
-func (m *myMock) GetSetupType() (cd.SetupType, error) {
+func (m *myMock) GetSetupName() (setupinfo.SetupName, error) {
 	args := m.Called()
 
-	return args.Get(0).(cd.SetupType), args.Error(1)
+	return args.Get(0).(setupinfo.SetupName), args.Error(1)
 }
 
 func (m *myMock) Load(kind ic.Kind, cmdFlags *pflag.FlagSet) (*ic.InstallConfig, error) {
@@ -75,7 +75,7 @@ var _ = Describe("core", func() {
 					mock.MatchedBy(func(format string) bool { return strings.Contains(format, "already installed") }), mock.Anything).Times(1)
 
 				configMock := &myMock{}
-				configMock.On(r.GetFunctionName(configMock.GetSetupType)).Return(cd.SetupType("test-type"), nil)
+				configMock.On(r.GetFunctionName(configMock.GetSetupName)).Return(setupinfo.SetupName("test-name"), nil)
 
 				sut := core.NewInstaller(configMock, printerMock, nil, nil, nil, nil, nil, nil)
 
@@ -93,7 +93,7 @@ var _ = Describe("core", func() {
 				var nilValue *ic.InstallConfig
 
 				configMock := &myMock{}
-				configMock.On(r.GetFunctionName(configMock.GetSetupType)).Return(cd.SetupType(""), nil)
+				configMock.On(r.GetFunctionName(configMock.GetSetupName)).Return(setupinfo.SetupName(""), nil)
 
 				installConfigMock := &myMock{}
 				installConfigMock.On(r.GetFunctionName(configMock.Load), kind, flags).Return(nilValue, expectedError)
@@ -116,7 +116,7 @@ var _ = Describe("core", func() {
 				buildCmdFunc := func(_ *ic.InstallConfig) (cmd string, err error) { return "", expectedError }
 
 				configMock := &myMock{}
-				configMock.On(r.GetFunctionName(configMock.GetSetupType)).Return(cd.SetupType(""), nil)
+				configMock.On(r.GetFunctionName(configMock.GetSetupName)).Return(setupinfo.SetupName(""), nil)
 
 				installConfigMock := &myMock{}
 				installConfigMock.On(r.GetFunctionName(configMock.Load), kind, flags).Return(config, nil)
@@ -146,7 +146,7 @@ var _ = Describe("core", func() {
 				printerMock.On(r.GetFunctionName(printerMock.Printfln), mock.Anything, mock.Anything)
 
 				configMock := &myMock{}
-				configMock.On(r.GetFunctionName(configMock.GetSetupType)).Return(cd.SetupType(""), nil)
+				configMock.On(r.GetFunctionName(configMock.GetSetupName)).Return(setupinfo.SetupName(""), nil)
 
 				installConfigMock := &myMock{}
 				installConfigMock.On(r.GetFunctionName(configMock.Load), kind, flags).Return(config, nil)
@@ -189,7 +189,7 @@ var _ = Describe("core", func() {
 				})).Times(1)
 
 				configMock := &myMock{}
-				configMock.On(r.GetFunctionName(configMock.GetSetupType)).Return(cd.SetupType(""), nil)
+				configMock.On(r.GetFunctionName(configMock.GetSetupName)).Return(setupinfo.SetupName(""), nil)
 
 				installConfigMock := &myMock{}
 				installConfigMock.On(r.GetFunctionName(configMock.Load), kind, flags).Return(config, nil)
@@ -237,7 +237,7 @@ var _ = Describe("core", func() {
 				})).Times(1)
 
 				configMock := &myMock{}
-				configMock.On(r.GetFunctionName(configMock.GetSetupType)).Return(cd.SetupType(""), nil)
+				configMock.On(r.GetFunctionName(configMock.GetSetupName)).Return(setupinfo.SetupName(""), nil)
 
 				installConfigMock := &myMock{}
 				installConfigMock.On(r.GetFunctionName(configMock.Load), kind, flags).Return(config, nil)

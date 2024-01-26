@@ -7,12 +7,12 @@ import (
 	"errors"
 	"fmt"
 	"k2s/addons"
+	"k2s/setupinfo"
 	"k2s/utils"
 	"strconv"
 
 	"k2s/cmd/common"
 	p "k2s/cmd/params"
-	"k2s/config/defs"
 	"k2s/providers/terminal"
 
 	"github.com/samber/lo"
@@ -95,7 +95,7 @@ func exportAddons(cmd *cobra.Command, args []string) error {
 		switch err {
 		case nil:
 			break
-		case defs.ErrNotInstalled:
+		case setupinfo.ErrNotInstalled:
 			common.PrintNotInstalledMessage()
 			return nil
 		default:

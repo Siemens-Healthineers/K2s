@@ -282,7 +282,7 @@ $reuseExistingLinuxComputer = !([string]::IsNullOrWhiteSpace($LinuxVMIP))
 Set-ConfigValue -Path $global:SetupJsonFile -Key $global:ConfigKey_ReuseExistingLinuxComputerForMasterNode -Value $reuseExistingLinuxComputer
 if ($reuseExistingLinuxComputer) {
     Write-Log "Configuring computer with IP '$LinuxVMIP' to act as Master Node"
-    &"$global:KubernetesPath\smallsetup\linuxnode\ubuntu\ExistingUbuntuComputerAsMasterNodeInstaller.ps1" -ComputerIP $LinuxVMIP -UserName $LinuxVMUsername -UserPwd $LinuxVMUserPwd -Proxy $Proxy
+    &"$global:KubernetesPath\smallsetup\linuxnode\ubuntu\ExistingUbuntuComputerAsMasterNodeInstaller.ps1" -IpAddress $LinuxVMIP -UserName $LinuxVMUsername -UserPwd $LinuxVMUserPwd -Proxy $Proxy
     Write-Log "Finished configuring computer with IP '$LinuxVMIP' to act as Master Node"
 
     Wait-ForSSHConnectionToLinuxVMViaSshKey

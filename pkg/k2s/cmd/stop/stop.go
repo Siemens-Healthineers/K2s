@@ -14,7 +14,7 @@ import (
 	"k2s/cmd/common"
 	p "k2s/cmd/params"
 	c "k2s/config"
-	cd "k2s/config/defs"
+	"k2s/setupinfo"
 	"k2s/utils"
 )
 
@@ -37,7 +37,7 @@ func stopk8s(ccmd *cobra.Command, args []string) error {
 	switch err {
 	case nil:
 		break
-	case cd.ErrNotInstalled:
+	case setupinfo.ErrNotInstalled:
 		common.PrintNotInstalledMessage()
 		return nil
 	default:
@@ -66,25 +66,25 @@ func buildStopCmd(ccmd *cobra.Command) (string, error) {
 
 	config := c.NewAccess()
 
-	installedSetupType, err := config.GetSetupType()
+	setupName, err := config.GetSetupName()
 	if err != nil {
 		return "", err
 	}
 
 	var cmd string
 
-	switch installedSetupType {
-	case cd.SetupTypek2s:
+	switch setupName {
+	case setupinfo.SetupNamek2s:
 		cmd = utils.FormatScriptFilePath(c.SmallSetupDir() + "\\" + "StopK8s.ps1")
 		if additionalHooksdir != "" {
 			cmd += " -AdditionalHooksDir " + utils.EscapeWithSingleQuotes(additionalHooksdir)
 		}
-	case cd.SetupTypeMultiVMK8s:
+	case setupinfo.SetupNameMultiVMK8s:
 		cmd = utils.FormatScriptFilePath(c.SetupRootDir + "\\smallsetup\\multivm\\" + "Stop_MultiVMK8sSetup.ps1")
 		if additionalHooksdir != "" {
 			cmd += " -AdditionalHooksDir " + utils.EscapeWithSingleQuotes(additionalHooksdir)
 		}
-	case cd.SetupTypeBuildOnlyEnv:
+	case setupinfo.SetupNameBuildOnlyEnv:
 		return "", errors.New("there is no cluster to stop in build-only setup mode ;-). Aborting")
 	default:
 		return "", errors.New("could not determine the setup type, aborting. If you are sure you have a K2s setup installed, call the correct stop script directly")

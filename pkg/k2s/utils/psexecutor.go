@@ -12,12 +12,14 @@ import (
 	"fmt"
 	"io"
 	"k2s/config"
-	cd "k2s/config/defs"
+	"k2s/setupinfo"
 	"math"
 	"os"
 	"os/exec"
 	"strings"
 	"time"
+
+	"k2s/providers/marshalling"
 
 	"github.com/go-cmd/cmd"
 	"github.com/pterm/pterm"
@@ -55,8 +57,55 @@ func ExecutePowershellScript(script string, options ...ExecOptions) (time.Durati
 	return executePowershellScript(script, *execOptions)
 }
 
-// Waits until the command has finished and returns the messages it received
-func ExecuteWithStructuredResultData(cmdString string, options ...ExecOptions) ([]interface {
+func ExecutePsWithStructuredResult[T any](psScriptPath string, resultTypeName string, options ExecOptions, additionalParams ...string) (v T, err error) {
+	cmd := psScriptPath + " -EncodeStructuredOutput -MessageType " + resultTypeName
+	if len(additionalParams) > 0 {
+		for _, param := range additionalParams {
+			cmd += " " + param
+		}
+	}
+
+	klog.V(4).Infoln("PS command created:", cmd)
+
+	dataObjects, err := executePowershellScriptWithDataSubscription(cmd, options)
+	if err != nil {
+		return v, err
+	}
+
+	if len(dataObjects) != 1 {
+		return v, fmt.Errorf("unexpected number of data objects. Expected 1, but got %d", len(dataObjects))
+	}
+
+	dataObj := dataObjects[0]
+
+	if dataObj.Type() != resultTypeName {
+		return v, fmt.Errorf("unexpected result type. Expected '%s', but got '%s'", resultTypeName, dataObj.Type())
+	}
+
+	klog.V(4).Infoln("unmarshalling data object..")
+
+	marshaller := marshalling.NewJsonUnmarshaller()
+
+	err = marshaller.Unmarshal(dataObj.Data(), &v)
+	if err != nil {
+		return v, fmt.Errorf("could not unmarshal structure: %s", err)
+	}
+
+	klog.V(4).Infoln("data object unmarshalled")
+
+	return v, nil
+}
+
+func (m cliMessage) Data() []byte {
+	return m.MsgData
+}
+
+func (m cliMessage) Type() string {
+	return m.MsgType
+}
+
+// executePowershellScriptWithDataSubscription waits until the command has finished and returns the structured data it received
+func executePowershellScriptWithDataSubscription(cmdString string, options ...ExecOptions) ([]interface {
 	Data() []byte
 	Type() string
 }, error) {
@@ -162,14 +211,6 @@ func ExecuteWithStructuredResultData(cmdString string, options ...ExecOptions) (
 	}
 
 	return dataObjects, nil
-}
-
-func (m cliMessage) Data() []byte {
-	return m.MsgData
-}
-
-func (m cliMessage) Type() string {
-	return m.MsgType
 }
 
 func determineExecOptions(options ...ExecOptions) (*ExecOptions, error) {
@@ -324,9 +365,9 @@ func executePowershellScript(script string, options ExecOptions) (time.Duration,
 // TODO: decision should not be made in utils package
 func determinePsVersion(ignoreNotInstalledErr bool) (PowerShellVersion, error) {
 	configAccess := config.NewAccess()
-	setupType, err := configAccess.GetSetupType()
+	setupName, err := configAccess.GetSetupName()
 	if err != nil {
-		if err == cd.ErrNotInstalled && ignoreNotInstalledErr {
+		if err == setupinfo.ErrNotInstalled && ignoreNotInstalledErr {
 			klog.V(2).ErrorS(err, "setup not installed, falling back to default PowerShell version", "PowerShell", PowerShellV5)
 
 			return PowerShellV5, nil
@@ -340,7 +381,7 @@ func determinePsVersion(ignoreNotInstalledErr bool) (PowerShellVersion, error) {
 		return "", err
 	}
 
-	if setupType == cd.SetupTypeMultiVMK8s && !linuxOnly {
+	if setupName == setupinfo.SetupNameMultiVMK8s && !linuxOnly {
 		if err := checkIfCommandExists(ps7CmdName); err != nil {
 			return "", err
 		}
@@ -405,7 +446,7 @@ func checkIfCommandExists(cmd string) error {
 }
 
 func prepareExecScript(script string, noProgress bool) string {
-	klog.V(4).Infof("Execution Script : %s", script)
+	klog.V(4).Infof("Execution Script: %s", script)
 	wrapperScript := ""
 
 	if noProgress {
@@ -415,6 +456,6 @@ func prepareExecScript(script string, noProgress bool) string {
 		wrapperScript += EscapeWithDoubleQuotes(script)
 	}
 
-	klog.V(4).Infof("Final Execution Script : %s", wrapperScript)
+	klog.V(4).Infof("Final Execution Script: %s", wrapperScript)
 	return wrapperScript
 }

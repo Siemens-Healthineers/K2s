@@ -44,7 +44,20 @@ function Invoke-DownloadKubetoolsArtifacts($downloadsBaseDirectory, $KubernetesV
     Write-Log 'Download kubeproxy'
     Invoke-DownloadFile "$kubetoolsDownloadsDirectory\$windowsNode_KubeproxyExe" https://dl.k8s.io/$KubernetesVersion/bin/windows/amd64/$windowsNode_KubeproxyExe $true $Proxy
     Write-Log 'Download kubectl'
-    Invoke-DownloadFile "$kubetoolsDownloadsDirectory\$windowsNode_KubectlExe" https://dl.k8s.io/release/$KubernetesVersion/bin/windows/amd64/$windowsNode_KubectlExe $true $Proxy
+    Invoke-DownloadKubectl -Destination "$kubetoolsDownloadsDirectory\$windowsNode_KubectlExe" -KubernetesVersion $KubernetesVersion -Proxy "$Proxy"
+}
+
+function Invoke-DownloadKubectl {
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]$Destination,
+        [Parameter(Mandatory = $true)]
+        [string]$KubernetesVersion,
+        [Parameter(Mandatory = $false)]
+        [string]$Proxy
+    )
+
+    Invoke-DownloadFile "$Destination" https://dl.k8s.io/release/$KubernetesVersion/bin/windows/amd64/$windowsNode_KubectlExe $true $Proxy
 }
 
 function Invoke-DeployKubetoolsArtifacts($windowsNodeArtifactsDirectory) {
