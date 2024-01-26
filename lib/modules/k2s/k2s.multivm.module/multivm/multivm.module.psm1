@@ -519,6 +519,8 @@ function Initialize-VMKubernetesCluster {
         [string] $IpAddress,
         [parameter(Mandatory = $false, HelpMessage = 'HTTP proxy if available')]
         [string] $Proxy,
+        [parameter(Mandatory = $false, HelpMessage = 'Kubernetes version to use')]
+        [string] $KubernetesVersion,
         [parameter(Mandatory = $false, HelpMessage = 'Directory containing additional hooks to be executed after local hooks are executed')]
         [string] $AdditionalHooksDir = ''
     )
@@ -529,7 +531,7 @@ function Initialize-VMKubernetesCluster {
 
     Copy-KubeConfigFromControlPlaneNode
 
-    Install-KubectlOnHost
+    Install-KubectlOnHost $KubernetesVersion $Proxy
 
     Add-K8sContext
 
@@ -545,7 +547,7 @@ function Initialize-VMKubernetesCluster {
 
     Write-K8sNodesStatus
 
-    Write-Log "Collecting kubernetes images and storing them to $global:KubernetesImagesJson."
+    Write-Log "Collecting kubernetes images and storing them to $(Get-KubernetesImagesFilePath)."
     Write-KubernetesImagesIntoJson
 
     Enable-SSHRemotingViaSSHKeyToWinNode $session $Proxy
@@ -588,7 +590,7 @@ function Initialize-SSHConnectionToWinVM($session, $IpAddress) {
     $rootPublicKey = Get-Content "$windowsVMKey.pub" -Raw
 
     Invoke-Command -Session $session {
-        Set-Location c:\k
+        Set-Location "$env:SystemDrive\k"
         Set-ExecutionPolicy Bypass -Force -ErrorAction SilentlyContinue
 
         $authorizedkeypath = 'C:\ProgramData\ssh\administrators_authorized_keys'
@@ -660,18 +662,20 @@ function Repair-WindowsAutoConfigOnVM($session) {
     }
 }
 
-function Install-KubectlOnHost() {
+function Install-KubectlOnHost($KubernetesVersion, $Proxy) {
     $previousKubernetesVersion = Get-ConfigInstalledKubernetesVersion
 
-    if (!(Test-Path "$global:ExecutableFolderPath")) {
-        New-Item -Path $global:ExecutableFolderPath -ItemType Directory | Out-Null
+    $kubeBinPath = Get-KubeBinPath
+    $kubeBinExePath = "$kubeBinPath\exe"
+
+    if (!(Test-Path "$kubeBinExePath")) {
+        New-Item -Path $kubeBinExePath -ItemType Directory | Out-Null
     }
 
-    # TODO: clone from SetupNode.ps1
-    if (!(Test-Path "$global:ExecutableFolderPath\kubectl.exe") -or ($previousKubernetesVersion -ne $global:KubernetesVersion)) {
-        DownloadFile "$global:ExecutableFolderPath\kubectl.exe" https://dl.k8s.io/release/$global:KubernetesVersion/bin/windows/amd64/kubectl.exe $true
+    if (!(Test-Path "$kubeBinExePath\kubectl.exe") -or ($previousKubernetesVersion -ne $KubernetesVersion)) {
+        Invoke-DownloadKubectl -Destination "$kubeBinExePath\kubectl.exe" -KubernetesVersion $KubernetesVersion -Proxy "$Proxy"
         # put a second copy in the bin folder, which is in the PATH
-        Copy-Item -Force "$global:ExecutableFolderPath\kubectl.exe" "$global:KubernetesPath\bin\kubectl.exe"
+        Copy-Item -Force "$kubeBinExePath\kubectl.exe" "$kubeBinPath\kubectl.exe"
     }
 }
 
