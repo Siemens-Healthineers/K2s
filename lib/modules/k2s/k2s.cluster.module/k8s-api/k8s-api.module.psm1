@@ -3,8 +3,9 @@
 
 $formattingModule = "$PSScriptRoot/formatting/formatting.module.psm1"
 $logModule = "$PSScriptRoot/../../k2s.infra.module/log/log.module.psm1"
+$pathModule = "$PSScriptRoot/../../k2s.infra.module/path/path.module.psm1"
 
-Import-Module $formattingModule, $logModule
+Import-Module $formattingModule, $logModule, $pathModule
 
 $script = $MyInvocation.MyCommand.Name
 

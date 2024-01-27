@@ -6,8 +6,9 @@
 $configModule = "$PSScriptRoot\..\..\k2s.infra.module\config\config.module.psm1"
 $logModule = "$PSScriptRoot\..\..\k2s.infra.module\log\log.module.psm1"
 $vmModule = "$PSScriptRoot\..\..\k2s.node.module\linuxnode\vm\vm.module.psm1"
+$pathModule = "$PSScriptRoot\..\..\k2s.infra.module\path\path.module.psm1"
 
-Import-Module $configModule, $logModule, $vmModulet
+Import-Module $configModule, $logModule, $vmModule, $pathModule
 
 $kubeToolsPath = Get-KubeToolsPath
 

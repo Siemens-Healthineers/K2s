@@ -73,11 +73,12 @@ function Wait-ForNodesReady {
         [String]
         $controlPlaneHostName
     )
+    # force import path module since this is executed in a script block
     for ($i = 0; $i -lt 60; $i++) {
         Start-Sleep 2
         #Write-Output "Checking for node $env:COMPUTERNAME..."
-        $kubeToolsPath = Get-KubeToolsPath
-        $nodes = $(&"$kubeToolsPath\kubectl.exe" get nodes)
+        # using is used because this function is executed in script block in Join-WindowsNode.
+        $nodes = $(&"$using:kubeToolsPath\kubectl.exe" get nodes)
         #Write-Output "$i WaitForJoin: $nodes"
 
         $nodefound = $nodes | Select-String -Pattern "$env:COMPUTERNAME\s*Ready"
@@ -106,7 +107,6 @@ function Join-WindowsNode {
     )
 
     # join node if necessary
-    $kubeToolsPath = Get-KubeToolsPath
     $nodefound = &"$kubeToolsPath\kubectl.exe" get nodes | Select-String -Pattern $env:COMPUTERNAME -SimpleMatch
     if ( !($nodefound) ) {
 
