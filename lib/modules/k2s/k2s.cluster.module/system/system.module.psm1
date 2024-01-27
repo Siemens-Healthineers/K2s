@@ -7,7 +7,9 @@ $configModule = "$PSScriptRoot\..\..\k2s.infra.module\config\config.module.psm1"
 $logModule = "$PSScriptRoot\..\..\k2s.infra.module\log\log.module.psm1"
 $vmModule = "$PSScriptRoot\..\..\k2s.node.module\linuxnode\vm\vm.module.psm1"
 
-Import-Module $configModule, $logModule, $vmModule
+Import-Module $configModule, $logModule, $vmModulet
+
+$kubeToolsPath = Get-KubeToolsPath
 
 <#
 .SYNOPSIS
@@ -45,7 +47,7 @@ function Wait-ForAPIServer {
         $iteration++
         # try to apply the flannel resources
         $ErrorActionPreference = 'Continue'
-        $result = $(echo yes | kubectl wait --timeout=60s --for=condition=Ready -n kube-system "pod/kube-apiserver-$($controlPlaneVMHostName.ToLower())" 2>&1)
+        $result = $(echo yes | &"$kubeToolsPath\kubectl.exe" wait --timeout=60s --for=condition=Ready -n kube-system "pod/kube-apiserver-$($controlPlaneVMHostName.ToLower())" 2>&1)
         $ErrorActionPreference = 'Stop'
         if ($result -match 'condition met') {
             break;
@@ -91,7 +93,7 @@ function Update-NodeLabelsAndTaints {
     $controlPlaneTaint = 'node-role.kubernetes.io/control-plane'
 
     # mark control-plane as worker (remove the control-plane tainting)
-    (kubectl get nodes -o=jsonpath='{range .items[*]}~{.metadata.name}#{.spec.taints[*].key}') -split '~' | ForEach-Object {
+    (&"$kubeToolsPath\kubectl.exe" get nodes -o=jsonpath='{range .items[*]}~{.metadata.name}#{.spec.taints[*].key}') -split '~' | ForEach-Object {
         $parts = $_ -split '#'
 
         if ($parts[1] -match $controlPlaneTaint) {
@@ -99,7 +101,7 @@ function Update-NodeLabelsAndTaints {
 
             Write-Log "Taint '$controlPlaneTaint' found on node '$node', untainting..."
 
-            kubectl taint nodes $node "$controlPlaneTaint-"
+            &"$kubeToolsPath\kubectl.exe" taint nodes $node "$controlPlaneTaint-"
         }
     }
 
@@ -109,10 +111,10 @@ function Update-NodeLabelsAndTaints {
         Write-Log "Labeling and tainting worker node '$nodeName'..."
 
         # mark nodes as worker
-        kubectl label nodes $nodeName kubernetes.io/role=worker --overwrite
+        &"$kubeToolsPath\kubectl.exe" label nodes $nodeName kubernetes.io/role=worker --overwrite
 
         # taint windows nodes
-        kubectl taint nodes $nodeName OS=Windows:NoSchedule --overwrite
+        &"$kubeToolsPath\kubectl.exe" taint nodes $nodeName OS=Windows:NoSchedule --overwrite
     }
 
     # change default policy in VM (after restart of VM always policy is changed automatically)

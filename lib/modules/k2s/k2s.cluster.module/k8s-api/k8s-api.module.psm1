@@ -733,7 +733,8 @@ function Invoke-Kubectl {
         [array]
         $Params
     )
-    $output = & kubectl $params 2>&1
+    $kubeToolsPath = Get-KubeToolsPath
+    $output = &"$kubeToolsPath\kubectl.exe" $params 2>&1
 
     return [pscustomobject]@{ Success = ($LASTEXITCODE -eq 0); Output = $output }
 }

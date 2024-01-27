@@ -665,8 +665,7 @@ function Repair-WindowsAutoConfigOnVM($session) {
 function Install-KubectlOnHost($KubernetesVersion, $Proxy) {
     $previousKubernetesVersion = Get-ConfigInstalledKubernetesVersion
 
-    $kubeBinPath = Get-KubeBinPath
-    $kubeBinExePath = "$kubeBinPath\exe"
+    $kubeBinExePath = Get-KubeToolsPath
 
     if (!(Test-Path "$kubeBinExePath")) {
         New-Item -Path $kubeBinExePath -ItemType Directory | Out-Null
@@ -674,8 +673,6 @@ function Install-KubectlOnHost($KubernetesVersion, $Proxy) {
 
     if (!(Test-Path "$kubeBinExePath\kubectl.exe") -or ($previousKubernetesVersion -ne $KubernetesVersion)) {
         Invoke-DownloadKubectl -Destination "$kubeBinExePath\kubectl.exe" -KubernetesVersion $KubernetesVersion -Proxy "$Proxy"
-        # put a second copy in the bin folder, which is in the PATH
-        Copy-Item -Force "$kubeBinExePath\kubectl.exe" "$kubeBinPath\kubectl.exe"
     }
 }
 
@@ -764,11 +761,12 @@ function Write-K8sNodesStatus {
     $retryIteration = 0
     $ErrorActionPreference = 'Continue'
     while ($true) {
+        $kubeToolsPath = Get-KubeToolsPath
         #Check whether node information is available from the cluster
-        kubectl get nodes 2>$null | Out-Null
+        &"$kubeToolsPath\kubectl.exe" get nodes 2>$null | Out-Null
         if ($?) {
             Write-Log 'Current state of kubernetes nodes:'
-            kubectl get nodes -o wide
+            &"$kubeToolsPath\kubectl.exe" get nodes -o wide
             break
         }
         else {
