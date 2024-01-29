@@ -131,7 +131,7 @@ function Get-EnabledAddons {
     $enabledAddons = @{Addons = [System.Collections.ArrayList]@() }
 
     $config | ForEach-Object { 
-        Write-Log "[$script::$function] found addon $($_.Name)"
+        Write-Log "[$script::$function] found addon '$($_.Name)'"
         $enabledAddons.Addons.Add($_.Name) | Out-Null
     }    
 

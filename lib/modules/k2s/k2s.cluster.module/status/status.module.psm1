@@ -11,8 +11,8 @@ Import-Module $vmModule, $setupInfoModule, $runningStateModule, $k8sApiModule, $
 
 $script = $MyInvocation.MyCommand.Name
 
-function Get-EnabledAddons {
-    return (&"$PSScriptRoot/../../../../../addons/Get-EnabledAddons.ps1").Addons 
+function Get-Addons {
+    return (&"$PSScriptRoot/../../../../../addons/Get-EnabledAddons.ps1")
 }
 
 <#
@@ -65,7 +65,7 @@ function Get-Status {
 
     # TODO: remove dependency when status and addons are separated!
     # see https://github.com/Siemens-Healthineers/K2s/issues/62
-    $status.EnabledAddons = (Get-EnabledAddons)
+    $status.EnabledAddons = (Get-Addons).Addons
 
     if ($ShowProgress -eq $true) {
         Write-Progress -Activity 'Gathering status information...' -Id 1 -Status '2/5' -PercentComplete 40 -CurrentOperation 'Determining running state'
