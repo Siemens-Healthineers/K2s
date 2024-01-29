@@ -35,7 +35,7 @@ $headers = @(
     "application/vnd.docker.distribution.manifest.v1+json"
 )
 $concatinatedHeadersString = ""
-$headers | ForEach-Object { $concatinatedHeadersString += " -H `"Accept: $_`""  } 
+$headers | ForEach-Object { $concatinatedHeadersString += " -H `"Accept: $_`""  }
 
 function New-KubernetesImageJsonFileIfNotExists() {
     $fileExists = Test-Path -Path $kubernetesImagesJson
@@ -58,7 +58,7 @@ This function is used to collect the kubernetes images present on the nodes.
 !!! CAUTION !!! This function must be called only during installation. Otherwise, user's images will also be written into the json file.
 User will see an incorrect output on listing images.
 #>
-function Write-KubernetesImagesIntoJson() {
+function Write-KubernetesImagesIntoJson($LinuxImageRaw, $WindowsImageRaw) {
     New-KubernetesImageJsonFileIfNotExists
     $kubernetesImages = @()
     $linuxKubernetesImages = Get-ContainerImagesOnLinuxNode
@@ -103,10 +103,18 @@ function Get-ContainerImagesOnLinuxNode([bool]$IncludeK8sImages = $false) {
     return $linuxContainerImages
 }
 
-function Get-ContainerImagesOnWindowsNode([bool]$IncludeK8sImages = $false) {
+function Get-ContainerImagesOnWindowsNode([bool]$IncludeK8sImages = $false, $WindowsImageRaw) {
+
+    if ($WindowsImageRaw -ne '') {
+        # We have the raw list of images already
+        $output = $WindowsImageRaw
+    } else {
+        $output = &$kubeBinPath\crictl images 2> $null
+    }
+
     $kubeBinPath = Get-KubeBinPath
     $KubernetesImages = Get-KubernetesImagesFromJson
-    $output = &$kubeBinPath\crictl images 2> $null
+
     $node = $env:ComputerName.ToLower()
 
     $windowsContainerImages = @()
@@ -218,7 +226,7 @@ function Remove-PushedImage($name, $tag) {
     $lineWithDigest = $headResponse | Select-String 'Docker-Content-Digest:' | Select-Object -ExpandProperty Line -First 1
     $match = Select-String 'Docker-Content-Digest: (.*)' -InputObject $lineWithDigest
     $digest = $match.Matches.Groups[1].Value
-    
+
     $deleteRequest = "curl.exe -m 10 -I --retry 3 --retry-connrefused -X DELETE http://$registryName/v2/$name/manifests/$digest -H 'Authorization: Basic $auth' $concatinatedHeadersString -v 2>&1"
     $deleteResponse = Invoke-Expression $deleteRequest
 

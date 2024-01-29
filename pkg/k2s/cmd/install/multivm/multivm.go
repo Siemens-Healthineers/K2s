@@ -29,10 +29,10 @@ var (
 	example = `
 	# install multi-vm setup
 	k2s install multivm -i 'c:\temp\en_windows_10_business_editions_version_20h2_x64_dvd_4788fb7c.iso'
-	
+
 	# install multi-vm setup using a user-defined config file
 	k2s install multivm -c 'c:\temp\my-config.yaml'
-	
+
 	# install multi-vm setup without Windows worker node
 	k2s install multivm --linux-only
 
@@ -111,7 +111,7 @@ func buildInstallCmd(c *ic.InstallConfig) (cmd string, err error) {
 		return "", err
 	}
 
-	path := fmt.Sprintf("%s\\smallsetup\\multivm\\Install_MultiVMK8sSetup.ps1", config.SetupRootDir)
+	path := fmt.Sprintf("%s\\lib\\scripts\\multivm\\install\\Install.ps1", config.SetupRootDir)
 	formattedPath := utils.FormatScriptFilePath(path)
 	cmd = fmt.Sprintf("%s -MasterVMProcessorCount %s -MasterVMMemory %s -MasterDiskSize %s",
 		formattedPath,

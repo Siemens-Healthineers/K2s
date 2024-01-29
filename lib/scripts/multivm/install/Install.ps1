@@ -201,13 +201,13 @@ Write-Log '---------------------------------------------------------------'
 $offlineInstallationRequested = $false
 
 if ($ForceOnlineInstallation -ne $true) {
-    $ForceOnlineInstallation = $true
-    $offlineInstallationRequested = $true
+    $ForceOnlineInstallation = $false
+    $offlineInstallationRequested =  $false
 }
 
 if ($DeleteFilesForOfflineInstallation -eq $false) {
-    $DeleteFilesForOfflineInstallation = $true
-    $offlineInstallationRequested = $true
+    $DeleteFilesForOfflineInstallation = $false
+    $offlineInstallationRequested =  $false
 }
 
 if ($offlineInstallationRequested -eq $true) {
