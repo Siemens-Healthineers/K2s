@@ -116,7 +116,7 @@ function Add-DashboardHostEntry {
 Determines if Traefik ingress controller is deployed in the cluster
 #>
 function Test-TraefikIngressControllerAvailability {
-    $existingServices = $(&$global:KubectlExeget service -n traefik -o yaml)
+    $existingServices = $(&$global:KubectlExe get service -n traefik -o yaml)
     if ("$existingServices" -match '.*traefik.*') {
         return $true
     }
