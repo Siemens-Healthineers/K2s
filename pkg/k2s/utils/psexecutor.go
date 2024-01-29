@@ -83,6 +83,7 @@ func ExecutePsWithStructuredResult[T any](psScriptPath string, resultTypeName st
 	}
 
 	klog.V(4).Infoln("unmarshalling data object..")
+	klog.V(8).Infof("%s", string(dataObj.Data()))
 
 	marshaller := marshalling.NewJsonUnmarshaller()
 

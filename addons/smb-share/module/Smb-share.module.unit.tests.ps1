@@ -4,12 +4,9 @@
 
 BeforeAll {
     $module = "$PSScriptRoot\Smb-share.module.psm1"
-    $statusModule = "$PSScriptRoot\..\..\..\smallsetup\status\Status.module.psm1"
-    $logModule = "$PSScriptRoot\..\..\..\smallsetup\ps-modules\log\log.module.psm1"
 
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('UseDeclaredVarsMoreThanAssignments', '', Justification = 'Pester Test')]
     $moduleName = (Import-Module $module -PassThru -Force).Name
-
-    Import-Module $statusModule, $logModule -Force
 }
 
 Describe 'Test-CsiPodsCondition' -Tag 'unit', 'addon' {
