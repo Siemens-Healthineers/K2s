@@ -113,7 +113,6 @@ if ($global:PurgeOnUninstall) {
     Remove-Item -Path "$global:BinPath\kube*.exe" -Force -ErrorAction SilentlyContinue
     Remove-Item -Path "$global:BinPath\cri*.exe" -Force -ErrorAction SilentlyContinue
     Remove-Item -Path "$global:BinPath\crictl.yaml" -Force -ErrorAction SilentlyContinue
-    Remove-Item -Path "$global:HelmExe" -Force -ErrorAction SilentlyContinue
     Remove-Item -Path "$global:ExecutableFolderPath" -Force -Recurse -ErrorAction SilentlyContinue
     Remove-Item -Path "$global:KubernetesPath\config" -Force -ErrorAction SilentlyContinue
 
