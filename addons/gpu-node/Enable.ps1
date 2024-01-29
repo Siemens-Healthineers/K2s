@@ -195,16 +195,16 @@ ExecCmdMaster "echo -e '$hook' | sudo tee -a /usr/share/containers/oci/hooks.d/o
 # Apply Nvidia device plugin
 Write-Log 'Installing Nvidia Device Plugin' -Console
 Wait-ForAPIServer
-kubectl apply -f "$global:KubernetesPath\addons\gpu-node\manifests\nvidia-device-plugin.yaml" | Write-Log
-kubectl wait --timeout=180s --for=condition=Available -n gpu-node deployment/nvidia-device-plugin | Write-Log
+&$global:KubectlExe apply -f "$global:KubernetesPath\addons\gpu-node\manifests\nvidia-device-plugin.yaml" | Write-Log
+&$global:KubectlExe wait --timeout=180s --for=condition=Available -n gpu-node deployment/nvidia-device-plugin | Write-Log
 if (!$?) {
     Write-Error 'Nvidia device plugin could not be started!'
     exit 1
 }
 
 Write-Log 'Installing DCGM-Exporter' -Console
-kubectl apply -f "$global:KubernetesPath\addons\gpu-node\manifests\dcgm-exporter.yaml" | Write-Log
-kubectl rollout status daemonset dcgm-exporter -n gpu-node --timeout 300s | Write-Log
+&$global:KubectlExe apply -f "$global:KubernetesPath\addons\gpu-node\manifests\dcgm-exporter.yaml" | Write-Log
+&$global:KubectlExe rollout status daemonset dcgm-exporter -n gpu-node --timeout 300s | Write-Log
 if (!$?) {
     Write-Error 'DCGM-Exporter could not be started!'
     exit 1

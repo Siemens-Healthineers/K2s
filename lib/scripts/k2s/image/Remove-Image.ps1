@@ -52,7 +52,8 @@ if ($systemError) {
 }
 
 if ($FromRegistry) {
-    kubectl get namespace registry 2> $null | Out-Null
+    $kubeToolsPath = Get-KubeToolsPath
+    &"$kubeToolsPath\kubectl.exe" get namespace registry 2> $null | Out-Null
     if (!$?) {
         Write-Error 'k2s-registry.local is not running.'
         return

@@ -35,16 +35,16 @@ if ($systemError) {
 
 Write-Log 'Check whether monitoring addon is already disabled'
 
-if ($null -eq (kubectl get namespace monitoring --ignore-not-found)) {
+if ($null -eq (&$global:KubectlExe get namespace monitoring --ignore-not-found)) {
     Write-Log 'Addon already disabled.' -Console
     exit 0
 }
 
 Write-Log 'Uninstalling Kube Prometheus Stack' -Console
-kubectl delete -k "$global:KubernetesPath\addons\monitoring\manifests"
-kubectl delete -f "$global:KubernetesPath\addons\monitoring\manifests\crds"
+&$global:KubectlExe delete -k "$global:KubernetesPath\addons\monitoring\manifests"
+&$global:KubectlExe delete -f "$global:KubernetesPath\addons\monitoring\manifests\crds"
 
-kubectl delete -f "$global:KubernetesPath\addons\monitoring\manifests\namespace.yaml"
+&$global:KubectlExe delete -f "$global:KubernetesPath\addons\monitoring\manifests\namespace.yaml"
 
 Remove-AddonFromSetupJson -Name 'monitoring'
 

@@ -38,7 +38,7 @@ function Get-DashboardTraefikConfig {
 Determines if Nginx ingress controller is deployed in the cluster
 #>
 function Test-NginxIngressControllerAvailability {
-    $existingServices = $(&$global:BinPath\kubectl.exe get service -n ingress-nginx -o yaml)
+    $existingServices = $(&$global:KubectlExe get service -n ingress-nginx -o yaml)
     if ("$existingServices" -match '.*ingress-nginx-controller.*') {
         return $true
     }
@@ -50,7 +50,7 @@ function Test-NginxIngressControllerAvailability {
 Determines if Traefik ingress controller is deployed in the cluster
 #>
 function Test-TraefikIngressControllerAvailability {
-    $existingServices = $(&$global:BinPath\kubectl.exe get service -n traefik -o yaml)
+    $existingServices = $(&$global:KubectlExe get service -n traefik -o yaml)
     if ("$existingServices" -match '.*traefik.*') {
         return $true
     }
@@ -64,7 +64,7 @@ Deploys the dashboard's ingress manifest for Nginx ingress controller
 function Deploy-DashboardIngressForNginx {
     Write-Log 'Deploying nginx ingress manifest for dashboard...' -Console
     $dashboardNginxIngressConfig = Get-DashboardNginxConfig
-    kubectl apply -f $dashboardNginxIngressConfig | Out-Null
+    &$global:KubectlExe apply -f $dashboardNginxIngressConfig | Out-Null
 }
 
 <#
@@ -74,7 +74,7 @@ Deploys the dashboard's ingress manifest for Traefik ingress controller
 function Deploy-DashboardIngressForTraefik {
     Write-Log 'Deploying traefik ingress manifest for dashboard...' -Console
     $dashboardTraefikIngressConfig = Get-DashboardTraefikConfig
-    kubectl apply -f $dashboardTraefikIngressConfig | Out-Null
+    &$global:KubectlExe apply -f $dashboardTraefikIngressConfig | Out-Null
 }
 
 <#

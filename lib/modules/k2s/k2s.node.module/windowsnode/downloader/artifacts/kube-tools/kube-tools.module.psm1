@@ -73,8 +73,6 @@ function Invoke-DeployKubetoolsArtifacts($windowsNodeArtifactsDirectory) {
     Copy-Item -Path "$kubetoolsArtifactsDirectory\$windowsNode_KubeproxyExe" -Destination "$kubeBinPath\exe" -Force
     Write-Log 'Publish kubectl'
     Copy-Item -Path "$kubetoolsArtifactsDirectory\$windowsNode_KubectlExe" -Destination "$kubeBinPath\exe" -Force
-    # put a second copy in the bin folder, which is in the PATH
-    Copy-Item -Path "$kubetoolsArtifactsDirectory\$windowsNode_KubectlExe" -Destination "$kubeBinPath" -Force
 }
 
 function Install-WinKubelet {

@@ -36,15 +36,15 @@ if ($systemError) {
 
 Write-Log 'Check whether gpu-node addon is already disabled'
 
-if ($null -eq (kubectl get namespace gpu-node --ignore-not-found)) {
+if ($null -eq (&$global:KubectlExe get namespace gpu-node --ignore-not-found)) {
     Write-Log 'Addon already disabled.' -Console
     exit 0
 }
 
 Write-Log 'Uninstalling GPU node' -Console
 
-kubectl delete -f "$global:KubernetesPath\addons\gpu-node\manifests\dcgm-exporter.yaml" | Write-Log
-kubectl delete -f "$global:KubernetesPath\addons\gpu-node\manifests\nvidia-device-plugin.yaml" | Write-Log
+&$global:KubectlExe delete -f "$global:KubernetesPath\addons\gpu-node\manifests\dcgm-exporter.yaml" | Write-Log
+&$global:KubectlExe delete -f "$global:KubernetesPath\addons\gpu-node\manifests\nvidia-device-plugin.yaml" | Write-Log
 
 $WSL = Get-WSLFromConfig
 if (!$WSL) {
