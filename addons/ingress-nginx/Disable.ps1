@@ -20,27 +20,26 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
     [switch] $ShowLogs = $false
 )
-
-$mainStopwatch = [system.diagnostics.stopwatch]::StartNew()
-
-# load global settings
 &$PSScriptRoot\..\..\smallsetup\common\GlobalVariables.ps1
-# import global functions
 . $PSScriptRoot\..\..\smallsetup\common\GlobalFunctions.ps1
-# load common module for installing/uninstalling ingress-nginx
 . $PSScriptRoot\Common.ps1
 
-Import-Module "$PSScriptRoot/../../smallsetup/ps-modules/log/log.module.psm1"
+$logModule = "$PSScriptRoot/../../smallsetup/ps-modules/log/log.module.psm1"
+$statusModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/status/status.module.psm1"
+$addonsModule = "$PSScriptRoot\..\addons.module.psm1"
+
+Import-Module $logModule, $addonsModule, $statusModule
+
 Initialize-Logging -ShowLogs:$ShowLogs
 
-$addonsModule = "$PSScriptRoot\..\Addons.module.psm1"
-
-Import-Module $addonsModule
-
 Write-Log 'Checking cluster status' -Console
-Test-ClusterAvailability
 
-Write-Log "Check whether ingress-nginx addon is already disabled"
+$systemError = Test-SystemAvailability
+if ($systemError) {
+    throw $systemError
+}
+
+Write-Log 'Check whether ingress-nginx addon is already disabled'
 if ($null -eq (kubectl get namespace ingress-nginx --ignore-not-found)) {
     Write-Log 'Addon already disabled.' -Console
     exit 0

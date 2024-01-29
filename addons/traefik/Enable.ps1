@@ -14,7 +14,6 @@ NA
 .EXAMPLE
 # For k2sSetup.
 powershell <installation folder>\addons\traefik\Enable.ps1
-
 #>
 
 Param (
@@ -23,35 +22,35 @@ Param (
     [parameter(Mandatory = $false, HelpMessage = 'JSON config object to override preceeding parameters')]
     [pscustomobject] $Config
 )
-
-# load global settings
 &$PSScriptRoot\..\..\smallsetup\common\GlobalVariables.ps1
-# load global functions
 . $PSScriptRoot\..\..\smallsetup\common\GlobalFunctions.ps1
-# load common module for installing/uninstalling traefik ingress controller
 . $PSScriptRoot\Common.ps1
 
-Import-Module "$PSScriptRoot/../../smallsetup/ps-modules/log/log.module.psm1"
+$logModule = "$PSScriptRoot/../../smallsetup/ps-modules/log/log.module.psm1"
+$statusModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/status/status.module.psm1"
+$addonsModule = "$PSScriptRoot\..\addons.module.psm1"
+
+Import-Module $logModule, $addonsModule, $statusModule
+
 Initialize-Logging -ShowLogs:$ShowLogs
 
-$addonsModule = "$PSScriptRoot\..\Addons.module.psm1"
-
-Import-Module $addonsModule
-
-
 Write-Log 'Checking cluster status' -Console
-Test-ClusterAvailability
 
-if ((Test-IsAddonEnabled -Name "traefik") -eq $true) {
+$systemError = Test-SystemAvailability
+if ($systemError) {
+    throw $systemError
+}
+
+if ((Test-IsAddonEnabled -Name 'traefik') -eq $true) {
     Write-Log "Addon 'traefik' is already enabled, nothing to do." -Console
     exit 0
 }
 
-if ((Test-IsAddonEnabled -Name "ingress-nginx") -eq $true) {
+if ((Test-IsAddonEnabled -Name 'ingress-nginx') -eq $true) {
     throw "Addon 'ingress-nginx' is enabled. Disable it first to avoid port conflicts."
 }
 
-if ((Test-IsAddonEnabled -Name "gateway-nginx") -eq $true) {
+if ((Test-IsAddonEnabled -Name 'gateway-nginx') -eq $true) {
     throw "Addon 'gateway-nginx' is enabled. Disable it first to avoid port conflicts."
 }
 
@@ -62,10 +61,11 @@ $traefikYamlDir = Get-TraefikYamlDir
 $allPodsAreUp = Wait-ForPodsReady -Selector 'app.kubernetes.io/name=traefik' -Namespace 'traefik'
 
 Write-Log "Setting $global:IP_Master as an external IP for traefik service" -Console
-$patchJson = ""
+$patchJson = ''
 if ($PSVersionTable.PSVersion.Major -gt 5) {
     $patchJson = '{"spec":{"externalIPs":["' + $global:IP_Master + '"]}}'
-} else {
+}
+else {
     $patchJson = '{\"spec\":{\"externalIPs\":[\"' + $global:IP_Master + '\"]}}'
 }
 &$global:BinPath\kubectl.exe patch svc traefik -p "$patchJson" -n traefik | Write-Log

@@ -23,30 +23,26 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
     [switch] $ShowLogs = $false
 )
-
-# load global settings
 &$PSScriptRoot\..\..\smallsetup\common\GlobalVariables.ps1
-# import global functions
 . $PSScriptRoot\..\..\smallsetup\common\GlobalFunctions.ps1
 
-. $PSScriptRoot\Common.ps1
-
-Import-Module "$PSScriptRoot/../../smallsetup/ps-modules/log/log.module.psm1"
-Initialize-Logging -ShowLogs:$ShowLogs
-
-$addonsModule = "$PSScriptRoot\..\Addons.module.psm1"
-
-Import-Module $addonsModule
-
+$logModule = "$PSScriptRoot/../../smallsetup/ps-modules/log/log.module.psm1"
+$statusModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/status/status.module.psm1"
+$addonsModule = "$PSScriptRoot\..\addons.module.psm1"
 $registryFunctionsModule = "$PSScriptRoot\..\..\smallsetup\helpers\RegistryFunctions.module.psm1"
 
-Import-Module $registryFunctionsModule -DisableNameChecking
+Import-Module $logModule, $addonsModule, $statusModule, $registryFunctionsModule -DisableNameChecking
 
+Initialize-Logging -ShowLogs:$ShowLogs
 
 Write-Log 'Checking cluster status' -Console
-Test-ClusterAvailability
 
-Write-Log "Check whether registry addon is already disabled"
+$systemError = Test-SystemAvailability
+if ($systemError) {
+    throw $systemError
+}
+
+Write-Log 'Check whether registry addon is already disabled'
 if ($null -eq (kubectl get namespace registry --ignore-not-found)) {
     Write-Log 'Addon already disabled.' -Console
     exit 0
@@ -68,11 +64,11 @@ if ($DeleteImages) {
 #Remove-Item -Path "$env:programdata\docker\certs.d" -Force -Recurse -ErrorAction SilentlyContinue
 
 Remove-AddonFromSetupJson -Name 'registry'
-Remove-RegistryFromSetupJson -Name "k2s.*" -IsRegex $true
+Remove-RegistryFromSetupJson -Name 'k2s.*' -IsRegex $true
 
 Write-Log 'Uninstallation of Kubernetes registry finished' -Console
 
 $loggedInRegistry = Get-ConfigValue -Path $global:SetupJsonFile -Key $global:ConfigKey_LoggedInRegistry
-if ($loggedInRegistry -match "k2s-registry.*") {
-    Set-ConfigValue -Path $global:SetupJsonFile -Key $global:ConfigKey_LoggedInRegistry -Value ""
+if ($loggedInRegistry -match 'k2s-registry.*') {
+    Set-ConfigValue -Path $global:SetupJsonFile -Key $global:ConfigKey_LoggedInRegistry -Value ''
 }
