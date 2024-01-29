@@ -23,7 +23,10 @@ Import-Module $clusterModule, $infraModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
-Test-ClusterAvailability
+$systemError = Test-SystemAvailability
+if ($systemError) {
+    throw $systemError
+}
 
 $allContainerImages = Get-ContainerImagesInk2s -IncludeK8sImages $false
 $deletedImages = @()

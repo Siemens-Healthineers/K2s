@@ -46,7 +46,10 @@ Import-Module $clusterModule, $infraModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
-Test-ClusterAvailability
+$systemError = Test-SystemAvailability
+if ($systemError) {
+    throw $systemError
+}
 
 if ($FromRegistry) {
     kubectl get namespace registry 2> $null | Out-Null

@@ -36,7 +36,10 @@ Import-Module $clusterModule, $infraModule, $nodeModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
-Test-ClusterAvailability
+$systemError = Test-SystemAvailability
+if ($systemError) {
+    throw $systemError
+}
 
 Write-Log "Trying to log in into $RegistryName" -Console
 $registries = $(Get-RegistriesFromSetupJson)
@@ -47,10 +50,11 @@ if ($registries) {
         # Add dockerd parameters and restart docker daemon to push nondistributable artifacts and use insecure registry
         $storageLocalDrive = Get-StorageLocalDrive
         nssm set docker AppParameters --exec-opt isolation=process --data-root "$storageLocalDrive\docker" --log-level debug --allow-nondistributable-artifacts "$RegistryName" --insecure-registry "$RegistryName" | Out-Null
-        if (Get-IsNssmServiceRunning("docker")) {
-            Restart-NssmService("docker")
-        } else {
-            Start-NssmService("docker")
+        if (Get-IsNssmServiceRunning('docker')) {
+            Restart-NssmService('docker')
+        }
+        else {
+            Start-NssmService('docker')
         }
 
         Connect-Docker -registry $RegistryName
@@ -62,5 +66,5 @@ if ($registries) {
     }
 }
 else {
-    Write-Log "No registries configured!" -Console
+    Write-Log 'No registries configured!' -Console
 }

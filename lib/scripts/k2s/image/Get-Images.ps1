@@ -49,7 +49,10 @@ $script = $MyInvocation.MyCommand.Name
 Write-Log "[$script] started with EncodeStructuredOutput='$EncodeStructuredOutput' and MessageType='$MessageType' and IncludeK8sImages='$IncludeK8sImages'"
 
 try {
-    Test-ClusterAvailability
+    $systemError = Test-SystemAvailability
+    if ($systemError) {
+        throw $systemError
+    }
 
     $images = @{ContainerImages = @(Get-ContainerImagesInk2s -IncludeK8sImages $IncludeK8sImages) }
     $images.ContainerRegistry = $(Get-RegistriesFromSetupJson) | Where-Object { $_ -match 'k2s-registry.*' }

@@ -50,7 +50,10 @@ Import-Module $clusterModule, $infraModule, $nodeModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
-Test-ClusterAvailability
+$systemError = Test-SystemAvailability
+if ($systemError) {
+    throw $systemError
+}
 
 $registries = $(Get-RegistriesFromSetupJson)
 if ($registries) {
@@ -94,10 +97,11 @@ $authJson = Invoke-CmdOnControlPlaneViaSSHKey 'sudo cat /root/.config/containers
 # Add dockerd parameters and restart docker daemon to push nondistributable artifacts and use insecure registry
 $storageLocalDrive = Get-StorageLocalDrive
 nssm set docker AppParameters --exec-opt isolation=process --data-root "$storageLocalDrive\docker" --log-level debug --allow-nondistributable-artifacts "$RegistryName" --insecure-registry "$RegistryName" | Out-Null
-if (Get-IsNssmServiceRunning("docker")) {
-    Restart-NssmService("docker")
-} else {
-    Start-NssmService("docker")
+if (Get-IsNssmServiceRunning('docker')) {
+    Restart-NssmService('docker')
+}
+else {
+    Start-NssmService('docker')
 }
 
 Connect-Docker -username $username -password $password -registry $RegistryName
@@ -106,11 +110,11 @@ Connect-Docker -username $username -password $password -registry $RegistryName
 Add-RegistryToContainerdConf -RegistryName $RegistryName -authJson $authJson
 
 Write-Log 'Restarting kubernetes services' -Console
-Stop-NssmService("kubeproxy")
-Stop-NssmService("kubelet")
-Restart-NssmService("containerd")
-Start-NssmService("kubelet")
-Start-NssmService("kubeproxy")
+Stop-NssmService('kubeproxy')
+Stop-NssmService('kubelet')
+Restart-NssmService('containerd')
+Start-NssmService('kubelet')
+Start-NssmService('kubeproxy')
 
 Set-ConfigLoggedInRegistry -Value $RegistryName
 Add-RegistryToSetupJson -Name $RegistryName

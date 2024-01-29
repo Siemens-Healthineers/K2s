@@ -129,7 +129,13 @@ function Get-KubernetesServiceAreRunning {
     return $true
 }
 
-# Replace with Test-SystemAvailability?
+<#
+.SYNOPSIS
+DEPRECATED: Replace with Test-SystemAvailability eventually when script structure migration is done
+
+.DESCRIPTION
+DEPRECATED: Replace with Test-SystemAvailability eventually when script structure migration is done
+#>
 function Test-ClusterAvailability {
     if (!(Get-IsControlPlaneRunning) -and !(Get-KubernetesServiceAreRunning) ) {
         throw "Cluster is not running. Please start the cluster with 'k2s start'."
