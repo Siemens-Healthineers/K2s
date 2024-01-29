@@ -41,24 +41,23 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'JSON config object to override preceeding parameters')]
     [pscustomobject] $Config
 )
-
-# load global settings
 &$PSScriptRoot\..\..\smallsetup\common\GlobalVariables.ps1
-# import global functions
 . $PSScriptRoot\..\..\smallsetup\common\GlobalFunctions.ps1
 
-. $PSScriptRoot\Common.ps1
+$logModule = "$PSScriptRoot/../../smallsetup/ps-modules/log/log.module.psm1"
+$clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
+$addonsModule = "$PSScriptRoot\..\addons.module.psm1"
 
-Import-Module "$PSScriptRoot/../../smallsetup/ps-modules/log/log.module.psm1"
+Import-Module $logModule, $addonsModule, $clusterModule
+
 Initialize-Logging -ShowLogs:$ShowLogs
 
-$addonsModule = "$PSScriptRoot\..\Addons.module.psm1"
-$setupInfoModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.cluster.module\setupinfo\setupinfo.module.psm1"
-Import-Module $addonsModule, $setupInfoModule
-
-
 Write-Log 'Checking cluster status' -Console
-Test-ClusterAvailability
+
+$systemError = Test-SystemAvailability
+if ($systemError) {
+    throw $systemError
+}
 
 if ((Test-IsAddonEnabled -Name 'kubevirt') -eq $true) {
     Write-Log "Addon 'kubevirt' is already enabled, nothing to do." -Console

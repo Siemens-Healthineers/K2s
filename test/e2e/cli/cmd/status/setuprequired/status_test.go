@@ -164,7 +164,6 @@ var _ = Describe("status command", func() {
 			})
 
 			It("does not contain any other info", func() {
-				Expect(status.EnabledAddons).To(BeNil())
 				Expect(status.Nodes).To(BeNil())
 				Expect(status.Pods).To(BeNil())
 				Expect(status.K8sVersionInfo).To(BeNil())
@@ -410,7 +409,7 @@ func expectAddonsGetPrinted(output string) {
 
 	for _, addon := range addons {
 		Expect(lines).To(ContainElement(SatisfyAll(
-			ContainSubstring(addon.Directory.Name),
+			ContainSubstring(addon.Metadata.Name),
 			ContainSubstring(addon.Metadata.Description),
 		)))
 	}

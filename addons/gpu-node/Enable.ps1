@@ -18,21 +18,15 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'JSON config object to override preceeding parameters')]
     [pscustomobject] $Config
 )
-
-# load global settings
 &$PSScriptRoot\..\..\smallsetup\common\GlobalVariables.ps1
-# import global functions
 . $PSScriptRoot\..\..\smallsetup\common\GlobalFunctions.ps1
 
-. $PSScriptRoot\Common.ps1
-
-Import-Module "$PSScriptRoot/../../smallsetup/ps-modules/log/log.module.psm1"
-Initialize-Logging -ShowLogs:$ShowLogs
-
-$addonsModule = "$PSScriptRoot\..\Addons.module.psm1"
-$setupInfoModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.cluster.module\setupinfo\setupinfo.module.psm1"
+$logModule = "$PSScriptRoot/../../smallsetup/ps-modules/log/log.module.psm1"
+$clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
+$addonsModule = "$PSScriptRoot\..\addons.module.psm1"
 $registryFunctionsModule = "$PSScriptRoot\..\..\smallsetup\helpers\RegistryFunctions.module.psm1"
-Import-Module $addonsModule, $registryFunctionsModule, $setupInfoModule -DisableNameChecking
+
+Import-Module $logModule, $addonsModule, $clusterModule, $registryFunctionsModule -DisableNameChecking
 
 Write-Log 'Checking Nvidia driver installation' -Console
 
@@ -53,7 +47,11 @@ if (!(Test-Path -Path 'C:\Windows\System32\lxss\lib\libdxcore.so')) {
 }
 
 Write-Log 'Checking cluster status' -Console
-Test-ClusterAvailability
+
+$systemError = Test-SystemAvailability
+if ($systemError) {
+    throw $systemError
+}
 
 if ((Test-IsAddonEnabled -Name 'gpu-node') -eq $true) {
     Write-Log "Addon 'gpu-node' is already enabled, nothing to do." -Console

@@ -245,13 +245,13 @@ Describe 'Test-SystemAvailability' -Tag 'unit' {
 }
 
 Describe 'Test-ClusterAvailability' -Tag 'unit' -Skip { 
-    It 'not-implemented' {
+    It 'test-not-implemented' {
         
     }
 }
 
 Describe 'Get-KubernetesServiceAreRunning' -Tag 'unit' -Skip { 
-    It 'not-implemented' {
+    It 'test-not-implemented' {
         
     }
 }
