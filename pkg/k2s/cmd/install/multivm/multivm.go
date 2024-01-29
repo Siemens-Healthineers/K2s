@@ -127,6 +127,10 @@ func buildInstallCmd(c *ic.InstallConfig) (cmd string, err error) {
 			return "", err
 		}
 
+		if workerNode.Image == "" {
+			return "", fmt.Errorf("missing flag '--%s' or '-%s': %s", ic.ImageFlagName, ic.ImageFlagShorthand, ic.ImageFlagUsage)
+		}
+
 		cmd += fmt.Sprintf(" -WinVMProcessorCount %s -WinVMStartUpMemory %s -WinVMDiskSize %s -WindowsImage %s",
 			workerNode.Resources.Cpu,
 			workerNode.Resources.Memory,
