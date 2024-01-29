@@ -55,7 +55,10 @@ Import-Module $nodeModule, $infraModule, $clusterModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
-Test-ClusterAvailability
+$systemError = Test-SystemAvailability
+if ($systemError) {
+    throw $systemError
+}
 
 $linuxContainerImages = Get-ContainerImagesOnLinuxNode -IncludeK8sImages $true
 $foundLinuxImages = @()
