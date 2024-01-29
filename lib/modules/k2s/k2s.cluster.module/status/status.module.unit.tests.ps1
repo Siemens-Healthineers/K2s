@@ -5,6 +5,7 @@
 BeforeAll {
     $module = "$PSScriptRoot\Status.module.psm1"
 
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('UseDeclaredVarsMoreThanAssignments', '', Justification = 'Pester Test')]
     $moduleName = (Import-Module $module -PassThru -Force).Name
 }
 
@@ -14,12 +15,12 @@ Describe 'Get-Status' -Tag 'unit' {
     }
     
     Context 'progress display disabled' {
-        Context 'setup type is invalid' {
+        Context 'setup name is invalid' {
             BeforeAll {
                 Mock -ModuleName $moduleName Get-SetupInfo { return @{Name = 'invalid'; ValidationError = 'invalid type' } }
             }
             
-            It 'returns status with setup type info immediately without gathering additional data' {
+            It 'returns status with setup name info immediately without gathering additional data' {
                 InModuleScope -ModuleName $moduleName {
                     $result = Get-Status
                     $result.SetupInfo.Name | Should -Be 'invalid'
@@ -29,10 +30,10 @@ Describe 'Get-Status' -Tag 'unit' {
             }
         }
         
-        Context 'setup type is valid' {
+        Context 'setup name is valid' {
             BeforeAll {
                 Mock -ModuleName $moduleName Get-SetupInfo { return @{Name = 'valid' } }
-                Mock -ModuleName $moduleName Get-EnabledAddons { return @{Addons = 'a1', 'a2' } }
+                Mock -ModuleName $moduleName Get-EnabledAddons { return 'a1', 'a2' }
                 Mock -ModuleName $moduleName Get-RunningState { return @{IsRunning = $false } }
 
                 InModuleScope -ModuleName $moduleName {
@@ -40,7 +41,7 @@ Describe 'Get-Status' -Tag 'unit' {
                 }
             }
             
-            It 'returns setup type' {
+            It 'returns setup name' {
                 InModuleScope -ModuleName $moduleName {
                     $result.SetupInfo.Name | Should -Be 'valid'
                     $result.SetupInfo.ValidationError | Should -BeNullOrEmpty
@@ -120,7 +121,7 @@ Describe 'Get-Status' -Tag 'unit' {
     }
 
     Context 'progress display enabled' {
-        Context 'setup type is invalid' {
+        Context 'setup name is invalid' {
             BeforeAll {
                 Mock -ModuleName $moduleName Get-SetupInfo { return @{Name = 'invalid'; ValidationError = 'invalid type' } }
                 Mock -ModuleName $moduleName Write-Progress {}
@@ -200,5 +201,57 @@ Describe 'Get-Status' -Tag 'unit' {
                 }
             }
         }
+    }
+}
+
+Describe 'Test-SystemAvailability' -Tag 'unit' {
+    Context 'setup info has errors' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Get-SetupInfo { return @{ValidationError = 'invalid-error' } }
+        }
+
+        It 'returns error' {
+            InModuleScope -ModuleName $moduleName {
+                Test-SystemAvailability | Should -Be 'invalid-error'
+            } 
+        }
+    }
+    
+    Context 'state is not-running' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Get-SetupInfo { return @{Name = 'my-setup'; ValidationError = $null } }
+            Mock -ModuleName $moduleName Get-RunningState { return @{IsRunning = $false } } -ParameterFilter { $SetupName -eq 'my-setup' }
+        }
+
+        It 'returns error' {
+            InModuleScope -ModuleName $moduleName {
+                Test-SystemAvailability | Should -Be 'not-running'
+            } 
+        }
+    }
+    
+    Context 'state is running' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Get-SetupInfo { return @{Name = 'my-setup'; ValidationError = $null } }
+            Mock -ModuleName $moduleName Get-RunningState { return @{IsRunning = $true } } -ParameterFilter { $SetupName -eq 'my-setup' }
+        }
+
+        It 'returns null' {
+            InModuleScope -ModuleName $moduleName {
+                Test-SystemAvailability | Should -BeNullOrEmpty
+            } 
+        }
+    }
+}
+
+Describe 'Test-ClusterAvailability' -Tag 'unit' -Skip { 
+    It 'not-implemented' {
+        
+    }
+}
+
+Describe 'Get-KubernetesServiceAreRunning' -Tag 'unit' -Skip { 
+    It 'not-implemented' {
+        
     }
 }

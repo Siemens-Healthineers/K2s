@@ -8,16 +8,17 @@ BeforeAll {
     $moduleName = (Import-Module $module -PassThru -Force).Name
 }
 
-Describe 'Confirm-SetupTypeIsValid' -Tag 'unit' {
-    It 'validation error contains "<expected>" when setup type is "<type>"' -ForEach @(
-        @{ Type = $null; Expected = 'not-installed' }
-        @{ Type = 'invalid type'; Expected = 'not-installed' }
-        @{ Type = 'k2s'; Expected = $null }
-        @{ Type = 'MultiVMK8s'; Expected = $null }
-        @{ Type = 'BuildOnlyEnv'; Expected = 'no-cluster' }
+Describe 'Confirm-SetupNameIsValid' -Tag 'unit' {
+    It 'validation error contains "<expected>" when setup name is "<name>"' -ForEach @(
+        @{ Name = $null; Expected = 'not-installed' }
+        @{ Name = ''; Expected = 'not-installed' }
+        @{ Name = 'invalid-name'; Expected = "invalid:'invalid-name'" }
+        @{ Name = 'k2s'; Expected = $null }
+        @{ Name = 'MultiVMK8s'; Expected = $null }
+        @{ Name = 'BuildOnlyEnv'; Expected = $null }
     ) {
-        InModuleScope $moduleName -Parameters @{Type = $Type; Expected = $Expected } {
-            $result = Confirm-SetupTypeIsValid -SetupType $Type
+        InModuleScope $moduleName -Parameters @{Name = $Name; Expected = $Expected } {
+            $result = Confirm-SetupNameIsValid -SetupName $Name
 
             if ($Expected -eq $null) {
                 $result | Should -BeNullOrEmpty
@@ -30,16 +31,16 @@ Describe 'Confirm-SetupTypeIsValid' -Tag 'unit' {
 }
 
 Describe 'Get-SetupInfo' -Tag 'unit' {
-    Context 'setup type is valid' {
-        Context "type is 'MultiVMK8s'" {
+    Context 'setup name is valid' {
+        Context "name is 'MultiVMK8s'" {
             BeforeAll {
                 Mock -ModuleName $moduleName Get-ConfigSetupType { return 'MultiVMK8s' }
                 Mock -ModuleName $moduleName Get-ConfigLinuxOnly { return $null }
-                Mock -ModuleName $moduleName Confirm-SetupTypeIsValid { return $null } -ParameterFilter { $SetupType -eq 'MultiVMK8s' }
+                Mock -ModuleName $moduleName Confirm-SetupNameIsValid { return $null } -ParameterFilter { $SetupName -eq 'MultiVMK8s' }
                 Mock -ModuleName $moduleName Get-ProductVersion { return '1.2.3' }
             }
 
-            It 'returns setup type without validation error' {
+            It 'returns setup name without validation error' {
                 $result = Get-SetupInfo
                 $result.Name | Should -Be 'MultiVMK8s'
                 $result.ValidationError | Should -BeNullOrEmpty
@@ -52,11 +53,11 @@ Describe 'Get-SetupInfo' -Tag 'unit' {
             BeforeAll {
                 Mock -ModuleName $moduleName Get-ConfigSetupType { return 'MultiVMK8s' }
                 Mock -ModuleName $moduleName Get-ConfigLinuxOnly { return $true }
-                Mock -ModuleName $moduleName Confirm-SetupTypeIsValid { return $null } -ParameterFilter { $SetupType -eq 'MultiVMK8s' }
+                Mock -ModuleName $moduleName Confirm-SetupNameIsValid { return $null } -ParameterFilter { $SetupName -eq 'MultiVMK8s' }
                 Mock -ModuleName $moduleName Get-ProductVersion { return '1.2.3' }
             }
 
-            It 'returns setup type with Linux-only hint' {
+            It 'returns setup name with Linux-only hint' {
                 $result = Get-SetupInfo
                 $result.Name | Should -Be 'MultiVMK8s'
                 $result.ValidationError | Should -BeNullOrEmpty
@@ -66,18 +67,18 @@ Describe 'Get-SetupInfo' -Tag 'unit' {
         }    
     }
     
-    Context 'setup type is invalid' {
+    Context 'setup name is invalid' {
         BeforeAll {
             Mock -ModuleName $moduleName Get-ConfigSetupType { return 'invalid' }
             Mock -ModuleName $moduleName Get-ConfigLinuxOnly { return $false }
-            Mock -ModuleName $moduleName Confirm-SetupTypeIsValid { return 'invalid-type' } -ParameterFilter { $SetupType -eq 'invalid' }
+            Mock -ModuleName $moduleName Confirm-SetupNameIsValid { return 'invalid-name' } -ParameterFilter { $SetupName -eq 'invalid' }
             Mock -ModuleName $moduleName Get-ProductVersion { }
         }
 
-        It 'returns setup type with validation error' {
+        It 'returns setup name with validation error' {
             $result = Get-SetupInfo
             $result.Name | Should -Be 'invalid'
-            $result.ValidationError | Should -Be 'invalid-type'
+            $result.ValidationError | Should -Be 'invalid-name'
             $result.LinuxOnly | Should -BeFalse
         }
     }

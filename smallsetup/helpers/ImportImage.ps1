@@ -28,12 +28,16 @@ Param (
 . $PSScriptRoot\..\common\GlobalFunctions.ps1
 
 $setupInfoModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.cluster.module\setupinfo\setupinfo.module.psm1"
+$statusModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.cluster.module\status\status.module.psm1"
 $imageFunctionsModule = "$PSScriptRoot\ImageFunctions.module.psm1"
 $loggingModule = "$PSScriptRoot\..\ps-modules\log\log.module.psm1"
-Import-Module $setupInfoModule, $imageFunctionsModule, $loggingModule -DisableNameChecking
+Import-Module $setupInfoModule, $imageFunctionsModule, $loggingModule, $statusModule -DisableNameChecking
 Initialize-Logging -ShowLogs:$ShowLogs
 
-Test-ClusterAvailabilityForImageFunctions
+$systemError = Test-SystemAvailability
+if ($systemError) {
+    throw $systemError
+}
 
 $images = @()
 if ($ImagePath -ne '') {

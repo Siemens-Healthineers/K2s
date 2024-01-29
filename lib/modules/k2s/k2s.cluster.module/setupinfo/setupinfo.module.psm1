@@ -4,25 +4,27 @@
 
 Import-Module "$PSScriptRoot/../../k2s.infra.module/config/config.module.psm1"
 
-function Confirm-SetupTypeIsValid {
+function Confirm-SetupNameIsValid {
     param (
         [Parameter(Mandatory = $false)]
-        [string]$SetupType
+        [string]$SetupName
     )
-    $validationError = switch ( $SetupType ) {
+    $validationError = switch ( $SetupName ) {
         'k2s' { $null }
         'MultiVMK8s' { $null }
-        'BuildOnlyEnv' { 'no-cluster' }
-        Default { 'not-installed' }
+        'BuildOnlyEnv' { $null }
+        $null { 'not-installed' }
+        '' { 'not-installed' }
+        Default { "invalid:'$SetupName'" }
     }
     
     return $validationError
 }
 
 function Get-SetupInfo {
-    $setupType = Get-ConfigSetupType
+    $setupName = Get-ConfigSetupType
     $linuxOnly = (Get-ConfigLinuxOnly) -eq $true
-    $validationError = Confirm-SetupTypeIsValid -SetupType $setupType
+    $validationError = Confirm-SetupNameIsValid -SetupName $setupName
     $productVersion = "v$(Get-ProductVersion)"
 
     if ($validationError) {
@@ -31,7 +33,7 @@ function Get-SetupInfo {
     }
 
     return [pscustomobject]@{
-        Name            = $setupType; 
+        Name            = $setupName; 
         Version         = $productVersion; 
         ValidationError = $validationError; 
         LinuxOnly       = $linuxOnly

@@ -19,10 +19,15 @@ Param (
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
     [switch] $ShowLogs = $false
 )
+$imageModule = "$PSScriptRoot\ImageFunctions.module.psm1"
+$statusModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.cluster.module\status\status.module.psm1"
 
-Import-Module $PSScriptRoot\ImageFunctions.module.psm1 -DisableNameChecking
+Import-Module $imageModule, $statusModule -DisableNameChecking
 
-Test-ClusterAvailabilityForImageFunctions
+$systemError = Test-SystemAvailability
+if ($systemError) {
+    throw $systemError
+}
 
 if ($FromRegistry) {
     kubectl get namespace registry 2> $null | Out-Null
