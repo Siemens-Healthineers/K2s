@@ -12,8 +12,8 @@ $addonsModule = "$PSScriptRoot\..\..\Addons.module.psm1"
 $setupInfoModule = "$PSScriptRoot\..\..\..\lib\modules\k2s\k2s.cluster.module\setupinfo\setupinfo.module.psm1"
 $runningStateModule = "$PSScriptRoot\..\..\..\smallsetup\status\RunningState.module.psm1"
 
-
 $logModule = "$PSScriptRoot\..\..\..\smallsetup\ps-modules\log\log.module.psm1"
+
 Import-Module $addonsModule, $setupInfoModule, $runningStateModule, $k8sApiModule, $formattingModule, $logModule
 
 $AddonName = 'smb-share'
