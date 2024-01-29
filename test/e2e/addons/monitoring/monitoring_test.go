@@ -76,7 +76,7 @@ var _ = Describe("'monitoring' addon", Ordered, func() {
 		})
 
 		It("is reachable through port forwarding", func(ctx context.Context) {
-			kubectl := path.Join(suite.RootDir(), "bin", "kubectl.exe")
+			kubectl := path.Join(suite.RootDir(), "bin", "exe", "kubectl.exe")
 			portForwarding := exec.Command(kubectl, "-n", "monitoring", "port-forward", "svc/kube-prometheus-stack-plutono", "3000:443")
 			portForwardingSession, _ = gexec.Start(portForwarding, GinkgoWriter, GinkgoWriter)
 

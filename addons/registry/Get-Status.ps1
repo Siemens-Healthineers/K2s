@@ -6,7 +6,7 @@
 
 &$PSScriptRoot\..\..\smallsetup\common\GlobalVariables.ps1
 
-kubectl wait --timeout=5s --for=condition=ready -n registry pod/k2s-registry-pod 2>&1 | Out-Null
+&$global:KubectlExe wait --timeout=5s --for=condition=ready -n registry pod/k2s-registry-pod 2>&1 | Out-Null
 
 $isRegistryPodRunningProp = @{Name = 'isRegistryPodRunningProp'; Value = $?; Okay = $? }
 if ($isRegistryPodRunningProp.Value -eq $true) {

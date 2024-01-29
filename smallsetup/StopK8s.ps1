@@ -30,7 +30,7 @@ if ($global:HeaderLineShown -ne $true) {
 
 # reset default namespace
 Write-Log 'Reseting default namespace for kubernetes'
-kubectl config set-context --current --namespace=default | Out-Null
+&$global:KubectlExe config set-context --current --namespace=default | Out-Null
 
 $ProgressPreference = 'SilentlyContinue'
 

@@ -50,7 +50,7 @@ param(
 function Reset-K8sNamespace {
     # reset default namespace
     Write-Log 'Resetting default namespace for Kubernetes ...'
-    kubectl config set-context --current --namespace=default | Out-Null
+    &$global:KubectlExe config set-context --current --namespace=default | Out-Null
 }
 
 function Invoke-BeforeVMNetworkingRemovalHook([string]$AdditionalHooksDir) {

@@ -349,10 +349,8 @@ function Install-KubectlOnHost() {
     }
 
     # TODO: clone from SetupNode.ps1
-    if (!(Test-Path "$global:ExecutableFolderPath\kubectl.exe") -or ($previousKubernetesVersion -ne $global:KubernetesVersion)) {
-        DownloadFile "$global:ExecutableFolderPath\kubectl.exe" https://dl.k8s.io/release/$global:KubernetesVersion/bin/windows/amd64/kubectl.exe $true
-        # put a second copy in the bin folder, which is in the PATH
-        Copy-Item -Force "$global:ExecutableFolderPath\kubectl.exe" "$global:KubernetesPath\bin\kubectl.exe"
+    if (!(Test-Path "&$global:KubectlExe") -or ($previousKubernetesVersion -ne $global:KubernetesVersion)) {
+        DownloadFile "&$global:KubectlExe" https://dl.k8s.io/release/$global:KubernetesVersion/bin/windows/amd64/kubectl.exe $true
     }
 }
 
@@ -491,10 +489,10 @@ function Write-K8sNodesStatus {
     $ErrorActionPreference = 'Continue'
     while ($true) {
         #Check whether node information is available from the cluster
-        kubectl get nodes 2>$null | Out-Null
+        &$global:KubectlExe get nodes 2>$null | Out-Null
         if ($?) {
             Write-Log 'Current state of kubernetes nodes:'
-            kubectl get nodes -o wide
+            &$global:KubectlExe get nodes -o wide
             break
         }
         else {

@@ -37,17 +37,17 @@ if ($systemError) {
 
 Write-Log 'Check whether gateway-nginx addon is already disabled'
 
-if ($null -eq (kubectl get namespace nginx-gateway --ignore-not-found)) {
+if ($null -eq (&$global:KubectlExe get namespace nginx-gateway --ignore-not-found)) {
     Write-Log 'Addon already disabled.' -Console
     exit 0
 }
 
 Write-Log 'Uninstalling NGINX Kubernetes Gateway' -Console
-&$global:BinPath\kubectl.exe delete -f "$global:KubernetesPath\addons\gateway-nginx\manifests\nginx-gateway-fabric-v1.1.0.yaml" | Write-Log
-&$global:BinPath\kubectl.exe delete -f "$global:KubernetesPath\addons\gateway-nginx\manifests\crds" | Write-Log
+&$global:KubectlExe delete -f "$global:KubernetesPath\addons\gateway-nginx\manifests\nginx-gateway-fabric-v1.1.0.yaml" | Write-Log
+&$global:KubectlExe delete -f "$global:KubernetesPath\addons\gateway-nginx\manifests\crds"  | Write-Log
 
 Write-Log 'Uninstalling Gateway API' -Console
-&$global:BinPath\kubectl.exe delete -f "$global:KubernetesPath\addons\gateway-nginx\manifests\gateway-api-v1.0.0.yaml" | Write-Log
+&$global:KubectlExe delete -f "$global:KubernetesPath\addons\gateway-nginx\manifests\gateway-api-v1.0.0.yaml" | Write-Log
 
 Remove-ScriptsFromHooksDir -ScriptNames $hookFileNames
 Remove-AddonFromSetupJson -Name 'gateway-nginx'

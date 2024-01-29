@@ -102,7 +102,7 @@ function Add-DashboardHostEntry {
 Determines if Traefik ingress controller is deployed in the cluster
 #>
 function Test-TraefikIngressControllerAvailability {
-    $existingServices = $(&$global:BinPath\kubectl.exe get service -n traefik -o yaml)
+    $existingServices = $(&$global:KubectlExe get service -n traefik -o yaml)
     if ("$existingServices" -match '.*traefik.*') {
         return $true
     }
@@ -137,27 +137,27 @@ if ($Ingress -ne 'none') {
 }
 
 Write-Log 'Installing Kube Prometheus Stack' -Console
-kubectl apply -f "$global:KubernetesPath\addons\monitoring\manifests\namespace.yaml"
-kubectl create -f "$global:KubernetesPath\addons\monitoring\manifests\crds" 
-kubectl create -k "$global:KubernetesPath\addons\monitoring\manifests"
+&$global:KubectlExe apply -f "$global:KubernetesPath\addons\monitoring\manifests\namespace.yaml"
+&$global:KubectlExe create -f "$global:KubernetesPath\addons\monitoring\manifests\crds" 
+&$global:KubectlExe create -k "$global:KubernetesPath\addons\monitoring\manifests"
 
 Write-Log 'Waiting for pods...'
-kubectl rollout status deployments -n monitoring --timeout=180s
+&$global:KubectlExe rollout status deployments -n monitoring --timeout=180s
 if (!$?) {
     Log-ErrorWithThrow 'Kube Prometheus Stack could not be deployed successfully!'
 }
-kubectl rollout status statefulsets -n monitoring --timeout=180s
+&$global:KubectlExe rollout status statefulsets -n monitoring --timeout=180s
 if (!$?) {
     Log-ErrorWithThrow 'Kube Prometheus Stack could not be deployed successfully!'
 }
-kubectl rollout status daemonsets -n monitoring --timeout=180s
+&$global:KubectlExe rollout status daemonsets -n monitoring --timeout=180s
 if (!$?) {
     Log-ErrorWithThrow 'Kube Prometheus Stack could not be deployed successfully!'
 }
 
 # traefik uses crd, so we have define ingressRoute after traefik has been enabled
 if (Test-TraefikIngressControllerAvailability) {
-    kubectl apply -f "$global:KubernetesPath\addons\monitoring\manifests\plutono\traefik.yaml"
+    &$global:KubectlExe apply -f "$global:KubernetesPath\addons\monitoring\manifests\plutono\traefik.yaml"
 }
 Add-DashboardHostEntry
 

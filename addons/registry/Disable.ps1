@@ -42,18 +42,18 @@ if ($systemError) {
     throw $systemError
 }
 
-Write-Log 'Check whether registry addon is already disabled'
-if ($null -eq (kubectl get namespace registry --ignore-not-found)) {
+Write-Log "Check whether registry addon is already disabled"
+if ($null -eq (&$global:KubectlExe get namespace registry --ignore-not-found)) {
     Write-Log 'Addon already disabled.' -Console
     exit 0
 }
 
 Write-Log 'Uninstalling Kubernetes registry' -Console
 
-kubectl delete -f "$global:KubernetesPath\addons\registry\manifests\k2s-registry.yaml" | Write-Log
+&$global:KubectlExe delete -f "$global:KubernetesPath\addons\registry\manifests\k2s-registry.yaml" | Write-Log
 
-kubectl delete secret k2s-registry | Write-Log
-kubectl delete namespace registry | Write-Log
+&$global:KubectlExe delete secret k2s-registry | Write-Log
+&$global:KubectlExe delete namespace registry | Write-Log
 
 if ($DeleteImages) {
     ExecCmdMaster 'sudo rm -rf /registry'

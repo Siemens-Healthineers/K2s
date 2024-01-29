@@ -38,8 +38,8 @@ if ($systemError) {
     throw $systemError
 }
 
-Write-Log 'Check whether dashboard addon is already disabled' -Console
-if ($null -eq (kubectl get namespace kubernetes-dashboard --ignore-not-found)) {
+Write-Log "Check whether dashboard addon is already disabled" -Console
+if ($null -eq (&$global:KubectlExe get namespace kubernetes-dashboard --ignore-not-found)) {
     Write-Log 'Addon already disabled.' -Console
     exit 0
 }
@@ -47,7 +47,7 @@ if ($null -eq (kubectl get namespace kubernetes-dashboard --ignore-not-found)) {
 Write-Log 'Uninstalling Kubernetes dashboard' -Console
 $dashboardConfig = Get-DashboardConfig
 $dashboardNginxIngressConfig = Get-DashboardNginxConfig
-kubectl delete -f $dashboardConfig
-kubectl delete -f $dashboardNginxIngressConfig --ignore-not-found
+&$global:KubectlExe delete -f $dashboardConfig
+&$global:KubectlExe delete -f $dashboardNginxIngressConfig --ignore-not-found
 Remove-AddonFromSetupJson -Name 'dashboard'
 Write-Log 'Uninstallation of Kubernetes dashboard finished' -Console

@@ -1567,7 +1567,7 @@ function Update-NodeLabelsAndTaints {
     $controlPlaneTaint = 'node-role.kubernetes.io/control-plane'
 
     # mark control-plane as worker (remove the control-plane tainting)
-    (kubectl get nodes -o=jsonpath='{range .items[*]}~{.metadata.name}#{.spec.taints[*].key}') -split '~' | ForEach-Object {
+    (&$global:KubectlExe get nodes -o=jsonpath='{range .items[*]}~{.metadata.name}#{.spec.taints[*].key}') -split '~' | ForEach-Object {
         $parts = $_ -split '#'
 
         if ($parts[1] -match $controlPlaneTaint) {
@@ -1575,7 +1575,7 @@ function Update-NodeLabelsAndTaints {
 
             Write-Log "Taint '$controlPlaneTaint' found on node '$node', untainting..."
 
-            kubectl taint nodes $node "$controlPlaneTaint-"
+            &$global:KubectlExe taint nodes $node "$controlPlaneTaint-"
         }
     }
 
@@ -1585,10 +1585,10 @@ function Update-NodeLabelsAndTaints {
         Write-Log "Labeling and tainting worker node '$nodeName'..."
 
         # mark nodes as worker
-        kubectl label nodes $nodeName kubernetes.io/role=worker --overwrite
+        &$global:KubectlExe label nodes $nodeName kubernetes.io/role=worker --overwrite
 
         # taint windows nodes
-        kubectl taint nodes $nodeName OS=Windows:NoSchedule --overwrite
+        &$global:KubectlExe taint nodes $nodeName OS=Windows:NoSchedule --overwrite
     }
 
     # change default policy in VM (after restart of VM always policy is changed automatically)
@@ -1821,7 +1821,7 @@ function Wait-ForAPIServer () {
         $iteration++
         # try to apply the flannel resources
         $ErrorActionPreference = 'Continue'
-        $result = $(echo yes | kubectl wait --timeout=60s --for=condition=Ready -n kube-system "pod/kube-apiserver-$hostname" 2>&1)
+        $result = $(echo yes | &$global:KubectlExe wait --timeout=60s --for=condition=Ready -n kube-system "pod/kube-apiserver-$hostname" 2>&1)
         $ErrorActionPreference = 'Stop'
         if ($result -match 'condition met') {
             break;
@@ -1878,7 +1878,7 @@ function Wait-ForPodsReady(
     [int]$NumberOfRetries = 10) {
     $allPodsUp = $false
     for (($i = 1); $i -le $NumberOfRetries; $i++) {
-        $out = kubectl get pods --selector=$Selector -n $Namespace -o=jsonpath="{range .items[?(@.status.phase=='Running')]}{range @.status.containerStatuses[?(@.ready==`$true)]}{@.name}{'\n'}{end}{end}"
+        $out = &$global:KubectlExe get pods --selector=$Selector -n $Namespace -o=jsonpath="{range .items[?(@.status.phase=='Running')]}{range @.status.containerStatuses[?(@.ready==`$true)]}{@.name}{'\n'}{end}{end}"
         $actualRunningPodCount = $out.Count
         if ($actualRunningPodCount -ne $ExpectedReadyPodCount) {
             $log = "Retry {$i}: Pods are not yet ready." +

@@ -176,7 +176,8 @@ Invoke-Hook -HookName 'AfterBaseInstall' -AdditionalHooksDir $AdditionalHooksDir
 # CURRENT STATE OF CLUSTER
 Write-Log "Current state of kubernetes nodes:`n"
 Start-Sleep 2
-kubectl get nodes -o wide
+$kubeToolsPath = Get-KubeToolsPath
+&"$kubeToolsPath\kubectl.exe" get nodes -o wide
 
 Write-Log '---------------------------------------------------------------'
 Write-Log "K2s setup finished.   Total duration: $('{0:hh\:mm\:ss}' -f $installStopwatch.Elapsed )"

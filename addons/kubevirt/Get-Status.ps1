@@ -4,7 +4,7 @@
 
 #Requires -RunAsAdministrator
 
-kubectl wait --timeout=5s --for=condition=Available -n kubevirt deployment/virt-api 2>&1 | Out-Null
+&$global:KubectlExe wait --timeout=5s --for=condition=Available -n kubevirt deployment/virt-api 2>&1 | Out-Null
 
 $isVirtApiRunningProp = @{Name = 'isVirtApiRunningProp'; Value = $?; Okay = $? }
 if ($isVirtApiRunningProp.Value -eq $true) {
@@ -14,7 +14,7 @@ else {
     $isVirtApiRunningProp.Message = "The virt-api is not working. Try restarting the cluster with 'k2s start' or disable and re-enable the addon with 'k2s addons disable kubevirt' and 'k2s addons enable kubevirt'"
 } 
 
-kubectl wait --timeout=5s --for=condition=Available -n kubevirt deployment/virt-controller 2>&1 | Out-Null
+&$global:KubectlExe wait --timeout=5s --for=condition=Available -n kubevirt deployment/virt-controller 2>&1 | Out-Null
 
 $isVirtControllerRunningProp = @{Name = 'isVirtControllerRunningProp'; Value = $?; Okay = $? }
 if ($isVirtControllerRunningProp.Value -eq $true) {
@@ -24,7 +24,7 @@ else {
     $isVirtControllerRunningProp.Message = "The virt-controller is not working. Try restarting the cluster with 'k2s start' or disable and re-enable the addon with 'k2s addons disable kubevirt' and 'k2s addons enable kubevirt'"
 } 
 
-kubectl wait --timeout=5s --for=condition=Available -n kubevirt deployment/virt-operator 2>&1 | Out-Null
+&$global:KubectlExe wait --timeout=5s --for=condition=Available -n kubevirt deployment/virt-operator 2>&1 | Out-Null
 
 $isVirtOperatorRunningProp = @{Name = 'isVirtOperatorRunningProp'; Value = $?; Okay = $? }
 if ($isVirtOperatorRunningProp.Value -eq $true) {
@@ -34,7 +34,7 @@ else {
     $isVirtOperatorRunningProp.Message = "The virt-operator is not working. Try restarting the cluster with 'k2s start' or disable and re-enable the addon with 'k2s addons disable kubevirt' and 'k2s addons enable kubevirt'"
 } 
 
-kubectl rollout status daemonsets -n kubevirt --timeout=5s 2>&1 | Out-Null
+&$global:KubectlExe rollout status daemonsets -n kubevirt --timeout=5s 2>&1 | Out-Null
 
 $isVirtHandlerRunningProp = @{Name = 'isVirtHandlerRunningProp'; Value = $?; Okay = $? }
 if ($isVirtHandlerRunningProp.Value -eq $true) {

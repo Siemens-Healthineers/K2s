@@ -27,7 +27,7 @@ for ($i = 0; $i -lt 60; $i++) {
     Start-Sleep 2
     #Write-Log "Checking for node $env:COMPUTERNAME..."
 
-    $nodes = $(kubectl get nodes)
+    $nodes = $(&$global:KubectlExe get nodes)
     #Write-Log "$i WaitForJoin: $nodes"
 
     $nodefound = $nodes | Select-String -Pattern "$env:COMPUTERNAME\s*Ready"

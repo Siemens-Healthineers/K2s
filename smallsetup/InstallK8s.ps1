@@ -327,7 +327,7 @@ Set-Content $kubeletconfig
 # show results
 Write-Log "Current state of kubernetes nodes:`n"
 Start-Sleep 2
-kubectl get nodes -o wide
+&$global:KubectlExe get nodes -o wide
 
 Write-Log "Collecting kubernetes images and storing them to $global:KubernetesImagesJson."
 $imageFunctionsModulePath = "$PSScriptRoot\helpers\ImageFunctions.module.psm1"
@@ -364,7 +364,7 @@ Invoke-Hook -HookName 'AfterBaseInstall' -AdditionalHooksDir $AdditionalHooksDir
 # show results
 Write-Log "Current state of kubernetes nodes:`n"
 Start-Sleep 2
-kubectl get nodes -o wide
+&$global:KubectlExe get nodes -o wide
 
 Write-Log '---------------------------------------------------------------'
 Write-Log "K2s setup finished.   Total duration: $('{0:hh\:mm\:ss}' -f $installStopwatch.Elapsed )"

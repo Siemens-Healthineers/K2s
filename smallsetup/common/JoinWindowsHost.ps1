@@ -26,7 +26,7 @@ Param(
 Import-Module "$PSScriptRoot/../ps-modules/log/log.module.psm1"
 
 # join node if necessary
-$nodefound = kubectl get nodes | Select-String -Pattern $env:COMPUTERNAME -SimpleMatch
+$nodefound = &$global:KubectlExe get nodes | Select-String -Pattern $env:COMPUTERNAME -SimpleMatch
 if ( !($nodefound) ) {
 
     Write-Log "Add kubeadm to firewall rules"
@@ -91,9 +91,9 @@ if ( !($nodefound) ) {
     if( !$bPathAvailable ) { Remove-Item -Path $tempDirectory }
 
     # check success in joining
-    $nodefound = kubectl get nodes | Select-String -Pattern $env:COMPUTERNAME -SimpleMatch
+    $nodefound = &$global:KubectlExe get nodes | Select-String -Pattern $env:COMPUTERNAME -SimpleMatch
     if ( !($nodefound) ) {
-        kubectl get nodes
+        &$global:KubectlExe get nodes
         throw 'Joining the windows node failed'
     }
 
@@ -119,5 +119,5 @@ if (! (Test-Path $kubeletEnv)) {
 
 # mark nodes as worker
 Write-Log "Labeling windows node as worker node"
-kubectl label nodes $env:computername.ToLower() kubernetes.io/role=worker --overwrite | Out-Null
+&$global:KubectlExe label nodes $env:computername.ToLower() kubernetes.io/role=worker --overwrite | Out-Null
 
