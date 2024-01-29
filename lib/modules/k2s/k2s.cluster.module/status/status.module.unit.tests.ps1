@@ -33,7 +33,7 @@ Describe 'Get-Status' -Tag 'unit' {
         Context 'setup name is valid' {
             BeforeAll {
                 Mock -ModuleName $moduleName Get-SetupInfo { return @{Name = 'valid' } }
-                Mock -ModuleName $moduleName Get-EnabledAddons { return 'a1', 'a2' }
+                Mock -ModuleName $moduleName Get-Addons { return @{Addons = 'a1', 'a2' } }
                 Mock -ModuleName $moduleName Get-RunningState { return @{IsRunning = $false } }
 
                 InModuleScope -ModuleName $moduleName {
@@ -60,7 +60,7 @@ Describe 'Get-Status' -Tag 'unit' {
         Context 'cluster is not running' {
             BeforeAll {
                 Mock -ModuleName $moduleName Get-SetupInfo { return @{Name = 'valid' } }
-                Mock -ModuleName $moduleName Get-EnabledAddons {}
+                Mock -ModuleName $moduleName Get-Addons {}
                 Mock -ModuleName $moduleName Get-RunningState { return @{IsRunning = $false } }
 
                 InModuleScope -ModuleName $moduleName {
@@ -78,7 +78,7 @@ Describe 'Get-Status' -Tag 'unit' {
         Context 'cluster is running' {
             BeforeAll {
                 Mock -ModuleName $moduleName Get-SetupInfo { return @{Name = 'valid' } }
-                Mock -ModuleName $moduleName Get-EnabledAddons {}
+                Mock -ModuleName $moduleName Get-Addons {}
                 Mock -ModuleName $moduleName Get-RunningState { return @{IsRunning = $true } }
                 Mock -ModuleName $moduleName Get-Nodes { return @{Name = 'n1' }, @{Name = 'n2' } }
                 Mock -ModuleName $moduleName Get-SystemPods { return @{Name = 'p1' }, @{Name = 'p2' } }
@@ -149,7 +149,7 @@ Describe 'Get-Status' -Tag 'unit' {
             BeforeAll {
                 Mock -ModuleName $moduleName Get-SetupInfo { return @{Name = 'valid' } }
                 Mock -ModuleName $moduleName Write-Progress {}
-                Mock -ModuleName $moduleName Get-EnabledAddons {}
+                Mock -ModuleName $moduleName Get-Addons {}
                 Mock -ModuleName $moduleName Get-RunningState { return @{IsRunning = $false } }
 
                 InModuleScope -ModuleName $moduleName {
@@ -177,7 +177,7 @@ Describe 'Get-Status' -Tag 'unit' {
             BeforeAll {
                 Mock -ModuleName $moduleName Get-SetupInfo { return @{Name = 'valid' } }
                 Mock -ModuleName $moduleName Write-Progress {}
-                Mock -ModuleName $moduleName Get-EnabledAddons {}
+                Mock -ModuleName $moduleName Get-Addons {}
                 Mock -ModuleName $moduleName Get-RunningState { return @{IsRunning = $true } }
                 Mock -ModuleName $moduleName Get-Nodes {}
                 Mock -ModuleName $moduleName Get-SystemPods {}
