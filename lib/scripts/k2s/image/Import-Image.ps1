@@ -55,7 +55,10 @@ Import-Module $nodeModule, $infraModule, $clusterModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
-Test-ClusterAvailability
+$systemError = Test-SystemAvailability
+if ($systemError) {
+    throw $systemError
+}
 
 $images = @()
 if ($ImagePath -ne '') {
@@ -78,7 +81,7 @@ if ($Windows) {
 }
 else {
     foreach ($image in $images) {
-        Copy-ToControlPlaneViaSSHKey $image "/tmp/import.tar"
+        Copy-ToControlPlaneViaSSHKey $image '/tmp/import.tar'
 
         if (!$?) {
             Write-Error "Image $image could not be copied to KubeMaster"

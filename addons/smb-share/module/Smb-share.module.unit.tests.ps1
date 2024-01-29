@@ -1236,46 +1236,6 @@ Describe 'Remove-SmbShareAndFolderLinuxHost' -Tag 'unit', 'addon' {
     }
 }
 
-Describe 'Test-ClusterAvailability' -Tag 'unit', 'addon' {
-    Context 'setup type invalid' {
-        BeforeAll {
-            Mock -ModuleName $moduleName Get-SetupInfo { return [pscustomobject]@{ValidationError = 'oops' } }
-        }
-
-        It 'throws' {
-            InModuleScope -ModuleName $moduleName {
-                { Test-ClusterAvailability } | Should -Throw -ExpectedMessage 'oops'
-            }
-        }
-    }
-
-    Context 'cluster not running' {
-        BeforeAll {
-            Mock -ModuleName $moduleName Get-SetupInfo { return [pscustomobject]@{Name = 'test-type' } }
-            Mock -ModuleName $moduleName Get-RunningState { return [pscustomobject]@{IsRunning = $false } }
-        }
-
-        It 'throws' {
-            InModuleScope -ModuleName $moduleName {
-                { Test-ClusterAvailability } | Should -Throw -ExpectedMessage "Cannot interact with '$AddonName' addon when cluster is not running. Please start the cluster with 'k2s start'."
-            }
-        }
-    }
-
-    Context 'cluster running' {
-        BeforeAll {
-            Mock -ModuleName $moduleName Get-SetupInfo { return [pscustomobject]@{Name = 'test-type' } }
-            Mock -ModuleName $moduleName Get-RunningState { return [pscustomobject]@{IsRunning = $true } } -ParameterFilter { $SetupType -eq 'test-type' }
-        }
-
-        It 'does not throw' {
-            InModuleScope -ModuleName $moduleName {
-                { Test-ClusterAvailability } | Should -Not -Throw
-            }
-        }
-    }
-}
-
 Describe 'Remove-SmbShareAndFolder' -Tag 'unit', 'addon' {
     Context 'SMB host type invalid' {
         BeforeAll {
@@ -1294,7 +1254,7 @@ Describe 'Remove-SmbShareAndFolder' -Tag 'unit', 'addon' {
     Context 'nodes cleanup skipped' {
         BeforeAll {
             Mock -ModuleName $moduleName Write-Log {}
-            Mock -ModuleName $moduleName Test-ClusterAvailability {}
+            Mock -ModuleName $moduleName Test-SystemAvailability {}
             Mock -ModuleName $moduleName Get-SmbHostType {}
             Mock -ModuleName $moduleName Get-SetupInfo {}
             Mock -ModuleName $moduleName Remove-StorageClass {}
@@ -1309,7 +1269,7 @@ Describe 'Remove-SmbShareAndFolder' -Tag 'unit', 'addon' {
 
         It 'does not check cluster availability' {
             InModuleScope -ModuleName $moduleName {
-                Should -Invoke Test-ClusterAvailability -Times 0 -Scope Context
+                Should -Invoke Test-SystemAvailability -Times 0 -Scope Context
             }
         }
 
@@ -1367,7 +1327,7 @@ Describe 'Remove-SmbShareAndFolder' -Tag 'unit', 'addon' {
     Context 'nodes cleanup not skipped' {
         BeforeAll {
             Mock -ModuleName $moduleName Write-Log {}
-            Mock -ModuleName $moduleName Test-ClusterAvailability {}
+            Mock -ModuleName $moduleName Test-SystemAvailability {}
             Mock -ModuleName $moduleName Get-SmbHostType { }
             Mock -ModuleName $moduleName Get-SetupInfo { return [pscustomobject]@{LinuxOnly = $false } }
             Mock -ModuleName $moduleName Remove-StorageClass {}
@@ -1382,7 +1342,7 @@ Describe 'Remove-SmbShareAndFolder' -Tag 'unit', 'addon' {
 
         It 'does check cluster availability' {
             InModuleScope -ModuleName $moduleName {
-                Should -Invoke Test-ClusterAvailability -Times 1 -Scope Context
+                Should -Invoke Test-SystemAvailability -Times 1 -Scope Context
             }
         }
 
@@ -1517,7 +1477,7 @@ Describe 'Enable-SmbShare' -Tag 'unit', 'addon' {
 
     Context 'cluster is not running' {
         BeforeAll {
-            Mock -ModuleName $moduleName Test-ClusterAvailability { throw 'unavailable' }
+            Mock -ModuleName $moduleName Test-SystemAvailability { return 'unavailable' }
         }
 
         It 'throws' {
@@ -1527,7 +1487,7 @@ Describe 'Enable-SmbShare' -Tag 'unit', 'addon' {
 
     Context 'addon is already enabled' {
         BeforeAll {
-            Mock -ModuleName $moduleName Test-ClusterAvailability { }
+            Mock -ModuleName $moduleName Test-SystemAvailability { }
             Mock -ModuleName $moduleName Test-IsAddonEnabled { return $true } -ParameterFilter { $Name -eq $AddonName }
             Mock -ModuleName $moduleName Write-Log { }
         }
@@ -1542,7 +1502,7 @@ Describe 'Enable-SmbShare' -Tag 'unit', 'addon' {
 
     Context 'cluster is running' {
         BeforeAll {
-            Mock -ModuleName $moduleName Test-ClusterAvailability { }
+            Mock -ModuleName $moduleName Test-SystemAvailability { }
         }
 
         Context 'addon is disabled' {

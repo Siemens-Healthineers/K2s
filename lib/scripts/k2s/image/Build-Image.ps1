@@ -132,7 +132,10 @@ $clusterModule = "$PSScriptRoot/../../../modules/k2s/k2s.cluster.module/k2s.clus
 Import-Module $nodeModule, $infraModule, $clusterModule
 Initialize-Logging -ShowLogs:$ShowLogs
 
-Test-ClusterAvailability
+$systemError = Test-SystemAvailability
+if ($systemError) {
+    throw $systemError
+}
 
 $mainStopwatch = [system.diagnostics.stopwatch]::StartNew()
 

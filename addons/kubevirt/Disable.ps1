@@ -22,23 +22,23 @@ Param(
 
 $mainStopwatch = [system.diagnostics.stopwatch]::StartNew()
 
-# load global settings
 &$PSScriptRoot\..\..\smallsetup\common\GlobalVariables.ps1
-# import global functions
 . $PSScriptRoot\..\..\smallsetup\common\GlobalFunctions.ps1
 
-. $PSScriptRoot\Common.ps1
+$logModule = "$PSScriptRoot/../../smallsetup/ps-modules/log/log.module.psm1"
+$statusModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/status/status.module.psm1"
+$addonsModule = "$PSScriptRoot\..\addons.module.psm1"
 
-Import-Module "$PSScriptRoot/../../smallsetup/ps-modules/log/log.module.psm1"
+Import-Module $logModule, $addonsModule, $statusModule
+
 Initialize-Logging -ShowLogs:$ShowLogs
 
-$addonsModule = "$PSScriptRoot\..\Addons.module.psm1"
-
-Import-Module $addonsModule
-
-
 Write-Log 'Checking cluster status' -Console
-Test-ClusterAvailability
+
+$systemError = Test-SystemAvailability
+if ($systemError) {
+    throw $systemError
+}
 
 Write-Log "Check whether kubevirt addon is already disabled"
 if ($null -eq (&$global:KubectlExe get namespace kubevirt --ignore-not-found)) {
@@ -84,7 +84,7 @@ $ScriptBlockNamespaces = {
 &$global:KubectlExe delete -f "$global:KubernetesPath\addons\kubevirt\kubevirt-operator.yaml" --wait=false >$null 2>&1 | Write-Log
 
 # delete kubevirt
-Write-Log "delete kubevirt"
+Write-Log 'delete kubevirt'
 if ($PSVersionTable.PSVersion.Major -gt 5) {
     &$global:KubectlExe patch namespace kubevirt -p '{"metadata":{"finalizers":null}}' >$null 2>&1 | Write-Log
 } else {
@@ -105,7 +105,7 @@ Write-Log "`nKubernetes pods after:`n"
 # only for Small K8s Setup we use software virtualization
 if ( $K8sSetup -eq 'SmallSetup' ) {
     # remove cgroup setting
-    Write-Log "change back to cgroup v2"
+    Write-Log 'change back to cgroup v2'
     ExecCmdMaster "sudo sed -i 's,systemd.unified_cgroup_hierarchy=0\ ,,g' /etc/default/grub"
     ExecCmdMaster 'sudo update-grub 2>&1'
 
@@ -114,10 +114,10 @@ if ( $K8sSetup -eq 'SmallSetup' ) {
     Stop-VM -Name $global:VMName -Force -WarningAction SilentlyContinue
     $state = (Get-VM -Name $global:VMName).State -eq [Microsoft.HyperV.PowerShell.VMState]::Off
     while (!$state) {
-        Write-Log "Still waiting for stop..."
+        Write-Log 'Still waiting for stop...'
         Start-Sleep -s 1
     }
-     Write-Log "Start VM $global:VMName"
+    Write-Log "Start VM $global:VMName"
     Start-VM -Name $global:VMName
     Wait-ForSSHConnectionToLinuxVMViaSshKey
 }
@@ -126,7 +126,7 @@ Remove-AddonFromSetupJson -Name 'kubevirt'
 
 Remove-Item "$global:KubernetesPath\bin\virtctl.exe" -Force -ErrorAction SilentlyContinue
 
-Write-Log "Remove virtviewer" -Console
+Write-Log 'Remove virtviewer' -Console
 $virtviewer = 'virt-viewer-x64-11.0-1.0.msi';
 msiexec /x "$global:KubernetesPath\bin\$virtviewer" /qn /L*VX "$global:KubernetesPath\bin\msiuninstall.log"
 Remove-Item "$global:KubernetesPath\bin\$virtviewer" -Force -ErrorAction SilentlyContinue

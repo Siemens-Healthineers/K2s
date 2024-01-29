@@ -46,7 +46,10 @@ Import-Module $clusterModule, $infraModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
-Test-ClusterAvailability
+$systemError = Test-SystemAvailability
+if ($systemError) {
+    throw $systemError
+}
 
 if ($FromRegistry) {
     $kubeToolsPath = Get-KubeToolsPath

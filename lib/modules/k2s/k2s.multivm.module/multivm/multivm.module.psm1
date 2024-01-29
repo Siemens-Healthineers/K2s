@@ -104,9 +104,6 @@ function Initialize-WinVM {
         $SwitchIP = '172.29.29.1'
     }
 
-    $giturlk = 'https://github.com/Siemens-Healthineers/K2s.git'
-    Write-Log "Git url for k: $giturlk"
-
     # check prerequisites
     $virtualizedNetworkCIDR = '172.29.29.0/24'
     $virtualizedNAT = 'k2sSetup'
@@ -324,39 +321,24 @@ function Initialize-WinVM {
         Write-Output 'Choco packages done'
     }
 
-    #Sync host git version with windows Node
-    #1. Check for git tags
-    #2. Check for last commmit on host
-    #3. TBD Offline
-
-    $currentGitCommitHash = git log --format="%H" -n 1
-    $finalGitCheckout = ''
-
-    if ($currentGitCommitHash) {
-        Write-Log "Using commit hash for checkout $currentGitCommitHash"
-        $finalGitCheckout = $currentGitCommitHash
-    }
-    else {
-        $finalGitCheckout = 'main'
-    }
+    $kubePath = Get-KubePath
 
     $currentGitUserName = git config --get user.name
     $currentGitUserEmail = git config --get user.email
 
-    Write-Log 'Download Small K8s Setup'
+    Get-ChildItem $kubePath -Recurse -File | ForEach-Object { Write-log $_.FullName.Replace($kubePath, "c:\k"); Copy-VMFile $Name -SourcePath $_.FullName -DestinationPath $_.FullName.Replace($kubePath, "c:\k") -CreateFullPath -FileSource Host }
+
+    Write-Log 'Copy Source from Host to VM node'
     Invoke-Command -Session $session2 -ErrorAction SilentlyContinue {
-        New-Item -ItemType Directory -Force c:\k
         Set-Location $env:SystemDrive\k
+
+        Write-Output "Initialize respository under $env:SystemDrive\k"
+        &'C:\Program Files\Git\cmd\git.exe' init
         if ($using:Proxy) {
             Write-Output 'Configuring Proxy for git'
             &'C:\Program Files\Git\cmd\git.exe' config --global http.proxy $using:Proxy
         }
 
-        Write-Output "Clone respository: $using:giturlk"
-        &'C:\Program Files\Git\cmd\git.exe' clone $using:giturlk c:\k
-
-        Write-Output "Checking out '$using:finalGitCheckout' ..."
-        &'C:\Program Files\Git\cmd\git.exe' checkout $using:finalGitCheckout
         &'C:\Program Files\Git\cmd\git.exe' log --pretty=oneline -n 1
 
         if ($using:VMEnv -eq 'Dev') {
@@ -488,6 +470,7 @@ function Initialize-WinVMNode {
     Restart-VirtualMachine $VMName $vmPwd
     $session = Open-RemoteSession -VmName $VMName -VmPwd $vmPwd
 
+    # INITIALIZE WINDOWS NODE
     Invoke-Command -Session $session {
         Set-Location "$env:SystemDrive\k"
         Set-ExecutionPolicy Bypass -Force -ErrorAction Stop
@@ -496,15 +479,24 @@ function Initialize-WinVMNode {
         Import-Module $env:SystemDrive\k\lib\modules\k2s\k2s.node.module\k2s.node.module.psm1
         Initialize-Logging -Nested:$true
 
+        # ForceOnelineInstallation should be always as host windows version (pause) is not compatible with vm node version, we need to download appropriate version for node.
         Initialize-WinNode -KubernetesVersion $using:KubernetesVersion `
             -HostGW:$using:HostGW `
             -HostVM:$using:HostVM `
             -Proxy:"$using:Proxy" `
             -DeleteFilesForOfflineInstallation $using:DeleteFilesForOfflineInstallation `
-            -ForceOnlineInstallation $using:ForceOnlineInstallation
+            -ForceOnlineInstallation $true
+    }
 
+    # Establish communication
+    Invoke-Command -Session $session {
+        Set-Location "$env:SystemDrive\k"
+        Set-ExecutionPolicy Bypass -Force -ErrorAction Stop
+
+        Import-Module $env:SystemDrive\k\lib\modules\k2s\k2s.infra.module\k2s.infra.module.psm1
+        Import-Module $env:SystemDrive\k\lib\modules\k2s\k2s.node.module\k2s.node.module.psm1
+        Initialize-Logging -Nested:$true
         Wait-ForSSHConnectionToLinuxVMViaSshKey -Nested:$true
-        Copy-KubeConfigFromControlPlaneNode -Nested:$true
     }
 
     Write-Log 'Windows node initialized.'
@@ -527,6 +519,18 @@ function Initialize-VMKubernetesCluster {
 
     $session = Open-RemoteSession -VmName $VMName -VmPwd $vmPwd
 
+    # Establish communication and copy kubeconfig from control plane
+    Invoke-Command -Session $session {
+        Set-Location "$env:SystemDrive\k"
+        Set-ExecutionPolicy Bypass -Force -ErrorAction Stop
+
+        Import-Module $env:SystemDrive\k\lib\modules\k2s\k2s.infra.module\k2s.infra.module.psm1
+        Import-Module $env:SystemDrive\k\lib\modules\k2s\k2s.node.module\k2s.node.module.psm1
+        Initialize-Logging -Nested:$true
+        Wait-ForSSHConnectionToLinuxVMViaSshKey -Nested:$true
+        Copy-KubeConfigFromControlPlaneNode -Nested:$true
+    }
+
     Save-ControlPlaneNodeHostnameIntoWinVM $session
 
     Copy-KubeConfigFromControlPlaneNode
@@ -547,11 +551,17 @@ function Initialize-VMKubernetesCluster {
 
     Write-K8sNodesStatus
 
+    Enable-SSHRemotingViaSSHKeyToWinNode $session $Proxy
+
+    $adminWinNode = Get-DefaultWinVMName
+    $windowsVMKey = Get-DefaultWinVMKey
+    # Initiate first time ssh to establish connection over key for subsequent operations
+    ssh.exe -n -o StrictHostKeyChecking=no -i $windowsVMKey $adminWinNode hostname 2> $null
+
+    Disable-PasswordAuthenticationToWinNode
+
     Write-Log "Collecting kubernetes images and storing them to $(Get-KubernetesImagesFilePath)."
     Write-KubernetesImagesIntoJson
-
-    Enable-SSHRemotingViaSSHKeyToWinNode $session $Proxy
-    Disable-PasswordAuthenticationToWinNode
 }
 
 function Initialize-SSHConnectionToWinVM($session, $IpAddress) {
@@ -801,9 +811,9 @@ function Enable-SSHRemotingViaSSHKeyToWinNode ($session, $Proxy) {
 }
 
 function Disable-PasswordAuthenticationToWinNode () {
-    $session = Open-DefaultWinVMRemoteSessionViaSSHKey
+    $sessionKey = Open-DefaultWinVMRemoteSessionViaSSHKey
 
-    Invoke-Command -Session $session {
+    Invoke-Command -Session $sessionKey {
         Set-Location "$env:SystemDrive\k"
         Set-ExecutionPolicy Bypass -Force -ErrorAction SilentlyContinue
 
@@ -838,17 +848,23 @@ function Get-DefaultWinVMKey {
     return $windowsVMKey
 }
 
-function Open-DefaultWinVMRemoteSessionViaSSHKey {
+function Get-DefaultWinVMName {
     $multivmRootConfig = Get-RootConfigMultivm
     $multiVMWinNodeIP = $multivmRootConfig.psobject.properties['multiVMK8sWindowsVMIP'].value
-    $adminWinNode = "administrator@$multiVMWinNodeIP"
+    return "administrator@$multiVMWinNodeIP"
+}
 
+function Open-DefaultWinVMRemoteSessionViaSSHKey {
+    $adminWinNode = Get-DefaultWinVMName
     $windowsVMKey = Get-DefaultWinVMKey
 
-    $session = Open-RemoteSessionViaSSHKey $adminWinNode $windowsVMKey
+    $sessionKey = Open-RemoteSessionViaSSHKey -Hostname $adminWinNode -KeyFilePath $windowsVMKey
 
-    return $session
+    return $sessionKey
 }
 
 
-Export-ModuleMember Get-RootConfigMultivm, Initialize-WinVMNode, Initialize-WinVM, Initialize-VMKubernetesCluster, Open-DefaultWinVMRemoteSessionViaSSHKey, Get-DefaultWinVMKey
+Export-ModuleMember Get-RootConfigMultivm, Initialize-WinVMNode,
+Initialize-WinVM, Initialize-VMKubernetesCluster,
+Open-DefaultWinVMRemoteSessionViaSSHKey, Get-DefaultWinVMName,
+Get-DefaultWinVMKey

@@ -30,36 +30,6 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'JSON config object to override preceeding parameters')]
     [pscustomobject] $Config
 )
-
-# load global settings
-&$PSScriptRoot\..\..\smallsetup\common\GlobalVariables.ps1
-# import global functions
-. $PSScriptRoot\..\..\smallsetup\common\GlobalFunctions.ps1
-
-. $PSScriptRoot\Common.ps1
-
-Import-Module "$PSScriptRoot/../../smallsetup/ps-modules/log/log.module.psm1"
-Initialize-Logging -ShowLogs:$ShowLogs
-
-$addonsModule = "$PSScriptRoot\..\Addons.module.psm1"
-Import-Module $addonsModule
-
-$registryFunctionsModule = "$PSScriptRoot\..\..\smallsetup\helpers\RegistryFunctions.module.psm1"
-Import-Module $registryFunctionsModule -DisableNameChecking
-
-$K8sSetup = Get-Installedk2sSetupType
-
-$registryIP = $global:IP_Master
-$registryName = 'k2s-registry.local'
-$registryNameWithoutPort = $registryName
-if ($Nodeport -gt 0) {
-    if ($Nodeport -eq 30094) {
-        Log-ErrorWithThrow 'Nodeport 30094 is already reserved! Please use another one!'
-        # reserved for dcgm-exporter from nvidia for monitoring addon
-    }
-    $registryName = $($registryName + ':' + "$Nodeport")
-}
-
 function Test-NginxIngressControllerAvailability {
     $existingServices = $(&$global:KubectlExe get service -n ingress-nginx -o yaml)
     if ("$existingServices" -match '.*ingress-nginx-controller.*') {
@@ -160,8 +130,37 @@ function Restart-Services() {
     &$global:NssmInstallDirectory\nssm start kubeproxy
 }
 
+&$PSScriptRoot\..\..\smallsetup\common\GlobalVariables.ps1
+. $PSScriptRoot\..\..\smallsetup\common\GlobalFunctions.ps1
+
+$logModule = "$PSScriptRoot/../../smallsetup/ps-modules/log/log.module.psm1"
+$statusModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/status/status.module.psm1"
+$addonsModule = "$PSScriptRoot\..\addons.module.psm1"
+$registryFunctionsModule = "$PSScriptRoot\..\..\smallsetup\helpers\RegistryFunctions.module.psm1"
+
+Import-Module $logModule, $addonsModule, $statusModule, $registryFunctionsModule -DisableNameChecking
+
+Initialize-Logging -ShowLogs:$ShowLogs
+
+$K8sSetup = Get-Installedk2sSetupType
+
+$registryIP = $global:IP_Master
+$registryName = 'k2s-registry.local'
+$registryNameWithoutPort = $registryName
+if ($Nodeport -gt 0) {
+    if ($Nodeport -eq 30094) {
+        Log-ErrorWithThrow 'Nodeport 30094 is already reserved! Please use another one!'
+        # reserved for dcgm-exporter from nvidia for monitoring addon
+    }
+    $registryName = $($registryName + ':' + "$Nodeport")
+}
+
 Write-Log 'Checking cluster status' -Console
-Test-ClusterAvailability
+
+$systemError = Test-SystemAvailability
+if ($systemError) {
+    throw $systemError
+}
 
 if ((Test-IsAddonEnabled -Name 'registry') -eq $true) {
     Write-Log "Addon 'registry' is already enabled, nothing to do."

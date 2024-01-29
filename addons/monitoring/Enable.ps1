@@ -20,20 +20,6 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'JSON config object to override preceeding parameters')]
     [pscustomobject] $Config
 )
-
-# load global settings
-&$PSScriptRoot\..\..\smallsetup\common\GlobalVariables.ps1
-# import global functions
-. $PSScriptRoot\..\..\smallsetup\common\GlobalFunctions.ps1
-
-. $PSScriptRoot\Common.ps1
-
-Import-Module "$PSScriptRoot/../../smallsetup/ps-modules/log/log.module.psm1"
-Initialize-Logging -ShowLogs:$ShowLogs
-
-$addonsModule = "$PSScriptRoot\..\Addons.module.psm1"
-Import-Module $addonsModule
-
 function Enable-IngressAddon([string]$Ingress) {
     switch ($Ingress) {
         'ingress-nginx' {
@@ -52,7 +38,7 @@ function Enable-IngressAddon([string]$Ingress) {
 Writes the usage notes for dashboard for the user.
 #>
 function Write-UsageForUser {
-@"
+    @'
                                         USAGE NOTES
  To open plutono dashboard, please use one of the options:
  
@@ -74,7 +60,7 @@ function Write-UsageForUser {
  On opening the URL in the browser, the login page appears.
  username: admin
  password: admin
-"@ -split "`r`n" | ForEach-Object { Write-Log $_ -Console }
+'@ -split "`r`n" | ForEach-Object { Write-Log $_ -Console }
 }
 
 <#
@@ -123,9 +109,23 @@ function Test-TraefikIngressControllerAvailability {
     return $false
 }
 
+&$PSScriptRoot\..\..\smallsetup\common\GlobalVariables.ps1
+. $PSScriptRoot\..\..\smallsetup\common\GlobalFunctions.ps1
+
+$logModule = "$PSScriptRoot/../../smallsetup/ps-modules/log/log.module.psm1"
+$statusModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/status/status.module.psm1"
+$addonsModule = "$PSScriptRoot\..\addons.module.psm1"
+
+Import-Module $logModule, $addonsModule, $statusModule
+
+Initialize-Logging -ShowLogs:$ShowLogs
 
 Write-Log 'Checking cluster status' -Console
-Test-ClusterAvailability
+
+$systemError = Test-SystemAvailability
+if ($systemError) {
+    throw $systemError
+}
 
 if ((Test-IsAddonEnabled -Name 'monitoring') -eq $true) {
     Write-Log "Addon 'monitoring' is already enabled, nothing to do." -Console
