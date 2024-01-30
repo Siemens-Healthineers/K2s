@@ -561,7 +561,9 @@ function Initialize-VMKubernetesCluster {
     Disable-PasswordAuthenticationToWinNode
 
     Write-Log "Collecting kubernetes images and storing them to $(Get-KubernetesImagesFilePath)."
-    Write-KubernetesImagesIntoJson
+    $windowsImagesRaw = ssh.exe -n -o StrictHostKeyChecking=no -i $windowsVMKey $adminWinNode crictl images 2> $null
+    $winVMNodeName = $VMName.ToLower()
+    Write-KubernetesImagesIntoJson -WindowsImagesRaw $windowsImagesRaw -WindowsNodeName $winVMNodeName
 }
 
 function Initialize-SSHConnectionToWinVM($session, $IpAddress) {
