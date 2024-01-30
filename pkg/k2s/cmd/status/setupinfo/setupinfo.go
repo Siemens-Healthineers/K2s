@@ -31,7 +31,7 @@ func NewSetupInfoPrinter(terminalPrinter TerminalPrinter, printNotInstalledMsgFu
 func (s SetupInfoPrinter) PrintSetupInfo(setupInfo si.SetupInfo) (bool, error) {
 	if setupInfo.Error != nil {
 		switch *setupInfo.Error {
-		case si.NotInstalledErrMsg:
+		case si.ErrNotInstalledMsg:
 			s.printNotInstalledMsgFunc()
 		default:
 			s.terminalPrinter.PrintWarning("The setup information seems to be invalid: '%s'", *setupInfo.Error)

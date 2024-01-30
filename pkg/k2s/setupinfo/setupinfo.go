@@ -20,8 +20,8 @@ const (
 	SetupNameMultiVMK8s   SetupName = "MultiVMK8s"
 	SetupNameBuildOnlyEnv SetupName = "BuildOnlyEnv"
 
-	NotInstalledErrMsg SetupError = "not-installed"
-	NotRunningErrMsg   SetupError = "not-running"
+	ErrNotInstalledMsg SetupError = "not-installed"
+	ErrNotRunningMsg   SetupError = "not-running"
 )
 
-var ErrNotInstalled = errors.New(string(NotInstalledErrMsg))
+var ErrNotInstalled = errors.New(string(ErrNotInstalledMsg))

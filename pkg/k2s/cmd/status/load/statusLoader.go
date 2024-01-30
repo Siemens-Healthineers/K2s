@@ -64,7 +64,7 @@ func LoadStatus() (*Status, error) {
 		if err != setupinfo.ErrNotInstalled {
 			return nil, err
 		}
-		errMsg := setupinfo.NotInstalledErrMsg
+		errMsg := setupinfo.ErrNotInstalledMsg
 		status = Status{SetupInfo: setupinfo.SetupInfo{Error: &errMsg}}
 	}
 

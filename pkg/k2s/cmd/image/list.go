@@ -91,7 +91,7 @@ func getStoredImages(includeK8sImages bool) (*StoredImages, error) {
 
 	images, err := utils.ExecutePsWithStructuredResult[*StoredImages](cmd, "StoredImages", utils.ExecOptions{}, params...)
 	if err == setupinfo.ErrNotInstalled {
-		errMsg := setupinfo.NotInstalledErrMsg
+		errMsg := setupinfo.ErrNotInstalledMsg
 		return &StoredImages{Error: &errMsg}, nil
 	}
 
@@ -177,13 +177,13 @@ func listImages(cmd *cobra.Command, args []string) error {
 
 	if images.Error != nil {
 		switch *images.Error {
-		case setupinfo.NotInstalledErrMsg:
+		case setupinfo.ErrNotInstalledMsg:
 			if outputOption == jsonOption {
 				break
 			}
 			common.PrintNotInstalledMessage()
 			return nil
-		case setupinfo.NotRunningErrMsg:
+		case setupinfo.ErrNotRunningMsg:
 			if outputOption == jsonOption {
 				break
 			}

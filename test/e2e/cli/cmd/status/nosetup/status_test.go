@@ -76,7 +76,7 @@ var _ = Describe("status command", func() {
 		It("contains not-installed info", func() {
 			Expect(status.SetupInfo.Name).To(BeNil())
 			Expect(status.SetupInfo.Version).To(BeNil())
-			Expect(*status.SetupInfo.Error).To(Equal(setupinfo.NotInstalledErrMsg))
+			Expect(*status.SetupInfo.Error).To(Equal(setupinfo.ErrNotInstalledMsg))
 			Expect(status.SetupInfo.LinuxOnly).To(BeNil())
 		})
 
