@@ -126,6 +126,10 @@ function Get-ControlPlaneNodeDefaultSwitchName {
     return $controlPlaneSwitchName
 }
 
+function Get-DefaultTempPwd {
+    return 'admin'
+}
+
 <#
 .SYNOPSIS
     Creates a specified directory if not existing.
@@ -427,4 +431,5 @@ Get-DefaultRegistry,
 Get-RegistryToken,
 Get-SshConfigDir,
 Get-DefaultProvisioningBaseImageDiskSize,
-Get-RootConfig
+Get-RootConfig,
+Get-DefaultTempPwd

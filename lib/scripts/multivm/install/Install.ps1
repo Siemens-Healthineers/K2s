@@ -125,13 +125,13 @@ Param(
 $infraModule = "$PSScriptRoot/../../../modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $nodeModule = "$PSScriptRoot/../../../modules/k2s/k2s.node.module/k2s.node.module.psm1"
 $clusterModule = "$PSScriptRoot/../../../modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
-$multivmModule = "$PSScriptRoot/../../../modules/k2s/k2s.multivm.module/k2s.multivm.module.psm1"
-Import-Module $infraModule, $nodeModule, $clusterModule, $multivmModule
+Import-Module $infraModule, $nodeModule, $clusterModule
 
 $KubernetesVersion = 'v1.25.13'
 $script:SetupType = 'MultiVMK8s'
 $multiVMWindowsVMName = 'WinNode' # WARNING: VM name must not exceed a certain length, otherwise unattend.xml file parsing will fail!
-$multivmRootConfig = Get-RootConfigMultivm
+$rootConfig = Get-RootConfigk2s
+$multivmRootConfig = $rootConfig.psobject.properties['multivm'].value
 $multiVMWinNodeIP = $multivmRootConfig.psobject.properties['multiVMK8sWindowsVMIP'].value
 
 #################################################################################################
