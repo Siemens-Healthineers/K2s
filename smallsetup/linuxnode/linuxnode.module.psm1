@@ -168,6 +168,30 @@ Function Install-KubernetesArtifacts {
         &$executeRemoteCommand "echo Environment=\'no_proxy=.local\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf"
     }
 
+    $token = Get-RegistryToken
+    if ($PSVersionTable.PSVersion.Major -gt 5) {
+        $jsonConfig = @{
+            "auths" = @{
+                "shsk2s.azurecr.io" = @{
+                    "auth" = "$token"
+                }
+            }
+        }
+    } else {
+        $jsonConfig = @{
+            """auths""" = @{
+                """shsk2s.azurecr.io""" = @{
+                    """auth""" = """$token"""
+                }
+            }
+        }
+    }
+    
+    $jsonString = ConvertTo-Json -InputObject $jsonConfig
+    &$executeRemoteCommand "echo -e '$jsonString' | sudo tee /tmp/auth.json" | Out-Null
+    &$executeRemoteCommand 'sudo mkdir -p /root/.config/containers'
+    &$executeRemoteCommand 'sudo mv /tmp/auth.json /root/.config/containers/auth.json'
+
     Write-Log "Configure CRI-O (part 1 of 2)"
     # cri-o default cni bridge should have least priority
     $CRIO_CNI_FILE = '/etc/cni/net.d/10-crio-bridge.conf'
@@ -718,4 +742,29 @@ Function New-MasterNode {
     Set-UpMasterNode @masterNodeParams
 }
 
-Export-ModuleMember -Function Install-Tools, Add-SupportForWSL, Set-UpMasterNode, New-KubernetesNode, New-MasterNode
+Function New-WorkerNode {
+    param (
+        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_))})]
+        [string]$UserName = $(throw "Argument missing: UserName"),
+        [string]$UserPwd = $(throw "Argument missing: UserPwd"),
+        [ValidateScript({ Get-IsValidIPv4Address($_) })]
+        [string]$IpAddress = $(throw "Argument missing: IpAddress"),
+        [string]$Proxy = '',
+        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_))})]
+        [string] $K8sVersion = $(throw "Argument missing: K8sVersion"),
+        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_))})]
+        [string] $CrioVersion = $(throw "Argument missing: CrioVersion"),
+        
+        [scriptblock]$Hook = $(throw "Argument missing: Hook")
+    )
+
+    Assert-MasterNodeComputerPrequisites -IpAddress $IpAddress -UserName $userName -UserPwd $userPwd
+
+    New-KubernetesNode -IpAddress $IpAddress -UserName $userName -UserPwd $userPwd -K8sVersion $K8sVersion -CrioVersion $CrioVersion -Proxy $Proxy
+    
+    Write-Log "Run setup hook"
+    &$Hook
+    Write-Log "Setup hook finished"
+}
+
+Export-ModuleMember -Function Install-Tools, Add-SupportForWSL, Set-UpMasterNode, New-KubernetesNode, New-MasterNode, New-WorkerNode
