@@ -8,9 +8,13 @@ function Get-KubePath {
 }
 
 function Get-KubeBinPath {
-    $scriptRoot = $PSScriptRoot
-    $kubePath = (Get-Item $scriptRoot).Parent.Parent.Parent.Parent.Parent.FullName
+    $kubePath = Get-KubePath
     return "$kubePath\bin"
+}
+
+function Get-KubeToolsPath {
+    $kubeBinPath = Get-KubeBinPath
+    return "$kubeBinPath\exe"   
 }
 
 function Get-InstallationDriveLetter {
@@ -72,7 +76,7 @@ function Reset-EnvVars {
     Update-SystemPath -Action 'remove' "$kubePath\bin\containerd"
 }
 
-Export-ModuleMember -Function Get-KubePath, Get-KubeBinPath,
+Export-ModuleMember -Function Get-KubePath, Get-KubeBinPath, Get-KubeToolsPath,
 Get-InstallationDriveLetter,
 Get-SystemDriveLetter,
 Test-PathPrerequisites,

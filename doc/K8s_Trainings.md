@@ -52,13 +52,12 @@ Kubernetes Training
 | Mocking an http Service                  | [thegreatcodeadventure](https://www.thegreatcodeadventure.com/mocking-http-requests-in-golang/)             |     30 min                     |         
 
 
-
 # Http2
 
 | Titel                                      | Link                                                                                                         |   Duration|
 | ------------------------------------------ |:------------------------------------------------------------------------------------------------------------:| :--------:|
 | The Many Benefits of HTTP/2                   | [here](https://mediatemple.net/blog/web-development-tech/many-benefits-http2/)             |                          |         
-| Die Vorteile von dem neunen Protokoll                 | [here](https://www.w-em.com/blog/vorteile-des-http2-protokolls/)             |                          |         
+| Benefits of http2                 | [here](https://www.w-em.com/blog/vorteile-des-http2-protokolls/)             |                          |         
 | Introduction to HTTP2 (Google)                | [here](https://developers.google.com/web/fundamentals/performance/http2)             |                          |         
 
 # Divers
@@ -67,11 +66,8 @@ Kubernetes Training
 | ------------------------------------------ |:------------------------------------------------------------------------------------------------------------:| :--------:|
 | Redis                   | [pluralsight](https://app.pluralsight.com/guides/redis-as-a-dynamic-interconnecting-datastore)             |                          |         
 | Github                  | [pluralsight](https://app.pluralsight.com/player?course=github-getting-started&author=gill-cleeren&name=e72372c8-9c82-41bf-8b11-47d51b0df195&clip=0)             |                          |         
-| Dicom QIDO Queries      | [dicomstandard](https://www.dicomstandard.org/dicomweb/query-qido-rs)             |                          |         
-| Argo WorkflowDesign with exemple      | [dicomstandard](https://blog.argoproj.io/building-kubernetes-clusters-using-argo-and-kubernetes-c2e851834d89)             |                          |         
 | Was ist HTTP ?          | [here](https://www.ionos.de/digitalguide/hosting/hosting-technik/was-ist-http/)             |                          |         
 | An overview of Http          | [here](https://developer.mozilla.org/en-US/docs/Web/HTTP/Overview)             |                          |         
-| Lerne Git mit BitbucketCloud          | [here](https://www.atlassian.com/de/git/tutorials/learn-git-with-bitbucket-cloud)             |                          |         
 | Git-Handbook                  | [pluralsight](https://guides.github.com/introduction/git-handbook/)             |                          |         
 | Vizualizing Git                 | [pluralsight](http://git-school.github.io/visualizing-git//)             |                          |         
 

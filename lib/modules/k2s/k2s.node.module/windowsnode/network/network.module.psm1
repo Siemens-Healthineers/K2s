@@ -155,4 +155,5 @@ function Set-InterfacePrivate {
 Export-ModuleMember Set-IndexForDefaultSwitch, Get-ConfiguredClusterCIDRHost,
 New-ExternalSwitch, Remove-ExternalSwitch,
 Invoke-RecreateNAT, Set-InterfacePrivate,
-Get-L2BridgeSwitchName, Remove-DefaultNetNat
+Get-L2BridgeSwitchName, Remove-DefaultNetNat,
+New-DefaultNetNat

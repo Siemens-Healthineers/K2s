@@ -66,8 +66,8 @@ function Get-RunningState {
         [Parameter(Mandatory = $false)]
         [string]$SetupType = $(throw 'Setup type not specified')
     )
-    if ($SetupType -ne $global:SetupType_k2s -and $SetupType -ne $global:SetupType_MultiVMK8s) {
-        throw "Cannot get running state for invalid setup type '$SetupType'"
+    if ($SetupType -ne $global:SetupType_k2s -and $SetupType -ne $global:SetupType_MultiVMK8s -and $SetupType -ne $global:SetupType_BuildOnlyEnv) {
+        throw "cannot get running state for invalid setup type '$SetupType'"
     }
     $function = $MyInvocation.MyCommand.Name
 

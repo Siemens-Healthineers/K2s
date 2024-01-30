@@ -14,7 +14,6 @@ NA
 .EXAMPLE
 # For k2sSetup.
 powershell <installation folder>\addons\metrics-server\Enable.ps1
-
 #>
 
 Param (
@@ -23,32 +22,33 @@ Param (
     [parameter(Mandatory = $false, HelpMessage = 'JSON config object to override preceeding parameters')]
     [pscustomobject] $Config
 )
-
-# load global settings
 &$PSScriptRoot\..\..\smallsetup\common\GlobalVariables.ps1
-# load global functions
 . $PSScriptRoot\..\..\smallsetup\common\GlobalFunctions.ps1
-# load common module for installing/uninstalling kubernetes metrics server
 . $PSScriptRoot\Common.ps1
 
-Import-Module "$PSScriptRoot/../../smallsetup/ps-modules/log/log.module.psm1"
+$logModule = "$PSScriptRoot/../../smallsetup/ps-modules/log/log.module.psm1"
+$statusModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/status/status.module.psm1"
+$addonsModule = "$PSScriptRoot\..\addons.module.psm1"
+
+Import-Module $logModule, $addonsModule, $statusModule
+
 Initialize-Logging -ShowLogs:$ShowLogs
 
-$addonsModule = "$PSScriptRoot\..\Addons.module.psm1"
-
-Import-Module $addonsModule
-
 Write-Log 'Checking cluster status' -Console
-Test-ClusterAvailability
 
-if ((Test-IsAddonEnabled -Name "metrics-server") -eq $true) {
+$systemError = Test-SystemAvailability
+if ($systemError) {
+    throw $systemError
+}
+
+if ((Test-IsAddonEnabled -Name 'metrics-server') -eq $true) {
     Write-Log "Addon 'metrics-server' is already enabled, nothing to do." -Console
     exit 0
 }
 
 Write-Log 'Installing Kubernetes Metrics Server' -Console
 $metricServerConfig = Get-MetricsServerConfig
-kubectl apply -f $metricServerConfig | Write-Log
+&$global:KubectlExe apply -f $metricServerConfig | Write-Log
 
 $allPodsAreUp = Wait-ForPodsReady -Selector 'k8s-app=metrics-server' -Namespace 'kube-system'
 

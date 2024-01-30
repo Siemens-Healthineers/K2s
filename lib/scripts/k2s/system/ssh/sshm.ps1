@@ -30,7 +30,10 @@ $nodeModule = "$PSScriptRoot/../../../../modules/k2s/k2s.node.module/k2s.node.mo
 $clusterModule = "$PSScriptRoot/../../../../modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 Import-Module $infraModule, $nodeModule, $clusterModule
 
-Test-ClusterAvailability
+$systemError = Test-SystemAvailability
+if ($systemError) {
+    throw $systemError
+}
 
 if ([string]::IsNullOrWhitespace($Command)) {
     Invoke-TerminalOnControlPanelViaSSHKey

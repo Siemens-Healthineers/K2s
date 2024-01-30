@@ -19,11 +19,11 @@ var addons []k2s.Addon
 
 func TestLs(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "addons ls CLI Command Acceptance Tests", Label("cli", "ls", "acceptance", "setup-required", "addon"))
+	RunSpecs(t, "addons ls CLI Command Acceptance Tests", Label("cli", "ls", "acceptance", "setup-required", "addon", "system-running", "system-stopped"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
-	suite = framework.Setup(ctx)
+	suite = framework.Setup(ctx, framework.SkipClusterRunningCheck)
 	addons = k2s.AllAddons(suite.RootDir())
 })
 

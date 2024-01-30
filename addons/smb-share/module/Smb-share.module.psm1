@@ -5,16 +5,13 @@
 &$PSScriptRoot\..\..\..\smallsetup\common\GlobalVariables.ps1
 . $PSScriptRoot\..\..\..\smallsetup\common\GlobalFunctions.ps1
 
-$k8sApiModule = "$PSScriptRoot\..\..\..\lib\modules\k2s\k2s.cluster.module\k8s-api\k8s-api.module.psm1"
-$formattingModule = "$PSScriptRoot\..\..\..\lib\modules\k2s\k2s.cluster.module\k8s-api\formatting\formatting.module.psm1"
-
+$clusterModule = "$PSScriptRoot\..\..\..\lib\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1"
 $addonsModule = "$PSScriptRoot\..\..\Addons.module.psm1"
-$setupInfoModule = "$PSScriptRoot\..\..\..\lib\modules\k2s\k2s.cluster.module\setupinfo\setupinfo.module.psm1"
 $runningStateModule = "$PSScriptRoot\..\..\..\smallsetup\status\RunningState.module.psm1"
 
-
 $logModule = "$PSScriptRoot\..\..\..\smallsetup\ps-modules\log\log.module.psm1"
-Import-Module $addonsModule, $setupInfoModule, $runningStateModule, $k8sApiModule, $formattingModule, $logModule
+
+Import-Module $addonsModule, $clusterModule, $runningStateModule, $logModule
 
 $AddonName = 'smb-share'
 $localHooksDir = "$PSScriptRoot\..\hooks"
@@ -905,20 +902,6 @@ function Remove-SharedFolderFromWinVM {
     Write-Log 'Shared folder on Win VM removed.'
 }
 
-function Test-ClusterAvailability {
-    $setupInfo = Get-SetupInfo
-
-    if ($setupInfo.ValidationError) {
-        throw $setupInfo.ValidationError
-    }
-
-    $clusterState = Get-RunningState -SetupType $setupInfo.Name
-
-    if ($clusterState.IsRunning -ne $true) {
-        throw "Cannot interact with '$AddonName' addon when cluster is not running. Please start the cluster with 'k2s start'."
-    }
-}
-
 function Remove-SmbShareAndFolder() {
     param (
         [parameter(Mandatory = $false)]
@@ -930,7 +913,10 @@ function Remove-SmbShareAndFolder() {
         Write-Log 'Skipping SMB share cleanup on VMs..'
     }
     else {
-        Test-ClusterAvailability
+        $systemError = Test-SystemAvailability
+        if ($systemError) {
+            throw $systemError
+        }
     }
 
     $smbHostType = Get-SmbHostType
@@ -1025,7 +1011,10 @@ function Enable-SmbShare {
         [ValidateSet('windows', 'linux')]
         [string]$SmbHostType = $(throw 'SMB host type not set')
     )
-    Test-ClusterAvailability
+    $systemError = Test-SystemAvailability
+    if ($systemError) {
+        throw $systemError
+    }
 
     if ((Test-IsAddonEnabled -Name $AddonName) -eq $true) {
         Write-Log "Addon '$AddonName' is already enabled, nothing to do."

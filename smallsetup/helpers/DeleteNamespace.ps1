@@ -40,16 +40,16 @@ $ScriptBlockNamespaces = {
     Remove-Item -Path $Namespace-namespace.json -Force -ErrorAction SilentlyContinue
     Remove-Item -Path $Namespace-namespace-cleaned.json -Force -ErrorAction SilentlyContinue
     Start-Sleep -Seconds 20
-    $n = kubectl get namespace $Namespace
+    $n = &$global:KubectlExe get namespace $Namespace
     if ($n) {
-        kubectl get namespace $Namespace -o json > $Namespace-namespace.json 
+        &$global:KubectlExe get namespace $Namespace -o json > $Namespace-namespace.json 
         $json = Get-Content $Namespace-namespace.json -Encoding Ascii | ConvertFrom-Json
         if ( $json ) {
             Write-Host ($json.spec.finalizers | Format-List | Out-String)
             $json.spec.finalizers = @()
             Write-Host ($json.spec.finalizers | Format-List | Out-String) 
             $json | ConvertTo-Json -depth 100 | Out-File $Namespace-namespace-cleaned.json -Encoding Ascii
-            kubectl replace --raw "/api/v1/namespaces/$Namespace/finalize" -f $Namespace-namespace-cleaned.json
+            &$global:KubectlExe replace --raw "/api/v1/namespaces/$Namespace/finalize" -f $Namespace-namespace-cleaned.json
         }
     }
     Write-Host "Namespace $Namespace clean now !"
@@ -58,11 +58,11 @@ $ScriptBlockNamespaces = {
 Write-Host "Delete K8s namespace: $Namespace"
 
 Write-Host "`nKubernetes config:`n"
-kubectl config get-contexts 
+&$global:KubectlExe config get-contexts 
 
 # delete namespace
-kubectl patch namespace $Namespace -p "{\`"metadata\`":{\`"finalizers\`":null}}"
+&$global:KubectlExe patch namespace $Namespace -p "{\`"metadata\`":{\`"finalizers\`":null}}"
 Start-Job $ScriptBlockNamespaces -ArgumentList $Namespace
-kubectl delete namespace $Namespace --force --grace-period=0
+&$global:KubectlExe delete namespace $Namespace --force --grace-period=0
 
 Write-Host "K8s namespace: $Namespace deleted"

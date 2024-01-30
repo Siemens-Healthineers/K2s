@@ -12,6 +12,6 @@ Post-start hook to re-establish nginx gateway fabric.
 Post-start hook to re-establish nginx gateway fabric.
 #>
 
-kubectl delete pods --all -n nginx-gateway
+&$global:KubectlExe delete pods --all -n nginx-gateway
 
 Write-Log 'nginx gateway fabric re-established after cluster start.' -Console

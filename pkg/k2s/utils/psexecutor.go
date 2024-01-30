@@ -83,6 +83,7 @@ func ExecutePsWithStructuredResult[T any](psScriptPath string, resultTypeName st
 	}
 
 	klog.V(4).Infoln("unmarshalling data object..")
+	klog.V(8).Infof("%s", string(dataObj.Data()))
 
 	marshaller := marshalling.NewJsonUnmarshaller()
 
@@ -114,7 +115,10 @@ func executePowershellScriptWithDataSubscription(cmdString string, options ...Ex
 		return nil, err
 	}
 
-	cmd := createCmd(execOptions.PowerShellVersion, cmdString)
+	cmd, err := createCmd(execOptions.PowerShellVersion, cmdString)
+	if err != nil {
+		return nil, err
+	}
 
 	stdOutReader, err := cmd.StdoutPipe()
 	if err != nil {
@@ -241,16 +245,20 @@ func determineExecOptions(options ...ExecOptions) (*ExecOptions, error) {
 	return execOptions, nil
 }
 
-func createCmd(psVersion PowerShellVersion, cmdString string) *exec.Cmd {
+func createCmd(psVersion PowerShellVersion, cmdString string) (*exec.Cmd, error) {
 	if psVersion == PowerShellV7 {
 		klog.V(4).Info("Switching to PowerShell 7 command syntax")
 
-		return exec.Command(ps7CmdName, "-Command", cmdString)
+		if err := checkIfCommandExists(ps7CmdName); err != nil {
+			return nil, err
+		}
+
+		return exec.Command(ps7CmdName, "-Command", cmdString), nil
 	}
 
 	klog.V(4).Info("Using PowerShell 5 command syntax")
 
-	return exec.Command(ps5CmdName, cmdString)
+	return exec.Command(ps5CmdName, cmdString), nil
 }
 
 func readStdErr(reader io.ReadCloser, logReceived chan string) {
@@ -334,6 +342,10 @@ func executePowershellScript(script string, options ExecOptions) (time.Duration,
 		cmdArg = "-Command"
 
 		klog.V(4).Info("Switching to PowerShell 7 command syntax")
+
+		if err := checkIfCommandExists(ps7CmdName); err != nil {
+			return 0, err
+		}
 	}
 
 	cmdOptions := cmd.Options{
@@ -382,10 +394,6 @@ func determinePsVersion(ignoreNotInstalledErr bool) (PowerShellVersion, error) {
 	}
 
 	if setupName == setupinfo.SetupNameMultiVMK8s && !linuxOnly {
-		if err := checkIfCommandExists(ps7CmdName); err != nil {
-			return "", err
-		}
-
 		return PowerShellV7, nil
 	}
 
@@ -439,10 +447,12 @@ func setStdin(cmd *exec.Cmd) {
 func checkIfCommandExists(cmd string) error {
 	_, err := exec.LookPath(cmd)
 	if err == nil {
+		klog.V(4).Info("PowerShell 7 is installed")
 		return nil
 	}
 
-	return fmt.Errorf("%s\nPlease install Powershell-Core: https://learn.microsoft.com/en-us/powershell/scripting/install/installing-powershell-on-windows", err)
+	// TODO: could be nicer :-)
+	return fmt.Errorf("%s\nPlease install Powershell 7: https://learn.microsoft.com/en-us/powershell/scripting/install/installing-powershell-on-windows", err)
 }
 
 func prepareExecScript(script string, noProgress bool) string {

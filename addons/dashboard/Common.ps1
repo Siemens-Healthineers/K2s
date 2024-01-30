@@ -4,10 +4,6 @@
 
 #Requires -RunAsAdministrator
 
-$setupInfoModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.cluster.module\setupinfo\setupinfo.module.psm1"
-$runningStateModule = "$PSScriptRoot\..\..\smallsetup\status\RunningState.module.psm1"
-Import-Module $setupInfoModule, $runningStateModule
-
 <#
 .SYNOPSIS
 Contains common methods for installing and uninstalling Kubernetes Dashboard UI
@@ -42,7 +38,7 @@ function Get-DashboardTraefikConfig {
 Determines if Nginx ingress controller is deployed in the cluster
 #>
 function Test-NginxIngressControllerAvailability {
-    $existingServices = $(&$global:BinPath\kubectl.exe get service -n ingress-nginx -o yaml)
+    $existingServices = $(&$global:KubectlExe get service -n ingress-nginx -o yaml)
     if ("$existingServices" -match '.*ingress-nginx-controller.*') {
         return $true
     }
@@ -54,7 +50,7 @@ function Test-NginxIngressControllerAvailability {
 Determines if Traefik ingress controller is deployed in the cluster
 #>
 function Test-TraefikIngressControllerAvailability {
-    $existingServices = $(&$global:BinPath\kubectl.exe get service -n traefik -o yaml)
+    $existingServices = $(&$global:KubectlExe get service -n traefik -o yaml)
     if ("$existingServices" -match '.*traefik.*') {
         return $true
     }
@@ -68,7 +64,7 @@ Deploys the dashboard's ingress manifest for Nginx ingress controller
 function Deploy-DashboardIngressForNginx {
     Write-Log 'Deploying nginx ingress manifest for dashboard...' -Console
     $dashboardNginxIngressConfig = Get-DashboardNginxConfig
-    kubectl apply -f $dashboardNginxIngressConfig | Out-Null
+    &$global:KubectlExe apply -f $dashboardNginxIngressConfig | Out-Null
 }
 
 <#
@@ -78,7 +74,7 @@ Deploys the dashboard's ingress manifest for Traefik ingress controller
 function Deploy-DashboardIngressForTraefik {
     Write-Log 'Deploying traefik ingress manifest for dashboard...' -Console
     $dashboardTraefikIngressConfig = Get-DashboardTraefikConfig
-    kubectl apply -f $dashboardTraefikIngressConfig | Out-Null
+    &$global:KubectlExe apply -f $dashboardTraefikIngressConfig | Out-Null
 }
 
 <#
@@ -199,17 +195,4 @@ function Wait-ForDashboardAvailable {
     $namespace = 'kubernetes-dashboard'
     $allDashBoardPodsUp = Wait-ForPodsReady -Selector $selector -Namespace $namespace
     return $allDashBoardPodsUp
-}
-
-function Test-ClusterAvailability {
-    $setupInfo = Get-SetupInfo
-    if ($setupInfo.ValidationError) {
-        throw $setupInfo.ValidationError
-    }
-
-    $clusterState = Get-RunningState -SetupType $setupInfo.Name
-
-    if ($clusterState.IsRunning -ne $true) {
-        throw "Cannot interact with 'dashboard' addon when cluster is not running. Please start the cluster with 'k2s start'."
-    }
 }

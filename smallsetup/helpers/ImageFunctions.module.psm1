@@ -10,8 +10,8 @@
 $registryFunctionsModule = "$PSScriptRoot\RegistryFunctions.module.psm1"
 $setupInfoModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.cluster.module\setupinfo\setupinfo.module.psm1"
 $addonsModule = "$PSScriptRoot\..\..\addons\addons.module.psm1"
-$runningStateModule = "$PSScriptRoot\..\status\RunningState.module.psm1"
-Import-Module $registryFunctionsModule, $setupInfoModule, $addonsModule, $runningStateModule -DisableNameChecking
+
+Import-Module $registryFunctionsModule, $setupInfoModule, $addonsModule -DisableNameChecking
 
 $windowsPauseImageRepository = 'shsk2s.azurecr.io/pause-win'
 
@@ -69,28 +69,6 @@ function Write-KubernetesImagesIntoJson() {
     $kubernetesImages = @($linuxKubernetesImages) + @($windowsKubernetesImages)
     $kubernetesImagesJsonString = $kubernetesImages | ConvertTo-Json -Depth 100
     $kubernetesImagesJsonString | Set-Content -Path $global:KubernetesImagesJson
-}
-
-function Test-ClusterAvailabilityForImageFunctions() {
-    # Check setup type
-    $setupInfo = Get-SetupInfo
-    if (!$($setupInfo.Name)) {
-        throw 'No setup installed!'
-    }
-
-    if ($setupInfo.Name -eq $global:SetupType_BuildOnlyEnv) {
-        $runningVMs = Get-VM -ErrorAction SilentlyContinue | Where-Object { $_.State -eq [Microsoft.HyperV.PowerShell.VMState]::Running }
-        if (! $($runningVMs | Where-Object Name -eq $global:VMName)) {
-            throw "VM $global:VMName is not started!"
-        }
-    }
-    else {
-        $clusterState = Get-RunningState -SetupType $setupInfo.Name
-
-        if ($clusterState.IsRunning -ne $true) {
-            throw "Cannot execute image command when cluster is not running. Please start the cluster with 'k2s start'."
-        }
-    }
 }
 
 function Filter-Images([ContainerImage[]]$ContainerImages, [ContainerImage[]]$ContainerImagesToBeCleaned) {
@@ -321,5 +299,4 @@ Remove-PushedImage,
 Show-ImageDeletionStatus,
 Get-ContainerImagesOnLinuxNode,
 Get-ContainerImagesOnWindowsNode,
-Write-KubernetesImagesIntoJson,
-Test-ClusterAvailabilityForImageFunctions
+Write-KubernetesImagesIntoJson

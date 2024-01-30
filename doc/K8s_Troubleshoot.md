@@ -27,7 +27,7 @@ Get the list of all mounted volume claims and their current usage:
 ```
 kg pvc -A
 
-# unbound immediate PersistentVolumeClaims
+# Unbound immediate PersistentVolumeClaims
 
 Error Pattern
 
@@ -65,13 +65,9 @@ kubectl describe nodes | less
 under Linux.
 
 Be aware that the Disk pressure may occur on your physical Windows System or in the linux VM...
-
 If you have a large number of Pods stopped than the problem is probably on the Linux side since most of our containers run there.
-
 If the problem is on your local Windows System, use all classical product to win space on C: and D: (TreeSize utility for example).
-
 You need a least 10 GB free on both disks.
-
 if the problem is on your Linux VM, you need following commands to find and fix the problem:
 
 `sshm` to open a shall on the linux machine
@@ -144,9 +140,9 @@ Then reapply the yaml of the service consuming the volumes
 kubectl -k .\dicom
 ```
 
-# No cbr0 switch created during StartK8s
+# No cbr0 switch created during start
 
-When starting the SmallSetup K8s system, you run into an error (e.g. timeout) while
+When starting the k2s, you run into an error (e.g. timeout) while
 the script is waiting cbr0 switch to be created by flanneld. Example of such a situation:
 
 ```
@@ -174,22 +170,22 @@ the script is waiting cbr0 switch to be created by flanneld. Example of such a s
 
 There are several reasons which can cause this. Basically the _flanneld_ process is
 waiting for a new virtual switch to be created which has the same IP as the original, physical
-ethernet adapter. Then it tries to attach to that switch in promiscuous mode.
+ethernet adapter. 
 
 ## Major Network problems
 
 If you face network errors especially between Linux and Microsoft Services, you may need to reset your networking.
 
-- small solution:
-    - stopk8s
+- Minor workaround:
+    - k2s stop
     - ipconfig
     - Cleanup within a powershell: get-hnsnetwork | remove-hnsnetwork
     - ipconfig (to check cleanup result)
-    - startk8s
+    - k2s start
 
-- big solution:
+- Major workaround which cleans up networking on windows:
     - netcfg -d
-    - booten
+    - reboot
 
 ## Microsoft APIPA / Link-local address
 

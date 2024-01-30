@@ -167,6 +167,8 @@ PS> ginkgo --label-filter="unit" <dir-with-test-suites>
 | **setup-required**       | test requires *K2s* to be installed; currently, the tests determine the setup type in the test runs                        |
 | **no-setup**             | *K2s* must not be installed on the system to test pre-installation behavior                                                |
 | **setup=\<setup name\>** | *K2s* setup type must match, e.g. *setup=k2s* or *setup=MultiVMK8s*                                                        |
+| **system-running**       | test requires *K2s* to be started/running                                                                                  |
+| **system-stopped**       | test requires *K2s* to be stopped                                                                                          |
 
 ### Log Output Redirection
 For diagnostic logging, *k2s* CLI uses the [klog](https://pkg.go.dev/k8s.io/klog/v2#section-readme) module. To redirect the log output to *Ginkgo*, set the *Ginkgo* logger as follows:

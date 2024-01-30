@@ -19,11 +19,11 @@ $setupConfigRoot = Get-RootConfigk2s
 $kubeletConfigDir = Get-KubeletConfigDir
 $joinConfigurationFilePath = "$kubePath\cfg\kubeadm\joinwindowsnode.yaml"
 $kubernetesImagesJson = Get-KubernetesImagesFilePath
+$kubeToolsPath = Get-KubeToolsPath
 
 function Add-K8sContext {
     # set context on windows host (add to existing contexts)
     Write-Log 'Reset kubectl config'
-
     $env:KUBECONFIG = $kubeConfigDir + '\config'
     if (!(Test-Path $kubeConfigDir)) {
         mkdir $kubeConfigDir -Force | Out-Null
@@ -35,9 +35,9 @@ function Add-K8sContext {
     }
     else {
         #kubectl config view
-        kubectl config unset contexts.kubernetes-admin@kubernetes
-        kubectl config unset clusters.kubernetes
-        kubectl config unset users.kubernetes-admin
+        &"$kubeToolsPath\kubectl.exe" config unset contexts.kubernetes-admin@kubernetes
+        &"$kubeToolsPath\kubectl.exe" config unset clusters.kubernetes
+        &"$kubeToolsPath\kubectl.exe" config unset users.kubernetes-admin
         Write-Log 'Adding new context and new cluster to Kubernetes config...'
         $source = $kubeConfigDir + '\config'
         $target = $kubeConfigDir + '\config_backup'
@@ -46,15 +46,15 @@ function Add-K8sContext {
         #kubectl config view
         $target1 = $kubeConfigDir + '\config_new'
         Remove-Item -Path $target1 -Force -ErrorAction SilentlyContinue
-        kubectl config view --raw > $target1
+        &"$kubeToolsPath\kubectl.exe" config view --raw > $target1
         $target2 = $kubeConfigDir + '\config'
         Remove-Item -Path $target2 -Force -ErrorAction SilentlyContinue
         Move-Item -Path $target1 -Destination $target2 -Force
     }
-    kubectl config use-context kubernetes-admin@kubernetes
+    &"$kubeToolsPath\kubectl.exe" config use-context kubernetes-admin@kubernetes
     Write-Log 'Config from user directory:'
     $env:KUBECONFIG = ''
-    kubectl config view
+    &"$kubeToolsPath\kubectl.exe" config view
 }
 
 <#
@@ -73,11 +73,12 @@ function Wait-ForNodesReady {
         [String]
         $controlPlaneHostName
     )
+    # force import path module since this is executed in a script block
     for ($i = 0; $i -lt 60; $i++) {
         Start-Sleep 2
         #Write-Output "Checking for node $env:COMPUTERNAME..."
-
-        $nodes = $(kubectl get nodes)
+        # using is used because this function is executed in script block in Join-WindowsNode.
+        $nodes = $(&"$using:kubeToolsPath\kubectl.exe" get nodes)
         #Write-Output "$i WaitForJoin: $nodes"
 
         $nodefound = $nodes | Select-String -Pattern "$env:COMPUTERNAME\s*Ready"
@@ -106,7 +107,7 @@ function Join-WindowsNode {
     )
 
     # join node if necessary
-    $nodefound = kubectl get nodes | Select-String -Pattern $env:COMPUTERNAME -SimpleMatch
+    $nodefound = &"$kubeToolsPath\kubectl.exe" get nodes | Select-String -Pattern $env:COMPUTERNAME -SimpleMatch
     if ( !($nodefound) ) {
 
         Write-Log 'Add kubeadm to firewall rules'
@@ -166,9 +167,9 @@ function Join-WindowsNode {
         $job | Stop-Job
 
         # check success in joining
-        $nodefound = kubectl get nodes | Select-String -Pattern $env:COMPUTERNAME -SimpleMatch
+        $nodefound = &"$kubeToolsPath\kubectl.exe" get nodes | Select-String -Pattern $env:COMPUTERNAME -SimpleMatch
         if ( !($nodefound) ) {
-            kubectl get nodes
+            &"$kubeToolsPath\kubectl.exe" get nodes
             throw 'Joining the windows node failed'
         }
 
@@ -194,7 +195,7 @@ function Join-WindowsNode {
 
     # mark nodes as worker
     Write-Log 'Labeling windows node as worker node'
-    kubectl label nodes $env:computername.ToLower() kubernetes.io/role=worker --overwrite | Out-Null
+    &"$kubeToolsPath\kubectl.exe" label nodes $env:computername.ToLower() kubernetes.io/role=worker --overwrite | Out-Null
 }
 
 function Add-ClusterDnsNameToHost {
@@ -242,6 +243,17 @@ function Write-RefreshEnvVariables {
     Write-Log ' ' -Console
 }
 
+function Set-KubeletDiskPressure {
+    # set new limits for the windows node for disk pressure
+    # kubelet is running now (caused by JoinWindowsHost.ps1), so we stop it. Will be restarted in StartK8s.ps1.
+    Stop-Service kubelet
+    Write-Log "using kubelet file: $kubeletConfigDir\config.yaml"
+    $content = Get-Content "$kubeletConfigDir\config.yaml"
+    $content | ForEach-Object { $_ -replace 'evictionPressureTransitionPeriod:',
+        "evictionHard:`r`n  nodefs.available: 8Gi`r`n  imagefs.available: 8Gi`r`nevictionPressureTransitionPeriod:" } |
+    Set-Content "$kubeletConfigDir\config.yaml"
+}
+
 function Initialize-KubernetesCluster {
     Param(
         [parameter(Mandatory = $false, HelpMessage = 'Directory containing additional hooks to be executed after local hooks are executed')]
@@ -255,14 +267,7 @@ function Initialize-KubernetesCluster {
     Write-Log 'starting the join process'
     Join-WindowsNode
 
-    # set new limits for the windows node for disk pressure
-    # kubelet is running now (caused by JoinWindowsHost.ps1), so we stop it. Will be restarted in StartK8s.ps1.
-    Stop-Service kubelet
-    Write-Log "using kubelet file: $kubeletConfigDir\config.yaml"
-    $content = Get-Content "$kubeletConfigDir\config.yaml"
-    $content | ForEach-Object { $_ -replace 'evictionPressureTransitionPeriod:',
-        "evictionHard:`r`n  nodefs.available: 8Gi`r`n  imagefs.available: 8Gi`r`nevictionPressureTransitionPeriod:" } |
-    Set-Content "$kubeletConfigDir\config.yaml"
+    Set-KubeletDiskPressure
 
     # add ip to hosts file
     Add-ClusterDnsNameToHost
@@ -270,7 +275,7 @@ function Initialize-KubernetesCluster {
     # show results
     Write-Log "Current state of kubernetes nodes:`n"
     Start-Sleep 2
-    kubectl get nodes -o wide
+    &"$kubeToolsPath\kubectl.exe" get nodes -o wide
 
     Write-Log "Collecting kubernetes images and storing them to $kubernetesImagesJson."
     Write-KubernetesImagesIntoJson
@@ -283,4 +288,7 @@ function Uninstall-Cluster {
     }
 }
 
-Export-ModuleMember Initialize-KubernetesCluster, Write-RefreshEnvVariables, Uninstall-Cluster
+Export-ModuleMember Initialize-KubernetesCluster, Write-RefreshEnvVariables,
+Uninstall-Cluster, Set-KubeletDiskPressure,
+Join-WindowsNode, Add-K8sContext,
+Add-ClusterDnsNameToHost

@@ -30,38 +30,8 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'JSON config object to override preceeding parameters')]
     [pscustomobject] $Config
 )
-
-# load global settings
-&$PSScriptRoot\..\..\smallsetup\common\GlobalVariables.ps1
-# import global functions
-. $PSScriptRoot\..\..\smallsetup\common\GlobalFunctions.ps1
-
-. $PSScriptRoot\Common.ps1
-
-Import-Module "$PSScriptRoot/../../smallsetup/ps-modules/log/log.module.psm1"
-Initialize-Logging -ShowLogs:$ShowLogs
-
-$addonsModule = "$PSScriptRoot\..\Addons.module.psm1"
-Import-Module $addonsModule
-
-$registryFunctionsModule = "$PSScriptRoot\..\..\smallsetup\helpers\RegistryFunctions.module.psm1"
-Import-Module $registryFunctionsModule -DisableNameChecking
-
-$K8sSetup = Get-Installedk2sSetupType
-
-$registryIP = $global:IP_Master
-$registryName = 'k2s-registry.local'
-$registryNameWithoutPort = $registryName
-if ($Nodeport -gt 0) {
-    if ($Nodeport -eq 30094) {
-        Log-ErrorWithThrow 'Nodeport 30094 is already reserved! Please use another one!'
-        # reserved for dcgm-exporter from nvidia for monitoring addon
-    }
-    $registryName = $($registryName + ':' + "$Nodeport")
-}
-
 function Test-NginxIngressControllerAvailability {
-    $existingServices = $(&$global:BinPath\kubectl.exe get service -n ingress-nginx -o yaml)
+    $existingServices = $(&$global:KubectlExe get service -n ingress-nginx -o yaml)
     if ("$existingServices" -match '.*ingress-nginx-controller.*') {
         return $true
     }
@@ -69,7 +39,7 @@ function Test-NginxIngressControllerAvailability {
 }
 
 function Test-TraefikIngressControllerAvailability {
-    $existingServices = $(&$global:BinPath\kubectl.exe get service -n traefik -o yaml)
+    $existingServices = $(&$global:KubectlExe get service -n traefik -o yaml)
     if ("$existingServices" -match '.*traefik.*') {
         return $true
     }
@@ -92,11 +62,11 @@ function Enable-IngressAddon([string]$Ingress) {
 function Deploy-IngressForRegistry([string]$Ingress) {
     switch ($Ingress) {
         'ingress-nginx' {
-            kubectl apply -f "$global:KubernetesPath\addons\registry\manifests\k2s-registry-nginx-ingress.yaml" | Write-Log
+            &$global:KubectlExe apply -f "$global:KubernetesPath\addons\registry\manifests\k2s-registry-nginx-ingress.yaml" | Write-Log
             break
         }
         'traefik' {
-            kubectl apply -f "$global:KubernetesPath\addons\registry\manifests\k2s-registry-traefik-ingress.yaml" | Write-Log
+            &$global:KubectlExe apply -f "$global:KubernetesPath\addons\registry\manifests\k2s-registry-traefik-ingress.yaml" | Write-Log
             break
         }
     }
@@ -160,8 +130,37 @@ function Restart-Services() {
     &$global:NssmInstallDirectory\nssm start kubeproxy
 }
 
+&$PSScriptRoot\..\..\smallsetup\common\GlobalVariables.ps1
+. $PSScriptRoot\..\..\smallsetup\common\GlobalFunctions.ps1
+
+$logModule = "$PSScriptRoot/../../smallsetup/ps-modules/log/log.module.psm1"
+$statusModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/status/status.module.psm1"
+$addonsModule = "$PSScriptRoot\..\addons.module.psm1"
+$registryFunctionsModule = "$PSScriptRoot\..\..\smallsetup\helpers\RegistryFunctions.module.psm1"
+
+Import-Module $logModule, $addonsModule, $statusModule, $registryFunctionsModule -DisableNameChecking
+
+Initialize-Logging -ShowLogs:$ShowLogs
+
+$K8sSetup = Get-Installedk2sSetupType
+
+$registryIP = $global:IP_Master
+$registryName = 'k2s-registry.local'
+$registryNameWithoutPort = $registryName
+if ($Nodeport -gt 0) {
+    if ($Nodeport -eq 30094) {
+        Log-ErrorWithThrow 'Nodeport 30094 is already reserved! Please use another one!'
+        # reserved for dcgm-exporter from nvidia for monitoring addon
+    }
+    $registryName = $($registryName + ':' + "$Nodeport")
+}
+
 Write-Log 'Checking cluster status' -Console
-Test-ClusterAvailability
+
+$systemError = Test-SystemAvailability
+if ($systemError) {
+    throw $systemError
+}
 
 if ((Test-IsAddonEnabled -Name 'registry') -eq $true) {
     Write-Log "Addon 'registry' is already enabled, nothing to do."
@@ -210,19 +209,19 @@ ExecCmdMaster "container=`$(sudo buildah from public.ecr.aws/docker/library/regi
 
 # Create secrets
 #ExecCmdMaster 'sudo chmod 744 /registry/certs/tls.key'
-kubectl create namespace registry | Write-Log
+&$global:KubectlExe create namespace registry | Write-Log
 #ExecCmdMaster 'kubectl create secret tls certs-secret --cert=/registry/certs/tls.crt --key=/registry/certs/tls.key -n registry'
 ExecCmdMaster 'kubectl create secret generic auth-secret --from-file=/registry/auth/htpasswd -n registry'
 
 # Apply registry pod with persistent volume
 Write-Log 'Creating local registry' -Console
-kubectl apply -f "$global:KubernetesPath\addons\registry\manifests\k2s-registry.yaml" | Write-Log
+&$global:KubectlExe apply -f "$global:KubernetesPath\addons\registry\manifests\k2s-registry.yaml" | Write-Log
 if ($Nodeport -eq 0) {
     # Deploy ingress here
     Deploy-IngressForRegistry -Ingress:$Ingress
 }
 else {
-    kubectl apply -f "$global:KubernetesPath\addons\registry\manifests\k2s-registry-nodeport.yaml" | Write-Log
+    &$global:KubectlExe apply -f "$global:KubernetesPath\addons\registry\manifests\k2s-registry-nodeport.yaml" | Write-Log
     $patchJson = ''
     if ($PSVersionTable.PSVersion.Major -gt 5) {
         $patchJson = '{"spec":{"ports":[{"nodePort":' + $Nodeport + ',"port": 80,"protocol": "TCP","targetPort": 5000}]}}'
@@ -231,10 +230,10 @@ else {
         $patchJson = '{\"spec\":{\"ports\":[{\"nodePort\":' + $Nodeport + ',\"port\": 80,\"protocol\": \"TCP\",\"targetPort\": 5000}]}}'
     }
 
-    &$global:BinPath\kubectl.exe patch svc k2s-registry -p "$patchJson" -n registry | Write-Log
+    &$global:KubectlExe patch svc k2s-registry -p "$patchJson" -n registry | Write-Log
 }
 
-kubectl wait --timeout=60s --for=condition=Ready -n registry pod/k2s-registry-pod | Write-Log
+&$global:KubectlExe wait --timeout=60s --for=condition=Ready -n registry pod/k2s-registry-pod | Write-Log
 if (!$?) {
     Log-ErrorWithThrow 'k2s-registry did not start in time! Please disable addon and try to enable again!'
 }
@@ -273,7 +272,7 @@ elseif ($K8sSetup -eq $global:SetupType_MultiVMK8s -and !$linuxOnly) {
 #Copy-FromToMaster $($global:Remote_Master + ':/registry/certs/tls.crt') "$env:programdata\docker\certs.d\k2s-registry.local\ca.crt"
 
 # Create secret for enabling all the nodes in the cluster to authenticate with private registry
-kubectl create secret docker-registry 'k2s-registry' --docker-server=$registryName --docker-username=$username --docker-password=$password | Write-Log
+&$global:KubectlExe create secret docker-registry 'k2s-registry' --docker-server=$registryName --docker-username=$username --docker-password=$password | Write-Log
 
 # set insecure-registries (remove this section in case of self signed certificates)
 if ($PSVersionTable.PSVersion.Major -gt 5) {

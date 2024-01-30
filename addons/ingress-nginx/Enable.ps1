@@ -22,39 +22,40 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'JSON config object to override preceeding parameters')]
     [pscustomobject] $Config
 )
-
-# load global settings
 &$PSScriptRoot\..\..\smallsetup\common\GlobalVariables.ps1
-# import global functions
 . $PSScriptRoot\..\..\smallsetup\common\GlobalFunctions.ps1
-# load common module for installing/uninstalling ingress-nginx
 . $PSScriptRoot\Common.ps1
 
-Import-Module "$PSScriptRoot/../../smallsetup/ps-modules/log/log.module.psm1"
+$logModule = "$PSScriptRoot/../../smallsetup/ps-modules/log/log.module.psm1"
+$statusModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/status/status.module.psm1"
+$addonsModule = "$PSScriptRoot\..\addons.module.psm1"
+
+Import-Module $logModule, $addonsModule, $statusModule
+
 Initialize-Logging -ShowLogs:$ShowLogs
 
-$addonsModule = "$PSScriptRoot\..\Addons.module.psm1"
-
-Import-Module $addonsModule
-
 Write-Log 'Checking cluster status' -Console
-Test-ClusterAvailability
+
+$systemError = Test-SystemAvailability
+if ($systemError) {
+    throw $systemError
+}
 
 Write-Log 'Checking if ingress nginx is already installed by us'
-if ((Test-IsAddonEnabled -Name "ingress-nginx") -eq $true) {
+if ((Test-IsAddonEnabled -Name 'ingress-nginx') -eq $true) {
     Write-Log "Addon 'ingress-nginx' is already enabled, nothing to do." -Console
     exit 0
 }
 
-if ((Test-IsAddonEnabled -Name "traefik") -eq $true) {
+if ((Test-IsAddonEnabled -Name 'traefik') -eq $true) {
     throw "Addon 'traefik' is enabled. Disable it first to avoid port conflicts."
 }
 
-if ((Test-IsAddonEnabled -Name "gateway-nginx") -eq $true) {
+if ((Test-IsAddonEnabled -Name 'gateway-nginx') -eq $true) {
     throw "Addon 'gateway-nginx' is enabled. Disable it first to avoid port conflicts."
 }
 
-$existingServices = $(&$global:BinPath\kubectl.exe get service -n ingress-nginx -o yaml)
+$existingServices = $(&$global:KubectlExe get service -n ingress-nginx -o yaml)
 if ("$existingServices" -match '.*ingress-nginx-controller.*') {
     Write-Log 'It seems as if ingress nginx is already installed in the namespace ingress-nginx. Disable it before enabling it again.' -Console
     return 0;
@@ -62,20 +63,21 @@ if ("$existingServices" -match '.*ingress-nginx-controller.*') {
 
 Write-Log 'Installing ingress-nginx' -Console
 $ingressNginxNamespace = 'ingress-nginx'
-&$global:BinPath\kubectl.exe create ns $ingressNginxNamespace | Write-Log
+&$global:KubectlExe create ns $ingressNginxNamespace | Write-Log
 
 $ingressNginxConfig = Get-IngressNginxConfig
-&$global:BinPath\kubectl.exe apply -f "$ingressNginxConfig" | Write-Log
+&$global:KubectlExe apply -f "$ingressNginxConfig" | Write-Log
 
 Write-Log "Setting $global:IP_Master as an external IP for ingress-nginx-controller service" -Console
-$patchJson = ""
+$patchJson = ''
 if ($PSVersionTable.PSVersion.Major -gt 5) {
     $patchJson = '{"spec":{"externalIPs":["' + $global:IP_Master + '"]}}'
-} else {
+}
+else {
     $patchJson = '{\"spec\":{\"externalIPs\":[\"' + $global:IP_Master + '\"]}}'
 }
 $ingressNginxSvc = 'ingress-nginx-controller'
-&$global:BinPath\kubectl.exe patch svc $ingressNginxSvc -p "$patchJson" -n $ingressNginxNamespace | Write-Log
+&$global:KubectlExe patch svc $ingressNginxSvc -p "$patchJson" -n $ingressNginxNamespace | Write-Log
 
 $allPodsAreUp = Wait-ForPodsReady -Selector 'app.kubernetes.io/name=ingress-nginx' -Namespace 'ingress-nginx'
 

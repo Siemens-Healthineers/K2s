@@ -152,6 +152,34 @@ var _ = Describe("multivm", func() {
 			})
 		})
 
+		Context("image param is not set", func() {
+			It("returns error", func() {
+				config := &ic.InstallConfig{
+					Nodes: []ic.NodeConfig{
+						{
+							Role: ic.ControlPlaneRoleName,
+							Resources: ic.ResourceConfig{
+								Cpu:    "5",
+								Memory: "6GB",
+								Disk:   "7GB",
+							}},
+						{
+							Role: ic.WorkerRoleName,
+							Resources: ic.ResourceConfig{
+								Cpu:    "8",
+								Memory: "9GB",
+								Disk:   "10GB",
+							},
+						}},
+				}
+
+				actual, err := buildInstallCmd(config)
+
+				Expect(err).To(MatchError(ContainSubstring("missing flag '--image'")))
+				Expect(actual).To(BeEmpty())
+			})
+		})
+
 		Context("without additional switches", func() {
 			It("returns command", func() {
 				const staticPartOfExpectedCmd = `\smallsetup\multivm\Install_MultiVMK8sSetup.ps1' -MasterVMProcessorCount 5 -MasterVMMemory 6GB -MasterDiskSize 7GB` +

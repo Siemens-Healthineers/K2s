@@ -17,7 +17,7 @@ Param (
 . $PSScriptRoot\..\common\GlobalFunctions.ps1
 
 $registryFunctionsModule = "$PSScriptRoot\RegistryFunctions.module.psm1"
-$statusModule = "$PSScriptRoot\..\status\Status.module.psm1"
+$statusModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.cluster.module\status\status.module.psm1"
 $setupInfoModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.cluster.module\setupinfo\setupinfo.module.psm1"
 $runningStateModule = "$PSScriptRoot\..\status\RunningState.module.psm1"
 $imageFunctionsModule = "$PSScriptRoot\ImageFunctions.module.psm1"
@@ -26,7 +26,10 @@ $logModule = "$PSScriptRoot\..\ps-modules\log\log.module.psm1"
 Import-Module $registryFunctionsModule, $statusModule, $runningStateModule, $imageFunctionsModule, $setupInfoModule -DisableNameChecking
 if (-not (Get-Module -Name $logModule -ListAvailable)) { Import-Module $logModule; Initialize-Logging -ShowLogs:$ShowLogs }
 
-Test-ClusterAvailabilityForImageFunctions
+$systemError = Test-SystemAvailability
+if ($systemError) {
+    throw $systemError
+}
 
 $setupInfo = Get-SetupInfo
 
