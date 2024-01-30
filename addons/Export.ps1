@@ -143,12 +143,12 @@ try {
                     # load global settings
                     &$env:SystemDrive\k\smallsetup\common\GlobalVariables.ps1
 
-                    &$global:NerdctlExe -n 'k8s.io' pull $using:image --platform windows/amd64 2>&1 | Out-Null
+                    &$global:NerdctlExe -n 'k8s.io' pull $using:image --all-platforms 2>&1 | Out-Null
                     crictl pull $using:image
                 }
             }
             else {
-                &$global:NerdctlExe -n 'k8s.io' pull $image --platform windows/amd64 2>&1 | Out-Null
+                &$global:NerdctlExe -n 'k8s.io' pull $image --all-platforms 2>&1 | Out-Null
                 &$global:BinPath\crictl pull $image
             }
         }
