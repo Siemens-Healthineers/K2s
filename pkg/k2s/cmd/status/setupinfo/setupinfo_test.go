@@ -50,7 +50,7 @@ var _ = Describe("setupinfo", func() {
 	Describe("PrintSetupInfo", func() {
 		When("setup is not installed", func() {
 			It("prints not installed info without error", func() {
-				setupError := si.NotInstalledErrMsg
+				setupError := si.ErrNotInstalledMsg
 				info := si.SetupInfo{Error: &setupError}
 
 				printerMock := &mockObject{}
