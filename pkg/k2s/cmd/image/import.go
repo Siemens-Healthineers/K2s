@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"k2s/cmd/common"
 	p "k2s/cmd/params"
-	"k2s/setupinfo"
 	"k2s/utils"
 	"strconv"
 
@@ -64,13 +63,7 @@ func importImage(cmd *cobra.Command, args []string) error {
 	klog.V(3).Infof("import command : %s", importCmd)
 
 	duration, err := utils.ExecutePowershellScript(importCmd)
-	switch err {
-	case nil:
-		break
-	case setupinfo.ErrNotInstalled:
-		common.PrintNotInstalledMessage()
-		return nil
-	default:
+	if err != nil {
 		return err
 	}
 

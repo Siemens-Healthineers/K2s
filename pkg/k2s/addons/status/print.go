@@ -44,10 +44,9 @@ type JsonPrinter struct {
 }
 
 type UserFriendlyPrinter struct {
-	terminalPrinter          TerminalPrinter
-	statusLoader             StatusLoader
-	propPrinter              PropPrinter
-	printNotInstalledMsgFunc func()
+	terminalPrinter TerminalPrinter
+	statusLoader    StatusLoader
+	propPrinter     PropPrinter
 }
 
 type propPrint struct {
@@ -62,7 +61,7 @@ func NewJsonPrinter(terminalPrinter TerminalPrinter, statusLoader StatusLoader, 
 	}
 }
 
-func NewUserFriendlyPrinter(terminalPrinter TerminalPrinter, statusLoader StatusLoader, printNotInstalledMsgFunc func(), propPrinters ...PropPrinter) *UserFriendlyPrinter {
+func NewUserFriendlyPrinter(terminalPrinter TerminalPrinter, statusLoader StatusLoader, propPrinters ...PropPrinter) *UserFriendlyPrinter {
 	var propPrinter PropPrinter
 	if len(propPrinters) > 0 {
 		propPrinter = propPrinters[0]
@@ -71,10 +70,9 @@ func NewUserFriendlyPrinter(terminalPrinter TerminalPrinter, statusLoader Status
 	}
 
 	return &UserFriendlyPrinter{
-		terminalPrinter:          terminalPrinter,
-		statusLoader:             statusLoader,
-		propPrinter:              propPrinter,
-		printNotInstalledMsgFunc: printNotInstalledMsgFunc,
+		terminalPrinter: terminalPrinter,
+		statusLoader:    statusLoader,
+		propPrinter:     propPrinter,
 	}
 }
 
@@ -127,8 +125,7 @@ func (s *UserFriendlyPrinter) PrintStatus(addonName string, addonDirectory strin
 
 	if status.Error != nil {
 		if *status.Error == string(setupinfo.ErrNotInstalledMsg) {
-			s.printNotInstalledMsgFunc()
-			return nil
+			return setupinfo.ErrNotInstalled
 		}
 
 		s.terminalPrinter.Println(*status.Error)

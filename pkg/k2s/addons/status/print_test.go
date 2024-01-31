@@ -78,10 +78,6 @@ func (m *mockObject) PrintProp(prop AddonStatusProp) {
 	m.Called(prop)
 }
 
-func (m *mockObject) PrintNotInstalledMsg() {
-	m.Called()
-}
-
 func TestPrint(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "addons status print Unit Tests", Label("unit"))
@@ -166,7 +162,7 @@ var _ = Describe("addons status print", func() {
 				printerMock.On(r.GetFunctionName(printerMock.PrintHeader), "ADDON STATUS").Once()
 				printerMock.On(r.GetFunctionName(printerMock.StartSpinner), mock.Anything).Return(nil, errors.New("oops"))
 
-				sut := NewUserFriendlyPrinter(printerMock, nil, nil)
+				sut := NewUserFriendlyPrinter(printerMock, nil)
 
 				sut.PrintStatus("", "")
 
@@ -181,7 +177,7 @@ var _ = Describe("addons status print", func() {
 					printerMock.On(r.GetFunctionName(printerMock.PrintHeader), mock.Anything)
 					printerMock.On(r.GetFunctionName(printerMock.StartSpinner), mock.Anything).Return(nil, expectedError)
 
-					sut := NewUserFriendlyPrinter(printerMock, nil, nil)
+					sut := NewUserFriendlyPrinter(printerMock, nil)
 
 					err := sut.PrintStatus("", "")
 
@@ -196,7 +192,7 @@ var _ = Describe("addons status print", func() {
 					printerMock.On(r.GetFunctionName(printerMock.PrintHeader), mock.Anything)
 					printerMock.On(r.GetFunctionName(printerMock.StartSpinner), mock.Anything).Return("not-a-spinner", nil)
 
-					sut := NewUserFriendlyPrinter(printerMock, nil, nil)
+					sut := NewUserFriendlyPrinter(printerMock, nil)
 
 					err := sut.PrintStatus("", "")
 
@@ -221,7 +217,7 @@ var _ = Describe("addons status print", func() {
 					loaderMock := &mockObject{}
 					loaderMock.On(r.GetFunctionName(loaderMock.LoadAddonStatus), addonName, addonDirectory).Return(&AddonStatus{}, expectedError)
 
-					sut := NewUserFriendlyPrinter(printerMock, loaderMock, nil)
+					sut := NewUserFriendlyPrinter(printerMock, loaderMock)
 
 					err := sut.PrintStatus(addonName, addonDirectory)
 
@@ -233,7 +229,7 @@ var _ = Describe("addons status print", func() {
 
 			When("status contains error", func() {
 				When("status contains not-installed error", func() {
-					It("prints not-installed message and returns", func() {
+					It("returns error", func() {
 						addonName := "test-addon"
 						addonDirectory := "test-dir"
 						errTxt := string(setupinfo.ErrNotInstalledMsg)
@@ -245,16 +241,15 @@ var _ = Describe("addons status print", func() {
 						printerMock := &mockObject{}
 						printerMock.On(r.GetFunctionName(printerMock.PrintHeader), mock.Anything)
 						printerMock.On(r.GetFunctionName(printerMock.StartSpinner), mock.Anything).Return(spinnerMock, nil)
-						printerMock.On(r.GetFunctionName(printerMock.PrintNotInstalledMsg)).Once()
 
 						loaderMock := &mockObject{}
 						loaderMock.On(r.GetFunctionName(loaderMock.LoadAddonStatus), addonName, addonDirectory).Return(status, nil)
 
-						sut := NewUserFriendlyPrinter(printerMock, loaderMock, printerMock.PrintNotInstalledMsg)
+						sut := NewUserFriendlyPrinter(printerMock, loaderMock)
 
 						err := sut.PrintStatus(addonName, addonDirectory)
 
-						Expect(err).ToNot(HaveOccurred())
+						Expect(err).To(MatchError(setupinfo.ErrNotInstalled))
 						printerMock.AssertExpectations(GinkgoT())
 						spinnerMock.AssertExpectations(GinkgoT())
 					})
@@ -278,7 +273,7 @@ var _ = Describe("addons status print", func() {
 						loaderMock := &mockObject{}
 						loaderMock.On(r.GetFunctionName(loaderMock.LoadAddonStatus), addonName, addonDirectory).Return(status, nil)
 
-						sut := NewUserFriendlyPrinter(printerMock, loaderMock, nil)
+						sut := NewUserFriendlyPrinter(printerMock, loaderMock)
 
 						err := sut.PrintStatus(addonName, addonDirectory)
 
@@ -305,7 +300,7 @@ var _ = Describe("addons status print", func() {
 					loaderMock := &mockObject{}
 					loaderMock.On(r.GetFunctionName(loaderMock.LoadAddonStatus), addonName, addonDirectory).Return(status, nil)
 
-					sut := NewUserFriendlyPrinter(printerMock, loaderMock, nil)
+					sut := NewUserFriendlyPrinter(printerMock, loaderMock)
 
 					err := sut.PrintStatus(addonName, addonDirectory)
 
@@ -335,7 +330,7 @@ var _ = Describe("addons status print", func() {
 					loaderMock := &mockObject{}
 					loaderMock.On(r.GetFunctionName(loaderMock.LoadAddonStatus), addonName, addonDirectory).Return(status, nil)
 
-					sut := NewUserFriendlyPrinter(printerMock, loaderMock, nil)
+					sut := NewUserFriendlyPrinter(printerMock, loaderMock)
 
 					err := sut.PrintStatus(addonName, addonDirectory)
 
@@ -366,7 +361,7 @@ var _ = Describe("addons status print", func() {
 					loaderMock := &mockObject{}
 					loaderMock.On(r.GetFunctionName(loaderMock.LoadAddonStatus), addonName, addonDirectory).Return(status, nil)
 
-					sut := NewUserFriendlyPrinter(printerMock, loaderMock, nil)
+					sut := NewUserFriendlyPrinter(printerMock, loaderMock)
 
 					err := sut.PrintStatus(addonName, addonDirectory)
 
@@ -404,7 +399,7 @@ var _ = Describe("addons status print", func() {
 					propPrintMock.On(r.GetFunctionName(propPrintMock.PrintProp), status.Props[0]).Once()
 					propPrintMock.On(r.GetFunctionName(propPrintMock.PrintProp), status.Props[1]).Once()
 
-					sut := NewUserFriendlyPrinter(printerMock, loaderMock, nil, propPrintMock)
+					sut := NewUserFriendlyPrinter(printerMock, loaderMock, propPrintMock)
 
 					err := sut.PrintStatus(addonName, addonDirectory)
 

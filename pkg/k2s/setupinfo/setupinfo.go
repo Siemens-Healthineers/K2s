@@ -3,10 +3,12 @@
 
 package setupinfo
 
-import "errors"
+import (
+	"errors"
+)
 
-type SetupError string
 type SetupName string
+type SetupError string
 
 type SetupInfo struct {
 	Version   *string     `json:"version"`
@@ -21,7 +23,20 @@ const (
 	SetupNameBuildOnlyEnv SetupName = "BuildOnlyEnv"
 
 	ErrNotInstalledMsg SetupError = "not-installed"
-	ErrNotRunningMsg   SetupError = "not-running"
 )
 
-var ErrNotInstalled = errors.New(string(ErrNotInstalledMsg))
+var (
+	ErrNotInstalled = errors.New(string(ErrNotInstalledMsg))
+)
+
+func (err SetupError) ToError() error {
+	if err == ErrNotInstalledMsg {
+		return ErrNotInstalled
+	}
+
+	return errors.New(string(err))
+}
+
+func IsErrNotInstalled(err string) bool {
+	return err == string(ErrNotInstalledMsg)
+}
