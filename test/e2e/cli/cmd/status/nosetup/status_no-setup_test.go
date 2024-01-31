@@ -21,11 +21,11 @@ var suite *framework.K2sTestSuite
 
 func TestStatus(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "status CLI Command Acceptance Tests", Label("cli", "status", "acceptance", "no-setup"), framework.ClusterTestStepPollInterval(100*time.Millisecond))
+	RunSpecs(t, "status CLI Command Acceptance Tests", Label("cli", "status", "acceptance", "no-setup"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
-	suite = framework.Setup(ctx, framework.NoSetupInstalled)
+	suite = framework.Setup(ctx, framework.NoSetupInstalled, framework.ClusterTestStepPollInterval(100*time.Millisecond))
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
