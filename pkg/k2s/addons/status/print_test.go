@@ -228,7 +228,7 @@ var _ = Describe("addons status print", func() {
 			})
 
 			When("status contains error", func() {
-				When("status contains not-installed error", func() {
+				When("status contains system-not-installed error", func() {
 					It("returns error", func() {
 						addonName := "test-addon"
 						addonDirectory := "test-dir"

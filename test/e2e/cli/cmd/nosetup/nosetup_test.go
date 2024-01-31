@@ -29,7 +29,7 @@ var _ = AfterSuite(func(ctx context.Context) {
 })
 
 var _ = Describe("commands", func() {
-	DescribeTable("print not-installed message",
+	DescribeTable("print system-not-installed message",
 		func(ctx context.Context, args ...string) {
 			output := suite.K2sCli().Run(ctx, args...)
 

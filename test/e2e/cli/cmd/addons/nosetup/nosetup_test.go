@@ -61,15 +61,15 @@ var _ = Describe("addons commands", func() {
 			Expect(json.Unmarshal([]byte(output), &status)).To(Succeed())
 		})
 
-		It("contains only not-installed info and name", func() {
+		It("contains only system-not-installed info and name", func() {
 			Expect(status.Enabled).To(BeNil())
 			Expect(status.Name).To(Equal("dashboard"))
-			Expect(*status.Error).To(Equal("not-installed"))
+			Expect(*status.Error).To(Equal("system-not-installed"))
 			Expect(status.Props).To(BeEmpty())
 		})
 	})
 
-	DescribeTable("other commands print not-installed message",
+	DescribeTable("other commands print system-not-installed message",
 		func(ctx context.Context, args ...string) {
 			output := suite.K2sCli().Run(ctx, args...)
 

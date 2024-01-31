@@ -36,7 +36,7 @@ if ($setupInfo.ValidationError) {
 $clusterState = Get-RunningState -SetupType $setupInfo.Name
 
 if ($clusterState.IsRunning -ne $true) {
-    throw "Cannot import addons when cluster is not running. Please start the cluster with 'k2s start'."
+    throw "Cannot import addons when system is not running. Please start the system with 'k2s start'."
 }
 
 Write-Log 'Extracting images' -Console

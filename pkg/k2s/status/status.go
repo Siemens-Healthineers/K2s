@@ -7,7 +7,7 @@ import (
 	"errors"
 )
 
-const ErrNotRunningMsg = "not-running"
+const ErrNotRunningMsg = "system-not-running"
 
 var ErrNotRunning = errors.New(ErrNotRunningMsg)
 

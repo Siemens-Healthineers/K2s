@@ -128,7 +128,7 @@ var _ = Describe("load", func() {
 		})
 
 		When("file-non-existent error occurred", func() {
-			It("returns the not-installed-error", func() {
+			It("returns the system-not-installed-error", func() {
 				path := "some-path"
 				errNotExist := errors.New("gone")
 

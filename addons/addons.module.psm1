@@ -515,7 +515,7 @@ function Get-AddonStatus {
 
     $clusterState = Get-RunningState -SetupType $setupInfo.Name
     if ($clusterState.IsRunning -ne $true) {
-        $status.Error = "Cannot interact with '$Name' addon when cluster is not running. Please start the cluster with 'k2s start'."
+        $status.Error = "Cannot interact with '$Name' addon when system is not running. Please start the system with 'k2s start'."
         return $status
     }
     

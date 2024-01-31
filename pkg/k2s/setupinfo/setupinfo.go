@@ -22,7 +22,7 @@ const (
 	SetupNameMultiVMK8s   SetupName = "MultiVMK8s"
 	SetupNameBuildOnlyEnv SetupName = "BuildOnlyEnv"
 
-	ErrNotInstalledMsg SetupError = "not-installed"
+	ErrNotInstalledMsg SetupError = "system-not-installed"
 )
 
 var (
