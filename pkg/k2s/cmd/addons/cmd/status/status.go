@@ -10,7 +10,6 @@ import (
 
 	"k2s/addons"
 	"k2s/addons/status"
-	"k2s/cmd/common"
 	"k2s/providers/marshalling"
 	"k2s/providers/terminal"
 )
@@ -83,6 +82,6 @@ func determinePrinter(outputOption string) StatusPrinter {
 	if outputOption == jsonOption {
 		return status.NewJsonPrinter(terminalPrinter, statusLoader, marshalling.NewJsonMarshaller())
 	} else {
-		return status.NewUserFriendlyPrinter(terminalPrinter, statusLoader, common.PrintNotInstalledMessage)
+		return status.NewUserFriendlyPrinter(terminalPrinter, statusLoader)
 	}
 }
