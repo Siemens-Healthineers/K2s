@@ -10,6 +10,7 @@ import (
 
 	"k2s/addons"
 	"k2s/addons/status"
+	ac "k2s/cmd/addons/cmd/common"
 	"k2s/providers/marshalling"
 	"k2s/providers/terminal"
 )
@@ -39,7 +40,7 @@ func NewCommand(allAddons addons.Addons) *cobra.Command {
 	return cmd
 }
 
-func (*statusLoader) LoadAddonStatus(addonName string, addonDirectory string) (*status.AddonStatus, error) {
+func (*statusLoader) LoadAddonStatus(addonName string, addonDirectory string) (*status.AddonLoadStatus, error) {
 	return status.LoadAddonStatus(addonName, addonDirectory)
 }
 
@@ -82,6 +83,6 @@ func determinePrinter(outputOption string) StatusPrinter {
 	if outputOption == jsonOption {
 		return status.NewJsonPrinter(terminalPrinter, statusLoader, marshalling.NewJsonMarshaller())
 	} else {
-		return status.NewUserFriendlyPrinter(terminalPrinter, statusLoader)
+		return status.NewUserFriendlyPrinter(terminalPrinter, statusLoader, ac.PrintAddonNotFoundMsg, ac.PrintNoAddonStatusMsg)
 	}
 }

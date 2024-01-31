@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"k2s/cmd/status/load"
 	"k2s/setupinfo"
+	"time"
 
 	"testing"
 
@@ -20,7 +21,7 @@ var suite *framework.K2sTestSuite
 
 func TestStatus(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "status CLI Command Acceptance Tests", Label("cli", "status", "acceptance", "no-setup"))
+	RunSpecs(t, "status CLI Command Acceptance Tests", Label("cli", "status", "acceptance", "no-setup"), framework.ClusterTestStepPollInterval(100*time.Millisecond))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
@@ -31,8 +32,8 @@ var _ = AfterSuite(func(ctx context.Context) {
 	suite.TearDown(ctx)
 })
 
-var _ = Describe("status command", func() {
-	Context("default output", Ordered, func() {
+var _ = Describe("status", Ordered, func() {
+	Context("default output", func() {
 		var output string
 
 		BeforeAll(func(ctx context.Context) {
@@ -48,7 +49,7 @@ var _ = Describe("status command", func() {
 		})
 	})
 
-	Context("extended output", Ordered, func() {
+	Context("extended output", func() {
 		var output string
 
 		BeforeAll(func(ctx context.Context) {
@@ -64,7 +65,7 @@ var _ = Describe("status command", func() {
 		})
 	})
 
-	Context("JSON output", Ordered, func() {
+	Context("JSON output", func() {
 		var status load.Status
 
 		BeforeAll(func(ctx context.Context) {

@@ -23,6 +23,7 @@ func main() {
 		}
 		if errors.Is(err, status.ErrNotRunning) {
 			pterm.Info.Println("K2s is not running. To interact with the system, please start it with 'k2s start' first")
+			return
 		}
 
 		pterm.Error.Println(err)

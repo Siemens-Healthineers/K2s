@@ -6,6 +6,7 @@ package status
 import (
 	"errors"
 	"k2s/setupinfo"
+	ks "k2s/status"
 
 	"k8s.io/klog/v2"
 
@@ -26,7 +27,7 @@ type Spinner interface {
 }
 
 type StatusLoader interface {
-	LoadAddonStatus(addonName string, addonDirectory string) (*AddonStatus, error)
+	LoadAddonStatus(addonName string, addonDirectory string) (*AddonLoadStatus, error)
 }
 
 type JsonMarshaller interface {
@@ -44,9 +45,16 @@ type JsonPrinter struct {
 }
 
 type UserFriendlyPrinter struct {
-	terminalPrinter TerminalPrinter
-	statusLoader    StatusLoader
-	propPrinter     PropPrinter
+	terminalPrinter           TerminalPrinter
+	statusLoader              StatusLoader
+	propPrinter               PropPrinter
+	printAddonNotFoundMsgFunc func(dir string, name string)
+	printNoAddonStatusMsgFunc func(name string)
+}
+
+type AddonPrintStatus struct {
+	AddonLoadStatus
+	Name string `json:"name"`
 }
 
 type propPrint struct {
@@ -61,7 +69,12 @@ func NewJsonPrinter(terminalPrinter TerminalPrinter, statusLoader StatusLoader, 
 	}
 }
 
-func NewUserFriendlyPrinter(terminalPrinter TerminalPrinter, statusLoader StatusLoader, propPrinters ...PropPrinter) *UserFriendlyPrinter {
+func NewUserFriendlyPrinter(
+	terminalPrinter TerminalPrinter,
+	statusLoader StatusLoader,
+	printAddonNotFoundMsgFunc func(dir string, name string),
+	printNoAddonStatusMsgFunc func(name string),
+	propPrinters ...PropPrinter) *UserFriendlyPrinter {
 	var propPrinter PropPrinter
 	if len(propPrinters) > 0 {
 		propPrinter = propPrinters[0]
@@ -70,9 +83,11 @@ func NewUserFriendlyPrinter(terminalPrinter TerminalPrinter, statusLoader Status
 	}
 
 	return &UserFriendlyPrinter{
-		terminalPrinter: terminalPrinter,
-		statusLoader:    statusLoader,
-		propPrinter:     propPrinter,
+		terminalPrinter:           terminalPrinter,
+		statusLoader:              statusLoader,
+		propPrinter:               propPrinter,
+		printAddonNotFoundMsgFunc: printAddonNotFoundMsgFunc,
+		printNoAddonStatusMsgFunc: printNoAddonStatusMsgFunc,
 	}
 }
 
@@ -83,12 +98,30 @@ func NewPropPrinter(terminalPrinter TerminalPrinter) *propPrint {
 }
 
 func (s *JsonPrinter) PrintStatus(addonName string, addonDirectory string) error {
-	status, err := s.statusLoader.LoadAddonStatus(addonName, addonDirectory)
-	if err != nil {
-		return err
+	addonStatus, err := s.statusLoader.LoadAddonStatus(addonName, addonDirectory)
+
+	printStatus := AddonPrintStatus{Name: addonName}
+	if err == nil {
+		printStatus.AddonLoadStatus = *addonStatus
+	} else {
+		if errors.Is(err, ks.ErrNotRunning) {
+			errMsg := AddonError(ks.ErrNotRunningMsg)
+			printStatus.AddonLoadStatus = AddonLoadStatus{Error: &errMsg}
+		} else if errors.Is(err, setupinfo.ErrNotInstalled) {
+			errMsg := AddonError(setupinfo.ErrNotInstalledMsg)
+			printStatus.AddonLoadStatus = AddonLoadStatus{Error: &errMsg}
+		} else if errors.Is(err, ErrAddonNotFound) {
+			errMsg := errAddonNotFoundMsg
+			printStatus.AddonLoadStatus = AddonLoadStatus{Error: &errMsg}
+		} else if errors.Is(err, ErrNoAddonStatus) {
+			errMsg := errNoAddonStatusMsg
+			printStatus.AddonLoadStatus = AddonLoadStatus{Error: &errMsg}
+		} else {
+			return err
+		}
 	}
 
-	bytes, err := s.jsonMarshaller.MarshalIndent(status)
+	bytes, err := s.jsonMarshaller.MarshalIndent(printStatus)
 	if err != nil {
 		return err
 	}
@@ -120,24 +153,22 @@ func (s *UserFriendlyPrinter) PrintStatus(addonName string, addonDirectory strin
 
 	status, err := s.statusLoader.LoadAddonStatus(addonName, addonDirectory)
 	if err != nil {
-		return err
-	}
-
-	if status.Error != nil {
-		if *status.Error == string(setupinfo.ErrNotInstalledMsg) {
-			return setupinfo.ErrNotInstalled
+		if errors.Is(err, ErrAddonNotFound) {
+			s.printAddonNotFoundMsgFunc(addonDirectory, addonName)
+			return nil
+		} else if errors.Is(err, ErrNoAddonStatus) {
+			s.printNoAddonStatusMsgFunc(addonName)
+			return nil
+		} else {
+			return err
 		}
-
-		s.terminalPrinter.Println(*status.Error)
-		klog.V(2).Infof("addon status for '%s' returned error '%s'", addonName, *status.Error)
-		return nil
 	}
 
 	if status.Enabled == nil {
 		return fmt.Errorf("enabled/disabled info missing for '%s' addon", addonName)
 	}
 
-	coloredAddonName := s.terminalPrinter.PrintCyanFg(status.Name)
+	coloredAddonName := s.terminalPrinter.PrintCyanFg(addonName)
 
 	if !*status.Enabled {
 		s.terminalPrinter.Println("Addon", coloredAddonName, "is", s.terminalPrinter.PrintCyanFg("disabled"))

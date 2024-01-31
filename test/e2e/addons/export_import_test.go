@@ -24,9 +24,7 @@ import (
 	"github.com/samber/lo"
 )
 
-const (
-	testClusterTimeout = time.Minute * 20
-)
+const testClusterTimeout = time.Minute * 20
 
 var (
 	suite      *framework.K2sTestSuite
@@ -40,11 +38,11 @@ var (
 
 func TestExportImportAddons(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Export and Import Addons Functional Tests", Label("functional", "acceptance", "internet-required", "setup-required", "invasive", "export-import"))
+	RunSpecs(t, "Export and Import Addons Functional Tests", Label("functional", "acceptance", "internet-required", "setup-required", "invasive", "export-import", "system-running"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
-	suite = framework.Setup(ctx, framework.EnsureAddonsAreDisabled, framework.ClusterTestStepTimeout(testClusterTimeout))
+	suite = framework.Setup(ctx, framework.SystemMustBeRunning, framework.EnsureAddonsAreDisabled, framework.ClusterTestStepTimeout(testClusterTimeout))
 	exportPath = filepath.Join(suite.RootDir(), "tmp")
 	linuxOnly = suite.SetupInfo().LinuxOnly
 	addons = k2s.AllAddons(suite.RootDir())

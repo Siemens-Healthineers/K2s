@@ -1,0 +1,68 @@
+// SPDX-FileCopyrightText:  © 2023 Siemens Healthcare GmbH
+// SPDX-License-Identifier:   MIT
+package setuprequired
+
+import (
+	"context"
+	"encoding/json"
+	"k2s/addons/status"
+	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+
+	"k2sTest/framework"
+	"k2sTest/framework/k2s"
+)
+
+var suite *framework.K2sTestSuite
+var addons []k2s.Addon
+
+func TestLs(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "addons CLI Command Acceptance Tests for K2s being started", Label("cli", "acceptance", "setup-required", "addons", "system-running"))
+}
+
+var _ = BeforeSuite(func(ctx context.Context) {
+	suite = framework.Setup(ctx, framework.SystemMustBeStopped)
+	addons = k2s.AllAddons(suite.RootDir())
+})
+
+var _ = AfterSuite(func(ctx context.Context) {
+	suite.TearDown(ctx)
+})
+
+var _ = Describe("addons commands", func() {
+	Describe("status", func() {
+		Context("standard output", func() {
+			It("prints system-not-running message for all addons", func(ctx context.Context) {
+				for _, addon := range addons {
+					GinkgoWriter.Println("Calling addons status for", addon.Metadata.Name)
+
+					output := suite.K2sCli().Run(ctx, "addons", "status", addon.Metadata.Name)
+
+					Expect(output).To(ContainSubstring("not running"))
+				}
+			})
+		})
+
+		Context("JSON output", func() {
+			It("contains only system-not-running info and name", func(ctx context.Context) {
+				for _, addon := range addons {
+					GinkgoWriter.Println("Calling addons status for", addon.Metadata.Name)
+
+					output := suite.K2sCli().Run(ctx, "addons", "status", addon.Metadata.Name, "-o", "json")
+
+					var status status.AddonPrintStatus
+
+					Expect(json.Unmarshal([]byte(output), &status)).To(Succeed())
+
+					Expect(status.Enabled).To(BeNil())
+					Expect(status.Name).To(Equal(addon.Metadata.Name))
+					Expect(string(*status.Error)).To(Equal("system-not-running"))
+					Expect(status.Props).To(BeEmpty())
+				}
+			})
+		})
+	})
+})
