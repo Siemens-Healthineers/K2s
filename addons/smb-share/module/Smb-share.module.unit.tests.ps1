@@ -1475,7 +1475,7 @@ Describe 'Enable-SmbShare' -Tag 'unit', 'addon' {
         }
     }
 
-    Context 'cluster is not running' {
+    Context 'system is not running' {
         BeforeAll {
             Mock -ModuleName $moduleName Test-SystemAvailability { return 'unavailable' }
         }
@@ -1500,7 +1500,7 @@ Describe 'Enable-SmbShare' -Tag 'unit', 'addon' {
         }
     }
 
-    Context 'cluster is running' {
+    Context 'system is running' {
         BeforeAll {
             Mock -ModuleName $moduleName Test-SystemAvailability { }
         }

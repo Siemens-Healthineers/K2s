@@ -43,7 +43,7 @@ var _ = Describe("status command", func() {
 			Expect(output).To(ContainSubstring("K2s SYSTEM STATUS"))
 		})
 
-		It("prints not-installed message", func(ctx context.Context) {
+		It("prints system-not-installed message", func(ctx context.Context) {
 			Expect(output).To(ContainSubstring("not installed"))
 		})
 	})
@@ -59,7 +59,7 @@ var _ = Describe("status command", func() {
 			Expect(output).To(ContainSubstring("K2s SYSTEM STATUS"))
 		})
 
-		It("prints not-installed message", func(ctx context.Context) {
+		It("prints system-not-installed message", func(ctx context.Context) {
 			Expect(output).To(ContainSubstring("not installed"))
 		})
 	})
@@ -73,7 +73,7 @@ var _ = Describe("status command", func() {
 			Expect(json.Unmarshal([]byte(output), &status)).To(Succeed())
 		})
 
-		It("contains not-installed info", func() {
+		It("contains system-not-installed info", func() {
 			Expect(status.SetupInfo.Name).To(BeNil())
 			Expect(status.SetupInfo.Version).To(BeNil())
 			Expect(*status.SetupInfo.Error).To(Equal(setupinfo.ErrNotInstalledMsg))

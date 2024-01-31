@@ -853,7 +853,7 @@ Describe 'Get-AddonStatus' -Tag 'unit', 'addon' {
             }
         }
 
-        It 'returns not-installed error status' {
+        It 'returns system-not-installed error status' {
             InModuleScope -ModuleName $moduleName {
                 $result = Get-AddonStatus -Name 'test-addon' -Directory 'some-dir'
 
@@ -862,7 +862,7 @@ Describe 'Get-AddonStatus' -Tag 'unit', 'addon' {
         }
     }
    
-    Context 'cluster is not running' {
+    Context 'system is not running' {
         BeforeAll {
             $setupTypeName = 'test-setup'
             Mock -ModuleName $moduleName Test-Path { return $true } 
@@ -880,11 +880,11 @@ Describe 'Get-AddonStatus' -Tag 'unit', 'addon' {
             }
         }
 
-        It 'returns cluster-not-running error status' {
+        It 'returns system error status' {
             InModuleScope -ModuleName $moduleName -Parameters @{setupTypeName = $setupTypeName } {
                 $result = Get-AddonStatus -Name 'test-addon' -Directory 'some-dir'
 
-                $result.Error | Should -Match 'cluster is not running'
+                $result.Error | Should -Match 'system is not running'
             }
         }
     }

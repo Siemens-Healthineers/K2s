@@ -49,7 +49,7 @@ var _ = Describe("runningstate", func() {
 			})
 		})
 
-		When("cluster is running", func() {
+		When("system is running", func() {
 			It("logs success and proceeds", func() {
 				state := &load.RunningState{IsRunning: true}
 
@@ -69,7 +69,7 @@ var _ = Describe("runningstate", func() {
 			})
 		})
 
-		When("cluster is not running", func() {
+		When("system is not running", func() {
 			It("logs info and does not proceed", func() {
 				state := &load.RunningState{
 					IsRunning: false,

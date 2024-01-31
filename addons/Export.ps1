@@ -43,7 +43,7 @@ if ($setupInfo.LinuxOnly) {
 $clusterState = Get-RunningState -SetupType $setupInfo.Name
 
 if ($clusterState.IsRunning -ne $true) {
-    throw "Cannot export addons when cluster is not running. Please start the cluster with 'k2s start'."
+    throw "Cannot export addons when system is not running. Please start the system with 'k2s start'."
 }
 
 Remove-Item -Force "${ExportDir}\addons" -Recurse -Confirm:$False -ErrorAction SilentlyContinue

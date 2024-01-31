@@ -138,7 +138,7 @@ DEPRECATED: Replace with Test-SystemAvailability eventually when script structur
 #>
 function Test-ClusterAvailability {
     if (!(Get-IsControlPlaneRunning) -and !(Get-KubernetesServiceAreRunning) ) {
-        throw "Cluster is not running. Please start the cluster with 'k2s start'."
+        throw "System is not running. Please start the systeb with 'k2s start'."
     }
 }
 
@@ -150,7 +150,7 @@ function Test-SystemAvailability {
    
     $state = (Get-RunningState -SetupName $setupInfo.Name)
     if ($state.IsRunning -ne $true) {
-        return 'not-running'
+        return 'system-not-running'
     }
 
     return $null
