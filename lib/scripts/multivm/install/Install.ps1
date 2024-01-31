@@ -285,11 +285,11 @@ Initialize-VMKubernetesCluster -VMName $multiVMWindowsVMName `
     -KubernetesVersion $KubernetesVersion `
     -AdditionalHooksDir $AdditionalHooksDir
 
-& "$global:KubernetesPath\smallsetup\multivm\Stop_MultiVMK8sSetup.ps1" -ShowLogs:$ShowLogs
+& "$PSScriptRoot\..\stop\Stop.ps1" -ShowLogs:$ShowLogs
 
 if (! $SkipStart) {
     Write-Log 'Starting Kubernetes system ...'
-    & "$global:KubernetesPath\smallsetup\multivm\Start_MultiVMK8sSetup.ps1" -HideHeaders -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs
+    & "$PSScriptRoot\..\stop\Start.ps1" -HideHeaders -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs
 }
 
 Invoke-Hook -HookName 'AfterBaseInstall' -AdditionalHooksDir $AdditionalHooksDir
