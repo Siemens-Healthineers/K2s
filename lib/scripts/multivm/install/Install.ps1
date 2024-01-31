@@ -259,7 +259,7 @@ Test-ProxyConfiguration
 
 $ErrorActionPreference = 'Continue'
 
-#Install-PuttyTools
+Invoke-DowloadPuttyTools -Proxy "$Proxy"
 
 # PREPARE LINUX VM
 Initialize-LinuxNode -VMStartUpMemory $MasterVMMemory `
@@ -268,7 +268,8 @@ Initialize-LinuxNode -VMStartUpMemory $MasterVMMemory `
     -InstallationStageProxy $Proxy `
     -DeleteFilesForOfflineInstallation $DeleteFilesForOfflineInstallation `
     -ForceOnlineInstallation $ForceOnlineInstallation `
-    -WSL:$WSL
+    -WSL:$WSL `
+    -SkipTransparentProxy:$true
 
 $ErrorActionPreference = 'Stop'
 
