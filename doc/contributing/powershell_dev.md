@@ -15,6 +15,7 @@ SPDX-License-Identifier: MIT
   - [Logging](#logging)
     - [Dont](#dont)
     - [Do](#do)
+  - [Suppress Code Analysis](#suppress-code-analysis)
 - [Strings](#strings)
   - [Paths](#paths)
   - [Escaping](#escaping)
@@ -110,6 +111,28 @@ It 'logs to log file :-)' {
     # ...
 }
 # ...
+```
+
+## Suppress Code Analysis
+*Pester* requires a certain test code structure that can lead to code analyzer warnings, e.g. in this case:
+```PowerShell
+BeforeAll {
+    $module = "$PSScriptRoot\setupinfo.module.psm1"
+
+    $moduleName = (Import-Module $module -PassThru -Force).Name
+}
+```
+The analyzer would complain:
+> The variable 'moduleName' is assigned but never used. *PSScriptAnalyzer(PSUseDeclaredVarsMoreThanAssignments)*
+
+To mitigate this, suppress this warning like the following:
+```PowerShell
+BeforeAll {
+    $module = "$PSScriptRoot\setupinfo.module.psm1"
+
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('UseDeclaredVarsMoreThanAssignments', '', Justification = 'Pester Test')]
+    $moduleName = (Import-Module $module -PassThru -Force).Name
+}
 ```
 
 # Strings
