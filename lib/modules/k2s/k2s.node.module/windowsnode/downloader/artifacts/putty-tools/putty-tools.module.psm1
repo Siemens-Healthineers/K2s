@@ -21,9 +21,9 @@ function Invoke-DownloadPuttyArtifacts($downloadsBaseDirectory, $Proxy) {
     mkdir $puttytoolsDownloadsDirectory | Out-Null
 
     Write-Log "Download plink"
-    Invoke-DownloadFile "$puttytoolsDownloadsDirectory\$windowsNode_Plink" https://the.earth.li/~sgtatham/putty/0.76/w64/$windowsNode_Plink $true $Proxy
+    Invoke-DownloadPlink -Destination "$puttytoolsDownloadsDirectory\$windowsNode_Plink" -Proxy "$Proxy"
     Write-Log "Download pscp"
-    Invoke-DownloadFile "$puttytoolsDownloadsDirectory\$windowsNode_Pscp" https://the.earth.li/~sgtatham/putty/0.76/w64//$windowsNode_Pscp $true $Proxy
+    Invoke-DownloadPscp -Destination "$puttytoolsDownloadsDirectory\$windowsNode_Pscp" -Proxy "$Proxy"
 }
 
 function Invoke-DeployPuttytoolsArtifacts($windowsNodeArtifactsDirectory) {
@@ -37,3 +37,37 @@ function Invoke-DeployPuttytoolsArtifacts($windowsNodeArtifactsDirectory) {
     Copy-Item -Path "$puttytoolsArtifactsDirectory\$windowsNode_Pscp" -Destination "$kubeBinPath" -Force
 }
 
+function Invoke-DowloadPuttyTools {
+    param (
+        [Parameter(Mandatory = $false)]
+        [string]$Proxy
+    )
+
+    Invoke-DownloadPlink -Destination "$kubeBinPath\$windowsNode_Plink" -Proxy "$Proxy"
+    Invoke-DownloadPscp -Destination "$kubeBinPath\$windowsNode_Pscp" -Proxy "$Proxy"
+}
+
+function Invoke-DownloadPlink {
+    param (
+        [Parameter(Mandatory = $false)]
+        [string]$Destination,
+        [Parameter(Mandatory = $false)]
+        [string]$Proxy
+    )
+
+    Invoke-DownloadFile $Destination https://the.earth.li/~sgtatham/putty/0.76/w64/$windowsNode_Plink $true $Proxy
+}
+
+function Invoke-DownloadPscp {
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]$Destination,
+        [Parameter(Mandatory = $false)]
+        [string]$Proxy
+    )
+
+    Invoke-DownloadFile $Destination https://the.earth.li/~sgtatham/putty/0.76/w64/$windowsNode_Pscp $true $Proxy
+}
+
+Export-ModuleMember Invoke-DownloadPuttyArtifacts, Invoke-DeployPuttytoolsArtifacts,
+Invoke-DownloadPlink, Invoke-DownloadPscp, Invoke-DowloadPuttyTools
