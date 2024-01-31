@@ -4,10 +4,11 @@
 
 &$PSScriptRoot\..\smallsetup\common\GlobalVariables.ps1
 . $PSScriptRoot\..\smallsetup\common\GlobalFunctions.ps1
+
 $logModule = "$PSScriptRoot\..\smallsetup\ps-modules\log\log.module.psm1"
-$setupInfoModule = "$PSScriptRoot\..\lib\modules\k2s\k2s.cluster.module\setupinfo\setupinfo.module.psm1"
-$runningStateModule = "$PSScriptRoot\..\smallsetup\status\RunningState.module.psm1"
-Import-Module $logModule, $setupInfoModule, $runningStateModule
+$statusModule = "$PSScriptRoot\..\lib\modules\k2s\k2s.cluster.module\status\status.module.psm1"
+
+Import-Module $logModule, $statusModule
 
 $script = $MyInvocation.MyCommand.Name
 $ConfigKey_EnabledAddons = 'EnabledAddons'
@@ -494,31 +495,25 @@ function Get-AddonStatus {
         [parameter(Mandatory = $false, HelpMessage = 'Directory path of the addon')]
         [string] $Directory = $(throw 'Directory not specified')
     )
-    $status = @{Name = $Name }
+    $status = @{Error = $null }
 
     if ((Test-Path -Path $Directory) -ne $true) {
-        $status.Error = "Addon '$Name' not found in directory '$Directory'"
+        $status.Error = 'addon-not-found'
         return $status
     }
     
     $addonStatusScript = "$Directory\Get-Status.ps1"
     if ((Test-Path -Path $addonStatusScript) -ne $true) {
-        $status.Error = "Addon '$Name' does not provide status information"
+        $status.Error = 'no-addon-status'
         return $status
     }
 
-    $setupInfo = Get-SetupInfo
-    if ($setupInfo.ValidationError) {
-        $status.Error = $setupInfo.ValidationError
+    $systemError = Test-SystemAvailability
+    if ($systemError) {
+        $status.Error = $systemError
         return $status
     }
 
-    $clusterState = Get-RunningState -SetupType $setupInfo.Name
-    if ($clusterState.IsRunning -ne $true) {
-        $status.Error = "Cannot interact with '$Name' addon when system is not running. Please start the system with 'k2s start'."
-        return $status
-    }
-    
     $isEnabled = Test-IsAddonEnabled -Name $Name
 
     $status.Enabled = $isEnabled

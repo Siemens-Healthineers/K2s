@@ -32,17 +32,16 @@ const (
 
 var (
 	randomImageTag string
-
-	suite *framework.K2sTestSuite
+	suite          *framework.K2sTestSuite
 )
 
 func TestImageBuild(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "build ContainerImage Functional Tests", Label("functional", "acceptance", "internet-required", "setup-required", "build-image"))
+	RunSpecs(t, "build ContainerImage Functional Tests", Label("functional", "acceptance", "internet-required", "setup-required", "build-image", "system-running"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
-	suite = framework.Setup(ctx, framework.EnsureAddonsAreDisabled, framework.ClusterTestStepPollInterval(time.Millisecond*200))
+	suite = framework.Setup(ctx, framework.SystemMustBeRunning, framework.EnsureAddonsAreDisabled, framework.ClusterTestStepPollInterval(time.Millisecond*200))
 
 	randomImageTag = strconv.FormatInt(GinkgoRandomSeed(), 10)
 })

@@ -31,14 +31,14 @@ var testFailed = false
 
 func TestClusterCore(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Cluster Core Acceptance Tests", Label("core", "acceptance", "internet-required", "setup-required"))
+	RunSpecs(t, "Cluster Core Acceptance Tests", Label("core", "acceptance", "internet-required", "setup-required", "system-running"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
 	manifestDir = "workload/windows"
 	proxy = "http://172.19.1.1:8181"
 
-	suite = framework.Setup(ctx, framework.ClusterTestStepPollInterval(time.Millisecond*200))
+	suite = framework.Setup(ctx, framework.SystemMustBeRunning, framework.ClusterTestStepPollInterval(time.Millisecond*200))
 
 	if suite.SetupInfo().LinuxOnly {
 		GinkgoWriter.Println("Found Linux-only setup, skipping Windows-based workloads")

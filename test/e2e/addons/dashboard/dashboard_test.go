@@ -6,9 +6,7 @@ package dashboard
 
 import (
 	"context"
-	"fmt"
 	"k2sTest/framework"
-	"k2sTest/framework/k8s"
 	"os/exec"
 	"path"
 	"testing"
@@ -19,27 +17,20 @@ import (
 	"github.com/onsi/gomega/gexec"
 )
 
-const (
-	testClusterTimeout = time.Minute * 10
-)
+const testClusterTimeout = time.Minute * 10
 
 var (
 	suite                 *framework.K2sTestSuite
-	kubectl               *k8s.Kubectl
-	cluster               *k8s.Cluster
-	linuxOnly             bool
-	exportPath            string
-	addons                []string
 	portForwardingSession *gexec.Session
 )
 
 func TestDashboard(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, fmt.Sprintf("dasboard Addon Acceptance Tests"), Label("addon", "acceptance", "setup-required", "invasive", "dashboard"))
+	RunSpecs(t, "dasboard Addon Acceptance Tests", Label("addon", "acceptance", "setup-required", "invasive", "dashboard", "system-running"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
-	suite = framework.Setup(ctx, framework.EnsureAddonsAreDisabled, framework.ClusterTestStepTimeout(testClusterTimeout))
+	suite = framework.Setup(ctx, framework.SystemMustBeRunning, framework.EnsureAddonsAreDisabled, framework.ClusterTestStepTimeout(testClusterTimeout))
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
