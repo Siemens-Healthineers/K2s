@@ -7,6 +7,37 @@ Import-Module $pathModule, $logModule
 
 <#
 .SYNOPSIS
+    Checks whether a given VM is not in *off* state.
+.DESCRIPTION
+    Checks whether a given VM is not in *off* state.
+.EXAMPLE
+    Get-IsVmOperating -VmName "Test-VM"
+.PARAMETER VmName
+    Name of the VM to check
+.OUTPUTS
+    TRUE, if the state of the VM is other than '*Off*'
+    FALSE, if the state is '*off*' or the VM was not found or multiple VMs with the same name exist.
+#>
+function Get-IsVmOperating {
+    param (
+        [Parameter()]
+        [ValidateNotNullOrEmpty()]
+        [string] $VmName = $(throw 'Please specify the VM you want to check.')
+    )
+
+    $private:vm = Get-VM | Where-Object Name -eq $VmName
+
+    if (($private:vm | Measure-Object).Count -ne 1) {
+        Write-Log "None or more than one VMs found for name '$VmName'."
+
+        return $false
+    }
+
+    return $private:vm.State -notlike '*Off*'
+}
+
+<#
+.SYNOPSIS
     Stops a given VM
 .DESCRIPTION
     Stops a given VM specified by name and waits for the VM to be stopped, if desired.
@@ -2069,7 +2100,7 @@ function Open-DefaultWinVMRemoteSessionViaSSHKey {
     return $vmSessionKey
 }
 
-Export-ModuleMember Stop-VirtualMachine,
+Export-ModuleMember Get-IsVmOperating, Stop-VirtualMachine,
 Restart-VirtualMachine, Remove-VirtualMachine,
 Remove-VMSnapshots, Wait-ForDesiredVMState,
 New-VMFromWinImage, Open-RemoteSession,
