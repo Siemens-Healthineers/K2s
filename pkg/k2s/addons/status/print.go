@@ -98,6 +98,8 @@ func NewPropPrinter(terminalPrinter TerminalPrinter) *propPrint {
 }
 
 func (s *JsonPrinter) PrintStatus(addonName string, addonDirectory string) error {
+	klog.V(4).Infof("Loading status for addon '%s' in dir '%s'..", addonName, addonDirectory)
+
 	addonStatus, err := s.statusLoader.LoadAddonStatus(addonName, addonDirectory)
 
 	printStatus := AddonPrintStatus{Name: addonName}
@@ -120,13 +122,18 @@ func (s *JsonPrinter) PrintStatus(addonName string, addonDirectory string) error
 			return err
 		}
 	}
+	klog.V(4).Infof("Marhalling status: %v", printStatus)
 
 	bytes, err := s.jsonMarshaller.MarshalIndent(printStatus)
 	if err != nil {
 		return err
 	}
 
-	s.terminalPrinter.Println(string(bytes))
+	statusJson := string(bytes)
+
+	klog.V(4).Infof("Printing status JSON: %s", statusJson)
+
+	s.terminalPrinter.Println(statusJson)
 
 	return nil
 }
