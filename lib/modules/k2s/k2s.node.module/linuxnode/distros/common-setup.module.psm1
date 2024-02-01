@@ -253,13 +253,24 @@ Function Install-KubernetesArtifacts {
     }
 
     $token = Get-RegistryToken
-    $jsonConfig = @{
-        """auths""" = @{
-            """shsk2s.azurecr.io""" = @{
-                """auth""" = """$token"""
+    if ($PSVersionTable.PSVersion.Major -gt 5) {
+        $jsonConfig = @{
+            "auths" = @{
+                "shsk2s.azurecr.io" = @{
+                    "auth" = "$token"
+                }
+            }
+        }
+    } else {
+        $jsonConfig = @{
+            """auths""" = @{
+                """shsk2s.azurecr.io""" = @{
+                    """auth""" = """$token"""
+                }
             }
         }
     }
+
     $jsonString = ConvertTo-Json -InputObject $jsonConfig
     &$executeRemoteCommand "echo -e '$jsonString' | sudo tee /tmp/auth.json" | Out-Null
     &$executeRemoteCommand 'sudo mkdir -p /root/.config/containers'
@@ -366,6 +377,30 @@ Function Install-Tools {
             &$executeRemoteCommand "echo env = [\\\""https_proxy=$Proxy\\\""] | sudo tee -a /etc/containers/containers.conf"
         }
     }
+
+    $token = Get-RegistryToken
+    if ($PSVersionTable.PSVersion.Major -gt 5) {
+        $jsonConfig = @{
+            "auths" = @{
+                "shsk2s.azurecr.io" = @{
+                    "auth" = "$token"
+                }
+            }
+        }
+    } else {
+        $jsonConfig = @{
+            """auths""" = @{
+                """shsk2s.azurecr.io""" = @{
+                    """auth""" = """$token"""
+                }
+            }
+        }
+    }
+
+    $jsonString = ConvertTo-Json -InputObject $jsonConfig
+    &$executeRemoteCommand "echo -e '$jsonString' | sudo tee /tmp/auth.json" | Out-Null
+    &$executeRemoteCommand 'sudo mkdir -p /root/.config/containers'
+    &$executeRemoteCommand 'sudo mv /tmp/auth.json /root/.config/containers/auth.json'
 
     Write-Log "Need to update registry conf file which is added as part of buildah installation"
     #&$executeRemoteCommand "sudo sed -i '/.*unqualified-search-registries.*/cunqualified-search-registries = [\\\""docker.io\\\"", \\\""quay.io\\\""]' /etc/containers/registries.conf"

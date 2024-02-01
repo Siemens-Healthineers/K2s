@@ -6,38 +6,25 @@ package metricsserver
 
 import (
 	"context"
-	"fmt"
 	"k2sTest/framework"
-	"k2sTest/framework/k8s"
 	"testing"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/gexec"
 )
 
-const (
-	testClusterTimeout = time.Minute * 10
-)
+const testClusterTimeout = time.Minute * 10
 
-var (
-	suite                 *framework.K2sTestSuite
-	kubectl               *k8s.Kubectl
-	cluster               *k8s.Cluster
-	linuxOnly             bool
-	exportPath            string
-	addons                []string
-	portForwardingSession *gexec.Session
-)
+var suite *framework.K2sTestSuite
 
 func TestTraefik(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, fmt.Sprintf("metrics-server Addon Acceptance Tests"), Label("addon", "acceptance", "setup-required", "invasive", "metrics-server"))
+	RunSpecs(t, "metrics-server Addon Acceptance Tests", Label("addon", "acceptance", "setup-required", "invasive", "metrics-server", "system-running"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
-	suite = framework.Setup(ctx, framework.EnsureAddonsAreDisabled, framework.ClusterTestStepTimeout(testClusterTimeout))
+	suite = framework.Setup(ctx, framework.SystemMustBeRunning, framework.EnsureAddonsAreDisabled, framework.ClusterTestStepTimeout(testClusterTimeout))
 })
 
 var _ = AfterSuite(func(ctx context.Context) {

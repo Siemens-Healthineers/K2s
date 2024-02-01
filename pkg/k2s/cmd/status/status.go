@@ -44,8 +44,6 @@ type TerminalPrinter interface {
 
 type Spinner interface {
 	Stop() error
-	Success(m ...any)
-	Fail(m ...any)
 }
 
 type JsonPrinter interface {
@@ -126,7 +124,11 @@ func printStatusAsJson() error {
 
 	status, err := printer.loadStatusFunc()
 	if err != nil {
-		return err
+		if !errors.Is(err, setupinfo.ErrNotInstalled) {
+			return err
+		}
+		errMsg := setupinfo.ErrNotInstalledMsg
+		status = &load.Status{SetupInfo: setupinfo.SetupInfo{Error: &errMsg}}
 	}
 
 	return printer.jsonPrinter.PrintJson(status)
@@ -147,13 +149,16 @@ func printStatusUserFriendly(showAdditionalInfo bool) error {
 		return errors.New("could not start operation")
 	}
 
+	defer func() {
+		err = spinner.Stop()
+		if err != nil {
+			klog.Error(err)
+		}
+	}()
+
 	status, err := printer.loadStatusFunc()
 	if err != nil {
-		spinner.Fail("Status could not be loaded")
-		return err
-	}
-	if err := spinner.Stop(); err != nil {
-		return err
+		return fmt.Errorf("status could not be loaded: %w", err)
 	}
 
 	proceed, err := printer.setupInfoPrinter.PrintSetupInfo(status.SetupInfo)

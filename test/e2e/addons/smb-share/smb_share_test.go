@@ -48,11 +48,11 @@ var (
 
 func TestSmbshare(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, fmt.Sprintf("%s Addon Acceptance Tests", addonName), Label("addon", "acceptance", "internet-required", "setup-required", "invasive", addonName))
+	RunSpecs(t, fmt.Sprintf("%s Addon Acceptance Tests", addonName), Label("addon", "acceptance", "internet-required", "setup-required", "invasive", addonName, "system-running"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
-	suite = framework.Setup(ctx, framework.EnsureAddonsAreDisabled, framework.ClusterTestStepTimeout(testClusterTimeout))
+	suite = framework.Setup(ctx, framework.SystemMustBeRunning, framework.EnsureAddonsAreDisabled, framework.ClusterTestStepTimeout(testClusterTimeout))
 
 	skipWindowsWorkloads = suite.SetupInfo().LinuxOnly
 
@@ -103,7 +103,7 @@ var _ = Describe(fmt.Sprintf("%s Addon", addonName), Ordered, func() {
 			It("displays JSON", func(ctx context.Context) {
 				output := suite.K2sCli().Run(ctx, "addons", "status", addonName, "-o", "json")
 
-				var status status.AddonStatus
+				var status status.AddonPrintStatus
 
 				Expect(json.Unmarshal([]byte(output), &status)).To(Succeed())
 
@@ -326,7 +326,7 @@ func expectStatusToBePrinted(smbHostType string, ctx context.Context) {
 
 	output = suite.K2sCli().Run(ctx, "addons", "status", addonName, "-o", "json")
 
-	var status status.AddonStatus
+	var status status.AddonPrintStatus
 
 	Expect(json.Unmarshal([]byte(output), &status)).To(Succeed())
 

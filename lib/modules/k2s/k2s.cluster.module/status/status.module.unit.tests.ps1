@@ -57,7 +57,7 @@ Describe 'Get-Status' -Tag 'unit' {
             }
         }
         
-        Context 'cluster is not running' {
+        Context 'system is not running' {
             BeforeAll {
                 Mock -ModuleName $moduleName Get-SetupInfo { return @{Name = 'valid' } }
                 Mock -ModuleName $moduleName Get-Addons {}
@@ -75,7 +75,7 @@ Describe 'Get-Status' -Tag 'unit' {
             }
         }
         
-        Context 'cluster is running' {
+        Context 'system is running' {
             BeforeAll {
                 Mock -ModuleName $moduleName Get-SetupInfo { return @{Name = 'valid' } }
                 Mock -ModuleName $moduleName Get-Addons {}
@@ -145,7 +145,7 @@ Describe 'Get-Status' -Tag 'unit' {
             }
         }
        
-        Context 'cluster is not running' {
+        Context 'system is not running' {
             BeforeAll {
                 Mock -ModuleName $moduleName Get-SetupInfo { return @{Name = 'valid' } }
                 Mock -ModuleName $moduleName Write-Progress {}
@@ -157,7 +157,7 @@ Describe 'Get-Status' -Tag 'unit' {
                 }
             }
             
-            It 'displays progress until cluster running state' {
+            It 'displays progress until system running state' {
                 InModuleScope -ModuleName $moduleName {
                     Should -Invoke Write-Progress -Times 1 -ParameterFilter { $Id -eq 1 -and $Status -eq '0/5' } -Scope Context
                     Should -Invoke Write-Progress -Times 1 -ParameterFilter { $Id -eq 1 -and $Status -eq '1/5' } -Scope Context
@@ -173,7 +173,7 @@ Describe 'Get-Status' -Tag 'unit' {
             }
         }
         
-        Context 'cluster is running' {
+        Context 'system is running' {
             BeforeAll {
                 Mock -ModuleName $moduleName Get-SetupInfo { return @{Name = 'valid' } }
                 Mock -ModuleName $moduleName Write-Progress {}
@@ -217,7 +217,7 @@ Describe 'Test-SystemAvailability' -Tag 'unit' {
         }
     }
     
-    Context 'state is not-running' {
+    Context 'state is system-not-running' {
         BeforeAll {
             Mock -ModuleName $moduleName Get-SetupInfo { return @{Name = 'my-setup'; ValidationError = $null } }
             Mock -ModuleName $moduleName Get-RunningState { return @{IsRunning = $false } } -ParameterFilter { $SetupName -eq 'my-setup' }
@@ -225,7 +225,7 @@ Describe 'Test-SystemAvailability' -Tag 'unit' {
 
         It 'returns error' {
             InModuleScope -ModuleName $moduleName {
-                Test-SystemAvailability | Should -Be 'not-running'
+                Test-SystemAvailability | Should -Be 'system-not-running'
             } 
         }
     }

@@ -71,7 +71,7 @@ func (tp TerminalPrinter) PrintLeveledTreeListItems(rootText string, items []d.L
 }
 
 func (tp TerminalPrinter) StartSpinner(m ...any) (any, error) {
-	pSpinner, err := pterm.DefaultSpinner.Start(m...)
+	pSpinner, err := pterm.DefaultSpinner.WithRemoveWhenDone().Start(m...)
 	if err != nil {
 		return nil, err
 	}

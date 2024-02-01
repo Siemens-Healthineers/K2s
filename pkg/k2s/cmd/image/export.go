@@ -6,7 +6,6 @@ package image
 import (
 	"errors"
 	"fmt"
-	"k2s/setupinfo"
 	"k2s/utils"
 	"strconv"
 
@@ -51,13 +50,7 @@ func exportImage(cmd *cobra.Command, args []string) error {
 	klog.V(3).Infof("export command : %s", exportCmd)
 
 	duration, err := utils.ExecutePowershellScript(exportCmd)
-	switch err {
-	case nil:
-		break
-	case setupinfo.ErrNotInstalled:
-		common.PrintNotInstalledMessage()
-		return nil
-	default:
+	if err != nil {
 		return err
 	}
 

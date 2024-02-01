@@ -27,7 +27,9 @@ This CLA does not enable Siemens Healthineers to use or process personal data. T
       - [*Pester* Example](#pester-example)
       - [*Ginkgo* Example](#ginkgo-example)
       - [Commonly Used Tags](#commonly-used-tags)
-    - [Log Output Redirection](#log-output-redirection)
+    - [Pester Specifics](#pester-specifics)
+    - [Ginkgo/Gomega Specifics](#ginkgogomega-specifics)
+      - [Log Output Redirection](#log-output-redirection)
 
 ---
 
@@ -170,7 +172,11 @@ PS> ginkgo --label-filter="unit" <dir-with-test-suites>
 | **system-running**       | test requires *K2s* to be started/running                                                                                  |
 | **system-stopped**       | test requires *K2s* to be stopped                                                                                          |
 
-### Log Output Redirection
+### Pester Specifics
+See [Automated Testing with Pester](powershell_dev.md#automated-testing-with-pester).
+
+### Ginkgo/Gomega Specifics
+#### Log Output Redirection
 For diagnostic logging, *k2s* CLI uses the [klog](https://pkg.go.dev/k8s.io/klog/v2#section-readme) module. To redirect the log output to *Ginkgo*, set the *Ginkgo* logger as follows:
 
 ```go

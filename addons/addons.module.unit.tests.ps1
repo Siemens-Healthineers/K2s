@@ -792,21 +792,11 @@ Describe 'Get-AddonStatus' -Tag 'unit', 'addon' {
             Mock -ModuleName $moduleName Test-Path { return $false } -ParameterFilter { $Path -match "\\$addonDirectory" }
         }
 
-        It 'returns the addon name' {
-            InModuleScope -ModuleName $moduleName -Parameters @{addonDirectory = $addonDirectory } {
-                $addonName = 'test-addon'
-
-                $result = Get-AddonStatus -Name $addonName -Directory $addonDirectory
-
-                $result.Name | Should -eq $addonName
-            }
-        }
-
-        It 'returns not-found error status' {
+        It 'returns addon-not-found error' {
             InModuleScope -ModuleName $moduleName -Parameters @{addonDirectory = $addonDirectory } {
                 $result = Get-AddonStatus -Name 'some-name' -Directory $addonDirectory
 
-                $result.Error | Should -Match 'not found'
+                $result.Error | Should -Be 'addon-not-found'
             }
         }
     }
@@ -818,93 +808,36 @@ Describe 'Get-AddonStatus' -Tag 'unit', 'addon' {
             Mock -ModuleName $moduleName Test-Path { return $false } -ParameterFilter { $Path -match "$addonDirectory\\Get-Status.ps1" }
         }
 
-        It 'returns the addon name' {
-            InModuleScope -ModuleName $moduleName -Parameters @{addonDirectory = $addonDirectory } {
-                $addonName = 'test-addon'
-
-                $result = Get-AddonStatus -Name $addonName -Directory $addonDirectory
-
-                $result.Name | Should -eq $addonName
-            }
-        }
-
-        It 'returns does-not-proved-status error status' {
+        It 'returns no-addon-status error' {
             InModuleScope -ModuleName $moduleName -Parameters @{addonDirectory = $addonDirectory } {
                 $result = Get-AddonStatus -Name 'some-name' -Directory $addonDirectory
 
-                $result.Error | Should -Match 'does not provide status'
+                $result.Error | Should -Be 'no-addon-status'
             }
         }
     }
    
-    Context 'setup is not installed' {
+    Context 'system error occurred' {
         BeforeAll {
             Mock -ModuleName $moduleName Test-Path { return $true } 
-            Mock -ModuleName $moduleName Get-SetupInfo { return @{ValidationError = 'not installed' } } 
+            Mock -ModuleName $moduleName Test-SystemAvailability { 'nothing-there' }  
         }
 
-        It 'returns the addon name' {
-            InModuleScope -ModuleName $moduleName {
-                $addonName = 'test-addon'
-
-                $result = Get-AddonStatus -Name $addonName -Directory 'some-dir'
-
-                $result.Name | Should -eq $addonName
-            }
-        }
-
-        It 'returns not-installed error status' {
+        It 'returns error' {
             InModuleScope -ModuleName $moduleName {
                 $result = Get-AddonStatus -Name 'test-addon' -Directory 'some-dir'
 
-                $result.Error | Should -Match 'not installed'
+                $result.Error | Should -Be 'nothing-there'
             }
         }
     }
-   
-    Context 'cluster is not running' {
-        BeforeAll {
-            $setupTypeName = 'test-setup'
-            Mock -ModuleName $moduleName Test-Path { return $true } 
-            Mock -ModuleName $moduleName Get-SetupInfo { return @{Name = $setupTypeName } } 
-            Mock -ModuleName $moduleName Get-RunningState { return @{IsRunning = $false } } -ParameterFilter { $SetupType -eq $setupTypeName }
-        }
 
-        It 'returns the addon name' {
-            InModuleScope -ModuleName $moduleName {
-                $addonName = 'test-addon'
-
-                $result = Get-AddonStatus -Name $addonName -Directory 'some-dir'
-
-                $result.Name | Should -eq $addonName
-            }
-        }
-
-        It 'returns cluster-not-running error status' {
-            InModuleScope -ModuleName $moduleName -Parameters @{setupTypeName = $setupTypeName } {
-                $result = Get-AddonStatus -Name 'test-addon' -Directory 'some-dir'
-
-                $result.Error | Should -Match 'cluster is not running'
-            }
-        }
-    }
-   
     Context 'addon is disabled' {
         BeforeAll {
             $addonName = 'test-addon'
-            $setupTypeName = 'test-setup'
             Mock -ModuleName $moduleName Test-Path { return $true } 
-            Mock -ModuleName $moduleName Get-SetupInfo { return @{Name = $setupTypeName } } 
-            Mock -ModuleName $moduleName Get-RunningState { return @{IsRunning = $true } } -ParameterFilter { $SetupType -eq $setupTypeName }
+            Mock -ModuleName $moduleName Test-SystemAvailability { return $null } 
             Mock -ModuleName $moduleName Test-IsAddonEnabled { return $false } -ParameterFilter { $Name -eq $addonName }
-        }
-
-        It 'returns the addon name' {
-            InModuleScope -ModuleName $moduleName -Parameters @{addonName = $addonName } {
-                $result = Get-AddonStatus -Name $addonName -Directory 'some-dir'
-
-                $result.Name | Should -eq $addonName
-            }
         }
 
         It 'returns addon-disabled status' {
@@ -920,21 +853,11 @@ Describe 'Get-AddonStatus' -Tag 'unit', 'addon' {
         BeforeAll {
             $addonName = 'test-addon'
             $addonDirectory = 'test-dir'
-            $setupTypeName = 'test-setup'
             $props = @{Name = 'p1' }, @{Name = 'p2' }
             Mock -ModuleName $moduleName Test-Path { return $true } 
-            Mock -ModuleName $moduleName Get-SetupInfo { return @{Name = $setupTypeName } } 
-            Mock -ModuleName $moduleName Get-RunningState { return @{IsRunning = $true } } -ParameterFilter { $SetupType -eq $setupTypeName }
+            Mock -ModuleName $moduleName Test-SystemAvailability { return $null } 
             Mock -ModuleName $moduleName Test-IsAddonEnabled { return $true } -ParameterFilter { $Name -eq $addonName }
             Mock -ModuleName $moduleName Invoke-Script { return $props } -ParameterFilter { $FilePath -match "$addonDirectory\\Get-Status.ps1" }
-        }
-
-        It 'returns the addon name' {
-            InModuleScope -ModuleName $moduleName -Parameters @{addonName = $addonName ; addonDirectory = $addonDirectory } {
-                $result = Get-AddonStatus -Name $addonName -Directory $addonDirectory
-
-                $result.Name | Should -eq $addonName
-            }
         }
 
         It 'returns addon-enabled status' {

@@ -216,13 +216,21 @@ function Initialize-LinuxNode {
         [parameter(Mandatory = $false, HelpMessage = 'The user name to access the computer with Ubuntu inside.')]
         [string] $LinuxUserName = '',
         [parameter(Mandatory = $false, HelpMessage = 'The password associated with the user name to access the computer with Ubuntu inside.')]
-        [string] $LinuxUserPwd = ''
+        [string] $LinuxUserPwd = '',
+        [parameter(Mandatory = $false, HelpMessage = 'If true will skip addition of transparant proxy to linux node.')]
+        [Boolean] $SkipTransparentProxy = $false
     )
-    # use the local httpproxy for the linux master VM
-    $ipNextHop = Get-ConfiguredKubeSwitchIP
-    $transparentproxy = 'http://' + $ipNextHop + ':8181'
 
-    Write-Log "Local httpproxy proxy was set and will be used for linux VM: $transparentproxy"
+    if (!$SkipTransparentProxy) {
+        # use the local httpproxy for the linux master VM
+        $ipNextHop = Get-ConfiguredKubeSwitchIP
+        $transparentproxy = 'http://' + $ipNextHop + ':8181'
+        Write-Log "Local httpproxy proxy was set and will be used for linux node: $transparentproxy"
+    } else {
+        Write-Log "No local httpproxy proxy was set to linux node"
+        $transparentproxy = ''
+    }
+
     Write-Log 'Using proxies:'
     Write-Log "    - installation stage: '$InstallationStageProxy'"
     Write-Log "    - operation stage: '$transparentproxy'"

@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"k2s/addons"
-	"k2s/setupinfo"
 	"k2s/utils"
 	"strconv"
 
@@ -92,13 +91,7 @@ func exportAddons(cmd *cobra.Command, args []string) error {
 		klog.V(3).Infof("export command : %s", exportCommand)
 
 		duration, err := utils.ExecutePowershellScript(exportCommand)
-		switch err {
-		case nil:
-			break
-		case setupinfo.ErrNotInstalled:
-			common.PrintNotInstalledMessage()
-			return nil
-		default:
+		if err != nil {
 			return err
 		}
 

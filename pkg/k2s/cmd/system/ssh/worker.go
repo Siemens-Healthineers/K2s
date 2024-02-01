@@ -4,8 +4,6 @@
 package ssh
 
 import (
-	"k2s/cmd/common"
-	"k2s/setupinfo"
 	"k2s/utils"
 
 	"github.com/spf13/cobra"
@@ -65,14 +63,7 @@ func init() {
 func sshWorker(cmd *cobra.Command, args []string) error {
 	klog.V(3).Infof("Connecting to WinNode worker VM..")
 
-	err := ensureSetupIsInstalled()
-	switch err {
-	case nil:
-		break
-	case setupinfo.ErrNotInstalled:
-		common.PrintNotInstalledMessage()
-		return nil
-	default:
+	if err := ensureSetupIsInstalled(); err != nil {
 		return err
 	}
 

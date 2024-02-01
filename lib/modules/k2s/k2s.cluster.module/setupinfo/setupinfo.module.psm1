@@ -13,8 +13,8 @@ function Confirm-SetupNameIsValid {
         'k2s' { $null }
         'MultiVMK8s' { $null }
         'BuildOnlyEnv' { $null }
-        $null { 'not-installed' }
-        '' { 'not-installed' }
+        $null { 'system-not-installed' }
+        '' { 'system-not-installed' }
         Default { "invalid:'$SetupName'" }
     }
     
@@ -30,6 +30,7 @@ function Get-SetupInfo {
     if ($validationError) {
         $linuxOnly = $null
         $productVersion = $null
+        $setupName = $null
     }
 
     return [pscustomobject]@{

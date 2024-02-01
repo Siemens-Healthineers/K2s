@@ -6,9 +6,7 @@ package dashboard
 
 import (
 	"context"
-	"fmt"
 	"k2sTest/framework"
-	"k2sTest/framework/k8s"
 	"os/exec"
 	"path"
 	"testing"
@@ -19,27 +17,20 @@ import (
 	"github.com/onsi/gomega/gexec"
 )
 
-const (
-	testClusterTimeout = time.Minute * 10
-)
+const testClusterTimeout = time.Minute * 10
 
 var (
 	suite                 *framework.K2sTestSuite
-	kubectl               *k8s.Kubectl
-	cluster               *k8s.Cluster
-	linuxOnly             bool
-	exportPath            string
-	addons                []string
 	portForwardingSession *gexec.Session
 )
 
 func TestDashboard(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, fmt.Sprintf("dasboard Addon Acceptance Tests"), Label("addon", "acceptance", "setup-required", "invasive", "dashboard"))
+	RunSpecs(t, "dasboard Addon Acceptance Tests", Label("addon", "acceptance", "setup-required", "invasive", "dashboard", "system-running"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
-	suite = framework.Setup(ctx, framework.EnsureAddonsAreDisabled, framework.ClusterTestStepTimeout(testClusterTimeout))
+	suite = framework.Setup(ctx, framework.SystemMustBeRunning, framework.EnsureAddonsAreDisabled, framework.ClusterTestStepTimeout(testClusterTimeout))
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
@@ -47,6 +38,20 @@ var _ = AfterSuite(func(ctx context.Context) {
 })
 
 var _ = Describe("'dashboard' addon", Ordered, func() {
+	Describe("disable", func() {
+		When("addon is already disabled", func() {
+			var output string
+
+			BeforeAll(func(ctx context.Context) {
+				output = suite.K2sCli().Run(ctx, "addons", "disable", "dashboard")
+			})
+
+			It("prints already-disabled message", func() {
+				Expect(output).To(ContainSubstring("already disabled"))
+			})
+		})
+	})
+
 	When("no ingress controller is configured", func() {
 		AfterAll(func(ctx context.Context) {
 			portForwardingSession.Kill()
@@ -80,6 +85,10 @@ var _ = Describe("'dashboard' addon", Ordered, func() {
 			url := "https://localhost:8443/#/pod?namespace=_all"
 			httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-I", "-m", "5", "--retry", "3", "--fail")
 			Expect(httpStatus).To(ContainSubstring("200"))
+		})
+
+		It("prints already-enabled message when enabling the addon again", func(ctx context.Context) {
+			expectAddonToBeAlreadyEnabled(ctx)
 		})
 	})
 
@@ -120,6 +129,10 @@ var _ = Describe("'dashboard' addon", Ordered, func() {
 			httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-I", "-m", "5", "--retry", "3", "--fail")
 			Expect(httpStatus).To(ContainSubstring("200"))
 		})
+
+		It("prints already-enabled message when enabling the addon again", func(ctx context.Context) {
+			expectAddonToBeAlreadyEnabled(ctx)
+		})
 	})
 
 	Describe("ingress-nginx as ingress controller", func() {
@@ -159,5 +172,15 @@ var _ = Describe("'dashboard' addon", Ordered, func() {
 			httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-I", "-m", "5", "--retry", "3", "--fail")
 			Expect(httpStatus).To(ContainSubstring("200"))
 		})
+
+		It("prints already-enabled message when enabling the addon again", func(ctx context.Context) {
+			expectAddonToBeAlreadyEnabled(ctx)
+		})
 	})
 })
+
+func expectAddonToBeAlreadyEnabled(ctx context.Context) {
+	output := suite.K2sCli().Run(ctx, "addons", "enable", "dashboard")
+
+	Expect(output).To(ContainSubstring("already enabled"))
+}

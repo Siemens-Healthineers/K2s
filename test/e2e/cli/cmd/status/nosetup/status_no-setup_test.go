@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"k2s/cmd/status/load"
 	"k2s/setupinfo"
+	"time"
 
 	"testing"
 
@@ -24,15 +25,15 @@ func TestStatus(t *testing.T) {
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
-	suite = framework.Setup(ctx, framework.NoSetupInstalled)
+	suite = framework.Setup(ctx, framework.NoSetupInstalled, framework.ClusterTestStepPollInterval(100*time.Millisecond))
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
 	suite.TearDown(ctx)
 })
 
-var _ = Describe("status command", func() {
-	Context("default output", Ordered, func() {
+var _ = Describe("status", Ordered, func() {
+	Context("default output", func() {
 		var output string
 
 		BeforeAll(func(ctx context.Context) {
@@ -43,12 +44,12 @@ var _ = Describe("status command", func() {
 			Expect(output).To(ContainSubstring("K2s SYSTEM STATUS"))
 		})
 
-		It("prints not-installed message", func(ctx context.Context) {
+		It("prints system-not-installed message", func(ctx context.Context) {
 			Expect(output).To(ContainSubstring("not installed"))
 		})
 	})
 
-	Context("extended output", Ordered, func() {
+	Context("extended output", func() {
 		var output string
 
 		BeforeAll(func(ctx context.Context) {
@@ -59,12 +60,12 @@ var _ = Describe("status command", func() {
 			Expect(output).To(ContainSubstring("K2s SYSTEM STATUS"))
 		})
 
-		It("prints not-installed message", func(ctx context.Context) {
+		It("prints system-not-installed message", func(ctx context.Context) {
 			Expect(output).To(ContainSubstring("not installed"))
 		})
 	})
 
-	Context("JSON output", Ordered, func() {
+	Context("JSON output", func() {
 		var status load.Status
 
 		BeforeAll(func(ctx context.Context) {
@@ -73,7 +74,7 @@ var _ = Describe("status command", func() {
 			Expect(json.Unmarshal([]byte(output), &status)).To(Succeed())
 		})
 
-		It("contains not-installed info", func() {
+		It("contains system-not-installed info", func() {
 			Expect(status.SetupInfo.Name).To(BeNil())
 			Expect(status.SetupInfo.Version).To(BeNil())
 			Expect(*status.SetupInfo.Error).To(Equal(setupinfo.ErrNotInstalledMsg))
