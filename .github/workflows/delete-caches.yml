@@ -20,7 +20,7 @@ jobs:
           curl -f \
             -H "Accept: application/vnd.github+json" \
             -H "Authorization: token $GITHUB_TOKEN" \
-            "https://api.github.com/repos/$REPOSITORY/actions/caches
+            "https://api.github.com/repos/$REPOSITORY/actions/caches"
         env:
           GITHUB_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
