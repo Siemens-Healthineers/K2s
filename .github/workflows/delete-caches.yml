@@ -11,10 +11,20 @@ on:
 
 jobs:
   delete-caches:
-    name: tryout github api
+    name: delete caches 
     continue-on-error: false
     runs-on: ubuntu-latest
     steps:
+      - name: List all caches 
+        run: |
+          curl -f \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: token $GITHUB_TOKEN" \
+            "https://api.github.com/repos/$REPOSITORY/actions/caches
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+
       - uses: snnaplab/delete-branch-cache-action@v1
         with:
           ref: refs/pull/${{ github.event.number }}/merge
