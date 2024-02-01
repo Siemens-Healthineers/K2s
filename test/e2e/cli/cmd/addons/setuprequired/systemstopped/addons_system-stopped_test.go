@@ -71,7 +71,7 @@ var _ = Describe("addons commands", Ordered, func() {
 	Describe("enable", func() {
 		It("prints system-not-running message for all addons", func(ctx context.Context) {
 			for _, addon := range addons {
-				if addon.Metadata.Name != "dashboard" && addon.Metadata.Name != "exthttpaccess" && addon.Metadata.Name != "gateway-nginx" {
+				if addon.Metadata.Name != "dashboard" && addon.Metadata.Name != "exthttpaccess" && addon.Metadata.Name != "gateway-nginx" && addon.Metadata.Name != "gpu-node" {
 					Skip(fmt.Sprintf("not yet implemented for addon '%s'", addon.Metadata.Name))
 				}
 
@@ -87,7 +87,7 @@ var _ = Describe("addons commands", Ordered, func() {
 	Describe("disable", func() {
 		It("prints system-not-running message for all addons", func(ctx context.Context) {
 			for _, addon := range addons {
-				if addon.Metadata.Name != "dashboard" && addon.Metadata.Name != "exthttpaccess" && addon.Metadata.Name != "gateway-nginx" {
+				if addon.Metadata.Name != "dashboard" && addon.Metadata.Name != "exthttpaccess" && addon.Metadata.Name != "gateway-nginx" && addon.Metadata.Name != "gpu-node" {
 					Skip(fmt.Sprintf("not yet implemented for addon '%s'", addon.Metadata.Name))
 				}
 

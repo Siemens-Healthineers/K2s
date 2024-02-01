@@ -16,7 +16,11 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
     [switch] $ShowLogs = $false,
     [parameter(Mandatory = $false, HelpMessage = 'JSON config object to override preceeding parameters')]
-    [pscustomobject] $Config
+    [pscustomobject] $Config,
+    [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
+    [switch] $EncodeStructuredOutput,
+    [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
+    [string] $MessageType
 )
 &$PSScriptRoot\..\..\smallsetup\common\GlobalVariables.ps1
 . $PSScriptRoot\..\..\smallsetup\common\GlobalFunctions.ps1
@@ -25,51 +29,79 @@ $logModule = "$PSScriptRoot/../../smallsetup/ps-modules/log/log.module.psm1"
 $clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
 $registryFunctionsModule = "$PSScriptRoot\..\..\smallsetup\helpers\RegistryFunctions.module.psm1"
+$cliMessagesModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/cli-messages/cli-messages.module.psm1"
 
-Import-Module $logModule, $addonsModule, $clusterModule, $registryFunctionsModule -DisableNameChecking
+Import-Module $logModule, $addonsModule, $clusterModule, $registryFunctionsModule, $cliMessagesModule -DisableNameChecking
+
+Write-Log 'Checking cluster status' -Console
+
+$systemError = Test-SystemAvailability
+if ($systemError) {
+    if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = $systemError }
+        return
+    }
+
+    Write-Log $systemError -Error
+    exit 1
+}
+
+if ((Test-IsAddonEnabled -Name 'gpu-node') -eq $true) {
+    Write-Log "Addon 'gpu-node' is already enabled, nothing to do." -Console
+
+    if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = $null }
+    }
+    
+    exit 0
+}
 
 Write-Log 'Checking Nvidia driver installation' -Console
 
 $WSL = Get-WSLFromConfig
 
 if (!(Test-Path -Path 'C:\Windows\System32\lxss\lib\libdxcore.so')) {
+    $errMsg = "It seems that the needed Nvidia drivers are not installed.`nPlease install them from the following link: https://www.nvidia.com/Download/index.aspx"
+
     if ($WSL) {
-        Write-Log 'It seems that the needed Nvidia drivers are not installed.' -Console
-        Write-Log 'Please install them from the following link: https://www.nvidia.com/Download/index.aspx' -Console
-        Write-Log 'After Nvidia driver installation you need to reinstall the cluster for the changes to take effect.' -Console
-    }
-    else {
-        Write-Log 'It seems that the needed Nvidia drivers are not installed.' -Console
-        Write-Log 'Please install them from the following link: https://www.nvidia.com/Download/index.aspx' -Console
+        $errMsg += "`nAfter Nvidia driver installation you need to reinstall the cluster for the changes to take effect."
     }
 
+    if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+        return
+    }
+
+    Write-Log $errMsg -Error
     exit 1
-}
-
-Write-Log 'Checking cluster status' -Console
-
-$systemError = Test-SystemAvailability
-if ($systemError) {
-    throw $systemError
-}
-
-if ((Test-IsAddonEnabled -Name 'gpu-node') -eq $true) {
-    Write-Log "Addon 'gpu-node' is already enabled, nothing to do." -Console
-    exit 0
 }
 
 if ($WSL) {
     ssh.exe -n -o StrictHostKeyChecking=no -i $global:LinuxVMKey $global:Remote_Master '[ -f /usr/lib/wsl/lib/libdxcore.so ]'
     if (!$?) {
-        Write-Log 'It seems that the needed Nvidia drivers are not installed.' -Console
-        Write-Log 'Please install them from the following link: https://www.nvidia.com/Download/index.aspx' -Console
-        Write-Log 'After Nvidia driver installation you need to reinstall the cluster for the changes to take effect.' -Console
+        $errMsg = "It seems that the needed Nvidia drivers are not installed.`n" `
+            + "Please install them from the following link: https://www.nvidia.com/Download/index.aspx`n"`
+            + 'After Nvidia driver installation you need to reinstall the cluster for the changes to take effect.'
+
+        if ($EncodeStructuredOutput -eq $true) {
+            Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+            return
+        }
+    
+        Write-Log $errMsg -Error
         exit 1
     }
     ssh.exe -n -o StrictHostKeyChecking=no -i $global:LinuxVMKey $global:Remote_Master '/usr/lib/wsl/lib/nvidia-smi'
     if (!$?) {
-        Write-Log 'It seems that the needed Nvidia drivers are not installed correctly!' -Console
-        Write-Log 'Please reinstall Nvidia drivers and cluster and try again!' -Console
+        $errMsg = "It seems that the needed Nvidia drivers are not installed correctly!`n" `
+            + 'Please reinstall Nvidia drivers and cluster and try again!'
+
+        if ($EncodeStructuredOutput -eq $true) {
+            Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+            return
+        }
+
+        Write-Log $errMsg -Error
         exit 1
     }
 }
@@ -123,7 +155,13 @@ else {
     ExecCmdMaster "container=`$(sudo buildah from $microsoftStandardWSL2 2> /dev/null)  && mountpoint=`$(sudo buildah mount `$container) && sudo find `$mountpoint -iname *.deb | xargs sudo cp -t .microsoft-standard-wsl2 && sudo buildah unmount `$container && sudo buildah rm `$container > /dev/null 2>&1"
     $count = ExecCmdMaster 'ls -1 .microsoft-standard-wsl2/*.deb 2>/dev/null | wc -l' -NoLog
     if ($count -eq '0') {
-        Write-Error "$microsoftStandardWSL2 could not be pulled!"
+        $errMsg = "$microsoftStandardWSL2 could not be pulled!"
+        if ($EncodeStructuredOutput -eq $true) {
+            Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+            return
+        }
+
+        Write-Log $errMsg -Error
         exit 1
     }
     ExecCmdMaster 'cd .microsoft-standard-wsl2 && sudo dpkg -i *.deb 2>&1'
@@ -154,9 +192,6 @@ else {
 Write-Log 'Installing Nvidia Container Toolkit' -Console
 if (!(Get-DebianPackageAvailableOffline -addon 'gpu-node' -package 'nvidia-container-toolkit')) {
     $setupInfo = Get-SetupInfo
-    if ($setupInfo.ValidationError) {
-        throw $setupInfo.ValidationError
-    }
 
     if ($setupInfo.Name -ne $global:SetupType_MultiVMK8s) {
         ExecCmdMaster "distribution=`$(. /etc/os-release;echo `$ID`$VERSION_ID) && curl --retry 3 --retry-connrefused -fsSL https://nvidia.github.io/libnvidia-container/gpgkey -x $global:HttpProxy | sudo gpg --dearmor --batch --yes -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg && curl --retry 3 --retry-connrefused -s -L https://nvidia.github.io/libnvidia-container/`$distribution/libnvidia-container.list -x $global:HttpProxy | sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list"
@@ -198,7 +233,13 @@ Wait-ForAPIServer
 &$global:KubectlExe apply -f "$global:KubernetesPath\addons\gpu-node\manifests\nvidia-device-plugin.yaml" | Write-Log
 &$global:KubectlExe wait --timeout=180s --for=condition=Available -n gpu-node deployment/nvidia-device-plugin | Write-Log
 if (!$?) {
-    Write-Error 'Nvidia device plugin could not be started!'
+    $errMsg = 'Nvidia device plugin could not be started!'
+    if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+        return
+    }
+
+    Write-Log $errMsg -Error
     exit 1
 }
 
@@ -206,10 +247,20 @@ Write-Log 'Installing DCGM-Exporter' -Console
 &$global:KubectlExe apply -f "$global:KubernetesPath\addons\gpu-node\manifests\dcgm-exporter.yaml" | Write-Log
 &$global:KubectlExe rollout status daemonset dcgm-exporter -n gpu-node --timeout 300s | Write-Log
 if (!$?) {
-    Write-Error 'DCGM-Exporter could not be started!'
+    $errMsg = 'DCGM-Exporter could not be started!'
+    if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+        return
+    }
+
+    Write-Log $errMsg -Error
     exit 1
 }
 
 Write-Log 'KubeMaster configured successfully as GPU node' -Console
 
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'gpu-node' })
+
+if ($EncodeStructuredOutput -eq $true) {
+    Send-ToCli -MessageType $MessageType -Message @{Error = $null }
+}
