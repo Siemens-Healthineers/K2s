@@ -15,22 +15,17 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+const testClusterTimeout = time.Minute * 10
+
+var suite *framework.K2sTestSuite
+
 func TestRegistry(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "registry Addon Acceptance Tests", Label("addon", "acceptance", "internet-required", "setup-required", "registry"))
+	RunSpecs(t, "registry Addon Acceptance Tests", Label("addon", "acceptance", "internet-required", "setup-required", "registry", "system-running"))
 }
 
-const (
-	testClusterTimeout = time.Minute * 10
-)
-
-var (
-	suite     *framework.K2sTestSuite
-	linuxOnly bool
-)
-
 var _ = BeforeSuite(func(ctx context.Context) {
-	suite = framework.Setup(ctx, framework.EnsureAddonsAreDisabled, framework.ClusterTestStepTimeout(testClusterTimeout))
+	suite = framework.Setup(ctx, framework.SystemMustBeRunning, framework.EnsureAddonsAreDisabled, framework.ClusterTestStepTimeout(testClusterTimeout))
 })
 
 var _ = AfterSuite(func(ctx context.Context) {

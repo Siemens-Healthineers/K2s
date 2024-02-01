@@ -77,32 +77,37 @@ This way, the test suite functionality can be used in all test steps and ensures
 ## Writing Test Specs
 Even though test specs can be organized in a way that the test suite definition and the specs are located in different *Go* files, it is recommend for the acceptance tests to combine test suite definition and test specs in one *Go* file.
 
-Here is an example taken from the [status CLI Command Acceptance Tests](../e2e/cli/cmd/status/status_test.go):
+Here is an example taken from the [status CLI Command Acceptance Tests](../e2e/cli/cmd/status/setuprequired/status_test.go):
 
 ```go
 // ..
 var _ = Describe("status command", func() {
-	When("cluster is not running", Ordered, func() {
-		var output string
-
+	When("system is not running", Ordered, func() {
 		BeforeAll(func(ctx context.Context) {
 			suite.K2sCli().Run(ctx, "stop")
-
-			output = suite.K2sCli().Run(ctx, "status")
 		})
 
-		It("prints a header", func(ctx context.Context) {
-			Expect(output).To(ContainSubstring("K2s CLUSTER STATUS"))
-		})
+		Context("default output", func() {
+			var output string
 
-		It("prints setup type", func(ctx context.Context) {
-			Expect(output).To(MatchRegexp("Setup type: .+%s.+,", suite.SetupInfo().SetupType.Name))
+			BeforeAll(func(ctx context.Context) {
+				output = suite.K2sCli().Run(ctx, "status")
+			})
+
+			It("prints a header", func(ctx context.Context) {
+				Expect(output).To(ContainSubstring("K2s SYSTEM STATUS"))
+			})
+
+			It("prints setup", func(ctx context.Context) {
+				Expect(output).To(MatchRegexp("Setup: .+%s.+,", suite.SetupInfo().Name))
+			})
+			// ..
 		})
 
         // ..
     })
     //..
-}
+})
 // ..
 ```
 - *Describe* is the root node of the test suite (on the same level as the *BeforeSuite*/*AfterSuite* hooks)

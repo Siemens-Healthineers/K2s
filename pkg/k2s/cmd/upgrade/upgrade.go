@@ -13,7 +13,6 @@ import (
 
 	"k2s/cmd/common"
 	p "k2s/cmd/params"
-	"k2s/setupinfo"
 	"k2s/utils"
 )
 
@@ -80,13 +79,7 @@ func upgradeCluster(cmd *cobra.Command, args []string) error {
 	klog.V(3).Infof("Upgrade Command : %s", upgradeCommand)
 
 	duration, err := utils.ExecutePowershellScript(upgradeCommand)
-	switch err {
-	case nil:
-		break
-	case setupinfo.ErrNotInstalled:
-		common.PrintNotInstalledMessage()
-		return nil
-	default:
+	if err != nil {
 		return err
 	}
 

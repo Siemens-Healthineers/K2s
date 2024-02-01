@@ -26,6 +26,7 @@ type K2sTestSuite struct {
 	proxy                string
 	rootDir              string
 	setupInstalled       bool
+	initialSystemState   initialSystemStateType
 	testStepTimeout      time.Duration
 	testStepPollInterval time.Duration
 	cli                  *sos.CliExecutor
@@ -38,16 +39,19 @@ type K2sTestSuite struct {
 type ClusterTestStepTimeout time.Duration
 type ClusterTestStepPollInterval time.Duration
 
+type initialSystemStateType string
 type restartKubeProxyType bool
 type ensureAddonsAreDisabledType bool
 type noSetupInstalledType bool
-type skipClusterRunningCheckType bool
 
 const (
 	RestartKubeProxy        = restartKubeProxyType(true)
 	EnsureAddonsAreDisabled = ensureAddonsAreDisabledType(true)
 	NoSetupInstalled        = noSetupInstalledType(true)
-	SkipClusterRunningCheck = skipClusterRunningCheckType(true)
+
+	SystemMustBeStopped   initialSystemStateType = "stopped"
+	SystemMustBeRunning   initialSystemStateType = "running"
+	SystemStateIrrelevant initialSystemStateType = "irrelevant"
 )
 
 func Setup(ctx context.Context, args ...any) *K2sTestSuite {
@@ -59,7 +63,7 @@ func Setup(ctx context.Context, args ...any) *K2sTestSuite {
 	clusterTestStepTimeout := testStepTimeout
 	clusterTestStepPollInterval := testStepPollInterval
 	noSetupInstalled := false
-	skipClusterRunningCheck := false
+	initialSystemState := SystemStateIrrelevant
 
 	for _, arg := range args {
 		switch t := reflect.TypeOf(arg); {
@@ -71,8 +75,8 @@ func Setup(ctx context.Context, args ...any) *K2sTestSuite {
 			clusterTestStepPollInterval = time.Duration(arg.(ClusterTestStepPollInterval))
 		case t == reflect.TypeOf(NoSetupInstalled):
 			noSetupInstalled = bool(arg.(noSetupInstalledType))
-		case t == reflect.TypeOf(SkipClusterRunningCheck):
-			skipClusterRunningCheck = bool(arg.(skipClusterRunningCheckType))
+		case t == reflect.TypeOf(SystemStateIrrelevant):
+			initialSystemState = arg.(initialSystemStateType)
 		default:
 			Fail(fmt.Sprintf("type < %v > invalid as parameter for suite.Setup() method", t))
 		}
@@ -89,6 +93,7 @@ func Setup(ctx context.Context, args ...any) *K2sTestSuite {
 		proxy:                proxy,
 		rootDir:              rootDir,
 		setupInstalled:       !noSetupInstalled,
+		initialSystemState:   initialSystemState,
 		testStepTimeout:      clusterTestStepTimeout,
 		testStepPollInterval: clusterTestStepPollInterval,
 		cli:                  cli,
@@ -101,10 +106,12 @@ func Setup(ctx context.Context, args ...any) *K2sTestSuite {
 		return testSuite
 	}
 
-	if skipClusterRunningCheck {
-		GinkgoWriter.Println("skipping cluster running check")
+	GinkgoWriter.Println("Initial system state should be <", initialSystemState, ">")
+
+	if initialSystemState == SystemStateIrrelevant {
+		GinkgoWriter.Println("Skipping system state checks")
 	} else {
-		expectClusterToBeRunning(ctx, k2sCli, ensureAddonsAreDisabled)
+		expectSystemState(ctx, initialSystemState, k2sCli, ensureAddonsAreDisabled)
 	}
 
 	setupInfo := loadSetupInfo(rootDir)
@@ -129,7 +136,7 @@ func (s *K2sTestSuite) TearDown(ctx context.Context, args ...any) {
 		}
 	}
 
-	if restartKubeProxy && s.setupInstalled {
+	if restartKubeProxy && s.setupInstalled && s.initialSystemState == SystemMustBeRunning {
 		s.kubeProxyRestarter.Restart(ctx)
 	}
 
@@ -194,14 +201,22 @@ func loadSetupInfo(rootDir string) *k2s.SetupInfo {
 	return info
 }
 
-func expectClusterToBeRunning(ctx context.Context, k2sCli *k2s.K2sCliRunner, ensureAddonsAreDisabled bool) {
-	GinkgoWriter.Println("Checking cluster status..")
+func expectSystemState(ctx context.Context, initialSystemState initialSystemStateType, k2sCli *k2s.K2sCliRunner, ensureAddonsAreDisabled bool) {
+	GinkgoWriter.Println("Checking system status..")
 
 	status := k2sCli.GetStatus(ctx)
+	isRunning := status.IsClusterRunning()
 
-	Expect(status.IsClusterRunning()).To(BeTrue(), "Cluster should be in Running State to execute the tests")
-
-	GinkgoWriter.Println("Cluster is running")
+	switch initialSystemState {
+	case SystemMustBeRunning:
+		Expect(isRunning).To(BeTrue(), "System should be running to execute the tests")
+		GinkgoWriter.Println("System is running")
+	case SystemMustBeStopped:
+		Expect(isRunning).To(BeFalse(), "System should be stopped to execute the tests")
+		GinkgoWriter.Println("System is stopped")
+	default:
+		Fail(fmt.Sprintf("invalid initial system state: '%s'", initialSystemState))
+	}
 
 	if ensureAddonsAreDisabled {
 		expectAddonsToBeDisabled(status)

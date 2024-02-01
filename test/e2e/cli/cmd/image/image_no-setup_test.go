@@ -1,6 +1,6 @@
 // SPDX-FileCopyrightText:  © 2023 Siemens Healthcare GmbH
 // SPDX-License-Identifier:   MIT
-package nosetup
+package image
 
 import (
 	"context"
@@ -32,7 +32,7 @@ var _ = AfterSuite(func(ctx context.Context) {
 })
 
 var _ = Describe("image commands", func() {
-	DescribeTable("print not-installed message",
+	DescribeTable("print system-not-installed message",
 		func(ctx context.Context, args ...string) {
 			output := suite.K2sCli().Run(ctx, args...)
 
@@ -59,7 +59,7 @@ var _ = Describe("image commands", func() {
 			Expect(json.Unmarshal([]byte(output), &images)).To(Succeed())
 		})
 
-		It("contains only not-installed info", func() {
+		It("contains only system-not-installed info", func() {
 			Expect(images.ContainerImages).To(BeNil())
 			Expect(images.ContainerRegistry).To(BeNil())
 			Expect(images.PushedImages).To(BeNil())

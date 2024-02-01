@@ -10,7 +10,6 @@ import (
 	p "k2s/cmd/params"
 	c "k2s/config"
 	cd "k2s/config/defs"
-	"k2s/setupinfo"
 	"k2s/utils"
 	"strconv"
 
@@ -50,13 +49,7 @@ func switchRegistry(cmd *cobra.Command, args []string) error {
 	pterm.Printfln("🤖 Switching to registry %s", registryName)
 
 	addCmd, err := buildSwitchCmd(registryName, cmd)
-	switch err {
-	case nil:
-		break
-	case setupinfo.ErrNotInstalled:
-		common.PrintNotInstalledMessage()
-		return nil
-	default:
+	if err != nil {
 		return err
 	}
 

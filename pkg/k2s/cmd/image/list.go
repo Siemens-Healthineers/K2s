@@ -10,10 +10,10 @@ import (
 	"github.com/spf13/cobra"
 	"k8s.io/klog/v2"
 
-	"k2s/cmd/common"
 	"k2s/providers/marshalling"
 	"k2s/providers/terminal"
 	"k2s/setupinfo"
+	"k2s/status"
 	"k2s/utils"
 )
 
@@ -181,14 +181,12 @@ func listImages(cmd *cobra.Command, args []string) error {
 			if outputOption == jsonOption {
 				break
 			}
-			common.PrintNotInstalledMessage()
-			return nil
-		case setupinfo.ErrNotRunningMsg:
+			return setupinfo.ErrNotInstalled
+		case status.ErrNotRunningMsg:
 			if outputOption == jsonOption {
 				break
 			}
-			common.PrintNotRunningMessage()
-			return nil
+			return status.ErrNotRunning
 		default:
 			return fmt.Errorf("unknown error while listing images: %s", *images.Error)
 		}
