@@ -194,15 +194,19 @@ function BuildWindowsImage () {
 
     Write-Log "Building Windows image $imageFullName" -Console
     if ($BuildArgsString -ne '') {
-        Invoke-Expression -Command "docker build ""$InputFolder"" -f ""$Dockerfile"" --force-rm $NoCacheFlag -t $imageFullName $BuildArgsString"
+        $cmd = "$global:DockerExe build ""$InputFolder"" -f ""$Dockerfile"" --force-rm $NoCacheFlag -t $imageFullName $BuildArgsString"
+        Write-Log "Build cmd: $cmd"
+        Invoke-Expression -Command $cmd
     }
     else {
-        Invoke-Expression -Command "docker build ""$InputFolder"" -f ""$Dockerfile"" --force-rm $NoCacheFlag -t $imageFullName"
+        $cmd = "$global:DockerExe build ""$InputFolder"" -f ""$Dockerfile"" --force-rm $NoCacheFlag -t $imageFullName"
+        Write-Log "Build cmd: $cmd"
+        Invoke-Expression -Command $cmd
     }
     if ($LASTEXITCODE -ne 0) { throw "error while creating image with 'docker build' on Windows. Error code returned was $LastExitCode" }
 
     Write-Log "Output of checking if the image $imageFullName is now available in docker:"
-    docker image ls $ImageName -a
+    &$global:DockerExe image ls $ImageName -a
 
     Write-Log $global:ExportedImagesTempFolder
     if (!(Test-Path($global:ExportedImagesTempFolder))) {
@@ -214,7 +218,7 @@ function BuildWindowsImage () {
     }
 
     Write-Log "Saving image $imageFullName temporarily as $exportedImageFullFileName to import it afterwards into containerd..."
-    docker save -o "$exportedImageFullFileName" $imageFullName
+    &$global:DockerExe save -o "$exportedImageFullFileName" $imageFullName
     if (!$?) { throw "error while saving built image '$imageFullName' with 'docker save' on Windows. Error code returned was $LastExitCode" }
     Write-Log '...saved.'
 
@@ -585,7 +589,7 @@ if ($Push) {
             ssh.exe -n -o StrictHostKeyChecking=no -i $global:WindowsVMKey docker push "${ImageName}:$ImageTag" 2>&1
         }
         else {
-            docker push "${ImageName}:$ImageTag" 2>&1
+            &$global:DockerExe push "${ImageName}:$ImageTag" 2>&1
         }
     }
     else {

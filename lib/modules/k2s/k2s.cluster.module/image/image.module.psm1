@@ -6,11 +6,14 @@ $k8sApiModule = "$PSScriptRoot\..\k8s-api\k8s-api.module.psm1"
 $statusModule = "$PSScriptRoot\..\status\status.module.psm1"
 $configModule = "$PSScriptRoot\..\..\k2s.infra.module\config\config.module.psm1"
 $vmModule = "$PSScriptRoot\..\..\k2s.node.module\linuxnode\vm\vm.module.psm1"
+$pathModule = "$PSScriptRoot\..\..\k2s.infra.module\path\path.module.psm1"
 
-Import-Module $configModule, $k8sApiModule, $registryFunctionsModule, $vmModule, $statusModule
+Import-Module $configModule, $k8sApiModule, $registryFunctionsModule, $vmModule, $statusModule, $pathModule
 
 $kubernetesImagesJson = Get-KubernetesImagesFilePath
 $windowsPauseImageRepository = 'shsk2s.azurecr.io/pause-win'
+$kubeBinPath = Get-KubeBinPath
+$dockerExe = "$kubeBinPath\docker\docker.exe"
 
 class ContainerImage {
     [string]$ImageId
@@ -394,15 +397,19 @@ function New-WindowsImage {
 
     Write-Log "Building Windows image $imageFullName" -Console
     if ($BuildArgsString -ne '') {
-        Invoke-Expression -Command "docker build ""$InputFolder"" -f ""$Dockerfile"" --force-rm $NoCacheFlag -t $imageFullName $BuildArgsString"
+        $cmd = "$dockerExe build ""$InputFolder"" -f ""$Dockerfile"" --force-rm $NoCacheFlag -t $imageFullName $BuildArgsString"
+        Write-Log "Build cmd: $cmd"
+        Invoke-Expression -Command $cmd
     }
     else {
-        Invoke-Expression -Command "docker build ""$InputFolder"" -f ""$Dockerfile"" --force-rm $NoCacheFlag -t $imageFullName"
+        $cmd = "$dockerExe build ""$InputFolder"" -f ""$Dockerfile"" --force-rm $NoCacheFlag -t $imageFullName"
+        Write-Log "Build cmd: $cmd"
+        Invoke-Expression -Command $cmd
     }
     if ($LASTEXITCODE -ne 0) { throw "error while creating image with 'docker build' on Windows. Error code returned was $LastExitCode" }
 
     Write-Log "Output of checking if the image $imageFullName is now available in docker:"
-    docker image ls $ImageName -a
+    &$dockerExe image ls $ImageName -a
 
     Write-Log $global:ExportedImagesTempFolder
     if (!(Test-Path($global:ExportedImagesTempFolder))) {
@@ -414,7 +421,7 @@ function New-WindowsImage {
     }
 
     Write-Log "Saving image $imageFullName temporarily as $exportedImageFullFileName to import it afterwards into containerd..."
-    docker save -o "$exportedImageFullFileName" $imageFullName
+    &$dockerExe save -o "$exportedImageFullFileName" $imageFullName
     if (!$?) { throw "error while saving built image '$imageFullName' with 'docker save' on Windows. Error code returned was $LastExitCode" }
     Write-Log '...saved.'
 
