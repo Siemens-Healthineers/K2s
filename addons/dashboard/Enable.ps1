@@ -62,7 +62,8 @@ if ($systemError) {
         return
     }
 
-    throw $systemError
+    Write-Log $systemError -Error
+    exit 1
 }
 
 if ((Test-IsAddonEnabled -Name 'dashboard') -eq $true) {
@@ -89,7 +90,8 @@ if ($dashboardStatus -ne $true) {
         return
     }
 
-    throw $errMsg    
+    Write-Log $errMsg -Error
+    exit 1
 }
 
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'dashboard' })

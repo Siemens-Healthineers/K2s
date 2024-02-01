@@ -18,22 +18,34 @@ powershell <installation folder>\addons\exthttpaccess\Disable.ps1
 
 Param(
   [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
-  [switch] $ShowLogs = $false
+  [switch] $ShowLogs = $false,
+  [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
+  [switch] $EncodeStructuredOutput,
+  [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
+  [string] $MessageType
 )
-
-$mainStopwatch = [system.diagnostics.stopwatch]::StartNew()
-
-# load global settings
 &$PSScriptRoot\..\..\smallsetup\common\GlobalVariables.ps1
-# import global functions
 . $PSScriptRoot\..\..\smallsetup\common\GlobalFunctions.ps1
 
-Import-Module "$PSScriptRoot/../../smallsetup/ps-modules/log/log.module.psm1"
+$logModule = "$PSScriptRoot/../../smallsetup/ps-modules/log/log.module.psm1"
+$statusModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/status/status.module.psm1"
+$addonsModule = "$PSScriptRoot\..\addons.module.psm1"
+$cliMessagesModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/cli-messages/cli-messages.module.psm1"
+
+Import-Module $logModule, $addonsModule, $statusModule, $cliMessagesModule
+
 Initialize-Logging -ShowLogs:$ShowLogs
 
-$addonsModule = "$PSScriptRoot\..\Addons.module.psm1"
+$systemError = Test-SystemAvailability
+if ($systemError) {
+  if ($EncodeStructuredOutput -eq $true) {
+    Send-ToCli -MessageType $MessageType -Message @{Error = $systemError }
+    return
+  }
 
-Import-Module $addonsModule
+  Write-Log $systemError -Error
+  exit 1
+}
 
 # stop nginx service
 Write-Log 'Stop nginx service' -Console
@@ -48,4 +60,6 @@ Remove-Item -Recurse -Force "$global:BinPath\nginx" | Out-Null
 
 Remove-AddonFromSetupJson -Name 'exthttpaccess'
 
-Write-Log "Total duration: $('{0:hh\:mm\:ss}' -f $mainStopwatch.Elapsed )" -Console
+if ($EncodeStructuredOutput -eq $true) {
+  Send-ToCli -MessageType $MessageType -Message @{Error = $null }
+}

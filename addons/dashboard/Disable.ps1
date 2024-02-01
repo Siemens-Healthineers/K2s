@@ -45,7 +45,8 @@ if ($systemError) {
         return
     }
 
-    throw $systemError
+    Write-Log $systemError -Error
+    exit 1
 }
 
 if ($null -eq (&$global:KubectlExe get namespace kubernetes-dashboard --ignore-not-found) -or (Test-IsAddonEnabled -Name 'dashboard') -ne $true) {
