@@ -53,8 +53,8 @@ if ($systemError) {
   exit 1
 }
 
-if ((Test-IsAddonEnabled -Name 'dashboard') -eq $true) {
-  Write-Log "Addon 'dashboard' is already enabled, nothing to do." -Console
+if ((Test-IsAddonEnabled -Name 'exthttpaccess') -eq $true) {
+  Write-Log "Addon 'exthttpaccess' is already enabled, nothing to do." -Console
 
   if ($EncodeStructuredOutput -eq $true) {
     Send-ToCli -MessageType $MessageType -Message @{Error = $null }
@@ -142,6 +142,8 @@ mkdir -Force "$($global:SystemDriveLetter):\var\log\nginx" | Out-Null
 &$global:NssmInstallDirectory\nssm start ExtHttpAccess-nginx | Write-Log
 
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'exthttpaccess' })
+
+Write-Log 'exthttpaccess enabled' -Console
 
 if ($EncodeStructuredOutput -eq $true) {
   Send-ToCli -MessageType $MessageType -Message @{Error = $null }

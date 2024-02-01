@@ -47,6 +47,16 @@ if ($systemError) {
   exit 1
 }
 
+if ( (Test-IsAddonEnabled -Name 'exthttpaccess') -ne $true) {
+  Write-Log "Addon 'exthttpaccess' is already disabled, nothing to do." -Console
+
+  if ($EncodeStructuredOutput -eq $true) {
+    Send-ToCli -MessageType $MessageType -Message @{Error = $null }
+  }
+  
+  exit 0
+}
+
 # stop nginx service
 Write-Log 'Stop nginx service' -Console
 &$global:NssmInstallDirectory\nssm stop ExtHttpAccess-nginx | Write-Log
@@ -59,6 +69,8 @@ Write-Log 'Remove nginx service' -Console
 Remove-Item -Recurse -Force "$global:BinPath\nginx" | Out-Null
 
 Remove-AddonFromSetupJson -Name 'exthttpaccess'
+
+Write-Log 'exthttpaccess disabled' -Console
 
 if ($EncodeStructuredOutput -eq $true) {
   Send-ToCli -MessageType $MessageType -Message @{Error = $null }
