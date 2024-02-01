@@ -1,0 +1,29 @@
+# Workflow to manage caches used by other workflows
+name: Delete caches on completion
+
+on:
+  workflow_dispatch:
+  #delete:
+  #pull_request:
+  #  types: 
+  #    - closed
+  
+
+jobs:
+  delete-caches:
+    name: tryout github api
+    continue-on-error: false
+    runs-on: ubuntu-latest
+    steps:
+      - uses: snnaplab/delete-branch-cache-action@v1
+        with:
+          ref: refs/pull/${{ github.event.number }}/merge
+        if: github.event_name == 'pull_request'
+
+      - uses: snnaplab/delete-branch-cache-action@v1
+        with:
+          ref: refs/heads/${{ github.event.ref }}
+        if: github.event.ref_type == 'branch'
+
+      
+        
