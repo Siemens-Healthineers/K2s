@@ -34,7 +34,11 @@ Param (
     [parameter(Mandatory = $false, HelpMessage = 'Enable metrics-server Addon')]
     [switch] $EnableMetricsServer = $false,
     [parameter(Mandatory = $false, HelpMessage = 'JSON config object to override preceeding parameters')]
-    [pscustomobject] $Config
+    [pscustomobject] $Config,
+    [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
+    [switch] $EncodeStructuredOutput,
+    [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
+    [string] $MessageType
 )
 &$PSScriptRoot\..\..\smallsetup\common\GlobalVariables.ps1
 . $PSScriptRoot\..\..\smallsetup\common\GlobalFunctions.ps1
@@ -43,8 +47,9 @@ Param (
 $logModule = "$PSScriptRoot/../../smallsetup/ps-modules/log/log.module.psm1"
 $statusModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/status/status.module.psm1"
 $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
+$cliMessagesModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/cli-messages/cli-messages.module.psm1"
 
-Import-Module $logModule, $addonsModule, $statusModule
+Import-Module $logModule, $addonsModule, $statusModule, $cliMessagesModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -52,11 +57,21 @@ Write-Log 'Checking cluster status' -Console
 
 $systemError = Test-SystemAvailability
 if ($systemError) {
+    if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = $systemError }
+        return
+    }
+
     throw $systemError
 }
 
 if ((Test-IsAddonEnabled -Name 'dashboard') -eq $true) {
     Write-Log "Addon 'dashboard' is already enabled, nothing to do." -Console
+
+    if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = $null }
+    }
+    
     exit 0
 }
 
@@ -67,35 +82,44 @@ $dashboardConfig = Get-DashboardConfig
 Write-Log 'Checking Dashboard status' -Console
 $dashboardStatus = Wait-ForDashboardAvailable
 
-if ($dashboardStatus) {
-    Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'dashboard' })
-    Write-Log 'Installation of Kubernetes dashboard finished.' -Console
-
-    switch ($Ingress) {
-        'ingress-nginx' {
-            Write-Log 'Deploying ingress-nginx addon for external access to dashboard...' -Console
-            Enable-IngressAddon
-            break
-        }
-        'traefik' {
-            Write-Log 'Deploying traefik addon for external access to dashboard...' -Console
-            Enable-TraefikAddon
-            break
-        }
-        'none' {
-            Write-Log 'No ingress deployed...' -Console
-        }
+if ($dashboardStatus -ne $true) {
+    $errMsg = "All dashboard pods could not become ready. Please use kubectl describe for more details.`nInstallation of Kubernetes dashboard failed."
+    if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+        return
     }
 
-    if ($EnableMetricsServer) {
-        Enable-MetricsServer
-    }
-
-    Enable-ExternalAccessIfIngressControllerIsFound
-
-    Write-UsageForUser
+    throw $errMsg    
 }
-else {
-    Write-Error 'All dashboard pods could not become ready. Please use kubectl describe for more details.'
-    Write-Error 'Installation of Kubernetes dashboard failed.'
+
+Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'dashboard' })
+
+switch ($Ingress) {
+    'ingress-nginx' {
+        Write-Log 'Deploying ingress-nginx addon for external access to dashboard...' -Console
+        Enable-IngressAddon
+        break
+    }
+    'traefik' {
+        Write-Log 'Deploying traefik addon for external access to dashboard...' -Console
+        Enable-TraefikAddon
+        break
+    }
+    'none' {
+        Write-Log 'No ingress deployed...' -Console
+    }
+}
+
+if ($EnableMetricsServer) {
+    Enable-MetricsServer
+}
+
+Enable-ExternalAccessIfIngressControllerIsFound
+
+Write-UsageForUser
+
+Write-Log 'Installation of Kubernetes dashboard finished.' -Console
+
+if ($EncodeStructuredOutput -eq $true) {
+    Send-ToCli -MessageType $MessageType -Message @{Error = $null }
 }
