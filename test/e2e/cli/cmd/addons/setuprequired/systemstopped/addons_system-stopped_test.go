@@ -5,8 +5,10 @@ package systemstopped
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"k2s/addons/status"
 	"testing"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -24,7 +26,7 @@ func TestLs(t *testing.T) {
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
-	suite = framework.Setup(ctx, framework.SystemMustBeStopped)
+	suite = framework.Setup(ctx, framework.SystemMustBeStopped, framework.ClusterTestStepPollInterval(500*time.Millisecond))
 	addons = k2s.AllAddons(suite.RootDir())
 })
 
@@ -63,6 +65,38 @@ var _ = Describe("addons commands", Ordered, func() {
 					Expect(status.Props).To(BeEmpty())
 				}
 			})
+		})
+	})
+
+	Describe("enable", func() {
+		It("prints system-not-running message for all addons", func(ctx context.Context) {
+			for _, addon := range addons {
+				if addon.Metadata.Name != "dashboard" {
+					Skip(fmt.Sprintf("not yet implemented for addon '%s'", addon.Metadata.Name))
+				}
+
+				GinkgoWriter.Println("Calling addons enable for", addon.Metadata.Name)
+
+				output := suite.K2sCli().Run(ctx, "addons", "enable", addon.Metadata.Name)
+
+				Expect(output).To(ContainSubstring("not running"))
+			}
+		})
+	})
+
+	Describe("disable", func() {
+		It("prints system-not-running message for all addons", func(ctx context.Context) {
+			for _, addon := range addons {
+				if addon.Metadata.Name != "dashboard" {
+					Skip(fmt.Sprintf("not yet implemented for addon '%s'", addon.Metadata.Name))
+				}
+
+				GinkgoWriter.Println("Calling addons disable for", addon.Metadata.Name)
+
+				output := suite.K2sCli().Run(ctx, "addons", "disable", addon.Metadata.Name)
+
+				Expect(output).To(ContainSubstring("not running"))
+			}
 		})
 	})
 })

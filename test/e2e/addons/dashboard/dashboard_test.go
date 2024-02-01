@@ -38,6 +38,20 @@ var _ = AfterSuite(func(ctx context.Context) {
 })
 
 var _ = Describe("'dashboard' addon", Ordered, func() {
+	Describe("disable", func() {
+		When("addon is already disabled", func() {
+			var output string
+
+			BeforeAll(func(ctx context.Context) {
+				output = suite.K2sCli().Run(ctx, "addons", "disable", "dashboard")
+			})
+
+			It("prints already-disabled message", func() {
+				Expect(output).To(ContainSubstring("already disabled"))
+			})
+		})
+	})
+
 	When("no ingress controller is configured", func() {
 		AfterAll(func(ctx context.Context) {
 			portForwardingSession.Kill()
@@ -71,6 +85,10 @@ var _ = Describe("'dashboard' addon", Ordered, func() {
 			url := "https://localhost:8443/#/pod?namespace=_all"
 			httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-I", "-m", "5", "--retry", "3", "--fail")
 			Expect(httpStatus).To(ContainSubstring("200"))
+		})
+
+		It("prints already-enabled message when enabling the addon again", func(ctx context.Context) {
+			expectAddonToBeAlreadyEnabled(ctx)
 		})
 	})
 
@@ -111,6 +129,10 @@ var _ = Describe("'dashboard' addon", Ordered, func() {
 			httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-I", "-m", "5", "--retry", "3", "--fail")
 			Expect(httpStatus).To(ContainSubstring("200"))
 		})
+
+		It("prints already-enabled message when enabling the addon again", func(ctx context.Context) {
+			expectAddonToBeAlreadyEnabled(ctx)
+		})
 	})
 
 	Describe("ingress-nginx as ingress controller", func() {
@@ -150,5 +172,15 @@ var _ = Describe("'dashboard' addon", Ordered, func() {
 			httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-I", "-m", "5", "--retry", "3", "--fail")
 			Expect(httpStatus).To(ContainSubstring("200"))
 		})
+
+		It("prints already-enabled message when enabling the addon again", func(ctx context.Context) {
+			expectAddonToBeAlreadyEnabled(ctx)
+		})
 	})
 })
+
+func expectAddonToBeAlreadyEnabled(ctx context.Context) {
+	output := suite.K2sCli().Run(ctx, "addons", "enable", "dashboard")
+
+	Expect(output).To(ContainSubstring("already enabled"))
+}
