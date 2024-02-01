@@ -117,16 +117,18 @@ function Get-ContainerImagesOnLinuxNode([bool]$IncludeK8sImages = $false) {
 
 function Get-ContainerImagesOnWindowsNode([bool]$IncludeK8sImages = $false, [Object[]]$WindowsImagesRaw, $WindowsNodeName) {
 
-    if ($WindowsImagesRaw -ne '') {
+    $kubeBinPath = Get-KubeBinPath
+    $output = ''
+    $node = ''
+    if ($null -ne $WindowsImagesRaw) {
         # We have the raw list of images already
         $output = $WindowsImagesRaw
         $node = $WindowsNodeName
     } else {
-        $output = &$kubeBinPath\crictl images 2> $null
+        $output = &$kubeBinPath\crictl.exe images 2> $null
         $node = $env:ComputerName.ToLower()
     }
 
-    $kubeBinPath = Get-KubeBinPath
     $KubernetesImages = Get-KubernetesImagesFromJson
 
     $windowsContainerImages = @()
