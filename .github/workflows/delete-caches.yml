@@ -1,13 +1,14 @@
-# Workflow to manage caches used by other workflows
+# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+# SPDX-License-Identifier: MIT
+
+# Workflow to delete caches created by feature branch or pull requests when the feature branch is deleted or when the pull request is completed.
 name: Delete caches on completion
 
 on:
-  workflow_dispatch:
-  #delete:
-  #pull_request:
-  #  types: 
-  #    - closed
-  
+  delete:
+  pull_request:
+    types: 
+      - closed
 
 jobs:
   delete-caches:
@@ -15,16 +16,6 @@ jobs:
     continue-on-error: false
     runs-on: ubuntu-latest
     steps:
-      - name: List all caches 
-        run: |
-          curl -f \
-            -H "Accept: application/vnd.github+json" \
-            -H "Authorization: token $GITHUB_TOKEN" \
-            "https://api.github.com/repos/$REPOSITORY/actions/caches"
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-          REPOSITORY: ${{ github.repository }}
-
       - uses: snnaplab/delete-branch-cache-action@v1
         with:
           ref: refs/pull/${{ github.event.number }}/merge
