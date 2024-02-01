@@ -589,7 +589,7 @@ if ($Push) {
             ssh.exe -n -o StrictHostKeyChecking=no -i $global:WindowsVMKey docker push "${ImageName}:$ImageTag" 2>&1
         }
         else {
-            docker push "${ImageName}:$ImageTag" 2>&1
+            &$global:DockerExe push "${ImageName}:$ImageTag" 2>&1
         }
     }
     else {
