@@ -19,7 +19,11 @@ Param (
   [parameter(Mandatory = $false, HelpMessage = 'Use shared gateway')]
   [switch] $SharedGateway = $false,
   [parameter(Mandatory = $false, HelpMessage = 'JSON config object to override preceeding parameters')]
-  [pscustomobject] $Config
+  [pscustomobject] $Config,
+  [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
+  [switch] $EncodeStructuredOutput,
+  [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
+  [string] $MessageType
 )
 &$PSScriptRoot\..\..\smallsetup\common\GlobalVariables.ps1
 . $PSScriptRoot\..\..\smallsetup\common\GlobalFunctions.ps1
@@ -28,8 +32,9 @@ Param (
 $logModule = "$PSScriptRoot/../../smallsetup/ps-modules/log/log.module.psm1"
 $statusModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/status/status.module.psm1"
 $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
+$cliMessagesModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/cli-messages/cli-messages.module.psm1"
 
-Import-Module $logModule, $addonsModule, $statusModule
+Import-Module $logModule, $addonsModule, $statusModule, $cliMessagesModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -37,26 +42,47 @@ Write-Log 'Checking cluster status' -Console
 
 $systemError = Test-SystemAvailability
 if ($systemError) {
-  throw $systemError
+  if ($EncodeStructuredOutput -eq $true) {
+    Send-ToCli -MessageType $MessageType -Message @{Error = $systemError }
+    return
+  }
+
+  Write-Log $systemError -Error
+  exit 1
 }
 
-if ((Test-IsAddonEnabled -Name 'gateway-nginx') -eq $true) {
+if ((Test-IsAddonEnabled -Name 'gateway-nginx') -eq $true -or "$(&$global:KubectlExe get deployment -n nginx-gateway -o yaml)" -match 'nginx-gateway') {
   Write-Log "Addon 'gateway-nginx' is already enabled, nothing to do." -Console
+
+  if ($EncodeStructuredOutput -eq $true) {
+    Send-ToCli -MessageType $MessageType -Message @{Error = $null }
+  }
+  
   exit 0
 }
 
-$existingServices = $(&$global:KubectlExe get deployment -n nginx-gateway -o yaml)
-if ("$existingServices" -match 'nginx-gateway') {
-  Write-Log 'gateway-nginx addon is already enabled.' -Console
-  exit 0;
-}
-
 if ((Test-IsAddonEnabled -Name 'ingress-nginx') -eq $true) {
-  Log-ErrorWithThrow "Addon 'ingress-nginx' is enabled. Disable it first to avoid port conflicts."
+  $errMsg = "Addon 'ingress-nginx' is enabled. Disable it first to avoid port conflicts."
+
+  if ($EncodeStructuredOutput -eq $true) {
+    Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+    return
+  }
+
+  Write-Log $errMsg -Error
+  exit 1
 }
 
 if ((Test-IsAddonEnabled -Name 'traefik') -eq $true) {
-  Log-ErrorWithThrow "Addon 'traefik' is enabled. Disable it first to avoid port conflicts."
+  $errMsg = "Addon 'traefik' is enabled. Disable it first to avoid port conflicts."
+  
+  if ($EncodeStructuredOutput -eq $true) {
+    Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+    return
+  }
+
+  Write-Log $errMsg -Error
+  exit 1
 }
 
 Write-Log 'Installing Gateway API' -Console
@@ -80,14 +106,20 @@ $gatewayNginxSvc = 'nginx-gateway'
 
 &$global:KubectlExe wait --timeout=60s --for=condition=Available -n nginx-gateway deployment/nginx-gateway
 if (!$?) {
-  Write-Error 'Not all pods could become ready. Please use kubectl describe for more details.'
-  Log-ErrorWithThrow 'Installation of gateway-nginx addon failed.'
+  $errMsg = 'Not all pods could become ready. Please use kubectl describe for more details.'
+  
+  if ($EncodeStructuredOutput -eq $true) {
+    Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+    return
+  }
+
+  Write-Log $errMsg -Error
   exit 1
 }
 
 Write-Log 'gateway-nginx addon installed successfully' -Console
 if ($SharedGateway) {
-    &$global:KubectlExe apply -f "$global:KubernetesPath\addons\gateway-nginx\manifests\shared-gateway.yaml" | Write-Log
+  &$global:KubectlExe apply -f "$global:KubernetesPath\addons\gateway-nginx\manifests\shared-gateway.yaml" | Write-Log
 
   @'
                                         USAGE NOTES
@@ -137,3 +169,7 @@ else {
 
 Copy-ScriptsToHooksDir -ScriptPaths $hookFilePaths
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'gateway-nginx' })
+
+if ($EncodeStructuredOutput -eq $true) {
+  Send-ToCli -MessageType $MessageType -Message @{Error = $null }
+}
