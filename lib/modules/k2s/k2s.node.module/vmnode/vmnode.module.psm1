@@ -38,6 +38,50 @@ function Get-IsVmOperating {
 
 <#
 .SYNOPSIS
+    Starts a given VM
+.DESCRIPTION
+    Starts a given VM specified by name and waits for the VM to be started, if desired.
+.PARAMETER VmName
+    Name of the VM to start
+.PARAMETER Wait
+    If set to TRUE, the function waits for the VM to reach the 'running' state.
+.EXAMPLE
+    Start-VirtualMachine -VmName "Test-VM"
+.EXAMPLE
+    Start-VirtualMachine -VmName "Test-VM" -Wait
+    Waits for the VM to reach the 'running' state.
+.NOTES
+    The underlying function thrown an exception when the wait timeout is reached.
+#>
+function Start-VirtualMachine {
+    param (
+        [Parameter()]
+        [ValidateNotNullOrEmpty()]
+        [string] $VmName = $(throw 'Please specify the VM you want to start.'),
+        [Parameter(Mandatory = $false)]
+        [Switch]$Wait = $false
+    )
+
+    $private:vm = Get-VM | Where-Object Name -eq $VmName
+
+    if (($private:vm | Measure-Object).Count -ne 1) {
+        Write-Log "None or more than one VMs found for name '$VmName', aborting start."
+        return
+    }
+
+    Write-Log "Starting VM '$VmName' ..."
+
+    Start-VM -Name $VmName -WarningAction SilentlyContinue
+
+    if ($Wait -eq $true) {
+        Wait-ForDesiredVMState -VmName $VmName -State 'running'
+    }
+
+    Write-Log "VM '$VmName' started."
+}
+
+<#
+.SYNOPSIS
     Stops a given VM
 .DESCRIPTION
     Stops a given VM specified by name and waits for the VM to be stopped, if desired.
@@ -1876,6 +1920,8 @@ function Initialize-WinVMNode {
         [boolean] $ForceOnlineInstallation = $false
     )
 
+    Set-ConfigVMNodeHostname $VMName
+
     $vmPwd = Get-DefaultTempPwd
     $session = Open-RemoteSession -VmName $VMName -VmPwd $vmPwd
 
@@ -2100,13 +2146,42 @@ function Open-DefaultWinVMRemoteSessionViaSSHKey {
     return $vmSessionKey
 }
 
-Export-ModuleMember Get-IsVmOperating, Stop-VirtualMachine,
+<#
+.SYNOPSIS
+    Waits until a command can be executet via SSH on a Windows machine.
+.DESCRIPTION
+    Waits until a command can be executet via SSH on a Windows machine. Convenience wrapper around Wait-ForSshPossible.
+.EXAMPLE
+    Wait-ForSSHConnectionToWindowsVMViaSshKey
+#>
+function Wait-ForSSHConnectionToWindowsVMViaSshKey() {
+    $adminWinNode = Get-DefaultWinVMName
+    $windowsVMKey = Get-DefaultWinVMKey
+    $multiVMWindowsVMName = Get-ConfigVMNodeHostname
+    Wait-ForSshPossible -RemoteUser $adminWinNode -SshKey $windowsVMKey -SshTestCommand 'whoami' -ExpectedSshTestCommandResult "$multiVMWindowsVMName\administrator" -StrictEqualityCheck
+}
+
+function Set-VMVFPRules {
+    $kubeBinPath = Get-KubeBinPath
+    $file = "$kubeBinPath\bin\cni\vfprules.json"
+    $oldfile = "$kubeBinPath\cni\bin\vfprules.json"
+    Remove-Item -Path $oldfile -Force -ErrorAction SilentlyContinue
+    Remove-Item -Path $file -Force -ErrorAction SilentlyContinue
+
+    $smallsetup = Get-RootConfigk2s
+    $smallsetup.psobject.properties['vfprules-multivm'].value | ConvertTo-Json | Out-File "$kubeBinPath\bin\cni\vfprules.json" -Encoding ascii
+    Write-Log "Created new version of $file for vm node"
+}
+
+Export-ModuleMember Get-IsVmOperating,
+Start-VirtualMachine, Stop-VirtualMachine,
 Restart-VirtualMachine, Remove-VirtualMachine,
 Remove-VMSnapshots, Wait-ForDesiredVMState,
 New-VMFromWinImage, Open-RemoteSession,
 New-VMSession, Set-VmIPAddress,
 Open-RemoteSessionViaSSHKey, New-VMSessionViaSSHKey,
 Initialize-WinVM, Initialize-WinVMNode,
-Wait-ForSSHConnectionToLinuxVMViaSshKey, Get-DefaultWinVMKey,
+Wait-ForSSHConnectionToWindowsVMViaSshKey,Get-DefaultWinVMKey,
 Open-DefaultWinVMRemoteSessionViaSSHKey, Enable-SSHRemotingViaSSHKeyToWinNode,
-Disable-PasswordAuthenticationToWinNode, Get-DefaultWinVMName
+Disable-PasswordAuthenticationToWinNode, Get-DefaultWinVMName,
+Set-VMVFPRules

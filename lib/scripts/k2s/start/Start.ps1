@@ -36,8 +36,6 @@ Initialize-Logging -ShowLogs:$ShowLogs
 $kubePath = Get-KubePath
 Import-Module "$kubePath/addons/addons.module.psm1"
 
-$loopbackAdapter = Get-L2BridgeName
-
 # make sure we are at the right place for executing this script
 Set-Location $kubePath
 
@@ -116,6 +114,7 @@ function Update-IpAddress {
             Write-Log "           setting IP address 'vEthernet ($adapterName)' with index $ipindex manually to $ipaddress"
             Set-NetIPInterface -InterfaceIndex $ipindex -Dhcp Disabled
             Write-Log '           Checking whether Physical adapter has DNS Servers'
+            $loopbackAdapter = Get-L2BridgeName
             $physicalInterfaceIndex = Get-NetAdapter -Physical | Where-Object Status -Eq 'Up' | Where-Object Name -ne $loopbackAdapter | Select-Object -expand 'ifIndex'
             $dnservers = Get-DnsClientServerAddress -InterfaceIndex $physicalInterfaceIndex -AddressFamily IPv4
             Write-Log "           DNSServers found in Physical Adapter ($physicalInterfaceIndex) : $($dnservers.ServerAddresses)"
