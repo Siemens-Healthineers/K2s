@@ -4,8 +4,6 @@ package setuprequired
 
 import (
 	"context"
-	"encoding/json"
-	"k2s/addons/status"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -24,7 +22,7 @@ func TestLs(t *testing.T) {
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
-	suite = framework.Setup(ctx, framework.SystemMustBeStopped)
+	suite = framework.Setup(ctx, framework.SystemMustBeRunning)
 	addons = k2s.AllAddons(suite.RootDir())
 })
 
@@ -33,36 +31,7 @@ var _ = AfterSuite(func(ctx context.Context) {
 })
 
 var _ = Describe("addons commands", func() {
-	Describe("status", func() {
-		Context("standard output", func() {
-			It("prints system-not-running message for all addons", func(ctx context.Context) {
-				for _, addon := range addons {
-					GinkgoWriter.Println("Calling addons status for", addon.Metadata.Name)
-
-					output := suite.K2sCli().Run(ctx, "addons", "status", addon.Metadata.Name)
-
-					Expect(output).To(ContainSubstring("not running"))
-				}
-			})
-		})
-
-		Context("JSON output", func() {
-			It("contains only system-not-running info and name", func(ctx context.Context) {
-				for _, addon := range addons {
-					GinkgoWriter.Println("Calling addons status for", addon.Metadata.Name)
-
-					output := suite.K2sCli().Run(ctx, "addons", "status", addon.Metadata.Name, "-o", "json")
-
-					var status status.AddonPrintStatus
-
-					Expect(json.Unmarshal([]byte(output), &status)).To(Succeed())
-
-					Expect(status.Enabled).To(BeNil())
-					Expect(status.Name).To(Equal(addon.Metadata.Name))
-					Expect(string(*status.Error)).To(Equal("system-not-running"))
-					Expect(status.Props).To(BeEmpty())
-				}
-			})
-		})
+	It("status", func() {
+		Skip("test to be implemented")
 	})
 })
