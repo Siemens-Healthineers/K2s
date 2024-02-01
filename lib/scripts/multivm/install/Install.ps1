@@ -129,7 +129,7 @@ Import-Module $infraModule, $nodeModule, $clusterModule
 
 $KubernetesVersion = 'v1.25.13'
 $script:SetupType = 'MultiVMK8s'
-$multiVMWindowsVMName = 'WinNode' # WARNING: VM name must not exceed a certain length, otherwise unattend.xml file parsing will fail!
+$multiVMWindowsVMName = Get-ConfigVMNodeHostname # WARNING: VM name must not exceed a certain length, otherwise unattend.xml file parsing will fail!
 $rootConfig = Get-RootConfigk2s
 $multivmRootConfig = $rootConfig.psobject.properties['multivm'].value
 $multiVMWinNodeIP = $multivmRootConfig.psobject.properties['multiVMK8sWindowsVMIP'].value
