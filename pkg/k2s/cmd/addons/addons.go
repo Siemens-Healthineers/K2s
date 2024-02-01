@@ -180,7 +180,7 @@ func runCmd(cmd *cobra.Command, addon addons.Addon, cmdName string) error {
 	pterm.Printfln("🤖 Running '%s' for '%s' addon", cmdName, addon.Metadata.Name)
 
 	// TODO: remove when all addons are migrated to structured results
-	if addon.Metadata.Name == "dashboard" || addon.Metadata.Name == "exthttpaccess" {
+	if addon.Metadata.Name == "dashboard" || addon.Metadata.Name == "exthttpaccess" || addon.Metadata.Name == "gateway-nginx" {
 		klog.V(4).Infof("Running new structured result version of cmd '%s' for addon '%s'", cmdName, addon.Metadata.Name)
 
 		return runCmdV2(cmd, addon, cmdName)

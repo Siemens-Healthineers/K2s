@@ -49,6 +49,12 @@ var _ = Describe("'gateway-nginx' addon", Ordered, func() {
 		Expect(status.IsAddonEnabled("gateway-nginx")).To(BeFalse())
 	})
 
+	It("prints already-disabled message on disable command", func(ctx context.Context) {
+		output := suite.K2sCli().Run(ctx, "addons", "disable", "gateway-nginx")
+
+		Expect(output).To(ContainSubstring("already disabled"))
+	})
+
 	It("is in enabled state and pods are in running state", func(ctx context.Context) {
 		suite.K2sCli().Run(ctx, "addons", "enable", "gateway-nginx", "-o")
 
@@ -58,6 +64,12 @@ var _ = Describe("'gateway-nginx' addon", Ordered, func() {
 
 		status := suite.K2sCli().GetStatus(ctx)
 		Expect(status.IsAddonEnabled("gateway-nginx")).To(BeTrue())
+	})
+
+	It("prints already-enabled message on enable command", func(ctx context.Context) {
+		output := suite.K2sCli().Run(ctx, "addons", "enable", "gateway-nginx")
+
+		Expect(output).To(ContainSubstring("already enabled"))
 	})
 
 	It("sample app is reachable through gateway api", func(ctx context.Context) {
