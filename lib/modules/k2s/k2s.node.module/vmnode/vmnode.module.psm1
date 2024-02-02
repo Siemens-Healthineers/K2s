@@ -2044,6 +2044,18 @@ function Initialize-SSHConnectionToWinVM($session, $IpAddress) {
     Write-Log "Copied private key from local '$localSourceFiles' to remote '$remoteTargetDirectory'."
 }
 
+function Remove-VMSshKey() {
+    Write-Log 'Remove vm node worker ssh keys'
+    $rootConfig = Get-RootConfigk2s
+    $multivmRootConfig = $rootConfig.psobject.properties['multivm'].value
+    $multiVMWinNodeIP = $multivmRootConfig.psobject.properties['multiVMK8sWindowsVMIP'].value
+
+    $sshConfigDir = Get-SshConfigDir
+
+    ssh-keygen.exe -R $multiVMWinNodeIP 2>&1 | % { "$_" }
+    Remove-Item -Path ($sshConfigDir + '\kubemaster') -Force -Recurse -ErrorAction SilentlyContinue
+}
+
 function Initialize-PhysicalNetworkAdapterOnVM ($session) {
     Write-Log 'Checking physical network adapter on Windows node ...'
 
@@ -2182,4 +2194,4 @@ Initialize-WinVM, Initialize-WinVMNode,
 Wait-ForSSHConnectionToWindowsVMViaSshKey,Get-DefaultWinVMKey,
 Open-DefaultWinVMRemoteSessionViaSSHKey, Enable-SSHRemotingViaSSHKeyToWinNode,
 Disable-PasswordAuthenticationToWinNode, Get-DefaultWinVMName,
-Set-VMVFPRules
+Set-VMVFPRules, Remove-VMSshKey
