@@ -216,8 +216,8 @@ function Install-DebianPackages {
     foreach ($package in $packages) {
         if (!(Get-DebianPackageAvailableOffline -addon $addon -package $package)) {
             ExecCmdMaster "mkdir -p .${addon}/${package} && cd .${addon}/${package} && sudo chown -R _apt:root ."
-            ExecCmdMaster "cd .${addon}/${package} && sudo apt-get download $package"
-            ExecCmdMaster "cd .${addon}/${package} && sudo DEBIAN_FRONTEND=noninteractive apt-get --reinstall install -y --no-install-recommends --no-install-suggests --simulate ./${package}*.deb | grep 'Inst ' | cut -d ' ' -f 2 | sort -u | xargs sudo apt-get download"
+            ExecCmdMaster "cd .${addon}/${package} && sudo apt-get download $package" -Retries 2 -RepairCmd "sudo apt --fix-broken install"
+            ExecCmdMaster "cd .${addon}/${package} && sudo DEBIAN_FRONTEND=noninteractive apt-get --reinstall install -y --no-install-recommends --no-install-suggests --simulate ./${package}*.deb | grep 'Inst ' | cut -d ' ' -f 2 | sort -u | xargs sudo apt-get download" -Retries 2 -RepairCmd "sudo apt --fix-broken install"
         }
 
         Write-Log "Installing $package offline."

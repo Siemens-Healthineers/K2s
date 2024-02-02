@@ -174,7 +174,7 @@ function InstallAptPackages {
         [string]$RemoteUserPwd
     )
     Write-Log "installing needed apt packages for $FriendlyName..."
-    Invoke-CmdOnControlPlaneViaUserAndPwd "sudo DEBIAN_FRONTEND=noninteractive apt-get install -qq --yes --fix-missing $Packages" -Retries 2 -Timeout 2 -RemoteUser "$RemoteUser" -RemoteUserPwd "$RemoteUserPwd"
+    Invoke-CmdOnControlPlaneViaUserAndPwd "sudo DEBIAN_FRONTEND=noninteractive apt-get install -qq --yes --fix-missing $Packages" -Retries 2 -Timeout 2 -RemoteUser "$RemoteUser" -RemoteUserPwd "$RemoteUserPwd" -RepairCmd "sudo apt --fix-broken install"
 
     if ($TestExecutable -ne '') {
         $exeInstalled = $(Invoke-CmdOnControlPlaneViaUserAndPwd "which $TestExecutable" -RemoteUser "$RemoteUser" -RemoteUserPwd "$RemoteUserPwd" -NoLog)
@@ -203,12 +203,12 @@ Function Install-KubernetesArtifacts {
     $executeRemoteCommand = {
         param(
             $command = $(throw "Argument missing: Command"),
-            [switch]$IgnoreErrors = $false
-            )
+            [switch]$IgnoreErrors = $false,
+            [string]$RepairCmd = $null, [uint16]$Retries = 0 )
         if ($IgnoreErrors) {
-            Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd" -IgnoreErrors
+            Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd" -Retries $Retries -IgnoreErrors
         } else {
-            Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd"
+            Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd" -Retries $Retries -RepairCmd $RepairCmd
         }
     }
 
@@ -226,8 +226,8 @@ Function Install-KubernetesArtifacts {
     &$executeRemoteCommand "echo @reboot root mount --make-rshared / | sudo tee /etc/cron.d/sharedmount"
 
     Write-Log "Download and install CRI-O"
-    &$executeRemoteCommand "sudo DEBIAN_FRONTEND=noninteractive apt-get update -qq --yes --allow-releaseinfo-change"
-    &$executeRemoteCommand "sudo DEBIAN_FRONTEND=noninteractive apt-get install -y gpg"
+    &$executeRemoteCommand "sudo DEBIAN_FRONTEND=noninteractive apt-get update -qq --yes --allow-releaseinfo-change" -Retries 2 -RepairCmd "sudo apt --fix-broken install"
+    &$executeRemoteCommand "sudo DEBIAN_FRONTEND=noninteractive apt-get install -y gpg" -Retries 2 -RepairCmd "sudo apt --fix-broken install"
 
     if ( $Proxy -ne '' ) {
         &$executeRemoteCommand "sudo curl --retry 3 --retry-connrefused -so cri-o.v$CrioVersion.tar.gz https://storage.googleapis.com/cri-o/artifacts/cri-o.amd64.v$CrioVersion.tar.gz --proxy $Proxy" -IgnoreErrors
@@ -287,8 +287,9 @@ Function Install-KubernetesArtifacts {
     }
 
     Write-Log "Install other depended-on tools"
-    &$executeRemoteCommand "sudo apt-get update"
-    &$executeRemoteCommand "sudo DEBIAN_FRONTEND=noninteractive apt-get install -qq --yes apt-transport-https ca-certificates curl"
+    &$executeRemoteCommand "sudo DEBIAN_FRONTEND=noninteractive apt-get install -qq --yes apt-transport-https ca-certificates curl" -Retries 2 -RepairCmd "sudo apt --fix-broken install"
+    &$executeRemoteCommand "sudo apt-get update" -Retries 2 -RepairCmd "sudo apt --fix-broken install"
+    &$executeRemoteCommand "sudo DEBIAN_FRONTEND=noninteractive apt-get install -qq --yes apt-transport-https ca-certificates curl" -Retries 2 -RepairCmd "sudo apt --fix-broken install"
 
     Write-Log "Install kubetools (kubelet, kubeadm, kubectl)"
     $proxyToAdd = ""
@@ -330,8 +331,8 @@ Function Install-Tools {
     $remoteUser = "$UserName@$IpAddress"
     $remoteUserPwd = $UserPwd
 
-    $executeRemoteCommand = { param($Command = $(throw "Argument missing: Command"))
-        Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $Command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd"
+    $executeRemoteCommand = { param($Command = $(throw "Argument missing: Command"), [string]$RepairCmd = $null, [string]$Retries = 0)
+        Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $Command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd" -Retries $Retries -RepairCmd $RepairCmd
     }
 
     Write-Log "Start installing tools in the Linux VM"
@@ -344,17 +345,17 @@ Function Install-Tools {
     #Remove chrony as it is unstable with latest version of buildah                                                                                                 #
     #&$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get remove chrony --yes'                                                                          #
                                                                                                                                                                     #
-    &$executeRemoteCommand "sudo DEBIAN_FRONTEND=noninteractive apt-get install -qq --yes software-properties-common"                                                 #
+    &$executeRemoteCommand "sudo DEBIAN_FRONTEND=noninteractive apt-get install -qq --yes software-properties-common" -Retries 2 -RepairCmd "sudo apt --fix-broken install"                                                #
                                                                                                                                                                     #
     #Now update apt sources to get latest from bookworm                                                                                                              #
     AddAptRepo -RepoDebString 'deb http://deb.debian.org/debian bookworm main' -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd"                                        #
     AddAptRepo -RepoDebString 'deb http://deb.debian.org/debian-security/ bookworm-security main' -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd"                     #
                                                                                                                                                                     #
-    &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get update -qq --yes'                                                                             #
+    &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get update -qq --yes' -Retries 2 -RepairCmd "sudo apt --fix-broken install"                                                                           #
     #&$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get remove chrony --yes'                                                                          #
                                                                                                                                                                     #
     #Install latest from bookworm now                                                                                                                                #
-    &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get install -t bookworm --no-install-recommends --no-install-suggests buildah --yes'              #
+    &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get install -t bookworm --no-install-recommends --no-install-suggests buildah --yes' -Retries 2 -RepairCmd "sudo apt --fix-broken install"            #
     &$executeRemoteCommand 'sudo buildah -v'                                                                                                                          #
                                                                                                                                                                     #
     &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get autoremove -qq --yes'                                                                         #
@@ -362,7 +363,7 @@ Function Install-Tools {
     #Remove bookworm source now                                                                                                                                      #
     &$executeRemoteCommand "sudo apt-add-repository 'deb http://deb.debian.org/debian bookworm main' -r"                                                              #
     &$executeRemoteCommand "sudo apt-add-repository 'deb http://deb.debian.org/debian-security/ bookworm-security main' -r"                                           #
-    &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get update -qq --yes'                                                                             #
+    &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get update -qq --yes' -Retries 2 -RepairCmd "sudo apt --fix-broken install"                                                                          #
     #################################################################################################################################################################
 
     # Temporary fix for [master] not recognized in buildah 1.22.3, we comment the section as this is only specific to container engine
@@ -491,12 +492,11 @@ Function Set-UpMasterNode {
     $executeRemoteCommand = {
         param(
             $command = $(throw "Argument missing: Command"),
-            [switch]$IgnoreErrors = $false
-            )
+            [switch]$IgnoreErrors = $false, [string]$RepairCmd = $null, [uint16]$Retries = 0)
         if ($IgnoreErrors) {
-            Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd" -IgnoreErrors
+            Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd" -Retries $Retries -IgnoreErrors
         } else {
-            Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd"
+            Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd" -Retries $Retries -RepairCmd $RepairCmd
         }
     }
 
@@ -512,8 +512,8 @@ Function Set-UpMasterNode {
     &$executeRemoteCommand 'kubectl get nodes'
 
     Write-Log "Install custom DNS server"
-    &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get install dnsutils --yes'
-    &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get install dnsmasq --yes'
+    &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get install dnsutils --yes' -Retries 2 -RepairCmd "sudo apt --fix-broken install"
+    &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get install dnsmasq --yes' -Retries 2 -RepairCmd "sudo apt --fix-broken install"
 
     Write-Log "Configure custom DNS server"
     # add more interfaces to listen on
