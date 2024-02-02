@@ -7,8 +7,9 @@ $configModule = "$PSScriptRoot\..\..\k2s.infra.module\config\config.module.psm1"
 $logModule = "$PSScriptRoot\..\..\k2s.infra.module\log\log.module.psm1"
 $vmModule = "$PSScriptRoot\..\..\k2s.node.module\linuxnode\vm\vm.module.psm1"
 $pathModule = "$PSScriptRoot\..\..\k2s.infra.module\path\path.module.psm1"
+$vmNodeModule = "$PSScriptRoot\..\..\k2s.node.module\vmnode\vmnode.module.psm1"
 
-Import-Module $configModule, $logModule, $vmModule, $pathModule
+Import-Module $configModule, $logModule, $vmModule, $pathModule, $vmNodeModule
 
 $kubeToolsPath = Get-KubeToolsPath
 
@@ -17,6 +18,11 @@ $kubeToolsPath = Get-KubeToolsPath
 Performs time synchronization across all nodes of the clusters.
 #>
 function Invoke-TimeSync {
+    param (
+        [Parameter(Mandatory = $false)]
+        [bool] $WorkerVM
+    )
+
     $timezoneStandardNameOnHost = (Get-TimeZone).StandardName
     $kubeConfigDir = Get-ConfiguredKubeConfigDir
     $windowsTimezoneConfig = "$kubeConfigDir\windowsZones.xml"
@@ -37,6 +43,13 @@ function Invoke-TimeSync {
 
         #Set timezone in kubemaster
         Invoke-CmdOnControlPlaneViaSSHKey "sudo timedatectl set-timezone $timezoneLinux 2>&1"
+
+        if ($WorkerVM) {
+            $session = Open-DefaultWinVMRemoteSessionViaSSHKey
+            Invoke-Command -Session $session {
+                Set-TimeZone -Name $using:timezoneStandardNameOnHost
+            }
+        }
     }
 }
 
