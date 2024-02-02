@@ -20,7 +20,11 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
     [switch] $ShowLogs = $false,
     [parameter(Mandatory = $false, HelpMessage = 'JSON config object to override preceeding parameters')]
-    [pscustomobject] $Config
+    [pscustomobject] $Config,
+    [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
+    [switch] $EncodeStructuredOutput,
+    [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
+    [string] $MessageType
 )
 &$PSScriptRoot\..\..\smallsetup\common\GlobalVariables.ps1
 . $PSScriptRoot\..\..\smallsetup\common\GlobalFunctions.ps1
@@ -28,9 +32,10 @@ Param(
 
 $logModule = "$PSScriptRoot/../../smallsetup/ps-modules/log/log.module.psm1"
 $statusModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/status/status.module.psm1"
+$cliMessagesModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/cli-messages/cli-messages.module.psm1"
 $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
 
-Import-Module $logModule, $addonsModule, $statusModule
+Import-Module $logModule, $addonsModule, $statusModule, $cliMessagesModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -38,27 +43,59 @@ Write-Log 'Checking cluster status' -Console
 
 $systemError = Test-SystemAvailability
 if ($systemError) {
-    throw $systemError
+    if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = $systemError }
+        return
+    }
+
+    Write-Log $systemError -Error
+    exit 1
 }
 
-Write-Log 'Checking if ingress nginx is already installed by us'
+Write-Log 'Checking if ingress-nginx is already enabled'
+
 if ((Test-IsAddonEnabled -Name 'ingress-nginx') -eq $true) {
     Write-Log "Addon 'ingress-nginx' is already enabled, nothing to do." -Console
+
+    if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = $null }
+    }
+    
     exit 0
 }
 
+
 if ((Test-IsAddonEnabled -Name 'traefik') -eq $true) {
-    throw "Addon 'traefik' is enabled. Disable it first to avoid port conflicts."
+    $errMsg = "Addon 'traefik' is enabled. Disable it first to avoid port conflicts."
+    if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+        return
+    }
+
+    Write-Log $errMsg -Error
+    exit 1
 }
 
 if ((Test-IsAddonEnabled -Name 'gateway-nginx') -eq $true) {
-    throw "Addon 'gateway-nginx' is enabled. Disable it first to avoid port conflicts."
+    $errMsg = "Addon 'gateway-nginx' is enabled. Disable it first to avoid port conflicts."
+    if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+        return
+    }
+
+    Write-Log $errMsg -Error
+    exit 1
 }
 
 $existingServices = $(&$global:KubectlExe get service -n ingress-nginx -o yaml)
 if ("$existingServices" -match '.*ingress-nginx-controller.*') {
     Write-Log 'It seems as if ingress nginx is already installed in the namespace ingress-nginx. Disable it before enabling it again.' -Console
-    return 0;
+
+    if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = $null }
+    }
+
+    exit 0;
 }
 
 Write-Log 'Installing ingress-nginx' -Console
@@ -81,14 +118,23 @@ $ingressNginxSvc = 'ingress-nginx-controller'
 
 $allPodsAreUp = Wait-ForPodsReady -Selector 'app.kubernetes.io/name=ingress-nginx' -Namespace 'ingress-nginx'
 
-if ($allPodsAreUp) {
-    Write-Log 'All ingress-nginx pods are up and ready.'
+if ($allPodsAreUp -ne $true) {
+    $errMsg = "All ingress-nginx pods could not become ready. Please use kubectl describe for more details.`nInstallation of ingress-nginx failed."
+    if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+        return
+    }
 
-    Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'ingress-nginx' })
-
-    Write-Log 'ingress-nginx installed successfully' -Console
+    Write-Log $errMsg -Error
+    exit 1
 }
-else {
-    Write-Error 'All ingress-nginx pods could not become ready. Please use kubectl describe for more details.'
-    Log-ErrorWithThrow 'Installation of ingress-nginx failed.'
+
+Write-Log 'All ingress-nginx pods are up and ready.'
+
+Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'ingress-nginx' })
+
+Write-Log 'ingress-nginx installed successfully' -Console
+
+if ($EncodeStructuredOutput -eq $true) {
+    Send-ToCli -MessageType $MessageType -Message @{Error = $null }
 }
