@@ -7,8 +7,9 @@ $statusModule = "$PSScriptRoot\..\status\status.module.psm1"
 $configModule = "$PSScriptRoot\..\..\k2s.infra.module\config\config.module.psm1"
 $vmModule = "$PSScriptRoot\..\..\k2s.node.module\linuxnode\vm\vm.module.psm1"
 $pathModule = "$PSScriptRoot\..\..\k2s.infra.module\path\path.module.psm1"
+$vmNodeModule = "$PSScriptRoot\..\..\k2s.node.module\vmnode\vmnode.module.psm1"
 
-Import-Module $configModule, $k8sApiModule, $registryFunctionsModule, $vmModule, $statusModule, $pathModule
+Import-Module $configModule, $k8sApiModule, $registryFunctionsModule, $vmModule, $statusModule, $pathModule, $vmNodeModule
 
 $kubernetesImagesJson = Get-KubernetesImagesFilePath
 $windowsPauseImageRepository = 'shsk2s.azurecr.io/pause-win'
@@ -64,17 +65,13 @@ User will see an incorrect output on listing images.
 function Write-KubernetesImagesIntoJson {
     param (
         [Parameter(Mandatory = $false)]
-        [Object[]] $LinuxImagesRaw,
-        [Parameter(Mandatory = $false)]
-        [Object[]] $WindowsImagesRaw,
-        [Parameter(Mandatory = $false)]
-        [string] $WindowsNodeName
+        [bool] $WorkerVM = $false
     )
 
     New-KubernetesImageJsonFileIfNotExists
     $kubernetesImages = @()
     $linuxKubernetesImages = Get-ContainerImagesOnLinuxNode
-    $windowsKubernetesImages = $(Get-ContainerImagesOnWindowsNode -IncludeK8sImages $false -WindowsImagesRaw $WindowsImagesRaw -WindowsNodeName $WindowsNodeName) | Where-Object { $_.Repository -match $windowsPauseImageRepository }
+    $windowsKubernetesImages = $(Get-ContainerImagesOnWindowsNode -IncludeK8sImages $false -WorkerVM $WorkerVM) | Where-Object { $_.Repository -match $windowsPauseImageRepository }
     $kubernetesImages = @($linuxKubernetesImages) + @($windowsKubernetesImages)
     $kubernetesImagesJsonString = $kubernetesImages | ConvertTo-Json -Depth 100
     $kubernetesImagesJsonString | Set-Content -Path $kubernetesImagesJson
@@ -115,15 +112,14 @@ function Get-ContainerImagesOnLinuxNode([bool]$IncludeK8sImages = $false) {
     return $linuxContainerImages
 }
 
-function Get-ContainerImagesOnWindowsNode([bool]$IncludeK8sImages = $false, [Object[]]$WindowsImagesRaw, $WindowsNodeName) {
+function Get-ContainerImagesOnWindowsNode([bool]$IncludeK8sImages = $false, [bool]$WorkerVM = $false) {
 
     $kubeBinPath = Get-KubeBinPath
     $output = ''
     $node = ''
-    if ($null -ne $WindowsImagesRaw) {
-        # We have the raw list of images already
-        $output = $WindowsImagesRaw
-        $node = $WindowsNodeName
+    if ($WorkerVM) {
+        $output = Invoke-CmdOnVMWorkerNodeViaSSH -CmdToExecute "crictl images" 2> $null
+        $node = Get-ConfigVMNodeHostname
     } else {
         $output = &$kubeBinPath\crictl.exe images 2> $null
         $node = $env:ComputerName.ToLower()
@@ -272,9 +268,9 @@ function Get-RegistryAuthToken($registryName) {
     return $auth
 }
 
-function Get-ContainerImagesInk2s([bool]$IncludeK8sImages = $false) {
+function Get-ContainerImagesInk2s([bool]$IncludeK8sImages = $false, [bool]$WorkerVM = $false) {
     $linuxContainerImages = Get-ContainerImagesOnLinuxNode -IncludeK8sImages $IncludeK8sImages
-    $windowsContainerImages = Get-ContainerImagesOnWindowsNode -IncludeK8sImages $IncludeK8sImages
+    $windowsContainerImages = Get-ContainerImagesOnWindowsNode -IncludeK8sImages $IncludeK8sImages -WorkerVM $WorkerVM
     $allContainerImages = @($linuxContainerImages) + @($windowsContainerImages)
     return $allContainerImages
 }
