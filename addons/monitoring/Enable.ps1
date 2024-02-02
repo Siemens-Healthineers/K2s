@@ -18,7 +18,11 @@ Param(
     [ValidateSet('ingress-nginx', 'traefik', 'none')]
     [string] $Ingress = 'none',
     [parameter(Mandatory = $false, HelpMessage = 'JSON config object to override preceeding parameters')]
-    [pscustomobject] $Config
+    [pscustomobject] $Config,
+    [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
+    [switch] $EncodeStructuredOutput,
+    [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
+    [string] $MessageType
 )
 function Enable-IngressAddon([string]$Ingress) {
     switch ($Ingress) {
@@ -115,8 +119,9 @@ function Test-TraefikIngressControllerAvailability {
 $logModule = "$PSScriptRoot/../../smallsetup/ps-modules/log/log.module.psm1"
 $statusModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/status/status.module.psm1"
 $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
+$cliMessagesModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/cli-messages/cli-messages.module.psm1"
 
-Import-Module $logModule, $addonsModule, $statusModule
+Import-Module $logModule, $addonsModule, $statusModule, $cliMessagesModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -124,11 +129,22 @@ Write-Log 'Checking cluster status' -Console
 
 $systemError = Test-SystemAvailability
 if ($systemError) {
-    throw $systemError
+    if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = $systemError }
+        return
+    }
+
+    Write-Log $systemError -Error
+    exit 1
 }
 
 if ((Test-IsAddonEnabled -Name 'monitoring') -eq $true) {
     Write-Log "Addon 'monitoring' is already enabled, nothing to do." -Console
+
+    if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = $null }
+    }
+    
     exit 0
 }
 
@@ -144,15 +160,36 @@ Write-Log 'Installing Kube Prometheus Stack' -Console
 Write-Log 'Waiting for pods...'
 &$global:KubectlExe rollout status deployments -n monitoring --timeout=180s
 if (!$?) {
-    Log-ErrorWithThrow 'Kube Prometheus Stack could not be deployed successfully!'
+    $errMsg = 'Kube Prometheus Stack could not be deployed successfully!'
+    if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+        return
+    }
+
+    Write-Log $errMsg -Error
+    exit 1
 }
 &$global:KubectlExe rollout status statefulsets -n monitoring --timeout=180s
 if (!$?) {
-    Log-ErrorWithThrow 'Kube Prometheus Stack could not be deployed successfully!'
+    $errMsg = 'Kube Prometheus Stack could not be deployed successfully!'
+    if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+        return
+    }
+
+    Write-Log $errMsg -Error
+    exit 1
 }
 &$global:KubectlExe rollout status daemonsets -n monitoring --timeout=180s
 if (!$?) {
-    Log-ErrorWithThrow 'Kube Prometheus Stack could not be deployed successfully!'
+    $errMsg = 'Kube Prometheus Stack could not be deployed successfully!'
+    if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+        return
+    }
+
+    Write-Log $errMsg -Error
+    exit 1
 }
 
 # traefik uses crd, so we have define ingressRoute after traefik has been enabled
@@ -165,3 +202,7 @@ Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'monitoring' })
 Write-Log 'Kube Prometheus Stack installed successfully'
 
 Write-UsageForUser
+
+if ($EncodeStructuredOutput -eq $true) {
+    Send-ToCli -MessageType $MessageType -Message @{Error = $null }
+}
