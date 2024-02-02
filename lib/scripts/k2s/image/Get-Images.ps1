@@ -29,7 +29,7 @@ PS> .\Get-Images.ps1
 PS> .\Get-Images.ps1 -IncludeK8sImages -EncodeStructuredOutput -MessageType my-images
 #>
 
-Param (    
+Param (
     [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
     [switch] $EncodeStructuredOutput,
     [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
@@ -42,11 +42,13 @@ $clusterModule = "$PSScriptRoot/../../../modules/k2s/k2s.cluster.module/k2s.clus
 
 Import-Module $infraModule, $clusterModule
 
-Initialize-Logging 
+Initialize-Logging
+
+$WorkerVM = Get-IsWorkerVM
 
 $script = $MyInvocation.MyCommand.Name
 
-Write-Log "[$script] started with EncodeStructuredOutput='$EncodeStructuredOutput' and MessageType='$MessageType' and IncludeK8sImages='$IncludeK8sImages'"
+Write-Log "[$script] started with EncodeStructuredOutput='$EncodeStructuredOutput' and MessageType='$MessageType' and IncludeK8sImages='$IncludeK8sImages' and WorkerVM='$WorkerVM'"
 
 try {
     $systemError = Test-SystemAvailability
@@ -54,7 +56,7 @@ try {
         throw $systemError
     }
 
-    $images = @{ContainerImages = @(Get-ContainerImagesInk2s -IncludeK8sImages $IncludeK8sImages) }
+    $images = @{ContainerImages = @(Get-ContainerImagesInk2s -IncludeK8sImages $IncludeK8sImages -WorkerVM $WorkerVM) }
     $images.ContainerRegistry = $(Get-RegistriesFromSetupJson) | Where-Object { $_ -match 'k2s-registry.*' }
     $images.PushedImages = @(Get-PushedContainerImages)
 

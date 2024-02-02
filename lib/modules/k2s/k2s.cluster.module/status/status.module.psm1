@@ -52,7 +52,7 @@ function Get-Status {
 
     if ($status.SetupInfo.ValidationError) {
         Write-Log "[$script::$function] Setup type invalid, returning with error='$($status.SetupInfo.ValidationError)'"
-        
+
         if ($ShowProgress -eq $true) {
             Write-Progress -Activity 'Gathering status information...' -Id 1 -Completed
         }
@@ -147,7 +147,7 @@ function Test-SystemAvailability {
     if ($setupInfo.ValidationError) {
         return $setupInfo.ValidationError
     }
-   
+
     $state = (Get-RunningState -SetupName $setupInfo.Name)
     if ($state.IsRunning -ne $true) {
         return 'system-not-running'
@@ -156,4 +156,13 @@ function Test-SystemAvailability {
     return $null
 }
 
-Export-ModuleMember -Function Get-Status, Get-KubernetesServiceAreRunning, Test-ClusterAvailability, Test-SystemAvailability
+function Get-IsWorkerVM {
+    $setupInfo = Get-SetupInfo
+    if ($setupInfo.Name -eq "MultiVMK8s") {
+        return $true
+    } else {
+        return $false
+    }
+}
+
+Export-ModuleMember -Function Get-Status, Get-KubernetesServiceAreRunning, Test-ClusterAvailability, Test-SystemAvailability, Get-IsWorkerVM
