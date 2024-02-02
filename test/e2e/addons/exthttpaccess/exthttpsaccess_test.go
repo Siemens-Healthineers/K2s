@@ -62,7 +62,11 @@ var _ = Describe("'exthttpaccess' addon", Ordered, func() {
 			var output string
 
 			BeforeAll(func(ctx context.Context) {
-				output = suite.K2sCli().Run(ctx, "addons", "enable", "exthttpaccess")
+				args := []string{"addons", "enable", "exthttpaccess"}
+				if suite.Proxy() != "" {
+					args = append(args, "-p", suite.Proxy())
+				}
+				output = suite.K2sCli().Run(ctx, args...)
 			})
 
 			It("enables the addon", func() {
