@@ -659,7 +659,7 @@ Function New-KubernetesNode {
 
     Write-Log "Finalize preparation of the computer $IpAddress after provisioning"
     Set-UpComputerWithSpecificOsAfterProvisioning -IpAddress $IpAddress -UserName $userName -UserPwd $userPwd
-    Write-Log "Linux VM is now prepared to be used as master node"
+    Write-Log "Linux VM is now prepared to be used as kubernetes node"
 
     Set-UpComputerAfterProvisioning -IpAddress $IpAddress -UserName $userName -UserPwd $userPwd
     Write-Log "Finished provisioning the computer $IpAddress"
