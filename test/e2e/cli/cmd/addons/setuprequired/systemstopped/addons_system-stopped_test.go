@@ -74,7 +74,7 @@ var _ = Describe("addons commands", Ordered, func() {
 				// TODO: remove when all addons are migrated to structured results
 				if addon.Metadata.Name != "dashboard" && addon.Metadata.Name != "exthttpaccess" && addon.Metadata.Name != "gateway-nginx" &&
 					addon.Metadata.Name != "gpu-node" && addon.Metadata.Name != "ingress-nginx" && addon.Metadata.Name != "kubevirt" &&
-					addon.Metadata.Name != "metrics-server" && addon.Metadata.Name != "monitoring" {
+					addon.Metadata.Name != "metrics-server" && addon.Metadata.Name != "monitoring" && addon.Metadata.Name != "registry" {
 					Skip(fmt.Sprintf("not yet implemented for addon '%s'", addon.Metadata.Name))
 				}
 
@@ -93,7 +93,7 @@ var _ = Describe("addons commands", Ordered, func() {
 				// TODO: remove when all addons are migrated to structured results
 				if addon.Metadata.Name != "dashboard" && addon.Metadata.Name != "exthttpaccess" && addon.Metadata.Name != "gateway-nginx" &&
 					addon.Metadata.Name != "gpu-node" && addon.Metadata.Name != "ingress-nginx" && addon.Metadata.Name != "kubevirt" &&
-					addon.Metadata.Name != "metrics-server" && addon.Metadata.Name != "monitoring" {
+					addon.Metadata.Name != "metrics-server" && addon.Metadata.Name != "monitoring" && addon.Metadata.Name != "registry" {
 					Skip(fmt.Sprintf("not yet implemented for addon '%s'", addon.Metadata.Name))
 				}
 
