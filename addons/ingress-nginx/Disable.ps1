@@ -18,7 +18,11 @@ powershell <installation folder>\addons\ingress-nginx\Disable.ps1
 
 Param(
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
-    [switch] $ShowLogs = $false
+    [switch] $ShowLogs = $false,
+    [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
+    [switch] $EncodeStructuredOutput,
+    [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
+    [string] $MessageType
 )
 &$PSScriptRoot\..\..\smallsetup\common\GlobalVariables.ps1
 . $PSScriptRoot\..\..\smallsetup\common\GlobalFunctions.ps1
@@ -27,8 +31,9 @@ Param(
 $logModule = "$PSScriptRoot/../../smallsetup/ps-modules/log/log.module.psm1"
 $statusModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/status/status.module.psm1"
 $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
+$cliMessagesModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/cli-messages/cli-messages.module.psm1"
 
-Import-Module $logModule, $addonsModule, $statusModule
+Import-Module $logModule, $addonsModule, $statusModule, $cliMessagesModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -36,16 +41,28 @@ Write-Log 'Checking cluster status' -Console
 
 $systemError = Test-SystemAvailability
 if ($systemError) {
-    throw $systemError
+    if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = $systemError }
+        return
+    }
+
+    Write-Log $systemError -Error
+    exit 1
 }
 
-Write-Log "Check whether ingress-nginx addon is already disabled"
-if ($null -eq (&$global:KubectlExe get namespace ingress-nginx --ignore-not-found)) {
-    Write-Log 'Addon already disabled.' -Console
+Write-Log 'Check whether ingress-nginx addon is already disabled'
+
+if ($null -eq (&$global:KubectlExe get namespace ingress-nginx --ignore-not-found) -or (Test-IsAddonEnabled -Name 'ingress-nginx') -ne $true) {
+    Write-Log "Addon 'ingress-nginx' is already disabled, nothing to do." -Console
+
+    if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = $null }
+    }
+    
     exit 0
 }
 
-Write-Log 'Uninstalling Ingress-Nginx' -Console
+Write-Log 'Uninstalling ingress-nginx' -Console
 $ingressNginxConfig = Get-IngressNginxConfig
 &$global:KubectlExe delete -f "$ingressNginxConfig" | Write-Log
 
@@ -53,4 +70,8 @@ $ingressNginxConfig = Get-IngressNginxConfig
 
 Remove-AddonFromSetupJson -Name 'ingress-nginx'
 
-Write-Log 'Uninstallation of Ingress-Nginx finished' -Console
+Write-Log 'ingress-nginx disabled' -Console
+
+if ($EncodeStructuredOutput -eq $true) {
+    Send-ToCli -MessageType $MessageType -Message @{Error = $null }
+}
