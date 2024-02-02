@@ -2158,18 +2158,16 @@ function Wait-ForSSHConnectionToWindowsVMViaSshKey() {
     $adminWinNode = Get-DefaultWinVMName
     $windowsVMKey = Get-DefaultWinVMKey
     $multiVMWindowsVMName = Get-ConfigVMNodeHostname
-    Wait-ForSshPossible -RemoteUser $adminWinNode -SshKey $windowsVMKey -SshTestCommand 'whoami' -ExpectedSshTestCommandResult "$multiVMWindowsVMName\administrator" -StrictEqualityCheck
+    Wait-ForSshPossible -User $adminWinNode -SshKey $windowsVMKey -SshTestCommand 'whoami' -ExpectedSshTestCommandResult "$multiVMWindowsVMName\administrator" -StrictEqualityCheck
 }
 
 function Set-VMVFPRules {
     $kubeBinPath = Get-KubeBinPath
-    $file = "$kubeBinPath\bin\cni\vfprules.json"
-    $oldfile = "$kubeBinPath\cni\bin\vfprules.json"
-    Remove-Item -Path $oldfile -Force -ErrorAction SilentlyContinue
+    $file = "$kubeBinPath\cni\vfprules.json"
     Remove-Item -Path $file -Force -ErrorAction SilentlyContinue
 
     $smallsetup = Get-RootConfigk2s
-    $smallsetup.psobject.properties['vfprules-multivm'].value | ConvertTo-Json | Out-File "$kubeBinPath\bin\cni\vfprules.json" -Encoding ascii
+    $smallsetup.psobject.properties['vfprules-multivm'].value | ConvertTo-Json | Out-File "$kubeBinPath\cni\vfprules.json" -Encoding ascii
     Write-Log "Created new version of $file for vm node"
 }
 
