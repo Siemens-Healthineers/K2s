@@ -39,7 +39,11 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'K8sSetup: SmallSetup/OnPremise')]
     [string] $K8sSetup = 'SmallSetup',
     [parameter(Mandatory = $false, HelpMessage = 'JSON config object to override preceeding parameters')]
-    [pscustomobject] $Config
+    [pscustomobject] $Config,
+    [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
+    [switch] $EncodeStructuredOutput,
+    [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
+    [string] $MessageType
 )
 &$PSScriptRoot\..\..\smallsetup\common\GlobalVariables.ps1
 . $PSScriptRoot\..\..\smallsetup\common\GlobalFunctions.ps1
@@ -47,8 +51,9 @@ Param(
 $logModule = "$PSScriptRoot/../../smallsetup/ps-modules/log/log.module.psm1"
 $clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
+$cliMessagesModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/cli-messages/cli-messages.module.psm1"
 
-Import-Module $logModule, $addonsModule, $clusterModule
+Import-Module $logModule, $addonsModule, $clusterModule, $cliMessagesModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -56,19 +61,37 @@ Write-Log 'Checking cluster status' -Console
 
 $systemError = Test-SystemAvailability
 if ($systemError) {
-    throw $systemError
+    if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = $systemError }
+        return
+    }
+
+    Write-Log $systemError -Error
+    exit 1
 }
 
 if ((Test-IsAddonEnabled -Name 'kubevirt') -eq $true) {
     Write-Log "Addon 'kubevirt' is already enabled, nothing to do." -Console
+
+    if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = $null }
+    }
+    
     exit 0
 }
 
 $wsl = Get-WSLFromConfig
 if ($wsl) {
-    Write-Error 'kubevirt addon is not available with WSL2 setup!'
-    Write-Error 'Please install cluster without wsl option in order to use kubevirt addon!'
-    Log-ErrorWithThrow 'kubevirt not available on current setup!'
+    $errMsg = "kubevirt addon is not available with WSL2 setup!`n" `
+        + "Please install cluster without wsl option in order to use kubevirt addon!`n" `
+        + 'kubevirt not available on current setup!'
+    if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+        return
+    }
+
+    Write-Log $errMsg -Error
+    exit 1
 }
 
 Write-Log 'Installing kubevirt addon' -Console
@@ -76,19 +99,33 @@ Write-Log 'Installing kubevirt addon' -Console
 # check memory
 $MasterVMMemory = Get-VMMemory -VMName $global:VMName
 if ( $MasterVMMemory.Startup -lt 10GB ) {
-    Write-Error 'KubeVirt needs minimal 8GB main memory, you have a Small K8s Setup with less memory!'
-    Write-Error "Please increase main memory for the VM $global:VMName (shutdown, increase memory to 10GB, start)"
-    Write-Error 'or install from scratch with k2s install --master-cpus 8 --master-memory 12GB --master-disk 120GB'
-    Log-ErrorWithThrow 'Memory in master vm too low, stop your cluster and increase the memory of your master vm to at least 12GB !'
+    $errMsg = "KubeVirt needs minimal 8GB main memory, you have a Small K8s Setup with less memory!`n" `
+        + "Please increase main memory for the VM $global:VMName (shutdown, increase memory to 10GB, start)`n" `
+        + "or install from scratch with k2s install --master-cpus 8 --master-memory 12GB --master-disk 120GB`n"`
+        + 'Memory in master vm too low, stop your cluster and increase the memory of your master vm to at least 12GB!'
+    if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+        return
+    }
+
+    Write-Log $errMsg -Error
+    exit 1
 }
 
 # check disk
 $MasterDiskSize = Get-VM -VMName $global:VMName | Select-Object VMId | Get-VHD
 if ( $MasterDiskSize.Size -lt 100GB ) {
-    Write-Error 'KubeVirt needs minimal 100GB disk size, you have a Small K8s Setup with less disk size!'
-    Write-Error "Please increase disk size for the VM $global:VMName (shutdown, increase disk size to 100GB by expanding vhdx, start)"
-    Write-Error 'or install from scratch with k2s install --master-cpus 8 --master-memory 12GB --master-disk 120GB'
-    Log-ErrorWithThrow 'Disk size for master vm too low'
+    $errMsg = "KubeVirt needs minimal 100GB disk size, you have a Small K8s Setup with less disk size!`n" `
+        + "Please increase disk size for the VM $global:VMName (shutdown, increase disk size to 100GB by expanding vhdx, start)`n" `
+        + "or install from scratch with k2s install --master-cpus 8 --master-memory 12GB --master-disk 120GB`n"`
+        + 'Disk size for master vm too low'
+    if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+        return
+    }
+
+    Write-Log $errMsg -Error
+    exit 1
 }
 
 # restart KubeMaster
@@ -160,10 +197,6 @@ if ( $K8sSetup -eq 'SmallSetup' ) {
     ssh.exe -n -o StrictHostKeyChecking=no -i $global:LinuxVMKey $global:Remote_Master '[ -f /usr/local/bin/virtctl ]'
     if (!$?) {
         $setupInfo = Get-SetupInfo
-        if ($setupInfo.ValidationError) {
-            throw $setupInfo.ValidationError
-        }
-
         if ($setupInfo.Name -ne $global:SetupType_MultiVMK8s) {
             ExecCmdMaster "sudo curl --retry 3 --retry-connrefused --proxy $IMPLICITPROXY -sL -o /usr/local/bin/virtctl https://github.com/kubevirt/kubevirt/releases/download/$VERSION_VCTRL/virtctl-$VERSION_VCTRL-linux-amd64 2>&1"
         }
@@ -232,3 +265,6 @@ Write-RefreshEnvVariables
 
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'kubevirt' })
 
+if ($EncodeStructuredOutput -eq $true) {
+    Send-ToCli -MessageType $MessageType -Message @{Error = $null }
+}
