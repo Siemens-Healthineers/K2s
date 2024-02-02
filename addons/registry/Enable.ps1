@@ -28,7 +28,11 @@ Param(
     [ValidateSet('ingress-nginx', 'traefik')]
     [string] $Ingress = 'ingress-nginx',
     [parameter(Mandatory = $false, HelpMessage = 'JSON config object to override preceeding parameters')]
-    [pscustomobject] $Config
+    [pscustomobject] $Config,
+    [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
+    [switch] $EncodeStructuredOutput,
+    [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
+    [string] $MessageType
 )
 function Test-NginxIngressControllerAvailability {
     $existingServices = $(&$global:KubectlExe get service -n ingress-nginx -o yaml)
@@ -137,10 +141,34 @@ $logModule = "$PSScriptRoot/../../smallsetup/ps-modules/log/log.module.psm1"
 $statusModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/status/status.module.psm1"
 $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
 $registryFunctionsModule = "$PSScriptRoot\..\..\smallsetup\helpers\RegistryFunctions.module.psm1"
+$cliMessagesModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/cli-messages/cli-messages.module.psm1"
 
-Import-Module $logModule, $addonsModule, $statusModule, $registryFunctionsModule -DisableNameChecking
+Import-Module $logModule, $addonsModule, $statusModule, $registryFunctionsModule, $cliMessagesModule -DisableNameChecking
 
 Initialize-Logging -ShowLogs:$ShowLogs
+
+Write-Log 'Checking cluster status' -Console
+
+$systemError = Test-SystemAvailability
+if ($systemError) {
+    if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = $systemError }
+        return
+    }
+
+    Write-Log $systemError -Error
+    exit 1
+}
+
+if ((Test-IsAddonEnabled -Name 'registry') -eq $true) {
+    Write-Log "Addon 'registry' is already enabled, nothing to do." -Console
+
+    if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = $null }
+    }
+    
+    exit 0
+}
 
 $K8sSetup = Get-Installedk2sSetupType
 
@@ -149,22 +177,17 @@ $registryName = 'k2s-registry.local'
 $registryNameWithoutPort = $registryName
 if ($Nodeport -gt 0) {
     if ($Nodeport -eq 30094) {
-        Log-ErrorWithThrow 'Nodeport 30094 is already reserved! Please use another one!'
+        $errMsg = 'Nodeport 30094 is already reserved! Please use another one!'
+        if ($EncodeStructuredOutput -eq $true) {
+            Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+            return
+        }
+
+        Write-Log $errMsg -Error
+        exit 1
         # reserved for dcgm-exporter from nvidia for monitoring addon
     }
     $registryName = $($registryName + ':' + "$Nodeport")
-}
-
-Write-Log 'Checking cluster status' -Console
-
-$systemError = Test-SystemAvailability
-if ($systemError) {
-    throw $systemError
-}
-
-if ((Test-IsAddonEnabled -Name 'registry') -eq $true) {
-    Write-Log "Addon 'registry' is already enabled, nothing to do."
-    exit 0
 }
 
 # Enable ingress controller in case no nodeport is specified
@@ -188,13 +211,27 @@ else {
     Write-Log 'Please specify credentials for registry access:' -Console
     $username = Read-Host 'Enter username'
     if ($username -eq '') {
-        Log-ErrorWithThrow 'Username must not be empty!'
+        $errMsg = 'Username must not be empty!'
+        if ($EncodeStructuredOutput -eq $true) {
+            Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+            return
+        }
+
+        Write-Log $errMsg -Error
+        exit 1
     }
     $password = Read-Host 'Enter password' -AsSecureString
     $cred = New-Object System.Management.Automation.PSCredential ($username, $password)
     $password = $cred.GetNetworkCredential().Password
     if ($password -eq '') {
-        Log-ErrorWithThrow 'Password must not be empty!'
+        $errMsg = 'Password must not be empty!'
+        if ($EncodeStructuredOutput -eq $true) {
+            Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+            return
+        }
+
+        Write-Log $errMsg -Error
+        exit 1
     }
 }
 
@@ -235,7 +272,14 @@ else {
 
 &$global:KubectlExe wait --timeout=60s --for=condition=Ready -n registry pod/k2s-registry-pod | Write-Log
 if (!$?) {
-    Log-ErrorWithThrow 'k2s-registry did not start in time! Please disable addon and try to enable again!'
+    $errMsg = 'k2s-registry did not start in time! Please disable addon and try to enable again!'
+    if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+        return
+    }
+
+    Write-Log $errMsg -Error
+    exit 1
 }
 
 $linuxOnly = Get-LinuxOnlyFromConfig
@@ -343,7 +387,14 @@ elseif ($K8sSetup -eq $global:SetupType_MultiVMK8s -and !$linuxOnly) {
     Invoke-Command -Session $session -ScriptBlock ${Function:Restart-Services} | Write-Log -Console
 
     if (!$?) {
-        Log-ErrorWithThrow 'Login to private registry not possible! Please disable addon and try to enable it again!'
+        $errMsg = 'Login to private registry not possible! Please disable addon and try to enable it again!'
+        if ($EncodeStructuredOutput -eq $true) {
+            Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+            return
+        }
+
+        Write-Log $errMsg -Error
+        exit 1
     }
 }
 
@@ -366,3 +417,7 @@ Write-Log ' In order to push your images to the private registry you have to tag
 Write-Log " $registryName/<yourImageName>:<yourImageTag>" -Console
 Write-Log ' ' -Console
 Write-Log ' Image pull secret available: k2s-registry' -Console
+
+if ($EncodeStructuredOutput -eq $true) {
+    Send-ToCli -MessageType $MessageType -Message @{Error = $null }
+}
