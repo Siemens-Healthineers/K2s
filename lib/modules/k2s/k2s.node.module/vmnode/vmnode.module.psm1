@@ -1963,7 +1963,7 @@ function Initialize-WinVMNode {
         Wait-ForSSHConnectionToLinuxVMViaSshKey -Nested:$true
     }
 
-    Write-Log 'Windows node initialized.'
+    Write-Log 'Windows VM worker node initialized.'
 }
 
 function Initialize-SSHConnectionToWinVM($session, $IpAddress) {
@@ -2183,6 +2183,16 @@ function Set-VMVFPRules {
     Write-Log "Created new version of $file for vm node"
 }
 
+function Invoke-CmdOnVMWorkerNodeViaSSH(
+    [Parameter(Mandatory = $false)]
+    $CmdToExecute)
+{
+    $adminWinNode = Get-DefaultWinVMName
+    $windowsVMKey = Get-DefaultWinVMKey
+
+    ssh.exe -n -o StrictHostKeyChecking=no -i $windowsVMKey $adminWinNode $CmdToExecute 2> $null
+}
+
 Export-ModuleMember Get-IsVmOperating,
 Start-VirtualMachine, Stop-VirtualMachine,
 Restart-VirtualMachine, Remove-VirtualMachine,
@@ -2194,4 +2204,5 @@ Initialize-WinVM, Initialize-WinVMNode,
 Wait-ForSSHConnectionToWindowsVMViaSshKey,Get-DefaultWinVMKey,
 Open-DefaultWinVMRemoteSessionViaSSHKey, Enable-SSHRemotingViaSSHKeyToWinNode,
 Disable-PasswordAuthenticationToWinNode, Get-DefaultWinVMName,
-Set-VMVFPRules, Remove-VMSshKey
+Set-VMVFPRules, Remove-VMSshKey,
+Invoke-CmdOnVMWorkerNodeViaSSH
