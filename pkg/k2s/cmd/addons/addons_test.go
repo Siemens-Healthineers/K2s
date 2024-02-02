@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"k2s/addons"
 	"k2s/cmd/params"
+	"k2s/setupinfo"
+	"k2s/status"
 	"test/reflection"
 	"testing"
 
@@ -36,134 +38,104 @@ var _ = BeforeSuite(func() {
 
 var _ = Describe("addons", func() {
 	Describe("createGenericCommands", func() {
-		When("command names slice is empty", func() {
+		When("no addons exist", func() {
 			It("returns empty slice", func() {
 				addons := addons.Addons{}
-				commands := []string{}
 
-				result, err := createGenericCommands(addons, commands...)
+				result, err := createGenericCommands(addons)
 
 				Expect(err).ToNot(HaveOccurred())
 				Expect(result).To(BeEmpty())
 			})
 		})
 
-		When("command names exist", func() {
-			It("returns one command per command name", func() {
-				addons := addons.Addons{}
-				commands := []string{"do-this", "do-that"}
-
-				result, err := createGenericCommands(addons, commands...)
-
-				Expect(err).ToNot(HaveOccurred())
-				Expect(result).To(HaveLen(len(commands)))
-				Expect(result[0].Use).To(Equal(commands[0]))
-				Expect(result[0].Short).To(ContainSubstring(commands[0]))
-				Expect(result[1].Use).To(Equal(commands[1]))
-				Expect(result[1].Short).To(ContainSubstring(commands[1]))
-			})
-		})
-
-		When("error occurred", func() {
+		When("addons's cmd config is nil'", func() {
 			It("returns error", func() {
-				command := "do-this"
 				addons := addons.Addons{
-					addons.Addon{
-						Spec: addons.AddonSpec{
-							Commands: &map[string]addons.AddonCmd{
-								command: {
-									Cli: &addons.CliConfig{
-										Flags: []addons.CliFlag{
-											{
-												Default: []string{"invalid-type"},
-											},
-										},
-									},
-								},
-							},
-						},
-					},
+					addons.Addon{},
 				}
 
-				result, err := createGenericCommands(addons, command)
+				result, err := createGenericCommands(addons)
 
-				Expect(err).To(HaveOccurred())
-				Expect(result).To(BeEmpty())
-			})
-		})
-	})
-
-	Describe("createGenericCommand", func() {
-		When("no addons passed", func() {
-			It("returns command without sub-commands", func() {
-				command := "do-this"
-				addons := addons.Addons{}
-
-				result, err := createGenericCommand(addons, command)
-
-				Expect(err).ToNot(HaveOccurred())
-				Expect(result.Use).To(Equal(command))
-				Expect(result.Short).To(ContainSubstring(command))
-				Expect(result.Commands()).To(BeEmpty())
-			})
-		})
-
-		When("addons passed", func() {
-			It("returns command with one sub-command per addon", func() {
-				command := "do-this"
-				addons := addons.Addons{
-					addons.Addon{
-						Metadata: addons.AddonMetadata{
-							Name: "a1",
-						},
-						Spec: addons.AddonSpec{Commands: &map[string]addons.AddonCmd{
-							command: {},
-						}},
-					},
-					addons.Addon{
-						Metadata: addons.AddonMetadata{
-							Name: "a2",
-						},
-						Spec: addons.AddonSpec{Commands: &map[string]addons.AddonCmd{
-							command: {},
-						}},
-					},
-				}
-
-				result, err := createGenericCommand(addons, command)
-
-				Expect(err).ToNot(HaveOccurred())
-				Expect(result.Use).To(Equal(command))
-				Expect(result.Short).To(ContainSubstring(command))
-				Expect(result.Commands()).To(HaveLen(len(addons)))
-			})
-		})
-
-		When("error occurred", func() {
-			It("returns error", func() {
-				command := "do-this"
-				addons := addons.Addons{
-					addons.Addon{
-						Spec: addons.AddonSpec{
-							Commands: &map[string]addons.AddonCmd{
-								command: {
-									Cli: &addons.CliConfig{
-										Flags: []addons.CliFlag{
-											{
-												Default: []string{"invalid-type"},
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				}
-
-				result, err := createGenericCommand(addons, command)
-
-				Expect(err).To(HaveOccurred())
+				Expect(err).To(MatchError(ContainSubstring("no cmd config found")))
 				Expect(result).To(BeNil())
+			})
+		})
+
+		When("addons's cmd config has no entries'", func() {
+			It("returns error", func() {
+				addons := addons.Addons{
+					addons.Addon{Spec: addons.AddonSpec{Commands: &map[string]addons.AddonCmd{}}},
+				}
+
+				result, err := createGenericCommands(addons)
+
+				Expect(err).To(MatchError(ContainSubstring("no cmd config found")))
+				Expect(result).To(BeNil())
+			})
+		})
+
+		When("cmd config is vallid", func() {
+			It("returns a distinct command per cmd config for each addon that has this command configured", func() {
+				addons := addons.Addons{
+					addons.Addon{
+						Metadata: addons.AddonMetadata{Name: "a1"},
+						Spec: addons.AddonSpec{
+							Commands: &map[string]addons.AddonCmd{
+								"c1": {},
+								"c2": {},
+							},
+						},
+					},
+					addons.Addon{
+						Metadata: addons.AddonMetadata{Name: "a2"},
+						Spec: addons.AddonSpec{
+							Commands: &map[string]addons.AddonCmd{
+								"c2": {},
+								"c3": {},
+							},
+						},
+					},
+				}
+
+				result, err := createGenericCommands(addons)
+
+				Expect(err).ToNot(HaveOccurred())
+				Expect(result).To(HaveLen(3))
+
+				for i := 0; i < len(result); i++ {
+					cmdName := fmt.Sprintf("c%d", i+1)
+
+					Expect(result[i].Use).To(Equal(cmdName))
+					Expect(result[i].Short).To(ContainSubstring(cmdName))
+				}
+			})
+		})
+
+		When("error occurred", func() {
+			It("returns error", func() {
+				addons := addons.Addons{
+					addons.Addon{
+						Spec: addons.AddonSpec{
+							Commands: &map[string]addons.AddonCmd{
+								"do-this": {
+									Cli: &addons.CliConfig{
+										Flags: []addons.CliFlag{
+											{
+												Default: []string{"invalid-type"},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				}
+
+				result, err := createGenericCommands(addons)
+
+				Expect(err).To(HaveOccurred())
+				Expect(result).To(BeEmpty())
 			})
 		})
 	})
@@ -800,6 +772,38 @@ var _ = Describe("addons", func() {
 				Expect(convertToPsParam(flag, cmd, addMock.add)).To(Succeed())
 
 				addMock.AssertExpectations(GinkgoT())
+			})
+		})
+	})
+
+	Describe("toError", func() {
+		When("system-not-running error", func() {
+			It("returns system-not-running error", func() {
+				err := addonCmdError(status.ErrNotRunningMsg)
+
+				result := err.toError()
+
+				Expect(result).To(Equal(status.ErrNotRunning))
+			})
+		})
+
+		When("system-not-installed error", func() {
+			It("returns system-not-installed error", func() {
+				err := addonCmdError(setupinfo.ErrNotInstalledMsg)
+
+				result := err.toError()
+
+				Expect(result).To(Equal(setupinfo.ErrNotInstalled))
+			})
+		})
+
+		When("unknown error", func() {
+			It("returns unknown error", func() {
+				err := addonCmdError("oops")
+
+				result := err.toError()
+
+				Expect(result).To(MatchError(ContainSubstring("oops")))
 			})
 		})
 	})

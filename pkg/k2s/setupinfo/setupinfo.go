@@ -3,10 +3,12 @@
 
 package setupinfo
 
-import "errors"
+import (
+	"errors"
+)
 
-type SetupError string
 type SetupName string
+type SetupError string
 
 type SetupInfo struct {
 	Version   *string     `json:"version"`
@@ -20,8 +22,21 @@ const (
 	SetupNameMultiVMK8s   SetupName = "MultiVMK8s"
 	SetupNameBuildOnlyEnv SetupName = "BuildOnlyEnv"
 
-	NotInstalledErrMsg SetupError = "not-installed"
-	NotRunningErrMsg   SetupError = "not-running"
+	ErrNotInstalledMsg SetupError = "system-not-installed"
 )
 
-var ErrNotInstalled = errors.New(string(NotInstalledErrMsg))
+var (
+	ErrNotInstalled = errors.New(string(ErrNotInstalledMsg))
+)
+
+func (err SetupError) ToError() error {
+	if err == ErrNotInstalledMsg {
+		return ErrNotInstalled
+	}
+
+	return errors.New(string(err))
+}
+
+func IsErrNotInstalled(err string) bool {
+	return err == string(ErrNotInstalledMsg)
+}

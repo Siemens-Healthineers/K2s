@@ -6,9 +6,7 @@ package monitoring
 
 import (
 	"context"
-	"fmt"
 	"k2sTest/framework"
-	"k2sTest/framework/k8s"
 	"os/exec"
 	"path"
 	"testing"
@@ -19,27 +17,20 @@ import (
 	"github.com/onsi/gomega/gexec"
 )
 
-const (
-	testClusterTimeout = time.Minute * 20
-)
+const testClusterTimeout = time.Minute * 20
 
 var (
 	suite                 *framework.K2sTestSuite
-	kubectl               *k8s.Kubectl
-	cluster               *k8s.Cluster
-	linuxOnly             bool
-	exportPath            string
-	addons                []string
 	portForwardingSession *gexec.Session
 )
 
 func TestMonitoring(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, fmt.Sprintf("monitoring Addon Acceptance Tests"), Label("addon", "acceptance", "setup-required", "invasive", "monitoring"))
+	RunSpecs(t, "monitoring Addon Acceptance Tests", Label("addon", "acceptance", "setup-required", "invasive", "monitoring", "system-running"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
-	suite = framework.Setup(ctx, framework.EnsureAddonsAreDisabled, framework.ClusterTestStepTimeout(testClusterTimeout))
+	suite = framework.Setup(ctx, framework.SystemMustBeRunning, framework.EnsureAddonsAreDisabled, framework.ClusterTestStepTimeout(testClusterTimeout))
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
@@ -60,6 +51,12 @@ var _ = Describe("'monitoring' addon", Ordered, func() {
 			Expect(status.IsAddonEnabled("monitoring")).To(BeFalse())
 		})
 
+		It("prints already-disabled message on disable command", func(ctx context.Context) {
+			output := suite.K2sCli().Run(ctx, "addons", "disable", "monitoring")
+
+			Expect(output).To(ContainSubstring("already disabled"))
+		})
+
 		It("is in enabled state and pods are in running state", func(ctx context.Context) {
 			suite.K2sCli().Run(ctx, "addons", "enable", "monitoring", "-o")
 
@@ -73,6 +70,12 @@ var _ = Describe("'monitoring' addon", Ordered, func() {
 
 			status := suite.K2sCli().GetStatus(ctx)
 			Expect(status.IsAddonEnabled("monitoring")).To(BeTrue())
+		})
+
+		It("prints already-enabled message on enable command", func(ctx context.Context) {
+			output := suite.K2sCli().Run(ctx, "addons", "enable", "monitoring")
+
+			Expect(output).To(ContainSubstring("already enabled"))
 		})
 
 		It("is reachable through port forwarding", func(ctx context.Context) {
@@ -121,6 +124,12 @@ var _ = Describe("'monitoring' addon", Ordered, func() {
 			Expect(status.IsAddonEnabled("monitoring")).To(BeTrue())
 		})
 
+		It("prints already-enabled message on enable command", func(ctx context.Context) {
+			output := suite.K2sCli().Run(ctx, "addons", "enable", "monitoring")
+
+			Expect(output).To(ContainSubstring("already enabled"))
+		})
+
 		It("is reachable through traefik", func(ctx context.Context) {
 			url := "https://k2s-monitoring.local/login"
 			httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-I", "-m", "5", "--retry", "3", "--fail")
@@ -160,6 +169,12 @@ var _ = Describe("'monitoring' addon", Ordered, func() {
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "kube-prometheus-stack-plutono", "monitoring")
 			status := suite.K2sCli().GetStatus(ctx)
 			Expect(status.IsAddonEnabled("monitoring")).To(BeTrue())
+		})
+
+		It("prints already-enabled message on enable command", func(ctx context.Context) {
+			output := suite.K2sCli().Run(ctx, "addons", "enable", "monitoring")
+
+			Expect(output).To(ContainSubstring("already enabled"))
 		})
 
 		It("is reachable through ingress-nginx", func(ctx context.Context) {

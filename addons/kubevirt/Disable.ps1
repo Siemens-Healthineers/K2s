@@ -17,7 +17,11 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
     [switch] $ShowLogs = $false,
     [parameter(Mandatory = $false, HelpMessage = 'K8sSetup: SmallSetup')]
-    [string] $K8sSetup = 'SmallSetup'
+    [string] $K8sSetup = 'SmallSetup',
+    [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
+    [switch] $EncodeStructuredOutput,
+    [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
+    [string] $MessageType
 )
 
 $mainStopwatch = [system.diagnostics.stopwatch]::StartNew()
@@ -28,8 +32,9 @@ $mainStopwatch = [system.diagnostics.stopwatch]::StartNew()
 $logModule = "$PSScriptRoot/../../smallsetup/ps-modules/log/log.module.psm1"
 $statusModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/status/status.module.psm1"
 $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
+$cliMessagesModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/cli-messages/cli-messages.module.psm1"
 
-Import-Module $logModule, $addonsModule, $statusModule
+Import-Module $logModule, $addonsModule, $statusModule, $cliMessagesModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -37,12 +42,24 @@ Write-Log 'Checking cluster status' -Console
 
 $systemError = Test-SystemAvailability
 if ($systemError) {
-    throw $systemError
+    if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = $systemError }
+        return
+    }
+
+    Write-Log $systemError -Error
+    exit 1
 }
 
-Write-Log "Check whether kubevirt addon is already disabled"
-if ($null -eq (&$global:KubectlExe get namespace kubevirt --ignore-not-found)) {
-    Write-Log 'Addon already disabled.' -Console
+Write-Log 'Check whether kubevirt addon is already disabled'
+
+if ($null -eq (&$global:KubectlExe get namespace kubevirt --ignore-not-found) -or (Test-IsAddonEnabled -Name 'kubevirt') -ne $true) {
+    Write-Log "Addon 'kubevirt' is already disabled, nothing to do." -Console
+
+    if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = $null }
+    }
+    
     exit 0
 }
 
@@ -87,7 +104,8 @@ $ScriptBlockNamespaces = {
 Write-Log 'delete kubevirt'
 if ($PSVersionTable.PSVersion.Major -gt 5) {
     &$global:KubectlExe patch namespace kubevirt -p '{"metadata":{"finalizers":null}}' >$null 2>&1 | Write-Log
-} else {
+}
+else {
     &$global:KubectlExe patch namespace kubevirt -p '{\"metadata\":{\"finalizers\":null}}' >$null 2>&1 | Write-Log
 }
 
@@ -133,4 +151,6 @@ Remove-Item "$global:KubernetesPath\bin\$virtviewer" -Force -ErrorAction Silentl
 
 Write-Log 'Uninstallation of kubevirt addon is now done'
 
-
+if ($EncodeStructuredOutput -eq $true) {
+    Send-ToCli -MessageType $MessageType -Message @{Error = $null }
+}

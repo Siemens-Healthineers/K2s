@@ -13,10 +13,13 @@ import (
 	"k2s/cmd/addons/cmd/status"
 	"k2s/cmd/common"
 	"k2s/setupinfo"
+	ks "k2s/status"
 	"k2s/utils/logging"
 	"os"
 	"slices"
+	"sort"
 	"strings"
+	"time"
 
 	"k2s/cmd/params"
 	"k2s/utils"
@@ -29,6 +32,12 @@ import (
 	"github.com/spf13/pflag"
 	"k8s.io/klog/v2"
 )
+
+type addonCmdError string
+
+type addonCmdResult struct {
+	Error *addonCmdError `json:"error"`
+}
 
 func NewCmd() *cobra.Command {
 	var cmd = &cobra.Command{
@@ -52,7 +61,7 @@ func NewCmd() *cobra.Command {
 	cmd.AddCommand(list.NewCommand(addons))
 	cmd.AddCommand(status.NewCommand(addons))
 
-	commands, err := createGenericCommands(addons, "enable", "disable")
+	commands, err := createGenericCommands(addons)
 	if err != nil {
 		klog.Fatal(err)
 	}
@@ -62,37 +71,47 @@ func NewCmd() *cobra.Command {
 	return cmd
 }
 
-func createGenericCommands(allAddons addons.Addons, commandNames ...string) (commands []*cobra.Command, err error) {
-	for _, command := range commandNames {
-		cmd, err := createGenericCommand(allAddons, command)
-		if err != nil {
-			return nil, err
+func createGenericCommands(allAddons addons.Addons) (commands []*cobra.Command, err error) {
+	commandMap := map[string]*cobra.Command{}
+
+	for _, addon := range allAddons {
+		if addon.Spec.Commands == nil || len(*addon.Spec.Commands) == 0 {
+			return nil, fmt.Errorf("no cmd config found for addon '%s'", addon.Metadata.Name)
 		}
 
-		commands = append(commands, cmd)
+		for cmdName, _ := range *addon.Spec.Commands {
+			if _, ok := commandMap[cmdName]; !ok {
+				klog.V(4).Infof("cmd '%s' not existing, creating it", cmdName)
+
+				cmd := &cobra.Command{
+					Use:   cmdName,
+					Short: fmt.Sprintf("Runs '%s' for the specific addon", cmdName),
+				}
+				commandMap[cmdName] = cmd
+			}
+
+			subCmd, err := newAddonCmd(addon, cmdName)
+			if err != nil {
+				return nil, err
+			}
+
+			commandMap[cmdName].AddCommand(subCmd)
+		}
 	}
+
+	keys := lo.Keys(commandMap)
+	sort.Strings(keys)
+
+	lo.ForEach(keys, func(item string, _ int) {
+		commands = append(commands, commandMap[item])
+	})
+
 	return
 }
 
-func createGenericCommand(allAddons addons.Addons, commandName string) (*cobra.Command, error) {
-	cmd := &cobra.Command{
-		Use:   commandName,
-		Short: fmt.Sprintf("Runs '%s' for the specific addon", commandName),
-	}
-
-	for _, addon := range allAddons {
-		subCmd, err := newAddonCmd(addon, commandName)
-		if err != nil {
-			return nil, err
-		}
-
-		cmd.AddCommand(subCmd)
-	}
-
-	return cmd, nil
-}
-
 func newAddonCmd(addon addons.Addon, cmdName string) (*cobra.Command, error) {
+	klog.V(4).Infof("creating sub-cmd '%s' for addon '%s'", cmdName, addon.Metadata.Name)
+
 	cmdConfig := (*addon.Spec.Commands)[cmdName]
 	cmd := &cobra.Command{
 		Use:   addon.Metadata.Name,
@@ -160,6 +179,15 @@ func runCmd(cmd *cobra.Command, addon addons.Addon, cmdName string) error {
 	klog.V(4).Infof("Running '%s' for '%s' addon..", cmdName, addon.Metadata.Name)
 	pterm.Printfln("🤖 Running '%s' for '%s' addon", cmdName, addon.Metadata.Name)
 
+	// TODO: remove when all addons are migrated to structured results
+	if addon.Metadata.Name == "dashboard" || addon.Metadata.Name == "exthttpaccess" || addon.Metadata.Name == "gateway-nginx" || addon.Metadata.Name == "gpu-node" ||
+		addon.Metadata.Name == "ingress-nginx" || addon.Metadata.Name == "kubevirt" || addon.Metadata.Name == "metrics-server" || addon.Metadata.Name == "monitoring" ||
+		addon.Metadata.Name == "registry" {
+		klog.V(4).Infof("Running new structured result version of cmd '%s' for addon '%s'", cmdName, addon.Metadata.Name)
+
+		return runCmdV2(cmd, addon, cmdName)
+	}
+
 	psCmd, err := buildPsCmd(cmd.Flags(), (*addon.Spec.Commands)[cmdName], addon.Directory)
 	if err != nil {
 		return err
@@ -168,13 +196,7 @@ func runCmd(cmd *cobra.Command, addon addons.Addon, cmdName string) error {
 	klog.V(4).Info("PS cmd: ", psCmd)
 
 	duration, err := utils.ExecutePowershellScript(psCmd)
-	switch err {
-	case nil:
-		break
-	case setupinfo.ErrNotInstalled:
-		common.PrintNotInstalledMessage()
-		return nil
-	default:
+	if err != nil {
 		return err
 	}
 
@@ -183,6 +205,63 @@ func runCmd(cmd *cobra.Command, addon addons.Addon, cmdName string) error {
 	return nil
 }
 
+func runCmdV2(cmd *cobra.Command, addon addons.Addon, cmdName string) error {
+	psCmd, params, err := buildPsCmdV2(cmd.Flags(), (*addon.Spec.Commands)[cmdName], addon.Directory)
+	if err != nil {
+		return err
+	}
+
+	klog.V(4).Infof("PS cmd: '%s', params: '%v'", psCmd, params)
+
+	start := time.Now()
+
+	cmdResult, err := utils.ExecutePsWithStructuredResult[*addonCmdResult](psCmd, "CmdResult", utils.ExecOptions{}, params...)
+
+	duration := time.Since(start)
+
+	if err != nil {
+		return err
+	}
+
+	if cmdResult.Error != nil {
+		return cmdResult.Error.toError()
+	}
+
+	common.PrintCompletedMessage(duration, fmt.Sprintf("addons %s %s", cmdName, addon.Metadata.Name))
+	return nil
+}
+
+func (err addonCmdError) toError() error {
+	if ks.IsErrNotRunning(string(err)) {
+		return ks.ErrNotRunning
+	}
+	if setupinfo.IsErrNotInstalled(string(err)) {
+		return setupinfo.ErrNotInstalled
+	}
+
+	return errors.New(string(err))
+}
+
+func buildPsCmdV2(flags *pflag.FlagSet, cmdConfig addons.AddonCmd, addonDir string) (string, []string, error) {
+	cmd := utils.FormatScriptFilePath(filepath.Join(addonDir, cmdConfig.Script.SubPath))
+	params := []string{}
+	addParam := func(param string) { params = append(params, param) }
+
+	var err error
+
+	flags.Visit(func(f *pflag.Flag) {
+		if err != nil {
+			klog.V(4).Infof("previous error detected, skipping flag '%s'..", f.Name)
+			return
+		}
+
+		err = convertToPsParam(f, cmdConfig, addParam)
+	})
+
+	return cmd, params, err
+}
+
+// TODO: remove when all addons are migrated to structured results
 func buildPsCmd(flags *pflag.FlagSet, cmdConfig addons.AddonCmd, addonDir string) (string, error) {
 	cmd := utils.FormatScriptFilePath(filepath.Join(addonDir, cmdConfig.Script.SubPath))
 	addParam := func(param string) { cmd += fmt.Sprintf(" %s", param) }

@@ -7,17 +7,14 @@ package gatewaynginx
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"k2sTest/framework"
-	"k2sTest/framework/k8s"
 	"net/http"
 	"testing"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/gexec"
 )
 
 const (
@@ -25,23 +22,15 @@ const (
 	retryCount         = 3
 )
 
-var (
-	suite                 *framework.K2sTestSuite
-	kubectl               *k8s.Kubectl
-	cluster               *k8s.Cluster
-	linuxOnly             bool
-	exportPath            string
-	addons                []string
-	portForwardingSession *gexec.Session
-)
+var suite *framework.K2sTestSuite
 
 func TestGatewayNginx(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, fmt.Sprintf("gateway-nginx Addon Acceptance Tests"), Label("addon", "acceptance", "setup-required", "invasive", "gateway-nginx"))
+	RunSpecs(t, "gateway-nginx Addon Acceptance Tests", Label("addon", "acceptance", "setup-required", "invasive", "gateway-nginx", "system-running"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
-	suite = framework.Setup(ctx, framework.EnsureAddonsAreDisabled, framework.ClusterTestStepTimeout(testClusterTimeout))
+	suite = framework.Setup(ctx, framework.SystemMustBeRunning, framework.EnsureAddonsAreDisabled, framework.ClusterTestStepTimeout(testClusterTimeout))
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
@@ -60,6 +49,12 @@ var _ = Describe("'gateway-nginx' addon", Ordered, func() {
 		Expect(status.IsAddonEnabled("gateway-nginx")).To(BeFalse())
 	})
 
+	It("prints already-disabled message on disable command", func(ctx context.Context) {
+		output := suite.K2sCli().Run(ctx, "addons", "disable", "gateway-nginx")
+
+		Expect(output).To(ContainSubstring("already disabled"))
+	})
+
 	It("is in enabled state and pods are in running state", func(ctx context.Context) {
 		suite.K2sCli().Run(ctx, "addons", "enable", "gateway-nginx", "-o")
 
@@ -69,6 +64,12 @@ var _ = Describe("'gateway-nginx' addon", Ordered, func() {
 
 		status := suite.K2sCli().GetStatus(ctx)
 		Expect(status.IsAddonEnabled("gateway-nginx")).To(BeTrue())
+	})
+
+	It("prints already-enabled message on enable command", func(ctx context.Context) {
+		output := suite.K2sCli().Run(ctx, "addons", "enable", "gateway-nginx")
+
+		Expect(output).To(ContainSubstring("already enabled"))
 	})
 
 	It("sample app is reachable through gateway api", func(ctx context.Context) {

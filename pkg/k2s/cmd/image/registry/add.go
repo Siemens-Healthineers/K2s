@@ -9,7 +9,6 @@ import (
 	"k2s/cmd/common"
 	p "k2s/cmd/params"
 	c "k2s/config"
-	"k2s/setupinfo"
 	"k2s/utils"
 	"strconv"
 
@@ -66,13 +65,7 @@ func addRegistry(cmd *cobra.Command, args []string) error {
 	klog.V(3).Infof("Add command : %s", addCmd)
 
 	duration, err := utils.ExecutePowershellScript(addCmd)
-	switch err {
-	case nil:
-		break
-	case setupinfo.ErrNotInstalled:
-		common.PrintNotInstalledMessage()
-		return nil
-	default:
+	if err != nil {
 		return err
 	}
 

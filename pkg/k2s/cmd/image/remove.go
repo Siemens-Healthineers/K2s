@@ -11,7 +11,6 @@ import (
 	"k8s.io/klog/v2"
 
 	"k2s/cmd/common"
-	"k2s/setupinfo"
 	"k2s/utils"
 )
 
@@ -106,13 +105,7 @@ func removeImage(cmd *cobra.Command, args []string) error {
 	klog.V(3).Infof("Remove Image command: %s", removeCommand)
 
 	duration, err := utils.ExecutePowershellScript(removeCommand)
-	switch err {
-	case nil:
-		break
-	case setupinfo.ErrNotInstalled:
-		common.PrintNotInstalledMessage()
-		return nil
-	default:
+	if err != nil {
 		return err
 	}
 

@@ -6,7 +6,6 @@ package setupinfo_test
 import (
 	"k2s/cmd/status/setupinfo"
 	si "k2s/setupinfo"
-	"strings"
 	"test/reflection"
 	"testing"
 
@@ -19,15 +18,7 @@ type mockObject struct {
 	mock.Mock
 }
 
-func (mo *mockObject) PrintInfoln(m ...any) {
-	mo.Called(m...)
-}
-
 func (mo *mockObject) Println(m ...any) {
-	mo.Called(m...)
-}
-
-func (mo *mockObject) PrintWarning(m ...any) {
 	mo.Called(m...)
 }
 
@@ -37,10 +28,6 @@ func (mo *mockObject) PrintCyanFg(text string) string {
 	return args.String(0)
 }
 
-func (mo *mockObject) PrintNotInstalledMsg() {
-	mo.Called()
-}
-
 func TestSetupinfo(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "setupinfo Unit Tests", Label("unit"))
@@ -48,57 +35,13 @@ func TestSetupinfo(t *testing.T) {
 
 var _ = Describe("setupinfo", func() {
 	Describe("PrintSetupInfo", func() {
-		When("setup is not installed", func() {
-			It("prints not installed info without error", func() {
-				setupError := si.NotInstalledErrMsg
-				info := si.SetupInfo{Error: &setupError}
-
-				printerMock := &mockObject{}
-				printerMock.On(reflection.GetFunctionName(printerMock.PrintNotInstalledMsg)).Once()
-				printerMock.On(reflection.GetFunctionName(printerMock.Println))
-
-				sut := setupinfo.NewSetupInfoPrinter(printerMock, printerMock.PrintNotInstalledMsg)
-
-				actual, err := sut.PrintSetupInfo(info)
-
-				Expect(err).ToNot(HaveOccurred())
-				Expect(actual).To(BeFalse())
-
-				printerMock.AssertExpectations(GinkgoT())
-			})
-		})
-
-		When("setup error is unknown", func() {
-			It("prints error as warning", func() {
-				setupError := si.SetupError("unknown-error")
-				info := si.SetupInfo{Error: &setupError}
-
-				printerMock := &mockObject{}
-				printerMock.On(reflection.GetFunctionName(printerMock.PrintWarning), mock.MatchedBy(func(format string) bool {
-					return strings.Contains(format, "seems to be invalid: '%s'")
-				}), mock.MatchedBy(func(arg si.SetupError) bool {
-					return arg == setupError
-				}))
-				printerMock.On(reflection.GetFunctionName(printerMock.Println))
-
-				sut := setupinfo.NewSetupInfoPrinter(printerMock, nil)
-
-				actual, err := sut.PrintSetupInfo(info)
-
-				Expect(err).ToNot(HaveOccurred())
-				Expect(actual).To(BeFalse())
-
-				printerMock.AssertExpectations(GinkgoT())
-			})
-		})
-
 		When("Linux-only info is missing", func() {
 			It("returns error", func() {
 				version := "test-version"
 				name := si.SetupName("test-name")
 				info := si.SetupInfo{Version: &version, Name: &name}
 
-				sut := setupinfo.NewSetupInfoPrinter(nil, nil)
+				sut := setupinfo.NewSetupInfoPrinter(nil)
 
 				actual, err := sut.PrintSetupInfo(info)
 
@@ -113,7 +56,7 @@ var _ = Describe("setupinfo", func() {
 				linuxonly := true
 				info := si.SetupInfo{Version: &version, LinuxOnly: &linuxonly}
 
-				sut := setupinfo.NewSetupInfoPrinter(nil, nil)
+				sut := setupinfo.NewSetupInfoPrinter(nil)
 
 				actual, err := sut.PrintSetupInfo(info)
 
@@ -128,7 +71,7 @@ var _ = Describe("setupinfo", func() {
 				linuxonly := true
 				info := si.SetupInfo{Name: &name, LinuxOnly: &linuxonly}
 
-				sut := setupinfo.NewSetupInfoPrinter(nil, nil)
+				sut := setupinfo.NewSetupInfoPrinter(nil)
 
 				actual, err := sut.PrintSetupInfo(info)
 
@@ -149,7 +92,7 @@ var _ = Describe("setupinfo", func() {
 				printerMock.On(reflection.GetFunctionName(printerMock.PrintCyanFg), version).Return(version)
 				printerMock.On(reflection.GetFunctionName(printerMock.Println), "Setup: 'test-name', Version: 'test-version'")
 
-				sut := setupinfo.NewSetupInfoPrinter(printerMock, nil)
+				sut := setupinfo.NewSetupInfoPrinter(printerMock)
 
 				actual, err := sut.PrintSetupInfo(info)
 
@@ -172,7 +115,7 @@ var _ = Describe("setupinfo", func() {
 				printerMock.On(reflection.GetFunctionName(printerMock.PrintCyanFg), version).Return(version)
 				printerMock.On(reflection.GetFunctionName(printerMock.Println), "Setup: 'test-name (Linux-only)', Version: 'test-version'")
 
-				sut := setupinfo.NewSetupInfoPrinter(printerMock, nil)
+				sut := setupinfo.NewSetupInfoPrinter(printerMock)
 
 				actual, err := sut.PrintSetupInfo(info)
 

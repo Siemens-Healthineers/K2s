@@ -6,38 +6,25 @@ package metricsserver
 
 import (
 	"context"
-	"fmt"
 	"k2sTest/framework"
-	"k2sTest/framework/k8s"
 	"testing"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/gexec"
 )
 
-const (
-	testClusterTimeout = time.Minute * 10
-)
+const testClusterTimeout = time.Minute * 10
 
-var (
-	suite                 *framework.K2sTestSuite
-	kubectl               *k8s.Kubectl
-	cluster               *k8s.Cluster
-	linuxOnly             bool
-	exportPath            string
-	addons                []string
-	portForwardingSession *gexec.Session
-)
+var suite *framework.K2sTestSuite
 
 func TestTraefik(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, fmt.Sprintf("metrics-server Addon Acceptance Tests"), Label("addon", "acceptance", "setup-required", "invasive", "metrics-server"))
+	RunSpecs(t, "metrics-server Addon Acceptance Tests", Label("addon", "acceptance", "setup-required", "invasive", "metrics-server", "system-running"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
-	suite = framework.Setup(ctx, framework.EnsureAddonsAreDisabled, framework.ClusterTestStepTimeout(testClusterTimeout))
+	suite = framework.Setup(ctx, framework.SystemMustBeRunning, framework.EnsureAddonsAreDisabled, framework.ClusterTestStepTimeout(testClusterTimeout))
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
@@ -53,6 +40,12 @@ var _ = Describe("'metrics-server' addon", Ordered, func() {
 		Expect(status.IsAddonEnabled("metrics-server")).To(BeFalse())
 	})
 
+	It("prints already-disabled message on disable command", func(ctx context.Context) {
+		output := suite.K2sCli().Run(ctx, "addons", "disable", "metrics-server")
+
+		Expect(output).To(ContainSubstring("already disabled"))
+	})
+
 	It("is in enabled state and pods are in running state", func(ctx context.Context) {
 		suite.K2sCli().Run(ctx, "addons", "enable", "metrics-server", "-o")
 
@@ -62,5 +55,11 @@ var _ = Describe("'metrics-server' addon", Ordered, func() {
 
 		status := suite.K2sCli().GetStatus(ctx)
 		Expect(status.IsAddonEnabled("metrics-server")).To(BeTrue())
+	})
+
+	It("prints already-enabled message on enable command", func(ctx context.Context) {
+		output := suite.K2sCli().Run(ctx, "addons", "enable", "metrics-server")
+
+		Expect(output).To(ContainSubstring("already enabled"))
 	})
 })

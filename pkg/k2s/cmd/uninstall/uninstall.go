@@ -43,13 +43,7 @@ func uninstallk8s(ccmd *cobra.Command, args []string) error {
 	pterm.Printfln("🤖 Uninstalling K2s %s", version)
 
 	uninstallCmd, err := buildUninstallCmd(ccmd)
-	switch err {
-	case nil:
-		break
-	case setupinfo.ErrNotInstalled:
-		common.PrintNotInstalledMessage()
-		return nil
-	default:
+	if err != nil {
 		return err
 	}
 

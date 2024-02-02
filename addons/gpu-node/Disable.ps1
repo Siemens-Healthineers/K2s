@@ -14,7 +14,11 @@ The "gpu-node" addons enables the KubeMaster node to get direct access to the ho
 
 Param(
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
-    [switch] $ShowLogs = $false
+    [switch] $ShowLogs = $false,
+    [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
+    [switch] $EncodeStructuredOutput,
+    [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
+    [string] $MessageType
 )
 &$PSScriptRoot\..\..\smallsetup\common\GlobalVariables.ps1
 . $PSScriptRoot\..\..\smallsetup\common\GlobalFunctions.ps1
@@ -22,8 +26,9 @@ Param(
 $logModule = "$PSScriptRoot/../../smallsetup/ps-modules/log/log.module.psm1"
 $statusModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/status/status.module.psm1"
 $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
+$cliMessagesModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/cli-messages/cli-messages.module.psm1"
 
-Import-Module $logModule, $addonsModule, $statusModule
+Import-Module $logModule, $addonsModule, $statusModule, $cliMessagesModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -31,13 +36,24 @@ Write-Log 'Checking cluster status' -Console
 
 $systemError = Test-SystemAvailability
 if ($systemError) {
-    throw $systemError
+    if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = $systemError }
+        return
+    }
+
+    Write-Log $systemError -Error
+    exit 1
 }
 
 Write-Log 'Check whether gpu-node addon is already disabled'
 
-if ($null -eq (&$global:KubectlExe get namespace gpu-node --ignore-not-found)) {
-    Write-Log 'Addon already disabled.' -Console
+if ($null -eq (&$global:KubectlExe get namespace gpu-node --ignore-not-found) -or (Test-IsAddonEnabled -Name 'gpu-node') -ne $true) {
+    Write-Log "Addon 'gpu-node' is already disabled, nothing to do." -Console
+
+    if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = $null }
+    }
+    
     exit 0
 }
 
@@ -71,3 +87,7 @@ if (!$WSL) {
 }
 
 Remove-AddonFromSetupJson -Name 'gpu-node'
+
+if ($EncodeStructuredOutput -eq $true) {
+    Send-ToCli -MessageType $MessageType -Message @{Error = $null }
+}

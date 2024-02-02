@@ -13,7 +13,11 @@ The "monitoring" addons enables Prometheus/Grafana monitoring features for the k
 #>
 Param(
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
-    [switch] $ShowLogs = $false
+    [switch] $ShowLogs = $false,
+    [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
+    [switch] $EncodeStructuredOutput,
+    [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
+    [string] $MessageType
 )
 &$PSScriptRoot\..\..\smallsetup\common\GlobalVariables.ps1
 . $PSScriptRoot\..\..\smallsetup\common\GlobalFunctions.ps1
@@ -21,8 +25,9 @@ Param(
 $logModule = "$PSScriptRoot/../../smallsetup/ps-modules/log/log.module.psm1"
 $statusModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/status/status.module.psm1"
 $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
+$cliMessagesModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/cli-messages/cli-messages.module.psm1"
 
-Import-Module $logModule, $addonsModule, $statusModule
+Import-Module $logModule, $addonsModule, $statusModule, $cliMessagesModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -30,13 +35,24 @@ Write-Log 'Checking cluster status' -Console
 
 $systemError = Test-SystemAvailability
 if ($systemError) {
-    throw $systemError
+    if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = $systemError }
+        return
+    }
+
+    Write-Log $systemError -Error
+    exit 1
 }
 
 Write-Log 'Check whether monitoring addon is already disabled'
 
-if ($null -eq (&$global:KubectlExe get namespace monitoring --ignore-not-found)) {
-    Write-Log 'Addon already disabled.' -Console
+if ($null -eq (&$global:KubectlExe get namespace monitoring --ignore-not-found) -or (Test-IsAddonEnabled -Name 'monitoring') -ne $true) {
+    Write-Log "Addon 'monitoring' is already disabled, nothing to do." -Console
+
+    if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = $null }
+    }
+    
     exit 0
 }
 
@@ -49,3 +65,7 @@ Write-Log 'Uninstalling Kube Prometheus Stack' -Console
 Remove-AddonFromSetupJson -Name 'monitoring'
 
 Write-Log 'Kube Prometheus Stack uninstalled successfully' -Console
+
+if ($EncodeStructuredOutput -eq $true) {
+    Send-ToCli -MessageType $MessageType -Message @{Error = $null }
+}

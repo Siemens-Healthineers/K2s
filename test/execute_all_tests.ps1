@@ -29,11 +29,11 @@ Executes all configured PowerShell and Go-based tests sequentially
     $> .\test\execute_all_tests.ps1 -Tags "unit"
     Execute only tests marked as unit tests
 .EXAMPLE
-    $> .\test\execute_all_tests.ps1 -Tags "acceptance", "addon"
-    Execute only tests marked as acceptance tests for addons
+    $> .\test\execute_all_tests.ps1 -Tags "acceptance"
+    Execute only tests marked as acceptance tests
 .EXAMPLE
     $> .\test\execute_all_tests.ps1 -ExcludeTags "setup-required"
-    Exclude tests marked as requiring an installed K2s
+    Exclude tests marked as requiring an installed K2s system
 #>
 [CmdletBinding()]
 param (

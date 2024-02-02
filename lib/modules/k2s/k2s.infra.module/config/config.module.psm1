@@ -126,6 +126,10 @@ function Get-ControlPlaneNodeDefaultSwitchName {
     return $controlPlaneSwitchName
 }
 
+function Get-DefaultTempPwd {
+    return 'admin'
+}
+
 <#
 .SYNOPSIS
     Creates a specified directory if not existing.
@@ -372,6 +376,21 @@ function Set-ConfigControlPlaneNodeHostname($hostname) {
     Write-Log "Saved VM hostname '$hostname' in file '$SetupJsonFile'"
 }
 
+function Get-ConfigVMNodeHostname () {
+    $hostname = Get-ConfigValue -Path $SetupJsonFile -Key 'VMNodeHostname'
+
+    if ($hostname) {
+        return $hostname
+    }
+
+    return 'winnode'
+}
+
+function Set-ConfigVMNodeHostname($hostname) {
+    Set-ConfigValue -Path $SetupJsonFile -Key 'VMNodeHostname' -Value $hostname
+    Write-Log "Saved VM hostname '$hostname' in file '$SetupJsonFile'"
+}
+
 function Get-DefaultRegistry {
     return Get-ConfigValue -Path $SetupJsonFile -Key 'defaultRegistry'
 }
@@ -423,8 +442,11 @@ Get-ConfigHostGW,
 Set-ConfigHostGW,
 Set-ConfigControlPlaneNodeHostname,
 Get-ControlPlaneNodeDefaultSwitchName,
+Get-ConfigVMNodeHostname,
+Set-ConfigVMNodeHostname,
 Get-DefaultRegistry,
 Get-RegistryToken,
 Get-SshConfigDir,
 Get-DefaultProvisioningBaseImageDiskSize,
-Get-RootConfig
+Get-RootConfig,
+Get-DefaultTempPwd

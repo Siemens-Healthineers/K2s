@@ -5,6 +5,7 @@ package list
 
 import (
 	"errors"
+	"fmt"
 
 	cobra "github.com/spf13/cobra"
 	"k8s.io/klog/v2"
@@ -16,7 +17,6 @@ import (
 
 type Spinner interface {
 	Stop() error
-	Fail(m ...any)
 }
 
 const (
@@ -43,23 +43,22 @@ func listAddons(allAddons addons.Addons) error {
 		return err
 	}
 
-	enabledAddons, err := addons.LoadEnabledAddons()
-	if err != nil {
-		if err := spinner.Stop(); err != nil {
+	defer func() {
+		err = spinner.Stop()
+		if err != nil {
 			klog.Error(err)
 		}
+	}()
+
+	enabledAddons, err := addons.LoadEnabledAddons()
+	if err != nil {
 		return err
 	}
 
 	terminalPrinter.PrintHeader("Available Addons")
 
 	if err := addonsPrinter.PrintAddons(enabledAddons.Addons, addons.AllAddons().ToPrintInfo()); err != nil {
-		spinner.Fail("addons could not be printed")
-		return err
-	}
-
-	if err := spinner.Stop(); err != nil {
-		return err
+		return fmt.Errorf("addons could not be printed: %w", err)
 	}
 
 	klog.V(3).Info("All addons listed")

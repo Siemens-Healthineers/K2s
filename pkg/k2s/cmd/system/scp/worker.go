@@ -5,8 +5,6 @@ package scp
 
 import (
 	"errors"
-	"k2s/cmd/common"
-	"k2s/setupinfo"
 	"k2s/utils"
 	"strconv"
 
@@ -52,11 +50,6 @@ func scpWorker(ccmd *cobra.Command, args []string) error {
 	klog.V(3).Infof("scp command : %s", scpCmd)
 
 	_, err = utils.ExecutePowershellScript(scpCmd)
-
-	if err == setupinfo.ErrNotInstalled {
-		common.PrintNotInstalledMessage()
-		return nil
-	}
 
 	return err
 }

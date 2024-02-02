@@ -11,37 +11,21 @@ import (
 
 type TerminalPrinter interface {
 	Println(m ...any)
-	PrintInfoln(m ...any)
-	PrintWarning(m ...any)
 	PrintCyanFg(text string) string
 }
 
 type SetupInfoPrinter struct {
-	terminalPrinter          TerminalPrinter
-	printNotInstalledMsgFunc func()
+	terminalPrinter TerminalPrinter
 }
 
-func NewSetupInfoPrinter(terminalPrinter TerminalPrinter, printNotInstalledMsgFunc func()) SetupInfoPrinter {
+func NewSetupInfoPrinter(terminalPrinter TerminalPrinter) SetupInfoPrinter {
 	return SetupInfoPrinter{
-		terminalPrinter:          terminalPrinter,
-		printNotInstalledMsgFunc: printNotInstalledMsgFunc}
+		terminalPrinter: terminalPrinter,
+	}
 }
 
 // TODO: move load and print to setupinfo package (see addons package)
 func (s SetupInfoPrinter) PrintSetupInfo(setupInfo si.SetupInfo) (bool, error) {
-	if setupInfo.Error != nil {
-		switch *setupInfo.Error {
-		case si.NotInstalledErrMsg:
-			s.printNotInstalledMsgFunc()
-		default:
-			s.terminalPrinter.PrintWarning("The setup information seems to be invalid: '%s'", *setupInfo.Error)
-		}
-
-		s.terminalPrinter.Println()
-
-		return false, nil
-	}
-
 	if setupInfo.LinuxOnly == nil {
 		return false, errors.New("no Linux-only information retrieved")
 	}
