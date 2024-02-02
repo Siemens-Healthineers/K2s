@@ -40,6 +40,12 @@ var _ = Describe("'metrics-server' addon", Ordered, func() {
 		Expect(status.IsAddonEnabled("metrics-server")).To(BeFalse())
 	})
 
+	It("prints already-disabled message on disable command", func(ctx context.Context) {
+		output := suite.K2sCli().Run(ctx, "addons", "disable", "metrics-server")
+
+		Expect(output).To(ContainSubstring("already disabled"))
+	})
+
 	It("is in enabled state and pods are in running state", func(ctx context.Context) {
 		suite.K2sCli().Run(ctx, "addons", "enable", "metrics-server", "-o")
 
@@ -49,5 +55,11 @@ var _ = Describe("'metrics-server' addon", Ordered, func() {
 
 		status := suite.K2sCli().GetStatus(ctx)
 		Expect(status.IsAddonEnabled("metrics-server")).To(BeTrue())
+	})
+
+	It("prints already-enabled message on enable command", func(ctx context.Context) {
+		output := suite.K2sCli().Run(ctx, "addons", "enable", "metrics-server")
+
+		Expect(output).To(ContainSubstring("already enabled"))
 	})
 })
