@@ -7,14 +7,15 @@ import (
 	"errors"
 	"fmt"
 	"k2s/addons"
+	"k2s/providers/terminal"
 	"k2s/utils"
 	"strconv"
+	"time"
 
+	ac "k2s/cmd/addons/cmd/common"
 	"k2s/cmd/common"
 	p "k2s/cmd/params"
-	"k2s/providers/terminal"
 
-	"github.com/samber/lo"
 	cobra "github.com/spf13/cobra"
 	"k8s.io/klog/v2"
 )
@@ -32,6 +33,7 @@ const (
 	defaultDirectory = ""
 	proxyLabel       = "proxy"
 	defaultproxy     = ""
+	errLinuxOnlyMsg  = "linux-only"
 )
 
 func NewCommand() *cobra.Command {
@@ -39,7 +41,7 @@ func NewCommand() *cobra.Command {
 		Use:     "export ADDON",
 		Short:   "Export addon",
 		Example: exportCommandExample,
-		RunE:    exportAddons,
+		RunE:    runExport,
 	}
 
 	cmd.Flags().StringP(directoryLabel, "d", defaultDirectory, "Directory for addon export")
@@ -50,142 +52,90 @@ func NewCommand() *cobra.Command {
 	return cmd
 }
 
-func exportAddons(cmd *cobra.Command, args []string) error {
-	if len(args) == 0 {
-		exportCmd, err := buildExportCmdForAllAddons(cmd)
-		if err != nil {
-			return err
-		}
+func runExport(cmd *cobra.Command, args []string) error {
+	terminalPrinter := terminal.NewTerminalPrinter()
+	allAddons := addons.AllAddons()
 
-		klog.V(3).Infof("export command : %s", exportCmd)
-
-		duration, err := utils.ExecutePowershellScript(exportCmd)
-		if err != nil {
-			return err
-		}
-
-		common.PrintCompletedMessage(duration, "addons export")
+	if !ac.ValidateAddonNames(allAddons, "export", terminalPrinter, args...) {
 		return nil
 	}
 
-	allAddons := addons.AllAddons()
-
-	addonFound := true
-	for _, addonName := range args {
-		found := lo.ContainsBy(allAddons, func(addon addons.Addon) bool {
-			return addon.Metadata.Name == addonName
-		})
-
-		if !found {
-			addonFound = false
-			break
-		}
+	psCmd, params, err := buildPsCmd(cmd, args...)
+	if err != nil {
+		return err
 	}
 
-	if addonFound {
-		exportCommand, err := buildExportCmdForSpecificAddons(cmd, args)
-		if err != nil {
-			return err
-		}
+	klog.V(4).Infof("PS cmd: '%s', params: '%v'", psCmd, params)
 
-		klog.V(3).Infof("export command : %s", exportCommand)
+	start := time.Now()
 
-		duration, err := utils.ExecutePowershellScript(exportCommand)
-		if err != nil {
-			return err
-		}
+	cmdResult, err := utils.ExecutePsWithStructuredResult[*ac.AddonCmdResult](psCmd, "CmdResult", utils.ExecOptions{}, params...)
 
-		common.PrintCompletedMessage(duration, "addons export")
-	} else {
-		terminalPrinter := terminal.NewTerminalPrinter()
-		printAvailableAddons(allAddons, terminalPrinter)
+	duration := time.Since(start)
+
+	if err != nil {
+		return err
 	}
+
+	if cmdResult.Error != nil {
+		if isErrLinuxOnly(*cmdResult.Error) {
+			terminalPrinter.PrintInfoln("Cannot export addons in Linux-only setup")
+			return nil
+		}
+
+		return cmdResult.Error.ToError()
+	}
+
+	common.PrintCompletedMessage(duration, "addons export")
 
 	return nil
 }
 
-func buildExportCmdForSpecificAddons(ccmd *cobra.Command, addonsToExport []string) (string, error) {
-	exportPath, err := ccmd.Flags().GetString(directoryLabel)
+func buildPsCmd(cmd *cobra.Command, addonsToExport ...string) (psCmd string, params []string, err error) {
+	exportPath, err := cmd.Flags().GetString(directoryLabel)
 	if err != nil {
-		return "", fmt.Errorf("unable to parse flag: %s", directoryLabel)
+		return "", nil, fmt.Errorf("unable to parse flag: %s", directoryLabel)
 	}
 	if exportPath == "" {
-		return "", errors.New("no export path provided")
+		return "", nil, errors.New("no export path provided")
 	}
 
-	names := ""
-	for _, addon := range addonsToExport {
-		names += utils.EscapeWithSingleQuotes(addon) + ","
+	psCmd = utils.FormatScriptFilePath(utils.GetInstallationDirectory() + "\\addons\\Export.ps1")
+	params = append(params, " -ExportDir "+utils.EscapeWithSingleQuotes(exportPath))
+
+	if len(addonsToExport) > 0 {
+		names := ""
+		for _, addon := range addonsToExport {
+			names += utils.EscapeWithSingleQuotes(addon) + ","
+		}
+		names = names[:len(names)-1]
+
+		params = append(params, " -Names "+names)
+	} else {
+		params = append(params, " -All")
 	}
-	names = names[:len(names)-1]
 
-	exportCommand := utils.FormatScriptFilePath(utils.GetInstallationDirectory()+"\\addons\\Export.ps1") + " -ExportDir " + utils.EscapeWithSingleQuotes(exportPath) + " -Names " + names
-
-	outputFlag, err := strconv.ParseBool(ccmd.Flags().Lookup(p.OutputFlagName).Value.String())
+	outputFlag, err := strconv.ParseBool(cmd.Flags().Lookup(p.OutputFlagName).Value.String())
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 
 	if outputFlag {
-		exportCommand += " -ShowLogs"
+		params = append(params, " -ShowLogs")
 	}
 
-	httpProxy, err := ccmd.Flags().GetString(proxyLabel)
+	httpProxy, err := cmd.Flags().GetString(proxyLabel)
 	if err != nil {
-		return "", fmt.Errorf("unable to parse flag: %s", proxyLabel)
+		return "", nil, fmt.Errorf("unable to parse flag: %s", proxyLabel)
 	}
 
 	if httpProxy != "" {
-		exportCommand += " -Proxy " + httpProxy
+		params = append(params, " -Proxy "+httpProxy)
 	}
 
-	return exportCommand, nil
+	return
 }
 
-func buildExportCmdForAllAddons(ccmd *cobra.Command) (string, error) {
-	exportPath, err := ccmd.Flags().GetString(directoryLabel)
-	if err != nil {
-		return "", fmt.Errorf("unable to parse flag: %s", directoryLabel)
-	}
-	if exportPath == "" {
-		return "", errors.New("no export path provided")
-	}
-
-	exportCommand := utils.FormatScriptFilePath(utils.GetInstallationDirectory()+"\\addons\\Export.ps1") + " -ExportDir " + utils.EscapeWithSingleQuotes(exportPath) + " -All"
-
-	outputFlag, err := strconv.ParseBool(ccmd.Flags().Lookup(p.OutputFlagName).Value.String())
-	if err != nil {
-		return "", err
-	}
-
-	if outputFlag {
-		exportCommand += " -ShowLogs"
-	}
-
-	httpProxy, err := ccmd.Flags().GetString(proxyLabel)
-	if err != nil {
-		return "", fmt.Errorf("unable to parse flag: %s", proxyLabel)
-	}
-
-	if httpProxy != "" {
-		exportCommand += " -Proxy " + httpProxy
-	}
-
-	return exportCommand, nil
-}
-
-func printAvailableAddons(allAddons addons.Addons, terminalPrinter terminal.TerminalPrinter) {
-	terminalPrinter.PrintHeader("Please check Addons spelling, not all specified Addons found!")
-	terminalPrinter.Println()
-	terminalPrinter.PrintHeader("Available Addons to export:")
-
-	tableHeaders := []string{"NAME"}
-	addonTable := [][]string{tableHeaders}
-
-	for _, addon := range allAddons {
-		row := []string{string(addon.Metadata.Name)}
-		addonTable = append(addonTable, row)
-	}
-
-	terminalPrinter.PrintTableWithHeaders(addonTable)
+func isErrLinuxOnly(error ac.AddonCmdError) bool {
+	return error == errLinuxOnlyMsg
 }
