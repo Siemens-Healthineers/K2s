@@ -130,6 +130,8 @@ func executePowershellScriptWithDataSubscription(cmdString string, options ...Ex
 		return nil, err
 	}
 
+	cmd.Stdin = os.Stdin
+
 	dataObjects := []interface {
 		Data() []byte
 		Type() string
