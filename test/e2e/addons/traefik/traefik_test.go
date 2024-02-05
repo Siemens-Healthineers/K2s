@@ -46,6 +46,12 @@ var _ = Describe("'traefik' addon", Ordered, func() {
 		Expect(status.IsAddonEnabled("traefik")).To(BeFalse())
 	})
 
+	It("prints already-disabled message", func(ctx context.Context) {
+		output := suite.K2sCli().Run(ctx, "addons", "disable", "traefik")
+
+		Expect(output).To(ContainSubstring("already disabled"))
+	})
+
 	It("is in enabled state and pods are in running state", func(ctx context.Context) {
 		suite.K2sCli().Run(ctx, "addons", "enable", "traefik", "-o")
 
@@ -55,6 +61,12 @@ var _ = Describe("'traefik' addon", Ordered, func() {
 
 		status := suite.K2sCli().GetStatus(ctx)
 		Expect(status.IsAddonEnabled("traefik")).To(BeTrue())
+	})
+
+	It("prints already-enabled message", func(ctx context.Context) {
+		output := suite.K2sCli().Run(ctx, "addons", "enable", "traefik")
+
+		Expect(output).To(ContainSubstring("already enabled"))
 	})
 
 	It("sample app is reachable through traefik ingress controller", func(ctx context.Context) {

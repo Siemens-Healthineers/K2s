@@ -20,7 +20,11 @@ Param (
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
     [switch] $ShowLogs = $false,
     [parameter(Mandatory = $false, HelpMessage = 'JSON config object to override preceeding parameters')]
-    [pscustomobject] $Config
+    [pscustomobject] $Config,
+    [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
+    [switch] $EncodeStructuredOutput,
+    [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
+    [string] $MessageType
 )
 &$PSScriptRoot\..\..\smallsetup\common\GlobalVariables.ps1
 . $PSScriptRoot\..\..\smallsetup\common\GlobalFunctions.ps1
@@ -29,8 +33,9 @@ Param (
 $logModule = "$PSScriptRoot/../../smallsetup/ps-modules/log/log.module.psm1"
 $statusModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/status/status.module.psm1"
 $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
+$cliMessagesModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/cli-messages/cli-messages.module.psm1"
 
-Import-Module $logModule, $addonsModule, $statusModule
+Import-Module $logModule, $addonsModule, $statusModule, $cliMessagesModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -38,20 +43,45 @@ Write-Log 'Checking cluster status' -Console
 
 $systemError = Test-SystemAvailability
 if ($systemError) {
-    throw $systemError
+    if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = $systemError }
+        return
+    }
+
+    Write-Log $systemError -Error
+    exit 1
 }
 
 if ((Test-IsAddonEnabled -Name 'traefik') -eq $true) {
     Write-Log "Addon 'traefik' is already enabled, nothing to do." -Console
+
+    if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = $null }
+    }
+    
     exit 0
 }
 
 if ((Test-IsAddonEnabled -Name 'ingress-nginx') -eq $true) {
-    throw "Addon 'ingress-nginx' is enabled. Disable it first to avoid port conflicts."
+    $errMsg = "Addon 'ingress-nginx' is enabled. Disable it first to avoid port conflicts."
+    if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+        return
+    }
+
+    Write-Log $errMsg -Error
+    exit 1
 }
 
 if ((Test-IsAddonEnabled -Name 'gateway-nginx') -eq $true) {
-    throw "Addon 'gateway-nginx' is enabled. Disable it first to avoid port conflicts."
+    $errMsg = "Addon 'gateway-nginx' is enabled. Disable it first to avoid port conflicts."
+    if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+        return
+    }
+
+    Write-Log $errMsg -Error
+    exit 1
 }
 
 Write-Log 'Installing Traefik Ingress controller' -Console
@@ -70,14 +100,23 @@ else {
 }
 &$global:KubectlExe patch svc traefik -p "$patchJson" -n traefik | Write-Log
 
-if ($allPodsAreUp) {
-    Write-Log 'All traefik pods are up and ready.' -Console
+if ($allPodsAreUp -ne $true) {
+    $errMsg = "All traefik pods could not become ready. Please use kubectl describe for more details.`nInstallation of traefik addon failed"
+    if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+        return
+    }
 
-    Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'traefik' })
-
-    Write-Log 'Installation of Traefik addon finished.' -Console
+    Write-Log $errMsg -Error
+    exit 1 
 }
-else {
-    Write-Error 'All traefik pods could not become ready. Please use kubectl describe for more details.'
-    Log-ErrorWithThrow 'Installation of traefik addon failed'
+
+Write-Log 'All traefik pods are up and ready.' -Console
+
+Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'traefik' })
+
+Write-Log 'Installation of Traefik addon finished.' -Console
+
+if ($EncodeStructuredOutput -eq $true) {
+    Send-ToCli -MessageType $MessageType -Message @{Error = $null }
 }

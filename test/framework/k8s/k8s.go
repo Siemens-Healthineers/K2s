@@ -364,7 +364,7 @@ func (c *Cluster) ExpectPodsUnderDeploymentReady(ctx context.Context, labelName 
 	Expect(err).To(BeNil())
 
 	Eventually(func() bool {
-		pods, err := clientSet.CoreV1().Pods(namespace).List(context.TODO(), metav1.ListOptions{
+		pods, err := clientSet.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{
 			LabelSelector: fmt.Sprintf("%s=%s", labelName, deploymentName)})
 		if err != nil {
 			return false
