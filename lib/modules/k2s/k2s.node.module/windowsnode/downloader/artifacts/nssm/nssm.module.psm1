@@ -111,7 +111,7 @@ function Start-ServiceAndSetToAutoStart {
             $nssm = "$nssmInstallDirectoryLegacy\nssm.exe"
         }
         Write-Log ('Changing service to auto startup and starting: ' + $Name)
-        &$nssm set $Name Start SERVICE_AUTO_START | Out-Null
+        &$nssm set $Name Start SERVICE_AUTO_START 2>&1 | Out-Null
         Start-Service $Name -WarningAction SilentlyContinue
         Write-Log "service started: $Name"
     }
@@ -126,7 +126,7 @@ function Stop-ServiceAndSetToManualStart($serviceName) {
         }
         Write-Log ('Stopping service and set to manual startup: ' + $serviceName)
         Stop-Service $serviceName
-        &$nssm set $serviceName Start SERVICE_DEMAND_START | Out-Null
+        &$nssm set $serviceName Start SERVICE_DEMAND_START 2>&1 | Out-Null
     }
 }
 

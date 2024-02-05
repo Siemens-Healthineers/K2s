@@ -214,7 +214,7 @@ $ErrorActionPreference = 'Continue'
 Wait-ForSSHConnectionToLinuxVMViaSshKey
 Wait-ForSSHConnectionToWindowsVMViaSshKey
 
-Invoke-TimeSync -WorkerVM
+Invoke-TimeSync -WorkerVM:$true
 
 $ErrorActionPreference = 'Stop'
 
@@ -270,7 +270,6 @@ Invoke-Command -Session $session {
     Write-Output "Using network adapter '$adapterName'"
     Enable-LoopbackAdapter
 
-    Import-Module "$kubePath\smallsetup\hns.v2.psm1" -WarningAction:SilentlyContinue -Force
     New-ExternalSwitch -adapterName $adapterName
 
     $ipindexEthernet = Get-NetIPInterface | Where-Object InterfaceAlias -Like "*vEthernet ($adapterName*)*" | Where-Object AddressFamily -Eq IPv4 | Select-Object -expand 'ifIndex'
@@ -345,7 +344,7 @@ Invoke-Command -Session $session {
             Write-Output "Remove obsolete route to $using:clusterCIDRWorker"
             route delete $using:clusterCIDRWorker >$null 2>&1
             Write-Output "Add route to $using:clusterCIDRWorker"
-            route -p add $using:clusterCIDRWorker $clusterCIDRNextHop METRIC 5 | Out-Null
+            route -p add $using:clusterCIDRWorker $using:clusterCIDRNextHop METRIC 5 | Out-Null
 
             Write-Output "Networking setup done.`n"
             break;
