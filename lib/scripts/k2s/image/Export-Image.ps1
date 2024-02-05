@@ -27,7 +27,7 @@ Export as docker archive (default OCI archive)
 Show all logs in terminal
 
 .EXAMPLE
-# Export container image with name "image:v1" to C:\temp\tmp.tar 
+# Export container image with name "image:v1" to C:\temp\tmp.tar
 PS> .\Export-Image.ps1 -Name "image:v1" -ExportPath "C:\temp\tmp.tar"
 
 .EXAMPLE
@@ -121,7 +121,7 @@ if ($foundLinuxImages.Count -eq 1) {
     else {
         $imageFullName = "${imageName}:${imageTag}"
     }
-    
+
     Write-Log "Exporting image ${imageFullName}. This can take some time..."
 
     $finalExportPath = $ExportPath
@@ -139,7 +139,7 @@ if ($foundLinuxImages.Count -eq 1) {
     else {
         Invoke-CmdOnControlPlaneViaSSHKey "sudo buildah push ${imageId} docker-archive:/tmp/${imageId}.tar:${imageFullName} 2>&1" -NoLog
     }
-    
+
     $exportSuccess = $?
     Copy-FromControlPlaneViaSSHKey "/tmp/${imageId}.tar" $finalExportPath
 
@@ -179,8 +179,8 @@ if ($foundWindowsImages.Count -eq 1) {
         $finalExportPath = $path + '\' + $newFileName
     }
 
-    nerdctl -n k8s.io save -o "$finalExportPath" $imageFullName
-    
+    nerdctl -n k8s.io save -o "$finalExportPath" $imageFullName --all-platforms
+
     if ($?) {
         Write-Log "Image ${imageFullName} exported successfully to ${finalExportPath}."
     }

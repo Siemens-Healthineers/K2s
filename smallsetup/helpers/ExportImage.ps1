@@ -100,7 +100,7 @@ if ($foundLinuxImages.Count -eq 1) {
     else {
         $imageFullName = "${imageName}:${imageTag}"
     }
-    
+
     Write-Log "Exporting image ${imageFullName}. This can take some time..."
 
     $finalExportPath = $ExportPath
@@ -118,7 +118,7 @@ if ($foundLinuxImages.Count -eq 1) {
     else {
         ExecCmdMaster "sudo buildah push ${imageId} docker-archive:/tmp/${imageId}.tar:${imageFullName} 2>&1" -NoLog
     }
-    
+
     $exportSuccess = $?
     Copy-FromToMaster $($global:Remote_Master + ':' + "/tmp/${imageId}.tar") $finalExportPath
 
@@ -170,15 +170,15 @@ if ($foundWindowsImages.Count -eq 1) {
             &$env:SystemDrive\k\smallsetup\common\GlobalVariables.ps1
 
             New-Item -Path $(Split-path $using:tmpPath) -ItemType Directory -ErrorAction SilentlyContinue
-            &$global:NerdctlExe -n k8s.io save -o $using:tmpPath $using:imageFullName
+            &$global:NerdctlExe -n k8s.io save -o $using:tmpPath $using:imageFullName --all-platforms
         }
 
         scp.exe -r -q -o StrictHostKeyChecking=no -i $global:WindowsVMKey "${global:Admin_WinNode}:$tmpPath" "$finalExportPath" 2>&1 | % { "$_" }
     }
     else {
-        &$global:NerdctlExe -n k8s.io save -o "$finalExportPath" $imageFullName
+        &$global:NerdctlExe -n k8s.io save -o "$finalExportPath" $imageFullName --all-platforms
     }
-    
+
     if ($?) {
         Write-Log "Image ${imageFullName} exported successfully to ${finalExportPath}."
     }
