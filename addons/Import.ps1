@@ -15,28 +15,32 @@ Param (
     [parameter(Mandatory = $false)]
     [string] $ZipFile,
     [parameter(Mandatory = $false, HelpMessage = 'Name of Addons to import')]
-    [string[]] $Names
+    [string[]] $Names,
+    [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
+    [switch] $EncodeStructuredOutput,
+    [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
+    [string] $MessageType
 )
-
-# load global settings
 &$PSScriptRoot\..\smallsetup\common\GlobalVariables.ps1
-# import global functions
 . $PSScriptRoot\..\smallsetup\common\GlobalFunctions.ps1
 
-Import-Module "$PSScriptRoot\..\lib\modules\k2s\k2s.cluster.module\setupinfo\setupinfo.module.psm1"
-Import-Module $PSScriptRoot\..\smallsetup\status\RunningState.module.psm1
-Import-Module $PSScriptRoot\..\smallsetup\ps-modules\log\log.module.psm1
+$statusModule = "$PSScriptRoot/../lib/modules/k2s/k2s.cluster.module/status/status.module.psm1"
+$cliMessagesModule = "$PSScriptRoot/../lib/modules/k2s/k2s.infra.module/cli-messages/cli-messages.module.psm1"
+$logModule = "$PSScriptRoot\..\smallsetup\ps-modules\log\log.module.psm1"
+
+Import-Module $logModule, $cliMessagesModule, $statusModule
+
 Initialize-Logging -ShowLogs:$ShowLogs
 
-$setupInfo = Get-SetupInfo
-if ($setupInfo.ValidationError) {
-    throw $setupInfo.ValidationError
-}
+$systemError = Test-SystemAvailability
+if ($systemError) {
+    if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = $systemError }
+        return
+    }
 
-$clusterState = Get-RunningState -SetupType $setupInfo.Name
-
-if ($clusterState.IsRunning -ne $true) {
-    throw "Cannot import addons when system is not running. Please start the system with 'k2s start'."
+    Write-Log $systemError -Error
+    exit 1
 }
 
 Write-Log 'Extracting images' -Console
@@ -48,7 +52,13 @@ Expand-Archive $ZipFile -DestinationPath $dir -Force
 
 $exportedAddons = (Get-Content "$extractionFolder\addons.json" | Out-String | ConvertFrom-Json).addons
 if ($null -eq $exportedAddons -or $exportedAddons.Count -lt 1) {
-    Write-Error 'Invalid format for addon import!'
+    $errMsg = 'Invalid format for addon import!'
+    if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+        return
+    }
+                    
+    Write-Log $errMsg -Error
     exit 1
 }
 
@@ -66,7 +76,14 @@ if ($Names.Count -gt 0) {
 
         if ($null -eq $foundAddon) {
             Remove-Item -Force "$extractionFolder" -Recurse -Confirm:$False -ErrorAction SilentlyContinue
-            throw "Addon `'$name`' not found in zip package for import!"
+            $errMsg = "Addon `'$name`' not found in zip package for import!"
+            if ($EncodeStructuredOutput -eq $true) {
+                Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+                return
+            }
+                    
+            Write-Log $errMsg -Error
+            exit 1
         }
 
         $addonsToImport += $foundAddon
@@ -134,3 +151,7 @@ Remove-Item -Force "$extractionFolder" -Recurse -Confirm:$False -ErrorAction Sil
 
 Write-Log '---'
 Write-Log "Addons '$($addonsToImport.name)' imported successfully!" -Console
+
+if ($EncodeStructuredOutput -eq $true) {
+    Send-ToCli -MessageType $MessageType -Message @{Error = $null }
+}

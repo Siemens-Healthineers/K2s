@@ -95,4 +95,40 @@ var _ = Describe("addons commands", Ordered, func() {
 			}
 		})
 	})
+
+	Describe("export", func() {
+		It("prints system-not-running message for each addon", func(ctx context.Context) {
+			for _, addon := range addons {
+				GinkgoWriter.Println("Calling addons export for", addon.Metadata.Name)
+
+				output := suite.K2sCli().Run(ctx, "addons", "export", addon.Metadata.Name, "-d", "test-dir")
+
+				Expect(output).To(ContainSubstring("not running"))
+			}
+		})
+
+		It("prints system-not-running message for all addons", func(ctx context.Context) {
+			output := suite.K2sCli().Run(ctx, "addons", "export", "-d", "test-dir")
+
+			Expect(output).To(ContainSubstring("not running"))
+		})
+	})
+
+	Describe("import", func() {
+		It("prints system-not-running message for each addon", func(ctx context.Context) {
+			for _, addon := range addons {
+				GinkgoWriter.Println("Calling addons import for", addon.Metadata.Name)
+
+				output := suite.K2sCli().Run(ctx, "addons", "import", addon.Metadata.Name, "-z", "test-dir")
+
+				Expect(output).To(ContainSubstring("not running"))
+			}
+		})
+
+		It("prints system-not-running message for all addons", func(ctx context.Context) {
+			output := suite.K2sCli().Run(ctx, "addons", "import", "-z", "test-dir")
+
+			Expect(output).To(ContainSubstring("not running"))
+		})
+	})
 })

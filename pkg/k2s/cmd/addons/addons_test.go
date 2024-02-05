@@ -7,8 +7,6 @@ import (
 	"fmt"
 	"k2s/addons"
 	"k2s/cmd/params"
-	"k2s/setupinfo"
-	"k2s/status"
 	"test/reflection"
 	"testing"
 
@@ -775,38 +773,6 @@ var _ = Describe("addons", func() {
 				Expect(convertToPsParam(flag, cmd, addMock.add)).To(Succeed())
 
 				addMock.AssertExpectations(GinkgoT())
-			})
-		})
-	})
-
-	Describe("toError", func() {
-		When("system-not-running error", func() {
-			It("returns system-not-running error", func() {
-				err := addonCmdError(status.ErrNotRunningMsg)
-
-				result := err.toError()
-
-				Expect(result).To(Equal(status.ErrNotRunning))
-			})
-		})
-
-		When("system-not-installed error", func() {
-			It("returns system-not-installed error", func() {
-				err := addonCmdError(setupinfo.ErrNotInstalledMsg)
-
-				result := err.toError()
-
-				Expect(result).To(Equal(setupinfo.ErrNotInstalled))
-			})
-		})
-
-		When("unknown error", func() {
-			It("returns unknown error", func() {
-				err := addonCmdError("oops")
-
-				result := err.toError()
-
-				Expect(result).To(MatchError(ContainSubstring("oops")))
 			})
 		})
 	})

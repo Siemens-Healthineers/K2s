@@ -6,10 +6,14 @@ package addonimport
 import (
 	"errors"
 	"fmt"
+	"k2s/addons"
+	ac "k2s/cmd/addons/cmd/common"
 	"k2s/cmd/common"
 	p "k2s/cmd/params"
+	"k2s/providers/terminal"
 	"k2s/utils"
 	"strconv"
+	"time"
 
 	"github.com/spf13/cobra"
 	"k8s.io/klog/v2"
@@ -33,7 +37,7 @@ func NewCommand() *cobra.Command {
 		Use:     "import ADDON",
 		Short:   "Import an addon from a zip file",
 		Example: importCommandExample,
-		RunE:    importImage,
+		RunE:    runImport,
 	}
 
 	cmd.Flags().StringP(zipLabel, "z", defaultZip, "zip archive of exported addon")
@@ -43,17 +47,33 @@ func NewCommand() *cobra.Command {
 	return cmd
 }
 
-func importImage(cmd *cobra.Command, args []string) error {
-	importCmd, err := buildImportCmd(cmd, args)
+func runImport(cmd *cobra.Command, args []string) error {
+	terminalPrinter := terminal.NewTerminalPrinter()
+	allAddons := addons.AllAddons()
+
+	if !ac.ValidateAddonNames(allAddons, "import", terminalPrinter, args...) {
+		return nil
+	}
+
+	psCmd, params, err := buildPsCmd(cmd, args...)
 	if err != nil {
 		return err
 	}
 
-	klog.V(3).Infof("import command : %s", importCmd)
+	klog.V(4).Infof("PS cmd: '%s', params: '%v'", psCmd, params)
 
-	duration, err := utils.ExecutePowershellScript(importCmd)
+	start := time.Now()
+
+	cmdResult, err := utils.ExecutePsWithStructuredResult[*ac.AddonCmdResult](psCmd, "CmdResult", utils.ExecOptions{}, params...)
+
+	duration := time.Since(start)
+
 	if err != nil {
 		return err
+	}
+
+	if cmdResult.Error != nil {
+		return cmdResult.Error.ToError()
 	}
 
 	common.PrintCompletedMessage(duration, "addons import")
@@ -61,8 +81,8 @@ func importImage(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func buildImportCmd(ccmd *cobra.Command, addons []string) (string, error) {
-	importCommand := utils.FormatScriptFilePath(utils.GetInstallationDirectory() + "\\addons\\Import.ps1")
+func buildPsCmd(cmd *cobra.Command, addons ...string) (psCmd string, params []string, err error) {
+	psCmd = utils.FormatScriptFilePath(utils.GetInstallationDirectory() + "\\addons\\Import.ps1")
 
 	if len(addons) > 0 {
 		names := ""
@@ -71,27 +91,27 @@ func buildImportCmd(ccmd *cobra.Command, addons []string) (string, error) {
 		}
 		names = names[:len(names)-1]
 
-		importCommand += " -Names " + names
+		params = append(params, " -Names "+names)
 	}
 
-	imagePath, err := ccmd.Flags().GetString(zipLabel)
+	imagePath, err := cmd.Flags().GetString(zipLabel)
 	if err != nil {
-		return "", fmt.Errorf("unable to parse flag: %s", zipLabel)
+		return "", nil, fmt.Errorf("unable to parse flag: %s", zipLabel)
 	}
 	if imagePath == "" {
-		return "", errors.New("no path to tar archive provided")
+		return "", nil, errors.New("no path to tar archive provided")
 	}
 
-	importCommand += " -Zipfile " + utils.EscapeWithSingleQuotes(imagePath)
+	params = append(params, " -Zipfile "+utils.EscapeWithSingleQuotes(imagePath))
 
-	outputFlag, err := strconv.ParseBool(ccmd.Flags().Lookup(p.OutputFlagName).Value.String())
+	outputFlag, err := strconv.ParseBool(cmd.Flags().Lookup(p.OutputFlagName).Value.String())
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 
 	if outputFlag {
-		importCommand += " -ShowLogs"
+		params = append(params, " -ShowLogs")
 	}
 
-	return importCommand, nil
+	return
 }

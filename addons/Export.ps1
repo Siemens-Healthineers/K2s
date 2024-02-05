@@ -14,36 +14,46 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'Export all addons')]
     [switch] $All,
     [parameter(Mandatory = $false, HelpMessage = 'Name of Addons to export')]
-    [string[]] $Names
+    [string[]] $Names,
+    [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
+    [switch] $EncodeStructuredOutput,
+    [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
+    [string] $MessageType
 )
-
-# load global settings
 &$PSScriptRoot\..\smallsetup\common\GlobalVariables.ps1
-# import global functions
 . $PSScriptRoot\..\smallsetup\common\GlobalFunctions.ps1
 
-Import-Module $PSScriptRoot\..\smallsetup\helpers\ImageFunctions.module.psm1 -DisableNameChecking
-Import-Module $PSScriptRoot\..\smallsetup\helpers\RegistryFunctions.module.psm1 -DisableNameChecking
-Import-Module $PSScriptRoot\Addons.module.psm1
-Import-Module "$PSScriptRoot\..\lib\modules\k2s\k2s.cluster.module\setupinfo\setupinfo.module.psm1"
-Import-Module $PSScriptRoot\..\smallsetup\status\RunningState.module.psm1
-Import-Module $PSScriptRoot\..\smallsetup\ps-modules\log\log.module.psm1
-Import-Module $PSScriptRoot\..\lib\modules\k2s\k2s.infra.module\yaml\yaml.module.psm1
+$imageFuncModule = "$PSScriptRoot\..\smallsetup\helpers\ImageFunctions.module.psm1"
+$registryFuncModule = "$PSScriptRoot\..\smallsetup\helpers\RegistryFunctions.module.psm1"
+$addonsModule = "$PSScriptRoot\Addons.module.psm1"
+$clusterModule = "$PSScriptRoot\..\lib\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1"
+$logModule = "$PSScriptRoot\..\smallsetup\ps-modules\log\log.module.psm1"
+$infraModule = "$PSScriptRoot\..\lib\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
+
+Import-Module $imageFuncModule, $registryFuncModule, $addonsModule, $clusterModule, $logModule, $infraModule -DisableNameChecking
+
 Initialize-Logging -ShowLogs:$ShowLogs
 
+$systemError = Test-SystemAvailability
+if ($systemError) {
+    if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = $systemError }
+        return
+    }
+
+    Write-Log $systemError -Error
+    exit 1
+}
+
 $setupInfo = Get-SetupInfo
-if ($setupInfo.ValidationError) {
-    throw $setupInfo.ValidationError
-}
+if ($setupInfo.LinuxOnly -eq $true) {
+    if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = 'linux-only' }
+        return
+    }
 
-if ($setupInfo.LinuxOnly) {
-    throw 'Cannot export addons with linux-only setup.'
-}
-
-$clusterState = Get-RunningState -SetupType $setupInfo.Name
-
-if ($clusterState.IsRunning -ne $true) {
-    throw "Cannot export addons when system is not running. Please start the system with 'k2s start'."
+    Write-Log 'Cannot export addons in Linux-only setup' -Error
+    exit 1
 }
 
 Remove-Item -Force "${ExportDir}\addons" -Recurse -Confirm:$False -ErrorAction SilentlyContinue
@@ -75,7 +85,14 @@ else {
         }
 
         if ($null -eq $foundManifest) {
-            throw "no addon with name '$name' found"
+            $errMsg = "no addon with name '$name' found"
+            if ($EncodeStructuredOutput -eq $true) {
+                Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+                return
+            }
+        
+            Write-Log $errMsg -Error
+            exit 1
         }
 
         $addonManifests += $foundManifest
@@ -176,7 +193,14 @@ try {
                     &$global:KubernetesPath\smallsetup\helpers\ExportImage.ps1 -Id $imageToExport.ImageId -ExportPath "${ExportDir}\addons\$($manifest.dir.name)\${count}.tar" -ShowLogs:$ShowLogs
 
                     if (!$?) {
-                        Write-Error "Image $imageNameWithoutTag could not be exported!"
+                        $errMsg = "Image $imageNameWithoutTag could not be exported!"
+                        if ($EncodeStructuredOutput -eq $true) {
+                            Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+                            return
+                        }
+                    
+                        Write-Log $errMsg -Error
+                        exit 1
                     }
 
                     $count += 1
@@ -187,7 +211,14 @@ try {
                     &$global:KubernetesPath\smallsetup\helpers\ExportImage.ps1 -Id $imageToExport.ImageId -ExportPath "${ExportDir}\addons\$($manifest.dir.name)\${count}_win.tar" -ShowLogs:$ShowLogs
 
                     if (!$?) {
-                        Write-Error "Image $imageNameWithoutTag could not be exported!"
+                        $errMsg = "Image $imageNameWithoutTag could not be exported!"
+                        if ($EncodeStructuredOutput -eq $true) {
+                            Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+                            return
+                        }
+                    
+                        Write-Log $errMsg -Error
+                        exit 1
                     }
 
                     $count += 1
@@ -207,11 +238,6 @@ try {
             $repos = $linuxPackages.repos
             if ($repos) {
                 Write-Log 'Adding repos for debian packages download'
-                $setupInfo = Get-SetupInfo
-                if ($setupInfo.ValidationError) {
-                    throw $setupInfo.ValidationError
-                }
-
                 foreach ($repo in $repos) {
                     if ($setupInfo.Name -ne $global:SetupType_MultiVMK8s) {
                         $repoWithReplacedHttpProxyPlaceHolder = $repo.Replace('__LOCAL_HTTP_PROXY__', $global:HttpProxy)
@@ -282,3 +308,7 @@ Compress-Archive -Path "${ExportDir}\addons" -DestinationPath "${ExportDir}\addo
 Remove-Item -Force "${ExportDir}\addons" -Recurse -Confirm:$False -ErrorAction SilentlyContinue
 Write-Log '---'
 Write-Log "Addons exported successfully to ${ExportDir}\addons.zip" -Console
+
+if ($EncodeStructuredOutput -eq $true) {
+    Send-ToCli -MessageType $MessageType -Message @{Error = $null }
+}
