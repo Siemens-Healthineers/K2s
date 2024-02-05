@@ -179,34 +179,7 @@ func runCmd(cmd *cobra.Command, addon addons.Addon, cmdName string) error {
 	klog.V(4).Infof("Running '%s' for '%s' addon..", cmdName, addon.Metadata.Name)
 	pterm.Printfln("🤖 Running '%s' for '%s' addon", cmdName, addon.Metadata.Name)
 
-	// TODO: remove when all addons are migrated to structured results
-	if addon.Metadata.Name == "dashboard" || addon.Metadata.Name == "exthttpaccess" || addon.Metadata.Name == "gateway-nginx" || addon.Metadata.Name == "gpu-node" ||
-		addon.Metadata.Name == "ingress-nginx" || addon.Metadata.Name == "kubevirt" || addon.Metadata.Name == "metrics-server" || addon.Metadata.Name == "monitoring" ||
-		addon.Metadata.Name == "registry" || addon.Metadata.Name == "smb-share" || addon.Metadata.Name == "traefik" {
-		klog.V(4).Infof("Running new structured result version of cmd '%s' for addon '%s'", cmdName, addon.Metadata.Name)
-
-		return runCmdV2(cmd, addon, cmdName)
-	}
-
-	psCmd, err := buildPsCmd(cmd.Flags(), (*addon.Spec.Commands)[cmdName], addon.Directory)
-	if err != nil {
-		return err
-	}
-
-	klog.V(4).Info("PS cmd: ", psCmd)
-
-	duration, err := utils.ExecutePowershellScript(psCmd)
-	if err != nil {
-		return err
-	}
-
-	common.PrintCompletedMessage(duration, fmt.Sprintf("addons %s %s", cmdName, addon.Metadata.Name))
-
-	return nil
-}
-
-func runCmdV2(cmd *cobra.Command, addon addons.Addon, cmdName string) error {
-	psCmd, params, err := buildPsCmdV2(cmd.Flags(), (*addon.Spec.Commands)[cmdName], addon.Directory)
+	psCmd, params, err := buildPsCmd(cmd.Flags(), (*addon.Spec.Commands)[cmdName], addon.Directory)
 	if err != nil {
 		return err
 	}
@@ -231,23 +204,9 @@ func runCmdV2(cmd *cobra.Command, addon addons.Addon, cmdName string) error {
 	return nil
 }
 
-func (err addonCmdError) toError() error {
-	if ks.IsErrNotRunning(string(err)) {
-		return ks.ErrNotRunning
-	}
-	if setupinfo.IsErrNotInstalled(string(err)) {
-		return setupinfo.ErrNotInstalled
-	}
-
-	return errors.New(string(err))
-}
-
-func buildPsCmdV2(flags *pflag.FlagSet, cmdConfig addons.AddonCmd, addonDir string) (string, []string, error) {
-	cmd := utils.FormatScriptFilePath(filepath.Join(addonDir, cmdConfig.Script.SubPath))
-	params := []string{}
+func buildPsCmd(flags *pflag.FlagSet, cmdConfig addons.AddonCmd, addonDir string) (cmd string, params []string, err error) {
+	cmd = utils.FormatScriptFilePath(filepath.Join(addonDir, cmdConfig.Script.SubPath))
 	addParam := func(param string) { params = append(params, param) }
-
-	var err error
 
 	flags.Visit(func(f *pflag.Flag) {
 		if err != nil {
@@ -261,23 +220,15 @@ func buildPsCmdV2(flags *pflag.FlagSet, cmdConfig addons.AddonCmd, addonDir stri
 	return cmd, params, err
 }
 
-// TODO: remove when all addons are migrated to structured results
-func buildPsCmd(flags *pflag.FlagSet, cmdConfig addons.AddonCmd, addonDir string) (string, error) {
-	cmd := utils.FormatScriptFilePath(filepath.Join(addonDir, cmdConfig.Script.SubPath))
-	addParam := func(param string) { cmd += fmt.Sprintf(" %s", param) }
+func (err addonCmdError) toError() error {
+	if ks.IsErrNotRunning(string(err)) {
+		return ks.ErrNotRunning
+	}
+	if setupinfo.IsErrNotInstalled(string(err)) {
+		return setupinfo.ErrNotInstalled
+	}
 
-	var err error
-
-	flags.Visit(func(f *pflag.Flag) {
-		if err != nil {
-			klog.V(4).Infof("previous error detected, skipping flag '%s'..", f.Name)
-			return
-		}
-
-		err = convertToPsParam(f, cmdConfig, addParam)
-	})
-
-	return cmd, err
+	return errors.New(string(err))
 }
 
 func convertToPsParam(flag *pflag.Flag, cmdConfig addons.AddonCmd, add func(string)) error {
