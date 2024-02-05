@@ -461,4 +461,4 @@ function Uninstall-LinuxNode {
     Remove-SshKey
 }
 
-Export-ModuleMember Initialize-LinuxNode, Uninstall-LinuxNode
+Export-ModuleMember Initialize-LinuxNode, Uninstall-LinuxNode, Remove-SshKey

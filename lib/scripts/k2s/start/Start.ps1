@@ -51,49 +51,6 @@ function Get-NeedsStopFirst () {
     return $false
 }
 
-function Set-IPAdressAndDnsClientServerAddress {
-    param (
-        [Parameter()]
-        [ValidateNotNullOrEmpty()]
-        [string] $IPAddress = $(throw 'Please specify the target IP address.'),
-        [Parameter()]
-        [ValidateNotNullOrEmpty()]
-        [string] $DefaultGateway = $(throw 'Please specify the default gateway.'),
-        [Parameter()]
-        [ValidateNotNullOrEmpty()]
-        [UInt32] $Index = $(throw 'Please specify index of card.'),
-        [Parameter(Mandatory = $False)]
-        [string[]]$DnsAddresses = @('8.8.8.8', '8.8.4.4')
-
-    )
-    New-NetIPAddress -IPAddress $IPAddress -PrefixLength 24 -InterfaceIndex $Index -DefaultGateway $DefaultGateway -ErrorAction SilentlyContinue | Out-Null
-    if ($DnsAddresses.Count -eq 0) {
-        $DnsAddresses = $('8.8.8.8', '8.8.4.4')
-    }
-    Set-DnsClientServerAddress -InterfaceIndex $Index -Addresses $DnsAddresses
-
-    if ( !(Test-Path "$kubePath\bin\dnsproxy.yaml")) {
-        Write-Log '           dnsproxy.exe is not configured, skipping DNS server config...'
-        return
-    }
-
-    $nameServer = $DnsAddresses[0]
-    $nameServerSet = Get-Content "$kubePath\bin\dnsproxy.yaml" | Select-String -Pattern $DnsAddresses[0]
-
-    if ( $nameServerSet ) {
-        Write-Log '           DNS Server is already configured in dnsproxy.yaml (config for dnsproxy.exe)'
-        return
-    }
-
-    #Last entry in the dnsproxy.yaml is reserved for default DNS Server, we will replace the default one with machine DNS server
-    $existingNameServer = Get-Content "$kubePath\bin\dnsproxy.yaml" | Select-String -Pattern '  -' | Select-Object -Last 1 | Select-Object -ExpandProperty Line
-    $existingNameServer = $existingNameServer.Substring(4)
-    Write-Log "           Existing DNS Address in dnsproxy.yaml $existingNameServer"
-    Write-Log "           Updating dnsproxy.yaml (config for dnsproxy.exe) with DNS Address $nameServer"
-    $newContent = Get-content "$kubePath\bin\dnsproxy.yaml" | ForEach-Object { $_ -replace $existingNameServer, """$nameServer""" }
-    $newContent | Set-Content "$kubePath\bin\dnsproxy.yaml"
-}
-
 function Update-IpAddress {
     param (
         [Parameter()]
