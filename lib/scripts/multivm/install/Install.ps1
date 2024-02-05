@@ -289,7 +289,7 @@ Initialize-VMKubernetesCluster -VMName $multiVMWindowsVMName `
 
 if (! $SkipStart) {
     Write-Log 'Starting Kubernetes system ...'
-    & "$PSScriptRoot\..\stop\Start.ps1" -HideHeaders -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs
+    & "$PSScriptRoot\..\start\Start.ps1" -HideHeaders -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs
 }
 
 Invoke-Hook -HookName 'AfterBaseInstall' -AdditionalHooksDir $AdditionalHooksDir
