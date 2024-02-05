@@ -496,10 +496,11 @@ var _ = Describe("addons", func() {
 				}
 				flagSet := &pflag.FlagSet{}
 
-				result, err := buildPsCmd(flagSet, cmd, dir)
+				psCmd, params, err := buildPsCmd(flagSet, cmd, dir)
 
 				Expect(err).ToNot(HaveOccurred())
-				Expect(result).To(Equal("&'test-dir\\test.script'"))
+				Expect(psCmd).To(Equal("&'test-dir\\test.script'"))
+				Expect(params).To(BeEmpty())
 			})
 		})
 
@@ -545,10 +546,11 @@ var _ = Describe("addons", func() {
 				Expect(flagSet.Set(maliciousFlagName, "invalid")).To(Succeed())
 				Expect(flagSet.Set(normalFlagName, "valid")).To(Succeed())
 
-				result, err := buildPsCmd(flagSet, cmd, dir)
+				result, params, err := buildPsCmd(flagSet, cmd, dir)
 
 				Expect(err).To(HaveOccurred())
 				Expect(result).To(Equal("&'test-dir\\test.script'"))
+				Expect(params).To(BeEmpty())
 			})
 		})
 
@@ -591,10 +593,11 @@ var _ = Describe("addons", func() {
 				Expect(flagSet.Set(flag1Name, "v1")).To(Succeed())
 				Expect(flagSet.Set(flag2Name, "v2")).To(Succeed())
 
-				result, err := buildPsCmd(flagSet, cmd, dir)
+				result, params, err := buildPsCmd(flagSet, cmd, dir)
 
 				Expect(err).ToNot(HaveOccurred())
-				Expect(result).To(Equal("&'test-dir\\test.script' -p1 v1 -p2 v2"))
+				Expect(result).To(Equal("&'test-dir\\test.script'"))
+				Expect(params).To(ConsistOf("-p1 v1", "-p2 v2"))
 			})
 		})
 	})

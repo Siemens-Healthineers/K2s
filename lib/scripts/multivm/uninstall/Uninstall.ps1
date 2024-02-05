@@ -48,7 +48,8 @@ $infraModule = "$PSScriptRoot/../../../modules/k2s/k2s.infra.module/k2s.infra.mo
 $nodeModule = "$PSScriptRoot/../../../modules/k2s/k2s.node.module/k2s.node.module.psm1"
 $clusterModule = "$PSScriptRoot/../../../modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 Import-Module $infraModule, $nodeModule, $clusterModule
-Import-Module "$PSScriptRoot/../../addons/addons.module.psm1"
+$kubePath = Get-KubePath
+Import-Module "$kubePath/addons/addons.module.psm1"
 
 $multiVMWindowsVMName = Get-ConfigVMNodeHostname
 
@@ -97,6 +98,7 @@ Invoke-AddonsHooks -HookType 'AfterUninstall'
 
 Remove-SshKey
 Remove-VMSshKey
+Remove-DefaultNetNat
 
 if ($global:PurgeOnUninstall) {
     $setupFilePath = Get-SetupConfigFilePath
