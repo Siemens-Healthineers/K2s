@@ -8,12 +8,11 @@ import (
 	"fmt"
 	"k2s/addons"
 	"k2s/cmd/addons/cmd/addonimport"
+	ac "k2s/cmd/addons/cmd/common"
 	"k2s/cmd/addons/cmd/export"
 	"k2s/cmd/addons/cmd/list"
 	"k2s/cmd/addons/cmd/status"
 	"k2s/cmd/common"
-	"k2s/setupinfo"
-	ks "k2s/status"
 	"k2s/utils/logging"
 	"os"
 	"slices"
@@ -32,12 +31,6 @@ import (
 	"github.com/spf13/pflag"
 	"k8s.io/klog/v2"
 )
-
-type addonCmdError string
-
-type addonCmdResult struct {
-	Error *addonCmdError `json:"error"`
-}
 
 func NewCmd() *cobra.Command {
 	var cmd = &cobra.Command{
@@ -188,7 +181,7 @@ func runCmd(cmd *cobra.Command, addon addons.Addon, cmdName string) error {
 
 	start := time.Now()
 
-	cmdResult, err := utils.ExecutePsWithStructuredResult[*addonCmdResult](psCmd, "CmdResult", utils.ExecOptions{}, params...)
+	cmdResult, err := utils.ExecutePsWithStructuredResult[*ac.AddonCmdResult](psCmd, "CmdResult", utils.ExecOptions{}, params...)
 
 	duration := time.Since(start)
 
@@ -197,7 +190,7 @@ func runCmd(cmd *cobra.Command, addon addons.Addon, cmdName string) error {
 	}
 
 	if cmdResult.Error != nil {
-		return cmdResult.Error.toError()
+		return cmdResult.Error.ToError()
 	}
 
 	common.PrintCompletedMessage(duration, fmt.Sprintf("addons %s %s", cmdName, addon.Metadata.Name))
@@ -218,17 +211,6 @@ func buildPsCmd(flags *pflag.FlagSet, cmdConfig addons.AddonCmd, addonDir string
 	})
 
 	return cmd, params, err
-}
-
-func (err addonCmdError) toError() error {
-	if ks.IsErrNotRunning(string(err)) {
-		return ks.ErrNotRunning
-	}
-	if setupinfo.IsErrNotInstalled(string(err)) {
-		return setupinfo.ErrNotInstalled
-	}
-
-	return errors.New(string(err))
 }
 
 func convertToPsParam(flag *pflag.Flag, cmdConfig addons.AddonCmd, add func(string)) error {

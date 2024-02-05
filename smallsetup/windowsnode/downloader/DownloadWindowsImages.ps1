@@ -101,7 +101,7 @@ function DownloadWindowsImages($baseDirectory) {
         }
 
         Write-Log "Export image '$sandboxImageName' to '$tarFilePath'"
-        &$global:NerdctlExe -n="k8s.io" save -o `"$tarFilePath`" "$sandboxImageName"
+        &$global:NerdctlExe -n="k8s.io" save -o `"$tarFilePath`" "$sandboxImageName" --all-platforms
         if (!$?) {
             throw "The image '$sandboxImageName' could not be exported"
         }
