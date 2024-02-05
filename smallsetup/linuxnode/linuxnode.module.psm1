@@ -119,12 +119,12 @@ Function Install-KubernetesArtifacts {
     $executeRemoteCommand = { 
         param(
             $command = $(throw "Argument missing: Command"), 
-            [switch]$IgnoreErrors = $false
+            [switch]$IgnoreErrors = $false, [string]$RepairCmd = $null, [uint16]$Retries = 0
             )
         if ($IgnoreErrors) {
-            ExecCmdMaster -CmdToExecute $command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd" -UsePwd -IgnoreErrors
+            ExecCmdMaster -CmdToExecute $command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd" -UsePwd -Retries $Retries -IgnoreErrors
         } else {
-            ExecCmdMaster -CmdToExecute $command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd" -UsePwd
+            ExecCmdMaster -CmdToExecute $command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd" -UsePwd -Retries $Retries -RepairCmd $RepairCmd
         }
     }
 
@@ -142,8 +142,8 @@ Function Install-KubernetesArtifacts {
     &$executeRemoteCommand "echo @reboot root mount --make-rshared / | sudo tee /etc/cron.d/sharedmount" 
 
     Write-Log "Download and install CRI-O"
-    &$executeRemoteCommand "sudo DEBIAN_FRONTEND=noninteractive apt-get update -qq --yes --allow-releaseinfo-change" 
-    &$executeRemoteCommand "sudo DEBIAN_FRONTEND=noninteractive apt-get install -y gpg" 
+    &$executeRemoteCommand "sudo DEBIAN_FRONTEND=noninteractive apt-get update -qq --yes --allow-releaseinfo-change" -Retries 2 -RepairCmd "sudo apt --fix-broken install"
+    &$executeRemoteCommand "sudo DEBIAN_FRONTEND=noninteractive apt-get install -y gpg" -Retries 2 -RepairCmd "sudo apt --fix-broken install"
 
     if ( $Proxy -ne '' ) {
         &$executeRemoteCommand "sudo curl --retry 3 --retry-connrefused -so cri-o.v$CrioVersion.tar.gz https://storage.googleapis.com/cri-o/artifacts/cri-o.amd64.v$CrioVersion.tar.gz --proxy $Proxy" -IgnoreErrors 
@@ -203,8 +203,8 @@ Function Install-KubernetesArtifacts {
     }
 
     Write-Log "Install other depended-on tools"
-    &$executeRemoteCommand "sudo apt-get update" 
-    &$executeRemoteCommand "sudo DEBIAN_FRONTEND=noninteractive apt-get install -qq --yes apt-transport-https ca-certificates curl" 
+    &$executeRemoteCommand "sudo apt-get update" -Retries 2 -RepairCmd "sudo apt --fix-broken install"
+    &$executeRemoteCommand "sudo DEBIAN_FRONTEND=noninteractive apt-get install -qq --yes apt-transport-https ca-certificates curl" -Retries 2 -RepairCmd "sudo apt --fix-broken install"
 
     Write-Log "Install kubetools (kubelet, kubeadm, kubectl)"
     $proxyToAdd = ""

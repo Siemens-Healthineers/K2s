@@ -43,34 +43,33 @@ param(
     [switch] $StopDuringUninstall = $false
 )
 
+$infraModule = "$PSScriptRoot/../../../modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
+$nodeModule = "$PSScriptRoot/../../../modules/k2s/k2s.node.module/k2s.node.module.psm1"
+$clusterModule = "$PSScriptRoot/../../../modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
+Import-Module $infraModule, $nodeModule, $clusterModule
+
+$controlPlaneHostName = Get-ConfigControlPlaneNodeHostname
+$multiVMWindowsVMName = Get-ConfigVMNodeHostname
+
 #################################################################################################
 # FUNCTIONS                                                                                     #
 #################################################################################################
 
+
 function Reset-K8sNamespace {
     # reset default namespace
     Write-Log 'Resetting default namespace for Kubernetes ...'
-    &$global:KubectlExe config set-context --current --namespace=default | Out-Null
-}
-
-function Invoke-BeforeVMNetworkingRemovalHook([string]$AdditionalHooksDir) {
-    Invoke-Hook -HookName 'BeforeStopK8sNetwork' -AdditionalHooksDir $AdditionalHooksDir
-}
-
-function Invoke-AfterVMNetworkingRemovalHook([string]$AdditionalHooksDir) {
-    Invoke-Hook -HookName 'AfterStopK8sNetwork' -AdditionalHooksDir $AdditionalHooksDir
+    $kubeToolsPath = Get-KubeToolsPath
+    &"$kubeToolsPath\kubectl.exe" config set-context --current --namespace=default | Out-Null
 }
 
 function Start-WindowsNodeCleanup($session) {
     Invoke-Command -Session $session {
+        Set-Location "$env:SystemDrive\k"
         Set-ExecutionPolicy Bypass -Force -ErrorAction Stop
 
-        # load global settings
-        &$env:SystemDrive\k\smallsetup\common\GlobalVariables.ps1
-
-        # import global functions
-        . $env:SystemDrive\k\smallsetup\common\GlobalFunctions.ps1
-        Import-Module $env:SystemDrive\k\smallsetup\ps-modules\log\log.module.psm1
+        Import-Module $env:SystemDrive\k\lib\modules\k2s\k2s.infra.module\k2s.infra.module.psm1
+        Import-Module $env:SystemDrive\k\lib\modules\k2s\k2s.node.module\k2s.node.module.psm1
         Initialize-Logging -Nested:$true
 
         Stop-ServiceAndSetToManualStart 'kubeproxy'
@@ -86,7 +85,7 @@ function Start-WindowsNodeCleanup($session) {
             $shallRestartDocker = $true
         }
 
-        RemoveExternalSwitch
+        Remove-ExternalSwitch
 
         $hns = $(Get-HNSNetwork)
 
@@ -94,7 +93,7 @@ function Start-WindowsNodeCleanup($session) {
         if ($($hns | Measure-Object).Count -ge 2) {
             Write-Log 'Delete bridge, clear HNSNetwork (short disconnect expected)'
             $hns | Where-Object Name -Like '*cbr0*' | Remove-HNSNetwork -ErrorAction SilentlyContinue
-            $hns | Where-Object Name -Like ('*' + $global:SwitchName + '*') | Remove-HNSNetwork -ErrorAction SilentlyContinue
+            $hns | Where-Object Name -Like ('*' + $cpSwitchName + '*') | Remove-HNSNetwork -ErrorAction SilentlyContinue
         }
 
         Write-Log 'Delete network policies'
@@ -117,14 +116,16 @@ function Start-WindowsNodeCleanup($session) {
 
 function Remove-ObsoleteNetworkAdapterProfiles($session) {
     Invoke-Command -Session $session {
+        Set-Location "$env:SystemDrive\k"
         Set-ExecutionPolicy Bypass -Force -ErrorAction Stop
-        Import-Module $env:SystemDrive\k\smallsetup\ps-modules\log\log.module.psm1
+
+        Import-Module $env:SystemDrive\k\lib\modules\k2s\k2s.infra.module\k2s.infra.module.psm1
         Initialize-Logging -Nested:$true
 
         $devices = @(Get-PnpDevice -class net | Where-Object Status -eq Unknown | Select-Object FriendlyName, InstanceId)
 
         ForEach ($device in $devices) {
-            Write-Log "Removing device '$($device.FriendlyName)'"
+            Write-Output "Removing device '$($device.FriendlyName)'"
 
             $RemoveKey = "HKLM:\SYSTEM\CurrentControlSet\Enum\$($device.InstanceId)"
 
@@ -137,13 +138,6 @@ function Remove-ObsoleteNetworkAdapterProfiles($session) {
 # SCRIPT START                                                                                  #
 #################################################################################################
 
-# load global settings
-&$PSScriptRoot\..\common\GlobalVariables.ps1
-
-# import global functions
-. $PSScriptRoot\..\common\GlobalFunctions.ps1
-
-Import-Module "$PSScriptRoot/../ps-modules/log/log.module.psm1"
 Initialize-Logging -ShowLogs:$ShowLogs
 
 $ErrorActionPreference = 'Continue'
@@ -160,80 +154,70 @@ if ($HideHeaders -ne $true) {
 
 Reset-K8sNamespace
 
-$WSL = Get-WSLFromConfig
-$linuxOnly = Get-LinuxOnlyFromConfig
 
-Write-Log "Stopping $global:VMName VM" -Console
+Write-Log "Stopping $controlPlaneHostName VM" -Console
 
-# no further steps on Linux node
-if ($WSL) {
-    wsl --shutdown
-    Remove-NetIPAddress -IPAddress $global:IP_NextHop -PrefixLength 24 -Confirm:$False -ErrorAction SilentlyContinue
-    Reset-DnsServer $global:WSLSwitchName
+Stop-VirtualMachine -VmName $controlPlaneHostName
 
-    Restart-WinService 'hns'
-    Get-HNSNetwork | Where-Object Name -Like ('*' + $global:WSLSwitchName + '*') | Remove-HNSNetwork -ErrorAction SilentlyContinue
-    Restart-WinService 'WslService'
-}
-else {
-    Stop-VirtualMachine -VmName $global:VMName
-}
+$ipControlPlaneCIDR = Get-ConfiguredControlPlaneCIDR
+$ipNextHop = Get-ConfiguredKubeSwitchIP
+$setupConfigRoot = Get-RootConfigk2s
+$clusterCIDRMaster = $setupConfigRoot.psobject.properties['podNetworkMasterCIDR'].value
+$clusterCIDRWorker = $setupConfigRoot.psobject.properties['podNetworkWorkerCIDR'].value
+$clusterCIDRServicesLinux = $setupConfigRoot.psobject.properties['servicesCIDRLinux'].value
+$clusterCIDRServicesWindows = $setupConfigRoot.psobject.properties['servicesCIDRWindows'].value
 
-if ($linuxOnly -ne $true) {
-    if ((Get-VM -Name $global:MultiVMWindowsVMName) -and !$StopDuringUninstall) {
-        Get-VMNetworkAdapter -VMName $global:MultiVMWindowsVMName | Disconnect-VMNetworkAdapter
+if ((Get-VM -Name $multiVMWindowsVMName) -and !$StopDuringUninstall) {
+    Get-VMNetworkAdapter -VMName $multiVMWindowsVMName | Disconnect-VMNetworkAdapter
 
-        $sw = Get-VMSwitch -Name $global:SwitchName -ErrorAction SilentlyContinue
-        if ( $sw ) {
-            Remove-VMSwitch -Name $global:SwitchName -Force
-        }
-
-        New-VMSwitch -Name $global:SwitchName -SwitchType Internal -MinimumBandwidthMode Weight | Out-Null
-        New-NetIPAddress -IPAddress $global:IP_NextHop -PrefixLength 24 -InterfaceAlias "vEthernet ($global:SwitchName)" | Out-Null
-        Add-DnsServer $global:SwitchName
-
-        $nad = Get-VMNetworkAdapter -VMName $global:MultiVMWindowsVMName
-        if ( !($nad) ) {
-            Write-Log "Adding network adapter to VM '$global:MultiVMWindowsVMName' ..."
-            Add-VMNetworkAdapter -VMName $global:MultiVMWindowsVMName -Name 'Network Adapter'
-        }
-
-        Connect-VMNetworkAdapter -VMName $global:MultiVMWindowsVMName -SwitchName $global:SwitchName
-        # make sure Windows node is online to perform cleanup tasks first
-        Start-VirtualMachine -VmName $global:MultiVMWindowsVMName -Wait
-
-        Wait-ForSSHConnectionToWindowsVMViaSshKey
-
-        $session = Open-RemoteSessionViaSSHKey $global:Admin_WinNode $global:WindowsVMKey
-
-        Write-Log "Stopping K8s services on $global:MultiVMWindowsVMName VM" -Console
-
-        Start-WindowsNodeCleanup $session
+    $cpSwitchName = Get-ControlPlaneNodeDefaultSwitchName
+    $sw = Get-VMSwitch -Name $cpSwitchName -ErrorAction SilentlyContinue
+    if ( $sw ) {
+        Remove-VMSwitch -Name $cpSwitchName -Force
     }
-}
 
+    New-VMSwitch -Name $cpSwitchName -SwitchType Internal -MinimumBandwidthMode Weight | Out-Null
+    New-NetIPAddress -IPAddress $ipNextHop -PrefixLength 24 -InterfaceAlias "vEthernet ($cpSwitchName)" | Out-Null
+    Add-DnsServer $cpSwitchName
+
+    $nad = Get-VMNetworkAdapter -VMName $multiVMWindowsVMName
+    if ( !($nad) ) {
+        Write-Log "Adding network adapter to VM '$multiVMWindowsVMName' ..."
+        Add-VMNetworkAdapter -VMName $multiVMWindowsVMName -Name 'Network Adapter'
+    }
+
+    Connect-VMNetworkAdapter -VMName $multiVMWindowsVMName -SwitchName $cpSwitchName
+    # make sure Windows node is online to perform cleanup tasks first
+    Start-VirtualMachine -VmName $multiVMWindowsVMName -Wait
+
+    Wait-ForSSHConnectionToWindowsVMViaSshKey
+
+    $session = Open-DefaultWinVMRemoteSessionViaSSHKey
+
+    Write-Log "Stopping K8s services on $multiVMWindowsVMName VM" -Console
+
+    Start-WindowsNodeCleanup $session
+}
 
 Write-Log 'Stopping K8s network' -Console
 
-Invoke-BeforeVMNetworkingRemovalHook -AdditionalHooksDir $AdditionalHooksDir
+Invoke-Hook -HookName 'BeforeStopK8sNetwork' -AdditionalHooksDir $AdditionalHooksDir
 
-if ($linuxOnly -ne $true) {
-    if (!$StopDuringUninstall) {
-        Remove-ObsoleteNetworkAdapterProfiles $session
-        Get-PSSession | Remove-PSSession
-    }
-
-    Write-Log "Stopping $global:MultiVMWindowsVMName VM" -Console
-    Stop-VirtualMachine -VmName $global:MultiVMWindowsVMName
+if (!$StopDuringUninstall) {
+    Remove-ObsoleteNetworkAdapterProfiles $session
+    Get-PSSession | Remove-PSSession
 }
 
-route delete $global:ClusterCIDR_ServicesLinux >$null 2>&1 | Out-Null
-route delete $global:ClusterCIDR_ServicesWindows >$null 2>&1 | Out-Null
-route delete $global:IP_CIDR >$null 2>&1 | Out-Null
-route delete $global:ClusterCIDR_Host >$null 2>&1 | Out-Null
-route delete $global:ClusterCIDR_Master >$null 2>&1 | Out-Null
+Write-Log "Stopping $multiVMWindowsVMName VM" -Console
+Stop-VirtualMachine -VmName $multiVMWindowsVMName
 
-Invoke-AfterVMNetworkingRemovalHook -AdditionalHooksDir $AdditionalHooksDir
+route delete $clusterCIDRServicesLinux >$null 2>&1 | Out-Null
+route delete $clusterCIDRServicesWindows >$null 2>&1 | Out-Null
+route delete $ipControlPlaneCIDR >$null 2>&1 | Out-Null
+route delete $clusterCIDRWorker >$null 2>&1 | Out-Null
+route delete $clusterCIDRMaster >$null 2>&1 | Out-Null
+
+Invoke-Hook -HookName 'AfterStopK8sNetwork' -AdditionalHooksDir $AdditionalHooksDir
 
 if ($HideHeaders -ne $true) {
     Write-Log '---------------------------------------------------------------'

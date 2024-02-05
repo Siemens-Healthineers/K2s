@@ -17,6 +17,11 @@ Import-Module "$PSScriptRoot\..\..\smallsetup\ps-modules\log\log.module.psm1", "
 Write-Log 'Removing SMB share after cluster deinstallation..' -Console
 
 # no need to cleanup the node VMs, they get deleted anyways
-Disable-SmbShare -SkipNodesCleanup
+$result = (Disable-SmbShare -SkipNodesCleanup)
+
+if ($result.Error) {
+    Write-Log $result.Error -Console
+    exit 1
+}
 
 Write-Log 'SMB share removed after cluster deinstallation.' -Console

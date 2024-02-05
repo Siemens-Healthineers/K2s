@@ -349,9 +349,7 @@ function Initialize-VMKubernetesCluster {
     Disable-PasswordAuthenticationToWinNode
 
     Write-Log "Collecting kubernetes images and storing them to $(Get-KubernetesImagesFilePath)."
-    $windowsImagesRaw = ssh.exe -n -o StrictHostKeyChecking=no -i $windowsVMKey $adminWinNode crictl images 2> $null
-    $winVMNodeName = $VMName.ToLower()
-    Write-KubernetesImagesIntoJson -WindowsImagesRaw $windowsImagesRaw -WindowsNodeName $winVMNodeName
+    Write-KubernetesImagesIntoJson -WorkerVM $true
 }
 
 function Install-KubectlOnHost($KubernetesVersion, $Proxy) {

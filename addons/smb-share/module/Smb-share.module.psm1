@@ -907,17 +907,7 @@ function Remove-SmbShareAndFolder() {
         [parameter(Mandatory = $false)]
         [switch]$SkipNodesCleanup = $false
     )
-    Write-Log 'Removing SMB shares and folders..' -Console
-
-    if ($SkipNodesCleanup -eq $true) {
-        Write-Log 'Skipping SMB share cleanup on VMs..'
-    }
-    else {
-        $systemError = Test-SystemAvailability
-        if ($systemError) {
-            throw $systemError
-        }
-    }
+    Write-Log 'Removing SMB shares and folders..' -Console    
 
     $smbHostType = Get-SmbHostType
     $setupInfo = Get-SetupInfo
@@ -1013,18 +1003,19 @@ function Enable-SmbShare {
     )
     $systemError = Test-SystemAvailability
     if ($systemError) {
-        throw $systemError
+        return @{Error = $systemError }
     }
 
     if ((Test-IsAddonEnabled -Name $AddonName) -eq $true) {
-        Write-Log "Addon '$AddonName' is already enabled, nothing to do."
-        return
+        Write-Log "Addon '$AddonName' is already enabled, nothing to do." -Console
+        return @{Error = 'already-enabled' }
     }
 
     $setupInfo = Get-SetupInfo
 
     if ($setupInfo.Name -ne $global:SetupType_k2s -and $setupInfo.Name -ne $global:SetupType_MultiVMK8s) {
-        throw "Addon '$AddonName' can only be enabled for '$global:SetupType_k2s' or '$global:SetupType_MultiVMK8s' setup type."
+        Write-Log "Addon '$AddonName' can only be enabled for '$global:SetupType_k2s' or '$global:SetupType_MultiVMK8s' setup type." -Console
+        return @{Error = 'wrong-setup-type-for-addon' }
     }
 
     Copy-ScriptsToHooksDir -ScriptPaths $hookFilePaths
@@ -1037,6 +1028,7 @@ function Enable-SmbShare {
     Write-Log -Console "**       - use the StorageClass name '$smbStorageClassName' to provide storage.                       **"
     Write-Log -Console "**         See '<root>\test\e2e\addons\smb-share\workloads\' for example deployments.**"
     Write-Log -Console '***************************************************************************************'
+    return @{Error = $null }
 }
 
 <#
@@ -1058,9 +1050,19 @@ function Disable-SmbShare {
         [parameter(Mandatory = $false)]
         [switch]$SkipNodesCleanup = $false
     )
+    if ($SkipNodesCleanup -eq $true) {
+        Write-Log 'Skipping SMB share cleanup on VMs..'
+    }
+    else {
+        $systemError = Test-SystemAvailability
+        if ($systemError) {
+            return @{Error = $systemError }
+        }
+    }
+
     if ((Test-IsAddonEnabled -Name $AddonName) -ne $true) {
-        Write-Log "Addon '$AddonName' is already disabled, nothing to do."
-        return
+        Write-Log "Addon '$AddonName' is already disabled, nothing to do." -Console
+        return @{Error = 'already-disabled' }
     }
 
     Write-Log "Disabling '$AddonName'.."
@@ -1068,6 +1070,8 @@ function Disable-SmbShare {
     Remove-SmbShareAndFolder -SkipNodesCleanup:$SkipNodesCleanup
     Remove-AddonFromSetupJson -Name $AddonName
     Remove-ScriptsFromHooksDir -ScriptNames $hookFileNames
+
+    return @{Error = $null }
 }
 
 <#

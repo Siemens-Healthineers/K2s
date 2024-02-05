@@ -87,7 +87,7 @@ function New-SshKey() {
 }
 
 function Remove-SshKey {
-    Write-Log 'Remove previous VM key from known_hosts file'
+    Write-Log 'Remove control plane ssh keys from host'
     ssh-keygen.exe -R $ipControlPlane 2>&1 | % { "$_" } | Out-Null
     Remove-Item -Path ($sshConfigDir + '\kubemaster') -Force -Recurse -ErrorAction SilentlyContinue
 }

@@ -81,13 +81,15 @@ function Invoke-CmdOnControlPlaneViaUserAndPwd(
     [Parameter(Mandatory = $false)]
     [uint16]$Retries = 0,
     [Parameter(Mandatory = $false)]
-    [uint16]$Timeout = 1,
+    [uint16]$Timeout = 2,
     [Parameter(Mandatory = $false)]
     [string]$RemoteUser = $remoteUser,
     [Parameter(Mandatory = $false)]
     [string]$RemoteUserPwd = $remotePwd,
     [Parameter(Mandatory = $false)]
-    [switch]$NoLog = $false){
+    [switch]$NoLog = $false,
+    [Parameter(Mandatory = $false)]
+    [string]$RepairCmd = $null){
 
     if (!$NoLog) {
         Write-Log "cmd: $CmdToExecute, retries: $Retries, timeout: $Timeout sec, ignore err: $IgnoreErrors"
@@ -107,6 +109,13 @@ function Invoke-CmdOnControlPlaneViaUserAndPwd(
             }
             else {
                 Write-Log "cmd: $CmdToExecute will be retried.."
+
+                # try to repair the command
+                if( ($null -ne $RepairCmd) -and !$IgnoreErrors) {
+                    Write-Log "Executing repair cmd: $RepairCmd"
+                    &"$plinkExe" -ssh -4 $RemoteUser -pw $RemoteUserPwd -no-antispoof $RepairCmd 2>&1 | ForEach-Object { Write-Log $_ -Console -Raw }
+                }
+                
                 Start-Sleep -Seconds $Timeout
                 $Retrycount = $Retrycount + 1
             }

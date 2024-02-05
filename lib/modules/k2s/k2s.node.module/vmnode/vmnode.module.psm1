@@ -1963,7 +1963,7 @@ function Initialize-WinVMNode {
         Wait-ForSSHConnectionToLinuxVMViaSshKey -Nested:$true
     }
 
-    Write-Log 'Windows node initialized.'
+    Write-Log 'Windows VM worker node initialized.'
 }
 
 function Initialize-SSHConnectionToWinVM($session, $IpAddress) {
@@ -2042,6 +2042,18 @@ function Initialize-SSHConnectionToWinVM($session, $IpAddress) {
     $localSourceFiles = "$sshConfigDir\kubemaster\*"
     Copy-Item -ToSession $session $localSourceFiles -Destination "$remoteTargetDirectory" -Recurse -Force
     Write-Log "Copied private key from local '$localSourceFiles' to remote '$remoteTargetDirectory'."
+}
+
+function Remove-VMSshKey() {
+    Write-Log 'Remove vm node worker ssh keys'
+    $rootConfig = Get-RootConfigk2s
+    $multivmRootConfig = $rootConfig.psobject.properties['multivm'].value
+    $multiVMWinNodeIP = $multivmRootConfig.psobject.properties['multiVMK8sWindowsVMIP'].value
+
+    $sshConfigDir = Get-SshConfigDir
+
+    ssh-keygen.exe -R $multiVMWinNodeIP 2>&1 | % { "$_" }
+    Remove-Item -Path ($sshConfigDir + '\kubemaster') -Force -Recurse -ErrorAction SilentlyContinue
 }
 
 function Initialize-PhysicalNetworkAdapterOnVM ($session) {
@@ -2158,19 +2170,27 @@ function Wait-ForSSHConnectionToWindowsVMViaSshKey() {
     $adminWinNode = Get-DefaultWinVMName
     $windowsVMKey = Get-DefaultWinVMKey
     $multiVMWindowsVMName = Get-ConfigVMNodeHostname
-    Wait-ForSshPossible -RemoteUser $adminWinNode -SshKey $windowsVMKey -SshTestCommand 'whoami' -ExpectedSshTestCommandResult "$multiVMWindowsVMName\administrator" -StrictEqualityCheck
+    Wait-ForSshPossible -User $adminWinNode -SshKey $windowsVMKey -SshTestCommand 'whoami' -ExpectedSshTestCommandResult "$multiVMWindowsVMName\administrator" -StrictEqualityCheck
 }
 
 function Set-VMVFPRules {
     $kubeBinPath = Get-KubeBinPath
-    $file = "$kubeBinPath\bin\cni\vfprules.json"
-    $oldfile = "$kubeBinPath\cni\bin\vfprules.json"
-    Remove-Item -Path $oldfile -Force -ErrorAction SilentlyContinue
+    $file = "$kubeBinPath\cni\vfprules.json"
     Remove-Item -Path $file -Force -ErrorAction SilentlyContinue
 
     $smallsetup = Get-RootConfigk2s
-    $smallsetup.psobject.properties['vfprules-multivm'].value | ConvertTo-Json | Out-File "$kubeBinPath\bin\cni\vfprules.json" -Encoding ascii
+    $smallsetup.psobject.properties['vfprules-multivm'].value | ConvertTo-Json | Out-File "$kubeBinPath\cni\vfprules.json" -Encoding ascii
     Write-Log "Created new version of $file for vm node"
+}
+
+function Invoke-CmdOnVMWorkerNodeViaSSH(
+    [Parameter(Mandatory = $false)]
+    $CmdToExecute)
+{
+    $adminWinNode = Get-DefaultWinVMName
+    $windowsVMKey = Get-DefaultWinVMKey
+
+    ssh.exe -n -o StrictHostKeyChecking=no -i $windowsVMKey $adminWinNode $CmdToExecute 2> $null
 }
 
 Export-ModuleMember Get-IsVmOperating,
@@ -2184,4 +2204,5 @@ Initialize-WinVM, Initialize-WinVMNode,
 Wait-ForSSHConnectionToWindowsVMViaSshKey,Get-DefaultWinVMKey,
 Open-DefaultWinVMRemoteSessionViaSSHKey, Enable-SSHRemotingViaSSHKeyToWinNode,
 Disable-PasswordAuthenticationToWinNode, Get-DefaultWinVMName,
-Set-VMVFPRules
+Set-VMVFPRules, Remove-VMSshKey,
+Invoke-CmdOnVMWorkerNodeViaSSH
