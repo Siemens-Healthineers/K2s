@@ -1237,24 +1237,9 @@ Describe 'Remove-SmbShareAndFolderLinuxHost' -Tag 'unit', 'addon' {
 }
 
 Describe 'Remove-SmbShareAndFolder' -Tag 'unit', 'addon' {
-    Context 'SMB host type invalid' {
-        BeforeAll {
-            Mock -ModuleName $moduleName Write-Log {}
-            Mock -ModuleName $moduleName Get-SmbHostType { return 'invalid' }
-            Mock -ModuleName $moduleName Get-SetupInfo {}
-        }
-
-        It 'throws' {
-            InModuleScope -ModuleName $moduleName {
-                { Remove-SmbShareAndFolder -SkipNodesCleanup } | Should -Throw -ExpectedMessage "invalid SMB host type 'invalid'"
-            }
-        }
-    }
-
     Context 'nodes cleanup skipped' {
         BeforeAll {
             Mock -ModuleName $moduleName Write-Log {}
-            Mock -ModuleName $moduleName Test-SystemAvailability {}
             Mock -ModuleName $moduleName Get-SmbHostType {}
             Mock -ModuleName $moduleName Get-SetupInfo {}
             Mock -ModuleName $moduleName Remove-StorageClass {}
@@ -1264,12 +1249,6 @@ Describe 'Remove-SmbShareAndFolder' -Tag 'unit', 'addon' {
 
             InModuleScope -ModuleName $moduleName {
                 Remove-SmbShareAndFolder -SkipNodesCleanup
-            }
-        }
-
-        It 'does not check cluster availability' {
-            InModuleScope -ModuleName $moduleName {
-                Should -Invoke Test-SystemAvailability -Times 0 -Scope Context
             }
         }
 
@@ -1327,7 +1306,6 @@ Describe 'Remove-SmbShareAndFolder' -Tag 'unit', 'addon' {
     Context 'nodes cleanup not skipped' {
         BeforeAll {
             Mock -ModuleName $moduleName Write-Log {}
-            Mock -ModuleName $moduleName Test-SystemAvailability {}
             Mock -ModuleName $moduleName Get-SmbHostType { }
             Mock -ModuleName $moduleName Get-SetupInfo { return [pscustomobject]@{LinuxOnly = $false } }
             Mock -ModuleName $moduleName Remove-StorageClass {}
@@ -1337,12 +1315,6 @@ Describe 'Remove-SmbShareAndFolder' -Tag 'unit', 'addon' {
 
             InModuleScope -ModuleName $moduleName {
                 Remove-SmbShareAndFolder
-            }
-        }
-
-        It 'does check cluster availability' {
-            InModuleScope -ModuleName $moduleName {
-                Should -Invoke Test-SystemAvailability -Times 1 -Scope Context
             }
         }
 
@@ -1480,22 +1452,22 @@ Describe 'Enable-SmbShare' -Tag 'unit', 'addon' {
             Mock -ModuleName $moduleName Test-SystemAvailability { return 'unavailable' }
         }
 
-        It 'throws' {
-            { Enable-SmbShare -SmbHostType 'Windows' } | Should -Throw -ExpectedMessage 'unavailable'
+        It 'returns error' {
+            (Enable-SmbShare -SmbHostType 'Windows').Error | Should -Be 'unavailable'
+
         }
     }
 
     Context 'addon is already enabled' {
         BeforeAll {
             Mock -ModuleName $moduleName Test-SystemAvailability { }
-            Mock -ModuleName $moduleName Test-IsAddonEnabled { return $true } -ParameterFilter { $Name -eq $AddonName }
             Mock -ModuleName $moduleName Write-Log { }
+            Mock -ModuleName $moduleName Test-IsAddonEnabled { return $true } -ParameterFilter { $Name -eq $AddonName }
         }
 
-        It 'throws' {
+        It 'returns error' {
             InModuleScope -ModuleName $moduleName {
-                Enable-SmbShare -SmbHostType 'Windows'
-                Should -Invoke Write-Log -Times 1 -Scope Context -ParameterFilter { $Messages[0] -match 'is already enabled' }
+                (Enable-SmbShare -SmbHostType 'Windows').Error | Should -Be 'already-enabled' 
             }
         }
     }
@@ -1503,6 +1475,7 @@ Describe 'Enable-SmbShare' -Tag 'unit', 'addon' {
     Context 'system is running' {
         BeforeAll {
             Mock -ModuleName $moduleName Test-SystemAvailability { }
+            Mock -ModuleName $moduleName Write-Log { }
         }
 
         Context 'addon is disabled' {
@@ -1515,8 +1488,8 @@ Describe 'Enable-SmbShare' -Tag 'unit', 'addon' {
                     Mock -ModuleName $moduleName Get-SetupInfo { return [pscustomobject]@{Name = 'invalid-type' } }
                 }
 
-                It 'throws' {
-                    { Enable-SmbShare -SmbHostType 'Linux' } | Should -Throw
+                It 'returns error' {
+                     (Enable-SmbShare -SmbHostType 'Linux' ).Error | Should -Be 'wrong-setup-type-for-addon'
                 }
             }
 
@@ -1529,14 +1502,13 @@ Describe 'Enable-SmbShare' -Tag 'unit', 'addon' {
                     Mock -ModuleName $moduleName Add-AddonToSetupJson { }
                     Mock -ModuleName $moduleName Restore-SmbShareAndFolder { }
                     Mock -ModuleName $moduleName Restore-StorageClass { }
-                    Mock -ModuleName $moduleName Write-Log { }
                 }
 
                 It 'enables the addon passing the correct params' {
                     InModuleScope -ModuleName $moduleName {
                         $smbHostType = 'Linux'
 
-                        Enable-SmbShare -SmbHostType $smbHostType
+                        (Enable-SmbShare -SmbHostType $smbHostType).Error | Should -BeNullOrEmpty
 
                         Should -Invoke Copy-ScriptsToHooksDir -Times 1 -Scope Context
                         Should -Invoke Add-AddonToSetupJson -Times 1 -Scope Context -ParameterFilter { $Addon.Name -eq $AddonName -and $Addon.SmbHostType -eq $smbHostType }
@@ -1552,16 +1524,60 @@ Describe 'Enable-SmbShare' -Tag 'unit', 'addon' {
 }
 
 Describe 'Disable-SmbShare' -Tag 'unit', 'addon' {
+    Context 'node cleanup skipped' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Test-IsAddonEnabled { return $false }
+            Mock -ModuleName $moduleName Write-Log { }
+            Mock -ModuleName $moduleName Test-SystemAvailability { }
+        }
+
+        It 'does not test system availability' {
+            InModuleScope -ModuleName $moduleName {
+                (Disable-SmbShare -SkipNodesCleanup).Error | Should -Be 'already-disabled'
+                
+                Should -Invoke Test-SystemAvailability -Times 0 -Scope Context
+            }
+        }
+    }
+    Context 'node cleanup not skipped' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Write-Log { }
+        }
+
+        Context 'system available' {
+            BeforeAll {
+                Mock -ModuleName $moduleName Test-SystemAvailability { return $null }
+            }
+
+            It 'does not return system error' {
+                InModuleScope -ModuleName $moduleName {
+                    (Disable-SmbShare).Error | Should -Be 'already-disabled'
+                }
+            }
+        }        
+        
+        Context 'system unavailable' {
+            BeforeAll {
+                Mock -ModuleName $moduleName Test-SystemAvailability { return 'oops' }
+            }
+
+            It 'returns error' {
+                InModuleScope -ModuleName $moduleName {
+                    (Disable-SmbShare).Error | Should -Be 'oops'
+                }
+            }
+        }        
+    }
+
     Context 'addon already disabled' {
         BeforeAll {
             Mock -ModuleName $moduleName Test-IsAddonEnabled { return $false }
             Mock -ModuleName $moduleName Write-Log { }
         }
 
-        It 'writes and returns' {
+        It 'returns error' {
             InModuleScope -ModuleName $moduleName {
-                Disable-SmbShare
-                Should -Invoke Write-Log -Times 1 -Scope Context -ParameterFilter { $Messages[0] -match 'is already disabled' }
+                (Disable-SmbShare -SkipNodesCleanup).Error | Should -Be 'already-disabled'
             }
         }
     }
@@ -1577,7 +1593,7 @@ Describe 'Disable-SmbShare' -Tag 'unit', 'addon' {
 
         It 'disables the addon with skip flag set correctly' {
             InModuleScope -ModuleName $moduleName {
-                Disable-SmbShare -SkipNodesCleanup
+                (Disable-SmbShare -SkipNodesCleanup).Error | Should -BeNullOrEmpty
 
                 Should -Invoke Remove-SmbShareAndFolder -Times 1 -Scope Context -ParameterFilter { $SkipNodesCleanup -eq $true }
                 Should -Invoke Remove-AddonFromSetupJson -Times 1 -Scope Context -ParameterFilter { $Name -eq $AddonName }

@@ -74,7 +74,8 @@ var _ = Describe("addons commands", Ordered, func() {
 				// TODO: remove when all addons are migrated to structured results
 				if addon.Metadata.Name != "dashboard" && addon.Metadata.Name != "exthttpaccess" && addon.Metadata.Name != "gateway-nginx" &&
 					addon.Metadata.Name != "gpu-node" && addon.Metadata.Name != "ingress-nginx" && addon.Metadata.Name != "kubevirt" &&
-					addon.Metadata.Name != "metrics-server" && addon.Metadata.Name != "monitoring" && addon.Metadata.Name != "registry" {
+					addon.Metadata.Name != "metrics-server" && addon.Metadata.Name != "monitoring" && addon.Metadata.Name != "registry" &&
+					addon.Metadata.Name != "smb-share" {
 					Skip(fmt.Sprintf("not yet implemented for addon '%s'", addon.Metadata.Name))
 				}
 
@@ -93,13 +94,18 @@ var _ = Describe("addons commands", Ordered, func() {
 				// TODO: remove when all addons are migrated to structured results
 				if addon.Metadata.Name != "dashboard" && addon.Metadata.Name != "exthttpaccess" && addon.Metadata.Name != "gateway-nginx" &&
 					addon.Metadata.Name != "gpu-node" && addon.Metadata.Name != "ingress-nginx" && addon.Metadata.Name != "kubevirt" &&
-					addon.Metadata.Name != "metrics-server" && addon.Metadata.Name != "monitoring" && addon.Metadata.Name != "registry" {
+					addon.Metadata.Name != "metrics-server" && addon.Metadata.Name != "monitoring" && addon.Metadata.Name != "registry" &&
+					addon.Metadata.Name != "smb-share" {
 					Skip(fmt.Sprintf("not yet implemented for addon '%s'", addon.Metadata.Name))
 				}
-
 				GinkgoWriter.Println("Calling addons disable for", addon.Metadata.Name)
 
-				output := suite.K2sCli().Run(ctx, "addons", "disable", addon.Metadata.Name)
+				params := []string{"addons", "disable", addon.Metadata.Name}
+				if addon.Metadata.Name == "smb-share" {
+					params = append(params, "-f") // skip confirmation
+				}
+
+				output := suite.K2sCli().Run(ctx, params...)
 
 				Expect(output).To(ContainSubstring("not running"))
 			}

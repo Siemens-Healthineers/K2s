@@ -136,6 +136,12 @@ var _ = Describe(fmt.Sprintf("%s Addon", addonName), Ordered, func() {
 				expectEnableMessage(output, "windows")
 			})
 
+			It("prints already-enabled message on enable command", func(ctx context.Context) {
+				output := suite.K2sCli().Run(ctx, "addons", "enable", addonName)
+
+				Expect(output).To(ContainSubstring("already enabled"))
+			})
+
 			It("prints the status", func(ctx context.Context) {
 				expectStatusToBePrinted("windows", ctx)
 			})
@@ -208,6 +214,12 @@ var _ = Describe(fmt.Sprintf("%s Addon", addonName), Ordered, func() {
 				output := suite.K2sCli().Run(ctx, "addons", "enable", addonName, "-o", "-t", "linux")
 
 				expectEnableMessage(output, "linux")
+			})
+
+			It("prints already-enabled message on enable command", func(ctx context.Context) {
+				output := suite.K2sCli().Run(ctx, "addons", "enable", addonName)
+
+				Expect(output).To(ContainSubstring("already enabled"))
 			})
 
 			It("prints the status", func(ctx context.Context) {
