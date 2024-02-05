@@ -125,7 +125,7 @@ function Invoke-DownloadWindowsImages($downloadsBaseDirectory, $Proxy) {
         }
 
         Write-Log "Export image '$sandboxImageName' to '$tarFilePath'"
-        &$ctrExe -n="k8s.io" image export `"$tarFilePath`" "$sandboxImageName"
+        &$nerdctlExe -n="k8s.io" save -o `"$tarFilePath`" "$sandboxImageName" --all-platforms
         if (!$?) {
             throw "The image '$sandboxImageName' could not be exported"
         }
