@@ -326,27 +326,32 @@ function Install-WinNodeArtifacts {
         [parameter(Mandatory = $false, HelpMessage = 'HTTP proxy if available')]
         [string] $Proxy = '',
         [parameter(Mandatory = $true, HelpMessage = 'Host machine is a VM: true, Host machine is not a VM')]
-        [bool] $HostVM
+        [bool] $HostVM,
+        [parameter(Mandatory = $false, HelpMessage = 'Skips installation of cluster dependent tools')]
+        [bool] $SkipClusterSetup = $false
     )
 
     Invoke-DeployDockerArtifacts $windowsNodeArtifactsDirectory
     Install-WinDocker -Proxy "$Proxy"
 
     Install-WinContainerd -Proxy "$Proxy"
-    Invoke-DeployWindowsImages $windowsNodeArtifactsDirectory
 
-    Invoke-DeployKubetoolsArtifacts $windowsNodeArtifactsDirectory
-    Install-WinKubelet
+    if (!($SkipClusterSetup)) {
+        Invoke-DeployWindowsImages $windowsNodeArtifactsDirectory
 
-    Invoke-DeployFlannelArtifacts $windowsNodeArtifactsDirectory
-    Invoke-DeployCniPlugins $windowsNodeArtifactsDirectory
-    Invoke-DeployCniFlannelArtifacts $windowsNodeArtifactsDirectory
+        Invoke-DeployKubetoolsArtifacts $windowsNodeArtifactsDirectory
+        Install-WinKubelet
 
-    Install-WinFlannel
-    Install-WinKubeProxy
+        Invoke-DeployFlannelArtifacts $windowsNodeArtifactsDirectory
+        Invoke-DeployCniPlugins $windowsNodeArtifactsDirectory
+        Invoke-DeployCniFlannelArtifacts $windowsNodeArtifactsDirectory
 
-    Invoke-DeployWindowsExporterArtifacts $windowsNodeArtifactsDirectory
-    Install-WindowsExporter
+        Install-WinFlannel
+        Install-WinKubeProxy
+
+        Invoke-DeployWindowsExporterArtifacts $windowsNodeArtifactsDirectory
+        Install-WindowsExporter
+    }
 
     Install-WinHttpProxy -Proxy "$Proxy"
 
