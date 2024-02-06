@@ -63,6 +63,58 @@ if ((Test-IsAddonEnabled -Name 'exthttpaccess') -eq $true) {
   exit 0
 }
 
+function AbortExecutionDueToPortNotAssignable {
+  param (
+    [string]$AbortMessage = $(throw 'Parameter missing: AbortMessage')
+  )
+      if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = $AbortMessage }
+        exit 0
+      }
+  
+      Write-Log $AbortMessage -Error
+      exit 1
+}
+
+function DetermineIfPortIsUsed {
+  param (
+    [string]$Port = $(throw 'Parameter missing: Port')
+  )
+  $processesListeningOnPort = netstat -aon | findstr ":$Port" | findstr "LISTENING"
+
+  return (![string]::IsNullOrWhiteSpace($processesListeningOnPort))
+}
+
+$httpPortNumberToUse = "80"
+$httpsPortNumberToUse = "443"
+
+$isPort80Used = DetermineIfPortIsUsed -Port $httpPortNumberToUse
+$isPort443Used = DetermineIfPortIsUsed -Port $httpsPortNumberToUse
+
+if ($isPort80Used -or $isPort443Used) {
+
+  $title = 'The ports 80 and/or 443 are already in use.'
+  $question = 'Do you want to use the alternative ports 8080/8443 instead?'
+  $choices = @(
+    [System.Management.Automation.Host.ChoiceDescription]::new('&Yes', 'Use the alternative ports 8080/8443.')
+    [System.Management.Automation.Host.ChoiceDescription]::new('&No', 'Abort the addon enabling.')
+)
+  $useAlternativePorts = $Host.UI.PromptForChoice($title, $question, $choices, 0)
+  
+  if ($useAlternativePorts -eq 0) {
+    $httpPortNumberToUse = "8080"
+    $httpsPortNumberToUse = "8443"
+    $isPort8080Used = DetermineIfPortIsUsed -Port $httpPortNumberToUse
+    $isPort8443Used = DetermineIfPortIsUsed -Port $httpsPortNumberToUse
+
+    if ($isPort8080Used -or $isPort8443Used) {
+      AbortExecutionDueToPortNotAssignable -AbortMessage "The addon still cannot be enabled since there is already a process listening on port 8080 and/or 8443."
+    }
+  }else{
+    AbortExecutionDueToPortNotAssignable -AbortMessage "The addon cannot be enabled since there is already a process listening on port 80 and/or 443."
+  }
+}
+
 Write-Log 'Obtaining IPs of active physical net adapters' -Console
 $na = (Get-NetAdapter -Physical | Where-Object { ($_.Status -eq 'Up') -and ($_.Name -ne 'Loopbackk2s') })
 $physicalIps = (Get-NetIPAddress -InterfaceAlias $na.ifAlias -AddressFamily IPv4).IPAddress
@@ -80,15 +132,15 @@ if ($physicalIps.Count -lt 1) {
 }
 
 Write-Log 'Creating nginx configuration file' -Console
-$listen_block_443 = ''
-$listen_block_80 = ''
+$listen_block_https_port = ''
+$listen_block_http_port = ''
 foreach ($ip in $physicalIps) {
-  $listen_block_443 = "${listen_block_443}        listen ${ip}:443;`r`n"
-  $listen_block_80 = "${listen_block_80}        listen ${ip}:80;`r`n"
+  $listen_block_https_port = "${listen_block_https_port}        listen ${ip}:$httpsPortNumberToUse;`r`n"
+  $listen_block_http_port = "${listen_block_http_port}        listen ${ip}:$httpPortNumberToUse;`r`n"
 }
 $variablesHash = @{}
-$variablesHash['listen_block_443'] = $listen_block_443;
-$variablesHash['listen_block_80'] = $listen_block_80;
+$variablesHash['listen_block_https_port'] = $listen_block_https_port;
+$variablesHash['listen_block_http_port'] = $listen_block_http_port;
 $variablesHash['master_ip'] = $global:IP_Master;
 
 mkdir -Force "$global:BinPath\nginx" | Out-Null
