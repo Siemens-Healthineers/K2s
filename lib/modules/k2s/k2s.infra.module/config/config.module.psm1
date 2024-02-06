@@ -405,6 +405,10 @@ function Get-DefaultProvisioningBaseImageDiskSize {
     return 50GB
 }
 
+function Get-DefaultK8sVersion {
+    return 'v1.25.13'
+}
+
 Export-ModuleMember -Function Get-ConfigValue,
 Set-ConfigValue,
 Get-ConfiguredKubeConfigDir,
@@ -449,4 +453,5 @@ Get-RegistryToken,
 Get-SshConfigDir,
 Get-DefaultProvisioningBaseImageDiskSize,
 Get-RootConfig,
-Get-DefaultTempPwd
+Get-DefaultTempPwd,
+Get-DefaultK8sVersion
