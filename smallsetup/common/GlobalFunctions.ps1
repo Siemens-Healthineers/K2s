@@ -1703,7 +1703,7 @@ function CreateExternalSwitch {
 
 function RemoveExternalSwitch () {
     Write-Log "Remove l2 bridge network switch name: $global:L2BridgeSwitchName"
-    Get-HnsNetwork | Where-Object Name -Like "$global:L2BridgeSwitchName" | Remove-HnsNetwork
+    Get-HnsNetwork | Where-Object Name -Like "$global:L2BridgeSwitchName" | Remove-HnsNetwork -ErrorAction SilentlyContinue
 }
 
 function Set-InterfacePrivate {
