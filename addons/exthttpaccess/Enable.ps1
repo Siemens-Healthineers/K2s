@@ -93,15 +93,15 @@ $isPort443Used = DetermineIfPortIsUsed -Port $httpsPortNumberToUse
 
 if ($isPort80Used -or $isPort443Used) {
 
-  $title = 'The ports 80 and/or 443 are already in use.'
-  $question = 'Do you want to use the alternative ports 8080/8443 instead?'
-  $choices = @(
-    [System.Management.Automation.Host.ChoiceDescription]::new('&Yes', 'Use the alternative ports 8080/8443.')
-    [System.Management.Automation.Host.ChoiceDescription]::new('&No', 'Abort the addon enabling.')
-)
   if ($env:K2S_ADDON_EXTHTTPACCESS_AUTOCONFIRM -ne $null) {
     $useAlternativePorts = 0
   } else {
+    $title = 'The ports 80 and/or 443 are already in use.'
+    $question = 'Do you want to use the alternative ports 8080/8443 instead?'
+    $choices = @(
+      [System.Management.Automation.Host.ChoiceDescription]::new('&Yes', 'Use the alternative ports 8080/8443.')
+      [System.Management.Automation.Host.ChoiceDescription]::new('&No', 'Abort the addon enabling.')
+    )
     $useAlternativePorts = $Host.UI.PromptForChoice($title, $question, $choices, 0)
   }
   
