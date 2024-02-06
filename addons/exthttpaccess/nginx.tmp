@@ -8,14 +8,14 @@ stream {
     }
 
     server {
-{{listen_block_443}}
+{{listen_block_https_port}}
         proxy_pass master;
     }
 } 
 
 http {
     server {
-{{listen_block_80}}
+{{listen_block_http_port}}
         
         location / {
             proxy_pass http://{{master_ip}}:80;
