@@ -142,11 +142,17 @@ function Set-LoopbackAdapterProperties {
     $prefixLength = 24
     $mask = [IPAddress](([UInt32]::MaxValue) -shl (32 - $prefixLength) -shr (32 - $prefixLength))
 
-    Set-NetIPInterface -InterfaceAlias "$Name" -Dhcp Disabled
-    netsh interface ipv4 set address name="$Name" static $IPAddress $mask.IPAddressToString $Gateway
-    Write-Log "$Name configured with IP: $IPAddress, mask: $($mask.IPAddressToString), gateway: $Gateway"
-    # enable forwarding
-    netsh int ipv4 set int "$Name" forwarding=enabled | Out-Null
+    $if = Get-NetIPInterface -InterfaceAlias "$Name" -ErrorAction SilentlyContinue
+    if( $if ) {
+        Set-NetIPInterface -InterfaceAlias "$Name" -Dhcp Disabled
+        netsh interface ipv4 set address name="$Name" static $IPAddress $mask.IPAddressToString $Gateway
+        Write-Log "$Name configured with IP: $IPAddress, mask: $($mask.IPAddressToString), gateway: $Gateway"
+        # enable forwarding
+        netsh int ipv4 set int "$Name" forwarding=enabled | Out-Null
+    }
+    else {
+        Write-Log "No loopback adapter '$Name' found to configure."
+    }
 }
 
 Export-ModuleMember New-LoopbackAdapter

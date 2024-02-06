@@ -86,13 +86,15 @@ Remove-KubeSwitch
 Remove-NetNat -Name $global:NetNatName -Confirm:$False -ErrorAction SilentlyContinue
 
 # Remove the external switch
-RemoveExternalSwitch
+if(!$global:CacheVirtualBridge) { RemoveExternalSwitch}
 
 $hns = $(Get-HNSNetwork)
 # there's always at least the Default Switch network available, so we check for >= 2
 if ($($hns | Measure-Object).Count -ge 2) {
     Write-Log 'Delete bridge, clear HNSNetwork (short disconnect expected)'
-    $hns | Where-Object Name -Like '*cbr0*' | Remove-HNSNetwork -ErrorAction SilentlyContinue
+    if(!$global:CacheVirtualBridge) { 
+         $hns | Where-Object Name -Like '*cbr0*' | Remove-HNSNetwork -ErrorAction SilentlyContinue
+    }
     $hns | Where-Object Name -Like ('*' + $global:SwitchName + '*') | Remove-HNSNetwork -ErrorAction SilentlyContinue
 }
 
@@ -102,15 +104,19 @@ if ($WSL) {
 }
 
 Write-Log 'Delete network policies'
-Get-HnsPolicyList | Remove-HnsPolicyList -ErrorAction SilentlyContinue
+if(!$global:CacheVirtualBridge) { 
+    Get-HnsPolicyList | Remove-HnsPolicyList -ErrorAction SilentlyContinue
+}
 
 if ($shallRestartDocker) {
     Start-ServiceProcess 'docker'
 }
 
 # Sometimes only removal from registry helps and reboot
-Write-Log 'Cleaning up registry for NicList'
-Get-ChildItem -Path 'HKLM:\SYSTEM\CurrentControlSet\Services\VMSMP\Parameters\NicList' | Remove-Item -ErrorAction SilentlyContinue | Out-Null
+if(!$global:CacheVirtualBridge) { 
+    Write-Log 'Cleaning up registry for NicList'
+    Get-ChildItem -Path 'HKLM:\SYSTEM\CurrentControlSet\Services\VMSMP\Parameters\NicList' | Remove-Item -ErrorAction SilentlyContinue | Out-Null
+}
 
 # Remove routes
 Write-Log "Remove route to $global:IP_CIDR"

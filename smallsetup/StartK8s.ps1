@@ -224,7 +224,12 @@ Write-Log 'Configuring network for windows node' -Console
 Restart-WinService 'hns'
 
 Write-Log 'Figuring out IPv4DefaultGateway'
-$gw = (Get-NetIPConfiguration -InterfaceAlias "$adapterName").IPv4DefaultGateway.NextHop
+$if = Get-NetIPConfiguration -InterfaceAlias "$adapterName" -ErrorAction SilentlyContinue 2>&1 | Out-Null
+$gw =  $global:Gateway_LoopbackAdapter
+if( $if ) {
+    $gw = $if.IPv4DefaultGateway.NextHop
+    Write-Log "Gateway found: $gw"
+}
 Write-Log "Gateway found: $gw"
 
 Set-IndexForDefaultSwitch

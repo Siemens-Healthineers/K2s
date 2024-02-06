@@ -38,6 +38,8 @@ $global:JsonConfigFile = "$global:KubernetesPath\cfg\config.json"
 $clusterConfig = Get-Content $global:JsonConfigFile | Out-String | ConvertFrom-Json
 $smallsetup = $clusterConfig.psobject.properties['smallsetup'].value
 
+$global:CacheVirtualBridge = $true
+
 $callstack = Get-PSCallStack
 if (((@($callstack.Command) -like 'Start*.ps1').Count -gt 0 -or (@($callstack.Command) -like 'Install*.ps1').Count -gt 0)) {
     $smallsetup.psobject.properties['vfprules-k2s'].value | ConvertTo-Json | Out-File "$global:KubernetesPath\bin\cni\vfprules.json" -Encoding ascii
