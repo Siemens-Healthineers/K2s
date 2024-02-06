@@ -5,15 +5,12 @@ package status
 
 import (
 	"errors"
-	"k2s/setupinfo"
-	"k2s/status"
+	"k2s/cmd/common"
 	"k2s/utils"
 )
 
-type AddonError string
-
 type AddonLoadStatus struct {
-	Error   *AddonError       `json:"error"`
+	common.CmdResult
 	Enabled *bool             `json:"enabled"`
 	Props   []AddonStatusProp `json:"props"`
 }
@@ -26,8 +23,8 @@ type AddonStatusProp struct {
 }
 
 const (
-	errAddonNotFoundMsg AddonError = "addon-not-found"
-	errNoAddonStatusMsg AddonError = "no-addon-status"
+	errAddonNotFoundMsg common.CmdError = "addon-not-found"
+	errNoAddonStatusMsg common.CmdError = "no-addon-status"
 )
 
 var (
@@ -44,26 +41,19 @@ func LoadAddonStatus(addonName string, addonDirectory string) (*AddonLoadStatus,
 	}
 
 	if status.Error != nil {
-		return nil, status.Error.ToError()
+		return nil, toError(*status.Error)
 	}
 
 	return status, nil
 }
 
-func (err AddonError) ToError() error {
-	if status.IsErrNotRunning(string(err)) {
-		return status.ErrNotRunning
-	}
-	if setupinfo.IsErrNotInstalled(string(err)) {
-		return setupinfo.ErrNotInstalled
-	}
-
+func toError(err common.CmdError) error {
 	switch err {
 	case errAddonNotFoundMsg:
 		return ErrAddonNotFound
 	case errNoAddonStatusMsg:
 		return ErrNoAddonStatus
 	default:
-		return errors.New(string(err))
+		return err.ToError()
 	}
 }

@@ -15,18 +15,18 @@ import (
 
 func Test(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "addons common Unit Tests", Label("unit", "addons"))
+	RunSpecs(t, "cmd common Unit Tests", Label("unit", "cmd"))
 }
 
 var _ = BeforeSuite(func() {
 	klog.SetLogger(GinkgoLogr)
 })
 
-var _ = Describe("addons", func() {
+var _ = Describe("cmd", func() {
 	Describe("ToError", func() {
 		When("system-not-running error", func() {
 			It("returns system-not-running error", func() {
-				err := AddonCmdError(status.ErrNotRunningMsg)
+				err := CmdError(status.ErrNotRunningMsg)
 
 				result := err.ToError()
 
@@ -36,7 +36,7 @@ var _ = Describe("addons", func() {
 
 		When("system-not-installed error", func() {
 			It("returns system-not-installed error", func() {
-				err := AddonCmdError(setupinfo.ErrNotInstalledMsg)
+				err := CmdError(setupinfo.ErrNotInstalledMsg)
 
 				result := err.ToError()
 
@@ -46,7 +46,7 @@ var _ = Describe("addons", func() {
 
 		When("unknown error", func() {
 			It("returns unknown error", func() {
-				err := AddonCmdError("oops")
+				err := CmdError("oops")
 
 				result := err.ToError()
 

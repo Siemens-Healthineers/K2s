@@ -45,13 +45,9 @@ $cliMessagesModule = "$PSScriptRoot/../lib/modules/k2s/k2s.infra.module/cli-mess
 $addonsModule = "$PSScriptRoot\addons.module.psm1"
 $logModule = "$PSScriptRoot/../smallsetup/ps-modules/log/log.module.psm1"
 
-Import-Module $addonsModule, $logModule
+Import-Module $addonsModule, $logModule, $cliMessagesModule
 
 $status = Get-AddonStatus -Name $Name -Directory $Directory
-
-if ($EncodeStructuredOutput -eq $true) {
-    Import-Module $cliMessagesModule
-}
 
 if ($EncodeStructuredOutput -eq $true) {
     Send-ToCli -MessageType $MessageType -Message $status

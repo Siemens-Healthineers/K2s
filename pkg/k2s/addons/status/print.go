@@ -5,6 +5,7 @@ package status
 
 import (
 	"errors"
+	"k2s/cmd/common"
 	"k2s/setupinfo"
 	ks "k2s/status"
 
@@ -107,17 +108,17 @@ func (s *JsonPrinter) PrintStatus(addonName string, addonDirectory string) error
 		printStatus.AddonLoadStatus = *addonStatus
 	} else {
 		if errors.Is(err, ks.ErrNotRunning) {
-			errMsg := AddonError(ks.ErrNotRunningMsg)
-			printStatus.AddonLoadStatus = AddonLoadStatus{Error: &errMsg}
+			errMsg := common.CmdError(ks.ErrNotRunningMsg)
+			printStatus.AddonLoadStatus = AddonLoadStatus{CmdResult: common.CmdResult{Error: &errMsg}}
 		} else if errors.Is(err, setupinfo.ErrNotInstalled) {
-			errMsg := AddonError(setupinfo.ErrNotInstalledMsg)
-			printStatus.AddonLoadStatus = AddonLoadStatus{Error: &errMsg}
+			errMsg := common.CmdError(setupinfo.ErrNotInstalledMsg)
+			printStatus.AddonLoadStatus = AddonLoadStatus{CmdResult: common.CmdResult{Error: &errMsg}}
 		} else if errors.Is(err, ErrAddonNotFound) {
 			errMsg := errAddonNotFoundMsg
-			printStatus.AddonLoadStatus = AddonLoadStatus{Error: &errMsg}
+			printStatus.AddonLoadStatus = AddonLoadStatus{CmdResult: common.CmdResult{Error: &errMsg}}
 		} else if errors.Is(err, ErrNoAddonStatus) {
 			errMsg := errNoAddonStatusMsg
-			printStatus.AddonLoadStatus = AddonLoadStatus{Error: &errMsg}
+			printStatus.AddonLoadStatus = AddonLoadStatus{CmdResult: common.CmdResult{Error: &errMsg}}
 		} else {
 			return err
 		}

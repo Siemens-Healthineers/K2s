@@ -64,7 +64,7 @@ func runImport(cmd *cobra.Command, args []string) error {
 
 	start := time.Now()
 
-	cmdResult, err := utils.ExecutePsWithStructuredResult[*ac.AddonCmdResult](psCmd, "CmdResult", utils.ExecOptions{}, params...)
+	cmdResult, err := utils.ExecutePsWithStructuredResult[*common.CmdResult](psCmd, "CmdResult", utils.ExecOptions{}, params...)
 
 	duration := time.Since(start)
 
