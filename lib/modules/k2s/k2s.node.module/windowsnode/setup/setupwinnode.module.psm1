@@ -112,29 +112,13 @@ function Initialize-WinNode {
         [parameter(Mandatory = $false, HelpMessage = 'Deletes the needed files to perform an offline installation')]
         [boolean] $DeleteFilesForOfflineInstallation = $false,
         [parameter(Mandatory = $false, HelpMessage = 'Force the installation online. This option is needed if the files for an offline installation are available but you want to recreate them.')]
-        [boolean] $ForceOnlineInstallation = $false
+        [boolean] $ForceOnlineInstallation = $false,
+        [parameter(Mandatory = $false, HelpMessage = 'Skips networking setup and installation of cluster dependent tools kubelet, flannel on windows node')]
+        [boolean] $SkipClusterSetup = $false
     )
 
     Invoke-DeployWinArtifacts -KubernetesVersion $KubernetesVersion -Proxy "$Proxy" -DeleteFilesForOfflineInstallation $DeleteFilesForOfflineInstallation -ForceOnlineInstallation $ForceOnlineInstallation
 
-    if (!$KubernetesVersion.StartsWith('v')) {
-        $KubernetesVersion = 'v' + $KubernetesVersion
-    }
-    Write-Log "Using Kubernetes version: $KubernetesVersion"
-
-    mkdir -force "$kubePath" | Out-Null
-    #Set-EnvVars
-
-    if ($HostVM) {
-        [Environment]::SetEnvironmentVariable('KUBECONFIG', "$kubePath\config", [System.EnvironmentVariableTarget]::Machine)
-    }
-
-    $previousKubernetesVersion = Get-ConfigInstalledKubernetesVersion
-    Write-Log("Previous K8s version: $previousKubernetesVersion, current K8s version to install: $KubernetesVersion")
-
-    $productVersion = Get-ProductVersion
-
-    Set-ConfigInstalledKubernetesVersion -Value $KubernetesVersion
     Set-ConfigInstallFolder -Value $kubePath
     Set-ConfigProductVersion -Value $productVersion
 
@@ -142,11 +126,33 @@ function Initialize-WinNode {
         New-Item -ItemType 'directory' -Path "$kubeBinPath\exe" | Out-Null
     }
 
-    Initialize-Networking -HostVM:$HostVM -HostGW:$HostGW
+    if (! $SkipClusterSetup ) {
+        if (!$KubernetesVersion.StartsWith('v')) {
+            $KubernetesVersion = 'v' + $KubernetesVersion
+        }
+        Write-Log "Using Kubernetes version: $KubernetesVersion"
 
-    Install-WinNodeArtifacts -Proxy "$Proxy" -HostVM:$HostVM
+        if ($HostVM) {
+            [Environment]::SetEnvironmentVariable('KUBECONFIG', "$kubePath\config", [System.EnvironmentVariableTarget]::Machine)
+        }
 
-    Reset-WinServices
+        $previousKubernetesVersion = Get-ConfigInstalledKubernetesVersion
+        Write-Log("Previous K8s version: $previousKubernetesVersion, current K8s version to install: $KubernetesVersion")
+
+        $productVersion = Get-ProductVersion
+
+        Set-ConfigInstalledKubernetesVersion -Value $KubernetesVersion
+
+        Initialize-Networking -HostVM:$HostVM -HostGW:$HostGW
+    } else {
+        Write-Log "Skipping networking setup on windows node"
+    }
+
+    Install-WinNodeArtifacts -Proxy "$Proxy" -HostVM:$HostVM -SkipClusterSetup:$SkipClusterSetup
+
+    if (! $SkipClusterSetup) {
+        Reset-WinServices
+    }
 }
 
 function Uninstall-WinNode {
