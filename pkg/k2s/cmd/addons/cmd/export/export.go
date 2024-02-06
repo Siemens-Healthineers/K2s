@@ -69,7 +69,7 @@ func runExport(cmd *cobra.Command, args []string) error {
 
 	start := time.Now()
 
-	cmdResult, err := utils.ExecutePsWithStructuredResult[*ac.AddonCmdResult](psCmd, "CmdResult", utils.ExecOptions{}, params...)
+	cmdResult, err := utils.ExecutePsWithStructuredResult[*common.CmdResult](psCmd, "CmdResult", utils.ExecOptions{}, params...)
 
 	duration := time.Since(start)
 
@@ -136,6 +136,6 @@ func buildPsCmd(cmd *cobra.Command, addonsToExport ...string) (psCmd string, par
 	return
 }
 
-func isErrLinuxOnly(error ac.AddonCmdError) bool {
+func isErrLinuxOnly(error common.CmdError) bool {
 	return error == errLinuxOnlyMsg
 }

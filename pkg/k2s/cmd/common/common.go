@@ -5,12 +5,21 @@ package common
 
 import (
 	"base/logging"
+	"errors"
 	"fmt"
+	"k2s/setupinfo"
+	"k2s/status"
 	"path/filepath"
 	"time"
 
 	"github.com/pterm/pterm"
 )
+
+type CmdError string
+
+type CmdResult struct {
+	Error *CmdError `json:"error"`
+}
 
 const (
 	CliName = "k2s"
@@ -36,4 +45,15 @@ func PrintCompletedMessage(duration time.Duration, command string) {
 	logHint := pterm.LightCyan(fmt.Sprintf("Please see '%s' for more information", executionLogPath))
 
 	pterm.Println(logHint)
+}
+
+func (err CmdError) ToError() error {
+	if status.IsErrNotRunning(string(err)) {
+		return status.ErrNotRunning
+	}
+	if setupinfo.IsErrNotInstalled(string(err)) {
+		return setupinfo.ErrNotInstalled
+	}
+
+	return errors.New(string(err))
 }
