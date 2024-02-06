@@ -26,13 +26,11 @@ Param(
 
 $infraModule = "$PSScriptRoot/../../../modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $nodeModule = "$PSScriptRoot/../../../modules/k2s/k2s.node.module/k2s.node.module.psm1"
-
+Import-Module $infraModule, $nodeModule
 
 $KubernetesVersion = Get-DefaultK8sVersion
-
 $script:SetupType = 'BuildOnlyEnv'
 
-Import-Module $infraModule, $nodeModule
 Initialize-Logging -ShowLogs:$ShowLogs
 Reset-LogFile -AppendLogFile:$AppendLogFile
 
