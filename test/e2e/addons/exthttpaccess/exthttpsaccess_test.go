@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"k2s/addons/status"
 	"k2sTest/framework"
+	"os"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -24,9 +25,11 @@ func TestAddon(t *testing.T) {
 
 var _ = BeforeSuite(func(ctx context.Context) {
 	suite = framework.Setup(ctx, framework.SystemMustBeRunning, framework.EnsureAddonsAreDisabled)
+	os.Setenv("K2S_ADDON_EXTHTTPACCESS_AUTOCONFIRM", "true")
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
+	os.Setenv("K2S_ADDON_EXTHTTPACCESS_AUTOCONFIRM", "")
 	suite.TearDown(ctx)
 })
 
