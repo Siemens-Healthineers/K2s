@@ -75,7 +75,7 @@ Param(
 
 $installStopwatch = [system.diagnostics.stopwatch]::StartNew()
 
-$KubernetesVersion = 'v1.25.13'
+
 
 $infraModule = "$PSScriptRoot/../../../modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $nodeModule = "$PSScriptRoot/../../../modules/k2s/k2s.node.module/k2s.node.module.psm1"
@@ -85,6 +85,7 @@ Import-Module $infraModule, $nodeModule, $clusterModule
 Initialize-Logging -ShowLogs:$ShowLogs
 Reset-LogFile -AppendLogFile:$AppendLogFile
 
+$KubernetesVersion = Get-DefaultK8sVersion
 $script:SetupType = 'k2s'
 $ErrorActionPreference = 'Continue'
 

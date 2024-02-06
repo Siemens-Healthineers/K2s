@@ -4,32 +4,12 @@
 package common
 
 import (
-	"errors"
 	"k2s/addons"
 	"k2s/providers/terminal"
-	"k2s/setupinfo"
-	"k2s/status"
 
 	"github.com/pterm/pterm"
 	"github.com/samber/lo"
 )
-
-type AddonCmdError string
-
-type AddonCmdResult struct {
-	Error *AddonCmdError `json:"error"`
-}
-
-func (err AddonCmdError) ToError() error {
-	if status.IsErrNotRunning(string(err)) {
-		return status.ErrNotRunning
-	}
-	if setupinfo.IsErrNotInstalled(string(err)) {
-		return setupinfo.ErrNotInstalled
-	}
-
-	return errors.New(string(err))
-}
 
 func PrintAddonNotFoundMsg(dir string, name string) {
 	pterm.Warning.Printfln("Addon '%s' not found in directory '%s'", name, dir)

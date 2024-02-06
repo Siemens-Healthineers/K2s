@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"k2s/addons"
 	"k2s/cmd/addons/cmd/addonimport"
-	ac "k2s/cmd/addons/cmd/common"
 	"k2s/cmd/addons/cmd/export"
 	"k2s/cmd/addons/cmd/list"
 	"k2s/cmd/addons/cmd/status"
@@ -181,7 +180,7 @@ func runCmd(cmd *cobra.Command, addon addons.Addon, cmdName string) error {
 
 	start := time.Now()
 
-	cmdResult, err := utils.ExecutePsWithStructuredResult[*ac.AddonCmdResult](psCmd, "CmdResult", utils.ExecOptions{}, params...)
+	cmdResult, err := utils.ExecutePsWithStructuredResult[*common.CmdResult](psCmd, "CmdResult", utils.ExecOptions{}, params...)
 
 	duration := time.Since(start)
 
