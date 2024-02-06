@@ -27,6 +27,9 @@ Param(
 $infraModule = "$PSScriptRoot/../../../modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $nodeModule = "$PSScriptRoot/../../../modules/k2s/k2s.node.module/k2s.node.module.psm1"
 
+
+$KubernetesVersion = Get-DefaultK8sVersion
+
 $script:SetupType = 'BuildOnlyEnv'
 
 Import-Module $infraModule, $nodeModule
@@ -78,44 +81,22 @@ if ( $MasterDiskSize -lt 20GB ) {
 }
 Write-Log "Using $([math]::round($MasterDiskSize/1GB, 2))GB of disk space for master VM"
 
-$installationStageProxy = $Proxy
-$operationStageProxy = 'http://' + $global:IP_NextHop + ':8181'
-Write-Log 'Using the following proxies: '
-Write-Log "  - installation stage: '$installationStageProxy'"
-Write-Log "  - operation stage: '$operationStageProxy'"
-
-&"$global:KubernetesPath\smallsetup\windowsnode\DeployWindowsNodeArtifacts.ps1" -KubernetesVersion $global:KubernetesVersion -Proxy $installationStageProxy -DeleteFilesForOfflineInstallation $DeleteFilesForOfflineInstallation -ForceOnlineInstallation $ForceOnlineInstallation -SetupType $global:SetupType_BuildOnlyEnv
-&"$global:KubernetesPath\smallsetup\windowsnode\publisher\PublishNssm.ps1"
-
-&"$global:KubernetesPath\smallsetup\windowsnode\publisher\PublishPuttytools.ps1"
-
-Write-Log 'Installing httpproxy daemon on Windows' -Console
-&"$global:KubernetesPath\smallsetup\windowsnode\InstallHttpProxy.ps1" -Proxy $installationStageProxy
-
-Write-Log 'Installing docker daemon on Windows' -Console
-&"$global:KubernetesPath\smallsetup\windowsnode\publisher\PublishDocker.ps1"
-&"$global:KubernetesPath\smallsetup\windowsnode\InstallDockerWin10.ps1" -AutoStart:$autoStartDockerd -Proxy "$installationStageProxy"
-
-Write-Log 'Installing containerd daemon on Windows' -Console
-&"$global:KubernetesPath\smallsetup\windowsnode\InstallContainerd.ps1" -Proxy "$installationStageProxy"
-if (Test-Path($global:DownloadsDirectory)) {
-    Remove-Item $global:DownloadsDirectory -Force -Recurse
-}
-if (Test-Path($global:WindowsNodeArtifactsDirectory)) {
-    Remove-Item $global:WindowsNodeArtifactsDirectory -Force -Recurse
-}
+Initialize-WinNode -KubernetesVersion $KubernetesVersion `
+    -Proxy:"$Proxy" `
+    -DeleteFilesForOfflineInstallation $DeleteFilesForOfflineInstallation `
+    -ForceOnlineInstallation $ForceOnlineInstallation `
+    -SkipClusterSetup:$true
 
 Write-Log 'Using NAT in dev only environment'
-New-NetNat -Name $global:NetNatName -InternalIPInterfaceAddressPrefix $global:IP_CIDR | Out-Null
+New-DefaultNetNat
 
-if (!$WSL) {
-    Write-Log "Installing $global:VMName VM" -Console
-    Write-Log "VM '$global:VMName' is not yet available, creating VM for build purposes..."
-} else {
-    Write-Log "Installing $global:VMName Distro" -Console
-}
-
-& "$global:KubernetesPath\smallsetup\kubemaster\InstallKubeMaster.ps1" -MemoryStartupBytes $MasterVMMemory -MasterVMProcessorCount $MasterVMProcessorCount -MasterDiskSize $MasterDiskSize -InstallationStageProxy $InstallationStageProxy -OperationStageProxy $operationStageProxy -DeleteFilesForOfflineInstallation $DeleteFilesForOfflineInstallation -ForceOnlineInstallation $ForceOnlineInstallation -WSL:$WSL
+Initialize-LinuxNode -VMStartUpMemory $MasterVMMemory `
+    -VMProcessorCount $MasterVMProcessorCount `
+    -VMDiskSize $MasterDiskSize `
+    -InstallationStageProxy $Proxy `
+    -DeleteFilesForOfflineInstallation $DeleteFilesForOfflineInstallation `
+    -ForceOnlineInstallation $ForceOnlineInstallation `
+    -WSL:$WSL
 
 Write-Log '---------------------------------------------------------------'
 Write-Log "Build-only setup finished.   Total duration: $('{0:hh\:mm\:ss}' -f $installStopwatch.Elapsed )"

@@ -127,8 +127,8 @@ $nodeModule = "$PSScriptRoot/../../../modules/k2s/k2s.node.module/k2s.node.modul
 $clusterModule = "$PSScriptRoot/../../../modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 Import-Module $infraModule, $nodeModule, $clusterModule
 
-$KubernetesVersion = 'v1.25.13'
 $script:SetupType = 'MultiVMK8s'
+$KubernetesVersion = Get-DefaultK8sVersion
 $multiVMWindowsVMName = Get-ConfigVMNodeHostname # WARNING: VM name must not exceed a certain length, otherwise unattend.xml file parsing will fail!
 $rootConfig = Get-RootConfigk2s
 $multivmRootConfig = $rootConfig.psobject.properties['multivm'].value
