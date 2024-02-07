@@ -5,7 +5,6 @@ package image
 
 import (
 	"fmt"
-	"regexp"
 
 	"github.com/google/uuid"
 	"github.com/spf13/cobra"
@@ -41,7 +40,7 @@ var _ = Describe("build", func() {
 			It("build options contain input folder", func() {
 				expected := "/tmp/docker-build/testapp"
 				testCommand := createTestCobraCommand()
-				testCommand.Flags().Set(inputFolder, expected)
+				testCommand.Flags().Set(inputFolderFlagName, expected)
 
 				actual, err := extractBuildOptions(testCommand)
 
@@ -54,7 +53,7 @@ var _ = Describe("build", func() {
 			It("build options contain Dockerfile", func() {
 				expected := "myDockerfile"
 				testCommand := createTestCobraCommand()
-				testCommand.Flags().Set(dockerfile, expected)
+				testCommand.Flags().Set(dockerfileFlagName, expected)
 
 				actual, err := extractBuildOptions(testCommand)
 
@@ -68,8 +67,8 @@ var _ = Describe("build", func() {
 				imageNameToBeBuilt := "my-image"
 				imageTagToBeBuilt := "my-tag"
 				testCommand := createTestCobraCommand()
-				testCommand.Flags().Set(imageName, imageNameToBeBuilt)
-				testCommand.Flags().Set(imageTag, imageTagToBeBuilt)
+				testCommand.Flags().Set(imageNameFlagName, imageNameToBeBuilt)
+				testCommand.Flags().Set(imageTagFlagName, imageTagToBeBuilt)
 
 				actual, err := extractBuildOptions(testCommand)
 
@@ -89,8 +88,8 @@ var _ = Describe("build", func() {
 				expected[baseImageKey] = baseImageValue
 				expected[commitIdKey] = commitIdValue
 				testCommand := createTestCobraCommand()
-				testCommand.Flags().Set(buildArgs, fmt.Sprintf("%s=%s", baseImageKey, baseImageValue))
-				testCommand.Flags().Set(buildArgs, fmt.Sprintf("%s=%s", commitIdKey, commitIdValue))
+				testCommand.Flags().Set(buildArgsFlagName, fmt.Sprintf("%s=%s", baseImageKey, baseImageValue))
+				testCommand.Flags().Set(buildArgsFlagName, fmt.Sprintf("%s=%s", commitIdKey, commitIdValue))
 
 				actual, err := extractBuildOptions(testCommand)
 
@@ -103,7 +102,7 @@ var _ = Describe("build", func() {
 			It("returns error", func() {
 				buildArgInIncorrectFormat := "DummyValue"
 				testCommand := createTestCobraCommand()
-				testCommand.Flags().Set(buildArgs, buildArgInIncorrectFormat)
+				testCommand.Flags().Set(buildArgsFlagName, buildArgInIncorrectFormat)
 
 				actual, err := extractBuildOptions(testCommand)
 
@@ -116,7 +115,7 @@ var _ = Describe("build", func() {
 			It("Windows build is enabled in build options", func() {
 				expected := true
 				testCommand := createTestCobraCommand()
-				testCommand.Flags().Set(windows, fmt.Sprintf("%t", expected))
+				testCommand.Flags().Set(windowsFlagName, fmt.Sprintf("%t", expected))
 
 				actual, err := extractBuildOptions(testCommand)
 
@@ -129,7 +128,7 @@ var _ = Describe("build", func() {
 			It("push is enabled in build options", func() {
 				expected := true
 				testCommand := createTestCobraCommand()
-				testCommand.Flags().Set(push, fmt.Sprintf("%t", expected))
+				testCommand.Flags().Set(pushFlagName, fmt.Sprintf("%t", expected))
 
 				actual, err := extractBuildOptions(testCommand)
 
@@ -152,15 +151,15 @@ var _ = Describe("build", func() {
 		})
 	})
 
-	Describe("createBuildCommand", func() {
+	Describe("buildPsCmd", func() {
 		When("only defaults are set", func() {
 			It("returns correct command", func() {
-				defaultOptions := newDefaultBuildOptions()
-				expected := getBuildCommandBase() + " -InputFolder ."
+				options := newDefaultBuildOptions()
 
-				actual := createBuildCommand(defaultOptions)
+				cmd, params := buildPsCmd(options)
 
-				Expect(actual).To(Equal(expected))
+				Expect(cmd).To(ContainSubstring("\\smallsetup\\common\\BuildImage.ps1"))
+				Expect(params).To(ConsistOf(" -InputFolder ."))
 			})
 		})
 
@@ -168,11 +167,11 @@ var _ = Describe("build", func() {
 			It("returns correct command", func() {
 				options := newDefaultBuildOptions()
 				options.Windows = true
-				expected := getBuildCommandBase() + " -InputFolder . -Windows"
 
-				actual := createBuildCommand(options)
+				cmd, params := buildPsCmd(options)
 
-				Expect(actual).To(Equal(expected))
+				Expect(cmd).To(ContainSubstring("\\smallsetup\\common\\BuildImage.ps1"))
+				Expect(params).To(ConsistOf(" -InputFolder .", " -Windows"))
 			})
 		})
 
@@ -180,11 +179,11 @@ var _ = Describe("build", func() {
 			It("returns correct command", func() {
 				options := newDefaultBuildOptions()
 				options.Push = true
-				expected := getBuildCommandBase() + " -InputFolder . -Push"
 
-				actual := createBuildCommand(options)
+				cmd, params := buildPsCmd(options)
 
-				Expect(actual).To(Equal(expected))
+				Expect(cmd).To(ContainSubstring("\\smallsetup\\common\\BuildImage.ps1"))
+				Expect(params).To(ConsistOf(" -InputFolder .", " -Push"))
 			})
 		})
 
@@ -193,11 +192,11 @@ var _ = Describe("build", func() {
 				options := newDefaultBuildOptions()
 				options.Push = true
 				options.Windows = true
-				expected := getBuildCommandBase() + " -InputFolder . -Windows -Push"
 
-				actual := createBuildCommand(options)
+				cmd, params := buildPsCmd(options)
 
-				Expect(actual).To(Equal(expected))
+				Expect(cmd).To(ContainSubstring("\\smallsetup\\common\\BuildImage.ps1"))
+				Expect(params).To(ConsistOf(" -InputFolder .", " -Windows", " -Push"))
 			})
 		})
 
@@ -206,11 +205,11 @@ var _ = Describe("build", func() {
 				dockerfilePath := "MyDockerfile"
 				options := newDefaultBuildOptions()
 				options.Dockerfile = dockerfilePath
-				expected := fmt.Sprintf("%s -InputFolder . -Dockerfile %s", getBuildCommandBase(), dockerfilePath)
 
-				actual := createBuildCommand(options)
+				cmd, params := buildPsCmd(options)
 
-				Expect(actual).To(Equal(expected))
+				Expect(cmd).To(ContainSubstring("\\smallsetup\\common\\BuildImage.ps1"))
+				Expect(params).To(ConsistOf(" -InputFolder .", " -Dockerfile MyDockerfile"))
 			})
 		})
 
@@ -219,11 +218,11 @@ var _ = Describe("build", func() {
 				inputFolder := "MyInputFolder"
 				options := newDefaultBuildOptions()
 				options.InputFolder = inputFolder
-				expected := fmt.Sprintf("%s -InputFolder %s", getBuildCommandBase(), inputFolder)
 
-				actual := createBuildCommand(options)
+				cmd, params := buildPsCmd(options)
 
-				Expect(actual).To(Equal(expected))
+				Expect(cmd).To(ContainSubstring("\\smallsetup\\common\\BuildImage.ps1"))
+				Expect(params).To(ConsistOf(" -InputFolder MyInputFolder"))
 			})
 		})
 
@@ -234,11 +233,11 @@ var _ = Describe("build", func() {
 				options := newDefaultBuildOptions()
 				options.ImageName = imageName
 				options.ImageTag = imageTag
-				expected := fmt.Sprintf("%s -InputFolder . -ImageName %s -ImageTag %s", getBuildCommandBase(), imageName, imageTag)
 
-				actual := createBuildCommand(options)
+				cmd, params := buildPsCmd(options)
 
-				Expect(actual).To(Equal(expected))
+				Expect(cmd).To(ContainSubstring("\\smallsetup\\common\\BuildImage.ps1"))
+				Expect(params).To(ConsistOf(" -InputFolder .", " -ImageName my-image", " -ImageTag my-tag"))
 			})
 		})
 
@@ -247,17 +246,17 @@ var _ = Describe("build", func() {
 				baseImageKey := "BaseImage"
 				baseImageValue := "alpine"
 				commitIdKey := "CommitId"
-				commitIdValue := uuid.New().String()
+				commitIdValue := "e5d634c6-306a-42fe-a170-9da27951543b"
 				buildArgs := make(map[string]string)
 				buildArgs[baseImageKey] = baseImageValue
 				buildArgs[commitIdKey] = commitIdValue
 				options := newDefaultBuildOptions()
 				options.BuildArgs = buildArgs
-				expected := fmt.Sprintf("%s -InputFolder . -BuildArgs %s=%s,%s=%s", getBuildCommandBase(), baseImageKey, baseImageValue, commitIdKey, commitIdValue)
 
-				actual := createBuildCommand(options)
+				cmd, params := buildPsCmd(options)
 
-				expectBuildCommandsWIthBuildArgsToBeEqual(actual, expected)
+				Expect(cmd).To(ContainSubstring("\\smallsetup\\common\\BuildImage.ps1"))
+				Expect(params).To(ConsistOf(" -InputFolder .", " -BuildArgs BaseImage=alpine,CommitId=e5d634c6-306a-42fe-a170-9da27951543b"))
 			})
 		})
 
@@ -266,27 +265,27 @@ var _ = Describe("build", func() {
 				enabledDetailedLogs := true
 				options := newDefaultBuildOptions()
 				options.Output = enabledDetailedLogs
-				expected := fmt.Sprintf("%s -InputFolder . -ShowLogs", getBuildCommandBase())
 
-				actual := createBuildCommand(options)
+				cmd, params := buildPsCmd(options)
 
-				Expect(actual).To(Equal(expected))
+				Expect(cmd).To(ContainSubstring("\\smallsetup\\common\\BuildImage.ps1"))
+				Expect(params).To(ConsistOf(" -InputFolder .", " -ShowLogs"))
 			})
 		})
 	})
 })
 
 func newDefaultBuildOptions() *buildOptions {
-	defaultBuildArgsMap := make(map[string]string)
-	return newBuildOptions(
-		defaultInputFolder,
-		defaultDockerfile,
-		defaultWindowsFlag,
-		defaultImageNameToBeBuilt,
-		defaultImageTagToBeBuilt,
-		false,
-		defaultPushFlag,
-		defaultBuildArgsMap)
+	return &buildOptions{
+		InputFolder: defaultInputFolder,
+		Dockerfile:  defaultDockerfile,
+		Windows:     defaultWindowsFlag,
+		ImageName:   defaultImageNameToBeBuilt,
+		ImageTag:    defaultImageTagToBeBuilt,
+		Output:      false,
+		Push:        defaultPushFlag,
+		BuildArgs:   make(map[string]string),
+	}
 }
 
 func createTestCobraCommand() *cobra.Command {
@@ -298,38 +297,4 @@ func createTestCobraCommand() *cobra.Command {
 	testCommand.Flags().BoolP(p.OutputFlagName, p.OutputFlagShorthand, false, p.OutputFlagUsage)
 
 	return testCommand
-}
-
-func expectBuildCommandsWIthBuildArgsToBeEqual(actual string, expected string) {
-	expectedBuildArgsMap := extractBuildArguments(expected)
-	actualBuildArgsMap := extractBuildArguments(actual)
-
-	Expect(actualBuildArgsMap).To(Equal(expectedBuildArgsMap))
-}
-
-func extractBuildArguments(buildCommandWithBuildArgs string) map[string]string {
-	// Extract the -BuildArgs value using regular expression
-	re := regexp.MustCompile(`-BuildArgs\s+([^ ]+)`)
-	matches := re.FindStringSubmatch(buildCommandWithBuildArgs)
-
-	if len(matches) != 2 {
-		fmt.Println("No -BuildArgs value found")
-		return nil
-	}
-
-	buildArgs := matches[1]
-
-	// Extract key-value pairs using regular expression
-	re = regexp.MustCompile(`(\w+)=([^,]+)`)
-	kvMatches := re.FindAllStringSubmatch(buildArgs, -1)
-
-	buildArgsMap := make(map[string]string)
-	// Print the extracted key-value pairs
-	for _, match := range kvMatches {
-		key := match[1]
-		value := match[2]
-		buildArgsMap[key] = value
-	}
-
-	return buildArgsMap
 }
