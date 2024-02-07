@@ -1,6 +1,6 @@
 // SPDX-FileCopyrightText:  © 2023 Siemens Healthcare GmbH
 // SPDX-License-Identifier:   MIT
-package image
+package nosetup
 
 import (
 	"context"
@@ -51,7 +51,7 @@ var _ = Describe("image commands", func() {
 	)
 
 	Describe("image ls JSON output", Ordered, func() {
-		var images image.StoredImages
+		var images image.Images
 
 		BeforeAll(func(ctx context.Context) {
 			output := suite.K2sCli().Run(ctx, "image", "ls", "-o", "json")
