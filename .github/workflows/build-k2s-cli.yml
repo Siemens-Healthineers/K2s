@@ -30,10 +30,10 @@ jobs:
       CI_COMMIT_MESSAGE: Auto-commit k2s cli
     steps:
     - name: Checkout code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Set up Golang
-      uses: actions/setup-go@v4
+      uses: actions/setup-go@v5
       with:
         go-version: ${{env.GOVERSION}}
         cache-dependency-path: "**/*.sum"
@@ -61,6 +61,7 @@ jobs:
         git add k2s.exe
         git commit -m "${{ env.CI_COMMIT_MESSAGE }}"
         git push
+        
   run-acceptance-tests:
     name: Run Acceptance Tests
     needs: build-k2s-cli
