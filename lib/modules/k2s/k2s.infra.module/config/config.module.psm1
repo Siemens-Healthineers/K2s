@@ -368,7 +368,7 @@ function Get-ConfigControlPlaneNodeHostname () {
         return $hostname
     }
 
-    return 'KubeMaster'
+    return 'kubemaster'
 }
 
 function Set-ConfigControlPlaneNodeHostname($hostname) {
