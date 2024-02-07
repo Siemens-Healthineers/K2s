@@ -53,16 +53,21 @@ Write-Log "[$script] started with EncodeStructuredOutput='$EncodeStructuredOutpu
 try {
     $systemError = Test-SystemAvailability
     if ($systemError) {
-        throw $systemError
+        if ($EncodeStructuredOutput -eq $true) {
+            Send-ToCli -MessageType $MessageType -Message @{Error = $systemError }
+            return
+        }
+    
+        Write-Log $systemError -Error
+        exit 1
     }
 
-    $images = @{ContainerImages = @(Get-ContainerImagesInk2s -IncludeK8sImages $IncludeK8sImages -WorkerVM $WorkerVM) }
+    $images = @{Error = $null }
+    $images.ContainerImages = @(Get-ContainerImagesInk2s -IncludeK8sImages $IncludeK8sImages -WorkerVM $WorkerVM)
     $images.ContainerRegistry = $(Get-RegistriesFromSetupJson) | Where-Object { $_ -match 'k2s-registry.*' }
     $images.PushedImages = @(Get-PushedContainerImages)
 
     if ($EncodeStructuredOutput) {
-        Write-Log "[$script] Sending images to CLI.."
-
         Send-ToCli -MessageType $MessageType -Message $images
     }
     else {

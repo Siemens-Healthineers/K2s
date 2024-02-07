@@ -4,12 +4,15 @@
 package image
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 
 	"github.com/spf13/cobra"
 	"k8s.io/klog/v2"
 
+	"k2s/cmd/common"
+	"k2s/cmd/params"
 	"k2s/providers/marshalling"
 	"k2s/providers/terminal"
 	"k2s/setupinfo"
@@ -17,25 +20,36 @@ import (
 	"k2s/utils"
 )
 
+type Spinner interface {
+	Stop() error
+}
+
+type Images struct {
+	common.CmdResult
+	ContainerImages   []containerImage `json:"containerimages"`
+	ContainerRegistry *string          `json:"containerregistry"`
+	PushedImages      []pushedImage    `json:"pushedimages"`
+}
+
+type containerImage struct {
+	ImageId    string `json:"imageid"`
+	Repository string `json:"repository"`
+	Tag        string `json:"tag"`
+	Node       string `json:"node"`
+	Size       string `json:"size"`
+}
+
+type pushedImage struct {
+	Name string `json:"name"`
+	Tag  string `json:"tag"`
+}
+
 const (
 	includeK8sImages = "include-k8s-images"
 	outputFlagName   = "output"
 	jsonOption       = "json"
-)
 
-var (
-	containerImagesTableHeaders = []string{"ImageId", "Repository", "Tag", "Node", "Size"}
-	pushedImagesTableHeaders    = []string{"Name", "Tag"}
-)
-
-var listCmd = &cobra.Command{
-	Use:     "ls",
-	Short:   "List images",
-	RunE:    listImages,
-	Example: imagelistCommandExample,
-}
-
-const imagelistCommandExample = `
+	cmdExample = `
   # List all the container images from the K2s cluster
   k2s image ls
 
@@ -45,94 +59,96 @@ const imagelistCommandExample = `
   # List all the container images in JSON output format
   k2s image ls -o json
 `
+)
 
-type containerImages struct {
-	ImageId    string `json:"imageid"`
-	Repository string `json:"repository"`
-	Tag        string `json:"tag"`
-	Node       string `json:"node"`
-	Size       string `json:"size"`
-}
+var (
+	containerImagesTableHeaders = []string{"ImageId", "Repository", "Tag", "Node", "Size"}
+	pushedImagesTableHeaders    = []string{"Name", "Tag"}
 
-type pushedImages struct {
-	Name string `json:"name"`
-	Tag  string `json:"tag"`
-}
-
-type StoredImages struct {
-	ContainerImages   []containerImages     `json:"containerimages"`
-	ContainerRegistry *string               `json:"containerregistry"`
-	PushedImages      []pushedImages        `json:"pushedimages"`
-	Error             *setupinfo.SetupError `json:"error"`
-}
+	listCmd = &cobra.Command{
+		Use:     "ls",
+		Short:   "List images",
+		RunE:    listImages,
+		Example: cmdExample,
+	}
+)
 
 func init() {
 	listCmd.Flags().BoolP(includeK8sImages, "A", false, "Include kubernetes container images if specified")
-	listCmd.Flags().StringP(outputFlagName, "o", "", "Output format modifier. Currently supported: 'json' for output as JSON structure")
+	listCmd.Flags().StringP(params.OutputFlagName, params.OutputFlagShorthand, "", "Output format modifier. Currently supported: 'json' for output as JSON structure")
 	listCmd.Flags().SortFlags = false
 	listCmd.Flags().PrintDefaults()
 }
 
-func startSpinner(terminalPrinter terminal.TerminalPrinter) error {
-	_, err := terminalPrinter.StartSpinner("Gathering images stored in the cluster")
+func listImages(cmd *cobra.Command, args []string) error {
+	outputOption, err := cmd.Flags().GetString(outputFlagName)
 	if err != nil {
 		return err
 	}
+
+	if outputOption != "" && outputOption != jsonOption {
+		return fmt.Errorf("parameter '%s' not supported for flag '%s'", outputOption, params.OutputFlagName)
+	}
+
+	includeK8sImages, err := strconv.ParseBool(cmd.Flags().Lookup(includeK8sImages).Value.String())
+	if err != nil {
+		return err
+	}
+
+	terminalPrinter := terminal.NewTerminalPrinter()
+
+	getImagesFunc := func() (*Images, error) { return getImages(includeK8sImages) }
+
+	if outputOption == jsonOption {
+		return printImagesAsJson(getImagesFunc, terminalPrinter.Println)
+	}
+
+	return printImagesToUser(getImagesFunc, terminalPrinter)
+}
+
+func printImagesAsJson(getImagesFunc func() (*Images, error), printlnFunc func(m ...any)) error {
+	images, err := getImagesFunc()
+	if err != nil {
+		if errors.Is(err, status.ErrNotRunning) {
+			errMsg := common.CmdError(status.ErrNotRunningMsg)
+			images = &Images{CmdResult: common.CmdResult{Error: &errMsg}}
+		} else if errors.Is(err, setupinfo.ErrNotInstalled) {
+			errMsg := common.CmdError(setupinfo.ErrNotInstalledMsg)
+			images = &Images{CmdResult: common.CmdResult{Error: &errMsg}}
+		} else {
+			return err
+		}
+	}
+
+	jsonMarshaller := marshalling.NewJsonMarshaller()
+	bytes, err := jsonMarshaller.MarshalIndent(images)
+	if err != nil {
+		return fmt.Errorf("error happened during list images: %w", err)
+	}
+
+	printlnFunc(string(bytes))
+
 	return nil
 }
 
-func getStoredImages(includeK8sImages bool) (*StoredImages, error) {
-	cmd := utils.FormatScriptFilePath(utils.GetInstallationDirectory() + "\\lib\\scripts\\k2s\\image\\Get-Images.ps1")
-
-	var params []string
-	if includeK8sImages {
-		params = []string{"-IncludeK8sImages"}
-	}
-
-	images, err := utils.ExecutePsWithStructuredResult[*StoredImages](cmd, "StoredImages", utils.ExecOptions{}, params...)
-	if err == setupinfo.ErrNotInstalled {
-		errMsg := setupinfo.ErrNotInstalledMsg
-		return &StoredImages{Error: &errMsg}, nil
-	}
-
-	return images, err
-}
-
-func printAvailableImages(terminalPrinter terminal.TerminalPrinter, containerImages []containerImages) {
-	terminalPrinter.Println()
-	terminalPrinter.PrintHeader("Available Images")
-
-	containerImagesTable := [][]string{containerImagesTableHeaders}
-	for _, containerImage := range containerImages {
-		row := []string{containerImage.ImageId, containerImage.Repository, containerImage.Tag, containerImage.Node, containerImage.Size}
-		containerImagesTable = append(containerImagesTable, row)
-	}
-	terminalPrinter.PrintTableWithHeaders(containerImagesTable)
-}
-
-func printAvailableImagesInContainerRegistry(terminalPrinter terminal.TerminalPrinter, containerRegistry string, pushedImages []pushedImages) {
-	terminalPrinter.Println()
-	terminalPrinter.PrintHeader(fmt.Sprintf("Images available in registry: %s", containerRegistry))
-
-	pushedImagesTable := [][]string{pushedImagesTableHeaders}
-	for _, pushedImage := range pushedImages {
-		row := []string{pushedImage.Name, pushedImage.Tag}
-		pushedImagesTable = append(pushedImagesTable, row)
-	}
-	terminalPrinter.PrintTableWithHeaders(pushedImagesTable)
-}
-
-func printImagesAsJson(storedImages *StoredImages, tp terminal.TerminalPrinter) {
-	jsonMarshaller := marshalling.NewJsonMarshaller()
-	bytes, err := jsonMarshaller.MarshalIndent(storedImages)
+func printImagesToUser(getImagesFunc func() (*Images, error), printer terminal.TerminalPrinter) error {
+	spinner, err := startSpinner(printer)
 	if err != nil {
-		klog.Errorf("error happened during list images. Error: %s", err)
+		return err
 	}
 
-	tp.Println(string(bytes))
-}
+	defer func() {
+		err = spinner.Stop()
+		if err != nil {
+			klog.Error(err)
+		}
+	}()
 
-func printImagesToUser(images *StoredImages, printer terminal.TerminalPrinter) error {
+	images, err := getImagesFunc()
+	if err != nil {
+		return err
+	}
+
 	if len(images.ContainerImages) > 0 {
 		printAvailableImages(printer, images.ContainerImages)
 	} else {
@@ -150,53 +166,60 @@ func printImagesToUser(images *StoredImages, printer terminal.TerminalPrinter) e
 	return nil
 }
 
-func listImages(cmd *cobra.Command, args []string) error {
-	outputOption, err := cmd.Flags().GetString(outputFlagName)
+func startSpinner(terminalPrinter terminal.TerminalPrinter) (Spinner, error) {
+	startResult, err := terminalPrinter.StartSpinner("Gathering images stored in the cluster...")
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	if outputOption != "" && outputOption != jsonOption {
-		return fmt.Errorf("parameter '%s' not supported for flag 'o'", outputOption)
+	spinner, ok := startResult.(Spinner)
+	if !ok {
+		return nil, errors.New("could not start operation")
 	}
 
-	includeK8sImagesFlag, _ := strconv.ParseBool(cmd.Flags().Lookup(includeK8sImages).Value.String())
+	return spinner, nil
+}
 
-	terminalPrinter := terminal.NewTerminalPrinter()
+func getImages(includeK8sImages bool) (*Images, error) {
+	cmd := utils.FormatScriptFilePath(utils.GetInstallationDirectory() + "\\lib\\scripts\\k2s\\image\\Get-Images.ps1")
 
-	if outputOption != jsonOption {
-		if err := startSpinner(terminalPrinter); err != nil {
-			return err
-		}
+	var params []string
+	if includeK8sImages {
+		params = []string{"-IncludeK8sImages"}
 	}
 
-	images, err := getStoredImages(includeK8sImagesFlag)
+	images, err := utils.ExecutePsWithStructuredResult[*Images](cmd, "StoredImages", utils.ExecOptions{}, params...)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if images.Error != nil {
-		switch *images.Error {
-		case setupinfo.ErrNotInstalledMsg:
-			if outputOption == jsonOption {
-				break
-			}
-			return setupinfo.ErrNotInstalled
-		case status.ErrNotRunningMsg:
-			if outputOption == jsonOption {
-				break
-			}
-			return status.ErrNotRunning
-		default:
-			return fmt.Errorf("unknown error while listing images: %s", *images.Error)
-		}
+		return nil, images.Error.ToError()
 	}
 
-	if outputOption == jsonOption {
-		printImagesAsJson(images, terminalPrinter)
-	} else {
-		printImagesToUser(images, terminalPrinter)
-	}
+	return images, nil
+}
 
-	return nil
+func printAvailableImages(terminalPrinter terminal.TerminalPrinter, containerImages []containerImage) {
+	terminalPrinter.Println()
+	terminalPrinter.PrintHeader("Available Images")
+
+	containerImagesTable := [][]string{containerImagesTableHeaders}
+	for _, containerImage := range containerImages {
+		row := []string{containerImage.ImageId, containerImage.Repository, containerImage.Tag, containerImage.Node, containerImage.Size}
+		containerImagesTable = append(containerImagesTable, row)
+	}
+	terminalPrinter.PrintTableWithHeaders(containerImagesTable)
+}
+
+func printAvailableImagesInContainerRegistry(terminalPrinter terminal.TerminalPrinter, containerRegistry string, pushedImages []pushedImage) {
+	terminalPrinter.Println()
+	terminalPrinter.PrintHeader(fmt.Sprintf("Images available in registry: %s", containerRegistry))
+
+	pushedImagesTable := [][]string{pushedImagesTableHeaders}
+	for _, pushedImage := range pushedImages {
+		row := []string{pushedImage.Name, pushedImage.Tag}
+		pushedImagesTable = append(pushedImagesTable, row)
+	}
+	terminalPrinter.PrintTableWithHeaders(pushedImagesTable)
 }
