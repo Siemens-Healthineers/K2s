@@ -63,7 +63,7 @@ var _ = Describe("image commands", func() {
 			Expect(images.ContainerImages).To(BeNil())
 			Expect(images.ContainerRegistry).To(BeNil())
 			Expect(images.PushedImages).To(BeNil())
-			Expect(*images.Error).To(Equal(setupinfo.ErrNotInstalledMsg))
+			Expect(string(*images.Error)).To(Equal(setupinfo.ErrNotInstalledMsg))
 		})
 	})
 })
