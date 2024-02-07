@@ -25,6 +25,8 @@ Param(
   [string] $Proxy = '',
   [parameter(Mandatory = $false, HelpMessage = 'JSON config object to override preceeding parameters')]
   [pscustomobject] $Config,
+  [parameter(Mandatory = $false, HelpMessage = 'Use the alternative ports 8080/8443 instead of 80/443 in case they are not free without user confirmation.')]
+  [switch]$ForceUseAlternativePortsIfNeeded = $false,
   [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
   [switch] $EncodeStructuredOutput,
   [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
@@ -93,7 +95,7 @@ $isPort443Used = DetermineIfPortIsUsed -Port $httpsPortNumberToUse
 
 if ($isPort80Used -or $isPort443Used) {
 
-  if ($env:K2S_ADDON_EXTHTTPACCESS_AUTOCONFIRM -ne $null) {
+  if ($ForceUseAlternativePortsIfNeeded) {
     $useAlternativePorts = 0
   } else {
     $title = 'The ports 80 and/or 443 are already in use.'
