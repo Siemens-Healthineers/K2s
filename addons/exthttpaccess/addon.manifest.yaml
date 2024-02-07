@@ -26,6 +26,10 @@ spec:
             shorthand: p
             default: ""
             description: HTTP Proxy
+          - name: force-use-alternative-ports-if-needed
+            shorthand: f
+            default: false
+            description: Use the alternative ports 8080/8443 instead of 80/443 in case they are not free without user confirmation
         examples:
           - cmd: k2s addons enable exthttpaccess
             comment: Enable exthttpaccess in k2s
@@ -36,6 +40,8 @@ spec:
         parameterMappings:
           - cliFlagName: proxy
             scriptParameterName: Proxy
+          - cliFlagName: force-use-alternative-ports-if-needed
+            scriptParameterName: ForceUseAlternativePortsIfNeeded
     disable:
       cli:
         examples:
