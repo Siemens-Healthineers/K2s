@@ -341,8 +341,10 @@ if ($linuxOnly -ne $true) {
                 Write-Output 'Change metrics at network interfaces'
                 # change index
                 $ipindex2 = Get-NetIPInterface | Where-Object InterfaceAlias -Like '*Default*' | Where-Object AddressFamily -Eq IPv4 | Select-Object -expand 'ifIndex'
-                Write-Output "           Index for interface Default : ($ipindex2) -> metric 35"
-                Set-NetIPInterface -InterfaceIndex $ipindex2 -InterfaceMetric 35
+                if ( $ipindex2 ) {
+                    Write-Log "Index for interface Default : ($ipindex2) -> metric 35"
+                    Set-NetIPInterface -InterfaceIndex $ipindex2 -InterfaceMetric 35
+                }
 
                 $l2BridgeInterfaceIndex = Get-NetIPInterface | Where-Object InterfaceAlias -Like "*$global:L2BridgeSwitchName*" | Where-Object AddressFamily -Eq IPv4 | Select-Object -expand 'ifIndex'
                 Set-NetIPInterface -InterfaceIndex $l2BridgeInterfaceIndex -InterfaceMetric 5
