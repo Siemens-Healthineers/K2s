@@ -164,6 +164,8 @@ if ($ReleaseId -lt 17763) {
     throw "Windows release $ReleaseId not usable"
 }
 
+Stop-InstallIfNoMandatoryServiceIsRunning
+
 Enable-MissingWindowsFeatures $([bool]$WSL)
 
 if ($WSL) {
