@@ -31,17 +31,18 @@ var _ = AfterSuite(func(ctx context.Context) {
 	suite.TearDown(ctx)
 })
 
-var _ = Describe("image commands", func() {
+var _ = Describe("image", func() {
 	DescribeTable("print system-not-running message",
 		func(ctx context.Context, args ...string) {
 			output := suite.K2sCli().Run(ctx, args...)
 
 			Expect(output).To(ContainSubstring("not running"))
 		},
-		Entry("image ls default output", "image", "ls"),
+		Entry("ls default output", "image", "ls"),
+		Entry("build", "image", "build"),
 	)
 
-	Describe("image ls JSON output", Ordered, func() {
+	Describe("ls JSON output", Ordered, func() {
 		var images image.Images
 
 		BeforeAll(func(ctx context.Context) {
