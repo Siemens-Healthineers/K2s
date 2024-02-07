@@ -468,6 +468,30 @@ Describe 'Install-KubernetesArtifacts' -Tag 'unit', 'linuxnode' {
                     $expectedExecutedRemoteCommands += @{Command = "echo Environment=\'https_proxy=$proxyToUse\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf" ; IgnoreErrors = $false} 
                     $expectedExecutedRemoteCommands += @{Command = "echo Environment=\'no_proxy=.local\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf"; IgnoreErrors = $false} 
                 }
+                $token = Get-RegistryToken
+                if ($PSVersionTable.PSVersion.Major -gt 5) {
+                    $jsonConfig = @{
+                        "auths" = @{
+                            "shsk2s.azurecr.io" = @{
+                                "auth" = "$token"
+                            }
+                        }
+                    }
+                } else {
+                    $jsonConfig = @{
+                        """auths""" = @{
+                            """shsk2s.azurecr.io""" = @{
+                                """auth""" = """$token"""
+                            }
+                        }
+                    }
+                }
+                
+                $jsonString = ConvertTo-Json -InputObject $jsonConfig
+                $expectedExecutedRemoteCommands += @{Command = "echo -e '$jsonString' | sudo tee /tmp/auth.json"; IgnoreErrors = $false} 
+                $expectedExecutedRemoteCommands += @{Command = "sudo mkdir -p /root/.config/containers"; IgnoreErrors = $false} 
+                $expectedExecutedRemoteCommands += @{Command = 'sudo mv /tmp/auth.json /root/.config/containers/auth.json'; IgnoreErrors = $false}  
+
                 $expectedCRIO_CNI_FILE = '/etc/cni/net.d/10-crio-bridge.conf'
                 $expectedExecutedRemoteCommands += @{Command = "[ -f $expectedCRIO_CNI_FILE ] && sudo mv $expectedCRIO_CNI_FILE /etc/cni/net.d/100-crio-bridge.conf || echo File does not exist, no renaming of cni file $expectedCRIO_CNI_FILE.." ; IgnoreErrors = $false} 
                 $expectedExecutedRemoteCommands += @{Command = "sudo echo unqualified-search-registries = [\\\""docker.io\\\""] | sudo tee -a /etc/containers/registries.conf"; IgnoreErrors = $false} 
