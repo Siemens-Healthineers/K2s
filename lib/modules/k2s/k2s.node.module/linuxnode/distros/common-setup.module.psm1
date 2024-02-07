@@ -659,7 +659,7 @@ Function New-KubernetesNode {
 
     Write-Log "Finalize preparation of the computer $IpAddress after provisioning"
     Set-UpComputerWithSpecificOsAfterProvisioning -IpAddress $IpAddress -UserName $userName -UserPwd $userPwd
-    Write-Log "Linux VM is now prepared to be used as master node"
+    Write-Log "Linux VM is now prepared to be used as kubernetes node"
 
     Set-UpComputerAfterProvisioning -IpAddress $IpAddress -UserName $userName -UserPwd $userPwd
     Write-Log "Finished provisioning the computer $IpAddress"
@@ -713,4 +713,27 @@ Function New-MasterNode {
     Set-UpMasterNode @masterNodeParams
 }
 
-Export-ModuleMember -Function Install-Tools, Add-SupportForWSL, Set-UpMasterNode, New-KubernetesNode, New-MasterNode
+Function New-WorkerNode {
+    param (
+        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_))})]
+        [string]$UserName = $(throw "Argument missing: UserName"),
+        [string]$UserPwd = $(throw "Argument missing: UserPwd"),
+        [ValidateScript({ Get-IsValidIPv4Address($_) })]
+        [string]$IpAddress = $(throw "Argument missing: IpAddress"),
+        [string]$Proxy = '',
+        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_))})]
+        [string] $K8sVersion = $(throw "Argument missing: K8sVersion"),
+        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_))})]
+        [string] $CrioVersion = $(throw "Argument missing: CrioVersion"),
+        
+        [scriptblock]$Hook = $(throw "Argument missing: Hook")
+    )
+
+    New-KubernetesNode -IpAddress $IpAddress -UserName $userName -UserPwd $userPwd -K8sVersion $K8sVersion -CrioVersion $CrioVersion -Proxy $Proxy
+    
+    Write-Log "Run setup hook"
+    &$Hook
+    Write-Log "Setup hook finished"
+}
+
+Export-ModuleMember -Function Install-Tools, Add-SupportForWSL, Set-UpMasterNode, New-KubernetesNode, New-MasterNode, New-WorkerNode

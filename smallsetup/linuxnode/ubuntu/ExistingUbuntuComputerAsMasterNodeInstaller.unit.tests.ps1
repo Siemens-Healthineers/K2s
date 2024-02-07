@@ -8,6 +8,9 @@ BeforeAll {
     $validationModule = "$PSScriptRoot\..\..\..\lib\modules\k2s\k2s.infra.module\validation\validation.module.psm1"
     $validationModuleName = (Import-Module $validationModule -PassThru -Force).Name
 
+    $baseImageModule = "$PSScriptRoot\..\..\baseimage\BaseImage.module.psm1"
+    $baseImageModuleName = (Import-Module $baseImageModule -PassThru -Force).Name
+
     $linuxNodeModule = "$PSScriptRoot\..\linuxnode.module.psm1"
     $linuxNodeModuleName = (Import-Module $linuxNodeModule -PassThru -Force).Name
 

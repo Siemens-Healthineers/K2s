@@ -12,9 +12,14 @@ $kubeSwitchIp = Get-ConfiguredKubeSwitchIP
 $controlPlaneSwitchName = Get-ControlPlaneNodeDefaultSwitchName
 $ipControlPlane = Get-ConfiguredIPControlPlane
 $controlePlaneNetworkInterfaceName = 'eth0'
+$workerNodeNetworkInterfaceName = 'eth0'
 
 function Get-ControlPlaneNodeNetworkInterfaceName {
     return $controlePlaneNetworkInterfaceName
+}
+
+function Get-WorkerNodeNetworkInterfaceName {
+    return $workerNodeNetworkInterfaceName
 }
 
 function Add-DnsServer($switchname) {
@@ -107,4 +112,5 @@ function New-DefaultControlPlaneSwitch {
 Export-ModuleMember New-DefaultControlPlaneSwitch,
 Get-ControlPlaneNodeDefaultSwitchName,
 Get-ControlPlaneNodeNetworkInterfaceName,
+Get-WorkerNodeNetworkInterfaceName,
 Add-DnsServer, New-KubeSwitch, Connect-KubeSwitch, Remove-KubeSwitch

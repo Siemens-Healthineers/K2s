@@ -3,24 +3,20 @@
 
 #Requires -RunAsAdministrator
 
-$validationModule = "$PSScriptRoot\..\..\..\k2s.infra.module\validation\validation.module.psm1"
-$baseImageModule = "$PSScriptRoot\baseimage.module.psm1"
-$commonSetupModule = "$PSScriptRoot\..\distros\common-setup.module.psm1"
-$linuxNodeDebianModule = "$PSScriptRoot\..\distros\debian\debian.module.psm1"
+&"$PSScriptRoot\..\common\GlobalVariables.ps1"
+# dot source common functions into scope
+. "$PSScriptRoot\..\common\GlobalFunctions.ps1"
 
-Import-Module $validationModule, $baseImageModule, $commonSetupModule, $linuxNodeDebianModule
+$validationModule = "$global:KubernetesPath\lib\modules\k2s\k2s.infra.module\validation\validation.module.psm1"
+$baseImageModule = "$PSScriptRoot\BaseImage.module.psm1"
+$linuxNodeModule = "$global:KubernetesPath\smallsetup\linuxnode\linuxnode.module.psm1"
+$linuxNodeDebianModule = "$global:KubernetesPath\smallsetup\linuxnode\debian\linuxnode.debian.module.psm1"
 
-$configModule = "$PSScriptRoot\..\..\..\k2s.infra.module\config\config.module.psm1"
-$logModule = "$PSScriptRoot\..\..\..\k2s.infra.module\log\log.module.psm1"
-$pathModule = "$PSScriptRoot\..\..\..\k2s.infra.module\path\path.module.psm1"
-$vmModule = "$PSScriptRoot\..\vm\vm.module.psm1"
-Import-Module $logModule, $configModule, $pathModule, $vmModule
+Import-Module $validationModule,$baseImageModule,$linuxNodeModule,$linuxNodeDebianModule
 
-$kubeBinPath = Get-KubeBinPath
-
-$downloadsDirectory = "$kubeBinPath\downloads"
-$provisioningTargetDirectory = "$kubeBinPath\provisioning"
-$crioVersion = '1.25.2'
+$downloadsDirectory = $global:DownloadsDirectory
+$provisioningTargetDirectory = $global:ProvisioningTargetDirectory
+$crioVersion = $global:CrioVersion
 
 $KubemasterVmProvisioningVmName = 'KUBEMASTER_IN_PROVISIONING'
 $RawBaseImageInProvisioningForKubemasterImageName = 'Debian-11-Base-In-Provisioning-For-Kubemaster.vhdx'
@@ -32,9 +28,7 @@ $RawBaseImageInProvisioningForKubeworkerImageName = 'Debian-11-Base-In-Provision
 $KubeworkerVmProvisioningNatName = 'KubeworkerVmProvisioningNat'
 $KubeworkerVmProvisioningSwitchName = 'KubeworkerVmProvisioningSwitch'
 
-$kubemasterRootfsName = Get-ControlPlaneVMRootfsPath
-
-$setupConfigRoot = Get-RootConfigk2s
+$kubemasterRootfsName = $global:KubemasterRootfsName
 
 class VmParameters {
     [string]$VmName
@@ -77,7 +71,7 @@ function New-VmBaseImageProvisioning {
         [parameter(Mandatory = $false, HelpMessage = 'The path to save the provisioned base image.')]
         [string] $OutputPath = $(throw 'Argument missing: OutputPath'),
         [parameter(Mandatory = $false, HelpMessage = 'Keep artifacts used on provisioning')]
-        [switch] $KeepArtifactsUsedOnProvisioning = $false
+        [bool] $KeepArtifactsUsedOnProvisioning = $false
     )
 
     Assert-Path -Path (Split-Path $OutputPath) -PathType 'Container' -ShallExist $true | Out-Null
@@ -100,18 +94,18 @@ function New-VmBaseImageProvisioning {
     $vmParameters.VmName = $KubemasterVmProvisioningVmName
 
     [GuestOsParameters]$guestOsParameters = [GuestOsParameters]::new() 
-    $guestOsParameters.Hostname = Get-ConfigControlPlaneNodeHostname
-    $guestOsParameters.NetworkInterfaceName = Get-ControlPlaneNodeNetworkInterfaceName
-    $guestOsParameters.UserName = Get-DefaultUserNameControlPlane
-    $guestOsParameters.UserPwd = Get-DefaultUserPwdControlPlane
+    $guestOsParameters.Hostname = $global:ControlPlaneNodeHostname
+    $guestOsParameters.NetworkInterfaceName = $global:ControlPlaneNodeNetworkInterfaceName
+    $guestOsParameters.UserName = $global:RemoteUserName_Master
+    $guestOsParameters.UserPwd = $global:VMPwd
 
-    $ipControlPlaneCIDR = Get-ConfiguredControlPlaneCIDR
-    $VmProvisioningIpAddressNat = $ipControlPlaneCIDR.Substring(0, $ipControlPlaneCIDR.IndexOf('/'))
-    $VmProvisioningPrefixLength = $ipControlPlaneCIDR.Substring($ipControlPlaneCIDR.IndexOf('/') + 1)
+    $mainNetworkCIDR = $global:IP_CIDR
+    $VmProvisioningIpAddressNat = $mainNetworkCIDR.Substring(0, $mainNetworkCIDR.IndexOf('/'))
+    $VmProvisioningPrefixLength = $mainNetworkCIDR.Substring($mainNetworkCIDR.IndexOf('/') + 1)
 
     [NetworkParameters]$networkParameters = [NetworkParameters]::new() 
-    $networkParameters.GuestIpAddress = Get-ConfiguredIPControlPlane
-    $networkParameters.HostIpAddress = Get-ConfiguredKubeSwitchIP
+    $networkParameters.GuestIpAddress = $global:IP_Master
+    $networkParameters.HostIpAddress = $global:IP_NextHop
     $networkParameters.HostNetworkPrefixLength = $VmProvisioningPrefixLength
     $networkParameters.NatIpAddress = $VmProvisioningIpAddressNat
     $networkParameters.NatName = $VmProvisioningNatName
@@ -120,8 +114,8 @@ function New-VmBaseImageProvisioning {
     $createControlPlaneNode = {
 
         $addToControlPlaneNode = {
-            Install-Tools -IpAddress $networkParameters.GuestIpAddress -UserName $guestOsParameters.UserName -UserPwd $guestOsParameters.UserPwd -Proxy $Proxy
-            Add-SupportForWSL -IpAddress $networkParameters.GuestIpAddress -UserName $guestOsParameters.UserName -UserPwd $guestOsParameters.UserPwd -NetworkInterfaceName $guestOsParameters.NetworkInterfaceName -GatewayIP $networkParameters.HostIpAddress
+            Install-Tools -IpAddress $global:IP_Master -UserName $guestOsParameters.UserName -UserPwd $guestOsParameters.UserPwd -Proxy $Proxy
+            Add-SupportForWSL -IpAddress $global:IP_Master -UserName $guestOsParameters.UserName -UserPwd $guestOsParameters.UserPwd -NetworkInterfaceName $guestOsParameters.NetworkInterfaceName -GatewayIP $networkParameters.HostIpAddress
         }
 
         $masterNodeParameters = @{
@@ -129,14 +123,14 @@ function New-VmBaseImageProvisioning {
             UserName                      = $guestOsParameters.UserName
             UserPwd                       = $guestOsParameters.UserPwd
             Proxy                         = $Proxy
-            K8sVersion                    = Get-ConfigInstalledKubernetesVersion
+            K8sVersion                    = $global:KubernetesVersion
             CrioVersion                   = $crioVersion
-            ClusterCIDR                   = Get-ConfiguredClusterCIDR
-            ClusterCIDR_Services          = Get-ConfiguredClusterCIDRServices
-            KubeDnsServiceIP              = $setupConfigRoot.psobject.properties['kubeDnsServiceIP'].value
+            ClusterCIDR                   = $global:ClusterCIDR 
+            ClusterCIDR_Services          = $global:ClusterCIDR_Services
+            KubeDnsServiceIP              = $global:KubeDnsServiceIP
             GatewayIP                     = $networkParameters.HostIpAddress
             NetworkInterfaceName          = $guestOsParameters.NetworkInterfaceName
-            NetworkInterfaceCni0IP_Master = $setupConfigRoot.psobject.properties['masterNetworkInterfaceCni0IP'].value
+            NetworkInterfaceCni0IP_Master = $global:NetworkInterfaceCni0IP_Master
             Hook                          = $addToControlPlaneNode
         }
     
@@ -156,7 +150,7 @@ function New-VmBaseImageProvisioning {
         $provisionedVhdxPath = "$provisioningTargetDirectory\$($vmParameters.ProvisionedVhdxFileName)"
 
         Write-Log 'Create KubeMaster-Base.rootfs.tar.gz for use in WSL2'
-        New-RootfsForWSL -IpAddress $networkParameters.GuestIpAddress -UserName $guestOsParameters.UserName -UserPwd $guestOsParameters.UserPwd -VhdxFile $provisionedVhdxPath -RootfsName $kubemasterRootfsName -TargetPath $kubeBinPath
+        New-RootfsForWSL -IpAddress $global:IP_Master -UserName $guestOsParameters.UserName -UserPwd $guestOsParameters.UserPwd -VhdxFile $provisionedVhdxPath -RootfsName $kubemasterRootfsName -TargetPath $global:BinDirectory
 
         Write-Log "Stop the VM $vmName"
         Stop-VirtualMachineForBaseImageProvisioning -Name $vmName
@@ -191,7 +185,7 @@ function New-KubeworkerBaseImage {
         [parameter(Mandatory = $false, HelpMessage = 'The path to save the provisioned base image.')]
         [string] $OutputPath = $(throw 'Argument missing: OutputPath'),
         [parameter(Mandatory = $false, HelpMessage = 'Keep artifacts used on provisioning')]
-        [switch] $KeepArtifactsUsedOnProvisioning = $false
+        [bool] $KeepArtifactsUsedOnProvisioning = $false
     )
 
     Assert-Path -Path (Split-Path $OutputPath) -PathType 'Container' -ShallExist $true | Out-Null
@@ -215,7 +209,7 @@ function New-KubeworkerBaseImage {
 
     [GuestOsParameters]$guestOsParameters = [GuestOsParameters]::new() 
     $guestOsParameters.Hostname = Get-HostnameForProvisioningWorkerNode
-    $guestOsParameters.NetworkInterfaceName = Get-WorkerNodeNetworkInterfaceName
+    $guestOsParameters.NetworkInterfaceName = 'eth0'
     $guestOsParameters.UserName = Get-DefaultUserNameWorkerNode
     $guestOsParameters.UserPwd = Get-DefaultUserPwdWorkerNode
 
@@ -235,7 +229,7 @@ function New-KubeworkerBaseImage {
             UserName                      = $guestOsParameters.UserName
             UserPwd                       = $guestOsParameters.UserPwd
             Proxy                         = $Proxy
-            K8sVersion                    = Get-ConfigInstalledKubernetesVersion
+            K8sVersion                    = $global:KubernetesVersion
             CrioVersion                   = $crioVersion
             Hook                          = $addToWorkerNode
         }
@@ -280,8 +274,6 @@ function New-ProvisionedBaseImage {
     $provisionedVhdxName = $VmParameters.ProvisionedVhdxFileName
     $vmName = $VmParameters.VmName
 
-    $KubeworkerVmProvisioningIpAddressNat = $NetworkParameters.NatIpAddress
-    $KubeworkerVmProvisioningPrefixLength = $NetworkParameters.HostNetworkPrefixLength
     $IsoFileCreatorTool = 'cloudinitisobuilder.exe'
 
     $VirtualMachineParams = @{
@@ -300,7 +292,7 @@ function New-ProvisionedBaseImage {
         NatIpAddress       = $NetworkParameters.NatIpAddress
     }
     $IsoFileParams = @{
-        IsoFileCreatorToolPath = "$kubeBinPath\$IsoFileCreatorTool"
+        IsoFileCreatorToolPath = "$global:BinDirectory\$IsoFileCreatorTool"
         IsoFileName            = $VmParameters.IsoFileName
         SourcePath             = "$PSScriptRoot\cloud-init-templates"
         Hostname               = $GuestOsParameters.Hostname
@@ -324,7 +316,7 @@ function New-ProvisionedBaseImage {
     $user = "$userName@$vmIP"
     # let's check if the connection to the remote computer is possible
     Write-Log "Checking if an SSH login into remote computer '$vmIP' with user '$user' is possible"
-    Wait-ForSshPossible -User "$user" -UserPwd "$userPwd" -SshTestCommand 'which ls' -ExpectedSshTestCommandResult '/usr/bin/ls'
+    Wait-ForSshPossible -RemoteUser "$user" -RemotePwd "$userPwd" -SshTestCommand 'which ls' -ExpectedSshTestCommandResult '/usr/bin/ls'
 
     Write-Log "Run role assignment hook"
     &$NodeRoleAssignmentHook
@@ -377,18 +369,17 @@ function Get-NetworkPrefixLengthForProvisioningWorkerNode {
 }
 
 function Get-DefaultUserNameWorkerNode {
-    return Get-DefaultUserNameControlPlane
+    return $global:RemoteUserName_Master
 }
 
 function Get-DefaultUserPwdWorkerNode {
-    return Get-DefaultUserPwdControlPlane
+    return $global:VMPwd
 }
 
 function Get-HostnameForProvisioningWorkerNode {
     return "kubeworkerbase"
 }
 
-#Cleaner.ps1
 function Clear-ProvisioningArtifacts {
     $kubemasterVmName = $KubemasterVmProvisioningVmName
     $kubeworkerVmName = $KubeworkerVmProvisioningVmName
