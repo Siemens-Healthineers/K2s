@@ -47,6 +47,8 @@ Set-EnvVars
 Add-k2sToDefenderExclusion
 Stop-InstallIfDockerDesktopIsRunning
 
+Stop-InstallIfNoMandatoryServiceIsRunning
+
 Enable-MissingWindowsFeatures $([bool]$WSL)
 
 Set-ConfigSetupType -Value $script:SetupType
