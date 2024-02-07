@@ -30,6 +30,7 @@ This CLA does not enable Siemens Healthineers to use or process personal data. T
     - [Pester Specifics](#pester-specifics)
     - [Ginkgo/Gomega Specifics](#ginkgogomega-specifics)
       - [Log Output Redirection](#log-output-redirection)
+  - [Submit Changes](#submit-changes)
 
 ---
 
@@ -186,3 +187,26 @@ var _ = BeforeSuite(func() {
 ```
 
 This enables control over *klog* output, i.e. the output can be enabled when running *Ginkgo* in verbose mode (`ginkog -v`) and be omitted in non-verbose mode.
+
+## Submit Changes
+The following guidelines apply to submitting changes to *K2s*:
+- only commit changes when a corresponding issue exists and the maintainers have agreed that this issue is going to be realized (see [K2s Issues](https://github.com/Siemens-Healthineers/K2s/issues))
+- since *K2s* is open source, we utilize the *GitHub's* [Pull Requests](https://docs.github.com/en/pull-requests) workflow:
+  - forking the repo (applies to all non-maintainers)
+  - creating a separate branch, commit to that branch and push
+  - create a PR in *K2s* repo. This will trigger at least short-running automated tests.
+  - the PR will be reviewed by the maintainers. If re-work is needed, preceding steps will be iterated. If the changes are acceptable, the PR will be merged to main.
+- reference the issue in commit messages, e.g. for a refactoring issue with ID 42, create a message like `#42 refactor(addons): obsolete code path removed`. **Note:** This example also uses [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/), which is not mandatory, but recommended.
+- sign your commits
+  - signing commits increases trust in your contributions. Verified commit signatures will be display in GitHub like this: ![Verified Commit](./assets/verified-commit.png)
+  
+    Further readings: [Displaying verification statuses for all of your commits](https://docs.github.com/en/authentication/managing-commit-signature-verification/displaying-verification-statuses-for-all-of-your-commits)
+  - if you do not have a GPG key yet, see [Generating a new GPG key](https://docs.github.com/en/authentication/managing-commit-signature-verification/generating-a-new-gpg-key). **Note:** If you are running on *Windows*, you can use the *Git bash* for `gpg` commands
+  - if you have a GPG key in place, sign your commits. According to [Signing commits](https://docs.github.com/en/authentication/managing-commit-signature-verification/signing-commits), the following options exist:
+    - sign every commit with `git commit -S -m "YOUR_COMMIT_MESSAGE"`
+    - enable GPG signature for the whole local repo with `git config commit.gpgsign true`
+    - enable GPG signature for all local repos with `git config --global commit.gpgsign true`
+    
+    **Note:** To avoid entering the passphrase for the GPG key too often, you can increase the expiration time, e.g. on *Windows* using [Gpg4win](https://gpg4win.org/download.html) (see [How do I install and use gpg-agent on Windows?](https://stackoverflow.com/a/66821816)). Alternatively, these settings can also be modified in this file: `C:\Users\<user>\AppData\Roaming\gnupg\gpg-agent.conf`
+  - see [Managing commit signature verification](https://docs.github.com/en/authentication/managing-commit-signature-verification) for more information
+- run as many automated tests as possible, but at least the unit tests :`<repo>\test\execute_all_tests.ps1 -Tags unit`. Depending on the area of changes, consider running the appropriate e2e tests as well
