@@ -70,9 +70,6 @@ func runExport(cmd *cobra.Command, args []string) error {
 	start := time.Now()
 
 	cmdResult, err := utils.ExecutePsWithStructuredResult[*common.CmdResult](psCmd, "CmdResult", utils.ExecOptions{}, params...)
-
-	duration := time.Since(start)
-
 	if err != nil {
 		return err
 	}
@@ -85,6 +82,8 @@ func runExport(cmd *cobra.Command, args []string) error {
 
 		return cmdResult.Error.ToError()
 	}
+
+	duration := time.Since(start)
 
 	common.PrintCompletedMessage(duration, "addons export")
 
