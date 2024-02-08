@@ -25,7 +25,7 @@ jobs:
     name: Build k2s CLI
     timeout-minutes: 30
     continue-on-error: false
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     env:
       CI_COMMIT_MESSAGE: Auto-commit k2s cli
     steps:
@@ -49,44 +49,27 @@ jobs:
 
     - name: Current working directory
       run: |
-        pwsh -Command ls
+        ls
 
     - name: Build k2s executable
       run: |
-        pwsh ./smallsetup/common/BuildGoExe.ps1
-        pwsh -Command ls
-
-    - name: Commit k2s cli
-      run: |
-        git add k2s.exe
-        git commit -m "${{ env.CI_COMMIT_MESSAGE }}"
-        git push
-        
-  run-acceptance-tests:
-    name: Run Acceptance Tests
-    needs: build-k2s-cli
-    timeout-minutes: 30
-    continue-on-error: false
-    runs-on: windows-latest
-    steps:
-    - uses: actions/checkout@v3
-
-    - name: Set up Go
-      uses: actions/setup-go@v4
-      with:
-        go-version: ${{env.GOVERSION}}
-        cache-dependency-path: "**/*.sum"
-
-    - name: Show all diff
-      run: |
-        git diff --exit-code -- .
-
-    - name: Show Source Files
-      shell: pwsh
-      run: ls -r
+        .\smallsetup\common\BuildGoExe.ps1
+        ls
 
     - name: Run no-setup Acceptance Tests
       shell: powershell
       run: |
         $ErrorActionPreference = "Continue"
         .\test\execute_all_tests.ps1 -Tags no-setup -ExcludeTags unit,integration -V -ThrowOnFailure
+
+    - name: Commit k2s cli
+      run: |
+        $commit_message = @"
+        ${{ env.CI_COMMIT_MESSAGE }}
+        
+
+        skip_checks: true
+        "@
+        git add k2s.exe
+        git commit -m $commit_message
+        git push
