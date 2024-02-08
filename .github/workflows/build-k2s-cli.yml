@@ -64,6 +64,12 @@ jobs:
 
     - name: Commit k2s cli
       run: |
+        $commit_message = @"
+        ${{ env.CI_COMMIT_MESSAGE }}
+        
+
+        skip_checks: true
+        "@
         git add k2s.exe
-        git commit -m "${{ env.CI_COMMIT_MESSAGE }}"
+        git commit -m $commit_message
         git push
