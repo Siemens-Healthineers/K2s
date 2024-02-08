@@ -256,7 +256,13 @@ var _ = Describe("build", func() {
 				cmd, params := buildPsCmd(options)
 
 				Expect(cmd).To(ContainSubstring("\\smallsetup\\common\\BuildImage.ps1"))
-				Expect(params).To(ConsistOf(" -InputFolder .", " -BuildArgs BaseImage=alpine,CommitId=e5d634c6-306a-42fe-a170-9da27951543b"))
+				Expect(params).To(ConsistOf(
+					" -InputFolder .",
+					SatisfyAny(
+						Equal(" -BuildArgs BaseImage=alpine,CommitId=e5d634c6-306a-42fe-a170-9da27951543b"),
+						Equal(" -BuildArgs CommitId=e5d634c6-306a-42fe-a170-9da27951543b,BaseImage=alpine"),
+					),
+				))
 			})
 		})
 
