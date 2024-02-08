@@ -71,6 +71,7 @@ function Enable-MissingWindowsFeatures($wsl) {
 
     foreach ($feature in $features) {
         if (Enable-MissingFeature -Name $feature) {
+            Write-Log "!!! Restart is required after enabling WindowsFeature: $feature"
             $restartRequired = $true
         }
     }
@@ -85,8 +86,6 @@ function Enable-MissingWindowsFeatures($wsl) {
 
     if ($restartRequired) {
         Write-Log '!!! Restart is required. Reason: Changes in WindowsOptionalFeature !!!'
-        Restart-Computer -Confirm
-        Exit
     }
 }
 
