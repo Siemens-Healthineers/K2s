@@ -285,11 +285,16 @@ Initialize-VMKubernetesCluster -VMName $multiVMWindowsVMName `
     -KubernetesVersion $KubernetesVersion `
     -AdditionalHooksDir $AdditionalHooksDir
 
-& "$PSScriptRoot\..\stop\Stop.ps1" -ShowLogs:$ShowLogs
+if ($global:InstallRestartRequired) {
+    Write-Log 'RESTART!! Windows features are enabled. Restarting the machine is mandatory in order to start the cluster.' -Console
+}
+else {
+    & "$PSScriptRoot\..\stop\Stop.ps1" -ShowLogs:$ShowLogs
 
-if (! $SkipStart) {
-    Write-Log 'Starting Kubernetes system ...'
-    & "$PSScriptRoot\..\start\Start.ps1" -HideHeaders -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs
+    if (! $SkipStart) {
+        Write-Log 'Starting Kubernetes system ...'
+        & "$PSScriptRoot\..\start\Start.ps1" -HideHeaders -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs
+    }
 }
 
 Invoke-Hook -HookName 'AfterBaseInstall' -AdditionalHooksDir $AdditionalHooksDir

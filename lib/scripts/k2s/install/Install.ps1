@@ -146,28 +146,33 @@ Write-Log "Preparing Kubernetes $KubernetesVersion by joining nodes" -Console
 
 Initialize-KubernetesCluster -AdditionalHooksDir $AdditionalHooksDir
 
-# START CLUSTER
-if (! $SkipStart) {
-    Write-Log 'Starting Kubernetes System'
-    & "$PSScriptRoot\..\start\Start.ps1" -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs -SkipHeaderDisplay
+if ($global:InstallRestartRequired) {
+    Write-Log 'RESTART!! Windows features are enabled. Restarting the machine is mandatory in order to start the cluster.' -Console
 }
-
-if ( ($RestartAfterInstallCount -gt 0) -and (! $SkipStart) ) {
-    $restartCount = 0;
-
-    while ($true) {
-        $restartCount++
-        Write-Log "Restarting Kubernetes System (iteration #$restartCount):"
-
-        & "$PSScriptRoot\..\stop\Stop.ps1" -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs -SkipHeaderDisplay
-        Start-Sleep 10 # Wait for renew of IP
-
+else {
+    # START CLUSTER
+    if (! $SkipStart) {
+        Write-Log 'Starting Kubernetes System'
         & "$PSScriptRoot\..\start\Start.ps1" -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs -SkipHeaderDisplay
-        Start-Sleep -s 5
+    }
 
-        if ($restartCount -eq $RestartAfterInstallCount) {
-            Write-Log 'Restarting Kubernetes System Completed'
-            break;
+    if ( ($RestartAfterInstallCount -gt 0) -and (! $SkipStart) ) {
+        $restartCount = 0;
+
+        while ($true) {
+            $restartCount++
+            Write-Log "Restarting Kubernetes System (iteration #$restartCount):"
+
+            & "$PSScriptRoot\..\stop\Stop.ps1" -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs -SkipHeaderDisplay
+            Start-Sleep 10 # Wait for renew of IP
+
+            & "$PSScriptRoot\..\start\Start.ps1" -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs -SkipHeaderDisplay
+            Start-Sleep -s 5
+
+            if ($restartCount -eq $RestartAfterInstallCount) {
+                Write-Log 'Restarting Kubernetes System Completed'
+                break;
+            }
         }
     }
 }

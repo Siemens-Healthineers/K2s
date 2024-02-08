@@ -46,9 +46,9 @@ if ($systemError) {
 Write-Log 'Extracting images' -Console
 Write-Log '---' -Console
 $dir = Split-Path $ZipFile
-$extractionFolder = "${dir}\addons"
+$extractionFolder = "${dir}\tmp-extracted-addons\addons"
 Remove-Item -Force "${extractionFolder}" -Recurse -Confirm:$False -ErrorAction SilentlyContinue
-Expand-Archive $ZipFile -DestinationPath $dir -Force
+Expand-Archive $ZipFile -DestinationPath "$dir\tmp-extracted-addons" -Force
 
 $exportedAddons = (Get-Content "$extractionFolder\addons.json" | Out-String | ConvertFrom-Json).addons
 if ($null -eq $exportedAddons -or $exportedAddons.Count -lt 1) {
@@ -147,7 +147,7 @@ foreach ($addon in $addonsToImport) {
     Write-Log '---' -Console
 }
 
-Remove-Item -Force "$extractionFolder" -Recurse -Confirm:$False -ErrorAction SilentlyContinue
+Remove-Item -Force "${dir}\tmp-extracted-addons" -Recurse -Confirm:$False -ErrorAction SilentlyContinue
 
 Write-Log '---'
 Write-Log "Addons '$($addonsToImport.name)' imported successfully!" -Console

@@ -28,14 +28,10 @@ var exportCmd = &cobra.Command{
 	RunE:    exportImage,
 }
 
-const (
-	defaultExportPath = ""
-)
-
 func init() {
-	exportCmd.Flags().String(imageIdLabel, defaultImageId, "Image ID of the container image")
-	exportCmd.Flags().StringP(imageNameLabel, "n", defaultImageName, "Name of the container image")
-	exportCmd.Flags().StringP(tarLabel, "t", defaultExportPath, "Export tar file path")
+	exportCmd.Flags().String(imageIdFlagName, "", "Image ID of the container image")
+	exportCmd.Flags().StringP(removeImgNameFlagName, "n", "", "Name of the container image")
+	exportCmd.Flags().StringP(tarLabel, "t", "", "Export tar file path")
 	exportCmd.Flags().Bool(dockerArchiveFlag, false, "Export Linux image as docker-archive (default: oci-archive)")
 	exportCmd.Flags().SortFlags = false
 	exportCmd.Flags().PrintDefaults()
@@ -60,13 +56,13 @@ func exportImage(cmd *cobra.Command, args []string) error {
 }
 
 func buildExportCmd(ccmd *cobra.Command) (string, error) {
-	imageId, err := ccmd.Flags().GetString(imageIdLabel)
+	imageId, err := ccmd.Flags().GetString(imageIdFlagName)
 	if err != nil {
-		return "", fmt.Errorf("unable to parse flag: %s", imageIdLabel)
+		return "", fmt.Errorf("unable to parse flag: %s", imageIdFlagName)
 	}
-	imageName, err := ccmd.Flags().GetString(imageNameLabel)
+	imageName, err := ccmd.Flags().GetString(removeImgNameFlagName)
 	if err != nil {
-		return "", fmt.Errorf("unable to parse flag: %s", imageNameLabel)
+		return "", fmt.Errorf("unable to parse flag: %s", removeImgNameFlagName)
 	}
 	if imageId == "" && imageName == "" {
 		return "", errors.New("no image id or image name provided")

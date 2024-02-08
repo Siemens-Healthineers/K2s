@@ -1152,7 +1152,7 @@ function Enable-MissingFeature {
     If any of the enabled features requires a restart, the user will be prompted to restart the computer.
 #>
 function Enable-MissingWindowsFeatures($wsl) {
-    $restartRequired = $false
+    $global:InstallRestartRequired = $false
     $features = 'Microsoft-Hyper-V-All', 'Microsoft-Hyper-V', 'Microsoft-Hyper-V-Tools-All', 'Microsoft-Hyper-V-Management-PowerShell', 'Microsoft-Hyper-V-Hypervisor', 'Microsoft-Hyper-V-Services', 'Microsoft-Hyper-V-Management-Clients', 'Containers', 'VirtualMachinePlatform'
 
     if ($wsl) {
@@ -1161,7 +1161,8 @@ function Enable-MissingWindowsFeatures($wsl) {
 
     foreach ($feature in $features) {
         if (Enable-MissingFeature -Name $feature) {
-            $restartRequired = $true
+            Write-Log "!!! Restart is required after enabling WindowsFeature: $feature"
+            $global:InstallRestartRequired = $true
         }
     }
 
@@ -1173,10 +1174,8 @@ function Enable-MissingWindowsFeatures($wsl) {
         REG ADD 'HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services' /V 'AuthenticationLevel' /T REG_DWORD /D '0' /F
     }
 
-    if ($restartRequired) {
+    if ($global:InstallRestartRequired) {
         Write-Log '!!! Restart is required. Reason: Changes in WindowsOptionalFeature !!!'
-        Restart-Computer -Confirm
-        Exit
     }
 }
 
