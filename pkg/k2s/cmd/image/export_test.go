@@ -25,8 +25,8 @@ var _ = Describe("export", Ordered, func() {
 		When("no Docker archive flag", func() {
 			It("returns correct command", func() {
 				expected := "&'" + utils.GetInstallationDirectory() + "\\smallsetup\\helpers\\ExportImage.ps1' -Id 'myImageId' -Name 'myImageName' -ExportPath 'myExportPath'"
-				exportCmd.Flags().Set(imageNameLabel, "myImageName")
-				exportCmd.Flags().Set(imageIdLabel, "myImageId")
+				exportCmd.Flags().Set(removeImgNameFlagName, "myImageName")
+				exportCmd.Flags().Set(imageIdFlagName, "myImageId")
 				exportCmd.Flags().Set(tarLabel, "myExportPath")
 
 				actual, err := buildExportCmd(exportCmd)
@@ -39,8 +39,8 @@ var _ = Describe("export", Ordered, func() {
 		When("with Docker archive flag", func() {
 			It("returns correct command", func() {
 				expected := "&'" + utils.GetInstallationDirectory() + "\\smallsetup\\helpers\\ExportImage.ps1' -Id 'myImageId' -Name 'myImageName' -ExportPath 'myExportPath' -DockerArchive"
-				exportCmd.Flags().Set(imageNameLabel, "myImageName")
-				exportCmd.Flags().Set(imageIdLabel, "myImageId")
+				exportCmd.Flags().Set(removeImgNameFlagName, "myImageName")
+				exportCmd.Flags().Set(imageIdFlagName, "myImageId")
 				exportCmd.Flags().Set(tarLabel, "myExportPath")
 				exportCmd.Flags().Set(dockerArchiveFlag, "true")
 
@@ -65,8 +65,8 @@ var _ = Describe("export", Ordered, func() {
 
 		When("no export path provided", func() {
 			It("returns error", func() {
-				exportCmd.Flags().Set(imageNameLabel, "myImageName")
-				exportCmd.Flags().Set(imageIdLabel, "myImageId")
+				exportCmd.Flags().Set(removeImgNameFlagName, "myImageName")
+				exportCmd.Flags().Set(imageIdFlagName, "myImageId")
 
 				actual, err := buildExportCmd(exportCmd)
 
@@ -78,8 +78,8 @@ var _ = Describe("export", Ordered, func() {
 })
 
 func resetExportFlags() {
-	exportCmd.Flags().Set(imageNameLabel, "")
-	exportCmd.Flags().Set(imageIdLabel, "")
+	exportCmd.Flags().Set(removeImgNameFlagName, "")
+	exportCmd.Flags().Set(imageIdFlagName, "")
 	exportCmd.Flags().Set(tarLabel, "")
 	exportCmd.Flags().Set(dockerArchiveFlag, "")
 }
