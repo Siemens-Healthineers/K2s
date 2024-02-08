@@ -25,7 +25,7 @@ jobs:
     name: Build k2s CLI
     timeout-minutes: 30
     continue-on-error: false
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     env:
       CI_COMMIT_MESSAGE: Auto-commit k2s cli
     steps:
@@ -49,12 +49,12 @@ jobs:
 
     - name: Current working directory
       run: |
-        pwsh -Command ls
+        ls
 
     - name: Build k2s executable
       run: |
-        pwsh ./smallsetup/common/BuildGoExe.ps1
-        pwsh -Command ls
+        .\smallsetup\common\BuildGoExe.ps1
+        ls
 
     - name: Run no-setup Acceptance Tests
       shell: powershell
@@ -64,7 +64,7 @@ jobs:
 
     - name: Commit k2s cli
       run: |
-        commit_message = "${{ env.CI_COMMIT_MESSAGE }}
+        $commit_message = @"${{ env.CI_COMMIT_MESSAGE }}
         
 
         skip_checks: true"
