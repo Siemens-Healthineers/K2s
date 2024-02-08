@@ -7,35 +7,40 @@ import (
 	"errors"
 	"fmt"
 	"k2s/cmd/common"
+	p "k2s/cmd/params"
 	"k2s/utils"
 	"strconv"
+	"time"
 
+	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
+	"k8s.io/klog/v2"
 )
 
 const (
 	pullForWindowsFlag          = "windows"
 	pullForWindowsFlagShorthand = "w"
 	pullForWindowsDefault       = false
-	pullForWindowsFlagDesc      = "Pull image on windows node"
+	pullForWindowsFlagDesc      = "Pull image on Windows node"
 )
 
-var pullCommandExample = `
-  # Pull a linux image onto the linux node
+var (
+	pullCommandExample = `
+  # Pull a Linux image onto the Linux node
   k2s image pull nginx:latest
 
-  # Pull a windows image onto a windows 10 node
+  # Pull a Windows image onto a Windows 10 node
   k2s image pull mcr.microsoft.com/windows:20H2 --windows 
   OR
   k2s image pull mcr.microsoft.com/windows:20H2 -w
 `
-
-var pullCmd = &cobra.Command{
-	Use:     "pull",
-	Short:   "Pull an image onto a kubernetes node",
-	Example: pullCommandExample,
-	RunE:    pullImages,
-}
+	pullCmd = &cobra.Command{
+		Use:     "pull",
+		Short:   "Pull an image onto a Kubernetes node",
+		Example: pullCommandExample,
+		RunE:    pullImage,
+	}
+)
 
 func init() {
 	pullCmd.Flags().BoolP(pullForWindowsFlag, pullForWindowsFlagShorthand, pullForWindowsDefault, pullForWindowsFlagDesc)
@@ -43,23 +48,44 @@ func init() {
 	pullCmd.Flags().PrintDefaults()
 }
 
-func pullImages(cmd *cobra.Command, args []string) error {
+func pullImage(cmd *cobra.Command, args []string) error {
+	pterm.Println("🤖 Pulling container image..")
+
 	err := validateArgs(args)
 	if err != nil {
-		return fmt.Errorf("Invalid arguments provided. Error : %s", err)
+		return fmt.Errorf("invalid arguments provided: %w", err)
 	}
 
 	imageToPull := getImageToPull(args)
-	pullForWindows, _ := strconv.ParseBool(cmd.Flags().Lookup(pullForWindowsFlag).Value.String())
 
-	pullImagePowershellCommand := createPowershellCommandToPullImage(imageToPull, pullForWindows)
-
-	duration, err := utils.ExecutePowershellScript(pullImagePowershellCommand)
+	pullForWindows, err := strconv.ParseBool(cmd.Flags().Lookup(pullForWindowsFlag).Value.String())
 	if err != nil {
 		return err
 	}
 
-	common.PrintCompletedMessage(duration, "Pull")
+	showOutput, err := strconv.ParseBool(cmd.Flags().Lookup(p.OutputFlagName).Value.String())
+	if err != nil {
+		return err
+	}
+
+	psCmd, params := buildPullPsCmd(imageToPull, pullForWindows, showOutput)
+
+	klog.V(4).Infof("PS cmd: '%s', params: '%v'", psCmd, params)
+
+	start := time.Now()
+
+	cmdResult, err := utils.ExecutePsWithStructuredResult[*common.CmdResult](psCmd, "CmdResult", utils.ExecOptions{}, params...)
+	if err != nil {
+		return err
+	}
+
+	if cmdResult.Error != nil {
+		return cmdResult.Error.ToError()
+	}
+
+	duration := time.Since(start)
+
+	common.PrintCompletedMessage(duration, "image pull")
 
 	return nil
 }
@@ -80,17 +106,18 @@ func getImageToPull(args []string) string {
 	return args[0]
 }
 
-func createPowershellCommandToPullImage(imageToPull string, pullForWindows bool) string {
-	pullImagePowershellCommand := utils.FormatScriptFilePath(utils.GetInstallationDirectory() + "\\smallsetup\\helpers\\PullImage.ps1")
+func buildPullPsCmd(imageToPull string, pullForWindows bool, showOutput bool) (psCmd string, params []string) {
+	psCmd = utils.FormatScriptFilePath(utils.GetInstallationDirectory() + "\\smallsetup\\helpers\\PullImage.ps1")
 
-	pullImagePowershellCommand += fmt.Sprintf(" -ImageName %s", imageToPull)
+	params = append(params, " -ImageName "+imageToPull)
 
 	if pullForWindows {
-		pullImagePowershellCommand += " -Windows"
+		params = append(params, " -Windows")
 	}
 
-	// for pulling images set show logs to true by default
-	pullImagePowershellCommand += " -ShowLogs"
+	if showOutput {
+		params = append(params, " -ShowLogs")
+	}
 
-	return pullImagePowershellCommand
+	return
 }
