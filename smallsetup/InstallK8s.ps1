@@ -316,7 +316,7 @@ Write-Log 'starting the join process'
 # set new limits for the windows node for disk pressure
 # kubelet is running now (caused by JoinWindowsHost.ps1), so we stop it. Will be restarted in StartK8s.ps1.
 Stop-Service kubelet
-$kubeletconfig = $global:KubeletConfigDir + '\config.yaml' 
+$kubeletconfig = $global:KubeletConfigDir + '\config.yaml'
 Write-Log "kubelet config: $kubeletconfig"
 $content = Get-Content $kubeletconfig
 $content | ForEach-Object { $_ -replace 'evictionPressureTransitionPeriod:',
@@ -336,27 +336,31 @@ $imageFunctionsModulePath = "$PSScriptRoot\helpers\ImageFunctions.module.psm1"
 Import-Module $imageFunctionsModulePath -DisableNameChecking
 Write-KubernetesImagesIntoJson
 
-if (! $SkipStart) {
-    Write-Log 'Starting Kubernetes System'
-    & "$global:KubernetesPath\smallsetup\StartK8s.ps1" -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs
-}
-
-if ( ($RestartAfterInstallCount -gt 0) -and (! $SkipStart) ) {
-    $restartCount = 0;
-
-    while ($true) {
-        $restartCount++
-        Write-Log "Restarting Kubernetes System (iteration #$restartCount):"
-
-        & "$global:KubernetesPath\smallsetup\StopK8s.ps1" -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs
-        Start-Sleep 10 # Wait for renew of IP
-
+if ($global:InstallRestartRequired) {
+    Write-Log 'RESTART!! Windows features are enabled. Restarting the machine is mandatory in order to start the cluster.' -Console
+} else {
+    if (! $SkipStart) {
+        Write-Log 'Starting Kubernetes System'
         & "$global:KubernetesPath\smallsetup\StartK8s.ps1" -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs
-        Start-Sleep -s 5
+    }
 
-        if ($restartCount -eq $RestartAfterInstallCount) {
-            Write-Log 'Restarting Kubernetes System Completed'
-            break;
+    if ( ($RestartAfterInstallCount -gt 0) -and (! $SkipStart) ) {
+        $restartCount = 0;
+
+        while ($true) {
+            $restartCount++
+            Write-Log "Restarting Kubernetes System (iteration #$restartCount):"
+
+            & "$global:KubernetesPath\smallsetup\StopK8s.ps1" -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs
+            Start-Sleep 10 # Wait for renew of IP
+
+            & "$global:KubernetesPath\smallsetup\StartK8s.ps1" -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs
+            Start-Sleep -s 5
+
+            if ($restartCount -eq $RestartAfterInstallCount) {
+                Write-Log 'Restarting Kubernetes System Completed'
+                break;
+            }
         }
     }
 }
