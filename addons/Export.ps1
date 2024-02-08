@@ -56,8 +56,9 @@ if ($setupInfo.LinuxOnly -eq $true) {
     exit 1
 }
 
-Remove-Item -Force "${ExportDir}\addons" -Recurse -Confirm:$False -ErrorAction SilentlyContinue
-mkdir -Force "${ExportDir}\addons" | Out-Null
+$tmpExportDir = "${ExportDir}\tmp-exported-addons"
+Remove-Item -Force "$tmpExportDir" -Recurse -Confirm:$False -ErrorAction SilentlyContinue
+mkdir -Force "${tmpExportDir}\addons" | Out-Null
 
 $addonManifests = @()
 $allManifests = Find-AddonManifests -Directory $PSScriptRoot |`
@@ -142,7 +143,7 @@ try {
         $images += $linuxImages
         $images += $windowsImages
 
-        mkdir -Force "${ExportDir}\addons\$($manifest.dir.name)" | Out-Null
+        mkdir -Force "${tmpExportDir}\addons\$($manifest.dir.name)" | Out-Null
 
         foreach ($image in $linuxImages) {
             Write-Log "Pulling linux image $image"
@@ -190,7 +191,7 @@ try {
 
                 if ($linuxImageToExportArray -and $linuxImageToExportArray.Count -gt 0) {
                     $imageToExport = $linuxImageToExportArray[0]
-                    &$global:KubernetesPath\smallsetup\helpers\ExportImage.ps1 -Id $imageToExport.ImageId -ExportPath "${ExportDir}\addons\$($manifest.dir.name)\${count}.tar" -ShowLogs:$ShowLogs
+                    &$global:KubernetesPath\smallsetup\helpers\ExportImage.ps1 -Id $imageToExport.ImageId -ExportPath "${tmpExportDir}\addons\$($manifest.dir.name)\${count}.tar" -ShowLogs:$ShowLogs
 
                     if (!$?) {
                         $errMsg = "Image $imageNameWithoutTag could not be exported!"
@@ -208,7 +209,7 @@ try {
 
                 if ($windowsImageToExportArray -and $windowsImageToExportArray.Count -gt 0) {
                     $imageToExport = $windowsImageToExportArray[0]
-                    &$global:KubernetesPath\smallsetup\helpers\ExportImage.ps1 -Id $imageToExport.ImageId -ExportPath "${ExportDir}\addons\$($manifest.dir.name)\${count}_win.tar" -ShowLogs:$ShowLogs
+                    &$global:KubernetesPath\smallsetup\helpers\ExportImage.ps1 -Id $imageToExport.ImageId -ExportPath "${tmpExportDir}\addons\$($manifest.dir.name)\${count}_win.tar" -ShowLogs:$ShowLogs
 
                     if (!$?) {
                         $errMsg = "Image $imageNameWithoutTag could not be exported!"
@@ -265,17 +266,17 @@ try {
                     }
                 }
 
-                mkdir -Force "${ExportDir}\addons\$($manifest.dir.name)\debianpackages" | Out-Null
-                Copy-FromToMaster $($global:Remote_Master + ':' + ".$($manifest.dir.name)/*") "${ExportDir}\addons\$($manifest.dir.name)\debianpackages"
+                mkdir -Force "${tmpExportDir}\addons\$($manifest.dir.name)\debianpackages" | Out-Null
+                Copy-FromToMaster $($global:Remote_Master + ':' + ".$($manifest.dir.name)/*") "${tmpExportDir}\addons\$($manifest.dir.name)\debianpackages"
             }
 
             # download linux packages via curl
             $linuxCurlPackages = $linuxPackages.curl
             if ($linuxCurlPackages) {
-                mkdir -Force "${ExportDir}\addons\$($manifest.dir.name)\linuxpackages" | Out-Null
+                mkdir -Force "${tmpExportDir}\addons\$($manifest.dir.name)\linuxpackages" | Out-Null
                 foreach ($package in $linuxCurlPackages) {
                     $filename = ([uri]$package.url).Segments[-1]
-                    DownloadFile "${ExportDir}\addons\$($manifest.dir.name)\linuxpackages\${filename}" $package.url $true -ProxyToUse $Proxy
+                    DownloadFile "${tmpExportDir}\addons\$($manifest.dir.name)\linuxpackages\${filename}" $package.url $true -ProxyToUse $Proxy
                 }
             }
 
@@ -283,10 +284,10 @@ try {
             $windowsPackages = $manifest.spec.offline_usage.windows
             $windowsCurlPackages = $windowsPackages.curl
             if ($windowsCurlPackages) {
-                mkdir -Force "${ExportDir}\addons\$($manifest.dir.name)\windowspackages" | Out-Null
+                mkdir -Force "${tmpExportDir}\addons\$($manifest.dir.name)\windowspackages" | Out-Null
                 foreach ($package in $windowsCurlPackages) {
                     $filename = ([uri]$package.url).Segments[-1]
-                    DownloadFile "${ExportDir}\addons\$($manifest.dir.name)\windowspackages\${filename}" $package.url $true -ProxyToUse $Proxy
+                    DownloadFile "${tmpExportDir}\addons\$($manifest.dir.name)\windowspackages\${filename}" $package.url $true -ProxyToUse $Proxy
                 }
             }
         }
@@ -296,7 +297,7 @@ try {
 
     $addonExportInfo = @{addons = @() }
     $addonManifests | ForEach-Object { $addonExportInfo.addons += @{name = $_.metadata.name; dirName = $_.dir.name; offline_usage = $_.spec.offline_usage } } 
-    $addonExportInfo | ConvertTo-Json -Depth 100 | Set-Content -Path "${ExportDir}\addons\addons.json" -Force
+    $addonExportInfo | ConvertTo-Json -Depth 100 | Set-Content -Path "${tmpExportDir}\addons\addons.json" -Force
 }
 finally {
     $env:http_proxy = $currentHttpProxy
@@ -304,8 +305,8 @@ finally {
 }
 
 Remove-Item -Force "${ExportDir}\addons.zip" -ErrorAction SilentlyContinue
-Compress-Archive -Path "${ExportDir}\addons" -DestinationPath "${ExportDir}\addons.zip" -CompressionLevel Optimal -Force
-Remove-Item -Force "${ExportDir}\addons" -Recurse -Confirm:$False -ErrorAction SilentlyContinue
+Compress-Archive -Path "${tmpExportDir}\addons" -DestinationPath "${ExportDir}\addons.zip" -CompressionLevel Optimal -Force
+Remove-Item -Force "$tmpExportDir" -Recurse -Confirm:$False -ErrorAction SilentlyContinue
 Write-Log '---'
 Write-Log "Addons exported successfully to ${ExportDir}\addons.zip" -Console
 
