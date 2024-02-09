@@ -19,24 +19,33 @@ Param (
     [parameter(Mandatory = $false)]
     [switch] $DockerArchive = $false,
     [parameter(Mandatory = $false)]
-    [switch] $ShowLogs = $false
+    [switch] $ShowLogs = $false,
+    [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
+    [switch] $EncodeStructuredOutput,
+    [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
+    [string] $MessageType
 )
-
-# load global settings
 &$PSScriptRoot\..\common\GlobalVariables.ps1
-# import global functions
 . $PSScriptRoot\..\common\GlobalFunctions.ps1
 
-$setupInfoModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.cluster.module\setupinfo\setupinfo.module.psm1"
+$clusterModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1"
 $imageFunctionsModule = "$PSScriptRoot\ImageFunctions.module.psm1"
 $loggingModule = "$PSScriptRoot\..\ps-modules\log\log.module.psm1"
-$statusModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.cluster.module\status\status.module.psm1"
-Import-Module $setupInfoModule, $imageFunctionsModule, $loggingModule, $statusModule -DisableNameChecking
+$cliModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.infra.module\cli-messages\cli-messages.module.psm1"
+
+Import-Module $clusterModule, $imageFunctionsModule, $loggingModule, $cliModule -DisableNameChecking
+
 Initialize-Logging -ShowLogs:$ShowLogs
 
 $systemError = Test-SystemAvailability
 if ($systemError) {
-    throw $systemError
+    if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = $systemError }
+        return
+    }
+
+    Write-Log $systemError -Error
+    exit 1
 }
 
 $linuxContainerImages = Get-ContainerImagesOnLinuxNode -IncludeK8sImages $true
@@ -75,20 +84,26 @@ else {
 
 if ($foundLinuxImages.Count -eq 0 -and $foundWindowsImages.Count -eq 0) {
     if ($Id -ne '') {
-        Write-Log "Image with Id ${Id} not found!"
-        exit
+        Write-Log "Image with Id ${Id} not found!" -Console
+        if ($EncodeStructuredOutput -eq $true) {
+            Send-ToCli -MessageType $MessageType -Message @{Error = $null }
+        }
+        return
     }
 
     if ($Name -ne '') {
-        Write-Log "Image ${Name} not found!"
-        exit
+        Write-Log "Image ${Name} not found!" -Console
+        if ($EncodeStructuredOutput -eq $true) {
+            Send-ToCli -MessageType $MessageType -Message @{Error = $null }
+        }
+        return
     }
 }
 
 $windowsAndLinux = $($foundLinuxImages.Count -eq 1 -and $foundWindowsImages.Count -eq 1)
 
 if ($foundLinuxImages.Count -eq 1) {
-    Write-Log 'Linux image found!'
+    Write-Log 'Linux image found'
     $image = $foundLinuxImages[0]
     $imageId = $image.ImageId
     $imageName = $image.Repository
@@ -101,7 +116,7 @@ if ($foundLinuxImages.Count -eq 1) {
         $imageFullName = "${imageName}:${imageTag}"
     }
 
-    Write-Log "Exporting image ${imageFullName}. This can take some time..."
+    Write-Log "Exporting image ${imageFullName}. This can take some time..." -Console
 
     $finalExportPath = $ExportPath
 
@@ -123,14 +138,17 @@ if ($foundLinuxImages.Count -eq 1) {
     Copy-FromToMaster $($global:Remote_Master + ':' + "/tmp/${imageId}.tar") $finalExportPath
 
     if ($exportSuccess -and $?) {
-        Write-Log "Image ${imageFullName} exported successfully to ${finalExportPath}."
+        Write-Log "Image ${imageFullName} exported successfully to ${finalExportPath}." -Console
     }
 
     ExecCmdMaster "cd /tmp && sudo rm -rf ${imageId}.tar" -NoLog
 }
 
 if ($foundWindowsImages.Count -gt 1) {
-    Write-Log "Please specify the name and tag instead of id since there are more than one image with id $Id"
+    Write-Log "Please specify the name and tag instead of id since there are more than one image with id $Id" -Console
+    if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = $null }
+    }
     return
 }
 
@@ -147,7 +165,7 @@ if ($foundWindowsImages.Count -eq 1) {
     else {
         $imageFullName = "${imageName}:${imageTag}"
     }
-    Write-Log "Exporting image ${imageFullName}. This can take some time..."
+    Write-Log "Exporting image ${imageFullName}. This can take some time..." -Console
 
     $finalExportPath = $ExportPath
 
@@ -180,7 +198,10 @@ if ($foundWindowsImages.Count -eq 1) {
     }
 
     if ($?) {
-        Write-Log "Image ${imageFullName} exported successfully to ${finalExportPath}."
+        Write-Log "Image ${imageFullName} exported successfully to ${finalExportPath}." -Console
     }
 }
 
+if ($EncodeStructuredOutput -eq $true) {
+    Send-ToCli -MessageType $MessageType -Message @{Error = $null }
+}

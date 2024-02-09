@@ -71,6 +71,7 @@ function Enable-MissingWindowsFeatures($wsl) {
 
     foreach ($feature in $features) {
         if (Enable-MissingFeature -Name $feature) {
+            Write-Log "!!! Restart is required after enabling WindowsFeature: $feature"
             $restartRequired = $true
         }
     }
@@ -85,8 +86,6 @@ function Enable-MissingWindowsFeatures($wsl) {
 
     if ($restartRequired) {
         Write-Log '!!! Restart is required. Reason: Changes in WindowsOptionalFeature !!!'
-        Restart-Computer -Confirm
-        Exit
     }
 }
 
@@ -255,10 +254,26 @@ function Invoke-DownloadFile($destination, $source, $forceDownload,
     }
 }
 
+<#
+.Description
+Stop-InstallIfNoMandatoryServiceIsRunning checks for mandatory services on the system.
+#>
+function Stop-InstallIfNoMandatoryServiceIsRunning {
+    $hns = Get-Service 'hns' -ErrorAction SilentlyContinue
+    if (!($hns -and $hns.Status -eq 'Running')) {
+        throw 'Host Network Service is not running. This is need for containers. Please enable prerequisites for K2s - https://github.com/Siemens-Healthineers/K2s !'
+    }
+    $hcs = Get-Service 'vmcompute' -ErrorAction SilentlyContinue
+    if (!($hcs -and $hcs.Status -eq 'Running')) {
+        throw 'Host Compute Service is not running. This is needed for containers. Please enable prerequisites for K2s - https://github.com/Siemens-Healthineers/K2s !'
+    }
+}
+
 Export-ModuleMember -Function Add-K2sToDefenderExclusion,
 Enable-MissingWindowsFeatures,
 Stop-InstallIfDockerDesktopIsRunning,
 Test-WindowsPrerequisites,
 Test-ProxyConfiguration,
 Get-StorageLocalDrive,
-Invoke-DownloadFile
+Invoke-DownloadFile,
+Stop-InstallIfNoMandatoryServiceIsRunning

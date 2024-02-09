@@ -93,21 +93,21 @@ Param(
     [switch] $ShowLogs = $false,
 
     [parameter(Mandatory = $false, HelpMessage = 'Build Arguments for building container image')]
-    [string[]] $BuildArgs = @()
+    [string[]] $BuildArgs = @(),
+    [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
+    [switch] $EncodeStructuredOutput,
+    [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
+    [string] $MessageType
 )
-
-
-# load global settings
 &$PSScriptRoot\GlobalVariables.ps1
-# import global functions
 . $PSScriptRoot\GlobalFunctions.ps1
 
-$setupInfoModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.cluster.module\setupinfo\setupinfo.module.psm1"
-$statusModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.cluster.module\status\status.module.psm1"
+$clusterModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1"
 $imageFunctionsModule = "$PSScriptRoot\..\helpers\ImageFunctions.module.psm1"
 $logModule = "$PSScriptRoot\..\ps-modules\log\log.module.psm1"
+$cliMessagesModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/cli-messages/cli-messages.module.psm1"
 
-Import-Module $setupInfoModule, $statusModule, $imageFunctionsModule, $logModule
+Import-Module $clusterModule, $imageFunctionsModule, $logModule, $cliMessagesModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -246,7 +246,13 @@ function BuildWindowsImage () {
 
 $systemError = Test-SystemAvailability
 if ($systemError) {
-    throw $systemError
+    if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = $systemError }
+        return
+    }
+
+    Write-Log $systemError -Error
+    exit 1
 }
 
 $GO_Ver = '1.19'
@@ -265,7 +271,16 @@ $InputFolder = [System.IO.Path]::GetFullPath($InputFolder)
 
 $dockerfileAbsoluteFp, $PreCompile = Get-DockerfileAbsolutePathAndPrecompileFlag
 
-if (($ImageTag -eq 'local') -and $Push) { throw 'Unable to push without valid tag, use -ImageTag' }
+if (($ImageTag -eq 'local') -and $Push) { 
+    $errMsg = 'Unable to push without valid tag, use -ImageTag' 
+    if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+        return
+    }
+
+    Write-Log $errMsg -Error
+    exit 1
+}
 
 Write-Log "Using Dockerfile: $dockerfileAbsoluteFp" -Console
 
@@ -274,14 +289,28 @@ $WSL = Get-WSLFromConfig
 if (!$Windows) {
     if ($WSL) {
         if ($(wsl -l --running) -notcontains 'KubeMaster (Default)') {
-            throw "WSL Distro $global:VMName is not started, execute 'k2s start' first!"
+            $errMsg = "WSL Distro $global:VMName is not started, execute 'k2s start' first!"
+            if ($EncodeStructuredOutput -eq $true) {
+                Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+                return
+            }
+        
+            Write-Log $errMsg -Error
+            exit 1
         }
     }
 }
 
 if ($Push) {
     if (!$ImageName.Contains('/')) {
-        throw 'Please check ImageName! Cannot extract registry name!'
+        $errMsg = 'Please check ImageName! Cannot extract registry name!'
+        if ($EncodeStructuredOutput -eq $true) {
+            Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+            return
+        }
+        
+        Write-Log $errMsg -Error
+        exit 1
     }
 
     $split = $($ImageName -split '/')
@@ -291,15 +320,29 @@ if ($Push) {
     $parsedSetupJson = Get-Content -Raw $global:SetupJsonFile | ConvertFrom-Json
     $registriesMemberExists = Get-Member -InputObject $parsedSetupJson -Name 'Registries' -MemberType Properties
     if (!$registriesMemberExists) {
-        throw "Registry $registry is not configured! Please add it: k2s image registry add $registry"
+        $errMsg = "Registry $registry is not configured! Please add it: k2s image registry add $registry"
+        if ($EncodeStructuredOutput -eq $true) {
+            Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+            return
+        }
+        
+        Write-Log $errMsg -Error
+        exit 1
     }
+
     $registryExists = $parsedSetupJson.Registries | Where-Object { $_ -eq $registry }
     if (!$registryExists) {
-        throw "Registry $registry is not configured! Please add it: k2s image registry add $registry"
+        $errMsg = "Registry $registry is not configured! Please add it: k2s image registry add $registry"
+        if ($EncodeStructuredOutput -eq $true) {
+            Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+            return
+        }
+        
+        Write-Log $errMsg -Error
+        exit 1
     }
-    else {
-        &$PSScriptRoot\..\helpers\SwitchRegistry.ps1 -RegistryName $registry
-    }
+    
+    &$PSScriptRoot\..\helpers\SwitchRegistry.ps1 -RegistryName $registry
 }
 
 # Handle CGO flags
@@ -336,11 +379,25 @@ if ($ImageName -eq '') {
 
 $setupInfo = Get-SetupInfo
 if ($Windows -and $setupInfo.LinuxOnly) {
-    throw 'Linux-only setup does not support building Windows images'
+    $errMsg = 'Linux-only setup does not support building Windows images'
+    if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+        return
+    }
+
+    Write-Log $errMsg -Error
+    exit 1
 }
 
 if ($ccExecutableName -eq '' -and $PreCompile ) {
-    throw "Missing ExeName in $InputFolder\$Dockerfile"
+    $errMsg = "Missing ExeName in $InputFolder\$Dockerfile"
+    if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+        return
+    }
+
+    Write-Log $errMsg -Error
+    exit 1
 }
 
 Set-Location $InputFolder
@@ -446,7 +503,14 @@ if (!$Windows -and $PreCompile) {
             Write-Log "Pre-Compilation: Building in VM in $dirForBuild ..."
         }
         else {
-            throw "currently only '..' is allowed as value for DockerBuildDir"
+            $errMsg = "currently only '..' is allowed as value for DockerBuildDir"
+            if ($EncodeStructuredOutput -eq $true) {
+                Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+                return
+            }
+
+            Write-Log $errMsg -Error
+            exit 1
         }
     }
 
@@ -490,11 +554,16 @@ if (!$Windows -and $PreCompile) {
         }
     }
     if ($LASTEXITCODE -ne 0) {
-        throw "go returned code $LASTEXITCODE. Aborting."
+        $errMsg = "go returned code $LASTEXITCODE. Aborting."
+        if ($EncodeStructuredOutput -eq $true) {
+            Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+            return
+        }
+
+        Write-Log $errMsg -Error
+        exit 1
     }
 }
-
-
 
 if ($NoCache) {
     $NoCacheFlag = '--no-cache'
@@ -563,7 +632,16 @@ else {
         Write-Log $buildahBudCommand
     }
     ExecCmdMaster "$buildahBudCommand"
-    if ($LASTEXITCODE -ne 0) { throw "error while creating image with 'buildah bud' in linux VM. Error code returned was $LastExitCode" }
+    if ($LASTEXITCODE -ne 0) {
+        $errMsg = "error while creating image with 'buildah bud' in linux VM. Error code returned was $LastExitCode" 
+        if ($EncodeStructuredOutput -eq $true) {
+            Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+            return
+        }
+
+        Write-Log $errMsg -Error
+        exit 1
+    }
 
     Write-Log ''
     ExecCmdMaster "sudo buildah images | grep ${ImageName}"
@@ -600,11 +678,18 @@ if ($Push) {
         Write-Log '#######################################################################################'
         Write-Log "### ERROR: image ${ImageName}:$ImageTag NOT uploaded to repository"
         Write-Log '#######################################################################################'
-        throw 'unable to push image to registry'
+
+        $errMsg = 'unable to push image to registry'
+        if ($EncodeStructuredOutput -eq $true) {
+            Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+            return
+        }
+
+        Write-Log $errMsg -Error
+        exit 1
     }
-    else {
-        Write-Log "Image '${ImageName}:$ImageTag' pushed successfully to registry" -Console
-    }
+ 
+    Write-Log "Image '${ImageName}:$ImageTag' pushed successfully to registry" -Console
 }
 
 # Cleanup inside VM
@@ -616,3 +701,7 @@ if (!$Keep -and ! $Windows) {
 Write-Log "Total duration: $('{0:hh\:mm\:ss}' -f $mainStopwatch.Elapsed )"
 
 Set-Location $scriptStartLocation
+
+if ($EncodeStructuredOutput -eq $true) {
+    Send-ToCli -MessageType $MessageType -Message @{Error = $null }
+}

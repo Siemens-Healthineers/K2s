@@ -413,9 +413,10 @@ while ($true) {
         Write-Log "Index for interface $switchname : ($ipindex1) -> metric 25"
         Set-NetIPInterface -InterfaceIndex $ipindex1 -InterfaceMetric 25
         $ipindex2 = Get-NetIPInterface | ? InterfaceAlias -Like '*Default*' | ? AddressFamily -Eq IPv4 | select -expand 'ifIndex'
-        Write-Log "Index for interface Default : ($ipindex2) -> metric 35"
-        Set-NetIPInterface -InterfaceIndex $ipindex2 -InterfaceMetric 35
-
+        if ( $ipindex2 ) {
+            Write-Log "Index for interface Default : ($ipindex2) -> metric 35"
+            Set-NetIPInterface -InterfaceIndex $ipindex2 -InterfaceMetric 35
+        }
 
         $l2BridgeSwitchName = Get-L2BridgeSwitchName
         $l2BridgeInterfaceIndex = Get-NetIPInterface | ? InterfaceAlias -Like "*$l2BridgeSwitchName*" | ? AddressFamily -Eq IPv4 | select -expand 'ifIndex'

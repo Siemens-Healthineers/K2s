@@ -46,7 +46,7 @@ Function Set-UpComputerWithSpecificOsBeforeProvisioning {
     }
 
     Write-Log "Check that a remote connection to the VM is possible"
-    Wait-ForSSHConnectionToLinuxVMViaPwd -RemoteUser "$user" -RemoteUserPwd "$userPwd"
+    Wait-ForSSHConnectionToLinuxVMViaPwd -User "$user" -UserPwd "$userPwd"
 
     &$executeRemoteCommand "sudo touch /etc/cloud/cloud-init.disabled"
     &$executeRemoteCommand "sudo update-grub" -IgnoreErrors

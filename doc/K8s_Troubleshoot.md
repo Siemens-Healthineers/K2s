@@ -269,3 +269,21 @@ Change registry setting under Computer\HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Micr
 Next, we should disable the rules in AppLocker and restart the machine.
 
 Although, this is just a hack to continue working, we should allow windows containers execution specifically CMD.exe in a secured way. **Please review the AppLocker rules with your security experts**.
+
+# Unable to run Windows Hyper-V on host machine
+## Problem
+Hyper-V Manager unable to connect to Virtual Machine Management service on host machine.
+
+Error: "Hyper-V encountered an error trying to access an object on computer ‘localhost’ because the object was not found. The object might have been deleted. Verify that the Virtual Machine Management service on the computer is running. If the service is running, try to perform the task again by using Run as Administrator."
+
+### How to check if the error persists:
+
+PS> Get-VM 
+
+If there is no error then command should return list of Virtual machines or empty list.
+
+## Solution
+This is due to a prior uninstall which has deleted a MOF which is required for HyperVisor. In order to regenerate, run the following command from an Elevated (Administrator) command prompt or PowerShell.
+
+`MOFCOMP %SYSTEMROOT%\System32\WindowsVirtualization.V2.mof`
+
