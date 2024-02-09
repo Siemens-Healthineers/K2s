@@ -24,41 +24,42 @@ var _ = Describe("export", Ordered, func() {
 
 		When("no Docker archive flag", func() {
 			It("returns correct command", func() {
-				expected := "&'" + utils.GetInstallationDirectory() + "\\smallsetup\\helpers\\ExportImage.ps1' -Id 'myImageId' -Name 'myImageName' -ExportPath 'myExportPath'"
 				exportCmd.Flags().Set(removeImgNameFlagName, "myImageName")
 				exportCmd.Flags().Set(imageIdFlagName, "myImageId")
-				exportCmd.Flags().Set(tarLabel, "myExportPath")
+				exportCmd.Flags().Set(tarFlag, "myExportPath")
 
-				actual, err := buildExportCmd(exportCmd)
+				cmd, params, err := buildExportPsCmd(exportCmd)
 
 				Expect(err).ToNot(HaveOccurred())
-				Expect(actual).To(Equal(expected))
+				Expect(cmd).To(Equal("&'" + utils.GetInstallationDirectory() + "\\smallsetup\\helpers\\ExportImage.ps1'"))
+				Expect(params).To(ConsistOf(" -Id 'myImageId'", " -Name 'myImageName'", " -ExportPath 'myExportPath'"))
 			})
 		})
 
 		When("with Docker archive flag", func() {
 			It("returns correct command", func() {
-				expected := "&'" + utils.GetInstallationDirectory() + "\\smallsetup\\helpers\\ExportImage.ps1' -Id 'myImageId' -Name 'myImageName' -ExportPath 'myExportPath' -DockerArchive"
 				exportCmd.Flags().Set(removeImgNameFlagName, "myImageName")
 				exportCmd.Flags().Set(imageIdFlagName, "myImageId")
-				exportCmd.Flags().Set(tarLabel, "myExportPath")
+				exportCmd.Flags().Set(tarFlag, "myExportPath")
 				exportCmd.Flags().Set(dockerArchiveFlag, "true")
 
-				actual, err := buildExportCmd(exportCmd)
+				cmd, params, err := buildExportPsCmd(exportCmd)
 
 				Expect(err).ToNot(HaveOccurred())
-				Expect(actual).To(Equal(expected))
+				Expect(cmd).To(Equal("&'" + utils.GetInstallationDirectory() + "\\smallsetup\\helpers\\ExportImage.ps1'"))
+				Expect(params).To(ConsistOf(" -Id 'myImageId'", " -Name 'myImageName'", " -ExportPath 'myExportPath'", " -DockerArchive"))
 			})
 		})
 
 		When("neither name nor id provided", func() {
 			It("returns error", func() {
-				exportCmd.Flags().Set(tarLabel, "myExportPath")
+				exportCmd.Flags().Set(tarFlag, "myExportPath")
 				exportCmd.Flags().Set(dockerArchiveFlag, "true")
 
-				actual, err := buildExportCmd(exportCmd)
+				cmd, params, err := buildExportPsCmd(exportCmd)
 
-				Expect(actual).To(BeEmpty())
+				Expect(cmd).To(BeEmpty())
+				Expect(params).To(BeNil())
 				Expect(err).To(MatchError("no image id or image name provided"))
 			})
 		})
@@ -68,9 +69,10 @@ var _ = Describe("export", Ordered, func() {
 				exportCmd.Flags().Set(removeImgNameFlagName, "myImageName")
 				exportCmd.Flags().Set(imageIdFlagName, "myImageId")
 
-				actual, err := buildExportCmd(exportCmd)
+				cmd, params, err := buildExportPsCmd(exportCmd)
 
-				Expect(actual).To(BeEmpty())
+				Expect(cmd).To(BeEmpty())
+				Expect(params).To(BeNil())
 				Expect(err).To(MatchError("no export path provided"))
 			})
 		})
@@ -80,6 +82,6 @@ var _ = Describe("export", Ordered, func() {
 func resetExportFlags() {
 	exportCmd.Flags().Set(removeImgNameFlagName, "")
 	exportCmd.Flags().Set(imageIdFlagName, "")
-	exportCmd.Flags().Set(tarLabel, "")
+	exportCmd.Flags().Set(tarFlag, "")
 	exportCmd.Flags().Set(dockerArchiveFlag, "")
 }
