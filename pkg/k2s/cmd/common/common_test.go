@@ -22,7 +22,7 @@ var _ = BeforeSuite(func() {
 	klog.SetLogger(GinkgoLogr)
 })
 
-var _ = Describe("cmd", func() {
+var _ = Describe("common", func() {
 	Describe("ToError", func() {
 		When("system-not-running error", func() {
 			It("returns system-not-running error", func() {
@@ -31,6 +31,16 @@ var _ = Describe("cmd", func() {
 				result := err.ToError()
 
 				Expect(result).To(Equal(status.ErrNotRunning))
+			})
+		})
+
+		When("system-running error", func() {
+			It("returns system-running error", func() {
+				err := CmdError(status.ErrRunningMsg)
+
+				result := err.ToError()
+
+				Expect(result).To(Equal(status.ErrRunning))
 			})
 		})
 
