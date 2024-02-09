@@ -19,42 +19,57 @@ Param (
     [parameter(Mandatory = $false)]
     [switch] $DockerArchive = $false,
     [parameter(Mandatory = $false)]
-    [switch] $ShowLogs = $false
+    [switch] $ShowLogs = $false,
+    [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
+    [switch] $EncodeStructuredOutput,
+    [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
+    [string] $MessageType
 )
-
-# load global settings
 &$PSScriptRoot\..\common\GlobalVariables.ps1
-# import global functions
 . $PSScriptRoot\..\common\GlobalFunctions.ps1
 
-$setupInfoModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.cluster.module\setupinfo\setupinfo.module.psm1"
-$statusModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.cluster.module\status\status.module.psm1"
+$clusterModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1"
 $imageFunctionsModule = "$PSScriptRoot\ImageFunctions.module.psm1"
 $loggingModule = "$PSScriptRoot\..\ps-modules\log\log.module.psm1"
-Import-Module $setupInfoModule, $imageFunctionsModule, $loggingModule, $statusModule -DisableNameChecking
+$cliModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.infra.module\cli-messages\cli-messages.module.psm1"
+
+Import-Module $clusterModule, $imageFunctionsModule, $loggingModule, $cliModule -DisableNameChecking
+
 Initialize-Logging -ShowLogs:$ShowLogs
 
 $systemError = Test-SystemAvailability
 if ($systemError) {
-    throw $systemError
+    if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = $systemError }
+        return
+    }
+
+    Write-Log $systemError -Error
+    exit 1
 }
 
 $images = @()
 if ($ImagePath -ne '') {
     $images += $ImagePath
-    Write-Output "Importing image $ImagePath. This can take some time..."
+    Write-Output "Importing image $ImagePath. This can take some time..." -Console
 }
 elseif ($ImageDir -ne '') {
     $files = Get-Childitem -recurse $ImageDir | Where-Object { $_.Name -match '.*.tar' } | ForEach-Object { $_.Fullname }
     $images += $files
-    Write-Log "Importing images from $ImageDir. This can take some time..."
+    Write-Log "Importing images from $ImageDir. This can take some time..." -Console
 }
 
 if ($Windows) {
     $setupInfo = Get-SetupInfo
-
     if ($setupInfo.LinuxOnly) {
-        throw 'Cannot import windows image, linux-only setup is installed'
+        $errMsg = 'Cannot import windows image, Linux-only setup is installed'
+        if ($EncodeStructuredOutput -eq $true) {
+            Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+            return
+        }
+    
+        Write-Log $systemError -Error
+        exit 1
     }
 
     if ($setupInfo.Name -eq $global:SetupType_MultiVMK8s) {
@@ -67,7 +82,6 @@ if ($Windows) {
                 Set-Location "$env:SystemDrive\k"
                 Set-ExecutionPolicy Bypass -Force -ErrorAction Stop
 
-                # load global settings
                 &$env:SystemDrive\k\smallsetup\common\GlobalVariables.ps1
 
                 &$global:NerdctlExe -n k8s.io load -i $using:tmpPath
@@ -78,7 +92,7 @@ if ($Windows) {
         foreach ($image in $images) {
             &$global:NerdctlExe -n k8s.io load -i $image
             if ($?) {
-                Write-Log "$image imported successfully"
+                Write-Log "$image imported successfully" -Console
             }
         }
     }
@@ -99,9 +113,13 @@ else {
         }
 
         if ($?) {
-            Write-Log "Image archive $image imported successfully."
+            Write-Log "Image archive $image imported successfully." -Console
         }
 
         ExecCmdMaster 'cd /tmp && sudo rm -rf import.tar' -NoLog
     }
+}
+
+if ($EncodeStructuredOutput -eq $true) {
+    Send-ToCli -MessageType $MessageType -Message @{Error = $null }
 }

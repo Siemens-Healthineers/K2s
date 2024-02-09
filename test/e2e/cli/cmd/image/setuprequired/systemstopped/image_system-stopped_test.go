@@ -43,6 +43,8 @@ var _ = Describe("image", func() {
 		Entry("pull", "image", "pull", "non-existent"),
 		Entry("rm", "image", "rm", "--id", "non-existent"),
 		Entry("clean", "image", "clean"),
+		Entry("export", "image", "export", "-n", "non-existent", "-t", "non-existent"),
+		Entry("import", "image", "import", "-t", "non-existent"),
 	)
 
 	Describe("ls JSON output", Ordered, func() {

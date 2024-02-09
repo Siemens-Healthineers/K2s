@@ -24,69 +24,70 @@ var _ = Describe("import", Ordered, func() {
 
 		Context("with tar archieve", func() {
 			It("returns correct import command", func() {
-				expected := "&'" + utils.GetInstallationDirectory() + "\\smallsetup\\helpers\\ImportImage.ps1' -ImagePath 'myImage'"
-				importCmd.Flags().Set(tarLabel, "myImage")
+				importCmd.Flags().Set(tarFlag, "myImage")
 
-				actual, err := buildImportCmd(importCmd)
+				cmd, params, err := buildImportPsCmd(importCmd)
 
 				Expect(err).ToNot(HaveOccurred())
-				Expect(actual).To(Equal(expected))
+				Expect(cmd).To(Equal("&'" + utils.GetInstallationDirectory() + "\\smallsetup\\helpers\\ImportImage.ps1'"))
+				Expect(params).To(ConsistOf(" -ImagePath 'myImage'"))
 			})
 		})
 
 		Context("with directory", func() {
 			It("returns correct import command", func() {
-				expected := "&'" + utils.GetInstallationDirectory() + "\\smallsetup\\helpers\\ImportImage.ps1' -ImageDir 'myDir'"
-				importCmd.Flags().Set(directoryLabel, "myDir")
+				importCmd.Flags().Set(dirFlag, "myDir")
 
-				actual, err := buildImportCmd(importCmd)
+				cmd, params, err := buildImportPsCmd(importCmd)
 
 				Expect(err).ToNot(HaveOccurred())
-				Expect(actual).To(Equal(expected))
+				Expect(cmd).To(Equal("&'" + utils.GetInstallationDirectory() + "\\smallsetup\\helpers\\ImportImage.ps1'"))
+				Expect(params).To(ConsistOf(" -ImageDir 'myDir'"))
 			})
 		})
 
 		Context("with tar archieve and directory", func() {
 			It("returns correct import command", func() {
-				expected := "&'" + utils.GetInstallationDirectory() + "\\smallsetup\\helpers\\ImportImage.ps1' -ImagePath 'myImage'"
-				importCmd.Flags().Set(tarLabel, "myImage")
-				importCmd.Flags().Set(directoryLabel, "myDir")
+				importCmd.Flags().Set(tarFlag, "myImage")
+				importCmd.Flags().Set(dirFlag, "myDir")
 
-				actual, err := buildImportCmd(importCmd)
+				cmd, params, err := buildImportPsCmd(importCmd)
 
 				Expect(err).ToNot(HaveOccurred())
-				Expect(actual).To(Equal(expected))
+				Expect(cmd).To(Equal("&'" + utils.GetInstallationDirectory() + "\\smallsetup\\helpers\\ImportImage.ps1'"))
+				Expect(params).To(ConsistOf(" -ImagePath 'myImage'"))
 			})
 		})
 
 		Context("without tar archieve and without directory", func() {
 			It("returns error", func() {
-				actual, err := buildImportCmd(importCmd)
+				cmd, params, err := buildImportPsCmd(importCmd)
 
-				Expect(actual).To(BeEmpty())
 				Expect(err).To(MatchError("no path to oci archive provided"))
+				Expect(cmd).To(BeEmpty())
+				Expect(params).To(BeNil())
 			})
 		})
 
 		Context("with all flags", func() {
 			It("returns correct import command", func() {
-				expected := "&'" + utils.GetInstallationDirectory() + "\\smallsetup\\helpers\\ImportImage.ps1' -ImagePath 'myImage' -Windows -DockerArchive"
-				importCmd.Flags().Set(tarLabel, "myImage")
+				importCmd.Flags().Set(tarFlag, "myImage")
 				importCmd.Flags().Set(windowsFlag, "true")
 				importCmd.Flags().Set(dockerArchiveFlag, "true")
 
-				actual, err := buildImportCmd(importCmd)
+				cmd, params, err := buildImportPsCmd(importCmd)
 
 				Expect(err).ToNot(HaveOccurred())
-				Expect(actual).To(Equal(expected))
+				Expect(cmd).To(Equal("&'" + utils.GetInstallationDirectory() + "\\smallsetup\\helpers\\ImportImage.ps1'"))
+				Expect(params).To(ConsistOf(" -ImagePath 'myImage'", " -Windows", " -DockerArchive"))
 			})
 		})
 	})
 })
 
 func resetImportFlags() {
-	importCmd.Flags().Set(tarLabel, "")
-	importCmd.Flags().Set(directoryLabel, "")
+	importCmd.Flags().Set(tarFlag, "")
+	importCmd.Flags().Set(dirFlag, "")
 	importCmd.Flags().Set(windowsFlag, "")
 	importCmd.Flags().Set(dockerArchiveFlag, "")
 }
