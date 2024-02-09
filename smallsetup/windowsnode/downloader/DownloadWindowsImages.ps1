@@ -77,7 +77,7 @@ function DownloadWindowsImages($baseDirectory) {
         # Now really pull image and ignore errors from ctr
         $ErrorActionPreference = 'Continue'
         &$global:NerdctlExe -n="k8s.io" pull $sandboxImageName --all-platforms 2>&1 | Out-Null
-        $images = &$global:CtrExe -n="k8s.io" image ls | Out-String
+        $images = &$global:CtrExe -n="k8s.io" image ls 2>&1 | Out-String
 
         if ($images.Contains($sandboxImageName)) {
             $imagePulledSuccessfully = $true
