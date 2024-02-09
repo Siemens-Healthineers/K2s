@@ -67,11 +67,6 @@ Remove-ServiceIfExists 'windows_exporter'
 Remove-ServiceIfExists 'httpproxy'
 Remove-ServiceIfExists 'dnsproxy'
 
-Write-Log 'Removing old logfiles'
-Remove-Item -Force "$($global:SystemDriveLetter):\var\log\flanneld\flannel*.*" -Recurse -Confirm:$False -ErrorAction SilentlyContinue
-Remove-Item -Force "$($global:SystemDriveLetter):\var\log\kubelet\*.*" -Recurse -Confirm:$False -ErrorAction SilentlyContinue
-Remove-Item -Force "$($global:SystemDriveLetter):\var\log\kubeproxy\*.*" -Recurse -Confirm:$False -ErrorAction SilentlyContinue
-
 # remove firewall rules
 Remove-NetFirewallRule -Group 'k2s' -ErrorAction SilentlyContinue
 
@@ -92,13 +87,6 @@ Invoke-AddonsHooks -HookType 'AfterUninstall'
 
 # remove folders from installation folder
 Get-ChildItem -Path $global:KubeletConfigDir -Force -Recurse -Attributes Reparsepoint -ErrorAction 'silentlycontinue' | % { $n = $_.FullName.Trim('\'); fsutil reparsepoint delete "$n" }
-# the directory '<system drive>:\var' must be deleted (regardless of the installation drive) since
-# kubelet.exe writes hardcoded to '<system drive>:\var\lib\kubelet\device-plugins' (see '\pkg\kubelet\cm\devicemanager\manager.go' under https://github.com/kubernetes/kubernetes.git)
-$systemDriveLetter = (Get-Item $env:SystemDrive).PSDrive.Name
-Remove-Item -Path "$($systemDriveLetter):\var" -Force -Recurse -ErrorAction SilentlyContinue
-if ($($global:SystemDriveLetter) -ne "$systemDriveLetter") {
-    Remove-Item -Path "$($global:SystemDriveLetter):\var" -Force -Recurse -ErrorAction SilentlyContinue
-}
 Remove-Item -Path "$($global:SystemDriveLetter):\etc" -Force -Recurse -ErrorAction SilentlyContinue
 Remove-Item -Path "$($global:SystemDriveLetter):\run" -Force -Recurse -ErrorAction SilentlyContinue
 Remove-Item -Path "$($global:SystemDriveLetter):\opt" -Force -Recurse -ErrorAction SilentlyContinue
@@ -148,3 +136,5 @@ if (Test-Path $global:NssmInstallDirectoryLegacy) {
 Reset-EnvVars
 
 Write-Log 'Uninstalling K2s setup done.'
+
+Save-Log -RemoveVar
