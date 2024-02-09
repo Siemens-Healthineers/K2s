@@ -10,14 +10,24 @@ import (
 	"k2s/utils"
 	"path/filepath"
 	"strconv"
+	"time"
 
 	"github.com/spf13/cobra"
 	"k8s.io/klog/v2"
 
+	"k2s/cmd/common"
 	p "k2s/cmd/params"
 )
 
-var resetWinStorageCommandExample = `
+const (
+	containerdDirFlag = "containerd"
+	dockerDirFlag     = "docker"
+	maxRetryFlag      = "max-retry"
+	forceZapFlag      = "force-zap"
+
+	defaultMaxRetry = 1
+
+	resetWinStorageCommandExample = `
   # Clean up containerd storage
   k2s image reset-win-storage --containerd C:\containerd
 
@@ -33,116 +43,113 @@ var resetWinStorageCommandExample = `
   # Clean up containerd storage with additional zap.exe after all retries are exhausted.
   k2s image reset-win-storage --containerd C:\containerd --max-retry 5 --force-zap
 `
-
-const (
-	containerdDirFlag = "containerd"
-	dockerDirFlag     = "docker"
-	maxRetryFlag      = "max-retry"
-	forceZapFlag      = "force-zap"
-
-	defaultMaxRetry = 1
-	defaultForceZap = false
-
-	scriptRelativePath = "\\smallsetup\\helpers\\ResetWinContainerStorage.ps1"
 )
 
 var (
-	defaultContainerdDir string
-	defaultDockerDir     string
+	defaultContainerdDir = determineDefaultDir("containerd")
+	defaultDockerDir     = determineDefaultDir("docker")
+
+	resetWinStorageCmd = &cobra.Command{
+		Use:     "reset-win-storage",
+		Short:   "Resets the containerd and docker image storage on windows nodes",
+		RunE:    resetWinStorage,
+		Example: resetWinStorageCommandExample,
+	}
 )
 
-var resetWinStorageCmd = &cobra.Command{
-	Use:     "reset-win-storage",
-	Short:   "Resets the containerd and docker image storage on windows nodes",
-	RunE:    resetWinStorage,
-	Example: resetWinStorageCommandExample,
-}
-
 func init() {
-	resetWinStorageCmd.Flags().String(containerdDirFlag, determineDefaultContainerdDir(), "Containerd directory")
-	resetWinStorageCmd.Flags().String(dockerDirFlag, determineDefaultDockerDir(), "Docker directory")
+	resetWinStorageCmd.Flags().String(containerdDirFlag, defaultContainerdDir, "Containerd directory")
+	resetWinStorageCmd.Flags().String(dockerDirFlag, defaultDockerDir, "Docker directory")
 	resetWinStorageCmd.Flags().Int(maxRetryFlag, defaultMaxRetry, "Max retries for deleting the directories")
 	resetWinStorageCmd.Flags().BoolP(forceZapFlag, "f", false, "Use zap.exe to forcefully remove the directory after all retries are exhausted.")
 	resetWinStorageCmd.Flags().SortFlags = false
 	resetWinStorageCmd.Flags().PrintDefaults()
 }
 
-func determineDefaultContainerdDir() string {
-	defaultContainerdDir = filepath.Join(system.SystemDrive(), "containerd")
-
-	return defaultContainerdDir
-}
-
-func determineDefaultDockerDir() string {
-	defaultDockerDir = filepath.Join(system.SystemDrive(), "docker")
-
-	return defaultDockerDir
-}
-
 func resetWinStorage(cmd *cobra.Command, args []string) error {
-	builtCommand, err := buildResetWinStorageCmd(cmd)
+	psCmd, params, err := buildResetPsCmd(cmd)
 	if err != nil {
 		return err
 	}
 
-	klog.V(3).Infof("Reset win storage command: %s", builtCommand)
+	klog.V(4).Infof("PS cmd: '%s', params: '%v'", psCmd, params)
 
-	_, err = utils.ExecutePowershellScript(builtCommand, utils.ExecOptions{IgnoreNotInstalledErr: true})
+	start := time.Now()
+
+	cmdResult, err := utils.ExecutePsWithStructuredResult[*common.CmdResult](psCmd, "CmdResult", utils.ExecOptions{IgnoreNotInstalledErr: true}, params...)
 	if err != nil {
 		return err
 	}
+
+	if cmdResult.Error != nil {
+		return cmdResult.Error.ToError()
+	}
+
+	duration := time.Since(start)
+
+	common.PrintCompletedMessage(duration, "image reset-win-storage")
 
 	return nil
 }
 
-func buildResetWinStorageCmd(cmd *cobra.Command) (string, error) {
-	resetCommand := utils.FormatScriptFilePath(utils.GetInstallationDirectory() + scriptRelativePath)
+func buildResetPsCmd(cmd *cobra.Command) (psCmd string, params []string, err error) {
+	psCmd = utils.FormatScriptFilePath(utils.GetInstallationDirectory() + "\\smallsetup\\helpers\\ResetWinContainerStorage.ps1")
 
-	outputFlag, err := strconv.ParseBool(cmd.Flags().Lookup(p.OutputFlagName).Value.String())
+	showOutput, err := strconv.ParseBool(cmd.Flags().Lookup(p.OutputFlagName).Value.String())
 	if err != nil {
-		return "", err
+		return "", nil, fmt.Errorf("unable to parse flag '%s': %w", p.OutputFlagName, err)
 	}
 
-	containerdDirectory, err := cmd.Flags().GetString(containerdDirFlag)
+	containerdDir, err := cmd.Flags().GetString(containerdDirFlag)
 	if err != nil {
-		return "", fmt.Errorf("unable to parse flag: %s due to error: %s", containerdDirFlag, err.Error())
+		return "", nil, fmt.Errorf("unable to parse flag '%s': %w", containerdDirFlag, err)
 	}
-	if containerdDirectory == "" {
+
+	if containerdDir == "" {
 		klog.V(3).Infof("Containerd Directory was specified as empty. Will use %s as containerd directory", defaultContainerdDir)
-		containerdDirectory = defaultContainerdDir
+		containerdDir = defaultContainerdDir
 	}
 
-	dockerDirectory, err := cmd.Flags().GetString(dockerDirFlag)
+	dockerDir, err := cmd.Flags().GetString(dockerDirFlag)
 	if err != nil {
-		return "", fmt.Errorf("unable to parse flag: %s due to error: %s", dockerDirFlag, err.Error())
+		return "", nil, fmt.Errorf("unable to parse flag '%s': %w", dockerDirFlag, err)
 	}
-	if dockerDirectory == "" {
+
+	if dockerDir == "" {
 		klog.V(3).Infof("Docker Directory was specified as empty. Will use %s as docker directory", defaultContainerdDir)
-		dockerDirectory = defaultDockerDir
+		dockerDir = defaultDockerDir
 	}
 
 	maxRetries, err := cmd.Flags().GetInt(maxRetryFlag)
 	if err != nil {
-		return "", fmt.Errorf("unable to parse flag: %s due to error: %s", maxRetryFlag, err.Error())
+		return "", nil, fmt.Errorf("unable to parse flag '%s': %w", maxRetryFlag, err)
 	}
+
 	if maxRetries <= 0 {
-		return "", errors.New("illegal value for Max retries. Value of Max retries should be greater than or equal to 1")
+		return "", nil, errors.New("illegal value for Max retries. Value of Max retries should be greater than or equal to 1")
 	}
 
-	zapFlag, err := strconv.ParseBool(cmd.Flags().Lookup(forceZapFlag).Value.String())
+	useZap, err := strconv.ParseBool(cmd.Flags().Lookup(forceZapFlag).Value.String())
 	if err != nil {
-		return "", err
+		return "", nil, fmt.Errorf("unable to parse flag '%s': %w", forceZapFlag, err)
 	}
 
-	resetCommand += " -Containerd " + utils.EscapeWithSingleQuotes(containerdDirectory)
-	resetCommand += " -Docker " + utils.EscapeWithSingleQuotes(dockerDirectory)
-	resetCommand += " -MaxRetries " + strconv.FormatUint(uint64(maxRetries), 10)
-	if outputFlag {
-		resetCommand += " -ShowLogs"
-	}
-	if zapFlag {
-		resetCommand += " -ForceZap"
+	params = append(params,
+		" -Containerd "+utils.EscapeWithSingleQuotes(containerdDir),
+		" -Docker "+utils.EscapeWithSingleQuotes(dockerDir),
+		" -MaxRetries "+strconv.FormatUint(uint64(maxRetries), 10))
+
+	if showOutput {
+		params = append(params, " -ShowLogs")
 	}
 
-	return resetCommand, nil
+	if useZap {
+		params = append(params, " -ForceZap")
+	}
+
+	return
+}
+
+func determineDefaultDir(dirName string) string {
+	return filepath.Join(system.SystemDrive(), dirName)
 }
