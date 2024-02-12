@@ -63,6 +63,10 @@ function Get-Status {
         Write-Progress -Activity 'Gathering status information...' -Id 1 -Status '1/5' -PercentComplete 20 -CurrentOperation 'Getting enabled addons'
     }
 
+    # TODO: remove dependency when status and addons are separated!
+    # see https://github.com/Siemens-Healthineers/K2s/issues/62
+    $status.EnabledAddons = (Get-Addons).Addons
+
     if ($ShowProgress -eq $true) {
         Write-Progress -Activity 'Gathering status information...' -Id 1 -Status '2/5' -PercentComplete 40 -CurrentOperation 'Determining running state'
     }
