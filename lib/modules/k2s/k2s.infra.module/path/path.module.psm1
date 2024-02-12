@@ -14,7 +14,7 @@ function Get-KubeBinPath {
 
 function Get-KubeToolsPath {
     $kubeBinPath = Get-KubeBinPath
-    return "$kubeBinPath\exe"   
+    return "$kubeBinPath\exe"
 }
 
 function Get-InstallationDriveLetter {
@@ -76,10 +76,28 @@ function Reset-EnvVars {
     Update-SystemPath -Action 'remove' "$kubePath\bin\containerd"
 }
 
+<#
+.SYNOPSIS
+Write refresh info.
+
+.DESCRIPTION
+Write information about refersh of env variables
+#>
+function Write-RefreshEnvVariables {
+    Write-Log ' ' -Console
+    Write-Log '   Update PATH environment variable for proper usage:' -Console
+    Write-Log ' ' -Console
+    Write-Log "   Powershell: '$kubePath\smallsetup\helpers\RefreshEnv.ps1'" -Console
+    Write-Log "   Command Prompt: '$kubePath\smallsetup\helpers\RefreshEnv.cmd'" -Console
+    Write-Log '   Or open new shell' -Console
+    Write-Log ' ' -Console
+}
+
 Export-ModuleMember -Function Get-KubePath, Get-KubeBinPath, Get-KubeToolsPath,
 Get-InstallationDriveLetter,
 Get-SystemDriveLetter,
 Test-PathPrerequisites,
 Update-SystemPath,
 Set-EnvVars,
+Write-RefreshEnvVariables,
 Reset-EnvVars
