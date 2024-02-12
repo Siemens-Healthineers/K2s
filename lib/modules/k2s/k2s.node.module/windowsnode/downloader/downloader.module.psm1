@@ -166,7 +166,9 @@ function Invoke-DownloadWindowsNodeArtifacts {
         [parameter(Mandatory = $true, HelpMessage = 'Kubernetes version to use')]
         [string] $KubernetesVersion,
         [parameter(Mandatory = $false, HelpMessage = 'HTTP proxy if available')]
-        [string] $Proxy = ''
+        [string] $Proxy = '',
+        [parameter(Mandatory = $false, HelpMessage = 'Skips networking setup and installation of cluster dependent tools kubelet, flannel on windows node')]
+        [boolean] $SkipClusterSetup = $false
     )
 
     if (Test-Path($windowsNodeArtifactsDownloadsDirectory)) {
@@ -232,7 +234,7 @@ function Invoke-DownloadWindowsNodeArtifacts {
     # YAML TOOLS
     Invoke-DeployYamlArtifacts $windowsNodeArtifactsDirectory
 
-    Install-WinContainerd -Proxy $Proxy
+    Install-WinContainerd -Proxy $Proxy -SkipNetworkingSetup:$SkipClusterSetup
     Invoke-DownloadWindowsImages $downloadsBaseDirectory $Proxy
     Uninstall-WinContainerd
 
@@ -267,7 +269,9 @@ function Invoke-DeployWinArtifacts {
         [parameter(Mandatory = $false, HelpMessage = 'Deletes the needed files to perform an offline installation')]
         [boolean] $DeleteFilesForOfflineInstallation = $false,
         [parameter(Mandatory = $false, HelpMessage = 'Force the installation online. This option is needed if the files for an offline installation are available but you want to recreate them.')]
-        [boolean] $ForceOnlineInstallation = $false
+        [boolean] $ForceOnlineInstallation = $false,
+        [parameter(Mandatory = $false, HelpMessage = 'Skips networking setup and installation of cluster dependent tools kubelet, flannel on windows node')]
+        [boolean] $SkipClusterSetup = $false
     )
 
     $isZipFileAlreadyAvailable = Test-Path -Path "$windowsNodeArtifactsZipFilePath"
@@ -286,7 +290,7 @@ function Invoke-DeployWinArtifacts {
         }
         Write-Log "Create folder '$downloadsDirectory'"
         New-Item -Path "$downloadsDirectory" -ItemType Directory -Force -ErrorAction SilentlyContinue
-        Invoke-DownloadWindowsNodeArtifacts -KubernetesVersion $KubernetesVersion -Proxy $Proxy
+        Invoke-DownloadWindowsNodeArtifacts -KubernetesVersion $KubernetesVersion -Proxy $Proxy -SkipClusterSetup:$SkipClusterSetup
         Write-Log "Remove folder '$downloadsDirectory'"
         Remove-Item -Path "$downloadsDirectory" -Recurse -Force -ErrorAction SilentlyContinue
     }
@@ -334,7 +338,7 @@ function Install-WinNodeArtifacts {
     Invoke-DeployDockerArtifacts $windowsNodeArtifactsDirectory
     Install-WinDocker -Proxy "$Proxy"
 
-    Install-WinContainerd -Proxy "$Proxy"
+    Install-WinContainerd -Proxy "$Proxy" -SkipNetworkingSetup:$SkipClusterSetup
 
     if (!($SkipClusterSetup)) {
         Invoke-DeployWindowsImages $windowsNodeArtifactsDirectory
@@ -351,16 +355,15 @@ function Install-WinNodeArtifacts {
 
         Invoke-DeployWindowsExporterArtifacts $windowsNodeArtifactsDirectory
         Install-WindowsExporter
+
+        if (!($HostVM)) {
+            # DNS Proxy is not required if Host machine is a VM
+            Invoke-DeployDnsProxyArtifacts $windowsNodeArtifactsDirectory
+            Install-WinDnsProxy
+        }
     }
 
     Install-WinHttpProxy -Proxy "$Proxy"
-
-    if (!($HostVM)) {
-        # DNS Proxy is not required if Host machine is a VM
-        Invoke-DeployDnsProxyArtifacts $windowsNodeArtifactsDirectory
-        Install-WinDnsProxy
-    }
-
     Invoke-DeployPuttytoolsArtifacts $windowsNodeArtifactsDirectory
 
     # remove folder with windows node artifacts since all of them are already published to the expected locations
