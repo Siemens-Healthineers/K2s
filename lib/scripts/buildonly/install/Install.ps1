@@ -82,12 +82,13 @@ if ( $MasterDiskSize -lt 20GB ) {
 Write-Log "Using $([math]::round($MasterDiskSize/1GB, 2))GB of disk space for master VM"
 
 Initialize-WinNode -KubernetesVersion $KubernetesVersion `
+    -HostGW:$false `
     -Proxy:"$Proxy" `
     -DeleteFilesForOfflineInstallation $DeleteFilesForOfflineInstallation `
     -ForceOnlineInstallation $ForceOnlineInstallation `
     -SkipClusterSetup:$true
 
-Write-Log 'Using NAT in dev only environment'
+Write-Log 'Using NAT in dev build only environment'
 New-DefaultNetNat
 
 Initialize-LinuxNode -VMStartUpMemory $MasterVMMemory `

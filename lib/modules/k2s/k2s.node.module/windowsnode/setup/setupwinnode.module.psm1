@@ -117,7 +117,7 @@ function Initialize-WinNode {
         [boolean] $SkipClusterSetup = $false
     )
 
-    Invoke-DeployWinArtifacts -KubernetesVersion $KubernetesVersion -Proxy "$Proxy" -DeleteFilesForOfflineInstallation $DeleteFilesForOfflineInstallation -ForceOnlineInstallation $ForceOnlineInstallation
+    Invoke-DeployWinArtifacts -KubernetesVersion $KubernetesVersion -Proxy "$Proxy" -DeleteFilesForOfflineInstallation $DeleteFilesForOfflineInstallation -ForceOnlineInstallation $ForceOnlineInstallation -SkipClusterSetup:$SkipClusterSetup
 
     Set-ConfigInstallFolder -Value $kubePath
     Set-ConfigProductVersion -Value $productVersion
