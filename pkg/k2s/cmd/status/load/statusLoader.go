@@ -13,8 +13,6 @@ type StatusLoader struct {
 
 // TODO: separate JSON model from domain model
 type Status struct {
-	// TODO: separate cluster status and addons status
-	EnabledAddons  []string            `json:"enabledAddons"`
 	SetupInfo      setupinfo.SetupInfo `json:"setupInfo"`
 	RunningState   *RunningState       `json:"runningState"`
 	Nodes          []Node              `json:"nodes"`
