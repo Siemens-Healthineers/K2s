@@ -11,13 +11,20 @@ import (
 	c "k2s/config"
 	"k2s/utils"
 	"strconv"
+	"time"
 
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
 	"k8s.io/klog/v2"
 )
 
-var addExample = `
+const (
+	usernameFlag = "username"
+	passwordFlag = "password"
+)
+
+var (
+	addExample = `
 	# Add registry in K2s (enter credentials afterwards)
 	k2s image registry add myregistry
 
@@ -25,27 +32,19 @@ var addExample = `
 	k2s image registry add myregistry -u testuser -p testpassword
 `
 
-var addCmd = &cobra.Command{
-	Use:     "add",
-	Short:   "Add container registry",
-	RunE:    addRegistry,
-	Example: addExample,
-}
-
-const (
-	usernameLabel = "username"
-	passwordLabel = "password"
+	addCmd = &cobra.Command{
+		Use:     "add",
+		Short:   "Add container registry",
+		RunE:    addRegistry,
+		Example: addExample,
+	}
 )
 
 func init() {
-	includeAddCommand(addCmd)
-}
-
-func includeAddCommand(cmd *cobra.Command) {
-	cmd.Flags().StringP(usernameLabel, "u", "", "username")
-	cmd.Flags().StringP(passwordLabel, "p", "", "password")
-	cmd.Flags().SortFlags = false
-	cmd.Flags().PrintDefaults()
+	addCmd.Flags().StringP(usernameFlag, "u", "", usernameFlag)
+	addCmd.Flags().StringP(passwordFlag, "p", "", passwordFlag)
+	addCmd.Flags().SortFlags = false
+	addCmd.Flags().PrintDefaults()
 }
 
 func addRegistry(cmd *cobra.Command, args []string) error {
@@ -54,57 +53,62 @@ func addRegistry(cmd *cobra.Command, args []string) error {
 	}
 
 	registryName := args[0]
-	klog.V(4).Infof("Adding registry %s", registryName)
-	pterm.Printfln("🤖 Adding %s to K2s cluster", registryName)
 
-	addCmd, err := buildAddCmd(registryName, cmd)
+	klog.V(4).Infof("Adding registry '%s'", registryName)
+
+	pterm.Printfln("🤖 Adding registry '%s' to K2s cluster", registryName)
+
+	psCmd, params, err := buildAddPsCmd(registryName, cmd)
 	if err != nil {
 		return err
 	}
 
-	klog.V(3).Infof("Add command : %s", addCmd)
+	klog.V(4).Infof("PS cmd: '%s', params: '%v'", psCmd, params)
 
-	duration, err := utils.ExecutePowershellScript(addCmd)
+	start := time.Now()
+
+	cmdResult, err := utils.ExecutePsWithStructuredResult[*common.CmdResult](psCmd, "CmdResult", utils.ExecOptions{}, params...)
 	if err != nil {
 		return err
 	}
 
-	common.PrintCompletedMessage(duration, fmt.Sprintf("add registry %s", registryName))
+	if cmdResult.Error != nil {
+		return cmdResult.Error.ToError()
+	}
+
+	duration := time.Since(start)
+
+	common.PrintCompletedMessage(duration, "image registry add")
 
 	return nil
 }
 
-func buildAddCmd(registryName string, cmd *cobra.Command) (string, error) {
-	addRegistryCmd := utils.FormatScriptFilePath(c.SetupRootDir + "\\" + "smallsetup" + "\\" + "helpers" + "\\" + "AddRegistry.ps1")
+func buildAddPsCmd(registryName string, cmd *cobra.Command) (psCmd string, params []string, err error) {
+	psCmd = utils.FormatScriptFilePath(c.SetupRootDir + "\\smallsetup\\helpers\\AddRegistry.ps1")
 
-	if registryName == "" {
-		return "", errors.New("registry name must not be empty")
-	}
-
-	outputFlag, err := strconv.ParseBool(cmd.Flags().Lookup(p.OutputFlagName).Value.String())
+	showOutput, err := strconv.ParseBool(cmd.Flags().Lookup(p.OutputFlagName).Value.String())
 	if err != nil {
-		return "", err
+		return "", nil, fmt.Errorf("unable to parse flag '%s': %w", p.OutputFlagName, err)
 	}
 
-	if outputFlag {
-		addRegistryCmd += " -ShowLogs"
-	}
-
-	addRegistryCmd += " -RegistryName " + utils.EscapeWithSingleQuotes(registryName)
-
-	username, err := cmd.Flags().GetString(usernameLabel)
+	username, err := cmd.Flags().GetString(usernameFlag)
 	if err != nil {
-		return "", fmt.Errorf("unable to parse flag: %s", usernameLabel)
+		return "", nil, fmt.Errorf("unable to parse flag '%s': %w", usernameFlag, err)
 	}
 
-	addRegistryCmd += " -Username " + utils.EscapeWithSingleQuotes(username)
-
-	password, err := cmd.Flags().GetString(passwordLabel)
+	password, err := cmd.Flags().GetString(passwordFlag)
 	if err != nil {
-		return "", fmt.Errorf("unable to parse flag: %s", passwordLabel)
+		return "", nil, fmt.Errorf("unable to parse flag '%s': %w", passwordFlag, err)
 	}
 
-	addRegistryCmd += " -Password " + utils.EscapeWithSingleQuotes(password)
+	if showOutput {
+		params = append(params, " -ShowLogs")
+	}
 
-	return addRegistryCmd, nil
+	params = append(params,
+		" -RegistryName "+utils.EscapeWithSingleQuotes(registryName),
+		" -Username "+utils.EscapeWithSingleQuotes(username),
+		" -Password "+utils.EscapeWithSingleQuotes(password))
+
+	return
 }

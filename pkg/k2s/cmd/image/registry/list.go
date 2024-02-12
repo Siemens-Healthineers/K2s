@@ -11,25 +11,28 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var listExample = `
+var (
+	listExample = `
 	# List configured image registries in K2s 
 	k2s image registry ls
 `
 
-var listCmd = &cobra.Command{
-	Use:     "ls",
-	Short:   "List configured registries",
-	RunE:    listRegistries,
-	Example: listExample,
-}
+	listCmd = &cobra.Command{
+		Use:     "ls",
+		Short:   "List configured registries",
+		RunE:    listRegistries,
+		Example: listExample,
+	}
+)
 
 func init() {
-	includeAddCommand(listCmd)
+	listCmd.Flags().SortFlags = false
+	listCmd.Flags().PrintDefaults()
 }
 
 func listRegistries(cmd *cobra.Command, args []string) error {
 	config := config.NewAccess()
-	registries, err := config.GetConfiguredRegisties()
+	registries, err := config.GetConfiguredRegistries()
 	if err != nil {
 		return err
 	}
@@ -46,7 +49,7 @@ func listRegistries(cmd *cobra.Command, args []string) error {
 
 	loggedInRegistry, err := config.GetLoggedInRegistry()
 	if err != nil {
-		return fmt.Errorf("error retrieving loggedInRegistry: %s", err)
+		return fmt.Errorf("error retrieving loggedInRegistry: %w", err)
 	}
 
 	if loggedInRegistry == "" {
