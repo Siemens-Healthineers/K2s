@@ -121,3 +121,5 @@ if ($global:PurgeOnUninstall) {
 Reset-EnvVars
 
 Write-Log 'Uninstalling MultiVMK8s setup done.'
+
+Save-k2sLogDirectory -RemoveVar
