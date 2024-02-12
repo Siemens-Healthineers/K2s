@@ -35,7 +35,6 @@ Write-Log "Uninstalling $global:VMName" -Console
 Remove-Item -Path "$global:NssmInstallDirectory\nssm.exe" -Force -ErrorAction SilentlyContinue
 
 Get-ChildItem "$($global:SystemDriveLetter):\var" -Recurse -ErrorAction SilentlyContinue | ? LinkType -eq 'SymbolicLink' | % { $_.Delete() }
-Remove-Item -Path "$($global:SystemDriveLetter):\var" -Force -Recurse -ErrorAction SilentlyContinue
 Remove-Item -Path "$global:SetupJsonFile" -Force -ErrorAction SilentlyContinue
 
 Write-Log 'Delete downloaded artifacts for the Windows node'
@@ -48,3 +47,5 @@ if (Test-Path($global:DownloadsDirectory)) {
 Reset-EnvVars
 
 Write-Log 'Uninstalling Build Only Environment done.'
+
+Save-Log -RemoveVar

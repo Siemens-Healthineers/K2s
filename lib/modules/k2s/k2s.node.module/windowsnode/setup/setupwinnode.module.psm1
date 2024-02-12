@@ -187,13 +187,6 @@ function Clear-WinNode {
     $kubeletConfigDir = Get-KubeletConfigDir
     # remove folders from installation folder
     Get-ChildItem -Path $kubeletConfigDir -Force -Recurse -Attributes Reparsepoint -ErrorAction 'silentlycontinue' | % { $n = $_.FullName.Trim('\'); fsutil reparsepoint delete "$n" }
-    # the directory '<system drive>:\var' must be deleted (regardless of the installation drive) since
-    # kubelet.exe writes hardcoded to '<system drive>:\var\lib\kubelet\device-plugins' (see '\pkg\kubelet\cm\devicemanager\manager.go' under https://github.com/kubernetes/kubernetes.git)
-    $systemDriveLetter = (Get-Item $env:SystemDrive).PSDrive.Name
-    Remove-Item -Path "$($systemDriveLetter):\var" -Force -Recurse -ErrorAction SilentlyContinue
-    if ($(Get-SystemDriveLetter) -ne "$systemDriveLetter") {
-        Remove-Item -Path "$(Get-SystemDriveLetter):\var" -Force -Recurse -ErrorAction SilentlyContinue
-    }
     Remove-Item -Path "$(Get-SystemDriveLetter):\etc" -Force -Recurse -ErrorAction SilentlyContinue
     Remove-Item -Path "$(Get-SystemDriveLetter):\run" -Force -Recurse -ErrorAction SilentlyContinue
     Remove-Item -Path "$(Get-SystemDriveLetter):\opt" -Force -Recurse -ErrorAction SilentlyContinue
