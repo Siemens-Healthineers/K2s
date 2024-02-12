@@ -90,7 +90,7 @@ func (c *ConfigAccess) IsLinuxOnly() (bool, error) {
 	return c.setupConfig.LinuxOnly, nil
 }
 
-func (c *ConfigAccess) GetConfiguredRegisties() ([]d.RegistryName, error) {
+func (c *ConfigAccess) GetConfiguredRegistries() ([]d.RegistryName, error) {
 	if c.setupConfig != nil {
 		return c.setupConfig.Registries, nil
 	}
