@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 
-	"k2s/addons"
 	"k2s/addons/print"
 	"k2s/cmd/status/load"
 	"k2s/setupinfo"
@@ -167,10 +166,6 @@ func printStatusUserFriendly(showAdditionalInfo bool) error {
 	}
 	if !proceed {
 		return nil
-	}
-
-	if err := printer.addonsPrinter.PrintAddons(status.EnabledAddons, addons.AllAddons().ToPrintInfo()); err != nil {
-		return err
 	}
 
 	proceed, err = printer.runningStatePrinter.PrintRunningState(status.RunningState)
