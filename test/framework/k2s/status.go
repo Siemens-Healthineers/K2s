@@ -9,7 +9,6 @@ import (
 	"k2s/cmd/status/load"
 
 	. "github.com/onsi/gomega"
-	"github.com/samber/lo"
 )
 
 type K2sStatus struct {
@@ -25,14 +24,6 @@ func (r *K2sCliRunner) GetStatus(ctx context.Context) *K2sStatus {
 	return &K2sStatus{
 		internal: status,
 	}
-}
-
-func (status K2sStatus) GetEnabledAddons() []string {
-	return status.internal.EnabledAddons
-}
-
-func (status K2sStatus) IsAddonEnabled(addonName string) bool {
-	return lo.Contains(status.internal.EnabledAddons, addonName)
 }
 
 func (status K2sStatus) IsClusterRunning() bool {

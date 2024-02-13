@@ -4,6 +4,7 @@ package k2s
 
 import (
 	"io/fs"
+	"k2s/addons"
 	sos "k2sTest/framework/os"
 	"log"
 	"os"
@@ -156,4 +157,29 @@ func GetImagesForAddon(addon Addon) ([]string, error) {
 	}
 
 	return lo.Union(images), nil
+}
+
+type AddonsInfo struct {
+}
+
+func NewAddonsInfo() *AddonsInfo {
+	return &AddonsInfo{}
+}
+
+func (info *AddonsInfo) GetEnabledAddons() ([]string, error) {
+	enabledAddons, err := addons.LoadEnabledAddons()
+	if err != nil {
+		return nil, err
+	}
+
+	return enabledAddons.Addons, nil
+}
+
+func (info *AddonsInfo) IsAddonEnabled(addonName string) (bool, error) {
+	enabledAddons, err := addons.LoadEnabledAddons()
+	if err != nil {
+		return false, err
+	}
+
+	return lo.Contains(enabledAddons.Addons, addonName), nil
 }
