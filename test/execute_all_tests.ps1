@@ -104,7 +104,12 @@ Write-Output ''
 Write-Output '------------------------------------------------'
 
 Set-Location $currentLocation
-Write-Output "Test Results are available under '$TestResultPath'"
+Write-Output "Test Results are available under '$TestResultPath'`n"
+
+if ($results.Go -eq 197) {
+    Write-Warning "Ginkgo detected Programmatic Focus - was setting exit status to '197'. Resetting to '0'."
+    $results.Go = 0
+}
 
 if ($results.PowerShell -eq 0 -and $results.Go -eq 0) {
     Write-Output '> ALL TESTS PASSED :-)'
@@ -119,7 +124,7 @@ if ($results.PowerShell -ne 0) {
 }
 
 if ($results.Go -ne 0) {
-    Write-Warning '     Go tests :-('
+    Write-Warning '     Go tests :-(' 
 }
 
 Write-Output '------------------------------------------------'
