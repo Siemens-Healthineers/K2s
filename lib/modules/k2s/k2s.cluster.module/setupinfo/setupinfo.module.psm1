@@ -12,12 +12,12 @@ function Confirm-SetupNameIsValid {
     $validationError = switch ( $SetupName ) {
         'k2s' { $null }
         'MultiVMK8s' { $null }
-        'BuildOnlyEnv' { $null }
+        'BuildOnlyEnv' { 'There is no cluster installed for build-only ;-)' }
         $null { 'system-not-installed' }
         '' { 'system-not-installed' }
         Default { "invalid:'$SetupName'" }
     }
-    
+
     return $validationError
 }
 
@@ -34,9 +34,9 @@ function Get-SetupInfo {
     }
 
     return [pscustomobject]@{
-        Name            = $setupName; 
-        Version         = $productVersion; 
-        ValidationError = $validationError; 
+        Name            = $setupName;
+        Version         = $productVersion;
+        ValidationError = $validationError;
         LinuxOnly       = $linuxOnly
     }
 }
