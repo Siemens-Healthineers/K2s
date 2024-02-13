@@ -46,7 +46,7 @@ jobs:
 
     - name: Build all k2s executables
       run: |
-        .\smallsetup\common\BuildGoExe.ps1 -BuildAll:true
+        .\smallsetup\common\BuildGoExe.ps1 -BuildAll:$true
         ls
 
     - name: Run no-setup Acceptance Tests
