@@ -19,6 +19,7 @@ import (
 	"k2s/config"
 	"k2s/providers/terminal"
 	"k2s/utils"
+	"k2s/utils/psexecutor"
 	"k2s/utils/tz"
 
 	"k8s.io/klog/v2"
@@ -79,7 +80,7 @@ func init() {
 	installer = core.NewInstaller(config.NewAccess(),
 		terminal.NewTerminalPrinter(),
 		ic.NewInstallConfigAccess(),
-		utils.ExecutePowershellScript,
+		psexecutor.ExecutePowershellScript,
 		version.GetVersion,
 		utils.Platform,
 		utils.GetInstallationDirectory,

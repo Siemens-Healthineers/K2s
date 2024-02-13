@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"k2s/config"
 	"k2s/utils"
+	"k2s/utils/psexecutor"
 	"os"
 	"os/exec"
 	"strings"
@@ -26,7 +27,7 @@ var sshExecFunc func(proc string) = func(proc string) {
 }
 
 var cmdOverSshExecFunc func(cmd string) = func(cmd string) {
-	utils.ExecutePowershellScript(cmd, utils.ExecOptions{NoProgress: true})
+	psexecutor.ExecutePowershellScript(cmd, psexecutor.ExecOptions{NoProgress: true})
 }
 
 var k2sInstallDirProviderFunc = func() string {

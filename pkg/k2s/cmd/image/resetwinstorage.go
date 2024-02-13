@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"k2s/utils"
+	"k2s/utils/psexecutor"
 	"path/filepath"
 	"strconv"
 	"time"
@@ -76,7 +77,7 @@ func resetWinStorage(cmd *cobra.Command, args []string) error {
 
 	start := time.Now()
 
-	cmdResult, err := utils.ExecutePsWithStructuredResult[*common.CmdResult](psCmd, "CmdResult", utils.ExecOptions{IgnoreNotInstalledErr: true}, params...)
+	cmdResult, err := psexecutor.ExecutePsWithStructuredResult[*common.CmdResult](psCmd, "CmdResult", psexecutor.ExecOptions{IgnoreNotInstalledErr: true}, params...)
 	if err != nil {
 		return err
 	}

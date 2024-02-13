@@ -6,6 +6,7 @@ package scp
 import (
 	"errors"
 	"k2s/utils"
+	"k2s/utils/psexecutor"
 	"strconv"
 
 	"github.com/spf13/cobra"
@@ -49,7 +50,7 @@ func scpWorker(ccmd *cobra.Command, args []string) error {
 
 	klog.V(3).Infof("scp command : %s", scpCmd)
 
-	_, err = utils.ExecutePowershellScript(scpCmd)
+	_, err = psexecutor.ExecutePowershellScript(scpCmd)
 
 	return err
 }
