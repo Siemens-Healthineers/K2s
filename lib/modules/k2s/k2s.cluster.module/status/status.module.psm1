@@ -90,7 +90,7 @@ function Get-Status {
     Write-Log "[$script::$function] Added '$($nodes.Count)' nodes to status"
 
     if ($ShowProgress -eq $true) {
-        Write-Progress -Activity 'Gathering status information...' -Id 1 -Status '4/4' -PercentComplete 100 -CurrentOperation 'Getting K8s system pods info'
+        Write-Progress -Activity 'Gathering status information...' -Id 1 -Status '4/4' -PercentComplete 95 -CurrentOperation 'Getting K8s system pods info'
     }
 
     $pods = [System.Collections.ArrayList]@()
@@ -102,7 +102,7 @@ function Get-Status {
     $status.Pods = $pods
 
     if ($ShowProgress -eq $true) {
-        Write-Progress -Activity 'Gathering status information...' -Id 1 -Status '5/5' -PercentComplete 100
+        Write-Progress -Activity 'Gathering status information...' -Id 1 -Status '4/4' -PercentComplete 100
         Write-Progress -Activity 'Gathering status information...' -Id 1 -Completed
     }
 

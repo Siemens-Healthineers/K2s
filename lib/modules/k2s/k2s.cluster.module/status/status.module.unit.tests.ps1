@@ -122,7 +122,7 @@ Describe 'Get-Status' -Tag 'unit' {
             
             It 'displays initial progress info' {
                 InModuleScope -ModuleName $moduleName {
-                    Should -Invoke Write-Progress -Times 1 -ParameterFilter { $Id -eq 1 -and $Status -eq '0/5' } -Scope Context
+                    Should -Invoke Write-Progress -Times 1 -ParameterFilter { $Id -eq 1 -and $Status -eq '0/4' } -Scope Context
                 }
             }
 
@@ -147,16 +147,15 @@ Describe 'Get-Status' -Tag 'unit' {
             
             It 'displays progress until system running state' {
                 InModuleScope -ModuleName $moduleName {
-                    Should -Invoke Write-Progress -Times 1 -ParameterFilter { $Id -eq 1 -and $Status -eq '0/5' } -Scope Context
-                    Should -Invoke Write-Progress -Times 1 -ParameterFilter { $Id -eq 1 -and $Status -eq '1/5' } -Scope Context
-                    Should -Invoke Write-Progress -Times 1 -ParameterFilter { $Id -eq 1 -and $Status -eq '2/5' } -Scope Context
+                    Should -Invoke Write-Progress -Times 1 -ParameterFilter { $Id -eq 1 -and $Status -eq '0/4' } -Scope Context
+                    Should -Invoke Write-Progress -Times 1 -ParameterFilter { $Id -eq 1 -and $Status -eq '1/4' } -Scope Context
                 }
             }
 
             It 'completes progress immediately after running state' {
                 InModuleScope -ModuleName $moduleName {
                     Should -Invoke Write-Progress -Times 1 -ParameterFilter { $Id -eq 1 -and $Completed -eq $true } -Scope Context
-                    Should -Invoke Write-Progress -Times 4 -Scope Context
+                    Should -Invoke Write-Progress -Times 3 -Scope Context
                 }
             }
         }
@@ -177,14 +176,13 @@ Describe 'Get-Status' -Tag 'unit' {
             
             It 'displays progress until completion' {
                 InModuleScope -ModuleName $moduleName {
-                    Should -Invoke Write-Progress -Times 1 -ParameterFilter { $Id -eq 1 -and $Status -eq '0/5' } -Scope Context
-                    Should -Invoke Write-Progress -Times 1 -ParameterFilter { $Id -eq 1 -and $Status -eq '1/5' } -Scope Context
-                    Should -Invoke Write-Progress -Times 1 -ParameterFilter { $Id -eq 1 -and $Status -eq '2/5' } -Scope Context
-                    Should -Invoke Write-Progress -Times 1 -ParameterFilter { $Id -eq 1 -and $Status -eq '3/5' } -Scope Context
-                    Should -Invoke Write-Progress -Times 1 -ParameterFilter { $Id -eq 1 -and $Status -eq '4/5' } -Scope Context
-                    Should -Invoke Write-Progress -Times 1 -ParameterFilter { $Id -eq 1 -and $Status -eq '5/5' } -Scope Context
-                    Should -Invoke Write-Progress -Times 1 -ParameterFilter { $Id -eq 1 -and $Status -eq '5/5' -and $PercentComplete -eq 100 } -Scope Context
-                    Should -Invoke Write-Progress -Times 8 -Scope Context
+                    Should -Invoke Write-Progress -Times 1 -ParameterFilter { $Id -eq 1 -and $Status -eq '0/4' } -Scope Context
+                    Should -Invoke Write-Progress -Times 1 -ParameterFilter { $Id -eq 1 -and $Status -eq '1/4' } -Scope Context
+                    Should -Invoke Write-Progress -Times 1 -ParameterFilter { $Id -eq 1 -and $Status -eq '2/4' } -Scope Context
+                    Should -Invoke Write-Progress -Times 1 -ParameterFilter { $Id -eq 1 -and $Status -eq '3/4' } -Scope Context
+                    Should -Invoke Write-Progress -Times 1 -ParameterFilter { $Id -eq 1 -and $Status -eq '4/4' } -Scope Context
+                    Should -Invoke Write-Progress -Times 1 -ParameterFilter { $Id -eq 1 -and $Status -eq '4/4' -and $PercentComplete -eq 100 } -Scope Context
+                    Should -Invoke Write-Progress -Times 7 -Scope Context
                 }
             }
         }
