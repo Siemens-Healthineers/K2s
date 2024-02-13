@@ -1198,6 +1198,8 @@ Describe 'New-KubernetesNode' -Tag 'unit', 'linuxnode' {
                 $expectedIpAddress = 'myIpAddress'
                 $expectedK8sVersion = 'myK8sVersion'
                 $expectedCrioVersion = 'myCrioVersion'
+                function Set-UpComputerWithSpecificOsBeforeProvisioning {}
+                function Set-UpComputerWithSpecificOsAfterProvisioning {}
                 $global:actualMethodsCallOrder = @()
                 Mock Get-IsValidIPv4Address { $true }
                 Mock Write-Log { }
