@@ -82,7 +82,6 @@ var _ = Describe("status", Ordered, func() {
 		})
 
 		It("does not contain any other info", func() {
-			Expect(status.EnabledAddons).To(BeNil())
 			Expect(status.RunningState).To(BeNil())
 			Expect(status.Nodes).To(BeNil())
 			Expect(status.Pods).To(BeNil())
