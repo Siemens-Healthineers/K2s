@@ -12,6 +12,7 @@ import (
 	"k2s/cmd/common"
 	p "k2s/cmd/params"
 	"k2s/utils"
+	"k2s/utils/psexecutor"
 )
 
 var (
@@ -54,7 +55,7 @@ func dumpSystemStatus(cmd *cobra.Command, args []string) error {
 
 	klog.V(3).Infof("Dump system status command: %s", dumpStatusCommand)
 
-	duration, err := utils.ExecutePowershellScript(dumpStatusCommand)
+	duration, err := psexecutor.ExecutePowershellScript(dumpStatusCommand)
 	if err != nil {
 		return err
 	}

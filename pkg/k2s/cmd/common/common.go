@@ -51,6 +51,9 @@ func (err CmdError) ToError() error {
 	if status.IsErrNotRunning(string(err)) {
 		return status.ErrNotRunning
 	}
+	if status.IsErrRunning(string(err)) {
+		return status.ErrRunning
+	}
 	if setupinfo.IsErrNotInstalled(string(err)) {
 		return setupinfo.ErrNotInstalled
 	}

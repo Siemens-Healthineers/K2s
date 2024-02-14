@@ -62,7 +62,7 @@ var _ = Describe("'exthttpaccess' addon", Ordered, func() {
 			var output string
 
 			BeforeAll(func(ctx context.Context) {
-				args := []string{"addons", "enable", "exthttpaccess", "-f"}
+				args := []string{"addons", "enable", "exthttpaccess", "-a"}
 				if suite.Proxy() != "" {
 					args = append(args, "-p", suite.Proxy())
 				}

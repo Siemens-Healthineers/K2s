@@ -227,23 +227,6 @@ function Add-ClusterDnsNameToHost {
     }
 }
 
-<#
-.SYNOPSIS
-Write refresh info.
-
-.DESCRIPTION
-Write information about refersh of env variables
-#>
-function Write-RefreshEnvVariables {
-    Write-Log ' ' -Console
-    Write-Log '   Update PATH environment variable for proper usage:' -Console
-    Write-Log ' ' -Console
-    Write-Log "   Powershell: '$kubePath\smallsetup\helpers\RefreshEnv.ps1'" -Console
-    Write-Log "   Command Prompt: '$kubePath\smallsetup\helpers\RefreshEnv.cmd'" -Console
-    Write-Log '   Or open new shell' -Console
-    Write-Log ' ' -Console
-}
-
 function Set-KubeletDiskPressure {
     # set new limits for the windows node for disk pressure
     # kubelet is running now (caused by JoinWindowsHost.ps1), so we stop it. Will be restarted in StartK8s.ps1.
@@ -472,7 +455,7 @@ function Write-K8sNodesStatus {
     $ErrorActionPreference = 'Stop'
 }
 
-Export-ModuleMember Initialize-KubernetesCluster, Write-RefreshEnvVariables,
+Export-ModuleMember Initialize-KubernetesCluster,
 Uninstall-Cluster, Set-KubeletDiskPressure,
 Join-WindowsNode, Add-K8sContext,
 Add-ClusterDnsNameToHost, Initialize-VMKubernetesCluster

@@ -11,23 +11,40 @@ Removes all container images present in K2s
 
 param (
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
-    [switch] $ShowLogs = $false
+    [switch] $ShowLogs = $false,
+    [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
+    [switch] $EncodeStructuredOutput,
+    [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
+    [string] $MessageType
 )
 $imageModule = "$PSScriptRoot\ImageFunctions.module.psm1"
 $statusModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.cluster.module\status\status.module.psm1"
+$infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 
-Import-Module $imageModule, $statusModule -DisableNameChecking
+Import-Module $imageModule, $statusModule, $infraModule
+
+Initialize-Logging -ShowLogs:$ShowLogs
 
 $systemError = Test-SystemAvailability
 if ($systemError) {
-    throw $systemError
+    if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = $systemError }
+        return
+    }
+
+    Write-Log $systemError -Error
+    exit 1
 }
 
 $allContainerImages = Get-ContainerImagesInk2s -IncludeK8sImages $false
 $deletedImages = @()
 
 if ($allContainerImages.Count -eq 0) {
-    Write-Host 'Nothing to delete. '
+    Write-Log 'Nothing to delete.' -Console
+    if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = $null }
+    }
+    return
 }
 
 foreach ($containerImage in $allContainerImages) {
@@ -43,6 +60,10 @@ foreach ($containerImage in $allContainerImages) {
         $image = $containerImage.Repository + ':' + $containerImage.Tag
         $imageId = $containerImage.ImageId
         $message = "No Action required for $image as Image Id $imageId is already deleted."
-        Write-Host $message
+        Write-Log $message -Console
     }
+}
+
+if ($EncodeStructuredOutput -eq $true) {
+    Send-ToCli -MessageType $MessageType -Message @{Error = $null }
 }

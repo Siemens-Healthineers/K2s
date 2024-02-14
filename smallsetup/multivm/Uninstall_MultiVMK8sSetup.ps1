@@ -102,7 +102,6 @@ Invoke-AddonsHooks -HookType 'AfterUninstall'
 # TODO: necessary on host-only?
 # remove folders from installation drive
 Get-ChildItem -Path $global:KubeletConfigDir -Force -Recurse -Attributes Reparsepoint -ErrorAction 'silentlycontinue' | ForEach-Object { $n = $_.FullName.Trim('\'); fsutil reparsepoint delete "$n" }
-Remove-Item -Path "$($global:SystemDriveLetter):\var" -Force -Recurse -ErrorAction SilentlyContinue
 Remove-Item -Path "$($global:SystemDriveLetter):\etc" -Force -Recurse -ErrorAction SilentlyContinue
 Remove-Item -Path "$($global:SystemDriveLetter):\run" -Force -Recurse -ErrorAction SilentlyContinue
 
@@ -138,3 +137,5 @@ if ($global:PurgeOnUninstall) {
 Reset-EnvVars
 
 Write-Log 'Uninstalling MultiVMK8s setup done.'
+
+Save-Log -RemoveVar

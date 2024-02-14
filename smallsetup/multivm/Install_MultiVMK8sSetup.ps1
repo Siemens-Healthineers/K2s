@@ -349,8 +349,8 @@ function Install-KubectlOnHost() {
     }
 
     # TODO: clone from SetupNode.ps1
-    if (!(Test-Path "&$global:KubectlExe") -or ($previousKubernetesVersion -ne $global:KubernetesVersion)) {
-        DownloadFile "&$global:KubectlExe" https://dl.k8s.io/release/$global:KubernetesVersion/bin/windows/amd64/kubectl.exe $true
+    if (!(Test-Path "$global:KubectlExe") -or ($previousKubernetesVersion -ne $global:KubernetesVersion)) {
+        DownloadFile "$global:KubectlExe" https://dl.k8s.io/release/$global:KubernetesVersion/bin/windows/amd64/kubectl.exe $true $Proxy
     }
 }
 

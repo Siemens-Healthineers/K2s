@@ -7,12 +7,12 @@ import (
 	"fmt"
 	ic "k2s/cmd/install/config"
 	"k2s/setupinfo"
+	"k2s/utils/psexecutor"
 	"time"
 
 	"k8s.io/klog/v2"
 
 	"base/version"
-	"k2s/utils"
 
 	"github.com/spf13/pflag"
 )
@@ -34,7 +34,7 @@ type installer struct {
 	configAccess              ConfigAccess
 	installConfigAccess       InstallConfigAccess
 	printer                   Printer
-	executePsScript           func(cmd string, options ...utils.ExecOptions) (time.Duration, error)
+	executePsScript           func(cmd string, options ...psexecutor.ExecOptions) (time.Duration, error)
 	getVersionFunc            func() version.Version
 	getPlatformFunc           func() string
 	getInstallDirFunc         func() string
@@ -44,7 +44,7 @@ type installer struct {
 func NewInstaller(configAccess ConfigAccess,
 	printer Printer,
 	installConfigAccess InstallConfigAccess,
-	executePsScript func(cmd string, options ...utils.ExecOptions) (time.Duration, error),
+	executePsScript func(cmd string, options ...psexecutor.ExecOptions) (time.Duration, error),
 	getVersionFunc func() version.Version,
 	getPlatformFunc func() string,
 	getInstallDirFunc func() string,
@@ -82,14 +82,14 @@ func (i *installer) Install(kind ic.Kind, flags *pflag.FlagSet, buildCmdFunc fun
 
 	klog.V(3).Infof("Install command: %s", cmd)
 
-	psVersion := utils.PowerShellV5
+	psVersion := psexecutor.PowerShellV5
 	if kind == ic.MultivmConfigType && !config.LinuxOnly {
-		psVersion = utils.PowerShellV7
+		psVersion = psexecutor.PowerShellV7
 	}
 
 	i.printer.Printfln("🤖 Installing K2s '%s' %s in '%s' on %s using PowerShell %s", kind, i.getVersionFunc(), i.getInstallDirFunc(), i.getPlatformFunc(), psVersion)
 
-	duration, err := i.executePsScript(cmd, utils.ExecOptions{PowerShellVersion: psVersion})
+	duration, err := i.executePsScript(cmd, psexecutor.ExecOptions{PowerShellVersion: psVersion})
 	if err != nil {
 		return err
 	}
