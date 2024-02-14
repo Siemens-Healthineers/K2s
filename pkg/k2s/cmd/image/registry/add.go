@@ -10,6 +10,7 @@ import (
 	p "k2s/cmd/params"
 	c "k2s/config"
 	"k2s/utils"
+	"k2s/utils/psexecutor"
 	"strconv"
 	"time"
 
@@ -67,7 +68,7 @@ func addRegistry(cmd *cobra.Command, args []string) error {
 
 	start := time.Now()
 
-	cmdResult, err := utils.ExecutePsWithStructuredResult[*common.CmdResult](psCmd, "CmdResult", utils.ExecOptions{}, params...)
+	cmdResult, err := psexecutor.ExecutePsWithStructuredResult[*common.CmdResult](psCmd, "CmdResult", psexecutor.ExecOptions{}, params...)
 	if err != nil {
 		return err
 	}

@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText:  © 2023 Siemens Healthcare GmbH
 // SPDX-License-Identifier:   MIT
 
-package utils
+package psexecutor
 
 import (
 	"bufio"
@@ -13,6 +13,7 @@ import (
 	"io"
 	"k2s/config"
 	"k2s/setupinfo"
+	"k2s/utils"
 	"math"
 	"os"
 	"os/exec"
@@ -380,7 +381,6 @@ func executePowershellScript(script string, options ExecOptions) (time.Duration,
 	return duration, nil
 }
 
-// TODO: decision should not be made in utils package
 func determinePsVersion(ignoreNotInstalledErr bool) (PowerShellVersion, error) {
 	configAccess := config.NewAccess()
 	setupName, err := configAccess.GetSetupName()
@@ -468,8 +468,8 @@ func prepareExecScript(script string, noProgress bool) string {
 	if noProgress {
 		wrapperScript = script
 	} else {
-		wrapperScript = ("&'" + GetInstallationDirectory() + "\\lib\\scripts\\k2s\\base\\" + "Invoke-ExecScript.ps1' -Script ")
-		wrapperScript += EscapeWithDoubleQuotes(script)
+		wrapperScript = ("&'" + utils.GetInstallationDirectory() + "\\lib\\scripts\\k2s\\base\\" + "Invoke-ExecScript.ps1' -Script ")
+		wrapperScript += utils.EscapeWithDoubleQuotes(script)
 	}
 
 	klog.V(4).Infof("Final Execution Script: %s", wrapperScript)
