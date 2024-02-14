@@ -219,7 +219,6 @@ GenerateBomGolang("pkg\network\httpproxy")
 GenerateBomGolang("pkg\network\vfprules")
 GenerateBomGolang("pkg\k2s")
 
-
 GenerateBomDebian
 MergeBomFilesFromDirectory
 # does not work somehow
