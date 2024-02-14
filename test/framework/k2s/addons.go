@@ -64,9 +64,13 @@ type CurlPackages struct {
 type AddonsInfo struct {
 }
 
+func NewAddonsInfo() *AddonsInfo {
+	return &AddonsInfo{}
+}
+
 const manifestFileName = "addon.manifest.yaml"
 
-func AllAddons(rootDir string) []Addon {
+func (info *AddonsInfo) AllAddons(rootDir string) []Addon {
 	addonsDir := filepath.Join(rootDir, "addons")
 	addons := []Addon{}
 
@@ -110,7 +114,7 @@ func AllAddons(rootDir string) []Addon {
 	return addons
 }
 
-func GetImagesForAddon(addon Addon) ([]string, error) {
+func (info *AddonsInfo) GetImagesForAddon(addon Addon) ([]string, error) {
 	yamlFiles, err := sos.GetFilesMatch(addon.Directory.Path, "*.yaml")
 	if err != nil {
 		return nil, err
@@ -160,10 +164,6 @@ func GetImagesForAddon(addon Addon) ([]string, error) {
 	}
 
 	return lo.Union(images), nil
-}
-
-func NewAddonsInfo() *AddonsInfo {
-	return &AddonsInfo{}
 }
 
 func (info *AddonsInfo) GetEnabledAddons() ([]string, error) {

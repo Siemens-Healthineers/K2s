@@ -45,7 +45,7 @@ var _ = BeforeSuite(func(ctx context.Context) {
 	suite = framework.Setup(ctx, framework.SystemMustBeRunning, framework.EnsureAddonsAreDisabled, framework.ClusterTestStepTimeout(testClusterTimeout))
 	exportPath = filepath.Join(suite.RootDir(), "tmp")
 	linuxOnly = suite.SetupInfo().LinuxOnly
-	addons = k2s.AllAddons(suite.RootDir())
+	addons = suite.AddonsInfo().AllAddons(suite.RootDir())
 
 	windowsTestContainers = []string{
 		"shsk2s.azurecr.io/diskwriter:v1.0.0",
@@ -128,7 +128,7 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 				GinkgoWriter.Println("Addon:", a.Metadata.Name, ", Directory name:", a.Directory.Name)
 				addonExportDir := filepath.Join(exportPath, "addons", a.Directory.Name)
 
-				images, err := k2s.GetImagesForAddon(a)
+				images, err := suite.AddonsInfo().GetImagesForAddon(a)
 
 				Expect(err).ToNot(HaveOccurred())
 
@@ -214,7 +214,7 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 		It("images available after import", func(ctx context.Context) {
 			importedImages := suite.K2sCli().GetImages(ctx).GetContainerImages()
 			for _, a := range addons {
-				images, err := k2s.GetImagesForAddon(a)
+				images, err := suite.AddonsInfo().GetImagesForAddon(a)
 				Expect(err).To(BeNil())
 
 				for _, i := range images {

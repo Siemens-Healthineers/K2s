@@ -26,7 +26,7 @@ func TestLs(t *testing.T) {
 
 var _ = BeforeSuite(func(ctx context.Context) {
 	suite = framework.Setup(ctx, framework.SystemMustBeStopped, framework.ClusterTestStepPollInterval(500*time.Millisecond))
-	addons = k2s.AllAddons(suite.RootDir())
+	addons = suite.AddonsInfo().AllAddons(suite.RootDir())
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
