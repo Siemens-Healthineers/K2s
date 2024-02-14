@@ -146,9 +146,9 @@ Function Install-KubernetesArtifacts {
     &$executeRemoteCommand "sudo DEBIAN_FRONTEND=noninteractive apt-get install -y gpg" -Retries 2 -RepairCmd "sudo apt --fix-broken install"
 
     if ( $Proxy -ne '' ) {
-        &$executeRemoteCommand "sudo curl --retry 3 --retry-connrefused -so cri-o.v$CrioVersion.tar.gz https://storage.googleapis.com/cri-o/artifacts/cri-o.amd64.v$CrioVersion.tar.gz --proxy $Proxy" -IgnoreErrors 
+        &$executeRemoteCommand "sudo curl --retry 3 --retry-all-errors -so cri-o.v$CrioVersion.tar.gz https://storage.googleapis.com/cri-o/artifacts/cri-o.amd64.v$CrioVersion.tar.gz --proxy $Proxy" -IgnoreErrors 
     } else {
-        &$executeRemoteCommand "sudo curl --retry 3 --retry-connrefused -so cri-o.v$CrioVersion.tar.gz https://storage.googleapis.com/cri-o/artifacts/cri-o.amd64.v$CrioVersion.tar.gz" -IgnoreErrors 
+        &$executeRemoteCommand "sudo curl --retry 3 --retry-all-errors -so cri-o.v$CrioVersion.tar.gz https://storage.googleapis.com/cri-o/artifacts/cri-o.amd64.v$CrioVersion.tar.gz" -IgnoreErrors 
     }
     &$executeRemoteCommand "sudo mkdir -p /usr/cri-o" 
     &$executeRemoteCommand "sudo tar -xf cri-o.v$CrioVersion.tar.gz -C /usr/cri-o --strip-components=1" 
@@ -214,7 +214,7 @@ Function Install-KubernetesArtifacts {
 
     # we need major and minor for apt keys
     $pkgShortK8sVersion = $K8sVersion.Substring(0, $K8sVersion.lastIndexOf('.'))
-    &$executeRemoteCommand "sudo curl --retry 3 --retry-connrefused -fsSL https://pkgs.k8s.io/core:/stable:/$pkgShortK8sVersion/deb/Release.key$proxyToAdd | sudo gpg --dearmor -o /usr/share/keyrings/kubernetes-apt-keyring.gpg" -IgnoreErrors 
+    &$executeRemoteCommand "sudo curl --retry 3 --retry-all-errors -fsSL https://pkgs.k8s.io/core:/stable:/$pkgShortK8sVersion/deb/Release.key$proxyToAdd | sudo gpg --dearmor -o /usr/share/keyrings/kubernetes-apt-keyring.gpg" -IgnoreErrors 
     &$executeRemoteCommand "echo 'deb [signed-by=/usr/share/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/$pkgShortK8sVersion/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.list" 
     $shortKubeVers = ($K8sVersion -replace 'v', '') + '-1.1'
 
