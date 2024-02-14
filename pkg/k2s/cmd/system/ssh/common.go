@@ -6,6 +6,7 @@ package ssh
 import (
 	"errors"
 	"fmt"
+	"k2s/cmd/common"
 	"k2s/config"
 	"k2s/utils"
 	"k2s/utils/psexecutor"
@@ -16,26 +17,8 @@ import (
 	"k8s.io/klog/v2"
 )
 
-const cmdExecuteFormat = "%s -Command \"%s\""
-
-var sshExecFunc func(proc string) = func(proc string) {
-	sshCmd := exec.Command(proc)
-	sshCmd.Stdin = os.Stdin
-	sshCmd.Stdout = os.Stdout
-	sshCmd.Stderr = os.Stderr
-	sshCmd.Run()
-}
-
-var cmdOverSshExecFunc func(cmd string) = func(cmd string) {
-	psexecutor.ExecutePowershellScript(cmd, psexecutor.ExecOptions{NoProgress: true})
-}
-
-var k2sInstallDirProviderFunc = func() string {
-	return utils.GetInstallationDirectory()
-}
-
 type commandHandler interface {
-	Handle(args string)
+	Handle(cmd string) error
 }
 
 type baseCommandProvider interface {
@@ -45,28 +28,62 @@ type baseCommandProvider interface {
 
 type remoteCommandHandler struct {
 	baseCommandProvider baseCommandProvider
-	processExecFunc     func(proc string)
-	commandExecFunc     func(cmd string)
+	processExecFunc     func(proc string) error
+	commandExecFunc     func(baseCmd, cmd string) error
 }
 
-func (r *remoteCommandHandler) Handle(args string) {
-	if args == "" {
-		r.startShell()
-	} else {
-		r.executeCommand(args)
+var (
+	sshExecFunc func(proc string) error = func(proc string) error {
+		if err := ensureSetupIsInstalled(); err != nil {
+			return err
+		}
+
+		sshCmd := exec.Command(proc)
+		sshCmd.Stdin = os.Stdin
+		sshCmd.Stdout = os.Stdout
+		sshCmd.Stderr = os.Stderr
+		return sshCmd.Run()
 	}
+
+	cmdOverSshExecFunc func(baseCmd, cmd string) error = func(baseCmd, cmd string) error {
+		cmdResult, err := psexecutor.ExecutePsWithStructuredResult[*common.CmdResult](
+			baseCmd,
+			"CmdResult",
+			psexecutor.ExecOptions{NoProgress: true},
+			"-Command",
+			fmt.Sprintf("\"%s\"", cmd))
+		if err != nil {
+			return err
+		}
+
+		if cmdResult.Error != nil {
+			return cmdResult.Error.ToError()
+		}
+		return nil
+	}
+
+	k2sInstallDirProviderFunc = func() string {
+		return utils.GetInstallationDirectory()
+	}
+)
+
+func (r *remoteCommandHandler) Handle(cmd string) error {
+	if cmd == "" {
+		return r.startShell()
+	}
+	return r.executeCommand(cmd)
 }
 
-func (r *remoteCommandHandler) startShell() {
+func (r *remoteCommandHandler) startShell() error {
 	shell := r.baseCommandProvider.getShellCommand()
 
-	r.processExecFunc(shell)
+	return r.processExecFunc(shell)
 }
 
-func (r *remoteCommandHandler) executeCommand(cmd string) {
+func (r *remoteCommandHandler) executeCommand(cmd string) error {
 	baseCommand := r.baseCommandProvider.getShellExecutorCommand()
-	cmdToExecute := fmt.Sprintf(cmdExecuteFormat, baseCommand, cmd)
-	r.commandExecFunc(cmdToExecute)
+
+	return r.commandExecFunc(baseCommand, cmd)
 }
 
 func getRemoteCommandToExecute(argsLenAtDash int, args []string) (string, error) {

@@ -4,29 +4,40 @@
 
 Param(
     [Parameter(Mandatory = $false)]
-    [string]$Command = ''
+    [string]$Command = '',
+    [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
+    [switch] $EncodeStructuredOutput,
+    [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
+    [string] $MessageType
 )
-
-
 &$PSScriptRoot\..\common\GlobalVariables.ps1
 
-$setupInfoModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.cluster.module\setupinfo\setupinfo.module.psm1"
-$runningStateModule = "$PSScriptRoot\..\status\RunningState.module.psm1"
-Import-Module $setupInfoModule, $runningStateModule
+$clusterModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1"
+$infraModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
+
+Import-Module $clusterModule, $infraModule
+
+Initialize-Logging
+
+$systemError = Test-SystemAvailability
+if ($systemError) {
+    if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = $systemError }
+        return
+    }
+    Write-Log $systemError -Error
+    exit 1
+}
 
 $setupInfo = Get-SetupInfo
-if (!$($setupInfo.Name)) {
-    throw 'No setup installed!'
-}
-
 if ($setupInfo.Name -ne $global:SetupType_MultiVMK8s -or $setupInfo.LinuxOnly ) {
-    throw 'There is no multi-vm setup with worker node installed.'
-}
-
-$clusterState = Get-RunningState -SetupType $setupInfo.Name
-
-if ($clusterState.IsRunning -ne $true) {
-    throw "Cannot connect to worker via scp when system is not running. Please start the system with 'k2s start'."
+    $errMsg = 'There is no multi-vm setup with worker node installed.'
+    if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+        return
+    }
+    Write-Log $systemError -Error
+    exit 1
 }
 
 if (Test-Path $global:WindowsVMKey -PathType Leaf) {
@@ -36,4 +47,8 @@ if (Test-Path $global:WindowsVMKey -PathType Leaf) {
     else {
         ssh.exe -n -o StrictHostKeyChecking=no -i $global:WindowsVMKey $global:Admin_WinNode "$Command" | ForEach-Object { Write-Output $_ }
     }
+}
+
+if ($EncodeStructuredOutput -eq $true) {
+    Send-ToCli -MessageType $MessageType -Message @{Error = $null }
 }
