@@ -35,6 +35,7 @@ type K2sTestSuite struct {
 	kubeProxyRestarter   *k2s.KubeProxyRestarter
 	kubectl              *k8s.Kubectl
 	cluster              *k8s.Cluster
+	addonsInfo           *k2s.AddonsInfo
 }
 type ClusterTestStepTimeout time.Duration
 type ClusterTestStepPollInterval time.Duration
@@ -89,6 +90,8 @@ func Setup(ctx context.Context, args ...any) *K2sTestSuite {
 
 	k2sCli := k2s.NewCli(cliPath, cli)
 
+	addonsInfo := k2s.NewAddonsInfo()
+
 	testSuite := &K2sTestSuite{
 		proxy:                proxy,
 		rootDir:              rootDir,
@@ -98,6 +101,7 @@ func Setup(ctx context.Context, args ...any) *K2sTestSuite {
 		testStepPollInterval: clusterTestStepPollInterval,
 		cli:                  cli,
 		k2sCli:               k2sCli,
+		addonsInfo:           addonsInfo,
 	}
 
 	if noSetupInstalled {
@@ -111,7 +115,10 @@ func Setup(ctx context.Context, args ...any) *K2sTestSuite {
 	if initialSystemState == SystemStateIrrelevant {
 		GinkgoWriter.Println("Skipping system state checks")
 	} else {
-		expectSystemState(ctx, initialSystemState, k2sCli, ensureAddonsAreDisabled)
+		expectSystemState(ctx, initialSystemState, k2sCli)
+		if ensureAddonsAreDisabled {
+			expectAddonsToBeDisabled(addonsInfo)
+		}
 	}
 
 	setupInfo := loadSetupInfo(rootDir)
@@ -179,6 +186,10 @@ func (s *K2sTestSuite) SetupInfo() *k2s.SetupInfo {
 	return s.setupInfo
 }
 
+func (s *K2sTestSuite) AddonsInfo() *k2s.AddonsInfo {
+	return s.addonsInfo
+}
+
 func (s *K2sTestSuite) Kubectl() *k8s.Kubectl {
 	return s.kubectl
 }
@@ -201,7 +212,7 @@ func loadSetupInfo(rootDir string) *k2s.SetupInfo {
 	return info
 }
 
-func expectSystemState(ctx context.Context, initialSystemState initialSystemStateType, k2sCli *k2s.K2sCliRunner, ensureAddonsAreDisabled bool) {
+func expectSystemState(ctx context.Context, initialSystemState initialSystemStateType, k2sCli *k2s.K2sCliRunner) {
 	GinkgoWriter.Println("Checking system status..")
 
 	status := k2sCli.GetStatus(ctx)
@@ -217,14 +228,12 @@ func expectSystemState(ctx context.Context, initialSystemState initialSystemStat
 	default:
 		Fail(fmt.Sprintf("invalid initial system state: '%s'", initialSystemState))
 	}
-
-	if ensureAddonsAreDisabled {
-		expectAddonsToBeDisabled(status)
-	}
 }
 
-func expectAddonsToBeDisabled(status *k2s.K2sStatus) {
-	Expect(status.GetEnabledAddons()).To(BeEmpty(), "All addons should be disabled to execute the tests")
+func expectAddonsToBeDisabled(addonsInfo *k2s.AddonsInfo) {
+	enabledAddons, err := addonsInfo.GetEnabledAddons()
+	Expect(err).To(BeNil())
+	Expect(enabledAddons).To(BeEmpty(), "All addons should be disabled to execute the tests")
 
 	GinkgoWriter.Println("All addons are disabled")
 }

@@ -10,39 +10,32 @@ import (
 	"k8s.io/klog/v2"
 )
 
-const (
-	CmdToStartShellMaster = "sshm"
+type masterBaseCommandProvider struct {
+	getInstallDirFunc func() string
+}
 
-	ScriptRelPathToExecuteCmdMaster = "\\smallsetup\\helpers\\sshm.ps1"
+const (
+	cmdToStartShellMaster           = "sshm"
+	scriptRelPathToExecuteCmdMaster = "\\smallsetup\\helpers\\sshm.ps1"
 )
 
-var sshMasterCmdExample = `
+var (
+	sshMasterCmdExample = `
 	# Connect to KubeMaster node
 	k2s system ssh m
 
 	# Execute a command in Kubemaster node
 	k2s system ssh m -- echo yes
 `
-var sshMasterCmd = &cobra.Command{
-	Use:     "m",
-	Short:   "Connect to KubeMaster node",
-	Example: sshMasterCmdExample,
-	RunE:    sshMaster,
-}
+	sshMasterCmd = &cobra.Command{
+		Use:     "m",
+		Short:   "Connect to KubeMaster node",
+		Example: sshMasterCmdExample,
+		RunE:    sshMaster,
+	}
 
-var commandHandlerCreatorFuncForMaster func() commandHandler
-
-type masterBaseCommandProvider struct {
-	getInstallDirFunc func() string
-}
-
-func (m *masterBaseCommandProvider) getShellCommand() string {
-	return CmdToStartShellMaster
-}
-
-func (m *masterBaseCommandProvider) getShellExecutorCommand() string {
-	return utils.FormatScriptFilePath(m.getInstallDirFunc() + ScriptRelPathToExecuteCmdMaster)
-}
+	commandHandlerCreatorFuncForMaster func() commandHandler
+)
 
 func init() {
 	sshMasterCmd.Flags().SortFlags = false
@@ -59,21 +52,23 @@ func init() {
 	}
 }
 
+func (m *masterBaseCommandProvider) getShellCommand() string {
+	return cmdToStartShellMaster
+}
+
+func (m *masterBaseCommandProvider) getShellExecutorCommand() string {
+	return utils.FormatScriptFilePath(m.getInstallDirFunc() + scriptRelPathToExecuteCmdMaster)
+}
+
 func sshMaster(cmd *cobra.Command, args []string) error {
 	klog.V(3).Infof("Connecting to KubeMaster..")
 
-	if err := ensureSetupIsInstalled(); err != nil {
-		return err
-	}
-
-	parsedArgs, err := getRemoteCommandToExecute(cmd.ArgsLenAtDash(), args)
+	remoteCmd, err := getRemoteCommandToExecute(cmd.ArgsLenAtDash(), args)
 	if err != nil {
 		return err
 	}
 
 	handler := commandHandlerCreatorFuncForMaster()
 
-	handler.Handle(parsedArgs)
-
-	return nil
+	return handler.Handle(remoteCmd)
 }

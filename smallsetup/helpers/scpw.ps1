@@ -8,42 +8,63 @@ Param(
     [parameter(Mandatory = $false)]
     [string] $Target,
     [parameter(Mandatory = $false)]
-    [switch] $Reverse
+    [switch] $Reverse,
+    [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
+    [switch] $EncodeStructuredOutput,
+    [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
+    [string] $MessageType
 )
-
 &$PSScriptRoot\..\common\GlobalVariables.ps1
 
-$setupInfoModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.cluster.module\setupinfo\setupinfo.module.psm1"
-$runningStateModule = "$PSScriptRoot\..\status\RunningState.module.psm1"
-Import-Module $setupInfoModule, $runningStateModule
+$clusterModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1"
+$infraModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
+
+Import-Module $clusterModule, $infraModule
+
+Initialize-Logging
+
+$systemError = Test-SystemAvailability
+if ($systemError) {
+    if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = $systemError }
+        return
+    }
+    Write-Log $systemError -Error
+    exit 1
+}
 
 $setupInfo = Get-SetupInfo
-if (!$($setupInfo.Name)) {
-    throw 'No setup installed!'
-}
-
 if ($setupInfo.Name -ne $global:SetupType_MultiVMK8s -or $setupInfo.LinuxOnly ) {
-    throw 'There is no multi-vm setup with worker node installed.'
+    $errMsg = 'There is no multi-vm setup with worker node installed.'
+    if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+        return
+    }
+    Write-Log $systemError -Error
+    exit 1
 }
 
-$clusterState = Get-RunningState -SetupType $setupInfo.Name
-
-if ($clusterState.IsRunning -ne $true) {
-    throw "Cannot connect to worker via scp when system is not running. Please start the system with 'k2s start'."
-} 
-
-if (Test-Path $global:WindowsVMKey -PathType Leaf) {
-    if (!$Reverse) {
-        $source = $Source
-        $target = $global:Admin_WinNode + ':' + $Target
+if ((Test-Path $global:WindowsVMKey -PathType Leaf) -ne $true) {
+    $errMsg = "Unable to find ssh directory $global:WindowsVMKey"
+    if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+        return
     }
-    else {
-        $source = $global:Admin_WinNode + ':' + $Source
-        $target = $Target
-    }
-    
-    scp.exe -r -q -o StrictHostKeyChecking=no -i $global:WindowsVMKey $source $target
+    Write-Log $systemError -Error
+    exit 1
+}
+
+if (!$Reverse) {
+    $source = $Source
+    $target = $global:Admin_WinNode + ':' + $Target
 }
 else {
-    Write-Warning "Unable to find ssh directory $global:WindowsVMKey"
+    $source = $global:Admin_WinNode + ':' + $Source
+    $target = $Target
+}
+
+scp.exe -r -q -o StrictHostKeyChecking=no -i $global:WindowsVMKey $source $target
+
+if ($EncodeStructuredOutput -eq $true) {
+    Send-ToCli -MessageType $MessageType -Message @{Error = $null }
 }

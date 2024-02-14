@@ -9,13 +9,30 @@ import (
 	"k2s/cmd/common"
 	p "k2s/cmd/params"
 	"k2s/utils"
+	"k2s/utils/psexecutor"
 	"strconv"
+	"time"
 
 	"github.com/spf13/cobra"
 	"k8s.io/klog/v2"
 )
 
-var importCommandExample = `
+const (
+	windowsFlag       = "windows"
+	dockerArchiveFlag = "docker-archive"
+	tarFlag           = "tar"
+	dirFlag           = "dir"
+)
+
+var (
+	importCmd = &cobra.Command{
+		Use:     "import",
+		Short:   "Import an image from a tar archive",
+		Example: importCommandExample,
+		RunE:    importImage,
+	}
+
+	importCommandExample = `
   # Import an linux image from an oci tar archive
   k2s image import -t C:\tmp\image.tar
 
@@ -28,26 +45,11 @@ var importCommandExample = `
   # Import an windows image from a tar archive
   k2s image import -t C:\tmp\image.tar -w
 `
-
-const (
-	windowsFlag       = "windows"
-	dockerArchiveFlag = "docker-archive"
-	tarLabel          = "tar"
-	directoryLabel    = "dir"
-	defaultTarBall    = ""
-	defaultDir        = ""
 )
 
-var importCmd = &cobra.Command{
-	Use:     "import",
-	Short:   "Import an image from a tar archive",
-	Example: importCommandExample,
-	RunE:    importImage,
-}
-
 func init() {
-	importCmd.Flags().StringP(tarLabel, "t", defaultTarBall, "oci archive (tar)")
-	importCmd.Flags().StringP(directoryLabel, "d", defaultDir, "Path to directory with oci archives (tar) to import")
+	importCmd.Flags().StringP(tarFlag, "t", "", "oci archive (tar)")
+	importCmd.Flags().StringP(dirFlag, "d", "", "Path to directory with oci archives (tar) to import")
 	importCmd.Flags().BoolP(windowsFlag, "w", false, "Windows image")
 	importCmd.Flags().Bool(dockerArchiveFlag, false, "Import Linux image from docker-archive tar (default: oci-archive)")
 	importCmd.Flags().SortFlags = false
@@ -55,70 +57,80 @@ func init() {
 }
 
 func importImage(cmd *cobra.Command, args []string) error {
-	importCmd, err := buildImportCmd(cmd)
+	psCmd, params, err := buildImportPsCmd(cmd)
 	if err != nil {
 		return err
 	}
 
-	klog.V(3).Infof("import command : %s", importCmd)
+	klog.V(4).Infof("PS cmd: '%s', params: '%v'", psCmd, params)
 
-	duration, err := utils.ExecutePowershellScript(importCmd)
+	start := time.Now()
+
+	cmdResult, err := psexecutor.ExecutePsWithStructuredResult[*common.CmdResult](psCmd, "CmdResult", psexecutor.ExecOptions{}, params...)
 	if err != nil {
 		return err
 	}
 
-	common.PrintCompletedMessage(duration, "Import image")
+	if cmdResult.Error != nil {
+		return cmdResult.Error.ToError()
+	}
+
+	duration := time.Since(start)
+
+	common.PrintCompletedMessage(duration, "image import")
 
 	return nil
 }
 
-func buildImportCmd(ccmd *cobra.Command) (string, error) {
-	importCommand := utils.FormatScriptFilePath(utils.GetInstallationDirectory() + "\\smallsetup\\helpers\\ImportImage.ps1")
+func buildImportPsCmd(cmd *cobra.Command) (psCmd string, params []string, err error) {
+	psCmd = utils.FormatScriptFilePath(utils.GetInstallationDirectory() + "\\smallsetup\\helpers\\ImportImage.ps1")
 
-	imagePath, err := ccmd.Flags().GetString(tarLabel)
+	imagePath, err := cmd.Flags().GetString(tarFlag)
 	if err != nil {
-		return "", fmt.Errorf("unable to parse flag: %s", tarLabel)
+		return "", nil, fmt.Errorf("unable to parse flag '%s': %w", tarFlag, err)
 	}
-	dir, err := ccmd.Flags().GetString(directoryLabel)
+
+	dir, err := cmd.Flags().GetString(dirFlag)
 	if err != nil {
-		return "", fmt.Errorf("unable to parse flag: %s", directoryLabel)
+		return "", nil, fmt.Errorf("unable to parse flag '%s': %w", dirFlag, err)
 	}
+
 	if imagePath != "" && dir != "" {
-		importCommand += " -ImagePath '" + imagePath + "'"
+		params = append(params, " -ImagePath '"+imagePath+"'")
 	} else if imagePath != "" {
-		importCommand += " -ImagePath '" + imagePath + "'"
+		params = append(params, " -ImagePath '"+imagePath+"'")
 	} else if dir != "" {
-		importCommand += " -ImageDir '" + dir + "'"
+		params = append(params, " -ImageDir '"+dir+"'")
 	} else {
-		return "", errors.New("no path to oci archive provided")
+		return "", nil, errors.New("no path to oci archive provided")
 	}
 
-	isWindowsImage, err := strconv.ParseBool(ccmd.Flags().Lookup(windowsFlag).Value.String())
+	isWindowsImage, err := strconv.ParseBool(cmd.Flags().Lookup(windowsFlag).Value.String())
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 
-	out, err := strconv.ParseBool(ccmd.Flags().Lookup(p.OutputFlagName).Value.String())
+	showOutput, err := strconv.ParseBool(cmd.Flags().Lookup(p.OutputFlagName).Value.String())
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 
-	isDockerArchive, err := strconv.ParseBool(ccmd.Flags().Lookup(dockerArchiveFlag).Value.String())
+	isDockerArchive, err := strconv.ParseBool(cmd.Flags().Lookup(dockerArchiveFlag).Value.String())
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 
-	if out {
-		importCommand += " -ShowLogs"
+	if showOutput {
+		params = append(params, " -ShowLogs")
 	}
 
 	if isWindowsImage {
-		importCommand += " -Windows"
+		params = append(params, " -Windows")
 	}
 
 	if isDockerArchive {
-		importCommand += " -DockerArchive"
+		params = append(params, " -DockerArchive")
 	}
 
-	return importCommand, nil
+	return
 }

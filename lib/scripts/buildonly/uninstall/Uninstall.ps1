@@ -27,3 +27,5 @@ Clear-WinNode -DeleteFilesForOfflineInstallation $DeleteFilesForOfflineInstallat
 Reset-EnvVars
 
 Write-Log 'Uninstalling Build Only Environment done.'
+
+Save-k2sLogDirectory -RemoveVar

@@ -14,20 +14,22 @@ Param (
     [parameter(Mandatory = $false, HelpMessage = 'Password')]
     [string] $Password,
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
-    [switch] $ShowLogs = $false
+    [switch] $ShowLogs = $false,
+    [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
+    [switch] $EncodeStructuredOutput,
+    [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
+    [string] $MessageType
 )
-
-# load global settings
 &$PSScriptRoot\..\common\GlobalVariables.ps1
-# import global functions
 . $PSScriptRoot\..\common\GlobalFunctions.ps1
 
 $registryFunctionsModule = "$PSScriptRoot\RegistryFunctions.module.psm1"
-$setupInfoModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.cluster.module\setupinfo\setupinfo.module.psm1"
-$statusModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.cluster.module\status\status.module.psm1"
+$clusterModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1"
 $imageFunctionsModule = "$PSScriptRoot\ImageFunctions.module.psm1"
 $logModule = "$PSScriptRoot\..\ps-modules\log\log.module.psm1"
-Import-Module $registryFunctionsModule, $setupInfoModule, $statusModule, $imageFunctionsModule -DisableNameChecking
+$cliModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.infra.module\cli-messages\cli-messages.module.psm1"
+
+Import-Module $registryFunctionsModule, $clusterModule, $imageFunctionsModule, $cliModule -DisableNameChecking
 
 if (-not (Get-Module -Name $logModule -ListAvailable)) { Import-Module $logModule; Initialize-Logging -ShowLogs:$ShowLogs }
 
@@ -88,15 +90,24 @@ function Restart-Services() {
 
 $systemError = Test-SystemAvailability
 if ($systemError) {
-    throw $systemError
+    if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = $systemError }
+        return
+    }
+
+    Write-Log $systemError -Error
+    exit 1
 }
 
 $registries = $(Get-RegistriesFromSetupJson)
 if ($registries) {
     $registryAlreadyExists = $registries | Where-Object { $_ -eq $RegistryName }
     if ($registryAlreadyExists) {
-        Write-Log "Registry '$RegistryName' is already configured!" -Console
-        exit 0
+        Write-Log "Registry '$RegistryName' is already configured." -Console
+        if ($EncodeStructuredOutput -eq $true) {
+            Send-ToCli -MessageType $MessageType -Message @{Error = $null }
+        }
+        return
     }
 }
 
@@ -136,7 +147,13 @@ if (!$?) {
         ExecCmdMaster "grep location=\\\""$RegistryName\\\"" /etc/containers/registries.conf | sudo sed -i -z 's/\[\[registry]]\nlocation=\\\""$RegistryName\\\""\ninsecure=true//g' /etc/containers/registries.conf"
     }
 
-    throw 'Login to private registry not possible! Please check credentials!'
+    $errMsg = 'Login to private registry not possible, please check credentials.'
+    if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+        return
+    }
+    Write-Log $errMsg -Error
+    exit 1
 }
 
 $setupInfo = Get-SetupInfo
@@ -168,16 +185,13 @@ elseif ($setupInfo.Name -eq $global:SetupType_MultiVMK8s -and !$($setupInfo.Linu
         Set-Location "$env:SystemDrive\k"
         Set-ExecutionPolicy Bypass -Force -ErrorAction Stop
 
-        # load global settings
         &$env:SystemDrive\k\smallsetup\common\GlobalVariables.ps1
-        # import global functions
         . $env:SystemDrive\k\smallsetup\common\GlobalFunctions.ps1
 
         $registryFunctionsModule = "$env:SystemDrive\k\smallsetup\helpers\RegistryFunctions.module.psm1"
-        Import-Module $registryFunctionsModule -DisableNameChecking
-        Import-Module $env:SystemDrive\k\smallsetup\ps-modules\log\log.module.psm1
+        $logModule = "$env:SystemDrive\k\smallsetup\ps-modules\log\log.module.psm1"
+        Import-Module $registryFunctionsModule, $logModule -DisableNameChecking
         Initialize-Logging -Nested:$true
-
 
         &"$global:NssmInstallDirectory\nssm" set docker AppParameters --exec-opt isolation=process --data-root 'C:\docker' --log-level debug --allow-nondistributable-artifacts "$using:RegistryName" --insecure-registry "$using:RegistryName" | Out-Null
         if ($(Get-Service -Name 'docker' -ErrorAction SilentlyContinue).Status -eq 'Running') {
@@ -194,10 +208,20 @@ elseif ($setupInfo.Name -eq $global:SetupType_MultiVMK8s -and !$($setupInfo.Linu
     Invoke-Command -Session $session -ScriptBlock ${Function:Restart-Services} -ArgumentList $setupInfo.Name
 
     if (!$?) {
-        throw "Login to registry $RegistryName not possible! Please check credentials!"
+        $errMsg = "Login to registry $RegistryName not possible, please check credentials."
+        if ($EncodeStructuredOutput -eq $true) {
+            Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+            return
+        }
+        Write-Log $errMsg -Error
+        exit 1
     }
 }
 
 Set-ConfigValue -Path $global:SetupJsonFile -Key $global:ConfigKey_LoggedInRegistry -Value $RegistryName
 Add-RegistryToSetupJson -Name $RegistryName
 Write-Log "Registry '$RegistryName' added successfully.'" -Console
+
+if ($EncodeStructuredOutput -eq $true) {
+    Send-ToCli -MessageType $MessageType -Message @{Error = $null }
+}

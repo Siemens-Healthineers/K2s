@@ -6,6 +6,7 @@ package load
 import (
 	"k2s/setupinfo"
 	"k2s/utils"
+	"k2s/utils/psexecutor"
 )
 
 type StatusLoader struct {
@@ -13,8 +14,6 @@ type StatusLoader struct {
 
 // TODO: separate JSON model from domain model
 type Status struct {
-	// TODO: separate cluster status and addons status
-	EnabledAddons  []string            `json:"enabledAddons"`
 	SetupInfo      setupinfo.SetupInfo `json:"setupInfo"`
 	RunningState   *RunningState       `json:"runningState"`
 	Nodes          []Node              `json:"nodes"`
@@ -60,7 +59,7 @@ type K8sVersionInfo struct {
 func LoadStatus() (*Status, error) {
 	scriptPath := utils.FormatScriptFilePath(utils.GetInstallationDirectory() + `\lib\scripts\k2s\status\Get-Status.ps1`)
 
-	status, err := utils.ExecutePsWithStructuredResult[*Status](scriptPath, "Status", utils.ExecOptions{})
+	status, err := psexecutor.ExecutePsWithStructuredResult[*Status](scriptPath, "Status", psexecutor.ExecOptions{})
 	if err != nil {
 		return nil, err
 	}

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"k2s/cmd/common"
 	"k2s/utils"
+	"k2s/utils/psexecutor"
 )
 
 type AddonLoadStatus struct {
@@ -35,7 +36,7 @@ var (
 func LoadAddonStatus(addonName string, addonDirectory string) (*AddonLoadStatus, error) {
 	scriptPath := utils.FormatScriptFilePath(utils.GetInstallationDirectory() + "\\addons\\Get-Status.ps1")
 
-	status, err := utils.ExecutePsWithStructuredResult[*AddonLoadStatus](scriptPath, "Status", utils.ExecOptions{}, "-Name", addonName, "-Directory", utils.EscapeWithSingleQuotes(addonDirectory))
+	status, err := psexecutor.ExecutePsWithStructuredResult[*AddonLoadStatus](scriptPath, "Status", psexecutor.ExecOptions{}, "-Name", addonName, "-Directory", utils.EscapeWithSingleQuotes(addonDirectory))
 	if err != nil {
 		return nil, err
 	}

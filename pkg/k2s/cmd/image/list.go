@@ -18,6 +18,7 @@ import (
 	"k2s/setupinfo"
 	"k2s/status"
 	"k2s/utils"
+	"k2s/utils/psexecutor"
 )
 
 type Spinner interface {
@@ -188,7 +189,7 @@ func getImages(includeK8sImages bool) (*Images, error) {
 		params = []string{"-IncludeK8sImages"}
 	}
 
-	images, err := utils.ExecutePsWithStructuredResult[*Images](cmd, "StoredImages", utils.ExecOptions{}, params...)
+	images, err := psexecutor.ExecutePsWithStructuredResult[*Images](cmd, "StoredImages", psexecutor.ExecOptions{}, params...)
 	if err != nil {
 		return nil, err
 	}

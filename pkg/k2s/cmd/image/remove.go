@@ -6,32 +6,31 @@ package image
 import (
 	"fmt"
 	"strconv"
+	"time"
 
+	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
 	"k8s.io/klog/v2"
 
 	"k2s/cmd/common"
+	"k2s/cmd/params"
 	"k2s/utils"
-)
-
-const (
-	defaultImageId   = ""
-	defaultImageName = ""
-)
-
-var (
-	imageIdLabel      = "id"
-	imageNameLabel    = "name"
-	fromRegistryLabel = "from-registry"
+	"k2s/utils/psexecutor"
 )
 
 type removeOptions struct {
-	ImageId      string
-	ImageName    string
-	FromRegistry bool
+	imageId      string
+	imageName    string
+	fromRegistry bool
+	showOutput   bool
 }
 
-var removeExample = `
+var (
+	imageIdFlagName       = "id"
+	removeImgNameFlagName = "name"
+	fromRegistryFlagName  = "from-registry"
+
+	removeExample = `
   # Delete image by id
   k2s image rm --id 042a816809aa
 
@@ -39,77 +38,100 @@ var removeExample = `
   k2s image rm --name k2s-registry.local/alpine:v1 --from-registry
 `
 
-var removeCmd = &cobra.Command{
-	Use:     "rm",
-	Short:   "Remove container image using image id or image name",
-	Example: removeExample,
-	RunE:    removeImage,
-}
+	removeCmd = &cobra.Command{
+		Use:     "rm",
+		Short:   "Remove container image using image id or image name",
+		Example: removeExample,
+		RunE:    removeImage,
+	}
+)
 
 func init() {
 	addInitFlagsForRemoveCommand(removeCmd)
 }
 
 func addInitFlagsForRemoveCommand(cmd *cobra.Command) {
-	cmd.Flags().String(imageIdLabel, defaultImageId, "Image ID of the container image")
-	cmd.Flags().String(imageNameLabel, defaultImageName, "Name of the container image")
-	cmd.Flags().Bool(fromRegistryLabel, false, "Remove image from registry")
+	cmd.Flags().String(imageIdFlagName, "", "Image ID of the container image")
+	cmd.Flags().String(removeImgNameFlagName, "", "Name of the container image")
+	cmd.Flags().Bool(fromRegistryFlagName, false, "Remove image from registry")
 	cmd.Flags().SortFlags = false
 	cmd.Flags().PrintDefaults()
 }
 
-func extractRemoveOptions(cmd *cobra.Command) (*removeOptions, error) {
-	imageId, err := cmd.Flags().GetString(imageIdLabel)
-	if err != nil {
-		return nil, fmt.Errorf("unable to parse flag: %s", imageIdLabel)
-	}
-	imageName, err := cmd.Flags().GetString(imageNameLabel)
-	if err != nil {
-		return nil, fmt.Errorf("unable to parse flag: %s", imageNameLabel)
-	}
-	fromRegistry, err := strconv.ParseBool(cmd.Flags().Lookup(fromRegistryLabel).Value.String())
-	if err != nil {
-		return nil, fmt.Errorf("unable to parse flag: %s", fromRegistryLabel)
-	}
-	removeOptions := &removeOptions{
-		ImageId:      imageId,
-		ImageName:    imageName,
-		FromRegistry: fromRegistry,
-	}
-	return removeOptions, nil
-}
-
-func buildRemoveCommand(removeOptions *removeOptions) string {
-	cmd := utils.FormatScriptFilePath(utils.GetInstallationDirectory() + "\\smallsetup\\helpers\\RemoveImage.ps1")
-	if removeOptions.ImageId != "" {
-		cmd += " -ImageId " + removeOptions.ImageId
-	}
-	if removeOptions.ImageName != "" {
-		cmd += " -ImageName " + removeOptions.ImageName
-	}
-	if removeOptions.FromRegistry {
-		cmd += " -FromRegistry"
-	}
-
-	cmd += " -ShowLogs"
-
-	return cmd
-}
-
 func removeImage(cmd *cobra.Command, args []string) error {
-	removeOptions, err := extractRemoveOptions(cmd)
-	if err != nil {
-		return err
-	}
-	removeCommand := buildRemoveCommand(removeOptions)
-	klog.V(3).Infof("Remove Image command: %s", removeCommand)
+	pterm.Println("🤖 Removing container image..")
 
-	duration, err := utils.ExecutePowershellScript(removeCommand)
+	options, err := extractRemoveOptions(cmd)
 	if err != nil {
 		return err
 	}
 
-	common.PrintCompletedMessage(duration, "Remove")
+	psCmd, params := buildRemovePsCmd(options)
+
+	klog.V(4).Infof("PS cmd: '%s', params: '%v'", psCmd, params)
+
+	start := time.Now()
+
+	cmdResult, err := psexecutor.ExecutePsWithStructuredResult[*common.CmdResult](psCmd, "CmdResult", psexecutor.ExecOptions{}, params...)
+	if err != nil {
+		return err
+	}
+
+	if cmdResult.Error != nil {
+		return cmdResult.Error.ToError()
+	}
+
+	duration := time.Since(start)
+
+	common.PrintCompletedMessage(duration, "image rm")
 
 	return nil
+}
+
+func extractRemoveOptions(cmd *cobra.Command) (*removeOptions, error) {
+	imageId, err := cmd.Flags().GetString(imageIdFlagName)
+	if err != nil {
+		return nil, fmt.Errorf("unable to parse flag '%s': %w", imageIdFlagName, err)
+	}
+
+	imageName, err := cmd.Flags().GetString(removeImgNameFlagName)
+	if err != nil {
+		return nil, fmt.Errorf("unable to parse flag '%s': %w", removeImgNameFlagName, err)
+	}
+
+	fromRegistry, err := strconv.ParseBool(cmd.Flags().Lookup(fromRegistryFlagName).Value.String())
+	if err != nil {
+		return nil, fmt.Errorf("unable to parse flag '%s': %w", fromRegistryFlagName, err)
+	}
+
+	showOutput, err := strconv.ParseBool(cmd.Flags().Lookup(params.OutputFlagName).Value.String())
+	if err != nil {
+		return nil, err
+	}
+
+	return &removeOptions{
+		imageId:      imageId,
+		imageName:    imageName,
+		fromRegistry: fromRegistry,
+		showOutput:   showOutput,
+	}, nil
+}
+
+func buildRemovePsCmd(removeOptions *removeOptions) (psCmd string, params []string) {
+	psCmd = utils.FormatScriptFilePath(utils.GetInstallationDirectory() + "\\smallsetup\\helpers\\RemoveImage.ps1")
+
+	if removeOptions.imageId != "" {
+		params = append(params, " -ImageId "+removeOptions.imageId)
+	}
+	if removeOptions.imageName != "" {
+		params = append(params, " -ImageName "+removeOptions.imageName)
+	}
+	if removeOptions.fromRegistry {
+		params = append(params, " -FromRegistry")
+	}
+	if removeOptions.showOutput {
+		params = append(params, " -ShowLogs")
+	}
+
+	return
 }

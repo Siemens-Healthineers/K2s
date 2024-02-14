@@ -5,38 +5,36 @@ package registry
 
 import (
 	"errors"
-	"fmt"
 	"k2s/cmd/common"
 	p "k2s/cmd/params"
 	c "k2s/config"
-	cd "k2s/config/defs"
 	"k2s/utils"
+	"k2s/utils/psexecutor"
 	"strconv"
+	"time"
 
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
 	"k8s.io/klog/v2"
 )
 
-var switchExample = `
+var (
+	switchExample = `
 	# Login to configured registry 'myregistry' registry in K2s 
 	k2s image registry switch myregistry
 `
 
-var switchCmd = &cobra.Command{
-	Use:     "switch",
-	Short:   "Switch to a configured registry",
-	RunE:    switchRegistry,
-	Example: switchExample,
-}
+	switchCmd = &cobra.Command{
+		Use:     "switch",
+		Short:   "Switch to a configured registry",
+		RunE:    switchRegistry,
+		Example: switchExample,
+	}
+)
 
 func init() {
-	includeSwitchCommand(switchCmd)
-}
-
-func includeSwitchCommand(cmd *cobra.Command) {
-	cmd.Flags().SortFlags = false
-	cmd.Flags().PrintDefaults()
+	switchCmd.Flags().SortFlags = false
+	switchCmd.Flags().PrintDefaults()
 }
 
 func switchRegistry(cmd *cobra.Command, args []string) error {
@@ -45,64 +43,49 @@ func switchRegistry(cmd *cobra.Command, args []string) error {
 	}
 
 	registryName := args[0]
-	klog.V(4).Infof("Switching to registry %s", registryName)
-	pterm.Printfln("🤖 Switching to registry %s", registryName)
 
-	addCmd, err := buildSwitchCmd(registryName, cmd)
+	klog.V(4).Infof("Switching to registry '%s'", registryName)
+
+	pterm.Printfln("🤖 Switching to registry '%s'", registryName)
+
+	psCmd, params, err := buildSwitchPsCmd(registryName, cmd)
 	if err != nil {
 		return err
 	}
 
-	klog.V(3).Infof("Switch command : %s", addCmd)
+	klog.V(4).Infof("PS cmd: '%s', params: '%v'", psCmd, params)
 
-	duration, err := utils.ExecutePowershellScript(addCmd)
+	start := time.Now()
+
+	cmdResult, err := psexecutor.ExecutePsWithStructuredResult[*common.CmdResult](psCmd, "CmdResult", psexecutor.ExecOptions{}, params...)
 	if err != nil {
 		return err
 	}
 
-	common.PrintCompletedMessage(duration, fmt.Sprintf("switch registry to %s", registryName))
+	if cmdResult.Error != nil {
+		return cmdResult.Error.ToError()
+	}
+
+	duration := time.Since(start)
+
+	common.PrintCompletedMessage(duration, "image registry switch")
 
 	return nil
 }
 
-func buildSwitchCmd(registryName string, cmd *cobra.Command) (string, error) {
-	switchRegistryCmd := utils.FormatScriptFilePath(c.SetupRootDir + "\\" + "smallsetup" + "\\" + "helpers" + "\\" + "SwitchRegistry.ps1")
+func buildSwitchPsCmd(registryName string, cmd *cobra.Command) (psCmd string, params []string, err error) {
+	psCmd = utils.FormatScriptFilePath(c.SetupRootDir + "\\smallsetup\\helpers\\SwitchRegistry.ps1")
 
-	if registryName == "" {
-		return "", errors.New("registry name must not be empty")
-	}
-
-	config := c.NewAccess()
-	registries, err := config.GetConfiguredRegisties()
+	showOutput, err := strconv.ParseBool(cmd.Flags().Lookup(p.OutputFlagName).Value.String())
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 
-	if len(registries) == 0 {
-		return "", errors.New("no registries configured")
+	if showOutput {
+		params = append(params, " -ShowLogs")
 	}
 
-	found := false
-	for _, v := range registries {
-		if v == cd.RegistryName(registryName) {
-			found = true
-		}
-	}
+	params = append(params, " -RegistryName "+registryName)
 
-	if !found {
-		return "", fmt.Errorf("registry '%s' not configured", registryName)
-	}
-
-	outputFlag, err := strconv.ParseBool(cmd.Flags().Lookup(p.OutputFlagName).Value.String())
-	if err != nil {
-		return "", err
-	}
-
-	if outputFlag {
-		switchRegistryCmd += " -ShowLogs"
-	}
-
-	switchRegistryCmd += " -RegistryName " + registryName
-
-	return switchRegistryCmd, nil
+	return
 }

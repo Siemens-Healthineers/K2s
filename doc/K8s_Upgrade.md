@@ -14,7 +14,7 @@ Upgrade in general is only from MINOR-1 to MINOR possible (same MAJOR version). 
 
 Upgrade is overall available starting from the K2s version 1.0.0 !
 
-![Image](/doc/assets/upgrade.png)
+![Image](/doc/assets/Upgrade.png)
 ***<p style="text-align: center;">Upgrading your K8s cluster moves all resources to new cluster</p>***
 
 # Main usage of upgrade command

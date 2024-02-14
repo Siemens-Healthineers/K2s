@@ -8,33 +8,31 @@ Param(
     [parameter(Mandatory = $false)]
     [string] $Target,
     [parameter(Mandatory = $false)]
-    [switch] $Reverse
+    [switch] $Reverse,
+    [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
+    [switch] $EncodeStructuredOutput,
+    [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
+    [string] $MessageType
 )
-
 &$PSScriptRoot\..\common\GlobalVariables.ps1
 . $PSScriptRoot\..\common\GlobalFunctions.ps1
 
-$setupInfoModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.cluster.module\setupinfo\setupinfo.module.psm1"
-$runningStateModule = "$PSScriptRoot\..\status\RunningState.module.psm1"
-Import-Module $setupInfoModule, $runningStateModule
+$statusModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.cluster.module\status\status.module.psm1"
+$infraModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
 
-$setupInfo = Get-SetupInfo
-if (!$($setupInfo.Name)) {
-    throw 'No setup installed!'
-}
+Import-Module $statusModule, $infraModule
 
-if ($setupInfo.Name -eq $global:SetupType_BuildOnlyEnv) {
-    $runningVMs = Get-VM -ErrorAction SilentlyContinue | Where-Object { $_.State -eq [Microsoft.HyperV.PowerShell.VMState]::Running }
-    if (! $($runningVMs | Where-Object Name -eq $global:VMName)) {
-        throw "VM $global:VMName is not started!"
+Initialize-Logging
+
+$systemError = Test-SystemAvailability
+if ($systemError) {
+    if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = $systemError }
+        return
     }
-}
-else {
-    $clusterState = Get-RunningState -SetupType $setupInfo.Name
 
-    if ($clusterState.IsRunning -ne $true) {
-        throw "Cannot connect to master via scp when system is not running. Please start the system with 'k2s start'."
-    } 
+    Write-Log $systemError -Error
+    exit 1
 }
 
 if (!$Reverse) {
@@ -47,3 +45,7 @@ else {
 }
 
 Copy-FromToMaster $source $target -IgnoreErrors
+
+if ($EncodeStructuredOutput -eq $true) {
+    Send-ToCli -MessageType $MessageType -Message @{Error = $null }
+}

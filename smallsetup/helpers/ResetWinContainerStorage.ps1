@@ -34,19 +34,21 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'Use zap.exe to forcefully delete the folder')]
     [switch]$ForceZap = $false,
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
-    [switch] $ShowLogs = $false
+    [switch] $ShowLogs = $false,
+    [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
+    [switch] $EncodeStructuredOutput,
+    [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
+    [string] $MessageType
 )
-
-
-# load global settings
 &$PSScriptRoot\..\common\GlobalVariables.ps1
-# import global functions
 . $PSScriptRoot\..\common\GlobalFunctions.ps1
 
 $setupInfoModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.cluster.module\setupinfo\setupinfo.module.psm1"
 $runningStateModule = "$PSScriptRoot\..\status\RunningState.module.psm1"
 $logModule = "$PSScriptRoot\..\ps-modules\log\log.module.psm1"
-Import-Module $setupInfoModule, $runningStateModule, $logModule -DisableNameChecking
+$cliModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.infra.module\cli-messages\cli-messages.module.psm1"
+
+Import-Module $setupInfoModule, $runningStateModule, $logModule, $cliModule -DisableNameChecking
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -90,20 +92,41 @@ function Perform-CleanupOfContainerStorage([string]$Directory, [int]$MaxRetries,
 $setupInfo = Get-SetupInfo
 
 if ($setupInfo.Name -eq $global:SetupType_MultiVMK8s) {
-    return (Write-Error 'In order to clean up WinContainerStorage for multi-vm, please reinstall the cluster!')
+    $errMsg = 'In order to clean up WinContainerStorage for multi-vm, please reinstall the cluster!'
+    if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+        return
+    }
+
+    Write-Log $errMsg -Error
+    exit 1
 }
 
 if ($setupInfo.Name -eq $global:SetupType_k2s) {
     $clusterState = Get-RunningState -SetupType $setupInfo.Name
 
     if ($clusterState.IsRunning -eq $true) {
-        throw 'K2s is running. Please stop K2s before performing this operation. Please ensure that no workloads are running in K2s..'
+        if ($EncodeStructuredOutput -eq $true) {
+            Send-ToCli -MessageType $MessageType -Message @{Error = 'system-running' }
+            return
+        }
+        else {
+            Write-Log 'K2s is running. Please stop K2s before performing this operation. Please ensure that no workloads are running in K2s..' -Error
+            exit 1
+        }        
     }
 }
 
 $dockerRunningStatus = Get-DockerStatus
 if ($dockerRunningStatus) {
-    return (Write-Error 'Docker daemon is running. Please stop docker daemon before performing this operation.')
+    $errMsg = 'Docker daemon is running. Please stop docker daemon before performing this operation.'
+    if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+        return
+    }
+
+    Write-Log $errMsg -Error
+    exit 1
 }
 
 $cleanUpWasPerformed = $false
@@ -124,4 +147,8 @@ if ($cleanUpWasPerformed) {
 }
 else {
     Write-Log 'Done. Nothing to reset.' -Console
+}
+
+if ($EncodeStructuredOutput -eq $true) {
+    Send-ToCli -MessageType $MessageType -Message @{Error = $null }
 }
