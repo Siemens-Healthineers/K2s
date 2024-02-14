@@ -7,10 +7,20 @@ import (
 	"errors"
 )
 
-const ErrNotRunningMsg = "system-not-running"
+const (
+	ErrNotRunningMsg = "system-not-running"
+	ErrRunningMsg    = "system-running"
+)
 
-var ErrNotRunning = errors.New(ErrNotRunningMsg)
+var (
+	ErrNotRunning = errors.New(ErrNotRunningMsg)
+	ErrRunning    = errors.New(ErrRunningMsg)
+)
 
 func IsErrNotRunning(err string) bool {
 	return err == ErrNotRunningMsg
+}
+
+func IsErrRunning(err string) bool {
+	return err == ErrRunningMsg
 }

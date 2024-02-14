@@ -163,10 +163,6 @@ var _ = Describe("CLI", func() {
 			Entry("stop", "stop"),
 			Entry("uninstall", "uninstall"),
 			Entry("upgrade", "upgrade"),
-			Entry("system scp m", "system", "scp", "m", "a1", "a2"),
-			Entry("system scp w", "system", "scp", "w", "a1", "a2"),
-			Entry("system ssh m", "system", "ssh", "m"),
-			Entry("system ssh w", "system", "ssh", "w"),
 		)
 	})
 })

@@ -20,7 +20,7 @@ var suite *framework.K2sTestSuite
 
 func TestImage(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "image CLI Commands Acceptance Tests", Label("cli", "image", "acceptance", "system-stopped"))
+	RunSpecs(t, "image CLI Commands Acceptance Tests", Label("cli", "image", "acceptance", "setup-required", "system-stopped"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
@@ -45,6 +45,8 @@ var _ = Describe("image", func() {
 		Entry("clean", "image", "clean"),
 		Entry("export", "image", "export", "-n", "non-existent", "-t", "non-existent"),
 		Entry("import", "image", "import", "-t", "non-existent"),
+		Entry("registry add", "image", "registry", "add", "non-existent"),
+		Entry("registry switch", "image", "registry", "switch", "non-existent"),
 	)
 
 	Describe("ls JSON output", Ordered, func() {
