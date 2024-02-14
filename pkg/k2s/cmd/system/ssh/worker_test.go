@@ -4,7 +4,6 @@
 package ssh
 
 import (
-	"fmt"
 	"k2s/utils"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -26,12 +25,14 @@ var _ = Describe("Ssh command for worker", func() {
 			workerShellWasInvoked := false
 			workerShellCmd := ""
 			cmdWasExecutedOnWorker := false
-			mockProcessExecFunc := func(cmd string) {
+			mockProcessExecFunc := func(cmd string) error {
 				workerShellWasInvoked = true
 				workerShellCmd = cmd
+				return nil
 			}
-			mockCommandExecFunc := func(cmd string) {
+			mockCommandExecFunc := func(baseCmd, cmd string) error {
 				cmdWasExecutedOnWorker = true
+				return nil
 			}
 			remoteCmdToBeExecuted := ""
 			remoteCommandHandler := &remoteCommandHandler{
@@ -43,7 +44,7 @@ var _ = Describe("Ssh command for worker", func() {
 			remoteCommandHandler.Handle(remoteCmdToBeExecuted)
 
 			Expect(workerShellWasInvoked).To(Equal(true))
-			Expect(workerShellCmd).To(Equal(CmdToStartShellWorker))
+			Expect(workerShellCmd).To(Equal(cmdToStartShellWorker))
 			Expect(cmdWasExecutedOnWorker).To(Equal(false))
 		})
 	})
@@ -53,17 +54,17 @@ var _ = Describe("Ssh command for worker", func() {
 			workerShellWasInvoked := false
 			cmdWasExecutedOnWorker := false
 			capturedCmdToBeExecuted := ""
-			mockProcessExecFunc := func(cmd string) {
+			mockProcessExecFunc := func(cmd string) error {
 				workerShellWasInvoked = true
+				return nil
 			}
-			mockCommandExecFunc := func(cmd string) {
+			mockCommandExecFunc := func(baseCmd, cmd string) error {
 				cmdWasExecutedOnWorker = true
-				capturedCmdToBeExecuted = cmd
+				capturedCmdToBeExecuted = baseCmd + "-" + cmd
+				return nil
 			}
 			remoteCmdToBeExecuted := "SomeCommand"
-			expectCmdToBeInvoked := fmt.Sprintf(cmdExecuteFormat,
-				utils.FormatScriptFilePath(installDirectoryProviderFuncForTest()+ScriptRelPathToExecuteCmdWorker),
-				remoteCmdToBeExecuted)
+			expectCmdToBeInvoked := utils.FormatScriptFilePath(installDirectoryProviderFuncForTest()+scriptRelPathToExecuteCmdWorker) + "-" + remoteCmdToBeExecuted
 			remoteCommandHandler := &remoteCommandHandler{
 				baseCommandProvider: workerBaseCommandProvider,
 				processExecFunc:     mockProcessExecFunc,
