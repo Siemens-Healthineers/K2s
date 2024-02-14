@@ -36,7 +36,7 @@ func TestStatus(t *testing.T) {
 
 var _ = BeforeSuite(func(ctx context.Context) {
 	suite = framework.Setup(ctx, framework.SystemMustBeRunning)
-	addons = k2s.AllAddons(suite.RootDir())
+	addons = suite.AddonsInfo().AllAddons()
 })
 
 var _ = AfterSuite(func(ctx context.Context) {

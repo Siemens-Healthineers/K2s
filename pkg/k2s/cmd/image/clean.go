@@ -14,6 +14,7 @@ import (
 	"k2s/cmd/common"
 	p "k2s/cmd/params"
 	"k2s/utils"
+	"k2s/utils/psexecutor"
 )
 
 var cleanCmd = &cobra.Command{
@@ -41,7 +42,7 @@ func cleanImages(cmd *cobra.Command, args []string) error {
 
 	start := time.Now()
 
-	cmdResult, err := utils.ExecutePsWithStructuredResult[*common.CmdResult](psCmd, "CmdResult", utils.ExecOptions{}, params...)
+	cmdResult, err := psexecutor.ExecutePsWithStructuredResult[*common.CmdResult](psCmd, "CmdResult", psexecutor.ExecOptions{}, params...)
 	if err != nil {
 		return err
 	}

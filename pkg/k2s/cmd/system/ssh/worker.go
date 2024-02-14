@@ -10,13 +10,17 @@ import (
 	"k8s.io/klog/v2"
 )
 
-const (
-	CmdToStartShellWorker = "sshw"
+type workerBaseCommandProvider struct {
+	getInstallDirFunc func() string
+}
 
-	ScriptRelPathToExecuteCmdWorker = "\\smallsetup\\helpers\\sshw.ps1"
+const (
+	cmdToStartShellWorker           = "sshw"
+	scriptRelPathToExecuteCmdWorker = "\\smallsetup\\helpers\\sshw.ps1"
 )
 
-var sshWorkerCmdExample = `
+var (
+	sshWorkerCmdExample = `
 	# Connect to worker node
 	k2s system ssh w
 
@@ -24,26 +28,15 @@ var sshWorkerCmdExample = `
 	k2s system ssh w -- echo yes
 `
 
-var sshWorkerCmd = &cobra.Command{
-	Use:     "w",
-	Short:   "Connect to WinNode worker VM",
-	Example: sshWorkerCmdExample,
-	RunE:    sshWorker,
-}
+	sshWorkerCmd = &cobra.Command{
+		Use:     "w",
+		Short:   "Connect to WinNode worker VM",
+		Example: sshWorkerCmdExample,
+		RunE:    sshWorker,
+	}
 
-var commandHandlerCreatorFuncForWorker func() commandHandler
-
-type workerBaseCommandProvider struct {
-	getInstallDirFunc func() string
-}
-
-func (m *workerBaseCommandProvider) getShellCommand() string {
-	return CmdToStartShellWorker
-}
-
-func (m *workerBaseCommandProvider) getShellExecutorCommand() string {
-	return utils.FormatScriptFilePath(m.getInstallDirFunc() + ScriptRelPathToExecuteCmdWorker)
-}
+	commandHandlerCreatorFuncForWorker func() commandHandler
+)
 
 func init() {
 	sshMasterCmd.Flags().SortFlags = false
@@ -60,21 +53,23 @@ func init() {
 	}
 }
 
+func (m *workerBaseCommandProvider) getShellCommand() string {
+	return cmdToStartShellWorker
+}
+
+func (m *workerBaseCommandProvider) getShellExecutorCommand() string {
+	return utils.FormatScriptFilePath(m.getInstallDirFunc() + scriptRelPathToExecuteCmdWorker)
+}
+
 func sshWorker(cmd *cobra.Command, args []string) error {
 	klog.V(3).Infof("Connecting to WinNode worker VM..")
 
-	if err := ensureSetupIsInstalled(); err != nil {
-		return err
-	}
-
-	parsedArgs, err := getRemoteCommandToExecute(cmd.ArgsLenAtDash(), args)
+	remoteCmd, err := getRemoteCommandToExecute(cmd.ArgsLenAtDash(), args)
 	if err != nil {
 		return err
 	}
 
 	handler := commandHandlerCreatorFuncForWorker()
 
-	handler.Handle(parsedArgs)
-
-	return nil
+	return handler.Handle(remoteCmd)
 }

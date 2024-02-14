@@ -4,6 +4,7 @@ package k2s
 
 import (
 	"io/fs"
+	"k2s/addons"
 	sos "k2sTest/framework/os"
 	"log"
 	"os"
@@ -60,9 +61,19 @@ type CurlPackages struct {
 	Destination string `yaml:"destination"`
 }
 
+type AddonsInfo struct {
+}
+
+func NewAddonsInfo() *AddonsInfo {
+	return &AddonsInfo{}
+}
+
 const manifestFileName = "addon.manifest.yaml"
 
-func AllAddons(rootDir string) []Addon {
+func (info *AddonsInfo) AllAddons() []Addon {
+	rootDir, err := sos.RootDir()
+	Expect(err).To(BeNil())
+
 	addonsDir := filepath.Join(rootDir, "addons")
 	addons := []Addon{}
 
@@ -106,7 +117,7 @@ func AllAddons(rootDir string) []Addon {
 	return addons
 }
 
-func GetImagesForAddon(addon Addon) ([]string, error) {
+func (info *AddonsInfo) GetImagesForAddon(addon Addon) ([]string, error) {
 	yamlFiles, err := sos.GetFilesMatch(addon.Directory.Path, "*.yaml")
 	if err != nil {
 		return nil, err
@@ -156,4 +167,22 @@ func GetImagesForAddon(addon Addon) ([]string, error) {
 	}
 
 	return lo.Union(images), nil
+}
+
+func (info *AddonsInfo) GetEnabledAddons() ([]string, error) {
+	enabledAddons, err := addons.LoadEnabledAddons()
+	if err != nil {
+		return nil, err
+	}
+
+	return enabledAddons.Addons, nil
+}
+
+func (info *AddonsInfo) IsAddonEnabled(addonName string) (bool, error) {
+	enabledAddons, err := addons.LoadEnabledAddons()
+	if err != nil {
+		return false, err
+	}
+
+	return lo.Contains(enabledAddons.Addons, addonName), nil
 }

@@ -21,7 +21,7 @@ var suite *framework.K2sTestSuite
 
 func TestSystem(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "system CLI Commands Acceptance Tests", Label("cli", "system", "scp", "m", "acceptance", "setup-required", "system-running"))
+	RunSpecs(t, "system CLI Commands Acceptance Tests", Label("cli", "system", "scp", "ssh", "m", "w", "acceptance", "setup-required", "system-running"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
@@ -139,6 +139,22 @@ var _ = Describe("system", func() {
 
 		Describe("w reverse", func() {
 			It("copies a file from Windows node to host", func() {
+				Skip("test to be implemented")
+			})
+		})
+	})
+
+	Describe("ssh", func() {
+		Describe("m", func() {
+			It("runs a command on Linux node", func(ctx context.Context) {
+				output := suite.K2sCli().Run(ctx, "system", "ssh", "m", "--", "echo ssh-m-test")
+
+				Expect(output).To(Equal("ssh-m-test\n"))
+			})
+		})
+
+		Describe("w", func() {
+			It("runs a command on Windows node", func(ctx context.Context) {
 				Skip("test to be implemented")
 			})
 		})

@@ -157,10 +157,13 @@ function Save-Log {
     if (!(Test-Path "$env:TEMP")) {
         New-Item -Path "$env:TEMP" -ItemType Directory | Out-Null
     }
-    $filename = "$env:TEMP\k2s_log_$(get-date -f yyyyMMdd_HHmmss).zip"
-    Compress-Archive -Path "C:\var\log" -DestinationPath "$filename" -CompressionLevel Optimal -Force
 
-    Write-Log "Logs backed up in $filename" -Console
+    $destinationFolder = "$env:TEMP\k2s_log_$(get-date -f yyyyMMdd_HHmmss)"
+    Copy-Item -Path "C:\var\log" -Destination $destinationFolder -Force -Recurse
+    Compress-Archive -Path $destinationFolder -DestinationPath "$destinationFolder.zip" -CompressionLevel Optimal -Force
+    Remove-Item -Path "$destinationFolder" -Force -Recurse -ErrorAction SilentlyContinue
+
+    Write-Log "Logs backed up in $destinationFolder.zip" -Console
 
     if ($RemoveVar) {
     # the directory '<system drive>:\var' must be deleted (regardless of the installation drive) since
