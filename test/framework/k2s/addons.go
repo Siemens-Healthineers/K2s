@@ -61,6 +61,9 @@ type CurlPackages struct {
 	Destination string `yaml:"destination"`
 }
 
+type AddonsInfo struct {
+}
+
 const manifestFileName = "addon.manifest.yaml"
 
 func AllAddons(rootDir string) []Addon {
@@ -157,9 +160,6 @@ func GetImagesForAddon(addon Addon) ([]string, error) {
 	}
 
 	return lo.Union(images), nil
-}
-
-type AddonsInfo struct {
 }
 
 func NewAddonsInfo() *AddonsInfo {

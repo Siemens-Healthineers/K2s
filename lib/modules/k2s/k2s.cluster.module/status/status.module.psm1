@@ -11,10 +11,6 @@ Import-Module $vmModule, $setupInfoModule, $runningStateModule, $k8sApiModule, $
 
 $script = $MyInvocation.MyCommand.Name
 
-function Get-Addons {
-    return (&"$PSScriptRoot/../../../../../addons/Get-EnabledAddons.ps1")
-}
-
 <#
  .Synopsis
   Determines the K8s cluster status.
