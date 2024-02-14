@@ -198,10 +198,10 @@ if ( $K8sSetup -eq 'SmallSetup' ) {
     if (!$?) {
         $setupInfo = Get-SetupInfo
         if ($setupInfo.Name -ne $global:SetupType_MultiVMK8s) {
-            ExecCmdMaster "sudo curl --retry 3 --retry-connrefused --proxy $IMPLICITPROXY -sL -o /usr/local/bin/virtctl https://github.com/kubevirt/kubevirt/releases/download/$VERSION_VCTRL/virtctl-$VERSION_VCTRL-linux-amd64 2>&1"
+            ExecCmdMaster "sudo curl --retry 3 --retry-all-errors --proxy $IMPLICITPROXY -sL -o /usr/local/bin/virtctl https://github.com/kubevirt/kubevirt/releases/download/$VERSION_VCTRL/virtctl-$VERSION_VCTRL-linux-amd64 2>&1"
         }
         else {
-            ExecCmdMaster "sudo curl --retry 3 --retry-connrefused -sL -o /usr/local/bin/virtctl https://github.com/kubevirt/kubevirt/releases/download/$VERSION_VCTRL/virtctl-$VERSION_VCTRL-linux-amd64 2>&1"
+            ExecCmdMaster "sudo curl --retry 3 --retry-all-errors -sL -o /usr/local/bin/virtctl https://github.com/kubevirt/kubevirt/releases/download/$VERSION_VCTRL/virtctl-$VERSION_VCTRL-linux-amd64 2>&1"
         }
     }
     ExecCmdMaster 'sudo chmod +x /usr/local/bin/virtctl'
