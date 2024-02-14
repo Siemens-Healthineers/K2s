@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"k2s/cmd/common"
+	"k2s/config"
 	"k2s/utils"
 	"os"
 	"os/exec"
@@ -32,6 +33,10 @@ type remoteCommandHandler struct {
 
 var (
 	sshExecFunc func(proc string) error = func(proc string) error {
+		if err := ensureSetupIsInstalled(); err != nil {
+			return err
+		}
+
 		sshCmd := exec.Command(proc)
 		sshCmd.Stdin = os.Stdin
 		sshCmd.Stdout = os.Stdout
@@ -98,4 +103,12 @@ func getRemoteCommandToExecute(argsLenAtDash int, args []string) (string, error)
 	klog.V(5).Infof("Command to execute : %s", cmdToExecute)
 
 	return cmdToExecute, nil
+}
+
+func ensureSetupIsInstalled() error {
+	ca := config.NewAccess()
+
+	_, err := ca.GetSetupName()
+
+	return err
 }
