@@ -45,7 +45,7 @@ var _ = BeforeSuite(func(ctx context.Context) {
 	suite = framework.Setup(ctx, framework.SystemMustBeRunning, framework.EnsureAddonsAreDisabled, framework.ClusterTestStepTimeout(testClusterTimeout))
 	exportPath = filepath.Join(suite.RootDir(), "tmp")
 	linuxOnly = suite.SetupInfo().LinuxOnly
-	addons = suite.AddonsInfo().AllAddons(suite.RootDir())
+	addons = suite.AddonsInfo().AllAddons()
 
 	windowsTestContainers = []string{
 		"shsk2s.azurecr.io/diskwriter:v1.0.0",

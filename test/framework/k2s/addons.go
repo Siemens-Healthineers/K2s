@@ -70,7 +70,10 @@ func NewAddonsInfo() *AddonsInfo {
 
 const manifestFileName = "addon.manifest.yaml"
 
-func (info *AddonsInfo) AllAddons(rootDir string) []Addon {
+func (info *AddonsInfo) AllAddons() []Addon {
+	rootDir, err := sos.RootDir()
+	Expect(err).To(BeNil())
+
 	addonsDir := filepath.Join(rootDir, "addons")
 	addons := []Addon{}
 
