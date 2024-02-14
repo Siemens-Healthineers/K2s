@@ -16,6 +16,7 @@ import (
 	c "k2s/config"
 	"k2s/setupinfo"
 	"k2s/utils"
+	"k2s/utils/psexecutor"
 	"k2s/utils/tz"
 )
 
@@ -47,7 +48,7 @@ func startk8s(ccmd *cobra.Command, args []string) error {
 
 	klog.V(3).Infof("Start command : %s", startCmd)
 
-	duration, err := utils.ExecutePowershellScript(startCmd)
+	duration, err := psexecutor.ExecutePowershellScript(startCmd)
 	if err != nil {
 		return err
 	}

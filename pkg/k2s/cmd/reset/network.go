@@ -8,6 +8,7 @@ import (
 	"time"
 
 	c "k2s/config"
+	"k2s/utils/psexecutor"
 
 	"github.com/spf13/cobra"
 
@@ -67,7 +68,7 @@ func resetNetwork(cmd *cobra.Command, args []string) error {
 
 	start := time.Now()
 
-	cmdResult, err := utils.ExecutePsWithStructuredResult[*common.CmdResult](resetNetworkCommand, "CmdResult", utils.ExecOptions{}, params...)
+	cmdResult, err := psexecutor.ExecutePsWithStructuredResult[*common.CmdResult](resetNetworkCommand, "CmdResult", psexecutor.ExecOptions{}, params...)
 
 	duration := time.Since(start)
 

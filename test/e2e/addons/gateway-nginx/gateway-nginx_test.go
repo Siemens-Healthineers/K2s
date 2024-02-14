@@ -45,8 +45,9 @@ var _ = Describe("'gateway-nginx' addon", Ordered, func() {
 		suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "albums-linux1", "gateway-nginx-test")
 		suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "nginx-gateway", "nginx-gateway")
 
-		status := suite.K2sCli().GetStatus(ctx)
-		Expect(status.IsAddonEnabled("gateway-nginx")).To(BeFalse())
+		enabled, err := suite.AddonsInfo().IsAddonEnabled("gateway-nginx")
+		Expect(err).To(BeNil())
+		Expect(enabled).To(BeFalse())
 	})
 
 	It("prints already-disabled message on disable command", func(ctx context.Context) {
@@ -62,8 +63,9 @@ var _ = Describe("'gateway-nginx' addon", Ordered, func() {
 
 		suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "nginx-gateway", "nginx-gateway")
 
-		status := suite.K2sCli().GetStatus(ctx)
-		Expect(status.IsAddonEnabled("gateway-nginx")).To(BeTrue())
+		enabled, err := suite.AddonsInfo().IsAddonEnabled("gateway-nginx")
+		Expect(err).To(BeNil())
+		Expect(enabled).To(BeTrue())
 	})
 
 	It("prints already-enabled message on enable command", func(ctx context.Context) {

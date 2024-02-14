@@ -6,8 +6,7 @@ package config
 import (
 	d "k2s/config/defs"
 	"k2s/setupinfo"
-	"os"
-	"path/filepath"
+	"k2s/utils"
 )
 
 type ConfigLoader interface {
@@ -31,19 +30,10 @@ const (
 )
 
 var (
-	SetupRootDir   = GetInstallationDirectory()
+	SetupRootDir   = utils.GetInstallationDirectory()
 	smallSetupDir  = SetupRootDir + "\\smallsetup"
 	configFilePath = SetupRootDir + "\\cfg\\config.json"
 )
-
-// TODO: code clone in utils; remove cyclomatic dependency first in psexecutor
-func GetInstallationDirectory() string {
-	k2sExe, err := os.Executable()
-	if err != nil {
-		panic(err)
-	}
-	return filepath.Dir(k2sExe)
-}
 
 func NewConfigAccess(configLoader ConfigLoader, pathBuilder SetupConfigPathBuilder) *ConfigAccess {
 	return &ConfigAccess{

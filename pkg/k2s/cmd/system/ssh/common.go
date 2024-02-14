@@ -9,6 +9,7 @@ import (
 	"k2s/cmd/common"
 	"k2s/config"
 	"k2s/utils"
+	"k2s/utils/psexecutor"
 	"os"
 	"os/exec"
 	"strings"
@@ -45,10 +46,10 @@ var (
 	}
 
 	cmdOverSshExecFunc func(baseCmd, cmd string) error = func(baseCmd, cmd string) error {
-		cmdResult, err := utils.ExecutePsWithStructuredResult[*common.CmdResult](
+		cmdResult, err := psexecutor.ExecutePsWithStructuredResult[*common.CmdResult](
 			baseCmd,
 			"CmdResult",
-			utils.ExecOptions{NoProgress: true},
+			psexecutor.ExecOptions{NoProgress: true},
 			"-Command",
 			fmt.Sprintf("\"%s\"", cmd))
 		if err != nil {

@@ -11,10 +11,6 @@ Import-Module $vmModule, $setupInfoModule, $runningStateModule, $k8sApiModule, $
 
 $script = $MyInvocation.MyCommand.Name
 
-function Get-Addons {
-    return (&"$PSScriptRoot/../../../../../addons/Get-EnabledAddons.ps1")
-}
-
 <#
  .Synopsis
   Determines the K8s cluster status.
@@ -45,7 +41,7 @@ function Get-Status {
     Write-Log "[$script::$function] Getting status with ShowProgress='$ShowProgress'.."
 
     if ($ShowProgress -eq $true) {
-        Write-Progress -Activity 'Gathering status information...' -Id 1 -Status '0/5' -PercentComplete 0 -CurrentOperation 'Getting setup type'
+        Write-Progress -Activity 'Gathering status information...' -Id 1 -Status '0/4' -PercentComplete 0 -CurrentOperation 'Getting setup type'
     }
 
     $status = @{SetupInfo = Get-SetupInfo }
@@ -60,15 +56,7 @@ function Get-Status {
     }
 
     if ($ShowProgress -eq $true) {
-        Write-Progress -Activity 'Gathering status information...' -Id 1 -Status '1/5' -PercentComplete 20 -CurrentOperation 'Getting enabled addons'
-    }
-
-    # TODO: remove dependency when status and addons are separated!
-    # see https://github.com/Siemens-Healthineers/K2s/issues/62
-    $status.EnabledAddons = (Get-Addons).Addons
-
-    if ($ShowProgress -eq $true) {
-        Write-Progress -Activity 'Gathering status information...' -Id 1 -Status '2/5' -PercentComplete 40 -CurrentOperation 'Determining running state'
+        Write-Progress -Activity 'Gathering status information...' -Id 1 -Status '1/4' -PercentComplete 25 -CurrentOperation 'Determining running state'
     }
 
     $status.RunningState = (Get-RunningState $status.SetupInfo.Name)
@@ -83,13 +71,13 @@ function Get-Status {
     }
 
     if ($ShowProgress -eq $true) {
-        Write-Progress -Activity 'Gathering status information...' -Id 1 -Status '3/5' -PercentComplete 60 -CurrentOperation 'Getting K8s version info'
+        Write-Progress -Activity 'Gathering status information...' -Id 1 -Status '2/4' -PercentComplete 50 -CurrentOperation 'Getting K8s version info'
     }
 
     $status.K8sVersionInfo = Get-K8sVersionInfo
 
     if ($ShowProgress -eq $true) {
-        Write-Progress -Activity 'Gathering status information...' -Id 1 -Status '4/5' -PercentComplete 80 -CurrentOperation 'Getting K8s nodes info'
+        Write-Progress -Activity 'Gathering status information...' -Id 1 -Status '3/4' -PercentComplete 75 -CurrentOperation 'Getting K8s nodes info'
     }
 
     $nodes = [System.Collections.ArrayList]@()
@@ -98,7 +86,7 @@ function Get-Status {
     Write-Log "[$script::$function] Added '$($nodes.Count)' nodes to status"
 
     if ($ShowProgress -eq $true) {
-        Write-Progress -Activity 'Gathering status information...' -Id 1 -Status '5/5' -PercentComplete 95 -CurrentOperation 'Getting K8s system pods info'
+        Write-Progress -Activity 'Gathering status information...' -Id 1 -Status '4/4' -PercentComplete 95 -CurrentOperation 'Getting K8s system pods info'
     }
 
     $pods = [System.Collections.ArrayList]@()
@@ -110,7 +98,7 @@ function Get-Status {
     $status.Pods = $pods
 
     if ($ShowProgress -eq $true) {
-        Write-Progress -Activity 'Gathering status information...' -Id 1 -Status '5/5' -PercentComplete 100
+        Write-Progress -Activity 'Gathering status information...' -Id 1 -Status '4/4' -PercentComplete 100
         Write-Progress -Activity 'Gathering status information...' -Id 1 -Completed
     }
 

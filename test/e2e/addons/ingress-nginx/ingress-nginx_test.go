@@ -42,8 +42,9 @@ var _ = Describe("'ingress-nginx' addon", Ordered, func() {
 		suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "ingress-nginx", "ingress-nginx")
 		suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "albums-linux1", "ingress-nginx-test")
 
-		status := suite.K2sCli().GetStatus(ctx)
-		Expect(status.IsAddonEnabled("ingress-nginx")).To(BeFalse())
+		enabled, err := suite.AddonsInfo().IsAddonEnabled("ingress-nginx")
+		Expect(err).To(BeNil())
+		Expect(enabled).To(BeFalse())
 	})
 
 	It("prints already-disabled message on disable command", func(ctx context.Context) {
@@ -59,8 +60,9 @@ var _ = Describe("'ingress-nginx' addon", Ordered, func() {
 
 		suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "ingress-nginx", "ingress-nginx")
 
-		status := suite.K2sCli().GetStatus(ctx)
-		Expect(status.IsAddonEnabled("ingress-nginx")).To(BeTrue())
+		enabled, err := suite.AddonsInfo().IsAddonEnabled("ingress-nginx")
+		Expect(err).To(BeNil())
+		Expect(enabled).To(BeTrue())
 	})
 
 	It("prints already-enabled message on enable command", func(ctx context.Context) {

@@ -33,7 +33,6 @@ Describe 'Get-Status' -Tag 'unit' {
         Context 'setup name is valid' {
             BeforeAll {
                 Mock -ModuleName $moduleName Get-SetupInfo { return @{Name = 'valid' } }
-                Mock -ModuleName $moduleName Get-Addons { return @{Addons = 'a1', 'a2' } }
                 Mock -ModuleName $moduleName Get-RunningState { return @{IsRunning = $false } }
 
                 InModuleScope -ModuleName $moduleName {
@@ -47,20 +46,11 @@ Describe 'Get-Status' -Tag 'unit' {
                     $result.SetupInfo.ValidationError | Should -BeNullOrEmpty
                 }
             }
-
-            It 'returns addons' {
-                InModuleScope -ModuleName $moduleName {
-                    $result.EnabledAddons.Count | Should -Be 2
-                    $result.EnabledAddons[0] | Should -Be 'a1'
-                    $result.EnabledAddons[1] | Should -Be 'a2'
-                }
-            }
         }
         
         Context 'system is not running' {
             BeforeAll {
                 Mock -ModuleName $moduleName Get-SetupInfo { return @{Name = 'valid' } }
-                Mock -ModuleName $moduleName Get-Addons {}
                 Mock -ModuleName $moduleName Get-RunningState { return @{IsRunning = $false } }
 
                 InModuleScope -ModuleName $moduleName {
@@ -78,7 +68,6 @@ Describe 'Get-Status' -Tag 'unit' {
         Context 'system is running' {
             BeforeAll {
                 Mock -ModuleName $moduleName Get-SetupInfo { return @{Name = 'valid' } }
-                Mock -ModuleName $moduleName Get-Addons {}
                 Mock -ModuleName $moduleName Get-RunningState { return @{IsRunning = $true } }
                 Mock -ModuleName $moduleName Get-Nodes { return @{Name = 'n1' }, @{Name = 'n2' } }
                 Mock -ModuleName $moduleName Get-SystemPods { return @{Name = 'p1' }, @{Name = 'p2' } }
@@ -133,7 +122,7 @@ Describe 'Get-Status' -Tag 'unit' {
             
             It 'displays initial progress info' {
                 InModuleScope -ModuleName $moduleName {
-                    Should -Invoke Write-Progress -Times 1 -ParameterFilter { $Id -eq 1 -and $Status -eq '0/5' } -Scope Context
+                    Should -Invoke Write-Progress -Times 1 -ParameterFilter { $Id -eq 1 -and $Status -eq '0/4' } -Scope Context
                 }
             }
 
@@ -149,7 +138,6 @@ Describe 'Get-Status' -Tag 'unit' {
             BeforeAll {
                 Mock -ModuleName $moduleName Get-SetupInfo { return @{Name = 'valid' } }
                 Mock -ModuleName $moduleName Write-Progress {}
-                Mock -ModuleName $moduleName Get-Addons {}
                 Mock -ModuleName $moduleName Get-RunningState { return @{IsRunning = $false } }
 
                 InModuleScope -ModuleName $moduleName {
@@ -159,16 +147,15 @@ Describe 'Get-Status' -Tag 'unit' {
             
             It 'displays progress until system running state' {
                 InModuleScope -ModuleName $moduleName {
-                    Should -Invoke Write-Progress -Times 1 -ParameterFilter { $Id -eq 1 -and $Status -eq '0/5' } -Scope Context
-                    Should -Invoke Write-Progress -Times 1 -ParameterFilter { $Id -eq 1 -and $Status -eq '1/5' } -Scope Context
-                    Should -Invoke Write-Progress -Times 1 -ParameterFilter { $Id -eq 1 -and $Status -eq '2/5' } -Scope Context
+                    Should -Invoke Write-Progress -Times 1 -ParameterFilter { $Id -eq 1 -and $Status -eq '0/4' } -Scope Context
+                    Should -Invoke Write-Progress -Times 1 -ParameterFilter { $Id -eq 1 -and $Status -eq '1/4' } -Scope Context
                 }
             }
 
             It 'completes progress immediately after running state' {
                 InModuleScope -ModuleName $moduleName {
                     Should -Invoke Write-Progress -Times 1 -ParameterFilter { $Id -eq 1 -and $Completed -eq $true } -Scope Context
-                    Should -Invoke Write-Progress -Times 4 -Scope Context
+                    Should -Invoke Write-Progress -Times 3 -Scope Context
                 }
             }
         }
@@ -177,7 +164,6 @@ Describe 'Get-Status' -Tag 'unit' {
             BeforeAll {
                 Mock -ModuleName $moduleName Get-SetupInfo { return @{Name = 'valid' } }
                 Mock -ModuleName $moduleName Write-Progress {}
-                Mock -ModuleName $moduleName Get-Addons {}
                 Mock -ModuleName $moduleName Get-RunningState { return @{IsRunning = $true } }
                 Mock -ModuleName $moduleName Get-Nodes {}
                 Mock -ModuleName $moduleName Get-SystemPods {}
@@ -190,14 +176,13 @@ Describe 'Get-Status' -Tag 'unit' {
             
             It 'displays progress until completion' {
                 InModuleScope -ModuleName $moduleName {
-                    Should -Invoke Write-Progress -Times 1 -ParameterFilter { $Id -eq 1 -and $Status -eq '0/5' } -Scope Context
-                    Should -Invoke Write-Progress -Times 1 -ParameterFilter { $Id -eq 1 -and $Status -eq '1/5' } -Scope Context
-                    Should -Invoke Write-Progress -Times 1 -ParameterFilter { $Id -eq 1 -and $Status -eq '2/5' } -Scope Context
-                    Should -Invoke Write-Progress -Times 1 -ParameterFilter { $Id -eq 1 -and $Status -eq '3/5' } -Scope Context
-                    Should -Invoke Write-Progress -Times 1 -ParameterFilter { $Id -eq 1 -and $Status -eq '4/5' } -Scope Context
-                    Should -Invoke Write-Progress -Times 1 -ParameterFilter { $Id -eq 1 -and $Status -eq '5/5' } -Scope Context
-                    Should -Invoke Write-Progress -Times 1 -ParameterFilter { $Id -eq 1 -and $Status -eq '5/5' -and $PercentComplete -eq 100 } -Scope Context
-                    Should -Invoke Write-Progress -Times 8 -Scope Context
+                    Should -Invoke Write-Progress -Times 1 -ParameterFilter { $Id -eq 1 -and $Status -eq '0/4' } -Scope Context
+                    Should -Invoke Write-Progress -Times 1 -ParameterFilter { $Id -eq 1 -and $Status -eq '1/4' } -Scope Context
+                    Should -Invoke Write-Progress -Times 1 -ParameterFilter { $Id -eq 1 -and $Status -eq '2/4' } -Scope Context
+                    Should -Invoke Write-Progress -Times 1 -ParameterFilter { $Id -eq 1 -and $Status -eq '3/4' } -Scope Context
+                    Should -Invoke Write-Progress -Times 1 -ParameterFilter { $Id -eq 1 -and $Status -eq '4/4' } -Scope Context
+                    Should -Invoke Write-Progress -Times 1 -ParameterFilter { $Id -eq 1 -and $Status -eq '4/4' -and $PercentComplete -eq 100 } -Scope Context
+                    Should -Invoke Write-Progress -Times 7 -Scope Context
                 }
             }
         }

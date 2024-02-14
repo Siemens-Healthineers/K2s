@@ -12,6 +12,7 @@ import (
 	p "k2s/cmd/params"
 	"k2s/providers/terminal"
 	"k2s/utils"
+	"k2s/utils/psexecutor"
 	"strconv"
 	"time"
 
@@ -64,7 +65,7 @@ func runImport(cmd *cobra.Command, args []string) error {
 
 	start := time.Now()
 
-	cmdResult, err := utils.ExecutePsWithStructuredResult[*common.CmdResult](psCmd, "CmdResult", utils.ExecOptions{}, params...)
+	cmdResult, err := psexecutor.ExecutePsWithStructuredResult[*common.CmdResult](psCmd, "CmdResult", psexecutor.ExecOptions{}, params...)
 
 	duration := time.Since(start)
 
