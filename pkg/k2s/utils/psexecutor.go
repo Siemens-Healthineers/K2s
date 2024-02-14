@@ -162,7 +162,11 @@ func executePowershellScriptWithDataSubscription(cmdString string, options ...Ex
 				klog.V(8).Info("channel closed: log")
 				continue
 			}
-			pterm.Printfln("⏳ %s", log)
+			if execOptions.NoProgress {
+				pterm.Println(log)
+			} else {
+				pterm.Printfln("⏳ %s", log)
+			}
 		case errorLog, ok := <-errLogChan:
 			if !ok {
 				errLogChan = nil

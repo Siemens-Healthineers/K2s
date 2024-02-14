@@ -33,6 +33,7 @@ if ($systemError) {
     exit 1
 }
 
+$setupInfo = Get-SetupInfo
 if ($setupInfo.Name -ne $global:SetupType_MultiVMK8s -or $setupInfo.LinuxOnly ) {
     $errMsg = 'There is no multi-vm setup with worker node installed.'
     if ($EncodeStructuredOutput -eq $true) {

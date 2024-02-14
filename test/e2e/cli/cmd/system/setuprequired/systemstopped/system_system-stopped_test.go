@@ -37,7 +37,7 @@ var _ = Describe("system", func() {
 		},
 		Entry("scp m", "system", "scp", "m", "a1", "a2"),
 		Entry("scp w", "system", "scp", "w", "a1", "a2"),
-		// Entry("ssh m", "system", "ssh", "m"),
-		// Entry("ssh w", "system", "ssh", "w"),
+		Entry("ssh m", "system", "ssh", "m"),
+		Entry("ssh w", "system", "ssh", "w"),
 	)
 })
