@@ -452,7 +452,7 @@ Describe 'Install-KubernetesArtifacts' -Tag 'unit', 'linuxnode' {
                 $expectedExecutedRemoteCommands += @{Command = 'sudo DEBIAN_FRONTEND=noninteractive apt-get update -qq --yes --allow-releaseinfo-change'; IgnoreErrors = $false }
                 $expectedExecutedRemoteCommands += @{Command = 'sudo DEBIAN_FRONTEND=noninteractive apt-get install -y gpg'; IgnoreErrors = $false }
 
-                $expectedExecutedRemoteCommands += @{Command = "sudo curl --retry 3 --retry-connrefused -so cri-o.v$expectedCrioVersion.tar.gz https://storage.googleapis.com/cri-o/artifacts/cri-o.amd64.v$expectedCrioVersion.tar.gz$curlProxy"; IgnoreErrors = $true }
+                $expectedExecutedRemoteCommands += @{Command = "sudo curl --retry 3 --retry-all-errors -so cri-o.v$expectedCrioVersion.tar.gz https://storage.googleapis.com/cri-o/artifacts/cri-o.amd64.v$expectedCrioVersion.tar.gz$curlProxy"; IgnoreErrors = $true }
                 $expectedExecutedRemoteCommands += @{Command = 'sudo mkdir -p /usr/cri-o'; IgnoreErrors = $false }
                 $expectedExecutedRemoteCommands += @{Command = "sudo tar -xf cri-o.v$expectedCrioVersion.tar.gz -C /usr/cri-o --strip-components=1"; IgnoreErrors = $false }
                 $expectedExecutedRemoteCommands += @{Command = 'cd /usr/cri-o/ && sudo ./install 2>&1'; IgnoreErrors = $false }
@@ -497,7 +497,7 @@ Describe 'Install-KubernetesArtifacts' -Tag 'unit', 'linuxnode' {
                 $expectedExecutedRemoteCommands += @{Command = "sudo echo unqualified-search-registries = [\\\""docker.io\\\""] | sudo tee -a /etc/containers/registries.conf"; IgnoreErrors = $false} 
                 $expectedExecutedRemoteCommands += @{Command = "sudo apt-get update"; IgnoreErrors = $false} 
                 $expectedExecutedRemoteCommands += @{Command = "sudo DEBIAN_FRONTEND=noninteractive apt-get install -qq --yes apt-transport-https ca-certificates curl"; IgnoreErrors = $false} 
-                $expectedExecutedRemoteCommands += @{Command = "sudo curl --retry 3 --retry-connrefused -fsSL https://pkgs.k8s.io/core:/stable:/$expectedPackageShortK8sVersion/deb/Release.key$curlProxy | sudo gpg --dearmor -o /usr/share/keyrings/kubernetes-apt-keyring.gpg"; IgnoreErrors = $true} 
+                $expectedExecutedRemoteCommands += @{Command = "sudo curl --retry 3 --retry-all-errors -fsSL https://pkgs.k8s.io/core:/stable:/$expectedPackageShortK8sVersion/deb/Release.key$curlProxy | sudo gpg --dearmor -o /usr/share/keyrings/kubernetes-apt-keyring.gpg"; IgnoreErrors = $true} 
                 $expectedExecutedRemoteCommands += @{Command = "echo 'deb [signed-by=/usr/share/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/$expectedPackageShortK8sVersion/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.list"; IgnoreErrors = $false} 
                 $expectedExecutedRemoteCommands += @{Command = 'sudo apt-get update'; IgnoreErrors = $false} 
                 $expectedExecutedRemoteCommands += @{Command = 'sudo apt-mark hold kubelet kubeadm kubectl'; IgnoreErrors = $false} 
