@@ -44,10 +44,10 @@ else {
 
     if ( $Proxy -ne '') {
         Write-Log "Using Proxy $Proxy to download SHA sum from $urlRoot"
-        $allHashs = curl.exe --retry 3 --retry-connrefused --silent --disable --fail "$urlRoot/SHA512SUMS" --proxy $Proxy --ssl-no-revoke -k
+        $allHashs = curl.exe --retry 3 --retry-all-errors --silent --disable --fail "$urlRoot/SHA512SUMS" --proxy $Proxy --ssl-no-revoke -k
     }
     else {
-        $allHashs = curl.exe --retry 3 --retry-connrefused --silent --disable --fail "$urlRoot/SHA512SUMS" --ssl-no-revoke --noproxy '*'
+        $allHashs = curl.exe --retry 3 --retry-all-errors --silent --disable --fail "$urlRoot/SHA512SUMS" --ssl-no-revoke --noproxy '*'
     }
 
     $sha1Hash = Get-FileHash $imgFile -Algorithm SHA512
