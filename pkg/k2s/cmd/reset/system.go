@@ -9,6 +9,7 @@ import (
 
 	"k2s/cmd/common"
 	"k2s/utils"
+	"k2s/utils/psexecutor"
 )
 
 var resetSystemCmd = &cobra.Command{
@@ -30,7 +31,7 @@ func resetSystem(cmd *cobra.Command, args []string) error {
 
 	klog.V(3).Infof("Reset system command: %s", resetSystemCommand)
 
-	duration, err := utils.ExecutePowershellScript(resetSystemCommand)
+	duration, err := psexecutor.ExecutePowershellScript(resetSystemCommand)
 	if err != nil {
 		return err
 	}

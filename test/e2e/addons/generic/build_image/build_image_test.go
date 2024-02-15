@@ -62,8 +62,8 @@ var _ = Describe("build container image", Ordered, func() {
 				suite.K2sCli().Run(ctx, "addons", "disable", "registry", "-o")
 				suite.K2sCli().Run(ctx, "addons", "disable", "ingress-nginx", "-o")
 
-				status := suite.K2sCli().GetStatus(ctx)
-				enabledAddons := status.GetEnabledAddons()
+				enabledAddons, err := suite.AddonsInfo().GetEnabledAddons()
+				Expect(err).To(BeNil())
 				Expect(enabledAddons).To(BeEmpty())
 			})
 

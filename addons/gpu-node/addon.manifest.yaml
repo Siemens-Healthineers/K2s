@@ -11,7 +11,7 @@ spec:
   offline_usage:
     linux:
       repos:
-        - distribution=$(. /etc/os-release;echo $ID$VERSION_ID) && curl --retry 3 --retry-connrefused -fsSL https://nvidia.github.io/libnvidia-container/gpgkey -x __LOCAL_HTTP_PROXY__ | sudo gpg --dearmor --batch --yes -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg && curl --retry 3 --retry-connrefused -s -L https://nvidia.github.io/libnvidia-container/$distribution/libnvidia-container.list -x __LOCAL_HTTP_PROXY__ | sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
+        - distribution=$(. /etc/os-release;echo $ID$VERSION_ID) && curl --retry 3 --retry-all-errors -fsSL https://nvidia.github.io/libnvidia-container/gpgkey -x __LOCAL_HTTP_PROXY__ | sudo gpg --dearmor --batch --yes -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg && curl --retry 3 --retry-all-errors -s -L https://nvidia.github.io/libnvidia-container/$distribution/libnvidia-container.list -x __LOCAL_HTTP_PROXY__ | sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
       deb:
         - libnvidia-container1
         - libnvidia-container-tools

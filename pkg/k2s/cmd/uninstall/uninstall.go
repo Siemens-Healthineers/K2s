@@ -18,6 +18,7 @@ import (
 	c "k2s/config"
 	"k2s/setupinfo"
 	"k2s/utils"
+	"k2s/utils/psexecutor"
 )
 
 var (
@@ -49,7 +50,7 @@ func uninstallk8s(ccmd *cobra.Command, args []string) error {
 
 	klog.V(3).Infof("Uninstall command : %s", uninstallCmd)
 
-	duration, err := utils.ExecutePowershellScript(uninstallCmd)
+	duration, err := psexecutor.ExecutePowershellScript(uninstallCmd)
 	if err != nil {
 		return err
 	}

@@ -7,8 +7,6 @@ import (
 	"errors"
 	"fmt"
 
-	"k2s/addons"
-	"k2s/addons/print"
 	"k2s/cmd/status/load"
 	"k2s/setupinfo"
 
@@ -30,10 +28,6 @@ type PodStatusPrinter interface {
 
 type SetupInfoPrinter interface {
 	PrintSetupInfo(setupinfo.SetupInfo) (proceed bool, err error)
-}
-
-type AddonsPrinter interface {
-	PrintAddons(enabledAddons []string, addons []print.AddonPrintInfo) error
 }
 
 type TerminalPrinter interface {
@@ -58,7 +52,6 @@ type StatusPrinter struct {
 	runningStatePrinter   RunningStatePrinter
 	terminalPrinter       TerminalPrinter
 	setupInfoPrinter      SetupInfoPrinter
-	addonsPrinter         AddonsPrinter
 	nodeStatusPrinter     NodeStatusPrinter
 	podStatusPrinter      PodStatusPrinter
 	k8sVersionInfoPrinter K8sVersionInfoPrinter
@@ -167,10 +160,6 @@ func printStatusUserFriendly(showAdditionalInfo bool) error {
 	}
 	if !proceed {
 		return nil
-	}
-
-	if err := printer.addonsPrinter.PrintAddons(status.EnabledAddons, addons.AllAddons().ToPrintInfo()); err != nil {
-		return err
 	}
 
 	proceed, err = printer.runningStatePrinter.PrintRunningState(status.RunningState)
