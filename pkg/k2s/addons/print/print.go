@@ -68,7 +68,7 @@ func (p AddonsPrinter) PrintAddons(enabledAddonNames []string, addons []AddonPri
 }
 
 func (p AddonsJsonPrinter) PrintAddons(enabledAddonNames []string, disabledAddonNames []string) error {
-	addons := &json.Addons{EnabledAddons: enabledAddonNames, DisabledAddons: disabledAddonNames}
+	addons := &json.AddonsStatus{EnabledAddons: enabledAddonNames, DisabledAddons: disabledAddonNames}
 	return p.jsonPrinter.PrintJson(addons)
 }
 

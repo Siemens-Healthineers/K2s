@@ -51,16 +51,10 @@ func listAddons(cmd *cobra.Command, args []string) error {
 	}
 
 	if outputOption == jsonOption {
-		if err := printAddonsAsJson(); err != nil {
-			return err
-		}
-		return nil
+		return printAddonsAsJson()
 	}
 
-	if err := printAddonsUserFriendly(); err != nil {
-		return err
-	}
-	return nil
+	return printAddonsUserFriendly()
 }
 
 func printAddonsAsJson() error {
@@ -75,7 +69,7 @@ func printAddonsAsJson() error {
 		return a.Metadata.Name
 	})
 
-	disabledAddons := lo.Without[string](allAddonStrings, enabledAddons.Addons...)
+	disabledAddons := lo.Without(allAddonStrings, enabledAddons.Addons...)
 
 	return addonsJsonPrinter.PrintAddons(enabledAddons.Addons, disabledAddons)
 }

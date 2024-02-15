@@ -1,6 +1,6 @@
 package json
 
-type Addons struct {
+type AddonsStatus struct {
 	EnabledAddons  []string `json:"enabledAddons"`
 	DisabledAddons []string `json:"disabledAddons"`
 }
@@ -25,7 +25,7 @@ func NewJsonPrinter(terminalPrinter TerminalPrinter, jsonMarshaller JsonMarshall
 	}
 }
 
-func (jp JsonPrinter) PrintJson(addons *Addons) error {
+func (jp JsonPrinter) PrintJson(addons *AddonsStatus) error {
 	bytes, err := jp.jsonMarshaller.MarshalIndent(addons)
 	if err != nil {
 		return err
