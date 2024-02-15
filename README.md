@@ -45,7 +45,7 @@ See [Features](/doc/K8s_Features.md) for a full list of features.
 See also [Windows-based Images](./smallsetup/ps-modules/windows-support/README.md).
 
 #### It offers these variants in hosting the K8s workloads:
-1. **Host Variant**: here on the Windows host only one Virtual Machine is created and used as the Linux master and worker node.
+1. **Host Variant**: On the Windows host, a single virtual machine is exclusively utilized as the Linux master node, while the Windows host itself functions as the worker node.
 This variant is also the default, it offers very low memory consumption and efficiency. Memory usage starts at 4GB.
 <br>![Image](/doc/assets/VariantHost400.jpg)<br>
 
