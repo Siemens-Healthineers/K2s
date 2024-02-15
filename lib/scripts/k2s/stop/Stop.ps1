@@ -30,9 +30,13 @@ if ($SkipHeaderDisplay -ne $true) {
 }
 
 # reset default namespace
-Write-Log 'Reseting default namespace for kubernetes'
+
 $kubeToolsPath = Get-KubeToolsPath
-&"$kubeToolsPath\kubectl.exe" config set-context --current --namespace=default | Out-Null
+if (Test-Path "$kubeToolsPath\kubectl.exe") {
+    Write-Log 'Resetting default namespace for kubernetes'
+    &"$kubeToolsPath\kubectl.exe" config set-context --current --namespace=default | Out-Null
+}
+
 
 $ProgressPreference = 'SilentlyContinue'
 $WSL = Get-ConfigWslFlag
