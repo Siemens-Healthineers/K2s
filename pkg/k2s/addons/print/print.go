@@ -67,6 +67,11 @@ func (p AddonsPrinter) PrintAddons(enabledAddonNames []string, addons []AddonPri
 	return nil
 }
 
+func (p AddonsJsonPrinter) PrintAddons(enabledAddonNames []string, disabledAddonNames []string) error {
+	addons := &json.Addons{EnabledAddons: enabledAddonNames, DisabledAddons: disabledAddonNames}
+	return p.jsonPrinter.PrintJson(addons)
+}
+
 func (p AddonsPrinter) buildIndentedList(enabledAddonNames []string, addons []AddonPrintInfo) ([]string, error) {
 	enabledAddons := lo.Filter(addons, func(addon AddonPrintInfo, _ int) bool {
 		return lo.Contains(enabledAddonNames, addon.Name)

@@ -1,6 +1,9 @@
 package json
 
-import "k2s/cmd/status/load"
+type Addons struct {
+	EnabledAddons  []string `json:"enabledAddons"`
+	DisabledAddons []string `json:"disabledAddons"`
+}
 
 type TerminalPrinter interface {
 	Println(m ...any)
@@ -22,8 +25,8 @@ func NewJsonPrinter(terminalPrinter TerminalPrinter, jsonMarshaller JsonMarshall
 	}
 }
 
-func (jp JsonPrinter) PrintJson(status *load.Status) error {
-	bytes, err := jp.jsonMarshaller.MarshalIndent(status)
+func (jp JsonPrinter) PrintJson(addons *Addons) error {
+	bytes, err := jp.jsonMarshaller.MarshalIndent(addons)
 	if err != nil {
 		return err
 	}
