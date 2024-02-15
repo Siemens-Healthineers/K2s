@@ -300,6 +300,12 @@ function Invoke-AddonsHooks {
     if ($executionCount -eq 0) {
         Write-Log 'No addons hooks found.'
     }
+
+    if ($HookType -eq 'AfterUninstall') {
+        if (Test-Path $hooksDir) {
+            Remove-Item -Path "$hooksDir" -Force -Recurse -ErrorAction SilentlyContinue
+        }
+    }
 }
 
 <#
