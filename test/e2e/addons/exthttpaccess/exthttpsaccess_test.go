@@ -5,6 +5,8 @@
 package exthttpaccess
 
 import (
+	"os/exec"
+	"strings"
 	"context"
 	"encoding/json"
 	"k2s/addons/status"
@@ -24,6 +26,9 @@ func TestAddon(t *testing.T) {
 
 var _ = BeforeSuite(func(ctx context.Context) {
 	suite = framework.Setup(ctx, framework.SystemMustBeRunning, framework.EnsureAddonsAreDisabled)
+	pids, err := findNginxProcesses()
+	Expect(err).To(BeNil())
+	Expect(len(pids)).To(Equal(0))
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
@@ -42,6 +47,10 @@ var _ = Describe("'exthttpaccess' addon", Ordered, func() {
 			GinkgoWriter.Println("exthttpaccess seems not to be disabled, disabling now..")
 
 			suite.K2sCli().Run(ctx, "addons", "disable", "exthttpaccess")
+
+			pids, err := findNginxProcesses()
+			Expect(err).To(BeNil())
+			Expect(len(pids)).To(Equal(0))
 		}
 	})
 
@@ -55,6 +64,12 @@ var _ = Describe("'exthttpaccess' addon", Ordered, func() {
 
 			It("prints already-disabled message", func() {
 				Expect(output).To(ContainSubstring("already disabled"))
+			})
+
+			It("checks 'nginx.exe' is not running", func() {
+				pids, err := findNginxProcesses()
+				Expect(err).To(BeNil())
+				Expect(len(pids)).To(Equal(0))
 			})
 		})
 
@@ -71,6 +86,29 @@ var _ = Describe("'exthttpaccess' addon", Ordered, func() {
 
 			It("enables the addon", func() {
 				Expect(output).To(ContainSubstring("exthttpaccess enabled"))
+			})
+			It("checks 'nginx.exe' is running", func() {
+				pids, err := findNginxProcesses()
+				Expect(err).To(BeNil())
+				Expect(len(pids)).To(BeNumerically(">", 0))
+			})
+			It("checks 'nginx.exe' is listening on ports", func() {
+	    		var err error
+				pids, _ := findNginxProcesses()
+				listeningPids, err := findListeningProcesses()
+				Expect(err).To(BeNil())
+				Expect(len(listeningPids)).To(BeNumerically(">", 0))
+				isNginxListeningOnPorts := func() bool {
+					for _, listeningPid := range listeningPids {
+						for _, pid := range pids {
+							if pid == listeningPid {
+								return true
+							}
+						}
+					}
+					return false
+				}
+				Expect(isNginxListeningOnPorts()).To(BeTrue())
 			})
 		})
 	})
@@ -110,3 +148,80 @@ var _ = Describe("'exthttpaccess' addon", Ordered, func() {
 		})
 	})
 })
+
+func findNginxProcesses() ([]string, error) {
+	p := "nginx.exe"
+	pids := make([]string, 0)
+
+	cmd, b := exec.Command("tasklist.exe", "/fo", "csv", "/nh"), new(strings.Builder)
+	cmd.Stdout = b
+	cmd.Stderr = b
+	err := cmd.Run()
+
+	if err != nil {
+		return nil, err
+	}
+
+	output := b.String()
+	lines := strings.Split(output, "\n")
+	
+	for _, line := range lines {
+		if strings.Contains(line, p) {
+			fields := strings.Split(line, ",")
+			pid := strings.Replace(fields[1], "\"", "", -1)
+			pids = append(pids, pid)
+		}
+	}
+
+	return pids, nil
+}
+
+func findListeningProcesses() ([]string, error) {
+
+	type ports struct {
+		HTTP string
+		HTTPS string
+		AlternativeHTTP string
+		AlternativeHTTPS string
+	}
+	p := ports{HTTP: "80", HTTPS: "443", AlternativeHTTP: "8080", AlternativeHTTPS: "8443"}
+	pids := make([]string, 0)
+
+	cmd, b := exec.Command("netstat", "-ano"), new(strings.Builder)
+	cmd.Stdout = b
+	cmd.Stderr = b
+	err := cmd.Run()
+
+	if err != nil {
+		return nil, err
+	}
+
+	output := b.String()
+	lines := strings.Split(output, "\n")
+	
+	added := make(map[string]bool)
+
+	var arePortsUsed = func (text string, p ports) bool {
+		var format = func(port string) string {
+			return ":" + port
+		}
+		return strings.Contains(text, "LISTENING") && 
+				(strings.Contains(text, format(p.HTTP)) || 
+				strings.Contains(text, format(p.HTTPS)) || 
+				strings.Contains(text, format(p.AlternativeHTTP)) || 
+				strings.Contains(text, format(p.AlternativeHTTPS)))
+	}
+
+	for _, line := range lines {
+		if arePortsUsed(line, p) {
+			fields := strings.Split(line, " ")
+			pid := strings.Replace(fields[len(fields)-1], "\r", "", -1)
+			if !added[pid] {
+				pids = append(pids, pid)
+				added[pid] = true
+			}
+		}
+	}
+
+	return pids, nil
+}
