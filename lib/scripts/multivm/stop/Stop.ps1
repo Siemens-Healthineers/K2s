@@ -58,9 +58,11 @@ $multiVMWindowsVMName = Get-ConfigVMNodeHostname
 
 function Reset-K8sNamespace {
     # reset default namespace
-    Write-Log 'Resetting default namespace for Kubernetes ...'
     $kubeToolsPath = Get-KubeToolsPath
-    &"$kubeToolsPath\kubectl.exe" config set-context --current --namespace=default | Out-Null
+    if (Test-Path "$kubeToolsPath\kubectl.exe") {
+        Write-Log 'Resetting default namespace for Kubernetes ...'
+        &"$kubeToolsPath\kubectl.exe" config set-context --current --namespace=default | Out-Null
+    }
 }
 
 function Start-WindowsNodeCleanup($session) {

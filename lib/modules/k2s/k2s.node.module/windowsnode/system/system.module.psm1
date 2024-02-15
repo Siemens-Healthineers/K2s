@@ -236,11 +236,11 @@ function Invoke-DownloadFile($destination, $source, $forceDownload,
     }
     if ( $ProxyToUse -ne '' ) {
         Write-Log "Downloading '$source' to '$destination' with proxy: $ProxyToUse"
-        curl.exe --retry 5 --retry-connrefused --retry-delay 60 --silent --disable --fail -Lo $destination $source --proxy $ProxyToUse --ssl-no-revoke -k #ignore server certificate error for cloudbase.it
+        curl.exe --retry 5 --connect-timeout 60 --retry-all-errors --retry-delay 60 --silent --disable --fail -Lo $destination $source --proxy $ProxyToUse --ssl-no-revoke -k #ignore server certificate error for cloudbase.it
     }
     else {
         Write-Log "Downloading '$source' to '$destination' (no proxy)"
-        curl.exe --retry 5 --retry-connrefused --retry-delay 60 --silent --disable --fail -Lo $destination $source --ssl-no-revoke --noproxy '*'
+        curl.exe --retry 5 --connect-timeout 60 --retry-all-errors --retry-delay 60 --silent --disable --fail -Lo $destination $source --ssl-no-revoke --noproxy '*'
     }
 
     if (!$?) {
