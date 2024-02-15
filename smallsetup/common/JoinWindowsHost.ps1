@@ -29,12 +29,20 @@ Import-Module "$PSScriptRoot/../ps-modules/log/log.module.psm1"
 $nodefound = &$global:KubectlExe get nodes | Select-String -Pattern $env:COMPUTERNAME -SimpleMatch
 if ( !($nodefound) ) {
 
+    # copy kubeadmin to c:
+    $tempKubeadmDirectory = $global:SystemDriveLetter + ":\k"
+    $bPathAvailable = Test-Path -Path $tempKubeadmDirectory
+    if( !$bPathAvailable ) { mkdir -Force $tempKubeadmDirectory  | Out-Null }
+    Copy-Item -Path "$global:KubernetesPath\bin\exe\kubeadm.exe" -Destination $tempKubeadmDirectory -Force
+
     Write-Log "Add kubeadm to firewall rules"
+    New-NetFirewallRule -DisplayName 'Allow temp Kubeadm' -Group 'k2s' -Direction Inbound -Action Allow -Program "$tempKubeadmDirectory\kubeadm.exe" -Enabled True | Out-Null
+    #Below rule is not neccessary but adding in case we perform subsequent operations.
     New-NetFirewallRule -DisplayName "Allow Kubeadm" -Group "k2s" -Direction Inbound -Action Allow -Program "$global:KubernetesPath\bin\exe\kubeadm.exe" -Enabled True | Out-Null
 
     Write-Log "Host $env:COMPUTERNAME not yet available as worker node."
 
-    & "$global:KubernetesPath/bin/exe/kubeadm.exe" reset -f 3>&1 2>&1 | Write-Log
+    & "$tempKubeadmDirectory\kubeadm.exe" reset -f 3>&1 2>&1 | Write-Log
     Get-ChildItem -Path $global:KubeletConfigDir -Force -Recurse -Attributes Reparsepoint -ErrorAction 'silentlycontinue' | % { $n = $_.FullName.Trim('\'); fsutil reparsepoint delete "$n" }
     Remove-Item -Path "$global:KubeletConfigDir\etc" -Force -Recurse -ErrorAction SilentlyContinue
     New-Item -Path "$global:KubeletConfigDir\etc" -ItemType SymbolicLink -Value "$($global:SystemDriveLetter):\etc" | Out-Null
@@ -71,14 +79,8 @@ if ( !($nodefound) ) {
 
     Write-Log $joinCommand
 
-    # copy kubeadmin to c: 
-    $tempDirectory = $global:SystemDriveLetter + ":\k"
-    $bPathAvailable = Test-Path -Path $tempDirectory
-    if( !$bPathAvailable ) { mkdir -Force $tempDirectory  | Out-Null }  
-    Copy-Item -Path "$kubePath\bin\exe\kubeadm.exe" -Destination $tempDirectory -Force
-
     $job = Invoke-Expression "Start-Job -ScriptBlock { &`"$global:KubernetesPath\smallsetup\common\WaitForJoin.ps1`" }"
-    cd $tempDirectory
+    cd $tempKubeadmDirectory
     Invoke-Expression $joinCommand 2>&1 | Write-Log
     cd ..\..
 
@@ -86,9 +88,9 @@ if ( !($nodefound) ) {
     Receive-Job $job
     $job | Stop-Job
 
-    # delete path if was created
-    Remove-Item -Path $tempDirectory\kubeadm.exe
-    if( !$bPathAvailable ) { Remove-Item -Path $tempDirectory }
+    # delete temporary kubeadm path if it was created
+    Remove-Item -Path $tempKubeadmDirectory\kubeadm.exe
+    if( !$bPathAvailable ) { Remove-Item -Path $tempKubeadmDirectory }
 
     # check success in joining
     $nodefound = &$global:KubectlExe get nodes | Select-String -Pattern $env:COMPUTERNAME -SimpleMatch
