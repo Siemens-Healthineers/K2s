@@ -163,13 +163,13 @@ function Get-PushedContainerImages() {
         return
     }
 
-    $catalog = $(curl.exe --retry 3 --retry-connrefused -X GET http://$registryName/v2/_catalog -H "Authorization: Basic $auth") 2> $null | Out-String | ConvertFrom-Json
+    $catalog = $(curl.exe --retry 3 --retry-all-errors -X GET http://$registryName/v2/_catalog -H "Authorization: Basic $auth") 2> $null | Out-String | ConvertFrom-Json
 
     $images = $catalog.psobject.properties['repositories'].value
 
     $pushedContainerImages = @()
     foreach ($image in $images) {
-        $imageWithTags = curl.exe --retry 3 --retry-connrefused -X GET http://$registryName/v2/$image/tags/list -H "Authorization: Basic $auth" 2> $null | Out-String | ConvertFrom-Json
+        $imageWithTags = curl.exe --retry 3 --retry-all-errors -X GET http://$registryName/v2/$image/tags/list -H "Authorization: Basic $auth" 2> $null | Out-String | ConvertFrom-Json
         $tags = $imageWithTags.psobject.properties['tags'].value
 
         foreach ($tag in $tags) {
