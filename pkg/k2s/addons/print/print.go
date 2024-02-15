@@ -5,6 +5,9 @@ package print
 
 import (
 	"fmt"
+	"k2s/addons/print/json"
+	"k2s/providers/marshalling"
+	"k2s/providers/terminal"
 	t "k2s/providers/terminal/defs"
 	"strings"
 
@@ -22,6 +25,11 @@ type AddonsPrinter struct {
 	terminalPrinter TerminalPrinter
 }
 
+type AddonsJsonPrinter struct {
+	terminalPrinter TerminalPrinter
+	jsonPrinter     json.JsonPrinter
+}
+
 type AddonPrintInfo struct {
 	Name        string
 	Description string
@@ -32,6 +40,16 @@ const separator = "$---$"
 func NewAddonsPrinter(terminalPrinter TerminalPrinter) AddonsPrinter {
 	return AddonsPrinter{
 		terminalPrinter: terminalPrinter,
+	}
+}
+
+func NewAddonsJsonPrinter() AddonsJsonPrinter {
+	terminalPrinter := terminal.NewTerminalPrinter()
+	jsonMarshaller := marshalling.NewJsonMarshaller()
+
+	return AddonsJsonPrinter{
+		terminalPrinter: terminalPrinter,
+		jsonPrinter:     json.NewJsonPrinter(terminalPrinter, jsonMarshaller),
 	}
 }
 
