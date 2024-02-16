@@ -19,7 +19,7 @@ type K2sStatus struct {
 func (r *K2sCliRunner) GetStatus(ctx context.Context) *K2sStatus {
 	output := r.Run(ctx, "status", "-o", "json")
 
-	status := unmarshalStatus(output)
+	status := unmarshalStatus[load.Status](output)
 
 	return &K2sStatus{
 		internal: status,
@@ -30,8 +30,8 @@ func (status K2sStatus) IsClusterRunning() bool {
 	return status.internal.RunningState.IsRunning
 }
 
-func unmarshalStatus(statusJson string) *load.Status {
-	var status load.Status
+func unmarshalStatus[T any](statusJson string) *T {
+	var status T
 
 	err := json.Unmarshal([]byte(statusJson), &status)
 
