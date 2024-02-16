@@ -5,9 +5,7 @@ package print
 
 import (
 	"fmt"
-	"k2s/addons/print/json"
 	"k2s/providers/marshalling"
-	"k2s/providers/terminal"
 	t "k2s/providers/terminal/defs"
 	"strings"
 
@@ -25,14 +23,14 @@ type AddonsPrinter struct {
 	terminalPrinter TerminalPrinter
 }
 
-type AddonsJsonPrinter struct {
-	terminalPrinter TerminalPrinter
-	jsonPrinter     json.JsonPrinter
-}
-
 type AddonPrintInfo struct {
 	Name        string
 	Description string
+}
+
+type AddonsStatus struct {
+	EnabledAddons  []AddonPrintInfo `json:"enabledAddons"`
+	DisabledAddons []AddonPrintInfo `json:"disabledAddons"`
 }
 
 const separator = "$---$"
@@ -40,16 +38,6 @@ const separator = "$---$"
 func NewAddonsPrinter(terminalPrinter TerminalPrinter) AddonsPrinter {
 	return AddonsPrinter{
 		terminalPrinter: terminalPrinter,
-	}
-}
-
-func NewAddonsJsonPrinter() AddonsJsonPrinter {
-	terminalPrinter := terminal.NewTerminalPrinter()
-	jsonMarshaller := marshalling.NewJsonMarshaller()
-
-	return AddonsJsonPrinter{
-		terminalPrinter: terminalPrinter,
-		jsonPrinter:     json.NewJsonPrinter(terminalPrinter, jsonMarshaller),
 	}
 }
 
@@ -67,9 +55,29 @@ func (p AddonsPrinter) PrintAddons(enabledAddonNames []string, addons []AddonPri
 	return nil
 }
 
-func (p AddonsJsonPrinter) PrintAddons(enabledAddonNames []string, disabledAddonNames []string) error {
-	addons := &json.AddonsStatus{EnabledAddons: enabledAddonNames, DisabledAddons: disabledAddonNames}
-	return p.jsonPrinter.PrintJson(addons)
+func (p AddonsPrinter) PrintAddonsAsJson(enabledAddonNames []string, addons []AddonPrintInfo) error {
+	var enabledAddons []AddonPrintInfo
+	var disabledAddons []AddonPrintInfo
+
+	for _, a := range addons {
+		if lo.Contains(enabledAddonNames, a.Name) {
+			enabledAddons = append(enabledAddons, AddonPrintInfo{Name: a.Name, Description: a.Description})
+		} else {
+			disabledAddons = append(disabledAddons, AddonPrintInfo{Name: a.Name, Description: a.Description})
+		}
+	}
+
+	addonsStatus := &AddonsStatus{EnabledAddons: enabledAddons, DisabledAddons: disabledAddons}
+
+	jsonMarshaller := marshalling.NewJsonMarshaller()
+	bytes, err := jsonMarshaller.MarshalIndent(addonsStatus)
+	if err != nil {
+		return fmt.Errorf("error happened during list images: %w", err)
+	}
+
+	p.terminalPrinter.Println(string(bytes))
+
+	return nil
 }
 
 func (p AddonsPrinter) buildIndentedList(enabledAddonNames []string, addons []AddonPrintInfo) ([]string, error) {

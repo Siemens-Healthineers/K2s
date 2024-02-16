@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/samber/lo"
 	cobra "github.com/spf13/cobra"
 	"k8s.io/klog/v2"
 
@@ -58,20 +57,19 @@ func listAddons(cmd *cobra.Command, args []string) error {
 }
 
 func printAddonsAsJson() error {
-	addonsJsonPrinter := print.NewAddonsJsonPrinter()
+	terminalPrinter := terminal.NewTerminalPrinter()
+	addonsPrinter := print.NewAddonsPrinter(terminalPrinter)
 
 	enabledAddons, err := addons.LoadEnabledAddons()
 	if err != nil {
 		return err
 	}
 
-	allAddonStrings := lo.Map(addons.AllAddons(), func(a addons.Addon, _ int) string {
-		return a.Metadata.Name
-	})
+	if err := addonsPrinter.PrintAddonsAsJson(enabledAddons.Addons, addons.AllAddons().ToPrintInfo()); err != nil {
+		return fmt.Errorf("addons could not be printed: %w", err)
+	}
 
-	disabledAddons := lo.Without(allAddonStrings, enabledAddons.Addons...)
-
-	return addonsJsonPrinter.PrintAddons(enabledAddons.Addons, disabledAddons)
+	return nil
 }
 
 func printAddonsUserFriendly() error {
