@@ -62,9 +62,8 @@ var _ = Describe("build container image", Ordered, func() {
 				suite.K2sCli().Run(ctx, "addons", "disable", "registry", "-o")
 				suite.K2sCli().Run(ctx, "addons", "disable", "ingress-nginx", "-o")
 
-				enabledAddons, err := suite.AddonsInfo().GetEnabledAddons()
-				Expect(err).To(BeNil())
-				Expect(enabledAddons).To(BeEmpty())
+				addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
+				Expect(addonsStatus.GetEnabledAddons()).To(BeEmpty())
 			})
 
 			It("local container registry is configured", func(ctx context.Context) {

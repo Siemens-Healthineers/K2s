@@ -4,7 +4,9 @@
 package print
 
 import (
+	"encoding/json"
 	"errors"
+	"fmt"
 	ct "k2s/providers/terminal/defs"
 	"testing"
 
@@ -40,7 +42,7 @@ const (
 )
 
 func (t *testTerminalPrinter) Println(m ...any) {
-	t.log = append(t.log, logEntry{logType: newlineLogType})
+	t.log = append(t.log, logEntry{logType: newlineLogType, value: fmt.Sprintf("%s", m...)})
 }
 
 func (t *testTerminalPrinter) SPrintTable(separator string, table [][]string) (string, error) {
@@ -87,11 +89,35 @@ var _ = Describe("print", func() {
 		})
 
 		When("successful", func() {
-			It("returns nil", func() {
+			It("returns nil for printing addons", func() {
 				printer := &testTerminalPrinter{spinner: &testSpinner{}}
 				sut := NewAddonsPrinter(printer)
 
 				Expect(sut.PrintAddons([]string{}, []AddonPrintInfo{})).To(Succeed())
+			})
+
+			It("returns json string when printing addons as json", func() {
+				printer := &testTerminalPrinter{}
+				sut := NewAddonsPrinter(printer)
+
+				Expect(sut.PrintAddonsAsJson([]string{"dashboard", "traefik"}, []AddonPrintInfo{
+					{Name: "dashboard"},
+					{Name: "traefik"},
+					{Name: "gpu-node"}})).To(Succeed())
+
+				Expect(printer.log).To(HaveLen(1))
+				statusJson := printer.log[0].value.(string)
+
+				var addonsStatus *AddonsStatus
+				err := json.Unmarshal([]byte(statusJson), &addonsStatus)
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(addonsStatus.EnabledAddons).To(HaveLen(2))
+				Expect(addonsStatus.EnabledAddons[0].Name).To(Equal("dashboard"))
+				Expect(addonsStatus.EnabledAddons[1].Name).To(Equal("traefik"))
+
+				Expect(addonsStatus.DisabledAddons).To(HaveLen(1))
+				Expect(addonsStatus.DisabledAddons[0].Name).To(Equal("gpu-node"))
 			})
 
 			It("prints leveled list", func() {

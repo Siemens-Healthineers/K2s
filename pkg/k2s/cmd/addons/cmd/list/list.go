@@ -20,21 +20,59 @@ type Spinner interface {
 }
 
 const (
-	Enabled  = "Enabled"
-	Disabled = "Disabled"
+	Enabled        = "Enabled"
+	Disabled       = "Disabled"
+	outputFlagName = "output"
+	jsonOption     = "json"
 )
 
-func NewCommand(allAddons addons.Addons) *cobra.Command {
-	return &cobra.Command{
-		Use:   "ls",
-		Short: "List addons available for K2s",
-		RunE:  func(cmd *cobra.Command, args []string) error { return listAddons(allAddons) },
-	}
+var ListCmd = &cobra.Command{
+	Use:   "ls",
+	Short: "List addons available for K2s",
+	RunE:  listAddons,
 }
 
-func listAddons(allAddons addons.Addons) error {
-	klog.V(3).Info("Listing addons..")
+func init() {
+	ListCmd.Flags().StringP(outputFlagName, "o", "", "Output format modifier. Currently supported: 'json' for output as JSON structure")
+	ListCmd.Flags().SortFlags = false
+	ListCmd.Flags().PrintDefaults()
+}
 
+func listAddons(cmd *cobra.Command, args []string) error {
+	klog.V(3).Info("Listing addons..")
+	outputOption, err := cmd.Flags().GetString(outputFlagName)
+	if err != nil {
+		return err
+	}
+
+	if outputOption != "" && outputOption != jsonOption {
+		return fmt.Errorf("parameter '%s' not supported for flag 'o'", outputOption)
+	}
+
+	if outputOption == jsonOption {
+		return printAddonsAsJson()
+	}
+
+	return printAddonsUserFriendly()
+}
+
+func printAddonsAsJson() error {
+	terminalPrinter := terminal.NewTerminalPrinter()
+	addonsPrinter := print.NewAddonsPrinter(terminalPrinter)
+
+	enabledAddons, err := addons.LoadEnabledAddons()
+	if err != nil {
+		return err
+	}
+
+	if err := addonsPrinter.PrintAddonsAsJson(enabledAddons.Addons, addons.AllAddons().ToPrintInfo()); err != nil {
+		return fmt.Errorf("addons could not be printed: %w", err)
+	}
+
+	return nil
+}
+
+func printAddonsUserFriendly() error {
 	terminalPrinter := terminal.NewTerminalPrinter()
 	addonsPrinter := print.NewAddonsPrinter(terminalPrinter)
 
