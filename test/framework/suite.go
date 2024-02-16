@@ -183,7 +183,7 @@ func (s *K2sTestSuite) SetupInfo() *k2s.SetupInfo {
 	return s.setupInfo
 }
 
-func (s *K2sTestSuite) AddonsInfo() *k2s.AddonsAdditionalInfo {
+func (s *K2sTestSuite) AddonsAdditionalInfo() *k2s.AddonsAdditionalInfo {
 	return s.addonsAdditionalInfo
 }
 
