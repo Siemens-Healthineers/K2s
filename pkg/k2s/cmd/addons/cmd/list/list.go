@@ -26,16 +26,18 @@ const (
 	jsonOption     = "json"
 )
 
-var ListCmd = &cobra.Command{
-	Use:   "ls",
-	Short: "List addons available for K2s",
-	RunE:  listAddons,
-}
+func NewCommand() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "ls",
+		Short: "List addons available for K2s",
+		RunE:  listAddons,
+	}
 
-func init() {
-	ListCmd.Flags().StringP(outputFlagName, "o", "", "Output format modifier. Currently supported: 'json' for output as JSON structure")
-	ListCmd.Flags().SortFlags = false
-	ListCmd.Flags().PrintDefaults()
+	cmd.Flags().StringP(outputFlagName, "o", "", "Output format modifier. Currently supported: 'json' for output as JSON structure")
+	cmd.Flags().SortFlags = false
+	cmd.Flags().PrintDefaults()
+
+	return cmd
 }
 
 func listAddons(cmd *cobra.Command, args []string) error {
