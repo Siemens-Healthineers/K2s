@@ -274,7 +274,7 @@ Although, this is just a hack to continue working, we should allow windows conta
 ## Problem
 Hyper-V Manager unable to connect to Virtual Machine Management service on host machine.
 
-Error: "Hyper-V encountered an error trying to access an object on computer ‘localhost’ because the object was not found. The object might have been deleted. Verify that the Virtual Machine Management service on the computer is running. If the service is running, try to perform the task again by using Run as Administrator."
+Error: `Hyper-V encountered an error trying to access an object on computer ‘localhost’ because the object was not found. The object might have been deleted. Verify that the Virtual Machine Management service on the computer is running. If the service is running, try to perform the task again by using Run as Administrator.`
 
 ### How to check if the error persists:
 
@@ -287,3 +287,19 @@ This is due to a prior uninstall which has deleted a MOF which is required for H
 
 `MOFCOMP %SYSTEMROOT%\System32\WindowsVirtualization.V2.mof`
 
+# Unable to run Windows containers on host machine
+## Problem
+Windows containers are unable to run due to failure in hcs::CreateComputeSystem.
+
+Error from Windows container image pod: `Failed to create pod sandbox: rpc error: code = Unknown desc = failed to create containerd task: failed to create shim task: hcs::CreateComputeSystem 9f078e725c4f6b36dc2647d6323bc214da46fa24ba88d3d5652bc687993c27ed: The request is not supported.: unknown`
+
+General error: `Error response from daemon: hcsshim::CreateComputeSystem 70b6cf806eef813a8a93b40780c32e43f5406f0cbec10b922d3bd35ecc677b6c: The request is not supported.`
+
+## Solution
+    1. PS> k2s stop
+    2. PS> Disable-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-V-All
+    3. Restart host machine
+    4. PS> Enable-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-V-All
+    5. Restart host machine
+    6. PS> k2s start 
+    7. Redeploy Windows containers.
