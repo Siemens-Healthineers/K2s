@@ -61,9 +61,9 @@ func (p AddonsPrinter) PrintAddonsAsJson(enabledAddonNames []string, addons []Ad
 
 	for _, a := range addons {
 		if lo.Contains(enabledAddonNames, a.Name) {
-			enabledAddons = append(enabledAddons, AddonPrintInfo{Name: a.Name, Description: a.Description})
+			enabledAddons = append(enabledAddons, a)
 		} else {
-			disabledAddons = append(disabledAddons, AddonPrintInfo{Name: a.Name, Description: a.Description})
+			disabledAddons = append(disabledAddons, a)
 		}
 	}
 
