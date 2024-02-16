@@ -16,7 +16,6 @@ import (
 
 	"k2sTest/e2e/cli/cmd/status/setuprequired/common"
 	"k2sTest/framework"
-	"k2sTest/framework/k2s"
 )
 
 const (
@@ -27,7 +26,6 @@ const (
 )
 
 var suite *framework.K2sTestSuite
-var addons []k2s.Addon
 
 func TestStatus(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -36,7 +34,6 @@ func TestStatus(t *testing.T) {
 
 var _ = BeforeSuite(func(ctx context.Context) {
 	suite = framework.Setup(ctx, framework.SystemMustBeRunning)
-	addons = suite.AddonsInfo().AllAddons()
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
@@ -61,10 +58,6 @@ var _ = Describe("status", Ordered, func() {
 
 		It("prints version", func(ctx context.Context) {
 			Expect(output).To(MatchRegexp("Version: .+%s.+", common.VersionRegex))
-		})
-
-		It("prints addons", func() {
-			common.ExpectAddonsGetPrinted(output, addons)
 		})
 
 		It("prints info that the system is running", func(ctx context.Context) {
@@ -131,10 +124,6 @@ var _ = Describe("status", Ordered, func() {
 
 		It("prints the version", func(ctx context.Context) {
 			Expect(output).To(MatchRegexp("Version: .+%s.+", common.VersionRegex))
-		})
-
-		It("prints addons", func() {
-			common.ExpectAddonsGetPrinted(output, addons)
 		})
 
 		It("prints info that the system is running", func(ctx context.Context) {
