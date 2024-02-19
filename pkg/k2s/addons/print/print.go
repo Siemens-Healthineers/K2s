@@ -5,6 +5,7 @@ package print
 
 import (
 	"fmt"
+	"k2s/providers/marshalling"
 	t "k2s/providers/terminal/defs"
 	"strings"
 
@@ -27,6 +28,11 @@ type AddonPrintInfo struct {
 	Description string
 }
 
+type AddonsStatus struct {
+	EnabledAddons  []AddonPrintInfo `json:"enabledAddons"`
+	DisabledAddons []AddonPrintInfo `json:"disabledAddons"`
+}
+
 const separator = "$---$"
 
 func NewAddonsPrinter(terminalPrinter TerminalPrinter) AddonsPrinter {
@@ -45,6 +51,31 @@ func (p AddonsPrinter) PrintAddons(enabledAddonNames []string, addons []AddonPri
 	leveledList := buildLeveledList(indentedList)
 
 	p.terminalPrinter.PrintLeveledTreeListItems("Addons", leveledList)
+
+	return nil
+}
+
+func (p AddonsPrinter) PrintAddonsAsJson(enabledAddonNames []string, addons []AddonPrintInfo) error {
+	var enabledAddons []AddonPrintInfo
+	var disabledAddons []AddonPrintInfo
+
+	for _, a := range addons {
+		if lo.Contains(enabledAddonNames, a.Name) {
+			enabledAddons = append(enabledAddons, a)
+		} else {
+			disabledAddons = append(disabledAddons, a)
+		}
+	}
+
+	addonsStatus := &AddonsStatus{EnabledAddons: enabledAddons, DisabledAddons: disabledAddons}
+
+	jsonMarshaller := marshalling.NewJsonMarshaller()
+	bytes, err := jsonMarshaller.MarshalIndent(addonsStatus)
+	if err != nil {
+		return fmt.Errorf("error happened during list images: %w", err)
+	}
+
+	p.terminalPrinter.Println(string(bytes))
 
 	return nil
 }

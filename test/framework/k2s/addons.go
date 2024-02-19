@@ -3,8 +3,9 @@
 package k2s
 
 import (
+	"context"
 	"io/fs"
-	"k2s/addons"
+	"k2s/addons/print"
 	sos "k2sTest/framework/os"
 	"log"
 	"os"
@@ -61,16 +62,44 @@ type CurlPackages struct {
 	Destination string `yaml:"destination"`
 }
 
-type AddonsInfo struct {
+type AddonsStatus struct {
+	internal *print.AddonsStatus
 }
 
-func NewAddonsInfo() *AddonsInfo {
-	return &AddonsInfo{}
+type AddonsAdditionalInfo struct {
+}
+
+// wrapper around k2s.exe to retrieve and parse the cluster status
+func (r *K2sCliRunner) GetAddonsStatus(ctx context.Context) *AddonsStatus {
+	output := r.Run(ctx, "addons", "ls", "-o", "json")
+
+	status := unmarshalStatus[print.AddonsStatus](output)
+
+	return &AddonsStatus{
+		internal: status,
+	}
+}
+
+func (addonsStatus *AddonsStatus) IsAddonEnabled(addonName string) bool {
+	enabledAddons := lo.Map(addonsStatus.internal.EnabledAddons, func(info print.AddonPrintInfo, _ int) string {
+		return info.Name
+	})
+	return lo.Contains(enabledAddons, addonName)
+}
+
+func (addonsStatus *AddonsStatus) GetEnabledAddons() []string {
+	return lo.Map(addonsStatus.internal.EnabledAddons, func(info print.AddonPrintInfo, _ int) string {
+		return info.Name
+	})
 }
 
 const manifestFileName = "addon.manifest.yaml"
 
-func (info *AddonsInfo) AllAddons() []Addon {
+func NewAddonsAdditionalInfo() *AddonsAdditionalInfo {
+	return &AddonsAdditionalInfo{}
+}
+
+func (info *AddonsAdditionalInfo) AllAddons() []Addon {
 	rootDir, err := sos.RootDir()
 	Expect(err).To(BeNil())
 
@@ -117,7 +146,7 @@ func (info *AddonsInfo) AllAddons() []Addon {
 	return addons
 }
 
-func (info *AddonsInfo) GetImagesForAddon(addon Addon) ([]string, error) {
+func (info *AddonsAdditionalInfo) GetImagesForAddon(addon Addon) ([]string, error) {
 	yamlFiles, err := sos.GetFilesMatch(addon.Directory.Path, "*.yaml")
 	if err != nil {
 		return nil, err
@@ -167,22 +196,4 @@ func (info *AddonsInfo) GetImagesForAddon(addon Addon) ([]string, error) {
 	}
 
 	return lo.Union(images), nil
-}
-
-func (info *AddonsInfo) GetEnabledAddons() ([]string, error) {
-	enabledAddons, err := addons.LoadEnabledAddons()
-	if err != nil {
-		return nil, err
-	}
-
-	return enabledAddons.Addons, nil
-}
-
-func (info *AddonsInfo) IsAddonEnabled(addonName string) (bool, error) {
-	enabledAddons, err := addons.LoadEnabledAddons()
-	if err != nil {
-		return false, err
-	}
-
-	return lo.Contains(enabledAddons.Addons, addonName), nil
 }

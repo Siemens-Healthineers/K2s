@@ -14,9 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 
-	"k2sTest/e2e/cli/cmd/status/setuprequired/common"
 	"k2sTest/framework"
-	"k2sTest/framework/k2s"
 )
 
 const (
@@ -24,10 +22,10 @@ const (
 	ageRegex       = `(\d\D)+`
 	osRegex        = "((w)|(W)indows)|((l)|(L)inux)"
 	runtimeRegex   = "(cri-o|containerd)"
+	versionRegex   = `v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)`
 )
 
 var suite *framework.K2sTestSuite
-var addons []k2s.Addon
 
 func TestStatus(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -36,7 +34,6 @@ func TestStatus(t *testing.T) {
 
 var _ = BeforeSuite(func(ctx context.Context) {
 	suite = framework.Setup(ctx, framework.SystemMustBeRunning)
-	addons = suite.AddonsInfo().AllAddons()
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
@@ -60,11 +57,7 @@ var _ = Describe("status", Ordered, func() {
 		})
 
 		It("prints version", func(ctx context.Context) {
-			Expect(output).To(MatchRegexp("Version: .+%s.+", common.VersionRegex))
-		})
-
-		It("prints addons", func() {
-			common.ExpectAddonsGetPrinted(output, addons)
+			Expect(output).To(MatchRegexp("Version: .+%s.+", versionRegex))
 		})
 
 		It("prints info that the system is running", func(ctx context.Context) {
@@ -72,21 +65,21 @@ var _ = Describe("status", Ordered, func() {
 		})
 
 		It("prints K8s server version", func(ctx context.Context) {
-			Expect(output).To(MatchRegexp("K8s server version: .+%s.+", common.VersionRegex))
+			Expect(output).To(MatchRegexp("K8s server version: .+%s.+", versionRegex))
 		})
 
 		It("prints K8s client version", func(ctx context.Context) {
-			Expect(output).To(MatchRegexp("K8s client version: .+%s.+", common.VersionRegex))
+			Expect(output).To(MatchRegexp("K8s client version: .+%s.+", versionRegex))
 		})
 
 		It("prints short node info", func(ctx context.Context) {
 			matchers := []types.GomegaMatcher{
 				MatchRegexp(`STATUS.+\|.+NAME.+\|.+ROLE.+\|.+AGE.+\|.+VERSION`),
-				MatchRegexp("Ready.+\\|.+%s.+\\|.+control-plane.+\\|.+%s.+\\|.+%s", suite.SetupInfo().ControlPlaneNodeHostname, ageRegex, common.VersionRegex),
+				MatchRegexp("Ready.+\\|.+%s.+\\|.+control-plane.+\\|.+%s.+\\|.+%s", suite.SetupInfo().ControlPlaneNodeHostname, ageRegex, versionRegex),
 			}
 
 			if !suite.SetupInfo().LinuxOnly {
-				matchers = append(matchers, MatchRegexp("Ready.+\\|.+%s.+\\|.+worker.+\\|.+%s.+\\|.+%s", suite.SetupInfo().WinNodeName, ageRegex, common.VersionRegex))
+				matchers = append(matchers, MatchRegexp("Ready.+\\|.+%s.+\\|.+worker.+\\|.+%s.+\\|.+%s", suite.SetupInfo().WinNodeName, ageRegex, versionRegex))
 			}
 
 			Expect(output).To(SatisfyAll(matchers...))
@@ -130,11 +123,7 @@ var _ = Describe("status", Ordered, func() {
 		})
 
 		It("prints the version", func(ctx context.Context) {
-			Expect(output).To(MatchRegexp("Version: .+%s.+", common.VersionRegex))
-		})
-
-		It("prints addons", func() {
-			common.ExpectAddonsGetPrinted(output, addons)
+			Expect(output).To(MatchRegexp("Version: .+%s.+", versionRegex))
 		})
 
 		It("prints info that the system is running", func(ctx context.Context) {
@@ -142,21 +131,21 @@ var _ = Describe("status", Ordered, func() {
 		})
 
 		It("prints K8s server version", func(ctx context.Context) {
-			Expect(output).To(MatchRegexp("K8s server version: .+%s.+", common.VersionRegex))
+			Expect(output).To(MatchRegexp("K8s server version: .+%s.+", versionRegex))
 		})
 
 		It("prints K8s client version", func(ctx context.Context) {
-			Expect(output).To(MatchRegexp("K8s client version: .+%s.+", common.VersionRegex))
+			Expect(output).To(MatchRegexp("K8s client version: .+%s.+", versionRegex))
 		})
 
 		It("prints extended node info", func(ctx context.Context) {
 			matchers := []types.GomegaMatcher{
 				MatchRegexp(`STATUS.+\\|.+NAME.+\|.+ROLE.+\|.+AGE.+\|.+VERSION.+\|.+INTERNAL-IP.+\|.+OS-IMAGE.+\|.+KERNEL-VERSION.+\|.+CONTAINER-RUNTIME`),
-				MatchRegexp("Ready.+\\|.+%s.+\\|.+control-plane.+\\|.+%s.+\\|.+%s.+\\|.+%s.+\\|.+%s.+\\|.+.+\\|.+%s", suite.SetupInfo().ControlPlaneNodeHostname, ageRegex, common.VersionRegex, ipAddressRegex, osRegex, runtimeRegex),
+				MatchRegexp("Ready.+\\|.+%s.+\\|.+control-plane.+\\|.+%s.+\\|.+%s.+\\|.+%s.+\\|.+%s.+\\|.+.+\\|.+%s", suite.SetupInfo().ControlPlaneNodeHostname, ageRegex, versionRegex, ipAddressRegex, osRegex, runtimeRegex),
 			}
 
 			if !suite.SetupInfo().LinuxOnly {
-				matchers = append(matchers, MatchRegexp("Ready.+\\|.+%s.+\\|.+worker.+\\|.+%s.+\\|.+%s.+\\|.+%s.+\\|.+%s.+\\|.+.+\\|.+%s", suite.SetupInfo().WinNodeName, ageRegex, common.VersionRegex, ipAddressRegex, osRegex, runtimeRegex))
+				matchers = append(matchers, MatchRegexp("Ready.+\\|.+%s.+\\|.+worker.+\\|.+%s.+\\|.+%s.+\\|.+%s.+\\|.+%s.+\\|.+.+\\|.+%s", suite.SetupInfo().WinNodeName, ageRegex, versionRegex, ipAddressRegex, osRegex, runtimeRegex))
 			}
 
 			Expect(output).To(SatisfyAll(matchers...))
@@ -195,14 +184,14 @@ var _ = Describe("status", Ordered, func() {
 
 		It("contains setup info", func() {
 			Expect(*status.SetupInfo.Name).To(Equal(suite.SetupInfo().Name))
-			Expect(*status.SetupInfo.Version).To(MatchRegexp(common.VersionRegex))
+			Expect(*status.SetupInfo.Version).To(MatchRegexp(versionRegex))
 			Expect(status.SetupInfo.Error).To(BeNil())
 			Expect(*status.SetupInfo.LinuxOnly).To(Equal(suite.SetupInfo().LinuxOnly))
 		})
 
 		It("contains K8s version info", func() {
-			Expect(status.K8sVersionInfo.K8sClientVersion).To(MatchRegexp(common.VersionRegex))
-			Expect(status.K8sVersionInfo.K8sServerVersion).To(MatchRegexp(common.VersionRegex))
+			Expect(status.K8sVersionInfo.K8sClientVersion).To(MatchRegexp(versionRegex))
+			Expect(status.K8sVersionInfo.K8sServerVersion).To(MatchRegexp(versionRegex))
 		})
 
 		It("contains info that the system is running", func() {
@@ -226,7 +215,7 @@ var _ = Describe("status", Ordered, func() {
 			Expect(status.Nodes).To(HaveEach(SatisfyAll(
 				HaveField("Status", "Ready"),
 				HaveField("Age", MatchRegexp(ageRegex)),
-				HaveField("KubeletVersion", MatchRegexp(common.VersionRegex)),
+				HaveField("KubeletVersion", MatchRegexp(versionRegex)),
 				HaveField("KernelVersion", MatchRegexp(".+")),
 				HaveField("OsImage", MatchRegexp(osRegex)),
 				HaveField("ContainerRuntime", MatchRegexp(runtimeRegex)),

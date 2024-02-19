@@ -51,7 +51,7 @@ func NewCmd() *cobra.Command {
 	logAddons(addons)
 
 	// TODO: create generic commands for all addons
-	cmd.AddCommand(list.NewCommand(addons))
+	cmd.AddCommand(list.NewCommand())
 	cmd.AddCommand(status.NewCommand(addons))
 
 	commands, err := createGenericCommands(addons)

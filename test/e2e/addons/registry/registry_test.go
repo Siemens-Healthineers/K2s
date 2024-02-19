@@ -46,9 +46,8 @@ var _ = Describe("'registry' addon", Ordered, func() {
 			})
 
 			It("registry addon with nodeport is in enabled state", func(ctx context.Context) {
-				enabled, err := suite.AddonsInfo().IsAddonEnabled("registry")
-				Expect(err).To(BeNil())
-				Expect(enabled).To(BeTrue())
+				addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
+				Expect(addonsStatus.IsAddonEnabled("registry")).To(BeTrue())
 			})
 
 			It("local container registry is configured", func(ctx context.Context) {
@@ -79,8 +78,8 @@ var _ = Describe("'registry' addon", Ordered, func() {
 			})
 
 			It("registry addon is disabled", func(ctx context.Context) {
-				enabledAddons, err := suite.AddonsInfo().GetEnabledAddons()
-				Expect(err).To(BeNil())
+				addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
+				enabledAddons := addonsStatus.GetEnabledAddons()
 				Expect(enabledAddons).To(BeEmpty())
 			})
 		})
@@ -99,13 +98,9 @@ var _ = Describe("'registry' addon", Ordered, func() {
 			})
 
 			It("registry addon with default ingress is in enabled state", func(ctx context.Context) {
-				registryEnabled, err := suite.AddonsInfo().IsAddonEnabled("registry")
-				Expect(err).To(BeNil())
-				Expect(registryEnabled).To(BeTrue())
-
-				ingressNginxEnabled, err := suite.AddonsInfo().IsAddonEnabled("ingress-nginx")
-				Expect(err).To(BeNil())
-				Expect(ingressNginxEnabled).To(BeTrue())
+				addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
+				Expect(addonsStatus.IsAddonEnabled("registry")).To(BeTrue())
+				Expect(addonsStatus.IsAddonEnabled("ingress-nginx")).To(BeTrue())
 			})
 
 			It("local container registry is configured", func(ctx context.Context) {
@@ -137,8 +132,8 @@ var _ = Describe("'registry' addon", Ordered, func() {
 			})
 
 			It("nginx addon is disabled", func(ctx context.Context) {
-				enabledAddons, err := suite.AddonsInfo().GetEnabledAddons()
-				Expect(err).To(BeNil())
+				addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
+				enabledAddons := addonsStatus.GetEnabledAddons()
 				Expect(enabledAddons).To(BeEmpty())
 			})
 		})
@@ -157,13 +152,9 @@ var _ = Describe("'registry' addon", Ordered, func() {
 			})
 
 			It("registry addon with traefik ingress is in enabled state", func(ctx context.Context) {
-				registryEnabled, err := suite.AddonsInfo().IsAddonEnabled("registry")
-				Expect(err).To(BeNil())
-				Expect(registryEnabled).To(BeTrue())
-
-				traefikEnabled, err := suite.AddonsInfo().IsAddonEnabled("traefik")
-				Expect(err).To(BeNil())
-				Expect(traefikEnabled).To(BeTrue())
+				addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
+				Expect(addonsStatus.IsAddonEnabled("registry")).To(BeTrue())
+				Expect(addonsStatus.IsAddonEnabled("traefik")).To(BeTrue())
 			})
 
 			It("local container registry is configured", func(ctx context.Context) {
@@ -195,8 +186,8 @@ var _ = Describe("'registry' addon", Ordered, func() {
 			})
 
 			It("traefik addon is disabled", func(ctx context.Context) {
-				enabledAddons, err := suite.AddonsInfo().GetEnabledAddons()
-				Expect(err).To(BeNil())
+				addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
+				enabledAddons := addonsStatus.GetEnabledAddons()
 				Expect(enabledAddons).To(BeEmpty())
 			})
 		})
