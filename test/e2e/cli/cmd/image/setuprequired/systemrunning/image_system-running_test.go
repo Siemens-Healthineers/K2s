@@ -4,6 +4,7 @@ package systemrunning
 
 import (
 	"context"
+	"k2s/setupinfo"
 	"testing"
 	"time"
 
@@ -29,9 +30,27 @@ var _ = AfterSuite(func(ctx context.Context) {
 })
 
 var _ = Describe("image reset-win-storage", func() {
-	It("print system-running message", func(ctx context.Context) {
+	It("prints system-running message", func(ctx context.Context) {
+		if suite.SetupInfo().LinuxOnly {
+			Skip("Linux-only")
+		}
+
+		if suite.SetupInfo().Name == setupinfo.SetupNameMultiVMK8s {
+			Skip("Multi-vm")
+		}
+
 		output := suite.K2sCli().Run(ctx, "image", "reset-win-storage")
 
 		Expect(output).To(ContainSubstring("still running"))
+	})
+
+	It("prints reinstall cluster message", func(ctx context.Context) {
+		if suite.SetupInfo().Name == setupinfo.SetupNamek2s {
+			Skip("k2s setup")
+		}
+
+		output := suite.K2sCli().Run(ctx, "image", "reset-win-storage")
+
+		Expect(output).To(ContainSubstring("In order to clean up WinContainerStorage for multi-vm, please reinstall the cluster!"))
 	})
 })
