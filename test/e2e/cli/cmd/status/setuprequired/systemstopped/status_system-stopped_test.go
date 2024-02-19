@@ -15,11 +15,14 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 
-	"k2sTest/e2e/cli/cmd/status/setuprequired/common"
 	"k2sTest/framework"
 )
 
 var suite *framework.K2sTestSuite
+
+const (
+	versionRegex = `v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)`
+)
 
 func TestStatus(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -51,7 +54,7 @@ var _ = Describe("status", Ordered, func() {
 		})
 
 		It("prints version", func(ctx context.Context) {
-			Expect(output).To(MatchRegexp("Version: .+%s.+", common.VersionRegex))
+			Expect(output).To(MatchRegexp("Version: .+%s.+", versionRegex))
 		})
 
 		It("states that system is not running with details about what is not running", func(ctx context.Context) {
@@ -90,7 +93,7 @@ var _ = Describe("status", Ordered, func() {
 		})
 
 		It("prints version", func(ctx context.Context) {
-			Expect(output).To(MatchRegexp("Version: .+%s.+", common.VersionRegex))
+			Expect(output).To(MatchRegexp("Version: .+%s.+", versionRegex))
 		})
 
 		It("states that system is not running with details about what is not running", func(ctx context.Context) {
@@ -124,7 +127,7 @@ var _ = Describe("status", Ordered, func() {
 
 		It("contains setup info", func() {
 			Expect(*status.SetupInfo.Name).To(Equal(suite.SetupInfo().Name))
-			Expect(*status.SetupInfo.Version).To(MatchRegexp(common.VersionRegex))
+			Expect(*status.SetupInfo.Version).To(MatchRegexp(versionRegex))
 			Expect(status.SetupInfo.Error).To(BeNil())
 			Expect(*status.SetupInfo.LinuxOnly).To(Equal(suite.SetupInfo().LinuxOnly))
 		})
