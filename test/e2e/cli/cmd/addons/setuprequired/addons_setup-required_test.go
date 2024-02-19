@@ -24,7 +24,7 @@ func TestLs(t *testing.T) {
 
 var _ = BeforeSuite(func(ctx context.Context) {
 	suite = framework.Setup(ctx)
-	addons = suite.AddonsInfo().AllAddons()
+	addons = suite.AddonsAdditionalInfo().AllAddons()
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
