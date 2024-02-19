@@ -61,7 +61,7 @@ func (m *masterBaseCommandProvider) getShellExecutorCommand() string {
 }
 
 func sshMaster(cmd *cobra.Command, args []string) error {
-	klog.V(3).Infof("Connecting to KubeMaster..")
+	klog.V(3).Infof("Connecting to Linux node..")
 
 	remoteCmd, err := getRemoteCommandToExecute(cmd.ArgsLenAtDash(), args)
 	if err != nil {
