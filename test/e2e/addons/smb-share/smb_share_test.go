@@ -71,10 +71,8 @@ var _ = AfterSuite(func(ctx context.Context) {
 	GinkgoWriter.Println("Namespace <", namespace, "> and secret <", secretName, "> deleted on cluster")
 	GinkgoWriter.Println("Checking if addon is disabled..")
 
-	enabled, err := suite.AddonsInfo().IsAddonEnabled(addonName)
-	if err != nil {
-		GinkgoWriter.Println(err)
-	}
+	addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
+	enabled := addonsStatus.IsAddonEnabled(addonName)
 
 	if enabled {
 		GinkgoWriter.Println("Addon is still enabled, disabling it..")

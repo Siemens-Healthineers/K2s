@@ -111,12 +111,20 @@ function Join-WindowsNode {
     $nodefound = &"$kubeToolsPath\kubectl.exe" get nodes | Select-String -Pattern $env:COMPUTERNAME -SimpleMatch
     if ( !($nodefound) ) {
 
+        # copy kubeadmin to c:
+        $tempKubeadmDirectory = $(Get-SystemDriveLetter) + ':\k'
+        $bPathAvailable = Test-Path -Path $tempKubeadmDirectory
+        if ( !$bPathAvailable ) { mkdir -Force $tempKubeadmDirectory | Out-Null }
+        Copy-Item -Path "$kubePath\bin\exe\kubeadm.exe" -Destination $tempKubeadmDirectory -Force
+
         Write-Log 'Add kubeadm to firewall rules'
+        New-NetFirewallRule -DisplayName 'Allow temp Kubeadm' -Group 'k2s' -Direction Inbound -Action Allow -Program "$tempKubeadmDirectory\kubeadm.exe" -Enabled True | Out-Null
+        #Below rule is not neccessary but adding in case we perform subsequent operations.
         New-NetFirewallRule -DisplayName 'Allow Kubeadm' -Group 'k2s' -Direction Inbound -Action Allow -Program "$kubePath\bin\exe\kubeadm.exe" -Enabled True | Out-Null
 
         Write-Log "Host $env:COMPUTERNAME not yet available as worker node."
 
-        & "$kubePath/bin/exe/kubeadm.exe" reset -f 2>&1 | Write-Log
+        & "$tempKubeadmDirectory\kubeadm.exe" reset -f 3>&1 2>&1 | Write-Log
         Get-ChildItem -Path $kubeletConfigDir -Force -Recurse -Attributes Reparsepoint -ErrorAction 'silentlycontinue' | % { $n = $_.FullName.Trim('\'); fsutil reparsepoint delete "$n" }
         Remove-Item -Path "$kubeletConfigDir\etc" -Force -Recurse -ErrorAction SilentlyContinue
         New-Item -Path "$kubeletConfigDir\etc" -ItemType SymbolicLink -Value "$(Get-SystemDriveLetter):\etc" | Out-Null
@@ -154,18 +162,19 @@ function Join-WindowsNode {
 
         Write-Log $joinCommand
 
-        # $job = Start-Job -Name JoinK8sJob -ScriptBlock { Invoke-Expression $cmdjoin }
-        # Write-Log $job
-        # $job | Receive-Job -Keep
         $controlPlaneHostName = Get-ConfigControlPlaneNodeHostname
         $job = Invoke-Expression "Start-Job -ScriptBlock `${Function:Wait-ForNodesReady} -ArgumentList $controlPlaneHostName"
-        Set-Location "$kubePath\bin\exe"
+        Set-Location $tempKubeadmDirectory
         Invoke-Expression $joinCommand 2>&1 | Write-Log
         Set-Location ..\..
 
         # print the output of the WaitForJoin.ps1
         Receive-Job $job
         $job | Stop-Job
+
+        # delete path if was created
+        Remove-Item -Path $tempKubeadmDirectory\kubeadm.exe
+        if ( !$bPathAvailable ) { Remove-Item -Path $tempKubeadmDirectory }
 
         # check success in joining
         $nodefound = &"$kubeToolsPath\kubectl.exe" get nodes | Select-String -Pattern $env:COMPUTERNAME -SimpleMatch

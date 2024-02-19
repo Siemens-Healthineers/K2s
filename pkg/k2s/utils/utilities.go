@@ -34,7 +34,11 @@ func Platform() string {
 }
 
 func init() {
-	installationDirectory = determineInstallationDirectory()
+	k2sExe, err := os.Executable()
+	if err != nil {
+		panic(err)
+	}
+	installationDirectory = filepath.Dir(k2sExe)
 }
 
 var installationDirectory string
@@ -53,31 +57,4 @@ func EscapeWithDoubleQuotes(str string) string {
 
 func EscapeWithSingleQuotes(str string) string {
 	return "'" + str + "'"
-}
-
-func determineInstallationDirectory() string {
-	_, currentFilePath, _, ok := runtime.Caller(0)
-	if !ok {
-		panic("source file path could not be determined")
-	}
-
-	currentDir := filepath.Dir(currentFilePath)
-
-	// Look for VERSION file to find the Root dir
-	versionFileName := "VERSION"
-	for {
-		versionFilePath := filepath.Join(currentDir, versionFileName)
-		if _, err := os.Stat(versionFilePath); err == nil {
-			return currentDir
-		}
-
-		// Move up one directory
-		parentDir := filepath.Dir(currentDir)
-		if parentDir == currentDir {
-			// Reached the root without finding VERSION file
-			panic("VERSION file not found")
-		}
-
-		currentDir = parentDir
-	}
 }
