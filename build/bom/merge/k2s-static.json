@@ -416,6 +416,74 @@
       ],
       "purl": "pkg:https://github.com/containerd/containerd/releases/download/v1.7.9/cri-containerd-cni-1.7.9-windows-amd64.tar.gz",
       "type": "application"
+    },
+    {
+      "group": "https://github.com/stedolan/jq/releases/download/jq-1.6/jq-win64.exe",
+      "name": "jq",
+      "version": "v1.6.0",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "CC-BY-3.0",
+            "url": "https://github.com/jqlang/jq/blob/master/COPYING"
+          }
+        }
+      ],
+      "purl": "pkg:https://github.com/stedolan/jq/releases/download/jq-1.6/jq-win64.exe",
+      "type": "application"
+    },
+    {
+      "group": "https://nginx.org/download/nginx-1.23.2.zip",
+      "name": "nginx",
+      "version": "v1.23.2",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "BSD-2-Clause",
+            "url": "https://nginx.org/LICENSE"
+          }
+        }
+      ],
+      "purl": "pkg:https://nginx.org/download/nginx-1.23.2.zip",
+      "type": "application"
+    },
+    {
+      "group": "https://github.com/kubevirt/kubevirt/releases/download/v0.58.0/virtctl-v0.58.0-windows-amd64.exe",
+      "name": "virtctl",
+      "version": "v0.58.0",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0",
+            "url": "https://github.com/kubevirt/kubevirt/blob/main/LICENSE"
+          }
+        }
+      ],
+      "purl": "pkg:https://github.com/kubevirt/kubevirt/releases/download/v0.58.0/virtctl-v0.58.0-windows-amd64.exe",
+      "type": "application"
+    },
+    {
+      "group": "https://github.com/kubevirt/kubevirt/releases/download/v0.58.0/virtctl-v0.58.0-linux-amd64",
+      "name": "virtctl-linux",
+      "version": "v0.58.0",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0",
+            "url": "https://github.com/kubevirt/kubevirt/blob/main/LICENSE"
+          }
+        }
+      ],
+      "purl": "pkg:https://github.com/kubevirt/kubevirt/releases/download/v0.58.0/virtctl-v0.58.0-linux-amd64",
+      "type": "application"
     }
  ],
   "dependencies": [],
