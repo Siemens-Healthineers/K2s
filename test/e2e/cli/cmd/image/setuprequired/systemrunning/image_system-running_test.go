@@ -12,6 +12,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"k2sTest/framework"
+	"k2sTest/framework/k2s"
 )
 
 var suite *framework.K2sTestSuite
@@ -30,7 +31,7 @@ var _ = AfterSuite(func(ctx context.Context) {
 })
 
 var _ = Describe("image reset-win-storage", func() {
-	It("prints system-running message", func(ctx context.Context) {
+	It("prints system-running message and exits with non-zero", func(ctx context.Context) {
 		if suite.SetupInfo().LinuxOnly {
 			Skip("Linux-only")
 		}
@@ -39,7 +40,7 @@ var _ = Describe("image reset-win-storage", func() {
 			Skip("Multi-vm")
 		}
 
-		output := suite.K2sCli().Run(ctx, "image", "reset-win-storage")
+		output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "image", "reset-win-storage")
 
 		Expect(output).To(ContainSubstring("still running"))
 	})
