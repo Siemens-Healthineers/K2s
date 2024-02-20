@@ -13,6 +13,7 @@ import (
 	"k2s/cmd/addons/cmd/status"
 	"k2s/cmd/common"
 	"k2s/utils/logging"
+	"k2s/utils/psexecutor"
 	"os"
 	"slices"
 	"sort"
@@ -50,7 +51,7 @@ func NewCmd() *cobra.Command {
 	logAddons(addons)
 
 	// TODO: create generic commands for all addons
-	cmd.AddCommand(list.NewCommand(addons))
+	cmd.AddCommand(list.NewCommand())
 	cmd.AddCommand(status.NewCommand(addons))
 
 	commands, err := createGenericCommands(addons)
@@ -180,7 +181,7 @@ func runCmd(cmd *cobra.Command, addon addons.Addon, cmdName string) error {
 
 	start := time.Now()
 
-	cmdResult, err := utils.ExecutePsWithStructuredResult[*common.CmdResult](psCmd, "CmdResult", utils.ExecOptions{}, params...)
+	cmdResult, err := psexecutor.ExecutePsWithStructuredResult[*common.CmdResult](psCmd, "CmdResult", psexecutor.ExecOptions{}, params...)
 
 	duration := time.Since(start)
 

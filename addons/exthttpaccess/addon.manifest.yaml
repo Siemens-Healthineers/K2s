@@ -26,6 +26,10 @@ spec:
             shorthand: p
             default: ""
             description: HTTP Proxy
+          - name: autoconfirm-alt-ports
+            shorthand: a
+            default: false
+            description: Automatically switch to alternative ports 8080/8443 if 80/443 are busy without user confirmation
         examples:
           - cmd: k2s addons enable exthttpaccess
             comment: Enable exthttpaccess in k2s
@@ -36,6 +40,8 @@ spec:
         parameterMappings:
           - cliFlagName: proxy
             scriptParameterName: Proxy
+          - cliFlagName: autoconfirm-alt-ports
+            scriptParameterName: AutoconfirmUseAlternativePortsIfNeeded
     disable:
       cli:
         examples:

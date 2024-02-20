@@ -14,6 +14,7 @@ import (
 	"k2s/cmd/common"
 	p "k2s/cmd/params"
 	"k2s/utils"
+	"k2s/utils/psexecutor"
 )
 
 var upgradeCommandShortDescription = "Upgrade your current cluster to this version"
@@ -78,7 +79,7 @@ func upgradeCluster(cmd *cobra.Command, args []string) error {
 	upgradeCommand := createUpgradeCommand(cmd)
 	klog.V(3).Infof("Upgrade Command : %s", upgradeCommand)
 
-	duration, err := utils.ExecutePowershellScript(upgradeCommand)
+	duration, err := psexecutor.ExecutePowershellScript(upgradeCommand)
 	if err != nil {
 		return err
 	}

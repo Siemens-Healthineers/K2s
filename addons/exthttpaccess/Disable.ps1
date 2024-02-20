@@ -36,6 +36,10 @@ Import-Module $logModule, $addonsModule, $statusModule, $cliMessagesModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
+# hooks handling
+$hookFileNames = @()
+$hookFileNames += Get-ChildItem -Path "$PSScriptRoot\hooks" | ForEach-Object { $_.Name }
+
 $systemError = Test-SystemAvailability
 if ($systemError) {
   if ($EncodeStructuredOutput -eq $true) {
@@ -59,15 +63,16 @@ if ( (Test-IsAddonEnabled -Name 'exthttpaccess') -ne $true) {
 
 # stop nginx service
 Write-Log 'Stop nginx service' -Console
-&$global:NssmInstallDirectory\nssm stop ExtHttpAccess-nginx | Write-Log
+&$global:NssmInstallDirectory\nssm stop nginx-ext | Write-Log
 
 # remove nginx service
 Write-Log 'Remove nginx service' -Console
-&$global:NssmInstallDirectory\nssm remove ExtHttpAccess-nginx confirm | Write-Log
+&$global:NssmInstallDirectory\nssm remove nginx-ext confirm | Write-Log
 
 # cleanup installation directory
 Remove-Item -Recurse -Force "$global:BinPath\nginx" | Out-Null
 
+Remove-ScriptsFromHooksDir -ScriptNames $hookFileNames
 Remove-AddonFromSetupJson -Name 'exthttpaccess'
 
 Write-Log 'exthttpaccess disabled' -Console

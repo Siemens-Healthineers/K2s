@@ -16,6 +16,7 @@ import (
 	c "k2s/config"
 	"k2s/setupinfo"
 	"k2s/utils"
+	"k2s/utils/psexecutor"
 )
 
 var Stopk8sCmd = &cobra.Command{
@@ -40,7 +41,7 @@ func stopk8s(ccmd *cobra.Command, args []string) error {
 
 	klog.V(3).Infof("Stop command : %s", stopCmd)
 
-	duration, err := utils.ExecutePowershellScript(stopCmd)
+	duration, err := psexecutor.ExecutePowershellScript(stopCmd)
 	if err != nil {
 		return err
 	}

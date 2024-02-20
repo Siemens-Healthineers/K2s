@@ -15,13 +15,14 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 
-	"k2sTest/e2e/cli/cmd/status/setuprequired/common"
 	"k2sTest/framework"
-	"k2sTest/framework/k2s"
 )
 
 var suite *framework.K2sTestSuite
-var addons []k2s.Addon
+
+const (
+	versionRegex = `v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)`
+)
 
 func TestStatus(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -30,7 +31,6 @@ func TestStatus(t *testing.T) {
 
 var _ = BeforeSuite(func(ctx context.Context) {
 	suite = framework.Setup(ctx, framework.SystemMustBeStopped)
-	addons = k2s.AllAddons(suite.RootDir())
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
@@ -54,11 +54,7 @@ var _ = Describe("status", Ordered, func() {
 		})
 
 		It("prints version", func(ctx context.Context) {
-			Expect(output).To(MatchRegexp("Version: .+%s.+", common.VersionRegex))
-		})
-
-		It("prints addons", func() {
-			common.ExpectAddonsGetPrinted(output, addons)
+			Expect(output).To(MatchRegexp("Version: .+%s.+", versionRegex))
 		})
 
 		It("states that system is not running with details about what is not running", func(ctx context.Context) {
@@ -97,11 +93,7 @@ var _ = Describe("status", Ordered, func() {
 		})
 
 		It("prints version", func(ctx context.Context) {
-			Expect(output).To(MatchRegexp("Version: .+%s.+", common.VersionRegex))
-		})
-
-		It("prints addons", func() {
-			common.ExpectAddonsGetPrinted(output, addons)
+			Expect(output).To(MatchRegexp("Version: .+%s.+", versionRegex))
 		})
 
 		It("states that system is not running with details about what is not running", func(ctx context.Context) {
@@ -135,7 +127,7 @@ var _ = Describe("status", Ordered, func() {
 
 		It("contains setup info", func() {
 			Expect(*status.SetupInfo.Name).To(Equal(suite.SetupInfo().Name))
-			Expect(*status.SetupInfo.Version).To(MatchRegexp(common.VersionRegex))
+			Expect(*status.SetupInfo.Version).To(MatchRegexp(versionRegex))
 			Expect(status.SetupInfo.Error).To(BeNil())
 			Expect(*status.SetupInfo.LinuxOnly).To(Equal(suite.SetupInfo().LinuxOnly))
 		})

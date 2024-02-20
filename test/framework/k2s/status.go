@@ -9,7 +9,6 @@ import (
 	"k2s/cmd/status/load"
 
 	. "github.com/onsi/gomega"
-	"github.com/samber/lo"
 )
 
 type K2sStatus struct {
@@ -20,27 +19,19 @@ type K2sStatus struct {
 func (r *K2sCliRunner) GetStatus(ctx context.Context) *K2sStatus {
 	output := r.Run(ctx, "status", "-o", "json")
 
-	status := unmarshalStatus(output)
+	status := unmarshalStatus[load.Status](output)
 
 	return &K2sStatus{
 		internal: status,
 	}
 }
 
-func (status K2sStatus) GetEnabledAddons() []string {
-	return status.internal.EnabledAddons
-}
-
-func (status K2sStatus) IsAddonEnabled(addonName string) bool {
-	return lo.Contains(status.internal.EnabledAddons, addonName)
-}
-
 func (status K2sStatus) IsClusterRunning() bool {
 	return status.internal.RunningState.IsRunning
 }
 
-func unmarshalStatus(statusJson string) *load.Status {
-	var status load.Status
+func unmarshalStatus[T any](statusJson string) *T {
+	var status T
 
 	err := json.Unmarshal([]byte(statusJson), &status)
 

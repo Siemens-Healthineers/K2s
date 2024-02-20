@@ -35,6 +35,7 @@ type K2sTestSuite struct {
 	kubeProxyRestarter   *k2s.KubeProxyRestarter
 	kubectl              *k8s.Kubectl
 	cluster              *k8s.Cluster
+	addonsAdditionalInfo *k2s.AddonsAdditionalInfo
 }
 type ClusterTestStepTimeout time.Duration
 type ClusterTestStepPollInterval time.Duration
@@ -89,6 +90,8 @@ func Setup(ctx context.Context, args ...any) *K2sTestSuite {
 
 	k2sCli := k2s.NewCli(cliPath, cli)
 
+	addonsAdditionalInfo := k2s.NewAddonsAdditionalInfo()
+
 	testSuite := &K2sTestSuite{
 		proxy:                proxy,
 		rootDir:              rootDir,
@@ -98,6 +101,7 @@ func Setup(ctx context.Context, args ...any) *K2sTestSuite {
 		testStepPollInterval: clusterTestStepPollInterval,
 		cli:                  cli,
 		k2sCli:               k2sCli,
+		addonsAdditionalInfo: addonsAdditionalInfo,
 	}
 
 	if noSetupInstalled {
@@ -179,6 +183,10 @@ func (s *K2sTestSuite) SetupInfo() *k2s.SetupInfo {
 	return s.setupInfo
 }
 
+func (s *K2sTestSuite) AddonsAdditionalInfo() *k2s.AddonsAdditionalInfo {
+	return s.addonsAdditionalInfo
+}
+
 func (s *K2sTestSuite) Kubectl() *k8s.Kubectl {
 	return s.kubectl
 }
@@ -218,13 +226,14 @@ func expectSystemState(ctx context.Context, initialSystemState initialSystemStat
 		Fail(fmt.Sprintf("invalid initial system state: '%s'", initialSystemState))
 	}
 
+	addonsStatus := k2sCli.GetAddonsStatus(ctx)
 	if ensureAddonsAreDisabled {
-		expectAddonsToBeDisabled(status)
+		expectAddonsToBeDisabled(addonsStatus)
 	}
 }
 
-func expectAddonsToBeDisabled(status *k2s.K2sStatus) {
-	Expect(status.GetEnabledAddons()).To(BeEmpty(), "All addons should be disabled to execute the tests")
+func expectAddonsToBeDisabled(addonsStatus *k2s.AddonsStatus) {
+	Expect(addonsStatus.GetEnabledAddons()).To(BeEmpty(), "All addons should be disabled to execute the tests")
 
 	GinkgoWriter.Println("All addons are disabled")
 }

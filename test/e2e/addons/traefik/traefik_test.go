@@ -42,8 +42,8 @@ var _ = Describe("'traefik' addon", Ordered, func() {
 		suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "traefik", "traefik")
 		suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "albums-linux1", "traefik-test")
 
-		status := suite.K2sCli().GetStatus(ctx)
-		Expect(status.IsAddonEnabled("traefik")).To(BeFalse())
+		addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
+		Expect(addonsStatus.IsAddonEnabled("traefik")).To(BeFalse())
 	})
 
 	It("prints already-disabled message", func(ctx context.Context) {
@@ -59,8 +59,8 @@ var _ = Describe("'traefik' addon", Ordered, func() {
 
 		suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "traefik", "traefik")
 
-		status := suite.K2sCli().GetStatus(ctx)
-		Expect(status.IsAddonEnabled("traefik")).To(BeTrue())
+		addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
+		Expect(addonsStatus.IsAddonEnabled("traefik")).To(BeTrue())
 	})
 
 	It("prints already-enabled message", func(ctx context.Context) {

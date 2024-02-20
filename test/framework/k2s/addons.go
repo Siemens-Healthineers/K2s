@@ -3,7 +3,9 @@
 package k2s
 
 import (
+	"context"
 	"io/fs"
+	"k2s/addons/print"
 	sos "k2sTest/framework/os"
 	"log"
 	"os"
@@ -60,9 +62,47 @@ type CurlPackages struct {
 	Destination string `yaml:"destination"`
 }
 
+type AddonsStatus struct {
+	internal *print.AddonsStatus
+}
+
+type AddonsAdditionalInfo struct {
+}
+
+// wrapper around k2s.exe to retrieve and parse the cluster status
+func (r *K2sCliRunner) GetAddonsStatus(ctx context.Context) *AddonsStatus {
+	output := r.Run(ctx, "addons", "ls", "-o", "json")
+
+	status := unmarshalStatus[print.AddonsStatus](output)
+
+	return &AddonsStatus{
+		internal: status,
+	}
+}
+
+func (addonsStatus *AddonsStatus) IsAddonEnabled(addonName string) bool {
+	enabledAddons := lo.Map(addonsStatus.internal.EnabledAddons, func(info print.AddonPrintInfo, _ int) string {
+		return info.Name
+	})
+	return lo.Contains(enabledAddons, addonName)
+}
+
+func (addonsStatus *AddonsStatus) GetEnabledAddons() []string {
+	return lo.Map(addonsStatus.internal.EnabledAddons, func(info print.AddonPrintInfo, _ int) string {
+		return info.Name
+	})
+}
+
 const manifestFileName = "addon.manifest.yaml"
 
-func AllAddons(rootDir string) []Addon {
+func NewAddonsAdditionalInfo() *AddonsAdditionalInfo {
+	return &AddonsAdditionalInfo{}
+}
+
+func (info *AddonsAdditionalInfo) AllAddons() []Addon {
+	rootDir, err := sos.RootDir()
+	Expect(err).To(BeNil())
+
 	addonsDir := filepath.Join(rootDir, "addons")
 	addons := []Addon{}
 
@@ -106,7 +146,7 @@ func AllAddons(rootDir string) []Addon {
 	return addons
 }
 
-func GetImagesForAddon(addon Addon) ([]string, error) {
+func (info *AddonsAdditionalInfo) GetImagesForAddon(addon Addon) ([]string, error) {
 	yamlFiles, err := sos.GetFilesMatch(addon.Directory.Path, "*.yaml")
 	if err != nil {
 		return nil, err

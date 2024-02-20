@@ -21,9 +21,7 @@ on:
     paths-ignore:
       - 'LICENSES/**'
       - 'bin/**'
-      - 'doc/**'
       - 'k2s.exe'
-      - '*.md'
 
 env:
   GOVERSION: "1.21.5"
@@ -35,7 +33,7 @@ jobs:
     continue-on-error: false
     runs-on: windows-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
 
     - name: Set up Go
       uses: actions/setup-go@v5

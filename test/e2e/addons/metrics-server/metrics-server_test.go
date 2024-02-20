@@ -36,8 +36,8 @@ var _ = Describe("'metrics-server' addon", Ordered, func() {
 		suite.K2sCli().Run(ctx, "addons", "disable", "metrics-server", "-o")
 		suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "k8s-app", "metrics-server", "kube-system")
 
-		status := suite.K2sCli().GetStatus(ctx)
-		Expect(status.IsAddonEnabled("metrics-server")).To(BeFalse())
+		addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
+		Expect(addonsStatus.IsAddonEnabled("metrics-server")).To(BeFalse())
 	})
 
 	It("prints already-disabled message on disable command", func(ctx context.Context) {
@@ -53,8 +53,8 @@ var _ = Describe("'metrics-server' addon", Ordered, func() {
 
 		suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "k8s-app", "metrics-server", "kube-system")
 
-		status := suite.K2sCli().GetStatus(ctx)
-		Expect(status.IsAddonEnabled("metrics-server")).To(BeTrue())
+		addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
+		Expect(addonsStatus.IsAddonEnabled("metrics-server")).To(BeTrue())
 	})
 
 	It("prints already-enabled message on enable command", func(ctx context.Context) {

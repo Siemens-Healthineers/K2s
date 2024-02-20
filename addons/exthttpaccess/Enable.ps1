@@ -25,6 +25,8 @@ Param(
   [string] $Proxy = '',
   [parameter(Mandatory = $false, HelpMessage = 'JSON config object to override preceeding parameters')]
   [pscustomobject] $Config,
+  [parameter(Mandatory = $false, HelpMessage = 'Use the alternative ports 8080/8443 instead of 80/443 in case they are not free without user confirmation.')]
+  [switch]$AutoconfirmUseAlternativePortsIfNeeded = $false,
   [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
   [switch] $EncodeStructuredOutput,
   [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
@@ -41,6 +43,10 @@ $cliMessagesModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/cli-m
 Import-Module $addonsModule, $logModule, $statusModule, $cliMessagesModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
+
+# hooks handling
+$hookFilePaths = @()
+$hookFilePaths += Get-ChildItem -Path "$PSScriptRoot\hooks" | ForEach-Object { $_.FullName }
 
 $systemError = Test-SystemAvailability
 if ($systemError) {
@@ -93,7 +99,7 @@ $isPort443Used = DetermineIfPortIsUsed -Port $httpsPortNumberToUse
 
 if ($isPort80Used -or $isPort443Used) {
 
-  if ($env:K2S_ADDON_EXTHTTPACCESS_AUTOCONFIRM -ne $null) {
+  if ($AutoconfirmUseAlternativePortsIfNeeded) {
     $useAlternativePorts = 0
   } else {
     $title = 'The ports 80 and/or 443 are already in use.'
@@ -183,20 +189,21 @@ mkdir -Force "$global:BinPath\nginx\logs" | Out-Null
 
 Write-Log 'Registering nginx service' -Console
 mkdir -Force "$($global:SystemDriveLetter):\var\log\nginx" | Out-Null
-&$global:NssmInstallDirectory\nssm install ExtHttpAccess-nginx $global:BinPath\nginx\nginx.exe | Write-Log
-&$global:NssmInstallDirectory\nssm set ExtHttpAccess-nginx AppDirectory "$global:BinPath\nginx" | Out-Null
-&$global:NssmInstallDirectory\nssm set ExtHttpAccess-nginx AppParameters -c "`"""$global:BinPath\nginx\nginx.conf`"""" -e "$($global:SystemDriveLetter):\var\log\nginx\nginx_stderr.log" | Out-Null
-&$global:NssmInstallDirectory\nssm set ExtHttpAccess-nginx AppStdout "$($global:SystemDriveLetter):\var\log\nginx\nginx_stdout.log" | Out-Null
-&$global:NssmInstallDirectory\nssm set ExtHttpAccess-nginx AppStderr "$($global:SystemDriveLetter):\var\log\nginx\nginx_stderr.log" | Out-Null
-&$global:NssmInstallDirectory\nssm set ExtHttpAccess-nginx AppStdoutCreationDisposition 4 | Out-Null
-&$global:NssmInstallDirectory\nssm set ExtHttpAccess-nginx AppStderrCreationDisposition 4 | Out-Null
-&$global:NssmInstallDirectory\nssm set ExtHttpAccess-nginx AppRotateFiles 1 | Out-Null
-&$global:NssmInstallDirectory\nssm set ExtHttpAccess-nginx AppRotateOnline 1 | Out-Null
-&$global:NssmInstallDirectory\nssm set ExtHttpAccess-nginx AppRotateSeconds 0 | Out-Null
-&$global:NssmInstallDirectory\nssm set ExtHttpAccess-nginx AppRotateBytes 500000 | Out-Null
-&$global:NssmInstallDirectory\nssm set ExtHttpAccess-nginx Start SERVICE_AUTO_START | Out-Null
-&$global:NssmInstallDirectory\nssm start ExtHttpAccess-nginx | Write-Log
+&$global:NssmInstallDirectory\nssm install nginx-ext $global:BinPath\nginx\nginx.exe | Write-Log
+&$global:NssmInstallDirectory\nssm set nginx-ext AppDirectory "$global:BinPath\nginx" | Out-Null
+&$global:NssmInstallDirectory\nssm set nginx-ext AppParameters -c "`"""$global:BinPath\nginx\nginx.conf`"""" -e "$($global:SystemDriveLetter):\var\log\nginx\nginx_stderr.log" | Out-Null
+&$global:NssmInstallDirectory\nssm set nginx-ext AppStdout "$($global:SystemDriveLetter):\var\log\nginx\nginx_stdout.log" | Out-Null
+&$global:NssmInstallDirectory\nssm set nginx-ext AppStderr "$($global:SystemDriveLetter):\var\log\nginx\nginx_stderr.log" | Out-Null
+&$global:NssmInstallDirectory\nssm set nginx-ext AppStdoutCreationDisposition 4 | Out-Null
+&$global:NssmInstallDirectory\nssm set nginx-ext AppStderrCreationDisposition 4 | Out-Null
+&$global:NssmInstallDirectory\nssm set nginx-ext AppRotateFiles 1 | Out-Null
+&$global:NssmInstallDirectory\nssm set nginx-ext AppRotateOnline 1 | Out-Null
+&$global:NssmInstallDirectory\nssm set nginx-ext AppRotateSeconds 0 | Out-Null
+&$global:NssmInstallDirectory\nssm set nginx-ext AppRotateBytes 500000 | Out-Null
+&$global:NssmInstallDirectory\nssm set nginx-ext Start SERVICE_AUTO_START | Out-Null
+&$global:NssmInstallDirectory\nssm start nginx-ext | Write-Log
 
+Copy-ScriptsToHooksDir -ScriptPaths $hookFilePaths
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'exthttpaccess' })
 
 Write-Log 'exthttpaccess enabled' -Console

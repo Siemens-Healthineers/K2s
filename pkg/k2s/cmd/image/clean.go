@@ -4,11 +4,17 @@
 package image
 
 import (
+	"strconv"
+	"time"
+
+	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
 	"k8s.io/klog/v2"
 
 	"k2s/cmd/common"
+	p "k2s/cmd/params"
 	"k2s/utils"
+	"k2s/utils/psexecutor"
 )
 
 var cleanCmd = &cobra.Command{
@@ -18,18 +24,36 @@ var cleanCmd = &cobra.Command{
 }
 
 func cleanImages(cmd *cobra.Command, args []string) error {
-	cleanImagesCommand := utils.FormatScriptFilePath(utils.GetInstallationDirectory() + "\\smallsetup\\helpers\\CleanImages.ps1")
+	pterm.Println("🤖 Cleaning container images..")
 
-	// by default enable show logs
-	cleanImagesCommand += " -ShowLogs"
+	psCmd := utils.FormatScriptFilePath(utils.GetInstallationDirectory() + "\\smallsetup\\helpers\\CleanImages.ps1")
+	params := []string{}
 
-	klog.V(3).Infof("Clean images command: %s", cleanImagesCommand)
-	duration, err := utils.ExecutePowershellScript(cleanImagesCommand)
+	showOutput, err := strconv.ParseBool(cmd.Flags().Lookup(p.OutputFlagName).Value.String())
 	if err != nil {
 		return err
 	}
 
-	common.PrintCompletedMessage(duration, "Clean")
+	if showOutput {
+		params = append(params, " -ShowLogs")
+	}
+
+	klog.V(4).Infof("PS cmd: '%s', params: '%v'", psCmd, params)
+
+	start := time.Now()
+
+	cmdResult, err := psexecutor.ExecutePsWithStructuredResult[*common.CmdResult](psCmd, "CmdResult", psexecutor.ExecOptions{}, params...)
+	if err != nil {
+		return err
+	}
+
+	if cmdResult.Error != nil {
+		return cmdResult.Error.ToError()
+	}
+
+	duration := time.Since(start)
+
+	common.PrintCompletedMessage(duration, "image clean")
 
 	return nil
 }

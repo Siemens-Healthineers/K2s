@@ -1,6 +1,6 @@
 // SPDX-FileCopyrightText:  © 2023 Siemens Healthcare GmbH
 // SPDX-License-Identifier:   MIT
-package image
+package nosetup
 
 import (
 	"context"
@@ -31,27 +31,27 @@ var _ = AfterSuite(func(ctx context.Context) {
 	suite.TearDown(ctx)
 })
 
-var _ = Describe("image commands", func() {
+var _ = Describe("image", func() {
 	DescribeTable("print system-not-installed message",
 		func(ctx context.Context, args ...string) {
 			output := suite.K2sCli().Run(ctx, args...)
 
 			Expect(output).To(ContainSubstring("not installed"))
 		},
-		Entry("image build", "image", "build"),
-		Entry("image clean", "image", "clean"),
-		Entry("image export", "image", "export", "-n", "non-existent", "-t", "non-existent"),
-		Entry("image import", "image", "import", "-t", "non-existent"),
-		Entry("image ls default output", "image", "ls"),
-		Entry("image pull", "image", "pull", "non-existent"),
-		Entry("image registry add", "image", "registry", "add", "non-existent"),
-		Entry("image registry ls", "image", "registry", "ls"),
-		Entry("image registry switch", "image", "registry", "switch", "non-existent"),
-		Entry("image rm", "image", "rm", "--id", "non-existent"),
+		Entry("build", "image", "build"),
+		Entry("clean", "image", "clean"),
+		Entry("export", "image", "export", "-n", "non-existent", "-t", "non-existent"),
+		Entry("import", "image", "import", "-t", "non-existent"),
+		Entry("ls default output", "image", "ls"),
+		Entry("pull", "image", "pull", "non-existent"),
+		Entry("registry add", "image", "registry", "add", "non-existent"),
+		Entry("registry ls", "image", "registry", "ls"),
+		Entry("registry switch", "image", "registry", "switch", "non-existent"),
+		Entry("rm", "image", "rm", "--id", "non-existent"),
 	)
 
-	Describe("image ls JSON output", Ordered, func() {
-		var images image.StoredImages
+	Describe("ls JSON output", Ordered, func() {
+		var images image.Images
 
 		BeforeAll(func(ctx context.Context) {
 			output := suite.K2sCli().Run(ctx, "image", "ls", "-o", "json")
@@ -63,7 +63,7 @@ var _ = Describe("image commands", func() {
 			Expect(images.ContainerImages).To(BeNil())
 			Expect(images.ContainerRegistry).To(BeNil())
 			Expect(images.PushedImages).To(BeNil())
-			Expect(*images.Error).To(Equal(setupinfo.ErrNotInstalledMsg))
+			Expect(string(*images.Error)).To(Equal(string(setupinfo.ErrNotInstalledMsg)))
 		})
 	})
 })

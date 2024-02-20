@@ -148,5 +148,33 @@ function Write-Log {
     End {}
 }
 
+function Save-Log {
+    param (
+        [Parameter(Mandatory = $false, HelpMessage = 'Remove var folder after saving logs')]
+        [switch] $RemoveVar = $false
+    )
+
+    if (!(Test-Path "$env:TEMP")) {
+        New-Item -Path "$env:TEMP" -ItemType Directory | Out-Null
+    }
+
+    $destinationFolder = "$env:TEMP\k2s_log_$(get-date -f yyyyMMdd_HHmmss)"
+    Copy-Item -Path "C:\var\log" -Destination $destinationFolder -Force -Recurse
+    Compress-Archive -Path $destinationFolder -DestinationPath "$destinationFolder.zip" -CompressionLevel Optimal -Force
+    Remove-Item -Path "$destinationFolder" -Force -Recurse -ErrorAction SilentlyContinue
+
+    Write-Log "Logs backed up in $destinationFolder.zip" -Console
+
+    if ($RemoveVar) {
+    # the directory '<system drive>:\var' must be deleted (regardless of the installation drive) since
+        # kubelet.exe writes hardcoded to '<system drive>:\var\lib\kubelet\device-plugins' (see '\pkg\kubelet\cm\devicemanager\manager.go' under https://github.com/kubernetes/kubernetes.git)
+        $systemDriveLetter = (Get-Item $env:SystemDrive).PSDrive.Name
+        Remove-Item -Path "$($systemDriveLetter):\var" -Force -Recurse -ErrorAction SilentlyContinue
+        if ($(Get-SystemDriveLetter) -ne "$systemDriveLetter") {
+            Remove-Item -Path "$(Get-SystemDriveLetter):\var" -Force -Recurse -ErrorAction SilentlyContinue
+        }
+    }
+}
+
 Export-ModuleMember -Variable KubePath, k2sLogFilePart, k2sLogFile
-Export-ModuleMember -Function Initialize-Logging, Write-Log
+Export-ModuleMember -Function Initialize-Logging, Write-Log, Save-Log

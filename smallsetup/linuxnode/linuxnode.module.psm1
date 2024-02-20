@@ -146,9 +146,9 @@ Function Install-KubernetesArtifacts {
     &$executeRemoteCommand "sudo DEBIAN_FRONTEND=noninteractive apt-get install -y gpg" -Retries 2 -RepairCmd "sudo apt --fix-broken install"
 
     if ( $Proxy -ne '' ) {
-        &$executeRemoteCommand "sudo curl --retry 3 --retry-connrefused -so cri-o.v$CrioVersion.tar.gz https://storage.googleapis.com/cri-o/artifacts/cri-o.amd64.v$CrioVersion.tar.gz --proxy $Proxy" -IgnoreErrors 
+        &$executeRemoteCommand "sudo curl --retry 3 --retry-all-errors -so cri-o.v$CrioVersion.tar.gz https://storage.googleapis.com/cri-o/artifacts/cri-o.amd64.v$CrioVersion.tar.gz --proxy $Proxy" -IgnoreErrors 
     } else {
-        &$executeRemoteCommand "sudo curl --retry 3 --retry-connrefused -so cri-o.v$CrioVersion.tar.gz https://storage.googleapis.com/cri-o/artifacts/cri-o.amd64.v$CrioVersion.tar.gz" -IgnoreErrors 
+        &$executeRemoteCommand "sudo curl --retry 3 --retry-all-errors -so cri-o.v$CrioVersion.tar.gz https://storage.googleapis.com/cri-o/artifacts/cri-o.amd64.v$CrioVersion.tar.gz" -IgnoreErrors 
     }
     &$executeRemoteCommand "sudo mkdir -p /usr/cri-o" 
     &$executeRemoteCommand "sudo tar -xf cri-o.v$CrioVersion.tar.gz -C /usr/cri-o --strip-components=1" 
@@ -167,6 +167,30 @@ Function Install-KubernetesArtifacts {
         &$executeRemoteCommand "echo Environment=\'https_proxy=$Proxy\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf" 
         &$executeRemoteCommand "echo Environment=\'no_proxy=.local\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf"
     }
+
+    $token = Get-RegistryToken
+    if ($PSVersionTable.PSVersion.Major -gt 5) {
+        $jsonConfig = @{
+            "auths" = @{
+                "shsk2s.azurecr.io" = @{
+                    "auth" = "$token"
+                }
+            }
+        }
+    } else {
+        $jsonConfig = @{
+            """auths""" = @{
+                """shsk2s.azurecr.io""" = @{
+                    """auth""" = """$token"""
+                }
+            }
+        }
+    }
+    
+    $jsonString = ConvertTo-Json -InputObject $jsonConfig
+    &$executeRemoteCommand "echo -e '$jsonString' | sudo tee /tmp/auth.json" | Out-Null
+    &$executeRemoteCommand 'sudo mkdir -p /root/.config/containers'
+    &$executeRemoteCommand 'sudo mv /tmp/auth.json /root/.config/containers/auth.json'
 
     Write-Log "Configure CRI-O (part 1 of 2)"
     # cri-o default cni bridge should have least priority
@@ -190,7 +214,7 @@ Function Install-KubernetesArtifacts {
 
     # we need major and minor for apt keys
     $pkgShortK8sVersion = $K8sVersion.Substring(0, $K8sVersion.lastIndexOf('.'))
-    &$executeRemoteCommand "sudo curl --retry 3 --retry-connrefused -fsSL https://pkgs.k8s.io/core:/stable:/$pkgShortK8sVersion/deb/Release.key$proxyToAdd | sudo gpg --dearmor -o /usr/share/keyrings/kubernetes-apt-keyring.gpg" -IgnoreErrors 
+    &$executeRemoteCommand "sudo curl --retry 3 --retry-all-errors -fsSL https://pkgs.k8s.io/core:/stable:/$pkgShortK8sVersion/deb/Release.key$proxyToAdd | sudo gpg --dearmor -o /usr/share/keyrings/kubernetes-apt-keyring.gpg" -IgnoreErrors 
     &$executeRemoteCommand "echo 'deb [signed-by=/usr/share/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/$pkgShortK8sVersion/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.list" 
     $shortKubeVers = ($K8sVersion -replace 'v', '') + '-1.1'
 
@@ -718,4 +742,29 @@ Function New-MasterNode {
     Set-UpMasterNode @masterNodeParams
 }
 
-Export-ModuleMember -Function Install-Tools, Add-SupportForWSL, Set-UpMasterNode, New-KubernetesNode, New-MasterNode
+Function New-WorkerNode {
+    param (
+        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_))})]
+        [string]$UserName = $(throw "Argument missing: UserName"),
+        [string]$UserPwd = $(throw "Argument missing: UserPwd"),
+        [ValidateScript({ Get-IsValidIPv4Address($_) })]
+        [string]$IpAddress = $(throw "Argument missing: IpAddress"),
+        [string]$Proxy = '',
+        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_))})]
+        [string] $K8sVersion = $(throw "Argument missing: K8sVersion"),
+        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_))})]
+        [string] $CrioVersion = $(throw "Argument missing: CrioVersion"),
+        
+        [scriptblock]$Hook = $(throw "Argument missing: Hook")
+    )
+
+    Assert-MasterNodeComputerPrequisites -IpAddress $IpAddress -UserName $userName -UserPwd $userPwd
+
+    New-KubernetesNode -IpAddress $IpAddress -UserName $userName -UserPwd $userPwd -K8sVersion $K8sVersion -CrioVersion $CrioVersion -Proxy $Proxy
+    
+    Write-Log "Run setup hook"
+    &$Hook
+    Write-Log "Setup hook finished"
+}
+
+Export-ModuleMember -Function Install-Tools, Add-SupportForWSL, Set-UpMasterNode, New-KubernetesNode, New-MasterNode, New-WorkerNode

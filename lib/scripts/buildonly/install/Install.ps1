@@ -47,6 +47,8 @@ Set-EnvVars
 Add-k2sToDefenderExclusion
 Stop-InstallIfDockerDesktopIsRunning
 
+Stop-InstallIfNoMandatoryServiceIsRunning
+
 Enable-MissingWindowsFeatures $([bool]$WSL)
 
 Set-ConfigSetupType -Value $script:SetupType
@@ -80,12 +82,13 @@ if ( $MasterDiskSize -lt 20GB ) {
 Write-Log "Using $([math]::round($MasterDiskSize/1GB, 2))GB of disk space for master VM"
 
 Initialize-WinNode -KubernetesVersion $KubernetesVersion `
+    -HostGW:$false `
     -Proxy:"$Proxy" `
     -DeleteFilesForOfflineInstallation $DeleteFilesForOfflineInstallation `
     -ForceOnlineInstallation $ForceOnlineInstallation `
     -SkipClusterSetup:$true
 
-Write-Log 'Using NAT in dev only environment'
+Write-Log 'Using NAT in dev build only environment'
 New-DefaultNetNat
 
 Initialize-LinuxNode -VMStartUpMemory $MasterVMMemory `
@@ -95,6 +98,11 @@ Initialize-LinuxNode -VMStartUpMemory $MasterVMMemory `
     -DeleteFilesForOfflineInstallation $DeleteFilesForOfflineInstallation `
     -ForceOnlineInstallation $ForceOnlineInstallation `
     -WSL:$WSL
+
+
+if ($global:InstallRestartRequired) {
+    Write-Log 'RESTART!! Windows features are enabled. Restarting the machine is mandatory in order to start the cluster.' -Console
+}
 
 Write-Log '---------------------------------------------------------------'
 Write-Log "Build-only setup finished.   Total duration: $('{0:hh\:mm\:ss}' -f $installStopwatch.Elapsed )"
