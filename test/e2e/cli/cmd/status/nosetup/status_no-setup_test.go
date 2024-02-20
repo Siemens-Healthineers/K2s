@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"k2sTest/framework"
+	"k2sTest/framework/k2s"
 )
 
 var suite *framework.K2sTestSuite
@@ -34,33 +35,17 @@ var _ = AfterSuite(func(ctx context.Context) {
 
 var _ = Describe("status", Ordered, func() {
 	Context("default output", func() {
-		var output string
+		It("prints system-not-installed message and exits with non-zero", func(ctx context.Context) {
+			output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "status")
 
-		BeforeAll(func(ctx context.Context) {
-			output = suite.K2sCli().Run(ctx, "status")
-		})
-
-		It("prints a header", func(ctx context.Context) {
-			Expect(output).To(ContainSubstring("K2s SYSTEM STATUS"))
-		})
-
-		It("prints system-not-installed message", func(ctx context.Context) {
 			Expect(output).To(ContainSubstring("not installed"))
 		})
 	})
 
 	Context("extended output", func() {
-		var output string
+		It("prints system-not-installed message and exits with non-zero", func(ctx context.Context) {
+			output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "status", "-o", "wide")
 
-		BeforeAll(func(ctx context.Context) {
-			output = suite.K2sCli().Run(ctx, "status", "-o", "wide")
-		})
-
-		It("prints a header", func(ctx context.Context) {
-			Expect(output).To(ContainSubstring("K2s SYSTEM STATUS"))
-		})
-
-		It("prints system-not-installed message", func(ctx context.Context) {
 			Expect(output).To(ContainSubstring("not installed"))
 		})
 	})
@@ -69,7 +54,7 @@ var _ = Describe("status", Ordered, func() {
 		var status load.Status
 
 		BeforeAll(func(ctx context.Context) {
-			output := suite.K2sCli().Run(ctx, "status", "-o", "json")
+			output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "status", "-o", "json")
 
 			Expect(json.Unmarshal([]byte(output), &status)).To(Succeed())
 		})

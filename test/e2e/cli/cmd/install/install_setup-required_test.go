@@ -11,6 +11,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"k2sTest/framework"
+	"k2sTest/framework/k2s"
 )
 
 var suite *framework.K2sTestSuite
@@ -29,9 +30,9 @@ var _ = AfterSuite(func(ctx context.Context) {
 })
 
 var _ = Describe("install commands", func() {
-	DescribeTable("print already-installed message",
+	DescribeTable("print already-installed message and exits with non-zero",
 		func(ctx context.Context, args ...string) {
-			output := suite.K2sCli().Run(ctx, args...)
+			output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, args...)
 
 			Expect(output).To(ContainSubstring("setup already installed"))
 		},

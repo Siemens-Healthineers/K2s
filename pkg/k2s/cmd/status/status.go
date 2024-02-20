@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 
+	"k2s/cmd/common"
 	"k2s/cmd/status/load"
 	"k2s/setupinfo"
 
@@ -115,6 +116,7 @@ func printStatus(cmd *cobra.Command, args []string) error {
 func printStatusAsJson() error {
 	printer := NewStatusJsonPrinter()
 
+	var deferredErr error
 	status, err := printer.loadStatusFunc()
 	if err != nil {
 		if !errors.Is(err, setupinfo.ErrNotInstalled) {
@@ -122,15 +124,17 @@ func printStatusAsJson() error {
 		}
 		errMsg := setupinfo.ErrNotInstalledMsg
 		status = &load.Status{SetupInfo: setupinfo.SetupInfo{Error: &errMsg}}
+
+		deferredErr = errors.Join(err, common.ErrSilent)
 	}
 
-	return printer.jsonPrinter.PrintJson(status)
+	printErr := printer.jsonPrinter.PrintJson(status)
+
+	return errors.Join(deferredErr, printErr)
 }
 
 func printStatusUserFriendly(showAdditionalInfo bool) error {
 	printer := NewStatusPrinter()
-
-	printer.terminalPrinter.PrintHeader("K2s SYSTEM STATUS")
 
 	startResult, err := printer.terminalPrinter.StartSpinner("Gathering status information...")
 	if err != nil {
@@ -153,6 +157,8 @@ func printStatusUserFriendly(showAdditionalInfo bool) error {
 	if err != nil {
 		return fmt.Errorf("status could not be loaded: %w", err)
 	}
+
+	printer.terminalPrinter.PrintHeader("K2s SYSTEM STATUS")
 
 	proceed, err := printer.setupInfoPrinter.PrintSetupInfo(status.SetupInfo)
 	if err != nil {
