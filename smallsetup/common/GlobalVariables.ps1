@@ -39,6 +39,7 @@ $clusterConfig = Get-Content $global:JsonConfigFile | Out-String | ConvertFrom-J
 $smallsetup = $clusterConfig.psobject.properties['smallsetup'].value
 
 $global:CacheVirtualBridge = $true
+$global:CacheKubemasterSwitch = $true
 
 $callstack = Get-PSCallStack
 if (((@($callstack.Command) -like 'Start*.ps1').Count -gt 0 -or (@($callstack.Command) -like 'Install*.ps1').Count -gt 0)) {

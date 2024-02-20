@@ -250,18 +250,27 @@ if (!$WSL -and !$isReusingExistingLinuxComputer) {
         Set-VMProcessor $global:VMName -Count $VmProcessors
     }
 
-    # Remove old switch
-    Write-Log 'Updating VM networking...'
-    Remove-KubeSwitch
+    if(!$global:CacheKubemasterSwitch) {
+            # Remove old switch
+        Write-Log 'Updating VM networking...'
+        Remove-KubeSwitch
 
-    # create internal switch for VM
-    New-KubeSwitch
+        # create internal switch for VM
+        New-KubeSwitch
 
-    # connect VM to switch
-    Connect-KubeSwitch
+        # connect VM to switch
+        Connect-KubeSwitch
 
-    # add DNS proxy for cluster searches
-    Add-DnsServer $switchname
+        # add DNS proxy for cluster searches
+        Add-DnsServer $switchname
+    } else {
+        # route for VM
+        Write-Log "Remove obsolete route to $global:IP_CIDR"
+        route delete $global:IP_CIDR >$null 2>&1
+        Write-Log "Add route to $global:IP_CIDR"
+        route -p add $global:IP_CIDR $global:IP_NextHop METRIC 3 | Out-Null
+    }
+
 } elseif ($isReusingExistingLinuxComputer) {
     # add DNS proxy for cluster searches
     Add-DnsServer $switchname

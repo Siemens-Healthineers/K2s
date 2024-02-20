@@ -82,7 +82,7 @@ Restart-WinService 'hns'
 Invoke-Hook -HookName 'BeforeStopK8sNetwork' -AdditionalHooksDir $AdditionalHooksDir
 
 # remove switch
-Remove-KubeSwitch
+if (!$global:CacheKubemasterSwitch) { Remove-KubeSwitch }
 
 # remove NAT
 Remove-NetNat -Name $global:NetNatName -Confirm:$False -ErrorAction SilentlyContinue
@@ -97,7 +97,9 @@ if ($($hns | Measure-Object).Count -ge 2) {
     if(!$global:CacheVirtualBridge) { 
          $hns | Where-Object Name -Like '*cbr0*' | Remove-HNSNetwork -ErrorAction SilentlyContinue
     }
-    $hns | Where-Object Name -Like ('*' + $global:SwitchName + '*') | Remove-HNSNetwork -ErrorAction SilentlyContinue
+    if(!$global:CacheKubemasterSwitch) {
+        $hns | Where-Object Name -Like ('*' + $global:SwitchName + '*') | Remove-HNSNetwork -ErrorAction SilentlyContinue
+    }
 }
 
 if ($WSL) {
