@@ -238,7 +238,7 @@ Describe 'Test-CsiPodsCondition' -Tag 'unit', 'addon' {
 Describe 'Test-IsSmbShareWorking' -Tag 'unit', 'addon' {
     Context 'Setup type is invalid' {
         BeforeAll {
-            Mock -ModuleName $moduleName Get-SetupInfo { return [pscustomobject]@{Name = 'invalid'; ValidationError = 'setup type invalid' } }
+            Mock -ModuleName $moduleName Get-SetupInfo { return [pscustomobject]@{Name = 'invalid'; Error = 'setup type invalid' } }
         }
 
         It 'throws' {

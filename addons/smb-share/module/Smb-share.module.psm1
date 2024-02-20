@@ -78,8 +78,8 @@ function Test-IsSmbShareWorking {
     $script:SmbShareWorking = $false
     $setupInfo = Get-SetupInfo
 
-    if ($setupInfo.ValidationError) {
-        throw $setupInfo.ValidationError
+    if ($setupInfo.Error) {
+        throw $setupInfo.Error
     }
 
     # validate setup type for SMB share as well
