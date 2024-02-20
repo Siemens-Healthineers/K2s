@@ -46,7 +46,7 @@
     {
       "group": "https://github.com/kubernetes-sigs/cri-tools",
       "name": "crictl",
-      "version": "v1.25.0",
+      "version": "v1.28.0",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -57,7 +57,7 @@
           }
         }
       ],
-      "purl": "pkg:https://github.com/kubernetes-sigs/cri-tools/releases/download/v1.25.0/crictl-v1.25.0-windows-amd64.tar.gz",
+      "purl": "pkg:https://github.com/kubernetes-sigs/cri-tools/releases/download/v1.28.0/crictl-v1.28.0-windows-amd64.tar.gz",
       "type": "application"
     },
     {
@@ -76,7 +76,7 @@
       ],
       "purl": "pkg:https://dl.k8s.io/v1.25.13/bin/windows/amd64/kubelet.exe",
       "type": "application"
-    }, 
+    },
     {
       "group": "https://dl.k8s.io/v1.25.13/bin/windows/amd64/kubeadm.exe",
       "name": "kubeadm",
@@ -129,9 +129,9 @@
       "type": "application"
     },
     {
-      "group": "https://github.com/containerd/nerdctl/releases/download/v0.23.0/nerdctl-0.23.0-windows-amd64.tar.gz",
+      "group": "https://github.com/containerd/nerdctl/releases/download/v1.7.2/nerdctl-1.7.2-windows-amd64.tar.gz",
       "name": "nerdctl",
-      "version": "v0.23.0",
+      "version": "v1.7.2",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -142,7 +142,7 @@
           }
         }
       ],
-      "purl": "pkg:https://github.com/containerd/nerdctl/releases/download/v0.23.0/nerdctl-0.23.0-windows-amd64.tar.gz",
+      "purl": "pkg:https://github.com/containerd/nerdctl/releases/download/v1.7.2/nerdctl-1.7.2-windows-amd64.tar.gz",
       "type": "application"
     },
     {
@@ -197,9 +197,9 @@
       "type": "application"
     },
     {
-      "group": "https://download.docker.com/win/static/stable/x86_64/docker-20.10.21.zip",
+      "group": "https://download.docker.com/win/static/stable/x86_64/docker-24.0.7.zip",
       "name": "dockerd",
-      "version": "v20.10.21",
+      "version": "v24.0.7",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -210,30 +210,13 @@
           }
         }
       ],
-      "purl": "pkg:https://download.docker.com/win/static/stable/x86_64/docker-20.10.21.zip",
+      "purl": "pkg:https://download.docker.com/win/static/stable/x86_64/docker-24.0.7.zip",
       "type": "application"
     },
     {
-      "group": "https://download.docker.com/win/static/stable/x86_64/docker-20.10.21.zip",
-      "name": "dockerd",
-      "version": "v20.10.21",
-      "description": "",
-      "scope": "required",
-      "licenses": [
-        {
-          "license": {
-            "id": "Apache-2.0",
-            "url": "https://github.com/moby/moby/blob/master/LICENSE"
-          }
-        }
-      ],
-      "purl": "pkg:https://download.docker.com/win/static/stable/x86_64/docker-20.10.21.zip",
-      "type": "application"
-    },
-    {
-      "group": "https://download.docker.com/win/static/stable/x86_64/docker-20.10.21.zip",
+      "group": "https://download.docker.com/win/static/stable/x86_64/docker-24.0.7.zip",
       "name": "docker",
-      "version": "v20.10.21",
+      "version": "v24.0.7",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -244,13 +227,13 @@
           }
         }
       ],
-      "purl": "pkg:https://download.docker.com/win/static/stable/x86_64/docker-20.10.21.zip",
+      "purl": "pkg:https://download.docker.com/win/static/stable/x86_64/docker-24.0.7.zip",
       "type": "application"
     },
     {
-      "group": "https://download.docker.com/win/static/stable/x86_64/docker-20.10.21.zip",
-      "name": "docker-app",
-      "version": "v20.10.21",
+      "group": "https://download.docker.com/win/static/stable/x86_64/docker-24.0.7.zip",
+      "name": "docker-proxy",
+      "version": "v24.0.7",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -261,24 +244,7 @@
           }
         }
       ],
-      "purl": "pkg:https://download.docker.com/win/static/stable/x86_64/docker-20.10.21.zip",
-      "type": "application"
-    },
-    {
-      "group": "https://download.docker.com/win/static/stable/x86_64/docker-20.10.21.zip",
-      "name": "docker-buildx",
-      "version": "v20.10.21",
-      "description": "",
-      "scope": "required",
-      "licenses": [
-        {
-          "license": {
-            "id": "Apache-2.0",
-            "url": "https://github.com/moby/moby/blob/master/LICENSE"
-          }
-        }
-      ],
-      "purl": "pkg:https://download.docker.com/win/static/stable/x86_64/docker-20.10.21.zip",
+      "purl": "pkg:https://download.docker.com/win/static/stable/x86_64/docker-24.0.7.zip",
       "type": "application"
     },
     {
@@ -299,9 +265,9 @@
       "type": "application"
     },
     {
-      "group": "https://github.com/flannel-io/flannel/releases/download/v0.17.0/flanneld.exe",
+      "group": "https://github.com/containernetworking/plugins/releases/download/v1.1.1/cni-plugins-windows-amd64-v1.1.1.tgz",
       "name": "flannel",
-      "version": "v0.17.0",
+      "version": "v1.1.1",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -312,9 +278,9 @@
           }
         }
       ],
-      "purl": "pkg:https://github.com/flannel-io/flannel/releases/download/v0.17.0/flanneld.exe",
+      "purl": "pkg:https://github.com/containernetworking/plugins/releases/download/v1.1.1/cni-plugins-windows-amd64-v1.1.1.tgz",
       "type": "application"
-    }, 
+    },
     {
       "group": "https://github.com/containernetworking/plugins/releases/download/v1.1.1/cni-plugins-windows-amd64-v1.1.1.tgz",
       "name": "host-local",
@@ -331,7 +297,7 @@
       ],
       "purl": "pkg:https://github.com/containernetworking/plugins/releases/download/v1.1.1/cni-plugins-windows-amd64-v1.1.1.tgz",
       "type": "application"
-    }, 
+    },
     {
       "group": "https://github.com/containernetworking/plugins/releases/download/v1.1.1/cni-plugins-windows-amd64-v1.1.1.tgz",
       "name": "win-bridge",
@@ -348,7 +314,7 @@
       ],
       "purl": "pkg:https://github.com/containernetworking/plugins/releases/download/v1.1.1/cni-plugins-windows-amd64-v1.1.1.tgz",
       "type": "application"
-    }, 
+    },
     {
       "group": "https://github.com/containernetworking/plugins/releases/download/v1.1.1/cni-plugins-windows-amd64-v1.1.1.tgz",
       "name": "win-overlay",
@@ -365,11 +331,11 @@
       ],
       "purl": "pkg:https://github.com/containernetworking/plugins/releases/download/v1.1.1/cni-plugins-windows-amd64-v1.1.1.tgz",
       "type": "application"
-    },   
+    },
     {
       "group": "https://github.com/prometheus-community/windows_exporter",
       "name": "windows_exporter",
-      "version": "v0.16.0",
+      "version": "v0.22.0",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -380,13 +346,13 @@
           }
         }
       ],
-      "purl": "pkg:https://github.com/prometheus-community/windows_exporter/releases/download/v0.16.0/windows_exporter-0.16.0-amd64.exe",
+      "purl": "pkg:https://github.com/prometheus-community/windows_exporter/releases/download/v0.22.0/windows_exporter-0.22.0-amd64.exe",
       "type": "application"
     },
     {
-      "group": "https://github.com/containerd/containerd/releases/download/v1.6.13/cri-containerd-cni-1.6.13-windows-amd64.tar.gz",
+      "group": "https://github.com/containerd/containerd/releases/download/v1.7.9/cri-containerd-cni-1.7.9-windows-amd64.tar.gz",
       "name": "containerd-shim-runhcs-v1",
-      "version": "v1.6.13",
+      "version": "v1.0.2",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -397,13 +363,13 @@
           }
         }
       ],
-      "purl": "pkg:https://github.com/containerd/containerd/releases/download/v1.6.13/cri-containerd-cni-1.6.13-windows-amd64.tar.gz",
+      "purl": "pkg:https://github.com/containerd/containerd/releases/download/v1.7.9/cri-containerd-cni-1.7.9-windows-amd64.tar.gz",
       "type": "application"
     },
     {
-      "group": "https://github.com/containerd/containerd/releases/download/v1.6.13/cri-containerd-cni-1.6.13-windows-amd64.tar.gz",
+      "group": "https://github.com/containerd/containerd/releases/download/v1.7.9/cri-containerd-cni-1.7.9-windows-amd64.tar.gz",
       "name": "containerd-stress",
-      "version": "v1.6.13",
+      "version": "v1.7.9",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -414,13 +380,13 @@
           }
         }
       ],
-      "purl": "pkg:https://github.com/containerd/containerd/releases/download/v1.6.13/cri-containerd-cni-1.6.13-windows-amd64.tar.gz",
+      "purl": "pkg:https://github.com/containerd/containerd/releases/download/v1.7.9/cri-containerd-cni-1.7.9-windows-amd64.tar.gz",
       "type": "application"
     },
     {
-      "group": "https://github.com/containerd/containerd/releases/download/v1.6.13/cri-containerd-cni-1.6.13-windows-amd64.tar.gz",
+      "group": "https://github.com/containerd/containerd/releases/download/v1.7.9/cri-containerd-cni-1.7.9-windows-amd64.tar.gz",
       "name": "containerd",
-      "version": "v1.6.13",
+      "version": "v1.7.9",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -431,13 +397,13 @@
           }
         }
       ],
-      "purl": "pkg:https://github.com/containerd/containerd/releases/download/v1.6.13/cri-containerd-cni-1.6.13-windows-amd64.tar.gz",
+      "purl": "pkg:https://github.com/containerd/containerd/releases/download/v1.7.9/cri-containerd-cni-1.7.9-windows-amd64.tar.gz",
       "type": "application"
     },
     {
-      "group": "https://github.com/containerd/containerd/releases/download/v1.6.13/cri-containerd-cni-1.6.13-windows-amd64.tar.gz",
+      "group": "https://github.com/containerd/containerd/releases/download/v1.7.9/cri-containerd-cni-1.7.9-windows-amd64.tar.gz",
       "name": "ctr",
-      "version": "v1.6.13",
+      "version": "v1.7.9",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -448,7 +414,75 @@
           }
         }
       ],
-      "purl": "pkg:https://github.com/containerd/containerd/releases/download/v1.6.13/cri-containerd-cni-1.6.13-windows-amd64.tar.gz",
+      "purl": "pkg:https://github.com/containerd/containerd/releases/download/v1.7.9/cri-containerd-cni-1.7.9-windows-amd64.tar.gz",
+      "type": "application"
+    },
+    {
+      "group": "https://github.com/stedolan/jq/releases/download/jq-1.6/jq-win64.exe",
+      "name": "jq",
+      "version": "v1.6.0",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "CC-BY-3.0",
+            "url": "https://github.com/jqlang/jq/blob/master/COPYING"
+          }
+        }
+      ],
+      "purl": "pkg:https://github.com/stedolan/jq/releases/download/jq-1.6/jq-win64.exe",
+      "type": "application"
+    },
+    {
+      "group": "https://nginx.org/download/nginx-1.23.2.zip",
+      "name": "nginx",
+      "version": "v1.23.2",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "BSD-2-Clause",
+            "url": "https://nginx.org/LICENSE"
+          }
+        }
+      ],
+      "purl": "pkg:https://nginx.org/download/nginx-1.23.2.zip",
+      "type": "application"
+    },
+    {
+      "group": "https://github.com/kubevirt/kubevirt/releases/download/v0.58.0/virtctl-v0.58.0-windows-amd64.exe",
+      "name": "virtctl",
+      "version": "v0.58.0",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0",
+            "url": "https://github.com/kubevirt/kubevirt/blob/main/LICENSE"
+          }
+        }
+      ],
+      "purl": "pkg:https://github.com/kubevirt/kubevirt/releases/download/v0.58.0/virtctl-v0.58.0-windows-amd64.exe",
+      "type": "application"
+    },
+    {
+      "group": "https://github.com/kubevirt/kubevirt/releases/download/v0.58.0/virtctl-v0.58.0-linux-amd64",
+      "name": "virtctl-linux",
+      "version": "v0.58.0",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0",
+            "url": "https://github.com/kubevirt/kubevirt/blob/main/LICENSE"
+          }
+        }
+      ],
+      "purl": "pkg:https://github.com/kubevirt/kubevirt/releases/download/v0.58.0/virtctl-v0.58.0-linux-amd64",
       "type": "application"
     }
  ],
