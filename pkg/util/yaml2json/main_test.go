@@ -192,7 +192,7 @@ func executeCmd(cmd *exec.Cmd, ctx context.Context, expectedExitCode int) string
 	Eventually(session,
 		1*time.Second,
 		50*time.Millisecond,
-		ctx).Should(gexec.Exit(expectedExitCode), "Cmd '%v' exited with exit code '%v' instead of %d", session.Command, session.ExitCode(), expectedExitCode)
+		ctx).Should(gexec.Exit(expectedExitCode), "Command '%v' exited with exit code '%v' instead of %d", session.Command, session.ExitCode(), expectedExitCode)
 
 	return string(session.Err.Contents())
 }

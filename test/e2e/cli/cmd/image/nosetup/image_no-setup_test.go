@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"k2sTest/framework"
+	"k2sTest/framework/k2s"
 )
 
 var suite *framework.K2sTestSuite
@@ -32,9 +33,9 @@ var _ = AfterSuite(func(ctx context.Context) {
 })
 
 var _ = Describe("image", func() {
-	DescribeTable("print system-not-installed message",
+	DescribeTable("print system-not-installed message and exits with non-zero",
 		func(ctx context.Context, args ...string) {
-			output := suite.K2sCli().Run(ctx, args...)
+			output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, args...)
 
 			Expect(output).To(ContainSubstring("not installed"))
 		},
@@ -54,12 +55,12 @@ var _ = Describe("image", func() {
 		var images image.Images
 
 		BeforeAll(func(ctx context.Context) {
-			output := suite.K2sCli().Run(ctx, "image", "ls", "-o", "json")
+			output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "image", "ls", "-o", "json")
 
 			Expect(json.Unmarshal([]byte(output), &images)).To(Succeed())
 		})
 
-		It("contains only system-not-installed info", func() {
+		It("contains only system-not-installed info and exits with non-zero", func() {
 			Expect(images.ContainerImages).To(BeNil())
 			Expect(images.ContainerRegistry).To(BeNil())
 			Expect(images.PushedImages).To(BeNil())

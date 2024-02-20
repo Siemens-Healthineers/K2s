@@ -25,9 +25,13 @@ const (
 	CliName = "k2s"
 )
 
-var rootLogDir string
-var cliLogPath string
-var executionLogPath string
+var (
+	ErrSilent = errors.New("silent-error")
+
+	rootLogDir       string
+	cliLogPath       string
+	executionLogPath string
+)
 
 func init() {
 	rootLogDir = logging.RootLogDir()
