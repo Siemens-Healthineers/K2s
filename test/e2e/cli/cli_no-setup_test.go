@@ -81,7 +81,6 @@ var _ = Describe("CLI", func() {
 			Entry("start", "start"),
 			Entry("stop", "stop"),
 			Entry("uninstall", "uninstall"),
-			Entry("upgrade", "upgrade"),
 		)
 	})
 })
