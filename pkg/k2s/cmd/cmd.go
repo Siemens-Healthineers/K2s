@@ -15,7 +15,6 @@ import (
 	stop "k2s/cmd/stop"
 	sys "k2s/cmd/system"
 	un "k2s/cmd/uninstall"
-	upgrade "k2s/cmd/upgrade"
 	ve "k2s/cmd/version"
 
 	"k2s/cmd/params"
@@ -52,7 +51,6 @@ func init() {
 	rootCmd.AddCommand(re.ResetCmd)
 	rootCmd.AddCommand(ve.VersionCmd)
 	rootCmd.AddCommand(sys.SystemCmd)
-	rootCmd.AddCommand(upgrade.UpgradeCmd)
 
 	rootCmd.PersistentFlags().BoolP(params.OutputFlagName, params.OutputFlagShorthand, false, params.OutputFlagUsage)
 	verbosityLevel := rootCmd.PersistentFlags().IntP(params.VerbosityFlagName, params.VerbosityFlagShorthand, 0, params.VerbosityFlagUsage)

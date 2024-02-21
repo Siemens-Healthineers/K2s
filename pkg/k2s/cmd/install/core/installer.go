@@ -5,6 +5,7 @@ package core
 
 import (
 	"fmt"
+	"k2s/cmd/common"
 	ic "k2s/cmd/install/config"
 	"k2s/setupinfo"
 	"k2s/utils/psexecutor"
@@ -65,7 +66,7 @@ func (i *installer) Install(kind ic.Kind, flags *pflag.FlagSet, buildCmdFunc fun
 	setupName, err := i.configAccess.GetSetupName()
 	if err == nil && setupName != "" {
 		i.printer.PrintInfofln("'%s' setup already installed, please uninstall with 'k2s uninstall' first and re-run the install command afterwards", setupName)
-		return nil
+		return common.ErrSilent
 	}
 
 	config, err := i.installConfigAccess.Load(kind, flags)

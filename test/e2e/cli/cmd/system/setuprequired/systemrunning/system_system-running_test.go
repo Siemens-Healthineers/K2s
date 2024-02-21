@@ -145,7 +145,13 @@ var _ = Describe("system", func() {
 	})
 
 	Describe("ssh", func() {
-		Describe("m", func() {
+		Describe("m connect", func() {
+			It("connects to Linux node", func(ctx context.Context) {
+				Skip("test to be implemented")
+			})
+		})
+
+		Describe("m command", func() {
 			It("runs a command on Linux node", func(ctx context.Context) {
 				output := suite.K2sCli().Run(ctx, "system", "ssh", "m", "--", "echo ssh-m-test")
 
@@ -153,7 +159,13 @@ var _ = Describe("system", func() {
 			})
 		})
 
-		Describe("w", func() {
+		Describe("w connect", func() {
+			It("connects to Windows node", func(ctx context.Context) {
+				Skip("test to be implemented")
+			})
+		})
+
+		Describe("w command", func() {
 			It("runs a command on Windows node", func(ctx context.Context) {
 				Skip("test to be implemented")
 			})

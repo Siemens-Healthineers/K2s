@@ -11,6 +11,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"k2sTest/framework"
+	"k2sTest/framework/k2s"
 )
 
 var suite *framework.K2sTestSuite
@@ -29,14 +30,24 @@ var _ = AfterSuite(func(ctx context.Context) {
 })
 
 var _ = Describe("system", func() {
-	DescribeTable("print system-not-running message",
+	DescribeTable("print system-not-running message and exits with non-zero",
 		func(ctx context.Context, args ...string) {
-			output := suite.K2sCli().Run(ctx, args...)
+			output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, args...)
 
 			Expect(output).To(ContainSubstring("not running"))
 		},
 		Entry("scp m", "system", "scp", "m", "a1", "a2"),
 		Entry("scp w", "system", "scp", "w", "a1", "a2"),
+		Entry("ssh m", "system", "ssh", "m", "--", "echo yes"),
+		Entry("ssh w", "system", "ssh", "w", "--", "echo yes"),
+	)
+
+	DescribeTable("prints generic error and exits with non-zero",
+		func(ctx context.Context, args ...string) {
+			output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, args...)
+
+			Expect(output).To(ContainSubstring("ERROR"))
+		},
 		Entry("ssh m", "system", "ssh", "m"),
 		Entry("ssh w", "system", "ssh", "w"),
 	)
