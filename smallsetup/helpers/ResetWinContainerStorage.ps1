@@ -91,8 +91,19 @@ function Perform-CleanupOfContainerStorage([string]$Directory, [int]$MaxRetries,
 
 $setupInfo = Get-SetupInfo
 
-if ($setupInfo.Name -eq $global:SetupType_MultiVMK8s) {
-    $errMsg = 'In order to clean up WinContainerStorage for multi-vm, please reinstall the cluster!'
+if ($setupInfo.LinuxOnly) {
+    $errMsg = 'Resetting WinContainerStorage for linux-only setup is not supported!'
+    if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+        return
+    }
+
+    Write-Log $errMsg -Error
+    exit 1
+}
+
+if ($setupInfo.Name -eq $global:SetupType_MultiVMK8s -and !$setupInfo.LinuxOnly) {
+    $errMsg = 'In order to clean up WinContainerStorage for multi-vm, please reinstall multi-vm cluster!'
     if ($EncodeStructuredOutput -eq $true) {
         Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
         return

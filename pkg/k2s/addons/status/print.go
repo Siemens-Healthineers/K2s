@@ -103,10 +103,13 @@ func (s *JsonPrinter) PrintStatus(addonName string, addonDirectory string) error
 
 	addonStatus, err := s.statusLoader.LoadAddonStatus(addonName, addonDirectory)
 
+	var deferredErr error
 	printStatus := AddonPrintStatus{Name: addonName}
 	if err == nil {
 		printStatus.AddonLoadStatus = *addonStatus
 	} else {
+		deferredErr = errors.Join(err, common.ErrSilent)
+
 		if errors.Is(err, ks.ErrNotRunning) {
 			errMsg := common.CmdError(ks.ErrNotRunningMsg)
 			printStatus.AddonLoadStatus = AddonLoadStatus{CmdResult: common.CmdResult{Error: &errMsg}}
@@ -136,7 +139,7 @@ func (s *JsonPrinter) PrintStatus(addonName string, addonDirectory string) error
 
 	s.terminalPrinter.Println(statusJson)
 
-	return nil
+	return deferredErr
 }
 
 func (s *UserFriendlyPrinter) PrintStatus(addonName string, addonDirectory string) error {

@@ -33,9 +33,13 @@ func NewCli(proxy string, testStepTimeout time.Duration, testStepPollInterval ti
 
 // Execute Command and verify it exits with exit code zero
 func (c *CliExecutor) ExecOrFail(ctx context.Context, cliPath string, cliArgs ...string) string {
+	return c.ExecOrFailWithExitCode(ctx, cliPath, 0, cliArgs...)
+}
+
+func (c *CliExecutor) ExecOrFailWithExitCode(ctx context.Context, cliPath string, expectedExitCode int, cliArgs ...string) string {
 	cmd := exec.Command(cliPath, cliArgs...)
 
-	return c.exec(ctx, cmd)
+	return c.exec(ctx, cmd, expectedExitCode)
 }
 
 func (c *CliExecutor) ExecPathWithProxyOrFail(ctx context.Context, cliPath string, execPath string, cliArgs ...string) string {
@@ -49,10 +53,10 @@ func (c *CliExecutor) ExecPathWithProxyOrFail(ctx context.Context, cliPath strin
 		cmd.Env = append(cmd.Env, "http_proxy="+c.proxy)
 	}
 
-	return c.exec(ctx, cmd)
+	return c.exec(ctx, cmd, 0)
 }
 
-func (c *CliExecutor) exec(ctx context.Context, cmd *exec.Cmd) string {
+func (c *CliExecutor) exec(ctx context.Context, cmd *exec.Cmd, expectedExitCode int) string {
 	session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 
 	Expect(err).ToNot(HaveOccurred())
@@ -60,7 +64,7 @@ func (c *CliExecutor) exec(ctx context.Context, cmd *exec.Cmd) string {
 	Eventually(session,
 		c.testStepTimeout,
 		c.testStepPollInterval,
-		ctx).Should(gexec.Exit(0), "Cmd '%v' exited with error exit code '%v'", session.Command, session.ExitCode())
+		ctx).Should(gexec.Exit(expectedExitCode), "Command '%v' exited with exit code '%v' instead of %d", session.Command, session.ExitCode(), expectedExitCode)
 
 	return string(session.Out.Contents())
 }

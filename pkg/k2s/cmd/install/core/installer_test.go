@@ -6,6 +6,7 @@ package core_test
 import (
 	"base/version"
 	"errors"
+	"k2s/cmd/common"
 	ic "k2s/cmd/install/config"
 	"k2s/setupinfo"
 	"k2s/utils/psexecutor"
@@ -69,7 +70,7 @@ var _ = BeforeSuite(func() {
 var _ = Describe("core", func() {
 	Describe("Install", func() {
 		When("a setup is already installed", func() {
-			It("aborts", func() {
+			It("returns silent error", func() {
 				printerMock := &myMock{}
 				printerMock.On(r.GetFunctionName(printerMock.PrintInfofln),
 					mock.MatchedBy(func(format string) bool { return strings.Contains(format, "already installed") }), mock.Anything).Times(1)
@@ -79,8 +80,9 @@ var _ = Describe("core", func() {
 
 				sut := core.NewInstaller(configMock, printerMock, nil, nil, nil, nil, nil, nil)
 
-				Expect(sut.Install("", nil, nil)).To(Succeed())
+				err := sut.Install("", nil, nil)
 
+				Expect(err).To(MatchError(common.ErrSilent))
 				printerMock.AssertExpectations(GinkgoT())
 			})
 		})

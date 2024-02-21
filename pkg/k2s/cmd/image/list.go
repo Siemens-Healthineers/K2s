@@ -109,7 +109,12 @@ func listImages(cmd *cobra.Command, args []string) error {
 
 func printImagesAsJson(getImagesFunc func() (*Images, error), printlnFunc func(m ...any)) error {
 	images, err := getImagesFunc()
+
+	var deferredErr error
+
 	if err != nil {
+		deferredErr = errors.Join(err, common.ErrSilent)
+
 		if errors.Is(err, status.ErrNotRunning) {
 			errMsg := common.CmdError(status.ErrNotRunningMsg)
 			images = &Images{CmdResult: common.CmdResult{Error: &errMsg}}
@@ -129,7 +134,7 @@ func printImagesAsJson(getImagesFunc func() (*Images, error), printlnFunc func(m
 
 	printlnFunc(string(bytes))
 
-	return nil
+	return deferredErr
 }
 
 func printImagesToUser(getImagesFunc func() (*Images, error), printer terminal.TerminalPrinter) error {
