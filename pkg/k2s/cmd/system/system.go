@@ -7,6 +7,7 @@ import (
 	"k2s/cmd/system/dump"
 	"k2s/cmd/system/scp"
 	"k2s/cmd/system/ssh"
+	"k2s/cmd/system/upgrade"
 
 	"github.com/spf13/cobra"
 )
@@ -20,4 +21,5 @@ func init() {
 	SystemCmd.AddCommand(dump.DumpCmd)
 	SystemCmd.AddCommand(ssh.SshCmd)
 	SystemCmd.AddCommand(scp.ScpCmd)
+	SystemCmd.AddCommand(upgrade.UpgradeCmd)
 }
