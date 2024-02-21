@@ -42,5 +42,6 @@ var _ = Describe("system", func() {
 		Entry("ssh m", "system", "ssh", "m", "--", "echo yes"),
 		Entry("ssh w", "system", "ssh", "w"),
 		Entry("ssh w", "system", "ssh", "w", "--", "echo yes"),
+		Entry("upgrade", "system", "upgrade"),
 	)
 })
