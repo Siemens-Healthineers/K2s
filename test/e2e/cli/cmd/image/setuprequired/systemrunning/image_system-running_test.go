@@ -68,7 +68,7 @@ var _ = Describe("image reset-win-storage", func() {
 			Skip("Multi-vm")
 		}
 
-		output := suite.K2sCli().Run(ctx, "image", "reset-win-storage")
+		output := suite.K2sCli().RunWithExitCode(ctx, -1, "image", "reset-win-storage")
 
 		Expect(output).To(ContainSubstring("Resetting WinContainerStorage for linux-only setup is not supported!"))
 	})
