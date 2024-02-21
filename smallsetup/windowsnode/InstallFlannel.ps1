@@ -15,7 +15,7 @@ $adapterName = Get-L2BridgeNIC
 Write-Log "Using network adapter '$adapterName'"
 $ipaddresses = @(Get-NetIPAddress -AddressFamily IPv4 -InterfaceAlias $adapterName)
 if (!$ipaddresses) {
-    throw 'No IP address found which can be used for setting up Small K8s Setup !'
+    throw 'No IP address found on the host machine which can be used for setting up networking !'
 }
 
 $ipaddress = $ipaddresses[0] | Select -ExpandProperty IPAddress

@@ -362,7 +362,7 @@ else {
 $currentGitUserName = git config --get user.name
 $currentGitUserEmail = git config --get user.email
 
-Write-Log 'Download Small K8s Setup'
+Write-Log 'Download k2s source from git'
 Invoke-Command -Session $session2 -ErrorAction SilentlyContinue {
     New-Item -ItemType Directory -Force c:\k
     Set-Location c:\k
