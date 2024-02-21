@@ -403,6 +403,10 @@ Invoke-Command -Session $session3 {
     &$env:SystemDrive\k\smallsetup\common\GlobalVariables.ps1
     Import-Module $env:SystemDrive\k\smallsetup\ps-modules\log\log.module.psm1
     Initialize-Logging -Nested:$true
+
+    Import-Module $env:SystemDrive\k\lib\modules\k2s\k2s.node.module\windowsnode\system\system.module.psm1
+    Stop-InstallationIfRequiredCurlVersionNotInstalled
+
     New-Item -ItemType Directory "$global:KubernetesPath\lib\NSSM"
     Copy-Item -Path 'C:\ProgramData\chocolatey\lib\NSSM\*' -Destination "$global:KubernetesPath\lib\NSSM" -Recurse -Force
     Copy-Item -Path 'C:\ProgramData\chocolatey\bin\nssm.exe' -Destination "$global:KubernetesPath\bin" -Force

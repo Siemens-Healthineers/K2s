@@ -77,10 +77,11 @@ $installStopwatch = [system.diagnostics.stopwatch]::StartNew()
 
 
 
-$infraModule = "$PSScriptRoot/../../../modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
-$nodeModule = "$PSScriptRoot/../../../modules/k2s/k2s.node.module/k2s.node.module.psm1"
+$infraModule =   "$PSScriptRoot/../../../modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
+$nodeModule =    "$PSScriptRoot/../../../modules/k2s/k2s.node.module/k2s.node.module.psm1"
 $clusterModule = "$PSScriptRoot/../../../modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
-Import-Module $infraModule, $nodeModule, $clusterModule
+$systemModule =  "$PSScriptRoot/../../../modules/k2s/k2s.node.module/windowsnode/system/system.module.psm1"
+Import-Module $infraModule, $nodeModule, $clusterModule, $systemModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 Reset-LogFile -AppendLogFile:$AppendLogFile
@@ -94,6 +95,7 @@ Write-Log 'Prerequisites checks before installation' -Console
 Test-PathPrerequisites
 Test-ControlPlanePrerequisites -MasterVMProcessorCount $MasterVMProcessorCount -MasterVMMemory $MasterVMMemory -MasterDiskSize $MasterDiskSize
 Test-WindowsPrerequisites -WSL:$WSL
+Stop-InstallationIfRequiredCurlVersionNotInstalled
 
 if ($CheckOnly) {
     Write-Log 'Early exit (CheckOnly)' -Console
