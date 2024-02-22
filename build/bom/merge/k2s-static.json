@@ -9,7 +9,7 @@
       {
         "vendor": "cyclonedx",
         "name": "cdxgen",
-        "version": "8.0.6"
+        "version": "10.1.3"
       }
     ],
     "authors": [
