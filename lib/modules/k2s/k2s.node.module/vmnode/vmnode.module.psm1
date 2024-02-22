@@ -1786,9 +1786,9 @@ function Initialize-WinVM {
     $currentGitUserName = git config --get user.name
     $currentGitUserEmail = git config --get user.email
 
+    Write-Log 'Copy Source from Host to VM node'
     Get-ChildItem $kubePath -Recurse -File | ForEach-Object { Write-log $_.FullName.Replace($kubePath, "c:\k"); Copy-VMFile $Name -SourcePath $_.FullName -DestinationPath $_.FullName.Replace($kubePath, "c:\k") -CreateFullPath -FileSource Host }
 
-    Write-Log 'Copy Source from Host to VM node'
     Invoke-Command -Session $session2 -ErrorAction SilentlyContinue {
         Set-Location $env:SystemDrive\k
 
@@ -1824,6 +1824,9 @@ function Initialize-WinVM {
         Set-Location $env:SystemDrive\k
         Set-ExecutionPolicy Bypass -Force -ErrorAction SilentlyContinue
 
+        Import-Module $env:SystemDrive\k\lib\modules\k2s\k2s.node.module\windowsnode\system\system.module.psm1
+        Stop-InstallationIfRequiredCurlVersionNotInstalled
+        
         Import-Module $env:SystemDrive\k\lib\modules\k2s\k2s.infra.module\k2s.infra.module.psm1
         Import-Module $env:SystemDrive\k\lib\modules\k2s\k2s.node.module\k2s.node.module.psm1
         Initialize-Logging -Nested:$true
