@@ -85,7 +85,10 @@ Param(
 # import global functions
 . $PSScriptRoot\common\GlobalFunctions.ps1
 
-Import-Module "$PSScriptRoot/ps-modules/log/log.module.psm1"
+$logModule = "$PSScriptRoot\ps-modules\log\log.module.psm1"
+$systemModule = "$PSScriptRoot\..\lib\modules\k2s\k2s.node.module\windowsnode\system\system.module.psm1"
+
+Import-Module $logModule, $systemModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -165,6 +168,7 @@ if ($ReleaseId -lt 17763) {
 }
 
 Stop-InstallIfNoMandatoryServiceIsRunning
+Stop-InstallationIfRequiredCurlVersionNotInstalled
 
 Enable-MissingWindowsFeatures $([bool]$WSL)
 

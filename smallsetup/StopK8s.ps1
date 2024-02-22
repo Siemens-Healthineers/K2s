@@ -25,7 +25,7 @@ Initialize-Logging -ShowLogs:$ShowLogs
 Set-Location $global:KubernetesPath
 
 if ($global:HeaderLineShown -ne $true) {
-    Write-Log 'Stopping Small K8s system'
+    Write-Log 'Stopping K2s'
 }
 
 # reset default namespace

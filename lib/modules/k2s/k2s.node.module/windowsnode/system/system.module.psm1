@@ -269,6 +269,39 @@ function Stop-InstallIfNoMandatoryServiceIsRunning {
     }
 }
 
+function Stop-InstallationIfRequiredCurlVersionNotInstalled {
+    try {
+        $versionOutput = curl.exe --version
+    }
+    catch {
+        $errorMessage = "The tool 'curl' is not installed. Please install it and add its installation location to the 'PATH' environment variable"
+        Write-Log $errorMessage
+        throw $errorMessage
+    }
+    $actualVersionAsString = ($versionOutput -split '\s')[1]
+    try {
+        $actualVersionParts = ($actualVersionAsString -split '\.') | ForEach-Object { [int]$_ }
+        $actualVersion = [Version]::new($actualVersionParts[0], $actualVersionParts[1], $actualVersionParts[2])
+    }
+    catch {
+        $errorMessage = "The version of 'curl' could not be determined because: `n $_"
+        Write-Log $errorMessage
+        throw $errorMessage
+    }
+
+    $minimumRequiredVersion = [Version]"7.71.0"
+
+    if ($actualVersion -lt $minimumRequiredVersion) {
+        $errorMessage = ("The installed version of 'curl' ($actualVersionAsString) is not at least the required one ($($minimumRequiredVersion.ToString())).",
+        "`n",
+        "Call 'curl.exe --version' to check the installed version.",
+        "`n",
+        "Update 'curl' and add its installation location to the 'PATH' environment variable.")
+        Write-Log $errorMessage
+        throw $errorMessage
+    }
+}
+
 Export-ModuleMember -Function Add-K2sToDefenderExclusion,
 Enable-MissingWindowsFeatures,
 Stop-InstallIfDockerDesktopIsRunning,
@@ -276,4 +309,5 @@ Test-WindowsPrerequisites,
 Test-ProxyConfiguration,
 Get-StorageLocalDrive,
 Invoke-DownloadFile,
-Stop-InstallIfNoMandatoryServiceIsRunning
+Stop-InstallIfNoMandatoryServiceIsRunning,
+Stop-InstallationIfRequiredCurlVersionNotInstalled
