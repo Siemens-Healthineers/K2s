@@ -31,55 +31,46 @@ Param(
     [switch] $ShowLogs = $false
 )
 
-function EnsureNpm() {
-    Write-Output 'Check the existence of npm'
-    try
-    {
-        if(Get-Command "npme") { Write-Output "npm exists" }
-    }
-    catch
-    {
-        Write-Output "npm does not exist, installing it"
-        $CMD = 'choco'
-        $INSTALL = @('install', 'nodejs-lts', '-y')
-        Write-Output "npm install with: " $CMD $INSTALL
-        & $CMD $INSTALL
+# function EnsureNpm() {
+#     Write-Output 'Check the existence of npm'
+#     try
+#     {
+#         if(Get-Command "npme") { Write-Output "npm exists" }
+#     }
+#     catch
+#     {
+#         Write-Output "npm does not exist, installing it"
+#         $CMD = 'choco'
+#         $INSTALL = @('install', 'nodejs-lts', '-y')
+#         Write-Output "npm install with: " $CMD $INSTALL
+#         & $CMD $INSTALL
 
-        if($Proxy -ne '') {
-            $CMD = 'npm'
-            $SETPROXY = @('config', 'set', 'proxy', $Proxy)
-            Write-Output "proxy set with: " $CMD $SETPROXY
-            & $CMD $SETPROXY
-        }
-    }
-    Write-Output 'npm now available'
-}
+#         if($Proxy -ne '') {
+#             $CMD = 'npm'
+#             $SETPROXY = @('config', 'set', 'proxy', $Proxy)
+#             Write-Output "proxy set with: " $CMD $SETPROXY
+#             & $CMD $SETPROXY
+#         }
+#     }
+#     Write-Output 'npm now available'
+# }
 
 function EnsureCdxgen() {
     Write-Output 'Check the existence of tool cdxgen'
-    try
-    {
-        if(Get-Command "cdxgen") { Write-Output "cdxgen exists" }
+
+    # download cdxgen
+    $downloadFile = "$global:BinPath\cdxgen.exe"
+    if (!(Test-Path $downloadFile)) {
+        DownloadFile $downloadFile https://github.com/CycloneDX/cdxgen/releases/download/v10.1.3/cdxgen.exe $true -ProxyToUse $Proxy
     }
-    catch
-    {
-        Write-Output "cdxgen does not exist, installing it"
-        $CMD = 'npm'
-        $INSTALL = @('install', '--location=global', '@cyclonedx/cdxgen')
-        Write-Output "cdxgen install with: " $CMD $INSTALL
-        & $CMD $INSTALL
-        $PLUGINS = @('install', '--location=global', '@cyclonedx/cdxgen-plugins-bin')
-        Write-Output "cdxgen plugins with: " $CMD $PLUGINS
-        & $CMD $PLUGINS
-    }
-    Write-Output 'cdxgen now available'
+    Write-Output "cdxgen now available"
 }
 
 function EnsureCdxCli() {
     # download cli if not there
     $cli = "$global:BinPath\cyclonedx-win-x64.exe"
     if (!(Test-Path $cli)) {
-        DownloadFile $cli https://github.com/CycloneDX/cyclonedx-cli/releases/download/v0.24.2/cyclonedx-win-x64.exe $true -ProxyToUse $Proxy
+        DownloadFile $cli https://github.com/CycloneDX/cyclonedx-cli/releases/download/v0.25.0/cyclonedx-win-x64.exe $true -ProxyToUse $Proxy
     }
 }
 
@@ -105,6 +96,10 @@ function GenerateBomGolang($dirname) {
 
 function MergeBomFilesFromDirectory() {
     Write-Output "Merge bom files from '$bomRootDir\merge'"
+
+    # cleanup files
+    Remove-Item -Path "$bomRootDir\k2s-bom.json" -ErrorAction SilentlyContinue
+    Remove-Item -Path "$bomRootDir\k2s-bom.xml" -ErrorAction SilentlyContinue
 
     # merge all files to one bom file
     $bomfiles = (Get-ChildItem -Path "$bomRootDir\merge" -Filter *.json -Recurse).FullName | Sort-Object length -Descending
@@ -149,13 +144,12 @@ function GenerateBomDebian() {
     Write-Output "Generate bom for debian packages"
 
     Write-Output "Install npm"
-    ExecCmdMaster "sudo DEBIAN_FRONTEND=noninteractive apt-get install -y nodejs npm"
+    #ExecCmdMaster "sudo DEBIAN_FRONTEND=noninteractive apt-get install -y nodejs npm"
     $hostname = Get-ControlPlaneNodeHostname
     Write-Output "Install cdxgen into $hostname"
-    $operationProxy = 'http://' + $global:IP_NextHop + ':8181'
-    ExecCmdMaster "sudo npm config set proxy $operationProxy"
-    ExecCmdMaster "sudo npm install -g @cyclonedx/cdxgen@10.1.3"
-    ExecCmdMaster "sudo npm install -g @cyclonedx/cdxgen-plugins-bin"
+
+    ExecCmdMaster "if test -f /usr/local/bin/cdxgen; then echo cdxgen exists; else sudo curl -L -o /usr/local/bin/cdxgen --proxy http://172.19.1.1:8181 https://github.com/CycloneDX/cdxgen/releases/download/v10.1.3/cdxgen; fi"
+    ExecCmdMaster "sudo chmod +x /usr/local/bin/cdxgen"
 
     Write-Output "Generate bom for debian"
     ExecCmdMaster "sudo SCAN_DEBUG_MODE=debug FETCH_LICENSE=true DEBIAN_FRONTEND=noninteractive cdxgen --required-only -t os --deep -o kubemaster.json 2>&1"
@@ -165,23 +159,23 @@ function GenerateBomDebian() {
     Copy-FromToMaster -Source $source -Target "$bomRootDir\merge"
 }
 
-function FilterBomForSw360Import() {
-    Write-Output "Filter and patch for VCS string for all components started.."
+# function FilterBomForSw360Import() {
+#     Write-Output "Filter and patch for VCS string for all components started.."
 
-    Write-Output "Check availability of sbomgenerator.exe under location $bomRootDir\generator"
-    $inputFile = "$bomRootDir\k2s-bom.xml"
-    $dataFile = "$bomRootDir\generator\data.json"
-    $outFile = "$bomRootDir\k2s-filtered.xml"
+#     Write-Output "Check availability of sbomgenerator.exe under location $bomRootDir\generator"
+#     $inputFile = "$bomRootDir\k2s-bom.xml"
+#     $dataFile = "$bomRootDir\generator\data.json"
+#     $outFile = "$bomRootDir\k2s-filtered.xml"
 
-    $executablePath = "$bomRootDir\generator\sbomgenerator.exe"
-    $argument = @('-f', $inputFile, '-d', $dataFile, '-o', $outFile)
+#     $executablePath = "$bomRootDir\generator\sbomgenerator.exe"
+#     $argument = @('-f', $inputFile, '-d', $dataFile, '-o', $outFile)
 
-    if (Test-Path "$bomRootDir\generator\sbomgenerator.exe") {
-        & cmd /c "$executablePath $argument 2>&1"
-    } else {
-        Write-Warning "Unable to find sbomgenerator!! Please fix it!!"
-    }
-}
+#     if (Test-Path "$bomRootDir\generator\sbomgenerator.exe") {
+#         & cmd /c "$executablePath $argument 2>&1"
+#     } else {
+#         Write-Warning "Unable to find sbomgenerator!! Please fix it!!"
+#     }
+# }
 
 #################################################################################################
 # SCRIPT START                                                                                  #
@@ -208,7 +202,6 @@ Write-Output '---------------------------------------------------------------'
 $generationStopwatch = [system.diagnostics.stopwatch]::StartNew()
 
 CheckVMState
-EnsureNpm
 EnsureCdxgen
 EnsureCdxCli
 GenerateBomGolang("pkg\util\cloudinitisobuilder")
@@ -221,10 +214,8 @@ GenerateBomGolang("pkg\k2s")
 
 GenerateBomDebian
 MergeBomFilesFromDirectory
-# does not work somehow
-# ValidateResultBom
 
-# FilterBomForSw360Import
+# ValidateResultBom
 
 Write-Output '---------------------------------------------------------------'
 Write-Output " Generate bom file finished.   Total duration: $('{0:hh\:mm\:ss}' -f $generationStopwatch.Elapsed )"
