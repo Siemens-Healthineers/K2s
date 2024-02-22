@@ -69,7 +69,7 @@ if ((Test-IsAddonEnabled -Name 'exthttpaccess') -eq $true) {
   exit 0
 }
 
-function AbortExecutionDueToPortNotAssignable {
+function AbortExecutionDueToPortValue {
   param (
     [string]$AbortMessage = $(throw 'Parameter missing: AbortMessage')
   )
@@ -89,6 +89,31 @@ function DetermineIfPortIsUsed {
   $processesListeningOnPort = netstat -aon | findstr ":$Port" | findstr "LISTENING"
 
   return (![string]::IsNullOrWhiteSpace($processesListeningOnPort))
+}
+
+function ValidateUserConfiguredPortNumber {
+  param (
+    [string]$Port
+  )
+  $isNumber = $Port -match "^[0-9]*$"
+  if (!$isNumber) {
+    AbortExecutionDueToPortValue -AbortMessage "The user configured port value must be a number."
+  }
+  try {
+    $portNumber = [int]$Port
+  }
+  catch {
+    AbortExecutionDueToPortValue -AbortMessage "Could not convert port value '$Port' to a number."
+  }
+  
+  if ($portNumber -lt 49152 -or $portNumber -gt 65535) {
+    AbortExecutionDueToPortValue -AbortMessage "The user configured port number $Port cannot be used. Please choose a number between 49152 and 65535."
+  }
+
+  $isPortUsed = DetermineIfPortIsUsed -Port $Port
+  if ($isPortUsed) {
+    AbortExecutionDueToPortValue -AbortMessage "The user configured port number $Port is already in use."
+  }
 }
 
 $httpPortNumberToUse = "80"
@@ -118,12 +143,28 @@ if ($isPort80Used -or $isPort443Used) {
     $isPort8443Used = DetermineIfPortIsUsed -Port $httpsPortNumberToUse
 
     if ($isPort8080Used -or $isPort8443Used) {
-      AbortExecutionDueToPortNotAssignable -AbortMessage "The addon still cannot be enabled since there is already a process listening on port 8080 and/or 8443."
+
+      $userConfiguredHttpPort = $env:K2S_EXTHTTPACCESS_CUSTOM_HTTP_PORT
+      $userConfiguredHttpsPort = $env:K2S_EXTHTTPACCESS_CUSTOM_HTTPS_PORT
+
+      if ($userConfiguredHttpPort -ne $null -and $userConfiguredHttpsPort -ne $null) {
+        if ($userConfiguredHttpPort -eq $userConfiguredHttpsPort) {
+          AbortExecutionDueToPortValue -AbortMessage "The configured port values for HTTP and HTTPS are the same"
+        }
+        ValidateUserConfiguredPortNumber -Port $userConfiguredHttpPort
+        ValidateUserConfiguredPortNumber -Port $userConfiguredHttpsPort
+
+        $httpPortNumberToUse = $userConfiguredHttpPort
+        $httpsPortNumberToUse = $userConfiguredHttpsPort
+      } else {
+        AbortExecutionDueToPortValue -AbortMessage "The addon still cannot be enabled since there is already a process listening on port 8080 and/or 8443."
+      }
     }
   }else{
-    AbortExecutionDueToPortNotAssignable -AbortMessage "The addon cannot be enabled since there is already a process listening on port 80 and/or 443."
+    AbortExecutionDueToPortValue -AbortMessage "The addon cannot be enabled since there is already a process listening on port 80 and/or 443."
   }
 }
+
 
 Write-Log 'Obtaining IPs of active physical net adapters' -Console
 $na = (Get-NetAdapter -Physical | Where-Object { ($_.Status -eq 'Up') -and ($_.Name -ne 'Loopbackk2s') })

@@ -5,12 +5,13 @@
 package exthttpaccess
 
 import (
-	"os/exec"
-	"strings"
 	"context"
 	"encoding/json"
 	"k2s/addons/status"
 	"k2sTest/framework"
+	"os"
+	"os/exec"
+	"strings"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -93,7 +94,7 @@ var _ = Describe("'exthttpaccess' addon", Ordered, func() {
 				Expect(len(pids)).To(BeNumerically(">", 0))
 			})
 			It("checks 'nginx.exe' is listening on ports", func() {
-	    		var err error
+				var err error
 				pids, _ := findNginxProcesses()
 				listeningPids, err := findListeningProcesses()
 				Expect(err).To(BeNil())
@@ -164,7 +165,7 @@ func findNginxProcesses() ([]string, error) {
 
 	output := b.String()
 	lines := strings.Split(output, "\n")
-	
+
 	for _, line := range lines {
 		if strings.Contains(line, p) {
 			fields := strings.Split(line, ",")
@@ -179,12 +180,25 @@ func findNginxProcesses() ([]string, error) {
 func findListeningProcesses() ([]string, error) {
 
 	type ports struct {
-		HTTP string
-		HTTPS string
-		AlternativeHTTP string
-		AlternativeHTTPS string
+		HTTP                string
+		HTTPS               string
+		AlternativeHTTP     string
+		AlternativeHTTPS    string
+		UserConfiguredHTTP  string
+		UserConfiguredHTTPS string
 	}
-	p := ports{HTTP: "80", HTTPS: "443", AlternativeHTTP: "8080", AlternativeHTTPS: "8443"}
+
+	userConfiguredHttp := os.Getenv("K2S_EXTHTTPACCESS_CUSTOM_HTTP_PORT")
+	userConfiguredHttps := os.Getenv("K2S_EXTHTTPACCESS_CUSTOM_HTTPS_PORT")
+
+	if userConfiguredHttp == "" {
+		userConfiguredHttp = "-1"
+	}
+	if userConfiguredHttps == "" {
+		userConfiguredHttps = "-1"
+	}
+
+	p := ports{HTTP: "80", HTTPS: "443", AlternativeHTTP: "8080", AlternativeHTTPS: "8443", UserConfiguredHTTP: userConfiguredHttp, UserConfiguredHTTPS: userConfiguredHttps}
 	pids := make([]string, 0)
 
 	cmd, b := exec.Command("netstat", "-ano"), new(strings.Builder)
@@ -198,18 +212,20 @@ func findListeningProcesses() ([]string, error) {
 
 	output := b.String()
 	lines := strings.Split(output, "\n")
-	
+
 	added := make(map[string]bool)
 
-	var arePortsUsed = func (text string, p ports) bool {
+	var arePortsUsed = func(text string, p ports) bool {
 		var format = func(port string) string {
 			return ":" + port
 		}
-		return strings.Contains(text, "LISTENING") && 
-				(strings.Contains(text, format(p.HTTP)) || 
-				strings.Contains(text, format(p.HTTPS)) || 
-				strings.Contains(text, format(p.AlternativeHTTP)) || 
-				strings.Contains(text, format(p.AlternativeHTTPS)))
+		return strings.Contains(text, "LISTENING") &&
+			(strings.Contains(text, format(p.HTTP)) ||
+				strings.Contains(text, format(p.HTTPS)) ||
+				strings.Contains(text, format(p.AlternativeHTTP)) ||
+				strings.Contains(text, format(p.AlternativeHTTPS)) ||
+				strings.Contains(text, format(p.UserConfiguredHTTP)) ||
+				strings.Contains(text, format(p.UserConfiguredHTTPS)))
 	}
 
 	for _, line := range lines {
