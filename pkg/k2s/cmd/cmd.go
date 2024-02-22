@@ -9,7 +9,6 @@ import (
 	cm "k2s/cmd/common"
 	im "k2s/cmd/image"
 	in "k2s/cmd/install"
-	re "k2s/cmd/reset"
 	"k2s/cmd/start"
 	stat "k2s/cmd/status"
 	stop "k2s/cmd/stop"
@@ -48,7 +47,6 @@ func init() {
 	rootCmd.AddCommand(im.ImageCmd)
 	rootCmd.AddCommand(stat.StatusCmd)
 	rootCmd.AddCommand(addons.NewCmd())
-	rootCmd.AddCommand(re.ResetCmd)
 	rootCmd.AddCommand(ve.VersionCmd)
 	rootCmd.AddCommand(sys.SystemCmd)
 

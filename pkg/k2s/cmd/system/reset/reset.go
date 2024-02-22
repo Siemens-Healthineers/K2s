@@ -4,23 +4,24 @@
 package reset
 
 import (
-	"github.com/spf13/cobra"
-	"k8s.io/klog/v2"
-
 	"k2s/cmd/common"
 	"k2s/utils"
 	"k2s/utils/psexecutor"
+
+	"github.com/spf13/cobra"
+	"k8s.io/klog/v2"
 )
 
-var resetSystemCmd = &cobra.Command{
-	Use:   "system",
-	Short: "Resets system to origin state",
+var ResetCmd = &cobra.Command{
+	Use:   "reset",
+	Short: "Reset options",
 	RunE:  resetSystem,
 }
 
 func init() {
-	resetSystemCmd.Flags().SortFlags = false
-	resetSystemCmd.Flags().PrintDefaults()
+	ResetCmd.AddCommand(resetNetworkCmd)
+	ResetCmd.Flags().SortFlags = false
+	ResetCmd.Flags().PrintDefaults()
 }
 
 func resetSystem(cmd *cobra.Command, args []string) error {
