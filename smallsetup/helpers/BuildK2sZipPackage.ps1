@@ -13,8 +13,6 @@ Param(
     [uint64]$VMDiskSize = 50GB,
     [parameter(Mandatory = $false, HelpMessage = 'HTTP proxy if available to be used during installation')]
     [string] $Proxy = '',
-    [parameter(Mandatory = $false, HelpMessage = 'Host-GW or VXLAN, Host-GW: true, false for VXLAN')]
-    [bool] $HostGW = $true,
     [parameter(Mandatory = $true, HelpMessage = 'Target directory')]
     [string] $TargetDirectory,
     [parameter(Mandatory = $true, HelpMessage = 'The name of the zip package (it must have the extension .zip)')]
