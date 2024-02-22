@@ -154,7 +154,7 @@ function GenerateBomDebian() {
     Write-Output "Install cdxgen into $hostname"
     $operationProxy = 'http://' + $global:IP_NextHop + ':8181'
     ExecCmdMaster "sudo npm config set proxy $operationProxy"
-    ExecCmdMaster "sudo npm install -g @cyclonedx/cdxgen@8.6.0"
+    ExecCmdMaster "sudo npm install -g @cyclonedx/cdxgen@10.1.3"
     ExecCmdMaster "sudo npm install -g @cyclonedx/cdxgen-plugins-bin"
 
     Write-Output "Generate bom for debian"
@@ -224,7 +224,7 @@ MergeBomFilesFromDirectory
 # does not work somehow
 # ValidateResultBom
 
-FilterBomForSw360Import
+# FilterBomForSw360Import
 
 Write-Output '---------------------------------------------------------------'
 Write-Output " Generate bom file finished.   Total duration: $('{0:hh\:mm\:ss}' -f $generationStopwatch.Elapsed )"
