@@ -188,7 +188,7 @@ function Get-Node {
 
     $status = Get-NodeStatus -Conditions $JsonNode.status.conditions
     $role = Get-NodeRole -Labels $JsonNode.metadata.labels
-    $age = Get-Age -Timestamp $JsonNode.metadata.creationTimestamp
+    $age = Get-Age -Timestamp $($JsonNode.metadata.creationTimestamp).ToString()
     $internalIp = Get-NodeInternalIp -Addresses $JsonNode.status.addresses
 
     return New-Object Node -Property @{
@@ -271,7 +271,7 @@ function Get-Pod {
     Write-Log "[$script::$function] Extracting Pod info from JSON.."
 
     $status = Get-PodStatus -JsonNode $JsonNode
-    $age = Get-Age -Timestamp $JsonNode.metadata.creationTimestamp
+    $age = Get-Age -Timestamp $($JsonNode.metadata.creationTimestamp).ToString()
 
     return New-Object Pod -Property @{
         Status    = $status.StatusText;
