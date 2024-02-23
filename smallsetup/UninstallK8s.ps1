@@ -96,8 +96,13 @@ if ($global:PurgeOnUninstall) {
     Remove-Item -Path "$global:NssmInstallDirectory\nssm.exe" -Force -ErrorAction SilentlyContinue
     Remove-Item -Path "$global:SetupJsonFile" -Force -ErrorAction SilentlyContinue
     Remove-Item -Path "$global:KubernetesImagesJson" -Force -ErrorAction SilentlyContinue
-    # to handle the upgrade scenario, we should try to remove kubectl exe from the old version's bin folder. 
+    # to handle the upgrade scenario, we should try to remove kubectl exe from the old version's bin folder.
     Remove-Item -Path "$global:BinPath\kube*.exe" -Force -ErrorAction SilentlyContinue
+    Remove-Item -Path "$global:BinPath\nerdctl.exe" -Force -ErrorAction SilentlyContinue
+    Remove-Item -Path "$global:BinPath\jq.exe" -Force -ErrorAction SilentlyContinue
+    Remove-Item -Path "$global:BinPath\yq.exe" -Force -ErrorAction SilentlyContinue
+    Remove-Item -Path "$global:BinPath\dnsproxy.exe" -Force -ErrorAction SilentlyContinue
+    Remove-Item -Path "$global:BinPath\dnsproxy.yaml" -Force -ErrorAction SilentlyContinue
     Remove-Item -Path "$global:BinPath\cri*.exe" -Force -ErrorAction SilentlyContinue
     Remove-Item -Path "$global:BinPath\crictl.yaml" -Force -ErrorAction SilentlyContinue
     Remove-Item -Path "$global:ExecutableFolderPath" -Force -Recurse -ErrorAction SilentlyContinue

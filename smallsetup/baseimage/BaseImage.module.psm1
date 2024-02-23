@@ -13,7 +13,7 @@ Function New-VhdxDebianCloud {
     param (
         [Parameter(Mandatory = $false)]
         [ValidateScript({ Assert-LegalCharactersInPath -Path $_ })]
-        [string]$TargetFilePath,    
+        [string]$TargetFilePath,
         [Parameter(Mandatory = $false, ValueFromPipeline=$true)]
         [ValidateScript({ Assert-LegalCharactersInPath -Path $_ })]
         [string]$DownloadsDirectory,
@@ -132,7 +132,7 @@ Function New-IsoFile {
         "__LOCAL-HOSTNAME_VALUE__"=$IsoContentParameterValue.Hostname
     }
     Convert-Text -Source $metaDataFileContent -ConversionTable $metaDataConversionTable | Set-Content -Path "$cloudDataTargetDirectory\meta-data" -ErrorAction Stop
-    
+
     $networkConfigFileContent = Get-Content -Path $networkConfigTemplateFilePath -Raw -ErrorAction Stop
     $networkConfigConversionTable = @{
         "__NETWORK_INTERFACE_NAME__"=$IsoContentParameterValue.NetworkInterfaceName
@@ -150,11 +150,11 @@ Function New-IsoFile {
         "__IP_ADDRESSES_DNS_SERVERS__"=($IsoContentParameterValue.IPAddressDnsServers -replace ",", "\n nameserver ")
     }
     Convert-Text -Source $userDataFileContent -ConversionTable $userDataConversionTable | Set-Content -Path "$cloudDataTargetDirectory\user-data" -ErrorAction Stop
-    
+
     Invoke-Tool -ToolPath $IsoFileCreatorToolPath -Arguments "-sourceDir `"$cloudDataTargetDirectory`" -targetFilePath `"$IsoFilePath`""
 
     Assert-Path -Path $IsoFilePath -PathType "Leaf" -ShallExist $true | Out-Null
-    
+
     $IsoFilePath
 }
 
@@ -162,7 +162,7 @@ Function New-IsoFile {
 .SYNOPSIS
 Creates a root filesystem to be used with WSL
 .DESCRIPTION
-A vhdx file is copied from the Windows host to the running VM 
+A vhdx file is copied from the Windows host to the running VM
 and a filesystem file is created inside the running VM out of the vhdx file's content.
 The filesystem file is then compressed an sent to the Windows host.
 .PARAMETER IpAddress
@@ -171,7 +171,7 @@ The IP address of the VM.
 The user name to log in into the VM.
 .PARAMETER UserPwd
 The password to use to log in into the VM.
-.PARAMETER VhdxFile 
+.PARAMETER VhdxFile
 The full path of the vhdx file that will be used to create the filesystem.
 .PARAMETER RootfsName
 The full path for the output filesystem file.
@@ -190,11 +190,11 @@ Function New-RootfsForWSL {
     $user = "$UserName@$IpAddress"
     $userPwd = $UserPwd
 
-    $executeRemoteCommand = { 
+    $executeRemoteCommand = {
         param(
-            $command = $(throw "Argument missing: Command"), 
+            $command = $(throw "Argument missing: Command"),
             [switch]$IgnoreErrors = $false
-            ) 
+            )
         if ($IgnoreErrors) {
             ExecCmdMaster $command -RemoteUser "$user" -RemoteUserPwd "$userPwd" -UsePwd -IgnoreErrors
         } else {
@@ -210,17 +210,17 @@ Function New-RootfsForWSL {
         Remove-Item $targetFile -Force
     }
 
-    &$executeRemoteCommand "sudo mkdir -p /tmp/rootfs" 
-    &$executeRemoteCommand "sudo chmod 755 /tmp/rootfs" 
-    &$executeRemoteCommand "sudo chown $UserName /tmp/rootfs" 
+    &$executeRemoteCommand "sudo mkdir -p /tmp/rootfs"
+    &$executeRemoteCommand "sudo chmod 755 /tmp/rootfs"
+    &$executeRemoteCommand "sudo chown $UserName /tmp/rootfs"
 
     $target = "$user" + ':/tmp/rootfs/'
     $filename = Split-Path $VhdxFile -Leaf
     Copy-FromToMaster -Source $VhdxFile -Target $target -RemoteUserPwd "$userPwd" -UsePwd
 
-    &$executeRemoteCommand "cd /tmp/rootfs && sudo mkdir mntfs" 
-    &$executeRemoteCommand "cd /tmp/rootfs && sudo modprobe nbd" 
-    &$executeRemoteCommand "cd /tmp/rootfs && sudo qemu-nbd -c /dev/nbd0 ./$filename" 
+    &$executeRemoteCommand "cd /tmp/rootfs && sudo mkdir mntfs"
+    &$executeRemoteCommand "cd /tmp/rootfs && sudo modprobe nbd"
+    &$executeRemoteCommand "cd /tmp/rootfs && sudo qemu-nbd -c /dev/nbd0 ./$filename"
 
     $waitFile = @'
 #!/bin/bash \n
@@ -241,31 +241,31 @@ waitFile() { \n
 $@ \n
 '@
 
-    &$executeRemoteCommand "sudo touch /tmp/rootfs/waitfile.sh" 
-    &$executeRemoteCommand "sudo chmod +x /tmp/rootfs/waitfile.sh" 
+    &$executeRemoteCommand "sudo touch /tmp/rootfs/waitfile.sh"
+    &$executeRemoteCommand "sudo chmod +x /tmp/rootfs/waitfile.sh"
     &$executeRemoteCommand "echo -e '$waitFile' | sudo tee -a /tmp/rootfs/waitfile.sh" | Out-Null
-    &$executeRemoteCommand "cd /tmp/rootfs && sed -i 's/\r//g' waitfile.sh" 
-    &$executeRemoteCommand "cd /tmp/rootfs && ./waitfile.sh waitFile /dev/nbd0p1 'a' 30" 
+    &$executeRemoteCommand "cd /tmp/rootfs && sed -i 's/\r//g' waitfile.sh"
+    &$executeRemoteCommand "cd /tmp/rootfs && ./waitfile.sh waitFile /dev/nbd0p1 'a' 30"
 
-    &$executeRemoteCommand "cd /tmp/rootfs && sudo mount /dev/nbd0p1 mntfs" 
+    &$executeRemoteCommand "cd /tmp/rootfs && sudo mount /dev/nbd0p1 mntfs"
 
-    &$executeRemoteCommand "cd /tmp/rootfs && sudo cp -a mntfs rootfs" 
+    &$executeRemoteCommand "cd /tmp/rootfs && sudo cp -a mntfs rootfs"
 
-    &$executeRemoteCommand "cd /tmp/rootfs && sudo umount mntfs" 
-    &$executeRemoteCommand "cd /tmp/rootfs && sudo qemu-nbd -d /dev/nbd0" 
-    &$executeRemoteCommand "cd /tmp/rootfs && ./waitfile.sh waitFile /dev/nbd0p1 'd' 30" 
-    &$executeRemoteCommand "cd /tmp/rootfs && sudo rmmod nbd" 
-    &$executeRemoteCommand "cd /tmp/rootfs && sudo rmdir mntfs" 
+    &$executeRemoteCommand "cd /tmp/rootfs && sudo umount mntfs"
+    &$executeRemoteCommand "cd /tmp/rootfs && sudo qemu-nbd -d /dev/nbd0"
+    &$executeRemoteCommand "cd /tmp/rootfs && ./waitfile.sh waitFile /dev/nbd0p1 'd' 30"
+    &$executeRemoteCommand "cd /tmp/rootfs && sudo rmmod nbd"
+    &$executeRemoteCommand "cd /tmp/rootfs && sudo rmdir mntfs"
 
-    &$executeRemoteCommand "cd /tmp/rootfs && sudo rm $filename" 
+    &$executeRemoteCommand "cd /tmp/rootfs && sudo rm $filename"
 
     &$executeRemoteCommand "cd /tmp/rootfs && sudo tar -zcpf rootfs.tar.gz -C ./rootfs ."  -IgnoreErrors
-    &$executeRemoteCommand 'cd /tmp/rootfs && sudo chown "$(id -un)" rootfs.tar.gz' 
+    &$executeRemoteCommand 'cd /tmp/rootfs && sudo chown "$(id -un)" rootfs.tar.gz'
 
     Copy-FromToMaster -Source $($user + ":/tmp/rootfs/rootfs.tar.gz") -Target "$TargetPath" -RemoteUserPwd "$userPwd" -UsePwd
     Rename-Item -Path "$TargetPath\rootfs.tar.gz" -NewName $RootfsName -Force
     Remove-Item "$TargetPath\rootfs.tar.gz" -Force -ErrorAction SilentlyContinue
-    &$executeRemoteCommand "sudo rm -rf /tmp/rootfs" 
+    &$executeRemoteCommand "sudo rm -rf /tmp/rootfs"
 
     $kubemasterRootfsPath = Get-KubemasterRootfsPath
     if (!(Test-Path $kubemasterRootfsPath)) {
@@ -283,11 +283,11 @@ Returns a comma separated list of DNS IP addresses that are configured in the ac
 Function Find-DnsIpAddress {
     $ipaddressesFromDhcp = @(Get-NetIPAddress -AddressFamily IPv4 -PrefixOrigin Dhcp -AddressState Preferred -ErrorAction SilentlyContinue)
     if (!$ipaddressesFromDhcp) {
-    	Write-Log "No DHCP entry found, try to get the Ethernet NIC" 
+    	Write-Log "No DHCP entry found, try to get the Ethernet NIC"
     	$ipaddressesFromDhcp = @(Get-NetIPAddress -AddressFamily IPv4 -AddressState Preferred -InterfaceAlias Ethernet -ErrorAction SilentlyContinue)
     }
     if (!$ipaddressesFromDhcp) {
-    	throw 'No IP address found which can be used for setting up Small K8s Setup !' 
+    	throw 'No IP address found on the host machine which can be used for setting up networking  !'
     }
     if ($ipaddressesFromDhcp.Length -gt 1) {
     	Write-Warning "Found more than one IP address, using the first one only"
@@ -343,19 +343,19 @@ Function New-VirtualMachineForBaseImageProvisioning {
         [ValidateScript({ Assert-LegalCharactersInPath -Path $_ })]
         [ValidateScript({ Assert-Pattern -Path $_ -Pattern "^.*\.vhdx$" })]
         [string] $VhdxFilePath,
-        
+
         [string] $IsoFilePath = $(throw "Argument missing: IsoFilePath"),
-        
+
         [ValidateScript( { $_ -gt 0 })]
         [long]$VMMemoryStartupBytes,
-        
+
         [ValidateScript( { $_ -gt 0 })]
         [long]$VMProcessorCount,
-        
+
         [ValidateScript( { $_ -gt 0 })]
         [uint64]$VMDiskSize
         )
-	
+
         $useIsoFilePath = (!([string]::IsNullOrWhiteSpace($IsoFilePath)))
         if ($useIsoFilePath) {
             $hasLegalCharactersInPath = Assert-LegalCharactersInPath -Path $IsoFilePath
@@ -411,7 +411,7 @@ Function Remove-VirtualMachineForBaseImageProvisioning {
     if ($vm -ne $null) {
         Remove-VM -Name $VmName -Force
     }
-	
+
     if (Test-Path $VhdxFilePath) {
         Remove-Item -Path $VhdxFilePath -Force
     }
@@ -424,7 +424,7 @@ function Connect-VmToSwitch {
         [ValidateScript({ !([string]::IsNullOrWhiteSpace($_))})]
         [string] $SwitchName = $(throw "Argument missing: SwitchName")
         )
-	
+
 	Write-Log "Connect VM '$VmName' to the switch $SwitchName"
 	Connect-VMNetworkAdapter -VmName $VmName -SwitchName $SwitchName -ErrorAction Stop
 }
@@ -434,7 +434,7 @@ function Disconnect-VmFromSwitch {
         [ValidateScript({ !([string]::IsNullOrWhiteSpace($_))})]
         [string] $VmName = $(throw "Argument missing: VmName")
         )
-	
+
 	Write-Log "Disconnect VM '$VmName' from switch"
     $vmFound = Get-VM | Where-Object Name -eq $VmName | Select-Object -ExpandProperty VmName
     if ($null -ne $vmFound) {
@@ -461,7 +461,7 @@ function Start-VirtualMachineAndWaitForHeartbeat {
     Write-Log "   heartbeat received. Waiting for VM to send heartbeat again..."
     Wait-VM -Name $Name -For Heartbeat
     Write-Log "  ok"
-    
+
     Write-Log "VM '$Name' started"
 }
 
@@ -533,10 +533,10 @@ Function New-DebianCloudBasedVirtualMachine {
     $IPAddressGateway=$IsoFileParams.IPAddressGateway
     $UserName=$IsoFileParams.UserName
     $UserPwd=$IsoFileParams.UserPwd
-    
+
     $downloadsFolder = $WorkingDirectoriesParams.DownloadsDirectory
     $provisioningFolder = $WorkingDirectoriesParams.ProvisioningDirectory
-    
+
     $inProvisioningVhdxPath = "$provisioningFolder\$inProvisioningVhdxName"
 
     $vm = Get-VM | Where-Object Name -Like $vmName
@@ -544,7 +544,7 @@ Function New-DebianCloudBasedVirtualMachine {
     Write-Log "Ensure not existence of VM $vmName"
     if ($null -ne $vm) {
     	Stop-VirtualMachine($vm)
-    	Remove-VirtualMachineForBaseImageProvisioning -Name $vmName -VhdxFilePath $inProvisioningVhdxPath 
+    	Remove-VirtualMachineForBaseImageProvisioning -Name $vmName -VhdxFilePath $inProvisioningVhdxPath
     }
 
     Write-Log "Ensure existence of directory $downloadsFolder"
@@ -555,10 +555,10 @@ Function New-DebianCloudBasedVirtualMachine {
 
     Write-Log "Create the base vhdx"
     New-VhdxDebianCloud -Proxy $Proxy -TargetFilePath $inProvisioningVhdxPath -DownloadsDirectory $downloadsFolder
-        
+
     Write-Log "Create the iso file"
     $dnsEntries = Find-DnsIpAddress
-    $isoContentParameterValues = [hashtable]@{ 
+    $isoContentParameterValues = [hashtable]@{
                                             Hostname=$Hostname
                                             NetworkInterfaceName=$NetworkInterfaceName
                                             IPAddressVM=$IPAddressVM
@@ -566,7 +566,7 @@ Function New-DebianCloudBasedVirtualMachine {
                                             IPAddressDnsServers=$dnsEntries
                                             UserName=$UserName
                                             UserPwd=$UserPwd
-                                            }   
+                                            }
     $isoFilePath = New-IsoFile -IsoFileCreatorToolPath $IsoFileCreatorToolPath `
                                 -IsoFilePath "$provisioningFolder\$IsoFileName" `
                                 -SourcePath $IsoContentTemplateSourcePath `
@@ -607,7 +607,7 @@ Function New-DebianCloudBasedVirtualMachine {
 Stops a VM using its name.
 .DESCRIPTION
 The VM with the given name is stopped and awaited until its associated .avhdx file disappears from the file system.
-The check for the file is done every 5 seconds for at most 30 times. 
+The check for the file is done every 5 seconds for at most 30 times.
 .PARAMETER Name
 The name of the VM.
 #>
@@ -615,7 +615,7 @@ function Stop-VirtualMachineForBaseImageProvisioning {
     param (
         [ValidateScript({ !([string]::IsNullOrWhiteSpace($_))})]
         [string] $Name = $(throw "Argument missing: Name")
-    ) 
+    )
     $virtualMachine = Get-VM -Name $Name
     if ($virtualMachine -ne $null -and $virtualMachine.State -ne "Off") {
         Stop-VM -Name $Name
@@ -644,7 +644,7 @@ function New-SshKeyPair {
     param (
         [ValidateScript({ !([string]::IsNullOrWhiteSpace($_))})]
         [string] $PrivateKeyPath = $(throw "Argument missing: PrivateKeyPath")
-    ) 
+    )
     # Create SSH keypair, if not yet available
     $sshDir = Split-Path -parent $PrivateKeyPath
     if (!(Test-Path $sshDir)) {
@@ -734,19 +734,19 @@ function New-NetworkForProvisioning {
         [ValidateScript({ Get-IsValidIPv4Address($_) })]
         [string]$NatIpAddress = $(throw "Argument missing: NatIpAddress")
     )
-    
+
     $timeout = New-TimeSpan -Minutes 1
 	$stpwatch = [System.Diagnostics.Stopwatch]::StartNew()
 	do {
 	    New-VMSwitch -Name $SwitchName -SwitchType Internal | Write-Log
         Write-Log "Try to find switch: $SwitchName"
     	$sw = Get-VMSwitch -Name $SwitchName -ErrorAction SilentlyContinue | Write-Log
-	} until ( ($sw) -or ($stpwatch.elapsed -lt $timeout))	
+	} until ( ($sw) -or ($stpwatch.elapsed -lt $timeout))
 	Write-Log "Created VMSwitch '$SwitchName'"
 
 	New-NetIPAddress -IPAddress $HostIpAddress -PrefixLength $HostIpPrefixLength -InterfaceAlias "vEthernet ($SwitchName)" | Write-Log
 	Write-Log "Added IP address '$HostIpAddress' to network interface named 'vEthernet ($SwitchName)'"
-	
+
 	$address = "$NatIpAddress/$HostIpPrefixLength"
     $nat = Get-NetNat -Name $NatName -ErrorAction SilentlyContinue
     if( $nat ) { Remove-NetNat -Name $NatName -Confirm:$False -ErrorAction SilentlyContinue }
@@ -774,7 +774,7 @@ function Remove-NetworkForProvisioning {
 
 	Write-Log "Removing NetNat '$NatName' if existing"
 	Get-NetNat | Where-Object Name -Like $NatName | Remove-NetNat -Confirm:$false
-	
+
 	Write-Log "Removing VMSwitch '$SwitchName' if existing"
 	Get-VMSwitch | Where-Object Name -Like $SwitchName | Select-Object -ExpandProperty Name | Remove-VMSwitch -Force
 }
@@ -808,9 +808,9 @@ Function Invoke-Tool {
         [string]$ToolPath = $(throw "Argument missing: ToolPath"),
         [string]$Arguments
     )
-    
+
     $output = $(Start-Process -FilePath $ToolPath -ArgumentList $Arguments  -WindowStyle Hidden -Wait 2>&1 )
-        
+
     if ($LASTEXITCODE -ne 0) {
         Write-Log $output
         throw "Tool '$ToolPath' returned code '$LASTEXITCODE'."
@@ -848,7 +848,7 @@ Function Remove-FolderContent {
     	Remove-Item -Path $Path -Recurse -Force -ErrorAction Stop | Out-Null
     } else {
         throw "The Path '$Path' does not exist"
-    }  
+    }
 
     $Path
 }
@@ -886,7 +886,7 @@ Function Assert-IsoContentParameters {
         [ValidateNotNull()]
         [Hashtable]$Parameter = $(throw 'Parameter missing: Parameter')
     )
-    
+
     $isValidIPv4 = {
         param ([string]$value)
         $isValid = $true
@@ -905,12 +905,12 @@ Function Assert-IsoContentParameters {
                     $isValid = $false
                     break
                 }
-                
+
             }
         } else {
             $isValid = $false
         }
-        
+
         $isValid
     }
     $validateKeyExists = {
