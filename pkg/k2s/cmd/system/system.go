@@ -5,6 +5,7 @@ package system
 
 import (
 	"k2s/cmd/system/dump"
+	"k2s/cmd/system/reset"
 	"k2s/cmd/system/scp"
 	"k2s/cmd/system/ssh"
 	"k2s/cmd/system/upgrade"
@@ -22,4 +23,5 @@ func init() {
 	SystemCmd.AddCommand(ssh.SshCmd)
 	SystemCmd.AddCommand(scp.ScpCmd)
 	SystemCmd.AddCommand(upgrade.UpgradeCmd)
+	SystemCmd.AddCommand(reset.ResetCmd)
 }

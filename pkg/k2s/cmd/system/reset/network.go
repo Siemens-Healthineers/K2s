@@ -40,7 +40,7 @@ func resetNetwork(cmd *cobra.Command, args []string) error {
 
 	setupName, err := config.GetSetupName()
 	if err == nil && setupName != "" {
-		terminal.NewTerminalPrinter().PrintInfofln("'%s' setup is installed, please uninstall with 'k2s uninstall' first or reset system with 'k2s reset sytem' and re-run the 'k2s reset network' command afterwards.", setupName)
+		terminal.NewTerminalPrinter().PrintInfofln("'%s' setup is installed, please uninstall with 'k2s uninstall' first or reset system with 'k2s system reset' and re-run the 'k2s system reset network' command afterwards.", setupName)
 		return nil
 	}
 
