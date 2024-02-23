@@ -46,8 +46,8 @@ function Get-Status {
 
     $status = @{SetupInfo = Get-SetupInfo }
 
-    if ($status.SetupInfo.ValidationError) {
-        Write-Log "[$script::$function] Setup type invalid, returning with error='$($status.SetupInfo.ValidationError)'"
+    if ($status.SetupInfo.Error) {
+        Write-Log "[$script::$function] Setup type invalid, returning with error='$($status.SetupInfo.Error)'"
 
         if ($ShowProgress -eq $true) {
             Write-Progress -Activity 'Gathering status information...' -Id 1 -Completed
@@ -131,13 +131,32 @@ function Test-ClusterAvailability {
 }
 
 function Test-SystemAvailability {
+    param(
+        [Parameter(Mandatory = $false)]
+        [switch]
+        $Structured = $false # TODO: flag for compatibility reasons; remove when completely migrated
+    )
     $setupInfo = Get-SetupInfo
-    if ($setupInfo.ValidationError) {
-        return $setupInfo.ValidationError
+    if ($setupInfo.Error) {
+        if ($Structured -eq $true) {
+            return @{
+                Type    = 'precondition-not-met'; 
+                Code    = $setupInfo.Error; 
+                Message = 'You have not installed K2s setup yet, please install K2s first.' 
+            }
+        }
+        return $setupInfo.Error
     }
 
     $state = (Get-RunningState -SetupName $setupInfo.Name)
     if ($state.IsRunning -ne $true) {
+        if ($Structured -eq $true) {
+            return @{
+                Type    = 'precondition-not-met'; 
+                Code    = 'system-not-running'; 
+                Message = 'K2s is not running. To interact with the system, please start K2s first.' 
+            }
+        }
         return 'system-not-running'
     }
 
@@ -146,9 +165,10 @@ function Test-SystemAvailability {
 
 function Get-IsWorkerVM {
     $setupInfo = Get-SetupInfo
-    if ($setupInfo.Name -eq "MultiVMK8s") {
+    if ($setupInfo.Name -eq 'MultiVMK8s') {
         return $true
-    } else {
+    }
+    else {
         return $false
     }
 }

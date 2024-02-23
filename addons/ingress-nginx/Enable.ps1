@@ -41,34 +41,36 @@ Initialize-Logging -ShowLogs:$ShowLogs
 
 Write-Log 'Checking cluster status' -Console
 
-$systemError = Test-SystemAvailability
+$systemError = Test-SystemAvailability -Structured
 if ($systemError) {
     if ($EncodeStructuredOutput -eq $true) {
         Send-ToCli -MessageType $MessageType -Message @{Error = $systemError }
         return
     }
 
-    Write-Log $systemError -Error
+    Write-Log $systemError.Message -Error
     exit 1
 }
 
 Write-Log 'Checking if ingress-nginx is already enabled'
 
 if ((Test-IsAddonEnabled -Name 'ingress-nginx') -eq $true) {
-    Write-Log "Addon 'ingress-nginx' is already enabled, nothing to do." -Console
+    $errMsg = "Addon 'ingress-nginx' is already enabled, nothing to do."
 
     if ($EncodeStructuredOutput -eq $true) {
-        Send-ToCli -MessageType $MessageType -Message @{Error = $null }
+        Send-ToCli -MessageType $MessageType -Message @{Error = @{Type = 'precondition-not-met'; Code = 'addon-already-enabled'; Message = $errMsg } }
+        return
     }
     
-    exit 0
+    Write-Log $errMsg -Error
+    exit 1
 }
-
 
 if ((Test-IsAddonEnabled -Name 'traefik') -eq $true) {
     $errMsg = "Addon 'traefik' is enabled. Disable it first to avoid port conflicts."
+
     if ($EncodeStructuredOutput -eq $true) {
-        Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+        Send-ToCli -MessageType $MessageType -Message @{Error = @{Type = 'precondition-not-met'; Code = 'addon-already-enabled'; Message = $errMsg } }
         return
     }
 
@@ -78,8 +80,9 @@ if ((Test-IsAddonEnabled -Name 'traefik') -eq $true) {
 
 if ((Test-IsAddonEnabled -Name 'gateway-nginx') -eq $true) {
     $errMsg = "Addon 'gateway-nginx' is enabled. Disable it first to avoid port conflicts."
+
     if ($EncodeStructuredOutput -eq $true) {
-        Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+        Send-ToCli -MessageType $MessageType -Message @{Error = @{Type = 'precondition-not-met'; Code = 'addon-already-enabled'; Message = $errMsg } }
         return
     }
 
@@ -89,13 +92,15 @@ if ((Test-IsAddonEnabled -Name 'gateway-nginx') -eq $true) {
 
 $existingServices = $(&$global:KubectlExe get service -n ingress-nginx -o yaml)
 if ("$existingServices" -match '.*ingress-nginx-controller.*') {
-    Write-Log 'It seems as if ingress nginx is already installed in the namespace ingress-nginx. Disable it before enabling it again.' -Console
-
+    $errMsg = 'It seems as if ingress nginx is already installed in the namespace ingress-nginx. Disable it before enabling it again.'
+    
     if ($EncodeStructuredOutput -eq $true) {
-        Send-ToCli -MessageType $MessageType -Message @{Error = $null }
+        Send-ToCli -MessageType $MessageType -Message @{Error = @{Type = 'precondition-not-met'; Code = 'addon-already-enabled'; Message = $errMsg } }
+        return
     }
 
-    exit 0;
+    Write-Log $errMsg -Error
+    exit 1
 }
 
 Write-Log 'Installing ingress-nginx' -Console
@@ -121,7 +126,7 @@ $allPodsAreUp = Wait-ForPodsReady -Selector 'app.kubernetes.io/name=ingress-ngin
 if ($allPodsAreUp -ne $true) {
     $errMsg = "All ingress-nginx pods could not become ready. Please use kubectl describe for more details.`nInstallation of ingress-nginx failed."
     if ($EncodeStructuredOutput -eq $true) {
-        Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+        Send-ToCli -MessageType $MessageType -Message @{Error = @{Message = $errMsg } }
         return
     }
 
