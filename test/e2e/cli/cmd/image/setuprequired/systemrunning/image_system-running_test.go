@@ -54,7 +54,7 @@ var _ = Describe("image reset-win-storage", func() {
 			Skip("Linux-only")
 		}
 
-		output := suite.K2sCli().Run(ctx, "image", "reset-win-storage")
+		output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "image", "reset-win-storage")
 
 		Expect(output).To(ContainSubstring("In order to clean up WinContainerStorage for multi-vm, please reinstall multi-vm cluster!"))
 	})
