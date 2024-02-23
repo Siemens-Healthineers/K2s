@@ -1743,7 +1743,7 @@ function Get-TransparentProxy($Proxy) {
         # $nic = Get-L2BridgeNIC
         # if ( $null -Eq $nic ) {
         #     Write-Log "FAILURE: no NIC found which is appropriate !"
-        #     throw 'Fatal: no network interface found which works for Small K8s Setup !'
+        #     throw 'Fatal: no network interface found which works for networking setup !'
         # }
         # $localproxy = "http://" + $nic.IPv4Address + ":8181"
         # $ret = $localproxy.replace(' ' , '')

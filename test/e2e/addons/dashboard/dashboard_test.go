@@ -7,6 +7,7 @@ package dashboard
 import (
 	"context"
 	"k2sTest/framework"
+	"k2sTest/framework/k2s"
 	"os/exec"
 	"path"
 	"testing"
@@ -40,13 +41,9 @@ var _ = AfterSuite(func(ctx context.Context) {
 var _ = Describe("'dashboard' addon", Ordered, func() {
 	Describe("disable", func() {
 		When("addon is already disabled", func() {
-			var output string
+			It("prints already-disabled message and exits with non-zero", func(ctx context.Context) {
+				output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "disable", "dashboard")
 
-			BeforeAll(func(ctx context.Context) {
-				output = suite.K2sCli().Run(ctx, "addons", "disable", "dashboard")
-			})
-
-			It("prints already-disabled message", func() {
 				Expect(output).To(ContainSubstring("already disabled"))
 			})
 		})
@@ -87,7 +84,7 @@ var _ = Describe("'dashboard' addon", Ordered, func() {
 			Expect(httpStatus).To(ContainSubstring("200"))
 		})
 
-		It("prints already-enabled message when enabling the addon again", func(ctx context.Context) {
+		It("prints already-enabled message when enabling the addon again and exits with non-zero", func(ctx context.Context) {
 			expectAddonToBeAlreadyEnabled(ctx)
 		})
 	})
@@ -130,7 +127,7 @@ var _ = Describe("'dashboard' addon", Ordered, func() {
 			Expect(httpStatus).To(ContainSubstring("200"))
 		})
 
-		It("prints already-enabled message when enabling the addon again", func(ctx context.Context) {
+		It("prints already-enabled message when enabling the addon again and exits with non-zero", func(ctx context.Context) {
 			expectAddonToBeAlreadyEnabled(ctx)
 		})
 	})
@@ -173,14 +170,14 @@ var _ = Describe("'dashboard' addon", Ordered, func() {
 			Expect(httpStatus).To(ContainSubstring("200"))
 		})
 
-		It("prints already-enabled message when enabling the addon again", func(ctx context.Context) {
+		It("prints already-enabled message when enabling the addon again and exits with non-zero", func(ctx context.Context) {
 			expectAddonToBeAlreadyEnabled(ctx)
 		})
 	})
 })
 
 func expectAddonToBeAlreadyEnabled(ctx context.Context) {
-	output := suite.K2sCli().Run(ctx, "addons", "enable", "dashboard")
+	output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "enable", "dashboard")
 
 	Expect(output).To(ContainSubstring("already enabled"))
 }

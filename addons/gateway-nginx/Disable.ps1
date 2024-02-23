@@ -35,26 +35,27 @@ Initialize-Logging -ShowLogs:$ShowLogs
 
 Write-Log 'Checking cluster status' -Console
 
-$systemError = Test-SystemAvailability
+$systemError = Test-SystemAvailability -Structured
 if ($systemError) {
     if ($EncodeStructuredOutput -eq $true) {
         Send-ToCli -MessageType $MessageType -Message @{Error = $systemError }
         return
     }
 
-    Write-Log $systemError -Error
+    Write-Log $systemError.Message -Error
     exit 1
 }
 
-
 if ($null -eq (&$global:KubectlExe get namespace nginx-gateway --ignore-not-found) -or (Test-IsAddonEnabled -Name 'gateway-nginx') -ne $true) {
-    Write-Log "Addon 'gateway-nginx' is already disabled, nothing to do." -Console
+    $errMsg = "Addon 'gateway-nginx' is already disabled, nothing to do."
 
     if ($EncodeStructuredOutput -eq $true) {
-        Send-ToCli -MessageType $MessageType -Message @{Error = $null }
+        Send-ToCli -MessageType $MessageType -Message @{Error = @{Type = 'precondition-not-met'; Code = 'addon-already-disabled'; Message = $errMsg } }
+        return
     }
     
-    exit 0
+    Write-Log $errMsg -Error
+    exit 1
 }
 
 Write-Log 'Uninstalling NGINX Kubernetes Gateway' -Console

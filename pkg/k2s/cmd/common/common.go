@@ -21,18 +21,31 @@ type CmdResult struct {
 	Error *CmdError `json:"error"`
 }
 
+type PreConditionNotMetError struct {
+	Code    string
+	Message string
+}
+
 const (
 	CliName = "k2s"
 )
 
-var rootLogDir string
-var cliLogPath string
-var executionLogPath string
+var (
+	ErrSilent = errors.New("silent-error")
+
+	rootLogDir       string
+	cliLogPath       string
+	executionLogPath string
+)
 
 func init() {
 	rootLogDir = logging.RootLogDir()
 	cliLogPath = filepath.Join(rootLogDir, "cli", fmt.Sprintf("%s.exe.log", CliName))
 	executionLogPath = filepath.Join(rootLogDir, "k2s.log")
+}
+
+func (e *PreConditionNotMetError) Error() string {
+	return fmt.Sprintf("%s: %s", e.Code, e.Message)
 }
 
 func LogFilePath() string {

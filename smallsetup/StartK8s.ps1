@@ -104,7 +104,7 @@ function GetNetworkAdapterNameFromInterfaceAlias([string]$interfaceAlias) {
 }
 
 if ($global:HeaderLineShown -ne $true) {
-    Write-Log 'Starting syngo small kubernetes system on Windows'
+    Write-Log 'Starting K2s'
     $global:HeaderLineShown = $true
 }
 
@@ -220,7 +220,7 @@ else {
     $switchname = $global:SwitchName
 }
 
-Write-Log 'Configuring network for windows node' -Console
+Write-Log 'Configuring network for Windows node' -Console
 Restart-WinService 'hns'
 
 Write-Log 'Figuring out IPv4DefaultGateway'
@@ -379,7 +379,7 @@ netsh int ipv4 set int 'vEthernet (Ethernet)' forwarding=enabled | Out-Null
 
 Invoke-Hook -HookName BeforeStartK8sNetwork -AdditionalHooksDir $AdditionalHooksDir
 
-Write-Log "Ensure service log directories exists" -Console
+Write-Log "Ensuring service log directories exists" -Console
 EnsureDirectoryPathExists -DirPath "$($global:SystemDriveLetter):\var\log\containerd"
 EnsureDirectoryPathExists -DirPath "$($global:SystemDriveLetter):\var\log\dnsproxy"
 EnsureDirectoryPathExists -DirPath "$($global:SystemDriveLetter):\var\log\dockerd"
@@ -392,7 +392,7 @@ EnsureDirectoryPathExists -DirPath "$($global:SystemDriveLetter):\var\log\pods"
 EnsureDirectoryPathExists -DirPath "$($global:SystemDriveLetter):\var\log\bridge"
 EnsureDirectoryPathExists -DirPath "$($global:SystemDriveLetter):\var\log\vfprules"
 
-Write-Log 'Starting K8s services' -Console
+Write-Log 'Starting Kubernetes services on the Windows node' -Console
 Start-ServiceAndSetToAutoStart -Name 'containerd'
 Start-ServiceAndSetToAutoStart -Name 'flanneld'
 Start-ServiceAndSetToAutoStart -Name 'kubelet'

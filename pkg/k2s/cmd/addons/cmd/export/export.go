@@ -58,7 +58,7 @@ func runExport(cmd *cobra.Command, args []string) error {
 	allAddons := addons.AllAddons()
 
 	if !ac.ValidateAddonNames(allAddons, "export", terminalPrinter, args...) {
-		return nil
+		return common.ErrSilent
 	}
 
 	psCmd, params, err := buildPsCmd(cmd, args...)

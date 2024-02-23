@@ -5,6 +5,7 @@ package status
 
 import (
 	"errors"
+	"k2s/cmd/common"
 	"k2s/setupinfo"
 	ks "k2s/status"
 	"testing"
@@ -107,7 +108,7 @@ var _ = BeforeSuite(func() {
 var _ = Describe("addons status print", func() {
 	Describe("JsonPrinter", func() {
 		Describe("PrintStatus", func() {
-			DescribeTable("known status errors occur", func(loadErr error, expectedErrMsg string) {
+			DescribeTable("known status errors occurs", func(loadErr error, expectedErrMsg string) {
 				addonName := "test-addon"
 				addonDirectory := "test-dir"
 				statusBytes := []byte("status")
@@ -127,7 +128,7 @@ var _ = Describe("addons status print", func() {
 
 				err := sut.PrintStatus(addonName, addonDirectory)
 
-				Expect(err).ToNot(HaveOccurred())
+				Expect(err).To(MatchError(loadErr, common.ErrSilent))
 				printerMock.AssertExpectations(GinkgoT())
 			},
 				Entry("system-not-running", ks.ErrNotRunning, ks.ErrNotRunningMsg),

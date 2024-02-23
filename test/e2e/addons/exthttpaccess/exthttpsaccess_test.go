@@ -5,12 +5,13 @@
 package exthttpaccess
 
 import (
-	"os/exec"
-	"strings"
 	"context"
 	"encoding/json"
 	"k2s/addons/status"
 	"k2sTest/framework"
+	"k2sTest/framework/k2s"
+	"os/exec"
+	"strings"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -26,9 +27,7 @@ func TestAddon(t *testing.T) {
 
 var _ = BeforeSuite(func(ctx context.Context) {
 	suite = framework.Setup(ctx, framework.SystemMustBeRunning, framework.EnsureAddonsAreDisabled)
-	pids, err := findNginxProcesses()
-	Expect(err).To(BeNil())
-	Expect(len(pids)).To(Equal(0))
+	expectNoNginxProcessesAreRunning()
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
@@ -48,28 +47,16 @@ var _ = Describe("'exthttpaccess' addon", Ordered, func() {
 
 			suite.K2sCli().Run(ctx, "addons", "disable", "exthttpaccess")
 
-			pids, err := findNginxProcesses()
-			Expect(err).To(BeNil())
-			Expect(len(pids)).To(Equal(0))
+			expectNoNginxProcessesAreRunning()
 		}
 	})
 
 	When("addon is disabled", func() {
 		Describe("disable", func() {
-			var output string
+			It("prints already-disabled message and exits with non-zero", func(ctx context.Context) {
+				output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "disable", "exthttpaccess")
 
-			BeforeAll(func(ctx context.Context) {
-				output = suite.K2sCli().Run(ctx, "addons", "disable", "exthttpaccess")
-			})
-
-			It("prints already-disabled message", func() {
 				Expect(output).To(ContainSubstring("already disabled"))
-			})
-
-			It("checks 'nginx.exe' is not running", func() {
-				pids, err := findNginxProcesses()
-				Expect(err).To(BeNil())
-				Expect(len(pids)).To(Equal(0))
 			})
 		})
 
@@ -87,13 +74,16 @@ var _ = Describe("'exthttpaccess' addon", Ordered, func() {
 			It("enables the addon", func() {
 				Expect(output).To(ContainSubstring("exthttpaccess enabled"))
 			})
+
 			It("checks 'nginx.exe' is running", func() {
 				pids, err := findNginxProcesses()
+
 				Expect(err).To(BeNil())
 				Expect(len(pids)).To(BeNumerically(">", 0))
 			})
+
 			It("checks 'nginx.exe' is listening on ports", func() {
-	    		var err error
+				var err error
 				pids, _ := findNginxProcesses()
 				listeningPids, err := findListeningProcesses()
 				Expect(err).To(BeNil())
@@ -124,13 +114,9 @@ var _ = Describe("'exthttpaccess' addon", Ordered, func() {
 		})
 
 		Describe("enable", func() {
-			var output string
+			It("prints already-enabled message and exits with non-zero", func(ctx context.Context) {
+				output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "enable", "exthttpaccess")
 
-			BeforeAll(func(ctx context.Context) {
-				output = suite.K2sCli().Run(ctx, "addons", "enable", "exthttpaccess")
-			})
-
-			It("prints already-enabled message", func() {
 				Expect(output).To(ContainSubstring("already enabled"))
 			})
 		})
@@ -149,6 +135,13 @@ var _ = Describe("'exthttpaccess' addon", Ordered, func() {
 	})
 })
 
+func expectNoNginxProcessesAreRunning() {
+	pids, err := findNginxProcesses()
+
+	Expect(err).To(BeNil())
+	Expect(pids).To(BeEmpty())
+}
+
 func findNginxProcesses() ([]string, error) {
 	p := "nginx.exe"
 	pids := make([]string, 0)
@@ -164,7 +157,7 @@ func findNginxProcesses() ([]string, error) {
 
 	output := b.String()
 	lines := strings.Split(output, "\n")
-	
+
 	for _, line := range lines {
 		if strings.Contains(line, p) {
 			fields := strings.Split(line, ",")
@@ -179,9 +172,9 @@ func findNginxProcesses() ([]string, error) {
 func findListeningProcesses() ([]string, error) {
 
 	type ports struct {
-		HTTP string
-		HTTPS string
-		AlternativeHTTP string
+		HTTP             string
+		HTTPS            string
+		AlternativeHTTP  string
 		AlternativeHTTPS string
 	}
 	p := ports{HTTP: "80", HTTPS: "443", AlternativeHTTP: "8080", AlternativeHTTPS: "8443"}
@@ -198,17 +191,17 @@ func findListeningProcesses() ([]string, error) {
 
 	output := b.String()
 	lines := strings.Split(output, "\n")
-	
+
 	added := make(map[string]bool)
 
-	var arePortsUsed = func (text string, p ports) bool {
+	var arePortsUsed = func(text string, p ports) bool {
 		var format = func(port string) string {
 			return ":" + port
 		}
-		return strings.Contains(text, "LISTENING") && 
-				(strings.Contains(text, format(p.HTTP)) || 
-				strings.Contains(text, format(p.HTTPS)) || 
-				strings.Contains(text, format(p.AlternativeHTTP)) || 
+		return strings.Contains(text, "LISTENING") &&
+			(strings.Contains(text, format(p.HTTP)) ||
+				strings.Contains(text, format(p.HTTPS)) ||
+				strings.Contains(text, format(p.AlternativeHTTP)) ||
 				strings.Contains(text, format(p.AlternativeHTTPS)))
 	}
 

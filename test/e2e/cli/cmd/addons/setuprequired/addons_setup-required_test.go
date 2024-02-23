@@ -63,8 +63,8 @@ var _ = Describe("addons", Ordered, func() {
 
 	Describe("export", func() {
 		When("addon name is invalid", func() {
-			It("prints addon-invalid message", func(ctx context.Context) {
-				output := suite.K2sCli().Run(ctx, "addons", "export", "invalid-addon-name", "-d", "test-dir")
+			It("prints addon-invalid message and exits with non-zero", func(ctx context.Context) {
+				output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "export", "invalid-addon-name", "-d", "test-dir")
 
 				Expect(output).To(ContainSubstring("'invalid-addon-name' not supported for export"))
 			})
@@ -73,8 +73,8 @@ var _ = Describe("addons", Ordered, func() {
 
 	Describe("import", func() {
 		When("addon name is invalid", func() {
-			It("prints addon-invalid message", func(ctx context.Context) {
-				output := suite.K2sCli().Run(ctx, "addons", "import", "invalid-addon-name", "-z", "test-dir")
+			It("prints addon-invalid message and exits with non-zero", func(ctx context.Context) {
+				output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "import", "invalid-addon-name", "-z", "test-dir")
 
 				Expect(output).To(ContainSubstring("'invalid-addon-name' not supported for import"))
 			})

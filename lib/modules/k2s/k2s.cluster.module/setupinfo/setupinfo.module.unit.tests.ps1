@@ -44,7 +44,7 @@ Describe 'Get-SetupInfo' -Tag 'unit' {
             It 'returns setup name without validation error' {
                 $result = Get-SetupInfo
                 $result.Name | Should -Be 'MultiVMK8s'
-                $result.ValidationError | Should -BeNullOrEmpty
+                $result.Error | Should -BeNullOrEmpty
                 $result.LinuxOnly | Should -BeFalse
                 $result.Version | Should -Be 'v1.2.3'
             } 
@@ -61,7 +61,7 @@ Describe 'Get-SetupInfo' -Tag 'unit' {
             It 'returns setup name with Linux-only hint' {
                 $result = Get-SetupInfo
                 $result.Name | Should -Be 'MultiVMK8s'
-                $result.ValidationError | Should -BeNullOrEmpty
+                $result.Error | Should -BeNullOrEmpty
                 $result.LinuxOnly | Should -BeTrue
                 $result.Version | Should -Be 'v1.2.3'
             } 
@@ -79,7 +79,7 @@ Describe 'Get-SetupInfo' -Tag 'unit' {
         It 'returns validation error only' {
             $result = Get-SetupInfo
             $result.Name | Should -BeNullOrEmpty
-            $result.ValidationError | Should -Be 'invalid-name'
+            $result.Error | Should -Be 'invalid-name'
             $result.LinuxOnly | Should -BeNullOrEmpty
             $result.Version | Should -BeNullOrEmpty
         }
