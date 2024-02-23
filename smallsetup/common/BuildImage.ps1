@@ -504,6 +504,9 @@ if (!$Windows -and $PreCompile) {
         # Install Go
         $copiedGoInstallScript = "$global:Remote_Master" + ':/tmp/install_go.sh'
         Copy-FromToMaster "$global:KubernetesPath\smallsetup\linuxnode\scripts\install_go.sh" $copiedGoInstallScript
+        # After copy we need to need to remove carriage line endings from the shell script.
+        # TODO: Function to copy shell script to Linux host and remove CR in the shell script file before execution
+        ExecCmdMaster "sed -i -e 's/\r$//' /tmp/install_go.sh" -NoLog
         ExecCmdMaster 'chmod +x /tmp/install_go.sh' -NoLog
         ExecCmdMaster "/tmp/install_go.sh $GO_Ver 2>&1"
     }
