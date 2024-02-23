@@ -17,14 +17,14 @@ Describe 'Get-Status' -Tag 'unit' {
     Context 'progress display disabled' {
         Context 'setup name is invalid' {
             BeforeAll {
-                Mock -ModuleName $moduleName Get-SetupInfo { return @{Name = 'invalid'; ValidationError = 'invalid type' } }
+                Mock -ModuleName $moduleName Get-SetupInfo { return @{Name = 'invalid'; Error = 'invalid type' } }
             }
             
             It 'returns status with setup name info immediately without gathering additional data' {
                 InModuleScope -ModuleName $moduleName {
                     $result = Get-Status
                     $result.SetupInfo.Name | Should -Be 'invalid'
-                    $result.SetupInfo.ValidationError | Should -Be 'invalid type'
+                    $result.SetupInfo.Error | Should -Be 'invalid type'
                     $result.SmbHostType | Should -BeNullOrEmpty
                 }
             }
@@ -43,7 +43,7 @@ Describe 'Get-Status' -Tag 'unit' {
             It 'returns setup name' {
                 InModuleScope -ModuleName $moduleName {
                     $result.SetupInfo.Name | Should -Be 'valid'
-                    $result.SetupInfo.ValidationError | Should -BeNullOrEmpty
+                    $result.SetupInfo.Error | Should -BeNullOrEmpty
                 }
             }
         }
@@ -112,7 +112,7 @@ Describe 'Get-Status' -Tag 'unit' {
     Context 'progress display enabled' {
         Context 'setup name is invalid' {
             BeforeAll {
-                Mock -ModuleName $moduleName Get-SetupInfo { return @{Name = 'invalid'; ValidationError = 'invalid type' } }
+                Mock -ModuleName $moduleName Get-SetupInfo { return @{Name = 'invalid'; Error = 'invalid type' } }
                 Mock -ModuleName $moduleName Write-Progress {}
 
                 InModuleScope -ModuleName $moduleName {
@@ -192,7 +192,7 @@ Describe 'Get-Status' -Tag 'unit' {
 Describe 'Test-SystemAvailability' -Tag 'unit' {
     Context 'setup info has errors' {
         BeforeAll {
-            Mock -ModuleName $moduleName Get-SetupInfo { return @{ValidationError = 'invalid-error' } }
+            Mock -ModuleName $moduleName Get-SetupInfo { return @{Error = 'invalid-error' } }
         }
 
         It 'returns error' {
@@ -204,7 +204,7 @@ Describe 'Test-SystemAvailability' -Tag 'unit' {
     
     Context 'state is system-not-running' {
         BeforeAll {
-            Mock -ModuleName $moduleName Get-SetupInfo { return @{Name = 'my-setup'; ValidationError = $null } }
+            Mock -ModuleName $moduleName Get-SetupInfo { return @{Name = 'my-setup'; Error = $null } }
             Mock -ModuleName $moduleName Get-RunningState { return @{IsRunning = $false } } -ParameterFilter { $SetupName -eq 'my-setup' }
         }
 
@@ -217,7 +217,7 @@ Describe 'Test-SystemAvailability' -Tag 'unit' {
     
     Context 'state is running' {
         BeforeAll {
-            Mock -ModuleName $moduleName Get-SetupInfo { return @{Name = 'my-setup'; ValidationError = $null } }
+            Mock -ModuleName $moduleName Get-SetupInfo { return @{Name = 'my-setup'; Error = $null } }
             Mock -ModuleName $moduleName Get-RunningState { return @{IsRunning = $true } } -ParameterFilter { $SetupName -eq 'my-setup' }
         }
 

@@ -7,6 +7,7 @@ package kubevirt
 import (
 	"context"
 	"k2sTest/framework"
+	"k2sTest/framework/k2s"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -31,13 +32,9 @@ var _ = AfterSuite(func(ctx context.Context) {
 var _ = Describe("'kubevirt' addon", Ordered, func() {
 	When("addon is disabled", func() {
 		Describe("disable", func() {
-			var output string
+			It("prints already-disabled message and exits with non-zero", func(ctx context.Context) {
+				output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "disable", "kubevirt")
 
-			BeforeAll(func(ctx context.Context) {
-				output = suite.K2sCli().Run(ctx, "addons", "disable", "kubevirt")
-			})
-
-			It("prints already-disabled message", func() {
 				Expect(output).To(ContainSubstring("already disabled"))
 			})
 		})

@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"io"
 	"k2sTest/framework"
+	"k2sTest/framework/k2s"
 	"net/http"
 	"testing"
 	"time"
@@ -46,8 +47,8 @@ var _ = Describe("'traefik' addon", Ordered, func() {
 		Expect(addonsStatus.IsAddonEnabled("traefik")).To(BeFalse())
 	})
 
-	It("prints already-disabled message", func(ctx context.Context) {
-		output := suite.K2sCli().Run(ctx, "addons", "disable", "traefik")
+	It("prints already-disabled message and exits with non-zero", func(ctx context.Context) {
+		output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "disable", "traefik")
 
 		Expect(output).To(ContainSubstring("already disabled"))
 	})
@@ -63,8 +64,8 @@ var _ = Describe("'traefik' addon", Ordered, func() {
 		Expect(addonsStatus.IsAddonEnabled("traefik")).To(BeTrue())
 	})
 
-	It("prints already-enabled message", func(ctx context.Context) {
-		output := suite.K2sCli().Run(ctx, "addons", "enable", "traefik")
+	It("prints already-enabled message and exits with non-zero", func(ctx context.Context) {
+		output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "enable", "traefik")
 
 		Expect(output).To(ContainSubstring("already enabled"))
 	})

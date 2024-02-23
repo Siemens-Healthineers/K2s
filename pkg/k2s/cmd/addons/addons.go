@@ -17,7 +17,6 @@ import (
 	"os"
 	"slices"
 	"sort"
-	"strings"
 	"time"
 
 	"k2s/cmd/params"
@@ -31,6 +30,17 @@ import (
 	"github.com/spf13/pflag"
 	"k8s.io/klog/v2"
 )
+
+// TODO: consolidate with K2s\pkg\k2s\cmd\common\common.go
+type addonCmdResult struct {
+	Error *addonCmdError `json:"error"`
+}
+
+type addonCmdError struct {
+	Type    string `json:"type"`
+	Code    string `json:"code"`
+	Message string `json:"message"`
+}
 
 func NewCmd() *cobra.Command {
 	var cmd = &cobra.Command{
@@ -181,7 +191,7 @@ func runCmd(cmd *cobra.Command, addon addons.Addon, cmdName string) error {
 
 	start := time.Now()
 
-	cmdResult, err := psexecutor.ExecutePsWithStructuredResult[*common.CmdResult](psCmd, "CmdResult", psexecutor.ExecOptions{}, params...)
+	cmdResult, err := psexecutor.ExecutePsWithStructuredResult[*addonCmdResult](psCmd, "CmdResult", psexecutor.ExecOptions{}, params...)
 
 	duration := time.Since(start)
 
@@ -190,11 +200,26 @@ func runCmd(cmd *cobra.Command, addon addons.Addon, cmdName string) error {
 	}
 
 	if cmdResult.Error != nil {
-		return cmdResult.Error.ToError()
+		return cmdResult.Error.toError()
 	}
 
 	common.PrintCompletedMessage(duration, fmt.Sprintf("addons %s %s", cmdName, addon.Metadata.Name))
 	return nil
+}
+
+func (err *addonCmdError) toError() error {
+	if err.Type == "precondition-not-met" {
+		return &common.PreConditionNotMetError{
+			Code:    err.Code,
+			Message: err.Message,
+		}
+	}
+
+	if err.Code != "" {
+		return common.CmdError(err.Code).ToError()
+	}
+
+	return errors.New(err.Message)
 }
 
 func buildPsCmd(flags *pflag.FlagSet, cmdConfig addons.AddonCmd, addonDir string) (cmd string, params []string, err error) {
@@ -262,11 +287,11 @@ func convertToPsParam(flag *pflag.Flag, cmdConfig addons.AddonCmd, add func(stri
 func logAddons(allAddons addons.Addons) {
 	logging.DisableCliOutput()
 
-	addonStrings := lo.Map(allAddons, func(a addons.Addon, _ int) string {
-		return fmt.Sprintf("Name: '%s', Directory: '%s'", a.Metadata.Name, a.Directory)
+	addonInfos := lo.Map(allAddons, func(a addons.Addon, _ int) struct{ Name, Directory string } {
+		return struct{ Name, Directory string }{Name: a.Metadata.Name, Directory: a.Directory}
 	})
 
-	klog.Infof("%d addons loaded:\n%s", len(allAddons), strings.Join(addonStrings, "\n"))
+	klog.InfoS("addons loaded", "count", len(addonInfos), "addons", addonInfos)
 
 	logging.EnableCliOutput()
 }

@@ -34,10 +34,10 @@ function Get-SetupInfo {
     }
 
     return [pscustomobject]@{
-        Name            = $setupName; 
-        Version         = $productVersion; 
-        ValidationError = $validationError; 
-        LinuxOnly       = $linuxOnly
+        Name      = $setupName; 
+        Version   = $productVersion; 
+        Error     = $validationError; 
+        LinuxOnly = $linuxOnly
     }
 }
 

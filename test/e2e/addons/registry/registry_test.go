@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"k2sTest/framework"
+	"k2sTest/framework/k2s"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -39,8 +40,8 @@ var _ = Describe("'registry' addon", Ordered, func() {
 				suite.K2sCli().Run(ctx, "addons", "enable", "registry", "-d", "-n", "30007", "-o")
 			})
 
-			It("prints already-enabled message on enable command", func(ctx context.Context) {
-				output := suite.K2sCli().Run(ctx, "addons", "enable", "registry")
+			It("prints already-enabled message on enable command and exits with non-zero", func(ctx context.Context) {
+				output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "enable", "registry")
 
 				Expect(output).To(ContainSubstring("already enabled"))
 			})
@@ -66,8 +67,8 @@ var _ = Describe("'registry' addon", Ordered, func() {
 				suite.K2sCli().Run(ctx, "addons", "disable", "registry", "-o")
 			})
 
-			It("prints already-disabled message on disable command", func(ctx context.Context) {
-				output := suite.K2sCli().Run(ctx, "addons", "disable", "registry")
+			It("prints already-disabled message on disable command and exits with non-zero", func(ctx context.Context) {
+				output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "disable", "registry")
 
 				Expect(output).To(ContainSubstring("already disabled"))
 			})
@@ -91,8 +92,8 @@ var _ = Describe("'registry' addon", Ordered, func() {
 				suite.K2sCli().Run(ctx, "addons", "enable", "registry", "-d", "-o")
 			})
 
-			It("prints already-enabled message on enable command", func(ctx context.Context) {
-				output := suite.K2sCli().Run(ctx, "addons", "enable", "registry")
+			It("prints already-enabled message on enable command and exits with non-zero", func(ctx context.Context) {
+				output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "enable", "registry")
 
 				Expect(output).To(ContainSubstring("already enabled"))
 			})
@@ -120,8 +121,8 @@ var _ = Describe("'registry' addon", Ordered, func() {
 				suite.K2sCli().Run(ctx, "addons", "disable", "ingress-nginx", "-o")
 			})
 
-			It("prints already-disabled message on disable command", func(ctx context.Context) {
-				output := suite.K2sCli().Run(ctx, "addons", "disable", "registry")
+			It("prints already-disabled message on disable command and exits with non-zero", func(ctx context.Context) {
+				output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "disable", "registry")
 
 				Expect(output).To(ContainSubstring("already disabled"))
 			})
@@ -145,8 +146,8 @@ var _ = Describe("'registry' addon", Ordered, func() {
 				suite.K2sCli().Run(ctx, "addons", "enable", "registry", "-d", "-o", "--ingress", "traefik")
 			})
 
-			It("prints already-enabled message on enable command", func(ctx context.Context) {
-				output := suite.K2sCli().Run(ctx, "addons", "enable", "registry")
+			It("prints already-enabled message on enable command and exits with non-zero", func(ctx context.Context) {
+				output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "enable", "registry")
 
 				Expect(output).To(ContainSubstring("already enabled"))
 			})
@@ -174,8 +175,8 @@ var _ = Describe("'registry' addon", Ordered, func() {
 				suite.K2sCli().Run(ctx, "addons", "disable", "traefik", "-o")
 			})
 
-			It("prints already-disabled message on disable command", func(ctx context.Context) {
-				output := suite.K2sCli().Run(ctx, "addons", "disable", "registry")
+			It("prints already-disabled message on disable command and exits with non-zero", func(ctx context.Context) {
+				output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "disable", "registry")
 
 				Expect(output).To(ContainSubstring("already disabled"))
 			})

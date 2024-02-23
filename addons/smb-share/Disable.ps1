@@ -46,22 +46,15 @@ if ($Force -ne $true) {
 
 Write-Log "Disabling addon '$addonName'.."
 
-$result = Disable-SmbShare
+$err = Disable-SmbShare
 
-if ($result.Error) {
-    if ($result.Error -eq 'already-disabled') {
-        if ($EncodeStructuredOutput -eq $true) {
-            Send-ToCli -MessageType $MessageType -Message @{Error = $null }
-        }
-        return
-    }
-
+if ($err) {
     if ($EncodeStructuredOutput -eq $true) {
-        Send-ToCli -MessageType $MessageType -Message @{Error = $result.Error }
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
         return
     }
 
-    Write-Log $result.Error -Error
+    Write-Log $err.Message -Error
     exit 1
 }
 
