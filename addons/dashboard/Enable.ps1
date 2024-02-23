@@ -55,25 +55,27 @@ Initialize-Logging -ShowLogs:$ShowLogs
 
 Write-Log 'Checking cluster status' -Console
 
-$systemError = Test-SystemAvailability
+$systemError = Test-SystemAvailability -Structured
 if ($systemError) {
     if ($EncodeStructuredOutput -eq $true) {
         Send-ToCli -MessageType $MessageType -Message @{Error = $systemError }
         return
     }
 
-    Write-Log $systemError -Error
+    Write-Log $systemError.Message -Error
     exit 1
 }
 
 if ((Test-IsAddonEnabled -Name 'dashboard') -eq $true) {
-    Write-Log "Addon 'dashboard' is already enabled, nothing to do." -Console
+    $errMsg = "Addon 'dashboard' is already enabled, nothing to do."
 
     if ($EncodeStructuredOutput -eq $true) {
-        Send-ToCli -MessageType $MessageType -Message @{Error = $null }
+        Send-ToCli -MessageType $MessageType -Message @{Error = @{Type = 'precondition-not-met'; Code = 'addon-already-enabled'; Message = $errMsg } }
+        return
     }
     
-    exit 0
+    Write-Log $errMsg -Error
+    exit 1
 }
 
 Write-Log 'Installing Kubernetes dashboard' -Console
@@ -86,7 +88,7 @@ $dashboardStatus = Wait-ForDashboardAvailable
 if ($dashboardStatus -ne $true) {
     $errMsg = "All dashboard pods could not become ready. Please use kubectl describe for more details.`nInstallation of Kubernetes dashboard failed."
     if ($EncodeStructuredOutput -eq $true) {
-        Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+        Send-ToCli -MessageType $MessageType -Message @{Error = @{Message = $errMsg } }
         return
     }
 

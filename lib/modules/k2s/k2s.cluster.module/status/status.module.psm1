@@ -131,13 +131,32 @@ function Test-ClusterAvailability {
 }
 
 function Test-SystemAvailability {
+    param(
+        [Parameter(Mandatory = $false)]
+        [switch]
+        $Structured = $false # TODO: flag for compatibility reasons; remove when completely migrated
+    )
     $setupInfo = Get-SetupInfo
     if ($setupInfo.Error) {
+        if ($Structured -eq $true) {
+            return @{
+                Type    = 'precondition-not-met'; 
+                Code    = $setupInfo.Error; 
+                Message = 'You have not installed K2s setup yet, please install K2s first.' 
+            }
+        }
         return $setupInfo.Error
     }
 
     $state = (Get-RunningState -SetupName $setupInfo.Name)
     if ($state.IsRunning -ne $true) {
+        if ($Structured -eq $true) {
+            return @{
+                Type    = 'precondition-not-met'; 
+                Code    = 'system-not-running'; 
+                Message = 'K2s is not running. To interact with the system, please start K2s first.' 
+            }
+        }
         return 'system-not-running'
     }
 
