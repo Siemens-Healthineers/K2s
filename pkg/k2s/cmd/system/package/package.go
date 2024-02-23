@@ -71,19 +71,23 @@ func init() {
 }
 
 func systemPackage(cmd *cobra.Command, args []string) error {
-	resetSystemCommand, err := buildSystemPackageCmd(cmd)
+	systemPackageCommand, err := buildSystemPackageCmd(cmd)
 	if err != nil {
 		return err
 	}
 
-	klog.V(3).Infof("system package command: %s", resetSystemCommand)
+	klog.V(3).Infof("system package command: %s", systemPackageCommand)
 
-	duration, err := psexecutor.ExecutePowershellScript(resetSystemCommand)
+	params := []string{}
+
+	cmdResult, err := psexecutor.ExecutePsWithStructuredResult[*common.CmdResult](systemPackageCommand, "CmdResult", psexecutor.ExecOptions{IgnoreNotInstalledErr: true}, params...)
 	if err != nil {
 		return err
 	}
 
-	common.PrintCompletedMessage(duration, "system package")
+	if cmdResult.Error != nil {
+		return cmdResult.Error.ToError()
+	}
 
 	return nil
 }

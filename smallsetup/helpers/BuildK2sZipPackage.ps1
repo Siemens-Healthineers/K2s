@@ -20,7 +20,11 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
     [switch] $ShowLogs = $false,
     [parameter(Mandatory = $false, HelpMessage = 'Creates a zip package that can be used for offline installation')]
-    [switch] $ForOfflineInstallation = $false
+    [switch] $ForOfflineInstallation = $false,
+    [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
+    [switch] $EncodeStructuredOutput,
+    [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
+    [string] $MessageType
 )
 
 $ErrorActionPreference = 'Continue'
@@ -51,7 +55,15 @@ function BuildAndProvisionKubemasterBaseImage($outputPath) {
     Write-Log 'Create and provision the base image' -Console
     &"$global:KubernetesPath\smallsetup\baseimage\BuildAndProvisionKubemasterBaseImage.ps1" -Proxy $Proxy -OutputPath $outputPath -VMMemoryStartupBytes $VMMemoryStartupBytes -VMProcessorCount $VMProcessorCount
     if (!(Test-Path $outputPath)) {
-        throw "The provisioned base image is unexpectedly not available as '$outputPath' after build and provisioning stage."
+        $systemError = "The provisioned base image is unexpectedly not available as '$outputPath' after build and provisioning stage."
+
+        if ($EncodeStructuredOutput -eq $true) {
+            Send-ToCli -MessageType $MessageType -Message @{Error = $systemError }
+            return
+        }
+    
+        Write-Log $systemError -Error
+        exit 1
     }
     Write-Log "Provisioned base image available as $outputPath" -Console
 }
@@ -69,6 +81,7 @@ function DownloadAndZipWindowsNodeArtifacts($outputPath) {
     Write-Log "Windows node artifacts should be available as '$pathToTest', testing ..." -Console
     if (![string]::IsNullOrEmpty($pathToTest)) {
         if (!(Test-Path -Path $pathToTest)) {
+            $systemError = "The file '$pathToTest' that shall contain the Windows node artifacts is unexpectedly not available."
             Write-Log "Windows node artifacts should be available as '$pathToTest', throw fatal error" -Console
             throw "The file '$pathToTest' that shall contain the Windows node artifacts is unexpectedly not available."
         }
