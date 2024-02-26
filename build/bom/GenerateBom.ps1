@@ -31,30 +31,6 @@ Param(
     [switch] $ShowLogs = $false
 )
 
-# function EnsureNpm() {
-#     Write-Output 'Check the existence of npm'
-#     try
-#     {
-#         if(Get-Command "npme") { Write-Output "npm exists" }
-#     }
-#     catch
-#     {
-#         Write-Output "npm does not exist, installing it"
-#         $CMD = 'choco'
-#         $INSTALL = @('install', 'nodejs-lts', '-y')
-#         Write-Output "npm install with: " $CMD $INSTALL
-#         & $CMD $INSTALL
-
-#         if($Proxy -ne '') {
-#             $CMD = 'npm'
-#             $SETPROXY = @('config', 'set', 'proxy', $Proxy)
-#             Write-Output "proxy set with: " $CMD $SETPROXY
-#             & $CMD $SETPROXY
-#         }
-#     }
-#     Write-Output 'npm now available'
-# }
-
 function EnsureCdxgen() {
     Write-Output 'Check the existence of tool cdxgen'
 
@@ -63,7 +39,7 @@ function EnsureCdxgen() {
     if (!(Test-Path $downloadFile)) {
         DownloadFile $downloadFile https://github.com/CycloneDX/cdxgen/releases/download/v10.1.3/cdxgen.exe $true -ProxyToUse $Proxy
     }
-    Write-Output "cdxgen now available"
+    Write-Output 'cdxgen now available'
 }
 
 function EnsureCdxCli() {
@@ -80,14 +56,14 @@ function GenerateBomGolang($dirname) {
     $tempdir = "$bomRootDir\merge"
     New-Item $tempdir -ItemType Directory -ErrorAction SilentlyContinue
     $bomfile = "$tempdir\$($dirname.Split('\')[-1]).json"
-    if (Test-Path $bomfile) {Remove-Item -Force $bomfile}
-    $env:FETCH_LICENSE="true"
-    if($Proxy -ne '') {
-        $env:GLOBAL_AGENT_HTTP_PROXY=$Proxy
-        $env:https_proxy=$Proxy
+    if (Test-Path $bomfile) { Remove-Item -Force $bomfile }
+    $env:FETCH_LICENSE = 'true'
+    if ($Proxy -ne '') {
+        $env:GLOBAL_AGENT_HTTP_PROXY = $Proxy
+        $env:https_proxy = $Proxy
     }
-    $env:SCAN_DEBUG_MODE='debug'
-    $indir = $global:KubernetesPath+"\"+$dirname
+    $env:SCAN_DEBUG_MODE = 'debug'
+    $indir = $global:KubernetesPath + '\' + $dirname
     Write-Output "Generate $dirname with command 'cdxgen --required-only -o `"$bomfile`" `"$indir`"'"
     cdxgen --required-only -o `"$bomfile`" `"$indir`"
 
@@ -107,7 +83,7 @@ function MergeBomFilesFromDirectory() {
     $MERGE = @('merge', '--input-files')
     # adding at the beginning just to have the right naming for the component
     $MERGE += "`"$bomRootDir\merge\k2s-static.json`""
-    foreach($bomfile in $bomfiles) { $MERGE += "`"$bomfile`"" }
+    foreach ($bomfile in $bomfiles) { $MERGE += "`"$bomfile`"" }
     $MERGE += '--output-file'
     $MERGE += "`"$bomRootDir\k2s-bom.json`""
     & $CMD $MERGE
@@ -132,7 +108,7 @@ function ValidateResultBom() {
 }
 
 function CheckVMState() {
-    Write-Output "Check KubeMaster state"
+    Write-Output 'Check KubeMaster state'
 
     $vmState = (Get-VM -Name $global:VMName).State
     if ($vmState -ne [Microsoft.HyperV.PowerShell.VMState]::Running) {
@@ -141,41 +117,110 @@ function CheckVMState() {
 }
 
 function GenerateBomDebian() {
-    Write-Output "Generate bom for debian packages"
+    Write-Output 'Generate bom for debian packages'
 
-    Write-Output "Install npm"
+    Write-Output 'Install npm'
     #ExecCmdMaster "sudo DEBIAN_FRONTEND=noninteractive apt-get install -y nodejs npm"
     $hostname = Get-ControlPlaneNodeHostname
     Write-Output "Install cdxgen into $hostname"
 
-    ExecCmdMaster "if test -f /usr/local/bin/cdxgen; then echo cdxgen exists; else sudo curl -L -o /usr/local/bin/cdxgen --proxy http://172.19.1.1:8181 https://github.com/CycloneDX/cdxgen/releases/download/v10.1.3/cdxgen; fi"
-    ExecCmdMaster "sudo chmod +x /usr/local/bin/cdxgen"
+    ExecCmdMaster 'if test -f /usr/local/bin/cdxgen; then echo cdxgen exists; else sudo curl -L -o /usr/local/bin/cdxgen --proxy http://172.19.1.1:8181 https://github.com/CycloneDX/cdxgen/releases/download/v10.1.3/cdxgen; fi'
+    ExecCmdMaster 'sudo chmod +x /usr/local/bin/cdxgen'
 
-    Write-Output "Generate bom for debian"
-    ExecCmdMaster "sudo SCAN_DEBUG_MODE=debug FETCH_LICENSE=true DEBIAN_FRONTEND=noninteractive cdxgen --required-only -t os --deep -o kubemaster.json 2>&1"
+    Write-Output 'Generate bom for debian'
+    ExecCmdMaster 'sudo SCAN_DEBUG_MODE=debug FETCH_LICENSE=true DEBIAN_FRONTEND=noninteractive cdxgen --required-only -t os --deep -o kubemaster.json 2>&1'
 
-    Write-Output "Copy bom file to local folder"
+    Write-Output 'Copy bom file to local folder'
     $source = "$global:Remote_Master" + ':/home/remote/kubemaster.json'
     Copy-FromToMaster -Source $source -Target "$bomRootDir\merge"
 }
 
-# function FilterBomForSw360Import() {
-#     Write-Output "Filter and patch for VCS string for all components started.."
+function GenerateBomContainers() {
+    Write-Output 'Generate bom for container images'
 
-#     Write-Output "Check availability of sbomgenerator.exe under location $bomRootDir\generator"
-#     $inputFile = "$bomRootDir\k2s-bom.xml"
-#     $dataFile = "$bomRootDir\generator\data.json"
-#     $outFile = "$bomRootDir\k2s-filtered.xml"
+    $tempDir = [System.Environment]::GetEnvironmentVariable('TEMP')
+    Write-Output "Writing to temp all containers $tempDir"
 
-#     $executablePath = "$bomRootDir\generator\sbomgenerator.exe"
-#     $argument = @('-f', $inputFile, '-d', $dataFile, '-o', $outFile)
+    # export all addons to have all images pull
+    &k2s.exe addons export -d $tempDir -o
+    if ( Test-Path -Path $tempDir\addons.zip) {
+        Remove-Item -Path $tempDir\addons.zip -Force
+    }
 
-#     if (Test-Path "$bomRootDir\generator\sbomgenerator.exe") {
-#         & cmd /c "$executablePath $argument 2>&1"
-#     } else {
-#         Write-Warning "Unable to find sbomgenerator!! Please fix it!!"
-#     }
-# }
+    # dump all images 
+    &$bomRootDir\Dumpk2sImages.ps1
+
+    # read json file and iterate through entries, filter out windows images   
+    $jsonFile = "$bomRootDir\container-images-used.json"
+    $jsonContent = Get-Content -Path $jsonFile | ConvertFrom-Json
+    $images = $jsonContent | Select-Object -ExpandProperty ImageName
+    $imagesWindows = @()
+    foreach ($image in $images) {
+        Write-Output "Processing image: $image"
+
+        # find image id in kubemaster VM
+        $imageId = ExecCmdMaster "sudo buildah images -f 'reference=$image' --format '{{.ID}}'"
+        Write-Output "  -> Image Id: $imageId"
+
+        #check if image id is not empty
+        if (![string]::IsNullOrEmpty($imageId)) {
+            # create bom file entry for linux image
+            Write-Output "  -> Image $image is linux image, creating bom file"
+            ExecCmdMaster "sudo buildah push $imageId docker-archive:$imageId.tar:$image"
+            
+            # create bom file entry for linux image
+            # replace in string / with - to avoid issues with file name            
+            $imageName = 'container-' + $image -replace '/', '-'
+            Write-Output "  -> Create bom file for image $imageName"
+            ExecCmdMaster "sudo SCAN_DEBUG_MODE=debug FETCH_LICENSE=true DEBIAN_FRONTEND=noninteractive cdxgen --required-only -t containerfile $imageId.tar -o $imageName.json"
+
+            # copy bom file to local folder
+            $source = "$global:Remote_Master" + ":/home/remote/$imageName.json"
+            Copy-FromToMaster -Source $source -Target "$bomRootDir\merge"
+
+            # delete tar file
+            ExecCmdMaster "sudo rm $imageId.tar"
+            ExecCmdMaster "sudo rm $imageName.json"
+        }
+        else {
+            Write-Output '  -> Image is windows image, skipping'
+            $imagesWindows += $image
+        }
+    }
+
+    # iterate through windows images
+    $ims = (&k2s.exe image ls -o json | ConvertFrom-Json).containerimages
+    foreach ($image in $imagesWindows) {
+        Write-Output "Processing windows image: $image"
+        $imageName = 'container-' + $image -replace '/', '-'
+        
+        # filter from $ims objects with propeerty repository equal to $image    
+        $img = $ims | Where-Object { $_.repository -eq $image }
+        if ( $null -eq $img) {
+            throw "Image $image not found in k2s, please check !"
+        }
+
+        # copy to master
+        Write-Output "  -> Exporting windows image: $imageName with id: $img.imageid to $tempDir\$imageName.tar"
+        &k2s.exe image export --id $img.imageid -t "$tempDir\\$imageName.tar" --docker-archive 
+
+        # copy to master since cdxgen is not available on windows
+        &k2s.exe system scp m "$tempDir\\$imageName.tar" '/home/remote'
+
+        Write-Output "  -> Creating bom for windows image: $imageName"
+        ExecCmdMaster "sudo SCAN_DEBUG_MODE=debug FETCH_LICENSE=true DEBIAN_FRONTEND=noninteractive cdxgen --required-only -t containerfile /home/remote/$imageName.tar -o $imageName.json" -IgnoreErrors -NoLog | Out-Null
+
+        # copy bom file to local folder
+        $source = "$global:Remote_Master" + ":/home/remote/$imageName.json"
+        Copy-FromToMaster -Source $source -Target "$bomRootDir\merge"
+
+        # remove tar file
+        ExecCmdMaster "sudo rm /home/remote/$imageName.tar"
+        Remove-Item -Path "$tempDir\\$imageName.tar" -Force    
+    }
+
+    Write-Output 'Containers bom files now available'
+}
 
 #################################################################################################
 # SCRIPT START                                                                                  #
@@ -204,15 +249,16 @@ $generationStopwatch = [system.diagnostics.stopwatch]::StartNew()
 CheckVMState
 EnsureCdxgen
 EnsureCdxCli
-GenerateBomGolang("pkg\util\cloudinitisobuilder")
-GenerateBomGolang("pkg\util\zap")
-GenerateBomGolang("pkg\network\bridge")
-GenerateBomGolang("pkg\network\devgon")
-GenerateBomGolang("pkg\network\httpproxy")
-GenerateBomGolang("pkg\network\vfprules")
-GenerateBomGolang("pkg\k2s")
+GenerateBomGolang('pkg\util\cloudinitisobuilder')
+GenerateBomGolang('pkg\util\zap')
+GenerateBomGolang('pkg\network\bridge')
+GenerateBomGolang('pkg\network\devgon')
+GenerateBomGolang('pkg\network\httpproxy')
+GenerateBomGolang('pkg\network\vfprules')
+GenerateBomGolang('pkg\k2s')
 
 GenerateBomDebian
+GenerateBomContainers
 MergeBomFilesFromDirectory
 
 # ValidateResultBom
