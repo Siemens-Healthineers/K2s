@@ -59,25 +59,27 @@ Initialize-Logging -ShowLogs:$ShowLogs
 
 Write-Log 'Checking cluster status' -Console
 
-$systemError = Test-SystemAvailability
+$systemError = Test-SystemAvailability -Structured
 if ($systemError) {
     if ($EncodeStructuredOutput -eq $true) {
         Send-ToCli -MessageType $MessageType -Message @{Error = $systemError }
         return
     }
 
-    Write-Log $systemError -Error
+    Write-Log $systemError.Message -Error
     exit 1
 }
 
 if ((Test-IsAddonEnabled -Name 'kubevirt') -eq $true) {
-    Write-Log "Addon 'kubevirt' is already enabled, nothing to do." -Console
+    $errMsg = "Addon 'kubevirt' is already enabled, nothing to do."
 
     if ($EncodeStructuredOutput -eq $true) {
-        Send-ToCli -MessageType $MessageType -Message @{Error = $null }
+        Send-ToCli -MessageType $MessageType -Message @{Error = @{Type = 'precondition-not-met'; Code = 'addon-already-enabled'; Message = $errMsg } }
+        return
     }
     
-    exit 0
+    Write-Log $errMsg -Error
+    exit 1
 }
 
 $wsl = Get-WSLFromConfig
@@ -86,7 +88,7 @@ if ($wsl) {
         + "Please install cluster without wsl option in order to use kubevirt addon!`n" `
         + 'kubevirt not available on current setup!'
     if ($EncodeStructuredOutput -eq $true) {
-        Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+        Send-ToCli -MessageType $MessageType -Message @{Error = @{Message = $errMsg } }
         return
     }
 
@@ -104,7 +106,7 @@ if ( $MasterVMMemory.Startup -lt 10GB ) {
         + "or install from scratch with k2s install --master-cpus 8 --master-memory 12GB --master-disk 120GB`n"`
         + 'Memory in master vm too low, stop your cluster and increase the memory of your master vm to at least 12GB!'
     if ($EncodeStructuredOutput -eq $true) {
-        Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+        Send-ToCli -MessageType $MessageType -Message @{Error = @{Message = $errMsg } }
         return
     }
 
@@ -120,7 +122,7 @@ if ( $MasterDiskSize.Size -lt 100GB ) {
         + "or install from scratch with k2s install --master-cpus 8 --master-memory 12GB --master-disk 120GB`n"`
         + 'Disk size for master vm too low'
     if ($EncodeStructuredOutput -eq $true) {
-        Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+        Send-ToCli -MessageType $MessageType -Message @{Error = @{Message = $errMsg } }
         return
     }
 

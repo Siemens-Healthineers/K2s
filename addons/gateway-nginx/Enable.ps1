@@ -40,32 +40,34 @@ Initialize-Logging -ShowLogs:$ShowLogs
 
 Write-Log 'Checking cluster status' -Console
 
-$systemError = Test-SystemAvailability
+$systemError = Test-SystemAvailability -Structured
 if ($systemError) {
   if ($EncodeStructuredOutput -eq $true) {
     Send-ToCli -MessageType $MessageType -Message @{Error = $systemError }
     return
   }
 
-  Write-Log $systemError -Error
+  Write-Log $systemError.Message -Error
   exit 1
 }
 
 if ((Test-IsAddonEnabled -Name 'gateway-nginx') -eq $true -or "$(&$global:KubectlExe get deployment -n nginx-gateway -o yaml)" -match 'nginx-gateway') {
-  Write-Log "Addon 'gateway-nginx' is already enabled, nothing to do." -Console
+  $errMsg = "Addon 'gateway-nginx' is already enabled, nothing to do."
 
   if ($EncodeStructuredOutput -eq $true) {
-    Send-ToCli -MessageType $MessageType -Message @{Error = $null }
+    Send-ToCli -MessageType $MessageType -Message @{Error = @{Type = 'precondition-not-met'; Code = 'addon-already-enabled'; Message = $errMsg } }
+    return
   }
-  
-  exit 0
+    
+  Write-Log $errMsg -Error
+  exit 1
 }
 
 if ((Test-IsAddonEnabled -Name 'ingress-nginx') -eq $true) {
   $errMsg = "Addon 'ingress-nginx' is enabled. Disable it first to avoid port conflicts."
 
   if ($EncodeStructuredOutput -eq $true) {
-    Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+    Send-ToCli -MessageType $MessageType -Message @{Error = @{Type = 'precondition-not-met'; Code = 'addon-already-enabled'; Message = $errMsg } }
     return
   }
 
@@ -77,7 +79,7 @@ if ((Test-IsAddonEnabled -Name 'traefik') -eq $true) {
   $errMsg = "Addon 'traefik' is enabled. Disable it first to avoid port conflicts."
   
   if ($EncodeStructuredOutput -eq $true) {
-    Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+    Send-ToCli -MessageType $MessageType -Message @{Error = @{Type = 'precondition-not-met'; Code = 'addon-already-enabled'; Message = $errMsg } }
     return
   }
 
@@ -109,7 +111,7 @@ if (!$?) {
   $errMsg = 'Not all pods could become ready. Please use kubectl describe for more details.'
   
   if ($EncodeStructuredOutput -eq $true) {
-    Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+    Send-ToCli -MessageType $MessageType -Message @{Error = @{Message = $errMsg } }
     return
   }
 

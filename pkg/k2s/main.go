@@ -26,6 +26,14 @@ func main() {
 			logging.Finalize()
 			os.Exit(1)
 		}
+		var pcnmErr *common.PreConditionNotMetError
+		if errors.As(err, &pcnmErr) {
+			pterm.Warning.Println(pcnmErr.Message)
+			logging.DisableCliOutput()
+			klog.InfoS("precondition not met", "code", pcnmErr.Code, "message", pcnmErr.Message)
+			logging.Finalize()
+			os.Exit(1)
+		}
 
 		if errors.Is(err, setupinfo.ErrNotInstalled) {
 			pterm.Info.Println("You have not installed K2s setup yet, please start the installation with command 'k2s.exe install' first")

@@ -255,7 +255,13 @@ if ($systemError) {
     exit 1
 }
 
-$GO_Ver = '1.19'
+$GO_Ver = '1.19' # default go version
+if ($null -ne $env:GOVERSION -and $env:GOVERSION -ne '') {
+    Write-Log "Using local GOVERSION $Env:GOVERSION environment variable from the host machine"
+    # $env:GOVERSION will be go1.21.4, remove the go part.
+    $GO_Ver = $env:GOVERSION -split 'go' | Select-Object -Last 1
+}
+
 $mainStopwatch = [system.diagnostics.stopwatch]::StartNew()
 
 $scriptStartLocation = Get-Location
@@ -271,8 +277,8 @@ $InputFolder = [System.IO.Path]::GetFullPath($InputFolder)
 
 $dockerfileAbsoluteFp, $PreCompile = Get-DockerfileAbsolutePathAndPrecompileFlag
 
-if (($ImageTag -eq 'local') -and $Push) { 
-    $errMsg = 'Unable to push without valid tag, use -ImageTag' 
+if (($ImageTag -eq 'local') -and $Push) {
+    $errMsg = 'Unable to push without valid tag, use -ImageTag'
     if ($EncodeStructuredOutput -eq $true) {
         Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
         return
@@ -294,7 +300,7 @@ if (!$Windows) {
                 Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
                 return
             }
-        
+
             Write-Log $errMsg -Error
             exit 1
         }
@@ -308,7 +314,7 @@ if ($Push) {
             Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
             return
         }
-        
+
         Write-Log $errMsg -Error
         exit 1
     }
@@ -325,7 +331,7 @@ if ($Push) {
             Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
             return
         }
-        
+
         Write-Log $errMsg -Error
         exit 1
     }
@@ -337,11 +343,11 @@ if ($Push) {
             Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
             return
         }
-        
+
         Write-Log $errMsg -Error
         exit 1
     }
-    
+
     &$PSScriptRoot\..\helpers\SwitchRegistry.ps1 -RegistryName $registry
 }
 
@@ -480,7 +486,7 @@ if (!$Windows -and $PreCompile) {
     }
 
     # check if we need to install go and gcc into VM
-    $GoInstalled = $(ExecCmdMaster "which /usr/lib/go-$GO_Ver/bin/go" -NoLog)
+    $GoInstalled = $(ExecCmdMaster "which /usr/local/go-$GO_Ver/bin/go" -NoLog)
     $MuslInstalled = $(ExecCmdMaster 'which musl-gcc' -NoLog)
     if ($GoInstalled -match '/bin/go' -and $MuslInstalled -match '/bin/musl-gcc') {
         Write-Log 'Pre-Compilation: go and gcc compiler already available in VM'
@@ -488,12 +494,21 @@ if (!$Windows -and $PreCompile) {
     else {
         Write-Log 'Pre-Compilation: Downloading needed binaries (go, gcc)...'
         ExecCmdMaster "echo 'debconf debconf/frontend select Noninteractive' | sudo debconf-set-selections"
-        ExecCmdMaster "sudo apt-get update;DEBIAN_FRONTEND=noninteractive sudo apt-get install -q --yes golang-$GO_Ver gcc git musl musl-tools;" -Retries 3 -Timeout 2
+        ExecCmdMaster "sudo apt-get update;DEBIAN_FRONTEND=noninteractive sudo apt-get install -q --yes gcc git musl musl-tools;" -Retries 3 -Timeout 2
         ExecCmdMaster 'DEBIAN_FRONTEND=noninteractive sudo apt-get install -q --yes upx-ucl' -Retries 3 -Timeout 2
         # ExecCmdMaster "sudo apt-get update >/dev/null ; sudo apt-get install -q --yes golang-$GO_Ver gcc git musl musl-tools; sudo apt-get install -q --yes upx-ucl"
         if ($LASTEXITCODE -ne 0) {
             throw "'apt install' returned code $LASTEXITCODE. Aborting. In case of timeouts do a retry."
         }
+
+        # Install Go
+        $copiedGoInstallScript = "$global:Remote_Master" + ':/tmp/install_go.sh'
+        Copy-FromToMaster "$global:KubernetesPath\smallsetup\linuxnode\scripts\install_go.sh" $copiedGoInstallScript
+        # After copy we need to need to remove carriage line endings from the shell script.
+        # TODO: Function to copy shell script to Linux host and remove CR in the shell script file before execution
+        ExecCmdMaster "sed -i -e 's/\r$//' /tmp/install_go.sh" -NoLog
+        ExecCmdMaster 'chmod +x /tmp/install_go.sh' -NoLog
+        ExecCmdMaster "/tmp/install_go.sh $GO_Ver 2>&1"
     }
 
     $dirForBuild = '~/tmp/docker-build'
@@ -538,19 +553,19 @@ if (!$Windows -and $PreCompile) {
 
     if ($GoBuild -eq 'test') {
         Write-Log "Pre-Compilation: Building test-executable with GO: $ccExecutableName ..."
-        ExecCmdMaster "cd $dirForBuild ; $setTransparentProxy $setGoEnvironment $CGOFlags /usr/lib/go-$GO_Ver/bin/go test -c -v -o $ccExecutableName 2>&1"
+        ExecCmdMaster "cd $dirForBuild ; $setTransparentProxy $setGoEnvironment $CGOFlags /usr/local/go-$GO_Ver/bin/go test -c -v -o $ccExecutableName 2>&1"
     }
     else {
         Write-Log "Getting dependencies for GO: $ccExecutableName ..."
-        ExecCmdMaster "cd $dirForBuild ; $setTransparentProxy $setGoEnvironment /usr/lib/go-$GO_Ver/bin/go get -v . 2>&1"
+        ExecCmdMaster "cd $dirForBuild ; $setTransparentProxy $setGoEnvironment /usr/local/go-$GO_Ver/bin/go get -v . 2>&1"
 
         if ( $Optimize ) {
             Write-Log "Pre-Compilation: Building optimized executable with GO: $ccExecutableName ..."
-            ExecCmdMaster "cd $dirForBuild ; $setTransparentProxy $setGoEnvironment $CGOFlags /usr/lib/go-$GO_Ver/bin/go build -v -ldflags='-s -w' -o $ccExecutableName . 2>&1; upx $ccExecutableName ; ls -l"
+            ExecCmdMaster "cd $dirForBuild ; $setTransparentProxy $setGoEnvironment $CGOFlags /usr/local/go-$GO_Ver/bin/go build -v -ldflags='-s -w' -o $ccExecutableName . 2>&1; upx $ccExecutableName ; ls -l"
         }
         else {
             Write-Log "Pre-Compilation: Building executable with GO: $ccExecutableName ..."
-            ExecCmdMaster "cd $dirForBuild ; $setTransparentProxy $setGoEnvironment $CGOFlags /usr/lib/go-$GO_Ver/bin/go build -v -o $ccExecutableName . 2>&1"
+            ExecCmdMaster "cd $dirForBuild ; $setTransparentProxy $setGoEnvironment $CGOFlags /usr/local/go-$GO_Ver/bin/go build -v -o $ccExecutableName . 2>&1"
         }
     }
     if ($LASTEXITCODE -ne 0) {
@@ -633,7 +648,7 @@ else {
     }
     ExecCmdMaster "$buildahBudCommand"
     if ($LASTEXITCODE -ne 0) {
-        $errMsg = "error while creating image with 'buildah bud' in linux VM. Error code returned was $LastExitCode" 
+        $errMsg = "error while creating image with 'buildah bud' in linux VM. Error code returned was $LastExitCode"
         if ($EncodeStructuredOutput -eq $true) {
             Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
             return
@@ -688,7 +703,7 @@ if ($Push) {
         Write-Log $errMsg -Error
         exit 1
     }
- 
+
     Write-Log "Image '${ImageName}:$ImageTag' pushed successfully to registry" -Console
 }
 
