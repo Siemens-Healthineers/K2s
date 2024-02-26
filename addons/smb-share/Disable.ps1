@@ -46,7 +46,7 @@ if ($Force -ne $true) {
 
 Write-Log "Disabling addon '$addonName'.."
 
-$err = Disable-SmbShare
+$err = (Disable-SmbShare).Error
 
 if ($err) {
     if ($EncodeStructuredOutput -eq $true) {

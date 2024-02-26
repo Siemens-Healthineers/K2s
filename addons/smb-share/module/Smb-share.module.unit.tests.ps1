@@ -1453,8 +1453,7 @@ Describe 'Enable-SmbShare' -Tag 'unit', 'addon' {
         }
 
         It 'returns error' {
-            (Enable-SmbShare -SmbHostType 'Windows').Code | Should -Be 'unavailable'
-
+            (Enable-SmbShare -SmbHostType 'Windows').Error.Code | Should -Be 'unavailable'
         }
     }
 
@@ -1466,7 +1465,7 @@ Describe 'Enable-SmbShare' -Tag 'unit', 'addon' {
 
         It 'returns error' {
             InModuleScope -ModuleName $moduleName {
-                $err = Enable-SmbShare -SmbHostType 'Windows'
+                $err = (Enable-SmbShare -SmbHostType 'Windows').Error
                 
                 $err.Type | Should -Be 'precondition-not-met' 
                 $err.Code | Should -Be 'addon-already-enabled' 
@@ -1487,7 +1486,7 @@ Describe 'Enable-SmbShare' -Tag 'unit', 'addon' {
             }
 
             It 'returns error' {
-                $err = Enable-SmbShare -SmbHostType 'Linux' 
+                $err = (Enable-SmbShare -SmbHostType 'Linux' ).Error
                      
                 $err.Type | Should -Be 'precondition-not-met' 
                 $err.Code | Should -Be 'wrong-setup-type-for-addon'
@@ -1511,9 +1510,9 @@ Describe 'Enable-SmbShare' -Tag 'unit', 'addon' {
                 InModuleScope -ModuleName $moduleName {
                     $smbHostType = 'Linux'
 
-                    $err = Enable-SmbShare -SmbHostType $smbHostType
+                    $result = Enable-SmbShare -SmbHostType $smbHostType
 
-                    $err | Should -BeNullOrEmpty
+                    $result.Error | Should -BeNullOrEmpty
 
                     Should -Invoke Copy-ScriptsToHooksDir -Times 1 -Scope Context
                     Should -Invoke Add-AddonToSetupJson -Times 1 -Scope Context -ParameterFilter { $Addon.Name -eq $AddonName -and $Addon.SmbHostType -eq $smbHostType }
@@ -1537,7 +1536,7 @@ Describe 'Disable-SmbShare' -Tag 'unit', 'addon' {
 
         It 'does not test system availability' {
             InModuleScope -ModuleName $moduleName {
-                $err = Disable-SmbShare -SkipNodesCleanup
+                $err = (Disable-SmbShare -SkipNodesCleanup).Error
                 
                 $err.Type | Should -Be 'precondition-not-met' 
                 $err.Code | Should -Be 'addon-already-disabled'
@@ -1555,7 +1554,7 @@ Describe 'Disable-SmbShare' -Tag 'unit', 'addon' {
 
         It 'does not return system error' {
             InModuleScope -ModuleName $moduleName {
-                $err = Disable-SmbShare
+                $err = (Disable-SmbShare).Error
                 
                 $err.Type | Should -Be 'precondition-not-met' 
                 $err.Code | Should -Be 'addon-already-disabled'
@@ -1571,7 +1570,7 @@ Describe 'Disable-SmbShare' -Tag 'unit', 'addon' {
 
         It 'returns error' {
             InModuleScope -ModuleName $moduleName {
-                $err = Disable-SmbShare
+                $err = (Disable-SmbShare).Error
                 
                 $err.Type | Should -Be 'err-type' 
                 $err.Code | Should -Be 'err-code'
@@ -1588,7 +1587,7 @@ Describe 'Disable-SmbShare' -Tag 'unit', 'addon' {
 
         It 'returns error' {
             InModuleScope -ModuleName $moduleName {
-                $err = Disable-SmbShare
+                $err = (Disable-SmbShare).Error
                     
                 $err.Type | Should -Be 'precondition-not-met' 
                 $err.Code | Should -Be 'addon-already-disabled'
@@ -1608,9 +1607,9 @@ Describe 'Disable-SmbShare' -Tag 'unit', 'addon' {
 
         It 'disables the addon with skip flag set correctly' {
             InModuleScope -ModuleName $moduleName {
-                $err = Disable-SmbShare -SkipNodesCleanup
+                $result = Disable-SmbShare -SkipNodesCleanup
                 
-                $err | Should -BeNullOrEmpty
+                $result.Error | Should -BeNullOrEmpty
 
                 Should -Invoke Remove-SmbShareAndFolder -Times 1 -Scope Context -ParameterFilter { $SkipNodesCleanup -eq $true }
                 Should -Invoke Remove-AddonFromSetupJson -Times 1 -Scope Context -ParameterFilter { $Name -eq $AddonName }

@@ -45,7 +45,7 @@ if ($Config -ne $null -and $null -ne $Config.SmbHostType) {
 
 Write-Log "Enabling addon '$addonName' with SMB host type '$SmbHostType'.." -Console
 
-$err = (Enable-SmbShare -SmbHostType $SmbHostType)
+$err = (Enable-SmbShare -SmbHostType $SmbHostType).Error
 
 if ($err) {
     if ($EncodeStructuredOutput -eq $true) {
