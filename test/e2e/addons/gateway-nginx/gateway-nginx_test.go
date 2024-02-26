@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"io"
 	"k2sTest/framework"
+	"k2sTest/framework/k2s"
 	"net/http"
 	"testing"
 	"time"
@@ -49,8 +50,8 @@ var _ = Describe("'gateway-nginx' addon", Ordered, func() {
 		Expect(addonsStatus.IsAddonEnabled("gateway-nginx")).To(BeFalse())
 	})
 
-	It("prints already-disabled message on disable command", func(ctx context.Context) {
-		output := suite.K2sCli().Run(ctx, "addons", "disable", "gateway-nginx")
+	It("prints already-disabled message on disable command and exits with non-zero", func(ctx context.Context) {
+		output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "disable", "gateway-nginx")
 
 		Expect(output).To(ContainSubstring("already disabled"))
 	})
@@ -66,8 +67,8 @@ var _ = Describe("'gateway-nginx' addon", Ordered, func() {
 		Expect(addonsStatus.IsAddonEnabled("gateway-nginx")).To(BeTrue())
 	})
 
-	It("prints already-enabled message on enable command", func(ctx context.Context) {
-		output := suite.K2sCli().Run(ctx, "addons", "enable", "gateway-nginx")
+	It("prints already-enabled message on enable command and exits with non-zero", func(ctx context.Context) {
+		output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "enable", "gateway-nginx")
 
 		Expect(output).To(ContainSubstring("already enabled"))
 	})

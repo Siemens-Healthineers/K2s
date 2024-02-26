@@ -78,8 +78,8 @@ function Test-IsSmbShareWorking {
     $script:SmbShareWorking = $false
     $setupInfo = Get-SetupInfo
 
-    if ($setupInfo.ValidationError) {
-        throw $setupInfo.ValidationError
+    if ($setupInfo.Error) {
+        throw $setupInfo.Error
     }
 
     # validate setup type for SMB share as well
@@ -297,7 +297,9 @@ function New-SharedFolderMountOnLinuxClient {
         ExecCmdMaster "sudo chmod +x /home/remote/$mountOnLinuxClientScript"
 
         Write-Log '           Executing script inside Linux VM as remote user...'
-        ssh.exe -n '-vv' -E $logFile -o StrictHostKeyChecking=no -i $global:LinuxVMKey $global:Remote_Master "sudo su -s /bin/bash -c '~/$mountOnLinuxClientScript' remote"
+        $sshLog = (ssh.exe -n '-vv' -E $logFile -o StrictHostKeyChecking=no -i $global:LinuxVMKey $global:Remote_Master "sudo su -s /bin/bash -c '~/$mountOnLinuxClientScript' remote") *>&1
+        Write-Log $sshLog
+
         if ($LASTEXITCODE -eq 0) {
             # all ok
             break
@@ -355,13 +357,17 @@ function Remove-SharedFolderMountOnLinuxClient {
     ExecCmdMaster "sudo chmod +x /home/remote/$unmountOnLinuxClientScript"
 
     Write-Log '           Executing on client unmount script inside Linux VM as remote user...'
-    ssh.exe -n '-vv' -E $logFile -o StrictHostKeyChecking=no -i $global:LinuxVMKey $global:Remote_Master "sudo su -s /bin/bash -c '~/$unmountOnLinuxClientScript' remote"
+    $sshLog = (ssh.exe -n '-vv' -E $logFile -o StrictHostKeyChecking=no -i $global:LinuxVMKey $global:Remote_Master "sudo su -s /bin/bash -c '~/$unmountOnLinuxClientScript' remote") *>&1
+    Write-Log $sshLog
+
+    $resultMsg = Write-Log "Unmounting '$linuxLocalPath -> $global:IP_NextHop/$windowsShareName' on Linux "
     if ($LASTEXITCODE -eq 0) {
-        Write-Log "Unmounting '$linuxLocalPath -> $global:IP_NextHop/$windowsShareName' on Linux succeeded."
+        $resultMsg += 'succeeded.'
     }
     else {
-        Write-Log "Unmounting '$linuxLocalPath -> $global:IP_NextHop/$windowsShareName' on Linux failed with code '$LASTEXITCODE'."
+        $resultMsg += "failed with code '$LASTEXITCODE'."
     }
+    Write-Log $resultMsg    
 }
 
 function Wait-ForSharedFolderMountOnLinuxClient () {
@@ -1001,21 +1007,30 @@ function Enable-SmbShare {
         [ValidateSet('windows', 'linux')]
         [string]$SmbHostType = $(throw 'SMB host type not set')
     )
-    $systemError = Test-SystemAvailability
+    $systemError = Test-SystemAvailability -Structured
     if ($systemError) {
         return @{Error = $systemError }
     }
 
     if ((Test-IsAddonEnabled -Name $AddonName) -eq $true) {
-        Write-Log "Addon '$AddonName' is already enabled, nothing to do." -Console
-        return @{Error = 'already-enabled' }
+        return @{
+            Error = @{
+                Type    = 'precondition-not-met'; 
+                Code    = 'addon-already-enabled'; 
+                Message = "Addon '$AddonName' is already enabled, nothing to do."
+            } 
+        }
     }
 
     $setupInfo = Get-SetupInfo
 
     if ($setupInfo.Name -ne $global:SetupType_k2s -and $setupInfo.Name -ne $global:SetupType_MultiVMK8s) {
-        Write-Log "Addon '$AddonName' can only be enabled for '$global:SetupType_k2s' or '$global:SetupType_MultiVMK8s' setup type." -Console
-        return @{Error = 'wrong-setup-type-for-addon' }
+        return @{Error = @{
+                Type    = 'precondition-not-met'; 
+                Code    = 'wrong-setup-type-for-addon'; 
+                Message = "Addon '$AddonName' can only be enabled for '$global:SetupType_k2s' or '$global:SetupType_MultiVMK8s' setup type." 
+            }
+        }
     }
 
     Copy-ScriptsToHooksDir -ScriptPaths $hookFilePaths
@@ -1028,6 +1043,7 @@ function Enable-SmbShare {
     Write-Log -Console "**       - use the StorageClass name '$smbStorageClassName' to provide storage.                       **"
     Write-Log -Console "**         See '<root>\test\e2e\addons\smb-share\workloads\' for example deployments.**"
     Write-Log -Console '***************************************************************************************'
+
     return @{Error = $null }
 }
 
@@ -1054,15 +1070,19 @@ function Disable-SmbShare {
         Write-Log 'Skipping SMB share cleanup on VMs..'
     }
     else {
-        $systemError = Test-SystemAvailability
+        $systemError = Test-SystemAvailability -Structured
         if ($systemError) {
             return @{Error = $systemError }
         }
     }
 
     if ((Test-IsAddonEnabled -Name $AddonName) -ne $true) {
-        Write-Log "Addon '$AddonName' is already disabled, nothing to do." -Console
-        return @{Error = 'already-disabled' }
+        return @{Error = @{
+                Type    = 'precondition-not-met'; 
+                Code    = 'addon-already-disabled'; 
+                Message = "Addon '$AddonName' is already disabled, nothing to do."
+            }
+        }
     }
 
     Write-Log "Disabling '$AddonName'.."

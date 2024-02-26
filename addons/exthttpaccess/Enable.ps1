@@ -48,51 +48,53 @@ Initialize-Logging -ShowLogs:$ShowLogs
 $hookFilePaths = @()
 $hookFilePaths += Get-ChildItem -Path "$PSScriptRoot\hooks" | ForEach-Object { $_.FullName }
 
-$systemError = Test-SystemAvailability
+$systemError = Test-SystemAvailability -Structured
 if ($systemError) {
   if ($EncodeStructuredOutput -eq $true) {
     Send-ToCli -MessageType $MessageType -Message @{Error = $systemError }
     return
   }
 
-  Write-Log $systemError -Error
+  Write-Log $systemError.Message -Error
   exit 1
 }
 
 if ((Test-IsAddonEnabled -Name 'exthttpaccess') -eq $true) {
-  Write-Log "Addon 'exthttpaccess' is already enabled, nothing to do." -Console
+  $errMsg = "Addon 'exthttpaccess' is already enabled, nothing to do."
 
   if ($EncodeStructuredOutput -eq $true) {
-    Send-ToCli -MessageType $MessageType -Message @{Error = $null }
+    Send-ToCli -MessageType $MessageType -Message @{Error = @{Type = 'precondition-not-met'; Code = 'addon-already-enabled'; Message = $errMsg } }
+    return
   }
   
-  exit 0
+  Write-Log $errMsg -Error
+  exit 1
 }
 
 function AbortExecutionDueToPortNotAssignable {
   param (
     [string]$AbortMessage = $(throw 'Parameter missing: AbortMessage')
   )
-      if ($EncodeStructuredOutput -eq $true) {
-        Send-ToCli -MessageType $MessageType -Message @{Error = $AbortMessage }
-        exit 0
-      }
+  if ($EncodeStructuredOutput -eq $true) {
+    Send-ToCli -MessageType $MessageType -Message @{Error = @{Message = $AbortMessage } }
+    exit 0
+  }
   
-      Write-Log $AbortMessage -Error
-      exit 1
+  Write-Log $AbortMessage -Error
+  exit 1
 }
 
 function DetermineIfPortIsUsed {
   param (
     [string]$Port = $(throw 'Parameter missing: Port')
   )
-  $processesListeningOnPort = netstat -aon | findstr ":$Port" | findstr "LISTENING"
+  $processesListeningOnPort = netstat -aon | findstr ":$Port" | findstr 'LISTENING'
 
   return (![string]::IsNullOrWhiteSpace($processesListeningOnPort))
 }
 
-$httpPortNumberToUse = "80"
-$httpsPortNumberToUse = "443"
+$httpPortNumberToUse = '80'
+$httpsPortNumberToUse = '443'
 
 $isPort80Used = DetermineIfPortIsUsed -Port $httpPortNumberToUse
 $isPort443Used = DetermineIfPortIsUsed -Port $httpsPortNumberToUse
@@ -101,7 +103,8 @@ if ($isPort80Used -or $isPort443Used) {
 
   if ($AutoconfirmUseAlternativePortsIfNeeded) {
     $useAlternativePorts = 0
-  } else {
+  }
+  else {
     $title = 'The ports 80 and/or 443 are already in use.'
     $question = 'Do you want to use the alternative ports 8080/8443 instead?'
     $choices = @(
@@ -112,16 +115,17 @@ if ($isPort80Used -or $isPort443Used) {
   }
   
   if ($useAlternativePorts -eq 0) {
-    $httpPortNumberToUse = "8080"
-    $httpsPortNumberToUse = "8443"
+    $httpPortNumberToUse = '8080'
+    $httpsPortNumberToUse = '8443'
     $isPort8080Used = DetermineIfPortIsUsed -Port $httpPortNumberToUse
     $isPort8443Used = DetermineIfPortIsUsed -Port $httpsPortNumberToUse
 
     if ($isPort8080Used -or $isPort8443Used) {
-      AbortExecutionDueToPortNotAssignable -AbortMessage "The addon still cannot be enabled since there is already a process listening on port 8080 and/or 8443."
+      AbortExecutionDueToPortNotAssignable -AbortMessage 'The addon still cannot be enabled since there is already a process listening on port 8080 and/or 8443.'
     }
-  }else{
-    AbortExecutionDueToPortNotAssignable -AbortMessage "The addon cannot be enabled since there is already a process listening on port 80 and/or 443."
+  }
+  else {
+    AbortExecutionDueToPortNotAssignable -AbortMessage 'The addon cannot be enabled since there is already a process listening on port 80 and/or 443.'
   }
 }
 
@@ -133,7 +137,7 @@ if ($physicalIps.Count -lt 1) {
   $errMsg = 'There is no physical net adapter detected that could be used to enable external HTTP/HTTPS access'
 
   if ($EncodeStructuredOutput -eq $true) {
-    Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+    Send-ToCli -MessageType $MessageType -Message @{Error = @{Message = $errMsg } }
     return
   }
 
@@ -165,7 +169,7 @@ Get-Content "$global:KubernetesPath\addons\exthttpaccess\nginx.tmp" | ForEach-Ob
       $errMsg = "Didn't you forget to specify variable `${variableName}` for your nginx.tmp template?"
   
       if ($EncodeStructuredOutput -eq $true) {
-        Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+        Send-ToCli -MessageType $MessageType -Message @{Error = @{Message = $errMsg } }
         exit 0
       }
 

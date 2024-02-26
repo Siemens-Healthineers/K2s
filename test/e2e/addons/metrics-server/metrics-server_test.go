@@ -7,6 +7,7 @@ package metricsserver
 import (
 	"context"
 	"k2sTest/framework"
+	"k2sTest/framework/k2s"
 	"testing"
 	"time"
 
@@ -40,8 +41,8 @@ var _ = Describe("'metrics-server' addon", Ordered, func() {
 		Expect(addonsStatus.IsAddonEnabled("metrics-server")).To(BeFalse())
 	})
 
-	It("prints already-disabled message on disable command", func(ctx context.Context) {
-		output := suite.K2sCli().Run(ctx, "addons", "disable", "metrics-server")
+	It("prints already-disabled message on disable command and exits with non-zero", func(ctx context.Context) {
+		output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "disable", "metrics-server")
 
 		Expect(output).To(ContainSubstring("already disabled"))
 	})
@@ -57,8 +58,8 @@ var _ = Describe("'metrics-server' addon", Ordered, func() {
 		Expect(addonsStatus.IsAddonEnabled("metrics-server")).To(BeTrue())
 	})
 
-	It("prints already-enabled message on enable command", func(ctx context.Context) {
-		output := suite.K2sCli().Run(ctx, "addons", "enable", "metrics-server")
+	It("prints already-enabled message on enable command and exits with non-zero", func(ctx context.Context) {
+		output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "enable", "metrics-server")
 
 		Expect(output).To(ContainSubstring("already enabled"))
 	})

@@ -238,7 +238,7 @@ Describe 'Test-CsiPodsCondition' -Tag 'unit', 'addon' {
 Describe 'Test-IsSmbShareWorking' -Tag 'unit', 'addon' {
     Context 'Setup type is invalid' {
         BeforeAll {
-            Mock -ModuleName $moduleName Get-SetupInfo { return [pscustomobject]@{Name = 'invalid'; ValidationError = 'setup type invalid' } }
+            Mock -ModuleName $moduleName Get-SetupInfo { return [pscustomobject]@{Name = 'invalid'; Error = 'setup type invalid' } }
         }
 
         It 'throws' {
@@ -1449,74 +1449,77 @@ Describe 'Enable-SmbShare' -Tag 'unit', 'addon' {
 
     Context 'system is not running' {
         BeforeAll {
-            Mock -ModuleName $moduleName Test-SystemAvailability { return 'unavailable' }
+            Mock -ModuleName $moduleName Test-SystemAvailability { return @{Code = 'unavailable' } }
         }
 
         It 'returns error' {
-            (Enable-SmbShare -SmbHostType 'Windows').Error | Should -Be 'unavailable'
-
+            (Enable-SmbShare -SmbHostType 'Windows').Error.Code | Should -Be 'unavailable'
         }
     }
 
     Context 'addon is already enabled' {
         BeforeAll {
             Mock -ModuleName $moduleName Test-SystemAvailability { }
-            Mock -ModuleName $moduleName Write-Log { }
             Mock -ModuleName $moduleName Test-IsAddonEnabled { return $true } -ParameterFilter { $Name -eq $AddonName }
         }
 
         It 'returns error' {
             InModuleScope -ModuleName $moduleName {
-                (Enable-SmbShare -SmbHostType 'Windows').Error | Should -Be 'already-enabled' 
+                $err = (Enable-SmbShare -SmbHostType 'Windows').Error
+                
+                $err.Type | Should -Be 'precondition-not-met' 
+                $err.Code | Should -Be 'addon-already-enabled' 
+                $err.Message | Should -Not -BeNullOrEmpty
             }
         }
     }
 
-    Context 'system is running' {
+    Context 'addon is disabled' {
         BeforeAll {
             Mock -ModuleName $moduleName Test-SystemAvailability { }
-            Mock -ModuleName $moduleName Write-Log { }
+            Mock -ModuleName $moduleName Test-IsAddonEnabled { return $false } -ParameterFilter { $Name -eq $AddonName }
         }
 
-        Context 'addon is disabled' {
+        Context 'setup type invalid for this addon' {
             BeforeAll {
-                Mock -ModuleName $moduleName Test-IsAddonEnabled { return $false } -ParameterFilter { $Name -eq $AddonName }
+                Mock -ModuleName $moduleName Get-SetupInfo { return [pscustomobject]@{Name = 'invalid-type' } }
             }
 
-            Context 'setup type invalid for this addon' {
-                BeforeAll {
-                    Mock -ModuleName $moduleName Get-SetupInfo { return [pscustomobject]@{Name = 'invalid-type' } }
-                }
+            It 'returns error' {
+                $err = (Enable-SmbShare -SmbHostType 'Linux' ).Error
+                     
+                $err.Type | Should -Be 'precondition-not-met' 
+                $err.Code | Should -Be 'wrong-setup-type-for-addon'
+                $err.Message | Should -Not -BeNullOrEmpty
+            }
+        }
 
-                It 'returns error' {
-                     (Enable-SmbShare -SmbHostType 'Linux' ).Error | Should -Be 'wrong-setup-type-for-addon'
-                }
+        Context 'setup type valid for this addon' {
+            BeforeAll {
+                $setupInfo = [pscustomobject]@{Name = $global:SetupType_MultiVMK8s; LinuxOnly = $true }
+
+                Mock -ModuleName $moduleName Get-SetupInfo { return $setupInfo }
+                Mock -ModuleName $moduleName Copy-ScriptsToHooksDir { }
+                Mock -ModuleName $moduleName Add-AddonToSetupJson { }
+                Mock -ModuleName $moduleName Restore-SmbShareAndFolder { }
+                Mock -ModuleName $moduleName Restore-StorageClass { }
+                Mock -ModuleName $moduleName Write-Log { }
             }
 
-            Context 'setup type valid for this addon' {
-                BeforeAll {
-                    $setupInfo = [pscustomobject]@{Name = $global:SetupType_MultiVMK8s; LinuxOnly = $true }
+            It 'enables the addon passing the correct params' {
+                InModuleScope -ModuleName $moduleName {
+                    $smbHostType = 'Linux'
 
-                    Mock -ModuleName $moduleName Get-SetupInfo { return $setupInfo }
-                    Mock -ModuleName $moduleName Copy-ScriptsToHooksDir { }
-                    Mock -ModuleName $moduleName Add-AddonToSetupJson { }
-                    Mock -ModuleName $moduleName Restore-SmbShareAndFolder { }
-                    Mock -ModuleName $moduleName Restore-StorageClass { }
-                }
+                    $result = Enable-SmbShare -SmbHostType $smbHostType
 
-                It 'enables the addon passing the correct params' {
-                    InModuleScope -ModuleName $moduleName {
-                        $smbHostType = 'Linux'
+                    $result.Error | Should -BeNullOrEmpty
 
-                        (Enable-SmbShare -SmbHostType $smbHostType).Error | Should -BeNullOrEmpty
-
-                        Should -Invoke Copy-ScriptsToHooksDir -Times 1 -Scope Context
-                        Should -Invoke Add-AddonToSetupJson -Times 1 -Scope Context -ParameterFilter { $Addon.Name -eq $AddonName -and $Addon.SmbHostType -eq $smbHostType }
-                        Should -Invoke Restore-SmbShareAndFolder -Times 1 -Scope Context -ParameterFilter {
-                            $SmbHostType -eq $smbHostType -and $SkipTest -eq $true -and $SetupInfo.Name -eq $global:SetupType_MultiVMK8s -and $SetupInfo.LinuxOnly -eq $true
-                        }
-                        Should -Invoke Restore-StorageClass -Times 1 -Scope Context -ParameterFilter { $SmbHostType -eq $smbHostType -and $LinuxOnly -eq $true }
+                    Should -Invoke Copy-ScriptsToHooksDir -Times 1 -Scope Context
+                    Should -Invoke Add-AddonToSetupJson -Times 1 -Scope Context -ParameterFilter { $Addon.Name -eq $AddonName -and $Addon.SmbHostType -eq $smbHostType }
+                    Should -Invoke Restore-SmbShareAndFolder -Times 1 -Scope Context -ParameterFilter {
+                        $SmbHostType -eq $smbHostType -and $SkipTest -eq $true -and $SetupInfo.Name -eq $global:SetupType_MultiVMK8s -and $SetupInfo.LinuxOnly -eq $true
                     }
+                    Should -Invoke Restore-StorageClass -Times 1 -Scope Context -ParameterFilter { $SmbHostType -eq $smbHostType -and $LinuxOnly -eq $true }
                 }
             }
         }
@@ -1526,58 +1529,69 @@ Describe 'Enable-SmbShare' -Tag 'unit', 'addon' {
 Describe 'Disable-SmbShare' -Tag 'unit', 'addon' {
     Context 'node cleanup skipped' {
         BeforeAll {
-            Mock -ModuleName $moduleName Test-IsAddonEnabled { return $false }
             Mock -ModuleName $moduleName Write-Log { }
+            Mock -ModuleName $moduleName Test-IsAddonEnabled { return $false }
             Mock -ModuleName $moduleName Test-SystemAvailability { }
         }
 
         It 'does not test system availability' {
             InModuleScope -ModuleName $moduleName {
-                (Disable-SmbShare -SkipNodesCleanup).Error | Should -Be 'already-disabled'
+                $err = (Disable-SmbShare -SkipNodesCleanup).Error
+                
+                $err.Type | Should -Be 'precondition-not-met' 
+                $err.Code | Should -Be 'addon-already-disabled'
+                $err.Message | Should -Not -BeNullOrEmpty
                 
                 Should -Invoke Test-SystemAvailability -Times 0 -Scope Context
             }
         }
     }
-    Context 'node cleanup not skipped' {
+
+    Context 'system available' {
         BeforeAll {
-            Mock -ModuleName $moduleName Write-Log { }
+            Mock -ModuleName $moduleName Test-SystemAvailability { return $null }
         }
 
-        Context 'system available' {
-            BeforeAll {
-                Mock -ModuleName $moduleName Test-SystemAvailability { return $null }
+        It 'does not return system error' {
+            InModuleScope -ModuleName $moduleName {
+                $err = (Disable-SmbShare).Error
+                
+                $err.Type | Should -Be 'precondition-not-met' 
+                $err.Code | Should -Be 'addon-already-disabled'
+                $err.Message | Should -Not -BeNullOrEmpty
             }
-
-            It 'does not return system error' {
-                InModuleScope -ModuleName $moduleName {
-                    (Disable-SmbShare).Error | Should -Be 'already-disabled'
-                }
-            }
-        }        
-        
-        Context 'system unavailable' {
-            BeforeAll {
-                Mock -ModuleName $moduleName Test-SystemAvailability { return 'oops' }
-            }
-
-            It 'returns error' {
-                InModuleScope -ModuleName $moduleName {
-                    (Disable-SmbShare).Error | Should -Be 'oops'
-                }
-            }
-        }        
-    }
-
-    Context 'addon already disabled' {
+        }
+    }        
+    
+    Context 'system unavailable' {
         BeforeAll {
-            Mock -ModuleName $moduleName Test-IsAddonEnabled { return $false }
-            Mock -ModuleName $moduleName Write-Log { }
+            Mock -ModuleName $moduleName Test-SystemAvailability { return @{Code = 'err-code'; Type = 'err-type'; Message = 'err-msg' } }
         }
 
         It 'returns error' {
             InModuleScope -ModuleName $moduleName {
-                (Disable-SmbShare -SkipNodesCleanup).Error | Should -Be 'already-disabled'
+                $err = (Disable-SmbShare).Error
+                
+                $err.Type | Should -Be 'err-type' 
+                $err.Code | Should -Be 'err-code'
+                $err.Message | Should -Be 'err-msg'
+            }
+        }
+    }  
+
+    Context 'addon already disabled' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Test-SystemAvailability { return $null }
+            Mock -ModuleName $moduleName Test-IsAddonEnabled { return $false }
+        }
+
+        It 'returns error' {
+            InModuleScope -ModuleName $moduleName {
+                $err = (Disable-SmbShare).Error
+                    
+                $err.Type | Should -Be 'precondition-not-met' 
+                $err.Code | Should -Be 'addon-already-disabled'
+                $err.Message | Should -Not -BeNullOrEmpty
             }
         }
     }
@@ -1593,7 +1607,9 @@ Describe 'Disable-SmbShare' -Tag 'unit', 'addon' {
 
         It 'disables the addon with skip flag set correctly' {
             InModuleScope -ModuleName $moduleName {
-                (Disable-SmbShare -SkipNodesCleanup).Error | Should -BeNullOrEmpty
+                $result = Disable-SmbShare -SkipNodesCleanup
+                
+                $result.Error | Should -BeNullOrEmpty
 
                 Should -Invoke Remove-SmbShareAndFolder -Times 1 -Scope Context -ParameterFilter { $SkipNodesCleanup -eq $true }
                 Should -Invoke Remove-AddonFromSetupJson -Times 1 -Scope Context -ParameterFilter { $Name -eq $AddonName }

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"k2sTest/framework"
+	"k2sTest/framework/k2s"
 	"k2sTest/framework/os"
 
 	"encoding/json"
@@ -118,8 +119,8 @@ var _ = Describe(fmt.Sprintf("%s Addon", addonName), Ordered, func() {
 	})
 
 	Describe("disable command", func() {
-		It("displays already disabled message", func(ctx context.Context) {
-			output := suite.K2sCli().Run(ctx, "addons", "disable", addonName, "-f", "-o")
+		It("displays already-disabled message and exits with non-zero", func(ctx context.Context) {
+			output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "disable", addonName, "-f", "-o")
 
 			Expect(output).To(SatisfyAll(
 				ContainSubstring("disable"),
@@ -137,8 +138,8 @@ var _ = Describe(fmt.Sprintf("%s Addon", addonName), Ordered, func() {
 				expectEnableMessage(output, "windows")
 			})
 
-			It("prints already-enabled message on enable command", func(ctx context.Context) {
-				output := suite.K2sCli().Run(ctx, "addons", "enable", addonName)
+			It("prints already-enabled message on enable command and exits with non-zero", func(ctx context.Context) {
+				output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "enable", addonName)
 
 				Expect(output).To(ContainSubstring("already enabled"))
 			})
@@ -217,8 +218,8 @@ var _ = Describe(fmt.Sprintf("%s Addon", addonName), Ordered, func() {
 				expectEnableMessage(output, "linux")
 			})
 
-			It("prints already-enabled message on enable command", func(ctx context.Context) {
-				output := suite.K2sCli().Run(ctx, "addons", "enable", addonName)
+			It("prints already-enabled message on enable command and exits with non-zero", func(ctx context.Context) {
+				output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "enable", addonName)
 
 				Expect(output).To(ContainSubstring("already enabled"))
 			})

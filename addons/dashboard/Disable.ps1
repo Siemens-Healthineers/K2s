@@ -38,25 +38,27 @@ Initialize-Logging -ShowLogs:$ShowLogs
 
 Write-Log 'Checking cluster status' -Console
 
-$systemError = Test-SystemAvailability
+$systemError = Test-SystemAvailability -Structured
 if ($systemError) {
     if ($EncodeStructuredOutput -eq $true) {
         Send-ToCli -MessageType $MessageType -Message @{Error = $systemError }
         return
     }
 
-    Write-Log $systemError -Error
+    Write-Log $systemError.Message -Error
     exit 1
 }
 
 if ($null -eq (&$global:KubectlExe get namespace kubernetes-dashboard --ignore-not-found) -or (Test-IsAddonEnabled -Name 'dashboard') -ne $true) {
-    Write-Log "Addon 'dashboard' is already disabled, nothing to do." -Console
+    $errMsg = "Addon 'dashboard' is already disabled, nothing to do."
 
     if ($EncodeStructuredOutput -eq $true) {
-        Send-ToCli -MessageType $MessageType -Message @{Error = $null }
+        Send-ToCli -MessageType $MessageType -Message @{Error = @{Type = 'precondition-not-met'; Code = 'addon-already-disabled'; Message = $errMsg } }
+        return
     }
     
-    exit 0
+    Write-Log $errMsg -Error
+    exit 1
 }
 
 Write-Log 'Uninstalling Kubernetes dashboard' -Console
