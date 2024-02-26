@@ -54,7 +54,7 @@ Describe 'Get-Age' -Tag 'unit' {
             Mock -ModuleName $moduleName Convert-ToAgeString { return $expectedResult } -Verifiable -ParameterFilter { $Duration -eq $expectedDuration }
 
             InModuleScope $moduleName -Parameters @{Then = $then } {
-                $script:result = Get-Age -Timestamp $Then
+                $script:result = Get-Age -Timestamp $($Then.ToString())
             }
         }
 
@@ -78,7 +78,7 @@ Describe 'Get-Age' -Tag 'unit' {
             InModuleScope $moduleName {
                 $timestamp = [datetime]::new(2023, 1, 2)
 
-                { Get-Age -Timestamp $timestamp } | Should -Throw
+                { Get-Age -Timestamp $($timestamp.ToString()) } | Should -Throw
             }
         }
     }
@@ -94,7 +94,7 @@ Describe 'Get-Age' -Tag 'unit' {
             Mock -ModuleName $moduleName Convert-ToAgeString { return $expectedResult } -Verifiable -ParameterFilter { $Duration -eq $expectedDuration }
 
             InModuleScope $moduleName -Parameters @{Then = $then } {
-                $script:result = Get-Age -Timestamp $Then
+                $script:result = Get-Age -Timestamp $($Then.ToString())
             }
         }
 
@@ -333,7 +333,7 @@ Describe 'Get-Node' -Tag 'unit' {
 
             Mock -ModuleName $moduleName Get-NodeStatus { return $expectedStatus } -Verifiable -ParameterFilter { $Conditions.Count -eq $json.status.conditions.Count }
             Mock -ModuleName $moduleName Get-NodeRole { return $expectedRole } -Verifiable -ParameterFilter { $Labels -eq $json.metadata.labels }
-            Mock -ModuleName $moduleName Get-Age { return $expectedAge } -Verifiable -ParameterFilter { $Timestamp -eq $json.metadata.creationTimestamp }
+            Mock -ModuleName $moduleName Get-Age { return $expectedAge } -Verifiable -ParameterFilter { $Timestamp -eq $($json.metadata.creationTimestamp.ToString()) }
             Mock -ModuleName $moduleName Get-NodeInternalIp { return $expectedIp } -Verifiable -ParameterFilter { $Addresses.Count -eq $json.status.addresses.Count }
         }
 
@@ -615,7 +615,7 @@ Describe 'Get-Pod' -Tag 'unit' {
             }
 
             Mock -ModuleName $moduleName Get-PodStatus { return $expectedStatus } -Verifiable -ParameterFilter { $JsonNode -eq $json }
-            Mock -ModuleName $moduleName Get-Age { return $expectedAge } -Verifiable -ParameterFilter { $Timestamp -eq $json.metadata.creationTimestamp }
+            Mock -ModuleName $moduleName Get-Age { return $expectedAge } -Verifiable -ParameterFilter { $Timestamp -eq $($json.metadata.creationTimestamp.ToString()) }
         }
 
         It 'returns correctly constructed pod info' {

@@ -7,6 +7,7 @@ package monitoring
 import (
 	"context"
 	"k2sTest/framework"
+	"k2sTest/framework/k2s"
 	"os/exec"
 	"path"
 	"testing"
@@ -51,8 +52,8 @@ var _ = Describe("'monitoring' addon", Ordered, func() {
 			Expect(addonsStatus.IsAddonEnabled("monitoring")).To(BeFalse())
 		})
 
-		It("prints already-disabled message on disable command", func(ctx context.Context) {
-			output := suite.K2sCli().Run(ctx, "addons", "disable", "monitoring")
+		It("prints already-disabled message on disable command and exits with non-zero", func(ctx context.Context) {
+			output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "disable", "monitoring")
 
 			Expect(output).To(ContainSubstring("already disabled"))
 		})
@@ -72,8 +73,8 @@ var _ = Describe("'monitoring' addon", Ordered, func() {
 			Expect(addonsStatus.IsAddonEnabled("monitoring")).To(BeTrue())
 		})
 
-		It("prints already-enabled message on enable command", func(ctx context.Context) {
-			output := suite.K2sCli().Run(ctx, "addons", "enable", "monitoring")
+		It("prints already-enabled message on enable command and exits with non-zero", func(ctx context.Context) {
+			output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "enable", "monitoring")
 
 			Expect(output).To(ContainSubstring("already enabled"))
 		})
@@ -124,8 +125,8 @@ var _ = Describe("'monitoring' addon", Ordered, func() {
 			Expect(addonsStatus.IsAddonEnabled("monitoring")).To(BeTrue())
 		})
 
-		It("prints already-enabled message on enable command", func(ctx context.Context) {
-			output := suite.K2sCli().Run(ctx, "addons", "enable", "monitoring")
+		It("prints already-enabled message on enable command and exits with non-zero", func(ctx context.Context) {
+			output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "enable", "monitoring")
 
 			Expect(output).To(ContainSubstring("already enabled"))
 		})
@@ -172,8 +173,8 @@ var _ = Describe("'monitoring' addon", Ordered, func() {
 			Expect(addonsStatus.IsAddonEnabled("monitoring")).To(BeTrue())
 		})
 
-		It("prints already-enabled message on enable command", func(ctx context.Context) {
-			output := suite.K2sCli().Run(ctx, "addons", "enable", "monitoring")
+		It("prints already-enabled message on enable command and exits with non-zero", func(ctx context.Context) {
+			output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "enable", "monitoring")
 
 			Expect(output).To(ContainSubstring("already enabled"))
 		})
