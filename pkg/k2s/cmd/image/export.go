@@ -34,7 +34,7 @@ var (
 
 func init() {
 	exportCmd.Flags().String(imageIdFlagName, "", "Image ID of the container image")
-	exportCmd.Flags().StringP(removeImgNameFlagName, "n", "", "Name of the container image")
+	exportCmd.Flags().StringP(removeImgNameFlagName, "n", "", "Name of the container image including tag")
 	exportCmd.Flags().StringP(tarFlag, "t", "", "Export tar file path")
 	exportCmd.Flags().Bool(dockerArchiveFlag, false, "Export Linux image as docker-archive (default: oci-archive)")
 	exportCmd.Flags().SortFlags = false
