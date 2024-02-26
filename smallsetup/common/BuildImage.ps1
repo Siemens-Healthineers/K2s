@@ -255,7 +255,7 @@ if ($systemError) {
     exit 1
 }
 
-$GO_Ver = '1.19' # default go version
+$GO_Ver = '1.21.4' # default go version
 if ($null -ne $env:GOVERSION -and $env:GOVERSION -ne '') {
     Write-Log "Using local GOVERSION $Env:GOVERSION environment variable from the host machine"
     # $env:GOVERSION will be go1.21.4, remove the go part.
