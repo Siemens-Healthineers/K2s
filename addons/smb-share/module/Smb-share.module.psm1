@@ -1009,24 +1009,27 @@ function Enable-SmbShare {
     )
     $systemError = Test-SystemAvailability -Structured
     if ($systemError) {
-        return $systemError
+        return @{Error = $systemError }
     }
 
     if ((Test-IsAddonEnabled -Name $AddonName) -eq $true) {
         return @{
-            Type    = 'precondition-not-met'; 
-            Code    = 'addon-already-enabled'; 
-            Message = "Addon '$AddonName' is already enabled, nothing to do." 
+            Error = @{
+                Type    = 'precondition-not-met'; 
+                Code    = 'addon-already-enabled'; 
+                Message = "Addon '$AddonName' is already enabled, nothing to do."
+            } 
         }
     }
 
     $setupInfo = Get-SetupInfo
 
     if ($setupInfo.Name -ne $global:SetupType_k2s -and $setupInfo.Name -ne $global:SetupType_MultiVMK8s) {
-        return @{
-            Type    = 'precondition-not-met'; 
-            Code    = 'wrong-setup-type-for-addon'; 
-            Message = "Addon '$AddonName' can only be enabled for '$global:SetupType_k2s' or '$global:SetupType_MultiVMK8s' setup type." 
+        return @{Error = @{
+                Type    = 'precondition-not-met'; 
+                Code    = 'wrong-setup-type-for-addon'; 
+                Message = "Addon '$AddonName' can only be enabled for '$global:SetupType_k2s' or '$global:SetupType_MultiVMK8s' setup type." 
+            }
         }
     }
 
@@ -1041,7 +1044,7 @@ function Enable-SmbShare {
     Write-Log -Console "**         See '<root>\test\e2e\addons\smb-share\workloads\' for example deployments.**"
     Write-Log -Console '***************************************************************************************'
 
-    return $null
+    return @{Error = $null }
 }
 
 <#
@@ -1069,15 +1072,16 @@ function Disable-SmbShare {
     else {
         $systemError = Test-SystemAvailability -Structured
         if ($systemError) {
-            return $systemError 
+            return @{Error = $systemError }
         }
     }
 
     if ((Test-IsAddonEnabled -Name $AddonName) -ne $true) {
-        return @{
-            Type    = 'precondition-not-met'; 
-            Code    = 'addon-already-disabled'; 
-            Message = "Addon '$AddonName' is already disabled, nothing to do."
+        return @{Error = @{
+                Type    = 'precondition-not-met'; 
+                Code    = 'addon-already-disabled'; 
+                Message = "Addon '$AddonName' is already disabled, nothing to do."
+            }
         }
     }
 
@@ -1087,7 +1091,7 @@ function Disable-SmbShare {
     Remove-AddonFromSetupJson -Name $AddonName
     Remove-ScriptsFromHooksDir -ScriptNames $hookFileNames
 
-    return $null
+    return @{Error = $null }
 }
 
 <#
