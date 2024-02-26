@@ -71,14 +71,12 @@ func init() {
 }
 
 func systemPackage(cmd *cobra.Command, args []string) error {
-	systemPackageCommand, err := buildSystemPackageCmd(cmd)
+	systemPackageCommand, params, err := buildSystemPackageCmd(cmd)
 	if err != nil {
 		return err
 	}
 
-	klog.V(3).Infof("system package command: %s", systemPackageCommand)
-
-	params := []string{}
+	klog.V(3).Infof("PS cmd: '%s', params: '%v'", systemPackageCommand, params)
 
 	cmdResult, err := psexecutor.ExecutePsWithStructuredResult[*common.CmdResult](systemPackageCommand, "CmdResult", psexecutor.ExecOptions{IgnoreNotInstalledErr: true}, params...)
 	if err != nil {
@@ -92,57 +90,59 @@ func systemPackage(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func buildSystemPackageCmd(cmd *cobra.Command) (string, error) {
+func buildSystemPackageCmd(cmd *cobra.Command) (string, []string, error) {
 	systemPackageCommand := utils.FormatScriptFilePath(utils.GetInstallationDirectory() + "\\smallsetup\\helpers\\BuildK2sZipPackage.ps1")
 
 	cmd.Flags().VisitAll(func(f *pflag.Flag) {
 		klog.V(3).Infof("Param: %s: %s\n", f.Name, f.Value)
 	})
 
+	params := []string{}
+
 	out, _ := strconv.ParseBool(cmd.Flags().Lookup(p.OutputFlagName).Value.String())
 	if out {
-		systemPackageCommand += " -ShowLogs"
+		params = append(params, " -ShowLogs")
 	}
 
 	proxy := cmd.Flags().Lookup(ProxyFlagName).Value.String()
 	if len(proxy) > 0 {
-		systemPackageCommand += " -Proxy " + proxy
+		params = append(params, " -Proxy "+proxy)
 	}
 
 	cpus := cmd.Flags().Lookup(ControlPlaneCPUsFlagName).Value.String()
 	if len(cpus) > 0 {
-		systemPackageCommand += " -VMProcessorCount " + cpus
+		params = append(params, " -VMProcessorCount "+cpus)
 	}
 
 	memory := cmd.Flags().Lookup(ControlPlaneMemoryFlagName).Value.String()
 	if len(memory) > 0 {
-		systemPackageCommand += " -VMMemoryStartupBytes " + memory
+		params = append(params, " -VMMemoryStartupBytes "+memory)
 	}
 
 	disksize := cmd.Flags().Lookup(ControlPlaneDiskSizeFlagName).Value.String()
 	if len(disksize) > 0 {
-		systemPackageCommand += " -VMDiskSize " + disksize
+		params = append(params, " -VMDiskSize "+disksize)
 	}
 
 	targetDir := cmd.Flags().Lookup(TargetDirectoryFlagName).Value.String()
 	if len(targetDir) == 0 {
-		return "", errors.New("no target directory path provided")
+		return "", nil, errors.New("no target directory path provided")
 	}
-	systemPackageCommand += " -TargetDirectory " + utils.EscapeWithSingleQuotes(targetDir)
+	params = append(params, " -TargetDirectory "+utils.EscapeWithSingleQuotes(targetDir))
 
 	name := cmd.Flags().Lookup(ZipPackageFileNameFlagName).Value.String()
 	if len(name) == 0 {
-		return "", errors.New("no package file name provided")
+		return "", nil, errors.New("no package file name provided")
 	}
 	if !strings.Contains(name, ".zip") {
-		return "", errors.New("package file name does not contain '.zip'")
+		return "", nil, errors.New("package file name does not contain '.zip'")
 	}
-	systemPackageCommand += " -ZipPackageFileName " + name
+	params = append(params, " -ZipPackageFileName "+name)
 
 	forOfflineInstallation, _ := strconv.ParseBool(cmd.Flags().Lookup(ForOfflineInstallationFlagName).Value.String())
 	if forOfflineInstallation {
-		systemPackageCommand += " -ForOfflineInstallation"
+		params = append(params, " -ForOfflineInstallation")
 	}
 
-	return systemPackageCommand, nil
+	return systemPackageCommand, params, nil
 }

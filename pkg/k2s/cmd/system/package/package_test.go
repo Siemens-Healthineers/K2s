@@ -25,9 +25,6 @@ var _ = Describe("package", func() {
 	Describe("buildSystemPackageCmd", func() {
 		When("flags set", func() {
 			It("creates the command", func() {
-				const staticPartOfExpectedCmd = `\smallsetup\helpers\BuildK2sZipPackage.ps1' -ShowLogs -Proxy http://myproxy:81 -VMProcessorCount 6 -VMMemoryStartupBytes 4GB -VMDiskSize 50GB -TargetDirectory 'dir' -ZipPackageFileName file.zip -ForOfflineInstallation`
-				expected := "&'" + utils.GetInstallationDirectory() + staticPartOfExpectedCmd
-
 				flags := PackageCmd.Flags()
 				flags.Set(p.OutputFlagName, "true")
 				flags.Set(ControlPlaneCPUsFlagName, "6")
@@ -38,10 +35,10 @@ var _ = Describe("package", func() {
 				flags.Set(ProxyFlagName, "http://myproxy:81")
 				flags.Set(ForOfflineInstallationFlagName, "true")
 
-				actual, err := buildSystemPackageCmd(PackageCmd)
-				Expect(err).To(BeNil())
-
-				Expect(actual).To(Equal(expected))
+				cmd, params, err := buildSystemPackageCmd(PackageCmd)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(cmd).To(Equal("&'" + utils.GetInstallationDirectory() + "\\smallsetup\\helpers\\BuildK2sZipPackage.ps1'"))
+				Expect(params).To(ConsistOf(" -ShowLogs", " -Proxy http://myproxy:81", " -VMProcessorCount 6", " -VMMemoryStartupBytes 4GB", " -VMDiskSize 50GB", " -TargetDirectory 'dir'", " -ZipPackageFileName file.zip", " -ForOfflineInstallation"))
 			})
 		})
 
@@ -50,7 +47,7 @@ var _ = Describe("package", func() {
 				flags := PackageCmd.Flags()
 				flags.Set(TargetDirectoryFlagName, "")
 
-				_, err := buildSystemPackageCmd(PackageCmd)
+				_, _, err := buildSystemPackageCmd(PackageCmd)
 				Expect(err).ToNot(BeNil())
 				Expect(err.Error()).To(Equal("no target directory path provided"))
 			})
@@ -62,7 +59,7 @@ var _ = Describe("package", func() {
 				flags.Set(ZipPackageFileNameFlagName, "")
 				flags.Set(TargetDirectoryFlagName, "dir")
 
-				_, err := buildSystemPackageCmd(PackageCmd)
+				_, _, err := buildSystemPackageCmd(PackageCmd)
 				Expect(err).ToNot(BeNil())
 				Expect(err.Error()).To(Equal("no package file name provided"))
 			})
@@ -74,7 +71,7 @@ var _ = Describe("package", func() {
 				flags.Set(TargetDirectoryFlagName, "dir")
 				flags.Set(ZipPackageFileNameFlagName, "file")
 
-				_, err := buildSystemPackageCmd(PackageCmd)
+				_, _, err := buildSystemPackageCmd(PackageCmd)
 				Expect(err).ToNot(BeNil())
 				Expect(err.Error()).To(Equal("package file name does not contain '.zip'"))
 			})
