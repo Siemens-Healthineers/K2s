@@ -179,7 +179,16 @@ if ($foundWindowsImages.Count -eq 1) {
         $finalExportPath = $path + '\' + $newFileName
     }
 
-    nerdctl -n k8s.io save -o "$finalExportPath" $imageFullName --all-platforms
+    Write-Log "Trying to pull all platform layers for image '$imageFullName'" -Console
+    $pullOutput = nerdctl -n "k8s.io" pull $imageFullName --all-platforms 2>&1 | Out-String
+    if ($pullOutput.Contains("failed to do request")) {
+        Write-Log "Not able to pull all platform layers for image '$imageFullName'" -Console
+        Write-Log "Exporting image '$imageFullName' only for current platform" -Console
+        nerdctl -n "k8s.io" save -o "$finalExportPath" $imageFullName
+    } else {
+        Write-Log "Exporting image '$imageFullName' for all platforms" -Console
+        nerdctl -n "k8s.io" save -o "$finalExportPath" $imageFullName --all-platforms
+    }
 
     if ($?) {
         Write-Log "Image ${imageFullName} exported successfully to ${finalExportPath}."

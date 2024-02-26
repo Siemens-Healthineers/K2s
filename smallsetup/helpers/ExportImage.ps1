@@ -188,13 +188,31 @@ if ($foundWindowsImages.Count -eq 1) {
             &$env:SystemDrive\k\smallsetup\common\GlobalVariables.ps1
 
             New-Item -Path $(Split-path $using:tmpPath) -ItemType Directory -ErrorAction SilentlyContinue
-            &$global:NerdctlExe -n k8s.io save -o $using:tmpPath $using:imageFullName --all-platforms
+            Write-Log "Trying to pull all platform layers for image '$imageFullName'" -Console
+            $pullOutput = &$global:NerdctlExe -n="k8s.io" pull $using:imageFullName --all-platforms 2>&1 | Out-String
+            if ($pullOutput.Contains("failed to do request")) {
+                Write-Log "Not able to pull all platform layers for image '$imageFullName'" -Console
+                Write-Log "Exporting image '$imageFullName' only for current platform" -Console
+                &$global:NerdctlExe -n k8s.io save -o $using:tmpPath $using:imageFullName
+            } else {
+                Write-Log "Exporting image '$imageFullName' for all platforms" -Console
+                &$global:NerdctlExe -n k8s.io save -o $using:tmpPath $using:imageFullName --all-platforms
+            }
         }
 
         scp.exe -r -q -o StrictHostKeyChecking=no -i $global:WindowsVMKey "${global:Admin_WinNode}:$tmpPath" "$finalExportPath" 2>&1 | % { "$_" }
     }
     else {
-        &$global:NerdctlExe -n k8s.io save -o "$finalExportPath" $imageFullName --all-platforms
+        Write-Log "Trying to pull all platform layers for image '$imageFullName'" -Console
+        $pullOutput = &$global:NerdctlExe -n "k8s.io" pull $imageFullName --all-platforms 2>&1 | Out-String
+        if ($pullOutput.Contains("failed to do request")) {
+            Write-Log "Not able to pull all platform layers for image '$imageFullName'" -Console
+            Write-Log "Exporting image '$imageFullName' only for current platform" -Console
+            &$global:NerdctlExe -n "k8s.io" save -o "$finalExportPath" $imageFullName
+        } else {
+            Write-Log "Exporting image '$imageFullName' for all platforms" -Console
+            &$global:NerdctlExe -n "k8s.io" save -o "$finalExportPath" $imageFullName --all-platforms
+        }
     }
 
     if ($?) {
