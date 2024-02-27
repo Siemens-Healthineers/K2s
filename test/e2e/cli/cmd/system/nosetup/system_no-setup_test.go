@@ -4,6 +4,8 @@ package nosetup
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -18,7 +20,7 @@ var suite *framework.K2sTestSuite
 
 func TestSystem(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "system CLI Commands Acceptance Tests", Label("cli", "system", "scp", "ssh", "m", "w", "acceptance", "no-setup"))
+	RunSpecs(t, "system CLI Commands Acceptance Tests", Label("cli", "system", "package", "scp", "ssh", "m", "w", "acceptance", "no-setup"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
@@ -44,4 +46,42 @@ var _ = Describe("system", func() {
 		Entry("ssh w", "system", "ssh", "w", "--", "echo yes"),
 		Entry("upgrade", "system", "upgrade"),
 	)
+
+	Describe("package", Ordered, func() {
+		var testFileName string
+		var tempDir string
+		var localTempFilePath string
+
+		BeforeEach(func() {
+			testFileName = "package.zip"
+			tempDir = GinkgoT().TempDir()
+			localTempFilePath = filepath.Join(tempDir, testFileName)
+		})
+
+		AfterEach(func() {
+			_, err := os.Stat(localTempFilePath)
+			if err == nil {
+				GinkgoWriter.Println("Deleting <", localTempFilePath, ">..")
+				Expect(os.Remove(localTempFilePath)).To(Succeed())
+			} else {
+				if os.IsNotExist(err) {
+					GinkgoWriter.Println("Test file <", localTempFilePath, "> does not exist anymore")
+					return
+				}
+			}
+		})
+
+		It("generates zip package", func(ctx context.Context) {
+			output := suite.K2sCli().Run(ctx, "system", "package", "--target-dir", tempDir, "--name", testFileName, "--for-offline-installation")
+
+			Expect(output).To(SatisfyAny(
+				ContainSubstring("Finished creation of zip package"),
+				ContainSubstring("Zip package available as '"+localTempFilePath+"'"),
+			))
+
+			file, err := os.Stat(localTempFilePath)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(file.Size()).To(BeNumerically(">", 0))
+		})
+	})
 })
