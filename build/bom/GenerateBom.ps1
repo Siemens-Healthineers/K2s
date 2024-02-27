@@ -139,9 +139,9 @@ function GenerateBomContainers() {
     Write-Output 'Generate bom for container images'
 
     $tempDir = [System.Environment]::GetEnvironmentVariable('TEMP')
-    Write-Output "Writing to temp all containers $tempDir"
 
     # export all addons to have all images pull
+    Write-Output "Writing to temp all containers $tempDir"
     &k2s.exe addons export -d $tempDir -o
     if ( Test-Path -Path $tempDir\addons.zip) {
         Remove-Item -Path $tempDir\addons.zip -Force
@@ -152,6 +152,7 @@ function GenerateBomContainers() {
 
     # read json file and iterate through entries, filter out windows images   
     $jsonFile = "$bomRootDir\container-images-used.json"
+    Write-Output "Start generating bom for container images from $jsonFile"
     $jsonContent = Get-Content -Path $jsonFile | ConvertFrom-Json
     $imagesName = $jsonContent.ImageName
     $imagesVersion = $jsonContent.ImageVersion
@@ -171,7 +172,7 @@ function GenerateBomContainers() {
             # create bom file entry for linux image
             Write-Output "  -> Image ${fullname} is linux image, creating bom file"
             # replace in string / with - to avoid issues with file name            
-            $imageName = 'container-' + $name -replace '/', '-'
+            $imageName = 'c-' + $name -replace '/', '-'
             Write-Output "  -> Create bom file for image $imageName"
             ExecCmdMaster "sudo buildah push $imageId docker-archive:$imageName.tar:${fullname}"
 
@@ -202,7 +203,7 @@ function GenerateBomContainers() {
             Write-Output 'Ignoring emtpy image name'
             continue
         }
-        $imageName = 'container-' + $image -replace '/', '-'
+        $imageName = 'c-' + $image -replace '/', '-'
         
         # filter from $ims objects with propeerty repository equal to $image    
         $img = $ims | Where-Object { $_.repository -eq $image }
