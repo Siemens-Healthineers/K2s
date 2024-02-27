@@ -135,7 +135,7 @@ function GenerateBomDebian() {
     Copy-FromToMaster -Source $source -Target "$bomRootDir\merge"
 }
 
-function GenerateBomContainers() {
+function DumpK2sImages() {
     Write-Output 'Generate bom for container images'
 
     $tempDir = [System.Environment]::GetEnvironmentVariable('TEMP')
@@ -149,6 +149,12 @@ function GenerateBomContainers() {
 
     # dump all images 
     &$bomRootDir\Dumpk2sImages.ps1
+}
+
+function GenerateBomContainers() {
+    Write-Output 'Generate bom for container images'
+
+    $tempDir = [System.Environment]::GetEnvironmentVariable('TEMP')
 
     # read json file and iterate through entries, filter out windows images   
     $jsonFile = "$bomRootDir\container-images-used.json"
@@ -275,6 +281,7 @@ GenerateBomGolang('pkg\network\vfprules')
 GenerateBomGolang('pkg\k2s')
 
 GenerateBomDebian
+DumpK2sImages
 GenerateBomContainers
 MergeBomFilesFromDirectory
 
