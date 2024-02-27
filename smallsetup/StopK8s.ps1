@@ -81,24 +81,24 @@ Restart-WinService 'hns'
 
 Invoke-Hook -HookName 'BeforeStopK8sNetwork' -AdditionalHooksDir $AdditionalHooksDir
 
-# remove switch
-if (!$global:CacheKubemasterSwitch) { Remove-KubeSwitch }
+if (!$global:CacheK2sVSwitches) {
+    # remove kubeswitch
+    Remove-KubeSwitch
+
+    # Remove the external switch
+    RemoveExternalSwitch
+}
 
 # remove NAT
 Remove-NetNat -Name $global:NetNatName -Confirm:$False -ErrorAction SilentlyContinue
-
-# Remove the external switch
-if(!$global:CacheVirtualBridge) { RemoveExternalSwitch}
 
 $hns = $(Get-HNSNetwork)
 # there's always at least the Default Switch network available, so we check for >= 2
 if ($($hns | Measure-Object).Count -ge 2) {
     Write-Log 'Delete bridge, clear HNSNetwork (short disconnect expected)'
-    if(!$global:CacheVirtualBridge) { 
+    if(!$global:CacheK2sVSwitches) { 
          $hns | Where-Object Name -Like '*cbr0*' | Remove-HNSNetwork -ErrorAction SilentlyContinue
-    }
-    if(!$global:CacheKubemasterSwitch) {
-        $hns | Where-Object Name -Like ('*' + $global:SwitchName + '*') | Remove-HNSNetwork -ErrorAction SilentlyContinue
+         $hns | Where-Object Name -Like ('*' + $global:SwitchName + '*') | Remove-HNSNetwork -ErrorAction SilentlyContinue
     }
 }
 
@@ -108,7 +108,7 @@ if ($WSL) {
 }
 
 Write-Log 'Delete network policies'
-if(!$global:CacheVirtualBridge) { 
+if(!$global:CacheK2sVSwitches) { 
     Get-HnsPolicyList | Remove-HnsPolicyList -ErrorAction SilentlyContinue
 }
 
@@ -117,7 +117,7 @@ if ($shallRestartDocker) {
 }
 
 # Sometimes only removal from registry helps and reboot
-if(!$global:CacheVirtualBridge) { 
+if(!$global:CacheK2sVSwitches) { 
     Write-Log 'Cleaning up registry for NicList'
     Get-ChildItem -Path 'HKLM:\SYSTEM\CurrentControlSet\Services\VMSMP\Parameters\NicList' | Remove-Item -ErrorAction SilentlyContinue | Out-Null
 }

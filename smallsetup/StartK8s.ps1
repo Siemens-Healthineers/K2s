@@ -250,7 +250,7 @@ if (!$WSL -and !$isReusingExistingLinuxComputer) {
         Set-VMProcessor $global:VMName -Count $VmProcessors
     }
 
-    if(!$global:CacheKubemasterSwitch) {
+    if(!$global:CacheK2sVSwitches) {
             # Remove old switch
         Write-Log 'Updating VM networking...'
         Remove-KubeSwitch
