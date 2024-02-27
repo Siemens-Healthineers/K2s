@@ -171,27 +171,33 @@ func (s *K2sTestSuite) RootDir() string {
 
 // OS cli for arbitrary executions
 func (s *K2sTestSuite) Cli() *sos.CliExecutor {
+	Expect(s.cli).ToNot(BeNil())
 	return s.cli
 }
 
 // convenience wrapper around k2s.exe
 func (s *K2sTestSuite) K2sCli() *k2s.K2sCliRunner {
+	Expect(s.k2sCli).ToNot(BeNil())
 	return s.k2sCli
 }
 
 func (s *K2sTestSuite) SetupInfo() *k2s.SetupInfo {
+	Expect(s.setupInfo).ToNot(BeNil())
 	return s.setupInfo
 }
 
 func (s *K2sTestSuite) AddonsAdditionalInfo() *k2s.AddonsAdditionalInfo {
+	Expect(s.addonsAdditionalInfo).ToNot(BeNil())
 	return s.addonsAdditionalInfo
 }
 
 func (s *K2sTestSuite) Kubectl() *k8s.Kubectl {
+	Expect(s.kubectl).ToNot(BeNil())
 	return s.kubectl
 }
 
 func (s *K2sTestSuite) Cluster() *k8s.Cluster {
+	Expect(s.cluster).ToNot(BeNil())
 	return s.cluster
 }
 
