@@ -153,38 +153,44 @@ function GenerateBomContainers() {
     # read json file and iterate through entries, filter out windows images   
     $jsonFile = "$bomRootDir\container-images-used.json"
     $jsonContent = Get-Content -Path $jsonFile | ConvertFrom-Json
-    $images = $jsonContent | Select-Object -ExpandProperty ImageName
+    $imagesName = $jsonContent.ImageName
+    $imagesVersion = $jsonContent.ImageVersion
     $imagesWindows = @()
-    foreach ($image in $images) {
-        Write-Output "Processing image: $image"
+    for ($i = 0 ; $i -lt $imagesName.Count ; $i++) {
+        $name = $imagesName[$i]
+        $version = $imagesVersion[$i]
+        $fullname = $name + ':' + $version
+        Write-Output "Processing image: ${fullname}"
 
         # find image id in kubemaster VM
-        $imageId = ExecCmdMaster "sudo buildah images -f 'reference=$image' --format '{{.ID}}'"
+        $imageId = ExecCmdMaster "sudo buildah images -f reference=${fullname} --format '{{.ID}}'"
         Write-Output "  -> Image Id: $imageId"
 
         #check if image id is not empty
         if (![string]::IsNullOrEmpty($imageId)) {
             # create bom file entry for linux image
-            Write-Output "  -> Image $image is linux image, creating bom file"
-            ExecCmdMaster "sudo buildah push $imageId docker-archive:$imageId.tar:$image"
-            
-            # create bom file entry for linux image
+            Write-Output "  -> Image ${fullname} is linux image, creating bom file"
             # replace in string / with - to avoid issues with file name            
-            $imageName = 'container-' + $image -replace '/', '-'
+            $imageName = 'container-' + $name -replace '/', '-'
             Write-Output "  -> Create bom file for image $imageName"
-            ExecCmdMaster "sudo SCAN_DEBUG_MODE=debug FETCH_LICENSE=true DEBIAN_FRONTEND=noninteractive cdxgen --required-only -t containerfile $imageId.tar -o $imageName.json"
+            ExecCmdMaster "sudo buildah push $imageId docker-archive:$imageName.tar:${fullname}"
+
+            # create bom file entry for linux image
+            # TODO: with license it does not work yet from cdxgen point of view
+            #ExecCmdMaster "sudo GLOBAL_AGENT_HTTP_PROXY=http://172.19.1.1:8181 SCAN_DEBUG_MODE=debug FETCH_LICENSE=true DEBIAN_FRONTEND=noninteractive cdxgen --required-only -t containerfile $imageId.tar -o $imageName.json"
+            ExecCmdMaster "sudo GLOBAL_AGENT_HTTP_PROXY=http://172.19.1.1:8181 SCAN_DEBUG_MODE=debug DEBIAN_FRONTEND=noninteractive cdxgen --required-only -t containerfile $imageName.tar -o $imageName.json"
 
             # copy bom file to local folder
             $source = "$global:Remote_Master" + ":/home/remote/$imageName.json"
             Copy-FromToMaster -Source $source -Target "$bomRootDir\merge"
 
             # delete tar file
-            ExecCmdMaster "sudo rm $imageId.tar"
+            ExecCmdMaster "sudo rm $imageName.tar"
             ExecCmdMaster "sudo rm $imageName.json"
         }
         else {
             Write-Output '  -> Image is windows image, skipping'
-            $imagesWindows += $image
+            $imagesWindows += $name
         }
     }
 
@@ -192,12 +198,16 @@ function GenerateBomContainers() {
     $ims = (&k2s.exe image ls -o json | ConvertFrom-Json).containerimages
     foreach ($image in $imagesWindows) {
         Write-Output "Processing windows image: $image"
+        if ($image.length -eq 0) {
+            Write-Output 'Ignoring emtpy image name'
+            continue
+        }
         $imageName = 'container-' + $image -replace '/', '-'
         
         # filter from $ims objects with propeerty repository equal to $image    
         $img = $ims | Where-Object { $_.repository -eq $image }
         if ( $null -eq $img) {
-            throw "Image $image not found in k2s, please check !"
+            throw "Image $image not found in k2s, please correct static image list with real used containers !"
         }
 
         # copy to master
@@ -205,10 +215,13 @@ function GenerateBomContainers() {
         &k2s.exe image export --id $img.imageid -t "$tempDir\\$imageName.tar" --docker-archive 
 
         # copy to master since cdxgen is not available on windows
+        Write-Output "  -> Copied to kubemaster: $imageName.tar"
         &k2s.exe system scp m "$tempDir\\$imageName.tar" '/home/remote'
 
         Write-Output "  -> Creating bom for windows image: $imageName"
-        ExecCmdMaster "sudo SCAN_DEBUG_MODE=debug FETCH_LICENSE=true DEBIAN_FRONTEND=noninteractive cdxgen --required-only -t containerfile /home/remote/$imageName.tar -o $imageName.json" -IgnoreErrors -NoLog | Out-Null
+        # TODO: with license it does not work yet from cdxgen point of view
+        #ExecCmdMaster "sudo GLOBAL_AGENT_HTTP_PROXY=http://172.19.1.1:8181 SCAN_DEBUG_MODE=debug FETCH_LICENSE=true DEBIAN_FRONTEND=noninteractive cdxgen --required-only -t containerfile /home/remote/$imageName.tar -o $imageName.json" -IgnoreErrors -NoLog | Out-Null
+        ExecCmdMaster "sudo GLOBAL_AGENT_HTTP_PROXY=http://172.19.1.1:8181 SCAN_DEBUG_MODE=debug DEBIAN_FRONTEND=noninteractive cdxgen --required-only -t containerfile /home/remote/$imageName.tar -o $imageName.json" -IgnoreErrors -NoLog | Out-Null
 
         # copy bom file to local folder
         $source = "$global:Remote_Master" + ":/home/remote/$imageName.json"
