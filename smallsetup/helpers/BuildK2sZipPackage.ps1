@@ -13,8 +13,6 @@ Param(
     [uint64]$VMDiskSize = 50GB,
     [parameter(Mandatory = $false, HelpMessage = 'HTTP proxy if available to be used during installation')]
     [string] $Proxy = '',
-    [parameter(Mandatory = $false, HelpMessage = 'Host-GW or VXLAN, Host-GW: true, false for VXLAN')]
-    [bool] $HostGW = $true,
     [parameter(Mandatory = $true, HelpMessage = 'Target directory')]
     [string] $TargetDirectory,
     [parameter(Mandatory = $true, HelpMessage = 'The name of the zip package (it must have the extension .zip)')]
@@ -22,7 +20,11 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
     [switch] $ShowLogs = $false,
     [parameter(Mandatory = $false, HelpMessage = 'Creates a zip package that can be used for offline installation')]
-    [switch] $ForOfflineInstallation = $false
+    [switch] $ForOfflineInstallation = $false,
+    [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
+    [switch] $EncodeStructuredOutput,
+    [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
+    [string] $MessageType
 )
 
 $ErrorActionPreference = 'Continue'
@@ -35,11 +37,12 @@ if ($Trace) {
 # import global functions
 . $PSScriptRoot\..\common\GlobalFunctions.ps1
 
-Import-Module "$PSScriptRoot/../ps-modules/log/log.module.psm1"
-Initialize-Logging -ShowLogs:$ShowLogs
-
+$cliModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.infra.module\cli-messages\cli-messages.module.psm1"
+$logModule = "$PSScriptRoot/../ps-modules/log/log.module.psm1"
 $setupInfoModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.cluster.module\setupinfo\setupinfo.module.psm1"
-Import-Module $setupInfoModule
+Import-Module $cliModule, $logModule, $setupInfoModule
+
+Initialize-Logging -ShowLogs:$ShowLogs
 
 Write-Log "- Proxy to be used: $Proxy"
 Write-Log "- Target Directory: $TargetDirectory"
@@ -53,7 +56,15 @@ function BuildAndProvisionKubemasterBaseImage($outputPath) {
     Write-Log 'Create and provision the base image' -Console
     &"$global:KubernetesPath\smallsetup\baseimage\BuildAndProvisionKubemasterBaseImage.ps1" -Proxy $Proxy -OutputPath $outputPath -VMMemoryStartupBytes $VMMemoryStartupBytes -VMProcessorCount $VMProcessorCount
     if (!(Test-Path $outputPath)) {
-        throw "The provisioned base image is unexpectedly not available as '$outputPath' after build and provisioning stage."
+        $systemError = "The provisioned base image is unexpectedly not available as '$outputPath' after build and provisioning stage."
+
+        if ($EncodeStructuredOutput -eq $true) {
+            Send-ToCli -MessageType $MessageType -Message @{Error = $systemError }
+            return
+        }
+    
+        Write-Log $systemError -Error
+        exit 1
     }
     Write-Log "Provisioned base image available as $outputPath" -Console
 }
@@ -71,8 +82,16 @@ function DownloadAndZipWindowsNodeArtifacts($outputPath) {
     Write-Log "Windows node artifacts should be available as '$pathToTest', testing ..." -Console
     if (![string]::IsNullOrEmpty($pathToTest)) {
         if (!(Test-Path -Path $pathToTest)) {
+            $systemError = "The file '$pathToTest' that shall contain the Windows node artifacts is unexpectedly not available."
             Write-Log "Windows node artifacts should be available as '$pathToTest', throw fatal error" -Console
-            throw "The file '$pathToTest' that shall contain the Windows node artifacts is unexpectedly not available."
+
+            if ($EncodeStructuredOutput -eq $true) {
+                Send-ToCli -MessageType $MessageType -Message @{Error = $systemError }
+                return
+            }
+        
+            Write-Log $systemError -Error
+            exit 1
         }
     }
 
@@ -101,8 +120,15 @@ function CreateZipArchive() {
         }
         catch {
             Write-Log "ERROR in CreateZipArchive: $_"
-            $zipFile, $zipFileStream | ForEach-Object Dispose
-            throw $_
+                        $zipFile, $zipFileStream | ForEach-Object Dispose
+
+            if ($EncodeStructuredOutput -eq $true) {
+                Send-ToCli -MessageType $MessageType -Message @{Error = $_ }
+                return
+            }
+        
+            Write-Log $_ -Error
+            exit 1
         }
 
         foreach ($file in $files) {
@@ -142,24 +168,35 @@ function CreateZipArchive() {
     }
 }
 
+$systemError = ""
+
 if ('' -eq $TargetDirectory) {
-    throw 'The passed target directory is empty'
+    $systemError = 'The passed target directory is empty'
 }
 if (!(Test-Path -Path $TargetDirectory)) {
-    throw "The passed target directory '$TargetDirectory' could not be found"
+    $systemError = "The passed target directory '$TargetDirectory' could not be found"
 }
 if ('' -eq $ZipPackageFileName) {
-    throw 'The passed zip package name is empty'
+    $systemError = 'The passed zip package name is empty'
 }
 if ($ZipPackageFileName.EndsWith('.zip') -eq $false) {
-    throw "The passed zip package name '$ZipPackageFileName' does not have the extension '.zip'"
+    $systemError = "The passed zip package name '$ZipPackageFileName' does not have the extension '.zip'"
 }
 
 $setupInfo = Get-SetupInfo
 if ($setupInfo.Name) {
-    $message = "Precondition not met: '$global:ProductName' is installed on your system. " + `
+    $systemError = "Precondition not met: '$global:ProductName' is installed on your system. " + `
         "`nUninstall '$global:ProductName' first and then call this script again."
-    throw $message
+}
+
+if ($systemError -ne "") {
+    if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = $systemError }
+        return
+    }
+
+    Write-Log $systemError -Error
+    exit 1
 }
 
 $zipPackagePath = Join-Path "$TargetDirectory" "$ZipPackageFileName"
@@ -197,7 +234,14 @@ if ($ForOfflineInstallation) {
         catch {
             Write-Log "Creation of file '$winNodeArtifactsZipFilePath' failed. Performing clean-up...Error: $_" -Console
             &"$global:KubernetesPath\smallsetup\windowsnode\downloader\DownloadsCleaner.ps1"
-            throw $_
+
+            if ($EncodeStructuredOutput -eq $true) {
+                Send-ToCli -MessageType $MessageType -Message @{Error = $_ }
+                return
+            }
+        
+            Write-Log $_ -Error
+            exit 1
         }
     }
 
@@ -213,7 +257,14 @@ if ($ForOfflineInstallation) {
         catch {
             Write-Log "Creation of file '$kubemasterBaseVhdxPath' failed. Performing clean-up... Error: $_" -Console
             &"$global:KubernetesPath\smallsetup\baseimage\Cleaner.ps1"
-            throw $_
+
+            if ($EncodeStructuredOutput -eq $true) {
+                Send-ToCli -MessageType $MessageType -Message @{Error = $_ }
+                return
+            }
+        
+            Write-Log $_ -Error
+            exit 1
         }
     }
 
@@ -236,6 +287,6 @@ Write-Log 'Finished creation of zip package' -Console
 
 Write-Log "Zip package available as '$zipPackagePath'." -Console
 
-
-
-
+if ($EncodeStructuredOutput -eq $true) {
+    Send-ToCli -MessageType $MessageType -Message @{Error = $null }
+}
