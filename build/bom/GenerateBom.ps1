@@ -135,7 +135,7 @@ function GenerateBomDebian() {
     Copy-FromToMaster -Source $source -Target "$bomRootDir\merge"
 }
 
-function DumpK2sImages() {
+function LoadK2sImages() {
     Write-Output 'Generate bom for container images'
 
     $tempDir = [System.Environment]::GetEnvironmentVariable('TEMP')
@@ -147,8 +147,10 @@ function DumpK2sImages() {
         Remove-Item -Path $tempDir\addons.zip -Force
     }
 
-    # dump all images 
-    &$bomRootDir\Dumpk2sImages.ps1
+    # dump all images
+    &$bomRootDir\DumpK2sImages.ps1
+
+    Write-Output 'Containers images now available'
 }
 
 function GenerateBomContainers() {
@@ -179,11 +181,12 @@ function GenerateBomContainers() {
             Write-Output "  -> Image ${fullname} is linux image, creating bom file"
             # replace in string / with - to avoid issues with file name            
             $imageName = 'c-' + $name -replace '/', '-'
-            ExecCmdMaster "sudo rm -f $imageName.tar"
+            ExecCmdMaster "sudo rm -f /home/remote/$imageName.tar"
             ExecCmdMaster "sudo rm -f $imageName.json"
             Write-Output "  -> Create bom file for image $imageName"
-            Write-Output "  -> sudo buildah push $imageId docker-archive:$imageName.tar:${fullname}"
-            ExecCmdMaster "sudo buildah push $imageId docker-archive:$imageName.tar:${fullname}"
+            Write-Output "  -> sudo buildah push $imageId docker-archive:/home/remote/$imageName.tar:${fullname}"
+            $ret = ExecCmdMaster "sudo buildah push $imageId docker-archive://home/remote/$imageName.tar:${fullname} 2>&1" -NoLog
+            Write-Output "  -> $ret"
 
             # create bom file entry for linux image
             # TODO: with license it does not work yet from cdxgen point of view
@@ -279,13 +282,10 @@ GenerateBomGolang('pkg\network\devgon')
 GenerateBomGolang('pkg\network\httpproxy')
 GenerateBomGolang('pkg\network\vfprules')
 GenerateBomGolang('pkg\k2s')
-
 GenerateBomDebian
-DumpK2sImages
-GenerateBomContainers
+LoadK2sImages
+GenerateBomContainers 
 MergeBomFilesFromDirectory
-
-# ValidateResultBom
 
 Write-Output '---------------------------------------------------------------'
 Write-Output " Generate bom file finished.   Total duration: $('{0:hh\:mm\:ss}' -f $generationStopwatch.Elapsed )"
