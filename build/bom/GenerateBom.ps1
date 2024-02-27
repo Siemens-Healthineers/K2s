@@ -213,6 +213,8 @@ EnsureCdxgen
 EnsureCdxCli
 GenerateBomGolang("pkg\util\cloudinitisobuilder")
 GenerateBomGolang("pkg\util\zap")
+GenerateBomGolang("pkg\util\yaml2json")
+GenerateBomGolang("pkg\util\pause")
 GenerateBomGolang("pkg\network\bridge")
 GenerateBomGolang("pkg\network\devgon")
 GenerateBomGolang("pkg\network\httpproxy")
