@@ -173,7 +173,10 @@ function GenerateBomContainers() {
             Write-Output "  -> Image ${fullname} is linux image, creating bom file"
             # replace in string / with - to avoid issues with file name            
             $imageName = 'c-' + $name -replace '/', '-'
+            ExecCmdMaster "sudo rm -f $imageName.tar"
+            ExecCmdMaster "sudo rm -f $imageName.json"
             Write-Output "  -> Create bom file for image $imageName"
+            Write-Output "  -> sudo buildah push $imageId docker-archive:$imageName.tar:${fullname}"
             ExecCmdMaster "sudo buildah push $imageId docker-archive:$imageName.tar:${fullname}"
 
             # create bom file entry for linux image
@@ -186,8 +189,8 @@ function GenerateBomContainers() {
             Copy-FromToMaster -Source $source -Target "$bomRootDir\merge"
 
             # delete tar file
-            ExecCmdMaster "sudo rm $imageName.tar"
-            ExecCmdMaster "sudo rm $imageName.json"
+            ExecCmdMaster "sudo rm -f $imageName.tar"
+            ExecCmdMaster "sudo rm -f $imageName.json"
         }
         else {
             Write-Output '  -> Image is windows image, skipping'
