@@ -51,7 +51,7 @@ if ($systemError) {
 $images = @()
 if ($ImagePath -ne '') {
     $images += $ImagePath
-    Write-Output "Importing image $ImagePath. This can take some time..." -Console
+    Write-Log "Importing image $ImagePath. This can take some time..." -Console
 }
 elseif ($ImageDir -ne '') {
     $files = Get-Childitem -recurse $ImageDir | Where-Object { $_.Name -match '.*.tar' } | ForEach-Object { $_.Fullname }

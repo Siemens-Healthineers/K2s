@@ -80,7 +80,7 @@ func resetNetwork(cmd *cobra.Command, args []string) error {
 		return cmdResult.Error.ToError()
 	}
 
-	common.PrintCompletedMessage(duration, "Network reset")
+	common.PrintCompletedMessage(duration, "system reset network")
 
 	return nil
 }

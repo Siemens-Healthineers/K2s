@@ -226,7 +226,7 @@ if ($NpmRcWithSecrets -ne '') {
 # Linux Precompile & Full: copy source files to VM
 if (!$Windows) {
     Write-Log "Copying needed source files into control plane VM from $InputFolder" -Console
-    $target = 'tmp/docker-build/' + $(Split-Path -Leaf $InputFolder)
+    $target = '/tmp/docker-build/' + $(Split-Path -Leaf $InputFolder)
     Invoke-CmdOnControlPlaneViaSSHKey "test -d ~/tmp/docker-build && find ~/tmp/docker-build -exec chmod a+w {} \; ; rm -rf ~/tmp/docker-build; mkdir -p ~/tmp/docker-build; mkdir -p $target;mkdir -p ~/tmp/docker-build/common"
     $source = $InputFolder
     Write-Log "Copying $source to $target"
@@ -234,32 +234,38 @@ if (!$Windows) {
 
     # copy gitconfig
     $source = $InputFolder + '\..\gitconfig'
-    $target = 'tmp/docker-build/'
+    $target = '/tmp/docker-build/'
     Write-Log "Copying $source to $target"
     Copy-ToControlPlaneViaSSHKey $source $target -IgnoreErrors
 
     # copy .npmrc
     $source = $InputFolder + '\..\.npmrc'
-    $target = 'tmp/docker-build/'
+    $target = '/tmp/docker-build/'
     Write-Log "Copying $source to $target"
     Copy-ToControlPlaneViaSSHKey $source $target -IgnoreErrors
 
     # copy Dockerfile.ForBuild.tmp
     $source = $InputFolder + '\..\Dockerfile.ForBuild.tmp'
-    $target = 'tmp/docker-build/'
+    $target = '/tmp/docker-build/'
     Write-Log "Copying $source to $target"
     Copy-ToControlPlaneViaSSHKey $source $target
 
     # copy common if avaliable
     $source = $InputFolder + '\..\common'
     if ( Test-Path -Path $source ) {
-        $target = 'tmp/docker-build/common'
+        $target = '/tmp/docker-build/common'
         Write-Log "Copying $source to $target"
         Copy-ToControlPlaneViaSSHKey "$source\*" $target
     }
 }
 
-$GO_VERSION = '1.19'
+$GO_VERSION = '1.21.4'
+if ($null -ne $env:GOVERSION -and $env:GOVERSION -ne '') {
+    Write-Log "Using local GOVERSION $Env:GOVERSION environment variable from the host machine"
+    # $env:GOVERSION will be go1.21.4, remove the go part.
+    $GO_VERSION = $env:GOVERSION -split 'go' | Select-Object -Last 1
+}
+
 # Linux Precompile: build inside VM images
 if (!$Windows -and $PreCompile) {
     #Set-PSDebug -Trace 1
@@ -271,7 +277,7 @@ if (!$Windows -and $PreCompile) {
     }
 
     # check if we need to install go and gcc into VM
-    $GoInstalled = $(Invoke-CmdOnControlPlaneViaSSHKey "which /usr/lib/go-$GO_VERSION/bin/go" -NoLog)
+    $GoInstalled = $(Invoke-CmdOnControlPlaneViaSSHKey "which /usr/local/go-$GO_VERSION/bin/go" -NoLog)
     $MuslInstalled = $(Invoke-CmdOnControlPlaneViaSSHKey 'which musl-gcc' -NoLog)
     if ($GoInstalled -match '/bin/go' -and $MuslInstalled -match '/bin/musl-gcc') {
         Write-Log 'Pre-Compilation: go and gcc compiler already available in VM'
@@ -279,12 +285,23 @@ if (!$Windows -and $PreCompile) {
     else {
         Write-Log 'Pre-Compilation: Downloading needed binaries (go, gcc)...'
         Invoke-CmdOnControlPlaneViaSSHKey "echo 'debconf debconf/frontend select Noninteractive' | sudo debconf-set-selections"
-        Invoke-CmdOnControlPlaneViaSSHKey "sudo apt-get update;DEBIAN_FRONTEND=noninteractive sudo apt-get install -q --yes golang-$GO_VERSION gcc git musl musl-tools;" -Retries 3 -Timeout 2
+        Invoke-CmdOnControlPlaneViaSSHKey "sudo apt-get update;DEBIAN_FRONTEND=noninteractive sudo apt-get install -q --yes gcc git musl musl-tools;" -Retries 3 -Timeout 2
         Invoke-CmdOnControlPlaneViaSSHKey 'DEBIAN_FRONTEND=noninteractive sudo apt-get install -q --yes upx-ucl' -Retries 3 -Timeout 2
         # Invoke-CmdOnControlPlaneViaSSHKey "sudo apt-get update >/dev/null ; sudo apt-get install -q --yes golang-$GO_VERSION gcc git musl musl-tools; sudo apt-get install -q --yes upx-ucl"
         if ($LASTEXITCODE -ne 0) {
             throw "'apt install' returned code $LASTEXITCODE. Aborting. In case of timeouts do a retry."
         }
+
+        # Install Go
+        $goInstallScript = '/tmp/install_go.sh'
+        $kubePath = Get-KubePath
+        Copy-ToControlPlaneViaSSHKey "$kubePath\lib\modules\k2s\k2s.node.module\linuxnode\distros\scripts\install_go.sh" $goInstallScript
+
+        # After copy we need to remove carriage line endings from the shell script.
+        # TODO: Function to copy shell script to Linux host and remove CR in the shell script file before execution
+        Invoke-CmdOnControlPlaneViaSSHKey "sed -i -e 's/\r$//' $goInstallScript" -NoLog
+        Invoke-CmdOnControlPlaneViaSSHKey "chmod +x $goInstallScript" -NoLog
+        Invoke-CmdOnControlPlaneViaSSHKey "$goInstallScript $GO_Ver 2>&1"
     }
 
     $dirForBuild = '~/tmp/docker-build'
@@ -316,19 +333,19 @@ if (!$Windows -and $PreCompile) {
 
     if ($GoBuild -eq 'test') {
         Write-Log "Pre-Compilation: Building test-executable with GO: $ccExecutableName ..."
-        Invoke-CmdOnControlPlaneViaSSHKey "cd $dirForBuild ; $setTransparentProxy $setGoEnvironment $CGOFlags /usr/lib/go-$GO_VERSION/bin/go test -c -v -o $ccExecutableName 2>&1"
+        Invoke-CmdOnControlPlaneViaSSHKey "cd $dirForBuild ; $setTransparentProxy $setGoEnvironment $CGOFlags /usr/local/go-$GO_VERSION/bin/go test -c -v -o $ccExecutableName 2>&1"
     }
     else {
         Write-Log "Getting dependencies for GO: $ccExecutableName ..."
-        Invoke-CmdOnControlPlaneViaSSHKey "cd $dirForBuild ; $setTransparentProxy $setGoEnvironment /usr/lib/go-$GO_VERSION/bin/go get -v . 2>&1"
+        Invoke-CmdOnControlPlaneViaSSHKey "cd $dirForBuild ; $setTransparentProxy $setGoEnvironment /usr/local/go-$GO_VERSION/bin/go get -v . 2>&1"
 
         if ( $Optimize ) {
             Write-Log "Pre-Compilation: Building optimized executable with GO: $ccExecutableName ..."
-            Invoke-CmdOnControlPlaneViaSSHKey "cd $dirForBuild ; $setTransparentProxy $setGoEnvironment $CGOFlags /usr/lib/go-$GO_VERSION/bin/go build -v -ldflags='-s -w' -o $ccExecutableName . 2>&1; upx $ccExecutableName ; ls -l"
+            Invoke-CmdOnControlPlaneViaSSHKey "cd $dirForBuild ; $setTransparentProxy $setGoEnvironment $CGOFlags /usr/local/go-$GO_VERSION/bin/go build -v -ldflags='-s -w' -o $ccExecutableName . 2>&1; upx $ccExecutableName ; ls -l"
         }
         else {
             Write-Log "Pre-Compilation: Building executable with GO: $ccExecutableName ..."
-            Invoke-CmdOnControlPlaneViaSSHKey "cd $dirForBuild ; $setTransparentProxy $setGoEnvironment $CGOFlags /usr/lib/go-$GO_VERSION/bin/go build -v -o $ccExecutableName . 2>&1"
+            Invoke-CmdOnControlPlaneViaSSHKey "cd $dirForBuild ; $setTransparentProxy $setGoEnvironment $CGOFlags /usr/local/go-$GO_VERSION/bin/go build -v -o $ccExecutableName . 2>&1"
         }
     }
     if ($LASTEXITCODE -ne 0) {

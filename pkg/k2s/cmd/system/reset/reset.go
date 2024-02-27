@@ -37,7 +37,7 @@ func resetSystem(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	common.PrintCompletedMessage(duration, "System reset")
+	common.PrintCompletedMessage(duration, "system reset")
 
 	return nil
 }
