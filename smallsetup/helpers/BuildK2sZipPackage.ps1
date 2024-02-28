@@ -32,15 +32,14 @@ if ($Trace) {
     Set-PSDebug -Trace 1
 }
 
-# load global settings
 &$PSScriptRoot\..\common\GlobalVariables.ps1
-# import global functions
 . $PSScriptRoot\..\common\GlobalFunctions.ps1
 
-$cliModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.infra.module\cli-messages\cli-messages.module.psm1"
+$infraModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
 $logModule = "$PSScriptRoot/../ps-modules/log/log.module.psm1"
 $setupInfoModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.cluster.module\setupinfo\setupinfo.module.psm1"
-Import-Module $cliModule, $logModule, $setupInfoModule
+
+Import-Module $infraModule, $logModule, $setupInfoModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -56,14 +55,15 @@ function BuildAndProvisionKubemasterBaseImage($outputPath) {
     Write-Log 'Create and provision the base image' -Console
     &"$global:KubernetesPath\smallsetup\baseimage\BuildAndProvisionKubemasterBaseImage.ps1" -Proxy $Proxy -OutputPath $outputPath -VMMemoryStartupBytes $VMMemoryStartupBytes -VMProcessorCount $VMProcessorCount
     if (!(Test-Path $outputPath)) {
-        $systemError = "The provisioned base image is unexpectedly not available as '$outputPath' after build and provisioning stage."
+        $errMsg = "The provisioned base image is unexpectedly not available as '$outputPath' after build and provisioning stage."
 
         if ($EncodeStructuredOutput -eq $true) {
-            Send-ToCli -MessageType $MessageType -Message @{Error = $systemError }
+            $err = New-Error -Code 'build-package-failed' -Message $errMsg
+            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
             return
         }
     
-        Write-Log $systemError -Error
+        Write-Log $errMsg -Error
         exit 1
     }
     Write-Log "Provisioned base image available as $outputPath" -Console
@@ -82,15 +82,16 @@ function DownloadAndZipWindowsNodeArtifacts($outputPath) {
     Write-Log "Windows node artifacts should be available as '$pathToTest', testing ..." -Console
     if (![string]::IsNullOrEmpty($pathToTest)) {
         if (!(Test-Path -Path $pathToTest)) {
-            $systemError = "The file '$pathToTest' that shall contain the Windows node artifacts is unexpectedly not available."
+            $errMsg = "The file '$pathToTest' that shall contain the Windows node artifacts is unexpectedly not available."
             Write-Log "Windows node artifacts should be available as '$pathToTest', throw fatal error" -Console
 
             if ($EncodeStructuredOutput -eq $true) {
-                Send-ToCli -MessageType $MessageType -Message @{Error = $systemError }
+                $err = New-Error -Code 'build-package-failed' -Message $errMsg
+                Send-ToCli -MessageType $MessageType -Message @{Error = $err }
                 return
             }
         
-            Write-Log $systemError -Error
+            Write-Log $errMsg -Error
             exit 1
         }
     }
@@ -120,10 +121,11 @@ function CreateZipArchive() {
         }
         catch {
             Write-Log "ERROR in CreateZipArchive: $_"
-                        $zipFile, $zipFileStream | ForEach-Object Dispose
+            $zipFile, $zipFileStream | ForEach-Object Dispose
 
             if ($EncodeStructuredOutput -eq $true) {
-                Send-ToCli -MessageType $MessageType -Message @{Error = $_ }
+                $err = New-Error -Code 'build-package-failed' -Message $_
+                Send-ToCli -MessageType $MessageType -Message @{Error = $err }
                 return
             }
         
@@ -168,34 +170,35 @@ function CreateZipArchive() {
     }
 }
 
-$systemError = ""
-
+$errMsg = ''
 if ('' -eq $TargetDirectory) {
-    $systemError = 'The passed target directory is empty'
+    $errMsg = 'The passed target directory is empty'
 }
-if (!(Test-Path -Path $TargetDirectory)) {
-    $systemError = "The passed target directory '$TargetDirectory' could not be found"
+elseif (!(Test-Path -Path $TargetDirectory)) {
+    $errMsg = "The passed target directory '$TargetDirectory' could not be found"
 }
-if ('' -eq $ZipPackageFileName) {
-    $systemError = 'The passed zip package name is empty'
+elseif ('' -eq $ZipPackageFileName) {
+    $errMsg = 'The passed zip package name is empty'
 }
-if ($ZipPackageFileName.EndsWith('.zip') -eq $false) {
-    $systemError = "The passed zip package name '$ZipPackageFileName' does not have the extension '.zip'"
+elseif ($ZipPackageFileName.EndsWith('.zip') -eq $false) {
+    $errMsg = "The passed zip package name '$ZipPackageFileName' does not have the extension '.zip'"
+}
+else {
+    $setupInfo = Get-SetupInfo
+    if ($null -eq $setupInfo.Error) {
+        $errMsg = "Precondition not met: '$global:ProductName' is installed on your system. " + `
+            "`nUninstall '$global:ProductName' first and then call this script again."
+    }
 }
 
-$setupInfo = Get-SetupInfo
-if ($setupInfo.Name) {
-    $systemError = "Precondition not met: '$global:ProductName' is installed on your system. " + `
-        "`nUninstall '$global:ProductName' first and then call this script again."
-}
-
-if ($systemError -ne "") {
+if ($errMsg -ne '') {
     if ($EncodeStructuredOutput -eq $true) {
-        Send-ToCli -MessageType $MessageType -Message @{Error = $systemError }
+        $err = New-Error -Severity Warning -Code 'build-package-failed' -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
         return
     }
 
-    Write-Log $systemError -Error
+    Write-Log $errMsg -Error
     exit 1
 }
 
@@ -221,7 +224,6 @@ $exclusionList += "$global:KubernetesPath\pkg\network\bridge\bridge.exe"
 $kubemasterBaseVhdxPath = Get-KubemasterBaseImagePath
 $winNodeArtifactsZipFilePath = $global:WindowsNodeArtifactsZipFilePath
 if ($ForOfflineInstallation) {
-
     # Provide windows parts
     if (Test-Path $winNodeArtifactsZipFilePath) {
         Write-Log "The already existing file '$winNodeArtifactsZipFilePath' will be used." -Console
@@ -236,7 +238,8 @@ if ($ForOfflineInstallation) {
             &"$global:KubernetesPath\smallsetup\windowsnode\downloader\DownloadsCleaner.ps1"
 
             if ($EncodeStructuredOutput -eq $true) {
-                Send-ToCli -MessageType $MessageType -Message @{Error = $_ }
+                $err = New-Error -Code 'build-package-failed' -Message $_
+                Send-ToCli -MessageType $MessageType -Message @{Error = $err }
                 return
             }
         
@@ -259,7 +262,8 @@ if ($ForOfflineInstallation) {
             &"$global:KubernetesPath\smallsetup\baseimage\Cleaner.ps1"
 
             if ($EncodeStructuredOutput -eq $true) {
-                Send-ToCli -MessageType $MessageType -Message @{Error = $_ }
+                $err = New-Error -Code 'build-package-failed' -Message $_
+                Send-ToCli -MessageType $MessageType -Message @{Error = $err }
                 return
             }
         
@@ -267,8 +271,6 @@ if ($ForOfflineInstallation) {
             exit 1
         }
     }
-
-
 }
 else {
     $kubemasterRootfsPath = Get-KubemasterRootfsPath

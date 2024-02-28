@@ -7,8 +7,9 @@
 
 $logModule = "$PSScriptRoot\..\smallsetup\ps-modules\log\log.module.psm1"
 $statusModule = "$PSScriptRoot\..\lib\modules\k2s\k2s.cluster.module\status\status.module.psm1"
+$errorsModule = "$PSScriptRoot\..\lib\modules\k2s\k2s.infra.module\errors\errors.module.psm1"
 
-Import-Module $logModule, $statusModule
+Import-Module $logModule, $statusModule, $errorsModule
 
 $script = $MyInvocation.MyCommand.Name
 $ConfigKey_EnabledAddons = 'EnabledAddons'
@@ -216,8 +217,8 @@ function Install-DebianPackages {
     foreach ($package in $packages) {
         if (!(Get-DebianPackageAvailableOffline -addon $addon -package $package)) {
             ExecCmdMaster "mkdir -p .${addon}/${package} && cd .${addon}/${package} && sudo chown -R _apt:root ."
-            ExecCmdMaster "cd .${addon}/${package} && sudo apt-get download $package" -Retries 2 -RepairCmd "sudo apt --fix-broken install"
-            ExecCmdMaster "cd .${addon}/${package} && sudo DEBIAN_FRONTEND=noninteractive apt-get --reinstall install -y --no-install-recommends --no-install-suggests --simulate ./${package}*.deb | grep 'Inst ' | cut -d ' ' -f 2 | sort -u | xargs sudo apt-get download" -Retries 2 -RepairCmd "sudo apt --fix-broken install"
+            ExecCmdMaster "cd .${addon}/${package} && sudo apt-get download $package" -Retries 2 -RepairCmd 'sudo apt --fix-broken install'
+            ExecCmdMaster "cd .${addon}/${package} && sudo DEBIAN_FRONTEND=noninteractive apt-get --reinstall install -y --no-install-recommends --no-install-suggests --simulate ./${package}*.deb | grep 'Inst ' | cut -d ' ' -f 2 | sort -u | xargs sudo apt-get download" -Retries 2 -RepairCmd 'sudo apt --fix-broken install'
         }
 
         Write-Log "Installing $package offline."
@@ -504,17 +505,17 @@ function Get-AddonStatus {
     $status = @{Error = $null }
 
     if ((Test-Path -Path $Directory) -ne $true) {
-        $status.Error = 'addon-not-found'
+        $status.Error = New-Error -Severity Warning -Code (Get-ErrCodeAddonNotFound) -Message "Addon '$Name' not found in directory '$Directory'." 
         return $status
     }
     
     $addonStatusScript = "$Directory\Get-Status.ps1"
     if ((Test-Path -Path $addonStatusScript) -ne $true) {
-        $status.Error = 'no-addon-status'
+        $status.Error = New-Error -Severity Warning -Code 'no-addon-status' -Message "Addon '$Name' does not provide detailed status information." 
         return $status
     }
 
-    $systemError = Test-SystemAvailability
+    $systemError = Test-SystemAvailability -Structured
     if ($systemError) {
         $status.Error = $systemError
         return $status
@@ -532,6 +533,15 @@ function Get-AddonStatus {
     return $status
 }
 
+function Get-ErrCodeAddonAlreadyDisabled { 'addon-already-disabled' }
+
+function Get-ErrCodeAddonAlreadyEnabled { 'addon-already-enabled' }
+
+function Get-ErrCodeAddonEnableFailed { 'addon-enable-failed' }
+
+function Get-ErrCodeAddonNotFound { 'addon-not-found' }
+
 Export-ModuleMember -Function Get-EnabledAddons, Add-AddonToSetupJson, Remove-AddonFromSetupJson,
 Install-DebianPackages, Get-DebianPackageAvailableOffline, Test-IsAddonEnabled, Invoke-AddonsHooks, Copy-ScriptsToHooksDir,
-Remove-ScriptsFromHooksDir, Get-AddonConfig, Backup-Addons, Restore-Addons, Get-AddonStatus, Find-AddonManifests
+Remove-ScriptsFromHooksDir, Get-AddonConfig, Backup-Addons, Restore-Addons, Get-AddonStatus, Find-AddonManifests,
+Get-ErrCodeAddonAlreadyDisabled, Get-ErrCodeAddonAlreadyEnabled, Get-ErrCodeAddonEnableFailed, Get-ErrCodeAddonNotFound

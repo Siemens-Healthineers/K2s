@@ -4,40 +4,35 @@
 package common
 
 import (
+	"fmt"
 	"k2s/addons"
+	"k2s/cmd/common"
 	"k2s/providers/terminal"
 
-	"github.com/pterm/pterm"
 	"github.com/samber/lo"
 )
 
-func PrintAddonNotFoundMsg(dir string, name string) {
-	pterm.Warning.Printfln("Addon '%s' not found in directory '%s'", name, dir)
-}
-
-func PrintNoAddonStatusMsg(name string) {
-	pterm.Info.Printfln("Addon '%s' does not provide detailed status information", name)
-}
-
-func ValidateAddonNames(allAddons addons.Addons, activity string, terminalPrinter terminal.TerminalPrinter, names ...string) bool {
+func ValidateAddonNames(allAddons addons.Addons, activity string, terminalPrinter terminal.TerminalPrinter, names ...string) error {
 	for _, name := range names {
 		found := lo.ContainsBy(allAddons, func(addon addons.Addon) bool {
 			return addon.Metadata.Name == name
 		})
 
 		if !found {
-			printAddonActivityNotSupportedMsg(name, allAddons, activity, terminalPrinter)
-			return false
+			printValidAddonNames(allAddons, terminalPrinter)
+
+			return &common.CmdFailure{
+				Severity: common.SeverityWarning,
+				Code:     "addon-name-invalid",
+				Message:  fmt.Sprintf("Addon '%s' not supported for %s, aborting.", name, activity),
+			}
 		}
 	}
 
-	return true
+	return nil
 }
 
-func printAddonActivityNotSupportedMsg(name string, allAddons addons.Addons, activity string, terminalPrinter terminal.TerminalPrinter) {
-	terminalPrinter.PrintInfofln("Addon '%s' not supported for %s, aborting.", name, activity)
-	terminalPrinter.Println()
-
+func printValidAddonNames(allAddons addons.Addons, terminalPrinter terminal.TerminalPrinter) {
 	tableHeaders := []string{"Available addon names"}
 	addonTable := [][]string{tableHeaders}
 
