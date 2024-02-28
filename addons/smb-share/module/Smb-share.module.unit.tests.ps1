@@ -11,7 +11,7 @@ BeforeAll {
     Import-Module "$PSScriptRoot\..\..\..\lib\modules\k2s\k2s.infra.module\errors\errors.module.psm1" -Force
 }
 
-Describe 'Test-CsiPodsCondition' -Tag 'unit', 'addon' {
+Describe 'Test-CsiPodsCondition' -Tag 'unit', 'ci', 'addon' {
     Context 'Condition invalid' {
         It 'throws' {
             InModuleScope -ModuleName $moduleName {
@@ -237,7 +237,7 @@ Describe 'Test-CsiPodsCondition' -Tag 'unit', 'addon' {
     }
 }
 
-Describe 'Test-IsSmbShareWorking' -Tag 'unit', 'addon' {
+Describe 'Test-IsSmbShareWorking' -Tag 'unit', 'ci', 'addon' {
     Context 'Setup type is invalid' {
         BeforeAll {
             Mock -ModuleName $moduleName Get-SetupInfo { return [pscustomobject]@{Name = 'invalid'; Error = 'setup type invalid' } }
@@ -424,7 +424,7 @@ Describe 'Test-IsSmbShareWorking' -Tag 'unit', 'addon' {
     }
 }
 
-Describe 'New-SmbHostOnWindowsIfNotExisting' -Tag 'unit', 'addon' {
+Describe 'New-SmbHostOnWindowsIfNotExisting' -Tag 'unit', 'ci', 'addon' {
     Context 'SMB share already existing' {
         BeforeAll {
             Mock -ModuleName $moduleName Get-SmbShare { return $true }
@@ -479,7 +479,7 @@ Describe 'New-SmbHostOnWindowsIfNotExisting' -Tag 'unit', 'addon' {
     }
 }
 
-Describe 'Remove-SmbHostOnWindowsIfExisting' -Tag 'unit', 'addon' {
+Describe 'Remove-SmbHostOnWindowsIfExisting' -Tag 'unit', 'ci', 'addon' {
     Context 'SMB share non-existent' {
         BeforeAll {
             Mock -ModuleName $moduleName Get-SmbShare { return $null }
@@ -535,7 +535,7 @@ Describe 'Remove-SmbHostOnWindowsIfExisting' -Tag 'unit', 'addon' {
     }
 }
 
-Describe 'Restore-SmbShareAndFolderWindowsHost' -Tag 'unit', 'addon' {
+Describe 'Restore-SmbShareAndFolderWindowsHost' -Tag 'unit', 'ci', 'addon' {
     Context 'SMB share access already working' {
         BeforeAll {
             Mock -ModuleName $moduleName Write-Log {}
@@ -616,7 +616,7 @@ Describe 'Restore-SmbShareAndFolderWindowsHost' -Tag 'unit', 'addon' {
     }
 }
 
-Describe 'New-StorageClassManifest' -Tag 'unit', 'addon' {
+Describe 'New-StorageClassManifest' -Tag 'unit', 'ci', 'addon' {
     Context 'RemotePath not specified' {
         It 'throws' {
             InModuleScope -ModuleName $moduleName {
@@ -657,7 +657,7 @@ Describe 'New-StorageClassManifest' -Tag 'unit', 'addon' {
     }
 }
 
-Describe 'Wait-ForStorageClassToBeReady' -Tag 'unit', 'addon' {
+Describe 'Wait-ForStorageClassToBeReady' -Tag 'unit', 'ci', 'addon' {
     Context 'success' {
         BeforeAll {
             Mock -ModuleName $moduleName Write-Log {}
@@ -685,7 +685,7 @@ Describe 'Wait-ForStorageClassToBeReady' -Tag 'unit', 'addon' {
     }
 }
 
-Describe 'Wait-ForStorageClassToBeDeleted' -Tag 'unit', 'addon' {
+Describe 'Wait-ForStorageClassToBeDeleted' -Tag 'unit', 'ci', 'addon' {
     Context 'success' {
         BeforeAll {
             Mock -ModuleName $moduleName Write-Log {}
@@ -715,7 +715,7 @@ Describe 'Wait-ForStorageClassToBeDeleted' -Tag 'unit', 'addon' {
     }
 }
 
-Describe 'Restore-StorageClass' -Tag 'unit', 'addon' {
+Describe 'Restore-StorageClass' -Tag 'unit', 'ci', 'addon' {
     BeforeAll {
         Mock -ModuleName $moduleName Add-Secret {}
         Mock -ModuleName $moduleName New-StorageClassManifest {}
@@ -819,7 +819,7 @@ Describe 'Restore-StorageClass' -Tag 'unit', 'addon' {
     }
 }
 
-Describe 'Remove-StorageClass' -Tag 'unit', 'addon' {
+Describe 'Remove-StorageClass' -Tag 'unit', 'ci', 'addon' {
     Context 'Manifest file found' {
         BeforeAll {
             Mock -ModuleName $moduleName Remove-PersistentVolumeClaimsForStorageClass {}
@@ -969,7 +969,7 @@ Describe 'Remove-StorageClass' -Tag 'unit', 'addon' {
     }
 }
 
-Describe 'Remove-SmbShareAndFolderWindowsHost' -Tag 'unit', 'addon' {
+Describe 'Remove-SmbShareAndFolderWindowsHost' -Tag 'unit', 'ci', 'addon' {
     Context 'nodes cleanup skipped' {
         BeforeAll {
             Mock -ModuleName $moduleName Write-Log {}
@@ -1009,7 +1009,7 @@ Describe 'Remove-SmbShareAndFolderWindowsHost' -Tag 'unit', 'addon' {
     }
 }
 
-Describe 'Restore-SmbShareAndFolderLinuxHost' -Tag 'unit', 'addon' {
+Describe 'Restore-SmbShareAndFolderLinuxHost' -Tag 'unit', 'ci', 'addon' {
     Context 'testing skipped' {
         BeforeAll {
             Mock -ModuleName $moduleName Write-Log {}
@@ -1194,7 +1194,7 @@ Describe 'Restore-SmbShareAndFolderLinuxHost' -Tag 'unit', 'addon' {
     }
 }
 
-Describe 'Remove-SmbShareAndFolderLinuxHost' -Tag 'unit', 'addon' {
+Describe 'Remove-SmbShareAndFolderLinuxHost' -Tag 'unit', 'ci', 'addon' {
     Context 'nodes cleanup skipped' {
         BeforeAll {
             Mock -ModuleName $moduleName Write-Log {}
@@ -1238,7 +1238,7 @@ Describe 'Remove-SmbShareAndFolderLinuxHost' -Tag 'unit', 'addon' {
     }
 }
 
-Describe 'Remove-SmbShareAndFolder' -Tag 'unit', 'addon' {
+Describe 'Remove-SmbShareAndFolder' -Tag 'unit', 'ci', 'addon' {
     Context 'nodes cleanup skipped' {
         BeforeAll {
             Mock -ModuleName $moduleName Write-Log {}
@@ -1436,7 +1436,7 @@ Describe 'Remove-SmbShareAndFolder' -Tag 'unit', 'addon' {
     }
 }
 
-Describe 'Enable-SmbShare' -Tag 'unit', 'addon' {
+Describe 'Enable-SmbShare' -Tag 'unit', 'ci', 'addon' {
     Context 'SMB host type not set' {
         It 'throws' {
             { Enable-SmbShare } | Should -Throw -ExpectedMessage 'SMB host type not set'
@@ -1528,7 +1528,7 @@ Describe 'Enable-SmbShare' -Tag 'unit', 'addon' {
     }
 }
 
-Describe 'Disable-SmbShare' -Tag 'unit', 'addon' {
+Describe 'Disable-SmbShare' -Tag 'unit', 'ci', 'addon' {
     Context 'node cleanup skipped' {
         BeforeAll {
             Mock -ModuleName $moduleName Write-Log { }
@@ -1620,7 +1620,7 @@ Describe 'Disable-SmbShare' -Tag 'unit', 'addon' {
     }
 }
 
-Describe 'Restore-SmbShareAndFolder' -Tag 'unit', 'addon' {
+Describe 'Restore-SmbShareAndFolder' -Tag 'unit', 'ci', 'addon' {
     Context 'SMB host type not set' {
         It 'throws' {
             { Restore-SmbShareAndFolder } | Should -Throw
@@ -1734,7 +1734,7 @@ Describe 'Restore-SmbShareAndFolder' -Tag 'unit', 'addon' {
     }
 }
 
-Describe 'Get-SmbHostType' -Tag 'unit', 'addon' {
+Describe 'Get-SmbHostType' -Tag 'unit', 'ci', 'addon' {
     BeforeAll {
         Mock -ModuleName $moduleName Get-AddonConfig { return [PSCustomObject]@{Name = 'addon1'; SmbHOstType = 'my-type' } } -ParameterFilter { $Name -match $AddonName }
     }
@@ -1746,7 +1746,7 @@ Describe 'Get-SmbHostType' -Tag 'unit', 'addon' {
     }
 }
 
-Describe 'Connect-WinVMClientToSmbHost' -Tag 'unit', 'addon' {
+Describe 'Connect-WinVMClientToSmbHost' -Tag 'unit', 'ci', 'addon' {
     Context 'SMB host type is Windows' {
         BeforeAll {
             Mock -ModuleName $moduleName New-SharedFolderMountOnWindows {}
@@ -1778,7 +1778,7 @@ Describe 'Connect-WinVMClientToSmbHost' -Tag 'unit', 'addon' {
     }
 }
 
-Describe 'Test-SharedFolderMountOnWinNodeSilently' -Tag 'unit', 'addon' {
+Describe 'Test-SharedFolderMountOnWinNodeSilently' -Tag 'unit', 'ci', 'addon' {
     Context 'Test-SharedFolderMountOnWinNode signals success' {
         BeforeAll {
             Mock -ModuleName $moduleName Test-SharedFolderMountOnWinNode {
@@ -1811,7 +1811,7 @@ Describe 'Test-SharedFolderMountOnWinNodeSilently' -Tag 'unit', 'addon' {
     }
 }
 
-Describe 'Get-Status' -Tag 'unit', 'addon' {  
+Describe 'Get-Status' -Tag 'unit', 'ci', 'addon' {  
     BeforeAll {
         Mock -ModuleName $moduleName Get-SmbHostType { return 'my-type' } 
     }
@@ -1925,7 +1925,7 @@ Describe 'Get-Status' -Tag 'unit', 'addon' {
     }
 }
 
-Describe 'Backup-AddonData' -Tag 'unit', 'addon' {
+Describe 'Backup-AddonData' -Tag 'unit', 'ci', 'addon' {
     Context 'backup directory not specified' {
         It 'throws' {
             { Backup-AddonData } | Should -Throw -ExpectedMessage 'Please specify the back-up directory.'
@@ -1972,7 +1972,7 @@ Describe 'Backup-AddonData' -Tag 'unit', 'addon' {
     }
 }
 
-Describe 'Restore-AddonData'-Tag 'unit', 'addon' {
+Describe 'Restore-AddonData'-Tag 'unit', 'ci', 'addon' {
     Context 'backup directory not specified' {
         It 'throws' {
             { Restore-AddonData } | Should -Throw -ExpectedMessage 'Please specify the back-up directory.'
@@ -2024,7 +2024,7 @@ Describe 'Restore-AddonData'-Tag 'unit', 'addon' {
     }
 }
 
-Describe 'Remove-SmbGlobalMappingIfExisting' -Tag 'unit', 'addon' {
+Describe 'Remove-SmbGlobalMappingIfExisting' -Tag 'unit', 'ci', 'addon' {
     Context 'remote path not specified' {
         It 'throws' {
             { Remove-SmbGlobalMappingIfExisting } | Should -Throw -ExpectedMessage 'RemotePath not specified'
@@ -2071,7 +2071,7 @@ Describe 'Remove-SmbGlobalMappingIfExisting' -Tag 'unit', 'addon' {
     }
 }
 
-Describe 'Remove-LocalWinMountIfExisting' -Tag 'unit', 'addon' {
+Describe 'Remove-LocalWinMountIfExisting' -Tag 'unit', 'ci', 'addon' {
     Context 'local mount not existing' {
         BeforeAll {
             Mock -ModuleName $moduleName Test-Path { return $false } -ParameterFilter { $Path -eq $global:ShareMountPoint }

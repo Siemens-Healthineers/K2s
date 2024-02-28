@@ -24,7 +24,7 @@ var addons []k2s.Addon
 
 func TestAddons(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "addons CLI Commands Acceptance Tests", Label("cli", "acceptance", "no-setup", "addons"))
+	RunSpecs(t, "addons CLI Commands Acceptance Tests", Label("cli", "acceptance", "no-setup", "addons", "ci"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {

@@ -32,7 +32,7 @@ func (m *mockObject) Println(msg ...any) {
 
 func TestJson(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "json Unit Tests", Label("unit"))
+	RunSpecs(t, "json Unit Tests", Label("unit", "ci"))
 }
 
 var _ = Describe("json", func() {
