@@ -60,7 +60,7 @@ var _ = Describe("addons commands", Ordered, func() {
 
 					Expect(status.Enabled).To(BeNil())
 					Expect(status.Name).To(Equal(addon.Metadata.Name))
-					Expect(string(*status.Error)).To(Equal("system-not-running"))
+					Expect(*status.Error).To(Equal("system-not-running"))
 					Expect(status.Props).To(BeEmpty())
 				}
 			})

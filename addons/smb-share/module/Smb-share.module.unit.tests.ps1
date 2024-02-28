@@ -7,6 +7,8 @@ BeforeAll {
 
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('UseDeclaredVarsMoreThanAssignments', '', Justification = 'Pester Test')]
     $moduleName = (Import-Module $module -PassThru -Force).Name
+
+    Import-Module "$PSScriptRoot\..\..\..\lib\modules\k2s\k2s.infra.module\errors\errors.module.psm1" -Force
 }
 
 Describe 'Test-CsiPodsCondition' -Tag 'unit', 'addon' {
@@ -1467,9 +1469,9 @@ Describe 'Enable-SmbShare' -Tag 'unit', 'addon' {
             InModuleScope -ModuleName $moduleName {
                 $err = (Enable-SmbShare -SmbHostType 'Windows').Error
                 
-                $err.Type | Should -Be 'precondition-not-met' 
-                $err.Code | Should -Be 'addon-already-enabled' 
-                $err.Message | Should -Not -BeNullOrEmpty
+                $err.Severity | Should -Be Warning
+                $err.Code | Should -Be (Get-ErrCodeAddonAlreadyEnabled) 
+                $err.Message | Should -Match 'already enabled'
             }
         }
     }
@@ -1486,11 +1488,11 @@ Describe 'Enable-SmbShare' -Tag 'unit', 'addon' {
             }
 
             It 'returns error' {
-                $err = (Enable-SmbShare -SmbHostType 'Linux' ).Error
+                $err = (Enable-SmbShare -SmbHostType 'Linux').Error
                      
-                $err.Type | Should -Be 'precondition-not-met' 
-                $err.Code | Should -Be 'wrong-setup-type-for-addon'
-                $err.Message | Should -Not -BeNullOrEmpty
+                $err.Severity | Should -Be Warning
+                $err.Code | Should -Be (Get-ErrCodeWrongSetupType)
+                $err.Message | Should -Match 'can only be enabled for'
             }
         }
 
@@ -1538,9 +1540,9 @@ Describe 'Disable-SmbShare' -Tag 'unit', 'addon' {
             InModuleScope -ModuleName $moduleName {
                 $err = (Disable-SmbShare -SkipNodesCleanup).Error
                 
-                $err.Type | Should -Be 'precondition-not-met' 
-                $err.Code | Should -Be 'addon-already-disabled'
-                $err.Message | Should -Not -BeNullOrEmpty
+                $err.Severity | Should -Be Warning
+                $err.Code | Should -Be (Get-ErrCodeAddonAlreadyDisabled)
+                $err.Message | Should -Match 'already disabled'
                 
                 Should -Invoke Test-SystemAvailability -Times 0 -Scope Context
             }
@@ -1556,23 +1558,22 @@ Describe 'Disable-SmbShare' -Tag 'unit', 'addon' {
             InModuleScope -ModuleName $moduleName {
                 $err = (Disable-SmbShare).Error
                 
-                $err.Type | Should -Be 'precondition-not-met' 
-                $err.Code | Should -Be 'addon-already-disabled'
-                $err.Message | Should -Not -BeNullOrEmpty
+                $err.Severity | Should -Be Warning
+                $err.Code | Should -Be (Get-ErrCodeAddonAlreadyDisabled)
+                $err.Message | Should -Match 'already disabled'
             }
         }
     }        
     
     Context 'system unavailable' {
         BeforeAll {
-            Mock -ModuleName $moduleName Test-SystemAvailability { return @{Code = 'err-code'; Type = 'err-type'; Message = 'err-msg' } }
+            Mock -ModuleName $moduleName Test-SystemAvailability { return @{Code = 'err-code'; Message = 'err-msg' } }
         }
 
         It 'returns error' {
             InModuleScope -ModuleName $moduleName {
                 $err = (Disable-SmbShare).Error
                 
-                $err.Type | Should -Be 'err-type' 
                 $err.Code | Should -Be 'err-code'
                 $err.Message | Should -Be 'err-msg'
             }
@@ -1589,9 +1590,9 @@ Describe 'Disable-SmbShare' -Tag 'unit', 'addon' {
             InModuleScope -ModuleName $moduleName {
                 $err = (Disable-SmbShare).Error
                     
-                $err.Type | Should -Be 'precondition-not-met' 
-                $err.Code | Should -Be 'addon-already-disabled'
-                $err.Message | Should -Not -BeNullOrEmpty
+                $err.Severity | Should -Be Warning
+                $err.Code | Should -Be (Get-ErrCodeAddonAlreadyDisabled)
+                $err.Message | Should -Match 'already disabled'
             }
         }
     }
@@ -1607,9 +1608,9 @@ Describe 'Disable-SmbShare' -Tag 'unit', 'addon' {
 
         It 'disables the addon with skip flag set correctly' {
             InModuleScope -ModuleName $moduleName {
-                $result = Disable-SmbShare -SkipNodesCleanup
+                $err = (Disable-SmbShare -SkipNodesCleanup).Error
                 
-                $result.Error | Should -BeNullOrEmpty
+                $err | Should -BeNullOrEmpty
 
                 Should -Invoke Remove-SmbShareAndFolder -Times 1 -Scope Context -ParameterFilter { $SkipNodesCleanup -eq $true }
                 Should -Invoke Remove-AddonFromSetupJson -Times 1 -Scope Context -ParameterFilter { $Name -eq $AddonName }

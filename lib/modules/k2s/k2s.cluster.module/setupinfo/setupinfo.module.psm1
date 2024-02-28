@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
-Import-Module "$PSScriptRoot/../../k2s.infra.module/config/config.module.psm1"
+Import-Module "$PSScriptRoot/../../k2s.infra.module/k2s.infra.module.psm1"
 
 function Confirm-SetupNameIsValid {
     param (
@@ -13,8 +13,8 @@ function Confirm-SetupNameIsValid {
         'k2s' { $null }
         'MultiVMK8s' { $null }
         'BuildOnlyEnv' { $null }
-        $null { 'system-not-installed' }
-        '' { 'system-not-installed' }
+        $null { Get-ErrCodeSystemNotInstalled }
+        '' { Get-ErrCodeSystemNotInstalled }
         Default { "invalid:'$SetupName'" }
     }
     

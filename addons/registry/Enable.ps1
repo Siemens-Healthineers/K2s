@@ -141,9 +141,9 @@ $logModule = "$PSScriptRoot/../../smallsetup/ps-modules/log/log.module.psm1"
 $statusModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/status/status.module.psm1"
 $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
 $registryFunctionsModule = "$PSScriptRoot\..\..\smallsetup\helpers\RegistryFunctions.module.psm1"
-$cliMessagesModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/cli-messages/cli-messages.module.psm1"
+$infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 
-Import-Module $logModule, $addonsModule, $statusModule, $registryFunctionsModule, $cliMessagesModule -DisableNameChecking
+Import-Module $logModule, $addonsModule, $statusModule, $registryFunctionsModule, $infraModule -DisableNameChecking
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -164,7 +164,8 @@ if ((Test-IsAddonEnabled -Name 'registry') -eq $true) {
     $errMsg = "Addon 'registry' is already enabled, nothing to do."
 
     if ($EncodeStructuredOutput -eq $true) {
-        Send-ToCli -MessageType $MessageType -Message @{Error = @{Type = 'precondition-not-met'; Code = 'addon-already-enabled'; Message = $errMsg } }
+        $err = New-Error -Severity Warning -Code (Get-ErrCodeAddonAlreadyEnabled) -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
         return
     }
     
@@ -179,9 +180,10 @@ $registryName = 'k2s-registry.local'
 $registryNameWithoutPort = $registryName
 if ($Nodeport -gt 0) {
     if ($Nodeport -eq 30094) {
-        $errMsg = 'Nodeport 30094 is already reserved! Please use another one!'
+        $errMsg = 'Nodeport 30094 is already reserved, please use another one.'
         if ($EncodeStructuredOutput -eq $true) {
-            Send-ToCli -MessageType $MessageType -Message @{Error = @{Message = $errMsg } }
+            $err = New-Error -Severity Warning -Code 'port-already-in-use' -Message $errMsg
+            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
             return
         }
 
@@ -215,7 +217,8 @@ else {
     if ($username -eq '') {
         $errMsg = 'Username must not be empty!'
         if ($EncodeStructuredOutput -eq $true) {
-            Send-ToCli -MessageType $MessageType -Message @{Error = @{Message = $errMsg } }
+            $err = New-Error -Severity Warning -Code 'username-invalid' -Message $errMsg
+            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
             return
         }
 
@@ -228,7 +231,8 @@ else {
     if ($password -eq '') {
         $errMsg = 'Password must not be empty!'
         if ($EncodeStructuredOutput -eq $true) {
-            Send-ToCli -MessageType $MessageType -Message @{Error = @{Message = $errMsg } }
+            $err = New-Error -Severity Warning -Code 'password-invalid' -Message $errMsg
+            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
             return
         }
 
@@ -276,7 +280,8 @@ else {
 if (!$?) {
     $errMsg = 'k2s-registry did not start in time! Please disable addon and try to enable again!'
     if ($EncodeStructuredOutput -eq $true) {
-        Send-ToCli -MessageType $MessageType -Message @{Error = @{Message = $errMsg } }
+        $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
         return
     }
 
@@ -391,7 +396,8 @@ elseif ($K8sSetup -eq $global:SetupType_MultiVMK8s -and !$linuxOnly) {
     if (!$?) {
         $errMsg = 'Login to private registry not possible! Please disable addon and try to enable it again!'
         if ($EncodeStructuredOutput -eq $true) {
-            Send-ToCli -MessageType $MessageType -Message @{Error = @{Message = $errMsg } }
+            $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
             return
         }
 

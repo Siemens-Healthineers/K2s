@@ -29,14 +29,14 @@ Import-Module $clusterModule, $infraModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
-$systemError = Test-SystemAvailability
+$systemError = Test-SystemAvailability -Structured
 if ($systemError) {
     if ($EncodeStructuredOutput -eq $true) {
         Send-ToCli -MessageType $MessageType -Message @{Error = $systemError }
         return
     }
 
-    Write-Log $systemError -Error
+    Write-Log $systemError.Message -Error
     exit 1
 }
 
@@ -53,12 +53,14 @@ $setupInfo = Get-SetupInfo
 
 if ($setupInfo.Name -eq "$global:SetupType_MultiVMK8s") {
     if ($setupInfo.LinuxOnly -eq $true) {
-        Write-Log 'Windows image pull option is not possible for a Linux-only setup.' -Console
-
+        $errMsg = 'Windows image pull option is not possible for a Linux-only setup.'
         if ($EncodeStructuredOutput -eq $true) {
-            Send-ToCli -MessageType $MessageType -Message @{Error = $null }
+            $err = New-Error -Severity Warning -Code (Get-ErrCodeWrongSetupType) -Message $errMsg
+            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+            return
         }
-        return
+        Write-Log $errMsg -Error
+        exit 1
     }
 
     $retries = 5
@@ -77,7 +79,8 @@ if ($setupInfo.Name -eq "$global:SetupType_MultiVMK8s") {
     if (!$success) {
         $errMsg = "Error pulling image '$ImageName'"
         if ($EncodeStructuredOutput -eq $true) {
-            Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+            $err = New-Error -Code 'image-pull-failed' -Message $errMsg
+            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
             return
         }
 
@@ -107,7 +110,8 @@ while ($retries -gt 0) {
 if (!$success) {
     $errMsg = "Error pulling image '$ImageName'"
     if ($EncodeStructuredOutput -eq $true) {
-        Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+        $err = New-Error -Code 'image-pull-failed' -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
         return
     }
 

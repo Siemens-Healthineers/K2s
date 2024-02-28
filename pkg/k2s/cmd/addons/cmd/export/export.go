@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"k2s/addons"
 	"k2s/providers/terminal"
+	"k2s/setupinfo"
 	"k2s/utils"
 	"k2s/utils/psexecutor"
 	"strconv"
@@ -57,8 +58,8 @@ func runExport(cmd *cobra.Command, args []string) error {
 	terminalPrinter := terminal.NewTerminalPrinter()
 	allAddons := addons.AllAddons()
 
-	if !ac.ValidateAddonNames(allAddons, "export", terminalPrinter, args...) {
-		return common.ErrSilent
+	if err := ac.ValidateAddonNames(allAddons, "export", terminalPrinter, args...); err != nil {
+		return err
 	}
 
 	psCmd, params, err := buildPsCmd(cmd, args...)
@@ -72,20 +73,17 @@ func runExport(cmd *cobra.Command, args []string) error {
 
 	cmdResult, err := psexecutor.ExecutePsWithStructuredResult[*common.CmdResult](psCmd, "CmdResult", psexecutor.ExecOptions{}, params...)
 	if err != nil {
+		if errors.Is(err, setupinfo.ErrSystemNotInstalled) {
+			return common.CreateSystemNotInstalledCmdFailure()
+		}
 		return err
 	}
 
-	if cmdResult.Error != nil {
-		if isErrLinuxOnly(*cmdResult.Error) {
-			terminalPrinter.PrintInfoln("Cannot export addons in Linux-only setup")
-			return nil
-		}
-
-		return cmdResult.Error.ToError()
+	if cmdResult.Failure != nil {
+		return cmdResult.Failure
 	}
 
 	duration := time.Since(start)
-
 	common.PrintCompletedMessage(duration, "addons export")
 
 	return nil
@@ -134,8 +132,4 @@ func buildPsCmd(cmd *cobra.Command, addonsToExport ...string) (psCmd string, par
 	}
 
 	return
-}
-
-func isErrLinuxOnly(error common.CmdError) bool {
-	return error == errLinuxOnlyMsg
 }

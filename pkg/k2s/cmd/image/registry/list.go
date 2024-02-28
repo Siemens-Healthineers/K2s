@@ -4,8 +4,11 @@
 package registry
 
 import (
+	"errors"
 	"fmt"
+	"k2s/cmd/common"
 	"k2s/config"
+	"k2s/setupinfo"
 
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
@@ -34,6 +37,9 @@ func listRegistries(cmd *cobra.Command, args []string) error {
 	config := config.NewAccess()
 	registries, err := config.GetConfiguredRegistries()
 	if err != nil {
+		if errors.Is(err, setupinfo.ErrSystemNotInstalled) {
+			return common.CreateSystemNotInstalledCmdFailure()
+		}
 		return err
 	}
 

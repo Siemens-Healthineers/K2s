@@ -52,7 +52,7 @@ var _ = Describe("image", func() {
 	)
 
 	Describe("ls JSON output", Ordered, func() {
-		var images image.Images
+		var images image.PrintImages
 
 		BeforeAll(func(ctx context.Context) {
 			output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "image", "ls", "-o", "json")
@@ -64,7 +64,7 @@ var _ = Describe("image", func() {
 			Expect(images.ContainerImages).To(BeNil())
 			Expect(images.ContainerRegistry).To(BeNil())
 			Expect(images.PushedImages).To(BeNil())
-			Expect(string(*images.Error)).To(Equal(string(setupinfo.ErrNotInstalledMsg)))
+			Expect(*images.Error).To(Equal(setupinfo.ErrSystemNotInstalled.Error()))
 		})
 	})
 })

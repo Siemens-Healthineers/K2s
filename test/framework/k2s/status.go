@@ -12,14 +12,14 @@ import (
 )
 
 type K2sStatus struct {
-	internal *load.Status
+	internal *load.LoadedStatus
 }
 
 // wrapper around k2s.exe to retrieve and parse the cluster status
 func (r *K2sCliRunner) GetStatus(ctx context.Context) *K2sStatus {
 	output := r.Run(ctx, "status", "-o", "json")
 
-	status := unmarshalStatus[load.Status](output)
+	status := unmarshalStatus[load.LoadedStatus](output)
 
 	return &K2sStatus{
 		internal: status,

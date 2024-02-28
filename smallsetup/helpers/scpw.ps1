@@ -23,13 +23,13 @@ Import-Module $clusterModule, $infraModule
 
 Initialize-Logging
 
-$systemError = Test-SystemAvailability
+$systemError = Test-SystemAvailability -Structured
 if ($systemError) {
     if ($EncodeStructuredOutput -eq $true) {
         Send-ToCli -MessageType $MessageType -Message @{Error = $systemError }
         return
     }
-    Write-Log $systemError -Error
+    Write-Log $systemError.Message -Error
     exit 1
 }
 
@@ -37,7 +37,8 @@ $setupInfo = Get-SetupInfo
 if ($setupInfo.Name -ne $global:SetupType_MultiVMK8s -or $setupInfo.LinuxOnly ) {
     $errMsg = 'There is no multi-vm setup with worker node installed.'
     if ($EncodeStructuredOutput -eq $true) {
-        Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+        $err = New-Error -Severity Warning -Code (Get-ErrCodeWrongSetupType) -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
         return
     }
     Write-Log $systemError -Error
@@ -47,7 +48,8 @@ if ($setupInfo.Name -ne $global:SetupType_MultiVMK8s -or $setupInfo.LinuxOnly ) 
 if ((Test-Path $global:WindowsVMKey -PathType Leaf) -ne $true) {
     $errMsg = "Unable to find ssh directory $global:WindowsVMKey"
     if ($EncodeStructuredOutput -eq $true) {
-        Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+        $err = New-Error -Severity Warning -Code 'ssh-dir-not-found' -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
         return
     }
     Write-Log $systemError -Error

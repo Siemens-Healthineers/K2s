@@ -51,9 +51,9 @@ Param(
 $logModule = "$PSScriptRoot/../../smallsetup/ps-modules/log/log.module.psm1"
 $clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
-$cliMessagesModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/cli-messages/cli-messages.module.psm1"
+$infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 
-Import-Module $logModule, $addonsModule, $clusterModule, $cliMessagesModule
+Import-Module $logModule, $addonsModule, $clusterModule, $infraModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -74,7 +74,8 @@ if ((Test-IsAddonEnabled -Name 'kubevirt') -eq $true) {
     $errMsg = "Addon 'kubevirt' is already enabled, nothing to do."
 
     if ($EncodeStructuredOutput -eq $true) {
-        Send-ToCli -MessageType $MessageType -Message @{Error = @{Type = 'precondition-not-met'; Code = 'addon-already-enabled'; Message = $errMsg } }
+        $err = New-Error -Severity Warning -Code (Get-ErrCodeAddonAlreadyEnabled) -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
         return
     }
     
@@ -88,7 +89,8 @@ if ($wsl) {
         + "Please install cluster without wsl option in order to use kubevirt addon!`n" `
         + 'kubevirt not available on current setup!'
     if ($EncodeStructuredOutput -eq $true) {
-        Send-ToCli -MessageType $MessageType -Message @{Error = @{Message = $errMsg } }
+        $err = New-Error -Severity Warning -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
         return
     }
 
@@ -106,7 +108,8 @@ if ( $MasterVMMemory.Startup -lt 10GB ) {
         + "or install from scratch with k2s install --master-cpus 8 --master-memory 12GB --master-disk 120GB`n"`
         + 'Memory in master vm too low, stop your cluster and increase the memory of your master vm to at least 12GB!'
     if ($EncodeStructuredOutput -eq $true) {
-        Send-ToCli -MessageType $MessageType -Message @{Error = @{Message = $errMsg } }
+        $err = New-Error -Severity Warning -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
         return
     }
 
@@ -122,7 +125,8 @@ if ( $MasterDiskSize.Size -lt 100GB ) {
         + "or install from scratch with k2s install --master-cpus 8 --master-memory 12GB --master-disk 120GB`n"`
         + 'Disk size for master vm too low'
     if ($EncodeStructuredOutput -eq $true) {
-        Send-ToCli -MessageType $MessageType -Message @{Error = @{Message = $errMsg } }
+        $err = New-Error -Severity Warning -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
         return
     }
 

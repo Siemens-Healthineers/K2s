@@ -5,7 +5,7 @@ package runningstate
 
 import (
 	"errors"
-	"k2s/cmd/status/load"
+	"k2s/cmd/status/common"
 )
 
 type TerminalPrinter interface {
@@ -22,7 +22,7 @@ func NewRunningStatePrinter(terminalPrinter TerminalPrinter) RunningStatePrinter
 	return RunningStatePrinter{terminalPrinter: terminalPrinter}
 }
 
-func (rs RunningStatePrinter) PrintRunningState(runningState *load.RunningState) (bool, error) {
+func (rs RunningStatePrinter) PrintRunningState(runningState *common.RunningState) (bool, error) {
 	if runningState == nil {
 		return false, errors.New("no running state info retrieved")
 	}

@@ -31,34 +31,40 @@ Import-Module $imageModule, $statusModule, $infraModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
-$systemError = Test-SystemAvailability
+$systemError = Test-SystemAvailability -Structured
 if ($systemError) {
     if ($EncodeStructuredOutput -eq $true) {
         Send-ToCli -MessageType $MessageType -Message @{Error = $systemError }
         return
     }
 
-    Write-Log $systemError -Error
+    Write-Log $systemError.Message -Error
     exit 1
 }
 
 if ($FromRegistry) {
     &$global:KubectlExe get namespace registry 2> $null | Out-Null
     if (!$?) {
-        Write-Error 'k2s-registry.local is not running.'
+        $errMsg = 'k2s-registry.local is not running.'
         if ($EncodeStructuredOutput -eq $true) {
-            Send-ToCli -MessageType $MessageType -Message @{Error = $null }
+            $err = New-Error -Severity Warning -Code 'registry-not-running' -Message $errMsg
+            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+            return
         }
-        return
+        Write-Log $errMsg -Error
+        exit 1
     }
 
     $pushedimages = Get-PushedContainerImages
     if ($ImageName -eq '') {
-        Write-Error 'ImageName incl. Tag is needed to remove image from registry. Cannot remove image.'
+        $errMsg = 'ImageName incl. Tag is needed to remove image from registry. Cannot remove image.'
         if ($EncodeStructuredOutput -eq $true) {
-            Send-ToCli -MessageType $MessageType -Message @{Error = $null }
+            $err = New-Error -Severity Warning -Code 'image-remove-failed' -Message $errMsg
+            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+            return
         }
-        return
+        Write-Log $errMsg -Error
+        exit 1
     }
 
     foreach ($image in $pushedimages ) {
@@ -72,12 +78,14 @@ if ($FromRegistry) {
         }
     }
 
-    Write-Log "$ImageName could not be found." -Console
-
+    $errMsg = "$ImageName could not be found."
     if ($EncodeStructuredOutput -eq $true) {
-        Send-ToCli -MessageType $MessageType -Message @{Error = $null }
+        $err = New-Error -Severity Warning -Code 'image-not-found' -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+        return
     }
-    return
+    Write-Log $errMsg -Error
+    exit 1
 }
 
 $allContainerImages = Get-ContainerImagesInk2s -IncludeK8sImages $false
@@ -87,11 +95,14 @@ if ($ImageId -ne '') {
 }
 else {
     if ($ImageName -eq '') {
-        Write-Error 'Image Name or ImageId is not provided. Cannot remove image.'
+        $errMsg = 'Image Name or ImageId is not provided. Cannot remove image.'
         if ($EncodeStructuredOutput -eq $true) {
-            Send-ToCli -MessageType $MessageType -Message @{Error = $null }
+            $err = New-Error -Severity Warning -Code 'image-remove-failed' -Message $errMsg
+            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+            return
         }
-        return
+        Write-Log $errMsg -Error
+        exit 1
     }
 
     $foundImages = @($allContainerImages | Where-Object {
@@ -101,11 +112,14 @@ else {
 }
 
 if ($foundImages.Count -eq 0) {
-    Write-Error 'Image was not found. Please ensure that you have specified the right image details to be deleted'
+    $errMsg = 'Image was not found. Please ensure that you have specified the right image details to be deleted'
     if ($EncodeStructuredOutput -eq $true) {
-        Send-ToCli -MessageType $MessageType -Message @{Error = $null }
+        $err = New-Error -Severity Warning -Code 'image-not-found' -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+        return
     }
-    return
+    Write-Log $errMsg -Error
+    exit 1
 }
 
 $deletedImages = @()

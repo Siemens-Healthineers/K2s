@@ -51,4 +51,10 @@ var _ = Describe("system", func() {
 		Entry("ssh m", "system", "ssh", "m"),
 		Entry("ssh w", "system", "ssh", "w"),
 	)
+
+	Describe("dump", func() {
+		It("skips", func() {
+			Skip("test to be implemented")
+		})
+	})
 })

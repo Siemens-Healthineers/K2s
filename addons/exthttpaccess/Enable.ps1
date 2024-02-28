@@ -38,9 +38,9 @@ Param(
 $logModule = "$PSScriptRoot/../../smallsetup/ps-modules/log/log.module.psm1"
 $statusModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/status/status.module.psm1"
 $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
-$cliMessagesModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/cli-messages/cli-messages.module.psm1"
+$infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 
-Import-Module $addonsModule, $logModule, $statusModule, $cliMessagesModule
+Import-Module $addonsModule, $logModule, $statusModule, $infraModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -63,7 +63,8 @@ if ((Test-IsAddonEnabled -Name 'exthttpaccess') -eq $true) {
   $errMsg = "Addon 'exthttpaccess' is already enabled, nothing to do."
 
   if ($EncodeStructuredOutput -eq $true) {
-    Send-ToCli -MessageType $MessageType -Message @{Error = @{Type = 'precondition-not-met'; Code = 'addon-already-enabled'; Message = $errMsg } }
+    $err = New-Error -Severity Warning -Code (Get-ErrCodeAddonAlreadyEnabled) -Message $errMsg
+    Send-ToCli -MessageType $MessageType -Message @{Error = $err }
     return
   }
   
@@ -76,7 +77,8 @@ function AbortExecutionDueToPortNotAssignable {
     [string]$AbortMessage = $(throw 'Parameter missing: AbortMessage')
   )
   if ($EncodeStructuredOutput -eq $true) {
-    Send-ToCli -MessageType $MessageType -Message @{Error = @{Message = $AbortMessage } }
+    $err = New-Error -Severity Warning -Code 'port-not-assignable' -Message $errMsg
+    Send-ToCli -MessageType $MessageType -Message @{Error = $err }
     exit 0
   }
   
@@ -137,7 +139,8 @@ if ($physicalIps.Count -lt 1) {
   $errMsg = 'There is no physical net adapter detected that could be used to enable external HTTP/HTTPS access'
 
   if ($EncodeStructuredOutput -eq $true) {
-    Send-ToCli -MessageType $MessageType -Message @{Error = @{Message = $errMsg } }
+    $err = New-Error -Code 'no-net-adapter' -Message $errMsg
+    Send-ToCli -MessageType $MessageType -Message @{Error = $err }
     return
   }
 
@@ -169,7 +172,8 @@ Get-Content "$global:KubernetesPath\addons\exthttpaccess\nginx.tmp" | ForEach-Ob
       $errMsg = "Didn't you forget to specify variable `${variableName}` for your nginx.tmp template?"
   
       if ($EncodeStructuredOutput -eq $true) {
-        Send-ToCli -MessageType $MessageType -Message @{Error = @{Message = $errMsg } }
+        $err = New-Error -Code 'addon-template-invalid' -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
         exit 0
       }
 

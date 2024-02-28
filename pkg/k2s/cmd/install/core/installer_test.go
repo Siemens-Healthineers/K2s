@@ -28,10 +28,6 @@ type myMock struct {
 	mock.Mock
 }
 
-func (m *myMock) PrintInfofln(format string, a ...any) {
-	m.Called(format, a)
-}
-
 func (m *myMock) Printfln(format string, a ...any) {
 	m.Called(format, a)
 }
@@ -72,8 +68,6 @@ var _ = Describe("core", func() {
 		When("a setup is already installed", func() {
 			It("returns silent error", func() {
 				printerMock := &myMock{}
-				printerMock.On(r.GetFunctionName(printerMock.PrintInfofln),
-					mock.MatchedBy(func(format string) bool { return strings.Contains(format, "already installed") }), mock.Anything).Times(1)
 
 				configMock := &myMock{}
 				configMock.On(r.GetFunctionName(configMock.GetSetupName)).Return(setupinfo.SetupName("test-name"), nil)
@@ -82,7 +76,13 @@ var _ = Describe("core", func() {
 
 				err := sut.Install("", nil, nil)
 
-				Expect(err).To(MatchError(common.ErrSilent))
+				var cmdFailure *common.CmdFailure
+				Expect(errors.As(err, &cmdFailure)).To(BeTrue())
+				Expect(cmdFailure.Code).To(Equal("system-already-installed"))
+				Expect(cmdFailure.Message).To(ContainSubstring("already installed"))
+				Expect(cmdFailure.Severity).To(Equal(common.SeverityWarning))
+				Expect(cmdFailure.SuppressCliOutput).To(BeFalse())
+
 				printerMock.AssertExpectations(GinkgoT())
 			})
 		})

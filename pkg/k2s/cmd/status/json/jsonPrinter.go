@@ -2,10 +2,6 @@
 // SPDX-License-Identifier:   MIT
 package json
 
-import (
-	"k2s/cmd/status/load"
-)
-
 type TerminalPrinter interface {
 	Println(m ...any)
 }
@@ -26,7 +22,7 @@ func NewJsonPrinter(terminalPrinter TerminalPrinter, jsonMarshaller JsonMarshall
 	}
 }
 
-func (jp JsonPrinter) PrintJson(status *load.Status) error {
+func (jp JsonPrinter) PrintJson(status any) error {
 	bytes, err := jp.jsonMarshaller.MarshalIndent(status)
 	if err != nil {
 		return err

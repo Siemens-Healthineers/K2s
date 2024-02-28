@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"k2s/cmd/common"
 	"k2s/config"
+	"k2s/setupinfo"
 	"k2s/utils"
 	"k2s/utils/psexecutor"
 	"os"
@@ -56,8 +57,8 @@ var (
 			return err
 		}
 
-		if cmdResult.Error != nil {
-			return cmdResult.Error.ToError()
+		if cmdResult.Failure != nil {
+			return cmdResult.Failure
 		}
 		return nil
 	}
@@ -68,10 +69,16 @@ var (
 )
 
 func (r *remoteCommandHandler) Handle(cmd string) error {
+	var err error
 	if cmd == "" {
-		return r.startShell()
+		err = r.startShell()
+	} else {
+		err = r.executeCommand(cmd)
 	}
-	return r.executeCommand(cmd)
+	if errors.Is(err, setupinfo.ErrSystemNotInstalled) {
+		return common.CreateSystemNotInstalledCmdFailure()
+	}
+	return err
 }
 
 func (r *remoteCommandHandler) startShell() error {

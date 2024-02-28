@@ -38,12 +38,13 @@ var _ = Describe("system", func() {
 
 			Expect(output).To(ContainSubstring("not installed"))
 		},
+		Entry("dump", "system", "dump"),
 		Entry("scp m", "system", "scp", "m", "a1", "a2"),
 		Entry("scp w", "system", "scp", "w", "a1", "a2"),
-		Entry("ssh m", "system", "ssh", "m"),
-		Entry("ssh m", "system", "ssh", "m", "--", "echo yes"),
-		Entry("ssh w", "system", "ssh", "w"),
-		Entry("ssh w", "system", "ssh", "w", "--", "echo yes"),
+		Entry("ssh m connect", "system", "ssh", "m"),
+		Entry("ssh m cmd", "system", "ssh", "m", "--", "echo yes"),
+		Entry("ssh w connect", "system", "ssh", "w"),
+		Entry("ssh w cmd", "system", "ssh", "w", "--", "echo yes"),
 		Entry("upgrade", "system", "upgrade"),
 	)
 

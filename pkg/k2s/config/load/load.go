@@ -39,9 +39,9 @@ func (cl ConfigLoader) LoadForSetup(filePath string) (*d.SetupConfig, error) {
 	config, err := load[d.SetupConfig](filePath, cl)
 
 	if cl.fileReader.IsFileNotExist(err) {
-		klog.V(2).ErrorS(err, "setup config file not found, assuming setup is not installed")
+		klog.V(2).ErrorS(err, "setup config file not found, assuming setup is not installed", "path", filePath)
 
-		return nil, setupinfo.ErrNotInstalled
+		return nil, setupinfo.ErrSystemNotInstalled
 	}
 
 	return config, err

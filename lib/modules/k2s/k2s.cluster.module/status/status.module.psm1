@@ -5,9 +5,9 @@ $vmModule = "$PSScriptRoot\..\..\k2s.node.module\linuxnode\vm\vm.module.psm1"
 $setupInfoModule = "$PSScriptRoot\..\setupinfo\setupinfo.module.psm1"
 $runningStateModule = "$PSScriptRoot\..\runningstate\runningstate.v2.module.psm1"
 $k8sApiModule = "$PSScriptRoot/../k8s-api/k8s-api.module.psm1"
-$logModule = "$PSScriptRoot/../../k2s.infra.module/log/log.module.psm1"
+$infraModule = "$PSScriptRoot/../../k2s.infra.module/k2s.infra.module.psm1"
 
-Import-Module $vmModule, $setupInfoModule, $runningStateModule, $k8sApiModule, $logModule
+Import-Module $vmModule, $setupInfoModule, $runningStateModule, $k8sApiModule, $infraModule
 
 $script = $MyInvocation.MyCommand.Name
 
@@ -44,16 +44,19 @@ function Get-Status {
         Write-Progress -Activity 'Gathering status information...' -Id 1 -Status '0/4' -PercentComplete 0 -CurrentOperation 'Getting setup type'
     }
 
-    $status = @{SetupInfo = Get-SetupInfo }
-
-    if ($status.SetupInfo.Error) {
-        Write-Log "[$script::$function] Setup type invalid, returning with error='$($status.SetupInfo.Error)'"
+    $setupInfo = Get-SetupInfo
+    if ($setupInfo.Error) {
+        Write-Log "[$script::$function] Setup type invalid, returning with error='$($setupInfo.Error)'"
 
         if ($ShowProgress -eq $true) {
             Write-Progress -Activity 'Gathering status information...' -Id 1 -Completed
         }
-        return $status
+
+        $err = New-Error -Severity Warning -Code $setupInfo.Error -Message 'You have not installed K2s setup yet, please install K2s first.'        
+        return @{Error = $err }
     }
+
+    $status = @{SetupInfo = $setupInfo }
 
     if ($ShowProgress -eq $true) {
         Write-Progress -Activity 'Gathering status information...' -Id 1 -Status '1/4' -PercentComplete 25 -CurrentOperation 'Determining running state'
@@ -139,25 +142,20 @@ function Test-SystemAvailability {
     $setupInfo = Get-SetupInfo
     if ($setupInfo.Error) {
         if ($Structured -eq $true) {
-            return @{
-                Type    = 'precondition-not-met'; 
-                Code    = $setupInfo.Error; 
-                Message = 'You have not installed K2s setup yet, please install K2s first.' 
-            }
+            $err = $err = New-Error -Severity Warning -Code $setupInfo.Error -Message 'You have not installed K2s setup yet, please install K2s first.' 
+            return $err
         }
         return $setupInfo.Error
     }
 
     $state = (Get-RunningState -SetupName $setupInfo.Name)
     if ($state.IsRunning -ne $true) {
+        $notRunningErr = Get-ErrCodeSystemNotRunning
         if ($Structured -eq $true) {
-            return @{
-                Type    = 'precondition-not-met'; 
-                Code    = 'system-not-running'; 
-                Message = 'K2s is not running. To interact with the system, please start K2s first.' 
-            }
+            $err = $err = New-Error -Severity Warning -Code $notRunningErr -Message 'K2s is not running. To interact with the system, please start K2s first.' 
+            return $err
         }
-        return 'system-not-running'
+        return $notRunningErr
     }
 
     return $null

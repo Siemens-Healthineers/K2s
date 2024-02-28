@@ -47,11 +47,30 @@ $logModule = "$PSScriptRoot/../smallsetup/ps-modules/log/log.module.psm1"
 
 Import-Module $addonsModule, $logModule, $cliMessagesModule
 
-$status = Get-AddonStatus -Name $Name -Directory $Directory
+Initialize-Logging 
 
-if ($EncodeStructuredOutput -eq $true) {
-    Send-ToCli -MessageType $MessageType -Message $status
+$script = $MyInvocation.MyCommand.Name
+
+Write-Log "[$script] started with EncodeStructuredOutput='$EncodeStructuredOutput' and MessageType='$MessageType'"
+
+try {
+    $status = Get-AddonStatus -Name $Name -Directory $Directory
+
+    Write-Log "[$script] Status determined: $status"
+
+    if ($EncodeStructuredOutput -eq $true) {
+        Write-Log "[$script] Sending status to CLI.."
+
+        Send-ToCli -MessageType $MessageType -Message $status
+    }
+    else {
+        $status
+    }
+
+    Write-Log "[$script] finished"
 }
-else {
-    $status
+catch {
+    Write-Log "[$script] $($_.Exception.Message) - $($_.ScriptStackTrace)" -Error
+
+    throw $_
 }

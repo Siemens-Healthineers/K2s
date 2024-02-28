@@ -33,9 +33,9 @@ Param (
 $logModule = "$PSScriptRoot/../../smallsetup/ps-modules/log/log.module.psm1"
 $statusModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/status/status.module.psm1"
 $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
-$cliMessagesModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/cli-messages/cli-messages.module.psm1"
+$infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 
-Import-Module $logModule, $addonsModule, $statusModule, $cliMessagesModule
+Import-Module $logModule, $addonsModule, $statusModule, $infraModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -56,7 +56,8 @@ if ((Test-IsAddonEnabled -Name 'traefik') -eq $true) {
     $errMsg = "Addon 'traefik' is already enabled, nothing to do."
 
     if ($EncodeStructuredOutput -eq $true) {
-        Send-ToCli -MessageType $MessageType -Message @{Error = @{Type = 'precondition-not-met'; Code = 'addon-already-enabled'; Message = $errMsg } }
+        $err = New-Error -Severity Warning -Code (Get-ErrCodeAddonAlreadyEnabled) -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
         return
     }
     
@@ -68,7 +69,8 @@ if ((Test-IsAddonEnabled -Name 'ingress-nginx') -eq $true) {
     $errMsg = "Addon 'ingress-nginx' is enabled. Disable it first to avoid port conflicts."
 
     if ($EncodeStructuredOutput -eq $true) {
-        Send-ToCli -MessageType $MessageType -Message @{Error = @{Type = 'precondition-not-met'; Code = 'addon-already-enabled'; Message = $errMsg } }
+        $err = New-Error -Severity Warning -Code (Get-ErrCodeAddonAlreadyEnabled) -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
         return
     }
 
@@ -80,7 +82,8 @@ if ((Test-IsAddonEnabled -Name 'gateway-nginx') -eq $true) {
     $errMsg = "Addon 'gateway-nginx' is enabled. Disable it first to avoid port conflicts."
 
     if ($EncodeStructuredOutput -eq $true) {
-        Send-ToCli -MessageType $MessageType -Message @{Error = @{Type = 'precondition-not-met'; Code = 'addon-already-enabled'; Message = $errMsg } }
+        $err = New-Error -Severity Warning -Code (Get-ErrCodeAddonAlreadyEnabled) -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
         return
     }
 
@@ -107,7 +110,8 @@ else {
 if ($allPodsAreUp -ne $true) {
     $errMsg = "All traefik pods could not become ready. Please use kubectl describe for more details.`nInstallation of traefik addon failed"
     if ($EncodeStructuredOutput -eq $true) {
-        Send-ToCli -MessageType $MessageType -Message @{Error = @{Message = $errMsg } }
+        $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{Error = @{Message = $err } }
         return
     }
 

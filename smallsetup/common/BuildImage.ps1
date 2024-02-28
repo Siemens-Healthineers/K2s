@@ -105,9 +105,9 @@ Param(
 $clusterModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1"
 $imageFunctionsModule = "$PSScriptRoot\..\helpers\ImageFunctions.module.psm1"
 $logModule = "$PSScriptRoot\..\ps-modules\log\log.module.psm1"
-$cliMessagesModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/cli-messages/cli-messages.module.psm1"
+$infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 
-Import-Module $clusterModule, $imageFunctionsModule, $logModule, $cliMessagesModule
+Import-Module $clusterModule, $imageFunctionsModule, $logModule, $infraModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -244,14 +244,14 @@ function BuildWindowsImage () {
     }
 }
 
-$systemError = Test-SystemAvailability
+$systemError = Test-SystemAvailability -Structured
 if ($systemError) {
     if ($EncodeStructuredOutput -eq $true) {
         Send-ToCli -MessageType $MessageType -Message @{Error = $systemError }
         return
     }
 
-    Write-Log $systemError -Error
+    Write-Log $systemError.Message -Error
     exit 1
 }
 
@@ -280,7 +280,8 @@ $dockerfileAbsoluteFp, $PreCompile = Get-DockerfileAbsolutePathAndPrecompileFlag
 if (($ImageTag -eq 'local') -and $Push) {
     $errMsg = 'Unable to push without valid tag, use -ImageTag'
     if ($EncodeStructuredOutput -eq $true) {
-        Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+        $err = New-Error -Code 'build-image-failed' -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
         return
     }
 
@@ -297,7 +298,8 @@ if (!$Windows) {
         if ($(wsl -l --running) -notcontains 'KubeMaster (Default)') {
             $errMsg = "WSL Distro $global:VMName is not started, execute 'k2s start' first!"
             if ($EncodeStructuredOutput -eq $true) {
-                Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+                $err = New-Error -Code 'build-image-failed' -Message $errMsg
+                Send-ToCli -MessageType $MessageType -Message @{Error = $err }
                 return
             }
 
@@ -311,7 +313,8 @@ if ($Push) {
     if (!$ImageName.Contains('/')) {
         $errMsg = 'Please check ImageName! Cannot extract registry name!'
         if ($EncodeStructuredOutput -eq $true) {
-            Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+            $err = New-Error -Code 'build-image-failed' -Message $errMsg
+            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
             return
         }
 
@@ -328,7 +331,8 @@ if ($Push) {
     if (!$registriesMemberExists) {
         $errMsg = "Registry $registry is not configured! Please add it: k2s image registry add $registry"
         if ($EncodeStructuredOutput -eq $true) {
-            Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+            $err = New-Error -Code 'build-image-failed' -Message $errMsg
+            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
             return
         }
 
@@ -340,7 +344,8 @@ if ($Push) {
     if (!$registryExists) {
         $errMsg = "Registry $registry is not configured! Please add it: k2s image registry add $registry"
         if ($EncodeStructuredOutput -eq $true) {
-            Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+            $err = New-Error -Code 'build-image-failed' -Message $errMsg
+            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
             return
         }
 
@@ -387,7 +392,8 @@ $setupInfo = Get-SetupInfo
 if ($Windows -and $setupInfo.LinuxOnly) {
     $errMsg = 'Linux-only setup does not support building Windows images'
     if ($EncodeStructuredOutput -eq $true) {
-        Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+        $err = New-Error -Severity Warning -Code (Get-ErrCodeWrongSetupType) -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
         return
     }
 
@@ -398,7 +404,8 @@ if ($Windows -and $setupInfo.LinuxOnly) {
 if ($ccExecutableName -eq '' -and $PreCompile ) {
     $errMsg = "Missing ExeName in $InputFolder\$Dockerfile"
     if ($EncodeStructuredOutput -eq $true) {
-        Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+        $err = New-Error -Code 'build-image-failed' -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
         return
     }
 
@@ -494,7 +501,7 @@ if (!$Windows -and $PreCompile) {
     else {
         Write-Log 'Pre-Compilation: Downloading needed binaries (go, gcc)...'
         ExecCmdMaster "echo 'debconf debconf/frontend select Noninteractive' | sudo debconf-set-selections"
-        ExecCmdMaster "sudo apt-get update;DEBIAN_FRONTEND=noninteractive sudo apt-get install -q --yes gcc git musl musl-tools;" -Retries 3 -Timeout 2
+        ExecCmdMaster 'sudo apt-get update;DEBIAN_FRONTEND=noninteractive sudo apt-get install -q --yes gcc git musl musl-tools;' -Retries 3 -Timeout 2
         ExecCmdMaster 'DEBIAN_FRONTEND=noninteractive sudo apt-get install -q --yes upx-ucl' -Retries 3 -Timeout 2
         # ExecCmdMaster "sudo apt-get update >/dev/null ; sudo apt-get install -q --yes golang-$GO_Ver gcc git musl musl-tools; sudo apt-get install -q --yes upx-ucl"
         if ($LASTEXITCODE -ne 0) {
@@ -521,7 +528,8 @@ if (!$Windows -and $PreCompile) {
         else {
             $errMsg = "currently only '..' is allowed as value for DockerBuildDir"
             if ($EncodeStructuredOutput -eq $true) {
-                Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+                $err = New-Error -Code 'build-image-failed' -Message $errMsg
+                Send-ToCli -MessageType $MessageType -Message @{Error = $err }
                 return
             }
 
@@ -572,7 +580,8 @@ if (!$Windows -and $PreCompile) {
     if ($LASTEXITCODE -ne 0) {
         $errMsg = "go returned code $LASTEXITCODE. Aborting."
         if ($EncodeStructuredOutput -eq $true) {
-            Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+            $err = New-Error -Code 'build-image-failed' -Message $errMsg
+            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
             return
         }
 
@@ -651,7 +660,8 @@ else {
     if ($LASTEXITCODE -ne 0) {
         $errMsg = "error while creating image with 'buildah bud' in linux VM. Error code returned was $LastExitCode"
         if ($EncodeStructuredOutput -eq $true) {
-            Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+            $err = New-Error -Code 'build-image-failed' -Message $errMsg
+            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
             return
         }
 
@@ -697,7 +707,8 @@ if ($Push) {
 
         $errMsg = 'unable to push image to registry'
         if ($EncodeStructuredOutput -eq $true) {
-            Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+            $err = New-Error -Code 'build-image-failed' -Message $errMsg
+            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
             return
         }
 

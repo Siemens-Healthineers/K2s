@@ -6,7 +6,7 @@ package k8sversion
 import (
 	"errors"
 	"fmt"
-	"k2s/cmd/status/load"
+	"k2s/cmd/status/common"
 )
 
 type TerminalPrinter interface {
@@ -22,7 +22,7 @@ func NewK8sVersionPrinter(terminalPrinter TerminalPrinter) K8sVersionPrinter {
 	return K8sVersionPrinter{terminalPrinter: terminalPrinter}
 }
 
-func (p K8sVersionPrinter) PrintK8sVersionInfo(k8sVersionInfo *load.K8sVersionInfo) error {
+func (p K8sVersionPrinter) PrintK8sVersionInfo(k8sVersionInfo *common.K8sVersionInfo) error {
 	if k8sVersionInfo == nil {
 		return errors.New("no K8s version info retrieved")
 	}

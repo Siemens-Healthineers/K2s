@@ -31,20 +31,20 @@ Param (
 $clusterModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1"
 $imageFunctionsModule = "$PSScriptRoot\ImageFunctions.module.psm1"
 $loggingModule = "$PSScriptRoot\..\ps-modules\log\log.module.psm1"
-$cliModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.infra.module\cli-messages\cli-messages.module.psm1"
+$infraModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
 
-Import-Module $clusterModule, $imageFunctionsModule, $loggingModule, $cliModule -DisableNameChecking
+Import-Module $clusterModule, $imageFunctionsModule, $loggingModule, $infraModule -DisableNameChecking
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
-$systemError = Test-SystemAvailability
+$systemError = Test-SystemAvailability -Structured
 if ($systemError) {
     if ($EncodeStructuredOutput -eq $true) {
         Send-ToCli -MessageType $MessageType -Message @{Error = $systemError }
         return
     }
 
-    Write-Log $systemError -Error
+    Write-Log $systemError.Message -Error
     exit 1
 }
 
@@ -64,11 +64,12 @@ if ($Windows) {
     if ($setupInfo.LinuxOnly) {
         $errMsg = 'Cannot import windows image, Linux-only setup is installed'
         if ($EncodeStructuredOutput -eq $true) {
-            Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+            $err = New-Error -Severity Warning -Code (Get-ErrCodeWrongSetupType) -Message $errMsg
+            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
             return
         }
     
-        Write-Log $systemError -Error
+        Write-Log $errMsg -Error
         exit 1
     }
 

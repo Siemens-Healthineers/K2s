@@ -39,7 +39,7 @@ var _ = Describe("json", func() {
 	Describe("PrintJson", func() {
 		When("error occurred", func() {
 			It("returns the error", func() {
-				input := &load.Status{}
+				input := &load.LoadedStatus{}
 				expected := errors.New("oops")
 				marshallerMock := &mockObject{}
 				marshallerMock.On(r.GetFunctionName(marshallerMock.MarshalIndent), input).Return([]byte{}, expected)
@@ -53,7 +53,7 @@ var _ = Describe("json", func() {
 
 		When("successful", func() {
 			It("prints the status as JSON and returns nil", func() {
-				input := &load.Status{}
+				input := &load.LoadedStatus{}
 				expected := "test"
 				marshallerMock := &mockObject{}
 				printerMock := &mockObject{}

@@ -32,9 +32,9 @@ $mainStopwatch = [system.diagnostics.stopwatch]::StartNew()
 $logModule = "$PSScriptRoot/../../smallsetup/ps-modules/log/log.module.psm1"
 $statusModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/status/status.module.psm1"
 $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
-$cliMessagesModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/cli-messages/cli-messages.module.psm1"
+$infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 
-Import-Module $logModule, $addonsModule, $statusModule, $cliMessagesModule
+Import-Module $logModule, $addonsModule, $statusModule, $infraModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -57,7 +57,8 @@ if ($null -eq (&$global:KubectlExe get namespace kubevirt --ignore-not-found) -o
     $errMsg = "Addon 'kubevirt' is already disabled, nothing to do."
 
     if ($EncodeStructuredOutput -eq $true) {
-        Send-ToCli -MessageType $MessageType -Message @{Error = @{Type = 'precondition-not-met'; Code = 'addon-already-disabled'; Message = $errMsg } }
+        $err = New-Error -Severity Warning -Code (Get-ErrCodeAddonAlreadyDisabled) -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
         return
     }
     

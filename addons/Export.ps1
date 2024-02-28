@@ -34,25 +34,27 @@ Import-Module $imageFuncModule, $registryFuncModule, $addonsModule, $clusterModu
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
-$systemError = Test-SystemAvailability
+$systemError = Test-SystemAvailability -Structured
 if ($systemError) {
     if ($EncodeStructuredOutput -eq $true) {
         Send-ToCli -MessageType $MessageType -Message @{Error = $systemError }
         return
     }
 
-    Write-Log $systemError -Error
+    Write-Log $systemError.Message -Error
     exit 1
 }
 
 $setupInfo = Get-SetupInfo
 if ($setupInfo.LinuxOnly -eq $true) {
+    $errMsg = 'Cannot export addons in Linux-only setup' 
     if ($EncodeStructuredOutput -eq $true) {
-        Send-ToCli -MessageType $MessageType -Message @{Error = 'linux-only' }
+        $err = New-Error -Severity Warning -Code ErrCodeWrongSetupType -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
         return
     }
 
-    Write-Log 'Cannot export addons in Linux-only setup' -Error
+    Write-Log $errMsg -Error
     exit 1
 }
 
@@ -88,7 +90,8 @@ else {
         if ($null -eq $foundManifest) {
             $errMsg = "no addon with name '$name' found"
             if ($EncodeStructuredOutput -eq $true) {
-                Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+                $err = New-Error -Severity Warning -Code ErrCodeAddonNotFound -Message $errMsg
+                Send-ToCli -MessageType $MessageType -Message @{Error = $err }
                 return
             }
         
@@ -194,9 +197,10 @@ try {
                     &$global:KubernetesPath\smallsetup\helpers\ExportImage.ps1 -Id $imageToExport.ImageId -ExportPath "${tmpExportDir}\addons\$($manifest.dir.name)\${count}.tar" -ShowLogs:$ShowLogs
 
                     if (!$?) {
-                        $errMsg = "Image $imageNameWithoutTag could not be exported!"
+                        $errMsg = "Image $imageNameWithoutTag could not be exported."
                         if ($EncodeStructuredOutput -eq $true) {
-                            Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+                            $err = New-Error -Code 'image-not-exported' -Message $errMsg
+                            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
                             return
                         }
                     
@@ -214,7 +218,8 @@ try {
                     if (!$?) {
                         $errMsg = "Image $imageNameWithoutTag could not be exported!"
                         if ($EncodeStructuredOutput -eq $true) {
-                            Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+                            $err = New-Error -Code 'image-not-exported' -Message $errMsg
+                            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
                             return
                         }
                     

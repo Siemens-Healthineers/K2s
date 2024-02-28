@@ -19,21 +19,22 @@ Import-Module $statusModule, $infraModule
 
 Initialize-Logging
 
-$systemError = Test-SystemAvailability
+$systemError = Test-SystemAvailability -Structured
 if ($systemError) {
     if ($EncodeStructuredOutput -eq $true) {
         Send-ToCli -MessageType $MessageType -Message @{Error = $systemError }
         return
     }
 
-    Write-Log $systemError -Error
+    Write-Log $systemError.Message -Error
     exit 1
 }
 
 if ((Test-Path $global:LinuxVMKey -PathType Leaf) -ne $true) {
     $errMsg = "Unable to find ssh directory $global:LinuxVMKey"
     if ($EncodeStructuredOutput -eq $true) {
-        Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+        $err = New-Error -Severity Warning -Code 'ssh-dir-not-found' -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
         return
     }
     Write-Log $systemError -Error

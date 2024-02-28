@@ -31,20 +31,20 @@ Param (
 $clusterModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1"
 $imageFunctionsModule = "$PSScriptRoot\ImageFunctions.module.psm1"
 $loggingModule = "$PSScriptRoot\..\ps-modules\log\log.module.psm1"
-$cliModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.infra.module\cli-messages\cli-messages.module.psm1"
+$infraModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
 
-Import-Module $clusterModule, $imageFunctionsModule, $loggingModule, $cliModule -DisableNameChecking
+Import-Module $clusterModule, $imageFunctionsModule, $loggingModule, $infraModule -DisableNameChecking
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
-$systemError = Test-SystemAvailability
+$systemError = Test-SystemAvailability -Structured
 if ($systemError) {
     if ($EncodeStructuredOutput -eq $true) {
         Send-ToCli -MessageType $MessageType -Message @{Error = $systemError }
         return
     }
 
-    Write-Log $systemError -Error
+    Write-Log $systemError.Message -Error
     exit 1
 }
 
@@ -84,19 +84,25 @@ else {
 
 if ($foundLinuxImages.Count -eq 0 -and $foundWindowsImages.Count -eq 0) {
     if ($Id -ne '') {
-        Write-Log "Image with Id ${Id} not found!" -Console
+        $errMsg = "Image with Id ${Id} not found!"
         if ($EncodeStructuredOutput -eq $true) {
-            Send-ToCli -MessageType $MessageType -Message @{Error = $null }
+            $err = New-Error -Severity Warning -Code 'image-not-found' -Message $errMsg
+            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+            return
         }
-        return
+        Write-Log $errMsg -Error
+        exit 1
     }
 
     if ($Name -ne '') {
-        Write-Log "Image ${Name} not found!" -Console
+        $errMsg = "Image ${Name} not found!"
         if ($EncodeStructuredOutput -eq $true) {
-            Send-ToCli -MessageType $MessageType -Message @{Error = $null }
+            $err = New-Error -Severity Warning -Code 'image-not-found' -Message $errMsg
+            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+            return
         }
-        return
+        Write-Log $errMsg -Error
+        exit 1
     }
 }
 
@@ -145,11 +151,14 @@ if ($foundLinuxImages.Count -eq 1) {
 }
 
 if ($foundWindowsImages.Count -gt 1) {
-    Write-Log "Please specify the name and tag instead of id since there are more than one image with id $Id" -Console
+    $errMsg = "Please specify the name and tag instead of id since there are more than one image with id $Id"
     if ($EncodeStructuredOutput -eq $true) {
-        Send-ToCli -MessageType $MessageType -Message @{Error = $null }
+        $err = New-Error -Severity Warning -Code 'image-not-found' -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+        return
     }
-    return
+    Write-Log $errMsg -Error
+    exit 1
 }
 
 if ($foundWindowsImages.Count -eq 1) {

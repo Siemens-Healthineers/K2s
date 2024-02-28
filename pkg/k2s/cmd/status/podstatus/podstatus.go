@@ -4,7 +4,7 @@
 package podstatus
 
 import (
-	"k2s/cmd/status/load"
+	"k2s/cmd/status/common"
 
 	a "k2s/utils/arrays"
 )
@@ -26,7 +26,7 @@ func NewPodStatusPrinter(printer TerminalPrinter) PodStatusPrinter {
 	return PodStatusPrinter{terminalPrinter: printer}
 }
 
-func (p PodStatusPrinter) PrintPodStatus(pods []load.Pod, showAdditionalInfo bool) {
+func (p PodStatusPrinter) PrintPodStatus(pods []common.Pod, showAdditionalInfo bool) {
 
 	headers := createHeaders(showAdditionalInfo)
 
@@ -58,7 +58,7 @@ func createHeaders(showAdditionalInfo bool) []string {
 	return headers
 }
 
-func (p PodStatusPrinter) buildRows(pods []load.Pod, showAdditionalInfo bool) ([][]string, bool) {
+func (p PodStatusPrinter) buildRows(pods []common.Pod, showAdditionalInfo bool) ([][]string, bool) {
 	allPodsRunning := true
 	var rows [][]string
 
@@ -74,7 +74,7 @@ func (p PodStatusPrinter) buildRows(pods []load.Pod, showAdditionalInfo bool) ([
 	return rows, allPodsRunning
 }
 
-func (p PodStatusPrinter) buildRow(pod load.Pod, showAdditionalInfo bool) []string {
+func (p PodStatusPrinter) buildRow(pod common.Pod, showAdditionalInfo bool) []string {
 	state := p.getStatusInfo(pod)
 
 	row := []string{state, pod.Name, pod.Ready, pod.Restarts, pod.Age}
@@ -87,7 +87,7 @@ func (p PodStatusPrinter) buildRow(pod load.Pod, showAdditionalInfo bool) []stri
 	return row
 }
 
-func (p PodStatusPrinter) getStatusInfo(pod load.Pod) string {
+func (p PodStatusPrinter) getStatusInfo(pod common.Pod) string {
 	if pod.IsRunning {
 		return p.terminalPrinter.PrintGreenFg("Running")
 	} else {
