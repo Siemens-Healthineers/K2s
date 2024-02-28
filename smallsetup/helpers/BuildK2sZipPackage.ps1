@@ -186,8 +186,7 @@ elseif ($ZipPackageFileName.EndsWith('.zip') -eq $false) {
 else {
     $setupInfo = Get-SetupInfo
     if ($null -eq $setupInfo.Error) {
-        $errMsg = "Precondition not met: '$global:ProductName' is installed on your system. " + `
-            "`nUninstall '$global:ProductName' first and then call this script again."
+        $errMsg = "'$global:ProductName' is installed on your system. Please uninstall '$global:ProductName' first and try again."
     }
 }
 
