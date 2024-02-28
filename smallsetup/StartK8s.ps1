@@ -23,7 +23,9 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
     [switch] $ShowLogs = $false,
     [parameter(Mandatory = $false, HelpMessage = 'Directory containing additional hooks to be executed after local hooks are executed')]
-    [string] $AdditionalHooksDir = ''
+    [string] $AdditionalHooksDir = '',
+    [parameter(Mandatory = $false, HelpMessage = 'Use cached vSwitches')]
+    [switch] $UseCachedK2sVSwitches
 )
 
 &$PSScriptRoot\common\GlobalVariables.ps1
@@ -101,6 +103,28 @@ function GetNetworkAdapterNameFromInterfaceAlias([string]$interfaceAlias) {
         $foundValue = $result.Groups[1].Value
     }
     return $foundValue
+}
+
+function CheckKubeSwitchInExpectedState() {
+    $if = Get-NetConnectionProfile -InterfaceAlias "vEthernet ($global:SwitchName)" -ErrorAction SilentlyContinue
+    if (!$if) {
+        Write-Log "vEthernet ($global:SwitchName) not found."
+        return $false
+    }
+    if ($if.NetworkCategory -ne 'Private') {
+        Write-Log "vEthernet ($global:SwitchName) not set to private."
+        return $false
+    }
+    $if = Get-NetIPAddress -InterfaceAlias "vEthernet ($global:SwitchName)" -ErrorAction SilentlyContinue
+    if (!$if) {
+        Write-Log "Unable get IP Address for host on vEthernet ($global:SwitchName) interface..."
+        return $false
+    }
+    if ($if.IPAddress -ne $global:IP_NextHop) {
+        Write-Log "IP Address of Host on vEthernet ($global:SwitchName) is not $global:IP_NextHop ..."
+        return $false
+    }
+    return $true
 }
 
 if ($global:HeaderLineShown -ne $true) {
@@ -250,7 +274,8 @@ if (!$WSL -and !$isReusingExistingLinuxComputer) {
         Set-VMProcessor $global:VMName -Count $VmProcessors
     }
 
-    if(!$global:CacheK2sVSwitches) {
+    $kubeSwitchInExpectedState = CheckKubeSwitchInExpectedState
+    if(!$UseCachedK2sVSwitches -or !$kubeSwitchInExpectedState) {
             # Remove old switch
         Write-Log 'Updating VM networking...'
         Remove-KubeSwitch

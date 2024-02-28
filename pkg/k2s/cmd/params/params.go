@@ -22,4 +22,10 @@ const (
 	ForceOnlineInstallFlagName      = "force-online-installation"
 	ForceOnlineInstallFlagShorthand = "f"
 	ForceOnlineInstallFlagUsage     = "Force the online installation"
+
+	TryUseCacheK2sVSwitchesFlagName  = "try-use-cached-k2s-vswitches"
+	TryUseCacheK2sVSwitchesFlagUsage = "Try to use Cached k2s vSwitches"
+
+	CacheK2sVSwitchesFlagName  = "cache-k2s-vswitches"
+	CacheK2sVSwitchesFlagUsage = "Cache K2s vswitches"
 )

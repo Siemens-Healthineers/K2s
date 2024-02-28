@@ -202,7 +202,6 @@ if( $if ) {
     $gw = $if.IPv4DefaultGateway.NextHop
     Write-Log "Gateway found: $gw"
 }
-Write-Log "Gateway found: $gw"
 
 Set-IndexForDefaultSwitch
 

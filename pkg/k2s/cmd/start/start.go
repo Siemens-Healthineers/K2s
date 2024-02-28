@@ -28,6 +28,7 @@ var Startk8sCmd = &cobra.Command{
 
 func init() {
 	Startk8sCmd.Flags().String(p.AdditionalHooksDirFlagName, "", p.AdditionalHooksDirFlagUsage)
+	Startk8sCmd.Flags().BoolP(p.TryUseCacheK2sVSwitchesFlagName, "", false, p.TryUseCacheK2sVSwitchesFlagUsage)
 	Startk8sCmd.Flags().SortFlags = false
 	Startk8sCmd.Flags().PrintDefaults()
 }
@@ -66,6 +67,11 @@ func buildStartCmd(ccmd *cobra.Command) (string, error) {
 
 	additionalHooksDir := ccmd.Flags().Lookup(p.AdditionalHooksDirFlagName).Value.String()
 
+	tryUseCachedK2sVSwitches, err := strconv.ParseBool(ccmd.Flags().Lookup(p.TryUseCacheK2sVSwitchesFlagName).Value.String())
+	if err != nil {
+		return "", err
+	}
+
 	config := c.NewAccess()
 
 	setupName, err := config.GetSetupName()
@@ -77,7 +83,7 @@ func buildStartCmd(ccmd *cobra.Command) (string, error) {
 
 	switch setupName {
 	case setupinfo.SetupNamek2s:
-		cmd = buildk2sStartCmd(outputFlag, additionalHooksDir)
+		cmd = buildk2sStartCmd(outputFlag, additionalHooksDir, tryUseCachedK2sVSwitches)
 	case setupinfo.SetupNameMultiVMK8s:
 		cmd = buildMultiVMStartCmd(outputFlag, additionalHooksDir)
 	case setupinfo.SetupNameBuildOnlyEnv:
@@ -89,7 +95,7 @@ func buildStartCmd(ccmd *cobra.Command) (string, error) {
 	return cmd, nil
 }
 
-func buildk2sStartCmd(showLogs bool, additionalHooksDir string) string {
+func buildk2sStartCmd(showLogs bool, additionalHooksDir string, tryUseCachedK2sVSwitches bool) string {
 	cmd := utils.FormatScriptFilePath(c.SmallSetupDir() + "\\" + "StartK8s.ps1")
 
 	if showLogs {
@@ -98,6 +104,10 @@ func buildk2sStartCmd(showLogs bool, additionalHooksDir string) string {
 
 	if additionalHooksDir != "" {
 		cmd += " -AdditionalHooksDir " + utils.EscapeWithSingleQuotes(additionalHooksDir)
+	}
+
+	if tryUseCachedK2sVSwitches {
+		cmd += " -UseCachedK2sVSwitches"
 	}
 
 	return cmd
