@@ -1,4 +1,10 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+﻿<!--
+SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+
+SPDX-License-Identifier: MIT
+-->
+
+<?xml version="1.0" encoding="utf-8"?>
 <bom xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" serialNumber="urn:uuid:629331fc-156e-42a9-99cc-a1d79c679e65" version="1" xmlns="http://cyclonedx.org/schema/bom/1.5">
   <metadata>
     <tools>
