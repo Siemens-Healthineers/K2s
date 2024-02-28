@@ -33,7 +33,7 @@ func (mo *mockObject) PrintTreeListItems(items []string) {
 
 func TestRunningstate(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "runningstate Unit Tests", Label("unit"))
+	RunSpecs(t, "runningstate Unit Tests", Label("unit", "ci"))
 }
 
 var _ = Describe("runningstate", func() {

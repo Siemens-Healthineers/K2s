@@ -11,7 +11,7 @@ import (
 
 func TestVersion(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "version Unit Tests", Label("unit"))
+	RunSpecs(t, "version Unit Tests", Label("unit", "ci"))
 }
 
 var _ = Describe("GetVersion", func() {

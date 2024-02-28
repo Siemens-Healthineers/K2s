@@ -8,7 +8,7 @@ BeforeAll {
     $moduleName = (Import-Module $module -PassThru -Force).Name
 }
 
-Describe 'Confirm-ApiVersionIsValid' -Tag 'unit' {
+Describe 'Confirm-ApiVersionIsValid' -Tag 'unit', 'ci' {
     BeforeAll {
         Mock -ModuleName $moduleName Write-Log {}
     }
@@ -38,7 +38,7 @@ Describe 'Confirm-ApiVersionIsValid' -Tag 'unit' {
     }
 }
 
-Describe 'Get-Age' -Tag 'unit' {
+Describe 'Get-Age' -Tag 'unit', 'ci' {
     BeforeAll {
         Mock -ModuleName $moduleName Write-Log {}
     }
@@ -126,7 +126,7 @@ Describe 'Get-Age' -Tag 'unit' {
     }
 }
 
-Describe 'Get-NodeStatus' -Tag 'unit' {
+Describe 'Get-NodeStatus' -Tag 'unit', 'ci' {
     BeforeAll {
         Mock -ModuleName $moduleName Write-Log {}
     }
@@ -188,7 +188,7 @@ Describe 'Get-NodeStatus' -Tag 'unit' {
     }
 }
 
-Describe 'Get-NodeRole' -Tag 'unit' {
+Describe 'Get-NodeRole' -Tag 'unit', 'ci' {
     BeforeAll {
         Mock -ModuleName $moduleName Write-Log {}
     }
@@ -244,7 +244,7 @@ Describe 'Get-NodeRole' -Tag 'unit' {
     }
 }
 
-Describe 'Get-NodeInternalIp' -Tag 'unit' {
+Describe 'Get-NodeInternalIp' -Tag 'unit', 'ci' {
     BeforeAll {
         Mock -ModuleName $moduleName Write-Log {}
     }
@@ -296,7 +296,7 @@ Describe 'Get-NodeInternalIp' -Tag 'unit' {
     }
 }
 
-Describe 'Get-Node' -Tag 'unit' {
+Describe 'Get-Node' -Tag 'unit', 'ci' {
     BeforeAll {
         Mock -ModuleName $moduleName Write-Log {}
     }
@@ -375,7 +375,7 @@ Describe 'Get-Node' -Tag 'unit' {
     }
 }
 
-Describe 'Get-PodStatus' -Tag 'unit' {
+Describe 'Get-PodStatus' -Tag 'unit', 'ci' {
     BeforeAll {
         Mock -ModuleName $moduleName Write-Log {}
     }
@@ -586,7 +586,7 @@ Describe 'Get-PodStatus' -Tag 'unit' {
     }
 }
 
-Describe 'Get-Pod' -Tag 'unit' {
+Describe 'Get-Pod' -Tag 'unit', 'ci' {
     BeforeAll {
         Mock -ModuleName $moduleName Write-Log {}
     }
@@ -652,7 +652,7 @@ Describe 'Get-Pod' -Tag 'unit' {
     }
 }
 
-Describe 'Get-PodsForNamespace' -Tag 'unit' {
+Describe 'Get-PodsForNamespace' -Tag 'unit', 'ci' {
     BeforeAll {
         Mock -ModuleName $moduleName Write-Log {}
     }
@@ -780,7 +780,7 @@ Describe 'Get-PodsForNamespace' -Tag 'unit' {
     }
 }
 
-Describe 'Get-PodsWithPersistentVolumeClaims' -Tag 'unit' {
+Describe 'Get-PodsWithPersistentVolumeClaims' -Tag 'unit', 'ci' {
     Context 'Invoke-Kubectl fails' {
         BeforeAll {
             Mock -ModuleName $moduleName Invoke-Kubectl { return [pscustomobject]@{Output = 'oops'; Success = $false } }
@@ -868,7 +868,7 @@ Describe 'Get-PodsWithPersistentVolumeClaims' -Tag 'unit' {
     }
 }
 
-Describe 'Get-AllPersistentVolumeClaims' -Tag 'unit' {
+Describe 'Get-AllPersistentVolumeClaims' -Tag 'unit', 'ci' {
     Context 'Invoke-Kubectl fails' {
         BeforeAll {
             Mock -ModuleName $moduleName Invoke-Kubectl { return [pscustomobject]@{Output = 'oops'; Success = $false } }
@@ -948,7 +948,7 @@ Describe 'Get-AllPersistentVolumeClaims' -Tag 'unit' {
     }
 }
 
-Describe 'Write-Nodes' -Tag 'unit' {
+Describe 'Write-Nodes' -Tag 'unit', 'ci' {
     Context 'no nodes specified' {
         It 'throws' {
             { Write-Nodes } | Should -Throw
@@ -995,7 +995,7 @@ Describe 'Write-Nodes' -Tag 'unit' {
     }
 }
 
-Describe 'Write-Pods' -Tag 'unit' {
+Describe 'Write-Pods' -Tag 'unit', 'ci' {
     Context 'no pods specified' {
         It 'throws' {
             { Write-Pods } | Should -Throw
@@ -1042,7 +1042,7 @@ Describe 'Write-Pods' -Tag 'unit' {
     }
 }
 
-Describe 'Get-Nodes' -Tag 'unit' {
+Describe 'Get-Nodes' -Tag 'unit', 'ci' {
     BeforeAll {
         Mock -ModuleName $moduleName Write-Log {}
     }
@@ -1142,7 +1142,7 @@ Describe 'Get-Nodes' -Tag 'unit' {
     }
 }
 
-Describe 'Get-SystemPods' -Tag 'unit' {
+Describe 'Get-SystemPods' -Tag 'unit', 'ci' {
     BeforeAll {
         Mock -ModuleName $moduleName Write-Log {}
     }
@@ -1188,7 +1188,7 @@ Describe 'Get-SystemPods' -Tag 'unit' {
     }
 }
 
-Describe 'Get-K8sVersionInfo' -Tag 'unit' {
+Describe 'Get-K8sVersionInfo' -Tag 'unit', 'ci' {
     BeforeAll {
         Mock -ModuleName $moduleName Write-Log {}
     }
@@ -1235,7 +1235,7 @@ Describe 'Get-K8sVersionInfo' -Tag 'unit' {
     }
 }
 
-Describe 'Add-Secret' -Tag 'unit' {
+Describe 'Add-Secret' -Tag 'unit', 'ci' {
     Context 'Name not specified' {
         It 'throws' {
             { Add-Secret -Namespace 'ns' -Literals '1', '2' } | Should -Throw -ExpectedMessage 'Name not specified'
@@ -1329,7 +1329,7 @@ Describe 'Add-Secret' -Tag 'unit' {
     }
 }
 
-Describe 'Remove-Secret' -Tag 'unit' {
+Describe 'Remove-Secret' -Tag 'unit', 'ci' {
     Context 'Name not specified' {
         It 'throws' {
             { Remove-Secret -Namespace 'ns' } | Should -Throw -ExpectedMessage 'Name not specified'
@@ -1424,7 +1424,7 @@ Describe 'Remove-Secret' -Tag 'unit' {
     }
 }
 
-Describe 'Remove-PersistentVolumeClaim' -Tag 'unit' {
+Describe 'Remove-PersistentVolumeClaim' -Tag 'unit', 'ci' {
     Context 'StorageClass not specified' {
         It 'throws' {
             InModuleScope -ModuleName $moduleName {
@@ -1548,7 +1548,7 @@ Describe 'Remove-PersistentVolumeClaim' -Tag 'unit' {
     }
 }
 
-Describe 'Remove-PersistentVolumeClaimsForStorageClass' -Tag 'unit' {
+Describe 'Remove-PersistentVolumeClaimsForStorageClass' -Tag 'unit', 'ci' {
     Context 'StorageClass not specified' {
         It 'throws' {
             InModuleScope -ModuleName $moduleName {
@@ -1708,7 +1708,7 @@ Describe 'Remove-PersistentVolumeClaimsForStorageClass' -Tag 'unit' {
     }
 }
 
-Describe 'Wait-ForPodCondition' -Tag 'unit' {
+Describe 'Wait-ForPodCondition' -Tag 'unit', 'ci' {
     Context 'Label not specified' {
         It 'throws' {
             { Wait-ForPodCondition } | Should -Throw -ExpectedMessage 'Label not specified'

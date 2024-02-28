@@ -9,11 +9,11 @@ BeforeAll {
     $linuxNodeUbuntuModuleName = (Import-Module $linuxNodeUbuntuModule -PassThru -Force).Name
 }
 
-Describe 'Set-UpComputerWithSpecificOsBeforeProvisioning' -Tag 'unit', 'linuxnode' {
+Describe 'Set-UpComputerWithSpecificOsBeforeProvisioning' -Tag 'unit', 'ci', 'linuxnode' {
     BeforeEach {
         $DefaultParameterValues = @{
-            UserName = 'myUserName'
-            UserPwd = 'myUserPwd'
+            UserName  = 'myUserName'
+            UserPwd   = 'myUserPwd'
             IpAddress = 'myIpAddress'
         }
     }
@@ -30,11 +30,11 @@ Describe 'Set-UpComputerWithSpecificOsBeforeProvisioning' -Tag 'unit', 'linuxnod
         }
         It 'UserPwd' {
             InModuleScope $linuxNodeUbuntuModuleName -Parameters @{ DefaultParameterValues = $DefaultParameterValues } {
-                 # arrange
-                 Mock Get-IsValidIPv4Address { $true }
-                 $DefaultParameterValues.Remove('UserPwd')
+                # arrange
+                Mock Get-IsValidIPv4Address { $true }
+                $DefaultParameterValues.Remove('UserPwd')
  
-                 # act + assert
+                # act + assert
                 { Set-UpComputerWithSpecificOsBeforeProvisioning @DefaultParameterValues } | Get-ExceptionMessage | Should -BeLike '*UserPwd*'
             }
         }
@@ -45,7 +45,7 @@ Describe 'Set-UpComputerWithSpecificOsBeforeProvisioning' -Tag 'unit', 'linuxnod
                 $DefaultParameterValues.Remove('IpAddress')
 
                 # act + assert
-               { Set-UpComputerWithSpecificOsBeforeProvisioning @DefaultParameterValues } | Get-ExceptionMessage | Should -BeLike '*IpAddress*'
+                { Set-UpComputerWithSpecificOsBeforeProvisioning @DefaultParameterValues } | Get-ExceptionMessage | Should -BeLike '*IpAddress*'
             }
         }
     }
@@ -88,23 +88,23 @@ Describe 'Set-UpComputerWithSpecificOsBeforeProvisioning' -Tag 'unit', 'linuxnod
                 $expectedExecutedRemoteCommands += "echo 'APT::Periodic::Download-Upgradeable-Packages `"0`";' | sudo tee -a /etc/apt/apt.conf.d/20auto-upgrades" 
                 $expectedExecutedRemoteCommands += "echo 'APT::Periodic::AutocleanInterval `"0`";' | sudo tee -a /etc/apt/apt.conf.d/20auto-upgrades" 
                 $expectedExecutedRemoteCommands += "echo 'APT::Periodic::Unattended-Upgrade `"0`";' | sudo tee -a /etc/apt/apt.conf.d/20auto-upgrades" 
-                $expectedExecutedRemoteCommands += "sudo systemctl disable unattended-upgrades"
-                $expectedExecutedRemoteCommands += "sudo systemctl stop unattended-upgrades"
+                $expectedExecutedRemoteCommands += 'sudo systemctl disable unattended-upgrades'
+                $expectedExecutedRemoteCommands += 'sudo systemctl stop unattended-upgrades'
 
-                $expectedExecutedRemoteCommands += "sudo swapon --show" 
+                $expectedExecutedRemoteCommands += 'sudo swapon --show' 
                 $expectedExecutedRemoteCommands += "swapFiles=`$(cat /proc/swaps | awk 'NR>1 {print `$1}')" 
-                $expectedExecutedRemoteCommands += "sudo swapoff -a" 
+                $expectedExecutedRemoteCommands += 'sudo swapoff -a' 
                 $expectedExecutedRemoteCommands += "for swapFile in `$swapFiles; do sudo rm '`$swapFile'; done" 
                 $expectedExecutedRemoteCommands += "sudo sed -i '/\sswap\s/d' /etc/fstab" 
                 
-                $expectedExecutedRemoteCommands += "sudo add-apt-repository universe" 
+                $expectedExecutedRemoteCommands += 'sudo add-apt-repository universe' 
             
-                $expectedExecutedRemoteCommands += "sudo DEBIAN_FRONTEND=noninteractive apt update" 
+                $expectedExecutedRemoteCommands += 'sudo DEBIAN_FRONTEND=noninteractive apt update' 
             
                 $expectedExecutedRemoteCommands += 'echo Acquire::Check-Valid-Until \\\"false\\\"\; | sudo tee /etc/apt/apt.conf.d/00snapshot' 
                 $expectedExecutedRemoteCommands += 'echo Acquire::Max-FutureTime 86400\; | sudo tee -a /etc/apt/apt.conf.d/00snapshot' 
             
-                $expectedExecutedRemoteCommands += "sudo DEBIAN_FRONTEND=noninteractive apt-get install curl --yes" 
+                $expectedExecutedRemoteCommands += 'sudo DEBIAN_FRONTEND=noninteractive apt-get install curl --yes' 
 
                 $expectedUser = "$($DefaultParameterValues.UserName)@$($DefaultParameterValues.IpAddress)"
                 $global:actualExecutedRemoteCommands = @()
@@ -126,7 +126,7 @@ Describe 'Set-UpComputerWithSpecificOsBeforeProvisioning' -Tag 'unit', 'linuxnod
     }
 }
 
-Describe 'Set-UpComputerWithSpecificOsAfterProvisioning' -Tag 'unit', 'linuxnode' {
+Describe 'Set-UpComputerWithSpecificOsAfterProvisioning' -Tag 'unit', 'ci', 'linuxnode' {
     It 'contains expected parameters' {
         InModuleScope $linuxNodeUbuntuModuleName {
             # arrange
@@ -146,12 +146,12 @@ Describe 'Set-UpComputerWithSpecificOsAfterProvisioning' -Tag 'unit', 'linuxnode
     }
 }
 
-Describe 'Set-UpComputerWithSpecificOsBeforeConfiguringAsMasterNode' -Tag 'unit', 'linuxnode' {
+Describe 'Set-UpComputerWithSpecificOsBeforeConfiguringAsMasterNode' -Tag 'unit', 'ci', 'linuxnode' {
     BeforeEach {
         $DefaultParameterValues = @{
-            UserName = 'myUserName'
-            UserPwd = 'myUserPwd'
-            IpAddress = 'myIpAddress'
+            UserName   = 'myUserName'
+            UserPwd    = 'myUserPwd'
+            IpAddress  = 'myIpAddress'
             DnsEntries = 'myDnsEntry1,myDnsEntry2'
         }
     }
@@ -168,11 +168,11 @@ Describe 'Set-UpComputerWithSpecificOsBeforeConfiguringAsMasterNode' -Tag 'unit'
         }
         It 'UserPwd' {
             InModuleScope $linuxNodeUbuntuModuleName -Parameters @{ DefaultParameterValues = $DefaultParameterValues } {
-                 # arrange
-                 Mock Get-IsValidIPv4Address { $true }
-                 $DefaultParameterValues.Remove('UserPwd')
+                # arrange
+                Mock Get-IsValidIPv4Address { $true }
+                $DefaultParameterValues.Remove('UserPwd')
  
-                 # act + assert
+                # act + assert
                 { Set-UpComputerWithSpecificOsBeforeConfiguringAsMasterNode @DefaultParameterValues } | Get-ExceptionMessage | Should -BeLike '*UserPwd*'
             }
         }
@@ -183,7 +183,7 @@ Describe 'Set-UpComputerWithSpecificOsBeforeConfiguringAsMasterNode' -Tag 'unit'
                 $DefaultParameterValues.Remove('IpAddress')
 
                 # act + assert
-               { Set-UpComputerWithSpecificOsBeforeConfiguringAsMasterNode @DefaultParameterValues } | Get-ExceptionMessage | Should -BeLike '*IpAddress*'
+                { Set-UpComputerWithSpecificOsBeforeConfiguringAsMasterNode @DefaultParameterValues } | Get-ExceptionMessage | Should -BeLike '*IpAddress*'
             }
         }
         It 'DnsEntries' {
@@ -193,7 +193,7 @@ Describe 'Set-UpComputerWithSpecificOsBeforeConfiguringAsMasterNode' -Tag 'unit'
                 $DefaultParameterValues.Remove('DnsEntries')
 
                 # act + assert
-               { Set-UpComputerWithSpecificOsBeforeConfiguringAsMasterNode @DefaultParameterValues } | Get-ExceptionMessage | Should -BeLike '*DnsEntries*'
+                { Set-UpComputerWithSpecificOsBeforeConfiguringAsMasterNode @DefaultParameterValues } | Get-ExceptionMessage | Should -BeLike '*DnsEntries*'
             }
         }
     }
@@ -232,20 +232,20 @@ Describe 'Set-UpComputerWithSpecificOsBeforeConfiguringAsMasterNode' -Tag 'unit'
             InModuleScope $linuxNodeUbuntuModuleName -Parameters @{ DefaultParameterValues = $DefaultParameterValues } {
                 # arrange
                 $expectedExecutedRemoteCommands = @()
-                $expectedExecutedRemoteCommands += "sudo systemctl disable systemd-resolved"
-                $expectedExecutedRemoteCommands += "sudo systemctl stop systemd-resolved" 
-                $expectedExecutedRemoteCommands += "sudo unlink /etc/resolv.conf" 
-                $expectedFormattedDnsEntries = $DefaultParameterValues.DnsEntries -replace ",", "\\n nameserver "
+                $expectedExecutedRemoteCommands += 'sudo systemctl disable systemd-resolved'
+                $expectedExecutedRemoteCommands += 'sudo systemctl stop systemd-resolved' 
+                $expectedExecutedRemoteCommands += 'sudo unlink /etc/resolv.conf' 
+                $expectedFormattedDnsEntries = $DefaultParameterValues.DnsEntries -replace ',', '\\n nameserver '
                 $expectedExecutedRemoteCommands += "echo -e nameserver $expectedFormattedDnsEntries | sudo tee /etc/resolv.conf"
                 
-                $expectedExecutedRemoteCommands += "sudo ufw allow 6443/tcp" 
-                $expectedExecutedRemoteCommands += "sudo ufw allow 2379:2380/tcp" 
-                $expectedExecutedRemoteCommands += "sudo ufw allow 10250/tcp" 
-                $expectedExecutedRemoteCommands += "sudo ufw allow 10259/tcp" 
-                $expectedExecutedRemoteCommands += "sudo ufw allow 10257/tcp" 
-                $expectedExecutedRemoteCommands += "sudo ufw allow 53/udp" 
-                $expectedExecutedRemoteCommands += "sudo ufw allow 53/tcp" 
-                $expectedExecutedRemoteCommands += "sudo ufw allow 9153/tcp" 
+                $expectedExecutedRemoteCommands += 'sudo ufw allow 6443/tcp' 
+                $expectedExecutedRemoteCommands += 'sudo ufw allow 2379:2380/tcp' 
+                $expectedExecutedRemoteCommands += 'sudo ufw allow 10250/tcp' 
+                $expectedExecutedRemoteCommands += 'sudo ufw allow 10259/tcp' 
+                $expectedExecutedRemoteCommands += 'sudo ufw allow 10257/tcp' 
+                $expectedExecutedRemoteCommands += 'sudo ufw allow 53/udp' 
+                $expectedExecutedRemoteCommands += 'sudo ufw allow 53/tcp' 
+                $expectedExecutedRemoteCommands += 'sudo ufw allow 9153/tcp' 
             
                 $expectedUser = "$($DefaultParameterValues.UserName)@$($DefaultParameterValues.IpAddress)"
                 $global:actualExecutedRemoteCommands = @()
@@ -267,14 +267,14 @@ Describe 'Set-UpComputerWithSpecificOsBeforeConfiguringAsMasterNode' -Tag 'unit'
     }
 }
 
-Describe 'Add-LocalIPAddress' -Tag 'unit', 'linuxnode' {
+Describe 'Add-LocalIPAddress' -Tag 'unit', 'ci', 'linuxnode' {
     BeforeEach {
         $DefaultParameterValues = @{
-            UserName = 'myUserName'
-            UserPwd = 'myUserPwd'
-            IpAddress = 'myIpAddress'
+            UserName       = 'myUserName'
+            UserPwd        = 'myUserPwd'
+            IpAddress      = 'myIpAddress'
             LocalIpAddress = 'myLocalIpAddress'
-            PrefixLength = 24
+            PrefixLength   = 24
         }
     }
     Context "parameter's existence" {
@@ -290,11 +290,11 @@ Describe 'Add-LocalIPAddress' -Tag 'unit', 'linuxnode' {
         }
         It 'UserPwd' {
             InModuleScope $linuxNodeUbuntuModuleName -Parameters @{ DefaultParameterValues = $DefaultParameterValues } {
-                 # arrange
-                 Mock Get-IsValidIPv4Address { $true }
-                 $DefaultParameterValues.Remove('UserPwd')
+                # arrange
+                Mock Get-IsValidIPv4Address { $true }
+                $DefaultParameterValues.Remove('UserPwd')
  
-                 # act + assert
+                # act + assert
                 { Add-LocalIPAddress @DefaultParameterValues } | Get-ExceptionMessage | Should -BeLike '*UserPwd*'
             }
         }
@@ -305,7 +305,7 @@ Describe 'Add-LocalIPAddress' -Tag 'unit', 'linuxnode' {
                 $DefaultParameterValues.Remove('IpAddress')
 
                 # act + assert
-               { Add-LocalIPAddress @DefaultParameterValues } | Get-ExceptionMessage | Should -BeLike '*IpAddress*'
+                { Add-LocalIPAddress @DefaultParameterValues } | Get-ExceptionMessage | Should -BeLike '*IpAddress*'
             }
         }
         It 'LocalIpAddress' {
@@ -315,7 +315,7 @@ Describe 'Add-LocalIPAddress' -Tag 'unit', 'linuxnode' {
                 $DefaultParameterValues.Remove('LocalIpAddress')
 
                 # act + assert
-               { Add-LocalIPAddress @DefaultParameterValues } | Get-ExceptionMessage | Should -BeLike '*LocalIpAddress*'
+                { Add-LocalIPAddress @DefaultParameterValues } | Get-ExceptionMessage | Should -BeLike '*LocalIpAddress*'
             }
         }
         It 'PrefixLength' {
@@ -325,7 +325,7 @@ Describe 'Add-LocalIPAddress' -Tag 'unit', 'linuxnode' {
                 $DefaultParameterValues.Remove('PrefixLength')
 
                 # act + assert
-               { Add-LocalIPAddress @DefaultParameterValues } | Get-ExceptionMessage | Should -BeLike '*PrefixLength*'
+                { Add-LocalIPAddress @DefaultParameterValues } | Get-ExceptionMessage | Should -BeLike '*PrefixLength*'
             }
         }
     }
@@ -384,7 +384,8 @@ Describe 'Add-LocalIPAddress' -Tag 'unit', 'linuxnode' {
                 # act + assert
                 if ($shallThrow) {
                     { Add-LocalIPAddress @DefaultParameterValues } | Get-ExceptionMessage | Should -BeLike '*PrefixLength*'
-                } else {
+                }
+                else {
                     { Add-LocalIPAddress @DefaultParameterValues } | Should -Not -Throw
                 }
 
@@ -423,17 +424,17 @@ Describe 'Add-LocalIPAddress' -Tag 'unit', 'linuxnode' {
     }
 }
 
-Describe 'Add-RemoteIPAddress' -Tag 'unit', 'linuxnode' {
+Describe 'Add-RemoteIPAddress' -Tag 'unit', 'ci', 'linuxnode' {
     BeforeEach {
         $DefaultParameterValues = @{
-            UserName = 'myUserName'
-            UserPwd = 'myUserPwd'
-            IpAddress = 'myIpAddress'
-            RemoteIpAddress = 'myRemoteIpAddress'
-            PrefixLength = 24
+            UserName               = 'myUserName'
+            UserPwd                = 'myUserPwd'
+            IpAddress              = 'myIpAddress'
+            RemoteIpAddress        = 'myRemoteIpAddress'
+            PrefixLength           = 24
             RemoteIpAddressGateway = 'myRemoteIpAddressGateway'
-            DnsEntries = 'myDnsEntry1,myDnsEntry2'
-            NetworkInterfaceName = 'myNetworkInterfaceName'
+            DnsEntries             = 'myDnsEntry1,myDnsEntry2'
+            NetworkInterfaceName   = 'myNetworkInterfaceName'
         }
     }
     Context "parameter's existence" {
@@ -449,11 +450,11 @@ Describe 'Add-RemoteIPAddress' -Tag 'unit', 'linuxnode' {
         }
         It 'UserPwd' {
             InModuleScope $linuxNodeUbuntuModuleName -Parameters @{ DefaultParameterValues = $DefaultParameterValues } {
-                 # arrange
-                 Mock Get-IsValidIPv4Address { $true }
-                 $DefaultParameterValues.Remove('UserPwd')
+                # arrange
+                Mock Get-IsValidIPv4Address { $true }
+                $DefaultParameterValues.Remove('UserPwd')
  
-                 # act + assert
+                # act + assert
                 { Add-RemoteIPAddress @DefaultParameterValues } | Get-ExceptionMessage | Should -BeLike '*UserPwd*'
             }
         }
@@ -464,7 +465,7 @@ Describe 'Add-RemoteIPAddress' -Tag 'unit', 'linuxnode' {
                 $DefaultParameterValues.Remove('IpAddress')
 
                 # act + assert
-               { Add-RemoteIPAddress @DefaultParameterValues } | Get-ExceptionMessage | Should -BeLike '*IpAddress*'
+                { Add-RemoteIPAddress @DefaultParameterValues } | Get-ExceptionMessage | Should -BeLike '*IpAddress*'
             }
         }
         It 'RemoteIpAddress' {
@@ -474,7 +475,7 @@ Describe 'Add-RemoteIPAddress' -Tag 'unit', 'linuxnode' {
                 $DefaultParameterValues.Remove('RemoteIpAddress')
 
                 # act + assert
-               { Add-RemoteIPAddress @DefaultParameterValues } | Get-ExceptionMessage | Should -BeLike '*RemoteIpAddress*'
+                { Add-RemoteIPAddress @DefaultParameterValues } | Get-ExceptionMessage | Should -BeLike '*RemoteIpAddress*'
             }
         }
         It 'PrefixLength' {
@@ -484,7 +485,7 @@ Describe 'Add-RemoteIPAddress' -Tag 'unit', 'linuxnode' {
                 $DefaultParameterValues.Remove('PrefixLength')
 
                 # act + assert
-               { Add-RemoteIPAddress @DefaultParameterValues } | Get-ExceptionMessage | Should -BeLike '*PrefixLength*'
+                { Add-RemoteIPAddress @DefaultParameterValues } | Get-ExceptionMessage | Should -BeLike '*PrefixLength*'
             }
         }
         It 'RemoteIpAddressGateway' {
@@ -494,7 +495,7 @@ Describe 'Add-RemoteIPAddress' -Tag 'unit', 'linuxnode' {
                 $DefaultParameterValues.Remove('RemoteIpAddressGateway')
 
                 # act + assert
-               { Add-RemoteIPAddress @DefaultParameterValues } | Get-ExceptionMessage | Should -BeLike '*RemoteIpAddressGateway*'
+                { Add-RemoteIPAddress @DefaultParameterValues } | Get-ExceptionMessage | Should -BeLike '*RemoteIpAddressGateway*'
             }
         }
         It 'DnsEntries' {
@@ -504,7 +505,7 @@ Describe 'Add-RemoteIPAddress' -Tag 'unit', 'linuxnode' {
                 $DefaultParameterValues.Remove('DnsEntries')
 
                 # act + assert
-               { Add-RemoteIPAddress @DefaultParameterValues } | Get-ExceptionMessage | Should -BeLike '*DnsEntries*'
+                { Add-RemoteIPAddress @DefaultParameterValues } | Get-ExceptionMessage | Should -BeLike '*DnsEntries*'
             }
         }
         It 'NetworkInterfaceName' {
@@ -514,7 +515,7 @@ Describe 'Add-RemoteIPAddress' -Tag 'unit', 'linuxnode' {
                 $DefaultParameterValues.Remove('NetworkInterfaceName')
 
                 # act + assert
-               { Add-RemoteIPAddress @DefaultParameterValues } | Get-ExceptionMessage | Should -BeLike '*NetworkInterfaceName*'
+                { Add-RemoteIPAddress @DefaultParameterValues } | Get-ExceptionMessage | Should -BeLike '*NetworkInterfaceName*'
             }
         }
     }
@@ -573,7 +574,8 @@ Describe 'Add-RemoteIPAddress' -Tag 'unit', 'linuxnode' {
                 # act + assert
                 if ($shallThrow) {
                     { Add-RemoteIPAddress @DefaultParameterValues } | Get-ExceptionMessage | Should -BeLike '*PrefixLength*'
-                } else {
+                }
+                else {
                     { Add-RemoteIPAddress @DefaultParameterValues } | Should -Not -Throw
                 }
 
@@ -597,20 +599,20 @@ Describe 'Add-RemoteIPAddress' -Tag 'unit', 'linuxnode' {
                 $DefaultParameterValues.Remove('NetworkInterfaceName')
 
                 # act + assert
-               { Add-RemoteIPAddress @DefaultParameterValues } | Get-ExceptionMessage | Should -BeLike '*NetworkInterfaceName*'
+                { Add-RemoteIPAddress @DefaultParameterValues } | Get-ExceptionMessage | Should -BeLike '*NetworkInterfaceName*'
             }
         }
     }
 }
 
-Describe 'New-User' -Tag 'unit', 'linuxnode' {
+Describe 'New-User' -Tag 'unit', 'ci', 'linuxnode' {
     BeforeEach {
         $DefaultParameterValues = @{
-            UserName = 'myUserName'
-            UserPwd = 'myUserPwd'
-            IpAddress = 'myIpAddress'
+            UserName    = 'myUserName'
+            UserPwd     = 'myUserPwd'
+            IpAddress   = 'myIpAddress'
             NewUserName = 'myNewUserName'
-            NewUserPwd = 'myNewUserPwd'
+            NewUserPwd  = 'myNewUserPwd'
         }
     }
     Context "parameter's existence" {
@@ -626,11 +628,11 @@ Describe 'New-User' -Tag 'unit', 'linuxnode' {
         }
         It 'UserPwd' {
             InModuleScope $linuxNodeUbuntuModuleName -Parameters @{ DefaultParameterValues = $DefaultParameterValues } {
-                 # arrange
-                 Mock Get-IsValidIPv4Address { $true }
-                 $DefaultParameterValues.Remove('UserPwd')
+                # arrange
+                Mock Get-IsValidIPv4Address { $true }
+                $DefaultParameterValues.Remove('UserPwd')
  
-                 # act + assert
+                # act + assert
                 { New-User @DefaultParameterValues } | Get-ExceptionMessage | Should -BeLike '*UserPwd*'
             }
         }
@@ -641,7 +643,7 @@ Describe 'New-User' -Tag 'unit', 'linuxnode' {
                 $DefaultParameterValues.Remove('IpAddress')
 
                 # act + assert
-               { New-User @DefaultParameterValues } | Get-ExceptionMessage | Should -BeLike '*IpAddress*'
+                { New-User @DefaultParameterValues } | Get-ExceptionMessage | Should -BeLike '*IpAddress*'
             }
         }
         It 'NewUserName' {
@@ -656,11 +658,11 @@ Describe 'New-User' -Tag 'unit', 'linuxnode' {
         }
         It 'NewUserPwd' {
             InModuleScope $linuxNodeUbuntuModuleName -Parameters @{ DefaultParameterValues = $DefaultParameterValues } {
-                 # arrange
-                 Mock Get-IsValidIPv4Address { $true }
-                 $DefaultParameterValues.Remove('NewUserPwd')
+                # arrange
+                Mock Get-IsValidIPv4Address { $true }
+                $DefaultParameterValues.Remove('NewUserPwd')
  
-                 # act + assert
+                # act + assert
                 { New-User @DefaultParameterValues } | Get-ExceptionMessage | Should -BeLike '*NewUserPwd*'
             }
         }

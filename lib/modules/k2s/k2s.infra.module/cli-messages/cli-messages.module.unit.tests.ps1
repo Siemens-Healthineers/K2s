@@ -8,7 +8,7 @@ BeforeAll {
     $moduleName = (Import-Module $module -Force -PassThru).Name
 }
 
-Describe 'Send-ToCli' -Tag 'unit' {
+Describe 'Send-ToCli' -Tag 'unit', 'ci' {
     BeforeAll {
         Mock -ModuleName $moduleName Write-Log {}
     }

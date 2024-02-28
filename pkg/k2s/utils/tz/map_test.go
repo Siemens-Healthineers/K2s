@@ -37,7 +37,7 @@ func newTimezoneConfigWorkspaceForTest(kubedir string, filehandler fileHandler) 
 
 func TestTimezoneMap(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Timezone Unit Tests", Label("unit"))
+	RunSpecs(t, "Timezone Unit Tests", Label("unit", "ci"))
 }
 
 var _ = Describe("timezonemap", func() {

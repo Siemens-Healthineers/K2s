@@ -13,7 +13,7 @@ import (
 
 func TestSystem(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Base System Integration Tests", Label("integration"), Label("system"))
+	RunSpecs(t, "Base System Integration Tests", Label("integration", "system"))
 }
 
 var _ = Describe("SystemDrive", func() {

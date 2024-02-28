@@ -50,7 +50,7 @@ func SetupTimezoneConfigMock() {
 func TestInstall(t *testing.T) {
 	RegisterFailHandler(Fail)
 	SetupTimezoneConfigMock()
-	RunSpecs(t, "install Unit Tests", Label("unit"))
+	RunSpecs(t, "install Unit Tests", Label("unit", "ci"))
 }
 
 var _ = Describe("install", func() {

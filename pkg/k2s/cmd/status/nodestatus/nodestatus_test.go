@@ -60,7 +60,7 @@ func (t *testTerminalPrinter) PrintGreenFg(text string) string {
 
 func TestNodestatus(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "nodestatus Unit Tests", Label("unit"))
+	RunSpecs(t, "nodestatus Unit Tests", Label("unit", "ci"))
 }
 
 var _ = Describe("nodestatus", func() {

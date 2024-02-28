@@ -32,7 +32,7 @@ BeforeDiscovery {
     )
 }
 
-Describe 'Convert-ToAgeString' -Tag 'unit' {
+Describe 'Convert-ToAgeString' -Tag 'unit', 'ci' {
     It 'Returns <expected> when duration is <duration>' -ForEach $ageStringTestCases {
         InModuleScope $moduleName -Parameters @{Duration = $Duration; Expected = $Expected } {
             Convert-ToAgeString -Duration $Duration | Should -Be $Expected
@@ -40,7 +40,7 @@ Describe 'Convert-ToAgeString' -Tag 'unit' {
     }
 }
 
-Describe 'Convert-ToUnixPath' -Tag 'unit' {
+Describe 'Convert-ToUnixPath' -Tag 'unit', 'ci' {
     Context 'path not specified' {
         It 'throws' {
             { Convert-ToUnixPath } | Should -Throw -ExpectedMessage 'path not specified'

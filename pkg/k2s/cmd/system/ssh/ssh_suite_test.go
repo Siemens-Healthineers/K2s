@@ -12,5 +12,5 @@ import (
 
 func TestImage(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "ssh Unit Tests", Label("unit", "cmd", "system", "ssh"))
+	RunSpecs(t, "ssh Unit Tests", Label("unit", "ci", "cmd", "system", "ssh"))
 }

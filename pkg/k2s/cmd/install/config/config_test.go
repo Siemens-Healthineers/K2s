@@ -6,8 +6,8 @@ package config
 import (
 	"errors"
 	"fmt"
-	"os"
 	"k2s/cmd/params"
+	"os"
 	r "test/reflection"
 	"testing"
 
@@ -50,7 +50,7 @@ func (m *mockObject) validate(kind Kind, config *viper.Viper) error {
 
 func TestConfig(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "config Unit Tests", Label("unit"))
+	RunSpecs(t, "config Unit Tests", Label("unit", "ci"))
 }
 
 var _ = Describe("config", func() {

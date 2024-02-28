@@ -13,5 +13,5 @@ import (
 
 func TestHttpproxyUnitTests(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "httpproxy Unit Tests", Label("unit"))
+	RunSpecs(t, "httpproxy Unit Tests", Label("unit", "ci"))
 }

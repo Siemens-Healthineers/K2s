@@ -14,7 +14,7 @@ import (
 
 func TestUpgrade(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "package Unit Tests", Label("unit"))
+	RunSpecs(t, "package Unit Tests", Label("unit", "ci"))
 }
 
 var _ = BeforeSuite(func() {

@@ -81,7 +81,7 @@ func (m *mockObject) PrintProp(prop AddonStatusProp) {
 
 func TestPrint(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "addons status print Unit Tests", Label("unit"))
+	RunSpecs(t, "addons status print Unit Tests", Label("unit", "ci"))
 }
 
 var _ = BeforeSuite(func() {

@@ -74,7 +74,7 @@ func (t *testTerminalPrinter) PrintCyanFg(text string) string {
 
 func TestAddons(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "addons print Unit Tests", Label("unit"))
+	RunSpecs(t, "addons print Unit Tests", Label("unit", "ci"))
 }
 
 var _ = Describe("print", func() {

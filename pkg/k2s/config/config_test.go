@@ -44,7 +44,7 @@ func (t testBuilder) Build(configDir string, configFileName string) (configPath 
 
 func TestConfig(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "config Unit Tests", Label("unit"))
+	RunSpecs(t, "config Unit Tests", Label("unit", "ci"))
 }
 
 var _ = Describe("config", func() {

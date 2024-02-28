@@ -9,11 +9,11 @@ BeforeAll {
     $linuxNodeDebianModuleName = (Import-Module $linuxNodeDebianModule -PassThru -Force).Name
 }
 
-Describe 'Set-UpComputerWithSpecificOsBeforeProvisioning' -Tag 'unit', 'linuxnode' {
+Describe 'Set-UpComputerWithSpecificOsBeforeProvisioning' -Tag 'unit', 'ci', 'linuxnode' {
     BeforeEach {
         $DefaultParameterValues = @{
-            UserName = 'myUserName'
-            UserPwd = 'myUserPwd'
+            UserName  = 'myUserName'
+            UserPwd   = 'myUserPwd'
             IpAddress = 'myIpAddress'
         }
     }
@@ -30,11 +30,11 @@ Describe 'Set-UpComputerWithSpecificOsBeforeProvisioning' -Tag 'unit', 'linuxnod
         }
         It 'UserPwd' {
             InModuleScope $linuxNodeDebianModuleName -Parameters @{ DefaultParameterValues = $DefaultParameterValues } {
-                 # arrange
-                 Mock Get-IsValidIPv4Address { $true }
-                 $DefaultParameterValues.Remove('UserPwd')
+                # arrange
+                Mock Get-IsValidIPv4Address { $true }
+                $DefaultParameterValues.Remove('UserPwd')
  
-                 # act + assert
+                # act + assert
                 { Set-UpComputerWithSpecificOsBeforeProvisioning @DefaultParameterValues } | Get-ExceptionMessage | Should -BeLike '*UserPwd*'
             }
         }
@@ -45,7 +45,7 @@ Describe 'Set-UpComputerWithSpecificOsBeforeProvisioning' -Tag 'unit', 'linuxnod
                 $DefaultParameterValues.Remove('IpAddress')
 
                 # act + assert
-               { Set-UpComputerWithSpecificOsBeforeProvisioning @DefaultParameterValues } | Get-ExceptionMessage | Should -BeLike '*IpAddress*'
+                { Set-UpComputerWithSpecificOsBeforeProvisioning @DefaultParameterValues } | Get-ExceptionMessage | Should -BeLike '*IpAddress*'
             }
         }
     }
@@ -88,11 +88,12 @@ Describe 'Set-UpComputerWithSpecificOsBeforeProvisioning' -Tag 'unit', 'linuxnod
                     [bool]$IgnoreErrors
                 }
                 $expectedExecutedRemoteCommands = @()
-                $expectedExecutedRemoteCommands += @{Command = "sudo touch /etc/cloud/cloud-init.disabled"; IgnoreErrors = $false }
-                $expectedExecutedRemoteCommands += @{Command = "sudo update-grub"; IgnoreErrors = $true }
+                $expectedExecutedRemoteCommands += @{Command = 'sudo touch /etc/cloud/cloud-init.disabled'; IgnoreErrors = $false }
+                $expectedExecutedRemoteCommands += @{Command = 'sudo update-grub'; IgnoreErrors = $true }
                 if ($PSVersionTable.PSVersion.Major -gt 5) {
                     $expectedExecutedRemoteCommands += @{Command = 'echo Acquire::Check-Valid-Until \"false\"\; | sudo tee /etc/apt/apt.conf.d/00snapshot' ; IgnoreErrors = $false }
-                } else {
+                }
+                else {
                     $expectedExecutedRemoteCommands += @{Command = 'echo Acquire::Check-Valid-Until \\\"false\\\"\; | sudo tee /etc/apt/apt.conf.d/00snapshot' ; IgnoreErrors = $false }
                 }
                 $expectedExecutedRemoteCommands += @{Command = 'echo Acquire::Max-FutureTime 86400\; | sudo tee -a /etc/apt/apt.conf.d/00snapshot' ; IgnoreErrors = $false }
@@ -124,11 +125,11 @@ Describe 'Set-UpComputerWithSpecificOsBeforeProvisioning' -Tag 'unit', 'linuxnod
     }
 }
 
-Describe 'Set-UpComputerWithSpecificOsAfterProvisioning' -Tag 'unit', 'linuxnode' {
+Describe 'Set-UpComputerWithSpecificOsAfterProvisioning' -Tag 'unit', 'ci', 'linuxnode' {
     BeforeEach {
         $DefaultParameterValues = @{
-            UserName = 'myUserName'
-            UserPwd = 'myUserPwd'
+            UserName  = 'myUserName'
+            UserPwd   = 'myUserPwd'
             IpAddress = 'myIpAddress'
         }
     }
@@ -145,11 +146,11 @@ Describe 'Set-UpComputerWithSpecificOsAfterProvisioning' -Tag 'unit', 'linuxnode
         }
         It 'UserPwd' {
             InModuleScope $linuxNodeDebianModuleName -Parameters @{ DefaultParameterValues = $DefaultParameterValues } {
-                 # arrange
-                 Mock Get-IsValidIPv4Address { $true }
-                 $DefaultParameterValues.Remove('UserPwd')
+                # arrange
+                Mock Get-IsValidIPv4Address { $true }
+                $DefaultParameterValues.Remove('UserPwd')
  
-                 # act + assert
+                # act + assert
                 { Set-UpComputerWithSpecificOsAfterProvisioning @DefaultParameterValues } | Get-ExceptionMessage | Should -BeLike '*UserPwd*'
             }
         }
@@ -160,7 +161,7 @@ Describe 'Set-UpComputerWithSpecificOsAfterProvisioning' -Tag 'unit', 'linuxnode
                 $DefaultParameterValues.Remove('IpAddress')
 
                 # act + assert
-               { Set-UpComputerWithSpecificOsAfterProvisioning @DefaultParameterValues } | Get-ExceptionMessage | Should -BeLike '*IpAddress*'
+                { Set-UpComputerWithSpecificOsAfterProvisioning @DefaultParameterValues } | Get-ExceptionMessage | Should -BeLike '*IpAddress*'
             }
         }
     }

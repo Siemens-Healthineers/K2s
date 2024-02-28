@@ -35,7 +35,7 @@ func (m *mockObject) PrintStatus(addonName string, addonDirectory string) error 
 
 func TestStatus(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "addon status Unit Tests", Label("unit"))
+	RunSpecs(t, "addon status Unit Tests", Label("unit", "ci"))
 }
 
 var _ = BeforeSuite(func() {

@@ -56,11 +56,11 @@ jobs:
         .\smallsetup\common\BuildGoExe.ps1
         ls
 
-    - name: Run no-setup Acceptance Tests
+    - name: Run ci Acceptance Tests
       shell: powershell
       run: |
         $ErrorActionPreference = "Continue"
-        .\test\execute_all_tests.ps1 -Tags no-setup -ExcludeTags unit,integration -V -ThrowOnFailure
+        .\test\execute_all_tests.ps1 -Tags ci -ExcludeTags unit, integration -V -ThrowOnFailure
 
     - name: Commit k2s cli
       run: |

@@ -13,7 +13,7 @@ import (
 
 func TestMaps(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "maps Unit Tests", Label("unit"))
+	RunSpecs(t, "maps Unit Tests", Label("unit", "ci"))
 }
 
 var _ = Describe("maps", func() {

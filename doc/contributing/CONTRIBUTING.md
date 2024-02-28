@@ -148,7 +148,7 @@ Define one or more tags at any level of a test node, here for a whole test suite
 // ...
 func TestHttpproxyUnitTests(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "httpproxy Unit Tests", Label("unit"))
+	RunSpecs(t, "httpproxy Unit Tests", Label("unit", "ci"))
 }
 // ...
 ```
@@ -163,6 +163,7 @@ PS> ginkgo --label-filter="unit" <dir-with-test-suites>
 | **acceptance**           | end-to-end test/executable spec in production-like scenario                                                                |
 | **integration**          | test requiring certain external resources/systems to be reachable or additional software to be installed                   |
 | **unit**                 | test can be executed in isolation, all dependencies to the environment are mocked                                          |
+| **ci**                   | test that is fast-running and therefore applicable to CI runs; applies most likely to all unit tests                       |
 | **addon**                | test is addon-related and does not test *K2s* core functionality                                                           |
 | **internet-required**    | test requires internet connectivity, e.g. for package downloads                                                            |
 | **invasive**             | test changes either state of the host system or *K2s* installation                                                         |

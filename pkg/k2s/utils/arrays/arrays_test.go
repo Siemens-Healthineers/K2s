@@ -14,7 +14,7 @@ import (
 
 func TestArrays(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "arrays Unit Tests", Label("unit"))
+	RunSpecs(t, "arrays Unit Tests", Label("unit", "ci"))
 }
 
 var _ = Describe("arrays", func() {

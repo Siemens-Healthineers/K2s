@@ -31,7 +31,7 @@ func (m *mockObject) Install(kind ic.Kind, flags *pflag.FlagSet, buildCmdFunc fu
 
 func TestMultivm(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "multivm Unit Tests", Label("unit"))
+	RunSpecs(t, "multivm Unit Tests", Label("unit", "ci"))
 }
 
 var _ = Describe("multivm", func() {

@@ -9,7 +9,7 @@ BeforeAll {
     $moduleName = (Import-Module $module -PassThru -Force).Name
 }
 
-Describe 'Get-Status' -Tag 'unit' {
+Describe 'Get-Status' -Tag 'unit', 'ci' {
     BeforeAll {
         Mock -ModuleName $moduleName Write-Log {}
     }
@@ -187,7 +187,7 @@ Describe 'Get-Status' -Tag 'unit' {
     }
 }
 
-Describe 'Test-SystemAvailability' -Tag 'unit' {
+Describe 'Test-SystemAvailability' -Tag 'unit', 'ci' {
     Context 'setup info has errors' {
         BeforeAll {
             Mock -ModuleName $moduleName Get-SetupInfo { return @{Error = 'invalid-error' } }
@@ -227,13 +227,13 @@ Describe 'Test-SystemAvailability' -Tag 'unit' {
     }
 }
 
-Describe 'Test-ClusterAvailability' -Tag 'unit' -Skip { 
+Describe 'Test-ClusterAvailability' -Tag 'unit', 'ci' -Skip { 
     It 'test-not-implemented' {
         
     }
 }
 
-Describe 'Get-KubernetesServiceAreRunning' -Tag 'unit' -Skip { 
+Describe 'Get-KubernetesServiceAreRunning' -Tag 'unit', 'ci' -Skip { 
     It 'test-not-implemented' {
         
     }

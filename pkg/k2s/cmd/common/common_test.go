@@ -14,7 +14,7 @@ import (
 
 func Test(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "cmd common Unit Tests", Label("unit", "cmd"))
+	RunSpecs(t, "cmd common Unit Tests", Label("unit", "ci", "cmd"))
 }
 
 var _ = BeforeSuite(func() {

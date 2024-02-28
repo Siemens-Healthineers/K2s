@@ -12,5 +12,5 @@ import (
 
 func TestImage(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "image Unit Tests", Label("unit"))
+	RunSpecs(t, "image Unit Tests", Label("unit", "ci"))
 }

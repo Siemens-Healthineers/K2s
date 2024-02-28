@@ -8,7 +8,7 @@ BeforeAll {
     $moduleName = (Import-Module $module -PassThru -Force).Name
 }
 
-Describe 'Get-VmState' -Tag 'unit' {
+Describe 'Get-VmState' -Tag 'unit', 'ci' {
     Context 'VM name not specified' {
         It 'throws' {
             InModuleScope -ModuleName $moduleName {
@@ -18,7 +18,7 @@ Describe 'Get-VmState' -Tag 'unit' {
     }
 }
 
-Describe 'Get-RunningState' -Tag 'unit' {
+Describe 'Get-RunningState' -Tag 'unit', 'ci' {
     BeforeAll {
         Mock -ModuleName $moduleName Write-Log {}
     }
