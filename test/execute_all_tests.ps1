@@ -36,6 +36,9 @@ Executes all configured PowerShell and Go-based tests sequentially
 .EXAMPLE
     $> .\test\execute_all_tests.ps1 -ExcludeTags "setup-required"
     Exclude tests marked as requiring an installed K2s system
+.EXAMPLE
+    $> .\test\execute_all_tests.ps1 -ExcludePowershellTests
+    Execute only Go tests and exclude Powershell tests
 #>
 [CmdletBinding()]
 param (
@@ -59,8 +62,21 @@ param (
     $Tags,
     [Parameter(Mandatory = $false, HelpMessage = 'List of tags to exclude from test runs')]
     [string[]]
-    $ExcludeTags
+    $ExcludeTags,
+    [Parameter(Mandatory = $false, HelpMessage = 'Exclude Powershell/Pester tests')]
+    [switch]
+    $ExcludePowershellTests,
+    [Parameter(Mandatory = $false, HelpMessage = 'Exclude Go/Ginkgo tests')]
+    [switch]
+    $ExcludeGoTests
+
 )
+
+if ($ExcludePowershellTests -and $ExcludeGoTests) {
+    Write-Output 'Skipping Powershell and Go tests. Nothing to tests.'
+    return
+}
+
 Import-Module "$PSScriptRoot\test.module.psm1" -Force
 
 $pesterVersion = '5.5.0'
@@ -82,15 +98,23 @@ if ($Proxy -ne '') {
 }
 
 try {
-    Install-PesterIfNecessary -Proxy $Proxy -PesterVersion $pesterVersion
+    if (!$ExcludePowershellTests) {
+        Install-PesterIfNecessary -Proxy $Proxy -PesterVersion $pesterVersion
 
-    Start-PesterTests -Tags $Tags -ExcludeTags $ExcludeTags -WorkingDir $rootDir -OutDir $TestResultPath -V:$V
-    $results.PowerShell = $LASTEXITCODE
+        Start-PesterTests -Tags $Tags -ExcludeTags $ExcludeTags -WorkingDir $rootDir -OutDir $TestResultPath -V:$V
+        $results.PowerShell = $LASTEXITCODE
+    } else {
+        Write-Output "Skipping Powershell tests"
+    }
 
-    Install-GinkgoIfNecessary -Proxy $Proxy -GinkgoVersion $ginkgoVersion
+    if (!$ExcludeGoTests) {
+        Install-GinkgoIfNecessary -Proxy $Proxy -GinkgoVersion $ginkgoVersion
 
-    Start-GinkgoTests -Tags $Tags -ExcludeTags $ExcludeTags -WorkingDir $rootDir -OutDir $TestResultPath -Proxy $Proxy -V:$V -VV:$VV
-    $results.Go = $LASTEXITCODE
+        Start-GinkgoTests -Tags $Tags -ExcludeTags $ExcludeTags -WorkingDir $rootDir -OutDir $TestResultPath -Proxy $Proxy -V:$V -VV:$VV
+        $results.Go = $LASTEXITCODE
+    } else {
+        Write-Output "Skipping Go tests"
+    }
 }
 catch {
     # re-throw to stop execution also in case of dynamic exceptions, e.g. ParameterBindingValidationException
@@ -113,6 +137,20 @@ if ($results.Go -eq 197) {
 
 if ($results.PowerShell -eq 0 -and $results.Go -eq 0) {
     Write-Output '> ALL TESTS PASSED :-)'
+    Write-Output '------------------------------------------------'
+    return
+}
+
+if ($results.PowerShell -eq 0 -and $results.Go -eq -1) {
+    Write-Output '> GO TESTS SKIPPED :-)'
+    Write-Output '> ALL POWERSHELL TESTS PASSED :-)'
+    Write-Output '------------------------------------------------'
+    return
+}
+
+if ($results.PowerShell -eq -1 -and $results.Go -eq 0) {
+    Write-Output '> POWERSHELL TESTS SKIPPED :-)'
+    Write-Output '> ALL GO TESTS PASSED :-)'
     Write-Output '------------------------------------------------'
     return
 }
