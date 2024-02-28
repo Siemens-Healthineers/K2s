@@ -83,8 +83,8 @@ func systemPackage(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if cmdResult.Error != nil {
-		return cmdResult.Error.ToError()
+	if cmdResult.Failure != nil {
+		return cmdResult.Failure
 	}
 
 	return nil

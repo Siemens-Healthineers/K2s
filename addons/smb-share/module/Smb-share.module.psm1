@@ -8,10 +8,11 @@
 $clusterModule = "$PSScriptRoot\..\..\..\lib\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1"
 $addonsModule = "$PSScriptRoot\..\..\Addons.module.psm1"
 $runningStateModule = "$PSScriptRoot\..\..\..\smallsetup\status\RunningState.module.psm1"
-
 $logModule = "$PSScriptRoot\..\..\..\smallsetup\ps-modules\log\log.module.psm1"
+$errorsModule = "$PSScriptRoot\..\..\..\lib\modules\k2s\k2s.infra.module\errors\errors.module.psm1"
 
-Import-Module $addonsModule, $clusterModule, $runningStateModule, $logModule
+
+Import-Module $addonsModule, $clusterModule, $runningStateModule, $logModule, $errorsModule
 
 $AddonName = 'smb-share'
 $localHooksDir = "$PSScriptRoot\..\hooks"
@@ -1013,24 +1014,15 @@ function Enable-SmbShare {
     }
 
     if ((Test-IsAddonEnabled -Name $AddonName) -eq $true) {
-        return @{
-            Error = @{
-                Type    = 'precondition-not-met'; 
-                Code    = 'addon-already-enabled'; 
-                Message = "Addon '$AddonName' is already enabled, nothing to do."
-            } 
-        }
+        $err = New-Error -Severity Warning -Code (Get-ErrCodeAddonAlreadyEnabled) -Message "Addon '$AddonName' is already enabled, nothing to do." 
+        return @{Error = $err }
     }
 
     $setupInfo = Get-SetupInfo
 
     if ($setupInfo.Name -ne $global:SetupType_k2s -and $setupInfo.Name -ne $global:SetupType_MultiVMK8s) {
-        return @{Error = @{
-                Type    = 'precondition-not-met'; 
-                Code    = 'wrong-setup-type-for-addon'; 
-                Message = "Addon '$AddonName' can only be enabled for '$global:SetupType_k2s' or '$global:SetupType_MultiVMK8s' setup type." 
-            }
-        }
+        $err = New-Error -Severity Warning -Code (Get-ErrCodeWrongSetupType) -Message "Addon '$AddonName' can only be enabled for '$global:SetupType_k2s' or '$global:SetupType_MultiVMK8s' setup type."  
+        return @{Error = $err }
     }
 
     Copy-ScriptsToHooksDir -ScriptPaths $hookFilePaths
@@ -1077,12 +1069,8 @@ function Disable-SmbShare {
     }
 
     if ((Test-IsAddonEnabled -Name $AddonName) -ne $true) {
-        return @{Error = @{
-                Type    = 'precondition-not-met'; 
-                Code    = 'addon-already-disabled'; 
-                Message = "Addon '$AddonName' is already disabled, nothing to do."
-            }
-        }
+        $err = New-Error -Severity Warning -Code (Get-ErrCodeAddonAlreadyDisabled) -Message "Addon '$AddonName' is already disabled, nothing to do."
+        return @{Error = $err }
     }
 
     Write-Log "Disabling '$AddonName'.."

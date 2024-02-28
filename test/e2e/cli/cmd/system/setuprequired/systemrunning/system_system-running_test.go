@@ -171,4 +171,10 @@ var _ = Describe("system", func() {
 			})
 		})
 	})
+
+	Describe("dump", func() {
+		It("skips", func() {
+			Skip("test to be implemented")
+		})
+	})
 })

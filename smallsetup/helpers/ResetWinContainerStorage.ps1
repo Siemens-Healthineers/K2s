@@ -46,9 +46,9 @@ Param(
 $setupInfoModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.cluster.module\setupinfo\setupinfo.module.psm1"
 $runningStateModule = "$PSScriptRoot\..\status\RunningState.module.psm1"
 $logModule = "$PSScriptRoot\..\ps-modules\log\log.module.psm1"
-$cliModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.infra.module\cli-messages\cli-messages.module.psm1"
+$infraModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
 
-Import-Module $setupInfoModule, $runningStateModule, $logModule, $cliModule -DisableNameChecking
+Import-Module $setupInfoModule, $runningStateModule, $logModule, $infraModule -DisableNameChecking
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -94,7 +94,8 @@ $setupInfo = Get-SetupInfo
 if ($setupInfo.LinuxOnly) {
     $errMsg = 'Resetting WinContainerStorage for linux-only setup is not supported!'
     if ($EncodeStructuredOutput -eq $true) {
-        Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+        $err = New-Error -Severity Warning -Code (Get-ErrCodeWrongSetupType) -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
         return
     }
 
@@ -105,7 +106,8 @@ if ($setupInfo.LinuxOnly) {
 if ($setupInfo.Name -eq $global:SetupType_MultiVMK8s -and !$setupInfo.LinuxOnly) {
     $errMsg = 'In order to clean up WinContainerStorage for multi-vm, please reinstall multi-vm cluster!'
     if ($EncodeStructuredOutput -eq $true) {
-        Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+        $err = New-Error -Severity Warning -Code (Get-ErrCodeWrongSetupType) -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
         return
     }
 
@@ -117,14 +119,14 @@ if ($setupInfo.Name -eq $global:SetupType_k2s) {
     $clusterState = Get-RunningState -SetupType $setupInfo.Name
 
     if ($clusterState.IsRunning -eq $true) {
+        $errMsg = 'K2s is still running. Please stop K2s before performing this operation. Please ensure that no workloads are running in K2s.'
         if ($EncodeStructuredOutput -eq $true) {
-            Send-ToCli -MessageType $MessageType -Message @{Error = 'system-running' }
+            $err = New-Error -Severity Warning -Code (Get-ErrCodeSystemRunning) -Message $errMsg
+            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
             return
         }
-        else {
-            Write-Log 'K2s is running. Please stop K2s before performing this operation. Please ensure that no workloads are running in K2s..' -Error
-            exit 1
-        }        
+        Write-Log $errMsg -Error
+        exit 1      
     }
 }
 
@@ -132,7 +134,8 @@ $dockerRunningStatus = Get-DockerStatus
 if ($dockerRunningStatus) {
     $errMsg = 'Docker daemon is running. Please stop docker daemon before performing this operation.'
     if ($EncodeStructuredOutput -eq $true) {
-        Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+        $err = New-Error -Severity Warning -Code 'docker-running' -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
         return
     }
 

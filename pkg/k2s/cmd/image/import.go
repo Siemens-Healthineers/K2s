@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"k2s/cmd/common"
 	p "k2s/cmd/params"
+	"k2s/setupinfo"
 	"k2s/utils"
 	"k2s/utils/psexecutor"
 	"strconv"
@@ -68,11 +69,14 @@ func importImage(cmd *cobra.Command, args []string) error {
 
 	cmdResult, err := psexecutor.ExecutePsWithStructuredResult[*common.CmdResult](psCmd, "CmdResult", psexecutor.ExecOptions{}, params...)
 	if err != nil {
+		if errors.Is(err, setupinfo.ErrSystemNotInstalled) {
+			return common.CreateSystemNotInstalledCmdFailure()
+		}
 		return err
 	}
 
-	if cmdResult.Error != nil {
-		return cmdResult.Error.ToError()
+	if cmdResult.Failure != nil {
+		return cmdResult.Failure
 	}
 
 	duration := time.Since(start)

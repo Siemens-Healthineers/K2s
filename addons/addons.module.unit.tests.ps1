@@ -796,7 +796,9 @@ Describe 'Get-AddonStatus' -Tag 'unit', 'addon' {
             InModuleScope -ModuleName $moduleName -Parameters @{addonDirectory = $addonDirectory } {
                 $result = Get-AddonStatus -Name 'some-name' -Directory $addonDirectory
 
-                $result.Error | Should -Be 'addon-not-found'
+                $result.Error.Code | Should -Be (Get-ErrCodeAddonNotFound)
+                $result.Error.Severity | Should -Be Warning
+                $result.Error.Message | Should -Match 'not found in directory'
             }
         }
     }
@@ -812,7 +814,9 @@ Describe 'Get-AddonStatus' -Tag 'unit', 'addon' {
             InModuleScope -ModuleName $moduleName -Parameters @{addonDirectory = $addonDirectory } {
                 $result = Get-AddonStatus -Name 'some-name' -Directory $addonDirectory
 
-                $result.Error | Should -Be 'no-addon-status'
+                $result.Error.Code | Should -Be 'no-addon-status'
+                $result.Error.Severity | Should -Be Warning
+                $result.Error.Message | Should -Match 'does not provide detailed status information'
             }
         }
     }

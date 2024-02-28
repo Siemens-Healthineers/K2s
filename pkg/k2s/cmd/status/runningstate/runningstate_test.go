@@ -4,7 +4,7 @@
 package runningstate_test
 
 import (
-	"k2s/cmd/status/load"
+	"k2s/cmd/status/common"
 	rs "k2s/cmd/status/runningstate"
 	"strings"
 	"test/reflection"
@@ -51,7 +51,7 @@ var _ = Describe("runningstate", func() {
 
 		When("system is running", func() {
 			It("logs success and proceeds", func() {
-				state := &load.RunningState{IsRunning: true}
+				state := &common.RunningState{IsRunning: true}
 
 				printerMock := &mockObject{}
 				printerMock.On(reflection.GetFunctionName(printerMock.PrintSuccess), mock.MatchedBy(func(m string) bool {
@@ -71,7 +71,7 @@ var _ = Describe("runningstate", func() {
 
 		When("system is not running", func() {
 			It("logs info and does not proceed", func() {
-				state := &load.RunningState{
+				state := &common.RunningState{
 					IsRunning: false,
 					Issues:    []string{"problem-1", "problem-2"}}
 

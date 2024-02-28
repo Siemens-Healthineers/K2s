@@ -4,7 +4,7 @@
 package nodestatus
 
 import (
-	"k2s/cmd/status/load"
+	"k2s/cmd/status/common"
 )
 
 type TerminalPrinter interface {
@@ -24,7 +24,7 @@ func NewNodeStatusPrinter(printer TerminalPrinter) NodeStatusPrinter {
 	return NodeStatusPrinter{terminalPrinter: printer}
 }
 
-func (n NodeStatusPrinter) PrintNodeStatus(nodes []load.Node, showAdditionalInfo bool) bool {
+func (n NodeStatusPrinter) PrintNodeStatus(nodes []common.Node, showAdditionalInfo bool) bool {
 	headers := createHeaders(showAdditionalInfo)
 
 	table := [][]string{headers}
@@ -56,7 +56,7 @@ func createHeaders(showAdditionalInfo bool) []string {
 	return headers
 }
 
-func (n NodeStatusPrinter) buildRows(nodes []load.Node, showAdditionalInfo bool) ([][]string, bool) {
+func (n NodeStatusPrinter) buildRows(nodes []common.Node, showAdditionalInfo bool) ([][]string, bool) {
 	allNodesReady := true
 	var rows [][]string
 
@@ -72,7 +72,7 @@ func (n NodeStatusPrinter) buildRows(nodes []load.Node, showAdditionalInfo bool)
 	return rows, allNodesReady
 }
 
-func (n NodeStatusPrinter) buildRow(node load.Node, showAdditionalInfo bool) []string {
+func (n NodeStatusPrinter) buildRow(node common.Node, showAdditionalInfo bool) []string {
 	status := n.getStatus(node)
 	row := []string{status, node.Name, node.Role, node.Age, node.KubeletVersion}
 
@@ -83,7 +83,7 @@ func (n NodeStatusPrinter) buildRow(node load.Node, showAdditionalInfo bool) []s
 	return row
 }
 
-func (n NodeStatusPrinter) getStatus(node load.Node) string {
+func (n NodeStatusPrinter) getStatus(node common.Node) string {
 	if node.IsReady {
 		return n.terminalPrinter.PrintGreenFg(node.Status)
 	} else {

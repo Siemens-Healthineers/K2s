@@ -141,7 +141,7 @@ var _ = Describe("load", func() {
 				actual, err := sut.LoadForSetup(path)
 
 				Expect(actual).To(BeNil())
-				Expect(err).To(MatchError(setupinfo.ErrNotInstalled))
+				Expect(err).To(MatchError(setupinfo.ErrSystemNotInstalled))
 			})
 		})
 
