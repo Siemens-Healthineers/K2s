@@ -3,7 +3,6 @@ SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
 
 SPDX-License-Identifier: MIT
 -->
-
 <?xml version="1.0" encoding="utf-8"?>
 <bom xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" serialNumber="urn:uuid:7e4baba7-abeb-436b-a7d8-4b7a78e3cc4e" version="1" xmlns="http://cyclonedx.org/schema/bom/1.4">
   <metadata>
