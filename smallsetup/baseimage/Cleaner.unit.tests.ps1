@@ -9,7 +9,7 @@ BeforeAll {
     $baseImageModuleName = (Import-Module $baseImageModule -PassThru -Force).Name
 }
 
-Describe 'Cleaner.ps1' -Tag 'unit', 'baseimage' {
+Describe 'Cleaner.ps1' -Tag 'unit', 'ci', 'baseimage' {
     BeforeAll {
         $scriptFile = "$PSScriptRoot\Cleaner.ps1"
     }
@@ -24,7 +24,7 @@ Describe 'Cleaner.ps1' -Tag 'unit', 'baseimage' {
     }
     Context 'virtual machine' {
         It "with name '<virtualMachineNameToUse>' stopped?: <shallStop>" -ForEach @(
-            @{ virtualMachineNameToUse = 'KUBEMASTER_IN_PROVISIONING'; shallStop = $true}
+            @{ virtualMachineNameToUse = 'KUBEMASTER_IN_PROVISIONING'; shallStop = $true }
             @{ virtualMachineNameToUse = 'other name'; shallStop = $false }
         ) {
             Mock Get-VM { @{ Name = $virtualMachineNameToUse } } 
@@ -34,7 +34,8 @@ Describe 'Cleaner.ps1' -Tag 'unit', 'baseimage' {
 
             if ($shallStop) {
                 $expectedTimes = 1
-            } else {
+            }
+            else {
                 $expectedTimes = 0
             }
             Should -Invoke -CommandName Stop-VirtualMachineForBaseImageProvisioning -Times $expectedTimes -ParameterFilter { $Name -eq $expectedVmName }

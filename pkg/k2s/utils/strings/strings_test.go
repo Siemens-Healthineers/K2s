@@ -15,7 +15,7 @@ import (
 
 func TestStrings(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "strings Unit Tests", Label("unit"))
+	RunSpecs(t, "strings Unit Tests", Label("unit", "ci"))
 }
 
 var _ = Describe("strings", func() {

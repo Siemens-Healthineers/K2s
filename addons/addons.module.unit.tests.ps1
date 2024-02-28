@@ -12,7 +12,7 @@ BeforeAll {
     $moduleName = (Import-Module $module -PassThru -Force).Name
 }
 
-Describe 'Find-AddonManifests' -Tag 'unit', 'addon' {
+Describe 'Find-AddonManifests' -Tag 'unit', 'ci', 'addon' {
     Context 'Directory not specified' {
         It 'throws' {
             { Find-AddonManifests } | Should -Throw -ExpectedMessage 'Directory not specified'
@@ -40,7 +40,7 @@ Describe 'Find-AddonManifests' -Tag 'unit', 'addon' {
     }
 }
 
-Describe 'Get-EnabledAddons' -Tag 'unit', 'addon' {
+Describe 'Get-EnabledAddons' -Tag 'unit', 'ci', 'addon' {
     Context 'all addons disabled' {
         BeforeAll {
             Mock -ModuleName $moduleName Write-Log { }
@@ -76,7 +76,7 @@ Describe 'Get-EnabledAddons' -Tag 'unit', 'addon' {
     }
 }
 
-Describe 'ConvertTo-NewConfigStructure' -Tag 'unit', 'addon' {
+Describe 'ConvertTo-NewConfigStructure' -Tag 'unit', 'ci', 'addon' {
     Context 'config structure needs to be migrated from <= v0.5 to current version' {
         BeforeAll {
             [Diagnostics.CodeAnalysis.SuppressMessageAttribute('UseDeclaredVarsMoreThanAssignments', '', Justification = 'Pester Test')]    
@@ -133,7 +133,7 @@ Describe 'ConvertTo-NewConfigStructure' -Tag 'unit', 'addon' {
     }
 }
 
-Describe 'Test-IsAddonEnabled' -Tag 'unit', 'addon' {
+Describe 'Test-IsAddonEnabled' -Tag 'unit', 'ci', 'addon' {
     Context 'no addon name specified' {
         It 'throws' {
             { Test-IsAddonEnabled } | Should -Throw
@@ -165,7 +165,7 @@ Describe 'Test-IsAddonEnabled' -Tag 'unit', 'addon' {
     }
 }
 
-Describe 'Invoke-AddonsHooks' -Tag 'unit', 'addon' {
+Describe 'Invoke-AddonsHooks' -Tag 'unit', 'ci', 'addon' {
     Context 'no hook type specified' {
         It 'throws' {
             { Invoke-AddonsHooks } | Should -Throw
@@ -220,7 +220,7 @@ Describe 'Invoke-AddonsHooks' -Tag 'unit', 'addon' {
     }
 }
 
-Describe 'Copy-ScriptsToHooksDir' -Tag 'unit', 'addon' {
+Describe 'Copy-ScriptsToHooksDir' -Tag 'unit', 'ci', 'addon' {
     Context 'script files not specified' {
         It 'throws' {
             { Copy-ScriptsToHooksDir } | Should -Throw -ExpectedMessage 'No script file paths specified'
@@ -282,7 +282,7 @@ Describe 'Copy-ScriptsToHooksDir' -Tag 'unit', 'addon' {
     }
 }
 
-Describe 'Remove-ScriptsFromHooksDir' -Tag 'unit', 'addon' {
+Describe 'Remove-ScriptsFromHooksDir' -Tag 'unit', 'ci', 'addon' {
     Context 'scripts not specified' {
         It 'throws' {
             { Remove-ScriptsFromHooksDir } | Should -Throw -ExpectedMessage 'No script file names specified'
@@ -364,7 +364,7 @@ Describe 'Remove-ScriptsFromHooksDir' -Tag 'unit', 'addon' {
     }
 }
 
-Describe 'Get-AddonConfig' -Tag 'unit', 'addon' {
+Describe 'Get-AddonConfig' -Tag 'unit', 'ci', 'addon' {
     Context 'addon name not specified' {
         It 'throws' {
             { Get-AddonConfig } | Should -Throw -ExpectedMessage 'Name not specified'
@@ -407,7 +407,7 @@ Describe 'Get-AddonConfig' -Tag 'unit', 'addon' {
     }
 }
 
-Describe 'Backup-Addons' -Tag 'unit', 'addon' {
+Describe 'Backup-Addons' -Tag 'unit', 'ci', 'addon' {
     Context 'no addons config existing' {
         BeforeAll {
             Mock -ModuleName $moduleName Write-Log { }
@@ -509,7 +509,7 @@ Describe 'Backup-Addons' -Tag 'unit', 'addon' {
     }
 }
 
-Describe 'Restore-Addons' -Tag 'unit', 'addon' {
+Describe 'Restore-Addons' -Tag 'unit', 'ci', 'addon' {
     Context 'no addons backup existing' {
         BeforeAll {
             Mock -ModuleName $moduleName Write-Log { }
@@ -568,7 +568,7 @@ Describe 'Restore-Addons' -Tag 'unit', 'addon' {
     }
 }
 
-Describe 'Invoke-BackupRestoreHooks' -Tag 'unit', 'addon' {
+Describe 'Invoke-BackupRestoreHooks' -Tag 'unit', 'ci', 'addon' {
     Context 'hook type not specified' {
         It 'throws' {
             InModuleScope -ModuleName $moduleName {
@@ -666,7 +666,7 @@ Describe 'Invoke-BackupRestoreHooks' -Tag 'unit', 'addon' {
     }
 }
 
-Describe 'Enable-AddonFromConfig' -Tag 'unit', 'addon' {
+Describe 'Enable-AddonFromConfig' -Tag 'unit', 'ci', 'addon' {
     Context 'config object not specified' {
         It 'throws' {
             InModuleScope -ModuleName $moduleName {
@@ -760,7 +760,7 @@ Describe 'Enable-AddonFromConfig' -Tag 'unit', 'addon' {
     }
 }
 
-Describe 'Get-AddonsConfig' -Tag 'unit', 'addon' {
+Describe 'Get-AddonsConfig' -Tag 'unit', 'ci', 'addon' {
     BeforeAll {
         Mock -ModuleName $moduleName Write-Log { }
         Mock -ModuleName $moduleName Get-ConfigValue { return 'config' } -ParameterFilter { $Path -eq $global:SetupJsonFile -and $Key -eq 'EnabledAddons' }
@@ -773,7 +773,7 @@ Describe 'Get-AddonsConfig' -Tag 'unit', 'addon' {
     }
 }
 
-Describe 'Get-AddonStatus' -Tag 'unit', 'addon' {
+Describe 'Get-AddonStatus' -Tag 'unit', 'ci', 'addon' {
     Context 'Name not specified' {
         It 'throws' {
             { Get-AddonStatus -Directory 'test-dir' } | Should -Throw -ExpectedMessage 'Name not specified'

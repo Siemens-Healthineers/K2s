@@ -56,7 +56,7 @@ func (m *myMock) PrintCompletedMessage(duration time.Duration, command string) {
 
 func TestCore(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "core Unit Tests", Label("unit"))
+	RunSpecs(t, "core Unit Tests", Label("unit", "ci"))
 }
 
 var _ = BeforeSuite(func() {

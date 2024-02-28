@@ -12,7 +12,7 @@ BeforeAll {
     $linuxNodeModuleName = (Import-Module $linuxNodeModule -PassThru -Force).Name
 }
 
-Describe 'Assert-GeneralComputerPrequisites' -Tag 'unit', 'linuxnode' {
+Describe 'Assert-GeneralComputerPrequisites' -Tag 'unit', 'ci', 'linuxnode' {
     Context "parameter's existence" {
         It 'UserName' {
             InModuleScope $linuxNodeModuleName {
@@ -46,7 +46,7 @@ Describe 'Assert-GeneralComputerPrequisites' -Tag 'unit', 'linuxnode' {
         It 'IpAddress' {
             InModuleScope $linuxNodeModuleName {
                 Mock Get-IsValidIPv4Address { $false }
-                { Assert-GeneralComputerPrequisites -UserName 'anyNonEmptyOrNullValue' -UserPwd 'anyPwd' -IpAddress 'anyIpAddress'} | Get-ExceptionMessage | Should -BeLike '*IpAddress*'
+                { Assert-GeneralComputerPrequisites -UserName 'anyNonEmptyOrNullValue' -UserPwd 'anyPwd' -IpAddress 'anyIpAddress' } | Get-ExceptionMessage | Should -BeLike '*IpAddress*'
 
                 Should -Invoke -CommandName Get-IsValidIPv4Address -Times 1 -ParameterFilter { $Value -eq 'anyIpAddress' }
             }
@@ -64,12 +64,13 @@ Describe 'Assert-GeneralComputerPrequisites' -Tag 'unit', 'linuxnode' {
                 $expectedUser = "$expectedUserName@$expectedIpAddress"
                 $expectedCommand = 'hostname'
                 Mock Get-IsValidIPv4Address { $true }
-                Mock ExecCmdMaster { return $retrievedHostname } -ParameterFilter {$CmdToExecute -eq $expectedCommand -and $RemoteUser -eq $expectedUser -and $RemoteUserPwd -eq $expectedUserPwd -and $UsePwd -eq $true -and $NoLog -eq $true }
+                Mock ExecCmdMaster { return $retrievedHostname } -ParameterFilter { $CmdToExecute -eq $expectedCommand -and $RemoteUser -eq $expectedUser -and $RemoteUserPwd -eq $expectedUserPwd -and $UsePwd -eq $true -and $NoLog -eq $true }
                 Mock Write-Log { }
 
                 if ($shouldThrow) {
                     { Assert-GeneralComputerPrequisites -UserName $expectedUserName -UserPwd $expectedUserPwd -IpAddress $expectedIpAddress } | Get-ExceptionMessage | Should -BeLike "*The hostname '$retrievedHostname'*"
-                } else {
+                }
+                else {
                     { Assert-GeneralComputerPrequisites -UserName $expectedUserName -UserPwd $expectedUserPwd -IpAddress $expectedIpAddress } | Should -Not -Throw
                 }
             }
@@ -90,7 +91,7 @@ Describe 'Assert-GeneralComputerPrequisites' -Tag 'unit', 'linuxnode' {
     }
 }
 
-Describe 'Assert-MasterNodeComputerPrequisites' -Tag 'unit', 'linuxnode' {
+Describe 'Assert-MasterNodeComputerPrequisites' -Tag 'unit', 'ci', 'linuxnode' {
     Context "parameter's existence" {
         It 'UserName' {
             InModuleScope $linuxNodeModuleName {
@@ -124,7 +125,7 @@ Describe 'Assert-MasterNodeComputerPrequisites' -Tag 'unit', 'linuxnode' {
         It 'IpAddress' {
             InModuleScope $linuxNodeModuleName {
                 Mock Get-IsValidIPv4Address { $false }
-                { Assert-MasterNodeComputerPrequisites -UserName 'anyNonEmptyOrNullValue' -UserPwd 'anyPwd' -IpAddress 'anyIpAddress'} | Get-ExceptionMessage | Should -BeLike '*IpAddress*'
+                { Assert-MasterNodeComputerPrequisites -UserName 'anyNonEmptyOrNullValue' -UserPwd 'anyPwd' -IpAddress 'anyIpAddress' } | Get-ExceptionMessage | Should -BeLike '*IpAddress*'
 
                 Should -Invoke -CommandName Get-IsValidIPv4Address -Times 1 -ParameterFilter { $Value -eq 'anyIpAddress' }
             }
@@ -142,12 +143,13 @@ Describe 'Assert-MasterNodeComputerPrequisites' -Tag 'unit', 'linuxnode' {
                 $expectedIpAddress = 'myIpAddress'
                 $expectedUser = "$expectedUserName@$expectedIpAddress"
                 Mock Get-IsValidIPv4Address { $true }
-                Mock ExecCmdMaster { return $numberOfCores } -ParameterFilter {$CmdToExecute -eq 'nproc' -and $RemoteUser -eq $expectedUser -and $RemoteUserPwd -eq $expectedUserPwd -and $UsePwd -eq $true -and $NoLog -eq $true }
+                Mock ExecCmdMaster { return $numberOfCores } -ParameterFilter { $CmdToExecute -eq 'nproc' -and $RemoteUser -eq $expectedUser -and $RemoteUserPwd -eq $expectedUserPwd -and $UsePwd -eq $true -and $NoLog -eq $true }
                 Mock Write-Log { }
 
                 if ($shouldThrow) {
                     { Assert-MasterNodeComputerPrequisites -UserName $expectedUserName -UserPwd $expectedUserPwd -IpAddress $expectedIpAddress } | Get-ExceptionMessage | Should -BeLike "*The computer reachable on IP '$expectedIpAddress' does not has at least 2 cores*"
-                } else {
+                }
+                else {
                     { Assert-MasterNodeComputerPrequisites -UserName $expectedUserName -UserPwd $expectedUserPwd -IpAddress $expectedIpAddress } | Should -Not -Throw
                 }
             }
@@ -155,7 +157,7 @@ Describe 'Assert-MasterNodeComputerPrequisites' -Tag 'unit', 'linuxnode' {
     }
 }
 
-Describe 'Set-UpComputerBeforeProvisioning' -Tag 'unit', 'linuxnode' {
+Describe 'Set-UpComputerBeforeProvisioning' -Tag 'unit', 'ci', 'linuxnode' {
     Context "parameter's existence" {
         It 'UserName' {
             InModuleScope $linuxNodeModuleName {
@@ -189,7 +191,7 @@ Describe 'Set-UpComputerBeforeProvisioning' -Tag 'unit', 'linuxnode' {
         It 'IpAddress' {
             InModuleScope $linuxNodeModuleName {
                 Mock Get-IsValidIPv4Address { $false }
-                { Set-UpComputerBeforeProvisioning -UserName 'anyNonEmptyOrNullValue' -UserPwd 'anyPwd' -IpAddress 'anyIpAddress'} | Get-ExceptionMessage | Should -BeLike '*IpAddress*'
+                { Set-UpComputerBeforeProvisioning -UserName 'anyNonEmptyOrNullValue' -UserPwd 'anyPwd' -IpAddress 'anyIpAddress' } | Get-ExceptionMessage | Should -BeLike '*IpAddress*'
 
                 Should -Invoke -CommandName Get-IsValidIPv4Address -Times 1 -ParameterFilter { $Value -eq 'anyIpAddress' }
             }
@@ -207,11 +209,12 @@ Describe 'Set-UpComputerBeforeProvisioning' -Tag 'unit', 'linuxnode' {
                 $expectedUser = "$expectedUserName@$expectedIpAddress"
                 $global:callOrder = @()
                 Mock Get-IsValidIPv4Address { $true }
-                Mock ExecCmdMaster { $global:callorder += '1' } -ParameterFilter {$CmdToExecute -eq 'sudo touch /etc/apt/apt.conf.d/proxy.conf' -and $RemoteUser -eq $expectedUser -and $RemoteUserPwd -eq $expectedUserPwd -and $UsePwd -eq $true }
+                Mock ExecCmdMaster { $global:callorder += '1' } -ParameterFilter { $CmdToExecute -eq 'sudo touch /etc/apt/apt.conf.d/proxy.conf' -and $RemoteUser -eq $expectedUser -and $RemoteUserPwd -eq $expectedUserPwd -and $UsePwd -eq $true }
                 if ($PSVersionTable.PSVersion.Major -gt 5) {
-                    Mock ExecCmdMaster { $global:callorder += '2-PSversion>5' } -ParameterFilter {$CmdToExecute -eq "echo Acquire::http::Proxy \""$proxyValue\""\; | sudo tee -a /etc/apt/apt.conf.d/proxy.conf" -and $RemoteUser -eq $expectedUser -and $RemoteUserPwd -eq $expectedUserPwd -and $UsePwd -eq $true }
-                } else {
-                    Mock ExecCmdMaster { $global:callorder += '2-PSversion<=5' } -ParameterFilter {$CmdToExecute -eq "echo Acquire::http::Proxy \\\""$proxyValue\\\""\; | sudo tee -a /etc/apt/apt.conf.d/proxy.conf" -and $RemoteUser -eq $expectedUser -and $RemoteUserPwd -eq $expectedUserPwd -and $UsePwd -eq $true }
+                    Mock ExecCmdMaster { $global:callorder += '2-PSversion>5' } -ParameterFilter { $CmdToExecute -eq "echo Acquire::http::Proxy \""$proxyValue\""\; | sudo tee -a /etc/apt/apt.conf.d/proxy.conf" -and $RemoteUser -eq $expectedUser -and $RemoteUserPwd -eq $expectedUserPwd -and $UsePwd -eq $true }
+                }
+                else {
+                    Mock ExecCmdMaster { $global:callorder += '2-PSversion<=5' } -ParameterFilter { $CmdToExecute -eq "echo Acquire::http::Proxy \\\""$proxyValue\\\""\; | sudo tee -a /etc/apt/apt.conf.d/proxy.conf" -and $RemoteUser -eq $expectedUser -and $RemoteUserPwd -eq $expectedUserPwd -and $UsePwd -eq $true }
                 }
                 Mock Write-Log { }
 
@@ -221,16 +224,18 @@ Describe 'Set-UpComputerBeforeProvisioning' -Tag 'unit', 'linuxnode' {
                     $expectedCallOrder = @('1')
                     if ($PSVersionTable.PSVersion.Major -gt 5) {
                         $expectedCallOrder += @('2-PSversion>5')
-                    } else {
+                    }
+                    else {
                         $expectedCallOrder += @('2-PSversion<=5')
                     }
                     $global:callOrder | Should -Be $expectedCallOrder
-                } else {
+                }
+                else {
                     Should -Invoke -CommandName ExecCmdMaster -Times 0
                 }
             }
         }
-        It "not specified in command then no proxy is set" {
+        It 'not specified in command then no proxy is set' {
             InModuleScope $linuxNodeModuleName {
                 Mock Get-IsValidIPv4Address { $true }
                 Mock ExecCmdMaster { } 
@@ -244,7 +249,7 @@ Describe 'Set-UpComputerBeforeProvisioning' -Tag 'unit', 'linuxnode' {
     }
 }
 
-Describe 'Set-UpComputerAfterProvisioning' -Tag 'unit', 'linuxnode' {
+Describe 'Set-UpComputerAfterProvisioning' -Tag 'unit', 'ci', 'linuxnode' {
     Context "parameter's existence" {
         It 'UserName' {
             InModuleScope $linuxNodeModuleName {
@@ -278,7 +283,7 @@ Describe 'Set-UpComputerAfterProvisioning' -Tag 'unit', 'linuxnode' {
         It 'IpAddress' {
             InModuleScope $linuxNodeModuleName {
                 Mock Get-IsValidIPv4Address { $false }
-                { Set-UpComputerAfterProvisioning -UserName 'anyNonEmptyOrNullValue' -UserPwd 'anyPwd' -IpAddress 'anyIpAddress'} | Get-ExceptionMessage | Should -BeLike '*IpAddress*'
+                { Set-UpComputerAfterProvisioning -UserName 'anyNonEmptyOrNullValue' -UserPwd 'anyPwd' -IpAddress 'anyIpAddress' } | Get-ExceptionMessage | Should -BeLike '*IpAddress*'
 
                 Should -Invoke -CommandName Get-IsValidIPv4Address -Times 1 -ParameterFilter { $Value -eq 'anyIpAddress' }
             }
@@ -287,12 +292,12 @@ Describe 'Set-UpComputerAfterProvisioning' -Tag 'unit', 'linuxnode' {
     Context 'execution' {
         BeforeAll {
             $expectedUserName = 'theUser'
-                $expectedUserPwd = 'thePwd'
-                $expectedIpAddress = 'myIpAddress'
-                Mock -ModuleName $linuxNodeModuleName Get-IsValidIPv4Address { $true }
-                Mock -ModuleName $linuxNodeModuleName ExecCmdMaster { }
-                Mock -ModuleName $linuxNodeModuleName CopyDotFile { }
-                Mock -ModuleName $linuxNodeModuleName Write-Log { }
+            $expectedUserPwd = 'thePwd'
+            $expectedIpAddress = 'myIpAddress'
+            Mock -ModuleName $linuxNodeModuleName Get-IsValidIPv4Address { $true }
+            Mock -ModuleName $linuxNodeModuleName ExecCmdMaster { }
+            Mock -ModuleName $linuxNodeModuleName CopyDotFile { }
+            Mock -ModuleName $linuxNodeModuleName Write-Log { }
         }
         It 'copies dot files' {
             InModuleScope $linuxNodeModuleName -Parameters @{ expectedUserName = $expectedUserName; expectedUserPwd = $expectedUserPwd; expectedIpAddress = $expectedIpAddress } {
@@ -322,13 +327,13 @@ Describe 'Set-UpComputerAfterProvisioning' -Tag 'unit', 'linuxnode' {
 
                 Set-UpComputerAfterProvisioning -UserName $expectedUserName -UserPwd $expectedUserPwd -IpAddress $expectedIpAddress
                 
-                Should -Invoke -CommandName ExecCmdMaster -Times 1 -ParameterFilter { $CmdToExecute -eq 'touch ~/.hushlogin'-and $RemoteUser -eq $expectedUser -and $RemoteUserPwd -eq $expectedUserPwd }
+                Should -Invoke -CommandName ExecCmdMaster -Times 1 -ParameterFilter { $CmdToExecute -eq 'touch ~/.hushlogin' -and $RemoteUser -eq $expectedUser -and $RemoteUserPwd -eq $expectedUserPwd }
             }
         }
     }
 }
 
-Describe 'Install-KubernetesArtifacts' -Tag 'unit', 'linuxnode' {
+Describe 'Install-KubernetesArtifacts' -Tag 'unit', 'ci', 'linuxnode' {
     Context "parameter's existence" {
         It 'UserName' {
             InModuleScope $linuxNodeModuleName {
@@ -376,7 +381,7 @@ Describe 'Install-KubernetesArtifacts' -Tag 'unit', 'linuxnode' {
         It 'IpAddress' {
             InModuleScope $linuxNodeModuleName {
                 Mock Get-IsValidIPv4Address { $false }
-                { Install-KubernetesArtifacts -UserName 'anyNonEmptyOrNullValue' -UserPwd 'anyPwd' -IpAddress 'anyIpAddress'} | Get-ExceptionMessage | Should -BeLike '*IpAddress*'
+                { Install-KubernetesArtifacts -UserName 'anyNonEmptyOrNullValue' -UserPwd 'anyPwd' -IpAddress 'anyIpAddress' } | Get-ExceptionMessage | Should -BeLike '*IpAddress*'
 
                 Should -Invoke -CommandName Get-IsValidIPv4Address -Times 1 -ParameterFilter { $Value -eq 'anyIpAddress' }
             }
@@ -432,12 +437,13 @@ Describe 'Install-KubernetesArtifacts' -Tag 'unit', 'linuxnode' {
                 }
                 if ($proxyToUse -ne '') {
                     $curlProxy = " --proxy $proxyToUse"
-                } else {
+                }
+                else {
                     $curlProxy = ''
                 }
 
                 $expectedExecutedRemoteCommands = @()
-                $expectedExecutedRemoteCommands += @{Command = "echo overlay | sudo tee /etc/modules-load.d/k8s.conf"; IgnoreErrors = $false }
+                $expectedExecutedRemoteCommands += @{Command = 'echo overlay | sudo tee /etc/modules-load.d/k8s.conf'; IgnoreErrors = $false }
                 $expectedExecutedRemoteCommands += @{Command = 'echo br_netfilter | sudo tee /etc/modules-load.d/k8s.conf'; IgnoreErrors = $false }
                 $expectedExecutedRemoteCommands += @{Command = 'sudo modprobe overlay'; IgnoreErrors = $false }
                 $expectedExecutedRemoteCommands += @{Command = 'sudo modprobe br_netfilter'; IgnoreErrors = $false }
@@ -459,57 +465,59 @@ Describe 'Install-KubernetesArtifacts' -Tag 'unit', 'linuxnode' {
                 $expectedExecutedRemoteCommands += @{Command = "sudo rm cri-o.v$expectedCrioVersion.tar.gz"; IgnoreErrors = $false }
                 
                 if ($proxyToUse -ne '') {
-                    $expectedExecutedRemoteCommands += @{Command = 'sudo mkdir -p /etc/systemd/system/crio.service.d'; IgnoreErrors = $false} 
-                    $expectedExecutedRemoteCommands += @{Command = 'sudo touch /etc/systemd/system/crio.service.d/http-proxy.conf' ; IgnoreErrors = $false} 
-                    $expectedExecutedRemoteCommands += @{Command = 'echo [Service] | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf' ; IgnoreErrors = $false} 
-                    $expectedExecutedRemoteCommands += @{Command = "echo Environment=\'HTTP_PROXY=$proxyToUse\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf" ; IgnoreErrors = $false} 
-                    $expectedExecutedRemoteCommands += @{Command = "echo Environment=\'HTTPS_PROXY=$proxyToUse\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf" ; IgnoreErrors = $false} 
-                    $expectedExecutedRemoteCommands += @{Command = "echo Environment=\'http_proxy=$proxyToUse\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf" ; IgnoreErrors = $false} 
-                    $expectedExecutedRemoteCommands += @{Command = "echo Environment=\'https_proxy=$proxyToUse\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf" ; IgnoreErrors = $false} 
-                    $expectedExecutedRemoteCommands += @{Command = "echo Environment=\'no_proxy=.local\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf"; IgnoreErrors = $false} 
+                    $expectedExecutedRemoteCommands += @{Command = 'sudo mkdir -p /etc/systemd/system/crio.service.d'; IgnoreErrors = $false } 
+                    $expectedExecutedRemoteCommands += @{Command = 'sudo touch /etc/systemd/system/crio.service.d/http-proxy.conf' ; IgnoreErrors = $false } 
+                    $expectedExecutedRemoteCommands += @{Command = 'echo [Service] | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf' ; IgnoreErrors = $false } 
+                    $expectedExecutedRemoteCommands += @{Command = "echo Environment=\'HTTP_PROXY=$proxyToUse\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf" ; IgnoreErrors = $false } 
+                    $expectedExecutedRemoteCommands += @{Command = "echo Environment=\'HTTPS_PROXY=$proxyToUse\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf" ; IgnoreErrors = $false } 
+                    $expectedExecutedRemoteCommands += @{Command = "echo Environment=\'http_proxy=$proxyToUse\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf" ; IgnoreErrors = $false } 
+                    $expectedExecutedRemoteCommands += @{Command = "echo Environment=\'https_proxy=$proxyToUse\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf" ; IgnoreErrors = $false } 
+                    $expectedExecutedRemoteCommands += @{Command = "echo Environment=\'no_proxy=.local\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf"; IgnoreErrors = $false } 
                 }
                 $token = Get-RegistryToken
                 if ($PSVersionTable.PSVersion.Major -gt 5) {
                     $jsonConfig = @{
-                        "auths" = @{
-                            "shsk2s.azurecr.io" = @{
-                                "auth" = "$token"
+                        'auths' = @{
+                            'shsk2s.azurecr.io' = @{
+                                'auth' = "$token"
                             }
                         }
                     }
-                } else {
+                }
+                else {
                     $jsonConfig = @{
-                        """auths""" = @{
-                            """shsk2s.azurecr.io""" = @{
-                                """auth""" = """$token"""
+                        '"auths"' = @{
+                            '"shsk2s.azurecr.io"' = @{
+                                '"auth"' = """$token"""
                             }
                         }
                     }
                 }
                 
                 $jsonString = ConvertTo-Json -InputObject $jsonConfig
-                $expectedExecutedRemoteCommands += @{Command = "echo -e '$jsonString' | sudo tee /tmp/auth.json"; IgnoreErrors = $false} 
-                $expectedExecutedRemoteCommands += @{Command = "sudo mkdir -p /root/.config/containers"; IgnoreErrors = $false} 
-                $expectedExecutedRemoteCommands += @{Command = 'sudo mv /tmp/auth.json /root/.config/containers/auth.json'; IgnoreErrors = $false}  
+                $expectedExecutedRemoteCommands += @{Command = "echo -e '$jsonString' | sudo tee /tmp/auth.json"; IgnoreErrors = $false } 
+                $expectedExecutedRemoteCommands += @{Command = 'sudo mkdir -p /root/.config/containers'; IgnoreErrors = $false } 
+                $expectedExecutedRemoteCommands += @{Command = 'sudo mv /tmp/auth.json /root/.config/containers/auth.json'; IgnoreErrors = $false }  
 
                 $expectedCRIO_CNI_FILE = '/etc/cni/net.d/10-crio-bridge.conf'
-                $expectedExecutedRemoteCommands += @{Command = "[ -f $expectedCRIO_CNI_FILE ] && sudo mv $expectedCRIO_CNI_FILE /etc/cni/net.d/100-crio-bridge.conf || echo File does not exist, no renaming of cni file $expectedCRIO_CNI_FILE.." ; IgnoreErrors = $false} 
-                $expectedExecutedRemoteCommands += @{Command = "sudo echo unqualified-search-registries = [\\\""docker.io\\\""] | sudo tee -a /etc/containers/registries.conf"; IgnoreErrors = $false} 
-                $expectedExecutedRemoteCommands += @{Command = "sudo apt-get update"; IgnoreErrors = $false} 
-                $expectedExecutedRemoteCommands += @{Command = "sudo DEBIAN_FRONTEND=noninteractive apt-get install -qq --yes apt-transport-https ca-certificates curl"; IgnoreErrors = $false} 
-                $expectedExecutedRemoteCommands += @{Command = "sudo curl --retry 3 --retry-all-errors -fsSL https://pkgs.k8s.io/core:/stable:/$expectedPackageShortK8sVersion/deb/Release.key$curlProxy | sudo gpg --dearmor -o /usr/share/keyrings/kubernetes-apt-keyring.gpg"; IgnoreErrors = $true} 
-                $expectedExecutedRemoteCommands += @{Command = "echo 'deb [signed-by=/usr/share/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/$expectedPackageShortK8sVersion/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.list"; IgnoreErrors = $false} 
-                $expectedExecutedRemoteCommands += @{Command = 'sudo apt-get update'; IgnoreErrors = $false} 
-                $expectedExecutedRemoteCommands += @{Command = 'sudo apt-mark hold kubelet kubeadm kubectl'; IgnoreErrors = $false} 
+                $expectedExecutedRemoteCommands += @{Command = "[ -f $expectedCRIO_CNI_FILE ] && sudo mv $expectedCRIO_CNI_FILE /etc/cni/net.d/100-crio-bridge.conf || echo File does not exist, no renaming of cni file $expectedCRIO_CNI_FILE.." ; IgnoreErrors = $false } 
+                $expectedExecutedRemoteCommands += @{Command = 'sudo echo unqualified-search-registries = [\\\"docker.io\\\"] | sudo tee -a /etc/containers/registries.conf'; IgnoreErrors = $false } 
+                $expectedExecutedRemoteCommands += @{Command = 'sudo apt-get update'; IgnoreErrors = $false } 
+                $expectedExecutedRemoteCommands += @{Command = 'sudo DEBIAN_FRONTEND=noninteractive apt-get install -qq --yes apt-transport-https ca-certificates curl'; IgnoreErrors = $false } 
+                $expectedExecutedRemoteCommands += @{Command = "sudo curl --retry 3 --retry-all-errors -fsSL https://pkgs.k8s.io/core:/stable:/$expectedPackageShortK8sVersion/deb/Release.key$curlProxy | sudo gpg --dearmor -o /usr/share/keyrings/kubernetes-apt-keyring.gpg"; IgnoreErrors = $true } 
+                $expectedExecutedRemoteCommands += @{Command = "echo 'deb [signed-by=/usr/share/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/$expectedPackageShortK8sVersion/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.list"; IgnoreErrors = $false } 
+                $expectedExecutedRemoteCommands += @{Command = 'sudo apt-get update'; IgnoreErrors = $false } 
+                $expectedExecutedRemoteCommands += @{Command = 'sudo apt-mark hold kubelet kubeadm kubectl'; IgnoreErrors = $false } 
                 if ($PSVersionTable.PSVersion.Major -gt 5) {
-                    $expectedExecutedRemoteCommands += @{Command = "pauseImageToUse=`"`$(kubeadm config images list --kubernetes-version $expectedK8sVersion | grep `"pause`")`" && newTextLine=`$(echo pause_image = '`"'`$pauseImageToUse'`"') && sudo sed -i `"s#.*pause_image[ ]*=.*pause.*#`$newTextLine#`" /etc/crio/crio.conf"; IgnoreErrors = $false} 
-                } else {
-                    $expectedExecutedRemoteCommands += @{Command = "pauseImageToUse=`"`$(kubeadm config images list --kubernetes-version $expectedK8sVersion | grep \`"pause\`")`" && newTextLine=`$(echo pause_image = '\`"'`$pauseImageToUse'\`"') && sudo sed -i \`"s#.*pause_image[ ]*=.*pause.*#`$newTextLine#\`" /etc/crio/crio.conf"; IgnoreErrors = $false} 
+                    $expectedExecutedRemoteCommands += @{Command = "pauseImageToUse=`"`$(kubeadm config images list --kubernetes-version $expectedK8sVersion | grep `"pause`")`" && newTextLine=`$(echo pause_image = '`"'`$pauseImageToUse'`"') && sudo sed -i `"s#.*pause_image[ ]*=.*pause.*#`$newTextLine#`" /etc/crio/crio.conf"; IgnoreErrors = $false } 
                 }
-                $expectedExecutedRemoteCommands += @{Command = "sudo systemctl daemon-reload"; IgnoreErrors = $false} 
-                $expectedExecutedRemoteCommands += @{Command = "sudo systemctl enable crio"; IgnoreErrors = $true} 
-                $expectedExecutedRemoteCommands += @{Command = 'sudo systemctl start crio'; IgnoreErrors = $false} 
-                $expectedExecutedRemoteCommands += @{Command = "sudo kubeadm config images pull --kubernetes-version $expectedK8sVersion" ; IgnoreErrors = $false} 
+                else {
+                    $expectedExecutedRemoteCommands += @{Command = "pauseImageToUse=`"`$(kubeadm config images list --kubernetes-version $expectedK8sVersion | grep \`"pause\`")`" && newTextLine=`$(echo pause_image = '\`"'`$pauseImageToUse'\`"') && sudo sed -i \`"s#.*pause_image[ ]*=.*pause.*#`$newTextLine#\`" /etc/crio/crio.conf"; IgnoreErrors = $false } 
+                }
+                $expectedExecutedRemoteCommands += @{Command = 'sudo systemctl daemon-reload'; IgnoreErrors = $false } 
+                $expectedExecutedRemoteCommands += @{Command = 'sudo systemctl enable crio'; IgnoreErrors = $true } 
+                $expectedExecutedRemoteCommands += @{Command = 'sudo systemctl start crio'; IgnoreErrors = $false } 
+                $expectedExecutedRemoteCommands += @{Command = "sudo kubeadm config images pull --kubernetes-version $expectedK8sVersion" ; IgnoreErrors = $false } 
 
                 $expectedUser = "$expectedUserName@$expectedIpAddress"
                 $global:actualExecutedRemoteCommands = @()
@@ -530,7 +538,7 @@ Describe 'Install-KubernetesArtifacts' -Tag 'unit', 'linuxnode' {
     }
 }
 
-Describe 'Install-Tools' -Tag 'unit', 'linuxnode' {
+Describe 'Install-Tools' -Tag 'unit', 'ci', 'linuxnode' {
     Context "parameter's existence" {
         It 'UserName' {
             InModuleScope $linuxNodeModuleName {
@@ -564,7 +572,7 @@ Describe 'Install-Tools' -Tag 'unit', 'linuxnode' {
         It 'IpAddress' {
             InModuleScope $linuxNodeModuleName {
                 Mock Get-IsValidIPv4Address { $false }
-                { Install-Tools -UserName 'anyNonEmptyOrNullValue' -UserPwd 'anyPwd' -IpAddress 'anyIpAddress'} | Get-ExceptionMessage | Should -BeLike '*IpAddress*'
+                { Install-Tools -UserName 'anyNonEmptyOrNullValue' -UserPwd 'anyPwd' -IpAddress 'anyIpAddress' } | Get-ExceptionMessage | Should -BeLike '*IpAddress*'
 
                 Should -Invoke -CommandName Get-IsValidIPv4Address -Times 1 -ParameterFilter { $Value -eq 'anyIpAddress' }
             }
@@ -582,7 +590,7 @@ Describe 'Install-Tools' -Tag 'unit', 'linuxnode' {
                 Mock Write-Log { }
                 $expectedExecutedRemoteCommands = @()
                 $expectedExecutedRemoteCommands += 'sudo DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Options::="--force-confnew" install buildah --yes'
-                $expectedExecutedRemoteCommands += "sudo DEBIAN_FRONTEND=noninteractive apt-get install -qq --yes software-properties-common"
+                $expectedExecutedRemoteCommands += 'sudo DEBIAN_FRONTEND=noninteractive apt-get install -qq --yes software-properties-common'
                 $expectedExecutedRemoteCommands += 'sudo DEBIAN_FRONTEND=noninteractive apt-get update -qq --yes'
                 $expectedExecutedRemoteCommands += 'sudo DEBIAN_FRONTEND=noninteractive apt-get install -t bookworm --no-install-recommends --no-install-suggests buildah --yes' 
                 $expectedExecutedRemoteCommands += 'sudo buildah -v' 
@@ -591,10 +599,11 @@ Describe 'Install-Tools' -Tag 'unit', 'linuxnode' {
                 $expectedExecutedRemoteCommands += "sudo apt-add-repository 'deb http://deb.debian.org/debian-security/ bookworm-security main' -r"
                 $expectedExecutedRemoteCommands += 'sudo DEBIAN_FRONTEND=noninteractive apt-get update -qq --yes' 
                 if ($proxyToUse -ne '') {
-                    $expectedExecutedRemoteCommands += "echo [engine] | sudo tee -a /etc/containers/containers.conf"
+                    $expectedExecutedRemoteCommands += 'echo [engine] | sudo tee -a /etc/containers/containers.conf'
                     if ($PSVersionTable.PSVersion.Major -gt 5) {
                         $expectedExecutedRemoteCommands += "echo env = [\""https_proxy=$proxyToUse\""] | sudo tee -a /etc/containers/containers.conf"
-                    } else {
+                    }
+                    else {
                         $expectedExecutedRemoteCommands += "echo env = [\\\""https_proxy=$proxyToUse\\\""] | sudo tee -a /etc/containers/containers.conf"
                     }
                 }
@@ -602,17 +611,18 @@ Describe 'Install-Tools' -Tag 'unit', 'linuxnode' {
                 $token = Get-RegistryToken
                 if ($PSVersionTable.PSVersion.Major -gt 5) {
                     $jsonConfig = @{
-                        "auths" = @{
-                            "shsk2s.azurecr.io" = @{
-                                "auth" = "$token"
+                        'auths' = @{
+                            'shsk2s.azurecr.io' = @{
+                                'auth' = "$token"
                             }
                         }
                     }
-                } else {
+                }
+                else {
                     $jsonConfig = @{
-                        """auths""" = @{
-                            """shsk2s.azurecr.io""" = @{
-                                """auth""" = """$token"""
+                        '"auths"' = @{
+                            '"shsk2s.azurecr.io"' = @{
+                                '"auth"' = """$token"""
                             }
                         }
                     }
@@ -620,13 +630,14 @@ Describe 'Install-Tools' -Tag 'unit', 'linuxnode' {
                 
                 $jsonString = ConvertTo-Json -InputObject $jsonConfig
                 $expectedExecutedRemoteCommands += "echo -e '$jsonString' | sudo tee /tmp/auth.json"
-                $expectedExecutedRemoteCommands += "sudo mkdir -p /root/.config/containers"
+                $expectedExecutedRemoteCommands += 'sudo mkdir -p /root/.config/containers'
                 $expectedExecutedRemoteCommands += 'sudo mv /tmp/auth.json /root/.config/containers/auth.json' 
 
                 if ($PSVersionTable.PSVersion.Major -gt 5) {
-                    $expectedExecutedRemoteCommands += "sudo echo unqualified-search-registries = [\""docker.io\"", \""quay.io\""] | sudo tee -a /etc/containers/registries.conf"
-                } else {
-                    $expectedExecutedRemoteCommands += "sudo echo unqualified-search-registries = [\\\""docker.io\\\"", \\\""quay.io\\\""] | sudo tee -a /etc/containers/registries.conf"
+                    $expectedExecutedRemoteCommands += 'sudo echo unqualified-search-registries = [\"docker.io\", \"quay.io\"] | sudo tee -a /etc/containers/registries.conf'
+                }
+                else {
+                    $expectedExecutedRemoteCommands += 'sudo echo unqualified-search-registries = [\\\"docker.io\\\", \\\"quay.io\\\"] | sudo tee -a /etc/containers/registries.conf'
                 }
                 $expectedExecutedRemoteCommands += 'sudo systemctl daemon-reload'
                 $expectedExecutedRemoteCommands += 'sudo systemctl restart crio'
@@ -655,7 +666,7 @@ Describe 'Install-Tools' -Tag 'unit', 'linuxnode' {
     }
 }
 
-Describe 'Add-SupportForWSL' -Tag 'unit', 'linuxnode' {
+Describe 'Add-SupportForWSL' -Tag 'unit', 'ci', 'linuxnode' {
     Context "parameter's existence" {
         It 'UserName' {
             InModuleScope $linuxNodeModuleName {
@@ -703,7 +714,7 @@ Describe 'Add-SupportForWSL' -Tag 'unit', 'linuxnode' {
         It 'IpAddress' {
             InModuleScope $linuxNodeModuleName {
                 Mock Get-IsValidIPv4Address { $false }
-                { Add-SupportForWSL -UserName 'anyNonEmptyOrNullValue' -UserPwd 'anyPwd' -IpAddress 'anyIpAddress'} | Get-ExceptionMessage | Should -BeLike '*IpAddress*'
+                { Add-SupportForWSL -UserName 'anyNonEmptyOrNullValue' -UserPwd 'anyPwd' -IpAddress 'anyIpAddress' } | Get-ExceptionMessage | Should -BeLike '*IpAddress*'
 
                 Should -Invoke -CommandName Get-IsValidIPv4Address -Times 1 -ParameterFilter { $Value -eq 'anyIpAddress' }
             }
@@ -728,7 +739,7 @@ Describe 'Add-SupportForWSL' -Tag 'unit', 'linuxnode' {
                 $expectedGatewayIP = 'anyGatewayIP'
                 Mock Get-IsValidIPv4Address { $true } -ParameterFilter { $Value -eq $expectedIpAddress }
                 Mock Get-IsValidIPv4Address { $false } -ParameterFilter { $Value -eq $expectedGatewayIP }
-                { Add-SupportForWSL -UserName 'anyNonEmptyOrNullValue' -UserPwd 'anyPwd' -IpAddress $expectedIpAddress  -NetworkInterfaceName 'anyNetworkInterfaceName' -GatewayIP $expectedGatewayIP } | Get-ExceptionMessage | Should -BeLike '*GatewayIP*'
+                { Add-SupportForWSL -UserName 'anyNonEmptyOrNullValue' -UserPwd 'anyPwd' -IpAddress $expectedIpAddress -NetworkInterfaceName 'anyNetworkInterfaceName' -GatewayIP $expectedGatewayIP } | Get-ExceptionMessage | Should -BeLike '*GatewayIP*'
 
                 Should -Invoke -CommandName Get-IsValidIPv4Address -Times 1 -ParameterFilter { $Value -eq $expectedGatewayIP }
             }
@@ -746,26 +757,26 @@ Describe 'Add-SupportForWSL' -Tag 'unit', 'linuxnode' {
                 Mock Get-IsValidIPv4Address { $true }
                 Mock Write-Log { }
                 $expectedExecutedRemoteCommands = @()
-                $expectedExecutedRemoteCommands += "sudo touch /etc/wsl.conf" 
-                $expectedExecutedRemoteCommands += "echo [automount] | sudo tee -a /etc/wsl.conf" 
-                $expectedExecutedRemoteCommands += "echo enabled = false | sudo tee -a /etc/wsl.conf" 
+                $expectedExecutedRemoteCommands += 'sudo touch /etc/wsl.conf' 
+                $expectedExecutedRemoteCommands += 'echo [automount] | sudo tee -a /etc/wsl.conf' 
+                $expectedExecutedRemoteCommands += 'echo enabled = false | sudo tee -a /etc/wsl.conf' 
                 $expectedExecutedRemoteCommands += "echo -e 'mountFsTab = false\n' | sudo tee -a /etc/wsl.conf" 
 
-                $expectedExecutedRemoteCommands += "echo [interop] | sudo tee -a /etc/wsl.conf" 
-                $expectedExecutedRemoteCommands += "echo enabled = false | sudo tee -a /etc/wsl.conf" 
+                $expectedExecutedRemoteCommands += 'echo [interop] | sudo tee -a /etc/wsl.conf' 
+                $expectedExecutedRemoteCommands += 'echo enabled = false | sudo tee -a /etc/wsl.conf' 
                 $expectedExecutedRemoteCommands += "echo -e 'appendWindowsPath = false\n' | sudo tee -a /etc/wsl.conf" 
 
-                $expectedExecutedRemoteCommands += "echo [user] | sudo tee -a /etc/wsl.conf" 
+                $expectedExecutedRemoteCommands += 'echo [user] | sudo tee -a /etc/wsl.conf' 
                 $expectedExecutedRemoteCommands += "echo -e 'default = $expectedUserName\n' | sudo tee -a /etc/wsl.conf" 
 
-                $expectedExecutedRemoteCommands += "echo [network] | sudo tee -a /etc/wsl.conf" 
-                $expectedExecutedRemoteCommands += "echo generateHosts = false | sudo tee -a /etc/wsl.conf" 
-                $expectedExecutedRemoteCommands += "echo generateResolvConf = false | sudo tee -a /etc/wsl.conf" 
+                $expectedExecutedRemoteCommands += 'echo [network] | sudo tee -a /etc/wsl.conf' 
+                $expectedExecutedRemoteCommands += 'echo generateHosts = false | sudo tee -a /etc/wsl.conf' 
+                $expectedExecutedRemoteCommands += 'echo generateResolvConf = false | sudo tee -a /etc/wsl.conf' 
                 $expectedExecutedRemoteCommands += "echo hostname = `$(hostname) | sudo tee -a /etc/wsl.conf"
-                $expectedExecutedRemoteCommands += "echo | sudo tee -a /etc/wsl.conf"
+                $expectedExecutedRemoteCommands += 'echo | sudo tee -a /etc/wsl.conf'
 
-                $expectedExecutedRemoteCommands += "echo [boot] | sudo tee -a /etc/wsl.conf" 
-                $expectedExecutedRemoteCommands += "echo systemd = true | sudo tee -a /etc/wsl.conf" 
+                $expectedExecutedRemoteCommands += 'echo [boot] | sudo tee -a /etc/wsl.conf' 
+                $expectedExecutedRemoteCommands += 'echo systemd = true | sudo tee -a /etc/wsl.conf' 
                 $expectedExecutedRemoteCommands += "echo 'command = ""sudo ifconfig $expectedNetworkInterfaceName $expectedIpAddress && sudo ifconfig $expectedNetworkInterfaceName netmask 255.255.255.0"" && sudo route add default gw $expectedGatewayIp' | sudo tee -a /etc/wsl.conf" 
 
                 
@@ -787,7 +798,7 @@ Describe 'Add-SupportForWSL' -Tag 'unit', 'linuxnode' {
     }
 }
 
-Describe 'Set-UpMasterNode' -Tag 'unit', 'linuxnode' {
+Describe 'Set-UpMasterNode' -Tag 'unit', 'ci', 'linuxnode' {
     Context "parameter's existence" {
         It 'UserName' {
             InModuleScope $linuxNodeModuleName {
@@ -843,7 +854,7 @@ Describe 'Set-UpMasterNode' -Tag 'unit', 'linuxnode' {
             InModuleScope $linuxNodeModuleName {
                 Mock Get-IsValidIPv4Address { $true }
 
-                { Set-UpMasterNode -UserName 'anyNonEmptyOrNullValue' -UserPwd 'anyPwd' -IpAddress 'anyIpAddress' -K8sVersion 'anyVersion' -ClusterCIDR 'anyValue' -ClusterCIDR_Services 'anyValue' -KubeDnsServiceIP 'anyValue' -IP_NextHop 'anyValue'} | Get-ExceptionMessage | Should -BeLike '*NetworkInterfaceName*'
+                { Set-UpMasterNode -UserName 'anyNonEmptyOrNullValue' -UserPwd 'anyPwd' -IpAddress 'anyIpAddress' -K8sVersion 'anyVersion' -ClusterCIDR 'anyValue' -ClusterCIDR_Services 'anyValue' -KubeDnsServiceIP 'anyValue' -IP_NextHop 'anyValue' } | Get-ExceptionMessage | Should -BeLike '*NetworkInterfaceName*'
             }
         }
         It 'NetworkInterfaceCni0IP_Master' {
@@ -877,7 +888,7 @@ Describe 'Set-UpMasterNode' -Tag 'unit', 'linuxnode' {
         It 'IpAddress' {
             InModuleScope $linuxNodeModuleName {
                 Mock Get-IsValidIPv4Address { $false }
-                { Set-UpMasterNode -UserName 'anyNonEmptyOrNullValue' -UserPwd 'anyPwd' -IpAddress 'anyIpAddress'} | Get-ExceptionMessage | Should -BeLike '*IpAddress*'
+                { Set-UpMasterNode -UserName 'anyNonEmptyOrNullValue' -UserPwd 'anyPwd' -IpAddress 'anyIpAddress' } | Get-ExceptionMessage | Should -BeLike '*IpAddress*'
 
                 Should -Invoke -CommandName Get-IsValidIPv4Address -Times 1 -ParameterFilter { $Value -eq 'anyIpAddress' }
             }
@@ -1002,9 +1013,9 @@ Describe 'Set-UpMasterNode' -Tag 'unit', 'linuxnode' {
                 }
                 $expectedExecutedRemoteCommands = @()
                 $expectedExecutedRemoteCommands += @{Command = "sudo kubeadm init --kubernetes-version $expectedK8sVersion --apiserver-advertise-address $expectedIpAddress --pod-network-cidr=$expectedClusterCIDR --service-cidr=$expectedClusterCIDR_Services"; IgnoreErrors = $true }
-                $expectedExecutedRemoteCommands += @{Command = "mkdir -p ~/.kube"; IgnoreErrors = $false }
-                $expectedExecutedRemoteCommands += @{Command = "chmod 755 ~/.kube"; IgnoreErrors = $false }
-                $expectedExecutedRemoteCommands += @{Command = "sudo cp /etc/kubernetes/admin.conf ~/.kube/config"; IgnoreErrors = $false }
+                $expectedExecutedRemoteCommands += @{Command = 'mkdir -p ~/.kube'; IgnoreErrors = $false }
+                $expectedExecutedRemoteCommands += @{Command = 'chmod 755 ~/.kube'; IgnoreErrors = $false }
+                $expectedExecutedRemoteCommands += @{Command = 'sudo cp /etc/kubernetes/admin.conf ~/.kube/config'; IgnoreErrors = $false }
                 $expectedExecutedRemoteCommands += @{Command = "sudo chown $expectedUserName ~/.kube/config" ; IgnoreErrors = $false }
                 $expectedExecutedRemoteCommands += @{Command = 'kubectl get nodes'; IgnoreErrors = $false }
                 $expectedExecutedRemoteCommands += @{Command = 'sudo DEBIAN_FRONTEND=noninteractive apt-get install dnsutils --yes'; IgnoreErrors = $false }
@@ -1016,7 +1027,7 @@ Describe 'Set-UpMasterNode' -Tag 'unit', 'linuxnode' {
                 $expectedExecutedRemoteCommands += @{Command = 'echo interface=lo | sudo tee -a /etc/dnsmasq.conf'; IgnoreErrors = $false }
                 $expectedExecutedRemoteCommands += @{Command = 'sudo systemctl restart dnsmasq'; IgnoreErrors = $false }
                 $expectedExecutedRemoteCommands += @{Command = "kubectl get configmap/coredns -n kube-system -o yaml | sed -e 's|forward . /etc/resolv.conf|forward . $expectedNetworkInterfaceCni0IP_Master|' | kubectl apply -f -"; IgnoreErrors = $true }
-                $expectedExecutedRemoteCommands += @{Command = "sudo chattr -i /etc/resolv.conf"; IgnoreErrors = $false }
+                $expectedExecutedRemoteCommands += @{Command = 'sudo chattr -i /etc/resolv.conf'; IgnoreErrors = $false }
                 $expectedExecutedRemoteCommands += @{Command = "echo 'nameserver 127.0.0.1' | sudo tee /etc/resolv.conf"; IgnoreErrors = $false }
                 
                 $expectedUser = "$expectedUserName@$expectedIpAddress"
@@ -1041,7 +1052,7 @@ Describe 'Set-UpMasterNode' -Tag 'unit', 'linuxnode' {
     }
 }
 
-Describe 'Add-FlannelPluginToMasterNode' -Tag 'unit', 'linuxnode' {
+Describe 'Add-FlannelPluginToMasterNode' -Tag 'unit', 'ci', 'linuxnode' {
     Context "parameter's existence" {
         It 'UserName' {
             InModuleScope $linuxNodeModuleName {
@@ -1082,7 +1093,7 @@ Describe 'Add-FlannelPluginToMasterNode' -Tag 'unit', 'linuxnode' {
         It 'IpAddress' {
             InModuleScope $linuxNodeModuleName {
                 Mock Get-IsValidIPv4Address { $false }
-                { Add-FlannelPluginToMasterNode -UserName 'anyNonEmptyOrNullValue' -UserPwd 'anyPwd' -IpAddress 'anyIpAddress'} | Get-ExceptionMessage | Should -BeLike '*IpAddress*'
+                { Add-FlannelPluginToMasterNode -UserName 'anyNonEmptyOrNullValue' -UserPwd 'anyPwd' -IpAddress 'anyIpAddress' } | Get-ExceptionMessage | Should -BeLike '*IpAddress*'
 
                 Should -Invoke -CommandName Get-IsValidIPv4Address -Times 1 -ParameterFilter { $Value -eq 'anyIpAddress' }
             }
@@ -1104,7 +1115,7 @@ Describe 'Add-FlannelPluginToMasterNode' -Tag 'unit', 'linuxnode' {
     }
 }
 
-Describe 'New-KubernetesNode' -Tag 'unit', 'linuxnode' {
+Describe 'New-KubernetesNode' -Tag 'unit', 'ci', 'linuxnode' {
     Context "parameter's existence" {
         It 'UserName' {
             InModuleScope $linuxNodeModuleName {
@@ -1152,7 +1163,7 @@ Describe 'New-KubernetesNode' -Tag 'unit', 'linuxnode' {
         It 'IpAddress' {
             InModuleScope $linuxNodeModuleName {
                 Mock Get-IsValidIPv4Address { $false }
-                { New-KubernetesNode -UserName 'anyNonEmptyOrNullValue' -UserPwd 'anyPwd' -IpAddress 'anyIpAddress'} | Get-ExceptionMessage | Should -BeLike '*IpAddress*'
+                { New-KubernetesNode -UserName 'anyNonEmptyOrNullValue' -UserPwd 'anyPwd' -IpAddress 'anyIpAddress' } | Get-ExceptionMessage | Should -BeLike '*IpAddress*'
 
                 Should -Invoke -CommandName Get-IsValidIPv4Address -Times 1 -ParameterFilter { $Value -eq 'anyIpAddress' }
             }
@@ -1229,22 +1240,22 @@ Describe 'New-KubernetesNode' -Tag 'unit', 'linuxnode' {
     }
 }
 
-Describe 'New-MasterNode' -Tag 'unit', 'linuxnode' {
+Describe 'New-MasterNode' -Tag 'unit', 'ci', 'linuxnode' {
     BeforeEach {
         $DefaultParameterValues = @{
-            UserName = 'myUserName'
-            UserPwd = 'myUserPwd'
-            IpAddress = 'myIpAddress'
-            K8sVersion = 'myK8sVersion'
-            CrioVersion = 'myCrioVersion'
-            ClusterCIDR = 'myClusterCIDR'
-            ClusterCIDR_Services = 'myClusterCIDR_Services'
-            KubeDnsServiceIP = 'myKubeDnsServiceIP'
-            GatewayIP = 'myGatewayIP'
-            NetworkInterfaceName = 'myNetworkInterfaceName'
+            UserName                      = 'myUserName'
+            UserPwd                       = 'myUserPwd'
+            IpAddress                     = 'myIpAddress'
+            K8sVersion                    = 'myK8sVersion'
+            CrioVersion                   = 'myCrioVersion'
+            ClusterCIDR                   = 'myClusterCIDR'
+            ClusterCIDR_Services          = 'myClusterCIDR_Services'
+            KubeDnsServiceIP              = 'myKubeDnsServiceIP'
+            GatewayIP                     = 'myGatewayIP'
+            NetworkInterfaceName          = 'myNetworkInterfaceName'
             NetworkInterfaceCni0IP_Master = 'myNetworkInterfaceCni0IP_Master'
-            Proxy = 'myProxy'
-            Hook = { }
+            Proxy                         = 'myProxy'
+            Hook                          = { }
         }
     }
     Context "parameter's existence" {
@@ -1260,11 +1271,11 @@ Describe 'New-MasterNode' -Tag 'unit', 'linuxnode' {
         }
         It 'UserPwd' {
             InModuleScope $linuxNodeModuleName -Parameters @{ DefaultParameterValues = $DefaultParameterValues } {
-                 # arrange
-                 Mock Get-IsValidIPv4Address { $true }
-                 $DefaultParameterValues.Remove('UserPwd')
+                # arrange
+                Mock Get-IsValidIPv4Address { $true }
+                $DefaultParameterValues.Remove('UserPwd')
  
-                 # act + assert
+                # act + assert
                 { New-MasterNode @DefaultParameterValues } | Get-ExceptionMessage | Should -BeLike '*UserPwd*'
             }
         }
@@ -1275,7 +1286,7 @@ Describe 'New-MasterNode' -Tag 'unit', 'linuxnode' {
                 $DefaultParameterValues.Remove('IpAddress')
 
                 # act + assert
-               { New-MasterNode @DefaultParameterValues } | Get-ExceptionMessage | Should -BeLike '*IpAddress*'
+                { New-MasterNode @DefaultParameterValues } | Get-ExceptionMessage | Should -BeLike '*IpAddress*'
             }
         }
         It 'K8sVersion' {
@@ -1285,7 +1296,7 @@ Describe 'New-MasterNode' -Tag 'unit', 'linuxnode' {
                 $DefaultParameterValues.Remove('K8sVersion')
 
                 # act + assert
-               { New-MasterNode @DefaultParameterValues } | Get-ExceptionMessage | Should -BeLike '*K8sVersion*'
+                { New-MasterNode @DefaultParameterValues } | Get-ExceptionMessage | Should -BeLike '*K8sVersion*'
             }
         }
         It 'CrioVersion' {
@@ -1295,7 +1306,7 @@ Describe 'New-MasterNode' -Tag 'unit', 'linuxnode' {
                 $DefaultParameterValues.Remove('CrioVersion')
 
                 # act + assert
-               { New-MasterNode @DefaultParameterValues } | Get-ExceptionMessage | Should -BeLike '*CrioVersion*'
+                { New-MasterNode @DefaultParameterValues } | Get-ExceptionMessage | Should -BeLike '*CrioVersion*'
             }
         }
         It 'ClusterCIDR' {
@@ -1305,16 +1316,16 @@ Describe 'New-MasterNode' -Tag 'unit', 'linuxnode' {
                 $DefaultParameterValues.Remove('ClusterCIDR')
 
                 # act + assert
-               { New-MasterNode @DefaultParameterValues }  | Get-ExceptionMessage | Should -BeLike '*ClusterCIDR*'
+                { New-MasterNode @DefaultParameterValues } | Get-ExceptionMessage | Should -BeLike '*ClusterCIDR*'
             }
         }
         It 'ClusterCIDR_Services' {
             InModuleScope $linuxNodeModuleName -Parameters @{ DefaultParameterValues = $DefaultParameterValues } {
-                 # arrange
-                 Mock Get-IsValidIPv4Address { $true }
-                 $DefaultParameterValues.Remove('ClusterCIDR_Services')
+                # arrange
+                Mock Get-IsValidIPv4Address { $true }
+                $DefaultParameterValues.Remove('ClusterCIDR_Services')
  
-                 # act + assert
+                # act + assert
                 { New-MasterNode @DefaultParameterValues } | Get-ExceptionMessage | Should -BeLike '*ClusterCIDR_Services*'
             }
         }
@@ -1325,7 +1336,7 @@ Describe 'New-MasterNode' -Tag 'unit', 'linuxnode' {
                 $DefaultParameterValues.Remove('KubeDnsServiceIP')
 
                 # act + assert
-               { New-MasterNode @DefaultParameterValues } | Get-ExceptionMessage | Should -BeLike '*KubeDnsServiceIP*'
+                { New-MasterNode @DefaultParameterValues } | Get-ExceptionMessage | Should -BeLike '*KubeDnsServiceIP*'
             }
         }
         It 'GatewayIP' {
@@ -1335,7 +1346,7 @@ Describe 'New-MasterNode' -Tag 'unit', 'linuxnode' {
                 $DefaultParameterValues.Remove('GatewayIP')
 
                 # act + assert
-               { New-MasterNode @DefaultParameterValues } | Get-ExceptionMessage | Should -BeLike '*GatewayIP*'
+                { New-MasterNode @DefaultParameterValues } | Get-ExceptionMessage | Should -BeLike '*GatewayIP*'
             }
         }
         It 'NetworkInterfaceName' {
@@ -1345,7 +1356,7 @@ Describe 'New-MasterNode' -Tag 'unit', 'linuxnode' {
                 $DefaultParameterValues.Remove('NetworkInterfaceName')
 
                 # act + assert
-               { New-MasterNode @DefaultParameterValues }  | Get-ExceptionMessage | Should -BeLike '*NetworkInterfaceName*'
+                { New-MasterNode @DefaultParameterValues } | Get-ExceptionMessage | Should -BeLike '*NetworkInterfaceName*'
             }
         }
         It 'NetworkInterfaceCni0IP_Master' {
@@ -1355,7 +1366,7 @@ Describe 'New-MasterNode' -Tag 'unit', 'linuxnode' {
                 $DefaultParameterValues.Remove('NetworkInterfaceCni0IP_Master')
 
                 # act + assert
-               { New-MasterNode @DefaultParameterValues } | Get-ExceptionMessage | Should -BeLike '*NetworkInterfaceCni0IP_Master*'
+                { New-MasterNode @DefaultParameterValues } | Get-ExceptionMessage | Should -BeLike '*NetworkInterfaceCni0IP_Master*'
             }
         }
         It 'Hook' {
@@ -1365,7 +1376,7 @@ Describe 'New-MasterNode' -Tag 'unit', 'linuxnode' {
                 $DefaultParameterValues.Remove('Hook')
 
                 # act + assert
-               { New-MasterNode @DefaultParameterValues }  | Get-ExceptionMessage | Should -BeLike '*Hook*'
+                { New-MasterNode @DefaultParameterValues } | Get-ExceptionMessage | Should -BeLike '*Hook*'
             }
         }
     }
@@ -1446,7 +1457,7 @@ Describe 'New-MasterNode' -Tag 'unit', 'linuxnode' {
                 $DefaultParameterValues['ClusterCIDR'] = $clusterCIDRToUse
 
                 # act + assert
-                { New-MasterNode @DefaultParameterValues }  | Get-ExceptionMessage | Should -BeLike '*ClusterCIDR*'
+                { New-MasterNode @DefaultParameterValues } | Get-ExceptionMessage | Should -BeLike '*ClusterCIDR*'
             }
         }
         It "ClusterCIDR_Services '<clusterCIDR_ServicesToUse>'" -ForEach @(
@@ -1463,7 +1474,7 @@ Describe 'New-MasterNode' -Tag 'unit', 'linuxnode' {
                 $DefaultParameterValues['ClusterCIDR_Services'] = $clusterCIDR_ServicesToUse
 
                 # act + assert
-                { New-MasterNode @DefaultParameterValues }  | Get-ExceptionMessage | Should -BeLike '*ClusterCIDR_Services*'
+                { New-MasterNode @DefaultParameterValues } | Get-ExceptionMessage | Should -BeLike '*ClusterCIDR_Services*'
             }
         }
         It 'KubeDnsServiceIP' {
@@ -1518,7 +1529,7 @@ Describe 'New-MasterNode' -Tag 'unit', 'linuxnode' {
         }
     }
     Context 'execution' {
-        It "calls methods in right order (use default proxy value? <useDefaultProxyValue>)" -ForEach @(
+        It 'calls methods in right order (use default proxy value? <useDefaultProxyValue>)' -ForEach @(
             @{ useDefaultProxyValue = $true }
             @{ useDefaultProxyValue = $false }
         ) {
@@ -1526,7 +1537,8 @@ Describe 'New-MasterNode' -Tag 'unit', 'linuxnode' {
                 if ($useDefaultProxyValue) {
                     $expectedProxy = ''
                     $DefaultParameterValues.Remove('Proxy')
-                } else {
+                }
+                else {
                     $expectedProxy = $DefaultParameterValues.Proxy
                 }
                 # arrange
@@ -1546,7 +1558,7 @@ Describe 'New-MasterNode' -Tag 'unit', 'linuxnode' {
                 $global:actualMethodsCallOrder = @()
                 Mock Assert-MasterNodeComputerPrequisites { $global:actualMethodsCallOrder += 'Assert-MasterNodeComputerPrequisites' } -ParameterFilter { $UserName -eq $expectedUserName -and $UserPwd -eq $expectedUserPwd -and $IpAddress -eq $expectedIpAddress }
                 Mock New-KubernetesNode { $global:actualMethodsCallOrder += 'New-KubernetesNode' } -ParameterFilter { $UserName -eq $expectedUserName -and $UserPwd -eq $expectedUserPwd -and $IpAddress -eq $expectedIpAddress -and $K8sVersion -eq $expectedK8sVersion -and $CrioVersion -eq $expectedCrioVersion -and $Proxy -eq $expectedProxy }
-                Mock Set-UpMasterNode { $global:actualMethodsCallOrder += 'Set-UpMasterNode' }  -ParameterFilter { $UserName -eq $expectedUserName -and $UserPwd -eq $expectedUserPwd -and $IpAddress -eq $expectedIpAddress -and $K8sVersion -eq $expectedK8sVersion -and $ClusterCIDR -eq $expectedClusterCIDR -and $ClusterCIDR_Services -eq $expectedClusterCIDR_Services -and $KubeDnsServiceIP -eq $expectedKubeDnsServiceIP -and $IP_NextHop -eq $expectedGatewayIP -and $NetworkInterfaceName -eq $expectedNetworkInterfaceName -and $NetworkInterfaceCni0IP_Master -eq $expectedNetworkInterfaceCni0IP_Master -and $Hook -eq $expectedHook}
+                Mock Set-UpMasterNode { $global:actualMethodsCallOrder += 'Set-UpMasterNode' } -ParameterFilter { $UserName -eq $expectedUserName -and $UserPwd -eq $expectedUserPwd -and $IpAddress -eq $expectedIpAddress -and $K8sVersion -eq $expectedK8sVersion -and $ClusterCIDR -eq $expectedClusterCIDR -and $ClusterCIDR_Services -eq $expectedClusterCIDR_Services -and $KubeDnsServiceIP -eq $expectedKubeDnsServiceIP -and $IP_NextHop -eq $expectedGatewayIP -and $NetworkInterfaceName -eq $expectedNetworkInterfaceName -and $NetworkInterfaceCni0IP_Master -eq $expectedNetworkInterfaceCni0IP_Master -and $Hook -eq $expectedHook }
                 Mock Get-IsValidIPv4Address { $true }
 
                 # act

@@ -30,7 +30,7 @@ func (mo *mockObject) PrintCyanFg(text string) string {
 
 func TestSetupinfo(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "setupinfo Unit Tests", Label("unit"))
+	RunSpecs(t, "setupinfo Unit Tests", Label("unit", "ci"))
 }
 
 var _ = Describe("setupinfo", func() {

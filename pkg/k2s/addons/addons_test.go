@@ -77,7 +77,7 @@ func (m *mockObject) validateContent(addon Addon) error {
 
 func TestAddons(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "addons Unit Tests", Label("unit"))
+	RunSpecs(t, "addons Unit Tests", Label("unit", "ci"))
 }
 
 var _ = BeforeSuite(func() {
