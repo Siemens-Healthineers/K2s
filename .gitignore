@@ -94,6 +94,7 @@ tmp/addons.zip
 # apps in /pkg
 /pkg/**/*.exe
 
+# sbom
 build/bom/merge/bridge.json
 build/bom/merge/bridge.xml
 build/bom/merge/httpproxy.json
@@ -112,6 +113,7 @@ build/bom/merge/zap.json
 build/bom/merge/c-*.json
 
 bin/cyclonedx-win-x64.exe
+bin/cdxgen.exe
 bin/jq.exe
 bin/yq.exe
 
