@@ -29,7 +29,7 @@ func (t *testTerminalPrinter) PrintCyanFg(text string) string {
 
 func TestK8sversion(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "k8sversion Unit Tests", Label("unit"))
+	RunSpecs(t, "k8sversion Unit Tests", Label("unit", "ci"))
 }
 
 var _ = Describe("k8sversion", func() {

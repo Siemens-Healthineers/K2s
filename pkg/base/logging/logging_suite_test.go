@@ -13,7 +13,7 @@ import (
 
 func TestLogging(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Base Logging Integration Tests", Label("integration"), Label("logging"))
+	RunSpecs(t, "Base Logging Integration Tests", Label("integration", "logging"))
 }
 
 var _ = Describe("RootLogDir", func() {

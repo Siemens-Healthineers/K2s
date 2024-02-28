@@ -148,7 +148,7 @@ Define one or more tags at any level of a test node, here for a whole test suite
 // ...
 func TestHttpproxyUnitTests(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "httpproxy Unit Tests", Label("unit"))
+	RunSpecs(t, "httpproxy Unit Tests", Label("unit", "ci"))
 }
 // ...
 ```
