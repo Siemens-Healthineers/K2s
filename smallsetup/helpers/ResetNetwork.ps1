@@ -18,33 +18,37 @@ Param(
 &$PSScriptRoot\..\common\GlobalVariables.ps1
 
 $logModule = "$PSScriptRoot\..\ps-modules\log\log.module.psm1"
-$cliMessagesModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/cli-messages/cli-messages.module.psm1"
-Import-Module $logModule, $cliMessagesModule
+$infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
+
+Import-Module $logModule, $infraModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
 if ($Force -ne $true) {
     $answer = Read-Host 'WARNING: THIS DELETES ALL NETWORK SETTINGS. Continue? (y/N)'
     if ($answer -ne 'y') {
-        Write-Log 'Resetting network cancelled.'
+        $errMsg = 'Network reset cancelled.'
         if ($EncodeStructuredOutput -eq $true) {
-            Send-ToCli -MessageType $MessageType -Message @{Error = "Network reset cancelled." }
+            $err = New-Error -Severity Warning -Code (Get-ErrCodeUserCancellation) -Message $errMsg
+            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+            return
         }
-        return
+        Write-Log $errMsg -Error
+        exit 1
     }    
 }
 
-Write-Log "Removing HNS Network" 
+Write-Log 'Removing HNS Network' 
 Import-Module "$global:KubernetesPath\smallsetup\LoopbackAdapter.psm1" -Force
 Get-NetAdapter | Where-Object InterfaceDescription -like 'Microsoft KM-TEST Loopback Adapter*' | ForEach-Object { Remove-LoopbackAdapter -Name $_.Name -DevConExe $global:DevconExe }
 
 Get-HnsNetwork | Remove-HnsNetwork
-Write-Log "Delete Network Configuration"
+Write-Log 'Delete Network Configuration'
 netcfg -d
 
 if ($EncodeStructuredOutput -eq $true) {
     Send-ToCli -MessageType $MessageType -Message @{Error = $null }
 }
 
-Write-Log "Restart computer now?" -Console
+Write-Log 'Restart computer now?' -Console
 Restart-Computer -Confirm

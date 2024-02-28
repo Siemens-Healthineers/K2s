@@ -13,7 +13,7 @@ import (
 )
 
 type k2sImage struct {
-	internal *image.Images
+	internal *image.LoadedImages
 }
 
 // wrapper around k2s.exe to retrieve and parse the images list
@@ -46,8 +46,8 @@ func (status k2sImage) IsImageAvailable(name string, tag string) bool {
 	return false
 }
 
-func unmarshalImages(imagesJson string) *image.Images {
-	var images image.Images
+func unmarshalImages(imagesJson string) *image.LoadedImages {
+	var images image.LoadedImages
 
 	err := json.Unmarshal([]byte(imagesJson), &images)
 

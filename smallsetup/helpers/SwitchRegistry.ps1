@@ -21,20 +21,20 @@ $registryFunctionsModule = "$PSScriptRoot\RegistryFunctions.module.psm1"
 $clusterModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1"
 $imageFunctionsModule = "$PSScriptRoot\ImageFunctions.module.psm1"
 $logModule = "$PSScriptRoot\..\ps-modules\log\log.module.psm1"
-$cliModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.infra.module\cli-messages\cli-messages.module.psm1"
+$infraModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
 
-Import-Module $registryFunctionsModule, $clusterModule, $imageFunctionsModule, $cliModule -DisableNameChecking
+Import-Module $registryFunctionsModule, $clusterModule, $imageFunctionsModule, $infraModule -DisableNameChecking
 
 if (-not (Get-Module -Name $logModule -ListAvailable)) { Import-Module $logModule; Initialize-Logging -ShowLogs:$ShowLogs }
 
-$systemError = Test-SystemAvailability
+$systemError = Test-SystemAvailability -Structured
 if ($systemError) {
     if ($EncodeStructuredOutput -eq $true) {
         Send-ToCli -MessageType $MessageType -Message @{Error = $systemError }
         return
     }
 
-    Write-Log $systemError -Error
+    Write-Log $systemError.Message -Error
     exit 1
 }
 
@@ -42,19 +42,25 @@ $setupInfo = Get-SetupInfo
 
 $registries = $(Get-RegistriesFromSetupJson)
 if ($null -eq $registries) {
-    Write-Log 'No registries configured.' -Console
+    $errMsg = 'No registries configured.'    
     if ($EncodeStructuredOutput -eq $true) {
-        Send-ToCli -MessageType $MessageType -Message @{Error = $null }
+        $err = New-Error -Severity Warning -Code 'no-registry-configured' -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+        return
     }
-    return
+    Write-Log $errMsg -Error
+    exit 1
 }
 
 if ($registries.Contains($RegistryName) -ne $true) {
-    Write-Log "Registry $RegistryName not configured, please add it first." -Console
+    $errMsg = "Registry $RegistryName not configured, please add it first."    
     if ($EncodeStructuredOutput -eq $true) {
-        Send-ToCli -MessageType $MessageType -Message @{Error = $null }
+        $err = New-Error -Severity Warning -Code 'registry-not-configured' -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+        return
     }
-    return
+    Write-Log $errMsg -Error
+    exit 1
 }
 
 Write-Log "Trying to log in into $RegistryName" -Console

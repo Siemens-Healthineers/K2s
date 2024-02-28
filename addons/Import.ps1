@@ -25,21 +25,21 @@ Param (
 . $PSScriptRoot\..\smallsetup\common\GlobalFunctions.ps1
 
 $statusModule = "$PSScriptRoot/../lib/modules/k2s/k2s.cluster.module/status/status.module.psm1"
-$cliMessagesModule = "$PSScriptRoot/../lib/modules/k2s/k2s.infra.module/cli-messages/cli-messages.module.psm1"
+$infraModule = "$PSScriptRoot/../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $logModule = "$PSScriptRoot\..\smallsetup\ps-modules\log\log.module.psm1"
 
-Import-Module $logModule, $cliMessagesModule, $statusModule
+Import-Module $logModule, $infraModule, $statusModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
-$systemError = Test-SystemAvailability
+$systemError = Test-SystemAvailability -Structured
 if ($systemError) {
     if ($EncodeStructuredOutput -eq $true) {
         Send-ToCli -MessageType $MessageType -Message @{Error = $systemError }
         return
     }
 
-    Write-Log $systemError -Error
+    Write-Log $systemError.Message -Error
     exit 1
 }
 
@@ -52,9 +52,10 @@ Expand-Archive $ZipFile -DestinationPath "$dir\tmp-extracted-addons" -Force
 
 $exportedAddons = (Get-Content "$extractionFolder\addons.json" | Out-String | ConvertFrom-Json).addons
 if ($null -eq $exportedAddons -or $exportedAddons.Count -lt 1) {
-    $errMsg = 'Invalid format for addon import!'
+    $errMsg = 'Invalid format for addon import.'
     if ($EncodeStructuredOutput -eq $true) {
-        Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+        $err = New-Error -Code 'image-format-invalid' -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
         return
     }
                     
@@ -78,7 +79,8 @@ if ($Names.Count -gt 0) {
             Remove-Item -Force "$extractionFolder" -Recurse -Confirm:$False -ErrorAction SilentlyContinue
             $errMsg = "Addon `'$name`' not found in zip package for import!"
             if ($EncodeStructuredOutput -eq $true) {
-                Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+                $err = New-Error -Code (Get-ErrCodeAddonNotFound) -Message $errMsg
+                Send-ToCli -MessageType $MessageType -Message @{Error = $err }
                 return
             }
                     

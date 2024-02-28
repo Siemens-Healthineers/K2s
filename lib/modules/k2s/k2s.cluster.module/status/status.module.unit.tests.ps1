@@ -17,15 +17,13 @@ Describe 'Get-Status' -Tag 'unit' {
     Context 'progress display disabled' {
         Context 'setup name is invalid' {
             BeforeAll {
-                Mock -ModuleName $moduleName Get-SetupInfo { return @{Name = 'invalid'; Error = 'invalid type' } }
+                Mock -ModuleName $moduleName Get-SetupInfo { return @{ Error = 'invalid-name' } }
             }
             
-            It 'returns status with setup name info immediately without gathering additional data' {
+            It 'returns status with error immediately without gathering additional data' {
                 InModuleScope -ModuleName $moduleName {
                     $result = Get-Status
-                    $result.SetupInfo.Name | Should -Be 'invalid'
-                    $result.SetupInfo.Error | Should -Be 'invalid type'
-                    $result.SmbHostType | Should -BeNullOrEmpty
+                    $result.Error.Code | Should -Be 'invalid-name'
                 }
             }
         }

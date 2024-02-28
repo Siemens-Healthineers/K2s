@@ -15,8 +15,7 @@ import (
 	"k2s/cmd/params"
 	"k2s/providers/marshalling"
 	"k2s/providers/terminal"
-	"k2s/setupinfo"
-	"k2s/status"
+	se "k2s/setupinfo"
 	"k2s/utils"
 	"k2s/utils/psexecutor"
 )
@@ -25,11 +24,18 @@ type Spinner interface {
 	Stop() error
 }
 
-type Images struct {
+type LoadedImages struct {
 	common.CmdResult
 	ContainerImages   []containerImage `json:"containerimages"`
 	ContainerRegistry *string          `json:"containerregistry"`
 	PushedImages      []pushedImage    `json:"pushedimages"`
+}
+
+type PrintImages struct {
+	ContainerImages   []containerImage `json:"containerimages"`
+	ContainerRegistry *string          `json:"containerregistry"`
+	PushedImages      []pushedImage    `json:"pushedimages"`
+	Error             *string          `json:"error"`
 }
 
 type containerImage struct {
@@ -98,7 +104,7 @@ func listImages(cmd *cobra.Command, args []string) error {
 
 	terminalPrinter := terminal.NewTerminalPrinter()
 
-	getImagesFunc := func() (*Images, error) { return getImages(includeK8sImages) }
+	getImagesFunc := func() (*LoadedImages, error) { return getImages(includeK8sImages) }
 
 	if outputOption == jsonOption {
 		return printImagesAsJson(getImagesFunc, terminalPrinter.Println)
@@ -107,29 +113,29 @@ func listImages(cmd *cobra.Command, args []string) error {
 	return printImagesToUser(getImagesFunc, terminalPrinter)
 }
 
-func printImagesAsJson(getImagesFunc func() (*Images, error), printlnFunc func(m ...any)) error {
-	images, err := getImagesFunc()
+func printImagesAsJson(getImagesFunc func() (*LoadedImages, error), printlnFunc func(m ...any)) error {
+	loadedImages, err := getImagesFunc()
+	if err != nil {
+		return err
+	}
+
+	printImages := PrintImages{
+		ContainerImages:   loadedImages.ContainerImages,
+		ContainerRegistry: loadedImages.ContainerRegistry,
+		PushedImages:      loadedImages.PushedImages,
+	}
 
 	var deferredErr error
-
-	if err != nil {
-		deferredErr = errors.Join(err, common.ErrSilent)
-
-		if errors.Is(err, status.ErrNotRunning) {
-			errMsg := common.CmdError(status.ErrNotRunningMsg)
-			images = &Images{CmdResult: common.CmdResult{Error: &errMsg}}
-		} else if errors.Is(err, setupinfo.ErrNotInstalled) {
-			errMsg := common.CmdError(setupinfo.ErrNotInstalledMsg)
-			images = &Images{CmdResult: common.CmdResult{Error: &errMsg}}
-		} else {
-			return err
-		}
+	if loadedImages.Failure != nil {
+		printImages.Error = &loadedImages.Failure.Code
+		loadedImages.Failure.SuppressCliOutput = true
+		deferredErr = loadedImages.Failure
 	}
 
 	jsonMarshaller := marshalling.NewJsonMarshaller()
-	bytes, err := jsonMarshaller.MarshalIndent(images)
+	bytes, err := jsonMarshaller.MarshalIndent(printImages)
 	if err != nil {
-		return fmt.Errorf("error happened during list images: %w", err)
+		return fmt.Errorf("error happened during list images: %w", errors.Join(deferredErr, err))
 	}
 
 	printlnFunc(string(bytes))
@@ -137,7 +143,7 @@ func printImagesAsJson(getImagesFunc func() (*Images, error), printlnFunc func(m
 	return deferredErr
 }
 
-func printImagesToUser(getImagesFunc func() (*Images, error), printer terminal.TerminalPrinter) error {
+func printImagesToUser(getImagesFunc func() (*LoadedImages, error), printer terminal.TerminalPrinter) error {
 	spinner, err := startSpinner(printer)
 	if err != nil {
 		return err
@@ -153,6 +159,10 @@ func printImagesToUser(getImagesFunc func() (*Images, error), printer terminal.T
 	images, err := getImagesFunc()
 	if err != nil {
 		return err
+	}
+
+	if images.Failure != nil {
+		return images.Failure
 	}
 
 	if len(images.ContainerImages) > 0 {
@@ -186,7 +196,7 @@ func startSpinner(terminalPrinter terminal.TerminalPrinter) (Spinner, error) {
 	return spinner, nil
 }
 
-func getImages(includeK8sImages bool) (*Images, error) {
+func getImages(includeK8sImages bool) (*LoadedImages, error) {
 	cmd := utils.FormatScriptFilePath(utils.GetInstallationDirectory() + "\\lib\\scripts\\k2s\\image\\Get-Images.ps1")
 
 	var params []string
@@ -194,13 +204,12 @@ func getImages(includeK8sImages bool) (*Images, error) {
 		params = []string{"-IncludeK8sImages"}
 	}
 
-	images, err := psexecutor.ExecutePsWithStructuredResult[*Images](cmd, "StoredImages", psexecutor.ExecOptions{}, params...)
+	images, err := psexecutor.ExecutePsWithStructuredResult[*LoadedImages](cmd, "StoredImages", psexecutor.ExecOptions{}, params...)
 	if err != nil {
-		return nil, err
-	}
-
-	if images.Error != nil {
-		return nil, images.Error.ToError()
+		if !errors.Is(err, se.ErrSystemNotInstalled) {
+			return nil, err
+		}
+		images = &LoadedImages{CmdResult: common.CreateSystemNotInstalledCmdResult()}
 	}
 
 	return images, nil

@@ -35,47 +35,13 @@ func TestSetupinfo(t *testing.T) {
 
 var _ = Describe("setupinfo", func() {
 	Describe("PrintSetupInfo", func() {
-		When("Linux-only info is missing", func() {
+		When("info is null", func() {
 			It("returns error", func() {
-				version := "test-version"
-				name := si.SetupName("test-name")
-				info := si.SetupInfo{Version: &version, Name: &name}
-
 				sut := setupinfo.NewSetupInfoPrinter(nil)
 
-				actual, err := sut.PrintSetupInfo(info)
+				actual, err := sut.PrintSetupInfo(nil)
 
-				Expect(err).To(MatchError(ContainSubstring("no Linux-only information")))
-				Expect(actual).To(BeFalse())
-			})
-		})
-
-		When("setup name is missing", func() {
-			It("returns error", func() {
-				version := "test-version"
-				linuxonly := true
-				info := si.SetupInfo{Version: &version, LinuxOnly: &linuxonly}
-
-				sut := setupinfo.NewSetupInfoPrinter(nil)
-
-				actual, err := sut.PrintSetupInfo(info)
-
-				Expect(err).To(MatchError(ContainSubstring("no setup name")))
-				Expect(actual).To(BeFalse())
-			})
-		})
-
-		When("setup version is missing", func() {
-			It("returns error", func() {
-				name := si.SetupName("test-name")
-				linuxonly := true
-				info := si.SetupInfo{Name: &name, LinuxOnly: &linuxonly}
-
-				sut := setupinfo.NewSetupInfoPrinter(nil)
-
-				actual, err := sut.PrintSetupInfo(info)
-
-				Expect(err).To(MatchError(ContainSubstring("no setup version")))
+				Expect(err).To(MatchError(ContainSubstring("no setup information")))
 				Expect(actual).To(BeFalse())
 			})
 		})
@@ -84,8 +50,7 @@ var _ = Describe("setupinfo", func() {
 			It("prints setup info without Linux-only hint", func() {
 				name := si.SetupName("test-name")
 				version := "test-version"
-				linuxonly := false
-				info := si.SetupInfo{Name: &name, LinuxOnly: &linuxonly, Version: &version}
+				info := &si.SetupInfo{Name: name, LinuxOnly: false, Version: version}
 
 				printerMock := &mockObject{}
 				printerMock.On(reflection.GetFunctionName(printerMock.PrintCyanFg), string(name)).Return(string(name))
@@ -105,10 +70,8 @@ var _ = Describe("setupinfo", func() {
 
 		When("Linux-only", func() {
 			It("prints setup info with Linux-only hint", func() {
-				name := si.SetupName("test-name")
 				version := "test-version"
-				linuxonly := true
-				info := si.SetupInfo{Name: &name, LinuxOnly: &linuxonly, Version: &version}
+				info := &si.SetupInfo{Name: "test-name", LinuxOnly: true, Version: version}
 
 				printerMock := &mockObject{}
 				printerMock.On(reflection.GetFunctionName(printerMock.PrintCyanFg), "test-name (Linux-only)").Return("test-name (Linux-only)")

@@ -26,21 +26,24 @@ Param(
 . $PSScriptRoot\..\..\smallsetup\common\GlobalFunctions.ps1
 
 $logModule = "$PSScriptRoot/../../smallsetup/ps-modules/log/log.module.psm1"
-$cliMessagesModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/cli-messages/cli-messages.module.psm1"
+$infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $smbShareModule = "$PSScriptRoot\module\Smb-share.module.psm1"
 
-Import-Module $logModule, $cliMessagesModule, $smbShareModule
+Import-Module $logModule, $infraModule, $smbShareModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
 if ($Force -ne $true) {
     $answer = Read-Host 'WARNING: This DELETES ALL DATA of the shared SMB folder. Continue? (y/N)'
     if ($answer -ne 'y') {
-        Write-Log 'Disabling cancelled.' -Console
+        $errMsg = 'Disable smb-share cancelled.'
         if ($EncodeStructuredOutput -eq $true) {
-            Send-ToCli -MessageType $MessageType -Message @{Error = $null }
+            $err = New-Error -Severity Warning -Code (Get-ErrCodeUserCancellation) -Message $errMsg
+            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+            return
         }
-        return
+        Write-Log $errMsg -Error
+        exit 1
     }    
 }
 

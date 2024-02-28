@@ -51,14 +51,14 @@ $script = $MyInvocation.MyCommand.Name
 Write-Log "[$script] started with EncodeStructuredOutput='$EncodeStructuredOutput' and MessageType='$MessageType' and IncludeK8sImages='$IncludeK8sImages' and WorkerVM='$WorkerVM'"
 
 try {
-    $systemError = Test-SystemAvailability
+    $systemError = Test-SystemAvailability -Structured
     if ($systemError) {
         if ($EncodeStructuredOutput -eq $true) {
             Send-ToCli -MessageType $MessageType -Message @{Error = $systemError }
             return
         }
     
-        Write-Log $systemError -Error
+        Write-Log $systemError.Message -Error
         exit 1
     }
 

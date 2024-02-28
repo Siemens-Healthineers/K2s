@@ -4,9 +4,8 @@
 package podstatus
 
 import (
+	"k2s/cmd/status/common"
 	"testing"
-
-	"k2s/cmd/status/load"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -69,7 +68,7 @@ var _ = Describe("podstatus", func() {
 		It("prints pods", func() {
 			headerRowsCount := 1
 			printer := &testTerminalPrinter{}
-			pods := []load.Pod{{}, {}, {}}
+			pods := []common.Pod{{}, {}, {}}
 			expectedRowsCount := headerRowsCount + len(pods)
 			sut := NewPodStatusPrinter(printer)
 
@@ -90,7 +89,7 @@ var _ = Describe("podstatus", func() {
 				printer := &testTerminalPrinter{}
 				sut := NewPodStatusPrinter(printer)
 
-				sut.PrintPodStatus([]load.Pod{}, false)
+				sut.PrintPodStatus([]common.Pod{}, false)
 
 				Expect(len(printer.log)).To(BeNumerically(">=", 1))
 				Expect(printer.log[0].logType).To(Equal(itemsLogType))
@@ -109,7 +108,7 @@ var _ = Describe("podstatus", func() {
 				printer := &testTerminalPrinter{}
 				sut := NewPodStatusPrinter(printer)
 
-				sut.PrintPodStatus([]load.Pod{}, true)
+				sut.PrintPodStatus([]common.Pod{}, true)
 
 				Expect(len(printer.log)).To(BeNumerically(">=", 1))
 				Expect(printer.log[0].logType).To(Equal(itemsLogType))
@@ -123,7 +122,7 @@ var _ = Describe("podstatus", func() {
 
 		It("prints the table", func() {
 			rowsCountWithHeaders := 1
-			pods := []load.Pod{{}, {}, {}}
+			pods := []common.Pod{{}, {}, {}}
 			expectedLen := rowsCountWithHeaders + len(pods)
 			printer := &testTerminalPrinter{}
 			sut := NewPodStatusPrinter(printer)
@@ -141,7 +140,7 @@ var _ = Describe("podstatus", func() {
 		When("all Pods running", func() {
 			It("prints success", func() {
 				printer := &testTerminalPrinter{}
-				pods := []load.Pod{
+				pods := []common.Pod{
 					{IsRunning: true},
 					{IsRunning: true},
 				}
@@ -162,7 +161,7 @@ var _ = Describe("podstatus", func() {
 		When("not all Pods running", func() {
 			It("prints warning", func() {
 				printer := &testTerminalPrinter{}
-				pods := []load.Pod{
+				pods := []common.Pod{
 					{IsRunning: true},
 					{IsRunning: false},
 				}
@@ -206,7 +205,7 @@ var _ = Describe("podstatus", func() {
 	Describe("buildRows", func() {
 		Context("no Pods", func() {
 			It("returns empty, positive result", func() {
-				pods := []load.Pod{}
+				pods := []common.Pod{}
 				sut := NewPodStatusPrinter(nil)
 
 				rows, ready := sut.buildRows(pods, false)
@@ -217,7 +216,7 @@ var _ = Describe("podstatus", func() {
 		})
 
 		It("creates one row per Pod item", func() {
-			pods := []load.Pod{
+			pods := []common.Pod{
 				{IsRunning: true},
 				{IsRunning: false},
 			}
@@ -231,7 +230,7 @@ var _ = Describe("podstatus", func() {
 
 		When("all Pods running", func() {
 			It("returns positive result", func() {
-				pods := []load.Pod{
+				pods := []common.Pod{
 					{IsRunning: true},
 					{IsRunning: true},
 				}
@@ -245,7 +244,7 @@ var _ = Describe("podstatus", func() {
 
 		When("not all Pods running", func() {
 			It("returns negative result", func() {
-				pods := []load.Pod{
+				pods := []common.Pod{
 					{IsRunning: true},
 					{IsRunning: false},
 				}
@@ -262,7 +261,7 @@ var _ = Describe("podstatus", func() {
 		When("additional info flag is false", func() {
 			It("builds standard columns only", func() {
 				expectedColumnsLen := 5
-				pod := load.Pod{
+				pod := common.Pod{
 					Status:    "idle",
 					Name:      "cool pod",
 					Ready:     "yes",
@@ -290,7 +289,7 @@ var _ = Describe("podstatus", func() {
 		When("additional info flag is true", func() {
 			It("builds all columns", func() {
 				expectedColumnsLen := 8
-				pod := load.Pod{
+				pod := common.Pod{
 					Status:    "idle",
 					Namespace: "cool namespace",
 					Name:      "cool pod",
