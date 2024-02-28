@@ -6,6 +6,8 @@ package kubevirt
 
 import (
 	"context"
+	"fmt"
+
 	"encoding/json"
 	"k2s/addons/status"
 	"k2sTest/framework"
@@ -20,10 +22,24 @@ import (
 )
 
 var suite *framework.K2sTestSuite
+var isManualExecution = false
+
+const manualExecutionFilterTag = "manual-execution"
+
+var automatedExecutionSkipMessage = fmt.Sprintf("can only be run using the filter value '%s'", manualExecutionFilterTag)
 
 func TestAddon(t *testing.T) {
+	executionLabels := []string{"addon", "acceptance", "setup-required", "invasive", "kubevirt", "system-running"}
+	userAppliedLabels := GinkgoLabelFilter()
+	if strings.Compare(userAppliedLabels, "") != 0 {
+		if Label(manualExecutionFilterTag).MatchesLabelFilter(userAppliedLabels) {
+			isManualExecution = true
+			executionLabels = append(executionLabels, manualExecutionFilterTag)
+		}
+	}
+
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "kubevirt Addon Acceptance Tests", Label("addon", "acceptance", "setup-required", "invasive", "kubevirt", "system-running"))
+	RunSpecs(t, "kubevirt Addon Acceptance Tests", Label(executionLabels...))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
@@ -46,8 +62,10 @@ var _ = Describe("'kubevirt' addon", Ordered, func() {
 		})
 
 		Describe("enable", func() {
-
 			BeforeAll(func(ctx context.Context) {
+				if !isManualExecution {
+					Skip(automatedExecutionSkipMessage)
+				}
 				args := []string{"addons", "enable", "kubevirt"}
 				if suite.Proxy() != "" {
 					args = append(args, "-p", suite.Proxy())
@@ -70,6 +88,10 @@ var _ = Describe("'kubevirt' addon", Ordered, func() {
 	})
 	When("addon is enabled", func() {
 		BeforeAll(func(ctx context.Context) {
+			if !isManualExecution {
+				Skip(automatedExecutionSkipMessage)
+			}
+
 			output := suite.K2sCli().Run(ctx, "addons", "status", "kubevirt", "-o", "json")
 
 			var status status.AddonPrintStatus
