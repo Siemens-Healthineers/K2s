@@ -34,7 +34,7 @@ $addonManifests = Find-AddonManifests -Directory "$global:KubernetesPath\addons"
 
 Write-Output "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] Starting Scrapping of Container Images"
 
-$finalJsonFile = "$PSScriptRoot\images-$global:ProductVersion.json"
+$finalJsonFile = "$PSScriptRoot\container-images-used.json"
 
 if (Test-Path -Path $finalJsonFile) {
     Remove-Item -Force $finalJsonFile -ErrorAction SilentlyContinue

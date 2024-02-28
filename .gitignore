@@ -125,3 +125,5 @@ test/*Test*.xml
 **/*.test
 test/e2e/addons/generic/build_image/weather-win/weatherwin.exe
 
+build/bom/merge/k2s-bom.json
+bin/cdxgen.exe
