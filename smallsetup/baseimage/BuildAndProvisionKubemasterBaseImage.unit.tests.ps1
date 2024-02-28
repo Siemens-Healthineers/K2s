@@ -18,14 +18,14 @@ BeforeAll {
     $linuxNodeDebianModuleName = (Import-Module $linuxNodeDebianModule -PassThru -Force).Name
 }
 
-Describe 'BuildAndProvisioningKubemasterBaseImage.ps1' -Tag 'unit', 'baseimage' {
+Describe 'BuildAndProvisioningKubemasterBaseImage.ps1' -Tag 'unit', 'ci', 'baseimage' {
     BeforeAll {
         $scriptFile = "$PSScriptRoot\BuildAndProvisionKubemasterBaseImage.ps1"
     }
     Context 'script parameters' {
         BeforeEach {
-            $targetPath = "myFolder\myTargetFile.vhdx"
-            $parentFolder = "myFolder"
+            $targetPath = 'myFolder\myTargetFile.vhdx'
+            $parentFolder = 'myFolder'
             Mock Assert-LegalCharactersInPath { return $true }
             Mock Assert-Pattern { return $true } 
             Mock Assert-Path { 'asserted path' }
@@ -40,9 +40,9 @@ Describe 'BuildAndProvisioningKubemasterBaseImage.ps1' -Tag 'unit', 'baseimage' 
 
                 &$scriptFile -OutputPath $targetPath
 
-                Should -Invoke -CommandName Assert-LegalCharactersInPath -Times 1  -ParameterFilter { $Path -eq $targetPath } 
-                Should -Invoke -CommandName Assert-Pattern -Times 1 -ParameterFilter { $Path -eq $targetPath -and $Pattern -eq ".*\.vhdx$" }
-                Should -Invoke -CommandName Assert-Path -Times 1  -ParameterFilter { $Path -eq "$parentFolder" -and $PathType -eq "Container" -and $ShallExist -eq $true}
+                Should -Invoke -CommandName Assert-LegalCharactersInPath -Times 1 -ParameterFilter { $Path -eq $targetPath } 
+                Should -Invoke -CommandName Assert-Pattern -Times 1 -ParameterFilter { $Path -eq $targetPath -and $Pattern -eq '.*\.vhdx$' }
+                Should -Invoke -CommandName Assert-Path -Times 1 -ParameterFilter { $Path -eq "$parentFolder" -and $PathType -eq 'Container' -and $ShallExist -eq $true }
             }
         }
         Context 'default values' {
@@ -56,23 +56,23 @@ Describe 'BuildAndProvisioningKubemasterBaseImage.ps1' -Tag 'unit', 'baseimage' 
                 }
 
                 Mock Import-Module { 
-                   assert-parameters
-                   exit 0 
+                    assert-parameters
+                    exit 0 
                 }
 
                 &$scriptFile -OutputPath $targetPath
 
-                Should -Invoke -CommandName Assert-LegalCharactersInPath -Times 1  -ParameterFilter { $Path -eq $targetPath } 
+                Should -Invoke -CommandName Assert-LegalCharactersInPath -Times 1 -ParameterFilter { $Path -eq $targetPath } 
             }
         }
         Context 'passed values' {
             It 'are available' {
                 $expectedParameters = @{
                     VMMemoryStartupBytes = 2GB
-                    VMProcessorCount = 2
-                    VMDiskSize = 5GB
-                    Proxy = 'myProxy'
-                    OutputPath = $targetPath
+                    VMProcessorCount     = 2
+                    VMDiskSize           = 5GB
+                    Proxy                = 'myProxy'
+                    OutputPath           = $targetPath
                 }
     
                 function assert-parameters {
@@ -85,8 +85,8 @@ Describe 'BuildAndProvisioningKubemasterBaseImage.ps1' -Tag 'unit', 'baseimage' 
                 }
     
                 Mock Import-Module { 
-                   assert-parameters
-                   exit 0 
+                    assert-parameters
+                    exit 0 
                 }
     
                 &$scriptFile @expectedParameters -KeepArtifactsUsedOnProvisioning
@@ -95,7 +95,7 @@ Describe 'BuildAndProvisioningKubemasterBaseImage.ps1' -Tag 'unit', 'baseimage' 
     }
     Context 'Creates base image file' {
         BeforeEach {
-            $outputPath = "myFolder\myTargetFile.vhdx"
+            $outputPath = 'myFolder\myTargetFile.vhdx'
             Mock Assert-LegalCharactersInPath { return $true }
             Mock Assert-Pattern { return $true } 
             Mock Assert-Path { 'asserted path' }
@@ -116,20 +116,20 @@ Describe 'BuildAndProvisioningKubemasterBaseImage.ps1' -Tag 'unit', 'baseimage' 
             $expectedNetworkAdapterName = 'eth0'
             $expectedKubernetesVersion = 'v1.25.13' 
             $expectedCrioVersion = '1.25.2'
-            $expectedClusterCIDR='172.20.0.0/16' 
-            $expectedClusterCIDR_Services='172.21.0.0/16'
-            $expectedKubeDnsServiceIP='172.21.0.10'
-            $expectedNetworkInterfaceCni0IP_Master='172.20.0.1'
+            $expectedClusterCIDR = '172.20.0.0/16' 
+            $expectedClusterCIDR_Services = '172.21.0.0/16'
+            $expectedKubeDnsServiceIP = '172.21.0.10'
+            $expectedNetworkInterfaceCni0IP_Master = '172.20.0.1'
 
 
             $expectedDownloadsDirectory = "$global:BinDirectory\downloads"
             $expectedProvisioningDirectory = "$global:BinDirectory\provisioning"
             $expectedScriptParameters = @{
                 VMMemoryStartupBytes = 2GB
-                VMProcessorCount = 2
-                VMDiskSize = 5GB
-                Proxy = 'myProxy'
-                OutputPath = $outputPath
+                VMProcessorCount     = 2
+                VMDiskSize           = 5GB
+                Proxy                = 'myProxy'
+                OutputPath           = $outputPath
             }
             $global:actualMethodCallSequence = @()
             Mock Write-Log { }
@@ -151,8 +151,8 @@ Describe 'BuildAndProvisioningKubemasterBaseImage.ps1' -Tag 'unit', 'baseimage' 
             } -ParameterFilter { $ComputerIP -eq $expectedHostIpAddress -and $UserName -eq $expectedUserName -and $UserPwd -eq $expectedUserPwd -and $Proxy -eq $expectedScriptParameters.Proxy -and $K8sVersion -eq $expectedKubernetesVersion -and $CrioVersion -eq $expectedCrioVersion -and $ClusterCIDR -eq $expectedClusterCIDR -and $ClusterCIDR_Services -eq $expectedClusterCIDR_Services -and $KubeDnsServiceIP -eq $expectedKubeDnsServiceIP -and $NetworkInterfaceName -eq $expectedNetworkAdapterName -and $NetworkInterfaceCni0IP_Master -eq $expectedNetworkInterfaceCni0IP_Master }
             Mock Install-Tools { $global:actualMethodCallSequence += 'Install-Tools' } -ParameterFilter { $IpAddress -eq $expectedHostIpAddress -and $UserName -eq $expectedUserName -and $UserPwd -eq $expectedUserPwd -and $Proxy -eq $expectedScriptParameters.Proxy }
             Mock Add-SupportForWSL { $global:actualMethodCallSequence += 'Add-SupportForWSL' } -ParameterFilter { $IpAddress -eq $expectedHostIpAddress -and $UserName -eq $expectedUserName -and $UserPwd -eq $expectedUserPwd -and $NetworkInterfaceName -eq $expectedNetworkAdapterName -and $GatewayIP -eq $expectedVmIpAddress }
-            Mock Stop-VirtualMachineForBaseImageProvisioning { $global:actualMethodCallSequence += 'Stop-VirtualMachineForBaseImageProvisioning' } -ParameterFilter { $Name -eq $expectedVmName}
-            Mock Copy-VhdxFile { $global:actualMethodCallSequence += 'Copy-VhdxFile' } -ParameterFilter { $SourceFilePath -eq "$expectedProvisioningDirectory\Debian-11-Base-In-Provisioning-For-Kubemaster.vhdx" -and $TargetPath -eq "$expectedProvisioningDirectory\Debian-11-Base-Provisioned-For-Kubemaster.vhdx"}
+            Mock Stop-VirtualMachineForBaseImageProvisioning { $global:actualMethodCallSequence += 'Stop-VirtualMachineForBaseImageProvisioning' } -ParameterFilter { $Name -eq $expectedVmName }
+            Mock Copy-VhdxFile { $global:actualMethodCallSequence += 'Copy-VhdxFile' } -ParameterFilter { $SourceFilePath -eq "$expectedProvisioningDirectory\Debian-11-Base-In-Provisioning-For-Kubemaster.vhdx" -and $TargetPath -eq "$expectedProvisioningDirectory\Debian-11-Base-Provisioned-For-Kubemaster.vhdx" }
             Mock Wait-ForSSHConnectionToLinuxVMViaPwd { $global:actualMethodCallSequence += 'Wait-ForSSHConnectionToLinuxVMViaPwd' }
             Mock New-RootfsForWSL { $global:actualMethodCallSequence += 'New-RootfsForWSL' } -ParameterFilter { $IpAddress -eq $expectedHostIpAddress -and $UserName -eq $expectedUserName -and $UserPwd -eq $expectedUserPwd -and $VhdxFile -eq "$expectedProvisioningDirectory\Debian-11-Base-Provisioned-For-Kubemaster.vhdx" -and $RootfsName -eq 'Kubemaster-Base.rootfs.tar.gz' -and $TargetPath -eq $global:BinDirectory }
             Mock Remove-VirtualMachineForBaseImageProvisioning { $global:actualMethodCallSequence += 'Remove-VirtualMachineForBaseImageProvisioning' } -ParameterFilter { $VhdxFilePath -eq "$expectedProvisioningDirectory\Debian-11-Base-In-Provisioning-For-Kubemaster.vhdx" -and $VmName -eq $expectedVmName }
@@ -165,47 +165,48 @@ Describe 'BuildAndProvisioningKubemasterBaseImage.ps1' -Tag 'unit', 'baseimage' 
             }
 
             # act 
-            Invoke-Expression -Command  "&'$scriptFile' @expectedScriptParameters $KeepArtifactsUsedOnProvisioning"
+            Invoke-Expression -Command "&'$scriptFile' @expectedScriptParameters $KeepArtifactsUsedOnProvisioning"
 
             # assert
             if ($baseImageExists) {
                 $expectedOutputPathDeletionTimes = 1
-            } else {
+            }
+            else {
                 $expectedOutputPathDeletionTimes = 0
             }
             Should -Invoke -CommandName Remove-Item -Times $expectedOutputPathDeletionTimes -ParameterFilter { $Path -eq $expectedScriptParameters.OutputPath -and $Force -eq $true }
             Should -Invoke -CommandName Remove-SshKeyFromKnownHostsFile -Times 1 -ParameterFilter { $IpAddress -eq $expectedHostIpAddress }
             
             $expectedVirtualMachineParams = @{
-                VmName= "KUBEMASTER_IN_PROVISIONING"
-                VhdxName="Debian-11-Base-In-Provisioning-For-Kubemaster.vhdx"
-                VMMemoryStartupBytes=$expectedScriptParameters.VMMemoryStartupBytes
-                VMProcessorCount=$expectedScriptParameters.VMProcessorCount
-                VMDiskSize=$expectedScriptParameters.VMDiskSize
+                VmName               = 'KUBEMASTER_IN_PROVISIONING'
+                VhdxName             = 'Debian-11-Base-In-Provisioning-For-Kubemaster.vhdx'
+                VMMemoryStartupBytes = $expectedScriptParameters.VMMemoryStartupBytes
+                VMProcessorCount     = $expectedScriptParameters.VMProcessorCount
+                VMDiskSize           = $expectedScriptParameters.VMDiskSize
             }
             $expectedNetworkParams = @{
-                Proxy=$expectedScriptParameters.Proxy
-                SwitchName='VmProvisioningSwitch'
-                HostIpAddress=$expectedVmIpAddress
-                HostIpPrefixLength=24
-                NatName='VmProvisioningNat'
-                NatIpAddress='172.19.1.0'
+                Proxy              = $expectedScriptParameters.Proxy
+                SwitchName         = 'VmProvisioningSwitch'
+                HostIpAddress      = $expectedVmIpAddress
+                HostIpPrefixLength = 24
+                NatName            = 'VmProvisioningNat'
+                NatIpAddress       = '172.19.1.0'
             }
 
             $expectedIsoFileParams = @{
-                IsoFileCreatorToolPath="$global:BinPath\cloudinitisobuilder.exe"
-                IsoFileName='cloud-init-provisioning.iso'
-                SourcePath="$PSScriptRoot\cloud-init-templates"
-                Hostname='kubemaster'
-                NetworkInterfaceName=$expectedNetworkAdapterName
-                IPAddressVM=$expectedHostIpAddress
-                IPAddressGateway=$expectedVmIpAddress
-                UserName=$expectedUserName
-                UserPwd=$expectedUserPwd
+                IsoFileCreatorToolPath = "$global:BinPath\cloudinitisobuilder.exe"
+                IsoFileName            = 'cloud-init-provisioning.iso'
+                SourcePath             = "$PSScriptRoot\cloud-init-templates"
+                Hostname               = 'kubemaster'
+                NetworkInterfaceName   = $expectedNetworkAdapterName
+                IPAddressVM            = $expectedHostIpAddress
+                IPAddressGateway       = $expectedVmIpAddress
+                UserName               = $expectedUserName
+                UserPwd                = $expectedUserPwd
             }
             $expectedWorkingDirectoriesParams = @{
-                DownloadsDirectory=$expectedDownloadsDirectory
-                ProvisioningDirectory=$expectedProvisioningDirectory
+                DownloadsDirectory    = $expectedDownloadsDirectory
+                ProvisioningDirectory = $expectedProvisioningDirectory
             }
 
             Compare-Hashtables -Left $actualVirtualMachineParams -Right $expectedVirtualMachineParams | Should -Be $true
@@ -215,7 +216,8 @@ Describe 'BuildAndProvisioningKubemasterBaseImage.ps1' -Tag 'unit', 'baseimage' 
                 
             if ($keepArtifacts) {
                 $expectedRemoveItemCalledTimes = 0
-            } else {
+            }
+            else {
                 $expectedRemoveItemCalledTimes = 1
             }
             Should -Invoke -CommandName Remove-Item -Times $expectedRemoveItemCalledTimes -ParameterFilter { $Path -eq $expectedWorkingDirectoriesParams.ProvisioningDirectory -and $Recurse -eq $true -and $Force -eq $true }

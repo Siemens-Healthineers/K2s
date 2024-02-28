@@ -9,7 +9,7 @@ BeforeAll {
     $moduleName = (Import-Module $module -PassThru -Force).Name
 }
 
-Describe 'Get-FromYamlFile' -Tag 'unit', 'yaml', 'infra', 'module', 'k2s' {
+Describe 'Get-FromYamlFile' -Tag 'unit', 'ci', 'yaml', 'infra', 'module', 'k2s' {
     Context 'Path is not specified' {
         It 'throws' {
             { Get-FromYamlFile } | Should -Throw -ExpectedMessage 'Path not specified'

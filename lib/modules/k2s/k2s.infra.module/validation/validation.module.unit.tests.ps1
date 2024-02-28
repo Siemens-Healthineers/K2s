@@ -8,24 +8,24 @@ BeforeAll {
     $moduleName = (Import-Module $module -PassThru -Force).Name
 }
 
-Describe 'Get-ExceptionMessage' -Tag 'unit', 'validation' {
+Describe 'Get-ExceptionMessage' -Tag 'unit', 'ci', 'validation' {
     It 'extracts the message contained in an exception' {
         InModuleScope $moduleName {
-            $expectedMessage = "myExceptionMessage"
+            $expectedMessage = 'myExceptionMessage'
         
             Get-ExceptionMessage -Script { throw $expectedMessage } | Should -Be $expectedMessage
         }
     }
     It 'returns default message if no exception is thrown' {
         InModuleScope $moduleName {
-            $expectedMessage = "No exception thrown"
+            $expectedMessage = 'No exception thrown'
         
             Get-ExceptionMessage -Script { } | Should -Be $expectedMessage
         }
     }
 }
 
-Describe 'Assert-LegalCharactersInPath' -Tag 'unit', 'validation' {
+Describe 'Assert-LegalCharactersInPath' -Tag 'unit', 'ci', 'validation' {
     It 'with path "<Path>" returns "<ExpectedOutput>"' -ForEach @(
         @{ Path = $null; ExpectedOutput = $false }
         @{ Path = ''; ExpectedOutput = $false }
@@ -49,33 +49,33 @@ Describe 'Assert-LegalCharactersInPath' -Tag 'unit', 'validation' {
     }
 }
 
-Describe 'Assert-Pattern' -Tag 'unit', 'validation' {
+Describe 'Assert-Pattern' -Tag 'unit', 'ci', 'validation' {
     It 'with missing arguments throws' {
         InModuleScope $moduleName {
-            { Assert-Pattern -Pattern "myPattern" } | Get-ExceptionMessage | Should -BeLike 'Argument missing: Path'
-            { Assert-Pattern -Path "myPath" } | Get-ExceptionMessage | Should -BeLike 'Argument missing: Pattern'
+            { Assert-Pattern -Pattern 'myPattern' } | Get-ExceptionMessage | Should -BeLike 'Argument missing: Path'
+            { Assert-Pattern -Path 'myPath' } | Get-ExceptionMessage | Should -BeLike 'Argument missing: Pattern'
         }
     }
     It "with pattern '<Pattern>' returns '<ShallMatch>'" -ForEach @(
-        @{ Pattern = "path$"; ShallMatch = $true }
-        @{ Pattern = "path    $"; ShallMatch = $false }
-        @{ Pattern = "path"; ShallMatch = $true }
-        @{ Pattern = "^path$"; ShallMatch = $false }
-        @{ Pattern = "^.*path$"; ShallMatch = $true }
-        ){
-            InModuleScope $moduleName -Parameters @{ Pattern = $Pattern; ShallMatch = $ShallMatch } {
-                Assert-Pattern -Path "my very long path" -Pattern $Pattern | Should -Be $ShallMatch
-            }
+        @{ Pattern = 'path$'; ShallMatch = $true }
+        @{ Pattern = 'path    $'; ShallMatch = $false }
+        @{ Pattern = 'path'; ShallMatch = $true }
+        @{ Pattern = '^path$'; ShallMatch = $false }
+        @{ Pattern = '^.*path$'; ShallMatch = $true }
+    ) {
+        InModuleScope $moduleName -Parameters @{ Pattern = $Pattern; ShallMatch = $ShallMatch } {
+            Assert-Pattern -Path 'my very long path' -Pattern $Pattern | Should -Be $ShallMatch
+        }
     }
 }
 
-Describe 'Assert-Path' -Tag 'unit', 'validation' {
+Describe 'Assert-Path' -Tag 'unit', 'ci', 'validation' {
     It 'with missing arguments throws' {
         InModuleScope $moduleName {
-            { Assert-Path -PathType "Leaf" -ShallExist $true } | Get-ExceptionMessage | Should -BeLike "Cannot bind argument to parameter 'Path' because it is an empty string."
-            { Assert-Path -Path "any path" -ShallExist $true } | Get-ExceptionMessage | Should -BeLike 'Argument missing: PathType'
-            { Assert-Path -Path "any path" -PathType "Leaf" } | Get-ExceptionMessage | Should -BeLike 'Argument missing: ShallExist'
-            { Assert-Path -Path "any path" -PathType "not valid value" -ShallExist $true } | Get-ExceptionMessage | Should -BeLike '*not valid value*Leaf,Container*'
+            { Assert-Path -PathType 'Leaf' -ShallExist $true } | Get-ExceptionMessage | Should -BeLike "Cannot bind argument to parameter 'Path' because it is an empty string."
+            { Assert-Path -Path 'any path' -ShallExist $true } | Get-ExceptionMessage | Should -BeLike 'Argument missing: PathType'
+            { Assert-Path -Path 'any path' -PathType 'Leaf' } | Get-ExceptionMessage | Should -BeLike 'Argument missing: ShallExist'
+            { Assert-Path -Path 'any path' -PathType 'not valid value' -ShallExist $true } | Get-ExceptionMessage | Should -BeLike '*not valid value*Leaf,Container*'
         }
     }
     It 'with not met conditions throws (exist:<Exist>  shallExist:<ShallExist>  shallThrow:<ShallThrow>)' -ForEach @(
@@ -86,16 +86,17 @@ Describe 'Assert-Path' -Tag 'unit', 'validation' {
     ) {
         InModuleScope $moduleName -Parameters @{Exist = $Exist; ShallExist = $ShallExist; ShallThrow = $ShallThrow } {
             Mock Test-Path { return $Exist } 
-            $path = "any path"
-            $pathType = "Leaf"
+            $path = 'any path'
+            $pathType = 'Leaf'
             if ($ShallThrow) {
-                $messageSuffix = "exist"
+                $messageSuffix = 'exist'
                 if (!$ShallExist) {
-                    $messageSuffix = "not " + $messageSuffix
+                    $messageSuffix = 'not ' + $messageSuffix
                 }
                 $message = "*The path '$path' shall $messageSuffix*"
                 { Assert-Path -Path $path -PathType $pathType -ShallExist $ShallExist } | Get-ExceptionMessage | Should -BeLike $message
-            } else {
+            }
+            else {
                 { Assert-Path -Path $path -PathType $pathType -ShallExist $ShallExist } | Should -Not -Throw
             }
         }
@@ -103,14 +104,14 @@ Describe 'Assert-Path' -Tag 'unit', 'validation' {
     It 'accepts path from the pipeline and outputs same path value on success' {
         InModuleScope $moduleName {
             Mock Test-Path { return $true } 
-            $path = "any path"
-            $anyPathType = "Leaf"
+            $path = 'any path'
+            $anyPathType = 'Leaf'
             $path | Assert-Path -PathType $anyPathType -ShallExist $true | Should -Be $path
         }
     }
 }
 
-Describe 'Compare-Hashtables' -Tag 'unit', 'validation' {
+Describe 'Compare-Hashtables' -Tag 'unit', 'ci', 'validation' {
     It 'with missing arguments throws' {
         InModuleScope $moduleName {
             { Compare-Hashtables -Right @{} } | Get-ExceptionMessage | Should -BeLike 'Argument missing: Left'
@@ -119,35 +120,35 @@ Describe 'Compare-Hashtables' -Tag 'unit', 'validation' {
     }
     It 'with different amount of elements returns false' {
         InModuleScope $moduleName {
-            Compare-Hashtables -Left @{"1"="one"; "2"="two"} -Right @{"1"="one" } | Should -Be $false
+            Compare-Hashtables -Left @{'1' = 'one'; '2' = 'two' } -Right @{'1' = 'one' } | Should -Be $false
         }
     }
     It 'with different keys returns false' {
         InModuleScope $moduleName {
-            Compare-Hashtables -Left @{"1"="one"} -Right @{"one"="1" } | Should -Be $false
+            Compare-Hashtables -Left @{'1' = 'one' } -Right @{'one' = '1' } | Should -Be $false
         }
     }
     It 'with different values for same key returns false' {
         InModuleScope $moduleName {
-            Compare-Hashtables -Left @{"1"="one"} -Right @{"1"="other one" } | Should -Be $false
+            Compare-Hashtables -Left @{'1' = 'one' } -Right @{'1' = 'other one' } | Should -Be $false
         }
     }
     It 'with same key value pairs returns true' {
         InModuleScope $moduleName {
-            Compare-Hashtables -Left @{"1"="one"; "2"="two"} -Right @{"1"="one"; "2"="two"} | Should -Be $true
-            Compare-Hashtables -Left @{"1"="one"; "2"="two"} -Right @{"2"="two"; "1"="one"} | Should -Be $true
+            Compare-Hashtables -Left @{'1' = 'one'; '2' = 'two' } -Right @{'1' = 'one'; '2' = 'two' } | Should -Be $true
+            Compare-Hashtables -Left @{'1' = 'one'; '2' = 'two' } -Right @{'2' = 'two'; '1' = 'one' } | Should -Be $true
         }
     }
 }
 
-Describe 'Get-IsValidIPv4Address' -Tag 'unit', 'validation' {
+Describe 'Get-IsValidIPv4Address' -Tag 'unit', 'ci', 'validation' {
     It 'with malformed IPv4 addresses returns "false"' {
         InModuleScope $moduleName {
             $wrongIPv4Values = @($null, '', '  ', 
-                             '256.100.100.100', '100.256.100.100', '100.100.256.100', '100.100.100.256',
-                             '100.101.102', 
-                             'a.101.102.103', '100.b.102.103', '100.101.c.103', '100.101.102.d',
-                             '-1.101.102.103', '100.-2.102.103', '100.101.-3.103', '100.101.102.-4') 
+                '256.100.100.100', '100.256.100.100', '100.100.256.100', '100.100.100.256',
+                '100.101.102', 
+                'a.101.102.103', '100.b.102.103', '100.101.c.103', '100.101.102.d',
+                '-1.101.102.103', '100.-2.102.103', '100.101.-3.103', '100.101.102.-4') 
             foreach ($ipAddress in $wrongIPv4Values) {
                 Get-IsValidIPv4Address($ipAddress) | Should -Be $false
             }
@@ -155,7 +156,7 @@ Describe 'Get-IsValidIPv4Address' -Tag 'unit', 'validation' {
     }
     It 'with wellformed IPv4 address returns "true"' {
         InModuleScope $moduleName {
-            Get-IsValidIPv4Address("100.101.102.103") | Should -Be $true
+            Get-IsValidIPv4Address('100.101.102.103') | Should -Be $true
         }
     }
 }
