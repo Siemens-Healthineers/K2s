@@ -11,32 +11,17 @@ type SetupName string
 type SetupError string
 
 type SetupInfo struct {
-	Version   *string     `json:"version"`
-	Name      *SetupName  `json:"name"`
-	Error     *SetupError `json:"validationError"`
-	LinuxOnly *bool       `json:"linuxOnly"`
+	Version   string    `json:"version"`
+	Name      SetupName `json:"name"`
+	LinuxOnly bool      `json:"linuxOnly"`
 }
 
 const (
 	SetupNamek2s          SetupName = "k2s"
 	SetupNameMultiVMK8s   SetupName = "MultiVMK8s"
 	SetupNameBuildOnlyEnv SetupName = "BuildOnlyEnv"
-
-	ErrNotInstalledMsg SetupError = "system-not-installed"
 )
 
 var (
-	ErrNotInstalled = errors.New(string(ErrNotInstalledMsg))
+	ErrSystemNotInstalled = errors.New("system-not-installed")
 )
-
-func (err SetupError) ToError() error {
-	if err == ErrNotInstalledMsg {
-		return ErrNotInstalled
-	}
-
-	return errors.New(string(err))
-}
-
-func IsErrNotInstalled(err string) bool {
-	return err == string(ErrNotInstalledMsg)
-}

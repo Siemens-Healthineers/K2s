@@ -174,7 +174,7 @@ var _ = Describe("status", Ordered, func() {
 	})
 
 	Context("JSON output", func() {
-		var status load.Status
+		var status load.LoadedStatus
 
 		BeforeAll(func(ctx context.Context) {
 			output := suite.K2sCli().Run(ctx, "status", "-o", "json")
@@ -182,11 +182,14 @@ var _ = Describe("status", Ordered, func() {
 			Expect(json.Unmarshal([]byte(output), &status)).To(Succeed())
 		})
 
+		It("contains no error", func() {
+			Expect(status.Failure).To(BeNil())
+		})
+
 		It("contains setup info", func() {
-			Expect(*status.SetupInfo.Name).To(Equal(suite.SetupInfo().Name))
-			Expect(*status.SetupInfo.Version).To(MatchRegexp(versionRegex))
-			Expect(status.SetupInfo.Error).To(BeNil())
-			Expect(*status.SetupInfo.LinuxOnly).To(Equal(suite.SetupInfo().LinuxOnly))
+			Expect(status.SetupInfo.Name).To(Equal(suite.SetupInfo().Name))
+			Expect(status.SetupInfo.Version).To(MatchRegexp(versionRegex))
+			Expect(status.SetupInfo.LinuxOnly).To(Equal(suite.SetupInfo().LinuxOnly))
 		})
 
 		It("contains K8s version info", func() {

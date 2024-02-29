@@ -4,11 +4,11 @@
 package k8sversion_test
 
 import (
-	"k2s/cmd/status/load"
 	"testing"
 
 	u "k2s/utils/strings"
 
+	"k2s/cmd/status/common"
 	"k2s/cmd/status/k8sversion"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -29,7 +29,7 @@ func (t *testTerminalPrinter) PrintCyanFg(text string) string {
 
 func TestK8sversion(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "k8sversion Unit Tests", Label("unit"))
+	RunSpecs(t, "k8sversion Unit Tests", Label("unit", "ci"))
 }
 
 var _ = Describe("k8sversion", func() {
@@ -46,7 +46,7 @@ var _ = Describe("k8sversion", func() {
 
 		Context("version info is available", func() {
 			It("prints version info and returns nil", func() {
-				versionInfo := &load.K8sVersionInfo{K8sServerVersion: "s-v1", K8sClientVersion: "c-v1"}
+				versionInfo := &common.K8sVersionInfo{K8sServerVersion: "s-v1", K8sClientVersion: "c-v1"}
 				printer := &testTerminalPrinter{
 					log: []string{},
 				}

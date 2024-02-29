@@ -6,11 +6,12 @@ package status
 import (
 	"errors"
 	"k2s/cmd/common"
+	"k2s/setupinfo"
 	"k2s/utils"
 	"k2s/utils/psexecutor"
 )
 
-type AddonLoadStatus struct {
+type LoadedAddonStatus struct {
 	common.CmdResult
 	Enabled *bool             `json:"enabled"`
 	Props   []AddonStatusProp `json:"props"`
@@ -23,38 +24,16 @@ type AddonStatusProp struct {
 	Name    string  `json:"name"`
 }
 
-const (
-	errAddonNotFoundMsg common.CmdError = "addon-not-found"
-	errNoAddonStatusMsg common.CmdError = "no-addon-status"
-)
-
-var (
-	ErrAddonNotFound = errors.New(string(errAddonNotFoundMsg))
-	ErrNoAddonStatus = errors.New(string(errNoAddonStatusMsg))
-)
-
-func LoadAddonStatus(addonName string, addonDirectory string) (*AddonLoadStatus, error) {
+func LoadAddonStatus(addonName string, addonDirectory string) (*LoadedAddonStatus, error) {
 	scriptPath := utils.FormatScriptFilePath(utils.GetInstallationDirectory() + "\\addons\\Get-Status.ps1")
 
-	status, err := psexecutor.ExecutePsWithStructuredResult[*AddonLoadStatus](scriptPath, "Status", psexecutor.ExecOptions{}, "-Name", addonName, "-Directory", utils.EscapeWithSingleQuotes(addonDirectory))
+	status, err := psexecutor.ExecutePsWithStructuredResult[*LoadedAddonStatus](scriptPath, "Status", psexecutor.ExecOptions{}, "-Name", addonName, "-Directory", utils.EscapeWithSingleQuotes(addonDirectory))
 	if err != nil {
-		return nil, err
-	}
-
-	if status.Error != nil {
-		return nil, toError(*status.Error)
+		if !errors.Is(err, setupinfo.ErrSystemNotInstalled) {
+			return nil, err
+		}
+		status = &LoadedAddonStatus{CmdResult: common.CreateSystemNotInstalledCmdResult()}
 	}
 
 	return status, nil
-}
-
-func toError(err common.CmdError) error {
-	switch err {
-	case errAddonNotFoundMsg:
-		return ErrAddonNotFound
-	case errNoAddonStatusMsg:
-		return ErrNoAddonStatus
-	default:
-		return err.ToError()
-	}
 }

@@ -4,9 +4,8 @@
 package nodestatus
 
 import (
+	"k2s/cmd/status/common"
 	"testing"
-
-	"k2s/cmd/status/load"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -61,7 +60,7 @@ func (t *testTerminalPrinter) PrintGreenFg(text string) string {
 
 func TestNodestatus(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "nodestatus Unit Tests", Label("unit"))
+	RunSpecs(t, "nodestatus Unit Tests", Label("unit", "ci"))
 }
 
 var _ = Describe("nodestatus", func() {
@@ -69,7 +68,7 @@ var _ = Describe("nodestatus", func() {
 		When("at least one node not ready", func() {
 			It("does not proceed", func() {
 				printer := &testTerminalPrinter{}
-				nodes := []load.Node{
+				nodes := []common.Node{
 					{IsReady: true},
 					{IsReady: false},
 				}
@@ -82,7 +81,7 @@ var _ = Describe("nodestatus", func() {
 
 			It("prints a warning", func() {
 				printer := &testTerminalPrinter{}
-				nodes := []load.Node{
+				nodes := []common.Node{
 					{IsReady: true},
 					{IsReady: false},
 					{IsReady: true},
@@ -104,7 +103,7 @@ var _ = Describe("nodestatus", func() {
 		When("all nodes ready", func() {
 			It("proceeds", func() {
 				printer := &testTerminalPrinter{}
-				nodes := []load.Node{
+				nodes := []common.Node{
 					{IsReady: true},
 					{IsReady: true},
 				}
@@ -117,7 +116,7 @@ var _ = Describe("nodestatus", func() {
 
 			It("prints success", func() {
 				printer := &testTerminalPrinter{}
-				nodes := []load.Node{
+				nodes := []common.Node{
 					{IsReady: true},
 					{IsReady: true},
 				}
@@ -142,7 +141,7 @@ var _ = Describe("nodestatus", func() {
 				printer := &testTerminalPrinter{}
 				sut := NewNodeStatusPrinter(printer)
 
-				sut.PrintNodeStatus([]load.Node{}, false)
+				sut.PrintNodeStatus([]common.Node{}, false)
 
 				Expect(len(printer.log)).To(BeNumerically(">=", 1))
 				Expect(printer.log[0].logType).To(Equal(itemsLogType))
@@ -161,7 +160,7 @@ var _ = Describe("nodestatus", func() {
 				printer := &testTerminalPrinter{}
 				sut := NewNodeStatusPrinter(printer)
 
-				sut.PrintNodeStatus([]load.Node{}, true)
+				sut.PrintNodeStatus([]common.Node{}, true)
 
 				Expect(len(printer.log)).To(BeNumerically(">=", 1))
 				Expect(printer.log[0].logType).To(Equal(itemsLogType))
@@ -175,7 +174,7 @@ var _ = Describe("nodestatus", func() {
 
 		When("success", func() {
 			It("table gets printed", func() {
-				nodeItems := []load.Node{{}, {}, {}}
+				nodeItems := []common.Node{{}, {}, {}}
 				expectedRowsCountWithHeaders := 1
 				expectedCount := expectedRowsCountWithHeaders + len(nodeItems)
 				printer := &testTerminalPrinter{}
@@ -218,7 +217,7 @@ var _ = Describe("nodestatus", func() {
 	Describe("buildRows", func() {
 		Context("no nodes", func() {
 			It("returns empty, positive result", func() {
-				nodes := []load.Node{}
+				nodes := []common.Node{}
 				sut := NewNodeStatusPrinter(nil)
 
 				rows, ready := sut.buildRows(nodes, false)
@@ -229,7 +228,7 @@ var _ = Describe("nodestatus", func() {
 		})
 
 		It("creates one row per node item", func() {
-			nodes := []load.Node{
+			nodes := []common.Node{
 				{IsReady: true},
 				{IsReady: false},
 				{IsReady: true},
@@ -244,7 +243,7 @@ var _ = Describe("nodestatus", func() {
 
 		When("all nodes ready", func() {
 			It("returns positive result", func() {
-				nodes := []load.Node{
+				nodes := []common.Node{
 					{IsReady: true},
 					{IsReady: true},
 				}
@@ -258,7 +257,7 @@ var _ = Describe("nodestatus", func() {
 
 		When("not all nodes ready", func() {
 			It("returns negative result", func() {
-				nodes := []load.Node{
+				nodes := []common.Node{
 					{IsReady: true},
 					{IsReady: false},
 					{IsReady: true},
@@ -276,7 +275,7 @@ var _ = Describe("nodestatus", func() {
 		Context("standard columns", func() {
 			It("returns correct row", func() {
 				expectedColumnsCount := 5
-				node := load.Node{
+				node := common.Node{
 					Status:         "Ready :-)",
 					IsReady:        true,
 					KubeletVersion: "1.2.3",
@@ -304,7 +303,7 @@ var _ = Describe("nodestatus", func() {
 		Context("with additional columns", func() {
 			It("returns correct row", func() {
 				expectedColumnsCount := 9
-				node := load.Node{
+				node := common.Node{
 					IsReady:          false,
 					InternalIp:       "localhost",
 					OsImage:          "Kali Linux",

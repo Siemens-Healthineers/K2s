@@ -27,7 +27,6 @@ type InstallConfigAccess interface {
 }
 
 type Printer interface {
-	PrintInfofln(format string, m ...any)
 	Printfln(format string, m ...any)
 }
 
@@ -65,8 +64,11 @@ func NewInstaller(configAccess ConfigAccess,
 func (i *installer) Install(kind ic.Kind, flags *pflag.FlagSet, buildCmdFunc func(config *ic.InstallConfig) (cmd string, err error)) error {
 	setupName, err := i.configAccess.GetSetupName()
 	if err == nil && setupName != "" {
-		i.printer.PrintInfofln("'%s' setup already installed, please uninstall with 'k2s uninstall' first and re-run the install command afterwards", setupName)
-		return common.ErrSilent
+		return &common.CmdFailure{
+			Severity: common.SeverityWarning,
+			Code:     "system-already-installed",
+			Message:  fmt.Sprintf("'%s' setup already installed, please uninstall with 'k2s uninstall' first and re-run the install command afterwards", setupName),
+		}
 	}
 
 	config, err := i.installConfigAccess.Load(kind, flags)

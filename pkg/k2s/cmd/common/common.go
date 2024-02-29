@@ -5,34 +5,36 @@ package common
 
 import (
 	"base/logging"
-	"errors"
 	"fmt"
 	"k2s/setupinfo"
-	"k2s/status"
 	"path/filepath"
 	"time"
 
 	"github.com/pterm/pterm"
 )
 
-type CmdError string
+type FailureSeverity uint8
 
-type CmdResult struct {
-	Error *CmdError `json:"error"`
+type CmdFailure struct {
+	Severity          FailureSeverity `json:"severity"`
+	Code              string          `json:"code"`
+	Message           string          `json:"message"`
+	SuppressCliOutput bool
 }
 
-type PreConditionNotMetError struct {
-	Code    string
-	Message string
+type CmdResult struct {
+	Failure *CmdFailure `json:"error"`
 }
 
 const (
-	CliName = "k2s"
+	CliName                  = "k2s"
+	ErrSystemNotInstalledMsg = "You have not installed K2s setup yet, please start the installation with command 'k2s.exe install' first"
+
+	SeverityWarning FailureSeverity = 3
+	SeverityError   FailureSeverity = 4
 )
 
 var (
-	ErrSilent = errors.New("silent-error")
-
 	rootLogDir       string
 	cliLogPath       string
 	executionLogPath string
@@ -44,8 +46,19 @@ func init() {
 	executionLogPath = filepath.Join(rootLogDir, "k2s.log")
 }
 
-func (e *PreConditionNotMetError) Error() string {
-	return fmt.Sprintf("%s: %s", e.Code, e.Message)
+func (c *CmdFailure) Error() string {
+	return fmt.Sprintf("%s: %s", c.Code, c.Message)
+}
+
+func (s FailureSeverity) String() string {
+	switch s {
+	case SeverityWarning:
+		return "warning"
+	case SeverityError:
+		return "error"
+	default:
+		return "unknown"
+	}
 }
 
 func LogFilePath() string {
@@ -60,16 +73,14 @@ func PrintCompletedMessage(duration time.Duration, command string) {
 	pterm.Println(logHint)
 }
 
-func (err CmdError) ToError() error {
-	if status.IsErrNotRunning(string(err)) {
-		return status.ErrNotRunning
-	}
-	if status.IsErrRunning(string(err)) {
-		return status.ErrRunning
-	}
-	if setupinfo.IsErrNotInstalled(string(err)) {
-		return setupinfo.ErrNotInstalled
-	}
+func CreateSystemNotInstalledCmdResult() CmdResult {
+	return CmdResult{Failure: CreateSystemNotInstalledCmdFailure()}
+}
 
-	return errors.New(string(err))
+func CreateSystemNotInstalledCmdFailure() *CmdFailure {
+	return &CmdFailure{
+		Severity: SeverityWarning,
+		Code:     setupinfo.ErrSystemNotInstalled.Error(),
+		Message:  ErrSystemNotInstalledMsg,
+	}
 }

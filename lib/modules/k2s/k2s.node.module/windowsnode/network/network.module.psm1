@@ -88,7 +88,7 @@ function New-ExternalSwitch {
 
 function Remove-ExternalSwitch () {
     Write-Log "Remove l2 bridge network switch name: $l2BridgeSwitchName"
-    Get-HnsNetwork | Where-Object Name -Like "$l2BridgeSwitchName" | Remove-HnsNetwork
+    Get-HnsNetwork | Where-Object Name -Like "$l2BridgeSwitchName" | Remove-HnsNetwork -ErrorAction SilentlyContinue
 
     $controlPlaneSwitchName = Get-ControlPlaneNodeDefaultSwitchName
 

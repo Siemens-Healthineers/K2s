@@ -20,7 +20,7 @@ var suite *framework.K2sTestSuite
 
 func TestSystem(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "system CLI Commands Acceptance Tests", Label("cli", "system", "package", "scp", "ssh", "m", "w", "acceptance", "no-setup"))
+	RunSpecs(t, "system CLI Commands Acceptance Tests")
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
@@ -32,22 +32,23 @@ var _ = AfterSuite(func(ctx context.Context) {
 })
 
 var _ = Describe("system", func() {
-	DescribeTable("print system-not-installed message and exits with non-zero",
+	DescribeTable("print system-not-installed message and exits with non-zero", Label("cli", "system", "scp", "ssh", "m", "w", "acceptance", "no-setup", "ci"),
 		func(ctx context.Context, args ...string) {
 			output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, args...)
 
 			Expect(output).To(ContainSubstring("not installed"))
 		},
+		Entry("dump", "system", "dump"),
 		Entry("scp m", "system", "scp", "m", "a1", "a2"),
 		Entry("scp w", "system", "scp", "w", "a1", "a2"),
-		Entry("ssh m", "system", "ssh", "m"),
-		Entry("ssh m", "system", "ssh", "m", "--", "echo yes"),
-		Entry("ssh w", "system", "ssh", "w"),
-		Entry("ssh w", "system", "ssh", "w", "--", "echo yes"),
+		Entry("ssh m connect", "system", "ssh", "m"),
+		Entry("ssh m cmd", "system", "ssh", "m", "--", "echo yes"),
+		Entry("ssh w connect", "system", "ssh", "w"),
+		Entry("ssh w cmd", "system", "ssh", "w", "--", "echo yes"),
 		Entry("upgrade", "system", "upgrade"),
 	)
 
-	Describe("package", Ordered, func() {
+	Describe("package", Ordered, Label("cli", "system", "package", "acceptance", "no-setup"), func() {
 		var testFileName string
 		var tempDir string
 		var localTempFilePath string

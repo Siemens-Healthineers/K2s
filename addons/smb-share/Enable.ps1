@@ -32,9 +32,9 @@ Param(
 
 $smbShareModule = "$PSScriptRoot\module\Smb-share.module.psm1"
 $logModule = "$PSScriptRoot/../../smallsetup/ps-modules/log/log.module.psm1"
-$cliMessagesModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/cli-messages/cli-messages.module.psm1"
+$infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 
-Import-Module $logModule, $cliMessagesModule, $smbShareModule
+Import-Module $logModule, $infraModule, $smbShareModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 

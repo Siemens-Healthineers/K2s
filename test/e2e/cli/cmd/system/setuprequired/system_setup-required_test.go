@@ -29,12 +29,12 @@ var _ = AfterSuite(func(ctx context.Context) {
 })
 
 var _ = Describe("system package", func() {
-	It("throws error", func(ctx context.Context) {
-		output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "system", "package", "--target-dir", "dir", "--name", "package.zip")
+	It("prints system-installed-error and exits", func(ctx context.Context) {
+		output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "system", "package", "--target-dir", ".", "--name", "package.zip")
 
-		Expect(output).To(SatisfyAny(
-			ContainSubstring("Precondition not met: 'K2s' is installed on your system."),
-			ContainSubstring("Uninstall 'K2s' first and then call this script again."),
+		Expect(output).To(SatisfyAll(
+			ContainSubstring("is installed"),
+			ContainSubstring("Please uninstall"),
 		))
 	})
 })

@@ -24,7 +24,7 @@ func (t testDirProvider) GetUserHomeDir() (string, error) {
 
 func TestPath(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "path Unit Tests", Label("unit"))
+	RunSpecs(t, "path Unit Tests", Label("unit", "ci"))
 }
 
 var _ = Describe("path", func() {
