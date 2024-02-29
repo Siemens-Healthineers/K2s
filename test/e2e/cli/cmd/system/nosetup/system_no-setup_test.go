@@ -48,7 +48,7 @@ var _ = Describe("system", func() {
 		Entry("upgrade", "system", "upgrade"),
 	)
 
-	Describe("package", Ordered, Label("cli", "system", "package", "acceptance"), func() {
+	Describe("package", Ordered, Label("cli", "system", "package", "acceptance", "no-setup"), func() {
 		var testFileName string
 		var tempDir string
 		var localTempFilePath string
