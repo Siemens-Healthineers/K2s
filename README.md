@@ -28,14 +28,14 @@ See [Features](/doc/K8s_Features.md) for a full list of features.
 
 ## Quickstart
 
-Extract the downloaded [K2s.zip](https://github.com/Siemens-Healthineers/K2s/releases) file to a folder of your choice (use **C:** drive if possible), open one command prompt as Administrator and please navigate to that installation folder. 
+Extract the downloaded [K2s.zip](https://github.com/Siemens-Healthineers/K2s/releases) file to a folder of your choice (use **C:** drive if possible), open one command prompt as Administrator and navigate to that installation folder. 
 
 Install **K2s** with (please check first [Prerequisites](./doc/k2scli/install-uninstall_cmd.md#prerequisites)):
 ```
-<installation folder>\k2s install
+<installation folder>\k2s.exe install
 ```
 
-After installation you can use one of the [shortcuts](./doc/K8s_Shortcuts.md) to get information about your new cluster:
+After installation you can use one of the [shortcuts](./doc/K8s_Shortcuts.md) to interact with your new cluster:
 ```
 k   - shows the commands available for interacting with the K8s cluster
 ks  - get the state of the cluster
@@ -51,7 +51,7 @@ k2s addons ls                     - lists all the available addons
 k2s addons enable ingress-nginx   - enables the ingress nginx ingress controller
 ...
 ```
-Disabling such an addon is also very easy:
+Disabling the same addon:
 ```
 k2s addons disable ingress-nginx   - disables the ingress nginx ingress controller
 ...
