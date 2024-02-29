@@ -32,7 +32,7 @@ Extract the downloaded [K2s.zip](https://github.com/Siemens-Healthineers/K2s/rel
 
 Install **K2s** with (please check first [Prerequisites](./doc/k2scli/install-uninstall_cmd.md#prerequisites)):
 ```
-<installation folder>\k2s install
+<installation folder>\k2s.exe install
 ```
 
 After installation you can use one of the [shortcuts](./doc/K8s_Shortcuts.md) to interact with your new cluster:
