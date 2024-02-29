@@ -85,8 +85,11 @@ var _ = Describe("'exthttpaccess' addon", Ordered, func() {
 			It("checks 'nginx.exe' is listening on ports", func() {
 				var err error
 				pids, _ := findNginxProcesses()
-				listeningPids, err := findListeningProcesses()
+				listeningPidsOnStandardHttpPorts, err := findListeningProcesses("80", "443")
 				Expect(err).To(BeNil())
+				listeningPidsOnAlternativeHttpPorts, err := findListeningProcesses("8080", "8443")
+				Expect(err).To(BeNil())
+				listeningPids := append(listeningPidsOnStandardHttpPorts, listeningPidsOnAlternativeHttpPorts...)
 				Expect(len(listeningPids)).To(BeNumerically(">", 0))
 				isNginxListeningOnPorts := func() bool {
 					for _, listeningPid := range listeningPids {
@@ -133,6 +136,79 @@ var _ = Describe("'exthttpaccess' addon", Ordered, func() {
 			})
 		})
 	})
+
+	When("addon is disabled", func() {
+		Describe("enable with custom http/https ports", func() {
+			DescribeTable("does validation on the port values:",
+				func(ctx context.Context, httpPort string, httpsPort string, expectedOutput string) {
+					args := []string{"addons", "enable", "exthttpaccess"}
+					if httpPort != "" {
+						args = append(args, "--http-port", httpPort)
+					}
+					if httpsPort != "" {
+						args = append(args, "--https-port", httpsPort)
+					}
+					if suite.Proxy() != "" {
+						args = append(args, "-p", suite.Proxy())
+					}
+					output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, args...)
+
+					Expect(output).To(ContainSubstring(expectedOutput))
+					expectNoNginxProcessesAreRunning()
+				},
+				Entry("with empty http port value", "", "50000", "The user configured port number '' cannot be used."),
+				Entry("with empty https port value", "50000", "", "The user configured port number '' cannot be used."),
+				Entry("with http port value not being a number", "not a number", "50000", "The user configured port value must be a number."),
+				Entry("with https port value not being a number", "50000", "not a number", "The user configured port value must be a number."),
+				Entry("with http port value not in range", "40000", "50000", "The user configured port number '40000' cannot be used. Please choose a number between 49152 and 65535."),
+				Entry("with http port value not in range", "50000", "30000", "The user configured port number '30000' cannot be used. Please choose a number between 49152 and 65535."),
+				Entry("with same http and https port values", "50000", "50000", "The user configured port values for HTTP and HTTPS are the same."),
+			)
+		})
+
+		Describe("enable with custom http/https ports", func() {
+			var output string
+			httpPort := "49152"
+			httpsPort := "49153"
+			BeforeAll(func(ctx context.Context) {
+				args := []string{"addons", "enable", "exthttpaccess", "--http-port", httpPort, "--https-port", httpsPort}
+				if suite.Proxy() != "" {
+					args = append(args, "-p", suite.Proxy())
+				}
+				output = suite.K2sCli().Run(ctx, args...)
+			})
+
+			It("enables the addon", func() {
+				Expect(output).To(ContainSubstring("exthttpaccess enabled"))
+			})
+
+			It("checks 'nginx.exe' is running", func() {
+				pids, err := findNginxProcesses()
+
+				Expect(err).To(BeNil())
+				Expect(len(pids)).To(BeNumerically(">", 0))
+			})
+
+			It("checks 'nginx.exe' is listening on custom ports", func() {
+				var err error
+				pids, _ := findNginxProcesses()
+				listeningPids, err := findListeningProcesses(httpPort, httpsPort)
+				Expect(err).To(BeNil())
+				Expect(len(listeningPids)).To(BeNumerically(">", 0))
+				isNginxListeningOnPorts := func() bool {
+					for _, listeningPid := range listeningPids {
+						for _, pid := range pids {
+							if pid == listeningPid {
+								return true
+							}
+						}
+					}
+					return false
+				}
+				Expect(isNginxListeningOnPorts()).To(BeTrue())
+			})
+		})
+	})
 })
 
 func expectNoNginxProcessesAreRunning() {
@@ -169,15 +245,13 @@ func findNginxProcesses() ([]string, error) {
 	return pids, nil
 }
 
-func findListeningProcesses() ([]string, error) {
+func findListeningProcesses(httpPort string, httpsPort string) ([]string, error) {
 
 	type ports struct {
-		HTTP             string
-		HTTPS            string
-		AlternativeHTTP  string
-		AlternativeHTTPS string
+		HTTP  string
+		HTTPS string
 	}
-	p := ports{HTTP: "80", HTTPS: "443", AlternativeHTTP: "8080", AlternativeHTTPS: "8443"}
+	p := ports{HTTP: httpPort, HTTPS: httpsPort}
 	pids := make([]string, 0)
 
 	cmd, b := exec.Command("netstat", "-ano"), new(strings.Builder)
@@ -199,10 +273,7 @@ func findListeningProcesses() ([]string, error) {
 			return ":" + port
 		}
 		return strings.Contains(text, "LISTENING") &&
-			(strings.Contains(text, format(p.HTTP)) ||
-				strings.Contains(text, format(p.HTTPS)) ||
-				strings.Contains(text, format(p.AlternativeHTTP)) ||
-				strings.Contains(text, format(p.AlternativeHTTPS)))
+			(strings.Contains(text, format(p.HTTP)) || strings.Contains(text, format(p.HTTPS)))
 	}
 
 	for _, line := range lines {
