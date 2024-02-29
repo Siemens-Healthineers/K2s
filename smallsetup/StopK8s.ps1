@@ -97,10 +97,10 @@ Remove-NetNat -Name $global:NetNatName -Confirm:$False -ErrorAction SilentlyCont
 $hns = $(Get-HNSNetwork)
 # there's always at least the Default Switch network available, so we check for >= 2
 if ($($hns | Measure-Object).Count -ge 2) {
-    Write-Log 'Delete bridge, clear HNSNetwork (short disconnect expected)'
     if(!$CacheK2sVSwitches) { 
-         $hns | Where-Object Name -Like '*cbr0*' | Remove-HNSNetwork -ErrorAction SilentlyContinue
-         $hns | Where-Object Name -Like ('*' + $global:SwitchName + '*') | Remove-HNSNetwork -ErrorAction SilentlyContinue
+        Write-Log 'Delete bridge, clear HNSNetwork (short disconnect expected)'
+        $hns | Where-Object Name -Like '*cbr0*' | Remove-HNSNetwork -ErrorAction SilentlyContinue
+        $hns | Where-Object Name -Like ('*' + $global:SwitchName + '*') | Remove-HNSNetwork -ErrorAction SilentlyContinue
     }
 }
 
