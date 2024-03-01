@@ -24,7 +24,7 @@ import (
 var suite *framework.K2sTestSuite
 var isManualExecution = false
 
-const manualExecutionFilterTag = "manual-execution"
+const manualExecutionFilterTag = "manual"
 
 var automatedExecutionSkipMessage = fmt.Sprintf("can only be run using the filter value '%s'", manualExecutionFilterTag)
 
@@ -117,15 +117,12 @@ var _ = Describe("'kubevirt' addon", Ordered, func() {
 
 				suite.Kubectl().Run(ctx, "wait", "--timeout=180s", "--for=condition=ContainersReady", "pod", "-l", "kubevirt.io/size=small,kubevirt.io/domain=testvm")
 
-				for i := 0; i < 6; i++ {
-					vmStatusOutput = suite.Kubectl().Run(ctx, "get", "vms", "testvm")
-					if !strings.Contains(vmStatusOutput, "Running") {
-						time.Sleep(30 * time.Second)
-					} else {
-						break
-					}
-				}
-				Expect(vmStatusOutput).To(ContainSubstring("Running"))
+				Eventually(suite.Kubectl().Run).
+					WithArguments("get", "vms", "testvm").
+					WithTimeout(3 * time.Minute).
+					WithPolling(30 * time.Second).
+					WithContext(ctx).
+					Should(ContainSubstring("Running"))
 
 				podName := suite.Kubectl().Run(ctx, "get", "pod", "-l", "kubevirt.io/size=small,kubevirt.io/domain=testvm", "-o", "jsonpath={.items[0].metadata.name}")
 				Expect(podName).To(ContainSubstring("testvm"))
@@ -139,8 +136,7 @@ var _ = Describe("'kubevirt' addon", Ordered, func() {
 			BeforeAll(func(ctx context.Context) {
 				suite.K2sCli().Run(ctx, "addons", "disable", "kubevirt")
 
-				err := waitUntilKubectlAvailable()
-				Expect(err).To(BeNil())
+				Eventually(isKubectlAvailable).WithTimeout(3 * time.Minute).WithPolling(30 * time.Second).Should(BeTrue())
 			})
 
 			It("disables the addon", func(ctx context.Context) {
@@ -172,24 +168,16 @@ func runVirtctlCommand(args []string) (string, error) {
 	return output, nil
 }
 
-func waitUntilKubectlAvailable() error {
+func isKubectlAvailable() bool {
 	var err error
-	for i := 0; i < 6; i++ {
-		cmd, b := exec.Command("kubectl.exe", "get", "pods"), new(strings.Builder)
-		cmd.Stdout = b
-		cmd.Stderr = b
-		err = cmd.Run()
-		if err != nil || strings.Contains(b.String(), "Unable to connect to the server") {
-			time.Sleep(30 * time.Second)
-		} else {
-			break
-		}
-	}
-
-	if err != nil {
-		return err
+	cmd, b := exec.Command("kubectl.exe", "get", "pods"), new(strings.Builder)
+	cmd.Stdout = b
+	cmd.Stderr = b
+	err = cmd.Run()
+	if err != nil || strings.Contains(b.String(), "Unable to connect to the server") {
+		return false
 	} else {
-		return nil
+		return true
 	}
 }
 
