@@ -21,7 +21,7 @@ k2s addons enable registry
 
 The registry addon can be integrated with either the ingress-nginx addon or the traefik addon so that it can be exposed outside the cluster.
 
-By default `k2s addons enable registry` enables `ingress-nginx` in a first step.
+By default `k2s addons enable registry` enables ingress-nginx addon in a first step.
 
 The registry addon can also be enabled along with traefik addon using the following command:
 ```
