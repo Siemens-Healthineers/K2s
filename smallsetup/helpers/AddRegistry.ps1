@@ -27,9 +27,9 @@ $registryFunctionsModule = "$PSScriptRoot\RegistryFunctions.module.psm1"
 $clusterModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1"
 $imageFunctionsModule = "$PSScriptRoot\ImageFunctions.module.psm1"
 $logModule = "$PSScriptRoot\..\ps-modules\log\log.module.psm1"
-$cliModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.infra.module\cli-messages\cli-messages.module.psm1"
+$infraModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
 
-Import-Module $registryFunctionsModule, $clusterModule, $imageFunctionsModule, $cliModule -DisableNameChecking
+Import-Module $registryFunctionsModule, $clusterModule, $imageFunctionsModule, $infraModule -DisableNameChecking
 
 if (-not (Get-Module -Name $logModule -ListAvailable)) { Import-Module $logModule; Initialize-Logging -ShowLogs:$ShowLogs }
 
@@ -88,26 +88,30 @@ function Restart-Services() {
     }
 }
 
-$systemError = Test-SystemAvailability
+$systemError = Test-SystemAvailability -Structured
 if ($systemError) {
     if ($EncodeStructuredOutput -eq $true) {
         Send-ToCli -MessageType $MessageType -Message @{Error = $systemError }
         return
     }
 
-    Write-Log $systemError -Error
+    Write-Log $systemError.Message -Error
     exit 1
 }
 
 $registries = $(Get-RegistriesFromSetupJson)
 if ($registries) {
     $registryAlreadyExists = $registries | Where-Object { $_ -eq $RegistryName }
-    if ($registryAlreadyExists) {
-        Write-Log "Registry '$RegistryName' is already configured." -Console
+    if ($registryAlreadyExists) {        
+        $errMsg = "Registry '$RegistryName' is already configured."
         if ($EncodeStructuredOutput -eq $true) {
-            Send-ToCli -MessageType $MessageType -Message @{Error = $null }
+            $err = New-Error -Severity Warning -Code 'registry-already-configured' -Message $errMsg
+            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+            return
         }
-        return
+
+        Write-Log $errMsg -Error
+        exit 1
     }
 }
 
@@ -149,7 +153,8 @@ if (!$?) {
 
     $errMsg = 'Login to private registry not possible, please check credentials.'
     if ($EncodeStructuredOutput -eq $true) {
-        Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+        $err = New-Error -Code 'registry-login-impossible' -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
         return
     }
     Write-Log $errMsg -Error
@@ -210,7 +215,8 @@ elseif ($setupInfo.Name -eq $global:SetupType_MultiVMK8s -and !$($setupInfo.Linu
     if (!$?) {
         $errMsg = "Login to registry $RegistryName not possible, please check credentials."
         if ($EncodeStructuredOutput -eq $true) {
-            Send-ToCli -MessageType $MessageType -Message @{Error = $errMsg }
+            $err = New-Error -Code 'registry-login-impossible' -Message $errMsg
+            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
             return
         }
         Write-Log $errMsg -Error

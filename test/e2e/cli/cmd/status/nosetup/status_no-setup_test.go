@@ -5,7 +5,7 @@ package nosetup
 import (
 	"context"
 	"encoding/json"
-	"k2s/cmd/status/load"
+	"k2s/cmd/status"
 	"k2s/setupinfo"
 	"time"
 
@@ -22,7 +22,7 @@ var suite *framework.K2sTestSuite
 
 func TestStatus(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "status CLI Command Acceptance Tests", Label("cli", "status", "acceptance", "no-setup"))
+	RunSpecs(t, "status CLI Command Acceptance Tests", Label("cli", "status", "acceptance", "no-setup", "ci"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
@@ -51,7 +51,7 @@ var _ = Describe("status", Ordered, func() {
 	})
 
 	Context("JSON output", func() {
-		var status load.Status
+		var status status.PrintStatus
 
 		BeforeAll(func(ctx context.Context) {
 			output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "status", "-o", "json")
@@ -60,13 +60,11 @@ var _ = Describe("status", Ordered, func() {
 		})
 
 		It("contains system-not-installed info", func() {
-			Expect(status.SetupInfo.Name).To(BeNil())
-			Expect(status.SetupInfo.Version).To(BeNil())
-			Expect(*status.SetupInfo.Error).To(Equal(setupinfo.ErrNotInstalledMsg))
-			Expect(status.SetupInfo.LinuxOnly).To(BeNil())
+			Expect(*status.Error).To(Equal(setupinfo.ErrSystemNotInstalled.Error()))
 		})
 
 		It("does not contain any other info", func() {
+			Expect(status.SetupInfo).To(BeNil())
 			Expect(status.RunningState).To(BeNil())
 			Expect(status.Nodes).To(BeNil())
 			Expect(status.Pods).To(BeNil())

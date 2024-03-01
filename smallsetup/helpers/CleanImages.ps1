@@ -25,14 +25,14 @@ Import-Module $imageModule, $statusModule, $infraModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
-$systemError = Test-SystemAvailability
+$systemError = Test-SystemAvailability -Structured
 if ($systemError) {
     if ($EncodeStructuredOutput -eq $true) {
         Send-ToCli -MessageType $MessageType -Message @{Error = $systemError }
         return
     }
 
-    Write-Log $systemError -Error
+    Write-Log $systemError.Message -Error
     exit 1
 }
 
@@ -40,11 +40,14 @@ $allContainerImages = Get-ContainerImagesInk2s -IncludeK8sImages $false
 $deletedImages = @()
 
 if ($allContainerImages.Count -eq 0) {
-    Write-Log 'Nothing to delete.' -Console
+    $errMsg = 'Nothing to delete.'    
     if ($EncodeStructuredOutput -eq $true) {
-        Send-ToCli -MessageType $MessageType -Message @{Error = $null }
+        $err = New-Error -Severity Warning -Code 'no-images' -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+        return
     }
-    return
+    Write-Log $errMsg -Error
+    exit 1
 }
 
 foreach ($containerImage in $allContainerImages) {

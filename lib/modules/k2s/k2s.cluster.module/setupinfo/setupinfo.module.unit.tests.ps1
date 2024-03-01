@@ -9,7 +9,7 @@ BeforeAll {
     $moduleName = (Import-Module $module -PassThru -Force).Name
 }
 
-Describe 'Confirm-SetupNameIsValid' -Tag 'unit' {
+Describe 'Confirm-SetupNameIsValid' -Tag 'unit', 'ci' {
     It 'validation error contains "<expected>" when setup name is "<name>"' -ForEach @(
         @{ Name = $null; Expected = 'system-not-installed' }
         @{ Name = ''; Expected = 'system-not-installed' }
@@ -31,7 +31,7 @@ Describe 'Confirm-SetupNameIsValid' -Tag 'unit' {
     }
 }
 
-Describe 'Get-SetupInfo' -Tag 'unit' {
+Describe 'Get-SetupInfo' -Tag 'unit', 'ci' {
     Context 'setup name is valid' {
         Context "name is 'MultiVMK8s'" {
             BeforeAll {

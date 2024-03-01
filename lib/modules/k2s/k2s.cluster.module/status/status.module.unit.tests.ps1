@@ -9,7 +9,7 @@ BeforeAll {
     $moduleName = (Import-Module $module -PassThru -Force).Name
 }
 
-Describe 'Get-Status' -Tag 'unit' {
+Describe 'Get-Status' -Tag 'unit', 'ci' {
     BeforeAll {
         Mock -ModuleName $moduleName Write-Log {}
     }
@@ -17,15 +17,13 @@ Describe 'Get-Status' -Tag 'unit' {
     Context 'progress display disabled' {
         Context 'setup name is invalid' {
             BeforeAll {
-                Mock -ModuleName $moduleName Get-SetupInfo { return @{Name = 'invalid'; Error = 'invalid type' } }
+                Mock -ModuleName $moduleName Get-SetupInfo { return @{ Error = 'invalid-name' } }
             }
             
-            It 'returns status with setup name info immediately without gathering additional data' {
+            It 'returns status with error immediately without gathering additional data' {
                 InModuleScope -ModuleName $moduleName {
                     $result = Get-Status
-                    $result.SetupInfo.Name | Should -Be 'invalid'
-                    $result.SetupInfo.Error | Should -Be 'invalid type'
-                    $result.SmbHostType | Should -BeNullOrEmpty
+                    $result.Error.Code | Should -Be 'invalid-name'
                 }
             }
         }
@@ -189,7 +187,7 @@ Describe 'Get-Status' -Tag 'unit' {
     }
 }
 
-Describe 'Test-SystemAvailability' -Tag 'unit' {
+Describe 'Test-SystemAvailability' -Tag 'unit', 'ci' {
     Context 'setup info has errors' {
         BeforeAll {
             Mock -ModuleName $moduleName Get-SetupInfo { return @{Error = 'invalid-error' } }
@@ -229,13 +227,13 @@ Describe 'Test-SystemAvailability' -Tag 'unit' {
     }
 }
 
-Describe 'Test-ClusterAvailability' -Tag 'unit' -Skip { 
+Describe 'Test-ClusterAvailability' -Tag 'unit', 'ci' -Skip { 
     It 'test-not-implemented' {
         
     }
 }
 
-Describe 'Get-KubernetesServiceAreRunning' -Tag 'unit' -Skip { 
+Describe 'Get-KubernetesServiceAreRunning' -Tag 'unit', 'ci' -Skip { 
     It 'test-not-implemented' {
         
     }

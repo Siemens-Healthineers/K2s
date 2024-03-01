@@ -4,6 +4,7 @@
 package dump
 
 import (
+	"errors"
 	"strconv"
 
 	"github.com/spf13/cobra"
@@ -11,6 +12,7 @@ import (
 
 	"k2s/cmd/common"
 	p "k2s/cmd/params"
+	"k2s/setupinfo"
 	"k2s/utils"
 	"k2s/utils/psexecutor"
 )
@@ -57,6 +59,9 @@ func dumpSystemStatus(cmd *cobra.Command, args []string) error {
 
 	duration, err := psexecutor.ExecutePowershellScript(dumpStatusCommand)
 	if err != nil {
+		if errors.Is(err, setupinfo.ErrSystemNotInstalled) {
+			return common.CreateSystemNotInstalledCmdFailure()
+		}
 		return err
 	}
 

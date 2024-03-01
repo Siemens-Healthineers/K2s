@@ -5,7 +5,6 @@ package common
 
 import (
 	"k2s/setupinfo"
-	"k2s/status"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -15,7 +14,7 @@ import (
 
 func Test(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "cmd common Unit Tests", Label("unit", "cmd"))
+	RunSpecs(t, "cmd common Unit Tests", Label("unit", "ci", "cmd"))
 }
 
 var _ = BeforeSuite(func() {
@@ -23,45 +22,49 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = Describe("common", func() {
-	Describe("ToError", func() {
-		When("system-not-running error", func() {
-			It("returns system-not-running error", func() {
-				err := CmdError(status.ErrNotRunningMsg)
+	Describe("CmdFailure", func() {
+		Describe("Error", func() {
+			It("implements the error interface", func() {
+				sut := &CmdFailure{
+					Code:    "my-code",
+					Message: "my-msg",
+				}
 
-				result := err.ToError()
+				result := sut.Error()
 
-				Expect(result).To(Equal(status.ErrNotRunning))
+				Expect(result).To(Equal("my-code: my-msg"))
 			})
 		})
+	})
 
-		When("system-running error", func() {
-			It("returns system-running error", func() {
-				err := CmdError(status.ErrRunningMsg)
+	Describe("FailureSeverity", func() {
+		DescribeTable("String - implements the stringer interface", func(input FailureSeverity, expected string) {
+			sut := FailureSeverity(input)
 
-				result := err.ToError()
+			result := sut.String()
 
-				Expect(result).To(Equal(status.ErrRunning))
-			})
+			Expect(result).To(Equal(expected))
+		},
+			Entry("warning", FailureSeverity(3), "warning"),
+			Entry("error", FailureSeverity(4), "error"),
+			Entry("unknown", FailureSeverity(123), "unknown"))
+	})
+
+	Describe("CreateSystemNotInstalledCmdResult", func() {
+		It("works", func() {
+			result := CreateSystemNotInstalledCmdResult()
+
+			Expect(result.Failure.Code).To(Equal(setupinfo.ErrSystemNotInstalled.Error()))
 		})
+	})
 
-		When("system-not-installed error", func() {
-			It("returns system-not-installed error", func() {
-				err := CmdError(setupinfo.ErrNotInstalledMsg)
+	Describe("CreateSystemNotInstalledCmdFailure", func() {
+		It("works", func() {
+			result := CreateSystemNotInstalledCmdFailure()
 
-				result := err.ToError()
-
-				Expect(result).To(Equal(setupinfo.ErrNotInstalled))
-			})
-		})
-
-		When("unknown error", func() {
-			It("returns unknown error", func() {
-				err := CmdError("oops")
-
-				result := err.ToError()
-
-				Expect(result).To(MatchError(ContainSubstring("oops")))
-			})
+			Expect(result.Severity).To(Equal(SeverityWarning))
+			Expect(result.Code).To(Equal(setupinfo.ErrSystemNotInstalled.Error()))
+			Expect(result.Message).To(Equal(ErrSystemNotInstalledMsg))
 		})
 	})
 })

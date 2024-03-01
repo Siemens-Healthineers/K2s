@@ -41,7 +41,7 @@ func (m *mockObject) Unmarshal(data []byte, v any) error {
 
 func TestLoad(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "load Unit Tests", Label("unit"))
+	RunSpecs(t, "load Unit Tests", Label("unit", "ci"))
 }
 
 var _ = Describe("load", func() {
@@ -141,7 +141,7 @@ var _ = Describe("load", func() {
 				actual, err := sut.LoadForSetup(path)
 
 				Expect(actual).To(BeNil())
-				Expect(err).To(MatchError(setupinfo.ErrNotInstalled))
+				Expect(err).To(MatchError(setupinfo.ErrSystemNotInstalled))
 			})
 		})
 

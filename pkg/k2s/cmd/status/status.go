@@ -7,7 +7,7 @@ import (
 	"errors"
 	"fmt"
 
-	"k2s/cmd/common"
+	sc "k2s/cmd/status/common"
 	"k2s/cmd/status/load"
 	"k2s/setupinfo"
 
@@ -16,19 +16,19 @@ import (
 )
 
 type RunningStatePrinter interface {
-	PrintRunningState(runningState *load.RunningState) (proceed bool, err error)
+	PrintRunningState(runningState *sc.RunningState) (proceed bool, err error)
 }
 
 type NodeStatusPrinter interface {
-	PrintNodeStatus(nodes []load.Node, showAdditionalInfo bool) bool
+	PrintNodeStatus(nodes []sc.Node, showAdditionalInfo bool) bool
 }
 
 type PodStatusPrinter interface {
-	PrintPodStatus(pods []load.Pod, showAdditionalInfo bool)
+	PrintPodStatus(pods []sc.Pod, showAdditionalInfo bool)
 }
 
 type SetupInfoPrinter interface {
-	PrintSetupInfo(setupinfo.SetupInfo) (proceed bool, err error)
+	PrintSetupInfo(*setupinfo.SetupInfo) (proceed bool, err error)
 }
 
 type TerminalPrinter interface {
@@ -42,11 +42,11 @@ type Spinner interface {
 }
 
 type JsonPrinter interface {
-	PrintJson(*load.Status) error
+	PrintJson(any) error
 }
 
 type K8sVersionInfoPrinter interface {
-	PrintK8sVersionInfo(k8sVersionInfo *load.K8sVersionInfo) error
+	PrintK8sVersionInfo(k8sVersionInfo *sc.K8sVersionInfo) error
 }
 
 type StatusPrinter struct {
@@ -56,12 +56,21 @@ type StatusPrinter struct {
 	nodeStatusPrinter     NodeStatusPrinter
 	podStatusPrinter      PodStatusPrinter
 	k8sVersionInfoPrinter K8sVersionInfoPrinter
-	loadStatusFunc        func() (*load.Status, error)
+	loadStatusFunc        func() (*load.LoadedStatus, error)
 }
 
 type StatusJsonPrinter struct {
-	loadStatusFunc func() (*load.Status, error)
+	loadStatusFunc func() (*load.LoadedStatus, error)
 	jsonPrinter    JsonPrinter
+}
+
+type PrintStatus struct {
+	SetupInfo      *setupinfo.SetupInfo `json:"setupInfo"`
+	RunningState   *sc.RunningState     `json:"runningState"`
+	Nodes          []sc.Node            `json:"nodes"`
+	Pods           []sc.Pod             `json:"pods"`
+	K8sVersionInfo *sc.K8sVersionInfo   `json:"k8sVersionInfo"`
+	Error          *string              `json:"error"`
 }
 
 const (
@@ -116,21 +125,32 @@ func printStatus(cmd *cobra.Command, args []string) error {
 func printStatusAsJson() error {
 	printer := NewStatusJsonPrinter()
 
-	var deferredErr error
-	status, err := printer.loadStatusFunc()
+	loadedStatus, err := printer.loadStatusFunc()
 	if err != nil {
-		if !errors.Is(err, setupinfo.ErrNotInstalled) {
-			return err
-		}
-		errMsg := setupinfo.ErrNotInstalledMsg
-		status = &load.Status{SetupInfo: setupinfo.SetupInfo{Error: &errMsg}}
-
-		deferredErr = errors.Join(err, common.ErrSilent)
+		return err
 	}
 
-	printErr := printer.jsonPrinter.PrintJson(status)
+	printStatus := PrintStatus{
+		SetupInfo:      loadedStatus.SetupInfo,
+		RunningState:   loadedStatus.RunningState,
+		Nodes:          loadedStatus.Nodes,
+		Pods:           loadedStatus.Pods,
+		K8sVersionInfo: loadedStatus.K8sVersionInfo,
+	}
 
-	return errors.Join(deferredErr, printErr)
+	var deferredErr error
+	if loadedStatus.Failure != nil {
+		printStatus.Error = &loadedStatus.Failure.Code
+		loadedStatus.Failure.SuppressCliOutput = true
+		deferredErr = loadedStatus.Failure
+	}
+
+	err = printer.jsonPrinter.PrintJson(printStatus)
+	if err != nil {
+		return fmt.Errorf("error occurred while printing status JSON: %w", errors.Join(deferredErr, err))
+	}
+
+	return deferredErr
 }
 
 func printStatusUserFriendly(showAdditionalInfo bool) error {
@@ -158,6 +178,10 @@ func printStatusUserFriendly(showAdditionalInfo bool) error {
 		return fmt.Errorf("status could not be loaded: %w", err)
 	}
 
+	if status.Failure != nil {
+		return status.Failure
+	}
+
 	printer.terminalPrinter.PrintHeader("K2s SYSTEM STATUS")
 
 	proceed, err := printer.setupInfoPrinter.PrintSetupInfo(status.SetupInfo)
@@ -176,7 +200,7 @@ func printStatusUserFriendly(showAdditionalInfo bool) error {
 		return nil
 	}
 
-	if *status.SetupInfo.Name == setupinfo.SetupNameBuildOnlyEnv {
+	if status.SetupInfo.Name == setupinfo.SetupNameBuildOnlyEnv {
 		klog.V(4).Infof("setup '%s' has no K8s components, skipping them", setupinfo.SetupNameBuildOnlyEnv)
 		return nil
 	}

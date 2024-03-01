@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"k2s/addons/status"
+	"k2s/setupinfo"
 	"strings"
 	"testing"
 	"time"
@@ -23,7 +24,7 @@ var addons []k2s.Addon
 
 func TestAddons(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "addons CLI Commands Acceptance Tests", Label("cli", "acceptance", "no-setup", "addons"))
+	RunSpecs(t, "addons CLI Commands Acceptance Tests", Label("cli", "acceptance", "no-setup", "addons", "ci"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
@@ -78,7 +79,7 @@ var _ = Describe("addons commands", func() {
 
 					Expect(status.Enabled).To(BeNil())
 					Expect(status.Name).To(Equal(addon.Metadata.Name))
-					Expect(string(*status.Error)).To(Equal("system-not-installed"))
+					Expect(*status.Error).To(Equal(setupinfo.ErrSystemNotInstalled.Error()))
 					Expect(status.Props).To(BeEmpty())
 				}
 			})

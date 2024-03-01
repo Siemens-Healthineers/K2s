@@ -7,7 +7,6 @@ import (
 	"errors"
 	"k2s/cmd/common"
 	"k2s/setupinfo"
-	ks "k2s/status"
 
 	"k8s.io/klog/v2"
 
@@ -28,7 +27,7 @@ type Spinner interface {
 }
 
 type StatusLoader interface {
-	LoadAddonStatus(addonName string, addonDirectory string) (*AddonLoadStatus, error)
+	LoadAddonStatus(addonName string, addonDirectory string) (*LoadedAddonStatus, error)
 }
 
 type JsonMarshaller interface {
@@ -54,8 +53,10 @@ type UserFriendlyPrinter struct {
 }
 
 type AddonPrintStatus struct {
-	AddonLoadStatus
-	Name string `json:"name"`
+	Name    string            `json:"name"`
+	Enabled *bool             `json:"enabled"`
+	Props   []AddonStatusProp `json:"props"`
+	Error   *string           `json:"error"`
 }
 
 type propPrint struct {
@@ -73,8 +74,6 @@ func NewJsonPrinter(terminalPrinter TerminalPrinter, statusLoader StatusLoader, 
 func NewUserFriendlyPrinter(
 	terminalPrinter TerminalPrinter,
 	statusLoader StatusLoader,
-	printAddonNotFoundMsgFunc func(dir string, name string),
-	printNoAddonStatusMsgFunc func(name string),
 	propPrinters ...PropPrinter) *UserFriendlyPrinter {
 	var propPrinter PropPrinter
 	if len(propPrinters) > 0 {
@@ -84,11 +83,9 @@ func NewUserFriendlyPrinter(
 	}
 
 	return &UserFriendlyPrinter{
-		terminalPrinter:           terminalPrinter,
-		statusLoader:              statusLoader,
-		propPrinter:               propPrinter,
-		printAddonNotFoundMsgFunc: printAddonNotFoundMsgFunc,
-		printNoAddonStatusMsgFunc: printNoAddonStatusMsgFunc,
+		terminalPrinter: terminalPrinter,
+		statusLoader:    statusLoader,
+		propPrinter:     propPrinter,
 	}
 }
 
@@ -101,31 +98,37 @@ func NewPropPrinter(terminalPrinter TerminalPrinter) *propPrint {
 func (s *JsonPrinter) PrintStatus(addonName string, addonDirectory string) error {
 	klog.V(4).Infof("Loading status for addon '%s' in dir '%s'..", addonName, addonDirectory)
 
-	addonStatus, err := s.statusLoader.LoadAddonStatus(addonName, addonDirectory)
+	loadedStatus, err := s.statusLoader.LoadAddonStatus(addonName, addonDirectory)
 
-	var deferredErr error
-	printStatus := AddonPrintStatus{Name: addonName}
-	if err == nil {
-		printStatus.AddonLoadStatus = *addonStatus
-	} else {
-		deferredErr = errors.Join(err, common.ErrSilent)
+	var cmdFailure *common.CmdFailure
+	printStatus := AddonPrintStatus{
+		Name: addonName,
+	}
 
-		if errors.Is(err, ks.ErrNotRunning) {
-			errMsg := common.CmdError(ks.ErrNotRunningMsg)
-			printStatus.AddonLoadStatus = AddonLoadStatus{CmdResult: common.CmdResult{Error: &errMsg}}
-		} else if errors.Is(err, setupinfo.ErrNotInstalled) {
-			errMsg := common.CmdError(setupinfo.ErrNotInstalledMsg)
-			printStatus.AddonLoadStatus = AddonLoadStatus{CmdResult: common.CmdResult{Error: &errMsg}}
-		} else if errors.Is(err, ErrAddonNotFound) {
-			errMsg := errAddonNotFoundMsg
-			printStatus.AddonLoadStatus = AddonLoadStatus{CmdResult: common.CmdResult{Error: &errMsg}}
-		} else if errors.Is(err, ErrNoAddonStatus) {
-			errMsg := errNoAddonStatusMsg
-			printStatus.AddonLoadStatus = AddonLoadStatus{CmdResult: common.CmdResult{Error: &errMsg}}
-		} else {
+	if err != nil {
+		if !errors.Is(err, setupinfo.ErrSystemNotInstalled) {
 			return err
 		}
+
+		cmdFailure = &common.CmdFailure{
+			Severity: common.SeverityWarning,
+			Code:     setupinfo.ErrSystemNotInstalled.Error(),
+			Message:  common.ErrSystemNotInstalledMsg,
+		}
+	} else {
+		cmdFailure = loadedStatus.Failure
 	}
+
+	var deferredErr error
+	if cmdFailure != nil {
+		printStatus.Error = &cmdFailure.Code
+		cmdFailure.SuppressCliOutput = true
+		deferredErr = cmdFailure
+	} else {
+		printStatus.Enabled = loadedStatus.Enabled
+		printStatus.Props = loadedStatus.Props
+	}
+
 	klog.V(4).Infof("Marhalling status: %v", printStatus)
 
 	bytes, err := s.jsonMarshaller.MarshalIndent(printStatus)
@@ -143,8 +146,6 @@ func (s *JsonPrinter) PrintStatus(addonName string, addonDirectory string) error
 }
 
 func (s *UserFriendlyPrinter) PrintStatus(addonName string, addonDirectory string) error {
-	s.terminalPrinter.PrintHeader("ADDON STATUS")
-
 	startResult, err := s.terminalPrinter.StartSpinner("Gathering status information...")
 	if err != nil {
 		return err
@@ -164,20 +165,18 @@ func (s *UserFriendlyPrinter) PrintStatus(addonName string, addonDirectory strin
 
 	status, err := s.statusLoader.LoadAddonStatus(addonName, addonDirectory)
 	if err != nil {
-		if errors.Is(err, ErrAddonNotFound) {
-			s.printAddonNotFoundMsgFunc(addonDirectory, addonName)
-			return nil
-		} else if errors.Is(err, ErrNoAddonStatus) {
-			s.printNoAddonStatusMsgFunc(addonName)
-			return nil
-		} else {
-			return err
-		}
+		return err
+	}
+
+	if status.Failure != nil {
+		return status.Failure
 	}
 
 	if status.Enabled == nil {
 		return fmt.Errorf("enabled/disabled info missing for '%s' addon", addonName)
 	}
+
+	s.terminalPrinter.PrintHeader("ADDON STATUS")
 
 	coloredAddonName := s.terminalPrinter.PrintCyanFg(addonName)
 

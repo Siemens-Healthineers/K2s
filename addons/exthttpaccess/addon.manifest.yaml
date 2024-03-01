@@ -29,7 +29,13 @@ spec:
           - name: autoconfirm-alt-ports
             shorthand: a
             default: false
-            description: Automatically switch to alternative ports 8080/8443 if 80/443 are busy without user confirmation
+            description: Automatically switch to alternative ports 8080/8443 if 80/443 are busy without user confirmation (only applicable if no http/https ports are specified)
+          - name: http-port
+            default: ""
+            description: Use a custom HTTP port value (valid range is 49152 to 65535)
+          - name: https-port
+            default: ""
+            description: Use a custom HTTPS port value (valid range is 49152 to 65535)
         examples:
           - cmd: k2s addons enable exthttpaccess
             comment: Enable exthttpaccess in k2s
@@ -42,6 +48,10 @@ spec:
             scriptParameterName: Proxy
           - cliFlagName: autoconfirm-alt-ports
             scriptParameterName: AutoconfirmUseAlternativePortsIfNeeded
+          - cliFlagName: http-port
+            scriptParameterName: HttpPort
+          - cliFlagName: https-port
+            scriptParameterName: HttpsPort
     disable:
       cli:
         examples:

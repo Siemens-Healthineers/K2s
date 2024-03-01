@@ -27,7 +27,7 @@ func (m *mockObject) add(p string) {
 
 func TestAddons(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "addons cmd Unit Tests", Label("unit"))
+	RunSpecs(t, "addons cmd Unit Tests", Label("unit", "ci"))
 }
 
 var _ = BeforeSuite(func() {

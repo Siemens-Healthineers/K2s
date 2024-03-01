@@ -29,9 +29,9 @@ $logModule = "$PSScriptRoot/../../smallsetup/ps-modules/log/log.module.psm1"
 $clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
 $registryFunctionsModule = "$PSScriptRoot\..\..\smallsetup\helpers\RegistryFunctions.module.psm1"
-$cliMessagesModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/cli-messages/cli-messages.module.psm1"
+$infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 
-Import-Module $logModule, $addonsModule, $clusterModule, $registryFunctionsModule, $cliMessagesModule -DisableNameChecking
+Import-Module $logModule, $addonsModule, $clusterModule, $registryFunctionsModule, $infraModule -DisableNameChecking
 
 Write-Log 'Checking cluster status' -Console
 
@@ -50,7 +50,8 @@ if ((Test-IsAddonEnabled -Name 'gpu-node') -eq $true) {
     $errMsg = "Addon 'gpu-node' is already enabled, nothing to do."
 
     if ($EncodeStructuredOutput -eq $true) {
-        Send-ToCli -MessageType $MessageType -Message @{Error = @{Type = 'precondition-not-met'; Code = 'addon-already-enabled'; Message = $errMsg } }
+        $err = New-Error -Severity Warning -Code (Get-ErrCodeAddonAlreadyEnabled) -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
         return
     }
     
@@ -70,7 +71,8 @@ if (!(Test-Path -Path 'C:\Windows\System32\lxss\lib\libdxcore.so')) {
     }
 
     if ($EncodeStructuredOutput -eq $true) {
-        Send-ToCli -MessageType $MessageType -Message @{Error = @{Message = $errMsg } }
+        $err = New-Error -Severity Warning -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
         return
     }
 
@@ -86,7 +88,8 @@ if ($WSL) {
             + 'After Nvidia driver installation you need to reinstall the cluster for the changes to take effect.'
 
         if ($EncodeStructuredOutput -eq $true) {
-            Send-ToCli -MessageType $MessageType -Message @{Error = @{Message = $errMsg } }
+            $err = New-Error -Severity Warning -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
             return
         }
     
@@ -95,11 +98,12 @@ if ($WSL) {
     }
     ssh.exe -n -o StrictHostKeyChecking=no -i $global:LinuxVMKey $global:Remote_Master '/usr/lib/wsl/lib/nvidia-smi'
     if (!$?) {
-        $errMsg = "It seems that the needed Nvidia drivers are not installed correctly!`n" `
-            + 'Please reinstall Nvidia drivers and cluster and try again!'
+        $errMsg = "It seems that the needed Nvidia drivers are not installed correctly.`n" `
+            + 'Please reinstall Nvidia drivers and cluster and try again.'
 
         if ($EncodeStructuredOutput -eq $true) {
-            Send-ToCli -MessageType $MessageType -Message @{Error = @{Message = $errMsg } }
+            $err = New-Error -Severity Warning -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
             return
         }
 
@@ -159,7 +163,8 @@ else {
     if ($count -eq '0') {
         $errMsg = "$microsoftStandardWSL2 could not be pulled!"
         if ($EncodeStructuredOutput -eq $true) {
-            Send-ToCli -MessageType $MessageType -Message @{Error = @{Message = $errMsg } }
+            $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
             return
         }
 
@@ -237,7 +242,8 @@ Wait-ForAPIServer
 if (!$?) {
     $errMsg = 'Nvidia device plugin could not be started!'
     if ($EncodeStructuredOutput -eq $true) {
-        Send-ToCli -MessageType $MessageType -Message @{Error = @{Message = $errMsg } }
+        $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
         return
     }
 
@@ -251,7 +257,8 @@ Write-Log 'Installing DCGM-Exporter' -Console
 if (!$?) {
     $errMsg = 'DCGM-Exporter could not be started!'
     if ($EncodeStructuredOutput -eq $true) {
-        Send-ToCli -MessageType $MessageType -Message @{Error = @{Message = $errMsg } }
+        $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
         return
     }
 

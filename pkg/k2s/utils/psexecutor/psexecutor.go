@@ -385,7 +385,7 @@ func determinePsVersion(ignoreNotInstalledErr bool) (PowerShellVersion, error) {
 	configAccess := config.NewAccess()
 	setupName, err := configAccess.GetSetupName()
 	if err != nil {
-		if errors.Is(err, setupinfo.ErrNotInstalled) && ignoreNotInstalledErr {
+		if errors.Is(err, setupinfo.ErrSystemNotInstalled) && ignoreNotInstalledErr {
 			klog.V(2).ErrorS(err, "setup not installed, falling back to default PowerShell version", "PowerShell", PowerShellV5)
 
 			return PowerShellV5, nil

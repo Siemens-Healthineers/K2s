@@ -73,7 +73,7 @@ function ExecCmdMaster(
             else {
                 Write-Log "cmd: $cmdLogText will be retried.."
                 # try to repair the cmd
-                if( ($null -ne $RepairCmd) -and !$UsePwd -and !$IgnoreErrors) {
+                if ( ($null -ne $RepairCmd) -and !$UsePwd -and !$IgnoreErrors) {
                     Write-Log "Executing repair cmd: $RepairCmd"
                     if ($Nested) {
                         ssh.exe -o StrictHostKeyChecking=no -i $global:LinuxVMKey $RemoteUser $RepairCmd 2>&1 | ForEach-Object { Write-Log $_ -Console -Raw }
@@ -357,7 +357,7 @@ function InstallAptPackages {
         [string]$RemoteUserPwd = $global:VMPwd
     )
     Write-Log "installing needed apt packages for $FriendlyName..."
-    ExecCmdMaster "sudo DEBIAN_FRONTEND=noninteractive apt-get install -qq --yes --fix-missing $Packages" -Retries 2 -Timeout 2 -RemoteUser "$RemoteUser" -RemoteUserPwd "$RemoteUserPwd" -UsePwd -RepairCmd "sudo apt --fix-broken install"
+    ExecCmdMaster "sudo DEBIAN_FRONTEND=noninteractive apt-get install -qq --yes --fix-missing $Packages" -Retries 2 -Timeout 2 -RemoteUser "$RemoteUser" -RemoteUserPwd "$RemoteUserPwd" -UsePwd -RepairCmd 'sudo apt --fix-broken install'
 
     if ($TestExecutable -ne '') {
         $exeInstalled = $(ExecCmdMaster "which $TestExecutable" -RemoteUser "$RemoteUser" -RemoteUserPwd "$RemoteUserPwd" -NoLog -UsePwd)
