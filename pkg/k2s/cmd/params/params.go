@@ -23,9 +23,9 @@ const (
 	ForceOnlineInstallFlagShorthand = "f"
 	ForceOnlineInstallFlagUsage     = "Force the online installation"
 
-	TryUseCacheK2sVSwitchesFlagName  = "try-use-cached-k2s-vswitches"
-	TryUseCacheK2sVSwitchesFlagUsage = "Try to use Cached k2s vSwitches"
+	AutouseCachedVSwitchFlagName  = "autouse-cached-vswitch"
+	AutouseCachedVSwitchFlagUsage = "Automatically utilizes the cached vSwitch 'cbr0' and 'KubeSwitch' for cluster connectivity through the host machine"
 
-	CacheK2sVSwitchesFlagName  = "cache-k2s-vswitches"
-	CacheK2sVSwitchesFlagUsage = "Cache K2s vswitches"
+	CacheVSwitchFlagName  = "cache-vswitch"
+	CacheVSwitchFlagUsage = "Cache vswitches 'cbr0' and 'KubeSwitch' for cluster connectivity through the host machine."
 )

@@ -27,7 +27,7 @@ var Stopk8sCmd = &cobra.Command{
 
 func init() {
 	Stopk8sCmd.Flags().String(p.AdditionalHooksDirFlagName, "", p.AdditionalHooksDirFlagUsage)
-	Stopk8sCmd.Flags().BoolP(p.CacheK2sVSwitchesFlagName, "", false, p.CacheK2sVSwitchesFlagName)
+	Stopk8sCmd.Flags().BoolP(p.CacheVSwitchFlagName, "", false, p.CacheVSwitchFlagUsage)
 	Stopk8sCmd.Flags().SortFlags = false
 	Stopk8sCmd.Flags().PrintDefaults()
 }
@@ -60,7 +60,7 @@ func buildStopCmd(ccmd *cobra.Command) (string, error) {
 
 	additionalHooksdir := ccmd.Flags().Lookup(p.AdditionalHooksDirFlagName).Value.String()
 
-	cacheK2sVSwitches, err := strconv.ParseBool(ccmd.Flags().Lookup(p.CacheK2sVSwitchesFlagName).Value.String())
+	cacheVSwitches, err := strconv.ParseBool(ccmd.Flags().Lookup(p.CacheVSwitchFlagName).Value.String())
 	if err != nil {
 		return "", err
 	}
@@ -83,7 +83,7 @@ func buildStopCmd(ccmd *cobra.Command) (string, error) {
 		if additionalHooksdir != "" {
 			cmd += " -AdditionalHooksDir " + utils.EscapeWithSingleQuotes(additionalHooksdir)
 		}
-		if cacheK2sVSwitches {
+		if cacheVSwitches {
 			cmd += " -CacheK2sVSwitches"
 		}
 	case setupinfo.SetupNameMultiVMK8s:
