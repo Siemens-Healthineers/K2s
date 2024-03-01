@@ -47,7 +47,7 @@ spec:
         []
       containers:
         - name: loki
-          image: "ghcr.io/credativ/vali:v2.2.11"
+          image: "ghcr.io/credativ/vali:v2.2.14"
           imagePullPolicy: IfNotPresent
           args:
             - "-config.file=/etc/vali/vali.yaml"
