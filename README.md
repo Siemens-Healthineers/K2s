@@ -9,18 +9,17 @@ SPDX-License-Identifier: MIT
 [![ci](https://github.com/Siemens-Healthineers/K2s/actions/workflows/build-k2s-cli.yml/badge.svg)](https://github.com/Siemens-Healthineers/K2s/actions/workflows/build-k2s-cli.yml)
 [![ci](https://github.com/Siemens-Healthineers/K2s/actions/workflows/build-k2s-artifacts.yml/badge.svg)](https://github.com/Siemens-Healthineers/K2s/actions/workflows/build-k2s-artifacts.yml)
 
-This **K2s** solution is a Kubernetes (K8s) distribution which packages different components
+**K2s** solution is a Kubernetes (K8s) distribution which packages different components
 into one small and easy to use solution. It has its focus on running mixed Windows & Linux workloads in Kubernetes and it's available on Windows hosts.
 
-## Why this **K2s** distribution ?
+## Why **K2s** distribution ?
 
 The problems that **K2s** solves are the following:
-1. It offers the possibility to build a K8s cluster by reusing the Windows host as a node.
-By this no extra Windows license is needed for a mixed Windows & Linux cluster
-2. Offline support for all of the use cases (no internet connection needed)
-3. It offers an easy path for migrating bare metal Windows applications to K8s workloads
-4. Very low footprint by only having one virtual machine for the Linux workloads (Hyper-V or WSL)
-5. It's build on 100% open source, no additional licenses needed
+1. It provides the option to construct a K8s cluster by reusing the Windows host as a node. This eliminates the need for an extra Windows license in the case of a mixed Windows & Linux cluster.
+2. Offline support is available for all use cases, eliminating the requirement for an internet connection.
+3. It offers an easy path for migrating bare metal Windows applications to K8s workloads.
+4. It maintains a low footprint by utilizing a single virtual machine for Linux workloads. (Hyper-V or WSL).
+5. It is built on 100% open source technology, requiring no additional licenses.
 
 The name **K2s** comes from the fact that we start with the default setting of 2 K8s nodes (Windows & Linux) and it relates to K8s with the intention to solve the problems mentioned above.
 
@@ -28,14 +27,14 @@ See [Features](/doc/K8s_Features.md) for a full list of features.
 
 ## Quickstart
 
-Extract the downloaded [K2s.zip](https://github.com/Siemens-Healthineers/K2s/releases) file to a folder of your choice (use **C:** drive if possible), open one command prompt as Administrator and navigate to that installation folder. 
+Extract the downloaded [K2s.zip](https://github.com/Siemens-Healthineers/K2s/releases) file to a folder of your choice (use **C:** drive if possible), open a command prompt as Administrator and navigate to the installation folder.
 
-Install **K2s** with (please check first [Prerequisites](./doc/k2scli/install-uninstall_cmd.md#prerequisites)):
+Install **K2s** with (ensure to verify the [Prerequisites](./doc/k2scli/install-uninstall_cmd.md#prerequisites) first):
 ```
 <installation folder>\k2s.exe install
 ```
 
-After installation you can use one of the [shortcuts](./doc/K8s_Shortcuts.md) to interact with your new cluster:
+After installation, you can utilize one of the [shortcuts](./doc/K8s_Shortcuts.md) to interact with your newly created cluster:
 ```
 k   - shows the commands available for interacting with the K8s cluster
 ks  - get the state of the cluster
@@ -45,7 +44,7 @@ kgp - show all the pods running in the cluster
 ```
 
 Beside the raw K8s cluster we are also providing a [rich set of addons](./addons/README.md), which are bringing additional specific functionality to your cluster.
-Enabling such an addon is very easy:
+Enabling such an addon is a straightforward process:
 ```
 k2s addons ls                     - lists all the available addons
 k2s addons enable ingress-nginx   - enables the ingress nginx ingress controller
@@ -57,7 +56,7 @@ k2s addons disable ingress-nginx   - disables the ingress nginx ingress controll
 ...
 ```
 
-Uninstalling the cluster removes all the workloads in the cluster as well as the cluster itself:
+Uninstalling the cluster removes not only the cluster itself but also all the workloads within the cluster:
 ```
 <installation folder>\k2s uninstall
 ```
@@ -82,10 +81,10 @@ See also [Windows-based Images](./smallsetup/ps-modules/windows-support/README.m
 This variant is also the default, it offers very low memory consumption and efficiency. Memory usage starts at 4GB.
 <br>![Image](/doc/assets/VariantHost400.jpg)<br>
 
-2. **Multi VM Variant**: for each node one virtual machine is created, minimum we have one Windows and one Linux node. Memory usage here starts at 10GB.
+2. **Multi VM Variant**: For each node, a virtual machine is created, with a minimum configuration of one Windows node and one Linux node. The memory usage for each node starts at 10GB.
 <br>![Image](/doc/assets/VariantMultiVM400.jpg)<br>
 
-3. **Development Only Variant**: in this variant we don't create a K8s cluster, only the environment to be able to build and test Windows and Linux containers.
+3. **Development Only Variant**: In this variant, the focus is on setting up an environment solely for building and testing Windows and Linux containers without creating a K8s cluster.
 <br>![Image](/doc/assets/VariantDevOnly400.jpg)<br>
 
 In addition to offering a K8s cluster setup, the **K2s** solution also provides tools for building and testing Windows and Linux container (checkout the ```k2s image``` command options).
