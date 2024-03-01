@@ -135,7 +135,7 @@ spec:
               mountPath: "/cert"
               readOnly: true
         - name: plutono
-          image: "ghcr.io/credativ/plutono:v7.5.26"
+          image: "ghcr.io/credativ/plutono:v7.5.29"
           imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false
