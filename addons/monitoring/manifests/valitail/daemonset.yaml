@@ -37,7 +37,7 @@ spec:
         runAsUser: 0
       containers:
         - name: promtail
-          image: "ghcr.io/credativ/valitail:v2.2.11"
+          image: "ghcr.io/credativ/valitail:v2.2.14"
           imagePullPolicy: IfNotPresent
           args:
             - "-config.file=/etc/valitail/valitail.yaml"

@@ -4,35 +4,35 @@ SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
 SPDX-License-Identifier: MIT
 -->
 
-# Addon - Kubernetes Dashboard
+# dashboard
 
 ## Introduction
 
-Kubernetes Dashboard is a general purpose, web-based UI for Kubernetes clusters. It allows users to manage applications runing in the cluster and troubleshoot them, as well as manage the cluster itself.
+The `dashboard` addon provides a Kubernetes Dashboard which is a general purpose, web-based UI for Kubernetes clusters. It allows users to manage applications runing in the cluster and troubleshoot them, as well as manage the cluster itself.
 
 ## Getting started
 
-The Kubernetes dashboard can be enabled using the k2s CLI by runing the following command
+The Kubernetes dashboard can be enabled using the k2s CLI by running the following command:
 ```
 k2s addons enable dashboard
 ```
 
-### Intergration with Metrics Server Addon
+### Intergration with metrics-server addon
 
-By enabling the metrics server addon, the dashboard addon can present the collected metrics in the dashboard UI. 
+By enabling the metrics-server addon, the dashboard addon can present the collected metrics in the dashboard UI. 
 
-The following commands enable the metrics server addon and the dashboard addon
+The following commands enable the metrics-server addon and the dashboard addon:
 ```
 k2s addons enable metrics-server
 k2s addons enable dashboard
 ```
 
-The metrics server can be enabled while enabling the dashboard addon using the following command
+The metrics-server addon can be enabled while enabling the dashboard addon using the following command:
 ```
 k2s addons enable dashboard --enable-metrics-server
 ```
 
-### Integration with Ingress-nginx and traefik addons
+### Integration with ingress-nginx and traefik addons
 
 The dashboard addon can be integrated with either the ingress-nginx addon or the traefik addon so that it can be exposed outside the cluster.
 
@@ -40,13 +40,13 @@ Example, the dashboard can be enabled along with traefik addon using the followi
 ```
 k2s addons enable dashboard --ingress traefik
 ```
-_Note:_ The above command shall enable the traefik addon if it is not enbled.
+_Note:_ The above command shall enable the traefik addon if it is not enabled.
 
 ## Accessing the dashboard
 
-The dashboard UI can be accessed via the following methods
+The dashboard UI can be accessed via the following methods.
 
-### Access using Ingress
+### Access using ingress
 
 To access dashboard via ingress, we have to enable the ingress-nginx or the traefik addon.
 Once the addons are enabled, then the dashboard UI can be accessed at the following link: https://k2s-dashboard.local
@@ -67,7 +67,7 @@ When the dashboard UI is opened in the browser, please press the **Skip** button
 
 ## Disable dashboard
 
-The dashboard can be disabled by runing the following addon.
+The dashboard can be disabled using the k2s CLI by running the following command:
 ```
 k2s addons disable dashboard
 ```

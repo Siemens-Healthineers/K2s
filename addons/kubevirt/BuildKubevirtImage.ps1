@@ -20,7 +20,7 @@ PS> .\BuildKubevirtImage.ps1 -ImageName testserver -ImageTag 76 -Push
 
 Param(
     [Alias('d')]
-    [parameter(Mandatory = $true, HelpMessage = 'Directory with the Dockerfile')]
+    [parameter(Mandatory = $true, HelpMessage = 'Directory with the image file')]
     [string] $InputQCOW2Image,
 
     [parameter(Mandatory = $true, HelpMessage = 'Name of the created image')]
