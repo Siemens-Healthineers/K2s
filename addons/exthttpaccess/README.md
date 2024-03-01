@@ -16,3 +16,7 @@ The exthttpaccess addon can be enabled using the k2s CLI by running the followin
 ```
 k2s addons enable exthttpaccess
 ```
+
+## Ports
+
+The exthttpaccess addon uses standard HTTP/HTTPS ports `80/443`. If those ports are used by other processes the addon switches automatically to alternative ports `8080/8443`. Furthermore it is possible to specify custom HTTP/HTTPS ports.
