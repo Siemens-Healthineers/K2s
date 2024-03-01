@@ -10,8 +10,6 @@ SPDX-License-Identifier: MIT
 
 The `kubevirt` addon provides the possibility to deploy virtual machines in the k2s cluster. [KubeVirt](https://kubevirt.io/) technology addresses the needs of development teams that have adopted or want to adopt Kubernetes but possess existing virtual machine-based workloads that cannot be easily containerized. More specifically, the technology provides a unified development platform where developers can build, modify, and deploy applications residing in both application containers as well as virtual machines in a common, shared environment.
 
-https://kubevirt.io/labs/kubernetes/lab1.html
-
 ## Getting started
 
 The kubevirt addon can be enabled using the k2s CLI by running the following command:
