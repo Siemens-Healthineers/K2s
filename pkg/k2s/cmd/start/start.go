@@ -28,7 +28,7 @@ var Startk8sCmd = &cobra.Command{
 
 func init() {
 	Startk8sCmd.Flags().String(p.AdditionalHooksDirFlagName, "", p.AdditionalHooksDirFlagUsage)
-	Startk8sCmd.Flags().BoolP(p.AutouseCachedVSwitchFlagName, "", false, p.AdditionalHooksDirFlagUsage)
+	Startk8sCmd.Flags().BoolP(p.AutouseCachedVSwitchFlagName, "", false, p.AutouseCachedVSwitchFlagUsage)
 	Startk8sCmd.Flags().SortFlags = false
 	Startk8sCmd.Flags().PrintDefaults()
 }
