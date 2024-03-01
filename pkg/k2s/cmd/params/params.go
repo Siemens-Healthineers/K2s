@@ -22,4 +22,10 @@ const (
 	ForceOnlineInstallFlagName      = "force-online-installation"
 	ForceOnlineInstallFlagShorthand = "f"
 	ForceOnlineInstallFlagUsage     = "Force the online installation"
+
+	AutouseCachedVSwitchFlagName  = "autouse-cached-vswitch"
+	AutouseCachedVSwitchFlagUsage = "Automatically utilizes the cached vSwitch 'cbr0' and 'KubeSwitch' for cluster connectivity through the host machine"
+
+	CacheVSwitchFlagName  = "cache-vswitch"
+	CacheVSwitchFlagUsage = "Cache vswitches 'cbr0' and 'KubeSwitch' for cluster connectivity through the host machine."
 )

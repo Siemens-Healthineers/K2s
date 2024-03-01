@@ -196,8 +196,12 @@ $adapterName = Get-L2BridgeName
 Write-Log "Using network adapter '$adapterName'"
 
 Write-Log 'Figuring out IPv4DefaultGateway'
-$gw = (Get-NetIPConfiguration -InterfaceAlias "$adapterName").IPv4DefaultGateway.NextHop
-Write-Log "Gateway found: $gw"
+$if = Get-NetIPConfiguration -InterfaceAlias "$adapterName" -ErrorAction SilentlyContinue 2>&1 | Out-Null
+$gw =  $global:Gateway_LoopbackAdapter
+if( $if ) {
+    $gw = $if.IPv4DefaultGateway.NextHop
+    Write-Log "Gateway found: $gw"
+}
 
 Set-IndexForDefaultSwitch
 

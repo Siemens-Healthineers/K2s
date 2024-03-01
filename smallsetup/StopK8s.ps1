@@ -8,7 +8,9 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
     [switch] $ShowLogs = $false,
     [parameter(Mandatory = $false, HelpMessage = 'Directory containing additional hooks to be executed after local hooks are executed')]
-    [string] $AdditionalHooksDir = ''
+    [string] $AdditionalHooksDir = '',
+    [parameter(Mandatory = $false, HelpMessage = 'Cache vSwitches on stop')]
+    [switch] $CacheK2sVSwitches
 )
 
 # load global settings
@@ -81,21 +83,25 @@ Restart-WinService 'hns'
 
 Invoke-Hook -HookName 'BeforeStopK8sNetwork' -AdditionalHooksDir $AdditionalHooksDir
 
-# remove switch
-Remove-KubeSwitch
+if (!$CacheK2sVSwitches) {
+    # remove kubeswitch
+    Remove-KubeSwitch
+
+    # Remove the external switch
+    RemoveExternalSwitch
+}
 
 # remove NAT
 Remove-NetNat -Name $global:NetNatName -Confirm:$False -ErrorAction SilentlyContinue
 
-# Remove the external switch
-RemoveExternalSwitch
-
 $hns = $(Get-HNSNetwork)
 # there's always at least the Default Switch network available, so we check for >= 2
 if ($($hns | Measure-Object).Count -ge 2) {
-    Write-Log 'Delete bridge, clear HNSNetwork (short disconnect expected)'
-    $hns | Where-Object Name -Like '*cbr0*' | Remove-HNSNetwork -ErrorAction SilentlyContinue
-    $hns | Where-Object Name -Like ('*' + $global:SwitchName + '*') | Remove-HNSNetwork -ErrorAction SilentlyContinue
+    if(!$CacheK2sVSwitches) { 
+        Write-Log 'Delete bridge, clear HNSNetwork (short disconnect expected)'
+        $hns | Where-Object Name -Like '*cbr0*' | Remove-HNSNetwork -ErrorAction SilentlyContinue
+        $hns | Where-Object Name -Like ('*' + $global:SwitchName + '*') | Remove-HNSNetwork -ErrorAction SilentlyContinue
+    }
 }
 
 if ($WSL) {
@@ -104,15 +110,19 @@ if ($WSL) {
 }
 
 Write-Log 'Delete network policies'
-Get-HnsPolicyList | Remove-HnsPolicyList -ErrorAction SilentlyContinue
+if(!$CacheK2sVSwitches) { 
+    Get-HnsPolicyList | Remove-HnsPolicyList -ErrorAction SilentlyContinue
+}
 
 if ($shallRestartDocker) {
     Start-ServiceProcess 'docker'
 }
 
 # Sometimes only removal from registry helps and reboot
-Write-Log 'Cleaning up registry for NicList'
-Get-ChildItem -Path 'HKLM:\SYSTEM\CurrentControlSet\Services\VMSMP\Parameters\NicList' | Remove-Item -ErrorAction SilentlyContinue | Out-Null
+if(!$CacheK2sVSwitches) { 
+    Write-Log 'Cleaning up registry for NicList'
+    Get-ChildItem -Path 'HKLM:\SYSTEM\CurrentControlSet\Services\VMSMP\Parameters\NicList' | Remove-Item -ErrorAction SilentlyContinue | Out-Null
+}
 
 # Remove routes
 Write-Log "Remove route to $global:IP_CIDR"

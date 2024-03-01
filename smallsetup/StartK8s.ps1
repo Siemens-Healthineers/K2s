@@ -23,7 +23,9 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
     [switch] $ShowLogs = $false,
     [parameter(Mandatory = $false, HelpMessage = 'Directory containing additional hooks to be executed after local hooks are executed')]
-    [string] $AdditionalHooksDir = ''
+    [string] $AdditionalHooksDir = '',
+    [parameter(Mandatory = $false, HelpMessage = 'Use cached vSwitches')]
+    [switch] $UseCachedK2sVSwitches
 )
 
 &$PSScriptRoot\common\GlobalVariables.ps1
@@ -103,6 +105,28 @@ function GetNetworkAdapterNameFromInterfaceAlias([string]$interfaceAlias) {
     return $foundValue
 }
 
+function CheckKubeSwitchInExpectedState() {
+    $if = Get-NetConnectionProfile -InterfaceAlias "vEthernet ($global:SwitchName)" -ErrorAction SilentlyContinue
+    if (!$if) {
+        Write-Log "vEthernet ($global:SwitchName) not found."
+        return $false
+    }
+    if ($if.NetworkCategory -ne 'Private') {
+        Write-Log "vEthernet ($global:SwitchName) not set to private."
+        return $false
+    }
+    $if = Get-NetIPAddress -InterfaceAlias "vEthernet ($global:SwitchName)" -ErrorAction SilentlyContinue
+    if (!$if) {
+        Write-Log "Unable get IP Address for host on vEthernet ($global:SwitchName) interface..."
+        return $false
+    }
+    if ($if.IPAddress -ne $global:IP_NextHop) {
+        Write-Log "IP Address of Host on vEthernet ($global:SwitchName) is not $global:IP_NextHop ..."
+        return $false
+    }
+    return $true
+}
+
 if ($global:HeaderLineShown -ne $true) {
     Write-Log 'Starting K2s'
     $global:HeaderLineShown = $true
@@ -172,7 +196,12 @@ else {
 
 if (NeedsStopFirst) {
     Write-Log 'Stopping existing K8s system...'
-    &"$global:KubernetesPath\smallsetup\StopK8s.ps1" -AdditionalHooksDir $AdditionalHooksDir -ShowLogs:$ShowLogs
+    if ($UseCachedK2sVSwitches) {
+        Write-Log "Invoking cluster stop with vSwitch caching so that the cached switches can be used again on restart."
+        &"$global:KubernetesPath\smallsetup\StopK8s.ps1" -AdditionalHooksDir $AdditionalHooksDir -ShowLogs:$ShowLogs -CacheK2sVSwitches
+    } else {
+        &"$global:KubernetesPath\smallsetup\StopK8s.ps1" -AdditionalHooksDir $AdditionalHooksDir -ShowLogs:$ShowLogs
+    }
     Start-Sleep 10
 }
 
@@ -224,7 +253,12 @@ Write-Log 'Configuring network for Windows node' -Console
 Restart-WinService 'hns'
 
 Write-Log 'Figuring out IPv4DefaultGateway'
-$gw = (Get-NetIPConfiguration -InterfaceAlias "$adapterName").IPv4DefaultGateway.NextHop
+$if = Get-NetIPConfiguration -InterfaceAlias "$adapterName" -ErrorAction SilentlyContinue 2>&1 | Out-Null
+$gw =  $global:Gateway_LoopbackAdapter
+if( $if ) {
+    $gw = $if.IPv4DefaultGateway.NextHop
+    Write-Log "Gateway found: $gw"
+}
 Write-Log "Gateway found: $gw"
 
 Set-IndexForDefaultSwitch
@@ -245,18 +279,28 @@ if (!$WSL -and !$isReusingExistingLinuxComputer) {
         Set-VMProcessor $global:VMName -Count $VmProcessors
     }
 
-    # Remove old switch
-    Write-Log 'Updating VM networking...'
-    Remove-KubeSwitch
+    $kubeSwitchInExpectedState = CheckKubeSwitchInExpectedState
+    if(!$UseCachedK2sVSwitches -or !$kubeSwitchInExpectedState) {
+            # Remove old switch
+        Write-Log 'Updating VM networking...'
+        Remove-KubeSwitch
 
-    # create internal switch for VM
-    New-KubeSwitch
+        # create internal switch for VM
+        New-KubeSwitch
 
-    # connect VM to switch
-    Connect-KubeSwitch
+        # connect VM to switch
+        Connect-KubeSwitch
 
-    # add DNS proxy for cluster searches
-    Add-DnsServer $switchname
+        # add DNS proxy for cluster searches
+        Add-DnsServer $switchname
+    } else {
+        # route for VM
+        Write-Log "Remove obsolete route to $global:IP_CIDR"
+        route delete $global:IP_CIDR >$null 2>&1
+        Write-Log "Add route to $global:IP_CIDR"
+        route -p add $global:IP_CIDR $global:IP_NextHop METRIC 3 | Out-Null
+    }
+
 } elseif ($isReusingExistingLinuxComputer) {
     # add DNS proxy for cluster searches
     Add-DnsServer $switchname

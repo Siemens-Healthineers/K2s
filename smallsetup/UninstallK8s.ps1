@@ -54,6 +54,9 @@ if ($global:HeaderLineShown -ne $true) {
 Write-Log 'First stop complete kubernetes incl. VM'
 & $global:KubernetesPath\smallsetup\StopK8s.ps1 -AdditionalHooksDir $AdditionalHooksDir -ShowLogs:$ShowLogs
 
+Write-Log 'Remove external switch'
+RemoveExternalSwitch
+
 Write-Log "Uninstalling $global:VMName VM" -Console
 
 & "$global:KubernetesPath\smallsetup\kubemaster\UninstallKubeMaster.ps1" -DeleteFilesForOfflineInstallation $DeleteFilesForOfflineInstallation

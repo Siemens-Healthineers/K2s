@@ -5,7 +5,9 @@
 
 Param(
     [parameter(Mandatory = $true, HelpMessage = 'Loop count')]
-    [int] $Count
+    [int] $Count,
+    [parameter(Mandatory = $false, HelpMessage = 'Disable destruction of l2 bridge')]
+    [switch] $CacheL2Bridge
 )
 
 &$PSScriptRoot\..\common\GlobalVariables.ps1
@@ -30,23 +32,47 @@ for ($i = 0; $i -lt $Count; $i++) {
     Set-LoopbackAdapterProperties -Name $global:LoopbackAdapter -IPAddress $global:IP_LoopbackAdapter -Gateway $global:Gateway_LoopbackAdapter
     CreateExternalSwitch -adapterName $global:LoopbackAdapter
 
-    Get-NetConnectionProfile -interfacealias "vEthernet ($global:LoopbackAdapter)" -ErrorAction SilentlyContinue
-    if (!$?) {
-        throw "NetConnectionProfile 'vEthernet ($global:LoopbackAdapter)' not found!"
+    $iteration = 10
+    $loopbackAdapterFoundAfterL2BridgeCreation = $false
+    while ($iteration -gt 0) {
+        $iteration--
+        Get-NetConnectionProfile -interfacealias "vEthernet ($global:LoopbackAdapter)" -ErrorAction SilentlyContinue
+        if (!$?) {
+            Write-Host "NetConnectionProfile 'vEthernet ($global:LoopbackAdapter)' not found! Retrying..."
+            Start-Sleep 5
+            continue
+        } else {
+            $loopbackAdapterFoundAfterL2BridgeCreation = $true
+            Write-Host "NetConnectionProfile 'vEthernet ($global:LoopbackAdapter)' found !"
+            break
+        }
+    }
+
+    if ($iteration -eq 0 -and !$loopbackAdapterFoundAfterL2BridgeCreation) {
+        throw "NetConnectionProfile 'vEthernet ($global:LoopbackAdapter)' not found after 5 minutes!"
     }
 
     # remove l2bridge
-    RemoveExternalSwitch
+    if (!$CacheL2Bridge) {
+        RemoveExternalSwitch
+    }
+
     $hns = $(Get-HNSNetwork)
     if ($($hns | Measure-Object).Count -ge 2) {
         Write-Log 'Delete bridge, clear HNSNetwork (short disconnect expected)'
-        $hns | Where-Object Name -Like '*cbr0*' | Remove-HNSNetwork -ErrorAction SilentlyContinue
+
+        if (!$CacheL2Bridge) {
+            $hns | Where-Object Name -Like '*cbr0*' | Remove-HNSNetwork -ErrorAction SilentlyContinue
+        }
+
         $hns | Where-Object Name -Like ('*' + $global:SwitchName + '*') | Remove-HNSNetwork -ErrorAction SilentlyContinue
     }
 
-    Get-HnsPolicyList | Remove-HnsPolicyList -ErrorAction SilentlyContinue
+    if (!$CacheL2Bridge) {
+        Get-HnsPolicyList | Remove-HnsPolicyList -ErrorAction SilentlyContinue
+    }
     Disable-NetAdapter -Name $global:LoopbackAdapter -Confirm:$false -ErrorAction SilentlyContinue
-} 
+}
 
 Remove-LoopbackAdapter -Name $global:LoopbackAdapter -DevConExe $global:DevconExe
 
