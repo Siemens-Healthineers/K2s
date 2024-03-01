@@ -110,6 +110,8 @@ build/bom/merge/devgon.json
 build/bom/merge/devgon.xml
 build/bom/merge/zap.xml
 build/bom/merge/zap.json
+build/bom/merge/pause.json
+build/bom/merge/yaml2json.json
 build/bom/merge/c-*.json
 
 bin/cyclonedx-win-x64.exe
