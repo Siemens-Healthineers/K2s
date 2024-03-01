@@ -7,7 +7,7 @@ SPDX-License-Identifier: MIT
 # gpu-node
 
 ## Introduction
-The ```gpu-node``` addon provides the possibility to configure the KubeMaster Linux VM as GPU node in order to run GPU workloads. When enabling this addon the KubeMaster Linux VM is configured to use the WSL2 Linux Kernel which is able to access the GPU of the Windows host machine and use it as shared instance together with the Windows host machine. The [k8s device plugin](https://github.com/NVIDIA/k8s-device-plugin) from Nvidia is responsible for deploying GPU workloads.
+The `gpu-node` addon provides the possibility to configure the KubeMaster Linux VM as GPU node in order to run GPU workloads. When enabling this addon the KubeMaster Linux VM is configured to use the WSL2 Linux Kernel which is able to access the GPU of the Windows host machine and use it as shared instance together with the Windows host machine. The [k8s device plugin](https://github.com/NVIDIA/k8s-device-plugin) from Nvidia is responsible for deploying GPU workloads.
 
 ## Getting started
 
@@ -16,7 +16,7 @@ In order to configure the GPU node you need to install the Nvidia drivers for th
 
 **NOTE:** A reboot may be necessary.
 
-The gpu-node addon can be enabled using the k2s CLI by runing the following command:
+The gpu-node addon can be enabled using the k2s CLI by running the following command:
 ```
 k2s addons enable gpu-node
 ```
@@ -34,8 +34,11 @@ spec:
   restartPolicy: OnFailure
   containers:
   - name: vectorAdd
-    image: nvcr.io/nvidia/k8s/cuda-sample:vectoradd-cuda10.2
+    image: k8s.gcr.io/cuda-vector-add:v0.1
     resources:
       limits:
         nvidia.com/gpu: 1
 ```
+
+## Further Reading
+- [WSL2 Linux Kernel](https://github.com/microsoft/WSL2-Linux-Kernel)

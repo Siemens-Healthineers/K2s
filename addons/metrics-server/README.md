@@ -4,12 +4,11 @@ SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
 SPDX-License-Identifier: MIT
 -->
 
-# Addon - Metrics Server
+# metrics-server
 
 ## Introduction
 
-Metrics Server is a scalable, efficient source of container resource metrics for Kubernetes
-built-in autoscaling pipelines.
+The `metrics-server` addon provides a metrics server which is a scalable, efficient source of container resource metrics for Kubernetes built-in autoscaling pipelines.
 
 Metrics Server collects resource metrics from Kubelets and exposes them in Kubernetes apiserver through [Metrics API]. Metrics API can also be accessed by `kubectl top`,
 making it easier to debug autoscaling pipelines.
@@ -18,16 +17,9 @@ making it easier to debug autoscaling pipelines.
 
 ## Getting started
 
-The metrics server addon can be enabled by runing the following command:
+The metrics server addon can be enabled using the k2s CLI by running the following command:
 ```
 k2s addons enable metrics-server
-```
-
-## Disable metrics server
-
-The metrics server addon can be disabled by running the following comannd:
-```
-k2s addons disable metrics-server
 ```
 
 ## Further Reading 

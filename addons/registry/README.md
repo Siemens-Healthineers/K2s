@@ -4,5 +4,61 @@ SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
 SPDX-License-Identifier: MIT
 -->
 
-# Addon 'registry'
-<p style="color: red; font-size: 20px;">TODO: document</p>
+# registry
+
+## Introduction
+
+The `registry` addon provides a local [Docker registry](https://github.com/distribution/distribution) running inside k2s which makes it easy to store container images locally and pull them during deployment.
+
+## Getting started
+
+The registry addon can be enabled using the k2s CLI by running the following command:
+```
+k2s addons enable registry
+```
+
+### Integration with ingress-nginx and traefik addons
+
+The registry addon can be integrated with either the ingress-nginx addon or the traefik addon so that it can be exposed outside the cluster.
+
+By default `k2s addons enable registry` enables `ingress-nginx` in a first step.
+
+The registry addon can also be enabled along with traefik addon using the following command:
+```
+k2s addons enable registry --ingress traefik
+```
+_Note:_ The above command shall enable the traefik addon if it is not enabled.
+
+## Access to registry
+
+### Ingress
+
+In order to push container images to the local registry during `k2s image build -p` by using an ingress tagging must look like the following:
+
+```
+k2s-registry.local/<imagename>:<imagetag>
+```
+
+### NodePort
+
+In order to push container images to the local registry during `k2s image build -p` with node port configuration tagging must look like the following:
+
+```
+k2s-registry.local:<nodeport>/<imagename>:<imagetag>
+```
+
+### Registry credentials
+
+During enabling of the registry addon the user is prompt to provide registry credentials.
+
+## Disable registry
+
+The registry addon can be disabled using the k2s CLI by running the following command:
+```
+k2s addons disable registry
+```
+
+_Note:_ The above command will only disable registry addon. If other addons were enabled while enabling the registry addon, they will not be disabled.
+
+## Further Reading
+- [Docker Registry](https://docs.docker.com/registry/)

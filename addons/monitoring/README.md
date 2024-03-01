@@ -4,64 +4,66 @@ SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
 SPDX-License-Identifier: MIT
 -->
 
-# Kube-Prometheus-Stack
-## Generate manifests
-1. helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
-2. helm repo update
-3. helm fetch prometheus-community/kube-prometheus-stack --untar
-4. mkdir output\kube-prometheus-stack\crds
-5. helm template -n monitoring kube-prometheus-stack . --output-dir .\output --include-crds --debug --skip-tests
-6. Merge manifests under output\kube-prometheus-stack to existing structure like in addons/monitoring/manifests
-7. Copy and overide manifests to addons/monitoring/manifests
-8. Update kustomization.yaml
+# monitoring
 
-## Keep following files
-- grafana/ingress.yaml
-- grafana/traefik.yaml
-- grafana/dashboards-1.14/gpu.yaml
-- grafana/dashboards-1.14/windows-node-1.yaml
-- grafana/dashboards-1.14/windows-node-2.yaml
-- grafana/configmaps-datasources.yaml
-- prometheus/additionalScrapeConfigs.yaml
+## Introduction
 
-## Modify following files
-- grafana/configmap.yaml:
+The `monitoring` addon provides a [Grafana web-based UI](https://github.com/credativ/plutono) for Kubernetes resource monitoring. It enables users to monitor cluster resources which are collected by Prometheus e.g. node, pod and GPU resources. For this several predefined dashboards are provided.
 
+## Getting started
+
+The monitoring addon can be enabled using the k2s CLI by running the following command:
 ```
-    [server]
-    # these settings needed to make it work with Ingress
-    root_url = http://k2s-monitoring.local
-    domain: k2s-monitoring.local
-
+k2s addons enable monitoring
 ```
 
-- grafana/secret.yaml
+### Integration with ingress-nginx and traefik addons
+
+The dashboard addon can be integrated with either the ingress-nginx addon or the traefik addon so that it can be exposed outside the cluster.
+
+Example, the monitoring addon can be enabled along with traefik addon using the following command:
 ```
-  admin-user: "YWRtaW4=" #admin
-  admin-password: "YWRtaW4=" #admin
+k2s addons enable dashboard --ingress traefik
+```
+_Note:_ The above command shall enable the traefik addon if it is not enabled.
+
+## Accessing the monitoring dashboard
+
+The monitoring dashboard UI can be accessed via the following methods.
+
+### Access using ingress
+
+To access monitoring dashboard via ingress, we have to enable the ingress-nginx or the traefik addon.
+Once the addons are enabled, then the monitoring dashboard UI can be accessed at the following link: https://k2s-monitoring.local
+
+### Access using port-forwarding
+
+To access monitoring dashboard via port-forwarding, the following command can be executed:
+```
+kubectl -n monitoring port-forward svc/kube-prometheus-stack-plutono 3000:443
+```
+In this case, the monitoring dashboard UI can be accessed at the following link: https://localhost:3000
+
+### Login to monitoring dashboard
+
+When the monitoring dashboard UI is opened in the browser, please use the following credentials for initial login:
+
+```
+username: admin
+password: admin
 ```
 
-- prometheus/prometheus.yaml
+_Note:_ Credentials can be changed after first login.
 
+## Disable monitoring
+
+The monitoring addon can be disabled using the k2s CLI by running the following command:
 ```
-  additionalScrapeConfigs:
-    name: kube-prometheus-stack-prometheus-scrape-confg
-    key: additional-scrape-configs.yaml
+k2s addons disable monitoring
 ```
 
-# Loki-Stack 
-## Generate manifests
-1. helm repo add grafana https://grafana.github.io/helm-charts
-2. helm repo update
-3. helm fetch grafana/loki-stack --untar
-4. update values.yaml to only use loki and promtail
-5. helm template -n monitoring loki-stack . --output-dir .\output --include-crds --debug --skip-tests
+_Note:_ The above command will only disable monitoring addon. If other addons were enabled while enabling the monitoring addon, they will not be disabled.
 
-# Apache 2.0 License fulfilments
-
-Grafana changed their license model to AGPL-3.0 license. In order to use sources still under Apache 2.0 license the following Github forks are used:
-
-- https://github.com/credativ/plutono (Plutono is a fork of Grafana 7.5.17 under the Apache 2.0 License.)
-- https://github.com/credativ/vali (Vali is a fork of Loki 2.2.1 under the Apache 2.0 License.)
-
-Follow replacement steps under 'About this fork'.
+## Further Reading
+- [Prometheus](https://prometheus.io/)
+- [Plutono](https://github.com/credativ/plutono)
