@@ -92,6 +92,7 @@ function Start-ClusterUpgrade {
         $SkipImages = $false
     )
 
+    $errUpgrade = $null
     try {
         # start progress
         if ($ShowProgress -eq $true) {
@@ -101,7 +102,9 @@ function Start-ClusterUpgrade {
         # check if cluster is installed
         $setupInfo = Get-SetupInfo
         if (!$($setupInfo.Name)) {
-            throw 'No K8s cluster is available. Nothing needs to be done !'
+            Write-Progress -Activity 'No upgrade possible, since no previous version of K2s is installed !' -Id 1 -Status '10/10' -PercentComplete 100 -CurrentOperation 'Upgrade successfully finished'
+            Write-Log 'No upgrade possible, since no previous version of K2s is installed !' -Console
+            return $false
         }
         if ($setupInfo.Name -ne $global:SetupType_k2s) {
             throw "Upgrade is only available for 'k2s' setup type"
@@ -197,7 +200,7 @@ function Start-ClusterUpgrade {
         Write-Log 'An ERROR occurred:' -Console
         Write-Log $_.ScriptStackTrace -Console
         Write-Log $_ -Console
-        throw
+        $errUpgrade = $_
     }
     finally {
         if ($ShowProgress -eq $true) {
@@ -206,22 +209,17 @@ function Start-ClusterUpgrade {
         # remove temp cluster resources
         Remove-ExportedClusterResources -PathResources $tpath
     }
+    if ( $errUpgrade ) {
+        return $false
+    }
 }
 
 #####################################################
 ###############START OF UPGRADE######################
-
-#NOTE!!
-#Following conversion is necessary to convert existing log file from UTF-16 LE BOM (powershell default) to UTF-8 BOM (Standard K2s log file format)
-#This should be done before any upgrade operation as any Write-Log will use the new format UTF-8 and will corrupt existing log file.
-#This conversion shall be removed if the existing K2s version 0.7.0
-$installFolder = Get-ClusterInstalledFolder
-$driveLetter = $installFolder[0]
-$oldLogFile = "$driveLetter$global:k2sLogFilePart"
-Get-Content $oldLogFile -Encoding utf8 | Out-File $oldLogFile -Encoding utf8
-
+#####################################################
 
 Write-Log 'Starting upgrading cluster' -Console
-Start-ClusterUpgrade -ShowProgress:$ShowProgress -SkipResources:$SkipResources -DeleteFiles:$DeleteFiles -ShowLogs:$ShowLogs -Proxy $Proxy
-
-Restore-MergeLogFiles
+$ret = Start-ClusterUpgrade -ShowProgress:$ShowProgress -SkipResources:$SkipResources -DeleteFiles:$DeleteFiles -ShowLogs:$ShowLogs -Proxy $Proxy
+if ( $ret ) {
+    Restore-MergeLogFiles
+}
