@@ -1,0 +1,30 @@
+# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+#
+# SPDX-License-Identifier: MIT
+
+---
+# Source: kube-prometheus-stack/charts/grafana/templates/ingress.yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: opensearch-dashboards-ingress
+  namespace: logging
+  labels:
+    helm.sh/chart: opensearch-dashboards-2.16.0
+    app.kubernetes.io/name: opensearch-dashboards
+    app.kubernetes.io/instance: opensearch-dashboards
+    app.kubernetes.io/version: "2.12.0"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: k2s-logging.local
+      http:
+        paths:
+          - backend:
+              service:
+                name: opensearch-dashboards
+                port:
+                  number: 5601
+            path: /
+            pathType: Prefix

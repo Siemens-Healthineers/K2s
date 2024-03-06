@@ -1,0 +1,23 @@
+---
+# Source: opensearch-dashboards/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: opensearch-dashboards
+  namespace: logging
+  labels:
+    helm.sh/chart: opensearch-dashboards-2.16.0
+    app.kubernetes.io/name: opensearch-dashboards
+    app.kubernetes.io/instance: opensearch-dashboards
+    app.kubernetes.io/version: "2.12.0"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  type: ClusterIP
+  ports:
+  - port: 5601
+    protocol: TCP
+    name: http-web
+    targetPort: 5601
+  selector:
+    app: opensearch-dashboards
+    release: "opensearch-dashboards"
