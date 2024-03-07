@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"k2s/providers/marshalling"
+	"k2s/utils/logging"
 
 	"github.com/go-cmd/cmd"
 	"github.com/pterm/pterm"
@@ -137,7 +138,14 @@ func executePowershellScriptWithDataSubscription(cmdString string, options ...Ex
 		Data() []byte
 		Type() string
 	}{}
-	errorLogs := []string{}
+	errorBuffer, err := logging.NewLogBuffer(logging.BufferConfig{
+		Limit:     100,
+		FlushFunc: klog.Error,
+	})
+	if err != nil {
+		return nil, err
+	}
+
 	errors := []error{}
 
 	logChan := make(chan string)
@@ -168,15 +176,15 @@ func executePowershellScriptWithDataSubscription(cmdString string, options ...Ex
 			} else {
 				pterm.Printfln("⏳ %s", log)
 			}
-		case errorLog, ok := <-errLogChan:
+		case errorLogLine, ok := <-errLogChan:
 			if !ok {
 				errLogChan = nil
 
 				klog.V(8).Info("channel closed: err log")
 				continue
 			}
-			errorLogs = append(errorLogs, errorLog)
-			pterm.Printfln("⏳ %s", pterm.Yellow(errorLog))
+			errorBuffer.Log(errorLogLine)
+			pterm.Printfln("⏳ %s", pterm.Yellow(errorLogLine))
 		case dataObj, ok := <-dataObjChan:
 			if !ok {
 				dataObjChan = nil
@@ -200,9 +208,7 @@ func executePowershellScriptWithDataSubscription(cmdString string, options ...Ex
 		}
 	}
 
-	if len(errorLogs) > 0 {
-		klog.Error(strings.Join(errorLogs, "\n"))
-	}
+	errorBuffer.Flush()
 
 	klog.V(8).Info("waiting for PS command to finish..")
 
@@ -364,12 +370,21 @@ func executePowershellScript(script string, options ExecOptions) (time.Duration,
 	wrapperScript := prepareExecScript(script, options.NoProgress)
 	cmdRun := cmd.NewCmdOptions(cmdOptions, psCmd, cmdArg, wrapperScript)
 	doneChan := make(chan struct{})
+	errorBuffer, err := logging.NewLogBuffer(logging.BufferConfig{
+		Limit:     100,
+		FlushFunc: klog.Error,
+	})
+	if err != nil {
+		return 0, err
+	}
 
-	go readStdChannels(cmdRun, doneChan, options.NoProgress)
+	go readStdChannels(cmdRun, doneChan, options.NoProgress, errorBuffer.Log)
 
 	statusChan := cmdRun.Start()
 	finalStatus := <-statusChan
 	<-doneChan
+
+	errorBuffer.Flush()
 
 	if finalStatus.Exit != 0 {
 		return 0, fmt.Errorf("command execution failed, see log output above. Error: exit code %d", finalStatus.Exit)
@@ -407,10 +422,8 @@ func determinePsVersion(ignoreNotInstalledErr bool) (PowerShellVersion, error) {
 }
 
 // TODO: merge/consolidate stdout/stderr-reader functions
-func readStdChannels(cmdRun *cmd.Cmd, doneChan chan struct{}, noProgress bool) {
+func readStdChannels(cmdRun *cmd.Cmd, doneChan chan struct{}, noProgress bool, logErrFunc func(line string)) {
 	defer close(doneChan)
-
-	errorLogs := []string{}
 
 	// Done when both channels have been closed
 	// https://dave.cheney.net/2013/04/30/curious-channels
@@ -435,14 +448,10 @@ func readStdChannels(cmdRun *cmd.Cmd, doneChan chan struct{}, noProgress bool) {
 				continue
 			}
 			if len(line) > 0 {
-				errorLogs = append(errorLogs, line)
+				logErrFunc(line)
 				pterm.Printfln("⏳ %s", pterm.Yellow(line))
 			}
 		}
-	}
-
-	if len(errorLogs) > 0 {
-		klog.Error(strings.Join(errorLogs, "\n"))
 	}
 }
 
