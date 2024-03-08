@@ -5,8 +5,10 @@
 package remove
 
 import (
+	"errors"
+	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"syscall"
 	"unsafe"
 
@@ -19,7 +21,6 @@ import (
 	"github.com/gentlemanautomaton/windevice/hwprofile"
 	"github.com/gentlemanautomaton/windevice/setupapi"
 	"github.com/spf13/cobra"
-	"k8s.io/klog/v2"
 )
 
 const (
@@ -35,7 +36,7 @@ var (
 		Use:     "remove",
 		Short:   "Removes a device",
 		Long:    ``,
-		Run:     execRemoveDeviceCmd,
+		RunE:    execRemoveDeviceCmd,
 		Example: removeExample,
 	}
 )
@@ -50,28 +51,25 @@ func includeAddFlags(cmd *cobra.Command) {
 	cmd.Flags().PrintDefaults()
 }
 
-func execRemoveDeviceCmd(cmd *cobra.Command, args []string) {
+func execRemoveDeviceCmd(cmd *cobra.Command, args []string) error {
 	hardwareInstanceId := cmd.Flags().Lookup(hardwareInstanceIdFlag).Value.String()
 
 	if hardwareInstanceId == "" {
-		klog.Error("hardware instance ID not specified")
-		return
+		return errors.New("hardware instance ID not specified")
 	}
 
 	devices, err := setupapi.GetClassDevsEx(nil, "", deviceclass.AllClasses, 0, "")
 	if err != nil {
-		klog.Error(err)
-		return
+		return err
 	}
 
 	defer func() {
-		err = setupapi.DestroyDeviceInfoList(devices)
-		if err != nil {
-			klog.Error(err)
+		if err = setupapi.DestroyDeviceInfoList(devices); err != nil {
+			slog.Error("error while destroying device info list", "error", err)
 		}
 	}()
 
-	klog.V(2).Infof("Remove device started with hardware instance ID '%s'", hardwareInstanceId)
+	slog.Info("Remove device started", "hardware instance ID", hardwareInstanceId)
 
 	deviceInstanceId := deviceid.DeviceInstance(hardwareInstanceId)
 	index := uint32(0)
@@ -83,21 +81,20 @@ func execRemoveDeviceCmd(cmd *cobra.Command, args []string) {
 		switch err {
 		case nil:
 		case io.EOF:
-			klog.V(2).Info("Reached end of device list")
+			slog.Info("Reached end of device list")
 			if !found {
-				klog.Warningf("no device found for hardware instance ID '%s'", hardwareInstanceId)
+				slog.Warn("no device found", "hardware instance ID", hardwareInstanceId)
 			}
-			return
+			return nil
 		default:
-			klog.Error(err)
-			return
+			return err
 		}
 
 		index++
 
 		instanceId, err := setupapi.GetDeviceInstanceID(devices, device)
 		if err != nil {
-			klog.Errorf("Error while retrieving data for device '%v': %v", device, err)
+			slog.Error("error while retrieving data for device", "device", device, "error", err)
 			continue
 		}
 
@@ -107,19 +104,22 @@ func execRemoveDeviceCmd(cmd *cobra.Command, args []string) {
 
 		found = true
 
-		removeDevice(devices, device)
+		if err := removeDevice(devices, device); err != nil {
+			return err
+		}
 
 		break
 	}
+	return nil
 }
 
-func removeDevice(devices syscall.Handle, device setupapi.DevInfoData) {
+func removeDevice(devices syscall.Handle, device setupapi.DevInfoData) error {
 	friendlyName, err := setupapi.GetDeviceRegistryString(devices, device, deviceregistry.FriendlyName)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
-	klog.V(2).Infof("Found matching device '%s'", friendlyName)
+	slog.Info("Found matching device", "device", friendlyName)
 
 	diffParams := difuncremove.Params{
 		Header: difunc.ClassInstallHeader{
@@ -132,26 +132,25 @@ func removeDevice(devices syscall.Handle, device setupapi.DevInfoData) {
 	needReboot := false
 
 	if err := setupapi.SetClassInstallParams(devices, &device, &diffParams.Header, uint32(unsafe.Sizeof(diffParams))); err != nil {
-		klog.Error(err)
-		return
+		return err
 	}
 
 	if err := setupapi.CallClassInstaller(difunc.Remove, devices, &device); err != nil {
-		klog.Error(err)
-		return
+		return err
 	}
 
-	klog.V(2).Infof("Device '%s' removed, checking whether reboot is needed..", friendlyName)
+	slog.Info("Device removed, checking whether reboot is needed..", "device", friendlyName)
 
 	deviceParams, err := setupapi.GetDeviceInstallParams(devices, &device)
 	if err != nil {
-		klog.Errorf("Error while determining if reboot is needed: %v", err)
-		return
+		return fmt.Errorf("error while determining if reboot is needed: %w", err)
 	}
 
 	if deviceParams.Flags.Match(diflag.NeedReboot) || deviceParams.Flags.Match(diflag.NeedRestart) {
 		needReboot = true
 	}
 
-	klog.V(2).Infof("Need reboot: '%v'", needReboot)
+	slog.Info("Reboot", "needed", needReboot)
+
+	return nil
 }
