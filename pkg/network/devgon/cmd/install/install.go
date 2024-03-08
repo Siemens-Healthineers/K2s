@@ -5,12 +5,13 @@
 package install
 
 import (
+	"errors"
+	"log/slog"
 	"os"
 
 	"github.com/gentlemanautomaton/windevice"
 	"github.com/gentlemanautomaton/windevice/deviceid"
 	"github.com/spf13/cobra"
-	"k8s.io/klog/v2"
 )
 
 const (
@@ -27,7 +28,7 @@ var (
 		Use:     "install",
 		Short:   "Installs a device",
 		Long:    ``,
-		Run:     installDevice,
+		RunE:    installDevice,
 		Example: installExample,
 	}
 )
@@ -43,30 +44,28 @@ func includeAddFlags(cmd *cobra.Command) {
 	cmd.Flags().PrintDefaults()
 }
 
-func installDevice(cmd *cobra.Command, args []string) {
+func installDevice(cmd *cobra.Command, args []string) error {
 	infPath := cmd.Flags().Lookup(infPathFlag).Value.String()
 	hardwareId := cmd.Flags().Lookup(hardwareIdFlag).Value.String()
 
 	if infPath == "" {
-		klog.Error("path to INF file not specified")
-		return
+		return errors.New("path to INF file not specified")
 	}
 
 	if _, err := os.Stat(infPath); os.IsNotExist(err) {
-		klog.Error(err)
-		return
+		return err
 	}
 
 	if hardwareId == "" {
-		klog.Error("hardware ID not specified")
-		return
+		return errors.New("hardware ID not specified")
 	}
 
 	deviceInstanceId, reboot, err := windevice.Install(deviceid.Hardware(hardwareId), infPath, "", 0)
 	if err != nil {
-		klog.Error(err)
-		return
+		return err
 	}
 
-	klog.V(2).Infof("Device '%s' installed, reboot required: '%v'", deviceInstanceId, reboot)
+	slog.Info("Device installed", "device", deviceInstanceId, "reboot required", reboot)
+
+	return nil
 }
