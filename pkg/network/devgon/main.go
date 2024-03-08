@@ -6,16 +6,15 @@ package main
 
 import (
 	"devgon/cmd"
-
-	"k8s.io/klog/v2"
+	"log/slog"
+	"os"
 )
 
 func main() {
-	defer klog.Flush()
+	rootCmd := cmd.Create()
 
-	err := cmd.Execute()
-
-	if err != nil {
-		klog.Error(err)
+	if err := rootCmd.Execute(); err != nil {
+		slog.Error("error occurred while executing the command", "error", err)
+		os.Exit(1)
 	}
 }
