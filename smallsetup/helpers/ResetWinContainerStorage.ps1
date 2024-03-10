@@ -75,7 +75,7 @@ function Invoke-CleanupOfContainerStorage([string]$Directory, [int]$MaxRetries, 
     if (!$successfulDirectoryCleanup) {
         if ($ForceZap) {
             Write-Log 'Directory could not be cleaned up after exhausting all retries. Will zap it using zap.exe' -Console
-            &$global:BinPath\zap.exe -folder $Directory
+            &$global:BinPath\zap.exe -folder $Directory 2>&1 | Write-Log
             if (Test-Path $Directory) {
                 Write-Error "Directory $Directory could not be successfully deleted. Please try again."
             }
