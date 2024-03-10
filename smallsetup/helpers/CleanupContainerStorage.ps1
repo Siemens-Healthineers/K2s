@@ -41,15 +41,15 @@ if ($Trace) {
 }
 
 Write-Host "Take ownership now on items in dir: $Directory"
-takeown /a /r /d Y /F $Directory
+takeown /a /r /d Y /F $Directory 2>&1 | Write-Host
 
 Write-Host "Add ownership also for Administrators"
-icacls $Directory /grant Administrators:F /t /C
+icacls $Directory /grant Administrators:F /t /C 2>&1 | Write-Host
 
 Write-Host "Delete reparse points in the directory: $Directory"
 Get-ChildItem -Path $Directory -Force -Recurse -Attributes Reparsepoint -ErrorAction 'silentlycontinue' | % { $n = $_.FullName.Trim('\'); fsutil reparsepoint delete "$n" }
 
 Write-Host "Remove items from: $Directory"
-remove-item -path $Directory -Force -Recurse
+remove-item -path $Directory -Force -Recurse -ErrorAction 'silentlycontinue'
 
 Write-Host "Cleanup finished"

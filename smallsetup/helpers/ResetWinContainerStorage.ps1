@@ -59,7 +59,7 @@ function Get-DockerStatus() {
     return $false
 }
 
-function Perform-CleanupOfContainerStorage([string]$Directory, [int]$MaxRetries, [bool]$ForceZap) {
+function Invoke-CleanupOfContainerStorage([string]$Directory, [int]$MaxRetries, [bool]$ForceZap) {
     $successfulDirectoryCleanup = $false
     for ($i = 0; $i -lt $MaxRetries; $i++) {
         &$PSScriptRoot\CleanupContainerStorage.ps1 -Directory $Directory
@@ -146,13 +146,13 @@ if ($dockerRunningStatus) {
 $cleanUpWasPerformed = $false
 if (Test-Path $Containerd) {
     Write-Log "Performing cleanup of $Containerd" -Console
-    Perform-CleanupOfContainerStorage -Directory $Containerd -MaxRetries $MaxRetries -ForceZap $ForceZap
+    Invoke-CleanupOfContainerStorage -Directory $Containerd -MaxRetries $MaxRetries -ForceZap $ForceZap
     $cleanUpWasPerformed = $true
 }
 
 if (Test-Path $Docker) {
     Write-Log "Performing cleanup of $Docker" -Console
-    Perform-CleanupOfContainerStorage -Directory $Docker -MaxRetries $MaxRetries -ForceZap $ForceZap
+    Invoke-CleanupOfContainerStorage -Directory $Docker -MaxRetries $MaxRetries -ForceZap $ForceZap
     $cleanUpWasPerformed = $true
 }
 
