@@ -38,8 +38,11 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
     [switch] $EncodeStructuredOutput,
     [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
-    [string] $MessageType
+    [string] $MessageType,
+    [parameter(Mandatory = $false, HelpMessage = 'Trigger clean-up of windows container storage without user prompts')]
+    [switch]$Force = $false
 )
+
 &$PSScriptRoot\..\common\GlobalVariables.ps1
 . $PSScriptRoot\..\common\GlobalFunctions.ps1
 
@@ -59,7 +62,7 @@ function Get-DockerStatus() {
     return $false
 }
 
-function Perform-CleanupOfContainerStorage([string]$Directory, [int]$MaxRetries, [bool]$ForceZap) {
+function Invoke-CleanupOfContainerStorage([string]$Directory, [int]$MaxRetries, [bool]$ForceZap) {
     $successfulDirectoryCleanup = $false
     for ($i = 0; $i -lt $MaxRetries; $i++) {
         &$PSScriptRoot\CleanupContainerStorage.ps1 -Directory $Directory
@@ -75,7 +78,7 @@ function Perform-CleanupOfContainerStorage([string]$Directory, [int]$MaxRetries,
     if (!$successfulDirectoryCleanup) {
         if ($ForceZap) {
             Write-Log 'Directory could not be cleaned up after exhausting all retries. Will zap it using zap.exe' -Console
-            &$global:BinPath\zap.exe -folder $Directory
+            &$global:BinPath\zap.exe -folder $Directory 2>&1 | Write-Log
             if (Test-Path $Directory) {
                 Write-Error "Directory $Directory could not be successfully deleted. Please try again."
             }
@@ -143,16 +146,30 @@ if ($dockerRunningStatus) {
     exit 1
 }
 
+if (!$Force) {
+    $answer = Read-Host "WARNING: Deletion of containerd/docker directory may take a very long time depending on the size of the folder and number of retries. Continue? (y/N)"
+    if ($answer -ne 'y') {
+        if ($EncodedStructuredOutput -eq $true) {
+            $msg = "Reseting windows container storage cancelled."
+            $err = New-Error -Severity Warning -Code (Get-ErrCodeUserCancellation) -Message $msg
+            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+            return
+        }
+        Write-Log "Reseting windows container storage cancelled." -Console
+        exit 0
+    }
+}
+
 $cleanUpWasPerformed = $false
 if (Test-Path $Containerd) {
     Write-Log "Performing cleanup of $Containerd" -Console
-    Perform-CleanupOfContainerStorage -Directory $Containerd -MaxRetries $MaxRetries -ForceZap $ForceZap
+    Invoke-CleanupOfContainerStorage -Directory $Containerd -MaxRetries $MaxRetries -ForceZap $ForceZap
     $cleanUpWasPerformed = $true
 }
 
 if (Test-Path $Docker) {
     Write-Log "Performing cleanup of $Docker" -Console
-    Perform-CleanupOfContainerStorage -Directory $Docker -MaxRetries $MaxRetries -ForceZap $ForceZap
+    Invoke-CleanupOfContainerStorage -Directory $Docker -MaxRetries $MaxRetries -ForceZap $ForceZap
     $cleanUpWasPerformed = $true
 }
 
