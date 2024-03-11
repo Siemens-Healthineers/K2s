@@ -33,7 +33,7 @@ data:
     [SERVICE]
         Daemon Off
         Flush 1
-        Log_Level off
+        Log_Level debug
         Parsers_File parsers.conf
         Parsers_File custom_parsers.conf
         HTTP_Server On
@@ -42,26 +42,20 @@ data:
         Health_Check On
         Streams_File stream_processor.conf
     
-    # [INPUT]
-    #     Name tail
-    #     Path /var/log/containers/*.log
-    #     multiline.parser docker, cri
-    #     Tag kube.*
-    #     Mem_Buf_Limit 5MB
-    #     Skip_Long_Lines On
-
     [INPUT]
-        Name dummy
-        Tag  dummy.data
-        Dummy {"data":"100 0.5 true This is example"}
-    
+        Name tail
+        Path /var/log/containers/*.log
+        Parser cri
+        Tag kube.*
+        Mem_Buf_Limit 30MB
+
     [FILTER]
         Name kubernetes
         Match kube.*
         Merge_Log On
-        Keep_Log Off
-        K8S-Logging.Parser On
-        K8S-Logging.Exclude On
+        K8S-Logging.Parser Off
+        K8S-Logging.Exclude Off
+        Buffer_Size 30MB
     
     [FILTER]
         Name nest
@@ -74,18 +68,6 @@ data:
         Name grep
         Match kube.*
         Exclude kubernetes_container_name fluent-bit
-
-    [FILTER]
-        Name nest
-        Match kube.*
-        Operation lift
-        Nested_under kubernetes_labels
-
-    [FILTER]
-        Name          rewrite_tag
-        Match         kube.*
-        Rule          $kubernetes_namespace_name ^(([a-z0-9A-Z]+)-*([a-z0-9A-Z]*))$ modify.$kubernetes_namespace_name true
-        Emitter_Name  re_emitted
     
     [FILTER]
         Name modify
