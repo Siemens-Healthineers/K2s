@@ -21,19 +21,25 @@ import (
 )
 
 const (
-	containerdDirFlag = "containerd"
-	dockerDirFlag     = "docker"
-	maxRetryFlag      = "max-retry"
-	forceZapFlag      = "force-zap"
+	containerdDirFlag     = "containerd"
+	dockerDirFlag         = "docker"
+	maxRetryFlag          = "max-retry"
+	forceZapFlag          = "force-zap"
+	forceZapFlagShorthand = "z"
+	forceFlag             = "force"
+	forceFlagShorthand    = "f"
 
 	defaultMaxRetry = 1
 
 	resetWinStorageCommandExample = `
-  # Clean up containerd storage
+  # Clean up containerd storage. This presents a user prompt before proceeding.
   k2s image reset-win-storage --containerd C:\containerd
 
-  # Clean up docker storage
+  # Clean up docker storage. This presents a user prompt before proceeding.
   k2s image reset-win-storage --docker C:\docker
+
+  # Clean up containerd storage without user prompts.
+  k2s image reset-win-storage --containerd C:\containerd --force
 
   # Clean up both containerd and docker storages
   k2s image reset-win-storag --containerd C:\containerd --docker C:\docker
@@ -62,7 +68,8 @@ func init() {
 	resetWinStorageCmd.Flags().String(containerdDirFlag, defaultContainerdDir, "Containerd directory")
 	resetWinStorageCmd.Flags().String(dockerDirFlag, defaultDockerDir, "Docker directory")
 	resetWinStorageCmd.Flags().Int(maxRetryFlag, defaultMaxRetry, "Max retries for deleting the directories")
-	resetWinStorageCmd.Flags().BoolP(forceZapFlag, "f", false, "Use zap.exe to forcefully remove the directory after all retries are exhausted.")
+	resetWinStorageCmd.Flags().BoolP(forceZapFlag, "z", false, "Use zap.exe to forcefully remove the directory after all retries are exhausted.")
+	resetWinStorageCmd.Flags().BoolP(forceFlag, forceFlagShorthand, false, "Trigger clean-up of windows container storage without user prompts")
 	resetWinStorageCmd.Flags().SortFlags = false
 	resetWinStorageCmd.Flags().PrintDefaults()
 }
@@ -77,7 +84,7 @@ func resetWinStorage(cmd *cobra.Command, args []string) error {
 
 	start := time.Now()
 
-	cmdResult, err := psexecutor.ExecutePsWithStructuredResult[*common.CmdResult](psCmd, "CmdResult", psexecutor.ExecOptions{IgnoreNotInstalledErr: true}, params...)
+	cmdResult, err := psexecutor.ExecutePsWithStructuredResult[*common.CmdResult](psCmd, "CmdResult", psexecutor.ExecOptions{}, params...)
 	if err != nil {
 		return err
 	}
@@ -95,6 +102,11 @@ func resetWinStorage(cmd *cobra.Command, args []string) error {
 
 func buildResetPsCmd(cmd *cobra.Command) (psCmd string, params []string, err error) {
 	psCmd = utils.FormatScriptFilePath(utils.GetInstallationDirectory() + "\\smallsetup\\helpers\\ResetWinContainerStorage.ps1")
+
+	force, err := strconv.ParseBool(cmd.Flags().Lookup(forceFlag).Value.String())
+	if err != nil {
+		return "", nil, fmt.Errorf("unable to parse flag '%s': %w", forceFlag, err)
+	}
 
 	showOutput, err := strconv.ParseBool(cmd.Flags().Lookup(p.OutputFlagName).Value.String())
 	if err != nil {
@@ -146,6 +158,10 @@ func buildResetPsCmd(cmd *cobra.Command) (psCmd string, params []string, err err
 
 	if useZap {
 		params = append(params, " -ForceZap")
+	}
+
+	if force {
+		params = append(params, " -Force")
 	}
 
 	return
