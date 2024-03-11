@@ -35,21 +35,30 @@ Param(
     [parameter(Mandatory = $true, HelpMessage = 'Docker directory to clean up')]
     [string] $Directory = 'd:\docker1'
 )
+
+&$PSScriptRoot\..\common\GlobalVariables.ps1
+. $PSScriptRoot\..\common\GlobalFunctions.ps1
+
+$logModule = "$PSScriptRoot\..\ps-modules\log\log.module.psm1"
+Import-Module $logModule -DisableNameChecking
+
+Initialize-Logging -ShowLogs:$ShowLogs
+
 $ErrorActionPreference = 'Continue'
 if ($Trace) {
     Set-PSDebug -Trace 1
 }
 
-Write-Host "Take ownership now on items in dir: $Directory"
-takeown /a /r /d Y /F $Directory
+Write-Log "Take ownership now on items in dir: $Directory" -Console
+takeown /a /r /d Y /F $Directory 2>&1 | Write-Log -Console
 
-Write-Host "Add ownership also for Administrators"
-icacls $Directory /grant Administrators:F /t /C
+Write-Log "Add ownership also for Administrators" -Console
+icacls $Directory /grant Administrators:F /t /C 2>&1 | Write-Log -Console
 
-Write-Host "Delete reparse points in the directory: $Directory"
-Get-ChildItem -Path $Directory -Force -Recurse -Attributes Reparsepoint -ErrorAction 'silentlycontinue' | % { $n = $_.FullName.Trim('\'); fsutil reparsepoint delete "$n" }
+Write-Log "Delete reparse points in the directory: $Directory" -Console
+Get-ChildItem -Path $Directory -Force -Recurse -Attributes Reparsepoint -ErrorAction 'silentlycontinue' | % { $n = $_.FullName.Trim('\'); fsutil reparsepoint delete "$n" 2>&1 | Write-Log -Console }
 
-Write-Host "Remove items from: $Directory"
-remove-item -path $Directory -Force -Recurse
+Write-Log "Remove items from: $Directory" -Console
+remove-item -path $Directory -Force -Recurse -ErrorAction 'silentlycontinue'
 
-Write-Host "Cleanup finished"
+Write-Log "Cleanup finished" -Console
