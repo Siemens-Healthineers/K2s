@@ -23,10 +23,9 @@ function Get-FromYamlFile {
     $kubeBinPath = Get-KubeBinPath
     $yaml2jsonExe = [System.IO.Path]::Combine($kubeBinPath, 'yaml2json.exe')
     $tempJsonFile = New-TemporaryFile
-    $errorLoglevel = 8
 
     try {
-        Invoke-Expression "&`"$yaml2jsonExe`" -input `"$Path`" -output `"$tempJsonFile`" -loglevel `"$errorLoglevel`""
+        Invoke-Expression "&`"$yaml2jsonExe`" -input `"$Path`" -output `"$tempJsonFile`" -verbosity error"
         if ((Test-LastExecutionForSuccess) -ne $true) {
             throw "yaml2json conversion failed for '$Path'. See log output above for details."
         }
