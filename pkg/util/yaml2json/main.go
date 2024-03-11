@@ -5,7 +5,10 @@
 package main
 
 import (
+	"base/cli"
+	"base/logging"
 	"encoding/json"
+	"errors"
 	"flag"
 	"io/fs"
 	"log/slog"
@@ -18,36 +21,40 @@ func main() {
 	inputFile := flag.String("input", "", "The YAML input file path")
 	outputFile := flag.String("output", "", "The JSON output file path")
 	indent := flag.Bool("indent", false, "JSON gets indented for readability if set to TRUE")
-	logLevel := flag.Int("loglevel", int(slog.LevelInfo), "loglevel (Info=0, Debug=-4, Warn=4, Error=8; Default: 0)")
+	verbosity := flag.String(cli.VerbosityFlagName, logging.LevelToLowerString(slog.LevelInfo), cli.VerbosityFlagHelp())
 
 	flag.Parse()
 
-	logger := slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: slog.Level(*logLevel)}))
+	var levelVar = new(slog.LevelVar)
+	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: levelVar})))
 
-	slog.SetDefault(logger)
+	logging.SetVerbosity(*verbosity, levelVar)
 
-	slog.Info("yaml2json started", "input", *inputFile, "output", *outputFile, "indent", *indent, "loglevel", *logLevel)
+	slog.Info("yaml2json started", "input", *inputFile, "output", *outputFile, "indent", *indent, cli.VerbosityFlagName, *verbosity)
 
-	exitOnInvalidFlags(*inputFile, *outputFile)
+	if err := validateFlags(*inputFile, *outputFile); err != nil {
+		slog.Error("validation error occurred", "error", err)
+		os.Exit(1)
+	}
 
-	yaml2json(*inputFile, *outputFile, *indent)
+	if err := yaml2json(*inputFile, *outputFile, *indent); err != nil {
+		slog.Error("error occurred while converting yaml to json", "error", err)
+		os.Exit(1)
+	}
 
 	slog.Info("yaml2json finished")
 }
 
-func yaml2json(inputFile string, outputFile string, indent bool) {
+func yaml2json(inputFile string, outputFile string, indent bool) error {
 	rawData, err := os.ReadFile(inputFile)
 	if err != nil {
-		slog.Error(err.Error())
-		os.Exit(1)
+		return err
 	}
 
 	yamlData := make(map[string]interface{})
 
-	err = yaml.Unmarshal(rawData, &yamlData)
-	if err != nil {
-		slog.Error(err.Error())
-		os.Exit(1)
+	if err := yaml.Unmarshal(rawData, &yamlData); err != nil {
+		return err
 	}
 
 	var jsonData []byte
@@ -58,30 +65,24 @@ func yaml2json(inputFile string, outputFile string, indent bool) {
 	}
 
 	if err != nil {
-		slog.Error(err.Error())
-		os.Exit(1)
+		return err
 	}
 
-	err = os.WriteFile(outputFile, jsonData, fs.ModePerm)
-	if err != nil {
-		slog.Error(err.Error())
-		os.Exit(1)
-	}
+	return os.WriteFile(outputFile, jsonData, fs.ModePerm)
 }
 
-func exitOnInvalidFlags(inputFile string, outputFile string) {
+func validateFlags(inputFile string, outputFile string) error {
 	if inputFile == "" {
-		slog.Error("Input file path must not be empty")
-		os.Exit(1)
+		return errors.New("input file path must not be empty")
 	}
 
 	if outputFile == "" {
-		slog.Error("Output file path must not be empty")
-		os.Exit(1)
+		return errors.New("output file path must not be empty")
 	}
 
 	if _, err := os.Stat(inputFile); os.IsNotExist(err) {
-		slog.Error("Input file does not exist")
-		os.Exit(1)
+		return errors.New("input file does not exist")
 	}
+
+	return nil
 }

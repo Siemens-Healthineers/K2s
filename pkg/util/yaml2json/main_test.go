@@ -164,9 +164,9 @@ var _ = Describe("yaml2json", func() {
 		})
 	})
 
-	When("loglevel is error", func() {
+	When("verbosity level is error", func() {
 		It("logs nothing on success", func(ctx context.Context) {
-			cmd := exec.Command(exePath, "-input", yamlPath, "-output", jsonPath, "-loglevel", "8")
+			cmd := exec.Command(exePath, "-input", yamlPath, "-output", jsonPath, "-verbosity", "error")
 
 			output := executeCmd(cmd, ctx, 0)
 
@@ -174,9 +174,9 @@ var _ = Describe("yaml2json", func() {
 		})
 	})
 
-	When("loglevel is info", func() {
+	When("verbosity level is info", func() {
 		It("logs basics on success", func(ctx context.Context) {
-			cmd := exec.Command(exePath, "-input", yamlPath, "-output", jsonPath, "-loglevel", "0")
+			cmd := exec.Command(exePath, "-input", yamlPath, "-output", jsonPath, "-verbosity", "info")
 
 			output := executeCmd(cmd, ctx, 0)
 
