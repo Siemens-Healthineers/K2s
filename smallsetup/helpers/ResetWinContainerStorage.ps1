@@ -38,8 +38,11 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
     [switch] $EncodeStructuredOutput,
     [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
-    [string] $MessageType
+    [string] $MessageType,
+    [parameter(Mandatory = $false, HelpMessage = 'Trigger clean-up of windows container storage without user prompts')]
+    [switch]$Force = $false
 )
+
 &$PSScriptRoot\..\common\GlobalVariables.ps1
 . $PSScriptRoot\..\common\GlobalFunctions.ps1
 
@@ -141,6 +144,20 @@ if ($dockerRunningStatus) {
 
     Write-Log $errMsg -Error
     exit 1
+}
+
+if (!$Force) {
+    $answer = Read-Host "WARNING: Deletion of containerd/docker directory may take a very long time depending on the size of the folder and number of retries. Continue? (y/N)"
+    if ($answer -ne 'y') {
+        if ($EncodedStructuredOutput -eq $true) {
+            $msg = "Reseting windows container storage cancelled."
+            $err = New-Error -Severity Warning -Code (Get-ErrCodeUserCancellation) -Message $msg
+            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+            return
+        }
+        Write-Log "Reseting windows container storage cancelled." -Console
+        exit 0
+    }
 }
 
 $cleanUpWasPerformed = $false
