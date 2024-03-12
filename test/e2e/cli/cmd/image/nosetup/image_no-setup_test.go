@@ -49,6 +49,7 @@ var _ = Describe("image", func() {
 		Entry("registry ls", "image", "registry", "ls"),
 		Entry("registry switch", "image", "registry", "switch", "non-existent"),
 		Entry("rm", "image", "rm", "--id", "non-existent"),
+		Entry("reset-win-storage", "image", "reset-win-storage"),
 	)
 
 	Describe("ls JSON output", Ordered, func() {
