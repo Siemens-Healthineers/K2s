@@ -17,7 +17,7 @@ func main() {
 		Level:       levelVar,
 		AddSource:   true,
 		ReplaceAttr: logging.ReplaceSourceFilePath}
-	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, options)))
+	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, options)))
 
 	rootCmd := cmd.Create(levelVar)
 
