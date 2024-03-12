@@ -20,7 +20,6 @@ import (
 	"github.com/samber/lo"
 	"github.com/santhosh-tekuri/jsonschema/v5"
 	"gopkg.in/yaml.v3"
-	"k8s.io/klog/v2"
 )
 
 type EnabledAddons struct {
@@ -121,21 +120,21 @@ var (
 	supportedManifestVersions = []string{"v1"}
 )
 
-func AllAddons() Addons {
+func LoadAddons() (Addons, error) {
 	lock.Lock()
 	defer lock.Unlock()
 
 	if allAddons != nil {
-		return allAddons
+		return allAddons, nil
 	}
 
 	var err error
 	allAddons, err = loadAddons()
 	if err != nil {
-		klog.Fatal(err)
+		return nil, err
 	}
 
-	return allAddons
+	return allAddons, nil
 }
 
 func LoadEnabledAddons() (*EnabledAddons, error) {

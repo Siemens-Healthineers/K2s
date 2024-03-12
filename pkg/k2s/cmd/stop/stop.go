@@ -5,11 +5,11 @@ package stop
 
 import (
 	"errors"
+	"log/slog"
 	"strconv"
 
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
-	"k8s.io/klog/v2"
 
 	"k2s/cmd/common"
 	p "k2s/cmd/params"
@@ -40,7 +40,7 @@ func stopk8s(ccmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	klog.V(3).Infof("Stop command : %s", stopCmd)
+	slog.Debug("PS command created", "command", stopCmd)
 
 	duration, err := psexecutor.ExecutePowershellScript(stopCmd)
 	if err != nil {

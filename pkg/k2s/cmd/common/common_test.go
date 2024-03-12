@@ -5,11 +5,12 @@ package common
 
 import (
 	"k2s/setupinfo"
+	"log/slog"
 	"testing"
 
+	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"k8s.io/klog/v2"
 )
 
 func Test(t *testing.T) {
@@ -18,7 +19,7 @@ func Test(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
-	klog.SetLogger(GinkgoLogr)
+	slog.SetDefault(slog.New(logr.ToSlogHandler(GinkgoLogr)))
 })
 
 var _ = Describe("common", func() {

@@ -6,13 +6,13 @@ package status
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 
 	sc "k2s/cmd/status/common"
 	"k2s/cmd/status/load"
 	"k2s/setupinfo"
 
 	"github.com/spf13/cobra"
-	"k8s.io/klog/v2"
 )
 
 type RunningStatePrinter interface {
@@ -169,7 +169,7 @@ func printStatusUserFriendly(showAdditionalInfo bool) error {
 	defer func() {
 		err = spinner.Stop()
 		if err != nil {
-			klog.Error(err)
+			slog.Error("spinner stop", "error", err)
 		}
 	}()
 
@@ -201,7 +201,7 @@ func printStatusUserFriendly(showAdditionalInfo bool) error {
 	}
 
 	if status.SetupInfo.Name == setupinfo.SetupNameBuildOnlyEnv {
-		klog.V(4).Infof("setup '%s' has no K8s components, skipping them", setupinfo.SetupNameBuildOnlyEnv)
+		slog.Debug("Setup type has no K8s components, skipping", "type", setupinfo.SetupNameBuildOnlyEnv)
 		return nil
 	}
 

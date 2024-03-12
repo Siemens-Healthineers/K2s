@@ -7,18 +7,19 @@ import (
 	"errors"
 	"fmt"
 	"k2s/addons"
-	ac "k2s/cmd/addons/cmd/common"
+	acc "k2s/cmd/addons/cmd/common"
+	ac "k2s/cmd/addons/common"
 	"k2s/cmd/common"
 	p "k2s/cmd/params"
 	"k2s/providers/terminal"
 	"k2s/setupinfo"
 	"k2s/utils"
 	"k2s/utils/psexecutor"
+	"log/slog"
 	"strconv"
 	"time"
 
 	"github.com/spf13/cobra"
-	"k8s.io/klog/v2"
 )
 
 var importCommandExample = `
@@ -51,9 +52,14 @@ func NewCommand() *cobra.Command {
 
 func runImport(cmd *cobra.Command, args []string) error {
 	terminalPrinter := terminal.NewTerminalPrinter()
-	allAddons := addons.AllAddons()
+	allAddons, err := addons.LoadAddons()
+	if err != nil {
+		return err
+	}
 
-	if err := ac.ValidateAddonNames(allAddons, "import", terminalPrinter, args...); err != nil {
+	ac.LogAddons(allAddons)
+
+	if err := acc.ValidateAddonNames(allAddons, "import", terminalPrinter, args...); err != nil {
 		return err
 	}
 
@@ -62,7 +68,7 @@ func runImport(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	klog.V(4).Infof("PS cmd: '%s', params: '%v'", psCmd, params)
+	slog.Debug("PS command created", "command", psCmd, "params", params)
 
 	start := time.Now()
 

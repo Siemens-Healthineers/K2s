@@ -6,15 +6,16 @@ package status
 import (
 	"k2s/addons"
 	"k2s/addons/status"
+	"log/slog"
 	"testing"
 
 	r "test/reflection"
 
+	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/mock"
-	"k8s.io/klog/v2"
 )
 
 type mockObject struct {
@@ -39,7 +40,7 @@ func TestStatus(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
-	klog.SetLogger(GinkgoLogr)
+	slog.SetDefault(slog.New(logr.ToSlogHandler(GinkgoLogr)))
 })
 
 var _ = Describe("status", func() {

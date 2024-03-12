@@ -11,12 +11,12 @@ import (
 	"k2s/setupinfo"
 	"k2s/utils"
 	"k2s/utils/psexecutor"
+	"log/slog"
 	"strconv"
 	"time"
 
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
-	"k8s.io/klog/v2"
 )
 
 var (
@@ -45,7 +45,7 @@ func switchRegistry(cmd *cobra.Command, args []string) error {
 
 	registryName := args[0]
 
-	klog.V(4).Infof("Switching to registry '%s'", registryName)
+	slog.Info("Switching registry", "registry", registryName)
 
 	pterm.Printfln("🤖 Switching to registry '%s'", registryName)
 
@@ -54,7 +54,7 @@ func switchRegistry(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	klog.V(4).Infof("PS cmd: '%s', params: '%v'", psCmd, params)
+	slog.Debug("PS command created", "command", psCmd, "params", params)
 
 	start := time.Now()
 

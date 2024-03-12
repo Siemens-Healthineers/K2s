@@ -6,6 +6,7 @@ package config
 import (
 	"bytes"
 	"fmt"
+	"log/slog"
 	"os"
 
 	"embed"
@@ -14,7 +15,6 @@ import (
 
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
-	"k8s.io/klog/v2"
 )
 
 type Kind string
@@ -91,7 +91,7 @@ type BehaviorConfig struct {
 }
 
 const (
-	k2sConfigType  Kind = "k2s"
+	k2sConfigType       Kind = "k2s"
 	MultivmConfigType   Kind = "multivm"
 	BuildonlyConfigType Kind = "buildonly"
 
@@ -150,7 +150,7 @@ var (
 	embeddedConfigFiles embed.FS
 
 	configFileMap map[Kind]string = map[Kind]string{
-		k2sConfigType:  "k2s.config.yaml",
+		k2sConfigType:       "k2s.config.yaml",
 		MultivmConfigType:   "multivm.config.yaml",
 		BuildonlyConfigType: "buildonly.config.yaml"}
 )
@@ -204,7 +204,7 @@ func (config *InstallConfig) GetNodeByRole(role string) (*NodeConfig, error) {
 func (i *installConfigAccess) loadBaseConfig(kind Kind) error {
 	configPath := fmt.Sprintf("embed/%s", configFileMap[kind])
 
-	klog.V(3).Infof("Loading embedded config file '%s'..", configPath)
+	slog.Debug("Loading embedded config file", "path", configPath)
 
 	content, err := i.embeddedFileReader.readFile(configPath)
 	if err != nil {
@@ -213,7 +213,7 @@ func (i *installConfigAccess) loadBaseConfig(kind Kind) error {
 
 	i.config.SetConfigType("yaml")
 
-	klog.V(3).Info("Parsing embedded config file..")
+	slog.Debug("Parsing embedded config file")
 
 	return i.config.ReadConfig(bytes.NewReader(content))
 }
@@ -221,14 +221,14 @@ func (i *installConfigAccess) loadBaseConfig(kind Kind) error {
 func (i *installConfigAccess) loadUserConfig(kind Kind) error {
 	userPath := i.config.GetString(ConfigFileFlagName)
 
-	klog.V(3).Infof("Loading user-provided config file '%s'..", userPath)
+	slog.Debug("Loading user-provided config file", "path", userPath)
 
 	userContent, err := i.osFileReader.readFile(userPath)
 	if err != nil {
 		return err
 	}
 
-	klog.V(3).Info("Parsing and merging user-provided config file..")
+	slog.Debug("Parsing and merging user-provided config file")
 
 	err = i.config.ReadConfig(bytes.NewReader(userContent))
 	if err != nil {
@@ -258,7 +258,7 @@ func (config *InstallConfig) getNodeByRolePanic(role string) *NodeConfig {
 }
 
 func (*userConfigValidator) validate(kind Kind, config *viper.Viper) error {
-	klog.V(3).Info("Validating user-provided config file..")
+	slog.Debug("Validating user-provided config file")
 
 	if Kind(config.GetString("kind")) != kind {
 		return fmt.Errorf("error in user-provided config: expected kind '%s', but found: '%s'", kind, config.GetString("kind"))
@@ -292,7 +292,7 @@ func (*viperConfigConverter) convert(config *viper.Viper) (*InstallConfig, error
 }
 
 func (*cliParamsConfigOverwriter) overwrite(iConfig *InstallConfig, vConfig *viper.Viper, flags *pflag.FlagSet) {
-	klog.V(3).Info("Overwriting config with CLI params..")
+	slog.Debug("Overwriting config with CLI params")
 
 	flags.Visit(func(flag *pflag.Flag) {
 		overwriteConfigWithCliParam(iConfig, vConfig, flag.Name)
@@ -300,7 +300,7 @@ func (*cliParamsConfigOverwriter) overwrite(iConfig *InstallConfig, vConfig *vip
 }
 
 func overwriteConfigWithCliParam(iConfig *InstallConfig, vConfig *viper.Viper, flagName string) {
-	klog.V(4).Infof("Overwriting config with CLI param '%s'..", flagName)
+	slog.Debug("Overwriting config with CLI param", "param", flagName)
 
 	switch flagName {
 	case params.AdditionalHooksDirFlagName:

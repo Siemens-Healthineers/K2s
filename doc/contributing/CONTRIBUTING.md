@@ -179,15 +179,15 @@ See [Automated Testing with Pester](powershell_dev.md#automated-testing-with-pes
 
 ### Ginkgo/Gomega Specifics
 #### Log Output Redirection
-For diagnostic logging, *k2s* CLI uses the [klog](https://pkg.go.dev/k8s.io/klog/v2#section-readme) module. To redirect the log output to *Ginkgo*, set the *Ginkgo* logger as follows:
+For diagnostic logging, *k2s* CLI uses [slog](https://pkg.go.dev/log/slog). To redirect the log output to *Ginkgo*, set the *Ginkgo* logger as follows (*Ginkgo* uses [logr](https://github.com/go-logr/logr/) internally):
 
 ```go
 var _ = BeforeSuite(func() {
-	klog.SetLogger(GinkgoLogr)
+	slog.SetDefault(slog.New(logr.ToSlogHandler(GinkgoLogr)))
 })
 ```
 
-This enables control over *klog* output, i.e. the output can be enabled when running *Ginkgo* in verbose mode (`ginkog -v`) and be omitted in non-verbose mode.
+This enables control over *slog* output, i.e. the output can be enabled when running *Ginkgo* in verbose mode (`ginkog -v`) and be omitted in non-verbose mode.
 
 ## Submit Changes
 The following guidelines apply to submitting changes to *K2s*:
