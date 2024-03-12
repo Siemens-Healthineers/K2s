@@ -8,6 +8,7 @@ import (
 	"k2s/cmd/common"
 	"k2s/utils"
 	"k2s/utils/psexecutor"
+	"log/slog"
 	"strconv"
 	"strings"
 
@@ -15,7 +16,6 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-	"k8s.io/klog/v2"
 )
 
 var (
@@ -76,7 +76,7 @@ func systemPackage(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	klog.V(3).Infof("PS cmd: '%s', params: '%v'", systemPackageCommand, params)
+	slog.Debug("PS command created", "command", systemPackageCommand, "params", params)
 
 	cmdResult, err := psexecutor.ExecutePsWithStructuredResult[*common.CmdResult](systemPackageCommand, "CmdResult", psexecutor.ExecOptions{IgnoreNotInstalledErr: true}, params...)
 	if err != nil {
@@ -94,7 +94,7 @@ func buildSystemPackageCmd(cmd *cobra.Command) (string, []string, error) {
 	systemPackageCommand := utils.FormatScriptFilePath(utils.GetInstallationDirectory() + "\\smallsetup\\helpers\\BuildK2sZipPackage.ps1")
 
 	cmd.Flags().VisitAll(func(f *pflag.Flag) {
-		klog.V(3).Infof("Param: %s: %s\n", f.Name, f.Value)
+		slog.Debug("Param", "name", f.Name, "value", f.Value)
 	})
 
 	params := []string{}

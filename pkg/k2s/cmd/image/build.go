@@ -6,13 +6,13 @@ package image
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
-	"k8s.io/klog/v2"
 
 	"k2s/cmd/common"
 	p "k2s/cmd/params"
@@ -124,7 +124,7 @@ func buildImage(cmd *cobra.Command, args []string) error {
 	}
 
 	psCmd, params := buildPsCmd(buildOptions)
-	klog.V(4).Infof("PS cmd: '%s', params: '%v'", psCmd, params)
+	slog.Debug("PS command created", "command", psCmd, "params", params)
 
 	start := time.Now()
 
@@ -193,9 +193,7 @@ func extractBuildOptions(cmd *cobra.Command) (*buildOptions, error) {
 		return nil, fmt.Errorf("unable to parse build arguments: %w", err)
 	}
 
-	if klog.V(4).Enabled() {
-		printBuildArgs(parsedBuildArguments, 4)
-	}
+	slog.Info("Build arguments", "args", parsedBuildArguments)
 
 	return &buildOptions{
 		InputFolder: inputFolder,
@@ -260,11 +258,4 @@ func buildPsCmd(buildOptions *buildOptions) (psCmd string, params []string) {
 	}
 
 	return
-}
-
-func printBuildArgs(buildArgs map[string]string, level klog.Level) {
-	klog.V(level).Info("Printing all build arguments....")
-	for argName, argValue := range buildArgs {
-		klog.V(level).Info(fmt.Sprintf("%s=%s\n", argName, argValue))
-	}
 }

@@ -4,57 +4,94 @@
 package logging
 
 import (
-	"flag"
+	bl "base/logging"
 	"fmt"
+	"k2s/common"
+	kos "k2s/providers/os"
+	"log"
+	"log/slog"
 	"os"
 	"path/filepath"
 
-	"k8s.io/klog/v2"
+	slogmulti "github.com/samber/slog-multi"
 )
 
-func Initialize(logFilePath string) {
-	klog.InitFlags(nil)
+var (
+	rootLogDir string
+	cliLogPath string
+	psLogPath  string
+	logFile    *os.File
+	cliLogger  slog.Handler
+	fileLogger slog.Handler
+)
 
-	createLogDirIfNotExisting(filepath.Dir(logFilePath))
-
-	setKlogFlag("logtostderr", "false")
-	setKlogFlag("log_file", logFilePath)
-	EnableCliOutput()
+func init() {
+	rootLogDir = bl.RootLogDir()
+	cliLogPath = filepath.Join(rootLogDir, "cli", fmt.Sprintf("%s.exe.log", common.CliName))
+	psLogPath = filepath.Join(rootLogDir, "k2s.log")
 }
 
-func SetVerbosity(level int) {
-	setKlogFlag("v", fmt.Sprint(level))
-}
+func Initialize() *slog.LevelVar {
+	if logFile != nil {
+		panic("logging already initialized")
+	}
 
-func DisableCliOutput() {
-	setKlogFlag("alsologtostderr", "false")
-}
+	if err := kos.CreateDirIfNotExisting(filepath.Dir(cliLogPath)); err != nil {
+		panic(err)
+	}
 
-func EnableCliOutput() {
-	setKlogFlag("alsologtostderr", "true")
+	var err error
+	logFile, err = os.OpenFile(
+		cliLogPath,
+		os.O_APPEND|os.O_CREATE|os.O_WRONLY,
+		0664,
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	var levelVar = new(slog.LevelVar)
+	options := createDefaultOptions(levelVar)
+	cliLogger = createCliLogger(options)
+	fileLogger = createFileLogger(logFile, options)
+
+	slog.SetDefault(slog.New(slogmulti.Fanout(cliLogger, fileLogger)))
+
+	return levelVar
 }
 
 func Finalize() {
-	klog.Flush()
-}
-
-func Exit(args ...any) {
-	klog.Exit(args...)
-}
-
-func createLogDirIfNotExisting(logDir string) {
-	_, err := os.Stat(logDir)
-	if !os.IsNotExist(err) {
+	if logFile == nil {
 		return
 	}
 
-	if err = os.MkdirAll(logDir, os.ModePerm); err != nil {
-		panic(err)
+	if err := logFile.Sync(); err != nil {
+		log.Fatal(err)
+	}
+	if err := logFile.Close(); err != nil {
+		log.Fatal(err)
 	}
 }
 
-func setKlogFlag(name string, value string) {
-	if err := flag.Set(name, value); err != nil {
-		panic(err)
-	}
+func PsLogPath() string {
+	return psLogPath
+}
+
+func DisableCliOutput() {
+	slog.SetDefault(slog.New(fileLogger))
+}
+
+func createDefaultOptions(levelVar *slog.LevelVar) *slog.HandlerOptions {
+	return &slog.HandlerOptions{
+		Level:       levelVar,
+		AddSource:   true,
+		ReplaceAttr: bl.ReplaceSourceFilePath}
+}
+
+func createCliLogger(options *slog.HandlerOptions) slog.Handler {
+	return slog.NewTextHandler(os.Stderr, options)
+}
+
+func createFileLogger(file *os.File, options *slog.HandlerOptions) slog.Handler {
+	return slog.NewJSONHandler(file, options)
 }

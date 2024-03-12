@@ -9,12 +9,12 @@ import (
 	"fmt"
 	"k2s/utils"
 	"k2s/utils/psexecutor"
+	"log/slog"
 	"path/filepath"
 	"strconv"
 	"time"
 
 	"github.com/spf13/cobra"
-	"k8s.io/klog/v2"
 
 	"k2s/cmd/common"
 	p "k2s/cmd/params"
@@ -73,7 +73,7 @@ func resetWinStorage(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	klog.V(4).Infof("PS cmd: '%s', params: '%v'", psCmd, params)
+	slog.Debug("PS command created", "command", psCmd, "params", params)
 
 	start := time.Now()
 
@@ -107,7 +107,7 @@ func buildResetPsCmd(cmd *cobra.Command) (psCmd string, params []string, err err
 	}
 
 	if containerdDir == "" {
-		klog.V(3).Infof("Containerd Directory was specified as empty. Will use %s as containerd directory", defaultContainerdDir)
+		slog.Info("Containerd directory set as empty, will use default dir", "default-dir", defaultContainerdDir)
 		containerdDir = defaultContainerdDir
 	}
 
@@ -117,7 +117,7 @@ func buildResetPsCmd(cmd *cobra.Command) (psCmd string, params []string, err err
 	}
 
 	if dockerDir == "" {
-		klog.V(3).Infof("Docker Directory was specified as empty. Will use %s as docker directory", defaultContainerdDir)
+		slog.Info("Docker directory set as empty, will use default dir", "default-dir", defaultDockerDir)
 		dockerDir = defaultDockerDir
 	}
 

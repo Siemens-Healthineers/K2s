@@ -4,10 +4,9 @@
 package common
 
 import (
-	"base/logging"
 	"fmt"
 	"k2s/setupinfo"
-	"path/filepath"
+	"k2s/utils/logging"
 	"time"
 
 	"github.com/pterm/pterm"
@@ -27,24 +26,11 @@ type CmdResult struct {
 }
 
 const (
-	CliName                  = "k2s"
 	ErrSystemNotInstalledMsg = "You have not installed K2s setup yet, please start the installation with command 'k2s.exe install' first"
 
 	SeverityWarning FailureSeverity = 3
 	SeverityError   FailureSeverity = 4
 )
-
-var (
-	rootLogDir       string
-	cliLogPath       string
-	executionLogPath string
-)
-
-func init() {
-	rootLogDir = logging.RootLogDir()
-	cliLogPath = filepath.Join(rootLogDir, "cli", fmt.Sprintf("%s.exe.log", CliName))
-	executionLogPath = filepath.Join(rootLogDir, "k2s.log")
-}
 
 func (c *CmdFailure) Error() string {
 	return fmt.Sprintf("%s: %s", c.Code, c.Message)
@@ -61,14 +47,10 @@ func (s FailureSeverity) String() string {
 	}
 }
 
-func LogFilePath() string {
-	return cliLogPath
-}
-
 func PrintCompletedMessage(duration time.Duration, command string) {
 	pterm.Success.Printfln("'%s' completed in %v", command, duration)
 
-	logHint := pterm.LightCyan(fmt.Sprintf("Please see '%s' for more information", executionLogPath))
+	logHint := pterm.LightCyan(fmt.Sprintf("Please see '%s' for more information", logging.PsLogPath()))
 
 	pterm.Println(logHint)
 }

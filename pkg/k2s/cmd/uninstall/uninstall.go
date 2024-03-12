@@ -5,13 +5,13 @@ package uninstall
 
 import (
 	"errors"
+	"log/slog"
 	"strconv"
 
 	"base/version"
 
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
-	"k8s.io/klog/v2"
 
 	"k2s/cmd/common"
 	p "k2s/cmd/params"
@@ -48,7 +48,7 @@ func uninstallk8s(ccmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	klog.V(3).Infof("Uninstall command : %s", uninstallCmd)
+	slog.Debug("PS command created", "command", uninstallCmd)
 
 	duration, err := psexecutor.ExecutePowershellScript(uninstallCmd)
 	if err != nil {

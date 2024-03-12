@@ -6,12 +6,12 @@ package image
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"strconv"
 	"time"
 
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
-	"k8s.io/klog/v2"
 
 	"k2s/cmd/common"
 	"k2s/cmd/params"
@@ -70,7 +70,7 @@ func removeImage(cmd *cobra.Command, args []string) error {
 
 	psCmd, params := buildRemovePsCmd(options)
 
-	klog.V(4).Infof("PS cmd: '%s', params: '%v'", psCmd, params)
+	slog.Debug("PS command created", "command", psCmd, "params", params)
 
 	start := time.Now()
 

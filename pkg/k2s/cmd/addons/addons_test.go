@@ -7,14 +7,15 @@ import (
 	"fmt"
 	"k2s/addons"
 	"k2s/cmd/params"
+	"log/slog"
 	"test/reflection"
 	"testing"
 
+	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/mock"
-	"k8s.io/klog/v2"
 )
 
 type mockObject struct {
@@ -31,7 +32,7 @@ func TestAddons(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
-	klog.SetLogger(GinkgoLogr)
+	slog.SetDefault(slog.New(logr.ToSlogHandler(GinkgoLogr)))
 })
 
 var _ = Describe("addons", func() {

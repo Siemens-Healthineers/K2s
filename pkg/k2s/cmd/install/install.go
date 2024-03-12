@@ -6,6 +6,7 @@ package install
 import (
 	"base/version"
 	"fmt"
+	"log/slog"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -21,8 +22,6 @@ import (
 	"k2s/utils"
 	"k2s/utils/psexecutor"
 	"k2s/utils/tz"
-
-	"k8s.io/klog/v2"
 )
 
 type Installer interface {
@@ -141,7 +140,7 @@ func install(cmd *cobra.Command, args []string) error {
 	defer tzConfigHandle.Release()
 
 	if linuxOnly {
-		klog.V(3).Infof("Switching to setup type '%s' due to flag '%s' being set", ic.MultivmConfigType, ic.LinuxOnlyFlagName)
+		slog.Info("Switching setup type due to flag setting", "type", ic.MultivmConfigType, "flag", ic.LinuxOnlyFlagName)
 
 		if err := installMultiVmFunc(cmd, args); err != nil {
 			return err

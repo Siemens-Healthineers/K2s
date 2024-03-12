@@ -5,9 +5,9 @@ package ssh
 
 import (
 	"k2s/utils"
+	"log/slog"
 
 	"github.com/spf13/cobra"
-	"k8s.io/klog/v2"
 )
 
 type workerBaseCommandProvider struct {
@@ -62,7 +62,7 @@ func (m *workerBaseCommandProvider) getShellExecutorCommand() string {
 }
 
 func sshWorker(cmd *cobra.Command, args []string) error {
-	klog.V(3).Infof("Connecting to WinNode worker VM..")
+	slog.Info("Connecting to WinNode worker VM")
 
 	remoteCmd, err := getRemoteCommandToExecute(cmd.ArgsLenAtDash(), args)
 	if err != nil {
