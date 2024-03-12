@@ -26,7 +26,7 @@ func main() {
 	flag.Parse()
 
 	var levelVar = new(slog.LevelVar)
-	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: levelVar})))
+	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: levelVar})))
 
 	logging.SetVerbosity(*verbosity, levelVar)
 
