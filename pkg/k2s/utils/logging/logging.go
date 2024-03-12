@@ -89,7 +89,7 @@ func createDefaultOptions(levelVar *slog.LevelVar) *slog.HandlerOptions {
 }
 
 func createCliLogger(options *slog.HandlerOptions) slog.Handler {
-	return slog.NewTextHandler(os.Stderr, options)
+	return slog.NewTextHandler(os.Stdout, options)
 }
 
 func createFileLogger(file *os.File, options *slog.HandlerOptions) slog.Handler {
