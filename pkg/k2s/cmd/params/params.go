@@ -4,10 +4,6 @@
 package params
 
 const (
-	VerbosityFlagName      = "v"
-	VerbosityFlagShorthand = "v"
-	VerbosityFlagUsage     = "number for the log level verbosity, e.g --v=8"
-
 	OutputFlagName      = "output"
 	OutputFlagShorthand = "o"
 	OutputFlagUsage     = "Show all logs in terminal"

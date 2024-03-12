@@ -5,12 +5,12 @@ package image
 
 import (
 	"errors"
+	"log/slog"
 	"strconv"
 	"time"
 
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
-	"k8s.io/klog/v2"
 
 	"k2s/cmd/common"
 	p "k2s/cmd/params"
@@ -40,7 +40,7 @@ func cleanImages(cmd *cobra.Command, args []string) error {
 		params = append(params, " -ShowLogs")
 	}
 
-	klog.V(4).Infof("PS cmd: '%s', params: '%v'", psCmd, params)
+	slog.Debug("PS command created", "command", psCmd, "params", params)
 
 	start := time.Now()
 

@@ -7,8 +7,7 @@ import (
 	"errors"
 	"k2s/cmd/common"
 	"k2s/setupinfo"
-
-	"k8s.io/klog/v2"
+	"log/slog"
 
 	"fmt"
 )
@@ -45,11 +44,9 @@ type JsonPrinter struct {
 }
 
 type UserFriendlyPrinter struct {
-	terminalPrinter           TerminalPrinter
-	statusLoader              StatusLoader
-	propPrinter               PropPrinter
-	printAddonNotFoundMsgFunc func(dir string, name string)
-	printNoAddonStatusMsgFunc func(name string)
+	terminalPrinter TerminalPrinter
+	statusLoader    StatusLoader
+	propPrinter     PropPrinter
 }
 
 type AddonPrintStatus struct {
@@ -96,7 +93,7 @@ func NewPropPrinter(terminalPrinter TerminalPrinter) *propPrint {
 }
 
 func (s *JsonPrinter) PrintStatus(addonName string, addonDirectory string) error {
-	klog.V(4).Infof("Loading status for addon '%s' in dir '%s'..", addonName, addonDirectory)
+	slog.Info("Loading status", "addon", addonName, "directory", addonDirectory)
 
 	loadedStatus, err := s.statusLoader.LoadAddonStatus(addonName, addonDirectory)
 
@@ -129,7 +126,7 @@ func (s *JsonPrinter) PrintStatus(addonName string, addonDirectory string) error
 		printStatus.Props = loadedStatus.Props
 	}
 
-	klog.V(4).Infof("Marhalling status: %v", printStatus)
+	slog.Info("Marhalling", "status", printStatus)
 
 	bytes, err := s.jsonMarshaller.MarshalIndent(printStatus)
 	if err != nil {
@@ -138,7 +135,7 @@ func (s *JsonPrinter) PrintStatus(addonName string, addonDirectory string) error
 
 	statusJson := string(bytes)
 
-	klog.V(4).Infof("Printing status JSON: %s", statusJson)
+	slog.Info("Printing", "json", statusJson)
 
 	s.terminalPrinter.Println(statusJson)
 
@@ -159,7 +156,7 @@ func (s *UserFriendlyPrinter) PrintStatus(addonName string, addonDirectory strin
 	defer func() {
 		err = spinner.Stop()
 		if err != nil {
-			klog.Error(err)
+			slog.Error("spinner stop", "error", err)
 		}
 	}()
 

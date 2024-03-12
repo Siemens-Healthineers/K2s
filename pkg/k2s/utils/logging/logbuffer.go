@@ -5,19 +5,19 @@ package logging
 
 import (
 	"errors"
-	"strings"
-
-	"k8s.io/klog/v2"
+	"log/slog"
+	"sync"
 )
 
 type BufferConfig struct {
 	Limit     uint
-	FlushFunc func(args ...any)
+	FlushFunc func(buffer []string)
 }
 
 type logBuffer struct {
 	buffer []string
 	config BufferConfig
+	lock   sync.Mutex
 }
 
 func NewLogBuffer(config BufferConfig) (*logBuffer, error) {
@@ -29,29 +29,36 @@ func NewLogBuffer(config BufferConfig) (*logBuffer, error) {
 	}
 
 	return &logBuffer{
-		buffer: []string{},
 		config: config,
 	}, nil
 }
 
 func (e *logBuffer) Log(line string) {
+	e.lock.Lock()
+	defer e.lock.Unlock()
+
 	e.buffer = append(e.buffer, line)
 
 	if len(e.buffer) >= int(e.config.Limit) {
-		klog.V(8).InfoS("log buffer limit reached, flushing the buffer", "limit", e.config.Limit)
+		slog.Debug("Log buffer limit reached", "limit", e.config.Limit)
 
-		e.Flush()
+		e.flush()
 	}
 }
 
 func (e *logBuffer) Flush() {
-	if len(e.buffer) > 0 {
-		e.config.FlushFunc(squash(e.buffer))
+	e.lock.Lock()
+	defer e.lock.Unlock()
 
-		e.buffer = []string{}
+	if len(e.buffer) > 0 {
+		e.flush()
 	}
 }
 
-func squash(lines []string) string {
-	return strings.Join(lines, "\n")
+func (e *logBuffer) flush() {
+	slog.Debug("Flushing the buffer", "len", len(e.buffer))
+
+	e.config.FlushFunc(e.buffer)
+
+	e.buffer = nil
 }

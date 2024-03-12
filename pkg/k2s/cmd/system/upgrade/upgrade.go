@@ -5,12 +5,12 @@ package upgrade
 
 import (
 	"errors"
+	"log/slog"
 	"strconv"
 
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-	"k8s.io/klog/v2"
 
 	"k2s/cmd/common"
 	p "k2s/cmd/params"
@@ -79,7 +79,8 @@ func AddInitFlags(cmd *cobra.Command) {
 func upgradeCluster(cmd *cobra.Command, args []string) error {
 	pterm.Println("🤖 Analyze current cluster and check prerequisites ...")
 	upgradeCommand := createUpgradeCommand(cmd)
-	klog.V(3).Infof("Upgrade Command : %s", upgradeCommand)
+
+	slog.Debug("PS command created", "command", upgradeCommand)
 
 	duration, err := psexecutor.ExecutePowershellScript(upgradeCommand)
 	if err != nil {
@@ -97,7 +98,7 @@ func upgradeCluster(cmd *cobra.Command, args []string) error {
 func createUpgradeCommand(cmd *cobra.Command) string {
 	upgradeCommand := utils.GetInstallationDirectory() + "\\smallsetup\\upgrade\\" + "Start-ClusterUpgrade.ps1"
 	cmd.Flags().VisitAll(func(f *pflag.Flag) {
-		klog.V(3).Infof("Param: %s: %s\n", f.Name, f.Value)
+		slog.Debug("Param", "name", f.Name, "value", f.Value)
 	})
 	out, _ := strconv.ParseBool(cmd.Flags().Lookup(p.OutputFlagName).Value.String())
 	if out {

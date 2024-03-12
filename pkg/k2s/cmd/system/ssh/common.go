@@ -11,11 +11,10 @@ import (
 	"k2s/setupinfo"
 	"k2s/utils"
 	"k2s/utils/psexecutor"
+	"log/slog"
 	"os"
 	"os/exec"
 	"strings"
-
-	"k8s.io/klog/v2"
 )
 
 type commandHandler interface {
@@ -96,7 +95,7 @@ func (r *remoteCommandHandler) executeCommand(cmd string) error {
 func getRemoteCommandToExecute(argsLenAtDash int, args []string) (string, error) {
 	if argsLenAtDash == -1 {
 		if len(args) == 0 {
-			klog.V(5).Infoln("No args provided. Will proceed to start the shell.")
+			slog.Debug("No args provided. Will proceed to start the shell.")
 			return "", nil
 		} else {
 			return "", fmt.Errorf("unknown option: %s", args[0])
@@ -108,7 +107,8 @@ func getRemoteCommandToExecute(argsLenAtDash int, args []string) (string, error)
 	}
 
 	cmdToExecute := strings.Join(args[0:], " ")
-	klog.V(5).Infof("Command to execute : %s", cmdToExecute)
+
+	slog.Debug("PS command created", "command", cmdToExecute)
 
 	return cmdToExecute, nil
 }

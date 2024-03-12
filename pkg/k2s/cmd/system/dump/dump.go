@@ -5,10 +5,10 @@ package dump
 
 import (
 	"errors"
+	"log/slog"
 	"strconv"
 
 	"github.com/spf13/cobra"
-	"k8s.io/klog/v2"
 
 	"k2s/cmd/common"
 	p "k2s/cmd/params"
@@ -55,7 +55,7 @@ func dumpSystemStatus(cmd *cobra.Command, args []string) error {
 		dumpStatusCommand += " -ShowLogs `$true"
 	}
 
-	klog.V(3).Infof("Dump system status command: %s", dumpStatusCommand)
+	slog.Debug("PS command created", "command", dumpStatusCommand)
 
 	duration, err := psexecutor.ExecutePowershellScript(dumpStatusCommand)
 	if err != nil {

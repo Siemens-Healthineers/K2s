@@ -7,9 +7,9 @@ import (
 	"k2s/cmd/common"
 	"k2s/utils"
 	"k2s/utils/psexecutor"
+	"log/slog"
 
 	"github.com/spf13/cobra"
-	"k8s.io/klog/v2"
 )
 
 var ResetCmd = &cobra.Command{
@@ -30,7 +30,7 @@ func resetSystem(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	klog.V(3).Infof("Reset system command: %s", resetSystemCommand)
+	slog.Debug("PS command created", "command", resetSystemCommand)
 
 	duration, err := psexecutor.ExecutePowershellScript(resetSystemCommand)
 	if err != nil {

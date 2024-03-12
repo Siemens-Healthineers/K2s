@@ -8,11 +8,13 @@ go 1.21
 
 require (
 	github.com/go-cmd/cmd v1.4.2
+	github.com/go-logr/logr v1.4.1
 	github.com/google/uuid v1.1.2
 	github.com/onsi/ginkgo/v2 v2.13.2
 	github.com/onsi/gomega v1.30.0
 	github.com/pterm/pterm v0.12.59
 	github.com/samber/lo v1.39.0
+	github.com/samber/slog-multi v1.0.2
 	github.com/santhosh-tekuri/jsonschema/v5 v5.3.1
 	github.com/shirou/gopsutil/v3 v3.23.8
 	github.com/spf13/cobra v1.5.0
@@ -21,7 +23,6 @@ require (
 	github.com/stretchr/testify v1.8.4
 	golang.org/x/text v0.13.0
 	gopkg.in/yaml.v3 v3.0.1
-	k8s.io/klog/v2 v2.110.1
 )
 
 require (
@@ -30,7 +31,6 @@ require (
 	github.com/containerd/console v1.0.3 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
-	github.com/go-logr/logr v1.3.0 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
 	github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572 // indirect
 	github.com/google/go-cmp v0.6.0 // indirect

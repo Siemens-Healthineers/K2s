@@ -5,9 +5,9 @@ package ssh
 
 import (
 	"k2s/utils"
+	"log/slog"
 
 	"github.com/spf13/cobra"
-	"k8s.io/klog/v2"
 )
 
 type masterBaseCommandProvider struct {
@@ -61,7 +61,7 @@ func (m *masterBaseCommandProvider) getShellExecutorCommand() string {
 }
 
 func sshMaster(cmd *cobra.Command, args []string) error {
-	klog.V(3).Infof("Connecting to Linux node..")
+	slog.Info("Connecting to Linux node")
 
 	remoteCmd, err := getRemoteCommandToExecute(cmd.ArgsLenAtDash(), args)
 	if err != nil {
