@@ -4,23 +4,24 @@
 package logging_test
 
 import (
+	"log/slog"
 	r "test/reflection"
 	"testing"
 
 	sut "k2s/utils/logging"
 
+	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/stretchr/testify/mock"
-	"k8s.io/klog/v2"
 )
 
 type mockObject struct {
 	mock.Mock
 }
 
-func (m *mockObject) Flush(args ...any) {
-	m.Called(args...)
+func (m *mockObject) Flush(buffer []string) {
+	m.Called(buffer)
 }
 
 func TestLogging(t *testing.T) {
@@ -29,7 +30,7 @@ func TestLogging(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
-	klog.SetLogger(GinkgoLogr)
+	slog.SetDefault(slog.New(logr.ToSlogHandler(GinkgoLogr)))
 })
 
 var _ = Describe("logBuffer", func() {
@@ -64,7 +65,7 @@ var _ = Describe("logBuffer", func() {
 			It("returns buffer", func() {
 				config := sut.BufferConfig{
 					Limit: 1,
-					FlushFunc: func(args ...any) {
+					FlushFunc: func(buffer []string) {
 						// empty
 					},
 				}
@@ -126,6 +127,12 @@ var _ = Describe("logBuffer", func() {
 				logger.Log("c")
 
 				flushMock.AssertCalled(GinkgoT(), r.GetFunctionName(flushMock.Flush), mock.Anything)
+
+				flushMock.Calls = []mock.Call{}
+
+				logger.Log("d")
+
+				flushMock.AssertNotCalled(GinkgoT(), r.GetFunctionName(flushMock.Flush), mock.Anything)
 			})
 		})
 	})
@@ -152,8 +159,8 @@ var _ = Describe("logBuffer", func() {
 
 			logger.Flush()
 
-			flushMock.AssertCalled(GinkgoT(), r.GetFunctionName(flushMock.Flush), mock.MatchedBy(func(squashedResult string) bool {
-				return squashedResult == "a\nb\nc"
+			flushMock.AssertCalled(GinkgoT(), r.GetFunctionName(flushMock.Flush), mock.MatchedBy(func(buffer []string) bool {
+				return Expect(buffer).To(ContainElements([]string{"a", "b", "c"}))
 			}))
 
 			flushMock.Calls = []mock.Call{}

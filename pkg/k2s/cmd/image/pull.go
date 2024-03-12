@@ -11,12 +11,12 @@ import (
 	"k2s/setupinfo"
 	"k2s/utils"
 	"k2s/utils/psexecutor"
+	"log/slog"
 	"strconv"
 	"time"
 
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
-	"k8s.io/klog/v2"
 )
 
 const (
@@ -72,7 +72,7 @@ func pullImage(cmd *cobra.Command, args []string) error {
 
 	psCmd, params := buildPullPsCmd(imageToPull, pullForWindows, showOutput)
 
-	klog.V(4).Infof("PS cmd: '%s', params: '%v'", psCmd, params)
+	slog.Debug("PS command created", "command", psCmd, "params", params)
 
 	start := time.Now()
 

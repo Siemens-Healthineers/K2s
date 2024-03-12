@@ -13,8 +13,8 @@ import (
 	"k2s/cmd/addons/cmd/status"
 	"k2s/cmd/common"
 	"k2s/setupinfo"
-	"k2s/utils/logging"
 	"k2s/utils/psexecutor"
+	"log/slog"
 	"os"
 	"slices"
 	"sort"
@@ -29,10 +29,9 @@ import (
 	"github.com/pterm/pterm"
 	"github.com/samber/lo"
 	"github.com/spf13/pflag"
-	"k8s.io/klog/v2"
 )
 
-func NewCmd() *cobra.Command {
+func NewCmd() (*cobra.Command, error) {
 	var cmd = &cobra.Command{
 		Use:   "addons",
 		Short: "Manage addons",
@@ -43,25 +42,26 @@ func NewCmd() *cobra.Command {
 	cmd.AddCommand(export.NewCommand())
 
 	if !slices.Contains(os.Args, cmd.Use) {
-		return cmd
+		return cmd, nil
 	}
 
-	addons := addons.AllAddons()
-
-	logAddons(addons)
+	addons, err := addons.LoadAddons()
+	if err != nil {
+		return nil, err
+	}
 
 	// TODO: create generic commands for all addons
-	cmd.AddCommand(list.NewCommand())
+	cmd.AddCommand(list.NewCommand(addons))
 	cmd.AddCommand(status.NewCommand(addons))
 
 	commands, err := createGenericCommands(addons)
 	if err != nil {
-		klog.Fatal(err)
+		return nil, err
 	}
 
 	cmd.AddCommand(commands...)
 
-	return cmd
+	return cmd, nil
 }
 
 func createGenericCommands(allAddons addons.Addons) (commands []*cobra.Command, err error) {
@@ -74,7 +74,7 @@ func createGenericCommands(allAddons addons.Addons) (commands []*cobra.Command, 
 
 		for cmdName, _ := range *addon.Spec.Commands {
 			if _, ok := commandMap[cmdName]; !ok {
-				klog.V(4).Infof("cmd '%s' not existing, creating it", cmdName)
+				slog.Debug("Command not existing, creating it", "command", cmdName)
 
 				cmd := &cobra.Command{
 					Use:   cmdName,
@@ -103,7 +103,7 @@ func createGenericCommands(allAddons addons.Addons) (commands []*cobra.Command, 
 }
 
 func newAddonCmd(addon addons.Addon, cmdName string) (*cobra.Command, error) {
-	klog.V(4).Infof("creating sub-cmd '%s' for addon '%s'", cmdName, addon.Metadata.Name)
+	slog.Debug("Creating sub-command for addond", "command", cmdName, "addon", addon.Metadata.Name)
 
 	cmdConfig := (*addon.Spec.Commands)[cmdName]
 	cmd := &cobra.Command{
@@ -169,7 +169,7 @@ func addFlag(flag addons.CliFlag, flagSet *pflag.FlagSet) error {
 }
 
 func runCmd(cmd *cobra.Command, addon addons.Addon, cmdName string) error {
-	klog.V(4).Infof("Running '%s' for '%s' addon..", cmdName, addon.Metadata.Name)
+	slog.Info("Running addon command", "command", cmdName, "addon", addon.Metadata.Name)
 	pterm.Printfln("🤖 Running '%s' for '%s' addon", cmdName, addon.Metadata.Name)
 
 	psCmd, params, err := buildPsCmd(cmd.Flags(), (*addon.Spec.Commands)[cmdName], addon.Directory)
@@ -177,7 +177,7 @@ func runCmd(cmd *cobra.Command, addon addons.Addon, cmdName string) error {
 		return err
 	}
 
-	klog.V(4).Infof("PS cmd: '%s', params: '%v'", psCmd, params)
+	slog.Debug("PS command created", "command", psCmd, "params", params)
 
 	start := time.Now()
 
@@ -205,7 +205,7 @@ func buildPsCmd(flags *pflag.FlagSet, cmdConfig addons.AddonCmd, addonDir string
 
 	flags.Visit(func(f *pflag.Flag) {
 		if err != nil {
-			klog.V(4).Infof("previous error detected, skipping flag '%s'..", f.Name)
+			slog.Debug("Previous error detected, skipping flag", "flag", f.Name)
 			return
 		}
 
@@ -230,7 +230,7 @@ func convertToPsParam(flag *pflag.Flag, cmdConfig addons.AddonCmd, add func(stri
 	})
 
 	if !found {
-		klog.V(4).Infof("flag '%s' set with value '%v', but not considered for parameterization", flag.Name, flag.Value)
+		slog.Debug("flag set, but not considered for parameterization", "flag", flag.Name, "value", flag.Value)
 		return nil
 	}
 
@@ -257,18 +257,4 @@ func convertToPsParam(flag *pflag.Flag, cmdConfig addons.AddonCmd, add func(stri
 
 	add(fmt.Sprintf("-%s %v", scriptParam.ScriptParameterName, flag.Value))
 	return nil
-}
-
-// workaround to log the addons at least to file, because the verbosity level is not set yet from the CLI flags,
-// because loading addons currently happens in init() calls, not on command execution (where the CLI flags get finally parsed)
-func logAddons(allAddons addons.Addons) {
-	logging.DisableCliOutput()
-
-	addonInfos := lo.Map(allAddons, func(a addons.Addon, _ int) struct{ Name, Directory string } {
-		return struct{ Name, Directory string }{Name: a.Metadata.Name, Directory: a.Directory}
-	})
-
-	klog.InfoS("addons loaded", "count", len(addonInfos), "addons", addonInfos)
-
-	logging.EnableCliOutput()
 }

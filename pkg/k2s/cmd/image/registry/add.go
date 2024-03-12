@@ -12,12 +12,12 @@ import (
 	"k2s/setupinfo"
 	"k2s/utils"
 	"k2s/utils/psexecutor"
+	"log/slog"
 	"strconv"
 	"time"
 
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
-	"k8s.io/klog/v2"
 )
 
 const (
@@ -56,7 +56,7 @@ func addRegistry(cmd *cobra.Command, args []string) error {
 
 	registryName := args[0]
 
-	klog.V(4).Infof("Adding registry '%s'", registryName)
+	slog.Info("Adding registry", "registry", registryName)
 
 	pterm.Printfln("🤖 Adding registry '%s' to K2s cluster", registryName)
 
@@ -65,7 +65,7 @@ func addRegistry(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	klog.V(4).Infof("PS cmd: '%s', params: '%v'", psCmd, params)
+	slog.Debug("PS command created", "command", psCmd, "params", params)
 
 	start := time.Now()
 

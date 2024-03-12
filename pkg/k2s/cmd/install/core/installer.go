@@ -9,9 +9,8 @@ import (
 	ic "k2s/cmd/install/config"
 	"k2s/setupinfo"
 	"k2s/utils/psexecutor"
+	"log/slog"
 	"time"
-
-	"k8s.io/klog/v2"
 
 	"base/version"
 
@@ -76,14 +75,14 @@ func (i *installer) Install(kind ic.Kind, flags *pflag.FlagSet, buildCmdFunc fun
 		return err
 	}
 
-	klog.V(4).Infof("Using config: %v", config)
+	slog.Debug("Installing using config", "config", config)
 
 	cmd, err := buildCmdFunc(config)
 	if err != nil {
 		return err
 	}
 
-	klog.V(3).Infof("Install command: %s", cmd)
+	slog.Debug("PS command created", "command", cmd)
 
 	psVersion := psexecutor.PowerShellV5
 	if kind == ic.MultivmConfigType && !config.LinuxOnly {

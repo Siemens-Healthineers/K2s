@@ -5,7 +5,7 @@ package version
 
 import (
 	ve "base/version"
-	cm "k2s/cmd/common"
+	"k2s/common"
 
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
@@ -24,7 +24,7 @@ func init() {
 
 func showVersion(ccmd *cobra.Command, args []string) error {
 	version := ve.GetVersion()
-	pterm.Printf("%s: %s\n", cm.CliName, version)
+	pterm.Printf("%s: %s\n", common.CliName, version)
 
 	pterm.Printf("  BuildDate: %s\n", version.BuildDate)
 	pterm.Printf("  GitCommit: %s\n", version.GitCommit)

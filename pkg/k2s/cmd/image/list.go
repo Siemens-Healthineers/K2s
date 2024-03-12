@@ -6,10 +6,10 @@ package image
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"strconv"
 
 	"github.com/spf13/cobra"
-	"k8s.io/klog/v2"
 
 	"k2s/cmd/common"
 	"k2s/cmd/params"
@@ -152,7 +152,7 @@ func printImagesToUser(getImagesFunc func() (*LoadedImages, error), printer term
 	defer func() {
 		err = spinner.Stop()
 		if err != nil {
-			klog.Error(err)
+			slog.Error("spinner stop", "error", err)
 		}
 	}()
 

@@ -10,11 +10,11 @@ import (
 	"k2s/setupinfo"
 	"k2s/utils"
 	"k2s/utils/psexecutor"
+	"log/slog"
 	"strconv"
 	"time"
 
 	"github.com/spf13/cobra"
-	"k8s.io/klog/v2"
 )
 
 const (
@@ -85,7 +85,7 @@ func runScpCmd(cmd *cobra.Command, args []string, scriptName string) error {
 		return err
 	}
 
-	klog.V(4).Infof("PS cmd: '%s', params: '%v'", psCmd, params)
+	slog.Debug("PS command created", "command", psCmd, "params", params)
 
 	start := time.Now()
 

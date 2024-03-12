@@ -5,6 +5,7 @@ package utils
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -14,7 +15,6 @@ import (
 
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
-	"k8s.io/klog/v2"
 )
 
 // platform generates a user-readable platform message
@@ -24,9 +24,9 @@ func Platform() string {
 	hi, err := gopshost.Info()
 	if err == nil {
 		s.WriteString(fmt.Sprintf("%s %s", cases.Title(language.Und).String(hi.Platform), hi.PlatformVersion))
-		klog.V(4).Infof("hostinfo: %+v", hi)
+		slog.Debug("Host info", "info", hi)
 	} else {
-		klog.Warningf("gopshost.Info returned error: %v", err)
+		slog.Warn("gopshost.Info returned error", "error", err)
 		s.WriteString(runtime.GOOS)
 	}
 

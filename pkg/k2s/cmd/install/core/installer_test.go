@@ -10,6 +10,7 @@ import (
 	ic "k2s/cmd/install/config"
 	"k2s/setupinfo"
 	"k2s/utils/psexecutor"
+	"log/slog"
 	"strings"
 	r "test/reflection"
 	"testing"
@@ -17,11 +18,11 @@ import (
 
 	"k2s/cmd/install/core"
 
+	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/mock"
-	"k8s.io/klog/v2"
 )
 
 type myMock struct {
@@ -60,7 +61,7 @@ func TestCore(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
-	klog.SetLogger(GinkgoLogr)
+	slog.SetDefault(slog.New(logr.ToSlogHandler(GinkgoLogr)))
 })
 
 var _ = Describe("core", func() {

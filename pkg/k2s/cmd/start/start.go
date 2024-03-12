@@ -5,11 +5,11 @@ package start
 
 import (
 	"errors"
+	"log/slog"
 	"strconv"
 
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
-	"k8s.io/klog/v2"
 
 	"k2s/cmd/common"
 	p "k2s/cmd/params"
@@ -47,7 +47,7 @@ func startk8s(ccmd *cobra.Command, args []string) error {
 	}
 	defer tzConfigHandle.Release()
 
-	klog.V(3).Infof("Start command : %s", startCmd)
+	slog.Debug("PS command created", "command", startCmd)
 
 	duration, err := psexecutor.ExecutePowershellScript(startCmd)
 	if err != nil {

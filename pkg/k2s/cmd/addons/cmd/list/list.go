@@ -6,12 +6,14 @@ package list
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 
 	cobra "github.com/spf13/cobra"
-	"k8s.io/klog/v2"
+	"github.com/spf13/pflag"
 
 	"k2s/addons"
 	"k2s/addons/print"
+	"k2s/cmd/addons/common"
 	"k2s/providers/terminal"
 )
 
@@ -26,11 +28,13 @@ const (
 	jsonOption     = "json"
 )
 
-func NewCommand() *cobra.Command {
+func NewCommand(allAddons addons.Addons) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "ls",
 		Short: "List addons available for K2s",
-		RunE:  listAddons,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return listAddons(cmd.Flags(), allAddons)
+		},
 	}
 
 	cmd.Flags().StringP(outputFlagName, "o", "", "Output format modifier. Currently supported: 'json' for output as JSON structure")
@@ -40,9 +44,12 @@ func NewCommand() *cobra.Command {
 	return cmd
 }
 
-func listAddons(cmd *cobra.Command, args []string) error {
-	klog.V(3).Info("Listing addons..")
-	outputOption, err := cmd.Flags().GetString(outputFlagName)
+func listAddons(flagSet *pflag.FlagSet, allAddons addons.Addons) error {
+	common.LogAddons(allAddons)
+
+	slog.Info("Listing addons")
+
+	outputOption, err := flagSet.GetString(outputFlagName)
 	if err != nil {
 		return err
 	}
@@ -52,13 +59,13 @@ func listAddons(cmd *cobra.Command, args []string) error {
 	}
 
 	if outputOption == jsonOption {
-		return printAddonsAsJson()
+		return printAddonsAsJson(allAddons)
 	}
 
-	return printAddonsUserFriendly()
+	return printAddonsUserFriendly(allAddons)
 }
 
-func printAddonsAsJson() error {
+func printAddonsAsJson(loadedAddons addons.Addons) error {
 	terminalPrinter := terminal.NewTerminalPrinter()
 	addonsPrinter := print.NewAddonsPrinter(terminalPrinter)
 
@@ -67,14 +74,14 @@ func printAddonsAsJson() error {
 		return err
 	}
 
-	if err := addonsPrinter.PrintAddonsAsJson(enabledAddons.Addons, addons.AllAddons().ToPrintInfo()); err != nil {
+	if err := addonsPrinter.PrintAddonsAsJson(enabledAddons.Addons, loadedAddons.ToPrintInfo()); err != nil {
 		return fmt.Errorf("addons could not be printed: %w", err)
 	}
 
 	return nil
 }
 
-func printAddonsUserFriendly() error {
+func printAddonsUserFriendly(loadedAddons addons.Addons) error {
 	terminalPrinter := terminal.NewTerminalPrinter()
 	addonsPrinter := print.NewAddonsPrinter(terminalPrinter)
 
@@ -86,7 +93,7 @@ func printAddonsUserFriendly() error {
 	defer func() {
 		err = spinner.Stop()
 		if err != nil {
-			klog.Error(err)
+			slog.Error("spinner stop", "error", err)
 		}
 	}()
 
@@ -97,11 +104,11 @@ func printAddonsUserFriendly() error {
 
 	terminalPrinter.PrintHeader("Available Addons")
 
-	if err := addonsPrinter.PrintAddons(enabledAddons.Addons, addons.AllAddons().ToPrintInfo()); err != nil {
+	if err := addonsPrinter.PrintAddons(enabledAddons.Addons, loadedAddons.ToPrintInfo()); err != nil {
 		return fmt.Errorf("addons could not be printed: %w", err)
 	}
 
-	klog.V(3).Info("All addons listed")
+	slog.Info("Addons listed")
 
 	return nil
 }

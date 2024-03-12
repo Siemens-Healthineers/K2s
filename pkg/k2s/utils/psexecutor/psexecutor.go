@@ -14,6 +14,7 @@ import (
 	"k2s/config"
 	"k2s/setupinfo"
 	"k2s/utils"
+	"log/slog"
 	"math"
 	"os"
 	"os/exec"
@@ -25,7 +26,6 @@ import (
 
 	"github.com/go-cmd/cmd"
 	"github.com/pterm/pterm"
-	"k8s.io/klog/v2"
 )
 
 type cliMessage struct {
@@ -67,7 +67,7 @@ func ExecutePsWithStructuredResult[T any](psScriptPath string, resultTypeName st
 		}
 	}
 
-	klog.V(4).Infoln("PS command created:", cmd)
+	slog.Debug("PS command created", "command", cmd)
 
 	dataObjects, err := executePowershellScriptWithDataSubscription(cmd, options)
 	if err != nil {
@@ -84,8 +84,9 @@ func ExecutePsWithStructuredResult[T any](psScriptPath string, resultTypeName st
 		return v, fmt.Errorf("unexpected result type. Expected '%s', but got '%s'", resultTypeName, dataObj.Type())
 	}
 
-	klog.V(4).Infoln("unmarshalling data object..")
-	klog.V(8).Infof("%s", string(dataObj.Data()))
+	if slog.Default().Enabled(nil, slog.LevelDebug) {
+		slog.Debug("Unmarshalling data object", "object", string(dataObj.Data()))
+	}
 
 	marshaller := marshalling.NewJsonUnmarshaller()
 
@@ -94,7 +95,7 @@ func ExecutePsWithStructuredResult[T any](psScriptPath string, resultTypeName st
 		return v, fmt.Errorf("could not unmarshal structure: %s", err)
 	}
 
-	klog.V(4).Infoln("data object unmarshalled")
+	slog.Info("Data object unmarshalled")
 
 	return v, nil
 }
@@ -138,9 +139,11 @@ func executePowershellScriptWithDataSubscription(cmdString string, options ...Ex
 		Data() []byte
 		Type() string
 	}{}
-	errorBuffer, err := logging.NewLogBuffer(logging.BufferConfig{
-		Limit:     100,
-		FlushFunc: klog.Error,
+	errorLineBuffer, err := logging.NewLogBuffer(logging.BufferConfig{
+		Limit: 100,
+		FlushFunc: func(buffer []string) {
+			slog.Error("Flushing error lines", "count", len(buffer), "lines", buffer)
+		},
 	})
 	if err != nil {
 		return nil, err
@@ -160,7 +163,7 @@ func executePowershellScriptWithDataSubscription(cmdString string, options ...Ex
 		return nil, fmt.Errorf("command execution could not be started: %s", err)
 	}
 
-	klog.V(8).Info("PS command started")
+	slog.Debug("PS command started")
 
 	for logChan != nil || errLogChan != nil || dataObjChan != nil || errChan != nil {
 		select {
@@ -168,7 +171,7 @@ func executePowershellScriptWithDataSubscription(cmdString string, options ...Ex
 			if !ok {
 				logChan = nil
 
-				klog.V(8).Info("channel closed: log")
+				slog.Debug("Channel closed", "channel", "log")
 				continue
 			}
 			if execOptions.NoProgress {
@@ -180,43 +183,43 @@ func executePowershellScriptWithDataSubscription(cmdString string, options ...Ex
 			if !ok {
 				errLogChan = nil
 
-				klog.V(8).Info("channel closed: err log")
+				slog.Debug("Channel closed", "channel", "error log")
 				continue
 			}
-			errorBuffer.Log(errorLogLine)
+			errorLineBuffer.Log(errorLogLine)
 			pterm.Printfln("⏳ %s", pterm.Yellow(errorLogLine))
 		case dataObj, ok := <-dataObjChan:
 			if !ok {
 				dataObjChan = nil
 
-				klog.V(8).Info("channel closed: data obj")
+				slog.Debug("Channel closed", "channel", "data obj")
 				continue
 			}
 			dataObjects = append(dataObjects, dataObj)
 
-			klog.V(8).Info("data obj received")
+			slog.Debug("Data obj received")
 		case err, ok := <-errChan:
 			if !ok {
 				errChan = nil
 
-				klog.V(8).Info("channel closed: err")
+				slog.Debug("Channel closed", "channel", "err")
 				continue
 			}
 			errors = append(errors, err)
 
-			klog.V(8).Info("error received")
+			slog.Debug("Error received")
 		}
 	}
 
-	errorBuffer.Flush()
+	errorLineBuffer.Flush()
 
-	klog.V(8).Info("waiting for PS command to finish..")
+	slog.Debug("Waiting for PS command to finish")
 
 	if err := cmd.Wait(); err != nil {
 		return nil, fmt.Errorf("command execution failed, see log output above. Error: %s", err)
 	}
 
-	klog.V(8).Info("PS command finished")
+	slog.Debug("PS command finished")
 
 	if len(errors) > 0 {
 		errorsText := ""
@@ -233,17 +236,17 @@ func executePowershellScriptWithDataSubscription(cmdString string, options ...Ex
 func determineExecOptions(options ...ExecOptions) (*ExecOptions, error) {
 	var execOptions *ExecOptions
 	if len(options) > 0 {
-		klog.V(8).Infof("found '%d' exec options, taking first one", len(options))
+		slog.Debug("Found exec options, taking first one", "count", len(options))
 
 		execOptions = &options[0]
 	} else {
-		klog.V(8).Infoln("did not find any exec options, resuming with default options")
+		slog.Debug("Did not find any exec options, resuming with default options")
 
 		execOptions = &ExecOptions{}
 	}
 
 	if execOptions.PowerShellVersion == "" {
-		klog.V(8).Infoln("no PowerShell version option found, determining..")
+		slog.Debug("No PowerShell version option found, determining")
 
 		psVersion, err := determinePsVersion(execOptions.IgnoreNotInstalledErr)
 		if err != nil {
@@ -252,7 +255,7 @@ func determineExecOptions(options ...ExecOptions) (*ExecOptions, error) {
 
 		execOptions.PowerShellVersion = psVersion
 
-		klog.V(8).Infof("PowerShell version %s determined", psVersion)
+		slog.Debug("PowerShell version determined", "version", psVersion)
 	}
 
 	return execOptions, nil
@@ -260,7 +263,7 @@ func determineExecOptions(options ...ExecOptions) (*ExecOptions, error) {
 
 func createCmd(psVersion PowerShellVersion, cmdString string) (*exec.Cmd, error) {
 	if psVersion == PowerShellV7 {
-		klog.V(4).Info("Switching to PowerShell 7 command syntax")
+		slog.Info("Switching to PowerShell 7 command syntax")
 
 		if err := checkIfCommandExists(ps7CmdName); err != nil {
 			return nil, err
@@ -269,7 +272,7 @@ func createCmd(psVersion PowerShellVersion, cmdString string) (*exec.Cmd, error)
 		return exec.Command(ps7CmdName, "-Command", cmdString), nil
 	}
 
-	klog.V(4).Info("Using PowerShell 5 command syntax")
+	slog.Info("Using PowerShell 5 command syntax")
 
 	return exec.Command(ps5CmdName, cmdString), nil
 }
@@ -277,7 +280,7 @@ func createCmd(psVersion PowerShellVersion, cmdString string) (*exec.Cmd, error)
 func readStdErr(reader io.ReadCloser, logReceived chan string) {
 	defer close(logReceived)
 
-	klog.V(8).Info("routine started: readStdErr")
+	slog.Debug("routine started", "routine", "readStdErr")
 
 	scanner := bufio.NewScanner(reader)
 
@@ -287,7 +290,7 @@ func readStdErr(reader io.ReadCloser, logReceived chan string) {
 		logReceived <- message
 	}
 
-	klog.V(8).Info("routine finished: readStdErr")
+	slog.Debug("routine finished", "routine", "readStdErr")
 }
 
 func readStdOut(reader io.ReadCloser, logReceived chan string, messageReceived chan cliMessage, errOccurred chan error) {
@@ -295,7 +298,7 @@ func readStdOut(reader io.ReadCloser, logReceived chan string, messageReceived c
 	defer close(messageReceived)
 	defer close(errOccurred)
 
-	klog.V(8).Info("routine started: readStdOut")
+	slog.Debug("routine started", "routine", "readStdOut")
 
 	stdScanner := bufio.NewScanner(reader)
 
@@ -344,7 +347,7 @@ func readStdOut(reader io.ReadCloser, logReceived chan string, messageReceived c
 		messageReceived <- cliMsg
 	}
 
-	klog.V(8).Info("routine finished: readStdOut")
+	slog.Debug("routine finished", "routine", "readStdOut")
 }
 
 func executePowershellScript(script string, options ExecOptions) (time.Duration, error) {
@@ -354,7 +357,7 @@ func executePowershellScript(script string, options ExecOptions) (time.Duration,
 		psCmd = ps7CmdName
 		cmdArg = "-Command"
 
-		klog.V(4).Info("Switching to PowerShell 7 command syntax")
+		slog.Info("Switching to PowerShell 7 command syntax")
 
 		if err := checkIfCommandExists(ps7CmdName); err != nil {
 			return 0, err
@@ -370,21 +373,23 @@ func executePowershellScript(script string, options ExecOptions) (time.Duration,
 	wrapperScript := prepareExecScript(script, options.NoProgress)
 	cmdRun := cmd.NewCmdOptions(cmdOptions, psCmd, cmdArg, wrapperScript)
 	doneChan := make(chan struct{})
-	errorBuffer, err := logging.NewLogBuffer(logging.BufferConfig{
-		Limit:     100,
-		FlushFunc: klog.Error,
+	errorLineBuffer, err := logging.NewLogBuffer(logging.BufferConfig{
+		Limit: 100,
+		FlushFunc: func(buffer []string) {
+			slog.Error("Flushing error lines", "count", len(buffer), "lines", buffer)
+		},
 	})
 	if err != nil {
 		return 0, err
 	}
 
-	go readStdChannels(cmdRun, doneChan, options.NoProgress, errorBuffer.Log)
+	go readStdChannels(cmdRun, doneChan, options.NoProgress, errorLineBuffer.Log)
 
 	statusChan := cmdRun.Start()
 	finalStatus := <-statusChan
 	<-doneChan
 
-	errorBuffer.Flush()
+	errorLineBuffer.Flush()
 
 	if finalStatus.Exit != 0 {
 		return 0, fmt.Errorf("command execution failed, see log output above. Error: exit code %d", finalStatus.Exit)
@@ -401,7 +406,7 @@ func determinePsVersion(ignoreNotInstalledErr bool) (PowerShellVersion, error) {
 	setupName, err := configAccess.GetSetupName()
 	if err != nil {
 		if errors.Is(err, setupinfo.ErrSystemNotInstalled) && ignoreNotInstalledErr {
-			klog.V(2).ErrorS(err, "setup not installed, falling back to default PowerShell version", "PowerShell", PowerShellV5)
+			slog.Info("Setup not installed, falling back to default PowerShell version", "error", err, "version", PowerShellV5)
 
 			return PowerShellV5, nil
 		}
@@ -462,7 +467,7 @@ func setStdin(cmd *exec.Cmd) {
 func checkIfCommandExists(cmd string) error {
 	_, err := exec.LookPath(cmd)
 	if err == nil {
-		klog.V(4).Info("PowerShell 7 is installed")
+		slog.Debug("PowerShell 7 is installed")
 		return nil
 	}
 
@@ -471,7 +476,7 @@ func checkIfCommandExists(cmd string) error {
 }
 
 func prepareExecScript(script string, noProgress bool) string {
-	klog.V(4).Infof("Execution Script: %s", script)
+	slog.Debug("Execution script", "script", script)
 	wrapperScript := ""
 
 	if noProgress {
@@ -481,6 +486,7 @@ func prepareExecScript(script string, noProgress bool) string {
 		wrapperScript += utils.EscapeWithDoubleQuotes(script)
 	}
 
-	klog.V(4).Infof("Final Execution Script: %s", wrapperScript)
+	slog.Debug("Final execution script", "script", wrapperScript)
+
 	return wrapperScript
 }
