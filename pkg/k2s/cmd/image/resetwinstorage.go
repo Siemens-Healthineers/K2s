@@ -7,6 +7,7 @@ import (
 	"base/system"
 	"errors"
 	"fmt"
+	"k2s/setupinfo"
 	"k2s/utils"
 	"k2s/utils/psexecutor"
 	"log/slog"
@@ -86,6 +87,9 @@ func resetWinStorage(cmd *cobra.Command, args []string) error {
 
 	cmdResult, err := psexecutor.ExecutePsWithStructuredResult[*common.CmdResult](psCmd, "CmdResult", psexecutor.ExecOptions{}, params...)
 	if err != nil {
+		if errors.Is(err, setupinfo.ErrSystemNotInstalled) {
+			return common.CreateSystemNotInstalledCmdFailure()
+		}
 		return err
 	}
 
