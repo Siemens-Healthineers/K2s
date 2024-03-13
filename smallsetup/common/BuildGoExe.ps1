@@ -14,9 +14,9 @@ Provides options to inject flags for an executable.
 .EXAMPLE
 PS> .\common\BuildGoExe.ps1
 
-PS> .\common\BuildGoExe.ps1 -ProjectDir "c:\k\httproxy"
+PS> .\common\BuildGoExe.ps1 -ProjectDir "c:\k\k2s\cmd\httproxy"
 
-PS> .\common\BuildGoExe.ps1 -ProjectDir "c:\k\devgon" -ExeOutDir "c:\k\bin"
+PS> .\common\BuildGoExe.ps1 -ProjectDir "c:\k\k2s\cmd\devgon" -ExeOutDir "c:\k\bin"
 
 #>
 
@@ -43,13 +43,22 @@ function Add-GoExecutableToList($location, $outLocation) {
 $buildStopwatch = [system.diagnostics.stopwatch]::StartNew()
 
 $currentLocation = Get-Location
-$rootGoDir = 'pkg'
-$networkGoDir = 'network'
-$utilGoDir = 'util'
-$k2sDir = 'k2s'
+$appsDir = [IO.Path]::Combine($global:KubernetesPath, 'k2s', 'cmd')
+$binDir = [IO.Path]::Combine($global:KubernetesPath, 'bin')
+$cniBinDir = [IO.Path]::Combine($binDir, 'cni')
+$appsOutputMapping = @{
+    'bridge'              = $cniBinDir;
+    'cloudinitisobuilder' = $binDir;
+    'devgon'              = $binDir;
+    'httpproxy'           = $binDir;
+    'k2s'                 = "$global:KubernetesPath"
+    'vfprules'            = $cniBinDir
+    'yaml2json'           = $binDir
+    'zap'                 = $binDir
+}
 
 if ($ProjectDir -eq '') {
-    $ProjectDir = [IO.Path]::Combine($global:KubernetesPath, $rootGoDir, $k2sDir)
+    $ProjectDir = [IO.Path]::Combine($appsDir, 'k2s')
 }
 
 if ($ExeOutDir -eq '') {
@@ -97,34 +106,11 @@ Write-Output "GIT_TREE_STATE: $GIT_TREE_STATE"
 
 $goExecutables = @()
 
-#Input Directories
-$k2sDir = [IO.Path]::Combine($global:KubernetesPath, $rootGoDir, $k2sDir)
-$httpproxyDir = [IO.Path]::Combine($global:KubernetesPath, $rootGoDir, $networkGoDir, 'httpproxy')
-$devgonDir = [IO.Path]::Combine($global:KubernetesPath, $rootGoDir, $networkGoDir, 'devgon')
-
-$cloudinitisobuilderDir = [IO.Path]::Combine($global:KubernetesPath, $rootGoDir, $utilGoDir, 'cloudinitisobuilder')
-$zapDir = [IO.Path]::Combine($global:KubernetesPath, $rootGoDir, $utilGoDir, 'zap')
-$yaml2jsonDir = [IO.Path]::Combine($global:KubernetesPath, $rootGoDir, $utilGoDir, 'yaml2json')
-
-$vfprulesDir = [IO.Path]::Combine($global:KubernetesPath, $rootGoDir, $networkGoDir, 'vfprules')
-$bridgeDir = [IO.Path]::Combine($global:KubernetesPath, $rootGoDir, $networkGoDir, 'bridge')
-
-#Output Directories
-$binDir = [IO.Path]::Combine($global:KubernetesPath, 'bin')
-$cniBinDir = [IO.Path]::Combine($global:KubernetesPath, 'bin', 'cni')
-
-
 if ($BuildAll) {
-    $goExecutables += Add-GoExecutableToList $k2sDir "$global:KubernetesPath"
-
-    $goExecutables += Add-GoExecutableToList $httpproxyDir $binDir
-    $goExecutables += Add-GoExecutableToList $devgonDir $binDir
-    $goExecutables += Add-GoExecutableToList $cloudinitisobuilderDir $binDir
-    $goExecutables += Add-GoExecutableToList $zapDir $binDir
-    $goExecutables += Add-GoExecutableToList $yaml2jsonDir $binDir
-
-    $goExecutables += Add-GoExecutableToList $vfprulesDir $cniBinDir
-    $goExecutables += Add-GoExecutableToList $bridgeDir $cniBinDir
+    foreach ($appMapping in $appsOutputMapping.GetEnumerator()) {
+        $inputDir = [IO.Path]::Combine($appsDir, $appMapping.Name)
+        $goExecutables += Add-GoExecutableToList $inputDir $appMapping.Value
+    }
 }
 else {
     # Single executable build

@@ -211,11 +211,11 @@ if (Test-Path $zipPackagePath) {
 
 # create exclusion list
 $exclusionList = @('.git', '.vscode', '.gitignore') | ForEach-Object { Join-Path $global:KubernetesPath $_ }
-$exclusionList += "$global:KubernetesPath\pkg\k2s\k2s.exe"
-$exclusionList += "$global:KubernetesPath\pkg\network\vfprules\vfprules.exe"
-$exclusionList += "$global:KubernetesPath\pkg\network\httpproxy\httpproxy.exe"
-$exclusionList += "$global:KubernetesPath\pkg\network\devgon\devgon.exe"
-$exclusionList += "$global:KubernetesPath\pkg\network\bridge\bridge.exe"
+$exclusionList += "$global:KubernetesPath\k2s\cmd\k2s\k2s.exe"
+$exclusionList += "$global:KubernetesPath\k2s\cmd\vfprules\vfprules.exe"
+$exclusionList += "$global:KubernetesPath\k2s\cmd\httpproxy\httpproxy.exe"
+$exclusionList += "$global:KubernetesPath\k2s\cmd\devgon\devgon.exe"
+$exclusionList += "$global:KubernetesPath\k2s\cmd\bridge\bridge.exe"
 
 # if the zip package is to be used for offline installation then use existing base image and windows node artifacts file
 # or create a new one for the one that does not exist.
