@@ -1,6 +1,10 @@
 {
     "recommendations": [
         "ms-vscode.powershell",
-        "golang.go"
+        "golang.go",
+        "yzhang.markdown-all-in-one",
+        "sonarsource.sonarlint-vscode",
+        "ban.spellright",
+        "onsi.vscode-ginkgo"
     ]
 }
