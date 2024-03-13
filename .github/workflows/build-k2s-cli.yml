@@ -60,7 +60,7 @@ jobs:
       shell: powershell
       run: |
         $ErrorActionPreference = "Continue"
-        .\test\execute_all_tests.ps1 -Tags ci -ExcludeTags unit, integration -V -ThrowOnFailure
+        .\k2s\test\execute_all_tests.ps1 -Tags ci -ExcludeTags unit, integration -V -ThrowOnFailure
 
     - name: Commit k2s cli
       run: |

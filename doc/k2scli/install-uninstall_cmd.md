@@ -104,7 +104,7 @@ To build and test containers without a K8s cluster, see [Build Only Setup](../K8
 ## Installing Using Config Files
 The `k2s install` command accepts a config file parameter pointing to a YAML config file containing all install parameters like node resource parameters like (e.g. CPU, RAM or HDD size).
 
-**Default config files** as base for user-defined configurations for all setup flavors can be found [here](../../pkg/k2s/cmd/install/config/embed/)
+**Default config files** as base for user-defined configurations for all setup flavors can be found [here](../../k2s/cmd/k2s/cmd/install/config/embed/)
 
 **Syntax**:
 k2s install (-c|--config) \<path-to-config-file\>

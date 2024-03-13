@@ -1033,7 +1033,7 @@ function Enable-SmbShare {
     Write-Log -Console '***************************************************************************************'
     Write-Log -Console '** IMPORTANT:                                                                        **' 
     Write-Log -Console "**       - use the StorageClass name '$smbStorageClassName' to provide storage.                       **"
-    Write-Log -Console "**         See '<root>\test\e2e\addons\smb-share\workloads\' for example deployments.**"
+    Write-Log -Console "**         See '<root>\k2s\test\e2e\addons\smb-share\workloads\' for example deployments.**"
     Write-Log -Console '***************************************************************************************'
 
     return @{Error = $null }
