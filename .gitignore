@@ -34,9 +34,10 @@ smallsetup/common/JoinWindowsHost.yaml
 cfg/kubeadm/joinwindowsnode.yaml
 addons/smb-share/**/set-host-path.patch.yaml
 
-# allow team-shared workspace to enable sharing of PowerShell styles/rules
+# allow team-shared workspace to enable sharing of styles/rules/dictionaries
 !.vscode/settings.json
 !.vscode/extensions.json
+!.vscode/spellright.dict
 
 #Logs/States
 monitoring/helm*.log
@@ -91,8 +92,8 @@ addons/hooks
 tmp/addons
 tmp/addons.zip
 
-# apps in /pkg
-/pkg/**/*.exe
+# apps in /k2s
+/k2s/**/*.exe
 
 # sbom
 build/bom/merge/bridge.json

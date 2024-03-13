@@ -88,7 +88,7 @@ C:\k\bin\bgo.cmd
 Building `httpproxy` *Go* project:
 
 ```PowerShell
-PS> C:\k\bin\bgo -ProjectDir "C:\k\pkg\network\httpproxy\" -ExeOutDir "c:\k\bin"
+PS> C:\k\bin\bgo -ProjectDir "C:\k\k2s\cmd\httpproxy\" -ExeOutDir "c:\k\bin"
 ```
 
  <span style="color:orange;font-size:medium">**💡**</span> `k2s` CLI can be built without any parameters:
@@ -103,7 +103,7 @@ PS> C:\k\bin\bgo -BuildAll 1
 
 If *K2s* is installed then just simply execute command without full path.
 ```PowerShell
-PS> bgo -ProjectDir "C:\k\pkg\network\httpproxy\" -ExeOutDir "c:\k\bin"
+PS> bgo -ProjectDir "C:\k\k2s\cmd\httpproxy\" -ExeOutDir "c:\k\bin"
 PS> bgo -BuildAll 1
 ```
 ---
@@ -114,13 +114,13 @@ PS> bgo -BuildAll 1
 When you have made changes either to PowerShell scripts or Go projects, you can run all test suites in the repository via:
 
 ```PowerShell
-PS> c:\k\test\execute_all_tests.ps1
+PS> c:\k\k2s\test\execute_all_tests.ps1
 ```
-<span style="color:orange;font-size:medium">**⚠** </span> Acceptance/e2e/system tests might require a running *K2s* cluster. See also [*K2s* Acceptance Testing](../../test/README.md).
+<span style="color:orange;font-size:medium">**⚠** </span> Acceptance/e2e/system tests might require a running *K2s* cluster. See also [*K2s* Acceptance Testing](../../k2s/test/README.md).
 
 To filter tests for e.g. executing only unit tests, use the **-Tags** and **-ExcludeTags** parameters:
 ```PowerShell
-PS> c:\k\test\execute_all_tests.ps1 -Tags unit
+PS> c:\k\k2s\test\execute_all_tests.ps1 -Tags unit
 ```
 
 > Inspect the script for further parameter details and descriptions.
@@ -210,4 +210,4 @@ The following guidelines apply to submitting changes to *K2s*:
     
     **Note:** To avoid entering the passphrase for the GPG key too often, you can increase the expiration time, e.g. on *Windows* using [Gpg4win](https://gpg4win.org/download.html) (see [How do I install and use gpg-agent on Windows?](https://stackoverflow.com/a/66821816)). Alternatively, these settings can also be modified in this file: `C:\Users\<user>\AppData\Roaming\gnupg\gpg-agent.conf`
   - see [Managing commit signature verification](https://docs.github.com/en/authentication/managing-commit-signature-verification) for more information
-- run as many automated tests as possible, but at least the unit tests :`<repo>\test\execute_all_tests.ps1 -Tags unit`. Depending on the area of changes, consider running the appropriate e2e tests as well
+- run as many automated tests as possible, but at least the unit tests :`<repo>\k2s\test\execute_all_tests.ps1 -Tags unit`. Depending on the area of changes, consider running the appropriate e2e tests as well
