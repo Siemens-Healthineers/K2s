@@ -5,10 +5,10 @@
 #
 # __BEGIN_BuildImage_Variables__
 # ImageName:      k2s-registry.local/weather-win
-# ExeName:        weatherwin.exe
+# ExeName:        weather-win.exe
 # __END_BuildImage_Variables__
 #
 
 FROM mcr.microsoft.com/windows/nanoserver:20H2
-COPY weatherwin.exe .
-ENTRYPOINT ["weatherwin.exe"]
+COPY weather-win.exe .
+ENTRYPOINT ["weather-win.exe"]
