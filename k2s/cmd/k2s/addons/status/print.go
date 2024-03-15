@@ -9,7 +9,7 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/setupinfo"
+	"github.com/siemens-healthineers/k2s/internal/setupinfo"
 
 	"fmt"
 )

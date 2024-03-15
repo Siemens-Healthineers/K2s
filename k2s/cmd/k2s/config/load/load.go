@@ -7,7 +7,7 @@ import (
 	"log/slog"
 
 	d "github.com/siemens-healthineers/k2s/cmd/k2s/config/defs"
-	"github.com/siemens-healthineers/k2s/cmd/k2s/setupinfo"
+	"github.com/siemens-healthineers/k2s/internal/setupinfo"
 )
 
 type FileReader interface {

@@ -7,7 +7,7 @@ import (
 	"errors"
 	"fmt"
 
-	si "github.com/siemens-healthineers/k2s/cmd/k2s/setupinfo"
+	si "github.com/siemens-healthineers/k2s/internal/setupinfo"
 )
 
 type TerminalPrinter interface {

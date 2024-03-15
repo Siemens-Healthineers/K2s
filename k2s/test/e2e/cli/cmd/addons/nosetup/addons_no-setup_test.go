@@ -11,7 +11,7 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/addons/status"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/setupinfo"
+	"github.com/siemens-healthineers/k2s/internal/setupinfo"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

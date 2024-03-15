@@ -19,10 +19,10 @@ import (
 	"time"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/config"
-	"github.com/siemens-healthineers/k2s/cmd/k2s/setupinfo"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
+	"github.com/siemens-healthineers/k2s/internal/setupinfo"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/utils/logging"
+	"github.com/siemens-healthineers/k2s/internal/logging"
 	"github.com/siemens-healthineers/k2s/internal/providers/marshalling"
 
 	"github.com/go-cmd/cmd"
