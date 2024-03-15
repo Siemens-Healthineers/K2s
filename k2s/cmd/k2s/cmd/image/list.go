@@ -23,7 +23,7 @@ import (
 
 	"github.com/siemens-healthineers/k2s/internal/providers/marshalling"
 
-	se "github.com/siemens-healthineers/k2s/cmd/k2s/setupinfo"
+	se "github.com/siemens-healthineers/k2s/internal/setupinfo"
 )
 
 type Spinner interface {
