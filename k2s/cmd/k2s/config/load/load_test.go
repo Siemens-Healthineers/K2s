@@ -5,8 +5,10 @@ package load_test
 
 import (
 	"errors"
+	"log/slog"
 	"testing"
 
+	"github.com/go-logr/logr"
 	"github.com/siemens-healthineers/k2s/internal/reflection"
 
 	cd "github.com/siemens-healthineers/k2s/cmd/k2s/config/defs"
@@ -22,19 +24,19 @@ type mockObject struct {
 	mock.Mock
 }
 
-func (m *mockObject) Read(filename string) ([]byte, error) {
+func (m *mockObject) readFile(filename string) ([]byte, error) {
 	args := m.Called(filename)
 
 	return args.Get(0).([]byte), args.Error(1)
 }
 
-func (m *mockObject) IsFileNotExist(err error) bool {
+func (m *mockObject) isFileNotExist(err error) bool {
 	args := m.Called(err)
 
 	return args.Bool(0)
 }
 
-func (m *mockObject) Unmarshal(data []byte, v any) error {
+func (m *mockObject) unmarshal(data []byte, v any) error {
 	args := m.Called(data, v)
 
 	return args.Error(0)
@@ -42,8 +44,12 @@ func (m *mockObject) Unmarshal(data []byte, v any) error {
 
 func TestLoad(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "load Unit Tests", Label("unit", "ci"))
+	RunSpecs(t, "load Unit Tests", Label("unit", "ci", "load"))
 }
+
+var _ = BeforeSuite(func() {
+	slog.SetDefault(slog.New(logr.ToSlogHandler(GinkgoLogr)))
+})
 
 var _ = Describe("load", func() {
 	Describe("Load", func() {
@@ -53,9 +59,9 @@ var _ = Describe("load", func() {
 				expectedErr := errors.New("oops")
 
 				readerMock := &mockObject{}
-				readerMock.On(reflection.GetFunctionName(readerMock.Read), path).Return([]byte{}, expectedErr)
+				readerMock.On(reflection.GetFunctionName(readerMock.readFile), path).Return([]byte{}, expectedErr)
 
-				sut := load.NewConfigLoader(readerMock, nil)
+				sut := load.NewConfigLoader(readerMock.readFile, nil, nil)
 
 				actual, err := sut.Load(path)
 
@@ -71,12 +77,12 @@ var _ = Describe("load", func() {
 				data := []byte{0, 1, 2}
 
 				readerMock := &mockObject{}
-				readerMock.On(reflection.GetFunctionName(readerMock.Read), path).Return(data, nil)
+				readerMock.On(reflection.GetFunctionName(readerMock.readFile), path).Return(data, nil)
 
 				umMock := &mockObject{}
-				umMock.On(reflection.GetFunctionName(umMock.Unmarshal), data, mock.Anything).Return(expectedErr)
+				umMock.On(reflection.GetFunctionName(umMock.unmarshal), data, mock.Anything).Return(expectedErr)
 
-				sut := load.NewConfigLoader(readerMock, umMock)
+				sut := load.NewConfigLoader(readerMock.readFile, nil, umMock.unmarshal)
 
 				actual, err := sut.Load(path)
 
@@ -91,15 +97,15 @@ var _ = Describe("load", func() {
 			expectedConfig := &cd.Config{SmallSetup: cd.SmallSetupConfig{ConfigDir: cd.ConfigDir{Kube: "test"}}}
 
 			readerMock := &mockObject{}
-			readerMock.On(reflection.GetFunctionName(readerMock.Read), path).Return(data, nil)
+			readerMock.On(reflection.GetFunctionName(readerMock.readFile), path).Return(data, nil)
 
 			umMock := &mockObject{}
-			umMock.On(reflection.GetFunctionName(umMock.Unmarshal), data, mock.Anything).Run(func(args mock.Arguments) {
+			umMock.On(reflection.GetFunctionName(umMock.unmarshal), data, mock.Anything).Run(func(args mock.Arguments) {
 				p := args.Get(1).(**cd.Config)
 				*p = expectedConfig
 			}).Return(nil)
 
-			sut := load.NewConfigLoader(readerMock, umMock)
+			sut := load.NewConfigLoader(readerMock.readFile, nil, umMock.unmarshal)
 
 			actual, err := sut.Load(path)
 
@@ -116,10 +122,12 @@ var _ = Describe("load", func() {
 				expectedErr := errors.New("oops")
 
 				readerMock := &mockObject{}
-				readerMock.On(reflection.GetFunctionName(readerMock.Read), path).Return([]byte{}, expectedErr)
-				readerMock.On(reflection.GetFunctionName(readerMock.IsFileNotExist), expectedErr).Return(false)
+				readerMock.On(reflection.GetFunctionName(readerMock.readFile), path).Return([]byte{}, expectedErr)
 
-				sut := load.NewConfigLoader(readerMock, nil)
+				checkMock := &mockObject{}
+				checkMock.On(reflection.GetFunctionName(checkMock.isFileNotExist), expectedErr).Return(false)
+
+				sut := load.NewConfigLoader(readerMock.readFile, checkMock.isFileNotExist, nil)
 
 				actual, err := sut.LoadForSetup(path)
 
@@ -134,10 +142,12 @@ var _ = Describe("load", func() {
 				errNotExist := errors.New("gone")
 
 				readerMock := &mockObject{}
-				readerMock.On(reflection.GetFunctionName(readerMock.Read), path).Return([]byte{}, errNotExist)
-				readerMock.On(reflection.GetFunctionName(readerMock.IsFileNotExist), errNotExist).Return(true)
+				readerMock.On(reflection.GetFunctionName(readerMock.readFile), path).Return([]byte{}, errNotExist)
 
-				sut := load.NewConfigLoader(readerMock, nil)
+				checkMock := &mockObject{}
+				checkMock.On(reflection.GetFunctionName(checkMock.isFileNotExist), errNotExist).Return(true)
+
+				sut := load.NewConfigLoader(readerMock.readFile, checkMock.isFileNotExist, nil)
 
 				actual, err := sut.LoadForSetup(path)
 
@@ -153,13 +163,15 @@ var _ = Describe("load", func() {
 				data := []byte{0, 1, 2}
 
 				readerMock := &mockObject{}
-				readerMock.On(reflection.GetFunctionName(readerMock.Read), path).Return(data, nil)
-				readerMock.On(reflection.GetFunctionName(readerMock.IsFileNotExist), expectedErr).Return(false)
+				readerMock.On(reflection.GetFunctionName(readerMock.readFile), path).Return(data, nil)
+
+				checkMock := &mockObject{}
+				checkMock.On(reflection.GetFunctionName(checkMock.isFileNotExist), expectedErr).Return(false)
 
 				umMock := &mockObject{}
-				umMock.On(reflection.GetFunctionName(umMock.Unmarshal), data, mock.Anything).Return(expectedErr)
+				umMock.On(reflection.GetFunctionName(umMock.unmarshal), data, mock.Anything).Return(expectedErr)
 
-				sut := load.NewConfigLoader(readerMock, umMock)
+				sut := load.NewConfigLoader(readerMock.readFile, checkMock.isFileNotExist, umMock.unmarshal)
 
 				actual, err := sut.LoadForSetup(path)
 
@@ -174,16 +186,18 @@ var _ = Describe("load", func() {
 			expectedConfig := &cd.SetupConfig{SetupName: "test"}
 
 			readerMock := &mockObject{}
-			readerMock.On(reflection.GetFunctionName(readerMock.Read), path).Return(data, nil)
-			readerMock.On(reflection.GetFunctionName(readerMock.IsFileNotExist), nil).Return(false)
+			readerMock.On(reflection.GetFunctionName(readerMock.readFile), path).Return(data, nil)
+
+			checkMock := &mockObject{}
+			checkMock.On(reflection.GetFunctionName(checkMock.isFileNotExist), nil).Return(false)
 
 			umMock := &mockObject{}
-			umMock.On(reflection.GetFunctionName(umMock.Unmarshal), data, mock.Anything).Run(func(args mock.Arguments) {
+			umMock.On(reflection.GetFunctionName(umMock.unmarshal), data, mock.Anything).Run(func(args mock.Arguments) {
 				p := args.Get(1).(**cd.SetupConfig)
 				*p = expectedConfig
 			}).Return(nil)
 
-			sut := load.NewConfigLoader(readerMock, umMock)
+			sut := load.NewConfigLoader(readerMock.readFile, checkMock.isFileNotExist, umMock.unmarshal)
 
 			actual, err := sut.LoadForSetup(path)
 

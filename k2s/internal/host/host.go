@@ -3,10 +3,25 @@
 
 package host
 
+import "os"
+
 // SystemDrive returns hard-coded 'C:\' drive string instead of the actual system drive, because some containers are also hard-coded to this drive.
 //
 // Note: This string has already the backslash '\' attached, because Go's filepath.Join() would otherwise not be able to correctly join the drive and other path components
 // (see https://github.com/golang/go/issues/26953).
 func SystemDrive() string {
 	return "C:\\"
+}
+
+func CreateDirIfNotExisting(dir string) error {
+	_, err := os.Stat(dir)
+	if !os.IsNotExist(err) {
+		return err
+	}
+
+	if err = os.MkdirAll(dir, os.ModePerm); err != nil {
+		return err
+	}
+
+	return nil
 }

@@ -31,18 +31,14 @@ type StatusLoader interface {
 	LoadAddonStatus(addonName string, addonDirectory string) (*LoadedAddonStatus, error)
 }
 
-type JsonMarshaller interface {
-	MarshalIndent(data any) ([]byte, error)
-}
-
 type PropPrinter interface {
 	PrintProp(prop AddonStatusProp)
 }
 
 type JsonPrinter struct {
-	terminalPrinter TerminalPrinter
-	jsonMarshaller  JsonMarshaller
-	statusLoader    StatusLoader
+	terminalPrinter   TerminalPrinter
+	marshalIndentFunc func(data any) ([]byte, error)
+	statusLoader      StatusLoader
 }
 
 type UserFriendlyPrinter struct {
@@ -62,11 +58,11 @@ type propPrint struct {
 	terminalPrinter TerminalPrinter
 }
 
-func NewJsonPrinter(terminalPrinter TerminalPrinter, statusLoader StatusLoader, jsonMarshaller JsonMarshaller) *JsonPrinter {
+func NewJsonPrinter(terminalPrinter TerminalPrinter, statusLoader StatusLoader, marshalIndentFunc func(data any) ([]byte, error)) *JsonPrinter {
 	return &JsonPrinter{
-		terminalPrinter: terminalPrinter,
-		statusLoader:    statusLoader,
-		jsonMarshaller:  jsonMarshaller,
+		terminalPrinter:   terminalPrinter,
+		statusLoader:      statusLoader,
+		marshalIndentFunc: marshalIndentFunc,
 	}
 }
 
@@ -130,7 +126,7 @@ func (s *JsonPrinter) PrintStatus(addonName string, addonDirectory string) error
 
 	slog.Info("Marhalling", "status", printStatus)
 
-	bytes, err := s.jsonMarshaller.MarshalIndent(printStatus)
+	bytes, err := s.marshalIndentFunc(printStatus)
 	if err != nil {
 		return err
 	}

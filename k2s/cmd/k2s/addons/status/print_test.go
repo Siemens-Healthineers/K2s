@@ -38,7 +38,7 @@ func (m *mockObject) LoadAddonStatus(addonName string, addonDirectory string) (*
 	return args.Get(0).(*LoadedAddonStatus), args.Error(1)
 }
 
-func (m *mockObject) MarshalIndent(data any) ([]byte, error) {
+func (m *mockObject) marshalIndent(data any) ([]byte, error) {
 	args := m.Called(data)
 
 	return args.Get(0).([]byte), args.Error(1)
@@ -84,7 +84,7 @@ func (m *mockObject) PrintProp(prop AddonStatusProp) {
 
 func TestPrint(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "addons status print Unit Tests", Label("unit", "ci"))
+	RunSpecs(t, "addons status print Unit Tests", Label("unit", "ci", "status"))
 }
 
 var _ = BeforeSuite(func() {
@@ -121,14 +121,14 @@ var _ = Describe("addons status print", func() {
 					loaderMock.On(r.GetFunctionName(loaderMock.LoadAddonStatus), addonName, addonDirectory).Return(&LoadedAddonStatus{}, setupinfo.ErrSystemNotInstalled)
 
 					marshalMock := &mockObject{}
-					marshalMock.On(r.GetFunctionName(marshalMock.MarshalIndent), mock.MatchedBy(func(status AddonPrintStatus) bool {
+					marshalMock.On(r.GetFunctionName(marshalMock.marshalIndent), mock.MatchedBy(func(status AddonPrintStatus) bool {
 						return status.Name == addonName && *status.Error == setupinfo.ErrSystemNotInstalled.Error()
 					})).Return(statusBytes, nil)
 
 					printerMock := &mockObject{}
 					printerMock.On(r.GetFunctionName(printerMock.Println), "status-JSON").Once()
 
-					sut := NewJsonPrinter(printerMock, loaderMock, marshalMock)
+					sut := NewJsonPrinter(printerMock, loaderMock, marshalMock.marshalIndent)
 
 					err := sut.PrintStatus(addonName, addonDirectory)
 
@@ -154,14 +154,14 @@ var _ = Describe("addons status print", func() {
 					loaderMock.On(r.GetFunctionName(loaderMock.LoadAddonStatus), addonName, addonDirectory).Return(loadedStatus, nil)
 
 					marshalMock := &mockObject{}
-					marshalMock.On(r.GetFunctionName(marshalMock.MarshalIndent), mock.MatchedBy(func(status AddonPrintStatus) bool {
+					marshalMock.On(r.GetFunctionName(marshalMock.marshalIndent), mock.MatchedBy(func(status AddonPrintStatus) bool {
 						return status.Name == addonName && *status.Error == loadedStatus.Failure.Code
 					})).Return(statusBytes, nil)
 
 					printerMock := &mockObject{}
 					printerMock.On(r.GetFunctionName(printerMock.Println), "status-JSON").Once()
 
-					sut := NewJsonPrinter(printerMock, loaderMock, marshalMock)
+					sut := NewJsonPrinter(printerMock, loaderMock, marshalMock.marshalIndent)
 
 					err := sut.PrintStatus(addonName, addonDirectory)
 
@@ -187,11 +187,11 @@ var _ = Describe("addons status print", func() {
 					loaderMock.On(r.GetFunctionName(loaderMock.LoadAddonStatus), addonName, addonDirectory).Return(loadStatus, nil)
 
 					marshalMock := &mockObject{}
-					marshalMock.On(r.GetFunctionName(loaderMock.MarshalIndent), mock.MatchedBy(func(status AddonPrintStatus) bool {
+					marshalMock.On(r.GetFunctionName(marshalMock.marshalIndent), mock.MatchedBy(func(status AddonPrintStatus) bool {
 						return status.Name == addonName && status.Props[0] == loadStatus.Props[0]
 					})).Return(make([]byte, 0), expectedError)
 
-					sut := NewJsonPrinter(nil, loaderMock, marshalMock)
+					sut := NewJsonPrinter(nil, loaderMock, marshalMock.marshalIndent)
 
 					err := sut.PrintStatus(addonName, addonDirectory)
 
@@ -210,14 +210,14 @@ var _ = Describe("addons status print", func() {
 					loaderMock.On(r.GetFunctionName(loaderMock.LoadAddonStatus), addonName, addonDirectory).Return(loadStatus, nil)
 
 					marshalMock := &mockObject{}
-					marshalMock.On(r.GetFunctionName(marshalMock.MarshalIndent), mock.MatchedBy(func(status AddonPrintStatus) bool {
+					marshalMock.On(r.GetFunctionName(marshalMock.marshalIndent), mock.MatchedBy(func(status AddonPrintStatus) bool {
 						return status.Name == addonName && status.Props[0] == loadStatus.Props[0]
 					})).Return(statusBytes, nil)
 
 					printerMock := &mockObject{}
 					printerMock.On(r.GetFunctionName(printerMock.Println), "status").Once()
 
-					sut := NewJsonPrinter(printerMock, loaderMock, marshalMock)
+					sut := NewJsonPrinter(printerMock, loaderMock, marshalMock.marshalIndent)
 
 					err := sut.PrintStatus(addonName, addonDirectory)
 

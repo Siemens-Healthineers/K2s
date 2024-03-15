@@ -6,24 +6,20 @@ type TerminalPrinter interface {
 	Println(m ...any)
 }
 
-type JsonMarshaller interface {
-	MarshalIndent(data any) ([]byte, error)
-}
-
 type JsonPrinter struct {
-	terminalPrinter TerminalPrinter
-	jsonMarshaller  JsonMarshaller
+	terminalPrinter   TerminalPrinter
+	marshalIndentFunc func(data any) ([]byte, error)
 }
 
-func NewJsonPrinter(terminalPrinter TerminalPrinter, jsonMarshaller JsonMarshaller) JsonPrinter {
+func NewJsonPrinter(terminalPrinter TerminalPrinter, marshalIndentFunc func(data any) ([]byte, error)) JsonPrinter {
 	return JsonPrinter{
-		terminalPrinter: terminalPrinter,
-		jsonMarshaller:  jsonMarshaller,
+		terminalPrinter:   terminalPrinter,
+		marshalIndentFunc: marshalIndentFunc,
 	}
 }
 
 func (jp JsonPrinter) PrintJson(status any) error {
-	bytes, err := jp.jsonMarshaller.MarshalIndent(status)
+	bytes, err := jp.marshalIndentFunc(status)
 	if err != nil {
 		return err
 	}

@@ -4,9 +4,8 @@
 package config
 
 import (
-	"github.com/siemens-healthineers/k2s/internal/providers/os"
-
-	"github.com/siemens-healthineers/k2s/internal/providers/marshalling"
+	"encoding/json"
+	"os"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/config/path"
 
@@ -16,7 +15,8 @@ import (
 func NewAccess() *ConfigAccess {
 	return NewConfigAccess(
 		load.NewConfigLoader(
-			os.NewFileReader(),
-			marshalling.NewJsonUnmarshaller()),
-		path.NewSetupConfigPathBuilder(os.NewDirProvider()))
+			os.ReadFile,
+			os.IsNotExist,
+			json.Unmarshal),
+		path.NewSetupConfigPathBuilder(os.UserHomeDir))
 }

@@ -4,7 +4,7 @@
 package terminal
 
 import (
-	d "github.com/siemens-healthineers/k2s/internal/providers/terminal/defs"
+	d "github.com/siemens-healthineers/k2s/internal/terminal/defs"
 
 	"github.com/pterm/pterm"
 	"github.com/pterm/pterm/putils"

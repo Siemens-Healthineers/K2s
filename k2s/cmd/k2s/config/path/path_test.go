@@ -8,23 +8,26 @@ import (
 	"testing"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/config/path"
+	"github.com/siemens-healthineers/k2s/internal/reflection"
+	"github.com/stretchr/testify/mock"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
-type testDirProvider struct {
-	result string
-	err    error
+type mockObject struct {
+	mock.Mock
 }
 
-func (t testDirProvider) GetUserHomeDir() (string, error) {
-	return t.result, t.err
+func (m *mockObject) getUserHomeDir() (string, error) {
+	args := m.Called()
+
+	return args.String(0), args.Error(1)
 }
 
 func TestPath(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "path Unit Tests", Label("unit", "ci"))
+	RunSpecs(t, "path Unit Tests", Label("unit", "ci", "path"))
 }
 
 var _ = Describe("path", func() {
@@ -32,12 +35,16 @@ var _ = Describe("path", func() {
 		When("home dir determination error occurred", func() {
 			It("returns the error", func() {
 				inputDir := "~/relative-path"
-				dirProvider := testDirProvider{err: errors.New("oops")}
-				sut := path.NewSetupConfigPathBuilder(dirProvider)
+				expectedError := errors.New("oops")
+
+				dirMock := &mockObject{}
+				dirMock.On(reflection.GetFunctionName(dirMock.getUserHomeDir)).Return("", expectedError)
+
+				sut := path.NewSetupConfigPathBuilder(dirMock.getUserHomeDir)
 
 				actual, err := sut.Build(inputDir, "some file name")
 
-				Expect(err).To(MatchError(dirProvider.err))
+				Expect(err).To(MatchError(expectedError))
 				Expect(actual).To(BeEmpty())
 			})
 		})
@@ -48,8 +55,11 @@ var _ = Describe("path", func() {
 				inputFileName := "my-file.ext"
 				expectedHomeDir := `a:\b\c\`
 				expected := `a:\b\c\my-relative-dir\my-file.ext`
-				provider := testDirProvider{result: expectedHomeDir}
-				sut := path.NewSetupConfigPathBuilder(provider)
+
+				dirMock := &mockObject{}
+				dirMock.On(reflection.GetFunctionName(dirMock.getUserHomeDir)).Return(expectedHomeDir, nil)
+
+				sut := path.NewSetupConfigPathBuilder(dirMock.getUserHomeDir)
 
 				actual, err := sut.Build(inputDir, inputFileName)
 
@@ -61,7 +71,8 @@ var _ = Describe("path", func() {
 				inputDir := `a:\b\c\my-dir`
 				inputFileName := "my-file.ext"
 				expected := `a:\b\c\my-dir\my-file.ext`
-				sut := path.NewSetupConfigPathBuilder(testDirProvider{})
+
+				sut := path.NewSetupConfigPathBuilder(nil)
 
 				actual, err := sut.Build(inputDir, inputFileName)
 

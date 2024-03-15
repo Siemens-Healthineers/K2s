@@ -10,35 +10,31 @@ import (
 	"github.com/siemens-healthineers/k2s/internal/setupinfo"
 )
 
-type FileReader interface {
-	Read(filename string) ([]byte, error)
-	IsFileNotExist(err error) bool
+type configLoader struct {
+	readFileFunc       func(filename string) ([]byte, error)
+	unmarshalFunc      func(data []byte, v any) error
+	isFileNotExistFunc func(err error) bool
 }
 
-type JsonUnmarshaller interface {
-	Unmarshal(data []byte, v any) error
-}
-
-type ConfigLoader struct {
-	fileReader       FileReader
-	jsonUnmarshaller JsonUnmarshaller
-}
-
-func NewConfigLoader(fileReader FileReader, jsonUnmarshaller JsonUnmarshaller) ConfigLoader {
-	return ConfigLoader{
-		fileReader:       fileReader,
-		jsonUnmarshaller: jsonUnmarshaller,
+func NewConfigLoader(
+	readFileFunc func(filename string) ([]byte, error),
+	isFileNotExistFunc func(err error) bool,
+	unmarshalFunc func(data []byte, v any) error) configLoader {
+	return configLoader{
+		readFileFunc:       readFileFunc,
+		unmarshalFunc:      unmarshalFunc,
+		isFileNotExistFunc: isFileNotExistFunc,
 	}
 }
 
-func (cl ConfigLoader) Load(filePath string) (*d.Config, error) {
+func (cl configLoader) Load(filePath string) (*d.Config, error) {
 	return load[d.Config](filePath, cl)
 }
 
-func (cl ConfigLoader) LoadForSetup(filePath string) (*d.SetupConfig, error) {
+func (cl configLoader) LoadForSetup(filePath string) (*d.SetupConfig, error) {
 	config, err := load[d.SetupConfig](filePath, cl)
 
-	if cl.fileReader.IsFileNotExist(err) {
+	if cl.isFileNotExistFunc(err) {
 		slog.Info("Setup config file not found, assuming setup is not installed", "error", err, "path", filePath)
 
 		return nil, setupinfo.ErrSystemNotInstalled
@@ -47,13 +43,13 @@ func (cl ConfigLoader) LoadForSetup(filePath string) (*d.SetupConfig, error) {
 	return config, err
 }
 
-func load[T any](filePath string, cl ConfigLoader) (v *T, err error) {
-	binaries, err := cl.fileReader.Read(filePath)
+func load[T any](filePath string, cl configLoader) (v *T, err error) {
+	binaries, err := cl.readFileFunc(filePath)
 	if err != nil {
 		return nil, err
 	}
 
-	err = cl.jsonUnmarshaller.Unmarshal(binaries, &v)
+	err = cl.unmarshalFunc(binaries, &v)
 	if err != nil {
 		return nil, err
 	}
