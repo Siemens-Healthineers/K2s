@@ -21,7 +21,7 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/setupinfo"
+	"github.com/siemens-healthineers/k2s/internal/setupinfo"
 )
 
 var Stopk8sCmd = &cobra.Command{

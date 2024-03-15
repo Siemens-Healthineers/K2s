@@ -11,7 +11,7 @@ import (
 
 	cd "github.com/siemens-healthineers/k2s/cmd/k2s/config/defs"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/config/load"
-	"github.com/siemens-healthineers/k2s/cmd/k2s/setupinfo"
+	"github.com/siemens-healthineers/k2s/internal/setupinfo"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

@@ -12,7 +12,7 @@ import (
 
 	sc "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/status/common"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/setupinfo"
+	"github.com/siemens-healthineers/k2s/internal/setupinfo"
 
 	"github.com/spf13/cobra"
 )

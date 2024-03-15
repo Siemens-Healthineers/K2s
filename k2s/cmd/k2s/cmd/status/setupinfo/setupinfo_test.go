@@ -10,7 +10,7 @@ import (
 
 	"github.com/siemens-healthineers/k2s/internal/reflection"
 
-	si "github.com/siemens-healthineers/k2s/cmd/k2s/setupinfo"
+	si "github.com/siemens-healthineers/k2s/internal/setupinfo"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
