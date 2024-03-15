@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -23,7 +24,6 @@ import (
 	"github.com/siemens-healthineers/k2s/internal/setupinfo"
 
 	"github.com/siemens-healthineers/k2s/internal/logging"
-	"github.com/siemens-healthineers/k2s/internal/providers/marshalling"
 
 	"github.com/go-cmd/cmd"
 	"github.com/pterm/pterm"
@@ -89,9 +89,7 @@ func ExecutePsWithStructuredResult[T any](psScriptPath string, resultTypeName st
 		slog.Debug("Unmarshalling data object", "object", string(dataObj.Data()))
 	}
 
-	marshaller := marshalling.NewJsonUnmarshaller()
-
-	err = marshaller.Unmarshal(dataObj.Data(), &v)
+	err = json.Unmarshal(dataObj.Data(), &v)
 	if err != nil {
 		return v, fmt.Errorf("could not unmarshal structure: %s", err)
 	}

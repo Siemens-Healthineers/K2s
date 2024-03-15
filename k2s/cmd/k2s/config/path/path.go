@@ -8,23 +8,19 @@ import (
 	"strings"
 )
 
-type DirProvider interface {
-	GetUserHomeDir() (string, error)
-}
-
 type SetupConfigPathBuilder struct {
-	dirProvider DirProvider
+	getUserHomeDirFunc func() (string, error)
 }
 
-func NewSetupConfigPathBuilder(dirProvider DirProvider) SetupConfigPathBuilder {
+func NewSetupConfigPathBuilder(getUserHomeDirFunc func() (string, error)) SetupConfigPathBuilder {
 	return SetupConfigPathBuilder{
-		dirProvider: dirProvider,
+		getUserHomeDirFunc: getUserHomeDirFunc,
 	}
 }
 
 func (s SetupConfigPathBuilder) Build(configDir string, configFileName string) (string, error) {
 	if strings.HasPrefix(configDir, "~/") {
-		homeDir, err := s.dirProvider.GetUserHomeDir()
+		homeDir, err := s.getUserHomeDirFunc()
 		if err != nil {
 			return "", err
 		}

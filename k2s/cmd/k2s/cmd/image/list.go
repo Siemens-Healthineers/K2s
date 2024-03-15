@@ -11,7 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/siemens-healthineers/k2s/internal/providers/terminal"
+	"github.com/siemens-healthineers/k2s/internal/terminal"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/params"
 
@@ -21,7 +21,7 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 
-	"github.com/siemens-healthineers/k2s/internal/providers/marshalling"
+	"github.com/siemens-healthineers/k2s/internal/json"
 
 	se "github.com/siemens-healthineers/k2s/internal/setupinfo"
 )
@@ -138,8 +138,7 @@ func printImagesAsJson(getImagesFunc func() (*LoadedImages, error), printlnFunc 
 		deferredErr = loadedImages.Failure
 	}
 
-	jsonMarshaller := marshalling.NewJsonMarshaller()
-	bytes, err := jsonMarshaller.MarshalIndent(printImages)
+	bytes, err := json.MarshalIndent(printImages)
 	if err != nil {
 		return fmt.Errorf("error happened during list images: %w", errors.Join(deferredErr, err))
 	}

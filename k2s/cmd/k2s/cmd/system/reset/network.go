@@ -13,7 +13,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/siemens-healthineers/k2s/internal/providers/terminal"
+	"github.com/siemens-healthineers/k2s/internal/terminal"
 
 	p "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/params"
 
