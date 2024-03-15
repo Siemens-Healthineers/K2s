@@ -22,22 +22,22 @@ Executes all configured PowerShell and Go-based tests sequentially
 .NOTES
     Requires a running K2s K8s cluster if acceptance tests are about to be executed
 .EXAMPLE
-    $> .\k2s\test\execute_all_tests.ps1
+    $> .\test\execute_all_tests.ps1
     Execute all tests
 .EXAMPLE
-    $> .\k2s\test\execute_all_tests.ps1 -V
+    $> .\test\execute_all_tests.ps1 -V
     Execute all tests with verbose output
 .EXAMPLE
-    $> .\k2s\test\execute_all_tests.ps1 -Tags "unit"
+    $> .\test\execute_all_tests.ps1 -Tags "unit"
     Execute only tests marked as unit tests
 .EXAMPLE
-    $> .\k2s\test\execute_all_tests.ps1 -Tags "acceptance"
+    $> .\test\execute_all_tests.ps1 -Tags "acceptance"
     Execute only tests marked as acceptance tests
 .EXAMPLE
-    $> .\k2s\test\execute_all_tests.ps1 -ExcludeTags "setup-required"
+    $> .\test\execute_all_tests.ps1 -ExcludeTags "setup-required"
     Exclude tests marked as requiring an installed K2s system
 .EXAMPLE
-    $> .\k2s\test\execute_all_tests.ps1 -ExcludePowershellTests
+    $> .\test\execute_all_tests.ps1 -ExcludePowershellTests
     Execute only Go tests and exclude Powershell tests
 #>
 [CmdletBinding()]
@@ -81,7 +81,7 @@ Import-Module "$PSScriptRoot\test.module.psm1" -Force
 
 $pesterVersion = '5.5.0'
 $ginkgoVersion = '2.16.0'
-$rootDir = "$PSScriptRoot\..\..\"
+$rootDir = "$PSScriptRoot\..\"
 
 Write-Output 'All tests execution started.'
 
@@ -111,7 +111,9 @@ try {
     if (!$ExcludeGoTests) {
         Install-GinkgoIfNecessary -Proxy $Proxy -GinkgoVersion $ginkgoVersion
 
-        Start-GinkgoTests -Tags $Tags -ExcludeTags $ExcludeTags -WorkingDir $rootDir -OutDir $TestResultPath -Proxy $Proxy -V:$V -VV:$VV
+        $goSrcDir = [System.IO.Path]::Combine($rootDir, 'k2s')
+
+        Start-GinkgoTests -Tags $Tags -ExcludeTags $ExcludeTags -WorkingDir $goSrcDir -OutDir $TestResultPath -Proxy $Proxy -V:$V -VV:$VV
         $results.Go = $LASTEXITCODE
     }
     else {
