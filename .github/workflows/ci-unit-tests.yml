@@ -53,4 +53,4 @@ jobs:
       shell: powershell
       run: |
         $ErrorActionPreference = "Continue"
-        .\k2s\test\execute_all_tests.ps1 -Tags unit -V -ThrowOnFailure
+        .\test\execute_all_tests.ps1 -Tags unit -V -ThrowOnFailure
