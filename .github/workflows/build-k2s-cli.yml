@@ -13,8 +13,7 @@ on:
     branches:
       - "main"
     paths:
-      - 'pkg/base/**'
-      - 'pkg/k2s/**'
+      - 'k2s/**'
 
 env:
   GOVERSION: "1.21.5"
