@@ -20,7 +20,7 @@ type mockObject struct {
 	mock.Mock
 }
 
-func (m *mockObject) MarshalIndent(data any) ([]byte, error) {
+func (m *mockObject) marshalIndent(data any) ([]byte, error) {
 	args := m.Called(data)
 
 	return args.Get(0).([]byte), args.Error(1)
@@ -42,8 +42,8 @@ var _ = Describe("json", func() {
 				input := &load.LoadedStatus{}
 				expected := errors.New("oops")
 				marshallerMock := &mockObject{}
-				marshallerMock.On(r.GetFunctionName(marshallerMock.MarshalIndent), input).Return([]byte{}, expected)
-				sut := json.NewJsonPrinter(nil, marshallerMock)
+				marshallerMock.On(r.GetFunctionName(marshallerMock.marshalIndent), input).Return([]byte{}, expected)
+				sut := json.NewJsonPrinter(nil, marshallerMock.marshalIndent)
 
 				err := sut.PrintJson(input)
 
@@ -57,9 +57,9 @@ var _ = Describe("json", func() {
 				expected := "test"
 				marshallerMock := &mockObject{}
 				printerMock := &mockObject{}
-				marshallerMock.On(r.GetFunctionName(marshallerMock.MarshalIndent), input).Return([]byte(expected), nil)
+				marshallerMock.On(r.GetFunctionName(marshallerMock.marshalIndent), input).Return([]byte(expected), nil)
 				printerMock.On(r.GetFunctionName(printerMock.Println), expected).Once()
-				sut := json.NewJsonPrinter(printerMock, marshallerMock)
+				sut := json.NewJsonPrinter(printerMock, marshallerMock.marshalIndent)
 
 				err := sut.PrintJson(input)
 

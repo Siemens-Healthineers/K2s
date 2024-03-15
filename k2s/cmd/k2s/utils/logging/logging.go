@@ -11,7 +11,7 @@ import (
 	"path/filepath"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/common"
-	kos "github.com/siemens-healthineers/k2s/internal/providers/os"
+	"github.com/siemens-healthineers/k2s/internal/host"
 
 	bl "github.com/siemens-healthineers/k2s/internal/logging"
 
@@ -38,7 +38,7 @@ func Initialize() *slog.LevelVar {
 		panic("logging already initialized")
 	}
 
-	if err := kos.CreateDirIfNotExisting(filepath.Dir(cliLogPath)); err != nil {
+	if err := host.CreateDirIfNotExisting(filepath.Dir(cliLogPath)); err != nil {
 		panic(err)
 	}
 

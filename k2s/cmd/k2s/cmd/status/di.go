@@ -4,7 +4,7 @@
 package status
 
 import (
-	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/status/json"
+	sj "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/status/json"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/status/k8sversion"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/status/load"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/status/nodestatus"
@@ -14,9 +14,9 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/status/runningstate"
 
-	"github.com/siemens-healthineers/k2s/internal/providers/terminal"
+	"github.com/siemens-healthineers/k2s/internal/terminal"
 
-	"github.com/siemens-healthineers/k2s/internal/providers/marshalling"
+	"github.com/siemens-healthineers/k2s/internal/json"
 )
 
 func NewStatusPrinter() StatusPrinter {
@@ -39,11 +39,10 @@ func NewStatusPrinter() StatusPrinter {
 }
 
 func NewStatusJsonPrinter() StatusJsonPrinter {
-	jsonMarshaller := marshalling.NewJsonMarshaller()
 	terminalPrinter := terminal.NewTerminalPrinter()
 
 	return StatusJsonPrinter{
 		loadStatusFunc: load.LoadStatus,
-		jsonPrinter:    json.NewJsonPrinter(terminalPrinter, jsonMarshaller),
+		jsonPrinter:    sj.NewJsonPrinter(terminalPrinter, json.MarshalIndent),
 	}
 }
