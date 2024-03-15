@@ -7,8 +7,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/siemens-healthineers/k2s/internal/providers/marshalling"
-	t "github.com/siemens-healthineers/k2s/internal/providers/terminal/defs"
+	"github.com/siemens-healthineers/k2s/internal/json"
+
+	t "github.com/siemens-healthineers/k2s/internal/terminal/defs"
 
 	"github.com/samber/lo"
 )
@@ -70,8 +71,7 @@ func (p AddonsPrinter) PrintAddonsAsJson(enabledAddonNames []string, addons []Ad
 
 	addonsStatus := &AddonsStatus{EnabledAddons: enabledAddons, DisabledAddons: disabledAddons}
 
-	jsonMarshaller := marshalling.NewJsonMarshaller()
-	bytes, err := jsonMarshaller.MarshalIndent(addonsStatus)
+	bytes, err := json.MarshalIndent(addonsStatus)
 	if err != nil {
 		return fmt.Errorf("error happened during list images: %w", err)
 	}

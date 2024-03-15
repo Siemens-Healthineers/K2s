@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"testing"
 
-	ct "github.com/siemens-healthineers/k2s/internal/providers/terminal/defs"
+	ct "github.com/siemens-healthineers/k2s/internal/terminal/defs"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

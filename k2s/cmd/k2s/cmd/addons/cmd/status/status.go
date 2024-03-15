@@ -10,11 +10,11 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/addons/status"
 
-	"github.com/siemens-healthineers/k2s/internal/providers/terminal"
+	"github.com/siemens-healthineers/k2s/internal/terminal"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/addons"
 
-	"github.com/siemens-healthineers/k2s/internal/providers/marshalling"
+	"github.com/siemens-healthineers/k2s/internal/json"
 )
 
 type StatusPrinter interface {
@@ -83,7 +83,7 @@ func determinePrinter(outputOption string) StatusPrinter {
 	statusLoader := &statusLoader{}
 
 	if outputOption == jsonOption {
-		return status.NewJsonPrinter(terminalPrinter, statusLoader, marshalling.NewJsonMarshaller())
+		return status.NewJsonPrinter(terminalPrinter, statusLoader, json.MarshalIndent)
 	} else {
 		return status.NewUserFriendlyPrinter(terminalPrinter, statusLoader)
 	}
