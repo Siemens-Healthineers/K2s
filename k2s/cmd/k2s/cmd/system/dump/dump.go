@@ -49,7 +49,7 @@ func dumpSystemStatus(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	dumpStatusCommand := utils.FormatScriptFilePath(utils.GetInstallationDirectory() + "\\smallsetup\\debug\\DumpSystemStatus.ps1")
+	dumpStatusCommand := utils.FormatScriptFilePath(utils.InstallDir() + "\\smallsetup\\debug\\DumpSystemStatus.ps1")
 
 	if skipOpenDumpFlag {
 		dumpStatusCommand += " -OpenDumpFolder `$false"

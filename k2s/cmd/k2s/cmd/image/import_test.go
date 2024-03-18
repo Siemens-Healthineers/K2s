@@ -30,7 +30,7 @@ var _ = Describe("import", Ordered, func() {
 				cmd, params, err := buildImportPsCmd(importCmd)
 
 				Expect(err).ToNot(HaveOccurred())
-				Expect(cmd).To(Equal("&'" + utils.GetInstallationDirectory() + "\\smallsetup\\helpers\\ImportImage.ps1'"))
+				Expect(cmd).To(Equal("&'" + utils.InstallDir() + "\\smallsetup\\helpers\\ImportImage.ps1'"))
 				Expect(params).To(ConsistOf(" -ImagePath 'myImage'"))
 			})
 		})
@@ -42,7 +42,7 @@ var _ = Describe("import", Ordered, func() {
 				cmd, params, err := buildImportPsCmd(importCmd)
 
 				Expect(err).ToNot(HaveOccurred())
-				Expect(cmd).To(Equal("&'" + utils.GetInstallationDirectory() + "\\smallsetup\\helpers\\ImportImage.ps1'"))
+				Expect(cmd).To(Equal("&'" + utils.InstallDir() + "\\smallsetup\\helpers\\ImportImage.ps1'"))
 				Expect(params).To(ConsistOf(" -ImageDir 'myDir'"))
 			})
 		})
@@ -55,7 +55,7 @@ var _ = Describe("import", Ordered, func() {
 				cmd, params, err := buildImportPsCmd(importCmd)
 
 				Expect(err).ToNot(HaveOccurred())
-				Expect(cmd).To(Equal("&'" + utils.GetInstallationDirectory() + "\\smallsetup\\helpers\\ImportImage.ps1'"))
+				Expect(cmd).To(Equal("&'" + utils.InstallDir() + "\\smallsetup\\helpers\\ImportImage.ps1'"))
 				Expect(params).To(ConsistOf(" -ImagePath 'myImage'"))
 			})
 		})
@@ -79,7 +79,7 @@ var _ = Describe("import", Ordered, func() {
 				cmd, params, err := buildImportPsCmd(importCmd)
 
 				Expect(err).ToNot(HaveOccurred())
-				Expect(cmd).To(Equal("&'" + utils.GetInstallationDirectory() + "\\smallsetup\\helpers\\ImportImage.ps1'"))
+				Expect(cmd).To(Equal("&'" + utils.InstallDir() + "\\smallsetup\\helpers\\ImportImage.ps1'"))
 				Expect(params).To(ConsistOf(" -ImagePath 'myImage'", " -Windows", " -DockerArchive"))
 			})
 		})

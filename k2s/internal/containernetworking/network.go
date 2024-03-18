@@ -13,12 +13,12 @@ import (
 	"net"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 
 	"github.com/Microsoft/windows-container-networking/cni"
 	"github.com/Microsoft/windows-container-networking/common"
 	"github.com/Microsoft/windows-container-networking/network"
+	"github.com/siemens-healthineers/k2s/internal/host"
 	"github.com/sirupsen/logrus"
 
 	"github.com/Microsoft/hcsshim/hcn"
@@ -427,13 +427,13 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) (resultError error) {
 			if errWD == nil {
 				logrus.Debugf("[cni-net] XXXX Current working directory: %s", path)
 			}
-			// get file path
-			exe, errPath := os.Executable()
+
+			pathExe, errPath := host.ExecutableDir()
 			if errPath != nil {
 				logrus.Debugf("[cni-net] XXXX Current directory Error:", errPath)
 				return
 			}
-			pathExe := filepath.Dir(exe)
+
 			pathCorrected := strings.ReplaceAll(pathExe, "\\\\", "\\")
 			// start exe in path where current cni plugin is available
 			var executable = pathCorrected + "\\" + "vfprules.exe"

@@ -481,7 +481,7 @@ func prepareExecScript(script string, noProgress bool) string {
 	if noProgress {
 		wrapperScript = script
 	} else {
-		wrapperScript = ("&'" + utils.GetInstallationDirectory() + "\\lib\\scripts\\k2s\\base\\" + "Invoke-ExecScript.ps1' -Script ")
+		wrapperScript = ("&'" + utils.InstallDir() + "\\lib\\scripts\\k2s\\base\\" + "Invoke-ExecScript.ps1' -Script ")
 		wrapperScript += utils.EscapeWithDoubleQuotes(script)
 	}
 

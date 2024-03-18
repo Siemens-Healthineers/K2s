@@ -141,7 +141,7 @@ func LoadAddons() (Addons, error) {
 }
 
 func LoadEnabledAddons() (*EnabledAddons, error) {
-	scriptPath := utils.FormatScriptFilePath(utils.GetInstallationDirectory() + fmt.Sprintf("\\%s\\Get-EnabledAddons.ps1", addonsDirName))
+	scriptPath := utils.FormatScriptFilePath(utils.InstallDir() + fmt.Sprintf("\\%s\\Get-EnabledAddons.ps1", addonsDirName))
 
 	enabledAddons, err := psexecutor.ExecutePsWithStructuredResult[*EnabledAddons](scriptPath, "EnabledAddons", psexecutor.ExecOptions{IgnoreNotInstalledErr: true})
 	if err != nil {
@@ -281,7 +281,7 @@ func (r *Range) Validate(value any) error {
 }
 
 func loadAddons() (Addons, error) {
-	addonsDir := filepath.Join(utils.GetInstallationDirectory(), addonsDirName)
+	addonsDir := filepath.Join(utils.InstallDir(), addonsDirName)
 	schemaPath := filepath.Join(addonsDir, manifestSchemaFileName)
 
 	schema, err := jsonschema.Compile(schemaPath)

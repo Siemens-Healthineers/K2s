@@ -91,7 +91,7 @@ func init() {
 		psexecutor.ExecutePowershellScript,
 		version.GetVersion,
 		utils.Platform,
-		utils.GetInstallationDirectory,
+		utils.InstallDir,
 		common.PrintCompletedMessage)
 	multivm.Installer = installer
 	buildonly.Installer = installer
@@ -166,7 +166,7 @@ func buildInstallCmd(c *ic.InstallConfig) (cmd string, err error) {
 		return "", err
 	}
 
-	path := utils.GetInstallationDirectory() + "\\smallsetup\\InstallK8s.ps1"
+	path := utils.InstallDir() + "\\smallsetup\\InstallK8s.ps1"
 	formattedPath := utils.FormatScriptFilePath(path)
 	cmd = fmt.Sprintf("%s -MasterVMProcessorCount %s -MasterVMMemory %s -MasterDiskSize %s",
 		formattedPath,

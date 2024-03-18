@@ -94,7 +94,7 @@ func systemPackage(cmd *cobra.Command, args []string) error {
 }
 
 func buildSystemPackageCmd(cmd *cobra.Command) (string, []string, error) {
-	systemPackageCommand := utils.FormatScriptFilePath(utils.GetInstallationDirectory() + "\\smallsetup\\helpers\\BuildK2sZipPackage.ps1")
+	systemPackageCommand := utils.FormatScriptFilePath(utils.InstallDir() + "\\smallsetup\\helpers\\BuildK2sZipPackage.ps1")
 
 	cmd.Flags().VisitAll(func(f *pflag.Flag) {
 		slog.Debug("Param", "name", f.Name, "value", f.Value)

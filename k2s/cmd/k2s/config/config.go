@@ -32,7 +32,7 @@ const (
 )
 
 var (
-	SetupRootDir   = utils.GetInstallationDirectory()
+	SetupRootDir   = utils.InstallDir()
 	configFilePath = SetupRootDir + "\\cfg\\config.json"
 )
 
