@@ -28,7 +28,7 @@ var _ = Describe("upgrade", func() {
 		When("no flags set", func() {
 			It("creates the command", func() {
 				const staticPartOfExpectedCmd = `\smallsetup\upgrade\Start-ClusterUpgrade.ps1`
-				expected := utils.GetInstallationDirectory() + staticPartOfExpectedCmd
+				expected := utils.InstallDir() + staticPartOfExpectedCmd
 
 				actual := createUpgradeCommand(UpgradeCmd)
 
@@ -39,7 +39,7 @@ var _ = Describe("upgrade", func() {
 		When("flags set", func() {
 			It("creates the command", func() {
 				const staticPartOfExpectedCmd = `\smallsetup\upgrade\Start-ClusterUpgrade.ps1 -ShowLogs -SkipResources  -DeleteFiles  -Config config.yaml -Proxy http://myproxy:81 -SkipImages `
-				expected := utils.GetInstallationDirectory() + staticPartOfExpectedCmd
+				expected := utils.InstallDir() + staticPartOfExpectedCmd
 
 				flags := UpgradeCmd.Flags()
 				flags.Set(p.OutputFlagName, "true")

@@ -118,7 +118,7 @@ func buildScpPsCmd(cmd *cobra.Command, args []string, scriptName string) (psCmd 
 		return "", nil, err
 	}
 
-	psCmd = utils.FormatScriptFilePath(utils.GetInstallationDirectory() + "\\smallsetup\\helpers\\" + scriptName)
+	psCmd = utils.FormatScriptFilePath(utils.InstallDir() + "\\smallsetup\\helpers\\" + scriptName)
 
 	params = append(params, " -Source "+utils.EscapeWithSingleQuotes(args[0]), " -Target "+utils.EscapeWithSingleQuotes(args[1]))
 

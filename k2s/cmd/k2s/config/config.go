@@ -32,8 +32,7 @@ const (
 )
 
 var (
-	SetupRootDir   = utils.GetInstallationDirectory()
-	smallSetupDir  = SetupRootDir + "\\smallsetup"
+	SetupRootDir   = utils.InstallDir()
 	configFilePath = SetupRootDir + "\\cfg\\config.json"
 )
 
@@ -42,14 +41,6 @@ func NewConfigAccess(configLoader ConfigLoader, pathBuilder SetupConfigPathBuild
 		configLoader: configLoader,
 		pathBuilder:  pathBuilder,
 	}
-}
-
-func SmallSetupDir() string {
-	return smallSetupDir
-}
-
-func (c *ConfigAccess) SmallSetupDir() string {
-	return SmallSetupDir()
 }
 
 func (c *ConfigAccess) GetSetupName() (setupinfo.SetupName, error) {

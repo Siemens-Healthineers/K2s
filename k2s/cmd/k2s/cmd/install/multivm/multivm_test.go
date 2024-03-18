@@ -97,7 +97,7 @@ var _ = Describe("multivm", func() {
 		Context("Linux-only without additional switches", func() {
 			It("returns command", func() {
 				const staticPartOfExpectedCmd = `\smallsetup\multivm\Install_MultiVMK8sSetup.ps1' -MasterVMProcessorCount 5 -MasterVMMemory 6GB -MasterDiskSize 7GB -LinuxOnly`
-				expected := "&'" + utils.GetInstallationDirectory() + staticPartOfExpectedCmd
+				expected := "&'" + utils.InstallDir() + staticPartOfExpectedCmd
 
 				config := &ic.InstallConfig{
 					Nodes: []ic.NodeConfig{{
@@ -121,7 +121,7 @@ var _ = Describe("multivm", func() {
 			It("returns command", func() {
 				const staticPartOfExpectedCmd = `\smallsetup\multivm\Install_MultiVMK8sSetup.ps1' -MasterVMProcessorCount 5 -MasterVMMemory 6GB -MasterDiskSize 7GB -LinuxOnly` +
 					` -Proxy my_proxy -AdditionalHooksDir 'c:\my\dir' -ShowLogs -SkipStart -DeleteFilesForOfflineInstallation -ForceOnlineInstallation -AppendLogFile`
-				expected := "&'" + utils.GetInstallationDirectory() + staticPartOfExpectedCmd
+				expected := "&'" + utils.InstallDir() + staticPartOfExpectedCmd
 
 				config := &ic.InstallConfig{
 					Nodes: []ic.NodeConfig{{
@@ -184,7 +184,7 @@ var _ = Describe("multivm", func() {
 			It("returns command", func() {
 				const staticPartOfExpectedCmd = `\smallsetup\multivm\Install_MultiVMK8sSetup.ps1' -MasterVMProcessorCount 5 -MasterVMMemory 6GB -MasterDiskSize 7GB` +
 					` -WinVMProcessorCount 8 -WinVMStartUpMemory 9GB -WinVMDiskSize 10GB -WindowsImage c:\path\to\image.file`
-				expected := "&'" + utils.GetInstallationDirectory() + staticPartOfExpectedCmd
+				expected := "&'" + utils.InstallDir() + staticPartOfExpectedCmd
 
 				config := &ic.InstallConfig{
 					Nodes: []ic.NodeConfig{
@@ -218,7 +218,7 @@ var _ = Describe("multivm", func() {
 				const staticPartOfExpectedCmd = `\smallsetup\multivm\Install_MultiVMK8sSetup.ps1' -MasterVMProcessorCount 5 -MasterVMMemory 6GB -MasterDiskSize 7GB` +
 					` -WinVMProcessorCount 8 -WinVMStartUpMemory 9GB -WinVMDiskSize 10GB -WindowsImage c:\path\to\image.file` +
 					` -Proxy my_proxy -AdditionalHooksDir 'c:\my\dir' -ShowLogs -SkipStart -DeleteFilesForOfflineInstallation -ForceOnlineInstallation -AppendLogFile`
-				expected := "&'" + utils.GetInstallationDirectory() + staticPartOfExpectedCmd
+				expected := "&'" + utils.InstallDir() + staticPartOfExpectedCmd
 
 				config := &ic.InstallConfig{
 					Nodes: []ic.NodeConfig{
