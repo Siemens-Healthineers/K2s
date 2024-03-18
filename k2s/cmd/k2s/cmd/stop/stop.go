@@ -84,7 +84,7 @@ func buildStopCmd(ccmd *cobra.Command) (string, error) {
 
 	switch setupName {
 	case setupinfo.SetupNamek2s:
-		cmd = utils.FormatScriptFilePath(utils.GetInstallationDirectory() + "\\smallsetup\\StopK8s.ps1")
+		cmd = utils.FormatScriptFilePath(utils.InstallDir() + "\\smallsetup\\StopK8s.ps1")
 		if additionalHooksdir != "" {
 			cmd += " -AdditionalHooksDir " + utils.EscapeWithSingleQuotes(additionalHooksdir)
 		}

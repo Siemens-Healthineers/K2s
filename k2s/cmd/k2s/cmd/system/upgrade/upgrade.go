@@ -100,7 +100,7 @@ func upgradeCluster(cmd *cobra.Command, args []string) error {
 }
 
 func createUpgradeCommand(cmd *cobra.Command) string {
-	upgradeCommand := utils.GetInstallationDirectory() + "\\smallsetup\\upgrade\\" + "Start-ClusterUpgrade.ps1"
+	upgradeCommand := utils.InstallDir() + "\\smallsetup\\upgrade\\" + "Start-ClusterUpgrade.ps1"
 	cmd.Flags().VisitAll(func(f *pflag.Flag) {
 		slog.Debug("Param", "name", f.Name, "value", f.Value)
 	})

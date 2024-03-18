@@ -29,7 +29,7 @@ type AddonStatusProp struct {
 }
 
 func LoadAddonStatus(addonName string, addonDirectory string) (*LoadedAddonStatus, error) {
-	scriptPath := utils.FormatScriptFilePath(utils.GetInstallationDirectory() + "\\addons\\Get-Status.ps1")
+	scriptPath := utils.FormatScriptFilePath(utils.InstallDir() + "\\addons\\Get-Status.ps1")
 
 	status, err := psexecutor.ExecutePsWithStructuredResult[*LoadedAddonStatus](scriptPath, "Status", psexecutor.ExecOptions{}, "-Name", addonName, "-Directory", utils.EscapeWithSingleQuotes(addonDirectory))
 	if err != nil {

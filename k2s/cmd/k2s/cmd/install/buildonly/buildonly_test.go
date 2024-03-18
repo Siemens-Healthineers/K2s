@@ -65,7 +65,7 @@ var _ = Describe("buildonly", func() {
 		Context("without switches", func() {
 			It("returns expected command", func() {
 				const staticPartOfExpectedCmd = `\smallsetup\common\InstallBuildOnlySetup.ps1' -MasterVMProcessorCount 5 -MasterVMMemory 6GB -MasterDiskSize 7GB`
-				expected := "&'" + utils.GetInstallationDirectory() + staticPartOfExpectedCmd
+				expected := "&'" + utils.InstallDir() + staticPartOfExpectedCmd
 
 				config := &ic.InstallConfig{
 					Nodes: []ic.NodeConfig{{
@@ -88,7 +88,7 @@ var _ = Describe("buildonly", func() {
 			It("returns expected command", func() {
 				const staticPartOfExpectedCmd = `\smallsetup\common\InstallBuildOnlySetup.ps1' -MasterVMProcessorCount 5 -MasterVMMemory 6GB -MasterDiskSize 7GB` +
 					` -Proxy my_proxy -ShowLogs -DeleteFilesForOfflineInstallation -ForceOnlineInstallation -WSL -AppendLogFile`
-				expected := "&'" + utils.GetInstallationDirectory() + staticPartOfExpectedCmd
+				expected := "&'" + utils.InstallDir() + staticPartOfExpectedCmd
 
 				config := &ic.InstallConfig{
 					Env: ic.EnvConfig{Proxy: "my_proxy"},

@@ -112,7 +112,7 @@ func buildPsCmd(cmd *cobra.Command, addonsToExport ...string) (psCmd string, par
 		return "", nil, errors.New("no export path provided")
 	}
 
-	psCmd = utils.FormatScriptFilePath(utils.GetInstallationDirectory() + "\\addons\\Export.ps1")
+	psCmd = utils.FormatScriptFilePath(utils.InstallDir() + "\\addons\\Export.ps1")
 	params = append(params, " -ExportDir "+utils.EscapeWithSingleQuotes(exportPath))
 
 	if len(addonsToExport) > 0 {

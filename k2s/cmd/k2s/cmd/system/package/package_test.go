@@ -39,7 +39,7 @@ var _ = Describe("package", func() {
 
 				cmd, params, err := buildSystemPackageCmd(PackageCmd)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(cmd).To(Equal("&'" + utils.GetInstallationDirectory() + "\\smallsetup\\helpers\\BuildK2sZipPackage.ps1'"))
+				Expect(cmd).To(Equal("&'" + utils.InstallDir() + "\\smallsetup\\helpers\\BuildK2sZipPackage.ps1'"))
 				Expect(params).To(ConsistOf(" -ShowLogs", " -Proxy http://myproxy:81", " -VMProcessorCount 6", " -VMMemoryStartupBytes 4GB", " -VMDiskSize 50GB", " -TargetDirectory 'dir'", " -ZipPackageFileName file.zip", " -ForOfflineInstallation"))
 			})
 		})

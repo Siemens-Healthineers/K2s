@@ -105,7 +105,7 @@ func buildStartCmd(ccmd *cobra.Command) (string, error) {
 }
 
 func buildk2sStartCmd(showLogs bool, additionalHooksDir string, autouseCachedVSwitch bool) string {
-	cmd := utils.FormatScriptFilePath(utils.GetInstallationDirectory() + "\\smallsetup\\StartK8s.ps1")
+	cmd := utils.FormatScriptFilePath(utils.InstallDir() + "\\smallsetup\\StartK8s.ps1")
 
 	if showLogs {
 		cmd += " -ShowLogs"
