@@ -6,16 +6,29 @@ package utils
 import (
 	"fmt"
 	"log/slog"
-	"os"
-	"path/filepath"
 	"runtime"
 	"strings"
 
 	gopshost "github.com/shirou/gopsutil/v3/host"
+	"github.com/siemens-healthineers/k2s/internal/host"
 
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 )
+
+var installDir string
+
+func init() {
+	var err error
+	installDir, err = host.ExecutableDir()
+	if err != nil {
+		panic(err)
+	}
+}
+
+func InstallDir() string {
+	return installDir
+}
 
 // platform generates a user-readable platform message
 func Platform() string {
@@ -31,20 +44,6 @@ func Platform() string {
 	}
 
 	return s.String()
-}
-
-func init() {
-	k2sExe, err := os.Executable()
-	if err != nil {
-		panic(err)
-	}
-	installationDirectory = filepath.Dir(k2sExe)
-}
-
-var installationDirectory string
-
-func GetInstallationDirectory() string {
-	return installationDirectory
 }
 
 func FormatScriptFilePath(filePath string) string {

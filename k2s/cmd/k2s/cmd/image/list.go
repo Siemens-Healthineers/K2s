@@ -202,7 +202,7 @@ func startSpinner(terminalPrinter terminal.TerminalPrinter) (Spinner, error) {
 }
 
 func getImages(includeK8sImages bool) (*LoadedImages, error) {
-	cmd := utils.FormatScriptFilePath(utils.GetInstallationDirectory() + "\\lib\\scripts\\k2s\\image\\Get-Images.ps1")
+	cmd := utils.FormatScriptFilePath(utils.InstallDir() + "\\lib\\scripts\\k2s\\image\\Get-Images.ps1")
 
 	var params []string
 	if includeK8sImages {

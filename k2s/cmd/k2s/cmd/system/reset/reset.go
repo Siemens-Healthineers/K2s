@@ -46,7 +46,7 @@ func resetSystem(cmd *cobra.Command, args []string) error {
 }
 
 func buildResetSystemCmd(cmd *cobra.Command) (string, error) {
-	resetSystemCommand := utils.FormatScriptFilePath(utils.GetInstallationDirectory() + "\\smallsetup\\helpers\\ResetSystem.ps1")
+	resetSystemCommand := utils.FormatScriptFilePath(utils.InstallDir() + "\\smallsetup\\helpers\\ResetSystem.ps1")
 
 	return resetSystemCommand, nil
 }

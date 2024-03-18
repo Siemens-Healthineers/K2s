@@ -100,7 +100,7 @@ func runImport(cmd *cobra.Command, args []string) error {
 }
 
 func buildPsCmd(cmd *cobra.Command, addons ...string) (psCmd string, params []string, err error) {
-	psCmd = utils.FormatScriptFilePath(utils.GetInstallationDirectory() + "\\addons\\Import.ps1")
+	psCmd = utils.FormatScriptFilePath(utils.InstallDir() + "\\addons\\Import.ps1")
 
 	if len(addons) > 0 {
 		names := ""
