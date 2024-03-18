@@ -32,7 +32,7 @@ var cleanCmd = &cobra.Command{
 func cleanImages(cmd *cobra.Command, args []string) error {
 	pterm.Println("🤖 Cleaning container images..")
 
-	psCmd := utils.FormatScriptFilePath(utils.GetInstallationDirectory() + "\\smallsetup\\helpers\\CleanImages.ps1")
+	psCmd := utils.FormatScriptFilePath(utils.InstallDir() + "\\smallsetup\\helpers\\CleanImages.ps1")
 	params := []string{}
 
 	showOutput, err := strconv.ParseBool(cmd.Flags().Lookup(p.OutputFlagName).Value.String())
