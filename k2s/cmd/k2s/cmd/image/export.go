@@ -109,7 +109,7 @@ func buildExportPsCmd(cmd *cobra.Command) (psCmd string, params []string, err er
 		return "", nil, err
 	}
 
-	psCmd = utils.FormatScriptFilePath(utils.GetInstallationDirectory() + "\\smallsetup\\helpers\\ExportImage.ps1")
+	psCmd = utils.FormatScriptFilePath(utils.InstallDir() + "\\smallsetup\\helpers\\ExportImage.ps1")
 
 	params = append(params, " -Id '"+imageId+"'", " -Name '"+imageName+"'", " -ExportPath '"+exportPath+"'")
 
