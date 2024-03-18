@@ -13,7 +13,7 @@ spec:
   accessModes:
   - ReadWriteOnce
   local:
-    path: /logging/persistency
+    path: /logging
   nodeAffinity:
     required:
       nodeSelectorTerms:
