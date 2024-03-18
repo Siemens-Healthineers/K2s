@@ -8,39 +8,35 @@ import (
 	"testing"
 
 	cd "github.com/siemens-healthineers/k2s/cmd/k2s/config/defs"
+	"github.com/stretchr/testify/mock"
 
+	"github.com/siemens-healthineers/k2s/internal/reflection"
 	"github.com/siemens-healthineers/k2s/internal/setupinfo"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
-type testLoader struct {
-	resultConfig      *cd.Config
-	resultSetupConfig *cd.SetupConfig
-	resultKubeConfig  *cd.KubeConfig
-	err               error
+type mockObject struct {
+	mock.Mock
 }
 
-type testBuilder struct {
-	result string
-	err    error
+func (m *mockObject) Load(path string) (config *cd.Config, err error) {
+	args := m.Called(path)
+
+	return args.Get(0).(*cd.Config), args.Error(1)
 }
 
-func (t testLoader) Load(path string) (config *cd.Config, err error) {
-	return t.resultConfig, t.err
+func (m *mockObject) LoadForSetup(filePath string) (config *cd.SetupConfig, err error) {
+	args := m.Called(filePath)
+
+	return args.Get(0).(*cd.SetupConfig), args.Error(1)
 }
 
-func (t testLoader) LoadForSetup(filePath string) (config *cd.SetupConfig, err error) {
-	return t.resultSetupConfig, t.err
-}
+func (m *mockObject) Build(configDir string, configFileName string) (configPath string, err error) {
+	args := m.Called(configDir, configFileName)
 
-func (t testLoader) LoadForKube(filePath string) (*cd.KubeConfig, error) {
-	return t.resultKubeConfig, t.err
-}
-
-func (t testBuilder) Build(configDir string, configFileName string) (configPath string, err error) {
-	return t.result, t.err
+	return args.String(0), args.Error(1)
 }
 
 func TestConfig(t *testing.T) {
@@ -49,28 +45,6 @@ func TestConfig(t *testing.T) {
 }
 
 var _ = Describe("config", func() {
-	Describe("SmallSetupDir", func() {
-		When("called on instance", func() {
-			It("returns correct value", func() {
-				sut := NewConfigAccess(testLoader{}, testBuilder{})
-
-				actual := sut.SmallSetupDir()
-
-				Expect(actual).To(Equal(smallSetupDir))
-			})
-		})
-
-		When("called without instance", func() {
-			It("returns correct value", func() {
-				smallSetupDir = "my dir"
-
-				actual := SmallSetupDir()
-
-				Expect(actual).To(Equal(smallSetupDir))
-			})
-		})
-	})
-
 	Describe("GetSetupName", func() {
 		When("already determined", func() {
 			It("returns setup name without file access", func() {
@@ -78,8 +52,9 @@ var _ = Describe("config", func() {
 				config := &cd.SetupConfig{
 					SetupName: expected,
 				}
-				loader := &testLoader{}
-				sut := NewConfigAccess(loader, nil)
+				loaderMock := &mockObject{}
+
+				sut := NewConfigAccess(loaderMock, nil)
 				sut.setupConfig = config
 
 				actual, err := sut.GetSetupName()
@@ -91,12 +66,16 @@ var _ = Describe("config", func() {
 
 		When("config load error occurred", func() {
 			It("returns the error", func() {
-				loader := &testLoader{err: errors.New("oops")}
-				sut := NewConfigAccess(loader, nil)
+				expectedErr := errors.New("oops")
+
+				loaderMock := &mockObject{}
+				loaderMock.On(reflection.GetFunctionName(loaderMock.Load), mock.AnythingOfType("string")).Return(&cd.Config{}, expectedErr)
+
+				sut := NewConfigAccess(loaderMock, nil)
 
 				actual, err := sut.GetSetupName()
 
-				Expect(err).To(MatchError(loader.err))
+				Expect(err).To(MatchError(expectedErr))
 				Expect(actual).To(BeEmpty())
 			})
 		})
@@ -108,13 +87,19 @@ var _ = Describe("config", func() {
 						ConfigDir: cd.ConfigDir{
 							Kube: ""}},
 				}
-				loader := &testLoader{resultConfig: inputConfig}
-				builder := &testBuilder{err: errors.New("oops")}
-				sut := NewConfigAccess(loader, builder)
+				expectedErr := errors.New("oops")
+
+				loaderMock := &mockObject{}
+				loaderMock.On(reflection.GetFunctionName(loaderMock.Load), mock.AnythingOfType("string")).Return(inputConfig, nil)
+
+				builderMock := &mockObject{}
+				builderMock.On(reflection.GetFunctionName(builderMock.Build), mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return("", expectedErr)
+
+				sut := NewConfigAccess(loaderMock, builderMock)
 
 				actual, err := sut.GetSetupName()
 
-				Expect(err).To(MatchError(builder.err))
+				Expect(err).To(MatchError(expectedErr))
 				Expect(actual).To(BeEmpty())
 			})
 		})
@@ -126,29 +111,46 @@ var _ = Describe("config", func() {
 						ConfigDir: cd.ConfigDir{
 							Kube: ""}},
 				}
-				loader := &testLoader{resultConfig: inputConfig, err: errors.New("oops")}
-				builder := &testBuilder{}
-				sut := NewConfigAccess(loader, builder)
+				path := "some-path"
+
+				expectedErr := errors.New("oops")
+
+				loaderMock := &mockObject{}
+				loaderMock.On(reflection.GetFunctionName(loaderMock.Load), mock.AnythingOfType("string")).Return(inputConfig, nil)
+				loaderMock.On(reflection.GetFunctionName(loaderMock.LoadForSetup), path).Return(&cd.SetupConfig{}, expectedErr)
+
+				builderMock := &mockObject{}
+				builderMock.On(reflection.GetFunctionName(builderMock.Build), mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(path, nil)
+
+				sut := NewConfigAccess(loaderMock, builderMock)
 
 				actual, err := sut.GetSetupName()
 
-				Expect(err).To(MatchError(loader.err))
+				Expect(err).To(MatchError(expectedErr))
 				Expect(actual).To(BeEmpty())
 			})
 		})
 
 		When("successful", func() {
 			It("returns the correct result", func() {
-				var expected setupinfo.SetupName = "correct name"
+				expected := setupinfo.SetupName("correct name")
 				inputConfig := &cd.Config{
 					SmallSetup: cd.SmallSetupConfig{
 						ConfigDir: cd.ConfigDir{
 							Kube: ""}},
 				}
 				inputSetupConfig := &cd.SetupConfig{SetupName: expected}
-				loader := &testLoader{resultConfig: inputConfig, resultSetupConfig: inputSetupConfig}
-				builder := &testBuilder{}
-				sut := NewConfigAccess(loader, builder)
+
+				path := "some-path"
+
+				loaderMock := &mockObject{}
+				loaderMock.On(reflection.GetFunctionName(loaderMock.Load), mock.AnythingOfType("string")).Return(inputConfig, nil)
+				loaderMock.On(reflection.GetFunctionName(loaderMock.LoadForSetup), path).Return(inputSetupConfig, nil)
+
+				builderMock := &mockObject{}
+				builderMock.On(reflection.GetFunctionName(builderMock.Build), mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(path, nil)
+
+				sut := NewConfigAccess(loaderMock, builderMock)
 
 				actual, err := sut.GetSetupName()
 
