@@ -166,7 +166,7 @@ func buildInstallCmd(c *ic.InstallConfig) (cmd string, err error) {
 		return "", err
 	}
 
-	path := fmt.Sprintf("%s\\InstallK8s.ps1", config.SmallSetupDir())
+	path := utils.GetInstallationDirectory() + "\\smallsetup\\InstallK8s.ps1"
 	formattedPath := utils.FormatScriptFilePath(path)
 	cmd = fmt.Sprintf("%s -MasterVMProcessorCount %s -MasterVMMemory %s -MasterDiskSize %s",
 		formattedPath,
