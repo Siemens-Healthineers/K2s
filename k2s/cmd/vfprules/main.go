@@ -19,6 +19,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/siemens-healthineers/k2s/internal/host"
 	"github.com/siemens-healthineers/k2s/internal/logging"
 	ve "github.com/siemens-healthineers/k2s/internal/version"
 
@@ -405,11 +406,11 @@ func main() {
 }
 
 func init() {
-	thisExecutable, err := os.Executable()
+	var err error
+	directoryOfExecutable, err = host.ExecutableDir()
 	if err != nil {
 		panic(err)
 	}
-	directoryOfExecutable = filepath.Dir(thisExecutable)
 }
 
 var directoryOfExecutable string

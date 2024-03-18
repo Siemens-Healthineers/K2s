@@ -3,7 +3,10 @@
 
 package host
 
-import "os"
+import (
+	"os"
+	"path/filepath"
+)
 
 // SystemDrive returns hard-coded 'C:\' drive string instead of the actual system drive, because some containers are also hard-coded to this drive.
 //
@@ -24,4 +27,12 @@ func CreateDirIfNotExisting(dir string) error {
 	}
 
 	return nil
+}
+
+func ExecutableDir() (string, error) {
+	exePath, err := os.Executable()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Dir(exePath), nil
 }

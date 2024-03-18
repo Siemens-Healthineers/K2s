@@ -68,7 +68,7 @@ var (
 	}
 
 	k2sInstallDirProviderFunc = func() string {
-		return utils.GetInstallationDirectory()
+		return utils.InstallDir()
 	}
 )
 

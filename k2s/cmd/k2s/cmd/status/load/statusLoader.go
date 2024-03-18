@@ -30,7 +30,7 @@ type LoadedStatus struct {
 }
 
 func LoadStatus() (*LoadedStatus, error) {
-	scriptPath := utils.FormatScriptFilePath(utils.GetInstallationDirectory() + `\lib\scripts\k2s\status\Get-Status.ps1`)
+	scriptPath := utils.FormatScriptFilePath(utils.InstallDir() + `\lib\scripts\k2s\status\Get-Status.ps1`)
 
 	status, err := psexecutor.ExecutePsWithStructuredResult[*LoadedStatus](scriptPath, "CmdResult", psexecutor.ExecOptions{})
 	if err != nil {

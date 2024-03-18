@@ -47,7 +47,7 @@ func resetNetwork(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	resetNetworkCommand := utils.FormatScriptFilePath(utils.GetInstallationDirectory() + "\\smallsetup\\helpers\\ResetNetwork.ps1")
+	resetNetworkCommand := utils.FormatScriptFilePath(utils.InstallDir() + "\\smallsetup\\helpers\\ResetNetwork.ps1")
 
 	params := []string{}
 

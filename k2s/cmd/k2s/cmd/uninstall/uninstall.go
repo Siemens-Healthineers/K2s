@@ -110,7 +110,7 @@ func buildUninstallCmd(ccmd *cobra.Command) (string, error) {
 }
 
 func buildk2sUninstallCmd(skipPurge bool, showLogs bool, additionalHooksDir string, deleteFilesForOfflineInstallation bool) string {
-	cmd := utils.FormatScriptFilePath(c.SmallSetupDir() + "\\" + "UninstallK8s.ps1")
+	cmd := utils.FormatScriptFilePath(utils.InstallDir() + "\\smallsetup\\UninstallK8s.ps1")
 
 	if skipPurge {
 		cmd += " -SkipPurge"
