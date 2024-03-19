@@ -8,11 +8,16 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/status/load"
+	si "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/status/setupinfo"
 
 	sc "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/status/common"
 
+	"github.com/siemens-healthineers/k2s/internal/json"
+	"github.com/siemens-healthineers/k2s/internal/powershell"
 	"github.com/siemens-healthineers/k2s/internal/setupinfo"
+	"github.com/siemens-healthineers/k2s/internal/terminal"
 
 	"github.com/spf13/cobra"
 )
@@ -30,7 +35,7 @@ type PodStatusPrinter interface {
 }
 
 type SetupInfoPrinter interface {
-	PrintSetupInfo(*setupinfo.SetupInfo) (proceed bool, err error)
+	PrintSetupInfo(setupInfo *si.PrintSetupInfo) (proceed bool, err error)
 }
 
 type TerminalPrinter interface {
@@ -58,21 +63,21 @@ type StatusPrinter struct {
 	nodeStatusPrinter     NodeStatusPrinter
 	podStatusPrinter      PodStatusPrinter
 	k8sVersionInfoPrinter K8sVersionInfoPrinter
-	loadStatusFunc        func() (*load.LoadedStatus, error)
+	loadStatusFunc        func(psVersion powershell.PowerShellVersion) (*load.LoadedStatus, error)
 }
 
 type StatusJsonPrinter struct {
-	loadStatusFunc func() (*load.LoadedStatus, error)
+	loadStatusFunc func(psVersion powershell.PowerShellVersion) (*load.LoadedStatus, error)
 	jsonPrinter    JsonPrinter
 }
 
 type PrintStatus struct {
-	SetupInfo      *setupinfo.SetupInfo `json:"setupInfo"`
-	RunningState   *sc.RunningState     `json:"runningState"`
-	Nodes          []sc.Node            `json:"nodes"`
-	Pods           []sc.Pod             `json:"pods"`
-	K8sVersionInfo *sc.K8sVersionInfo   `json:"k8sVersionInfo"`
-	Error          *string              `json:"error"`
+	SetupInfo      *si.PrintSetupInfo `json:"setupInfo"`
+	RunningState   *sc.RunningState   `json:"runningState"`
+	Nodes          []sc.Node          `json:"nodes"`
+	Pods           []sc.Pod           `json:"pods"`
+	K8sVersionInfo *sc.K8sVersionInfo `json:"k8sVersionInfo"`
+	Error          *string            `json:"error"`
 }
 
 const (
@@ -115,25 +120,38 @@ func printStatus(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("parameter '%s' not supported for flag 'o'", outputOption)
 	}
 
-	if outputOption == jsonOption {
-		if err := printStatusAsJson(); err != nil {
+	terminalPrinter := terminal.NewTerminalPrinter()
+
+	configDir := cmd.Context().Value(common.ContextKeyConfigDir).(string)
+	config, err := setupinfo.LoadConfig(configDir)
+	if err != nil {
+		if !errors.Is(err, setupinfo.ErrSystemNotInstalled) {
 			return err
 		}
-		return nil
+		if outputOption == jsonOption {
+			return printSystemNotInstalledErrJson(terminalPrinter.Println)
+		}
+		return common.CreateSystemNotInstalledCmdFailure()
 	}
-	return printStatusUserFriendly(outputOption == wideOption)
+
+	psVersion := powershell.DeterminePsVersion(config)
+
+	if outputOption == jsonOption {
+		return printStatusAsJson(terminalPrinter, config, psVersion)
+	}
+	return printStatusUserFriendly(terminalPrinter, config, psVersion, outputOption == wideOption)
 }
 
-func printStatusAsJson() error {
-	printer := NewStatusJsonPrinter()
+func printStatusAsJson(terminalPrinter terminal.TerminalPrinter, config *setupinfo.Config, psVersion powershell.PowerShellVersion) error {
+	printer := NewStatusJsonPrinter(terminalPrinter)
 
-	loadedStatus, err := printer.loadStatusFunc()
+	loadedStatus, err := printer.loadStatusFunc(psVersion)
 	if err != nil {
 		return err
 	}
 
 	printStatus := PrintStatus{
-		SetupInfo:      loadedStatus.SetupInfo,
+		SetupInfo:      toPrintInfo(config),
 		RunningState:   loadedStatus.RunningState,
 		Nodes:          loadedStatus.Nodes,
 		Pods:           loadedStatus.Pods,
@@ -155,8 +173,27 @@ func printStatusAsJson() error {
 	return deferredErr
 }
 
-func printStatusUserFriendly(showAdditionalInfo bool) error {
-	printer := NewStatusPrinter()
+func printSystemNotInstalledErrJson(printlnFunc func(m ...any)) error {
+	errCode := setupinfo.ErrSystemNotInstalled.Error()
+	printImages := PrintStatus{
+		Error: &errCode,
+	}
+
+	bytes, err := json.MarshalIndent(printImages)
+	if err != nil {
+		return err
+	}
+
+	printlnFunc(string(bytes))
+
+	failure := common.CreateSystemNotInstalledCmdFailure()
+	failure.SuppressCliOutput = true
+
+	return failure
+}
+
+func printStatusUserFriendly(terminalPrinter terminal.TerminalPrinter, config *setupinfo.Config, psVersion powershell.PowerShellVersion, showAdditionalInfo bool) error {
+	printer := NewStatusPrinter(terminalPrinter)
 
 	startResult, err := printer.terminalPrinter.StartSpinner("Gathering status information...")
 	if err != nil {
@@ -175,7 +212,7 @@ func printStatusUserFriendly(showAdditionalInfo bool) error {
 		}
 	}()
 
-	status, err := printer.loadStatusFunc()
+	status, err := printer.loadStatusFunc(psVersion)
 	if err != nil {
 		return fmt.Errorf("status could not be loaded: %w", err)
 	}
@@ -186,7 +223,7 @@ func printStatusUserFriendly(showAdditionalInfo bool) error {
 
 	printer.terminalPrinter.PrintHeader("K2s SYSTEM STATUS")
 
-	proceed, err := printer.setupInfoPrinter.PrintSetupInfo(status.SetupInfo)
+	proceed, err := printer.setupInfoPrinter.PrintSetupInfo(toPrintInfo(config))
 	if err != nil {
 		return err
 	}
@@ -202,7 +239,7 @@ func printStatusUserFriendly(showAdditionalInfo bool) error {
 		return nil
 	}
 
-	if status.SetupInfo.Name == setupinfo.SetupNameBuildOnlyEnv {
+	if config.SetupName == setupinfo.SetupNameBuildOnlyEnv {
 		slog.Debug("Setup type has no K8s components, skipping", "type", setupinfo.SetupNameBuildOnlyEnv)
 		return nil
 	}
@@ -221,4 +258,12 @@ func printStatusUserFriendly(showAdditionalInfo bool) error {
 	printer.podStatusPrinter.PrintPodStatus(status.Pods, showAdditionalInfo)
 
 	return nil
+}
+
+func toPrintInfo(config *setupinfo.Config) *si.PrintSetupInfo {
+	return &si.PrintSetupInfo{
+		Version:   config.Version,
+		Name:      string(config.SetupName),
+		LinuxOnly: config.LinuxOnly,
+	}
 }

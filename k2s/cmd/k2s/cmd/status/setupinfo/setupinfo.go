@@ -6,13 +6,17 @@ package setupinfo
 import (
 	"errors"
 	"fmt"
-
-	si "github.com/siemens-healthineers/k2s/internal/setupinfo"
 )
 
 type TerminalPrinter interface {
 	Println(m ...any)
 	PrintCyanFg(text string) string
+}
+
+type PrintSetupInfo struct {
+	Version   string `json:"version"`
+	Name      string `json:"name"`
+	LinuxOnly bool   `json:"linuxOnly"`
 }
 
 type SetupInfoPrinter struct {
@@ -25,8 +29,7 @@ func NewSetupInfoPrinter(terminalPrinter TerminalPrinter) SetupInfoPrinter {
 	}
 }
 
-// TODO: move load and print to setupinfo package (see addons package)
-func (s SetupInfoPrinter) PrintSetupInfo(setupInfo *si.SetupInfo) (bool, error) {
+func (s SetupInfoPrinter) PrintSetupInfo(setupInfo *PrintSetupInfo) (bool, error) {
 	if setupInfo == nil {
 		return false, errors.New("no setup information retrieved")
 	}

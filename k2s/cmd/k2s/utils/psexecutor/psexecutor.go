@@ -19,9 +19,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/config"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
-	"github.com/siemens-healthineers/k2s/internal/setupinfo"
+	"github.com/siemens-healthineers/k2s/internal/powershell"
 
 	"github.com/siemens-healthineers/k2s/internal/logging"
 
@@ -35,32 +34,74 @@ type cliMessage struct {
 }
 
 type ExecOptions struct {
-	NoProgress            bool
-	IgnoreNotInstalledErr bool
-	PowerShellVersion     PowerShellVersion
+	NoProgress        bool
+	PowerShellVersion powershell.PowerShellVersion
 }
-
-type PowerShellVersion string
 
 const (
 	marker = "#pm#"
-
-	PowerShellV5 PowerShellVersion = "5"
-	PowerShellV7 PowerShellVersion = "7"
-	ps5CmdName                     = "powershell"
-	ps7CmdName                     = "pwsh"
 )
 
-func ExecutePowershellScript(script string, options ...ExecOptions) (time.Duration, error) {
-	execOptions, err := determineExecOptions(options...)
+func ExecutePowershellScript(script string, options ExecOptions) (time.Duration, error) {
+	if options.PowerShellVersion == "" {
+		return 0, errors.New("PowerShell version not specified")
+	}
+
+	psCmd := powershell.Ps5CmdName
+	cmdArg := ""
+	if options.PowerShellVersion == powershell.PowerShellV7 {
+		psCmd = powershell.Ps7CmdName
+		cmdArg = "-Command"
+
+		slog.Info("Switching to PowerShell 7 command syntax")
+
+		if err := checkIfCommandExists(powershell.Ps7CmdName); err != nil {
+			return 0, err
+		}
+	}
+
+	cmdOptions := cmd.Options{
+		Buffered:   false,
+		Streaming:  true,
+		BeforeExec: []func(cmd *exec.Cmd){setStdin},
+	}
+
+	wrapperScript := prepareExecScript(script, options.NoProgress)
+	cmdRun := cmd.NewCmdOptions(cmdOptions, psCmd, cmdArg, wrapperScript)
+	doneChan := make(chan struct{})
+	errorLineBuffer, err := logging.NewLogBuffer(logging.BufferConfig{
+		Limit: 100,
+		FlushFunc: func(buffer []string) {
+			slog.Error("Flushing error lines", "count", len(buffer), "lines", buffer)
+		},
+	})
 	if err != nil {
 		return 0, err
 	}
 
-	return executePowershellScript(script, *execOptions)
+	go readStdChannels(cmdRun, doneChan, options.NoProgress, errorLineBuffer.Log)
+
+	statusChan := cmdRun.Start()
+	finalStatus := <-statusChan
+	<-doneChan
+
+	errorLineBuffer.Flush()
+
+	if finalStatus.Exit != 0 {
+		return 0, fmt.Errorf("command execution failed, see log output above. Error: exit code %d", finalStatus.Exit)
+	}
+
+	seconds := math.Round(finalStatus.Runtime)
+	duration := time.Second * time.Duration(int(seconds))
+
+	return duration, nil
 }
 
 func ExecutePsWithStructuredResult[T any](psScriptPath string, resultTypeName string, options ExecOptions, additionalParams ...string) (v T, err error) {
+	if options.PowerShellVersion == "" {
+		return v, errors.New("PowerShell version not specified")
+	}
+
 	cmd := psScriptPath + " -EncodeStructuredOutput -MessageType " + resultTypeName
 	if len(additionalParams) > 0 {
 		for _, param := range additionalParams {
@@ -108,16 +149,11 @@ func (m cliMessage) Type() string {
 }
 
 // executePowershellScriptWithDataSubscription waits until the command has finished and returns the structured data it received
-func executePowershellScriptWithDataSubscription(cmdString string, options ...ExecOptions) ([]interface {
+func executePowershellScriptWithDataSubscription(cmdString string, options ExecOptions) ([]interface {
 	Data() []byte
 	Type() string
 }, error) {
-	execOptions, err := determineExecOptions(options...)
-	if err != nil {
-		return nil, err
-	}
-
-	cmd, err := createCmd(execOptions.PowerShellVersion, cmdString)
+	cmd, err := createCmd(options.PowerShellVersion, cmdString)
 	if err != nil {
 		return nil, err
 	}
@@ -173,7 +209,7 @@ func executePowershellScriptWithDataSubscription(cmdString string, options ...Ex
 				slog.Debug("Channel closed", "channel", "log")
 				continue
 			}
-			if execOptions.NoProgress {
+			if options.NoProgress {
 				pterm.Println(log)
 			} else {
 				pterm.Printfln("⏳ %s", log)
@@ -232,48 +268,20 @@ func executePowershellScriptWithDataSubscription(cmdString string, options ...Ex
 	return dataObjects, nil
 }
 
-func determineExecOptions(options ...ExecOptions) (*ExecOptions, error) {
-	var execOptions *ExecOptions
-	if len(options) > 0 {
-		slog.Debug("Found exec options, taking first one", "count", len(options))
-
-		execOptions = &options[0]
-	} else {
-		slog.Debug("Did not find any exec options, resuming with default options")
-
-		execOptions = &ExecOptions{}
-	}
-
-	if execOptions.PowerShellVersion == "" {
-		slog.Debug("No PowerShell version option found, determining")
-
-		psVersion, err := determinePsVersion(execOptions.IgnoreNotInstalledErr)
-		if err != nil {
-			return nil, err
-		}
-
-		execOptions.PowerShellVersion = psVersion
-
-		slog.Debug("PowerShell version determined", "version", psVersion)
-	}
-
-	return execOptions, nil
-}
-
-func createCmd(psVersion PowerShellVersion, cmdString string) (*exec.Cmd, error) {
-	if psVersion == PowerShellV7 {
+func createCmd(psVersion powershell.PowerShellVersion, cmdString string) (*exec.Cmd, error) {
+	if psVersion == powershell.PowerShellV7 {
 		slog.Info("Switching to PowerShell 7 command syntax")
 
-		if err := checkIfCommandExists(ps7CmdName); err != nil {
+		if err := checkIfCommandExists(powershell.Ps7CmdName); err != nil {
 			return nil, err
 		}
 
-		return exec.Command(ps7CmdName, "-Command", cmdString), nil
+		return exec.Command(powershell.Ps7CmdName, "-Command", cmdString), nil
 	}
 
 	slog.Info("Using PowerShell 5 command syntax")
 
-	return exec.Command(ps5CmdName, cmdString), nil
+	return exec.Command(powershell.Ps5CmdName, cmdString), nil
 }
 
 func readStdErr(reader io.ReadCloser, logReceived chan string) {
@@ -347,82 +355,6 @@ func readStdOut(reader io.ReadCloser, logReceived chan string, messageReceived c
 	}
 
 	slog.Debug("routine finished", "routine", "readStdOut")
-}
-
-func executePowershellScript(script string, options ExecOptions) (time.Duration, error) {
-	psCmd := ps5CmdName
-	cmdArg := ""
-	if options.PowerShellVersion == PowerShellV7 {
-		psCmd = ps7CmdName
-		cmdArg = "-Command"
-
-		slog.Info("Switching to PowerShell 7 command syntax")
-
-		if err := checkIfCommandExists(ps7CmdName); err != nil {
-			return 0, err
-		}
-	}
-
-	cmdOptions := cmd.Options{
-		Buffered:   false,
-		Streaming:  true,
-		BeforeExec: []func(cmd *exec.Cmd){setStdin},
-	}
-
-	wrapperScript := prepareExecScript(script, options.NoProgress)
-	cmdRun := cmd.NewCmdOptions(cmdOptions, psCmd, cmdArg, wrapperScript)
-	doneChan := make(chan struct{})
-	errorLineBuffer, err := logging.NewLogBuffer(logging.BufferConfig{
-		Limit: 100,
-		FlushFunc: func(buffer []string) {
-			slog.Error("Flushing error lines", "count", len(buffer), "lines", buffer)
-		},
-	})
-	if err != nil {
-		return 0, err
-	}
-
-	go readStdChannels(cmdRun, doneChan, options.NoProgress, errorLineBuffer.Log)
-
-	statusChan := cmdRun.Start()
-	finalStatus := <-statusChan
-	<-doneChan
-
-	errorLineBuffer.Flush()
-
-	if finalStatus.Exit != 0 {
-		return 0, fmt.Errorf("command execution failed, see log output above. Error: exit code %d", finalStatus.Exit)
-	}
-
-	seconds := math.Round(finalStatus.Runtime)
-	duration := time.Second * time.Duration(int(seconds))
-
-	return duration, nil
-}
-
-func determinePsVersion(ignoreNotInstalledErr bool) (PowerShellVersion, error) {
-	configAccess := config.NewAccess()
-	setupName, err := configAccess.GetSetupName()
-	if err != nil {
-		if errors.Is(err, setupinfo.ErrSystemNotInstalled) && ignoreNotInstalledErr {
-			slog.Info("Setup not installed, falling back to default PowerShell version", "error", err, "version", PowerShellV5)
-
-			return PowerShellV5, nil
-		}
-
-		return "", err
-	}
-
-	linuxOnly, err := configAccess.IsLinuxOnly()
-	if err != nil {
-		return "", err
-	}
-
-	if setupName == setupinfo.SetupNameMultiVMK8s && !linuxOnly {
-		return PowerShellV7, nil
-	}
-
-	return PowerShellV5, nil
 }
 
 // TODO: merge/consolidate stdout/stderr-reader functions

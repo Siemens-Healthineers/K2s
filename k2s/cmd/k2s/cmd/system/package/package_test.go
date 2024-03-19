@@ -37,7 +37,7 @@ var _ = Describe("package", func() {
 				flags.Set(ProxyFlagName, "http://myproxy:81")
 				flags.Set(ForOfflineInstallationFlagName, "true")
 
-				cmd, params, err := buildSystemPackageCmd(PackageCmd)
+				cmd, params, err := buildSystemPackageCmd(PackageCmd.Flags())
 				Expect(err).ToNot(HaveOccurred())
 				Expect(cmd).To(Equal("&'" + utils.InstallDir() + "\\smallsetup\\helpers\\BuildK2sZipPackage.ps1'"))
 				Expect(params).To(ConsistOf(" -ShowLogs", " -Proxy http://myproxy:81", " -VMProcessorCount 6", " -VMMemoryStartupBytes 4GB", " -VMDiskSize 50GB", " -TargetDirectory 'dir'", " -ZipPackageFileName file.zip", " -ForOfflineInstallation"))
@@ -49,7 +49,7 @@ var _ = Describe("package", func() {
 				flags := PackageCmd.Flags()
 				flags.Set(TargetDirectoryFlagName, "")
 
-				_, _, err := buildSystemPackageCmd(PackageCmd)
+				_, _, err := buildSystemPackageCmd(PackageCmd.Flags())
 				Expect(err).ToNot(BeNil())
 				Expect(err.Error()).To(Equal("no target directory path provided"))
 			})
@@ -61,7 +61,7 @@ var _ = Describe("package", func() {
 				flags.Set(ZipPackageFileNameFlagName, "")
 				flags.Set(TargetDirectoryFlagName, "dir")
 
-				_, _, err := buildSystemPackageCmd(PackageCmd)
+				_, _, err := buildSystemPackageCmd(PackageCmd.Flags())
 				Expect(err).ToNot(BeNil())
 				Expect(err.Error()).To(Equal("no package file name provided"))
 			})
@@ -73,7 +73,7 @@ var _ = Describe("package", func() {
 				flags.Set(TargetDirectoryFlagName, "dir")
 				flags.Set(ZipPackageFileNameFlagName, "file")
 
-				_, _, err := buildSystemPackageCmd(PackageCmd)
+				_, _, err := buildSystemPackageCmd(PackageCmd.Flags())
 				Expect(err).ToNot(BeNil())
 				Expect(err.Error()).To(Equal("package file name does not contain '.zip'"))
 			})

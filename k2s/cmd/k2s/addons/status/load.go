@@ -4,13 +4,11 @@
 package status
 
 import (
-	"errors"
-
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils/psexecutor"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 
-	"github.com/siemens-healthineers/k2s/internal/setupinfo"
+	"github.com/siemens-healthineers/k2s/internal/powershell"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 )
@@ -28,16 +26,8 @@ type AddonStatusProp struct {
 	Name    string  `json:"name"`
 }
 
-func LoadAddonStatus(addonName string, addonDirectory string) (*LoadedAddonStatus, error) {
+func LoadAddonStatus(addonName string, addonDirectory string, psVersion powershell.PowerShellVersion) (*LoadedAddonStatus, error) {
 	scriptPath := utils.FormatScriptFilePath(utils.InstallDir() + "\\addons\\Get-Status.ps1")
 
-	status, err := psexecutor.ExecutePsWithStructuredResult[*LoadedAddonStatus](scriptPath, "Status", psexecutor.ExecOptions{}, "-Name", addonName, "-Directory", utils.EscapeWithSingleQuotes(addonDirectory))
-	if err != nil {
-		if !errors.Is(err, setupinfo.ErrSystemNotInstalled) {
-			return nil, err
-		}
-		status = &LoadedAddonStatus{CmdResult: common.CreateSystemNotInstalledCmdResult()}
-	}
-
-	return status, nil
+	return psexecutor.ExecutePsWithStructuredResult[*LoadedAddonStatus](scriptPath, "Status", psexecutor.ExecOptions{PowerShellVersion: psVersion}, "-Name", addonName, "-Directory", utils.EscapeWithSingleQuotes(addonDirectory))
 }

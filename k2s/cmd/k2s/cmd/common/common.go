@@ -15,6 +15,7 @@ import (
 )
 
 type FailureSeverity uint8
+type ContextKey string
 
 type CmdFailure struct {
 	Severity          FailureSeverity `json:"severity"`
@@ -32,6 +33,8 @@ const (
 
 	SeverityWarning FailureSeverity = 3
 	SeverityError   FailureSeverity = 4
+
+	ContextKeyConfigDir ContextKey = "config"
 )
 
 func (c *CmdFailure) Error() string {
