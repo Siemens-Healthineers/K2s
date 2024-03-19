@@ -56,13 +56,11 @@ function Get-Status {
         return @{Error = $err }
     }
 
-    $status = @{SetupInfo = $setupInfo }
-
     if ($ShowProgress -eq $true) {
         Write-Progress -Activity 'Gathering status information...' -Id 1 -Status '1/4' -PercentComplete 25 -CurrentOperation 'Determining running state'
     }
 
-    $status.RunningState = (Get-RunningState $status.SetupInfo.Name)
+    $status = @{RunningState = (Get-RunningState $setupInfo.Name) }
 
     if ($status.RunningState.IsRunning -ne $true) {
         Write-Log "[$script::$function] cluster not running, returning"

@@ -73,7 +73,7 @@ $Env:GOEXPERIMENT = 'boringcrypto';
 
 #VERSION
 $Version = Get-Content -Path $global:KubernetesPath\VERSION
-Write-Output "VERSION: $Version ..."
+Write-Output "VERSION: $Version"
 
 #BUILD DATE
 $BUILD_DATE = Get-date -UFormat +'%Y-%m-%dT%H:%M:%SZ'
@@ -127,11 +127,11 @@ for ($i = 0; $i -lt $goExecutables.Count; $i++) {
     $Env:GOOS = 'windows'
     $Env:GOARCH = 'amd64'
     go build -ldflags "-s -w  `
-    -X base/version.version=$($Version) `
-    -X base/version.buildDate=$($BUILD_DATE)  `
-    -X base/version.gitCommit=$($GIT_COMMIT)  `
-    -X base/version.gitTag=$($GIT_TAG) `
-    -X base/version.gitTreeState=$($GIT_TREE_STATE)" `
+    -X github.com/siemens-healthineers/k2s/internal/version.version=$($Version) `
+    -X github.com/siemens-healthineers/k2s/internal/version.buildDate=$($BUILD_DATE)  `
+    -X github.com/siemens-healthineers/k2s/internal/version.gitCommit=$($GIT_COMMIT)  `
+    -X github.com/siemens-healthineers/k2s/internal/version.gitTag=$($GIT_TAG) `
+    -X github.com/siemens-healthineers/k2s/internal/version.gitTreeState=$($GIT_TREE_STATE)" `
         -gcflags=all="-l -B" `
         -o "$($goExecutable.OutDir)" `
 

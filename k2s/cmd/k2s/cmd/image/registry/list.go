@@ -5,9 +5,6 @@ package registry
 
 import (
 	"errors"
-	"fmt"
-
-	"github.com/siemens-healthineers/k2s/cmd/k2s/config"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 
@@ -37,14 +34,16 @@ func init() {
 }
 
 func listRegistries(cmd *cobra.Command, args []string) error {
-	config := config.NewAccess()
-	registries, err := config.GetConfiguredRegistries()
+	configDir := cmd.Context().Value(common.ContextKeyConfigDir).(string)
+	config, err := setupinfo.LoadConfig(configDir)
 	if err != nil {
 		if errors.Is(err, setupinfo.ErrSystemNotInstalled) {
 			return common.CreateSystemNotInstalledCmdFailure()
 		}
 		return err
 	}
+
+	registries := config.Registries
 
 	if len(registries) == 0 {
 		pterm.Println("No registries configured!")
@@ -56,10 +55,7 @@ func listRegistries(cmd *cobra.Command, args []string) error {
 		pterm.Printfln("%d. %s", (i + 1), v)
 	}
 
-	loggedInRegistry, err := config.GetLoggedInRegistry()
-	if err != nil {
-		return fmt.Errorf("error retrieving loggedInRegistry: %w", err)
-	}
+	loggedInRegistry := config.LoggedInRegistry
 
 	if loggedInRegistry == "" {
 		pterm.Printfln("")

@@ -6,8 +6,6 @@ package buildonly
 import (
 	"fmt"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/config"
-
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/params"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
@@ -15,11 +13,10 @@ import (
 	ic "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/install/config"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 )
 
 type installer interface {
-	Install(kind ic.Kind, flags *pflag.FlagSet, buildCmdFunc func(config *ic.InstallConfig) (cmd string, err error)) error
+	Install(kind ic.Kind, cmd *cobra.Command, buildCmdFunc func(config *ic.InstallConfig) (cmd string, err error)) error
 }
 
 const (
@@ -65,7 +62,7 @@ func bindFlags(cmd *cobra.Command) {
 }
 
 func install(cmd *cobra.Command, args []string) error {
-	return Installer.Install(kind, cmd.Flags(), buildInstallCmd)
+	return Installer.Install(kind, cmd, buildInstallCmd)
 }
 
 func buildInstallCmd(c *ic.InstallConfig) (cmd string, err error) {
@@ -74,7 +71,7 @@ func buildInstallCmd(c *ic.InstallConfig) (cmd string, err error) {
 		return "", err
 	}
 
-	path := fmt.Sprintf("%s\\smallsetup\\common\\InstallBuildOnlySetup.ps1", config.SetupRootDir)
+	path := fmt.Sprintf("%s\\smallsetup\\common\\InstallBuildOnlySetup.ps1", utils.InstallDir())
 	formattedPath := utils.FormatScriptFilePath(path)
 	cmd = fmt.Sprintf("%s -MasterVMProcessorCount %s -MasterVMMemory %s -MasterDiskSize %s",
 		formattedPath,

@@ -4,9 +4,11 @@
 package cmd
 
 import (
+	"context"
 	"log/slog"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/addons"
+	cc "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 	im "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/image"
 	in "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/install"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/start"
@@ -16,7 +18,9 @@ import (
 	un "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/uninstall"
 	ve "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/version"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/common"
+	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 	"github.com/siemens-healthineers/k2s/internal/cli"
+	"github.com/siemens-healthineers/k2s/internal/config"
 	"github.com/siemens-healthineers/k2s/internal/logging"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/params"
@@ -33,7 +37,18 @@ func CreateRootCmd(levelVar *slog.LevelVar) (*cobra.Command, error) {
 		SilenceUsage:      true,
 		CompletionOptions: cobra.CompletionOptions{DisableDefaultCmd: true},
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-			return logging.SetVerbosity(verbosity, levelVar)
+			if err := logging.SetVerbosity(verbosity, levelVar); err != nil {
+				return err
+			}
+
+			configDir, err := config.LoadSetupConfigDir(utils.InstallDir())
+			if err != nil {
+				return err
+			}
+
+			cmd.SetContext(context.WithValue(cmd.Context(), cc.ContextKeyConfigDir, configDir))
+
+			return nil
 		},
 	}
 

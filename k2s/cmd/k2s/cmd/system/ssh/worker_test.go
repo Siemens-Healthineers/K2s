@@ -5,6 +5,7 @@ package ssh
 
 import (
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
+	"github.com/siemens-healthineers/k2s/internal/powershell"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -30,7 +31,7 @@ var _ = Describe("Ssh command for worker", func() {
 				workerShellCmd = cmd
 				return nil
 			}
-			mockCommandExecFunc := func(baseCmd, cmd string) error {
+			mockCommandExecFunc := func(baseCmd, cmd string, psVersion powershell.PowerShellVersion) error {
 				cmdWasExecutedOnWorker = true
 				return nil
 			}
@@ -41,7 +42,7 @@ var _ = Describe("Ssh command for worker", func() {
 				commandExecFunc:     mockCommandExecFunc,
 			}
 
-			remoteCommandHandler.Handle(remoteCmdToBeExecuted)
+			remoteCommandHandler.Handle(remoteCmdToBeExecuted, powershell.DefaultPsVersions)
 
 			Expect(workerShellWasInvoked).To(Equal(true))
 			Expect(workerShellCmd).To(Equal(cmdToStartShellWorker))
@@ -58,7 +59,7 @@ var _ = Describe("Ssh command for worker", func() {
 				workerShellWasInvoked = true
 				return nil
 			}
-			mockCommandExecFunc := func(baseCmd, cmd string) error {
+			mockCommandExecFunc := func(baseCmd, cmd string, psVersion powershell.PowerShellVersion) error {
 				cmdWasExecutedOnWorker = true
 				capturedCmdToBeExecuted = baseCmd + "-" + cmd
 				return nil
@@ -71,7 +72,7 @@ var _ = Describe("Ssh command for worker", func() {
 				commandExecFunc:     mockCommandExecFunc,
 			}
 
-			remoteCommandHandler.Handle(remoteCmdToBeExecuted)
+			remoteCommandHandler.Handle(remoteCmdToBeExecuted, powershell.DefaultPsVersions)
 
 			Expect(workerShellWasInvoked).To(Equal(false))
 			Expect(cmdWasExecutedOnWorker).To(Equal(true))

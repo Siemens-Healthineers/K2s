@@ -5,11 +5,14 @@ package systempackage
 
 import (
 	"errors"
+	"fmt"
 	"log/slog"
 	"strconv"
 	"strings"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
+	"github.com/siemens-healthineers/k2s/internal/powershell"
+	"github.com/siemens-healthineers/k2s/internal/setupinfo"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils/psexecutor"
 
@@ -74,14 +77,24 @@ func init() {
 }
 
 func systemPackage(cmd *cobra.Command, args []string) error {
-	systemPackageCommand, params, err := buildSystemPackageCmd(cmd)
+	systemPackageCommand, params, err := buildSystemPackageCmd(cmd.Flags())
 	if err != nil {
 		return err
 	}
 
 	slog.Debug("PS command created", "command", systemPackageCommand, "params", params)
 
-	cmdResult, err := psexecutor.ExecutePsWithStructuredResult[*common.CmdResult](systemPackageCommand, "CmdResult", psexecutor.ExecOptions{IgnoreNotInstalledErr: true}, params...)
+	configDir := cmd.Context().Value(common.ContextKeyConfigDir).(string)
+	setupConfig, err := setupinfo.LoadConfig(configDir)
+	if err == nil && setupConfig.SetupName != "" {
+		return &common.CmdFailure{
+			Severity: common.SeverityWarning,
+			Code:     "system-already-installed",
+			Message:  fmt.Sprintf("'%s' is installed on your system. Please uninstall '%s' first and try again.", setupConfig.SetupName, setupConfig.SetupName),
+		}
+	}
+
+	cmdResult, err := psexecutor.ExecutePsWithStructuredResult[*common.CmdResult](systemPackageCommand, "CmdResult", psexecutor.ExecOptions{PowerShellVersion: powershell.DefaultPsVersions}, params...)
 	if err != nil {
 		return err
 	}
@@ -93,47 +106,47 @@ func systemPackage(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func buildSystemPackageCmd(cmd *cobra.Command) (string, []string, error) {
+func buildSystemPackageCmd(flags *pflag.FlagSet) (string, []string, error) {
 	systemPackageCommand := utils.FormatScriptFilePath(utils.InstallDir() + "\\smallsetup\\helpers\\BuildK2sZipPackage.ps1")
 
-	cmd.Flags().VisitAll(func(f *pflag.Flag) {
+	flags.VisitAll(func(f *pflag.Flag) {
 		slog.Debug("Param", "name", f.Name, "value", f.Value)
 	})
 
 	params := []string{}
 
-	out, _ := strconv.ParseBool(cmd.Flags().Lookup(p.OutputFlagName).Value.String())
+	out, _ := strconv.ParseBool(flags.Lookup(p.OutputFlagName).Value.String())
 	if out {
 		params = append(params, " -ShowLogs")
 	}
 
-	proxy := cmd.Flags().Lookup(ProxyFlagName).Value.String()
+	proxy := flags.Lookup(ProxyFlagName).Value.String()
 	if len(proxy) > 0 {
 		params = append(params, " -Proxy "+proxy)
 	}
 
-	cpus := cmd.Flags().Lookup(ControlPlaneCPUsFlagName).Value.String()
+	cpus := flags.Lookup(ControlPlaneCPUsFlagName).Value.String()
 	if len(cpus) > 0 {
 		params = append(params, " -VMProcessorCount "+cpus)
 	}
 
-	memory := cmd.Flags().Lookup(ControlPlaneMemoryFlagName).Value.String()
+	memory := flags.Lookup(ControlPlaneMemoryFlagName).Value.String()
 	if len(memory) > 0 {
 		params = append(params, " -VMMemoryStartupBytes "+memory)
 	}
 
-	disksize := cmd.Flags().Lookup(ControlPlaneDiskSizeFlagName).Value.String()
+	disksize := flags.Lookup(ControlPlaneDiskSizeFlagName).Value.String()
 	if len(disksize) > 0 {
 		params = append(params, " -VMDiskSize "+disksize)
 	}
 
-	targetDir := cmd.Flags().Lookup(TargetDirectoryFlagName).Value.String()
+	targetDir := flags.Lookup(TargetDirectoryFlagName).Value.String()
 	if len(targetDir) == 0 {
 		return "", nil, errors.New("no target directory path provided")
 	}
 	params = append(params, " -TargetDirectory "+utils.EscapeWithSingleQuotes(targetDir))
 
-	name := cmd.Flags().Lookup(ZipPackageFileNameFlagName).Value.String()
+	name := flags.Lookup(ZipPackageFileNameFlagName).Value.String()
 	if len(name) == 0 {
 		return "", nil, errors.New("no package file name provided")
 	}
@@ -142,7 +155,7 @@ func buildSystemPackageCmd(cmd *cobra.Command) (string, []string, error) {
 	}
 	params = append(params, " -ZipPackageFileName "+name)
 
-	forOfflineInstallation, _ := strconv.ParseBool(cmd.Flags().Lookup(ForOfflineInstallationFlagName).Value.String())
+	forOfflineInstallation, _ := strconv.ParseBool(flags.Lookup(ForOfflineInstallationFlagName).Value.String())
 	if forOfflineInstallation {
 		params = append(params, " -ForOfflineInstallation")
 	}
