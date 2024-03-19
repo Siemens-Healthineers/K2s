@@ -27,10 +27,6 @@ type Spinner interface {
 	Stop() error
 }
 
-type StatusLoader interface {
-	LoadAddonStatus(addonName string, addonDirectory string) (*LoadedAddonStatus, error)
-}
-
 type PropPrinter interface {
 	PrintProp(prop AddonStatusProp)
 }
@@ -38,12 +34,10 @@ type PropPrinter interface {
 type JsonPrinter struct {
 	terminalPrinter   TerminalPrinter
 	marshalIndentFunc func(data any) ([]byte, error)
-	statusLoader      StatusLoader
 }
 
 type UserFriendlyPrinter struct {
 	terminalPrinter TerminalPrinter
-	statusLoader    StatusLoader
 	propPrinter     PropPrinter
 }
 
@@ -58,18 +52,14 @@ type propPrint struct {
 	terminalPrinter TerminalPrinter
 }
 
-func NewJsonPrinter(terminalPrinter TerminalPrinter, statusLoader StatusLoader, marshalIndentFunc func(data any) ([]byte, error)) *JsonPrinter {
+func NewJsonPrinter(terminalPrinter TerminalPrinter, marshalIndentFunc func(data any) ([]byte, error)) *JsonPrinter {
 	return &JsonPrinter{
 		terminalPrinter:   terminalPrinter,
-		statusLoader:      statusLoader,
 		marshalIndentFunc: marshalIndentFunc,
 	}
 }
 
-func NewUserFriendlyPrinter(
-	terminalPrinter TerminalPrinter,
-	statusLoader StatusLoader,
-	propPrinters ...PropPrinter) *UserFriendlyPrinter {
+func NewUserFriendlyPrinter(terminalPrinter TerminalPrinter, propPrinters ...PropPrinter) *UserFriendlyPrinter {
 	var propPrinter PropPrinter
 	if len(propPrinters) > 0 {
 		propPrinter = propPrinters[0]
@@ -79,7 +69,6 @@ func NewUserFriendlyPrinter(
 
 	return &UserFriendlyPrinter{
 		terminalPrinter: terminalPrinter,
-		statusLoader:    statusLoader,
 		propPrinter:     propPrinter,
 	}
 }
@@ -90,38 +79,24 @@ func NewPropPrinter(terminalPrinter TerminalPrinter) *propPrint {
 	}
 }
 
-func (s *JsonPrinter) PrintStatus(addonName string, addonDirectory string) error {
-	slog.Info("Loading status", "addon", addonName, "directory", addonDirectory)
+func (s *JsonPrinter) PrintStatus(addonName string, loadFunc func(addonName string) (*LoadedAddonStatus, error)) error {
+	loadedStatus, err := loadFunc(addonName)
+	if err != nil {
+		return err
+	}
 
-	loadedStatus, err := s.statusLoader.LoadAddonStatus(addonName, addonDirectory)
-
-	var cmdFailure *common.CmdFailure
 	printStatus := AddonPrintStatus{
 		Name: addonName,
 	}
 
-	if err != nil {
-		if !errors.Is(err, setupinfo.ErrSystemNotInstalled) {
-			return err
-		}
-
-		cmdFailure = &common.CmdFailure{
-			Severity: common.SeverityWarning,
-			Code:     setupinfo.ErrSystemNotInstalled.Error(),
-			Message:  common.ErrSystemNotInstalledMsg,
-		}
-	} else {
-		cmdFailure = loadedStatus.Failure
-	}
-
 	var deferredErr error
-	if cmdFailure != nil {
-		printStatus.Error = &cmdFailure.Code
-		cmdFailure.SuppressCliOutput = true
-		deferredErr = cmdFailure
-	} else {
+	if loadedStatus.Failure == nil {
 		printStatus.Enabled = loadedStatus.Enabled
 		printStatus.Props = loadedStatus.Props
+	} else {
+		printStatus.Error = &loadedStatus.Failure.Code
+		loadedStatus.Failure.SuppressCliOutput = true
+		deferredErr = loadedStatus.Failure
 	}
 
 	slog.Info("Marhalling", "status", printStatus)
@@ -140,7 +115,7 @@ func (s *JsonPrinter) PrintStatus(addonName string, addonDirectory string) error
 	return deferredErr
 }
 
-func (s *UserFriendlyPrinter) PrintStatus(addonName string, addonDirectory string) error {
+func (s *UserFriendlyPrinter) PrintStatus(addonName string, loadFunc func(addonName string) (*LoadedAddonStatus, error)) error {
 	startResult, err := s.terminalPrinter.StartSpinner("Gathering status information...")
 	if err != nil {
 		return err
@@ -158,7 +133,7 @@ func (s *UserFriendlyPrinter) PrintStatus(addonName string, addonDirectory strin
 		}
 	}()
 
-	status, err := s.statusLoader.LoadAddonStatus(addonName, addonDirectory)
+	status, err := loadFunc(addonName)
 	if err != nil {
 		return err
 	}
@@ -187,6 +162,36 @@ func (s *UserFriendlyPrinter) PrintStatus(addonName string, addonDirectory strin
 	}
 
 	return nil
+}
+
+func (s *JsonPrinter) PrintSystemNotInstalledError(addon string) error {
+	errCode := setupinfo.ErrSystemNotInstalled.Error()
+	printStatus := AddonPrintStatus{
+		Name:  addon,
+		Error: &errCode,
+	}
+
+	slog.Info("Marhalling", "status", printStatus)
+
+	bytes, err := s.marshalIndentFunc(printStatus)
+	if err != nil {
+		return err
+	}
+
+	statusJson := string(bytes)
+
+	slog.Info("Printing", "json", statusJson)
+
+	s.terminalPrinter.Println(statusJson)
+
+	failure := common.CreateSystemNotInstalledCmdFailure()
+	failure.SuppressCliOutput = true
+
+	return failure
+}
+
+func (s *UserFriendlyPrinter) PrintSystemNotInstalledError(_ string) error {
+	return common.CreateSystemNotInstalledCmdFailure()
 }
 
 func (p *propPrint) PrintProp(prop AddonStatusProp) {

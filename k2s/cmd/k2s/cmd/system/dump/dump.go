@@ -18,6 +18,7 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 
+	"github.com/siemens-healthineers/k2s/internal/powershell"
 	"github.com/siemens-healthineers/k2s/internal/setupinfo"
 )
 
@@ -39,6 +40,15 @@ func init() {
 }
 
 func dumpSystemStatus(cmd *cobra.Command, args []string) error {
+	configDir := cmd.Context().Value(common.ContextKeyConfigDir).(string)
+	config, err := setupinfo.LoadConfig(configDir)
+	if err != nil {
+		if errors.Is(err, setupinfo.ErrSystemNotInstalled) {
+			return common.CreateSystemNotInstalledCmdFailure()
+		}
+		return err
+	}
+
 	skipOpenDumpFlag, err := strconv.ParseBool(cmd.Flags().Lookup(skipOpenDumpFlagName).Value.String())
 	if err != nil {
 		return err
@@ -61,11 +71,8 @@ func dumpSystemStatus(cmd *cobra.Command, args []string) error {
 
 	slog.Debug("PS command created", "command", dumpStatusCommand)
 
-	duration, err := psexecutor.ExecutePowershellScript(dumpStatusCommand)
+	duration, err := psexecutor.ExecutePowershellScript(dumpStatusCommand, psexecutor.ExecOptions{PowerShellVersion: powershell.DeterminePsVersion(config)})
 	if err != nil {
-		if errors.Is(err, setupinfo.ErrSystemNotInstalled) {
-			return common.CreateSystemNotInstalledCmdFailure()
-		}
 		return err
 	}
 

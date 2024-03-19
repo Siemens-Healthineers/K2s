@@ -10,8 +10,7 @@ import (
 
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
-
-	c "github.com/siemens-healthineers/k2s/cmd/k2s/config"
+	"github.com/spf13/pflag"
 
 	p "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/params"
 
@@ -21,6 +20,7 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 
+	"github.com/siemens-healthineers/k2s/internal/powershell"
 	"github.com/siemens-healthineers/k2s/internal/setupinfo"
 )
 
@@ -37,17 +37,26 @@ func init() {
 	Stopk8sCmd.Flags().PrintDefaults()
 }
 
-func stopk8s(ccmd *cobra.Command, args []string) error {
+func stopk8s(cmd *cobra.Command, args []string) error {
 	pterm.Printfln("🛑 Stopping K2s cluster")
 
-	stopCmd, err := buildStopCmd(ccmd)
+	configDir := cmd.Context().Value(common.ContextKeyConfigDir).(string)
+	config, err := setupinfo.LoadConfig(configDir)
+	if err != nil {
+		if errors.Is(err, setupinfo.ErrSystemNotInstalled) {
+			return common.CreateSystemNotInstalledCmdFailure()
+		}
+		return err
+	}
+
+	stopCmd, err := buildStopCmd(cmd.Flags(), config.SetupName)
 	if err != nil {
 		return err
 	}
 
 	slog.Debug("PS command created", "command", stopCmd)
 
-	duration, err := psexecutor.ExecutePowershellScript(stopCmd)
+	duration, err := psexecutor.ExecutePowershellScript(stopCmd, psexecutor.ExecOptions{PowerShellVersion: powershell.DeterminePsVersion(config)})
 	if err != nil {
 		return err
 	}
@@ -57,26 +66,16 @@ func stopk8s(ccmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func buildStopCmd(ccmd *cobra.Command) (string, error) {
-	outputFlag, err := strconv.ParseBool(ccmd.Flags().Lookup(p.OutputFlagName).Value.String())
+func buildStopCmd(flags *pflag.FlagSet, setupName setupinfo.SetupName) (string, error) {
+	outputFlag, err := strconv.ParseBool(flags.Lookup(p.OutputFlagName).Value.String())
 	if err != nil {
 		return "", err
 	}
 
-	additionalHooksdir := ccmd.Flags().Lookup(p.AdditionalHooksDirFlagName).Value.String()
+	additionalHooksdir := flags.Lookup(p.AdditionalHooksDirFlagName).Value.String()
 
-	cacheVSwitches, err := strconv.ParseBool(ccmd.Flags().Lookup(p.CacheVSwitchFlagName).Value.String())
+	cacheVSwitches, err := strconv.ParseBool(flags.Lookup(p.CacheVSwitchFlagName).Value.String())
 	if err != nil {
-		return "", err
-	}
-
-	config := c.NewAccess()
-
-	setupName, err := config.GetSetupName()
-	if err != nil {
-		if errors.Is(err, setupinfo.ErrSystemNotInstalled) {
-			return "", common.CreateSystemNotInstalledCmdFailure()
-		}
 		return "", err
 	}
 
@@ -92,7 +91,7 @@ func buildStopCmd(ccmd *cobra.Command) (string, error) {
 			cmd += " -CacheK2sVSwitches"
 		}
 	case setupinfo.SetupNameMultiVMK8s:
-		cmd = utils.FormatScriptFilePath(c.SetupRootDir + "\\smallsetup\\multivm\\" + "Stop_MultiVMK8sSetup.ps1")
+		cmd = utils.FormatScriptFilePath(utils.InstallDir() + "\\smallsetup\\multivm\\Stop_MultiVMK8sSetup.ps1")
 		if additionalHooksdir != "" {
 			cmd += " -AdditionalHooksDir " + utils.EscapeWithSingleQuotes(additionalHooksdir)
 		}

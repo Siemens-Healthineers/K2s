@@ -10,8 +10,6 @@ import (
 	"strconv"
 	"time"
 
-	c "github.com/siemens-healthineers/k2s/cmd/k2s/config"
-
 	p "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/params"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
@@ -20,6 +18,7 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 
+	"github.com/siemens-healthineers/k2s/internal/powershell"
 	"github.com/siemens-healthineers/k2s/internal/setupinfo"
 
 	"github.com/pterm/pterm"
@@ -75,11 +74,17 @@ func addRegistry(cmd *cobra.Command, args []string) error {
 
 	start := time.Now()
 
-	cmdResult, err := psexecutor.ExecutePsWithStructuredResult[*common.CmdResult](psCmd, "CmdResult", psexecutor.ExecOptions{}, params...)
+	configDir := cmd.Context().Value(common.ContextKeyConfigDir).(string)
+	config, err := setupinfo.LoadConfig(configDir)
 	if err != nil {
 		if errors.Is(err, setupinfo.ErrSystemNotInstalled) {
 			return common.CreateSystemNotInstalledCmdFailure()
 		}
+		return err
+	}
+
+	cmdResult, err := psexecutor.ExecutePsWithStructuredResult[*common.CmdResult](psCmd, "CmdResult", psexecutor.ExecOptions{PowerShellVersion: powershell.DeterminePsVersion(config)}, params...)
+	if err != nil {
 		return err
 	}
 
@@ -95,7 +100,7 @@ func addRegistry(cmd *cobra.Command, args []string) error {
 }
 
 func buildAddPsCmd(registryName string, cmd *cobra.Command) (psCmd string, params []string, err error) {
-	psCmd = utils.FormatScriptFilePath(c.SetupRootDir + "\\smallsetup\\helpers\\AddRegistry.ps1")
+	psCmd = utils.FormatScriptFilePath(utils.InstallDir() + "\\smallsetup\\helpers\\AddRegistry.ps1")
 
 	showOutput, err := strconv.ParseBool(cmd.Flags().Lookup(p.OutputFlagName).Value.String())
 	if err != nil {

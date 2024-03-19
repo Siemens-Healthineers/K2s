@@ -6,7 +6,7 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/status/load"
+	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/status"
 
 	"testing"
 
@@ -22,7 +22,7 @@ const (
 	ageRegex       = `(\d\D)+`
 	osRegex        = "((w)|(W)indows)|((l)|(L)inux)"
 	runtimeRegex   = "(cri-o|containerd)"
-	versionRegex   = `v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)`
+	versionRegex   = `v?(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)`
 )
 
 var suite *framework.K2sTestSuite
@@ -174,7 +174,7 @@ var _ = Describe("status", Ordered, func() {
 	})
 
 	Context("JSON output", func() {
-		var status load.LoadedStatus
+		var status status.PrintStatus
 
 		BeforeAll(func(ctx context.Context) {
 			output := suite.K2sCli().Run(ctx, "status", "-o", "json")
@@ -183,11 +183,11 @@ var _ = Describe("status", Ordered, func() {
 		})
 
 		It("contains no error", func() {
-			Expect(status.Failure).To(BeNil())
+			Expect(status.Error).To(BeNil())
 		})
 
 		It("contains setup info", func() {
-			Expect(status.SetupInfo.Name).To(Equal(suite.SetupInfo().Name))
+			Expect(status.SetupInfo.Name).To(Equal(string(suite.SetupInfo().Name)))
 			Expect(status.SetupInfo.Version).To(MatchRegexp(versionRegex))
 			Expect(status.SetupInfo.LinuxOnly).To(Equal(suite.SetupInfo().LinuxOnly))
 		})

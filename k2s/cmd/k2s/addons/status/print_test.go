@@ -32,8 +32,8 @@ type nullableMessage struct {
 	value string
 }
 
-func (m *mockObject) LoadAddonStatus(addonName string, addonDirectory string) (*LoadedAddonStatus, error) {
-	args := m.Called(addonName, addonDirectory)
+func (m *mockObject) loadAddonStatus(addonName string) (*LoadedAddonStatus, error) {
+	args := m.Called(addonName)
 
 	return args.Get(0).(*LoadedAddonStatus), args.Error(1)
 }
@@ -94,64 +94,30 @@ var _ = BeforeSuite(func() {
 var _ = Describe("addons status print", func() {
 	Describe("JsonPrinter", func() {
 		Describe("PrintStatus", func() {
-			When("unknown status load error occurred", func() {
+			When("status load error occurred", func() {
 				It("returns error without printing", func() {
 					addonName := "test-addon"
-					addonDirectory := "test-dir"
 					expectedError := errors.New("oops")
 
 					loaderMock := &mockObject{}
-					loaderMock.On(r.GetFunctionName(loaderMock.LoadAddonStatus), addonName, addonDirectory).Return(&LoadedAddonStatus{}, expectedError)
+					loaderMock.On(r.GetFunctionName(loaderMock.loadAddonStatus), addonName).Return(&LoadedAddonStatus{}, expectedError)
 
-					sut := NewJsonPrinter(nil, loaderMock, nil)
+					sut := NewJsonPrinter(nil, nil)
 
-					err := sut.PrintStatus(addonName, addonDirectory)
+					err := sut.PrintStatus(addonName, loaderMock.loadAddonStatus)
 
 					Expect(err).To(MatchError(expectedError))
-				})
-			})
-
-			When("system-not-installed error occurred", func() {
-				It("prints JSON with failure and returns silent cmd failure", func() {
-					addonName := "test-addon"
-					addonDirectory := "test-dir"
-					statusBytes := []byte("status-JSON")
-
-					loaderMock := &mockObject{}
-					loaderMock.On(r.GetFunctionName(loaderMock.LoadAddonStatus), addonName, addonDirectory).Return(&LoadedAddonStatus{}, setupinfo.ErrSystemNotInstalled)
-
-					marshalMock := &mockObject{}
-					marshalMock.On(r.GetFunctionName(marshalMock.marshalIndent), mock.MatchedBy(func(status AddonPrintStatus) bool {
-						return status.Name == addonName && *status.Error == setupinfo.ErrSystemNotInstalled.Error()
-					})).Return(statusBytes, nil)
-
-					printerMock := &mockObject{}
-					printerMock.On(r.GetFunctionName(printerMock.Println), "status-JSON").Once()
-
-					sut := NewJsonPrinter(printerMock, loaderMock, marshalMock.marshalIndent)
-
-					err := sut.PrintStatus(addonName, addonDirectory)
-
-					var cmdFailure *common.CmdFailure
-					Expect(errors.As(err, &cmdFailure)).To(BeTrue())
-					Expect(cmdFailure.Code).To(Equal(setupinfo.ErrSystemNotInstalled.Error()))
-					Expect(cmdFailure.Message).To(Equal(common.ErrSystemNotInstalledMsg))
-					Expect(cmdFailure.Severity).To(Equal(common.SeverityWarning))
-					Expect(cmdFailure.SuppressCliOutput).To(BeTrue())
-
-					printerMock.AssertExpectations(GinkgoT())
 				})
 			})
 
 			When("cmd failure occurred", func() {
 				It("prints JSON with failure and returns silent cmd failure", func() {
 					addonName := "test-addon"
-					addonDirectory := "test-dir"
 					statusBytes := []byte("status-JSON")
 					loadedStatus := &LoadedAddonStatus{CmdResult: common.CreateSystemNotInstalledCmdResult()}
 
 					loaderMock := &mockObject{}
-					loaderMock.On(r.GetFunctionName(loaderMock.LoadAddonStatus), addonName, addonDirectory).Return(loadedStatus, nil)
+					loaderMock.On(r.GetFunctionName(loaderMock.loadAddonStatus), addonName).Return(loadedStatus, nil)
 
 					marshalMock := &mockObject{}
 					marshalMock.On(r.GetFunctionName(marshalMock.marshalIndent), mock.MatchedBy(func(status AddonPrintStatus) bool {
@@ -161,9 +127,9 @@ var _ = Describe("addons status print", func() {
 					printerMock := &mockObject{}
 					printerMock.On(r.GetFunctionName(printerMock.Println), "status-JSON").Once()
 
-					sut := NewJsonPrinter(printerMock, loaderMock, marshalMock.marshalIndent)
+					sut := NewJsonPrinter(printerMock, marshalMock.marshalIndent)
 
-					err := sut.PrintStatus(addonName, addonDirectory)
+					err := sut.PrintStatus(addonName, loaderMock.loadAddonStatus)
 
 					var cmdFailure *common.CmdFailure
 					Expect(errors.As(err, &cmdFailure)).To(BeTrue())
@@ -177,37 +143,35 @@ var _ = Describe("addons status print", func() {
 			})
 
 			When("marshalling error occurred", func() {
-				It("returns error", func() {
+				It("returns error without printing", func() {
 					addonName := "test-addon"
-					addonDirectory := "test-dir"
 					expectedError := errors.New("oops")
 					loadStatus := &LoadedAddonStatus{Props: []AddonStatusProp{{Name: "test-key", Value: "test-val"}}}
 
 					loaderMock := &mockObject{}
-					loaderMock.On(r.GetFunctionName(loaderMock.LoadAddonStatus), addonName, addonDirectory).Return(loadStatus, nil)
+					loaderMock.On(r.GetFunctionName(loaderMock.loadAddonStatus), addonName).Return(loadStatus, nil)
 
 					marshalMock := &mockObject{}
 					marshalMock.On(r.GetFunctionName(marshalMock.marshalIndent), mock.MatchedBy(func(status AddonPrintStatus) bool {
 						return status.Name == addonName && status.Props[0] == loadStatus.Props[0]
 					})).Return(make([]byte, 0), expectedError)
 
-					sut := NewJsonPrinter(nil, loaderMock, marshalMock.marshalIndent)
+					sut := NewJsonPrinter(nil, marshalMock.marshalIndent)
 
-					err := sut.PrintStatus(addonName, addonDirectory)
+					err := sut.PrintStatus(addonName, loaderMock.loadAddonStatus)
 
 					Expect(err).To(MatchError(expectedError))
 				})
 			})
 
 			When("successful", func() {
-				It("prints the status", func() {
+				It("prints the status without error", func() {
 					addonName := "test-addon"
-					addonDirectory := "test-dir"
 					loadStatus := &LoadedAddonStatus{Props: []AddonStatusProp{{Name: "test-key", Value: "test-val"}}}
 					statusBytes := []byte("status")
 
 					loaderMock := &mockObject{}
-					loaderMock.On(r.GetFunctionName(loaderMock.LoadAddonStatus), addonName, addonDirectory).Return(loadStatus, nil)
+					loaderMock.On(r.GetFunctionName(loaderMock.loadAddonStatus), addonName).Return(loadStatus, nil)
 
 					marshalMock := &mockObject{}
 					marshalMock.On(r.GetFunctionName(marshalMock.marshalIndent), mock.MatchedBy(func(status AddonPrintStatus) bool {
@@ -217,11 +181,59 @@ var _ = Describe("addons status print", func() {
 					printerMock := &mockObject{}
 					printerMock.On(r.GetFunctionName(printerMock.Println), "status").Once()
 
-					sut := NewJsonPrinter(printerMock, loaderMock, marshalMock.marshalIndent)
+					sut := NewJsonPrinter(printerMock, marshalMock.marshalIndent)
 
-					err := sut.PrintStatus(addonName, addonDirectory)
+					err := sut.PrintStatus(addonName, loaderMock.loadAddonStatus)
 
 					Expect(err).ToNot(HaveOccurred())
+					printerMock.AssertExpectations(GinkgoT())
+				})
+			})
+		})
+
+		Describe("PrintSystemNotInstalledError", func() {
+			When("marshalling error occurred", func() {
+				It("returns error without printing", func() {
+					addonName := "test-addon"
+					expectedError := errors.New("oops")
+
+					marshalMock := &mockObject{}
+					marshalMock.On(r.GetFunctionName(marshalMock.marshalIndent), mock.MatchedBy(func(status AddonPrintStatus) bool {
+						return status.Name == addonName
+					})).Return(make([]byte, 0), expectedError)
+
+					sut := NewJsonPrinter(nil, marshalMock.marshalIndent)
+
+					err := sut.PrintSystemNotInstalledError(addonName)
+
+					Expect(err).To(MatchError(expectedError))
+				})
+			})
+
+			When("successful", func() {
+				It("prints JSON with failure and returns silent cmd failure", func() {
+					addonName := "test-addon"
+					statusBytes := []byte("status-JSON")
+
+					marshalMock := &mockObject{}
+					marshalMock.On(r.GetFunctionName(marshalMock.marshalIndent), mock.MatchedBy(func(status AddonPrintStatus) bool {
+						return status.Name == addonName && *status.Error == setupinfo.ErrSystemNotInstalled.Error()
+					})).Return(statusBytes, nil)
+
+					printerMock := &mockObject{}
+					printerMock.On(r.GetFunctionName(printerMock.Println), "status-JSON").Once()
+
+					sut := NewJsonPrinter(printerMock, marshalMock.marshalIndent)
+
+					err := sut.PrintSystemNotInstalledError(addonName)
+
+					var cmdFailure *common.CmdFailure
+					Expect(errors.As(err, &cmdFailure)).To(BeTrue())
+					Expect(cmdFailure.Code).To(Equal(setupinfo.ErrSystemNotInstalled.Error()))
+					Expect(cmdFailure.Message).To(Equal(common.ErrSystemNotInstalledMsg))
+					Expect(cmdFailure.Severity).To(Equal(common.SeverityWarning))
+					Expect(cmdFailure.SuppressCliOutput).To(BeTrue())
+
 					printerMock.AssertExpectations(GinkgoT())
 				})
 			})
@@ -239,7 +251,7 @@ var _ = Describe("addons status print", func() {
 
 					sut := NewUserFriendlyPrinter(printerMock, nil)
 
-					err := sut.PrintStatus("", "")
+					err := sut.PrintStatus("", nil)
 
 					Expect(err).To(MatchError(expectedError))
 					printerMock.AssertExpectations(GinkgoT())
@@ -253,7 +265,7 @@ var _ = Describe("addons status print", func() {
 
 					sut := NewUserFriendlyPrinter(printerMock, nil)
 
-					err := sut.PrintStatus("", "")
+					err := sut.PrintStatus("", nil)
 
 					Expect(err).To(MatchError(ContainSubstring("could not start")))
 					printerMock.AssertExpectations(GinkgoT())
@@ -263,7 +275,6 @@ var _ = Describe("addons status print", func() {
 			When("unknown status load error occurred", func() {
 				It("returns error", func() {
 					addonName := "test-addon"
-					addonDirectory := "test-dir"
 					expectedError := errors.New("oops")
 
 					spinnerMock := &mockObject{}
@@ -273,11 +284,11 @@ var _ = Describe("addons status print", func() {
 					printerMock.On(r.GetFunctionName(printerMock.StartSpinner), mock.Anything).Return(spinnerMock, nil)
 
 					loaderMock := &mockObject{}
-					loaderMock.On(r.GetFunctionName(loaderMock.LoadAddonStatus), addonName, addonDirectory).Return(&LoadedAddonStatus{}, expectedError)
+					loaderMock.On(r.GetFunctionName(loaderMock.loadAddonStatus), addonName).Return(&LoadedAddonStatus{}, expectedError)
 
-					sut := NewUserFriendlyPrinter(printerMock, loaderMock)
+					sut := NewUserFriendlyPrinter(printerMock)
 
-					err := sut.PrintStatus(addonName, addonDirectory)
+					err := sut.PrintStatus(addonName, loaderMock.loadAddonStatus)
 
 					Expect(err).To(MatchError(expectedError))
 
@@ -289,7 +300,6 @@ var _ = Describe("addons status print", func() {
 			When("cmd failure occurred", func() {
 				It("returns cmd failure", func() {
 					addonName := "test-addon"
-					addonDirectory := "test-dir"
 					loadedStatus := &LoadedAddonStatus{CmdResult: common.CreateSystemNotInstalledCmdResult()}
 
 					spinnerMock := &mockObject{}
@@ -299,11 +309,11 @@ var _ = Describe("addons status print", func() {
 					printerMock.On(r.GetFunctionName(printerMock.StartSpinner), mock.Anything).Return(spinnerMock, nil)
 
 					loaderMock := &mockObject{}
-					loaderMock.On(r.GetFunctionName(loaderMock.LoadAddonStatus), addonName, addonDirectory).Return(loadedStatus, nil)
+					loaderMock.On(r.GetFunctionName(loaderMock.loadAddonStatus), addonName).Return(loadedStatus, nil)
 
-					sut := NewUserFriendlyPrinter(printerMock, loaderMock)
+					sut := NewUserFriendlyPrinter(printerMock)
 
-					err := sut.PrintStatus(addonName, addonDirectory)
+					err := sut.PrintStatus(addonName, loaderMock.loadAddonStatus)
 
 					Expect(err).To(Equal(loadedStatus.Failure))
 
@@ -315,7 +325,6 @@ var _ = Describe("addons status print", func() {
 			When("status does not contain enabled/disabled information", func() {
 				It("returns error", func() {
 					addonName := "test-addon"
-					addonDirectory := "test-dir"
 					loadedStatus := &LoadedAddonStatus{}
 
 					spinnerMock := &mockObject{}
@@ -325,11 +334,11 @@ var _ = Describe("addons status print", func() {
 					printerMock.On(r.GetFunctionName(printerMock.StartSpinner), mock.Anything).Return(spinnerMock, nil)
 
 					loaderMock := &mockObject{}
-					loaderMock.On(r.GetFunctionName(loaderMock.LoadAddonStatus), addonName, addonDirectory).Return(loadedStatus, nil)
+					loaderMock.On(r.GetFunctionName(loaderMock.loadAddonStatus), addonName).Return(loadedStatus, nil)
 
-					sut := NewUserFriendlyPrinter(printerMock, loaderMock)
+					sut := NewUserFriendlyPrinter(printerMock)
 
-					err := sut.PrintStatus(addonName, addonDirectory)
+					err := sut.PrintStatus(addonName, loaderMock.loadAddonStatus)
 
 					Expect(err).To(MatchError(ContainSubstring("info missing")))
 
@@ -340,7 +349,6 @@ var _ = Describe("addons status print", func() {
 			When("addon is disabled", func() {
 				It("prints the disabled-status", func() {
 					addonName := "test-addon"
-					addonDirectory := "test-dir"
 					state := "disabled"
 					enabled := false
 					loadedStatus := &LoadedAddonStatus{Enabled: &enabled}
@@ -356,11 +364,11 @@ var _ = Describe("addons status print", func() {
 					printerMock.On(r.GetFunctionName(printerMock.PrintCyanFg), state).Return(state).Once()
 
 					loaderMock := &mockObject{}
-					loaderMock.On(r.GetFunctionName(loaderMock.LoadAddonStatus), addonName, addonDirectory).Return(loadedStatus, nil)
+					loaderMock.On(r.GetFunctionName(loaderMock.loadAddonStatus), addonName).Return(loadedStatus, nil)
 
-					sut := NewUserFriendlyPrinter(printerMock, loaderMock)
+					sut := NewUserFriendlyPrinter(printerMock)
 
-					err := sut.PrintStatus(addonName, addonDirectory)
+					err := sut.PrintStatus(addonName, loaderMock.loadAddonStatus)
 
 					Expect(err).ToNot(HaveOccurred())
 					printerMock.AssertExpectations(GinkgoT())
@@ -371,7 +379,6 @@ var _ = Describe("addons status print", func() {
 			When("addon is enabled", func() {
 				It("prints the enabled-status", func() {
 					addonName := "test-addon"
-					addonDirectory := "test-dir"
 					state := "enabled"
 					enabled := true
 					loadedStatus := &LoadedAddonStatus{Enabled: &enabled}
@@ -387,11 +394,11 @@ var _ = Describe("addons status print", func() {
 					printerMock.On(r.GetFunctionName(printerMock.PrintCyanFg), state).Return(state).Once()
 
 					loaderMock := &mockObject{}
-					loaderMock.On(r.GetFunctionName(loaderMock.LoadAddonStatus), addonName, addonDirectory).Return(loadedStatus, nil)
+					loaderMock.On(r.GetFunctionName(loaderMock.loadAddonStatus), addonName).Return(loadedStatus, nil)
 
-					sut := NewUserFriendlyPrinter(printerMock, loaderMock)
+					sut := NewUserFriendlyPrinter(printerMock)
 
-					err := sut.PrintStatus(addonName, addonDirectory)
+					err := sut.PrintStatus(addonName, loaderMock.loadAddonStatus)
 
 					Expect(err).ToNot(HaveOccurred())
 					printerMock.AssertExpectations(GinkgoT())
@@ -400,7 +407,6 @@ var _ = Describe("addons status print", func() {
 
 				It("prints the addon-specific props", func() {
 					addonName := "test-addon"
-					addonDirectory := "test-dir"
 					enabled := true
 					loadedStatus := &LoadedAddonStatus{
 						Enabled: &enabled,
@@ -420,15 +426,15 @@ var _ = Describe("addons status print", func() {
 					printerMock.On(r.GetFunctionName(printerMock.PrintCyanFg), mock.Anything).Return("colored-text")
 
 					loaderMock := &mockObject{}
-					loaderMock.On(r.GetFunctionName(loaderMock.LoadAddonStatus), addonName, addonDirectory).Return(loadedStatus, nil)
+					loaderMock.On(r.GetFunctionName(loaderMock.loadAddonStatus), addonName).Return(loadedStatus, nil)
 
 					propPrintMock := &mockObject{}
 					propPrintMock.On(r.GetFunctionName(propPrintMock.PrintProp), loadedStatus.Props[0]).Once()
 					propPrintMock.On(r.GetFunctionName(propPrintMock.PrintProp), loadedStatus.Props[1]).Once()
 
-					sut := NewUserFriendlyPrinter(printerMock, loaderMock, propPrintMock)
+					sut := NewUserFriendlyPrinter(printerMock, propPrintMock)
 
-					err := sut.PrintStatus(addonName, addonDirectory)
+					err := sut.PrintStatus(addonName, loaderMock.loadAddonStatus)
 
 					Expect(err).ToNot(HaveOccurred())
 					propPrintMock.AssertExpectations(GinkgoT())
@@ -437,6 +443,23 @@ var _ = Describe("addons status print", func() {
 			})
 		})
 
+		Describe("PrintSystemNotInstalledError", func() {
+			It("returns system-not-installed command failure", func() {
+				sut := NewUserFriendlyPrinter(nil)
+
+				err := sut.PrintSystemNotInstalledError("")
+
+				var cmdFailure *common.CmdFailure
+				Expect(errors.As(err, &cmdFailure)).To(BeTrue())
+				Expect(cmdFailure.Code).To(Equal(setupinfo.ErrSystemNotInstalled.Error()))
+				Expect(cmdFailure.Message).To(Equal(common.ErrSystemNotInstalledMsg))
+				Expect(cmdFailure.Severity).To(Equal(common.SeverityWarning))
+				Expect(cmdFailure.SuppressCliOutput).To(BeFalse())
+			})
+		})
+	})
+
+	Describe("propPrint", func() {
 		Describe("PrintProp", func() {
 			It("orchestrates text colorization and printing", func() {
 				okay := false

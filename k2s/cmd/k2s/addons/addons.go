@@ -15,6 +15,7 @@ import (
 	"sync"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/addons/print"
+	"github.com/siemens-healthineers/k2s/internal/powershell"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils/psexecutor"
 
@@ -140,10 +141,10 @@ func LoadAddons() (Addons, error) {
 	return allAddons, nil
 }
 
-func LoadEnabledAddons() (*EnabledAddons, error) {
+func LoadEnabledAddons(psVersion powershell.PowerShellVersion) (*EnabledAddons, error) {
 	scriptPath := utils.FormatScriptFilePath(utils.InstallDir() + fmt.Sprintf("\\%s\\Get-EnabledAddons.ps1", addonsDirName))
 
-	enabledAddons, err := psexecutor.ExecutePsWithStructuredResult[*EnabledAddons](scriptPath, "EnabledAddons", psexecutor.ExecOptions{IgnoreNotInstalledErr: true})
+	enabledAddons, err := psexecutor.ExecutePsWithStructuredResult[*EnabledAddons](scriptPath, "EnabledAddons", psexecutor.ExecOptions{PowerShellVersion: psVersion})
 	if err != nil {
 		return nil, fmt.Errorf("could not load enabled addons: %s", err)
 	}

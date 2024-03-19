@@ -8,12 +8,12 @@ import (
 	"log/slog"
 	"strconv"
 
+	"github.com/siemens-healthineers/k2s/internal/powershell"
 	"github.com/siemens-healthineers/k2s/internal/version"
 
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
-
-	c "github.com/siemens-healthineers/k2s/cmd/k2s/config"
+	"github.com/spf13/pflag"
 
 	p "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/params"
 
@@ -43,19 +43,28 @@ func init() {
 	Uninstallk8sCmd.Flags().PrintDefaults()
 }
 
-func uninstallk8s(ccmd *cobra.Command, args []string) error {
+func uninstallk8s(cmd *cobra.Command, args []string) error {
 	version := version.GetVersion()
 
 	pterm.Printfln("🤖 Uninstalling K2s %s", version)
 
-	uninstallCmd, err := buildUninstallCmd(ccmd)
+	configDir := cmd.Context().Value(common.ContextKeyConfigDir).(string)
+	config, err := setupinfo.LoadConfig(configDir)
+	if err != nil {
+		if errors.Is(err, setupinfo.ErrSystemNotInstalled) {
+			return common.CreateSystemNotInstalledCmdFailure()
+		}
+		return err
+	}
+
+	uninstallCmd, err := buildUninstallCmd(cmd.Flags(), config.SetupName)
 	if err != nil {
 		return err
 	}
 
 	slog.Debug("PS command created", "command", uninstallCmd)
 
-	duration, err := psexecutor.ExecutePowershellScript(uninstallCmd)
+	duration, err := psexecutor.ExecutePowershellScript(uninstallCmd, psexecutor.ExecOptions{PowerShellVersion: powershell.DeterminePsVersion(config)})
 	if err != nil {
 		return err
 	}
@@ -65,30 +74,20 @@ func uninstallk8s(ccmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func buildUninstallCmd(ccmd *cobra.Command) (string, error) {
-	skipPurgeFlag, err := strconv.ParseBool(ccmd.Flags().Lookup(skipPurge).Value.String())
+func buildUninstallCmd(flags *pflag.FlagSet, setupName setupinfo.SetupName) (string, error) {
+	skipPurgeFlag, err := strconv.ParseBool(flags.Lookup(skipPurge).Value.String())
 	if err != nil {
 		return "", err
 	}
 
-	outputFlag, err := strconv.ParseBool(ccmd.Flags().Lookup(p.OutputFlagName).Value.String())
+	outputFlag, err := strconv.ParseBool(flags.Lookup(p.OutputFlagName).Value.String())
 	if err != nil {
 		return "", err
 	}
 
-	additionalHooksDir := ccmd.Flags().Lookup(p.AdditionalHooksDirFlagName).Value.String()
+	additionalHooksDir := flags.Lookup(p.AdditionalHooksDirFlagName).Value.String()
 
-	config := c.NewAccess()
-
-	setupName, err := config.GetSetupName()
-	if err != nil {
-		if errors.Is(err, setupinfo.ErrSystemNotInstalled) {
-			return "", common.CreateSystemNotInstalledCmdFailure()
-		}
-		return "", err
-	}
-
-	deleteFilesForOfflineInstallation, err := strconv.ParseBool(ccmd.Flags().Lookup(p.DeleteFilesFlagName).Value.String())
+	deleteFilesForOfflineInstallation, err := strconv.ParseBool(flags.Lookup(p.DeleteFilesFlagName).Value.String())
 	if err != nil {
 		return "", err
 	}
@@ -132,7 +131,7 @@ func buildk2sUninstallCmd(skipPurge bool, showLogs bool, additionalHooksDir stri
 }
 
 func buildBuildOnlyUninstallCmd(showLogs bool, deleteFilesForOfflineInstallation bool) string {
-	cmd := utils.FormatScriptFilePath(c.SetupRootDir + "\\smallsetup\\common\\" + "UninstallBuildOnlySetup.ps1")
+	cmd := utils.FormatScriptFilePath(utils.InstallDir() + "\\smallsetup\\common\\UninstallBuildOnlySetup.ps1")
 
 	if showLogs {
 		cmd += " -ShowLogs"
@@ -146,7 +145,7 @@ func buildBuildOnlyUninstallCmd(showLogs bool, deleteFilesForOfflineInstallation
 }
 
 func buildMultiVMUninstallCmd(skipPurge bool, showLogs bool, additionalHooksDir string, deleteFilesForOfflineInstallation bool) string {
-	cmd := utils.FormatScriptFilePath(c.SetupRootDir + "\\smallsetup\\multivm\\" + "Uninstall_MultiVMK8sSetup.ps1")
+	cmd := utils.FormatScriptFilePath(utils.InstallDir() + "\\smallsetup\\multivm\\Uninstall_MultiVMK8sSetup.ps1")
 
 	if skipPurge {
 		cmd += " -SkipPurge"

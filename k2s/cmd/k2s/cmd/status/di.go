@@ -14,13 +14,11 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/status/runningstate"
 
-	"github.com/siemens-healthineers/k2s/internal/terminal"
-
 	"github.com/siemens-healthineers/k2s/internal/json"
+	"github.com/siemens-healthineers/k2s/internal/terminal"
 )
 
-func NewStatusPrinter() StatusPrinter {
-	terminalPrinter := terminal.NewTerminalPrinter()
+func NewStatusPrinter(terminalPrinter terminal.TerminalPrinter) StatusPrinter {
 	runningStatePrinter := runningstate.NewRunningStatePrinter(terminalPrinter)
 	setupInfoPrinter := setupinfo.NewSetupInfoPrinter(terminalPrinter)
 	nodeStatusPrinter := nodestatus.NewNodeStatusPrinter(terminalPrinter)
@@ -38,9 +36,7 @@ func NewStatusPrinter() StatusPrinter {
 	}
 }
 
-func NewStatusJsonPrinter() StatusJsonPrinter {
-	terminalPrinter := terminal.NewTerminalPrinter()
-
+func NewStatusJsonPrinter(terminalPrinter TerminalPrinter) StatusJsonPrinter {
 	return StatusJsonPrinter{
 		loadStatusFunc: load.LoadStatus,
 		jsonPrinter:    sj.NewJsonPrinter(terminalPrinter, json.MarshalIndent),

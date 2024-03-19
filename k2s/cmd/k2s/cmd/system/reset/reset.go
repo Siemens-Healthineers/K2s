@@ -4,9 +4,12 @@
 package reset
 
 import (
+	"errors"
 	"log/slog"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
+	"github.com/siemens-healthineers/k2s/internal/powershell"
+	"github.com/siemens-healthineers/k2s/internal/setupinfo"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils/psexecutor"
 
@@ -35,7 +38,19 @@ func resetSystem(cmd *cobra.Command, args []string) error {
 
 	slog.Debug("PS command created", "command", resetSystemCommand)
 
-	duration, err := psexecutor.ExecutePowershellScript(resetSystemCommand)
+	configDir := cmd.Context().Value(common.ContextKeyConfigDir).(string)
+	config, err := setupinfo.LoadConfig(configDir)
+	psVersion := powershell.DefaultPsVersions
+	if err != nil {
+		if errors.Is(err, setupinfo.ErrSystemNotInstalled) {
+			slog.Info("Setup not installed, falling back to default PowerShell version", "error", err, "version", psVersion)
+		}
+		return err
+	} else {
+		psVersion = powershell.DeterminePsVersion(config)
+	}
+
+	duration, err := psexecutor.ExecutePowershellScript(resetSystemCommand, psexecutor.ExecOptions{PowerShellVersion: psVersion})
 	if err != nil {
 		return err
 	}

@@ -4,9 +4,13 @@
 package ssh
 
 import (
+	"errors"
 	"log/slog"
 
+	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
+	"github.com/siemens-healthineers/k2s/internal/powershell"
+	"github.com/siemens-healthineers/k2s/internal/setupinfo"
 
 	"github.com/spf13/cobra"
 )
@@ -62,6 +66,15 @@ func (m *masterBaseCommandProvider) getShellExecutorCommand() string {
 }
 
 func sshMaster(cmd *cobra.Command, args []string) error {
+	configDir := cmd.Context().Value(common.ContextKeyConfigDir).(string)
+	config, err := setupinfo.LoadConfig(configDir)
+	if err != nil {
+		if errors.Is(err, setupinfo.ErrSystemNotInstalled) {
+			return common.CreateSystemNotInstalledCmdFailure()
+		}
+		return err
+	}
+
 	slog.Info("Connecting to Linux node")
 
 	remoteCmd, err := getRemoteCommandToExecute(cmd.ArgsLenAtDash(), args)
@@ -71,5 +84,5 @@ func sshMaster(cmd *cobra.Command, args []string) error {
 
 	handler := commandHandlerCreatorFuncForMaster()
 
-	return handler.Handle(remoteCmd)
+	return handler.Handle(remoteCmd, powershell.DeterminePsVersion(config))
 }

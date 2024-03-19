@@ -9,11 +9,13 @@ import (
 	"log/slog"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 
+	"github.com/siemens-healthineers/k2s/internal/powershell"
+	"github.com/siemens-healthineers/k2s/internal/setupinfo"
 	"github.com/siemens-healthineers/k2s/internal/terminal"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/addons/common"
+	cc "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/addons"
 
@@ -36,7 +38,7 @@ func NewCommand(allAddons addons.Addons) *cobra.Command {
 		Use:   "ls",
 		Short: "List addons available for K2s",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return listAddons(cmd.Flags(), allAddons)
+			return listAddons(cmd, allAddons)
 		},
 	}
 
@@ -47,12 +49,12 @@ func NewCommand(allAddons addons.Addons) *cobra.Command {
 	return cmd
 }
 
-func listAddons(flagSet *pflag.FlagSet, allAddons addons.Addons) error {
+func listAddons(cmd *cobra.Command, allAddons addons.Addons) error {
 	common.LogAddons(allAddons)
 
 	slog.Info("Listing addons")
 
-	outputOption, err := flagSet.GetString(outputFlagName)
+	outputOption, err := cmd.Flags().GetString(outputFlagName)
 	if err != nil {
 		return err
 	}
@@ -61,18 +63,30 @@ func listAddons(flagSet *pflag.FlagSet, allAddons addons.Addons) error {
 		return fmt.Errorf("parameter '%s' not supported for flag 'o'", outputOption)
 	}
 
-	if outputOption == jsonOption {
-		return printAddonsAsJson(allAddons)
+	configDir := cmd.Context().Value(cc.ContextKeyConfigDir).(string)
+	config, err := setupinfo.LoadConfig(configDir)
+	psVersion := powershell.DefaultPsVersions
+	if err != nil {
+		if !errors.Is(err, setupinfo.ErrSystemNotInstalled) {
+			return err
+		}
+		slog.Info("Setup not installed, falling back to default PowerShell version", "error", err, "version", psVersion)
+	} else {
+		psVersion = powershell.DeterminePsVersion(config)
 	}
 
-	return printAddonsUserFriendly(allAddons)
+	if outputOption == jsonOption {
+		return printAddonsAsJson(allAddons, psVersion)
+	}
+
+	return printAddonsUserFriendly(allAddons, psVersion)
 }
 
-func printAddonsAsJson(loadedAddons addons.Addons) error {
+func printAddonsAsJson(loadedAddons addons.Addons, psVersion powershell.PowerShellVersion) error {
 	terminalPrinter := terminal.NewTerminalPrinter()
 	addonsPrinter := print.NewAddonsPrinter(terminalPrinter)
 
-	enabledAddons, err := addons.LoadEnabledAddons()
+	enabledAddons, err := addons.LoadEnabledAddons(psVersion)
 	if err != nil {
 		return err
 	}
@@ -84,7 +98,7 @@ func printAddonsAsJson(loadedAddons addons.Addons) error {
 	return nil
 }
 
-func printAddonsUserFriendly(loadedAddons addons.Addons) error {
+func printAddonsUserFriendly(loadedAddons addons.Addons, psVersion powershell.PowerShellVersion) error {
 	terminalPrinter := terminal.NewTerminalPrinter()
 	addonsPrinter := print.NewAddonsPrinter(terminalPrinter)
 
@@ -100,7 +114,7 @@ func printAddonsUserFriendly(loadedAddons addons.Addons) error {
 		}
 	}()
 
-	enabledAddons, err := addons.LoadEnabledAddons()
+	enabledAddons, err := addons.LoadEnabledAddons(psVersion)
 	if err != nil {
 		return err
 	}

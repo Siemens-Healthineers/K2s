@@ -20,6 +20,7 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 
+	"github.com/siemens-healthineers/k2s/internal/powershell"
 	"github.com/siemens-healthineers/k2s/internal/setupinfo"
 )
 
@@ -82,15 +83,22 @@ func AddInitFlags(cmd *cobra.Command) {
 
 func upgradeCluster(cmd *cobra.Command, args []string) error {
 	pterm.Println("🤖 Analyze current cluster and check prerequisites ...")
-	upgradeCommand := createUpgradeCommand(cmd)
 
-	slog.Debug("PS command created", "command", upgradeCommand)
-
-	duration, err := psexecutor.ExecutePowershellScript(upgradeCommand)
+	configDir := cmd.Context().Value(common.ContextKeyConfigDir).(string)
+	config, err := setupinfo.LoadConfig(configDir)
 	if err != nil {
 		if errors.Is(err, setupinfo.ErrSystemNotInstalled) {
 			return common.CreateSystemNotInstalledCmdFailure()
 		}
+		return err
+	}
+
+	upgradeCommand := createUpgradeCommand(cmd)
+
+	slog.Debug("PS command created", "command", upgradeCommand)
+
+	duration, err := psexecutor.ExecutePowershellScript(upgradeCommand, psexecutor.ExecOptions{PowerShellVersion: powershell.DeterminePsVersion(config)})
+	if err != nil {
 		return err
 	}
 

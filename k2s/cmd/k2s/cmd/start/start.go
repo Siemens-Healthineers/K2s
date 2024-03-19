@@ -10,10 +10,9 @@ import (
 
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils/tz"
-
-	c "github.com/siemens-healthineers/k2s/cmd/k2s/config"
 
 	p "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/params"
 
@@ -23,6 +22,7 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 
+	"github.com/siemens-healthineers/k2s/internal/powershell"
 	"github.com/siemens-healthineers/k2s/internal/setupinfo"
 )
 
@@ -42,7 +42,16 @@ func init() {
 func startk8s(ccmd *cobra.Command, args []string) error {
 	pterm.Printfln("🤖 Starting K2s on %s", utils.Platform())
 
-	startCmd, err := buildStartCmd(ccmd)
+	configDir := ccmd.Context().Value(common.ContextKeyConfigDir).(string)
+	config, err := setupinfo.LoadConfig(configDir)
+	if err != nil {
+		if errors.Is(err, setupinfo.ErrSystemNotInstalled) {
+			return common.CreateSystemNotInstalledCmdFailure()
+		}
+		return err
+	}
+
+	startCmd, err := buildStartCmd(ccmd.Flags(), config.SetupName)
 	if err != nil {
 		return err
 	}
@@ -55,7 +64,7 @@ func startk8s(ccmd *cobra.Command, args []string) error {
 
 	slog.Debug("PS command created", "command", startCmd)
 
-	duration, err := psexecutor.ExecutePowershellScript(startCmd)
+	duration, err := psexecutor.ExecutePowershellScript(startCmd, psexecutor.ExecOptions{PowerShellVersion: powershell.DeterminePsVersion(config)})
 	if err != nil {
 		return err
 	}
@@ -65,26 +74,16 @@ func startk8s(ccmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func buildStartCmd(ccmd *cobra.Command) (string, error) {
-	outputFlag, err := strconv.ParseBool(ccmd.Flags().Lookup(p.OutputFlagName).Value.String())
+func buildStartCmd(flags *pflag.FlagSet, setupName setupinfo.SetupName) (string, error) {
+	outputFlag, err := strconv.ParseBool(flags.Lookup(p.OutputFlagName).Value.String())
 	if err != nil {
 		return "", err
 	}
 
-	additionalHooksDir := ccmd.Flags().Lookup(p.AdditionalHooksDirFlagName).Value.String()
+	additionalHooksDir := flags.Lookup(p.AdditionalHooksDirFlagName).Value.String()
 
-	autouseCachedVSwitch, err := strconv.ParseBool(ccmd.Flags().Lookup(p.AutouseCachedVSwitchFlagName).Value.String())
+	autouseCachedVSwitch, err := strconv.ParseBool(flags.Lookup(p.AutouseCachedVSwitchFlagName).Value.String())
 	if err != nil {
-		return "", err
-	}
-
-	config := c.NewAccess()
-
-	setupName, err := config.GetSetupName()
-	if err != nil {
-		if errors.Is(err, setupinfo.ErrSystemNotInstalled) {
-			return "", common.CreateSystemNotInstalledCmdFailure()
-		}
 		return "", err
 	}
 
@@ -123,7 +122,7 @@ func buildk2sStartCmd(showLogs bool, additionalHooksDir string, autouseCachedVSw
 }
 
 func buildMultiVMStartCmd(showLogs bool, additionalHooksDir string) string {
-	cmd := utils.FormatScriptFilePath(c.SetupRootDir + "\\smallsetup\\multivm\\" + "Start_MultiVMK8sSetup.ps1")
+	cmd := utils.FormatScriptFilePath(utils.InstallDir() + "\\smallsetup\\multivm\\Start_MultiVMK8sSetup.ps1")
 
 	if showLogs {
 		cmd += " -ShowLogs"

@@ -8,13 +8,10 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils/tz"
 
 	ic "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/install/config"
-
-	"github.com/siemens-healthineers/k2s/cmd/k2s/config"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/params"
 
@@ -22,7 +19,7 @@ import (
 )
 
 type installer interface {
-	Install(kind ic.Kind, flags *pflag.FlagSet, buildCmdFunc func(config *ic.InstallConfig) (cmd string, err error)) error
+	Install(kind ic.Kind, cmd *cobra.Command, buildCmdFunc func(config *ic.InstallConfig) (cmd string, err error)) error
 }
 
 const (
@@ -101,7 +98,7 @@ func Install(cmd *cobra.Command, args []string) error {
 	}
 	defer tzConfigHandle.Release()
 
-	return Installer.Install(kind, cmd.Flags(), buildInstallCmd)
+	return Installer.Install(kind, cmd, buildInstallCmd)
 }
 
 func buildInstallCmd(c *ic.InstallConfig) (cmd string, err error) {
@@ -115,7 +112,7 @@ func buildInstallCmd(c *ic.InstallConfig) (cmd string, err error) {
 		return "", err
 	}
 
-	path := fmt.Sprintf("%s\\smallsetup\\multivm\\Install_MultiVMK8sSetup.ps1", config.SetupRootDir)
+	path := fmt.Sprintf("%s\\smallsetup\\multivm\\Install_MultiVMK8sSetup.ps1", utils.InstallDir())
 	formattedPath := utils.FormatScriptFilePath(path)
 	cmd = fmt.Sprintf("%s -MasterVMProcessorCount %s -MasterVMMemory %s -MasterDiskSize %s",
 		formattedPath,

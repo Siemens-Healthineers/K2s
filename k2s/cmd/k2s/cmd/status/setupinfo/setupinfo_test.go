@@ -10,8 +10,6 @@ import (
 
 	"github.com/siemens-healthineers/k2s/internal/reflection"
 
-	si "github.com/siemens-healthineers/k2s/internal/setupinfo"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/stretchr/testify/mock"
@@ -51,9 +49,9 @@ var _ = Describe("setupinfo", func() {
 
 		When("no Linux-only", func() {
 			It("prints setup info without Linux-only hint", func() {
-				name := si.SetupName("test-name")
+				name := "test-name"
 				version := "test-version"
-				info := &si.SetupInfo{Name: name, LinuxOnly: false, Version: version}
+				info := &setupinfo.PrintSetupInfo{Name: name, LinuxOnly: false, Version: version}
 
 				printerMock := &mockObject{}
 				printerMock.On(reflection.GetFunctionName(printerMock.PrintCyanFg), string(name)).Return(string(name))
@@ -74,7 +72,7 @@ var _ = Describe("setupinfo", func() {
 		When("Linux-only", func() {
 			It("prints setup info with Linux-only hint", func() {
 				version := "test-version"
-				info := &si.SetupInfo{Name: "test-name", LinuxOnly: true, Version: version}
+				info := &setupinfo.PrintSetupInfo{Name: "test-name", LinuxOnly: true, Version: version}
 
 				printerMock := &mockObject{}
 				printerMock.On(reflection.GetFunctionName(printerMock.PrintCyanFg), "test-name (Linux-only)").Return("test-name (Linux-only)")

@@ -17,7 +17,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -25,8 +24,8 @@ type mockObject struct {
 	mock.Mock
 }
 
-func (m *mockObject) Install(kind ic.Kind, flags *pflag.FlagSet, buildCmdFunc func(config *ic.InstallConfig) (cmd string, err error)) error {
-	args := m.Called(kind, flags, buildCmdFunc)
+func (m *mockObject) Install(kind ic.Kind, cmd *cobra.Command, buildCmdFunc func(config *ic.InstallConfig) (cmd string, err error)) error {
+	args := m.Called(kind, cmd, buildCmdFunc)
 
 	return args.Error(0)
 }
@@ -72,7 +71,7 @@ var _ = Describe("install", func() {
 				flags.Bool(ic.LinuxOnlyFlagName, false, "")
 
 				installerMock := &mockObject{}
-				installerMock.On(r.GetFunctionName(installerMock.Install), kind, flags, mock.AnythingOfType("func(*config.InstallConfig) (string, error)")).Return(nil).Once()
+				installerMock.On(r.GetFunctionName(installerMock.Install), kind, cmd, mock.AnythingOfType("func(*config.InstallConfig) (string, error)")).Return(nil).Once()
 
 				installer = installerMock
 

@@ -7,12 +7,12 @@ import (
 	"strconv"
 	"time"
 
-	c "github.com/siemens-healthineers/k2s/cmd/k2s/config"
-
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils/psexecutor"
 
 	"github.com/spf13/cobra"
 
+	"github.com/siemens-healthineers/k2s/internal/powershell"
+	"github.com/siemens-healthineers/k2s/internal/setupinfo"
 	"github.com/siemens-healthineers/k2s/internal/terminal"
 
 	p "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/params"
@@ -39,11 +39,12 @@ func init() {
 }
 
 func resetNetwork(cmd *cobra.Command, args []string) error {
-	config := c.NewAccess()
-
-	setupName, err := config.GetSetupName()
-	if err == nil && setupName != "" {
-		terminal.NewTerminalPrinter().PrintInfofln("'%s' setup is installed, please uninstall with 'k2s uninstall' first or reset system with 'k2s system reset' and re-run the 'k2s system reset network' command afterwards.", setupName)
+	configDir := cmd.Context().Value(common.ContextKeyConfigDir).(string)
+	config, err := setupinfo.LoadConfig(configDir)
+	if err == nil && config.SetupName != "" {
+		terminal.NewTerminalPrinter().PrintInfofln(
+			"'%s' setup is installed, please uninstall with 'k2s uninstall' first or reset system with 'k2s system reset' and re-run the 'k2s system reset network' command afterwards.",
+			config.SetupName)
 		return nil
 	}
 
@@ -71,7 +72,7 @@ func resetNetwork(cmd *cobra.Command, args []string) error {
 
 	start := time.Now()
 
-	cmdResult, err := psexecutor.ExecutePsWithStructuredResult[*common.CmdResult](resetNetworkCommand, "CmdResult", psexecutor.ExecOptions{}, params...)
+	cmdResult, err := psexecutor.ExecutePsWithStructuredResult[*common.CmdResult](resetNetworkCommand, "CmdResult", psexecutor.ExecOptions{PowerShellVersion: powershell.DeterminePsVersion(config)}, params...)
 
 	duration := time.Since(start)
 
