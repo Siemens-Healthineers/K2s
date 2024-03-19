@@ -7,10 +7,10 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/siemens-healthineers/k2s/internal/setupinfo"
 	"github.com/siemens-healthineers/k2s/internal/version"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/install/buildonly"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/install/core"
@@ -19,8 +19,6 @@ import (
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils/tz"
 
 	ic "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/install/config"
-
-	"github.com/siemens-healthineers/k2s/cmd/k2s/config"
 
 	"github.com/siemens-healthineers/k2s/internal/terminal"
 
@@ -34,7 +32,7 @@ import (
 )
 
 type Installer interface {
-	Install(kind ic.Kind, flags *pflag.FlagSet, buildCmdFunc func(config *ic.InstallConfig) (cmd string, err error)) error
+	Install(kind ic.Kind, cmd *cobra.Command, buildCmdFunc func(config *ic.InstallConfig) (cmd string, err error)) error
 }
 
 const (
@@ -85,14 +83,17 @@ func init() {
 	InstallCmd.AddCommand(multivm.InstallCmd)
 	InstallCmd.AddCommand(buildonly.InstallCmd)
 
-	installer = core.NewInstaller(config.NewAccess(),
-		terminal.NewTerminalPrinter(),
-		ic.NewInstallConfigAccess(),
-		psexecutor.ExecutePowershellScript,
-		version.GetVersion,
-		utils.Platform,
-		utils.InstallDir,
-		common.PrintCompletedMessage)
+	installer = &core.Installer{
+		InstallConfigAccess:       ic.NewInstallConfigAccess(),
+		Printer:                   terminal.NewTerminalPrinter(),
+		ExecutePsScript:           psexecutor.ExecutePowershellScript,
+		GetVersionFunc:            version.GetVersion,
+		GetPlatformFunc:           utils.Platform,
+		GetInstallDirFunc:         utils.InstallDir,
+		PrintCompletedMessageFunc: common.PrintCompletedMessage,
+		LoadConfigFunc:            setupinfo.LoadConfig,
+	}
+
 	multivm.Installer = installer
 	buildonly.Installer = installer
 	installMultiVmFunc = multivm.Install
@@ -157,7 +158,7 @@ func install(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	return installer.Install(kind, cmd.Flags(), buildInstallCmd)
+	return installer.Install(kind, cmd, buildInstallCmd)
 }
 
 func buildInstallCmd(c *ic.InstallConfig) (cmd string, err error) {

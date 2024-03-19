@@ -28,24 +28,6 @@ Describe 'Get-Status' -Tag 'unit', 'ci' {
             }
         }
         
-        Context 'setup name is valid' {
-            BeforeAll {
-                Mock -ModuleName $moduleName Get-SetupInfo { return @{Name = 'valid' } }
-                Mock -ModuleName $moduleName Get-RunningState { return @{IsRunning = $false } }
-
-                InModuleScope -ModuleName $moduleName {
-                    $script:result = Get-Status
-                }
-            }
-            
-            It 'returns setup name' {
-                InModuleScope -ModuleName $moduleName {
-                    $result.SetupInfo.Name | Should -Be 'valid'
-                    $result.SetupInfo.Error | Should -BeNullOrEmpty
-                }
-            }
-        }
-        
         Context 'system is not running' {
             BeforeAll {
                 Mock -ModuleName $moduleName Get-SetupInfo { return @{Name = 'valid' } }

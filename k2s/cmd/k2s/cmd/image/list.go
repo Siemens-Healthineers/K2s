@@ -11,6 +11,8 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/siemens-healthineers/k2s/internal/powershell"
+	"github.com/siemens-healthineers/k2s/internal/setupinfo"
 	"github.com/siemens-healthineers/k2s/internal/terminal"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/params"
@@ -22,8 +24,6 @@ import (
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 
 	"github.com/siemens-healthineers/k2s/internal/json"
-
-	se "github.com/siemens-healthineers/k2s/internal/setupinfo"
 )
 
 type Spinner interface {
@@ -110,12 +110,25 @@ func listImages(cmd *cobra.Command, args []string) error {
 
 	terminalPrinter := terminal.NewTerminalPrinter()
 
-	getImagesFunc := func() (*LoadedImages, error) { return getImages(includeK8sImages) }
+	configDir := cmd.Context().Value(common.ContextKeyConfigDir).(string)
+	config, err := setupinfo.LoadConfig(configDir)
+	if err != nil {
+		if !errors.Is(err, setupinfo.ErrSystemNotInstalled) {
+			return err
+		}
+		if outputOption == jsonOption {
+			return printSystemNotInstalledErrJson(terminalPrinter.Println)
+		}
+		return common.CreateSystemNotInstalledCmdFailure()
+	}
+
+	getImagesFunc := func() (*LoadedImages, error) {
+		return getImages(includeK8sImages, powershell.DeterminePsVersion(config))
+	}
 
 	if outputOption == jsonOption {
 		return printImagesAsJson(getImagesFunc, terminalPrinter.Println)
 	}
-
 	return printImagesToUser(getImagesFunc, terminalPrinter)
 }
 
@@ -146,6 +159,25 @@ func printImagesAsJson(getImagesFunc func() (*LoadedImages, error), printlnFunc 
 	printlnFunc(string(bytes))
 
 	return deferredErr
+}
+
+func printSystemNotInstalledErrJson(printlnFunc func(m ...any)) error {
+	errCode := setupinfo.ErrSystemNotInstalled.Error()
+	printImages := PrintImages{
+		Error: &errCode,
+	}
+
+	bytes, err := json.MarshalIndent(printImages)
+	if err != nil {
+		return err
+	}
+
+	printlnFunc(string(bytes))
+
+	failure := common.CreateSystemNotInstalledCmdFailure()
+	failure.SuppressCliOutput = true
+
+	return failure
 }
 
 func printImagesToUser(getImagesFunc func() (*LoadedImages, error), printer terminal.TerminalPrinter) error {
@@ -201,7 +233,7 @@ func startSpinner(terminalPrinter terminal.TerminalPrinter) (Spinner, error) {
 	return spinner, nil
 }
 
-func getImages(includeK8sImages bool) (*LoadedImages, error) {
+func getImages(includeK8sImages bool, psVersion powershell.PowerShellVersion) (*LoadedImages, error) {
 	cmd := utils.FormatScriptFilePath(utils.InstallDir() + "\\lib\\scripts\\k2s\\image\\Get-Images.ps1")
 
 	var params []string
@@ -209,15 +241,7 @@ func getImages(includeK8sImages bool) (*LoadedImages, error) {
 		params = []string{"-IncludeK8sImages"}
 	}
 
-	images, err := psexecutor.ExecutePsWithStructuredResult[*LoadedImages](cmd, "StoredImages", psexecutor.ExecOptions{}, params...)
-	if err != nil {
-		if !errors.Is(err, se.ErrSystemNotInstalled) {
-			return nil, err
-		}
-		images = &LoadedImages{CmdResult: common.CreateSystemNotInstalledCmdResult()}
-	}
-
-	return images, nil
+	return psexecutor.ExecutePsWithStructuredResult[*LoadedImages](cmd, "StoredImages", psexecutor.ExecOptions{PowerShellVersion: psVersion}, params...)
 }
 
 func printAvailableImages(terminalPrinter terminal.TerminalPrinter, containerImages []containerImage) {

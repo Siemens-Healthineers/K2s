@@ -11,19 +11,17 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/config"
-
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils/psexecutor"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 
-	"github.com/siemens-healthineers/k2s/internal/setupinfo"
+	"github.com/siemens-healthineers/k2s/internal/powershell"
 )
 
 type commandHandler interface {
-	Handle(cmd string) error
+	Handle(cmd string, psVersion powershell.PowerShellVersion) error
 }
 
 type baseCommandProvider interface {
@@ -34,15 +32,11 @@ type baseCommandProvider interface {
 type remoteCommandHandler struct {
 	baseCommandProvider baseCommandProvider
 	processExecFunc     func(proc string) error
-	commandExecFunc     func(baseCmd, cmd string) error
+	commandExecFunc     func(baseCmd, cmd string, psVersion powershell.PowerShellVersion) error
 }
 
 var (
 	sshExecFunc func(proc string) error = func(proc string) error {
-		if err := ensureSetupIsInstalled(); err != nil {
-			return err
-		}
-
 		sshCmd := exec.Command(proc)
 		sshCmd.Stdin = os.Stdin
 		sshCmd.Stdout = os.Stdout
@@ -50,11 +44,11 @@ var (
 		return sshCmd.Run()
 	}
 
-	cmdOverSshExecFunc func(baseCmd, cmd string) error = func(baseCmd, cmd string) error {
+	cmdOverSshExecFunc func(baseCmd, cmd string, psVersion powershell.PowerShellVersion) error = func(baseCmd, cmd string, psVersion powershell.PowerShellVersion) error {
 		cmdResult, err := psexecutor.ExecutePsWithStructuredResult[*common.CmdResult](
 			baseCmd,
 			"CmdResult",
-			psexecutor.ExecOptions{NoProgress: true},
+			psexecutor.ExecOptions{NoProgress: true, PowerShellVersion: psVersion},
 			"-Command",
 			fmt.Sprintf("\"%s\"", cmd))
 		if err != nil {
@@ -72,17 +66,11 @@ var (
 	}
 )
 
-func (r *remoteCommandHandler) Handle(cmd string) error {
-	var err error
+func (r *remoteCommandHandler) Handle(cmd string, psVersion powershell.PowerShellVersion) error {
 	if cmd == "" {
-		err = r.startShell()
-	} else {
-		err = r.executeCommand(cmd)
+		return r.startShell()
 	}
-	if errors.Is(err, setupinfo.ErrSystemNotInstalled) {
-		return common.CreateSystemNotInstalledCmdFailure()
-	}
-	return err
+	return r.executeCommand(cmd, psVersion)
 }
 
 func (r *remoteCommandHandler) startShell() error {
@@ -91,10 +79,10 @@ func (r *remoteCommandHandler) startShell() error {
 	return r.processExecFunc(shell)
 }
 
-func (r *remoteCommandHandler) executeCommand(cmd string) error {
+func (r *remoteCommandHandler) executeCommand(cmd string, psVersion powershell.PowerShellVersion) error {
 	baseCommand := r.baseCommandProvider.getShellExecutorCommand()
 
-	return r.commandExecFunc(baseCommand, cmd)
+	return r.commandExecFunc(baseCommand, cmd, psVersion)
 }
 
 func getRemoteCommandToExecute(argsLenAtDash int, args []string) (string, error) {
@@ -116,12 +104,4 @@ func getRemoteCommandToExecute(argsLenAtDash int, args []string) (string, error)
 	slog.Debug("PS command created", "command", cmdToExecute)
 
 	return cmdToExecute, nil
-}
-
-func ensureSetupIsInstalled() error {
-	ca := config.NewAccess()
-
-	_, err := ca.GetSetupName()
-
-	return err
 }

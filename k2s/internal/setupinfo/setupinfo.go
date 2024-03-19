@@ -5,15 +5,21 @@ package setupinfo
 
 import (
 	"errors"
+	"log/slog"
+	"os"
+	"path/filepath"
+
+	"github.com/siemens-healthineers/k2s/internal/json"
 )
 
 type SetupName string
-type SetupError string
 
-type SetupInfo struct {
-	Version   string    `json:"version"`
-	Name      SetupName `json:"name"`
-	LinuxOnly bool      `json:"linuxOnly"`
+type Config struct {
+	SetupName        SetupName `json:"SetupType"`
+	Registries       []string  `json:"Registries"`
+	LoggedInRegistry string    `json:"LoggedInRegistry"`
+	LinuxOnly        bool      `json:"LinuxOnly"`
+	Version          string    `json:"Version"`
 }
 
 const (
@@ -25,3 +31,19 @@ const (
 var (
 	ErrSystemNotInstalled = errors.New("system-not-installed")
 )
+
+func LoadConfig(configDir string) (*Config, error) {
+	configPath := filepath.Join(configDir, "setup.json")
+
+	config, err := json.FromFile[Config](configPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			slog.Info("Setup config file not found, assuming setup is not installed", "error", err, "path", configPath)
+
+			return nil, ErrSystemNotInstalled
+		}
+		return nil, err
+	}
+
+	return config, nil
+}

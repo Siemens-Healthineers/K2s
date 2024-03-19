@@ -20,6 +20,7 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 
+	"github.com/siemens-healthineers/k2s/internal/powershell"
 	"github.com/siemens-healthineers/k2s/internal/setupinfo"
 )
 
@@ -48,11 +49,17 @@ func cleanImages(cmd *cobra.Command, args []string) error {
 
 	start := time.Now()
 
-	cmdResult, err := psexecutor.ExecutePsWithStructuredResult[*common.CmdResult](psCmd, "CmdResult", psexecutor.ExecOptions{}, params...)
+	configDir := cmd.Context().Value(common.ContextKeyConfigDir).(string)
+	config, err := setupinfo.LoadConfig(configDir)
 	if err != nil {
 		if errors.Is(err, setupinfo.ErrSystemNotInstalled) {
 			return common.CreateSystemNotInstalledCmdFailure()
 		}
+		return err
+	}
+
+	cmdResult, err := psexecutor.ExecutePsWithStructuredResult[*common.CmdResult](psCmd, "CmdResult", psexecutor.ExecOptions{PowerShellVersion: powershell.DeterminePsVersion(config)}, params...)
+	if err != nil {
 		return err
 	}
 

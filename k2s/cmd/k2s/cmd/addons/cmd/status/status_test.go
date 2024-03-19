@@ -9,14 +9,11 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/addons/status"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/addons"
-
-	r "github.com/siemens-healthineers/k2s/internal/reflection"
+	"github.com/siemens-healthineers/k2s/internal/powershell"
 
 	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -24,7 +21,7 @@ type mockObject struct {
 	mock.Mock
 }
 
-func (m *mockObject) mockDeterminePrinter(outputOption string) StatusPrinter {
+func (m *mockObject) mockDeterminePrinter(outputOption string, psVersion powershell.PowerShellVersion) StatusPrinter {
 	args := m.Called(outputOption)
 
 	return args.Get(0).(StatusPrinter)
@@ -46,58 +43,6 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = Describe("status", func() {
-	Describe("runStatusCmd", func() {
-		When("flag value cannot be retrieved", func() {
-			It("returns error", func() {
-				cmd := &cobra.Command{}
-
-				err := runStatusCmd(cmd, addons.Addon{}, nil)
-
-				Expect(err).To(MatchError(ContainSubstring("not defined")))
-			})
-		})
-
-		When("flag value is invalid", func() {
-			It("returns error", func() {
-				cmd := &cobra.Command{}
-				cmd.Flags().StringP(outputFlagName, "o", "invalid-value", "Test flag")
-				cmd.Flags().SortFlags = false
-				cmd.Flags().PrintDefaults()
-
-				err := runStatusCmd(cmd, addons.Addon{}, nil)
-
-				Expect(err).To(MatchError(ContainSubstring("not supported")))
-			})
-		})
-
-		When("successful", func() {
-			It("calls the printer", func() {
-				addon := addons.Addon{
-					Metadata: addons.AddonMetadata{
-						Name: "test-addon",
-					},
-					Directory: "test-dir",
-				}
-
-				cmd := &cobra.Command{}
-				cmd.Flags().StringP(outputFlagName, "o", jsonOption, "Test flag")
-				cmd.Flags().SortFlags = false
-				cmd.Flags().PrintDefaults()
-
-				printerMock := &mockObject{}
-				printerMock.On(r.GetFunctionName(printerMock.PrintStatus), addon.Metadata.Name, addon.Directory).Return(nil).Once()
-
-				determinationMock := &mockObject{}
-				determinationMock.On(r.GetFunctionName(determinationMock.mockDeterminePrinter), jsonOption).Return(printerMock)
-
-				err := runStatusCmd(cmd, addon, determinationMock.mockDeterminePrinter)
-
-				Expect(err).ToNot(HaveOccurred())
-				printerMock.AssertExpectations(GinkgoT())
-			})
-		})
-	})
-
 	Describe("determinePrinter", func() {
 		When("json option is passed", func() {
 			It("returns json printer", func() {
