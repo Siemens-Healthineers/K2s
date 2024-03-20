@@ -22,10 +22,6 @@ import (
 	"github.com/siemens-healthineers/k2s/cmd/k2s/addons/print"
 )
 
-type Spinner interface {
-	Stop() error
-}
-
 const (
 	Enabled        = "Enabled"
 	Disabled       = "Disabled"
@@ -102,19 +98,15 @@ func printAddonsUserFriendly(loadedAddons addons.Addons, psVersion powershell.Po
 	terminalPrinter := terminal.NewTerminalPrinter()
 	addonsPrinter := print.NewAddonsPrinter(terminalPrinter)
 
-	spinner, err := startSpinner(terminalPrinter)
+	spinner, err := cc.StartSpinner(terminalPrinter)
 	if err != nil {
 		return err
 	}
 
-	defer func() {
-		err = spinner.Stop()
-		if err != nil {
-			slog.Error("spinner stop", "error", err)
-		}
-	}()
-
 	enabledAddons, err := addons.LoadEnabledAddons(psVersion)
+
+	cc.StopSpinner(spinner)
+
 	if err != nil {
 		return err
 	}
@@ -128,18 +120,4 @@ func printAddonsUserFriendly(loadedAddons addons.Addons, psVersion powershell.Po
 	slog.Info("Addons listed")
 
 	return nil
-}
-
-func startSpinner(terminalPrinter terminal.TerminalPrinter) (Spinner, error) {
-	startResult, err := terminalPrinter.StartSpinner("Gathering addons information...")
-	if err != nil {
-		return nil, err
-	}
-
-	spinner, ok := startResult.(Spinner)
-	if !ok {
-		return nil, errors.New("could not start operation")
-	}
-
-	return spinner, nil
 }

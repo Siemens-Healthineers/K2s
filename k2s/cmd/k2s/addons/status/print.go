@@ -4,7 +4,6 @@
 package status
 
 import (
-	"errors"
 	"log/slog"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
@@ -21,10 +20,6 @@ type TerminalPrinter interface {
 	PrintCyanFg(text string) string
 	PrintHeader(m ...any)
 	StartSpinner(m ...any) (any, error)
-}
-
-type Spinner interface {
-	Stop() error
 }
 
 type PropPrinter interface {
@@ -116,24 +111,15 @@ func (s *JsonPrinter) PrintStatus(addonName string, loadFunc func(addonName stri
 }
 
 func (s *UserFriendlyPrinter) PrintStatus(addonName string, loadFunc func(addonName string) (*LoadedAddonStatus, error)) error {
-	startResult, err := s.terminalPrinter.StartSpinner("Gathering status information...")
+	spinner, err := common.StartSpinner(s.terminalPrinter)
 	if err != nil {
 		return err
 	}
 
-	spinner, ok := startResult.(Spinner)
-	if !ok {
-		return errors.New("could not start addon status operation")
-	}
-
-	defer func() {
-		err = spinner.Stop()
-		if err != nil {
-			slog.Error("spinner stop", "error", err)
-		}
-	}()
-
 	status, err := loadFunc(addonName)
+
+	common.StopSpinner(spinner)
+
 	if err != nil {
 		return err
 	}
