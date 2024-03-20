@@ -6,7 +6,6 @@ package image
 import (
 	"errors"
 	"fmt"
-	"log/slog"
 	"strconv"
 
 	"github.com/spf13/cobra"
@@ -181,19 +180,15 @@ func printSystemNotInstalledErrJson(printlnFunc func(m ...any)) error {
 }
 
 func printImagesToUser(getImagesFunc func() (*LoadedImages, error), printer terminal.TerminalPrinter) error {
-	spinner, err := startSpinner(printer)
+	spinner, err := common.StartSpinner(printer)
 	if err != nil {
 		return err
 	}
 
-	defer func() {
-		err = spinner.Stop()
-		if err != nil {
-			slog.Error("spinner stop", "error", err)
-		}
-	}()
-
 	images, err := getImagesFunc()
+
+	common.StopSpinner(spinner)
+
 	if err != nil {
 		return err
 	}
@@ -219,20 +214,6 @@ func printImagesToUser(getImagesFunc func() (*LoadedImages, error), printer term
 	return nil
 }
 
-func startSpinner(terminalPrinter terminal.TerminalPrinter) (Spinner, error) {
-	startResult, err := terminalPrinter.StartSpinner("Gathering images stored in the cluster...")
-	if err != nil {
-		return nil, err
-	}
-
-	spinner, ok := startResult.(Spinner)
-	if !ok {
-		return nil, errors.New("could not start operation")
-	}
-
-	return spinner, nil
-}
-
 func getImages(includeK8sImages bool, psVersion powershell.PowerShellVersion) (*LoadedImages, error) {
 	cmd := utils.FormatScriptFilePath(utils.InstallDir() + "\\lib\\scripts\\k2s\\image\\Get-Images.ps1")
 
@@ -245,7 +226,6 @@ func getImages(includeK8sImages bool, psVersion powershell.PowerShellVersion) (*
 }
 
 func printAvailableImages(terminalPrinter terminal.TerminalPrinter, containerImages []containerImage) {
-	terminalPrinter.Println()
 	terminalPrinter.PrintHeader("Available Images")
 
 	containerImagesTable := [][]string{containerImagesTableHeaders}
@@ -257,7 +237,6 @@ func printAvailableImages(terminalPrinter terminal.TerminalPrinter, containerIma
 }
 
 func printAvailableImagesInContainerRegistry(terminalPrinter terminal.TerminalPrinter, containerRegistry string, pushedImages []pushedImage) {
-	terminalPrinter.Println()
 	terminalPrinter.PrintHeader(fmt.Sprintf("Images available in registry: %s", containerRegistry))
 
 	pushedImagesTable := [][]string{pushedImagesTableHeaders}

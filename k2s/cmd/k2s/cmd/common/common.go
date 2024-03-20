@@ -4,7 +4,9 @@
 package common
 
 import (
+	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils/logging"
@@ -16,6 +18,14 @@ import (
 
 type FailureSeverity uint8
 type ContextKey string
+
+type Spinner interface {
+	Stop() error
+}
+
+type TerminalPrinter interface {
+	StartSpinner(m ...any) (any, error)
+}
 
 type CmdFailure struct {
 	Severity          FailureSeverity `json:"severity"`
@@ -69,5 +79,25 @@ func CreateSystemNotInstalledCmdFailure() *CmdFailure {
 		Severity: SeverityWarning,
 		Code:     setupinfo.ErrSystemNotInstalled.Error(),
 		Message:  ErrSystemNotInstalledMsg,
+	}
+}
+
+func StartSpinner(printer TerminalPrinter) (Spinner, error) {
+	startResult, err := printer.StartSpinner("Gathering information..")
+	if err != nil {
+		return nil, err
+	}
+
+	spinner, ok := startResult.(Spinner)
+	if !ok {
+		return nil, errors.New("could not start operation")
+	}
+
+	return spinner, nil
+}
+
+func StopSpinner(spinner Spinner) {
+	if err := spinner.Stop(); err != nil {
+		slog.Error("spinner stop", "error", err)
 	}
 }

@@ -195,24 +195,15 @@ func printSystemNotInstalledErrJson(printlnFunc func(m ...any)) error {
 func printStatusUserFriendly(terminalPrinter terminal.TerminalPrinter, config *setupinfo.Config, psVersion powershell.PowerShellVersion, showAdditionalInfo bool) error {
 	printer := NewStatusPrinter(terminalPrinter)
 
-	startResult, err := printer.terminalPrinter.StartSpinner("Gathering status information...")
+	spinner, err := common.StartSpinner(terminalPrinter)
 	if err != nil {
 		return err
 	}
 
-	spinner, ok := startResult.(Spinner)
-	if !ok {
-		return errors.New("could not start operation")
-	}
-
-	defer func() {
-		err = spinner.Stop()
-		if err != nil {
-			slog.Error("spinner stop", "error", err)
-		}
-	}()
-
 	status, err := printer.loadStatusFunc(psVersion)
+
+	common.StopSpinner(spinner)
+
 	if err != nil {
 		return fmt.Errorf("status could not be loaded: %w", err)
 	}
