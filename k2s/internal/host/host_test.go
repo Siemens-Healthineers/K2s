@@ -15,7 +15,7 @@ import (
 
 func TestHostPkg(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "host pkg Integration Tests", Label("integration", "host"))
+	RunSpecs(t, "host pkg Integration Tests", Label("integration", "ci", "host"))
 }
 
 var _ = Describe("host pkg", func() {
