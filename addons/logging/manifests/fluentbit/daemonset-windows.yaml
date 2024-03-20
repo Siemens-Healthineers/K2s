@@ -1,0 +1,51 @@
+# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+#
+# SPDX-License-Identifier: MIT
+
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: fluent-bit-win
+  namespace: logging
+spec:
+  selector:
+    matchLabels:
+      app: fluent-bit-win
+  template:
+    metadata:
+      labels:
+        app: fluent-bit-win
+    spec:
+      securityContext:
+        windowsOptions:
+          hostProcess: true
+          runAsUserName: "NT AUTHORITY\\system"
+      hostNetwork: true
+      serviceAccountName: fluent-bit
+      dnsPolicy: ClusterFirst
+      containers:
+      - name: fluent-bit-win
+        image: shsk2s.azurecr.io/fluentbit:win-v2.2
+        args: ["-c", "fluent-bit.conf"]
+        imagePullPolicy: IfNotPresent
+        volumeMounts:
+        - name:  fluent-bit-win-parsers
+          mountPath: /parsers.conf
+          subPath: parsers.conf
+        - name:  fluent-bit-win-config
+          mountPath: /fluent-bit.conf
+          subPath: fluent-bit.conf
+      tolerations:
+        - key: "OS"
+          operator: "Equal"
+          value: "Windows"
+          effect: "NoSchedule"
+      nodeSelector:
+        kubernetes.io/os: windows
+      volumes:
+      - name: fluent-bit-win-parsers
+        configMap:
+          name: fluent-bit-win-parsers
+      - name: fluent-bit-win-config
+        configMap:
+          name: fluent-bit-win-config

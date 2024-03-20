@@ -33,8 +33,8 @@ spec:
       dnsPolicy: ClusterFirst
       containers:
         - name: fluent-bit
-          image: "cr.fluentbit.io/fluent/fluent-bit:2.2.2"
-          imagePullPolicy: Always
+          image: cr.fluentbit.io/fluent/fluent-bit:2.2.2
+          imagePullPolicy: IfNotPresent
           command:
             - /fluent-bit/bin/fluent-bit
           args:

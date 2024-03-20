@@ -60,10 +60,12 @@ if ($null -eq (&$global:KubectlExe get namespace logging --ignore-not-found) -or
 }
 
 Write-Log 'Uninstalling Logging Stack' -Console
+
+&$global:KubectlExe delete -k "$global:KubernetesPath\addons\logging\manifests"
+
 &$global:KubectlExe patch pv opensearch-cluster-master-pv -n logging -p '{\"metadata\":{\"finalizers\":null}}'
 &$global:KubectlExe patch pvc opensearch-cluster-master-opensearch-cluster-master-0 -n logging -p '{\"metadata\":{\"finalizers\":null}}'
 
-&$global:KubectlExe delete -k "$global:KubernetesPath\addons\logging\manifests"
 &$global:KubectlExe delete -f "$global:KubernetesPath\addons\logging\manifests\namespace.yaml"
 
 ExecCmdMaster 'sudo rm -rf /logging'

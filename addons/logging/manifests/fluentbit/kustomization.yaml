@@ -9,6 +9,8 @@ resources:
 - clusterrole.yaml
 - clusterrolebinding.yaml
 - configmap.yaml
+- configmap-windows.yaml
 - service.yaml
 - serviceaccount.yaml
 - daemonset.yaml
+- daemonset-windows.yaml

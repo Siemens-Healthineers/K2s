@@ -16,11 +16,6 @@ metadata:
     app.kubernetes.io/version: "2.2.2"
     app.kubernetes.io/managed-by: Helm
 data:
-  stream_processor.conf: |
-    [STREAM_TASK]
-        Name   otel_logs
-        Exec   CREATE STREAM otel_logs_count WITH (tag='otel.count') AS SELECT kubernetes_pod_name,COUNT(*) from TAG:'modify.*' WINDOW TUMBLING (5 SECOND)  WHERE kubernetes_namespace_name='otel-demo' GROUP BY kubernetes_pod_name ;
-
   custom_parsers.conf: |
     [PARSER]
         Name docker_no_time
@@ -40,14 +35,17 @@ data:
         HTTP_Listen 0.0.0.0
         HTTP_Port 2020
         Health_Check On
-        Streams_File stream_processor.conf
     
     [INPUT]
         Name tail
         Path /var/log/containers/*.log
+        Exclude_Path /var/log/containers/*_ingress-nginx_*.log, /var/log/containers/*_traefik_*.log, /var/log/containers/*_logging_*.log, /var/log/containers/*_monitoring_*.log, /var/log/containers/*_registry_*.log, /var/log/containers/*_kubernetes-dashboard_*.log
         Parser cri
         Tag kube.*
-        Mem_Buf_Limit 30MB
+        Buffer_Chunk_Size 10MB
+        Buffer_Max_Size 40MB
+        Mem_Buf_Limit 512MB
+        Refresh_Interval 5
 
     [FILTER]
         Name kubernetes
@@ -55,35 +53,30 @@ data:
         Merge_Log On
         K8S-Logging.Parser Off
         K8S-Logging.Exclude Off
-        Buffer_Size 30MB
+        Buffer_Size 10MB
     
     [FILTER]
         Name nest
         Match kube.*
         Operation lift
         Nested_under kubernetes
-        Add_prefix   kubernetes_
-
-    [FILTER]
-        Name grep
-        Match kube.*
-        Exclude kubernetes_container_name fluent-bit
     
     [FILTER]
         Name modify
         Match kube.*
-        Rename log content
-        Rename kubernetes_pod_name k8s.pod.name
-        Rename kubernetes_namespace_name k8s.namespace.name
-        Remove kubernetes_container_image
-        Remove kubernetes_docker_id
-        Remove kubernetes_container_name
-        Remove kubernetes_pod_id
-        Remove kubernetes_host
-        Remove kubernetes_annotations
+        Rename message log
+        Rename pod_name k2s.pod.name
+        Rename namespace_name k2s.namespace.name
+        Rename host k2s.host.name
+        Remove container_image
+        Remove docker_id
+        Remove container_name
+        Remove pod_id
+        Remove annotations
+        Remove labels
         Remove time
-        Remove kubernetes_container_hash
-        Add k8s.cluster.name k2s
+        Remove logtag
+        Remove container_hash
 
     [FILTER]
         Name     throttle
@@ -95,7 +88,8 @@ data:
     
     [OUTPUT]
         Name opensearch
-        Match kube.*
+        Match *
         Host opensearch-cluster-master.logging.svc.cluster.local
         Port 9200
+        Buffer_Size 10MB
         Suppress_Type_Name On
