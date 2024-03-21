@@ -15,11 +15,12 @@ import (
 type SetupName string
 
 type Config struct {
-	SetupName        SetupName `json:"SetupType"`
-	Registries       []string  `json:"Registries"`
-	LoggedInRegistry string    `json:"LoggedInRegistry"`
-	LinuxOnly        bool      `json:"LinuxOnly"`
-	Version          string    `json:"Version"`
+	SetupName                SetupName `json:"SetupType"`
+	Registries               []string  `json:"Registries"`
+	LoggedInRegistry         string    `json:"LoggedInRegistry"`
+	LinuxOnly                bool      `json:"LinuxOnly"`
+	Version                  string    `json:"Version"`
+	ControlPlaneNodeHostname string    `json:"ControlPlaneNodeHostname"`
 }
 
 const (

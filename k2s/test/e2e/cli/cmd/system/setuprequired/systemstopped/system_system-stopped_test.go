@@ -35,7 +35,10 @@ var _ = Describe("system", func() {
 		func(ctx context.Context, args ...string) {
 			output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, args...)
 
-			Expect(output).To(ContainSubstring("not running"))
+			Expect(output).To(SatisfyAll(
+				ContainSubstring("not running"),
+				ContainSubstring("WARNING"),
+			))
 		},
 		Entry("scp m", "system", "scp", "m", "a1", "a2"),
 		Entry("scp w", "system", "scp", "w", "a1", "a2"),

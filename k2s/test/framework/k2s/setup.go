@@ -5,74 +5,28 @@
 package k2s
 
 import (
-	"encoding/json"
 	"errors"
 	"os"
-	"path/filepath"
 	"strings"
 
+	"github.com/onsi/ginkgo/v2"
+	"github.com/siemens-healthineers/k2s/internal/config"
 	"github.com/siemens-healthineers/k2s/internal/setupinfo"
 )
 
 type SetupInfo struct {
-	WinNodeName              string
-	ControlPlaneNodeHostname string
-	SmbShareDir              string
-	Registries               []string
-	Name                     setupinfo.SetupName
-	LinuxOnly                bool
+	Config      config.Config
+	SetupConfig setupinfo.Config
+	WinNodeName string
 }
 
-type config struct {
-	SmallSetup smallSetupConfig `json:"smallsetup"`
-}
-
-type smallSetupConfig struct {
-	ConfigDir configDir `json:"configDir"`
-	ShareDir  shareDir  `json:"shareDir"`
-}
-
-type configDir struct {
-	Kube string `json:"kube"`
-}
-
-type shareDir struct {
-	WorkerNode string `json:"windowsWorker"`
-}
-
-type setupConfig struct {
-	SetupName                setupinfo.SetupName `json:"SetupType"`
-	ControlPlaneNodeHostname string              `json:"ControlPlaneNodeHostname"`
-	LinuxOnly                bool                `json:"LinuxOnly"`
-	Registries               []string            `json:"Registries"`
-}
-
-func GetSetupInfo(rootDir string) (*SetupInfo, error) {
-	configPath := filepath.Join(rootDir, "cfg", "config.json")
-
-	binaries, err := os.ReadFile(configPath)
+func GetSetupInfo(installDir string) (*SetupInfo, error) {
+	config, err := config.LoadConfig(installDir)
 	if err != nil {
 		return nil, err
 	}
 
-	var config config
-	err = json.Unmarshal(binaries, &config)
-	if err != nil {
-		return nil, err
-	}
-
-	setupConfigPath, err := buildSetupConfigPath(config.SmallSetup.ConfigDir.Kube, "setup.json")
-	if err != nil {
-		return nil, err
-	}
-
-	binaries, err = os.ReadFile(setupConfigPath)
-	if err != nil {
-		return nil, err
-	}
-
-	var setupConfig setupConfig
-	err = json.Unmarshal(binaries, &setupConfig)
+	setupConfig, err := setupinfo.LoadConfig(config.Host.KubeConfigDir)
 	if err != nil {
 		return nil, err
 	}
@@ -83,13 +37,24 @@ func GetSetupInfo(rootDir string) (*SetupInfo, error) {
 	}
 
 	return &SetupInfo{
-		WinNodeName:              winNodeName,
-		ControlPlaneNodeHostname: setupConfig.ControlPlaneNodeHostname,
-		SmbShareDir:              config.SmallSetup.ShareDir.WorkerNode,
-		Registries:               setupConfig.Registries,
-		Name:                     setupConfig.SetupName,
-		LinuxOnly:                setupConfig.LinuxOnly,
+		WinNodeName: winNodeName,
+		Config:      *config,
+		SetupConfig: *setupConfig,
 	}, nil
+}
+
+func GetWindowsNode(nodes config.Nodes) config.NodeConfig {
+	for _, node := range nodes {
+		if node.OsType == config.OsTypeWindows {
+			ginkgo.GinkgoWriter.Println("Returning first Windows node found in config")
+
+			return node
+		}
+	}
+
+	ginkgo.Fail("No Windows node config found")
+
+	return config.NodeConfig{}
 }
 
 func getWinNodeName(setupName setupinfo.SetupName) (string, error) {
@@ -105,19 +70,4 @@ func getWinNodeName(setupName setupinfo.SetupName) (string, error) {
 	default:
 		return "", errors.New("no setup type defined")
 	}
-}
-
-func buildSetupConfigPath(configDir string, configFileName string) (string, error) {
-	if strings.HasPrefix(configDir, "~/") {
-		homeDir, err := os.UserHomeDir()
-		if err != nil {
-			return "", err
-		}
-
-		configDir = filepath.Join(homeDir, configDir[2:])
-	}
-
-	result := filepath.Join(configDir, configFileName)
-
-	return result, nil
 }

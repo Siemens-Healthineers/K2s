@@ -58,7 +58,7 @@ func TestSmbshare(t *testing.T) {
 var _ = BeforeSuite(func(ctx context.Context) {
 	suite = framework.Setup(ctx, framework.SystemMustBeRunning, framework.EnsureAddonsAreDisabled, framework.ClusterTestStepTimeout(testClusterTimeout))
 
-	skipWindowsWorkloads = suite.SetupInfo().LinuxOnly
+	skipWindowsWorkloads = suite.SetupInfo().SetupConfig.LinuxOnly
 
 	GinkgoWriter.Println("Creating namespace <", namespace, "> and secret <", secretName, "> on cluster..")
 
@@ -298,7 +298,7 @@ func expectLinuxWorkloadToRun(ctx context.Context) {
 	suite.Cluster().ExpectStatefulSetToBeReady(linuxWorkloadName, namespace, 1, ctx)
 
 	Eventually(os.IsFileYoungerThan).
-		WithArguments(testFileCheckInterval, suite.SetupInfo().SmbShareDir, linuxTestfileName).
+		WithArguments(testFileCheckInterval, k2s.GetWindowsNode(suite.SetupInfo().Config.Nodes).ShareDir, linuxTestfileName).
 		WithTimeout(testFileCheckTimeout).
 		WithPolling(suite.TestStepPollInterval()).
 		WithContext(ctx).
@@ -313,7 +313,7 @@ func expectWindowsWorkloadToRun(ctx context.Context) {
 	suite.Cluster().ExpectStatefulSetToBeReady(windowsWorkloadName, namespace, 1, ctx)
 
 	Eventually(os.IsFileYoungerThan).
-		WithArguments(testFileCheckInterval, suite.SetupInfo().SmbShareDir, windowsTestfileName).
+		WithArguments(testFileCheckInterval, k2s.GetWindowsNode(suite.SetupInfo().Config.Nodes).ShareDir, windowsTestfileName).
 		WithTimeout(testFileCheckTimeout).
 		WithPolling(suite.TestStepPollInterval()).
 		WithContext(ctx).
