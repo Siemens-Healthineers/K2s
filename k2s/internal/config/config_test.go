@@ -19,8 +19,10 @@ func TestConfig(t *testing.T) {
 }
 
 var _ = Describe("config pkg", func() {
-	Describe("LoadSetupConfigDir", func() {
-		It("loads the setup config path as absolute dir", func() {
+	Describe("LoadConfig", Ordered, func() {
+		var actual *config.Config
+
+		BeforeAll(func() {
 			currentDir, err := host.ExecutableDir()
 			installDir := filepath.Join(currentDir, "..\\..\\..")
 
@@ -28,12 +30,23 @@ var _ = Describe("config pkg", func() {
 
 			GinkgoWriter.Println("Current test dir: <", currentDir, ">, install dir: <", installDir, ">")
 
-			dir, err := config.LoadSetupConfigDir(installDir)
-
-			GinkgoWriter.Println("Setup config dir: <", dir, ">")
+			actual, err = config.LoadConfig(installDir)
 
 			Expect(err).ToNot(HaveOccurred())
-			Expect(filepath.IsAbs(dir)).To(BeTrue())
+		})
+
+		It("kube config path is cleaned and absolute", func() {
+			GinkgoWriter.Println("Setup config dir: <", actual.Host.KubeConfigDir, ">")
+
+			Expect(filepath.IsAbs(actual.Host.KubeConfigDir)).To(BeTrue())
+			Expect(actual.Host.KubeConfigDir).ToNot(ContainSubstring("/"))
+		})
+
+		It("nodes config contains Windows and Linux nodes", func() {
+			Expect(actual.Nodes).To(ConsistOf(
+				HaveField("OsType", config.OsTypeLinux),
+				HaveField("OsType", config.OsTypeWindows),
+			))
 		})
 	})
 })

@@ -51,7 +51,7 @@ var _ = Describe("status", Ordered, func() {
 		})
 
 		It("prints setup", func(ctx context.Context) {
-			Expect(output).To(MatchRegexp("Setup: .+%s.+,", suite.SetupInfo().Name))
+			Expect(output).To(MatchRegexp("Setup: .+%s.+,", suite.SetupInfo().SetupConfig.SetupName))
 		})
 
 		It("prints version", func(ctx context.Context) {
@@ -64,12 +64,12 @@ var _ = Describe("status", Ordered, func() {
 				ContainSubstring("'KubeMaster' not running, state is 'Off' (VM)"),
 			}
 
-			if suite.SetupInfo().Name == setupinfo.SetupNamek2s {
+			if suite.SetupInfo().SetupConfig.SetupName == setupinfo.SetupNamek2s {
 				matchers = append(matchers,
 					ContainSubstring("'flanneld' not running (service)"),
 					ContainSubstring("'kubelet' not running (service)"),
 					ContainSubstring("'kubeproxy' not running (service)"))
-			} else if suite.SetupInfo().Name == setupinfo.SetupNameMultiVMK8s && !suite.SetupInfo().LinuxOnly {
+			} else if suite.SetupInfo().SetupConfig.SetupName == setupinfo.SetupNameMultiVMK8s && !suite.SetupInfo().SetupConfig.LinuxOnly {
 				matchers = append(matchers,
 					ContainSubstring("'WinNode' not running, state is 'Off' (VM)"))
 			}
@@ -90,7 +90,7 @@ var _ = Describe("status", Ordered, func() {
 		})
 
 		It("prints setup", func(ctx context.Context) {
-			Expect(output).To(MatchRegexp("Setup: .+%s.+,", suite.SetupInfo().Name))
+			Expect(output).To(MatchRegexp("Setup: .+%s.+,", suite.SetupInfo().SetupConfig.SetupName))
 		})
 
 		It("prints version", func(ctx context.Context) {
@@ -103,12 +103,12 @@ var _ = Describe("status", Ordered, func() {
 				ContainSubstring("'KubeMaster' not running, state is 'Off' (VM)"),
 			}
 
-			if suite.SetupInfo().Name == setupinfo.SetupNamek2s {
+			if suite.SetupInfo().SetupConfig.SetupName == setupinfo.SetupNamek2s {
 				matchers = append(matchers,
 					ContainSubstring("'flanneld' not running (service)"),
 					ContainSubstring("'kubelet' not running (service)"),
 					ContainSubstring("'kubeproxy' not running (service)"))
-			} else if suite.SetupInfo().Name == setupinfo.SetupNameMultiVMK8s && !suite.SetupInfo().LinuxOnly {
+			} else if suite.SetupInfo().SetupConfig.SetupName == setupinfo.SetupNameMultiVMK8s && !suite.SetupInfo().SetupConfig.LinuxOnly {
 				matchers = append(matchers,
 					ContainSubstring("'WinNode' not running, state is 'Off' (VM)"))
 			}
@@ -127,9 +127,9 @@ var _ = Describe("status", Ordered, func() {
 		})
 
 		It("contains setup info", func() {
-			Expect(status.SetupInfo.Name).To(Equal(string(suite.SetupInfo().Name)))
+			Expect(setupinfo.SetupName(status.SetupInfo.Name)).To(Equal(suite.SetupInfo().SetupConfig.SetupName))
 			Expect(status.SetupInfo.Version).To(MatchRegexp(versionRegex))
-			Expect(status.SetupInfo.LinuxOnly).To(Equal(suite.SetupInfo().LinuxOnly))
+			Expect(status.SetupInfo.LinuxOnly).To(Equal(suite.SetupInfo().SetupConfig.LinuxOnly))
 		})
 
 		It("contains running state", func() {

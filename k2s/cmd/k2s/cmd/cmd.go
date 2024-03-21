@@ -41,12 +41,12 @@ func CreateRootCmd(levelVar *slog.LevelVar) (*cobra.Command, error) {
 				return err
 			}
 
-			configDir, err := config.LoadSetupConfigDir(utils.InstallDir())
+			config, err := config.LoadConfig(utils.InstallDir())
 			if err != nil {
 				return err
 			}
 
-			cmd.SetContext(context.WithValue(cmd.Context(), cc.ContextKeyConfigDir, configDir))
+			cmd.SetContext(context.WithValue(cmd.Context(), cc.ContextKeyConfigDir, config.Host.KubeConfigDir))
 
 			return nil
 		},
