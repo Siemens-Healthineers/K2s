@@ -13,13 +13,13 @@ import (
 )
 
 type KubeProxyRestarter struct {
-	setupInfo    SetupInfo
+	setupInfo    setupinfo.Config
 	cliExecutor  CliExecutor
 	K2sCliRunner K2sCliRunner
 	nssmPath     string
 }
 
-func NewKubeProxyRestarter(rootDir string, setupInfo SetupInfo, cliExecutor CliExecutor, K2sCliRunner K2sCliRunner) *KubeProxyRestarter {
+func NewKubeProxyRestarter(rootDir string, setupInfo setupinfo.Config, cliExecutor CliExecutor, K2sCliRunner K2sCliRunner) *KubeProxyRestarter {
 	return &KubeProxyRestarter{
 		setupInfo:    setupInfo,
 		cliExecutor:  cliExecutor,
@@ -39,7 +39,7 @@ func (r *KubeProxyRestarter) Restart(ctx context.Context) {
 func (r *KubeProxyRestarter) restart(ctx context.Context) {
 	GinkgoWriter.Println("Restarting kubeproxy to clean all caches..")
 
-	if r.setupInfo.Name == setupinfo.SetupNameMultiVMK8s {
+	if r.setupInfo.SetupName == setupinfo.SetupNameMultiVMK8s {
 		r.K2sCliRunner.Run(ctx, "system", "ssh", "w", "--", "nssm", "restart", "kubeproxy")
 	} else {
 		r.cliExecutor.ExecOrFail(ctx, r.nssmPath, "restart", "kubeproxy")

@@ -34,11 +34,11 @@ var _ = AfterSuite(func(ctx context.Context) {
 
 var _ = Describe("image reset-win-storage", func() {
 	It("prints system-running message and exits with non-zero", func(ctx context.Context) {
-		if suite.SetupInfo().LinuxOnly {
+		if suite.SetupInfo().SetupConfig.LinuxOnly {
 			Skip("Linux-only")
 		}
 
-		if suite.SetupInfo().Name == setupinfo.SetupNameMultiVMK8s {
+		if suite.SetupInfo().SetupConfig.SetupName == setupinfo.SetupNameMultiVMK8s {
 			Skip("Multi-vm")
 		}
 
@@ -48,11 +48,11 @@ var _ = Describe("image reset-win-storage", func() {
 	})
 
 	It("prints reinstall cluster message", func(ctx context.Context) {
-		if suite.SetupInfo().Name == setupinfo.SetupNamek2s {
+		if suite.SetupInfo().SetupConfig.SetupName == setupinfo.SetupNamek2s {
 			Skip("k2s setup")
 		}
 
-		if suite.SetupInfo().LinuxOnly {
+		if suite.SetupInfo().SetupConfig.LinuxOnly {
 			Skip("Linux-only")
 		}
 
@@ -62,11 +62,11 @@ var _ = Describe("image reset-win-storage", func() {
 	})
 
 	It("prints not supported for linux-only", func(ctx context.Context) {
-		if suite.SetupInfo().Name == setupinfo.SetupNamek2s {
+		if suite.SetupInfo().SetupConfig.SetupName == setupinfo.SetupNamek2s {
 			Skip("k2s setup")
 		}
 
-		if suite.SetupInfo().Name == setupinfo.SetupNameMultiVMK8s && !suite.SetupInfo().LinuxOnly {
+		if suite.SetupInfo().SetupConfig.SetupName == setupinfo.SetupNameMultiVMK8s && !suite.SetupInfo().SetupConfig.LinuxOnly {
 			Skip("Multi-vm")
 		}
 

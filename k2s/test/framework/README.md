@@ -75,10 +75,7 @@ var _ = AfterSuite(func(ctx context.Context) {
 This way, the test suite functionality can be used in all test steps and ensures certain prerequisites like a running *K2s* cluster and proper disposal of resources. Passing the test context to the *Setup/TearDown* methods enables *Ginkgo* to automatically cancel long-running or hang tasks that exceeded certain timeouts.
 
 ## Writing Test Specs
-Even though test specs can be organized in a way that the test suite definition and the specs are located in different *Go* files, it is recommend for the acceptance tests to combine test suite definition and test specs in one *Go* file.
-
-<!-- TODO: UPDATE -->
-Here is an example taken from the [status CLI Command Acceptance Tests](../e2e/cli/cmd/status/setuprequired/status_test.go):
+Even though test specs can be organized in a way that the test suite definition and the specs are located in different *Go* files, it is recommend for the acceptance tests to combine test suite definition and test specs in one *Go* file:
 
 ```go
 // ..
@@ -100,7 +97,7 @@ var _ = Describe("status command", func() {
 			})
 
 			It("prints setup", func(ctx context.Context) {
-				Expect(output).To(MatchRegexp("Setup: .+%s.+,", suite.SetupInfo().Name))
+				Expect(output).To(MatchRegexp("Setup: .+%s.+,", suite.SetupInfo().SetupConfig.SetupName))
 			})
 			// ..
 		})
