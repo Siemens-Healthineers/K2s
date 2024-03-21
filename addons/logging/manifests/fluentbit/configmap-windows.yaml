@@ -8,7 +8,8 @@ metadata:
   name: fluent-bit-win-parsers
   namespace: logging
   labels:
-    app: fluent-bit-win
+    app.kubernetes.io/name: fluent-bit
+    app.kubernetes.io/instance: fluent-bit
 data:
   parsers.conf: |
     [PARSER]
@@ -26,7 +27,8 @@ metadata:
   name: fluent-bit-win-config
   namespace: logging
   labels:
-    app: fluent-bit-win
+    app.kubernetes.io/name: fluent-bit
+    app.kubernetes.io/instance: fluent-bit
 data:
   fluent-bit.conf: |
     [SERVICE]

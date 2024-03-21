@@ -10,11 +10,13 @@ metadata:
 spec:
   selector:
     matchLabels:
-      app: fluent-bit-win
+      app.kubernetes.io/name: fluent-bit
+      app.kubernetes.io/instance: fluent-bit
   template:
     metadata:
       labels:
-        app: fluent-bit-win
+        app.kubernetes.io/name: fluent-bit
+        app.kubernetes.io/instance: fluent-bit
     spec:
       securityContext:
         windowsOptions:
