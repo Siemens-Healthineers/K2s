@@ -41,7 +41,7 @@ if ($systemError) {
     throw $systemError
 }
 
-Write-Log "Trying to log in into $RegistryName" -Console
+Write-Log "Trying to login into $RegistryName" -Console
 $registries = $(Get-RegistriesFromSetupJson)
 if ($registries) {
     if ($registries.Contains($RegistryName)) {
@@ -60,6 +60,8 @@ if ($registries) {
         Connect-Docker -registry $RegistryName
 
         Set-ConfigLoggedInRegistry -Value $RegistryName
+
+        Write-Log "Login to '$RegistryName' was successful." -Console
     }
     else {
         Write-Log "Registry $RegistryName not configured! Please add it first!" -Console

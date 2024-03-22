@@ -21,10 +21,10 @@ function PublishWindowsImages($baseDirectory) {
     foreach ($file in $files){
         $fileFullName = $file.FullName
         Write-Log "Import image from file '$fileFullName'... ($fileIndex of $amountOfFiles)"
-        &$global:CtrExe -n="k8s.io" images import `"$file`"
-        if (!$?) {
-            throw "The file '$fileFullName' could not be imported"
-        }
+        #&$global:CtrExe -n="k8s.io" images import `"$file`"
+        #if (!$?) {
+        #    throw "The file '$fileFullName' could not be imported"
+        #}
         Write-Log "  done"
         $fileIndex++
     }

@@ -80,7 +80,7 @@ if ($ExcludePowershellTests -and $ExcludeGoTests) {
 Import-Module "$PSScriptRoot\test.module.psm1" -Force
 
 $pesterVersion = '5.5.0'
-$ginkgoVersion = '2.13.2'
+$ginkgoVersion = '2.16.0'
 $rootDir = "$PSScriptRoot\..\"
 
 Write-Output 'All tests execution started.'
@@ -103,17 +103,21 @@ try {
 
         Start-PesterTests -Tags $Tags -ExcludeTags $ExcludeTags -WorkingDir $rootDir -OutDir $TestResultPath -V:$V
         $results.PowerShell = $LASTEXITCODE
-    } else {
-        Write-Output "Skipping Powershell tests"
+    }
+    else {
+        Write-Output 'Skipping Powershell tests'
     }
 
     if (!$ExcludeGoTests) {
         Install-GinkgoIfNecessary -Proxy $Proxy -GinkgoVersion $ginkgoVersion
 
-        Start-GinkgoTests -Tags $Tags -ExcludeTags $ExcludeTags -WorkingDir $rootDir -OutDir $TestResultPath -Proxy $Proxy -V:$V -VV:$VV
+        $goSrcDir = [System.IO.Path]::Combine($rootDir, 'k2s')
+
+        Start-GinkgoTests -Tags $Tags -ExcludeTags $ExcludeTags -WorkingDir $goSrcDir -OutDir $TestResultPath -Proxy $Proxy -V:$V -VV:$VV
         $results.Go = $LASTEXITCODE
-    } else {
-        Write-Output "Skipping Go tests"
+    }
+    else {
+        Write-Output 'Skipping Go tests'
     }
 }
 catch {
