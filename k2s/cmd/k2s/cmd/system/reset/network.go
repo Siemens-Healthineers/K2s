@@ -7,8 +7,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/utils/psexecutor"
-
 	"github.com/spf13/cobra"
 
 	"github.com/siemens-healthineers/k2s/internal/powershell"
@@ -72,7 +70,12 @@ func resetNetwork(cmd *cobra.Command, args []string) error {
 
 	start := time.Now()
 
-	cmdResult, err := psexecutor.ExecutePsWithStructuredResult[*common.CmdResult](resetNetworkCommand, "CmdResult", psexecutor.ExecOptions{PowerShellVersion: powershell.DeterminePsVersion(config)}, params...)
+	outputWriter, err := common.NewOutputWriter()
+	if err != nil {
+		return err
+	}
+
+	cmdResult, err := powershell.ExecutePsWithStructuredResult[*common.CmdResult](resetNetworkCommand, "CmdResult", common.DeterminePsVersion(config), outputWriter, params...)
 
 	duration := time.Since(start)
 

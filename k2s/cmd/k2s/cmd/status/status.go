@@ -134,7 +134,7 @@ func printStatus(cmd *cobra.Command, args []string) error {
 		return common.CreateSystemNotInstalledCmdFailure()
 	}
 
-	psVersion := powershell.DeterminePsVersion(config)
+	psVersion := common.DeterminePsVersion(config)
 
 	if outputOption == jsonOption {
 		return printStatusAsJson(terminalPrinter, config, psVersion)

@@ -18,8 +18,6 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/utils/psexecutor"
-
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 
 	"github.com/siemens-healthineers/k2s/internal/powershell"
@@ -142,7 +140,12 @@ func buildImage(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	cmdResult, err := psexecutor.ExecutePsWithStructuredResult[*common.CmdResult](psCmd, "CmdResult", psexecutor.ExecOptions{PowerShellVersion: powershell.DeterminePsVersion(config)}, params...)
+	outputWriter, err := common.NewOutputWriter()
+	if err != nil {
+		return err
+	}
+
+	cmdResult, err := powershell.ExecutePsWithStructuredResult[*common.CmdResult](psCmd, "CmdResult", common.DeterminePsVersion(config), outputWriter, params...)
 	if err != nil {
 		return err
 	}

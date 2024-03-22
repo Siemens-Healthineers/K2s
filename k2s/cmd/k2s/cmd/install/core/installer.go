@@ -12,8 +12,6 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/utils/psexecutor"
-
 	"github.com/siemens-healthineers/k2s/internal/powershell"
 	"github.com/siemens-healthineers/k2s/internal/setupinfo"
 	"github.com/siemens-healthineers/k2s/internal/version"
@@ -33,7 +31,7 @@ type Printer interface {
 type Installer struct {
 	InstallConfigAccess       InstallConfigAccess
 	Printer                   Printer
-	ExecutePsScript           func(cmd string, options psexecutor.ExecOptions) (time.Duration, error)
+	ExecutePsScript           func(cmd string, psVersion powershell.PowerShellVersion) (time.Duration, error)
 	GetVersionFunc            func() version.Version
 	GetPlatformFunc           func() string
 	GetInstallDirFunc         func() string
@@ -76,7 +74,7 @@ func (i *Installer) Install(
 
 	i.Printer.Printfln("🤖 Installing K2s '%s' %s in '%s' on %s using PowerShell %s", kind, i.GetVersionFunc(), i.GetInstallDirFunc(), i.GetPlatformFunc(), psVersion)
 
-	duration, err := i.ExecutePsScript(cmd, psexecutor.ExecOptions{PowerShellVersion: psVersion})
+	duration, err := i.ExecutePsScript(cmd, psVersion)
 	if err != nil {
 		return err
 	}
