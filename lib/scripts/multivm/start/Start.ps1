@@ -114,6 +114,7 @@ $ipControlPlane = Get-ConfiguredIPControlPlane
 $setupConfigRoot = Get-RootConfigk2s
 $clusterCIDRMaster = $setupConfigRoot.psobject.properties['podNetworkMasterCIDR'].value
 $clusterCIDRWorker = $setupConfigRoot.psobject.properties['podNetworkWorkerCIDR'].value
+$clusterCIDRServices = $setupConfigRoot.psobject.properties['servicesCIDR'].value
 $clusterCIDRServicesLinux = $setupConfigRoot.psobject.properties['servicesCIDRLinux'].value
 $clusterCIDRServicesWindows = $setupConfigRoot.psobject.properties['servicesCIDRWindows'].value
 $clusterCIDRNextHop = $setupConfigRoot.psobject.properties['cbr0'].value
@@ -235,10 +236,10 @@ Write-Log "Remove obsolete route to $clusterCIDRServicesWindows"
 Invoke-ExpressionAndCheckExitCode "route delete $clusterCIDRServicesWindows >`$null 2>&1"
 Write-Log "Add route to $clusterCIDRServicesWindows"
 route -p add $clusterCIDRServicesWindows $ipControlPlane METRIC 7 | Out-Null
-Write-Log "Remove obsolete route to $global:ClusterCIDR_Services"
-Invoke-ExpressionAndCheckExitCode "route delete $global:ClusterCIDR_Services >`$null 2>&1"
-Write-Log "Add route to $global:ClusterCIDR_Services"
-route -p add $global:ClusterCIDR_Services $global:IP_Master METRIC 8 | Out-Null
+Write-Log "Remove obsolete route to $clusterCIDRServices"
+Invoke-ExpressionAndCheckExitCode "route delete $clusterCIDRServices >`$null 2>&1"
+Write-Log "Add route to $clusterCIDRServices"
+route -p add $clusterCIDRServices $ipControlPlane METRIC 8 | Out-Null
 
 Write-Log "Remove obsolete route to $clusterCIDRWorker"
 Invoke-ExpressionAndCheckExitCode "route delete $clusterCIDRWorker >`$null 2>&1"

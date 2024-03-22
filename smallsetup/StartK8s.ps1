@@ -404,7 +404,7 @@ route -p add $global:ClusterCIDR_ServicesWindows $global:IP_Master METRIC 7 | Ou
 Write-Log "Remove obsolete route to $global:ClusterCIDR_Services"
 route delete $global:ClusterCIDR_Services >$null 2>&1
 Write-Log "Add route to $global:ClusterCIDR_Services"
-route -p add $global:ClusterCIDR_Services $ipControlPlane METRIC 8 | Out-Null
+route -p add $global:ClusterCIDR_Services $global:IP_Master METRIC 8 | Out-Null
 
 # enable ip forwarding
 netsh int ipv4 set int "vEthernet ($switchname)" forwarding=enabled | Out-Null
