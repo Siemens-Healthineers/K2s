@@ -20,7 +20,6 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 
-	"github.com/siemens-healthineers/k2s/internal/powershell"
 	"github.com/siemens-healthineers/k2s/internal/setupinfo"
 )
 
@@ -56,7 +55,7 @@ func stopk8s(cmd *cobra.Command, args []string) error {
 
 	slog.Debug("PS command created", "command", stopCmd)
 
-	duration, err := psexecutor.ExecutePowershellScript(stopCmd, psexecutor.ExecOptions{PowerShellVersion: powershell.DeterminePsVersion(config)})
+	duration, err := psexecutor.ExecutePowershellScript(stopCmd, common.DeterminePsVersion(config))
 	if err != nil {
 		return err
 	}

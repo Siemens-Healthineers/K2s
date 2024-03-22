@@ -13,8 +13,6 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/utils/psexecutor"
-
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 
 	"github.com/siemens-healthineers/k2s/internal/powershell"
@@ -45,12 +43,20 @@ var (
 	}
 
 	cmdOverSshExecFunc func(baseCmd, cmd string, psVersion powershell.PowerShellVersion) error = func(baseCmd, cmd string, psVersion powershell.PowerShellVersion) error {
-		cmdResult, err := psexecutor.ExecutePsWithStructuredResult[*common.CmdResult](
+		outputWriter, err := common.NewOutputWriter()
+		if err != nil {
+			return err
+		}
+
+		outputWriter.ShowProgress = false
+
+		cmdResult, err := powershell.ExecutePsWithStructuredResult[*common.CmdResult](
 			baseCmd,
 			"CmdResult",
-			psexecutor.ExecOptions{NoProgress: true, PowerShellVersion: psVersion},
+			psVersion,
+			outputWriter,
 			"-Command",
-			fmt.Sprintf("\"%s\"", cmd))
+			utils.EscapeWithDoubleQuotes(cmd))
 		if err != nil {
 			return err
 		}

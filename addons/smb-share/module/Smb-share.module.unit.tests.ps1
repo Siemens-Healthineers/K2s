@@ -1552,6 +1552,7 @@ Describe 'Disable-SmbShare' -Tag 'unit', 'ci', 'addon' {
     Context 'system available' {
         BeforeAll {
             Mock -ModuleName $moduleName Test-SystemAvailability { return $null }
+            Mock -ModuleName $moduleName Test-IsAddonEnabled { return $false }
         }
 
         It 'does not return system error' {

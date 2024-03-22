@@ -9,7 +9,6 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
-	"github.com/siemens-healthineers/k2s/internal/powershell"
 	"github.com/siemens-healthineers/k2s/internal/setupinfo"
 
 	"github.com/spf13/cobra"
@@ -85,5 +84,5 @@ func sshWorker(cmd *cobra.Command, args []string) error {
 
 	handler := commandHandlerCreatorFuncForWorker()
 
-	return handler.Handle(remoteCmd, powershell.DeterminePsVersion(config))
+	return handler.Handle(remoteCmd, common.DeterminePsVersion(config))
 }

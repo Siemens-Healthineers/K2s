@@ -20,7 +20,6 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 
-	"github.com/siemens-healthineers/k2s/internal/powershell"
 	"github.com/siemens-healthineers/k2s/internal/setupinfo"
 )
 
@@ -97,7 +96,7 @@ func upgradeCluster(cmd *cobra.Command, args []string) error {
 
 	slog.Debug("PS command created", "command", upgradeCommand)
 
-	duration, err := psexecutor.ExecutePowershellScript(upgradeCommand, psexecutor.ExecOptions{PowerShellVersion: powershell.DeterminePsVersion(config)})
+	duration, err := psexecutor.ExecutePowershellScript(upgradeCommand, common.DeterminePsVersion(config))
 	if err != nil {
 		return err
 	}

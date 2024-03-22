@@ -18,8 +18,6 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/utils/psexecutor"
-
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 
 	"github.com/siemens-healthineers/k2s/internal/json"
@@ -122,7 +120,7 @@ func listImages(cmd *cobra.Command, args []string) error {
 	}
 
 	getImagesFunc := func() (*LoadedImages, error) {
-		return getImages(includeK8sImages, powershell.DeterminePsVersion(config))
+		return getImages(includeK8sImages, common.DeterminePsVersion(config))
 	}
 
 	if outputOption == jsonOption {
@@ -222,7 +220,12 @@ func getImages(includeK8sImages bool, psVersion powershell.PowerShellVersion) (*
 		params = []string{"-IncludeK8sImages"}
 	}
 
-	return psexecutor.ExecutePsWithStructuredResult[*LoadedImages](cmd, "StoredImages", psexecutor.ExecOptions{PowerShellVersion: psVersion}, params...)
+	outputWriter, err := common.NewOutputWriter()
+	if err != nil {
+		return nil, err
+	}
+
+	return powershell.ExecutePsWithStructuredResult[*LoadedImages](cmd, "StoredImages", psVersion, outputWriter, params...)
 }
 
 func printAvailableImages(terminalPrinter terminal.TerminalPrinter, containerImages []containerImage) {

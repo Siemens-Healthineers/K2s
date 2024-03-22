@@ -18,7 +18,6 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 
-	"github.com/siemens-healthineers/k2s/internal/powershell"
 	"github.com/siemens-healthineers/k2s/internal/setupinfo"
 )
 
@@ -71,7 +70,7 @@ func dumpSystemStatus(cmd *cobra.Command, args []string) error {
 
 	slog.Debug("PS command created", "command", dumpStatusCommand)
 
-	duration, err := psexecutor.ExecutePowershellScript(dumpStatusCommand, psexecutor.ExecOptions{PowerShellVersion: powershell.DeterminePsVersion(config)})
+	duration, err := psexecutor.ExecutePowershellScript(dumpStatusCommand, common.DeterminePsVersion(config))
 	if err != nil {
 		return err
 	}

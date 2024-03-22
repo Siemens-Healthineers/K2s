@@ -68,7 +68,7 @@ func listAddons(cmd *cobra.Command, allAddons addons.Addons) error {
 		}
 		slog.Info("Setup not installed, falling back to default PowerShell version", "error", err, "version", psVersion)
 	} else {
-		psVersion = powershell.DeterminePsVersion(config)
+		psVersion = cc.DeterminePsVersion(config)
 	}
 
 	if outputOption == jsonOption {

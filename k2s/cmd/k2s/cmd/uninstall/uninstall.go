@@ -8,7 +8,6 @@ import (
 	"log/slog"
 	"strconv"
 
-	"github.com/siemens-healthineers/k2s/internal/powershell"
 	"github.com/siemens-healthineers/k2s/internal/version"
 
 	"github.com/pterm/pterm"
@@ -64,7 +63,7 @@ func uninstallk8s(cmd *cobra.Command, args []string) error {
 
 	slog.Debug("PS command created", "command", uninstallCmd)
 
-	duration, err := psexecutor.ExecutePowershellScript(uninstallCmd, psexecutor.ExecOptions{PowerShellVersion: powershell.DeterminePsVersion(config)})
+	duration, err := psexecutor.ExecutePowershellScript(uninstallCmd, common.DeterminePsVersion(config))
 	if err != nil {
 		return err
 	}

@@ -47,10 +47,10 @@ func resetSystem(cmd *cobra.Command, args []string) error {
 		}
 		return err
 	} else {
-		psVersion = powershell.DeterminePsVersion(config)
+		psVersion = common.DeterminePsVersion(config)
 	}
 
-	duration, err := psexecutor.ExecutePowershellScript(resetSystemCommand, psexecutor.ExecOptions{PowerShellVersion: psVersion})
+	duration, err := psexecutor.ExecutePowershellScript(resetSystemCommand, psVersion)
 	if err != nil {
 		return err
 	}
