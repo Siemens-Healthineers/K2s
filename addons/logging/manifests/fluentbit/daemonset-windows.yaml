@@ -27,7 +27,7 @@ spec:
       dnsPolicy: ClusterFirst
       containers:
       - name: fluent-bit-win
-        image: shsk2s.azurecr.io/fluentbit:win-v2.2
+        image: shsk2s.azurecr.io/fluent-bit:v2.2.2 #windows_image
         args: ["-c", "fluent-bit.conf"]
         imagePullPolicy: IfNotPresent
         volumeMounts:
@@ -51,3 +51,11 @@ spec:
       - name: fluent-bit-win-config
         configMap:
           name: fluent-bit-win-config
+
+# Dockerfile
+# ARG BASE="mcr.microsoft.com/oss/kubernetes/windows-host-process-containers-base-image:v1.0.0"
+# FROM $BASE
+
+# ENV PATH="C:\Windows\system32;C:\Windows;"
+# COPY fluent-bit/bin/fluent-bit.exe .
+# ENTRYPOINT ["fluent-bit.exe"]

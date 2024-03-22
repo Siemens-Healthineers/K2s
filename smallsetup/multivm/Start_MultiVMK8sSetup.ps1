@@ -243,16 +243,20 @@ Write-Log "Remove obsolete route to $global:ClusterCIDR_ServicesWindows"
 Invoke-ExpressionAndCheckExitCode "route delete $global:ClusterCIDR_ServicesWindows >`$null 2>&1"
 Write-Log "Add route to $global:ClusterCIDR_ServicesWindows"
 route -p add $global:ClusterCIDR_ServicesWindows $global:IP_Master METRIC 7 | Out-Null
+Write-Log "Remove obsolete route to $global:ClusterCIDR_Services"
+Invoke-ExpressionAndCheckExitCode "route delete $global:ClusterCIDR_Services >`$null 2>&1"
+Write-Log "Add route to $global:ClusterCIDR_Services"
+route -p add $global:ClusterCIDR_Services $global:IP_Master METRIC 8 | Out-Null
 
 Write-Log "Remove obsolete route to $global:ClusterCIDR_Host"
 Invoke-ExpressionAndCheckExitCode "route delete $global:ClusterCIDR_Host >`$null 2>&1"
 Write-Log "Add route to $global:ClusterCIDR_Host"
-route -p add $global:ClusterCIDR_Host $global:MultiVMWinNodeIP METRIC 8 | Out-Null
+route -p add $global:ClusterCIDR_Host $global:MultiVMWinNodeIP METRIC 9 | Out-Null
 
 Write-Log "Remove obsolete route to $global:ClusterCIDR_Master"
 Invoke-ExpressionAndCheckExitCode "route delete $global:ClusterCIDR_Master >`$null 2>&1"
 Write-Log "Add route to $global:ClusterCIDR_Master"
-route -p add $global:ClusterCIDR_Master $global:IP_Master METRIC 9 | Out-Null
+route -p add $global:ClusterCIDR_Master $global:IP_Master METRIC 10 | Out-Null
 
 # enable ip forwarding
 netsh int ipv4 set int "vEthernet ($switchname)" forwarding=enabled | Out-Null
