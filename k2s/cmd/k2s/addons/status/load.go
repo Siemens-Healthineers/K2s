@@ -4,8 +4,6 @@
 package status
 
 import (
-	"github.com/siemens-healthineers/k2s/cmd/k2s/utils/psexecutor"
-
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 
 	"github.com/siemens-healthineers/k2s/internal/powershell"
@@ -27,7 +25,20 @@ type AddonStatusProp struct {
 }
 
 func LoadAddonStatus(addonName string, addonDirectory string, psVersion powershell.PowerShellVersion) (*LoadedAddonStatus, error) {
+	outputWriter, err := common.NewOutputWriter()
+	if err != nil {
+		return nil, err
+	}
+
 	scriptPath := utils.FormatScriptFilePath(utils.InstallDir() + "\\addons\\Get-Status.ps1")
 
-	return psexecutor.ExecutePsWithStructuredResult[*LoadedAddonStatus](scriptPath, "Status", psexecutor.ExecOptions{PowerShellVersion: psVersion}, "-Name", addonName, "-Directory", utils.EscapeWithSingleQuotes(addonDirectory))
+	return powershell.ExecutePsWithStructuredResult[*LoadedAddonStatus](
+		scriptPath,
+		"Status",
+		psVersion,
+		outputWriter,
+		"-Name",
+		addonName,
+		"-Directory",
+		utils.EscapeWithSingleQuotes(addonDirectory))
 }

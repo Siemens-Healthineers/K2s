@@ -3,7 +3,11 @@
 
 package powershell
 
-import "github.com/siemens-healthineers/k2s/internal/setupinfo"
+import (
+	"fmt"
+	"log/slog"
+	"os/exec"
+)
 
 type PowerShellVersion string
 
@@ -11,14 +15,15 @@ const (
 	PowerShellV5      PowerShellVersion = "5"
 	PowerShellV7      PowerShellVersion = "7"
 	DefaultPsVersions PowerShellVersion = PowerShellV5
-	Ps5CmdName                          = "powershell"
-	Ps7CmdName                          = "pwsh"
 )
 
-func DeterminePsVersion(config *setupinfo.Config) PowerShellVersion {
-	if config.SetupName == setupinfo.SetupNameMultiVMK8s && !config.LinuxOnly {
-		return PowerShellV7
+func AssertPowerShellV7Installed() error {
+	_, err := exec.LookPath(string(Ps7CmdName))
+	if err == nil {
+		slog.Debug("PowerShell 7 is installed")
+		return nil
 	}
 
-	return PowerShellV5
+	// TODO: could be nicer :-)
+	return fmt.Errorf("%s\nPlease install Powershell 7: https://learn.microsoft.com/en-us/powershell/scripting/install/installing-powershell-on-windows", err)
 }

@@ -20,7 +20,6 @@ import (
 	"github.com/siemens-healthineers/k2s/cmd/k2s/addons"
 
 	"github.com/siemens-healthineers/k2s/internal/json"
-	"github.com/siemens-healthineers/k2s/internal/powershell"
 )
 
 type StatusPrinter interface {
@@ -88,7 +87,7 @@ func runStatusCmd(cmd *cobra.Command, addon addons.Addon, determinePrinterFunc f
 	loadFunc := func(addonName string) (*status.LoadedAddonStatus, error) {
 		slog.Info("Loading status", "addon", addonName, "directory", addon.Directory)
 
-		return status.LoadAddonStatus(addonName, addon.Directory, powershell.DeterminePsVersion(config))
+		return status.LoadAddonStatus(addonName, addon.Directory, common.DeterminePsVersion(config))
 	}
 
 	return printer.PrintStatus(addon.Metadata.Name, loadFunc)
