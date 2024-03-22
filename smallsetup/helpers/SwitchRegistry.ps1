@@ -63,7 +63,7 @@ if ($registries.Contains($RegistryName) -ne $true) {
     exit 1
 }
 
-Write-Log "Trying to log in into $RegistryName" -Console
+Write-Log "Trying to login into $RegistryName" -Console
 
 Login-Buildah -registry $RegistryName
 
@@ -106,6 +106,8 @@ elseif ($setupInfo.Name -eq $global:SetupType_MultiVMK8s -and !$($setupInfo.Linu
 }
 
 Set-ConfigValue -Path $global:SetupJsonFile -Key $global:ConfigKey_LoggedInRegistry -Value $RegistryName
+
+Write-Log "Login to '$RegistryName' was successful." -Console
 
 if ($EncodeStructuredOutput -eq $true) {
     Send-ToCli -MessageType $MessageType -Message @{Error = $null }
