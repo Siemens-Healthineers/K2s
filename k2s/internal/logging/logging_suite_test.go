@@ -36,7 +36,7 @@ var _ = Describe("logging", func() {
 		})
 	})
 
-	Describe("logBuffer", Label("unit", "ci"), func() {
+	Describe("LogBuffer", Label("unit", "ci"), func() {
 		Describe("NewLogBuffer", func() {
 			When("buffer limit is 0", func() {
 				It("returns error", func() {

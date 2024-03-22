@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"testing"
 
+	"github.com/siemens-healthineers/k2s/internal/powershell"
 	"github.com/siemens-healthineers/k2s/internal/setupinfo"
 
 	"github.com/go-logr/logr"
@@ -67,6 +68,46 @@ var _ = Describe("common", func() {
 			Expect(result.Severity).To(Equal(SeverityWarning))
 			Expect(result.Code).To(Equal(setupinfo.ErrSystemNotInstalled.Error()))
 			Expect(result.Message).To(Equal(ErrSystemNotInstalledMsg))
+		})
+	})
+
+	Describe("DeterminePsVersion", func() {
+		When("setup type is multivm including Windows node", func() {
+			It("determines PowerShell v7", func() {
+				config := &setupinfo.Config{
+					SetupName: setupinfo.SetupNameMultiVMK8s,
+					LinuxOnly: false,
+				}
+
+				actual := DeterminePsVersion(config)
+
+				Expect(actual).To(Equal(powershell.PowerShellV7))
+			})
+		})
+
+		When("setup type is multivm Linux-only", func() {
+			It("determines PowerShell v5", func() {
+				config := &setupinfo.Config{
+					SetupName: setupinfo.SetupNameMultiVMK8s,
+					LinuxOnly: true,
+				}
+
+				actual := DeterminePsVersion(config)
+
+				Expect(actual).To(Equal(powershell.PowerShellV5))
+			})
+		})
+
+		When("setup type is not multivm", func() {
+			It("determines PowerShell v5", func() {
+				config := &setupinfo.Config{
+					SetupName: "something else",
+				}
+
+				actual := DeterminePsVersion(config)
+
+				Expect(actual).To(Equal(powershell.PowerShellV5))
+			})
 		})
 	})
 })

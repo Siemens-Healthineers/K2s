@@ -14,8 +14,6 @@ import (
 	"github.com/siemens-healthineers/k2s/internal/powershell"
 	"github.com/siemens-healthineers/k2s/internal/setupinfo"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/utils/psexecutor"
-
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 
 	p "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/params"
@@ -94,7 +92,12 @@ func systemPackage(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	cmdResult, err := psexecutor.ExecutePsWithStructuredResult[*common.CmdResult](systemPackageCommand, "CmdResult", psexecutor.ExecOptions{PowerShellVersion: powershell.DefaultPsVersions}, params...)
+	outputWriter, err := common.NewOutputWriter()
+	if err != nil {
+		return err
+	}
+
+	cmdResult, err := powershell.ExecutePsWithStructuredResult[*common.CmdResult](systemPackageCommand, "CmdResult", powershell.DefaultPsVersions, outputWriter, params...)
 	if err != nil {
 		return err
 	}

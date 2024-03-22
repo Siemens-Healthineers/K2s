@@ -9,7 +9,9 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/utils/logging"
+	kl "github.com/siemens-healthineers/k2s/cmd/k2s/utils/logging"
+	"github.com/siemens-healthineers/k2s/internal/logging"
+	"github.com/siemens-healthineers/k2s/internal/powershell"
 
 	"github.com/siemens-healthineers/k2s/internal/setupinfo"
 
@@ -38,6 +40,11 @@ type CmdResult struct {
 	Failure *CmdFailure `json:"error"`
 }
 
+type OutputWriter struct {
+	ShowProgress    bool
+	errorLineBuffer *logging.LogBuffer
+}
+
 const (
 	ErrSystemNotInstalledMsg = "You have not installed K2s setup yet, please start the installation with command 'k2s.exe install' first"
 
@@ -62,10 +69,39 @@ func (s FailureSeverity) String() string {
 	}
 }
 
+func (o *OutputWriter) WriteStd(line string) {
+	if o.ShowProgress {
+		pterm.Printfln("⏳ %s", line)
+	} else {
+		pterm.Println(line)
+	}
+}
+
+func (o *OutputWriter) WriteErr(line string) {
+	o.errorLineBuffer.Log(line)
+
+	pterm.Printfln("⏳ %s", pterm.Yellow(line))
+}
+
+func (o *OutputWriter) Flush() {
+	o.errorLineBuffer.Flush()
+}
+
+func NewOutputWriter() (*OutputWriter, error) {
+	errorLineBuffer, err := createErrorLineBuffer()
+	if err != nil {
+		return nil, err
+	}
+
+	return &OutputWriter{
+		ShowProgress:    true,
+		errorLineBuffer: errorLineBuffer}, nil
+}
+
 func PrintCompletedMessage(duration time.Duration, command string) {
 	pterm.Success.Printfln("'%s' completed in %v", command, duration)
 
-	logHint := pterm.LightCyan(fmt.Sprintf("Please see '%s' for more information", logging.PsLogPath()))
+	logHint := pterm.LightCyan(fmt.Sprintf("Please see '%s' for more information", kl.PsLogPath()))
 
 	pterm.Println(logHint)
 }
@@ -100,4 +136,21 @@ func StopSpinner(spinner Spinner) {
 	if err := spinner.Stop(); err != nil {
 		slog.Error("spinner stop", "error", err)
 	}
+}
+
+func DeterminePsVersion(config *setupinfo.Config) powershell.PowerShellVersion {
+	if config.SetupName == setupinfo.SetupNameMultiVMK8s && !config.LinuxOnly {
+		return powershell.PowerShellV7
+	}
+
+	return powershell.PowerShellV5
+}
+
+func createErrorLineBuffer() (*logging.LogBuffer, error) {
+	return logging.NewLogBuffer(logging.BufferConfig{
+		Limit: 100,
+		FlushFunc: func(buffer []string) {
+			slog.Error("Flushing error lines", "count", len(buffer), "lines", buffer)
+		},
+	})
 }

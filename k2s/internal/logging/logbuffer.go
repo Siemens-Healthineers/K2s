@@ -14,13 +14,13 @@ type BufferConfig struct {
 	FlushFunc func(buffer []string)
 }
 
-type logBuffer struct {
+type LogBuffer struct {
 	buffer []string
 	config BufferConfig
 	lock   sync.Mutex
 }
 
-func NewLogBuffer(config BufferConfig) (*logBuffer, error) {
+func NewLogBuffer(config BufferConfig) (*LogBuffer, error) {
 	if config.Limit == 0 {
 		return nil, errors.New("buffer limit must be greater than 0")
 	}
@@ -28,12 +28,12 @@ func NewLogBuffer(config BufferConfig) (*logBuffer, error) {
 		return nil, errors.New("flush function must not be nil")
 	}
 
-	return &logBuffer{
+	return &LogBuffer{
 		config: config,
 	}, nil
 }
 
-func (e *logBuffer) Log(line string) {
+func (e *LogBuffer) Log(line string) {
 	e.lock.Lock()
 	defer e.lock.Unlock()
 
@@ -46,7 +46,7 @@ func (e *logBuffer) Log(line string) {
 	}
 }
 
-func (e *logBuffer) Flush() {
+func (e *LogBuffer) Flush() {
 	e.lock.Lock()
 	defer e.lock.Unlock()
 
@@ -55,7 +55,7 @@ func (e *logBuffer) Flush() {
 	}
 }
 
-func (e *logBuffer) flush() {
+func (e *LogBuffer) flush() {
 	slog.Debug("Flushing the buffer", "len", len(e.buffer))
 
 	e.config.FlushFunc(e.buffer)

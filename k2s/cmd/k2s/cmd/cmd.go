@@ -41,6 +41,7 @@ func CreateRootCmd(levelVar *slog.LevelVar) (*cobra.Command, error) {
 				return err
 			}
 
+			// TODO: always load setup config and determine PS version?
 			config, err := config.LoadConfig(utils.InstallDir())
 			if err != nil {
 				return err
