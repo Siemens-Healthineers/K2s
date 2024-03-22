@@ -63,14 +63,14 @@ Write-Log 'Uninstalling Logging Stack' -Console
 
 &$global:KubectlExe delete -k "$global:KubernetesPath\addons\logging\manifests" --ignore-not-found --wait=false
 
-&$global:KubectlExe delete pod -l app.kubernetes.io/name=opensearch-dashboards -n logging --grace-period=0 --force --ignore-not-found
-&$global:KubectlExe delete pod -l app.kubernetes.io/name=opensearch -n logging --grace-period=0 --force --ignore-not-found
-&$global:KubectlExe delete pod -l app.kubernetes.io/name=fluent-bit -n logging --grace-period=0 --force --ignore-not-found
+&$global:KubectlExe delete pod -l app.kubernetes.io/name=opensearch-dashboards -n logging --grace-period=0 --force --ignore-not-found 2>$null
+&$global:KubectlExe delete pod -l app.kubernetes.io/name=opensearch -n logging --grace-period=0 --force --ignore-not-found 2>$null
+&$global:KubectlExe delete pod -l app.kubernetes.io/name=fluent-bit -n logging --grace-period=0 --force --ignore-not-found 2>$null
 
 &$global:KubectlExe patch pv opensearch-cluster-master-pv -n logging -p '{\"metadata\":{\"finalizers\":null}}'
 &$global:KubectlExe patch pvc opensearch-cluster-master-opensearch-cluster-master-0 -n logging -p '{\"metadata\":{\"finalizers\":null}}'
 
-&$global:KubectlExe delete namespace logging --grace-period=0 --force
+&$global:KubectlExe delete namespace logging --grace-period=0
 
 ExecCmdMaster 'sudo rm -rf /logging'
 
