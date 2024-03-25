@@ -7,5 +7,5 @@ kind: Kustomization
 namespace: logging
 resources:
 - .\opensearch
-- .\opensearch-dasboards
+- .\opensearch-dashboards
 - .\fluentbit

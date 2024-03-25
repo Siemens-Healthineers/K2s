@@ -21,12 +21,12 @@ spec:
     type: Recreate
   selector:
     matchLabels:
-      app: opensearch-dashboards
+      app.kubernetes.io/name: opensearch-dashboards
       release: "opensearch-dashboards"
   template:
     metadata:
       labels:
-        app: opensearch-dashboards
+        app.kubernetes.io/name: opensearch-dashboards
         release: "opensearch-dashboards"
       annotations:
     spec:

@@ -23,5 +23,5 @@ spec:
     name: http-web
     targetPort: 5601
   selector:
-    app: opensearch-dashboards
+    app.kubernetes.io/name: opensearch-dashboards
     release: "opensearch-dashboards"

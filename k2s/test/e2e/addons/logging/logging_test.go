@@ -6,12 +6,13 @@ package logging
 
 import (
 	"context"
-	"k2sTest/framework"
-	"k2sTest/framework/k2s"
 	"os/exec"
 	"path"
 	"testing"
 	"time"
+
+	"github.com/siemens-healthineers/k2s/test/framework"
+	"github.com/siemens-healthineers/k2s/test/framework/k2s"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -25,7 +26,7 @@ var (
 	portForwardingSession *gexec.Session
 )
 
-func Testlogging(t *testing.T) {
+func TestLogging(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "logging Addon Acceptance Tests", Label("addon", "acceptance", "setup-required", "invasive", "logging", "system-running"))
 }
@@ -46,6 +47,8 @@ var _ = Describe("'logging' addon", Ordered, func() {
 
 			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "opensearch-dashboards", "logging")
 			suite.Cluster().ExpectStatefulSetToBeDeleted("opensearch-cluster-master", "logging", ctx)
+			suite.Cluster().ExpectDaemonSetToBeDeleted("fluent-bit", "logging", ctx)
+			suite.Cluster().ExpectDaemonSetToBeDeleted("fluent-bit-win", "logging", ctx)
 
 			addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
 			Expect(addonsStatus.IsAddonEnabled("logging")).To(BeFalse())
@@ -62,10 +65,12 @@ var _ = Describe("'logging' addon", Ordered, func() {
 
 			suite.Cluster().ExpectDeploymentToBeAvailable("opensearch-dashboards", "logging")
 			suite.Cluster().ExpectStatefulSetToBeReady("opensearch-cluster-master", "logging", 1, ctx)
+			suite.Cluster().ExpectDaemonSetToBeReady("fluent-bit", "logging", 1, ctx)
+			suite.Cluster().ExpectDaemonSetToBeReady("fluent-bit-win", "logging", 1, ctx)
 
-			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "opensearch-dashboards", "logging")
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "opensearch", "logging")
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "fluent-bit", "logging")
+			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "opensearch-dashboards", "logging")
 
 			addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
 			Expect(addonsStatus.IsAddonEnabled("logging")).To(BeTrue())
@@ -82,7 +87,7 @@ var _ = Describe("'logging' addon", Ordered, func() {
 			portForwarding := exec.Command(kubectl, "-n", "logging", "port-forward", "svc/opensearch-dashboards", "5601:5601")
 			portForwardingSession, _ = gexec.Start(portForwarding, GinkgoWriter, GinkgoWriter)
 
-			url := "https://localhost:3000"
+			url := "http://localhost:5601"
 			httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-I", "-m", "5", "--retry", "3", "--fail")
 			Expect(httpStatus).To(ContainSubstring("302"))
 		})
@@ -98,9 +103,10 @@ var _ = Describe("'logging' addon", Ordered, func() {
 			suite.K2sCli().Run(ctx, "addons", "disable", "logging", "-o")
 			suite.K2sCli().Run(ctx, "addons", "disable", "traefik", "-o")
 
-			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "kube-prometheus-stack-kube-state-metrics", "logging")
-			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "kube-prometheus-stack-operator", "logging")
-			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "kube-prometheus-stack-plutono", "logging")
+			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "opensearch-dashboards", "logging")
+			suite.Cluster().ExpectStatefulSetToBeDeleted("opensearch-cluster-master", "logging", ctx)
+			suite.Cluster().ExpectDaemonSetToBeDeleted("fluent-bit", "logging", ctx)
+			suite.Cluster().ExpectDaemonSetToBeDeleted("fluent-bit-win", "logging", ctx)
 
 			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "traefik", "traefik")
 
@@ -111,13 +117,14 @@ var _ = Describe("'logging' addon", Ordered, func() {
 		It("is in enabled state and pods are in running state", func(ctx context.Context) {
 			suite.K2sCli().Run(ctx, "addons", "enable", "logging", "-o")
 
-			suite.Cluster().ExpectDeploymentToBeAvailable("kube-prometheus-stack-kube-state-metrics", "logging")
-			suite.Cluster().ExpectDeploymentToBeAvailable("kube-prometheus-stack-operator", "logging")
-			suite.Cluster().ExpectDeploymentToBeAvailable("kube-prometheus-stack-plutono", "logging")
+			suite.Cluster().ExpectDeploymentToBeAvailable("opensearch-dashboards", "logging")
+			suite.Cluster().ExpectStatefulSetToBeReady("opensearch-cluster-master", "logging", 1, ctx)
+			suite.Cluster().ExpectDaemonSetToBeReady("fluent-bit", "logging", 1, ctx)
+			suite.Cluster().ExpectDaemonSetToBeReady("fluent-bit-win", "logging", 1, ctx)
 
-			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "kube-prometheus-stack-kube-state-metrics", "logging")
-			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "kube-prometheus-stack-operator", "logging")
-			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "kube-prometheus-stack-plutono", "logging")
+			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "opensearch-dashboards", "logging")
+			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "opensearch", "logging")
+			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "fluent-bit", "logging")
 
 			addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
 			Expect(addonsStatus.IsAddonEnabled("logging")).To(BeTrue())
@@ -130,9 +137,9 @@ var _ = Describe("'logging' addon", Ordered, func() {
 		})
 
 		It("is reachable through traefik", func(ctx context.Context) {
-			url := "https://k2s-logging.local/login"
+			url := "http://k2s-logging.local"
 			httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-I", "-m", "5", "--retry", "3", "--fail")
-			Expect(httpStatus).To(ContainSubstring("200"))
+			Expect(httpStatus).To(ContainSubstring("302"))
 		})
 	})
 
@@ -146,9 +153,10 @@ var _ = Describe("'logging' addon", Ordered, func() {
 			suite.K2sCli().Run(ctx, "addons", "disable", "logging", "-o")
 			suite.K2sCli().Run(ctx, "addons", "disable", "ingress-nginx", "-o")
 
-			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "kube-prometheus-stack-kube-state-metrics", "logging")
-			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "kube-prometheus-stack-operator", "logging")
-			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "kube-prometheus-stack-plutono", "logging")
+			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "opensearch-dashboards", "logging")
+			suite.Cluster().ExpectStatefulSetToBeDeleted("opensearch-cluster-master", "logging", ctx)
+			suite.Cluster().ExpectDaemonSetToBeDeleted("fluent-bit", "logging", ctx)
+			suite.Cluster().ExpectDaemonSetToBeDeleted("fluent-bit-win", "logging", ctx)
 
 			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "ingress-nginx", "ingress-nginx")
 
@@ -159,13 +167,14 @@ var _ = Describe("'logging' addon", Ordered, func() {
 		It("is in enabled state and pods are in running state", func(ctx context.Context) {
 			suite.K2sCli().Run(ctx, "addons", "enable", "logging", "-o")
 
-			suite.Cluster().ExpectDeploymentToBeAvailable("kube-prometheus-stack-kube-state-metrics", "logging")
-			suite.Cluster().ExpectDeploymentToBeAvailable("kube-prometheus-stack-operator", "logging")
-			suite.Cluster().ExpectDeploymentToBeAvailable("kube-prometheus-stack-plutono", "logging")
+			suite.Cluster().ExpectDeploymentToBeAvailable("opensearch-dashboards", "logging")
+			suite.Cluster().ExpectStatefulSetToBeReady("opensearch-cluster-master", "logging", 1, ctx)
+			suite.Cluster().ExpectDaemonSetToBeReady("fluent-bit", "logging", 1, ctx)
+			suite.Cluster().ExpectDaemonSetToBeReady("fluent-bit-win", "logging", 1, ctx)
 
-			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "kube-prometheus-stack-kube-state-metrics", "logging")
-			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "kube-prometheus-stack-operator", "logging")
-			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "kube-prometheus-stack-plutono", "logging")
+			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "opensearch-dashboards", "logging")
+			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "opensearch", "logging")
+			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "fluent-bit", "logging")
 
 			addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
 			Expect(addonsStatus.IsAddonEnabled("logging")).To(BeTrue())
@@ -178,9 +187,9 @@ var _ = Describe("'logging' addon", Ordered, func() {
 		})
 
 		It("is reachable through ingress-nginx", func(ctx context.Context) {
-			url := "https://k2s-logging.local/login"
+			url := "http://k2s-logging.local"
 			httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-I", "-m", "5", "--retry", "3", "--fail")
-			Expect(httpStatus).To(ContainSubstring("200"))
+			Expect(httpStatus).To(ContainSubstring("302"))
 		})
 	})
 })
