@@ -31,15 +31,28 @@ Param(
     [switch] $ShowLogs = $false
 )
 
-function EnsureCdxgen() {
-    Write-Output 'Check the existence of tool cdxgen'
+function EnsureTrivy() {
+    Write-Output 'Check the existence of tool trivy'
 
-    # download cdxgen
-    $downloadFile = "$global:BinPath\cdxgen.exe"
-    if (!(Test-Path $downloadFile)) {
-        DownloadFile $downloadFile https://github.com/CycloneDX/cdxgen/releases/download/v10.1.3/cdxgen.exe $true -ProxyToUse $Proxy
+    # download trivy
+    $downloadFile = "$global:BinPath\trivy.exe"
+    if ((Test-Path $downloadFile)) {
+        Write-Output 'trivy already available'
+        return
     }
-    Write-Output 'cdxgen now available'
+
+    $compressedFile = "$global:BinPath\trivy.zip"
+    DownloadFile $compressedFile "https://github.com/aquasecurity/trivy/releases/download/v0.50.0/trivy_0.50.0_windows-64bit.zip" $true -ProxyToUse $Proxy
+
+    # Extract the archive.
+    Write-Output "Extract archive to '$global:BinPath"
+    $ErrorActionPreference = 'SilentlyContinue'
+    tar C `"$global:BinPath`" -xvf `"$compressedFile`" trivy.exe 2>&1 | % { "$_" }
+    $ErrorActionPreference = 'Stop'
+
+    Remove-Item -Path "$compressedFile" -Force -ErrorAction SilentlyContinue
+
+    Write-Output 'trivy now available'
 }
 
 function EnsureCdxCli() {
@@ -158,7 +171,7 @@ function GenerateBomContainers() {
 
     $tempDir = [System.Environment]::GetEnvironmentVariable('TEMP')
 
-    # read json file and iterate through entries, filter out windows images   
+    # read json file and iterate through entries, filter out windows images
     $jsonFile = "$bomRootDir\container-images-used.json"
     Write-Output "Start generating bom for container images from $jsonFile"
     $jsonContent = Get-Content -Path $jsonFile | ConvertFrom-Json
@@ -179,7 +192,7 @@ function GenerateBomContainers() {
         if (![string]::IsNullOrEmpty($imageId)) {
             # create bom file entry for linux image
             Write-Output "  -> Image ${fullname} is linux image, creating bom file"
-            # replace in string / with - to avoid issues with file name            
+            # replace in string / with - to avoid issues with file name
             $imageName = 'c-' + $name -replace '/', '-'
             ExecCmdMaster "sudo rm -f /home/remote/$imageName.tar"
             ExecCmdMaster "sudo rm -f $imageName.json"
@@ -216,8 +229,8 @@ function GenerateBomContainers() {
             continue
         }
         $imageName = 'c-' + $image -replace '/', '-'
-        
-        # filter from $ims objects with propeerty repository equal to $image    
+
+        # filter from $ims objects with propeerty repository equal to $image
         $img = $ims | Where-Object { $_.repository -eq $image }
         if ( $null -eq $img) {
             throw "Image $image not found in k2s, please correct static image list with real used containers !"
@@ -225,7 +238,7 @@ function GenerateBomContainers() {
 
         # copy to master
         Write-Output "  -> Exporting windows image: $imageName with id: $img.imageid to $tempDir\$imageName.tar"
-        &k2s.exe image export --id $img.imageid -t "$tempDir\\$imageName.tar" --docker-archive 
+        &k2s.exe image export --id $img.imageid -t "$tempDir\\$imageName.tar" --docker-archive
 
         # copy to master since cdxgen is not available on windows
         Write-Output "  -> Copied to kubemaster: $imageName.tar"
@@ -242,7 +255,7 @@ function GenerateBomContainers() {
 
         # remove tar file
         ExecCmdMaster "sudo rm /home/remote/$imageName.tar"
-        Remove-Item -Path "$tempDir\\$imageName.tar" -Force    
+        Remove-Item -Path "$tempDir\\$imageName.tar" -Force
     }
 
     Write-Output 'Containers bom files now available'
@@ -273,7 +286,7 @@ Write-Output '---------------------------------------------------------------'
 $generationStopwatch = [system.diagnostics.stopwatch]::StartNew()
 
 CheckVMState
-EnsureCdxgen
+EnsureTrivy
 EnsureCdxCli
 GenerateBomGolang("pkg\util\cloudinitisobuilder")
 GenerateBomGolang("pkg\util\zap")
@@ -286,7 +299,7 @@ GenerateBomGolang("pkg\network\vfprules")
 GenerateBomGolang("pkg\k2s")
 GenerateBomDebian
 LoadK2sImages
-GenerateBomContainers 
+GenerateBomContainers
 MergeBomFilesFromDirectory
 
 Write-Output '---------------------------------------------------------------'
