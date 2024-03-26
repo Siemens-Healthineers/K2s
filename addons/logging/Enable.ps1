@@ -205,7 +205,9 @@ if (Test-TraefikIngressControllerAvailability) {
 }
 Add-DashboardHostEntry
 
-$importingSavedObjects = curl.exe -X POST --retry 10 --retry-delay 5 --silent --disable --fail --retry-all-errors "k2s-logging.local/api/saved_objects/_import?overwrite=true" -H 'osd-xsrf: true' -F "file=@$PSScriptRoot/opensearch-dashboard-saved-objects/fluent-bit-index-pattern.ndjson" 2>$null
+# Import saved objects 
+$dashboardIP = kubectl get pods -l="app.kubernetes.io/name=opensearch-dashboards" -n logging -o=jsonpath="{.items[0].status.podIP}"
+$importingSavedObjects = curl.exe -X POST --retry 10 --retry-delay 5 --silent --disable --fail --retry-all-errors "http://${dashboardIP}:5601/api/saved_objects/_import?overwrite=true" -H 'osd-xsrf: true' -F "file=@$PSScriptRoot/opensearch-dashboard-saved-objects/fluent-bit-index-pattern.ndjson" 2>$null
 Write-Log $importingSavedObjects
 
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'logging' })
