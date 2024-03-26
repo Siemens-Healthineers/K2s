@@ -77,8 +77,8 @@ function GenerateBomGolang($dirname) {
     }
     $env:SCAN_DEBUG_MODE = 'debug'
     $indir = $global:KubernetesPath + '\' + $dirname
-    Write-Output "Generate $dirname with command 'cdxgen --required-only -o `"$bomfile`" `"$indir`"'"
-    cdxgen --required-only -o `"$bomfile`" `"$indir`"
+    Write-Output "Generate $dirname with command 'trivy.exe fs `"$indir`"' --scanners license --license-full --format cyclonedx -o `"$bomfile`" "
+    trivy.exe fs `"$indir`" --scanners license --license-full --format cyclonedx -o `"$bomfile`"
 
     Write-Output "bom now available: $bomfile"
 }
@@ -132,16 +132,22 @@ function CheckVMState() {
 function GenerateBomDebian() {
     Write-Output 'Generate bom for debian packages'
 
-    Write-Output 'Install npm'
-    #ExecCmdMaster "sudo DEBIAN_FRONTEND=noninteractive apt-get install -y nodejs npm"
     $hostname = Get-ControlPlaneNodeHostname
-    Write-Output "Install cdxgen into $hostname"
 
-    ExecCmdMaster 'if test -f /usr/local/bin/cdxgen; then echo cdxgen exists; else sudo curl -L -o /usr/local/bin/cdxgen --proxy http://172.19.1.1:8181 https://github.com/CycloneDX/cdxgen/releases/download/v10.1.3/cdxgen; fi'
-    ExecCmdMaster 'sudo chmod +x /usr/local/bin/cdxgen'
+    $trivyInstalled = $(ExecCmdMaster "which /usr/local/bin/trivy" -NoLog)
+    if ($trivyInstalled -match '/bin/trivy') {
+        Write-Output "Trivy already available in VM $hostname"
+    } else {
+        Write-Output "Install trivy into $hostname"
+        ExecCmdMaster 'sudo curl --proxy http://172.19.1.1:8181 -sLO https://github.com/aquasecurity/trivy/releases/download/v0.50.0/trivy_0.50.0_Linux-64bit.tar.gz 2>&1'
+        ExecCmdMaster 'sudo tar -xzf ./trivy_0.50.0_Linux-64bit.tar.gz trivy'
+        ExecCmdMaster 'sudo rm ./trivy_0.50.0_Linux-64bit.tar.gz'
+        ExecCmdMaster 'sudo mv ./trivy /usr/local/bin/'
+        ExecCmdMaster 'sudo chmod +x /usr/local/bin/trivy'
+    }
 
     Write-Output 'Generate bom for debian'
-    ExecCmdMaster 'sudo SCAN_DEBUG_MODE=debug FETCH_LICENSE=true DEBIAN_FRONTEND=noninteractive cdxgen --required-only -t os --deep -o kubemaster.json 2>&1'
+    ExecCmdMaster 'sudo HTTPS_PROXY=http://172.19.1.1:8181 trivy rootfs / --scanners license --license-full --format cyclonedx -o kubemaster.json 2>&1'
 
     Write-Output 'Copy bom file to local folder'
     $source = "$global:Remote_Master" + ':/home/remote/kubemaster.json'
@@ -288,15 +294,7 @@ $generationStopwatch = [system.diagnostics.stopwatch]::StartNew()
 CheckVMState
 EnsureTrivy
 EnsureCdxCli
-GenerateBomGolang("pkg\util\cloudinitisobuilder")
-GenerateBomGolang("pkg\util\zap")
-GenerateBomGolang("pkg\util\yaml2json")
-GenerateBomGolang("pkg\util\pause")
-GenerateBomGolang("pkg\network\bridge")
-GenerateBomGolang("pkg\network\devgon")
-GenerateBomGolang("pkg\network\httpproxy")
-GenerateBomGolang("pkg\network\vfprules")
-GenerateBomGolang("pkg\k2s")
+GenerateBomGolang("k2s")
 GenerateBomDebian
 LoadK2sImages
 GenerateBomContainers
