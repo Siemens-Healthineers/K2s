@@ -38,6 +38,17 @@ $installStopwatch = [system.diagnostics.stopwatch]::StartNew()
 Write-Log 'Installing Build Only Environment'
 Set-EnvVars
 
+if ($Proxy -eq "") {
+    Write-Log "Determining if proxy is configured by the user in Windows Proxy settings." -Console
+    $proxyEnabledStatus = Get-ProxyEnabledStatusFromWindowsSettings
+    if ($proxyEnabledStatus) {
+        $Proxy = Get-ProxyServerFromWindowsSettings
+        Write-Log "Configured proxy server in Windows Proxy settings: $Proxy" -Console
+    } else {
+        Write-Log "No proxy configured in Windows Proxy Settings." -Console
+    }
+}
+
 $ErrorActionPreference = 'Continue'
 
 #cleanup old logs
