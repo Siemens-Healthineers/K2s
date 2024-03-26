@@ -173,3 +173,4 @@ data:
         Buffer_Size 10MB
         Suppress_Type_Name On
         Trace_Error       On
+        net.dns.resolver LEGACY #https://github.com/fluent/fluent-bit/issues/7105

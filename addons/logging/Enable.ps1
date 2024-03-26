@@ -159,7 +159,8 @@ ExecCmdMaster 'sudo mkdir -m 777 -p /logging'
 
 Write-Log 'Installing fluent-bit and opensearch stack' -Console
 &$global:KubectlExe apply -f "$global:KubernetesPath\addons\logging\manifests\namespace.yaml"
-&$global:KubectlExe create -k "$global:KubernetesPath\addons\logging\manifests"
+&$global:KubectlExe create -k "$global:KubernetesPath\addons\logging\manifests\opensearch"
+&$global:KubectlExe create -k "$global:KubernetesPath\addons\logging\manifests\opensearch-dashboards"
 
 Write-Log 'Waiting for pods...'
 &$global:KubectlExe rollout status deployments -n logging --timeout=180s
@@ -186,6 +187,9 @@ if (!$?) {
     Write-Log $errMsg -Error
     exit 1
 }
+
+&$global:KubectlExe create -k "$global:KubernetesPath\addons\logging\manifests\fluentbit"
+
 &$global:KubectlExe rollout status daemonsets -n logging --timeout=180s
 if (!$?) {
     $errMsg = 'Fluent-bit could not be deployed successfully!'
