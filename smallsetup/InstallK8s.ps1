@@ -122,6 +122,17 @@ Write-Log "Using Master VM Diskspace: $([math]::round($MasterDiskSize/1GB, 2))GB
 
 Set-EnvVars
 
+if ($Proxy -eq "") {
+    Write-Log "Determining if proxy is configured by the user in Windows Proxy settings." -Console
+    $proxyEnabledStatus = Get-ProxyEnabledStatusFromWindowsSettings
+    if ($proxyEnabledStatus) {
+        $Proxy = Get-ProxyServerFromWindowsSettings
+        Write-Log "Configured proxy server in Windows Proxy settings: $Proxy"
+    } else {
+        Write-Log "No proxy configured in Windows Proxy Settings."
+    }
+}
+
 Addk2sToDefenderExclusion
 
 Stop-InstallationIfDockerDesktopIsRunning
