@@ -317,6 +317,7 @@ Write-Log "Add route to $clusterCIDRMaster"
 route -p add $clusterCIDRMaster $ipControlPlane METRIC 4 | Out-Null
 
 # routes for services
+route delete $clusterCIDRServices >$null 2>&1
 Write-Log "Remove obsolete route to $clusterCIDRServicesLinux"
 route delete $clusterCIDRServicesLinux >$null 2>&1
 Write-Log "Add route to $clusterCIDRServicesLinux"
@@ -325,10 +326,6 @@ Write-Log "Remove obsolete route to $clusterCIDRServicesWindows"
 route delete $clusterCIDRServicesWindows >$null 2>&1
 Write-Log "Add route to $clusterCIDRServicesWindows"
 route -p add $clusterCIDRServicesWindows $ipControlPlane METRIC 7 | Out-Null
-Write-Log "Remove obsolete route to $clusterCIDRServices"
-route delete $clusterCIDRServices >$null 2>&1
-Write-Log "Add route to $clusterCIDRServices"
-route -p add $clusterCIDRServices $ipControlPlane METRIC 8 | Out-Null
 
 # enable ip forwarding
 netsh int ipv4 set int "vEthernet ($switchname)" forwarding=enabled | Out-Null

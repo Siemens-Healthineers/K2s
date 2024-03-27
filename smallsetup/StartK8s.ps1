@@ -393,6 +393,7 @@ Write-Log "Add route to $global:ClusterCIDR_Master"
 route -p add $global:ClusterCIDR_Master $global:IP_Master METRIC 4 | Out-Null
 
 # routes for services
+route delete $global:ClusterCIDR_Services >$null 2>&1
 Write-Log "Remove obsolete route to $global:ClusterCIDR_ServicesLinux"
 route delete $global:ClusterCIDR_ServicesLinux >$null 2>&1
 Write-Log "Add route to $global:ClusterCIDR_ServicesLinux"
@@ -401,10 +402,6 @@ Write-Log "Remove obsolete route to $global:ClusterCIDR_ServicesWindows"
 route delete $global:ClusterCIDR_ServicesWindows >$null 2>&1
 Write-Log "Add route to $global:ClusterCIDR_ServicesWindows"
 route -p add $global:ClusterCIDR_ServicesWindows $global:IP_Master METRIC 7 | Out-Null
-Write-Log "Remove obsolete route to $global:ClusterCIDR_Services"
-route delete $global:ClusterCIDR_Services >$null 2>&1
-Write-Log "Add route to $global:ClusterCIDR_Services"
-route -p add $global:ClusterCIDR_Services $global:IP_Master METRIC 8 | Out-Null
 
 # enable ip forwarding
 netsh int ipv4 set int "vEthernet ($switchname)" forwarding=enabled | Out-Null
