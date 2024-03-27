@@ -62,6 +62,7 @@ if ($null -eq (&$global:KubectlExe get namespace logging --ignore-not-found) -or
 Write-Log 'Uninstalling Logging Stack' -Console
 
 &$global:KubectlExe delete -k "$global:KubernetesPath\addons\logging\manifests" --ignore-not-found --wait=false
+&$global:KubectlExe delete -k "$global:KubernetesPath\addons\logging\manifests\fluentbit\windows" --ignore-not-found --wait=false
 
 &$global:KubectlExe delete pod -l app.kubernetes.io/name=opensearch-dashboards -n logging --grace-period=0 --force --ignore-not-found 2>$null
 &$global:KubectlExe delete pod -l app.kubernetes.io/name=opensearch -n logging --grace-period=0 --force --ignore-not-found 2>$null

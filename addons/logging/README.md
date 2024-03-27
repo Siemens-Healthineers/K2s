@@ -34,7 +34,7 @@ The logging dashboard UI can be accessed via the following methods.
 ### Access using ingress
 
 To access logging dashboard via ingress, the ingress-nginx or the traefik addon has to enabled.
-Once the addons are enabled, then the logging dashboard UI can be accessed at the following link: https://k2s-logging.local
+Once the addons are enabled, then the logging dashboard UI can be accessed at the following link: http://k2s-logging.local
 
 ### Access using port-forwarding
 
@@ -42,7 +42,7 @@ To access logging dashboard via port-forwarding, the following command can be ex
 ```
 kubectl -n logging port-forward svc/opensearch-dashboards 5601:5601
 ```
-In this case, the logging dashboard UI can be accessed at the following link: https://localhost:5601
+In this case, the logging dashboard UI can be accessed at the following link: http://localhost:5601
 
 ## Disable logging
 

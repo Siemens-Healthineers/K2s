@@ -103,13 +103,13 @@ function Write-UsageForUser {
  eg. k2s addons enable ingress-nginx
  Once the ingress controller is running in the cluster, run the command to enable logging again.
  k2s addons enable logging
- The opensearch dashboard will be accessible on the following URL: https://k2s-logging.local
+ The opensearch dashboard will be accessible on the following URL: http://k2s-logging.local
 
  Option 2: Port-forwading
  Use port-forwarding to the opensearch dashboard using the command below:
  kubectl -n logging port-forward svc/opensearch-dashboards 5601:5601
  
- In this case, the opensearch dashboard will be accessible on the following URL: https://localhost:5601
+ In this case, the opensearch dashboard will be accessible on the following URL: http://localhost:5601
 '@ -split "`r`n" | ForEach-Object { Write-Log $_ -Console }
 }
 
@@ -117,11 +117,11 @@ function Write-UsageForUser {
 . $PSScriptRoot\..\..\smallsetup\common\GlobalFunctions.ps1
 
 $logModule = "$PSScriptRoot/../../smallsetup/ps-modules/log/log.module.psm1"
-$statusModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/status/status.module.psm1"
+$clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
 $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 
-Import-Module $logModule, $addonsModule, $statusModule, $infraModule
+Import-Module $logModule, $addonsModule, $clusterModule, $infraModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -158,9 +158,19 @@ if ($Ingress -ne 'none') {
 ExecCmdMaster 'sudo mkdir -m 777 -p /logging'
 
 Write-Log 'Installing fluent-bit and opensearch stack' -Console
+
+# opensearch
+# opensearch dashboards
+# fluent-bit linux
+
 &$global:KubectlExe apply -f "$global:KubernetesPath\addons\logging\manifests\namespace.yaml"
-&$global:KubectlExe create -k "$global:KubernetesPath\addons\logging\manifests\opensearch"
-&$global:KubectlExe create -k "$global:KubernetesPath\addons\logging\manifests\opensearch-dashboards"
+&$global:KubectlExe create -k "$global:KubernetesPath\addons\logging\manifests\"
+
+# fluent-bit windows
+$setupInfo = Get-SetupInfo
+if ($setupInfo.LinuxOnly -eq $false) {
+    &$global:KubectlExe create -k "$global:KubernetesPath\addons\logging\manifests\fluentbit\windows"
+}
 
 Write-Log 'Waiting for pods...'
 &$global:KubectlExe rollout status deployments -n logging --timeout=180s
@@ -175,6 +185,7 @@ if (!$?) {
     Write-Log $errMsg -Error
     exit 1
 }
+
 &$global:KubectlExe rollout status statefulsets -n logging --timeout=180s
 if (!$?) {
     $errMsg = 'Opensearch could not be deployed successfully!'
@@ -187,8 +198,6 @@ if (!$?) {
     Write-Log $errMsg -Error
     exit 1
 }
-
-&$global:KubectlExe create -k "$global:KubernetesPath\addons\logging\manifests\fluentbit"
 
 &$global:KubectlExe rollout status daemonsets -n logging --timeout=180s
 if (!$?) {

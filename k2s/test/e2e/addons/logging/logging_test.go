@@ -24,6 +24,7 @@ const testClusterTimeout = time.Minute * 20
 var (
 	suite                 *framework.K2sTestSuite
 	portForwardingSession *gexec.Session
+	linuxOnly             = false
 )
 
 func TestLogging(t *testing.T) {
@@ -33,6 +34,7 @@ func TestLogging(t *testing.T) {
 
 var _ = BeforeSuite(func(ctx context.Context) {
 	suite = framework.Setup(ctx, framework.SystemMustBeRunning, framework.EnsureAddonsAreDisabled, framework.ClusterTestStepTimeout(testClusterTimeout))
+	linuxOnly = suite.SetupInfo().SetupConfig.LinuxOnly
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
@@ -48,7 +50,9 @@ var _ = Describe("'logging' addon", Ordered, func() {
 			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "opensearch-dashboards", "logging")
 			suite.Cluster().ExpectStatefulSetToBeDeleted("opensearch-cluster-master", "logging", ctx)
 			suite.Cluster().ExpectDaemonSetToBeDeleted("fluent-bit", "logging", ctx)
-			suite.Cluster().ExpectDaemonSetToBeDeleted("fluent-bit-win", "logging", ctx)
+			if !linuxOnly {
+				suite.Cluster().ExpectDaemonSetToBeDeleted("fluent-bit-win", "logging", ctx)
+			}
 
 			addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
 			Expect(addonsStatus.IsAddonEnabled("logging")).To(BeFalse())
@@ -66,7 +70,9 @@ var _ = Describe("'logging' addon", Ordered, func() {
 			suite.Cluster().ExpectDeploymentToBeAvailable("opensearch-dashboards", "logging")
 			suite.Cluster().ExpectStatefulSetToBeReady("opensearch-cluster-master", "logging", 1, ctx)
 			suite.Cluster().ExpectDaemonSetToBeReady("fluent-bit", "logging", 1, ctx)
-			suite.Cluster().ExpectDaemonSetToBeReady("fluent-bit-win", "logging", 1, ctx)
+			if !linuxOnly {
+				suite.Cluster().ExpectDaemonSetToBeReady("fluent-bit-win", "logging", 1, ctx)
+			}
 
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "opensearch", "logging")
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "fluent-bit", "logging")
@@ -106,7 +112,9 @@ var _ = Describe("'logging' addon", Ordered, func() {
 			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "opensearch-dashboards", "logging")
 			suite.Cluster().ExpectStatefulSetToBeDeleted("opensearch-cluster-master", "logging", ctx)
 			suite.Cluster().ExpectDaemonSetToBeDeleted("fluent-bit", "logging", ctx)
-			suite.Cluster().ExpectDaemonSetToBeDeleted("fluent-bit-win", "logging", ctx)
+			if !linuxOnly {
+				suite.Cluster().ExpectDaemonSetToBeDeleted("fluent-bit-win", "logging", ctx)
+			}
 
 			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "traefik", "traefik")
 
@@ -120,7 +128,9 @@ var _ = Describe("'logging' addon", Ordered, func() {
 			suite.Cluster().ExpectDeploymentToBeAvailable("opensearch-dashboards", "logging")
 			suite.Cluster().ExpectStatefulSetToBeReady("opensearch-cluster-master", "logging", 1, ctx)
 			suite.Cluster().ExpectDaemonSetToBeReady("fluent-bit", "logging", 1, ctx)
-			suite.Cluster().ExpectDaemonSetToBeReady("fluent-bit-win", "logging", 1, ctx)
+			if !linuxOnly {
+				suite.Cluster().ExpectDaemonSetToBeReady("fluent-bit-win", "logging", 1, ctx)
+			}
 
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "opensearch-dashboards", "logging")
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "opensearch", "logging")
@@ -156,7 +166,9 @@ var _ = Describe("'logging' addon", Ordered, func() {
 			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "opensearch-dashboards", "logging")
 			suite.Cluster().ExpectStatefulSetToBeDeleted("opensearch-cluster-master", "logging", ctx)
 			suite.Cluster().ExpectDaemonSetToBeDeleted("fluent-bit", "logging", ctx)
-			suite.Cluster().ExpectDaemonSetToBeDeleted("fluent-bit-win", "logging", ctx)
+			if !linuxOnly {
+				suite.Cluster().ExpectDaemonSetToBeDeleted("fluent-bit-win", "logging", ctx)
+			}
 
 			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "ingress-nginx", "ingress-nginx")
 
@@ -170,7 +182,9 @@ var _ = Describe("'logging' addon", Ordered, func() {
 			suite.Cluster().ExpectDeploymentToBeAvailable("opensearch-dashboards", "logging")
 			suite.Cluster().ExpectStatefulSetToBeReady("opensearch-cluster-master", "logging", 1, ctx)
 			suite.Cluster().ExpectDaemonSetToBeReady("fluent-bit", "logging", 1, ctx)
-			suite.Cluster().ExpectDaemonSetToBeReady("fluent-bit-win", "logging", 1, ctx)
+			if !linuxOnly {
+				suite.Cluster().ExpectDaemonSetToBeReady("fluent-bit-win", "logging", 1, ctx)
+			}
 
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "opensearch-dashboards", "logging")
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "opensearch", "logging")
