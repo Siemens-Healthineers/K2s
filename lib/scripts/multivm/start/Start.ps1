@@ -114,7 +114,6 @@ $ipControlPlane = Get-ConfiguredIPControlPlane
 $setupConfigRoot = Get-RootConfigk2s
 $clusterCIDRMaster = $setupConfigRoot.psobject.properties['podNetworkMasterCIDR'].value
 $clusterCIDRWorker = $setupConfigRoot.psobject.properties['podNetworkWorkerCIDR'].value
-$clusterCIDRServices = $setupConfigRoot.psobject.properties['servicesCIDR'].value
 $clusterCIDRServicesLinux = $setupConfigRoot.psobject.properties['servicesCIDRLinux'].value
 $clusterCIDRServicesWindows = $setupConfigRoot.psobject.properties['servicesCIDRWindows'].value
 $clusterCIDRNextHop = $setupConfigRoot.psobject.properties['cbr0'].value
