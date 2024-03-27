@@ -39,7 +39,7 @@ data:
     [INPUT]
         Name tail
         Path /var/log/containers/*.log
-        Exclude_Path /var/log/containers/*_ingress-nginx_*.log, /var/log/containers/*_traefik_*.log, /var/log/containers/*_logging_*.log, /var/log/containers/*_monitoring_*.log, /var/log/containers/*_registry_*.log, /var/log/containers/*_kubernetes-dashboard_*.log
+        Exclude_Path /var/log/containers/*_logging_*.log
         Parser cri
         Tag kube.*
         Buffer_Chunk_Size 10MB
