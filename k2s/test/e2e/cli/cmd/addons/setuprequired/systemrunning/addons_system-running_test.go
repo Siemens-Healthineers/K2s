@@ -10,12 +10,9 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/siemens-healthineers/k2s/test/framework"
-
-	"github.com/siemens-healthineers/k2s/test/framework/k2s"
 )
 
 var suite *framework.K2sTestSuite
-var addons []k2s.Addon
 
 func TestLs(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -24,7 +21,6 @@ func TestLs(t *testing.T) {
 
 var _ = BeforeSuite(func(ctx context.Context) {
 	suite = framework.Setup(ctx, framework.SystemMustBeRunning)
-	addons = suite.AddonsAdditionalInfo().AllAddons()
 })
 
 var _ = AfterSuite(func(ctx context.Context) {

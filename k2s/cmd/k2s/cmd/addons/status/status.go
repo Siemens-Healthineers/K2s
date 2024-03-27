@@ -11,19 +11,17 @@ import (
 
 	"fmt"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/addons/status"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 
 	"github.com/siemens-healthineers/k2s/internal/setupinfo"
 	"github.com/siemens-healthineers/k2s/internal/terminal"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/addons"
-
+	"github.com/siemens-healthineers/k2s/internal/addons"
 	"github.com/siemens-healthineers/k2s/internal/json"
 )
 
 type StatusPrinter interface {
-	PrintStatus(addonName string, loadFunc func(addonName string) (*status.LoadedAddonStatus, error)) error
+	PrintStatus(addonName string, loadFunc func(addonName string) (*LoadedAddonStatus, error)) error
 	PrintSystemNotInstalledError(addonName string) error
 }
 
@@ -84,10 +82,10 @@ func runStatusCmd(cmd *cobra.Command, addon addons.Addon, determinePrinterFunc f
 		return printer.PrintSystemNotInstalledError(addon.Metadata.Name)
 	}
 
-	loadFunc := func(addonName string) (*status.LoadedAddonStatus, error) {
+	loadFunc := func(addonName string) (*LoadedAddonStatus, error) {
 		slog.Info("Loading status", "addon", addonName, "directory", addon.Directory)
 
-		return status.LoadAddonStatus(addonName, addon.Directory, common.DeterminePsVersion(config))
+		return LoadAddonStatus(addonName, addon.Directory, common.DeterminePsVersion(config))
 	}
 
 	return printer.PrintStatus(addon.Metadata.Name, loadFunc)
@@ -97,8 +95,8 @@ func determinePrinter(outputOption string) StatusPrinter {
 	terminalPrinter := terminal.NewTerminalPrinter()
 
 	if outputOption == jsonOption {
-		return status.NewJsonPrinter(terminalPrinter, json.MarshalIndent)
+		return NewJsonPrinter(terminalPrinter, json.MarshalIndent)
 	} else {
-		return status.NewUserFriendlyPrinter(terminalPrinter)
+		return NewUserFriendlyPrinter(terminalPrinter)
 	}
 }

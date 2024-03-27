@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText:  © 2023 Siemens Healthcare GmbH
 // SPDX-License-Identifier:   MIT
 
-package addons
+package generic
 
 import (
 	"fmt"
@@ -11,8 +11,7 @@ import (
 	"github.com/siemens-healthineers/k2s/internal/reflection"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/params"
-
-	"github.com/siemens-healthineers/k2s/cmd/k2s/addons"
+	"github.com/siemens-healthineers/k2s/internal/addons"
 
 	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
@@ -29,22 +28,22 @@ func (m *mockObject) add(p string) {
 	m.Called(p)
 }
 
-func TestAddons(t *testing.T) {
+func TestGenericPkg(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "addons cmd Unit Tests", Label("unit", "ci"))
+	RunSpecs(t, "generic addons cmd Unit Tests", Label("unit", "ci", "generic", "addons"))
 }
 
 var _ = BeforeSuite(func() {
 	slog.SetDefault(slog.New(logr.ToSlogHandler(GinkgoLogr)))
 })
 
-var _ = Describe("addons", func() {
-	Describe("createGenericCommands", func() {
+var _ = Describe("generic pkg", func() {
+	Describe("NewCommands", func() {
 		When("no addons exist", func() {
 			It("returns empty slice", func() {
 				addons := addons.Addons{}
 
-				result, err := createGenericCommands(addons)
+				result, err := NewCommands(addons)
 
 				Expect(err).ToNot(HaveOccurred())
 				Expect(result).To(BeEmpty())
@@ -57,7 +56,7 @@ var _ = Describe("addons", func() {
 					addons.Addon{},
 				}
 
-				result, err := createGenericCommands(addons)
+				result, err := NewCommands(addons)
 
 				Expect(err).To(MatchError(ContainSubstring("no cmd config found")))
 				Expect(result).To(BeNil())
@@ -70,7 +69,7 @@ var _ = Describe("addons", func() {
 					addons.Addon{Spec: addons.AddonSpec{Commands: &map[string]addons.AddonCmd{}}},
 				}
 
-				result, err := createGenericCommands(addons)
+				result, err := NewCommands(addons)
 
 				Expect(err).To(MatchError(ContainSubstring("no cmd config found")))
 				Expect(result).To(BeNil())
@@ -100,7 +99,7 @@ var _ = Describe("addons", func() {
 					},
 				}
 
-				result, err := createGenericCommands(addons)
+				result, err := NewCommands(addons)
 
 				Expect(err).ToNot(HaveOccurred())
 				Expect(result).To(HaveLen(3))
@@ -134,7 +133,7 @@ var _ = Describe("addons", func() {
 					},
 				}
 
-				result, err := createGenericCommands(addons)
+				result, err := NewCommands(addons)
 
 				Expect(err).To(HaveOccurred())
 				Expect(result).To(BeEmpty())

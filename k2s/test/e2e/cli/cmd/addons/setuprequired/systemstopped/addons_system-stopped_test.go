@@ -8,7 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/addons/status"
+	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/addons/status"
+	"github.com/siemens-healthineers/k2s/internal/addons"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -19,7 +20,7 @@ import (
 )
 
 var suite *framework.K2sTestSuite
-var addons []k2s.Addon
+var allAddons addons.Addons
 
 func TestLs(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -28,7 +29,7 @@ func TestLs(t *testing.T) {
 
 var _ = BeforeSuite(func(ctx context.Context) {
 	suite = framework.Setup(ctx, framework.SystemMustBeStopped, framework.ClusterTestStepPollInterval(500*time.Millisecond))
-	addons = suite.AddonsAdditionalInfo().AllAddons()
+	allAddons = suite.AddonsAdditionalInfo().AllAddons()
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
@@ -39,7 +40,7 @@ var _ = Describe("addons commands", Ordered, func() {
 	Describe("status", func() {
 		Context("standard output", func() {
 			It("prints system-not-running message for all addons and exits with non-zero", func(ctx context.Context) {
-				for _, addon := range addons {
+				for _, addon := range allAddons {
 					GinkgoWriter.Println("Calling addons status for", addon.Metadata.Name)
 
 					output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "status", addon.Metadata.Name)
@@ -51,7 +52,7 @@ var _ = Describe("addons commands", Ordered, func() {
 
 		Context("JSON output", func() {
 			It("contains only system-not-running info and name and exits with non-zero", func(ctx context.Context) {
-				for _, addon := range addons {
+				for _, addon := range allAddons {
 					GinkgoWriter.Println("Calling addons status for", addon.Metadata.Name)
 
 					output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "status", addon.Metadata.Name, "-o", "json")
@@ -71,7 +72,7 @@ var _ = Describe("addons commands", Ordered, func() {
 
 	Describe("enable", func() {
 		It("prints system-not-running message for all addons and exits with non-zero", func(ctx context.Context) {
-			for _, addon := range addons {
+			for _, addon := range allAddons {
 				GinkgoWriter.Println("Calling addons enable for", addon.Metadata.Name)
 
 				output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "enable", addon.Metadata.Name)
@@ -83,7 +84,7 @@ var _ = Describe("addons commands", Ordered, func() {
 
 	Describe("disable", func() {
 		It("prints system-not-running message for all addons and exits with non-zero", func(ctx context.Context) {
-			for _, addon := range addons {
+			for _, addon := range allAddons {
 				GinkgoWriter.Println("Calling addons disable for", addon.Metadata.Name)
 
 				params := []string{"addons", "disable", addon.Metadata.Name}
@@ -100,7 +101,7 @@ var _ = Describe("addons commands", Ordered, func() {
 
 	Describe("export", func() {
 		It("prints system-not-running message for each addon and exits with non-zero", func(ctx context.Context) {
-			for _, addon := range addons {
+			for _, addon := range allAddons {
 				GinkgoWriter.Println("Calling addons export for", addon.Metadata.Name)
 
 				output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "export", addon.Metadata.Name, "-d", "test-dir")
@@ -118,7 +119,7 @@ var _ = Describe("addons commands", Ordered, func() {
 
 	Describe("import", func() {
 		It("prints system-not-running message for each addon and exits with non-zero", func(ctx context.Context) {
-			for _, addon := range addons {
+			for _, addon := range allAddons {
 				GinkgoWriter.Println("Calling addons import for", addon.Metadata.Name)
 
 				output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "import", addon.Metadata.Name, "-z", "test-dir")

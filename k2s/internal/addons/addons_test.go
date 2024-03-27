@@ -8,8 +8,6 @@ import (
 	"log/slog"
 	"testing"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/addons/print"
-
 	r "github.com/siemens-healthineers/k2s/internal/reflection"
 
 	"io/fs"
@@ -80,7 +78,7 @@ func (m *mockObject) validateContent(addon Addon) error {
 
 func TestAddons(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "addons Unit Tests", Label("unit", "ci"))
+	RunSpecs(t, "addons Unit Tests", Label("unit", "ci", "addons"))
 }
 
 var _ = BeforeSuite(func() {
@@ -88,40 +86,6 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = Describe("addons", func() {
-	Describe("ToPrintInfo", func() {
-		When("empty slice", func() {
-			It("returns empty slice", func() {
-				input := Addons{}
-
-				result := input.ToPrintInfo()
-
-				Expect(result).To(BeEmpty())
-			})
-		})
-
-		When("addons exist", func() {
-			It("print info is returned", func() {
-				input := Addons{
-					Addon{
-						Metadata: AddonMetadata{
-							Name: "a1", Description: "d1",
-						},
-					},
-					Addon{
-						Metadata: AddonMetadata{
-							Name: "a2", Description: "d2",
-						},
-					}}
-
-				result := input.ToPrintInfo()
-
-				Expect(result).To(ConsistOf(
-					print.AddonPrintInfo{Name: "a1", Description: "d1"},
-					print.AddonPrintInfo{Name: "a2", Description: "d2"}))
-			})
-		})
-	})
-
 	Describe("FullDescription", func() {
 		When("error occurred", func() {
 			It("returns error", func() {

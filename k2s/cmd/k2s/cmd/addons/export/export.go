@@ -13,8 +13,6 @@ import (
 	"github.com/siemens-healthineers/k2s/internal/powershell"
 	"github.com/siemens-healthineers/k2s/internal/terminal"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/addons"
-
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 
 	"github.com/siemens-healthineers/k2s/internal/setupinfo"
@@ -22,8 +20,7 @@ import (
 	p "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/params"
 
 	ac "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/addons/common"
-
-	acc "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/addons/cmd/common"
+	"github.com/siemens-healthineers/k2s/internal/addons"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 
@@ -64,14 +61,14 @@ func NewCommand() *cobra.Command {
 
 func runExport(cmd *cobra.Command, args []string) error {
 	terminalPrinter := terminal.NewTerminalPrinter()
-	allAddons, err := addons.LoadAddons()
+	allAddons, err := addons.LoadAddons(utils.InstallDir())
 	if err != nil {
 		return err
 	}
 
 	ac.LogAddons(allAddons)
 
-	if err := acc.ValidateAddonNames(allAddons, "export", terminalPrinter, args...); err != nil {
+	if err := ac.ValidateAddonNames(allAddons, "export", terminalPrinter, args...); err != nil {
 		return err
 	}
 

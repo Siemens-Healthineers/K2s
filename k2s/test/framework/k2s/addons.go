@@ -4,16 +4,14 @@ package k2s
 
 import (
 	"context"
-	"io/fs"
 	"log"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
 
+	"github.com/siemens-healthineers/k2s/internal/addons"
 	sos "github.com/siemens-healthineers/k2s/test/framework/os"
-
-	"github.com/siemens-healthineers/k2s/cmd/k2s/addons/print"
 
 	//lint:ignore ST1001 test framework code
 	. "github.com/onsi/ginkgo/v2"
@@ -21,135 +19,58 @@ import (
 
 	//lint:ignore ST1001 test framework code
 	. "github.com/onsi/gomega"
-	"gopkg.in/yaml.v3"
 )
 
 type Addon struct {
-	Metadata  AddonMetadata `yaml:"metadata"`
-	Spec      AddonSpec     `yaml:"spec"`
-	Directory AddonDirectory
-}
-
-type AddonMetadata struct {
-	Name        string `yaml:"name"`
-	Description string `yaml:"description"`
-}
-
-type AddonSpec struct {
-	OfflineUsage OfflineUsage `yaml:"offline_usage"`
-}
-
-type AddonDirectory struct {
-	Name string
-	Path string
-}
-
-type OfflineUsage struct {
-	LinuxResources   LinuxResources   `yaml:"linux"`
-	WindowsResources WindowsResources `yaml:"windows"`
-}
-
-type LinuxResources struct {
-	DebPackages      []string       `yaml:"deb"`
-	CurlPackages     []CurlPackages `yaml:"curl"`
-	AdditionalImages []string       `yaml:"additionalImages"`
-}
-
-type WindowsResources struct {
-	CurlPackages []CurlPackages `yaml:"curl"`
-}
-
-type CurlPackages struct {
-	Url         string `yaml:"url"`
-	Destination string `yaml:"destination"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
 }
 
 type AddonsStatus struct {
-	internal *print.AddonsStatus
+	EnabledAddons  []Addon `json:"enabledAddons"`
+	DisabledAddons []Addon `json:"disabledAddons"`
 }
 
 type AddonsAdditionalInfo struct {
 }
 
-// wrapper around k2s.exe to retrieve and parse the cluster status
+const manifestFileName = "addon.manifest.yaml"
+
+// wrapper around k2s.exe to retrieve and parse the addons status
 func (r *K2sCliRunner) GetAddonsStatus(ctx context.Context) *AddonsStatus {
 	output := r.Run(ctx, "addons", "ls", "-o", "json")
 
-	status := unmarshalStatus[print.AddonsStatus](output)
-
-	return &AddonsStatus{
-		internal: status,
-	}
+	return unmarshalStatus[AddonsStatus](output)
 }
 
 func (addonsStatus *AddonsStatus) IsAddonEnabled(addonName string) bool {
-	enabledAddons := lo.Map(addonsStatus.internal.EnabledAddons, func(info print.AddonPrintInfo, _ int) string {
-		return info.Name
+	return lo.SomeBy(addonsStatus.EnabledAddons, func(addon Addon) bool {
+		return addon.Name == addonName
 	})
-	return lo.Contains(enabledAddons, addonName)
 }
 
 func (addonsStatus *AddonsStatus) GetEnabledAddons() []string {
-	return lo.Map(addonsStatus.internal.EnabledAddons, func(info print.AddonPrintInfo, _ int) string {
-		return info.Name
+	return lo.Map(addonsStatus.EnabledAddons, func(addon Addon, _ int) string {
+		return addon.Name
 	})
 }
-
-const manifestFileName = "addon.manifest.yaml"
 
 func NewAddonsAdditionalInfo() *AddonsAdditionalInfo {
 	return &AddonsAdditionalInfo{}
 }
 
-func (info *AddonsAdditionalInfo) AllAddons() []Addon {
+func (info *AddonsAdditionalInfo) AllAddons() addons.Addons {
 	rootDir, err := sos.RootDir()
 	Expect(err).To(BeNil())
 
-	addonsDir := filepath.Join(rootDir, "addons")
-	addons := []Addon{}
+	allAddons, err := addons.LoadAddons(rootDir)
+	Expect(err).To(BeNil())
 
-	GinkgoWriter.Println("Scanning for addons in <", addonsDir, ">..")
-
-	Expect(filepath.WalkDir(addonsDir, func(path string, entry fs.DirEntry, _ error) error {
-		if entry.IsDir() {
-			return nil
-		}
-
-		if entry.Name() != manifestFileName {
-			return nil
-		}
-
-		GinkgoWriter.Println("Reading file <", path, ">..")
-
-		content, err := os.ReadFile(path)
-		if err != nil {
-			return err
-		}
-
-		var addon Addon
-
-		GinkgoWriter.Println("Parsing file <", path, ">..")
-
-		err = yaml.Unmarshal(content, &addon)
-		if err != nil {
-			return err
-		}
-
-		addon.Directory.Path = filepath.Dir(path)
-		addon.Directory.Name = filepath.Base(addon.Directory.Path)
-
-		addons = append(addons, addon)
-
-		return nil
-	})).To(Succeed())
-
-	GinkgoWriter.Println("Found <", len(addons), "> addons")
-
-	return addons
+	return allAddons
 }
 
-func (info *AddonsAdditionalInfo) GetImagesForAddon(addon Addon) ([]string, error) {
-	yamlFiles, err := sos.GetFilesMatch(addon.Directory.Path, "*.yaml")
+func (info *AddonsAdditionalInfo) GetImagesForAddon(addon addons.Addon) ([]string, error) {
+	yamlFiles, err := sos.GetFilesMatch(addon.Directory, "*.yaml")
 	if err != nil {
 		return nil, err
 	}
