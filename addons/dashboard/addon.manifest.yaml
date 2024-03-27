@@ -28,7 +28,7 @@ spec:
           - cmd: k2s addons enable dashboard
             comment: Enable dashboard in k2s
           - cmd: k2s addons enable dashboard --ingress traefik
-            comment: Enable dashboard in k2s with traefik ingres
+            comment: Enable dashboard in k2s with traefik ingress
           - cmd: k2s addons enable dashboard --ingress traefik --enable-metrics-server
             comment: Enable dashboard in k2s with traefik and metrics server
       script:

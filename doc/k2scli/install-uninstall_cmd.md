@@ -116,12 +116,12 @@ Example:
 
 # Assignment of cluster IP addresses for Services:
  
-In case of services on Linux side please use the subnet 172.21.0.0/24 starting from 172.21.0.11:
+In case of services on Linux side please use the subnet 172.21.0.0/24 starting from 172.21.0.50 (k2s reserves addresses up to 172.21.0.49):
 ```
 clusterIP: 172.21.0.x
 ```
 
-In case of services on Windows side please use the subnet 172.21.1.0/24 starting from 172.21.1.11:
+In case of services on Windows side please use the subnet 172.21.1.0/24 starting from 172.21.1.50 (k2s reserves addresses up to 172.21.1.49):
 ```
 clusterIP: 172.21.1.x
 ```

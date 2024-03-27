@@ -21,7 +21,7 @@ k2s addons enable monitoring
 
 The monitoring addon can be integrated with either the ingress-nginx addon or the traefik addon so that it can be exposed outside the cluster.
 
-Example, the monitoring addon can be enabled along with traefik addon using the following command:
+For example, the monitoring addon can be enabled along with traefik addon using the following command:
 ```
 k2s addons enable monitoring --ingress traefik
 ```
@@ -33,7 +33,7 @@ The monitoring dashboard UI can be accessed via the following methods.
 
 ### Access using ingress
 
-To access monitoring dashboard via ingress, we have to enable the ingress-nginx or the traefik addon.
+To access monitoring dashboard via ingress, the ingress-nginx or the traefik addon has to enabled.
 Once the addons are enabled, then the monitoring dashboard UI can be accessed at the following link: https://k2s-monitoring.local
 
 ### Access using port-forwarding

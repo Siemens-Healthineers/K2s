@@ -1,0 +1,22 @@
+# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+#
+# SPDX-License-Identifier: MIT
+
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: opensearch-dashboards-traefik
+  namespace: logging
+  annotations:
+    kubernetes.io/ingress.class: traefik
+spec:
+  entryPoints:
+    - web
+  routes:
+    - match: Host(`k2s-logging.local`) && PathPrefix(`/`)
+      kind: Rule
+      services:
+        - name: opensearch-dashboards
+          namespace: logging
+          port: 5601
