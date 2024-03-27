@@ -10,13 +10,14 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/siemens-healthineers/k2s/internal/addons"
 	"github.com/siemens-healthineers/k2s/test/framework"
 
 	"github.com/siemens-healthineers/k2s/test/framework/k2s"
 )
 
 var suite *framework.K2sTestSuite
-var addons []k2s.Addon
+var allAddons addons.Addons
 
 func TestLs(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -25,7 +26,7 @@ func TestLs(t *testing.T) {
 
 var _ = BeforeSuite(func(ctx context.Context) {
 	suite = framework.Setup(ctx)
-	addons = suite.AddonsAdditionalInfo().AllAddons()
+	allAddons = suite.AddonsAdditionalInfo().AllAddons()
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
@@ -53,7 +54,7 @@ var _ = Describe("addons", Ordered, func() {
 
 			lines := strings.Split(output, "\n")
 
-			for _, addon := range addons {
+			for _, addon := range allAddons {
 				Expect(lines).To(ContainElement(SatisfyAll(
 					ContainSubstring(addon.Metadata.Name),
 					ContainSubstring(addon.Metadata.Description),

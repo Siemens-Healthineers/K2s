@@ -9,10 +9,9 @@ import (
 	"testing"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
-
-	"github.com/siemens-healthineers/k2s/internal/setupinfo"
-
+	"github.com/siemens-healthineers/k2s/internal/powershell"
 	r "github.com/siemens-healthineers/k2s/internal/reflection"
+	"github.com/siemens-healthineers/k2s/internal/setupinfo"
 
 	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
@@ -30,6 +29,18 @@ type nullableOkay struct {
 
 type nullableMessage struct {
 	value string
+}
+
+func (m *mockObject) mockDeterminePrinter(outputOption string, psVersion powershell.PowerShellVersion) StatusPrinter {
+	args := m.Called(outputOption)
+
+	return args.Get(0).(StatusPrinter)
+}
+
+func (m *mockObject) PrintStatus(addonName string, addonDirectory string) error {
+	args := m.Called(addonName, addonDirectory)
+
+	return args.Error(0)
 }
 
 func (m *mockObject) loadAddonStatus(addonName string) (*LoadedAddonStatus, error) {
@@ -82,16 +93,42 @@ func (m *mockObject) PrintProp(prop AddonStatusProp) {
 	m.Called(prop)
 }
 
-func TestPrint(t *testing.T) {
+func TestStatusPkg(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "addons status print Unit Tests", Label("unit", "ci", "status"))
+	RunSpecs(t, "addon status pkg Unit Tests", Label("unit", "ci", "status"))
 }
 
 var _ = BeforeSuite(func() {
 	slog.SetDefault(slog.New(logr.ToSlogHandler(GinkgoLogr)))
 })
 
-var _ = Describe("addons status print", func() {
+var _ = Describe("status pkg", func() {
+	Describe("determinePrinter", func() {
+		When("json option is passed", func() {
+			It("returns json printer", func() {
+				result := determinePrinter(jsonOption)
+
+				Expect(result).To(BeAssignableToTypeOf(&JsonPrinter{}))
+			})
+		})
+
+		When("no option is passed", func() {
+			It("returns user-friendly printer", func() {
+				result := determinePrinter("")
+
+				Expect(result).To(BeAssignableToTypeOf(&UserFriendlyPrinter{}))
+			})
+		})
+
+		When("invalid option is passed", func() {
+			It("returns user-friendly printer", func() {
+				result := determinePrinter("invalid")
+
+				Expect(result).To(BeAssignableToTypeOf(&UserFriendlyPrinter{}))
+			})
+		})
+	})
+
 	Describe("JsonPrinter", func() {
 		Describe("PrintStatus", func() {
 			When("status load error occurred", func() {
@@ -550,4 +587,5 @@ var _ = Describe("addons status print", func() {
 			})
 		})
 	})
+
 })
