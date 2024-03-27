@@ -1,0 +1,14 @@
+# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+#
+# SPDX-License-Identifier: MIT
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: logging
+resources:
+- clusterrole.yaml
+- clusterrolebinding.yaml
+- configmap.yaml
+- service.yaml
+- serviceaccount.yaml
+- daemonset.yaml

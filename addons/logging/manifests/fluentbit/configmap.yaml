@@ -1,0 +1,95 @@
+# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+#
+# SPDX-License-Identifier: MIT
+
+---
+# Source: fluent-bit/templates/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fluent-bit
+  namespace: logging
+  labels:
+    helm.sh/chart: fluent-bit-0.43.0
+    app.kubernetes.io/name: fluent-bit
+    app.kubernetes.io/instance: fluent-bit
+    app.kubernetes.io/version: "2.2.2"
+    app.kubernetes.io/managed-by: Helm
+data:
+  custom_parsers.conf: |
+    [PARSER]
+        Name docker_no_time
+        Format json
+        Time_Keep Off
+        Time_Key time
+        Time_Format %Y-%m-%dT%H:%M:%S.%L
+    
+  fluent-bit.conf: |
+    [SERVICE]
+        Daemon Off
+        Flush 1
+        Log_Level debug
+        Parsers_File parsers.conf
+        Parsers_File custom_parsers.conf
+        HTTP_Server On
+        HTTP_Listen 0.0.0.0
+        HTTP_Port 2020
+        Health_Check On
+    
+    [INPUT]
+        Name tail
+        Path /var/log/containers/*.log
+        Exclude_Path /var/log/containers/*_logging_*.log
+        Parser cri
+        Tag kube.*
+        Buffer_Chunk_Size 10MB
+        Buffer_Max_Size 40MB
+        Mem_Buf_Limit 512MB
+        Refresh_Interval 5
+
+    [FILTER]
+        Name kubernetes
+        Match kube.*
+        Merge_Log On
+        K8S-Logging.Parser Off
+        K8S-Logging.Exclude Off
+        Buffer_Size 10MB
+    
+    [FILTER]
+        Name nest
+        Match kube.*
+        Operation lift
+        Nested_under kubernetes
+    
+    [FILTER]
+        Name modify
+        Match kube.*
+        Rename message log
+        Rename pod_name k2s.pod.name
+        Rename namespace_name k2s.namespace.name
+        Rename host k2s.host.name
+        Remove container_image
+        Remove docker_id
+        Remove container_name
+        Remove pod_id
+        Remove annotations
+        Remove labels
+        Remove time
+        Remove logtag
+        Remove container_hash
+
+    [FILTER]
+        Name     throttle
+        Match    *
+        Rate     800
+        Window   3
+        Print_Status  true
+        Interval 30s
+    
+    [OUTPUT]
+        Name opensearch
+        Match *
+        Host opensearch-cluster-master.logging.svc.cluster.local
+        Port 9200
+        Buffer_Size 10MB
+        Suppress_Type_Name On

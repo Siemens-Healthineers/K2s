@@ -17,8 +17,6 @@ Param(
     [switch] $ShowLogs = $false,
     [ValidateSet('ingress-nginx', 'traefik', 'none')]
     [string] $Ingress = 'none',
-    [parameter(Mandatory = $false, HelpMessage = 'JSON config object to override preceeding parameters')]
-    [pscustomobject] $Config,
     [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
     [switch] $EncodeStructuredOutput,
     [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
@@ -56,7 +54,7 @@ function Write-UsageForUser {
  The plutono dashboard will be accessible on the following URL: https://k2s-monitoring.local
 
  Option 2: Port-forwading
- Use port-forwarding to the kubernetes-dashboard using the command below:
+ Use port-forwarding to the plutono dashboard using the command below:
  kubectl -n monitoring port-forward svc/kube-prometheus-stack-plutono 3000:443
  
  In this case, the plutono dashboard will be accessible on the following URL: https://localhost:3000
