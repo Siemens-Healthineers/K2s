@@ -30,6 +30,7 @@ spec:
   - name: transport
     protocol: TCP
     port: 9300
+  clusterIP: 172.21.0.12
 ---
 # Source: opensearch/templates/service.yaml
 kind: Service
