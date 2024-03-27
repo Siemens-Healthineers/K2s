@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/addons/status"
-
+	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/addons/status"
+	"github.com/siemens-healthineers/k2s/internal/addons"
 	"github.com/siemens-healthineers/k2s/internal/setupinfo"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -23,7 +23,7 @@ import (
 )
 
 var suite *framework.K2sTestSuite
-var addons []k2s.Addon
+var allAddons addons.Addons
 
 func TestAddons(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -32,7 +32,7 @@ func TestAddons(t *testing.T) {
 
 var _ = BeforeSuite(func(ctx context.Context) {
 	suite = framework.Setup(ctx, framework.NoSetupInstalled, framework.ClusterTestStepPollInterval(100*time.Millisecond))
-	addons = suite.AddonsAdditionalInfo().AllAddons()
+	allAddons = suite.AddonsAdditionalInfo().AllAddons()
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
@@ -59,7 +59,7 @@ var _ = Describe("addons commands", func() {
 	Describe("status", func() {
 		Context("standard output", func() {
 			It("prints system-not-installed message for all addons and exits with non-zero", func(ctx context.Context) {
-				for _, addon := range addons {
+				for _, addon := range allAddons {
 					GinkgoWriter.Println("Calling addons status for", addon.Metadata.Name)
 
 					output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "status", addon.Metadata.Name)
@@ -71,7 +71,7 @@ var _ = Describe("addons commands", func() {
 
 		Context("JSON output", func() {
 			It("contains only system-not-installed info and name and exits with non-zero", func(ctx context.Context) {
-				for _, addon := range addons {
+				for _, addon := range allAddons {
 					GinkgoWriter.Println("Calling addons status for", addon.Metadata.Name)
 
 					output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "status", addon.Metadata.Name, "-o", "json")
@@ -91,7 +91,7 @@ var _ = Describe("addons commands", func() {
 
 	Describe("disable", func() {
 		It("prints system-not-installed message for all addons and exits with non-zero", func(ctx context.Context) {
-			for _, addon := range addons {
+			for _, addon := range allAddons {
 				GinkgoWriter.Println("Calling addons disable for", addon.Metadata.Name)
 
 				output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "disable", addon.Metadata.Name)
@@ -103,7 +103,7 @@ var _ = Describe("addons commands", func() {
 
 	Describe("enable", func() {
 		It("prints system-not-installed message for all addons and exits with non-zero", func(ctx context.Context) {
-			for _, addon := range addons {
+			for _, addon := range allAddons {
 				GinkgoWriter.Println("Calling addons enable for", addon.Metadata.Name)
 
 				output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "enable", addon.Metadata.Name)
@@ -115,7 +115,7 @@ var _ = Describe("addons commands", func() {
 
 	Describe("export", func() {
 		It("prints system-not-installed message for each addon and exits with non-zero", func(ctx context.Context) {
-			for _, addon := range addons {
+			for _, addon := range allAddons {
 				GinkgoWriter.Println("Calling addons export for", addon.Metadata.Name)
 
 				output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "export", addon.Metadata.Name, "-d", "test-dir")
@@ -133,7 +133,7 @@ var _ = Describe("addons commands", func() {
 
 	Describe("import", func() {
 		It("prints system-not-installed message for each addon and exits with non-zero", func(ctx context.Context) {
-			for _, addon := range addons {
+			for _, addon := range allAddons {
 				GinkgoWriter.Println("Calling addons import for", addon.Metadata.Name)
 
 				output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "import", addon.Metadata.Name, "-z", "test-dir")
@@ -175,7 +175,7 @@ func expectOnlyDisabledAddonsGetPrinted(output string) {
 
 	Expect(noEnabledAddons).To(BeTrue())
 
-	for _, addon := range addons {
+	for _, addon := range allAddons {
 		Expect(lines).To(ContainElement(SatisfyAll(
 			ContainSubstring(addon.Metadata.Name),
 			ContainSubstring(addon.Metadata.Description),

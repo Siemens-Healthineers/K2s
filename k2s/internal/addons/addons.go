@@ -14,22 +14,15 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/addons/print"
-	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
-	"github.com/siemens-healthineers/k2s/internal/powershell"
-
-	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
-
 	"github.com/samber/lo"
 	"github.com/santhosh-tekuri/jsonschema/v5"
 	"gopkg.in/yaml.v3"
 )
 
-type EnabledAddons struct {
-	Addons []string `json:"addons"`
-}
-
 type Addons []Addon
+type ValidationSet []string
+type CliExamples []CliExample
+type ConstraintsType string
 
 type Addon struct {
 	ApiVersion string        `yaml:"apiVersion"`
@@ -45,7 +38,28 @@ type AddonMetadata struct {
 }
 
 type AddonSpec struct {
-	Commands *map[string]AddonCmd `yaml:"commands"`
+	Commands     *map[string]AddonCmd `yaml:"commands"`
+	OfflineUsage OfflineUsage         `yaml:"offline_usage"`
+}
+
+type OfflineUsage struct {
+	LinuxResources   LinuxResources   `yaml:"linux"`
+	WindowsResources WindowsResources `yaml:"windows"`
+}
+
+type LinuxResources struct {
+	DebPackages      []string       `yaml:"deb"`
+	CurlPackages     []CurlPackages `yaml:"curl"`
+	AdditionalImages []string       `yaml:"additionalImages"`
+}
+
+type WindowsResources struct {
+	CurlPackages []CurlPackages `yaml:"curl"`
+}
+
+type CurlPackages struct {
+	Url         string `yaml:"url"`
+	Destination string `yaml:"destination"`
 }
 
 type AddonCmd struct {
@@ -57,8 +71,6 @@ type CliConfig struct {
 	Flags    []CliFlag   `yaml:"flags"`
 	Examples CliExamples `yaml:"examples"`
 }
-
-type CliExamples []CliExample
 
 type ScriptConfig struct {
 	SubPath           string             `yaml:"subPath"`
@@ -79,8 +91,6 @@ type Constraints struct {
 	NumberRange   *Range          `yaml:"range"`
 }
 
-type ConstraintsType string
-
 type ParameterMapping struct {
 	CliFlagName         string `yaml:"cliFlagName"`
 	ScriptParameterName string `yaml:"scriptParameterName"`
@@ -90,8 +100,6 @@ type CliExample struct {
 	Cmd     string  `yaml:"cmd"`
 	Comment *string `yaml:"comment"`
 }
-
-type ValidationSet []string
 
 type Range struct {
 	Min float64 `yaml:"min"`
@@ -112,7 +120,8 @@ const (
 	ValidationSetConstraintsType ConstraintsType = "validation-set"
 	RangeConstraintsType         ConstraintsType = "range"
 
-	addonsDirName          = "addons"
+	AddonsDirName = "addons"
+
 	manifestFileName       = "addon.manifest.yaml"
 	manifestSchemaFileName = "addon.manifest.schema.json"
 )
@@ -123,7 +132,7 @@ var (
 	supportedManifestVersions = []string{"v1"}
 )
 
-func LoadAddons() (Addons, error) {
+func LoadAddons(installDir string) (Addons, error) {
 	lock.Lock()
 	defer lock.Unlock()
 
@@ -132,36 +141,12 @@ func LoadAddons() (Addons, error) {
 	}
 
 	var err error
-	allAddons, err = loadAddons()
+	allAddons, err = loadAddons(installDir)
 	if err != nil {
 		return nil, err
 	}
 
 	return allAddons, nil
-}
-
-func LoadEnabledAddons(psVersion powershell.PowerShellVersion) (*EnabledAddons, error) {
-	outputWriter, err := common.NewOutputWriter()
-	if err != nil {
-		return nil, err
-	}
-
-	scriptPath := utils.FormatScriptFilePath(utils.InstallDir() + fmt.Sprintf("\\%s\\Get-EnabledAddons.ps1", addonsDirName))
-
-	enabledAddons, err := powershell.ExecutePsWithStructuredResult[*EnabledAddons](scriptPath, "EnabledAddons", psVersion, outputWriter)
-	if err != nil {
-		return nil, fmt.Errorf("could not load enabled addons: %s", err)
-	}
-
-	return enabledAddons, nil
-}
-
-func (addons Addons) ToPrintInfo() []print.AddonPrintInfo {
-	return lo.Map(addons, func(addon Addon, _ int) print.AddonPrintInfo {
-		return print.AddonPrintInfo{
-			Name:        addon.Metadata.Name,
-			Description: addon.Metadata.Description}
-	})
 }
 
 func (flag CliFlag) FullDescription() (string, error) {
@@ -285,8 +270,8 @@ func (r *Range) Validate(value any) error {
 	return nil
 }
 
-func loadAddons() (Addons, error) {
-	addonsDir := filepath.Join(utils.InstallDir(), addonsDirName)
+func loadAddons(installDir string) (Addons, error) {
+	addonsDir := filepath.Join(installDir, AddonsDirName)
 	schemaPath := filepath.Join(addonsDir, manifestSchemaFileName)
 
 	schema, err := jsonschema.Compile(schemaPath)
