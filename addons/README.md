@@ -18,10 +18,11 @@ The following addons will be deployed with **K2s**:
 |---|---|
 | [dashboard](./dashboard/README.md) | Dashboard for Kubernetes | 
 | [exthttpaccess](./exthttpaccess/README.md) | Handle HTTP/HTTPS request coming to windows machine from local or external network | 
-| [gateway-nginx](./gateway-nginx/README.md) | EXPERIMENTAL USE: Gateway Controller for external access that provides an implementation of the Gateway API | 
+| [gateway-nginx](./gateway-nginx/README.md) | Gateway Controller for external access that provides an implementation of the Gateway API | 
 | [gpu-node](./gpu-node/README.md) | Configure KubeMaster as GPU node for direct GPU access | 
 | [ingress-nginx](./ingress-nginx/README.md) | Ingress Controller for external access that uses nginx as a reverse proxy | 
 | [kubevirt](./kubevirt/README.md) | Manage VM workloads with k2s | 
+| [logging](./logging/README.md) | Analyzing kubernetes container logs with opensearch dashboards | 
 | [metrics-server](./metrics-server/README.md) | Kubernetes metrics server for API Access to service metrics | 
 | [monitoring](./monitoring/README.md) | Dashboard for cluster resource monitoring and logging | 
 | [registry](./registry/README.md) | Private image registry running in the Kubernetes cluster exposed on k2s-registry.local | 

@@ -6,15 +6,20 @@
 
 <#
 .SYNOPSIS
-Enables Prometheus/Grafana monitoring features for the k2s cluster.
+Enables k2s-logging in the cluster to the logging namespace
 
 .DESCRIPTION
-The "monitoring" addons enables Prometheus/Grafana monitoring features for the k2s cluster.
+The logging addon collects all logs from containers/pods running inside the k2s cluster.
+Logs can be analyzed via opensearch dashboards.
 
+.EXAMPLE
+# For k2sSetup
+powershell <installation folder>\addons\logging\Enable.ps1
 #>
 Param(
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
     [switch] $ShowLogs = $false,
+    [parameter(Mandatory = $false, HelpMessage = 'External access option')]
     [ValidateSet('ingress-nginx', 'traefik', 'none')]
     [string] $Ingress = 'none',
     [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
@@ -22,6 +27,7 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
     [string] $MessageType
 )
+
 function Enable-IngressAddon([string]$Ingress) {
     switch ($Ingress) {
         'ingress-nginx' {
@@ -37,45 +43,15 @@ function Enable-IngressAddon([string]$Ingress) {
 
 <#
 .DESCRIPTION
-Writes the usage notes for dashboard for the user.
-#>
-function Write-UsageForUser {
-    @'
-                                        USAGE NOTES
- To open plutono dashboard, please use one of the options:
- 
- Option 1: Access via ingress
- Please install either ingress-nginx addon or traefik addon from k2s.
- or you can install them on your own.
- Enable ingress controller via k2s cli
- eg. k2s addons enable ingress-nginx
- Once the ingress controller is running in the cluster, run the command to enable monitoring again.
- k2s addons enable monitoring
- The plutono dashboard will be accessible on the following URL: https://k2s-monitoring.local
-
- Option 2: Port-forwading
- Use port-forwarding to the plutono dashboard using the command below:
- kubectl -n monitoring port-forward svc/kube-prometheus-stack-plutono 3000:443
- 
- In this case, the plutono dashboard will be accessible on the following URL: https://localhost:3000
- 
- On opening the URL in the browser, the login page appears.
- username: admin
- password: admin
-'@ -split "`r`n" | ForEach-Object { Write-Log $_ -Console }
-}
-
-<#
-.DESCRIPTION
-Adds an entry in hosts file for k2s-monitoring.local in both the windows and linux nodes
+Adds an entry in hosts file for k2s-logging.local in both the windows and linux nodes
 #>
 function Add-DashboardHostEntry {
     Write-Log 'Configuring nodes access' -Console
     $dashboardIPWithIngress = $global:IP_Master
-    $grafanaHost = 'k2s-monitoring.local'
+    $loggingHost = 'k2s-logging.local'
 
     # Enable dashboard access on linux node
-    $hostEntry = $($dashboardIPWithIngress + ' ' + $grafanaHost)
+    $hostEntry = $($dashboardIPWithIngress + ' ' + $loggingHost)
     ExecCmdMaster "grep -qxF `'$hostEntry`' /etc/hosts || echo $hostEntry | sudo tee -a /etc/hosts"
 
     # In case of multi-vm, enable access on windows node
@@ -111,15 +87,41 @@ function Test-TraefikIngressControllerAvailability {
     return $false
 }
 
+<#
+.DESCRIPTION
+Writes the usage notes for dashboard for the user.
+#>
+function Write-UsageForUser {
+    @'
+                                        USAGE NOTES
+ To open opensearch dashboard, please use one of the options:
+ 
+ Option 1: Access via ingress
+ Please install either ingress-nginx addon or traefik addon from k2s.
+ or you can install them on your own.
+ Enable ingress controller via k2s cli
+ eg. k2s addons enable ingress-nginx
+ Once the ingress controller is running in the cluster, run the command to enable logging again.
+ k2s addons enable logging
+ The opensearch dashboard will be accessible on the following URL: http://k2s-logging.local
+
+ Option 2: Port-forwading
+ Use port-forwarding to the opensearch dashboard using the command below:
+ kubectl -n logging port-forward svc/opensearch-dashboards 5601:5601
+ 
+ In this case, the opensearch dashboard will be accessible on the following URL: http://localhost:5601
+'@ -split "`r`n" | ForEach-Object { Write-Log $_ -Console }
+}
+
 &$PSScriptRoot\..\..\smallsetup\common\GlobalVariables.ps1
 . $PSScriptRoot\..\..\smallsetup\common\GlobalFunctions.ps1
 
 $logModule = "$PSScriptRoot/../../smallsetup/ps-modules/log/log.module.psm1"
-$statusModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/status/status.module.psm1"
+$clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
 $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 
-Import-Module $logModule, $addonsModule, $statusModule, $infraModule
+Import-Module $logModule, $addonsModule, $clusterModule, $infraModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -136,8 +138,8 @@ if ($systemError) {
     exit 1
 }
 
-if ((Test-IsAddonEnabled -Name 'monitoring') -eq $true) {
-    $errMsg = "Addon 'monitoring' is already enabled, nothing to do."
+if ((Test-IsAddonEnabled -Name 'logging') -eq $true) {
+    $errMsg = "Addon 'logging' is already enabled, nothing to do."
 
     if ($EncodeStructuredOutput -eq $true) {
         $err = New-Error -Severity Warning -Code (Get-ErrCodeAddonAlreadyEnabled) -Message $errMsg
@@ -153,15 +155,27 @@ if ($Ingress -ne 'none') {
     Enable-IngressAddon -Ingress:$Ingress
 }
 
-Write-Log 'Installing Kube Prometheus Stack' -Console
-&$global:KubectlExe apply -f "$global:KubernetesPath\addons\monitoring\manifests\namespace.yaml"
-&$global:KubectlExe create -f "$global:KubernetesPath\addons\monitoring\manifests\crds" 
-&$global:KubectlExe create -k "$global:KubernetesPath\addons\monitoring\manifests"
+ExecCmdMaster 'sudo mkdir -m 777 -p /logging'
+
+Write-Log 'Installing fluent-bit and opensearch stack' -Console
+
+# opensearch
+# opensearch dashboards
+# fluent-bit linux
+
+&$global:KubectlExe apply -f "$global:KubernetesPath\addons\logging\manifests\namespace.yaml"
+&$global:KubectlExe create -k "$global:KubernetesPath\addons\logging\manifests\"
+
+# fluent-bit windows
+$setupInfo = Get-SetupInfo
+if ($setupInfo.LinuxOnly -eq $false) {
+    &$global:KubectlExe create -k "$global:KubernetesPath\addons\logging\manifests\fluentbit\windows"
+}
 
 Write-Log 'Waiting for pods...'
-&$global:KubectlExe rollout status deployments -n monitoring --timeout=180s
+&$global:KubectlExe rollout status deployments -n logging --timeout=180s
 if (!$?) {
-    $errMsg = 'Kube Prometheus Stack could not be deployed successfully!'
+    $errMsg = 'Opensearch dashboards could not be deployed successfully!'
     if ($EncodeStructuredOutput -eq $true) {
         $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
         Send-ToCli -MessageType $MessageType -Message @{Error = $err }
@@ -171,9 +185,10 @@ if (!$?) {
     Write-Log $errMsg -Error
     exit 1
 }
-&$global:KubectlExe rollout status statefulsets -n monitoring --timeout=180s
+
+&$global:KubectlExe rollout status statefulsets -n logging --timeout=180s
 if (!$?) {
-    $errMsg = 'Kube Prometheus Stack could not be deployed successfully!'
+    $errMsg = 'Opensearch could not be deployed successfully!'
     if ($EncodeStructuredOutput -eq $true) {
         $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
         Send-ToCli -MessageType $MessageType -Message @{Error = $err }
@@ -183,9 +198,10 @@ if (!$?) {
     Write-Log $errMsg -Error
     exit 1
 }
-&$global:KubectlExe rollout status daemonsets -n monitoring --timeout=180s
+
+&$global:KubectlExe rollout status daemonsets -n logging --timeout=180s
 if (!$?) {
-    $errMsg = 'Kube Prometheus Stack could not be deployed successfully!'
+    $errMsg = 'Fluent-bit could not be deployed successfully!'
     if ($EncodeStructuredOutput -eq $true) {
         $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
         Send-ToCli -MessageType $MessageType -Message @{Error = $err }
@@ -198,12 +214,17 @@ if (!$?) {
 
 # traefik uses crd, so we have define ingressRoute after traefik has been enabled
 if (Test-TraefikIngressControllerAvailability) {
-    &$global:KubectlExe apply -f "$global:KubernetesPath\addons\monitoring\manifests\plutono\traefik.yaml"
+    &$global:KubectlExe apply -f "$global:KubernetesPath\addons\logging\manifests\opensearch-dashboards\traefik.yaml"
 }
 Add-DashboardHostEntry
 
-Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'monitoring' })
-Write-Log 'Kube Prometheus Stack installed successfully'
+# Import saved objects 
+$dashboardIP = kubectl get pods -l="app.kubernetes.io/name=opensearch-dashboards" -n logging -o=jsonpath="{.items[0].status.podIP}"
+$importingSavedObjects = curl.exe -X POST --retry 10 --retry-delay 5 --silent --disable --fail --retry-all-errors "http://${dashboardIP}:5601/api/saved_objects/_import?overwrite=true" -H 'osd-xsrf: true' -F "file=@$PSScriptRoot/opensearch-dashboard-saved-objects/fluent-bit-index-pattern.ndjson" 2>$null
+Write-Log $importingSavedObjects
+
+Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'logging' })
+Write-Log 'Logging Stack installed successfully'
 
 Write-UsageForUser
 

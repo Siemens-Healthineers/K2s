@@ -247,6 +247,86 @@ func (c *Cluster) ExpectStatefulSetToBeDeleted(name string, namespace string, ct
 	}
 }
 
+func (c *Cluster) ExpectDaemonSetToBeReady(name string, namespace string, expectedNumber int32, ctx context.Context) {
+	daemonSet := appsv1.DaemonSet{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace}}
+
+	resources := c.Client().Resources(namespace)
+
+	condition := conditions.New(resources).ResourceMatch(&daemonSet, func(object k8sklient.Object) bool {
+		set := object.(*appsv1.DaemonSet)
+
+		return set.Status.NumberAvailable == expectedNumber && set.Status.NumberReady == expectedNumber
+	})
+
+	GinkgoWriter.Println("Waiting for DaemonSet <", name, "> to be ready..")
+
+	Expect(wait.For(condition, c.waitOptions()...)).To(Succeed())
+
+	GinkgoWriter.Println("DaemonSet <", name, "> ready.")
+
+	pods := &corev1.PodList{}
+
+	GinkgoWriter.Println("Retrieving all Pods of namespace <", namespace, ">..")
+
+	Expect(resources.List(ctx, pods)).To(Succeed())
+
+	GinkgoWriter.Println("Found <", len(pods.Items), "> Pod(s).")
+
+	for _, pod := range pods.Items {
+		if len(pod.OwnerReferences) > 0 && pod.OwnerReferences[0].Name == name {
+			condition := conditions.New(resources).PodReady(&pod)
+
+			GinkgoWriter.Println("Waiting for Pod <", pod.Name, "> of DaemonSet <", name, "> to be ready..")
+
+			Expect(wait.For(condition, c.waitOptions()...)).To(Succeed())
+
+			GinkgoWriter.Println("Pod ready")
+
+			condition = conditions.New(resources).ContainersReady(&pod)
+
+			GinkgoWriter.Println("Waiting for containers of Pod <", pod.Name, "> of DaemonSet <", name, "> to be ready..")
+
+			Expect(wait.For(condition, c.waitOptions()...)).To(Succeed())
+
+			GinkgoWriter.Println("Containers ready")
+		}
+	}
+}
+
+func (c *Cluster) ExpectDaemonSetToBeDeleted(name string, namespace string, ctx context.Context) {
+	daemonSet := appsv1.DaemonSet{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace}}
+
+	resources := c.Client().Resources(namespace)
+
+	condition := conditions.New(resources).ResourceDeleted(&daemonSet)
+
+	GinkgoWriter.Println("Waiting for DaemonSet <", name, "> to be deleted..")
+
+	Expect(wait.For(condition, c.waitOptions()...)).To(Succeed())
+
+	GinkgoWriter.Println("DaemonSet <", name, "> deleted.")
+
+	pods := &corev1.PodList{}
+
+	GinkgoWriter.Println("Retrieving all Pods of namespace <", namespace, ">..")
+
+	Expect(resources.List(ctx, pods)).To(Succeed())
+
+	GinkgoWriter.Println("Found <", len(pods.Items), "> Pod(s).")
+
+	for _, pod := range pods.Items {
+		if len(pod.OwnerReferences) > 0 && pod.OwnerReferences[0].Name == name {
+			condition := conditions.New(resources).ResourceDeleted(&pod)
+
+			GinkgoWriter.Println("Waiting for Pod <", pod.Name, "> of DaemonSet <", name, "> to be deleted..")
+
+			Expect(wait.For(condition, c.waitOptions()...)).To(Succeed())
+
+			GinkgoWriter.Println("Pod deleted")
+		}
+	}
+}
+
 func (c *Cluster) ExpectPodOfDeploymentToBeReachableFromPodOfOtherDeployment(targetName string, targetNamespace string, sourceName string, sourceNamespace string, ctx context.Context) {
 	client := c.Client()
 
