@@ -248,7 +248,9 @@ ExecCmdMaster 'sudo mkdir -m 777 -p /registry'
 ExecCmdMaster 'sudo mkdir -m 777 /registry/auth 2>&1'
 ExecCmdMaster 'sudo mkdir -m 777 /registry/repository 2>&1'
 #ExecCmdMaster 'cd /registry && sudo openssl req -x509 -newkey rsa:4096 -days 365 -nodes -sha256 -keyout certs/tls.key -out certs/tls.crt -subj "/CN=k2s-registry" -addext "subjectAltName=DNS:k2s-registry"'
-ExecCmdMaster "container=`$(sudo buildah from public.ecr.aws/docker/library/registry:2)` && sudo buildah run --isolation=chroot `$container` apk add apache2-utils && sudo buildah run --isolation=chroot `$container` htpasswd -Bbn `'$username`' `'$password'` | sudo tee /registry/auth/htpasswd 1>/dev/null && sudo buildah rm `$container" -NoLog
+
+Install-DebianPackages -addon 'registry' -packages 'apache2-utils'
+ExecCmdMaster "sudo htpasswd -Bbn `'$username`' `'$password'` | sudo tee /registry/auth/htpasswd 1>/dev/null" -NoLog
 
 # Create secrets
 #ExecCmdMaster 'sudo chmod 744 /registry/certs/tls.key'
