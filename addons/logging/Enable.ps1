@@ -55,8 +55,8 @@ function Add-DashboardHostEntry {
     ExecCmdMaster "grep -qxF `'$hostEntry`' /etc/hosts || echo $hostEntry | sudo tee -a /etc/hosts"
 
     # In case of multi-vm, enable access on windows node
-    $K8sSetup = Get-Installedk2sSetupType
-    if ($K8sSetup -eq $global:SetupType_MultiVMK8s) {
+    $setupInfo = Get-SetupInfo
+    if ($setupInfo.Name -eq $global:SetupType_MultiVMK8s -and $setupInfo.LinuxOnly -ne $true) {
         $session = Open-RemoteSessionViaSSHKey $global:Admin_WinNode $global:WindowsVMKey
 
         Invoke-Command -Session $session {
