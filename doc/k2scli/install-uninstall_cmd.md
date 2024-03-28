@@ -36,9 +36,15 @@ SPDX-License-Identifier: MIT
   ```
 - curl.exe: the installed version in the Windows host must be at least 7.71.0 (to check it call 'curl.exe --version' from the command shell).
 - *Optional:* Enable required Windows Features beforehand (they will get enabled during the installation anyways, but would require a system restart and installation re-run):
-  ```shell 
-  PS> Enable-WindowsOptionalFeature -Online -FeatureName $('Microsoft-Hyper-V-All', 'Microsoft-Hyper-V', 'Microsoft-Hyper-V-Tools-All', 'Microsoft-Hyper-V-Management-PowerShell', 'Microsoft-Hyper-V-Hypervisor', 'Microsoft-Hyper-V-Services', 'Microsoft-Hyper-V-Management-Clients', 'Containers', 'VirtualMachinePlatform') -All -NoRestart
-  ``` 
+  - Windows 10/11
+    ```powershell
+    Enable-WindowsOptionalFeature -Online -FeatureName $('Microsoft-Hyper-V-All', 'Microsoft-Hyper-V', 'Microsoft-Hyper-V-Tools-All', 'Microsoft-Hyper-V-Management-PowerShell', 'Microsoft-Hyper-V-Hypervisor', 'Microsoft-Hyper-V-Services', 'Microsoft-Hyper-V-Management-Clients', 'Containers', 'VirtualMachinePlatform') -All -NoRestart
+    ``` 
+  - Windows Server OSs
+    ```powershell 
+    Enable-WindowsOptionalFeature -Online -FeatureName $('Microsoft-Hyper-V', 'Microsoft-Hyper-V-Management-PowerShell', 'Microsoft-Hyper-V-Management-Clients', 'Containers', 'VirtualMachinePlatform') -All -NoRestart
+    ``` 
+
   <span style="color:orange;font-size:medium">**⚠**</span> For installing in *WSL* mode, add the **Microsoft-Windows-Subsystem-Linux** feature to the prior command.
 
 ## Introduction
