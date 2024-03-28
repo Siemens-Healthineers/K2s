@@ -31,8 +31,8 @@ SPDX-License-Identifier: MIT
  <br/>If you run the setup inside a VM, enable nested virtualization (e.g. when using Hyper-V: `PS> Set-VMProcessor -VMName $Name -ExposeVirtualizationExtensions $true`; see [Configure Nested Virtualization](https://learn.microsoft.com/en-us/virtualization/hyper-v-on-windows/user-guide/enable-nested-virtualization#configure-nested-virtualization) for details).
 - Docker (Desktop) must not be running. Either stop Docker and set it to start manually or uninstall it completely
 - PowerShell execution policy must be **RemoteSigned** or less restrictive. To set the policy, e.g. run:
-  ```shell 
-  PS> Set-ExecutionPolicy RemoteSigned -Force
+  ```powershell 
+  Set-ExecutionPolicy RemoteSigned -Force
   ```
 - curl.exe: the installed version in the Windows host must be at least 7.71.0 (to check it call 'curl.exe --version' from the command shell).
 - *Optional:* Enable required Windows Features beforehand (they will get enabled during the installation anyways, but would require a system restart and installation re-run):
