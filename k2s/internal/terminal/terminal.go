@@ -4,8 +4,6 @@
 package terminal
 
 import (
-	d "github.com/siemens-healthineers/k2s/internal/terminal/defs"
-
 	"github.com/pterm/pterm"
 	"github.com/pterm/pterm/putils"
 )
@@ -57,7 +55,10 @@ func (tp TerminalPrinter) PrintTreeListItems(items []string) {
 	pterm.DefaultTree.WithRoot(root).Render()
 }
 
-func (tp TerminalPrinter) PrintLeveledTreeListItems(rootText string, items []d.LeveledListItem) {
+func (tp TerminalPrinter) PrintLeveledTreeListItems(rootText string, items []struct {
+	Level int
+	Text  string
+}) {
 	leveledList := pterm.LeveledList{}
 
 	for _, item := range items {

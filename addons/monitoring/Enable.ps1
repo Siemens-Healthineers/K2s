@@ -17,8 +17,6 @@ Param(
     [switch] $ShowLogs = $false,
     [ValidateSet('ingress-nginx', 'traefik', 'none')]
     [string] $Ingress = 'none',
-    [parameter(Mandatory = $false, HelpMessage = 'JSON config object to override preceeding parameters')]
-    [pscustomobject] $Config,
     [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
     [switch] $EncodeStructuredOutput,
     [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
@@ -56,7 +54,7 @@ function Write-UsageForUser {
  The plutono dashboard will be accessible on the following URL: https://k2s-monitoring.local
 
  Option 2: Port-forwading
- Use port-forwarding to the kubernetes-dashboard using the command below:
+ Use port-forwarding to the plutono dashboard using the command below:
  kubectl -n monitoring port-forward svc/kube-prometheus-stack-plutono 3000:443
  
  In this case, the plutono dashboard will be accessible on the following URL: https://localhost:3000
@@ -81,8 +79,8 @@ function Add-DashboardHostEntry {
     ExecCmdMaster "grep -qxF `'$hostEntry`' /etc/hosts || echo $hostEntry | sudo tee -a /etc/hosts"
 
     # In case of multi-vm, enable access on windows node
-    $K8sSetup = Get-Installedk2sSetupType
-    if ($K8sSetup -eq $global:SetupType_MultiVMK8s) {
+    $setupInfo = Get-SetupInfo
+    if ($setupInfo.Name -eq $global:SetupType_MultiVMK8s -and $setupInfo.LinuxOnly -ne $true) {
         $session = Open-RemoteSessionViaSSHKey $global:Admin_WinNode $global:WindowsVMKey
 
         Invoke-Command -Session $session {
@@ -117,11 +115,11 @@ function Test-TraefikIngressControllerAvailability {
 . $PSScriptRoot\..\..\smallsetup\common\GlobalFunctions.ps1
 
 $logModule = "$PSScriptRoot/../../smallsetup/ps-modules/log/log.module.psm1"
-$statusModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/status/status.module.psm1"
+$clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
 $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 
-Import-Module $logModule, $addonsModule, $statusModule, $infraModule
+Import-Module $logModule, $addonsModule, $clusterModule, $infraModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 

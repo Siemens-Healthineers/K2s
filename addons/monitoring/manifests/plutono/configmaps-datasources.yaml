@@ -49,3 +49,13 @@ data:
       isDefault: false
       jsonData:
         maxLines: 1000
+    - name: OpenSearch
+      type: elasticsearch
+      access: proxy
+      url: http://opensearch-cluster-master.logging:9200
+      jsonData:
+        index: "fluent-bit*"
+        esVersion: 70
+        timeField: '@timestamp'
+        logMessageField: log
+        logLevelField: level

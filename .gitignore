@@ -89,11 +89,11 @@ bin/msiuninstall.log
 
 # addons
 addons/hooks
-tmp/addons
-tmp/addons.zip
 
 # apps in /k2s
 /k2s/**/*.exe
+
+tmp/**/*
 
 # temp files in /k2s
 /k2s/**/*.tmp
@@ -120,6 +120,7 @@ build/bom/merge/c-*.json
 
 bin/cyclonedx-win-x64.exe
 bin/cdxgen.exe
+bin/trivy.exe
 bin/jq.exe
 bin/yq.exe
 
