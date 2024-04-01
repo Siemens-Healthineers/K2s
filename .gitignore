@@ -120,6 +120,7 @@ build/bom/merge/c-*.json
 
 bin/cyclonedx-win-x64.exe
 bin/cdxgen.exe
+bin/trivy.exe
 bin/jq.exe
 bin/yq.exe
 
