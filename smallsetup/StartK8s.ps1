@@ -167,6 +167,8 @@ function CheckFlannelConfig () {
 
 Write-Log 'Checking prerequisites'
 
+Stop-InstallIfNoMandatoryServiceIsRunning
+
 # set ConfigKey_LoggedInRegistry empty, since not logged in into registry after restart anymore
 Set-ConfigValue -Path $global:SetupJsonFile -Key $global:ConfigKey_LoggedInRegistry -Value ''
 

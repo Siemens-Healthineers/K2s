@@ -55,15 +55,14 @@ function Enable-MissingFeature {
 
 function Enable-MissingWindowsFeatures($wsl) {
     $restartRequired = $false
-    $features = 'Microsoft-Hyper-V-All',
-    'Microsoft-Hyper-V',
-    'Microsoft-Hyper-V-Tools-All',
-    'Microsoft-Hyper-V-Management-PowerShell',
-    'Microsoft-Hyper-V-Hypervisor',
-    'Microsoft-Hyper-V-Services',
-    'Microsoft-Hyper-V-Management-Clients',
-    'Containers',
-    'VirtualMachinePlatform'
+    
+    $isServerOS = (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion').ProductName.Contains("Server")
+
+    $features = @('Microsoft-Hyper-V', 'Microsoft-Hyper-V-Management-PowerShell', 'Microsoft-Hyper-V-Management-Clients', 'Containers', 'VirtualMachinePlatform')
+
+    if (!$isServerOS) {
+        $features += 'Microsoft-Hyper-V-All', 'Microsoft-Hyper-V-Tools-All', 'Microsoft-Hyper-V-Hypervisor', 'Microsoft-Hyper-V-Services'
+    } 
 
     if ($wsl) {
         $features += 'Microsoft-Windows-Subsystem-Linux'

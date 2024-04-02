@@ -141,6 +141,8 @@ if ($SkipHeaderDisplay -ne $true) {
 
 Write-Log 'Checking prerequisites'
 
+Stop-InstallIfNoMandatoryServiceIsRunning
+
 Set-ConfigLoggedInRegistry -Value ''
 
 $HostGW = Get-ConfigHostGW
