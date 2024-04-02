@@ -49,6 +49,8 @@ Stop-InstallIfDockerDesktopIsRunning
 
 Enable-MissingWindowsFeatures $([bool]$WSL)
 
+Stop-InstallIfNoMandatoryServiceIsRunning
+
 Set-ConfigSetupType -Value $script:SetupType
 Set-ConfigWslFlag -Value $([bool]$WSL)
 

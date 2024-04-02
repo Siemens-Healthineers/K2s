@@ -238,6 +238,8 @@ Stop-InstallIfDockerDesktopIsRunning
 
 Enable-MissingWindowsFeatures $([bool]$WSL)
 
+Stop-InstallIfNoMandatoryServiceIsRunning
+
 Set-ConfigSetupType -Value $script:SetupType
 Set-ConfigWslFlag -Value $([bool]$WSL)
 Set-ConfigValue -Path $global:SetupJsonFile -Key $global:ConfigKey_LinuxOnly -Value ($LinuxOnly -eq $true)
