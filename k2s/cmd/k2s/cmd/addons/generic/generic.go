@@ -14,7 +14,6 @@ import (
 	"github.com/pterm/pterm"
 	"github.com/samber/lo"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
-	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/params"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 	"github.com/siemens-healthineers/k2s/internal/addons"
 	"github.com/siemens-healthineers/k2s/internal/powershell"
@@ -190,7 +189,7 @@ func convertToPsParam(flag *pflag.Flag, cmdConfig addons.AddonCmd, add func(stri
 		return errors.New("flag must not be nil")
 	}
 
-	if flag.Name == params.OutputFlagName {
+	if flag.Name == common.OutputFlagName {
 		add("-ShowLogs")
 		return nil
 	}

@@ -23,8 +23,6 @@ import (
 	"github.com/siemens-healthineers/k2s/internal/config"
 	"github.com/siemens-healthineers/k2s/internal/logging"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/params"
-
 	"github.com/spf13/cobra"
 )
 
@@ -69,7 +67,7 @@ func CreateRootCmd(levelVar *slog.LevelVar) (*cobra.Command, error) {
 	cmd.AddCommand(sys.SystemCmd)
 
 	persistentFlags := cmd.PersistentFlags()
-	persistentFlags.BoolP(params.OutputFlagName, params.OutputFlagShorthand, false, params.OutputFlagUsage)
+	persistentFlags.BoolP(cc.OutputFlagName, cc.OutputFlagShorthand, false, cc.OutputFlagUsage)
 	persistentFlags.StringVarP(&verbosity, cli.VerbosityFlagName, cli.VerbosityFlagShorthand, logging.LevelToLowerString(slog.LevelWarn), cli.VerbosityFlagHelp())
 
 	return cmd, nil

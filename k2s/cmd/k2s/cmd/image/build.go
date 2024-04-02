@@ -14,8 +14,6 @@ import (
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
 
-	p "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/params"
-
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
@@ -177,7 +175,7 @@ func extractBuildOptions(cmd *cobra.Command) (*buildOptions, error) {
 		return nil, err
 	}
 
-	output, err := strconv.ParseBool(cmd.Flags().Lookup(p.OutputFlagName).Value.String())
+	output, err := strconv.ParseBool(cmd.Flags().Lookup(common.OutputFlagName).Value.String())
 	if err != nil {
 		return nil, err
 	}

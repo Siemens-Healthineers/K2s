@@ -9,7 +9,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/params"
+	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 
 	r "github.com/siemens-healthineers/k2s/internal/reflection"
 
@@ -551,10 +551,10 @@ var _ = Describe("config", func() {
 
 			Expect(getActualFunc()).To(Equal(expected))
 		},
-			Entry(params.AdditionalHooksDirFlagName, params.AdditionalHooksDirFlagName, "test-dir", func() any { return iConfig.Env.AdditionalHooksDir }),
-			Entry(params.ForceOnlineInstallFlagName, params.ForceOnlineInstallFlagName, false, func() any { return iConfig.Behavior.ForceOnlineInstallation }),
-			Entry(params.DeleteFilesFlagName, params.DeleteFilesFlagName, false, func() any { return iConfig.Behavior.DeleteFilesForOfflineInstallation }),
-			Entry(params.OutputFlagName, params.OutputFlagName, false, func() any { return iConfig.Behavior.ShowOutput }),
+			Entry(common.AdditionalHooksDirFlagName, common.AdditionalHooksDirFlagName, "test-dir", func() any { return iConfig.Env.AdditionalHooksDir }),
+			Entry(common.ForceOnlineInstallFlagName, common.ForceOnlineInstallFlagName, false, func() any { return iConfig.Behavior.ForceOnlineInstallation }),
+			Entry(common.DeleteFilesFlagName, common.DeleteFilesFlagName, false, func() any { return iConfig.Behavior.DeleteFilesForOfflineInstallation }),
+			Entry(common.OutputFlagName, common.OutputFlagName, false, func() any { return iConfig.Behavior.ShowOutput }),
 			Entry(AppendLogFlagName, AppendLogFlagName, false, func() any { return iConfig.Behavior.AppendLog }),
 			Entry(ImageFlagName, ImageFlagName, "test-img", func() any { return iConfig.Nodes[0].Image }),
 			Entry(LinuxOnlyFlagName, LinuxOnlyFlagName, false, func() any { return iConfig.LinuxOnly }),

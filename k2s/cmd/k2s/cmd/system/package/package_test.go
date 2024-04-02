@@ -6,8 +6,7 @@ package systempackage
 import (
 	"testing"
 
-	p "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/params"
-
+	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -20,7 +19,7 @@ func TestUpgrade(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
-	PackageCmd.Flags().BoolP(p.OutputFlagName, p.OutputFlagShorthand, false, p.OutputFlagUsage)
+	PackageCmd.Flags().BoolP(common.OutputFlagName, common.OutputFlagShorthand, false, common.OutputFlagUsage)
 })
 
 var _ = Describe("package", func() {
@@ -28,7 +27,7 @@ var _ = Describe("package", func() {
 		When("flags set", func() {
 			It("creates the command", func() {
 				flags := PackageCmd.Flags()
-				flags.Set(p.OutputFlagName, "true")
+				flags.Set(common.OutputFlagName, "true")
 				flags.Set(ControlPlaneCPUsFlagName, "6")
 				flags.Set(ControlPlaneMemoryFlagName, "4GB")
 				flags.Set(ControlPlaneDiskSizeFlagName, "50GB")

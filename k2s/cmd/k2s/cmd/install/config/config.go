@@ -11,7 +11,7 @@ import (
 
 	"embed"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/params"
+	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -303,13 +303,13 @@ func overwriteConfigWithCliParam(iConfig *InstallConfig, vConfig *viper.Viper, f
 	slog.Debug("Overwriting config with CLI param", "param", flagName)
 
 	switch flagName {
-	case params.AdditionalHooksDirFlagName:
+	case common.AdditionalHooksDirFlagName:
 		iConfig.Env.AdditionalHooksDir = vConfig.GetString(flagName)
-	case params.ForceOnlineInstallFlagName:
+	case common.ForceOnlineInstallFlagName:
 		iConfig.Behavior.ForceOnlineInstallation = vConfig.GetBool(flagName)
-	case params.DeleteFilesFlagName:
+	case common.DeleteFilesFlagName:
 		iConfig.Behavior.DeleteFilesForOfflineInstallation = vConfig.GetBool(flagName)
-	case params.OutputFlagName:
+	case common.OutputFlagName:
 		iConfig.Behavior.ShowOutput = vConfig.GetBool(flagName)
 	case AppendLogFlagName:
 		iConfig.Behavior.AppendLog = vConfig.GetBool(flagName)

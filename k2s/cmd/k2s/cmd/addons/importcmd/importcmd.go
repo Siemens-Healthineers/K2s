@@ -13,8 +13,6 @@ import (
 	"github.com/siemens-healthineers/k2s/internal/powershell"
 	"github.com/siemens-healthineers/k2s/internal/terminal"
 
-	p "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/params"
-
 	ac "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/addons/common"
 	"github.com/siemens-healthineers/k2s/internal/addons"
 
@@ -129,7 +127,7 @@ func buildPsCmd(cmd *cobra.Command, addons ...string) (psCmd string, params []st
 
 	params = append(params, " -Zipfile "+utils.EscapeWithSingleQuotes(imagePath))
 
-	outputFlag, err := strconv.ParseBool(cmd.Flags().Lookup(p.OutputFlagName).Value.String())
+	outputFlag, err := strconv.ParseBool(cmd.Flags().Lookup(common.OutputFlagName).Value.String())
 	if err != nil {
 		return "", nil, err
 	}

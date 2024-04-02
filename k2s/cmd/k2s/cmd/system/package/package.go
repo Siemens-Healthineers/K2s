@@ -16,8 +16,6 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 
-	p "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/params"
-
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
@@ -118,7 +116,7 @@ func buildSystemPackageCmd(flags *pflag.FlagSet) (string, []string, error) {
 
 	params := []string{}
 
-	out, _ := strconv.ParseBool(flags.Lookup(p.OutputFlagName).Value.String())
+	out, _ := strconv.ParseBool(flags.Lookup(common.OutputFlagName).Value.String())
 	if out {
 		params = append(params, " -ShowLogs")
 	}

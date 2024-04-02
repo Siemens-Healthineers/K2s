@@ -4,8 +4,7 @@
 package image
 
 import (
-	p "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/params"
-
+	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -14,7 +13,7 @@ import (
 
 var _ = Describe("import", Ordered, func() {
 	BeforeAll(func() {
-		importCmd.Flags().BoolP(p.OutputFlagName, p.OutputFlagShorthand, false, p.OutputFlagUsage)
+		importCmd.Flags().BoolP(common.OutputFlagName, common.OutputFlagShorthand, false, common.OutputFlagUsage)
 	})
 	Describe("buildImportCmd", func() {
 		BeforeEach(func() {
