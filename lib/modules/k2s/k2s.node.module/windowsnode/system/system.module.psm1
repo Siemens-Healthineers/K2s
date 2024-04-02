@@ -55,7 +55,7 @@ function Enable-MissingFeature {
 
 function Enable-MissingWindowsFeatures($wsl) {
     $restartRequired = $false
-    
+
     $isServerOS = (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion').ProductName.Contains("Server")
 
     $features = @('Microsoft-Hyper-V', 'Microsoft-Hyper-V-Management-PowerShell', 'Microsoft-Hyper-V-Management-Clients', 'Containers', 'VirtualMachinePlatform')
@@ -85,6 +85,7 @@ function Enable-MissingWindowsFeatures($wsl) {
 
     if ($restartRequired) {
         Write-Log '!!! Restart is required. Reason: Changes in WindowsOptionalFeature !!!'
+        throw '!!! Restart is required. Reason: Changes in WindowsOptionalFeature !!!'
     }
 }
 

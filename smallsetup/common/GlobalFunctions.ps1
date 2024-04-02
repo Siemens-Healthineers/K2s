@@ -1152,7 +1152,7 @@ function Enable-MissingFeature {
     If any of the enabled features requires a restart, the user will be prompted to restart the computer.
 #>
 function Enable-MissingWindowsFeatures($wsl) {
-    $global:InstallRestartRequired = $false
+    $restartRequired = $false
 
     $isServerOS = (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion').ProductName.Contains("Server")
 
@@ -1169,7 +1169,7 @@ function Enable-MissingWindowsFeatures($wsl) {
     foreach ($feature in $features) {
         if (Enable-MissingFeature -Name $feature) {
             Write-Log "!!! Restart is required after enabling WindowsFeature: $feature"
-            $global:InstallRestartRequired = $true
+            $restartRequired = $true
         }
     }
 
@@ -1181,8 +1181,9 @@ function Enable-MissingWindowsFeatures($wsl) {
         REG ADD 'HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services' /V 'AuthenticationLevel' /T REG_DWORD /D '0' /F
     }
 
-    if ($global:InstallRestartRequired) {
+    if ($restartRequired) {
         Write-Log '!!! Restart is required. Reason: Changes in WindowsOptionalFeature !!!'
+        throw '!!! Restart is required. Reason: Changes in WindowsOptionalFeature !!!'
     }
 }
 
