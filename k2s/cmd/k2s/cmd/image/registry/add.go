@@ -10,8 +10,6 @@ import (
 	"strconv"
 	"time"
 
-	p "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/params"
-
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
@@ -105,9 +103,9 @@ func addRegistry(cmd *cobra.Command, args []string) error {
 func buildAddPsCmd(registryName string, cmd *cobra.Command) (psCmd string, params []string, err error) {
 	psCmd = utils.FormatScriptFilePath(utils.InstallDir() + "\\smallsetup\\helpers\\AddRegistry.ps1")
 
-	showOutput, err := strconv.ParseBool(cmd.Flags().Lookup(p.OutputFlagName).Value.String())
+	showOutput, err := strconv.ParseBool(cmd.Flags().Lookup(common.OutputFlagName).Value.String())
 	if err != nil {
-		return "", nil, fmt.Errorf("unable to parse flag '%s': %w", p.OutputFlagName, err)
+		return "", nil, fmt.Errorf("unable to parse flag '%s': %w", common.OutputFlagName, err)
 	}
 
 	username, err := cmd.Flags().GetString(usernameFlag)

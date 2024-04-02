@@ -7,9 +7,8 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 	"github.com/spf13/cobra"
-
-	p "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/params"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -141,7 +140,7 @@ var _ = Describe("build", func() {
 			It("output is enabled in build options", func() {
 				expected := true
 				testCommand := createTestCobraCommand()
-				testCommand.Flags().Set(p.OutputFlagName, fmt.Sprintf("%t", expected))
+				testCommand.Flags().Set(common.OutputFlagName, fmt.Sprintf("%t", expected))
 
 				actual, err := extractBuildOptions(testCommand)
 
@@ -300,7 +299,7 @@ func createTestCobraCommand() *cobra.Command {
 	}
 	addInitFlagsForBuildCommand(testCommand)
 
-	testCommand.Flags().BoolP(p.OutputFlagName, p.OutputFlagShorthand, false, p.OutputFlagUsage)
+	testCommand.Flags().BoolP(common.OutputFlagName, common.OutputFlagShorthand, false, common.OutputFlagUsage)
 
 	return testCommand
 }

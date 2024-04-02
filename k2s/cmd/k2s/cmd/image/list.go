@@ -14,8 +14,6 @@ import (
 	"github.com/siemens-healthineers/k2s/internal/setupinfo"
 	"github.com/siemens-healthineers/k2s/internal/terminal"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/params"
-
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
@@ -85,7 +83,7 @@ var (
 
 func init() {
 	listCmd.Flags().BoolP(includeK8sImages, "A", false, "Include kubernetes container images if specified")
-	listCmd.Flags().StringP(params.OutputFlagName, params.OutputFlagShorthand, "", "Output format modifier. Currently supported: 'json' for output as JSON structure")
+	listCmd.Flags().StringP(common.OutputFlagName, common.OutputFlagShorthand, "", "Output format modifier. Currently supported: 'json' for output as JSON structure")
 	listCmd.Flags().SortFlags = false
 	listCmd.Flags().PrintDefaults()
 }
@@ -97,7 +95,7 @@ func listImages(cmd *cobra.Command, args []string) error {
 	}
 
 	if outputOption != "" && outputOption != jsonOption {
-		return fmt.Errorf("parameter '%s' not supported for flag '%s'", outputOption, params.OutputFlagName)
+		return fmt.Errorf("parameter '%s' not supported for flag '%s'", outputOption, common.OutputFlagName)
 	}
 
 	includeK8sImages, err := strconv.ParseBool(cmd.Flags().Lookup(includeK8sImages).Value.String())

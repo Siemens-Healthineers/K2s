@@ -8,9 +8,9 @@ import (
 	"log/slog"
 	"testing"
 
+	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 	"github.com/siemens-healthineers/k2s/internal/reflection"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/params"
 	"github.com/siemens-healthineers/k2s/internal/addons"
 
 	"github.com/go-logr/logr"
@@ -616,7 +616,7 @@ var _ = Describe("generic pkg", func() {
 
 		When("flag is global output flag", func() {
 			It("adds output param", func() {
-				flag := &pflag.Flag{Name: params.OutputFlagName}
+				flag := &pflag.Flag{Name: common.OutputFlagName}
 				cmd := addons.AddonCmd{}
 				addMock := &mockObject{}
 				addMock.On(reflection.GetFunctionName(addMock.add), "-ShowLogs").Once()

@@ -20,8 +20,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	p "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/params"
-
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 )
 
@@ -127,9 +125,9 @@ func buildResetPsCmd(cmd *cobra.Command) (psCmd string, params []string, err err
 		return "", nil, fmt.Errorf("unable to parse flag '%s': %w", forceFlag, err)
 	}
 
-	showOutput, err := strconv.ParseBool(cmd.Flags().Lookup(p.OutputFlagName).Value.String())
+	showOutput, err := strconv.ParseBool(cmd.Flags().Lookup(common.OutputFlagName).Value.String())
 	if err != nil {
-		return "", nil, fmt.Errorf("unable to parse flag '%s': %w", p.OutputFlagName, err)
+		return "", nil, fmt.Errorf("unable to parse flag '%s': %w", common.OutputFlagName, err)
 	}
 
 	containerdDir, err := cmd.Flags().GetString(containerdDirFlag)

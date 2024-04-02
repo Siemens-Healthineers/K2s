@@ -14,8 +14,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
-	p "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/params"
-
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils/psexecutor"
@@ -36,8 +34,8 @@ var (
 
 func init() {
 	Uninstallk8sCmd.Flags().Bool(skipPurge, false, "Skips purging all the files. This option is not set by default.")
-	Uninstallk8sCmd.Flags().String(p.AdditionalHooksDirFlagName, "", p.AdditionalHooksDirFlagUsage)
-	Uninstallk8sCmd.Flags().BoolP(p.DeleteFilesFlagName, p.DeleteFilesFlagShorthand, false, p.DeleteFilesFlagUsage)
+	Uninstallk8sCmd.Flags().String(common.AdditionalHooksDirFlagName, "", common.AdditionalHooksDirFlagUsage)
+	Uninstallk8sCmd.Flags().BoolP(common.DeleteFilesFlagName, common.DeleteFilesFlagShorthand, false, common.DeleteFilesFlagUsage)
 	Uninstallk8sCmd.Flags().SortFlags = false
 	Uninstallk8sCmd.Flags().PrintDefaults()
 }
@@ -79,14 +77,14 @@ func buildUninstallCmd(flags *pflag.FlagSet, setupName setupinfo.SetupName) (str
 		return "", err
 	}
 
-	outputFlag, err := strconv.ParseBool(flags.Lookup(p.OutputFlagName).Value.String())
+	outputFlag, err := strconv.ParseBool(flags.Lookup(common.OutputFlagName).Value.String())
 	if err != nil {
 		return "", err
 	}
 
-	additionalHooksDir := flags.Lookup(p.AdditionalHooksDirFlagName).Value.String()
+	additionalHooksDir := flags.Lookup(common.AdditionalHooksDirFlagName).Value.String()
 
-	deleteFilesForOfflineInstallation, err := strconv.ParseBool(flags.Lookup(p.DeleteFilesFlagName).Value.String())
+	deleteFilesForOfflineInstallation, err := strconv.ParseBool(flags.Lookup(common.DeleteFilesFlagName).Value.String())
 	if err != nil {
 		return "", err
 	}
