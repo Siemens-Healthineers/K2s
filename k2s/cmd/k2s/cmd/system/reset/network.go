@@ -13,8 +13,6 @@ import (
 	"github.com/siemens-healthineers/k2s/internal/setupinfo"
 	"github.com/siemens-healthineers/k2s/internal/terminal"
 
-	p "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/params"
-
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
@@ -59,7 +57,7 @@ func resetNetwork(cmd *cobra.Command, args []string) error {
 		params = append(params, " -Force")
 	}
 
-	outputFlag, err := strconv.ParseBool(cmd.Flags().Lookup(p.OutputFlagName).Value.String())
+	outputFlag, err := strconv.ParseBool(cmd.Flags().Lookup(common.OutputFlagName).Value.String())
 	if err != nil {
 		return err
 	}

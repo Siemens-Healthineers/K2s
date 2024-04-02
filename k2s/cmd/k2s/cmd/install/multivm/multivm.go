@@ -11,9 +11,8 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils/tz"
 
+	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 	ic "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/install/config"
-
-	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/params"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 )
@@ -57,9 +56,9 @@ func init() {
 func bindFlags(cmd *cobra.Command) {
 	cmd.Flags().StringP(ic.ImageFlagName, ic.ImageFlagShorthand, "", ic.ImageFlagUsage)
 
-	cmd.Flags().String(params.AdditionalHooksDirFlagName, "", params.AdditionalHooksDirFlagUsage)
-	cmd.Flags().BoolP(params.DeleteFilesFlagName, params.DeleteFilesFlagShorthand, false, params.DeleteFilesFlagUsage)
-	cmd.Flags().BoolP(params.ForceOnlineInstallFlagName, params.ForceOnlineInstallFlagShorthand, false, params.ForceOnlineInstallFlagUsage)
+	cmd.Flags().String(common.AdditionalHooksDirFlagName, "", common.AdditionalHooksDirFlagUsage)
+	cmd.Flags().BoolP(common.DeleteFilesFlagName, common.DeleteFilesFlagShorthand, false, common.DeleteFilesFlagUsage)
+	cmd.Flags().BoolP(common.ForceOnlineInstallFlagName, common.ForceOnlineInstallFlagShorthand, false, common.ForceOnlineInstallFlagUsage)
 
 	cmd.Flags().String(ic.ControlPlaneCPUsFlagName, "", ic.ControlPlaneCPUsFlagUsage)
 	cmd.Flags().String(ic.ControlPlaneMemoryFlagName, "", ic.ControlPlaneMemoryFlagUsage)

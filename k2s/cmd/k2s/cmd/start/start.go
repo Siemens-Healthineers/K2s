@@ -14,8 +14,6 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils/tz"
 
-	p "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/params"
-
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils/psexecutor"
@@ -32,8 +30,8 @@ var Startk8sCmd = &cobra.Command{
 }
 
 func init() {
-	Startk8sCmd.Flags().String(p.AdditionalHooksDirFlagName, "", p.AdditionalHooksDirFlagUsage)
-	Startk8sCmd.Flags().BoolP(p.AutouseCachedVSwitchFlagName, "", false, p.AutouseCachedVSwitchFlagUsage)
+	Startk8sCmd.Flags().String(common.AdditionalHooksDirFlagName, "", common.AdditionalHooksDirFlagUsage)
+	Startk8sCmd.Flags().BoolP(common.AutouseCachedVSwitchFlagName, "", false, common.AutouseCachedVSwitchFlagUsage)
 	Startk8sCmd.Flags().SortFlags = false
 	Startk8sCmd.Flags().PrintDefaults()
 }
@@ -74,14 +72,14 @@ func startk8s(ccmd *cobra.Command, args []string) error {
 }
 
 func buildStartCmd(flags *pflag.FlagSet, setupName setupinfo.SetupName) (string, error) {
-	outputFlag, err := strconv.ParseBool(flags.Lookup(p.OutputFlagName).Value.String())
+	outputFlag, err := strconv.ParseBool(flags.Lookup(common.OutputFlagName).Value.String())
 	if err != nil {
 		return "", err
 	}
 
-	additionalHooksDir := flags.Lookup(p.AdditionalHooksDirFlagName).Value.String()
+	additionalHooksDir := flags.Lookup(common.AdditionalHooksDirFlagName).Value.String()
 
-	autouseCachedVSwitch, err := strconv.ParseBool(flags.Lookup(p.AutouseCachedVSwitchFlagName).Value.String())
+	autouseCachedVSwitch, err := strconv.ParseBool(flags.Lookup(common.AutouseCachedVSwitchFlagName).Value.String())
 	if err != nil {
 		return "", err
 	}

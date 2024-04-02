@@ -15,8 +15,6 @@ import (
 	"github.com/siemens-healthineers/k2s/internal/powershell"
 	"github.com/siemens-healthineers/k2s/internal/setupinfo"
 
-	p "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/params"
-
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 
 	"github.com/spf13/cobra"
@@ -109,7 +107,7 @@ func buildExportPsCmd(cmd *cobra.Command) (psCmd string, params []string, err er
 		return "", nil, errors.New("no export path provided")
 	}
 
-	showOutput, err := strconv.ParseBool(cmd.Flags().Lookup(p.OutputFlagName).Value.String())
+	showOutput, err := strconv.ParseBool(cmd.Flags().Lookup(common.OutputFlagName).Value.String())
 	if err != nil {
 		return "", nil, err
 	}

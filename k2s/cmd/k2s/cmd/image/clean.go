@@ -12,8 +12,6 @@ import (
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
 
-	p "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/params"
-
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
@@ -34,7 +32,7 @@ func cleanImages(cmd *cobra.Command, args []string) error {
 	psCmd := utils.FormatScriptFilePath(utils.InstallDir() + "\\smallsetup\\helpers\\CleanImages.ps1")
 	params := []string{}
 
-	showOutput, err := strconv.ParseBool(cmd.Flags().Lookup(p.OutputFlagName).Value.String())
+	showOutput, err := strconv.ParseBool(cmd.Flags().Lookup(common.OutputFlagName).Value.String())
 	if err != nil {
 		return err
 	}

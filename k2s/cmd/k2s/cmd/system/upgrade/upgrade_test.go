@@ -6,8 +6,7 @@ package upgrade
 import (
 	"testing"
 
-	p "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/params"
-
+	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -20,7 +19,7 @@ func TestUpgrade(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
-	UpgradeCmd.Flags().BoolP(p.OutputFlagName, p.OutputFlagShorthand, false, p.OutputFlagUsage)
+	UpgradeCmd.Flags().BoolP(common.OutputFlagName, common.OutputFlagShorthand, false, common.OutputFlagUsage)
 })
 
 var _ = Describe("upgrade", func() {
@@ -42,7 +41,7 @@ var _ = Describe("upgrade", func() {
 				expected := utils.InstallDir() + staticPartOfExpectedCmd
 
 				flags := UpgradeCmd.Flags()
-				flags.Set(p.OutputFlagName, "true")
+				flags.Set(common.OutputFlagName, "true")
 				flags.Set(skipK8sResources, "true")
 				flags.Set(deleteFiles, "true")
 				flags.Set(configFileFlagName, "config.yaml")
