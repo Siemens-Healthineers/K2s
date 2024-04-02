@@ -97,6 +97,10 @@ Test-ControlPlanePrerequisites -MasterVMProcessorCount $MasterVMProcessorCount -
 Test-WindowsPrerequisites -WSL:$WSL
 Stop-InstallationIfRequiredCurlVersionNotInstalled
 
+Enable-MissingWindowsFeatures $([bool]$WSL)
+
+Stop-InstallIfNoMandatoryServiceIsRunning
+
 if ($CheckOnly) {
     Write-Log 'Early exit (CheckOnly)' -Console
     exit
