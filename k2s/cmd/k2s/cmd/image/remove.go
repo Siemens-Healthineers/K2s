@@ -13,8 +13,6 @@ import (
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/params"
-
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
@@ -123,7 +121,7 @@ func extractRemoveOptions(cmd *cobra.Command) (*removeOptions, error) {
 		return nil, fmt.Errorf("unable to parse flag '%s': %w", fromRegistryFlagName, err)
 	}
 
-	showOutput, err := strconv.ParseBool(cmd.Flags().Lookup(params.OutputFlagName).Value.String())
+	showOutput, err := strconv.ParseBool(cmd.Flags().Lookup(common.OutputFlagName).Value.String())
 	if err != nil {
 		return nil, err
 	}
