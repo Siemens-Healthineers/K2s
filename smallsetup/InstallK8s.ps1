@@ -86,9 +86,10 @@ Param(
 . $PSScriptRoot\common\GlobalFunctions.ps1
 
 $logModule = "$PSScriptRoot\ps-modules\log\log.module.psm1"
+$proxyModule = "$PSScriptRoot\ps-modules\proxy\proxy.module.psm1"
 $systemModule = "$PSScriptRoot\..\lib\modules\k2s\k2s.node.module\windowsnode\system\system.module.psm1"
 
-Import-Module $logModule, $systemModule
+Import-Module $logModule, $systemModule, $proxyModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -122,16 +123,7 @@ Write-Log "Using Master VM Diskspace: $([math]::round($MasterDiskSize/1GB, 2))GB
 
 Set-EnvVars
 
-if ($Proxy -eq "") {
-    Write-Log "Determining if proxy is configured by the user in Windows Proxy settings." -Console
-    $proxyEnabledStatus = Get-ProxyEnabledStatusFromWindowsSettings
-    if ($proxyEnabledStatus) {
-        $Proxy = Get-ProxyServerFromWindowsSettings
-        Write-Log "Configured proxy server in Windows Proxy settings: $Proxy" -Console
-    } else {
-        Write-Log "No proxy configured in Windows Proxy Settings." -Console
-    }
-}
+$Proxy = Get-OrUpdateProxyServer -Proxy:$Proxy
 
 Addk2sToDefenderExclusion
 
