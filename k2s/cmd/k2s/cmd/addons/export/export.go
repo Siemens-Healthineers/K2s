@@ -17,8 +17,6 @@ import (
 
 	"github.com/siemens-healthineers/k2s/internal/setupinfo"
 
-	p "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/params"
-
 	ac "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/addons/common"
 	"github.com/siemens-healthineers/k2s/internal/addons"
 
@@ -134,7 +132,7 @@ func buildPsCmd(cmd *cobra.Command, addonsToExport ...string) (psCmd string, par
 		params = append(params, " -All")
 	}
 
-	outputFlag, err := strconv.ParseBool(cmd.Flags().Lookup(p.OutputFlagName).Value.String())
+	outputFlag, err := strconv.ParseBool(cmd.Flags().Lookup(common.OutputFlagName).Value.String())
 	if err != nil {
 		return "", nil, err
 	}
