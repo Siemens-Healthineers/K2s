@@ -21,7 +21,7 @@
     "component": {
       "group": "",
       "name": "k2s",
-      "version": "",
+      "version": "v1.0.0",
       "type": "application"
     }
   },
@@ -40,7 +40,13 @@
           }
         }
       ],
-      "purl": "pkg:https://github.com/AdguardTeam/dnsproxy/releases/download/v0.43.1/dnsproxy-windows-amd64-v0.43.1.zip",
+      "properties": [
+        {
+          "name": "sw360:projectName",
+          "value": "k2s:core:pkg:executables"
+        }
+      ],
+      "purl": "pkg:github/AdguardTeam/dnsproxy@v0.43.1",
       "type": "application"
     },
     {
@@ -57,7 +63,13 @@
           }
         }
       ],
-      "purl": "pkg:https://github.com/kubernetes-sigs/cri-tools/releases/download/v1.28.0/crictl-v1.28.0-windows-amd64.tar.gz",
+      "properties": [
+        {
+          "name": "sw360:projectName",
+          "value": "k2s:core:pkg:executables"
+        }
+      ],
+      "purl": "pkg:github/kubernetes-sigs/cri-tools/@v1.28.0",
       "type": "application"
     },
     {
@@ -70,11 +82,17 @@
         {
           "license": {
             "id": "Apache-2.0",
-            "url": "https://github.com/kubernetes/kubernetes/blob/master/LICENSES/LICENSE"
+            "url": "https://github.com/kubernetes/kubelet/LICENSE"
           }
         }
       ],
-      "purl": "pkg:https://dl.k8s.io/v1.25.13/bin/windows/amd64/kubelet.exe",
+      "properties": [
+        {
+          "name": "sw360:projectName",
+          "value": "k2s:core:pkg:executables"
+        }
+      ],
+      "purl": "pkg:github/kubernetes/kubelet@v1.25.13",
       "type": "application"
     },
     {
@@ -87,11 +105,17 @@
         {
           "license": {
             "id": "Apache-2.0",
-            "url": "https://github.com/kubernetes/kubernetes/blob/master/LICENSES/LICENSE"
+            "url": "https://github.com/kubernetes/kubeadm/LICENSE"
           }
         }
       ],
-      "purl": "pkg:https://dl.k8s.io/v1.25.13/bin/windows/amd64/kubeadm.exe",
+      "properties": [
+        {
+          "name": "sw360:projectName",
+          "value": "k2s:core:pkg:executables"
+        }
+      ],
+      "purl": "pkg:github/kubernetes/kubeadm@v1.25.13",
       "type": "application"
     },
     {
@@ -104,11 +128,17 @@
         {
           "license": {
             "id": "Apache-2.0",
-            "url": "https://github.com/kubernetes/kubernetes/blob/master/LICENSES/LICENSE"
+            "url": "https://github.com/kubernetes/kube-proxy/LICENSE"
           }
         }
       ],
-      "purl": "pkg:https://dl.k8s.io/v1.25.13/bin/windows/amd64/kube-proxy.exe",
+      "properties": [
+        {
+          "name": "sw360:projectName",
+          "value": "k2s:core:pkg:executables"
+        }
+      ],
+      "purl": "pkg:github/kubernetes/kube-proxy@v1.25.13",
       "type": "application"
     },
     {
@@ -121,11 +151,17 @@
         {
           "license": {
             "id": "Apache-2.0",
-            "url": "https://github.com/kubernetes/kubernetes/blob/master/LICENSES/LICENSE"
+            "url": "https://github.com/kubernetes/kubectl/LICENSE"
           }
         }
       ],
-      "purl": "pkg:https://dl.k8s.io/v1.25.13/bin/windows/amd64/kubectl.exe",
+      "properties": [
+        {
+          "name": "sw360:projectName",
+          "value": "k2s:core:pkg:executables"
+        }
+      ],
+      "purl": "pkg:github/kubernetes/kubectl@v1.25.13",
       "type": "application"
     },
     {
@@ -138,11 +174,17 @@
         {
           "license": {
             "id": "Apache-2.0",
-            "url": "https://github.com/kubernetes/kubernetes/blob/master/LICENSES/LICENSE"
+            "url": "https://github.com/containerd/nerdctl/LICENSE"
           }
         }
       ],
-      "purl": "pkg:https://github.com/containerd/nerdctl/releases/download/v1.7.2/nerdctl-1.7.2-windows-amd64.tar.gz",
+      "properties": [
+        {
+          "name": "sw360:projectName",
+          "value": "k2s:core:pkg:executables"
+        }
+      ],
+      "purl": "pkg:github/containerd/nerdctl@v1.7.2",
       "type": "application"
     },
     {
@@ -159,7 +201,13 @@
           }
         }
       ],
-      "purl": "pkg:https://k8stestinfrabinaries.blob.core.windows.net/nssm-mirror/nssm-2.24.zip",
+      "properties": [
+        {
+          "name": "sw360:projectName",
+          "value": "k2s:core:pkg:executables"
+        }
+      ],
+      "purl": "pkg:generic/nssm@v2.24.0?vcs_url=https://k8stestinfrabinaries.blob.core.windows.net/nssm-mirror/nssm-2.24.zip",
       "type": "application"
     },
     {
@@ -176,7 +224,13 @@
           }
         }
       ],
-      "purl": "pkg:https://the.earth.li/~sgtatham/putty/0.76/w64/plink.exe",
+      "properties": [
+        {
+          "name": "sw360:projectName",
+          "value": "k2s:core:pkg:executables"
+        }
+      ],
+      "purl": "pkg:generic/plink@v0.76.0",
       "type": "application"
     },
     {
@@ -193,7 +247,13 @@
           }
         }
       ],
-      "purl": "pkg:https://the.earth.li/~sgtatham/putty/0.76/w64/pscp.exe",
+      "properties": [
+        {
+          "name": "sw360:projectName",
+          "value": "k2s:core:pkg:executables"
+        }
+      ],
+      "purl": "pkg:generic/pscp@v0.76.0",
       "type": "application"
     },
     {
@@ -210,7 +270,13 @@
           }
         }
       ],
-      "purl": "pkg:https://download.docker.com/win/static/stable/x86_64/docker-24.0.7.zip",
+      "properties": [
+        {
+          "name": "sw360:projectName",
+          "value": "k2s:core:pkg:executables"
+        }
+      ],
+      "purl": "pkg:github/moby/moby@24.0.7",
       "type": "application"
     },
     {
@@ -227,7 +293,13 @@
           }
         }
       ],
-      "purl": "pkg:https://download.docker.com/win/static/stable/x86_64/docker-24.0.7.zip",
+      "properties": [
+        {
+          "name": "sw360:projectName",
+          "value": "k2s:core:pkg:executables"
+        }
+      ],
+      "purl": "pkg:github/moby/moby@24.0.7",
       "type": "application"
     },
     {
@@ -244,7 +316,13 @@
           }
         }
       ],
-      "purl": "pkg:https://download.docker.com/win/static/stable/x86_64/docker-24.0.7.zip",
+      "properties": [
+        {
+          "name": "sw360:projectName",
+          "value": "k2s:core:pkg:executables"
+        }
+      ],
+      "purl": "pkg:pkg:github/moby/moby@24.0.7",
       "type": "application"
     },
     {
@@ -261,7 +339,13 @@
           }
         }
       ],
-      "purl": "pkg:https://github.com/flannel-io/flannel/releases/download/v0.17.0/flanneld.exe",
+      "properties": [
+        {
+          "name": "sw360:projectName",
+          "value": "k2s:core:pkg:executables"
+        }
+      ],
+      "purl": "pkg:github/flannel-io/flannel@v0.17.0",
       "type": "application"
     },
     {
@@ -274,11 +358,17 @@
         {
           "license": {
             "id": "Apache-2.0",
-            "url": "https://github.com/flannel-io/flannel/blob/master/LICENSE"
+            "url": "https://github.com/flannel-io/cni-plugin/blob/main/LICENSE"
           }
         }
       ],
-      "purl": "pkg:https://github.com/containernetworking/plugins/releases/download/v1.1.1/cni-plugins-windows-amd64-v1.1.1.tgz",
+      "properties": [
+        {
+          "name": "sw360:projectName",
+          "value": "k2s:core:pkg:executables"
+        }
+      ],
+      "purl": "pkg:github/flannel-io/cni-plugin@v1.1.1",
       "type": "application"
     },
     {
@@ -295,7 +385,13 @@
           }
         }
       ],
-      "purl": "pkg:https://github.com/containernetworking/plugins/releases/download/v1.1.1/cni-plugins-windows-amd64-v1.1.1.tgz",
+      "properties": [
+        {
+          "name": "sw360:projectName",
+          "value": "k2s:core:pkg:executables"
+        }
+      ],
+      "purl": "pkg:github/containernetworking/plugins@v1.1.1",
       "type": "application"
     },
     {
@@ -312,7 +408,13 @@
           }
         }
       ],
-      "purl": "pkg:https://github.com/containernetworking/plugins/releases/download/v1.1.1/cni-plugins-windows-amd64-v1.1.1.tgz",
+      "properties": [
+        {
+          "name": "sw360:projectName",
+          "value": "k2s:core:pkg:executables"
+        }
+      ],
+      "purl": "pkg:github/containernetworking/plugins@v1.1.1",
       "type": "application"
     },
     {
@@ -329,7 +431,13 @@
           }
         }
       ],
-      "purl": "pkg:https://github.com/containernetworking/plugins/releases/download/v1.1.1/cni-plugins-windows-amd64-v1.1.1.tgz",
+      "properties": [
+        {
+          "name": "sw360:projectName",
+          "value": "k2s:core:pkg:executables"
+        }
+      ],
+      "purl": "pkg:github/containernetworking/plugins@v1.1.1",
       "type": "application"
     },
     {
@@ -346,7 +454,13 @@
           }
         }
       ],
-      "purl": "pkg:https://github.com/prometheus-community/windows_exporter/releases/download/v0.22.0/windows_exporter-0.22.0-amd64.exe",
+      "properties": [
+        {
+          "name": "sw360:projectName",
+          "value": "k2s:core:pkg:executables"
+        }
+      ],
+      "purl": "pkg:github/prometheus-community/windows_exporter@v0.22.0",
       "type": "application"
     },
     {
@@ -363,7 +477,13 @@
           }
         }
       ],
-      "purl": "pkg:https://github.com/containerd/containerd/releases/download/v1.7.9/cri-containerd-cni-1.7.9-windows-amd64.tar.gz",
+      "properties": [
+        {
+          "name": "sw360:projectName",
+          "value": "k2s:core:pkg:executables"
+        }
+      ],
+      "purl": "pkg:github/containerd/containerd@v1.7.9",
       "type": "application"
     },
     {
@@ -380,7 +500,13 @@
           }
         }
       ],
-      "purl": "pkg:https://github.com/containerd/containerd/releases/download/v1.7.9/cri-containerd-cni-1.7.9-windows-amd64.tar.gz",
+      "properties": [
+        {
+          "name": "sw360:projectName",
+          "value": "k2s:core:pkg:executables"
+        }
+      ],
+      "purl": "pkg:github/containerd/containerd@v1.7.9",
       "type": "application"
     },
     {
@@ -397,7 +523,13 @@
           }
         }
       ],
-      "purl": "pkg:https://github.com/containerd/containerd/releases/download/v1.7.9/cri-containerd-cni-1.7.9-windows-amd64.tar.gz",
+      "properties": [
+        {
+          "name": "sw360:projectName",
+          "value": "k2s:core:pkg:executables"
+        }
+      ],
+      "purl": "pkg:github/containerd/containerd@v1.7.9",
       "type": "application"
     },
     {
@@ -414,7 +546,13 @@
           }
         }
       ],
-      "purl": "pkg:https://github.com/containerd/containerd/releases/download/v1.7.9/cri-containerd-cni-1.7.9-windows-amd64.tar.gz",
+      "properties": [
+        {
+          "name": "sw360:projectName",
+          "value": "k2s:core:pkg:executables"
+        }
+      ],
+      "purl": "pkg:github/containerd/containerd@v1.7.9",
       "type": "application"
     },
     {
@@ -431,7 +569,13 @@
           }
         }
       ],
-      "purl": "pkg:https://github.com/stedolan/jq/releases/download/jq-1.6/jq-win64.exe",
+      "properties": [
+        {
+          "name": "sw360:projectName",
+          "value": "k2s:core:pkg:executables"
+        }
+      ],
+      "purl": "pkg:github/stedolan/jq@v1.6.0",
       "type": "application"
     },
     {
@@ -448,7 +592,13 @@
           }
         }
       ],
-      "purl": "pkg:https://nginx.org/download/nginx-1.23.2.zip",
+      "properties": [
+        {
+          "name": "sw360:projectName",
+          "value": "k2s:addons:pkg:executables"
+        }
+      ],
+      "purl": "pkg:github/nginx/nginx@release-1.23.2",
       "type": "application"
     },
     {
@@ -465,7 +615,13 @@
           }
         }
       ],
-      "purl": "pkg:https://github.com/kubevirt/kubevirt/releases/download/v0.58.0/virtctl-v0.58.0-windows-amd64.exe",
+      "properties": [
+        {
+          "name": "sw360:projectName",
+          "value": "k2s:addons:pkg:executables"
+        }
+      ],
+      "purl": "pkg:github/kubevirt/kubevirt@v0.58.0",
       "type": "application"
     },
     {
@@ -482,7 +638,13 @@
           }
         }
       ],
-      "purl": "pkg:https://github.com/kubevirt/kubevirt/releases/download/v0.58.0/virtctl-v0.58.0-linux-amd64",
+      "properties": [
+        {
+          "name": "sw360:projectName",
+          "value": "k2s:addons:pkg:executables"
+        }
+      ],
+      "purl": "pkg:github/kubevirt/kubevirt@v0.58.0",
       "type": "application"
     }
  ],
