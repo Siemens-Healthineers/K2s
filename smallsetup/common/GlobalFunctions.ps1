@@ -2221,11 +2221,11 @@ function Get-RandomPassword {
 
 function Stop-InstallIfNoMandatoryServiceIsRunning {
     $hns = Get-Service 'hns' -ErrorAction SilentlyContinue
-    if (!($hns -and $hns.Status -eq 'Running')) {
+    if (!$hns) {
         throw 'Host Network Service is not running. This is need for containers. Please enable prerequisites for K2s - https://github.com/Siemens-Healthineers/K2s !'
     }
     $hcs = Get-Service 'vmcompute' -ErrorAction SilentlyContinue
-    if (!($hcs -and $hcs.Status -eq 'Running')) {
+    if (!$hcs) {
         throw 'Host Compute Service is not running. This is needed for containers. Please enable prerequisites for K2s - https://github.com/Siemens-Healthineers/K2s !'
     }
 }
