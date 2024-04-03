@@ -161,11 +161,11 @@ if ($results.PowerShell -eq -1 -and $results.Go -eq 0) {
 
 Write-Warning 'TESTS FAILED:'
 
-if ($results.PowerShell -ne 0) {
+if ($results.PowerShell -ne 0 -and $results.PowerShell -ne -1) {
     Write-Warning '     PowerShell tests :-('
 }
 
-if ($results.Go -ne 0) {
+if ($results.Go -ne 0 -and $results.Go -ne -1) {
     Write-Warning '     Go tests :-(' 
 }
 
