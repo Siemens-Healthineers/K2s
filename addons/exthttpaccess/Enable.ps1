@@ -43,21 +43,13 @@ $logModule = "$PSScriptRoot/../../smallsetup/ps-modules/log/log.module.psm1"
 $statusModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/status/status.module.psm1"
 $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
 $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
+$proxyModule = "$PSScriptRoot/../../smallsetup/ps-modules/proxy/proxy.module.psm1"
 
-Import-Module $addonsModule, $logModule, $statusModule, $infraModule
+Import-Module $addonsModule, $logModule, $statusModule, $infraModule, $proxyModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
-if ($Proxy -eq "") {
-  Write-Log "Determining if proxy is configured by the user in Windows Proxy settings." -Console
-  $proxyEnabledStatus = Get-ProxyEnabledStatusFromWindowsSettings
-  if ($proxyEnabledStatus) {
-      $Proxy = Get-ProxyServerFromWindowsSettings
-      Write-Log "Configured proxy server in Windows Proxy settings: $Proxy" -Console
-  } else {
-      Write-Log "No proxy configured in Windows Proxy Settings." -Console
-  }
-}
+$Proxy = Get-OrUpdateProxyServer -Proxy:$Proxy
 
 # hooks handling
 $hookFilePaths = @()

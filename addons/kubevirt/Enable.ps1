@@ -52,8 +52,9 @@ $logModule = "$PSScriptRoot/../../smallsetup/ps-modules/log/log.module.psm1"
 $clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
 $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
+$proxyModule = "$PSScriptRoot/../../smallsetup/ps-modules/proxy/proxy.module.psm1"
 
-Import-Module $logModule, $addonsModule, $clusterModule, $infraModule
+Import-Module $logModule, $addonsModule, $clusterModule, $infraModule, $proxyModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
