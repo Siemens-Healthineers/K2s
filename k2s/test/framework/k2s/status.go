@@ -7,20 +7,21 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/status/load"
+	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/status"
 
+	//lint:ignore ST1001 test framework code
 	. "github.com/onsi/gomega"
 )
 
 type K2sStatus struct {
-	internal *load.LoadedStatus
+	internal *status.PrintStatus
 }
 
 // wrapper around k2s.exe to retrieve and parse the cluster status
 func (r *K2sCliRunner) GetStatus(ctx context.Context) *K2sStatus {
 	output := r.Run(ctx, "status", "-o", "json")
 
-	status := unmarshalStatus[load.LoadedStatus](output)
+	status := unmarshalStatus[status.PrintStatus](output)
 
 	return &K2sStatus{
 		internal: status,

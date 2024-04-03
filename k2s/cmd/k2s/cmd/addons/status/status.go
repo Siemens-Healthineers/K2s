@@ -96,7 +96,6 @@ func determinePrinter(outputOption string) StatusPrinter {
 
 	if outputOption == jsonOption {
 		return NewJsonPrinter(terminalPrinter, json.MarshalIndent)
-	} else {
-		return NewUserFriendlyPrinter(terminalPrinter)
 	}
+	return NewUserFriendlyPrinter(terminalPrinter)
 }

@@ -10,6 +10,7 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/image"
 
+	//lint:ignore ST1001 test framework code
 	. "github.com/onsi/gomega"
 )
 
