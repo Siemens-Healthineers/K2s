@@ -1181,7 +1181,7 @@ function Enable-MissingWindowsFeatures($wsl) {
     }
 
     if ($restartRequired) {
-        Write-Log '!!! Restart is required. Reason: Changes in WindowsOptionalFeature !!!'
+        Write-Log '!!! Restart is required. Reason: Changes in WindowsOptionalFeature. Please call install after reboot again. !!! '
         throw '!!! Restart is required. Reason: Changes in WindowsOptionalFeature !!!'
     }
 }
