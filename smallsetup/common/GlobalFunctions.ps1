@@ -1133,9 +1133,9 @@ function Enable-MissingFeature {
     if ($featureState -match 'Disabled') {
         Write-Log "WindowsOptionalFeature '$Name' is '$featureState'. Will activate feature..."
 
-        $enableResult = Enable-WindowsOptionalFeature -Online -FeatureName $Name -All -NoRestart -WarningAction silentlyContinue
+        Enable-WindowsOptionalFeature -Online -FeatureName $Name -All -NoRestart -WarningAction silentlyContinue
 
-        return $enableResult.RestartNeeded -eq $true
+        return $true
     }
 
     return $false
@@ -1168,7 +1168,6 @@ function Enable-MissingWindowsFeatures($wsl) {
 
     foreach ($feature in $features) {
         if (Enable-MissingFeature -Name $feature) {
-            Write-Log "!!! Restart is required after enabling WindowsFeature: $feature"
             $restartRequired = $true
         }
     }
