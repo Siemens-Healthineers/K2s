@@ -509,7 +509,4 @@ Get-SshConfigDir,
 Get-DefaultProvisioningBaseImageDiskSize,
 Get-RootConfig,
 Get-DefaultTempPwd,
-Get-DefaultK8sVersion,
-Get-ProxyEnabledStatusFromWindowsSettings,
-Get-ProxyServerFromWindowsSettings,
-Get-ProxyOverrideFromWindowsSettings
+Get-DefaultK8sVersion

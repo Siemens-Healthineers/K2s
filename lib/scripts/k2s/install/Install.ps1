@@ -107,16 +107,7 @@ Write-Log 'Starting installation...'
 # Add K2s executables as part of environment variable
 Set-EnvVars
 
-if ($Proxy -eq "") {
-    Write-Log "Determining if proxy is configured by the user in Windows Proxy settings." -Console
-    $proxyEnabledStatus = Get-ProxyEnabledStatusFromWindowsSettings
-    if ($proxyEnabledStatus) {
-        $Proxy = Get-ProxyServerFromWindowsSettings
-        Write-Log "Configured proxy server in Windows Proxy settings: $Proxy" -Console
-    } else {
-        Write-Log "No proxy configured in Windows Proxy Settings." -Console
-    }
-}
+$Proxy = Get-OrUpdateProxyServer -Proxy:$Proxy
 
 # make sure we are at the right place for install
 $kubePath = Get-KubePath

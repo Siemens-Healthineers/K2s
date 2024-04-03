@@ -2,6 +2,9 @@
 #
 # SPDX-License-Identifier: MIT
 
+$logModule = "$PSScriptRoot\..\..\..\k2s.infra.module\log\log.module.psm1"
+Import-Module $logModule
+
 <#
 .SYNOPSIS
 Gets whether proxy settings are configured for the user in Windows.
