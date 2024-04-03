@@ -41,7 +41,7 @@ if ($areStatefulsetsRunningProp.Value -eq $true) {
     $areStatefulsetsRunningProp.Message = 'Prometheus and Alertmanager are working'
 }
 else {
-    $areStatefulsetsRunningProp.Message = "Prometheusand Alertmanager are not working. Try restarting the cluster with 'k2s start' or disable and re-enable the addon with 'k2s addons disable monitoring' and 'k2s addons enable monitoring'"
+    $areStatefulsetsRunningProp.Message = "Prometheus and Alertmanager are not working. Try restarting the cluster with 'k2s start' or disable and re-enable the addon with 'k2s addons disable monitoring' and 'k2s addons enable monitoring'"
 } 
 
 &$global:KubectlExe rollout status daemonsets -n monitoring --timeout=5s 2>&1 | Out-Null
