@@ -1,7 +1,23 @@
 // SPDX-FileCopyrightText:  © 2023 Siemens Healthcare GmbH
 // SPDX-License-Identifier:   MIT
 
-package common
+package status
+
+import (
+	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
+
+	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
+
+	"github.com/siemens-healthineers/k2s/internal/powershell"
+)
+
+type LoadedStatus struct {
+	common.CmdResult
+	RunningState   *RunningState   `json:"runningState"`
+	Nodes          []Node          `json:"nodes"`
+	Pods           []Pod           `json:"pods"`
+	K8sVersionInfo *K8sVersionInfo `json:"k8sVersionInfo"`
+}
 
 type Pod struct {
 	Status    string `json:"status"`
@@ -36,4 +52,15 @@ type RunningState struct {
 type K8sVersionInfo struct {
 	K8sServerVersion string `json:"k8sServerVersion"`
 	K8sClientVersion string `json:"k8sClientVersion"`
+}
+
+func LoadStatus(psVersion powershell.PowerShellVersion) (*LoadedStatus, error) {
+	outputWriter, err := common.NewOutputWriter()
+	if err != nil {
+		return nil, err
+	}
+
+	scriptPath := utils.FormatScriptFilePath(utils.InstallDir() + `\lib\scripts\k2s\status\Get-Status.ps1`)
+
+	return powershell.ExecutePsWithStructuredResult[*LoadedStatus](scriptPath, "CmdResult", psVersion, outputWriter)
 }
