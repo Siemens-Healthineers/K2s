@@ -1,1 +1,8 @@
 Gomega
+execute_all_tests.ps1 
+params
+ctx
+kubectl
+env
+Cli
+cmd
