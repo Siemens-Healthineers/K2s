@@ -3,7 +3,7 @@ SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
 SPDX-License-Identifier: MIT
 -->
 
-# IN-PROGRESS!!! K2s PowerShell Codebase
+# IN-PROGRESS! K2s PowerShell Codebase
 
 This contains PowerShell modules and scripts.
 
