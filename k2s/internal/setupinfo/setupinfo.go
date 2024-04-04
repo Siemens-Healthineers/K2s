@@ -5,6 +5,7 @@ package setupinfo
 
 import (
 	"errors"
+	"fmt"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -38,12 +39,12 @@ func LoadConfig(configDir string) (*Config, error) {
 
 	config, err := json.FromFile[Config](configPath)
 	if err != nil {
-		if os.IsNotExist(err) {
+		if errors.Is(err, os.ErrNotExist) {
 			slog.Info("Setup config file not found, assuming setup is not installed", "error", err, "path", configPath)
 
 			return nil, ErrSystemNotInstalled
 		}
-		return nil, err
+		return nil, fmt.Errorf("error occurred while loading setup config file: %w", err)
 	}
 
 	return config, nil
