@@ -54,20 +54,19 @@ spec:
 kind: Service
 apiVersion: v1
 metadata:
-  name: "dcgm-exporter"
+  name: dcgm-exporter
   namespace: gpu-node
   labels:
     app.kubernetes.io/name: "dcgm-exporter"
     app.kubernetes.io/version: "3.1.5"
 spec:
-  type: NodePort
+  type: ClusterIP
   selector:
     app.kubernetes.io/name: "dcgm-exporter"
     app.kubernetes.io/version: "3.1.5"
   ports:
   - port: 9400
     targetPort: 9400
-    nodePort: 30094
 
 ---
 
