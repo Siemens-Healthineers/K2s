@@ -13,5 +13,3 @@ resources:
 - .\prometheus-node-exporter
 - .\exporters
 - .\alertmanager
-- .\vali
-- .\valitail

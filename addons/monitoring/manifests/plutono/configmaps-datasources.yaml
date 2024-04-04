@@ -41,14 +41,6 @@ data:
       jsonData:
         handleGrafanaManagedAlerts: false
         implementation: prometheus
-    - name: Vali
-      type: vali
-      access: proxy
-      url: "http://loki-stack.monitoring:3100"
-      version: 1
-      isDefault: false
-      jsonData:
-        maxLines: 1000
     - name: OpenSearch
       type: elasticsearch
       access: proxy
