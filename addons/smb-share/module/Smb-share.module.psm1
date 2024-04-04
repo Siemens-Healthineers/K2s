@@ -269,7 +269,7 @@ function New-SharedFolderMountOnLinuxClient {
         sed -e /k8s-smb-share/d < /etc/fstab > $tempFstabFile
         # add the new line to fstab
         echo '             Adding line for $linuxLocalPath to /etc/fstab'
-        echo '//$global:IP_NextHop/$windowsShareName $linuxLocalPath cifs username=$smbUserName,password=$($creds.GetNetworkCredential().Password),rw,nobrl,soft,x-systemd.automount,file_mode=0666,dir_mode=0777,vers=3.0' >> $tempFstabFile
+        echo '//$global:IP_NextHop/$windowsShareName $linuxLocalPath cifs username=$smbUserName,password=$($creds.GetNetworkCredential().Password),rw,nobrl,soft,x-systemd.automount,file_mode=0666,dir_mode=0777,vers=3.0' | tee -a $tempFstabFile >/dev/null
         sudo sh -c "cat $tempFstabFile > /etc/fstab"
         sudo rm -f $tempFstabFile
         # immediately perform the mount
@@ -373,7 +373,7 @@ function Remove-SharedFolderMountOnLinuxClient {
 
 function Wait-ForSharedFolderMountOnLinuxClient () {
     Write-Log 'Waiting for shared folder mount on Linux node..'
-    $fstabOut = $(ExecCmdMaster 'cat /etc/fstab | grep /k8s-smb-share' -NoLog)
+    $fstabOut = $(ExecCmdMaster 'cat /etc/fstab | grep -o /k8s-smb-share' -NoLog)
     if (! $fstabOut) {
         Write-Log 'no shared folder in fstab yet'
         # no entry in fstab, so no need to wait for mount
@@ -381,6 +381,7 @@ function Wait-ForSharedFolderMountOnLinuxClient () {
     }
 
     $mountOut = $(ExecCmdMaster "sudo su -s /bin/bash -c 'sudo mount | grep /k8s-smb-share' remote" -NoLog)
+
     $iteration = 0
     while (! $mountOut) {
         $iteration++
@@ -412,7 +413,7 @@ function Wait-ForSharedFolderOnLinuxHost () {
     Write-Log 'Waiting for shared folder (Samba Share) hosted on Linux node..'
     $script:Success = $false
 
-    $fstabOut = $(ExecCmdMaster 'cat /etc/fstab | grep k8sshare' -NoLog)
+    $fstabOut = $(ExecCmdMaster 'cat /etc/fstab | grep -o k8sshare' -NoLog)
     if (! $fstabOut) {
         Write-Log '           no shared folder in fstab yet'
         # no entry in fstab, so no need to wait for mount
@@ -455,7 +456,7 @@ function New-SharedFolderMountOnLinuxHost {
         sed -e /k8s-smb-share/d < /etc/fstab > fstab.tmp
         # add the new line to fstab
         echo '             Adding line for $global:ShareMountPointInVm to /etc/fstab'
-        echo '//$global:IP_Master/$linuxShareName $global:ShareMountPointInVm cifs username=$smbUserName,password=$($creds.GetNetworkCredential().Password),rw,nobrl,x-systemd.after=smbd.service,x-systemd.before=kubelet.service,file_mode=0666,dir_mode=0777,vers=3' >> fstab.tmp
+        echo '//$global:IP_Master/$linuxShareName $global:ShareMountPointInVm cifs username=$smbUserName,password=$($creds.GetNetworkCredential().Password),rw,nobrl,x-systemd.after=smbd.service,x-systemd.before=kubelet.service,file_mode=0666,dir_mode=0777,vers=3' | tee -a fstab.tmp >/dev/null
         sudo sh -c "cat fstab.tmp > /etc/fstab"
         # immediately perform the mount
         echo '             Mount $global:ShareMountPointInVm from /etc/fstab entry'
@@ -1030,11 +1031,11 @@ function Enable-SmbShare {
     Restore-SmbShareAndFolder -SmbHostType $SmbHostType -SkipTest -SetupInfo $setupInfo
     Restore-StorageClass -SmbHostType $SmbHostType -LinuxOnly $setupInfo.LinuxOnly
 
-    Write-Log -Console '***************************************************************************************'
-    Write-Log -Console '** IMPORTANT:                                                                        **' 
-    Write-Log -Console "**       - use the StorageClass name '$smbStorageClassName' to provide storage.                       **"
-    Write-Log -Console "**         See '<root>\k2s\test\e2e\addons\smb-share\workloads\' for example deployments.**"
-    Write-Log -Console '***************************************************************************************'
+    Write-Log -Console '********************************************************************************************'
+    Write-Log -Console '** IMPORTANT:                                                                             **' 
+    Write-Log -Console "**       - use the StorageClass name '$smbStorageClassName' to provide storage.                            **"
+    Write-Log -Console "**         See '<root>\k2s\test\e2e\addons\smb-share\workloads\' for example deployments. **"
+    Write-Log -Console '********************************************************************************************'
 
     return @{Error = $null }
 }

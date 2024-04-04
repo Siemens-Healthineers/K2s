@@ -69,7 +69,7 @@ function Write-Log {
         [switch] $Console = $false,
         [Parameter(Mandatory = $false, HelpMessage = 'This is a progress message, do not append new line in the log file.')]
         [switch] $Progress = $false,
-        [Parameter(Mandatory = $false, HelpMessage = 'This is a error message, add to log file and console as Write-Error.')]
+        [Parameter(Mandatory = $false, HelpMessage = 'This is an error message, add to log file and console as Write-Error.')]
         [switch] $Error = $false,
         [Parameter(Mandatory = $false, HelpMessage = 'Write messages to stdout using Write-Output (default is Write-Information)')]
         [switch] $Raw = $false
@@ -159,14 +159,14 @@ function Save-Log {
     }
 
     $destinationFolder = "$env:TEMP\k2s_log_$(get-date -f yyyyMMdd_HHmmss)"
-    Copy-Item -Path "C:\var\log" -Destination $destinationFolder -Force -Recurse
+    Copy-Item -Path 'C:\var\log' -Destination $destinationFolder -Force -Recurse
     Compress-Archive -Path $destinationFolder -DestinationPath "$destinationFolder.zip" -CompressionLevel Optimal -Force
     Remove-Item -Path "$destinationFolder" -Force -Recurse -ErrorAction SilentlyContinue
 
     Write-Log "Logs backed up in $destinationFolder.zip" -Console
 
     if ($RemoveVar) {
-    # the directory '<system drive>:\var' must be deleted (regardless of the installation drive) since
+        # the directory '<system drive>:\var' must be deleted (regardless of the installation drive) since
         # kubelet.exe writes hardcoded to '<system drive>:\var\lib\kubelet\device-plugins' (see '\pkg\kubelet\cm\devicemanager\manager.go' under https://github.com/kubernetes/kubernetes.git)
         $systemDriveLetter = (Get-Item $env:SystemDrive).PSDrive.Name
         Remove-Item -Path "$($systemDriveLetter):\var" -Force -Recurse -ErrorAction SilentlyContinue
