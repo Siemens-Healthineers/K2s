@@ -5,6 +5,7 @@ package setupinfo_test
 
 import (
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -27,7 +28,7 @@ var _ = BeforeSuite(func() {
 
 var _ = Describe("setupinfo pkg", func() {
 	Describe("LoadConfig", func() {
-		Context("config file does not exist", func() {
+		When("config file does not exist", func() {
 			It("returns system-not-installed error", func() {
 				config, err := setupinfo.LoadConfig(GinkgoT().TempDir())
 
@@ -36,7 +37,34 @@ var _ = Describe("setupinfo pkg", func() {
 			})
 		})
 
-		Context("config file exists", func() {
+		When("config file is corrupted", func() {
+			var dir string
+
+			BeforeEach(func() {
+				dir = GinkgoT().TempDir()
+				configPath := filepath.Join(dir, "setup.json")
+
+				GinkgoWriter.Println("Writing corrupted test file to <", configPath, ">")
+
+				file, err := os.OpenFile(configPath, os.O_CREATE, os.ModeAppend)
+				Expect(err).ToNot(HaveOccurred())
+
+				_, err = file.Write([]byte(" "))
+				Expect(err).ToNot(HaveOccurred())
+				Expect(file.Close()).To(Succeed())
+			})
+
+			It("returns JSON syntax error", func() {
+				config, err := setupinfo.LoadConfig(dir)
+
+				Expect(config).To(BeNil())
+
+				var syntaxError *json.SyntaxError
+				Expect(errors.As(err, &syntaxError)).To(BeTrue())
+			})
+		})
+
+		When("config file exists", func() {
 			var dir string
 			var inputConfig *setupinfo.Config
 
