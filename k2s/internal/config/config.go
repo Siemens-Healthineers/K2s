@@ -4,6 +4,7 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -56,12 +57,12 @@ func LoadConfig(installDir string) (*Config, error) {
 
 	config, err := json.FromFile[config](configFilePath)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error occurred while loading config file: %w", err)
 	}
 
 	kubeConfigDir, err := resolveTildeInPath(config.SmallSetup.ConfigDir.Kube)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error occurred while resolving tilde in file path: %w", err)
 	}
 
 	return &Config{
@@ -84,7 +85,7 @@ func LoadConfig(installDir string) (*Config, error) {
 func resolveTildeInPath(inputPath string) (string, error) {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("error occurred while determining user home dir: %w", err)
 	}
 
 	resolvedPath := strings.ReplaceAll(inputPath, "~", homeDir)
