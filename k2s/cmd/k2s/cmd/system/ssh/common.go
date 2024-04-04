@@ -74,14 +74,20 @@ var (
 
 func (r *remoteCommandHandler) Handle(cmd string, psVersion powershell.PowerShellVersion) error {
 	if cmd == "" {
-		return r.startShell()
+		return r.startShell(psVersion)
 	}
 	return r.executeCommand(cmd, psVersion)
 }
 
-func (r *remoteCommandHandler) startShell() error {
-	shell := r.baseCommandProvider.getShellCommand()
+func (r *remoteCommandHandler) startShell(psVersion powershell.PowerShellVersion) error {
+	baseCommand := r.baseCommandProvider.getShellExecutorCommand()
 
+	err := r.commandExecFunc(baseCommand, "echo Connecting...", psVersion)
+	if err != nil {
+		return err
+	}
+
+	shell := r.baseCommandProvider.getShellCommand()
 	return r.processExecFunc(shell)
 }
 
