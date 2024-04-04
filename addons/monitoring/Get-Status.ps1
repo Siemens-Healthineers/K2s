@@ -38,20 +38,20 @@ else {
 
 $areStatefulsetsRunningProp = @{Name = 'areStatefulsetsRunningProp'; Value = $?; Okay = $? }
 if ($areStatefulsetsRunningProp.Value -eq $true) {
-    $areStatefulsetsRunningProp.Message = 'Prometheus, Vali and Alertmanager are working'
+    $areStatefulsetsRunningProp.Message = 'Prometheus and Alertmanager are working'
 }
 else {
-    $areStatefulsetsRunningProp.Message = "Prometheus, Vali and Alertmanager are not working. Try restarting the cluster with 'k2s start' or disable and re-enable the addon with 'k2s addons disable monitoring' and 'k2s addons enable monitoring'"
+    $areStatefulsetsRunningProp.Message = "Prometheus and Alertmanager are not working. Try restarting the cluster with 'k2s start' or disable and re-enable the addon with 'k2s addons disable monitoring' and 'k2s addons enable monitoring'"
 } 
 
 &$global:KubectlExe rollout status daemonsets -n monitoring --timeout=5s 2>&1 | Out-Null
 
 $areDaemonsetsRunningProp = @{Name = 'areDaemonsetsRunningProp'; Value = $?; Okay = $? }
 if ($areDaemonsetsRunningProp.Value -eq $true) {
-    $areDaemonsetsRunningProp.Message = 'Valitail and Node Exporter are working'
+    $areDaemonsetsRunningProp.Message = 'Node Exporter is working'
 }
 else {
-    $areDaemonsetsRunningProp.Message = "Valitail and Node Exporter are not working. Try restarting the cluster with 'k2s start' or disable and re-enable the addon with 'k2s addons disable monitoring' and 'k2s addons enable monitoring'"
+    $areDaemonsetsRunningProp.Message = "Node Exporter is not working. Try restarting the cluster with 'k2s start' or disable and re-enable the addon with 'k2s addons disable monitoring' and 'k2s addons enable monitoring'"
 } 
 
 return $isKubeStateMetricsRunningProp, $isPrometheusOperatorRunningProp, $isPlutonoRunningProp, $areStatefulsetsRunningProp, $areDaemonsetsRunningProp
