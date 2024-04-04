@@ -43,4 +43,4 @@ stringData:
         "target_label": "instance"
       "static_configs":
       - "targets":
-        - "172.19.1.100:30094"
+        - "dcgm-exporter.gpu-node.svc.cluster.local:9400"

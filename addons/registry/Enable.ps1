@@ -179,18 +179,6 @@ $registryIP = $global:IP_Master
 $registryName = 'k2s-registry.local'
 $registryNameWithoutPort = $registryName
 if ($Nodeport -gt 0) {
-    if ($Nodeport -eq 30094) {
-        $errMsg = 'Nodeport 30094 is already reserved, please use another one.'
-        if ($EncodeStructuredOutput -eq $true) {
-            $err = New-Error -Severity Warning -Code 'port-already-in-use' -Message $errMsg
-            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
-            return
-        }
-
-        Write-Log $errMsg -Error
-        exit 1
-        # reserved for dcgm-exporter from nvidia for monitoring addon
-    }
     $registryName = $($registryName + ':' + "$Nodeport")
 }
 

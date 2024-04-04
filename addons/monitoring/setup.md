@@ -49,19 +49,10 @@ SPDX-License-Identifier: MIT
     key: additional-scrape-configs.yaml
 ```
 
-# Loki-Stack 
-## Generate manifests
-1. helm repo add grafana https://grafana.github.io/helm-charts
-2. helm repo update
-3. helm fetch grafana/loki-stack --untar
-4. update values.yaml to only use loki and promtail
-5. helm template -n monitoring loki-stack . --output-dir .\output --include-crds --debug --skip-tests
-
 # Apache 2.0 License fulfilments
 
 Grafana changed their license model to AGPL-3.0 license. In order to use sources still under Apache 2.0 license the following Github forks are used:
 
 - https://github.com/credativ/plutono (Plutono is a fork of Grafana 7.5.17 under the Apache 2.0 License.)
-- https://github.com/credativ/vali (Vali is a fork of Loki 2.2.1 under the Apache 2.0 License.)
 
 Follow replacement steps under 'About this fork'.
