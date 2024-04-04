@@ -380,6 +380,15 @@ elseif ($WSL) {
 Wait-ForSSHConnectionToLinuxVMViaSshKey
 Perform-TimeSync
 
+if (!$WSL) {
+    Write-Log 'Set the DNS server(s) used by the Windows Host as the default DNS server(s) of the VM'
+    $physicalInterfaceIndex = Get-NetAdapter -Physical | Where-Object Status -Eq 'Up' | Where-Object Name -ne $global:LoopbackAdapter | Select-Object -expand 'ifIndex'
+    $dnservers = ((Get-DnsClientServerAddress -InterfaceIndex $physicalInterfaceIndex | Select-Object -ExpandProperty ServerAddresses) | Select-Object -Unique) -join ' '
+    ExecCmdMaster "sudo sed -i 's/dns-nameservers.*/dns-nameservers $dnservers/' /etc/network/interfaces.d/50-cloud-init"
+    ExecCmdMaster 'sudo systemctl restart networking'
+    ExecCmdMaster 'sudo systemctl restart dnsmasq'
+}
+
 # route for VM
 Write-Log "Remove obsolete route to $global:IP_CIDR"
 route delete $global:IP_CIDR >$null 2>&1
