@@ -46,19 +46,16 @@ C:\myFolder> git clone https://github.com/Siemens-Healthineers/K2s .
 
 ## Codebase Structure
 <pre>
-├── addons
-├── bin
+├── addons      --> Addon(s)-specific configuration and PowerShell scripts
+├── bin         --> Binaries (either committed to this repo or dropped as build target)
 ├── build
 ├── cfg         --> Configuration files
 ├── doc
+├── k2s         --> Go-based sources
+├── lib         --> PowerShell scripts
 ├── LICENSES
-└── pkg         --> Go based projects
-    ├── base
-    ├── network
-    ├── k2s
-    └── util
-├── smallsetup  --> PowerShell scripts
-├── test
+├── smallsetup  --> [legacy] PowerShell scripts; to be migrated to "lib"
+├── test        --> test scripts
 ├── README.md
 ├── k2s.exe
 └── VERSION
