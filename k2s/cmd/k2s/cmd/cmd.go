@@ -45,6 +45,8 @@ func CreateRootCmd(levelVar *slog.LevelVar) (*cobra.Command, error) {
 				return err
 			}
 
+			slog.Debug("config loaded", "config", config)
+
 			cmd.SetContext(context.WithValue(cmd.Context(), cc.ContextKeyConfigDir, config.Host.KubeConfigDir))
 
 			return nil

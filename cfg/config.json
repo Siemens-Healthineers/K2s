@@ -22,7 +22,7 @@
             "172.21.0.0/16"
         ],
         "storageLocalDriveLetter": "",
-        "defaultRegistry" : "shsk2s.azurecr.io",
+        "defaultRegistry": "shsk2s.azurecr.io",
         "multivm": {
             "multiVMK8sWindowsVMIP": "172.19.1.101"
         },
