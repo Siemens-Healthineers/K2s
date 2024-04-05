@@ -111,6 +111,8 @@ Write-Log 'Starting installation...'
 # Add K2s executables as part of environment variable
 Set-EnvVars
 
+$Proxy = Get-OrUpdateProxyServer -Proxy:$Proxy
+
 # make sure we are at the right place for install
 $kubePath = Get-KubePath
 Set-Location $kubePath

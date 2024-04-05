@@ -585,6 +585,7 @@ function Disable-PasswordAuthenticationToWinNode () {
 . $PSScriptRoot\..\common\GlobalFunctions.ps1
 
 Import-Module "$PSScriptRoot/../ps-modules/log/log.module.psm1"
+Import-Module "$PSScriptRoot/../ps-modules/proxy/proxy.module.psm1"
 Initialize-Logging -ShowLogs:$ShowLogs
 
 $ErrorActionPreference = 'Stop'
@@ -638,6 +639,8 @@ else {
 }
 
 Set-EnvVars
+
+$Proxy = Get-OrUpdateProxyServer -Proxy:$Proxy
 
 Addk2sToDefenderExclusion
 

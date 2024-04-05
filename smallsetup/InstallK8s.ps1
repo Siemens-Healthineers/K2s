@@ -86,9 +86,10 @@ Param(
 . $PSScriptRoot\common\GlobalFunctions.ps1
 
 $logModule = "$PSScriptRoot\ps-modules\log\log.module.psm1"
+$proxyModule = "$PSScriptRoot\ps-modules\proxy\proxy.module.psm1"
 $systemModule = "$PSScriptRoot\..\lib\modules\k2s\k2s.node.module\windowsnode\system\system.module.psm1"
 
-Import-Module $logModule, $systemModule
+Import-Module $logModule, $systemModule, $proxyModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -121,6 +122,8 @@ if ( $MasterDiskSize -lt 50GB ) {
 Write-Log "Using Master VM Diskspace: $([math]::round($MasterDiskSize/1GB, 2))GB"
 
 Set-EnvVars
+
+$Proxy = Get-OrUpdateProxyServer -Proxy:$Proxy
 
 Addk2sToDefenderExclusion
 
