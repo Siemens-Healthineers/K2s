@@ -236,6 +236,10 @@ Set-EnvVars
 Add-k2sToDefenderExclusion
 Stop-InstallIfDockerDesktopIsRunning
 
+Enable-MissingWindowsFeatures $([bool]$WSL)
+
+Stop-InstallIfNoMandatoryServiceIsRunning
+
 Set-ConfigSetupType -Value $script:SetupType
 Set-ConfigWslFlag -Value $([bool]$WSL)
 Set-ConfigValue -Path $global:SetupJsonFile -Key $global:ConfigKey_LinuxOnly -Value ($LinuxOnly -eq $true)
@@ -246,8 +250,6 @@ $kubePath = Get-KubePath
 Set-ConfigInstalledKubernetesVersion -Value $KubernetesVersion
 Set-ConfigInstallFolder -Value $kubePath
 Set-ConfigProductVersion -Value $productVersion
-
-Enable-MissingWindowsFeatures $([bool]$WSL)
 
 if ($WSL) {
     Write-Log 'vEthernet (WSL) switch will be reconfigured! Your existing WSL distros will not work properly until you stop the cluster.'
@@ -285,16 +287,11 @@ Initialize-VMKubernetesCluster -VMName $multiVMWindowsVMName `
     -KubernetesVersion $KubernetesVersion `
     -AdditionalHooksDir $AdditionalHooksDir
 
-if ($global:InstallRestartRequired) {
-    Write-Log 'RESTART!! Windows features are enabled. Restarting the machine is mandatory in order to start the cluster.' -Console
-}
-else {
-    & "$PSScriptRoot\..\stop\Stop.ps1" -ShowLogs:$ShowLogs
+& "$PSScriptRoot\..\stop\Stop.ps1" -ShowLogs:$ShowLogs
 
-    if (! $SkipStart) {
-        Write-Log 'Starting Kubernetes system ...'
-        & "$PSScriptRoot\..\start\Start.ps1" -HideHeaders -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs
-    }
+if (! $SkipStart) {
+    Write-Log 'Starting Kubernetes system ...'
+    & "$PSScriptRoot\..\start\Start.ps1" -HideHeaders -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs
 }
 
 Invoke-Hook -HookName 'AfterBaseInstall' -AdditionalHooksDir $AdditionalHooksDir

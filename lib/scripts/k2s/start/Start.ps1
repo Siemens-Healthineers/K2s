@@ -190,6 +190,7 @@ if ($VmProcessors -ne '') {
 $switchname = Get-ControlPlaneNodeDefaultSwitchName
 
 Write-Log 'Configuring network for windows node' -Console
+Restart-WinService 'vmcompute'
 Restart-WinService 'hns'
 
 $adapterName = Get-L2BridgeName
