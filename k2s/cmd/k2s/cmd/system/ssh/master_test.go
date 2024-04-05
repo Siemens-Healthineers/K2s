@@ -25,7 +25,7 @@ var _ = Describe("Ssh command for Master", func() {
 		It("it starts a shell from the master node", func() {
 			masterShellWasInvoked := false
 			masterShellCmd := ""
-			cmdWasExecutedOnMaster := false
+			capturedCmdToBeExecuted := ""
 			mockProcessExecFunc := func(cmd string) error {
 				masterShellWasInvoked = true
 				masterShellCmd = cmd
@@ -33,7 +33,7 @@ var _ = Describe("Ssh command for Master", func() {
 				return nil
 			}
 			mockCommandExecFunc := func(baseCmd, cmd string, psVersion powershell.PowerShellVersion) error {
-				cmdWasExecutedOnMaster = true
+				capturedCmdToBeExecuted = cmd
 				return nil
 			}
 			remoteCmdToBeExecuted := ""
@@ -47,7 +47,7 @@ var _ = Describe("Ssh command for Master", func() {
 
 			Expect(masterShellWasInvoked).To(Equal(true))
 			Expect(masterShellCmd).To(Equal(cmdToStartShellMaster))
-			Expect(cmdWasExecutedOnMaster).To(Equal(false))
+			Expect(capturedCmdToBeExecuted).To(Equal("echo Connecting..."))
 		})
 	})
 
