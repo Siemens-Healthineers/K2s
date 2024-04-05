@@ -43,10 +43,13 @@ $logModule = "$PSScriptRoot/../../smallsetup/ps-modules/log/log.module.psm1"
 $statusModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/status/status.module.psm1"
 $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
 $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
+$proxyModule = "$PSScriptRoot/../../smallsetup/ps-modules/proxy/proxy.module.psm1"
 
-Import-Module $addonsModule, $logModule, $statusModule, $infraModule
+Import-Module $addonsModule, $logModule, $statusModule, $infraModule, $proxyModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
+
+$Proxy = Get-OrUpdateProxyServer -Proxy:$Proxy
 
 # hooks handling
 $hookFilePaths = @()
