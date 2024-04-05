@@ -25,14 +25,14 @@ var _ = Describe("Ssh command for worker", func() {
 		It("it starts a shell from the worker node", func() {
 			workerShellWasInvoked := false
 			workerShellCmd := ""
-			cmdWasExecutedOnWorker := false
+			capturedCmdToBeExecuted := ""
 			mockProcessExecFunc := func(cmd string) error {
 				workerShellWasInvoked = true
 				workerShellCmd = cmd
 				return nil
 			}
 			mockCommandExecFunc := func(baseCmd, cmd string, psVersion powershell.PowerShellVersion) error {
-				cmdWasExecutedOnWorker = true
+				capturedCmdToBeExecuted = cmd
 				return nil
 			}
 			remoteCmdToBeExecuted := ""
@@ -46,7 +46,7 @@ var _ = Describe("Ssh command for worker", func() {
 
 			Expect(workerShellWasInvoked).To(Equal(true))
 			Expect(workerShellCmd).To(Equal(cmdToStartShellWorker))
-			Expect(cmdWasExecutedOnWorker).To(Equal(false))
+			Expect(capturedCmdToBeExecuted).To(Equal("echo Connecting..."))
 		})
 	})
 
