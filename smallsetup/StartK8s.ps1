@@ -250,6 +250,7 @@ else {
 }
 
 Write-Log 'Configuring network for Windows node' -Console
+Restart-WinService 'vmcompute'
 Restart-WinService 'hns'
 
 Write-Log 'Figuring out IPv4DefaultGateway'

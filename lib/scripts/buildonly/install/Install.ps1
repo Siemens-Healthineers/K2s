@@ -47,9 +47,9 @@ Set-EnvVars
 Add-k2sToDefenderExclusion
 Stop-InstallIfDockerDesktopIsRunning
 
-Stop-InstallIfNoMandatoryServiceIsRunning
-
 Enable-MissingWindowsFeatures $([bool]$WSL)
+
+Stop-InstallIfNoMandatoryServiceIsRunning
 
 Set-ConfigSetupType -Value $script:SetupType
 Set-ConfigWslFlag -Value $([bool]$WSL)
@@ -98,11 +98,6 @@ Initialize-LinuxNode -VMStartUpMemory $MasterVMMemory `
     -DeleteFilesForOfflineInstallation $DeleteFilesForOfflineInstallation `
     -ForceOnlineInstallation $ForceOnlineInstallation `
     -WSL:$WSL
-
-
-if ($global:InstallRestartRequired) {
-    Write-Log 'RESTART!! Windows features are enabled. Restarting the machine is mandatory in order to start the cluster.' -Console
-}
 
 Write-Log '---------------------------------------------------------------'
 Write-Log "Build-only setup finished.   Total duration: $('{0:hh\:mm\:ss}' -f $installStopwatch.Elapsed )"
