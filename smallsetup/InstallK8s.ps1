@@ -167,10 +167,11 @@ if ($ReleaseId -lt 17763) {
     throw "Windows release $ReleaseId not usable"
 }
 
-Stop-InstallIfNoMandatoryServiceIsRunning
 Stop-InstallationIfRequiredCurlVersionNotInstalled
 
 Enable-MissingWindowsFeatures $([bool]$WSL)
+
+Stop-InstallIfNoMandatoryServiceIsRunning
 
 if ($WSL) {
     Write-Log 'vEthernet (WSL) switch will be reconfigured! Your existing WSL distros will not work properly until you stop the cluster.'
@@ -340,31 +341,27 @@ $imageFunctionsModulePath = "$PSScriptRoot\helpers\ImageFunctions.module.psm1"
 Import-Module $imageFunctionsModulePath -DisableNameChecking
 Write-KubernetesImagesIntoJson
 
-if ($global:InstallRestartRequired) {
-    Write-Log 'RESTART!! Windows features are enabled. Restarting the machine is mandatory in order to start the cluster.' -Console
-} else {
-    if (! $SkipStart) {
-        Write-Log 'Starting Kubernetes System'
+if (! $SkipStart) {
+    Write-Log 'Starting Kubernetes System'
+    & "$global:KubernetesPath\smallsetup\StartK8s.ps1" -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs
+}
+
+if ( ($RestartAfterInstallCount -gt 0) -and (! $SkipStart) ) {
+    $restartCount = 0;
+
+    while ($true) {
+        $restartCount++
+        Write-Log "Restarting Kubernetes System (iteration #$restartCount):"
+
+        & "$global:KubernetesPath\smallsetup\StopK8s.ps1" -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs
+        Start-Sleep 10 # Wait for renew of IP
+
         & "$global:KubernetesPath\smallsetup\StartK8s.ps1" -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs
-    }
+        Start-Sleep -s 5
 
-    if ( ($RestartAfterInstallCount -gt 0) -and (! $SkipStart) ) {
-        $restartCount = 0;
-
-        while ($true) {
-            $restartCount++
-            Write-Log "Restarting Kubernetes System (iteration #$restartCount):"
-
-            & "$global:KubernetesPath\smallsetup\StopK8s.ps1" -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs
-            Start-Sleep 10 # Wait for renew of IP
-
-            & "$global:KubernetesPath\smallsetup\StartK8s.ps1" -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs
-            Start-Sleep -s 5
-
-            if ($restartCount -eq $RestartAfterInstallCount) {
-                Write-Log 'Restarting Kubernetes System Completed'
-                break;
-            }
+        if ($restartCount -eq $RestartAfterInstallCount) {
+            Write-Log 'Restarting Kubernetes System Completed'
+            break;
         }
     }
 }

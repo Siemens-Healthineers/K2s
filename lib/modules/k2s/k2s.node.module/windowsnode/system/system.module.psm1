@@ -45,9 +45,9 @@ function Enable-MissingFeature {
     if ($featureState -match 'Disabled') {
         Write-Log "WindowsOptionalFeature '$Name' is '$featureState'. Will activate feature..."
 
-        $enableResult = Enable-WindowsOptionalFeature -Online -FeatureName $Name -All -NoRestart -WarningAction silentlyContinue
+        Enable-WindowsOptionalFeature -Online -FeatureName $Name -All -NoRestart -WarningAction silentlyContinue
 
-        return $enableResult.RestartNeeded -eq $true
+        return $true
     }
 
     return $false
@@ -55,15 +55,14 @@ function Enable-MissingFeature {
 
 function Enable-MissingWindowsFeatures($wsl) {
     $restartRequired = $false
-    $features = 'Microsoft-Hyper-V-All',
-    'Microsoft-Hyper-V',
-    'Microsoft-Hyper-V-Tools-All',
-    'Microsoft-Hyper-V-Management-PowerShell',
-    'Microsoft-Hyper-V-Hypervisor',
-    'Microsoft-Hyper-V-Services',
-    'Microsoft-Hyper-V-Management-Clients',
-    'Containers',
-    'VirtualMachinePlatform'
+
+    $isServerOS = (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion').ProductName.Contains("Server")
+
+    $features = @('Microsoft-Hyper-V', 'Microsoft-Hyper-V-Management-PowerShell', 'Microsoft-Hyper-V-Management-Clients', 'Containers', 'VirtualMachinePlatform')
+
+    if (!$isServerOS) {
+        $features += 'Microsoft-Hyper-V-All', 'Microsoft-Hyper-V-Tools-All', 'Microsoft-Hyper-V-Hypervisor', 'Microsoft-Hyper-V-Services'
+    } 
 
     if ($wsl) {
         $features += 'Microsoft-Windows-Subsystem-Linux'
@@ -71,7 +70,6 @@ function Enable-MissingWindowsFeatures($wsl) {
 
     foreach ($feature in $features) {
         if (Enable-MissingFeature -Name $feature) {
-            Write-Log "!!! Restart is required after enabling WindowsFeature: $feature"
             $restartRequired = $true
         }
     }
@@ -85,7 +83,8 @@ function Enable-MissingWindowsFeatures($wsl) {
     }
 
     if ($restartRequired) {
-        Write-Log '!!! Restart is required. Reason: Changes in WindowsOptionalFeature !!!'
+        Write-Log '!!! Restart is required. Reason: Changes in WindowsOptionalFeature. Please call install after reboot again. !!! '
+        throw '!!! Restart is required. Reason: Changes in WindowsOptionalFeature !!!'
     }
 }
 
@@ -260,11 +259,11 @@ Stop-InstallIfNoMandatoryServiceIsRunning checks for mandatory services on the s
 #>
 function Stop-InstallIfNoMandatoryServiceIsRunning {
     $hns = Get-Service 'hns' -ErrorAction SilentlyContinue
-    if (!($hns -and $hns.Status -eq 'Running')) {
+    if (!$hns) {
         throw 'Host Network Service is not running. This is need for containers. Please enable prerequisites for K2s - https://github.com/Siemens-Healthineers/K2s !'
     }
     $hcs = Get-Service 'vmcompute' -ErrorAction SilentlyContinue
-    if (!($hcs -and $hcs.Status -eq 'Running')) {
+    if (!$hcs) {
         throw 'Host Compute Service is not running. This is needed for containers. Please enable prerequisites for K2s - https://github.com/Siemens-Healthineers/K2s !'
     }
 }
