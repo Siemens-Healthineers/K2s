@@ -19,9 +19,10 @@ This K2s addon installs nginx as a windows service on the host, and configures i
 
 See [NGINX Reverse Proxy](https://docs.nginx.com/nginx/admin-guide/web-server/reverse-proxy/).
 
-The example shows how to make the K2s dashboard available outside your host under an  **https** endpoint:
+The example shows how to make the two web applications K2s dashboard available outside your host, under an  **https** endpoint:
 
-* `https://my-host.my-domain.com` -> `http://k2s-dashboard.local`
+* `https://my-host.my-domain.com/dashboard` -> `http://k2s-dashboard.local`
+* `https://my-host.my-domain.com/my-product` -> `http://my-product.local`
 
 For this you need a server certificate issued by a trusted authority for the fqdn of your host, in this example `my-host.my-domain.com`
 
@@ -29,37 +30,42 @@ For this you need a server certificate issued by a trusted authority for the fqd
 
 2. Update the configuration file `<k2s-install-dir>\bin\nginx\nginx.conf`
 
-   ```conf
-   ...
-   http {
-     server {
-       listen 443          ssl;
-       server_name         my-host.my-domain.com;
-       ssl_certificate     my-host.my-domain.com.crt;
-       ssl_certificate_key my-host.my-domain.com.key;
-        location / {
-         proxy_pass http://k2s-dashboard.local;
-       }
-     }
-   }
-   ```
+    ```conf
+    ...
+    http {
+      server {
+        listen 443          ssl;
+        server_name         my-host.my-domain.com;
+        ssl_certificate     my-host.my-domain.com.crt;
+        ssl_certificate_key my-host.my-domain.com.key;
 
-3. Restart nginx-ext using `nssm` after changing the configuration file:
+        location /dashboard/ {
+          proxy_pass http://k2s-dashboard.local/;
+          proxy_set_header Accept-Encoding "";
+        }
+
+        location /my-product/ {
+          proxy_pass http://my-product.local/;
+          sub_filter 'base href="' 'base href="/my-product';
+          proxy_buffering off;
+        }
+      }
+    }
+    ```
+
+    * the `sub_filter` will replace e.g. `<base href="/app/"/>` with `<base href="/my-product/app/"/>`
+    * the `proxy_buffering` needs to be turned off if the application uses  Server-Side-Events, which is a GET on an URL which is kept alive and on which the server can send events from time to time, to notify the UI about changes.
+
+3. Restart nginx-ext using `nssm`, to use the updated configuration file:
 
    ```cmd
    nssm restart nginx-ext
    ```
 
-Open Points:
+**Open Points:**
 
 * How can NGINX authenticate users against NTLM? The feature seems to be available, but only for NGINX Plus.
-
-* How can NGINX be configured so that the inbound relative path of applications is different from the relative path in K2s ingress, i.e.
-
-  * `https://my-host.my-domain.com/dashboard` -> `http://k2s-dashboard.local`
-  * `https://my-host.my-domain.com/my-product` -> `http://my-product.local`
-
-  See [BASE HREF](#base-href) below.
+* Can NGINX use server certificates private key from the **windows certificate store**? Companies might have an established process to manage and distribute their server certificates, which on windows means they are created in the computer certificate store and their private key cannot be exported to be used by NGINX. IIS can use it from there.
 
 ## 2. Using IIS
 
@@ -67,9 +73,7 @@ Another way to expose the functionality outside of the windows host is to use th
 
 Using the IIS will ease up integration in the site network environment regarding secure communication and user management, as the IIS can be configured for SSL using the existing host certificate and the NTLM authentication can be configured in IIS.
 
-The example below assumes you have two web applications functioning on the two local ingress endpoints `http://k2s-dashboard.local` and `http://my-product.local`.
-
-It shows how to make these two applications available outside your host over **https** and only after the **user is authenticated** against the local host (i.e. he would also eb allowed to log in on your local host) under these endpoints:
+The example below shows again how to make the same two applications available outside your host over **https**, and this time also making sure that the **user is authenticated** against the local host (i.e. he would also be allowed to log in on your local host):
 
 * `https://my-host.my-domain.com/dashboard` -> `http://k2s-dashboard.local`
 * `https://my-host.my-domain.com/my-product` -> `http://my-product.local`
@@ -96,7 +100,8 @@ Follow these steps:
 
    Also activate the `Reverse rewrite host in response headers`.
 
-6. Finally, in IIS Manager, navigate to your default site again, select `URL Rewrite`, and create your inbound and outbound rules.
+6. Finally, in IIS Manager, navigate to your default site again, select `URL Rewrite`, and create your inbound and outbound rules. Alternatively, update the configuration file under
+C:\inetpub\wwwroot\web.config` and restart the site in IIS.
 
 The example below shows how to forward requests to two different ingress endpoints, one of them being the K2s dashboard also used in the previous section.
 
@@ -143,31 +148,35 @@ The example below shows how to forward requests to two different ingress endpoin
 </configuration>
 ```
 
-This file is found in `C:\inetpub\wwwroot\web.config`.
-
 Open Points:
 
-* The dashboard web application makes calls to APIs, and in many of them the namespace is used a REST API resource ID, e.g. all PODs of namespace `kubernetes-dashboard` are retrieved with this API call:
+* It seems that IIS Application Request Routing has an issue with URLs ending with a space character (as this is forbidden) - although NGINX is tolerant with this.
 
-  `http://k2s-dashboard.local/api/v1/pod/kubernetes-dashboard`
+  The dashboard web application makes calls to APIs, and in many of them the namespace is used as REST API resource ID, e.g. all PODs of namespace `kubernetes-dashboard` are retrieved with this API call:
 
-  Unfortunately, when the user selects `All Namespaces` in the User Interface, the same URL is invoked with a space character (`%20`) as the name of the resource - it seems as this is the convention the developers of the Dashboard made:
+  `http://k2s-dashboard.local/api/v1/pod/kubernetes-dashboard?query=value&...`
 
-  `http://k2s-dashboard.local/api/v1/pod/%20`
+  But when the user selects `All Namespaces` in the User Interface, the same URL is invoked with a space character (`%20`) as the name of the resource - it seems as this is the convention the developers of the Dashboard made:
+
+  `http://k2s-dashboard.local/api/v1/pod/%20?query=value&...`
 
   The http specs forbid to have a space at the end on an URL, but it works for some reasons. However, when the rewrite rules kick in, it seems they drop the space and the Application is not working with All namespaces selected.
 
+  This line in the kubernetes dashboard sources is causing the issue (the space character):
+
+  [`return this.namespace_.isMultiNamespace(currentNamespace) ? ' ' : currentNamespace;`](https://github.com/kubernetes/dashboard/blob/master/modules/web/src/common/services/resource/resource.ts#L69)
+
 ## Base HREF
 
-When configuring forward proxies, special attention and test effort must be spent to ensure that URLs are properly handled, in case they are pointing to the services being re-directed to.
+When configuring reverse proxies, special attention and test effort must be spent to ensure that URLs are properly handled, in case they are pointing to the services being re-directed to.
 
-In our example above, the my-product app is making several calls to APIs using relative URLs.
-The app is designed to work `my-product.local`, and encodes the `<base href="/">`.
-But when the application is accessed through the secure url, the base url must be rewritten to `<base href="/my-product/">`.
+In our example above, the `my-product.local` app makes several calls to APIs using relative URLs.
+The app is designed to work e.g. at `my-product.local/app`, and encodes the `<base href="/app/">`.
+But when the application is accessed through the secure url at e.g. `my-host.my-domain.com/my-product/app`, the base url must be rewritten to `<base href="/my-product/app/">`.
 
-This is solved for my-product by the outbound rule. For the other rule, the relative URLs are not changed because we redirect a root to another root.
+This is solved for `my-product` by outbound rules, which inspects the responses and make the necessary changes, in both examples above.
 
-However, in the real world, some applications will encode the BASE URL in their HTML page, and in this case, they need to be adapted before the response is sent back to the clients. In these case, **outbound rewrite rules** are needed to adjust those links in the responses.
+For the dashboard, which is not setting the BASE HREF at all, and is installed at the root of the upstream, no change is necessary.
 
 See the following stack overflow for a pertinent discussion on how the handling of the BASE for Relative URLs shall be done:
 
