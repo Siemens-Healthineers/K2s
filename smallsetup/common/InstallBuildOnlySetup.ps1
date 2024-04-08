@@ -30,6 +30,7 @@ Param(
 . $PSScriptRoot\GlobalFunctions.ps1
 
 Import-Module "$PSScriptRoot/../ps-modules/log/log.module.psm1"
+Import-Module "$PSScriptRoot/../ps-modules/proxy/proxy.module.psm1"
 Initialize-Logging -ShowLogs:$ShowLogs
 
 $global:HeaderLineShown = $true
@@ -37,6 +38,8 @@ $installStopwatch = [system.diagnostics.stopwatch]::StartNew()
 
 Write-Log 'Installing Build Only Environment'
 Set-EnvVars
+
+$Proxy = Get-OrUpdateProxyServer -Proxy:$Proxy
 
 $ErrorActionPreference = 'Continue'
 
