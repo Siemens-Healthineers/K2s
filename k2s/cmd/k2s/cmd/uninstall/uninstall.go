@@ -7,7 +7,9 @@ import (
 	"errors"
 	"log/slog"
 	"strconv"
+	"time"
 
+	"github.com/siemens-healthineers/k2s/internal/powershell"
 	"github.com/siemens-healthineers/k2s/internal/version"
 
 	"github.com/pterm/pterm"
@@ -15,8 +17,6 @@ import (
 	"github.com/spf13/pflag"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
-
-	"github.com/siemens-healthineers/k2s/cmd/k2s/utils/psexecutor"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 
@@ -61,10 +61,19 @@ func uninstallk8s(cmd *cobra.Command, args []string) error {
 
 	slog.Debug("PS command created", "command", uninstallCmd)
 
-	duration, err := psexecutor.ExecutePowershellScript(uninstallCmd, common.DeterminePsVersion(config))
+	outputWriter, err := common.NewOutputWriter()
 	if err != nil {
 		return err
 	}
+
+	start := time.Now()
+
+	err = powershell.ExecutePs(uninstallCmd, common.DeterminePsVersion(config), outputWriter)
+	if err != nil {
+		return err
+	}
+
+	duration := time.Since(start)
 
 	common.PrintCompletedMessage(duration, "Uninstallation")
 
