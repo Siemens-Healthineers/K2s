@@ -322,7 +322,7 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:pkg:github/moby/moby@24.0.7",
+      "purl": "pkg:github/moby/moby@24.0.7",
       "type": "application"
     },
     {
