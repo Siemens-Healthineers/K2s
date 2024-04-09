@@ -12,7 +12,7 @@ Param(
 )
 $cliMessagesModule = "$PSScriptRoot/../lib/modules/k2s/k2s.infra.module/cli-messages/cli-messages.module.psm1"
 $logModule = "$PSScriptRoot/../lib/modules/k2s/k2s.infra.module/log/log.module.psm1"
-$addonsModule = "$PSScriptRoot/Addons.module.psm1"
+$addonsModule = "$PSScriptRoot/addons.module.psm1"
 
 Import-Module $addonsModule, $logModule
 
