@@ -42,7 +42,7 @@ SPDX-License-Identifier: MIT
     ``` 
   - Windows Server OSs
     ```powershell 
-    Enable-WindowsOptionalFeature -Online -FeatureName $('Microsoft-Hyper-V', 'Microsoft-Hyper-V-Management-PowerShell', 'Microsoft-Hyper-V-Management-Clients', 'Containers', 'VirtualMachinePlatform') -All -NoRestart
+    Enable-WindowsOptionalFeature -Online -FeatureName $('Microsoft-Hyper-V', 'Microsoft-Hyper-V-Management-PowerShell', 'Containers', 'VirtualMachinePlatform') -All -NoRestart
     ``` 
 
   <span style="color:orange;font-size:medium">**⚠**</span> For installing in *WSL* mode, add the **Microsoft-Windows-Subsystem-Linux** feature to the prior command.
