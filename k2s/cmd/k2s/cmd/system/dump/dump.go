@@ -7,15 +7,15 @@ import (
 	"errors"
 	"log/slog"
 	"strconv"
+	"time"
 
 	"github.com/spf13/cobra"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/utils/psexecutor"
-
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 
+	"github.com/siemens-healthineers/k2s/internal/powershell"
 	"github.com/siemens-healthineers/k2s/internal/setupinfo"
 )
 
@@ -68,10 +68,19 @@ func dumpSystemStatus(cmd *cobra.Command, args []string) error {
 
 	slog.Debug("PS command created", "command", dumpStatusCommand)
 
-	duration, err := psexecutor.ExecutePowershellScript(dumpStatusCommand, common.DeterminePsVersion(config))
+	outputWriter, err := common.NewOutputWriter()
 	if err != nil {
 		return err
 	}
+
+	start := time.Now()
+
+	err = powershell.ExecutePs(dumpStatusCommand, common.DeterminePsVersion(config), outputWriter)
+	if err != nil {
+		return err
+	}
+
+	duration := time.Since(start)
 
 	common.PrintCompletedMessage(duration, "system dump")
 

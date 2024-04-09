@@ -98,6 +98,13 @@ function Write-Log {
 
                 $consoleMessage = if (!$Progress) { "[$timestamp] $message" } else { $message }
 
+                if ($consoleMessage -match '\[([^]]+::[^]]+)\]\s?') {
+                    # module message, eg. [11:39:19] [cli-messages.module.psm1::Send-ToCli] message converted
+                    # module message part [cli-messages.module.psm1::Send-ToCli] should not be logged
+                    $match = ($consoleMessage | Select-String -Pattern '\[([^]]+::[^]]+)\]\s?').Matches.Value
+                    $consoleMessage = $consoleMessage.Replace($match, '')
+                }
+
                 if ($script:NestedLogging) {
                     if ($Error) {
                         Write-Error -Message $consoleMessage
