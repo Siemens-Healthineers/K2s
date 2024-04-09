@@ -5,11 +5,10 @@
 &$PSScriptRoot\..\smallsetup\common\GlobalVariables.ps1
 . $PSScriptRoot\..\smallsetup\common\GlobalFunctions.ps1
 
-$logModule = "$PSScriptRoot\..\smallsetup\ps-modules\log\log.module.psm1"
+$infraModule = "$PSScriptRoot\..\lib\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
 $statusModule = "$PSScriptRoot\..\lib\modules\k2s\k2s.cluster.module\status\status.module.psm1"
-$errorsModule = "$PSScriptRoot\..\lib\modules\k2s\k2s.infra.module\errors\errors.module.psm1"
 
-Import-Module $logModule, $statusModule, $errorsModule
+Import-Module $infraModule, $statusModule
 
 $script = $MyInvocation.MyCommand.Name
 $ConfigKey_EnabledAddons = 'EnabledAddons'
