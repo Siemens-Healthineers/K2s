@@ -7,6 +7,7 @@ import (
 	"errors"
 	"log/slog"
 	"strconv"
+	"time"
 
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
@@ -14,10 +15,9 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/utils/psexecutor"
-
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 
+	"github.com/siemens-healthineers/k2s/internal/powershell"
 	"github.com/siemens-healthineers/k2s/internal/setupinfo"
 )
 
@@ -94,11 +94,19 @@ func upgradeCluster(cmd *cobra.Command, args []string) error {
 
 	slog.Debug("PS command created", "command", upgradeCommand)
 
-	duration, err := psexecutor.ExecutePowershellScript(upgradeCommand, common.DeterminePsVersion(config))
+	outputWriter, err := common.NewOutputWriter()
 	if err != nil {
 		return err
 	}
 
+	start := time.Now()
+
+	err = powershell.ExecutePs(upgradeCommand, common.DeterminePsVersion(config), outputWriter)
+	if err != nil {
+		return err
+	}
+
+	duration := time.Since(start)
 	common.PrintCompletedMessage(duration, "Upgrade")
 
 	return nil

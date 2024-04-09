@@ -15,6 +15,7 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/siemens-healthineers/k2s/internal/host"
 	"github.com/siemens-healthineers/k2s/internal/powershell/decode"
 )
 
@@ -61,6 +62,10 @@ func ExecutePsWithStructuredResult[T any](psScriptPath string, targetType string
 	}
 
 	cmdString := buildCmdString(psScriptPath, targetType, additionalParams...)
+	cmdString, err = prepareExecScript(cmdString)
+	if err != nil {
+		return v, err
+	}
 
 	slog.Debug("PS command created", "command", cmdString)
 
@@ -80,6 +85,36 @@ func ExecutePsWithStructuredResult[T any](psScriptPath string, targetType string
 	}
 
 	return convertToResult[T](messages)
+}
+
+func ExecutePs(script string, psVersion PowerShellVersion, writer OutputWriter) error {
+	if psVersion == "" {
+		return errors.New("PowerShell version not specified")
+	}
+
+	script, err := prepareExecScript(script)
+	if err != nil {
+		return err
+	}
+
+	slog.Debug("PS command created", "command", script)
+
+	cmd, err := buildCmd(psVersion, script)
+	if err != nil {
+		return err
+	}
+
+	executor := executor{
+		decoder: messageDecoder{},
+		writer:  writer,
+	}
+
+	_, err = executor.execute(cmd, "")
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (e *executor) execute(cmd *exec.Cmd, targetType string) ([]message, error) {
@@ -227,4 +262,21 @@ func convertToResult[T any](messages []message) (v T, err error) {
 	slog.Info("Message unmarshalled")
 
 	return
+}
+
+func prepareExecScript(script string) (string, error) {
+	slog.Debug("Execution script", "script", script)
+	wrapperScript := ""
+
+	installDir, err := host.ExecutableDir()
+	if err != nil {
+		return "", err
+	}
+
+	wrapperScript = ("&'" + installDir + "\\lib\\scripts\\k2s\\base\\" + "Invoke-ExecScript.ps1' -Script ")
+	wrapperScript += "\"" + script + "\""
+
+	slog.Debug("Final execution script", "script", wrapperScript)
+
+	return wrapperScript, nil
 }

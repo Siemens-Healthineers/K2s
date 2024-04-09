@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/siemens-healthineers/k2s/internal/powershell"
 	"github.com/siemens-healthineers/k2s/internal/setupinfo"
 	"github.com/siemens-healthineers/k2s/internal/version"
 
@@ -23,8 +24,6 @@ import (
 	"github.com/siemens-healthineers/k2s/internal/terminal"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
-
-	"github.com/siemens-healthineers/k2s/cmd/k2s/utils/psexecutor"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 )
@@ -84,7 +83,7 @@ func init() {
 	installer = &core.Installer{
 		InstallConfigAccess:       ic.NewInstallConfigAccess(),
 		Printer:                   terminal.NewTerminalPrinter(),
-		ExecutePsScript:           psexecutor.ExecutePowershellScript,
+		ExecutePsScript:           powershell.ExecutePs,
 		GetVersionFunc:            version.GetVersion,
 		GetPlatformFunc:           utils.Platform,
 		GetInstallDirFunc:         utils.InstallDir,

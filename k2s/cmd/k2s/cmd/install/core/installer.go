@@ -31,7 +31,7 @@ type Printer interface {
 type Installer struct {
 	InstallConfigAccess       InstallConfigAccess
 	Printer                   Printer
-	ExecutePsScript           func(cmd string, psVersion powershell.PowerShellVersion) (time.Duration, error)
+	ExecutePsScript           func(script string, psVersion powershell.PowerShellVersion, writer powershell.OutputWriter) error
 	GetVersionFunc            func() version.Version
 	GetPlatformFunc           func() string
 	GetInstallDirFunc         func() string
@@ -74,11 +74,19 @@ func (i *Installer) Install(
 
 	i.Printer.Printfln("🤖 Installing K2s '%s' %s in '%s' on %s using PowerShell %s", kind, i.GetVersionFunc(), i.GetInstallDirFunc(), i.GetPlatformFunc(), psVersion)
 
-	duration, err := i.ExecutePsScript(cmd, psVersion)
+	outputWriter, err := common.NewOutputWriter()
 	if err != nil {
 		return err
 	}
 
+	start := time.Now()
+
+	err = i.ExecutePsScript(cmd, psVersion, outputWriter)
+	if err != nil {
+		return err
+	}
+
+	duration := time.Since(start)
 	i.PrintCompletedMessageFunc(duration, fmt.Sprintf("%s installation", kind))
 
 	return nil

@@ -49,6 +49,8 @@ if ($Script.Contains("-ShowLogs")) {
     } elseif($_ -match "^\[\d{2}:\d{2}:\d{2}\]") {
         # As *>&1 captures our console message from Write-Log, we need to output normally here
         Write-Information $_ -InformationAction Continue
+    } elseif ($_ -match "#pm#") {
+        Write-Output $_
     } else {
         # Any other message which is not captured from Write-Log or other streams, log it to console and file
         Write-Log $_
