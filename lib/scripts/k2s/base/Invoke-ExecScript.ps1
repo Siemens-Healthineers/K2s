@@ -54,5 +54,6 @@ if ($Script.Contains("-ShowLogs")) {
     } else {
         # Any other message which is not captured from Write-Log or other streams, log it to console and file
         Write-Log $_
+        Write-Output $_
     }
 }
