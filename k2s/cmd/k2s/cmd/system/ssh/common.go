@@ -56,7 +56,7 @@ var (
 			psVersion,
 			outputWriter,
 			"-Command",
-			utils.EscapeWithDoubleQuotes(cmd))
+			utils.EscapeWithSingleQuotes(cmd))
 		if err != nil {
 			return err
 		}
