@@ -46,7 +46,7 @@ if (Test-Path $global:WindowsVMKey -PathType Leaf) {
         ssh.exe -o StrictHostKeyChecking=no -i $global:WindowsVMKey $global:Admin_WinNode "$(($MyInvocation).UnboundArguments)"
     }
     else {
-        ssh.exe -n -o StrictHostKeyChecking=no -i $global:WindowsVMKey $global:Admin_WinNode "$Command" | ForEach-Object { Write-Output $_ }
+        ssh.exe -n -o StrictHostKeyChecking=no -i $global:WindowsVMKey $global:Admin_WinNode "$Command" | ForEach-Object { Write-Log $_ -Console -Ssh }
     }
 }
 

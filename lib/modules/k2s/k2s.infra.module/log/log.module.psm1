@@ -96,7 +96,9 @@ function Write-Log {
         [Parameter(Mandatory = $false, HelpMessage = 'This is a error message, add to log file and console as Write-Error.')]
         [switch] $Error = $false,
         [Parameter(Mandatory = $false, HelpMessage = 'Write messages to stdout using Write-Output (default is Write-Information)')]
-        [switch] $Raw = $false
+        [switch] $Raw = $false,
+        [Parameter(Mandatory = $false, HelpMessage = "Write ssh stdout messages to stdout using Write-Output (mark message with '#ssh#')")]
+        [switch] $Ssh = $false
     )
 
     Begin {
@@ -161,6 +163,8 @@ function Write-Log {
                 elseif ($Console -or $script:ConsoleLogging) {
                     if ($Raw) {
                         Write-Output $message
+                    } elseif ($Ssh) {
+                        Write-Output "#ssh#$message"
                     }
                     else {
                         Write-Information $consoleMessage -InformationAction Continue
