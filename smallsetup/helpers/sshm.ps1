@@ -46,7 +46,7 @@ if ([string]::IsNullOrWhitespace($Command)) {
     ssh.exe -o StrictHostKeyChecking=no -i $global:LinuxVMKey $global:Remote_Master "$(($MyInvocation).UnboundArguments)"
 }
 else {
-    ssh.exe -n -o StrictHostKeyChecking=no -i $global:LinuxVMKey $global:Remote_Master "$Command" | ForEach-Object { Write-Output $_ }
+    ssh.exe -n -o StrictHostKeyChecking=no -i $global:LinuxVMKey $global:Remote_Master "$Command" | ForEach-Object { Write-Log $_ -Console -Ssh }
 }
 
 if ($EncodeStructuredOutput -eq $true) {
