@@ -54,7 +54,6 @@ if ($Script.Contains("-ShowLogs")) {
         # Send-ToCli message
     } elseif ($_ -match "#ssh#") {
         $message = $_.Replace("#ssh#", '')
-        Write-Log $message
         Write-Output $message
     } else {
         # Any other message which is not captured from Write-Log or other streams, log it to console and file
