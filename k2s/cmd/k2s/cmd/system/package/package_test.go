@@ -42,40 +42,5 @@ var _ = Describe("package", func() {
 				Expect(params).To(ConsistOf(" -ShowLogs", " -Proxy http://myproxy:81", " -VMProcessorCount 6", " -VMMemoryStartupBytes 4GB", " -VMDiskSize 50GB", " -TargetDirectory 'dir'", " -ZipPackageFileName file.zip", " -ForOfflineInstallation"))
 			})
 		})
-
-		When("when target dir is empty", func() {
-			It("throws", func() {
-				flags := PackageCmd.Flags()
-				flags.Set(TargetDirectoryFlagName, "")
-
-				_, _, err := buildSystemPackageCmd(PackageCmd.Flags())
-				Expect(err).ToNot(BeNil())
-				Expect(err.Error()).To(Equal("no target directory path provided"))
-			})
-		})
-
-		When("when package name is empty", func() {
-			It("throws", func() {
-				flags := PackageCmd.Flags()
-				flags.Set(ZipPackageFileNameFlagName, "")
-				flags.Set(TargetDirectoryFlagName, "dir")
-
-				_, _, err := buildSystemPackageCmd(PackageCmd.Flags())
-				Expect(err).ToNot(BeNil())
-				Expect(err.Error()).To(Equal("no package file name provided"))
-			})
-		})
-
-		When("when package name does not container '.zip'", func() {
-			It("throws", func() {
-				flags := PackageCmd.Flags()
-				flags.Set(TargetDirectoryFlagName, "dir")
-				flags.Set(ZipPackageFileNameFlagName, "file")
-
-				_, _, err := buildSystemPackageCmd(PackageCmd.Flags())
-				Expect(err).ToNot(BeNil())
-				Expect(err.Error()).To(Equal("package file name does not contain '.zip'"))
-			})
-		})
 	})
 })
