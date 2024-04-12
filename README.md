@@ -103,6 +103,7 @@ way to do that.
 - [Build a container image](doc/K8s_BuildingAContainer.md)
 - [Shortcuts for interacting with cluster](doc/K8s_Shortcuts.md)
 - [Upgrading your cluster](doc/K8s_Upgrade.md)
+- [Create offline packages](doc/K8s_OfflinePackages.md)
 
 ## Addons
 K2s provides a [rich set of addons](./addons/README.md) which are containing specific functionality, checkout the ```k2s addons``` command for all options.
