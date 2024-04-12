@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strconv"
+	"time"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 	"github.com/siemens-healthineers/k2s/internal/powershell"
@@ -95,6 +96,8 @@ func systemPackage(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	start := time.Now()
+
 	cmdResult, err := powershell.ExecutePsWithStructuredResult[*common.CmdResult](systemPackageCommand, "CmdResult", powershell.DefaultPsVersions, outputWriter, params...)
 	if err != nil {
 		return err
@@ -103,6 +106,9 @@ func systemPackage(cmd *cobra.Command, args []string) error {
 	if cmdResult.Failure != nil {
 		return cmdResult.Failure
 	}
+
+	duration := time.Since(start)
+	common.PrintCompletedMessage(duration, "system package")
 
 	return nil
 }
