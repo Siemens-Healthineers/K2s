@@ -11,7 +11,7 @@ SPDX-License-Identifier: MIT
 
 K2s provides offline support for installation and the addons.
 
-## Creating offline package for installation (only Host Variant)
+## Creating offline package for installation (Host Variant only)
 
 The K2s CLI provides an option to create an offline installation package (*Prerequisite:* no cluster is installed). You can find the help for package creation options with following command:
 
