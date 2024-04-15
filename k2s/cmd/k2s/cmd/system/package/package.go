@@ -4,11 +4,10 @@
 package systempackage
 
 import (
-	"errors"
 	"fmt"
 	"log/slog"
 	"strconv"
-	"strings"
+	"time"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 	"github.com/siemens-healthineers/k2s/internal/powershell"
@@ -27,6 +26,8 @@ k2s system package --target-dir "C:\tmp" --name "k2sZipFilePackage.zip"
 
 # Creates K2s package for offline installation
 k2s system package --target-dir "C:\tmp" --name "k2sZipFilePackage.zip" --for-offline-installation
+
+Note: If offline artifacts are not already available due to previous installation, a 'Development Only Variant' will be installed during package creation and removed afterwards again
 `
 
 	PackageCmd = &cobra.Command{
@@ -95,6 +96,8 @@ func systemPackage(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	start := time.Now()
+
 	cmdResult, err := powershell.ExecutePsWithStructuredResult[*common.CmdResult](systemPackageCommand, "CmdResult", powershell.DefaultPsVersions, outputWriter, params...)
 	if err != nil {
 		return err
@@ -103,6 +106,9 @@ func systemPackage(cmd *cobra.Command, args []string) error {
 	if cmdResult.Failure != nil {
 		return cmdResult.Failure
 	}
+
+	duration := time.Since(start)
+	common.PrintCompletedMessage(duration, "system package")
 
 	return nil
 }
@@ -142,19 +148,10 @@ func buildSystemPackageCmd(flags *pflag.FlagSet) (string, []string, error) {
 	}
 
 	targetDir := flags.Lookup(TargetDirectoryFlagName).Value.String()
-	if len(targetDir) == 0 {
-		return "", nil, errors.New("no target directory path provided")
-	}
 	params = append(params, " -TargetDirectory "+utils.EscapeWithSingleQuotes(targetDir))
 
 	name := flags.Lookup(ZipPackageFileNameFlagName).Value.String()
-	if len(name) == 0 {
-		return "", nil, errors.New("no package file name provided")
-	}
-	if !strings.Contains(name, ".zip") {
-		return "", nil, errors.New("package file name does not contain '.zip'")
-	}
-	params = append(params, " -ZipPackageFileName "+name)
+	params = append(params, " -ZipPackageFileName "+utils.EscapeWithSingleQuotes(name))
 
 	forOfflineInstallation, _ := strconv.ParseBool(flags.Lookup(ForOfflineInstallationFlagName).Value.String())
 	if forOfflineInstallation {
