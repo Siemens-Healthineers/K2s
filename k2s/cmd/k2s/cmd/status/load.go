@@ -32,16 +32,17 @@ type Pod struct {
 }
 
 type Node struct {
-	Status           string `json:"status"`
-	Name             string `json:"name"`
-	Role             string `json:"role"`
-	Age              string `json:"age"`
-	KubeletVersion   string `json:"kubeletVersion"`
-	KernelVersion    string `json:"kernelVersion"`
-	OsImage          string `json:"osImage"`
-	ContainerRuntime string `json:"containerRuntime"`
-	InternalIp       string `json:"internalIp"`
-	IsReady          bool   `json:"isReady"`
+	Status           string   `json:"status"`
+	Name             string   `json:"name"`
+	Role             string   `json:"role"`
+	Age              string   `json:"age"`
+	KubeletVersion   string   `json:"kubeletVersion"`
+	KernelVersion    string   `json:"kernelVersion"`
+	OsImage          string   `json:"osImage"`
+	ContainerRuntime string   `json:"containerRuntime"`
+	InternalIp       string   `json:"internalIp"`
+	IsReady          bool     `json:"isReady"`
+	Capacity         Capacity `json:"capacity"`
 }
 
 type RunningState struct {
@@ -52,6 +53,12 @@ type RunningState struct {
 type K8sVersionInfo struct {
 	K8sServerVersion string `json:"k8sServerVersion"`
 	K8sClientVersion string `json:"k8sClientVersion"`
+}
+
+type Capacity struct {
+	Cpu     string `json:"cpu"`
+	Storage string `json:"storage"`
+	Memory  string `json:"memory"`
 }
 
 func LoadStatus(psVersion powershell.PowerShellVersion) (*LoadedStatus, error) {
