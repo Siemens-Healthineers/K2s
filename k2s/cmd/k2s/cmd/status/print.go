@@ -11,6 +11,7 @@ import (
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 
 	"github.com/siemens-healthineers/k2s/internal/primitives/arrays"
+	"github.com/siemens-healthineers/k2s/internal/primitives/units"
 	"github.com/siemens-healthineers/k2s/internal/setupinfo"
 )
 
@@ -188,7 +189,11 @@ func (p *UserFriendlyPrinter) Print() error {
 	p.printK8sVersion(status.K8sVersionInfo.K8sServerVersion, "server")
 	p.printK8sVersion(status.K8sVersionInfo.K8sClientVersion, "client")
 
-	proceed := p.printNodesStatus(status.Nodes, p.showAdditionalInfo)
+	proceed, err := p.printNodesStatus(status.Nodes, p.showAdditionalInfo)
+	if err != nil {
+		return fmt.Errorf("could not print node status: %w", err)
+	}
+
 	if !proceed {
 		return nil
 	}
@@ -205,16 +210,19 @@ func (p *UserFriendlyPrinter) printK8sVersion(version string, versionType string
 	p.terminalPrinter.Println(line)
 }
 
-func (p *UserFriendlyPrinter) printNodesStatus(nodes []Node, showAdditionalInfo bool) bool {
+func (p *UserFriendlyPrinter) printNodesStatus(nodes []Node, showAdditionalInfo bool) (bool, error) {
 	if len(nodes) == 0 {
-		return false
+		return false, nil
 	}
 
 	headers := createNodeHeaders(showAdditionalInfo)
 
 	table := [][]string{headers}
 
-	rows, allOkay := p.buildNodeRows(nodes, showAdditionalInfo)
+	rows, allOkay, err := p.buildNodeRows(nodes, showAdditionalInfo)
+	if err != nil {
+		return false, fmt.Errorf("could not build node rows: %w", err)
+	}
 
 	table = append(table, rows...)
 
@@ -228,7 +236,7 @@ func (p *UserFriendlyPrinter) printNodesStatus(nodes []Node, showAdditionalInfo 
 
 	p.terminalPrinter.Println()
 
-	return allOkay
+	return allOkay, nil
 }
 
 func (p *UserFriendlyPrinter) printPodsStatus(pods []Pod, showAdditionalInfo bool) {
@@ -256,7 +264,7 @@ func (p *UserFriendlyPrinter) printPodsStatus(pods []Pod, showAdditionalInfo boo
 }
 
 func createNodeHeaders(showAdditionalInfo bool) []string {
-	headers := []string{"STATUS", "NAME", "ROLE", "AGE", "VERSION"}
+	headers := []string{"STATUS", "NAME", "ROLE", "AGE", "VERSION", "CPUs", "RAM", "DISK"}
 
 	if showAdditionalInfo {
 		headers = append(headers, "INTERNAL-IP", "OS-IMAGE", "KERNEL-VERSION", "CONTAINER-RUNTIME")
@@ -276,12 +284,16 @@ func createPodHeaders(showAdditionalInfo bool) []string {
 	return headers
 }
 
-func (p *UserFriendlyPrinter) buildNodeRows(nodes []Node, showAdditionalInfo bool) ([][]string, bool) {
+func (p *UserFriendlyPrinter) buildNodeRows(nodes []Node, showAdditionalInfo bool) ([][]string, bool, error) {
 	allOkay := true
 	var rows [][]string
 
 	for _, node := range nodes {
-		row := p.buildNodeRow(node, showAdditionalInfo)
+		row, err := p.buildNodeRow(node, showAdditionalInfo)
+		if err != nil {
+			return nil, false, fmt.Errorf("could not build node row: %w", err)
+		}
+
 		if !node.IsReady {
 			allOkay = false
 		}
@@ -289,7 +301,7 @@ func (p *UserFriendlyPrinter) buildNodeRows(nodes []Node, showAdditionalInfo boo
 		rows = append(rows, row)
 	}
 
-	return rows, allOkay
+	return rows, allOkay, nil
 }
 
 func (p *UserFriendlyPrinter) buildPodRows(pods []Pod, showAdditionalInfo bool) ([][]string, bool) {
@@ -308,16 +320,24 @@ func (p *UserFriendlyPrinter) buildPodRows(pods []Pod, showAdditionalInfo bool) 
 	return rows, allOkay
 }
 
-func (p *UserFriendlyPrinter) buildNodeRow(node Node, showAdditionalInfo bool) []string {
+func (p *UserFriendlyPrinter) buildNodeRow(node Node, showAdditionalInfo bool) ([]string, error) {
 	status := p.determineStatusColor(node.IsReady, node.Status)
+	memory, err := units.ParseBase2Bytes(node.Capacity.Memory)
+	if err != nil {
+		return nil, fmt.Errorf("could not parse memory capacity: %w", err)
+	}
+	storage, err := units.ParseBase2Bytes(node.Capacity.Storage)
+	if err != nil {
+		return nil, fmt.Errorf("could not parse storage capacity: %w", err)
+	}
 
-	row := []string{status, node.Name, node.Role, node.Age, node.KubeletVersion}
+	row := []string{status, node.Name, node.Role, node.Age, node.KubeletVersion, node.Capacity.Cpu, memory.String(), storage.String()}
 
 	if showAdditionalInfo {
 		row = append(row, node.InternalIp, node.OsImage, node.KernelVersion, node.ContainerRuntime)
 	}
 
-	return row
+	return row, nil
 }
 
 func (p *UserFriendlyPrinter) buildPodRow(pod Pod, showAdditionalInfo bool) []string {
