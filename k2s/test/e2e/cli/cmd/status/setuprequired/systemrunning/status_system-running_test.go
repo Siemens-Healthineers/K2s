@@ -24,6 +24,7 @@ const (
 	osRegex        = "((w)|(W)indows)|((l)|(L)inux)"
 	runtimeRegex   = "(cri-o|containerd)"
 	versionRegex   = `v?(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)`
+	bytesRegex     = `[0-9]+\w{0,2}B`
 )
 
 var suite *framework.K2sTestSuite
@@ -75,8 +76,8 @@ var _ = Describe("status", Ordered, func() {
 
 		It("prints short node info", func(ctx context.Context) {
 			matchers := []types.GomegaMatcher{
-				MatchRegexp(`STATUS.+\|.+NAME.+\|.+ROLE.+\|.+AGE.+\|.+VERSION`),
-				MatchRegexp("Ready.+\\|.+%s.+\\|.+control-plane.+\\|.+%s.+\\|.+%s", suite.SetupInfo().SetupConfig.ControlPlaneNodeHostname, ageRegex, versionRegex),
+				MatchRegexp(`STATUS.+\|.+NAME.+\|.+ROLE.+\|.+AGE.+\|.+VERSION|.+CPUs|.+RAM|.+DISK`),
+				MatchRegexp("Ready.+\\|.+%s.+\\|.+control-plane.+\\|.+%s.+\\|.+%s.+\\|.+[0-9]+.+\\|.+%s.+\\|.+%s", suite.SetupInfo().SetupConfig.ControlPlaneNodeHostname, ageRegex, versionRegex, bytesRegex, bytesRegex),
 			}
 
 			if !suite.SetupInfo().SetupConfig.LinuxOnly {
@@ -141,12 +142,14 @@ var _ = Describe("status", Ordered, func() {
 
 		It("prints extended node info", func(ctx context.Context) {
 			matchers := []types.GomegaMatcher{
-				MatchRegexp(`STATUS.+\\|.+NAME.+\|.+ROLE.+\|.+AGE.+\|.+VERSION.+\|.+INTERNAL-IP.+\|.+OS-IMAGE.+\|.+KERNEL-VERSION.+\|.+CONTAINER-RUNTIME`),
-				MatchRegexp("Ready.+\\|.+%s.+\\|.+control-plane.+\\|.+%s.+\\|.+%s.+\\|.+%s.+\\|.+%s.+\\|.+.+\\|.+%s", suite.SetupInfo().SetupConfig.ControlPlaneNodeHostname, ageRegex, versionRegex, ipAddressRegex, osRegex, runtimeRegex),
+				MatchRegexp(`STATUS.+\\|.+NAME.+\|.+ROLE.+\|.+AGE.+\|.+VERSION.+\|.+CPUs.+\|.+RAM.+\|.+DISK.+\|.+INTERNAL-IP.+\|.+OS-IMAGE.+\|.+KERNEL-VERSION.+\|.+CONTAINER-RUNTIME`),
+				MatchRegexp("Ready.+\\|.+%s.+\\|.+control-plane.+\\|.+%s.+\\|.+%s.+\\|.+[0-9]+,+\\|.+%s.+\\|.+%s.+\\|.+%s.+\\|.+%s.+\\|.+.+\\|.+%s",
+					suite.SetupInfo().SetupConfig.ControlPlaneNodeHostname, ageRegex, versionRegex, bytesRegex, bytesRegex, ipAddressRegex, osRegex, runtimeRegex),
 			}
 
 			if !suite.SetupInfo().SetupConfig.LinuxOnly {
-				matchers = append(matchers, MatchRegexp("Ready.+\\|.+%s.+\\|.+worker.+\\|.+%s.+\\|.+%s.+\\|.+%s.+\\|.+%s.+\\|.+.+\\|.+%s", suite.SetupInfo().WinNodeName, ageRegex, versionRegex, ipAddressRegex, osRegex, runtimeRegex))
+				matchers = append(matchers, MatchRegexp("Ready.+\\|.+%s.+\\|.+worker.+\\|.+%s.+\\|.+%s.+\\|.+[0-9]+,+\\|.+%s.+\\|.+%s.+\\|.+%s.+\\|.+%s.+\\|.+.+\\|.+%s",
+					suite.SetupInfo().WinNodeName, ageRegex, versionRegex, bytesRegex, bytesRegex, ipAddressRegex, osRegex, runtimeRegex))
 			}
 
 			Expect(output).To(SatisfyAll(matchers...))
@@ -225,6 +228,11 @@ var _ = Describe("status", Ordered, func() {
 				HaveField("ContainerRuntime", MatchRegexp(runtimeRegex)),
 				HaveField("InternalIp", MatchRegexp(ipAddressRegex)),
 				HaveField("IsReady", BeTrue()),
+				HaveField("Capacity", SatisfyAll(
+					HaveField("Cpu", MatchRegexp("[0-9]+")),
+					HaveField("Memory", MatchRegexp("[0-9]+Ki")),
+					HaveField("Storage", MatchRegexp("[0-9]+Ki")),
+				)),
 			)))
 		})
 
