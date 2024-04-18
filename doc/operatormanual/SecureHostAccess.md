@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: © 2024 Siemens Healthcare GmbH
+
+SPDX-License-Identifier: MIT
+-->
+
 # Secure Host Access
 
 K2s provides three addons which can be used to expose the functionality implemented inside the kubernetes cluster outside of it: `ingress-nginx`,
