@@ -16,7 +16,6 @@ The following addons will be deployed with **K2s**:
 <!-- addons-list-start -->
 |Addon|Description|
 |---|---|
-| [cert-manager](./cert-manager/README.md) | TLS certificate manager for kubernetes | 
 | [dashboard](./dashboard/README.md) | Dashboard for Kubernetes | 
 | [exthttpaccess](./exthttpaccess/README.md) | Handle HTTP/HTTPS request coming to windows machine from local or external network | 
 | [gateway-nginx](./gateway-nginx/README.md) | EXPERIMENTAL USE: Gateway Controller for external access that provides an implementation of the Gateway API | 
@@ -27,6 +26,7 @@ The following addons will be deployed with **K2s**:
 | [metrics-server](./metrics-server/README.md) | Kubernetes metrics server for API Access to service metrics | 
 | [monitoring](./monitoring/README.md) | Dashboard for cluster resource monitoring and logging | 
 | [registry](./registry/README.md) | Private image registry running in the Kubernetes cluster exposed on k2s-registry.local | 
+| [security](./security/README.md) | Enables secure communication into and inside the cluster | 
 | [smb-share](./smb-share/README.md) | StorageClass provisioning based on SMB share between K8s nodes (Windows/Linux) | 
 | [traefik](./traefik/README.md) | Ingress Controller for external access that uses traefik as a reverse proxy | 
 <!-- addons-list-end -->

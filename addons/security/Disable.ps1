@@ -6,13 +6,13 @@
 
 <#
 .SYNOPSIS
-Uninstalls cert-manager
+Uninstalls security
 
 .DESCRIPTION
 
 .EXAMPLE
-Disable cert-manager addon
-powershell <installation folder>\addons\cert-manager\Disable.ps1
+Disable security addon
+powershell <installation folder>\addons\security\Disable.ps1
 #>
 
 Param (
@@ -49,8 +49,8 @@ if ($systemError) {
     exit 1
 }
 
-if ($null -eq (&$global:KubectlExe get namespace cert-manager --ignore-not-found) -or (Test-IsAddonEnabled -Name 'cert-manager') -ne $true) {
-    $errMsg = "Addon 'cert-manager' is already disabled, nothing to do."
+if ($null -eq (&$global:KubectlExe get namespace cert-manager --ignore-not-found) -or (Test-IsAddonEnabled -Name 'security') -ne $true) {
+    $errMsg = "Addon 'security' is already disabled, nothing to do."
 
     if ($EncodeStructuredOutput -eq $true) {
         $err = New-Error -Severity Warning -Code (Get-ErrCodeAddonAlreadyDisabled) -Message $errMsg
@@ -62,13 +62,13 @@ if ($null -eq (&$global:KubectlExe get namespace cert-manager --ignore-not-found
     exit 1
 }
 
-Write-Log 'Uninstalling cert-manager' -Console
+Write-Log 'Uninstalling security' -Console
 $certManagerConfig = Get-CertManagerConfig
 $caIssuerConfig = Get-CAIssuerConfig
 &$global:KubectlExe delete -f $caIssuerConfig
 &$global:KubectlExe delete -f $certManagerConfig
-Remove-AddonFromSetupJson -Name 'cert-manager'
-Write-Log 'Uninstallation of cert-manager finished' -Console
+Remove-AddonFromSetupJson -Name 'security'
+Write-Log 'Uninstallation of security finished' -Console
 
 if ($EncodeStructuredOutput -eq $true) {
     Send-ToCli -MessageType $MessageType -Message @{Error = $null }

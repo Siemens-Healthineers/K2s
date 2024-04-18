@@ -5,8 +5,8 @@
 apiVersion: v1
 kind: AddonManifest
 metadata:
-  name: cert-manager
-  description: TLS certificate manager for kubernetes
+  name: security
+  description: Enables secure communication into and inside the cluster
 spec:
   offline_usage:
     linux:
@@ -20,21 +20,21 @@ spec:
     windows:
       curl:
         - url: https://github.com/cert-manager/cert-manager/releases/download/v1.14.4/cert-manager.yaml
-          destination: addons\cert-manager\manifests\cert-manager.yaml
+          destination: addons\security\manifests\cert-manager.yaml
         - url: https://github.com/cert-manager/cmctl/releases/download/v2.0.0/cmctl_windows_amd64.exe
           destination: bin\exe\cmctl.exe
   commands:
     enable:
       cli:
         examples:
-          - cmd: k2s addons enable cert-manager
-            comment: Enable addon cert-manager in k2s, with CA issuer configured
+          - cmd: k2s addons enable security
+            comment: Enable addon security in k2s, with CA issuer configured
       script:
         subPath: Enable.ps1
     disable:
       cli:
         examples:
-          - cmd: k2s addons disable cert-manager
-            comment: Disable addon cert-manager in k2s
+          - cmd: k2s addons disable security
+            comment: Disable addon security in k2s
       script:
         subPath: Disable.ps1

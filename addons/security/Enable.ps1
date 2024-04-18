@@ -6,19 +6,15 @@
 
 <#
 .SYNOPSIS
-Installs cert-manager
+Installs secure communication
 
 .DESCRIPTION
-cert-manager is an X.509 certificate manager for Kubernetes. 
-It creates TLS certificates and renews them before expiring, using one of many supported issuers.
-Certain Kubernetes Resources Kinds (e.g. ingress, gateway or service some meshes) can be annotated 
-so that cert-manager will automatically create and manage certificates for them.
-
-See https://cert-manager.io/docs/ for more information.
+Enables secure communication into and inside the cluster. This includes:
+- certificate provisioning and renewal, for TLS termination and service meshes
 
 .EXAMPLE
-Enable cert-manager in k2s
-powershell <installation folder>\addons\cert-manager\Enable.ps1
+Enable security in k2s
+powershell <installation folder>\addons\security\Enable.ps1
 #>
 
 [CmdletBinding(SupportsShouldProcess = $true)]
@@ -58,8 +54,8 @@ if ($systemError) {
     exit 1
 }
 
-if ((Test-IsAddonEnabled -Name 'cert-manager') -eq $true) {
-    $errMsg = "Addon 'cert-manager' is already enabled, nothing to do."
+if ((Test-IsAddonEnabled -Name 'security') -eq $true) {
+    $errMsg = "Addon 'security' is already enabled, nothing to do."
 
     if ($EncodeStructuredOutput -eq $true) {
         $err = New-Error -Severity Warning -Code (Get-ErrCodeAddonAlreadyEnabled) -Message $errMsg
@@ -94,11 +90,11 @@ Write-Log 'Installing cert-manager' -Console
 $certManagerConfig = Get-CertManagerConfig
 &$global:KubectlExe apply -f $certManagerConfig
 
-Write-Log 'Checking cert-manager status' -Console
+Write-Log 'Waiting for cert-manager APIs to be ready, be patient!' -Console
 $certManagerStatus = Wait-ForCertManagerAvailable
 
 if ($certManagerStatus -ne $true) {
-    $errMsg = "cert-manager is not ready. Please use cmctl.exe to investigate.`nInstallation of cert-manager failed."
+    $errMsg = "cert-manager is not ready. Please use cmctl.exe to investigate.`nInstallation of 'security' addon failed."
     if ($EncodeStructuredOutput -eq $true) {
         $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
         Send-ToCli -MessageType $MessageType -Message @{Error = $err }
@@ -113,17 +109,32 @@ Write-Log 'Configuring CA ClusterIssuer' -Console
 $caIssuerConfig = Get-CAIssuerConfig
 &$global:KubectlExe apply -f $caIssuerConfig
 
-Write-Log 'Imported CA root certificate to trusted authorities of your computer' -Console
-$b64secret = k -n cert-manager get secrets ca-issuer-root-secret -o jsonpath --template '{.data.ca\.crt}'
+Write-Log 'Waiting for CA root certificate to be created' -Console
+$caCreated = Wait-ForCARootCertificate
+
+if ($caCreated -ne $true) {
+    $errMsg = "CA root certificate 'ca-issuer-root-secret' not found.`nInstallation of 'security' addon failed."
+    if ($EncodeStructuredOutput -eq $true) {
+        $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+        return
+    }
+
+    Write-Log $errMsg -Error
+    exit 1
+}
+
+Write-Log 'Importing CA root certificate to trusted authorities of your computer' -Console
+$b64secret = &$global:KubectlExe -n cert-manager get secrets ca-issuer-root-secret -o jsonpath --template '{.data.ca\.crt}'
 [Text.Encoding]::Utf8.GetString([Convert]::FromBase64String($b64secret)) | Out-File -Encoding utf8 C:\Temp\ca-root-secret.crt
 certutil -addstore -f -enterprise -user root C:\Temp\ca-root-secret.crt
 Remove-Item C:\Temp\ca-root-secret.crt
 
-Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'cert-manager' })
+Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'security' })
 
 Write-UsageForUser
 
-Write-Log 'Installation of cert-manager finished.' -Console
+Write-Log 'Installation of security finished.' -Console
 
 if ($EncodeStructuredOutput -eq $true) {
     Send-ToCli -MessageType $MessageType -Message @{Error = $null }
