@@ -61,6 +61,10 @@ Uninstalling the cluster removes not only the cluster itself but also all the wo
 <installation folder>\k2s uninstall
 ```
 
+In case that multiple systems need to be provisioned with Kubernetes or you want to reduce the install time dramatically, it is better to create one **K2s** offline package (contains all downloaded artifacts) before starting the install command.
+Setting up the Kubernetes cluster with the offline package takes only 2-3 minutes and needs no internet connection.
+Checkout how to create such offline packages: [Offline packages](doc/K8s_OfflinePackages.md)
+
 ## Supported OS Versions
 | Windows                 | Version | Build           |
 | ----------------------- | ------- | --------------- |
