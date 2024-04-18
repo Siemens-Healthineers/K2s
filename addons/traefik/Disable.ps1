@@ -24,16 +24,12 @@ Param (
     [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
     [string] $MessageType
 )
-&$PSScriptRoot\..\..\smallsetup\common\GlobalVariables.ps1
-. $PSScriptRoot\..\..\smallsetup\common\GlobalFunctions.ps1
-. $PSScriptRoot\Common.ps1
-
-$logModule = "$PSScriptRoot/../../smallsetup/ps-modules/log/log.module.psm1"
-$statusModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/status/status.module.psm1"
-$addonsModule = "$PSScriptRoot\..\addons.module.psm1"
+$clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
+$addonsModule = "$PSScriptRoot\..\addons.v2.module.psm1"
+$commonModule = "$PSScriptRoot\common.module.psm1"
 
-Import-Module $logModule, $addonsModule, $statusModule, $infraModule
+Import-Module $clusterModule, $infraModule, $addonsModule, $commonModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -52,7 +48,7 @@ if ($systemError) {
 
 Write-Log 'Check whether traefik addon is already disabled'
 
-if ($null -eq (&$global:KubectlExe get namespace traefik --ignore-not-found) -or (Test-IsAddonEnabled -Name 'traefik') -ne $true) {
+if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'traefik', '--ignore-not-found').Output -or (Test-IsAddonEnabled -Name 'traefik') -ne $true) {
     $errMsg = "Addon 'traefik' is already disabled, nothing to do."
 
     if ($EncodeStructuredOutput -eq $true) {
@@ -67,8 +63,10 @@ if ($null -eq (&$global:KubectlExe get namespace traefik --ignore-not-found) -or
 
 Write-Log 'Uninstalling Traefik addon' -Console
 $traefikYamlDir = Get-TraefikYamlDir
-&$global:KubectlExe delete -k "$traefikYamlDir" | Write-Log
-&$global:KubectlExe delete namespace traefik | Write-Log
+
+(Invoke-Kubectl -Params 'delete', '-k', $traefikYamlDir).Output | Write-Log
+(Invoke-Kubectl -Params 'delete', 'namespace', 'traefik').Output | Write-Log
+
 Remove-AddonFromSetupJson -Name 'traefik'
 Write-Log 'Uninstallation of Traefik addon finished' -Console
 

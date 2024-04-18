@@ -4,6 +4,13 @@
 
 #Requires -RunAsAdministrator
 
+$clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
+$infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
+$vmNodeModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.node.module/vmnode/vmnode.module.psm1"
+$linuxNodeModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.node.module/linuxnode/vm/vm.module.psm1"
+
+Import-Module $clusterModule, $infraModule, $vmNodeModule, $linuxNodeModule
+
 <#
 .SYNOPSIS
 Contains common methods for installing and uninstalling Kubernetes Dashboard UI
@@ -38,11 +45,9 @@ function Get-DashboardTraefikConfig {
 Determines if Nginx ingress controller is deployed in the cluster
 #>
 function Test-NginxIngressControllerAvailability {
-    $existingServices = $(&$global:KubectlExe get service -n ingress-nginx -o yaml)
-    if ("$existingServices" -match '.*ingress-nginx-controller.*') {
-        return $true
-    }
-    return $false
+    $existingServices = (Invoke-Kubectl -Params 'get', 'service', '-n', 'ingress-nginx', '-o', 'yaml').Output
+ 
+    return ("$existingServices" -match '.*ingress-nginx-controller.*') 
 }
 
 <#
@@ -50,11 +55,9 @@ function Test-NginxIngressControllerAvailability {
 Determines if Traefik ingress controller is deployed in the cluster
 #>
 function Test-TraefikIngressControllerAvailability {
-    $existingServices = $(&$global:KubectlExe get service -n traefik -o yaml)
-    if ("$existingServices" -match '.*traefik.*') {
-        return $true
-    }
-    return $false
+    $existingServices = (Invoke-Kubectl -Params 'get', 'service', '-n', 'traefik', '-o', 'yaml').Output
+    
+    return ("$existingServices" -match '.*traefik.*') 
 }
 
 <#
@@ -64,7 +67,8 @@ Deploys the dashboard's ingress manifest for Nginx ingress controller
 function Deploy-DashboardIngressForNginx {
     Write-Log 'Deploying nginx ingress manifest for dashboard...' -Console
     $dashboardNginxIngressConfig = Get-DashboardNginxConfig
-    &$global:KubectlExe apply -f $dashboardNginxIngressConfig | Out-Null
+
+    Invoke-Kubectl -Params 'apply', '-f', $dashboardNginxIngressConfig | Out-Null
 }
 
 <#
@@ -74,7 +78,8 @@ Deploys the dashboard's ingress manifest for Traefik ingress controller
 function Deploy-DashboardIngressForTraefik {
     Write-Log 'Deploying traefik ingress manifest for dashboard...' -Console
     $dashboardTraefikIngressConfig = Get-DashboardTraefikConfig
-    &$global:KubectlExe apply -f $dashboardTraefikIngressConfig | Out-Null
+    
+    Invoke-Kubectl -Params 'apply', '-f', $dashboardTraefikIngressConfig | Out-Null
 }
 
 <#
@@ -107,17 +112,17 @@ Adds an entry in hosts file for k2s-dashboard.local in both the windows and linu
 #>
 function Add-DashboardHostEntry {
     Write-Log 'Configuring nodes access' -Console
-    $dashboardIPWithIngress = $global:IP_Master
+    $dashboardIPWithIngress = Get-ConfiguredIPControlPlane
     $dashboardHost = 'k2s-dashboard.local'
 
     # Enable dashboard access on linux node
     $hostEntry = $($dashboardIPWithIngress + ' ' + $dashboardHost)
-    ExecCmdMaster "grep -qxF `'$hostEntry`' /etc/hosts || echo $hostEntry | sudo tee -a /etc/hosts"
+    Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "grep -qxF `'$hostEntry`' /etc/hosts || echo $hostEntry | sudo tee -a /etc/hosts"
 
     # In case of multi-vm, enable access on windows node
     $setupInfo = Get-SetupInfo
-    if ($setupInfo.Name -eq $global:SetupType_MultiVMK8s -and $setupInfo.LinuxOnly -ne $true) {
-        $session = Open-RemoteSessionViaSSHKey $global:Admin_WinNode $global:WindowsVMKey
+    if ($setupInfo.Name -eq 'MultiVMK8s' -and $setupInfo.LinuxOnly -ne $true) {
+        $session = Open-RemoteSessionViaSSHKey (Get-DefaultWinVMName) (Get-DefaultWinVMKey)
 
         Invoke-Command -Session $session {
             Set-Location "$env:SystemDrive\k"
@@ -191,8 +196,5 @@ function Write-UsageForUser {
 Waits for the dashboard pods to be available.
 #>
 function Wait-ForDashboardAvailable {
-    $selector = 'k8s-app=kubernetes-dashboard'
-    $namespace = 'kubernetes-dashboard'
-    $allDashBoardPodsUp = Wait-ForPodsReady -Selector $selector -Namespace $namespace
-    return $allDashBoardPodsUp
+    return (Wait-ForPodCondition -Condition Ready -Label 'k8s-app=kubernetes-dashboard' -Namespace 'kubernetes-dashboard' -TimeoutSeconds 120)
 }
