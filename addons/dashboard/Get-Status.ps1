@@ -10,7 +10,7 @@ Import-Module $k8sApiModule
 
 Invoke-Kubectl -Params 'wait', '--timeout=5s', '--for=condition=Available', '-n', 'kubernetes-dashboard', 'deployment/dashboard-metrics-scraper' | Out-Null
 
-$isDashboardMetricsScaperRunningProp = @{Name = 'isDashboardMetricsScaperRunningProp'; Value = $?; Okay = $? }
+$isDashboardMetricsScaperRunningProp = @{Name = 'IsDashboardMetricsScaperRunning'; Value = $?; Okay = $? }
 if ($isDashboardMetricsScaperRunningProp.Value -eq $true) {
     $isDashboardMetricsScaperRunningProp.Message = 'The metrics scraper is working'
 }
@@ -20,7 +20,7 @@ else {
 
 Invoke-Kubectl -Params 'wait', '--timeout=5s', '--for=condition=Available', '-n', 'kubernetes-dashboard', 'deployment/kubernetes-dashboard' | Out-Null
 
-$isDashboardRunningProp = @{Name = 'isDashboardRunningProp'; Value = $?; Okay = $? }
+$isDashboardRunningProp = @{Name = 'IsDashboardRunning'; Value = $?; Okay = $? }
 if ($isDashboardRunningProp.Value -eq $true) {
     $isDashboardRunningProp.Message = 'The dashboard is working'
 }

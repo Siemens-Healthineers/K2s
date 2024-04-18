@@ -11,7 +11,7 @@ Import-Module $k8sApiModule, $configModule
 
 Invoke-Kubectl -Params 'wait', '--timeout=5s', '--for=condition=Available', '-n', 'traefik', 'deployment/traefik' | Out-Null
 
-$isTraefikRunningProp = @{Name = 'isTraefikRunningProp'; Value = $?; Okay = $? }
+$isTraefikRunningProp = @{Name = 'IsTraefikRunning'; Value = $?; Okay = $? }
 if ($isTraefikRunningProp.Value -eq $true) {
     $isTraefikRunningProp.Message = 'The traefik ingress controller is working'
 }
@@ -22,7 +22,7 @@ else {
 $externalIp = (Invoke-Kubectl -Params 'get', 'service', 'traefik', '-n', 'traefik', '-o', 'jsonpath="{.spec.externalIPs[0]}"').Output
 $controlPlaneIp = Get-ConfiguredIPControlPlane
 
-$isExternalIPSetProp = @{Name = 'isExternalIPSetProp'; Value = ($externalIp -eq $controlPlaneIp); Okay = ($externalIp -eq $controlPlaneIp) }
+$isExternalIPSetProp = @{Name = 'IsExternalIPSet'; Value = ($externalIp -eq $controlPlaneIp); Okay = ($externalIp -eq $controlPlaneIp) }
 if ($isExternalIPSetProp.Value -eq $true) {
     $isExternalIPSetProp.Message = "The external IP for traefik service is set to $controlPlaneIp"
 }
