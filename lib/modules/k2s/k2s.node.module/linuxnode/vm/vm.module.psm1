@@ -8,9 +8,9 @@ Import-Module $configModule, $pathModule, $logModule
 
 $ipControlPlane = Get-ConfiguredIPControlPlane
 $nameControlPlane = Get-ConfigControlPlaneNodeHostname
-$defaultUserName = "remote"
+$defaultUserName = 'remote'
 $remoteUser = "$defaultUserName@$ipControlPlane"
-$remotePwd = "admin"
+$remotePwd = 'admin'
 $key = Get-SSHKeyControlPlane
 
 $kubePath = Get-KubePath
@@ -25,6 +25,25 @@ $ControlPlaneVMBaseUbuntuImageName = 'Kubemaster-Base-Ubuntu.vhdx'
 $ControlPlaneVMRootfsName = 'Kubemaster-Base.rootfs.tar.gz'
 $ControlPlaneVMUbuntuRootfsName = 'Kubemaster-Base-Ubuntu.rootfs.tar.gz'
 
+function Invoke-SSHWithKey {
+    param (
+        [Parameter(Mandatory = $false)]
+        [string]
+        $Command = $(throw 'Command not specified'),
+        [Parameter(Mandatory = $false)]
+        [switch]
+        $Nested
+    )
+    $params = '-n', '-o', 'StrictHostKeyChecking=no', '-i', $key, $remoteUser, $Command
+
+    if ($Nested -eq $true) {
+        # omit the "-n" param
+        $params = $params[1..($params.Length - 1)]
+    }
+
+    &ssh.exe $params 2>&1 | ForEach-Object { Write-Log $_ -Console -Raw }
+}
+
 function Invoke-CmdOnControlPlaneViaSSHKey(
     [Parameter(Mandatory = $false)]
     $CmdToExecute,
@@ -36,9 +55,10 @@ function Invoke-CmdOnControlPlaneViaSSHKey(
     [uint16]$Timeout = 1,
     [Parameter(Mandatory = $false)]
     [switch]$NoLog = $false,
-    [Parameter(Mandatory = $false ,HelpMessage = 'When executing ssh.exe in nested environment[host=>VM=>VM], -n flag should not be used.')]
-    [switch]$Nested = $false)
-{
+    [Parameter(Mandatory = $false , HelpMessage = 'When executing ssh.exe in nested environment[host=>VM=>VM], -n flag should not be used.')]
+    [switch]$Nested = $false,
+    [Parameter(Mandatory = $false, HelpMessage = 'repair CMD for the case first run did not work out')]
+    [string]$RepairCmd = $null) {
 
     if (!$NoLog) {
         Write-Log "cmd: $CmdToExecute, retries: $Retries, timeout: $Timeout sec, ignore err: $IgnoreErrors, nested: $Nested"
@@ -47,15 +67,11 @@ function Invoke-CmdOnControlPlaneViaSSHKey(
     [uint16]$Retrycount = 1
     do {
         try {
+            Invoke-SSHWithKey -Command $CmdToExecute -Nested:$Nested
 
-            if ($Nested) {
-                ssh.exe -o StrictHostKeyChecking=no -i $key $remoteUser $CmdToExecute 2>&1 | ForEach-Object { Write-Log $_ -Console -Raw }
+            if ($LASTEXITCODE -ne 0 -and !$IgnoreErrors) {
+                throw "Error occurred while executing command '$CmdToExecute' in control plane (exit code: '$LASTEXITCODE')" 
             }
-            else {
-                ssh.exe -n -o StrictHostKeyChecking=no -i $key $remoteUser $CmdToExecute 2>&1 | ForEach-Object { Write-Log $_ -Console -Raw }
-            }
-
-            if ($LASTEXITCODE -ne 0 -and !$IgnoreErrors) { throw "Error occurred while executing command '$CmdToExecute' in control plane (exit code: '$LASTEXITCODE')" }
             $Stoploop = $true
         }
         catch {
@@ -65,6 +81,13 @@ function Invoke-CmdOnControlPlaneViaSSHKey(
             }
             else {
                 Write-Log "cmd: $CmdToExecute will be retried.."
+
+                if ($null -ne $RepairCmd -and !$IgnoreErrors) {
+                    Write-Log "Executing repair cmd: $RepairCmd"
+
+                    Invoke-SSHWithKey -Command $RepairCmd -Nested:$Nested
+                }
+
                 Start-Sleep -Seconds $Timeout
                 $Retrycount = $Retrycount + 1
             }
@@ -89,8 +112,7 @@ function Invoke-CmdOnControlPlaneViaUserAndPwd(
     [Parameter(Mandatory = $false)]
     [switch]$NoLog = $false,
     [Parameter(Mandatory = $false)]
-    [string]$RepairCmd = $null){
-
+    [string]$RepairCmd = $null) {
     if (!$NoLog) {
         Write-Log "cmd: $CmdToExecute, retries: $Retries, timeout: $Timeout sec, ignore err: $IgnoreErrors"
     }
@@ -111,7 +133,7 @@ function Invoke-CmdOnControlPlaneViaUserAndPwd(
                 Write-Log "cmd: $CmdToExecute will be retried.."
 
                 # try to repair the command
-                if( ($null -ne $RepairCmd) -and !$IgnoreErrors) {
+                if ( ($null -ne $RepairCmd) -and !$IgnoreErrors) {
                     Write-Log "Executing repair cmd: $RepairCmd"
                     &"$plinkExe" -ssh -4 $RemoteUser -pw $RemoteUserPwd -no-antispoof $RepairCmd 2>&1 | ForEach-Object { Write-Log $_ -Console -Raw }
                 }
@@ -125,7 +147,7 @@ function Invoke-CmdOnControlPlaneViaUserAndPwd(
 }
 
 function Invoke-TerminalOnControlPanelViaSSHKey {
-    Write-Log "Invoking ssh terminal on Control Plane VM."
+    Write-Log 'Invoking ssh terminal on Control Plane VM.'
     ssh.exe -o StrictHostKeyChecking=no -i $key $remoteUser
 }
 
@@ -427,6 +449,10 @@ function Copy-KubeConfigFromControlPlaneNode {
     }
 }
 
+function Get-ControlPlaneRemoteUser {
+    return $remoteUser
+}
+
 Export-ModuleMember -Function Invoke-CmdOnControlPlaneViaSSHKey,
 Invoke-CmdOnControlPlaneViaUserAndPwd,
 Invoke-TerminalOnControlPanelViaSSHKey,
@@ -445,4 +471,5 @@ Wait-ForSSHConnectionToLinuxVMViaSshKey,
 Wait-ForSshPossible,
 Get-DefaultUserNameControlPlane,
 Get-DefaultUserPwdControlPlane,
-Copy-KubeConfigFromControlPlaneNode
+Copy-KubeConfigFromControlPlaneNode,
+Get-ControlPlaneRemoteUser

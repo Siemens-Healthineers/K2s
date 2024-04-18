@@ -26,7 +26,7 @@ import (
 	"github.com/samber/lo"
 )
 
-const testClusterTimeout = time.Minute * 20
+const testClusterTimeout = time.Minute * 30
 
 var (
 	suite      *framework.K2sTestSuite

@@ -26,16 +26,12 @@ Param (
     [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
     [string] $MessageType
 )
-&$PSScriptRoot\..\..\smallsetup\common\GlobalVariables.ps1
-. $PSScriptRoot\..\..\smallsetup\common\GlobalFunctions.ps1
-. $PSScriptRoot\Common.ps1
-
-$logModule = "$PSScriptRoot/../../smallsetup/ps-modules/log/log.module.psm1"
-$statusModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/status/status.module.psm1"
-$addonsModule = "$PSScriptRoot\..\addons.module.psm1"
+$clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
+$addonsModule = "$PSScriptRoot\..\addons.v2.module.psm1"
+$commonModule = "$PSScriptRoot\common.module.psm1"
 
-Import-Module $logModule, $addonsModule, $statusModule, $infraModule
+Import-Module $clusterModule, $infraModule, $addonsModule, $commonModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -93,19 +89,23 @@ if ((Test-IsAddonEnabled -Name 'gateway-nginx') -eq $true) {
 
 Write-Log 'Installing Traefik Ingress controller' -Console
 $traefikYamlDir = Get-TraefikYamlDir
-&$global:KubectlExe create namespace traefik | Write-Log
-&$global:KubectlExe apply -k "$traefikYamlDir" | Write-Log
-$allPodsAreUp = Wait-ForPodsReady -Selector 'app.kubernetes.io/name=traefik' -Namespace 'traefik'
 
-Write-Log "Setting $global:IP_Master as an external IP for traefik service" -Console
+(Invoke-Kubectl -Params 'create' , 'namespace', 'traefik').Output | Write-Log
+(Invoke-Kubectl -Params 'apply', '-k', $traefikYamlDir).Output | Write-Log
+
+$allPodsAreUp = (Wait-ForPodCondition -Condition Ready -Label 'app.kubernetes.io/name=traefik' -Namespace 'traefik' -TimeoutSeconds 120)
+
+$controlPlaneIp = Get-ConfiguredIPControlPlane
+
+Write-Log "Setting $controlPlaneIp as an external IP for traefik service" -Console
 $patchJson = ''
 if ($PSVersionTable.PSVersion.Major -gt 5) {
-    $patchJson = '{"spec":{"externalIPs":["' + $global:IP_Master + '"]}}'
+    $patchJson = '{"spec":{"externalIPs":["' + $controlPlaneIp + '"]}}'
 }
 else {
-    $patchJson = '{\"spec\":{\"externalIPs\":[\"' + $global:IP_Master + '\"]}}'
+    $patchJson = '{\"spec\":{\"externalIPs\":[\"' + $controlPlaneIp + '\"]}}'
 }
-&$global:KubectlExe patch svc traefik -p "$patchJson" -n traefik | Write-Log
+(Invoke-Kubectl -Params 'patch', 'svc', 'traefik', '-p', "$patchJson", '-n', 'traefik').Output | Write-Log
 
 if ($allPodsAreUp -ne $true) {
     $errMsg = "All traefik pods could not become ready. Please use kubectl describe for more details.`nInstallation of traefik addon failed"
