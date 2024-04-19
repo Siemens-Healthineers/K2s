@@ -61,9 +61,9 @@ function Wait-ForCARootCertificate(
     [int]$NumberOfRetries = 10) {
     $found = $false
     for (($i = 1); $i -le $NumberOfRetries; $i++) {
-        $out = &$global:KubectlExe -n cert-manager get secrets ca-issuer-root-secret -o=jsonpath="{.metadata.name}"
+        $out = &$global:KubectlExe -n cert-manager get secrets ca-issuer-root-secret -o=jsonpath="{.metadata.name}" --ignore-not-found
         if ($out -match 'ca-issuer-root-secret') {
-            Write-Log 'All pods are running and ready for requests.'
+            Write-Log "'ca-issuer-root-secret' created and ready for use."
             $found = $true
             break;
         }

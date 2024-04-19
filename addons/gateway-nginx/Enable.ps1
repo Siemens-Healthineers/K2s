@@ -125,6 +125,7 @@ if (!$?) {
 
 Write-Log 'gateway-nginx addon installed successfully' -Console
 if ($SharedGateway) {
+  Add-GatewayHostEntry
   &$global:KubectlExe apply -f "$global:KubernetesPath\addons\gateway-nginx\manifests\shared-gateway.yaml" | Write-Log
 
   @'
