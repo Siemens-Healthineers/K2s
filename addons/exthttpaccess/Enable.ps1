@@ -48,10 +48,6 @@ Initialize-Logging -ShowLogs:$ShowLogs
 
 $Proxy = Get-OrUpdateProxyServer -Proxy:$Proxy
 
-# hooks handling
-$hookFilePaths = @()
-$hookFilePaths += Get-ChildItem -Path "$PSScriptRoot\hooks" | ForEach-Object { $_.FullName }
-
 $systemError = Test-SystemAvailability -Structured
 if ($systemError) {
   if ($EncodeStructuredOutput -eq $true) {
@@ -261,7 +257,7 @@ Set-ServiceProperty -Name $serviceName -PropertyName 'AppRotateBytes' -Value 500
 
 Start-ServiceAndSetToAutoStart -Name $serviceName
 
-Copy-ScriptsToHooksDir -ScriptPaths $hookFilePaths
+Copy-ScriptsToHooksDir -ScriptPaths @(Get-ChildItem -Path "$PSScriptRoot\hooks" | ForEach-Object { $_.FullName })
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'exthttpaccess' })
 
 Write-Log 'exthttpaccess enabled' -Console

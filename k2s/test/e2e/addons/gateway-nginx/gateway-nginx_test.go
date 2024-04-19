@@ -12,12 +12,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/addons/status"
 	"github.com/siemens-healthineers/k2s/test/framework"
 
 	"github.com/siemens-healthineers/k2s/test/framework/k2s"
+	"github.com/siemens-healthineers/k2s/test/framework/regex"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gstruct"
 )
 
 const (
@@ -94,6 +97,41 @@ var _ = Describe("'gateway-nginx' addon", Ordered, func() {
 
 		Expect(err).ShouldNot(HaveOccurred())
 		Expect(json.Valid(data)).To(BeTrue())
+	})
+
+	It("prints the status", func(ctx context.Context) {
+		output := suite.K2sCli().Run(ctx, "addons", "status", "gateway-nginx")
+
+		Expect(output).To(SatisfyAll(
+			MatchRegexp("ADDON STATUS"),
+			MatchRegexp(`Addon .+gateway-nginx.+ is .+enabled.+`),
+			MatchRegexp("The gateway API controller is working"),
+			MatchRegexp("The external IP for gateway API service is set to %s", regex.IpAddressRegex),
+		))
+
+		output = suite.K2sCli().Run(ctx, "addons", "status", "gateway-nginx", "-o", "json")
+
+		var status status.AddonPrintStatus
+
+		Expect(json.Unmarshal([]byte(output), &status)).To(Succeed())
+
+		Expect(status.Name).To(Equal("gateway-nginx"))
+		Expect(status.Error).To(BeNil())
+		Expect(status.Enabled).NotTo(BeNil())
+		Expect(*status.Enabled).To(BeTrue())
+		Expect(status.Props).NotTo(BeNil())
+		Expect(status.Props).To(ContainElements(
+			SatisfyAll(
+				HaveField("Name", "IsGatewayControllerRunning"),
+				HaveField("Value", true),
+				HaveField("Okay", gstruct.PointTo(BeTrue())),
+				HaveField("Message", gstruct.PointTo(ContainSubstring("The gateway API controller is working")))),
+			SatisfyAll(
+				HaveField("Name", "IsExternalIPSet"),
+				HaveField("Value", true),
+				HaveField("Okay", gstruct.PointTo(BeTrue())),
+				HaveField("Message", gstruct.PointTo(MatchRegexp("The external IP for gateway API service is set to %s", regex.IpAddressRegex)))),
+		))
 	})
 })
 

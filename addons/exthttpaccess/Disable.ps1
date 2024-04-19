@@ -33,10 +33,6 @@ Import-Module $statusModule, $infraModule, $addonsModule, $commonModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
-# hooks handling
-$hookFileNames = @()
-$hookFileNames += Get-ChildItem -Path "$PSScriptRoot\hooks" | ForEach-Object { $_.Name }
-
 $systemError = Test-SystemAvailability -Structured
 if ($systemError) {
   if ($EncodeStructuredOutput -eq $true) {
@@ -62,7 +58,7 @@ if ( (Test-IsAddonEnabled -Name 'exthttpaccess') -ne $true) {
 }
 
 Remove-Nginx
-Remove-ScriptsFromHooksDir -ScriptNames $hookFileNames
+Remove-ScriptsFromHooksDir -ScriptNames @(Get-ChildItem -Path "$PSScriptRoot\hooks" | ForEach-Object { $_.Name })
 Remove-AddonFromSetupJson -Name 'exthttpaccess'
 
 Write-Log 'exthttpaccess disabled' -Console
