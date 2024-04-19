@@ -18,7 +18,10 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gstruct"
 )
+
+const validPort = "54321"
 
 var suite *framework.K2sTestSuite
 
@@ -109,13 +112,35 @@ var _ = Describe("'exthttpaccess' addon", Ordered, func() {
 	})
 
 	When("addon is enabled", func() {
-		BeforeAll(func(ctx context.Context) {
-			output := suite.K2sCli().Run(ctx, "addons", "status", "exthttpaccess", "-o", "json")
+		Describe("status", func() {
+			It("displays status correctly", func(ctx context.Context) {
+				output := suite.K2sCli().Run(ctx, "addons", "status", "exthttpaccess")
 
-			var status status.AddonPrintStatus
+				Expect(output).To(SatisfyAll(
+					MatchRegexp("ADDON STATUS"),
+					MatchRegexp(`Addon .+exthttpaccess.+ is .+enabled.+`),
+					MatchRegexp("The nginx reverse proxy is working"),
+				))
 
-			Expect(json.Unmarshal([]byte(output), &status)).To(Succeed())
-			Expect(*status.Enabled).To(BeTrue())
+				output = suite.K2sCli().Run(ctx, "addons", "status", "exthttpaccess", "-o", "json")
+
+				var status status.AddonPrintStatus
+
+				Expect(json.Unmarshal([]byte(output), &status)).To(Succeed())
+
+				Expect(status.Name).To(Equal("exthttpaccess"))
+				Expect(status.Error).To(BeNil())
+				Expect(status.Enabled).NotTo(BeNil())
+				Expect(*status.Enabled).To(BeTrue())
+				Expect(status.Props).NotTo(BeNil())
+				Expect(status.Props).To(ContainElement(
+					SatisfyAll(
+						HaveField("Name", "IsNginxRunning"),
+						HaveField("Value", true),
+						HaveField("Okay", gstruct.PointTo(BeTrue())),
+						HaveField("Message", gstruct.PointTo(ContainSubstring("The nginx reverse proxy is working")))),
+				))
+			})
 		})
 
 		Describe("enable", func() {
@@ -158,13 +183,16 @@ var _ = Describe("'exthttpaccess' addon", Ordered, func() {
 					Expect(output).To(ContainSubstring(expectedOutput))
 					expectNoNginxProcessesAreRunning()
 				},
-				Entry("with empty http port value", "", "50000", "The user configured port number '' cannot be used."),
-				Entry("with empty https port value", "50000", "", "The user configured port number '' cannot be used."),
-				Entry("with http port value not being a number", "not_a_number", "50000", "The user configured port value must be a number."),
-				Entry("with https port value not being a number", "50000", "not_a_number", "The user configured port value must be a number."),
-				Entry("with http port value not in range", "40000", "50000", "The user configured port number '40000' cannot be used. Please choose a number between 49152 and 65535."),
-				Entry("with http port value not in range", "50000", "30000", "The user configured port number '30000' cannot be used. Please choose a number between 49152 and 65535."),
-				Entry("with same http and https port values", "50000", "50000", "The user configured port values for HTTP and HTTPS are the same."),
+				Entry("with empty http port value", "", validPort, "The user configured port number '' cannot be used."),
+				Entry("with empty https port value", validPort, "", "The user configured port number '' cannot be used."),
+
+				Entry("with http port value not being a number", "not_a_number", validPort, "The user configured port value must be a number."),
+				Entry("with https port value not being a number", validPort, "not_a_number", "The user configured port value must be a number."),
+
+				Entry("with http port value not in range", "40000", validPort, "The user configured port number '40000' cannot be used. Please choose a number between 49152 and 65535."),
+				Entry("with https port value not in range", validPort, "30000", "The user configured port number '30000' cannot be used. Please choose a number between 49152 and 65535."),
+
+				Entry("with same http and https port values", validPort, validPort, "The user configured port values for HTTP and HTTPS are the same."),
 			)
 		})
 

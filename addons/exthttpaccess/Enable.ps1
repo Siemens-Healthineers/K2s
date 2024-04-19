@@ -36,24 +36,17 @@ Param(
   [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
   [string] $MessageType
 )
-&$PSScriptRoot\..\..\smallsetup\common\GlobalVariables.ps1
-. $PSScriptRoot\..\..\smallsetup\common\GlobalFunctions.ps1
-
-$logModule = "$PSScriptRoot/../../smallsetup/ps-modules/log/log.module.psm1"
 $statusModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/status/status.module.psm1"
-$addonsModule = "$PSScriptRoot\..\addons.module.psm1"
 $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
-$proxyModule = "$PSScriptRoot/../../smallsetup/ps-modules/proxy/proxy.module.psm1"
+$nodeModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.node.module\k2s.node.module.psm1"
+$addonsModule = "$PSScriptRoot\..\addons.v2.module.psm1"
+$commonModule = "$PSScriptRoot\common.module.psm1"
 
-Import-Module $addonsModule, $logModule, $statusModule, $infraModule, $proxyModule
+Import-Module $statusModule, $infraModule, $nodeModule, $addonsModule, $commonModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
 $Proxy = Get-OrUpdateProxyServer -Proxy:$Proxy
-
-# hooks handling
-$hookFilePaths = @()
-$hookFilePaths += Get-ChildItem -Path "$PSScriptRoot\hooks" | ForEach-Object { $_.FullName }
 
 $systemError = Test-SystemAvailability -Structured
 if ($systemError) {
@@ -106,9 +99,9 @@ function Assert-UserConfiguredPortNumber {
   param (
     [string]$Port
   )
-  $isNumber = $Port -match "^[0-9]*$"
+  $isNumber = $Port -match '^[0-9]*$'
   if (!$isNumber) {
-    Stop-ExecutionDueToPortValue -AbortMessage "The user configured port value must be a number."
+    Stop-ExecutionDueToPortValue -AbortMessage 'The user configured port value must be a number.'
   }
   try {
     $portNumber = [int]$Port
@@ -163,10 +156,11 @@ if ([string]::IsNullOrWhiteSpace($HttpPort) -and [string]::IsNullOrWhiteSpace($H
       Stop-ExecutionDueToPortValue -AbortMessage 'The addon cannot be enabled since there is already a process listening on port 80 and/or 443.'
     }
   }
-} else {
+}
+else {
 
   if ($HttpPort -eq $HttpsPort) {
-    Stop-ExecutionDueToPortValue -AbortMessage "The user configured port values for HTTP and HTTPS are the same."
+    Stop-ExecutionDueToPortValue -AbortMessage 'The user configured port values for HTTP and HTTPS are the same.'
   }
   Assert-UserConfiguredPortNumber -Port $HttpPort
   Assert-UserConfiguredPortNumber -Port $HttpsPort
@@ -203,11 +197,12 @@ foreach ($ip in $physicalIps) {
 $variablesHash = @{}
 $variablesHash['listen_block_https_port'] = $listen_block_https_port;
 $variablesHash['listen_block_http_port'] = $listen_block_http_port;
-$variablesHash['master_ip'] = $global:IP_Master;
+$variablesHash['master_ip'] = (Get-ConfiguredIPControlPlane);
+$binPath = Get-KubeBinPath
 
-mkdir -Force "$global:BinPath\nginx" | Out-Null
+mkdir -Force "$binPath\nginx" | Out-Null
 $mustachePattern = '({{\s*[\w\-]+\s*(\|\s*[\w]+\s*)*}})|({{{\s*[\w\-]+\s*(\|\s*[\w]+\s*)*}}})'
-Get-Content "$global:KubernetesPath\addons\exthttpaccess\nginx.tmp" | ForEach-Object {
+Get-Content "$PSScriptRoot\nginx.tmp" | ForEach-Object {
   $line = $_
   $matchResult = $line | Select-String $mustachePattern -AllMatches
   ForEach ($match in $matchResult.Matches.Value) {
@@ -228,35 +223,41 @@ Get-Content "$global:KubernetesPath\addons\exthttpaccess\nginx.tmp" | ForEach-Ob
     $line = $line -replace [regex]::Escape($match), $variableValue
   }
   $line
-} | out-file "$global:BinPath\nginx\nginx.conf" -encoding ascii
+} | out-file "$binPath\nginx\nginx.conf" -encoding ascii
 
 Write-Log 'Downloading nginx executable' -Console
-if (!(Test-Path "$global:BinPath\nginx\nginx.zip")) {
-  DownloadFile "$global:BinPath\nginx\nginx.zip" https://nginx.org/download/nginx-1.23.2.zip $true -ProxyToUse $Proxy
+if (!(Test-Path "$binPath\nginx\nginx.zip")) {
+  Invoke-DownloadFile "$binPath\nginx\nginx.zip" 'https://nginx.org/download/nginx-1.23.2.zip' $true -ProxyToUse $Proxy
 }
 
-tar C "$global:BinPath\nginx" -xvf "$global:BinPath\nginx\nginx.zip" --strip-components 1 *.exe 2>&1 | % { "$_" }
-Remove-Item -Force "$global:BinPath\nginx\nginx.zip"
-mkdir -Force "$global:BinPath\nginx\temp" | Out-Null
-mkdir -Force "$global:BinPath\nginx\logs" | Out-Null
+tar C "$binPath\nginx" -xvf "$binPath\nginx\nginx.zip" --strip-components 1 *.exe 2>&1 | ForEach-Object { "$_" }
+Remove-Item -Force "$binPath\nginx\nginx.zip"
+mkdir -Force "$binPath\nginx\temp" | Out-Null
+mkdir -Force "$binPath\nginx\logs" | Out-Null
+
+$systemDrive = Get-SystemDriveLetter
 
 Write-Log 'Registering nginx service' -Console
-mkdir -Force "$($global:SystemDriveLetter):\var\log\nginx" | Out-Null
-&$global:NssmInstallDirectory\nssm install nginx-ext $global:BinPath\nginx\nginx.exe | Write-Log
-&$global:NssmInstallDirectory\nssm set nginx-ext AppDirectory "$global:BinPath\nginx" | Out-Null
-&$global:NssmInstallDirectory\nssm set nginx-ext AppParameters -c "`"""$global:BinPath\nginx\nginx.conf`"""" -e "$($global:SystemDriveLetter):\var\log\nginx\nginx_stderr.log" | Out-Null
-&$global:NssmInstallDirectory\nssm set nginx-ext AppStdout "$($global:SystemDriveLetter):\var\log\nginx\nginx_stdout.log" | Out-Null
-&$global:NssmInstallDirectory\nssm set nginx-ext AppStderr "$($global:SystemDriveLetter):\var\log\nginx\nginx_stderr.log" | Out-Null
-&$global:NssmInstallDirectory\nssm set nginx-ext AppStdoutCreationDisposition 4 | Out-Null
-&$global:NssmInstallDirectory\nssm set nginx-ext AppStderrCreationDisposition 4 | Out-Null
-&$global:NssmInstallDirectory\nssm set nginx-ext AppRotateFiles 1 | Out-Null
-&$global:NssmInstallDirectory\nssm set nginx-ext AppRotateOnline 1 | Out-Null
-&$global:NssmInstallDirectory\nssm set nginx-ext AppRotateSeconds 0 | Out-Null
-&$global:NssmInstallDirectory\nssm set nginx-ext AppRotateBytes 500000 | Out-Null
-&$global:NssmInstallDirectory\nssm set nginx-ext Start SERVICE_AUTO_START | Out-Null
-&$global:NssmInstallDirectory\nssm start nginx-ext | Write-Log
+mkdir -Force "$($systemDrive):\var\log\nginx" | Out-Null
 
-Copy-ScriptsToHooksDir -ScriptPaths $hookFilePaths
+$serviceName = Get-ServiceName
+
+Install-Service -Name $serviceName -ExePath "$binPath\nginx\nginx.exe"
+
+Set-ServiceProperty -Name $serviceName -PropertyName 'AppDirectory' -Value "$binPath\nginx"
+Set-ServiceProperty -Name $serviceName -PropertyName 'AppParameters' -Value "-c `"`"$binPath\nginx\nginx.conf`"`" -e `"$($systemDrive):\var\log\nginx\nginx_stderr.log`""
+Set-ServiceProperty -Name $serviceName -PropertyName 'AppStdout' -Value "$($systemDrive):\var\log\nginx\nginx_stdout.log"
+Set-ServiceProperty -Name $serviceName -PropertyName 'AppStderr' -Value "$($systemDrive):\var\log\nginx\nginx_stderr.log"
+Set-ServiceProperty -Name $serviceName -PropertyName 'AppStdoutCreationDisposition' -Value 4
+Set-ServiceProperty -Name $serviceName -PropertyName 'AppStderrCreationDisposition' -Value 4
+Set-ServiceProperty -Name $serviceName -PropertyName 'AppRotateFiles' -Value 1
+Set-ServiceProperty -Name $serviceName -PropertyName 'AppRotateOnline' -Value 1
+Set-ServiceProperty -Name $serviceName -PropertyName 'AppRotateSeconds' -Value 0
+Set-ServiceProperty -Name $serviceName -PropertyName 'AppRotateBytes' -Value 500000
+
+Start-ServiceAndSetToAutoStart -Name $serviceName
+
+Copy-ScriptsToHooksDir -ScriptPaths @(Get-ChildItem -Path "$PSScriptRoot\hooks" | ForEach-Object { $_.FullName })
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'exthttpaccess' })
 
 Write-Log 'exthttpaccess enabled' -Console

@@ -4,11 +4,14 @@
 
 #Requires -RunAsAdministrator
 
-&$PSScriptRoot\..\..\smallsetup\common\GlobalVariables.ps1
+$k8sApiModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k8s-api/k8s-api.module.psm1"
+$configModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/config/config.module.psm1"
 
-&$global:KubectlExe wait --timeout=5s --for=condition=Available -n ingress-nginx deployment/ingress-nginx-controller 2>&1 | Out-Null
+Import-Module $k8sApiModule, $configModule
 
-$isIngressNginxRunningProp = @{Name = 'isIngressNginxRunningProp'; Value = $?; Okay = $? }
+Invoke-Kubectl -Params 'wait', '--timeout=5s', '--for=condition=Available', '-n', 'ingress-nginx', 'deployment/ingress-nginx-controller' | Out-Null
+
+$isIngressNginxRunningProp = @{Name = 'IsIngressNginxRunning'; Value = $?; Okay = $? }
 if ($isIngressNginxRunningProp.Value -eq $true) {
     $isIngressNginxRunningProp.Message = 'The ingress-nginx ingress controller is working'
 }
@@ -16,11 +19,12 @@ else {
     $isIngressNginxRunningProp.Message = "The ingress-nginx ingress controller is not working. Try restarting the cluster with 'k2s start' or disable and re-enable the addon with 'k2s addons disable ingress-nginx' and 'k2s addons enable ingress-nginx'"
 } 
 
-$externalIp = &$global:KubectlExe get service ingress-nginx-controller -n ingress-nginx -o jsonpath="{.spec.externalIPs[0]}"
+$externalIp = (Invoke-Kubectl -Params 'get', 'service', 'ingress-nginx-controller', '-n', 'ingress-nginx', '-o', 'jsonpath="{.spec.externalIPs[0]}"').Output
+$controlPlaneIp = Get-ConfiguredIPControlPlane
 
-$isExternalIPSetProp = @{Name = 'isExternalIPSetProp'; Value = ($externalIp -eq $global:IP_Master); Okay = ($externalIp -eq $global:IP_Master) }
+$isExternalIPSetProp = @{Name = 'IsExternalIPSet'; Value = ($externalIp -eq $controlPlaneIp); Okay = ($externalIp -eq $controlPlaneIp) }
 if ($isExternalIPSetProp.Value -eq $true) {
-    $isExternalIPSetProp.Message = "The external IP for ingress-nginx service is set to $global:IP_Master"
+    $isExternalIPSetProp.Message = "The external IP for ingress-nginx service is set to $controlPlaneIp"
 }
 else {
     $isExternalIPSetProp.Message = "The external IP for ingress-nginx service is not set properly. Try restarting the cluster with 'k2s start' or disable and re-enable the addon with 'k2s addons disable ingress-nginx' and 'k2s addons enable ingress-nginx'"
