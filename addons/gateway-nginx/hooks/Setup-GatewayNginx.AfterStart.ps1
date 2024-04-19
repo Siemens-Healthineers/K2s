@@ -12,8 +12,11 @@ Post-start hook to re-establish nginx gateway fabric.
 Post-start hook to re-establish nginx gateway fabric.
 #>
 
-Import-Module "$PSScriptRoot\..\..\smallsetup\ps-modules\log\log.module.psm1"
+$k8sApiModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k8s-api/k8s-api.module.psm1"
+# TODO: import log module again after migration has been finished
 
-kubectl delete pods --all -n nginx-gateway
+Import-Module $k8sApiModule
 
-Write-Log 'nginx gateway fabric re-established after cluster start.' -Console
+Invoke-Kubectl -Params 'delete', 'pods', '--all', '-n', 'nginx-gateway' | Out-Null
+
+Write-Log 'nginx gateway fabric re-established after cluster start' -Console
