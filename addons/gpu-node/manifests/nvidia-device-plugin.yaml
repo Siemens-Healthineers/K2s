@@ -34,7 +34,7 @@ spec:
       # See https://kubernetes.io/docs/tasks/administer-cluster/guaranteed-scheduling-critical-addon-pods/
       priorityClassName: "system-node-critical"
       containers:
-      - image: shsk2s.azurecr.io/k8s-device-plugin:251066e0-ubi8
+      - image: nvcr.io/nvidia/k8s-device-plugin:v0.15.0-ubi8
         imagePullPolicy: IfNotPresent
         #https://github.com/NVIDIA/k8s-device-plugin/issues/332
         name: nvidia-device-plugin-ctr
