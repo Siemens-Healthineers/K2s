@@ -144,8 +144,9 @@ function Initialize-WinNode {
         Set-ConfigInstalledKubernetesVersion -Value $KubernetesVersion
 
         Initialize-Networking -HostVM:$HostVM -HostGW:$HostGW
-    } else {
-        Write-Log "Skipping networking setup on windows node"
+    }
+    else {
+        Write-Log 'Skipping networking setup on windows node'
     }
 
     Install-WinNodeArtifacts -Proxy "$Proxy" -HostVM:$HostVM -SkipClusterSetup:$SkipClusterSetup
@@ -228,9 +229,9 @@ function Clear-WinNode {
 
         Remove-Item -Path "$kubeBinPath\plink.exe" -Force -ErrorAction SilentlyContinue
         Remove-Item -Path "$kubeBinPath\pscp.exe" -Force -ErrorAction SilentlyContinue
-    }
 
-    Remove-Nssm
+        Remove-Nssm
+    }
 
     Invoke-DownloadsCleanup -DeleteFilesForOfflineInstallation $DeleteFilesForOfflineInstallation
 }
