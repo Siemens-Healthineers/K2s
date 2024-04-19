@@ -24,16 +24,12 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
     [string] $MessageType
 )
-&$PSScriptRoot\..\..\smallsetup\common\GlobalVariables.ps1
-. $PSScriptRoot\..\..\smallsetup\common\GlobalFunctions.ps1
-. $PSScriptRoot\Common.ps1
-
-$logModule = "$PSScriptRoot/../../smallsetup/ps-modules/log/log.module.psm1"
-$statusModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/status/status.module.psm1"
-$addonsModule = "$PSScriptRoot\..\addons.module.psm1"
+$clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
+$addonsModule = "$PSScriptRoot\..\addons.v2.module.psm1"
+$commonModule = "$PSScriptRoot\common.module.psm1"
 
-Import-Module $logModule, $addonsModule, $statusModule, $infraModule
+Import-Module $clusterModule, $infraModule, $addonsModule, $commonModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -52,7 +48,7 @@ if ($systemError) {
 
 Write-Log 'Check whether ingress-nginx addon is already disabled'
 
-if ($null -eq (&$global:KubectlExe get namespace ingress-nginx --ignore-not-found) -or (Test-IsAddonEnabled -Name 'ingress-nginx') -ne $true) {
+if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'ingress-nginx', '--ignore-not-found').Output -or (Test-IsAddonEnabled -Name 'ingress-nginx') -ne $true) {
     $errMsg = "Addon 'ingress-nginx' is already disabled, nothing to do."
 
     if ($EncodeStructuredOutput -eq $true) {
@@ -67,9 +63,9 @@ if ($null -eq (&$global:KubectlExe get namespace ingress-nginx --ignore-not-foun
 
 Write-Log 'Uninstalling ingress-nginx' -Console
 $ingressNginxConfig = Get-IngressNginxConfig
-&$global:KubectlExe delete -f "$ingressNginxConfig" | Write-Log
 
-&$global:KubectlExe delete ns 'ingress-nginx' | Write-Log
+(Invoke-Kubectl -Params 'delete' , '-f', $ingressNginxConfig).Output | Write-Log
+(Invoke-Kubectl -Params 'delete', 'ns', 'ingress-nginx').Output | Write-Log
 
 Remove-AddonFromSetupJson -Name 'ingress-nginx'
 
