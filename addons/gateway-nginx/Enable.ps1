@@ -25,11 +25,46 @@ Param (
   [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
   [string] $MessageType
 )
+
+&$PSScriptRoot\..\..\smallsetup\common\GlobalVariables.ps1
+. $PSScriptRoot\..\..\smallsetup\common\GlobalFunctions.ps1
+
 $clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $addonsModule = "$PSScriptRoot\..\addons.v2.module.psm1"
+$setupModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/setupinfo/setupinfo.module.psm1"
 
-Import-Module $clusterModule, $infraModule, $addonsModule
+Import-Module $clusterModule, $infraModule, $addonsModule, $setupModule
+
+function Add-GatewayHostEntry {
+  Write-Log 'Configuring nodes access' -Console
+  $gatewayIP = $global:IP_Master
+  $gatewayHost = 'k2s-gateway.local'
+
+  # Enable gateway access on linux node
+  $hostEntry = $($gatewayIP + ' ' + $gatewayHost)
+  ExecCmdMaster "grep -qxF `'$hostEntry`' /etc/hosts || echo $hostEntry | sudo tee -a /etc/hosts"
+
+  # In case of multi-vm, enable access on windows node
+  $setupInfo = Get-SetupInfo
+  if ($setupInfo.Name -eq $global:SetupType_MultiVMK8s -and $setupInfo.LinuxOnly -ne $true) {
+    $session = Open-RemoteSessionViaSSHKey $global:Admin_WinNode $global:WindowsVMKey
+
+    Invoke-Command -Session $session {
+      Set-Location "$env:SystemDrive\k"
+      Set-ExecutionPolicy Bypass -Force -ErrorAction Stop
+
+      if (!$(Get-Content 'C:\Windows\System32\drivers\etc\hosts' | % { $_ -match $using:hostEntry }).Contains($true)) {
+        Add-Content 'C:\Windows\System32\drivers\etc\hosts' $using:hostEntry
+      }
+    }
+  }
+
+  # finally, add entry in the host to be enable access
+  if (!$(Get-Content 'C:\Windows\System32\drivers\etc\hosts' | % { $_ -match $hostEntry }).Contains($true)) {
+    Add-Content 'C:\Windows\System32\drivers\etc\hosts' $hostEntry
+  }
+}
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
