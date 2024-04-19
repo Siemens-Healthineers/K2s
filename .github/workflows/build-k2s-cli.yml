@@ -14,6 +14,8 @@ on:
       - "main"
     paths:
       - 'k2s/**'
+    paths-ignore:
+      - 'k2s/test/**'
 
 env:
   GOVERSION: "1.21.5"
