@@ -18,6 +18,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gstruct"
 )
 
 const validPort = "54321"
@@ -111,13 +112,35 @@ var _ = Describe("'exthttpaccess' addon", Ordered, func() {
 	})
 
 	When("addon is enabled", func() {
-		BeforeAll(func(ctx context.Context) {
-			output := suite.K2sCli().Run(ctx, "addons", "status", "exthttpaccess", "-o", "json")
+		Describe("status", func() {
+			It("displays status correctly", func(ctx context.Context) {
+				output := suite.K2sCli().Run(ctx, "addons", "status", "exthttpaccess")
 
-			var status status.AddonPrintStatus
+				Expect(output).To(SatisfyAll(
+					MatchRegexp("ADDON STATUS"),
+					MatchRegexp(`Addon .+exthttpaccess.+ is .+enabled.+`),
+					MatchRegexp("The nginx reverse proxy is working"),
+				))
 
-			Expect(json.Unmarshal([]byte(output), &status)).To(Succeed())
-			Expect(*status.Enabled).To(BeTrue())
+				output = suite.K2sCli().Run(ctx, "addons", "status", "exthttpaccess", "-o", "json")
+
+				var status status.AddonPrintStatus
+
+				Expect(json.Unmarshal([]byte(output), &status)).To(Succeed())
+
+				Expect(status.Name).To(Equal("exthttpaccess"))
+				Expect(status.Error).To(BeNil())
+				Expect(status.Enabled).NotTo(BeNil())
+				Expect(*status.Enabled).To(BeTrue())
+				Expect(status.Props).NotTo(BeNil())
+				Expect(status.Props).To(ContainElement(
+					SatisfyAll(
+						HaveField("Name", "IsNginxRunning"),
+						HaveField("Value", true),
+						HaveField("Okay", gstruct.PointTo(BeTrue())),
+						HaveField("Message", gstruct.PointTo(ContainSubstring("The nginx reverse proxy is working")))),
+				))
+			})
 		})
 
 		Describe("enable", func() {

@@ -24,15 +24,12 @@ Param(
   [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
   [string] $MessageType
 )
-&$PSScriptRoot\..\..\smallsetup\common\GlobalVariables.ps1
-. $PSScriptRoot\..\..\smallsetup\common\GlobalFunctions.ps1
-
-$logModule = "$PSScriptRoot/../../smallsetup/ps-modules/log/log.module.psm1"
 $statusModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/status/status.module.psm1"
-$addonsModule = "$PSScriptRoot\..\addons.module.psm1"
 $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
+$addonsModule = "$PSScriptRoot\..\addons.v2.module.psm1"
+$commonModule = "$PSScriptRoot\common.module.psm1"
 
-Import-Module $logModule, $addonsModule, $statusModule, $infraModule
+Import-Module $statusModule, $infraModule, $addonsModule, $commonModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -64,17 +61,7 @@ if ( (Test-IsAddonEnabled -Name 'exthttpaccess') -ne $true) {
   exit 1
 }
 
-# stop nginx service
-Write-Log 'Stop nginx service' -Console
-&$global:NssmInstallDirectory\nssm stop nginx-ext | Write-Log
-
-# remove nginx service
-Write-Log 'Remove nginx service' -Console
-&$global:NssmInstallDirectory\nssm remove nginx-ext confirm | Write-Log
-
-# cleanup installation directory
-Remove-Item -Recurse -Force "$global:BinPath\nginx" | Out-Null
-
+Remove-Nginx
 Remove-ScriptsFromHooksDir -ScriptNames $hookFileNames
 Remove-AddonFromSetupJson -Name 'exthttpaccess'
 
