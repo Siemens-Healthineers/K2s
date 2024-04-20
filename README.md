@@ -27,7 +27,7 @@ See [Features](/doc/K8s_Features.md) for a full list of features.
 
 ## Quickstart
 
-Extract the downloaded [K2s.zip](https://github.com/Siemens-Healthineers/K2s/releases) file to a folder of your choice (use **C:** drive if possible), open a command prompt as Administrator and navigate to the installation folder.
+Get **K2s** into a folder of your choice as [described here](doc/K8s_Get-K2s.md) (use **C:** drive if possible), open a command prompt as Administrator and navigate to the installation folder.
 
 Install **K2s** with (ensure to verify the [Prerequisites](./doc/k2scli/install-uninstall_cmd.md#prerequisites) first):
 ```
