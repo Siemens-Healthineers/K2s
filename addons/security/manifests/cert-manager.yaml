@@ -5629,7 +5629,10 @@ spec:
           - --leader-election-namespace=kube-system
           - --acme-http01-solver-image=quay.io/jetstack/cert-manager-acmesolver:v1.14.4
           - --max-concurrent-challenges=60
-          - --feature-gates=ExperimentalGatewayAPISupport=true
+# TODO:
+# the folowing line causes a failure if the addon gateway-nginx is not activated
+# we need a way to enable this line only when gatewy-nginx is also activated
+#          - --feature-gates=ExperimentalGatewayAPISupport=true
           ports:
           - containerPort: 9402
             name: http-metrics
