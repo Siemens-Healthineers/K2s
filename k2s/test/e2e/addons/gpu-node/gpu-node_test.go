@@ -136,12 +136,12 @@ var _ = Describe("'gpu-node' addon", Ordered, func() {
 			Expect(status.Props).NotTo(BeNil())
 			Expect(status.Props).To(ContainElements(
 				SatisfyAll(
-					HaveField("Name", "isDevicePluginRunning"),
+					HaveField("Name", "IsDevicePluginRunning"),
 					HaveField("Value", true),
 					HaveField("Okay", gstruct.PointTo(BeTrue())),
 					HaveField("Message", gstruct.PointTo(ContainSubstring("The gpu node is working")))),
 				SatisfyAll(
-					HaveField("Name", "isDCGMExporterRunning"),
+					HaveField("Name", "IsDCGMExporterRunning"),
 					HaveField("Value", true),
 					HaveField("Okay", gstruct.PointTo(BeTrue())),
 					HaveField("Message", gstruct.PointTo(MatchRegexp("The DCGM exporter is working")))),
