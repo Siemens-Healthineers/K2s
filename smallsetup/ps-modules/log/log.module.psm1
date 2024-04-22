@@ -187,5 +187,30 @@ function Save-Log {
     }
 }
 
+<#
+.SYNOPSIS
+Removes log file
+
+.DESCRIPTION
+Removes log file for fresh installation if AppendLogFile
+
+.PARAMETER AppendLogFile
+If set then log file will not deleted
+
+.EXAMPLE
+Reset-LogFile -AppendLogFile:$true
+#>
+function Reset-LogFile {
+    param (
+        [Parameter(Mandatory = $false, HelpMessage = 'Write all messages to console and log file.')]
+        [switch] $AppendLogFile = $false
+    )
+    #cleanup old logs
+    if ( -not  $AppendLogFile) {
+        Remove-Item -Path $k2sLogFile -Force -Recurse -ErrorAction SilentlyContinue
+    }
+}
+
+
 Export-ModuleMember -Variable KubePath, k2sLogFilePart, k2sLogFile
-Export-ModuleMember -Function Initialize-Logging, Write-Log, Save-Log
+Export-ModuleMember -Function Initialize-Logging, Write-Log, Save-Log, Reset-LogFile
