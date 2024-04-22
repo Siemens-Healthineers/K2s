@@ -31,10 +31,45 @@ Writes the usage notes for security for the user.
 #>
 function Write-UsageForUser {
     @'
-USAGE NOTES
+THIS ADDON IS EXPERIMENTAL
 
+The following features are available:
+1. cert-manager: The CA Issuer named 'k2s-ca-issuer' has beed created and can 
+   be used for signing. Example usage:
+   ---
+   apiVersion: networking.k8s.io/v1
+   kind: Ingress
+   metadata:
+   annotations:
+       ...
+       cert-manager.io/cluster-issuer: k2s-ca-issuer
+       cert-manager.io/common-name: your-ingress-host.domain
+   ...
+   spec:
+   ...
+   tls:
+   - hosts:
+       - your-ingress-host.domain
+       secretName: your-secret-name
+   ---
 This addon is documented in <installation folder>\addons\security\README.md
-'@ -split "`r`n" | ForEach-Object { Write-Host $_ }
+'@ -split "`r`n" | ForEach-Object { Write-Log $_ -Console }
+}
+
+<#
+.DESCRIPTION
+Writes the usage notes for security for the user.
+#>
+function Write-WarningForUser {
+    @'
+    
+ATTENTION:
+If you disable this add-on, the sites protected by cert-manager certificates 
+will become untrusted. Delete the HSTS settings for your site (e.g. 'k2s-dashboard.local')
+here (works in Chrome and Edge):
+chrome://net-internals/#hsts
+  
+'@ -split "`r`n" | ForEach-Object { Write-Log $_ -Console }
 }
 
 <#

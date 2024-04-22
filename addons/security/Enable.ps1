@@ -132,9 +132,10 @@ Remove-Item C:\Temp\ca-root-secret.crt
 
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'security' })
 
-Write-UsageForUser
-
 Write-Log 'Installation of security finished.' -Console
+
+Write-UsageForUser
+Write-WarningForUser
 
 if ($EncodeStructuredOutput -eq $true) {
     Send-ToCli -MessageType $MessageType -Message @{Error = $null }

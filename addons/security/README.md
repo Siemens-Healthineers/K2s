@@ -4,7 +4,7 @@ SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
 SPDX-License-Identifier: MIT
 -->
 
-# security addon
+# security addon - EXPERIMENTAL
 
 Enables secure communication into / out of the cluster (basic) and inside the cluster (advanced).
 
@@ -71,3 +71,15 @@ k2s addons disable cert-manager
 
 - Docs: <https://cert-manager.io/docs/>
 - Code: <https://github.com/cert-manager/cert-manager>
+
+## Knowledge Base
+
+- **HSTS:** Browsers keep track on several security-related properties of web sites. If they encounter weaker security settings that they encountered last time, they assume it is an attack and will not allow the navigation to that site. This is the case when you enable the security addon, browse a secure site of your cluster, and then disable the security addon. The browser will not trust the site you used before anymore.
+
+  You can **reset HSTS** of your site stored by your browser by navigating to:
+
+  ```cmd
+  chrome://net-internals/#hsts
+  ```
+
+  and deleting the settings for your site.

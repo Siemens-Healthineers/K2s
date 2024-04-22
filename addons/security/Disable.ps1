@@ -70,6 +70,8 @@ $caIssuerConfig = Get-CAIssuerConfig
 Remove-AddonFromSetupJson -Name 'security'
 Write-Log 'Uninstallation of security finished' -Console
 
+Write-WarningForUser
+
 if ($EncodeStructuredOutput -eq $true) {
     Send-ToCli -MessageType $MessageType -Message @{Error = $null }
 }

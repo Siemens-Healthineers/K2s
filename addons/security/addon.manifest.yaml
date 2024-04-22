@@ -6,7 +6,7 @@ apiVersion: v1
 kind: AddonManifest
 metadata:
   name: security
-  description: Enables secure communication into and inside the cluster
+  description: "EXPERIMENTAL: Enables secure communication into and inside the cluster"
 spec:
   offline_usage:
     linux:
