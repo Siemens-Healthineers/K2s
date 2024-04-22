@@ -438,6 +438,32 @@ func (c *Cluster) ExpectPodToBeReady(name string, namespace string, hostname str
 	Expect(wait.For(condition, c.waitOptions()...)).To(Succeed())
 }
 
+func (c *Cluster) ExpectPodToBeCompleted(name string, namespace string) {
+	pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace}}
+
+	condition := conditions.New(c.Client().Resources(namespace)).ResourceMatch(pod, func(object k8sklient.Object) bool {
+		foundPod := object.(*corev1.Pod)
+
+		statuses := foundPod.Status.ContainerStatuses
+		if len(statuses) != 1 {
+			return false
+		}
+
+		terminated := statuses[0].State.Terminated
+		if terminated == nil {
+			return false
+		}
+
+		return terminated.ExitCode == 0
+	})
+
+	GinkgoWriter.Println("Waiting for container in Pod <", name, "> (namespace ", namespace, ">) to exit with exit code zero..")
+
+	Expect(wait.For(condition, c.waitOptions()...)).To(Succeed())
+
+	GinkgoWriter.Println("Pod <", name, "> completed")
+}
+
 func (c *Cluster) ExpectPodsUnderDeploymentReady(ctx context.Context, labelName string, deploymentName string, namespace string) {
 	client := c.Client()
 	clientSet, err := kubernetes.NewForConfig(client.Resources().GetConfig())
