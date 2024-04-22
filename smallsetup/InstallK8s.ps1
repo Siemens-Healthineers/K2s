@@ -87,9 +87,10 @@ Param(
 
 $logModule = "$PSScriptRoot\ps-modules\log\log.module.psm1"
 $proxyModule = "$PSScriptRoot\ps-modules\proxy\proxy.module.psm1"
+$temporaryPathModule = "$PSScriptRoot\ps-modules\only-while-refactoring\installation\still-to-merge.path.module.psm1"
 $systemModule = "$PSScriptRoot\..\lib\modules\k2s\k2s.node.module\windowsnode\system\system.module.psm1"
 
-Import-Module $logModule, $systemModule, $proxyModule
+Import-Module $logModule, $systemModule, $proxyModule, $temporaryPathModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -119,7 +120,7 @@ if ( $MasterDiskSize -lt 50GB ) {
 }
 Write-Log "Using Master VM Diskspace: $([math]::round($MasterDiskSize/1GB, 2))GB"
 
-Set-EnvVars
+Set-EnvironmentPaths
 
 $Proxy = Get-OrUpdateProxyServer -Proxy:$Proxy
 
@@ -380,5 +381,5 @@ Write-Log '---------------------------------------------------------------'
 Write-Log "K2s setup finished.   Total duration: $('{0:hh\:mm\:ss}' -f $installStopwatch.Elapsed )"
 Write-Log '---------------------------------------------------------------'
 
-Write-RefreshEnvVariables
+Write-RefreshEnvironmentPathsMessage
 
