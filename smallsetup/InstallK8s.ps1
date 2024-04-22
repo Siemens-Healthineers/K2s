@@ -101,9 +101,7 @@ if ($Trace) {
 $installStopwatch = [system.diagnostics.stopwatch]::StartNew()
 
 #cleanup old logs
-if ( -not  $AppendLogFile) {
-    Remove-Item -Path $global:k2sLogFile -Force -Recurse -ErrorAction SilentlyContinue
-}
+Reset-LogFile -AppendLogFile:$AppendLogFile
 
 Write-Log "Using Master VM ProcessorCount: $MasterVMProcessorCount"
 
