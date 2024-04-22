@@ -347,34 +347,36 @@ Write-KubernetesImagesIntoJson
 if (! $SkipStart) {
     Write-Log 'Starting Kubernetes System'
     & "$global:KubernetesPath\smallsetup\StartK8s.ps1" -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs
-}
 
-if ( ($RestartAfterInstallCount -gt 0) -and (! $SkipStart) ) {
-    $restartCount = 0;
-
-    while ($true) {
-        $restartCount++
-        Write-Log "Restarting Kubernetes System (iteration #$restartCount):"
-
-        & "$global:KubernetesPath\smallsetup\StopK8s.ps1" -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs
-        Start-Sleep 10 # Wait for renew of IP
-
-        & "$global:KubernetesPath\smallsetup\StartK8s.ps1" -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs
-        Start-Sleep -s 5
-
-        if ($restartCount -eq $RestartAfterInstallCount) {
-            Write-Log 'Restarting Kubernetes System Completed'
-            break;
+    if ($RestartAfterInstallCount -gt 0) {
+        $restartCount = 0;
+    
+        while ($true) {
+            $restartCount++
+            Write-Log "Restarting Kubernetes System (iteration #$restartCount):"
+    
+            & "$global:KubernetesPath\smallsetup\StopK8s.ps1" -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs
+            Start-Sleep 10 # Wait for renew of IP
+    
+            & "$global:KubernetesPath\smallsetup\StartK8s.ps1" -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs
+            Start-Sleep -s 5
+    
+            if ($restartCount -eq $RestartAfterInstallCount) {
+                Write-Log 'Restarting Kubernetes System Completed'
+                break;
+            }
         }
     }
+
+    # show results
+    Write-Log "Current state of kubernetes nodes:`n"
+    Start-Sleep 2
+    &$global:KubectlExe get nodes -o wide
+} else {
+    & "$global:KubernetesPath\smallsetup\StopK8s.ps1" -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs
 }
 
 Invoke-Hook -HookName 'AfterBaseInstall' -AdditionalHooksDir $AdditionalHooksDir
-
-# show results
-Write-Log "Current state of kubernetes nodes:`n"
-Start-Sleep 2
-&$global:KubectlExe get nodes -o wide
 
 Write-Log '---------------------------------------------------------------'
 Write-Log "K2s setup finished.   Total duration: $('{0:hh\:mm\:ss}' -f $installStopwatch.Elapsed )"
