@@ -96,6 +96,8 @@ if ($dashboardStatus -ne $true) {
 
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'dashboard' })
 
+Add-DashboardHostEntry
+
 switch ($Ingress) {
     'ingress-nginx' {
         Write-Log 'Deploying ingress-nginx addon for external access to dashboard...' -Console

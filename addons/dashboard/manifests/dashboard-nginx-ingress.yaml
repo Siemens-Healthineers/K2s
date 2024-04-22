@@ -7,6 +7,8 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   annotations:
+    cert-manager.io/cluster-issuer: k2s-ca-issuer
+    cert-manager.io/common-name: k2s-dashboard.local
     nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
   name: dashboard
   namespace: kubernetes-dashboard
@@ -23,3 +25,7 @@ spec:
                 number: 443
           pathType: Prefix
           path: /
+  tls:
+  - hosts:
+    - k2s-dashboard.local
+    secretName: dashboard-tls
