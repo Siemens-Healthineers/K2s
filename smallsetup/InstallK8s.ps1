@@ -124,7 +124,7 @@ Set-EnvironmentPaths
 
 $Proxy = Get-OrUpdateProxyServer -Proxy:$Proxy
 
-Addk2sToDefenderExclusion
+Add-K2sToDefenderExclusion
 
 Stop-InstallationIfDockerDesktopIsRunning
 
