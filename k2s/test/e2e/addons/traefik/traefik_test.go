@@ -58,6 +58,35 @@ var _ = Describe("'traefik' addon", Ordered, func() {
 		Expect(output).To(ContainSubstring("already disabled"))
 	})
 
+	Describe("status", func() {
+		Context("default output", func() {
+			It("displays disabled message", func(ctx context.Context) {
+				output := suite.K2sCli().Run(ctx, "addons", "status", "traefik")
+
+				Expect(output).To(SatisfyAll(
+					MatchRegexp(`ADDON STATUS`),
+					MatchRegexp(`Addon .+traefik.+ is .+disabled.+`),
+				))
+			})
+		})
+
+		Context("JSON output", func() {
+			It("displays JSON", func(ctx context.Context) {
+				output := suite.K2sCli().Run(ctx, "addons", "status", "traefik", "-o", "json")
+
+				var status status.AddonPrintStatus
+
+				Expect(json.Unmarshal([]byte(output), &status)).To(Succeed())
+
+				Expect(status.Name).To(Equal("traefik"))
+				Expect(status.Enabled).NotTo(BeNil())
+				Expect(*status.Enabled).To(BeFalse())
+				Expect(status.Props).To(BeNil())
+				Expect(status.Error).To(BeNil())
+			})
+		})
+	})
+
 	It("is in enabled state and pods are in running state", func(ctx context.Context) {
 		suite.K2sCli().Run(ctx, "addons", "enable", "traefik", "-o")
 
