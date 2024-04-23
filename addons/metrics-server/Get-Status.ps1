@@ -4,9 +4,11 @@
 
 #Requires -RunAsAdministrator
 
-&$global:KubectlExe wait --timeout=5s --for=condition=Available -n kube-system deployment/metrics-server 2>&1 | Out-Null
+Import-Module "$PSScriptRoot/../../lib\modules\k2s\k2s.cluster.module\k8s-api\k8s-api.module.psm1"
 
-$isMetricsServerRunningProp = @{Name = 'isMetricsServerRunningProp'; Value = $?; Okay = $? }
+Invoke-Kubectl -Params 'wait', '--timeout=5s', '--for=condition=Available', '-n', 'kube-system', 'deployment/metrics-server' | Out-Null
+
+$isMetricsServerRunningProp = @{Name = 'IsMetricsServerRunning'; Value = $?; Okay = $? }
 if ($isMetricsServerRunningProp.Value -eq $true) {
     $isMetricsServerRunningProp.Message = 'The metrics server is working'
 }
@@ -14,4 +16,4 @@ else {
     $isMetricsServerRunningProp.Message = "The metrics server is not working. Try restarting the cluster with 'k2s start' or disable and re-enable the addon with 'k2s addons disable metrics-server' and 'k2s addons enable metrics-server'"
 } 
 
-return ,@($isMetricsServerRunningProp)
+return , @($isMetricsServerRunningProp)
