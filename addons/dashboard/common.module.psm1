@@ -12,13 +12,6 @@ $linuxNodeModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.node.module/linuxnod
 Import-Module $clusterModule, $infraModule, $vmNodeModule, $linuxNodeModule
 
 <#
-.SYNOPSIS
-Contains common methods for installing and uninstalling Kubernetes Dashboard UI
-#>
-
-Import-Module "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/setupinfo/setupinfo.module.psm1"
-
-<#
 .DESCRIPTION
 Gets the location of manifests to deploy dashboard dashboard
 #>
