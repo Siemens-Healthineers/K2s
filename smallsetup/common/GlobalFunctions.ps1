@@ -1306,19 +1306,22 @@ processors=$MasterVMProcessorCount
 }
 
 function Set-WSLSwitch() {
-    $wslSwitch = 'WSL'
+    $wslSwitch = 'WSL*'
     Write-Log "Configuring internal switch $wslSwitch"
 
     $iteration = 60
     while ($iteration -gt 0) {
         $iteration--
-        $ipindex = Get-NetAdapter -Name "vEthernet ($wslSwitch)" -ErrorAction SilentlyContinue | select -expand 'ifIndex'
+        $ipindex = Get-NetAdapter -Name "vEthernet ($wslSwitch)" -ErrorAction SilentlyContinue -IncludeHidden | Select-Object -expandproperty 'ifIndex'
+        $interfaceAlias = Get-NetAdapter -Name "vEthernet ($wslSwitch)" -ErrorAction SilentlyContinue -IncludeHidden | Select-Object -expandproperty name
         $oldIp = $null
         if ($ipindex) {
+            # needs some sync time
+            Start-Sleep 2
             $oldIp = (Get-NetIPAddress -InterfaceIndex $ipindex).IPAddress
         }
         if ($ipindex -and $oldIp) {
-            Write-Log "ifindex of vEthernet ($wslSwitch): $ipindex"
+            Write-Log "ifindex of ${interfaceAlias}: $ipindex"
             Write-Log "Old ip: $oldIp"
             if ($oldIp) {
                 foreach ($ip in $oldIp) {
@@ -1337,12 +1340,12 @@ function Set-WSLSwitch() {
         throw "No vEthernet ($wslSwitch) found!"
     }
 
-    New-NetIPAddress -IPAddress $global:IP_NextHop -PrefixLength 24 -InterfaceAlias "vEthernet ($wslSwitch)"
+    New-NetIPAddress -IPAddress $global:IP_NextHop -PrefixLength 24 -InterfaceAlias $interfaceAlias
     # enable forwarding
-    netsh int ipv4 set int "vEthernet ($wslSwitch)" forwarding=enabled | Out-Null
+    netsh int ipv4 set int $interfaceAlias forwarding=enabled | Out-Null
     # change index in order to have the Ethernet card as first card (also for much better DNS queries)
-    $ipindex1 = Get-NetIPInterface | ? InterfaceAlias -Like "*$wslSwitch*" | ? AddressFamily -Eq IPv4 | select -expand 'ifIndex'
-    Write-Log "Index for interface $wslSwitch : ($ipindex1) -> metric 25"
+    $ipindex1 = Get-NetIPInterface | ? InterfaceAlias -Like $interfaceAlias | ? AddressFamily -Eq IPv4 | select -expand 'ifIndex'
+    Write-Log "Index for interface $interfaceAlias : ($ipindex1) -> metric 25"
     Set-NetIPInterface -InterfaceIndex $ipindex1 -InterfaceMetric 25
 }
 
