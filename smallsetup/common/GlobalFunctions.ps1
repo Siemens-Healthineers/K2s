@@ -1154,7 +1154,7 @@ function Enable-MissingFeature {
 function Enable-MissingWindowsFeatures($wsl) {
     $restartRequired = $false
 
-    $isServerOS = (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion').ProductName.Contains("Server")
+    $isServerOS = (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion').ProductName.Contains('Server')
 
     $features = @('Microsoft-Hyper-V', 'Microsoft-Hyper-V-Management-PowerShell', 'Containers', 'VirtualMachinePlatform')
 
@@ -1656,7 +1656,7 @@ function CreateExternalSwitch {
     )
 
     $found = Get-HNSNetwork | ? Name -Like "$global:L2BridgeSwitchName"
-    if( $found ) {
+    if ( $found ) {
         Write-Log "L2 bridge network switch name: $global:L2BridgeSwitchName already exists"
         return
     }
@@ -2109,25 +2109,6 @@ function Get-LinuxOsType {
         return $global:LinuxOsType_DebianCloud
     }
     return $linuxOsType
-}
-
-<#
-.SYNOPSIS
-Log Error Message and Throw Exception.
-
-.DESCRIPTION
-Based on ErrorActionPreference, error is logged and thrown to the caller
-#>
-function Log-ErrorWithThrow ([string]$ErrorMessage) {
-    if ($ErrorActionPreference -eq 'Stop') {
-        #If Stop is the ErrorActionPreference from the caller then Write-Error throws an exception which is not logged in k2s.log file.
-        #So we need to write a warning to capture error message.
-        Write-Warning "$ErrorMessage"
-    }
-    else {
-        Write-Error "$ErrorMessage"
-    }
-    throw $ErrorMessage
 }
 
 <#
