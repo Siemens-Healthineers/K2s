@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: © 2024 Siemens Healthcare GmbH
+
+SPDX-License-Identifier: MIT
+-->
+
 # Secure Host Access
 
 K2s provides three addons which can be used to expose the functionality implemented inside the kubernetes cluster outside of it: `ingress-nginx`,
@@ -53,8 +59,8 @@ For this you need a server certificate issued by a trusted authority for the fqd
     }
     ```
 
-    * the `sub_filter` will replace e.g. `<base href="/app/"/>` with `<base href="/my-product/app/"/>`
-    * the `proxy_buffering` needs to be turned off if the application uses  Server-Side-Events, which is a GET on an URL which is kept alive and on which the server can send events from time to time, to notify the UI about changes.
+    * the `sub_filter` will replace e.g. `<base href="/app/"/>` with `<base href="/my-product/app/"/>`, and is needed for apps with static base href. The dashboard has dynamic base href and need no path re-write.
+    * the `proxy_buffering` needs to be turned off if the application uses  [Server-Send-Events](https://javascript.info/server-sent-events)
 
 3. Restart nginx-ext using `nssm`, to use the updated configuration file:
 
@@ -171,13 +177,9 @@ Open Points:
 When configuring reverse proxies, special attention and test effort must be spent to ensure that URLs are properly handled, in case they are pointing to the services being re-directed to.
 
 In our example above, the `my-product.local` app makes several calls to APIs using relative URLs.
-The app is designed to work e.g. at `my-product.local/app`, and encodes the `<base href="/app/">`.
-But when the application is accessed through the secure url at e.g. `my-host.my-domain.com/my-product/app`, the base url must be rewritten to `<base href="/my-product/app/">`.
+The app is designed to work e.g. at `my-product.local/`, and encodes the `<base href="/">`.
+But when the application is accessed through the secure url at e.g. `my-host.my-domain.com/my-product`, the base url must be rewritten to `<base href="/my-product/">`.
 
-This is solved for `my-product` by outbound rules, which inspects the responses and make the necessary changes, in both examples above.
+This is solved for `my-product` by outbound rules, which inspects the responses and make the necessary changes for the `<base href.../>`
 
-For the dashboard, which is not setting the BASE HREF at all, and is installed at the root of the upstream, no change is necessary.
-
-See the following stack overflow for a pertinent discussion on how the handling of the BASE for Relative URLs shall be done:
-
-<https://stackoverflow.com/questions/2157983/is-there-an-http-header-to-say-what-base-url-to-use-for-relative-links>
+For the dashboard, no change is necessary, because it detects and sets the base href dynamically, [see the code.](https://github.com/kubernetes/dashboard/blob/dde23c41c6ee7e85194dc897cf73ee0f781f7d99/modules/web/src/index.html#L32)

@@ -87,9 +87,10 @@ Param(
 
 $logModule = "$PSScriptRoot\ps-modules\log\log.module.psm1"
 $proxyModule = "$PSScriptRoot\ps-modules\proxy\proxy.module.psm1"
+$temporaryPathModule = "$PSScriptRoot\ps-modules\only-while-refactoring\installation\still-to-merge.path.module.psm1"
 $systemModule = "$PSScriptRoot\..\lib\modules\k2s\k2s.node.module\windowsnode\system\system.module.psm1"
 
-Import-Module $logModule, $systemModule, $proxyModule
+Import-Module $logModule, $systemModule, $proxyModule, $temporaryPathModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -101,9 +102,7 @@ if ($Trace) {
 $installStopwatch = [system.diagnostics.stopwatch]::StartNew()
 
 #cleanup old logs
-if ( -not  $AppendLogFile) {
-    Remove-Item -Path $global:k2sLogFile -Force -Recurse -ErrorAction SilentlyContinue
-}
+Reset-LogFile -AppendLogFile:$AppendLogFile
 
 Write-Log "Using Master VM ProcessorCount: $MasterVMProcessorCount"
 
@@ -121,13 +120,13 @@ if ( $MasterDiskSize -lt 50GB ) {
 }
 Write-Log "Using Master VM Diskspace: $([math]::round($MasterDiskSize/1GB, 2))GB"
 
-Set-EnvVars
+Set-EnvironmentPaths
 
 $Proxy = Get-OrUpdateProxyServer -Proxy:$Proxy
 
-Addk2sToDefenderExclusion
+Add-K2sToDefenderExclusion
 
-Stop-InstallationIfDockerDesktopIsRunning
+Stop-InstallIfDockerDesktopIsRunning
 
 if ( $K8sSetup -eq 'SmallSetup' ) {
     Write-Log 'Installing K2s'
@@ -347,38 +346,40 @@ Write-KubernetesImagesIntoJson
 if (! $SkipStart) {
     Write-Log 'Starting Kubernetes System'
     & "$global:KubernetesPath\smallsetup\StartK8s.ps1" -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs
-}
 
-if ( ($RestartAfterInstallCount -gt 0) -and (! $SkipStart) ) {
-    $restartCount = 0;
-
-    while ($true) {
-        $restartCount++
-        Write-Log "Restarting Kubernetes System (iteration #$restartCount):"
-
-        & "$global:KubernetesPath\smallsetup\StopK8s.ps1" -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs
-        Start-Sleep 10 # Wait for renew of IP
-
-        & "$global:KubernetesPath\smallsetup\StartK8s.ps1" -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs
-        Start-Sleep -s 5
-
-        if ($restartCount -eq $RestartAfterInstallCount) {
-            Write-Log 'Restarting Kubernetes System Completed'
-            break;
+    if ($RestartAfterInstallCount -gt 0) {
+        $restartCount = 0;
+    
+        while ($true) {
+            $restartCount++
+            Write-Log "Restarting Kubernetes System (iteration #$restartCount):"
+    
+            & "$global:KubernetesPath\smallsetup\StopK8s.ps1" -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs
+            Start-Sleep 10 # Wait for renew of IP
+    
+            & "$global:KubernetesPath\smallsetup\StartK8s.ps1" -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs
+            Start-Sleep -s 5
+    
+            if ($restartCount -eq $RestartAfterInstallCount) {
+                Write-Log 'Restarting Kubernetes System Completed'
+                break;
+            }
         }
     }
+
+    # show results
+    Write-Log "Current state of kubernetes nodes:`n"
+    Start-Sleep 2
+    &$global:KubectlExe get nodes -o wide
+} else {
+    & "$global:KubernetesPath\smallsetup\StopK8s.ps1" -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs
 }
 
 Invoke-Hook -HookName 'AfterBaseInstall' -AdditionalHooksDir $AdditionalHooksDir
-
-# show results
-Write-Log "Current state of kubernetes nodes:`n"
-Start-Sleep 2
-&$global:KubectlExe get nodes -o wide
 
 Write-Log '---------------------------------------------------------------'
 Write-Log "K2s setup finished.   Total duration: $('{0:hh\:mm\:ss}' -f $installStopwatch.Elapsed )"
 Write-Log '---------------------------------------------------------------'
 
-Write-RefreshEnvVariables
+Write-RefreshEnvironmentPathsMessage
 

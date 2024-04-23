@@ -158,35 +158,37 @@ Initialize-KubernetesCluster -AdditionalHooksDir $AdditionalHooksDir
 if (! $SkipStart) {
     Write-Log 'Starting Kubernetes System'
     & "$PSScriptRoot\..\start\Start.ps1" -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs -SkipHeaderDisplay
-}
 
-if ( ($RestartAfterInstallCount -gt 0) -and (! $SkipStart) ) {
-    $restartCount = 0;
-
-    while ($true) {
-        $restartCount++
-        Write-Log "Restarting Kubernetes System (iteration #$restartCount):"
-
-        & "$PSScriptRoot\..\stop\Stop.ps1" -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs -SkipHeaderDisplay
-        Start-Sleep 10 # Wait for renew of IP
-
-        & "$PSScriptRoot\..\start\Start.ps1" -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs -SkipHeaderDisplay
-        Start-Sleep -s 5
-
-        if ($restartCount -eq $RestartAfterInstallCount) {
-            Write-Log 'Restarting Kubernetes System Completed'
-            break;
+    if ($RestartAfterInstallCount -gt 0) {
+        $restartCount = 0;
+    
+        while ($true) {
+            $restartCount++
+            Write-Log "Restarting Kubernetes System (iteration #$restartCount):"
+    
+            & "$PSScriptRoot\..\stop\Stop.ps1" -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs -SkipHeaderDisplay
+            Start-Sleep 10 # Wait for renew of IP
+    
+            & "$PSScriptRoot\..\start\Start.ps1" -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs -SkipHeaderDisplay
+            Start-Sleep -s 5
+    
+            if ($restartCount -eq $RestartAfterInstallCount) {
+                Write-Log 'Restarting Kubernetes System Completed'
+                break;
+            }
         }
     }
+
+    # CURRENT STATE OF CLUSTER
+    Write-Log "Current state of kubernetes nodes:`n"
+    Start-Sleep 2
+    $kubeToolsPath = Get-KubeToolsPath
+    &"$kubeToolsPath\kubectl.exe" get nodes -o wide
+} else {
+    & "$PSScriptRoot\..\stop\Stop.ps1" -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs -SkipHeaderDisplay
 }
 
 Invoke-Hook -HookName 'AfterBaseInstall' -AdditionalHooksDir $AdditionalHooksDir
-
-# CURRENT STATE OF CLUSTER
-Write-Log "Current state of kubernetes nodes:`n"
-Start-Sleep 2
-$kubeToolsPath = Get-KubeToolsPath
-&"$kubeToolsPath\kubectl.exe" get nodes -o wide
 
 Write-Log '---------------------------------------------------------------'
 Write-Log "K2s setup finished.   Total duration: $('{0:hh\:mm\:ss}' -f $installStopwatch.Elapsed )"

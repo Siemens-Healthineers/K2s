@@ -12,7 +12,7 @@ The `gpu-node` addon provides the possibility to configure the KubeMaster Linux 
 ## Getting started
 
 ### Prerequisites
-In order to configure the GPU node you need to install the Nvidia drivers for the GPU on the Windows host machine first: https://www.nvidia.com/Download/index.aspx
+In order to configure the GPU node you need to install the latest Nvidia drivers for the GPU on the Windows host machine first: https://www.nvidia.com/Download/index.aspx
 
 **NOTE:** A reboot may be necessary.
 
