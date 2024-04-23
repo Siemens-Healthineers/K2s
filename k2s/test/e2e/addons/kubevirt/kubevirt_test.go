@@ -21,14 +21,19 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gstruct"
 )
 
-var suite *framework.K2sTestSuite
-var isManualExecution = false
+const (
+	manualExecutionFilterTag = "manual"
+	testWorkload             = "workloads/test.yaml"
+)
 
-const manualExecutionFilterTag = "manual"
-
-var automatedExecutionSkipMessage = fmt.Sprintf("can only be run using the filter value '%s'", manualExecutionFilterTag)
+var (
+	suite                         *framework.K2sTestSuite
+	isManualExecution             = false
+	automatedExecutionSkipMessage = fmt.Sprintf("can only be run using the filter value '%s'", manualExecutionFilterTag)
+)
 
 func TestAddon(t *testing.T) {
 	executionLabels := []string{"addon", "acceptance", "setup-required", "invasive", "kubevirt", "system-running"}
@@ -63,6 +68,35 @@ var _ = Describe("'kubevirt' addon", Ordered, func() {
 			})
 		})
 
+		Describe("status", func() {
+			Context("default output", func() {
+				It("displays disabled message", func(ctx context.Context) {
+					output := suite.K2sCli().Run(ctx, "addons", "status", "kubevirt")
+
+					Expect(output).To(SatisfyAll(
+						MatchRegexp(`ADDON STATUS`),
+						MatchRegexp(`Addon .+kubevirt.+ is .+disabled.+`),
+					))
+				})
+			})
+
+			Context("JSON output", func() {
+				It("displays JSON", func(ctx context.Context) {
+					output := suite.K2sCli().Run(ctx, "addons", "status", "kubevirt", "-o", "json")
+
+					var status status.AddonPrintStatus
+
+					Expect(json.Unmarshal([]byte(output), &status)).To(Succeed())
+
+					Expect(status.Name).To(Equal("kubevirt"))
+					Expect(status.Enabled).NotTo(BeNil())
+					Expect(*status.Enabled).To(BeFalse())
+					Expect(status.Props).To(BeNil())
+					Expect(status.Error).To(BeNil())
+				})
+			})
+		})
+
 		Describe("enable", func() {
 			BeforeAll(func(ctx context.Context) {
 				if !isManualExecution {
@@ -93,22 +127,62 @@ var _ = Describe("'kubevirt' addon", Ordered, func() {
 			if !isManualExecution {
 				Skip(automatedExecutionSkipMessage)
 			}
+		})
 
-			output := suite.K2sCli().Run(ctx, "addons", "status", "kubevirt", "-o", "json")
+		It("prints the status", func(ctx context.Context) {
+			output := suite.K2sCli().Run(ctx, "addons", "status", "kubevirt")
+
+			Expect(output).To(SatisfyAll(
+				MatchRegexp("ADDON STATUS"),
+				MatchRegexp(`Addon .+kubevirt.+ is .+enabled.+`),
+				MatchRegexp("The virt-api is working"),
+				MatchRegexp("The virt-controller is working"),
+				MatchRegexp("The virt-operator is working"),
+				MatchRegexp("The virt-handler is working"),
+			))
+
+			output = suite.K2sCli().Run(ctx, "addons", "status", "kubevirt", "-o", "json")
 
 			var status status.AddonPrintStatus
 
 			Expect(json.Unmarshal([]byte(output), &status)).To(Succeed())
+
+			Expect(status.Name).To(Equal("kubevirt"))
+			Expect(status.Error).To(BeNil())
+			Expect(status.Enabled).NotTo(BeNil())
 			Expect(*status.Enabled).To(BeTrue())
+			Expect(status.Props).NotTo(BeNil())
+			Expect(status.Props).To(ContainElements(
+				SatisfyAll(
+					HaveField("Name", "IsVirtApiRunning"),
+					HaveField("Value", true),
+					HaveField("Okay", gstruct.PointTo(BeTrue())),
+					HaveField("Message", gstruct.PointTo(ContainSubstring("The virt-api is working")))),
+				SatisfyAll(
+					HaveField("Name", "IsVirtControllerRunning"),
+					HaveField("Value", true),
+					HaveField("Okay", gstruct.PointTo(BeTrue())),
+					HaveField("Message", gstruct.PointTo(MatchRegexp("The virt-controller is working")))),
+				SatisfyAll(
+					HaveField("Name", "IsVirtOperatorRunning"),
+					HaveField("Value", true),
+					HaveField("Okay", gstruct.PointTo(BeTrue())),
+					HaveField("Message", gstruct.PointTo(ContainSubstring("The virt-operator is working")))),
+				SatisfyAll(
+					HaveField("Name", "IsVirtHandlerRunning"),
+					HaveField("Value", true),
+					HaveField("Okay", gstruct.PointTo(BeTrue())),
+					HaveField("Message", gstruct.PointTo(MatchRegexp("The virt-handler is working")))),
+			))
 		})
 
 		Describe("resource 'VirtualMachine'", func() {
 			AfterAll(func(ctx context.Context) {
-				suite.Kubectl().Run(ctx, "delete", "-f", "test.yaml")
+				suite.Kubectl().Run(ctx, "delete", "-f", testWorkload)
 			})
 
 			It("creates a VM", func(ctx context.Context) {
-				suite.Kubectl().Run(ctx, "apply", "-f", "test.yaml")
+				suite.Kubectl().Run(ctx, "apply", "-f", testWorkload)
 				vmStatusOutput := suite.Kubectl().Run(ctx, "get", "vms", "testvm")
 				Expect(vmStatusOutput).To(ContainSubstring("Stopped"))
 

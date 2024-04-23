@@ -411,47 +411,6 @@ function Get-DefaultK8sVersion {
 
 <#
 .SYNOPSIS
-Gets whether proxy settings are configured for the user in Windows.
-
-.DESCRIPTION
-When Proxy settings are configured for the User in Windows, the enabled status is checked in the registry key
-HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings\ProxyEnable
-
-If ProxyEnable is set to 1, the proxy settings are enabled. In this case, the function returns true.
-If ProxyEnable is set to 0, the proxy settings are enabled. In this case, the function returns false.
-#>
-function Get-ProxyEnabledStatusFromWindowsSettings {
-    try {
-        $reg = Get-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings"
-        
-        if ($reg.ProxyEnable -eq "1") {
-            return $true
-        } else {
-            return $false
-        }
-    }
-    catch {
-        return $false
-    }
-}
-
-<#
-.SYNOPSIS
-Gets the configured proxy server for the user in Windows. Should be called only when Proxy is enabled. 
-
-.DESCRIPTION
-When proxy settings are configured for the user in Windows, the proxy server is configured in the registry key
-HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings\ProxyServer
-#>
-function Get-ProxyServerFromWindowsSettings {
-    $reg = Get-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings"
-
-    $proxyServer = "http://" + $reg.ProxyServer
-    return $proxyServer
-}
-
-<#
-.SYNOPSIS
 Gets the configured proxy overrides for the user in windows. Proxy overrides are the hosts for which the requests must not
 be forwarded to the proxy. Should be called only when Proxy is enabled.
 
@@ -460,7 +419,7 @@ When proxy settings are configured for the user in Windows, the proxy overrides 
 HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings\ProxyOverrides
 #>
 function Get-ProxyOverrideFromWindowsSettings {
-    $reg = Get-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings"
+    $reg = Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings'
     return $reg.ProxyOverride
 }
 

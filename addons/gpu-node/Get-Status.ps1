@@ -7,6 +7,7 @@
 Import-Module "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k8s-api/k8s-api.module.psm1"
 
 Invoke-Kubectl -Params 'wait', '--timeout=5s', '--for=condition=Available', '-n', 'gpu-node', 'deployment/nvidia-device-plugin' | Out-Null
+
 $isDevicePluginRunningProp = @{Name = 'IsDevicePluginRunning'; Value = $?; Okay = $? }
 if ($isDevicePluginRunningProp.Value -eq $true) {
     $isDevicePluginRunningProp.Message = 'The gpu node is working'
@@ -16,6 +17,7 @@ else {
 } 
 
 Invoke-Kubectl -Params 'rollout', 'status', 'daemonset', 'dcgm-exporter', '-n', 'gpu-node', '--timeout=5s' | Out-Null
+
 $isDCGMExporterRunningProp = @{Name = 'IsDCGMExporterRunning'; Value = $?; Okay = $? }
 if ($isDCGMExporterRunningProp.Value -eq $true) {
     $isDCGMExporterRunningProp.Message = 'The DCGM exporter is working'
