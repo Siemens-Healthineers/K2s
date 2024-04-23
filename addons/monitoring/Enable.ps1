@@ -22,101 +22,12 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
     [string] $MessageType
 )
-function Enable-IngressAddon([string]$Ingress) {
-    switch ($Ingress) {
-        'ingress-nginx' {
-            &"$PSScriptRoot\..\ingress-nginx\Enable.ps1"
-            break
-        }
-        'traefik' {
-            &"$PSScriptRoot\..\traefik\Enable.ps1"
-            break
-        }
-    }
-}
-
-<#
-.DESCRIPTION
-Writes the usage notes for dashboard for the user.
-#>
-function Write-UsageForUser {
-    @'
-                                        USAGE NOTES
- To open plutono dashboard, please use one of the options:
- 
- Option 1: Access via ingress
- Please install either ingress-nginx addon or traefik addon from k2s.
- or you can install them on your own.
- Enable ingress controller via k2s cli
- eg. k2s addons enable ingress-nginx
- Once the ingress controller is running in the cluster, run the command to enable monitoring again.
- k2s addons enable monitoring
- The plutono dashboard will be accessible on the following URL: https://k2s-monitoring.local
-
- Option 2: Port-forwading
- Use port-forwarding to the plutono dashboard using the command below:
- kubectl -n monitoring port-forward svc/kube-prometheus-stack-plutono 3000:443
- 
- In this case, the plutono dashboard will be accessible on the following URL: https://localhost:3000
- 
- On opening the URL in the browser, the login page appears.
- username: admin
- password: admin
-'@ -split "`r`n" | ForEach-Object { Write-Log $_ -Console }
-}
-
-# TODO: replace with 'Add-HostEntries' in addons module (v2) after migration
-function Add-DashboardHostEntry {
-    Write-Log 'Configuring nodes access' -Console
-    $dashboardIPWithIngress = $global:IP_Master
-    $grafanaHost = 'k2s-monitoring.local'
-
-    # Enable dashboard access on linux node
-    $hostEntry = $($dashboardIPWithIngress + ' ' + $grafanaHost)
-    ExecCmdMaster "grep -qxF `'$hostEntry`' /etc/hosts || echo $hostEntry | sudo tee -a /etc/hosts"
-
-    # In case of multi-vm, enable access on windows node
-    $setupInfo = Get-SetupInfo
-    if ($setupInfo.Name -eq $global:SetupType_MultiVMK8s -and $setupInfo.LinuxOnly -ne $true) {
-        $session = Open-RemoteSessionViaSSHKey $global:Admin_WinNode $global:WindowsVMKey
-
-        Invoke-Command -Session $session {
-            Set-Location "$env:SystemDrive\k"
-            Set-ExecutionPolicy Bypass -Force -ErrorAction Stop
-
-            if (!$(Get-Content 'C:\Windows\System32\drivers\etc\hosts' | % { $_ -match $using:hostEntry }).Contains($true)) {
-                Add-Content 'C:\Windows\System32\drivers\etc\hosts' $using:hostEntry
-            }
-        }
-    }
-
-    # finally, add entry in the host to be enable access
-    if (!$(Get-Content 'C:\Windows\System32\drivers\etc\hosts' | % { $_ -match $hostEntry }).Contains($true)) {
-        Add-Content 'C:\Windows\System32\drivers\etc\hosts' $hostEntry
-    }
-}
-
-<#
-.DESCRIPTION
-Determines if Traefik ingress controller is deployed in the cluster
-#>
-function Test-TraefikIngressControllerAvailability {
-    $existingServices = $(&$global:KubectlExe get service -n traefik -o yaml)
-    if ("$existingServices" -match '.*traefik.*') {
-        return $true
-    }
-    return $false
-}
-
-&$PSScriptRoot\..\..\smallsetup\common\GlobalVariables.ps1
-. $PSScriptRoot\..\..\smallsetup\common\GlobalFunctions.ps1
-
-$logModule = "$PSScriptRoot/../../smallsetup/ps-modules/log/log.module.psm1"
 $clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
-$addonsModule = "$PSScriptRoot\..\addons.module.psm1"
 $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
+$addonsModule = "$PSScriptRoot\..\addons.v2.module.psm1"
+$monitoringModule = "$PSScriptRoot\monitoring.module.psm1"
 
-Import-Module $logModule, $addonsModule, $clusterModule, $infraModule
+Import-Module $clusterModule, $infraModule, $addonsModule, $monitoringModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -150,15 +61,17 @@ if ($Ingress -ne 'none') {
     Enable-IngressAddon -Ingress:$Ingress
 }
 
+$manifestsPath = "$PSScriptRoot\manifests"
+
 Write-Log 'Installing Kube Prometheus Stack' -Console
-&$global:KubectlExe apply -f "$global:KubernetesPath\addons\monitoring\manifests\namespace.yaml"
-&$global:KubectlExe create -f "$global:KubernetesPath\addons\monitoring\manifests\crds" 
-&$global:KubectlExe create -k "$global:KubernetesPath\addons\monitoring\manifests"
+(Invoke-Kubectl -Params 'apply', '-f', "$manifestsPath\namespace.yaml").Output | Write-Log
+(Invoke-Kubectl -Params 'create', '-f', "$manifestsPath\crds").Output | Write-Log
+(Invoke-Kubectl -Params 'create', '-k', $manifestsPath).Output | Write-Log
 
-Write-Log 'Waiting for pods...'
-&$global:KubectlExe rollout status deployments -n monitoring --timeout=180s
+Write-Log 'Waiting for Pods..'
+(Invoke-Kubectl -Params 'rollout', 'status', 'deployments', '-n', 'monitoring', '--timeout=180s').Output | Write-Log
 if (!$?) {
-    $errMsg = 'Kube Prometheus Stack could not be deployed successfully!'
+    $errMsg = 'Kube Prometheus Stack could not be deployed!'
     if ($EncodeStructuredOutput -eq $true) {
         $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
         Send-ToCli -MessageType $MessageType -Message @{Error = $err }
@@ -168,9 +81,9 @@ if (!$?) {
     Write-Log $errMsg -Error
     exit 1
 }
-&$global:KubectlExe rollout status statefulsets -n monitoring --timeout=180s
+(Invoke-Kubectl -Params 'rollout', 'status', 'statefulsets', '-n', 'monitoring', '--timeout=180s').Output | Write-Log
 if (!$?) {
-    $errMsg = 'Kube Prometheus Stack could not be deployed successfully!'
+    $errMsg = 'Kube Prometheus Stack could not be deployed!'
     if ($EncodeStructuredOutput -eq $true) {
         $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
         Send-ToCli -MessageType $MessageType -Message @{Error = $err }
@@ -180,9 +93,9 @@ if (!$?) {
     Write-Log $errMsg -Error
     exit 1
 }
-&$global:KubectlExe rollout status daemonsets -n monitoring --timeout=180s
+(Invoke-Kubectl -Params 'rollout', 'status', 'daemonsets', '-n', 'monitoring', '--timeout=180s').Output | Write-Log
 if (!$?) {
-    $errMsg = 'Kube Prometheus Stack could not be deployed successfully!'
+    $errMsg = 'Kube Prometheus Stack could not be deployed!'
     if ($EncodeStructuredOutput -eq $true) {
         $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
         Send-ToCli -MessageType $MessageType -Message @{Error = $err }
@@ -195,11 +108,13 @@ if (!$?) {
 
 # traefik uses crd, so we have define ingressRoute after traefik has been enabled
 if (Test-TraefikIngressControllerAvailability) {
-    &$global:KubectlExe apply -f "$global:KubernetesPath\addons\monitoring\manifests\plutono\traefik.yaml"
+    (Invoke-Kubectl -Params 'apply', '-f', "$manifestsPath\plutono\traefik.yaml").Output | Write-Log
 }
-Add-DashboardHostEntry
+
+Add-HostEntries -Url 'k2s-monitoring.local'
 
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'monitoring' })
+
 Write-Log 'Kube Prometheus Stack installed successfully'
 
 Write-UsageForUser
