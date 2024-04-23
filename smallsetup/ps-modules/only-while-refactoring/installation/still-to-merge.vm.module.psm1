@@ -10,4 +10,9 @@ function Get-LinuxOsType_UsingModule($LinuxVhdxPath) {
     return Get-LinuxOsType($LinuxVhdxPath) 
 }
 
-Export-ModuleMember -Function Get-LinuxOsType_UsingModule
+function Get-ControlPlaneVmName {
+    return 'KubeMaster'
+}
+
+
+Export-ModuleMember -Function Get-LinuxOsType_UsingModule, Get-ControlPlaneVmName
