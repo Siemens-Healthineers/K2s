@@ -126,7 +126,7 @@ $Proxy = Get-OrUpdateProxyServer -Proxy:$Proxy
 
 Add-K2sToDefenderExclusion
 
-Stop-InstallationIfDockerDesktopIsRunning
+Stop-InstallIfDockerDesktopIsRunning
 
 if ( $K8sSetup -eq 'SmallSetup' ) {
     Write-Log 'Installing K2s'
