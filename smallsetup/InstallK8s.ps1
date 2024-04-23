@@ -89,9 +89,10 @@ $logModule = "$PSScriptRoot\ps-modules\log\log.module.psm1"
 $proxyModule = "$PSScriptRoot\ps-modules\proxy\proxy.module.psm1"
 $temporaryPathModule = "$PSScriptRoot\ps-modules\only-while-refactoring\installation\still-to-merge.path.module.psm1"
 $temporaryConfigModule = "$PSScriptRoot\ps-modules\only-while-refactoring\installation\still-to-merge.config.module.psm1"
+$temporaryVmModule = "$PSScriptRoot\ps-modules\only-while-refactoring\installation\still-to-merge.vm.module.psm1"
 $systemModule = "$PSScriptRoot\..\lib\modules\k2s\k2s.node.module\windowsnode\system\system.module.psm1"
 
-Import-Module $logModule, $systemModule, $proxyModule, $temporaryPathModule, $temporaryConfigModule
+Import-Module $logModule, $systemModule, $proxyModule, $temporaryPathModule, $temporaryConfigModule, $temporaryVmModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -153,6 +154,7 @@ Set-Location $installationPath
 
 # set defaults for unset arguments
 $KubernetesVersion = Get-KubernetesVersion
+$script:SetupType = 'k2s'
 
 # check prerequisites
 Write-Log 'Running some health checks before installation...'
@@ -203,23 +205,12 @@ if ($CheckOnly) {
 
 Write-Log 'Starting installation...'
 
-Set-ConfigValue -Path $global:SetupJsonFile -Key $global:ConfigKey_WSL -Value $([bool]$WSL)
-Set-ConfigValue -Path $global:SetupJsonFile -Key $global:ConfigKey_Containerd -Value $UseContainerd
-Set-ConfigValue -Path $global:SetupJsonFile -Key $global:ConfigKey_SetupType -Value $global:SetupType_k2s
+Set-ConfigWslFlag -Value $([bool]$WSL)
+Set-ConfigContainerdFlag -Value $([bool]$UseContainerd)
+Set-ConfigSetupType -Value $script:SetupType
 
-$linuxOsType = $global:LinuxOsType_DebianCloud
-if (!([string]::IsNullOrWhiteSpace($LinuxVhdxPath))) {
-    if (!(Test-Path $LinuxVhdxPath)) {
-        throw "The specified file in the path '`$LinuxVhdxPath' does not exist"
-    }
-    $fileExtension = (Get-Item $LinuxVhdxPath).Extension
-    if (!($fileExtension -eq '.vhdx')) {
-        throw ('Disk is not a vhdx or vhd disk.' )
-    }
-
-    $linuxOsType = $global:LinuxOsType_Ubuntu
-}
-Set-ConfigValue -Path $global:SetupJsonFile -Key $global:ConfigKey_LinuxOsType -Value $linuxOsType
+$linuxOsType = Get-LinuxOsType_UsingModule $LinuxVhdxPath
+Set-ConfigLinuxOsType -Value $linuxOsType
 
 Write-Log 'Setting up Windows worker node' -Console
 
@@ -287,7 +278,7 @@ else {
 $ProgressPreference = 'SilentlyContinue'
 
 $reuseExistingLinuxComputer = !([string]::IsNullOrWhiteSpace($LinuxVMIP))
-Set-ConfigValue -Path $global:SetupJsonFile -Key $global:ConfigKey_ReuseExistingLinuxComputerForMasterNode -Value $reuseExistingLinuxComputer
+Set-ReuseExistingLinuxComputerForMasterNodeFlag -Value $reuseExistingLinuxComputer
 if ($reuseExistingLinuxComputer) {
     Write-Log "Configuring computer with IP '$LinuxVMIP' to act as Master Node"
     &"$installationPath\smallsetup\linuxnode\ubuntu\ExistingUbuntuComputerAsMasterNodeInstaller.ps1" -IpAddress $LinuxVMIP -UserName $LinuxVMUsername -UserPwd $LinuxVMUserPwd -Proxy $Proxy
