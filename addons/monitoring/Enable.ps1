@@ -65,10 +65,7 @@ function Write-UsageForUser {
 '@ -split "`r`n" | ForEach-Object { Write-Log $_ -Console }
 }
 
-<#
-.DESCRIPTION
-Adds an entry in hosts file for k2s-monitoring.local in both the windows and linux nodes
-#>
+# TODO: replace with 'Add-HostEntries' in addons module (v2) after migration
 function Add-DashboardHostEntry {
     Write-Log 'Configuring nodes access' -Console
     $dashboardIPWithIngress = $global:IP_Master

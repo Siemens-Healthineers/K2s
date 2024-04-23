@@ -3,10 +3,10 @@
 # SPDX-License-Identifier: MIT
 
 $infraModule = "$PSScriptRoot\..\lib\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
-$statusModule = "$PSScriptRoot\..\lib\modules\k2s\k2s.cluster.module\status\status.module.psm1"
-$linuxNodeModule = "$PSScriptRoot/../lib/modules/k2s/k2s.node.module/linuxnode/vm/vm.module.psm1"
+$clusterModule = "$PSScriptRoot\..\lib\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1"
+$nodeModule = "$PSScriptRoot/../lib/modules/k2s/k2s.node.module/k2s.node.module.psm1"
 
-Import-Module $infraModule, $statusModule, $linuxNodeModule
+Import-Module $infraModule, $clusterModule, $nodeModule
 
 $script = $MyInvocation.MyCommand.Name
 $ConfigKey_EnabledAddons = 'EnabledAddons'
@@ -562,7 +562,43 @@ function Get-ErrCodeAddonEnableFailed { 'addon-enable-failed' }
 
 function Get-ErrCodeAddonNotFound { 'addon-not-found' }
 
+function Add-HostEntries {
+    param (
+        [Parameter(Mandatory = $false)]
+        [string]
+        $Url = $(throw 'Url not specified')
+    )
+    Write-Log "Adding host entry for '$Url'.." -Console
+
+    # add in control plane
+    $hostEntry = "$(Get-ConfiguredIPControlPlane) $Url"
+    Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "grep -qxF `'$hostEntry`' /etc/hosts || echo $hostEntry | sudo tee -a /etc/hosts"
+
+    $hostFile = 'C:\Windows\System32\drivers\etc\hosts'
+
+    # add in additional worker nodes
+    $setupInfo = Get-SetupInfo
+    if ($setupInfo.Name -eq 'MultiVMK8s' -and $setupInfo.LinuxOnly -ne $true) {
+        $session = Open-RemoteSessionViaSSHKey (Get-DefaultWinVMName) (Get-DefaultWinVMKey)
+
+        Invoke-Command -Session $session {
+            Set-Location "$env:SystemDrive\k"
+            Set-ExecutionPolicy Bypass -Force -ErrorAction Stop
+
+            if (!$(Get-Content $using:hostFile | ForEach-Object { $_ -match $using:hostEntry }).Contains($true)) {
+                Add-Content $using:hostFile $using:hostEntry
+            }
+        }
+    }
+
+    # add in host
+    if (!$(Get-Content $hostFile | ForEach-Object { $_ -match $hostEntry }).Contains($true)) {
+        Add-Content $hostFile $hostEntry
+    }
+}
+
 Export-ModuleMember -Function Get-EnabledAddons, Add-AddonToSetupJson, Remove-AddonFromSetupJson,
 Install-DebianPackages, Get-DebianPackageAvailableOffline, Test-IsAddonEnabled, Invoke-AddonsHooks, Copy-ScriptsToHooksDir,
 Remove-ScriptsFromHooksDir, Get-AddonConfig, Backup-Addons, Restore-Addons, Get-AddonStatus, Find-AddonManifests,
-Get-ErrCodeAddonAlreadyDisabled, Get-ErrCodeAddonAlreadyEnabled, Get-ErrCodeAddonEnableFailed, Get-ErrCodeAddonNotFound
+Get-ErrCodeAddonAlreadyDisabled, Get-ErrCodeAddonAlreadyEnabled, Get-ErrCodeAddonEnableFailed, Get-ErrCodeAddonNotFound,
+Add-HostEntries
