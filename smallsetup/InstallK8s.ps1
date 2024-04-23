@@ -147,7 +147,8 @@ $global:HeaderLineShown = $true
 ################################ SCRIPT START ###############################################
 
 # make sure we are at the right place for install
-Set-Location $global:KubernetesPath
+$kubePath = Get-InstallationPath
+Set-Location $kubePath
 
 # set defaults for unset arguments
 $KubernetesVersion = $global:KubernetesVersion
