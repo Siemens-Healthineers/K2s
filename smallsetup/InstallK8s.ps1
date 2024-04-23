@@ -193,8 +193,10 @@ if ($runningVMs) {
     }
 }
 
-if (Get-VM -ErrorAction SilentlyContinue -Name $global:VMName) {
-    throw "$global:VMName VM must not exist when running the installer, do UninstallK8s.ps1 first"
+$controlPlaneVmName = Get-ControlPlaneVmName
+
+if (Get-VM -ErrorAction SilentlyContinue -Name $controlPlaneVmName) {
+    throw "$controlPlaneVmName VM must not exist when running the installer, do UninstallK8s.ps1 first"
 }
 
 if ($CheckOnly) {
@@ -268,10 +270,10 @@ Remove-Item "$global:WindowsNodeArtifactsDirectory" -Recurse -Force -ErrorAction
 &"$global:NssmInstallDirectory\nssm" set flanneld Start SERVICE_DEMAND_START | Out-Null
 
 if ($WSL) {
-    Write-Log "Setting up $global:VMName Distro" -Console
+    Write-Log "Setting up $controlPlaneVmName Distro" -Console
 }
 else {
-    Write-Log "Setting up $global:VMName VM" -Console
+    Write-Log "Setting up $controlPlaneVmName VM" -Console
 }
 
 # create the linux master
@@ -287,7 +289,7 @@ if ($reuseExistingLinuxComputer) {
     Wait-ForSSHConnectionToLinuxVMViaSshKey
 }
 else {
-    $vm = Get-Vm -Name $global:VMName -ErrorAction SilentlyContinue
+    $vm = Get-Vm -Name $controlPlaneVmName -ErrorAction SilentlyContinue
     if ( !($vm) ) {
         # use the local httpproxy for the linux master VM
         $transparentproxy = 'http://' + $global:IP_NextHop + ':8181'
