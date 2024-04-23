@@ -19,15 +19,12 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
     [string] $MessageType
 )
-&$PSScriptRoot\..\..\smallsetup\common\GlobalVariables.ps1
-. $PSScriptRoot\..\..\smallsetup\common\GlobalFunctions.ps1
-
-$logModule = "$PSScriptRoot/../../smallsetup/ps-modules/log/log.module.psm1"
-$statusModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/status/status.module.psm1"
-$addonsModule = "$PSScriptRoot\..\addons.module.psm1"
+$clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
+$nodeModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.node.module/k2s.node.module.psm1"
+$addonsModule = "$PSScriptRoot\..\addons.v2.module.psm1"
 
-Import-Module $logModule, $addonsModule, $statusModule, $infraModule
+Import-Module $clusterModule, $infraModule, $addonsModule, $nodeModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -46,7 +43,7 @@ if ($systemError) {
 
 Write-Log 'Check whether logging addon is already disabled'
 
-if ($null -eq (&$global:KubectlExe get namespace logging --ignore-not-found) -or (Test-IsAddonEnabled -Name 'logging') -ne $true) {
+if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'logging', '--ignore-not-found').Output -or (Test-IsAddonEnabled -Name 'logging') -ne $true) {
     $errMsg = "Addon 'logging' is already disabled, nothing to do."
 
     if ($EncodeStructuredOutput -eq $true) {
@@ -61,19 +58,21 @@ if ($null -eq (&$global:KubectlExe get namespace logging --ignore-not-found) -or
 
 Write-Log 'Uninstalling Logging Stack' -Console
 
-&$global:KubectlExe delete -k "$global:KubernetesPath\addons\logging\manifests" --ignore-not-found --wait=false
-&$global:KubectlExe delete -k "$global:KubernetesPath\addons\logging\manifests\fluentbit\windows" --ignore-not-found --wait=false
+$manifestsPath = "$PSScriptRoot\manifests"
 
-&$global:KubectlExe delete pod -l app.kubernetes.io/name=opensearch-dashboards -n logging --grace-period=0 --force --ignore-not-found 2>$null
-&$global:KubectlExe delete pod -l app.kubernetes.io/name=opensearch -n logging --grace-period=0 --force --ignore-not-found 2>$null
-&$global:KubectlExe delete pod -l app.kubernetes.io/name=fluent-bit -n logging --grace-period=0 --force --ignore-not-found 2>$null
+(Invoke-Kubectl -Params 'delete', '-k', $manifestsPath, '--ignore-not-found', '--wait=false').Output | Write-Log
+(Invoke-Kubectl -Params 'delete', '-k', "$manifestsPath\fluentbit\windows", '--ignore-not-found', '--wait=false').Output | Write-Log
 
-&$global:KubectlExe patch pv opensearch-cluster-master-pv -n logging -p '{\"metadata\":{\"finalizers\":null}}'
-&$global:KubectlExe patch pvc opensearch-cluster-master-opensearch-cluster-master-0 -n logging -p '{\"metadata\":{\"finalizers\":null}}'
+(Invoke-Kubectl -Params 'delete', 'pod', '-l', 'app.kubernetes.io/name=opensearch-dashboards', '-n', 'logging', '--grace-period=0', '--force', '--ignore-not-found').Output | Write-Log
+(Invoke-Kubectl -Params 'delete', 'pod', '-l', 'app.kubernetes.io/name=opensearch', '-n', 'logging', '--grace-period=0', '--force', '--ignore-not-found').Output | Write-Log
+(Invoke-Kubectl -Params 'delete', 'pod', '-l', 'app.kubernetes.io/name=fluent-bit', '-n', 'logging', '--grace-period=0', '--force', '--ignore-not-found').Output | Write-Log
 
-&$global:KubectlExe delete namespace logging --grace-period=0
+(Invoke-Kubectl -Params 'patch', 'pv', 'opensearch-cluster-master-pv', '-n', 'logging', '-p', '{\"metadata\":{\"finalizers\":null}}').Output | Write-Log
+(Invoke-Kubectl -Params 'patch', 'pvc', 'opensearch-cluster-master-opensearch-cluster-master-0', '-n', 'logging', '-p', '{\"metadata\":{\"finalizers\":null}}').Output | Write-Log
 
-ExecCmdMaster 'sudo rm -rf /logging'
+(Invoke-Kubectl -Params 'delete', 'namespace', 'logging', '--grace-period=0').Output | Write-Log
+
+Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo rm -rf /logging'
 
 Remove-AddonFromSetupJson -Name 'logging'
 

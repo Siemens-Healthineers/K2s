@@ -281,6 +281,7 @@ if (!$?) {
 
 $linuxOnly = Get-LinuxOnlyFromConfig
 
+# TODO: replace with 'Add-HostEntries' in addons module (v2) after migration?
 # Add k2s-registry service IP to /etc/hosts
 Write-Log 'Configuring nodes access' -Console
 $hostEntry = $($registryIP + ' ' + $registryNameWithoutPort)
