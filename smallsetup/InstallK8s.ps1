@@ -88,9 +88,10 @@ Param(
 $logModule = "$PSScriptRoot\ps-modules\log\log.module.psm1"
 $proxyModule = "$PSScriptRoot\ps-modules\proxy\proxy.module.psm1"
 $temporaryPathModule = "$PSScriptRoot\ps-modules\only-while-refactoring\installation\still-to-merge.path.module.psm1"
+$temporaryConfigModule = "$PSScriptRoot\ps-modules\only-while-refactoring\installation\still-to-merge.config.module.psm1"
 $systemModule = "$PSScriptRoot\..\lib\modules\k2s\k2s.node.module\windowsnode\system\system.module.psm1"
 
-Import-Module $logModule, $systemModule, $proxyModule, $temporaryPathModule
+Import-Module $logModule, $systemModule, $proxyModule, $temporaryPathModule, $temporaryConfigModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -151,10 +152,7 @@ $kubePath = Get-InstallationPath
 Set-Location $kubePath
 
 # set defaults for unset arguments
-$KubernetesVersion = $global:KubernetesVersion
-if (! $KubernetesVersion) {
-    $KubernetesVersion = 'v1.25.13'
-}
+$KubernetesVersion = Get-KubernetesVersion
 
 # check prerequisites
 Write-Log 'Running some health checks before installation...'
