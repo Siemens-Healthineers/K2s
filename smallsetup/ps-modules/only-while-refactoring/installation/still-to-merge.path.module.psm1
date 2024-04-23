@@ -5,6 +5,11 @@ $logModule = "$PSScriptRoot\..\..\log\log.module.psm1"
 
 Import-Module $logModule
 
+function Get-InstallationPath {
+    $installationPath = GetKubePath
+    return $installationPath
+}
+
 function GetKubePath {
     $scriptRoot = $PSScriptRoot
     $kubePath = (Get-Item $scriptRoot).Parent.Parent.Parent.Parent.FullName
@@ -62,4 +67,4 @@ function Write-RefreshEnvironmentPathsMessage {
     Write-Log ' ' -Console
 }
 
-Export-ModuleMember -Function Set-EnvironmentPaths, Reset-EnvironmentPaths, Write-RefreshEnvironmentPathsMessage
+Export-ModuleMember -Function Set-EnvironmentPaths, Reset-EnvironmentPaths, Write-RefreshEnvironmentPathsMessage, Get-InstallationPath
