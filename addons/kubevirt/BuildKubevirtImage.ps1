@@ -34,17 +34,32 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'Push image to repository')]
     [switch] $Push = $false
 )
+Import-Module "$PSScriptRoot\..\..\lib\modules\k2s\k2s.node.module\windowsnode\system\system.module.psm1"
+
+<#
+.SYNOPSIS
+Log Error Message and Throw Exception.
+
+.DESCRIPTION
+Based on ErrorActionPreference, error is logged and thrown to the caller
+#>
+function Write-ErrorAndThrow ([string]$ErrorMessage) {
+    if ($ErrorActionPreference -eq 'Stop') {
+        #If Stop is the ErrorActionPreference from the caller then Write-Error throws an exception which is not logged in k2s.log file.
+        #So we need to write a warning to capture error message.
+        Write-Warning "$ErrorMessage"
+    }
+    else {
+        Write-Error "$ErrorMessage"
+    }
+    throw $ErrorMessage
+}
 
 $mainStopwatch = [system.diagnostics.stopwatch]::StartNew()
 
-# load global settings
-&$PSScriptRoot\..\..\smallsetup\common\GlobalVariables.ps1
-# import global functions
-. $PSScriptRoot\..\..\smallsetup\common\GlobalFunctions.ps1
-
-if (! (Test-Path "$InputQCOW2Image")) { Log-ErrorWithThrow "Missing QCOW2 image file: $InputQCOW2Image" }
-if (($ImageTag -eq 'local') -and $Push) { Log-ErrorWithThrow 'Unable to push without valid tag, use -ImageTag' }
-if ($ImageName -eq '') { Log-ErrorWithThrow 'Missing image name' }
+if (! (Test-Path "$InputQCOW2Image")) { Write-ErrorAndThrow "Missing QCOW2 image file: $InputQCOW2Image" }
+if (($ImageTag -eq 'local') -and $Push) { Write-ErrorAndThrow 'Unable to push without valid tag, use -ImageTag' }
+if ($ImageName -eq '') { Write-ErrorAndThrow 'Missing image name' }
 
 Write-Output "[$(Get-Date -Format HH:mm:ss)] Creating linux container: $ImageName from QCOW2 image: $InputQCOW2Image"
 
@@ -81,13 +96,14 @@ Write-Output "[$(Get-Date -Format HH:mm:ss)] Build $containerfile"
 Add-Content -Path $containerfile -Value 'FROM scratch' -Force
 Add-Content -Path $containerfile -Value "ADD $fileqcow2 /disk/" -Force
 
+$buildScript = "$PSScriptRoot\..\..\lib\scripts\k2s\image\Build-Image.ps1"
+
 # build container
 if ( $Push ) {
-    &"$global:KubernetesPath\smallsetup\common\BuildImage.ps1" -InputFolder $storagePath -ImageName $ImageName -ImageTag $ImageTag -Push -ShowLogs
+    &$buildScript -InputFolder $storagePath -ImageName $ImageName -ImageTag $ImageTag -Push -ShowLogs
 }
 else {
-    &"$global:KubernetesPath\smallsetup\common\BuildImage.ps1" -InputFolder $storagePath -ImageName $ImageName -ImageTag $ImageTag -ShowLogs
+    &$buildScript -InputFolder $storagePath -ImageName $ImageName -ImageTag $ImageTag -ShowLogs
 }
-
 
 Write-Host "Total duration: $('{0:hh\:mm\:ss}' -f $mainStopwatch.Elapsed )"

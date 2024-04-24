@@ -87,9 +87,14 @@ Param(
 
 $logModule = "$PSScriptRoot\ps-modules\log\log.module.psm1"
 $proxyModule = "$PSScriptRoot\ps-modules\proxy\proxy.module.psm1"
+$temporaryPathModule = "$PSScriptRoot\ps-modules\only-while-refactoring\installation\still-to-merge.path.module.psm1"
+$temporaryConfigModule = "$PSScriptRoot\ps-modules\only-while-refactoring\installation\still-to-merge.config.module.psm1"
+$temporaryVmModule = "$PSScriptRoot\ps-modules\only-while-refactoring\installation\still-to-merge.vm.module.psm1"
+$temporaryWindowsNodeModule = "$PSScriptRoot\ps-modules\only-while-refactoring\installation\still-to-merge.windowsnode.module.psm1"
+$temporaryLoopbackAdapterModule = "$PSScriptRoot\ps-modules\only-while-refactoring\installation\still-to-merge.loopbackadapter.module.psm1"
 $systemModule = "$PSScriptRoot\..\lib\modules\k2s\k2s.node.module\windowsnode\system\system.module.psm1"
 
-Import-Module $logModule, $systemModule, $proxyModule
+Import-Module $logModule, $systemModule, $proxyModule, $temporaryPathModule, $temporaryConfigModule, $temporaryVmModule, $temporaryWindowsNodeModule, $temporaryLoopbackAdapterModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -101,9 +106,7 @@ if ($Trace) {
 $installStopwatch = [system.diagnostics.stopwatch]::StartNew()
 
 #cleanup old logs
-if ( -not  $AppendLogFile) {
-    Remove-Item -Path $global:k2sLogFile -Force -Recurse -ErrorAction SilentlyContinue
-}
+Reset-LogFile -AppendLogFile:$AppendLogFile
 
 Write-Log "Using Master VM ProcessorCount: $MasterVMProcessorCount"
 
@@ -121,13 +124,13 @@ if ( $MasterDiskSize -lt 50GB ) {
 }
 Write-Log "Using Master VM Diskspace: $([math]::round($MasterDiskSize/1GB, 2))GB"
 
-Set-EnvVars
+Set-EnvironmentPaths
 
 $Proxy = Get-OrUpdateProxyServer -Proxy:$Proxy
 
-Addk2sToDefenderExclusion
+Add-K2sToDefenderExclusion
 
-Stop-InstallationIfDockerDesktopIsRunning
+Stop-InstallIfDockerDesktopIsRunning
 
 if ( $K8sSetup -eq 'SmallSetup' ) {
     Write-Log 'Installing K2s'
@@ -143,25 +146,22 @@ else {
     $UseContainerd = $true
 }
 
-$global:HeaderLineShown = $true
-
 ################################ SCRIPT START ###############################################
 
 # make sure we are at the right place for install
-Set-Location $global:KubernetesPath
+$installationPath = Get-InstallationPath
+Set-Location $installationPath
 
 # set defaults for unset arguments
-$KubernetesVersion = $global:KubernetesVersion
-if (! $KubernetesVersion) {
-    $KubernetesVersion = 'v1.25.13'
-}
+$KubernetesVersion = Get-KubernetesVersion
+$script:SetupType = 'k2s'
 
 # check prerequisites
 Write-Log 'Running some health checks before installation...'
 
-$installationDirectoryType = Get-Item "$global:KubernetesPath" | Select-Object -ExpandProperty LinkType
+$installationDirectoryType = Get-Item "$installationPath" | Select-Object -ExpandProperty LinkType
 if ($null -ne $installationDirectoryType) {
-    throw "Your installation directory '$global:KubernetesPath' is of type '$installationDirectoryType'. Only normal directories are supported."
+    throw "Your installation directory '$installationPath' is of type '$installationDirectoryType'. Only normal directories are supported."
 }
 
 $ReleaseId = (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion').CurrentBuild
@@ -193,8 +193,10 @@ if ($runningVMs) {
     }
 }
 
-if (Get-VM -ErrorAction SilentlyContinue -Name $global:VMName) {
-    throw "$global:VMName VM must not exist when running the installer, do UninstallK8s.ps1 first"
+$controlPlaneVmName = Get-ControlPlaneVmName
+
+if (Get-VM -ErrorAction SilentlyContinue -Name $controlPlaneVmName) {
+    throw "$controlPlaneVmName VM must not exist when running the installer, do UninstallK8s.ps1 first"
 }
 
 if ($CheckOnly) {
@@ -205,48 +207,42 @@ if ($CheckOnly) {
 
 Write-Log 'Starting installation...'
 
-Set-ConfigValue -Path $global:SetupJsonFile -Key $global:ConfigKey_WSL -Value $([bool]$WSL)
-Set-ConfigValue -Path $global:SetupJsonFile -Key $global:ConfigKey_Containerd -Value $UseContainerd
-Set-ConfigValue -Path $global:SetupJsonFile -Key $global:ConfigKey_SetupType -Value $global:SetupType_k2s
+Set-ConfigWslFlag -Value $([bool]$WSL)
+Set-ConfigContainerdFlag -Value $([bool]$UseContainerd)
+Set-ConfigSetupType -Value $script:SetupType
 
-$linuxOsType = $global:LinuxOsType_DebianCloud
-if (!([string]::IsNullOrWhiteSpace($LinuxVhdxPath))) {
-    if (!(Test-Path $LinuxVhdxPath)) {
-        throw "The specified file in the path '`$LinuxVhdxPath' does not exist"
-    }
-    $fileExtension = (Get-Item $LinuxVhdxPath).Extension
-    if (!($fileExtension -eq '.vhdx')) {
-        throw ('Disk is not a vhdx or vhd disk.' )
-    }
-
-    $linuxOsType = $global:LinuxOsType_Ubuntu
-}
-Set-ConfigValue -Path $global:SetupJsonFile -Key $global:ConfigKey_LinuxOsType -Value $linuxOsType
+$linuxOsType = Get-LinuxOsType_UsingModule $LinuxVhdxPath
+Set-ConfigLinuxOsType -Value $linuxOsType
 
 Write-Log 'Setting up Windows worker node' -Console
 
 # Install loopback adapter for l2bridge
-Import-Module "$global:KubernetesPath\smallsetup\LoopbackAdapter.psm1" -Force
-New-LoopbackAdapter -Name $global:LoopbackAdapter -DevConExe $global:DevconExe | Out-Null
-Set-LoopbackAdapterProperties -Name $global:LoopbackAdapter -IPAddress $global:IP_LoopbackAdapter -Gateway $global:Gateway_LoopbackAdapter
+Import-Module "$installationPath\smallsetup\LoopbackAdapter.psm1" -Force
+$loopbackAdapterName = Get-LoopbackAdapterName
+$loopbackAdapterIpAddress = Get-LoopbackAdapterIpAddress
+$loopbackAdapterGatewayIpAddress = Get-LoopbackAdapterGatewayIpAddress
+$devconExe = Get-LoopbackAdapterExecutable 
+New-LoopbackAdapter -Name $loopbackAdapterName -DevConExe $devconExe | Out-Null
+Set-LoopbackAdapterProperties -Name $loopbackAdapterName -IPAddress $loopbackAdapterIpAddress -Gateway $loopbackAdapterGatewayIpAddress
 
-&"$global:KubernetesPath\smallsetup\windowsnode\DeployWindowsNodeArtifacts.ps1" -KubernetesVersion $KubernetesVersion -Proxy "$Proxy" -DeleteFilesForOfflineInstallation $DeleteFilesForOfflineInstallation -ForceOnlineInstallation $ForceOnlineInstallation -SetupType $global:SetupType_k2s
+&"$installationPath\smallsetup\windowsnode\DeployWindowsNodeArtifacts.ps1" -KubernetesVersion $KubernetesVersion -Proxy "$Proxy" -DeleteFilesForOfflineInstallation $DeleteFilesForOfflineInstallation -ForceOnlineInstallation $ForceOnlineInstallation -SetupType $script:SetupType
 
-&"$global:KubernetesPath\smallsetup\windowsnode\publisher\PublishNssm.ps1"
+&"$installationPath\smallsetup\windowsnode\publisher\PublishNssm.ps1"
 
-if (!(Test-Path "$global:DockerExe") -or !(Get-Service docker -ErrorAction SilentlyContinue)) {
+if (!(Test-Path "$(Get-DockerExecutable)") -or !(Get-Service docker -ErrorAction SilentlyContinue)) {
     $autoStartDockerd = !$UseContainerd
-    &"$global:KubernetesPath\smallsetup\windowsnode\publisher\PublishDocker.ps1"
-    &"$global:KubernetesPath\smallsetup\windowsnode\InstallDockerWin10.ps1" -AutoStart:$autoStartDockerd -Proxy "$Proxy"
+    &"$installationPath\smallsetup\windowsnode\publisher\PublishDocker.ps1"
+    &"$installationPath\smallsetup\windowsnode\InstallDockerWin10.ps1" -AutoStart:$autoStartDockerd -Proxy "$Proxy"
 }
 
 # setup host as a worker node (installs nssm for starting kubelet, flannel and kubeproxy)
-&"$global:KubernetesPath\smallsetup\windowsnode\SetupNode.ps1" -KubernetesVersion $KubernetesVersion -MasterIp $global:IP_Master -MinSetup:$true -HostGW:$HostGW -Proxy:"$Proxy"
+$controlPlaneNodeIpAddress = Get-ControlPlaneNodeIpAddress
+&"$installationPath\smallsetup\windowsnode\SetupNode.ps1" -KubernetesVersion $KubernetesVersion -MasterIp $controlPlaneNodeIpAddress -MinSetup:$true -HostGW:$HostGW -Proxy:"$Proxy"
 
 # install containerd
 if ($UseContainerd) {
-    &"$global:KubernetesPath\smallsetup\windowsnode\InstallContainerd.ps1" -Proxy "$Proxy"
-    &"$global:KubernetesPath\smallsetup\windowsnode\publisher\PublishWindowsImages.ps1"
+    &"$installationPath\smallsetup\windowsnode\InstallContainerd.ps1" -Proxy "$Proxy"
+    &"$installationPath\smallsetup\windowsnode\publisher\PublishWindowsImages.ps1"
 }
 
 if (!$UseContainerd) {
@@ -258,50 +254,52 @@ if (!$UseContainerd) {
 }
 
 # install K8s services
-&"$global:KubernetesPath\smallsetup\windowsnode\publisher\PublishKubetools.ps1"
-&"$global:KubernetesPath\smallsetup\windowsnode\InstallKubelet.ps1" -UseContainerd:$UseContainerd
-&"$global:KubernetesPath\smallsetup\windowsnode\publisher\PublishFlannel.ps1"
-&"$global:KubernetesPath\smallsetup\windowsnode\InstallFlannel.ps1"
-&"$global:KubernetesPath\smallsetup\windowsnode\InstallKubeProxy.ps1"
-&"$global:KubernetesPath\smallsetup\windowsnode\publisher\PublishWindowsExporter.ps1"
-&"$global:KubernetesPath\smallsetup\windowsnode\InstallWinExporter.ps1"
-&"$global:KubernetesPath\smallsetup\windowsnode\InstallHttpProxy.ps1" -Proxy $Proxy
-&"$global:KubernetesPath\smallsetup\windowsnode\publisher\PublishDnsProxy.ps1"
-&"$global:KubernetesPath\smallsetup\windowsnode\InstallDnsProxy.ps1"
-&"$global:KubernetesPath\smallsetup\windowsnode\publisher\PublishPuttytools.ps1"
+&"$installationPath\smallsetup\windowsnode\publisher\PublishKubetools.ps1"
+&"$installationPath\smallsetup\windowsnode\InstallKubelet.ps1" -UseContainerd:$UseContainerd
+&"$installationPath\smallsetup\windowsnode\publisher\PublishFlannel.ps1"
+&"$installationPath\smallsetup\windowsnode\InstallFlannel.ps1"
+&"$installationPath\smallsetup\windowsnode\InstallKubeProxy.ps1"
+&"$installationPath\smallsetup\windowsnode\publisher\PublishWindowsExporter.ps1"
+&"$installationPath\smallsetup\windowsnode\InstallWinExporter.ps1"
+&"$installationPath\smallsetup\windowsnode\InstallHttpProxy.ps1" -Proxy $Proxy
+&"$installationPath\smallsetup\windowsnode\publisher\PublishDnsProxy.ps1"
+&"$installationPath\smallsetup\windowsnode\InstallDnsProxy.ps1"
+&"$installationPath\smallsetup\windowsnode\publisher\PublishPuttytools.ps1"
 
 # remove folder with windows node artifacts since all of them are already published to the expected locations
-Remove-Item "$global:WindowsNodeArtifactsDirectory" -Recurse -Force -ErrorAction SilentlyContinue
+$windowsNodeArtifactsDirectory = Get-WindowsNodeArtifactsDirectory
+Remove-Item $windowsNodeArtifactsDirectory -Recurse -Force -ErrorAction SilentlyContinue
 
 # reset some services
-&"$global:NssmInstallDirectory\nssm" set kubeproxy Start SERVICE_DEMAND_START | Out-Null
-&"$global:NssmInstallDirectory\nssm" set kubelet Start SERVICE_DEMAND_START | Out-Null
-&"$global:NssmInstallDirectory\nssm" set flanneld Start SERVICE_DEMAND_START | Out-Null
+$binPath = Get-BinPath
+&"$binPath\nssm" set kubeproxy Start SERVICE_DEMAND_START | Out-Null
+&"$binPath\nssm" set kubelet Start SERVICE_DEMAND_START | Out-Null
+&"$binPath\nssm" set flanneld Start SERVICE_DEMAND_START | Out-Null
 
 if ($WSL) {
-    Write-Log "Setting up $global:VMName Distro" -Console
+    Write-Log "Setting up $controlPlaneVmName Distro" -Console
 }
 else {
-    Write-Log "Setting up $global:VMName VM" -Console
+    Write-Log "Setting up $controlPlaneVmName VM" -Console
 }
 
 # create the linux master
 $ProgressPreference = 'SilentlyContinue'
 
 $reuseExistingLinuxComputer = !([string]::IsNullOrWhiteSpace($LinuxVMIP))
-Set-ConfigValue -Path $global:SetupJsonFile -Key $global:ConfigKey_ReuseExistingLinuxComputerForMasterNode -Value $reuseExistingLinuxComputer
+Set-ReuseExistingLinuxComputerForMasterNodeFlag -Value $reuseExistingLinuxComputer
 if ($reuseExistingLinuxComputer) {
     Write-Log "Configuring computer with IP '$LinuxVMIP' to act as Master Node"
-    &"$global:KubernetesPath\smallsetup\linuxnode\ubuntu\ExistingUbuntuComputerAsMasterNodeInstaller.ps1" -IpAddress $LinuxVMIP -UserName $LinuxVMUsername -UserPwd $LinuxVMUserPwd -Proxy $Proxy
+    &"$installationPath\smallsetup\linuxnode\ubuntu\ExistingUbuntuComputerAsMasterNodeInstaller.ps1" -IpAddress $LinuxVMIP -UserName $LinuxVMUsername -UserPwd $LinuxVMUserPwd -Proxy $Proxy
     Write-Log "Finished configuring computer with IP '$LinuxVMIP' to act as Master Node"
 
     Wait-ForSSHConnectionToLinuxVMViaSshKey
 }
 else {
-    $vm = Get-Vm -Name $global:VMName -ErrorAction SilentlyContinue
+    $vm = Get-Vm -Name $controlPlaneVmName -ErrorAction SilentlyContinue
     if ( !($vm) ) {
         # use the local httpproxy for the linux master VM
-        $transparentproxy = 'http://' + $global:IP_NextHop + ':8181'
+        $transparentproxy = 'http://' + $(Get-WindowsHostClusterIpAddress) + ':8181'
         Write-Log "Local httpproxy proxy was set and will be used for linux VM: $transparentproxy"
         Install-AndInitKubemaster -VMStartUpMemory $MasterVMMemory -VMProcessorCount $MasterVMProcessorCount -VMDiskSize $MasterDiskSize -InstallationStageProxy $Proxy -OperationStageProxy $transparentproxy -HostGW $HostGW -DeleteFilesForOfflineInstallation $DeleteFilesForOfflineInstallation -ForceOnlineInstallation $ForceOnlineInstallation -WSL:$WSL -LinuxVhdxPath $LinuxVhdxPath -LinuxUserName $LinuxVMUsername -LinuxUserPwd $LinuxVMUserPwd
     }
@@ -313,18 +311,18 @@ Write-Log 'Joining Nodes'
 Copy-KubeConfigFromMasterNode
 
 # set context on windows host (add to existing contexts)
-&"$global:KubernetesPath\smallsetup\common\AddContextToConfig.ps1"
+&"$installationPath\smallsetup\common\AddContextToConfig.ps1"
 
 Invoke-HookAfterVmInitialized -AdditionalHooksDir $AdditionalHooksDir
 
 # try to join host windows node
 Write-Log 'starting the join process'
-&"$global:KubernetesPath\smallsetup\common\JoinWindowsHost.ps1"
+&"$installationPath\smallsetup\common\JoinWindowsHost.ps1"
 
 # set new limits for the windows node for disk pressure
 # kubelet is running now (caused by JoinWindowsHost.ps1), so we stop it. Will be restarted in StartK8s.ps1.
 Stop-Service kubelet
-$kubeletconfig = $global:KubeletConfigDir + '\config.yaml'
+$kubeletconfig = "$(Get-KubeletConfigDirectory)\config.yaml"
 Write-Log "kubelet config: $kubeletconfig"
 $content = Get-Content $kubeletconfig
 $content | ForEach-Object { $_ -replace 'evictionPressureTransitionPeriod:',
@@ -332,21 +330,22 @@ $content | ForEach-Object { $_ -replace 'evictionPressureTransitionPeriod:',
 Set-Content $kubeletconfig
 
 # add ip to hosts file
-&"$global:KubernetesPath\smallsetup\AddToHosts.ps1"
+&"$installationPath\smallsetup\AddToHosts.ps1"
 
 # show results
 Write-Log "Current state of kubernetes nodes:`n"
 Start-Sleep 2
-&$global:KubectlExe get nodes -o wide
+$kubectlExe = Get-KubectlExecutable
+&$kubectlExe get nodes -o wide
 
-Write-Log "Collecting kubernetes images and storing them to $global:KubernetesImagesJson."
+Write-Log "Collecting kubernetes images and storing them to $(Get-KubernetesImagesFilePath)."
 $imageFunctionsModulePath = "$PSScriptRoot\helpers\ImageFunctions.module.psm1"
 Import-Module $imageFunctionsModulePath -DisableNameChecking
 Write-KubernetesImagesIntoJson
 
 if (! $SkipStart) {
     Write-Log 'Starting Kubernetes System'
-    & "$global:KubernetesPath\smallsetup\StartK8s.ps1" -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs
+    & "$installationPath\smallsetup\StartK8s.ps1" -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs
 
     if ($RestartAfterInstallCount -gt 0) {
         $restartCount = 0;
@@ -355,10 +354,10 @@ if (! $SkipStart) {
             $restartCount++
             Write-Log "Restarting Kubernetes System (iteration #$restartCount):"
     
-            & "$global:KubernetesPath\smallsetup\StopK8s.ps1" -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs
+            & "$installationPath\smallsetup\StopK8s.ps1" -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs
             Start-Sleep 10 # Wait for renew of IP
     
-            & "$global:KubernetesPath\smallsetup\StartK8s.ps1" -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs
+            & "$installationPath\smallsetup\StartK8s.ps1" -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs
             Start-Sleep -s 5
     
             if ($restartCount -eq $RestartAfterInstallCount) {
@@ -371,9 +370,9 @@ if (! $SkipStart) {
     # show results
     Write-Log "Current state of kubernetes nodes:`n"
     Start-Sleep 2
-    &$global:KubectlExe get nodes -o wide
+    &$kubectlExe get nodes -o wide
 } else {
-    & "$global:KubernetesPath\smallsetup\StopK8s.ps1" -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs
+    & "$installationPath\smallsetup\StopK8s.ps1" -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs
 }
 
 Invoke-Hook -HookName 'AfterBaseInstall' -AdditionalHooksDir $AdditionalHooksDir
@@ -382,5 +381,5 @@ Write-Log '---------------------------------------------------------------'
 Write-Log "K2s setup finished.   Total duration: $('{0:hh\:mm\:ss}' -f $installStopwatch.Elapsed )"
 Write-Log '---------------------------------------------------------------'
 
-Write-RefreshEnvVariables
+Write-RefreshEnvironmentPathsMessage
 

@@ -4,9 +4,11 @@
 
 #Requires -RunAsAdministrator
 
-&$global:KubectlExe wait --timeout=5s --for=condition=Available -n monitoring deployment/kube-prometheus-stack-kube-state-metrics 2>&1 | Out-Null
+Import-Module "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k8s-api/k8s-api.module.psm1"
 
-$isKubeStateMetricsRunningProp = @{Name = 'isKubeStateMetricsRunningProp'; Value = $?; Okay = $? }
+Invoke-Kubectl -Params 'wait', '--timeout=5s', '--for=condition=Available', '-n', 'monitoring', 'deployment/kube-prometheus-stack-kube-state-metrics' | Out-Null
+
+$isKubeStateMetricsRunningProp = @{Name = 'IsKubeStateMetricsRunning'; Value = $?; Okay = $? }
 if ($isKubeStateMetricsRunningProp.Value -eq $true) {
     $isKubeStateMetricsRunningProp.Message = 'The Kube State Metrics Deployment is working'
 }
@@ -14,9 +16,9 @@ else {
     $isKubeStateMetricsRunningProp.Message = "The Kube State Metrics Deployment is not working. Try restarting the cluster with 'k2s start' or disable and re-enable the addon with 'k2s addons disable monitoring' and 'k2s addons enable monitoring'"
 } 
 
-&$global:KubectlExe wait --timeout=5s --for=condition=Available -n monitoring deployment/kube-prometheus-stack-operator 2>&1 | Out-Null
+Invoke-Kubectl -Params 'wait', '--timeout=5s', '--for=condition=Available', '-n', 'monitoring', 'deployment/kube-prometheus-stack-operator' | Out-Null
 
-$isPrometheusOperatorRunningProp = @{Name = 'isPrometheusOperatorRunningProp'; Value = $?; Okay = $? }
+$isPrometheusOperatorRunningProp = @{Name = 'IsPrometheusOperatorRunning'; Value = $?; Okay = $? }
 if ($isPrometheusOperatorRunningProp.Value -eq $true) {
     $isPrometheusOperatorRunningProp.Message = 'The Prometheus Operator is working'
 }
@@ -24,9 +26,9 @@ else {
     $isPrometheusOperatorRunningProp.Message = "The Prometheus Operator is not working. Try restarting the cluster with 'k2s start' or disable and re-enable the addon with 'k2s addons disable monitoring' and 'k2s addons enable monitoring'"
 } 
 
-&$global:KubectlExe wait --timeout=5s --for=condition=Available -n monitoring deployment/kube-prometheus-stack-plutono 2>&1 | Out-Null
+Invoke-Kubectl -Params 'wait', '--timeout=5s', '--for=condition=Available', '-n', 'monitoring', 'deployment/kube-prometheus-stack-plutono' | Out-Null
 
-$isPlutonoRunningProp = @{Name = 'isPlutonoRunningProp'; Value = $?; Okay = $? }
+$isPlutonoRunningProp = @{Name = 'IsPlutonoRunning'; Value = $?; Okay = $? }
 if ($isPlutonoRunningProp.Value -eq $true) {
     $isPlutonoRunningProp.Message = 'The Plutono Dashboard is working'
 }
@@ -34,9 +36,9 @@ else {
     $isPlutonoRunningProp.Message = "The Plutono Dashboard is not working. Try restarting the cluster with 'k2s start' or disable and re-enable the addon with 'k2s addons disable monitoring' and 'k2s addons enable monitoring'"
 } 
 
-&$global:KubectlExe rollout status statefulsets -n monitoring --timeout=5s 2>&1 | Out-Null
+Invoke-Kubectl -Params 'rollout', 'status', 'statefulsets', '-n', 'monitoring', '--timeout=5s' | Out-Null
 
-$areStatefulsetsRunningProp = @{Name = 'areStatefulsetsRunningProp'; Value = $?; Okay = $? }
+$areStatefulsetsRunningProp = @{Name = 'AreStatefulsetsRunning'; Value = $?; Okay = $? }
 if ($areStatefulsetsRunningProp.Value -eq $true) {
     $areStatefulsetsRunningProp.Message = 'Prometheus and Alertmanager are working'
 }
@@ -44,9 +46,9 @@ else {
     $areStatefulsetsRunningProp.Message = "Prometheus and Alertmanager are not working. Try restarting the cluster with 'k2s start' or disable and re-enable the addon with 'k2s addons disable monitoring' and 'k2s addons enable monitoring'"
 } 
 
-&$global:KubectlExe rollout status daemonsets -n monitoring --timeout=5s 2>&1 | Out-Null
+Invoke-Kubectl -Params 'rollout', 'status', 'daemonsets', '-n', 'monitoring', '--timeout=5s' | Out-Null
 
-$areDaemonsetsRunningProp = @{Name = 'areDaemonsetsRunningProp'; Value = $?; Okay = $? }
+$areDaemonsetsRunningProp = @{Name = 'AreDaemonsetsRunning'; Value = $?; Okay = $? }
 if ($areDaemonsetsRunningProp.Value -eq $true) {
     $areDaemonsetsRunningProp.Message = 'Node Exporter is working'
 }

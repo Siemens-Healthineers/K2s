@@ -77,7 +77,7 @@ if ((Test-IsAddonEnabled -Name 'dashboard') -eq $true) {
 
 Write-Log 'Installing Kubernetes dashboard' -Console
 $dashboardConfig = Get-DashboardConfig
-Invoke-Kubectl -Params 'apply' , '-f', $dashboardConfig
+(Invoke-Kubectl -Params 'apply' , '-f', $dashboardConfig).Output | Write-Log
 
 Write-Log 'Checking Dashboard status' -Console
 $dashboardStatus = Wait-ForDashboardAvailable
@@ -95,8 +95,6 @@ if ($dashboardStatus -ne $true) {
 }
 
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'dashboard' })
-
-Add-DashboardHostEntry
 
 switch ($Ingress) {
     'ingress-nginx' {
