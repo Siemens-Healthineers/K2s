@@ -22,7 +22,7 @@ $success = $false
 if ($registries) {
     $registry = $registries | Where-Object { $_.Contains('k2s-registry.local') }
 
-    $statusCode = curl "http://$registry" | Select-Object -Expand StatusCode
+    $statusCode = Invoke-WebRequest -Uri "http://$registry" -UseBasicParsing | Select-Object -Expand StatusCode
     $success = ($statusCode -eq 200)
 }
 
