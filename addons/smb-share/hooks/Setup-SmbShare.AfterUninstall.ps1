@@ -12,7 +12,12 @@ Post-uninstall hook to remove SMB share.
 Post-uninstall hook to remove SMB share.
 #>
 
-Import-Module "$PSScriptRoot\..\..\smallsetup\ps-modules\log\log.module.psm1", "$PSScriptRoot\..\smb-share\module\Smb-share.module.psm1"
+$logModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/log/log.module.psm1"
+$smbShareModule = "$PSScriptRoot\..\smb-share\module\Smb-share.module.psm1"
+
+Import-Module $logModule, $smbShareModule
+
+Initialize-Logging -ShowLogs:$ShowLogs
 
 Write-Log 'Removing SMB share after cluster deinstallation..' -Console
 
