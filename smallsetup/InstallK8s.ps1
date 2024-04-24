@@ -90,9 +90,11 @@ $proxyModule = "$PSScriptRoot\ps-modules\proxy\proxy.module.psm1"
 $temporaryPathModule = "$PSScriptRoot\ps-modules\only-while-refactoring\installation\still-to-merge.path.module.psm1"
 $temporaryConfigModule = "$PSScriptRoot\ps-modules\only-while-refactoring\installation\still-to-merge.config.module.psm1"
 $temporaryVmModule = "$PSScriptRoot\ps-modules\only-while-refactoring\installation\still-to-merge.vm.module.psm1"
+$temporaryWindowsNodeModule = "$PSScriptRoot\ps-modules\only-while-refactoring\installation\still-to-merge.windowsnode.module.psm1"
+$temporaryLoopbackAdapterModule = "$PSScriptRoot\ps-modules\only-while-refactoring\installation\still-to-merge.loopbackadapter.module.psm1"
 $systemModule = "$PSScriptRoot\..\lib\modules\k2s\k2s.node.module\windowsnode\system\system.module.psm1"
 
-Import-Module $logModule, $systemModule, $proxyModule, $temporaryPathModule, $temporaryConfigModule, $temporaryVmModule
+Import-Module $logModule, $systemModule, $proxyModule, $temporaryPathModule, $temporaryConfigModule, $temporaryVmModule, $temporaryWindowsNodeModule, $temporaryLoopbackAdapterModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -143,8 +145,6 @@ else {
     Write-Log 'Containerd Runtime, Docker Build Environment'
     $UseContainerd = $true
 }
-
-$global:HeaderLineShown = $true
 
 ################################ SCRIPT START ###############################################
 
@@ -218,21 +218,26 @@ Write-Log 'Setting up Windows worker node' -Console
 
 # Install loopback adapter for l2bridge
 Import-Module "$installationPath\smallsetup\LoopbackAdapter.psm1" -Force
-New-LoopbackAdapter -Name $global:LoopbackAdapter -DevConExe $global:DevconExe | Out-Null
-Set-LoopbackAdapterProperties -Name $global:LoopbackAdapter -IPAddress $global:IP_LoopbackAdapter -Gateway $global:Gateway_LoopbackAdapter
+$loopbackAdapterName = Get-LoopbackAdapterName
+$loopbackAdapterIpAddress = Get-LoopbackAdapterIpAddress
+$loopbackAdapterGatewayIpAddress = Get-LoopbackAdapterGatewayIpAddress
+$devconExe = Get-LoopbackAdapterExecutable 
+New-LoopbackAdapter -Name $loopbackAdapterName -DevConExe $devconExe | Out-Null
+Set-LoopbackAdapterProperties -Name $loopbackAdapterName -IPAddress $loopbackAdapterIpAddress -Gateway $loopbackAdapterGatewayIpAddress
 
-&"$installationPath\smallsetup\windowsnode\DeployWindowsNodeArtifacts.ps1" -KubernetesVersion $KubernetesVersion -Proxy "$Proxy" -DeleteFilesForOfflineInstallation $DeleteFilesForOfflineInstallation -ForceOnlineInstallation $ForceOnlineInstallation -SetupType $global:SetupType_k2s
+&"$installationPath\smallsetup\windowsnode\DeployWindowsNodeArtifacts.ps1" -KubernetesVersion $KubernetesVersion -Proxy "$Proxy" -DeleteFilesForOfflineInstallation $DeleteFilesForOfflineInstallation -ForceOnlineInstallation $ForceOnlineInstallation -SetupType $script:SetupType
 
 &"$installationPath\smallsetup\windowsnode\publisher\PublishNssm.ps1"
 
-if (!(Test-Path "$global:DockerExe") -or !(Get-Service docker -ErrorAction SilentlyContinue)) {
+if (!(Test-Path "$(Get-DockerExecutable)") -or !(Get-Service docker -ErrorAction SilentlyContinue)) {
     $autoStartDockerd = !$UseContainerd
     &"$installationPath\smallsetup\windowsnode\publisher\PublishDocker.ps1"
     &"$installationPath\smallsetup\windowsnode\InstallDockerWin10.ps1" -AutoStart:$autoStartDockerd -Proxy "$Proxy"
 }
 
 # setup host as a worker node (installs nssm for starting kubelet, flannel and kubeproxy)
-&"$installationPath\smallsetup\windowsnode\SetupNode.ps1" -KubernetesVersion $KubernetesVersion -MasterIp $global:IP_Master -MinSetup:$true -HostGW:$HostGW -Proxy:"$Proxy"
+$controlPlaneNodeIpAddress = Get-ControlPlaneNodeIpAddress
+&"$installationPath\smallsetup\windowsnode\SetupNode.ps1" -KubernetesVersion $KubernetesVersion -MasterIp $controlPlaneNodeIpAddress -MinSetup:$true -HostGW:$HostGW -Proxy:"$Proxy"
 
 # install containerd
 if ($UseContainerd) {
@@ -262,12 +267,14 @@ if (!$UseContainerd) {
 &"$installationPath\smallsetup\windowsnode\publisher\PublishPuttytools.ps1"
 
 # remove folder with windows node artifacts since all of them are already published to the expected locations
-Remove-Item "$global:WindowsNodeArtifactsDirectory" -Recurse -Force -ErrorAction SilentlyContinue
+$windowsNodeArtifactsDirectory = Get-WindowsNodeArtifactsDirectory
+Remove-Item $windowsNodeArtifactsDirectory -Recurse -Force -ErrorAction SilentlyContinue
 
 # reset some services
-&"$global:NssmInstallDirectory\nssm" set kubeproxy Start SERVICE_DEMAND_START | Out-Null
-&"$global:NssmInstallDirectory\nssm" set kubelet Start SERVICE_DEMAND_START | Out-Null
-&"$global:NssmInstallDirectory\nssm" set flanneld Start SERVICE_DEMAND_START | Out-Null
+$binPath = Get-BinPath
+&"$binPath\nssm" set kubeproxy Start SERVICE_DEMAND_START | Out-Null
+&"$binPath\nssm" set kubelet Start SERVICE_DEMAND_START | Out-Null
+&"$binPath\nssm" set flanneld Start SERVICE_DEMAND_START | Out-Null
 
 if ($WSL) {
     Write-Log "Setting up $controlPlaneVmName Distro" -Console
@@ -292,7 +299,7 @@ else {
     $vm = Get-Vm -Name $controlPlaneVmName -ErrorAction SilentlyContinue
     if ( !($vm) ) {
         # use the local httpproxy for the linux master VM
-        $transparentproxy = 'http://' + $global:IP_NextHop + ':8181'
+        $transparentproxy = 'http://' + $(Get-WindowsHostClusterIpAddress) + ':8181'
         Write-Log "Local httpproxy proxy was set and will be used for linux VM: $transparentproxy"
         Install-AndInitKubemaster -VMStartUpMemory $MasterVMMemory -VMProcessorCount $MasterVMProcessorCount -VMDiskSize $MasterDiskSize -InstallationStageProxy $Proxy -OperationStageProxy $transparentproxy -HostGW $HostGW -DeleteFilesForOfflineInstallation $DeleteFilesForOfflineInstallation -ForceOnlineInstallation $ForceOnlineInstallation -WSL:$WSL -LinuxVhdxPath $LinuxVhdxPath -LinuxUserName $LinuxVMUsername -LinuxUserPwd $LinuxVMUserPwd
     }
@@ -315,7 +322,7 @@ Write-Log 'starting the join process'
 # set new limits for the windows node for disk pressure
 # kubelet is running now (caused by JoinWindowsHost.ps1), so we stop it. Will be restarted in StartK8s.ps1.
 Stop-Service kubelet
-$kubeletconfig = $global:KubeletConfigDir + '\config.yaml'
+$kubeletconfig = "$(Get-KubeletConfigDirectory)\config.yaml"
 Write-Log "kubelet config: $kubeletconfig"
 $content = Get-Content $kubeletconfig
 $content | ForEach-Object { $_ -replace 'evictionPressureTransitionPeriod:',
@@ -328,9 +335,10 @@ Set-Content $kubeletconfig
 # show results
 Write-Log "Current state of kubernetes nodes:`n"
 Start-Sleep 2
-&$global:KubectlExe get nodes -o wide
+$kubectlExe = Get-KubectlExecutable
+&$kubectlExe get nodes -o wide
 
-Write-Log "Collecting kubernetes images and storing them to $global:KubernetesImagesJson."
+Write-Log "Collecting kubernetes images and storing them to $(Get-KubernetesImagesFilePath)."
 $imageFunctionsModulePath = "$PSScriptRoot\helpers\ImageFunctions.module.psm1"
 Import-Module $imageFunctionsModulePath -DisableNameChecking
 Write-KubernetesImagesIntoJson
@@ -362,7 +370,7 @@ if (! $SkipStart) {
     # show results
     Write-Log "Current state of kubernetes nodes:`n"
     Start-Sleep 2
-    &$global:KubectlExe get nodes -o wide
+    &$kubectlExe get nodes -o wide
 } else {
     & "$installationPath\smallsetup\StopK8s.ps1" -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs
 }

@@ -25,7 +25,15 @@ function Set-ReuseExistingLinuxComputerForMasterNodeFlag {
     Set-ConfigValue -Path $setupJsonFile -Key 'ReuseExistingLinuxComputerForMasterNode' -Value $Value
 }
 
+function Get-ControlPlaneNodeIpAddress {
+    return Get-ConfiguredIPControlPlane
+}
+
+function Get-WindowsHostClusterIpAddress {
+    return Get-ConfiguredKubeSwitchIP
+}
+
 # imported functions
-Export-ModuleMember -Function Set-ConfigWslFlag, Set-ConfigLinuxOsType, Set-ConfigSetupType 
+Export-ModuleMember -Function Set-ConfigWslFlag, Set-ConfigLinuxOsType, Set-ConfigSetupType, Get-KubernetesImagesFilePath
 # new functions
-Export-ModuleMember -Function Get-KubernetesVersion, Set-ConfigContainerdFlag, Set-ReuseExistingLinuxComputerForMasterNodeFlag
+Export-ModuleMember -Function Get-KubernetesVersion, Set-ConfigContainerdFlag, Set-ReuseExistingLinuxComputerForMasterNodeFlag, Get-ControlPlaneNodeIpAddress, Get-WindowsHostClusterIpAddress
