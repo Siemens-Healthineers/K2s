@@ -15,8 +15,12 @@ param (
     [Parameter(Mandatory = $false, HelpMessage = 'Back-up directory to restore data from.')]
     [string]$BackupDir = $(throw 'Please specify the back-up directory.')
 )
+$logModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/log/log.module.psm1"
+$smbShareModule = "$PSScriptRoot\..\smb-share\module\Smb-share.module.psm1"
 
-Import-Module "$PSScriptRoot\..\..\smallsetup\ps-modules\log\log.module.psm1", "$PSScriptRoot\..\smb-share\module\Smb-share.module.psm1"
+Import-Module $logModule, $smbShareModule
+
+Initialize-Logging -ShowLogs:$ShowLogs
 
 Write-Log "Restoring SMB share data from '$BackupDir'.." -Console
 
