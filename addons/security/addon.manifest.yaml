@@ -13,14 +13,9 @@ spec:
       repos: []
       deb: []
       curl: []
-      additionalImages:
-        - quay.io/jetstack/cert-manager-cainjector:v1.14.4
-        - quay.io/jetstack/cert-manager-controller:v1.14.4
-        - quay.io/jetstack/cert-manager-webhook:v1.14.4
+      additionalImages: []
     windows:
       curl:
-        - url: https://github.com/cert-manager/cert-manager/releases/download/v1.14.4/cert-manager.yaml
-          destination: addons\security\manifests\cert-manager.yaml
         - url: https://github.com/cert-manager/cmctl/releases/download/v2.0.0/cmctl_windows_amd64.exe
           destination: bin\exe\cmctl.exe
   commands:
