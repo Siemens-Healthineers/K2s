@@ -127,7 +127,7 @@ function Copy-FromToMaster($Source, $Target,
         } elseif ($Source.Contains($global:Remote_Master)){
             # copy from master
             $sourceDirectory = $Source -replace "${global:Remote_Master}:", ''
-            ssh.exe -n -o StrictHostKeyChecking=no -i $global:LinuxVMKey $global:Remote_Master "[ -d $sourceDirectory ]"
+            ssh.exe -n -o StrictHostKeyChecking=no -i $global:LinuxVMKey $global:Remote_Master "[ -d '$sourceDirectory' ]"
             if ($?) {
                 # is directory
                 ExecCmdMaster "sudo rm -rf /tmp/copy.tar"
