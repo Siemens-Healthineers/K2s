@@ -39,9 +39,11 @@ function Get-DashboardTraefikConfig {
 Determines if Nginx ingress controller is deployed in the cluster
 #>
 function Test-NginxIngressControllerAvailability {
-    $existingServices = (Invoke-Kubectl -Params 'get', 'service', '-n', 'ingress-nginx', '-o', 'yaml').Output
- 
-    return ("$existingServices" -match '.*ingress-nginx-controller.*') 
+    $existingServices = (Invoke-Kubectl -Params 'get', 'service', '-n', 'ingress-nginx', '-o', 'yaml').Output 
+    if ("$existingServices" -match '.*ingress-nginx-controller.*') {
+        return $true
+    }
+    return $false
 }
 
 <#
@@ -50,8 +52,10 @@ Determines if Traefik ingress controller is deployed in the cluster
 #>
 function Test-TraefikIngressControllerAvailability {
     $existingServices = (Invoke-Kubectl -Params 'get', 'service', '-n', 'traefik', '-o', 'yaml').Output
-    
-    return ("$existingServices" -match '.*traefik.*') 
+    if ("$existingServices" -match '.*traefik.*') {
+        return $true
+    }
+    return $false
 }
 
 <#
