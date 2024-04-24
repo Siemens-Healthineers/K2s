@@ -5,17 +5,20 @@ package addons
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"time"
 
 	"testing"
 
+	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/addons/status"
 	"github.com/siemens-healthineers/k2s/test/framework"
 
 	"github.com/siemens-healthineers/k2s/test/framework/k2s"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gstruct"
 )
 
 const testClusterTimeout = time.Minute * 10
@@ -36,6 +39,35 @@ var _ = AfterSuite(func(ctx context.Context) {
 })
 
 var _ = Describe("'registry' addon", Ordered, func() {
+	Describe("status", func() {
+		Context("default output", func() {
+			It("displays disabled message", func(ctx context.Context) {
+				output := suite.K2sCli().Run(ctx, "addons", "status", "registry")
+
+				Expect(output).To(SatisfyAll(
+					MatchRegexp(`ADDON STATUS`),
+					MatchRegexp(`Addon .+registry.+ is .+disabled.+`),
+				))
+			})
+		})
+
+		Context("JSON output", func() {
+			It("displays JSON", func(ctx context.Context) {
+				output := suite.K2sCli().Run(ctx, "addons", "status", "registry", "-o", "json")
+
+				var status status.AddonPrintStatus
+
+				Expect(json.Unmarshal([]byte(output), &status)).To(Succeed())
+
+				Expect(status.Name).To(Equal("registry"))
+				Expect(status.Enabled).NotTo(BeNil())
+				Expect(*status.Enabled).To(BeFalse())
+				Expect(status.Props).To(BeNil())
+				Expect(status.Error).To(BeNil())
+			})
+		})
+	})
+
 	When("Nodeport", func() {
 		Context("addon is enabled {nodeport}", func() {
 			BeforeAll(func(ctx context.Context) {
@@ -48,9 +80,8 @@ var _ = Describe("'registry' addon", Ordered, func() {
 				Expect(output).To(ContainSubstring("already enabled"))
 			})
 
-			It("registry addon with nodeport is in enabled state", func(ctx context.Context) {
-				addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
-				Expect(addonsStatus.IsAddonEnabled("registry")).To(BeTrue())
+			It("prints the status", func(ctx context.Context) {
+				expectStatusToBePrinted(ctx)
 			})
 
 			It("local container registry is configured", func(ctx context.Context) {
@@ -98,6 +129,10 @@ var _ = Describe("'registry' addon", Ordered, func() {
 				output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "enable", "registry")
 
 				Expect(output).To(ContainSubstring("already enabled"))
+			})
+
+			It("prints the status", func(ctx context.Context) {
+				expectStatusToBePrinted(ctx)
 			})
 
 			It("registry addon with default ingress is in enabled state", func(ctx context.Context) {
@@ -160,6 +195,10 @@ var _ = Describe("'registry' addon", Ordered, func() {
 				Expect(addonsStatus.IsAddonEnabled("traefik")).To(BeTrue())
 			})
 
+			It("prints the status", func(ctx context.Context) {
+				expectStatusToBePrinted(ctx)
+			})
+
 			It("local container registry is configured", func(ctx context.Context) {
 				output := suite.K2sCli().Run(ctx, "image", "registry", "ls")
 				Expect(output).Should(ContainSubstring("k2s-registry.local"), "Local Registry was not enabled")
@@ -202,6 +241,42 @@ func expectHttpGetStatusOk(url string) {
 
 	Expect(err).ShouldNot(HaveOccurred())
 	Expect(res).To(HaveHTTPStatus(http.StatusOK))
+}
+
+// TODO: code clone all over the addons tests
+func expectStatusToBePrinted(ctx context.Context) {
+	output := suite.K2sCli().Run(ctx, "addons", "status", "registry")
+
+	Expect(output).To(SatisfyAll(
+		MatchRegexp("ADDON STATUS"),
+		MatchRegexp(`Addon .+registry.+ is .+enabled.+`),
+		MatchRegexp("The registry pod is working"),
+		MatchRegexp("The registry '.+' is reachable"),
+	))
+
+	output = suite.K2sCli().Run(ctx, "addons", "status", "registry", "-o", "json")
+
+	var status status.AddonPrintStatus
+
+	Expect(json.Unmarshal([]byte(output), &status)).To(Succeed())
+
+	Expect(status.Name).To(Equal("registry"))
+	Expect(status.Error).To(BeNil())
+	Expect(status.Enabled).NotTo(BeNil())
+	Expect(*status.Enabled).To(BeTrue())
+	Expect(status.Props).NotTo(BeNil())
+	Expect(status.Props).To(ContainElements(
+		SatisfyAll(
+			HaveField("Name", "IsRegistryPodRunning"),
+			HaveField("Value", true),
+			HaveField("Okay", gstruct.PointTo(BeTrue())),
+			HaveField("Message", gstruct.PointTo(ContainSubstring("The registry pod is working")))),
+		SatisfyAll(
+			HaveField("Name", "IsRegistryReachable"),
+			HaveField("Value", true),
+			HaveField("Okay", gstruct.PointTo(BeTrue())),
+			HaveField("Message", gstruct.PointTo(MatchRegexp("The registry '.+' is reachable")))),
+	))
 }
 
 func httpGet(url string, retryCount int) (*http.Response, error) {
