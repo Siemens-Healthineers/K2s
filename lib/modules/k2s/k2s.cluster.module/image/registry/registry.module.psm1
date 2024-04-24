@@ -55,8 +55,7 @@ function Get-RegistriesFromSetupJson() {
     $parsedSetupJson = Get-Content -Raw $setupJsonFile | ConvertFrom-Json
     $registryMemberExists = Get-Member -InputObject $parsedSetupJson -Name 'Registries' -MemberType Properties
     if ($registryMemberExists) {
-        $registries = $parsedSetupJson.Registries
-        return $registries
+        return $parsedSetupJson.Registries
     }
     return $null
 }
@@ -100,9 +99,9 @@ function Add-RegistryToContainerdConf {
 function Connect-Docker {
     param (
         [Parameter(Mandatory = $false)]
-        [string]$username = "",
+        [string]$username = '',
         [Parameter(Mandatory = $false)]
-        [string]$password = "",
+        [string]$password = '',
         [Parameter(Mandatory = $false)]
         [string]$registry
     )
@@ -111,9 +110,10 @@ function Connect-Docker {
     $success = $false
     while ($retries -gt 0) {
         $retries--
-        if ($username -eq "" -and $password -eq "") {
+        if ($username -eq '' -and $password -eq '') {
             $success = $(&$dockerExe login $registry 2>$null | % { $_ -match 'Login Succeeded' })
-        } else {
+        }
+        else {
             $success = $(&$dockerExe login -u $username -p $password $registry 2>$null | % { $_ -match 'Login Succeeded' })
         }
 
@@ -132,9 +132,9 @@ function Connect-Docker {
 function Connect-Nerdctl {
     param (
         [Parameter(Mandatory = $false)]
-        [string]$username = "",
+        [string]$username = '',
         [Parameter(Mandatory = $false)]
-        [string]$password = "",
+        [string]$password = '',
         [Parameter(Mandatory = $false)]
         [string]$registry
     )
@@ -143,9 +143,10 @@ function Connect-Nerdctl {
     $success = $false
     while ($retries -gt 0) {
         $retries--
-        if ($username -eq "" -and $password -eq "") {
+        if ($username -eq '' -and $password -eq '') {
             $success = $(&$nerdctlExe login $registry 2>$null | % { $_ -match 'Login Succeeded' })
-        } else {
+        }
+        else {
             $success = $(&$nerdctlExe login -u $username -p $password $registry 2>$null | % { $_ -match 'Login Succeeded' })
         }
 
@@ -164,9 +165,9 @@ function Connect-Nerdctl {
 function Connect-Buildah {
     param (
         [Parameter(Mandatory = $false)]
-        [string]$username = "",
+        [string]$username = '',
         [Parameter(Mandatory = $false)]
-        [string]$password = "",
+        [string]$password = '',
         [Parameter(Mandatory = $false)]
         [string]$registry
     )
@@ -175,9 +176,10 @@ function Connect-Buildah {
     $success = $false
     while ($retries -gt 0) {
         $retries--
-        if ($username -eq "" -and $password -eq "") {
+        if ($username -eq '' -and $password -eq '') {
             Invoke-CmdOnControlPlaneViaSSHKey "sudo buildah login --authfile /root/.config/containers/auth.json '$registry' > /dev/null 2>&1" -NoLog
-        } else {
+        }
+        else {
             Invoke-CmdOnControlPlaneViaSSHKey "sudo buildah login --authfile /root/.config/containers/auth.json -u '$username' -p '$password' '$registry' > /dev/null 2>&1" -NoLog
         }
 
@@ -214,16 +216,17 @@ function Get-ConfiguredRegistryFromImageName {
 
     if ($registryExists) {
         return $registry
-    } else {
+    }
+    else {
         return $null
     }
 }
 
 Export-ModuleMember -Function Add-RegistryToSetupJson,
-                              Remove-RegistryFromSetupJson,
-                              Get-RegistriesFromSetupJson,
-                              Add-RegistryToContainerdConf,
-                              Connect-Docker,
-                              Connect-Buildah,
-                              Connect-Nerdctl,
-                              Get-ConfiguredRegistryFromImageName
+Remove-RegistryFromSetupJson,
+Get-RegistriesFromSetupJson,
+Add-RegistryToContainerdConf,
+Connect-Docker,
+Connect-Buildah,
+Connect-Nerdctl,
+Get-ConfiguredRegistryFromImageName
