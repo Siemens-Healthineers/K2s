@@ -162,20 +162,20 @@ function Copy-FromControlPlaneViaSSHKey($Source, $Target,
     Write-Log "copy: $Source to: $Target IgnoreErrors: $IgnoreErrors"
     $error.Clear()
 
-    $sourceDirectory = $Source -replace "${global:Remote_Master}:", ''
-    ssh.exe -n -o StrictHostKeyChecking=no -i $global:LinuxVMKey $global:Remote_Master "[ -d '$sourceDirectory' ]"
+    $linuxSourceDirectory = $Source -replace "${remoteUser}:", ''
+    ssh.exe -n -o StrictHostKeyChecking=no -i $key $remoteUser "[ -d '$linuxSourceDirectory' ]"
     if ($?) {
         # is directory
         Invoke-CmdOnControlPlaneViaSSHKey "sudo rm -rf /tmp/copy.tar"
-        $folder = Split-Path $sourceDirectory -Leaf
-        Invoke-CmdOnControlPlaneViaSSHKey "sudo tar -cf /tmp/copy.tar -C $sourceDirectory ."
-        scp.exe -o StrictHostKeyChecking=no -i $global:LinuxVMKey $($global:Remote_Master + ':/tmp/copy.tar') "$env:temp\copy.tar" 2>&1 | ForEach-Object { "$_" }
-        New-Item -Path "$Target\$folder" -ItemType Directory | Out-Null
-        tar.exe -xf "$env:temp\copy.tar" -C "$Target\$folder"
+        $leaf = Split-Path $linuxSourceDirectory -Leaf
+        Invoke-CmdOnControlPlaneViaSSHKey "sudo tar -cf /tmp/copy.tar -C $linuxSourceDirectory ."
+        scp.exe -o StrictHostKeyChecking=no -i $key "${remoteUser}:/tmp/copy.tar" "$env:temp\copy.tar" 2>&1 | ForEach-Object { "$_" }
+        New-Item -Path "$Target\$leaf" -ItemType Directory | Out-Null
+        tar.exe -xf "$env:temp\copy.tar" -C "$Target\$leaf"
         Invoke-CmdOnControlPlaneViaSSHKey "sudo rm -rf /tmp/copy.tar"
         Remove-Item -Path "$env:temp\copy.tar" -Force -ErrorAction SilentlyContinue
     } else {
-        scp.exe -o StrictHostKeyChecking=no -r -i $global:LinuxVMKey "$Source" "$Target" 2>&1 | ForEach-Object { "$_" }
+        scp.exe -o StrictHostKeyChecking=no -i $key "${remoteUser}:$Source" "$Target" 2>&1 | ForEach-Object { "$_" }
     }
 
     if ($error.count -gt 0 -and !$IgnoreErrors) { throw "Executing $CmdToExecute failed! " + $error }
@@ -199,17 +199,17 @@ function Copy-ToControlPlaneViaSSHKey($Source, $Target,
     if ((Get-Item $Source) -is [System.IO.DirectoryInfo]) {
         # is directory
         Invoke-CmdOnControlPlaneViaSSHKey "sudo rm -rf /tmp/copy.tar"
-        $folder = Split-Path $Source -Leaf
+        $leaf = Split-Path $Source -Leaf
         tar.exe -cf "$env:TEMP\copy.tar" -C $Source .
-        scp.exe -o StrictHostKeyChecking=no -i $global:LinuxVMKey "$env:temp\copy.tar" $($global:Remote_Master + ':/tmp') 2>&1 | ForEach-Object { "$_" }
-        $targetDirectory = $Target -replace "${global:Remote_Master}:", ''
-        Invoke-CmdOnControlPlaneViaSSHKey "sudo mkdir -p $targetDirectory/$folder"
-        Invoke-CmdOnControlPlaneViaSSHKey "sudo tar -xf /tmp/copy.tar -C $targetDirectory/$folder"
+        scp.exe -o StrictHostKeyChecking=no -i $key "$env:temp\copy.tar" "${remoteUser}:/tmp" 2>&1 | ForEach-Object { "$_" }
+        $targetDirectory = $Target -replace "${remoteUser}:", ''
+        Invoke-CmdOnControlPlaneViaSSHKey "sudo mkdir -p $targetDirectory/$leaf"
+        Invoke-CmdOnControlPlaneViaSSHKey "sudo tar -xf /tmp/copy.tar -C $targetDirectory/$leaf"
         Invoke-CmdOnControlPlaneViaSSHKey "sudo rm -rf /tmp/copy.tar"
         Remove-Item -Path "$env:temp\copy.tar" -Force -ErrorAction SilentlyContinue
     } else {
         # is file
-        scp.exe -o StrictHostKeyChecking=no -i $global:LinuxVMKey "$Source" "$Target" 2>&1 | ForEach-Object { "$_" }
+        scp.exe -o StrictHostKeyChecking=no -i $key "$Source" "${remoteUser}:$Target" 2>&1 | ForEach-Object { "$_" }
     }
 
     if ($error.count -gt 0 -and !$IgnoreErrors) { throw "Executing $CmdToExecute failed! " + $error }

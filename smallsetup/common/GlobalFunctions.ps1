@@ -139,7 +139,7 @@ function Copy-FromToMaster($Source, $Target,
                 ExecCmdMaster "sudo rm -rf /tmp/copy.tar"
                 Remove-Item -Path "$env:temp\copy.tar" -Force -ErrorAction SilentlyContinue
             } else {
-                scp.exe -o StrictHostKeyChecking=no -r -i $global:LinuxVMKey "$Source" "$Target" 2>&1 | ForEach-Object { "$_" }
+                scp.exe -o StrictHostKeyChecking=no -i $global:LinuxVMKey "$Source" "$Target" 2>&1 | ForEach-Object { "$_" }
             }
         }
     }
