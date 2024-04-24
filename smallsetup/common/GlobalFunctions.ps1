@@ -126,12 +126,13 @@ function Copy-FromToMaster($Source, $Target,
             }
         } elseif ($Source.Contains($global:Remote_Master)){
             # copy from master
-            ssh.exe -n -o StrictHostKeyChecking=no -i $global:LinuxVMKey $global:Remote_Master "[ -d $Source ]"
+            $sourceDirectory = $Source -replace "${global:Remote_Master}:", ''
+            ssh.exe -n -o StrictHostKeyChecking=no -i $global:LinuxVMKey $global:Remote_Master "[ -d $sourceDirectory ]"
             if ($?) {
                 # is directory
                 ExecCmdMaster "sudo rm -rf /tmp/copy.tar"
-                $folder = Split-Path $Source -Leaf
-                ExecCmdMaster "sudo tar -cf /tmp/copy.tar -C $Source ."
+                $folder = Split-Path $sourceDirectory -Leaf
+                ExecCmdMaster "sudo tar -cf /tmp/copy.tar -C $sourceDirectory ."
                 scp.exe -o StrictHostKeyChecking=no -i $global:LinuxVMKey $($global:Remote_Master + ':/tmp/copy.tar') "$env:temp\copy.tar" 2>&1 | ForEach-Object { "$_" }
                 New-Item -Path "$Target\$folder" -ItemType Directory | Out-Null
                 tar.exe -xf "$env:temp\copy.tar" -C "$Target\$folder"
