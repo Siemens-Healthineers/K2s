@@ -10,6 +10,25 @@ function Get-InstallationPath {
     return $installationPath
 }
 
+function Get-BinPath {
+    $installationPath = GetKubePath
+    return "$installationPath\bin"
+}
+
+function Get-ExecutablesPath {
+    $binPath = Get-BinPath
+    return "$binPath\exe"
+}
+
+function Get-DockerPath {
+    $binPath = Get-BinPath
+    return "$binPath\docker"
+}
+
+function Get-SystemDriveLetter {
+    return 'C'
+}
+
 function GetKubePath {
     $scriptRoot = $PSScriptRoot
     $kubePath = (Get-Item $scriptRoot).Parent.Parent.Parent.Parent.FullName
@@ -67,4 +86,4 @@ function Write-RefreshEnvironmentPathsMessage {
     Write-Log ' ' -Console
 }
 
-Export-ModuleMember -Function Set-EnvironmentPaths, Reset-EnvironmentPaths, Write-RefreshEnvironmentPathsMessage, Get-InstallationPath
+Export-ModuleMember -Function Set-EnvironmentPaths, Reset-EnvironmentPaths, Write-RefreshEnvironmentPathsMessage, Get-InstallationPath, Get-BinPath, Get-ExecutablesPath, Get-SystemDriveLetter, Get-DockerPath
