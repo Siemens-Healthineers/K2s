@@ -343,6 +343,10 @@ function Set-ConfigUsedStorageLocalDriveLetter {
     Set-ConfigValue -Path $SetupJsonFile -Key 'UsedStorageLocalDriveLetter' -Value $Value
 }
 
+function Get-ConfigLoggedInRegistry {
+    return Get-ConfigValue -Path $SetupJsonFile -Key 'LoggedInRegistry'
+}
+
 function Set-ConfigLoggedInRegistry {
     param (
         [object] $Value = $(throw 'Please provide the config value.')
@@ -452,6 +456,7 @@ Get-ConfigLinuxOnly,
 Set-ConfigLinuxOnly,
 Get-RootConfigk2s,
 Set-ConfigUsedStorageLocalDriveLetter,
+Get-ConfigLoggedInRegistry,
 Set-ConfigLoggedInRegistry,
 Set-ConfigInstalledKubernetesVersion,
 Set-ConfigInstallFolder,
