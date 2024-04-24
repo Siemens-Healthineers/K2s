@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# https://github.com/cert-manager/cert-manager/releases/download/v1.14.4/cert-manager.yaml
+
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -23,9 +25,9 @@ kind: CustomResourceDefinition
 metadata:
   name: certificaterequests.cert-manager.io
   labels:
-    app: 'cert-manager'
-    app.kubernetes.io/name: 'cert-manager'
-    app.kubernetes.io/instance: 'cert-manager'
+    app: "cert-manager"
+    app.kubernetes.io/name: "cert-manager"
+    app.kubernetes.io/instance: "cert-manager"
     # Generated labels
     app.kubernetes.io/version: "v1.14.4"
 spec:
@@ -75,10 +77,10 @@ spec:
           type: object
           properties:
             apiVersion:
-              description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+              description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources"
               type: string
             kind:
-              description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+              description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds"
               type: string
             metadata:
               type: object
@@ -164,7 +166,7 @@ spec:
                   description: Username contains the name of the user that created the CertificateRequest. Populated by the cert-manager webhook on creation and immutable.
                   type: string
             status:
-              description: 'Status of the CertificateRequest. This is set and managed automatically. Read-only. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status'
+              description: "Status of the CertificateRequest. This is set and managed automatically. Read-only. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status"
               type: object
               properties:
                 ca:
@@ -221,9 +223,9 @@ kind: CustomResourceDefinition
 metadata:
   name: certificates.cert-manager.io
   labels:
-    app: 'cert-manager'
-    app.kubernetes.io/name: 'cert-manager'
-    app.kubernetes.io/instance: 'cert-manager'
+    app: "cert-manager"
+    app.kubernetes.io/name: "cert-manager"
+    app.kubernetes.io/instance: "cert-manager"
     # Generated labels
     app.kubernetes.io/version: "v1.14.4"
 spec:
@@ -268,10 +270,10 @@ spec:
           type: object
           properties:
             apiVersion:
-              description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+              description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources"
               type: string
             kind:
-              description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+              description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds"
               type: string
             metadata:
               type: object
@@ -363,7 +365,7 @@ spec:
                               description: The key of the entry in the Secret resource's `data` field to be used. Some instances of this field may be defaulted, in others it may be required.
                               type: string
                             name:
-                              description: 'Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                              description: "Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names"
                               type: string
                     pkcs12:
                       description: PKCS12 configures options for storing a PKCS12 keystore in the `spec.secretName` Secret resource.
@@ -385,7 +387,7 @@ spec:
                               description: The key of the entry in the Secret resource's `data` field to be used. Some instances of this field may be defaulted, in others it may be required.
                               type: string
                             name:
-                              description: 'Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                              description: "Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names"
                               type: string
                         profile:
                           description: "Profile specifies the key and certificate encryption algorithms and the HMAC algorithm used to create the PKCS12 keystore. Default value is `LegacyRC2` for backward compatibility. \n If provided, allowed values are: `LegacyRC2`: Deprecated. Not supported by default in OpenSSL 3 or Java 20. `LegacyDES`: Less secure algorithm. Use this option for maximal compatibility. `Modern2023`: Secure algorithm. Use this option in case you have to always use secure algorithms (eg. because of company policy). Please note that the security of the algorithm is not that important in reality, because the unencrypted certificate and private key are also stored in the Secret."
@@ -453,7 +455,7 @@ spec:
                           items:
                             type: string
                 otherNames:
-                  description: '`otherNames` is an escape hatch for SAN that allows any type. We currently restrict the support to string like otherNames, cf RFC 5280 p 37 Any UTF8 String valued otherName can be passed with by setting the keys oid: x.x.x.x and UTF8Value: somevalue for `otherName`. Most commonly this would be UPN set with oid: 1.3.6.1.4.1.311.20.2.3 You should ensure that any OID passed is valid for the UTF8String type as we do not explicitly validate this.'
+                  description: "`otherNames` is an escape hatch for SAN that allows any type. We currently restrict the support to string like otherNames, cf RFC 5280 p 37 Any UTF8 String valued otherName can be passed with by setting the keys oid: x.x.x.x and UTF8Value: somevalue for `otherName`. Most commonly this would be UPN set with oid: 1.3.6.1.4.1.311.20.2.3 You should ensure that any OID passed is valid for the UTF8String type as we do not explicitly validate this."
                   type: array
                   items:
                     type: object
@@ -592,7 +594,7 @@ spec:
                       - microsoft sgc
                       - netscape sgc
             status:
-              description: 'Status of the Certificate. This is set and managed automatically. Read-only. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status'
+              description: "Status of the Certificate. This is set and managed automatically. Read-only. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status"
               type: object
               properties:
                 conditions:
@@ -666,9 +668,9 @@ kind: CustomResourceDefinition
 metadata:
   name: challenges.acme.cert-manager.io
   labels:
-    app: 'cert-manager'
-    app.kubernetes.io/name: 'cert-manager'
-    app.kubernetes.io/instance: 'cert-manager'
+    app: "cert-manager"
+    app.kubernetes.io/name: "cert-manager"
+    app.kubernetes.io/instance: "cert-manager"
     # Generated labels
     app.kubernetes.io/version: "v1.14.4"
 spec:
@@ -708,10 +710,10 @@ spec:
             - spec
           properties:
             apiVersion:
-              description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+              description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources"
               type: string
             kind:
-              description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+              description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds"
               type: string
             metadata:
               type: object
@@ -749,7 +751,7 @@ spec:
                       description: Name of the resource being referred to.
                       type: string
                 key:
-                  description: 'The ACME challenge key for this challenge For HTTP01 challenges, this is the value that must be responded with to complete the HTTP01 challenge in the format: `<private key JWK thumbprint>.<key from acme server for challenge>`. For DNS01 challenges, this is the base64 encoded SHA256 sum of the `<private key JWK thumbprint>.<key from acme server for challenge>` text that must be set as the TXT record content.'
+                  description: "The ACME challenge key for this challenge For HTTP01 challenges, this is the value that must be responded with to complete the HTTP01 challenge in the format: `<private key JWK thumbprint>.<key from acme server for challenge>`. For DNS01 challenges, this is the base64 encoded SHA256 sum of the `<private key JWK thumbprint>.<key from acme server for challenge>` text that must be set as the TXT record content."
                   type: string
                 solver:
                   description: Contains the domain solving configuration that should be used to solve this challenge resource.
@@ -776,7 +778,7 @@ spec:
                                   description: The key of the entry in the Secret resource's `data` field to be used. Some instances of this field may be defaulted, in others it may be required.
                                   type: string
                                 name:
-                                  description: 'Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                                  description: "Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names"
                                   type: string
                             host:
                               type: string
@@ -799,7 +801,7 @@ spec:
                                   description: The key of the entry in the Secret resource's `data` field to be used. Some instances of this field may be defaulted, in others it may be required.
                                   type: string
                                 name:
-                                  description: 'Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                                  description: "Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names"
                                   type: string
                             clientSecretSecretRef:
                               description: A reference to a specific 'key' within a Secret resource. In some instances, `key` is a required field.
@@ -811,7 +813,7 @@ spec:
                                   description: The key of the entry in the Secret resource's `data` field to be used. Some instances of this field may be defaulted, in others it may be required.
                                   type: string
                                 name:
-                                  description: 'Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                                  description: "Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names"
                                   type: string
                             clientTokenSecretRef:
                               description: A reference to a specific 'key' within a Secret resource. In some instances, `key` is a required field.
@@ -823,7 +825,7 @@ spec:
                                   description: The key of the entry in the Secret resource's `data` field to be used. Some instances of this field may be defaulted, in others it may be required.
                                   type: string
                                 name:
-                                  description: 'Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                                  description: "Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names"
                                   type: string
                             serviceConsumerDomain:
                               type: string
@@ -835,10 +837,10 @@ spec:
                             - subscriptionID
                           properties:
                             clientID:
-                              description: 'Auth: Azure Service Principal: The ClientID of the Azure Service Principal used to authenticate with Azure DNS. If set, ClientSecret and TenantID must also be set.'
+                              description: "Auth: Azure Service Principal: The ClientID of the Azure Service Principal used to authenticate with Azure DNS. If set, ClientSecret and TenantID must also be set."
                               type: string
                             clientSecretSecretRef:
-                              description: 'Auth: Azure Service Principal: A reference to a Secret containing the password associated with the Service Principal. If set, ClientID and TenantID must also be set.'
+                              description: "Auth: Azure Service Principal: A reference to a Secret containing the password associated with the Service Principal. If set, ClientID and TenantID must also be set."
                               type: object
                               required:
                                 - name
@@ -847,7 +849,7 @@ spec:
                                   description: The key of the entry in the Secret resource's `data` field to be used. Some instances of this field may be defaulted, in others it may be required.
                                   type: string
                                 name:
-                                  description: 'Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                                  description: "Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names"
                                   type: string
                             environment:
                               description: name of the Azure environment (default AzurePublicCloud)
@@ -861,7 +863,7 @@ spec:
                               description: name of the DNS zone that should be used
                               type: string
                             managedIdentity:
-                              description: 'Auth: Azure Workload Identity or Azure Managed Service Identity: Settings to enable Azure Workload Identity or Azure Managed Service Identity If set, ClientID, ClientSecret and TenantID must not be set.'
+                              description: "Auth: Azure Workload Identity or Azure Managed Service Identity: Settings to enable Azure Workload Identity or Azure Managed Service Identity If set, ClientID, ClientSecret and TenantID must not be set."
                               type: object
                               properties:
                                 clientID:
@@ -877,7 +879,7 @@ spec:
                               description: ID of the Azure subscription
                               type: string
                             tenantID:
-                              description: 'Auth: Azure Service Principal: The TenantID of the Azure Service Principal used to authenticate with Azure DNS. If set, ClientID and ClientSecret must also be set.'
+                              description: "Auth: Azure Service Principal: The TenantID of the Azure Service Principal used to authenticate with Azure DNS. If set, ClientID and ClientSecret must also be set."
                               type: string
                         cloudDNS:
                           description: Use the Google Cloud DNS API to manage DNS01 challenge records.
@@ -900,14 +902,14 @@ spec:
                                   description: The key of the entry in the Secret resource's `data` field to be used. Some instances of this field may be defaulted, in others it may be required.
                                   type: string
                                 name:
-                                  description: 'Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                                  description: "Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names"
                                   type: string
                         cloudflare:
                           description: Use the Cloudflare API to manage DNS01 challenge records.
                           type: object
                           properties:
                             apiKeySecretRef:
-                              description: 'API key to use to authenticate with Cloudflare. Note: using an API token to authenticate is now the recommended method as it allows greater control of permissions.'
+                              description: "API key to use to authenticate with Cloudflare. Note: using an API token to authenticate is now the recommended method as it allows greater control of permissions."
                               type: object
                               required:
                                 - name
@@ -916,7 +918,7 @@ spec:
                                   description: The key of the entry in the Secret resource's `data` field to be used. Some instances of this field may be defaulted, in others it may be required.
                                   type: string
                                 name:
-                                  description: 'Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                                  description: "Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names"
                                   type: string
                             apiTokenSecretRef:
                               description: API token used to authenticate with Cloudflare.
@@ -928,7 +930,7 @@ spec:
                                   description: The key of the entry in the Secret resource's `data` field to be used. Some instances of this field may be defaulted, in others it may be required.
                                   type: string
                                 name:
-                                  description: 'Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                                  description: "Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names"
                                   type: string
                             email:
                               description: Email of the account, only required when using API key based authentication.
@@ -955,7 +957,7 @@ spec:
                                   description: The key of the entry in the Secret resource's `data` field to be used. Some instances of this field may be defaulted, in others it may be required.
                                   type: string
                                 name:
-                                  description: 'Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                                  description: "Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names"
                                   type: string
                         rfc2136:
                           description: Use RFC2136 ("Dynamic Updates in the Domain Name System") (https://datatracker.ietf.org/doc/rfc2136/) to manage DNS01 challenge records.
@@ -967,7 +969,7 @@ spec:
                               description: The IP address or hostname of an authoritative DNS server supporting RFC2136 in the form host:port. If the host is an IPv6 address it must be enclosed in square brackets (e.g [2001:db8::1]) ; port is optional. This field is required.
                               type: string
                             tsigAlgorithm:
-                              description: 'The TSIG Algorithm configured in the DNS supporting RFC2136. Used only when ``tsigSecretSecretRef`` and ``tsigKeyName`` are defined. Supported values are (case-insensitive): ``HMACMD5`` (default), ``HMACSHA1``, ``HMACSHA256`` or ``HMACSHA512``.'
+                              description: "The TSIG Algorithm configured in the DNS supporting RFC2136. Used only when ``tsigSecretSecretRef`` and ``tsigKeyName`` are defined. Supported values are (case-insensitive): ``HMACMD5`` (default), ``HMACSHA1``, ``HMACSHA256`` or ``HMACSHA512``."
                               type: string
                             tsigKeyName:
                               description: The TSIG Key name configured in the DNS. If ``tsigSecretSecretRef`` is defined, this field is required.
@@ -982,7 +984,7 @@ spec:
                                   description: The key of the entry in the Secret resource's `data` field to be used. Some instances of this field may be defaulted, in others it may be required.
                                   type: string
                                 name:
-                                  description: 'Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                                  description: "Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names"
                                   type: string
                         route53:
                           description: Use the AWS Route53 API to manage DNS01 challenge records.
@@ -991,10 +993,10 @@ spec:
                             - region
                           properties:
                             accessKeyID:
-                              description: 'The AccessKeyID is used for authentication. Cannot be set when SecretAccessKeyID is set. If neither the Access Key nor Key ID are set, we fall-back to using env vars, shared credentials file or AWS Instance metadata, see: https://docs.aws.amazon.com/sdk-for-go/v1/developer-guide/configuring-sdk.html#specifying-credentials'
+                              description: "The AccessKeyID is used for authentication. Cannot be set when SecretAccessKeyID is set. If neither the Access Key nor Key ID are set, we fall-back to using env vars, shared credentials file or AWS Instance metadata, see: https://docs.aws.amazon.com/sdk-for-go/v1/developer-guide/configuring-sdk.html#specifying-credentials"
                               type: string
                             accessKeyIDSecretRef:
-                              description: 'The SecretAccessKey is used for authentication. If set, pull the AWS access key ID from a key within a Kubernetes Secret. Cannot be set when AccessKeyID is set. If neither the Access Key nor Key ID are set, we fall-back to using env vars, shared credentials file or AWS Instance metadata, see: https://docs.aws.amazon.com/sdk-for-go/v1/developer-guide/configuring-sdk.html#specifying-credentials'
+                              description: "The SecretAccessKey is used for authentication. If set, pull the AWS access key ID from a key within a Kubernetes Secret. Cannot be set when AccessKeyID is set. If neither the Access Key nor Key ID are set, we fall-back to using env vars, shared credentials file or AWS Instance metadata, see: https://docs.aws.amazon.com/sdk-for-go/v1/developer-guide/configuring-sdk.html#specifying-credentials"
                               type: object
                               required:
                                 - name
@@ -1003,7 +1005,7 @@ spec:
                                   description: The key of the entry in the Secret resource's `data` field to be used. Some instances of this field may be defaulted, in others it may be required.
                                   type: string
                                 name:
-                                  description: 'Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                                  description: "Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names"
                                   type: string
                             hostedZoneID:
                               description: If set, the provider will manage only this zone in Route53 and will not do an lookup using the route53:ListHostedZonesByName api call.
@@ -1015,7 +1017,7 @@ spec:
                               description: Role is a Role ARN which the Route53 provider will assume using either the explicit credentials AccessKeyID/SecretAccessKey or the inferred credentials from environment variables, shared credentials file or AWS Instance metadata
                               type: string
                             secretAccessKeySecretRef:
-                              description: 'The SecretAccessKey is used for authentication. If neither the Access Key nor Key ID are set, we fall-back to using env vars, shared credentials file or AWS Instance metadata, see: https://docs.aws.amazon.com/sdk-for-go/v1/developer-guide/configuring-sdk.html#specifying-credentials'
+                              description: "The SecretAccessKey is used for authentication. If neither the Access Key nor Key ID are set, we fall-back to using env vars, shared credentials file or AWS Instance metadata, see: https://docs.aws.amazon.com/sdk-for-go/v1/developer-guide/configuring-sdk.html#specifying-credentials"
                               type: object
                               required:
                                 - name
@@ -1024,7 +1026,7 @@ spec:
                                   description: The key of the entry in the Secret resource's `data` field to be used. Some instances of this field may be defaulted, in others it may be required.
                                   type: string
                                 name:
-                                  description: 'Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                                  description: "Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names"
                                   type: string
                         webhook:
                           description: Configure an external webhook based DNS01 challenge solver to manage DNS01 challenge records.
@@ -1056,7 +1058,7 @@ spec:
                               additionalProperties:
                                 type: string
                             parentRefs:
-                              description: 'When solving an HTTP-01 challenge, cert-manager creates an HTTPRoute. cert-manager needs to know which parentRefs should be used when creating the HTTPRoute. Usually, the parentRef references a Gateway. See: https://gateway-api.sigs.k8s.io/api-types/httproute/#attaching-to-gateways'
+                              description: "When solving an HTTP-01 challenge, cert-manager creates an HTTPRoute. cert-manager needs to know which parentRefs should be used when creating the HTTPRoute. Usually, the parentRef references a Gateway. See: https://gateway-api.sigs.k8s.io/api-types/httproute/#attaching-to-gateways"
                               type: array
                               items:
                                 description: "ParentReference identifies an API object (usually a Gateway) that can be considered a parent of this resource (usually a route). There are two kinds of parent resources with \"Core\" support: \n * Gateway (Gateway conformance profile) * Service (Mesh conformance profile, experimental, ClusterIP Services only) \n This API may be extended in the future to support additional kinds of parent resources. \n The API object must be valid in the cluster; the Group and Kind must be registered in the cluster for this reference to be valid."
@@ -1164,8 +1166,8 @@ spec:
                                           description: Describes node affinity scheduling rules for the pod.
                                           type: object
                                           properties:
-                                            preferredDuringSchedulingIgnoredDuringExecution:
-                                              description: The scheduler will prefer to schedule pods to nodes that satisfy the affinity expressions specified by this field, but it may choose a node that violates one or more of the expressions. The node that is most preferred is the one with the greatest sum of weights, i.e. for each node that meets all of the scheduling requirements (resource request, requiredDuringScheduling affinity expressions, etc.), compute a sum by iterating through the elements of this field and adding "weight" to the sum if the node matches the corresponding matchExpressions; the node(s) with the highest sum are the most preferred.
+                                            ? preferredDuringSchedulingIgnoredDuringExecution
+                                            : description: The scheduler will prefer to schedule pods to nodes that satisfy the affinity expressions specified by this field, but it may choose a node that violates one or more of the expressions. The node that is most preferred is the one with the greatest sum of weights, i.e. for each node that meets all of the scheduling requirements (resource request, requiredDuringScheduling affinity expressions, etc.), compute a sum by iterating through the elements of this field and adding "weight" to the sum if the node matches the corresponding matchExpressions; the node(s) with the highest sum are the most preferred.
                                               type: array
                                               items:
                                                 description: An empty preferred scheduling term matches all objects with implicit weight 0 (i.e. it's a no-op). A null preferred scheduling term matches no objects (i.e. is also a no-op).
@@ -1225,8 +1227,8 @@ spec:
                                                     description: Weight associated with matching the corresponding nodeSelectorTerm, in the range 1-100.
                                                     type: integer
                                                     format: int32
-                                            requiredDuringSchedulingIgnoredDuringExecution:
-                                              description: If the affinity requirements specified by this field are not met at scheduling time, the pod will not be scheduled onto the node. If the affinity requirements specified by this field cease to be met at some point during pod execution (e.g. due to an update), the system may or may not try to eventually evict the pod from its node.
+                                            ? requiredDuringSchedulingIgnoredDuringExecution
+                                            : description: If the affinity requirements specified by this field are not met at scheduling time, the pod will not be scheduled onto the node. If the affinity requirements specified by this field cease to be met at some point during pod execution (e.g. due to an update), the system may or may not try to eventually evict the pod from its node.
                                               type: object
                                               required:
                                                 - nodeSelectorTerms
@@ -1286,8 +1288,8 @@ spec:
                                           description: Describes pod affinity scheduling rules (e.g. co-locate this pod in the same node, zone, etc. as some other pod(s)).
                                           type: object
                                           properties:
-                                            preferredDuringSchedulingIgnoredDuringExecution:
-                                              description: The scheduler will prefer to schedule pods to nodes that satisfy the affinity expressions specified by this field, but it may choose a node that violates one or more of the expressions. The node that is most preferred is the one with the greatest sum of weights, i.e. for each node that meets all of the scheduling requirements (resource request, requiredDuringScheduling affinity expressions, etc.), compute a sum by iterating through the elements of this field and adding "weight" to the sum if the node has pods which matches the corresponding podAffinityTerm; the node(s) with the highest sum are the most preferred.
+                                            ? preferredDuringSchedulingIgnoredDuringExecution
+                                            : description: The scheduler will prefer to schedule pods to nodes that satisfy the affinity expressions specified by this field, but it may choose a node that violates one or more of the expressions. The node that is most preferred is the one with the greatest sum of weights, i.e. for each node that meets all of the scheduling requirements (resource request, requiredDuringScheduling affinity expressions, etc.), compute a sum by iterating through the elements of this field and adding "weight" to the sum if the node has pods which matches the corresponding podAffinityTerm; the node(s) with the highest sum are the most preferred.
                                               type: array
                                               items:
                                                 description: The weights of all of the matched WeightedPodAffinityTerm fields are added per-node to find the most preferred node(s)
@@ -1330,8 +1332,8 @@ spec:
                                                           matchLabels:
                                                             description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
                                                             type: object
-                                                            additionalProperties:
-                                                              type: string
+                                                            ? additionalProperties
+                                                            : type: string
                                                         x-kubernetes-map-type: atomic
                                                       matchLabelKeys:
                                                         description: MatchLabelKeys is a set of pod label keys to select which pods will be taken into consideration. The keys are used to lookup values from the incoming pod labels, those key-value labels are merged with `LabelSelector` as `key in (value)` to select the group of existing pods which pods will be taken into consideration for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming pod labels will be ignored. The default value is empty. The same key is forbidden to exist in both MatchLabelKeys and LabelSelector. Also, MatchLabelKeys cannot be set when LabelSelector isn't set. This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
@@ -1373,8 +1375,8 @@ spec:
                                                           matchLabels:
                                                             description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
                                                             type: object
-                                                            additionalProperties:
-                                                              type: string
+                                                            ? additionalProperties
+                                                            : type: string
                                                         x-kubernetes-map-type: atomic
                                                       namespaces:
                                                         description: namespaces specifies a static list of namespace names that the term applies to. The term is applied to the union of the namespaces listed in this field and the ones selected by namespaceSelector. null or empty namespaces list and null namespaceSelector means "this pod's namespace".
@@ -1388,8 +1390,8 @@ spec:
                                                     description: weight associated with matching the corresponding podAffinityTerm, in the range 1-100.
                                                     type: integer
                                                     format: int32
-                                            requiredDuringSchedulingIgnoredDuringExecution:
-                                              description: If the affinity requirements specified by this field are not met at scheduling time, the pod will not be scheduled onto the node. If the affinity requirements specified by this field cease to be met at some point during pod execution (e.g. due to a pod label update), the system may or may not try to eventually evict the pod from its node. When there are multiple elements, the lists of nodes corresponding to each podAffinityTerm are intersected, i.e. all terms must be satisfied.
+                                            ? requiredDuringSchedulingIgnoredDuringExecution
+                                            : description: If the affinity requirements specified by this field are not met at scheduling time, the pod will not be scheduled onto the node. If the affinity requirements specified by this field cease to be met at some point during pod execution (e.g. due to a pod label update), the system may or may not try to eventually evict the pod from its node. When there are multiple elements, the lists of nodes corresponding to each podAffinityTerm are intersected, i.e. all terms must be satisfied.
                                               type: array
                                               items:
                                                 description: Defines a set of pods (namely those matching the labelSelector relative to the given namespace(s)) that this pod should be co-located (affinity) or not co-located (anti-affinity) with, where co-located is defined as running on a node whose value of the label with key <topologyKey> matches that of any node on which a pod of the set of pods is running
@@ -1483,8 +1485,8 @@ spec:
                                           description: Describes pod anti-affinity scheduling rules (e.g. avoid putting this pod in the same node, zone, etc. as some other pod(s)).
                                           type: object
                                           properties:
-                                            preferredDuringSchedulingIgnoredDuringExecution:
-                                              description: The scheduler will prefer to schedule pods to nodes that satisfy the anti-affinity expressions specified by this field, but it may choose a node that violates one or more of the expressions. The node that is most preferred is the one with the greatest sum of weights, i.e. for each node that meets all of the scheduling requirements (resource request, requiredDuringScheduling anti-affinity expressions, etc.), compute a sum by iterating through the elements of this field and adding "weight" to the sum if the node has pods which matches the corresponding podAffinityTerm; the node(s) with the highest sum are the most preferred.
+                                            ? preferredDuringSchedulingIgnoredDuringExecution
+                                            : description: The scheduler will prefer to schedule pods to nodes that satisfy the anti-affinity expressions specified by this field, but it may choose a node that violates one or more of the expressions. The node that is most preferred is the one with the greatest sum of weights, i.e. for each node that meets all of the scheduling requirements (resource request, requiredDuringScheduling anti-affinity expressions, etc.), compute a sum by iterating through the elements of this field and adding "weight" to the sum if the node has pods which matches the corresponding podAffinityTerm; the node(s) with the highest sum are the most preferred.
                                               type: array
                                               items:
                                                 description: The weights of all of the matched WeightedPodAffinityTerm fields are added per-node to find the most preferred node(s)
@@ -1527,8 +1529,8 @@ spec:
                                                           matchLabels:
                                                             description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
                                                             type: object
-                                                            additionalProperties:
-                                                              type: string
+                                                            ? additionalProperties
+                                                            : type: string
                                                         x-kubernetes-map-type: atomic
                                                       matchLabelKeys:
                                                         description: MatchLabelKeys is a set of pod label keys to select which pods will be taken into consideration. The keys are used to lookup values from the incoming pod labels, those key-value labels are merged with `LabelSelector` as `key in (value)` to select the group of existing pods which pods will be taken into consideration for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming pod labels will be ignored. The default value is empty. The same key is forbidden to exist in both MatchLabelKeys and LabelSelector. Also, MatchLabelKeys cannot be set when LabelSelector isn't set. This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
@@ -1570,8 +1572,8 @@ spec:
                                                           matchLabels:
                                                             description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
                                                             type: object
-                                                            additionalProperties:
-                                                              type: string
+                                                            ? additionalProperties
+                                                            : type: string
                                                         x-kubernetes-map-type: atomic
                                                       namespaces:
                                                         description: namespaces specifies a static list of namespace names that the term applies to. The term is applied to the union of the namespaces listed in this field and the ones selected by namespaceSelector. null or empty namespaces list and null namespaceSelector means "this pod's namespace".
@@ -1585,8 +1587,8 @@ spec:
                                                     description: weight associated with matching the corresponding podAffinityTerm, in the range 1-100.
                                                     type: integer
                                                     format: int32
-                                            requiredDuringSchedulingIgnoredDuringExecution:
-                                              description: If the anti-affinity requirements specified by this field are not met at scheduling time, the pod will not be scheduled onto the node. If the anti-affinity requirements specified by this field cease to be met at some point during pod execution (e.g. due to a pod label update), the system may or may not try to eventually evict the pod from its node. When there are multiple elements, the lists of nodes corresponding to each podAffinityTerm are intersected, i.e. all terms must be satisfied.
+                                            ? requiredDuringSchedulingIgnoredDuringExecution
+                                            : description: If the anti-affinity requirements specified by this field are not met at scheduling time, the pod will not be scheduled onto the node. If the anti-affinity requirements specified by this field cease to be met at some point during pod execution (e.g. due to a pod label update), the system may or may not try to eventually evict the pod from its node. When there are multiple elements, the lists of nodes corresponding to each podAffinityTerm are intersected, i.e. all terms must be satisfied.
                                               type: array
                                               items:
                                                 description: Defines a set of pods (namely those matching the labelSelector relative to the given namespace(s)) that this pod should be co-located (affinity) or not co-located (anti-affinity) with, where co-located is defined as running on a node whose value of the label with key <topologyKey> matches that of any node on which a pod of the set of pods is running
@@ -1684,11 +1686,11 @@ spec:
                                         type: object
                                         properties:
                                           name:
-                                            description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
+                                            description: "Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?"
                                             type: string
                                         x-kubernetes-map-type: atomic
                                     nodeSelector:
-                                      description: 'NodeSelector is a selector which must be true for the pod to fit on a node. Selector which must match a node''s labels for the pod to be scheduled on that node. More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/'
+                                      description: "NodeSelector is a selector which must be true for the pod to fit on a node. Selector which must match a node's labels for the pod to be scheduled on that node. More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/"
                                       type: object
                                       additionalProperties:
                                         type: string
@@ -1792,8 +1794,8 @@ kind: CustomResourceDefinition
 metadata:
   name: clusterissuers.cert-manager.io
   labels:
-    app: 'cert-manager'
-    app.kubernetes.io/name: 'cert-manager'
+    app: "cert-manager"
+    app.kubernetes.io/name: "cert-manager"
     app.kubernetes.io/instance: "cert-manager"
     # Generated labels
     app.kubernetes.io/version: "v1.14.4"
@@ -1831,10 +1833,10 @@ spec:
             - spec
           properties:
             apiVersion:
-              description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+              description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources"
               type: string
             kind:
-              description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+              description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds"
               type: string
             metadata:
               type: object
@@ -1870,7 +1872,7 @@ spec:
                         - keySecretRef
                       properties:
                         keyAlgorithm:
-                          description: 'Deprecated: keyAlgorithm field exists for historical compatibility reasons and should not be used. The algorithm is now hardcoded to HS256 in golang/x/crypto/acme.'
+                          description: "Deprecated: keyAlgorithm field exists for historical compatibility reasons and should not be used. The algorithm is now hardcoded to HS256 in golang/x/crypto/acme."
                           type: string
                           enum:
                             - HS256
@@ -1889,7 +1891,7 @@ spec:
                               description: The key of the entry in the Secret resource's `data` field to be used. Some instances of this field may be defaulted, in others it may be required.
                               type: string
                             name:
-                              description: 'Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                              description: "Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names"
                               type: string
                     preferredChain:
                       description: 'PreferredChain is the chain to use if the ACME server outputs multiple. PreferredChain is no guarantee that this one gets delivered by the ACME endpoint. For example, for Let''s Encrypt''s DST crosssign you would use: "DST Root CA X3" or "ISRG Root X1" for the newer Let''s Encrypt root CA. This value picks the first certificate bundle in the ACME alternative chains that has a certificate with this value as its issuer''s CN'
@@ -1905,16 +1907,16 @@ spec:
                           description: The key of the entry in the Secret resource's `data` field to be used. Some instances of this field may be defaulted, in others it may be required.
                           type: string
                         name:
-                          description: 'Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                          description: "Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names"
                           type: string
                     server:
                       description: 'Server is the URL used to access the ACME server''s ''directory'' endpoint. For example, for Let''s Encrypt''s staging endpoint, you would use: "https://acme-staging-v02.api.letsencrypt.org/directory". Only ACME v2 endpoints (i.e. RFC 8555) are supported.'
                       type: string
                     skipTLSVerify:
-                      description: 'INSECURE: Enables or disables validation of the ACME server TLS certificate. If true, requests to the ACME server will not have the TLS certificate chain validated. Mutually exclusive with CABundle; prefer using CABundle to prevent various kinds of security vulnerabilities. Only enable this option in development environments. If CABundle and SkipTLSVerify are unset, the system certificate bundle inside the container is used to validate the TLS connection. Defaults to false.'
+                      description: "INSECURE: Enables or disables validation of the ACME server TLS certificate. If true, requests to the ACME server will not have the TLS certificate chain validated. Mutually exclusive with CABundle; prefer using CABundle to prevent various kinds of security vulnerabilities. Only enable this option in development environments. If CABundle and SkipTLSVerify are unset, the system certificate bundle inside the container is used to validate the TLS connection. Defaults to false."
                       type: boolean
                     solvers:
-                      description: 'Solvers is a list of challenge solvers that will be used to solve ACME challenges for the matching domains. Solver configurations must be provided in order to obtain certificates from an ACME server. For more information, see: https://cert-manager.io/docs/configuration/acme/'
+                      description: "Solvers is a list of challenge solvers that will be used to solve ACME challenges for the matching domains. Solver configurations must be provided in order to obtain certificates from an ACME server. For more information, see: https://cert-manager.io/docs/configuration/acme/"
                       type: array
                       items:
                         description: An ACMEChallengeSolver describes how to solve ACME challenges for the issuer it is part of. A selector may be provided to use different solving strategies for different DNS names. Only one of HTTP01 or DNS01 must be provided.
@@ -1941,7 +1943,7 @@ spec:
                                         description: The key of the entry in the Secret resource's `data` field to be used. Some instances of this field may be defaulted, in others it may be required.
                                         type: string
                                       name:
-                                        description: 'Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                                        description: "Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names"
                                         type: string
                                   host:
                                     type: string
@@ -1964,7 +1966,7 @@ spec:
                                         description: The key of the entry in the Secret resource's `data` field to be used. Some instances of this field may be defaulted, in others it may be required.
                                         type: string
                                       name:
-                                        description: 'Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                                        description: "Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names"
                                         type: string
                                   clientSecretSecretRef:
                                     description: A reference to a specific 'key' within a Secret resource. In some instances, `key` is a required field.
@@ -1976,7 +1978,7 @@ spec:
                                         description: The key of the entry in the Secret resource's `data` field to be used. Some instances of this field may be defaulted, in others it may be required.
                                         type: string
                                       name:
-                                        description: 'Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                                        description: "Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names"
                                         type: string
                                   clientTokenSecretRef:
                                     description: A reference to a specific 'key' within a Secret resource. In some instances, `key` is a required field.
@@ -1988,7 +1990,7 @@ spec:
                                         description: The key of the entry in the Secret resource's `data` field to be used. Some instances of this field may be defaulted, in others it may be required.
                                         type: string
                                       name:
-                                        description: 'Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                                        description: "Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names"
                                         type: string
                                   serviceConsumerDomain:
                                     type: string
@@ -2000,10 +2002,10 @@ spec:
                                   - subscriptionID
                                 properties:
                                   clientID:
-                                    description: 'Auth: Azure Service Principal: The ClientID of the Azure Service Principal used to authenticate with Azure DNS. If set, ClientSecret and TenantID must also be set.'
+                                    description: "Auth: Azure Service Principal: The ClientID of the Azure Service Principal used to authenticate with Azure DNS. If set, ClientSecret and TenantID must also be set."
                                     type: string
                                   clientSecretSecretRef:
-                                    description: 'Auth: Azure Service Principal: A reference to a Secret containing the password associated with the Service Principal. If set, ClientID and TenantID must also be set.'
+                                    description: "Auth: Azure Service Principal: A reference to a Secret containing the password associated with the Service Principal. If set, ClientID and TenantID must also be set."
                                     type: object
                                     required:
                                       - name
@@ -2012,7 +2014,7 @@ spec:
                                         description: The key of the entry in the Secret resource's `data` field to be used. Some instances of this field may be defaulted, in others it may be required.
                                         type: string
                                       name:
-                                        description: 'Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                                        description: "Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names"
                                         type: string
                                   environment:
                                     description: name of the Azure environment (default AzurePublicCloud)
@@ -2026,7 +2028,7 @@ spec:
                                     description: name of the DNS zone that should be used
                                     type: string
                                   managedIdentity:
-                                    description: 'Auth: Azure Workload Identity or Azure Managed Service Identity: Settings to enable Azure Workload Identity or Azure Managed Service Identity If set, ClientID, ClientSecret and TenantID must not be set.'
+                                    description: "Auth: Azure Workload Identity or Azure Managed Service Identity: Settings to enable Azure Workload Identity or Azure Managed Service Identity If set, ClientID, ClientSecret and TenantID must not be set."
                                     type: object
                                     properties:
                                       clientID:
@@ -2042,7 +2044,7 @@ spec:
                                     description: ID of the Azure subscription
                                     type: string
                                   tenantID:
-                                    description: 'Auth: Azure Service Principal: The TenantID of the Azure Service Principal used to authenticate with Azure DNS. If set, ClientID and ClientSecret must also be set.'
+                                    description: "Auth: Azure Service Principal: The TenantID of the Azure Service Principal used to authenticate with Azure DNS. If set, ClientID and ClientSecret must also be set."
                                     type: string
                               cloudDNS:
                                 description: Use the Google Cloud DNS API to manage DNS01 challenge records.
@@ -2065,14 +2067,14 @@ spec:
                                         description: The key of the entry in the Secret resource's `data` field to be used. Some instances of this field may be defaulted, in others it may be required.
                                         type: string
                                       name:
-                                        description: 'Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                                        description: "Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names"
                                         type: string
                               cloudflare:
                                 description: Use the Cloudflare API to manage DNS01 challenge records.
                                 type: object
                                 properties:
                                   apiKeySecretRef:
-                                    description: 'API key to use to authenticate with Cloudflare. Note: using an API token to authenticate is now the recommended method as it allows greater control of permissions.'
+                                    description: "API key to use to authenticate with Cloudflare. Note: using an API token to authenticate is now the recommended method as it allows greater control of permissions."
                                     type: object
                                     required:
                                       - name
@@ -2081,7 +2083,7 @@ spec:
                                         description: The key of the entry in the Secret resource's `data` field to be used. Some instances of this field may be defaulted, in others it may be required.
                                         type: string
                                       name:
-                                        description: 'Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                                        description: "Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names"
                                         type: string
                                   apiTokenSecretRef:
                                     description: API token used to authenticate with Cloudflare.
@@ -2093,7 +2095,7 @@ spec:
                                         description: The key of the entry in the Secret resource's `data` field to be used. Some instances of this field may be defaulted, in others it may be required.
                                         type: string
                                       name:
-                                        description: 'Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                                        description: "Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names"
                                         type: string
                                   email:
                                     description: Email of the account, only required when using API key based authentication.
@@ -2120,7 +2122,7 @@ spec:
                                         description: The key of the entry in the Secret resource's `data` field to be used. Some instances of this field may be defaulted, in others it may be required.
                                         type: string
                                       name:
-                                        description: 'Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                                        description: "Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names"
                                         type: string
                               rfc2136:
                                 description: Use RFC2136 ("Dynamic Updates in the Domain Name System") (https://datatracker.ietf.org/doc/rfc2136/) to manage DNS01 challenge records.
@@ -2132,7 +2134,7 @@ spec:
                                     description: The IP address or hostname of an authoritative DNS server supporting RFC2136 in the form host:port. If the host is an IPv6 address it must be enclosed in square brackets (e.g [2001:db8::1]) ; port is optional. This field is required.
                                     type: string
                                   tsigAlgorithm:
-                                    description: 'The TSIG Algorithm configured in the DNS supporting RFC2136. Used only when ``tsigSecretSecretRef`` and ``tsigKeyName`` are defined. Supported values are (case-insensitive): ``HMACMD5`` (default), ``HMACSHA1``, ``HMACSHA256`` or ``HMACSHA512``.'
+                                    description: "The TSIG Algorithm configured in the DNS supporting RFC2136. Used only when ``tsigSecretSecretRef`` and ``tsigKeyName`` are defined. Supported values are (case-insensitive): ``HMACMD5`` (default), ``HMACSHA1``, ``HMACSHA256`` or ``HMACSHA512``."
                                     type: string
                                   tsigKeyName:
                                     description: The TSIG Key name configured in the DNS. If ``tsigSecretSecretRef`` is defined, this field is required.
@@ -2147,7 +2149,7 @@ spec:
                                         description: The key of the entry in the Secret resource's `data` field to be used. Some instances of this field may be defaulted, in others it may be required.
                                         type: string
                                       name:
-                                        description: 'Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                                        description: "Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names"
                                         type: string
                               route53:
                                 description: Use the AWS Route53 API to manage DNS01 challenge records.
@@ -2156,10 +2158,10 @@ spec:
                                   - region
                                 properties:
                                   accessKeyID:
-                                    description: 'The AccessKeyID is used for authentication. Cannot be set when SecretAccessKeyID is set. If neither the Access Key nor Key ID are set, we fall-back to using env vars, shared credentials file or AWS Instance metadata, see: https://docs.aws.amazon.com/sdk-for-go/v1/developer-guide/configuring-sdk.html#specifying-credentials'
+                                    description: "The AccessKeyID is used for authentication. Cannot be set when SecretAccessKeyID is set. If neither the Access Key nor Key ID are set, we fall-back to using env vars, shared credentials file or AWS Instance metadata, see: https://docs.aws.amazon.com/sdk-for-go/v1/developer-guide/configuring-sdk.html#specifying-credentials"
                                     type: string
                                   accessKeyIDSecretRef:
-                                    description: 'The SecretAccessKey is used for authentication. If set, pull the AWS access key ID from a key within a Kubernetes Secret. Cannot be set when AccessKeyID is set. If neither the Access Key nor Key ID are set, we fall-back to using env vars, shared credentials file or AWS Instance metadata, see: https://docs.aws.amazon.com/sdk-for-go/v1/developer-guide/configuring-sdk.html#specifying-credentials'
+                                    description: "The SecretAccessKey is used for authentication. If set, pull the AWS access key ID from a key within a Kubernetes Secret. Cannot be set when AccessKeyID is set. If neither the Access Key nor Key ID are set, we fall-back to using env vars, shared credentials file or AWS Instance metadata, see: https://docs.aws.amazon.com/sdk-for-go/v1/developer-guide/configuring-sdk.html#specifying-credentials"
                                     type: object
                                     required:
                                       - name
@@ -2168,7 +2170,7 @@ spec:
                                         description: The key of the entry in the Secret resource's `data` field to be used. Some instances of this field may be defaulted, in others it may be required.
                                         type: string
                                       name:
-                                        description: 'Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                                        description: "Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names"
                                         type: string
                                   hostedZoneID:
                                     description: If set, the provider will manage only this zone in Route53 and will not do an lookup using the route53:ListHostedZonesByName api call.
@@ -2180,7 +2182,7 @@ spec:
                                     description: Role is a Role ARN which the Route53 provider will assume using either the explicit credentials AccessKeyID/SecretAccessKey or the inferred credentials from environment variables, shared credentials file or AWS Instance metadata
                                     type: string
                                   secretAccessKeySecretRef:
-                                    description: 'The SecretAccessKey is used for authentication. If neither the Access Key nor Key ID are set, we fall-back to using env vars, shared credentials file or AWS Instance metadata, see: https://docs.aws.amazon.com/sdk-for-go/v1/developer-guide/configuring-sdk.html#specifying-credentials'
+                                    description: "The SecretAccessKey is used for authentication. If neither the Access Key nor Key ID are set, we fall-back to using env vars, shared credentials file or AWS Instance metadata, see: https://docs.aws.amazon.com/sdk-for-go/v1/developer-guide/configuring-sdk.html#specifying-credentials"
                                     type: object
                                     required:
                                       - name
@@ -2189,7 +2191,7 @@ spec:
                                         description: The key of the entry in the Secret resource's `data` field to be used. Some instances of this field may be defaulted, in others it may be required.
                                         type: string
                                       name:
-                                        description: 'Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                                        description: "Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names"
                                         type: string
                               webhook:
                                 description: Configure an external webhook based DNS01 challenge solver to manage DNS01 challenge records.
@@ -2221,7 +2223,7 @@ spec:
                                     additionalProperties:
                                       type: string
                                   parentRefs:
-                                    description: 'When solving an HTTP-01 challenge, cert-manager creates an HTTPRoute. cert-manager needs to know which parentRefs should be used when creating the HTTPRoute. Usually, the parentRef references a Gateway. See: https://gateway-api.sigs.k8s.io/api-types/httproute/#attaching-to-gateways'
+                                    description: "When solving an HTTP-01 challenge, cert-manager creates an HTTPRoute. cert-manager needs to know which parentRefs should be used when creating the HTTPRoute. Usually, the parentRef references a Gateway. See: https://gateway-api.sigs.k8s.io/api-types/httproute/#attaching-to-gateways"
                                     type: array
                                     items:
                                       description: "ParentReference identifies an API object (usually a Gateway) that can be considered a parent of this resource (usually a route). There are two kinds of parent resources with \"Core\" support: \n * Gateway (Gateway conformance profile) * Service (Mesh conformance profile, experimental, ClusterIP Services only) \n This API may be extended in the future to support additional kinds of parent resources. \n The API object must be valid in the cluster; the Group and Kind must be registered in the cluster for this reference to be valid."
@@ -2329,8 +2331,8 @@ spec:
                                                 description: Describes node affinity scheduling rules for the pod.
                                                 type: object
                                                 properties:
-                                                  preferredDuringSchedulingIgnoredDuringExecution:
-                                                    description: The scheduler will prefer to schedule pods to nodes that satisfy the affinity expressions specified by this field, but it may choose a node that violates one or more of the expressions. The node that is most preferred is the one with the greatest sum of weights, i.e. for each node that meets all of the scheduling requirements (resource request, requiredDuringScheduling affinity expressions, etc.), compute a sum by iterating through the elements of this field and adding "weight" to the sum if the node matches the corresponding matchExpressions; the node(s) with the highest sum are the most preferred.
+                                                  ? preferredDuringSchedulingIgnoredDuringExecution
+                                                  : description: The scheduler will prefer to schedule pods to nodes that satisfy the affinity expressions specified by this field, but it may choose a node that violates one or more of the expressions. The node that is most preferred is the one with the greatest sum of weights, i.e. for each node that meets all of the scheduling requirements (resource request, requiredDuringScheduling affinity expressions, etc.), compute a sum by iterating through the elements of this field and adding "weight" to the sum if the node matches the corresponding matchExpressions; the node(s) with the highest sum are the most preferred.
                                                     type: array
                                                     items:
                                                       description: An empty preferred scheduling term matches all objects with implicit weight 0 (i.e. it's a no-op). A null preferred scheduling term matches no objects (i.e. is also a no-op).
@@ -2390,8 +2392,8 @@ spec:
                                                           description: Weight associated with matching the corresponding nodeSelectorTerm, in the range 1-100.
                                                           type: integer
                                                           format: int32
-                                                  requiredDuringSchedulingIgnoredDuringExecution:
-                                                    description: If the affinity requirements specified by this field are not met at scheduling time, the pod will not be scheduled onto the node. If the affinity requirements specified by this field cease to be met at some point during pod execution (e.g. due to an update), the system may or may not try to eventually evict the pod from its node.
+                                                  ? requiredDuringSchedulingIgnoredDuringExecution
+                                                  : description: If the affinity requirements specified by this field are not met at scheduling time, the pod will not be scheduled onto the node. If the affinity requirements specified by this field cease to be met at some point during pod execution (e.g. due to an update), the system may or may not try to eventually evict the pod from its node.
                                                     type: object
                                                     required:
                                                       - nodeSelectorTerms
@@ -2451,8 +2453,8 @@ spec:
                                                 description: Describes pod affinity scheduling rules (e.g. co-locate this pod in the same node, zone, etc. as some other pod(s)).
                                                 type: object
                                                 properties:
-                                                  preferredDuringSchedulingIgnoredDuringExecution:
-                                                    description: The scheduler will prefer to schedule pods to nodes that satisfy the affinity expressions specified by this field, but it may choose a node that violates one or more of the expressions. The node that is most preferred is the one with the greatest sum of weights, i.e. for each node that meets all of the scheduling requirements (resource request, requiredDuringScheduling affinity expressions, etc.), compute a sum by iterating through the elements of this field and adding "weight" to the sum if the node has pods which matches the corresponding podAffinityTerm; the node(s) with the highest sum are the most preferred.
+                                                  ? preferredDuringSchedulingIgnoredDuringExecution
+                                                  : description: The scheduler will prefer to schedule pods to nodes that satisfy the affinity expressions specified by this field, but it may choose a node that violates one or more of the expressions. The node that is most preferred is the one with the greatest sum of weights, i.e. for each node that meets all of the scheduling requirements (resource request, requiredDuringScheduling affinity expressions, etc.), compute a sum by iterating through the elements of this field and adding "weight" to the sum if the node has pods which matches the corresponding podAffinityTerm; the node(s) with the highest sum are the most preferred.
                                                     type: array
                                                     items:
                                                       description: The weights of all of the matched WeightedPodAffinityTerm fields are added per-node to find the most preferred node(s)
@@ -2471,8 +2473,8 @@ spec:
                                                               description: A label query over a set of resources, in this case pods. If it's null, this PodAffinityTerm matches with no Pods.
                                                               type: object
                                                               properties:
-                                                                matchExpressions:
-                                                                  description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
+                                                                ? matchExpressions
+                                                                : description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
                                                                   type: array
                                                                   items:
                                                                     description: A label selector requirement is a selector that contains values, a key, and an operator that relates the key and values.
@@ -2495,8 +2497,8 @@ spec:
                                                                 matchLabels:
                                                                   description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
                                                                   type: object
-                                                                  additionalProperties:
-                                                                    type: string
+                                                                  ? additionalProperties
+                                                                  : type: string
                                                               x-kubernetes-map-type: atomic
                                                             matchLabelKeys:
                                                               description: MatchLabelKeys is a set of pod label keys to select which pods will be taken into consideration. The keys are used to lookup values from the incoming pod labels, those key-value labels are merged with `LabelSelector` as `key in (value)` to select the group of existing pods which pods will be taken into consideration for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming pod labels will be ignored. The default value is empty. The same key is forbidden to exist in both MatchLabelKeys and LabelSelector. Also, MatchLabelKeys cannot be set when LabelSelector isn't set. This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
@@ -2514,8 +2516,8 @@ spec:
                                                               description: A label query over the set of namespaces that the term applies to. The term is applied to the union of the namespaces selected by this field and the ones listed in the namespaces field. null selector and null or empty namespaces list means "this pod's namespace". An empty selector ({}) matches all namespaces.
                                                               type: object
                                                               properties:
-                                                                matchExpressions:
-                                                                  description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
+                                                                ? matchExpressions
+                                                                : description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
                                                                   type: array
                                                                   items:
                                                                     description: A label selector requirement is a selector that contains values, a key, and an operator that relates the key and values.
@@ -2538,8 +2540,8 @@ spec:
                                                                 matchLabels:
                                                                   description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
                                                                   type: object
-                                                                  additionalProperties:
-                                                                    type: string
+                                                                  ? additionalProperties
+                                                                  : type: string
                                                               x-kubernetes-map-type: atomic
                                                             namespaces:
                                                               description: namespaces specifies a static list of namespace names that the term applies to. The term is applied to the union of the namespaces listed in this field and the ones selected by namespaceSelector. null or empty namespaces list and null namespaceSelector means "this pod's namespace".
@@ -2553,8 +2555,8 @@ spec:
                                                           description: weight associated with matching the corresponding podAffinityTerm, in the range 1-100.
                                                           type: integer
                                                           format: int32
-                                                  requiredDuringSchedulingIgnoredDuringExecution:
-                                                    description: If the affinity requirements specified by this field are not met at scheduling time, the pod will not be scheduled onto the node. If the affinity requirements specified by this field cease to be met at some point during pod execution (e.g. due to a pod label update), the system may or may not try to eventually evict the pod from its node. When there are multiple elements, the lists of nodes corresponding to each podAffinityTerm are intersected, i.e. all terms must be satisfied.
+                                                  ? requiredDuringSchedulingIgnoredDuringExecution
+                                                  : description: If the affinity requirements specified by this field are not met at scheduling time, the pod will not be scheduled onto the node. If the affinity requirements specified by this field cease to be met at some point during pod execution (e.g. due to a pod label update), the system may or may not try to eventually evict the pod from its node. When there are multiple elements, the lists of nodes corresponding to each podAffinityTerm are intersected, i.e. all terms must be satisfied.
                                                     type: array
                                                     items:
                                                       description: Defines a set of pods (namely those matching the labelSelector relative to the given namespace(s)) that this pod should be co-located (affinity) or not co-located (anti-affinity) with, where co-located is defined as running on a node whose value of the label with key <topologyKey> matches that of any node on which a pod of the set of pods is running
@@ -2590,8 +2592,8 @@ spec:
                                                             matchLabels:
                                                               description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
                                                               type: object
-                                                              additionalProperties:
-                                                                type: string
+                                                              ? additionalProperties
+                                                              : type: string
                                                           x-kubernetes-map-type: atomic
                                                         matchLabelKeys:
                                                           description: MatchLabelKeys is a set of pod label keys to select which pods will be taken into consideration. The keys are used to lookup values from the incoming pod labels, those key-value labels are merged with `LabelSelector` as `key in (value)` to select the group of existing pods which pods will be taken into consideration for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming pod labels will be ignored. The default value is empty. The same key is forbidden to exist in both MatchLabelKeys and LabelSelector. Also, MatchLabelKeys cannot be set when LabelSelector isn't set. This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
@@ -2633,8 +2635,8 @@ spec:
                                                             matchLabels:
                                                               description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
                                                               type: object
-                                                              additionalProperties:
-                                                                type: string
+                                                              ? additionalProperties
+                                                              : type: string
                                                           x-kubernetes-map-type: atomic
                                                         namespaces:
                                                           description: namespaces specifies a static list of namespace names that the term applies to. The term is applied to the union of the namespaces listed in this field and the ones selected by namespaceSelector. null or empty namespaces list and null namespaceSelector means "this pod's namespace".
@@ -2648,8 +2650,8 @@ spec:
                                                 description: Describes pod anti-affinity scheduling rules (e.g. avoid putting this pod in the same node, zone, etc. as some other pod(s)).
                                                 type: object
                                                 properties:
-                                                  preferredDuringSchedulingIgnoredDuringExecution:
-                                                    description: The scheduler will prefer to schedule pods to nodes that satisfy the anti-affinity expressions specified by this field, but it may choose a node that violates one or more of the expressions. The node that is most preferred is the one with the greatest sum of weights, i.e. for each node that meets all of the scheduling requirements (resource request, requiredDuringScheduling anti-affinity expressions, etc.), compute a sum by iterating through the elements of this field and adding "weight" to the sum if the node has pods which matches the corresponding podAffinityTerm; the node(s) with the highest sum are the most preferred.
+                                                  ? preferredDuringSchedulingIgnoredDuringExecution
+                                                  : description: The scheduler will prefer to schedule pods to nodes that satisfy the anti-affinity expressions specified by this field, but it may choose a node that violates one or more of the expressions. The node that is most preferred is the one with the greatest sum of weights, i.e. for each node that meets all of the scheduling requirements (resource request, requiredDuringScheduling anti-affinity expressions, etc.), compute a sum by iterating through the elements of this field and adding "weight" to the sum if the node has pods which matches the corresponding podAffinityTerm; the node(s) with the highest sum are the most preferred.
                                                     type: array
                                                     items:
                                                       description: The weights of all of the matched WeightedPodAffinityTerm fields are added per-node to find the most preferred node(s)
@@ -2668,8 +2670,8 @@ spec:
                                                               description: A label query over a set of resources, in this case pods. If it's null, this PodAffinityTerm matches with no Pods.
                                                               type: object
                                                               properties:
-                                                                matchExpressions:
-                                                                  description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
+                                                                ? matchExpressions
+                                                                : description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
                                                                   type: array
                                                                   items:
                                                                     description: A label selector requirement is a selector that contains values, a key, and an operator that relates the key and values.
@@ -2692,8 +2694,8 @@ spec:
                                                                 matchLabels:
                                                                   description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
                                                                   type: object
-                                                                  additionalProperties:
-                                                                    type: string
+                                                                  ? additionalProperties
+                                                                  : type: string
                                                               x-kubernetes-map-type: atomic
                                                             matchLabelKeys:
                                                               description: MatchLabelKeys is a set of pod label keys to select which pods will be taken into consideration. The keys are used to lookup values from the incoming pod labels, those key-value labels are merged with `LabelSelector` as `key in (value)` to select the group of existing pods which pods will be taken into consideration for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming pod labels will be ignored. The default value is empty. The same key is forbidden to exist in both MatchLabelKeys and LabelSelector. Also, MatchLabelKeys cannot be set when LabelSelector isn't set. This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
@@ -2711,8 +2713,8 @@ spec:
                                                               description: A label query over the set of namespaces that the term applies to. The term is applied to the union of the namespaces selected by this field and the ones listed in the namespaces field. null selector and null or empty namespaces list means "this pod's namespace". An empty selector ({}) matches all namespaces.
                                                               type: object
                                                               properties:
-                                                                matchExpressions:
-                                                                  description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
+                                                                ? matchExpressions
+                                                                : description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
                                                                   type: array
                                                                   items:
                                                                     description: A label selector requirement is a selector that contains values, a key, and an operator that relates the key and values.
@@ -2735,8 +2737,8 @@ spec:
                                                                 matchLabels:
                                                                   description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
                                                                   type: object
-                                                                  additionalProperties:
-                                                                    type: string
+                                                                  ? additionalProperties
+                                                                  : type: string
                                                               x-kubernetes-map-type: atomic
                                                             namespaces:
                                                               description: namespaces specifies a static list of namespace names that the term applies to. The term is applied to the union of the namespaces listed in this field and the ones selected by namespaceSelector. null or empty namespaces list and null namespaceSelector means "this pod's namespace".
@@ -2750,8 +2752,8 @@ spec:
                                                           description: weight associated with matching the corresponding podAffinityTerm, in the range 1-100.
                                                           type: integer
                                                           format: int32
-                                                  requiredDuringSchedulingIgnoredDuringExecution:
-                                                    description: If the anti-affinity requirements specified by this field are not met at scheduling time, the pod will not be scheduled onto the node. If the anti-affinity requirements specified by this field cease to be met at some point during pod execution (e.g. due to a pod label update), the system may or may not try to eventually evict the pod from its node. When there are multiple elements, the lists of nodes corresponding to each podAffinityTerm are intersected, i.e. all terms must be satisfied.
+                                                  ? requiredDuringSchedulingIgnoredDuringExecution
+                                                  : description: If the anti-affinity requirements specified by this field are not met at scheduling time, the pod will not be scheduled onto the node. If the anti-affinity requirements specified by this field cease to be met at some point during pod execution (e.g. due to a pod label update), the system may or may not try to eventually evict the pod from its node. When there are multiple elements, the lists of nodes corresponding to each podAffinityTerm are intersected, i.e. all terms must be satisfied.
                                                     type: array
                                                     items:
                                                       description: Defines a set of pods (namely those matching the labelSelector relative to the given namespace(s)) that this pod should be co-located (affinity) or not co-located (anti-affinity) with, where co-located is defined as running on a node whose value of the label with key <topologyKey> matches that of any node on which a pod of the set of pods is running
@@ -2787,8 +2789,8 @@ spec:
                                                             matchLabels:
                                                               description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
                                                               type: object
-                                                              additionalProperties:
-                                                                type: string
+                                                              ? additionalProperties
+                                                              : type: string
                                                           x-kubernetes-map-type: atomic
                                                         matchLabelKeys:
                                                           description: MatchLabelKeys is a set of pod label keys to select which pods will be taken into consideration. The keys are used to lookup values from the incoming pod labels, those key-value labels are merged with `LabelSelector` as `key in (value)` to select the group of existing pods which pods will be taken into consideration for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming pod labels will be ignored. The default value is empty. The same key is forbidden to exist in both MatchLabelKeys and LabelSelector. Also, MatchLabelKeys cannot be set when LabelSelector isn't set. This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
@@ -2830,8 +2832,8 @@ spec:
                                                             matchLabels:
                                                               description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
                                                               type: object
-                                                              additionalProperties:
-                                                                type: string
+                                                              ? additionalProperties
+                                                              : type: string
                                                           x-kubernetes-map-type: atomic
                                                         namespaces:
                                                           description: namespaces specifies a static list of namespace names that the term applies to. The term is applied to the union of the namespaces listed in this field and the ones selected by namespaceSelector. null or empty namespaces list and null namespaceSelector means "this pod's namespace".
@@ -2849,11 +2851,11 @@ spec:
                                               type: object
                                               properties:
                                                 name:
-                                                  description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
+                                                  description: "Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?"
                                                   type: string
                                               x-kubernetes-map-type: atomic
                                           nodeSelector:
-                                            description: 'NodeSelector is a selector which must be true for the pod to fit on a node. Selector which must match a node''s labels for the pod to be scheduled on that node. More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/'
+                                            description: "NodeSelector is a selector which must be true for the pod to fit on a node. Selector which must match a node's labels for the pod to be scheduled on that node. More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/"
                                             type: object
                                             additionalProperties:
                                               type: string
@@ -2977,7 +2979,7 @@ spec:
                                   description: The key of the entry in the Secret resource's `data` field to be used. Some instances of this field may be defaulted, in others it may be required.
                                   type: string
                                 name:
-                                  description: 'Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                                  description: "Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names"
                                   type: string
                         kubernetes:
                           description: Kubernetes authenticates with Vault by passing the ServiceAccount token stored in the named Secret resource to the Vault server.
@@ -3001,7 +3003,7 @@ spec:
                                   description: The key of the entry in the Secret resource's `data` field to be used. Some instances of this field may be defaulted, in others it may be required.
                                   type: string
                                 name:
-                                  description: 'Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                                  description: "Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names"
                                   type: string
                             serviceAccountRef:
                               description: A reference to a service account that will be used to request a bound token (also known as "projected token"). Compared to using "secretRef", using this field means that you don't rely on statically bound tokens. To use this field, you must configure an RBAC rule to let cert-manager request a token.
@@ -3022,7 +3024,7 @@ spec:
                               description: The key of the entry in the Secret resource's `data` field to be used. Some instances of this field may be defaulted, in others it may be required.
                               type: string
                             name:
-                              description: 'Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                              description: "Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names"
                               type: string
                     caBundle:
                       description: Base64-encoded bundle of PEM CAs which will be used to validate the certificate chain presented by Vault. Only used if using HTTPS to connect to Vault and ignored for HTTP connections. Mutually exclusive with CABundleSecretRef. If neither CABundle nor CABundleSecretRef are defined, the certificate bundle in the cert-manager controller container is used to validate the TLS connection.
@@ -3038,7 +3040,7 @@ spec:
                           description: The key of the entry in the Secret resource's `data` field to be used. Some instances of this field may be defaulted, in others it may be required.
                           type: string
                         name:
-                          description: 'Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                          description: "Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names"
                           type: string
                     namespace:
                       description: 'Name of the vault namespace. Namespaces is a set of features within Vault Enterprise that allows Vault environments to support Secure Multi-tenancy. e.g: "ns1" More about namespaces can be found here https://www.vaultproject.io/docs/enterprise/namespaces'
@@ -3071,7 +3073,7 @@ spec:
                               description: The key of the entry in the Secret resource's `data` field to be used. Some instances of this field may be defaulted, in others it may be required.
                               type: string
                             name:
-                              description: 'Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                              description: "Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names"
                               type: string
                         url:
                           description: URL is the base URL for Venafi Cloud. Defaults to "https://api.venafi.cloud/v1".
@@ -3094,7 +3096,7 @@ spec:
                             - name
                           properties:
                             name:
-                              description: 'Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                              description: "Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names"
                               type: string
                         url:
                           description: 'URL is the base URL for the vedsdk endpoint of the Venafi TPP instance, for example: "https://tpp.example.com/vedsdk".'
@@ -3165,8 +3167,8 @@ kind: CustomResourceDefinition
 metadata:
   name: issuers.cert-manager.io
   labels:
-    app: 'cert-manager'
-    app.kubernetes.io/name: 'cert-manager'
+    app: "cert-manager"
+    app.kubernetes.io/name: "cert-manager"
     app.kubernetes.io/instance: "cert-manager"
     # Generated labels
     app.kubernetes.io/version: "v1.14.4"
@@ -3204,10 +3206,10 @@ spec:
             - spec
           properties:
             apiVersion:
-              description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+              description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources"
               type: string
             kind:
-              description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+              description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds"
               type: string
             metadata:
               type: object
@@ -3243,7 +3245,7 @@ spec:
                         - keySecretRef
                       properties:
                         keyAlgorithm:
-                          description: 'Deprecated: keyAlgorithm field exists for historical compatibility reasons and should not be used. The algorithm is now hardcoded to HS256 in golang/x/crypto/acme.'
+                          description: "Deprecated: keyAlgorithm field exists for historical compatibility reasons and should not be used. The algorithm is now hardcoded to HS256 in golang/x/crypto/acme."
                           type: string
                           enum:
                             - HS256
@@ -3262,7 +3264,7 @@ spec:
                               description: The key of the entry in the Secret resource's `data` field to be used. Some instances of this field may be defaulted, in others it may be required.
                               type: string
                             name:
-                              description: 'Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                              description: "Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names"
                               type: string
                     preferredChain:
                       description: 'PreferredChain is the chain to use if the ACME server outputs multiple. PreferredChain is no guarantee that this one gets delivered by the ACME endpoint. For example, for Let''s Encrypt''s DST crosssign you would use: "DST Root CA X3" or "ISRG Root X1" for the newer Let''s Encrypt root CA. This value picks the first certificate bundle in the ACME alternative chains that has a certificate with this value as its issuer''s CN'
@@ -3278,16 +3280,16 @@ spec:
                           description: The key of the entry in the Secret resource's `data` field to be used. Some instances of this field may be defaulted, in others it may be required.
                           type: string
                         name:
-                          description: 'Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                          description: "Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names"
                           type: string
                     server:
                       description: 'Server is the URL used to access the ACME server''s ''directory'' endpoint. For example, for Let''s Encrypt''s staging endpoint, you would use: "https://acme-staging-v02.api.letsencrypt.org/directory". Only ACME v2 endpoints (i.e. RFC 8555) are supported.'
                       type: string
                     skipTLSVerify:
-                      description: 'INSECURE: Enables or disables validation of the ACME server TLS certificate. If true, requests to the ACME server will not have the TLS certificate chain validated. Mutually exclusive with CABundle; prefer using CABundle to prevent various kinds of security vulnerabilities. Only enable this option in development environments. If CABundle and SkipTLSVerify are unset, the system certificate bundle inside the container is used to validate the TLS connection. Defaults to false.'
+                      description: "INSECURE: Enables or disables validation of the ACME server TLS certificate. If true, requests to the ACME server will not have the TLS certificate chain validated. Mutually exclusive with CABundle; prefer using CABundle to prevent various kinds of security vulnerabilities. Only enable this option in development environments. If CABundle and SkipTLSVerify are unset, the system certificate bundle inside the container is used to validate the TLS connection. Defaults to false."
                       type: boolean
                     solvers:
-                      description: 'Solvers is a list of challenge solvers that will be used to solve ACME challenges for the matching domains. Solver configurations must be provided in order to obtain certificates from an ACME server. For more information, see: https://cert-manager.io/docs/configuration/acme/'
+                      description: "Solvers is a list of challenge solvers that will be used to solve ACME challenges for the matching domains. Solver configurations must be provided in order to obtain certificates from an ACME server. For more information, see: https://cert-manager.io/docs/configuration/acme/"
                       type: array
                       items:
                         description: An ACMEChallengeSolver describes how to solve ACME challenges for the issuer it is part of. A selector may be provided to use different solving strategies for different DNS names. Only one of HTTP01 or DNS01 must be provided.
@@ -3314,7 +3316,7 @@ spec:
                                         description: The key of the entry in the Secret resource's `data` field to be used. Some instances of this field may be defaulted, in others it may be required.
                                         type: string
                                       name:
-                                        description: 'Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                                        description: "Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names"
                                         type: string
                                   host:
                                     type: string
@@ -3337,7 +3339,7 @@ spec:
                                         description: The key of the entry in the Secret resource's `data` field to be used. Some instances of this field may be defaulted, in others it may be required.
                                         type: string
                                       name:
-                                        description: 'Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                                        description: "Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names"
                                         type: string
                                   clientSecretSecretRef:
                                     description: A reference to a specific 'key' within a Secret resource. In some instances, `key` is a required field.
@@ -3349,7 +3351,7 @@ spec:
                                         description: The key of the entry in the Secret resource's `data` field to be used. Some instances of this field may be defaulted, in others it may be required.
                                         type: string
                                       name:
-                                        description: 'Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                                        description: "Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names"
                                         type: string
                                   clientTokenSecretRef:
                                     description: A reference to a specific 'key' within a Secret resource. In some instances, `key` is a required field.
@@ -3361,7 +3363,7 @@ spec:
                                         description: The key of the entry in the Secret resource's `data` field to be used. Some instances of this field may be defaulted, in others it may be required.
                                         type: string
                                       name:
-                                        description: 'Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                                        description: "Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names"
                                         type: string
                                   serviceConsumerDomain:
                                     type: string
@@ -3373,10 +3375,10 @@ spec:
                                   - subscriptionID
                                 properties:
                                   clientID:
-                                    description: 'Auth: Azure Service Principal: The ClientID of the Azure Service Principal used to authenticate with Azure DNS. If set, ClientSecret and TenantID must also be set.'
+                                    description: "Auth: Azure Service Principal: The ClientID of the Azure Service Principal used to authenticate with Azure DNS. If set, ClientSecret and TenantID must also be set."
                                     type: string
                                   clientSecretSecretRef:
-                                    description: 'Auth: Azure Service Principal: A reference to a Secret containing the password associated with the Service Principal. If set, ClientID and TenantID must also be set.'
+                                    description: "Auth: Azure Service Principal: A reference to a Secret containing the password associated with the Service Principal. If set, ClientID and TenantID must also be set."
                                     type: object
                                     required:
                                       - name
@@ -3385,7 +3387,7 @@ spec:
                                         description: The key of the entry in the Secret resource's `data` field to be used. Some instances of this field may be defaulted, in others it may be required.
                                         type: string
                                       name:
-                                        description: 'Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                                        description: "Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names"
                                         type: string
                                   environment:
                                     description: name of the Azure environment (default AzurePublicCloud)
@@ -3399,7 +3401,7 @@ spec:
                                     description: name of the DNS zone that should be used
                                     type: string
                                   managedIdentity:
-                                    description: 'Auth: Azure Workload Identity or Azure Managed Service Identity: Settings to enable Azure Workload Identity or Azure Managed Service Identity If set, ClientID, ClientSecret and TenantID must not be set.'
+                                    description: "Auth: Azure Workload Identity or Azure Managed Service Identity: Settings to enable Azure Workload Identity or Azure Managed Service Identity If set, ClientID, ClientSecret and TenantID must not be set."
                                     type: object
                                     properties:
                                       clientID:
@@ -3415,7 +3417,7 @@ spec:
                                     description: ID of the Azure subscription
                                     type: string
                                   tenantID:
-                                    description: 'Auth: Azure Service Principal: The TenantID of the Azure Service Principal used to authenticate with Azure DNS. If set, ClientID and ClientSecret must also be set.'
+                                    description: "Auth: Azure Service Principal: The TenantID of the Azure Service Principal used to authenticate with Azure DNS. If set, ClientID and ClientSecret must also be set."
                                     type: string
                               cloudDNS:
                                 description: Use the Google Cloud DNS API to manage DNS01 challenge records.
@@ -3438,14 +3440,14 @@ spec:
                                         description: The key of the entry in the Secret resource's `data` field to be used. Some instances of this field may be defaulted, in others it may be required.
                                         type: string
                                       name:
-                                        description: 'Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                                        description: "Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names"
                                         type: string
                               cloudflare:
                                 description: Use the Cloudflare API to manage DNS01 challenge records.
                                 type: object
                                 properties:
                                   apiKeySecretRef:
-                                    description: 'API key to use to authenticate with Cloudflare. Note: using an API token to authenticate is now the recommended method as it allows greater control of permissions.'
+                                    description: "API key to use to authenticate with Cloudflare. Note: using an API token to authenticate is now the recommended method as it allows greater control of permissions."
                                     type: object
                                     required:
                                       - name
@@ -3454,7 +3456,7 @@ spec:
                                         description: The key of the entry in the Secret resource's `data` field to be used. Some instances of this field may be defaulted, in others it may be required.
                                         type: string
                                       name:
-                                        description: 'Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                                        description: "Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names"
                                         type: string
                                   apiTokenSecretRef:
                                     description: API token used to authenticate with Cloudflare.
@@ -3466,7 +3468,7 @@ spec:
                                         description: The key of the entry in the Secret resource's `data` field to be used. Some instances of this field may be defaulted, in others it may be required.
                                         type: string
                                       name:
-                                        description: 'Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                                        description: "Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names"
                                         type: string
                                   email:
                                     description: Email of the account, only required when using API key based authentication.
@@ -3493,7 +3495,7 @@ spec:
                                         description: The key of the entry in the Secret resource's `data` field to be used. Some instances of this field may be defaulted, in others it may be required.
                                         type: string
                                       name:
-                                        description: 'Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                                        description: "Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names"
                                         type: string
                               rfc2136:
                                 description: Use RFC2136 ("Dynamic Updates in the Domain Name System") (https://datatracker.ietf.org/doc/rfc2136/) to manage DNS01 challenge records.
@@ -3505,7 +3507,7 @@ spec:
                                     description: The IP address or hostname of an authoritative DNS server supporting RFC2136 in the form host:port. If the host is an IPv6 address it must be enclosed in square brackets (e.g [2001:db8::1]) ; port is optional. This field is required.
                                     type: string
                                   tsigAlgorithm:
-                                    description: 'The TSIG Algorithm configured in the DNS supporting RFC2136. Used only when ``tsigSecretSecretRef`` and ``tsigKeyName`` are defined. Supported values are (case-insensitive): ``HMACMD5`` (default), ``HMACSHA1``, ``HMACSHA256`` or ``HMACSHA512``.'
+                                    description: "The TSIG Algorithm configured in the DNS supporting RFC2136. Used only when ``tsigSecretSecretRef`` and ``tsigKeyName`` are defined. Supported values are (case-insensitive): ``HMACMD5`` (default), ``HMACSHA1``, ``HMACSHA256`` or ``HMACSHA512``."
                                     type: string
                                   tsigKeyName:
                                     description: The TSIG Key name configured in the DNS. If ``tsigSecretSecretRef`` is defined, this field is required.
@@ -3520,7 +3522,7 @@ spec:
                                         description: The key of the entry in the Secret resource's `data` field to be used. Some instances of this field may be defaulted, in others it may be required.
                                         type: string
                                       name:
-                                        description: 'Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                                        description: "Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names"
                                         type: string
                               route53:
                                 description: Use the AWS Route53 API to manage DNS01 challenge records.
@@ -3529,10 +3531,10 @@ spec:
                                   - region
                                 properties:
                                   accessKeyID:
-                                    description: 'The AccessKeyID is used for authentication. Cannot be set when SecretAccessKeyID is set. If neither the Access Key nor Key ID are set, we fall-back to using env vars, shared credentials file or AWS Instance metadata, see: https://docs.aws.amazon.com/sdk-for-go/v1/developer-guide/configuring-sdk.html#specifying-credentials'
+                                    description: "The AccessKeyID is used for authentication. Cannot be set when SecretAccessKeyID is set. If neither the Access Key nor Key ID are set, we fall-back to using env vars, shared credentials file or AWS Instance metadata, see: https://docs.aws.amazon.com/sdk-for-go/v1/developer-guide/configuring-sdk.html#specifying-credentials"
                                     type: string
                                   accessKeyIDSecretRef:
-                                    description: 'The SecretAccessKey is used for authentication. If set, pull the AWS access key ID from a key within a Kubernetes Secret. Cannot be set when AccessKeyID is set. If neither the Access Key nor Key ID are set, we fall-back to using env vars, shared credentials file or AWS Instance metadata, see: https://docs.aws.amazon.com/sdk-for-go/v1/developer-guide/configuring-sdk.html#specifying-credentials'
+                                    description: "The SecretAccessKey is used for authentication. If set, pull the AWS access key ID from a key within a Kubernetes Secret. Cannot be set when AccessKeyID is set. If neither the Access Key nor Key ID are set, we fall-back to using env vars, shared credentials file or AWS Instance metadata, see: https://docs.aws.amazon.com/sdk-for-go/v1/developer-guide/configuring-sdk.html#specifying-credentials"
                                     type: object
                                     required:
                                       - name
@@ -3541,7 +3543,7 @@ spec:
                                         description: The key of the entry in the Secret resource's `data` field to be used. Some instances of this field may be defaulted, in others it may be required.
                                         type: string
                                       name:
-                                        description: 'Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                                        description: "Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names"
                                         type: string
                                   hostedZoneID:
                                     description: If set, the provider will manage only this zone in Route53 and will not do an lookup using the route53:ListHostedZonesByName api call.
@@ -3553,7 +3555,7 @@ spec:
                                     description: Role is a Role ARN which the Route53 provider will assume using either the explicit credentials AccessKeyID/SecretAccessKey or the inferred credentials from environment variables, shared credentials file or AWS Instance metadata
                                     type: string
                                   secretAccessKeySecretRef:
-                                    description: 'The SecretAccessKey is used for authentication. If neither the Access Key nor Key ID are set, we fall-back to using env vars, shared credentials file or AWS Instance metadata, see: https://docs.aws.amazon.com/sdk-for-go/v1/developer-guide/configuring-sdk.html#specifying-credentials'
+                                    description: "The SecretAccessKey is used for authentication. If neither the Access Key nor Key ID are set, we fall-back to using env vars, shared credentials file or AWS Instance metadata, see: https://docs.aws.amazon.com/sdk-for-go/v1/developer-guide/configuring-sdk.html#specifying-credentials"
                                     type: object
                                     required:
                                       - name
@@ -3562,7 +3564,7 @@ spec:
                                         description: The key of the entry in the Secret resource's `data` field to be used. Some instances of this field may be defaulted, in others it may be required.
                                         type: string
                                       name:
-                                        description: 'Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                                        description: "Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names"
                                         type: string
                               webhook:
                                 description: Configure an external webhook based DNS01 challenge solver to manage DNS01 challenge records.
@@ -3594,7 +3596,7 @@ spec:
                                     additionalProperties:
                                       type: string
                                   parentRefs:
-                                    description: 'When solving an HTTP-01 challenge, cert-manager creates an HTTPRoute. cert-manager needs to know which parentRefs should be used when creating the HTTPRoute. Usually, the parentRef references a Gateway. See: https://gateway-api.sigs.k8s.io/api-types/httproute/#attaching-to-gateways'
+                                    description: "When solving an HTTP-01 challenge, cert-manager creates an HTTPRoute. cert-manager needs to know which parentRefs should be used when creating the HTTPRoute. Usually, the parentRef references a Gateway. See: https://gateway-api.sigs.k8s.io/api-types/httproute/#attaching-to-gateways"
                                     type: array
                                     items:
                                       description: "ParentReference identifies an API object (usually a Gateway) that can be considered a parent of this resource (usually a route). There are two kinds of parent resources with \"Core\" support: \n * Gateway (Gateway conformance profile) * Service (Mesh conformance profile, experimental, ClusterIP Services only) \n This API may be extended in the future to support additional kinds of parent resources. \n The API object must be valid in the cluster; the Group and Kind must be registered in the cluster for this reference to be valid."
@@ -3702,8 +3704,8 @@ spec:
                                                 description: Describes node affinity scheduling rules for the pod.
                                                 type: object
                                                 properties:
-                                                  preferredDuringSchedulingIgnoredDuringExecution:
-                                                    description: The scheduler will prefer to schedule pods to nodes that satisfy the affinity expressions specified by this field, but it may choose a node that violates one or more of the expressions. The node that is most preferred is the one with the greatest sum of weights, i.e. for each node that meets all of the scheduling requirements (resource request, requiredDuringScheduling affinity expressions, etc.), compute a sum by iterating through the elements of this field and adding "weight" to the sum if the node matches the corresponding matchExpressions; the node(s) with the highest sum are the most preferred.
+                                                  ? preferredDuringSchedulingIgnoredDuringExecution
+                                                  : description: The scheduler will prefer to schedule pods to nodes that satisfy the affinity expressions specified by this field, but it may choose a node that violates one or more of the expressions. The node that is most preferred is the one with the greatest sum of weights, i.e. for each node that meets all of the scheduling requirements (resource request, requiredDuringScheduling affinity expressions, etc.), compute a sum by iterating through the elements of this field and adding "weight" to the sum if the node matches the corresponding matchExpressions; the node(s) with the highest sum are the most preferred.
                                                     type: array
                                                     items:
                                                       description: An empty preferred scheduling term matches all objects with implicit weight 0 (i.e. it's a no-op). A null preferred scheduling term matches no objects (i.e. is also a no-op).
@@ -3763,8 +3765,8 @@ spec:
                                                           description: Weight associated with matching the corresponding nodeSelectorTerm, in the range 1-100.
                                                           type: integer
                                                           format: int32
-                                                  requiredDuringSchedulingIgnoredDuringExecution:
-                                                    description: If the affinity requirements specified by this field are not met at scheduling time, the pod will not be scheduled onto the node. If the affinity requirements specified by this field cease to be met at some point during pod execution (e.g. due to an update), the system may or may not try to eventually evict the pod from its node.
+                                                  ? requiredDuringSchedulingIgnoredDuringExecution
+                                                  : description: If the affinity requirements specified by this field are not met at scheduling time, the pod will not be scheduled onto the node. If the affinity requirements specified by this field cease to be met at some point during pod execution (e.g. due to an update), the system may or may not try to eventually evict the pod from its node.
                                                     type: object
                                                     required:
                                                       - nodeSelectorTerms
@@ -3824,8 +3826,8 @@ spec:
                                                 description: Describes pod affinity scheduling rules (e.g. co-locate this pod in the same node, zone, etc. as some other pod(s)).
                                                 type: object
                                                 properties:
-                                                  preferredDuringSchedulingIgnoredDuringExecution:
-                                                    description: The scheduler will prefer to schedule pods to nodes that satisfy the affinity expressions specified by this field, but it may choose a node that violates one or more of the expressions. The node that is most preferred is the one with the greatest sum of weights, i.e. for each node that meets all of the scheduling requirements (resource request, requiredDuringScheduling affinity expressions, etc.), compute a sum by iterating through the elements of this field and adding "weight" to the sum if the node has pods which matches the corresponding podAffinityTerm; the node(s) with the highest sum are the most preferred.
+                                                  ? preferredDuringSchedulingIgnoredDuringExecution
+                                                  : description: The scheduler will prefer to schedule pods to nodes that satisfy the affinity expressions specified by this field, but it may choose a node that violates one or more of the expressions. The node that is most preferred is the one with the greatest sum of weights, i.e. for each node that meets all of the scheduling requirements (resource request, requiredDuringScheduling affinity expressions, etc.), compute a sum by iterating through the elements of this field and adding "weight" to the sum if the node has pods which matches the corresponding podAffinityTerm; the node(s) with the highest sum are the most preferred.
                                                     type: array
                                                     items:
                                                       description: The weights of all of the matched WeightedPodAffinityTerm fields are added per-node to find the most preferred node(s)
@@ -3844,8 +3846,8 @@ spec:
                                                               description: A label query over a set of resources, in this case pods. If it's null, this PodAffinityTerm matches with no Pods.
                                                               type: object
                                                               properties:
-                                                                matchExpressions:
-                                                                  description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
+                                                                ? matchExpressions
+                                                                : description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
                                                                   type: array
                                                                   items:
                                                                     description: A label selector requirement is a selector that contains values, a key, and an operator that relates the key and values.
@@ -3868,8 +3870,8 @@ spec:
                                                                 matchLabels:
                                                                   description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
                                                                   type: object
-                                                                  additionalProperties:
-                                                                    type: string
+                                                                  ? additionalProperties
+                                                                  : type: string
                                                               x-kubernetes-map-type: atomic
                                                             matchLabelKeys:
                                                               description: MatchLabelKeys is a set of pod label keys to select which pods will be taken into consideration. The keys are used to lookup values from the incoming pod labels, those key-value labels are merged with `LabelSelector` as `key in (value)` to select the group of existing pods which pods will be taken into consideration for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming pod labels will be ignored. The default value is empty. The same key is forbidden to exist in both MatchLabelKeys and LabelSelector. Also, MatchLabelKeys cannot be set when LabelSelector isn't set. This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
@@ -3887,8 +3889,8 @@ spec:
                                                               description: A label query over the set of namespaces that the term applies to. The term is applied to the union of the namespaces selected by this field and the ones listed in the namespaces field. null selector and null or empty namespaces list means "this pod's namespace". An empty selector ({}) matches all namespaces.
                                                               type: object
                                                               properties:
-                                                                matchExpressions:
-                                                                  description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
+                                                                ? matchExpressions
+                                                                : description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
                                                                   type: array
                                                                   items:
                                                                     description: A label selector requirement is a selector that contains values, a key, and an operator that relates the key and values.
@@ -3911,8 +3913,8 @@ spec:
                                                                 matchLabels:
                                                                   description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
                                                                   type: object
-                                                                  additionalProperties:
-                                                                    type: string
+                                                                  ? additionalProperties
+                                                                  : type: string
                                                               x-kubernetes-map-type: atomic
                                                             namespaces:
                                                               description: namespaces specifies a static list of namespace names that the term applies to. The term is applied to the union of the namespaces listed in this field and the ones selected by namespaceSelector. null or empty namespaces list and null namespaceSelector means "this pod's namespace".
@@ -3926,8 +3928,8 @@ spec:
                                                           description: weight associated with matching the corresponding podAffinityTerm, in the range 1-100.
                                                           type: integer
                                                           format: int32
-                                                  requiredDuringSchedulingIgnoredDuringExecution:
-                                                    description: If the affinity requirements specified by this field are not met at scheduling time, the pod will not be scheduled onto the node. If the affinity requirements specified by this field cease to be met at some point during pod execution (e.g. due to a pod label update), the system may or may not try to eventually evict the pod from its node. When there are multiple elements, the lists of nodes corresponding to each podAffinityTerm are intersected, i.e. all terms must be satisfied.
+                                                  ? requiredDuringSchedulingIgnoredDuringExecution
+                                                  : description: If the affinity requirements specified by this field are not met at scheduling time, the pod will not be scheduled onto the node. If the affinity requirements specified by this field cease to be met at some point during pod execution (e.g. due to a pod label update), the system may or may not try to eventually evict the pod from its node. When there are multiple elements, the lists of nodes corresponding to each podAffinityTerm are intersected, i.e. all terms must be satisfied.
                                                     type: array
                                                     items:
                                                       description: Defines a set of pods (namely those matching the labelSelector relative to the given namespace(s)) that this pod should be co-located (affinity) or not co-located (anti-affinity) with, where co-located is defined as running on a node whose value of the label with key <topologyKey> matches that of any node on which a pod of the set of pods is running
@@ -3963,8 +3965,8 @@ spec:
                                                             matchLabels:
                                                               description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
                                                               type: object
-                                                              additionalProperties:
-                                                                type: string
+                                                              ? additionalProperties
+                                                              : type: string
                                                           x-kubernetes-map-type: atomic
                                                         matchLabelKeys:
                                                           description: MatchLabelKeys is a set of pod label keys to select which pods will be taken into consideration. The keys are used to lookup values from the incoming pod labels, those key-value labels are merged with `LabelSelector` as `key in (value)` to select the group of existing pods which pods will be taken into consideration for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming pod labels will be ignored. The default value is empty. The same key is forbidden to exist in both MatchLabelKeys and LabelSelector. Also, MatchLabelKeys cannot be set when LabelSelector isn't set. This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
@@ -4006,8 +4008,8 @@ spec:
                                                             matchLabels:
                                                               description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
                                                               type: object
-                                                              additionalProperties:
-                                                                type: string
+                                                              ? additionalProperties
+                                                              : type: string
                                                           x-kubernetes-map-type: atomic
                                                         namespaces:
                                                           description: namespaces specifies a static list of namespace names that the term applies to. The term is applied to the union of the namespaces listed in this field and the ones selected by namespaceSelector. null or empty namespaces list and null namespaceSelector means "this pod's namespace".
@@ -4021,8 +4023,8 @@ spec:
                                                 description: Describes pod anti-affinity scheduling rules (e.g. avoid putting this pod in the same node, zone, etc. as some other pod(s)).
                                                 type: object
                                                 properties:
-                                                  preferredDuringSchedulingIgnoredDuringExecution:
-                                                    description: The scheduler will prefer to schedule pods to nodes that satisfy the anti-affinity expressions specified by this field, but it may choose a node that violates one or more of the expressions. The node that is most preferred is the one with the greatest sum of weights, i.e. for each node that meets all of the scheduling requirements (resource request, requiredDuringScheduling anti-affinity expressions, etc.), compute a sum by iterating through the elements of this field and adding "weight" to the sum if the node has pods which matches the corresponding podAffinityTerm; the node(s) with the highest sum are the most preferred.
+                                                  ? preferredDuringSchedulingIgnoredDuringExecution
+                                                  : description: The scheduler will prefer to schedule pods to nodes that satisfy the anti-affinity expressions specified by this field, but it may choose a node that violates one or more of the expressions. The node that is most preferred is the one with the greatest sum of weights, i.e. for each node that meets all of the scheduling requirements (resource request, requiredDuringScheduling anti-affinity expressions, etc.), compute a sum by iterating through the elements of this field and adding "weight" to the sum if the node has pods which matches the corresponding podAffinityTerm; the node(s) with the highest sum are the most preferred.
                                                     type: array
                                                     items:
                                                       description: The weights of all of the matched WeightedPodAffinityTerm fields are added per-node to find the most preferred node(s)
@@ -4041,8 +4043,8 @@ spec:
                                                               description: A label query over a set of resources, in this case pods. If it's null, this PodAffinityTerm matches with no Pods.
                                                               type: object
                                                               properties:
-                                                                matchExpressions:
-                                                                  description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
+                                                                ? matchExpressions
+                                                                : description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
                                                                   type: array
                                                                   items:
                                                                     description: A label selector requirement is a selector that contains values, a key, and an operator that relates the key and values.
@@ -4065,8 +4067,8 @@ spec:
                                                                 matchLabels:
                                                                   description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
                                                                   type: object
-                                                                  additionalProperties:
-                                                                    type: string
+                                                                  ? additionalProperties
+                                                                  : type: string
                                                               x-kubernetes-map-type: atomic
                                                             matchLabelKeys:
                                                               description: MatchLabelKeys is a set of pod label keys to select which pods will be taken into consideration. The keys are used to lookup values from the incoming pod labels, those key-value labels are merged with `LabelSelector` as `key in (value)` to select the group of existing pods which pods will be taken into consideration for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming pod labels will be ignored. The default value is empty. The same key is forbidden to exist in both MatchLabelKeys and LabelSelector. Also, MatchLabelKeys cannot be set when LabelSelector isn't set. This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
@@ -4084,8 +4086,8 @@ spec:
                                                               description: A label query over the set of namespaces that the term applies to. The term is applied to the union of the namespaces selected by this field and the ones listed in the namespaces field. null selector and null or empty namespaces list means "this pod's namespace". An empty selector ({}) matches all namespaces.
                                                               type: object
                                                               properties:
-                                                                matchExpressions:
-                                                                  description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
+                                                                ? matchExpressions
+                                                                : description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
                                                                   type: array
                                                                   items:
                                                                     description: A label selector requirement is a selector that contains values, a key, and an operator that relates the key and values.
@@ -4108,8 +4110,8 @@ spec:
                                                                 matchLabels:
                                                                   description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
                                                                   type: object
-                                                                  additionalProperties:
-                                                                    type: string
+                                                                  ? additionalProperties
+                                                                  : type: string
                                                               x-kubernetes-map-type: atomic
                                                             namespaces:
                                                               description: namespaces specifies a static list of namespace names that the term applies to. The term is applied to the union of the namespaces listed in this field and the ones selected by namespaceSelector. null or empty namespaces list and null namespaceSelector means "this pod's namespace".
@@ -4123,8 +4125,8 @@ spec:
                                                           description: weight associated with matching the corresponding podAffinityTerm, in the range 1-100.
                                                           type: integer
                                                           format: int32
-                                                  requiredDuringSchedulingIgnoredDuringExecution:
-                                                    description: If the anti-affinity requirements specified by this field are not met at scheduling time, the pod will not be scheduled onto the node. If the anti-affinity requirements specified by this field cease to be met at some point during pod execution (e.g. due to a pod label update), the system may or may not try to eventually evict the pod from its node. When there are multiple elements, the lists of nodes corresponding to each podAffinityTerm are intersected, i.e. all terms must be satisfied.
+                                                  ? requiredDuringSchedulingIgnoredDuringExecution
+                                                  : description: If the anti-affinity requirements specified by this field are not met at scheduling time, the pod will not be scheduled onto the node. If the anti-affinity requirements specified by this field cease to be met at some point during pod execution (e.g. due to a pod label update), the system may or may not try to eventually evict the pod from its node. When there are multiple elements, the lists of nodes corresponding to each podAffinityTerm are intersected, i.e. all terms must be satisfied.
                                                     type: array
                                                     items:
                                                       description: Defines a set of pods (namely those matching the labelSelector relative to the given namespace(s)) that this pod should be co-located (affinity) or not co-located (anti-affinity) with, where co-located is defined as running on a node whose value of the label with key <topologyKey> matches that of any node on which a pod of the set of pods is running
@@ -4160,8 +4162,8 @@ spec:
                                                             matchLabels:
                                                               description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
                                                               type: object
-                                                              additionalProperties:
-                                                                type: string
+                                                              ? additionalProperties
+                                                              : type: string
                                                           x-kubernetes-map-type: atomic
                                                         matchLabelKeys:
                                                           description: MatchLabelKeys is a set of pod label keys to select which pods will be taken into consideration. The keys are used to lookup values from the incoming pod labels, those key-value labels are merged with `LabelSelector` as `key in (value)` to select the group of existing pods which pods will be taken into consideration for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming pod labels will be ignored. The default value is empty. The same key is forbidden to exist in both MatchLabelKeys and LabelSelector. Also, MatchLabelKeys cannot be set when LabelSelector isn't set. This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
@@ -4203,8 +4205,8 @@ spec:
                                                             matchLabels:
                                                               description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
                                                               type: object
-                                                              additionalProperties:
-                                                                type: string
+                                                              ? additionalProperties
+                                                              : type: string
                                                           x-kubernetes-map-type: atomic
                                                         namespaces:
                                                           description: namespaces specifies a static list of namespace names that the term applies to. The term is applied to the union of the namespaces listed in this field and the ones selected by namespaceSelector. null or empty namespaces list and null namespaceSelector means "this pod's namespace".
@@ -4222,11 +4224,11 @@ spec:
                                               type: object
                                               properties:
                                                 name:
-                                                  description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
+                                                  description: "Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?"
                                                   type: string
                                               x-kubernetes-map-type: atomic
                                           nodeSelector:
-                                            description: 'NodeSelector is a selector which must be true for the pod to fit on a node. Selector which must match a node''s labels for the pod to be scheduled on that node. More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/'
+                                            description: "NodeSelector is a selector which must be true for the pod to fit on a node. Selector which must match a node's labels for the pod to be scheduled on that node. More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/"
                                             type: object
                                             additionalProperties:
                                               type: string
@@ -4350,7 +4352,7 @@ spec:
                                   description: The key of the entry in the Secret resource's `data` field to be used. Some instances of this field may be defaulted, in others it may be required.
                                   type: string
                                 name:
-                                  description: 'Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                                  description: "Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names"
                                   type: string
                         kubernetes:
                           description: Kubernetes authenticates with Vault by passing the ServiceAccount token stored in the named Secret resource to the Vault server.
@@ -4374,7 +4376,7 @@ spec:
                                   description: The key of the entry in the Secret resource's `data` field to be used. Some instances of this field may be defaulted, in others it may be required.
                                   type: string
                                 name:
-                                  description: 'Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                                  description: "Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names"
                                   type: string
                             serviceAccountRef:
                               description: A reference to a service account that will be used to request a bound token (also known as "projected token"). Compared to using "secretRef", using this field means that you don't rely on statically bound tokens. To use this field, you must configure an RBAC rule to let cert-manager request a token.
@@ -4395,7 +4397,7 @@ spec:
                               description: The key of the entry in the Secret resource's `data` field to be used. Some instances of this field may be defaulted, in others it may be required.
                               type: string
                             name:
-                              description: 'Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                              description: "Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names"
                               type: string
                     caBundle:
                       description: Base64-encoded bundle of PEM CAs which will be used to validate the certificate chain presented by Vault. Only used if using HTTPS to connect to Vault and ignored for HTTP connections. Mutually exclusive with CABundleSecretRef. If neither CABundle nor CABundleSecretRef are defined, the certificate bundle in the cert-manager controller container is used to validate the TLS connection.
@@ -4411,7 +4413,7 @@ spec:
                           description: The key of the entry in the Secret resource's `data` field to be used. Some instances of this field may be defaulted, in others it may be required.
                           type: string
                         name:
-                          description: 'Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                          description: "Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names"
                           type: string
                     namespace:
                       description: 'Name of the vault namespace. Namespaces is a set of features within Vault Enterprise that allows Vault environments to support Secure Multi-tenancy. e.g: "ns1" More about namespaces can be found here https://www.vaultproject.io/docs/enterprise/namespaces'
@@ -4444,7 +4446,7 @@ spec:
                               description: The key of the entry in the Secret resource's `data` field to be used. Some instances of this field may be defaulted, in others it may be required.
                               type: string
                             name:
-                              description: 'Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                              description: "Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names"
                               type: string
                         url:
                           description: URL is the base URL for Venafi Cloud. Defaults to "https://api.venafi.cloud/v1".
@@ -4467,7 +4469,7 @@ spec:
                             - name
                           properties:
                             name:
-                              description: 'Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                              description: "Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names"
                               type: string
                         url:
                           description: 'URL is the base URL for the vedsdk endpoint of the Venafi TPP instance, for example: "https://tpp.example.com/vedsdk".'
@@ -4538,9 +4540,9 @@ kind: CustomResourceDefinition
 metadata:
   name: orders.acme.cert-manager.io
   labels:
-    app: 'cert-manager'
-    app.kubernetes.io/name: 'cert-manager'
-    app.kubernetes.io/instance: 'cert-manager'
+    app: "cert-manager"
+    app.kubernetes.io/name: "cert-manager"
+    app.kubernetes.io/instance: "cert-manager"
     # Generated labels
     app.kubernetes.io/version: "v1.14.4"
 spec:
@@ -4583,10 +4585,10 @@ spec:
             - spec
           properties:
             apiVersion:
-              description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+              description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources"
               type: string
             kind:
-              description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+              description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds"
               type: string
             metadata:
               type: object
@@ -4778,7 +4780,8 @@ rules:
     resources: ["events"]
     verbs: ["get", "create", "update", "patch"]
   - apiGroups: ["admissionregistration.k8s.io"]
-    resources: ["validatingwebhookconfigurations", "mutatingwebhookconfigurations"]
+    resources:
+      ["validatingwebhookconfigurations", "mutatingwebhookconfigurations"]
     verbs: ["get", "list", "watch", "update", "patch"]
   - apiGroups: ["apiregistration.k8s.io"]
     resources: ["apiservices"]
@@ -4853,10 +4856,17 @@ metadata:
     app.kubernetes.io/version: "v1.14.4"
 rules:
   - apiGroups: ["cert-manager.io"]
-    resources: ["certificates", "certificates/status", "certificaterequests", "certificaterequests/status"]
+    resources:
+      [
+        "certificates",
+        "certificates/status",
+        "certificaterequests",
+        "certificaterequests/status",
+      ]
     verbs: ["update", "patch"]
   - apiGroups: ["cert-manager.io"]
-    resources: ["certificates", "certificaterequests", "clusterissuers", "issuers"]
+    resources:
+      ["certificates", "certificaterequests", "clusterissuers", "issuers"]
     verbs: ["get", "list", "watch"]
   # We require these rules to support users with the OwnerReferencesPermissionEnforcement
   # admission controller enabled:
@@ -4952,8 +4962,8 @@ rules:
   - apiGroups: ["networking.k8s.io"]
     resources: ["ingresses"]
     verbs: ["get", "list", "watch", "create", "delete", "update"]
-  - apiGroups: [ "gateway.networking.k8s.io" ]
-    resources: [ "httproutes" ]
+  - apiGroups: ["gateway.networking.k8s.io"]
+    resources: ["httproutes"]
     verbs: ["get", "list", "watch", "create", "delete", "update"]
   # We require the ability to specify a custom hostname when we are creating
   # new ingress resources.
@@ -4989,7 +4999,8 @@ rules:
     resources: ["certificates", "certificaterequests"]
     verbs: ["create", "update", "delete"]
   - apiGroups: ["cert-manager.io"]
-    resources: ["certificates", "certificaterequests", "issuers", "clusterissuers"]
+    resources:
+      ["certificates", "certificaterequests", "issuers", "clusterissuers"]
     verbs: ["get", "list", "watch"]
   - apiGroups: ["networking.k8s.io"]
     resources: ["ingresses"]
@@ -5090,7 +5101,8 @@ rules:
   - apiGroups: ["cert-manager.io"]
     resources: ["signers"]
     verbs: ["approve"]
-    resourceNames: ["issuers.cert-manager.io/*", "clusterissuers.cert-manager.io/*"]
+    resourceNames:
+      ["issuers.cert-manager.io/*", "clusterissuers.cert-manager.io/*"]
 ---
 # Source: cert-manager/templates/rbac.yaml
 # Permission to:
@@ -5115,7 +5127,8 @@ rules:
     verbs: ["update", "patch"]
   - apiGroups: ["certificates.k8s.io"]
     resources: ["signers"]
-    resourceNames: ["issuers.cert-manager.io/*", "clusterissuers.cert-manager.io/*"]
+    resourceNames:
+      ["issuers.cert-manager.io/*", "clusterissuers.cert-manager.io/*"]
     verbs: ["sign"]
   - apiGroups: ["authorization.k8s.io"]
     resources: ["subjectaccessreviews"]
@@ -5133,9 +5146,9 @@ metadata:
     app.kubernetes.io/component: "webhook"
     app.kubernetes.io/version: "v1.14.4"
 rules:
-- apiGroups: ["authorization.k8s.io"]
-  resources: ["subjectaccessreviews"]
-  verbs: ["create"]
+  - apiGroups: ["authorization.k8s.io"]
+    resources: ["subjectaccessreviews"]
+    verbs: ["create"]
 ---
 # Source: cert-manager/templates/cainjector-rbac.yaml
 apiVersion: rbac.authorization.k8s.io/v1
@@ -5333,10 +5346,10 @@ roleRef:
   kind: ClusterRole
   name: cert-manager-webhook:subjectaccessreviews
 subjects:
-- apiGroup: ""
-  kind: ServiceAccount
-  name: cert-manager-webhook
-  namespace: cert-manager
+  - apiGroup: ""
+    kind: ServiceAccount
+    name: cert-manager-webhook
+    namespace: cert-manager
 ---
 # Source: cert-manager/templates/cainjector-rbac.yaml
 # leader election rules
@@ -5359,7 +5372,11 @@ rules:
   #   see cmd/cainjector/start.go#L137
   - apiGroups: ["coordination.k8s.io"]
     resources: ["leases"]
-    resourceNames: ["cert-manager-cainjector-leader-election", "cert-manager-cainjector-leader-election-core"]
+    resourceNames:
+      [
+        "cert-manager-cainjector-leader-election",
+        "cert-manager-cainjector-leader-election-core",
+      ]
     verbs: ["get", "update", "patch"]
   - apiGroups: ["coordination.k8s.io"]
     resources: ["leases"]
@@ -5399,15 +5416,15 @@ metadata:
     app.kubernetes.io/component: "webhook"
     app.kubernetes.io/version: "v1.14.4"
 rules:
-- apiGroups: [""]
-  resources: ["secrets"]
-  resourceNames:
-  - 'cert-manager-webhook-ca'
-  verbs: ["get", "list", "watch", "update"]
-# It's not possible to grant CREATE permission on a single resourceName.
-- apiGroups: [""]
-  resources: ["secrets"]
-  verbs: ["create"]
+  - apiGroups: [""]
+    resources: ["secrets"]
+    resourceNames:
+      - "cert-manager-webhook-ca"
+    verbs: ["get", "list", "watch", "update"]
+  # It's not possible to grant CREATE permission on a single resourceName.
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["create"]
 ---
 # Source: cert-manager/templates/cainjector-rbac.yaml
 # grant cert-manager permission to manage the leaderelection configmap in the
@@ -5473,10 +5490,10 @@ roleRef:
   kind: Role
   name: cert-manager-webhook:dynamic-serving
 subjects:
-- apiGroup: ""
-  kind: ServiceAccount
-  name: cert-manager-webhook
-  namespace: cert-manager
+  - apiGroup: ""
+    kind: ServiceAccount
+    name: cert-manager-webhook
+    namespace: cert-manager
 ---
 # Source: cert-manager/templates/service.yaml
 apiVersion: v1
@@ -5493,10 +5510,10 @@ metadata:
 spec:
   type: ClusterIP
   ports:
-  - protocol: TCP
-    port: 9402
-    name: tcp-prometheus-servicemonitor
-    targetPort: 9402
+    - protocol: TCP
+      port: 9402
+      name: tcp-prometheus-servicemonitor
+      targetPort: 9402
   selector:
     app.kubernetes.io/name: cert-manager
     app.kubernetes.io/instance: cert-manager
@@ -5517,10 +5534,10 @@ metadata:
 spec:
   type: ClusterIP
   ports:
-  - name: https
-    port: 443
-    protocol: TCP
-    targetPort: "https"
+    - name: https
+      port: 443
+      protocol: TCP
+      targetPort: "https"
   selector:
     app.kubernetes.io/name: webhook
     app.kubernetes.io/instance: cert-manager
@@ -5565,18 +5582,18 @@ spec:
           image: "quay.io/jetstack/cert-manager-cainjector:v1.14.4"
           imagePullPolicy: IfNotPresent
           args:
-          - --v=2
-          - --leader-election-namespace=kube-system
+            - --v=2
+            - --leader-election-namespace=kube-system
           env:
-          - name: POD_NAMESPACE
-            valueFrom:
-              fieldRef:
-                fieldPath: metadata.namespace
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
               drop:
-              - ALL
+                - ALL
             readOnlyRootFilesystem: true
       nodeSelector:
         kubernetes.io/os: linux
@@ -5610,8 +5627,8 @@ spec:
         app.kubernetes.io/version: "v1.14.4"
       annotations:
         prometheus.io/path: "/metrics"
-        prometheus.io/scrape: 'true'
-        prometheus.io/port: '9402'
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9402"
     spec:
       serviceAccountName: cert-manager
       enableServiceLinks: false
@@ -5624,33 +5641,33 @@ spec:
           image: "quay.io/jetstack/cert-manager-controller:v1.14.4"
           imagePullPolicy: IfNotPresent
           args:
-          - --v=2
-          - --cluster-resource-namespace=$(POD_NAMESPACE)
-          - --leader-election-namespace=kube-system
-          - --acme-http01-solver-image=quay.io/jetstack/cert-manager-acmesolver:v1.14.4
-          - --max-concurrent-challenges=60
-# TODO:
-# the folowing line causes a failure if the addon gateway-nginx is not activated
-# we need a way to enable this line only when gatewy-nginx is also activated
-#          - --feature-gates=ExperimentalGatewayAPISupport=true
+            - --v=2
+            - --cluster-resource-namespace=$(POD_NAMESPACE)
+            - --leader-election-namespace=kube-system
+            - --acme-http01-solver-image=quay.io/jetstack/cert-manager-acmesolver:v1.14.4
+            - --max-concurrent-challenges=60
+          # TODO:
+          # the folowing line causes a failure if the addon gateway-nginx is not activated
+          # we need a way to enable this line only when gatewy-nginx is also activated
+          #          - --feature-gates=ExperimentalGatewayAPISupport=true
           ports:
-          - containerPort: 9402
-            name: http-metrics
-            protocol: TCP
-          - containerPort: 9403
-            name: http-healthz
-            protocol: TCP
+            - containerPort: 9402
+              name: http-metrics
+              protocol: TCP
+            - containerPort: 9403
+              name: http-healthz
+              protocol: TCP
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
               drop:
-              - ALL
+                - ALL
             readOnlyRootFilesystem: true
           env:
-          - name: POD_NAMESPACE
-            valueFrom:
-              fieldRef:
-                fieldPath: metadata.namespace
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
           # LivenessProbe settings are based on those used for the Kubernetes
           # controller-manager. See:
           # https://github.com/kubernetes/kubernetes/blob/806b30170c61a38fedd54cc9ede4cd6275a1ad3b/cmd/kubeadm/app/util/staticpod/utils.go#L241-L245
@@ -5706,21 +5723,21 @@ spec:
           image: "quay.io/jetstack/cert-manager-webhook:v1.14.4"
           imagePullPolicy: IfNotPresent
           args:
-          - --v=2
-          - --secure-port=10250
-          - --dynamic-serving-ca-secret-namespace=$(POD_NAMESPACE)
-          - --dynamic-serving-ca-secret-name=cert-manager-webhook-ca
-          - --dynamic-serving-dns-names=cert-manager-webhook
-          - --dynamic-serving-dns-names=cert-manager-webhook.$(POD_NAMESPACE)
-          - --dynamic-serving-dns-names=cert-manager-webhook.$(POD_NAMESPACE).svc
-          
+            - --v=2
+            - --secure-port=10250
+            - --dynamic-serving-ca-secret-namespace=$(POD_NAMESPACE)
+            - --dynamic-serving-ca-secret-name=cert-manager-webhook-ca
+            - --dynamic-serving-dns-names=cert-manager-webhook
+            - --dynamic-serving-dns-names=cert-manager-webhook.$(POD_NAMESPACE)
+            - --dynamic-serving-dns-names=cert-manager-webhook.$(POD_NAMESPACE).svc
+
           ports:
-          - name: https
-            protocol: TCP
-            containerPort: 10250
-          - name: healthcheck
-            protocol: TCP
-            containerPort: 6080
+            - name: https
+              protocol: TCP
+              containerPort: 10250
+            - name: healthcheck
+              protocol: TCP
+              containerPort: 6080
           livenessProbe:
             httpGet:
               path: /livez
@@ -5745,13 +5762,13 @@ spec:
             allowPrivilegeEscalation: false
             capabilities:
               drop:
-              - ALL
+                - ALL
             readOnlyRootFilesystem: true
           env:
-          - name: POD_NAMESPACE
-            valueFrom:
-              fieldRef:
-                fieldPath: metadata.namespace
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
       nodeSelector:
         kubernetes.io/os: linux
 ---
@@ -5811,10 +5828,10 @@ webhooks:
   - name: webhook.cert-manager.io
     namespaceSelector:
       matchExpressions:
-      - key: cert-manager.io/disable-validation
-        operator: NotIn
-        values:
-        - "true"
+        - key: cert-manager.io/disable-validation
+          operator: NotIn
+          values:
+            - "true"
     rules:
       - apiGroups:
           - "cert-manager.io"
