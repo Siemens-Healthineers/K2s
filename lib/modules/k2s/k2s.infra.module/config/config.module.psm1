@@ -48,6 +48,11 @@ $ipControlPlaneCIDR = $smallsetup.psobject.properties['masterNetworkCIDR'].value
 $clusterCIDR = $smallsetup.psobject.properties['podNetworkCIDR'].value
 $clusterCIDRServices = $smallsetup.psobject.properties['servicesCIDR'].value
 
+# SMB share
+$shareConfig = $smallsetup.psobject.properties['shareDir'].value
+$linuxLocalSharePath = $shareConfig.psobject.properties['master'].value
+$windowsLocalSharePath = Expand-Path $shareConfig.psobject.properties['windowsWorker'].value
+
 #CONSTANTS
 New-Variable -Name 'SetupJsonFile' -Value "$kubeConfigDir\setup.json" -Option Constant
 
@@ -343,6 +348,10 @@ function Set-ConfigUsedStorageLocalDriveLetter {
     Set-ConfigValue -Path $SetupJsonFile -Key 'UsedStorageLocalDriveLetter' -Value $Value
 }
 
+function Get-ConfigLoggedInRegistry {
+    return Get-ConfigValue -Path $SetupJsonFile -Key 'LoggedInRegistry'
+}
+
 function Set-ConfigLoggedInRegistry {
     param (
         [object] $Value = $(throw 'Please provide the config value.')
@@ -423,6 +432,14 @@ function Get-ProxyOverrideFromWindowsSettings {
     return $reg.ProxyOverride
 }
 
+function Get-LinuxLocalSharePath {
+    return $linuxLocalSharePath
+}
+
+function Get-WindowsLocalSharePath {
+    return $windowsLocalSharePath
+}
+
 Export-ModuleMember -Function Get-ConfigValue,
 Set-ConfigValue,
 Get-ConfiguredKubeConfigDir,
@@ -452,6 +469,7 @@ Get-ConfigLinuxOnly,
 Set-ConfigLinuxOnly,
 Get-RootConfigk2s,
 Set-ConfigUsedStorageLocalDriveLetter,
+Get-ConfigLoggedInRegistry,
 Set-ConfigLoggedInRegistry,
 Set-ConfigInstalledKubernetesVersion,
 Set-ConfigInstallFolder,
@@ -468,4 +486,6 @@ Get-SshConfigDir,
 Get-DefaultProvisioningBaseImageDiskSize,
 Get-RootConfig,
 Get-DefaultTempPwd,
-Get-DefaultK8sVersion
+Get-DefaultK8sVersion,
+Get-LinuxLocalSharePath,
+Get-WindowsLocalSharePath
