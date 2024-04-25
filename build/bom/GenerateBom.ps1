@@ -79,6 +79,8 @@ function GenerateBomGolang($dirname) {
     $indir = $global:KubernetesPath + '\' + $dirname
     Write-Output "Generate $dirname with command 'trivy.exe fs `"$indir`"' --scanners license --license-full --format cyclonedx -o `"$bomfile`" "
     trivy.exe fs `"$indir`" --scanners license --license-full --format cyclonedx -o `"$bomfile`"
+    Write-Output "Enriching generated sbom with command 'sbomgenerator.exe -e `"$bomfile`" "
+    &"$bomRootDir\sbomgenerator.exe" -e `"$bomfile`"
 
     Write-Output "bom now available: $bomfile"
 }
@@ -152,6 +154,11 @@ function GenerateBomDebian() {
     Write-Output 'Copy bom file to local folder'
     $source = "$global:Remote_Master" + ':/home/remote/kubemaster.json'
     Copy-FromToMaster -Source $source -Target "$bomRootDir\merge"
+
+    $kubeSBOMJsonFile = "$bomRootDir\merge\kubemaster.json"
+
+    Write-Output "Enriching generated sbom with command 'sbomgenerator.exe -e `"$kubeSBOMJsonFile`" "
+    &"$bomRootDir\sbomgenerator.exe" -e `"$kubeSBOMJsonFile`"
 }
 
 function LoadK2sImages() {
@@ -183,12 +190,14 @@ function GenerateBomContainers() {
     $jsonContent = Get-Content -Path $jsonFile | ConvertFrom-Json
     $imagesName = $jsonContent.ImageName
     $imagesVersion = $jsonContent.ImageVersion
+    $imageType = $jsonContent.ImageType
     $imagesWindows = @()
     for ($i = 0 ; $i -lt $imagesName.Count ; $i++) {
         $name = $imagesName[$i]
         $version = $imagesVersion[$i]
+        $type = $imageType[$i]
         $fullname = $name + ':' + $version
-        Write-Output "Processing image: ${fullname}"
+        Write-Output "Processing image: ${fullname} with type $type"
 
         # find image id in kubemaster VM
         $imageId = ExecCmdMaster "sudo buildah images -f reference=${fullname} --format '{{.ID}}'"
@@ -215,20 +224,35 @@ function GenerateBomContainers() {
             $source = "$global:Remote_Master" + ":/home/remote/$imageName.json"
             Copy-FromToMaster -Source $source -Target "$bomRootDir\merge"
 
+            $imageSBOMJsonFile = "$bomRootDir\merge\$imageName.json"
+
+            Write-Output "Enriching generated sbom with command 'sbomgenerator.exe -e `"$imageSBOMJsonFile`" -t `"$type`" -c `"$version`" "
+            &"$bomRootDir\sbomgenerator.exe" -e `"$imageSBOMJsonFile`" -t `"$type`" -c `"$version`"
+;
             # delete tar file
             ExecCmdMaster "sudo rm -f $imageName.tar"
             ExecCmdMaster "sudo rm -f $imageName.json"
         }
         else {
             Write-Output '  -> Image is windows image, skipping'
-            $imagesWindows += $name
+            $imageObject = [PSCustomObject]@{
+                ImageName = $name
+                ImageType = $type
+                ImageVersion = $version
+            }
+            $imagesWindows += $imageObject
         }
     }
 
     # iterate through windows images
     $ims = (&k2s.exe image ls -o json | ConvertFrom-Json).containerimages
-    foreach ($image in $imagesWindows) {
-        Write-Output "Processing windows image: $image"
+
+    for ($j = 0; $j -lt $imagesWindows.Count; $j++) {
+        $image = $imagesWindows[$j].ImageName
+        $type = $imagesWindows[$j].ImageType
+        $version = $imagesWindows[$j].ImageVersion
+        Write-Output "Processing windows image: $image, Image Type: $type"
+
         if ($image.length -eq 0) {
             Write-Output 'Ignoring emtpy image name'
             continue
@@ -257,6 +281,10 @@ function GenerateBomContainers() {
         # copy bom file to local folder
         $source = "$global:Remote_Master" + ":/home/remote/$imageName.json"
         Copy-FromToMaster -Source $source -Target "$bomRootDir\merge"
+
+        $imageSBOMJsonFile = "$bomRootDir\merge\$imageName.json"
+        Write-Output "Enriching generated sbom with command 'sbomgenerator.exe -e `"$imageSBOMJsonFile`" -t `"$type`" -c `"$version`""
+        &"$bomRootDir\sbomgenerator.exe" -e `"$imageSBOMJsonFile`" -t `"$type`" -c `"$version`"
 
         # remove tar file
         ExecCmdMaster "sudo rm /home/remote/$imageName.tar"
