@@ -116,8 +116,8 @@ function Copy-FromToMaster($Source, $Target,
                 tar.exe -cf "$env:TEMP\copy.tar" -C $Source .
                 scp.exe -o StrictHostKeyChecking=no -i $global:LinuxVMKey "$env:temp\copy.tar" $($global:Remote_Master + ':/tmp') 2>&1 | ForEach-Object { "$_" }
                 $targetDirectory = $Target -replace "${global:Remote_Master}:", ''
-                ExecCmdMaster "sudo mkdir -p $targetDirectory/$folder"
-                ExecCmdMaster "sudo tar -xf /tmp/copy.tar -C $targetDirectory/$folder"
+                ExecCmdMaster "mkdir -p $targetDirectory/$folder"
+                ExecCmdMaster "tar -xf /tmp/copy.tar -C $targetDirectory/$folder"
                 ExecCmdMaster "sudo rm -rf /tmp/copy.tar"
                 Remove-Item -Path "$env:temp\copy.tar" -Force -ErrorAction SilentlyContinue
             } else {
@@ -143,7 +143,7 @@ function Copy-FromToMaster($Source, $Target,
         }
     }
 
-    if ($error.count -gt 0 -and !$IgnoreErrors) { throw "Executing $CmdToExecute failed! " + $error }
+    if ($error.Count -gt 0 -and !$IgnoreErrors) { throw "Copying $Source to $Target failed! " + $error }
 }
 
 <#

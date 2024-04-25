@@ -44,7 +44,14 @@ else {
     $target = $Target
 }
 
-Copy-FromToMaster $source $target -IgnoreErrors
+try {
+    Copy-FromToMaster $source $target
+}
+catch {
+    $err = New-Error -Severity Warning -Code "copy failed" -Message $_
+    Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+    return
+}
 
 if ($EncodeStructuredOutput -eq $true) {
     Send-ToCli -MessageType $MessageType -Message @{Error = $null }

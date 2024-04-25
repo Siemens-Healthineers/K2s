@@ -203,8 +203,8 @@ function Copy-ToControlPlaneViaSSHKey($Source, $Target,
         tar.exe -cf "$env:TEMP\copy.tar" -C $Source .
         scp.exe -o StrictHostKeyChecking=no -i $key "$env:temp\copy.tar" "${remoteUser}:/tmp" 2>&1 | ForEach-Object { "$_" }
         $targetDirectory = $Target -replace "${remoteUser}:", ''
-        Invoke-CmdOnControlPlaneViaSSHKey "sudo mkdir -p $targetDirectory/$leaf"
-        Invoke-CmdOnControlPlaneViaSSHKey "sudo tar -xf /tmp/copy.tar -C $targetDirectory/$leaf"
+        Invoke-CmdOnControlPlaneViaSSHKey "mkdir -p $targetDirectory/$leaf"
+        Invoke-CmdOnControlPlaneViaSSHKey "tar -xf /tmp/copy.tar -C $targetDirectory/$leaf"
         Invoke-CmdOnControlPlaneViaSSHKey "sudo rm -rf /tmp/copy.tar"
         Remove-Item -Path "$env:temp\copy.tar" -Force -ErrorAction SilentlyContinue
     } else {
