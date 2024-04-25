@@ -175,7 +175,7 @@ function Copy-FromControlPlaneViaSSHKey($Source, $Target,
         Invoke-CmdOnControlPlaneViaSSHKey "sudo rm -rf /tmp/copy.tar"
         Remove-Item -Path "$env:temp\copy.tar" -Force -ErrorAction SilentlyContinue
     } else {
-        scp.exe -o StrictHostKeyChecking=no -i $key "${remoteUser}:$Source" "$Target" 2>&1 | ForEach-Object { "$_" }
+        scp.exe -o StrictHostKeyChecking=no -r -i $key "${remoteUser}:$Source" "$Target" 2>&1 | ForEach-Object { "$_" }
     }
 
     if ($error.count -gt 0 -and !$IgnoreErrors) { throw "Executing $CmdToExecute failed! " + $error }
@@ -208,8 +208,7 @@ function Copy-ToControlPlaneViaSSHKey($Source, $Target,
         Invoke-CmdOnControlPlaneViaSSHKey "sudo rm -rf /tmp/copy.tar"
         Remove-Item -Path "$env:temp\copy.tar" -Force -ErrorAction SilentlyContinue
     } else {
-        # is file
-        scp.exe -o StrictHostKeyChecking=no -i $key "$Source" "${remoteUser}:$Target" 2>&1 | ForEach-Object { "$_" }
+        scp.exe -o StrictHostKeyChecking=no -r -i $key "$Source" "${remoteUser}:$Target" 2>&1 | ForEach-Object { "$_" }
     }
 
     if ($error.count -gt 0 -and !$IgnoreErrors) { throw "Executing $CmdToExecute failed! " + $error }
