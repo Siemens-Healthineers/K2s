@@ -6,9 +6,9 @@
 
 Import-Module "$PSScriptRoot/../../lib\modules\k2s\k2s.cluster.module\k8s-api\k8s-api.module.psm1"
 
-Invoke-Kubectl -Params 'wait', '--timeout=5s', '--for=condition=Available', '-n', 'kube-system', 'deployment/metrics-server' | Out-Null
+$success = (Invoke-Kubectl -Params 'wait', '--timeout=5s', '--for=condition=Available', '-n', 'kube-system', 'deployment/metrics-server').Success
 
-$isMetricsServerRunningProp = @{Name = 'IsMetricsServerRunning'; Value = $?; Okay = $? }
+$isMetricsServerRunningProp = @{Name = 'IsMetricsServerRunning'; Value = $success; Okay = $success }
 if ($isMetricsServerRunningProp.Value -eq $true) {
     $isMetricsServerRunningProp.Message = 'The metrics server is working'
 }

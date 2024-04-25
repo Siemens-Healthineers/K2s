@@ -9,9 +9,9 @@ $configModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/config/con
 
 Import-Module $k8sApiModule, $configModule
 
-Invoke-Kubectl -Params 'wait', '--timeout=5s', '--for=condition=Available', '-n', 'nginx-gateway', 'deployment/nginx-gateway' | Out-Null
+$success = (Invoke-Kubectl -Params 'wait', '--timeout=5s', '--for=condition=Available', '-n', 'nginx-gateway', 'deployment/nginx-gateway').Success
 
-$isGatewayControllerRunningProp = @{Name = 'IsGatewayControllerRunning'; Value = $?; Okay = $? }
+$isGatewayControllerRunningProp = @{Name = 'IsGatewayControllerRunning'; Value = $success; Okay = $success }
 if ($isGatewayControllerRunningProp.Value -eq $true) {
     $isGatewayControllerRunningProp.Message = 'The gateway API controller is working'
 }

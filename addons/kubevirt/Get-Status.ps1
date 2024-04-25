@@ -6,9 +6,9 @@
 
 Import-Module "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k8s-api/k8s-api.module.psm1"
 
-Invoke-Kubectl -Params 'wait', '--timeout=5s', '--for=condition=Available', '-n', 'kubevirt', 'deployment/virt-api' | Out-Null
+$success = (Invoke-Kubectl -Params 'wait', '--timeout=5s', '--for=condition=Available', '-n', 'kubevirt', 'deployment/virt-api').Success
 
-$isVirtApiRunningProp = @{Name = 'IsVirtApiRunning'; Value = $?; Okay = $? }
+$isVirtApiRunningProp = @{Name = 'IsVirtApiRunning'; Value = $success; Okay = $success }
 if ($isVirtApiRunningProp.Value -eq $true) {
     $isVirtApiRunningProp.Message = 'The virt-api is working'
 }
@@ -16,9 +16,9 @@ else {
     $isVirtApiRunningProp.Message = "The virt-api is not working. Try restarting the cluster with 'k2s start' or disable and re-enable the addon with 'k2s addons disable kubevirt' and 'k2s addons enable kubevirt'"
 } 
 
-Invoke-Kubectl -Params 'wait', '--timeout=5s', '--for=condition=Available', '-n', 'kubevirt', 'deployment/virt-controller' | Out-Null
+$success = (Invoke-Kubectl -Params 'wait', '--timeout=5s', '--for=condition=Available', '-n', 'kubevirt', 'deployment/virt-controller').Success
 
-$isVirtControllerRunningProp = @{Name = 'IsVirtControllerRunning'; Value = $?; Okay = $? }
+$isVirtControllerRunningProp = @{Name = 'IsVirtControllerRunning'; Value = $success; Okay = $success }
 if ($isVirtControllerRunningProp.Value -eq $true) {
     $isVirtControllerRunningProp.Message = 'The virt-controller is working'
 }
@@ -26,9 +26,9 @@ else {
     $isVirtControllerRunningProp.Message = "The virt-controller is not working. Try restarting the cluster with 'k2s start' or disable and re-enable the addon with 'k2s addons disable kubevirt' and 'k2s addons enable kubevirt'"
 } 
 
-Invoke-Kubectl -Params 'wait', '--timeout=5s', '--for=condition=Available', '-n', 'kubevirt', 'deployment/virt-operator' | Out-Null
+$success = (Invoke-Kubectl -Params 'wait', '--timeout=5s', '--for=condition=Available', '-n', 'kubevirt', 'deployment/virt-operator').Success
 
-$isVirtOperatorRunningProp = @{Name = 'IsVirtOperatorRunning'; Value = $?; Okay = $? }
+$isVirtOperatorRunningProp = @{Name = 'IsVirtOperatorRunning'; Value = $success; Okay = $success }
 if ($isVirtOperatorRunningProp.Value -eq $true) {
     $isVirtOperatorRunningProp.Message = 'The virt-operator is working'
 }
@@ -36,9 +36,9 @@ else {
     $isVirtOperatorRunningProp.Message = "The virt-operator is not working. Try restarting the cluster with 'k2s start' or disable and re-enable the addon with 'k2s addons disable kubevirt' and 'k2s addons enable kubevirt'"
 } 
 
-Invoke-Kubectl -Params 'rollout', 'status', 'daemonsets', '-n', 'kubevirt', '--timeout=5s' | Out-Null
+$success = (Invoke-Kubectl -Params 'rollout', 'status', 'daemonsets', '-n', 'kubevirt', '--timeout=5s').Success
 
-$isVirtHandlerRunningProp = @{Name = 'IsVirtHandlerRunning'; Value = $?; Okay = $? }
+$isVirtHandlerRunningProp = @{Name = 'IsVirtHandlerRunning'; Value = $success; Okay = $success }
 if ($isVirtHandlerRunningProp.Value -eq $true) {
     $isVirtHandlerRunningProp.Message = 'The virt-handler is working'
 }
