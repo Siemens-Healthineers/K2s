@@ -7,9 +7,10 @@
     "timestamp": "2023-02-23T08:15:47.160Z",
     "tools": [
       {
-        "vendor": "cyclonedx",
-        "name": "cdxgen",
-        "version": "10.1.3"
+        "type": "application",
+        "group": "aquasecurity",
+        "name": "trivy",
+        "version": "0.50.0"
       }
     ],
     "authors": [
