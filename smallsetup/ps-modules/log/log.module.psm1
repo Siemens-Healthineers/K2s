@@ -13,7 +13,9 @@ $script:NestedLogging = $false   # Shall be used when we need to capture output 
 
 # logging
 $k2sLogFilePart = ':\var\log\k2s.log'
-$k2sLogFile = (Get-SystemDriveLetter) + $k2sLogFilePart
+$k2sLogFilePath = (Get-SystemDriveLetter) + $k2sLogFilePart
+$k2sLogFile = $k2sLogFilePath
+
 
 <#
 .SYNOPSIS
@@ -78,8 +80,8 @@ function Write-Log {
     )
 
     Begin {
-        if ((Test-Path -Path $k2sLogFile) -eq $false) {
-            $logDir = Split-Path -Path $k2sLogFile
+        if ((Test-Path -Path $k2sLogFilePath) -eq $false) {
+            $logDir = Split-Path -Path $k2sLogFilePath
             mkdir -force $logDir | Out-Null
         }
     }
@@ -123,17 +125,17 @@ function Write-Log {
                     if ($script:ConsoleLogging) {
                         Write-Information $message -InformationAction Continue
                     }
-                    $logFileMessage | Out-File -Append -FilePath $k2sLogFile -Encoding utf8
+                    $logFileMessage | Out-File -Append -FilePath $k2sLogFilePath -Encoding utf8
                     return
                 }
 
                 if ($Error) {
-                    "[$dayTimestamp][ERROR] $message" | Out-File -Append -FilePath $k2sLogFile -Encoding utf8
+                    "[$dayTimestamp][ERROR] $message" | Out-File -Append -FilePath $k2sLogFilePath -Encoding utf8
                     Write-Error $consoleMessage
                 }
                 elseif ($Progress -and ($Console -or $script:ConsoleLogging)) {
                     Write-Host $consoleMessage -NoNewline
-                    $logFileMessage | Out-File -Append -FilePath $k2sLogFile -Encoding utf8 -NoNewline
+                    $logFileMessage | Out-File -Append -FilePath $k2sLogFilePath -Encoding utf8 -NoNewline
                 }
                 elseif ($Console -or $script:ConsoleLogging) {
                     if ($Raw) {
@@ -144,10 +146,10 @@ function Write-Log {
                     else {
                         Write-Information $consoleMessage -InformationAction Continue
                     }
-                    $logFileMessage | Out-File -Append -FilePath $k2sLogFile -Encoding utf8
+                    $logFileMessage | Out-File -Append -FilePath $k2sLogFilePath -Encoding utf8
                 }
                 else {
-                    $logFileMessage | Out-File -Append -FilePath $k2sLogFile -Encoding utf8
+                    $logFileMessage | Out-File -Append -FilePath $k2sLogFilePath -Encoding utf8
                 }
             }
         }
@@ -207,7 +209,7 @@ function Reset-LogFile {
     )
     #cleanup old logs
     if ( -not  $AppendLogFile) {
-        Remove-Item -Path $k2sLogFile -Force -Recurse -ErrorAction SilentlyContinue
+        Remove-Item -Path $k2sLogFilePath -Force -Recurse -ErrorAction SilentlyContinue
     }
 }
 
