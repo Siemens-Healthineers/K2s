@@ -9,9 +9,9 @@ $configModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/config/con
 
 Import-Module $k8sApiModule, $configModule
 
-Invoke-Kubectl -Params 'wait', '--timeout=5s', '--for=condition=Available', '-n', 'traefik', 'deployment/traefik' | Out-Null
+$success = (Invoke-Kubectl -Params 'wait', '--timeout=5s', '--for=condition=Available', '-n', 'traefik', 'deployment/traefik').Success
 
-$isTraefikRunningProp = @{Name = 'IsTraefikRunning'; Value = $?; Okay = $? }
+$isTraefikRunningProp = @{Name = 'IsTraefikRunning'; Value = $success; Okay = $success }
 if ($isTraefikRunningProp.Value -eq $true) {
     $isTraefikRunningProp.Message = 'The traefik ingress controller is working'
 }

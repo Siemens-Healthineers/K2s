@@ -6,9 +6,9 @@
 
 Import-Module "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 
-Invoke-Kubectl -Params 'wait', '--timeout=5s', '--for=condition=ready', '-n', 'registry', 'pod/k2s-registry-pod' | Out-Null
+$success = (Invoke-Kubectl -Params 'wait', '--timeout=5s', '--for=condition=ready', '-n', 'registry', 'pod/k2s-registry-pod').Success
 
-$isRegistryPodRunningProp = @{Name = 'IsRegistryPodRunning'; Value = $?; Okay = $? }
+$isRegistryPodRunningProp = @{Name = 'IsRegistryPodRunning'; Value = $success; Okay = $success }
 if ($isRegistryPodRunningProp.Value -eq $true) {
     $isRegistryPodRunningProp.Message = 'The registry pod is working'
 }
