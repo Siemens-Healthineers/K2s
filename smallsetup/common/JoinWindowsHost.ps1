@@ -22,6 +22,8 @@ Param(
 
 # load global settings
 &$PSScriptRoot\GlobalVariables.ps1
+# import global functions
+. $PSScriptRoot\GlobalFunctions.ps1
 
 Import-Module "$PSScriptRoot/../ps-modules/log/log.module.psm1"
 
