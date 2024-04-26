@@ -245,8 +245,9 @@ Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "echo -e '$hook' | su
 Write-Log 'Installing Nvidia Device Plugin' -Console
 Wait-ForAPIServer
 (Invoke-Kubectl -Params 'apply', '-f', "$PSScriptRoot\manifests\nvidia-device-plugin.yaml").Output | Write-Log
-(Invoke-Kubectl -Params 'wait', '--timeout=180s', '--for=condition=Available', '-n', 'gpu-node deployment/nvidia-device-plugin').Output | Write-Log
-if (!$?) {
+$kubectlCmd = (Invoke-Kubectl -Params 'wait', '--timeout=180s', '--for=condition=Available', '-n', 'gpu-node', 'deployment/nvidia-device-plugin')
+Write-Log $kubectlCmd.Output
+if (!$kubectlCmd.Success) {
     $errMsg = 'Nvidia device plugin could not be started!'
     if ($EncodeStructuredOutput -eq $true) {
         $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
@@ -260,8 +261,9 @@ if (!$?) {
 
 Write-Log 'Installing DCGM-Exporter' -Console
 (Invoke-Kubectl -Params 'apply', '-f', "$PSScriptRoot\manifests\dcgm-exporter.yaml").Output | Write-Log
-(Invoke-Kubectl -Params 'rollout', 'status', 'daemonset', 'dcgm-exporter', '-n', 'gpu-node', '--timeout', '300s').Output | Write-Log
-if (!$?) {
+$kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'daemonset', 'dcgm-exporter', '-n', 'gpu-node', '--timeout', '300s')
+Write-Log $kubectlCmd.Output
+if (!$kubectlCmd.Success) {
     $errMsg = 'DCGM-Exporter could not be started!'
     if ($EncodeStructuredOutput -eq $true) {
         $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg

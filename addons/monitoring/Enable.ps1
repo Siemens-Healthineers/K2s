@@ -69,8 +69,9 @@ Write-Log 'Installing Kube Prometheus Stack' -Console
 (Invoke-Kubectl -Params 'create', '-k', $manifestsPath).Output | Write-Log
 
 Write-Log 'Waiting for Pods..'
-(Invoke-Kubectl -Params 'rollout', 'status', 'deployments', '-n', 'monitoring', '--timeout=180s').Output | Write-Log
-if (!$?) {
+$kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'deployments', '-n', 'monitoring', '--timeout=180s')
+Write-Log $kubectlCmd.Output
+if (!$kubectlCmd.Success) {
     $errMsg = 'Kube Prometheus Stack could not be deployed!'
     if ($EncodeStructuredOutput -eq $true) {
         $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
@@ -81,8 +82,9 @@ if (!$?) {
     Write-Log $errMsg -Error
     exit 1
 }
-(Invoke-Kubectl -Params 'rollout', 'status', 'statefulsets', '-n', 'monitoring', '--timeout=180s').Output | Write-Log
-if (!$?) {
+$kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'statefulsets', '-n', 'monitoring', '--timeout=180s')
+Write-Log $kubectlCmd.Output
+if (!$kubectlCmd.Success) {
     $errMsg = 'Kube Prometheus Stack could not be deployed!'
     if ($EncodeStructuredOutput -eq $true) {
         $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
@@ -93,8 +95,9 @@ if (!$?) {
     Write-Log $errMsg -Error
     exit 1
 }
-(Invoke-Kubectl -Params 'rollout', 'status', 'daemonsets', '-n', 'monitoring', '--timeout=180s').Output | Write-Log
-if (!$?) {
+$kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'daemonsets', '-n', 'monitoring', '--timeout=180s')
+Write-Log $kubectlCmd.Output
+if (!$kubectlCmd.Success) {
     $errMsg = 'Kube Prometheus Stack could not be deployed!'
     if ($EncodeStructuredOutput -eq $true) {
         $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg

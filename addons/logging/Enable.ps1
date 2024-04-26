@@ -87,8 +87,9 @@ if ($setupInfo.LinuxOnly -eq $false) {
 }
 
 Write-Log 'Waiting for Pods..'
-(Invoke-Kubectl -Params 'rollout', 'status', 'deployments', '-n', 'logging', '--timeout=180s').Output | Write-Log
-if (!$?) {
+$kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'deployments', '-n', 'logging', '--timeout=180s')
+Write-Log $kubectlCmd.Output
+if (!$kubectlCmd.Success) {
     $errMsg = 'Opensearch dashboards could not be deployed successfully!'
     if ($EncodeStructuredOutput -eq $true) {
         $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
@@ -100,8 +101,9 @@ if (!$?) {
     exit 1
 }
 
-(Invoke-Kubectl -Params 'rollout', 'status', 'statefulsets', '-n', 'logging', '--timeout=180s').Output | Write-Log
-if (!$?) {
+$kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'statefulsets', '-n', 'logging', '--timeout=180s')
+Write-Log $kubectlCmd.Output
+if (!$kubectlCmd.Success) {
     $errMsg = 'Opensearch could not be deployed successfully!'
     if ($EncodeStructuredOutput -eq $true) {
         $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
@@ -113,8 +115,9 @@ if (!$?) {
     exit 1
 }
 
-(Invoke-Kubectl -Params 'rollout', 'status', 'daemonsets', '-n', 'logging', '--timeout=180s').Output | Write-Log
-if (!$?) {
+$kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'daemonsets', '-n', 'logging', '--timeout=180s')
+Write-Log $kubectlCmd.Output
+if (!$kubectlCmd.Success) {
     $errMsg = 'Fluent-bit could not be deployed successfully!'
     if ($EncodeStructuredOutput -eq $true) {
         $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
@@ -133,7 +136,8 @@ if (Test-TraefikIngressControllerAvailability) {
 Add-HostEntries -Url 'k2s-logging.local'
 
 # Import saved objects 
-$dashboardIP = (Invoke-Kubectl -Params 'get', 'pods', '-l="app.kubernetes.io/name=opensearch-dashboards"', '-n', 'logging', '-o=jsonpath="{.items[0].status.podIP}"').Output
+$dashboardIP = (Invoke-Kubectl -Params 'get', 'pods', '-l=app.kubernetes.io/name=opensearch-dashboards', '-n', 'logging', '-o=jsonpath="{.items[0].status.podIP}"').Output
+$dashboardIP = $dashboardIP -replace '"', ""
 
 $importingSavedObjects = curl.exe -X POST --retry 10 --retry-delay 5 --silent --disable --fail --retry-all-errors "http://${dashboardIP}:5601/api/saved_objects/_import?overwrite=true" -H 'osd-xsrf: true' -F "file=@$PSScriptRoot/opensearch-dashboard-saved-objects/fluent-bit-index-pattern.ndjson" 2>$null
 Write-Log $importingSavedObjects

@@ -42,7 +42,7 @@ if ($systemError) {
 
 Write-Log 'Check whether monitoring addon is already disabled'
 
-if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'monitoring', '--ignore-not-found').Output -or (Test-IsAddonEnabled -Name 'monitoring') -ne $true) {
+if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'monitoring', '--ignore-not-found').Output -and (Test-IsAddonEnabled -Name 'monitoring') -ne $true) {
     $errMsg = "Addon 'monitoring' is already disabled, nothing to do."
 
     if ($EncodeStructuredOutput -eq $true) {
