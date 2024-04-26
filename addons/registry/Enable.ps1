@@ -151,8 +151,9 @@ else {
     (Invoke-Kubectl -Params 'patch', 'svc', 'k2s-registry', '-p', "$patchJson", '-n', 'registry').Output | Write-Log
 }
 
-(Invoke-Kubectl -Params 'wait', '--timeout=60s', '--for=condition=Ready', '-n', 'registry', 'pod/k2s-registry-pod').Output | Write-Log
-if (!$?) {
+$kubectlCmd = (Invoke-Kubectl -Params 'wait', '--timeout=60s', '--for=condition=Ready', '-n', 'registry', 'pod/k2s-registry-pod')
+Write-Log $kubectlCmd.Output
+if (!$kubectlCmd.Success) {
     $errMsg = 'k2s-registry did not start in time! Please disable addon and try to enable again!'
     if ($EncodeStructuredOutput -eq $true) {
         $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
