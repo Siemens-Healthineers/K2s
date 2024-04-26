@@ -74,10 +74,10 @@ if ($Windows) {
     }
 
     if ($setupInfo.Name -eq $global:SetupType_MultiVMK8s) {
-        $tmpPath = 'C:\\temp\\tmp.tar'
+        $tmpPath = 'C:\temp\tmp.tar'
         $session = Open-RemoteSessionViaSSHKey $global:Admin_WinNode $global:WindowsVMKey
         foreach ($image in $images) {
-            scp.exe -r -q -o StrictHostKeyChecking=no -i $global:WindowsVMKey "$image" "${global:Admin_WinNode}:$tmpPath" 2>&1 | % { "$_" }
+            Copy-Item "$image" -Destination "$tmpPath" -ToSession $session -Force
 
             Invoke-Command -Session $session {
                 Set-Location "$env:SystemDrive\k"
