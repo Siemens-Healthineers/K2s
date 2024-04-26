@@ -44,7 +44,7 @@ if ($systemError) {
 
 Write-Log 'Check whether gpu-node addon is already disabled'
 
-if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'gpu-node', '--ignore-not-found').Output -or (Test-IsAddonEnabled -Name 'gpu-node') -ne $true) {
+if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'gpu-node', '--ignore-not-found').Output -and (Test-IsAddonEnabled -Name 'gpu-node') -ne $true) {
     $errMsg = "Addon 'gpu-node' is already disabled, nothing to do."
 
     if ($EncodeStructuredOutput -eq $true) {

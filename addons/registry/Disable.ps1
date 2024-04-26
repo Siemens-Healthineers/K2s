@@ -51,7 +51,7 @@ if ($systemError) {
 
 Write-Log 'Check whether registry addon is already disabled'
 
-if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'registry', '--ignore-not-found').Output -or (Test-IsAddonEnabled -Name 'registry') -ne $true) {
+if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'registry', '--ignore-not-found').Output -and (Test-IsAddonEnabled -Name 'registry') -ne $true) {
     $errMsg = "Addon 'registry' is already disabled, nothing to do."
 
     if ($EncodeStructuredOutput -eq $true) {

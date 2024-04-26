@@ -49,7 +49,7 @@ if ($systemError) {
     exit 1
 }
 
-if ($null -eq (&$global:KubectlExe get namespace cert-manager --ignore-not-found) -or (Test-IsAddonEnabled -Name 'security') -ne $true) {
+if ($null -eq (&$global:KubectlExe get namespace cert-manager --ignore-not-found) -and (Test-IsAddonEnabled -Name 'security') -ne $true) {
     $errMsg = "Addon 'security' is already disabled, nothing to do."
 
     if ($EncodeStructuredOutput -eq $true) {

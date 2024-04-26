@@ -41,7 +41,7 @@ if ($systemError) {
     exit 1
 }
 
-if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'nginx-gateway', '--ignore-not-found').Output -or (Test-IsAddonEnabled -Name 'gateway-nginx') -ne $true) {
+if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'nginx-gateway', '--ignore-not-found').Output -and (Test-IsAddonEnabled -Name 'gateway-nginx') -ne $true) {
     $errMsg = "Addon 'gateway-nginx' is already disabled, nothing to do."
 
     if ($EncodeStructuredOutput -eq $true) {

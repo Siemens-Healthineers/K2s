@@ -107,8 +107,9 @@ else {
 $gatewayNginxSvc = 'nginx-gateway'
 (Invoke-Kubectl -Params 'patch', 'svc', $gatewayNginxSvc , '-p', "$patchJson", '-n', 'nginx-gateway').Output | Write-Log
 
-(Invoke-Kubectl -Params 'wait', '--timeout=60s', '--for=condition=Available', '-n', 'nginx-gateway', 'deployment/nginx-gateway').Output | Write-Log
-if (!$?) {
+$kubectlCmd = (Invoke-Kubectl -Params 'wait', '--timeout=60s', '--for=condition=Available', '-n', 'nginx-gateway', 'deployment/nginx-gateway')
+Write-Log $kubectlCmd.Output
+if (!$kubectlCmd.Success) {
   $errMsg = 'Not all pods could become ready. Please use kubectl describe for more details.'
   
   if ($EncodeStructuredOutput -eq $true) {
