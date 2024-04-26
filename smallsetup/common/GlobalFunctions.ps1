@@ -843,26 +843,6 @@ function Get-Installedk2sSetupType {
 
 <#
 .SYNOPSIS
-    Returns the config entry for containerd if present.
-.DESCRIPTION
-    Returns the config entry for containerd if present. Otherwise FALSE.
-.EXAMPLE
-    $useContainerd = Get-UseContainerdFromConfig
-.OUTPUTS
-    The boolean containerd config entry if present; otherwise FALSE
-#>
-function Get-UseContainerdFromConfig {
-    if (!$global:SetupJsonFile -or !$global:ConfigKey_Containerd) {
-        throw "The calling script must include the file 'GlobalVariables.ps1' first!"
-    }
-
-    $result = Get-ConfigValue -Path $global:SetupJsonFile -Key $global:ConfigKey_Containerd
-
-    return $result -eq $true
-}
-
-<#
-.SYNOPSIS
     Returns the host GW config if present.
 .DESCRIPTION
     Returns the host GW config if present.

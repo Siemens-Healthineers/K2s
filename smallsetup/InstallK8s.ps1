@@ -32,8 +32,6 @@ PS> .\smallsetup\InstallK8s.ps1 -MasterVMMemory 8GB -MasterVMProcessorCount 6 -M
 
 Param(
     # Main parameters
-    [parameter(Mandatory = $false, HelpMessage = 'K8sSetup: SmallSetup')]
-    [string] $K8sSetup = 'SmallSetup',
     [parameter(Mandatory = $false, HelpMessage = 'Startup Memory Size of master VM (Linux)')]
     [long] $MasterVMMemory = 8GB,
     [parameter(Mandatory = $false, HelpMessage = 'Number of Virtual Processors for master VM (Linux)')]
@@ -99,9 +97,6 @@ Reset-LogFile -AppendLogFile:$AppendLogFile
 Set-LoggingPreferencesIntoScriptsIsolationModule -ShowLogs:$ShowLogs -AppendLogFile:$false
 
 $ErrorActionPreference = 'Continue'
-if ($Trace) {
-    Set-PSDebug -Trace 1
-}
 
 Write-Log 'Prerequisites checks before installation' -Console
 
@@ -123,20 +118,6 @@ Write-Log 'Starting installation...'
 Set-EnvVars
 
 $Proxy = Get-OrUpdateProxyServer -Proxy:$Proxy
-
-if ( $K8sSetup -eq 'SmallSetup' ) {
-    Write-Log 'Installing K2s'
-}
-
-$UseDockerBackend = $false
-if ($UseDockerBackend) {
-    Write-Log 'Docker Runtime and Build Environment'
-    $UseContainerd = $false
-}
-else {
-    Write-Log 'Containerd Runtime, Docker Build Environment'
-    $UseContainerd = $true
-}
 
 ################################ SCRIPT START ###############################################
 
@@ -167,9 +148,8 @@ Invoke-Script_DeployWindowsNodeArtifacts -KubernetesVersion $KubernetesVersion -
 Invoke-Script_PublishNssm
 
 if (!(Test-Path "$(Get-KubeBinPath)\docker\docker.exe") -or !(Get-Service docker -ErrorAction SilentlyContinue)) {
-    $autoStartDockerd = !$UseContainerd
     Invoke-Script_PublishDocker
-    Invoke-Script_InstallDockerWin10 -AutoStart:$autoStartDockerd -Proxy "$Proxy"
+    Invoke-Script_InstallDockerWin10 -AutoStart:$false -Proxy "$Proxy"
 }
 
 # setup host as a worker node (installs nssm for starting kubelet, flannel and kubeproxy)
@@ -177,22 +157,12 @@ $controlPlaneNodeIpAddress = Get-ConfiguredIPControlPlane
 Invoke-Script_SetupNode -KubernetesVersion $KubernetesVersion -MasterIp $controlPlaneNodeIpAddress -MinSetup:$true -HostGW:$HostGW -Proxy:"$Proxy"
 
 # install containerd
-if ($UseContainerd) {
-    Invoke-Script_InstallContainerd -Proxy "$Proxy"
-    Invoke-Script_PublishWindowsImages
-}
-
-if (!$UseContainerd) {
-    # restart docker because it hangs often
-    if ($(Get-Service -Name kubelet -ErrorAction SilentlyContinue).Status -eq 'Running') {
-        Stop-Service -Name kubelet
-    }
-    Restart-Service docker
-}
+Invoke-Script_InstallContainerd -Proxy "$Proxy"
+Invoke-Script_PublishWindowsImages
 
 # install K8s services
 Invoke-Script_PublishKubetools
-Invoke-Script_InstallKubelet -UseContainerd:$UseContainerd
+Invoke-Script_InstallKubelet -UseContainerd:$true
 Invoke-Script_PublishFlannel
 Invoke-Script_InstallFlannel
 Invoke-Script_InstallKubeProxy
