@@ -43,7 +43,7 @@ if ($systemError) {
 
 Write-Log 'Check whether logging addon is already disabled'
 
-if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'logging', '--ignore-not-found').Output -or (Test-IsAddonEnabled -Name 'logging') -ne $true) {
+if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'logging', '--ignore-not-found').Output -and (Test-IsAddonEnabled -Name 'logging') -ne $true) {
     $errMsg = "Addon 'logging' is already disabled, nothing to do."
 
     if ($EncodeStructuredOutput -eq $true) {
@@ -67,8 +67,13 @@ $manifestsPath = "$PSScriptRoot\manifests"
 (Invoke-Kubectl -Params 'delete', 'pod', '-l', 'app.kubernetes.io/name=opensearch', '-n', 'logging', '--grace-period=0', '--force', '--ignore-not-found').Output | Write-Log
 (Invoke-Kubectl -Params 'delete', 'pod', '-l', 'app.kubernetes.io/name=fluent-bit', '-n', 'logging', '--grace-period=0', '--force', '--ignore-not-found').Output | Write-Log
 
-(Invoke-Kubectl -Params 'patch', 'pv', 'opensearch-cluster-master-pv', '-n', 'logging', '-p', '{\"metadata\":{\"finalizers\":null}}').Output | Write-Log
-(Invoke-Kubectl -Params 'patch', 'pvc', 'opensearch-cluster-master-opensearch-cluster-master-0', '-n', 'logging', '-p', '{\"metadata\":{\"finalizers\":null}}').Output | Write-Log
+if ($PSVersionTable.PSVersion.Major -gt 5) {
+    (Invoke-Kubectl -Params 'patch', 'pv', 'opensearch-cluster-master-pv', '-n', 'logging', '-p', '{"metadata":{"finalizers":null}}').Output | Write-Log
+    (Invoke-Kubectl -Params 'patch', 'pvc', 'opensearch-cluster-master-opensearch-cluster-master-0', '-n', 'logging', '-p', '{"metadata":{"finalizers":null}}').Output | Write-Log
+} else {
+    (Invoke-Kubectl -Params 'patch', 'pv', 'opensearch-cluster-master-pv', '-n', 'logging', '-p', '{\"metadata\":{\"finalizers\":null}}').Output | Write-Log
+    (Invoke-Kubectl -Params 'patch', 'pvc', 'opensearch-cluster-master-opensearch-cluster-master-0', '-n', 'logging', '-p', '{\"metadata\":{\"finalizers\":null}}').Output | Write-Log
+}
 
 (Invoke-Kubectl -Params 'delete', 'namespace', 'logging', '--grace-period=0').Output | Write-Log
 

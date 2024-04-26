@@ -45,7 +45,7 @@ if ($systemError) {
     exit 1
 }
 
-if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'kubernetes-dashboard', '--ignore-not-found').Output -or (Test-IsAddonEnabled -Name 'dashboard') -ne $true) {
+if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'kubernetes-dashboard', '--ignore-not-found').Output -and (Test-IsAddonEnabled -Name 'dashboard') -ne $true) {
     $errMsg = "Addon 'dashboard' is already disabled, nothing to do."
 
     if ($EncodeStructuredOutput -eq $true) {
