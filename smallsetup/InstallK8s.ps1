@@ -78,6 +78,8 @@ Param(
     [switch] $AppendLogFile = $false
 )
 
+$installStopwatch = [system.diagnostics.stopwatch]::StartNew()
+
 $logModule = "$PSScriptRoot\..\lib\modules\k2s\k2s.infra.module\log\log.module.psm1"
 $proxyModule = "$PSScriptRoot\ps-modules\proxy\proxy.module.psm1"
 $pathModule = "$PSScriptRoot\..\lib\modules\k2s\k2s.infra.module\path\path.module.psm1"
@@ -93,41 +95,34 @@ $temporaryIsolatedCalledScriptsModule = "$PSScriptRoot\ps-modules\only-while-ref
 Import-Module $logModule, $systemModule, $proxyModule, $pathModule, $configModule, $vmModule, $kubetoolsModule, $loopbackAdapterModule, $hooksModule, $temporaryIsolatedGlobalFunctionsModule, $temporaryIsolatedCalledScriptsModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
+Reset-LogFile -AppendLogFile:$AppendLogFile
+Set-LoggingPreferencesIntoScriptsIsolationModule -ShowLogs:$ShowLogs -AppendLogFile:$false
 
 $ErrorActionPreference = 'Continue'
 if ($Trace) {
     Set-PSDebug -Trace 1
 }
 
-$installStopwatch = [system.diagnostics.stopwatch]::StartNew()
+Write-Log 'Prerequisites checks before installation' -Console
 
-#cleanup old logs
-Reset-LogFile -AppendLogFile:$AppendLogFile
+Test-PathPrerequisites
+Test-ControlPlanePrerequisites -MasterVMProcessorCount $MasterVMProcessorCount -MasterVMMemory $MasterVMMemory -MasterDiskSize $MasterDiskSize
+Test-WindowsPrerequisites -WSL:$WSL
+Stop-InstallationIfRequiredCurlVersionNotInstalled
 
-Set-LoggingPreferencesIntoScriptsIsolationModule -ShowLogs:$ShowLogs -AppendLogFile:$false
+Stop-InstallIfNoMandatoryServiceIsRunning
 
-Write-Log "Using Master VM ProcessorCount: $MasterVMProcessorCount"
-# check memory
-if ( $MasterVMMemory -lt 2GB ) {
-    Write-Log 'SmallSetup needs minimal 2GB main memory, you have passed a lower value!'
-    throw 'Memory passed to low'
+if ($CheckOnly) {
+    Write-Log 'Early exit (CheckOnly)'
+    exit
 }
-Write-Log "Using Master VM Memory: $([math]::round($MasterVMMemory/1GB, 2))GB"
 
-# check disk
-if ( $MasterDiskSize -lt 50GB ) {
-    Write-Log 'SmallSetup needs minimal 50GB disk space, you have passed a lower value!'
-    throw 'Disk size passed to low'
-}
-Write-Log "Using Master VM Diskspace: $([math]::round($MasterDiskSize/1GB, 2))GB"
+Write-Log 'Starting installation...'
 
+# Add K2s executables as part of environment variable
 Set-EnvVars
 
 $Proxy = Get-OrUpdateProxyServer -Proxy:$Proxy
-
-Add-K2sToDefenderExclusion
-
-Stop-InstallIfDockerDesktopIsRunning
 
 if ( $K8sSetup -eq 'SmallSetup' ) {
     Write-Log 'Installing K2s'
@@ -153,59 +148,9 @@ Set-Location $installationPath
 $KubernetesVersion = Get-DefaultK8sVersion
 $script:SetupType = 'k2s'
 
-# check prerequisites
-Write-Log 'Running some health checks before installation...'
-
-$installationDirectoryType = Get-Item "$installationPath" | Select-Object -ExpandProperty LinkType
-if ($null -ne $installationDirectoryType) {
-    throw "Your installation directory '$installationPath' is of type '$installationDirectoryType'. Only normal directories are supported."
-}
-
-$ReleaseId = (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion').CurrentBuild
-if ($ReleaseId -lt 17763) {
-    Write-Log "SmallSetup needs minimal Windows Version 1809, you have $ReleaseId"
-    throw "Windows release $ReleaseId not usable"
-}
-
-Stop-InstallationIfRequiredCurlVersionNotInstalled
-
-Enable-MissingWindowsFeatures $([bool]$WSL)
-
-Stop-InstallIfNoMandatoryServiceIsRunning
-
-if ($WSL) {
-    Write-Log 'vEthernet (WSL) switch will be reconfigured! Your existing WSL distros will not work properly until you stop the cluster.'
-    Write-Log 'Configuring WSL2'
-    Set-WSL
-}
-
-Test-ProxyConfiguration
-
-$runningVMs = Get-VM -ErrorAction SilentlyContinue | Where-Object { $_.State -eq [Microsoft.HyperV.PowerShell.VMState]::Running }
-if ($runningVMs) {
-    Write-Log 'Active Hyper-V VM:'
-    Write-Log $($runningVMs | Select-Object -Property Name)
-    if ($runningVMs | Where-Object Name -eq 'minikube') {
-        throw "Minikube must be stopped before running the installer, do 'minikube stop'"
-    }
-}
-
 $controlPlaneVmName = 'KubeMaster'
 
-if (Get-VM -ErrorAction SilentlyContinue -Name $controlPlaneVmName) {
-    throw "$controlPlaneVmName VM must not exist when running the installer, do UninstallK8s.ps1 first"
-}
-
-if ($CheckOnly) {
-    Write-Log 'Early exit (CheckOnly)'
-    exit
-}
-
-
-Write-Log 'Starting installation...'
-
 Set-ConfigWslFlag -Value $([bool]$WSL)
-
 Set-ConfigSetupType -Value $script:SetupType
 
 $linuxOsType = Get-LinuxOsType $LinuxVhdxPath
