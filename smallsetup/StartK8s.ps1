@@ -170,14 +170,6 @@ Write-Log 'Checking prerequisites'
 # set ConfigKey_LoggedInRegistry empty, since not logged in into registry after restart anymore
 Set-ConfigValue -Path $global:SetupJsonFile -Key $global:ConfigKey_LoggedInRegistry -Value ''
 
-$UseContainerd = Get-UseContainerdFromConfig
-if ($UseContainerd) {
-    Write-Log 'Using containerd on Windows side as container runtime'
-}
-else {
-    Write-Log 'Using Docker on Windows side as container runtime'
-}
-
 $HostGW = Get-HostGwFromConfig
 if ($HostGW) {
     Write-Log 'Using host-gw as network mode'
