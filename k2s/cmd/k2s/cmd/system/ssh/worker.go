@@ -20,7 +20,7 @@ type workerBaseCommandProvider struct {
 
 const (
 	cmdToStartShellWorker           = "sshw"
-	scriptRelPathToExecuteCmdWorker = "\\smallsetup\\helpers\\sshw.ps1"
+	scriptRelPathToExecuteCmdWorker = "\\lib\\scripts\\multivm\\system\\ssh\\sshw.ps1"
 )
 
 var (

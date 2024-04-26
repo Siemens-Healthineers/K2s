@@ -628,10 +628,11 @@ if ($Windows) {
         $dockerBuildPath = 'C:\temp\docker-build'
         ssh.exe -n -o StrictHostKeyChecking=no -i $global:WindowsVMKey $global:Admin_WinNode rmdir /s /q $dockerBuildPath
         ssh.exe -n -o StrictHostKeyChecking=no -i $global:WindowsVMKey $global:Admin_WinNode mkdir $dockerBuildPath
-        scp.exe -r -q -o StrictHostKeyChecking=no -i $global:WindowsVMKey "$InputFolder" "${global:Admin_WinNode}:$dockerBuildPath" 2>&1 | % { "$_" }
-        scp.exe -r -q -o StrictHostKeyChecking=no -i $global:WindowsVMKey "${InputFolder}\..\Dockerfile.ForBuild.tmp" "${global:Admin_WinNode}:$dockerBuildPath" 2>&1 | % { "$_" }
 
         $session = Open-RemoteSessionViaSSHKey $global:Admin_WinNode $global:WindowsVMKey
+        Copy-Item "$InputFolder" -Destination "$dockerBuildPath" -Recurse -ToSession $session -Force
+        Copy-Item "${InputFolder}\..\Dockerfile.ForBuild.tmp" -Destination "$dockerBuildPath" -Recurse -ToSession $session -Force
+        
         Invoke-Command -Session $session {
             Set-Location "$env:SystemDrive\k"
             Set-ExecutionPolicy Bypass -Force -ErrorAction Stop

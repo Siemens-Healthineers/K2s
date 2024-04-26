@@ -3,10 +3,10 @@
 
 <#
 .SYNOPSIS
-Copies files from and to the Kubemaster
+Copies files from and to the WinNode
 
 .DESCRIPTION
-Copies files from the host machine to Kubemaster and vice-versa
+Copies files from the host machine to WinNode and vice-versa
 
 .PARAMETER Source
 File/Folder to be copied
@@ -15,18 +15,18 @@ File/Folder to be copied
 Destination where the file/folder needs to be copied to.
 
 .PARAMETER Reverse
-If set, the files are copied from the Kubemaster VM to the host machine
+If set, the files are copied from the WinNode VM to the host machine
 
 .EXAMPLE
-# Copy files from host machine to Kubemaster VM
-PS> .\scpm.ps1 -Source C:\temp.txt -Target /tmp
+# Copy files from host machine to WinNode VM
+PS> .\scpw.ps1 -Source C:\temp.txt -Target /tmp
 
 .EXAMPLE
-# Copy files from Kubemaster VM to the host machine
+# Copy files from WinNode VM to the host machine
 PS> .\scpm.ps1 -Source /tmp/temp.txt -Target C:\temp -Reverse
 #>
 
-Param (
+Param(
     [parameter(Mandatory = $true, HelpMessage = 'File/Folder to be copied')]
     [string]$Source,
     [parameter(Mandatory = $true, HelpMessage = 'Destination where the file/fodler needs to be copied to')]
@@ -39,14 +39,16 @@ Param (
     [string] $MessageType
 )
 
-$statusModule = "$PSScriptRoot\..\..\..\..\..\lib\modules\k2s\k2s.cluster.module\status\status.module.psm1"
+$clusterModule = "$PSScriptRoot\..\..\..\..\..\lib\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1"
 $infraModule = "$PSScriptRoot\..\..\..\..\..\lib\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
 $nodeModule = "$PSScriptRoot\..\..\..\..\..\lib\modules\k2s\k2s.node.module\k2s.node.module.psm1"
-Import-Module $statusModule, $infraModule, $nodeModule -Force
+
+Import-Module $clusterModule, $infraModule, $nodeModule
 
 Initialize-Logging
 
-$key = Get-SSHKeyControlPlane
+$remoteUser = Get-DefaultWinVMName
+$key = Get-DefaultWinVMKey
 
 $systemError = Test-SystemAvailability -Structured
 if ($systemError) {
@@ -54,8 +56,19 @@ if ($systemError) {
         Send-ToCli -MessageType $MessageType -Message @{Error = $systemError }
         return
     }
-
     Write-Log $systemError.Message -Error
+    exit 1
+}
+
+$setupInfo = Get-SetupInfo
+if ($setupInfo.Name -ne 'MultiVMK8s' -or $setupInfo.LinuxOnly ) {
+    $errMsg = 'There is no multi-vm setup with worker node installed.'
+    if ($EncodeStructuredOutput -eq $true) {
+        $err = New-Error -Severity Warning -Code (Get-ErrCodeWrongSetupType) -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+        return
+    }
+    Write-Log $systemError -Error
     exit 1
 }
 
@@ -70,18 +83,13 @@ if ((Test-Path $key -PathType Leaf) -ne $true) {
     exit 1
 }
 
-try {
-    if (!$Reverse) {
-        Copy-ToControlPlaneViaSSHKey -Source:$Source -Target:$Target
-    }
-    else {
-        Copy-FromControlPlaneViaSSHKey -Source:$Source -Target:$Target
-    }
+$session = Open-RemoteSessionViaSSHKey $remoteUser $key
+
+if (!$Reverse) {
+    Copy-Item "$Source" -Destination "$Target" -Recurse -ToSession $session -Force
 }
-catch {
-    $err = New-Error -Severity Warning -Code "scp failed" -Message $_
-    Send-ToCli -MessageType $MessageType -Message @{Error = $err }
-    return
+else {
+    Copy-Item "$Source" -Destination "$Target" -Recurse -FromSession $session -Force
 }
 
 if ($EncodeStructuredOutput -eq $true) {

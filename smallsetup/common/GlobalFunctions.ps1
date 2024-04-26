@@ -107,10 +107,43 @@ function Copy-FromToMaster($Source, $Target,
         echo yes | &"$global:ScpExe" -ssh -4 -q -r -pw $RemoteUserPwd "$Source" "$Target" 2>&1 | ForEach-Object { "$_" }
     }
     else {
-        scp.exe -o StrictHostKeyChecking=no -r -i $global:LinuxVMKey "$Source" "$Target" 2>&1 | ForEach-Object { "$_" }
+        if ($Target.Contains($global:Remote_Master)) {
+            # copy to master
+            if ((Get-Item $Source) -is [System.IO.DirectoryInfo]) {
+                # is directory
+                ExecCmdMaster "sudo rm -rf /tmp/copy.tar"
+                $folder = Split-Path $Source -Leaf
+                tar.exe -cf "$env:TEMP\copy.tar" -C $Source .
+                scp.exe -o StrictHostKeyChecking=no -i $global:LinuxVMKey "$env:temp\copy.tar" $($global:Remote_Master + ':/tmp') 2>&1 | ForEach-Object { "$_" }
+                $targetDirectory = $Target -replace "${global:Remote_Master}:", ''
+                ExecCmdMaster "mkdir -p $targetDirectory/$folder"
+                ExecCmdMaster "tar -xf /tmp/copy.tar -C $targetDirectory/$folder"
+                ExecCmdMaster "sudo rm -rf /tmp/copy.tar"
+                Remove-Item -Path "$env:temp\copy.tar" -Force -ErrorAction SilentlyContinue
+            } else {
+                scp.exe -o StrictHostKeyChecking=no -r -i $global:LinuxVMKey "$Source" "$Target" 2>&1 | ForEach-Object { "$_" }
+            }
+        } elseif ($Source.Contains($global:Remote_Master)){
+            # copy from master
+            $sourceDirectory = $Source -replace "${global:Remote_Master}:", ''
+            ssh.exe -n -o StrictHostKeyChecking=no -i $global:LinuxVMKey $global:Remote_Master "[ -d '$sourceDirectory' ]"
+            if ($?) {
+                # is directory
+                ExecCmdMaster "sudo rm -rf /tmp/copy.tar"
+                $folder = Split-Path $sourceDirectory -Leaf
+                ExecCmdMaster "sudo tar -cf /tmp/copy.tar -C $sourceDirectory ."
+                scp.exe -o StrictHostKeyChecking=no -i $global:LinuxVMKey $($global:Remote_Master + ':/tmp/copy.tar') "$env:temp\copy.tar" 2>&1 | ForEach-Object { "$_" }
+                New-Item -Path "$Target\$folder" -ItemType Directory | Out-Null
+                tar.exe -xf "$env:temp\copy.tar" -C "$Target\$folder"
+                ExecCmdMaster "sudo rm -rf /tmp/copy.tar"
+                Remove-Item -Path "$env:temp\copy.tar" -Force -ErrorAction SilentlyContinue
+            } else {
+                scp.exe -o StrictHostKeyChecking=no -r -i $global:LinuxVMKey "$Source" "$Target" 2>&1 | ForEach-Object { "$_" }
+            }
+        }
     }
 
-    if ($error.count -gt 0 -and !$IgnoreErrors) { throw "Executing $CmdToExecute failed! " + $error }
+    if ($error.Count -gt 0 -and !$IgnoreErrors) { throw "Copying $Source to $Target failed! " + $error }
 }
 
 <#

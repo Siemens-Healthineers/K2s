@@ -20,7 +20,7 @@ type masterBaseCommandProvider struct {
 
 const (
 	cmdToStartShellMaster           = "sshm"
-	scriptRelPathToExecuteCmdMaster = "\\smallsetup\\helpers\\sshm.ps1"
+	scriptRelPathToExecuteCmdMaster = "\\lib\\scripts\\k2s\\system\\ssh\\sshm.ps1"
 )
 
 var (
