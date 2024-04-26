@@ -146,11 +146,6 @@ function Invoke-CmdOnControlPlaneViaUserAndPwd(
     While ($Stoploop -eq $false)
 }
 
-function Invoke-TerminalOnControlPanelViaSSHKey {
-    Write-Log 'Invoking ssh terminal on Control Plane VM.'
-    ssh.exe -o StrictHostKeyChecking=no -i $key $remoteUser
-}
-
 function Get-IsControlPlaneRunning {
     $masterVmState = (Get-VM -Name $nameControlPlane).State
     return $masterVmState -eq [Microsoft.HyperV.PowerShell.VMState]::Running
@@ -178,7 +173,7 @@ function Copy-FromControlPlaneViaSSHKey($Source, $Target,
         scp.exe -o StrictHostKeyChecking=no -r -i $key "${remoteUser}:$Source" "$Target" 2>&1 | ForEach-Object { "$_" }
     }
 
-    if ($error.count -gt 0 -and !$IgnoreErrors) { throw "Executing $CmdToExecute failed! " + $error }
+    if ($error.Count -gt 0 -and !$IgnoreErrors) { throw "Copying $Source to $Target failed! " + $error }
 }
 
 function Copy-FromControlPlaneViaUserAndPwd($Source, $Target,
@@ -188,7 +183,7 @@ function Copy-FromControlPlaneViaUserAndPwd($Source, $Target,
     $error.Clear()
     echo yes | &"$scpExe" -ssh -4 -q -r -pw $remotePwd "${remoteUser}:$Source" "$Target" 2>&1 | ForEach-Object { "$_" }
 
-    if ($error.count -gt 0 -and !$IgnoreErrors) { throw "Executing $CmdToExecute failed! " + $error }
+    if ($error.Count -gt 0 -and !$IgnoreErrors) { throw "Copying $Source to $Target failed! " + $error }
 }
 
 function Copy-ToControlPlaneViaSSHKey($Source, $Target,
@@ -210,8 +205,8 @@ function Copy-ToControlPlaneViaSSHKey($Source, $Target,
     } else {
         scp.exe -o StrictHostKeyChecking=no -r -i $key "$Source" "${remoteUser}:$Target" 2>&1 | ForEach-Object { "$_" }
     }
-
-    if ($error.count -gt 0 -and !$IgnoreErrors) { throw "Executing $CmdToExecute failed! " + $error }
+ 
+    if ($error.Count -gt 0 -and !$IgnoreErrors) { throw "Copying $Source to $Target failed! " + $error }
 }
 
 function Copy-ToControlPlaneViaUserAndPwd($Source, $Target,
@@ -221,7 +216,7 @@ function Copy-ToControlPlaneViaUserAndPwd($Source, $Target,
     $error.Clear()
     echo yes | &"$scpExe" -ssh -4 -q -r -pw $remotePwd "$Source" "${remoteUser}:$Target" 2>&1 | ForEach-Object { "$_" }
 
-    if ($error.count -gt 0 -and !$IgnoreErrors) { throw "Executing $CmdToExecute failed! " + $error }
+    if ($error.Count -gt 0 -and !$IgnoreErrors) { throw "Copying $Source to $Target failed! " + $error }
 }
 
 function Test-ControlPlanePrerequisites(
