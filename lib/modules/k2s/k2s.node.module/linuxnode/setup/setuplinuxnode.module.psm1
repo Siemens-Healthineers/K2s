@@ -97,13 +97,13 @@ function Remove-SshKey {
 Copy-CloudInitFiles save cloud init files to master VM.
 #>
 function Copy-CloudInitFiles () {
+    $source = '/var/log/cloud-init*'
+    $target = "$(Get-SystemDriveLetter):\var\log\cloud-init"
+    Remove-Item -Path $target -Force -Recurse -ErrorAction SilentlyContinue | Out-Null
+    mkdir $target -ErrorAction SilentlyContinue | Out-Null
 
-    $source = "$(Get-SystemDriveLetter):\var\log\cloud-init"
-    Remove-Item -Path $source -Force -Recurse -ErrorAction SilentlyContinue | Out-Null
-    mkdir $source -ErrorAction SilentlyContinue | Out-Null
-
-    # TODO CHECK LOGS
-    Copy-ToControlPlaneViaSSHKey $source ':/var/log/cloud-init*'
+    Write-Log "copy $source to $target"
+    Copy-FromControlPlaneViaSSHKey $source $target
 }
 
 function New-VmFromIso {
