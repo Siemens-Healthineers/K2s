@@ -23,16 +23,12 @@ Param (
     [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
     [string] $MessageType
 )
-&$PSScriptRoot\..\..\smallsetup\common\GlobalVariables.ps1
-. $PSScriptRoot\..\..\smallsetup\common\GlobalFunctions.ps1
-. $PSScriptRoot\Common.ps1
-
-$logModule = "$PSScriptRoot/../../smallsetup/ps-modules/log/log.module.psm1"
-$statusModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/status/status.module.psm1"
-$addonsModule = "$PSScriptRoot\..\addons.module.psm1"
 $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
+$clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
+$addonsModule = "$PSScriptRoot\..\addons.v2.module.psm1"
+$securityModule = "$PSScriptRoot\security.module.psm1"
 
-Import-Module $logModule, $addonsModule, $statusModule, $infraModule
+Import-Module $infraModule, $clusterModule, $addonsModule, $securityModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -49,7 +45,7 @@ if ($systemError) {
     exit 1
 }
 
-if ($null -eq (&$global:KubectlExe get namespace cert-manager --ignore-not-found) -and (Test-IsAddonEnabled -Name 'security') -ne $true) {
+if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'cert-manager', '--ignore-not-found').Output -and (Test-IsAddonEnabled -Name 'security') -ne $true) {
     $errMsg = "Addon 'security' is already disabled, nothing to do."
 
     if ($EncodeStructuredOutput -eq $true) {
@@ -65,9 +61,12 @@ if ($null -eq (&$global:KubectlExe get namespace cert-manager --ignore-not-found
 Write-Log 'Uninstalling security' -Console
 $certManagerConfig = Get-CertManagerConfig
 $caIssuerConfig = Get-CAIssuerConfig
-&$global:KubectlExe delete -f $caIssuerConfig
-&$global:KubectlExe delete -f $certManagerConfig
+
+(Invoke-Kubectl -Params 'delete', '-f', $caIssuerConfig).Output | Write-Log
+(Invoke-Kubectl -Params 'delete', '-f', $certManagerConfig).Output | Write-Log
+
 Remove-AddonFromSetupJson -Name 'security'
+
 Write-Log 'Uninstallation of security finished' -Console
 
 Write-WarningForUser
