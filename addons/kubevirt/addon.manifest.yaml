@@ -52,6 +52,6 @@ spec:
       cli:
         examples:
           - cmd: k2s addons disable kubevirt
-            comment: Disable addon kubevirt in k2s
+            comment: Disable addon kubevirt in K2s
       script:
         subPath: Disable.ps1
