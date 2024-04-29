@@ -14,10 +14,10 @@ $kubeBinPath = Get-KubeBinPath
 
 # windows exporter
 $windowsNode_WindowsExporterDirectory = 'windowsexporter'
+$windowsNode_WindowsExporterExe = 'windows_exporter.exe'
 
 function Invoke-DownloadWindowsExporterArtifacts($downloadsBaseDirectory, $Proxy) {
     $windowsExporterDownloadsDirectory = "$downloadsBaseDirectory\$windowsNode_WindowsExporterDirectory"
-    $windowsNode_WindowsExporterExe = 'windows_exporter.exe'
     $file = "$windowsExporterDownloadsDirectory\$windowsNode_WindowsExporterExe"
 
     Write-Log "Create folder '$windowsExporterDownloadsDirectory'"
