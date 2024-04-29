@@ -19,6 +19,8 @@ powershell <installation folder>\addons\security\Enable.ps1
 
 [CmdletBinding(SupportsShouldProcess = $true)]
 Param (
+    [parameter(Mandatory = $false, HelpMessage = 'HTTP proxy if available')]
+    [string] $Proxy,
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
     [switch] $ShowLogs = $false,
     [parameter(Mandatory = $false, HelpMessage = 'JSON config object to override preceeding parameters')]
@@ -30,13 +32,15 @@ Param (
 )
 $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
-$systemModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.node.module\windowsnode\system\system.module.psm1"
+$nodeModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.node.module\k2s.node.module.psm1"
 $addonsModule = "$PSScriptRoot\..\addons.v2.module.psm1"
 $securityModule = "$PSScriptRoot\security.module.psm1"
 
-Import-Module $infraModule, $clusterModule, $systemModule, $addonsModule, $securityModule
+Import-Module $infraModule, $clusterModule, $nodeModule, $addonsModule, $securityModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
+
+$Proxy = Get-OrUpdateProxyServer -Proxy:$Proxy
 
 Write-Log 'Checking cluster status' -Console
 
