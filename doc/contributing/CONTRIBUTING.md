@@ -19,6 +19,7 @@ This CLA does not enable Siemens Healthineers to use or process personal data. T
 - [Contributing with code](#contributing-with-code)
   - [Clone *Git* Repository](#clone-git-repository)
   - [Codebase Structure](#codebase-structure)
+  - [Licensing](#licensing)
   - [Building Locally](#building-locally)
     - [Workspace Prerequisites](#workspace-prerequisites)
     - [Build *Go* projects](#build-go-projects)
@@ -61,8 +62,14 @@ C:\myFolder> git clone https://github.com/Siemens-Healthineers/K2s .
 └── VERSION
 </pre>
 
-## Building Locally
+## Licensing
+When using 3rd-party code (i.e. *PowerShell* or *Go* snippets) or configuration files (e.g. *yaml* manifests, etc.), this code or configuration has to be clearly marked as such adhering to the respective license.
 
+The currently supported/used 3rd-party license can be found in the [LICENSES](../../LICENSES/) folder.
+
+**This repository follows the [REUSE Specification – Version 3.0](https://reuse.software/spec/),** meaning that a valid license configuration must exist for every file, either **as comment or as separate \*.license file**.  
+
+## Building Locally
 ### Workspace Prerequisites
 
 All the prerequisites mentioned in [Install Prerequisites](../k2scli/install-uninstall_cmd.md#installing) are necessary.
