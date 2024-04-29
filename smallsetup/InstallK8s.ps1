@@ -7,10 +7,10 @@
 <#
 .SYNOPSIS
 Assists with preparing a Windows system to be used for a mixed Linux/Windows Kubernetes cluster
-This script is only valid for the Small K8s Setup!!!
+This script is only valid for the K2s Setup!!!
 
 .DESCRIPTION
-This script assists in the following actions for Small K8s:
+This script assists in the following actions for K2s:
 - Downloads Kubernetes binaries (kubelet, kubeadm, flannel, nssm) at the version specified
 - Registers kubelet as an nssm service. More info on nssm: https://nssm.cc/
 
