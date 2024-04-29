@@ -110,7 +110,7 @@ function Install-WinFlannel {
     &$kubeBinPath\nssm set flanneld AppParameters "--kubeconfig-file=\`"$kubePath\config\`" --iface=$ipaddress --ip-masq=1 --kube-subnet-mgr=1" | Out-Null
     $hn = ($(hostname)).ToLower()
     &$kubeBinPath\nssm set flanneld AppEnvironmentExtra NODE_NAME=$hn | Out-Null
-    &$kubeBinPath\nssm set flanneld AppDirectory $kubePath | Out-Null
+    &$kubeBinPath\nssm set flanneld AppDirectory "$(Get-SystemDriveLetter):\" | Out-Null
     &$kubeBinPath\nssm set flanneld AppStdout "$(Get-SystemDriveLetter):\var\log\flanneld\flanneld_stdout.log" | Out-Null
     &$kubeBinPath\nssm set flanneld AppStderr "$(Get-SystemDriveLetter):\var\log\flanneld\flanneld_stderr.log" | Out-Null
     &$kubeBinPath\nssm set flanneld AppStdoutCreationDisposition 4 | Out-Null

@@ -191,10 +191,8 @@ function Uninstall-WinDocker {
     # remove registry key which could remain from different docker installs
     Remove-Item -Path 'HKLM:\SYSTEM\CurrentControlSet\Services\EventLog\Application\docker' -ErrorAction SilentlyContinue
 
-    if ($global:PurgeOnUninstall) {
-        Write-Log "Removing: $dockerDir"
-        Remove-Item $dockerDir -Recurse -Force -ErrorAction SilentlyContinue
-    }
+    Write-Log "Removing: $dockerDir"
+    Remove-Item $dockerDir -Recurse -Force -ErrorAction SilentlyContinue
 }
 
 Export-ModuleMember Invoke-DownloadDockerArtifacts, Invoke-DeployDockerArtifacts, Install-WinDocker, Uninstall-WinDocker
