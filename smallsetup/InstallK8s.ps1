@@ -137,7 +137,8 @@ Write-Log 'Setting up Windows worker node' -Console
 New-DefaultLoopbackAdater
 
 Set-InstallationPathIntoScriptsIsolationModule -Value $installationPath
-Invoke-Script_DeployWindowsNodeArtifacts -KubernetesVersion $KubernetesVersion -Proxy "$Proxy" -DeleteFilesForOfflineInstallation $DeleteFilesForOfflineInstallation -ForceOnlineInstallation $ForceOnlineInstallation -SetupType $script:SetupType
+
+Invoke-DeployWinArtifacts -KubernetesVersion $KubernetesVersion -Proxy "$Proxy" -DeleteFilesForOfflineInstallation $DeleteFilesForOfflineInstallation -ForceOnlineInstallation $ForceOnlineInstallation -SkipClusterSetup:$false
 
 Invoke-Script_PublishNssm
 

@@ -20,9 +20,11 @@ $windowsNode_FlannelDirectory = 'flannel'
 $windowsNode_CniPluginsDirectory = 'cni_plugins'
 $windowsNode_CniFlannelDirectory = 'cni_flannel'
 
+$windowsNode_FlanneldExe = 'flanneld.exe'
+$windowsNode_Flannel64exe = 'flannel-amd64.exe'
+
 function Invoke-DownloadFlannelArtifacts($downloadsBaseDirectory, $Proxy) {
     $flannelDownloadsDirectory = "$downloadsBaseDirectory\$windowsNode_FlannelDirectory"
-    $windowsNode_FlanneldExe = 'flanneld.exe'
     $flannelVersion = 'v0.17.0'
     $file = "$flannelDownloadsDirectory\$windowsNode_FlanneldExe"
 
@@ -54,7 +56,6 @@ function Invoke-DownloadCniPlugins($downloadsBaseDirectory, $Proxy) {
 function Invoke-DownloadCniFlannelArtifacts($downloadsBaseDirectory, $Proxy) {
     $cniFlannelDownloadsDirectory = "$downloadsBaseDirectory\$windowsNode_CniFlannelDirectory"
     $cniFlannelVersion = 'v1.0.1'
-    $windowsNode_Flannel64exe = 'flannel-amd64.exe'
     $file = "$cniFlannelDownloadsDirectory\$windowsNode_Flannel64exe"
 
     Write-Log "Create folder '$cniFlannelDownloadsDirectory'"
