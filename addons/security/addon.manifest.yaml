@@ -21,15 +21,25 @@ spec:
   commands:
     enable:
       cli:
+        flags:
+          - name: proxy
+            shorthand: p
+            default: ""
+            description: HTTP Proxy
         examples:
           - cmd: k2s addons enable security
-            comment: Enable addon security in k2s, with CA issuer configured
+            comment: Enable security addon with CA issuer configured
+          - cmd: k2s addons enable security --proxy http://10.11.12.13:5000
+            comment: Enable security addon with CA issuer configured using an HTTP proxy
       script:
         subPath: Enable.ps1
+        parameterMappings:
+          - cliFlagName: proxy
+            scriptParameterName: Proxy
     disable:
       cli:
         examples:
           - cmd: k2s addons disable security
-            comment: Disable addon security in k2s
+            comment: Disable addon security in K2s
       script:
         subPath: Disable.ps1

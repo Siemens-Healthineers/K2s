@@ -59,7 +59,11 @@ var _ = Describe("'security' addon", Ordered, func() {
 	})
 
 	It("enables the addon", func(ctx context.Context) {
-		suite.K2sCli().Run(ctx, "addons", "enable", addonName, "-o")
+		args := []string{"addons", "enable", addonName, "-o"}
+		if suite.Proxy() != "" {
+			args = append(args, "-p", suite.Proxy())
+		}
+		suite.K2sCli().Run(ctx, args...)
 	})
 
 	It("prints already-enabled message on enable command and exits with non-zero", func(ctx context.Context) {
