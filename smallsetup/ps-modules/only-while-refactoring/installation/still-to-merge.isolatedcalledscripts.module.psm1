@@ -22,17 +22,6 @@ function Set-InstallationPathIntoScriptsIsolationModule {
     $script:installationPath = $Value
 }
 
-function Invoke-Script_DeployWindowsNodeArtifacts {
-    Param(
-        [string] $KubernetesVersion,
-        [string] $Proxy = '',
-        [boolean] $DeleteFilesForOfflineInstallation = $false,
-        [boolean] $ForceOnlineInstallation = $false,
-        [string] $SetupType
-    )
-    &"$installationPath\smallsetup\windowsnode\DeployWindowsNodeArtifacts.ps1" -KubernetesVersion $KubernetesVersion -Proxy "$Proxy" -DeleteFilesForOfflineInstallation $DeleteFilesForOfflineInstallation -ForceOnlineInstallation $ForceOnlineInstallation -SetupType $SetupType
-}
-
 function Invoke-Script_PublishNssm {
     &"$installationPath\smallsetup\windowsnode\publisher\PublishNssm.ps1"
 }
@@ -159,7 +148,7 @@ function Invoke-Script_StopK8s {
     & "$installationPath\smallsetup\StopK8s.ps1" -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs
 }
 
-Export-ModuleMember -Function Set-InstallationPathIntoScriptsIsolationModule, Invoke-Script_DeployWindowsNodeArtifacts, Set-LoggingPreferencesIntoScriptsIsolationModule, Invoke-Script_PublishNssm, Invoke-Script_PublishDocker, Invoke-Script_InstallDockerWin10, Invoke-Script_SetupNode,
+Export-ModuleMember -Function Set-InstallationPathIntoScriptsIsolationModule, Set-LoggingPreferencesIntoScriptsIsolationModule, Invoke-Script_PublishNssm, Invoke-Script_PublishDocker, Invoke-Script_InstallDockerWin10, Invoke-Script_SetupNode,
 Invoke-Script_InstallContainerd,
 Invoke-Script_PublishWindowsImages,
 Invoke-Script_PublishKubetools,
