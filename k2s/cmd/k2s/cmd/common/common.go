@@ -47,7 +47,8 @@ type OutputWriter struct {
 }
 
 const (
-	ErrSystemNotInstalledMsg = "You have not installed K2s setup yet, please start the installation with command 'k2s.exe install' first"
+	ErrSystemNotInstalledMsg     = "You have not installed K2s setup yet, please start the installation with command 'k2s.exe install' first"
+	ErrSystemInCorruptedStateMsg = "Errors occurred during K2s setup. K2s cluster is in corrupted state. Please uninstall and reinstall K2s cluster."
 
 	SeverityWarning FailureSeverity = 3
 	SeverityError   FailureSeverity = 4
@@ -138,6 +139,14 @@ func CreateSystemNotInstalledCmdFailure() *CmdFailure {
 		Severity: SeverityWarning,
 		Code:     setupinfo.ErrSystemNotInstalled.Error(),
 		Message:  ErrSystemNotInstalledMsg,
+	}
+}
+
+func CreateSystemInCorruptedStateCmdFailure() *CmdFailure {
+	return &CmdFailure{
+		Severity: SeverityWarning,
+		Code:     setupinfo.ErrSystemInCorruptedState.Error(),
+		Message:  ErrSystemInCorruptedStateMsg,
 	}
 }
 

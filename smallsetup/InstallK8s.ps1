@@ -100,6 +100,9 @@ $ErrorActionPreference = 'Continue'
 
 Write-Log 'Prerequisites checks before installation' -Console
 
+Write-Error "this is a test error"
+exit
+
 Test-PathPrerequisites
 Test-ControlPlanePrerequisites -MasterVMProcessorCount $MasterVMProcessorCount -MasterVMMemory $MasterVMMemory -MasterDiskSize $MasterDiskSize
 Test-WindowsPrerequisites -WSL:$WSL

@@ -37,6 +37,7 @@ type Installer struct {
 	GetInstallDirFunc         func() string
 	PrintCompletedMessageFunc func(duration time.Duration, command string)
 	LoadConfigFunc            func(configDir string) (*setupinfo.Config, error)
+	SetConfigFunc             func(configDir string, config *setupinfo.Config) error
 }
 
 func (i *Installer) Install(
@@ -88,7 +89,20 @@ func (i *Installer) Install(
 
 	if outputWriter.ErrorOccurred {
 		// corrupted state
-		
+		setupConfig, err := i.LoadConfigFunc(configDir)
+		if err != nil {
+			if setupConfig == nil {
+				setupConfig = &setupinfo.Config{
+					Corrupted: true,
+				}
+				i.SetConfigFunc(configDir, setupConfig)
+			}
+		} else {
+			setupConfig.Corrupted = true
+			i.SetConfigFunc(configDir, setupConfig)
+		}
+
+		return common.CreateSystemInCorruptedStateCmdFailure()
 	}
 
 	duration := time.Since(start)
