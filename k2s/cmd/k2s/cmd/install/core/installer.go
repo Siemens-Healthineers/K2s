@@ -86,6 +86,11 @@ func (i *Installer) Install(
 		return err
 	}
 
+	if outputWriter.ErrorOccurred {
+		// corrupted state
+		
+	}
+
 	duration := time.Since(start)
 	i.PrintCompletedMessageFunc(duration, fmt.Sprintf("%s installation", kind))
 

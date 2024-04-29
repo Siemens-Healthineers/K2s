@@ -43,6 +43,7 @@ type CmdResult struct {
 type OutputWriter struct {
 	ShowProgress    bool
 	errorLineBuffer *logging.LogBuffer
+	ErrorOccurred   bool
 }
 
 const (
@@ -100,6 +101,7 @@ func (o *OutputWriter) WriteStd(line string) {
 
 func (o *OutputWriter) WriteErr(line string) {
 	o.errorLineBuffer.Log(line)
+	o.ErrorOccurred = true
 
 	pterm.Printfln("⏳ %s", pterm.Yellow(line))
 }
