@@ -92,3 +92,8 @@ function Wait-ForCARootCertificate(
     }
     return $false
 }
+
+function Remove-Cmctl {
+    Write-Log "Removing $cmctlExe.."
+    Remove-Item -Path $cmctlExe -Force -ErrorAction SilentlyContinue
+}
