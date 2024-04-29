@@ -79,11 +79,12 @@ Param(
 $installStopwatch = [system.diagnostics.stopwatch]::StartNew()
 
 $infraModule =   "$PSScriptRoot\..\lib\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
-$nodeModule = "$PSScriptRoot\..\lib\modules\k2s\k2s.node.module\k2s.node.module.psm1"
+$nodeModule =    "$PSScriptRoot\..\lib\modules\k2s\k2s.node.module\k2s.node.module.psm1"
+$clusterModule = "$PSScriptRoot\..\lib\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1"
 $temporaryIsolatedGlobalFunctionsModule = "$PSScriptRoot\ps-modules\only-while-refactoring\installation\still-to-merge.isolatedglobalfunctions.module.psm1"
 $temporaryIsolatedCalledScriptsModule = "$PSScriptRoot\ps-modules\only-while-refactoring\installation\still-to-merge.isolatedcalledscripts.module.psm1"
 
-Import-Module $infraModule, $nodeModule, $temporaryIsolatedGlobalFunctionsModule, $temporaryIsolatedCalledScriptsModule
+Import-Module $infraModule, $nodeModule, $clusterModule, $temporaryIsolatedGlobalFunctionsModule, $temporaryIsolatedCalledScriptsModule
 
 
 Initialize-Logging -ShowLogs:$ShowLogs
@@ -175,42 +176,11 @@ else {
     Write-Log 'VM is now available'
 }
 
-Write-Log 'Joining Nodes'
+# JOIN NODES
+Write-Log "Preparing Kubernetes $KubernetesVersion by joining nodes" -Console
 
-Copy-KubeConfigFromControlPlaneNode
+Initialize-KubernetesCluster -AdditionalHooksDir $AdditionalHooksDir
 
-# set context on windows host (add to existing contexts)
-Invoke-Script_AddContextToConfig
-
-Invoke-Hook -HookName 'AfterVmInitialized' -AdditionalHooksDir $AdditionalHooksDir
-
-# try to join host windows node
-Write-Log 'starting the join process'
-Invoke-Script_JoinWindowsHost
-
-# set new limits for the windows node for disk pressure
-# kubelet is running now (caused by JoinWindowsHost.ps1), so we stop it. Will be restarted in StartK8s.ps1.
-Stop-Service kubelet
-$kubeletconfig = "$(Get-KubeletConfigDir)\config.yaml"
-Write-Log "kubelet config: $kubeletconfig"
-$content = Get-Content $kubeletconfig
-$content | ForEach-Object { $_ -replace 'evictionPressureTransitionPeriod:',
-    "evictionHard:`r`n  nodefs.available: 8Gi`r`n  imagefs.available: 8Gi`r`nevictionPressureTransitionPeriod:" } |
-Set-Content $kubeletconfig
-
-# add ip to hosts file
-Invoke-Script_AddToHosts
-
-# show results
-Write-Log "Current state of kubernetes nodes:`n"
-Start-Sleep 2
-$kubectlExe = "$(Get-KubeToolsPath)\kubectl.exe"
-&$kubectlExe get nodes -o wide
-
-Write-Log "Collecting kubernetes images and storing them to $(Get-KubernetesImagesFilePath)."
-$imageFunctionsModulePath = "$PSScriptRoot\helpers\ImageFunctions.module.psm1"
-Import-Module $imageFunctionsModulePath -DisableNameChecking
-Write-KubernetesImagesIntoJson
 
 if (! $SkipStart) {
     Write-Log 'Starting Kubernetes System'
