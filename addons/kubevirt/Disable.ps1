@@ -94,10 +94,10 @@ $ScriptBlockNamespaces = {
 
 Write-Log 'Deleting kubevirt'
 (Invoke-Kubectl -Params 'delete', '-n', 'kubevirt', 'kubevirt', 'kubevirt', '--wait=true').Output | Write-Log
-(Invoke-Kubectl -Params 'delete', 'apiservices', 'v1alpha3.subresources.kubevirt.io').Output | Write-Log
-(Invoke-Kubectl -Params 'delete', 'mutatingwebhookconfigurations', 'virt-api-mutator').Output | Write-Log
-(Invoke-Kubectl -Params 'delete', 'validatingwebhookconfigurations', 'virt-api-validator').Output | Write-Log
-(Invoke-Kubectl -Params 'delete', 'validatingwebhookconfigurations', 'virt-operator-validator').Output | Write-Log
+(Invoke-Kubectl -Params 'delete', 'apiservices', 'v1alpha3.subresources.kubevirt.io', '--ignore-not-found').Output | Write-Log
+(Invoke-Kubectl -Params 'delete', 'mutatingwebhookconfigurations', 'virt-api-mutator', '--ignore-not-found').Output | Write-Log
+(Invoke-Kubectl -Params 'delete', 'validatingwebhookconfigurations', 'virt-api-validator', '--ignore-not-found').Output | Write-Log
+(Invoke-Kubectl -Params 'delete', 'validatingwebhookconfigurations', 'virt-operator-validator', '--ignore-not-found').Output | Write-Log
 (Invoke-Kubectl -Params 'delete', '-f', "$PSScriptRoot\manifests\kubevirt-operator.yaml", '--wait=false').Output | Write-Log
 
 $patch = '{\"metadata\":{\"finalizers\":null}}'
