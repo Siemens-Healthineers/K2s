@@ -28,16 +28,13 @@ Param (
     [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
     [string] $MessageType
 )
-&$PSScriptRoot\..\..\smallsetup\common\GlobalVariables.ps1
-. $PSScriptRoot\..\..\smallsetup\common\GlobalFunctions.ps1
-. $PSScriptRoot\Common.ps1
-
-$logModule = "$PSScriptRoot/../../smallsetup/ps-modules/log/log.module.psm1"
-$clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
-$addonsModule = "$PSScriptRoot\..\addons.module.psm1"
 $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
+$clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
+$systemModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.node.module\windowsnode\system\system.module.psm1"
+$addonsModule = "$PSScriptRoot\..\addons.v2.module.psm1"
+$securityModule = "$PSScriptRoot\security.module.psm1"
 
-Import-Module $logModule, $addonsModule, $clusterModule, $infraModule
+Import-Module $infraModule, $clusterModule, $systemModule, $addonsModule, $securityModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -78,7 +75,7 @@ if ($windowsCurlPackages) {
         if (!(Test-Path $destination)) {
             $url = $package.url
             Write-Log "Downloading $url TO $destination"
-            DownloadFile $destination $url $true -ProxyToUse $Proxy
+            Invoke-DownloadFile $destination $url $true -ProxyToUse $Proxy
         }
         else {
             Write-Log "File $destination already exists. Skipping download."
@@ -88,7 +85,7 @@ if ($windowsCurlPackages) {
 
 Write-Log 'Installing cert-manager' -Console
 $certManagerConfig = Get-CertManagerConfig
-&$global:KubectlExe apply -f $certManagerConfig
+(Invoke-Kubectl -Params 'apply', '-f', $certManagerConfig).Output | Write-Log
 
 Write-Log 'Waiting for cert-manager APIs to be ready, be patient!' -Console
 $certManagerStatus = Wait-ForCertManagerAvailable
@@ -107,7 +104,7 @@ if ($certManagerStatus -ne $true) {
 
 Write-Log 'Configuring CA ClusterIssuer' -Console
 $caIssuerConfig = Get-CAIssuerConfig
-&$global:KubectlExe apply -f $caIssuerConfig
+(Invoke-Kubectl -Params 'apply', '-f', $caIssuerConfig).Output | Write-Log
 
 Write-Log 'Waiting for CA root certificate to be created' -Console
 $caCreated = Wait-ForCARootCertificate
@@ -125,10 +122,11 @@ if ($caCreated -ne $true) {
 }
 
 Write-Log 'Importing CA root certificate to trusted authorities of your computer' -Console
-$b64secret = &$global:KubectlExe -n cert-manager get secrets ca-issuer-root-secret -o jsonpath --template '{.data.ca\.crt}'
-[Text.Encoding]::Utf8.GetString([Convert]::FromBase64String($b64secret)) | Out-File -Encoding utf8 C:\Temp\ca-root-secret.crt
-certutil -addstore -f -enterprise -user root C:\Temp\ca-root-secret.crt
-Remove-Item C:\Temp\ca-root-secret.crt
+$b64secret = (Invoke-Kubectl -Params '-n', 'cert-manager', 'get', 'secrets', 'ca-issuer-root-secret', '-o', 'jsonpath', '--template', '{.data.ca\.crt}').Output
+$tempFile = New-TemporaryFile
+[Text.Encoding]::Utf8.GetString([Convert]::FromBase64String($b64secret)) | Out-File -Encoding utf8 -FilePath $tempFile.FullName -Force
+certutil -addstore -f -enterprise -user root $tempFile.FullName
+Remove-Item -Path $tempFile.FullName -Force
 
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'security' })
 
