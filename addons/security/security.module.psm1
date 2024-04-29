@@ -4,23 +4,17 @@
 
 #Requires -RunAsAdministrator
 
-<#
-.SYNOPSIS
-Contains common methods for installing and uninstalling security
-#>
+$infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
+$k8sApiModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k8s-api/k8s-api.module.psm1"
 
-<#
-.DESCRIPTION
-Gets the location of manifests to deploy security
-#>
+Import-Module $infraModule, $k8sApiModule
+
+$cmctlExe = "$(Get-KubeToolsPath)\cmctl.exe"
+
 function Get-CertManagerConfig {
     return "$PSScriptRoot\manifests\cert-manager.yaml"
 }
 
-<#
-.DESCRIPTION
-Gets the location of nginx ingress yaml for dashboard
-#>
 function Get-CAIssuerConfig {
     return "$PSScriptRoot\manifests\ca-issuer.yaml"
 }
@@ -56,10 +50,6 @@ This addon is documented in <installation folder>\addons\security\README.md
 '@ -split "`r`n" | ForEach-Object { Write-Log $_ -Console }
 }
 
-<#
-.DESCRIPTION
-Writes the usage notes for security for the user.
-#>
 function Write-WarningForUser {
     @'
     
@@ -77,15 +67,12 @@ chrome://net-internals/#hsts
 Waits for the cert-manager API to be available.
 #>
 function Wait-ForCertManagerAvailable {
-    $out = &$global:BinPath\exe\cmctl.exe check api --wait=3m
+    $out = &$cmctlExe check api --wait=3m
     if ($out -match 'The cert-manager API is ready') {
         return $true
     }
-    else {
-        return $false
-    }
+    return $false
 }
-
 
 <#
 .DESCRIPTION
@@ -94,25 +81,14 @@ Waits for the kubernetes secret 'ca-issuer-root-secret' in the namespace 'cert-m
 function Wait-ForCARootCertificate(
     [int]$SleepDurationInSeconds = 10,
     [int]$NumberOfRetries = 10) {
-    $found = $false
     for (($i = 1); $i -le $NumberOfRetries; $i++) {
-        $out = &$global:KubectlExe -n cert-manager get secrets ca-issuer-root-secret -o=jsonpath="{.metadata.name}" --ignore-not-found
+        $out = (Invoke-Kubectl -Params '-n', 'cert-manager', 'get', 'secrets', 'ca-issuer-root-secret', '-o=jsonpath="{.metadata.name}"', '--ignore-not-found').Output
         if ($out -match 'ca-issuer-root-secret') {
             Write-Log "'ca-issuer-root-secret' created and ready for use."
-            $found = $true
-            break;
+            return $true
         }
         Write-Log "Retry {$i}: 'ca-issuer-root-secret' not yet created. Will retry after $SleepDurationInSeconds Seconds" -Console
         Start-Sleep -Seconds $SleepDurationInSeconds
     }
-    return $found
-
-
-    $out = &$global:BinPath\exe\cmctl.exe check api --wait=3m
-    if ($out -match 'The cert-manager API is ready') {
-        return $true
-    }
-    else {
-        return $false
-    }
+    return $false
 }
