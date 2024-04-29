@@ -74,7 +74,6 @@ if ($windowsCurlPackages) {
         $destination = "$k2sRoot\$destination"
         if (!(Test-Path $destination)) {
             $url = $package.url
-            Write-Log "Downloading $url TO $destination"
             Invoke-DownloadFile $destination $url $true -ProxyToUse $Proxy
         }
         else {

@@ -65,6 +65,7 @@ $caIssuerConfig = Get-CAIssuerConfig
 (Invoke-Kubectl -Params 'delete', '-f', $caIssuerConfig).Output | Write-Log
 (Invoke-Kubectl -Params 'delete', '-f', $certManagerConfig).Output | Write-Log
 
+Remove-Cmctl
 Remove-AddonFromSetupJson -Name 'security'
 
 Write-Log 'Uninstallation of security finished' -Console
