@@ -134,6 +134,10 @@ func CreateSystemNotInstalledCmdResult() CmdResult {
 	return CmdResult{Failure: CreateSystemNotInstalledCmdFailure()}
 }
 
+func CreateSystemInCorruptedStateCmdResult() CmdResult {
+	return CmdResult{Failure: CreateSystemInCorruptedStateCmdFailure()}
+}
+
 func CreateSystemNotInstalledCmdFailure() *CmdFailure {
 	return &CmdFailure{
 		Severity: SeverityWarning,

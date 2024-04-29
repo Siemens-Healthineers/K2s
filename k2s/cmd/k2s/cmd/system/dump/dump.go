@@ -39,11 +39,13 @@ func init() {
 func dumpSystemStatus(cmd *cobra.Command, args []string) error {
 	configDir := cmd.Context().Value(common.ContextKeyConfigDir).(string)
 	config, err := setupinfo.LoadConfig(configDir)
-	if err != nil 
+	if err != nil {
 		if errors.Is(err, setupinfo.ErrSystemNotInstalled) {
 			return common.CreateSystemNotInstalledCmdFailure()
 		}
-		return err
+		if !errors.Is(err, setupinfo.ErrSystemInCorruptedState) {
+			return err
+		}
 	}
 
 	skipOpenDumpFlag, err := strconv.ParseBool(cmd.Flags().Lookup(skipOpenDumpFlagName).Value.String())

@@ -100,9 +100,6 @@ $ErrorActionPreference = 'Continue'
 
 Write-Log 'Prerequisites checks before installation' -Console
 
-Write-Error "this is a test error"
-exit
-
 Test-PathPrerequisites
 Test-ControlPlanePrerequisites -MasterVMProcessorCount $MasterVMProcessorCount -MasterVMMemory $MasterVMMemory -MasterDiskSize $MasterDiskSize
 Test-WindowsPrerequisites -WSL:$WSL
@@ -136,6 +133,10 @@ $controlPlaneVmName = 'KubeMaster'
 
 Set-ConfigWslFlag -Value $([bool]$WSL)
 Set-ConfigSetupType -Value $script:SetupType
+
+Write-Error "this is a test error"
+exit
+
 
 $linuxOsType = Get-LinuxOsType $LinuxVhdxPath
 Set-ConfigLinuxOsType -Value $linuxOsType

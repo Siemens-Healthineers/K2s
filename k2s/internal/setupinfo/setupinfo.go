@@ -50,7 +50,7 @@ func LoadConfig(configDir string) (*Config, error) {
 	}
 
 	if config.Corrupted {
-		return nil, ErrSystemInCorruptedState
+		return config, ErrSystemInCorruptedState
 	}
 
 	return config, nil
