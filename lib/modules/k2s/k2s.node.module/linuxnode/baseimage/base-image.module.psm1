@@ -371,7 +371,7 @@ Function Find-DnsIpAddress {
     	$ipaddressesFromDhcp = @(Get-NetIPAddress -AddressFamily IPv4 -AddressState Preferred -InterfaceAlias Ethernet -ErrorAction SilentlyContinue)
     }
     if (!$ipaddressesFromDhcp) {
-    	throw 'No IP address found which can be used for setting up Small K8s Setup !'
+    	throw 'No IP address found which can be used for setting up K2s Setup !'
     }
     if ($ipaddressesFromDhcp.Length -gt 1) {
     	Write-Warning "Found more than one IP address, using the first one only"

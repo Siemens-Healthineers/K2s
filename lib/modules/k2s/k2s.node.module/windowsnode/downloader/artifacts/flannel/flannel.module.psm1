@@ -97,7 +97,7 @@ function Install-WinFlannel {
     Write-Log "Using network adapter '$adapterName'"
     $ipaddresses = @(Get-NetIPAddress -AddressFamily IPv4 -InterfaceAlias $adapterName)
     if (!$ipaddresses) {
-        throw 'No IP address found which can be used for setting up Small K8s Setup !'
+        throw 'No IP address found which can be used for setting up K2s Setup !'
     }
 
     $ipaddress = $ipaddresses[0] | Select-Object -ExpandProperty IPAddress
