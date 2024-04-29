@@ -78,19 +78,13 @@ Param(
 
 $installStopwatch = [system.diagnostics.stopwatch]::StartNew()
 
-$logModule = "$PSScriptRoot\..\lib\modules\k2s\k2s.infra.module\log\log.module.psm1"
-$proxyModule = "$PSScriptRoot\ps-modules\proxy\proxy.module.psm1"
-$pathModule = "$PSScriptRoot\..\lib\modules\k2s\k2s.infra.module\path\path.module.psm1"
-$configModule = "$PSScriptRoot\..\lib\modules\k2s\k2s.infra.module\config\config.module.psm1"
-$vmModule = "$PSScriptRoot\..\lib\modules\k2s\k2s.node.module\linuxnode\vm\vm.module.psm1"
-$kubetoolsModule = "$PSScriptRoot\..\lib\modules\k2s\k2s.node.module\windowsnode\downloader\artifacts\kube-tools\kube-tools.module.psm1"
-$loopbackAdapterModule = "$PSScriptRoot\..\lib\modules\k2s\k2s.node.module\windowsnode\network\loopbackadapter.module.psm1"
-$systemModule = "$PSScriptRoot\..\lib\modules\k2s\k2s.node.module\windowsnode\system\system.module.psm1"
-$hooksModule = "$PSScriptRoot\..\lib\modules\k2s\k2s.infra.module\hooks\hooks.module.psm1"
+$infraModule =   "$PSScriptRoot\..\lib\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
+$nodeModule = "$PSScriptRoot\..\lib\modules\k2s\k2s.node.module\k2s.node.module.psm1"
 $temporaryIsolatedGlobalFunctionsModule = "$PSScriptRoot\ps-modules\only-while-refactoring\installation\still-to-merge.isolatedglobalfunctions.module.psm1"
 $temporaryIsolatedCalledScriptsModule = "$PSScriptRoot\ps-modules\only-while-refactoring\installation\still-to-merge.isolatedcalledscripts.module.psm1"
 
-Import-Module $logModule, $systemModule, $proxyModule, $pathModule, $configModule, $vmModule, $kubetoolsModule, $loopbackAdapterModule, $hooksModule, $temporaryIsolatedGlobalFunctionsModule, $temporaryIsolatedCalledScriptsModule
+Import-Module $infraModule, $nodeModule, $temporaryIsolatedGlobalFunctionsModule, $temporaryIsolatedCalledScriptsModule
+
 
 Initialize-Logging -ShowLogs:$ShowLogs
 Reset-LogFile -AppendLogFile:$AppendLogFile
