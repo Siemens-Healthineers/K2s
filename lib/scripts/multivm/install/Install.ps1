@@ -14,7 +14,7 @@ Target setup:
 + Linux VM on Windows host as master and worker node
 + Windows VM on Windows host as worker node
 
-This script assists in the following actions for Small K8s:
+This script assists in the following actions for K2s:
 - Installing the VM images
 - creating a K8s cluster based on those VMs
 

@@ -26,7 +26,7 @@ Import-Module "$kubePath/addons/addons.module.psm1"
 Set-Location $kubePath
 
 if ($SkipHeaderDisplay -ne $true) {
-    Write-Log 'Stopping Small K8s system'
+    Write-Log 'Stopping K2s system'
 }
 
 # reset default namespace

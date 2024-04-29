@@ -29,7 +29,7 @@ In order to install a build environment on your machine call 'powershell <instal
 By omitting the flag 'Offline' a new Linux image is created and is made available on your machine.
 By using the flag 'Offline' the Linux VM is set up using a pre-built Linux image that is already available on your machine.
 
-Another alternative to setup a build environment is by using the normal Small K8s Setup.
+Another alternative to setup a build environment is by using the normal K2s Setup.
 
 .EXAMPLE
 PS> .\BuildImage.ps1
