@@ -138,46 +138,11 @@ New-DefaultLoopbackAdater
 
 Set-InstallationPathIntoScriptsIsolationModule -Value $installationPath
 
-Invoke-DeployWinArtifacts -KubernetesVersion $KubernetesVersion -Proxy "$Proxy" -DeleteFilesForOfflineInstallation $DeleteFilesForOfflineInstallation -ForceOnlineInstallation $ForceOnlineInstallation -SkipClusterSetup:$false
-
-Invoke-Script_PublishNssm
-
-if (!(Test-Path "$(Get-KubeBinPath)\docker\docker.exe") -or !(Get-Service docker -ErrorAction SilentlyContinue)) {
-    Invoke-Script_PublishDocker
-    Invoke-Script_InstallDockerWin10 -AutoStart:$false -Proxy "$Proxy"
-}
-
-# setup host as a worker node (installs nssm for starting kubelet, flannel and kubeproxy)
-$controlPlaneNodeIpAddress = Get-ConfiguredIPControlPlane
-Invoke-Script_SetupNode -KubernetesVersion $KubernetesVersion -MasterIp $controlPlaneNodeIpAddress -MinSetup:$true -HostGW:$HostGW -Proxy:"$Proxy"
-
-# install containerd
-Invoke-Script_InstallContainerd -Proxy "$Proxy"
-Invoke-Script_PublishWindowsImages
-
-# install K8s services
-Invoke-Script_PublishKubetools
-Invoke-Script_InstallKubelet -UseContainerd:$true
-Invoke-Script_PublishFlannel
-Invoke-Script_InstallFlannel
-Invoke-Script_InstallKubeProxy
-Invoke-Script_PublishWindowsExporter
-Invoke-Script_InstallWinExporter
-Invoke-Script_InstallHttpProxy -Proxy $Proxy
-Invoke-Script_PublishDnsProxy
-Invoke-Script_InstallDnsProxy
-Invoke-Script_PublishPuttytools
-
-
-# remove folder with windows node artifacts since all of them are already published to the expected locations
-$windowsNodeArtifactsDirectory = "$(Get-KubePath)\bin\windowsnode"
-Remove-Item $windowsNodeArtifactsDirectory -Recurse -Force -ErrorAction SilentlyContinue
-
-# reset some services
-$binPath = Get-KubeBinPath
-&"$binPath\nssm" set kubeproxy Start SERVICE_DEMAND_START | Out-Null
-&"$binPath\nssm" set kubelet Start SERVICE_DEMAND_START | Out-Null
-&"$binPath\nssm" set flanneld Start SERVICE_DEMAND_START | Out-Null
+Initialize-WinNode -KubernetesVersion $KubernetesVersion `
+    -HostGW:$HostGW `
+    -Proxy:"$Proxy" `
+    -DeleteFilesForOfflineInstallation $DeleteFilesForOfflineInstallation `
+    -ForceOnlineInstallation $ForceOnlineInstallation
 
 if ($WSL) {
     Write-Log "Setting up $controlPlaneVmName Distro" -Console

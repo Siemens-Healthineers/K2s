@@ -89,10 +89,10 @@ function Install-WinKubelet {
         New-Item -path "$kubeletConfigDir\etc\kubernetes\pki" -type SymbolicLink -value "$($systemDefaultDriveLetter):\etc\kubernetes\pki\" | Out-Null
     }
 
-    $global:Powershell = (Get-Command powershell).Source
-    $global:PowershellArgs = '-ExecutionPolicy Bypass -NoProfile'
-    $global:StartKubeletScript = 'StartKubelet.ps1'
-    $global:StartKubeletScriptPath = "$kubePath\smallsetup\common\$global:StartKubeletScript"
+    $powershell = (Get-Command powershell).Source
+    $powershellArgs = '-ExecutionPolicy Bypass -NoProfile'
+    $startKubeletScript = 'StartKubelet.ps1'
+    $startKubeletScriptPath = "$kubePath\smallsetup\common\$startKubeletScript"
 
     $StartKubeletFileContent = 'Set-Location $PSScriptRoot
     $FileContent = Get-Content -Path "' + ($systemDefaultDriveLetter) + ':\var\lib\kubelet\kubeadm-flags.env"
@@ -102,10 +102,10 @@ function Install-WinKubelet {
 
     Invoke-Expression $cmd'
 
-    Set-Content -Path $global:StartKubeletScriptPath -Value $StartKubeletFileContent
+    Set-Content -Path $startKubeletScriptPath -Value $StartKubeletFileContent
 
-    &$kubeBinPath\nssm install kubelet $global:Powershell
-    &$kubeBinPath\nssm set kubelet AppParameters "$global:PowershellArgs \`"Invoke-Command {&'$global:StartKubeletScriptPath'}\`"" | Out-Null
+    &$kubeBinPath\nssm install kubelet $powershell
+    &$kubeBinPath\nssm set kubelet AppParameters "$powershellArgs \`"Invoke-Command {&'$startKubeletScriptPath'}\`"" | Out-Null
     &$kubeBinPath\nssm set kubelet DependOnService containerd | Out-Null
 
     &$kubeBinPath\nssm set kubelet AppStdout "$($systemDefaultDriveLetter):\var\log\kubelet\kubelet_stdout.log" | Out-Null
