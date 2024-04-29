@@ -9,10 +9,10 @@ SPDX-License-Identifier: MIT
 - [Installing](#installing)
   - [Prerequisites](#prerequisites)
   - [Introduction](#introduction)
-  - [Variant 1: Installing Small K8s Setup with Defaults (aka. Host Variant)](#variant-1-installing-small-k8s-setup-with-defaults-aka-host-variant)
+  - [Variant 1: Installing K2s Setup with Defaults (aka. Host Variant)](#variant-1-installing-k2s-setup-with-defaults-aka-host-variant)
     - [Offline](#offline)
     - [Online](#online)
-  - [Variant 2: Installing Small K8s Setup in multiple VMs on your machine](#variant-2-installing-small-k8s-setup-in-multiple-vms-on-your-machine)
+  - [Variant 2: Installing K2s Setup in multiple VMs on your machine](#variant-2-installing-k2s-setup-in-multiple-vms-on-your-machine)
   - [Variant 3: Build Only Setup](#variant-3-build-only-setup)
   - [Installing Using Config Files](#installing-using-config-files)
 - [Assignment of cluster IP addresses for Services:](#assignment-of-cluster-ip-addresses-for-services)
@@ -69,7 +69,7 @@ To specifically check the install options, run:
 
 Instead of assembling many command line parameters/flags to customize the installation, you can also use YAML files to configure the desired state (see [Installing Using Config Files](#installing-using-config-files)).
 
-## Variant 1: Installing Small K8s Setup with Defaults (aka. Host Variant)
+## Variant 1: Installing K2s Setup with Defaults (aka. Host Variant)
 ### Offline
 ```shell
 <installation folder>\k2s.exe install
@@ -89,7 +89,7 @@ Use the following flag in order to use WSL2 for hosting of KubeMaster Linux node
 <installation folder>\k2s.exe install --wsl
 ```
 
-## Variant 2: Installing Small K8s Setup in multiple VMs on your machine
+## Variant 2: Installing K2s Setup in multiple VMs on your machine
 To use a dedicated Windows VM as worker node instead of the Windows host, the following command would install effectively two VMs in Hyper-V (Windows worker node and Linux control-plane/worker node).
 
 ```

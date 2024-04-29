@@ -7,7 +7,7 @@
 <#
 .SYNOPSIS
 Assists with uninstalling a Windows system to be used for a mixed Linux/Windows Kubernetes cluster
-This script is only valid for the Small K8s Setup !!!
+This script is only valid for the K2s Setup !!!
 #>
 Param(
     [parameter(Mandatory = $false, HelpMessage = 'Do not purge all files')]

@@ -5,7 +5,7 @@
 
 <#
 .SYNOPSIS
-This script is only valid for the Small K8s Setup installed with Install.ps1
+This script is only valid for the K2s Setup installed with Install.ps1
 It starts the kubernetes cluster again, after it has been stopped with Stop.ps1
 
 .DESCRIPTION
