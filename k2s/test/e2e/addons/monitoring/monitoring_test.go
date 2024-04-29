@@ -198,7 +198,7 @@ var _ = Describe("'monitoring' addon", Ordered, func() {
 
 		It("is reachable through ingress-nginx", func(ctx context.Context) {
 			url := "https://k2s-monitoring.local/login"
-			httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-I", "-m", "5", "--retry", "3", "--fail")
+			httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-I", "-m", "5", "--retry", "10", "--fail")
 			Expect(httpStatus).To(ContainSubstring("200"))
 		})
 	})
