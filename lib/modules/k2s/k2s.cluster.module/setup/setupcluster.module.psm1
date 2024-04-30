@@ -238,13 +238,14 @@ function Add-ClusterDnsNameToHost {
 
 function Set-KubeletDiskPressure {
     # set new limits for the windows node for disk pressure
-    # kubelet is running now (caused by JoinWindowsHost.ps1), so we stop it. Will be restarted in StartK8s.ps1.
+    # kubelet is running now (caused by joining the windows host to the cluster), so we stop it. Will be restarted in start-up sequence.
     Stop-Service kubelet
-    Write-Log "using kubelet file: $kubeletConfigDir\config.yaml"
-    $content = Get-Content "$kubeletConfigDir\config.yaml"
+    $kubeletconfig = "$kubeletConfigDir\config.yaml"
+    Write-Log "using kubelet file: $kubeletconfig"
+    $content = Get-Content "$kubeletconfig"
     $content | ForEach-Object { $_ -replace 'evictionPressureTransitionPeriod:',
         "evictionHard:`r`n  nodefs.available: 8Gi`r`n  imagefs.available: 8Gi`r`nevictionPressureTransitionPeriod:" } |
-    Set-Content "$kubeletConfigDir\config.yaml"
+    Set-Content "$kubeletconfig"
 }
 
 function Initialize-KubernetesCluster {
