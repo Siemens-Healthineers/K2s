@@ -129,10 +129,6 @@ $controlPlaneVmName = 'KubeMaster'
 Set-ConfigWslFlag -Value $([bool]$WSL)
 Set-ConfigSetupType -Value $script:SetupType
 
-Write-Error "this is a test error"
-exit
-
-
 $linuxOsType = Get-LinuxOsType $LinuxVhdxPath
 Set-ConfigLinuxOsType -Value $linuxOsType
 
