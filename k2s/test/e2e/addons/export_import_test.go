@@ -134,29 +134,29 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 
 				Expect(err).ToNot(HaveOccurred())
 
-				GinkgoWriter.Println("check count of exported images is equal")
+				GinkgoWriter.Println("	check count of exported images is equal")
 				exportedImages, err := sos.GetFilesMatch(addonExportDir, "*.tar")
 
 				Expect(err).ToNot(HaveOccurred())
-				GinkgoWriter.Printf("exportedImages: %d, images: %d", len(exportedImages), len(images))
+				GinkgoWriter.Println("	exportedImages:", len(exportedImages), ", images:", len(images))
 				Expect(len(exportedImages)).To(Equal(len(images)))
 
 				// check linux curl package count is equal
-				GinkgoWriter.Println("check linux curl package count is equal")
+				GinkgoWriter.Println("	check linux curl package count is equal")
 				for _, lp := range a.Spec.OfflineUsage.LinuxResources.CurlPackages {
 					_, err = os.Stat(filepath.Join(addonExportDir, "linuxpackages", filepath.Base(lp.Url)))
 					Expect(os.IsNotExist(err)).To(BeFalse())
 				}
 
 				// check linux debian package count is equal
-				GinkgoWriter.Println("check linux debian package count is equal")
+				GinkgoWriter.Println("	check linux debian package count is equal")
 				for _, d := range a.Spec.OfflineUsage.LinuxResources.DebPackages {
 					_, err = os.Stat(filepath.Join(addonExportDir, "debianpackages", d))
 					Expect(os.IsNotExist(err)).To(BeFalse())
 				}
 
 				// check windows curl package count is equal
-				GinkgoWriter.Println("check windows curl package count is equal")
+				GinkgoWriter.Println("	check windows curl package count is equal")
 				for _, wp := range a.Spec.OfflineUsage.WindowsResources.CurlPackages {
 					_, err = os.Stat(filepath.Join(addonExportDir, "windowspackages", filepath.Base(wp.Url)))
 					Expect(os.IsNotExist(err)).To(BeFalse())

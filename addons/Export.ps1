@@ -282,7 +282,7 @@ try {
                 foreach ($package in $linuxCurlPackages) {
                     $filename = ([uri]$package.url).Segments[-1]
 
-                    Invoke-DownloadFile "$targetLinuxPkgDir${filename}" $package.url $true -ProxyToUse $Proxy
+                    Invoke-DownloadFile "$targetLinuxPkgDir\${filename}" $package.url $true -ProxyToUse $Proxy
                 }
             }
 
