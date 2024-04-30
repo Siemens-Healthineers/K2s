@@ -27,6 +27,7 @@ import (
 const (
 	manualExecutionFilterTag = "manual"
 	testWorkload             = "workloads/test.yaml"
+	testStepTimeout          = time.Minute * 10
 )
 
 var (
@@ -50,7 +51,7 @@ func TestAddon(t *testing.T) {
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
-	suite = framework.Setup(ctx, framework.SystemMustBeRunning, framework.EnsureAddonsAreDisabled)
+	suite = framework.Setup(ctx, framework.SystemMustBeRunning, framework.EnsureAddonsAreDisabled, framework.ClusterTestStepTimeout(testStepTimeout))
 	expectVirtctlNotInstalled()
 })
 
@@ -102,7 +103,7 @@ var _ = Describe("'kubevirt' addon", Ordered, func() {
 				if !isManualExecution {
 					Skip(automatedExecutionSkipMessage)
 				}
-				args := []string{"addons", "enable", "kubevirt"}
+				args := []string{"addons", "enable", "kubevirt", "-o"}
 				if suite.Proxy() != "" {
 					args = append(args, "-p", suite.Proxy())
 				}
@@ -210,7 +211,7 @@ var _ = Describe("'kubevirt' addon", Ordered, func() {
 
 		Describe("disable", func() {
 			BeforeAll(func(ctx context.Context) {
-				suite.K2sCli().Run(ctx, "addons", "disable", "kubevirt")
+				suite.K2sCli().Run(ctx, "addons", "disable", "kubevirt", "-o")
 
 				Eventually(isKubectlAvailable).WithTimeout(3 * time.Minute).WithPolling(30 * time.Second).Should(BeTrue())
 			})

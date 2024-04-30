@@ -20,9 +20,11 @@ $windowsNode_FlannelDirectory = 'flannel'
 $windowsNode_CniPluginsDirectory = 'cni_plugins'
 $windowsNode_CniFlannelDirectory = 'cni_flannel'
 
+$windowsNode_FlanneldExe = 'flanneld.exe'
+$windowsNode_Flannel64exe = 'flannel-amd64.exe'
+
 function Invoke-DownloadFlannelArtifacts($downloadsBaseDirectory, $Proxy) {
     $flannelDownloadsDirectory = "$downloadsBaseDirectory\$windowsNode_FlannelDirectory"
-    $windowsNode_FlanneldExe = 'flanneld.exe'
     $flannelVersion = 'v0.17.0'
     $file = "$flannelDownloadsDirectory\$windowsNode_FlanneldExe"
 
@@ -54,7 +56,6 @@ function Invoke-DownloadCniPlugins($downloadsBaseDirectory, $Proxy) {
 function Invoke-DownloadCniFlannelArtifacts($downloadsBaseDirectory, $Proxy) {
     $cniFlannelDownloadsDirectory = "$downloadsBaseDirectory\$windowsNode_CniFlannelDirectory"
     $cniFlannelVersion = 'v1.0.1'
-    $windowsNode_Flannel64exe = 'flannel-amd64.exe'
     $file = "$cniFlannelDownloadsDirectory\$windowsNode_Flannel64exe"
 
     Write-Log "Create folder '$cniFlannelDownloadsDirectory'"
@@ -109,7 +110,7 @@ function Install-WinFlannel {
     &$kubeBinPath\nssm set flanneld AppParameters "--kubeconfig-file=\`"$kubePath\config\`" --iface=$ipaddress --ip-masq=1 --kube-subnet-mgr=1" | Out-Null
     $hn = ($(hostname)).ToLower()
     &$kubeBinPath\nssm set flanneld AppEnvironmentExtra NODE_NAME=$hn | Out-Null
-    &$kubeBinPath\nssm set flanneld AppDirectory $kubePath | Out-Null
+    &$kubeBinPath\nssm set flanneld AppDirectory "$(Get-SystemDriveLetter):\" | Out-Null
     &$kubeBinPath\nssm set flanneld AppStdout "$(Get-SystemDriveLetter):\var\log\flanneld\flanneld_stdout.log" | Out-Null
     &$kubeBinPath\nssm set flanneld AppStderr "$(Get-SystemDriveLetter):\var\log\flanneld\flanneld_stderr.log" | Out-Null
     &$kubeBinPath\nssm set flanneld AppStdoutCreationDisposition 4 | Out-Null

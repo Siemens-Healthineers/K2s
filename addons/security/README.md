@@ -8,7 +8,7 @@ SPDX-License-Identifier: MIT
 
 Enables secure communication into / out of the cluster (basic) and inside the cluster (advanced).
 
-![Upstream - downstream](images/downstrea-upstream.drawio.png)
+![Upstream - downstream](doc/downstream-upstream.drawio.png)
 
 ## Introduction
 
@@ -33,7 +33,7 @@ See: [CA Issuer](https://cert-manager.io/docs/configuration/ca/)
 
 The addon also imports the public certificate of the CA Issuer into the trusted authorities of your windows host, and installs the `cmctl.exe` CLI.
 
-In order to secure the ingress to your kubernetes application, follow [this description](https://cert-manager.io/docs/usage/ingress/#how-it-works):
+In order to secure the ingress to your *Kubernetes* application, follow [this description](https://cert-manager.io/docs/usage/ingress/#how-it-works):
 
 ```yaml
 apiVersion: networking.k8s.io/v1
@@ -64,7 +64,7 @@ You can also use the command line interface `cmctl.exe` to interact with cert-ma
 The `security` addon can be disabled using the k2s CLI:
 
 ```cmd
-k2s addons disable cert-manager
+k2s addons disable security
 ```
 
 ## Further Reading

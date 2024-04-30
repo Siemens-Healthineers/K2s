@@ -78,19 +78,14 @@ Param(
 
 $installStopwatch = [system.diagnostics.stopwatch]::StartNew()
 
-$logModule = "$PSScriptRoot\..\lib\modules\k2s\k2s.infra.module\log\log.module.psm1"
-$proxyModule = "$PSScriptRoot\ps-modules\proxy\proxy.module.psm1"
-$pathModule = "$PSScriptRoot\..\lib\modules\k2s\k2s.infra.module\path\path.module.psm1"
-$configModule = "$PSScriptRoot\..\lib\modules\k2s\k2s.infra.module\config\config.module.psm1"
-$vmModule = "$PSScriptRoot\..\lib\modules\k2s\k2s.node.module\linuxnode\vm\vm.module.psm1"
-$kubetoolsModule = "$PSScriptRoot\..\lib\modules\k2s\k2s.node.module\windowsnode\downloader\artifacts\kube-tools\kube-tools.module.psm1"
-$loopbackAdapterModule = "$PSScriptRoot\..\lib\modules\k2s\k2s.node.module\windowsnode\network\loopbackadapter.module.psm1"
-$systemModule = "$PSScriptRoot\..\lib\modules\k2s\k2s.node.module\windowsnode\system\system.module.psm1"
-$hooksModule = "$PSScriptRoot\..\lib\modules\k2s\k2s.infra.module\hooks\hooks.module.psm1"
+$infraModule =   "$PSScriptRoot\..\lib\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
+$nodeModule =    "$PSScriptRoot\..\lib\modules\k2s\k2s.node.module\k2s.node.module.psm1"
+$clusterModule = "$PSScriptRoot\..\lib\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1"
 $temporaryIsolatedGlobalFunctionsModule = "$PSScriptRoot\ps-modules\only-while-refactoring\installation\still-to-merge.isolatedglobalfunctions.module.psm1"
 $temporaryIsolatedCalledScriptsModule = "$PSScriptRoot\ps-modules\only-while-refactoring\installation\still-to-merge.isolatedcalledscripts.module.psm1"
 
-Import-Module $logModule, $systemModule, $proxyModule, $pathModule, $configModule, $vmModule, $kubetoolsModule, $loopbackAdapterModule, $hooksModule, $temporaryIsolatedGlobalFunctionsModule, $temporaryIsolatedCalledScriptsModule
+Import-Module $infraModule, $nodeModule, $clusterModule, $temporaryIsolatedGlobalFunctionsModule, $temporaryIsolatedCalledScriptsModule
+
 
 Initialize-Logging -ShowLogs:$ShowLogs
 Reset-LogFile -AppendLogFile:$AppendLogFile
@@ -147,46 +142,12 @@ Write-Log 'Setting up Windows worker node' -Console
 New-DefaultLoopbackAdater
 
 Set-InstallationPathIntoScriptsIsolationModule -Value $installationPath
-Invoke-Script_DeployWindowsNodeArtifacts -KubernetesVersion $KubernetesVersion -Proxy "$Proxy" -DeleteFilesForOfflineInstallation $DeleteFilesForOfflineInstallation -ForceOnlineInstallation $ForceOnlineInstallation -SetupType $script:SetupType
 
-Invoke-Script_PublishNssm
-
-if (!(Test-Path "$(Get-KubeBinPath)\docker\docker.exe") -or !(Get-Service docker -ErrorAction SilentlyContinue)) {
-    Invoke-Script_PublishDocker
-    Invoke-Script_InstallDockerWin10 -AutoStart:$false -Proxy "$Proxy"
-}
-
-# setup host as a worker node (installs nssm for starting kubelet, flannel and kubeproxy)
-$controlPlaneNodeIpAddress = Get-ConfiguredIPControlPlane
-Invoke-Script_SetupNode -KubernetesVersion $KubernetesVersion -MasterIp $controlPlaneNodeIpAddress -MinSetup:$true -HostGW:$HostGW -Proxy:"$Proxy"
-
-# install containerd
-Invoke-Script_InstallContainerd -Proxy "$Proxy"
-Invoke-Script_PublishWindowsImages
-
-# install K8s services
-Invoke-Script_PublishKubetools
-Invoke-Script_InstallKubelet -UseContainerd:$true
-Invoke-Script_PublishFlannel
-Invoke-Script_InstallFlannel
-Invoke-Script_InstallKubeProxy
-Invoke-Script_PublishWindowsExporter
-Invoke-Script_InstallWinExporter
-Invoke-Script_InstallHttpProxy -Proxy $Proxy
-Invoke-Script_PublishDnsProxy
-Invoke-Script_InstallDnsProxy
-Invoke-Script_PublishPuttytools
-
-
-# remove folder with windows node artifacts since all of them are already published to the expected locations
-$windowsNodeArtifactsDirectory = "$(Get-KubePath)\bin\windowsnode"
-Remove-Item $windowsNodeArtifactsDirectory -Recurse -Force -ErrorAction SilentlyContinue
-
-# reset some services
-$binPath = Get-KubeBinPath
-&"$binPath\nssm" set kubeproxy Start SERVICE_DEMAND_START | Out-Null
-&"$binPath\nssm" set kubelet Start SERVICE_DEMAND_START | Out-Null
-&"$binPath\nssm" set flanneld Start SERVICE_DEMAND_START | Out-Null
+Initialize-WinNode -KubernetesVersion $KubernetesVersion `
+    -HostGW:$HostGW `
+    -Proxy:"$Proxy" `
+    -DeleteFilesForOfflineInstallation $DeleteFilesForOfflineInstallation `
+    -ForceOnlineInstallation $ForceOnlineInstallation
 
 if ($WSL) {
     Write-Log "Setting up $controlPlaneVmName Distro" -Console
@@ -219,42 +180,11 @@ else {
     Write-Log 'VM is now available'
 }
 
-Write-Log 'Joining Nodes'
+# JOIN NODES
+Write-Log "Preparing Kubernetes $KubernetesVersion by joining nodes" -Console
 
-Copy-KubeConfigFromControlPlaneNode
+Initialize-KubernetesCluster -AdditionalHooksDir $AdditionalHooksDir
 
-# set context on windows host (add to existing contexts)
-Invoke-Script_AddContextToConfig
-
-Invoke-Hook -HookName 'AfterVmInitialized' -AdditionalHooksDir $AdditionalHooksDir
-
-# try to join host windows node
-Write-Log 'starting the join process'
-Invoke-Script_JoinWindowsHost
-
-# set new limits for the windows node for disk pressure
-# kubelet is running now (caused by JoinWindowsHost.ps1), so we stop it. Will be restarted in StartK8s.ps1.
-Stop-Service kubelet
-$kubeletconfig = "$(Get-KubeletConfigDir)\config.yaml"
-Write-Log "kubelet config: $kubeletconfig"
-$content = Get-Content $kubeletconfig
-$content | ForEach-Object { $_ -replace 'evictionPressureTransitionPeriod:',
-    "evictionHard:`r`n  nodefs.available: 8Gi`r`n  imagefs.available: 8Gi`r`nevictionPressureTransitionPeriod:" } |
-Set-Content $kubeletconfig
-
-# add ip to hosts file
-Invoke-Script_AddToHosts
-
-# show results
-Write-Log "Current state of kubernetes nodes:`n"
-Start-Sleep 2
-$kubectlExe = "$(Get-KubeToolsPath)\kubectl.exe"
-&$kubectlExe get nodes -o wide
-
-Write-Log "Collecting kubernetes images and storing them to $(Get-KubernetesImagesFilePath)."
-$imageFunctionsModulePath = "$PSScriptRoot\helpers\ImageFunctions.module.psm1"
-Import-Module $imageFunctionsModulePath -DisableNameChecking
-Write-KubernetesImagesIntoJson
 
 if (! $SkipStart) {
     Write-Log 'Starting Kubernetes System'
