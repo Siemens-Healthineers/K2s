@@ -192,7 +192,7 @@ function Copy-ToControlPlaneViaSSHKey($Source, $Target,
     Write-Log "copy: $Source to: $Target IgnoreErrors: $IgnoreErrors"
     $error.Clear()
     $leaf = Split-Path $Source -leaf
-    if ((Get-Item $Source) -is [System.IO.DirectoryInfo] -and $leaf -ne "*") {
+    if ($(Test-Path $Source) -and (Get-Item $Source) -is [System.IO.DirectoryInfo] -and $leaf -ne "*") {
         # is directory
         Invoke-CmdOnControlPlaneViaSSHKey "sudo rm -rf /tmp/copy.tar"
         $leaf = Split-Path $Source -Leaf
