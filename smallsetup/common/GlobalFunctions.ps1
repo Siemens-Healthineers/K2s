@@ -110,7 +110,7 @@ function Copy-FromToMaster($Source, $Target,
         if ($Target.Contains($global:Remote_Master)) {
             # copy to master
             $leaf = Split-Path $Source -leaf
-            if ((Get-Item $Source) -is [System.IO.DirectoryInfo] -and $leaf -ne "*") {
+            if ($(Test-Path $Source) -and (Get-Item $Source) -is [System.IO.DirectoryInfo] -and $leaf -ne "*") {
                 # is directory
                 ExecCmdMaster "sudo rm -rf /tmp/copy.tar"
                 $folder = Split-Path $Source -Leaf
