@@ -241,7 +241,7 @@ var _ = Describe("status pkg", func() {
 
 					sut := NewJsonPrinter(nil, marshalMock.marshalIndent)
 
-					err := sut.PrintSystemNotInstalledError(addonName)
+					err := sut.PrintSystemError(addonName, setupinfo.ErrSystemNotInstalled, common.CreateSystemNotInstalledCmdFailure)
 
 					Expect(err).To(MatchError(expectedError))
 				})
@@ -262,12 +262,60 @@ var _ = Describe("status pkg", func() {
 
 					sut := NewJsonPrinter(printerMock, marshalMock.marshalIndent)
 
-					err := sut.PrintSystemNotInstalledError(addonName)
+					err := sut.PrintSystemError(addonName, setupinfo.ErrSystemNotInstalled, common.CreateSystemNotInstalledCmdFailure)
 
 					var cmdFailure *common.CmdFailure
 					Expect(errors.As(err, &cmdFailure)).To(BeTrue())
 					Expect(cmdFailure.Code).To(Equal(setupinfo.ErrSystemNotInstalled.Error()))
 					Expect(cmdFailure.Message).To(Equal(common.ErrSystemNotInstalledMsg))
+					Expect(cmdFailure.Severity).To(Equal(common.SeverityWarning))
+					Expect(cmdFailure.SuppressCliOutput).To(BeTrue())
+
+					printerMock.AssertExpectations(GinkgoT())
+				})
+			})
+		})
+
+		Describe("PrintSystemInCorruptedStateError", func() {
+			When("marshalling error occurred", func() {
+				It("returns error without printing", func() {
+					addonName := "test-addon"
+					expectedError := errors.New("oops")
+
+					marshalMock := &mockObject{}
+					marshalMock.On(r.GetFunctionName(marshalMock.marshalIndent), mock.MatchedBy(func(status AddonPrintStatus) bool {
+						return status.Name == addonName
+					})).Return(make([]byte, 0), expectedError)
+
+					sut := NewJsonPrinter(nil, marshalMock.marshalIndent)
+
+					err := sut.PrintSystemError(addonName, setupinfo.ErrSystemInCorruptedState, common.CreateSystemInCorruptedStateCmdFailure)
+
+					Expect(err).To(MatchError(expectedError))
+				})
+			})
+
+			When("successful", func() {
+				It("prints JSON with failure and returns silent cmd failure", func() {
+					addonName := "test-addon"
+					statusBytes := []byte("status-JSON")
+
+					marshalMock := &mockObject{}
+					marshalMock.On(r.GetFunctionName(marshalMock.marshalIndent), mock.MatchedBy(func(status AddonPrintStatus) bool {
+						return status.Name == addonName && *status.Error == setupinfo.ErrSystemInCorruptedState.Error()
+					})).Return(statusBytes, nil)
+
+					printerMock := &mockObject{}
+					printerMock.On(r.GetFunctionName(printerMock.Println), "status-JSON").Once()
+
+					sut := NewJsonPrinter(printerMock, marshalMock.marshalIndent)
+
+					err := sut.PrintSystemError(addonName, setupinfo.ErrSystemInCorruptedState, common.CreateSystemInCorruptedStateCmdFailure)
+
+					var cmdFailure *common.CmdFailure
+					Expect(errors.As(err, &cmdFailure)).To(BeTrue())
+					Expect(cmdFailure.Code).To(Equal(setupinfo.ErrSystemInCorruptedState.Error()))
+					Expect(cmdFailure.Message).To(Equal(common.ErrSystemInCorruptedStateMsg))
 					Expect(cmdFailure.Severity).To(Equal(common.SeverityWarning))
 					Expect(cmdFailure.SuppressCliOutput).To(BeTrue())
 
@@ -484,12 +532,27 @@ var _ = Describe("status pkg", func() {
 			It("returns system-not-installed command failure", func() {
 				sut := NewUserFriendlyPrinter(nil)
 
-				err := sut.PrintSystemNotInstalledError("")
+				err := sut.PrintSystemError("", setupinfo.ErrSystemNotInstalled, common.CreateSystemNotInstalledCmdFailure)
 
 				var cmdFailure *common.CmdFailure
 				Expect(errors.As(err, &cmdFailure)).To(BeTrue())
 				Expect(cmdFailure.Code).To(Equal(setupinfo.ErrSystemNotInstalled.Error()))
 				Expect(cmdFailure.Message).To(Equal(common.ErrSystemNotInstalledMsg))
+				Expect(cmdFailure.Severity).To(Equal(common.SeverityWarning))
+				Expect(cmdFailure.SuppressCliOutput).To(BeFalse())
+			})
+		})
+
+		Describe("PrintSystemInCorruptedStateError", func() {
+			It("returns system-in-corrupted-state command failure", func() {
+				sut := NewUserFriendlyPrinter(nil)
+
+				err := sut.PrintSystemError("", setupinfo.ErrSystemInCorruptedState, common.CreateSystemInCorruptedStateCmdFailure)
+
+				var cmdFailure *common.CmdFailure
+				Expect(errors.As(err, &cmdFailure)).To(BeTrue())
+				Expect(cmdFailure.Code).To(Equal(setupinfo.ErrSystemInCorruptedState.Error()))
+				Expect(cmdFailure.Message).To(Equal(common.ErrSystemInCorruptedStateMsg))
 				Expect(cmdFailure.Severity).To(Equal(common.SeverityWarning))
 				Expect(cmdFailure.SuppressCliOutput).To(BeFalse())
 			})
