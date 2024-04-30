@@ -312,6 +312,10 @@ function Get-ConfigWslFlag {
     return Get-ConfigValue -Path $SetupJsonFile -Key 'WSL'
 }
 
+function Get-ReuseExistingLinuxComputerForMasterNodeFlag {
+    return Get-ConfigValue -Path $SetupJsonFile -Key 'ReuseExistingLinuxComputerForMasterNode'
+}
+
 function Set-ConfigWslFlag {
     param (
         [object] $Value = $(throw 'Please provide the config value.')
@@ -488,4 +492,5 @@ Get-RootConfig,
 Get-DefaultTempPwd,
 Get-DefaultK8sVersion,
 Get-LinuxLocalSharePath,
-Get-WindowsLocalSharePath
+Get-WindowsLocalSharePath,
+Get-ReuseExistingLinuxComputerForMasterNodeFlag
