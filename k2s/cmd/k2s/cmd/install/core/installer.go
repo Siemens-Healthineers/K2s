@@ -4,6 +4,7 @@
 package core
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
@@ -46,6 +47,9 @@ func (i *Installer) Install(
 	buildCmdFunc func(config *ic.InstallConfig) (cmd string, err error)) error {
 	configDir := ccmd.Context().Value(common.ContextKeyConfigDir).(string)
 	setupConfig, err := i.LoadConfigFunc(configDir)
+	if errors.Is(err, setupinfo.ErrSystemInCorruptedState) {
+		return common.CreateSystemInCorruptedStateCmdFailure()
+	}
 	if err == nil && setupConfig.SetupName != "" {
 		return &common.CmdFailure{
 			Severity: common.SeverityWarning,
