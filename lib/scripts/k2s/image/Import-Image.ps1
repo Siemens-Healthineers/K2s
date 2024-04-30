@@ -47,11 +47,12 @@ Param (
     [parameter(Mandatory = $false)]
     [switch] $ShowLogs = $false
 )
-
-$nodeModule = "$PSScriptRoot/../../../modules/k2s/k2s.node.module/k2s.node.module.psm1"
 $infraModule = "$PSScriptRoot/../../../modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $clusterModule = "$PSScriptRoot/../../../modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
-Import-Module $nodeModule, $infraModule, $clusterModule
+$nodeModule = "$PSScriptRoot/../../../modules/k2s/k2s.node.module/k2s.node.module.psm1"
+
+Import-Module $infraModule, $clusterModule, $nodeModule
+
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -72,8 +73,11 @@ elseif ($ImageDir -ne '') {
 }
 
 if ($Windows) {
+    $binPath = Get-KubeBinPath
+    $nerdctlExe = "$binPath\nerdctl.exe"
+
     foreach ($image in $images) {
-        nerdctl -n k8s.io load -i $image
+        &$nerdctlExe -n k8s.io load -i $image
         if ($?) {
             Write-Log "$image imported successfully"
         }
