@@ -38,7 +38,7 @@ function Get-AddonsConfig {
 
     Write-Log "[$script::$function] Retrieving addons config.."
 
-    return (Get-ConfigValue -Path $global:SetupJsonFile -Key $ConfigKey_EnabledAddons)
+    return (Get-ConfigValue -Path (Get-SetupConfigFilePath) -Key $ConfigKey_EnabledAddons)
 }
 
 function Get-ScriptRoot {
