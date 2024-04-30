@@ -21,14 +21,10 @@ Param (
     [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
     [string] $MessageType
 )
-&$PSScriptRoot\..\smallsetup\common\GlobalVariables.ps1
-. $PSScriptRoot\..\smallsetup\common\GlobalFunctions.ps1
+$infraModule = "$PSScriptRoot\..\lib\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
+$clusterModule = "$PSScriptRoot\..\lib\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1"
 
-$statusModule = "$PSScriptRoot/../lib/modules/k2s/k2s.cluster.module/status/status.module.psm1"
-$infraModule = "$PSScriptRoot/../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
-$logModule = "$PSScriptRoot\..\smallsetup\ps-modules\log\log.module.psm1"
-
-Import-Module $logModule, $infraModule, $statusModule
+Import-Module $infraModule, $clusterModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -102,13 +98,14 @@ foreach ($addon in $addonsToImport) {
     Write-Log "Importing images from ${extractionFolder}\$($addon.dirName) for addon $($addon.name)" -Console
 
     foreach ($image in $images) {
+        $importImageScript = "$PSScriptRoot\..\lib\scripts\k2s\image\Import-Image.ps1"
         if ($image.Contains('_win')) {
             if (!$setupInfo.LinuxOnly) {
-                &$global:KubernetesPath\smallsetup\helpers\ImportImage.ps1 -Windows -ImagePath $image -ShowLogs:$ShowLogs
+                &$importImageScript -Windows -ImagePath $image -ShowLogs:$ShowLogs
             }
         }
         else {
-            &$global:KubernetesPath\smallsetup\helpers\ImportImage.ps1 -ImagePath $image -ShowLogs:$ShowLogs
+            &$importImageScript -ImagePath $image -ShowLogs:$ShowLogs
         }
     }
 
@@ -122,20 +119,22 @@ foreach ($addon in $addonsToImport) {
 
         # import and install debian packages
         if (Test-Path -Path "${extractionFolder}\$($addon.dirName)\debianpackages") {
-            ExecCmdMaster "sudo rm -rf .$($addon.dirName)"
-            ExecCmdMaster "mkdir -p .$($addon.dirName)"
-            Copy-FromToMaster "${extractionFolder}\$($addon.dirName)\debianpackages\*" $($global:Remote_Master + ':' + ".$($addon.dirName)")
+            Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo rm -rf .$($addon.dirName)"
+            Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "mkdir -p .$($addon.dirName)"
+
+            Copy-ToControlPlaneViaSSHKey -Source "${extractionFolder}\$($addon.dirName)\debianpackages\*" -Target ".$($addon.dirName)"
         }
 
         # import linux packages
         foreach ($package in $linuxCurlPackages) {
             $filename = ([uri]$package.url).Segments[-1]
             $destination = $package.destination
-            Copy-FromToMaster "${extractionFolder}\$($addon.dirName)\linuxpackages\${filename}" $($global:Remote_Master + ':' + '/tmp')
-            ExecCmdMaster "sudo cp /tmp/${filename} ${destination}"
-            ExecCmdMaster "sudo rm -rf /tmp/${filename}"
+            Copy-ToControlPlaneViaSSHKey -Source "${extractionFolder}\$($addon.dirName)\linuxpackages\${filename}" -Target '/tmp'
+
+            Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo cp /tmp/${filename} ${destination}"
+            Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo rm -rf /tmp/${filename}"
         }
-        ExecCmdMaster 'cd /tmp && sudo rm -rf linuxpackages'
+        Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'cd /tmp && sudo rm -rf linuxpackages'
 
         # import windows packages
         foreach ($package in $windowsCurlPackages) {
