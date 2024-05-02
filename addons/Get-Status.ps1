@@ -42,7 +42,7 @@ Param(
     [string] $MessageType
 )
 $infraModule = "$PSScriptRoot/../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
-$addonsModule = "$PSScriptRoot\addons.v2.module.psm1"
+$addonsModule = "$PSScriptRoot\addons.module.psm1"
 
 Import-Module $infraModule, $addonsModule
 

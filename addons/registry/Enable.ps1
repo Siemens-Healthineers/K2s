@@ -37,7 +37,7 @@ Param(
 $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $nodeModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.node.module/k2s.node.module.psm1"
-$addonsModule = "$PSScriptRoot\..\addons.v2.module.psm1"
+$addonsModule = "$PSScriptRoot\..\addons.module.psm1"
 $registryModule = "$PSScriptRoot\registry.module.psm1"
 
 Import-Module $infraModule, $clusterModule, $nodeModule, $addonsModule, $registryModule
