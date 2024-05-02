@@ -48,9 +48,17 @@ function Invoke-Script_StopK8s {
     & "$installationPath\smallsetup\StopK8s.ps1" -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs
 }
 
+function Invoke-Script_UninstallKubeMaster {
+    Param(
+        [Boolean] $DeleteFilesForOfflineInstallation = $false
+    )
+    &"$installationPath\smallsetup\kubemaster\UninstallKubeMaster.ps1" -DeleteFilesForOfflineInstallation $DeleteFilesForOfflineInstallation
+}
+
 Export-ModuleMember -Function Set-InstallationPathIntoScriptsIsolationModule, Set-LoggingPreferencesIntoScriptsIsolationModule,  
 Invoke-Script_ExistingUbuntuComputerAsMasterNodeInstaller,
 Invoke-Script_StartK8s,
-Invoke-Script_StopK8s
+Invoke-Script_StopK8s,
+Invoke-Script_UninstallKubeMaster
 
 
