@@ -276,10 +276,8 @@ function Initialize-KubernetesCluster {
 }
 
 function Uninstall-Cluster {
-    if ($global:PurgeOnUninstall) {
-        Remove-Item -Path "$joinConfigurationFilePath" -Force -ErrorAction SilentlyContinue
-        Remove-Item -Path "$kubernetesImagesJson" -Force -ErrorAction SilentlyContinue
-    }
+    Remove-Item -Path "$joinConfigurationFilePath" -Force -ErrorAction SilentlyContinue
+    Remove-Item -Path "$kubernetesImagesJson" -Force -ErrorAction SilentlyContinue
 }
 
 function Initialize-VMKubernetesCluster {
