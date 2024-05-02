@@ -18,7 +18,7 @@ Param(
     [string] $AdditionalHooksDir = '',
     [parameter(Mandatory = $false, HelpMessage = 'Deletes the needed files to perform an offline installation')]
     [switch] $DeleteFilesForOfflineInstallation = $false,
-    [parameter(Mandatory = $false, HelpMessage = 'Skips showing start header display')]
+    [parameter(Mandatory = $false, HelpMessage = 'Skips showing uninstall header display')]
     [switch] $SkipHeaderDisplay = $false
 )
 
@@ -43,7 +43,7 @@ if ($SkipHeaderDisplay -eq $false) {
 
 # stop services
 Write-Log 'First stop complete kubernetes incl. VM'
-& "$PSScriptRoot\StopK8s.ps1" -AdditionalHooksDir $AdditionalHooksDir -ShowLogs:$ShowLogs
+& "$PSScriptRoot\StopK8s.ps1" -AdditionalHooksDir $AdditionalHooksDir -ShowLogs:$ShowLogs -SkipHeaderDisplay
 
 Write-Log 'Remove external switch'
 Remove-ExternalSwitch
