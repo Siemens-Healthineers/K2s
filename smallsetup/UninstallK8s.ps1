@@ -18,7 +18,7 @@ Param(
     [string] $AdditionalHooksDir = '',
     [parameter(Mandatory = $false, HelpMessage = 'Deletes the needed files to perform an offline installation')]
     [switch] $DeleteFilesForOfflineInstallation = $false,
-    [parameter(Mandatory = $false, HelpMessage = 'Skips showing start header display')]
+    [parameter(Mandatory = $false, HelpMessage = 'Skips showing uninstall header display')]
     [switch] $SkipHeaderDisplay = $false
 )
 
