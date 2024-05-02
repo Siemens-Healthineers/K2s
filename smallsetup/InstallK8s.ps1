@@ -184,7 +184,7 @@ Initialize-KubernetesCluster -AdditionalHooksDir $AdditionalHooksDir
 
 if (! $SkipStart) {
     Write-Log 'Starting Kubernetes System'
-    Invoke-Script_StartK8s -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs -SkipHeaderDisplay
+    & "$PSScriptRoot\StartK8s.ps1" -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs -SkipHeaderDisplay
 
     if ($RestartAfterInstallCount -gt 0) {
         $restartCount = 0;
@@ -193,10 +193,10 @@ if (! $SkipStart) {
             $restartCount++
             Write-Log "Restarting Kubernetes System (iteration #$restartCount):"
     
-            Invoke-Script_StopK8s -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs
+            & "$PSScriptRoot\StopK8s.ps1" -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs -SkipHeaderDisplay
             Start-Sleep 10 # Wait for renew of IP
     
-            Invoke-Script_StartK8s -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs -SkipHeaderDisplay
+            & "$PSScriptRoot\StartK8s.ps1" -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs -SkipHeaderDisplay
             Start-Sleep -s 5
     
             if ($restartCount -eq $RestartAfterInstallCount) {
@@ -211,7 +211,7 @@ if (! $SkipStart) {
     Start-Sleep 2
     &$kubectlExe get nodes -o wide
 } else {
-    Invoke-Script_StopK8s -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs
+    & "$PSScriptRoot\StopK8s.ps1" -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs -SkipHeaderDisplay
 }
 
 Invoke-Hook -HookName 'AfterBaseInstall' -AdditionalHooksDir $AdditionalHooksDir
