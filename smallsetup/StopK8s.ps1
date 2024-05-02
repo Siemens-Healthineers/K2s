@@ -10,7 +10,9 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'Directory containing additional hooks to be executed after local hooks are executed')]
     [string] $AdditionalHooksDir = '',
     [parameter(Mandatory = $false, HelpMessage = 'Cache vSwitches on stop')]
-    [switch] $CacheK2sVSwitches
+    [switch] $CacheK2sVSwitches,
+    [parameter(Mandatory = $false, HelpMessage = 'Skips showing stop header display')]
+    [switch] $SkipHeaderDisplay = $false
 )
 
 $infraModule = "$PSScriptRoot\..\lib\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
@@ -24,7 +26,10 @@ Initialize-Logging -ShowLogs:$ShowLogs
 $kubePath = Get-KubePath
 Set-Location $kubePath
 
-Write-Log 'Stopping K2s'
+if ($SkipHeaderDisplay -eq $false) {
+    Write-Log 'Stopping K2s'
+}
+
 # reset default namespace
 $kubeToolsPath = Get-KubeToolsPath
 $kubectlExe = "$kubeToolsPath\kubectl.exe"

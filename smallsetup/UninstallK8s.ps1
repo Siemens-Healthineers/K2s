@@ -43,7 +43,7 @@ if ($SkipHeaderDisplay -eq $false) {
 
 # stop services
 Write-Log 'First stop complete kubernetes incl. VM'
-& "$PSScriptRoot\StopK8s.ps1" -AdditionalHooksDir $AdditionalHooksDir -ShowLogs:$ShowLogs
+& "$PSScriptRoot\StopK8s.ps1" -AdditionalHooksDir $AdditionalHooksDir -ShowLogs:$ShowLogs -SkipHeaderDisplay
 
 Write-Log 'Remove external switch'
 Remove-ExternalSwitch
