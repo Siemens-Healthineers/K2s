@@ -25,28 +25,33 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'Directory containing additional hooks to be executed after local hooks are executed')]
     [string] $AdditionalHooksDir = '',
     [parameter(Mandatory = $false, HelpMessage = 'Use cached vSwitches')]
-    [switch] $UseCachedK2sVSwitches
+    [switch] $UseCachedK2sVSwitches,
+    [parameter(Mandatory = $false, HelpMessage = 'Skips showing start header display')]
+    [switch] $SkipHeaderDisplay = $false
 )
 
-&$PSScriptRoot\common\GlobalVariables.ps1
-. $PSScriptRoot\common\GlobalFunctions.ps1
-Import-Module "$PSScriptRoot/../addons/addons.module.psm1"
-
-Import-Module "$PSScriptRoot/ps-modules/log/log.module.psm1"
+$infraModule = "$PSScriptRoot\..\lib\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
+$nodeModule = "$PSScriptRoot\..\lib\modules\k2s\k2s.node.module\k2s.node.module.psm1"
+$clusterModule = "$PSScriptRoot\..\lib\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1"
+$addonsModule = "$PSScriptRoot\..\addons\addons.module.psm1"
+Import-Module $infraModule, $nodeModule, $clusterModule, $addonsModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
+$kubePath = Get-KubePath
 
 # make sure we are at the right place for executing this script
-Set-Location $global:KubernetesPath
+Set-Location $kubePath
 
-$isReusingExistingLinuxComputer = Get-ConfigValue -Path $global:SetupJsonFile -Key $global:ConfigKey_ReuseExistingLinuxComputerForMasterNode
+$isReusingExistingLinuxComputer = Get-ReuseExistingLinuxComputerForMasterNodeFlag
 
 # script variables:
 $script:fixedIpWasSet = $false
 
-Import-Module "$global:KubernetesPath\smallsetup\hns.v2.psm1" -WarningAction:SilentlyContinue -Force
+Import-Module "$kubePath\smallsetup\hns.v2.psm1" -WarningAction:SilentlyContinue -Force
 
-function NeedsStopFirst () {
+$windowsHostIpAddress = Get-ConfiguredKubeSwitchIP
+
+function Get-NeedsStopFirst () {
     if ((Get-Process 'flanneld' -ErrorAction SilentlyContinue) -or
             (Get-Process 'kubelet' -ErrorAction SilentlyContinue) -or
             (Get-Process 'kube-proxy' -ErrorAction SilentlyContinue)) {
@@ -72,10 +77,10 @@ function UpdateIpAddress {
     )
     # Do this only once, guarded by $fixedIpWasSet
     if (!$fixedIpWasSet) {
-        $ipAddressForLoopbackAdapter = $global:IP_LoopbackAdapter
+        $ipAddressForLoopbackAdapter = Get-LoopbackAdapterIP
 
         Write-Log 'Try to get the valid network interface'
-        $ipindex = Get-NetIPInterface | ? InterfaceAlias -Like "*vEthernet ($adapterName)*" | ? AddressFamily -Eq IPv4 | select -expand 'ifIndex'
+        $ipindex = Get-NetIPInterface | Where-Object InterfaceAlias -Like "*vEthernet ($adapterName)*" | Where-Object AddressFamily -Eq IPv4 | Select-Object -expand 'ifIndex'
         if ( $ipindex ) {
             Write-Log "           interface 'vEthernet ($adapterName)' with index $ipindex found:"
             $ipaddress = $ipAddressForLoopbackAdapter
@@ -83,7 +88,8 @@ function UpdateIpAddress {
             Write-Log "           setting IP address 'vEthernet ($adapterName)' with index $ipindex manually to $ipaddress"
             Set-NetIPInterface -InterfaceIndex $ipindex -Dhcp Disabled
             Write-Log '           Checking whether Physical adapter has DNS Servers'
-            $physicalInterfaceIndex = Get-NetAdapter -Physical | Where-Object Status -Eq 'Up' | Where-Object Name -ne $global:LoopbackAdapter | select -expand 'ifIndex'
+            $loopbackAdapter = Get-L2BridgeName
+            $physicalInterfaceIndex = Get-NetAdapter -Physical | Where-Object Status -Eq 'Up' | Where-Object Name -ne $loopbackAdapter | Select-Object -expand 'ifIndex'
             $dnservers = Get-DnsClientServerAddress -InterfaceIndex $physicalInterfaceIndex -AddressFamily IPv4
             Write-Log "           DNSServers found in Physical Adapter ($physicalInterfaceIndex) : $($dnservers.ServerAddresses)"
             Set-IPAdressAndDnsClientServerAddress -IPAddress $ipaddress -DefaultGateway $gateway -Index $ipindex -DnsAddresses $dnservers.ServerAddresses
@@ -106,51 +112,51 @@ function GetNetworkAdapterNameFromInterfaceAlias([string]$interfaceAlias) {
 }
 
 function CheckKubeSwitchInExpectedState() {
-    $if = Get-NetConnectionProfile -InterfaceAlias "vEthernet ($global:SwitchName)" -ErrorAction SilentlyContinue
+    $controlPlaneNodeDefaultSwitchName = Get-ControlPlaneNodeDefaultSwitchName
+    $if = Get-NetConnectionProfile -InterfaceAlias "vEthernet ($controlPlaneNodeDefaultSwitchName)" -ErrorAction SilentlyContinue
     if (!$if) {
-        Write-Log "vEthernet ($global:SwitchName) not found."
+        Write-Log "vEthernet ($controlPlaneNodeDefaultSwitchName) not found."
         return $false
     }
     if ($if.NetworkCategory -ne 'Private') {
-        Write-Log "vEthernet ($global:SwitchName) not set to private."
+        Write-Log "vEthernet ($controlPlaneNodeDefaultSwitchName) not set to private."
         return $false
     }
-    $if = Get-NetIPAddress -InterfaceAlias "vEthernet ($global:SwitchName)" -ErrorAction SilentlyContinue
+    $if = Get-NetIPAddress -InterfaceAlias "vEthernet ($controlPlaneNodeDefaultSwitchName)" -ErrorAction SilentlyContinue
     if (!$if) {
-        Write-Log "Unable get IP Address for host on vEthernet ($global:SwitchName) interface..."
+        Write-Log "Unable get IP Address for host on vEthernet ($controlPlaneNodeDefaultSwitchName) interface..."
         return $false
     }
-    if ($if.IPAddress -ne $global:IP_NextHop) {
-        Write-Log "IP Address of Host on vEthernet ($global:SwitchName) is not $global:IP_NextHop ..."
+    if ($if.IPAddress -ne $windowsHostIpAddress) {
+        Write-Log "IP Address of Host on vEthernet ($controlPlaneNodeDefaultSwitchName) is not $windowsHostIpAddress ..."
         return $false
     }
     return $true
 }
 
-if ($global:HeaderLineShown -ne $true) {
+if ($SkipHeaderDisplay -eq $false) {
     Write-Log 'Starting K2s'
-    $global:HeaderLineShown = $true
 }
 
 # in case of other drives a specific flannel file needs to created automatically on drive
 # kubelet unfortunately has no central way to configure centrally drive in windows
-function CheckFlannelConfig () {
-    $flannelFile = "$($global:InstallationDriveLetter):\run\flannel\subnet.env"
+function CheckFlannelConfig {
+    $flannelFile = "$(Get-InstallationDriveLetter):\run\flannel\subnet.env"
     $existsFlannelFile = Test-Path -Path $flannelFile
     if( $existsFlannelFile ) {
         Write-Log "Flannel file $flannelFile exists"
         return
     }
     # only in case that we used another drive than C for the installation
-    if( !($global:InstallationDriveLetter -eq $global:SystemDriveLetter)) {
+    if( ($(Get-InstallationDriveLetter) -ne $(Get-SystemDriveLetter))) {
         $i = 0
-        $flannelFileSource = "$($global:SystemDriveLetter):\run\flannel\subnet.env"
+        $flannelFileSource = "$(Get-SystemDriveLetter):\run\flannel\subnet.env"
         Write-Log "Check $flannelFileSource file creation, this can take minutes depending on your network setup ..."
         while ($true) {
             $i++
             Write-Log "flannel handling loop (iteration #$i):"
             if( Test-Path -Path $flannelFileSource ) {
-                $targetPath = "$($global:InstallationDriveLetter):\run\flannel"
+                $targetPath = "$(Get-InstallationDriveLetter):\run\flannel"
                 New-Item -ItemType Directory -Path $targetPath -Force | Out-Null
                 Copy-Item -Path $flannelFileSource -Destination $targetPath -Force | Out-Null
                 break
@@ -159,7 +165,7 @@ function CheckFlannelConfig () {
 
             # End the loop
             if ($i -eq 50) {
-                throw "Fatal: Flannel failed to create file: $flannelFileSource for target drive $($global:InstallationDriveLetter):\run\flannel\subnet.env !"
+                throw "Fatal: Flannel failed to create file: $flannelFileSource for target drive $(Get-InstallationDriveLetter):\run\flannel\subnet.env !"
             }
         }
     }
@@ -168,9 +174,9 @@ function CheckFlannelConfig () {
 Write-Log 'Checking prerequisites'
 
 # set ConfigKey_LoggedInRegistry empty, since not logged in into registry after restart anymore
-Set-ConfigValue -Path $global:SetupJsonFile -Key $global:ConfigKey_LoggedInRegistry -Value ''
+Set-ConfigLoggedInRegistry -Value ''
 
-$HostGW = Get-HostGwFromConfig
+$HostGW = Get-ConfigHostGW
 if ($HostGW) {
     Write-Log 'Using host-gw as network mode'
 }
@@ -178,7 +184,7 @@ else {
     Write-Log 'Using vxlan as network mode'
 }
 
-$WSL = Get-WSLFromConfig
+$WSL = Get-ConfigWslFlag
 if ($WSL) {
     Write-Log 'Using WSL2 as hosting environment for KubeMaster'
 }
@@ -186,13 +192,13 @@ else {
     Write-Log 'Using Hyper-V as hosting environment for KubeMaster'
 }
 
-if (NeedsStopFirst) {
+if (Get-NeedsStopFirst) {
     Write-Log 'Stopping existing K8s system...'
     if ($UseCachedK2sVSwitches) {
         Write-Log "Invoking cluster stop with vSwitch caching so that the cached switches can be used again on restart."
-        &"$global:KubernetesPath\smallsetup\StopK8s.ps1" -AdditionalHooksDir $AdditionalHooksDir -ShowLogs:$ShowLogs -CacheK2sVSwitches
+        &"$PSScriptRoot\StopK8s.ps1" -AdditionalHooksDir $AdditionalHooksDir -ShowLogs:$ShowLogs -CacheK2sVSwitches
     } else {
-        &"$global:KubernetesPath\smallsetup\StopK8s.ps1" -AdditionalHooksDir $AdditionalHooksDir -ShowLogs:$ShowLogs
+        &"$PSScriptRoot\StopK8s.ps1" -AdditionalHooksDir $AdditionalHooksDir -ShowLogs:$ShowLogs
     }
     Start-Sleep 10
 }
@@ -204,13 +210,8 @@ if ($ResetHns) {
 
 $ProgressPreference = 'SilentlyContinue'
 
-Write-Log "Enabling network adapter $global:LoopbackAdapter"
-Enable-NetAdapter -Name $global:LoopbackAdapter -Confirm:$false -ErrorAction SilentlyContinue
-
-Import-Module "$global:KubernetesPath\smallsetup\LoopbackAdapter.psm1" -Force
-Set-LoopbackAdapterProperties -Name $global:LoopbackAdapter -IPAddress $global:IP_LoopbackAdapter -Gateway $global:Gateway_LoopbackAdapter
-
-$adapterName = Get-L2BridgeNIC
+Enable-LoopbackAdapter
+$adapterName = Get-L2BridgeName
 Write-Log "Using network adapter '$adapterName'"
 
 $NumOfProcessors = (Get-CimInstance Win32_ComputerSystem).NumberOfLogicalProcessors
@@ -228,17 +229,17 @@ if ($VmProcessors -ne '') {
 
 $switchname = ''
 if ($WSL) {
-    $switchname = $global:WSLSwitchName
+    $switchname = Get-WslSwitchName
 }
 elseif ($isReusingExistingLinuxComputer) {
-    $interfaceAlias =  get-netipaddress -IPAddress $global:IP_NextHop | Select-Object -ExpandProperty "InterfaceAlias"
+    $interfaceAlias =  get-netipaddress -IPAddress $windowsHostIpAddress | Select-Object -ExpandProperty "InterfaceAlias"
     $switchName = GetNetworkAdapterNameFromInterfaceAlias($interfaceAlias)
     if ([string]::IsNullOrWhiteSpace($switchName)) {
-        throw "The network adapter name having the IP $global:IP_NextHop could not be found."
+        throw "The network adapter name having the IP $windowsHostIpAddress could not be found."
     }
 }
 else {
-    $switchname = $global:SwitchName
+    $switchname = Get-ControlPlaneNodeDefaultSwitchName
 }
 
 Write-Log 'Configuring network for Windows node' -Console
@@ -247,34 +248,39 @@ Restart-WinService 'hns'
 
 Write-Log 'Figuring out IPv4DefaultGateway'
 $if = Get-NetIPConfiguration -InterfaceAlias "$adapterName" -ErrorAction SilentlyContinue 2>&1 | Out-Null
-$gw =  $global:Gateway_LoopbackAdapter
+$gw =  Get-LoopbackAdapterGateway
 if( $if ) {
     $gw = $if.IPv4DefaultGateway.NextHop
-    Write-Log "Gateway found: $gw"
+    Write-Log "Gateway found (from interface '$adapterName'): $gw"
 }
-Write-Log "Gateway found: $gw"
+Write-Log "The following gateway IP address will be used: $gw"
 
 Set-IndexForDefaultSwitch
 
 # create the l2 bridge in advance
-CreateExternalSwitch -adapterName $adapterName
+New-ExternalSwitch -adapterName $adapterName
+
+$controlPlaneVMHostName = Get-ConfigControlPlaneNodeHostname
+$ipControlPlane = Get-ConfiguredIPControlPlane
+
+$ipControlPlaneCIDR = Get-ConfiguredControlPlaneCIDR
 
 if (!$WSL -and !$isReusingExistingLinuxComputer) {
     # Because of stability issues network settings are recreated every time we start the machine
     # or we restart the service !!!!! (StopServices.ps1 also cleans up the entire network setup)
     # stop VM
     Write-Log 'Reconfiguring VM'
-    Write-Log "Configuring $global:VMName VM" -Console
-    Stop-VM -Name $global:VMName -Force -WarningAction SilentlyContinue
+    Write-Log "Configuring $controlPlaneVMHostName VM" -Console
+    Stop-VM -Name $controlPlaneVMHostName -Force -WarningAction SilentlyContinue
 
     if ($VmProcessors -ne '') {
         # change cores
-        Set-VMProcessor $global:VMName -Count $VmProcessors
+        Set-VMProcessor $controlPlaneVMHostName -Count $VmProcessors
     }
 
     $kubeSwitchInExpectedState = CheckKubeSwitchInExpectedState
     if(!$UseCachedK2sVSwitches -or !$kubeSwitchInExpectedState) {
-            # Remove old switch
+        # Remove old switch
         Write-Log 'Updating VM networking...'
         Remove-KubeSwitch
 
@@ -288,10 +294,10 @@ if (!$WSL -and !$isReusingExistingLinuxComputer) {
         Add-DnsServer $switchname
     } else {
         # route for VM
-        Write-Log "Remove obsolete route to $global:IP_CIDR"
-        route delete $global:IP_CIDR >$null 2>&1
-        Write-Log "Add route to $global:IP_CIDR"
-        route -p add $global:IP_CIDR $global:IP_NextHop METRIC 3 | Out-Null
+        Write-Log "Remove obsolete route to $ipControlPlaneCIDR"
+        route delete $ipControlPlaneCIDR >$null 2>&1
+        Write-Log "Add route to $ipControlPlaneCIDR"
+        route -p add $ipControlPlaneCIDR $windowsHostIpAddress METRIC 3 | Out-Null
     }
 
 } elseif ($isReusingExistingLinuxComputer) {
@@ -300,15 +306,7 @@ if (!$WSL -and !$isReusingExistingLinuxComputer) {
 }
 
 # configure NAT
-Write-Log 'Configure NAT...'
-if (Get-NetNat -Name $global:NetNatName -ErrorAction SilentlyContinue) {
-    Write-Log "  $global:NetNatName exists, removing it"
-    Remove-NetNat -Name $global:NetNatName -Confirm:$False | Out-Null
-}
-# New-NetNat -Name $global:NetNatName -InternalIPInterfaceAddressPrefix $global:IP_CIDR | Out-Null
-
-# disable IPv6
-# Disable-NetAdapterBinding -Name "vEthernet ($global:SwitchName)" -ComponentID ms_tcpip6 | Out-Null
+Invoke-RecreateNAT
 
 #check VM status
 if (!$WSL -and !$isReusingExistingLinuxComputer) {
@@ -320,25 +318,25 @@ if (!$WSL -and !$isReusingExistingLinuxComputer) {
 
         if ( $i -eq 1 ) {
             Write-Log "           stopping VM ($i)"
-            Stop-VM -Name $global:VMName -Force -WarningAction SilentlyContinue
+            Stop-VM -Name $controlPlaneVMHostName -Force -WarningAction SilentlyContinue
 
-            $state = (Get-VM -Name $global:VMName).State -eq [Microsoft.HyperV.PowerShell.VMState]::Off
+            $state = (Get-VM -Name $controlPlaneVMHostName).State -eq [Microsoft.HyperV.PowerShell.VMState]::Off
             while (!$state) {
-                Write-Log "           still waiting for stop, current VM state: $(Get-VM -Name $global:VMName | Select-Object -expand 'State')"
+                Write-Log "           still waiting for stop, current VM state: $(Get-VM -Name $controlPlaneVMHostName | Select-Object -expand 'State')"
                 Start-Sleep -s 1
             }
 
             Write-Log "           re-starting VM ($i)"
-            Start-VM -Name $global:VMName
+            Start-VM -Name $controlPlaneVMHostName
             Start-Sleep -s 4
         }
 
-        $con = Test-Connection $global:IP_Master -Count 1 -ErrorAction SilentlyContinue
+        $con = Test-Connection $ipControlPlane -Count 1 -ErrorAction SilentlyContinue
         if ($con) {
-            Write-Log "           ping succeeded to $global:VMName VM"
-            $startStatus = (Get-VM -Name $global:VMName).State -eq [Microsoft.HyperV.PowerShell.VMState]::Running
+            Write-Log "           ping succeeded to $controlPlaneVMHostName VM"
+            $startStatus = (Get-VM -Name $controlPlaneVMHostName).State -eq [Microsoft.HyperV.PowerShell.VMState]::Running
             if ($startStatus) {
-                Write-Log "           $global:VMName VM Started"
+                Write-Log "           $controlPlaneVMHostName VM Started"
                 break;
             }
         }
@@ -346,19 +344,19 @@ if (!$WSL -and !$isReusingExistingLinuxComputer) {
         if ($i -eq 3) {
             # If the connection did not succeed or VM is not in Running state, try starting again for three times
             $startCycle = 0
-            $startState = (Get-VM -Name $global:VMName).State -eq [Microsoft.HyperV.PowerShell.VMState]::Running
+            $startState = (Get-VM -Name $controlPlaneVMHostName).State -eq [Microsoft.HyperV.PowerShell.VMState]::Running
             while (!$startState -And $startCycle -lt 3) {
                 $startCycle++
-                Write-Log "           still waiting for start, current VM state: $(Get-VM -Name $global:VMName | Select-Object -expand 'State')"
-                Start-VM -Name $global:VMName
+                Write-Log "           still waiting for start, current VM state: $(Get-VM -Name $controlPlaneVMHostName | Select-Object -expand 'State')"
+                Start-VM -Name $controlPlaneVMHostName
                 Start-Sleep -s 4
-                $startState = (Get-VM -Name $global:VMName).State -eq [Microsoft.HyperV.PowerShell.VMState]::Running
+                $startState = (Get-VM -Name $controlPlaneVMHostName).State -eq [Microsoft.HyperV.PowerShell.VMState]::Running
             }
         }
 
         # End the loop if the connection to VM is unsuccessful
         if ($i -eq 10) {
-            throw "Fatal: Failed to connect to $global:VMName VM"
+            throw "Fatal: Failed to connect to $controlPlaneVMHostName VM"
         }
     }
 }
@@ -366,44 +364,60 @@ elseif ($WSL) {
     Write-Log 'Configuring KubeMaster Distro' -Console
     wsl --shutdown
     Start-WSL
-    Set-WSLSwitch
+    Set-WSLSwitch -IpAddress $windowsHostIpAddress
     # add DNS proxy for cluster searches
     Add-DnsServer $switchname
 }
 Wait-ForSSHConnectionToLinuxVMViaSshKey
-Perform-TimeSync
+
+$setupType = Get-ConfigSetupType
+$linuxOnly = Get-ConfigLinuxOnly
+$propagateTimeSync = ($setupType -eq 'MultiVMK8s' -and $linuxOnly -ne $true)
+
+Invoke-TimeSync -WorkerVM:$propagateTimeSync
 
 if (!$WSL) {
     Write-Log 'Set the DNS server(s) used by the Windows Host as the default DNS server(s) of the VM'
-    $physicalInterfaceIndex = Get-NetAdapter -Physical | Where-Object Status -Eq 'Up' | Where-Object Name -ne $global:LoopbackAdapter | Select-Object -expand 'ifIndex'
-    $dnservers = ((Get-DnsClientServerAddress -InterfaceIndex $physicalInterfaceIndex | Select-Object -ExpandProperty ServerAddresses) | Select-Object -Unique) -join ' '
-    ExecCmdMaster "sudo sed -i 's/dns-nameservers.*/dns-nameservers $dnservers/' /etc/network/interfaces.d/50-cloud-init"
-    ExecCmdMaster 'sudo systemctl restart networking'
-    ExecCmdMaster 'sudo systemctl restart dnsmasq'
+    $physicalInterfaceIndex = Get-NetAdapter -Physical | Where-Object Status -Eq 'Up' | Where-Object Name -ne $(Get-L2BridgeName) | Select-Object -expand 'ifIndex'
+    if (![string]::IsNullOrWhiteSpace($physicalInterfaceIndex)) {
+        $dnservers = ((Get-DnsClientServerAddress -InterfaceIndex $physicalInterfaceIndex | Select-Object -ExpandProperty ServerAddresses) | Select-Object -Unique) -join ' '
+        Invoke-CmdOnControlPlaneViaSSHKey "sudo sed -i 's/dns-nameservers.*/dns-nameservers $dnservers/' /etc/network/interfaces.d/50-cloud-init"
+        Invoke-CmdOnControlPlaneViaSSHKey 'sudo systemctl restart networking'
+        Invoke-CmdOnControlPlaneViaSSHKey 'sudo systemctl restart dnsmasq'
+    }
 }
 
+$ipControlPlane = Get-ConfiguredIPControlPlane
+$setupConfigRoot = Get-RootConfigk2s
+$clusterCIDRMaster = $setupConfigRoot.psobject.properties['podNetworkMasterCIDR'].value
+$clusterCIDRServices = $setupConfigRoot.psobject.properties['servicesCIDR'].value
+$clusterCIDRServicesLinux = $setupConfigRoot.psobject.properties['servicesCIDRLinux'].value
+$clusterCIDRServicesWindows = $setupConfigRoot.psobject.properties['servicesCIDRWindows'].value
+$clusterCIDRHost = $setupConfigRoot.psobject.properties['podNetworkWorkerCIDR'].value
+$clusterCIDRNextHop = $setupConfigRoot.psobject.properties['cbr0'].value
+
 # route for VM
-Write-Log "Remove obsolete route to $global:IP_CIDR"
-route delete $global:IP_CIDR >$null 2>&1
-Write-Log "Add route to $global:IP_CIDR"
-route -p add $global:IP_CIDR $global:IP_NextHop METRIC 3 | Out-Null
+Write-Log "Remove obsolete route to $ipControlPlaneCIDR"
+route delete $ipControlPlaneCIDR >$null 2>&1
+Write-Log "Add route to $ipControlPlaneCIDR"
+route -p add $ipControlPlaneCIDR $windowsHostIpAddress METRIC 3 | Out-Null
 
 # routes for Linux pods
-Write-Log "Remove obsolete route to $global:ClusterCIDR_Master"
-route delete $global:ClusterCIDR_Master >$null 2>&1
-Write-Log "Add route to $global:ClusterCIDR_Master"
-route -p add $global:ClusterCIDR_Master $global:IP_Master METRIC 4 | Out-Null
+Write-Log "Remove obsolete route to $clusterCIDRMaster"
+route delete $clusterCIDRMaster >$null 2>&1
+Write-Log "Add route to $clusterCIDRMaster"
+route -p add $clusterCIDRMaster $ipControlPlane METRIC 4 | Out-Null
 
 # routes for services
-route delete $global:ClusterCIDR_Services >$null 2>&1
-Write-Log "Remove obsolete route to $global:ClusterCIDR_ServicesLinux"
-route delete $global:ClusterCIDR_ServicesLinux >$null 2>&1
-Write-Log "Add route to $global:ClusterCIDR_ServicesLinux"
-route -p add $global:ClusterCIDR_ServicesLinux $global:IP_Master METRIC 6 | Out-Null
-Write-Log "Remove obsolete route to $global:ClusterCIDR_ServicesWindows"
-route delete $global:ClusterCIDR_ServicesWindows >$null 2>&1
-Write-Log "Add route to $global:ClusterCIDR_ServicesWindows"
-route -p add $global:ClusterCIDR_ServicesWindows $global:IP_Master METRIC 7 | Out-Null
+route delete $clusterCIDRServices >$null 2>&1
+Write-Log "Remove obsolete route to $clusterCIDRServicesLinux"
+route delete $clusterCIDRServicesLinux >$null 2>&1
+Write-Log "Add route to $clusterCIDRServicesLinux"
+route -p add $clusterCIDRServicesLinux $ipControlPlane METRIC 6 | Out-Null
+Write-Log "Remove obsolete route to $clusterCIDRServicesWindows"
+route delete $clusterCIDRServicesWindows >$null 2>&1
+Write-Log "Add route to $clusterCIDRServicesWindows"
+route -p add $clusterCIDRServicesWindows $ipControlPlane METRIC 7 | Out-Null
 
 # enable ip forwarding
 netsh int ipv4 set int "vEthernet ($switchname)" forwarding=enabled | Out-Null
@@ -412,17 +426,17 @@ netsh int ipv4 set int 'vEthernet (Ethernet)' forwarding=enabled | Out-Null
 Invoke-Hook -HookName BeforeStartK8sNetwork -AdditionalHooksDir $AdditionalHooksDir
 
 Write-Log "Ensuring service log directories exists" -Console
-EnsureDirectoryPathExists -DirPath "$($global:SystemDriveLetter):\var\log\containerd"
-EnsureDirectoryPathExists -DirPath "$($global:SystemDriveLetter):\var\log\dnsproxy"
-EnsureDirectoryPathExists -DirPath "$($global:SystemDriveLetter):\var\log\dockerd"
-EnsureDirectoryPathExists -DirPath "$($global:SystemDriveLetter):\var\log\flanneld"
-EnsureDirectoryPathExists -DirPath "$($global:SystemDriveLetter):\var\log\httpproxy"
-EnsureDirectoryPathExists -DirPath "$($global:SystemDriveLetter):\var\log\kubelet"
-EnsureDirectoryPathExists -DirPath "$($global:SystemDriveLetter):\var\log\windows_exporter"
-EnsureDirectoryPathExists -DirPath "$($global:SystemDriveLetter):\var\log\containers"
-EnsureDirectoryPathExists -DirPath "$($global:SystemDriveLetter):\var\log\pods"
-EnsureDirectoryPathExists -DirPath "$($global:SystemDriveLetter):\var\log\bridge"
-EnsureDirectoryPathExists -DirPath "$($global:SystemDriveLetter):\var\log\vfprules"
+EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\containerd"
+EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\dnsproxy"
+EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\dockerd"
+EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\flanneld"
+EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\httpproxy"
+EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\kubelet"
+EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\windows_exporter"
+EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\containers"
+EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\pods"
+EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\bridge"
+EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\vfprules"
 
 Write-Log 'Starting Kubernetes services on the Windows node' -Console
 Start-ServiceAndSetToAutoStart -Name 'containerd'
@@ -485,24 +499,25 @@ while ($true) {
 
         Write-Log 'Change metrics at network interfaces'
         # change index
-        $ipindex1 = Get-NetIPInterface | ? InterfaceAlias -Like "*$switchname*" | ? AddressFamily -Eq IPv4 | select -expand 'ifIndex'
+        $ipindex1 = Get-NetIPInterface | Where-Object InterfaceAlias -Like "*$switchname*" | Where-Object AddressFamily -Eq IPv4 | Select-Object -expand 'ifIndex'
         Write-Log "Index for interface $switchname : ($ipindex1) -> metric 25"
         Set-NetIPInterface -InterfaceIndex $ipindex1 -InterfaceMetric 25
-        $ipindex2 = Get-NetIPInterface | ? InterfaceAlias -Like '*Default*' | ? AddressFamily -Eq IPv4 | select -expand 'ifIndex'
+        $ipindex2 = Get-NetIPInterface | Where-Object InterfaceAlias -Like '*Default*' | Where-Object AddressFamily -Eq IPv4 | Select-Object -expand 'ifIndex'
         if ( $ipindex2 ) {
             Write-Log "Index for interface Default : ($ipindex2) -> metric 35"
             Set-NetIPInterface -InterfaceIndex $ipindex2 -InterfaceMetric 35
         }
 
-        $l2BridgeInterfaceIndex = Get-NetIPInterface | ? InterfaceAlias -Like "*$global:L2BridgeSwitchName*" | ? AddressFamily -Eq IPv4 | select -expand 'ifIndex'
+        $l2BridgeSwitchName = Get-L2BridgeSwitchName
+        $l2BridgeInterfaceIndex = Get-NetIPInterface | Where-Object InterfaceAlias -Like "*$l2BridgeSwitchName*" | Where-Object AddressFamily -Eq IPv4 | Select-Object -expand 'ifIndex'
         Set-NetIPInterface -InterfaceIndex $l2BridgeInterfaceIndex -InterfaceMetric 5
-        Write-Log "Index for interface $global:L2BridgeSwitchName : ($l2BridgeInterfaceIndex) -> metric 5"
+        Write-Log "Index for interface $l2BridgeSwitchName : ($l2BridgeInterfaceIndex) -> metric 5"
 
         # routes for Windows pods
-        Write-Log "Remove obsolete route to $global:ClusterCIDR_Host"
-        route delete $global:ClusterCIDR_Host >$null 2>&1
-        Write-Log "Add route to $global:ClusterCIDR_Host"
-        route -p add $global:ClusterCIDR_Host $global:ClusterCIDR_NextHop METRIC 5 | Out-Null
+        Write-Log "Remove obsolete route to $clusterCIDRHost"
+        route delete $clusterCIDRHost >$null 2>&1
+        Write-Log "Add route to $clusterCIDRHost"
+        route -p add $clusterCIDRHost $clusterCIDRNextHop METRIC 5 | Out-Null
 
         Write-Log "Networking setup done.`n"
         break;
@@ -518,7 +533,7 @@ while ($true) {
             Write-Log '   to your PC, not with a docking station'
             Write-Log ' * Usage of WLAN: Try to connect with cable, not WiFi'
             Write-Log ' * Windows IP autoconfiguration APIPA: Try to run'
-            Write-Log "     powershell $global:KubernetesPath\smallsetup\FixAutoconfiguration.ps1"
+            Write-Log "     powershell $kubePath\smallsetup\FixAutoconfiguration.ps1"
             Write-Log ''
             throw 'timeout: flanneld failed to create cbr0 switch'
         }
@@ -533,7 +548,7 @@ while ($true) {
             Write-Log "`n`nERROR: network interface 'vEthernet ($adapterName)' was reconfigured by Windows IP autoconfiguration!"
             Write-Log 'This prevents K8s networking to startup properly. You must disable autoconfiguration'
             Write-Log 'in the registry. Do the following steps as administrator:'
-            Write-Log " - powershell $global:KubernetesPath\smallsetup\FixAutoconfiguration.ps1"
+            Write-Log " - powershell $kubePath\smallsetup\FixAutoconfiguration.ps1"
             Write-Log ' - netcfg -d'
             Write-Log ' - reboot machine'
             Write-Log " - try Startk8s.cmd again.`n"

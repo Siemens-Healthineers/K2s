@@ -184,7 +184,7 @@ Initialize-KubernetesCluster -AdditionalHooksDir $AdditionalHooksDir
 
 if (! $SkipStart) {
     Write-Log 'Starting Kubernetes System'
-    Invoke-Script_StartK8s -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs
+    Invoke-Script_StartK8s -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs -SkipHeaderDisplay
 
     if ($RestartAfterInstallCount -gt 0) {
         $restartCount = 0;
@@ -196,7 +196,7 @@ if (! $SkipStart) {
             Invoke-Script_StopK8s -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs
             Start-Sleep 10 # Wait for renew of IP
     
-            Invoke-Script_StartK8s -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs
+            Invoke-Script_StartK8s -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs -SkipHeaderDisplay
             Start-Sleep -s 5
     
             if ($restartCount -eq $RestartAfterInstallCount) {
