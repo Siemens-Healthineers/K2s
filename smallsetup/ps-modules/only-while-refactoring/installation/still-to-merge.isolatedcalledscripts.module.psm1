@@ -32,22 +32,6 @@ function Invoke-Script_ExistingUbuntuComputerAsMasterNodeInstaller {
     &"$installationPath\smallsetup\linuxnode\ubuntu\ExistingUbuntuComputerAsMasterNodeInstaller.ps1" -IpAddress $IpAddress -UserName $UserName -UserPwd $UserPwd -Proxy $Proxy
 }
 
-function Invoke-Script_StartK8s {
-    Param(
-        [switch] $ShowLogs = $false,
-        [string] $AdditionalHooksDir = ''
-    )
-    & "$installationPath\smallsetup\StartK8s.ps1" -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs
-}
-
-function Invoke-Script_StopK8s {
-    Param(
-        [switch] $ShowLogs = $false,
-        [string] $AdditionalHooksDir = ''
-    )
-    & "$installationPath\smallsetup\StopK8s.ps1" -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs
-}
-
 function Invoke-Script_UninstallKubeMaster {
     Param(
         [Boolean] $DeleteFilesForOfflineInstallation = $false
@@ -57,8 +41,6 @@ function Invoke-Script_UninstallKubeMaster {
 
 Export-ModuleMember -Function Set-InstallationPathIntoScriptsIsolationModule, Set-LoggingPreferencesIntoScriptsIsolationModule,  
 Invoke-Script_ExistingUbuntuComputerAsMasterNodeInstaller,
-Invoke-Script_StartK8s,
-Invoke-Script_StopK8s,
 Invoke-Script_UninstallKubeMaster
 
 
