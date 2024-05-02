@@ -55,7 +55,6 @@ function Invoke-TimeSync {
 
 function Wait-ForAPIServer {
     $controlPlaneVMHostName = Get-ConfigControlPlaneNodeHostname
-    $controlPlaneVMHostName.ToLower()
     $iteration = 0
     while ($true) {
         $iteration++
