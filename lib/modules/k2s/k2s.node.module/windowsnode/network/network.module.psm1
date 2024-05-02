@@ -195,10 +195,56 @@ function Set-IPAdressAndDnsClientServerAddress {
     $newContent | Set-Content "$kubePath\bin\dnsproxy.yaml"
 }
 
+function Set-WSLSwitch() {
+    param(
+        [string]$IpAddress
+    )
+    $wslSwitch = 'WSL*'
+    Write-Log "Configuring internal switch $wslSwitch"
+
+    $iteration = 60
+    while ($iteration -gt 0) {
+        $iteration--
+        $ipindex = Get-NetAdapter -Name "vEthernet ($wslSwitch)" -ErrorAction SilentlyContinue -IncludeHidden | Select-Object -expandproperty 'ifIndex'
+        $interfaceAlias = Get-NetAdapter -Name "vEthernet ($wslSwitch)" -ErrorAction SilentlyContinue -IncludeHidden | Select-Object -expandproperty name
+        $oldIp = $null
+        if ($ipindex) {
+            # needs some sync time
+            Start-Sleep 2
+            $oldIp = (Get-NetIPAddress -InterfaceIndex $ipindex).IPAddress
+        }
+        if ($ipindex -and $oldIp) {
+            Write-Log "ifindex of ${interfaceAlias}: $ipindex"
+            Write-Log "Old ip: $oldIp"
+            if ($oldIp) {
+                foreach ($ip in $oldIp) {
+                    Remove-NetIPAddress -InterfaceIndex $ipindex -IPAddress $oldIp -Confirm:$False -ErrorAction SilentlyContinue
+                }
+            }
+
+            break
+        }
+
+        Write-Log "No vEthernet ($wslSwitch) detected yet!"
+        Start-Sleep 2
+    }
+
+    if ($iteration -eq 0) {
+        throw "No vEthernet ($wslSwitch) found!"
+    }
+
+    New-NetIPAddress -IPAddress $IpAddress -PrefixLength 24 -InterfaceAlias $interfaceAlias
+    # enable forwarding
+    netsh int ipv4 set int $interfaceAlias forwarding=enabled | Out-Null
+    # change index in order to have the Ethernet card as first card (also for much better DNS queries)
+    $ipindex1 = Get-NetIPInterface | Where-Object InterfaceAlias -Like $interfaceAlias | Where-Object AddressFamily -Eq IPv4 | Select-Object -expand 'ifIndex'
+    Write-Log "Index for interface $interfaceAlias : ($ipindex1) -> metric 25"
+    Set-NetIPInterface -InterfaceIndex $ipindex1 -InterfaceMetric 25
+}
 
 
 Export-ModuleMember Set-IndexForDefaultSwitch, Get-ConfiguredClusterCIDRHost,
 New-ExternalSwitch, Remove-ExternalSwitch,
 Invoke-RecreateNAT, Set-InterfacePrivate,
 Get-L2BridgeSwitchName, Remove-DefaultNetNat,
-New-DefaultNetNat, Set-IPAdressAndDnsClientServerAddress
+New-DefaultNetNat, Set-IPAdressAndDnsClientServerAddress, Set-WSLSwitch
