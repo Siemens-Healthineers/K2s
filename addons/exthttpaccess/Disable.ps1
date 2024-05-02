@@ -26,7 +26,7 @@ Param(
 )
 $statusModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/status/status.module.psm1"
 $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
-$addonsModule = "$PSScriptRoot\..\addons.v2.module.psm1"
+$addonsModule = "$PSScriptRoot\..\addons.module.psm1"
 $commonModule = "$PSScriptRoot\common.module.psm1"
 
 Import-Module $statusModule, $infraModule, $addonsModule, $commonModule
