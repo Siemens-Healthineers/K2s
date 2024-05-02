@@ -3,13 +3,8 @@
 # SPDX-License-Identifier: MIT
 
 BeforeAll {
-    $module = "$PSScriptRoot\Addons.module.psm1"
-    $logModule = "$PSScriptRoot\..\smallsetup\ps-modules\log\log.module.psm1"
-
-    Import-Module $logModule -Force
-
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('UseDeclaredVarsMoreThanAssignments', '', Justification = 'Pester Test')]
-    $moduleName = (Import-Module $module -PassThru -Force).Name
+    $moduleName = (Import-Module "$PSScriptRoot\addons.module.psm1" -PassThru -Force).Name
 }
 
 Describe 'Find-AddonManifests' -Tag 'unit', 'ci', 'addon' {
@@ -763,7 +758,8 @@ Describe 'Enable-AddonFromConfig' -Tag 'unit', 'ci', 'addon' {
 Describe 'Get-AddonsConfig' -Tag 'unit', 'ci', 'addon' {
     BeforeAll {
         Mock -ModuleName $moduleName Write-Log { }
-        Mock -ModuleName $moduleName Get-ConfigValue { return 'config' } -ParameterFilter { $Path -eq $global:SetupJsonFile -and $Key -eq 'EnabledAddons' }
+        Mock -ModuleName $moduleName Get-SetupConfigFilePath { return 'config-path' }
+        Mock -ModuleName $moduleName Get-ConfigValue { return 'config' } -ParameterFilter { $Path -eq 'config-path' -and $Key -eq 'EnabledAddons' }
     }
 
     It 'calls underlying config function correctly' {

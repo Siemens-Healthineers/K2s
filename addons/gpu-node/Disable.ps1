@@ -22,7 +22,7 @@ Param(
 )
 $clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
-$addonsModule = "$PSScriptRoot\..\addons.v2.module.psm1"
+$addonsModule = "$PSScriptRoot\..\addons.module.psm1"
 $linuxNodeModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.node.module/linuxnode/vm/vm.module.psm1"
 
 Import-Module $clusterModule, $infraModule, $addonsModule, $linuxNodeModule
