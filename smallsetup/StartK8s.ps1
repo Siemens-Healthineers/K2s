@@ -196,9 +196,9 @@ if (Get-NeedsStopFirst) {
     Write-Log 'Stopping existing K8s system...'
     if ($UseCachedK2sVSwitches) {
         Write-Log "Invoking cluster stop with vSwitch caching so that the cached switches can be used again on restart."
-        &"$PSScriptRoot\StopK8s.ps1" -AdditionalHooksDir $AdditionalHooksDir -ShowLogs:$ShowLogs -CacheK2sVSwitches
+        &"$PSScriptRoot\StopK8s.ps1" -AdditionalHooksDir $AdditionalHooksDir -ShowLogs:$ShowLogs -CacheK2sVSwitches -SkipHeaderDisplay
     } else {
-        &"$PSScriptRoot\StopK8s.ps1" -AdditionalHooksDir $AdditionalHooksDir -ShowLogs:$ShowLogs
+        &"$PSScriptRoot\StopK8s.ps1" -AdditionalHooksDir $AdditionalHooksDir -ShowLogs:$ShowLogs -SkipHeaderDisplay
     }
     Start-Sleep 10
 }
