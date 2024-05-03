@@ -29,7 +29,7 @@ var allAddons addons.Addons
 
 func TestAddons(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "addons CLI Commands Acceptance Tests", Label("cli", "acceptance", "no-setup", "corrupted-state", "addons", "ci"))
+	RunSpecs(t, "addons CLI Commands Acceptance Tests", Label("cli", "acceptance", "no-setup", "corrupted-state", "addons"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
