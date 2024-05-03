@@ -51,7 +51,9 @@ func uninstallk8s(cmd *cobra.Command, args []string) error {
 		if errors.Is(err, setupinfo.ErrSystemNotInstalled) {
 			return common.CreateSystemNotInstalledCmdFailure()
 		}
-		return err
+		if !errors.Is(err, setupinfo.ErrSystemInCorruptedState) {
+			return err
+		}
 	}
 
 	uninstallCmd, err := buildUninstallCmd(cmd.Flags(), config.SetupName)

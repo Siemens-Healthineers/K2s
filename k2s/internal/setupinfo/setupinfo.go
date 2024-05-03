@@ -22,6 +22,7 @@ type Config struct {
 	LinuxOnly                bool      `json:"LinuxOnly"`
 	Version                  string    `json:"Version"`
 	ControlPlaneNodeHostname string    `json:"ControlPlaneNodeHostname"`
+	Corrupted                bool      `json:"Corrupted"`
 }
 
 const (
@@ -31,7 +32,8 @@ const (
 )
 
 var (
-	ErrSystemNotInstalled = errors.New("system-not-installed")
+	ErrSystemNotInstalled     = errors.New("system-not-installed")
+	ErrSystemInCorruptedState = errors.New("system-in-corrupted-state")
 )
 
 func LoadConfig(configDir string) (*Config, error) {
@@ -47,5 +49,20 @@ func LoadConfig(configDir string) (*Config, error) {
 		return nil, fmt.Errorf("error occurred while loading setup config file: %w", err)
 	}
 
+	if config.Corrupted {
+		return config, ErrSystemInCorruptedState
+	}
+
 	return config, nil
+}
+
+func SetConfig(configDir string, config *Config) error {
+	configPath := filepath.Join(configDir, "setup.json")
+
+	err := json.ToFile[Config](configPath, config)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
