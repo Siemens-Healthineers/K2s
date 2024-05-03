@@ -22,7 +22,7 @@ import (
 
 type StatusPrinter interface {
 	PrintStatus(addonName string, loadFunc func(addonName string) (*LoadedAddonStatus, error)) error
-	PrintSystemNotInstalledError(addonName string) error
+	PrintSystemError(addon string, systemError error, systemCmdFailureFunc func() *common.CmdFailure) error
 }
 
 const (
@@ -75,11 +75,14 @@ func runStatusCmd(cmd *cobra.Command, addon addons.Addon, determinePrinterFunc f
 	configDir := cmd.Context().Value(common.ContextKeyConfigDir).(string)
 	config, err := setupinfo.LoadConfig(configDir)
 	if err != nil {
-		if !errors.Is(err, setupinfo.ErrSystemNotInstalled) {
-			return err
+		if errors.Is(err, setupinfo.ErrSystemInCorruptedState) {
+			return printer.PrintSystemError(addon.Metadata.Name, setupinfo.ErrSystemInCorruptedState, common.CreateSystemInCorruptedStateCmdFailure)
+		}
+		if errors.Is(err, setupinfo.ErrSystemNotInstalled) {
+			return printer.PrintSystemError(addon.Metadata.Name, setupinfo.ErrSystemNotInstalled, common.CreateSystemNotInstalledCmdFailure)
 		}
 
-		return printer.PrintSystemNotInstalledError(addon.Metadata.Name)
+		return err
 	}
 
 	loadFunc := func(addonName string) (*LoadedAddonStatus, error) {

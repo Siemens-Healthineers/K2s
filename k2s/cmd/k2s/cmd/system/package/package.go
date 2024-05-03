@@ -4,6 +4,7 @@
 package systempackage
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"strconv"
@@ -83,6 +84,11 @@ func systemPackage(cmd *cobra.Command, args []string) error {
 
 	configDir := cmd.Context().Value(common.ContextKeyConfigDir).(string)
 	setupConfig, err := setupinfo.LoadConfig(configDir)
+	if err != nil {
+		if errors.Is(err, setupinfo.ErrSystemInCorruptedState) {
+			return common.CreateSystemInCorruptedStateCmdFailure()
+		}
+	}
 	if err == nil && setupConfig.SetupName != "" {
 		return &common.CmdFailure{
 			Severity: common.SeverityWarning,

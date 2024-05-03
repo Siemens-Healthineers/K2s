@@ -104,29 +104,53 @@ var _ = Describe("core", func() {
 		})
 
 		When("error while loading config occurred", func() {
-			It("returns error", func() {
-				kind := ic.Kind("test-kind")
-				cmd := &cobra.Command{}
-				cmd.SetContext(context.WithValue(context.TODO(), common.ContextKeyConfigDir, "some-dir"))
+			When("system is not installed", func() {
+				It("returns error", func() {
+					kind := ic.Kind("test-kind")
+					cmd := &cobra.Command{}
+					cmd.SetContext(context.WithValue(context.TODO(), common.ContextKeyConfigDir, "some-dir"))
 
-				expectedError := errors.New("oops")
-				var nilConfig *setupinfo.Config
-				var nilInstallConfig *ic.InstallConfig
+					expectedError := errors.New("oops")
+					var nilConfig *setupinfo.Config
+					var nilInstallConfig *ic.InstallConfig
 
-				configMock := &myMock{}
-				configMock.On(reflection.GetFunctionName(configMock.loadConfig), mock.AnythingOfType("string")).Return(nilConfig, setupinfo.ErrSystemNotInstalled)
+					configMock := &myMock{}
+					configMock.On(reflection.GetFunctionName(configMock.loadConfig), mock.AnythingOfType("string")).Return(nilConfig, setupinfo.ErrSystemNotInstalled)
 
-				installConfigMock := &myMock{}
-				installConfigMock.On(r.GetFunctionName(installConfigMock.Load), kind, cmd.Flags()).Return(nilInstallConfig, expectedError)
+					installConfigMock := &myMock{}
+					installConfigMock.On(r.GetFunctionName(installConfigMock.Load), kind, cmd.Flags()).Return(nilInstallConfig, expectedError)
 
-				sut := &core.Installer{
-					InstallConfigAccess: installConfigMock,
-					LoadConfigFunc:      configMock.loadConfig,
-				}
+					sut := &core.Installer{
+						InstallConfigAccess: installConfigMock,
+						LoadConfigFunc:      configMock.loadConfig,
+					}
 
-				err := sut.Install(kind, cmd, nil)
+					err := sut.Install(kind, cmd, nil)
 
-				Expect(err).To(MatchError(expectedError))
+					Expect(err).To(MatchError(expectedError))
+				})
+			})
+
+			When("system is in corrupted state", func() {
+				It("returns error", func() {
+					kind := ic.Kind("test-kind")
+					cmd := &cobra.Command{}
+					cmd.SetContext(context.WithValue(context.TODO(), common.ContextKeyConfigDir, "some-dir"))
+
+					expectedError := common.CreateSystemInCorruptedStateCmdFailure()
+					config := &setupinfo.Config{SetupName: "existent", Corrupted: true}
+
+					configMock := &myMock{}
+					configMock.On(reflection.GetFunctionName(configMock.loadConfig), mock.AnythingOfType("string")).Return(config, setupinfo.ErrSystemInCorruptedState)
+
+					sut := &core.Installer{
+						LoadConfigFunc: configMock.loadConfig,
+					}
+
+					err := sut.Install(kind, cmd, nil)
+
+					Expect(err).To(MatchError(expectedError))
+				})
 			})
 		})
 

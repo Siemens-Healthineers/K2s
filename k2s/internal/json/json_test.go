@@ -107,4 +107,25 @@ var _ = Describe("json pkg", func() {
 			})
 		})
 	})
+
+	Describe("ToFile", func() {
+		When("successful", func() {
+			var filePath string
+
+			BeforeEach(func() {
+				filePath = filepath.Join(GinkgoT().TempDir(), "test.json")
+			})
+
+			It("writes and reads the json file content", func() {
+				expected := &testData{Prop1: "test-prop", Prop2: 123}
+
+				err := json.ToFile[testData](filePath, expected)
+
+				actual, err := json.FromFile[testData](filePath)
+
+				Expect(err).ToNot(HaveOccurred())
+				Expect(*actual).To(Equal(*expected))
+			})
+		})
+	})
 })

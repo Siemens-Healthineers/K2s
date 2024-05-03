@@ -43,10 +43,12 @@ type CmdResult struct {
 type OutputWriter struct {
 	ShowProgress    bool
 	errorLineBuffer *logging.LogBuffer
+	ErrorOccurred   bool
 }
 
 const (
-	ErrSystemNotInstalledMsg = "You have not installed K2s setup yet, please start the installation with command 'k2s.exe install' first"
+	ErrSystemNotInstalledMsg     = "You have not installed K2s setup yet, please start the installation with command 'k2s.exe install' first"
+	ErrSystemInCorruptedStateMsg = "Errors occurred during K2s setup. K2s cluster is in corrupted state. Please uninstall and reinstall K2s cluster."
 
 	SeverityWarning FailureSeverity = 3
 	SeverityError   FailureSeverity = 4
@@ -100,6 +102,7 @@ func (o *OutputWriter) WriteStd(line string) {
 
 func (o *OutputWriter) WriteErr(line string) {
 	o.errorLineBuffer.Log(line)
+	o.ErrorOccurred = true
 
 	pterm.Printfln("⏳ %s", pterm.Yellow(line))
 }
@@ -131,11 +134,23 @@ func CreateSystemNotInstalledCmdResult() CmdResult {
 	return CmdResult{Failure: CreateSystemNotInstalledCmdFailure()}
 }
 
+func CreateSystemInCorruptedStateCmdResult() CmdResult {
+	return CmdResult{Failure: CreateSystemInCorruptedStateCmdFailure()}
+}
+
 func CreateSystemNotInstalledCmdFailure() *CmdFailure {
 	return &CmdFailure{
 		Severity: SeverityWarning,
 		Code:     setupinfo.ErrSystemNotInstalled.Error(),
 		Message:  ErrSystemNotInstalledMsg,
+	}
+}
+
+func CreateSystemInCorruptedStateCmdFailure() *CmdFailure {
+	return &CmdFailure{
+		Severity: SeverityError,
+		Code:     setupinfo.ErrSystemInCorruptedState.Error(),
+		Message:  ErrSystemInCorruptedStateMsg,
 	}
 }
 

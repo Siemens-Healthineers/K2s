@@ -4,6 +4,7 @@
 package reset
 
 import (
+	"errors"
 	"strconv"
 	"time"
 
@@ -37,6 +38,11 @@ func init() {
 func resetNetwork(cmd *cobra.Command, args []string) error {
 	configDir := cmd.Context().Value(common.ContextKeyConfigDir).(string)
 	config, err := setupinfo.LoadConfig(configDir)
+	if err != nil {
+		if errors.Is(err, setupinfo.ErrSystemInCorruptedState) {
+			return common.CreateSystemInCorruptedStateCmdFailure()
+		}
+	}
 	if err == nil && config.SetupName != "" {
 		terminal.NewTerminalPrinter().PrintInfofln(
 			"'%s' setup is installed, please uninstall with 'k2s uninstall' first or reset system with 'k2s system reset' and re-run the 'k2s system reset network' command afterwards.",

@@ -6,6 +6,7 @@ package json
 import (
 	j "encoding/json"
 	"fmt"
+	"io/fs"
 	"os"
 )
 
@@ -25,4 +26,18 @@ func FromFile[T any](filePath string) (v *T, err error) {
 	}
 
 	return v, nil
+}
+
+func ToFile[T any](filePath string, v *T) (err error) {
+	binaries, err := j.Marshal(v)
+	if err != nil {
+		return fmt.Errorf("error occurred while marshalling file '%s': %w", filePath, err)
+	}
+
+	err = os.WriteFile(filePath, binaries, fs.ModePerm)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

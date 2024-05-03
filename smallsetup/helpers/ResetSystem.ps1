@@ -22,8 +22,8 @@ Param(
 . $PSScriptRoot\..\common\GlobalFunctions.ps1
 
 
-Write-Output 'Resetting system'
+Write-Output 'Reset system'
 &"$global:KubernetesPath\smallsetup\UninstallK8s.ps1" | Out-Null
 &"$global:KubernetesPath\smallsetup\multivm\Uninstall_MultiVMK8sSetup.ps1" | Out-Null
 &"$global:KubernetesPath\smallsetup\common\UninstallBuildOnlySetup.ps1" | Out-Null
-Write-Output 'System reseted successfully!'
+Write-Output 'System reset successful!'

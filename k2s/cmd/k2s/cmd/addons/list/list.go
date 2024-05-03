@@ -68,6 +68,9 @@ func listAddons(cmd *cobra.Command, allAddons addons.Addons) error {
 	config, err := setupinfo.LoadConfig(configDir)
 	psVersion := powershell.DefaultPsVersions
 	if err != nil {
+		if errors.Is(err, setupinfo.ErrSystemInCorruptedState) {
+			return cc.CreateSystemInCorruptedStateCmdFailure()
+		}
 		if !errors.Is(err, setupinfo.ErrSystemNotInstalled) {
 			return err
 		}
