@@ -29,7 +29,7 @@ var suite *framework.K2sTestSuite
 
 func TestStatus(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "status CLI Command Acceptance Tests", Label("cli", "status", "acceptance", "no-setup", "corrupted-state", "ci"))
+	RunSpecs(t, "status CLI Command Acceptance Tests", Label("cli", "status", "acceptance", "no-setup", "corrupted-state"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
