@@ -28,7 +28,7 @@ var suite *framework.K2sTestSuite
 
 func TestImage(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "image CLI Commands Acceptance Tests", Label("cli", "image", "acceptance", "no-setup", "corrupted-state", "ci"))
+	RunSpecs(t, "image CLI Commands Acceptance Tests", Label("cli", "image", "acceptance", "no-setup", "corrupted-state"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
