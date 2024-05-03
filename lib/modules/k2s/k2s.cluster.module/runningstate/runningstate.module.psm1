@@ -2,21 +2,19 @@
 #
 # SPDX-License-Identifier: MIT
 
-&$PSScriptRoot\..\common\GlobalVariables.ps1
-. $PSScriptRoot\..\common\GlobalFunctions.ps1
+$infraModule = "$PSScriptRoot/../../k2s.infra.module/k2s.infra.module.psm1"
 
-$logModule = "$PSScriptRoot\..\ps-modules\log\log.module.psm1"
-
-Import-Module $logModule
+Import-Module $infraModule
 
 $script = $MyInvocation.MyCommand.Name
 
-class RunningState {
-    [bool]$IsRunning
-    [string[]]$Issues
-}
-
 function Get-IsWslRunning {
+    [CmdletBinding()]
+    param (
+        [Parameter()]
+        [string]
+        $Name = $(throw 'Name not specified')
+    )
     $function = $MyInvocation.MyCommand.Name
 
     Write-Log "[$script::$function] detecting if WSL is running.."
@@ -26,7 +24,7 @@ function Get-IsWslRunning {
     foreach ($line in $output) {
         # CLI session encoding issue; check current encoding with [System.Console]::OutputEncoding
         # optional: remove byte replacement and set encoding with [System.Console]::OutputEncoding = [System.Text.Encoding]::Unicode
-        if ($line -replace '\x00', '' -match $global:VMName) {
+        if ($line -replace '\x00', '' -match $Name) {
             Write-Log "[$script::$function] WSL is running"
             return $true
         }
@@ -40,7 +38,7 @@ function Get-IsWslRunning {
 function Get-VmState {
     param (
         [Parameter(Mandatory = $false)]
-        [string]$Name = $(throw 'VM name not specified')
+        [string]$Name = $(throw 'Name not specified')
     )
     return (Get-VM -Name $Name).State
 }
@@ -48,7 +46,7 @@ function Get-VmState {
 function Get-IsVmRunning {
     param (
         [Parameter(Mandatory = $false)]
-        [string]$Name = $(throw 'VM name not specified')
+        [string]$Name = $(throw 'Name not specified')
     )
     $function = $MyInvocation.MyCommand.Name
 
@@ -64,39 +62,42 @@ function Get-IsVmRunning {
 function Get-RunningState {
     param (
         [Parameter(Mandatory = $false)]
-        [string]$SetupType = $(throw 'Setup type not specified')
+        [string]$SetupName = $(throw 'SetupName not specified')
     )
-    if ($SetupType -ne $global:SetupType_k2s -and $SetupType -ne $global:SetupType_MultiVMK8s -and $SetupType -ne $global:SetupType_BuildOnlyEnv) {
-        throw "cannot get running state for invalid setup type '$SetupType'"
+    if ($SetupName -ne 'k2s' -and $SetupName -ne 'MultiVMK8s' -and $SetupName -ne 'BuildOnlyEnv') {
+        throw "cannot get running state for invalid setup type '$SetupName'"
     }
+
     $function = $MyInvocation.MyCommand.Name
 
-    Write-Log "[$script::$function] Getting running state for SetupType='$SetupType'"
+    Write-Log "[$script::$function] Getting running state for SetupType='$SetupName'"
 
     $issues = [System.Collections.ArrayList]@()
     $allRunning = $true
 
-    $isWsl = Get-ConfigValue -Path $global:SetupJsonFile -Key $global:ConfigKey_WSL
+    $controlPlaneNodeName = Get-ConfigControlPlaneNodeHostname
+    $isWsl = Get-ConfigWslFlag
+
     if ($isWsl -eq $true) {
         Write-Log "[$script::$function] WSL setup type"
 
-        if ((Get-IsWslRunning) -ne $true) {
-            $msg = "'kubemaster' not running (WSL)"
+        if ((Get-IsWslRunning -Name $controlPlaneNodeName) -ne $true) {
+            $msg = "control-plane '$controlPlaneNodeName' not running (WSL)"
             Write-Log "[$script::$function] $msg"
             $allRunning = $false
             $issues.Add($msg) | Out-Null
         }
         else {
-            Write-Log "[$script::$function] kubemaster running"
+            Write-Log "[$script::$function] control-plane '$controlPlaneNodeName' running"
         }
     }
     else {
         Write-Log "[$script::$function] not WSL setup type"
 
-        if ((Get-IsVmRunning -Name $global:VMName) -ne $true) {            
-            $vmState = Get-VmState -Name $global:VMName
+        if ((Get-IsVmRunning -Name $controlPlaneNodeName) -ne $true) {            
+            $vmState = Get-VmState -Name $controlPlaneNodeName
 
-            $msg = "'$global:VMName' not running, state is '$vmState' (VM)"
+            $msg = "control-plane '$controlPlaneNodeName' not running, state is '$vmState' (VM)"
 
             Write-Log "[$script::$function] $msg"
 
@@ -104,12 +105,12 @@ function Get-RunningState {
             $issues.Add($msg) | Out-Null
         }
         else {
-            Write-Log "[$script::$function] '$global:VMName' running"
+            Write-Log "[$script::$function] control-plane '$controlPlaneNodeName' running"
         }
     }
 
-    switch ($SetupType) {
-        $global:SetupType_k2s {
+    switch ($SetupName) {
+        'k2s' {
             $servicesToCheck = 'flanneld', 'kubelet', 'kubeproxy'
             foreach ($service in $servicesToCheck) {
                 Write-Log "[$script::$function] checking '$service' service state.."
@@ -127,16 +128,17 @@ function Get-RunningState {
                 }
             }
         }
-        $global:SetupType_MultiVMK8s {
-            $linuxOnly = Get-LinuxOnlyFromConfig
+        'MultiVMK8s' {
+            $linuxOnly = Get-ConfigLinuxOnly
             if ($linuxOnly) {
                 Write-Log "[$script::$function] is Linux-only, no more checks needed"
                 break
             }
 
-            $winVmState = Get-VmState -Name $global:MultiVMWindowsVMName
+            $winWorkerNodeName = Get-ConfigVMNodeHostname
+            $winVmState = Get-VmState -Name $winWorkerNodeName
             if ($winVmState -ne 'Running') {
-                $msg = "'$global:MultiVMWindowsVMName' not running, state is '$winVmState' (VM)"
+                $msg = "worker node '$winWorkerNodeName' not running, state is '$winVmState' (VM)"
 
                 Write-Log "[$script::$function] $msg"
 
@@ -144,7 +146,7 @@ function Get-RunningState {
                 $issues.Add($msg) | Out-Null
             }
             else {
-                Write-Log "[$script::$function] '$global:MultiVMWindowsVMName' running"
+                Write-Log "[$script::$function] worker node '$winWorkerNodeName' running"
             }
         }
         Default { 
@@ -155,7 +157,7 @@ function Get-RunningState {
 
     Write-Log "[$script::$function] returning with IsRunning='$allRunning' and Issues='$issues'"
 
-    return New-Object RunningState -Property @{IsRunning = $allRunning; Issues = $issues }
+    return @{IsRunning = $allRunning; Issues = $issues }
 }
 
 Export-ModuleMember -Function Get-RunningState

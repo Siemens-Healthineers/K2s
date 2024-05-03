@@ -42,16 +42,10 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'Trigger clean-up of windows container storage without user prompts')]
     [switch]$Force = $false
 )
+$infraModule = "$PSScriptRoot\..\..\..\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
+$clusterModule = "$PSScriptRoot\..\..\..\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1"
 
-&$PSScriptRoot\..\common\GlobalVariables.ps1
-. $PSScriptRoot\..\common\GlobalFunctions.ps1
-
-$setupInfoModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.cluster.module\setupinfo\setupinfo.module.psm1"
-$runningStateModule = "$PSScriptRoot\..\status\RunningState.module.psm1"
-$logModule = "$PSScriptRoot\..\ps-modules\log\log.module.psm1"
-$infraModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
-
-Import-Module $setupInfoModule, $runningStateModule, $logModule, $infraModule -DisableNameChecking
+Import-Module $infraModule, $clusterModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -62,10 +56,66 @@ function Get-DockerStatus() {
     return $false
 }
 
+<#
+.SYNOPSIS
+Cleanup docker storage directory 
+
+.DESCRIPTION
+Cleanup docker storage directory  from all reparse points which could lead to an inconsistent system.
+Allso delete the whole folder afterwards.
+
+# Only for docker: Cleanup in the docker way by renaming the folders
+# Get-ChildItem -Path d:\docker\windowsfilter -Directory | % {Rename-Item $_.FullName "$($_.FullName)-removing" -ErrorAction:SilentlyContinue}
+# Restart-Service *docker*
+# needs to be done multiple times till all directories from windowsfilter are deleted !!
+
+# OR
+
+# 1. set right to be able to delete reparse points
+# 2. icacls "D:\containerdold" /grant Administrators:F /t /C
+# 3. Get-ChildItem -Path e:\docker_old3 -Force -Recurse -Attributes Reparsepoint -ErrorAction 'silentlycontinue' | % { $n = $_.FullName.Trim("\"); fsutil reparsepoint delete "$n" }
+# deletes all reparse points
+# then afterwards all directories can be deleted
+# 4. takeown /a /r /d Y /f e:\docker_old3
+# 5. remove-item -path "e:\docker_old3" -Force -Recurse -ErrorAction SilentlyContinue
+
+.EXAMPLE
+Invoke-GracefulCleanup -Directory d:\docker
+Invoke-GracefulCleanup -Directory d:\containerd
+#>
+function Invoke-GracefulCleanup {
+    param (
+        [parameter(Mandatory = $false, HelpMessage = 'Docker directory to clean up')]
+        [string] $Directory = 'c:\docker'
+    )
+    $errActionPreference = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+
+    if ($Trace) {
+        Set-PSDebug -Trace 1
+    }
+
+    Write-Log "Take ownership now on items in dir: $Directory" -Console
+    takeown /a /r /d Y /F $Directory 2>&1 | Write-Log -Console
+
+    Write-Log 'Add ownership also for Administrators' -Console
+    icacls $Directory /grant Administrators:F /t /C 2>&1 | Write-Log -Console
+
+    Write-Log "Delete reparse points in the directory: $Directory" -Console
+    Get-ChildItem -Path $Directory -Force -Recurse -Attributes Reparsepoint -ErrorAction SilentlyContinue | ForEach-Object { $n = $_.FullName.Trim('\'); fsutil reparsepoint delete "$n" 2>&1 | Write-Log -Console }
+
+    Write-Log "Remove items from: $Directory" -Console
+    Remove-Item -Path $Directory -Force -Recurse -ErrorAction SilentlyContinue
+
+    Write-Log 'Cleanup finished' -Console
+
+    $ErrorActionPreference = $errActionPreference
+}
+
 function Invoke-CleanupOfContainerStorage([string]$Directory, [int]$MaxRetries, [bool]$ForceZap) {
     $successfulDirectoryCleanup = $false
     for ($i = 0; $i -lt $MaxRetries; $i++) {
-        &$PSScriptRoot\CleanupContainerStorage.ps1 -Directory $Directory
+        Invoke-GracefulCleanup -Directory $Directory
         if (Test-Path $Directory) {
             Write-Log "Directory $Directory could not be successfully deleted. Will retry again..." -Console
         }
@@ -78,16 +128,16 @@ function Invoke-CleanupOfContainerStorage([string]$Directory, [int]$MaxRetries, 
     if (!$successfulDirectoryCleanup) {
         if ($ForceZap) {
             Write-Log 'Directory could not be cleaned up after exhausting all retries. Will zap it using zap.exe' -Console
-            &$global:BinPath\zap.exe -folder $Directory 2>&1 | Write-Log
+            &"$(Get-KubeBinPath)\zap.exe" -folder $Directory 2>&1 | Write-Log
             if (Test-Path $Directory) {
-                Write-Error "Directory $Directory could not be successfully deleted. Please try again."
+                Write-Log "Directory $Directory could not be successfully deleted. Please try again." -Error
             }
             else {
                 Write-Log "Directory $Directory cleaned up successfully." -Console
             }
         }
         else {
-            Write-Error "Directory $Directory could not be successfully deleted. Please try again."
+            Write-Log "Directory $Directory could not be successfully deleted. Please try again." -Error
         }
     }
 }
@@ -95,7 +145,7 @@ function Invoke-CleanupOfContainerStorage([string]$Directory, [int]$MaxRetries, 
 $setupInfo = Get-SetupInfo
 
 if ($setupInfo.LinuxOnly) {
-    $errMsg = 'Resetting WinContainerStorage for linux-only setup is not supported!'
+    $errMsg = 'Resetting WinContainerStorage for Linux-only setup is not supported.'
     if ($EncodeStructuredOutput -eq $true) {
         $err = New-Error -Severity Warning -Code (Get-ErrCodeWrongSetupType) -Message $errMsg
         Send-ToCli -MessageType $MessageType -Message @{Error = $err }
@@ -106,8 +156,8 @@ if ($setupInfo.LinuxOnly) {
     exit 1
 }
 
-if ($setupInfo.Name -eq $global:SetupType_MultiVMK8s -and !$setupInfo.LinuxOnly) {
-    $errMsg = 'In order to clean up WinContainerStorage for multi-vm, please reinstall multi-vm cluster!'
+if ($setupInfo.Name -eq 'MultiVMK8s' -and !$setupInfo.LinuxOnly) {
+    $errMsg = 'In order to clean up Win container storage for multivm setup, please re-install multivm cluster.'
     if ($EncodeStructuredOutput -eq $true) {
         $err = New-Error -Severity Warning -Code (Get-ErrCodeWrongSetupType) -Message $errMsg
         Send-ToCli -MessageType $MessageType -Message @{Error = $err }
@@ -118,8 +168,8 @@ if ($setupInfo.Name -eq $global:SetupType_MultiVMK8s -and !$setupInfo.LinuxOnly)
     exit 1
 }
 
-if ($setupInfo.Name -eq $global:SetupType_k2s) {
-    $clusterState = Get-RunningState -SetupType $setupInfo.Name
+if ($setupInfo.Name -eq 'k2s') {
+    $clusterState = Get-RunningState -SetupName $setupInfo.Name
 
     if ($clusterState.IsRunning -eq $true) {
         $errMsg = 'K2s is still running. Please stop K2s before performing this operation. Please ensure that no workloads are running in K2s.'
@@ -135,7 +185,7 @@ if ($setupInfo.Name -eq $global:SetupType_k2s) {
 
 $dockerRunningStatus = Get-DockerStatus
 if ($dockerRunningStatus) {
-    $errMsg = 'Docker daemon is running. Please stop docker daemon before performing this operation.'
+    $errMsg = 'Docker daemon is running. Please stop Docker daemon before performing this operation.'
     if ($EncodeStructuredOutput -eq $true) {
         $err = New-Error -Severity Warning -Code 'docker-running' -Message $errMsg
         Send-ToCli -MessageType $MessageType -Message @{Error = $err }
@@ -147,15 +197,16 @@ if ($dockerRunningStatus) {
 }
 
 if (!$Force) {
-    $answer = Read-Host "WARNING: Deletion of containerd/docker directory may take a very long time depending on the size of the folder and number of retries. Continue? (y/N)"
+    $answer = Read-Host "WARNING: Deletion of containerd/docker directory may take a very long time depending on the size of the folder and number of retries.`nContinue? (y/N)"
     if ($answer -ne 'y') {
-        if ($EncodedStructuredOutput -eq $true) {
-            $msg = "Reseting windows container storage cancelled."
+        $msg = 'Resetting Windows container storage cancelled.'
+
+        if ($EncodeStructuredOutput -eq $true) {            
             $err = New-Error -Severity Warning -Code (Get-ErrCodeUserCancellation) -Message $msg
             Send-ToCli -MessageType $MessageType -Message @{Error = $err }
             return
         }
-        Write-Log "Reseting windows container storage cancelled." -Console
+        Write-Log $msg -Console
         exit 0
     }
 }
