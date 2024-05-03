@@ -148,7 +148,7 @@ func CreateSystemNotInstalledCmdFailure() *CmdFailure {
 
 func CreateSystemInCorruptedStateCmdFailure() *CmdFailure {
 	return &CmdFailure{
-		Severity: SeverityWarning,
+		Severity: SeverityError,
 		Code:     setupinfo.ErrSystemInCorruptedState.Error(),
 		Message:  ErrSystemInCorruptedStateMsg,
 	}
