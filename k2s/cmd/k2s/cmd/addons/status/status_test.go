@@ -316,7 +316,7 @@ var _ = Describe("status pkg", func() {
 					Expect(errors.As(err, &cmdFailure)).To(BeTrue())
 					Expect(cmdFailure.Code).To(Equal(setupinfo.ErrSystemInCorruptedState.Error()))
 					Expect(cmdFailure.Message).To(Equal(common.ErrSystemInCorruptedStateMsg))
-					Expect(cmdFailure.Severity).To(Equal(common.SeverityWarning))
+					Expect(cmdFailure.Severity).To(Equal(common.SeverityError))
 					Expect(cmdFailure.SuppressCliOutput).To(BeTrue())
 
 					printerMock.AssertExpectations(GinkgoT())
