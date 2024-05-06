@@ -63,11 +63,13 @@ C:\myFolder> git clone https://github.com/Siemens-Healthineers/K2s .
 </pre>
 
 ## Licensing
-When using 3rd-party code (i.e. *PowerShell* or *Go* snippets) or configuration files (e.g. *yaml* manifests, etc.), this code or configuration has to be clearly marked as such adhering to the respective license.
+**All files**, whether *own* code or 3rd-party code (i.e. *PowerShell*/*Go* snippets or configuration files like *yaml* manifests, etc.), have to be clearly marked with the respective license.
 
-The currently supported/used 3rd-party license can be found in the [LICENSES](../../LICENSES/) folder.
+The currently supported/used 3rd-party licenses can be found in the [LICENSES](../../LICENSES/) folder.
 
-**This repository follows the [REUSE Specification – Version 3.0](https://reuse.software/spec/),** meaning that a valid license configuration must exist for every file, either **as comment or as separate \*.license file**.  
+**This repository follows the [REUSE Specification – Version 3.0](https://reuse.software/spec/),** meaning that a valid license configuration must exist for every file, either **as comment or as separate \*.license file**.
+
+The CI runs will check all files against the *REUSE* specification, but you can pre-check your local repo using the [reuse tool](https://github.com/fsfe/reuse-tool).
 
 ## Building Locally
 ### Workspace Prerequisites
