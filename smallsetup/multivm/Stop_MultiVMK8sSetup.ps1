@@ -183,7 +183,7 @@ else {
 }
 
 if ($linuxOnly -ne $true) {
-    if ((Get-VM -Name $global:MultiVMWindowsVMName) -and !$StopDuringUninstall) {
+    if ((Get-VM -Name $global:MultiVMWindowsVMName -ErrorAction SilentlyContinue) -and !$StopDuringUninstall) {
         Get-VMNetworkAdapter -VMName $global:MultiVMWindowsVMName | Disconnect-VMNetworkAdapter
 
         $sw = Get-VMSwitch -Name $global:SwitchName -ErrorAction SilentlyContinue

@@ -41,7 +41,10 @@ if ($Script.Contains("-ShowLogs")) {
     Invoke-Expression $Script
 } *>&1 | ForEach-Object {
     if ($_ -is [System.Management.Automation.ErrorRecord] -and -not($_ -match "^\[\d{2}:\d{2}:\d{2}\]")) {
-        Write-Log $($_ | Out-String) -Error
+        # ignore errors when uninstalling cluster
+        if ($Script -notmatch ".*Uninstall.*.ps1") {
+            Write-Log $($_ | Out-String) -Error
+        }
     } elseif($_ -match "^\[\d{2}:\d{2}:\d{2}\]\[([^]]+)\]") {
         # Nested message, eg. [11:39:19][WINNODE] Hello
         # Should be logged to console and file
@@ -53,7 +56,7 @@ if ($Script.Contains("-ShowLogs")) {
         Write-Output $_
         # Send-ToCli message
     } elseif ($_ -match "#ssh#") {
-        $message = $_.Replace("#ssh#", '')
+        $message = $_ -replace "#ssh#", ''
         Write-Output $message
     } else {
         # Any other message which is not captured from Write-Log or other streams, log it to console and file
