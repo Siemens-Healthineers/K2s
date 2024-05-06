@@ -21,7 +21,9 @@ on:
     paths-ignore:
       - 'LICENSES/**'
       - 'bin/**'
+      - 'doc/**'
       - 'k2s.exe'
+      - '*.md'
 
 env:
   GOVERSION: "1.21.5"
