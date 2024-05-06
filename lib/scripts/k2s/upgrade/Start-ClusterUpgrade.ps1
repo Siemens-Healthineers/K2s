@@ -14,7 +14,7 @@ Starts the upgrade of the cluster by exporting all resources and setting up a ne
 
 .EXAMPLE
 # Starts the upgrade of the cluster
-PS> .\Start-Upgrade.ps1
+PS> .\Start-ClusterUpgrade.ps1
 
 #>
 
@@ -34,22 +34,13 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'HTTP proxy if available')]
     [string] $Proxy
 )
+$infraModule = "$PSScriptRoot/../../../modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
+$clusterModule = "$PSScriptRoot/../../../modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
+$addonsModule = "$PSScriptRoot\..\..\..\..\addons\addons.module.psm1"
+$upgradeModule = "$PSScriptRoot\upgrade.module.psm1"
 
-# load global settings
-&$PSScriptRoot\..\common\GlobalVariables.ps1
-# import global functions
-. $PSScriptRoot\..\common\GlobalFunctions.ps1
+Import-Module $infraModule, $clusterModule, $addonsModule, $upgradeModule
 
-$upgradeModule = "$PSScriptRoot/upgrade.module.psm1"
-Import-Module $upgradeModule # -Verbose
-
-$addonsModule = "$PSScriptRoot/../../addons/Addons.module.psm1"
-Import-Module $addonsModule # -Verbose
-
-$setupInfoModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.cluster.module\setupinfo\setupinfo.module.psm1"
-Import-Module $setupInfoModule # -Verbose
-
-Import-Module "$PSScriptRoot/../ps-modules/log/log.module.psm1"
 Initialize-Logging -ShowLogs:$ShowLogs
 
 <#
@@ -91,8 +82,8 @@ function Start-ClusterUpgrade {
         [switch]
         $SkipImages = $false
     )
-
     $errUpgrade = $null
+
     try {
         # start progress
         if ($ShowProgress -eq $true) {
@@ -102,24 +93,27 @@ function Start-ClusterUpgrade {
         # check if cluster is installed
         $setupInfo = Get-SetupInfo
         if (!$($setupInfo.Name)) {
-            Write-Progress -Activity 'No upgrade possible, since no previous version of K2s is installed !' -Id 1 -Status '10/10' -PercentComplete 100 -CurrentOperation 'Upgrade successfully finished'
-            Write-Log 'No upgrade possible, since no previous version of K2s is installed !' -Console
+            $msg = 'No upgrade possible, since no previous version of K2s is installed.'
+            Write-Progress -Activity $msg -Id 1 -Status '10/10' -PercentComplete 100 -CurrentOperation 'Upgrade successfully finished'
+            Write-Log $msg -Console
             return $false
         }
-        if ($setupInfo.Name -ne $global:SetupType_k2s) {
-            throw "Upgrade is only available for 'k2s' setup type"
+        if ($setupInfo.Name -ne 'k2s') {
+            throw "Upgrade is only available for 'k2s' setup"
         }
 
         # retrieve folder where current K2s package is located
         if ($ShowProgress -eq $true) {
-            Write-Progress -Activity 'Checking if cluster is installed...' -Id 1 -Status '1/10' -PercentComplete 10 -CurrentOperation 'Cluster availability'
+            Write-Progress -Activity 'Checking if cluster is installed..' -Id 1 -Status '1/10' -PercentComplete 10 -CurrentOperation 'Cluster availability'
         }
+
         Assert-UpgradeOperation
 
         # check cluster is running
         if ($ShowProgress -eq $true) {
-            Write-Progress -Activity 'Checking cluster state...' -Id 1 -Status '2/10' -PercentComplete 20 -CurrentOperation 'Starting cluster, please wait ...'
+            Write-Progress -Activity 'Checking cluster state..' -Id 1 -Status '2/10' -PercentComplete 20 -CurrentOperation 'Starting cluster, please wait..'
         }
+
         Enable-ClusterIsRunning -ShowLogs:$ShowLogs
 
         # keep current settings from cluster
@@ -133,13 +127,14 @@ function Start-ClusterUpgrade {
 
         # export cluster resources
         if ($ShowProgress -eq $true) {
-            Write-Progress -Activity 'Check if resources need to be exported ...' -Id 1 -Status '3/10' -PercentComplete 30 -CurrentOperation 'Starting cluster, please wait ...'
+            Write-Progress -Activity 'Check if resources need to be exported..' -Id 1 -Status '3/10' -PercentComplete 30 -CurrentOperation 'Starting cluster, please wait..'
         }
+        
         $tpath = Get-TempPath
-        $exeFolder = Get-ClusterInstalledFolder
-        Export-ClusterResources -SkipResources:$SkipResources -PathResources $tpath -ExePath "$exeFolder\bin"
+        $currentExeFolder = "$(Get-ClusterInstalledFolder)\bin\exe"
+        Export-ClusterResources -SkipResources:$SkipResources -PathResources $tpath -ExePath $currentExeFolder
         if ($ShowProgress -eq $true) {
-            Write-Progress -Activity 'Backing up addons...' -Id 1 -Status '4/10' -PercentComplete 40 -CurrentOperation 'Backing up addons, please wait ...'
+            Write-Progress -Activity 'Backing up addons..' -Id 1 -Status '4/10' -PercentComplete 40 -CurrentOperation 'Backing up addons, please wait..'
         }
 
         # backup all addons
@@ -152,46 +147,49 @@ function Start-ClusterUpgrade {
 
         # uninstall of old cluster
         if ($ShowProgress -eq $true) {
-            Write-Progress -Activity 'Uninstall cluster...' -Id 1 -Status '5/10' -PercentComplete 40 -CurrentOperation 'Uninstalling cluster, please wait ...'
+            Write-Progress -Activity 'Uninstall cluster..' -Id 1 -Status '5/10' -PercentComplete 40 -CurrentOperation 'Uninstalling cluster, please wait..'
         }
         Invoke-ClusterUninstall -ShowLogs:$ShowLogs -DeleteFiles:$DeleteFiles
-        Get-Content $global:k2sLogFile -Encoding utf8 | Out-File $global:k2sLogFile -Encoding utf8
+        
+        $logFilePath = Get-LogFilePath
+        Get-Content $logFilePath -Encoding utf8 | Out-File $logFilePath -Encoding utf8
 
         Start-Sleep -s 1
 
         # install of new cluster
         if ($ShowProgress -eq $true) {
-            Write-Progress -Activity 'Install cluster...' -Id 1 -Status '6/10' -PercentComplete 50 -CurrentOperation 'Installing cluster, please wait ...'
+            Write-Progress -Activity 'Install cluster..' -Id 1 -Status '6/10' -PercentComplete 50 -CurrentOperation 'Installing cluster, please wait..'
         }
         Invoke-ClusterInstall -ShowLogs:$ShowLogs -Config $Config -Proxy $Proxy -DeleteFiles:$DeleteFiles -MasterVMMemory $memoryVM -MasterVMProcessorCount $coresVM -MasterDiskSize $storageVM
         Wait-ForAPIServer
 
         # restore addons
         if ($ShowProgress -eq $true) {
-            Write-Progress -Activity 'Apply not namespaced resources on cluster...' -Id 1 -Status '7/10' -PercentComplete 70 -CurrentOperation 'Apply not namespaced resources, please wait ...'
+            Write-Progress -Activity 'Apply not namespaced resources on cluster..' -Id 1 -Status '7/10' -PercentComplete 70 -CurrentOperation 'Apply not namespaced resources, please wait..'
         }
         Restore-Addons -BackupDir $addonsBackupPath
 
+        $exeFolder = Get-KubeToolsPath
         # import of resources
-        Import-NotNamespacedResources -FolderIn $tpath -ExePath "$global:KubernetesPath\bin"
+        Import-NotNamespacedResources -FolderIn $tpath -ExePath $exeFolder
         if ($ShowProgress -eq $true) {
-            Write-Progress -Activity 'Apply namespaced resources on cluster...' -Id 1 -Status '8/10' -PercentComplete 80 -CurrentOperation 'Apply namespaced resources, please wait ...'
+            Write-Progress -Activity 'Apply namespaced resources on cluster..' -Id 1 -Status '8/10' -PercentComplete 80 -CurrentOperation 'Apply namespaced resources, please wait..'
         }
-        Import-NamespacedResources -FolderIn $tpath -ExePath "$global:KubernetesPath\bin"
+        Import-NamespacedResources -FolderIn $tpath -ExePath $exeFolder
         if ($ShowProgress -eq $true) {
-            Write-Progress -Activity 'Restoring addons ...' -Id 1 -Status '9/10' -PercentComplete 90 -CurrentOperation 'Restoring addons, please wait ...'
+            Write-Progress -Activity 'Restoring addons..' -Id 1 -Status '9/10' -PercentComplete 90 -CurrentOperation 'Restoring addons, please wait..'
         }
 
         # show completion
         if ($ShowProgress -eq $true) {
-            Write-Progress -Activity 'Gathering executed upgrade information...' -Id 1 -Status '10/10' -PercentComplete 100 -CurrentOperation 'Upgrade successfully finished'
+            Write-Progress -Activity 'Gathering executed upgrade information..' -Id 1 -Status '10/10' -PercentComplete 100 -CurrentOperation 'Upgrade successfully finished'
         }
 
         # restore log files
         Restore-LogFile -LogFile $logFilePathBeforeUninstall
 
         # final message
-        Write-Log "Upgraded successfully to K2s version:$global:ProductVersion ($global:KubernetesPath)" -Console
+        Write-Log "Upgraded successfully to K2s version: $(Get-ProductVersion) ($(Get-KubePath))" -Console
 
         # info on env variables
         Write-RefreshEnvVariables
@@ -204,7 +202,7 @@ function Start-ClusterUpgrade {
     }
     finally {
         if ($ShowProgress -eq $true) {
-            Write-Progress -Activity 'Remove exported resources...' -Id 1 -Status '5/8' -PercentComplete 50 -CurrentOperation 'Remove exported resources, please wait ...'
+            Write-Progress -Activity 'Remove exported resources..' -Id 1 -Status '5/8' -PercentComplete 50 -CurrentOperation 'Remove exported resources, please wait..'
         }
         # remove temp cluster resources
         Remove-ExportedClusterResources -PathResources $tpath

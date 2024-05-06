@@ -3,7 +3,7 @@
 
 $vmModule = "$PSScriptRoot\..\..\k2s.node.module\linuxnode\vm\vm.module.psm1"
 $setupInfoModule = "$PSScriptRoot\..\setupinfo\setupinfo.module.psm1"
-$runningStateModule = "$PSScriptRoot\..\runningstate\runningstate.v2.module.psm1"
+$runningStateModule = "$PSScriptRoot\..\runningstate\runningstate.module.psm1"
 $k8sApiModule = "$PSScriptRoot/../k8s-api/k8s-api.module.psm1"
 $infraModule = "$PSScriptRoot/../../k2s.infra.module/k2s.infra.module.psm1"
 
@@ -60,7 +60,7 @@ function Get-Status {
         Write-Progress -Activity 'Gathering status information...' -Id 1 -Status '1/4' -PercentComplete 25 -CurrentOperation 'Determining running state'
     }
 
-    $status = @{RunningState = (Get-RunningState $setupInfo.Name) }
+    $status = @{RunningState = (Get-RunningState -SetupName $setupInfo.Name) }
 
     if ($status.RunningState.IsRunning -ne $true) {
         Write-Log "[$script::$function] cluster not running, returning"

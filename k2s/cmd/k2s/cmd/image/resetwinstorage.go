@@ -121,7 +121,7 @@ func resetWinStorage(cmd *cobra.Command, args []string) error {
 }
 
 func buildResetPsCmd(cmd *cobra.Command) (psCmd string, params []string, err error) {
-	psCmd = utils.FormatScriptFilePath(utils.InstallDir() + "\\smallsetup\\helpers\\ResetWinContainerStorage.ps1")
+	psCmd = utils.FormatScriptFilePath(utils.InstallDir() + `\lib\scripts\k2s\image\ResetWinContainerStorage.ps1`)
 
 	force, err := strconv.ParseBool(cmd.Flags().Lookup(forceFlag).Value.String())
 	if err != nil {
