@@ -48,21 +48,21 @@ SPDX-License-Identifier: MIT
   <span style="color:orange;font-size:medium">**⚠**</span> For installing in *WSL* mode, add the **Microsoft-Windows-Subsystem-Linux** feature to the prior command.
 
 ## Introduction
-The K2s setup provides a variety of options, depending on the way K2s was acquired (online/offline, see [Get K2s](../K8s_Get-k2s.md)) and the desired setup type (see [K2s Variants](../../README.md)).
+The K2s setup provides a variety of options, depending on the way K2s was acquired (online/offline, see [Get K2s](../K8s_Get-K2s.md)) and the desired setup type (see [K2s Variants](../../README.md)).
 
 The *k2s* CLI tool provides an extensive help for all available commands and parameters/flags:
 ```
-<installation folder>\k2s.exe -h
+<installation folder>.\k2s.exe -h
 ```
 
 To specifically check the install options, run:
 ```
-<installation folder>\k2s.exe install -h
+<installation folder>.\k2s.exe install -h
 ```
 
  <span style="color:orange;font-size:medium">**⚠**</span> By default, the installation assumes 6 CPU cores to be available on the host system. If less cores are available, reduce the number of virtual cores used by K2s according to the actual amount, e.g. when 4 cores are available, assign max. 4 virtual cores to K2s:
   ```shell 
-  <installation folder>\k2s.exe install --master-cpus 4
+  <installation folder>.\k2s.exe install --master-cpus 4
   ```
 
 > More information regarding *online/offline installation* can be found [here](../offlineinstallation/KubemasterOfflineInstallation.png).
@@ -72,11 +72,11 @@ Instead of assembling many command line parameters/flags to customize the instal
 ## Variant 1: Installing K2s Setup with Defaults (aka. Host Variant)
 ### Offline
 ```shell
-<installation folder>\k2s.exe install
+<installation folder>.\k2s.exe install
 ```
 ### Online
 ```shell
-<installation folder>\k2s.exe install [-d] [-f]
+<installation folder>.\k2s.exe install [-d] [-f]
 ```
 The option `-d` deletes the files needed for an offline installation on the disk drive after the installation is done, otherwise they are kept.
 
@@ -86,26 +86,26 @@ The option `-f` forces the online installation. This option has to be used if th
 Use the following flag in order to use WSL2 for hosting of KubeMaster Linux node instead of Hyper-V:
 
 ```shell
-<installation folder>\k2s.exe install --wsl
+<installation folder>.\k2s.exe install --wsl
 ```
 
 ## Variant 2: Installing K2s Setup in multiple VMs on your machine
 To use a dedicated Windows VM as worker node instead of the Windows host, the following command would install effectively two VMs in Hyper-V (Windows worker node and Linux control-plane/worker node).
 
 ```
-<installation folder>\k2s install -t multi-vm
+<installation folder>.\k2s install -t multi-vm
 ```
 
 Use the following flag in order to use WSL2 for hosting of KubeMaster Linux node instead of Hyper-V:
 
 ```shell
-<installation folder>\k2s install -t multi-vm --wsl
+<installation folder>.\k2s install -t multi-vm --wsl
 ```
 
 ## Variant 3: Build Only Setup 
 To build and test containers without a K8s cluster, see [Build Only Setup](../K8s_BuildOnly.md).
 
-> This variant is available both online or offline (see [Variant 1](#variant-1-installing-small-k8s-setup-with-defaults-aka-host-variant)).
+> This variant is available both online or offline (see [Variant 1](#variant-1-installing-k2s-setup-with-defaults-aka-host-variant)).
 
 ## Installing Using Config Files
 The `k2s install` command accepts a config file parameter pointing to a YAML config file containing all install parameters like node resource parameters like (e.g. CPU, RAM or HDD size).
@@ -117,7 +117,7 @@ k2s install (-c|--config) \<path-to-config-file\>
 
 Example:
 ```sh
-<installation folder>\k2s.exe install -c c:\temp\my_config.yaml
+<installation folder>.\k2s.exe install -c c:\temp\my_config.yaml
 ```
 
 # Assignment of cluster IP addresses for Services:
@@ -135,8 +135,8 @@ clusterIP: 172.21.1.x
 # Uninstalling
 
 ```
-<installation folder>\k2s uninstall [-d]
+<installation folder>.\k2s uninstall [-d]
 ```
 The option `-d` makes possible to delete the files needed for an offline installation on the disk drive, otherwise they are kept.
 
-&larr;&nbsp;[Get K2s](../K8s_Get-k2s.md)&nbsp;&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;&nbsp;[Start/Stop K2s](./start-stop_cmd.md)&nbsp;&rarr;
+&larr;&nbsp;[Get K2s](../K8s_Get-K2s.md)&nbsp;&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;&nbsp;[Start/Stop K2s](./start-stop_cmd.md)&nbsp;&rarr;

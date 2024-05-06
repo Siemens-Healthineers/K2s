@@ -53,4 +53,4 @@ The *K2s* CLI tool provides an extensive help for all available commands and par
 C:\myFolder>.\k2s -h
 ```
 
-&larr;&nbsp;[Home](../README.md)&nbsp;&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;&nbsp;[Install K2s](./k2scli/install-uninstall_cmd.md#installing-small-k8s-setup-natively)&nbsp;&rarr;
+&larr;&nbsp;[Home](../README.md)&nbsp;&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;&nbsp;[Install K2s](./k2scli/install-uninstall_cmd.md#installing)&nbsp;&rarr;
