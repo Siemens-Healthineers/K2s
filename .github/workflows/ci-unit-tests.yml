@@ -15,6 +15,7 @@ on:
       - 'doc/**'
       - 'k2s.exe'
       - '*.md'
+      - '.github/ISSUE_TEMPLATE/**'
   pull_request:
     branches:
       - "main"
@@ -24,6 +25,7 @@ on:
       - 'doc/**'
       - 'k2s.exe'
       - '*.md'
+      - '.github/ISSUE_TEMPLATE/**'
 
 env:
   GOVERSION: "1.21.5"
