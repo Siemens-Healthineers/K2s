@@ -48,7 +48,7 @@ SPDX-License-Identifier: MIT
   <span style="color:orange;font-size:medium">**⚠**</span> For installing in *WSL* mode, add the **Microsoft-Windows-Subsystem-Linux** feature to the prior command.
 
 ## Introduction
-The K2s setup provides a variety of options, depending on the way K2s was acquired (online/offline, see [Get K2s](../K8s_Get-k2s.md)) and the desired setup type (see [K2s Variants](../../README.md)).
+The K2s setup provides a variety of options, depending on the way K2s was acquired (online/offline, see [Get K2s](../K8s_Get-K2s.md)) and the desired setup type (see [K2s Variants](../../README.md)).
 
 The *k2s* CLI tool provides an extensive help for all available commands and parameters/flags:
 ```
@@ -139,4 +139,4 @@ clusterIP: 172.21.1.x
 ```
 The option `-d` makes possible to delete the files needed for an offline installation on the disk drive, otherwise they are kept.
 
-&larr;&nbsp;[Get K2s](../K8s_Get-k2s.md)&nbsp;&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;&nbsp;[Start/Stop K2s](./start-stop_cmd.md)&nbsp;&rarr;
+&larr;&nbsp;[Get K2s](../K8s_Get-K2s.md)&nbsp;&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;&nbsp;[Start/Stop K2s](./start-stop_cmd.md)&nbsp;&rarr;
