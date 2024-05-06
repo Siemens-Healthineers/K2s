@@ -22,7 +22,7 @@ Param (
 )
 $clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
-$addonsModule = "$PSScriptRoot\..\addons.v2.module.psm1"
+$addonsModule = "$PSScriptRoot\..\addons.module.psm1"
 
 Import-Module $clusterModule, $infraModule, $addonsModule
 
@@ -41,7 +41,7 @@ if ($systemError) {
     exit 1
 }
 
-if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'nginx-gateway', '--ignore-not-found').Output -or (Test-IsAddonEnabled -Name 'gateway-nginx') -ne $true) {
+if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'nginx-gateway', '--ignore-not-found').Output -and (Test-IsAddonEnabled -Name 'gateway-nginx') -ne $true) {
     $errMsg = "Addon 'gateway-nginx' is already disabled, nothing to do."
 
     if ($EncodeStructuredOutput -eq $true) {

@@ -4,17 +4,11 @@
 
 #Requires -RunAsAdministrator
 
-$clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
-$vmNodeModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.node.module/vmnode/vmnode.module.psm1"
-$linuxNodeModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.node.module/linuxnode/vm/vm.module.psm1"
+$clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
+$addonsModule = "$PSScriptRoot\..\addons.module.psm1"
 
-Import-Module $clusterModule, $infraModule, $vmNodeModule, $linuxNodeModule
-
-<#
-.SYNOPSIS
-Contains common methods for installing and uninstalling Kubernetes Dashboard UI
-#>
+Import-Module $infraModule, $clusterModule, $addonsModule
 
 <#
 .DESCRIPTION
@@ -45,9 +39,11 @@ function Get-DashboardTraefikConfig {
 Determines if Nginx ingress controller is deployed in the cluster
 #>
 function Test-NginxIngressControllerAvailability {
-    $existingServices = (Invoke-Kubectl -Params 'get', 'service', '-n', 'ingress-nginx', '-o', 'yaml').Output
- 
-    return ("$existingServices" -match '.*ingress-nginx-controller.*') 
+    $existingServices = (Invoke-Kubectl -Params 'get', 'service', '-n', 'ingress-nginx', '-o', 'yaml').Output 
+    if ("$existingServices" -match '.*ingress-nginx-controller.*') {
+        return $true
+    }
+    return $false
 }
 
 <#
@@ -56,8 +52,10 @@ Determines if Traefik ingress controller is deployed in the cluster
 #>
 function Test-TraefikIngressControllerAvailability {
     $existingServices = (Invoke-Kubectl -Params 'get', 'service', '-n', 'traefik', '-o', 'yaml').Output
-    
-    return ("$existingServices" -match '.*traefik.*') 
+    if ("$existingServices" -match '.*traefik.*') {
+        return $true
+    }
+    return $false
 }
 
 <#
@@ -108,40 +106,6 @@ function Enable-MetricsServer {
 
 <#
 .DESCRIPTION
-Adds an entry in hosts file for k2s-dashboard.local in both the windows and linux nodes
-#>
-function Add-DashboardHostEntry {
-    Write-Log 'Configuring nodes access' -Console
-    $dashboardIPWithIngress = Get-ConfiguredIPControlPlane
-    $dashboardHost = 'k2s-dashboard.local'
-
-    # Enable dashboard access on linux node
-    $hostEntry = $($dashboardIPWithIngress + ' ' + $dashboardHost)
-    Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "grep -qxF `'$hostEntry`' /etc/hosts || echo $hostEntry | sudo tee -a /etc/hosts"
-
-    # In case of multi-vm, enable access on windows node
-    $setupInfo = Get-SetupInfo
-    if ($setupInfo.Name -eq 'MultiVMK8s' -and $setupInfo.LinuxOnly -ne $true) {
-        $session = Open-RemoteSessionViaSSHKey (Get-DefaultWinVMName) (Get-DefaultWinVMKey)
-
-        Invoke-Command -Session $session {
-            Set-Location "$env:SystemDrive\k"
-            Set-ExecutionPolicy Bypass -Force -ErrorAction Stop
-
-            if (!$(Get-Content 'C:\Windows\System32\drivers\etc\hosts' | % { $_ -match $using:hostEntry }).Contains($true)) {
-                Add-Content 'C:\Windows\System32\drivers\etc\hosts' $using:hostEntry
-            }
-        }
-    }
-
-    # finally, add entry in the host to be enable access
-    if (!$(Get-Content 'C:\Windows\System32\drivers\etc\hosts' | % { $_ -match $hostEntry }).Contains($true)) {
-        Add-Content 'C:\Windows\System32\drivers\etc\hosts' $hostEntry
-    }
-}
-
-<#
-.DESCRIPTION
 Deploys the ingress manifest for dashboard based on the ingress controller detected in the cluster.
 #>
 function Enable-ExternalAccessIfIngressControllerIsFound {
@@ -153,7 +117,7 @@ function Enable-ExternalAccessIfIngressControllerIsFound {
         Write-Log 'Deploying traefik ingress for dashboard ...' -Console
         Deploy-DashboardIngressForTraefik
     }
-    Add-DashboardHostEntry
+    Add-HostEntries -Url 'k2s-dashboard.local'
 }
 
 <#
@@ -170,7 +134,7 @@ function Write-UsageForUser {
  or you can install them on your own. 
  Enable ingress controller via k2s cli
  eg. k2s addons enable ingress-nginx
- Once the ingress controller is running in the cluster, run the command to enable dashboard again.
+ Once the ingress controller is running in the cluster, run the command to enable dashboard again (disable it first if dashboard addon was already enabled).
  k2s addons enable dashboard
  the Kubernetes Dashboard will be accessible on the following URL: https://k2s-dashboard.local
 

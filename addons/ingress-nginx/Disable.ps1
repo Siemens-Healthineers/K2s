@@ -26,7 +26,7 @@ Param(
 )
 $clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
-$addonsModule = "$PSScriptRoot\..\addons.v2.module.psm1"
+$addonsModule = "$PSScriptRoot\..\addons.module.psm1"
 $commonModule = "$PSScriptRoot\common.module.psm1"
 
 Import-Module $clusterModule, $infraModule, $addonsModule, $commonModule
@@ -48,7 +48,7 @@ if ($systemError) {
 
 Write-Log 'Check whether ingress-nginx addon is already disabled'
 
-if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'ingress-nginx', '--ignore-not-found').Output -or (Test-IsAddonEnabled -Name 'ingress-nginx') -ne $true) {
+if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'ingress-nginx', '--ignore-not-found').Output -and (Test-IsAddonEnabled -Name 'ingress-nginx') -ne $true) {
     $errMsg = "Addon 'ingress-nginx' is already disabled, nothing to do."
 
     if ($EncodeStructuredOutput -eq $true) {

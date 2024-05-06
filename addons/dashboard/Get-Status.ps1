@@ -4,13 +4,11 @@
 
 #Requires -RunAsAdministrator
 
-$k8sApiModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k8s-api/k8s-api.module.psm1"
+Import-Module "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k8s-api/k8s-api.module.psm1"
 
-Import-Module $k8sApiModule
+$success = (Invoke-Kubectl -Params 'wait', '--timeout=5s', '--for=condition=Available', '-n', 'kubernetes-dashboard', 'deployment/dashboard-metrics-scraper').Success
 
-Invoke-Kubectl -Params 'wait', '--timeout=5s', '--for=condition=Available', '-n', 'kubernetes-dashboard', 'deployment/dashboard-metrics-scraper' | Out-Null
-
-$isDashboardMetricsScaperRunningProp = @{Name = 'IsDashboardMetricsScaperRunning'; Value = $?; Okay = $? }
+$isDashboardMetricsScaperRunningProp = @{Name = 'IsDashboardMetricsScaperRunning'; Value = $success; Okay = $success }
 if ($isDashboardMetricsScaperRunningProp.Value -eq $true) {
     $isDashboardMetricsScaperRunningProp.Message = 'The metrics scraper is working'
 }
@@ -18,9 +16,9 @@ else {
     $isDashboardMetricsScaperRunningProp.Message = "The metrics scraper is not working. Try restarting the cluster with 'k2s start' or disable and re-enable the addon with 'k2s addons disable dashboard' and 'k2s addons enable dashboard'"
 } 
 
-Invoke-Kubectl -Params 'wait', '--timeout=5s', '--for=condition=Available', '-n', 'kubernetes-dashboard', 'deployment/kubernetes-dashboard' | Out-Null
+$success = (Invoke-Kubectl -Params 'wait', '--timeout=5s', '--for=condition=Available', '-n', 'kubernetes-dashboard', 'deployment/kubernetes-dashboard').Success
 
-$isDashboardRunningProp = @{Name = 'IsDashboardRunning'; Value = $?; Okay = $? }
+$isDashboardRunningProp = @{Name = 'IsDashboardRunning'; Value = $success; Okay = $success }
 if ($isDashboardRunningProp.Value -eq $true) {
     $isDashboardRunningProp.Message = 'The dashboard is working'
 }

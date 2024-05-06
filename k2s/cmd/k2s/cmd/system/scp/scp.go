@@ -31,6 +31,9 @@ const (
 	mShort = "Copy from local machine to KubeMaster"
 	wShort = "Copy from local machine to WinNode VM in multi-vm setup"
 
+	scriptRelPathToScpMaster = "\\lib\\scripts\\k2s\\system\\scp\\scpm.ps1"
+	scriptRelPathToScpWorker = "\\lib\\scripts\\multivm\\system\\scp\\scpw.ps1"
+
 	mExample = `
   # Copy a yaml manifest from local machine to KubeMaster
   k2s system scp m C:\tmp\manifest.yaml /tmp
@@ -53,17 +56,17 @@ var ScpCmd = &cobra.Command{
 }
 
 func init() {
-	ScpCmd.AddCommand(buildScpSubCmd("m", mShort, mExample, "scpm.ps1", mReverseShort))
-	ScpCmd.AddCommand(buildScpSubCmd("w", wShort, wExample, "scpw.ps1", wReverseShort))
+	ScpCmd.AddCommand(buildScpSubCmd("m", mShort, mExample, scriptRelPathToScpMaster, mReverseShort))
+	ScpCmd.AddCommand(buildScpSubCmd("w", wShort, wExample, scriptRelPathToScpWorker, wReverseShort))
 }
 
-func buildScpSubCmd(useShort, short, example, scriptName, reverseShort string) *cobra.Command {
+func buildScpSubCmd(useShort, short, example, scriptPath, reverseShort string) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     fmt.Sprintf("%s SOURCE TARGET", useShort),
 		Short:   short,
 		Example: example,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runScpCmd(cmd, args, scriptName)
+			return runScpCmd(cmd, args, scriptPath)
 		},
 	}
 
@@ -74,7 +77,7 @@ func buildScpSubCmd(useShort, short, example, scriptName, reverseShort string) *
 	return cmd
 }
 
-func runScpCmd(cmd *cobra.Command, args []string, scriptName string) error {
+func runScpCmd(cmd *cobra.Command, args []string, scriptPath string) error {
 	if len(args) == 0 || args[0] == "" {
 		return errors.New("no source path specified")
 	}
@@ -83,7 +86,7 @@ func runScpCmd(cmd *cobra.Command, args []string, scriptName string) error {
 		return errors.New("no target path specified")
 	}
 
-	psCmd, params, err := buildScpPsCmd(cmd, args, scriptName)
+	psCmd, params, err := buildScpPsCmd(cmd, args, scriptPath)
 	if err != nil {
 		return err
 	}
@@ -95,6 +98,9 @@ func runScpCmd(cmd *cobra.Command, args []string, scriptName string) error {
 	configDir := cmd.Context().Value(common.ContextKeyConfigDir).(string)
 	config, err := setupinfo.LoadConfig(configDir)
 	if err != nil {
+		if errors.Is(err, setupinfo.ErrSystemInCorruptedState) {
+			return common.CreateSystemInCorruptedStateCmdFailure()
+		}
 		if errors.Is(err, setupinfo.ErrSystemNotInstalled) {
 			return common.CreateSystemNotInstalledCmdFailure()
 		}
@@ -122,13 +128,13 @@ func runScpCmd(cmd *cobra.Command, args []string, scriptName string) error {
 	return nil
 }
 
-func buildScpPsCmd(cmd *cobra.Command, args []string, scriptName string) (psCmd string, params []string, err error) {
+func buildScpPsCmd(cmd *cobra.Command, args []string, scriptPath string) (psCmd string, params []string, err error) {
 	reverse, err := strconv.ParseBool(cmd.Flags().Lookup(reverseFlag).Value.String())
 	if err != nil {
 		return "", nil, err
 	}
 
-	psCmd = utils.FormatScriptFilePath(utils.InstallDir() + "\\smallsetup\\helpers\\" + scriptName)
+	psCmd = utils.FormatScriptFilePath(utils.InstallDir() + scriptPath)
 
 	params = append(params, " -Source "+utils.EscapeWithSingleQuotes(args[0]), " -Target "+utils.EscapeWithSingleQuotes(args[1]))
 

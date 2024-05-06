@@ -146,11 +146,6 @@ function Invoke-CmdOnControlPlaneViaUserAndPwd(
     While ($Stoploop -eq $false)
 }
 
-function Invoke-TerminalOnControlPanelViaSSHKey {
-    Write-Log 'Invoking ssh terminal on Control Plane VM.'
-    ssh.exe -o StrictHostKeyChecking=no -i $key $remoteUser
-}
-
 function Get-IsControlPlaneRunning {
     $masterVmState = (Get-VM -Name $nameControlPlane).State
     return $masterVmState -eq [Microsoft.HyperV.PowerShell.VMState]::Running
@@ -161,9 +156,24 @@ function Copy-FromControlPlaneViaSSHKey($Source, $Target,
     [switch]$IgnoreErrors = $false) {
     Write-Log "copy: $Source to: $Target IgnoreErrors: $IgnoreErrors"
     $error.Clear()
-    scp.exe -o StrictHostKeyChecking=no -r -i $key "${remoteUser}:$Source" "$Target" 2>&1 | ForEach-Object { "$_" }
 
-    if ($error.count -gt 0 -and !$IgnoreErrors) { throw "Executing $CmdToExecute failed! " + $error }
+    $linuxSourceDirectory = $Source -replace "${remoteUser}:", ''
+    ssh.exe -n -o StrictHostKeyChecking=no -i $key $remoteUser "[ -d '$linuxSourceDirectory' ]"
+    if ($?) {
+        # is directory
+        Invoke-CmdOnControlPlaneViaSSHKey "sudo rm -rf /tmp/copy.tar"
+        $leaf = Split-Path $linuxSourceDirectory -Leaf
+        Invoke-CmdOnControlPlaneViaSSHKey "sudo tar -cf /tmp/copy.tar -C $linuxSourceDirectory ."
+        scp.exe -o StrictHostKeyChecking=no -i $key "${remoteUser}:/tmp/copy.tar" "$env:temp\copy.tar" 2>&1 | ForEach-Object { "$_" }
+        New-Item -Path "$Target\$leaf" -ItemType Directory | Out-Null
+        tar.exe -xf "$env:temp\copy.tar" -C "$Target\$leaf"
+        Invoke-CmdOnControlPlaneViaSSHKey "sudo rm -rf /tmp/copy.tar"
+        Remove-Item -Path "$env:temp\copy.tar" -Force -ErrorAction SilentlyContinue
+    } else {
+        scp.exe -o StrictHostKeyChecking=no -r -i $key "${remoteUser}:$Source" "$Target" 2>&1 | ForEach-Object { "$_" }
+    }
+
+    if ($error.Count -gt 0 -and !$IgnoreErrors) { throw "Copying $Source to $Target failed! " + $error }
 }
 
 function Copy-FromControlPlaneViaUserAndPwd($Source, $Target,
@@ -173,7 +183,7 @@ function Copy-FromControlPlaneViaUserAndPwd($Source, $Target,
     $error.Clear()
     echo yes | &"$scpExe" -ssh -4 -q -r -pw $remotePwd "${remoteUser}:$Source" "$Target" 2>&1 | ForEach-Object { "$_" }
 
-    if ($error.count -gt 0 -and !$IgnoreErrors) { throw "Executing $CmdToExecute failed! " + $error }
+    if ($error.Count -gt 0 -and !$IgnoreErrors) { throw "Copying $Source to $Target failed! " + $error }
 }
 
 function Copy-ToControlPlaneViaSSHKey($Source, $Target,
@@ -181,9 +191,23 @@ function Copy-ToControlPlaneViaSSHKey($Source, $Target,
     [switch]$IgnoreErrors = $false) {
     Write-Log "copy: $Source to: $Target IgnoreErrors: $IgnoreErrors"
     $error.Clear()
-    scp.exe -o StrictHostKeyChecking=no -r -i $key "$Source" "${remoteUser}:$Target" 2>&1 | ForEach-Object { "$_" }
-
-    if ($error.count -gt 0 -and !$IgnoreErrors) { throw "Executing $CmdToExecute failed! " + $error }
+    $leaf = Split-Path $Source -leaf
+    if ($(Test-Path $Source) -and (Get-Item $Source) -is [System.IO.DirectoryInfo] -and $leaf -ne "*") {
+        # is directory
+        Invoke-CmdOnControlPlaneViaSSHKey "sudo rm -rf /tmp/copy.tar"
+        $leaf = Split-Path $Source -Leaf
+        tar.exe -cf "$env:TEMP\copy.tar" -C $Source .
+        scp.exe -o StrictHostKeyChecking=no -i $key "$env:temp\copy.tar" "${remoteUser}:/tmp" 2>&1 | ForEach-Object { "$_" }
+        $targetDirectory = $Target -replace "${remoteUser}:", ''
+        Invoke-CmdOnControlPlaneViaSSHKey "mkdir -p $targetDirectory/$leaf"
+        Invoke-CmdOnControlPlaneViaSSHKey "tar -xf /tmp/copy.tar -C $targetDirectory/$leaf"
+        Invoke-CmdOnControlPlaneViaSSHKey "sudo rm -rf /tmp/copy.tar"
+        Remove-Item -Path "$env:temp\copy.tar" -Force -ErrorAction SilentlyContinue
+    } else {
+        scp.exe -o StrictHostKeyChecking=no -r -i $key "$Source" "${remoteUser}:$Target" 2>&1 | ForEach-Object { "$_" }
+    }
+ 
+    if ($error.Count -gt 0 -and !$IgnoreErrors) { throw "Copying $Source to $Target failed! " + $error }
 }
 
 function Copy-ToControlPlaneViaUserAndPwd($Source, $Target,
@@ -193,7 +217,7 @@ function Copy-ToControlPlaneViaUserAndPwd($Source, $Target,
     $error.Clear()
     echo yes | &"$scpExe" -ssh -4 -q -r -pw $remotePwd "$Source" "${remoteUser}:$Target" 2>&1 | ForEach-Object { "$_" }
 
-    if ($error.count -gt 0 -and !$IgnoreErrors) { throw "Executing $CmdToExecute failed! " + $error }
+    if ($error.Count -gt 0 -and !$IgnoreErrors) { throw "Copying $Source to $Target failed! " + $error }
 }
 
 function Test-ControlPlanePrerequisites(

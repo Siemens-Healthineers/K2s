@@ -2,32 +2,27 @@
 #
 # SPDX-License-Identifier: MIT
 
-&$PSScriptRoot\..\..\..\smallsetup\common\GlobalVariables.ps1
-. $PSScriptRoot\..\..\..\smallsetup\common\GlobalFunctions.ps1
+$infraModule = "$PSScriptRoot/../../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
+$clusterModule = "$PSScriptRoot/../../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
+$nodeModule = "$PSScriptRoot/../../../lib/modules/k2s/k2s.node.module/k2s.node.module.psm1"
+$addonsModule = "$PSScriptRoot/../../addons.module.psm1"
+$passwordModule = "$PSScriptRoot/password.module.psm1"
 
-$clusterModule = "$PSScriptRoot\..\..\..\lib\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1"
-$addonsModule = "$PSScriptRoot\..\..\Addons.module.psm1"
-$runningStateModule = "$PSScriptRoot\..\..\..\smallsetup\status\RunningState.module.psm1"
-$logModule = "$PSScriptRoot\..\..\..\smallsetup\ps-modules\log\log.module.psm1"
-$errorsModule = "$PSScriptRoot\..\..\..\lib\modules\k2s\k2s.infra.module\errors\errors.module.psm1"
-
-
-Import-Module $addonsModule, $clusterModule, $runningStateModule, $logModule, $errorsModule
+Import-Module $clusterModule, $infraModule, $nodeModule, $addonsModule, $passwordModule
 
 $AddonName = 'smb-share'
 $localHooksDir = "$PSScriptRoot\..\hooks"
-$hookFileNames = 'Setup-SmbShare.AfterStart.ps1', 'Setup-SmbShare.AfterUninstall.ps1', 'Setup-SmbShare.Backup.ps1', 'Setup-SmbShare.Restore.ps1'
-$hookFilePaths = $hookFileNames | ForEach-Object { return "$localHooksDir\$_" }
-$logFile = "$($global:SystemDriveLetter):\var\log\ssh_smbSetup.log"
-$linuxLocalPath = $global:ShareMountPointInVm
-$windowsLocalPath = $global:ShareMountPoint
+$logFile = "$(Get-SystemDriveLetter):\var\log\ssh_smbSetup.log"
+$linuxLocalPath = Get-LinuxLocalSharePath
+$windowsLocalPath = Get-WindowsLocalSharePath
 $linuxShareName = 'k8sshare' # exposed by Linux VM
-$windowsShareName = $global:ShareSubdir # visible from VMs
-$linuxHostRemotePath = "\\$global:IP_Master\$linuxShareName"
-$windowsHostRemotePath = "\\$global:IP_NextHop\$windowsShareName"
+$windowsShareName = (Split-Path -Path $windowsLocalPath -NoQualifier).TrimStart('\') # visible from VMs
+$windowsSharePath = Split-Path -Path $windowsLocalPath -Qualifier
+$linuxHostRemotePath = "\\$(Get-ConfiguredIPControlPlane)\$linuxShareName"
+$windowsHostRemotePath = "\\$(Get-ConfiguredKubeSwitchIP)\$windowsShareName"
 $smbUserName = 'remotesmb'
 $smbFullUserNameWin = "$env:computername\$smbUserName"
-$smbFullUserNameLinux = "kubemaster\$smbUserName"
+$smbFullUserNameLinux = "$(Get-ConfigControlPlaneNodeHostname)\$smbUserName"
 $smbPw = ConvertTo-SecureString $(Get-RandomPassword 25) -AsPlainText -Force
 $creds = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $smbFullUserNameLinux, $smbPw
 $smbCredsName = 'smbcreds'
@@ -84,18 +79,18 @@ function Test-IsSmbShareWorking {
     }
 
     # validate setup type for SMB share as well
-    if ($setupInfo.Name -ne $global:SetupType_k2s -and $setupInfo.Name -ne $global:SetupType_MultiVMK8s) {
+    if ($setupInfo.Name -ne 'k2s' -and $setupInfo.Name -ne 'MultiVMK8s') {
         throw "Cannot determine if SMB share is working for invalid setup type '$($setupInfo.Name)'"
     }
 
     Test-SharedFolderMountOnWinNode
 
-    if ($setupInfo.Name -ne $global:SetupType_MultiVMK8s -or $setupInfo.LinuxOnly -eq $true) {
+    if ($setupInfo.Name -ne 'MultiVMK8s' -or $setupInfo.LinuxOnly -eq $true) {
         $script:SmbShareWorking = $script:Success -eq $true
         return
     }
 
-    $session = Open-RemoteSessionViaSSHKey $global:Admin_WinNode $global:WindowsVMKey -NoLog
+    $session = Open-DefaultWinVMRemoteSessionViaSSHKey
 
     $isWinVmSmbShareWorking = (Get-IsWinVmSmbShareWorking -Session $session)
 
@@ -113,9 +108,7 @@ function Get-IsWinVmSmbShareWorking {
 
         Import-Module "$env:SystemDrive\k\addons\smb-share\module\Smb-share.module.psm1" | Out-Null
 
-        $isWorking = Test-SharedFolderMountOnWinNodeSilently
-
-        return $isWorking
+        return (Test-SharedFolderMountOnWinNodeSilently)
     }
 
     return $isWinVmSmbShareWorking
@@ -141,7 +134,7 @@ function New-SmbHostOnWindowsIfNotExisting {
     Write-Log "Setting up '$windowsShareName' SMB host on Windows.."
 
     New-LocalUser -Name $smbUserName -Password $smbPw -Description 'A K2s user account for SMB access' -ErrorAction Stop | Out-Null # Description max. length seems to be 48 chars ?!
-    New-Item -Path "$global:ShareDrive\" -Name $global:ShareSubdir -ItemType 'directory' -ErrorAction SilentlyContinue | Out-Null
+    New-Item -Path "$windowsSharePath\" -Name $windowsShareName -ItemType 'directory' -ErrorAction SilentlyContinue | Out-Null
     New-SmbShare -Name $windowsShareName -Path $windowsLocalPath -FullAccess $smbFullUserNameWin -ErrorAction Stop | Out-Null
     Add-FirewallExceptions
 
@@ -179,27 +172,28 @@ function New-SmbHostOnLinuxIfNotExisting {
     Write-Log 'Setting up SMB host on Linux (Samba Share)..'
 
     # restart dnsmsq in order to reconnect to dnsproxy
-    ExecCmdMaster 'sudo systemctl restart dnsmasq'
+    Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo systemctl restart dnsmasq'
 
     # download samba and rest
-    ExecCmdMaster 'sudo DEBIAN_FRONTEND=noninteractive apt-get update -qq --yes'
+    Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo DEBIAN_FRONTEND=noninteractive apt-get update -qq --yes'
+
     Install-DebianPackages -addon 'smb-share' -packages 'cifs-utils', 'samba'
-    ExecCmdMaster "sudo adduser --no-create-home --disabled-password --disabled-login --gecos '' $smbUserName"
-    ExecCmdMaster "(echo '$($creds.GetNetworkCredential().Password)'; echo '$($creds.GetNetworkCredential().Password)') | sudo smbpasswd -s -a $smbUserName" `
-        -CmdLogReplacement "(echo '<password redacted>'; echo '<password redacted>') | sudo smbpasswd -s -a $smbUserName"
-    ExecCmdMaster "sudo smbpasswd -e $smbUserName"
-    ExecCmdMaster "sudo mkdir -p /srv/samba/$linuxShareName"
-    ExecCmdMaster "sudo chown nobody:nogroup /srv/samba/$linuxShareName/"
-    ExecCmdMaster "sudo chmod 0777 /srv/samba/$linuxShareName/"
-    ExecCmdMaster "sudo sh -c 'echo [$linuxShareName] >> /etc/samba/smb.conf'"
-    ExecCmdMaster "sudo sh -c 'echo comment = K8s share for k8s-smb-share >> /etc/samba/smb.conf'"
-    ExecCmdMaster "sudo sh -c 'echo path = /srv/samba/$linuxShareName >> /etc/samba/smb.conf'"
-    ExecCmdMaster "sudo sh -c 'echo browsable = yes >> /etc/samba/smb.conf'"
-    ExecCmdMaster "sudo sh -c 'echo guest ok = yes >> /etc/samba/smb.conf'"
-    ExecCmdMaster "sudo sh -c 'echo read only = no >> /etc/samba/smb.conf'"
-    ExecCmdMaster "sudo sh -c 'echo create mask = 0777 >> /etc/samba/smb.conf'"
-    ExecCmdMaster "sudo sh -c 'echo directory mask = 0777 >> /etc/samba/smb.conf'"
-    ExecCmdMaster 'sudo systemctl restart smbd.service nmbd.service'
+
+    Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo adduser --no-create-home --disabled-password --disabled-login --gecos '' $smbUserName"
+    Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "(echo '$($creds.GetNetworkCredential().Password)'; echo '$($creds.GetNetworkCredential().Password)') | sudo smbpasswd -s -a $smbUserName" -NoLog
+    Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo smbpasswd -e $smbUserName"
+    Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo mkdir -p /srv/samba/$linuxShareName"
+    Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo chown nobody:nogroup /srv/samba/$linuxShareName/"
+    Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo chmod 0777 /srv/samba/$linuxShareName/"
+    Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo sh -c 'echo [$linuxShareName] >> /etc/samba/smb.conf'"
+    Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo sh -c 'echo comment = K8s share for k8s-smb-share >> /etc/samba/smb.conf'"
+    Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo sh -c 'echo path = /srv/samba/$linuxShareName >> /etc/samba/smb.conf'"
+    Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo sh -c 'echo browsable = yes >> /etc/samba/smb.conf'"
+    Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo sh -c 'echo guest ok = yes >> /etc/samba/smb.conf'"
+    Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo sh -c 'echo read only = no >> /etc/samba/smb.conf'"
+    Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo sh -c 'echo create mask = 0777 >> /etc/samba/smb.conf'"
+    Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo sh -c 'echo directory mask = 0777 >> /etc/samba/smb.conf'"
+    Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo systemctl restart smbd.service nmbd.service'
 
     Write-Log 'SMB host on Linux (Samba Share) set up.'
 }
@@ -207,13 +201,13 @@ function New-SmbHostOnLinuxIfNotExisting {
 function Remove-SmbHostOnLinux {
     Write-Log 'Removing SMB host on Linux (Samba Share)..'
 
-    ExecCmdMaster "sudo rm -rf /srv/samba/$linuxShareName"
-    ExecCmdMaster "sudo smbpasswd -x $smbUserName"    
-    ExecCmdMaster 'sudo DEBIAN_FRONTEND=noninteractive apt-get purge cifs-utils samba samba-* -qq -y'
-    ExecCmdMaster 'sudo DEBIAN_FRONTEND=noninteractive apt-get autoremove -qq -y'
-    ExecCmdMaster 'sudo rm -rf /var/cache/samba /run/samba /srv/samba /var/lib/samba /var/log/samba'
-    ExecCmdMaster "sudo deluser --force $smbUserName"
-    ExecCmdMaster 'sudo systemctl daemon-reload'
+    Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo rm -rf /srv/samba/$linuxShareName"
+    Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo smbpasswd -x $smbUserName"    
+    Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo DEBIAN_FRONTEND=noninteractive apt-get purge cifs-utils samba samba-* -qq -y'
+    Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo DEBIAN_FRONTEND=noninteractive apt-get autoremove -qq -y'
+    Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo rm -rf /var/cache/samba /run/samba /srv/samba /var/lib/samba /var/log/samba'
+    Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo deluser --force $smbUserName"
+    Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo systemctl daemon-reload'
 
     Write-Log 'SMB host on Linux (Samba Share) removed.'
 }
@@ -252,7 +246,7 @@ function Test-ForKnownSmbProblems {
 }
 
 function New-SharedFolderMountOnLinuxClient {
-    Write-Log "Mounting '$linuxLocalPath -> $global:IP_NextHop/$windowsShareName' on Linux.."
+    Write-Log "Mounting '$linuxLocalPath -> $windowsHostRemotePath' on Linux.."
     Remove-Item -Force -ErrorAction SilentlyContinue $logFile
 
     Write-Log '           Creating temporary mount script..'
@@ -269,7 +263,7 @@ function New-SharedFolderMountOnLinuxClient {
         sed -e /k8s-smb-share/d < /etc/fstab > $tempFstabFile
         # add the new line to fstab
         echo '             Adding line for $linuxLocalPath to /etc/fstab'
-        echo '//$global:IP_NextHop/$windowsShareName $linuxLocalPath cifs username=$smbUserName,password=$($creds.GetNetworkCredential().Password),rw,nobrl,soft,x-systemd.automount,file_mode=0666,dir_mode=0777,vers=3.0' | tee -a $tempFstabFile >/dev/null
+        echo '//$(Get-ConfiguredKubeSwitchIP)/$windowsShareName $linuxLocalPath cifs username=$smbUserName,password=$($creds.GetNetworkCredential().Password),rw,nobrl,soft,x-systemd.automount,file_mode=0666,dir_mode=0777,vers=3.0' | tee -a $tempFstabFile >/dev/null
         sudo sh -c "cat $tempFstabFile > /etc/fstab"
         sudo rm -f $tempFstabFile
         # immediately perform the mount
@@ -284,21 +278,20 @@ function New-SharedFolderMountOnLinuxClient {
     while ($true) {
         $i++
         # create the bash script, with \r characters removed (for Linux)
-        $tempMountScript = "$global:KubernetesPath\$tempMountOnLinuxClientScript"
+        $tempMountScript = "$(Get-KubePath)\$tempMountOnLinuxClientScript"
         Remove-Item $tempMountScript -ErrorAction Ignore
         $mountOnLinuxClientCmd | Out-File -Encoding ascii $tempMountScript
-        $target = "$global:Remote_Master" + ':/home/remote/'
-        Copy-FromToMaster -Source $tempMountScript -Target $target
+        Copy-ToControlPlaneViaSSHKey -Source $tempMountScript -Target '/home/remote/'
         Remove-Item $tempMountScript -ErrorAction Ignore
 
-        ExecCmdMaster "sudo rm -rf ~/$mountOnLinuxClientScript"
-        ExecCmdMaster "sed 's/\r//g' ~/$tempMountOnLinuxClientScript > ~/$mountOnLinuxClientScript"
-        ExecCmdMaster "sudo rm -rf ~/$tempMountOnLinuxClientScript"
-        ExecCmdMaster "sudo chown -R remote  /home/remote/$mountOnLinuxClientScript"
-        ExecCmdMaster "sudo chmod +x /home/remote/$mountOnLinuxClientScript"
+        Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo rm -rf ~/$mountOnLinuxClientScript"
+        Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sed 's/\r//g' ~/$tempMountOnLinuxClientScript > ~/$mountOnLinuxClientScript"
+        Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo rm -rf ~/$tempMountOnLinuxClientScript"
+        Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo chown -R remote  /home/remote/$mountOnLinuxClientScript"
+        Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo chmod +x /home/remote/$mountOnLinuxClientScript"
 
         Write-Log '           Executing script inside Linux VM as remote user...'
-        $sshLog = (ssh.exe -n '-vv' -E $logFile -o StrictHostKeyChecking=no -i $global:LinuxVMKey $global:Remote_Master "sudo su -s /bin/bash -c '~/$mountOnLinuxClientScript' remote") *>&1
+        $sshLog = (ssh.exe -n '-vv' -E $logFile -o StrictHostKeyChecking=no -i $(Get-SSHKeyControlPlane) $(Get-ControlPlaneRemoteUser) "sudo su -s /bin/bash -c '~/$mountOnLinuxClientScript' remote") *>&1
         Write-Log $sshLog
 
         if ($LASTEXITCODE -eq 0) {
@@ -310,7 +303,7 @@ function New-SharedFolderMountOnLinuxClient {
 
             if ( $script:HasIssues -eq $true ) {
                 Write-Log '              Executing script to fix policy issue...'
-                & "$global:KubernetesPath\smallsetup\helpers\SetNetworkSharePolicy.ps1"
+                & "$PSScriptRoot\SetNetworkSharePolicy.ps1"
             }
         }
         if ($i -ge 6) {
@@ -323,7 +316,7 @@ function New-SharedFolderMountOnLinuxClient {
 }
 
 function Remove-SharedFolderMountOnLinuxClient {
-    Write-Log "Unmounting '$linuxLocalPath -> $global:IP_NextHop/$windowsShareName' on Linux.."
+    Write-Log "Unmounting '$linuxLocalPath -> $windowsHostRemotePath' on Linux.."
     Remove-Item -Force -ErrorAction SilentlyContinue $logFile
 
     Write-Log 'Creating temporary unmount script..'
@@ -344,24 +337,23 @@ function Remove-SharedFolderMountOnLinuxClient {
 "@
 
     # create the bash script, with \r characters removed (for Linux)
-    $tempUnmountScript = "$global:KubernetesPath\$tempUnmountOnLinuxClientScript"
+    $tempUnmountScript = "$(Get-KubePath)\$tempUnmountOnLinuxClientScript"
     Remove-Item $tempUnmountScript -ErrorAction Ignore
     $unmountOnLinuxClientCmd | Out-File -Encoding ascii $tempUnmountScript
-    $target = "$global:Remote_Master" + ':/home/remote/'
-    Copy-FromToMaster -Source $tempUnmountScript -Target $target
+    Copy-ToControlPlaneViaSSHKey -Source $tempUnmountScript -Target '/home/remote/'
     Remove-Item $tempUnmountScript -ErrorAction Ignore
 
-    ExecCmdMaster "sudo rm -rf ~/$unmountOnLinuxClientScript"
-    ExecCmdMaster "sed 's/\r//g' ~/$tempUnmountOnLinuxClientScript > ~/$unmountOnLinuxClientScript"
-    ExecCmdMaster "sudo rm -rf ~/$tempUnmountOnLinuxClientScript"
-    ExecCmdMaster "sudo chown -R remote  /home/remote/$unmountOnLinuxClientScript"
-    ExecCmdMaster "sudo chmod +x /home/remote/$unmountOnLinuxClientScript"
+    Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo rm -rf ~/$unmountOnLinuxClientScript"
+    Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sed 's/\r//g' ~/$tempUnmountOnLinuxClientScript > ~/$unmountOnLinuxClientScript"
+    Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo rm -rf ~/$tempUnmountOnLinuxClientScript"
+    Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo chown -R remote  /home/remote/$unmountOnLinuxClientScript"
+    Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo chmod +x /home/remote/$unmountOnLinuxClientScript"
 
     Write-Log '           Executing on client unmount script inside Linux VM as remote user...'
-    $sshLog = (ssh.exe -n '-vv' -E $logFile -o StrictHostKeyChecking=no -i $global:LinuxVMKey $global:Remote_Master "sudo su -s /bin/bash -c '~/$unmountOnLinuxClientScript' remote") *>&1
+    $sshLog = (ssh.exe -n '-vv' -E $logFile -o StrictHostKeyChecking=no -i $(Get-SSHKeyControlPlane) $(Get-ControlPlaneRemoteUser) "sudo su -s /bin/bash -c '~/$unmountOnLinuxClientScript' remote") *>&1
     Write-Log $sshLog
 
-    $resultMsg = Write-Log "Unmounting '$linuxLocalPath -> $global:IP_NextHop/$windowsShareName' on Linux "
+    $resultMsg = Write-Log "Unmounting '$linuxLocalPath -> $windowsHostRemotePath' on Linux "
     if ($LASTEXITCODE -eq 0) {
         $resultMsg += 'succeeded.'
     }
@@ -373,14 +365,14 @@ function Remove-SharedFolderMountOnLinuxClient {
 
 function Wait-ForSharedFolderMountOnLinuxClient () {
     Write-Log 'Waiting for shared folder mount on Linux node..'
-    $fstabOut = $(ExecCmdMaster 'cat /etc/fstab | grep -o /k8s-smb-share' -NoLog)
+    $fstabOut = $(Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'cat /etc/fstab | grep -o /k8s-smb-share' -NoLog)
     if (! $fstabOut) {
         Write-Log 'no shared folder in fstab yet'
         # no entry in fstab, so no need to wait for mount
         return
     }
 
-    $mountOut = $(ExecCmdMaster "sudo su -s /bin/bash -c 'sudo mount | grep /k8s-smb-share' remote" -NoLog)
+    $mountOut = $(Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo su -s /bin/bash -c 'sudo mount | grep /k8s-smb-share' remote" -NoLog)
 
     $iteration = 0
     while (! $mountOut) {
@@ -391,7 +383,7 @@ function Wait-ForSharedFolderMountOnLinuxClient () {
 
             if ( $script:HasIssues -eq $true ) {
                 Write-Log '              Executing script to fix policy issue...'
-                & "$global:KubernetesPath\smallsetup\helpers\SetNetworkSharePolicy.ps1"
+                & "$PSScriptRoot\SetNetworkSharePolicy.ps1"
             }
         }
         if ($iteration -ge 20) {
@@ -403,8 +395,8 @@ function Wait-ForSharedFolderMountOnLinuxClient () {
             Write-Log 'CIFS mount not yet available, waiting for it...'
         }
         Start-Sleep 2
-        ExecCmdMaster 'sudo mount -a'
-        $mountOut = $(ExecCmdMaster "sudo su -s /bin/bash -c 'sudo mount | grep /k8s-smb-share' remote" -NoLog)
+        Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo mount -a'
+        $mountOut = $(Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo su -s /bin/bash -c 'sudo mount | grep /k8s-smb-share' remote" -NoLog)
     }
     Write-Log 'Shared folder mounted on Linux.'
 }
@@ -413,31 +405,31 @@ function Wait-ForSharedFolderOnLinuxHost () {
     Write-Log 'Waiting for shared folder (Samba Share) hosted on Linux node..'
     $script:Success = $false
 
-    $fstabOut = $(ExecCmdMaster 'cat /etc/fstab | grep -o k8sshare' -NoLog)
+    $fstabOut = $(Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'cat /etc/fstab | grep -o k8sshare' -NoLog)
     if (! $fstabOut) {
         Write-Log '           no shared folder in fstab yet'
         # no entry in fstab, so no need to wait for mount
         return
     }
 
-    $mountOut = $(ExecCmdMaster "sudo su -s /bin/bash -c 'sudo mount | grep /k8s-smb-share' remote" -NoLog)
+    $mountOut = $(Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo su -s /bin/bash -c 'sudo mount | grep /k8s-smb-share' remote" -NoLog)
     $iteration = 0
     while (! $mountOut) {
         $iteration++
         if ($iteration -ge 15) {
-            Write-Log "           $global:ShareMountPointInVm still not mounted, aborting."
+            Write-Log "           $linuxLocalPath still not mounted, aborting."
             return
         }
 
         if ($iteration -ge 2 ) {
-            Write-Log "           $global:ShareMountPointInVm not yet mounted, waiting for it..."
+            Write-Log "           $linuxLocalPath not yet mounted, waiting for it..."
         }
 
         Start-Sleep 2
-        ExecCmdMaster 'sudo mount -a' -NoLog
-        $mountOut = $(ExecCmdMaster "sudo su -s /bin/bash -c 'sudo mount | grep /k8s-smb-share' remote" -NoLog)
+        Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo mount -a' -NoLog
+        $mountOut = $(Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo su -s /bin/bash -c 'sudo mount | grep /k8s-smb-share' remote" -NoLog)
     }
-    Write-Log "           $global:ShareMountPointInVm mounted"
+    Write-Log "           $linuxLocalPath mounted"
     $script:Success = $true
 }
 
@@ -447,22 +439,22 @@ function New-SharedFolderMountOnLinuxHost {
     Write-Log '           Creating temporary mount script...'
 
     $fstabCmd = @"
-        findmnt $global:ShareMountPointInVm -D >/dev/null && sudo umount $global:ShareMountPointInVm
-        sudo rm -rf $global:ShareMountPointInVm
-        sudo mkdir -p $global:ShareMountPointInVm
+        findmnt $linuxLocalPath -D >/dev/null && sudo umount $linuxLocalPath
+        sudo rm -rf $linuxLocalPath
+        sudo mkdir -p $linuxLocalPath
         mkdir -p ~/tmp
         cd ~/tmp
-        # remove all old lines with $global:ShareMountPointInVm from fstab
+        # remove all old lines with $linuxLocalPath from fstab
         sed -e /k8s-smb-share/d < /etc/fstab > fstab.tmp
         # add the new line to fstab
-        echo '             Adding line for $global:ShareMountPointInVm to /etc/fstab'
-        echo '//$global:IP_Master/$linuxShareName $global:ShareMountPointInVm cifs username=$smbUserName,password=$($creds.GetNetworkCredential().Password),rw,nobrl,x-systemd.after=smbd.service,x-systemd.before=kubelet.service,file_mode=0666,dir_mode=0777,vers=3' | tee -a fstab.tmp >/dev/null
+        echo '             Adding line for $linuxLocalPath to /etc/fstab'
+        echo '//$(Get-ConfiguredIPControlPlane)/$linuxShareName $linuxLocalPath cifs username=$smbUserName,password=$($creds.GetNetworkCredential().Password),rw,nobrl,x-systemd.after=smbd.service,x-systemd.before=kubelet.service,file_mode=0666,dir_mode=0777,vers=3' | tee -a fstab.tmp >/dev/null
         sudo sh -c "cat fstab.tmp > /etc/fstab"
         # immediately perform the mount
-        echo '             Mount $global:ShareMountPointInVm from /etc/fstab entry'
-        findmnt $global:ShareMountPointInVm -D >/dev/null || sudo mount $global:ShareMountPointInVm || exit 1
-        echo '             Touch $global:ShareMountPointInVm/mountedInVm.txt'
-        date > $global:ShareMountPointInVm/mountedInVm.txt || exit 1
+        echo '             Mount $linuxLocalPath from /etc/fstab entry'
+        findmnt $linuxLocalPath -D >/dev/null || sudo mount $linuxLocalPath || exit 1
+        echo '             Touch $linuxLocalPath/mountedInVm.txt'
+        date > $linuxLocalPath/mountedInVm.txt || exit 1
         rm ~/tmp_fstabCmd.sh
 "@
 
@@ -470,21 +462,20 @@ function New-SharedFolderMountOnLinuxHost {
     while ($true) {
         $i++
         # create the bash script, with \r characters removed (for Linux)
-        Remove-Item "$global:KubernetesPath\tmp_fstab.sh" -ErrorAction Ignore
-        $fstabCmd | Out-File -Encoding ascii "$global:KubernetesPath\tmp_fstab.sh"
-        $source = "$global:KubernetesPath\tmp_fstab.sh"
-        $target = "$global:Remote_Master" + ':/home/remote/'
-        Copy-FromToMaster -Source $source -Target $target
-        Remove-Item "$global:KubernetesPath\tmp_fstab.sh" -ErrorAction Ignore
+        $localTempFile = "$(Get-KubePath)\tmp_fstab.sh"
+        Remove-Item $localTempFile -ErrorAction Ignore
+        $fstabCmd | Out-File -Encoding ascii $localTempFile
+        Copy-ToControlPlaneViaSSHKey -Source $localTempFile -Target '/home/remote/'
+        Remove-Item $localTempFile -ErrorAction Ignore
 
-        ExecCmdMaster 'sudo rm -rf ~/tmp_fstabCmd.sh'
-        ExecCmdMaster "sed 's/\r//g' ~/tmp_fstab.sh > ~/tmp_fstabCmd.sh"
-        ExecCmdMaster 'sudo rm -rf ~/tmp_fstab.sh'
-        ExecCmdMaster 'sudo chown -R remote /home/remote/tmp_fstabCmd.sh'
-        ExecCmdMaster 'sudo chmod +x /home/remote/tmp_fstabCmd.sh'
+        Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo rm -rf ~/tmp_fstabCmd.sh'
+        Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sed 's/\r//g' ~/tmp_fstab.sh > ~/tmp_fstabCmd.sh"
+        Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo rm -rf ~/tmp_fstab.sh'
+        Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo chown -R remote /home/remote/tmp_fstabCmd.sh'
+        Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo chmod +x /home/remote/tmp_fstabCmd.sh'
 
         Write-Log '           Executing script inside VM as remote user...'
-        ssh.exe -n '-vv' -E $logFile -o StrictHostKeyChecking=no -i $global:LinuxVMKey $global:Remote_Master "sudo su -s /bin/bash -c '~/tmp_fstabCmd.sh' remote"
+        ssh.exe -n '-vv' -E $logFile -o StrictHostKeyChecking=no -i $(Get-SSHKeyControlPlane) $(Get-ControlPlaneRemoteUser) "sudo su -s /bin/bash -c '~/tmp_fstabCmd.sh' remote"
         if ($LASTEXITCODE -eq 0) {
             # all ok
             break
@@ -499,7 +490,7 @@ function New-SharedFolderMountOnLinuxHost {
 }
 
 function Remove-SharedFolderMountOnLinuxHost {
-    Write-Log "Unmounting '$global:ShareMountPointInVm' on Linux.."
+    Write-Log "Unmounting '$linuxLocalPath' on Linux.."
     Remove-Item -Force -ErrorAction SilentlyContinue $logFile
 
     Write-Log 'Creating temporary unmount script..'
@@ -507,39 +498,38 @@ function Remove-SharedFolderMountOnLinuxHost {
     $tempUnmountOnLinuxHostScript = 'tmp_unmountOnLinuxHostCmd.sh'
     $unmountOnLinuxHostScript = 'unmountOnLinuxHostCmd.sh'
     $unmountOnLinuxHostCmd = @"
-        findmnt $global:ShareMountPointInVm -D >/dev/null && sudo umount $global:ShareMountPointInVm
+        findmnt $linuxLocalPath -D >/dev/null && sudo umount $linuxLocalPath
         mkdir -p ~/tmp
         cd ~/tmp
-        # remove all lines with $global:ShareMountPointInVm from fstab
+        # remove all lines with $linuxLocalPath from fstab
         sed -e /k8s-smb-share/d < /etc/fstab > $tempFstabFile
         sudo sh -c "cat $tempFstabFile > /etc/fstab"
         sudo rm -f $tempFstabFile
         sudo systemctl daemon-reload
-        sudo rm -rf $global:ShareMountPointInVm
+        sudo rm -rf $linuxLocalPath
         rm ~/$unmountOnLinuxHostScript
 "@
 
     # create the bash script, with \r characters removed (for Linux)
-    $tempUnmountScript = "$global:KubernetesPath\$tempUnmountOnLinuxHostScript"
+    $tempUnmountScript = "$(Get-KubePath)\$tempUnmountOnLinuxHostScript"
     Remove-Item $tempUnmountScript -ErrorAction Ignore
     $unmountOnLinuxHostCmd | Out-File -Encoding ascii $tempUnmountScript
-    $target = "$global:Remote_Master" + ':/home/remote/'
-    Copy-FromToMaster -Source $tempUnmountScript -Target $target
+    Copy-ToControlPlaneViaSSHKey -Source $tempUnmountScript -Target '/home/remote/'
     Remove-Item $tempUnmountScript -ErrorAction Ignore
 
-    ExecCmdMaster "sudo rm -rf ~/$unmountOnLinuxHostScript"
-    ExecCmdMaster "sed 's/\r//g' ~/$tempUnmountOnLinuxHostScript > ~/$unmountOnLinuxHostScript"
-    ExecCmdMaster "sudo rm -rf ~/$tempUnmountOnLinuxHostScript"
-    ExecCmdMaster "sudo chown -R remote /home/remote/$unmountOnLinuxHostScript"
-    ExecCmdMaster "sudo chmod +x /home/remote/$unmountOnLinuxHostScript"
+    Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo rm -rf ~/$unmountOnLinuxHostScript"
+    Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sed 's/\r//g' ~/$tempUnmountOnLinuxHostScript > ~/$unmountOnLinuxHostScript"
+    Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo rm -rf ~/$tempUnmountOnLinuxHostScript"
+    Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo chown -R remote /home/remote/$unmountOnLinuxHostScript"
+    Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo chmod +x /home/remote/$unmountOnLinuxHostScript"
 
     Write-Log '           Executing on host unmount script inside VM as remote user...'
-    ssh.exe -n '-vv' -E $logFile -o StrictHostKeyChecking=no -i $global:LinuxVMKey $global:Remote_Master "sudo su -s /bin/bash -l -c '~/$unmountOnLinuxHostScript' remote"
+    ssh.exe -n '-vv' -E $logFile -o StrictHostKeyChecking=no -i $(Get-SSHKeyControlPlane) $(Get-ControlPlaneRemoteUser) "sudo su -s /bin/bash -l -c '~/$unmountOnLinuxHostScript' remote"
     if ($LASTEXITCODE -eq 0) {
-        Write-Log "Unmounting '$global:ShareMountPointInVm' on Linux succeeded."
+        Write-Log "Unmounting '$linuxLocalPath' on Linux succeeded."
     }
     else {
-        Write-Log "Unmounting '$global:ShareMountPointInVm' on Linux failed with code '$LASTEXITCODE'."
+        Write-Log "Unmounting '$linuxLocalPath' on Linux failed with code '$LASTEXITCODE'."
     }
 }
 
@@ -856,7 +846,7 @@ function Add-SharedFolderToWinVM {
     )
     Write-Log "Setting up shared folder (SMB client) on Win VM with host type '$SmbHostType'.."
 
-    $session = Open-RemoteSessionViaSSHKey $global:Admin_WinNode $global:WindowsVMKey -NoLog
+    $session = Open-DefaultWinVMRemoteSessionViaSSHKey
 
     $isWinVmSmbShareWorking = (Get-IsWinVmSmbShareWorking -Session $session)
 
@@ -870,8 +860,11 @@ function Add-SharedFolderToWinVM {
     Invoke-Command -Session $session {
         Set-ExecutionPolicy Bypass -Force -ErrorAction Continue
 
-        Import-Module "$env:SystemDrive\k\addons\smb-share\module\Smb-share.module.psm1"
-        Import-Module "$env:SystemDrive\k\smallsetup\ps-modules\log\log.module.psm1"
+        $logModule = "$env:SystemDrive/k/lib/modules/k2s/k2s.infra.module/log/log.module.psm1"
+        $smbShareModule = "$env:SystemDrive\k\addons\smb-share\module\Smb-share.module.psm1"
+
+        Import-Module $logModule, $smbShareModule
+        
         Initialize-Logging -Nested:$true
 
         Connect-WinVMClientToSmbHost -SmbHostType:$using:SmbHostType
@@ -894,13 +887,16 @@ function Remove-SharedFolderFromWinVM {
     )
     Write-Log 'Removing shared folder (SMB client) mapping to '$RemotePath' on Win VM..'
 
-    $session = Open-RemoteSessionViaSSHKey $global:Admin_WinNode $global:WindowsVMKey -NoLog
+    $session = Open-DefaultWinVMRemoteSessionViaSSHKey
 
     Invoke-Command -Session $session {
         Set-ExecutionPolicy Bypass -Force -ErrorAction Continue
 
-        Import-Module "$env:SystemDrive\k\addons\smb-share\module\Smb-share.module.psm1"
-        Import-Module "$env:SystemDrive\k\smallsetup\ps-modules\log\log.module.psm1"
+        $logModule = "$env:SystemDrive/k/lib/modules/k2s/k2s.infra.module/log/log.module.psm1"
+        $smbShareModule = "$env:SystemDrive\k\addons\smb-share\module\Smb-share.module.psm1"
+
+        Import-Module $logModule, $smbShareModule
+
         Initialize-Logging -Nested:$true
 
         Remove-SmbGlobalMappingIfExisting -RemotePath $using:RemotePath
@@ -942,7 +938,7 @@ function Remove-SmbShareAndFolder() {
         return
     }
 
-    if ($setupInfo.Name -eq $global:SetupType_MultiVMK8s -and $setupInfo.LinuxOnly -ne $true) {
+    if ($setupInfo.Name -eq 'MultiVMK8s' -and $setupInfo.LinuxOnly -ne $true) {
         Write-Log 'Removing shared folder from Win VM..'
         Remove-SharedFolderFromWinVM -RemotePath $remotePath
     }
@@ -971,7 +967,7 @@ function Test-SharedFolderMountOnWinNode {
     }
 
     Write-Log "           Create test file on linux side: $linuxTestFile"
-    ExecCmdMaster "test -d $linuxLocalPath && sudo touch $linuxTestFile" -Nested:$Nested -Retries 10
+    Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "test -d $linuxLocalPath && sudo touch $linuxTestFile" -Nested:$Nested -Retries 10
 
     $iteration = 15
     while ($iteration -gt 0) {
@@ -986,7 +982,7 @@ function Test-SharedFolderMountOnWinNode {
         Start-Sleep 2
     }
     Write-Log "           Not accessable through windows, removing test file on linux side: $linuxTestFile ..."
-    ExecCmdMaster "test -d $linuxLocalPath && sudo rm -f $linuxTestFile" -NoLog -Nested:$Nested
+    Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "test -d $linuxLocalPath && sudo rm -f $linuxTestFile" -NoLog -Nested:$Nested
 }
 
 <#
@@ -1021,12 +1017,12 @@ function Enable-SmbShare {
 
     $setupInfo = Get-SetupInfo
 
-    if ($setupInfo.Name -ne $global:SetupType_k2s -and $setupInfo.Name -ne $global:SetupType_MultiVMK8s) {
-        $err = New-Error -Severity Warning -Code (Get-ErrCodeWrongSetupType) -Message "Addon '$AddonName' can only be enabled for '$global:SetupType_k2s' or '$global:SetupType_MultiVMK8s' setup type."  
+    if ($setupInfo.Name -ne 'k2s' -and $setupInfo.Name -ne 'MultiVMK8s') {
+        $err = New-Error -Severity Warning -Code (Get-ErrCodeWrongSetupType) -Message "Addon '$AddonName' can only be enabled for 'k2s' or 'MultiVMK8s' setup type."  
         return @{Error = $err }
     }
 
-    Copy-ScriptsToHooksDir -ScriptPaths $hookFilePaths
+    Copy-ScriptsToHooksDir -ScriptPaths @(Get-ChildItem -Path $localHooksDir | ForEach-Object { $_.FullName })
     Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = $AddonName; SmbHostType = $SmbHostType })
     Restore-SmbShareAndFolder -SmbHostType $SmbHostType -SkipTest -SetupInfo $setupInfo
     Restore-StorageClass -SmbHostType $SmbHostType -LinuxOnly $setupInfo.LinuxOnly
@@ -1078,7 +1074,7 @@ function Disable-SmbShare {
 
     Remove-SmbShareAndFolder -SkipNodesCleanup:$SkipNodesCleanup
     Remove-AddonFromSetupJson -Name $AddonName
-    Remove-ScriptsFromHooksDir -ScriptNames $hookFileNames
+    Remove-ScriptsFromHooksDir -ScriptNames @(Get-ChildItem -Path $localHooksDir | ForEach-Object { $_.Name })
 
     return @{Error = $null }
 }
@@ -1121,7 +1117,7 @@ function Restore-SmbShareAndFolder {
         }
     }
 
-    if ($SetupInfo.Name -eq $global:SetupType_MultiVMK8s -and $SetupInfo.LinuxOnly -ne $true) {
+    if ($SetupInfo.Name -eq 'MultiVMK8s' -and $SetupInfo.LinuxOnly -ne $true) {
         Add-SharedFolderToWinVM -SmbHostType $SmbHostType
     }
 }

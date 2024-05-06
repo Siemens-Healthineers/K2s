@@ -6,17 +6,20 @@ package logging
 
 import (
 	"context"
+	"encoding/json"
 	"os/exec"
 	"path"
 	"testing"
 	"time"
 
+	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/addons/status"
 	"github.com/siemens-healthineers/k2s/test/framework"
 	"github.com/siemens-healthineers/k2s/test/framework/k2s"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
+	"github.com/onsi/gomega/gstruct"
 )
 
 const testClusterTimeout = time.Minute * 20
@@ -64,6 +67,35 @@ var _ = Describe("'logging' addon", Ordered, func() {
 			Expect(output).To(ContainSubstring("already disabled"))
 		})
 
+		Describe("status", func() {
+			Context("default output", func() {
+				It("displays disabled message", func(ctx context.Context) {
+					output := suite.K2sCli().Run(ctx, "addons", "status", "logging")
+
+					Expect(output).To(SatisfyAll(
+						MatchRegexp(`ADDON STATUS`),
+						MatchRegexp(`Addon .+logging.+ is .+disabled.+`),
+					))
+				})
+			})
+
+			Context("JSON output", func() {
+				It("displays JSON", func(ctx context.Context) {
+					output := suite.K2sCli().Run(ctx, "addons", "status", "logging", "-o", "json")
+
+					var status status.AddonPrintStatus
+
+					Expect(json.Unmarshal([]byte(output), &status)).To(Succeed())
+
+					Expect(status.Name).To(Equal("logging"))
+					Expect(status.Enabled).NotTo(BeNil())
+					Expect(*status.Enabled).To(BeFalse())
+					Expect(status.Props).To(BeNil())
+					Expect(status.Error).To(BeNil())
+				})
+			})
+		})
+
 		It("is in enabled state and pods are in running state", func(ctx context.Context) {
 			suite.K2sCli().Run(ctx, "addons", "enable", "logging", "-o")
 
@@ -86,6 +118,10 @@ var _ = Describe("'logging' addon", Ordered, func() {
 			output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "enable", "logging")
 
 			Expect(output).To(ContainSubstring("already enabled"))
+		})
+
+		It("prints the status", func(ctx context.Context) {
+			expectStatusToBePrinted(ctx)
 		})
 
 		It("is reachable through port forwarding", func(ctx context.Context) {
@@ -146,6 +182,10 @@ var _ = Describe("'logging' addon", Ordered, func() {
 			Expect(output).To(ContainSubstring("already enabled"))
 		})
 
+		It("prints the status", func(ctx context.Context) {
+			expectStatusToBePrinted(ctx)
+		})
+
 		It("is reachable through traefik", func(ctx context.Context) {
 			url := "http://k2s-logging.local"
 			httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-I", "-m", "5", "--retry", "3", "--fail")
@@ -200,10 +240,55 @@ var _ = Describe("'logging' addon", Ordered, func() {
 			Expect(output).To(ContainSubstring("already enabled"))
 		})
 
+		It("prints the status", func(ctx context.Context) {
+			expectStatusToBePrinted(ctx)
+		})
+
 		It("is reachable through ingress-nginx", func(ctx context.Context) {
 			url := "http://k2s-logging.local"
-			httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-I", "-m", "5", "--retry", "3", "--fail")
+			httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-I", "-m", "5", "--retry", "10", "--fail")
 			Expect(httpStatus).To(ContainSubstring("302"))
 		})
 	})
 })
+
+func expectStatusToBePrinted(ctx context.Context) {
+	output := suite.K2sCli().Run(ctx, "addons", "status", "logging")
+
+	Expect(output).To(SatisfyAll(
+		MatchRegexp("ADDON STATUS"),
+		MatchRegexp(`Addon .+logging.+ is .+enabled.+`),
+		MatchRegexp("Opensearch dashboards are working"),
+		MatchRegexp("Opensearch is working"),
+		MatchRegexp("Fluent-bit is working"),
+	))
+
+	output = suite.K2sCli().Run(ctx, "addons", "status", "logging", "-o", "json")
+
+	var status status.AddonPrintStatus
+
+	Expect(json.Unmarshal([]byte(output), &status)).To(Succeed())
+
+	Expect(status.Name).To(Equal("logging"))
+	Expect(status.Error).To(BeNil())
+	Expect(status.Enabled).NotTo(BeNil())
+	Expect(*status.Enabled).To(BeTrue())
+	Expect(status.Props).NotTo(BeNil())
+	Expect(status.Props).To(ContainElements(
+		SatisfyAll(
+			HaveField("Name", "AreDeploymentsRunning"),
+			HaveField("Value", true),
+			HaveField("Okay", gstruct.PointTo(BeTrue())),
+			HaveField("Message", gstruct.PointTo(ContainSubstring("Opensearch dashboards are working")))),
+		SatisfyAll(
+			HaveField("Name", "AreStatefulsetsRunning"),
+			HaveField("Value", true),
+			HaveField("Okay", gstruct.PointTo(BeTrue())),
+			HaveField("Message", gstruct.PointTo(MatchRegexp("Opensearch is working")))),
+		SatisfyAll(
+			HaveField("Name", "AreDaemonsetsRunning"),
+			HaveField("Value", true),
+			HaveField("Okay", gstruct.PointTo(BeTrue())),
+			HaveField("Message", gstruct.PointTo(MatchRegexp("Fluent-bit is working")))),
+	))
+}

@@ -54,7 +54,7 @@ function Initialize-Networking {
     Write-Log "Using network adapter '$adapterName'"
     $ipaddresses = @(Get-NetIPAddress -AddressFamily IPv4 -InterfaceAlias $adapterName)
     if (!$ipaddresses) {
-        throw 'No IP address found which can be used for setting up Small K8s Setup !'
+        throw 'No IP address found which can be used for setting up K2s Setup !'
     }
     $ipaddress = $ipaddresses[0] | Select-Object -ExpandProperty IPAddress
     Write-Log "Using local IP $ipaddress for setup of CNI"
@@ -157,6 +157,9 @@ function Initialize-WinNode {
 }
 
 function Uninstall-WinNode {
+    param(
+        $ShallowUninstallation = $false
+    )
     Write-Log 'Uninstalling Windows worker node' -Console
     Remove-DefaultNetNat
 
@@ -171,28 +174,26 @@ function Uninstall-WinNode {
     Remove-NetFirewallRule -Group 'k2s' -ErrorAction SilentlyContinue
 
     Write-Log 'Uninstall containerd service if existent'
-    Uninstall-WinContainerd
-    Uninstall-WinDocker
+    Uninstall-WinContainerd -ShallowUninstallation $ShallowUninstallation
+    Uninstall-WinDocker -ShallowUninstallation $ShallowUninstallation
 }
 
 
 function Clear-WinNode {
     Param(
         [parameter(Mandatory = $false, HelpMessage = 'Deletes the needed files to perform an offline installation')]
-        [Boolean] $DeleteFilesForOfflineInstallation = $false
+        [Boolean] $DeleteFilesForOfflineInstallation = $false,
+        [Boolean] $ShallowDeletion = $false
     )
-    Write-Log 'Cleaning up' -Console
-
-    Invoke-AddonsHooks -HookType 'AfterUninstall'
-
     $kubeletConfigDir = Get-KubeletConfigDir
     # remove folders from installation folder
     Get-ChildItem -Path $kubeletConfigDir -Force -Recurse -Attributes Reparsepoint -ErrorAction 'silentlycontinue' | % { $n = $_.FullName.Trim('\'); fsutil reparsepoint delete "$n" }
     Remove-Item -Path "$(Get-SystemDriveLetter):\etc" -Force -Recurse -ErrorAction SilentlyContinue
     Remove-Item -Path "$(Get-SystemDriveLetter):\run" -Force -Recurse -ErrorAction SilentlyContinue
     Remove-Item -Path "$(Get-SystemDriveLetter):\opt" -Force -Recurse -ErrorAction SilentlyContinue
+    Remove-Item -Path "$(Get-InstallationDriveLetter):\run" -Force -Recurse -ErrorAction SilentlyContinue
 
-    if ($global:PurgeOnUninstall) {
+    if (!$ShallowDeletion) {
         $setupFilePath = Get-SetupConfigFilePath
         Remove-Item -Path "$setupFilePath" -Force -ErrorAction SilentlyContinue
         Remove-Item -Path "$kubeBinPath\kube*.exe" -Force -ErrorAction SilentlyContinue
@@ -202,11 +203,8 @@ function Clear-WinNode {
         Remove-Item -Path "$kubeBinPath\dnsproxy.exe" -Force -ErrorAction SilentlyContinue
         Remove-Item -Path "$kubeBinPath\dnsproxy.yaml" -Force -ErrorAction SilentlyContinue
         Remove-Item -Path "$kubeBinPath\cri*.exe" -Force -ErrorAction SilentlyContinue
-        Remove-Item -Path "$kubeBinPath\vc_redist*.exe" -Force -ErrorAction SilentlyContinue
         Remove-Item -Path "$kubeBinPath\crictl.yaml" -Force -ErrorAction SilentlyContinue
-        Remove-Item -Path "$kubeBinPath\helm.exe" -Force -ErrorAction SilentlyContinue
         Remove-Item -Path "$kubeBinPath\exe" -Force -Recurse -ErrorAction SilentlyContinue
-
         Remove-Item -Path "$kubePath\config" -Force -ErrorAction SilentlyContinue
         #Backward compatibility for few versions
         Remove-Item -Path "$kubePath\cni\bin\win*.exe" -Force -ErrorAction SilentlyContinue
@@ -232,7 +230,6 @@ function Clear-WinNode {
 
         Remove-Nssm
     }
-
     Invoke-DownloadsCleanup -DeleteFilesForOfflineInstallation $DeleteFilesForOfflineInstallation
 }
 

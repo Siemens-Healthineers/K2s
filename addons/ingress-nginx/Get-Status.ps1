@@ -9,9 +9,9 @@ $configModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/config/con
 
 Import-Module $k8sApiModule, $configModule
 
-Invoke-Kubectl -Params 'wait', '--timeout=5s', '--for=condition=Available', '-n', 'ingress-nginx', 'deployment/ingress-nginx-controller' | Out-Null
+$success = (Invoke-Kubectl -Params 'wait', '--timeout=5s', '--for=condition=Available', '-n', 'ingress-nginx', 'deployment/ingress-nginx-controller').Success
 
-$isIngressNginxRunningProp = @{Name = 'IsIngressNginxRunning'; Value = $?; Okay = $? }
+$isIngressNginxRunningProp = @{Name = 'IsIngressNginxRunning'; Value = $success; Okay = $success }
 if ($isIngressNginxRunningProp.Value -eq $true) {
     $isIngressNginxRunningProp.Message = 'The ingress-nginx ingress controller is working'
 }

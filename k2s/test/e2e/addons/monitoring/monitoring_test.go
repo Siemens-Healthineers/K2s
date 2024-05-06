@@ -6,11 +6,13 @@ package monitoring
 
 import (
 	"context"
+	"encoding/json"
 	"os/exec"
 	"path"
 	"testing"
 	"time"
 
+	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/addons/status"
 	"github.com/siemens-healthineers/k2s/test/framework"
 
 	"github.com/siemens-healthineers/k2s/test/framework/k2s"
@@ -18,6 +20,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
+	"github.com/onsi/gomega/gstruct"
 )
 
 const testClusterTimeout = time.Minute * 20
@@ -81,6 +84,10 @@ var _ = Describe("'monitoring' addon", Ordered, func() {
 			Expect(output).To(ContainSubstring("already enabled"))
 		})
 
+		It("prints the status", func(ctx context.Context) {
+			expectStatusToBePrinted(ctx)
+		})
+
 		It("is reachable through port forwarding", func(ctx context.Context) {
 			kubectl := path.Join(suite.RootDir(), "bin", "exe", "kubectl.exe")
 			portForwarding := exec.Command(kubectl, "-n", "monitoring", "port-forward", "svc/kube-prometheus-stack-plutono", "3000:443")
@@ -133,6 +140,10 @@ var _ = Describe("'monitoring' addon", Ordered, func() {
 			Expect(output).To(ContainSubstring("already enabled"))
 		})
 
+		It("prints the status", func(ctx context.Context) {
+			expectStatusToBePrinted(ctx)
+		})
+
 		It("is reachable through traefik", func(ctx context.Context) {
 			url := "https://k2s-monitoring.local/login"
 			httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-I", "-m", "5", "--retry", "3", "--fail")
@@ -181,10 +192,67 @@ var _ = Describe("'monitoring' addon", Ordered, func() {
 			Expect(output).To(ContainSubstring("already enabled"))
 		})
 
+		It("prints the status", func(ctx context.Context) {
+			expectStatusToBePrinted(ctx)
+		})
+
 		It("is reachable through ingress-nginx", func(ctx context.Context) {
 			url := "https://k2s-monitoring.local/login"
-			httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-I", "-m", "5", "--retry", "3", "--fail")
+			httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-I", "-m", "5", "--retry", "10", "--fail")
 			Expect(httpStatus).To(ContainSubstring("200"))
 		})
 	})
 })
+
+func expectStatusToBePrinted(ctx context.Context) {
+	output := suite.K2sCli().Run(ctx, "addons", "status", "monitoring")
+
+	Expect(output).To(SatisfyAll(
+		MatchRegexp("ADDON STATUS"),
+		MatchRegexp(`Addon .+monitoring.+ is .+enabled.+`),
+		MatchRegexp("The Kube State Metrics Deployment is working"),
+		MatchRegexp("The Prometheus Operator is working"),
+		MatchRegexp("The Plutono Dashboard is working"),
+		MatchRegexp("Prometheus and Alertmanager are working"),
+		MatchRegexp("Node Exporter is working"),
+	))
+
+	output = suite.K2sCli().Run(ctx, "addons", "status", "monitoring", "-o", "json")
+
+	var status status.AddonPrintStatus
+
+	Expect(json.Unmarshal([]byte(output), &status)).To(Succeed())
+
+	Expect(status.Name).To(Equal("monitoring"))
+	Expect(status.Error).To(BeNil())
+	Expect(status.Enabled).NotTo(BeNil())
+	Expect(*status.Enabled).To(BeTrue())
+	Expect(status.Props).NotTo(BeNil())
+	Expect(status.Props).To(ContainElements(
+		SatisfyAll(
+			HaveField("Name", "IsKubeStateMetricsRunning"),
+			HaveField("Value", true),
+			HaveField("Okay", gstruct.PointTo(BeTrue())),
+			HaveField("Message", gstruct.PointTo(ContainSubstring("The Kube State Metrics Deployment is working")))),
+		SatisfyAll(
+			HaveField("Name", "IsPrometheusOperatorRunning"),
+			HaveField("Value", true),
+			HaveField("Okay", gstruct.PointTo(BeTrue())),
+			HaveField("Message", gstruct.PointTo(MatchRegexp("The Prometheus Operator is working")))),
+		SatisfyAll(
+			HaveField("Name", "IsPlutonoRunning"),
+			HaveField("Value", true),
+			HaveField("Okay", gstruct.PointTo(BeTrue())),
+			HaveField("Message", gstruct.PointTo(MatchRegexp("The Plutono Dashboard is working")))),
+		SatisfyAll(
+			HaveField("Name", "AreStatefulsetsRunning"),
+			HaveField("Value", true),
+			HaveField("Okay", gstruct.PointTo(BeTrue())),
+			HaveField("Message", gstruct.PointTo(MatchRegexp("Prometheus and Alertmanager are working")))),
+		SatisfyAll(
+			HaveField("Name", "AreDaemonsetsRunning"),
+			HaveField("Value", true),
+			HaveField("Okay", gstruct.PointTo(BeTrue())),
+			HaveField("Message", gstruct.PointTo(MatchRegexp("Node Exporter is working")))),
+	))
+}

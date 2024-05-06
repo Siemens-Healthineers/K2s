@@ -19,15 +19,11 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
     [string] $MessageType
 )
-&$PSScriptRoot\..\..\smallsetup\common\GlobalVariables.ps1
-. $PSScriptRoot\..\..\smallsetup\common\GlobalFunctions.ps1
-
-$logModule = "$PSScriptRoot/../../smallsetup/ps-modules/log/log.module.psm1"
-$statusModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/status/status.module.psm1"
-$addonsModule = "$PSScriptRoot\..\addons.module.psm1"
+$clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
+$addonsModule = "$PSScriptRoot\..\addons.module.psm1"
 
-Import-Module $logModule, $addonsModule, $statusModule, $infraModule
+Import-Module $clusterModule, $infraModule, $addonsModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -46,7 +42,7 @@ if ($systemError) {
 
 Write-Log 'Check whether monitoring addon is already disabled'
 
-if ($null -eq (&$global:KubectlExe get namespace monitoring --ignore-not-found) -or (Test-IsAddonEnabled -Name 'monitoring') -ne $true) {
+if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'monitoring', '--ignore-not-found').Output -and (Test-IsAddonEnabled -Name 'monitoring') -ne $true) {
     $errMsg = "Addon 'monitoring' is already disabled, nothing to do."
 
     if ($EncodeStructuredOutput -eq $true) {
@@ -59,11 +55,12 @@ if ($null -eq (&$global:KubectlExe get namespace monitoring --ignore-not-found) 
     exit 1
 }
 
-Write-Log 'Uninstalling Kube Prometheus Stack' -Console
-&$global:KubectlExe delete -k "$global:KubernetesPath\addons\monitoring\manifests"
-&$global:KubectlExe delete -f "$global:KubernetesPath\addons\monitoring\manifests\crds"
+$manifestsPath = "$PSScriptRoot\manifests"
 
-&$global:KubectlExe delete -f "$global:KubernetesPath\addons\monitoring\manifests\namespace.yaml"
+Write-Log 'Uninstalling Kube Prometheus Stack' -Console
+(Invoke-Kubectl -Params 'delete', '-k', $manifestsPath).Output | Write-Log
+(Invoke-Kubectl -Params 'delete', '-f', "$manifestsPath\crds").Output | Write-Log
+(Invoke-Kubectl -Params 'delete', '-f', "$manifestsPath\namespace.yaml").Output | Write-Log
 
 Remove-AddonFromSetupJson -Name 'monitoring'
 
