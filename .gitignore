@@ -36,8 +36,11 @@ addons/smb-share/**/set-host-path.patch.yaml
 
 # allow team-shared workspace to enable sharing of styles/rules/dictionaries
 !.vscode/settings.json
+!.vscode/settings.json.license
 !.vscode/extensions.json
+!.vscode/extensions.json.license
 !.vscode/spellright.dict
+!.vscode/spellright.dict.license
 
 #Logs/States
 monitoring/helm*.log
