@@ -93,6 +93,7 @@ function UpdateIpAddress {
             $dnservers = Get-DnsClientServerAddress -InterfaceIndex $physicalInterfaceIndex -AddressFamily IPv4
             Write-Log "           DNSServers found in Physical Adapter ($physicalInterfaceIndex) : $($dnservers.ServerAddresses)"
             Set-IPAdressAndDnsClientServerAddress -IPAddress $ipaddress -DefaultGateway $gateway -Index $ipindex -DnsAddresses $dnservers.ServerAddresses
+            Set-DnsClient -InterfaceIndex $ipindex -RegisterThisConnectionsAddress $false | Out-Null
             $script:fixedIpWasSet = $true
         }
         else {
