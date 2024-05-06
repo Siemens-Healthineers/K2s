@@ -157,13 +157,14 @@ function Write-Log {
                     Write-Error $consoleMessage
                 }
                 elseif ($Progress -and ($Console -or $script:ConsoleLogging)) {
-                                        Write-Host $consoleMessage -NoNewline
+                    Write-Host $consoleMessage -NoNewline
                     $logFileMessage | Out-File -Append -FilePath $k2sLogFile -Encoding utf8 -NoNewline
                 }
                 elseif ($Console -or $script:ConsoleLogging) {
                     if ($Raw) {
                         Write-Output $message
-                    } elseif ($Ssh) {
+                    }
+                    elseif ($Ssh) {
                         Write-Output "#ssh#$message"
                     }
                     else {
@@ -189,6 +190,14 @@ function Get-k2sLogDirectory {
     return $logsDir
 }
 
+function Get-LogFilePath {
+    return $k2sLogFile 
+}
+
+function Get-LogFilePathPart {
+    return $k2sLogFilePart 
+}
+
 function Save-k2sLogDirectory {
     param (
         [Parameter(Mandatory = $false, HelpMessage = 'Remove var folder after saving logs')]
@@ -200,14 +209,14 @@ function Save-k2sLogDirectory {
     }
 
     $destinationFolder = "$env:TEMP\k2s_log_$(get-date -f yyyyMMdd_HHmmss)"
-    Copy-Item -Path "C:\var\log" -Destination $destinationFolder -Force -Recurse
+    Copy-Item -Path 'C:\var\log' -Destination $destinationFolder -Force -Recurse
     Compress-Archive -Path $destinationFolder -DestinationPath "$destinationFolder.zip" -CompressionLevel Optimal -Force
     Remove-Item -Path "$destinationFolder" -Force -Recurse -ErrorAction SilentlyContinue
 
     Write-Log "Logs backed up in $destinationFolder.zip" -Console
 
     if ($RemoveVar) {
-    # the directory '<system drive>:\var' must be deleted (regardless of the installation drive) since
+        # the directory '<system drive>:\var' must be deleted (regardless of the installation drive) since
         # kubelet.exe writes hardcoded to '<system drive>:\var\lib\kubelet\device-plugins' (see '\pkg\kubelet\cm\devicemanager\manager.go' under https://github.com/kubernetes/kubernetes.git)
         $systemDriveLetter = (Get-Item $env:SystemDrive).PSDrive.Name
         Remove-Item -Path "$($systemDriveLetter):\var" -Force -Recurse -ErrorAction SilentlyContinue
@@ -218,4 +227,4 @@ function Save-k2sLogDirectory {
 }
 
 Export-ModuleMember -Variable k2sLogFilePart, k2sLogFile
-Export-ModuleMember -Function Initialize-Logging, Write-Log, Reset-LogFile, Get-k2sLogDirectory, Save-k2sLogDirectory
+Export-ModuleMember -Function Initialize-Logging, Write-Log, Reset-LogFile, Get-k2sLogDirectory, Save-k2sLogDirectory, Get-LogFilePath, Get-LogFilePathPart

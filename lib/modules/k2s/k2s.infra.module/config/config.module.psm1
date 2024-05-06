@@ -279,11 +279,19 @@ function Set-ConfigInstalledKubernetesVersion {
     Set-ConfigValue -Path $SetupJsonFile -Key 'KubernetesVersion' -Value $Value
 }
 
+function Get-ConfigInstallFolder {
+    return Get-ConfigValue -Path $SetupJsonFile -Key 'InstallFolder'
+}
+
 function Set-ConfigInstallFolder {
     param (
         [object] $Value = $(throw 'Please provide the config value.')
     )
     Set-ConfigValue -Path $SetupJsonFile -Key 'InstallFolder' -Value $Value
+}
+
+function Get-ConfigProductVersion {
+    return Get-ConfigValue -Path $SetupJsonFile -Key 'Version'
 }
 
 function Set-ConfigProductVersion {
@@ -476,7 +484,9 @@ Set-ConfigUsedStorageLocalDriveLetter,
 Get-ConfigLoggedInRegistry,
 Set-ConfigLoggedInRegistry,
 Set-ConfigInstalledKubernetesVersion,
+Get-ConfigInstallFolder,
 Set-ConfigInstallFolder,
+Get-ConfigProductVersion,
 Set-ConfigProductVersion,
 Get-ConfigHostGW,
 Set-ConfigHostGW,
