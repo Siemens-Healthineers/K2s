@@ -14,18 +14,29 @@ Remove all container images in K2s
 
 param (
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
-    [switch] $ShowLogs = $false
+    [switch] $ShowLogs = $false,
+    [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
+    [switch] $EncodeStructuredOutput,
+    [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
+    [string] $MessageType
 )
 
 $clusterModule = "$PSScriptRoot/../../../modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $infraModule = "$PSScriptRoot/../../../modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
-Import-Module $clusterModule, $infraModule
+$statusModule = "$PSScriptRoot/../../../modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
+Import-Module $clusterModule, $infraModule, $statusModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
-$systemError = Test-SystemAvailability
+$systemError = Test-SystemAvailability -Structured
 if ($systemError) {
-    throw $systemError
+    if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = $systemError }
+        return
+    }
+
+    Write-Log $systemError.Message -Error
+    exit 1
 }
 
 $allContainerImages = Get-ContainerImagesInk2s -IncludeK8sImages $false
@@ -33,6 +44,13 @@ $deletedImages = @()
 
 if ($allContainerImages.Count -eq 0) {
     Write-Log 'Nothing to delete. '
+    if ($EncodeStructuredOutput -eq $true) {
+        $err = New-Error -Severity Warning -Code 'no-images' -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+        return
+    }
+    Write-Log $errMsg -Error
+    exit 1
 }
 
 foreach ($containerImage in $allContainerImages) {
@@ -48,6 +66,10 @@ foreach ($containerImage in $allContainerImages) {
         $image = $containerImage.Repository + ':' + $containerImage.Tag
         $imageId = $containerImage.ImageId
         $message = "No Action required for $image as Image Id $imageId is already deleted."
-        Write-Log $message
+        Write-Log $message -Console
     }
+}
+
+if ($EncodeStructuredOutput -eq $true) {
+    Send-ToCli -MessageType $MessageType -Message @{Error = $null }
 }
