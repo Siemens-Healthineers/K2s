@@ -91,5 +91,6 @@ data:
         Match *
         Host opensearch-cluster-master.logging.svc.cluster.local
         Port 9200
+        Index pods
         Buffer_Size 10MB
         Suppress_Type_Name On

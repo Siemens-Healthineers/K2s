@@ -125,6 +125,17 @@ data:
         Mem_Buf_Limit 512MB
         Refresh_Interval 5
 
+    [INPUT]
+        Name tail
+        Path C:\\var\\log\\*\\*.log
+        Exclude_Path *fluent-bit*.log
+        Tag cluster.*
+        Read_from_Head True
+        Buffer_Chunk_Size 10MB
+        Buffer_Max_Size 40MB
+        Mem_Buf_Limit 512MB
+        Refresh_Interval 5
+
     [FILTER]
         Name kubernetes
         Match kube.*
@@ -167,9 +178,21 @@ data:
 
     [OUTPUT]
         Name  opensearch
-        Match *
+        Match kube.*
         Host opensearch-cluster-master.logging.svc.cluster.local
         Port 9200
+        Index pods
+        Buffer_Size 10MB
+        Suppress_Type_Name On
+        Trace_Error       On
+        net.dns.resolver LEGACY #https://github.com/fluent/fluent-bit/issues/7105
+
+    [OUTPUT]
+        Name  opensearch
+        Match cluster.*
+        Host opensearch-cluster-master.logging.svc.cluster.local
+        Port 9200
+        Index cluster
         Buffer_Size 10MB
         Suppress_Type_Name On
         Trace_Error       On
