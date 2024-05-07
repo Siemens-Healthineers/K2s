@@ -154,6 +154,14 @@ func CreateSystemInCorruptedStateCmdFailure() *CmdFailure {
 	}
 }
 
+func CreateFunctionalityNotAvailableCmdFailure(setupName setupinfo.SetupName) *CmdFailure {
+	return &CmdFailure{
+		Severity: SeverityWarning,
+		Code:     "functionality-not-available",
+		Message:  fmt.Sprintf("This functionality is not available because '%s' setup is deprecated.", setupName),
+	}
+}
+
 func StartSpinner(printer TerminalPrinter) (Spinner, error) {
 	startResult, err := printer.StartSpinner("Gathering information..")
 	if err != nil {

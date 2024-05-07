@@ -34,10 +34,5 @@ func ToFile[T any](filePath string, v *T) (err error) {
 		return fmt.Errorf("error occurred while marshalling file '%s': %w", filePath, err)
 	}
 
-	err = os.WriteFile(filePath, binaries, fs.ModePerm)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return os.WriteFile(filePath, binaries, fs.ModePerm)
 }
