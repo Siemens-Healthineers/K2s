@@ -62,6 +62,13 @@ if ($systemError) {
     exit 1
 }
 
+$setupInfo = Get-SetupInfo
+if ($setupInfo.Name -ne 'k2s') {
+    $err = New-Error -Severity Warning -Code (Get-ErrCodeWrongSetupType) -Message "Addon 'dashboard' can only be enabled for 'k2s' setup type."  
+    Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+    return
+}
+
 if ((Test-IsAddonEnabled -Name 'dashboard') -eq $true) {
     $errMsg = "Addon 'dashboard' is already enabled, nothing to do."
 

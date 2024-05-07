@@ -57,6 +57,13 @@ if ($systemError) {
     exit 1
 }
 
+$setupInfo = Get-SetupInfo
+if ($setupInfo.Name -ne 'k2s') {
+    $err = New-Error -Severity Warning -Code (Get-ErrCodeWrongSetupType) -Message "Addon 'registry' can only be enabled for 'k2s' setup type."  
+    Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+    return
+}
+
 if ((Test-IsAddonEnabled -Name 'registry') -eq $true) {
     $errMsg = "Addon 'registry' is already enabled, nothing to do."
 
@@ -194,8 +201,6 @@ Start-Sleep 2
 Connect-Buildah -username $username -password $password -registry $registryName
 
 $authJson = Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo cat /root/.config/containers/auth.json' -NoLog | Out-String
-
-$setupInfo = Get-SetupInfo
 
 # Add dockerd parameters and restart docker daemon to push nondistributable artifacts and use insecure registry
 if ($setupInfo.Name -eq 'k2s') {
