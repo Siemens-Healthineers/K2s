@@ -28,7 +28,9 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'HTTP proxy if available')]
     [string] $Proxy,
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
-    [switch] $ShowLogs = $false
+    [switch] $ShowLogs = $false,
+    [parameter(Mandatory = $false, HelpMessage = 'If true, final SBOM file will have component annotations, this is required only for component clearance')]
+    [switch] $Annotate = $false
 )
 
 function EnsureTrivy() {
@@ -79,8 +81,11 @@ function GenerateBomGolang($dirname) {
     $indir = $global:KubernetesPath + '\' + $dirname
     Write-Output "Generate $dirname with command 'trivy.exe fs `"$indir`"' --scanners license --license-full --format cyclonedx -o `"$bomfile`" "
     trivy.exe fs `"$indir`" --scanners license --license-full --format cyclonedx -o `"$bomfile`"
-    Write-Output "Enriching generated sbom with command 'sbomgenerator.exe -e `"$bomfile`" "
-    &"$bomRootDir\sbomgenerator.exe" -e `"$bomfile`"
+
+    if ($Annotate) {
+        Write-Output "Enriching generated sbom with command 'sbomgenerator.exe -e `"$bomfile`" "
+        &"$bomRootDir\sbomgenerator.exe" -e `"$bomfile`"
+    }
 
     Write-Output "bom now available: $bomfile"
 }
@@ -157,8 +162,10 @@ function GenerateBomDebian() {
 
     $kubeSBOMJsonFile = "$bomRootDir\merge\kubemaster.json"
 
-    Write-Output "Enriching generated sbom with command 'sbomgenerator.exe -e `"$kubeSBOMJsonFile`" "
-    &"$bomRootDir\sbomgenerator.exe" -e `"$kubeSBOMJsonFile`"
+    if ($Annotate) {
+        Write-Output "Enriching generated sbom with command 'sbomgenerator.exe -e `"$kubeSBOMJsonFile`" "
+        &"$bomRootDir\sbomgenerator.exe" -e `"$kubeSBOMJsonFile`"
+    }
 }
 
 function LoadK2sImages() {
@@ -226,9 +233,11 @@ function GenerateBomContainers() {
 
             $imageSBOMJsonFile = "$bomRootDir\merge\$imageName.json"
 
-            Write-Output "Enriching generated sbom with command 'sbomgenerator.exe -e `"$imageSBOMJsonFile`" -t `"$type`" -c `"$version`" "
-            &"$bomRootDir\sbomgenerator.exe" -e `"$imageSBOMJsonFile`" -t `"$type`" -c `"$version`"
-;
+            if ($Annotate) {
+                Write-Output "Enriching generated sbom with command 'sbomgenerator.exe -e `"$imageSBOMJsonFile`" -t `"$type`" -c `"$version`" "
+                &"$bomRootDir\sbomgenerator.exe" -e `"$imageSBOMJsonFile`" -t `"$type`" -c `"$version`"
+            }
+
             # delete tar file
             ExecCmdMaster "sudo rm -f $imageName.tar"
             ExecCmdMaster "sudo rm -f $imageName.json"
@@ -283,8 +292,11 @@ function GenerateBomContainers() {
         Copy-FromToMaster -Source $source -Target "$bomRootDir\merge"
 
         $imageSBOMJsonFile = "$bomRootDir\merge\$imageName.json"
-        Write-Output "Enriching generated sbom with command 'sbomgenerator.exe -e `"$imageSBOMJsonFile`" -t `"$type`" -c `"$version`""
-        &"$bomRootDir\sbomgenerator.exe" -e `"$imageSBOMJsonFile`" -t `"$type`" -c `"$version`"
+
+        if ($Annotate) {
+            Write-Output "Enriching generated sbom with command 'sbomgenerator.exe -e `"$imageSBOMJsonFile`" -t `"$type`" -c `"$version`""
+            &"$bomRootDir\sbomgenerator.exe" -e `"$imageSBOMJsonFile`" -t `"$type`" -c `"$version`"
+        }
 
         # remove tar file
         ExecCmdMaster "sudo rm /home/remote/$imageName.tar"
@@ -315,6 +327,13 @@ if ($Trace) {
 Write-Output '---------------------------------------------------------------'
 Write-Output ' Generation of bom file started.'
 Write-Output '---------------------------------------------------------------'
+
+if ($Annotate) {
+    Write-Output ' Annotation of SBOM enabled.'
+    if (!(Test-Path "$bomRootDir\sbomgenerator.exe")) {
+        throw "sbomgenerator.exe is not present under directory $bomRootDir"
+    }
+}
 
 $generationStopwatch = [system.diagnostics.stopwatch]::StartNew()
 
