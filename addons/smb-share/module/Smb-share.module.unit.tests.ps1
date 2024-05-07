@@ -1495,7 +1495,7 @@ Describe 'Enable-SmbShare' -Tag 'unit', 'ci', 'addon', 'smb-share' {
 
         Context 'setup type valid for this addon' {
             BeforeAll {
-                $setupInfo = [pscustomobject]@{Name = 'MultiVMK8s'; LinuxOnly = $true }
+                $setupInfo = [pscustomobject]@{Name = 'k2s'; LinuxOnly = $true }
 
                 Mock -ModuleName $moduleName Get-SetupInfo { return $setupInfo }
                 Mock -ModuleName $moduleName Copy-ScriptsToHooksDir { }
@@ -1516,7 +1516,7 @@ Describe 'Enable-SmbShare' -Tag 'unit', 'ci', 'addon', 'smb-share' {
                     Should -Invoke Copy-ScriptsToHooksDir -Times 1 -Scope Context
                     Should -Invoke Add-AddonToSetupJson -Times 1 -Scope Context -ParameterFilter { $Addon.Name -eq $AddonName -and $Addon.SmbHostType -eq $smbHostType }
                     Should -Invoke Restore-SmbShareAndFolder -Times 1 -Scope Context -ParameterFilter {
-                        $SmbHostType -eq $smbHostType -and $SkipTest -eq $true -and $SetupInfo.Name -eq 'MultiVMK8s' -and $SetupInfo.LinuxOnly -eq $true
+                        $SmbHostType -eq $smbHostType -and $SkipTest -eq $true -and $SetupInfo.Name -eq 'k2s' -and $SetupInfo.LinuxOnly -eq $true
                     }
                     Should -Invoke Restore-StorageClass -Times 1 -Scope Context -ParameterFilter { $SmbHostType -eq $smbHostType -and $LinuxOnly -eq $true }
                 }
