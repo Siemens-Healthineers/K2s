@@ -58,7 +58,7 @@ var _ = Describe("status", Ordered, func() {
 		It("states that system is not running with details about what is not running", func(ctx context.Context) {
 			matchers := []types.GomegaMatcher{
 				ContainSubstring("The system is not running."),
-				ContainSubstring("'KubeMaster' not running, state is 'Off' (VM)"),
+				ContainSubstring("control-plane 'kubemaster' not running, state is 'Off' (VM)"),
 			}
 
 			if suite.SetupInfo().SetupConfig.SetupName == setupinfo.SetupNamek2s {
@@ -97,7 +97,7 @@ var _ = Describe("status", Ordered, func() {
 		It("states that system is not running with details about what is not running", func(ctx context.Context) {
 			matchers := []types.GomegaMatcher{
 				ContainSubstring("The system is not running."),
-				ContainSubstring("'KubeMaster' not running, state is 'Off' (VM)"),
+				ContainSubstring("control-plane 'kubemaster' not running, state is 'Off' (VM)"),
 			}
 
 			if suite.SetupInfo().SetupConfig.SetupName == setupinfo.SetupNamek2s {
