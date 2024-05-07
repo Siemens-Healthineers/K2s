@@ -1017,8 +1017,8 @@ function Enable-SmbShare {
 
     $setupInfo = Get-SetupInfo
 
-    if ($setupInfo.Name -ne 'k2s' -and $setupInfo.Name -ne 'MultiVMK8s') {
-        $err = New-Error -Severity Warning -Code (Get-ErrCodeWrongSetupType) -Message "Addon '$AddonName' can only be enabled for 'k2s' or 'MultiVMK8s' setup type."  
+    if ($setupInfo.Name -ne 'k2s') {
+        $err = New-Error -Severity Warning -Code (Get-ErrCodeWrongSetupType) -Message "Addon '$AddonName' can only be enabled for 'k2s' setup type."  
         return @{Error = $err }
     }
 

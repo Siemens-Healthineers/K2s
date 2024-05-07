@@ -29,6 +29,8 @@ const (
 	SetupNamek2s          SetupName = "k2s"
 	SetupNameMultiVMK8s   SetupName = "MultiVMK8s"
 	SetupNameBuildOnlyEnv SetupName = "BuildOnlyEnv"
+
+	configFileName = "setup.json"
 )
 
 var (
@@ -37,7 +39,7 @@ var (
 )
 
 func LoadConfig(configDir string) (*Config, error) {
-	configPath := filepath.Join(configDir, "setup.json")
+	configPath := filepath.Join(configDir, configFileName)
 
 	config, err := json.FromFile[Config](configPath)
 	if err != nil {
@@ -57,12 +59,7 @@ func LoadConfig(configDir string) (*Config, error) {
 }
 
 func SetConfig(configDir string, config *Config) error {
-	configPath := filepath.Join(configDir, "setup.json")
+	configPath := filepath.Join(configDir, configFileName)
 
-	err := json.ToFile[Config](configPath, config)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return json.ToFile(configPath, config)
 }
