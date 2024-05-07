@@ -65,11 +65,12 @@ if (!$Windows) {
     return
 }
 else {
+    $kubeBinPath = Get-KubeBinPath
     $retries = 5
     $success = $false
     while ($retries -gt 0) {
         $retries--
-        &$global:BinPath\crictl pull $ImageName
+        &$kubeBinPath\crictl pull $ImageName
 
         if ($?) {
             $success = $true
