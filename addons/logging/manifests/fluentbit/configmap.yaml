@@ -42,10 +42,19 @@ data:
         Exclude_Path /var/log/containers/*_logging_*.log
         Parser cri
         Tag kube.*
+        Read_from_Head true
         Buffer_Chunk_Size 10MB
         Buffer_Max_Size 40MB
         Mem_Buf_Limit 512MB
         Refresh_Interval 5
+
+    [INPUT]
+        Name syslog
+        Parser syslog-rfc3164
+        Listen 0.0.0.0
+        Port 5140
+        Mode tcp
+        Tag syslog.*
 
     [FILTER]
         Name kubernetes
@@ -88,9 +97,18 @@ data:
     
     [OUTPUT]
         Name opensearch
-        Match *
+        Match kube.*
         Host opensearch-cluster-master.logging.svc.cluster.local
         Port 9200
         Index pods
+        Buffer_Size 10MB
+        Suppress_Type_Name On
+
+    [OUTPUT]
+        Name opensearch
+        Match syslog.*
+        Host opensearch-cluster-master.logging.svc.cluster.local
+        Port 9200
+        Index syslog
         Buffer_Size 10MB
         Suppress_Type_Name On
