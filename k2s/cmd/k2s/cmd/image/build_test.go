@@ -5,6 +5,7 @@ package image
 
 import (
 	"fmt"
+	"path/filepath"
 
 	"github.com/google/uuid"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
@@ -157,7 +158,7 @@ var _ = Describe("build", func() {
 
 				cmd, params := buildPsCmd(options)
 
-				Expect(cmd).To(ContainSubstring("\\smallsetup\\common\\BuildImage.ps1"))
+				Expect(cmd).To(ContainSubstring(filepath.Join("lib", "scripts", "k2s", "image", "Build-Image.ps1")))
 				Expect(params).To(ConsistOf(" -InputFolder ."))
 			})
 		})
@@ -169,7 +170,7 @@ var _ = Describe("build", func() {
 
 				cmd, params := buildPsCmd(options)
 
-				Expect(cmd).To(ContainSubstring("\\smallsetup\\common\\BuildImage.ps1"))
+				Expect(cmd).To(ContainSubstring(filepath.Join("lib", "scripts", "k2s", "image", "Build-Image.ps1")))
 				Expect(params).To(ConsistOf(" -InputFolder .", " -Windows"))
 			})
 		})
@@ -181,7 +182,7 @@ var _ = Describe("build", func() {
 
 				cmd, params := buildPsCmd(options)
 
-				Expect(cmd).To(ContainSubstring("\\smallsetup\\common\\BuildImage.ps1"))
+				Expect(cmd).To(ContainSubstring(filepath.Join("lib", "scripts", "k2s", "image", "Build-Image.ps1")))
 				Expect(params).To(ConsistOf(" -InputFolder .", " -Push"))
 			})
 		})
@@ -194,7 +195,7 @@ var _ = Describe("build", func() {
 
 				cmd, params := buildPsCmd(options)
 
-				Expect(cmd).To(ContainSubstring("\\smallsetup\\common\\BuildImage.ps1"))
+				Expect(cmd).To(ContainSubstring(filepath.Join("lib", "scripts", "k2s", "image", "Build-Image.ps1")))
 				Expect(params).To(ConsistOf(" -InputFolder .", " -Windows", " -Push"))
 			})
 		})
@@ -207,7 +208,7 @@ var _ = Describe("build", func() {
 
 				cmd, params := buildPsCmd(options)
 
-				Expect(cmd).To(ContainSubstring("\\smallsetup\\common\\BuildImage.ps1"))
+				Expect(cmd).To(ContainSubstring(filepath.Join("lib", "scripts", "k2s", "image", "Build-Image.ps1")))
 				Expect(params).To(ConsistOf(" -InputFolder .", " -Dockerfile MyDockerfile"))
 			})
 		})
@@ -220,7 +221,7 @@ var _ = Describe("build", func() {
 
 				cmd, params := buildPsCmd(options)
 
-				Expect(cmd).To(ContainSubstring("\\smallsetup\\common\\BuildImage.ps1"))
+				Expect(cmd).To(ContainSubstring(filepath.Join("lib", "scripts", "k2s", "image", "Build-Image.ps1")))
 				Expect(params).To(ConsistOf(" -InputFolder MyInputFolder"))
 			})
 		})
@@ -235,7 +236,7 @@ var _ = Describe("build", func() {
 
 				cmd, params := buildPsCmd(options)
 
-				Expect(cmd).To(ContainSubstring("\\smallsetup\\common\\BuildImage.ps1"))
+				Expect(cmd).To(ContainSubstring(filepath.Join("lib", "scripts", "k2s", "image", "Build-Image.ps1")))
 				Expect(params).To(ConsistOf(" -InputFolder .", " -ImageName my-image", " -ImageTag my-tag"))
 			})
 		})
@@ -254,7 +255,7 @@ var _ = Describe("build", func() {
 
 				cmd, params := buildPsCmd(options)
 
-				Expect(cmd).To(ContainSubstring("\\smallsetup\\common\\BuildImage.ps1"))
+				Expect(cmd).To(ContainSubstring(filepath.Join("lib", "scripts", "k2s", "image", "Build-Image.ps1")))
 				Expect(params).To(ConsistOf(
 					" -InputFolder .",
 					SatisfyAny(
@@ -273,7 +274,7 @@ var _ = Describe("build", func() {
 
 				cmd, params := buildPsCmd(options)
 
-				Expect(cmd).To(ContainSubstring("\\smallsetup\\common\\BuildImage.ps1"))
+				Expect(cmd).To(ContainSubstring(filepath.Join("lib", "scripts", "k2s", "image", "Build-Image.ps1")))
 				Expect(params).To(ConsistOf(" -InputFolder .", " -ShowLogs"))
 			})
 		})
