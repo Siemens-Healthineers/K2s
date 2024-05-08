@@ -131,6 +131,7 @@ else {
     }
 }
 
+$deletionfailed = $false
 if ($foundImages.Count -eq 0) {
     $errMsg = 'Image was not found. Please ensure that you have specified the right image details to be deleted'
     if ($EncodeStructuredOutput -eq $true) {
@@ -150,7 +151,10 @@ else {
             if ($null -eq $errorString) {
                 $deletedImages += $imageToBeDeleted.ImageId
             }
-            Show-ImageDeletionStatus -ContainerImage $imageToBeDeleted -ErrorMessage $errorString
+            $deletionExitCode = Show-ImageDeletionStatus -ContainerImage $imageToBeDeleted -ErrorMessage $errorString
+            if($deletionExitCode -eq 1) {
+                $deletionfailed = $true
+            }
         }
         else {
             $image = $imageToBeDeleted.Repository + ':' + $imageToBeDeleted.Tag
@@ -159,6 +163,18 @@ else {
             Write-Log $message
         }
     }
+}
+
+if ($deletionfailed) {
+    if ($EncodeStructuredOutput -eq $true) {
+        $errMsg = "Image couldn't be deleted!"
+        $err = New-Error -Severity Warning -Code 'image-rm-failed' -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+        return
+    }
+
+    Write-Log $errMsg -Error
+    exit 1
 }
 
 if ($EncodeStructuredOutput -eq $true) {
