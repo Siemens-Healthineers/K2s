@@ -296,10 +296,12 @@ function Show-ImageDeletionStatus([ContainerImage]$ContainerImage, [string]$Erro
     $imageName = $ContainerImage.Repository + ':' + $ContainerImage.Tag
     $node = $ContainerImage.Node
     if ([string]::IsNullOrWhiteSpace($ErrorMessage)) {
-        Write-Host "Successfully deleted image $imageName from $node"
+        Write-Log "Successfully deleted image $imageName from $node"
+        return 0
     }
     else {
-        Write-Host "Failed to delete image $imageName from $node. Reason: $ErrorMessage"
+        Write-Log "Failed to delete image $imageName from $node. Reason: $ErrorMessage"
+        return 1
     }
 }
 

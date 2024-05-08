@@ -42,7 +42,7 @@ $allContainerImages = Get-ContainerImagesInk2s -IncludeK8sImages $false
 $deletedImages = @()
 
 if ($allContainerImages.Count -eq 0) {
-    Write-Log 'Nothing to delete. '
+    $errMsg = 'Nothing to delete. '
     if ($EncodeStructuredOutput -eq $true) {
         $err = New-Error -Severity Warning -Code 'no-images' -Message $errMsg
         Send-ToCli -MessageType $MessageType -Message @{Error = $err }
@@ -52,6 +52,7 @@ if ($allContainerImages.Count -eq 0) {
     exit 1
 }
 
+$deletionfailed = $false
 foreach ($containerImage in $allContainerImages) {
     $alreadyDeleted = $deletedImages | Where-Object { $containerImage.ImageId -eq $_ }
     if ($alreadyDeleted.Count -eq 0) {
@@ -59,7 +60,10 @@ foreach ($containerImage in $allContainerImages) {
         if ($null -eq $errorString) {
             $deletedImages += $imageToBeDeleted.ImageId
         }
-        Show-ImageDeletionStatus -ContainerImage $containerImage -ErrorMessage $errorString
+        $deletionExitCode = Show-ImageDeletionStatus -ContainerImage $containerImage -ErrorMessage $errorString
+        if($deletionExitCode -eq 1) {
+            $deletionfailed = $true
+        }
     }
     else {
         $image = $containerImage.Repository + ':' + $containerImage.Tag
@@ -68,6 +72,19 @@ foreach ($containerImage in $allContainerImages) {
         Write-Log $message -Console
     }
 }
+
+if ($deletionfailed) {
+    if ($EncodeStructuredOutput -eq $true) {
+        $errMsg = "Not all images could be deleted!"
+        $err = New-Error -Severity Warning -Code 'image-clean-failed' -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+        return
+    }
+
+    Write-Log $errMsg -Error
+    exit 1
+}
+
 
 if ($EncodeStructuredOutput -eq $true) {
     Send-ToCli -MessageType $MessageType -Message @{Error = $null }

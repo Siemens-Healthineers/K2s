@@ -58,13 +58,27 @@ if ($systemError) {
 }
 
 if (!$Windows) {
-    Invoke-CmdOnControlPlaneViaSSHKey "sudo buildah pull $ImageName 2>&1" -Retries 5 -NoLog
+    Write-Log "Pulling Linux image $ImageName"
+    $output = Invoke-CmdOnControlPlaneViaSSHKey "sudo buildah pull $ImageName 2>&1" -Retries 5 -NoLog
+    if ($output -match ".*Error.*") {
+        $errMsg = "Error pulling image '$ImageName'"
+        if ($EncodeStructuredOutput -eq $true) {
+            $err = New-Error -Code 'image-pull-failed' -Message $errMsg
+            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+            return
+        }
+    
+        Write-Log $errMsg -Error
+        exit 1
+    }
+
     if ($EncodeStructuredOutput -eq $true) {
         Send-ToCli -MessageType $MessageType -Message @{Error = $null }
     }
     return
 }
 else {
+    Write-Log "Pulling Windows image $ImageName"
     $kubeBinPath = Get-KubeBinPath
     $retries = 5
     $success = $false
@@ -80,7 +94,7 @@ else {
     }
 
     if (!$success) {
-        throw "Error pulling image '$ImageName'"
+        $errMsg = "Error pulling image '$ImageName'"
         if ($EncodeStructuredOutput -eq $true) {
             $err = New-Error -Code 'image-pull-failed' -Message $errMsg
             Send-ToCli -MessageType $MessageType -Message @{Error = $err }
