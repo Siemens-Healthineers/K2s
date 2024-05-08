@@ -15,6 +15,8 @@ $kubernetesImagesJson = Get-KubernetesImagesFilePath
 $windowsPauseImageRepository = 'shsk2s.azurecr.io/pause-win'
 $kubeBinPath = Get-KubeBinPath
 $dockerExe = "$kubeBinPath\docker\docker.exe"
+$nerdctlExe = "$kubeBinPath\nerdctl.exe"
+$ctrExe = "$kubeBinPath\containerd\ctr.exe"
 
 class ContainerImage {
     [string]$ImageId
@@ -294,10 +296,12 @@ function Show-ImageDeletionStatus([ContainerImage]$ContainerImage, [string]$Erro
     $imageName = $ContainerImage.Repository + ':' + $ContainerImage.Tag
     $node = $ContainerImage.Node
     if ([string]::IsNullOrWhiteSpace($ErrorMessage)) {
-        Write-Host "Successfully deleted image $imageName from $node"
+        Write-Log "Successfully deleted image $imageName from $node"
+        return 0
     }
     else {
-        Write-Host "Failed to delete image $imageName from $node. Reason: $ErrorMessage"
+        Write-Log "Failed to delete image $imageName from $node. Reason: $ErrorMessage"
+        return 1
     }
 }
 
@@ -407,11 +411,7 @@ function New-WindowsImage {
     Write-Log "Output of checking if the image $imageFullName is now available in docker:"
     &$dockerExe image ls $ImageName -a
 
-    Write-Log $global:ExportedImagesTempFolder
-    if (!(Test-Path($global:ExportedImagesTempFolder))) {
-        New-Item -Force -Path $global:ExportedImagesTempFolder -ItemType Directory
-    }
-    $exportedImageFullFileName = $global:ExportedImagesTempFolder + '\BuiltImage.tar'
+    $exportedImageFullFileName = $env:TEMP + '\BuiltImage.tar'
     if (Test-Path($exportedImageFullFileName)) {
         Remove-Item $exportedImageFullFileName -Force
     }
@@ -422,7 +422,7 @@ function New-WindowsImage {
     Write-Log '...saved.'
 
     Write-Log "Importing image $imageFullName from $exportedImageFullFileName into containerd..."
-    &$global:NerdctlExe -n k8s.io load -i "$exportedImageFullFileName"
+    &$nerdctlExe -n k8s.io load -i "$exportedImageFullFileName"
     if (!$?) { throw "error while importing built image '$imageFullName' with 'nerdctl.exe load' on Windows. Error code returned was $LastExitCode" }
     Write-Log '...imported'
 
@@ -430,7 +430,7 @@ function New-WindowsImage {
     Remove-Item $exportedImageFullFileName -Force
     Write-Log '...removed'
 
-    $imageList = &$global:CtrExe -n="k8s.io" images list | Out-string
+    $imageList = &$ctrExe -n="k8s.io" images list | Out-string
 
     if (!$imageList.Contains($imageFullName)) {
         throw "The built image '$imageFullName' was not imported in the containerd's local repository."
