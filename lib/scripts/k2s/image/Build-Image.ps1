@@ -481,7 +481,7 @@ if ($Push) {
 # Cleanup inside VM
 if (!$Keep -and !$Windows) {
     Write-Log 'Cleaning up temporary disk space in control plane VM' -Console
-    #Invoke-CmdOnControlPlaneViaSSHKey 'find ~/tmp/docker-build -exec chmod a+w {} \; ; rm -rf ~/tmp/docker-build'
+    Invoke-CmdOnControlPlaneViaSSHKey 'find ~/tmp/docker-build -exec chmod a+w {} \; ; rm -rf ~/tmp/docker-build'
 }
 
 Write-Log "Total duration: $('{0:hh\:mm\:ss}' -f $mainStopwatch.Elapsed )"
