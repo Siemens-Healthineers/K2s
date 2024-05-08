@@ -23,8 +23,7 @@ param (
 
 $clusterModule = "$PSScriptRoot/../../../modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $infraModule = "$PSScriptRoot/../../../modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
-$statusModule = "$PSScriptRoot/../../../modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
-Import-Module $clusterModule, $infraModule, $statusModule
+Import-Module $clusterModule, $infraModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
