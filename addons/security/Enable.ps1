@@ -128,7 +128,11 @@ Write-Log 'Importing CA root certificate to trusted authorities of your computer
 $b64secret = (Invoke-Kubectl -Params '-n', 'cert-manager', 'get', 'secrets', 'ca-issuer-root-secret', '-o', 'jsonpath', '--template', '{.data.ca\.crt}').Output
 $tempFile = New-TemporaryFile
 [Text.Encoding]::Utf8.GetString([Convert]::FromBase64String($b64secret)) | Out-File -Encoding utf8 -FilePath $tempFile.FullName -Force
-certutil -addstore -f -enterprise -user root $tempFile.FullName
+$params = @{
+    FilePath          = $tempFile.FullName
+    CertStoreLocation = 'Cert:\LocalMachine\Root'
+}
+(Import-Certificate @params).Output | Write-Log
 Remove-Item -Path $tempFile.FullName -Force
 
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'security' })

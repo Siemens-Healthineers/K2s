@@ -138,6 +138,9 @@ if ($allPodsAreUp -ne $true) {
     exit 1
 }
 
+$clusterIngressConfig = "$PSScriptRoot\manifests\cluster-net-ingress.yaml"
+(Invoke-Kubectl -Params 'apply' , '-f', $clusterIngressConfig).Output | Write-Log
+
 Write-Log 'All ingress-nginx pods are up and ready.'
 
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'ingress-nginx' })

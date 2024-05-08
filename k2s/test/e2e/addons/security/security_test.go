@@ -7,6 +7,8 @@ package security
 import (
 	"context"
 	"encoding/json"
+	"os"
+	"path"
 	"testing"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/addons/status"
@@ -110,7 +112,29 @@ var _ = Describe("'security' addon", Ordered, func() {
 			)))
 	})
 
+	It("installs cmctl.exe, the cert-manager CLI", func(ctx context.Context) {
+		cmCtlPath := path.Join(suite.RootDir(), "bin", "exe", "cmctl.exe")
+		_, err := os.Stat(cmCtlPath)
+		Expect(err).To(BeNil())
+	})
+
+	It("creates the ca-issuer-root-secret", func(ctx context.Context) {
+		output := suite.Kubectl().Run(ctx, "get", "secrets", "-n", "cert-manager", "ca-issuer-root-secret")
+		Expect(output).To(ContainSubstring("ca-issuer-root-secret"))
+	})
+
 	It("disables the addon", func(ctx context.Context) {
 		suite.K2sCli().Run(ctx, "addons", "disable", addonName, "-o")
+	})
+
+	It("uninstalls cmctl.exe, the cert-manager CLI", func(ctx context.Context) {
+		cmCtlPath := path.Join(suite.RootDir(), "bin", "exe", "cmctl.exe")
+		_, err := os.Stat(cmCtlPath)
+		Expect(err).NotTo(BeNil())
+	})
+
+	It("removed the ca-issuer-root-secret", func(ctx context.Context) {
+		output := suite.Kubectl().Run(ctx, "get", "secrets", "-A")
+		Expect(output).NotTo(ContainSubstring("ca-issuer-root-secret"))
 	})
 })

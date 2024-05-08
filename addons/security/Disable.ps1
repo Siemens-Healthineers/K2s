@@ -68,6 +68,8 @@ $caIssuerConfig = Get-CAIssuerConfig
 Remove-Cmctl
 Remove-AddonFromSetupJson -Name 'security'
 
+(Get-ChildItem Cert:\LocalMachine\Root | Where-Object { $_.Subject -match 'K2s Self-Signed CA' } | Remove-Item).Output | Write-Log
+
 Write-Log 'Uninstallation of security finished' -Console
 
 Write-WarningForUser

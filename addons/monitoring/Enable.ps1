@@ -113,6 +113,9 @@ if (!$kubectlCmd.Success) {
 if (Test-TraefikIngressControllerAvailability) {
     (Invoke-Kubectl -Params 'apply', '-f', "$manifestsPath\plutono\traefik.yaml").Output | Write-Log
 }
+elseif (Test-NginxIngressControllerAvailability) {
+    (Invoke-Kubectl -Params 'apply', '-f', "$manifestsPath\plutono\ingress.yaml").Output | Write-Log
+}
 
 Add-HostEntries -Url 'k2s-monitoring.local'
 
