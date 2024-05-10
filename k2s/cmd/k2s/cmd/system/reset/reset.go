@@ -6,6 +6,7 @@ package reset
 import (
 	"errors"
 	"log/slog"
+	"path/filepath"
 	"time"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
@@ -68,7 +69,7 @@ func resetSystem(cmd *cobra.Command, args []string) error {
 }
 
 func buildResetSystemCmd() (string, error) {
-	resetSystemCommand := utils.FormatScriptFilePath(utils.InstallDir() + "\\smallsetup\\helpers\\ResetSystem.ps1")
+	resetSystemCommand := utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "system", "reset", "Reset-System.ps1"))
 
 	return resetSystemCommand, nil
 }
