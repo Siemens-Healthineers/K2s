@@ -161,6 +161,9 @@ if ($buildArgsString -ne '') {
 
 $InputFolder = [System.IO.Path]::GetFullPath($InputFolder)
 
+$kubeBinPath = Get-KubeBinPath
+$dockerExe = "$kubeBinPath\docker\docker.exe"
+
 $dockerfileAbsoluteFp, $PreCompile = Get-DockerfileAbsolutePathAndPreCompileFlag -InputFolder $InputFolder -Dockerfile $Dockerfile -PreCompile:$PreCompile
 
 if (($ImageTag -eq 'local') -and $Push) { throw 'Unable to push without valid tag, use -ImageTag' }
@@ -453,7 +456,7 @@ if ($Push) {
     Write-Log "Trying to push image ${ImageName}:$ImageTag to repository" -Console
 
     if ($Windows) {
-        docker push "${ImageName}:$ImageTag" 2>&1
+        &$dockerExe push "${ImageName}:$ImageTag" 2>&1
     }
     else {
         Invoke-CmdOnControlPlaneViaSSHKey "sudo buildah push ${ImageName}:$ImageTag 2>&1"
