@@ -29,6 +29,7 @@ $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
 $securityModule = "$PSScriptRoot\security.module.psm1"
 
 Import-Module $infraModule, $clusterModule, $addonsModule, $securityModule
+Import-Module PKI;
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
