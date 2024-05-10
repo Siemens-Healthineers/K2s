@@ -153,7 +153,7 @@ function Get-ContainerImagesOnWindowsNode([bool]$IncludeK8sImages = $false, [boo
 function Get-PushedContainerImages() {
     $setupFilePath = Get-SetupConfigFilePath
     $enableAddons = Get-ConfigValue -Path $setupFilePath -Key 'EnabledAddons'
-    $isRegistryAddonEnabled = $enableAddons | Select-Object -Property Name | Where-Object { $_ -eq "registry" }
+    $isRegistryAddonEnabled = $enableAddons | Select-Object -ExpandProperty Name | Where-Object { $_ -eq "registry" }
     if (!$isRegistryAddonEnabled) {
         return
     }
