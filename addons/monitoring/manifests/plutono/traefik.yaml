@@ -2,23 +2,81 @@
 #
 # SPDX-License-Identifier: MIT
 
+# This web application can be configured to re-encode its relative URLs
+# with a configurable prefix, see file `configmap.yaml`:
+# root_url = https://k2s-monitoring.local/monitoring
+# This enables us to expose it trough the ingress under this configured path
 ---
+# This middleware strips the prefix "/monitoring" from the request, if present
+# is is used below in 
+# 'traefik.ingress.kubernetes.io/router.middlewares' annotation
 apiVersion: traefik.containo.us/v1alpha1
-kind: IngressRoute
+kind: Middleware
 metadata:
-  name: plutono-ingressroute
+  name: strip-prefix
+  namespace: monitoring
+spec:
+  stripPrefix:
+    prefixes:
+      - /monitoring
+---
+# This ingress will expose the plutono web application on:
+# HTTP: http://k2s-monitoring.local
+# TLS: https://k2s-monitoring.local
+# For TLS, the certificate is taken from k8s secret 'k2s-monitoring-local-tls'
+# This secret will be created by cert-manager, if it is running.
+# If cert-manager is not running, the secret will not be present and traefik
+# will use an own self-signed certificate.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: monitoring-traefik-local
   namespace: monitoring
   annotations:
-    kubernetes.io/ingress.class: traefik
+    cert-manager.io/cluster-issuer: k2s-ca-issuer
+    cert-manager.io/common-name: k2s-monitoring.local
+    traefik.ingress.kubernetes.io/router.middlewares: monitoring-strip-prefix@kubernetescrd
+    traefik.ingress.kubernetes.io/router.tls: "true"
 spec:
-  entryPoints:
-    - websecure
-  routes:
-    - match: Host(`k2s-monitoring.local`) && PathPrefix(`/`)
-      kind: Rule
-      services:
-        - name: kube-prometheus-stack-plutono
-          namespace: monitoring
-          port: 443
+  ingressClassName: traefik
   tls:
-    secretName: certs-secret-plutono
+  - hosts:
+      - k2s-monitoring.local
+    secretName: k2s-monitoring-local-tls
+  rules:
+    - host: k2s-monitoring.local
+      http:
+        paths:
+          - backend:
+              service:
+                name: kube-prometheus-stack-plutono
+                port:
+                  number: 443
+            path: /
+            pathType: Prefix
+---
+# this ingress will be merged with ingress provided in:
+# addons/traefik/manifests/cluster-net-ingress.yaml
+# and exposes the plutono web application on:
+# https://k2s.cluster.net/monitoring/
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: monitoring-traefik-cluster-net
+  namespace: monitoring
+  annotations:
+    traefik.ingress.kubernetes.io/router.middlewares: monitoring-strip-prefix@kubernetescrd
+    traefik.ingress.kubernetes.io/router.tls: "true"
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: k2s.cluster.net
+      http:
+        paths:
+          - backend:
+              service:
+                name: kube-prometheus-stack-plutono
+                port:
+                  number: 443
+            path: /monitoring
+            pathType: Prefix

@@ -139,6 +139,9 @@ if (!$kubectlCmd.Success) {
 if (Test-TraefikIngressControllerAvailability) {
     (Invoke-Kubectl -Params 'apply', '-f', "$manifestsPath\opensearch-dashboards\traefik.yaml").Output | Write-Log
 }
+elseif (Test-NginxIngressControllerAvailability) {
+    (Invoke-Kubectl -Params 'apply', '-f', "$manifestsPath\opensearch-dashboards\ingress.yaml").Output | Write-Log
+}
 Add-HostEntries -Url 'k2s-logging.local'
 
 # Import saved objects 

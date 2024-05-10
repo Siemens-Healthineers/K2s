@@ -75,6 +75,12 @@ var _ = Describe("'ingress-nginx' addon", Ordered, func() {
 		Expect(output).To(ContainSubstring("already enabled"))
 	})
 
+	It("makes k2s.cluster.net reachable, with http status NotFound", func(ctx context.Context) {
+		url := "https://k2s.cluster.net/"
+		httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-I", "-m", "5", "--retry", "3")
+		Expect(httpStatus).To(ContainSubstring("404"))
+	})
+
 	It("sample app is reachable through ingress-nginx ingress controller", func(ctx context.Context) {
 		suite.Kubectl().Run(ctx, "apply", "-k", "workloads")
 		suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "albums-linux1", "ingress-nginx-test")
