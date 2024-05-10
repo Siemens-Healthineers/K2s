@@ -1564,7 +1564,7 @@ function Add-DnsServer($switchname) {
     # add DNS proxy for cluster searches
     $ipindex = Get-NetIPInterface | ? InterfaceAlias -Like "*$switchname*" | ? AddressFamily -Eq IPv4 | select -expand 'ifIndex'
     Set-DnsClientServerAddress -InterfaceIndex $ipindex -ServerAddresses $global:IP_Master | Out-Null
-    Set-DnsClient -InterfaceIndex $ipindex -ConnectionSpecificSuffix 'cluster.local' | Out-Null
+    Set-DnsClient -InterfaceIndex $ipindex -ConnectionSpecificSuffix 'cluster.local' -RegisterThisConnectionsAddress $false | Out-Null
 }
 
 function Reset-DnsServer($switchname) {
