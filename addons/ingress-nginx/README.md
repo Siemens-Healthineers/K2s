@@ -18,7 +18,7 @@ it to pods running inside the platform.
 
 ## Getting started
 
-The ingress-nginx addon can be enabled using the k2s CLI
+The ingress-nginx addon can be enabled using the `k2s` CLI
 by running the following command:
 
 ```cmd
@@ -38,7 +38,7 @@ The ingress controller is configured so that it can be reached from outside
 the cluster via the external IP Address `172.19.1.100`.
 
 _Note:_ It is only possible to enable one ingress controller or gateway
-controller (ingress-nginx, traefik or gateway-nginx) in the k2s cluster at the
+controller (ingress-nginx, traefik or gateway-nginx) in the K2s cluster at the
 same time since they use the same ports.
 
 This Addon prepares one central TLS termination, matching the hostname

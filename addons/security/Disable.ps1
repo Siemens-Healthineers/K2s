@@ -66,10 +66,13 @@ $caIssuerConfig = Get-CAIssuerConfig
 (Invoke-Kubectl -Params 'delete', '-f', $certManagerConfig).Output | Write-Log
 
 Remove-Cmctl
+
+Write-Log 'Removing CA issuer certificate from trusted root' -Console
+$caIssuerName = Get-CAIssuerName
+$trustedRootStoreLocation = Get-TrustedRootStoreLocation
+Get-ChildItem -Path $trustedRootStoreLocation | Where-Object { $_.Subject -match $caIssuerName } | Remove-Item
+
 Remove-AddonFromSetupJson -Name 'security'
-
-(Get-ChildItem Cert:\LocalMachine\Root | Where-Object { $_.Subject -match 'K2s Self-Signed CA' } | Remove-Item).Output | Write-Log
-
 Write-Log 'Uninstallation of security finished' -Console
 
 Write-WarningForUser

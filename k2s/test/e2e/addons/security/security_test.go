@@ -130,7 +130,7 @@ var _ = Describe("'security' addon", Ordered, func() {
 	It("uninstalls cmctl.exe, the cert-manager CLI", func(ctx context.Context) {
 		cmCtlPath := path.Join(suite.RootDir(), "bin", "exe", "cmctl.exe")
 		_, err := os.Stat(cmCtlPath)
-		Expect(err).NotTo(BeNil())
+		Expect(os.IsNotExist(err)).To(BeTrue())
 	})
 
 	It("removed the ca-issuer-root-secret", func(ctx context.Context) {
