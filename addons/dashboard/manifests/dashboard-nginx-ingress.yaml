@@ -2,16 +2,29 @@
 #
 # SPDX-License-Identifier: MIT
 
+# The kubernetes-dashboard service exposes an angular application on port 443
+# The angular application is design in such a way that it constructs the 
+# relative paths based on the value stored in the x-forwarded-prefix header
+# of the request. So if the application is exposed on another path than root,
+# this header must have as value that path.
 ---
+# This ingress will expose the angular application on:
+# HTTP: http://k2s-dashboard.local 
+# TLS: https://k2s-dashboard.local 
+# For TLS, the certificate is taken from k8s secret 'k2s-dashboard-local-tls'
+# This secret will be created by cert-manager, if it is installed and running.
+# If cert-manager is not installed, the secret will not be present and nginx 
+# will use an own self-signed certificate.
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
+  name: dashboard-nginx-local
+  namespace: kubernetes-dashboard
   annotations:
     cert-manager.io/cluster-issuer: k2s-ca-issuer
     cert-manager.io/common-name: k2s-dashboard.local
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
     nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
-  name: dashboard
-  namespace: kubernetes-dashboard
 spec:
   ingressClassName: nginx
   rules:
@@ -28,4 +41,36 @@ spec:
   tls:
   - hosts:
     - k2s-dashboard.local
-    secretName: dashboard-tls
+    secretName: k2s-dashboard-local-tls
+---
+# this ingress will be merged with ingress provided in:
+# addons/ingress-nginx/manifests/cluster-net-ingress.yaml
+# and exposes the kubernetes-dashboard angular application on:
+# https://k2s.cluster.net/dashboard/
+# The certificate is taken from k8s secret 'k2s.cluster.net-tls'
+# (see addons/ingress-nginx/manifests/cluster-net-ingress.yaml)
+# NOTE: there is a glitch in dashboard,
+# causing the trailing / in bot URLs to be needed, i.e.
+# https://k2s.cluster.net/dashboard will not work!
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: dashboard-nginx-cluster-net
+  namespace: kubernetes-dashboard
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /$1
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
+    nginx.ingress.kubernetes.io/x-forwarded-prefix: "/dashboard/"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: k2s.cluster.net
+      http:
+        paths:
+        - path: /dashboard/(.*)
+          pathType: Prefix
+          backend:
+            service:
+              name: kubernetes-dashboard
+              port: 
+                number: 443

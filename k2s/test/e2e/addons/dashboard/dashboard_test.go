@@ -32,7 +32,7 @@ var (
 
 func TestDashboard(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "dasboard Addon Acceptance Tests", Label("addon", "acceptance", "setup-required", "invasive", "dashboard", "system-running"))
+	RunSpecs(t, "dashboard Addon Acceptance Tests", Label("addon", "acceptance", "setup-required", "invasive", "dashboard", "system-running"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
@@ -160,8 +160,14 @@ var _ = Describe("'dashboard' addon", Ordered, func() {
 				Expect(addonsStatus.IsAddonEnabled("dashboard")).To(BeTrue())
 			})
 
-			It("is reachable through traefik", func(ctx context.Context) {
+			It("is reachable through k2s-dashboard.local", func(ctx context.Context) {
 				url := "https://k2s-dashboard.local/#/pod?namespace=_all"
+				httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-I", "-m", "5", "--retry", "3", "--fail")
+				Expect(httpStatus).To(ContainSubstring("200"))
+			})
+
+			It("is reachable through k2s.cluster.net", func(ctx context.Context) {
+				url := "https://k2s.cluster.net/dashboard/#/pod?namespace=_all"
 				httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-I", "-m", "5", "--retry", "3", "--fail")
 				Expect(httpStatus).To(ContainSubstring("200"))
 			})
@@ -207,9 +213,15 @@ var _ = Describe("'dashboard' addon", Ordered, func() {
 				Expect(addonsStatus.IsAddonEnabled("dashboard")).To(BeTrue())
 			})
 
-			It("is reachable through ingress-nginx", func(ctx context.Context) {
+			It("is reachable through k2s-dashboard.local", func(ctx context.Context) {
 				url := "https://k2s-dashboard.local/#/pod?namespace=_all"
 				httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-I", "-m", "5", "--retry", "10", "--fail")
+				Expect(httpStatus).To(ContainSubstring("200"))
+			})
+
+			It("is reachable through k2s.cluster.net", func(ctx context.Context) {
+				url := "https://k2s.cluster.net/dashboard/#/pod?namespace=_all"
+				httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-I", "-m", "5", "--retry", "3", "--fail")
 				Expect(httpStatus).To(ContainSubstring("200"))
 			})
 

@@ -186,10 +186,20 @@ var _ = Describe("'logging' addon", Ordered, func() {
 			expectStatusToBePrinted(ctx)
 		})
 
-		It("is reachable through traefik", func(ctx context.Context) {
+		It("is reachable through k2s-logging.local", func(ctx context.Context) {
 			url := "http://k2s-logging.local"
 			httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-I", "-m", "5", "--retry", "3", "--fail")
+			// we expect a re-direct to /logging/app/home
 			Expect(httpStatus).To(ContainSubstring("302"))
+			Expect(httpStatus).To(ContainSubstring("/logging/app/home"))
+		})
+
+		It("is reachable through k2s.cluster.net/logging", func(ctx context.Context) {
+			url := "https://k2s.cluster.net/logging"
+			httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-I", "-m", "5", "--retry", "3", "--fail")
+			// we expect a re-direct to /logging/app/home
+			Expect(httpStatus).To(ContainSubstring("302"))
+			Expect(httpStatus).To(ContainSubstring("/logging/app/home"))
 		})
 	})
 
@@ -244,10 +254,20 @@ var _ = Describe("'logging' addon", Ordered, func() {
 			expectStatusToBePrinted(ctx)
 		})
 
-		It("is reachable through ingress-nginx", func(ctx context.Context) {
+		It("is reachable through k2s-logging.local/", func(ctx context.Context) {
 			url := "http://k2s-logging.local"
 			httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-I", "-m", "5", "--retry", "10", "--fail")
+			// we expect a re-direct to /logging/app/home
 			Expect(httpStatus).To(ContainSubstring("302"))
+			Expect(httpStatus).To(ContainSubstring("/logging/app/home"))
+		})
+
+		It("is reachable through k2s.cluster.net/logging/", func(ctx context.Context) {
+			url := "https://k2s.cluster.net/logging"
+			httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-I", "-m", "5", "--retry", "3", "--fail")
+			// we expect a re-direct to /logging/app/home
+			Expect(httpStatus).To(ContainSubstring("302"))
+			Expect(httpStatus).To(ContainSubstring("/logging/app/home"))
 		})
 	})
 })
