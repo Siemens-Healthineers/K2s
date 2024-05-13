@@ -43,7 +43,7 @@
           <url>https://github.com/kubernetes-sigs/cri-tools/blob/master/LICENSE</url>
         </license>
       </licenses>
-      <purl>pkg:github/kubernetes-sigs/cri-tools/@v1.28.0</purl>
+      <purl>pkg:github/kubernetes-sigs/cri-tools@v1.28.0</purl>
       <properties>
         <property name="sw360:projectName">k2s:core:pkg:executables</property>
       </properties>

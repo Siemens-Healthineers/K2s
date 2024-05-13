@@ -70,7 +70,7 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/kubernetes-sigs/cri-tools/@v1.28.0",
+      "purl": "pkg:github/kubernetes-sigs/cri-tools@v1.28.0",
       "type": "application"
     },
     {
