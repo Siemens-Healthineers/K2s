@@ -8,9 +8,9 @@ Import-Module $configModule, $pathModule, $logModule
 
 $ipControlPlane = Get-ConfiguredIPControlPlane
 $nameControlPlane = Get-ConfigControlPlaneNodeHostname
-$defaultUserName = "remote"
+$defaultUserName = 'remote'
 $remoteUser = "$defaultUserName@$ipControlPlane"
-$remotePwd = "admin"
+$remotePwd = 'admin'
 $key = Get-SSHKeyControlPlane
 
 $kubePath = Get-KubePath
@@ -25,6 +25,25 @@ $ControlPlaneVMBaseUbuntuImageName = 'Kubemaster-Base-Ubuntu.vhdx'
 $ControlPlaneVMRootfsName = 'Kubemaster-Base.rootfs.tar.gz'
 $ControlPlaneVMUbuntuRootfsName = 'Kubemaster-Base-Ubuntu.rootfs.tar.gz'
 
+function Invoke-SSHWithKey {
+    param (
+        [Parameter(Mandatory = $false)]
+        [string]
+        $Command = $(throw 'Command not specified'),
+        [Parameter(Mandatory = $false)]
+        [switch]
+        $Nested
+    )
+    $params = '-n', '-o', 'StrictHostKeyChecking=no', '-i', $key, $remoteUser, $Command
+
+    if ($Nested -eq $true) {
+        # omit the "-n" param
+        $params = $params[1..($params.Length - 1)]
+    }
+
+    &ssh.exe $params 2>&1 | ForEach-Object { Write-Log $_ -Console -Raw }
+}
+
 function Invoke-CmdOnControlPlaneViaSSHKey(
     [Parameter(Mandatory = $false)]
     $CmdToExecute,
@@ -36,9 +55,10 @@ function Invoke-CmdOnControlPlaneViaSSHKey(
     [uint16]$Timeout = 1,
     [Parameter(Mandatory = $false)]
     [switch]$NoLog = $false,
-    [Parameter(Mandatory = $false ,HelpMessage = 'When executing ssh.exe in nested environment[host=>VM=>VM], -n flag should not be used.')]
-    [switch]$Nested = $false)
-{
+    [Parameter(Mandatory = $false , HelpMessage = 'When executing ssh.exe in nested environment[host=>VM=>VM], -n flag should not be used.')]
+    [switch]$Nested = $false,
+    [Parameter(Mandatory = $false, HelpMessage = 'repair CMD for the case first run did not work out')]
+    [string]$RepairCmd = $null) {
 
     if (!$NoLog) {
         Write-Log "cmd: $CmdToExecute, retries: $Retries, timeout: $Timeout sec, ignore err: $IgnoreErrors, nested: $Nested"
@@ -47,15 +67,11 @@ function Invoke-CmdOnControlPlaneViaSSHKey(
     [uint16]$Retrycount = 1
     do {
         try {
+            Invoke-SSHWithKey -Command $CmdToExecute -Nested:$Nested
 
-            if ($Nested) {
-                ssh.exe -o StrictHostKeyChecking=no -i $key $remoteUser $CmdToExecute 2>&1 | ForEach-Object { Write-Log $_ -Console -Raw }
+            if ($LASTEXITCODE -ne 0 -and !$IgnoreErrors) {
+                throw "Error occurred while executing command '$CmdToExecute' in control plane (exit code: '$LASTEXITCODE')" 
             }
-            else {
-                ssh.exe -n -o StrictHostKeyChecking=no -i $key $remoteUser $CmdToExecute 2>&1 | ForEach-Object { Write-Log $_ -Console -Raw }
-            }
-
-            if ($LASTEXITCODE -ne 0 -and !$IgnoreErrors) { throw "Error occurred while executing command '$CmdToExecute' in control plane (exit code: '$LASTEXITCODE')" }
             $Stoploop = $true
         }
         catch {
@@ -65,6 +81,13 @@ function Invoke-CmdOnControlPlaneViaSSHKey(
             }
             else {
                 Write-Log "cmd: $CmdToExecute will be retried.."
+
+                if ($null -ne $RepairCmd -and !$IgnoreErrors) {
+                    Write-Log "Executing repair cmd: $RepairCmd"
+
+                    Invoke-SSHWithKey -Command $RepairCmd -Nested:$Nested
+                }
+
                 Start-Sleep -Seconds $Timeout
                 $Retrycount = $Retrycount + 1
             }
@@ -89,8 +112,7 @@ function Invoke-CmdOnControlPlaneViaUserAndPwd(
     [Parameter(Mandatory = $false)]
     [switch]$NoLog = $false,
     [Parameter(Mandatory = $false)]
-    [string]$RepairCmd = $null){
-
+    [string]$RepairCmd = $null) {
     if (!$NoLog) {
         Write-Log "cmd: $CmdToExecute, retries: $Retries, timeout: $Timeout sec, ignore err: $IgnoreErrors"
     }
@@ -111,7 +133,7 @@ function Invoke-CmdOnControlPlaneViaUserAndPwd(
                 Write-Log "cmd: $CmdToExecute will be retried.."
 
                 # try to repair the command
-                if( ($null -ne $RepairCmd) -and !$IgnoreErrors) {
+                if ( ($null -ne $RepairCmd) -and !$IgnoreErrors) {
                     Write-Log "Executing repair cmd: $RepairCmd"
                     &"$plinkExe" -ssh -4 $RemoteUser -pw $RemoteUserPwd -no-antispoof $RepairCmd 2>&1 | ForEach-Object { Write-Log $_ -Console -Raw }
                 }
@@ -124,11 +146,6 @@ function Invoke-CmdOnControlPlaneViaUserAndPwd(
     While ($Stoploop -eq $false)
 }
 
-function Invoke-TerminalOnControlPanelViaSSHKey {
-    Write-Log "Invoking ssh terminal on Control Plane VM."
-    ssh.exe -o StrictHostKeyChecking=no -i $key $remoteUser
-}
-
 function Get-IsControlPlaneRunning {
     $masterVmState = (Get-VM -Name $nameControlPlane).State
     return $masterVmState -eq [Microsoft.HyperV.PowerShell.VMState]::Running
@@ -139,9 +156,24 @@ function Copy-FromControlPlaneViaSSHKey($Source, $Target,
     [switch]$IgnoreErrors = $false) {
     Write-Log "copy: $Source to: $Target IgnoreErrors: $IgnoreErrors"
     $error.Clear()
-    scp.exe -o StrictHostKeyChecking=no -r -i $key "${remoteUser}:$Source" "$Target" 2>&1 | ForEach-Object { "$_" }
 
-    if ($error.count -gt 0 -and !$IgnoreErrors) { throw "Executing $CmdToExecute failed! " + $error }
+    $linuxSourceDirectory = $Source -replace "${remoteUser}:", ''
+    ssh.exe -n -o StrictHostKeyChecking=no -i $key $remoteUser "[ -d '$linuxSourceDirectory' ]"
+    if ($?) {
+        # is directory
+        Invoke-CmdOnControlPlaneViaSSHKey "sudo rm -rf /tmp/copy.tar"
+        $leaf = Split-Path $linuxSourceDirectory -Leaf
+        Invoke-CmdOnControlPlaneViaSSHKey "sudo tar -cf /tmp/copy.tar -C $linuxSourceDirectory ."
+        scp.exe -o StrictHostKeyChecking=no -i $key "${remoteUser}:/tmp/copy.tar" "$env:temp\copy.tar" 2>&1 | ForEach-Object { "$_" }
+        New-Item -Path "$Target\$leaf" -ItemType Directory | Out-Null
+        tar.exe -xf "$env:temp\copy.tar" -C "$Target\$leaf"
+        Invoke-CmdOnControlPlaneViaSSHKey "sudo rm -rf /tmp/copy.tar"
+        Remove-Item -Path "$env:temp\copy.tar" -Force -ErrorAction SilentlyContinue
+    } else {
+        scp.exe -o StrictHostKeyChecking=no -r -i $key "${remoteUser}:$Source" "$Target" 2>&1 | ForEach-Object { "$_" }
+    }
+
+    if ($error.Count -gt 0 -and !$IgnoreErrors) { throw "Copying $Source to $Target failed! " + $error }
 }
 
 function Copy-FromControlPlaneViaUserAndPwd($Source, $Target,
@@ -151,7 +183,7 @@ function Copy-FromControlPlaneViaUserAndPwd($Source, $Target,
     $error.Clear()
     echo yes | &"$scpExe" -ssh -4 -q -r -pw $remotePwd "${remoteUser}:$Source" "$Target" 2>&1 | ForEach-Object { "$_" }
 
-    if ($error.count -gt 0 -and !$IgnoreErrors) { throw "Executing $CmdToExecute failed! " + $error }
+    if ($error.Count -gt 0 -and !$IgnoreErrors) { throw "Copying $Source to $Target failed! " + $error }
 }
 
 function Copy-ToControlPlaneViaSSHKey($Source, $Target,
@@ -159,9 +191,23 @@ function Copy-ToControlPlaneViaSSHKey($Source, $Target,
     [switch]$IgnoreErrors = $false) {
     Write-Log "copy: $Source to: $Target IgnoreErrors: $IgnoreErrors"
     $error.Clear()
-    scp.exe -o StrictHostKeyChecking=no -r -i $key "$Source" "${remoteUser}:$Target" 2>&1 | ForEach-Object { "$_" }
-
-    if ($error.count -gt 0 -and !$IgnoreErrors) { throw "Executing $CmdToExecute failed! " + $error }
+    $leaf = Split-Path $Source -leaf
+    if ($(Test-Path $Source) -and (Get-Item $Source) -is [System.IO.DirectoryInfo] -and $leaf -ne "*") {
+        # is directory
+        Invoke-CmdOnControlPlaneViaSSHKey "sudo rm -rf /tmp/copy.tar"
+        $leaf = Split-Path $Source -Leaf
+        tar.exe -cf "$env:TEMP\copy.tar" -C $Source .
+        scp.exe -o StrictHostKeyChecking=no -i $key "$env:temp\copy.tar" "${remoteUser}:/tmp" 2>&1 | ForEach-Object { "$_" }
+        $targetDirectory = $Target -replace "${remoteUser}:", ''
+        Invoke-CmdOnControlPlaneViaSSHKey "mkdir -p $targetDirectory/$leaf"
+        Invoke-CmdOnControlPlaneViaSSHKey "tar -xf /tmp/copy.tar -C $targetDirectory/$leaf"
+        Invoke-CmdOnControlPlaneViaSSHKey "sudo rm -rf /tmp/copy.tar"
+        Remove-Item -Path "$env:temp\copy.tar" -Force -ErrorAction SilentlyContinue
+    } else {
+        scp.exe -o StrictHostKeyChecking=no -r -i $key "$Source" "${remoteUser}:$Target" 2>&1 | ForEach-Object { "$_" }
+    }
+ 
+    if ($error.Count -gt 0 -and !$IgnoreErrors) { throw "Copying $Source to $Target failed! " + $error }
 }
 
 function Copy-ToControlPlaneViaUserAndPwd($Source, $Target,
@@ -171,7 +217,7 @@ function Copy-ToControlPlaneViaUserAndPwd($Source, $Target,
     $error.Clear()
     echo yes | &"$scpExe" -ssh -4 -q -r -pw $remotePwd "$Source" "${remoteUser}:$Target" 2>&1 | ForEach-Object { "$_" }
 
-    if ($error.count -gt 0 -and !$IgnoreErrors) { throw "Executing $CmdToExecute failed! " + $error }
+    if ($error.Count -gt 0 -and !$IgnoreErrors) { throw "Copying $Source to $Target failed! " + $error }
 }
 
 function Test-ControlPlanePrerequisites(
@@ -427,6 +473,10 @@ function Copy-KubeConfigFromControlPlaneNode {
     }
 }
 
+function Get-ControlPlaneRemoteUser {
+    return $remoteUser
+}
+
 Export-ModuleMember -Function Invoke-CmdOnControlPlaneViaSSHKey,
 Invoke-CmdOnControlPlaneViaUserAndPwd,
 Invoke-TerminalOnControlPanelViaSSHKey,
@@ -445,4 +495,5 @@ Wait-ForSSHConnectionToLinuxVMViaSshKey,
 Wait-ForSshPossible,
 Get-DefaultUserNameControlPlane,
 Get-DefaultUserPwdControlPlane,
-Copy-KubeConfigFromControlPlaneNode
+Copy-KubeConfigFromControlPlaneNode,
+Get-ControlPlaneRemoteUser

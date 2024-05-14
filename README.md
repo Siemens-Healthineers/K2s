@@ -5,6 +5,7 @@ SPDX-License-Identifier: MIT
 -->
 
 # K2s (Kubernetes) Setup 
+[![ci](https://github.com/Siemens-Healthineers/K2s/actions/workflows/ci-reuse-checks.yml/badge.svg)](https://github.com/Siemens-Healthineers/K2s/actions/workflows/ci-reuse-checks.yml)
 [![ci](https://github.com/Siemens-Healthineers/K2s/actions/workflows/ci-unit-tests.yml/badge.svg)](https://github.com/Siemens-Healthineers/K2s/actions/workflows/ci-unit-tests.yml)
 [![ci](https://github.com/Siemens-Healthineers/K2s/actions/workflows/build-k2s-cli.yml/badge.svg)](https://github.com/Siemens-Healthineers/K2s/actions/workflows/build-k2s-cli.yml)
 [![ci](https://github.com/Siemens-Healthineers/K2s/actions/workflows/build-k2s-artifacts.yml/badge.svg)](https://github.com/Siemens-Healthineers/K2s/actions/workflows/build-k2s-artifacts.yml)
@@ -27,11 +28,11 @@ See [Features](/doc/K8s_Features.md) for a full list of features.
 
 ## Quickstart
 
-Extract the downloaded [K2s.zip](https://github.com/Siemens-Healthineers/K2s/releases) file to a folder of your choice (use **C:** drive if possible), open a command prompt as Administrator and navigate to the installation folder.
+Get **K2s** into a folder of your choice as [described here](doc/K8s_Get-K2s.md) (use **C:** drive if possible), open a command prompt as Administrator and navigate to the installation folder.
 
 Install **K2s** with (ensure to verify the [Prerequisites](./doc/k2scli/install-uninstall_cmd.md#prerequisites) first):
 ```
-<installation folder>\k2s.exe install
+<installation folder>.\k2s.exe install
 ```
 
 After installation, you can utilize one of the [shortcuts](./doc/K8s_Shortcuts.md) to interact with your newly created cluster:
@@ -58,8 +59,12 @@ k2s addons disable ingress-nginx   - disables the ingress nginx ingress controll
 
 Uninstalling the cluster removes not only the cluster itself but also all the workloads within the cluster:
 ```
-<installation folder>\k2s uninstall
+<installation folder>.\k2s uninstall
 ```
+
+In case that multiple systems need to be provisioned with Kubernetes or you want to reduce the install time dramatically, it is better to create one **K2s** offline package (contains all downloaded artifacts) before starting the install command.
+Setting up the Kubernetes cluster with the offline package takes only 2-3 minutes and needs no internet connection.
+Checkout how to create such offline packages: [Offline packages](doc/K8s_OfflinePackages.md)
 
 ## Supported OS Versions
 | Windows                 | Version | Build           |
@@ -94,15 +99,16 @@ way to do that.
 
 ## Further Usage
 - [Get K2s](doc/K8s_Get-K2s.md)
-- [Install K2s](doc/k2scli/install-uninstall_cmd.md#installing-small-k8s-setup-natively)
+- [Install K2s](doc/k2scli/install-uninstall_cmd.md#installing)
 - [Start K2s](doc/k2scli/start-stop_cmd.md) (optional, K8s cluster starts automatically after installation)
 - [Inspect Cluster Status](doc/k2scli/start-stop_cmd.md#inspect-cluster-status)
 - [Stop K2s](doc/k2scli/start-stop_cmd.md#stopping-kubernetes-cluster)
-- [Uninstall K2s](doc/k2scli/install-uninstall_cmd.md#uninstalling-small-k8s-setup)
+- [Uninstall K2s](doc/k2scli/install-uninstall_cmd.md#uninstalling)
 - [Add a registry](doc/K8s_AddRegistry.md)
 - [Build a container image](doc/K8s_BuildingAContainer.md)
 - [Shortcuts for interacting with cluster](doc/K8s_Shortcuts.md)
 - [Upgrading your cluster](doc/K8s_Upgrade.md)
+- [Create offline packages](doc/K8s_OfflinePackages.md)
 
 ## Addons
 K2s provides a [rich set of addons](./addons/README.md) which are containing specific functionality, checkout the ```k2s addons``` command for all options.

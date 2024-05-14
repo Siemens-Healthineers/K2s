@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"path/filepath"
 	"strconv"
 	"time"
 
@@ -78,6 +79,9 @@ func removeImage(cmd *cobra.Command, args []string) error {
 	configDir := cmd.Context().Value(common.ContextKeyConfigDir).(string)
 	config, err := setupinfo.LoadConfig(configDir)
 	if err != nil {
+		if errors.Is(err, setupinfo.ErrSystemInCorruptedState) {
+			return common.CreateSystemInCorruptedStateCmdFailure()
+		}
 		if errors.Is(err, setupinfo.ErrSystemNotInstalled) {
 			return common.CreateSystemNotInstalledCmdFailure()
 		}
@@ -135,7 +139,7 @@ func extractRemoveOptions(cmd *cobra.Command) (*removeOptions, error) {
 }
 
 func buildRemovePsCmd(removeOptions *removeOptions) (psCmd string, params []string) {
-	psCmd = utils.FormatScriptFilePath(utils.InstallDir() + "\\smallsetup\\helpers\\RemoveImage.ps1")
+	psCmd = utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "image", "Remove-Image.ps1"))
 
 	if removeOptions.imageId != "" {
 		params = append(params, " -ImageId "+removeOptions.imageId)

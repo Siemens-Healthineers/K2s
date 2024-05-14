@@ -10,21 +10,16 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
     [string] $MessageType
 )
-$cliMessagesModule = "$PSScriptRoot/../lib/modules/k2s/k2s.infra.module/cli-messages/cli-messages.module.psm1"
-$logModule = "$PSScriptRoot/../lib/modules/k2s/k2s.infra.module/log/log.module.psm1"
-$addonsModule = "$PSScriptRoot/Addons.module.psm1"
+$infraModule = "$PSScriptRoot/../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
+$addonsModule = "$PSScriptRoot/addons.module.psm1"
 
-Import-Module $addonsModule, $logModule
+Import-Module $infraModule, $addonsModule
 
 Initialize-Logging 
 
 $script = $MyInvocation.MyCommand.Name
 
 Write-Log "[$script] started with EncodeStructuredOutput='$EncodeStructuredOutput' and MessageType='$MessageType'"
-
-if ($EncodeStructuredOutput) {
-    Import-Module $cliMessagesModule
-}
 
 try {
     $addons = Get-EnabledAddons

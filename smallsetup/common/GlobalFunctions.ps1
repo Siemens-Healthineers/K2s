@@ -107,10 +107,44 @@ function Copy-FromToMaster($Source, $Target,
         echo yes | &"$global:ScpExe" -ssh -4 -q -r -pw $RemoteUserPwd "$Source" "$Target" 2>&1 | ForEach-Object { "$_" }
     }
     else {
-        scp.exe -o StrictHostKeyChecking=no -r -i $global:LinuxVMKey "$Source" "$Target" 2>&1 | ForEach-Object { "$_" }
+        if ($Target.Contains($global:Remote_Master)) {
+            # copy to master
+            $leaf = Split-Path $Source -leaf
+            if ($(Test-Path $Source) -and (Get-Item $Source) -is [System.IO.DirectoryInfo] -and $leaf -ne "*") {
+                # is directory
+                ExecCmdMaster "sudo rm -rf /tmp/copy.tar"
+                $folder = Split-Path $Source -Leaf
+                tar.exe -cf "$env:TEMP\copy.tar" -C $Source .
+                scp.exe -o StrictHostKeyChecking=no -i $global:LinuxVMKey "$env:temp\copy.tar" $($global:Remote_Master + ':/tmp') 2>&1 | ForEach-Object { "$_" }
+                $targetDirectory = $Target -replace "${global:Remote_Master}:", ''
+                ExecCmdMaster "mkdir -p $targetDirectory/$folder"
+                ExecCmdMaster "tar -xf /tmp/copy.tar -C $targetDirectory/$folder"
+                ExecCmdMaster "sudo rm -rf /tmp/copy.tar"
+                Remove-Item -Path "$env:temp\copy.tar" -Force -ErrorAction SilentlyContinue
+            } else {
+                scp.exe -o StrictHostKeyChecking=no -r -i $global:LinuxVMKey "$Source" "$Target" 2>&1 | ForEach-Object { "$_" }
+            }
+        } elseif ($Source.Contains($global:Remote_Master)){
+            # copy from master
+            $sourceDirectory = $Source -replace "${global:Remote_Master}:", ''
+            ssh.exe -n -o StrictHostKeyChecking=no -i $global:LinuxVMKey $global:Remote_Master "[ -d '$sourceDirectory' ]"
+            if ($?) {
+                # is directory
+                ExecCmdMaster "sudo rm -rf /tmp/copy.tar"
+                $folder = Split-Path $sourceDirectory -Leaf
+                ExecCmdMaster "sudo tar -cf /tmp/copy.tar -C $sourceDirectory ."
+                scp.exe -o StrictHostKeyChecking=no -i $global:LinuxVMKey $($global:Remote_Master + ':/tmp/copy.tar') "$env:temp\copy.tar" 2>&1 | ForEach-Object { "$_" }
+                New-Item -Path "$Target\$folder" -ItemType Directory | Out-Null
+                tar.exe -xf "$env:temp\copy.tar" -C "$Target\$folder"
+                ExecCmdMaster "sudo rm -rf /tmp/copy.tar"
+                Remove-Item -Path "$env:temp\copy.tar" -Force -ErrorAction SilentlyContinue
+            } else {
+                scp.exe -o StrictHostKeyChecking=no -r -i $global:LinuxVMKey "$Source" "$Target" 2>&1 | ForEach-Object { "$_" }
+            }
+        }
     }
 
-    if ($error.count -gt 0 -and !$IgnoreErrors) { throw "Executing $CmdToExecute failed! " + $error }
+    if ($error.Count -gt 0 -and !$IgnoreErrors) { throw "Copying $Source to $Target failed! " + $error }
 }
 
 <#
@@ -810,26 +844,6 @@ function Get-Installedk2sSetupType {
 
 <#
 .SYNOPSIS
-    Returns the config entry for containerd if present.
-.DESCRIPTION
-    Returns the config entry for containerd if present. Otherwise FALSE.
-.EXAMPLE
-    $useContainerd = Get-UseContainerdFromConfig
-.OUTPUTS
-    The boolean containerd config entry if present; otherwise FALSE
-#>
-function Get-UseContainerdFromConfig {
-    if (!$global:SetupJsonFile -or !$global:ConfigKey_Containerd) {
-        throw "The calling script must include the file 'GlobalVariables.ps1' first!"
-    }
-
-    $result = Get-ConfigValue -Path $global:SetupJsonFile -Key $global:ConfigKey_Containerd
-
-    return $result -eq $true
-}
-
-<#
-.SYNOPSIS
     Returns the host GW config if present.
 .DESCRIPTION
     Returns the host GW config if present.
@@ -1154,12 +1168,12 @@ function Enable-MissingFeature {
 function Enable-MissingWindowsFeatures($wsl) {
     $restartRequired = $false
 
-    $isServerOS = (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion').ProductName.Contains("Server")
+    $isServerOS = (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion').ProductName.Contains('Server')
 
-    $features = @('Microsoft-Hyper-V', 'Microsoft-Hyper-V-Management-PowerShell', 'Microsoft-Hyper-V-Management-Clients', 'Containers', 'VirtualMachinePlatform')
+    $features = @('Microsoft-Hyper-V', 'Microsoft-Hyper-V-Management-PowerShell', 'Containers', 'VirtualMachinePlatform')
 
     if (!$isServerOS) {
-        $features += 'Microsoft-Hyper-V-All', 'Microsoft-Hyper-V-Tools-All', 'Microsoft-Hyper-V-Hypervisor', 'Microsoft-Hyper-V-Services'
+        $features += 'Microsoft-Hyper-V-All', 'Microsoft-Hyper-V-Tools-All', 'Microsoft-Hyper-V-Hypervisor', 'Microsoft-Hyper-V-Management-Clients', 'Microsoft-Hyper-V-Services'
     } 
 
     if ($wsl) {
@@ -1306,19 +1320,22 @@ processors=$MasterVMProcessorCount
 }
 
 function Set-WSLSwitch() {
-    $wslSwitch = 'WSL'
+    $wslSwitch = 'WSL*'
     Write-Log "Configuring internal switch $wslSwitch"
 
     $iteration = 60
     while ($iteration -gt 0) {
         $iteration--
-        $ipindex = Get-NetAdapter -Name "vEthernet ($wslSwitch)" -ErrorAction SilentlyContinue | select -expand 'ifIndex'
+        $ipindex = Get-NetAdapter -Name "vEthernet ($wslSwitch)" -ErrorAction SilentlyContinue -IncludeHidden | Select-Object -expandproperty 'ifIndex'
+        $interfaceAlias = Get-NetAdapter -Name "vEthernet ($wslSwitch)" -ErrorAction SilentlyContinue -IncludeHidden | Select-Object -expandproperty name
         $oldIp = $null
         if ($ipindex) {
+            # needs some sync time
+            Start-Sleep 2
             $oldIp = (Get-NetIPAddress -InterfaceIndex $ipindex).IPAddress
         }
         if ($ipindex -and $oldIp) {
-            Write-Log "ifindex of vEthernet ($wslSwitch): $ipindex"
+            Write-Log "ifindex of ${interfaceAlias}: $ipindex"
             Write-Log "Old ip: $oldIp"
             if ($oldIp) {
                 foreach ($ip in $oldIp) {
@@ -1337,12 +1354,12 @@ function Set-WSLSwitch() {
         throw "No vEthernet ($wslSwitch) found!"
     }
 
-    New-NetIPAddress -IPAddress $global:IP_NextHop -PrefixLength 24 -InterfaceAlias "vEthernet ($wslSwitch)"
+    New-NetIPAddress -IPAddress $global:IP_NextHop -PrefixLength 24 -InterfaceAlias $interfaceAlias
     # enable forwarding
-    netsh int ipv4 set int "vEthernet ($wslSwitch)" forwarding=enabled | Out-Null
+    netsh int ipv4 set int $interfaceAlias forwarding=enabled | Out-Null
     # change index in order to have the Ethernet card as first card (also for much better DNS queries)
-    $ipindex1 = Get-NetIPInterface | ? InterfaceAlias -Like "*$wslSwitch*" | ? AddressFamily -Eq IPv4 | select -expand 'ifIndex'
-    Write-Log "Index for interface $wslSwitch : ($ipindex1) -> metric 25"
+    $ipindex1 = Get-NetIPInterface | ? InterfaceAlias -Like $interfaceAlias | ? AddressFamily -Eq IPv4 | select -expand 'ifIndex'
+    Write-Log "Index for interface $interfaceAlias : ($ipindex1) -> metric 25"
     Set-NetIPInterface -InterfaceIndex $ipindex1 -InterfaceMetric 25
 }
 
@@ -1547,7 +1564,7 @@ function Add-DnsServer($switchname) {
     # add DNS proxy for cluster searches
     $ipindex = Get-NetIPInterface | ? InterfaceAlias -Like "*$switchname*" | ? AddressFamily -Eq IPv4 | select -expand 'ifIndex'
     Set-DnsClientServerAddress -InterfaceIndex $ipindex -ServerAddresses $global:IP_Master | Out-Null
-    Set-DnsClient -InterfaceIndex $ipindex -ConnectionSpecificSuffix 'cluster.local' | Out-Null
+    Set-DnsClient -InterfaceIndex $ipindex -ConnectionSpecificSuffix 'cluster.local' -RegisterThisConnectionsAddress $false | Out-Null
 }
 
 function Reset-DnsServer($switchname) {
@@ -1656,7 +1673,7 @@ function CreateExternalSwitch {
     )
 
     $found = Get-HNSNetwork | ? Name -Like "$global:L2BridgeSwitchName"
-    if( $found ) {
+    if ( $found ) {
         Write-Log "L2 bridge network switch name: $global:L2BridgeSwitchName already exists"
         return
     }
@@ -2113,25 +2130,6 @@ function Get-LinuxOsType {
 
 <#
 .SYNOPSIS
-Log Error Message and Throw Exception.
-
-.DESCRIPTION
-Based on ErrorActionPreference, error is logged and thrown to the caller
-#>
-function Log-ErrorWithThrow ([string]$ErrorMessage) {
-    if ($ErrorActionPreference -eq 'Stop') {
-        #If Stop is the ErrorActionPreference from the caller then Write-Error throws an exception which is not logged in k2s.log file.
-        #So we need to write a warning to capture error message.
-        Write-Warning "$ErrorMessage"
-    }
-    else {
-        Write-Error "$ErrorMessage"
-    }
-    throw $ErrorMessage
-}
-
-<#
-.SYNOPSIS
 Performs time synchronization across all nodes of the clusters.
 #>
 function Perform-TimeSync {
@@ -2166,57 +2164,6 @@ function Perform-TimeSync {
             }
         }
     }
-}
-
-function Get-RandomPassword {
-    param (
-        [Parameter(Mandatory)]
-        [ValidateRange(4, [int]::MaxValue)]
-        [int] $length,
-        [int] $upper = 1,
-        [int] $lower = 1,
-        [int] $numeric = 1,
-        [int] $special = 1
-    )
-
-    if ($upper + $lower + $numeric + $special -gt $length) {
-        throw 'number of upper/lower/numeric/special char must be lower or equal to length'
-    }
-
-    $uCharSet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-    $lCharSet = 'abcdefghijklmnopqrstuvwxyz'
-    $nCharSet = '0123456789'
-    $sCharSet = '/*-+!?()@:_#'
-    $charSet = ''
-
-    if ($upper -gt 0) { $charSet += $uCharSet }
-    if ($lower -gt 0) { $charSet += $lCharSet }
-    if ($numeric -gt 0) { $charSet += $nCharSet }
-    if ($special -gt 0) { $charSet += $sCharSet }
-
-    $charSet = $charSet.ToCharArray()
-
-    $rng = New-Object System.Security.Cryptography.RNGCryptoServiceProvider
-    $bytes = New-Object byte[]($length)
-    $rng.GetBytes($bytes)
-
-    $result = New-Object char[]($length)
-    for ($i = 0 ; $i -lt $length ; $i++) {
-        $result[$i] = $charSet[$bytes[$i] % $charSet.Length]
-    }
-    $password = (-join $result)
-
-    $valid = $true
-    if ($upper -gt ($password.ToCharArray() | Where-Object { $_ -cin $uCharSet.ToCharArray() }).Count) { $valid = $false }
-    if ($lower -gt ($password.ToCharArray() | Where-Object { $_ -cin $lCharSet.ToCharArray() }).Count) { $valid = $false }
-    if ($numeric -gt ($password.ToCharArray() | Where-Object { $_ -cin $nCharSet.ToCharArray() }).Count) { $valid = $false }
-    if ($special -gt ($password.ToCharArray() | Where-Object { $_ -cin $sCharSet.ToCharArray() }).Count) { $valid = $false }
-
-    if (!$valid) {
-        $password = Get-RandomPassword $length $upper $lower $numeric $special
-    }
-
-    return $password
 }
 
 function Stop-InstallIfNoMandatoryServiceIsRunning {

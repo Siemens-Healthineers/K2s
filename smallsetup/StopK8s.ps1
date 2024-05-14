@@ -10,37 +10,39 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'Directory containing additional hooks to be executed after local hooks are executed')]
     [string] $AdditionalHooksDir = '',
     [parameter(Mandatory = $false, HelpMessage = 'Cache vSwitches on stop')]
-    [switch] $CacheK2sVSwitches
+    [switch] $CacheK2sVSwitches,
+    [parameter(Mandatory = $false, HelpMessage = 'Skips showing stop header display')]
+    [switch] $SkipHeaderDisplay = $false
 )
 
-# load global settings
-&$PSScriptRoot\common\GlobalVariables.ps1
-
-# import global functions
-. $PSScriptRoot\common\GlobalFunctions.ps1
-
-Import-Module "$PSScriptRoot/ps-modules/log/log.module.psm1"
+$infraModule = "$PSScriptRoot\..\lib\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
+$nodeModule = "$PSScriptRoot\..\lib\modules\k2s\k2s.node.module\k2s.node.module.psm1"
+$clusterModule = "$PSScriptRoot\..\lib\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1"
+Import-Module $infraModule, $nodeModule, $clusterModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
 # make sure we are at the right place for executing this script
-Set-Location $global:KubernetesPath
+$kubePath = Get-KubePath
+Set-Location $kubePath
 
-if ($global:HeaderLineShown -ne $true) {
+if ($SkipHeaderDisplay -eq $false) {
     Write-Log 'Stopping K2s'
 }
 
 # reset default namespace
-if (Test-Path $global:KubectlExe) {
+$kubeToolsPath = Get-KubeToolsPath
+$kubectlExe = "$kubeToolsPath\kubectl.exe"
+if (Test-Path "$kubectlExe") {
     Write-Log 'Resetting default namespace for kubernetes'
-    &$global:KubectlExe config set-context --current --namespace=default | Out-Null
+    &"$kubectlExe" config set-context --current --namespace=default | Out-Null
 }
 
 $ProgressPreference = 'SilentlyContinue'
 
-$WSL = Get-WSLFromConfig
+$WSL = Get-ConfigWslFlag
 
-Write-Log 'Stopping K8s services' -Console
+Write-Log 'Stopping Kubernetes services on the Windows node' -Console
 
 Stop-ServiceAndSetToManualStart 'kubeproxy'
 Stop-ServiceAndSetToManualStart 'kubelet'
@@ -56,25 +58,25 @@ if ($(Get-Service -Name 'docker' -ErrorAction SilentlyContinue).Status -eq 'Runn
     $shallRestartDocker = $true
 }
 
-Write-Log "Stopping $global:VMName VM" -Console
-
-$isReusingExistingLinuxComputer = Get-ConfigValue -Path $global:SetupJsonFile -Key $global:ConfigKey_ReuseExistingLinuxComputerForMasterNode
+$isReusingExistingLinuxComputer = Get-ReuseExistingLinuxComputerForMasterNodeFlag
+$windowsHostIpAddress = Get-ConfiguredKubeSwitchIP
+$wslSwitchName = Get-WslSwitchName
 
 if ($WSL) {
     wsl --shutdown
-    Remove-NetIPAddress -IPAddress $global:IP_NextHop -PrefixLength 24 -Confirm:$False -ErrorAction SilentlyContinue
-    Reset-DnsServer $global:WSLSwitchName
-
+    Remove-NetIPAddress -IPAddress $windowsHostIpAddress -PrefixLength 24 -Confirm:$False -ErrorAction SilentlyContinue
+    Reset-DnsServer $wslSwitchName
 }
 elseif ($isReusingExistingLinuxComputer) {
-    $switchName = get-netipaddress -IPAddress $global:IP_NextHop | Select-Object -ExpandProperty 'InterfaceAlias'
+    $switchName = Get-NetIPAddress -IPAddress $windowsHostIpAddress | Select-Object -ExpandProperty 'InterfaceAlias'
     Reset-DnsServer $switchName
 }
 else {
     # stop vm
-    if ($(Get-VM | Where-Object Name -eq $global:VMName | Measure-Object).Count -eq 1 ) {
-        Write-Log ('Stopping VM: ' + $global:VMName)
-        Stop-VM -Name $global:VMName -Force -WarningAction SilentlyContinue
+    $controlPlaneVMHostName = Get-ConfigControlPlaneNodeHostname
+    if ($(Get-VM | Where-Object Name -eq $controlPlaneVMHostName | Measure-Object).Count -eq 1 ) {
+        Write-Log ('Stopping VM: ' + $controlPlaneVMHostName)
+        Stop-VM -Name $controlPlaneVMHostName -Force -WarningAction SilentlyContinue
     }
 }
 
@@ -88,24 +90,15 @@ if (!$CacheK2sVSwitches) {
     Remove-KubeSwitch
 
     # Remove the external switch
-    RemoveExternalSwitch
+    Remove-ExternalSwitch
 }
 
 # remove NAT
-Remove-NetNat -Name $global:NetNatName -Confirm:$False -ErrorAction SilentlyContinue
-
-$hns = $(Get-HNSNetwork)
-# there's always at least the Default Switch network available, so we check for >= 2
-if ($($hns | Measure-Object).Count -ge 2) {
-    if(!$CacheK2sVSwitches) { 
-        Write-Log 'Delete bridge, clear HNSNetwork (short disconnect expected)'
-        $hns | Where-Object Name -Like '*cbr0*' | Remove-HNSNetwork -ErrorAction SilentlyContinue
-        $hns | Where-Object Name -Like ('*' + $global:SwitchName + '*') | Remove-HNSNetwork -ErrorAction SilentlyContinue
-    }
-}
+Remove-DefaultNetNat
 
 if ($WSL) {
-    $hns | Where-Object Name -Like ('*' + $global:WSLSwitchName + '*') | Remove-HNSNetwork -ErrorAction SilentlyContinue
+    $hns = $(Get-HNSNetwork)
+    $hns | Where-Object Name -Like ('*' + $wslSwitchName + '*') | Remove-HNSNetwork -ErrorAction SilentlyContinue
     Restart-WinService 'WslService'
 }
 
@@ -124,32 +117,29 @@ if(!$CacheK2sVSwitches) {
     Get-ChildItem -Path 'HKLM:\SYSTEM\CurrentControlSet\Services\VMSMP\Parameters\NicList' | Remove-Item -ErrorAction SilentlyContinue | Out-Null
 }
 
+$ipControlPlaneCIDR = Get-ConfiguredControlPlaneCIDR
+$setupConfigRoot = Get-RootConfigk2s
+$clusterCIDRMaster = $setupConfigRoot.psobject.properties['podNetworkMasterCIDR'].value
+$clusterCIDRHost = $setupConfigRoot.psobject.properties['podNetworkWorkerCIDR'].value
+$clusterCIDRServices = $setupConfigRoot.psobject.properties['servicesCIDR'].value
+$clusterCIDRServicesLinux = $setupConfigRoot.psobject.properties['servicesCIDRLinux'].value
+$clusterCIDRServicesWindows = $setupConfigRoot.psobject.properties['servicesCIDRWindows'].value
+
 # Remove routes
-Write-Log "Remove route to $global:IP_CIDR"
-route delete $global:IP_CIDR >$null 2>&1
-Write-Log "Remove route to $global:ClusterCIDR_Master"
-route delete $global:ClusterCIDR_Master >$null 2>&1
-Write-Log "Remove route to $global:ClusterCIDR_Host"
-route delete $global:ClusterCIDR_Host >$null 2>&1
-Write-Log "Remove route to $global:ClusterCIDR_Services"
-route delete $global:ClusterCIDR_Services >$null 2>&1
-route delete $global:ClusterCIDR_ServicesLinux >$null 2>&1
-route delete $global:ClusterCIDR_ServicesWindows >$null 2>&1
+Write-Log "Remove route to $ipControlPlaneCIDR"
+route delete $ipControlPlaneCIDR >$null 2>&1
+Write-Log "Remove route to $clusterCIDRMaster"
+route delete $clusterCIDRMaster >$null 2>&1
+Write-Log "Remove route to $clusterCIDRHost"
+route delete $clusterCIDRHost >$null 2>&1
+Write-Log "Remove route to $clusterCIDRServices"
+route delete $clusterCIDRServices >$null 2>&1
+route delete $clusterCIDRServicesLinux >$null 2>&1
+route delete $clusterCIDRServicesWindows >$null 2>&1
 
 Invoke-Hook -HookName 'AfterStopK8sNetwork' -AdditionalHooksDir $AdditionalHooksDir
 
-# Renew with DHCP the ip addresses, in that way NICs get new IP and routes are updated
-# Sometimes this does not happen in windows
-if ($ipaddressesFromDhcp) {
-    Write-Log 'DHCP is used, renew IP address (ipconfig /renew)'
-    ipconfig /renew >$null 2>&1
-}
-else {
-    Write-Log 'No DHCP active, so no renewing of IP address'
-}
-
-Write-Log "Disabling network adapter $global:LoopbackAdapter"
-Disable-NetAdapter -Name $global:LoopbackAdapter -Confirm:$false -ErrorAction SilentlyContinue
+Disable-LoopbackAdapter
 
 Write-Log '...Kubernetes system stopped.'
 

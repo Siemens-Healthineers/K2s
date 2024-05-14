@@ -9,7 +9,7 @@ SPDX-License-Identifier: MIT
 # Starting Kubernetes Cluster
 The *K2s* CLI tool provides an extensive help for all available commands and parameters/flags:
 ```
-<installation folder>\k2s -h
+<installation folder>.\k2s -h
 ```
  
 To start Kubernetes, you need to run:
@@ -24,7 +24,7 @@ To start Kubernetes, you need to run:
 To stop Kubernetes, you need to run:
 
 ```
-<installation folder>\k2s stop
+<installation folder>.\k2s stop
 ```
 
 
@@ -33,13 +33,13 @@ To stop Kubernetes, you need to run:
 To check the cluster's health status, run:
 
 ```
-<installation folder>\k2s status
+<installation folder>.\k2s status
 ```
 
 To display additional health status information, run:
 
 ```
-<installation folder>\k2s status -o wide
+<installation folder>.\k2s status -o wide
 ```
 The output will be similar to the following:
 

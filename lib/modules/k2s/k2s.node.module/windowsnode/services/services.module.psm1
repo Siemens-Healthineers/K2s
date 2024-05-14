@@ -131,7 +131,16 @@ function Restart-WinService {
     Write-Warning "Service not found: $Name"
 }
 
+function Start-WSL() {
+    Restart-WinService 'WslService'
+    Write-Log 'Disable Remote App authentication warning dialog'
+    REG ADD 'HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services' /V 'AuthenticationLevel' /T REG_DWORD /D '0' /F
+
+    Write-Log 'Start KubeMaster with WSL2'
+    Start-Process wsl -WindowStyle Hidden
+}
+
 Export-ModuleMember -Function Start-NssmService,
 Restart-NssmService, Stop-NssmService,
 Get-IsNssmServiceRunning, Write-NodeServiceStatus,
-Restart-WinService, Start-ServiceProcess, Stop-ServiceProcess
+Restart-WinService, Start-ServiceProcess, Stop-ServiceProcess, Start-WSL

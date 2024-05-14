@@ -40,16 +40,12 @@ Param (
     [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
     [string] $MessageType
 )
-&$PSScriptRoot\..\..\smallsetup\common\GlobalVariables.ps1
-. $PSScriptRoot\..\..\smallsetup\common\GlobalFunctions.ps1
-. $PSScriptRoot\Common.ps1
-
-$logModule = "$PSScriptRoot/../../smallsetup/ps-modules/log/log.module.psm1"
 $clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
-$addonsModule = "$PSScriptRoot\..\addons.module.psm1"
 $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
+$addonsModule = "$PSScriptRoot\..\addons.module.psm1"
+$commonModule = "$PSScriptRoot\common.module.psm1"
 
-Import-Module $logModule, $addonsModule, $clusterModule, $infraModule
+Import-Module $clusterModule, $infraModule, $addonsModule, $commonModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -64,6 +60,13 @@ if ($systemError) {
 
     Write-Log $systemError.Message -Error
     exit 1
+}
+
+$setupInfo = Get-SetupInfo
+if ($setupInfo.Name -ne 'k2s') {
+    $err = New-Error -Severity Warning -Code (Get-ErrCodeWrongSetupType) -Message "Addon 'dashboard' can only be enabled for 'k2s' setup type."  
+    Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+    return
 }
 
 if ((Test-IsAddonEnabled -Name 'dashboard') -eq $true) {
@@ -81,7 +84,7 @@ if ((Test-IsAddonEnabled -Name 'dashboard') -eq $true) {
 
 Write-Log 'Installing Kubernetes dashboard' -Console
 $dashboardConfig = Get-DashboardConfig
-&$global:KubectlExe apply -f $dashboardConfig
+(Invoke-Kubectl -Params 'apply' , '-f', $dashboardConfig).Output | Write-Log
 
 Write-Log 'Checking Dashboard status' -Console
 $dashboardStatus = Wait-ForDashboardAvailable

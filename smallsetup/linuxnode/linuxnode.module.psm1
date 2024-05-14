@@ -6,7 +6,8 @@
 . "$PSScriptRoot\..\common\GlobalFunctions.ps1"
 
 $validationModule = "$global:KubernetesPath\lib\modules\k2s\k2s.infra.module\validation\validation.module.psm1"
-Import-Module $validationModule
+$temporaryLinuxNodeDebianModule = "$global:KubernetesPath\smallsetup\linuxnode\debian\linuxnode.debian.module.psm1"
+Import-Module $validationModule, $temporaryLinuxNodeDebianModule
 
 Function Assert-GeneralComputerPrequisites {
     Param(

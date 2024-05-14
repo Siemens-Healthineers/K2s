@@ -223,8 +223,8 @@ func cleanupBuiltImage(ctx context.Context, imageName, tag, srcPath, deploymentN
 
 	suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", deploymentName, "default")
 
-	suite.K2sCli().Run(ctx, "image", "rm", "--name", getImageNameWithTag(imageName, tag))
-	suite.K2sCli().Run(ctx, "image", "rm", "--from-registry", "--name", getImageNameWithTag(imageName, tag))
+	suite.K2sCli().Run(ctx, "image", "rm", "--name", getImageNameWithTag(imageName, tag), "-o")
+	suite.K2sCli().Run(ctx, "image", "rm", "--from-registry", "--name", getImageNameWithTag(imageName, tag), "-o")
 
 	images := suite.K2sCli().GetImages(ctx)
 

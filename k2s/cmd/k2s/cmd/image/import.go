@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"path/filepath"
 	"strconv"
 	"time"
 
@@ -72,6 +73,9 @@ func importImage(cmd *cobra.Command, args []string) error {
 	configDir := cmd.Context().Value(common.ContextKeyConfigDir).(string)
 	config, err := setupinfo.LoadConfig(configDir)
 	if err != nil {
+		if errors.Is(err, setupinfo.ErrSystemInCorruptedState) {
+			return common.CreateSystemInCorruptedStateCmdFailure()
+		}
 		if errors.Is(err, setupinfo.ErrSystemNotInstalled) {
 			return common.CreateSystemNotInstalledCmdFailure()
 		}
@@ -100,7 +104,7 @@ func importImage(cmd *cobra.Command, args []string) error {
 }
 
 func buildImportPsCmd(cmd *cobra.Command) (psCmd string, params []string, err error) {
-	psCmd = utils.FormatScriptFilePath(utils.InstallDir() + "\\smallsetup\\helpers\\ImportImage.ps1")
+	psCmd = utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "image", "Import-Image.ps1"))
 
 	imagePath, err := cmd.Flags().GetString(tarFlag)
 	if err != nil {

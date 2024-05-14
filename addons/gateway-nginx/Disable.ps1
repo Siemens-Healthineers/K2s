@@ -20,16 +20,11 @@ Param (
     [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
     [string] $MessageType
 )
-&$PSScriptRoot\..\..\smallsetup\common\GlobalVariables.ps1
-. $PSScriptRoot\..\..\smallsetup\common\GlobalFunctions.ps1
-. $PSScriptRoot\Common.ps1
-
-$logModule = "$PSScriptRoot/../../smallsetup/ps-modules/log/log.module.psm1"
-$statusModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/status/status.module.psm1"
-$addonsModule = "$PSScriptRoot\..\addons.module.psm1"
+$clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
+$addonsModule = "$PSScriptRoot\..\addons.module.psm1"
 
-Import-Module $logModule, $addonsModule, $statusModule, $infraModule
+Import-Module $clusterModule, $infraModule, $addonsModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -46,7 +41,7 @@ if ($systemError) {
     exit 1
 }
 
-if ($null -eq (&$global:KubectlExe get namespace nginx-gateway --ignore-not-found) -or (Test-IsAddonEnabled -Name 'gateway-nginx') -ne $true) {
+if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'nginx-gateway', '--ignore-not-found').Output -and (Test-IsAddonEnabled -Name 'gateway-nginx') -ne $true) {
     $errMsg = "Addon 'gateway-nginx' is already disabled, nothing to do."
 
     if ($EncodeStructuredOutput -eq $true) {
@@ -59,14 +54,16 @@ if ($null -eq (&$global:KubectlExe get namespace nginx-gateway --ignore-not-foun
     exit 1
 }
 
+$manifestsPath = "$(Get-KubePath)\addons\gateway-nginx\manifests"
+
 Write-Log 'Uninstalling NGINX Kubernetes Gateway' -Console
-&$global:KubectlExe delete -f "$global:KubernetesPath\addons\gateway-nginx\manifests\nginx-gateway-fabric-v1.1.0.yaml" | Write-Log
-&$global:KubectlExe delete -f "$global:KubernetesPath\addons\gateway-nginx\manifests\crds" | Write-Log
+(Invoke-Kubectl -Params 'delete', '-f', "$manifestsPath\nginx-gateway-fabric-v1.1.0.yaml").Output | Write-Log
+(Invoke-Kubectl -Params 'delete', '-f', "$manifestsPath\crds").Output | Write-Log
 
 Write-Log 'Uninstalling Gateway API' -Console
-&$global:KubectlExe delete -f "$global:KubernetesPath\addons\gateway-nginx\manifests\gateway-api-v1.0.0.yaml" | Write-Log
+(Invoke-Kubectl -Params 'delete', '-f', "$manifestsPath\gateway-api-v1.0.0.yaml").Output | Write-Log
 
-Remove-ScriptsFromHooksDir -ScriptNames $hookFileNames
+Remove-ScriptsFromHooksDir -ScriptNames @(Get-ChildItem -Path "$PSScriptRoot\hooks" | ForEach-Object { $_.Name })
 Remove-AddonFromSetupJson -Name 'gateway-nginx'
 
 if ($EncodeStructuredOutput -eq $true) {

@@ -26,16 +26,12 @@ Param (
     [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
     [string] $MessageType
 )
-&$PSScriptRoot\..\..\smallsetup\common\GlobalVariables.ps1
-. $PSScriptRoot\..\..\smallsetup\common\GlobalFunctions.ps1
-. $PSScriptRoot\Common.ps1
-
-$logModule = "$PSScriptRoot/../../smallsetup/ps-modules/log/log.module.psm1"
-$statusModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/status/status.module.psm1"
-$addonsModule = "$PSScriptRoot\..\addons.module.psm1"
+$clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
+$addonsModule = "$PSScriptRoot\..\addons.module.psm1"
+$metricsServerModule = "$PSScriptRoot\metrics-server.module.psm1"
 
-Import-Module $logModule, $addonsModule, $statusModule, $infraModule
+Import-Module $clusterModule, $infraModule, $addonsModule, $metricsServerModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -66,10 +62,9 @@ if ((Test-IsAddonEnabled -Name 'metrics-server') -eq $true) {
 }
 
 Write-Log 'Installing Kubernetes Metrics Server' -Console
-$metricServerConfig = Get-MetricsServerConfig
-&$global:KubectlExe apply -f $metricServerConfig | Write-Log
+(Invoke-Kubectl -Params 'apply', '-f', (Get-MetricsServerConfig)).Output | Write-Log
 
-$allPodsAreUp = Wait-ForPodsReady -Selector 'k8s-app=metrics-server' -Namespace 'kube-system'
+$allPodsAreUp = (Wait-ForPodCondition -Condition Ready -Label 'k8s-app=metrics-server' -Namespace 'kube-system' -TimeoutSeconds 120)
 
 if ($allPodsAreUp -ne $true) {
     $errMsg = "All metric server pods could not become ready. Please use kubectl describe for more details.`nInstallation of metrics-server failed."

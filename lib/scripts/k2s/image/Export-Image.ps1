@@ -45,19 +45,29 @@ Param (
     [parameter(Mandatory = $false)]
     [switch] $DockerArchive = $false,
     [parameter(Mandatory = $false)]
-    [switch] $ShowLogs = $false
+    [switch] $ShowLogs = $false,
+    [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
+    [switch] $EncodeStructuredOutput,
+    [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
+    [string] $MessageType
 )
-
-$nodeModule = "$PSScriptRoot/../../../modules/k2s/k2s.node.module/k2s.node.module.psm1"
 $infraModule = "$PSScriptRoot/../../../modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $clusterModule = "$PSScriptRoot/../../../modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
-Import-Module $nodeModule, $infraModule, $clusterModule
+$nodeModule = "$PSScriptRoot/../../../modules/k2s/k2s.node.module/k2s.node.module.psm1"
+
+Import-Module $infraModule, $clusterModule, $nodeModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
 $systemError = Test-SystemAvailability
 if ($systemError) {
-    throw $systemError
+    if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = $systemError }
+        return
+    }
+
+    Write-Log $systemError.Message -Error
+    exit 1
 }
 
 $linuxContainerImages = Get-ContainerImagesOnLinuxNode -IncludeK8sImages $true
@@ -96,13 +106,25 @@ else {
 
 if ($foundLinuxImages.Count -eq 0 -and $foundWindowsImages.Count -eq 0) {
     if ($Id -ne '') {
-        Write-Log "Image with Id ${Id} not found!"
-        exit
+        $errMsg = "Image with Id ${Id} not found!"
+        if ($EncodeStructuredOutput -eq $true) {
+            $err = New-Error -Severity Warning -Code 'image-not-found' -Message $errMsg
+            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+            return
+        }
+        Write-Log $errMsg -Error
+        exit 1
     }
 
     if ($Name -ne '') {
-        Write-Log "Image ${Name} not found!"
-        exit
+        $errMsg = "Image ${Name} not found!"
+        if ($EncodeStructuredOutput -eq $true) {
+            $err = New-Error -Severity Warning -Code 'image-not-found' -Message $errMsg
+            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+            return
+        }
+        Write-Log $errMsg -Error
+        exit 1
     }
 }
 
@@ -151,8 +173,14 @@ if ($foundLinuxImages.Count -eq 1) {
 }
 
 if ($foundWindowsImages.Count -gt 1) {
-    Write-Log "Please specify the name and tag instead of id since there are more than one image with id $Id"
-    return
+    $errMsg = "Please specify the name and tag instead of id since there are more than one image with id $Id"
+    if ($EncodeStructuredOutput -eq $true) {
+        $err = New-Error -Severity Warning -Code 'image-not-found' -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+        return
+    }
+    Write-Log $errMsg -Error
+    exit 1
 }
 
 if ($foundWindowsImages.Count -eq 1) {
@@ -179,18 +207,26 @@ if ($foundWindowsImages.Count -eq 1) {
         $finalExportPath = $path + '\' + $newFileName
     }
 
+    $binPath = Get-KubeBinPath
+    $nerdctlExe = "$binPath\nerdctl.exe"
+
     Write-Log "Trying to pull all platform layers for image '$imageFullName'" -Console
-    $pullOutput = nerdctl -n "k8s.io" pull $imageFullName --all-platforms 2>&1 | Out-String
-    if ($pullOutput.Contains("failed to do request")) {
+    $pullOutput = &$nerdctlExe -n 'k8s.io' pull $imageFullName --all-platforms 2>&1 | Out-String
+    if ($pullOutput.Contains('failed to do request')) {
         Write-Log "Not able to pull all platform layers for image '$imageFullName'" -Console
         Write-Log "Exporting image '$imageFullName' only for current platform" -Console
-        nerdctl -n "k8s.io" save -o "$finalExportPath" $imageFullName
-    } else {
+        &$nerdctlExe -n 'k8s.io' save -o "$finalExportPath" $imageFullName
+    }
+    else {
         Write-Log "Exporting image '$imageFullName' for all platforms" -Console
-        nerdctl -n "k8s.io" save -o "$finalExportPath" $imageFullName --all-platforms
+        &$nerdctlExe -n 'k8s.io' save -o "$finalExportPath" $imageFullName --all-platforms
     }
 
     if ($?) {
         Write-Log "Image ${imageFullName} exported successfully to ${finalExportPath}."
     }
+}
+
+if ($EncodeStructuredOutput -eq $true) {
+    Send-ToCli -MessageType $MessageType -Message @{Error = $null }
 }

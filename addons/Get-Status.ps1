@@ -41,11 +41,10 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
     [string] $MessageType
 )
-$cliMessagesModule = "$PSScriptRoot/../lib/modules/k2s/k2s.infra.module/cli-messages/cli-messages.module.psm1"
+$infraModule = "$PSScriptRoot/../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $addonsModule = "$PSScriptRoot\addons.module.psm1"
-$logModule = "$PSScriptRoot/../smallsetup/ps-modules/log/log.module.psm1"
 
-Import-Module $addonsModule, $logModule, $cliMessagesModule
+Import-Module $infraModule, $addonsModule
 
 Initialize-Logging 
 

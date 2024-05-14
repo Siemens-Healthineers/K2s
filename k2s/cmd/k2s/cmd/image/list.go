@@ -108,13 +108,20 @@ func listImages(cmd *cobra.Command, args []string) error {
 	configDir := cmd.Context().Value(common.ContextKeyConfigDir).(string)
 	config, err := setupinfo.LoadConfig(configDir)
 	if err != nil {
-		if !errors.Is(err, setupinfo.ErrSystemNotInstalled) {
-			return err
+		if errors.Is(err, setupinfo.ErrSystemInCorruptedState) {
+			if outputOption == jsonOption {
+				return printSystemErrJson(terminalPrinter.Println, setupinfo.ErrSystemInCorruptedState, common.CreateSystemInCorruptedStateCmdFailure)
+			}
+			return common.CreateSystemInCorruptedStateCmdFailure()
 		}
-		if outputOption == jsonOption {
-			return printSystemNotInstalledErrJson(terminalPrinter.Println)
+		if errors.Is(err, setupinfo.ErrSystemNotInstalled) {
+			if outputOption == jsonOption {
+				return printSystemErrJson(terminalPrinter.Println, setupinfo.ErrSystemNotInstalled, common.CreateSystemNotInstalledCmdFailure)
+			}
+			return common.CreateSystemNotInstalledCmdFailure()
 		}
-		return common.CreateSystemNotInstalledCmdFailure()
+
+		return err
 	}
 
 	getImagesFunc := func() (*LoadedImages, error) {
@@ -156,8 +163,8 @@ func printImagesAsJson(getImagesFunc func() (*LoadedImages, error), printlnFunc 
 	return deferredErr
 }
 
-func printSystemNotInstalledErrJson(printlnFunc func(m ...any)) error {
-	errCode := setupinfo.ErrSystemNotInstalled.Error()
+func printSystemErrJson(printlnFunc func(m ...any), systemError error, systemCmdFailureFunc func() *common.CmdFailure) error {
+	errCode := systemError.Error()
 	printImages := PrintImages{
 		Error: &errCode,
 	}
@@ -169,7 +176,7 @@ func printSystemNotInstalledErrJson(printlnFunc func(m ...any)) error {
 
 	printlnFunc(string(bytes))
 
-	failure := common.CreateSystemNotInstalledCmdFailure()
+	failure := systemCmdFailureFunc()
 	failure.SuppressCliOutput = true
 
 	return failure

@@ -20,17 +20,13 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
     [string] $MessageType
 )
-&$PSScriptRoot\..\smallsetup\common\GlobalVariables.ps1
-. $PSScriptRoot\..\smallsetup\common\GlobalFunctions.ps1
-
-$imageFuncModule = "$PSScriptRoot\..\smallsetup\helpers\ImageFunctions.module.psm1"
-$registryFuncModule = "$PSScriptRoot\..\smallsetup\helpers\RegistryFunctions.module.psm1"
-$addonsModule = "$PSScriptRoot\Addons.module.psm1"
-$clusterModule = "$PSScriptRoot\..\lib\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1"
-$logModule = "$PSScriptRoot\..\smallsetup\ps-modules\log\log.module.psm1"
 $infraModule = "$PSScriptRoot\..\lib\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
+$clusterModule = "$PSScriptRoot\..\lib\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1"
+$nodeModule = "$PSScriptRoot/../lib/modules/k2s/k2s.node.module/k2s.node.module.psm1"
+$addonsModule = "$PSScriptRoot\addons.module.psm1"
+$exportModule = "$PSScriptRoot\export.module.psm1"
 
-Import-Module $imageFuncModule, $registryFuncModule, $addonsModule, $clusterModule, $logModule, $infraModule -DisableNameChecking
+Import-Module $infraModule, $clusterModule, $nodeModule, $addonsModule, $exportModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -150,27 +146,26 @@ try {
 
         foreach ($image in $linuxImages) {
             Write-Log "Pulling linux image $image"
-            ExecCmdMaster "sudo buildah pull $image 2>&1" -Retries 5
+            Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -Retries 5 -CmdToExecute "sudo buildah pull $image 2>&1"
         }
 
         foreach ($image in $windowsImages) {
             Write-Log "Pulling windows image $image"
-            if ($setupInfo.Name -eq $global:SetupType_MultiVMK8s) {
-                $session = Open-RemoteSessionViaSSHKey $global:Admin_WinNode $global:WindowsVMKey
+            if ($setupInfo.Name -eq 'MultiVMK8s') {
+                $session = Open-DefaultWinVMRemoteSessionViaSSHKey
                 Invoke-Command -Session $session {
                     Set-Location "$env:SystemDrive\k"
                     Set-ExecutionPolicy Bypass -Force -ErrorAction Stop
 
-                    # load global settings
-                    &$env:SystemDrive\k\smallsetup\common\GlobalVariables.ps1
+                    Import-Module "$env:SystemDrive\k\addons\export.module.psm1"
 
-                    &$global:NerdctlExe -n 'k8s.io' pull $using:image --all-platforms 2>&1 | Out-Null
-                    crictl pull $using:image
+                    &$(Get-NerdctlExe) -n 'k8s.io' pull $using:image --all-platforms 2>&1 | Out-Null
+                    &$(Get-CrictlExe) pull $using:image
                 }
             }
             else {
-                &$global:NerdctlExe -n 'k8s.io' pull $image --all-platforms 2>&1 | Out-Null
-                &$global:BinPath\crictl pull $image
+                &$(Get-NerdctlExe) -n 'k8s.io' pull $image --all-platforms 2>&1 | Out-Null
+                &$(Get-CrictlExe) pull $image
             }
         }
 
@@ -191,10 +186,11 @@ try {
                 $imageTag = ($image -split ':')[1]
                 $linuxImageToExportArray = @($linuxContainerImages | Where-Object { $_.Repository -match ".*${imageNameWithoutTag}$" -and $_.Tag -eq $imageTag })
                 $windowsImageToExportArray = @($windowsContainerImages | Where-Object { $_.Repository -match ".*${imageNameWithoutTag}$" -and $_.Tag -eq $imageTag })
-
+                $exportImageScript = "$PSScriptRoot\..\lib\scripts\k2s\image\Export-Image.ps1"
+                
                 if ($linuxImageToExportArray -and $linuxImageToExportArray.Count -gt 0) {
                     $imageToExport = $linuxImageToExportArray[0]
-                    &$global:KubernetesPath\smallsetup\helpers\ExportImage.ps1 -Id $imageToExport.ImageId -ExportPath "${tmpExportDir}\addons\$($manifest.dir.name)\${count}.tar" -ShowLogs:$ShowLogs
+                    &$exportImageScript -Id $imageToExport.ImageId -ExportPath "${tmpExportDir}\addons\$($manifest.dir.name)\${count}.tar" -ShowLogs:$ShowLogs
 
                     if (!$?) {
                         $errMsg = "Image $imageNameWithoutTag could not be exported."
@@ -213,7 +209,7 @@ try {
 
                 if ($windowsImageToExportArray -and $windowsImageToExportArray.Count -gt 0) {
                     $imageToExport = $windowsImageToExportArray[0]
-                    &$global:KubernetesPath\smallsetup\helpers\ExportImage.ps1 -Id $imageToExport.ImageId -ExportPath "${tmpExportDir}\addons\$($manifest.dir.name)\${count}_win.tar" -ShowLogs:$ShowLogs
+                    &$exportImageScript -Id $imageToExport.ImageId -ExportPath "${tmpExportDir}\addons\$($manifest.dir.name)\${count}_win.tar" -ShowLogs:$ShowLogs
 
                     if (!$?) {
                         $errMsg = "Image $imageNameWithoutTag could not be exported!"
@@ -245,43 +241,48 @@ try {
             if ($repos) {
                 Write-Log 'Adding repos for debian packages download'
                 foreach ($repo in $repos) {
-                    if ($setupInfo.Name -ne $global:SetupType_MultiVMK8s) {
-                        $repoWithReplacedHttpProxyPlaceHolder = $repo.Replace('__LOCAL_HTTP_PROXY__', $global:HttpProxy)
+                    if ($setupInfo.Name -ne 'MultiVMK8s') {
+                        $repoWithReplacedHttpProxyPlaceHolder = $repo.Replace('__LOCAL_HTTP_PROXY__', "$(Get-ConfiguredKubeSwitchIP):8181")
                     }
                     else {
                         $repoWithReplacedHttpProxyPlaceHolder = $repo.Replace('__LOCAL_HTTP_PROXY__', "''")
                     }
-                    ExecCmdMaster "$repoWithReplacedHttpProxyPlaceHolder"
+                    Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "$repoWithReplacedHttpProxyPlaceHolder"
                 }
 
-                ExecCmdMaster 'sudo apt-get update > /dev/null 2>&1'
+                Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo apt-get update > /dev/null 2>&1'
             }
 
             # download debian packages
             $debianPackages = $linuxPackages.deb
             if ($debianPackages) {
-                ExecCmdMaster 'sudo apt-get clean > /dev/null 2>&1'
+                Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo apt-get clean > /dev/null 2>&1'
                 foreach ($package in $debianPackages) {
                     if (!(Get-DebianPackageAvailableOffline -addon $manifest.dir.name -package $package)) {
                         Write-Log "Downloading debian package `"$package`" with dependencies"
-                        ExecCmdMaster "sudo DEBIAN_FRONTEND=noninteractive apt-get --download-only reinstall -y $package > /dev/null 2>&1"
-                        ExecCmdMaster "mkdir -p .$($manifest.dir.name)/${package}"
-                        ExecCmdMaster "sudo cp /var/cache/apt/archives/*.deb .$($manifest.dir.name)/${package}"
-                        ExecCmdMaster 'sudo apt-get clean > /dev/null 2>&1'
+                        Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo DEBIAN_FRONTEND=noninteractive apt-get --download-only reinstall -y $package > /dev/null 2>&1"
+                        Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "mkdir -p .$($manifest.dir.name)/${package}"
+                        Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo cp /var/cache/apt/archives/*.deb .$($manifest.dir.name)/${package}"
+                        Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo apt-get clean > /dev/null 2>&1'
                     }
                 }
 
-                mkdir -Force "${tmpExportDir}\addons\$($manifest.dir.name)\debianpackages" | Out-Null
-                Copy-FromToMaster $($global:Remote_Master + ':' + ".$($manifest.dir.name)/*") "${tmpExportDir}\addons\$($manifest.dir.name)\debianpackages"
+                $targetDebianPkgDir = "${tmpExportDir}\addons\$($manifest.dir.name)\debianpackages"
+
+                mkdir -Force $targetDebianPkgDir | Out-Null
+                Copy-FromControlPlaneViaSSHKey -Source ".$($manifest.dir.name)/*" -Target $targetDebianPkgDir
             }
 
             # download linux packages via curl
             $linuxCurlPackages = $linuxPackages.curl
             if ($linuxCurlPackages) {
-                mkdir -Force "${tmpExportDir}\addons\$($manifest.dir.name)\linuxpackages" | Out-Null
+                $targetLinuxPkgDir = "${tmpExportDir}\addons\$($manifest.dir.name)\linuxpackages"
+                mkdir -Force $targetLinuxPkgDir | Out-Null
+
                 foreach ($package in $linuxCurlPackages) {
                     $filename = ([uri]$package.url).Segments[-1]
-                    DownloadFile "${tmpExportDir}\addons\$($manifest.dir.name)\linuxpackages\${filename}" $package.url $true -ProxyToUse $Proxy
+
+                    Invoke-DownloadFile "$targetLinuxPkgDir\${filename}" $package.url $true -ProxyToUse $Proxy
                 }
             }
 
@@ -289,10 +290,12 @@ try {
             $windowsPackages = $manifest.spec.offline_usage.windows
             $windowsCurlPackages = $windowsPackages.curl
             if ($windowsCurlPackages) {
-                mkdir -Force "${tmpExportDir}\addons\$($manifest.dir.name)\windowspackages" | Out-Null
+                $targetWinPkgDir = "${tmpExportDir}\addons\$($manifest.dir.name)\windowspackages"
+                mkdir -Force $targetWinPkgDir | Out-Null
                 foreach ($package in $windowsCurlPackages) {
                     $filename = ([uri]$package.url).Segments[-1]
-                    DownloadFile "${tmpExportDir}\addons\$($manifest.dir.name)\windowspackages\${filename}" $package.url $true -ProxyToUse $Proxy
+
+                    Invoke-DownloadFile "$targetWinPkgDir\${filename}" $package.url $true -ProxyToUse $Proxy
                 }
             }
         }

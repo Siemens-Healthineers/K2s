@@ -24,8 +24,8 @@ An example how to deploy virtual machines in Kubernetes can be found [here](http
 ## Building your own virtual machine image
 
 In order to run a virtual machine as pod inside Kubernetes a virtual machine image has to be created like container images for containers.
-For this k2s provides a Powershell script `K2s/addons/kubevirt/BuildKubevirtImage.ps1`. With this script it is possible to build a virtual image from `qcow2` image:
+For this, *K2s* provides a *PowerShell* the script [BuildKubevirtImage.ps1](BuildKubevirtImage.ps1). With this script, it is possible to build a virtual image from *qcow2* image, e.g.:
 
-```
-.\BuildKubevirtImage.ps1 -InputQCOW2Image E:\QCOW2\windows20h2.qcow2 -ImageName virt-win20h2
+```ps
+.\BuildKubevirtImage.ps1 -InputQCOW2Image "some\path\windows20h2.qcow2" -ImageName "virt-win20h2"
 ```

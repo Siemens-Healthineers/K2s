@@ -103,5 +103,47 @@ var _ = Describe("setupinfo pkg", func() {
 				Expect(config.Version).To(Equal(inputConfig.Version))
 			})
 		})
+
+		When("config file has entry 'Corrupted' (errors during installation)", func() {
+			var dir string
+			var inputConfig *setupinfo.Config
+
+			BeforeEach(func() {
+				inputConfig = &setupinfo.Config{
+					SetupName:        "test-name",
+					Registries:       []string{"r1", "r2"},
+					LoggedInRegistry: "r2",
+					LinuxOnly:        true,
+					Version:          "test-version",
+					Corrupted:        true,
+				}
+				inputData, err := json.Marshal(inputConfig)
+				Expect(err).ToNot(HaveOccurred())
+
+				dir = GinkgoT().TempDir()
+				configPath := filepath.Join(dir, "setup.json")
+
+				GinkgoWriter.Println("Writing test data to <", configPath, ">")
+
+				file, err := os.OpenFile(configPath, os.O_CREATE, os.ModeAppend)
+				Expect(err).ToNot(HaveOccurred())
+
+				_, err = file.Write(inputData)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(file.Close()).To(Succeed())
+			})
+
+			It("returns config data and system-in-corrupted-state error", func() {
+				config, err := setupinfo.LoadConfig(dir)
+
+				Expect(err).To(Equal(setupinfo.ErrSystemInCorruptedState))
+				Expect(config.LinuxOnly).To(Equal(inputConfig.LinuxOnly))
+				Expect(config.LoggedInRegistry).To(Equal(inputConfig.LoggedInRegistry))
+				Expect(config.Registries).To(Equal(inputConfig.Registries))
+				Expect(config.SetupName).To(Equal(inputConfig.SetupName))
+				Expect(config.Version).To(Equal(inputConfig.Version))
+				Expect(config.Corrupted).To(Equal(inputConfig.Corrupted))
+			})
+		})
 	})
 })

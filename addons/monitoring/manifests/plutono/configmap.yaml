@@ -30,8 +30,8 @@ data:
     provisioning = /etc/plutono/provisioning
     [server]
     # these settings needed to make it work with Ingress
-    root_url = https://k2s-monitoring.local
-    domain = k2s-monitoring.local
+    root_url = https://k2s.cluster.net/monitoring
+    domain = k2s.cluster.net
     protocol = https
     cert_key = /cert/tls.key
     cert_file = /cert/tls.crt

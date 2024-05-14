@@ -27,16 +27,12 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
     [string] $MessageType
 )
-&$PSScriptRoot\..\..\smallsetup\common\GlobalVariables.ps1
-. $PSScriptRoot\..\..\smallsetup\common\GlobalFunctions.ps1
-
-$logModule = "$PSScriptRoot/../../smallsetup/ps-modules/log/log.module.psm1"
-$statusModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/status/status.module.psm1"
-$addonsModule = "$PSScriptRoot\..\addons.module.psm1"
-$registryFunctionsModule = "$PSScriptRoot\..\..\smallsetup\helpers\RegistryFunctions.module.psm1"
 $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
+$clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
+$nodeModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.node.module/k2s.node.module.psm1"
+$addonsModule = "$PSScriptRoot\..\addons.module.psm1"
 
-Import-Module $logModule, $addonsModule, $statusModule, $registryFunctionsModule, $infraModule -DisableNameChecking
+Import-Module $infraModule, $clusterModule, $nodeModule, $addonsModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -55,7 +51,7 @@ if ($systemError) {
 
 Write-Log 'Check whether registry addon is already disabled'
 
-if ($null -eq (&$global:KubectlExe get namespace registry --ignore-not-found) -or (Test-IsAddonEnabled -Name 'registry') -ne $true) {
+if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'registry', '--ignore-not-found').Output -and (Test-IsAddonEnabled -Name 'registry') -ne $true) {
     $errMsg = "Addon 'registry' is already disabled, nothing to do."
 
     if ($EncodeStructuredOutput -eq $true) {
@@ -70,28 +66,22 @@ if ($null -eq (&$global:KubectlExe get namespace registry --ignore-not-found) -o
 
 Write-Log 'Uninstalling Kubernetes registry' -Console
 
-&$global:KubectlExe delete -f "$global:KubernetesPath\addons\registry\manifests\k2s-registry.yaml" | Write-Log
-
-&$global:KubectlExe delete secret k2s-registry | Write-Log
-&$global:KubectlExe delete namespace registry | Write-Log
+(Invoke-Kubectl -Params 'delete', '-f', "$PSScriptRoot\manifests\k2s-registry.yaml").Output | Write-Log
+(Invoke-Kubectl -Params 'delete', 'secret', 'k2s-registry').Output | Write-Log
+(Invoke-Kubectl -Params 'delete', 'namespace', 'registry').Output | Write-Log
 
 if ($DeleteImages) {
-    ExecCmdMaster 'sudo rm -rf /registry'
+    Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo rm -rf /registry'
 }
-
-#ExecCmdMaster "sudo rm -rf '/etc/containers/certs.d'"
-
-#Remove-Item -Path "$env:programdata\docker\certs.d" -Force -Recurse -ErrorAction SilentlyContinue
 
 Remove-AddonFromSetupJson -Name 'registry'
 Remove-RegistryFromSetupJson -Name 'k2s.*' -IsRegex $true
 
-Write-Log 'Uninstallation of Kubernetes registry finished' -Console
-
-$loggedInRegistry = Get-ConfigValue -Path $global:SetupJsonFile -Key $global:ConfigKey_LoggedInRegistry
-if ($loggedInRegistry -match 'k2s-registry.*') {
-    Set-ConfigValue -Path $global:SetupJsonFile -Key $global:ConfigKey_LoggedInRegistry -Value ''
+if ((Get-ConfigLoggedInRegistry) -match 'k2s-registry.*') {
+    Set-ConfigLoggedInRegistry -Value ''
 }
+
+Write-Log 'Uninstallation of Kubernetes registry finished' -Console
 
 if ($EncodeStructuredOutput -eq $true) {
     Send-ToCli -MessageType $MessageType -Message @{Error = $null }

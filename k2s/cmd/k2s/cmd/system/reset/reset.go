@@ -6,12 +6,11 @@ package reset
 import (
 	"errors"
 	"log/slog"
+	"time"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 	"github.com/siemens-healthineers/k2s/internal/powershell"
 	"github.com/siemens-healthineers/k2s/internal/setupinfo"
-
-	"github.com/siemens-healthineers/k2s/cmd/k2s/utils/psexecutor"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 
@@ -31,7 +30,7 @@ func init() {
 }
 
 func resetSystem(cmd *cobra.Command, args []string) error {
-	resetSystemCommand, err := buildResetSystemCmd(cmd)
+	resetSystemCommand, err := buildResetSystemCmd()
 	if err != nil {
 		return err
 	}
@@ -40,27 +39,35 @@ func resetSystem(cmd *cobra.Command, args []string) error {
 
 	configDir := cmd.Context().Value(common.ContextKeyConfigDir).(string)
 	config, err := setupinfo.LoadConfig(configDir)
-	psVersion := powershell.DefaultPsVersions
 	if err != nil {
 		if errors.Is(err, setupinfo.ErrSystemNotInstalled) {
-			slog.Info("Setup not installed, falling back to default PowerShell version", "error", err, "version", psVersion)
+			return common.CreateSystemNotInstalledCmdFailure()
 		}
-		return err
-	} else {
-		psVersion = common.DeterminePsVersion(config)
+		if !errors.Is(err, setupinfo.ErrSystemInCorruptedState) {
+			return err
+		}
 	}
 
-	duration, err := psexecutor.ExecutePowershellScript(resetSystemCommand, psVersion)
+	outputWriter, err := common.NewOutputWriter()
 	if err != nil {
 		return err
 	}
+
+	start := time.Now()
+
+	err = powershell.ExecutePs(resetSystemCommand, common.DeterminePsVersion(config), outputWriter)
+	if err != nil {
+		return err
+	}
+
+	duration := time.Since(start)
 
 	common.PrintCompletedMessage(duration, "system reset")
 
 	return nil
 }
 
-func buildResetSystemCmd(cmd *cobra.Command) (string, error) {
+func buildResetSystemCmd() (string, error) {
 	resetSystemCommand := utils.FormatScriptFilePath(utils.InstallDir() + "\\smallsetup\\helpers\\ResetSystem.ps1")
 
 	return resetSystemCommand, nil

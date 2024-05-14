@@ -1,0 +1,45 @@
+# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+#
+# SPDX-License-Identifier: MIT
+
+apiVersion: v1
+kind: AddonManifest
+metadata:
+  name: security
+  description: "EXPERIMENTAL: Enables secure communication into and inside the cluster"
+spec:
+  offline_usage:
+    linux:
+      repos: []
+      deb: []
+      curl: []
+      additionalImages: []
+    windows:
+      curl:
+        - url: https://github.com/cert-manager/cmctl/releases/download/v2.0.0/cmctl_windows_amd64.exe
+          destination: bin\exe\cmctl.exe
+  commands:
+    enable:
+      cli:
+        flags:
+          - name: proxy
+            shorthand: p
+            default: ""
+            description: HTTP Proxy
+        examples:
+          - cmd: k2s addons enable security
+            comment: Enable security addon with CA issuer configured
+          - cmd: k2s addons enable security --proxy http://10.11.12.13:5000
+            comment: Enable security addon with CA issuer configured using an HTTP proxy
+      script:
+        subPath: Enable.ps1
+        parameterMappings:
+          - cliFlagName: proxy
+            scriptParameterName: Proxy
+    disable:
+      cli:
+        examples:
+          - cmd: k2s addons disable security
+            comment: Disable addon security in K2s
+      script:
+        subPath: Disable.ps1
