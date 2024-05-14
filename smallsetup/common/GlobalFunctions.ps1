@@ -1020,7 +1020,9 @@ function Start-ServiceAndSetToAutoStart {
     param (
         [Parameter()]
         [ValidateNotNullOrEmpty()]
-        [string] $Name = $(throw 'Please provide the name of the service.')
+        [string] $Name = $(throw 'Please provide the name of the service.'),
+        [Parameter(Mandatory = $false)]
+        [switch]$IgnoreErrors = $false
     )
 
     if (!$global:NssmInstallDirectory -or !$global:NssmInstallDirectoryLegacy) {
@@ -1036,8 +1038,15 @@ function Start-ServiceAndSetToAutoStart {
         }
         Write-Log ('Changing service to auto startup and starting: ' + $Name)
         &$nssm set $Name Start SERVICE_AUTO_START | Out-Null
-        Start-Service $Name -WarningAction SilentlyContinue
-        Write-Log "service started: $Name"
+        if ($IgnoreErrors) {
+            # Start-Service sometimes says "service cannot be started" e.g. flanneld but service is running after start 
+            # (-ErrorAction SilentlyContinue and checking afterwards if service is running)
+            Start-Service $Name -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
+        } else {
+            Start-Service $Name -WarningAction SilentlyContinue
+        }
+
+        Write-Log "Service '$Name' started"
     }
 }
 
