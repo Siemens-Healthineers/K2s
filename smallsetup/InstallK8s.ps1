@@ -147,6 +147,9 @@ Initialize-WinNode -KubernetesVersion $KubernetesVersion `
 
 if ($WSL) {
     Write-Log "Setting up $controlPlaneVmName Distro" -Console
+    Write-Log 'vEthernet (WSL) switch will be reconfigured! Your existing WSL distros will not work properly until you stop the cluster.'
+    Write-Log 'Configuring WSL2'
+    Set-WSL -MasterVMMemory $MasterVMMemory -MasterVMProcessorCount $MasterVMProcessorCount
 }
 else {
     Write-Log "Setting up $controlPlaneVmName VM" -Console

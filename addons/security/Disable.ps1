@@ -29,6 +29,7 @@ $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
 $securityModule = "$PSScriptRoot\security.module.psm1"
 
 Import-Module $infraModule, $clusterModule, $addonsModule, $securityModule
+Import-Module PKI;
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -66,8 +67,13 @@ $caIssuerConfig = Get-CAIssuerConfig
 (Invoke-Kubectl -Params 'delete', '-f', $certManagerConfig).Output | Write-Log
 
 Remove-Cmctl
-Remove-AddonFromSetupJson -Name 'security'
 
+Write-Log 'Removing CA issuer certificate from trusted root' -Console
+$caIssuerName = Get-CAIssuerName
+$trustedRootStoreLocation = Get-TrustedRootStoreLocation
+Get-ChildItem -Path $trustedRootStoreLocation | Where-Object { $_.Subject -match $caIssuerName } | Remove-Item
+
+Remove-AddonFromSetupJson -Name 'security'
 Write-Log 'Uninstallation of security finished' -Console
 
 Write-WarningForUser

@@ -8,9 +8,6 @@ Troubleshooting
 ==============
 [ Home ](../README.md)
 
-![IMAGE here](/doc/assets/TroubleShooting.jpg)
-
-
 # Quick overview of your K8s system
 
 Simply type `ks` in you shell to get an overview about your K8s state !

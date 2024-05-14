@@ -4,6 +4,8 @@
 package image
 
 import (
+	"path/filepath"
+
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 
@@ -31,7 +33,7 @@ var _ = Describe("export", Ordered, func() {
 				cmd, params, err := buildExportPsCmd(exportCmd)
 
 				Expect(err).ToNot(HaveOccurred())
-				Expect(cmd).To(Equal("&'" + utils.InstallDir() + "\\smallsetup\\helpers\\ExportImage.ps1'"))
+				Expect(cmd).To(Equal("&'" + filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "image", "Export-Image.ps1") + "'"))
 				Expect(params).To(ConsistOf(" -Id 'myImageId'", " -Name 'myImageName'", " -ExportPath 'myExportPath'"))
 			})
 		})
@@ -46,7 +48,7 @@ var _ = Describe("export", Ordered, func() {
 				cmd, params, err := buildExportPsCmd(exportCmd)
 
 				Expect(err).ToNot(HaveOccurred())
-				Expect(cmd).To(Equal("&'" + utils.InstallDir() + "\\smallsetup\\helpers\\ExportImage.ps1'"))
+				Expect(cmd).To(Equal("&'" + filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "image", "Export-Image.ps1") + "'"))
 				Expect(params).To(ConsistOf(" -Id 'myImageId'", " -Name 'myImageName'", " -ExportPath 'myExportPath'", " -DockerArchive"))
 			})
 		})

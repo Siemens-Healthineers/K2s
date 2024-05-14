@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"path/filepath"
 	"strconv"
 	"time"
 
@@ -128,7 +129,7 @@ func getImageToPull(args []string) string {
 }
 
 func buildPullPsCmd(imageToPull string, pullForWindows bool, showOutput bool) (psCmd string, params []string) {
-	psCmd = utils.FormatScriptFilePath(utils.InstallDir() + "\\smallsetup\\helpers\\PullImage.ps1")
+	psCmd = utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "image", "Pull-Image.ps1"))
 
 	params = append(params, " -ImageName "+imageToPull)
 

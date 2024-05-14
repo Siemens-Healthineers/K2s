@@ -276,6 +276,7 @@ Invoke-Command -Session $session {
     $ipAddressForLoopbackAdapter = Get-LoopbackAdapterIP
     $ipGatewayLoopbackAdapter = Get-LoopbackAdapterGateway
     Set-IPAdressAndDnsClientServerAddress -IPAddress $ipAddressForLoopbackAdapter -DefaultGateway $ipGatewayLoopbackAdapter -Index $ipindexEthernet
+    Set-DnsClient -InterfaceIndex $ipindexEthernet -RegisterThisConnectionsAddress $false | Out-Null
     netsh int ipv4 set int "vEthernet ($adapterName)" forwarding=enabled | Out-Null
     netsh int ipv4 set int 'Ethernet' forwarding=enabled | Out-Null
 
