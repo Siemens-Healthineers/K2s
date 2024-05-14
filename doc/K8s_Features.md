@@ -8,8 +8,6 @@ K2s Features
 ==============
 [ Home ](../README.md)
 
-<br>![Image](/doc/assets/features.jpg)<br>
-
 **K2s** includes the following features:
 - support of mixed Windows and Linux K8s (Kubernetes) workloads
 - support for multiple Windows 10,11 and Server OS versions
