@@ -73,6 +73,9 @@ $caIssuerName = Get-CAIssuerName
 $trustedRootStoreLocation = Get-TrustedRootStoreLocation
 Get-ChildItem -Path $trustedRootStoreLocation | Where-Object { $_.Subject -match $caIssuerName } | Remove-Item
 
+$keyCloakFolder = Get-KeyCloakFolder
+(Invoke-Kubectl -Params 'delete', '-k', $keyCloakFolder).Output | Write-Log
+
 Remove-AddonFromSetupJson -Name 'security'
 Write-Log 'Uninstallation of security finished' -Console
 
