@@ -150,6 +150,9 @@ function Install-WinDocker {
 }
 
 function Uninstall-WinDocker {
+    param(
+        $ShallowUninstallation = $false
+    )
     $serviceWasRemoved = $false
     $dockerDir = "$kubeBinPath\docker"
     $dockerExe = "$dockerDir\docker.exe"
@@ -191,7 +194,9 @@ function Uninstall-WinDocker {
     # remove registry key which could remain from different docker installs
     Remove-Item -Path 'HKLM:\SYSTEM\CurrentControlSet\Services\EventLog\Application\docker' -ErrorAction SilentlyContinue
 
-    if ($global:PurgeOnUninstall) {
+    if (!$ShallowUninstallation) {
+        Remove-Item -Path "$kubePath\smallsetup\docker*.zip" -Force -ErrorAction SilentlyContinue
+
         Write-Log "Removing: $dockerDir"
         Remove-Item $dockerDir -Recurse -Force -ErrorAction SilentlyContinue
     }

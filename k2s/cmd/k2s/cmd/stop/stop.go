@@ -7,6 +7,7 @@ import (
 	"errors"
 	"log/slog"
 	"strconv"
+	"time"
 
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
@@ -14,10 +15,9 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/utils/psexecutor"
-
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 
+	"github.com/siemens-healthineers/k2s/internal/powershell"
 	"github.com/siemens-healthineers/k2s/internal/setupinfo"
 )
 
@@ -40,6 +40,9 @@ func stopk8s(cmd *cobra.Command, args []string) error {
 	configDir := cmd.Context().Value(common.ContextKeyConfigDir).(string)
 	config, err := setupinfo.LoadConfig(configDir)
 	if err != nil {
+		if errors.Is(err, setupinfo.ErrSystemInCorruptedState) {
+			return common.CreateSystemInCorruptedStateCmdFailure()
+		}
 		if errors.Is(err, setupinfo.ErrSystemNotInstalled) {
 			return common.CreateSystemNotInstalledCmdFailure()
 		}
@@ -53,11 +56,19 @@ func stopk8s(cmd *cobra.Command, args []string) error {
 
 	slog.Debug("PS command created", "command", stopCmd)
 
-	duration, err := psexecutor.ExecutePowershellScript(stopCmd, common.DeterminePsVersion(config))
+	outputWriter, err := common.NewOutputWriter()
 	if err != nil {
 		return err
 	}
 
+	start := time.Now()
+
+	err = powershell.ExecutePs(stopCmd, common.DeterminePsVersion(config), outputWriter)
+	if err != nil {
+		return err
+	}
+
+	duration := time.Since(start)
 	common.PrintCompletedMessage(duration, "Stop")
 
 	return nil

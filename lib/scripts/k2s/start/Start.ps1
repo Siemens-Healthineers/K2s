@@ -5,7 +5,7 @@
 
 <#
 .SYNOPSIS
-This script is only valid for the Small K8s Setup installed with Install.ps1
+This script is only valid for the K2s Setup installed with Install.ps1
 It starts the kubernetes cluster again, after it has been stopped with Stop.ps1
 
 .DESCRIPTION
@@ -400,8 +400,9 @@ while ($true) {
 
         Set-InterfacePrivate -InterfaceAlias "vEthernet ($adapterName)"
         if ($WSL) {
-            New-NetFirewallRule -DisplayName 'WSL Inbound' -Group "k2s" -Direction Inbound -InterfaceAlias 'vEthernet (WSL)' -Action Allow
-            New-NetFirewallRule -DisplayName 'WSL Outbound'-Group "k2s" -Direction Outbound -InterfaceAlias 'vEthernet (WSL)' -Action Allow
+            $interfaceAlias = Get-NetAdapter -Name "vEthernet (WSL*)" -ErrorAction SilentlyContinue -IncludeHidden | Select-Object -expandproperty name
+            New-NetFirewallRule -DisplayName 'WSL Inbound' -Group "k2s" -Direction Inbound -InterfaceAlias $interfaceAlias -Action Allow
+            New-NetFirewallRule -DisplayName 'WSL Outbound'-Group "k2s" -Direction Outbound -InterfaceAlias $interfaceAlias -Action Allow
         }
         else {
             Set-InterfacePrivate -InterfaceAlias "vEthernet ($switchname)"

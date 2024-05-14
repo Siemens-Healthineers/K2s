@@ -13,9 +13,9 @@ Param(
     [uint64]$VMDiskSize = 50GB,
     [parameter(Mandatory = $false, HelpMessage = 'HTTP proxy if available to be used during installation')]
     [string] $Proxy = '',
-    [parameter(Mandatory = $true, HelpMessage = 'Target directory')]
+    [parameter(Mandatory = $false, HelpMessage = 'Target directory')]
     [string] $TargetDirectory,
-    [parameter(Mandatory = $true, HelpMessage = 'The name of the zip package (it must have the extension .zip)')]
+    [parameter(Mandatory = $false, HelpMessage = 'The name of the zip package (it must have the extension .zip)')]
     [string] $ZipPackageFileName,
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
     [switch] $ShowLogs = $false,

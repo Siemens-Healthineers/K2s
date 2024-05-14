@@ -9,7 +9,7 @@
 Remove linux VM acting as KubeMaster
 
 .DESCRIPTION
-This script assists in the following actions for Small K8s:
+This script assists in the following actions for K2s:
 - Remove linux VM
 - Remove switch
 - Remove virtual disk

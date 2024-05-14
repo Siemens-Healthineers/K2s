@@ -170,6 +170,9 @@ function Set-UserTokenForRegistryInConfig($tomlPath) {
 }
 
 function Uninstall-WinContainerd {
+    param(
+        $ShallowUninstallation = $false
+    )
     Write-Log 'Stop service containerd'
     Stop-Service containerd -ErrorAction SilentlyContinue
     Write-Log 'Unregister service'
@@ -184,7 +187,7 @@ function Uninstall-WinContainerd {
     Remove-Item -Path "$kubePath\cfg\containerd\flannel-l2bridge.conf" -Force -ErrorAction SilentlyContinue
     Remove-Item -Path "$kubePath\cfg\containerd\cni" -Recurse -Force -ErrorAction SilentlyContinue
 
-    if ($global:PurgeOnUninstall) {
+    if (!$ShallowUninstallation) {
         Remove-Item -Path "$kubePath\containerd\*.exe" -Force -ErrorAction SilentlyContinue
         Remove-Item -Path "$kubePath\containerd\*.zip" -Force -ErrorAction SilentlyContinue
         Remove-Item -Path "$kubePath\containerd\*.tar.gz" -Force -ErrorAction SilentlyContinue
@@ -207,14 +210,17 @@ function Install-WinContainerd {
         [parameter(Mandatory = $false, HelpMessage = 'HTTP proxy if available')]
         [string] $Proxy = '',
         [parameter(Mandatory = $false, HelpMessage = 'Will skip setting up networking which is required only for cluster purposes')]
-        [bool] $SkipNetworkingSetup = $false
+        [bool] $SkipNetworkingSetup = $false,
+        $WindowsNodeArtifactsDirectory
     )
 
     Write-Log 'First uninstall containerd service if existent'
-    Uninstall-WinContainerd
+    Uninstall-WinContainerd -ShallowUninstallation $true
 
     Write-Log 'Start publishing containerd artifacts'
-    &"$kubePath\smallsetup\windowsnode\publisher\PublishContainerd.ps1"
+    Invoke-DeployContainerdArtifacts $WindowsNodeArtifactsDirectory
+    Invoke-DeployCrictlArtifacts $WindowsNodeArtifactsDirectory
+    Invoke-DeployNerdctlArtifacts $WindowsNodeArtifactsDirectory
     Write-Log 'Finished publishing containerd artifacts'
 
     Write-Log 'Creating crictl.yaml (config for crictl.exe)'
@@ -244,7 +250,7 @@ timeout: 10
         Write-Log "Using network adapter '$adapterName'"
         $ipaddresses = @(Get-NetIPAddress -AddressFamily IPv4 -InterfaceAlias $adapterName)
         if (!$ipaddresses) {
-            throw 'No IP address found which can be used for setting up Small K8s Setup !'
+            throw 'No IP address found which can be used for setting up K2s Setup !'
         }
         $ipaddress = $ipaddresses[0] | Select-Object -ExpandProperty IPAddress
         Write-Log "Using local IP $ipaddress for setup of CNI"

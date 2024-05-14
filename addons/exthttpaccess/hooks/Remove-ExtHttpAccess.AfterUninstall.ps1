@@ -12,19 +12,13 @@ Post-uninstall hook to remove nginx-ext service.
 Post-uninstall hook to remove nginx-ext service.
 #>
 
-$logModule = "$PSScriptRoot\..\..\smallsetup\ps-modules\log\log.module.psm1"
-$pathModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/path/path.module.psm1"
-Import-Module $logModule, $pathModule
+$logModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/log/log.module.psm1"
+$commonModule = "$PSScriptRoot/../exthttpaccess/common.module.psm1"
 
-# stop nginx service
-Write-Log 'Stop nginx service' -Console
-nssm stop nginx-ext | Write-Log
+Import-Module $logModule, $commonModule
 
-# remove nginx service
-Write-Log 'Remove nginx service' -Console
-nssm remove nginx-ext confirm | Write-Log
+Initialize-Logging
 
-# cleanup installation directory
-Remove-Item -Recurse -Force "$(Get-KubeBinPath)\nginx" | Out-Null
+Remove-Nginx
 
 Write-Log 'exthttpaccess removed after cluster deinstallation.' -Console

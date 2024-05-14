@@ -71,17 +71,4 @@ var _ = Describe("CLI", func() {
 			})
 		})
 	})
-
-	Describe("commands that do not have dedicated e2e tests yet", func() {
-		DescribeTable("prints system-not-installed message and exits with non-zero",
-			func(ctx context.Context, args ...string) {
-				output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, args...)
-
-				Expect(output).To(ContainSubstring("not installed"))
-			},
-			Entry("start", "start"),
-			Entry("stop", "stop"),
-			Entry("uninstall", "uninstall"),
-		)
-	})
 })

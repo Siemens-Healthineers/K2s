@@ -14,10 +14,10 @@ on:
       - "main"
     paths:
       - 'k2s/**'
+      - '!k2s/test/**'
 
 env:
   GOVERSION: "1.21.5"
-
 
 jobs:
   build-k2s-cli:

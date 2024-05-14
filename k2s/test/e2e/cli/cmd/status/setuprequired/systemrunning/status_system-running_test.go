@@ -16,14 +16,14 @@ import (
 	"github.com/onsi/gomega/types"
 
 	"github.com/siemens-healthineers/k2s/test/framework"
+	"github.com/siemens-healthineers/k2s/test/framework/regex"
 )
 
 const (
-	ipAddressRegex = `((25[0-5]|(2[0-4]|1\d|[1-9]|)\d)\.?\b){4}`
-	ageRegex       = `(\d\D)+`
-	osRegex        = "((w)|(W)indows)|((l)|(L)inux)"
-	runtimeRegex   = "(cri-o|containerd)"
-	versionRegex   = `v?(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)`
+	ageRegex     = `(\d\D)+`
+	osRegex      = "((w)|(W)indows)|((l)|(L)inux)"
+	runtimeRegex = "(cri-o|containerd)"
+	bytesRegex   = `[0-9]+\w{0,2}B`
 )
 
 var suite *framework.K2sTestSuite
@@ -58,7 +58,7 @@ var _ = Describe("status", Ordered, func() {
 		})
 
 		It("prints version", func(ctx context.Context) {
-			Expect(output).To(MatchRegexp("Version: .+%s.+", versionRegex))
+			Expect(output).To(MatchRegexp("Version: .+%s.+", regex.VersionRegex))
 		})
 
 		It("prints info that the system is running", func(ctx context.Context) {
@@ -66,21 +66,21 @@ var _ = Describe("status", Ordered, func() {
 		})
 
 		It("prints K8s server version", func(ctx context.Context) {
-			Expect(output).To(MatchRegexp("K8s server version: .+%s.+", versionRegex))
+			Expect(output).To(MatchRegexp("K8s server version: .+%s.+", regex.VersionRegex))
 		})
 
 		It("prints K8s client version", func(ctx context.Context) {
-			Expect(output).To(MatchRegexp("K8s client version: .+%s.+", versionRegex))
+			Expect(output).To(MatchRegexp("K8s client version: .+%s.+", regex.VersionRegex))
 		})
 
 		It("prints short node info", func(ctx context.Context) {
 			matchers := []types.GomegaMatcher{
-				MatchRegexp(`STATUS.+\|.+NAME.+\|.+ROLE.+\|.+AGE.+\|.+VERSION`),
-				MatchRegexp("Ready.+\\|.+%s.+\\|.+control-plane.+\\|.+%s.+\\|.+%s", suite.SetupInfo().SetupConfig.ControlPlaneNodeHostname, ageRegex, versionRegex),
+				MatchRegexp(`STATUS.+\|.+NAME.+\|.+ROLE.+\|.+AGE.+\|.+VERSION|.+CPUs|.+RAM|.+DISK`),
+				MatchRegexp("Ready.+\\|.+%s.+\\|.+control-plane.+\\|.+%s.+\\|.+%s.+\\|.+[0-9]+.+\\|.+%s.+\\|.+%s", suite.SetupInfo().SetupConfig.ControlPlaneNodeHostname, ageRegex, regex.VersionRegex, bytesRegex, bytesRegex),
 			}
 
 			if !suite.SetupInfo().SetupConfig.LinuxOnly {
-				matchers = append(matchers, MatchRegexp("Ready.+\\|.+%s.+\\|.+worker.+\\|.+%s.+\\|.+%s", suite.SetupInfo().WinNodeName, ageRegex, versionRegex))
+				matchers = append(matchers, MatchRegexp("Ready.+\\|.+%s.+\\|.+worker.+\\|.+%s.+\\|.+%s", suite.SetupInfo().WinNodeName, ageRegex, regex.VersionRegex))
 			}
 
 			Expect(output).To(SatisfyAll(matchers...))
@@ -124,7 +124,7 @@ var _ = Describe("status", Ordered, func() {
 		})
 
 		It("prints the version", func(ctx context.Context) {
-			Expect(output).To(MatchRegexp("Version: .+%s.+", versionRegex))
+			Expect(output).To(MatchRegexp("Version: .+%s.+", regex.VersionRegex))
 		})
 
 		It("prints info that the system is running", func(ctx context.Context) {
@@ -132,21 +132,23 @@ var _ = Describe("status", Ordered, func() {
 		})
 
 		It("prints K8s server version", func(ctx context.Context) {
-			Expect(output).To(MatchRegexp("K8s server version: .+%s.+", versionRegex))
+			Expect(output).To(MatchRegexp("K8s server version: .+%s.+", regex.VersionRegex))
 		})
 
 		It("prints K8s client version", func(ctx context.Context) {
-			Expect(output).To(MatchRegexp("K8s client version: .+%s.+", versionRegex))
+			Expect(output).To(MatchRegexp("K8s client version: .+%s.+", regex.VersionRegex))
 		})
 
 		It("prints extended node info", func(ctx context.Context) {
 			matchers := []types.GomegaMatcher{
-				MatchRegexp(`STATUS.+\\|.+NAME.+\|.+ROLE.+\|.+AGE.+\|.+VERSION.+\|.+INTERNAL-IP.+\|.+OS-IMAGE.+\|.+KERNEL-VERSION.+\|.+CONTAINER-RUNTIME`),
-				MatchRegexp("Ready.+\\|.+%s.+\\|.+control-plane.+\\|.+%s.+\\|.+%s.+\\|.+%s.+\\|.+%s.+\\|.+.+\\|.+%s", suite.SetupInfo().SetupConfig.ControlPlaneNodeHostname, ageRegex, versionRegex, ipAddressRegex, osRegex, runtimeRegex),
+				MatchRegexp(`STATUS.+\\|.+NAME.+\|.+ROLE.+\|.+AGE.+\|.+VERSION.+\|.+CPUs.+\|.+RAM.+\|.+DISK.+\|.+INTERNAL-IP.+\|.+OS-IMAGE.+\|.+KERNEL-VERSION.+\|.+CONTAINER-RUNTIME`),
+				MatchRegexp("Ready.+\\|.+%s.+\\|.+control-plane.+\\|.+%s.+\\|.+%s.+\\|.+[0-9]+,+\\|.+%s.+\\|.+%s.+\\|.+%s.+\\|.+%s.+\\|.+.+\\|.+%s",
+					suite.SetupInfo().SetupConfig.ControlPlaneNodeHostname, ageRegex, regex.VersionRegex, bytesRegex, bytesRegex, regex.IpAddressRegex, osRegex, runtimeRegex),
 			}
 
 			if !suite.SetupInfo().SetupConfig.LinuxOnly {
-				matchers = append(matchers, MatchRegexp("Ready.+\\|.+%s.+\\|.+worker.+\\|.+%s.+\\|.+%s.+\\|.+%s.+\\|.+%s.+\\|.+.+\\|.+%s", suite.SetupInfo().WinNodeName, ageRegex, versionRegex, ipAddressRegex, osRegex, runtimeRegex))
+				matchers = append(matchers, MatchRegexp("Ready.+\\|.+%s.+\\|.+worker.+\\|.+%s.+\\|.+%s.+\\|.+[0-9]+,+\\|.+%s.+\\|.+%s.+\\|.+%s.+\\|.+%s.+\\|.+.+\\|.+%s",
+					suite.SetupInfo().WinNodeName, ageRegex, regex.VersionRegex, bytesRegex, bytesRegex, regex.IpAddressRegex, osRegex, runtimeRegex))
 			}
 
 			Expect(output).To(SatisfyAll(matchers...))
@@ -159,13 +161,13 @@ var _ = Describe("status", Ordered, func() {
 		It("prints extended system Pods info", func(ctx context.Context) {
 			Expect(output).To(SatisfyAll(
 				MatchRegexp(`STATUS.+\|.+NAMESPACE.+\|.+NAME.+\|.+READY.+\|.+RESTARTS.+\|.+AGE.+\|.+IP.+\|.+NODE`),
-				MatchRegexp("Running.+\\|.+kube-flannel.+\\|.+kube-flannel-.+\\|.+1/1.+\\|.+\\d+.+\\|.+%s.+\\|.+%s.+\\|.+%s", ageRegex, ipAddressRegex, suite.SetupInfo().SetupConfig.ControlPlaneNodeHostname),
-				MatchRegexp("Running.+\\|.+kube-system.+\\|.+coredns-.+\\|.+1/1.+\\|.+\\d+.+\\|.+%s.+\\|.+%s.+\\|.+%s", ageRegex, ipAddressRegex, suite.SetupInfo().SetupConfig.ControlPlaneNodeHostname),
-				MatchRegexp("Running.+\\|.+kube-system.+\\|.+etcd-%s.+\\|.+1/1.+\\|.+\\d+.+\\|.+%s.+\\|.+%s.+\\|.+%s", suite.SetupInfo().SetupConfig.ControlPlaneNodeHostname, ageRegex, ipAddressRegex, suite.SetupInfo().SetupConfig.ControlPlaneNodeHostname),
-				MatchRegexp("Running.+\\|.+kube-system.+\\|.+kube-apiserver-%s.+\\|.+1/1.+\\|.+\\d+.+\\|.+%s.+\\|.+%s.+\\|.+%s", suite.SetupInfo().SetupConfig.ControlPlaneNodeHostname, ageRegex, ipAddressRegex, suite.SetupInfo().SetupConfig.ControlPlaneNodeHostname),
-				MatchRegexp("Running.+\\|.+kube-system.+\\|.+kube-controller-manager-%s.+\\|.+1/1.+\\|.+\\d+.+\\|.+%s.+\\|.+%s.+\\|.+%s", suite.SetupInfo().SetupConfig.ControlPlaneNodeHostname, ageRegex, ipAddressRegex, suite.SetupInfo().SetupConfig.ControlPlaneNodeHostname),
-				MatchRegexp("Running.+\\|.+kube-system.+\\|.+kube-proxy-.+\\|.+1/1.+\\|.+\\d+.+\\|.+%s.+\\|.+%s.+\\|.+%s", ageRegex, ipAddressRegex, suite.SetupInfo().SetupConfig.ControlPlaneNodeHostname),
-				MatchRegexp("Running.+\\|.+kube-system.+\\|.+kube-scheduler-%s.+\\|.+1/1.+\\|.+\\d+.+\\|.+%s.+\\|.+%s.+\\|.+%s", suite.SetupInfo().SetupConfig.ControlPlaneNodeHostname, ageRegex, ipAddressRegex, suite.SetupInfo().SetupConfig.ControlPlaneNodeHostname),
+				MatchRegexp("Running.+\\|.+kube-flannel.+\\|.+kube-flannel-.+\\|.+1/1.+\\|.+\\d+.+\\|.+%s.+\\|.+%s.+\\|.+%s", ageRegex, regex.IpAddressRegex, suite.SetupInfo().SetupConfig.ControlPlaneNodeHostname),
+				MatchRegexp("Running.+\\|.+kube-system.+\\|.+coredns-.+\\|.+1/1.+\\|.+\\d+.+\\|.+%s.+\\|.+%s.+\\|.+%s", ageRegex, regex.IpAddressRegex, suite.SetupInfo().SetupConfig.ControlPlaneNodeHostname),
+				MatchRegexp("Running.+\\|.+kube-system.+\\|.+etcd-%s.+\\|.+1/1.+\\|.+\\d+.+\\|.+%s.+\\|.+%s.+\\|.+%s", suite.SetupInfo().SetupConfig.ControlPlaneNodeHostname, ageRegex, regex.IpAddressRegex, suite.SetupInfo().SetupConfig.ControlPlaneNodeHostname),
+				MatchRegexp("Running.+\\|.+kube-system.+\\|.+kube-apiserver-%s.+\\|.+1/1.+\\|.+\\d+.+\\|.+%s.+\\|.+%s.+\\|.+%s", suite.SetupInfo().SetupConfig.ControlPlaneNodeHostname, ageRegex, regex.IpAddressRegex, suite.SetupInfo().SetupConfig.ControlPlaneNodeHostname),
+				MatchRegexp("Running.+\\|.+kube-system.+\\|.+kube-controller-manager-%s.+\\|.+1/1.+\\|.+\\d+.+\\|.+%s.+\\|.+%s.+\\|.+%s", suite.SetupInfo().SetupConfig.ControlPlaneNodeHostname, ageRegex, regex.IpAddressRegex, suite.SetupInfo().SetupConfig.ControlPlaneNodeHostname),
+				MatchRegexp("Running.+\\|.+kube-system.+\\|.+kube-proxy-.+\\|.+1/1.+\\|.+\\d+.+\\|.+%s.+\\|.+%s.+\\|.+%s", ageRegex, regex.IpAddressRegex, suite.SetupInfo().SetupConfig.ControlPlaneNodeHostname),
+				MatchRegexp("Running.+\\|.+kube-system.+\\|.+kube-scheduler-%s.+\\|.+1/1.+\\|.+\\d+.+\\|.+%s.+\\|.+%s.+\\|.+%s", suite.SetupInfo().SetupConfig.ControlPlaneNodeHostname, ageRegex, regex.IpAddressRegex, suite.SetupInfo().SetupConfig.ControlPlaneNodeHostname),
 			))
 		})
 
@@ -189,13 +191,13 @@ var _ = Describe("status", Ordered, func() {
 
 		It("contains setup info", func() {
 			Expect(setupinfo.SetupName(status.SetupInfo.Name)).To(Equal(suite.SetupInfo().SetupConfig.SetupName))
-			Expect(status.SetupInfo.Version).To(MatchRegexp(versionRegex))
+			Expect(status.SetupInfo.Version).To(MatchRegexp(regex.VersionRegex))
 			Expect(status.SetupInfo.LinuxOnly).To(Equal(suite.SetupInfo().SetupConfig.LinuxOnly))
 		})
 
 		It("contains K8s version info", func() {
-			Expect(status.K8sVersionInfo.K8sClientVersion).To(MatchRegexp(versionRegex))
-			Expect(status.K8sVersionInfo.K8sServerVersion).To(MatchRegexp(versionRegex))
+			Expect(status.K8sVersionInfo.K8sClientVersion).To(MatchRegexp(regex.VersionRegex))
+			Expect(status.K8sVersionInfo.K8sServerVersion).To(MatchRegexp(regex.VersionRegex))
 		})
 
 		It("contains info that the system is running", func() {
@@ -219,12 +221,17 @@ var _ = Describe("status", Ordered, func() {
 			Expect(status.Nodes).To(HaveEach(SatisfyAll(
 				HaveField("Status", "Ready"),
 				HaveField("Age", MatchRegexp(ageRegex)),
-				HaveField("KubeletVersion", MatchRegexp(versionRegex)),
+				HaveField("KubeletVersion", MatchRegexp(regex.VersionRegex)),
 				HaveField("KernelVersion", MatchRegexp(".+")),
 				HaveField("OsImage", MatchRegexp(osRegex)),
 				HaveField("ContainerRuntime", MatchRegexp(runtimeRegex)),
-				HaveField("InternalIp", MatchRegexp(ipAddressRegex)),
+				HaveField("InternalIp", MatchRegexp(regex.IpAddressRegex)),
 				HaveField("IsReady", BeTrue()),
+				HaveField("Capacity", SatisfyAll(
+					HaveField("Cpu", MatchRegexp("[0-9]+")),
+					HaveField("Memory", MatchRegexp("[0-9]+Ki")),
+					HaveField("Storage", MatchRegexp("[0-9]+Ki")),
+				)),
 			)))
 		})
 
@@ -245,7 +252,7 @@ var _ = Describe("status", Ordered, func() {
 				HaveField("Ready", MatchRegexp(`\d+/\d+`)),
 				HaveField("Restarts", MatchRegexp(`\d+`)),
 				HaveField("Age", MatchRegexp(ageRegex)),
-				HaveField("Ip", MatchRegexp(ipAddressRegex)),
+				HaveField("Ip", MatchRegexp(regex.IpAddressRegex)),
 				HaveField("Node", MatchRegexp("(%s)|(%s)", suite.SetupInfo().SetupConfig.ControlPlaneNodeHostname, suite.SetupInfo().WinNodeName)),
 				HaveField("IsRunning", true),
 			)))

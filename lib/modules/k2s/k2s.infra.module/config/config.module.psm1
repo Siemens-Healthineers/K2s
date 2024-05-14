@@ -48,6 +48,11 @@ $ipControlPlaneCIDR = $smallsetup.psobject.properties['masterNetworkCIDR'].value
 $clusterCIDR = $smallsetup.psobject.properties['podNetworkCIDR'].value
 $clusterCIDRServices = $smallsetup.psobject.properties['servicesCIDR'].value
 
+# SMB share
+$shareConfig = $smallsetup.psobject.properties['shareDir'].value
+$linuxLocalSharePath = $shareConfig.psobject.properties['master'].value
+$windowsLocalSharePath = Expand-Path $shareConfig.psobject.properties['windowsWorker'].value
+
 #CONSTANTS
 New-Variable -Name 'SetupJsonFile' -Value "$kubeConfigDir\setup.json" -Option Constant
 
@@ -274,11 +279,19 @@ function Set-ConfigInstalledKubernetesVersion {
     Set-ConfigValue -Path $SetupJsonFile -Key 'KubernetesVersion' -Value $Value
 }
 
+function Get-ConfigInstallFolder {
+    return Get-ConfigValue -Path $SetupJsonFile -Key 'InstallFolder'
+}
+
 function Set-ConfigInstallFolder {
     param (
         [object] $Value = $(throw 'Please provide the config value.')
     )
     Set-ConfigValue -Path $SetupJsonFile -Key 'InstallFolder' -Value $Value
+}
+
+function Get-ConfigProductVersion {
+    return Get-ConfigValue -Path $SetupJsonFile -Key 'Version'
 }
 
 function Set-ConfigProductVersion {
@@ -305,6 +318,10 @@ function Set-ConfigSetupType {
 
 function Get-ConfigWslFlag {
     return Get-ConfigValue -Path $SetupJsonFile -Key 'WSL'
+}
+
+function Get-ReuseExistingLinuxComputerForMasterNodeFlag {
+    return Get-ConfigValue -Path $SetupJsonFile -Key 'ReuseExistingLinuxComputerForMasterNode'
 }
 
 function Set-ConfigWslFlag {
@@ -341,6 +358,10 @@ function Set-ConfigUsedStorageLocalDriveLetter {
         [object] $Value = $(throw 'Please provide the config value.')
     )
     Set-ConfigValue -Path $SetupJsonFile -Key 'UsedStorageLocalDriveLetter' -Value $Value
+}
+
+function Get-ConfigLoggedInRegistry {
+    return Get-ConfigValue -Path $SetupJsonFile -Key 'LoggedInRegistry'
 }
 
 function Set-ConfigLoggedInRegistry {
@@ -411,47 +432,6 @@ function Get-DefaultK8sVersion {
 
 <#
 .SYNOPSIS
-Gets whether proxy settings are configured for the user in Windows.
-
-.DESCRIPTION
-When Proxy settings are configured for the User in Windows, the enabled status is checked in the registry key
-HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings\ProxyEnable
-
-If ProxyEnable is set to 1, the proxy settings are enabled. In this case, the function returns true.
-If ProxyEnable is set to 0, the proxy settings are enabled. In this case, the function returns false.
-#>
-function Get-ProxyEnabledStatusFromWindowsSettings {
-    try {
-        $reg = Get-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings"
-        
-        if ($reg.ProxyEnable -eq "1") {
-            return $true
-        } else {
-            return $false
-        }
-    }
-    catch {
-        return $false
-    }
-}
-
-<#
-.SYNOPSIS
-Gets the configured proxy server for the user in Windows. Should be called only when Proxy is enabled. 
-
-.DESCRIPTION
-When proxy settings are configured for the user in Windows, the proxy server is configured in the registry key
-HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings\ProxyServer
-#>
-function Get-ProxyServerFromWindowsSettings {
-    $reg = Get-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings"
-
-    $proxyServer = "http://" + $reg.ProxyServer
-    return $proxyServer
-}
-
-<#
-.SYNOPSIS
 Gets the configured proxy overrides for the user in windows. Proxy overrides are the hosts for which the requests must not
 be forwarded to the proxy. Should be called only when Proxy is enabled.
 
@@ -460,8 +440,16 @@ When proxy settings are configured for the user in Windows, the proxy overrides 
 HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings\ProxyOverrides
 #>
 function Get-ProxyOverrideFromWindowsSettings {
-    $reg = Get-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings"
+    $reg = Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings'
     return $reg.ProxyOverride
+}
+
+function Get-LinuxLocalSharePath {
+    return $linuxLocalSharePath
+}
+
+function Get-WindowsLocalSharePath {
+    return $windowsLocalSharePath
 }
 
 Export-ModuleMember -Function Get-ConfigValue,
@@ -493,9 +481,12 @@ Get-ConfigLinuxOnly,
 Set-ConfigLinuxOnly,
 Get-RootConfigk2s,
 Set-ConfigUsedStorageLocalDriveLetter,
+Get-ConfigLoggedInRegistry,
 Set-ConfigLoggedInRegistry,
 Set-ConfigInstalledKubernetesVersion,
+Get-ConfigInstallFolder,
 Set-ConfigInstallFolder,
+Get-ConfigProductVersion,
 Set-ConfigProductVersion,
 Get-ConfigHostGW,
 Set-ConfigHostGW,
@@ -509,4 +500,7 @@ Get-SshConfigDir,
 Get-DefaultProvisioningBaseImageDiskSize,
 Get-RootConfig,
 Get-DefaultTempPwd,
-Get-DefaultK8sVersion
+Get-DefaultK8sVersion,
+Get-LinuxLocalSharePath,
+Get-WindowsLocalSharePath,
+Get-ReuseExistingLinuxComputerForMasterNodeFlag

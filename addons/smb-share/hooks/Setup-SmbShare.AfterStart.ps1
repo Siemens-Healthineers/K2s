@@ -12,9 +12,13 @@ Post-start hook to re-establish SMB share.
 Post-start hook to re-establish SMB share.
 #>
 
-Import-Module "$PSScriptRoot\..\..\smallsetup\ps-modules\log\log.module.psm1", `
-    "$PSScriptRoot\..\smb-share\module\Smb-share.module.psm1", `
-    "$PSScriptRoot\..\..\lib\modules\k2s\k2s.cluster.module\setupinfo\setupinfo.module.psm1"
+$logModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/log/log.module.psm1"
+$setupInfoModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/setupinfo/setupinfo.module.psm1"
+$smbShareModule = "$PSScriptRoot\..\smb-share\module\Smb-share.module.psm1"
+
+Import-Module $logModule, $setupInfoModule, $smbShareModule
+
+Initialize-Logging -ShowLogs:$ShowLogs
 
 Write-Log 'Re-establishing SMB share after cluster start..' -Console
 

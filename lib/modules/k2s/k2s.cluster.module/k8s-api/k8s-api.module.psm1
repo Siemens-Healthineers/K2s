@@ -9,19 +9,6 @@ Import-Module $formattingModule, $logModule, $pathModule
 
 $script = $MyInvocation.MyCommand.Name
 
-class Node {
-    [string]$Status
-    [string]$Name
-    [string]$Role
-    [string]$Age
-    [string]$KubeletVersion
-    [string]$InternalIp
-    [string]$OsImage
-    [string]$KernelVersion
-    [string]$ContainerRuntime
-    [bool]$IsReady
-}
-
 class Pod {
     [string]$Status
     [string]$Namespace
@@ -176,6 +163,23 @@ function Get-NodeInternalIp {
     return '<none>'
 }
 
+function Get-NodeCapacity {
+    param (
+        [Parameter(Mandatory = $false)]
+        [pscustomobject]
+        $Capacity
+    )
+    $function = $MyInvocation.MyCommand.Name
+
+    Write-Log "[$script::$function] Extracting Node capacity from JSON.."
+
+    [pscustomobject]@{
+        CPU     = $Capacity.cpu;
+        Storage = $Capacity.'ephemeral-storage';
+        Memory  = $Capacity.memory
+    }
+}
+
 function Get-Node {
     param (
         [Parameter(Mandatory = $false)]
@@ -190,8 +194,9 @@ function Get-Node {
     $role = Get-NodeRole -Labels $JsonNode.metadata.labels
     $age = Get-Age -Timestamp $($JsonNode.metadata.creationTimestamp).ToString()
     $internalIp = Get-NodeInternalIp -Addresses $JsonNode.status.addresses
+    $capacity = Get-NodeCapacity -Capacity $JsonNode.status.capacity
 
-    return New-Object Node -Property @{
+    [pscustomobject]@{
         Status           = $status.StatusText
         Name             = $JsonNode.metadata.name
         Role             = $role
@@ -202,6 +207,7 @@ function Get-Node {
         KernelVersion    = $JsonNode.status.nodeInfo.kernelVersion
         ContainerRuntime = $JsonNode.status.nodeInfo.containerRuntimeVersion
         IsReady          = $status.IsReady
+        Capacity         = $capacity
     }
 }
 

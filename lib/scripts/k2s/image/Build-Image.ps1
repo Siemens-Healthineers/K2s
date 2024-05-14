@@ -123,7 +123,13 @@ Param(
     [switch] $ShowLogs = $false,
 
     [parameter(Mandatory = $false, HelpMessage = 'Build Arguments for building container image')]
-    [string[]] $BuildArgs = @()
+    [string[]] $BuildArgs = @(),
+
+    [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
+    [switch] $EncodeStructuredOutput,
+
+    [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
+    [string] $MessageType
 )
 
 $nodeModule = "$PSScriptRoot/../../../modules/k2s/k2s.node.module/k2s.node.module.psm1"
@@ -134,7 +140,13 @@ Initialize-Logging -ShowLogs:$ShowLogs
 
 $systemError = Test-SystemAvailability
 if ($systemError) {
-    throw $systemError
+    if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = $systemError }
+        return
+    }
+
+    Write-Log $systemError.Message -Error
+    exit 1
 }
 
 $mainStopwatch = [system.diagnostics.stopwatch]::StartNew()
@@ -148,6 +160,9 @@ if ($buildArgsString -ne '') {
 }
 
 $InputFolder = [System.IO.Path]::GetFullPath($InputFolder)
+
+$kubeBinPath = Get-KubeBinPath
+$dockerExe = "$kubeBinPath\docker\docker.exe"
 
 $dockerfileAbsoluteFp, $PreCompile = Get-DockerfileAbsolutePathAndPreCompileFlag -InputFolder $InputFolder -Dockerfile $Dockerfile -PreCompile:$PreCompile
 
@@ -226,7 +241,7 @@ if ($NpmRcWithSecrets -ne '') {
 # Linux Precompile & Full: copy source files to VM
 if (!$Windows) {
     Write-Log "Copying needed source files into control plane VM from $InputFolder" -Console
-    $target = '/tmp/docker-build/' + $(Split-Path -Leaf $InputFolder)
+    $target = '~/tmp/docker-build/' + $(Split-Path -Leaf $InputFolder)
     Invoke-CmdOnControlPlaneViaSSHKey "test -d ~/tmp/docker-build && find ~/tmp/docker-build -exec chmod a+w {} \; ; rm -rf ~/tmp/docker-build; mkdir -p ~/tmp/docker-build; mkdir -p $target;mkdir -p ~/tmp/docker-build/common"
     $source = $InputFolder
     Write-Log "Copying $source to $target"
@@ -234,26 +249,26 @@ if (!$Windows) {
 
     # copy gitconfig
     $source = $InputFolder + '\..\gitconfig'
-    $target = '/tmp/docker-build/'
+    $target = '~/tmp/docker-build/'
     Write-Log "Copying $source to $target"
     Copy-ToControlPlaneViaSSHKey $source $target -IgnoreErrors
 
     # copy .npmrc
     $source = $InputFolder + '\..\.npmrc'
-    $target = '/tmp/docker-build/'
+    $target = '~/tmp/docker-build/'
     Write-Log "Copying $source to $target"
     Copy-ToControlPlaneViaSSHKey $source $target -IgnoreErrors
 
     # copy Dockerfile.ForBuild.tmp
     $source = $InputFolder + '\..\Dockerfile.ForBuild.tmp'
-    $target = '/tmp/docker-build/'
+    $target = '~/tmp/docker-build/'
     Write-Log "Copying $source to $target"
     Copy-ToControlPlaneViaSSHKey $source $target
 
     # copy common if avaliable
     $source = $InputFolder + '\..\common'
     if ( Test-Path -Path $source ) {
-        $target = '/tmp/docker-build/common'
+        $target = '~/tmp/docker-build/common'
         Write-Log "Copying $source to $target"
         Copy-ToControlPlaneViaSSHKey "$source\*" $target
     }
@@ -425,13 +440,23 @@ if ($Push) {
         &"$PSScriptRoot\registry\Switch-Registry.ps1" -RegistryName $registry
     }
     else {
-        throw "Registry $registry is not configured! Please add it: k2s image registry add $registry"
+        if (!$registriesMemberExists) {
+            $errMsg = "Registry $registry is not configured! Please add it: k2s image registry add $registry"
+            if ($EncodeStructuredOutput -eq $true) {
+                $err = New-Error -Code 'build-image-failed' -Message $errMsg
+                Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+                return
+            }
+    
+            Write-Log $errMsg -Error
+            exit 1
+        }
     }
 
     Write-Log "Trying to push image ${ImageName}:$ImageTag to repository" -Console
 
     if ($Windows) {
-        docker push "${ImageName}:$ImageTag" 2>&1
+        &$dockerExe push "${ImageName}:$ImageTag" 2>&1
     }
     else {
         Invoke-CmdOnControlPlaneViaSSHKey "sudo buildah push ${ImageName}:$ImageTag 2>&1"
@@ -441,7 +466,15 @@ if ($Push) {
         Write-Log '#######################################################################################'
         Write-Log "### ERROR: image ${ImageName}:$ImageTag NOT uploaded to repository"
         Write-Log '#######################################################################################'
-        throw 'unable to push image to registry'
+        $errMsg = 'unable to push image to registry'
+        if ($EncodeStructuredOutput -eq $true) {
+            $err = New-Error -Code 'build-image-failed' -Message $errMsg
+            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+            return
+        }
+
+        Write-Log $errMsg -Error
+        exit 1
     }
     else {
         Write-Log "Image '${ImageName}:$ImageTag' pushed successfully to registry" -Console
@@ -457,3 +490,7 @@ if (!$Keep -and !$Windows) {
 Write-Log "Total duration: $('{0:hh\:mm\:ss}' -f $mainStopwatch.Elapsed )"
 
 Set-Location $scriptStartLocation
+
+if ($EncodeStructuredOutput -eq $true) {
+    Send-ToCli -MessageType $MessageType -Message @{Error = $null }
+}

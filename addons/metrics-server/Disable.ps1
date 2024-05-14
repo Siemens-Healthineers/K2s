@@ -24,16 +24,12 @@ Param (
     [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
     [string] $MessageType
 )
-&$PSScriptRoot\..\..\smallsetup\common\GlobalVariables.ps1
-. $PSScriptRoot\..\..\smallsetup\common\GlobalFunctions.ps1
-. $PSScriptRoot\Common.ps1
-
-$logModule = "$PSScriptRoot/../../smallsetup/ps-modules/log/log.module.psm1"
-$statusModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/status/status.module.psm1"
-$addonsModule = "$PSScriptRoot\..\addons.module.psm1"
+$clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
+$addonsModule = "$PSScriptRoot\..\addons.module.psm1"
+$metricsServerModule = "$PSScriptRoot\metrics-server.module.psm1"
 
-Import-Module $logModule, $addonsModule, $statusModule, $infraModule
+Import-Module $clusterModule, $infraModule, $addonsModule, $metricsServerModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -64,8 +60,7 @@ if ((Test-IsAddonEnabled -Name 'metrics-server') -ne $true) {
 }
 
 Write-Log 'Uninstalling Kubernetes Metrics Server' -Console
-$metricServerConfig = Get-MetricsServerConfig
-&$global:KubectlExe delete -f $metricServerConfig | Write-Log
+(Invoke-Kubectl -Params 'delete', '-f', (Get-MetricsServerConfig)).Output | Write-Log
 Remove-AddonFromSetupJson -Name 'metrics-server'
 Write-Log 'Uninstallation of Kubernetes Metrics Server finished' -Console
 

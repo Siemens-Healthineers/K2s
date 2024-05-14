@@ -50,40 +50,64 @@ var _ = Describe("system", func() {
 	)
 
 	Describe("package", Ordered, Label("cli", "system", "package", "acceptance", "no-setup"), func() {
-		var testFileName string
-		var tempDir string
-		var localTempFilePath string
+		Context("valid parameters", func() {
+			var testFileName string
+			var tempDir string
+			var localTempFilePath string
 
-		BeforeEach(func() {
-			testFileName = "package.zip"
-			tempDir = GinkgoT().TempDir()
-			localTempFilePath = filepath.Join(tempDir, testFileName)
-		})
+			BeforeEach(func() {
+				testFileName = "package.zip"
+				tempDir = GinkgoT().TempDir()
+				localTempFilePath = filepath.Join(tempDir, testFileName)
+			})
 
-		AfterEach(func() {
-			_, err := os.Stat(localTempFilePath)
-			if err == nil {
-				GinkgoWriter.Println("Deleting <", localTempFilePath, ">..")
-				Expect(os.Remove(localTempFilePath)).To(Succeed())
-			} else {
-				if os.IsNotExist(err) {
-					GinkgoWriter.Println("Test file <", localTempFilePath, "> does not exist anymore")
-					return
+			AfterEach(func() {
+				_, err := os.Stat(localTempFilePath)
+				if err == nil {
+					GinkgoWriter.Println("Deleting <", localTempFilePath, ">..")
+					Expect(os.Remove(localTempFilePath)).To(Succeed())
+				} else {
+					if os.IsNotExist(err) {
+						GinkgoWriter.Println("Test file <", localTempFilePath, "> does not exist anymore")
+						return
+					}
 				}
-			}
+			})
+
+			It("generates zip package", func(ctx context.Context) {
+				output := suite.K2sCli().Run(ctx, "system", "package", "--target-dir", tempDir, "--name", testFileName, "--for-offline-installation")
+
+				Expect(output).To(SatisfyAny(
+					ContainSubstring("Finished creation of zip package"),
+					ContainSubstring("Zip package available as '"+localTempFilePath+"'"),
+				))
+
+				file, err := os.Stat(localTempFilePath)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(file.Size()).To(BeNumerically(">", 0))
+			})
 		})
 
-		It("generates zip package", func(ctx context.Context) {
-			output := suite.K2sCli().Run(ctx, "system", "package", "--target-dir", tempDir, "--name", testFileName, "--for-offline-installation")
+		Context("invalid parameters", func() {
+			It("prints the passed target directory is empty", func(ctx context.Context) {
+				output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "system", "package", "-n", "package.zip")
 
-			Expect(output).To(SatisfyAny(
-				ContainSubstring("Finished creation of zip package"),
-				ContainSubstring("Zip package available as '"+localTempFilePath+"'"),
-			))
+				Expect(output).To(ContainSubstring("The passed target directory is empty"))
+			})
 
-			file, err := os.Stat(localTempFilePath)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(file.Size()).To(BeNumerically(">", 0))
+			It("prints the passed zip package name is empty", func(ctx context.Context) {
+				tempDir := GinkgoT().TempDir()
+				output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "system", "package", "-d", tempDir)
+
+				Expect(output).To(ContainSubstring("The passed zip package name is empty"))
+			})
+
+			It("prints the passed zip package name does not have the extension zip", func(ctx context.Context) {
+				tempDir := GinkgoT().TempDir()
+				output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "system", "package", "-d", tempDir, "-n", "package")
+
+				Expect(output).To(ContainSubstring("does not have the extension '.zip'"))
+			})
 		})
 	})
 })

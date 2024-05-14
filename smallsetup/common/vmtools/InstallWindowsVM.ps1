@@ -9,7 +9,7 @@
 Assists with creating a windows VM
 
 .DESCRIPTION
-This script assists in the following actions for Small K8s:
+This script assists in the following actions for K2s:
 - Downloads windows image and creates VM
 
 .EXAMPLE
@@ -182,7 +182,7 @@ if ($Edition -eq '') {
     $Edition = 'Windows 10 Pro'
 }
 
-# install vm where we would run the small k8s setup
+# install vm where we would run the K2s setup
 Write-Log "Create VM $Name"
 Write-Log "Using $VMStartUpMemory of memory for VM"
 Write-Log "Using $VMDiskSize of virtual disk space for VM"

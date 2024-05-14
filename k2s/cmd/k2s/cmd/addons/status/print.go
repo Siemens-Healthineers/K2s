@@ -8,8 +8,6 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 
-	"github.com/siemens-healthineers/k2s/internal/setupinfo"
-
 	"fmt"
 )
 
@@ -150,8 +148,8 @@ func (s *UserFriendlyPrinter) PrintStatus(addonName string, loadFunc func(addonN
 	return nil
 }
 
-func (s *JsonPrinter) PrintSystemNotInstalledError(addon string) error {
-	errCode := setupinfo.ErrSystemNotInstalled.Error()
+func (s *JsonPrinter) PrintSystemError(addon string, systemError error, systemCmdFailureFunc func() *common.CmdFailure) error {
+	errCode := systemError.Error()
 	printStatus := AddonPrintStatus{
 		Name:  addon,
 		Error: &errCode,
@@ -170,14 +168,14 @@ func (s *JsonPrinter) PrintSystemNotInstalledError(addon string) error {
 
 	s.terminalPrinter.Println(statusJson)
 
-	failure := common.CreateSystemNotInstalledCmdFailure()
+	failure := systemCmdFailureFunc()
 	failure.SuppressCliOutput = true
 
 	return failure
 }
 
-func (s *UserFriendlyPrinter) PrintSystemNotInstalledError(_ string) error {
-	return common.CreateSystemNotInstalledCmdFailure()
+func (s *UserFriendlyPrinter) PrintSystemError(_ string, _ error, systemCmdFailureFunc func() *common.CmdFailure) error {
+	return systemCmdFailureFunc()
 }
 
 func (p *propPrint) PrintProp(prop AddonStatusProp) {

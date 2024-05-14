@@ -20,15 +20,12 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
     [string] $MessageType
 )
-&$PSScriptRoot\..\..\smallsetup\common\GlobalVariables.ps1
-. $PSScriptRoot\..\..\smallsetup\common\GlobalFunctions.ps1
-
-$logModule = "$PSScriptRoot/../../smallsetup/ps-modules/log/log.module.psm1"
-$statusModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/status/status.module.psm1"
-$addonsModule = "$PSScriptRoot\..\addons.module.psm1"
+$clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
+$addonsModule = "$PSScriptRoot\..\addons.module.psm1"
+$linuxNodeModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.node.module/linuxnode/vm/vm.module.psm1"
 
-Import-Module $logModule, $addonsModule, $statusModule, $infraModule
+Import-Module $clusterModule, $infraModule, $addonsModule, $linuxNodeModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -47,7 +44,7 @@ if ($systemError) {
 
 Write-Log 'Check whether gpu-node addon is already disabled'
 
-if ($null -eq (&$global:KubectlExe get namespace gpu-node --ignore-not-found) -or (Test-IsAddonEnabled -Name 'gpu-node') -ne $true) {
+if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'gpu-node', '--ignore-not-found').Output -and (Test-IsAddonEnabled -Name 'gpu-node') -ne $true) {
     $errMsg = "Addon 'gpu-node' is already disabled, nothing to do."
 
     if ($EncodeStructuredOutput -eq $true) {
@@ -61,29 +58,30 @@ if ($null -eq (&$global:KubectlExe get namespace gpu-node --ignore-not-found) -o
 }
 
 Write-Log 'Uninstalling GPU node' -Console
+(Invoke-Kubectl -Params 'delete', '-f', "$PSScriptRoot\manifests\dcgm-exporter.yaml").Output | Write-Log
+(Invoke-Kubectl -Params 'delete', '-f', "$PSScriptRoot\manifests\nvidia-device-plugin.yaml").Output | Write-Log
 
-&$global:KubectlExe delete -f "$global:KubernetesPath\addons\gpu-node\manifests\dcgm-exporter.yaml" | Write-Log
-&$global:KubectlExe delete -f "$global:KubernetesPath\addons\gpu-node\manifests\nvidia-device-plugin.yaml" | Write-Log
-
-$WSL = Get-WSLFromConfig
+$WSL = Get-ConfigWslFlag
 if (!$WSL) {
     # change linux kernel
     Write-Log 'Changing linux kernel' -Console
-    $prefix = ExecCmdMaster "grep -o \'gnulinux-advanced.*\' /boot/grub/grub.cfg | tr -d `"\'`"" -NoLog
-    $kernel = ExecCmdMaster "grep -o \'gnulinux.*cloud-amd64.*\' /boot/grub/grub.cfg | head -1 | tr -d `"\'`"" -NoLog
-    ExecCmdMaster "sudo sed -i `"s/GRUB_DEFAULT=.*/GRUB_DEFAULT=\'${prefix}\>${kernel}\'/g`" /etc/default/grub"
-    ExecCmdMaster 'sudo update-grub 2>&1' -IgnoreErrors
+    $prefix = Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "grep -o \'gnulinux-advanced.*\' /boot/grub/grub.cfg | tr -d `"\'`"" -NoLog
+    $kernel = Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "grep -o \'gnulinux.*cloud-amd64.*\' /boot/grub/grub.cfg | head -1 | tr -d `"\'`"" -NoLog
+    Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo sed -i `"s/GRUB_DEFAULT=.*/GRUB_DEFAULT=\'${prefix}\>${kernel}\'/g`" /etc/default/grub"
+    Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo update-grub 2>&1' -IgnoreErrors
+
+    $controlPlaneNodeName = Get-ConfigControlPlaneNodeHostname
 
     # Restart KubeMaster
-    Write-Log "Stopping VM $global:VMName"
-    Stop-VM -Name $global:VMName -Force -WarningAction SilentlyContinue
-    $state = (Get-VM -Name $global:VMName).State -eq [Microsoft.HyperV.PowerShell.VMState]::Off
+    Write-Log "Stopping VM $controlPlaneNodeName"
+    Stop-VM -Name $controlPlaneNodeName -Force -WarningAction SilentlyContinue
+    $state = (Get-VM -Name $controlPlaneNodeName).State -eq [Microsoft.HyperV.PowerShell.VMState]::Off
     while (!$state) {
         Write-Log 'Still waiting for stop...'
         Start-Sleep -s 1
     }
-    Write-Log "Start VM $global:VMName"
-    Start-VM -Name $global:VMName
+    Write-Log "Start VM $controlPlaneNodeName"
+    Start-VM -Name $controlPlaneNodeName
     # for the next steps we need ssh access, so let's wait for ssh
     Wait-ForSSHConnectionToLinuxVMViaSshKey
     Wait-ForAPIServer

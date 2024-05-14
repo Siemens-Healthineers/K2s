@@ -152,10 +152,10 @@ function Invoke-DeployWindowsImages($windowsNodeArtifactsDirectory) {
     foreach ($file in $files){
         $fileFullName = $file.FullName
         Write-Log "Import image from file '$fileFullName'... ($fileIndex of $amountOfFiles)"
-        &$ctrExe -n="k8s.io" images import `"$file`"
-        if (!$?) {
-            throw "The file '$fileFullName' could not be imported"
-        }
+        # &$ctrExe -n="k8s.io" images import `"$file`"
+        # if (!$?) {
+        #     throw "The file '$fileFullName' could not be imported"
+        # }
         Write-Log "  done"
         $fileIndex++
     }
@@ -234,9 +234,9 @@ function Invoke-DownloadWindowsNodeArtifacts {
     # YAML TOOLS
     Invoke-DeployYamlArtifacts $windowsNodeArtifactsDirectory
 
-    Install-WinContainerd -Proxy $Proxy -SkipNetworkingSetup:$SkipClusterSetup
+    Install-WinContainerd -Proxy $Proxy -SkipNetworkingSetup:$SkipClusterSetup -WindowsNodeArtifactsDirectory $windowsNodeArtifactsDirectory
     Invoke-DownloadWindowsImages $downloadsBaseDirectory $Proxy
-    Uninstall-WinContainerd
+    Uninstall-WinContainerd -ShallowUninstallation $true
 
     Write-Log 'Finished downloading artifacts for the Windows node'
 
@@ -338,7 +338,7 @@ function Install-WinNodeArtifacts {
     Invoke-DeployDockerArtifacts $windowsNodeArtifactsDirectory
     Install-WinDocker -Proxy "$Proxy"
 
-    Install-WinContainerd -Proxy "$Proxy" -SkipNetworkingSetup:$SkipClusterSetup
+    Install-WinContainerd -Proxy "$Proxy" -SkipNetworkingSetup:$SkipClusterSetup -WindowsNodeArtifactsDirectory $windowsNodeArtifactsDirectory
 
     if (!($SkipClusterSetup)) {
         Invoke-DeployWindowsImages $windowsNodeArtifactsDirectory

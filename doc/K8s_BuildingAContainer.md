@@ -49,9 +49,33 @@ Example:
 k2s image build --input-folder C:\s\examples\albums-netcore --windows --image-name local/example.albums-win --image-tag 99 -o
 ```
 
-In the above example, K2s CLI is used with *build* option to build a .NET application under a particular folder with image name and tag accordingly. It is important to mention *--windows* flag while building windows based container image.
+In the above example, K2s CLI is used with `build` option to build a .NET application under a particular folder with image name and tag accordingly. It is important to mention `--windows` flag while building windows based container image.
 
-![Build Windows Output Snippet](/doc/assets/build-windows-output.png)
+```
+⏳ [12:11:00] Successfully built ec44caa68e5e
+⏳ [12:11:00] Successfully tagged local/example.albums-win:99
+⏳ [12:11:00] Output of checking if the image local/example.albums-win:99 is now available in docker:
+⏳ [12:11:00] REPOSITORY                 TAG       IMAGE ID       CREATED                  SIZE
+⏳ [12:11:00] local/example.albums-win   99        ec44caa68e5e   Less than a second ago   361MB
+⏳ [12:11:00] C:\k2s\Temp\ExportedImages
+⏳ [12:11:00] Saving image local/example.albums-win:99 temporarily as C:\k2s\Temp\ExportedImages\BuiltImage.tar to import it afterwards into containerd...
+⏳ [12:11:16] ...saved.
+⏳ [12:11:16] Importing image local/example.albums-win:99 from C:\k2s\Temp\ExportedImages\BuiltImage.tar into containerd...
+⏳ [12:11:19] unpacking docker.io/local/example.albums-win:99 (sha256:6a4c30f6f25f7ba959e904fbbf3d1193fd1a1ba8027cbf414f456704bb3ec4b9)...
+⏳ [12:11:20] Loaded image: local/example.albums-win:99
+⏳ [12:11:20] ...imported
+⏳ [12:11:20] Removing temporarily created file C:\k2s\Temp\ExportedImages\BuiltImage.tar...
+⏳ [12:11:20] ...removed
+⏳ [12:11:21] The built image 'local/example.albums-win:99' is available in the containerd's local repository.
+⏳ [12:11:21] Total duration: 00:00:59
+⏳ [12:11:21] Converting message of type 'CmdResult' to JSON..
+⏳ [12:11:21] message converted
+⏳ [12:11:21] JSON compressed
+⏳ [12:11:21] JSON base64 encoded
+⏳ [12:11:21] message sent via CLI
+ SUCCESS  'image build' completed in 1m6.2240613s
+Please see 'C:\var\log\k2s.log' for more information
+```
 
 As we are building container image using docker, built image should be available for containerd and this is achieved via import of built image to containerd repository.
 
@@ -59,9 +83,13 @@ After a successful build command, image should be available in the containerd re
 
 ```
 k2s image ls
-```
 
-![Build Windows Output Snippet](/doc/assets/built-win-image.png)
+Available Images
+┌───────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+| ImageId       | Repository                                              | Tag      | Node        | Size   |
+| ec44caa68e5e6 | docker.io/local/example.albums-win                      | 99       | imw1026986c | 204MB  |
+└───────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+```
 
 For running windows pods in K8s please always specify the node selector for windows, as well as a specific toleration in your yaml file:
 ```

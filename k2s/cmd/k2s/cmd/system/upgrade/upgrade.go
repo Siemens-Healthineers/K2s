@@ -7,6 +7,7 @@ import (
 	"errors"
 	"log/slog"
 	"strconv"
+	"time"
 
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
@@ -14,10 +15,9 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/utils/psexecutor"
-
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 
+	"github.com/siemens-healthineers/k2s/internal/powershell"
 	"github.com/siemens-healthineers/k2s/internal/setupinfo"
 )
 
@@ -84,54 +84,65 @@ func upgradeCluster(cmd *cobra.Command, args []string) error {
 	configDir := cmd.Context().Value(common.ContextKeyConfigDir).(string)
 	config, err := setupinfo.LoadConfig(configDir)
 	if err != nil {
+		if errors.Is(err, setupinfo.ErrSystemInCorruptedState) {
+			return common.CreateSystemInCorruptedStateCmdFailure()
+		}
 		if errors.Is(err, setupinfo.ErrSystemNotInstalled) {
 			return common.CreateSystemNotInstalledCmdFailure()
 		}
 		return err
 	}
 
-	upgradeCommand := createUpgradeCommand(cmd)
+	psCmd := createUpgradeCommand(cmd)
 
-	slog.Debug("PS command created", "command", upgradeCommand)
+	slog.Debug("PS command created", "command", psCmd)
 
-	duration, err := psexecutor.ExecutePowershellScript(upgradeCommand, common.DeterminePsVersion(config))
+	outputWriter, err := common.NewOutputWriter()
 	if err != nil {
 		return err
 	}
 
+	start := time.Now()
+
+	err = powershell.ExecutePs(psCmd, common.DeterminePsVersion(config), outputWriter)
+	if err != nil {
+		return err
+	}
+
+	duration := time.Since(start)
 	common.PrintCompletedMessage(duration, "Upgrade")
 
 	return nil
 }
 
 func createUpgradeCommand(cmd *cobra.Command) string {
-	upgradeCommand := utils.InstallDir() + "\\smallsetup\\upgrade\\" + "Start-ClusterUpgrade.ps1"
+	psCmd := utils.InstallDir() + `\lib\scripts\k2s\upgrade\Start-ClusterUpgrade.ps1`
 	cmd.Flags().VisitAll(func(f *pflag.Flag) {
 		slog.Debug("Param", "name", f.Name, "value", f.Value)
 	})
 	out, _ := strconv.ParseBool(cmd.Flags().Lookup(common.OutputFlagName).Value.String())
 	if out {
-		upgradeCommand += " -ShowLogs"
+		psCmd += " -ShowLogs"
 	}
 	skip, _ := strconv.ParseBool(cmd.Flags().Lookup(skipK8sResources).Value.String())
 	if skip {
-		upgradeCommand += " -SkipResources "
+		psCmd += " -SkipResources "
 	}
 	keep, _ := strconv.ParseBool(cmd.Flags().Lookup(deleteFiles).Value.String())
 	if keep {
-		upgradeCommand += " -DeleteFiles "
+		psCmd += " -DeleteFiles "
 	}
 	config := cmd.Flags().Lookup(configFileFlagName).Value.String()
 	if len(config) > 0 {
-		upgradeCommand += " -Config " + config
+		psCmd += " -Config " + config
 	}
 	proxy := cmd.Flags().Lookup(proxy).Value.String()
 	if len(proxy) > 0 {
-		upgradeCommand += " -Proxy " + proxy
+		psCmd += " -Proxy " + proxy
 	}
 	skipImages, _ := strconv.ParseBool(cmd.Flags().Lookup(skipImages).Value.String())
 	if skipImages {
-		upgradeCommand += " -SkipImages "
+		psCmd += " -SkipImages "
 	}
-	return upgradeCommand
+	return psCmd
 }

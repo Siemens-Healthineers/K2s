@@ -6,7 +6,7 @@ SPDX-License-Identifier: MIT
 
 # Some small batch files
 
-These are meant to make daily life with the small K8s setup easier.
+These are meant to make daily life with the K2s setup easier.
 They provide some 1..3 character shortcuts for often used commands in the
 Kubernetes world
 

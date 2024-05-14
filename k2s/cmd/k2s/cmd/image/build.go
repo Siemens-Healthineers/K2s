@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -132,6 +133,9 @@ func buildImage(cmd *cobra.Command, args []string) error {
 	configDir := cmd.Context().Value(common.ContextKeyConfigDir).(string)
 	config, err := setupinfo.LoadConfig(configDir)
 	if err != nil {
+		if errors.Is(err, setupinfo.ErrSystemInCorruptedState) {
+			return common.CreateSystemInCorruptedStateCmdFailure()
+		}
 		if errors.Is(err, setupinfo.ErrSystemNotInstalled) {
 			return common.CreateSystemNotInstalledCmdFailure()
 		}
@@ -234,7 +238,7 @@ func parseBuildArguments(arguments []string) (map[string]string, error) {
 }
 
 func buildPsCmd(buildOptions *buildOptions) (psCmd string, params []string) {
-	psCmd = utils.FormatScriptFilePath(utils.InstallDir() + "\\smallsetup\\common\\BuildImage.ps1")
+	psCmd = utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "image", "Build-Image.ps1"))
 	params = append(params, " -InputFolder "+buildOptions.InputFolder)
 
 	if buildOptions.Dockerfile != "" {

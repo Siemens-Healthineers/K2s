@@ -8,7 +8,7 @@
 Removes the Multi-VM K8s setup.
 
 .DESCRIPTION
-This script assists in the following actions for Small K8s:
+This script assists in the following actions for K2s:
 - Removal of
 -- VMs
 -- virtual disks

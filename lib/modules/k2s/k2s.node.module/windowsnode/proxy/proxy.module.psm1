@@ -18,11 +18,12 @@ If ProxyEnable is set to 0, the proxy settings are enabled. In this case, the fu
 #>
 function Get-ProxyEnabledStatusFromWindowsSettings {
     try {
-        $reg = Get-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings"
+        $reg = Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings'
         
-        if ($reg.ProxyEnable -eq "1") {
+        if ($reg.ProxyEnable -eq '1') {
             return $true
-        } else {
+        }
+        else {
             return $false
         }
     }
@@ -40,9 +41,9 @@ When proxy settings are configured for the user in Windows, the proxy server is 
 HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings\ProxyServer
 #>
 function Get-ProxyServerFromWindowsSettings {
-    $reg = Get-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings"
+    $reg = Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings'
 
-    $proxyServer = "http://" + $reg.ProxyServer
+    $proxyServer = 'http://' + $reg.ProxyServer
     return $proxyServer
 }
 
@@ -56,7 +57,7 @@ When proxy settings are configured for the user in Windows, the proxy overrides 
 HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings\ProxyOverrides
 #>
 function Get-ProxyOverrideFromWindowsSettings {
-    $reg = Get-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings"
+    $reg = Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings'
     return $reg.ProxyOverride
 }
 
@@ -68,14 +69,15 @@ If $Proxy is not specified, then the proxy settings are fetched from registry. B
 to be used is returned.
 #>
 function Get-OrUpdateProxyServer ([string]$Proxy) {
-    if ($Proxy -eq "") {
-        Write-Log "Determining if proxy is configured by the user in Windows Proxy settings." -Console
+    if ($Proxy -eq '') {
+        Write-Log 'Determining if proxy is configured by the user in Windows Proxy settings.' -Console
         $proxyEnabledStatus = Get-ProxyEnabledStatusFromWindowsSettings
         if ($proxyEnabledStatus) {
             $Proxy = Get-ProxyServerFromWindowsSettings
             Write-Log "Configured proxy server in Windows Proxy settings: $Proxy" -Console
-        } else {
-            Write-Log "No proxy configured in Windows Proxy Settings." -Console
+        }
+        else {
+            Write-Log 'No proxy configured in Windows Proxy Settings.' -Console
         }
     }
     return $Proxy
