@@ -15,13 +15,17 @@ on:
       - 'doc/**'
       - 'k2s.exe'
       - '*.md'
+      - '.github/ISSUE_TEMPLATE/**'
   pull_request:
     branches:
       - "main"
     paths-ignore:
       - 'LICENSES/**'
       - 'bin/**'
+      - 'doc/**'
       - 'k2s.exe'
+      - '*.md'
+      - '.github/ISSUE_TEMPLATE/**'
 
 env:
   GOVERSION: "1.21.5"

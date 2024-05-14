@@ -188,13 +188,16 @@ if ($foundWindowsImages.Count -eq 1) {
     $setupInfo = Get-SetupInfo
     if ($setupInfo.Name -eq $global:SetupType_MultiVMK8s) {
         $session = Open-RemoteSessionViaSSHKey $global:Admin_WinNode $global:WindowsVMKey
-        $tmpPath = 'C:\\temp\\tmp.tar'
+        $tmpPath = 'C:\temp\tmp.tar'
         Invoke-Command -Session $session {
             Set-Location "$env:SystemDrive\k"
             Set-ExecutionPolicy Bypass -Force -ErrorAction Stop
 
             # load global settings
             &$env:SystemDrive\k\smallsetup\common\GlobalVariables.ps1
+
+            Import-Module $env:SystemDrive\k\lib\modules\k2s\k2s.infra.module\k2s.infra.module.psm1
+            Initialize-Logging -Nested:$true
 
             New-Item -Path $(Split-path $using:tmpPath) -ItemType Directory -ErrorAction SilentlyContinue
             Write-Log "Trying to pull all platform layers for image '$imageFullName'" -Console
@@ -209,7 +212,7 @@ if ($foundWindowsImages.Count -eq 1) {
             }
         }
 
-        scp.exe -r -q -o StrictHostKeyChecking=no -i $global:WindowsVMKey "${global:Admin_WinNode}:$tmpPath" "$finalExportPath" 2>&1 | % { "$_" }
+        Copy-Item "$tmpPath" -Destination "$finalExportPath" -Recurse -FromSession $session -Force
     }
     else {
         Write-Log "Trying to pull all platform layers for image '$imageFullName'" -Console

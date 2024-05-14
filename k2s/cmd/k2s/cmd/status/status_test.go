@@ -615,6 +615,11 @@ var _ = Describe("status pkg", func() {
 										OsImage:          "os-1",
 										ContainerRuntime: "c-1",
 										InternalIp:       "ip-1",
+										Capacity: status.Capacity{
+											Cpu:     "3",
+											Memory:  "4Gi",
+											Storage: "5Ti",
+										},
 									},
 									{
 										Name:             "n2",
@@ -627,15 +632,20 @@ var _ = Describe("status pkg", func() {
 										OsImage:          "os-2",
 										ContainerRuntime: "c-2",
 										InternalIp:       "ip-2",
+										Capacity: status.Capacity{
+											Cpu:     "6",
+											Memory:  "7Gi",
+											Storage: "8Ti",
+										},
 									},
 								}
 							})
 
 							It("prints Nodes status table", func() {
 								expectedTable := [][]string{
-									{"STATUS", "NAME", "ROLE", "AGE", "VERSION"},
-									{"good-green", "n1", "good-one", "new", "k1"},
-									{"bad-red", "n2", "bad-one", "old", "k99"},
+									{"STATUS", "NAME", "ROLE", "AGE", "VERSION", "CPUs", "RAM", "DISK"},
+									{"good-green", "n1", "good-one", "new", "k1", "3", "4GiB", "5TiB"},
+									{"bad-red", "n2", "bad-one", "old", "k99", "6", "7GiB", "8TiB"},
 								}
 
 								printerMock := &mockObject{}
@@ -688,9 +698,9 @@ var _ = Describe("status pkg", func() {
 							When("additional info shall be printed", func() {
 								It("prints Nodes status table with additional columns", func() {
 									expectedTable := [][]string{
-										{"STATUS", "NAME", "ROLE", "AGE", "VERSION", "INTERNAL-IP", "OS-IMAGE", "KERNEL-VERSION", "CONTAINER-RUNTIME"},
-										{"good-green", "n1", "good-one", "new", "k1", "ip-1", "os-1", "k2", "c-1"},
-										{"bad-red", "n2", "bad-one", "old", "k99", "ip-2", "os-2", "k3", "c-2"},
+										{"STATUS", "NAME", "ROLE", "AGE", "VERSION", "CPUs", "RAM", "DISK", "INTERNAL-IP", "OS-IMAGE", "KERNEL-VERSION", "CONTAINER-RUNTIME"},
+										{"good-green", "n1", "good-one", "new", "k1", "3", "4GiB", "5TiB", "ip-1", "os-1", "k2", "c-1"},
+										{"bad-red", "n2", "bad-one", "old", "k99", "6", "7GiB", "8TiB", "ip-2", "os-2", "k3", "c-2"},
 									}
 
 									printerMock := &mockObject{}
@@ -724,6 +734,10 @@ var _ = Describe("status pkg", func() {
 											Name:    "n1",
 											Status:  "good",
 											IsReady: true,
+											Capacity: status.Capacity{
+												Storage: "1B",
+												Memory:  "2B",
+											},
 										},
 									}
 								})

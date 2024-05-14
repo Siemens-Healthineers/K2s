@@ -6,6 +6,7 @@ package registry
 import (
 	"errors"
 	"log/slog"
+	"path/filepath"
 	"strconv"
 	"time"
 
@@ -62,6 +63,9 @@ func switchRegistry(cmd *cobra.Command, args []string) error {
 	configDir := cmd.Context().Value(common.ContextKeyConfigDir).(string)
 	config, err := setupinfo.LoadConfig(configDir)
 	if err != nil {
+		if errors.Is(err, setupinfo.ErrSystemInCorruptedState) {
+			return common.CreateSystemInCorruptedStateCmdFailure()
+		}
 		if errors.Is(err, setupinfo.ErrSystemNotInstalled) {
 			return common.CreateSystemNotInstalledCmdFailure()
 		}
@@ -90,7 +94,7 @@ func switchRegistry(cmd *cobra.Command, args []string) error {
 }
 
 func buildSwitchPsCmd(registryName string, cmd *cobra.Command) (psCmd string, params []string, err error) {
-	psCmd = utils.FormatScriptFilePath(utils.InstallDir() + "\\smallsetup\\helpers\\SwitchRegistry.ps1")
+	psCmd = utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "image", "registry", "Switch-Registry.ps1"))
 
 	showOutput, err := strconv.ParseBool(cmd.Flags().Lookup(common.OutputFlagName).Value.String())
 	if err != nil {

@@ -13,6 +13,7 @@ $controlPlaneSwitchName = Get-ControlPlaneNodeDefaultSwitchName
 $ipControlPlane = Get-ConfiguredIPControlPlane
 $controlePlaneNetworkInterfaceName = 'eth0'
 $workerNodeNetworkInterfaceName = 'eth0'
+$wslSwitchName = 'WSL'
 
 function Get-ControlPlaneNodeNetworkInterfaceName {
     return $controlePlaneNetworkInterfaceName
@@ -22,11 +23,15 @@ function Get-WorkerNodeNetworkInterfaceName {
     return $workerNodeNetworkInterfaceName
 }
 
+function Get-WslSwitchName {
+    return $wslSwitchName
+}
+
 function Add-DnsServer($switchname) {
     # add DNS proxy for cluster searches
     $ipindex = Get-NetIPInterface | ? InterfaceAlias -Like "*$switchname*" | ? AddressFamily -Eq IPv4 | select -expand 'ifIndex'
     Set-DnsClientServerAddress -InterfaceIndex $ipindex -ServerAddresses $ipControlPlane | Out-Null
-    Set-DnsClient -InterfaceIndex $ipindex -ConnectionSpecificSuffix 'cluster.local' | Out-Null
+    Set-DnsClient -InterfaceIndex $ipindex -ConnectionSpecificSuffix 'cluster.local' -RegisterThisConnectionsAddress $false | Out-Null
 }
 
 <#
@@ -109,8 +114,16 @@ function New-DefaultControlPlaneSwitch {
     Set-NetIPInterface -InterfaceIndex $ipindex1 -InterfaceMetric 25
 }
 
+function Reset-DnsServer($switchname) {
+    $ipindex = Get-NetIPInterface | ? InterfaceAlias -Like "*$switchname*" | ? AddressFamily -Eq IPv4 | select -expand 'ifIndex'
+    if ($ipindex) {
+        Set-DnsClientServerAddress -InterfaceIndex $ipindex -ResetServerAddresses | Out-Null
+        Set-DnsClient -InterfaceIndex $ipindex -ResetConnectionSpecificSuffix | Out-Null
+    }
+}
+
 Export-ModuleMember New-DefaultControlPlaneSwitch,
 Get-ControlPlaneNodeDefaultSwitchName,
 Get-ControlPlaneNodeNetworkInterfaceName,
 Get-WorkerNodeNetworkInterfaceName,
-Add-DnsServer, New-KubeSwitch, Connect-KubeSwitch, Remove-KubeSwitch
+Add-DnsServer, New-KubeSwitch, Connect-KubeSwitch, Remove-KubeSwitch, Get-WslSwitchName, Reset-DnsServer

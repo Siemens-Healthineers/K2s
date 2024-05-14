@@ -53,10 +53,10 @@ func (m *myMock) Load(kind ic.Kind, cmdFlags *pflag.FlagSet) (*ic.InstallConfig,
 	return args.Get(0).(*ic.InstallConfig), args.Error(1)
 }
 
-func (m *myMock) ExecutePowershellScript(cmd string, psVersion powershell.PowerShellVersion) (time.Duration, error) {
-	args := m.Called(cmd, psVersion)
+func (m *myMock) ExecutePs(script string, psVersion powershell.PowerShellVersion, writer powershell.OutputWriter) error {
+	args := m.Called(script, psVersion, writer)
 
-	return args.Get(0).(time.Duration), args.Error(1)
+	return args.Error(0)
 }
 
 func (m *myMock) PrintCompletedMessage(duration time.Duration, command string) {
@@ -104,29 +104,53 @@ var _ = Describe("core", func() {
 		})
 
 		When("error while loading config occurred", func() {
-			It("returns error", func() {
-				kind := ic.Kind("test-kind")
-				cmd := &cobra.Command{}
-				cmd.SetContext(context.WithValue(context.TODO(), common.ContextKeyConfigDir, "some-dir"))
+			When("system is not installed", func() {
+				It("returns error", func() {
+					kind := ic.Kind("test-kind")
+					cmd := &cobra.Command{}
+					cmd.SetContext(context.WithValue(context.TODO(), common.ContextKeyConfigDir, "some-dir"))
 
-				expectedError := errors.New("oops")
-				var nilConfig *setupinfo.Config
-				var nilInstallConfig *ic.InstallConfig
+					expectedError := errors.New("oops")
+					var nilConfig *setupinfo.Config
+					var nilInstallConfig *ic.InstallConfig
 
-				configMock := &myMock{}
-				configMock.On(reflection.GetFunctionName(configMock.loadConfig), mock.AnythingOfType("string")).Return(nilConfig, setupinfo.ErrSystemNotInstalled)
+					configMock := &myMock{}
+					configMock.On(reflection.GetFunctionName(configMock.loadConfig), mock.AnythingOfType("string")).Return(nilConfig, setupinfo.ErrSystemNotInstalled)
 
-				installConfigMock := &myMock{}
-				installConfigMock.On(r.GetFunctionName(installConfigMock.Load), kind, cmd.Flags()).Return(nilInstallConfig, expectedError)
+					installConfigMock := &myMock{}
+					installConfigMock.On(r.GetFunctionName(installConfigMock.Load), kind, cmd.Flags()).Return(nilInstallConfig, expectedError)
 
-				sut := &core.Installer{
-					InstallConfigAccess: installConfigMock,
-					LoadConfigFunc:      configMock.loadConfig,
-				}
+					sut := &core.Installer{
+						InstallConfigAccess: installConfigMock,
+						LoadConfigFunc:      configMock.loadConfig,
+					}
 
-				err := sut.Install(kind, cmd, nil)
+					err := sut.Install(kind, cmd, nil)
 
-				Expect(err).To(MatchError(expectedError))
+					Expect(err).To(MatchError(expectedError))
+				})
+			})
+
+			When("system is in corrupted state", func() {
+				It("returns error", func() {
+					kind := ic.Kind("test-kind")
+					cmd := &cobra.Command{}
+					cmd.SetContext(context.WithValue(context.TODO(), common.ContextKeyConfigDir, "some-dir"))
+
+					expectedError := common.CreateSystemInCorruptedStateCmdFailure()
+					config := &setupinfo.Config{SetupName: "existent", Corrupted: true}
+
+					configMock := &myMock{}
+					configMock.On(reflection.GetFunctionName(configMock.loadConfig), mock.AnythingOfType("string")).Return(config, setupinfo.ErrSystemInCorruptedState)
+
+					sut := &core.Installer{
+						LoadConfigFunc: configMock.loadConfig,
+					}
+
+					err := sut.Install(kind, cmd, nil)
+
+					Expect(err).To(MatchError(expectedError))
+				})
 			})
 		})
 
@@ -185,12 +209,12 @@ var _ = Describe("core", func() {
 				installConfigMock.On(r.GetFunctionName(installConfigMock.Load), kind, cmd.Flags()).Return(config, nil)
 
 				executorMock := &myMock{}
-				executorMock.On(r.GetFunctionName(executorMock.ExecutePowershellScript), testCmd, powershell.PowerShellV5).Return(time.Duration(0), expectedError)
+				executorMock.On(r.GetFunctionName(executorMock.ExecutePs), testCmd, powershell.PowerShellV5, mock.AnythingOfType("*common.OutputWriter")).Return(expectedError)
 
 				sut := &core.Installer{
 					Printer:             printerMock,
 					InstallConfigAccess: installConfigMock,
-					ExecutePsScript:     executorMock.ExecutePowershellScript,
+					ExecutePsScript:     executorMock.ExecutePs,
 					GetVersionFunc:      func() version.Version { return version.Version{} },
 					GetPlatformFunc:     func() string { return "test-os" },
 					GetInstallDirFunc:   func() string { return "test-dir" },
@@ -211,7 +235,6 @@ var _ = Describe("core", func() {
 
 				config := &ic.InstallConfig{}
 				testCmd := "test-cmd"
-				expectedDuration := time.Second * 12
 				var nilConfig *setupinfo.Config
 
 				buildCmdFunc := func(c *ic.InstallConfig) (cmd string, err error) {
@@ -231,15 +254,15 @@ var _ = Describe("core", func() {
 				installConfigMock.On(r.GetFunctionName(installConfigMock.Load), kind, cmd.Flags()).Return(config, nil)
 
 				executorMock := &myMock{}
-				executorMock.On(r.GetFunctionName(executorMock.ExecutePowershellScript), testCmd, powershell.PowerShellV5).Return(expectedDuration, nil)
+				executorMock.On(r.GetFunctionName(executorMock.ExecutePs), testCmd, powershell.PowerShellV5, mock.AnythingOfType("*common.OutputWriter")).Return(nil)
 
 				completedMsgPrinterMock := &myMock{}
-				completedMsgPrinterMock.On(r.GetFunctionName(completedMsgPrinterMock.PrintCompletedMessage), expectedDuration, mock.MatchedBy(func(m string) bool { return strings.Contains(m, string(kind)) }))
+				completedMsgPrinterMock.On(r.GetFunctionName(completedMsgPrinterMock.PrintCompletedMessage), mock.AnythingOfType("time.Duration"), mock.MatchedBy(func(m string) bool { return strings.Contains(m, string(kind)) }))
 
 				sut := &core.Installer{
 					Printer:                   printerMock,
 					InstallConfigAccess:       installConfigMock,
-					ExecutePsScript:           executorMock.ExecutePowershellScript,
+					ExecutePsScript:           executorMock.ExecutePs,
 					GetVersionFunc:            func() version.Version { return version.Version{} },
 					GetPlatformFunc:           func() string { return "test-os" },
 					GetInstallDirFunc:         func() string { return "test-dir" },
@@ -263,7 +286,6 @@ var _ = Describe("core", func() {
 
 				config := &ic.InstallConfig{}
 				testCmd := "test-cmd"
-				expectedDuration := time.Second * 12
 				var nilConfig *setupinfo.Config
 
 				buildCmdFunc := func(c *ic.InstallConfig) (cmd string, err error) {
@@ -283,15 +305,15 @@ var _ = Describe("core", func() {
 				installConfigMock.On(r.GetFunctionName(installConfigMock.Load), kind, cmd.Flags()).Return(config, nil)
 
 				executorMock := &myMock{}
-				executorMock.On(r.GetFunctionName(executorMock.ExecutePowershellScript), testCmd, powershell.PowerShellV7).Return(expectedDuration, nil)
+				executorMock.On(r.GetFunctionName(executorMock.ExecutePs), testCmd, powershell.PowerShellV7, mock.AnythingOfType("*common.OutputWriter")).Return(nil)
 
 				completedMsgPrinterMock := &myMock{}
-				completedMsgPrinterMock.On(r.GetFunctionName(completedMsgPrinterMock.PrintCompletedMessage), expectedDuration, mock.MatchedBy(func(m string) bool { return strings.Contains(m, string(kind)) }))
+				completedMsgPrinterMock.On(r.GetFunctionName(completedMsgPrinterMock.PrintCompletedMessage), mock.AnythingOfType("time.Duration"), mock.MatchedBy(func(m string) bool { return strings.Contains(m, string(kind)) }))
 
 				sut := &core.Installer{
 					Printer:                   printerMock,
 					InstallConfigAccess:       installConfigMock,
-					ExecutePsScript:           executorMock.ExecutePowershellScript,
+					ExecutePsScript:           executorMock.ExecutePs,
 					GetVersionFunc:            func() version.Version { return version.Version{} },
 					GetPlatformFunc:           func() string { return "test-os" },
 					GetInstallDirFunc:         func() string { return "test-dir" },

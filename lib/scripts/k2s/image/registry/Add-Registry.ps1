@@ -40,7 +40,11 @@ Param (
     [parameter(Mandatory = $false, HelpMessage = 'Password')]
     [string] $Password,
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
-    [switch] $ShowLogs = $false
+    [switch] $ShowLogs = $false,
+    [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
+    [switch] $EncodeStructuredOutput,
+    [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
+    [string] $MessageType
 )
 
 $clusterModule = "$PSScriptRoot/../../../../modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
@@ -52,15 +56,28 @@ Initialize-Logging -ShowLogs:$ShowLogs
 
 $systemError = Test-SystemAvailability
 if ($systemError) {
-    throw $systemError
+    if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = $systemError }
+        return
+    }
+
+    Write-Log $systemError.Message -Error
+    exit 1
 }
 
 $registries = $(Get-RegistriesFromSetupJson)
 if ($registries) {
     $registryAlreadyExists = $registries | Where-Object { $_ -eq $RegistryName }
     if ($registryAlreadyExists) {
-        Write-Log "Registry '$RegistryName' is already configured!" -Console
-        exit 0
+        $errMsg = "Registry '$RegistryName' is already configured."
+        if ($EncodeStructuredOutput -eq $true) {
+            $err = New-Error -Severity Warning -Code 'registry-already-configured' -Message $errMsg
+            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+            return
+        }
+
+        Write-Log $errMsg -Error
+        exit 1
     }
 }
 
@@ -89,7 +106,14 @@ Connect-Buildah -username $username -password $password -registry $RegistryName
 
 if (!$?) {
     Invoke-CmdOnControlPlaneViaSSHKey "grep location=\\\""$RegistryName\\\"" /etc/containers/registries.conf | sudo sed -i -z 's/\[\[registry]]\nlocation=\\\""$RegistryName\\\""\ninsecure=true//g' /etc/containers/registries.conf"
-    throw 'Login to private registry not possible! Please check credentials!'
+    $errMsg = 'Login to private registry not possible, please check credentials.'
+    if ($EncodeStructuredOutput -eq $true) {
+        $err = New-Error -Code 'registry-login-impossible' -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+        return
+    }
+    Write-Log $errMsg -Error
+    exit 1
 }
 
 $authJson = Invoke-CmdOnControlPlaneViaSSHKey 'sudo cat /root/.config/containers/auth.json' -NoLog | Out-String
@@ -119,3 +143,7 @@ Start-NssmService('kubeproxy')
 Set-ConfigLoggedInRegistry -Value $RegistryName
 Add-RegistryToSetupJson -Name $RegistryName
 Write-Log "Registry '$RegistryName' added successfully.'" -Console
+
+if ($EncodeStructuredOutput -eq $true) {
+    Send-ToCli -MessageType $MessageType -Message @{Error = $null }
+}

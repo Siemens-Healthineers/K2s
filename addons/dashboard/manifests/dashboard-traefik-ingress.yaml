@@ -2,21 +2,83 @@
 #
 # SPDX-License-Identifier: MIT
 
+# The kubernetes-dashboard service exposes an angular application on port 443
+# The angular application is design in such a way that it constructs the 
+# relative paths based on the value stored in the x-forwarded-prefix header
+# of the request. So if the application is exposed on another path than root,
+# this header must have as value that path.
 ---
-apiVersion: traefik.containo.us/v1alpha1
-kind: IngressRoute
+# This ingress will expose the angular application on:
+# HTTP: http://k2s-dashboard.local 
+# TLS: https://k2s-dashboard.local 
+# For TLS, the certificate is taken from k8s secret 'k2s-dashboard-local-tls'
+# This secret will be created by cert-manager, if it is installed and running.
+# If cert-manager is not installed, the secret will not be present and 
+# traefik will use an own self-signed certificate.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
 metadata:
-  name: dashboard-ingressroute
+  annotations:
+    cert-manager.io/cluster-issuer: k2s-ca-issuer
+    cert-manager.io/common-name: k2s-dashboard.local
+    traefik.ingress.kubernetes.io/router.tls: "true"
+  name: dashboard-traefik-local
+  namespace: kubernetes-dashboard
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: k2s-dashboard.local
+      http:
+        paths:
+        - backend:
+            service:
+              name: kubernetes-dashboard
+              port: 
+                number: 443
+          pathType: Prefix
+          path: /
+  tls:
+  - hosts:
+    - k2s-dashboard.local
+    secretName: k2s-dashboard-local-tls
+---
+# this MiddleWare will strip the prefix /dashboard from the request path
+# and set the x-forwarded-prefix header of the request to /dashboard/
+# see https://doc.traefik.io/traefik/middlewares/http/stripprefix/
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: strip-prefix
+  namespace: kubernetes-dashboard
+spec:
+  stripPrefix:
+    prefixes:
+      - /dashboard
+---
+# this ingress will be merged with ingress provided in:
+# addons/traefik/manifests/cluster-net-ingress.yaml
+# and exposes the kubernetes-dashboard angular application on:
+# https://k2s.cluster.net/dashboard/
+# The certificate is taken from k8s secret 'k2s.cluster.net-tls'
+# (see addons/traefik/manifests/cluster-net-ingress.yaml)
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: dashboard-traefik-cluster-net
   namespace: kubernetes-dashboard
   annotations:
-    kubernetes.io/ingress.class: traefik
+    traefik.ingress.kubernetes.io/router.middlewares: kubernetes-dashboard-strip-prefix@kubernetescrd
+    traefik.ingress.kubernetes.io/router.tls: "true"
 spec:
-  entryPoints:
-    - websecure
-  routes:
-    - match: Host(`k2s-dashboard.local`)
-      kind: Rule
-      services:
-        - name: kubernetes-dashboard
-          namespace: kubernetes-dashboard
-          port: 443
+  ingressClassName: traefik
+  rules:
+    - host: k2s.cluster.net
+      http:
+        paths:
+        - path: /dashboard/
+          pathType: Prefix
+          backend:
+            service:
+              name: kubernetes-dashboard
+              port: 
+                number: 443

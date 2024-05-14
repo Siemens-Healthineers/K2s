@@ -17,13 +17,10 @@ import (
 	"github.com/onsi/gomega/types"
 
 	"github.com/siemens-healthineers/k2s/test/framework"
+	"github.com/siemens-healthineers/k2s/test/framework/regex"
 )
 
 var suite *framework.K2sTestSuite
-
-const (
-	versionRegex = `v?(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)`
-)
 
 func TestStatus(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -55,13 +52,13 @@ var _ = Describe("status", Ordered, func() {
 		})
 
 		It("prints version", func(ctx context.Context) {
-			Expect(output).To(MatchRegexp("Version: .+%s.+", versionRegex))
+			Expect(output).To(MatchRegexp("Version: .+%s.+", regex.VersionRegex))
 		})
 
 		It("states that system is not running with details about what is not running", func(ctx context.Context) {
 			matchers := []types.GomegaMatcher{
 				ContainSubstring("The system is not running."),
-				ContainSubstring("'KubeMaster' not running, state is 'Off' (VM)"),
+				ContainSubstring("control-plane 'kubemaster' not running, state is 'Off' (VM)"),
 			}
 
 			if suite.SetupInfo().SetupConfig.SetupName == setupinfo.SetupNamek2s {
@@ -94,13 +91,13 @@ var _ = Describe("status", Ordered, func() {
 		})
 
 		It("prints version", func(ctx context.Context) {
-			Expect(output).To(MatchRegexp("Version: .+%s.+", versionRegex))
+			Expect(output).To(MatchRegexp("Version: .+%s.+", regex.VersionRegex))
 		})
 
 		It("states that system is not running with details about what is not running", func(ctx context.Context) {
 			matchers := []types.GomegaMatcher{
 				ContainSubstring("The system is not running."),
-				ContainSubstring("'KubeMaster' not running, state is 'Off' (VM)"),
+				ContainSubstring("control-plane 'kubemaster' not running, state is 'Off' (VM)"),
 			}
 
 			if suite.SetupInfo().SetupConfig.SetupName == setupinfo.SetupNamek2s {
@@ -128,7 +125,7 @@ var _ = Describe("status", Ordered, func() {
 
 		It("contains setup info", func() {
 			Expect(setupinfo.SetupName(status.SetupInfo.Name)).To(Equal(suite.SetupInfo().SetupConfig.SetupName))
-			Expect(status.SetupInfo.Version).To(MatchRegexp(versionRegex))
+			Expect(status.SetupInfo.Version).To(MatchRegexp(regex.VersionRegex))
 			Expect(status.SetupInfo.LinuxOnly).To(Equal(suite.SetupInfo().SetupConfig.LinuxOnly))
 		})
 

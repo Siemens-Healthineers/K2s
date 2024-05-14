@@ -26,16 +26,12 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
     [string] $MessageType
 )
-&$PSScriptRoot\..\..\smallsetup\common\GlobalVariables.ps1
-. $PSScriptRoot\..\..\smallsetup\common\GlobalFunctions.ps1
-. $PSScriptRoot\Common.ps1
-
-$logModule = "$PSScriptRoot/../../smallsetup/ps-modules/log/log.module.psm1"
-$statusModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/status/status.module.psm1"
 $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
+$clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
+$commonModule = "$PSScriptRoot\common.module.psm1"
 
-Import-Module $logModule, $addonsModule, $statusModule, $infraModule
+Import-Module $infraModule, $clusterModule, $addonsModule, $commonModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -50,6 +46,13 @@ if ($systemError) {
 
     Write-Log $systemError.Message -Error
     exit 1
+}
+
+$setupInfo = Get-SetupInfo
+if ($setupInfo.Name -ne 'k2s') {
+    $err = New-Error -Severity Warning -Code (Get-ErrCodeWrongSetupType) -Message "Addon 'ingress-nginx' can only be enabled for 'k2s' setup type."  
+    Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+    return
 }
 
 Write-Log 'Checking if ingress-nginx is already enabled'
@@ -93,7 +96,7 @@ if ((Test-IsAddonEnabled -Name 'gateway-nginx') -eq $true) {
     exit 1
 }
 
-$existingServices = $(&$global:KubectlExe get service -n ingress-nginx -o yaml)
+$existingServices = (Invoke-Kubectl -Params 'get', 'service', '-n', 'ingress-nginx', '-o', 'yaml').Output
 if ("$existingServices" -match '.*ingress-nginx-controller.*') {
     $errMsg = 'It seems as if ingress nginx is already installed in the namespace ingress-nginx. Disable it before enabling it again.'
     
@@ -109,23 +112,26 @@ if ("$existingServices" -match '.*ingress-nginx-controller.*') {
 
 Write-Log 'Installing ingress-nginx' -Console
 $ingressNginxNamespace = 'ingress-nginx'
-&$global:KubectlExe create ns $ingressNginxNamespace | Write-Log
-
 $ingressNginxConfig = Get-IngressNginxConfig
-&$global:KubectlExe apply -f "$ingressNginxConfig" | Write-Log
 
-Write-Log "Setting $global:IP_Master as an external IP for ingress-nginx-controller service" -Console
+(Invoke-Kubectl -Params 'create', 'ns', $ingressNginxNamespace).Output | Write-Log
+(Invoke-Kubectl -Params 'apply' , '-f', $ingressNginxConfig).Output | Write-Log
+
+$controlPlaneIp = Get-ConfiguredIPControlPlane
+
+Write-Log "Setting $controlPlaneIp as an external IP for ingress-nginx-controller service" -Console
 $patchJson = ''
 if ($PSVersionTable.PSVersion.Major -gt 5) {
-    $patchJson = '{"spec":{"externalIPs":["' + $global:IP_Master + '"]}}'
+    $patchJson = '{"spec":{"externalIPs":["' + $controlPlaneIp + '"]}}'
 }
 else {
-    $patchJson = '{\"spec\":{\"externalIPs\":[\"' + $global:IP_Master + '\"]}}'
+    $patchJson = '{\"spec\":{\"externalIPs\":[\"' + $controlPlaneIp + '\"]}}'
 }
 $ingressNginxSvc = 'ingress-nginx-controller'
-&$global:KubectlExe patch svc $ingressNginxSvc -p "$patchJson" -n $ingressNginxNamespace | Write-Log
 
-$allPodsAreUp = Wait-ForPodsReady -Selector 'app.kubernetes.io/name=ingress-nginx' -Namespace 'ingress-nginx'
+(Invoke-Kubectl -Params 'patch', 'svc', $ingressNginxSvc, '-p', "$patchJson", '-n', $ingressNginxNamespace).Output | Write-Log
+
+$allPodsAreUp = (Wait-ForPodCondition -Condition Ready -Label 'app.kubernetes.io/component=controller' -Namespace 'ingress-nginx' -TimeoutSeconds 120)
 
 if ($allPodsAreUp -ne $true) {
     $errMsg = "All ingress-nginx pods could not become ready. Please use kubectl describe for more details.`nInstallation of ingress-nginx failed."
@@ -138,6 +144,9 @@ if ($allPodsAreUp -ne $true) {
     Write-Log $errMsg -Error
     exit 1
 }
+
+$clusterIngressConfig = "$PSScriptRoot\manifests\cluster-net-ingress.yaml"
+(Invoke-Kubectl -Params 'apply' , '-f', $clusterIngressConfig).Output | Write-Log
 
 Write-Log 'All ingress-nginx pods are up and ready.'
 

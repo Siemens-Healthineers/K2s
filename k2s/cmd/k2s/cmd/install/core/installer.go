@@ -4,6 +4,7 @@
 package core
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
@@ -31,12 +32,13 @@ type Printer interface {
 type Installer struct {
 	InstallConfigAccess       InstallConfigAccess
 	Printer                   Printer
-	ExecutePsScript           func(cmd string, psVersion powershell.PowerShellVersion) (time.Duration, error)
+	ExecutePsScript           func(script string, psVersion powershell.PowerShellVersion, writer powershell.OutputWriter) error
 	GetVersionFunc            func() version.Version
 	GetPlatformFunc           func() string
 	GetInstallDirFunc         func() string
 	PrintCompletedMessageFunc func(duration time.Duration, command string)
 	LoadConfigFunc            func(configDir string) (*setupinfo.Config, error)
+	SetConfigFunc             func(configDir string, config *setupinfo.Config) error
 }
 
 func (i *Installer) Install(
@@ -45,6 +47,9 @@ func (i *Installer) Install(
 	buildCmdFunc func(config *ic.InstallConfig) (cmd string, err error)) error {
 	configDir := ccmd.Context().Value(common.ContextKeyConfigDir).(string)
 	setupConfig, err := i.LoadConfigFunc(configDir)
+	if errors.Is(err, setupinfo.ErrSystemInCorruptedState) {
+		return common.CreateSystemInCorruptedStateCmdFailure()
+	}
 	if err == nil && setupConfig.SetupName != "" {
 		return &common.CmdFailure{
 			Severity: common.SeverityWarning,
@@ -74,11 +79,37 @@ func (i *Installer) Install(
 
 	i.Printer.Printfln("🤖 Installing K2s '%s' %s in '%s' on %s using PowerShell %s", kind, i.GetVersionFunc(), i.GetInstallDirFunc(), i.GetPlatformFunc(), psVersion)
 
-	duration, err := i.ExecutePsScript(cmd, psVersion)
+	outputWriter, err := common.NewOutputWriter()
 	if err != nil {
 		return err
 	}
 
+	start := time.Now()
+
+	err = i.ExecutePsScript(cmd, psVersion, outputWriter)
+	if err != nil {
+		return err
+	}
+
+	if outputWriter.ErrorOccurred {
+		// corrupted state
+		setupConfig, err := i.LoadConfigFunc(configDir)
+		if err != nil {
+			if setupConfig == nil {
+				setupConfig = &setupinfo.Config{
+					Corrupted: true,
+				}
+				i.SetConfigFunc(configDir, setupConfig)
+			}
+		} else {
+			setupConfig.Corrupted = true
+			i.SetConfigFunc(configDir, setupConfig)
+		}
+
+		return common.CreateSystemInCorruptedStateCmdFailure()
+	}
+
+	duration := time.Since(start)
 	i.PrintCompletedMessageFunc(duration, fmt.Sprintf("%s installation", kind))
 
 	return nil

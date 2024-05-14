@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"path/filepath"
 	"strconv"
 	"time"
 
@@ -56,6 +57,9 @@ func exportImage(cmd *cobra.Command, args []string) error {
 	configDir := cmd.Context().Value(common.ContextKeyConfigDir).(string)
 	config, err := setupinfo.LoadConfig(configDir)
 	if err != nil {
+		if errors.Is(err, setupinfo.ErrSystemInCorruptedState) {
+			return common.CreateSystemInCorruptedStateCmdFailure()
+		}
 		if errors.Is(err, setupinfo.ErrSystemNotInstalled) {
 			return common.CreateSystemNotInstalledCmdFailure()
 		}
@@ -117,7 +121,7 @@ func buildExportPsCmd(cmd *cobra.Command) (psCmd string, params []string, err er
 		return "", nil, err
 	}
 
-	psCmd = utils.FormatScriptFilePath(utils.InstallDir() + "\\smallsetup\\helpers\\ExportImage.ps1")
+	psCmd = utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "image", "Export-Image.ps1"))
 
 	params = append(params, " -Id '"+imageId+"'", " -Name '"+imageName+"'", " -ExportPath '"+exportPath+"'")
 

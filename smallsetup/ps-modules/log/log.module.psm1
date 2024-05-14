@@ -13,7 +13,9 @@ $script:NestedLogging = $false   # Shall be used when we need to capture output 
 
 # logging
 $k2sLogFilePart = ':\var\log\k2s.log'
-$k2sLogFile = (Get-SystemDriveLetter) + $k2sLogFilePart
+$k2sLogFilePath = (Get-SystemDriveLetter) + $k2sLogFilePart
+$k2sLogFile = $k2sLogFilePath
+
 
 <#
 .SYNOPSIS
@@ -72,12 +74,14 @@ function Write-Log {
         [Parameter(Mandatory = $false, HelpMessage = 'This is an error message, add to log file and console as Write-Error.')]
         [switch] $Error = $false,
         [Parameter(Mandatory = $false, HelpMessage = 'Write messages to stdout using Write-Output (default is Write-Information)')]
-        [switch] $Raw = $false
+        [switch] $Raw = $false,
+        [Parameter(Mandatory = $false, HelpMessage = "Write ssh stdout messages to stdout using Write-Output (mark message with '#ssh#')")]
+        [switch] $Ssh = $false
     )
 
     Begin {
-        if ((Test-Path -Path $k2sLogFile) -eq $false) {
-            $logDir = Split-Path -Path $k2sLogFile
+        if ((Test-Path -Path $k2sLogFilePath) -eq $false) {
+            $logDir = Split-Path -Path $k2sLogFilePath
             mkdir -force $logDir | Out-Null
         }
     }
@@ -98,6 +102,13 @@ function Write-Log {
 
                 $consoleMessage = if (!$Progress) { "[$timestamp] $message" } else { $message }
 
+                if ($consoleMessage -match '\[([^]]+::[^]]+)\]\s?') {
+                    # module message, eg. [11:39:19] [cli-messages.module.psm1::Send-ToCli] message converted
+                    # module message part [cli-messages.module.psm1::Send-ToCli] should not be logged
+                    $match = ($consoleMessage | Select-String -Pattern '\[([^]]+::[^]]+)\]\s?').Matches.Value
+                    $consoleMessage = $consoleMessage.Replace($match, '')
+                }
+
                 if ($script:NestedLogging) {
                     if ($Error) {
                         Write-Error -Message $consoleMessage
@@ -114,29 +125,31 @@ function Write-Log {
                     if ($script:ConsoleLogging) {
                         Write-Information $message -InformationAction Continue
                     }
-                    $logFileMessage | Out-File -Append -FilePath $k2sLogFile -Encoding utf8
+                    $logFileMessage | Out-File -Append -FilePath $k2sLogFilePath -Encoding utf8
                     return
                 }
 
                 if ($Error) {
-                    "[$dayTimestamp][ERROR] $message" | Out-File -Append -FilePath $k2sLogFile -Encoding utf8
+                    "[$dayTimestamp][ERROR] $message" | Out-File -Append -FilePath $k2sLogFilePath -Encoding utf8
                     Write-Error $consoleMessage
                 }
                 elseif ($Progress -and ($Console -or $script:ConsoleLogging)) {
                     Write-Host $consoleMessage -NoNewline
-                    $logFileMessage | Out-File -Append -FilePath $k2sLogFile -Encoding utf8 -NoNewline
+                    $logFileMessage | Out-File -Append -FilePath $k2sLogFilePath -Encoding utf8 -NoNewline
                 }
                 elseif ($Console -or $script:ConsoleLogging) {
                     if ($Raw) {
                         Write-Output $message
+                    } elseif ($Ssh) {
+                        Write-Output "#ssh#$message"
                     }
                     else {
                         Write-Information $consoleMessage -InformationAction Continue
                     }
-                    $logFileMessage | Out-File -Append -FilePath $k2sLogFile -Encoding utf8
+                    $logFileMessage | Out-File -Append -FilePath $k2sLogFilePath -Encoding utf8
                 }
                 else {
-                    $logFileMessage | Out-File -Append -FilePath $k2sLogFile -Encoding utf8
+                    $logFileMessage | Out-File -Append -FilePath $k2sLogFilePath -Encoding utf8
                 }
             }
         }
@@ -176,5 +189,30 @@ function Save-Log {
     }
 }
 
+<#
+.SYNOPSIS
+Removes log file
+
+.DESCRIPTION
+Removes log file for fresh installation if AppendLogFile
+
+.PARAMETER AppendLogFile
+If set then log file will not deleted
+
+.EXAMPLE
+Reset-LogFile -AppendLogFile:$true
+#>
+function Reset-LogFile {
+    param (
+        [Parameter(Mandatory = $false, HelpMessage = 'Write all messages to console and log file.')]
+        [switch] $AppendLogFile = $false
+    )
+    #cleanup old logs
+    if ( -not  $AppendLogFile) {
+        Remove-Item -Path $k2sLogFilePath -Force -Recurse -ErrorAction SilentlyContinue
+    }
+}
+
+
 Export-ModuleMember -Variable KubePath, k2sLogFilePart, k2sLogFile
-Export-ModuleMember -Function Initialize-Logging, Write-Log, Save-Log
+Export-ModuleMember -Function Initialize-Logging, Write-Log, Save-Log, Reset-LogFile

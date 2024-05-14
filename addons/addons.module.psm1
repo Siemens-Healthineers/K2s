@@ -2,26 +2,43 @@
 #
 # SPDX-License-Identifier: MIT
 
-&$PSScriptRoot\..\smallsetup\common\GlobalVariables.ps1
-. $PSScriptRoot\..\smallsetup\common\GlobalFunctions.ps1
+$infraModule = "$PSScriptRoot\..\lib\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
+$clusterModule = "$PSScriptRoot\..\lib\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1"
+$nodeModule = "$PSScriptRoot/../lib/modules/k2s/k2s.node.module/k2s.node.module.psm1"
 
-$logModule = "$PSScriptRoot\..\smallsetup\ps-modules\log\log.module.psm1"
-$statusModule = "$PSScriptRoot\..\lib\modules\k2s\k2s.cluster.module\status\status.module.psm1"
-$errorsModule = "$PSScriptRoot\..\lib\modules\k2s\k2s.infra.module\errors\errors.module.psm1"
-
-Import-Module $logModule, $statusModule, $errorsModule
+Import-Module $infraModule, $clusterModule, $nodeModule
 
 $script = $MyInvocation.MyCommand.Name
 $ConfigKey_EnabledAddons = 'EnabledAddons'
 $hooksDir = "$PSScriptRoot\hooks"
 $backupFileName = 'backup_addons.json'
 
+function Get-FileName {
+    param (
+        [Parameter(Mandatory = $false)]
+        [string]
+        $FilePath = $(throw 'FilePath not specified')
+    )
+    return [System.IO.Path]::GetFileName($FilePath)
+}
+
+function Invoke-Script {
+    param (
+        [parameter(Mandatory = $false)]
+        [string] $FilePath = $(throw 'FilePath not specified')
+    )
+    if ((Test-Path $FilePath) -ne $true) {
+        throw "Path to '$FilePath' not existing"
+    }
+    & $FilePath
+}
+
 function Get-AddonsConfig {
     $function = $MyInvocation.MyCommand.Name
 
     Write-Log "[$script::$function] Retrieving addons config.."
 
-    return (Get-ConfigValue -Path $global:SetupJsonFile -Key $ConfigKey_EnabledAddons)
+    return (Get-ConfigValue -Path (Get-SetupConfigFilePath) -Key $ConfigKey_EnabledAddons)
 }
 
 function Get-ScriptRoot {
@@ -163,7 +180,8 @@ function Add-AddonToSetupJson() {
         throw "Addon does not contain a property with name 'Name'"
     }
 
-    $parsedSetupJson = Get-Content -Raw $global:SetupJsonFile | ConvertFrom-Json
+    $filePath = Get-SetupConfigFilePath
+    $parsedSetupJson = Get-Content -Raw $filePath | ConvertFrom-Json
 
     $enabledAddonMemberExists = Get-Member -InputObject $parsedSetupJson -Name $ConfigKey_EnabledAddons -MemberType Properties
     if (!$enabledAddonMemberExists) {
@@ -172,7 +190,7 @@ function Add-AddonToSetupJson() {
     $addonAlreadyExists = $parsedSetupJson.EnabledAddons | Where-Object { $_.Name -eq $Addon.Name }
     if (!$addonAlreadyExists) {
         $parsedSetupJson.EnabledAddons += $Addon
-        $parsedSetupJson | ConvertTo-Json -Depth 100 | Set-Content -Force $global:SetupJsonFile -Confirm:$false
+        $parsedSetupJson | ConvertTo-Json -Depth 100 | Set-Content -Force $filePath -Confirm:$false
     }
 }
 
@@ -190,7 +208,8 @@ function Add-AddonToSetupJson() {
 function Remove-AddonFromSetupJson([string]$Name) {
     Write-Log "Removing '$Name' from addons config.."
 
-    $parsedSetupJson = Get-Content -Raw $global:SetupJsonFile | ConvertFrom-Json
+    $filePath = Get-SetupConfigFilePath
+    $parsedSetupJson = Get-Content -Raw $filePath | ConvertFrom-Json
 
     $enabledAddonMemberExists = Get-Member -InputObject $parsedSetupJson -Name $ConfigKey_EnabledAddons -MemberType Properties
     if ($enabledAddonMemberExists) {
@@ -202,7 +221,7 @@ function Remove-AddonFromSetupJson([string]$Name) {
         else {
             $parsedSetupJson.PSObject.Properties.Remove($ConfigKey_EnabledAddons)
         }
-        $parsedSetupJson | ConvertTo-Json -Depth 100 | Set-Content -Force $global:SetupJsonFile -Confirm:$false
+        $parsedSetupJson | ConvertTo-Json -Depth 100 | Set-Content -Force $filePath -Confirm:$false
     }
 }
 
@@ -213,16 +232,19 @@ function Install-DebianPackages {
         [parameter()]
         [string[]]$packages
     )
-
     foreach ($package in $packages) {
         if (!(Get-DebianPackageAvailableOffline -addon $addon -package $package)) {
-            ExecCmdMaster "mkdir -p .${addon}/${package} && cd .${addon}/${package} && sudo chown -R _apt:root ."
-            ExecCmdMaster "cd .${addon}/${package} && sudo apt-get download $package" -Retries 2 -RepairCmd 'sudo apt --fix-broken install'
-            ExecCmdMaster "cd .${addon}/${package} && sudo DEBIAN_FRONTEND=noninteractive apt-get --reinstall install -y --no-install-recommends --no-install-suggests --simulate ./${package}*.deb | grep 'Inst ' | cut -d ' ' -f 2 | sort -u | xargs sudo apt-get download" -Retries 2 -RepairCmd 'sudo apt --fix-broken install'
+            Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "mkdir -p .${addon}/${package} && cd .${addon}/${package} && sudo chown -R _apt:root ."
+            Invoke-CmdOnControlPlaneViaSSHKey -Retries 2 -Timeout 2 -CmdToExecute "cd .${addon}/${package} && sudo apt-get download $package" -RepairCmd 'sudo apt --fix-broken install'
+            Invoke-CmdOnControlPlaneViaSSHKey `
+                -Retries 2 `
+                -Timeout 2 `
+                -CmdToExecute "cd .${addon}/${package} && sudo DEBIAN_FRONTEND=noninteractive apt-get --reinstall install -y --no-install-recommends --no-install-suggests --simulate ./${package}*.deb | grep 'Inst ' | cut -d ' ' -f 2 | sort -u | xargs sudo apt-get download" `
+                -RepairCmd 'sudo apt --fix-broken install'
         }
 
         Write-Log "Installing $package offline."
-        ExecCmdMaster "sudo dpkg -i .${addon}/${package}/*.deb 2>&1"
+        Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo dpkg -i .${addon}/${package}/*.deb 2>&1"
     }
 }
 
@@ -233,9 +255,8 @@ function Get-DebianPackageAvailableOffline {
         [parameter()]
         [string]$package
     )
-
-    # NOTE: DO NOT USE `ExecCmdMaster` here to get the return value.
-    ssh.exe -n -o StrictHostKeyChecking=no -i $global:LinuxVMKey $global:Remote_Master "[ -d .${addon}/${package} ]"
+    # TODO: NOTE: DO NOT USE `ExecCmdMaster` here to get the return value.
+    ssh.exe -n -o StrictHostKeyChecking=no -i (Get-SSHKeyControlPlane) (Get-ControlPlaneRemoteUser) "[ -d .${addon}/${package} ]"
     if (!$?) {
         return $false
     }
@@ -541,7 +562,43 @@ function Get-ErrCodeAddonEnableFailed { 'addon-enable-failed' }
 
 function Get-ErrCodeAddonNotFound { 'addon-not-found' }
 
+function Add-HostEntries {
+    param (
+        [Parameter(Mandatory = $false)]
+        [string]
+        $Url = $(throw 'Url not specified')
+    )
+    Write-Log "Adding host entry for '$Url'.." -Console
+
+    # add in control plane
+    $hostEntry = "$(Get-ConfiguredIPControlPlane) $Url"
+    Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "grep -qxF `'$hostEntry`' /etc/hosts || echo $hostEntry | sudo tee -a /etc/hosts"
+
+    $hostFile = 'C:\Windows\System32\drivers\etc\hosts'
+
+    # add in additional worker nodes
+    $setupInfo = Get-SetupInfo
+    if ($setupInfo.Name -eq 'MultiVMK8s' -and $setupInfo.LinuxOnly -ne $true) {
+        $session = Open-RemoteSessionViaSSHKey (Get-DefaultWinVMName) (Get-DefaultWinVMKey)
+
+        Invoke-Command -Session $session {
+            Set-Location "$env:SystemDrive\k"
+            Set-ExecutionPolicy Bypass -Force -ErrorAction Stop
+
+            if (!$(Get-Content $using:hostFile | ForEach-Object { $_ -match $using:hostEntry }).Contains($true)) {
+                Add-Content $using:hostFile $using:hostEntry
+            }
+        }
+    }
+
+    # add in host
+    if (!$(Get-Content $hostFile | ForEach-Object { $_ -match $hostEntry }).Contains($true)) {
+        Add-Content $hostFile $hostEntry
+    }
+}
+
 Export-ModuleMember -Function Get-EnabledAddons, Add-AddonToSetupJson, Remove-AddonFromSetupJson,
 Install-DebianPackages, Get-DebianPackageAvailableOffline, Test-IsAddonEnabled, Invoke-AddonsHooks, Copy-ScriptsToHooksDir,
 Remove-ScriptsFromHooksDir, Get-AddonConfig, Backup-Addons, Restore-Addons, Get-AddonStatus, Find-AddonManifests,
-Get-ErrCodeAddonAlreadyDisabled, Get-ErrCodeAddonAlreadyEnabled, Get-ErrCodeAddonEnableFailed, Get-ErrCodeAddonNotFound
+Get-ErrCodeAddonAlreadyDisabled, Get-ErrCodeAddonAlreadyEnabled, Get-ErrCodeAddonEnableFailed, Get-ErrCodeAddonNotFound,
+Add-HostEntries

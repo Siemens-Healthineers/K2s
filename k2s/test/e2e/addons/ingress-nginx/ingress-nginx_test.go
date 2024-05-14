@@ -12,12 +12,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/addons/status"
 	"github.com/siemens-healthineers/k2s/test/framework"
 
 	"github.com/siemens-healthineers/k2s/test/framework/k2s"
+	"github.com/siemens-healthineers/k2s/test/framework/regex"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gstruct"
 )
 
 const testClusterTimeout = time.Minute * 10
@@ -72,6 +75,12 @@ var _ = Describe("'ingress-nginx' addon", Ordered, func() {
 		Expect(output).To(ContainSubstring("already enabled"))
 	})
 
+	It("makes k2s.cluster.net reachable, with http status NotFound", func(ctx context.Context) {
+		url := "https://k2s.cluster.net/"
+		httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-I", "-m", "5", "--retry", "3")
+		Expect(httpStatus).To(ContainSubstring("404"))
+	})
+
 	It("sample app is reachable through ingress-nginx ingress controller", func(ctx context.Context) {
 		suite.Kubectl().Run(ctx, "apply", "-k", "workloads")
 		suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "albums-linux1", "ingress-nginx-test")
@@ -91,6 +100,41 @@ var _ = Describe("'ingress-nginx' addon", Ordered, func() {
 
 		Expect(err).ShouldNot(HaveOccurred())
 		Expect(json.Valid(data)).To(BeTrue())
+	})
+
+	It("prints the status", func(ctx context.Context) {
+		output := suite.K2sCli().Run(ctx, "addons", "status", "ingress-nginx")
+
+		Expect(output).To(SatisfyAll(
+			MatchRegexp("ADDON STATUS"),
+			MatchRegexp(`Addon .+ingress-nginx.+ is .+enabled.+`),
+			MatchRegexp("The ingress-nginx ingress controller is working"),
+			MatchRegexp("The external IP for ingress-nginx service is set to %s", regex.IpAddressRegex),
+		))
+
+		output = suite.K2sCli().Run(ctx, "addons", "status", "ingress-nginx", "-o", "json")
+
+		var status status.AddonPrintStatus
+
+		Expect(json.Unmarshal([]byte(output), &status)).To(Succeed())
+
+		Expect(status.Name).To(Equal("ingress-nginx"))
+		Expect(status.Error).To(BeNil())
+		Expect(status.Enabled).NotTo(BeNil())
+		Expect(*status.Enabled).To(BeTrue())
+		Expect(status.Props).NotTo(BeNil())
+		Expect(status.Props).To(ContainElements(
+			SatisfyAll(
+				HaveField("Name", "IsIngressNginxRunning"),
+				HaveField("Value", true),
+				HaveField("Okay", gstruct.PointTo(BeTrue())),
+				HaveField("Message", gstruct.PointTo(ContainSubstring("The ingress-nginx ingress controller is working")))),
+			SatisfyAll(
+				HaveField("Name", "IsExternalIPSet"),
+				HaveField("Value", true),
+				HaveField("Okay", gstruct.PointTo(BeTrue())),
+				HaveField("Message", gstruct.PointTo(MatchRegexp("The external IP for ingress-nginx service is set to %s", regex.IpAddressRegex)))),
+		))
 	})
 })
 

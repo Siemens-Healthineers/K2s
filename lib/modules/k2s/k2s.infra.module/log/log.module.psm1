@@ -96,7 +96,9 @@ function Write-Log {
         [Parameter(Mandatory = $false, HelpMessage = 'This is a error message, add to log file and console as Write-Error.')]
         [switch] $Error = $false,
         [Parameter(Mandatory = $false, HelpMessage = 'Write messages to stdout using Write-Output (default is Write-Information)')]
-        [switch] $Raw = $false
+        [switch] $Raw = $false,
+        [Parameter(Mandatory = $false, HelpMessage = "Write ssh stdout messages to stdout using Write-Output (mark message with '#ssh#')")]
+        [switch] $Ssh = $false
     )
 
     Begin {
@@ -122,6 +124,13 @@ function Write-Log {
                 $timestamp = [DateTime]::Now.ToString('HH:mm:ss')
 
                 $consoleMessage = if (!$Progress) { "[$timestamp] $message" } else { $message }
+
+                if ($consoleMessage -match '\[([^]]+::[^]]+)\]\s?') {
+                    # module message, eg. [11:39:19] [cli-messages.module.psm1::Send-ToCli] message converted
+                    # module message part [cli-messages.module.psm1::Send-ToCli] should not be logged
+                    $match = ($consoleMessage | Select-String -Pattern '\[([^]]+::[^]]+)\]\s?').Matches.Value
+                    $consoleMessage = $consoleMessage.Replace($match, '')
+                }
 
                 if ($script:NestedLogging) {
                     if ($Error) {
@@ -155,6 +164,9 @@ function Write-Log {
                     if ($Raw) {
                         Write-Output $message
                     }
+                    elseif ($Ssh) {
+                        Write-Output "#ssh#$message"
+                    }
                     else {
                         Write-Information $consoleMessage -InformationAction Continue
                     }
@@ -178,6 +190,14 @@ function Get-k2sLogDirectory {
     return $logsDir
 }
 
+function Get-LogFilePath {
+    return $k2sLogFile 
+}
+
+function Get-LogFilePathPart {
+    return $k2sLogFilePart 
+}
+
 function Save-k2sLogDirectory {
     param (
         [Parameter(Mandatory = $false, HelpMessage = 'Remove var folder after saving logs')]
@@ -189,14 +209,14 @@ function Save-k2sLogDirectory {
     }
 
     $destinationFolder = "$env:TEMP\k2s_log_$(get-date -f yyyyMMdd_HHmmss)"
-    Copy-Item -Path "C:\var\log" -Destination $destinationFolder -Force -Recurse
+    Copy-Item -Path 'C:\var\log' -Destination $destinationFolder -Force -Recurse
     Compress-Archive -Path $destinationFolder -DestinationPath "$destinationFolder.zip" -CompressionLevel Optimal -Force
     Remove-Item -Path "$destinationFolder" -Force -Recurse -ErrorAction SilentlyContinue
 
     Write-Log "Logs backed up in $destinationFolder.zip" -Console
 
     if ($RemoveVar) {
-    # the directory '<system drive>:\var' must be deleted (regardless of the installation drive) since
+        # the directory '<system drive>:\var' must be deleted (regardless of the installation drive) since
         # kubelet.exe writes hardcoded to '<system drive>:\var\lib\kubelet\device-plugins' (see '\pkg\kubelet\cm\devicemanager\manager.go' under https://github.com/kubernetes/kubernetes.git)
         $systemDriveLetter = (Get-Item $env:SystemDrive).PSDrive.Name
         Remove-Item -Path "$($systemDriveLetter):\var" -Force -Recurse -ErrorAction SilentlyContinue
@@ -207,4 +227,4 @@ function Save-k2sLogDirectory {
 }
 
 Export-ModuleMember -Variable k2sLogFilePart, k2sLogFile
-Export-ModuleMember -Function Initialize-Logging, Write-Log, Reset-LogFile, Get-k2sLogDirectory, Save-k2sLogDirectory
+Export-ModuleMember -Function Initialize-Logging, Write-Log, Reset-LogFile, Get-k2sLogDirectory, Save-k2sLogDirectory, Get-LogFilePath, Get-LogFilePathPart

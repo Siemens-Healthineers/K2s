@@ -45,29 +45,17 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
     [string] $MessageType
 )
-&$PSScriptRoot\..\..\smallsetup\common\GlobalVariables.ps1
-. $PSScriptRoot\..\..\smallsetup\common\GlobalFunctions.ps1
-
-$logModule = "$PSScriptRoot/../../smallsetup/ps-modules/log/log.module.psm1"
+$infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
-$infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
-$proxyModule = "$PSScriptRoot/../../smallsetup/ps-modules/proxy/proxy.module.psm1"
+$nodeModule = "$PSScriptRoot/../../lib\modules\k2s\k2s.node.module\k2s.node.module.psm1"
+$kubevirtModule = "$PSScriptRoot\kubevirt.module.psm1"
 
-Import-Module $logModule, $addonsModule, $clusterModule, $infraModule, $proxyModule
+Import-Module $infraModule, $clusterModule, $addonsModule, $nodeModule, $kubevirtModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
-if ($Proxy -eq "") {
-    Write-Log "Determining if proxy is configured by the user in Windows Proxy settings." -Console
-    $proxyEnabledStatus = Get-ProxyEnabledStatusFromWindowsSettings
-    if ($proxyEnabledStatus) {
-        $Proxy = Get-ProxyServerFromWindowsSettings
-        Write-Log "Configured proxy server in Windows Proxy settings: $Proxy" -Console
-    } else {
-        Write-Log "No proxy configured in Windows Proxy Settings." -Console
-    }
-}
+$Proxy = Get-OrUpdateProxyServer -Proxy:$Proxy
 
 Write-Log 'Checking cluster status' -Console
 
@@ -95,7 +83,7 @@ if ((Test-IsAddonEnabled -Name 'kubevirt') -eq $true) {
     exit 1
 }
 
-$wsl = Get-WSLFromConfig
+$wsl = Get-ConfigWslFlag
 if ($wsl) {
     $errMsg = "kubevirt addon is not available with WSL2 setup!`n" `
         + "Please install cluster without wsl option in order to use kubevirt addon!`n" `
@@ -113,10 +101,11 @@ if ($wsl) {
 Write-Log 'Installing kubevirt addon' -Console
 
 # check memory
-$MasterVMMemory = Get-VMMemory -VMName $global:VMName
+$controlPlaneNodeName = Get-ConfigControlPlaneNodeHostname
+$MasterVMMemory = Get-VMMemory -VMName $controlPlaneNodeName
 if ( $MasterVMMemory.Startup -lt 10GB ) {
-    $errMsg = "KubeVirt needs minimal 8GB main memory, you have a Small K8s Setup with less memory!`n" `
-        + "Please increase main memory for the VM $global:VMName (shutdown, increase memory to 10GB, start)`n" `
+    $errMsg = "KubeVirt needs minimal 8GB main memory, you have a K2s Setup with less memory!`n" `
+        + "Please increase main memory for the VM $controlPlaneNodeName (shutdown, increase memory to 10GB, start)`n" `
         + "or install from scratch with k2s install --master-cpus 8 --master-memory 12GB --master-disk 120GB`n"`
         + 'Memory in master vm too low, stop your cluster and increase the memory of your master vm to at least 12GB!'
     if ($EncodeStructuredOutput -eq $true) {
@@ -130,10 +119,10 @@ if ( $MasterVMMemory.Startup -lt 10GB ) {
 }
 
 # check disk
-$MasterDiskSize = Get-VM -VMName $global:VMName | Select-Object VMId | Get-VHD
+$MasterDiskSize = Get-VM -VMName $controlPlaneNodeName | Select-Object VMId | Get-VHD
 if ( $MasterDiskSize.Size -lt 100GB ) {
-    $errMsg = "KubeVirt needs minimal 100GB disk size, you have a Small K8s Setup with less disk size!`n" `
-        + "Please increase disk size for the VM $global:VMName (shutdown, increase disk size to 100GB by expanding vhdx, start)`n" `
+    $errMsg = "KubeVirt needs minimal 100GB disk size, you have a K2s Setup with less disk size!`n" `
+        + "Please increase disk size for the VM $controlPlaneNodeName (shutdown, increase disk size to 100GB by expanding vhdx, start)`n" `
         + "or install from scratch with k2s install --master-cpus 8 --master-memory 12GB --master-disk 120GB`n"`
         + 'Disk size for master vm too low'
     if ($EncodeStructuredOutput -eq $true) {
@@ -147,16 +136,16 @@ if ( $MasterDiskSize.Size -lt 100GB ) {
 }
 
 # restart KubeMaster
-Write-Log "Stopping VM $global:VMName"
-Stop-VM -Name $global:VMName -Force -WarningAction SilentlyContinue
-$state = (Get-VM -Name $global:VMName).State -eq [Microsoft.HyperV.PowerShell.VMState]::Off
+Write-Log "Stopping VM $controlPlaneNodeName"
+Stop-VM -Name $controlPlaneNodeName -Force -WarningAction SilentlyContinue
+$state = (Get-VM -Name $controlPlaneNodeName).State -eq [Microsoft.HyperV.PowerShell.VMState]::Off
 while (!$state) {
     Write-Log 'Still waiting for stop...'
     Start-Sleep -s 1
 }
-Set-VMProcessor -VMName $global:VMName -ExposeVirtualizationExtensions $true
-Write-Log "Start VM $global:VMName"
-Start-VM -Name $global:VMName
+Set-VMProcessor -VMName $controlPlaneNodeName -ExposeVirtualizationExtensions $true
+Write-Log "Start VM $controlPlaneNodeName"
+Start-VM -Name $controlPlaneNodeName
 # for the next steps we need ssh access, so let's wait for ssh
 Wait-ForSSHConnectionToLinuxVMViaSshKey
 
@@ -170,18 +159,18 @@ Write-Log 'enable virtualization in the VM'
 Install-DebianPackages -addon 'kubevirt' -packages 'qemu-system', 'libvirt-clients', 'libvirt-daemon-system'
 
 # disable app armor
-ExecCmdMaster 'sudo systemctl stop apparmor 2>&1'
-ExecCmdMaster 'sudo systemctl disable apparmor 2>&1'
-ExecCmdMaster 'sudo apt remove --assume-yes --purge apparmor 2>&1'
+Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo systemctl stop apparmor 2>&1'
+Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo systemctl disable apparmor 2>&1'
+Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo apt remove --assume-yes --purge apparmor 2>&1'
 
 # check state of virtualization
-ExecCmdMaster 'sudo virt-host-validate qemu'
+Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo virt-host-validate qemu'
 
 # add kernel parameter to use cgroup v1 (will be only valid after restart of VM)
 Write-Log 'change to cgroup v1'
-ExecCmdMaster "sudo sed -i 's,systemd.unified_cgroup_hierarchy=0\ ,,g' /etc/default/grub"
-ExecCmdMaster "sudo sed -i 's,console=tty0,systemd.unified_cgroup_hierarchy=0\ console=tty0,g' /etc/default/grub"
-ExecCmdMaster 'sudo update-grub 2>&1'
+Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo sed -i 's,systemd.unified_cgroup_hierarchy=0\ ,,g' /etc/default/grub"
+Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo sed -i 's,console=tty0,systemd.unified_cgroup_hierarchy=0\ console=tty0,g' /etc/default/grub"
+Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo update-grub 2>&1'
 
 # wait for API server
 Wait-ForAPIServer
@@ -191,93 +180,89 @@ Write-Log "Use of software virtualization: $UseSoftwareVirtualization"
 # use software virtualization
 if ( $UseSoftwareVirtualization ) {
     Write-Log 'enable the software virtualization'
-    &$global:KubectlExe create namespace kubevirt | Write-Log
+    (Invoke-Kubectl -Params 'create', 'namespace', 'kubevirt').Output | Write-Log
     # enable feature
-    &$global:KubectlExe create configmap kubevirt-config -n kubevirt --from-literal=feature-gates=HostDisk --from-literal=debug.useEmulation=true | Write-Log
+    (Invoke-Kubectl -Params 'create', 'configmap', 'kubevirt-config', '-n', 'kubevirt', '--from-literal=feature-gates=HostDisk', '--from-literal=debug.useEmulation=true').Output | Write-Log
 }
 
 # deploy kubevirt
 $VERSION_KV = 'v0.59.2'
 Write-Log "deploy kubevirt version $VERSION_KV"
-# &$global:KubectlExe apply -f https://github.com/kubevirt/kubevirt/releases/download/$VERSION_KV/kubevirt-operator.yaml
-# &$global:KubectlExe apply -f https://github.com/kubevirt/kubevirt/releases/download/$VERSION_KV/kubevirt-cr.yaml
-&$global:KubectlExe apply -f "$global:KubernetesPath\addons\kubevirt\kubevirt-operator.yaml" | Write-Log
-&$global:KubectlExe apply -f "$global:KubernetesPath\addons\kubevirt\kubevirt-cr.yaml" | Write-Log
+(Invoke-Kubectl -Params 'apply', '-f', "$PSScriptRoot\manifests\kubevirt-operator.yaml").Output | Write-Log
 
 # deploy virtctrl
 $VERSION_VCTRL = 'v0.59.2'
-$IMPLICITPROXY = 'http://' + $global:IP_NextHop + ':8181'
+$IMPLICITPROXY = "http://$(Get-ConfiguredKubeSwitchIP):8181"
 Write-Log "deploy virtctl version $VERSION_VCTRL"
 if ( $K8sSetup -eq 'SmallSetup' ) {
-    ExecCmdMaster "export VERSION_VCTRL=$VERSION_VCTRL"
-    ExecCmdMaster "export IMPLICITPROXY=$IMPLICITPROXY"
+    Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "export VERSION_VCTRL=$VERSION_VCTRL"
+    Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "export IMPLICITPROXY=$IMPLICITPROXY"
     # NOTE: DO NOT USE `ExecCmdMaster` here to get the return value.
-    ssh.exe -n -o StrictHostKeyChecking=no -i $global:LinuxVMKey $global:Remote_Master '[ -f /usr/local/bin/virtctl ]'
+    ssh.exe -n -o StrictHostKeyChecking=no -i (Get-SSHKeyControlPlane) (Get-ControlPlaneRemoteUser) '[ -f /usr/local/bin/virtctl ]'
     if (!$?) {
         $setupInfo = Get-SetupInfo
-        if ($setupInfo.Name -ne $global:SetupType_MultiVMK8s) {
-            ExecCmdMaster "sudo curl --retry 3 --retry-all-errors --proxy $IMPLICITPROXY -sL -o /usr/local/bin/virtctl https://github.com/kubevirt/kubevirt/releases/download/$VERSION_VCTRL/virtctl-$VERSION_VCTRL-linux-amd64 2>&1"
+        if ($setupInfo.Name -ne 'MultiVMK8s') {
+            Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo curl --retry 3 --retry-all-errors --proxy $IMPLICITPROXY -sL -o /usr/local/bin/virtctl https://github.com/kubevirt/kubevirt/releases/download/$VERSION_VCTRL/virtctl-$VERSION_VCTRL-linux-amd64 2>&1"
         }
         else {
-            ExecCmdMaster "sudo curl --retry 3 --retry-all-errors -sL -o /usr/local/bin/virtctl https://github.com/kubevirt/kubevirt/releases/download/$VERSION_VCTRL/virtctl-$VERSION_VCTRL-linux-amd64 2>&1"
+            Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo curl --retry 3 --retry-all-errors -sL -o /usr/local/bin/virtctl https://github.com/kubevirt/kubevirt/releases/download/$VERSION_VCTRL/virtctl-$VERSION_VCTRL-linux-amd64 2>&1"
         }
     }
-    ExecCmdMaster 'sudo chmod +x /usr/local/bin/virtctl'
-}
-if (!(Test-Path "$global:KubernetesPath\bin\virtctl.exe")) {
-    DownloadFile "$global:KubernetesPath\bin\virtctl.exe" https://github.com/kubevirt/kubevirt/releases/download/$VERSION_VCTRL/virtctl-$VERSION_VCTRL-windows-amd64.exe $true -ProxyToUse $Proxy
+    Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo chmod +x /usr/local/bin/virtctl'
 }
 
-$hostname = Get-ControlPlaneNodeHostname
+$binPath = Get-KubeBinPath
+if (!(Test-Path "$binPath\virtctl.exe")) {
+    Invoke-DownloadFile "$binPath\virtctl.exe" "https://github.com/kubevirt/kubevirt/releases/download/$VERSION_VCTRL/virtctl-$VERSION_VCTRL-windows-amd64.exe" $true -ProxyToUse $Proxy
+}
+
 # enable config
-&$global:KubectlExe wait --timeout=180s --for=condition=Ready -n kube-system "pod/kube-apiserver-$hostname" | Write-Log
-&$global:KubectlExe wait --timeout=30s --for=condition=Available -n kubevirt deployment/virt-operator | Write-Log
-&$global:KubectlExe apply -f "$global:KubernetesPath\addons\kubevirt\kubevirt-cr.yaml" | Write-Log
+(Invoke-Kubectl -Params 'wait', '--timeout=180s', '--for=condition=Ready', '-n', 'kube-system', "pod/kube-apiserver-$controlPlaneNodeName").Output | Write-Log
+(Invoke-Kubectl -Params 'wait', '--timeout=30s', '--for=condition=Available', '-n', 'kubevirt', 'deployment/virt-operator').Output | Write-Log
+(Invoke-Kubectl -Params 'apply', '-f', "$PSScriptRoot\manifests\kubevirt-cr.yaml").Output | Write-Log
 
 # for small setup restart VM
 if ( $K8sSetup -eq 'SmallSetup' ) {
-    # restart KubeMaster
-    Write-Log "Stopping VM $global:VMName"
-    Stop-VM -Name $global:VMName -Force -WarningAction SilentlyContinue
-    $state = (Get-VM -Name $global:VMName).State -eq [Microsoft.HyperV.PowerShell.VMState]::Off
+    Write-Log "Stopping VM $controlPlaneNodeName"
+    Stop-VM -Name $controlPlaneNodeName -Force -WarningAction SilentlyContinue
+    $state = (Get-VM -Name $controlPlaneNodeName).State -eq [Microsoft.HyperV.PowerShell.VMState]::Off
     while (!$state) {
         Write-Log 'Still waiting for stop...'
         Start-Sleep -s 1
-        $state = (Get-VM -Name $global:VMName).State -eq [Microsoft.HyperV.PowerShell.VMState]::Off
+        $state = (Get-VM -Name $controlPlaneNodeName).State -eq [Microsoft.HyperV.PowerShell.VMState]::Off
     }
-    Write-Log "Start VM $global:VMName"
-    Start-VM -Name $global:VMName
-    # wait for API server
+    Write-Log "Start VM $controlPlaneNodeName"
+    Start-VM -Name $controlPlaneNodeName
     Wait-ForAPIServer
 }
 
 # install virt viewer
-$virtviewer = 'virt-viewer-x64-11.0-1.0.msi';
-if (!(Test-Path "$global:KubernetesPath\bin\$virtviewer")) {
+$virtviewer = Get-VirtViewerMsiFileName
+if (!(Test-Path "$binPath\$virtviewer")) {
     Write-Log 'Installing VirtViewer ...'
-    if (!(Test-Path "$global:KubernetesPath\bin\$virtviewer")) {
-        DownloadFile "$global:KubernetesPath\bin\$virtviewer" "https://releases.pagure.org/virt-viewer/$virtviewer" $true -ProxyToUse $Proxy
+    if (!(Test-Path "$binPath\$virtviewer")) {
+        Invoke-DownloadFile "$binPath\$virtviewer" "https://releases.pagure.org/virt-viewer/$virtviewer" $true -ProxyToUse $Proxy
     }
-    msiexec.exe /i "$global:KubernetesPath\bin\$virtviewer" /L*VX "$global:KubernetesPath\bin\msiinstall.log" /quiet /passive /norestart
+    msiexec.exe /i "$binPath\$virtviewer" /L*VX "$binPath\msiinstall.log" /quiet /passive /norestart
 
     # add to environment variable
+    # version 11.0-1.0 results in folder naming v11.0-256
     $pathAdditions = 'C:\Program Files\VirtViewer v11.0-256\bin'
     Update-SystemPath -Action 'add' "$pathAdditions"
 
-    Write-Log 'VirtViewer installed !'
+    Write-Log 'VirtViewer installed'
 }
 
-# wait for kubevirt components to be running
-Write-Log 'wait for kubevirt components to be running ...'
-&$global:KubectlExe wait --timeout=180s --for=condition=Ready -n kube-system "pod/kube-apiserver-$hostname" | Write-Log
-&$global:KubectlExe wait --timeout=180s --for=condition=Available -n kubevirt kv/kubevirt | Write-Log
+Write-Log 'Waiting for kubevirt components to be running..'
+(Invoke-Kubectl -Params 'wait', '--timeout=180s', '--for=condition=Ready', '-n', 'kube-system', "pod/kube-apiserver-$controlPlaneNodeName").Output | Write-Log
+(Invoke-Kubectl -Params 'wait', '--timeout=180s', '--for=condition=Available', '-n', 'kubevirt', 'kv/kubevirt').Output | Write-Log
 
 # label master node with kubevirt label
 if ( $K8sSetup -eq 'SmallSetup' ) {
-    &$global:KubectlExe label node $hostname kubevirt=true --overwrite | Write-Log
+    (Invoke-Kubectl -Params 'label', 'node', $controlPlaneNodeName, 'kubevirt=true', '--overwrite').Output | Write-Log
 }
 
-Write-Log 'kubevirt components are running !'
+Write-Log 'kubevirt components are running'
 
 Write-RefreshEnvVariables
 

@@ -68,6 +68,7 @@ function Set-EnvVars {
 }
 
 function Reset-EnvVars {
+    $kubePath = Get-KubePath
     Update-SystemPath -Action 'remove' "$kubePath"
     Update-SystemPath -Action 'remove' "$kubePath\bin"
     Update-SystemPath -Action 'remove' "$kubePath\bin\exe"
@@ -84,6 +85,7 @@ Write refresh info.
 Write information about refersh of env variables
 #>
 function Write-RefreshEnvVariables {
+    $kubePath = Get-KubePath
     Write-Log ' ' -Console
     Write-Log '   Update PATH environment variable for proper usage:' -Console
     Write-Log ' ' -Console

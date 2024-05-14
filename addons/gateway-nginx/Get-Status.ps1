@@ -4,11 +4,14 @@
 
 #Requires -RunAsAdministrator
 
-&$PSScriptRoot\..\..\smallsetup\common\GlobalVariables.ps1
+$k8sApiModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k8s-api/k8s-api.module.psm1"
+$configModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/config/config.module.psm1"
 
-&$global:KubectlExe wait --timeout=5s --for=condition=Available -n nginx-gateway deployment/nginx-gateway 2>&1 | Out-Null
+Import-Module $k8sApiModule, $configModule
 
-$isGatewayControllerRunningProp = @{Name = 'isGatewayControllerRunningProp'; Value = $?; Okay = $? }
+$success = (Invoke-Kubectl -Params 'wait', '--timeout=5s', '--for=condition=Available', '-n', 'nginx-gateway', 'deployment/nginx-gateway').Success
+
+$isGatewayControllerRunningProp = @{Name = 'IsGatewayControllerRunning'; Value = $success; Okay = $success }
 if ($isGatewayControllerRunningProp.Value -eq $true) {
     $isGatewayControllerRunningProp.Message = 'The gateway API controller is working'
 }
@@ -16,11 +19,12 @@ else {
     $isGatewayControllerRunningProp.Message = "The gateway API controller is not working. Try restarting the cluster with 'k2s start' or disable and re-enable the addon with 'k2s addons disable gateway-nginx' and 'k2s addons enable gateway-nginx'"
 } 
 
-$externalIp = &$global:KubectlExe get service nginx-gateway -n nginx-gateway -o jsonpath="{.spec.externalIPs[0]}"
+$externalIp = (Invoke-Kubectl -Params 'get', 'service', 'nginx-gateway', '-n', 'nginx-gateway', '-o', 'jsonpath="{.spec.externalIPs[0]}"').Output
+$controlPlaneIp = Get-ConfiguredIPControlPlane
 
-$isExternalIPSetProp = @{Name = 'isExternalIPSetProp'; Value = ($externalIp -eq $global:IP_Master); Okay = ($externalIp -eq $global:IP_Master) }
+$isExternalIPSetProp = @{Name = 'IsExternalIPSet'; Value = ($externalIp -eq $controlPlaneIp); Okay = ($externalIp -eq $controlPlaneIp) }
 if ($isExternalIPSetProp.Value -eq $true) {
-    $isExternalIPSetProp.Message = "The external IP for gateway API service is set to $global:IP_Master"
+    $isExternalIPSetProp.Message = "The external IP for gateway API service is set to $controlPlaneIp"
 }
 else {
     $isExternalIPSetProp.Message = "The external IP for gateway API service is not set properly. Try restarting the cluster with 'k2s start' or disable and re-enable the addon with 'k2s addons disable gateway-nginx' and 'k2s addons enable gateway-nginx'"
