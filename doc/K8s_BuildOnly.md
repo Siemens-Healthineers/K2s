@@ -11,8 +11,6 @@ SPDX-License-Identifier: MIT
 The Build Only Setup is designed for scenarios where a Kubernetes (K8s) cluster is unnecessary, 
 as it enables the building of Windows and Linux containers without the need for such a cluster.
 
-![IMAGE here](/doc/assets/buildcontainer.png)
-
 # Install Build Only Setup
 
 Create main directory and download K2s repository:
