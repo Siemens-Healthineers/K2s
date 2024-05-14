@@ -4,10 +4,9 @@ SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
 SPDX-License-Identifier: MIT
 -->
 
-[Home](../README.md)
-
 K2s Features
 ==============
+[ Home ](../README.md)
 
 **K2s** includes the following features:
 - support of mixed Windows and Linux K8s (Kubernetes) workloads
