@@ -69,6 +69,10 @@ if ((Test-IsAddonEnabled -Name 'security') -eq $true) {
     exit 1
 }
 
+Write-Log 'Installing keycloak' -Console
+$keyCloakFolder = Get-KeyCloakFolder
+(Invoke-Kubectl -Params 'apply', '-k', $keyCloakFolder).Output | Write-Log
+
 Write-Log 'Downloading cert-manager files' -Console
 $manifest = Get-FromYamlFile -Path "$PSScriptRoot\addon.manifest.yaml"
 $k2sRoot = "$PSScriptRoot\..\.."

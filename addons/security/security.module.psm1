@@ -27,6 +27,10 @@ function Get-CAIssuerConfig {
     return "$PSScriptRoot\manifests\ca-issuer.yaml"
 }
 
+function Get-KeyCloakFolder {
+    return "$PSScriptRoot\manifests\keycloak"
+}
+
 <#
 .DESCRIPTION
 Writes the usage notes for security for the user.
