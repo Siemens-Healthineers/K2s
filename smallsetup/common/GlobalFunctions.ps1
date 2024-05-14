@@ -1296,7 +1296,16 @@ function New-KubeSwitch() {
     Set-NetIPInterface -InterfaceIndex $ipindex1 -InterfaceMetric 25
 }
 
-function Set-WSL() {
+function Set-WSL {
+    param (
+        [Parameter()]
+        [ValidateNotNullOrEmpty()]
+        [long] $MasterVMMemory = $(throw 'Please specify kubemaster VM memory'),
+        [Parameter()]
+        [ValidateNotNullOrEmpty()]
+        [long] $MasterVMProcessorCount = $(throw 'Please specify kubemaster VM processor count')
+    )
+
     Write-Log 'Disable Remote App authentication warning dialog'
     REG ADD 'HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services' /V 'AuthenticationLevel' /T REG_DWORD /D '0' /F
 

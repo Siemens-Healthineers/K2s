@@ -65,7 +65,7 @@ Set-ConfigProductVersion -Value $productVersion
 if ($WSL) {
     Write-Log 'vEthernet (WSL) switch will be reconfigured! Your existing WSL distros will not work properly until you stop the cluster.'
     Write-Log 'Configuring WSL2'
-    Set-WSL
+    Set-WSL -MasterVMMemory $MasterVMMemory -MasterVMProcessorCount $MasterVMProcessorCount
 }
 
 
