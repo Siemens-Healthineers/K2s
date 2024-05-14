@@ -4,7 +4,7 @@
 
 module github.com/siemens-healthineers/k2s
 
-go 1.21
+go 1.22
 
 require (
 	github.com/Microsoft/go-winio v0.6.1
