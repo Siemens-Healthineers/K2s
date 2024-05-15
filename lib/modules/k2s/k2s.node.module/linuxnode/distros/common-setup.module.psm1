@@ -240,6 +240,10 @@ Function Install-KubernetesArtifacts {
     #Delete downloaded file
     &$executeRemoteCommand "sudo rm cri-o.v$CrioVersion.tar.gz"
 
+    # increase timeout for crictl to connect to crio.sock
+    &$executeRemoteCommand "grep timeout.* /etc/crictl.yaml | sudo sed -i 's/timeout.*/timeout: 30/g' /etc/crictl.yaml"
+    &$executeRemoteCommand "grep timeout.* /etc/crictl.yaml || echo timeout: 30 | sudo tee -a /etc/crictl.yaml"
+
     if ( $Proxy -ne '' ) {
         Write-Log "Set proxy to CRI-O"
         &$executeRemoteCommand 'sudo mkdir -p /etc/systemd/system/crio.service.d'

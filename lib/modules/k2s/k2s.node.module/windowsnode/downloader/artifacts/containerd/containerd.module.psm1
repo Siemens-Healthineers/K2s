@@ -227,7 +227,7 @@ function Install-WinContainerd {
     @'
 runtime-endpoint: npipe://./pipe/containerd-containerd
 image-endpoint: npipe://./pipe/containerd-containerd
-timeout: 10
+timeout: 30
 #debug: true
 '@ | Set-Content "$kubePath\bin\crictl.yaml" -Force
 
