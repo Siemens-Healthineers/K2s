@@ -412,4 +412,8 @@ function Install-DefaultTools {
     Invoke-DeployPuttytoolsArtifacts $windowsNodeArtifactsDownloadsDirectory
 }
 
-Export-ModuleMember Invoke-DeployWinArtifacts, Invoke-DownloadsCleanup, Install-WinNodeArtifacts, Install-DefaultTools
+function Get-WindowsNodeArtifactsZipFilePath {
+    return $windowsNodeArtifactsZipFilePath
+}
+
+Export-ModuleMember Invoke-DeployWinArtifacts, Invoke-DownloadsCleanup, Install-WinNodeArtifacts, Install-DefaultTools, Get-WindowsNodeArtifactsZipFilePath

@@ -160,6 +160,21 @@ $exclusionList += "$kubePath\k2s\cmd\httpproxy\httpproxy.exe"
 $exclusionList += "$kubePath\k2s\cmd\devgon\devgon.exe"
 $exclusionList += "$kubePath\k2s\cmd\bridge\bridge.exe"
 
+# if the zip package is to be used for offline installation then use existing base image and windows node artifacts file
+# or create a new one for the one that does not exist.
+# Otherwise include the base image and the Windows node artifacts file in the exclusion list
+
+$controlPlaneBaseVhdxPath = Get-ControlPlaneVMBaseImagePath
+$winNodeArtifactsZipFilePath = Get-WindowsNodeArtifactsZipFilePath
+if ($ForOfflineInstallation) {
+    Write-Log "Not implemented."
+} else {
+    $controlPlaneRootfsPath = Get-ControlPlaneVMRootfsPath
+    $exclusionList += $controlPlaneBaseVhdxPath
+    $exclusionList += $controlPlaneRootfsPath
+    $exclusionList += $winNodeArtifactsZipFilePath
+}
+
 Write-Log 'Content of the exclusion list:' -Console
 $exclusionList | ForEach-Object { " - $_ " } | Write-Log -Console
 
