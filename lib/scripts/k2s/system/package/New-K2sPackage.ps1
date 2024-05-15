@@ -167,7 +167,15 @@ $exclusionList += "$kubePath\k2s\cmd\bridge\bridge.exe"
 $controlPlaneBaseVhdxPath = Get-ControlPlaneVMBaseImagePath
 $winNodeArtifactsZipFilePath = Get-WindowsNodeArtifactsZipFilePath
 if ($ForOfflineInstallation) {
-    Write-Log "Not implemented."
+    # Provide windows parts
+    if (Test-Path $winNodeArtifactsZipFilePath) {
+        Write-Log "The already existing file '$winNodeArtifactsZipFilePath' will be used." -Console
+    }
+
+    # Provide linux parts
+    if (Test-Path $kubemasterBaseVhdxPath) {
+        Write-Log "The already existing file '$controlPlaneBaseVhdxPath' will be used." -Console
+    }
 } else {
     $controlPlaneRootfsPath = Get-ControlPlaneVMRootfsPath
     $exclusionList += $controlPlaneBaseVhdxPath
