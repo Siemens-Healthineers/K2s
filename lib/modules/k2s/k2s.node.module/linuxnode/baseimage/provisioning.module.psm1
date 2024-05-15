@@ -129,7 +129,7 @@ function New-VmBaseImageProvisioning {
             UserName                      = $guestOsParameters.UserName
             UserPwd                       = $guestOsParameters.UserPwd
             Proxy                         = $Proxy
-            K8sVersion                    = Get-ConfigInstalledKubernetesVersion
+            K8sVersion                    = Get-DefaultK8sVersion
             CrioVersion                   = $crioVersion
             ClusterCIDR                   = Get-ConfiguredClusterCIDR
             ClusterCIDR_Services          = Get-ConfiguredClusterCIDRServices
