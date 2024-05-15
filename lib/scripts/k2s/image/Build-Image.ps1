@@ -161,6 +161,9 @@ if ($buildArgsString -ne '') {
 
 $InputFolder = [System.IO.Path]::GetFullPath($InputFolder)
 
+$kubeBinPath = Get-KubeBinPath
+$dockerExe = "$kubeBinPath\docker\docker.exe"
+
 $dockerfileAbsoluteFp, $PreCompile = Get-DockerfileAbsolutePathAndPreCompileFlag -InputFolder $InputFolder -Dockerfile $Dockerfile -PreCompile:$PreCompile
 
 if (($ImageTag -eq 'local') -and $Push) { throw 'Unable to push without valid tag, use -ImageTag' }
@@ -271,10 +274,10 @@ if (!$Windows) {
     }
 }
 
-$GO_VERSION = '1.21.4'
+$GO_VERSION = '1.22.3'
 if ($null -ne $env:GOVERSION -and $env:GOVERSION -ne '') {
     Write-Log "Using local GOVERSION $Env:GOVERSION environment variable from the host machine"
-    # $env:GOVERSION will be go1.21.4, remove the go part.
+    # $env:GOVERSION will be go1.22.3, remove the go part.
     $GO_VERSION = $env:GOVERSION -split 'go' | Select-Object -Last 1
 }
 
@@ -297,7 +300,7 @@ if (!$Windows -and $PreCompile) {
     else {
         Write-Log 'Pre-Compilation: Downloading needed binaries (go, gcc)...'
         Invoke-CmdOnControlPlaneViaSSHKey "echo 'debconf debconf/frontend select Noninteractive' | sudo debconf-set-selections"
-        Invoke-CmdOnControlPlaneViaSSHKey "sudo apt-get update;DEBIAN_FRONTEND=noninteractive sudo apt-get install -q --yes gcc git musl musl-tools;" -Retries 3 -Timeout 2
+        Invoke-CmdOnControlPlaneViaSSHKey 'sudo apt-get update;DEBIAN_FRONTEND=noninteractive sudo apt-get install -q --yes gcc git musl musl-tools;' -Retries 3 -Timeout 2
         Invoke-CmdOnControlPlaneViaSSHKey 'DEBIAN_FRONTEND=noninteractive sudo apt-get install -q --yes upx-ucl' -Retries 3 -Timeout 2
         # Invoke-CmdOnControlPlaneViaSSHKey "sudo apt-get update >/dev/null ; sudo apt-get install -q --yes golang-$GO_VERSION gcc git musl musl-tools; sudo apt-get install -q --yes upx-ucl"
         if ($LASTEXITCODE -ne 0) {
@@ -453,7 +456,7 @@ if ($Push) {
     Write-Log "Trying to push image ${ImageName}:$ImageTag to repository" -Console
 
     if ($Windows) {
-        docker push "${ImageName}:$ImageTag" 2>&1
+        &$dockerExe push "${ImageName}:$ImageTag" 2>&1
     }
     else {
         Invoke-CmdOnControlPlaneViaSSHKey "sudo buildah push ${ImageName}:$ImageTag 2>&1"

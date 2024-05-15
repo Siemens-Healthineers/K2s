@@ -11,6 +11,14 @@ Import-Module $infraModule, $k8sApiModule
 
 $cmctlExe = "$(Get-KubeToolsPath)\cmctl.exe"
 
+function Get-CAIssuerName {
+    return 'K2s Self-Signed CA'
+}
+
+function Get-TrustedRootStoreLocation {
+    return 'Cert:\LocalMachine\Root'
+}
+
 function Get-CertManagerConfig {
     return "$PSScriptRoot\manifests\cert-manager.yaml"
 }

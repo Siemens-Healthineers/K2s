@@ -17,6 +17,7 @@ $kubeBinPath = Get-KubeBinPath
 $dockerExe = "$kubeBinPath\docker\docker.exe"
 $nerdctlExe = "$kubeBinPath\nerdctl.exe"
 $ctrExe = "$kubeBinPath\containerd\ctr.exe"
+$crictlExe = "$kubeBinPath\crictl.exe"
 
 class ContainerImage {
     [string]$ImageId
@@ -115,15 +116,13 @@ function Get-ContainerImagesOnLinuxNode([bool]$IncludeK8sImages = $false) {
 }
 
 function Get-ContainerImagesOnWindowsNode([bool]$IncludeK8sImages = $false, [bool]$WorkerVM = $false) {
-
-    $kubeBinPath = Get-KubeBinPath
     $output = ''
     $node = ''
     if ($WorkerVM) {
         $output = Invoke-CmdOnVMWorkerNodeViaSSH -CmdToExecute "crictl images" 2> $null
         $node = Get-ConfigVMNodeHostname
     } else {
-        $output = &$kubeBinPath\crictl.exe images 2> $null
+        $output = &$crictlExe images 2> $null
         $node = $env:ComputerName.ToLower()
     }
 
@@ -153,7 +152,7 @@ function Get-ContainerImagesOnWindowsNode([bool]$IncludeK8sImages = $false, [boo
 function Get-PushedContainerImages() {
     $setupFilePath = Get-SetupConfigFilePath
     $enableAddons = Get-ConfigValue -Path $setupFilePath -Key 'EnabledAddons'
-    $isRegistryAddonEnabled = $enableAddons | Select-Object -Property Name | Where-Object { $_ -eq "registry" }
+    $isRegistryAddonEnabled = $enableAddons | Select-Object -ExpandProperty Name | Where-Object { $_ -eq "registry" }
     if (!$isRegistryAddonEnabled) {
         return
     }
@@ -189,7 +188,7 @@ function Get-PushedContainerImages() {
 function Remove-Image([ContainerImage]$ContainerImage) {
     $output = ''
     if ($containerImage.Node -eq $env:ComputerName.ToLower()) {
-        $output = $(crictl rmi $containerImage.ImageId 2>&1)
+        $output = $(&$crictlExe rmi $containerImage.ImageId 2>&1)
     }
     else {
         $imageId = $containerImage.ImageId

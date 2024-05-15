@@ -93,6 +93,7 @@ function UpdateIpAddress {
             $dnservers = Get-DnsClientServerAddress -InterfaceIndex $physicalInterfaceIndex -AddressFamily IPv4
             Write-Log "           DNSServers found in Physical Adapter ($physicalInterfaceIndex) : $($dnservers.ServerAddresses)"
             Set-IPAdressAndDnsClientServerAddress -IPAddress $ipaddress -DefaultGateway $gateway -Index $ipindex -DnsAddresses $dnservers.ServerAddresses
+            Set-DnsClient -InterfaceIndex $ipindex -RegisterThisConnectionsAddress $false | Out-Null
             $script:fixedIpWasSet = $true
         }
         else {
@@ -440,7 +441,7 @@ EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\vfprules"
 
 Write-Log 'Starting Kubernetes services on the Windows node' -Console
 Start-ServiceAndSetToAutoStart -Name 'containerd'
-Start-ServiceAndSetToAutoStart -Name 'flanneld'
+Start-ServiceAndSetToAutoStart -Name 'flanneld' -IgnoreErrors
 Start-ServiceAndSetToAutoStart -Name 'kubelet'
 Start-ServiceAndSetToAutoStart -Name 'kubeproxy'
 Start-ServiceAndSetToAutoStart -Name 'windows_exporter'
@@ -488,6 +489,8 @@ while ($true) {
         $ProgressPreference = 'SilentlyContinue'
 
         Set-InterfacePrivate -InterfaceAlias "vEthernet ($adapterName)"
+        Write-Log "flanneld: $((Get-Service -Name "flanneld" -ErrorAction SilentlyContinue).Status)"
+
         if ($WSL) {
             $interfaceAlias = Get-NetAdapter -Name "vEthernet (WSL*)" -ErrorAction SilentlyContinue -IncludeHidden | Select-Object -expandproperty name
             New-NetFirewallRule -DisplayName 'WSL Inbound' -Group "k2s" -Direction Inbound -InterfaceAlias $interfaceAlias -Action Allow
