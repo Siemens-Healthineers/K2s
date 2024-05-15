@@ -57,7 +57,7 @@ Write-Log "Creating crictl.yaml (config for crictl.exe)"
 @'
 runtime-endpoint: npipe://./pipe/containerd-containerd
 image-endpoint: npipe://./pipe/containerd-containerd
-timeout: 10
+timeout: 30
 #debug: true
 '@ | Set-Content "$global:KubernetesPath\bin\crictl.yaml" -Force
 

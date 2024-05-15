@@ -463,6 +463,9 @@ Describe 'Install-KubernetesArtifacts' -Tag 'unit', 'ci', 'linuxnode' {
                 $expectedExecutedRemoteCommands += @{Command = "sudo tar -xf cri-o.v$expectedCrioVersion.tar.gz -C /usr/cri-o --strip-components=1"; IgnoreErrors = $false }
                 $expectedExecutedRemoteCommands += @{Command = 'cd /usr/cri-o/ && sudo ./install 2>&1'; IgnoreErrors = $false }
                 $expectedExecutedRemoteCommands += @{Command = "sudo rm cri-o.v$expectedCrioVersion.tar.gz"; IgnoreErrors = $false }
+
+                $expectedExecutedRemoteCommands += @{Command = "grep timeout.* /etc/crictl.yaml | sudo sed -i 's/timeout.*/timeout: 30/g' /etc/crictl.yaml"; IgnoreErrors = $false }
+                $expectedExecutedRemoteCommands += @{Command = "grep timeout.* /etc/crictl.yaml || echo timeout: 30 | sudo tee -a /etc/crictl.yaml"; IgnoreErrors = $false }
                 
                 if ($proxyToUse -ne '') {
                     $expectedExecutedRemoteCommands += @{Command = 'sudo mkdir -p /etc/systemd/system/crio.service.d'; IgnoreErrors = $false } 
