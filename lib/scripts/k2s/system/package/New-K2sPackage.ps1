@@ -40,6 +40,50 @@ Write-Log "- Package file name: $ZipPackageFileName"
 
 Add-type -AssemblyName System.IO.Compression
 
+function BuildAndProvisionKubemasterBaseImage($outputPath) {
+    Write-Log 'Create and provision the base image' -Console
+    New-VmBaseImageProvisioning -Proxy $Proxy -OutputPath $outputPath -VMMemoryStartupBytes $VMMemoryStartupBytes -VMProcessorCount $VMProcessorCount -VMDiskSize $VMDiskSize -KeepArtifactsUsedOnProvisioning
+    if (!(Test-Path $outputPath)) {
+        $errMsg = "The provisioned base image is unexpectedly not available as '$outputPath' after build and provisioning stage."
+
+        if ($EncodeStructuredOutput -eq $true) {
+            $err = New-Error -Code 'build-package-failed' -Message $errMsg
+            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+            return
+        }
+    
+        Write-Log $errMsg -Error
+        exit 1
+    }
+    Write-Log "Provisioned base image available as $outputPath" -Console
+}
+
+function DownloadAndZipWindowsNodeArtifacts($outputPath) {
+    Write-Log "Download and create zip file with Windows node artifacts for $outputPath with proxy $Proxy" -Console
+    $kubernetesVersion = Get-DefaultK8sVersion
+    Invoke-DeployWinArtifacts -KubernetesVersion $kubernetesVersion -Proxy "$Proxy" -SkipClusterSetup $true
+
+    $pathToTest = $outputPath
+    Write-Log "Windows node artifacts should be available as '$pathToTest', testing ..." -Console
+    if (![string]::IsNullOrEmpty($pathToTest)) {
+        if (!(Test-Path -Path $pathToTest)) {
+            $errMsg = "The file '$pathToTest' that shall contain the Windows node artifacts is unexpectedly not available."
+            Write-Log "Windows node artifacts should be available as '$pathToTest', throw fatal error" -Console
+
+            if ($EncodeStructuredOutput -eq $true) {
+                $err = New-Error -Code 'build-package-failed' -Message $errMsg
+                Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+                return
+            }
+        
+            Write-Log $errMsg -Error
+            exit 1
+        }
+    }
+
+    Write-Log "Windows node artifacts available as '$outputPath'" -Console
+}
+
 function CreateZipArchive() {
     Param(
         [parameter(Mandatory = $true)]
@@ -170,11 +214,47 @@ if ($ForOfflineInstallation) {
     # Provide windows parts
     if (Test-Path $winNodeArtifactsZipFilePath) {
         Write-Log "The already existing file '$winNodeArtifactsZipFilePath' will be used." -Console
+    } else {
+        try {
+            Write-Log "The file '$winNodeArtifactsZipFilePath' does not exist. Creating it using proxy $Proxy ..." -Console
+            DownloadAndZipWindowsNodeArtifacts($winNodeArtifactsZipFilePath)
+        }
+        catch {
+            Write-Log "Creation of file '$winNodeArtifactsZipFilePath' failed. Performing clean-up...Error: $_" -Console
+            Invoke-DownloadsCleanup -DeleteFilesForOfflineInstallation $true
+
+            if ($EncodeStructuredOutput -eq $true) {
+                $err = New-Error -Code 'build-package-failed' -Message $_
+                Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+                return
+            }
+        
+            Write-Log $_ -Error
+            exit 1
+        }
     }
 
     # Provide linux parts
-    if (Test-Path $kubemasterBaseVhdxPath) {
+    if (Test-Path $controlPlaneBaseVhdxPath) {
         Write-Log "The already existing file '$controlPlaneBaseVhdxPath' will be used." -Console
+    } else {
+        try {
+            Write-Log "The file '$controlPlaneBaseVhdxPath' does not exist. Creating it..." -Console
+            BuildAndProvisionKubemasterBaseImage($controlPlaneBaseVhdxPath)
+        }
+        catch {
+            Write-Log "Creation of file '$controlPlaneBaseVhdxPath' failed. Performing clean-up... Error: $_" -Console
+            Clear-ProvisioningArtifacts
+
+            if ($EncodeStructuredOutput -eq $true) {
+                $err = New-Error -Code 'build-package-failed' -Message $_
+                Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+                return
+            }
+        
+            Write-Log $_ -Error
+            exit 1
+        }
     }
 } else {
     $controlPlaneRootfsPath = Get-ControlPlaneVMRootfsPath
