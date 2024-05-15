@@ -56,17 +56,11 @@ $deletionfailed = $false
 foreach ($containerImage in $allContainerImages) {
     $alreadyDeleted = $deletedImages | Where-Object { $containerImage.ImageId -eq $_ }
     if ($alreadyDeleted.Count -eq 0) {
-        $retry = 3
-        do {
-            Start-Sleep 1
-            $retry--
-            $errorString = Remove-Image -ContainerImage $containerImage
-            if ($null -eq $errorString) {
-                $deletedImages += $containerImage.ImageId
-            }
-            $deletionExitCode = Show-ImageDeletionStatus -ContainerImage $containerImage -ErrorMessage $errorString
-        } while (($deletionExitCode -ne 0) -and ($retry -gt 0))
-
+        $errorString = Remove-Image -ContainerImage $containerImage
+        if ($null -eq $errorString) {
+            $deletedImages += $imageToBeDeleted.ImageId
+        }
+        $deletionExitCode = Show-ImageDeletionStatus -ContainerImage $containerImage -ErrorMessage $errorString
         if($deletionExitCode -eq 1) {
             $deletionfailed = $true
         }
