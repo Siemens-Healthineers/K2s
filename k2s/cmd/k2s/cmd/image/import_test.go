@@ -28,7 +28,7 @@ var _ = Describe("import", Ordered, func() {
 			It("returns correct import command", func() {
 				importCmd.Flags().Set(tarFlag, "myImage")
 
-				cmd, params, err := buildImportPsCmd(importCmd)
+				cmd, params, err := buildImportPsCmd(importCmd, false)
 
 				Expect(err).ToNot(HaveOccurred())
 				Expect(cmd).To(Equal("&'" + filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "image", "Import-Image.ps1") + "'"))
@@ -40,7 +40,7 @@ var _ = Describe("import", Ordered, func() {
 			It("returns correct import command", func() {
 				importCmd.Flags().Set(dirFlag, "myDir")
 
-				cmd, params, err := buildImportPsCmd(importCmd)
+				cmd, params, err := buildImportPsCmd(importCmd, false)
 
 				Expect(err).ToNot(HaveOccurred())
 				Expect(cmd).To(Equal("&'" + filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "image", "Import-Image.ps1") + "'"))
@@ -53,7 +53,7 @@ var _ = Describe("import", Ordered, func() {
 				importCmd.Flags().Set(tarFlag, "myImage")
 				importCmd.Flags().Set(dirFlag, "myDir")
 
-				cmd, params, err := buildImportPsCmd(importCmd)
+				cmd, params, err := buildImportPsCmd(importCmd, false)
 
 				Expect(err).ToNot(HaveOccurred())
 				Expect(cmd).To(Equal("&'" + filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "image", "Import-Image.ps1") + "'"))
@@ -63,7 +63,7 @@ var _ = Describe("import", Ordered, func() {
 
 		Context("without tar archieve and without directory", func() {
 			It("returns error", func() {
-				cmd, params, err := buildImportPsCmd(importCmd)
+				cmd, params, err := buildImportPsCmd(importCmd, false)
 
 				Expect(err).To(MatchError("no path to oci archive provided"))
 				Expect(cmd).To(BeEmpty())
@@ -74,10 +74,9 @@ var _ = Describe("import", Ordered, func() {
 		Context("with all flags", func() {
 			It("returns correct import command", func() {
 				importCmd.Flags().Set(tarFlag, "myImage")
-				importCmd.Flags().Set(windowsFlag, "true")
 				importCmd.Flags().Set(dockerArchiveFlag, "true")
 
-				cmd, params, err := buildImportPsCmd(importCmd)
+				cmd, params, err := buildImportPsCmd(importCmd, true)
 
 				Expect(err).ToNot(HaveOccurred())
 				Expect(cmd).To(Equal("&'" + filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "image", "Import-Image.ps1") + "'"))
