@@ -40,9 +40,36 @@ Write-Log "- Package file name: $ZipPackageFileName"
 
 Add-type -AssemblyName System.IO.Compression
 
-function BuildAndProvisionKubemasterBaseImage($outputPath) {
-    Write-Log 'Create and provision the base image' -Console
-    New-VmBaseImageProvisioning -Proxy $Proxy -OutputPath $outputPath -VMMemoryStartupBytes $VMMemoryStartupBytes -VMProcessorCount $VMProcessorCount -VMDiskSize $VMDiskSize -KeepArtifactsUsedOnProvisioning
+function BuildAndProvisionKubemasterBaseImage($WindowsNodeArtifactsZip, $OutputPath) {
+    # Expand windows node artifacts directory.
+    # Deploy putty and plink for provisioning.
+    if (!(Test-Path $WindowsNodeArtifactsZip)) {
+        $errMsg = "$WindowsNodeArtifactsZip not found. It will not be possible to provision base image without plink and pscp tools present in $WindowsNodeArtifactsZip."
+        if ($EncodeStructuredOutput -eq $true) {
+            $err = New-Error -Code 'build-package-failed' -Message $errMsg
+            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+            return
+        }
+        Write-Log $errMsg -Error
+        exit 1
+    }
+    try {
+        $windowsNodeArtifactsDirectory = "$(Split-Path -Parent $WindowsNodeArtifactsZip)\windowsnode"
+        Write-Log "Extract the artifacts from the file '$WindowsNodeArtifactsZip' to the directory '$windowsNodeArtifactsDirectory'..."
+        Expand-Archive -LiteralPath $windowsNodeArtifactsZip -DestinationPath $windowsNodeArtifactsDirectory -Force
+        Write-Log "  done"
+        # Deploy putty tools
+        Write-Log "Temporarily deploying putty tools..." -Console
+        Invoke-DeployPuttytoolsArtifacts $windowsNodeArtifactsDirectory
+        # Provision linux node artifacts
+        Write-Log 'Create and provision the base image' -Console
+        New-VmBaseImageProvisioning -Proxy $Proxy -OutputPath $OutputPath -VMMemoryStartupBytes $VMMemoryStartupBytes -VMProcessorCount $VMProcessorCount -VMDiskSize $VMDiskSize -KeepArtifactsUsedOnProvisioning
+    } finally {
+        Write-Log "Deleting the putty tools..." -Console
+        Remove-Item -Path "$kubeBinPath\plink.exe" -Force -ErrorAction SilentlyContinue
+        Remove-Item -Path "$kubeBinPath\pscp.exe" -Force -ErrorAction SilentlyContinue
+        Remove-Item -Path $windowsNodeArtifactsDirectory -Force -Recurse -ErrorAction SilentlyContinue
+    }
     if (!(Test-Path $outputPath)) {
         $errMsg = "The provisioned base image is unexpectedly not available as '$outputPath' after build and provisioning stage."
 
@@ -55,7 +82,7 @@ function BuildAndProvisionKubemasterBaseImage($outputPath) {
         Write-Log $errMsg -Error
         exit 1
     }
-    Write-Log "Provisioned base image available as $outputPath" -Console
+    Write-Log "Provisioned base image available as $OutputPath" -Console
 }
 
 function DownloadAndZipWindowsNodeArtifacts($outputPath) {
@@ -240,7 +267,7 @@ if ($ForOfflineInstallation) {
     } else {
         try {
             Write-Log "The file '$controlPlaneBaseVhdxPath' does not exist. Creating it..." -Console
-            BuildAndProvisionKubemasterBaseImage($controlPlaneBaseVhdxPath)
+            BuildAndProvisionKubemasterBaseImage -WindowsNodeArtifactsZip:$winNodeArtifactsZipFilePath -OutputPath:$controlPlaneBaseVhdxPath
         }
         catch {
             Write-Log "Creation of file '$controlPlaneBaseVhdxPath' failed. Performing clean-up... Error: $_" -Console
