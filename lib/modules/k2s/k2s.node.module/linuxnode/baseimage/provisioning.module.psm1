@@ -4,7 +4,7 @@
 #Requires -RunAsAdministrator
 
 $infraModule = "$PSScriptRoot\..\..\..\k2s.infra.module\k2s.infra.module.psm1"
-$baseImageModule = "$PSScriptRoot\base-image2.module.psm1"
+$baseImageModule = "$PSScriptRoot\base-image.module.psm1"
 $vmModule = "$PSScriptRoot\..\vm\vm.module.psm1"
 Import-Module $infraModule, $baseImageModule, $vmModule
 
@@ -28,7 +28,7 @@ $RawBaseImageInProvisioningForKubenodeImageName = 'Debian-11-Base-In-Provisionin
 $KubenodeVmProvisioningNatName = 'KubenodeVmProvisioningNat'
 $KubenodeVmProvisioningSwitchName = 'KubenodeVmProvisioningSwitch'
 
-$RootfsWslProvisioningVmName = 'ROOTFS_FOR_WSL_IN_PROVISIONING'
+$RootfsWslProvisioningVmName = 'ROOTFS_FOR_WSL_IN_CREATION'
 
 class VmParameters {
     [string]$VmName
@@ -57,7 +57,7 @@ class NetworkParameters {
     [string]$DnsIpAddresses
 }
 
-function New-KubenodeBaseImage2 {
+function New-KubenodeBaseImage {
     param (
         [parameter(Mandatory = $false, HelpMessage = 'Startup Memory Size of VM')]
         [long]$VMMemoryStartupBytes = 8GB,
@@ -125,7 +125,7 @@ function New-KubenodeBaseImage2 {
     New-ProvisionedBaseImage @baseImageCreationParameters
 }
 
-function New-KubemasterBaseImage2 {
+function New-KubemasterBaseImage {
     param (
         [parameter(Mandatory = $false, HelpMessage = 'Startup Memory Size of VM')]
         [long]$VMMemoryStartupBytes = 8GB,
@@ -269,7 +269,7 @@ function New-KubemasterBaseImage2 {
         Remove-Item -Path $provisioningTargetDirectory -Recurse -Force
 }
 
-function New-KubeworkerBaseImage2 {
+function New-KubeworkerBaseImage {
     param (
         [parameter(Mandatory = $false, HelpMessage = 'Startup Memory Size of VM')]
         [long]$VMMemoryStartupBytes = 8GB,
@@ -826,7 +826,7 @@ Get-NetworkInterfaceName,
 Get-DefaultUserNameKubeNode, 
 Get-DefaultUserPwdKubeNode, 
 Get-VmIpForProvisioningKubeNode, 
-New-KubenodeBaseImage2, 
-New-KubemasterBaseImage2, 
-New-KubeworkerBaseImage2,
+New-KubenodeBaseImage, 
+New-KubemasterBaseImage, 
+New-KubeworkerBaseImage,
 Convert-VhdxToRootfs

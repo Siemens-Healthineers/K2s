@@ -4,10 +4,10 @@
 #Requires -RunAsAdministrator
 
 $infraModule = "$PSScriptRoot\..\..\..\k2s.infra.module\k2s.infra.module.psm1"
-$commonDistroModule = "$PSScriptRoot\..\distros\common-setup2.module.psm1"
+$commonDistroModule = "$PSScriptRoot\..\distros\common-setup.module.psm1"
 Import-Module $infraModule, $commonDistroModule
 
-$debianDistroModule = "$PSScriptRoot\..\distros\debian\debian2.module.psm1"
+$debianDistroModule = "$PSScriptRoot\..\distros\debian\debian.module.psm1"
 Import-SpecificDistroSettingsModule -ModulePath $debianDistroModule
 
 function New-LinuxVmAsControlPlaneNode {

@@ -4,11 +4,13 @@
 #Requires -RunAsAdministrator
 
 $infraModule = "$PSScriptRoot\..\..\..\k2s.infra.module\k2s.infra.module.psm1"
-$commonDistroModule = "$PSScriptRoot\..\distros\common-setup2.module.psm1"
+$commonDistroModule = "$PSScriptRoot\..\distros\common-setup.module.psm1"
 Import-Module $infraModule, $commonDistroModule
 
-$debianDistroModule = "$PSScriptRoot\..\distros\debian\debian2.module.psm1"
+$debianDistroModule = "$PSScriptRoot\..\distros\debian\debian.module.psm1"
 Import-SpecificDistroSettingsModule -ModulePath $debianDistroModule
+
+$controlPlaneOnWslRootfsFileName = 'Kubemaster-Base.rootfs.tar.gz'
 
 function New-WslLinuxVmAsControlPlaneNode {
     param (
@@ -34,7 +36,6 @@ function New-WslLinuxVmAsControlPlaneNode {
     $kubebinPath = Get-KubeBinPath
     $vhdxPath = "$kubebinPath\Kubemaster-Base-for-WSL.vhdx"
     $rootfsPath = Get-ControlPlaneOnWslRootfsFilePath
-    #$outputPath = "c:\temp\GR.vhdx"
 
     $isRootfsFileAlreadyAvailable = (Test-Path $rootfsPath)
     $isOnlineInstallation = (!$isRootfsFileAlreadyAvailable -or $ForceOnlineInstallation)
@@ -67,7 +68,11 @@ function New-WslLinuxVmAsControlPlaneNode {
 
 function Get-ControlPlaneOnWslRootfsFilePath {
     $kubebinPath = Get-KubeBinPath
-    return "$kubebinPath\Kubemaster-Base.rootfs.tar.gz"
+    return "$kubebinPath\$controlPlaneOnWslRootfsFileName"
+}
+
+function Get-ControlPlaneOnWslRootfsFileName {
+    return $controlPlaneOnWslRootfsFileName
 }
 
 function Remove-WslLinuxVmAsControlPlaneNode {
@@ -81,4 +86,4 @@ function Remove-WslLinuxVmAsControlPlaneNode {
 }
 
 
-Export-ModuleMember -Function New-WslLinuxVmAsControlPlaneNode, Get-ControlPlaneOnWslRootfsFilePath, Remove-WslLinuxVmAsControlPlaneNode
+Export-ModuleMember -Function New-WslLinuxVmAsControlPlaneNode, Get-ControlPlaneOnWslRootfsFilePath, Remove-WslLinuxVmAsControlPlaneNode, Get-ControlPlaneOnWslRootfsFileName

@@ -5,7 +5,7 @@
 
 
 $infraModule = "$PSScriptRoot\..\..\..\k2s.infra.module\k2s.infra.module.psm1"
-$provisioningModule =  "$PSScriptRoot\..\baseimage\provisioning2.module.psm1"
+$provisioningModule =  "$PSScriptRoot\..\baseimage\provisioning.module.psm1"
 $vmModule = "$PSScriptRoot\..\vm\vm.module.psm1"
 Import-Module $infraModule, $provisioningModule, $vmModule
 
@@ -780,7 +780,7 @@ function New-VmImageForKubernetesNode {
         &$addToKubeNode
     }
 
-    New-KubenodeBaseImage2 -DnsIpAddresses $DnsIpAddresses -Proxy $Proxy -Hook $setUpKubenode -OutputPath $VmImageOutputPath
+    New-KubenodeBaseImage -DnsIpAddresses $DnsIpAddresses -Proxy $Proxy -Hook $setUpKubenode -OutputPath $VmImageOutputPath
 }
 
 function New-VmImageForControlPlaneNode {
@@ -791,6 +791,12 @@ function New-VmImageForControlPlaneNode {
         [string]$DnsServers,
         [parameter(Mandatory = $false, HelpMessage = 'The path to save the prepared base image.')]
         [string] $VmImageOutputPath = $(throw "Argument missing: VmImageOutputPath"),
+        [parameter(Mandatory = $false, HelpMessage = 'Startup Memory Size of VM')]
+        [long]$VMMemoryStartupBytes = 8GB,
+        [parameter(Mandatory = $false, HelpMessage = 'Number of Virtual Processors for VM')]
+        [long]$VMProcessorCount = 4,
+        [parameter(Mandatory = $false, HelpMessage = 'Virtual hard disk size of VM')]
+        [uint64]$VMDiskSize = 50GB,
         [string]$Proxy = '',
         [parameter(Mandatory = $false, HelpMessage = 'Deletes the needed files to perform an offline installation')]
         [Boolean] $DeleteFilesForOfflineInstallation = $false,
@@ -846,6 +852,9 @@ function New-VmImageForControlPlaneNode {
     }
     
     $kubemasterCreationParams = @{
+        VMMemoryStartupBytes=$VMMemoryStartupBytes
+        VMProcessorCount=$VMProcessorCount
+        VMDiskSize=$VMDiskSize
         Hostname=$Hostname
         IpAddress=$IpAddress
         InterfaceName=$vmNetworkInterfaceName
@@ -855,7 +864,7 @@ function New-VmImageForControlPlaneNode {
         OutputPath=$VmImageOutputPath
         Hook=$setUpAsMasterNode
     }
-    New-KubemasterBaseImage2 @kubemasterCreationParams
+    New-KubemasterBaseImage @kubemasterCreationParams
 
     if ($DeleteFilesForOfflineInstallation) {
         Remove-Item -Path $kubenodeBaseImagePath -Force
@@ -897,7 +906,7 @@ function New-LinuxVmImageForWorkerNode {
         OutputPath=$VmImageOutputPath
         Hook=$performConfiguration
     }
-    New-KubeworkerBaseImage2 @kubeworkerCreationParams
+    New-KubeworkerBaseImage @kubeworkerCreationParams
 
 }
 
