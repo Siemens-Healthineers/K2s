@@ -67,7 +67,8 @@ Invoke-AddonsHooks -HookType 'AfterUninstall'
 
 if (!$SkipPurge) {
     Uninstall-Cluster
-    Remove-SshKey
+    $ipControlPlane = Get-ConfiguredIPControlPlane
+    Remove-SshKey -IpAddress $ipControlPlane
 }
 
 Clear-WinNode -DeleteFilesForOfflineInstallation $DeleteFilesForOfflineInstallation

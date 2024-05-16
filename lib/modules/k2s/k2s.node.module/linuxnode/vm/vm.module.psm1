@@ -32,9 +32,12 @@ function Invoke-SSHWithKey {
         $Command = $(throw 'Command not specified'),
         [Parameter(Mandatory = $false)]
         [switch]
-        $Nested
+        $Nested,
+        [Parameter(Mandatory = $false)]
+        [string]$IpAddress = $ipControlPlane
     )
-    $params = '-n', '-o', 'StrictHostKeyChecking=no', '-i', $key, $remoteUser, $Command
+    $userOnRemoteMachine = "$defaultUserName@$IpAddress"
+    $params = '-n', '-o', 'StrictHostKeyChecking=no', '-i', $key, $userOnRemoteMachine, $Command
 
     if ($Nested -eq $true) {
         # omit the "-n" param
@@ -60,14 +63,45 @@ function Invoke-CmdOnControlPlaneViaSSHKey(
     [Parameter(Mandatory = $false, HelpMessage = 'repair CMD for the case first run did not work out')]
     [string]$RepairCmd = $null) {
 
+        $invocationParams = @{
+            CmdToExecute = $CmdToExecute
+            IgnoreErrors = $IgnoreErrors
+            Retries = $Retries
+            Timeout = $Timeout
+            NoLog = $NoLog
+            Nested = $Nested
+            RepairCmd = $RepairCmd
+            IpAddress = $ipControlPlane
+        }
+        Invoke-CmdOnVmViaSSHKey @invocationParams
+}
+
+function Invoke-CmdOnVmViaSSHKey(
+    [Parameter(Mandatory = $false)]
+    $CmdToExecute,
+    [Parameter(Mandatory = $false)]
+    [switch]$IgnoreErrors = $false,
+    [Parameter(Mandatory = $false)]
+    [uint16]$Retries = 0,
+    [Parameter(Mandatory = $false)]
+    [uint16]$Timeout = 1,
+    [Parameter(Mandatory = $false)]
+    [switch]$NoLog = $false,
+    [Parameter(Mandatory = $false , HelpMessage = 'When executing ssh.exe in nested environment[host=>VM=>VM], -n flag should not be used.')]
+    [switch]$Nested = $false,
+    [Parameter(Mandatory = $false, HelpMessage = 'repair CMD for the case first run did not work out')]
+    [string]$RepairCmd = $null,
+    [Parameter(Mandatory = $false)]
+    [string]$IpAddress = $(throw 'Argument missing: IpAddress')) {
+
     if (!$NoLog) {
-        Write-Log "cmd: $CmdToExecute, retries: $Retries, timeout: $Timeout sec, ignore err: $IgnoreErrors, nested: $Nested"
+        Write-Log "cmd: $CmdToExecute, retries: $Retries, timeout: $Timeout sec, ignore err: $IgnoreErrors, nested: $Nested, ip address: $IpAddress"
     }
     $Stoploop = $false
     [uint16]$Retrycount = 1
     do {
         try {
-            Invoke-SSHWithKey -Command $CmdToExecute -Nested:$Nested
+            Invoke-SSHWithKey -Command $CmdToExecute -Nested:$Nested -IpAddress $IpAddress
 
             if ($LASTEXITCODE -ne 0 -and !$IgnoreErrors) {
                 throw "Error occurred while executing command '$CmdToExecute' in control plane (exit code: '$LASTEXITCODE')" 
@@ -85,7 +119,7 @@ function Invoke-CmdOnControlPlaneViaSSHKey(
                 if ($null -ne $RepairCmd -and !$IgnoreErrors) {
                     Write-Log "Executing repair cmd: $RepairCmd"
 
-                    Invoke-SSHWithKey -Command $RepairCmd -Nested:$Nested
+                    Invoke-SSHWithKey -Command $RepairCmd -Nested:$Nested -IpAddress $IpAddress
                 }
 
                 Start-Sleep -Seconds $Timeout
@@ -186,6 +220,16 @@ function Copy-FromControlPlaneViaUserAndPwd($Source, $Target,
     if ($error.Count -gt 0 -and !$IgnoreErrors) { throw "Copying $Source to $Target failed! " + $error }
 }
 
+function Copy-FromRemoteComputerViaUserAndPwd($Source, $Target, $IpAddress,
+    [Parameter(Mandatory = $false)]
+    [switch]$IgnoreErrors = $false) {
+    Write-Log "copy: $Source to: $Target IgnoreErrors: $IgnoreErrors"
+    $error.Clear()
+    echo yes | &"$scpExe" -ssh -4 -q -r -pw $remotePwd "${defaultUserName}@${IpAddress}:$Source" "$Target" 2>&1 | ForEach-Object { "$_" }
+
+    if ($error.Count -gt 0 -and !$IgnoreErrors) { throw "Copying $Source to $Target failed! " + $error }
+}
+
 function Copy-ToControlPlaneViaSSHKey($Source, $Target,
     [Parameter(Mandatory = $false)]
     [switch]$IgnoreErrors = $false) {
@@ -216,6 +260,16 @@ function Copy-ToControlPlaneViaUserAndPwd($Source, $Target,
     Write-Log "copy: $Source to: $Target IgnoreErrors: $IgnoreErrors"
     $error.Clear()
     echo yes | &"$scpExe" -ssh -4 -q -r -pw $remotePwd "$Source" "${remoteUser}:$Target" 2>&1 | ForEach-Object { "$_" }
+
+    if ($error.Count -gt 0 -and !$IgnoreErrors) { throw "Copying $Source to $Target failed! " + $error }
+}
+
+function Copy-ToRemoteComputerViaUserAndPwd($Source, $Target, $IpAddress,
+    [Parameter(Mandatory = $false)]
+    [switch]$IgnoreErrors = $false) {
+    Write-Log "copy: $Source to: $Target IgnoreErrors: $IgnoreErrors"
+    $error.Clear()
+    echo yes | &"$scpExe" -ssh -4 -q -r -pw $remotePwd "$Source" "${defaultUserName}@${IpAddress}:$Target" 2>&1 | ForEach-Object { "$_" }
 
     if ($error.Count -gt 0 -and !$IgnoreErrors) { throw "Copying $Source to $Target failed! " + $error }
 }
@@ -419,7 +473,6 @@ function Wait-ForSSHConnectionToLinuxVMViaSshKey {
         [parameter(Mandatory = $false, HelpMessage = 'When executing ssh.exe in nested environment[host=>VM=>VM], -n flag should not be used.')]
         [switch] $Nested = $false
     )
-
     Wait-ForSshPossible -User $remoteUser -SshKey $key -SshTestCommand 'which curl' -ExpectedSshTestCommandResult '/bin/curl' -Nested:$Nested
 }
 
@@ -478,13 +531,16 @@ function Get-ControlPlaneRemoteUser {
 }
 
 Export-ModuleMember -Function Invoke-CmdOnControlPlaneViaSSHKey,
+Invoke-CmdOnVmViaSSHKey,
 Invoke-CmdOnControlPlaneViaUserAndPwd,
 Invoke-TerminalOnControlPanelViaSSHKey,
 Get-IsControlPlaneRunning,
 Copy-FromControlPlaneViaSSHKey,
 Copy-FromControlPlaneViaUserAndPwd,
+Copy-FromRemoteComputerViaUserAndPwd,
 Copy-ToControlPlaneViaSSHKey,
 Copy-ToControlPlaneViaUserAndPwd,
+Copy-ToRemoteComputerViaUserAndPwd,
 Test-ControlPlanePrerequisites,
 Get-LinuxOsType,
 Get-IsLinuxOsDebian,
