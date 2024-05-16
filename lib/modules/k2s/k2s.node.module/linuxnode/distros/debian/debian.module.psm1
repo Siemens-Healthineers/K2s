@@ -2,10 +2,9 @@
 #
 # SPDX-License-Identifier: MIT
 
-$validationModule = "$PSScriptRoot\..\..\..\..\k2s.infra.module\validation\validation.module.psm1"
-$logModule = "$PSScriptRoot\..\..\..\..\k2s.infra.module\log\log.module.psm1"
+$infraModule = "$PSScriptRoot\..\..\..\..\k2s.infra.module\k2s.infra.module.psm1"
 $vmModule = "$PSScriptRoot\..\..\vm\vm.module.psm1"
-Import-Module $validationModule, $logModule, $vmModule
+Import-Module $infraModule, $vmModule 
 
 <#
 .SYNOPSIS
@@ -85,7 +84,22 @@ Function Set-UpComputerWithSpecificOsAfterProvisioning {
     $user = "$UserName@$IpAddress"
     $userPwd = $UserPwd
 
+    Copy-CloudInitFiles -IpAddress $IpAddress
     Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "sudo cloud-init clean" -RemoteUser "$user" -RemoteUserPwd "$userPwd"
+}
+
+
+function Copy-CloudInitFiles {
+    param (
+        [string]$IpAddress = $(throw "Argument missing: IpAddress")
+    )
+    $source = '/var/log/cloud-init*'
+    $target = "$(Get-SystemDriveLetter):\var\log\cloud-init"
+    Remove-Item -Path $target -Force -Recurse -ErrorAction SilentlyContinue | Out-Null
+    mkdir $target -ErrorAction SilentlyContinue | Out-Null
+
+    Write-Log "copy $source to $target"
+    Copy-FromRemoteComputerViaUserAndPwd -Source $source -Target $target -IpAddress $IpAddress
 }
 
 Export-ModuleMember -Function Set-UpComputerWithSpecificOsBeforeProvisioning, Set-UpComputerWithSpecificOsAfterProvisioning

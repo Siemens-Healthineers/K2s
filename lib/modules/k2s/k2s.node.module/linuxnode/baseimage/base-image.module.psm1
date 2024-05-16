@@ -2,11 +2,8 @@
 #
 # SPDX-License-Identifier: MIT
 
-$validationModule = "$PSScriptRoot\..\..\..\k2s.infra.module\validation\validation.module.psm1"
-$logModule = "$PSScriptRoot\..\..\..\k2s.infra.module\log\log.module.psm1"
-$vmModule = "$PSScriptRoot\..\vm\vm.module.psm1"
-
-Import-Module $validationModule, $logModule, $vmModule
+$infraModule = "$PSScriptRoot\..\..\..\k2s.infra.module\k2s.infra.module.psm1"
+Import-Module $infraModule 
 
 # Base image
 
@@ -242,149 +239,6 @@ Function New-IsoFile {
     $IsoFilePath
 }
 
-<#
-.SYNOPSIS
-Creates a root filesystem to be used with WSL
-.DESCRIPTION
-A vhdx file is copied from the Windows host to the running VM
-and a filesystem file is created inside the running VM out of the vhdx file's content.
-The filesystem file is then compressed an sent to the Windows host.
-.PARAMETER IpAddress
-The IP address of the VM.
-.PARAMETER UserName
-The user name to log in into the VM.
-.PARAMETER UserPwd
-The password to use to log in into the VM.
-.PARAMETER VhdxFile
-The full path of the vhdx file that will be used to create the filesystem.
-.PARAMETER RootfsName
-The full path for the output filesystem file.
-.PARAMETER TargetPath
-The path to a directory where the filesystem file will saved after compression and before being sent to the Windows host
-#>
-Function New-RootfsForWSL {
-    param (
-        [string] $IpAddress = $(throw "Argument missing: IpAddress"),
-        [string] $UserName = $(throw "Argument missing: UserName"),
-        [string] $UserPwd = $(throw "Argument missing: UserPwd"),
-        [string] $VhdxFile = $(throw "Argument missing: VhdxFile"),
-        [string] $RootfsName = $(throw "Argument missing: RootfsName"),
-        [string] $TargetPath = $(throw "Argument missing: TargetPath")
-    )
-    $user = "$UserName@$IpAddress"
-    $userPwd = $UserPwd
-
-    $executeRemoteCommand = {
-        param(
-            $command = $(throw "Argument missing: Command"),
-            [switch]$IgnoreErrors = $false
-            )
-        if ($IgnoreErrors) {
-            Invoke-CmdOnControlPlaneViaUserAndPwd $command -RemoteUser "$user" -RemoteUserPwd "$userPwd" -IgnoreErrors
-        } else {
-            Invoke-CmdOnControlPlaneViaUserAndPwd $command -RemoteUser "$user" -RemoteUserPwd "$userPwd"
-        }
-    }
-
-    Write-Log "Creating $RootfsName for WSL2"
-
-    $targetFile = "$TargetPath\$RootfsName"
-    Write-Log "Remove file '$targetFile' if existing"
-    if (Test-Path $targetFile) {
-        Remove-Item $targetFile -Force
-    }
-
-    &$executeRemoteCommand "sudo mkdir -p /tmp/rootfs"
-    &$executeRemoteCommand "sudo chmod 755 /tmp/rootfs"
-    &$executeRemoteCommand "sudo chown $UserName /tmp/rootfs"
-
-    $target = '/tmp/rootfs/'
-    $filename = Split-Path $VhdxFile -Leaf
-    Copy-ToControlPlaneViaUserAndPwd -Source $VhdxFile -Target $target
-
-    &$executeRemoteCommand "cd /tmp/rootfs && sudo mkdir mntfs"
-    &$executeRemoteCommand "cd /tmp/rootfs && sudo modprobe nbd"
-    &$executeRemoteCommand "cd /tmp/rootfs && sudo qemu-nbd -c /dev/nbd0 ./$filename"
-
-    $waitFile = @'
-#!/bin/bash \n
-
-waitFile() { \n
-    local START=$(cut -d '.' -f 1 /proc/uptime) \n
-    local MODE=${2:-"a"} \n
-    until [[ "${MODE}" = "a" && -e "$1" ]] || [[ "${MODE}" = "d" && ( ! -e "$1" ) ]]; do \n
-        sleep 1s \n
-        if [ -n "$3" ]; then \n
-        local NOW=$(cut -d '.' -f 1 /proc/uptime) \n
-        local ELAPSED=$(( NOW - START )) \n
-        if [ $ELAPSED -ge "$3" ]; then break; fi \n
-        fi \n
-    done \n
-} \n
-
-$@ \n
-'@
-
-    &$executeRemoteCommand "sudo touch /tmp/rootfs/waitfile.sh"
-    &$executeRemoteCommand "sudo chmod +x /tmp/rootfs/waitfile.sh"
-    &$executeRemoteCommand "echo -e '$waitFile' | sudo tee -a /tmp/rootfs/waitfile.sh" | Out-Null
-    &$executeRemoteCommand "cd /tmp/rootfs && sed -i 's/\r//g' waitfile.sh"
-    &$executeRemoteCommand "cd /tmp/rootfs && ./waitfile.sh waitFile /dev/nbd0p1 'a' 30"
-
-    &$executeRemoteCommand "cd /tmp/rootfs && sudo mount /dev/nbd0p1 mntfs"
-
-    &$executeRemoteCommand "cd /tmp/rootfs && sudo cp -a mntfs rootfs"
-
-    &$executeRemoteCommand "cd /tmp/rootfs && sudo umount mntfs"
-    &$executeRemoteCommand "cd /tmp/rootfs && sudo qemu-nbd -d /dev/nbd0"
-    &$executeRemoteCommand "cd /tmp/rootfs && ./waitfile.sh waitFile /dev/nbd0p1 'd' 30"
-    &$executeRemoteCommand "cd /tmp/rootfs && sudo rmmod nbd"
-    &$executeRemoteCommand "cd /tmp/rootfs && sudo rmdir mntfs"
-
-    &$executeRemoteCommand "cd /tmp/rootfs && sudo rm $filename"
-
-    &$executeRemoteCommand "cd /tmp/rootfs && sudo tar -zcpf rootfs.tar.gz -C ./rootfs ."  -IgnoreErrors
-    &$executeRemoteCommand 'cd /tmp/rootfs && sudo chown "$(id -un)" rootfs.tar.gz'
-
-    Copy-FromControlPlaneViaUserAndPwd -Source "/tmp/rootfs/rootfs.tar.gz" -Target "$TargetPath"
-    Rename-Item -Path "$TargetPath\rootfs.tar.gz" -NewName $RootfsName -Force -ErrorAction SilentlyContinue
-    Remove-Item "$TargetPath\rootfs.tar.gz" -Force -ErrorAction SilentlyContinue
-    &$executeRemoteCommand "sudo rm -rf /tmp/rootfs"
-
-    $kubemasterRootfsPath = Get-ControlPlaneVMRootfsPath
-    if (!(Test-Path $kubemasterRootfsPath)) {
-        throw "The provisioned base image is not available as $kubemasterRootfsPath for WSL2"
-    }
-    Write-Log "Provisioned base image available as $kubemasterRootfsPath for WSL2"
-}
-
-<#
-.SYNOPSIS
-Finds the DNS IP address of the Windows host
-.DESCRIPTION
-Returns a comma separated list of DNS IP addresses that are configured in the active physical card of the Windows host.
-#>
-Function Find-DnsIpAddress {
-    $ipaddressesFromDhcp = @(Get-NetIPAddress -AddressFamily IPv4 -PrefixOrigin Dhcp -AddressState Preferred -ErrorAction SilentlyContinue)
-    if (!$ipaddressesFromDhcp) {
-    	Write-Log "No DHCP entry found, try to get the Ethernet NIC"
-    	$ipaddressesFromDhcp = @(Get-NetIPAddress -AddressFamily IPv4 -AddressState Preferred -InterfaceAlias Ethernet -ErrorAction SilentlyContinue)
-    }
-    if (!$ipaddressesFromDhcp) {
-    	throw 'No IP address found which can be used for setting up K2s Setup !'
-    }
-    if ($ipaddressesFromDhcp.Length -gt 1) {
-    	Write-Warning "Found more than one IP address, using the first one only"
-    }
-    $ipaddress = $ipaddressesFromDhcp[0] | Select-Object -ExpandProperty IPAddress
-    Write-Log "Windows host IP address: $ipaddress"
-    $interfaceIndex = $ipaddressesFromDhcp[0] | Select-Object -ExpandProperty InterfaceIndex
-    $dnsEntries = (Get-DnsClientServerAddress -InterfaceIndex $interfaceIndex | Select-Object -ExpandProperty ServerAddresses) -join ","
-    Write-Log "Windows host DNS IP addresses: $dnsEntries"
-
-    return $dnsEntries
-}
-
 Function Get-QemuExecutable {
     [CmdletBinding()]
     param(
@@ -607,6 +461,7 @@ Function New-DebianCloudBasedVirtualMachine {
     $HostIpPrefixLength=$NetworkParams.HostIpPrefixLength
     $NatName=$NetworkParams.NatName
     $NatIpAddress=$NetworkParams.NatIpAddress
+    $dnsEntries = $NetworkParams.DnsIpAddresses
 
     $IsoFileCreatorToolPath = $IsoFileParams.IsoFileCreatorToolPath
     $IsoFileName = $IsoFileParams.IsoFileName
@@ -641,7 +496,6 @@ Function New-DebianCloudBasedVirtualMachine {
     New-VhdxDebianCloud -Proxy $Proxy -TargetFilePath $inProvisioningVhdxPath -DownloadsDirectory $downloadsFolder
 
     Write-Log "Create the iso file"
-    $dnsEntries = Find-DnsIpAddress
     $isoContentParameterValues = [hashtable]@{
                                             Hostname=$Hostname
                                             NetworkInterfaceName=$NetworkInterfaceName
@@ -832,7 +686,9 @@ function New-NetworkForProvisioning {
 	Write-Log "Added IP address '$HostIpAddress' to network interface named 'vEthernet ($SwitchName)'"
 
 	$address = "$NatIpAddress/$HostIpPrefixLength"
-    New-NetNat -Name $NatName -InternalIPInterfaceAddressPrefix $address | Write-Log
+    $nat = Get-NetNat -Name $NatName -ErrorAction SilentlyContinue
+    if( $nat ) { Remove-NetNat -Name $NatName -Confirm:$False -ErrorAction SilentlyContinue }
+    New-NetNat -Name $NatName -InternalIPInterfaceAddressPrefix $address -ErrorAction SilentlyContinue | Write-Log
 	Write-Log "Created NetNat '$NatName' with address '$address'"
 }
 
@@ -1040,6 +896,6 @@ Function Assert-IsoContentParameters {
     $True
 }
 
-Export-ModuleMember -Function New-RootfsForWSL, Find-DnsIpAddress, Remove-VirtualMachineForBaseImageProvisioning, Start-VirtualMachineAndWaitForHeartbeat, New-DebianCloudBasedVirtualMachine, Stop-VirtualMachineForBaseImageProvisioning, New-SshKeyPair, Remove-SshKeyFromKnownHostsFile, Copy-LocalPublicSshKeyToRemoteComputer, Remove-NetworkForProvisioning, Get-IsValidIPv4Address, Copy-VhdxFile
+Export-ModuleMember -Function Remove-VirtualMachineForBaseImageProvisioning, Start-VirtualMachineAndWaitForHeartbeat, New-DebianCloudBasedVirtualMachine, Stop-VirtualMachineForBaseImageProvisioning, New-SshKeyPair, Remove-SshKeyFromKnownHostsFile, Copy-LocalPublicSshKeyToRemoteComputer, Remove-NetworkForProvisioning, Get-IsValidIPv4Address, Copy-VhdxFile, New-VirtualMachineForBaseImageProvisioning, New-NetworkForProvisioning
 
 
