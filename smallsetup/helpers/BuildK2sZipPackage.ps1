@@ -273,6 +273,8 @@ if ($ForOfflineInstallation) {
 }
 else {
     $kubemasterRootfsPath = Get-KubemasterRootfsPath
+    $kubenodeBaseVhdxPath = "$(Split-Path -Path $kubemasterBaseVhdxPath)\Kubenode-Base.vhdx"
+    $exclusionList += $kubenodeBaseVhdxPath
     $exclusionList += $kubemasterBaseVhdxPath
     $exclusionList += $kubemasterRootfsPath
     $exclusionList += $winNodeArtifactsZipFilePath
