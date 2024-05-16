@@ -72,6 +72,10 @@ func switchRegistry(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	if config.SetupName == setupinfo.SetupNameMultiVMK8s {
+		return common.CreateFunctionalityNotAvailableCmdFailure(config.SetupName)
+	}
+
 	outputWriter, err := common.NewOutputWriter()
 	if err != nil {
 		return err

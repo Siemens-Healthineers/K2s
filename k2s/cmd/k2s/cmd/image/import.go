@@ -61,7 +61,12 @@ func init() {
 }
 
 func importImage(cmd *cobra.Command, args []string) error {
-	psCmd, params, err := buildImportPsCmd(cmd)
+	isWindowsImage, err := strconv.ParseBool(cmd.Flags().Lookup(windowsFlag).Value.String())
+	if err != nil {
+		return err
+	}
+
+	psCmd, params, err := buildImportPsCmd(cmd, isWindowsImage)
 	if err != nil {
 		return err
 	}
@@ -80,6 +85,10 @@ func importImage(cmd *cobra.Command, args []string) error {
 			return common.CreateSystemNotInstalledCmdFailure()
 		}
 		return err
+	}
+
+	if config.SetupName == setupinfo.SetupNameMultiVMK8s && isWindowsImage {
+		return common.CreateFunctionalityNotAvailableCmdFailure(config.SetupName)
 	}
 
 	outputWriter, err := common.NewOutputWriter()
@@ -103,7 +112,7 @@ func importImage(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func buildImportPsCmd(cmd *cobra.Command) (psCmd string, params []string, err error) {
+func buildImportPsCmd(cmd *cobra.Command, isWindowsImage bool) (psCmd string, params []string, err error) {
 	psCmd = utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "image", "Import-Image.ps1"))
 
 	imagePath, err := cmd.Flags().GetString(tarFlag)
@@ -124,11 +133,6 @@ func buildImportPsCmd(cmd *cobra.Command) (psCmd string, params []string, err er
 		params = append(params, " -ImageDir '"+dir+"'")
 	} else {
 		return "", nil, errors.New("no path to oci archive provided")
-	}
-
-	isWindowsImage, err := strconv.ParseBool(cmd.Flags().Lookup(windowsFlag).Value.String())
-	if err != nil {
-		return "", nil, err
 	}
 
 	showOutput, err := strconv.ParseBool(cmd.Flags().Lookup(common.OutputFlagName).Value.String())
