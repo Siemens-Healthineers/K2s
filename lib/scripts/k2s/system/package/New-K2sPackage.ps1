@@ -66,6 +66,7 @@ function BuildAndProvisionKubemasterBaseImage($WindowsNodeArtifactsZip, $OutputP
         New-VmBaseImageProvisioning -Proxy $Proxy -OutputPath $OutputPath -VMMemoryStartupBytes $VMMemoryStartupBytes -VMProcessorCount $VMProcessorCount -VMDiskSize $VMDiskSize -KeepArtifactsUsedOnProvisioning
     } finally {
         Write-Log "Deleting the putty tools..." -Console
+        Clear-ProvisioningArtifacts
         Remove-Item -Path "$kubeBinPath\plink.exe" -Force -ErrorAction SilentlyContinue
         Remove-Item -Path "$kubeBinPath\pscp.exe" -Force -ErrorAction SilentlyContinue
         Remove-Item -Path $windowsNodeArtifactsDirectory -Force -Recurse -ErrorAction SilentlyContinue
@@ -88,7 +89,11 @@ function BuildAndProvisionKubemasterBaseImage($WindowsNodeArtifactsZip, $OutputP
 function DownloadAndZipWindowsNodeArtifacts($outputPath) {
     Write-Log "Download and create zip file with Windows node artifacts for $outputPath with proxy $Proxy" -Console
     $kubernetesVersion = Get-DefaultK8sVersion
-    Invoke-DeployWinArtifacts -KubernetesVersion $kubernetesVersion -Proxy "$Proxy" -SkipClusterSetup $true
+    try {
+        Invoke-DeployWinArtifacts -KubernetesVersion $kubernetesVersion -Proxy "$Proxy" -SkipClusterSetup $true
+    } finally {
+        Invoke-DownloadsCleanup -DeleteFilesForOfflineInstallation $false
+    }
 
     $pathToTest = $outputPath
     Write-Log "Windows node artifacts should be available as '$pathToTest', testing ..." -Console
