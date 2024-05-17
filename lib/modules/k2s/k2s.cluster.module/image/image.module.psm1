@@ -96,7 +96,7 @@ function Get-ContainerImagesOnLinuxNode([bool]$IncludeK8sImages = $false) {
     $hostname = Get-ConfigValue -Path $setupFilePath -Key 'ControlPlaneNodeHostname'
     $KubernetesImages = Get-KubernetesImagesFromJson
     $linuxContainerImages = @()
-    $output = Invoke-CmdOnControlPlaneViaSSHKey 'sudo buildah images' -NoLog
+    $output = (Invoke-CmdOnControlPlaneViaSSHKey 'sudo buildah images').Output
     foreach ($line in $output[1..($output.Count - 1)]) {
         $words = $($line -replace '\s+', ' ').split()
         $containerImage = [ContainerImage]@{
@@ -192,7 +192,7 @@ function Remove-Image([ContainerImage]$ContainerImage) {
     }
     else {
         $imageId = $containerImage.ImageId
-        $output = Invoke-CmdOnControlPlaneViaSSHKey "sudo crictl rmi $imageId" -NoLog
+        $output = (Invoke-CmdOnControlPlaneViaSSHKey "sudo crictl rmi $imageId").Output
     }
 
     $errorString = Get-ErrorMessageIfImageDeletionFailed -Output $output
@@ -261,7 +261,7 @@ function Remove-PushedImage($name, $tag) {
 
 function Get-RegistryAuthToken($registryName) {
     # read auth
-    $authJson = Invoke-CmdOnControlPlaneViaSSHKey 'sudo cat /root/.config/containers/auth.json' -NoLog
+    $authJson = (Invoke-CmdOnControlPlaneViaSSHKey 'sudo cat /root/.config/containers/auth.json').Output | Out-String
     $dockerConfig = $authJson | ConvertFrom-Json
     $dockerAuth = $dockerConfig.psobject.properties['auths'].value
     $authk2s = $dockerAuth.psobject.properties["$registryName"].value

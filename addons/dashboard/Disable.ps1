@@ -62,8 +62,8 @@ Write-Log 'Uninstalling Kubernetes dashboard' -Console
 $dashboardConfig = Get-DashboardConfig
 $dashboardNginxIngressConfig = Get-DashboardNginxConfig
 
-(Invoke-Kubectl -Params 'delete', '-f', $dashboardConfig).Output | Write-Log
-(Invoke-Kubectl -Params 'delete', '-f', $dashboardNginxIngressConfig, '--ignore-not-found').Output | Write-Log
+Invoke-Kubectl -Params 'delete', '-f', $dashboardConfig
+Invoke-Kubectl -Params 'delete', '-f', $dashboardNginxIngressConfig, '--ignore-not-found'
 
 Remove-AddonFromSetupJson -Name 'dashboard'
 Write-Log 'Uninstallation of Kubernetes dashboard finished' -Console
