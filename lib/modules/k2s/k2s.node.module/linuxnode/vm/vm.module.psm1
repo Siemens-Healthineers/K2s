@@ -73,7 +73,7 @@ function Invoke-CmdOnControlPlaneViaSSHKey(
             RepairCmd = $RepairCmd
             IpAddress = $ipControlPlane
         }
-        Invoke-CmdOnVmViaSSHKey @invocationParams
+        return Invoke-CmdOnVmViaSSHKey @invocationParams
 }
 
 function Invoke-CmdOnVmViaSSHKey(
@@ -101,9 +101,10 @@ function Invoke-CmdOnVmViaSSHKey(
     [uint16]$Retrycount = 1
     do {
         try {
-            Invoke-SSHWithKey -Command $CmdToExecute -Nested:$Nested -IpAddress $IpAddress
+            $output = Invoke-SSHWithKey -Command $CmdToExecute -Nested:$Nested -IpAddress $IpAddress
+            $success = ($LASTEXITCODE -eq 0)
 
-            if ($LASTEXITCODE -ne 0 -and !$IgnoreErrors) {
+            if (!$success -and !$IgnoreErrors) {
                 throw "Error occurred while executing command '$CmdToExecute' in control plane (exit code: '$LASTEXITCODE')" 
             }
             $Stoploop = $true
@@ -128,6 +129,8 @@ function Invoke-CmdOnVmViaSSHKey(
         }
     }
     While ($Stoploop -eq $false)
+
+    return [pscustomobject]@{ Success = $success; Output = $output }
 }
 
 function Invoke-CmdOnControlPlaneViaUserAndPwd(
@@ -552,4 +555,5 @@ Wait-ForSshPossible,
 Get-DefaultUserNameControlPlane,
 Get-DefaultUserPwdControlPlane,
 Copy-KubeConfigFromControlPlaneNode,
-Get-ControlPlaneRemoteUser
+Get-ControlPlaneRemoteUser,
+Invoke-SSHWithKey

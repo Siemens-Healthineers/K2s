@@ -200,7 +200,7 @@ Start-Sleep 2
 
 Connect-Buildah -username $username -password $password -registry $registryName
 
-$authJson = Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo cat /root/.config/containers/auth.json' -NoLog | Out-String
+$authJson = (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo cat /root/.config/containers/auth.json').Output | Out-String
 
 # Add dockerd parameters and restart docker daemon to push nondistributable artifacts and use insecure registry
 if ($setupInfo.Name -eq 'k2s') {

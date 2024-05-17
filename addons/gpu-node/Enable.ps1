@@ -76,13 +76,9 @@ if (!(Test-Path -Path 'C:\Windows\System32\lxss\lib\libdxcore.so')) {
     exit 1
 }
 
-$remoteUser = Get-ControlPlaneRemoteUser
-
 if ($WSL) {
-    $sshKey = Get-SSHKeyControlPlane    
-
-    ssh.exe -n -o StrictHostKeyChecking=no -i $sshKey $remoteUser '[ -f /usr/lib/wsl/lib/libdxcore.so ]'
-    if (!$?) {
+    $success = (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute '[ -f /usr/lib/wsl/lib/libdxcore.so ]').Success
+    if (!$success) {
         $errMsg = "It seems that the needed Nvidia drivers are not installed.`n" `
             + "Please install them from the following link: https://www.nvidia.com/Download/index.aspx`n"`
             + 'After Nvidia driver installation you need to reinstall the cluster for the changes to take effect.'
@@ -97,8 +93,8 @@ if ($WSL) {
         exit 1
     }
 
-    ssh.exe -n -o StrictHostKeyChecking=no -i $sshKey $remoteUser '/usr/lib/wsl/lib/nvidia-smi'
-    if (!$?) {
+    $success = (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute '/usr/lib/wsl/lib/nvidia-smi').Success
+    if (!$success) {
         $errMsg = "It seems that the needed Nvidia drivers are not installed correctly.`n" `
             + 'Please reinstall Nvidia drivers and cluster and try again.'
 
@@ -163,7 +159,7 @@ else {
     Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'mkdir -p .microsoft-standard-wsl2'
     $command = "container=`$(sudo buildah from $microsoftStandardWSL2 2> /dev/null)  && mountpoint=`$(sudo buildah mount `$container) && sudo find `$mountpoint -iname *.deb | xargs sudo cp -t .microsoft-standard-wsl2 && sudo buildah unmount `$container && sudo buildah rm `$container > /dev/null 2>&1"
     Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute $command
-    $count = Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'ls -1 .microsoft-standard-wsl2/*.deb 2>/dev/null | wc -l' -NoLog
+    $count = (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'ls -1 .microsoft-standard-wsl2/*.deb 2>/dev/null | wc -l').Output
     if ($count -eq '0') {
         $errMsg = "$microsoftStandardWSL2 could not be pulled!"
         if ($EncodeStructuredOutput -eq $true) {
@@ -179,8 +175,8 @@ else {
     Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo rm -rf .microsoft-standard-wsl2'
 
     # change linux kernel
-    $prefix = Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "grep -o \'gnulinux-advanced.*\' /boot/grub/grub.cfg | tr -d `"\'`"" -NoLog
-    $kernel = Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "grep -o \'gnulinux.*microsoft-standard-WSL2.*\' /boot/grub/grub.cfg | head -1 | tr -d `"\'`"" -NoLog
+    $prefix = (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "grep -o \'gnulinux-advanced.*\' /boot/grub/grub.cfg | tr -d `"\'`"").Output
+    $kernel = (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "grep -o \'gnulinux.*microsoft-standard-WSL2.*\' /boot/grub/grub.cfg | head -1 | tr -d `"\'`"").Output
 
     Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo sed -i `"s/GRUB_DEFAULT=.*/GRUB_DEFAULT=\'${prefix}\>${kernel}\'/g`" /etc/default/grub"
     Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo update-grub 2>&1' -IgnoreErrors
