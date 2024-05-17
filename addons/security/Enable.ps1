@@ -89,7 +89,7 @@ if ($windowsCurlPackages) {
 
 Write-Log 'Installing cert-manager' -Console
 $certManagerConfig = Get-CertManagerConfig
-(Invoke-Kubectl -Params 'apply', '-f', $certManagerConfig).Output | Write-Log
+Invoke-Kubectl -Params 'apply', '-f', $certManagerConfig
 
 Write-Log 'Waiting for cert-manager APIs to be ready, be patient!' -Console
 $certManagerStatus = Wait-ForCertManagerAvailable
@@ -108,7 +108,7 @@ if ($certManagerStatus -ne $true) {
 
 Write-Log 'Configuring CA ClusterIssuer' -Console
 $caIssuerConfig = Get-CAIssuerConfig
-(Invoke-Kubectl -Params 'apply', '-f', $caIssuerConfig).Output | Write-Log
+Invoke-Kubectl -Params 'apply', '-f', $caIssuerConfig
 
 Write-Log 'Waiting for CA root certificate to be created' -Console
 $caCreated = Wait-ForCARootCertificate

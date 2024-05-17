@@ -67,7 +67,7 @@ Write-Log 'Uninstalling kubevirt addon' -Console
 
 # show all pods
 Write-Log "`nKubernetes pods before:`n"
-(Invoke-Kubectl -Params 'get', 'pods', '-A', '-o', 'wide').Output | Write-Log
+Invoke-Kubectl -Params 'get', 'pods', '-A', '-o', 'wide'
 
 $ScriptBlockNamespaces = {
     param (
@@ -86,35 +86,35 @@ $ScriptBlockNamespaces = {
             Write-Log ($json.spec.finalizers | Format-List | Out-String)
             $json.spec.finalizers = @()
             $json | ConvertTo-Json -depth 100 | Out-File $Namespace-namespace-cleaned.json -Encoding Ascii
-            (Invoke-Kubectl -Params 'replace', '--raw', "/api/v1/namespaces/$Namespace/finalize", '-f', "$Namespace-namespace-cleaned.json").Output | Write-Log
+            Invoke-Kubectl -Params 'replace', '--raw', "/api/v1/namespaces/$Namespace/finalize", '-f', "$Namespace-namespace-cleaned.json"
         }
     }
     Write-Log "Namespace $Namespace cleaned"
 }
 
 Write-Log 'Deleting kubevirt'
-(Invoke-Kubectl -Params 'delete', '-n', 'kubevirt', 'kubevirt', 'kubevirt', '--wait=true').Output | Write-Log
-(Invoke-Kubectl -Params 'delete', 'apiservices', 'v1alpha3.subresources.kubevirt.io', '--ignore-not-found').Output | Write-Log
-(Invoke-Kubectl -Params 'delete', 'mutatingwebhookconfigurations', 'virt-api-mutator', '--ignore-not-found').Output | Write-Log
-(Invoke-Kubectl -Params 'delete', 'validatingwebhookconfigurations', 'virt-api-validator', '--ignore-not-found').Output | Write-Log
-(Invoke-Kubectl -Params 'delete', 'validatingwebhookconfigurations', 'virt-operator-validator', '--ignore-not-found').Output | Write-Log
-(Invoke-Kubectl -Params 'delete', '-f', "$PSScriptRoot\manifests\kubevirt-operator.yaml", '--wait=false').Output | Write-Log
+Invoke-Kubectl -Params 'delete', '-n', 'kubevirt', 'kubevirt', 'kubevirt', '--wait=true'
+Invoke-Kubectl -Params 'delete', 'apiservices', 'v1alpha3.subresources.kubevirt.io', '--ignore-not-found'
+Invoke-Kubectl -Params 'delete', 'mutatingwebhookconfigurations', 'virt-api-mutator', '--ignore-not-found'
+Invoke-Kubectl -Params 'delete', 'validatingwebhookconfigurations', 'virt-api-validator', '--ignore-not-found'
+Invoke-Kubectl -Params 'delete', 'validatingwebhookconfigurations', 'virt-operator-validator', '--ignore-not-found'
+Invoke-Kubectl -Params 'delete', '-f', "$PSScriptRoot\manifests\kubevirt-operator.yaml", '--wait=false'
 
 $patch = '{\"metadata\":{\"finalizers\":null}}'
 if ($PSVersionTable.PSVersion.Major -gt 5) {
     $patch = '{"metadata":{"finalizers":null}}'
 }
 
-(Invoke-Kubectl -Params 'patch', 'namespace', 'kubevirt', '-p', $patch).Output | Write-Log
+Invoke-Kubectl -Params 'patch', 'namespace', 'kubevirt', '-p', $patch
 
 Start-Job $ScriptBlockNamespaces -ArgumentList 'kubevirt'
 
-(Invoke-Kubectl -Params 'delete', 'namespace', 'kubevirt', '--force', '--grace-period=0').Output | Write-Log
+Invoke-Kubectl -Params 'delete', 'namespace', 'kubevirt', '--force', '--grace-period=0'
 Write-Log "Total duration: $('{0:hh\:mm\:ss}' -f $mainStopwatch.Elapsed )"
 
 # show all pods
 Write-Log "`nKubernetes pods after:`n"
-(Invoke-Kubectl -Params 'get', 'pods', '-A', '-o', 'wide').Output | Write-Log
+Invoke-Kubectl -Params 'get', 'pods', '-A', '-o', 'wide'
 
 # remove runtime settings
 # only for small setup we use software virtualization

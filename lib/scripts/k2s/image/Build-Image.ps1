@@ -455,14 +455,16 @@ if ($Push) {
 
     Write-Log "Trying to push image ${ImageName}:$ImageTag to repository" -Console
 
+    $success = $false
     if ($Windows) {
         &$dockerExe push "${ImageName}:$ImageTag" 2>&1
+        $success = $?
     }
     else {
-        Invoke-CmdOnControlPlaneViaSSHKey "sudo buildah push ${ImageName}:$ImageTag 2>&1"
+        $success = (Invoke-CmdOnControlPlaneViaSSHKey "sudo buildah push ${ImageName}:$ImageTag 2>&1").Success
     }
 
-    if (!$?) {
+    if (!$success) {
         Write-Log '#######################################################################################'
         Write-Log "### ERROR: image ${ImageName}:$ImageTag NOT uploaded to repository"
         Write-Log '#######################################################################################'

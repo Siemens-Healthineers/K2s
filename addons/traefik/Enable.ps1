@@ -97,8 +97,8 @@ if ((Test-IsAddonEnabled -Name 'gateway-nginx') -eq $true) {
 Write-Log 'Installing Traefik Ingress controller' -Console
 $traefikYamlDir = Get-TraefikYamlDir
 
-(Invoke-Kubectl -Params 'create' , 'namespace', 'traefik').Output | Write-Log
-(Invoke-Kubectl -Params 'apply', '-k', $traefikYamlDir).Output | Write-Log
+Invoke-Kubectl -Params 'create' , 'namespace', 'traefik'
+Invoke-Kubectl -Params 'apply', '-k', $traefikYamlDir
 
 $allPodsAreUp = (Wait-ForPodCondition -Condition Ready -Label 'app.kubernetes.io/name=traefik' -Namespace 'traefik' -TimeoutSeconds 120)
 
@@ -112,7 +112,7 @@ if ($PSVersionTable.PSVersion.Major -gt 5) {
 else {
     $patchJson = '{\"spec\":{\"externalIPs\":[\"' + $controlPlaneIp + '\"]}}'
 }
-(Invoke-Kubectl -Params 'patch', 'svc', 'traefik', '-p', "$patchJson", '-n', 'traefik').Output | Write-Log
+Invoke-Kubectl -Params 'patch', 'svc', 'traefik', '-p', "$patchJson", '-n', 'traefik'
 
 if ($allPodsAreUp -ne $true) {
     $errMsg = "All traefik pods could not become ready. Please use kubectl describe for more details.`nInstallation of traefik addon failed"
@@ -129,7 +129,7 @@ if ($allPodsAreUp -ne $true) {
 Write-Log 'All traefik pods are up and ready.' -Console
 
 $clusterIngressConfig = "$PSScriptRoot\manifests\cluster-net-ingress.yaml"
-(Invoke-Kubectl -Params 'apply' , '-f', $clusterIngressConfig).Output | Write-Log
+Invoke-Kubectl -Params 'apply' , '-f', $clusterIngressConfig
 
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'traefik' })
 

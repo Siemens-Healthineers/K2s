@@ -25,7 +25,7 @@ Function Assert-GeneralComputerPrequisites {
     $remoteUserPwd = $UserPwd
 
     Write-Log "Checking if the hostname contains only allowed characters..."
-    [string]$hostname = Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute 'hostname' -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd" -NoLog
+    [string]$hostname = (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute 'hostname' -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output
     if ([string]::IsNullOrWhiteSpace($hostname) -eq $true) {
         throw "The hostname of the computer with IP '$IpAddress' could not be retrieved."
     }
@@ -629,7 +629,7 @@ Function Add-FlannelPluginToMasterNode {
         while ($true) {
             $iteration++
             # try to apply the flannel resources
-            $result = Invoke-CmdOnControlPlaneViaUserAndPwd 'kubectl rollout status daemonset -n kube-flannel kube-flannel-ds --timeout 60s' -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd" -NoLog
+            $result = (Invoke-CmdOnControlPlaneViaUserAndPwd 'kubectl rollout status daemonset -n kube-flannel kube-flannel-ds --timeout 60s' -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output
             if ($result -match 'successfully') {
                 break;
             } 
@@ -952,7 +952,7 @@ function InstallAptPackages {
     Invoke-CmdOnControlPlaneViaUserAndPwd "sudo DEBIAN_FRONTEND=noninteractive apt-get install -qq --yes --fix-missing $Packages" -Retries 2 -Timeout 2 -RemoteUser "$RemoteUser" -RemoteUserPwd "$RemoteUserPwd" -RepairCmd "sudo apt --fix-broken install"
 
     if ($TestExecutable -ne '') {
-        $exeInstalled = $(Invoke-CmdOnControlPlaneViaUserAndPwd "which $TestExecutable" -RemoteUser "$RemoteUser" -RemoteUserPwd "$RemoteUserPwd" -NoLog)
+        $exeInstalled = (Invoke-CmdOnControlPlaneViaUserAndPwd "which $TestExecutable" -RemoteUser "$RemoteUser" -RemoteUserPwd "$RemoteUserPwd").Output
         if (!($exeInstalled -match "/bin/$TestExecutable")) {
             throw "'$FriendlyName' was not installed correctly"
         }

@@ -176,7 +176,7 @@ function Add-LocalIPAddress {
     $remoteUser = "$UserName@$IpAddress"
     $remoteUserPwd = $UserPwd
 
-    [string]$gateway = Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "ip route | awk '/default/ {print `$3}'" -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd" -NoLog
+    [string]$gateway = (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "ip route | awk '/default/ {print `$3}'" -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output
 
     $interfaceAliasHavingGatewayIPAddress =  Get-NetIPAddress -IPAddress $gateway | Select-Object -ExpandProperty "InterfaceAlias"
     New-NetIPAddress -IPAddress "$LocalIPAddress" -PrefixLength $PrefixLength -InterfaceAlias "$interfaceAliasHavingGatewayIPAddress"
