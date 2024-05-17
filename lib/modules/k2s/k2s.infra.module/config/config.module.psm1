@@ -7,6 +7,7 @@ Import-Module $pathModule
 # Read cluster configuration json
 $kubePath = Get-KubePath
 $controlPlaneSwitchName = 'KubeSwitch'
+$wslControlPlaneSwitchName = 'WSL'
 $configFile = "$kubePath\cfg\config.json"
 $rootConfig = Get-Content $configFile | Out-String | ConvertFrom-Json
 $smallsetup = $rootConfig.psobject.properties['smallsetup'].value
@@ -52,6 +53,12 @@ $clusterCIDRServices = $smallsetup.psobject.properties['servicesCIDR'].value
 $shareConfig = $smallsetup.psobject.properties['shareDir'].value
 $linuxLocalSharePath = $shareConfig.psobject.properties['master'].value
 $windowsLocalSharePath = Expand-Path $shareConfig.psobject.properties['windowsWorker'].value
+
+# DNS service IP address
+$kubeDnsServiceIP = $smallsetup.psobject.properties['kubeDnsServiceIP'].value
+
+# Master network cni interface IP address
+$masterNetworkInterfaceCni0IP = $smallsetup.psobject.properties['masterNetworkInterfaceCni0IP'].value
 
 #CONSTANTS
 New-Variable -Name 'SetupJsonFile' -Value "$kubeConfigDir\setup.json" -Option Constant
@@ -119,6 +126,14 @@ function Get-ConfiguredClusterCIDRServices {
     return $clusterCIDRServices
 }
 
+function Get-ConfiguredKubeDnsServiceIP {
+    return $kubeDnsServiceIP
+}
+
+function Get-ConfiguredMasterNetworkInterfaceCni0IP {
+    return $masterNetworkInterfaceCni0IP
+}
+
 function Get-ConfiguredKubeSwitchIP {
     return $ipNextHop
 }
@@ -129,6 +144,10 @@ function Get-ConfiguredControlPlaneCIDR {
 
 function Get-ControlPlaneNodeDefaultSwitchName {
     return $controlPlaneSwitchName
+}
+
+function Get-ControlPlaneNodeWslSwitchName {
+    return $wslControlPlaneSwitchName
 }
 
 function Get-DefaultTempPwd {
@@ -430,6 +449,10 @@ function Get-DefaultK8sVersion {
     return 'v1.25.13'
 }
 
+function Get-DefaultCrioVersion {
+    return '1.25.2'
+}
+
 <#
 .SYNOPSIS
 Gets the configured proxy overrides for the user in windows. Proxy overrides are the hosts for which the requests must not
@@ -470,6 +493,8 @@ Get-ConfiguredClusterCIDR,
 Get-ConfiguredKubeSwitchIP,
 Get-ConfiguredControlPlaneCIDR,
 Get-ConfiguredClusterCIDRServices,
+Get-ConfiguredKubeDnsServiceIP,
+Get-ConfiguredMasterNetworkInterfaceCni0IP,
 Get-ConfigControlPlaneNodeHostname,
 Get-ConfigLinuxOsType,
 Get-SSHKeyFileName,
@@ -501,6 +526,8 @@ Get-DefaultProvisioningBaseImageDiskSize,
 Get-RootConfig,
 Get-DefaultTempPwd,
 Get-DefaultK8sVersion,
+Get-DefaultCrioVersion,
 Get-LinuxLocalSharePath,
 Get-WindowsLocalSharePath,
-Get-ReuseExistingLinuxComputerForMasterNodeFlag
+Get-ReuseExistingLinuxComputerForMasterNodeFlag,
+Get-ControlPlaneNodeWslSwitchName
