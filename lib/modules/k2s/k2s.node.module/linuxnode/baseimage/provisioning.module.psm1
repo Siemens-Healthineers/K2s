@@ -173,7 +173,7 @@ function New-KubemasterBaseImage {
         $vm = Get-VM | Where-Object Name -Like $vmName
         Write-Log "Ensure not existence of VM $vmName"
         if ($null -ne $vm) {
-            Stop-VirtualMachine($vm)
+            Stop-VirtualMachine -VmName $vm -Wait
             $vm | Remove-VM -Force
         }
 
@@ -319,7 +319,7 @@ function New-KubeworkerBaseImage {
     $vm = Get-VM | Where-Object Name -Like $vmName
     Write-Log "Ensure not existence of VM $vmName"
     if ($null -ne $vm) {
-        Stop-VirtualMachine($vm)
+        Stop-VirtualMachine -VmName $vm -Wait
         $vm | Remove-VM -Force
     }
 
@@ -436,7 +436,7 @@ function Start-VmBasedOnKubenodeBaseImage {
     $vm = Get-VM | Where-Object Name -Like $VmName
     Write-Log "Ensure not existence of VM $VmName"
     if ($null -ne $vm) {
-        Stop-VirtualMachine($vm)
+        Stop-VirtualMachine -VmName $vm -Wait
         $vm | Remove-VM -Force
     }
 
@@ -472,10 +472,20 @@ function Start-VmBasedOnKubenodeBaseImage {
     Wait-ForSshPossible -User $remoteUser -UserPwd $(Get-DefaultUserPwdKubeNode) -SshTestCommand 'which ls' -ExpectedSshTestCommandResult '/usr/bin/ls'
 
     &$Hook
+}
+
+function Stop-AndRemoveVmBasedOnKubenodeBaseImage {
+    param (
+        [string] $VmName
+        )
+
+    $switchName = $KubenodeVmProvisioningSwitchName
+    $natName = $KubenodeVmProvisioningNatName
 
     Stop-VirtualMachineForBaseImageProvisioning -Name $VmName
     Disconnect-VMNetworkAdapter -VmName $VmName
     Remove-NetworkForProvisioning -SwitchName $switchName -NatName $natName
+    Remove-VM -Name $vmName -Force
 }
 
 function New-ProvisionedBaseImage {
@@ -598,20 +608,18 @@ function Convert-VhdxToRootfs {
     }
     New-Item -Path $provisioningTargetDirectory -Type Directory 
 
-    $inPreparationVhdxPath = "$provisioningTargetDirectory\rootfs-for-wsl-in-preparation.vhdx"
-    $preparedVhdxPath = "$provisioningTargetDirectory\rootfs-for-wsl-prepared.vhdx"
+    $rootfsCreatorHostVhdxPath = "$provisioningTargetDirectory\rootfs-for-wsl-in-creation.vhdx"
 
-    Copy-Item -Path $KubenodeBaseImagePath -Destination $inPreparationVhdxPath
+    Copy-Item -Path $KubenodeBaseImagePath -Destination $rootfsCreatorHostVhdxPath
 
     $vmName = $RootfsWslProvisioningVmName
 
     $Hook = {
         New-RootfsForWSL -IpAddress $(Get-VmIpForProvisioningKubeNode) -UserName $(Get-DefaultUserNameKubeNode) -UserPwd $(Get-DefaultUserPwdKubeNode) -VhdxFile $SourceVhdxPath -TargetFilePath $TargetRootfsFilePath
     }
-    Start-VmBasedOnKubenodeBaseImage -VhdxPath $inPreparationVhdxPath -VmName $vmName -Hook $Hook
+    Start-VmBasedOnKubenodeBaseImage -VhdxPath $rootfsCreatorHostVhdxPath -VmName $vmName -Hook $Hook
+    Stop-AndRemoveVmBasedOnKubenodeBaseImage -VmName $vmName
 
-    Rename-Item $inPreparationVhdxPath $preparedVhdxPath
-    Remove-VM -Name $vmName -Force
     Remove-Item -Path $provisioningTargetDirectory -Recurse -Force
 }
 
