@@ -482,7 +482,7 @@ Function New-DebianCloudBasedVirtualMachine {
 
     Write-Log "Ensure not existence of VM $vmName"
     if ($null -ne $vm) {
-    	Stop-VirtualMachine($vm)
+    	Stop-VirtualMachine -VmName $vm -Wait
     	Remove-VirtualMachineForBaseImageProvisioning -Name $vmName -VhdxFilePath $inProvisioningVhdxPath
     }
 
@@ -555,15 +555,19 @@ function Stop-VirtualMachineForBaseImageProvisioning {
         [string] $Name = $(throw "Argument missing: Name")
     )
     $virtualMachine = Get-VM -Name $Name
-    if ($virtualMachine -ne $null -and $virtualMachine.State -ne "Off") {
+    if ($null -ne $virtualMachine -and $virtualMachine.State -ne "Off") {
         Stop-VM -Name $Name
-        $retryNumber = 0
-        $maxAmountOfRetries = 3 * 10
-        while (((Get-VMHardDiskDrive -VMName $Name).Path.Contains(".avhdx")) -and ($retryNumber -lt $maxAmountOfRetries)) {
-            $retryNumber++
-            Start-Sleep -Seconds 5
-            $totalWaitingTime = 5 * $retryNumber
-            Write-Log "Waiting since $totalWaitingTime seconds for VM to stop."
+
+        $waitingTimeInSeconds = 5
+        $maxWaitingTimeInSeconds = 60 * 6
+        $elapsedTimeInSeconds = 0
+        while (((Get-VMHardDiskDrive -VMName $Name).Path.Contains(".avhdx")) -and ($elapsedTimeInSeconds -lt $maxWaitingTimeInSeconds)) {
+            Start-Sleep -Seconds $waitingTimeInSeconds
+            $elapsedTimeInSeconds += $waitingTimeInSeconds
+            Write-Log "Waiting since $elapsedTimeInSeconds seconds for VM to stop."
+        }
+        if ($virtualMachine.State -ne "Off") {
+            throw "The VM '$Name' could not be stopped in $maxWaitingTimeInSeconds seconds."
         }
     }
 }
