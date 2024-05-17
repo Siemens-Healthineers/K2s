@@ -157,8 +157,9 @@ function Invoke-CmdOnControlPlaneViaUserAndPwd(
     [uint16]$Retrycount = 1
     do {
         try {
-            &"$plinkExe" -ssh -4 $RemoteUser -pw $RemoteUserPwd -no-antispoof $CmdToExecute 2>&1 | ForEach-Object { Write-Log $_ -Console -Raw }
-            if ($LASTEXITCODE -ne 0 -and !$IgnoreErrors) { throw "Error occurred while executing command '$CmdToExecute' (exit code: '$LASTEXITCODE')" }
+            $output = &"$plinkExe" -ssh -4 $RemoteUser -pw $RemoteUserPwd -no-antispoof $CmdToExecute 2>&1 | ForEach-Object { Write-Log $_ -Console -Raw }
+            $success = ($LASTEXITCODE -eq 0)
+            if (!$success -and !$IgnoreErrors) { throw "Error occurred while executing command '$CmdToExecute' (exit code: '$LASTEXITCODE')" }
             $Stoploop = $true
         }
         catch {
@@ -181,6 +182,8 @@ function Invoke-CmdOnControlPlaneViaUserAndPwd(
         }
     }
     While ($Stoploop -eq $false)
+
+    return [pscustomobject]@{ Success = $success; Output = $output }
 }
 
 function Get-IsControlPlaneRunning {
