@@ -180,15 +180,15 @@ Write-Log "Use of software virtualization: $UseSoftwareVirtualization"
 # use software virtualization
 if ( $UseSoftwareVirtualization ) {
     Write-Log 'enable the software virtualization'
-    (Invoke-Kubectl -Params 'create', 'namespace', 'kubevirt').Output | Write-Log
+    Invoke-Kubectl -Params 'create', 'namespace', 'kubevirt'
     # enable feature
-    (Invoke-Kubectl -Params 'create', 'configmap', 'kubevirt-config', '-n', 'kubevirt', '--from-literal=feature-gates=HostDisk', '--from-literal=debug.useEmulation=true').Output | Write-Log
+    Invoke-Kubectl -Params 'create', 'configmap', 'kubevirt-config', '-n', 'kubevirt', '--from-literal=feature-gates=HostDisk', '--from-literal=debug.useEmulation=true'
 }
 
 # deploy kubevirt
 $VERSION_KV = 'v0.59.2'
 Write-Log "deploy kubevirt version $VERSION_KV"
-(Invoke-Kubectl -Params 'apply', '-f', "$PSScriptRoot\manifests\kubevirt-operator.yaml").Output | Write-Log
+Invoke-Kubectl -Params 'apply', '-f', "$PSScriptRoot\manifests\kubevirt-operator.yaml"
 
 # deploy virtctrl
 $VERSION_VCTRL = 'v0.59.2'
@@ -197,9 +197,8 @@ Write-Log "deploy virtctl version $VERSION_VCTRL"
 if ( $K8sSetup -eq 'SmallSetup' ) {
     Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "export VERSION_VCTRL=$VERSION_VCTRL"
     Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "export IMPLICITPROXY=$IMPLICITPROXY"
-    # NOTE: DO NOT USE `ExecCmdMaster` here to get the return value.
-    ssh.exe -n -o StrictHostKeyChecking=no -i (Get-SSHKeyControlPlane) (Get-ControlPlaneRemoteUser) '[ -f /usr/local/bin/virtctl ]'
-    if (!$?) {
+    $success = (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute '[ -f /usr/local/bin/virtctl ]').Success
+    if (!$success) {
         $setupInfo = Get-SetupInfo
         if ($setupInfo.Name -ne 'MultiVMK8s') {
             Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo curl --retry 3 --retry-all-errors --proxy $IMPLICITPROXY -sL -o /usr/local/bin/virtctl https://github.com/kubevirt/kubevirt/releases/download/$VERSION_VCTRL/virtctl-$VERSION_VCTRL-linux-amd64 2>&1"
@@ -217,9 +216,9 @@ if (!(Test-Path "$binPath\virtctl.exe")) {
 }
 
 # enable config
-(Invoke-Kubectl -Params 'wait', '--timeout=180s', '--for=condition=Ready', '-n', 'kube-system', "pod/kube-apiserver-$controlPlaneNodeName").Output | Write-Log
-(Invoke-Kubectl -Params 'wait', '--timeout=30s', '--for=condition=Available', '-n', 'kubevirt', 'deployment/virt-operator').Output | Write-Log
-(Invoke-Kubectl -Params 'apply', '-f', "$PSScriptRoot\manifests\kubevirt-cr.yaml").Output | Write-Log
+Invoke-Kubectl -Params 'wait', '--timeout=180s', '--for=condition=Ready', '-n', 'kube-system', "pod/kube-apiserver-$controlPlaneNodeName"
+Invoke-Kubectl -Params 'wait', '--timeout=30s', '--for=condition=Available', '-n', 'kubevirt', 'deployment/virt-operator'
+Invoke-Kubectl -Params 'apply', '-f', "$PSScriptRoot\manifests\kubevirt-cr.yaml"
 
 # for small setup restart VM
 if ( $K8sSetup -eq 'SmallSetup' ) {
@@ -254,12 +253,12 @@ if (!(Test-Path "$binPath\$virtviewer")) {
 }
 
 Write-Log 'Waiting for kubevirt components to be running..'
-(Invoke-Kubectl -Params 'wait', '--timeout=180s', '--for=condition=Ready', '-n', 'kube-system', "pod/kube-apiserver-$controlPlaneNodeName").Output | Write-Log
-(Invoke-Kubectl -Params 'wait', '--timeout=180s', '--for=condition=Available', '-n', 'kubevirt', 'kv/kubevirt').Output | Write-Log
+Invoke-Kubectl -Params 'wait', '--timeout=180s', '--for=condition=Ready', '-n', 'kube-system', "pod/kube-apiserver-$controlPlaneNodeName"
+Invoke-Kubectl -Params 'wait', '--timeout=180s', '--for=condition=Available', '-n', 'kubevirt', 'kv/kubevirt'
 
 # label master node with kubevirt label
 if ( $K8sSetup -eq 'SmallSetup' ) {
-    (Invoke-Kubectl -Params 'label', 'node', $controlPlaneNodeName, 'kubevirt=true', '--overwrite').Output | Write-Log
+    Invoke-Kubectl -Params 'label', 'node', $controlPlaneNodeName, 'kubevirt=true', '--overwrite'
 }
 
 Write-Log 'kubevirt components are running'

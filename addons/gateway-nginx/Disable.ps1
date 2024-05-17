@@ -57,11 +57,11 @@ if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'nginx-gateway', '--ig
 $manifestsPath = "$(Get-KubePath)\addons\gateway-nginx\manifests"
 
 Write-Log 'Uninstalling NGINX Kubernetes Gateway' -Console
-(Invoke-Kubectl -Params 'delete', '-f', "$manifestsPath\nginx-gateway-fabric-v1.1.0.yaml").Output | Write-Log
-(Invoke-Kubectl -Params 'delete', '-f', "$manifestsPath\crds").Output | Write-Log
+Invoke-Kubectl -Params 'delete', '-f', "$manifestsPath\nginx-gateway-fabric-v1.1.0.yaml"
+Invoke-Kubectl -Params 'delete', '-f', "$manifestsPath\crds"
 
 Write-Log 'Uninstalling Gateway API' -Console
-(Invoke-Kubectl -Params 'delete', '-f', "$manifestsPath\gateway-api-v1.0.0.yaml").Output | Write-Log
+Invoke-Kubectl -Params 'delete', '-f', "$manifestsPath\gateway-api-v1.0.0.yaml"
 
 Remove-ScriptsFromHooksDir -ScriptNames @(Get-ChildItem -Path "$PSScriptRoot\hooks" | ForEach-Object { $_.Name })
 Remove-AddonFromSetupJson -Name 'gateway-nginx'
