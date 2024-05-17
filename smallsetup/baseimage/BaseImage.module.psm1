@@ -543,7 +543,7 @@ Function New-DebianCloudBasedVirtualMachine {
 
     Write-Log "Ensure not existence of VM $vmName"
     if ($null -ne $vm) {
-    	Stop-VirtualMachine($vm)
+    	Stop-VirtualMachine -VmName $vm -Wait
     	Remove-VirtualMachineForBaseImageProvisioning -Name $vmName -VhdxFilePath $inProvisioningVhdxPath
     }
 
