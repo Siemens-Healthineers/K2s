@@ -58,8 +58,8 @@ if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'gpu-node', '--ignore-
 }
 
 Write-Log 'Uninstalling GPU node' -Console
-(Invoke-Kubectl -Params 'delete', '-f', "$PSScriptRoot\manifests\dcgm-exporter.yaml").Output | Write-Log
-(Invoke-Kubectl -Params 'delete', '-f', "$PSScriptRoot\manifests\nvidia-device-plugin.yaml").Output | Write-Log
+Invoke-Kubectl -Params 'delete', '-f', "$PSScriptRoot\manifests\dcgm-exporter.yaml"
+Invoke-Kubectl -Params 'delete', '-f', "$PSScriptRoot\manifests\nvidia-device-plugin.yaml"
 
 $WSL = Get-ConfigWslFlag
 if (!$WSL) {
