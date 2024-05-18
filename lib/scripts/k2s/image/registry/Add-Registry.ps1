@@ -116,7 +116,7 @@ if (!$?) {
     exit 1
 }
 
-$authJson = Invoke-CmdOnControlPlaneViaSSHKey 'sudo cat /root/.config/containers/auth.json' -NoLog | Out-String
+$authJson = (Invoke-CmdOnControlPlaneViaSSHKey 'sudo cat /root/.config/containers/auth.json').Output | Out-String
 
 # Add dockerd parameters and restart docker daemon to push nondistributable artifacts and use insecure registry
 $storageLocalDrive = Get-StorageLocalDrive

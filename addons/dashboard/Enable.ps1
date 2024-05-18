@@ -84,7 +84,7 @@ if ((Test-IsAddonEnabled -Name 'dashboard') -eq $true) {
 
 Write-Log 'Installing Kubernetes dashboard' -Console
 $dashboardConfig = Get-DashboardConfig
-(Invoke-Kubectl -Params 'apply' , '-f', $dashboardConfig).Output | Write-Log
+Invoke-Kubectl -Params 'apply' , '-f', $dashboardConfig
 
 Write-Log 'Checking Dashboard status' -Console
 $dashboardStatus = Wait-ForDashboardAvailable

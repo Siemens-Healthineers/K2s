@@ -177,15 +177,14 @@ function Connect-Buildah {
     while ($retries -gt 0) {
         $retries--
         if ($username -eq '' -and $password -eq '') {
-            Invoke-CmdOnControlPlaneViaSSHKey "sudo buildah login --authfile /root/.config/containers/auth.json '$registry' > /dev/null 2>&1" -NoLog
+            $success = (Invoke-CmdOnControlPlaneViaSSHKey "sudo buildah login --authfile /root/.config/containers/auth.json '$registry' > /dev/null 2>&1").Success
         }
         else {
-            Invoke-CmdOnControlPlaneViaSSHKey "sudo buildah login --authfile /root/.config/containers/auth.json -u '$username' -p '$password' '$registry' > /dev/null 2>&1" -NoLog
+            $success = (Invoke-CmdOnControlPlaneViaSSHKey "sudo buildah login --authfile /root/.config/containers/auth.json -u '$username' -p '$password' '$registry' > /dev/null 2>&1").Success
         }
 
-        if ($?) {
+        if ($success) {
             Write-Log 'buildah login succeeded'
-            $success = $true
             break
         }
         Start-Sleep 1
