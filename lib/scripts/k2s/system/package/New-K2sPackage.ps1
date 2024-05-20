@@ -63,7 +63,41 @@ function BuildAndProvisionKubemasterBaseImage($WindowsNodeArtifactsZip, $OutputP
         Invoke-DeployPuttytoolsArtifacts $windowsNodeArtifactsDirectory
         # Provision linux node artifacts
         Write-Log 'Create and provision the base image' -Console
-        New-VmBaseImageProvisioning -Proxy $Proxy -OutputPath $OutputPath -VMMemoryStartupBytes $VMMemoryStartupBytes -VMProcessorCount $VMProcessorCount -VMDiskSize $VMDiskSize -KeepArtifactsUsedOnProvisioning
+        $baseDirectory = $(Split-Path -Path $OutputPath)
+        $rootfsPath = "$baseDirectory\$(Get-ControlPlaneOnWslRootfsFileName)"
+        if (Test-Path -Path $rootfsPath) {
+            Remove-Item -Path $rootfsPath -Force
+            Write-Log "Deleted already existing file for WSL support '$rootfsPath'"
+        } else {
+            Write-Log "File for WSL support '$rootfsPath' does not exist. Nothing to delete."
+        }
+    
+        $hostname = Get-ConfigControlPlaneNodeHostname
+        $ipAddress = Get-ConfiguredIPControlPlane
+        $gatewayIpAddress = Get-ConfiguredKubeSwitchIP
+    
+        $controlPlaneNodeCreationParams = @{
+            Hostname=$hostname
+            IpAddress=$ipAddress
+            GatewayIpAddress=$gatewayIpAddress
+            DnsServers= $(Get-DnsIpAddressesFromActivePhysicalNetworkInterfacesOnWindowsHost)
+            VmImageOutputPath=$OutputPath
+            Proxy=$Proxy
+            VMMemoryStartupBytes=$VMMemoryStartupBytes
+            VMProcessorCount=$VMProcessorCount
+            VMDiskSize=$VMDiskSize
+        }
+        New-VmImageForControlPlaneNode @controlPlaneNodeCreationParams
+    
+        if (!(Test-Path -Path $OutputPath)) {
+            throw "The file '$OutputPath' was not created"
+        }
+    
+        New-WslRootfsForControlPlaneNode -VmImageInputPath $OutputPath -RootfsFileOutputPath $rootfsPath -Proxy $Proxy
+    
+        if (!(Test-Path -Path $rootfsPath)) {
+            throw "The file '$rootfsPath' was not created"
+        }
     } finally {
         Write-Log "Deleting the putty tools..." -Console
         Clear-ProvisioningArtifacts
