@@ -365,14 +365,14 @@ function Remove-SharedFolderMountOnLinuxClient {
 
 function Wait-ForSharedFolderMountOnLinuxClient () {
     Write-Log 'Waiting for shared folder mount on Linux node..'
-    $fstabOut = $(Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'cat /etc/fstab | grep -o /k8s-smb-share' -NoLog)
+    $fstabOut = (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'cat /etc/fstab | grep -o /k8s-smb-share').Output
     if (! $fstabOut) {
         Write-Log 'no shared folder in fstab yet'
         # no entry in fstab, so no need to wait for mount
         return
     }
 
-    $mountOut = $(Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo su -s /bin/bash -c 'sudo mount | grep /k8s-smb-share' remote" -NoLog)
+    $mountOut = (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo su -s /bin/bash -c 'sudo mount | grep /k8s-smb-share' remote").Output
 
     $iteration = 0
     while (! $mountOut) {
@@ -396,7 +396,7 @@ function Wait-ForSharedFolderMountOnLinuxClient () {
         }
         Start-Sleep 2
         Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo mount -a'
-        $mountOut = $(Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo su -s /bin/bash -c 'sudo mount | grep /k8s-smb-share' remote" -NoLog)
+        $mountOut = (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo su -s /bin/bash -c 'sudo mount | grep /k8s-smb-share' remote").Output
     }
     Write-Log 'Shared folder mounted on Linux.'
 }
@@ -405,14 +405,14 @@ function Wait-ForSharedFolderOnLinuxHost () {
     Write-Log 'Waiting for shared folder (Samba Share) hosted on Linux node..'
     $script:Success = $false
 
-    $fstabOut = $(Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'cat /etc/fstab | grep -o k8sshare' -NoLog)
+    $fstabOut = (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'cat /etc/fstab | grep -o k8sshare').Output
     if (! $fstabOut) {
         Write-Log '           no shared folder in fstab yet'
         # no entry in fstab, so no need to wait for mount
         return
     }
 
-    $mountOut = $(Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo su -s /bin/bash -c 'sudo mount | grep /k8s-smb-share' remote" -NoLog)
+    $mountOut = (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo su -s /bin/bash -c 'sudo mount | grep /k8s-smb-share' remote").Output
     $iteration = 0
     while (! $mountOut) {
         $iteration++
@@ -427,7 +427,7 @@ function Wait-ForSharedFolderOnLinuxHost () {
 
         Start-Sleep 2
         Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo mount -a' -NoLog
-        $mountOut = $(Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo su -s /bin/bash -c 'sudo mount | grep /k8s-smb-share' remote" -NoLog)
+        $mountOut = (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo su -s /bin/bash -c 'sudo mount | grep /k8s-smb-share' remote").Output
     }
     Write-Log "           $linuxLocalPath mounted"
     $script:Success = $true

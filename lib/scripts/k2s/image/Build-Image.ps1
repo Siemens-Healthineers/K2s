@@ -292,8 +292,8 @@ if (!$Windows -and $PreCompile) {
     }
 
     # check if we need to install go and gcc into VM
-    $GoInstalled = $(Invoke-CmdOnControlPlaneViaSSHKey "which /usr/local/go-$GO_VERSION/bin/go" -NoLog)
-    $MuslInstalled = $(Invoke-CmdOnControlPlaneViaSSHKey 'which musl-gcc' -NoLog)
+    $GoInstalled = (Invoke-CmdOnControlPlaneViaSSHKey "which /usr/local/go-$GO_VERSION/bin/go").Output
+    $MuslInstalled = (Invoke-CmdOnControlPlaneViaSSHKey 'which musl-gcc').Output
     if ($GoInstalled -match '/bin/go' -and $MuslInstalled -match '/bin/musl-gcc') {
         Write-Log 'Pre-Compilation: go and gcc compiler already available in VM'
     }
@@ -387,14 +387,14 @@ else {
     # is needed to avoid buffering of output, we want to see it line by line, not as one big
     # block after the process has finished.
     $RemoveColorSequences = " 2>&1 | unbuffer -p sed 's/\x1b\[[0-9;]*m//g'; eval test $\{PIPESTATUS[0]} -eq 0 || exit 1"
-    $UnbufferInstalled = $(Invoke-CmdOnControlPlaneViaSSHKey 'which unbuffer' -NoLog)
+    $UnbufferInstalled = (Invoke-CmdOnControlPlaneViaSSHKey 'which unbuffer').Output
     if ($UnbufferInstalled -match 'unbuffer') {
         Write-Log "Found unbuffer command ('expect' package)"
     }
     else {
         Write-Log "Installing unbuffer command ('expect' package)"
         Invoke-CmdOnControlPlaneViaSSHKey 'sudo DEBIAN_FRONTEND=noninteractive apt-get install -q --yes expect'
-        $UnbufferInstalled = $(Invoke-CmdOnControlPlaneViaSSHKey 'which unbuffer' -NoLog)
+        $UnbufferInstalled = (Invoke-CmdOnControlPlaneViaSSHKey 'which unbuffer').Output
         if (! ($UnbufferInstalled -match 'unbuffer')) {
             Write-Log 'Unable to install unbuffer command, keeping ANSI sequences'
             $RemoveColorSequences = ''

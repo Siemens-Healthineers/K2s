@@ -64,8 +64,7 @@ if ($Script.Contains("-ShowLogs")) {
     } elseif ($_ -match "#ssh#") {
         $message = $_ -replace "#ssh#", ''
         Write-Output $message
-    }
-    elseif ($_ -is [pscustomobject] -and [bool]($_.PSobject.Properties.name -match "Output")) {
+    } elseif (($_ -is [pscustomobject]) -and ($_.PSobject.Properties.name -contains 'Output')) {
         # @{ Success = ...; Output = ... } 
         Write-Log $_.Output
     } else {
