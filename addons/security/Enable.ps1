@@ -125,6 +125,9 @@ if ($caCreated -ne $true) {
     exit 1
 }
 
+Write-Log 'Renewing old Certificates using the new CA Issuer' -Console
+Update-CertificateResources
+
 Write-Log 'Importing CA root certificate to trusted authorities of your computer' -Console
 $b64secret = (Invoke-Kubectl -Params '-n', 'cert-manager', 'get', 'secrets', 'ca-issuer-root-secret', '-o', 'jsonpath', '--template', '{.data.ca\.crt}').Output
 $tempFile = New-TemporaryFile
