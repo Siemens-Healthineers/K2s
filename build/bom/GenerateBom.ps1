@@ -28,18 +28,33 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'HTTP proxy if available')]
     [string] $Proxy,
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
-    [switch] $ShowLogs = $false
+    [switch] $ShowLogs = $false,
+    [parameter(Mandatory = $false, HelpMessage = 'If true, final SBOM file will have component annotations, this is required only for component clearance')]
+    [switch] $Annotate = $false
 )
 
-function EnsureCdxgen() {
-    Write-Output 'Check the existence of tool cdxgen'
+function EnsureTrivy() {
+    Write-Output 'Check the existence of tool trivy'
 
-    # download cdxgen
-    $downloadFile = "$global:BinPath\cdxgen.exe"
-    if (!(Test-Path $downloadFile)) {
-        DownloadFile $downloadFile https://github.com/CycloneDX/cdxgen/releases/download/v10.1.3/cdxgen.exe $true -ProxyToUse $Proxy
+    # download trivy
+    $downloadFile = "$global:BinPath\trivy.exe"
+    if ((Test-Path $downloadFile)) {
+        Write-Output 'trivy already available'
+        return
     }
-    Write-Output 'cdxgen now available'
+
+    $compressedFile = "$global:BinPath\trivy.zip"
+    DownloadFile $compressedFile "https://github.com/aquasecurity/trivy/releases/download/v0.50.0/trivy_0.50.0_windows-64bit.zip" $true -ProxyToUse $Proxy
+
+    # Extract the archive.
+    Write-Output "Extract archive to '$global:BinPath"
+    $ErrorActionPreference = 'SilentlyContinue'
+    tar C `"$global:BinPath`" -xvf `"$compressedFile`" trivy.exe 2>&1 | % { "$_" }
+    $ErrorActionPreference = 'Stop'
+
+    Remove-Item -Path "$compressedFile" -Force -ErrorAction SilentlyContinue
+
+    Write-Output 'trivy now available'
 }
 
 function EnsureCdxCli() {
@@ -65,7 +80,13 @@ function GenerateBomGolang($dirname) {
     $env:SCAN_DEBUG_MODE = 'debug'
     $indir = $global:KubernetesPath + '\' + $dirname
     Write-Output "Generate $dirname with command 'cdxgen --required-only -o `"$bomfile`" `"$indir`"'"
-    cdxgen --required-only -o `"$bomfile`" `"$indir`"
+    Write-Output "Generate $dirname with command 'trivy.exe fs `"$indir`"' --scanners license --license-full --format cyclonedx -o `"$bomfile`" "
+    trivy.exe fs `"$indir`" --scanners license --license-full --format cyclonedx -o `"$bomfile`"
+
+    if ($Annotate) {
+        Write-Output "Enriching generated sbom with command 'sbomgenerator.exe -e `"$bomfile`" "
+        &"$bomRootDir\sbomgenerator.exe" -e `"$bomfile`"
+    }
 
     Write-Output "bom now available: $bomfile"
 }
@@ -119,20 +140,32 @@ function CheckVMState() {
 function GenerateBomDebian() {
     Write-Output 'Generate bom for debian packages'
 
-    Write-Output 'Install npm'
-    #ExecCmdMaster "sudo DEBIAN_FRONTEND=noninteractive apt-get install -y nodejs npm"
     $hostname = Get-ControlPlaneNodeHostname
-    Write-Output "Install cdxgen into $hostname"
 
-    ExecCmdMaster 'if test -f /usr/local/bin/cdxgen; then echo cdxgen exists; else sudo curl -L -o /usr/local/bin/cdxgen --proxy http://172.19.1.1:8181 https://github.com/CycloneDX/cdxgen/releases/download/v10.1.3/cdxgen; fi'
-    ExecCmdMaster 'sudo chmod +x /usr/local/bin/cdxgen'
+    $trivyInstalled = $(ExecCmdMaster "which /usr/local/bin/trivy" -NoLog)
+    if ($trivyInstalled -match '/bin/trivy') {
+        Write-Output "Trivy already available in VM $hostname"
+    } else {
+        Write-Output "Install trivy into $hostname"
+        ExecCmdMaster 'sudo curl --proxy http://172.19.1.1:8181 -sLO https://github.com/aquasecurity/trivy/releases/download/v0.50.0/trivy_0.50.0_Linux-64bit.tar.gz 2>&1'
+        ExecCmdMaster 'sudo tar -xzf ./trivy_0.50.0_Linux-64bit.tar.gz trivy'
+        ExecCmdMaster 'sudo rm ./trivy_0.50.0_Linux-64bit.tar.gz'
+        ExecCmdMaster 'sudo mv ./trivy /usr/local/bin/'
+        ExecCmdMaster 'sudo chmod +x /usr/local/bin/trivy'
+    }
 
     Write-Output 'Generate bom for debian'
-    ExecCmdMaster 'sudo SCAN_DEBUG_MODE=debug FETCH_LICENSE=true DEBIAN_FRONTEND=noninteractive cdxgen --required-only -t os --deep -o kubemaster.json 2>&1'
+    ExecCmdMaster 'sudo HTTPS_PROXY=http://172.19.1.1:8181 trivy rootfs / --scanners license --license-full --format cyclonedx -o kubemaster.json 2>&1'
 
     Write-Output 'Copy bom file to local folder'
     $source = "$global:Remote_Master" + ':/home/remote/kubemaster.json'
     Copy-FromToMaster -Source $source -Target "$bomRootDir\merge"
+
+    if ($Annotate) {
+        $kubeSBOMJsonFile = "$bomRootDir\merge\kubemaster.json"
+        Write-Output "Enriching generated sbom with command 'sbomgenerator.exe -e `"$kubeSBOMJsonFile`" "
+        &"$bomRootDir\sbomgenerator.exe" -e `"$kubeSBOMJsonFile`"
+    }
 }
 
 function LoadK2sImages() {
@@ -158,18 +191,20 @@ function GenerateBomContainers() {
 
     $tempDir = [System.Environment]::GetEnvironmentVariable('TEMP')
 
-    # read json file and iterate through entries, filter out windows images   
+    # read json file and iterate through entries, filter out windows images
     $jsonFile = "$bomRootDir\container-images-used.json"
     Write-Output "Start generating bom for container images from $jsonFile"
     $jsonContent = Get-Content -Path $jsonFile | ConvertFrom-Json
     $imagesName = $jsonContent.ImageName
     $imagesVersion = $jsonContent.ImageVersion
+    $imageType = $jsonContent.ImageType
     $imagesWindows = @()
     for ($i = 0 ; $i -lt $imagesName.Count ; $i++) {
         $name = $imagesName[$i]
         $version = $imagesVersion[$i]
+        $type = $imageType[$i]
         $fullname = $name + ':' + $version
-        Write-Output "Processing image: ${fullname}"
+        Write-Output "Processing image: ${fullname} with type $type"
 
         # find image id in kubemaster VM
         $imageId = ExecCmdMaster "sudo buildah images -f reference=${fullname} --format '{{.ID}}'"
@@ -179,7 +214,7 @@ function GenerateBomContainers() {
         if (![string]::IsNullOrEmpty($imageId)) {
             # create bom file entry for linux image
             Write-Output "  -> Image ${fullname} is linux image, creating bom file"
-            # replace in string / with - to avoid issues with file name            
+            # replace in string / with - to avoid issues with file name
             $imageName = 'c-' + $name -replace '/', '-'
             ExecCmdMaster "sudo rm -f /home/remote/$imageName.tar"
             ExecCmdMaster "sudo rm -f $imageName.json"
@@ -191,11 +226,17 @@ function GenerateBomContainers() {
             # create bom file entry for linux image
             # TODO: with license it does not work yet from cdxgen point of view
             #ExecCmdMaster "sudo GLOBAL_AGENT_HTTP_PROXY=http://172.19.1.1:8181 SCAN_DEBUG_MODE=debug FETCH_LICENSE=true DEBIAN_FRONTEND=noninteractive cdxgen --required-only -t containerfile $imageId.tar -o $imageName.json"
-            ExecCmdMaster "sudo GLOBAL_AGENT_HTTP_PROXY=http://172.19.1.1:8181 SCAN_DEBUG_MODE=debug DEBIAN_FRONTEND=noninteractive cdxgen --required-only -t containerfile $imageName.tar -o $imageName.json"
+            k2s system ssh m -- "sudo HTTPS_PROXY=http://172.19.1.1:8181 trivy image --input $imageName.tar --scanners license --license-full --format cyclonedx -o $imageName.json 2>&1"
 
             # copy bom file to local folder
             $source = "$global:Remote_Master" + ":/home/remote/$imageName.json"
             Copy-FromToMaster -Source $source -Target "$bomRootDir\merge"
+
+            if ($Annotate) {
+                $imageSBOMJsonFile = "$bomRootDir\merge\$imageName.json"
+                Write-Output "Enriching generated sbom with command 'sbomgenerator.exe -e `"$imageSBOMJsonFile`" -t `"$type`" -c `"$version`" "
+                &"$bomRootDir\sbomgenerator.exe" -e `"$imageSBOMJsonFile`" -t `"$type`" -c `"$version`"
+            }
 
             # delete tar file
             ExecCmdMaster "sudo rm -f $imageName.tar"
@@ -203,21 +244,29 @@ function GenerateBomContainers() {
         }
         else {
             Write-Output '  -> Image is windows image, skipping'
-            $imagesWindows += $name
+            $imageObject = [PSCustomObject]@{
+                ImageName = $name
+                ImageType = $type
+                ImageVersion = $version
+            }
+            $imagesWindows += $imageObject
         }
     }
 
     # iterate through windows images
     $ims = (&k2s.exe image ls -o json | ConvertFrom-Json).containerimages
-    foreach ($image in $imagesWindows) {
-        Write-Output "Processing windows image: $image"
+    for ($j = 0; $j -lt $imagesWindows.Count; $j++) {
+        $image = $imagesWindows[$j].ImageName
+        $type = $imagesWindows[$j].ImageType
+        $version = $imagesWindows[$j].ImageVersion
+        Write-Output "Processing windows image: $image, Image Type: $type"
         if ($image.length -eq 0) {
             Write-Output 'Ignoring emtpy image name'
             continue
         }
         $imageName = 'c-' + $image -replace '/', '-'
-        
-        # filter from $ims objects with propeerty repository equal to $image    
+
+        # filter from $ims objects with propeerty repository equal to $image
         $img = $ims | Where-Object { $_.repository -eq $image }
         if ( $null -eq $img) {
             throw "Image $image not found in k2s, please correct static image list with real used containers !"
@@ -225,7 +274,7 @@ function GenerateBomContainers() {
 
         # copy to master
         Write-Output "  -> Exporting windows image: $imageName with id: $img.imageid to $tempDir\$imageName.tar"
-        &k2s.exe image export --id $img.imageid -t "$tempDir\\$imageName.tar" --docker-archive 
+        &k2s.exe image export --id $img.imageid -t "$tempDir\\$imageName.tar" --docker-archive
 
         # copy to master since cdxgen is not available on windows
         Write-Output "  -> Copied to kubemaster: $imageName.tar"
@@ -234,15 +283,21 @@ function GenerateBomContainers() {
         Write-Output "  -> Creating bom for windows image: $imageName"
         # TODO: with license it does not work yet from cdxgen point of view
         #ExecCmdMaster "sudo GLOBAL_AGENT_HTTP_PROXY=http://172.19.1.1:8181 SCAN_DEBUG_MODE=debug FETCH_LICENSE=true DEBIAN_FRONTEND=noninteractive cdxgen --required-only -t containerfile /home/remote/$imageName.tar -o $imageName.json" -IgnoreErrors -NoLog | Out-Null
-        ExecCmdMaster "sudo GLOBAL_AGENT_HTTP_PROXY=http://172.19.1.1:8181 SCAN_DEBUG_MODE=debug DEBIAN_FRONTEND=noninteractive cdxgen --required-only -t containerfile /home/remote/$imageName.tar -o $imageName.json" -IgnoreErrors -NoLog | Out-Null
+        k2s system ssh m -- "sudo HTTPS_PROXY=http://172.19.1.1:8181 trivy image --input $imageName.tar --scanners license --license-full --format cyclonedx -o $imageName.json 2>&1"
 
         # copy bom file to local folder
         $source = "$global:Remote_Master" + ":/home/remote/$imageName.json"
         Copy-FromToMaster -Source $source -Target "$bomRootDir\merge"
 
+        if ($Annotate) {
+            $imageSBOMJsonFile = "$bomRootDir\merge\$imageName.json"
+            Write-Output "Enriching generated sbom with command 'sbomgenerator.exe -e `"$imageSBOMJsonFile`" -t `"$type`" -c `"$version`""
+            &"$bomRootDir\sbomgenerator.exe" -e `"$imageSBOMJsonFile`" -t `"$type`" -c `"$version`"
+        }
+
         # remove tar file
         ExecCmdMaster "sudo rm /home/remote/$imageName.tar"
-        Remove-Item -Path "$tempDir\\$imageName.tar" -Force    
+        Remove-Item -Path "$tempDir\\$imageName.tar" -Force
     }
 
     Write-Output 'Containers bom files now available'
@@ -270,10 +325,17 @@ Write-Output '---------------------------------------------------------------'
 Write-Output ' Generation of bom file started.'
 Write-Output '---------------------------------------------------------------'
 
+if ($Annotate) {
+    Write-Output 'Annotation of SBOM enabled.'
+    if (!(Test-Path "$bomRootDir\sbomgenerator.exe")) {
+        throw "sbomgenerator.exe is not present under directory $bomRootDir"
+    }
+}
+
 $generationStopwatch = [system.diagnostics.stopwatch]::StartNew()
 
 CheckVMState
-EnsureCdxgen
+EnsureTrivy
 EnsureCdxCli
 GenerateBomGolang("pkg\util\cloudinitisobuilder")
 GenerateBomGolang("pkg\util\zap")
@@ -286,7 +348,7 @@ GenerateBomGolang("pkg\network\vfprules")
 GenerateBomGolang("pkg\k2s")
 GenerateBomDebian
 LoadK2sImages
-GenerateBomContainers 
+GenerateBomContainers
 MergeBomFilesFromDirectory
 
 Write-Output '---------------------------------------------------------------'

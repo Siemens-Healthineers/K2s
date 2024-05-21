@@ -23,8 +23,8 @@ $yamlModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.infra.module\yaml\yaml.mo
 Import-Module $addonsModule, $yamlModule
 
 $addonManifests = Find-AddonManifests -Directory "$global:KubernetesPath\addons" |`
-    ForEach-Object { 
-    $manifest = Get-FromYamlFile -Path $_ 
+    ForEach-Object {
+    $manifest = Get-FromYamlFile -Path $_
     $manifest | Add-Member -NotePropertyName 'path' -NotePropertyValue $_
     $dirPath = Split-Path -Path $_ -Parent
     $dirName = Split-Path -Path $dirPath -Leaf
@@ -69,10 +69,21 @@ $imageDetailsArray = New-Object System.Collections.ArrayList
 foreach ($image in $finalImages) {
     $imageName, $imageVersion = $image -split ':'
 
-    Write-Output "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] Found image $image"
+    if ($image -eq "") {
+        continue
+    }
+
+    $imageVersion = $imageVersion.Trim()
+
+    Write-Output "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] Found image $image with version $imageVersion"
+
+    # Determine the type of image
+    $imageType = if ($staticImages -contains $image) { 'core' } else { 'addon' }
+
     $imageDetailsObject = New-Object PSObject -Property @{
         ImageName    = $imageName
         ImageVersion = $imageVersion
+        ImageType    = $imageType
     }
 
     # Add the object to the array
