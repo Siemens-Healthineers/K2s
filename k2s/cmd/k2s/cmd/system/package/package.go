@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"path/filepath"
 	"strconv"
 	"time"
 
@@ -120,7 +121,7 @@ func systemPackage(cmd *cobra.Command, args []string) error {
 }
 
 func buildSystemPackageCmd(flags *pflag.FlagSet) (string, []string, error) {
-	systemPackageCommand := utils.FormatScriptFilePath(utils.InstallDir() + "\\smallsetup\\helpers\\BuildK2sZipPackage.ps1")
+	systemPackageCommand := utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "system", "package", "New-K2sPackage.ps1"))
 
 	flags.VisitAll(func(f *pflag.Flag) {
 		slog.Debug("Param", "name", f.Name, "value", f.Value)

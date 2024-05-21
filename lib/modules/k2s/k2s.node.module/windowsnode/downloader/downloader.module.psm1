@@ -412,6 +412,10 @@ function Install-DefaultTools {
     Invoke-DeployPuttytoolsArtifacts $windowsNodeArtifactsDownloadsDirectory
 }
 
+function Get-WindowsNodeArtifactsZipFilePath {
+    return $windowsNodeArtifactsZipFilePath
+}
+
 function Install-PuttyTools {
     if (!(Test-Path -Path $windowsNodeArtifactsDirectory)) {
         throw "Cannot install the putty tools. The directory '$windowsNodeArtifactsDirectory' does not exist."
@@ -426,4 +430,4 @@ function Install-KubectlTool{
     Invoke-DeployKubetoolKubectl $windowsNodeArtifactsDirectory
 }
 
-Export-ModuleMember Invoke-DeployWinArtifacts, Invoke-DownloadsCleanup, Install-WinNodeArtifacts, Install-DefaultTools, Install-PuttyTools, Install-KubectlTool
+Export-ModuleMember Invoke-DeployWinArtifacts, Invoke-DownloadsCleanup, Install-WinNodeArtifacts, Install-DefaultTools, Get-WindowsNodeArtifactsZipFilePath, Install-PuttyTools, Install-KubectlTool
