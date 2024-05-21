@@ -4,10 +4,10 @@
 package systempackage
 
 import (
+	"path/filepath"
 	"testing"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
-	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -38,7 +38,7 @@ var _ = Describe("package", func() {
 
 				cmd, params, err := buildSystemPackageCmd(PackageCmd.Flags())
 				Expect(err).ToNot(HaveOccurred())
-				Expect(cmd).To(Equal("&'" + utils.InstallDir() + "\\smallsetup\\helpers\\BuildK2sZipPackage.ps1'"))
+				Expect(cmd).To(ContainSubstring(filepath.Join("lib", "scripts", "k2s", "system", "package", "New-K2sPackage.ps1")))
 				Expect(params).To(ConsistOf(" -ShowLogs", " -Proxy http://myproxy:81", " -VMProcessorCount 6", " -VMMemoryStartupBytes 4GB", " -VMDiskSize 50GB", " -TargetDirectory 'dir'", " -ZipPackageFileName 'file.zip'", " -ForOfflineInstallation"))
 			})
 		})
