@@ -68,12 +68,14 @@ $imageDetailsArray = New-Object System.Collections.ArrayList
 
 foreach ($image in $finalImages) {
     $imageName, $imageVersion = $image -split ':'
-
-    Write-Output "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] Found image $image"
-
+    
     if ($image -eq "") {
         continue
     }
+
+    # Remove empty spaces
+    $imageVersion = $imageVersion.Trim()
+    Write-Output "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] Found image $image with version $imageVersion"
 
     # Determine the type of image
     $imageType = if ($staticImages -contains $image) { 'core' } else { 'addon' }
