@@ -84,6 +84,14 @@ function Wait-ForCertManagerAvailable {
 
 <#
 .DESCRIPTION
+Marks all cert-manager Certificate resources for renewal.
+#>
+function Update-CertificateResources {
+    &$cmctlExe renew --all --all-namespaces
+}
+
+<#
+.DESCRIPTION
 Waits for the kubernetes secret 'ca-issuer-root-secret' in the namespace 'cert-manager' to be created.
 #>
 function Wait-ForCARootCertificate(
