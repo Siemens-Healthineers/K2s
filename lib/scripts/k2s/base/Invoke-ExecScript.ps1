@@ -47,8 +47,8 @@ if ($Script.Contains("-ShowLogs")) {
             Write-Log "Installation failed!"
             exit
         }
-        # ignore errors when uninstalling cluster
-        if ($Script -notmatch ".*\\Uninstall.*\.ps1") {
+        # ignore errors when uninstalling/resetting cluster
+        if (($Script -notmatch ".*\\Uninstall.*\.ps1") -and ($Script -notmatch ".*\\Reset-System.*\.ps1")) {
             Write-Log $($_ | Out-String) -Error
         }
     } elseif($_ -match "^\[\d{2}:\d{2}:\d{2}\]\[([^]]+)\]") {
