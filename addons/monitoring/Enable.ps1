@@ -71,9 +71,9 @@ if ($Ingress -ne 'none') {
 $manifestsPath = "$PSScriptRoot\manifests"
 
 Write-Log 'Installing Kube Prometheus Stack' -Console
-Invoke-Kubectl -Params 'apply', '-f', "$manifestsPath\namespace.yaml"
-Invoke-Kubectl -Params 'create', '-f', "$manifestsPath\crds"
-Invoke-Kubectl -Params 'create', '-k', $manifestsPath
+(Invoke-Kubectl -Params 'apply', '-f', "$manifestsPath\namespace.yaml").Output | Write-Log
+(Invoke-Kubectl -Params 'create', '-f', "$manifestsPath\crds").Output | Write-Log
+(Invoke-Kubectl -Params 'create', '-k', $manifestsPath).Output | Write-Log
 
 Write-Log 'Waiting for Pods..'
 $kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'deployments', '-n', 'monitoring', '--timeout=180s')
@@ -118,10 +118,10 @@ if (!$kubectlCmd.Success) {
 
 # traefik uses crd, so we have define ingressRoute after traefik has been enabled
 if (Test-TraefikIngressControllerAvailability) {
-    Invoke-Kubectl -Params 'apply', '-f', "$manifestsPath\plutono\traefik.yaml"
+    (Invoke-Kubectl -Params 'apply', '-f', "$manifestsPath\plutono\traefik.yaml").Output | Write-Log
 }
 elseif (Test-NginxIngressControllerAvailability) {
-    Invoke-Kubectl -Params 'apply', '-f', "$manifestsPath\plutono\ingress.yaml"
+    (Invoke-Kubectl -Params 'apply', '-f', "$manifestsPath\plutono\ingress.yaml").Output | Write-Log
 }
 
 Add-HostEntries -Url 'k2s-monitoring.local'

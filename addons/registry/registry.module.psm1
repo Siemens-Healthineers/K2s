@@ -45,11 +45,11 @@ function Enable-IngressAddon([string]$Ingress) {
 function Deploy-IngressForRegistry([string]$Ingress) {
     switch ($Ingress) {
         'ingress-nginx' {
-            Invoke-Kubectl -Params 'apply', '-f', "$PSScriptRoot\manifests\k2s-registry-nginx-ingress.yaml"
+            (Invoke-Kubectl -Params 'apply', '-f', "$PSScriptRoot\manifests\k2s-registry-nginx-ingress.yaml").Output | Write-Log
             break
         }
         'traefik' {
-            Invoke-Kubectl -Params 'apply', '-f', "$PSScriptRoot\manifests\k2s-registry-traefik-ingress.yaml"
+            (Invoke-Kubectl -Params 'apply', '-f', "$PSScriptRoot\manifests\k2s-registry-traefik-ingress.yaml").Output | Write-Log
             break
         }
     }
