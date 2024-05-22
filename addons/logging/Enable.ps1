@@ -74,7 +74,7 @@ if ($Ingress -ne 'none') {
     Enable-IngressAddon -Ingress:$Ingress
 }
 
-Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo mkdir -m 777 -p /logging'
+(Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo mkdir -m 777 -p /logging').Output | Write-Log
 
 Write-Log 'Installing fluent-bit and opensearch stack' -Console
 
@@ -84,12 +84,12 @@ Write-Log 'Installing fluent-bit and opensearch stack' -Console
 
 $manifestsPath = "$PSScriptRoot\manifests"
 
-Invoke-Kubectl -Params 'apply', '-f', "$manifestsPath\namespace.yaml"
-Invoke-Kubectl -Params 'create', '-k', "$manifestsPath\"
+(Invoke-Kubectl -Params 'apply', '-f', "$manifestsPath\namespace.yaml").Output | Write-Log
+(Invoke-Kubectl -Params 'create', '-k', "$manifestsPath\").Output | Write-Log
 
 # fluent-bit windows
 if ($setupInfo.LinuxOnly -eq $false) {
-    Invoke-Kubectl -Params 'create', '-k', "$manifestsPath\fluentbit\windows"
+    (Invoke-Kubectl -Params 'create', '-k', "$manifestsPath\fluentbit\windows").Output | Write-Log
 }
 
 Write-Log 'Waiting for Pods..'
@@ -137,10 +137,10 @@ if (!$kubectlCmd.Success) {
 
 # traefik uses crd, so we have define ingressRoute after traefik has been enabled
 if (Test-TraefikIngressControllerAvailability) {
-    Invoke-Kubectl -Params 'apply', '-f', "$manifestsPath\opensearch-dashboards\traefik.yaml"
+    (Invoke-Kubectl -Params 'apply', '-f', "$manifestsPath\opensearch-dashboards\traefik.yaml").Output | Write-Log
 }
 elseif (Test-NginxIngressControllerAvailability) {
-    Invoke-Kubectl -Params 'apply', '-f', "$manifestsPath\opensearch-dashboards\ingress.yaml"
+    (Invoke-Kubectl -Params 'apply', '-f', "$manifestsPath\opensearch-dashboards\ingress.yaml").Output | Write-Log
 }
 Add-HostEntries -Url 'k2s-logging.local'
 

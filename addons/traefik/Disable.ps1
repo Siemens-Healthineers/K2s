@@ -64,8 +64,8 @@ if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'traefik', '--ignore-n
 Write-Log 'Uninstalling Traefik addon' -Console
 $traefikYamlDir = Get-TraefikYamlDir
 
-Invoke-Kubectl -Params 'delete', '-k', $traefikYamlDir
-Invoke-Kubectl -Params 'delete', 'namespace', 'traefik'
+(Invoke-Kubectl -Params 'delete', '-k', $traefikYamlDir).Output | Write-Log
+(Invoke-Kubectl -Params 'delete', 'namespace', 'traefik').Output | Write-Log
 
 Remove-AddonFromSetupJson -Name 'traefik'
 Write-Log 'Uninstallation of Traefik addon finished' -Console

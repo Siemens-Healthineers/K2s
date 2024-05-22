@@ -63,7 +63,24 @@ function New-WslLinuxVmAsControlPlaneNode {
         if (Test-Path -Path $vhdxPath) {
             Remove-Item -Path $vhdxPath -Force
         }
+
+        if (!(Test-Path -Path $rootfsPath)) {
+            throw "The file '$rootfsPath' is not available"
+        }
     }
+
+    Write-Log 'Remove existing KubeMaster distro if existing'
+    wsl --unregister $VmName | Out-Null
+    Write-Log 'Import KubeMaster distro'
+    wsl --import $VmName "$env:SystemDrive\wsl" "$rootfsPath"
+    Write-Log 'Set KubeMaster as default distro'
+    wsl -s $VmName
+
+    Write-Log 'Update fstab'
+    wsl /bin/bash -c 'sudo rm /etc/fstab'
+    wsl /bin/bash -c "echo '/dev/sdb / ext4 rw,discard,errors=remount-ro,x-systemd.growfs 0 1' | sudo tee /etc/fstab"
+    wsl --shutdown
+
 }
 
 function Get-ControlPlaneOnWslRootfsFilePath {

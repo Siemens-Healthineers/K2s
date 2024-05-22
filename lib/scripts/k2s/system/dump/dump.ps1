@@ -87,8 +87,8 @@ function Invoke-LinuxNodeDetailsCollection(
     Write-Log "Node name: $linuxNodeName"
     if ($isLinuxVMRunning) {
         $linuxNodeDumpFile = Join-Path $NodeDetailsDirectory "$($linuxNodeName)-node.txt"
-        Invoke-CmdOnControlPlaneViaSSHKey 'uname -a' -NoLog | Out-String | Write-OutputIntoDumpFile -DumpFilePath $linuxNodeDumpFile -Description 'KubeMaster~$ uname -a'
-        Invoke-CmdOnControlPlaneViaSSHKey 'cat /proc/version' -NoLog | Out-String | Write-OutputIntoDumpFile -DumpFilePath $linuxNodeDumpFile -Description 'KubeMaster~$ cat /proc/version'
+        (Invoke-CmdOnControlPlaneViaSSHKey 'uname -a').Output | Out-String | Write-OutputIntoDumpFile -DumpFilePath $linuxNodeDumpFile -Description 'KubeMaster~$ uname -a'
+        (Invoke-CmdOnControlPlaneViaSSHKey 'cat /proc/version').Output | Out-String | Write-OutputIntoDumpFile -DumpFilePath $linuxNodeDumpFile -Description 'KubeMaster~$ cat /proc/version'
     }
 }
 

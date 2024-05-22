@@ -89,7 +89,7 @@ if ($windowsCurlPackages) {
 
 Write-Log 'Installing cert-manager' -Console
 $certManagerConfig = Get-CertManagerConfig
-Invoke-Kubectl -Params 'apply', '-f', $certManagerConfig
+(Invoke-Kubectl -Params 'apply', '-f', $certManagerConfig).Output | Write-Log
 
 Write-Log 'Waiting for cert-manager APIs to be ready, be patient!' -Console
 $certManagerStatus = Wait-ForCertManagerAvailable
@@ -108,7 +108,7 @@ if ($certManagerStatus -ne $true) {
 
 Write-Log 'Configuring CA ClusterIssuer' -Console
 $caIssuerConfig = Get-CAIssuerConfig
-Invoke-Kubectl -Params 'apply', '-f', $caIssuerConfig
+(Invoke-Kubectl -Params 'apply', '-f', $caIssuerConfig).Output | Write-Log
 
 Write-Log 'Waiting for CA root certificate to be created' -Console
 $caCreated = Wait-ForCARootCertificate
@@ -124,6 +124,9 @@ if ($caCreated -ne $true) {
     Write-Log $errMsg -Error
     exit 1
 }
+
+Write-Log 'Renewing old Certificates using the new CA Issuer' -Console
+Update-CertificateResources
 
 Write-Log 'Importing CA root certificate to trusted authorities of your computer' -Console
 $b64secret = (Invoke-Kubectl -Params '-n', 'cert-manager', 'get', 'secrets', 'ca-issuer-root-secret', '-o', 'jsonpath', '--template', '{.data.ca\.crt}').Output

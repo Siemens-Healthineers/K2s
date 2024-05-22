@@ -657,8 +657,8 @@ function Copy-LocalPublicSshKeyToRemoteComputer() {
     $targetPath = "/tmp/$publicKeyFileName"
     $remoteTargetPath = "$targetPath"
     Copy-ToControlPlaneViaUserAndPwd -Source $localSourcePath -Target $remoteTargetPath
-    Invoke-CmdOnControlPlaneViaUserAndPwd "sudo mkdir -p ~/.ssh" -RemoteUser "$user" -RemoteUserPwd "$userPwd"
-    Invoke-CmdOnControlPlaneViaUserAndPwd "sudo cat $targetPath | sudo tee ~/.ssh/authorized_keys" -RemoteUser "$user" -RemoteUserPwd "$userPwd"
+    (Invoke-CmdOnControlPlaneViaUserAndPwd "sudo mkdir -p ~/.ssh" -RemoteUser "$user" -RemoteUserPwd "$userPwd").Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaUserAndPwd "sudo cat $targetPath | sudo tee ~/.ssh/authorized_keys" -RemoteUser "$user" -RemoteUserPwd "$userPwd").Output | Write-Log
 }
 
 ## Network for provisioning

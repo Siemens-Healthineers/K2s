@@ -138,7 +138,7 @@ if ($hnsdiagExists) {
 # Linux VM Networking 
 $isLinuxVMRunning = Get-IsControlPlaneRunning
 if ($isLinuxVMRunning) {
-    Invoke-CmdOnControlPlaneViaSSHKey "sudo ifconfig" -NoLog | Out-String | Write-OutputIntoDumpFile -DumpFilePath $networkOutfile -Description "KubeMaster~$ sudo ifconfig" -Separator $lineBreak
-    Invoke-CmdOnControlPlaneViaSSHKey "ip route" -NoLog | Out-String | Write-OutputIntoDumpFile -DumpFilePath $networkOutfile -Description "KubeMaster~$ ip route" -Separator $lineBreak
+    (Invoke-CmdOnControlPlaneViaSSHKey "sudo ifconfig").Output | Out-String | Write-OutputIntoDumpFile -DumpFilePath $networkOutfile -Description "KubeMaster~$ sudo ifconfig" -Separator $lineBreak
+    (Invoke-CmdOnControlPlaneViaSSHKey "ip route").Output | Out-String | Write-OutputIntoDumpFile -DumpFilePath $networkOutfile -Description "KubeMaster~$ ip route" -Separator $lineBreak
 }
 
