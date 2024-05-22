@@ -114,8 +114,8 @@ Write-Log 'Installing ingress-nginx' -Console
 $ingressNginxNamespace = 'ingress-nginx'
 $ingressNginxConfig = Get-IngressNginxConfig
 
-Invoke-Kubectl -Params 'create', 'ns', $ingressNginxNamespace
-Invoke-Kubectl -Params 'apply' , '-f', $ingressNginxConfig
+(Invoke-Kubectl -Params 'create', 'ns', $ingressNginxNamespace).Output | Write-Log
+(Invoke-Kubectl -Params 'apply' , '-f', $ingressNginxConfig).Output | Write-Log
 
 $controlPlaneIp = Get-ConfiguredIPControlPlane
 
@@ -129,7 +129,7 @@ else {
 }
 $ingressNginxSvc = 'ingress-nginx-controller'
 
-Invoke-Kubectl -Params 'patch', 'svc', $ingressNginxSvc, '-p', "$patchJson", '-n', $ingressNginxNamespace
+(Invoke-Kubectl -Params 'patch', 'svc', $ingressNginxSvc, '-p', "$patchJson", '-n', $ingressNginxNamespace).Output | Write-Log
 
 $allPodsAreUp = (Wait-ForPodCondition -Condition Ready -Label 'app.kubernetes.io/component=controller' -Namespace 'ingress-nginx' -TimeoutSeconds 120)
 
@@ -146,7 +146,7 @@ if ($allPodsAreUp -ne $true) {
 }
 
 $clusterIngressConfig = "$PSScriptRoot\manifests\cluster-net-ingress.yaml"
-Invoke-Kubectl -Params 'apply' , '-f', $clusterIngressConfig
+(Invoke-Kubectl -Params 'apply' , '-f', $clusterIngressConfig).Output | Write-Log
 
 Write-Log 'All ingress-nginx pods are up and ready.'
 

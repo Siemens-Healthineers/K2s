@@ -240,7 +240,7 @@ if ($PSVersionTable.PSVersion.Major -gt 5) {
 # Apply Nvidia device plugin
 Write-Log 'Installing Nvidia Device Plugin' -Console
 Wait-ForAPIServer
-Invoke-Kubectl -Params 'apply', '-f', "$PSScriptRoot\manifests\nvidia-device-plugin.yaml"
+(Invoke-Kubectl -Params 'apply', '-f', "$PSScriptRoot\manifests\nvidia-device-plugin.yaml").Output | Write-Log
 $kubectlCmd = (Invoke-Kubectl -Params 'wait', '--timeout=180s', '--for=condition=Available', '-n', 'gpu-node', 'deployment/nvidia-device-plugin')
 Write-Log $kubectlCmd.Output
 if (!$kubectlCmd.Success) {
@@ -256,7 +256,7 @@ if (!$kubectlCmd.Success) {
 }
 
 Write-Log 'Installing DCGM-Exporter' -Console
-Invoke-Kubectl -Params 'apply', '-f', "$PSScriptRoot\manifests\dcgm-exporter.yaml"
+(Invoke-Kubectl -Params 'apply', '-f', "$PSScriptRoot\manifests\dcgm-exporter.yaml").Output | Write-Log
 $kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'daemonset', 'dcgm-exporter', '-n', 'gpu-node', '--timeout', '300s')
 Write-Log $kubectlCmd.Output
 if (!$kubectlCmd.Success) {

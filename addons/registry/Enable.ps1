@@ -135,17 +135,17 @@ Install-DebianPackages -addon 'registry' -packages 'apache2-utils'
 (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo htpasswd -Bbn `'$username`' `'$password'` | sudo tee /registry/auth/htpasswd 1>/dev/null" -NoLog).Output | Write-Log
 
 # Create secrets
-Invoke-Kubectl -Params 'create', 'namespace', 'registry'
+(Invoke-Kubectl -Params 'create', 'namespace', 'registry').Output | Write-Log
 (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'kubectl create secret generic auth-secret --from-file=/registry/auth/htpasswd -n registry').Output | Write-Log
 
 # Apply registry pod with persistent volume
 Write-Log 'Creating local registry' -Console
-Invoke-Kubectl -Params 'apply', '-f', "$PSScriptRoot\manifests\k2s-registry.yaml"
+(Invoke-Kubectl -Params 'apply', '-f', "$PSScriptRoot\manifests\k2s-registry.yaml").Output | Write-Log
 if ($Nodeport -eq 0) {
     Deploy-IngressForRegistry -Ingress:$Ingress
 }
 else {
-    Invoke-Kubectl -Params 'apply', '-f', "$PSScriptRoot\manifests\k2s-registry-nodeport.yaml"
+    (Invoke-Kubectl -Params 'apply', '-f', "$PSScriptRoot\manifests\k2s-registry-nodeport.yaml").Output | Write-Log
 
     $patchJson = ''
     if ($PSVersionTable.PSVersion.Major -gt 5) {
@@ -155,7 +155,7 @@ else {
         $patchJson = '{\"spec\":{\"ports\":[{\"nodePort\":' + $Nodeport + ',\"port\": 80,\"protocol\": \"TCP\",\"targetPort\": 5000}]}}'
     }
 
-    Invoke-Kubectl -Params 'patch', 'svc', 'k2s-registry', '-p', "$patchJson", '-n', 'registry'
+    (Invoke-Kubectl -Params 'patch', 'svc', 'k2s-registry', '-p', "$patchJson", '-n', 'registry').Output | Write-Log
 }
 
 $kubectlCmd = (Invoke-Kubectl -Params 'wait', '--timeout=60s', '--for=condition=Ready', '-n', 'registry', 'pod/k2s-registry-pod')
@@ -181,7 +181,7 @@ if ($Nodeport -gt 0) {
 }
 
 # Create secret for enabling all the nodes in the cluster to authenticate with private registry
-Invoke-Kubectl -Params 'create', 'secret', 'docker-registry', 'k2s-registry', "--docker-server=$registryName", "--docker-username=$username", "--docker-password=$password"
+(Invoke-Kubectl -Params 'create', 'secret', 'docker-registry', 'k2s-registry', "--docker-server=$registryName", "--docker-username=$username", "--docker-password=$password").Output | Write-Log
 
 # set insecure-registries (remove this section in case of self signed certificates)
 if ($PSVersionTable.PSVersion.Major -gt 5) {

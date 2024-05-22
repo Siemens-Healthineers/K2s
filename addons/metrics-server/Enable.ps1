@@ -62,7 +62,7 @@ if ((Test-IsAddonEnabled -Name 'metrics-server') -eq $true) {
 }
 
 Write-Log 'Installing Kubernetes Metrics Server' -Console
-Invoke-Kubectl -Params 'apply', '-f', (Get-MetricsServerConfig)
+(Invoke-Kubectl -Params 'apply', '-f', (Get-MetricsServerConfig)).Output | Write-Log
 
 $allPodsAreUp = (Wait-ForPodCondition -Condition Ready -Label 'k8s-app=metrics-server' -Namespace 'kube-system' -TimeoutSeconds 120)
 
