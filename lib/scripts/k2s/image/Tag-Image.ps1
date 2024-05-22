@@ -14,14 +14,17 @@ Tag container images in K2s
 .PARAMETER ImageName
 The image name of the image to be tagged
 
+.PARAMETER TargetImageName
+The new image name 
+
 .EXAMPLE
 # Tag container image "image:v1" with new name "image:v2" in K2s
-PS> .\Tag-Image.ps1 -SourceImageName "image:v1" -TargetImageName "image:v2"
+PS> .\Tag-Image.ps1 -ImageName "image:v1" -TargetImageName "image:v2"
 #>
 
 Param (
     [parameter(Mandatory = $true, HelpMessage = 'Name of the image to be tagged with a new name.')]
-    [string] $SourceImageName,
+    [string] $ImageName,
     [parameter(Mandatory = $true, HelpMessage = 'New image name')]
     [string] $TargetImageName,
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
@@ -50,17 +53,65 @@ if ($systemError) {
     exit 1
 }
 
-$images = @(Get-ContainerImagesInk2s -IncludeK8sImages $true)
+$WorkerVM = Get-IsWorkerVM
+$linuxContainerImages = Get-ContainerImagesOnLinuxNode -IncludeK8sImages $true
+$windowsContainerImages = Get-ContainerImagesOnWindowsNode -IncludeK8sImages $true -WorkerVM $WorkerVM
 
+$foundLinuxImages = @($linuxContainerImages | Where-Object {
+    $calculatedName = $_.Repository + ':' + $_.Tag
+    return ($calculatedName -eq $ImageName)
+})
 
+$foundWindowsImages = @($windowsContainerImages | Where-Object {
+    $calculatedName = $_.Repository + ':' + $_.Tag
+    return ($calculatedName -eq $ImageName)
+})
 
-if (!$Windows) {
-    Write-Log "Pulling Linux image $ImageName"
-    $success = (Invoke-CmdOnControlPlaneViaSSHKey "sudo buildah pull $ImageName 2>&1" -Retries 5).Success
-    if (!$success) {
-        $errMsg = "Error pulling image '$ImageName'"
+if ($foundLinuxImages.Count -eq 0 -and $foundWindowsImages.Count -eq 0) {
+    $errMsg = "Image '$ImageName' not found"
+    if ($EncodeStructuredOutput -eq $true) {
+        $err = New-Error -Code 'image-tag-failed' -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+        return
+    }
+
+    Write-Log $errMsg -Error
+    exit 1
+}
+
+$tagLinuxImage = $false
+$tagWindowsImage = $false
+
+if ($foundLinuxImages.Count -eq 1 -and $foundWindowsImages.Count -eq 1) {
+    Write-Log "Linux and Windows image found"
+    $answer = Read-Host 'WARNING: Linux and Windows image found. Which image should be tagged? (l/w) [Linux or Windows]'
+    if ($answer -ne 'l' -or $answer -ne 'w') {
+        $errMsg = 'Tag image cancelled.'
         if ($EncodeStructuredOutput -eq $true) {
-            $err = New-Error -Code 'image-pull-failed' -Message $errMsg
+            $err = New-Error -Severity Warning -Code (Get-ErrCodeUserCancellation) -Message $errMsg
+            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+            return
+        }
+        Write-Log $errMsg -Error
+        exit 1
+    }
+
+    if ($answer -eq 'l') {
+        $tagLinuxImage = $true
+    }
+
+    if ($answer -eq 'w') {
+        $tagWindowsImage = $true
+    }
+}
+
+if ($foundLinuxImages.Count -eq 1 -or $tagLinuxImage) {
+    Write-Log "Tagging Linux image $ImageName"
+    $success = (Invoke-CmdOnControlPlaneViaSSHKey "sudo buildah tag $ImageName $TargetImageName 2>&1" -Retries 5).Success
+    if (!$success) {
+        $errMsg = "Error tagging image '$ImageName' as '$TargetImageName'"
+        if ($EncodeStructuredOutput -eq $true) {
+            $err = New-Error -Code 'image-tag-failed' -Message $errMsg
             Send-ToCli -MessageType $MessageType -Message @{Error = $err }
             return
         }
@@ -72,16 +123,17 @@ if (!$Windows) {
     if ($EncodeStructuredOutput -eq $true) {
         Send-ToCli -MessageType $MessageType -Message @{Error = $null }
     }
-    return
 }
-else {
-    Write-Log "Pulling Windows image $ImageName"
+
+if ($foundWindowsImages.Count -eq 1 -or $tagWindowsImage) {
+    Write-Log "Tagging Windows image $ImageName"
     $kubeBinPath = Get-KubeBinPath
+    $nerdctlExe = "$kubeBinPath\nerdctl.exe"
     $retries = 5
     $success = $false
     while ($retries -gt 0) {
         $retries--
-        &$kubeBinPath\crictl pull $ImageName
+        &$nerdctlExe -n="k8s.io" tag $ImageName $TargetImageName
 
         if ($?) {
             $success = $true
@@ -91,9 +143,9 @@ else {
     }
 
     if (!$success) {
-        $errMsg = "Error pulling image '$ImageName'"
+        $errMsg = "Error tagging image '$ImageName' as '$TargetImageName'"
         if ($EncodeStructuredOutput -eq $true) {
-            $err = New-Error -Code 'image-pull-failed' -Message $errMsg
+            $err = New-Error -Code 'image-tag-failed' -Message $errMsg
             Send-ToCli -MessageType $MessageType -Message @{Error = $err }
             return
         }
@@ -101,8 +153,8 @@ else {
         Write-Log $errMsg -Error
         exit 1
     }
-}
 
-if ($EncodeStructuredOutput -eq $true) {
-    Send-ToCli -MessageType $MessageType -Message @{Error = $null }
+    if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = $null }
+    }
 }
