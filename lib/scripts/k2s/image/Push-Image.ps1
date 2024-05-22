@@ -76,11 +76,13 @@ if ($foundLinuxImages.Count -eq 0 -and $foundWindowsImages.Count -eq 0) {
 
 $pushLinuxImage = $false
 $pushWindowsImage = $false
+$linuxAndWindowsImageFound = $false
 
 if ($foundLinuxImages.Count -eq 1 -and $foundWindowsImages.Count -eq 1) {
     Write-Log "Linux and Windows image found"
+    $linuxAndWindowsImageFound = $true
     $answer = Read-Host 'WARNING: Linux and Windows image found. Which image should be pushed? (l/w) [Linux or Windows]'
-    if ($answer -ne 'l' -or $answer -ne 'w') {
+    if ($answer -ne 'l' -and $answer -ne 'w') {
         $errMsg = 'Push image cancelled.'
         if ($EncodeStructuredOutput -eq $true) {
             $err = New-Error -Severity Warning -Code (Get-ErrCodeUserCancellation) -Message $errMsg
@@ -100,8 +102,8 @@ if ($foundLinuxImages.Count -eq 1 -and $foundWindowsImages.Count -eq 1) {
     }
 }
 
-if ($foundLinuxImages.Count -eq 1 -or $pushLinuxImage) {
-    Write-Log "Pushing Linux image $ImageName"
+if ((($foundLinuxImages.Count -eq 1) -and !$linuxAndWindowsImageFound) -or $pushLinuxImage) {
+    Write-Log "Pushing Linux image $ImageName" -Console
     $success = (Invoke-CmdOnControlPlaneViaSSHKey "sudo buildah push $ImageName 2>&1" -Retries 5).Success
     if (!$success) {
         $errMsg = "Error pushing image '$ImageName'"
@@ -118,17 +120,19 @@ if ($foundLinuxImages.Count -eq 1 -or $pushLinuxImage) {
     if ($EncodeStructuredOutput -eq $true) {
         Send-ToCli -MessageType $MessageType -Message @{Error = $null }
     }
+
+    exit 0
 }
 
-if ($foundWindowsImages.Count -eq 1 -or $pushWindowsImage) {
-    Write-Log "Pushing Windows image $ImageName"
+if ((($foundWindowsImages.Count -eq 1) -and !$linuxAndWindowsImageFound) -or $pushWindowsImage) {
+    Write-Log "Pushing Windows image $ImageName" -Console
     $kubeBinPath = Get-KubeBinPath
     $nerdctlExe = "$kubeBinPath\nerdctl.exe"
     $retries = 5
     $success = $false
     while ($retries -gt 0) {
         $retries--
-        &$nerdctlExe -n="k8s.io" push $ImageName
+        $(&$nerdctlExe -n="k8s.io" --insecure-registry image push $ImageName --allow-nondistributable-artifacts --quiet 2>&1) | Out-String
 
         if ($?) {
             $success = $true
@@ -152,4 +156,6 @@ if ($foundWindowsImages.Count -eq 1 -or $pushWindowsImage) {
     if ($EncodeStructuredOutput -eq $true) {
         Send-ToCli -MessageType $MessageType -Message @{Error = $null }
     }
+
+    exit 0
 }

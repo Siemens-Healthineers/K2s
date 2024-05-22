@@ -81,11 +81,13 @@ if ($foundLinuxImages.Count -eq 0 -and $foundWindowsImages.Count -eq 0) {
 
 $tagLinuxImage = $false
 $tagWindowsImage = $false
+$linuxAndWindowsImageFound = $false
 
 if ($foundLinuxImages.Count -eq 1 -and $foundWindowsImages.Count -eq 1) {
     Write-Log "Linux and Windows image found"
+    $linuxAndWindowsImageFound = $true
     $answer = Read-Host 'WARNING: Linux and Windows image found. Which image should be tagged? (l/w) [Linux or Windows]'
-    if ($answer -ne 'l' -or $answer -ne 'w') {
+    if ($answer -ne 'l' -and $answer -ne 'w') {
         $errMsg = 'Tag image cancelled.'
         if ($EncodeStructuredOutput -eq $true) {
             $err = New-Error -Severity Warning -Code (Get-ErrCodeUserCancellation) -Message $errMsg
@@ -105,8 +107,8 @@ if ($foundLinuxImages.Count -eq 1 -and $foundWindowsImages.Count -eq 1) {
     }
 }
 
-if ($foundLinuxImages.Count -eq 1 -or $tagLinuxImage) {
-    Write-Log "Tagging Linux image $ImageName"
+if ((($foundLinuxImages.Count -eq 1) -and !$linuxAndWindowsImageFound) -or $tagLinuxImage) {
+    Write-Log "Tagging Linux image '$ImageName' as '$TargetImageName'" -Console
     $success = (Invoke-CmdOnControlPlaneViaSSHKey "sudo buildah tag $ImageName $TargetImageName 2>&1" -Retries 5).Success
     if (!$success) {
         $errMsg = "Error tagging image '$ImageName' as '$TargetImageName'"
@@ -123,10 +125,12 @@ if ($foundLinuxImages.Count -eq 1 -or $tagLinuxImage) {
     if ($EncodeStructuredOutput -eq $true) {
         Send-ToCli -MessageType $MessageType -Message @{Error = $null }
     }
+
+    exit 0
 }
 
-if ($foundWindowsImages.Count -eq 1 -or $tagWindowsImage) {
-    Write-Log "Tagging Windows image $ImageName"
+if ((($foundWindowsImages.Count -eq 1) -and !$linuxAndWindowsImageFound) -or $tagWindowsImage) {
+    Write-Log "Tagging Windows image '$ImageName' as '$TargetImageName'" -Console
     $kubeBinPath = Get-KubeBinPath
     $nerdctlExe = "$kubeBinPath\nerdctl.exe"
     $retries = 5
@@ -157,4 +161,6 @@ if ($foundWindowsImages.Count -eq 1 -or $tagWindowsImage) {
     if ($EncodeStructuredOutput -eq $true) {
         Send-ToCli -MessageType $MessageType -Message @{Error = $null }
     }
+
+    exit 0
 }
