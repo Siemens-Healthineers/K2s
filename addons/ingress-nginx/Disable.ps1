@@ -64,8 +64,8 @@ if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'ingress-nginx', '--ig
 Write-Log 'Uninstalling ingress-nginx' -Console
 $ingressNginxConfig = Get-IngressNginxConfig
 
-Invoke-Kubectl -Params 'delete' , '-f', $ingressNginxConfig
-Invoke-Kubectl -Params 'delete', 'ns', 'ingress-nginx'
+(Invoke-Kubectl -Params 'delete' , '-f', $ingressNginxConfig).Output | Write-Log
+(Invoke-Kubectl -Params 'delete', 'ns', 'ingress-nginx').Output | Write-Log
 
 Remove-AddonFromSetupJson -Name 'ingress-nginx'
 

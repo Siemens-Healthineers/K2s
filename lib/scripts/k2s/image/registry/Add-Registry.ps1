@@ -95,17 +95,17 @@ else {
     $password = $cred.GetNetworkCredential().Password
 }
 
-Invoke-CmdOnControlPlaneViaSSHKey "grep location=\\\""$RegistryName\\\"" /etc/containers/registries.conf || echo -e `'\n[[registry]]\nlocation=\""$RegistryName\""\ninsecure=true`' | sudo tee -a /etc/containers/registries.conf"
+(Invoke-CmdOnControlPlaneViaSSHKey "grep location=\\\""$RegistryName\\\"" /etc/containers/registries.conf || echo -e `'\n[[registry]]\nlocation=\""$RegistryName\""\ninsecure=true`' | sudo tee -a /etc/containers/registries.conf").Output | Write-Log
 
-Invoke-CmdOnControlPlaneViaSSHKey 'sudo systemctl daemon-reload'
-Invoke-CmdOnControlPlaneViaSSHKey 'sudo systemctl restart crio'
+(Invoke-CmdOnControlPlaneViaSSHKey 'sudo systemctl daemon-reload').Output | Write-Log
+(Invoke-CmdOnControlPlaneViaSSHKey 'sudo systemctl restart crio').Output | Write-Log
 
 Start-Sleep 2
 
 Connect-Buildah -username $username -password $password -registry $RegistryName
 
 if (!$?) {
-    Invoke-CmdOnControlPlaneViaSSHKey "grep location=\\\""$RegistryName\\\"" /etc/containers/registries.conf | sudo sed -i -z 's/\[\[registry]]\nlocation=\\\""$RegistryName\\\""\ninsecure=true//g' /etc/containers/registries.conf"
+    (Invoke-CmdOnControlPlaneViaSSHKey "grep location=\\\""$RegistryName\\\"" /etc/containers/registries.conf | sudo sed -i -z 's/\[\[registry]]\nlocation=\\\""$RegistryName\\\""\ninsecure=true//g' /etc/containers/registries.conf").Output | Write-Log
     $errMsg = 'Login to private registry not possible, please check credentials.'
     if ($EncodeStructuredOutput -eq $true) {
         $err = New-Error -Code 'registry-login-impossible' -Message $errMsg

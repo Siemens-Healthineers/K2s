@@ -201,13 +201,13 @@ function Copy-FromControlPlaneViaSSHKey($Source, $Target,
     ssh.exe -n -o StrictHostKeyChecking=no -i $key $remoteUser "[ -d '$linuxSourceDirectory' ]"
     if ($?) {
         # is directory
-        Invoke-CmdOnControlPlaneViaSSHKey "sudo rm -rf /tmp/copy.tar"
+        (Invoke-CmdOnControlPlaneViaSSHKey "sudo rm -rf /tmp/copy.tar").Output | Write-Log
         $leaf = Split-Path $linuxSourceDirectory -Leaf
-        Invoke-CmdOnControlPlaneViaSSHKey "sudo tar -cf /tmp/copy.tar -C $linuxSourceDirectory ."
+        (Invoke-CmdOnControlPlaneViaSSHKey "sudo tar -cf /tmp/copy.tar -C $linuxSourceDirectory .").Output | Write-Log
         scp.exe -o StrictHostKeyChecking=no -i $key "${remoteUser}:/tmp/copy.tar" "$env:temp\copy.tar" 2>&1 | ForEach-Object { "$_" }
         New-Item -Path "$Target\$leaf" -ItemType Directory | Out-Null
         tar.exe -xf "$env:temp\copy.tar" -C "$Target\$leaf"
-        Invoke-CmdOnControlPlaneViaSSHKey "sudo rm -rf /tmp/copy.tar"
+        (Invoke-CmdOnControlPlaneViaSSHKey "sudo rm -rf /tmp/copy.tar").Output | Write-Log
         Remove-Item -Path "$env:temp\copy.tar" -Force -ErrorAction SilentlyContinue
     } else {
         scp.exe -o StrictHostKeyChecking=no -r -i $key "${remoteUser}:$Source" "$Target" 2>&1 | ForEach-Object { "$_" }
@@ -244,14 +244,14 @@ function Copy-ToControlPlaneViaSSHKey($Source, $Target,
     $leaf = Split-Path $Source -leaf
     if ($(Test-Path $Source) -and (Get-Item $Source) -is [System.IO.DirectoryInfo] -and $leaf -ne "*") {
         # is directory
-        Invoke-CmdOnControlPlaneViaSSHKey "sudo rm -rf /tmp/copy.tar"
+        (Invoke-CmdOnControlPlaneViaSSHKey "sudo rm -rf /tmp/copy.tar").Output | Write-Log
         $leaf = Split-Path $Source -Leaf
         tar.exe -cf "$env:TEMP\copy.tar" -C $Source .
         scp.exe -o StrictHostKeyChecking=no -i $key "$env:temp\copy.tar" "${remoteUser}:/tmp" 2>&1 | ForEach-Object { "$_" }
         $targetDirectory = $Target -replace "${remoteUser}:", ''
-        Invoke-CmdOnControlPlaneViaSSHKey "mkdir -p $targetDirectory/$leaf"
-        Invoke-CmdOnControlPlaneViaSSHKey "tar -xf /tmp/copy.tar -C $targetDirectory/$leaf"
-        Invoke-CmdOnControlPlaneViaSSHKey "sudo rm -rf /tmp/copy.tar"
+        (Invoke-CmdOnControlPlaneViaSSHKey "mkdir -p $targetDirectory/$leaf").Output | Write-Log
+        (Invoke-CmdOnControlPlaneViaSSHKey "tar -xf /tmp/copy.tar -C $targetDirectory/$leaf").Output | Write-Log
+        (Invoke-CmdOnControlPlaneViaSSHKey "sudo rm -rf /tmp/copy.tar").Output | Write-Log
         Remove-Item -Path "$env:temp\copy.tar" -Force -ErrorAction SilentlyContinue
     } else {
         scp.exe -o StrictHostKeyChecking=no -r -i $key "$Source" "${remoteUser}:$Target" 2>&1 | ForEach-Object { "$_" }
@@ -515,9 +515,9 @@ function Copy-KubeConfigFromControlPlaneNode {
         Start-Sleep -s 3
 
         Write-Log 'Trying to get kube config from /etc/kubernetes/admin.conf'
-        Invoke-CmdOnControlPlaneViaSSHKey 'sudo cp /etc/kubernetes/admin.conf /home' -Nested:$Nested
+        (Invoke-CmdOnControlPlaneViaSSHKey 'sudo cp /etc/kubernetes/admin.conf /home' -Nested:$Nested).Output | Write-Log
         Write-Log 'Trying to chmod file from /home/admin.conf'
-        Invoke-CmdOnControlPlaneViaSSHKey 'sudo chmod 775 /home/admin.conf' -Nested:$Nested
+        (Invoke-CmdOnControlPlaneViaSSHKey 'sudo chmod 775 /home/admin.conf' -Nested:$Nested).Output | Write-Log
         Write-Log 'Trying to scp file from /home/admin.conf'
         $source = '/home/admin.conf'
         Copy-FromControlPlaneViaSSHKey -Source $source -Target "$kubePath\config"

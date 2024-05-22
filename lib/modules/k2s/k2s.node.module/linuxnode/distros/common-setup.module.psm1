@@ -53,11 +53,11 @@ Function Set-UpComputerBeforeProvisioning {
 
     if ( $Proxy -ne '' ) {
         Write-Log "Setting proxy '$Proxy' for apt"
-        Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute 'sudo touch /etc/apt/apt.conf.d/proxy.conf' -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd"
+        (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute 'sudo touch /etc/apt/apt.conf.d/proxy.conf' -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output | Write-Log
         if ($PSVersionTable.PSVersion.Major -gt 5) {
-            Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "echo Acquire::http::Proxy \""$Proxy\""\; | sudo tee -a /etc/apt/apt.conf.d/proxy.conf" -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd"
+            (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "echo Acquire::http::Proxy \""$Proxy\""\; | sudo tee -a /etc/apt/apt.conf.d/proxy.conf" -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output | Write-Log
         } else {
-            Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "echo Acquire::http::Proxy \\\""$Proxy\\\""\; | sudo tee -a /etc/apt/apt.conf.d/proxy.conf" -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd"
+            (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "echo Acquire::http::Proxy \\\""$Proxy\\\""\; | sudo tee -a /etc/apt/apt.conf.d/proxy.conf" -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output | Write-Log
         }
     }
 }
@@ -81,10 +81,10 @@ Function Set-UpComputerAfterProvisioning {
     
     Write-Log 'Set local time zone in VM...'
     $timezoneForVm = 'Europe/Berlin'
-    Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "sudo timedatectl set-timezone $timezoneForVm" -RemoteUser $remoteUser -RemoteUserPwd $remoteUserPwd
+    (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "sudo timedatectl set-timezone $timezoneForVm" -RemoteUser $remoteUser -RemoteUserPwd $remoteUserPwd).Output | Write-Log
 
     Write-Log 'Enable hushlogin...'
-    Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute 'touch ~/.hushlogin' -RemoteUser $remoteUser -RemoteUserPwd $remoteUserPwd
+    (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute 'touch ~/.hushlogin' -RemoteUser $remoteUser -RemoteUserPwd $remoteUserPwd).Output | Write-Log
 }
 
 Function Install-KubernetesArtifacts {
@@ -109,9 +109,9 @@ Function Install-KubernetesArtifacts {
             [switch]$IgnoreErrors = $false, [string]$RepairCmd = $null, [uint16]$Retries = 0
             )
         if ($IgnoreErrors) {
-            Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd" -Retries $Retries -IgnoreErrors
+            (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd" -Retries $Retries -IgnoreErrors).Output | Write-Log
         } else {
-            Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd" -Retries $Retries -RepairCmd $RepairCmd
+            (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd" -Retries $Retries -RepairCmd $RepairCmd).Output | Write-Log
         }
     }
 
@@ -257,7 +257,7 @@ Function Install-Tools {
     $remoteUserPwd = $UserPwd
 
     $executeRemoteCommand = { param($Command = $(throw "Argument missing: Command")) 
-    Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $Command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd"
+    (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $Command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output | Write-Log
     }
 
     Write-Log "Start installing tools in the Linux VM"
@@ -355,7 +355,7 @@ function Install-DnsServer {
     $remoteUserPwd = $UserPwd
 
     $executeRemoteCommand = { param($Command = $(throw "Argument missing: Command")) 
-    Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $Command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd"
+    (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $Command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output | Write-Log
     }
 
     Write-Log "Install custom DNS server"
@@ -378,7 +378,7 @@ function Get-FlannelImages {
     $remoteUserPwd = $UserPwd
 
     $executeRemoteCommand = { param($Command = $(throw "Argument missing: Command")) 
-    Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $Command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd"
+    (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $Command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output | Write-Log
     }
 
     Write-Log "Get images used by flannel"
@@ -398,7 +398,7 @@ function Set-Nameserver {
     $remoteUserPwd = $UserPwd
 
     $executeRemoteCommand = { param($Command = $(throw "Argument missing: Command")) 
-    Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $Command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd"
+    (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $Command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output | Write-Log
     }
 
     Write-Log "Set nameserver"
@@ -432,7 +432,7 @@ Function Add-SupportForWSL {
     $remoteUserPwd = $UserPwd
 
     $executeRemoteCommand = { param($command = $(throw "Argument missing: Command"))
-        Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd"
+        (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output | Write-Log
     }
 
     # WSL2 config
@@ -480,7 +480,7 @@ function Edit-SupportForWSL {
     $remoteUserPwd = $UserPwd
 
     $executeRemoteCommand = { param($command = $(throw "Argument missing: Command"))
-        Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd"
+        (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output | Write-Log
     }
 
     Write-Log "Edit WSL2 support"
@@ -553,9 +553,9 @@ Function Set-UpMasterNode {
             [switch]$IgnoreErrors = $false
             ) 
         if ($IgnoreErrors) {
-            Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd" -IgnoreErrors
+            (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd" -IgnoreErrors).Output | Write-Log
         } else {
-            Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd"
+            (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output | Write-Log
         }
     }
 
@@ -621,7 +621,7 @@ Function Add-FlannelPluginToMasterNode {
     $fileName = "flannel.yml"
 
     $executeRemoteCommand = { param($command = $(throw "Argument missing: Command")) 
-    Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd"
+    (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output | Write-Log
     }
 
     $waitUntilContainerNetworkPluginIsRunning = { 
@@ -925,9 +925,9 @@ function CopyDotFile($SourcePath, $DotFile,
         $target = "$DotFile.temp"
         $userName = $RemoteUser.Substring(0, $RemoteUser.IndexOf('@'))
         Copy-ToControlPlaneViaUserAndPwd -Source $source -Target $target
-        Invoke-CmdOnControlPlaneViaUserAndPwd "sed 's/\r//g' $DotFile.temp > ~/$DotFile" -RemoteUser "$RemoteUser" -RemoteUserPwd "$RemoteUserPwd"
-        Invoke-CmdOnControlPlaneViaUserAndPwd "sudo chown -R $userName ~/$DotFile" -RemoteUser "$RemoteUser" -RemoteUserPwd "$RemoteUserPwd"
-        Invoke-CmdOnControlPlaneViaUserAndPwd "rm $DotFile.temp" -RemoteUser "$RemoteUser" -RemoteUserPwd "$RemoteUserPwd"
+        (Invoke-CmdOnControlPlaneViaUserAndPwd "sed 's/\r//g' $DotFile.temp > ~/$DotFile" -RemoteUser "$RemoteUser" -RemoteUserPwd "$RemoteUserPwd").Output | Write-Log
+        (Invoke-CmdOnControlPlaneViaUserAndPwd "sudo chown -R $userName ~/$DotFile" -RemoteUser "$RemoteUser" -RemoteUserPwd "$RemoteUserPwd").Output | Write-Log
+        (Invoke-CmdOnControlPlaneViaUserAndPwd "rm $DotFile.temp" -RemoteUser "$RemoteUser" -RemoteUserPwd "$RemoteUserPwd").Output | Write-Log
     }
 }
 
@@ -949,7 +949,7 @@ function InstallAptPackages {
         [string]$RemoteUserPwd
     )
     Write-Log "installing needed apt packages for $FriendlyName..."
-    Invoke-CmdOnControlPlaneViaUserAndPwd "sudo DEBIAN_FRONTEND=noninteractive apt-get install -qq --yes --fix-missing $Packages" -Retries 2 -Timeout 2 -RemoteUser "$RemoteUser" -RemoteUserPwd "$RemoteUserPwd" -RepairCmd "sudo apt --fix-broken install"
+    (Invoke-CmdOnControlPlaneViaUserAndPwd "sudo DEBIAN_FRONTEND=noninteractive apt-get install -qq --yes --fix-missing $Packages" -Retries 2 -Timeout 2 -RemoteUser "$RemoteUser" -RemoteUserPwd "$RemoteUserPwd" -RepairCmd "sudo apt --fix-broken install").Output | Write-Log
 
     if ($TestExecutable -ne '') {
         $exeInstalled = (Invoke-CmdOnControlPlaneViaUserAndPwd "which $TestExecutable" -RemoteUser "$RemoteUser" -RemoteUserPwd "$RemoteUserPwd").Output
@@ -979,14 +979,14 @@ function AddAptRepo {
     Write-Log "adding apt-repository '$RepoDebString' with proxy '$ProxyApt' from '$RepoKeyUrl'"
     if ($RepoKeyUrl -ne '') {
         if ($ProxyApt -ne '') {
-            Invoke-CmdOnControlPlaneViaUserAndPwd "curl --retry 3 --retry-connrefused -s -k $RepoKeyUrl --proxy $ProxyApt | sudo apt-key add - 2>&1" -RemoteUser "$RemoteUser" -RemoteUserPwd "$RemoteUserPwd"
+            (Invoke-CmdOnControlPlaneViaUserAndPwd "curl --retry 3 --retry-connrefused -s -k $RepoKeyUrl --proxy $ProxyApt | sudo apt-key add - 2>&1" -RemoteUser "$RemoteUser" -RemoteUserPwd "$RemoteUserPwd").Output | Write-Log
         }
         else {
-            Invoke-CmdOnControlPlaneViaUserAndPwd "curl --retry 3 --retry-connrefused -fsSL $RepoKeyUrl | sudo apt-key add - 2>&1" -RemoteUser "$RemoteUser" -RemoteUserPwd "$RemoteUserPwd"
+            (Invoke-CmdOnControlPlaneViaUserAndPwd "curl --retry 3 --retry-connrefused -fsSL $RepoKeyUrl | sudo apt-key add - 2>&1" -RemoteUser "$RemoteUser" -RemoteUserPwd "$RemoteUserPwd").Output | Write-Log
         }
         if ($LASTEXITCODE -ne 0) { throw "adding repo '$RepoDebString' failed. Aborting." }
     }
-    Invoke-CmdOnControlPlaneViaUserAndPwd "sudo add-apt-repository '$RepoDebString' 2>&1" -RemoteUser "$RemoteUser" -RemoteUserPwd "$RemoteUserPwd"
+    (Invoke-CmdOnControlPlaneViaUserAndPwd "sudo add-apt-repository '$RepoDebString' 2>&1" -RemoteUser "$RemoteUser" -RemoteUserPwd "$RemoteUserPwd").Output | Write-Log
     if ($LASTEXITCODE -ne 0) { throw "adding repo '$RepoDebString' failed. Aborting." }
 }
 
@@ -1034,46 +1034,46 @@ function Set-ProxySettingsOnKubenode {
     # packages
     if ($removeProxySettings) {
         Write-Log 'Delete proxy settings for package tool'
-        Invoke-CmdOnVmViaSSHKey 'sudo rm -f /etc/apt/apt.conf.d/proxy.conf' -IpAddress $IpAddress
+        (Invoke-CmdOnVmViaSSHKey 'sudo rm -f /etc/apt/apt.conf.d/proxy.conf' -IpAddress $IpAddress).Output | Write-Log
     } else {
         Write-Log 'Set proxy settings for package tool'
-        Invoke-CmdOnVmViaSSHKey 'sudo touch /etc/apt/apt.conf.d/proxy.conf' -IpAddress $IpAddress
+        (Invoke-CmdOnVmViaSSHKey 'sudo touch /etc/apt/apt.conf.d/proxy.conf' -IpAddress $IpAddress).Output | Write-Log
         if ($PSVersionTable.PSVersion.Major -gt 5) {
-            Invoke-CmdOnVmViaSSHKey "echo Acquire::http::Proxy \""$ProxySettings\""\; | sudo tee -a /etc/apt/apt.conf.d/proxy.conf" -IpAddress $IpAddress
+            (Invoke-CmdOnVmViaSSHKey "echo Acquire::http::Proxy \""$ProxySettings\""\; | sudo tee -a /etc/apt/apt.conf.d/proxy.conf" -IpAddress $IpAddress).Output | Write-Log
         }
         else {
-            Invoke-CmdOnVmViaSSHKey "echo Acquire::http::Proxy \\\""$ProxySettings\\\""\; | sudo tee -a /etc/apt/apt.conf.d/proxy.conf" -IpAddress $IpAddress
+            (Invoke-CmdOnVmViaSSHKey "echo Acquire::http::Proxy \\\""$ProxySettings\\\""\; | sudo tee -a /etc/apt/apt.conf.d/proxy.conf" -IpAddress $IpAddress).Output | Write-Log
         }
     }
 
     # Container runtime
     if ($removeProxySettings) {
         Write-Log 'Delete proxy settings for container runtime'
-        Invoke-CmdOnVmViaSSHKey 'sudo rm -fr /etc/systemd/system/crio.service.d' -IpAddress $IpAddress
+        (Invoke-CmdOnVmViaSSHKey 'sudo rm -fr /etc/systemd/system/crio.service.d' -IpAddress $IpAddress).Output | Write-Log
     } else {
         Write-Log 'Set proxy settings for container runtime'
-        Invoke-CmdOnVmViaSSHKey 'sudo mkdir -p /etc/systemd/system/crio.service.d' -IpAddress $IpAddress
-        Invoke-CmdOnVmViaSSHKey 'sudo touch /etc/systemd/system/crio.service.d/http-proxy.conf' -IpAddress $IpAddress
-        Invoke-CmdOnVmViaSSHKey 'echo [Service] | sudo tee /etc/systemd/system/crio.service.d/http-proxy.conf' -IpAddress $IpAddress
-        Invoke-CmdOnVmViaSSHKey "echo Environment=\'HTTP_PROXY=$ProxySettings\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf" -IpAddress $IpAddress
-        Invoke-CmdOnVmViaSSHKey "echo Environment=\'HTTPS_PROXY=$ProxySettings\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf" -IpAddress $IpAddress
-        Invoke-CmdOnVmViaSSHKey "echo Environment=\'http_proxy=$ProxySettings\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf" -IpAddress $IpAddress
-        Invoke-CmdOnVmViaSSHKey "echo Environment=\'https_proxy=$ProxySettings\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf" -IpAddress $IpAddress
-        Invoke-CmdOnVmViaSSHKey "echo Environment=\'no_proxy=.local\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf" -IpAddress $IpAddress
+        (Invoke-CmdOnVmViaSSHKey 'sudo mkdir -p /etc/systemd/system/crio.service.d' -IpAddress $IpAddress).Output | Write-Log
+        (Invoke-CmdOnVmViaSSHKey 'sudo touch /etc/systemd/system/crio.service.d/http-proxy.conf' -IpAddress $IpAddress).Output | Write-Log
+        (Invoke-CmdOnVmViaSSHKey 'echo [Service] | sudo tee /etc/systemd/system/crio.service.d/http-proxy.conf' -IpAddress $IpAddress).Output | Write-Log
+        (Invoke-CmdOnVmViaSSHKey "echo Environment=\'HTTP_PROXY=$ProxySettings\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf" -IpAddress $IpAddress).Output | Write-Log
+        (Invoke-CmdOnVmViaSSHKey "echo Environment=\'HTTPS_PROXY=$ProxySettings\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf" -IpAddress $IpAddress).Output | Write-Log
+        (Invoke-CmdOnVmViaSSHKey "echo Environment=\'http_proxy=$ProxySettings\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf" -IpAddress $IpAddress).Output | Write-Log
+        (Invoke-CmdOnVmViaSSHKey "echo Environment=\'https_proxy=$ProxySettings\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf" -IpAddress $IpAddress).Output | Write-Log
+        (Invoke-CmdOnVmViaSSHKey "echo Environment=\'no_proxy=.local\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf" -IpAddress $IpAddress).Output | Write-Log
     }
 
     # Containers
     if ($removeProxySettings) {
         Write-Log 'Delete proxy settings for containers'
-        Invoke-CmdOnVmViaSSHKey 'sudo rm -f /etc/containers/containers.conf' -IpAddress $IpAddress
+        (Invoke-CmdOnVmViaSSHKey 'sudo rm -f /etc/containers/containers.conf' -IpAddress $IpAddress).Output | Write-Log
     } else {
         Write-Log 'Set proxy settings for containers'
-        Invoke-CmdOnVmViaSSHKey 'echo [engine] | sudo tee /etc/containers/containers.conf' -IpAddress $IpAddress
+        (Invoke-CmdOnVmViaSSHKey 'echo [engine] | sudo tee /etc/containers/containers.conf' -IpAddress $IpAddress).Output | Write-Log
         if ($PSVersionTable.PSVersion.Major -gt 5) {
-            Invoke-CmdOnVmViaSSHKey "echo env = [\""https_proxy=$ProxySettings\""] | sudo tee -a /etc/containers/containers.conf" -IpAddress $IpAddress
+            (Invoke-CmdOnVmViaSSHKey "echo env = [\""https_proxy=$ProxySettings\""] | sudo tee -a /etc/containers/containers.conf" -IpAddress $IpAddress).Output | Write-Log
         }
         else {
-            Invoke-CmdOnVmViaSSHKey "echo env = [\\\""https_proxy=$ProxySettings\\\""] | sudo tee -a /etc/containers/containers.conf" -IpAddress $IpAddress
+            (Invoke-CmdOnVmViaSSHKey "echo env = [\\\""https_proxy=$ProxySettings\\\""] | sudo tee -a /etc/containers/containers.conf" -IpAddress $IpAddress).Output | Write-Log
         }
     }
 }

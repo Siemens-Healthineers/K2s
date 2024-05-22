@@ -95,11 +95,11 @@ if ((Test-IsAddonEnabled -Name 'traefik') -eq $true) {
 $manifestsPath = "$(Get-KubePath)\addons\gateway-nginx\manifests"
 
 Write-Log 'Installing Gateway API' -Console
-Invoke-Kubectl -Params 'apply', '-f', "$manifestsPath\gateway-api-v1.0.0.yaml"
+(Invoke-Kubectl -Params 'apply', '-f', "$manifestsPath\gateway-api-v1.0.0.yaml").Output | Write-Log
 
 Write-Log 'Installing NGINX Kubernetes Gateway' -Console
-Invoke-Kubectl -Params 'apply', '-f', "$manifestsPath\crds"
-Invoke-Kubectl -Params 'apply', '-f', "$manifestsPath\nginx-gateway-fabric-v1.1.0.yaml"
+(Invoke-Kubectl -Params 'apply', '-f', "$manifestsPath\crds").Output | Write-Log
+(Invoke-Kubectl -Params 'apply', '-f', "$manifestsPath\nginx-gateway-fabric-v1.1.0.yaml").Output | Write-Log
 
 $controlPlaneIp = Get-ConfiguredIPControlPlane
 
@@ -112,7 +112,7 @@ else {
   $patchJson = '{\"spec\":{\"externalIPs\":[\"' + $controlPlaneIp + '\"]}}'
 }
 $gatewayNginxSvc = 'nginx-gateway'
-Invoke-Kubectl -Params 'patch', 'svc', $gatewayNginxSvc , '-p', "$patchJson", '-n', 'nginx-gateway'
+(Invoke-Kubectl -Params 'patch', 'svc', $gatewayNginxSvc , '-p', "$patchJson", '-n', 'nginx-gateway').Output | Write-Log
 
 $kubectlCmd = (Invoke-Kubectl -Params 'wait', '--timeout=60s', '--for=condition=Available', '-n', 'nginx-gateway', 'deployment/nginx-gateway')
 Write-Log $kubectlCmd.Output
@@ -132,7 +132,7 @@ if (!$kubectlCmd.Success) {
 Write-Log 'gateway-nginx addon installed successfully' -Console
 if ($SharedGateway) {
   Add-HostEntries -Url 'k2s-gateway.local'
-  Invoke-Kubectl -Params 'apply', '-f', "$manifestsPath\shared-gateway.yaml"
+  (Invoke-Kubectl -Params 'apply', '-f', "$manifestsPath\shared-gateway.yaml").Output | Write-Log
 
   @'
 USAGE NOTES

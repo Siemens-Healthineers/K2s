@@ -211,23 +211,23 @@ function New-KubemasterBaseImage {
 
         # hostname
         $hostnameKubemaster = $Hostname
-        Invoke-CmdOnControlPlaneViaUserAndPwd "sudo hostnamectl set-hostname $hostnameKubemaster" -RemoteUser $remoteUser1
-        Invoke-CmdOnControlPlaneViaUserAndPwd "sudo sed -i `"s/$(Get-HostnameForProvisioningKubeNode)/$hostnameKubemaster/g`" /etc/hosts" -RemoteUser $remoteUser1
+        (Invoke-CmdOnControlPlaneViaUserAndPwd "sudo hostnamectl set-hostname $hostnameKubemaster" -RemoteUser $remoteUser1).Output | Write-Log
+        (Invoke-CmdOnControlPlaneViaUserAndPwd "sudo sed -i `"s/$(Get-HostnameForProvisioningKubeNode)/$hostnameKubemaster/g`" /etc/hosts" -RemoteUser $remoteUser1).Output | Write-Log
 
         # IP
         $interfaceConfigurationPath = '/etc/network/interfaces.d/10-k2s'
-        Invoke-CmdOnControlPlaneViaUserAndPwd "echo auto lo | sudo tee $interfaceConfigurationPath" -RemoteUser $remoteUser1
-        Invoke-CmdOnControlPlaneViaUserAndPwd "echo iface lo inet loopback | sudo tee -a $interfaceConfigurationPath" -RemoteUser $remoteUser1
-        Invoke-CmdOnControlPlaneViaUserAndPwd "echo auto $InterfaceName | sudo tee -a $interfaceConfigurationPath" -RemoteUser $remoteUser1
-        Invoke-CmdOnControlPlaneViaUserAndPwd "echo iface $InterfaceName inet static | sudo tee -a $interfaceConfigurationPath" -RemoteUser $remoteUser1
-        Invoke-CmdOnControlPlaneViaUserAndPwd "echo address $IpAddress/24 | sudo tee -a $interfaceConfigurationPath" -RemoteUser $remoteUser1
-        Invoke-CmdOnControlPlaneViaUserAndPwd "echo dns-nameservers $($DnsServers.Replace(',', ' ')) | sudo tee -a $interfaceConfigurationPath" -RemoteUser $remoteUser1
-        Invoke-CmdOnControlPlaneViaUserAndPwd "echo gateway $GatewayIpAddress | sudo tee -a $interfaceConfigurationPath" -RemoteUser $remoteUser1
-        Invoke-CmdOnControlPlaneViaUserAndPwd "echo mtu 1400 | sudo tee -a $interfaceConfigurationPath" -RemoteUser $remoteUser1
-        Invoke-CmdOnControlPlaneViaUserAndPwd "sudo rm -f /etc/network/interfaces.d/50-cloud-init" -RemoteUser $remoteUser1
+        (Invoke-CmdOnControlPlaneViaUserAndPwd "echo auto lo | sudo tee $interfaceConfigurationPath" -RemoteUser $remoteUser1).Output | Write-Log
+        (Invoke-CmdOnControlPlaneViaUserAndPwd "echo iface lo inet loopback | sudo tee -a $interfaceConfigurationPath" -RemoteUser $remoteUser1).Output | Write-Log
+        (Invoke-CmdOnControlPlaneViaUserAndPwd "echo auto $InterfaceName | sudo tee -a $interfaceConfigurationPath" -RemoteUser $remoteUser1).Output | Write-Log
+        (Invoke-CmdOnControlPlaneViaUserAndPwd "echo iface $InterfaceName inet static | sudo tee -a $interfaceConfigurationPath" -RemoteUser $remoteUser1).Output | Write-Log
+        (Invoke-CmdOnControlPlaneViaUserAndPwd "echo address $IpAddress/24 | sudo tee -a $interfaceConfigurationPath" -RemoteUser $remoteUser1).Output | Write-Log
+        (Invoke-CmdOnControlPlaneViaUserAndPwd "echo dns-nameservers $($DnsServers.Replace(',', ' ')) | sudo tee -a $interfaceConfigurationPath" -RemoteUser $remoteUser1).Output | Write-Log
+        (Invoke-CmdOnControlPlaneViaUserAndPwd "echo gateway $GatewayIpAddress | sudo tee -a $interfaceConfigurationPath" -RemoteUser $remoteUser1).Output | Write-Log
+        (Invoke-CmdOnControlPlaneViaUserAndPwd "echo mtu 1400 | sudo tee -a $interfaceConfigurationPath" -RemoteUser $remoteUser1).Output | Write-Log
+        (Invoke-CmdOnControlPlaneViaUserAndPwd "sudo rm -f /etc/network/interfaces.d/50-cloud-init" -RemoteUser $remoteUser1).Output | Write-Log
 
         # ssh keys
-        Invoke-CmdOnControlPlaneViaUserAndPwd "sudo rm -f /etc/ssh/ssh_host_*; sudo ssh-keygen -A; sudo systemctl restart ssh" -RemoteUser $remoteUser1
+        (Invoke-CmdOnControlPlaneViaUserAndPwd "sudo rm -f /etc/ssh/ssh_host_*; sudo ssh-keygen -A; sudo systemctl restart ssh" -RemoteUser $remoteUser1).Output | Write-Log
 
         Stop-VirtualMachineForBaseImageProvisioning -Name $vmName
         Disconnect-VMNetworkAdapter -VmName $vmName
@@ -355,23 +355,23 @@ function New-KubeworkerBaseImage {
     Wait-ForSshPossible -User $remoteUser1 -UserPwd $(Get-DefaultUserPwdKubeNode) -SshTestCommand 'which ls' -ExpectedSshTestCommandResult '/usr/bin/ls'
 
     # hostname
-    Invoke-CmdOnControlPlaneViaUserAndPwd "sudo hostnamectl set-hostname $Hostname" -RemoteUser $remoteUser1
-    Invoke-CmdOnControlPlaneViaUserAndPwd "sudo sed -i `"s/$(Get-HostnameForProvisioningKubeNode)/$Hostname/g`" /etc/hosts" -RemoteUser $remoteUser1
+    (Invoke-CmdOnControlPlaneViaUserAndPwd "sudo hostnamectl set-hostname $Hostname" -RemoteUser $remoteUser1).Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaUserAndPwd "sudo sed -i `"s/$(Get-HostnameForProvisioningKubeNode)/$Hostname/g`" /etc/hosts" -RemoteUser $remoteUser1).Output | Write-Log
 
     # IP
     $interfaceConfigurationPath = '/etc/network/interfaces.d/10-k2s'
-    Invoke-CmdOnControlPlaneViaUserAndPwd "echo auto lo | sudo tee $interfaceConfigurationPath" -RemoteUser $remoteUser1
-    Invoke-CmdOnControlPlaneViaUserAndPwd "echo iface lo inet loopback | sudo tee -a $interfaceConfigurationPath" -RemoteUser $remoteUser1
-    Invoke-CmdOnControlPlaneViaUserAndPwd "echo auto $InterfaceName | sudo tee -a $interfaceConfigurationPath" -RemoteUser $remoteUser1
-    Invoke-CmdOnControlPlaneViaUserAndPwd "echo iface $InterfaceName inet static | sudo tee -a $interfaceConfigurationPath" -RemoteUser $remoteUser1
-    Invoke-CmdOnControlPlaneViaUserAndPwd "echo address $IpAddress/24 | sudo tee -a $interfaceConfigurationPath" -RemoteUser $remoteUser1
-    Invoke-CmdOnControlPlaneViaUserAndPwd "echo dns-nameservers 172.19.1.100 | sudo tee -a $interfaceConfigurationPath" -RemoteUser $remoteUser1
-    Invoke-CmdOnControlPlaneViaUserAndPwd "echo gateway $GatewayIpAddress | sudo tee -a $interfaceConfigurationPath" -RemoteUser $remoteUser1
-    Invoke-CmdOnControlPlaneViaUserAndPwd "echo mtu 1400 | sudo tee -a $interfaceConfigurationPath" -RemoteUser $remoteUser1
-    Invoke-CmdOnControlPlaneViaUserAndPwd "sudo rm -f /etc/network/interfaces.d/50-cloud-init" -RemoteUser $remoteUser1
+    (Invoke-CmdOnControlPlaneViaUserAndPwd "echo auto lo | sudo tee $interfaceConfigurationPath" -RemoteUser $remoteUser1).Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaUserAndPwd "echo iface lo inet loopback | sudo tee -a $interfaceConfigurationPath" -RemoteUser $remoteUser1).Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaUserAndPwd "echo auto $InterfaceName | sudo tee -a $interfaceConfigurationPath" -RemoteUser $remoteUser1).Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaUserAndPwd "echo iface $InterfaceName inet static | sudo tee -a $interfaceConfigurationPath" -RemoteUser $remoteUser1).Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaUserAndPwd "echo address $IpAddress/24 | sudo tee -a $interfaceConfigurationPath" -RemoteUser $remoteUser1).Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaUserAndPwd "echo dns-nameservers 172.19.1.100 | sudo tee -a $interfaceConfigurationPath" -RemoteUser $remoteUser1).Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaUserAndPwd "echo gateway $GatewayIpAddress | sudo tee -a $interfaceConfigurationPath" -RemoteUser $remoteUser1).Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaUserAndPwd "echo mtu 1400 | sudo tee -a $interfaceConfigurationPath" -RemoteUser $remoteUser1).Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaUserAndPwd "sudo rm -f /etc/network/interfaces.d/50-cloud-init" -RemoteUser $remoteUser1).Output | Write-Log
 
     # ssh keys
-    Invoke-CmdOnControlPlaneViaUserAndPwd "sudo rm -f /etc/ssh/ssh_host_*; sudo ssh-keygen -A; sudo systemctl restart ssh" -RemoteUser $remoteUser1
+    (Invoke-CmdOnControlPlaneViaUserAndPwd "sudo rm -f /etc/ssh/ssh_host_*; sudo ssh-keygen -A; sudo systemctl restart ssh" -RemoteUser $remoteUser1).Output | Write-Log
 
     Stop-VirtualMachineForBaseImageProvisioning -Name $vmName
     Disconnect-VMNetworkAdapter -VmName $vmName
@@ -660,9 +660,9 @@ Function New-RootfsForWSL {
             [switch]$IgnoreErrors = $false
             )
         if ($IgnoreErrors) {
-            Invoke-CmdOnControlPlaneViaUserAndPwd $command -RemoteUser "$user" -RemoteUserPwd "$userPwd" -IgnoreErrors
+            (Invoke-CmdOnControlPlaneViaUserAndPwd $command -RemoteUser "$user" -RemoteUserPwd "$userPwd" -IgnoreErrors).Output | Write-Log
         } else {
-            Invoke-CmdOnControlPlaneViaUserAndPwd $command -RemoteUser "$user" -RemoteUserPwd "$userPwd"
+            (Invoke-CmdOnControlPlaneViaUserAndPwd $command -RemoteUser "$user" -RemoteUserPwd "$userPwd").Output | Write-Log
         }
     }
 
