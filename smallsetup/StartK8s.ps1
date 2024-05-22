@@ -382,9 +382,9 @@ if (!$WSL) {
     $physicalInterfaceIndex = Get-NetAdapter -Physical | Where-Object Status -Eq 'Up' | Where-Object Name -ne $(Get-L2BridgeName) | Select-Object -expand 'ifIndex'
     if (![string]::IsNullOrWhiteSpace($physicalInterfaceIndex)) {
         $dnservers = ((Get-DnsClientServerAddress -InterfaceIndex $physicalInterfaceIndex | Select-Object -ExpandProperty ServerAddresses) | Select-Object -Unique) -join ' '
-        Invoke-CmdOnControlPlaneViaSSHKey "sudo sed -i 's/dns-nameservers.*/dns-nameservers $dnservers/' /etc/network/interfaces.d/10-k2s"
-        Invoke-CmdOnControlPlaneViaSSHKey 'sudo systemctl restart networking'
-        Invoke-CmdOnControlPlaneViaSSHKey 'sudo systemctl restart dnsmasq'
+        (Invoke-CmdOnControlPlaneViaSSHKey "sudo sed -i 's/dns-nameservers.*/dns-nameservers $dnservers/' /etc/network/interfaces.d/10-k2s").Output | Write-Log
+        (Invoke-CmdOnControlPlaneViaSSHKey 'sudo systemctl restart networking').Output | Write-Log
+        (Invoke-CmdOnControlPlaneViaSSHKey 'sudo systemctl restart dnsmasq').Output | Write-Log
     }
 }
 

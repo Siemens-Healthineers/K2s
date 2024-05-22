@@ -66,12 +66,12 @@ if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'registry', '--ignore-
 
 Write-Log 'Uninstalling Kubernetes registry' -Console
 
-Invoke-Kubectl -Params 'delete', '-f', "$PSScriptRoot\manifests\k2s-registry.yaml"
-Invoke-Kubectl -Params 'delete', 'secret', 'k2s-registry'
-Invoke-Kubectl -Params 'delete', 'namespace', 'registry'
+(Invoke-Kubectl -Params 'delete', '-f', "$PSScriptRoot\manifests\k2s-registry.yaml").Output | Write-Log
+(Invoke-Kubectl -Params 'delete', 'secret', 'k2s-registry').Output | Write-Log
+(Invoke-Kubectl -Params 'delete', 'namespace', 'registry').Output | Write-Log
 
 if ($DeleteImages) {
-    Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo rm -rf /registry'
+    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo rm -rf /registry').Output | Write-Log
 }
 
 Remove-AddonFromSetupJson -Name 'registry'

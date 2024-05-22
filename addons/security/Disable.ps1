@@ -63,8 +63,8 @@ Write-Log 'Uninstalling security' -Console
 $certManagerConfig = Get-CertManagerConfig
 $caIssuerConfig = Get-CAIssuerConfig
 
-Invoke-Kubectl -Params 'delete', '-f', $caIssuerConfig
-Invoke-Kubectl -Params 'delete', '-f', $certManagerConfig
+(Invoke-Kubectl -Params 'delete', '-f', $caIssuerConfig).Output | Write-Log
+(Invoke-Kubectl -Params 'delete', '-f', $certManagerConfig).Output | Write-Log
 
 Remove-Cmctl
 

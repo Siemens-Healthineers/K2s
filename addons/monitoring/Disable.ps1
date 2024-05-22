@@ -58,9 +58,9 @@ if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'monitoring', '--ignor
 $manifestsPath = "$PSScriptRoot\manifests"
 
 Write-Log 'Uninstalling Kube Prometheus Stack' -Console
-Invoke-Kubectl -Params 'delete', '-k', $manifestsPath
-Invoke-Kubectl -Params 'delete', '-f', "$manifestsPath\crds"
-Invoke-Kubectl -Params 'delete', '-f', "$manifestsPath\namespace.yaml"
+(Invoke-Kubectl -Params 'delete', '-k', $manifestsPath).Output | Write-Log
+(Invoke-Kubectl -Params 'delete', '-f', "$manifestsPath\crds").Output | Write-Log
+(Invoke-Kubectl -Params 'delete', '-f', "$manifestsPath\namespace.yaml").Output | Write-Log
 
 Remove-AddonFromSetupJson -Name 'monitoring'
 

@@ -38,9 +38,9 @@ Function Set-UpComputerWithSpecificOsBeforeProvisioning {
             [switch]$IgnoreErrors = $false
             )
         if ($IgnoreErrors) {
-            Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $command -RemoteUser "$user" -RemoteUserPwd "$userPwd" -IgnoreErrors
+            (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $command -RemoteUser "$user" -RemoteUserPwd "$userPwd" -IgnoreErrors).Output | Write-Log
         } else {
-            Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $command -RemoteUser "$user" -RemoteUserPwd "$userPwd"
+            (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $command -RemoteUser "$user" -RemoteUserPwd "$userPwd").Output | Write-Log
         }
     }
 
@@ -85,7 +85,7 @@ Function Set-UpComputerWithSpecificOsAfterProvisioning {
     $userPwd = $UserPwd
 
     Copy-CloudInitFiles -IpAddress $IpAddress
-    Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "sudo cloud-init clean" -RemoteUser "$user" -RemoteUserPwd "$userPwd"
+    (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "sudo cloud-init clean" -RemoteUser "$user" -RemoteUserPwd "$userPwd").Output | Write-Log
 }
 
 

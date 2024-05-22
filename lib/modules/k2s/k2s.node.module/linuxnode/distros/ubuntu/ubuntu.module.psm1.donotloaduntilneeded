@@ -37,7 +37,7 @@ Function Set-UpComputerWithSpecificOsBeforeProvisioning {
     $remoteUserPwd = $UserPwd
 
     $executeRemoteCommand = { param($command = $(throw "Argument missing: Command"))
-        Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd"
+        (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output | Write-Log
     }
 
     Write-Log "Disable automatic upgrades"
@@ -122,7 +122,7 @@ Function Set-UpComputerWithSpecificOsBeforeConfiguringAsMasterNode {
     $remoteUserPwd = $UserPwd
 
     $executeRemoteCommand = { param($command = $(throw "Argument missing: Command"))
-        Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd"
+        (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output | Write-Log
     }
 
     Write-Log "Disable service servicing port 53 (i.e. systemd-resolved)"
@@ -231,9 +231,9 @@ function Add-RemoteIPAddress {
             [switch]$NoLog = $false
             )
         if ($NoLog) {
-            Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd" -NoLog
+            (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd" -NoLog).Output | Write-Log
         } else {
-            Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd"
+            (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output | Write-Log
         }
     }
 
@@ -298,7 +298,7 @@ Function New-User {
     $remoteUserPwd = $UserPwd
 
     $executeRemoteCommand = { param($command = $(throw "Argument missing: Command"))
-        Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd"
+        (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output | Write-Log
     }
 
     Write-Log "Create '$newUserName' user"

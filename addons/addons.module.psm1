@@ -234,17 +234,17 @@ function Install-DebianPackages {
     )
     foreach ($package in $packages) {
         if (!(Get-DebianPackageAvailableOffline -addon $addon -package $package)) {
-            Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "mkdir -p .${addon}/${package} && cd .${addon}/${package} && sudo chown -R _apt:root ."
-            Invoke-CmdOnControlPlaneViaSSHKey -Retries 2 -Timeout 2 -CmdToExecute "cd .${addon}/${package} && sudo apt-get download $package" -RepairCmd 'sudo apt --fix-broken install'
-            Invoke-CmdOnControlPlaneViaSSHKey `
+            (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "mkdir -p .${addon}/${package} && cd .${addon}/${package} && sudo chown -R _apt:root .").Output | Write-Log
+            (Invoke-CmdOnControlPlaneViaSSHKey -Retries 2 -Timeout 2 -CmdToExecute "cd .${addon}/${package} && sudo apt-get download $package" -RepairCmd 'sudo apt --fix-broken install').Output | Write-Log
+            (Invoke-CmdOnControlPlaneViaSSHKey `
                 -Retries 2 `
                 -Timeout 2 `
                 -CmdToExecute "cd .${addon}/${package} && sudo DEBIAN_FRONTEND=noninteractive apt-get --reinstall install -y --no-install-recommends --no-install-suggests --simulate ./${package}*.deb | grep 'Inst ' | cut -d ' ' -f 2 | sort -u | xargs sudo apt-get download" `
-                -RepairCmd 'sudo apt --fix-broken install'
+                -RepairCmd 'sudo apt --fix-broken install').Output | Write-Log
         }
 
         Write-Log "Installing $package offline."
-        Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo dpkg -i .${addon}/${package}/*.deb 2>&1"
+        (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo dpkg -i .${addon}/${package}/*.deb 2>&1").Output | Write-Log
     }
 }
 
@@ -572,7 +572,7 @@ function Add-HostEntries {
 
     # add in control plane
     $hostEntry = "$(Get-ConfiguredIPControlPlane) $Url"
-    Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "grep -qxF `'$hostEntry`' /etc/hosts || echo $hostEntry | sudo tee -a /etc/hosts"
+    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "grep -qxF `'$hostEntry`' /etc/hosts || echo $hostEntry | sudo tee -a /etc/hosts").Output | Write-Log
 
     $hostFile = 'C:\Windows\System32\drivers\etc\hosts'
 
