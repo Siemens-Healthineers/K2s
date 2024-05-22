@@ -126,17 +126,17 @@ else {
 
 # Create folder structure for certificates and authentication files
 Write-Log 'Creating authentification files and secrets' -Console
-Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo mkdir -m 777 -p /registry'
-Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo mkdir -m 777 /registry/auth 2>&1'
-Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo mkdir -m 777 /registry/repository 2>&1'
+(Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo mkdir -m 777 -p /registry').Output | Write-Log
+(Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo mkdir -m 777 /registry/auth 2>&1').Output | Write-Log
+(Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo mkdir -m 777 /registry/repository 2>&1').Output | Write-Log
 
 Install-DebianPackages -addon 'registry' -packages 'apache2-utils'
 
-Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo htpasswd -Bbn `'$username`' `'$password'` | sudo tee /registry/auth/htpasswd 1>/dev/null" -NoLog
+(Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo htpasswd -Bbn `'$username`' `'$password'` | sudo tee /registry/auth/htpasswd 1>/dev/null" -NoLog).Output | Write-Log
 
 # Create secrets
 Invoke-Kubectl -Params 'create', 'namespace', 'registry'
-Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'kubectl create secret generic auth-secret --from-file=/registry/auth/htpasswd -n registry'
+(Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'kubectl create secret generic auth-secret --from-file=/registry/auth/htpasswd -n registry').Output | Write-Log
 
 # Apply registry pod with persistent volume
 Write-Log 'Creating local registry' -Console
@@ -185,16 +185,16 @@ Invoke-Kubectl -Params 'create', 'secret', 'docker-registry', 'k2s-registry', "-
 
 # set insecure-registries (remove this section in case of self signed certificates)
 if ($PSVersionTable.PSVersion.Major -gt 5) {
-    Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "grep location=\""k2s.*\"" /etc/containers/registries.conf | sudo sed -i -z 's/\[\[registry]]\nlocation=\""k2s.*\""\ninsecure=true/[[registry]]\nlocation=""$registryName""\ninsecure=true/g' /etc/containers/registries.conf"
-    Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "grep location=\""k2s.*\"" /etc/containers/registries.conf || echo -e `'\n[[registry]]\nlocation=""$registryName""\ninsecure=true`' | sudo tee -a /etc/containers/registries.conf"
+    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "grep location=\""k2s.*\"" /etc/containers/registries.conf | sudo sed -i -z 's/\[\[registry]]\nlocation=\""k2s.*\""\ninsecure=true/[[registry]]\nlocation=""$registryName""\ninsecure=true/g' /etc/containers/registries.conf").Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "grep location=\""k2s.*\"" /etc/containers/registries.conf || echo -e `'\n[[registry]]\nlocation=""$registryName""\ninsecure=true`' | sudo tee -a /etc/containers/registries.conf").Output | Write-Log
 }
 else {
-    Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "grep location=\\\""k2s.*\\\"" /etc/containers/registries.conf | sudo sed -i -z 's/\[\[registry]]\nlocation=\\\""k2s.*\\\""\ninsecure=true/[[registry]]\nlocation=\\\""$registryName\\\""\ninsecure=true/g' /etc/containers/registries.conf"
-    Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "grep location=\\\""k2s.*\\\"" /etc/containers/registries.conf || echo -e `'\n[[registry]]\nlocation=\""$registryName\""\ninsecure=true`' | sudo tee -a /etc/containers/registries.conf"
+    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "grep location=\\\""k2s.*\\\"" /etc/containers/registries.conf | sudo sed -i -z 's/\[\[registry]]\nlocation=\\\""k2s.*\\\""\ninsecure=true/[[registry]]\nlocation=\\\""$registryName\\\""\ninsecure=true/g' /etc/containers/registries.conf").Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "grep location=\\\""k2s.*\\\"" /etc/containers/registries.conf || echo -e `'\n[[registry]]\nlocation=\""$registryName\""\ninsecure=true`' | sudo tee -a /etc/containers/registries.conf").Output | Write-Log
 }
 
-Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo systemctl daemon-reload'
-Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo systemctl restart crio'
+(Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo systemctl daemon-reload').Output | Write-Log
+(Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo systemctl restart crio').Output | Write-Log
 
 Start-Sleep 2
 

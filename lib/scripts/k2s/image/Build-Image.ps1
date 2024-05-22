@@ -242,7 +242,7 @@ if ($NpmRcWithSecrets -ne '') {
 if (!$Windows) {
     Write-Log "Copying needed source files into control plane VM from $InputFolder" -Console
     $target = '~/tmp/docker-build/' + $(Split-Path -Leaf $InputFolder)
-    Invoke-CmdOnControlPlaneViaSSHKey "test -d ~/tmp/docker-build && find ~/tmp/docker-build -exec chmod a+w {} \; ; rm -rf ~/tmp/docker-build; mkdir -p ~/tmp/docker-build; mkdir -p $target;mkdir -p ~/tmp/docker-build/common"
+    (Invoke-CmdOnControlPlaneViaSSHKey "test -d ~/tmp/docker-build && find ~/tmp/docker-build -exec chmod a+w {} \; ; rm -rf ~/tmp/docker-build; mkdir -p ~/tmp/docker-build; mkdir -p $target;mkdir -p ~/tmp/docker-build/common").Output | Write-Log
     $source = $InputFolder
     Write-Log "Copying $source to $target"
     Get-ChildItem -Path $source -Exclude 'node_modules', 'dist', '.angular' | % { $n = $_.Name ; Write-Log "Copying $source\$n to $target"; Copy-ToControlPlaneViaSSHKey "$source/$n" $target }
@@ -299,10 +299,10 @@ if (!$Windows -and $PreCompile) {
     }
     else {
         Write-Log 'Pre-Compilation: Downloading needed binaries (go, gcc)...'
-        Invoke-CmdOnControlPlaneViaSSHKey "echo 'debconf debconf/frontend select Noninteractive' | sudo debconf-set-selections"
-        Invoke-CmdOnControlPlaneViaSSHKey 'sudo apt-get update;DEBIAN_FRONTEND=noninteractive sudo apt-get install -q --yes gcc git musl musl-tools;' -Retries 3 -Timeout 2
-        Invoke-CmdOnControlPlaneViaSSHKey 'DEBIAN_FRONTEND=noninteractive sudo apt-get install -q --yes upx-ucl' -Retries 3 -Timeout 2
-        # Invoke-CmdOnControlPlaneViaSSHKey "sudo apt-get update >/dev/null ; sudo apt-get install -q --yes golang-$GO_VERSION gcc git musl musl-tools; sudo apt-get install -q --yes upx-ucl"
+        (Invoke-CmdOnControlPlaneViaSSHKey "echo 'debconf debconf/frontend select Noninteractive' | sudo debconf-set-selections").Output | Write-Log
+        (Invoke-CmdOnControlPlaneViaSSHKey 'sudo apt-get update;DEBIAN_FRONTEND=noninteractive sudo apt-get install -q --yes gcc git musl musl-tools;' -Retries 3 -Timeout 2).Output | Write-Log
+        (Invoke-CmdOnControlPlaneViaSSHKey 'DEBIAN_FRONTEND=noninteractive sudo apt-get install -q --yes upx-ucl' -Retries 3 -Timeout 2).Output | Write-Log
+        # (Invoke-CmdOnControlPlaneViaSSHKey "sudo apt-get update >/dev/null ; sudo apt-get install -q --yes golang-$GO_VERSION gcc git musl musl-tools; sudo apt-get install -q --yes upx-ucl").Output | Write-Log
         if ($LASTEXITCODE -ne 0) {
             throw "'apt install' returned code $LASTEXITCODE. Aborting. In case of timeouts do a retry."
         }
@@ -314,9 +314,9 @@ if (!$Windows -and $PreCompile) {
 
         # After copy we need to remove carriage line endings from the shell script.
         # TODO: Function to copy shell script to Linux host and remove CR in the shell script file before execution
-        Invoke-CmdOnControlPlaneViaSSHKey "sed -i -e 's/\r$//' $goInstallScript" -NoLog
-        Invoke-CmdOnControlPlaneViaSSHKey "chmod +x $goInstallScript" -NoLog
-        Invoke-CmdOnControlPlaneViaSSHKey "$goInstallScript $GO_Ver 2>&1"
+        (Invoke-CmdOnControlPlaneViaSSHKey "sed -i -e 's/\r$//' $goInstallScript" -NoLog).Output | Write-Log
+        (Invoke-CmdOnControlPlaneViaSSHKey "chmod +x $goInstallScript" -NoLog).Output | Write-Log
+        (Invoke-CmdOnControlPlaneViaSSHKey "$goInstallScript $GO_Ver 2>&1").Output | Write-Log
     }
 
     $dirForBuild = '~/tmp/docker-build'
@@ -348,19 +348,19 @@ if (!$Windows -and $PreCompile) {
 
     if ($GoBuild -eq 'test') {
         Write-Log "Pre-Compilation: Building test-executable with GO: $ccExecutableName ..."
-        Invoke-CmdOnControlPlaneViaSSHKey "cd $dirForBuild ; $setTransparentProxy $setGoEnvironment $CGOFlags /usr/local/go-$GO_VERSION/bin/go test -c -v -o $ccExecutableName 2>&1"
+        (Invoke-CmdOnControlPlaneViaSSHKey "cd $dirForBuild ; $setTransparentProxy $setGoEnvironment $CGOFlags /usr/local/go-$GO_VERSION/bin/go test -c -v -o $ccExecutableName 2>&1").Output | Write-Log
     }
     else {
         Write-Log "Getting dependencies for GO: $ccExecutableName ..."
-        Invoke-CmdOnControlPlaneViaSSHKey "cd $dirForBuild ; $setTransparentProxy $setGoEnvironment /usr/local/go-$GO_VERSION/bin/go get -v . 2>&1"
+        (Invoke-CmdOnControlPlaneViaSSHKey "cd $dirForBuild ; $setTransparentProxy $setGoEnvironment /usr/local/go-$GO_VERSION/bin/go get -v . 2>&1").Output | Write-Log
 
         if ( $Optimize ) {
             Write-Log "Pre-Compilation: Building optimized executable with GO: $ccExecutableName ..."
-            Invoke-CmdOnControlPlaneViaSSHKey "cd $dirForBuild ; $setTransparentProxy $setGoEnvironment $CGOFlags /usr/local/go-$GO_VERSION/bin/go build -v -ldflags='-s -w' -o $ccExecutableName . 2>&1; upx $ccExecutableName ; ls -l"
+            (Invoke-CmdOnControlPlaneViaSSHKey "cd $dirForBuild ; $setTransparentProxy $setGoEnvironment $CGOFlags /usr/local/go-$GO_VERSION/bin/go build -v -ldflags='-s -w' -o $ccExecutableName . 2>&1; upx $ccExecutableName ; ls -l").Output | Write-Log
         }
         else {
             Write-Log "Pre-Compilation: Building executable with GO: $ccExecutableName ..."
-            Invoke-CmdOnControlPlaneViaSSHKey "cd $dirForBuild ; $setTransparentProxy $setGoEnvironment $CGOFlags /usr/local/go-$GO_VERSION/bin/go build -v -o $ccExecutableName . 2>&1"
+            (Invoke-CmdOnControlPlaneViaSSHKey "cd $dirForBuild ; $setTransparentProxy $setGoEnvironment $CGOFlags /usr/local/go-$GO_VERSION/bin/go build -v -o $ccExecutableName . 2>&1").Output | Write-Log
         }
     }
     if ($LASTEXITCODE -ne 0) {
@@ -393,7 +393,7 @@ else {
     }
     else {
         Write-Log "Installing unbuffer command ('expect' package)"
-        Invoke-CmdOnControlPlaneViaSSHKey 'sudo DEBIAN_FRONTEND=noninteractive apt-get install -q --yes expect'
+        (Invoke-CmdOnControlPlaneViaSSHKey 'sudo DEBIAN_FRONTEND=noninteractive apt-get install -q --yes expect').Output | Write-Log
         $UnbufferInstalled = (Invoke-CmdOnControlPlaneViaSSHKey 'which unbuffer').Output
         if (! ($UnbufferInstalled -match 'unbuffer')) {
             Write-Log 'Unable to install unbuffer command, keeping ANSI sequences'
@@ -415,11 +415,11 @@ else {
         $buildahBudCommand = "cd ~/tmp/docker-build; sudo buildah bud $buildArgsString -f Dockerfile.ForBuild.tmp --force-rm --no-cache $GitConfigWithSecretsArg $NpmSecretsArg -t ${ImageName}:$ImageTag $buildContextFolder $RemoveColorSequences 2>&1"
         Write-Log $buildahBudCommand
     }
-    Invoke-CmdOnControlPlaneViaSSHKey "$buildahBudCommand"
+    (Invoke-CmdOnControlPlaneViaSSHKey "$buildahBudCommand").Output | Write-Log
     if ($LASTEXITCODE -ne 0) { throw "error while creating image with 'buildah bud' in linux VM. Error code returned was $LastExitCode" }
 
     Write-Log ''
-    Invoke-CmdOnControlPlaneViaSSHKey "sudo buildah images | grep ${ImageName}"
+    (Invoke-CmdOnControlPlaneViaSSHKey "sudo buildah images | grep ${ImageName}").Output | Write-Log
 }
 
 # Cleanup on host
@@ -486,7 +486,7 @@ if ($Push) {
 # Cleanup inside VM
 if (!$Keep -and !$Windows) {
     Write-Log 'Cleaning up temporary disk space in control plane VM' -Console
-    Invoke-CmdOnControlPlaneViaSSHKey 'find ~/tmp/docker-build -exec chmod a+w {} \; ; rm -rf ~/tmp/docker-build'
+    (Invoke-CmdOnControlPlaneViaSSHKey 'find ~/tmp/docker-build -exec chmod a+w {} \; ; rm -rf ~/tmp/docker-build').Output | Write-Log
 }
 
 Write-Log "Total duration: $('{0:hh\:mm\:ss}' -f $mainStopwatch.Elapsed )"

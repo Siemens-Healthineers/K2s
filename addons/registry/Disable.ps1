@@ -71,7 +71,7 @@ Invoke-Kubectl -Params 'delete', 'secret', 'k2s-registry'
 Invoke-Kubectl -Params 'delete', 'namespace', 'registry'
 
 if ($DeleteImages) {
-    Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo rm -rf /registry'
+    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo rm -rf /registry').Output | Write-Log
 }
 
 Remove-AddonFromSetupJson -Name 'registry'
