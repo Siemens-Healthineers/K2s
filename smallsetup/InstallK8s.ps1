@@ -81,10 +81,9 @@ $installStopwatch = [system.diagnostics.stopwatch]::StartNew()
 $infraModule =   "$PSScriptRoot\..\lib\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
 $nodeModule =    "$PSScriptRoot\..\lib\modules\k2s\k2s.node.module\k2s.node.module.psm1"
 $clusterModule = "$PSScriptRoot\..\lib\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1"
-$temporaryIsolatedGlobalFunctionsModule = "$PSScriptRoot\ps-modules\only-while-refactoring\installation\still-to-merge.isolatedglobalfunctions.module.psm1"
 $temporaryIsolatedCalledScriptsModule = "$PSScriptRoot\ps-modules\only-while-refactoring\installation\still-to-merge.isolatedcalledscripts.module.psm1"
 
-Import-Module $infraModule, $nodeModule, $clusterModule, $temporaryIsolatedGlobalFunctionsModule, $temporaryIsolatedCalledScriptsModule
+Import-Module $infraModule, $nodeModule, $clusterModule, $temporaryIsolatedCalledScriptsModule
 
 
 Initialize-Logging -ShowLogs:$ShowLogs
@@ -124,8 +123,6 @@ Set-Location $installationPath
 $KubernetesVersion = Get-DefaultK8sVersion
 $script:SetupType = 'k2s'
 
-$controlPlaneVmName = 'KubeMaster'
-
 Set-ConfigWslFlag -Value $([bool]$WSL)
 Set-ConfigSetupType -Value $script:SetupType
 
@@ -145,39 +142,49 @@ Initialize-WinNode -KubernetesVersion $KubernetesVersion `
     -DeleteFilesForOfflineInstallation $DeleteFilesForOfflineInstallation `
     -ForceOnlineInstallation $ForceOnlineInstallation
 
+
+$controlPlaneParams = @{
+    Hostname = Get-ConfigControlPlaneNodeHostname
+    IpAddress = Get-ConfiguredIPControlPlane
+    GatewayIpAddress = Get-ConfiguredKubeSwitchIP
+    DnsServers= $(Get-DnsIpAddressesFromActivePhysicalNetworkInterfacesOnWindowsHost)
+    VmName = 'KubeMaster'
+    VMMemoryStartupBytes = $MasterVMMemory
+    VMProcessorCount = $MasterVMProcessorCount
+    VMDiskSize = $MasterDiskSize
+    Proxy = $Proxy
+    DeleteFilesForOfflineInstallation = $DeleteFilesForOfflineInstallation
+    ForceOnlineInstallation = $ForceOnlineInstallation
+}
+
 if ($WSL) {
-    Write-Log "Setting up $controlPlaneVmName Distro" -Console
+    Write-Log "Setting up $($controlPlaneParams.VmName) Distro" -Console
     Write-Log 'vEthernet (WSL) switch will be reconfigured! Your existing WSL distros will not work properly until you stop the cluster.'
     Write-Log 'Configuring WSL2'
     Set-WSL -MasterVMMemory $MasterVMMemory -MasterVMProcessorCount $MasterVMProcessorCount
+    New-WslLinuxVmAsControlPlaneNode @controlPlaneParams
+    Start-WSL
+    Set-WSLSwitch -IpAddress $($controlPlaneParams.GatewayIpAddress)
 }
 else {
-    Write-Log "Setting up $controlPlaneVmName VM" -Console
+    Write-Log "Setting up $($controlPlaneParams.VmName) VM" -Console
+    New-LinuxVmAsControlPlaneNode @controlPlaneParams
+    New-KubeSwitch
+    Connect-KubeSwitch
 }
 
-# create the linux master
-$ProgressPreference = 'SilentlyContinue'
+Wait-ForSSHConnectionToLinuxVMViaPwd
+New-SshKey -IpAddress $($controlPlaneParams.IpAddress)
+Copy-LocalPublicSshKeyToRemoteComputer -UserName $(Get-DefaultUserNameControlPlane) -UserPwd $(Get-DefaultUserPwdControlPlane) -IpAddress $($controlPlaneParams.IpAddress)
+Wait-ForSSHConnectionToLinuxVMViaSshKey
+Remove-ControlPlaneAccessViaUserAndPwd
+$transparentproxy = 'http://' + $($controlPlaneParams.GatewayIpAddress) + ':8181'
+Set-ProxySettingsOnKubenode -ProxySettings $transparentproxy -IpAddress $($controlPlaneParams.IpAddress)
+Restart-Service httpproxy -ErrorAction SilentlyContinue
 
-$reuseExistingLinuxComputer = !([string]::IsNullOrWhiteSpace($LinuxVMIP))
-$setupJsonFile = Get-SetupConfigFilePath
-Set-ConfigValue -Path $setupJsonFile -Key 'ReuseExistingLinuxComputerForMasterNode' -Value $reuseExistingLinuxComputer
-if ($reuseExistingLinuxComputer) {
-    Write-Log "Configuring computer with IP '$LinuxVMIP' to act as Master Node"
-    Invoke-Script_ExistingUbuntuComputerAsMasterNodeInstaller -IpAddress $LinuxVMIP -UserName $LinuxVMUsername -UserPwd $LinuxVMUserPwd -Proxy $Proxy
-    Write-Log "Finished configuring computer with IP '$LinuxVMIP' to act as Master Node"
+$hostname = (Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'hostname' -NoLog).Output
+Set-ConfigControlPlaneNodeHostname($hostname)
 
-    Wait-ForSSHConnectionToLinuxVMViaSshKey
-}
-else {
-    $vm = Get-Vm -Name $controlPlaneVmName -ErrorAction SilentlyContinue
-    if ( !($vm) ) {
-        # use the local httpproxy for the linux master VM
-        $transparentproxy = 'http://' + $(Get-ConfiguredKubeSwitchIP) + ':8181'
-        Write-Log "Local httpproxy proxy was set and will be used for linux VM: $transparentproxy"
-        Install-AndInitKubemaster -VMStartUpMemory $MasterVMMemory -VMProcessorCount $MasterVMProcessorCount -VMDiskSize $MasterDiskSize -InstallationStageProxy $Proxy -OperationStageProxy $transparentproxy -HostGW $HostGW -DeleteFilesForOfflineInstallation $DeleteFilesForOfflineInstallation -ForceOnlineInstallation $ForceOnlineInstallation -WSL:$WSL -LinuxVhdxPath $LinuxVhdxPath -LinuxUserName $LinuxVMUsername -LinuxUserPwd $LinuxVMUserPwd
-    }
-    Write-Log 'VM is now available'
-}
 
 # JOIN NODES
 Write-Log "Preparing Kubernetes $KubernetesVersion by joining nodes" -Console
