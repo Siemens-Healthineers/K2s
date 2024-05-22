@@ -25,4 +25,5 @@ func init() {
 	ImageCmd.AddCommand(buildCmd)
 	ImageCmd.AddCommand(pullCmd)
 	ImageCmd.AddCommand(pushCmd)
+	ImageCmd.AddCommand(tagCmd)
 }
