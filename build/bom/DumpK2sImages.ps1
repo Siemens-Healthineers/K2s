@@ -78,7 +78,7 @@ foreach ($image in $finalImages) {
     Write-Output "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] Found image $image with version $imageVersion"
 
     # Determine the type of image
-    $imageType = if ($staticImages -contains $image) { 'core' } else { 'addon' }
+    $imageType = if ($staticImages -contains $image) { 'core' } else { 'addons' }
 
     $imageDetailsObject = New-Object PSObject -Property @{
         ImageName    = $imageName
