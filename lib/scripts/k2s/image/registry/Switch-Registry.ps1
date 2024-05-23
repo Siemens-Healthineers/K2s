@@ -40,7 +40,7 @@ Import-Module $clusterModule, $infraModule, $nodeModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
-$systemError = Test-SystemAvailability
+$systemError = Test-SystemAvailability -Structured
 if ($systemError) {
     if ($EncodeStructuredOutput -eq $true) {
         Send-ToCli -MessageType $MessageType -Message @{Error = $systemError }

@@ -94,6 +94,8 @@ var _ = Describe("image", Ordered, func() {
 		Entry("import", "image", "import", "-t", "non-existent"),
 		Entry("ls default output", "image", "ls"),
 		Entry("pull", "image", "pull", "non-existent"),
+		Entry("push", "image", "push", "non-existent"),
+		Entry("tag", "image", "tag", "non-existent", "non-existent"),
 		Entry("registry add", "image", "registry", "add", "non-existent"),
 		Entry("registry ls", "image", "registry", "ls"),
 		Entry("registry switch", "image", "registry", "switch", "non-existent"),
