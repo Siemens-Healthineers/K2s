@@ -38,9 +38,19 @@ func (images k2sImage) GetContainerImages() []string {
 	return containerImageNames
 }
 
-func (status k2sImage) IsImageAvailable(name string, tag string) bool {
+func (status k2sImage) IsImageAvailableOnNode(name string, tag string) bool {
 	for _, image := range status.internal.ContainerImages {
 		if image.Repository == name && image.Tag == tag {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (status k2sImage) IsImageAvailableInLocalRegistry(name string, tag string) bool {
+	for _, image := range status.internal.PushedImages {
+		if image.Name == name && image.Tag == tag {
 			return true
 		}
 	}
