@@ -24,6 +24,14 @@ data:
         Time_Key time
         Time_Format %Y-%m-%dT%H:%M:%S.%L
     
+    [PARSER]
+        Name syslog-rfc3164-nopri
+        Format regex
+        Regex /^(?<time>[^ ]* {1,2}[^ ]* [^ ]*) (?<host>[^ ]*) (?<ident>[a-zA-Z0-9_\/\.\-]*)(?:\[(?<pid>[0-9]+)\])?(?:[^\:]*\:)? *(?<message>.*)$/
+        Time_Key time
+        Time_Format %b %d %H:%M:%S
+        Time_Keep Off
+    
   fluent-bit.conf: |
     [SERVICE]
         Daemon Off
@@ -49,12 +57,15 @@ data:
         Refresh_Interval 5
 
     [INPUT]
-        Name syslog
-        Parser syslog-rfc3164
-        Listen 0.0.0.0
-        Port 5140
-        Mode tcp
+        Name tail
+        Path /var/log/syslog
+        Parser syslog-rfc3164-nopri
         Tag syslog.*
+        Read_from_Head true
+        Buffer_Chunk_Size 10MB
+        Buffer_Max_Size 40MB
+        Mem_Buf_Limit 512MB
+        Refresh_Interval 5
 
     [FILTER]
         Name kubernetes
@@ -97,18 +108,18 @@ data:
     
     [OUTPUT]
         Name opensearch
-        Match kube.*
+        Match *
         Host opensearch-cluster-master.logging.svc.cluster.local
         Port 9200
         Index pods
         Buffer_Size 10MB
         Suppress_Type_Name On
 
-    [OUTPUT]
-        Name opensearch
-        Match syslog.*
-        Host opensearch-cluster-master.logging.svc.cluster.local
-        Port 9200
-        Index syslog
-        Buffer_Size 10MB
-        Suppress_Type_Name On
+    # [OUTPUT]
+    #     Name opensearch
+    #     Match syslog.*
+    #     Host opensearch-cluster-master.logging.svc.cluster.local
+    #     Port 9200
+    #     Index syslog
+    #     Buffer_Size 10MB
+    #     Suppress_Type_Name On
