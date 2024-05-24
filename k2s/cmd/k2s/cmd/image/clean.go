@@ -6,6 +6,7 @@ package image
 import (
 	"errors"
 	"log/slog"
+	"path/filepath"
 	"strconv"
 	"time"
 
@@ -29,7 +30,7 @@ var cleanCmd = &cobra.Command{
 func cleanImages(cmd *cobra.Command, args []string) error {
 	pterm.Println("🤖 Cleaning container images..")
 
-	psCmd := utils.FormatScriptFilePath(utils.InstallDir() + "\\smallsetup\\helpers\\CleanImages.ps1")
+	psCmd := utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "image", "Clean-Images.ps1"))
 	params := []string{}
 
 	showOutput, err := strconv.ParseBool(cmd.Flags().Lookup(common.OutputFlagName).Value.String())
@@ -55,6 +56,10 @@ func cleanImages(cmd *cobra.Command, args []string) error {
 			return common.CreateSystemNotInstalledCmdFailure()
 		}
 		return err
+	}
+
+	if config.SetupName == setupinfo.SetupNameMultiVMK8s {
+		return common.CreateFunctionalityNotAvailableCmdFailure(config.SetupName)
 	}
 
 	outputWriter, err := common.NewOutputWriter()

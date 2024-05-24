@@ -22,12 +22,12 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
     [string] $MessageType
 )
-$clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
+$clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
 $monitoringModule = "$PSScriptRoot\monitoring.module.psm1"
 
-Import-Module $clusterModule, $infraModule, $addonsModule, $monitoringModule
+Import-Module $infraModule, $clusterModule, $addonsModule, $monitoringModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -42,6 +42,13 @@ if ($systemError) {
 
     Write-Log $systemError.Message -Error
     exit 1
+}
+
+$setupInfo = Get-SetupInfo
+if ($setupInfo.Name -ne 'k2s') {
+    $err = New-Error -Severity Warning -Code (Get-ErrCodeWrongSetupType) -Message "Addon 'monitoring' can only be enabled for 'k2s' setup type."  
+    Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+    return
 }
 
 if ((Test-IsAddonEnabled -Name 'monitoring') -eq $true) {
@@ -112,6 +119,9 @@ if (!$kubectlCmd.Success) {
 # traefik uses crd, so we have define ingressRoute after traefik has been enabled
 if (Test-TraefikIngressControllerAvailability) {
     (Invoke-Kubectl -Params 'apply', '-f', "$manifestsPath\plutono\traefik.yaml").Output | Write-Log
+}
+elseif (Test-NginxIngressControllerAvailability) {
+    (Invoke-Kubectl -Params 'apply', '-f', "$manifestsPath\plutono\ingress.yaml").Output | Write-Log
 }
 
 Add-HostEntries -Url 'k2s-monitoring.local'

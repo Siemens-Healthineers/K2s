@@ -26,12 +26,12 @@ Param (
     [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
     [string] $MessageType
 )
-$clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
+$clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
 $commonModule = "$PSScriptRoot\common.module.psm1"
 
-Import-Module $clusterModule, $infraModule, $addonsModule, $commonModule
+Import-Module $infraModule, $clusterModule, $addonsModule, $commonModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -46,6 +46,13 @@ if ($systemError) {
 
     Write-Log $systemError.Message -Error
     exit 1
+}
+
+$setupInfo = Get-SetupInfo
+if ($setupInfo.Name -ne 'k2s') {
+    $err = New-Error -Severity Warning -Code (Get-ErrCodeWrongSetupType) -Message "Addon 'traefik' can only be enabled for 'k2s' setup type."  
+    Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+    return
 }
 
 if ((Test-IsAddonEnabled -Name 'traefik') -eq $true) {
@@ -120,6 +127,9 @@ if ($allPodsAreUp -ne $true) {
 }
 
 Write-Log 'All traefik pods are up and ready.' -Console
+
+$clusterIngressConfig = "$PSScriptRoot\manifests\cluster-net-ingress.yaml"
+(Invoke-Kubectl -Params 'apply' , '-f', $clusterIngressConfig).Output | Write-Log
 
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'traefik' })
 

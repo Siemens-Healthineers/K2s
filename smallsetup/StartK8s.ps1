@@ -93,6 +93,7 @@ function UpdateIpAddress {
             $dnservers = Get-DnsClientServerAddress -InterfaceIndex $physicalInterfaceIndex -AddressFamily IPv4
             Write-Log "           DNSServers found in Physical Adapter ($physicalInterfaceIndex) : $($dnservers.ServerAddresses)"
             Set-IPAdressAndDnsClientServerAddress -IPAddress $ipaddress -DefaultGateway $gateway -Index $ipindex -DnsAddresses $dnservers.ServerAddresses
+            Set-DnsClient -InterfaceIndex $ipindex -RegisterThisConnectionsAddress $false | Out-Null
             $script:fixedIpWasSet = $true
         }
         else {
@@ -381,9 +382,9 @@ if (!$WSL) {
     $physicalInterfaceIndex = Get-NetAdapter -Physical | Where-Object Status -Eq 'Up' | Where-Object Name -ne $(Get-L2BridgeName) | Select-Object -expand 'ifIndex'
     if (![string]::IsNullOrWhiteSpace($physicalInterfaceIndex)) {
         $dnservers = ((Get-DnsClientServerAddress -InterfaceIndex $physicalInterfaceIndex | Select-Object -ExpandProperty ServerAddresses) | Select-Object -Unique) -join ' '
-        Invoke-CmdOnControlPlaneViaSSHKey "sudo sed -i 's/dns-nameservers.*/dns-nameservers $dnservers/' /etc/network/interfaces.d/50-cloud-init"
-        Invoke-CmdOnControlPlaneViaSSHKey 'sudo systemctl restart networking'
-        Invoke-CmdOnControlPlaneViaSSHKey 'sudo systemctl restart dnsmasq'
+        (Invoke-CmdOnControlPlaneViaSSHKey "sudo sed -i 's/dns-nameservers.*/dns-nameservers $dnservers/' /etc/network/interfaces.d/10-k2s").Output | Write-Log
+        (Invoke-CmdOnControlPlaneViaSSHKey 'sudo systemctl restart networking').Output | Write-Log
+        (Invoke-CmdOnControlPlaneViaSSHKey 'sudo systemctl restart dnsmasq').Output | Write-Log
     }
 }
 
@@ -440,7 +441,7 @@ EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\vfprules"
 
 Write-Log 'Starting Kubernetes services on the Windows node' -Console
 Start-ServiceAndSetToAutoStart -Name 'containerd'
-Start-ServiceAndSetToAutoStart -Name 'flanneld'
+Start-ServiceAndSetToAutoStart -Name 'flanneld' -IgnoreErrors
 Start-ServiceAndSetToAutoStart -Name 'kubelet'
 Start-ServiceAndSetToAutoStart -Name 'kubeproxy'
 Start-ServiceAndSetToAutoStart -Name 'windows_exporter'
@@ -488,6 +489,8 @@ while ($true) {
         $ProgressPreference = 'SilentlyContinue'
 
         Set-InterfacePrivate -InterfaceAlias "vEthernet ($adapterName)"
+        Write-Log "flanneld: $((Get-Service -Name "flanneld" -ErrorAction SilentlyContinue).Status)"
+
         if ($WSL) {
             $interfaceAlias = Get-NetAdapter -Name "vEthernet (WSL*)" -ErrorAction SilentlyContinue -IncludeHidden | Select-Object -expandproperty name
             New-NetFirewallRule -DisplayName 'WSL Inbound' -Group "k2s" -Direction Inbound -InterfaceAlias $interfaceAlias -Action Allow

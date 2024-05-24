@@ -2,8 +2,8 @@
 #
 # SPDX-License-Identifier: MIT
 
-$infraModule = "$PSScriptRoot/../../../modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
-$clusterModule = "$PSScriptRoot/../../../modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
+$infraModule = "$PSScriptRoot/../../../../modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
+$clusterModule = "$PSScriptRoot/../../../../modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 
 Import-Module $infraModule, $clusterModule
 
@@ -270,40 +270,35 @@ function Import-NamespacedResources {
     }
 }
 
-function Assert-ProductVersion {
+function Assert-UpgradeVersionIsValid {
     param (
         [parameter(Mandatory = $true, HelpMessage = 'Version installed')]
         [string] $VersionInstalled,
         [parameter(Mandatory = $true, HelpMessage = 'Version to be used')]
         [string] $VersionToBeUsed
     )
-    # parse both versions
-    Write-Log 'Check K2s version installed'
-    $version1 = $VersionInstalled.Split('.')
-    $version2 = $VersionToBeUsed.Split('.')
+    Write-Log 'Asserting upgrade version is valid..'
 
-    if ($version1 -and $version2) {
-        # check length
-        if (($version1.Count -gt 1) -and ($version2.Count -gt 1)) {
-            if ( ($version1[0] -eq $version2[0]) -and (([int]$version1[1]) -eq ([int]$version2[1] - 1)) ) {
-                Write-Log 'Version combination of current/new package does allow the upgrade'
-                return $true
-            }
-            else {
-                Write-Log 'Version combination of current/new package version does not allow upgrade'
-                return $false
-            }
-        }
-        else {
-            Write-Log 'Version information of current/new package is not valid'
-            return $false
-        }
+    $versionRegex = '^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$'
 
-    }
-    else {
-        Write-Log 'Version information of current/new package is not valid'
+    if (-not ($VersionInstalled -match $versionRegex)) {
+        Write-Log "The format of the currently installed version is invalid: current='$VersionInstalled', valid='1.22.333'"
         return $false
     }
+    if (-not ($VersionToBeUsed -match $versionRegex)) {
+        Write-Log "The format of the upgrade version is invalid: upgrade-version='$VersionToBeUsed', valid='1.22.333'"
+        return $false
+    }
+
+    $currentVersion = [System.Version]::Parse($VersionInstalled)
+    $nextVersion = [System.Version]::Parse($VersionToBeUsed)
+
+    if ($nextVersion -le $currentVersion) {
+        Write-Log "The upgrade version must be greater than the current version: current='$VersionInstalled', upgrade-version='$VersionToBeUsed'"
+        return $false
+    }
+
+    return $nextVersion.Major - $currentVersion.Major -eq 0 -and $nextVersion.Minor - $currentVersion.Minor -le 1
 }
 
 function Get-TempPath {
@@ -409,7 +404,7 @@ function Assert-UpgradeOperation {
     Write-Log "Preparing steps to upgrade from K2s version: $currentVersion ($installFolder) to K2s version: $productVersion ($kubePath)" -Console
 
     # check of version (only lower minor version is supported)
-    $validUpgrade = Assert-ProductVersion -VersionInstalled $currentVersion -VersionToBeUsed $productVersion
+    $validUpgrade = Assert-UpgradeVersionIsValid -VersionInstalled $currentVersion -VersionToBeUsed $productVersion
     if ( -not $validUpgrade) {
         throw "Upgrade not supported from $currentVersion to $productVersion!"
     }

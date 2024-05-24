@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -141,6 +142,10 @@ func buildImage(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	if config.SetupName == setupinfo.SetupNameMultiVMK8s {
+		return common.CreateFunctionalityNotAvailableCmdFailure(config.SetupName)
+	}
+
 	outputWriter, err := common.NewOutputWriter()
 	if err != nil {
 		return err
@@ -237,7 +242,7 @@ func parseBuildArguments(arguments []string) (map[string]string, error) {
 }
 
 func buildPsCmd(buildOptions *buildOptions) (psCmd string, params []string) {
-	psCmd = utils.FormatScriptFilePath(utils.InstallDir() + "\\smallsetup\\common\\BuildImage.ps1")
+	psCmd = utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "image", "Build-Image.ps1"))
 	params = append(params, " -InputFolder "+buildOptions.InputFolder)
 
 	if buildOptions.Dockerfile != "" {

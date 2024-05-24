@@ -123,7 +123,13 @@ Param(
     [switch] $ShowLogs = $false,
 
     [parameter(Mandatory = $false, HelpMessage = 'Build Arguments for building container image')]
-    [string[]] $BuildArgs = @()
+    [string[]] $BuildArgs = @(),
+
+    [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
+    [switch] $EncodeStructuredOutput,
+
+    [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
+    [string] $MessageType
 )
 
 $nodeModule = "$PSScriptRoot/../../../modules/k2s/k2s.node.module/k2s.node.module.psm1"
@@ -132,9 +138,15 @@ $clusterModule = "$PSScriptRoot/../../../modules/k2s/k2s.cluster.module/k2s.clus
 Import-Module $nodeModule, $infraModule, $clusterModule
 Initialize-Logging -ShowLogs:$ShowLogs
 
-$systemError = Test-SystemAvailability
+$systemError = Test-SystemAvailability -Structured
 if ($systemError) {
-    throw $systemError
+    if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = $systemError }
+        return
+    }
+
+    Write-Log $systemError.Message -Error
+    exit 1
 }
 
 $mainStopwatch = [system.diagnostics.stopwatch]::StartNew()
@@ -148,6 +160,9 @@ if ($buildArgsString -ne '') {
 }
 
 $InputFolder = [System.IO.Path]::GetFullPath($InputFolder)
+
+$kubeBinPath = Get-KubeBinPath
+$dockerExe = "$kubeBinPath\docker\docker.exe"
 
 $dockerfileAbsoluteFp, $PreCompile = Get-DockerfileAbsolutePathAndPreCompileFlag -InputFolder $InputFolder -Dockerfile $Dockerfile -PreCompile:$PreCompile
 
@@ -226,43 +241,43 @@ if ($NpmRcWithSecrets -ne '') {
 # Linux Precompile & Full: copy source files to VM
 if (!$Windows) {
     Write-Log "Copying needed source files into control plane VM from $InputFolder" -Console
-    $target = '/tmp/docker-build/' + $(Split-Path -Leaf $InputFolder)
-    Invoke-CmdOnControlPlaneViaSSHKey "test -d ~/tmp/docker-build && find ~/tmp/docker-build -exec chmod a+w {} \; ; rm -rf ~/tmp/docker-build; mkdir -p ~/tmp/docker-build; mkdir -p $target;mkdir -p ~/tmp/docker-build/common"
+    $target = '~/tmp/docker-build/' + $(Split-Path -Leaf $InputFolder)
+    (Invoke-CmdOnControlPlaneViaSSHKey "test -d ~/tmp/docker-build && find ~/tmp/docker-build -exec chmod a+w {} \; ; rm -rf ~/tmp/docker-build; mkdir -p ~/tmp/docker-build; mkdir -p $target;mkdir -p ~/tmp/docker-build/common").Output | Write-Log
     $source = $InputFolder
     Write-Log "Copying $source to $target"
     Get-ChildItem -Path $source -Exclude 'node_modules', 'dist', '.angular' | % { $n = $_.Name ; Write-Log "Copying $source\$n to $target"; Copy-ToControlPlaneViaSSHKey "$source/$n" $target }
 
     # copy gitconfig
     $source = $InputFolder + '\..\gitconfig'
-    $target = '/tmp/docker-build/'
+    $target = '~/tmp/docker-build/'
     Write-Log "Copying $source to $target"
     Copy-ToControlPlaneViaSSHKey $source $target -IgnoreErrors
 
     # copy .npmrc
     $source = $InputFolder + '\..\.npmrc'
-    $target = '/tmp/docker-build/'
+    $target = '~/tmp/docker-build/'
     Write-Log "Copying $source to $target"
     Copy-ToControlPlaneViaSSHKey $source $target -IgnoreErrors
 
     # copy Dockerfile.ForBuild.tmp
     $source = $InputFolder + '\..\Dockerfile.ForBuild.tmp'
-    $target = '/tmp/docker-build/'
+    $target = '~/tmp/docker-build/'
     Write-Log "Copying $source to $target"
     Copy-ToControlPlaneViaSSHKey $source $target
 
     # copy common if avaliable
     $source = $InputFolder + '\..\common'
     if ( Test-Path -Path $source ) {
-        $target = '/tmp/docker-build/common'
+        $target = '~/tmp/docker-build/common'
         Write-Log "Copying $source to $target"
         Copy-ToControlPlaneViaSSHKey "$source\*" $target
     }
 }
 
-$GO_VERSION = '1.21.4'
+$GO_VERSION = '1.22.3'
 if ($null -ne $env:GOVERSION -and $env:GOVERSION -ne '') {
     Write-Log "Using local GOVERSION $Env:GOVERSION environment variable from the host machine"
-    # $env:GOVERSION will be go1.21.4, remove the go part.
+    # $env:GOVERSION will be go1.22.3, remove the go part.
     $GO_VERSION = $env:GOVERSION -split 'go' | Select-Object -Last 1
 }
 
@@ -277,17 +292,17 @@ if (!$Windows -and $PreCompile) {
     }
 
     # check if we need to install go and gcc into VM
-    $GoInstalled = $(Invoke-CmdOnControlPlaneViaSSHKey "which /usr/local/go-$GO_VERSION/bin/go" -NoLog)
-    $MuslInstalled = $(Invoke-CmdOnControlPlaneViaSSHKey 'which musl-gcc' -NoLog)
+    $GoInstalled = (Invoke-CmdOnControlPlaneViaSSHKey "which /usr/local/go-$GO_VERSION/bin/go").Output
+    $MuslInstalled = (Invoke-CmdOnControlPlaneViaSSHKey 'which musl-gcc').Output
     if ($GoInstalled -match '/bin/go' -and $MuslInstalled -match '/bin/musl-gcc') {
         Write-Log 'Pre-Compilation: go and gcc compiler already available in VM'
     }
     else {
         Write-Log 'Pre-Compilation: Downloading needed binaries (go, gcc)...'
-        Invoke-CmdOnControlPlaneViaSSHKey "echo 'debconf debconf/frontend select Noninteractive' | sudo debconf-set-selections"
-        Invoke-CmdOnControlPlaneViaSSHKey "sudo apt-get update;DEBIAN_FRONTEND=noninteractive sudo apt-get install -q --yes gcc git musl musl-tools;" -Retries 3 -Timeout 2
-        Invoke-CmdOnControlPlaneViaSSHKey 'DEBIAN_FRONTEND=noninteractive sudo apt-get install -q --yes upx-ucl' -Retries 3 -Timeout 2
-        # Invoke-CmdOnControlPlaneViaSSHKey "sudo apt-get update >/dev/null ; sudo apt-get install -q --yes golang-$GO_VERSION gcc git musl musl-tools; sudo apt-get install -q --yes upx-ucl"
+        (Invoke-CmdOnControlPlaneViaSSHKey "echo 'debconf debconf/frontend select Noninteractive' | sudo debconf-set-selections").Output | Write-Log
+        (Invoke-CmdOnControlPlaneViaSSHKey 'sudo apt-get update;DEBIAN_FRONTEND=noninteractive sudo apt-get install -q --yes gcc git musl musl-tools;' -Retries 3 -Timeout 2).Output | Write-Log
+        (Invoke-CmdOnControlPlaneViaSSHKey 'DEBIAN_FRONTEND=noninteractive sudo apt-get install -q --yes upx-ucl' -Retries 3 -Timeout 2).Output | Write-Log
+        # (Invoke-CmdOnControlPlaneViaSSHKey "sudo apt-get update >/dev/null ; sudo apt-get install -q --yes golang-$GO_VERSION gcc git musl musl-tools; sudo apt-get install -q --yes upx-ucl").Output | Write-Log
         if ($LASTEXITCODE -ne 0) {
             throw "'apt install' returned code $LASTEXITCODE. Aborting. In case of timeouts do a retry."
         }
@@ -299,9 +314,9 @@ if (!$Windows -and $PreCompile) {
 
         # After copy we need to remove carriage line endings from the shell script.
         # TODO: Function to copy shell script to Linux host and remove CR in the shell script file before execution
-        Invoke-CmdOnControlPlaneViaSSHKey "sed -i -e 's/\r$//' $goInstallScript" -NoLog
-        Invoke-CmdOnControlPlaneViaSSHKey "chmod +x $goInstallScript" -NoLog
-        Invoke-CmdOnControlPlaneViaSSHKey "$goInstallScript $GO_Ver 2>&1"
+        (Invoke-CmdOnControlPlaneViaSSHKey "sed -i -e 's/\r$//' $goInstallScript" -NoLog).Output | Write-Log
+        (Invoke-CmdOnControlPlaneViaSSHKey "chmod +x $goInstallScript" -NoLog).Output | Write-Log
+        (Invoke-CmdOnControlPlaneViaSSHKey "$goInstallScript $GO_Ver 2>&1").Output | Write-Log
     }
 
     $dirForBuild = '~/tmp/docker-build'
@@ -333,19 +348,19 @@ if (!$Windows -and $PreCompile) {
 
     if ($GoBuild -eq 'test') {
         Write-Log "Pre-Compilation: Building test-executable with GO: $ccExecutableName ..."
-        Invoke-CmdOnControlPlaneViaSSHKey "cd $dirForBuild ; $setTransparentProxy $setGoEnvironment $CGOFlags /usr/local/go-$GO_VERSION/bin/go test -c -v -o $ccExecutableName 2>&1"
+        (Invoke-CmdOnControlPlaneViaSSHKey "cd $dirForBuild ; $setTransparentProxy $setGoEnvironment $CGOFlags /usr/local/go-$GO_VERSION/bin/go test -c -v -o $ccExecutableName 2>&1").Output | Write-Log
     }
     else {
         Write-Log "Getting dependencies for GO: $ccExecutableName ..."
-        Invoke-CmdOnControlPlaneViaSSHKey "cd $dirForBuild ; $setTransparentProxy $setGoEnvironment /usr/local/go-$GO_VERSION/bin/go get -v . 2>&1"
+        (Invoke-CmdOnControlPlaneViaSSHKey "cd $dirForBuild ; $setTransparentProxy $setGoEnvironment /usr/local/go-$GO_VERSION/bin/go get -v . 2>&1").Output | Write-Log
 
         if ( $Optimize ) {
             Write-Log "Pre-Compilation: Building optimized executable with GO: $ccExecutableName ..."
-            Invoke-CmdOnControlPlaneViaSSHKey "cd $dirForBuild ; $setTransparentProxy $setGoEnvironment $CGOFlags /usr/local/go-$GO_VERSION/bin/go build -v -ldflags='-s -w' -o $ccExecutableName . 2>&1; upx $ccExecutableName ; ls -l"
+            (Invoke-CmdOnControlPlaneViaSSHKey "cd $dirForBuild ; $setTransparentProxy $setGoEnvironment $CGOFlags /usr/local/go-$GO_VERSION/bin/go build -v -ldflags='-s -w' -o $ccExecutableName . 2>&1; upx $ccExecutableName ; ls -l").Output | Write-Log
         }
         else {
             Write-Log "Pre-Compilation: Building executable with GO: $ccExecutableName ..."
-            Invoke-CmdOnControlPlaneViaSSHKey "cd $dirForBuild ; $setTransparentProxy $setGoEnvironment $CGOFlags /usr/local/go-$GO_VERSION/bin/go build -v -o $ccExecutableName . 2>&1"
+            (Invoke-CmdOnControlPlaneViaSSHKey "cd $dirForBuild ; $setTransparentProxy $setGoEnvironment $CGOFlags /usr/local/go-$GO_VERSION/bin/go build -v -o $ccExecutableName . 2>&1").Output | Write-Log
         }
     }
     if ($LASTEXITCODE -ne 0) {
@@ -372,14 +387,14 @@ else {
     # is needed to avoid buffering of output, we want to see it line by line, not as one big
     # block after the process has finished.
     $RemoveColorSequences = " 2>&1 | unbuffer -p sed 's/\x1b\[[0-9;]*m//g'; eval test $\{PIPESTATUS[0]} -eq 0 || exit 1"
-    $UnbufferInstalled = $(Invoke-CmdOnControlPlaneViaSSHKey 'which unbuffer' -NoLog)
+    $UnbufferInstalled = (Invoke-CmdOnControlPlaneViaSSHKey 'which unbuffer').Output
     if ($UnbufferInstalled -match 'unbuffer') {
         Write-Log "Found unbuffer command ('expect' package)"
     }
     else {
         Write-Log "Installing unbuffer command ('expect' package)"
-        Invoke-CmdOnControlPlaneViaSSHKey 'sudo DEBIAN_FRONTEND=noninteractive apt-get install -q --yes expect'
-        $UnbufferInstalled = $(Invoke-CmdOnControlPlaneViaSSHKey 'which unbuffer' -NoLog)
+        (Invoke-CmdOnControlPlaneViaSSHKey 'sudo DEBIAN_FRONTEND=noninteractive apt-get install -q --yes expect').Output | Write-Log
+        $UnbufferInstalled = (Invoke-CmdOnControlPlaneViaSSHKey 'which unbuffer').Output
         if (! ($UnbufferInstalled -match 'unbuffer')) {
             Write-Log 'Unable to install unbuffer command, keeping ANSI sequences'
             $RemoveColorSequences = ''
@@ -400,11 +415,11 @@ else {
         $buildahBudCommand = "cd ~/tmp/docker-build; sudo buildah bud $buildArgsString -f Dockerfile.ForBuild.tmp --force-rm --no-cache $GitConfigWithSecretsArg $NpmSecretsArg -t ${ImageName}:$ImageTag $buildContextFolder $RemoveColorSequences 2>&1"
         Write-Log $buildahBudCommand
     }
-    Invoke-CmdOnControlPlaneViaSSHKey "$buildahBudCommand"
+    (Invoke-CmdOnControlPlaneViaSSHKey "$buildahBudCommand").Output | Write-Log
     if ($LASTEXITCODE -ne 0) { throw "error while creating image with 'buildah bud' in linux VM. Error code returned was $LastExitCode" }
 
     Write-Log ''
-    Invoke-CmdOnControlPlaneViaSSHKey "sudo buildah images | grep ${ImageName}"
+    (Invoke-CmdOnControlPlaneViaSSHKey "sudo buildah images | grep ${ImageName}").Output | Write-Log
 }
 
 # Cleanup on host
@@ -425,23 +440,43 @@ if ($Push) {
         &"$PSScriptRoot\registry\Switch-Registry.ps1" -RegistryName $registry
     }
     else {
-        throw "Registry $registry is not configured! Please add it: k2s image registry add $registry"
+        if (!$registriesMemberExists) {
+            $errMsg = "Registry $registry is not configured! Please add it: k2s image registry add $registry"
+            if ($EncodeStructuredOutput -eq $true) {
+                $err = New-Error -Code 'build-image-failed' -Message $errMsg
+                Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+                return
+            }
+    
+            Write-Log $errMsg -Error
+            exit 1
+        }
     }
 
     Write-Log "Trying to push image ${ImageName}:$ImageTag to repository" -Console
 
+    $success = $false
     if ($Windows) {
-        docker push "${ImageName}:$ImageTag" 2>&1
+        &$dockerExe push "${ImageName}:$ImageTag" 2>&1
+        $success = $?
     }
     else {
-        Invoke-CmdOnControlPlaneViaSSHKey "sudo buildah push ${ImageName}:$ImageTag 2>&1"
+        $success = (Invoke-CmdOnControlPlaneViaSSHKey "sudo buildah push ${ImageName}:$ImageTag 2>&1").Success
     }
 
-    if (!$?) {
+    if (!$success) {
         Write-Log '#######################################################################################'
         Write-Log "### ERROR: image ${ImageName}:$ImageTag NOT uploaded to repository"
         Write-Log '#######################################################################################'
-        throw 'unable to push image to registry'
+        $errMsg = 'unable to push image to registry'
+        if ($EncodeStructuredOutput -eq $true) {
+            $err = New-Error -Code 'build-image-failed' -Message $errMsg
+            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+            return
+        }
+
+        Write-Log $errMsg -Error
+        exit 1
     }
     else {
         Write-Log "Image '${ImageName}:$ImageTag' pushed successfully to registry" -Console
@@ -451,9 +486,13 @@ if ($Push) {
 # Cleanup inside VM
 if (!$Keep -and !$Windows) {
     Write-Log 'Cleaning up temporary disk space in control plane VM' -Console
-    Invoke-CmdOnControlPlaneViaSSHKey 'find ~/tmp/docker-build -exec chmod a+w {} \; ; rm -rf ~/tmp/docker-build'
+    (Invoke-CmdOnControlPlaneViaSSHKey 'find ~/tmp/docker-build -exec chmod a+w {} \; ; rm -rf ~/tmp/docker-build').Output | Write-Log
 }
 
 Write-Log "Total duration: $('{0:hh\:mm\:ss}' -f $mainStopwatch.Elapsed )"
 
 Set-Location $scriptStartLocation
+
+if ($EncodeStructuredOutput -eq $true) {
+    Send-ToCli -MessageType $MessageType -Message @{Error = $null }
+}

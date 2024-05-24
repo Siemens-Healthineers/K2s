@@ -11,6 +11,14 @@ Import-Module $infraModule, $k8sApiModule
 
 $cmctlExe = "$(Get-KubeToolsPath)\cmctl.exe"
 
+function Get-CAIssuerName {
+    return 'K2s Self-Signed CA'
+}
+
+function Get-TrustedRootStoreLocation {
+    return 'Cert:\LocalMachine\Root'
+}
+
 function Get-CertManagerConfig {
     return "$PSScriptRoot\manifests\cert-manager.yaml"
 }
@@ -72,6 +80,14 @@ function Wait-ForCertManagerAvailable {
         return $true
     }
     return $false
+}
+
+<#
+.DESCRIPTION
+Marks all cert-manager Certificate resources for renewal.
+#>
+function Update-CertificateResources {
+    &$cmctlExe renew --all --all-namespaces
 }
 
 <#

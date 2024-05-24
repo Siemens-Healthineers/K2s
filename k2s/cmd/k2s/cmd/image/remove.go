@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"path/filepath"
 	"strconv"
 	"time"
 
@@ -87,6 +88,10 @@ func removeImage(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	if config.SetupName == setupinfo.SetupNameMultiVMK8s {
+		return common.CreateFunctionalityNotAvailableCmdFailure(config.SetupName)
+	}
+
 	outputWriter, err := common.NewOutputWriter()
 	if err != nil {
 		return err
@@ -138,7 +143,7 @@ func extractRemoveOptions(cmd *cobra.Command) (*removeOptions, error) {
 }
 
 func buildRemovePsCmd(removeOptions *removeOptions) (psCmd string, params []string) {
-	psCmd = utils.FormatScriptFilePath(utils.InstallDir() + "\\smallsetup\\helpers\\RemoveImage.ps1")
+	psCmd = utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "image", "Remove-Image.ps1"))
 
 	if removeOptions.imageId != "" {
 		params = append(params, " -ImageId "+removeOptions.imageId)

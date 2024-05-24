@@ -15,6 +15,9 @@ $kubernetesImagesJson = Get-KubernetesImagesFilePath
 $windowsPauseImageRepository = 'shsk2s.azurecr.io/pause-win'
 $kubeBinPath = Get-KubeBinPath
 $dockerExe = "$kubeBinPath\docker\docker.exe"
+$nerdctlExe = "$kubeBinPath\nerdctl.exe"
+$ctrExe = "$kubeBinPath\containerd\ctr.exe"
+$crictlExe = "$kubeBinPath\crictl.exe"
 
 class ContainerImage {
     [string]$ImageId
@@ -93,7 +96,7 @@ function Get-ContainerImagesOnLinuxNode([bool]$IncludeK8sImages = $false) {
     $hostname = Get-ConfigValue -Path $setupFilePath -Key 'ControlPlaneNodeHostname'
     $KubernetesImages = Get-KubernetesImagesFromJson
     $linuxContainerImages = @()
-    $output = Invoke-CmdOnControlPlaneViaSSHKey 'sudo buildah images' -NoLog
+    $output = (Invoke-CmdOnControlPlaneViaSSHKey 'sudo buildah images').Output
     foreach ($line in $output[1..($output.Count - 1)]) {
         $words = $($line -replace '\s+', ' ').split()
         $containerImage = [ContainerImage]@{
@@ -113,15 +116,13 @@ function Get-ContainerImagesOnLinuxNode([bool]$IncludeK8sImages = $false) {
 }
 
 function Get-ContainerImagesOnWindowsNode([bool]$IncludeK8sImages = $false, [bool]$WorkerVM = $false) {
-
-    $kubeBinPath = Get-KubeBinPath
     $output = ''
     $node = ''
     if ($WorkerVM) {
         $output = Invoke-CmdOnVMWorkerNodeViaSSH -CmdToExecute "crictl images" 2> $null
         $node = Get-ConfigVMNodeHostname
     } else {
-        $output = &$kubeBinPath\crictl.exe images 2> $null
+        $output = &$crictlExe images 2> $null
         $node = $env:ComputerName.ToLower()
     }
 
@@ -151,7 +152,7 @@ function Get-ContainerImagesOnWindowsNode([bool]$IncludeK8sImages = $false, [boo
 function Get-PushedContainerImages() {
     $setupFilePath = Get-SetupConfigFilePath
     $enableAddons = Get-ConfigValue -Path $setupFilePath -Key 'EnabledAddons'
-    $isRegistryAddonEnabled = $enableAddons | Select-Object -Property Name | Where-Object { $_ -eq "registry" }
+    $isRegistryAddonEnabled = $enableAddons | Select-Object -ExpandProperty Name | Where-Object { $_ -eq "registry" }
     if (!$isRegistryAddonEnabled) {
         return
     }
@@ -187,11 +188,11 @@ function Get-PushedContainerImages() {
 function Remove-Image([ContainerImage]$ContainerImage) {
     $output = ''
     if ($containerImage.Node -eq $env:ComputerName.ToLower()) {
-        $output = $(crictl rmi $containerImage.ImageId 2>&1)
+        $output = $(&$crictlExe rmi $containerImage.ImageId 2>&1)
     }
     else {
         $imageId = $containerImage.ImageId
-        $output = Invoke-CmdOnControlPlaneViaSSHKey "sudo crictl rmi $imageId" -NoLog
+        $output = (Invoke-CmdOnControlPlaneViaSSHKey "sudo crictl rmi $imageId").Output
     }
 
     $errorString = Get-ErrorMessageIfImageDeletionFailed -Output $output
@@ -260,7 +261,7 @@ function Remove-PushedImage($name, $tag) {
 
 function Get-RegistryAuthToken($registryName) {
     # read auth
-    $authJson = Invoke-CmdOnControlPlaneViaSSHKey 'sudo cat /root/.config/containers/auth.json' -NoLog
+    $authJson = (Invoke-CmdOnControlPlaneViaSSHKey 'sudo cat /root/.config/containers/auth.json').Output | Out-String
     $dockerConfig = $authJson | ConvertFrom-Json
     $dockerAuth = $dockerConfig.psobject.properties['auths'].value
     $authk2s = $dockerAuth.psobject.properties["$registryName"].value
@@ -294,10 +295,12 @@ function Show-ImageDeletionStatus([ContainerImage]$ContainerImage, [string]$Erro
     $imageName = $ContainerImage.Repository + ':' + $ContainerImage.Tag
     $node = $ContainerImage.Node
     if ([string]::IsNullOrWhiteSpace($ErrorMessage)) {
-        Write-Host "Successfully deleted image $imageName from $node"
+        Write-Log "Successfully deleted image $imageName from $node"
+        return 0
     }
     else {
-        Write-Host "Failed to delete image $imageName from $node. Reason: $ErrorMessage"
+        Write-Log "Failed to delete image $imageName from $node. Reason: $ErrorMessage"
+        return 1
     }
 }
 
@@ -407,11 +410,7 @@ function New-WindowsImage {
     Write-Log "Output of checking if the image $imageFullName is now available in docker:"
     &$dockerExe image ls $ImageName -a
 
-    Write-Log $global:ExportedImagesTempFolder
-    if (!(Test-Path($global:ExportedImagesTempFolder))) {
-        New-Item -Force -Path $global:ExportedImagesTempFolder -ItemType Directory
-    }
-    $exportedImageFullFileName = $global:ExportedImagesTempFolder + '\BuiltImage.tar'
+    $exportedImageFullFileName = $env:TEMP + '\BuiltImage.tar'
     if (Test-Path($exportedImageFullFileName)) {
         Remove-Item $exportedImageFullFileName -Force
     }
@@ -422,7 +421,7 @@ function New-WindowsImage {
     Write-Log '...saved.'
 
     Write-Log "Importing image $imageFullName from $exportedImageFullFileName into containerd..."
-    &$global:NerdctlExe -n k8s.io load -i "$exportedImageFullFileName"
+    &$nerdctlExe -n k8s.io load -i "$exportedImageFullFileName"
     if (!$?) { throw "error while importing built image '$imageFullName' with 'nerdctl.exe load' on Windows. Error code returned was $LastExitCode" }
     Write-Log '...imported'
 
@@ -430,7 +429,7 @@ function New-WindowsImage {
     Remove-Item $exportedImageFullFileName -Force
     Write-Log '...removed'
 
-    $imageList = &$global:CtrExe -n="k8s.io" images list | Out-string
+    $imageList = &$ctrExe -n="k8s.io" images list | Out-string
 
     if (!$imageList.Contains($imageFullName)) {
         throw "The built image '$imageFullName' was not imported in the containerd's local repository."

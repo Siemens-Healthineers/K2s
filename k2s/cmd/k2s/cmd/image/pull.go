@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"path/filepath"
 	"strconv"
 	"time"
 
@@ -55,7 +56,7 @@ func init() {
 func pullImage(cmd *cobra.Command, args []string) error {
 	pterm.Println("🤖 Pulling container image..")
 
-	err := validateArgs(args)
+	err := validatePullArgs(args)
 	if err != nil {
 		return fmt.Errorf("invalid arguments provided: %w", err)
 	}
@@ -90,6 +91,10 @@ func pullImage(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	if config.SetupName == setupinfo.SetupNameMultiVMK8s && pullForWindows {
+		return common.CreateFunctionalityNotAvailableCmdFailure(config.SetupName)
+	}
+
 	outputWriter, err := common.NewOutputWriter()
 	if err != nil {
 		return err
@@ -111,7 +116,7 @@ func pullImage(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func validateArgs(args []string) error {
+func validatePullArgs(args []string) error {
 	if len(args) == 0 {
 		return errors.New("no image to pull")
 	}
@@ -128,7 +133,7 @@ func getImageToPull(args []string) string {
 }
 
 func buildPullPsCmd(imageToPull string, pullForWindows bool, showOutput bool) (psCmd string, params []string) {
-	psCmd = utils.FormatScriptFilePath(utils.InstallDir() + "\\smallsetup\\helpers\\PullImage.ps1")
+	psCmd = utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "image", "Pull-Image.ps1"))
 
 	params = append(params, " -ImageName "+imageToPull)
 
