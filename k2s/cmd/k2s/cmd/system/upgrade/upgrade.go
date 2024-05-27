@@ -94,6 +94,10 @@ func upgradeCluster(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	if config.SetupName == setupinfo.SetupNameMultiVMK8s {
+		return common.CreateFunctionalityNotAvailableCmdFailure(config.SetupName)
+	}
+
 	psCmd := createUpgradeCommand(cmd)
 
 	slog.Debug("PS command created", "command", psCmd)
