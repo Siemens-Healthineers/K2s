@@ -138,7 +138,7 @@ $clusterModule = "$PSScriptRoot/../../../modules/k2s/k2s.cluster.module/k2s.clus
 Import-Module $nodeModule, $infraModule, $clusterModule
 Initialize-Logging -ShowLogs:$ShowLogs
 
-$systemError = Test-SystemAvailability
+$systemError = Test-SystemAvailability -Structured
 if ($systemError) {
     if ($EncodeStructuredOutput -eq $true) {
         Send-ToCli -MessageType $MessageType -Message @{Error = $systemError }
