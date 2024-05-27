@@ -22,30 +22,33 @@ import (
 	"github.com/siemens-healthineers/k2s/internal/setupinfo"
 )
 
-var upgradeCommandShortDescription = "Upgrade your current cluster to this version"
+var upgradeCommandShortDescription = "Upgrades the installed K2s cluster to this version"
 
 var upgradeCommandLongDescription = `
-Upgrades current K8s cluster to a newer version.
-The steps how this is done:
+Upgrades the installed K2s cluster to this version.
+
+⚠  This command must be called within the folder containing the new K2s version, e.g. '<new-version-dir>\k2s.exe system upgrade'
+
+The following tasks will be executed:
 1. Export of current workloads (global resources and all namespaced resources)
-2. Keeps addons and their persistency in order re-enable after upgrade
+2. Keeping addons and their persistency to be re-enabled after cluster upgrade
 3. Uninstall existing cluster
-4. Install a new cluster based on the new version
-5. Import previous exported workloads
-6. Enables addons and restores persistency
+4. Install a new cluster based on this version
+5. Import previously exported workloads
+6. Enable addons and restore persistency
 7. Check if all workloads are running
-8. Final check on cluster availability
+8. Finally check K2s cluster availability
 `
 
 var upgradeCommandExample = `
-  # Upgrades the cluster to the new version, call this from the folder where the new version was deployed:
-  k2s upgrade
+  # Upgrades the cluster to this version
+  k2s system upgrade
 
-  # Upgrades the cluster to the new version, skips takeover of resources
-  k2s upgrade -s
+  # Upgrades the cluster to this version, skips takeover of existing cluster resources
+  k2s system upgrade -s
 
-  # Upgrades the cluster to the new version, delete downloaded files and get all logs on the console
-  k2s upgrade -d -o
+  # Upgrades the cluster to this version, deleting downloaded files after upgrade
+  k2s system upgrade -d
 `
 
 const (
@@ -71,7 +74,7 @@ func init() {
 
 func AddInitFlags(cmd *cobra.Command) {
 	cmd.Flags().BoolP(skipK8sResources, "s", false, "Skip takeover of K8s resources from old cluster to new cluster")
-	cmd.Flags().BoolP(deleteFiles, "d", false, "Delete downloaded content")
+	cmd.Flags().BoolP(deleteFiles, "d", false, "Delete downloaded files")
 	cmd.Flags().StringP(configFileFlagName, "c", "", "Path to config file to load. This configuration overwrites other CLI parameters")
 	cmd.Flags().StringP(proxy, "p", defaultProxy, "HTTP Proxy")
 	cmd.Flags().BoolP(skipImages, "i", false, "Skip takeover of container images from old cluster to new cluster")
