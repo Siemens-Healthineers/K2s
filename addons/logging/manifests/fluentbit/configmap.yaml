@@ -10,10 +10,10 @@ metadata:
   name: fluent-bit
   namespace: logging
   labels:
-    helm.sh/chart: fluent-bit-0.43.0
+    helm.sh/chart: fluent-bit-0.46.7
     app.kubernetes.io/name: fluent-bit
     app.kubernetes.io/instance: fluent-bit
-    app.kubernetes.io/version: "2.2.2"
+    app.kubernetes.io/version: "3.0.4"
     app.kubernetes.io/managed-by: Helm
 data:
   custom_parsers.conf: |
@@ -31,6 +31,7 @@ data:
         Time_Key time
         Time_Format %b %d %H:%M:%S
         Time_Keep Off
+        Time_Offset +0200
     
   fluent-bit.conf: |
     [SERVICE]
@@ -99,6 +100,12 @@ data:
         Remove container_hash
 
     [FILTER]
+        Name modify
+        Match syslog.*
+        Rename message log
+        Rename host k2s.host.name
+
+    [FILTER]
         Name     throttle
         Match    *
         Rate     800
@@ -111,15 +118,6 @@ data:
         Match *
         Host opensearch-cluster-master.logging.svc.cluster.local
         Port 9200
-        Index pods
+        Index k2s
         Buffer_Size 10MB
         Suppress_Type_Name On
-
-    # [OUTPUT]
-    #     Name opensearch
-    #     Match syslog.*
-    #     Host opensearch-cluster-master.logging.svc.cluster.local
-    #     Port 9200
-    #     Index syslog
-    #     Buffer_Size 10MB
-    #     Suppress_Type_Name On
