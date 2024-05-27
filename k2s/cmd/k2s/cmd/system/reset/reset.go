@@ -46,6 +46,10 @@ func resetSystem(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	if config.SetupName == setupinfo.SetupNameMultiVMK8s {
+		return common.CreateFunctionalityNotAvailableCmdFailure(config.SetupName)
+	}
+
 	outputWriter, err := common.NewOutputWriter()
 	if err != nil {
 		return err
