@@ -211,6 +211,9 @@ if ($ResetHns) {
 
 $ProgressPreference = 'SilentlyContinue'
 
+# Check for external switches before starting 
+Test-ExistingExternalSwitch
+
 Enable-LoopbackAdapter
 $adapterName = Get-L2BridgeName
 Write-Log "Using network adapter '$adapterName'"
