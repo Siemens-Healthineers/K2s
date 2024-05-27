@@ -107,6 +107,11 @@ func runScpCmd(cmd *cobra.Command, args []string, scriptPath string) error {
 		return err
 	}
 
+	// TODO: disable copying to/from worker node for multivm
+	if config.SetupName == setupinfo.SetupNameMultiVMK8s && scriptPath == scriptRelPathToScpWorker {
+		return common.CreateFunctionalityNotAvailableCmdFailure(config.SetupName)
+	}
+
 	outputWriter, err := common.NewOutputWriter()
 	if err != nil {
 		return err
