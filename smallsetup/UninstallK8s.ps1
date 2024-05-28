@@ -52,6 +52,7 @@ $controlPlaneVMHostName = Get-ConfigControlPlaneNodeHostname
 Write-Log "Uninstalling $controlPlaneVMHostName VM" -Console
 
 Invoke-Script_UninstallKubeMaster -DeleteFilesForOfflineInstallation $DeleteFilesForOfflineInstallation
+Remove-KubeNodeBaseImage -DeleteFilesForOfflineInstallation $DeleteFilesForOfflineInstallation
 
 Uninstall-WinNode -ShallowUninstallation $SkipPurge
 

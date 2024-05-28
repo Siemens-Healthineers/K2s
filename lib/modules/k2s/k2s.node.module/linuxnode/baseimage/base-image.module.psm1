@@ -273,7 +273,7 @@ Function Get-QemuExecutable {
 
 ## Virtual Machine
 
-Function New-VirtualMachineForBaseImageProvisioning {
+function New-VirtualMachineForBaseImageProvisioning {
 	param (
         [ValidateScript({ !([string]::IsNullOrWhiteSpace($_))})]
         [string] $VmName,

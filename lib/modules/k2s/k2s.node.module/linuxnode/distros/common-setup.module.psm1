@@ -751,7 +751,13 @@ function New-VmImageForKubernetesNode {
         [string] $VmImageOutputPath = $(throw "Argument missing: VmImageOutputPath"),
         [parameter(Mandatory = $false, HelpMessage = 'The HTTP proxy if available.')]
         [string]$Proxy = '',
-        [string]$DnsIpAddresses = $(throw 'Argument missing: DnsIpAddresses')
+        [string]$DnsIpAddresses = $(throw 'Argument missing: DnsIpAddresses'),
+        [parameter(Mandatory = $false, HelpMessage = 'Startup Memory Size of VM')]
+        [long]$VMMemoryStartupBytes,
+        [parameter(Mandatory = $false, HelpMessage = 'Number of Virtual Processors for VM')]
+        [long]$VMProcessorCount,
+        [parameter(Mandatory = $false, HelpMessage = 'Virtual hard disk size of VM')]
+        [uint64]$VMDiskSize
     )
 
     $vmIpAddress = Get-VmIpForProvisioningKubeNode
@@ -780,7 +786,17 @@ function New-VmImageForKubernetesNode {
         &$addToKubeNode
     }
 
-    New-KubenodeBaseImage -DnsIpAddresses $DnsIpAddresses -Proxy $Proxy -Hook $setUpKubenode -OutputPath $VmImageOutputPath
+    $kubenodeBaseImageCreationParams = @{
+        Proxy=$Proxy
+        DnsIpAddresses=$DnsIpAddresses
+        Hook=$setUpKubenode
+        OutputPath=$VmImageOutputPath
+        VMMemoryStartupBytes=$VMMemoryStartupBytes
+        VMProcessorCount=$VMProcessorCount
+        VMDiskSize=$VMDiskSize
+    }
+
+    New-KubenodeBaseImage @kubenodeBaseImageCreationParams
 }
 
 function New-VmImageForControlPlaneNode {
@@ -792,11 +808,11 @@ function New-VmImageForControlPlaneNode {
         [parameter(Mandatory = $false, HelpMessage = 'The path to save the prepared base image.')]
         [string] $VmImageOutputPath = $(throw "Argument missing: VmImageOutputPath"),
         [parameter(Mandatory = $false, HelpMessage = 'Startup Memory Size of VM')]
-        [long]$VMMemoryStartupBytes = 8GB,
+        [long]$VMMemoryStartupBytes,
         [parameter(Mandatory = $false, HelpMessage = 'Number of Virtual Processors for VM')]
-        [long]$VMProcessorCount = 4,
+        [long]$VMProcessorCount,
         [parameter(Mandatory = $false, HelpMessage = 'Virtual hard disk size of VM')]
-        [uint64]$VMDiskSize = 50GB,
+        [uint64]$VMDiskSize,
         [string]$Proxy = '',
         [parameter(Mandatory = $false, HelpMessage = 'Deletes the needed files to perform an offline installation')]
         [Boolean] $DeleteFilesForOfflineInstallation = $false,
@@ -814,7 +830,15 @@ function New-VmImageForControlPlaneNode {
     }
 
     if (!(Test-Path -Path $kubenodeBaseImagePath)) {
-        New-VmImageForKubernetesNode -Proxy $Proxy -DnsIpAddresses $DnsServers -VmImageOutputPath $kubenodeBaseImagePath
+        $vmImageForKubernetesNodeCreationParams = @{
+            Proxy=$Proxy
+            DnsIpAddresses=$DnsServers
+            VmImageOutputPath=$kubenodeBaseImagePath
+            VMMemoryStartupBytes=$VMMemoryStartupBytes
+            VMProcessorCount=$VMProcessorCount
+            VMDiskSize=$VMDiskSize
+        }
+        New-VmImageForKubernetesNode @vmImageForKubernetesNodeCreationParams
     }
 
     $vmUserName = Get-DefaultUserNameKubeNode
@@ -879,7 +903,13 @@ function New-LinuxVmImageForWorkerNode {
         [string]$DnsServers,
         [parameter(Mandatory = $false, HelpMessage = 'The path to save the prepared base image.')]
         [string] $VmImageOutputPath = $(throw "Argument missing: VmImageOutputPath"),
-        [string]$Proxy = ''
+        [string]$Proxy = '',
+        [parameter(Mandatory = $false, HelpMessage = 'Startup Memory Size of VM')]
+        [long]$VMMemoryStartupBytes,
+        [parameter(Mandatory = $false, HelpMessage = 'Number of Virtual Processors for VM')]
+        [long]$VMProcessorCount,
+        [parameter(Mandatory = $false, HelpMessage = 'Virtual hard disk size of VM')]
+        [uint64]$VMDiskSize
     )
 
     $kubenodeBaseImagePath = "$(Split-Path $VmImageOutputPath)\$kubenodeBaseFileName"
@@ -905,6 +935,9 @@ function New-LinuxVmImageForWorkerNode {
         InputPath=$kubenodeBaseImagePath
         OutputPath=$VmImageOutputPath
         Hook=$performConfiguration
+        VMMemoryStartupBytes=$VMMemoryStartupBytes
+        VMProcessorCount=$VMProcessorCount
+        VMDiskSize=$VMDiskSize
     }
     New-KubeworkerBaseImage @kubeworkerCreationParams
 
@@ -1006,16 +1039,37 @@ function New-WslRootfsForControlPlaneNode {
         [string] $VmImageInputPath = $(throw "Argument missing: VmImageInputPath"),
         [parameter(Mandatory = $false, HelpMessage = 'The path to save the prepared rootfs file.')]
         [string] $RootfsFileOutputPath = $(throw "Argument missing: RootfsFileOutputPath"),
-        [string]$Proxy = ''
+        [string]$Proxy = '',
+        [parameter(Mandatory = $false, HelpMessage = 'Startup Memory Size of VM')]
+        [long]$VMMemoryStartupBytes,
+        [parameter(Mandatory = $false, HelpMessage = 'Number of Virtual Processors for VM')]
+        [long]$VMProcessorCount,
+        [parameter(Mandatory = $false, HelpMessage = 'Virtual hard disk size of VM')]
+        [uint64]$VMDiskSize
     )
 
     $kubenodeBaseImagePath = "$(Split-Path $VmImageInputPath)\$kubenodeBaseFileName"
     
     if (!(Test-Path -Path $kubenodeBaseImagePath)) {
-        New-VmImageForKubernetesNode -VmImageOutputPath $kubenodeBaseImagePath -Proxy $Proxy
+        $vmImageForKubernetesNodeCreationParams = @{
+            VmImageOutputPath=$kubenodeBaseImagePath
+            Proxy=$Proxy
+            VMDiskSize = $VMDiskSize
+            VMMemoryStartupBytes = $VMMemoryStartupBytes
+            VMProcessorCount = $VMProcessorCount
+        }
+        New-VmImageForKubernetesNode @vmImageForKubernetesNodeCreationParams
     }
 
-    Convert-VhdxToRootfs -KubenodeBaseImagePath $kubenodeBaseImagePath -SourceVhdxPath $VmImageInputPath -TargetRootfsFilePath $RootfsFileOutputPath
+    $vhdxToRootfsCreationParams = @{
+        KubenodeBaseImagePath=$kubenodeBaseImagePath
+        SourceVhdxPath=$VmImageInputPath
+        TargetRootfsFilePath = $RootfsFileOutputPath
+        VMDiskSize = $VMDiskSize
+        VMMemoryStartupBytes = $VMMemoryStartupBytes
+        VMProcessorCount = $VMProcessorCount
+    }
+    Convert-VhdxToRootfs @vhdxToRootfsCreationParams
 }
 
 function Set-ProxySettingsOnKubenode {
