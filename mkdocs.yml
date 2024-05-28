@@ -1,0 +1,4 @@
+site_name: K2s - Kubernetes (K8s) distribution for Windows & Linux workloads
+site_url: https://Siemens-Healthineers.github.io/K2s
+theme:
+  name: material
