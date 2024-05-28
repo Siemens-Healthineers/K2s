@@ -20,6 +20,22 @@ data:
         Time_Key    time
         Time_Format %Y-%m-%dT%H:%M:%S.%L%z
         Time_Keep   On
+    
+    [PARSER]
+        Name nssm1
+        Format regex
+        Regex time="(?<time>[^ ]*)" level=(?<level>[^ ]*) msg="(?<msg>[^ ].*)"
+        Time_Key time
+        Time_Format %Y-%m-%dT%H:%M:%S.%L
+        Time_Keep On
+
+    [PARSER]
+        Name nssm2
+        Format regex
+        Regex ^(?<time>.*) \[(?<level>[^\]]*)\] (?<message>.*)$
+        Time_Key time
+        Time_Format %Y/%b/%d %H:%M:%S
+        Time_Keep On
 ---
 kind: ConfigMap
 apiVersion: v1
@@ -127,9 +143,20 @@ data:
 
     [INPUT]
         Name tail
-        Path C:\\var\\log\\*\\*.log
-        Exclude_Path *fluent-bit*.log
-        Tag cluster.*
+        Path C:\\var\\log\\containerd\\*.log
+        Tag containerd.*
+        Parser nssm1
+        Read_from_Head true
+        Buffer_Chunk_Size 10MB
+        Buffer_Max_Size 40MB
+        Mem_Buf_Limit 512MB
+        Refresh_Interval 5
+
+    [INPUT]
+        Name tail
+        Path C:\\var\\log\\dnsproxy\\*.log
+        Tag dnsproxy.*
+        Parser nssm2
         Read_from_Head true
         Buffer_Chunk_Size 10MB
         Buffer_Max_Size 40MB
@@ -167,6 +194,18 @@ data:
         Remove time
         Remove logtag
         Remove container_hash
+    
+    [FILTER]
+        Name modify
+        Match containerd.*
+        Rename msg log
+        Add k2s.host.name ${COMPUTERNAME}
+
+    [FILTER]
+        Name modify
+        Match dnsproxy.*
+        Rename message log
+        Add k2s.host.name ${COMPUTERNAME}
 
     [FILTER]
         Name     throttle
@@ -178,7 +217,7 @@ data:
 
     [OUTPUT]
         Name  opensearch
-        Match kube.*
+        Match *
         Host opensearch-cluster-master.logging.svc.cluster.local
         Port 9200
         Index k2s
