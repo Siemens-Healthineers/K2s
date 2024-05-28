@@ -20,11 +20,11 @@ function New-WslLinuxVmAsControlPlaneNode {
         [string]$DnsServers,
         [string]$VmName,
         [parameter(Mandatory = $false, HelpMessage = 'Startup Memory Size of VM')]
-        [long]$VMMemoryStartupBytes = 8GB,
+        [long]$VMMemoryStartupBytes,
         [parameter(Mandatory = $false, HelpMessage = 'Number of Virtual Processors for VM')]
-        [long]$VMProcessorCount = 4,
+        [long]$VMProcessorCount,
         [parameter(Mandatory = $false, HelpMessage = 'Virtual hard disk size of VM')]
-        [uint64]$VMDiskSize = 50GB,
+        [uint64]$VMDiskSize,
         [parameter(Mandatory = $false, HelpMessage = 'The HTTP proxy if available.')]
         [string]$Proxy = '',
         [parameter(Mandatory = $false, HelpMessage = 'Deletes the needed files to perform an offline installation')]
@@ -55,10 +55,21 @@ function New-WslLinuxVmAsControlPlaneNode {
                 DnsServers=$DnsServers
                 VmImageOutputPath=$vhdxPath
                 Proxy=$Proxy
+                VMDiskSize = $VMDiskSize
+                VMMemoryStartupBytes = $VMMemoryStartupBytes
+                VMProcessorCount = $VMProcessorCount
             }
         New-VmImageForControlPlaneNode @controlPlaneNodeCreationParams
 
-        New-WslRootfsForControlPlaneNode -VmImageInputPath $vhdxPath -RootfsFileOutputPath $rootfsPath -Proxy $Proxy
+        $wslRootfsForControlPlaneNodeCreationParams = @{
+                VmImageInputPath=$vhdxPath
+                RootfsFileOutputPath=$rootfsPath
+                Proxy=$Proxy
+                VMDiskSize = $VMDiskSize
+                VMMemoryStartupBytes = $VMMemoryStartupBytes
+                VMProcessorCount = $VMProcessorCount
+            }
+        New-WslRootfsForControlPlaneNode @wslRootfsForControlPlaneNodeCreationParams
 
         if (Test-Path -Path $vhdxPath) {
             Remove-Item -Path $vhdxPath -Force
