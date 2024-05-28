@@ -625,7 +625,7 @@ function Convert-VhdxToRootfs {
         New-RootfsForWSL -IpAddress $(Get-VmIpForProvisioningKubeNode) -UserName $(Get-DefaultUserNameKubeNode) -UserPwd $(Get-DefaultUserPwdKubeNode) -VhdxFile $SourceVhdxPath -TargetFilePath $TargetRootfsFilePath
     }
 
-    $vmBasedOnKubenodeBaseImageCreationParams = @{
+    $vmBasedOnKubenodeBaseImageStartParams = @{
         VhdxPath=$rootfsCreatorHostVhdxPath
         VmName=$vmName
         Hook = $Hook
@@ -633,7 +633,7 @@ function Convert-VhdxToRootfs {
         VMMemoryStartupBytes = $VMMemoryStartupBytes
         VMProcessorCount = $VMProcessorCount
     }
-    Start-VmBasedOnKubenodeBaseImage @vmBasedOnKubenodeBaseImageCreationParams
+    Start-VmBasedOnKubenodeBaseImage @vmBasedOnKubenodeBaseImageStartParams
     Stop-AndRemoveVmBasedOnKubenodeBaseImage -VmName $vmName
 
     Remove-Item -Path $provisioningTargetDirectory -Recurse -Force
