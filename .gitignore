@@ -137,3 +137,6 @@ test/*Test*.xml
 
 build/bom/merge/k2s-bom.json
 bin/cdxgen.exe
+
+# static site generator output
+site
