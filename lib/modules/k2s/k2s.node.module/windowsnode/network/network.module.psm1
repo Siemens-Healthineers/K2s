@@ -262,6 +262,7 @@ function Restart-NlaSvc {
         $networkLocationAwarenessService = Get-Service $networkLocationAwarenessServiceName
         $serviceRestarted = $false
         if ($networkLocationAwarenessService.Status -ne 'Running') {
+            Write-Log "'$networkLocationAwarenessServiceName' Service is not restarted. Starting it explicitly..."
             Start-Service $networkLocationAwarenessServiceName
             while ($true) {
                 $iteration++
