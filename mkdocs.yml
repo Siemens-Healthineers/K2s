@@ -1,7 +1,104 @@
 # SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
 # SPDX-License-Identifier: MIT
 
-site_name: K2s - Kubernetes (K8s) distribution for Windows & Linux workloads
+site_name: K2s - Kubernetes distribution for Windows & Linux workloads
 site_url: https://Siemens-Healthineers.github.io/K2s
+copyright: Copyright &copy; 2024 Siemens Healthcare GmbH
+repo_url: https://github.com/Siemens-Healthineers/K2s
+edit_uri: edit/main/docs/
+strict: true
 theme:
+  language: en
   name: material
+  logo: assets/logo.png
+  favicon: assets/logo.png
+  font:
+    text: Roboto
+    code: Roboto Mono
+  palette:
+    - scheme: default
+      media: "(prefers-color-scheme: light)"
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+      primary: custom
+      accent: custom
+
+    - scheme: slate
+      media: "(prefers-color-scheme: dark)"
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+      primary: custom
+      accent: custom
+  features:
+    - navigation.top
+    - navigation.instant
+    - navigation.instant.progress
+    - navigation.tracking
+    - navigation.footer
+    - navigation.indexes
+    - search.suggest
+    - search.highlight
+    - search.share
+    - announce.dismiss
+    - content.action.edit
+    - content.code.copy
+    - content.code.annotate
+  custom_dir: docs/overrides
+  icon:
+    repo: fontawesome/brands/github
+extra_css:
+  - stylesheets/extra.css
+plugins:
+  - privacy # downloads and bundles all assets (i.e. external scripts, images, fonts, etc.)
+  - search
+markdown_extensions:
+  - admonition
+  - footnotes
+  - pymdownx.highlight:
+      anchor_linenums: true
+      auto_title: true
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - attr_list
+  - md_in_html
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - abbr
+  - pymdownx.snippets:
+      auto_append:
+        - docs/includes/glossary.md
+validation:
+  omitted_files: info
+  absolute_links: warn
+  unrecognized_links: warn
+  anchors: warn
+nav:
+  - Home: index.md
+  - Getting Started:
+      - Quick Start: quickstart/index.md
+  - User Guide:
+      - user-guide/index.md
+  - Operator Manual:
+      - Supported OS Versions: op-manual/os-support.md
+      - Installation: op-manual/installation.md
+  - Developer Guide:
+      - Contributing:
+          - dev-guide/contributing/index.md
+          - Corporate Contributors: dev-guide/contributing/cla-corporate-contributor.md
+          - Individual Contributors: dev-guide/contributing/cla-individual-contributor.md
+          - PowerShell Development: dev-guide/contributing/powershell-dev.md
+          - Automated Testing: dev-guide/contributing/automated-testing.md
+          - Tags/Labels: dev-guide/contributing/tags-labels.md
+      - Architecture: dev-guide/architecture.md
+  - Roadmap: roadmap.md
+  - Showcase: showcase.md
+not_in_nav: |
+  /includes/**/*.*
