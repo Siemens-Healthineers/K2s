@@ -1,6 +1,5 @@
 <!--
-SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
-
+SPDX-FileCopyrightText: © 2024 Siemens Healthcare GmbH
 SPDX-License-Identifier: MIT
 -->
 
@@ -36,14 +35,14 @@ UNLESS REQUIRED BY APPLICABLE LAW OR AGREED TO IN WRITING, AND EXCEPT FOR THE WA
 
 By signing, You accept and agree to the terms of this Agreement for Your present and future Submissions to Siemens Healthineers. Siemens Healthineers’ acceptance is hereby declared and valid upon uploading the unchanged and signed document by You.
 
-|   | ______ I have sole ownership of intellectual property rights to my Submissions and I am not making Submissions in the course of work for my employer.   |
-|---|---|
-|Name of author (In case of multiple authors, you may add any contributor.)	 |  |
-|Date|   |
-|Signature of author|   |
-|GitHub/GitLab user|   |
-|Email|   |
-|Address|   |
+|                                                                            | ______ I have sole ownership of intellectual property rights to my Submissions and I am not making Submissions in the course of work for my employer. |
+| -------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Name of author (In case of multiple authors, you may add any contributor.) |                                                                                                                                                       |
+| Date                                                                       |                                                                                                                                                       |
+| Signature of author                                                        |                                                                                                                                                       |
+| GitHub/GitLab user                                                         |                                                                                                                                                       |
+| Email                                                                      |                                                                                                                                                       |
+| Address                                                                    |                                                                                                                                                       |
 
 
 

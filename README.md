@@ -4,14 +4,18 @@ SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
 SPDX-License-Identifier: MIT
 -->
 
-# K2s (Kubernetes) Setup 
+# K2s - Kubernetes distribution for Windows & Linux workloads
 [![ci](https://github.com/Siemens-Healthineers/K2s/actions/workflows/ci-reuse-checks.yml/badge.svg)](https://github.com/Siemens-Healthineers/K2s/actions/workflows/ci-reuse-checks.yml)
 [![ci](https://github.com/Siemens-Healthineers/K2s/actions/workflows/ci-unit-tests.yml/badge.svg)](https://github.com/Siemens-Healthineers/K2s/actions/workflows/ci-unit-tests.yml)
 [![ci](https://github.com/Siemens-Healthineers/K2s/actions/workflows/build-k2s-cli.yml/badge.svg)](https://github.com/Siemens-Healthineers/K2s/actions/workflows/build-k2s-cli.yml)
 [![ci](https://github.com/Siemens-Healthineers/K2s/actions/workflows/build-k2s-artifacts.yml/badge.svg)](https://github.com/Siemens-Healthineers/K2s/actions/workflows/build-k2s-artifacts.yml)
+[![ci](https://github.com/Siemens-Healthineers/K2s/actions/workflows/build-docs.yml/badge.svg)](https://github.com/Siemens-Healthineers/K2s/actions/workflows/build-docs.yml)
 
-**K2s** solution is a Kubernetes (K8s) distribution which packages different components
-into one small and easy to use solution. It has its focus on running mixed Windows & Linux workloads in Kubernetes and it's available on Windows hosts.
+**K2s** is a Kubernetes distribution which packages different open-source components into one small and easy to use solution focusing on running mixed Windows-based & Linux-based workloads in Kubernetes. 
+
+This solution is installable on Windows hosts.
+
+Read the [K2s Documentation](https://siemens-healthineers.github.io/K2s/).
 
 ## Why **K2s** distribution ?
 
@@ -26,11 +30,11 @@ The name **K2s** comes from the fact that we start with the default setting of 2
 
 See [Features](/doc/K8s_Features.md) for a full list of features.
 
-## Quickstart
+## Quick Start
 
 Get **K2s** into a folder of your choice as [described here](doc/K8s_Get-K2s.md) (use **C:** drive if possible), open a command prompt as Administrator and navigate to the installation folder.
 
-Install **K2s** with (ensure to verify the [Prerequisites](./doc/k2scli/install-uninstall_cmd.md#prerequisites) first):
+Install **K2s** with (ensure to verify the [Prerequisites](./docs/op-manual/installation.md#prerequisites) first):
 ```
 <installation folder>.\k2s.exe install
 ```
@@ -66,19 +70,7 @@ In case that multiple systems need to be provisioned with Kubernetes or you want
 Setting up the Kubernetes cluster with the offline package takes only 2-3 minutes and needs no internet connection.
 Checkout how to create such offline packages: [Offline packages](doc/K8s_OfflinePackages.md)
 
-## Supported OS Versions
-| Windows                 | Version | Build           |
-| ----------------------- | ------- | --------------- |
-| Windows 10, Server 2019 | 1809    | 10.0.17763.xxxx |
-| Windows 10              | 2004    | 10.0.19041.xxxx |
-| Windows 10              | 20H2    | 10.0.19042.xxxx |
-| Windows 10              | 21H2    | 10.0.19044.xxxx |
-| Windows 10              | 22H2    | 10.0.19045.xxxx |
-| Windows Server 2022     | 21H2    | 10.0.20348.xxxx |
-| Windows 11              | 21H2    | 10.0.22000.xxxx |
-| Windows 11              | 22H2    | 10.0.22621.xxxx |
-| Windows 11              | 23H2    | 10.0.22631.xxxx |
-
+## [Supported OS Versions](docs/op-manual/os-support.md)
 See also [Windows-based Images](./smallsetup/ps-modules/windows-support/README.md).
 
 ## Hosting variants:
@@ -117,8 +109,7 @@ These addons can be used for testing and rapid prototyping purposes, as well in 
 ## Troubleshoot
 - [Troubleshoot](doc/K8s_Troubleshoot.md)
 
-## Contribute
-- [Contributor Guide](doc/contributing/CONTRIBUTING.md)
+## [Contributing](docs/dev-guide/contributing/index.md)
 
 ## Training for Kubernetes
 - [Kubernetes Trainings](doc/K8s_Trainings.md)
