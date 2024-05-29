@@ -20,6 +20,54 @@ data:
         Time_Key    time
         Time_Format %Y-%m-%dT%H:%M:%S.%L%z
         Time_Keep   On
+
+    [PARSER]
+        Name cli
+        Format regex
+        Regex \{"time":"(?<time>[^ ]*)","level":"(?<severity>(DEBUG|INFO|WARN|ERROR))","source":\{"function":"(?<function>[^"]+)","file":"(?<file>[^"]+)","line":(?<line>\d+)\},"msg":"(?<message>[^"]+)"\}
+        Time_Key time
+        Time_Format %Y-%m-%dT%H:%M:%S.%L%z
+        Time_Keep On
+    
+    [PARSER]
+        Name nssm1
+        Format regex
+        Regex time="(?<time>[^ ]*)" level=(?<level>[^ ]*) msg=(?<message>[^ ].*)
+        Time_Key time
+        Time_Format %Y-%m-%dT%H:%M:%S.%L%z
+        Time_Keep Off
+
+    [PARSER]
+        Name nssm2
+        Format regex
+        Regex ^(?<errorcode>E(\d{4})) (?<time>(\d{2}:\d{2}:\d{2}\.\d{6})) (?<pid>(\d+)) (?<message>.*)$
+        Time_Key time
+        Time_Format %H:%M:%S.%L
+        Time_Keep On
+
+    [PARSER]
+        Name nssm3
+        Format regex
+        Regex ^(?<time>\d{4}\/\d{2}\/\d{2} \d{2}:\d{2}:\d{2}) \[\d{3}\] (?<severity>\b(INFO|WARN|ERROR|DEBUG)\b:) (?<message>.*)$
+        Time_Key time
+        Time_Format %Y/%b/%d %H:%M:%S
+        Time_Keep On
+
+    [PARSER]
+        Name cloudinit
+        Format regex
+        Regex ^(?<time>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3}) - (?<message>.*)$
+        Time_Key time
+        Time_Format %Y-%m-%d %H:%M:%S,%L
+        Time_Keep On
+
+    [PARSER]
+        Name dnsproxy
+        Format regex
+        Regex ^(?<time>.*) \[(?<level>[^\]]*)\] (?<message>.*)$
+        Time_Key time
+        Time_Format %Y/%b/%d %H:%M:%S
+        Time_Keep On
 ---
 kind: ConfigMap
 apiVersion: v1
@@ -125,6 +173,138 @@ data:
         Mem_Buf_Limit 512MB
         Refresh_Interval 5
 
+    [INPUT]
+        Name tail
+        Path C:\\var\\log\\bridge\\*.log
+        Tag bridge.*
+        Parser nssm1
+        Read_from_Head true
+        Buffer_Chunk_Size 10MB
+        Buffer_Max_Size 40MB
+        Mem_Buf_Limit 512MB
+        Refresh_Interval 5
+
+    [INPUT]
+        Name tail
+        Path C:\\var\\log\\cli\\*.log
+        Tag cli.*
+        Parser cli
+        Read_from_Head true
+        Buffer_Chunk_Size 10MB
+        Buffer_Max_Size 40MB
+        Mem_Buf_Limit 512MB
+        Refresh_Interval 5
+
+    [INPUT]
+        Name tail
+        Path C:\\var\\log\\cloud-init\\*.log
+        Tag cloudinit.*
+        Parser cloudinit
+        Read_from_Head true
+        Buffer_Chunk_Size 10MB
+        Buffer_Max_Size 40MB
+        Mem_Buf_Limit 512MB
+        Refresh_Interval 5
+
+    [INPUT]
+        Name tail
+        Path C:\\var\\log\\containerd\\*.log
+        Tag containerd.*
+        Parser nssm1
+        Read_from_Head true
+        Buffer_Chunk_Size 10MB
+        Buffer_Max_Size 40MB
+        Mem_Buf_Limit 512MB
+        Refresh_Interval 5
+
+    [INPUT]
+        Name tail
+        Path C:\\var\\log\\dnsproxy\\*.log
+        Tag dnsproxy.*
+        Parser dnsproxy
+        Read_from_Head true
+        Buffer_Chunk_Size 10MB
+        Buffer_Max_Size 40MB
+        Mem_Buf_Limit 512MB
+        Refresh_Interval 5
+
+    [INPUT]
+        Name tail
+        Path C:\\var\\log\\dockerd\\*.log
+        Tag dockerd.*
+        Parser nssm1
+        Read_from_Head true
+        Buffer_Chunk_Size 10MB
+        Buffer_Max_Size 40MB
+        Mem_Buf_Limit 512MB
+        Refresh_Interval 5
+
+    [INPUT]
+        Name tail
+        Path C:\\var\\log\\flanneld\\*.log
+        Tag flanneld.*
+        Parser nssm2
+        Read_from_Head true
+        Buffer_Chunk_Size 10MB
+        Buffer_Max_Size 40MB
+        Mem_Buf_Limit 512MB
+        Refresh_Interval 5
+
+    [INPUT]
+        Name tail
+        Path C:\\var\\log\\httpproxy\\*.log
+        Tag httpproxy.*
+        Parser nssm3
+        Read_from_Head true
+        Buffer_Chunk_Size 10MB
+        Buffer_Max_Size 40MB
+        Mem_Buf_Limit 512MB
+        Refresh_Interval 5
+
+    [INPUT]
+        Name tail
+        Path C:\\var\\log\\kubelet\\*.log
+        Tag kubelet.*
+        Parser nssm2
+        Read_from_Head true
+        Buffer_Chunk_Size 10MB
+        Buffer_Max_Size 40MB
+        Mem_Buf_Limit 512MB
+        Refresh_Interval 5
+
+    [INPUT]
+        Name tail
+        Path C:\\var\\log\\kubeproxy\\*.log
+        Tag kubeproxy.*
+        Parser nssm2
+        Read_from_Head true
+        Buffer_Chunk_Size 10MB
+        Buffer_Max_Size 40MB
+        Mem_Buf_Limit 512MB
+        Refresh_Interval 5
+
+    [INPUT]
+        Name tail
+        Path C:\\var\\log\\vfprules\\*.log
+        Tag vfprules.*
+        Parser nssm1
+        Read_from_Head true
+        Buffer_Chunk_Size 10MB
+        Buffer_Max_Size 40MB
+        Mem_Buf_Limit 512MB
+        Refresh_Interval 5
+
+    [INPUT]
+        Name tail
+        Path C:\\var\\log\\windows_exporter\\*.log
+        Tag windowsexporter.*
+        Parser nssm1
+        Read_from_Head true
+        Buffer_Chunk_Size 10MB
+        Buffer_Max_Size 40MB
+        Mem_Buf_Limit 512MB
+        Refresh_Interval 5
+
     [FILTER]
         Name kubernetes
         Match kube.*
@@ -158,6 +338,90 @@ data:
         Remove container_hash
 
     [FILTER]
+        Name modify
+        Match bridge.*
+        Rename message log
+        Add k2s.host.name ${COMPUTERNAME}
+        Add ident bridge
+
+    [FILTER]
+        Name modify
+        Match cli.*
+        Rename message log
+        Add k2s.host.name ${COMPUTERNAME}
+        Add ident cli
+
+    [FILTER]
+        Name modify
+        Match cloudinit.*
+        Rename message log
+        Add k2s.host.name ${COMPUTERNAME}
+        Add ident cloud-init
+    
+    [FILTER]
+        Name modify
+        Match containerd.*
+        Rename message log
+        Add k2s.host.name ${COMPUTERNAME}
+        Add ident containerd
+
+    [FILTER]
+        Name modify
+        Match dnsproxy.*
+        Rename message log
+        Add k2s.host.name ${COMPUTERNAME}
+        Add ident dnsproxy
+
+    [FILTER]
+        Name modify
+        Match dockerd.*
+        Rename message log
+        Add k2s.host.name ${COMPUTERNAME}
+        Add ident dockerd
+
+    [FILTER]
+        Name modify
+        Match flanneld.*
+        Rename message log
+        Add k2s.host.name ${COMPUTERNAME}
+        Add ident flanneld
+
+    [FILTER]
+        Name modify
+        Match httpproxy.*
+        Rename message log
+        Add k2s.host.name ${COMPUTERNAME}
+        Add ident httpproxy
+
+    [FILTER]
+        Name modify
+        Match kubelet.*
+        Rename message log
+        Add k2s.host.name ${COMPUTERNAME}
+        Add ident kubelet
+
+    [FILTER]
+        Name modify
+        Match kubeproxy.*
+        Rename message log
+        Add k2s.host.name ${COMPUTERNAME}
+        Add ident kubeproxy
+        
+    [FILTER]
+        Name modify
+        Match vfprules.*
+        Rename message log
+        Add k2s.host.name ${COMPUTERNAME}
+        Add ident vfprules
+
+    [FILTER]
+        Name modify
+        Match windowsexporter.*
+        Rename message log
+        Add k2s.host.name ${COMPUTERNAME}
+        Add ident windowsexporter
+
+    [FILTER]
         Name     throttle
         Match    *
         Rate     800
@@ -170,6 +434,7 @@ data:
         Match *
         Host opensearch-cluster-master.logging.svc.cluster.local
         Port 9200
+        Index k2s
         Buffer_Size 10MB
         Suppress_Type_Name On
         Trace_Error       On
