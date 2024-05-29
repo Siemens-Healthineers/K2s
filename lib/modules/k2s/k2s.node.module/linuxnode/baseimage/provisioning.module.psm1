@@ -12,6 +12,8 @@ $kubeBinPath = Get-KubeBinPath
 
 $downloadsDirectory = "$kubeBinPath\downloads"
 $provisioningTargetDirectory = "$kubeBinPath\provisioning"
+$kubenodeBaseFileName = 'Kubenode-Base.vhdx'
+$kubeNodeBaseImagePath = "$kubeBinPath\$kubenodeBaseFileName"
 
 $KubemasterVmProvisioningVmName = 'KUBEMASTER_IN_PROVISIONING'
 $RawBaseImageInProvisioningForKubemasterImageName = 'Debian-11-Base-In-Provisioning-For-Kubemaster.vhdx'
@@ -60,11 +62,11 @@ class NetworkParameters {
 function New-KubenodeBaseImage {
     param (
         [parameter(Mandatory = $false, HelpMessage = 'Startup Memory Size of VM')]
-        [long]$VMMemoryStartupBytes = 8GB,
+        [long]$VMMemoryStartupBytes,
         [parameter(Mandatory = $false, HelpMessage = 'Number of Virtual Processors for VM')]
-        [long]$VMProcessorCount = 4,
+        [long]$VMProcessorCount,
         [parameter(Mandatory = $false, HelpMessage = 'Virtual hard disk size of VM')]
-        [uint64]$VMDiskSize = 50GB,
+        [uint64]$VMDiskSize,
         [parameter(Mandatory = $false, HelpMessage = 'The HTTP proxy if available.')]
         [string]$Proxy = '',
         [string]$DnsIpAddresses = $(throw 'Argument missing: DnsIpAddresses'),
@@ -128,11 +130,11 @@ function New-KubenodeBaseImage {
 function New-KubemasterBaseImage {
     param (
         [parameter(Mandatory = $false, HelpMessage = 'Startup Memory Size of VM')]
-        [long]$VMMemoryStartupBytes = 8GB,
+        [long]$VMMemoryStartupBytes,
         [parameter(Mandatory = $false, HelpMessage = 'Number of Virtual Processors for VM')]
-        [long]$VMProcessorCount = 4,
+        [long]$VMProcessorCount,
         [parameter(Mandatory = $false, HelpMessage = 'Virtual hard disk size of VM')]
-        [uint64]$VMDiskSize = 50GB,
+        [uint64]$VMDiskSize,
         [string]$Hostname,
         [string]$IpAddress,
         [string]$GatewayIpAddress,
@@ -272,11 +274,11 @@ function New-KubemasterBaseImage {
 function New-KubeworkerBaseImage {
     param (
         [parameter(Mandatory = $false, HelpMessage = 'Startup Memory Size of VM')]
-        [long]$VMMemoryStartupBytes = 8GB,
+        [long]$VMMemoryStartupBytes,
         [parameter(Mandatory = $false, HelpMessage = 'Number of Virtual Processors for VM')]
-        [long]$VMProcessorCount = 4,
+        [long]$VMProcessorCount,
         [parameter(Mandatory = $false, HelpMessage = 'Virtual hard disk size of VM')]
-        [uint64]$VMDiskSize = 50GB,
+        [uint64]$VMDiskSize,
         [string]$Hostname,
         [string]$IpAddress,
         [string]$GatewayIpAddress,
@@ -414,11 +416,11 @@ function New-KubeworkerBaseImage {
 function Start-VmBasedOnKubenodeBaseImage {
     param (
         [parameter(Mandatory = $false, HelpMessage = 'Startup Memory Size of VM')]
-        [long]$VMMemoryStartupBytes = 8GB,
+        [long]$VMMemoryStartupBytes,
         [parameter(Mandatory = $false, HelpMessage = 'Number of Virtual Processors for VM')]
-        [long]$VMProcessorCount = 4,
+        [long]$VMProcessorCount,
         [parameter(Mandatory = $false, HelpMessage = 'Virtual hard disk size of VM')]
-        [uint64]$VMDiskSize = 50GB,
+        [uint64]$VMDiskSize,
         [parameter(Mandatory = $false, HelpMessage = 'The path to take the kubenode base image.')]
         [string] $VhdxPath = $(throw "Argument missing: InPreparationVhdxPath"),
         [string] $VmName,
@@ -596,7 +598,12 @@ function Convert-VhdxToRootfs {
     param (
         [string] $KubenodeBaseImagePath = $(throw "Argument missing: KubenodeBaseImagePath"),
         [string] $SourceVhdxPath = $(throw "Argument missing: SourceVhdxPath"),
-        [string] $TargetRootfsFilePath = $(throw "Argument missing: TargetRootfsFilePath")
+        [string] $TargetRootfsFilePath = $(throw "Argument missing: TargetRootfsFilePath"),
+        [long]$VMMemoryStartupBytes,
+        [parameter(Mandatory = $false, HelpMessage = 'Number of Virtual Processors for VM')]
+        [long]$VMProcessorCount,
+        [parameter(Mandatory = $false, HelpMessage = 'Virtual hard disk size of VM')]
+        [uint64]$VMDiskSize
     )
     
     if (Test-Path -Path $TargetRootfsFilePath) {
@@ -617,7 +624,16 @@ function Convert-VhdxToRootfs {
     $Hook = {
         New-RootfsForWSL -IpAddress $(Get-VmIpForProvisioningKubeNode) -UserName $(Get-DefaultUserNameKubeNode) -UserPwd $(Get-DefaultUserPwdKubeNode) -VhdxFile $SourceVhdxPath -TargetFilePath $TargetRootfsFilePath
     }
-    Start-VmBasedOnKubenodeBaseImage -VhdxPath $rootfsCreatorHostVhdxPath -VmName $vmName -Hook $Hook
+
+    $vmBasedOnKubenodeBaseImageStartParams = @{
+        VhdxPath=$rootfsCreatorHostVhdxPath
+        VmName=$vmName
+        Hook = $Hook
+        VMDiskSize = $VMDiskSize
+        VMMemoryStartupBytes = $VMMemoryStartupBytes
+        VMProcessorCount = $VMProcessorCount
+    }
+    Start-VmBasedOnKubenodeBaseImage @vmBasedOnKubenodeBaseImageStartParams
     Stop-AndRemoveVmBasedOnKubenodeBaseImage -VmName $vmName
 
     Remove-Item -Path $provisioningTargetDirectory -Recurse -Force
@@ -773,6 +789,20 @@ function Get-NetworkInterfaceName {
     return 'eth0'
 }
 
+function Remove-KubeNodeBaseImage {
+    Param(
+        [parameter(Mandatory = $false, HelpMessage = 'Deletes the needed files to perform an offline installation')]
+        [boolean] $DeleteFilesForOfflineInstallation = $false
+    )
+
+    if ($DeleteFilesForOfflineInstallation) {
+        Write-Log "Deleting file '$kubeNodeBaseImagePath' if existing"
+        if (Test-Path $kubeNodeBaseImagePath) {
+            Remove-Item $kubeNodeBaseImagePath -Force
+        }
+    }
+}
+
 function Clear-ProvisioningArtifacts {
     $kubenodeVmName = $KubenodeVmProvisioningVmName
     $kubemasterVmName = $KubemasterVmProvisioningVmName
@@ -834,6 +864,7 @@ Get-NetworkInterfaceName,
 Get-DefaultUserNameKubeNode, 
 Get-DefaultUserPwdKubeNode, 
 Get-VmIpForProvisioningKubeNode, 
+Remove-KubeNodeBaseImage,
 New-KubenodeBaseImage, 
 New-KubemasterBaseImage, 
 New-KubeworkerBaseImage,
