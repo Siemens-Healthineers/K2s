@@ -24,7 +24,7 @@ data:
     [PARSER]
         Name cli
         Format regex
-        Regex \{"time":"(?<time>[^ ]*)","level":"(?<severity>(DEBUG|INFO|WARN|ERROR))","source":\{"function":"(?<function>[^"]+)","file":"(?<file>[^"]+)","line":(?<line>\d+)\},"msg":"(?<message>[^"]+)"\}
+        Regex \{"time":"(?<time>[^ ]*)","level":"(?<level>(DEBUG|INFO|WARN|ERROR))","source":\{"function":"(?<function>[^"]+)","file":"(?<file>[^"]+)","line":(?<line>\d+)\},"msg":"(?<message>.*)\}
         Time_Key time
         Time_Format %Y-%m-%dT%H:%M:%S.%L%z
         Time_Keep On
@@ -48,7 +48,7 @@ data:
     [PARSER]
         Name nssm3
         Format regex
-        Regex ^(?<time>\d{4}\/\d{2}\/\d{2} \d{2}:\d{2}:\d{2}) \[\d{3}\] (?<severity>\b(INFO|WARN|ERROR|DEBUG)\b:) (?<message>.*)$
+        Regex ^(?<time>\d{4}\/\d{2}\/\d{2} \d{2}:\d{2}:\d{2}) (?<message>.*)$
         Time_Key time
         Time_Format %Y/%b/%d %H:%M:%S
         Time_Keep On
