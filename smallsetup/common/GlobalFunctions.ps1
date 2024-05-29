@@ -1463,11 +1463,11 @@ function Install-AndInitKubemaster {
         [parameter(Mandatory = $false, HelpMessage = 'HTTP proxy to be used during operation')]
         [string] $OperationStageProxy,
         [parameter(Mandatory = $false, HelpMessage = 'Startup Memory Size of KubeMaster VM')]
-        [long] $VMStartUpMemory = 4GB,
+        [long] $VMStartUpMemory,
         [parameter(Mandatory = $false, HelpMessage = 'Number of Virtual Processors for KubeMaster VM')]
-        [long] $VMProcessorCount = 4,
+        [long] $VMProcessorCount,
         [parameter(Mandatory = $false, HelpMessage = 'Virtual hard disk size of KubeMaster VM')]
-        [long] $VMDiskSize = 50GB,
+        [long] $VMDiskSize,
         [parameter(Mandatory = $false, HelpMessage = 'Host-GW or VXLAN, Host-GW: true, false for VXLAN')]
         [bool] $HostGW = $true,
         [parameter(Mandatory = $false, HelpMessage = 'Deletes the needed files to perform an offline installation')]

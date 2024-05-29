@@ -6,11 +6,11 @@
 
 param (
     [parameter(Mandatory = $false, HelpMessage = 'Startup Memory Size of VM')]
-    [long]$VMMemoryStartupBytes = 8GB,
+    [long]$VMMemoryStartupBytes,
     [parameter(Mandatory = $false, HelpMessage = 'Number of Virtual Processors for VM')]
-    [long]$VMProcessorCount = 4,
+    [long]$VMProcessorCount,
     [parameter(Mandatory = $false, HelpMessage = 'Virtual hard disk size of VM')]
-    [uint64]$VMDiskSize = 50GB,
+    [uint64]$VMDiskSize,
     [parameter(Mandatory = $false, HelpMessage = 'The HTTP proxy if available.')]
     [string]$Proxy = '',
     [ValidateScript({ Assert-LegalCharactersInPath -Path $_ })]
@@ -62,7 +62,16 @@ param (
         throw "The file '$OutputPath' was not created"
     }
 
-    New-WslRootfsForControlPlaneNode -VmImageInputPath $OutputPath -RootfsFileOutputPath $rootfsPath -Proxy $Proxy
+    $wslRootfsForControlPlaneNodeCreationParams = @{
+        VmImageInputPath = $OutputPath
+        RootfsFileOutputPath = $rootfsPath
+        Proxy = $Proxy
+        VMMemoryStartupBytes=$VMMemoryStartupBytes
+        VMProcessorCount=$VMProcessorCount
+        VMDiskSize=$VMDiskSize
+    }
+
+    New-WslRootfsForControlPlaneNode @wslRootfsForControlPlaneNodeCreationParams
 
     if (!(Test-Path -Path $rootfsPath)) {
         throw "The file '$rootfsPath' was not created"
