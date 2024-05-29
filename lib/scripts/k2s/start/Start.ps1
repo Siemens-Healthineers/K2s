@@ -192,6 +192,7 @@ $switchname = Get-ControlPlaneNodeDefaultSwitchName
 Write-Log 'Configuring network for windows node' -Console
 Restart-WinService 'vmcompute'
 Restart-WinService 'hns'
+Restart-NlaSvc
 
 $adapterName = Get-L2BridgeName
 Write-Log "Using network adapter '$adapterName'"
@@ -327,8 +328,6 @@ Write-Log "Remove obsolete route to $clusterCIDRServicesWindows"
 route delete $clusterCIDRServicesWindows >$null 2>&1
 Write-Log "Add route to $clusterCIDRServicesWindows"
 route -p add $clusterCIDRServicesWindows $ipControlPlane METRIC 7 | Out-Null
-
-Restart-NlaSvc
 
 # enable ip forwarding
 netsh int ipv4 set int "vEthernet ($switchname)" forwarding=enabled | Out-Null
