@@ -242,9 +242,53 @@ function Set-WSLSwitch() {
     Set-NetIPInterface -InterfaceIndex $ipindex1 -InterfaceMetric 25
 }
 
+<# .DESCRIPTION
+	This function restarts the Network Location Awareness Service in Windows 10. 
+	After 128 cluster start and stop operations, a buffer overflow happens in this service
+	This causes the Loopback Adapter detection failures in SmallK8s. 
+	Restarting this service resets the buffer.
+
+	For now the hook will suffice. An official solution for this shall come as part of K2s 1.1 or beyond.
+
+	The NlaSvc has to be killed explicitly since it has dependents. 
+#>
+function Restart-NlaSvc {
+	$networkLocationAwarenessServiceName = "NlaSvc"
+	$nlaSvcPid = Get-WmiObject -Class Win32_Service -Filter "Name LIKE '$networkLocationAwarenessServiceName'" | Select-Object -ExpandProperty ProcessId
+	if (![string]::IsNullOrWhitespace($nlaSvcPid)) {
+		Write-Log "Network Location Awareness service found on host runnig with pid $nlaSvcPid. Initiating service restart..."
+		Invoke-Expression "taskkill /f /pid $nlaSvcPid"
+        Start-Sleep -seconds 10
+        $networkLocationAwarenessService = Get-Service $networkLocationAwarenessServiceName
+        $serviceRestarted = $false
+        if ($networkLocationAwarenessService.Status -ne 'Running') {
+            Start-Service $networkLocationAwarenessServiceName
+            while ($true) {
+                $iteration++
+                $svcstatus = $(Get-Service -Name $networkLocationAwarenessServiceName -ErrorAction SilentlyContinue).Status
+                if ($svcstatus -eq 'Running') {
+                    $serviceRestarted = $true
+                    break
+                }
+                if ($iteration -ge 5) {
+                    Write-Log "'$networkLocationAwarenessServiceName' Service is not running !!" -Console
+                    break
+                }
+                Write-Log "'$networkLocationAwarenessServiceName' Waiting for service status to be started."
+                Start-Sleep -s 2
+            }
+        }
+        if ($serviceRestarted -eq $false) {
+            Write-Log "[WARNING] '$networkLocationAwarenessServiceName' Service could not be successfully restarted !!" -Console
+        } else {
+            Write-Log "Service re-started '$networkLocationAwarenessServiceName' " -Console
+        }
+	}
+}
+
 
 Export-ModuleMember Set-IndexForDefaultSwitch, Get-ConfiguredClusterCIDRHost,
 New-ExternalSwitch, Remove-ExternalSwitch,
 Invoke-RecreateNAT, Set-InterfacePrivate,
 Get-L2BridgeSwitchName, Remove-DefaultNetNat,
-New-DefaultNetNat, Set-IPAdressAndDnsClientServerAddress, Set-WSLSwitch
+New-DefaultNetNat, Set-IPAdressAndDnsClientServerAddress, Set-WSLSwitch, Restart-NlaSvc

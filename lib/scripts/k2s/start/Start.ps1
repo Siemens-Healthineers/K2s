@@ -328,6 +328,8 @@ route delete $clusterCIDRServicesWindows >$null 2>&1
 Write-Log "Add route to $clusterCIDRServicesWindows"
 route -p add $clusterCIDRServicesWindows $ipControlPlane METRIC 7 | Out-Null
 
+Restart-NlaSvc
+
 # enable ip forwarding
 netsh int ipv4 set int "vEthernet ($switchname)" forwarding=enabled | Out-Null
 netsh int ipv4 set int 'vEthernet (Ethernet)' forwarding=enabled | Out-Null
