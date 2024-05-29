@@ -40,7 +40,7 @@ data:
     [PARSER]
         Name nssm2
         Format regex
-        Regex ^(?<errorcode>E(\d{4})) (?<time>(\d{2}:\d{2}:\d{2}\.\d{6})) (?<pid>(\d+)) (?<message>.*)$
+        Regex ^(?<errorcode>E(\d{4})) (?<time>(\d{2}:\d{2}:\d{2}\.\d{6})) +(?<pid>(\d+)) (?<message>.*)$
         Time_Key time
         Time_Format %H:%M:%S.%L
         Time_Keep On
