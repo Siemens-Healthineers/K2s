@@ -16,17 +16,17 @@ Param(
 $ErrorActionPreference = 'Stop'
 
 function DownloadContainerdArtifacts($baseDirectory) {
-    $compressedContainerdFile = 'containerd-1.7.9-windows-amd64.tar.gz'
+    $compressedContainerdFile = 'containerd-1.7.17-windows-amd64.tar.gz'
     $compressedFile = "$baseDirectory\$compressedContainerdFile"
 
     Write-Log "Create folder '$baseDirectory'"
     mkdir $baseDirectory | Out-Null
-    Write-Log "Download containerd"
-    DownloadFile "$compressedFile" https://github.com/containerd/containerd/releases/download/v1.7.9/$compressedContainerdFile $true $Proxy
-    Write-Log "  ...done"
+    Write-Log 'Download containerd'
+    DownloadFile "$compressedFile" https://github.com/containerd/containerd/releases/download/v1.7.17/$compressedContainerdFile $true $Proxy
+    Write-Log '  ...done'
     Write-Log "Extract downloaded file '$compressedFile'"
     cmd /c tar xf `"$compressedFile`" -C `"$baseDirectory`"
-    Write-Log "  ...done"
+    Write-Log '  ...done'
     if (!$?) { throw "unable to extract '$compressedFile'" }
     Remove-Item -Path "$compressedFile" -Force -ErrorAction SilentlyContinue
 }
@@ -37,12 +37,12 @@ function DownloadCrictlArtifacts($baseDirectory) {
 
     Write-Log "Create folder '$baseDirectory'"
     mkdir $baseDirectory | Out-Null
-    Write-Log "Download crictl"
+    Write-Log 'Download crictl'
     DownloadFile "$compressedFile" https://github.com/kubernetes-sigs/cri-tools/releases/download/v1.28.0/$compressedCrictlFile $true $Proxy
-    Write-Log "  ...done"
+    Write-Log '  ...done'
     Write-Log "Extract downloaded file '$compressedFile'"
     cmd /c tar xf `"$compressedFile`" -C `"$baseDirectory`"
-    Write-Log "  ...done"
+    Write-Log '  ...done'
     if (!$?) { throw "unable to extract '$compressedFile'" }
     Remove-Item -Path "$compressedFile" -Force -ErrorAction SilentlyContinue
 }
@@ -53,12 +53,12 @@ function DownloadNerdctlArtifacts($baseDirectory) {
 
     Write-Log "Create folder '$baseDirectory'"
     mkdir $baseDirectory | Out-Null
-    Write-Log "Download nerdctl"
+    Write-Log 'Download nerdctl'
     DownloadFile "$compressedFile" https://github.com/containerd/nerdctl/releases/download/v1.7.2/$compressedNerdFile $true $Proxy
-    Write-Log "  ...done"
+    Write-Log '  ...done'
     Write-Log "Extract downloaded file '$compressedFile'"
     cmd /c tar xf `"$compressedFile`" -C `"$baseDirectory`"
-    Write-Log "  ...done"
+    Write-Log '  ...done'
     if (!$?) { throw "unable to extract $compressedNerdFile" }
     Remove-Item -Path "$compressedFile" -Force -ErrorAction SilentlyContinue
 }
@@ -80,7 +80,8 @@ DownloadNerdctlArtifacts($nerdctlDownloadsDirectory)
 if ($Deploy) {
     if (!(Test-Path($global:WindowsNodeArtifactsDirectory))) {
         mkdir $global:WindowsNodeArtifactsDirectory | Out-Null
-    } else {
+    }
+    else {
         $containerdArtifactsDirectory = "$global:WindowsNodeArtifactsDirectory\$global:WindowsNode_ContainerdDirectory"
         $crictlArtifactsDirectory = "$global:WindowsNodeArtifactsDirectory\$global:WindowsNode_CrictlDirectory"
         $nerdctlArtifactsDirectory = "$global:WindowsNodeArtifactsDirectory\$global:WindowsNode_NerdctlDirectory"
