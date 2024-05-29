@@ -430,7 +430,7 @@ netsh int ipv4 set int 'vEthernet (Ethernet)' forwarding=enabled | Out-Null
 
 Invoke-Hook -HookName BeforeStartK8sNetwork -AdditionalHooksDir $AdditionalHooksDir
 
-Write-Log "Ensuring service log directories exists" -Console
+Write-Log "Ensuring service log directories exists"
 EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\containerd"
 EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\dnsproxy"
 EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\dockerd"

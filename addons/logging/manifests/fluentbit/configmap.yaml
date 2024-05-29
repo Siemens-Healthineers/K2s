@@ -10,10 +10,10 @@ metadata:
   name: fluent-bit
   namespace: logging
   labels:
-    helm.sh/chart: fluent-bit-0.43.0
+    helm.sh/chart: fluent-bit-0.46.7
     app.kubernetes.io/name: fluent-bit
     app.kubernetes.io/instance: fluent-bit
-    app.kubernetes.io/version: "2.2.2"
+    app.kubernetes.io/version: "3.0.4"
     app.kubernetes.io/managed-by: Helm
 data:
   custom_parsers.conf: |
@@ -23,6 +23,15 @@ data:
         Time_Keep Off
         Time_Key time
         Time_Format %Y-%m-%dT%H:%M:%S.%L
+    
+    [PARSER]
+        Name syslog-rfc3164-nopri
+        Format regex
+        Regex /^(?<time>[^ ]* {1,2}[^ ]* [^ ]*) (?<host>[^ ]*) (?<ident>[a-zA-Z0-9_\/\.\-]*)(?:\[(?<pid>[0-9]+)\])?(?:[^\:]*\:)? *(?<message>.*)$/
+        Time_Key time
+        Time_Format %b %d %H:%M:%S
+        Time_Keep Off
+        Time_Offset +0200
     
   fluent-bit.conf: |
     [SERVICE]
@@ -42,6 +51,18 @@ data:
         Exclude_Path /var/log/containers/*_logging_*.log
         Parser cri
         Tag kube.*
+        Read_from_Head true
+        Buffer_Chunk_Size 10MB
+        Buffer_Max_Size 40MB
+        Mem_Buf_Limit 512MB
+        Refresh_Interval 5
+
+    [INPUT]
+        Name tail
+        Path /var/log/syslog
+        Parser syslog-rfc3164-nopri
+        Tag syslog.*
+        Read_from_Head true
         Buffer_Chunk_Size 10MB
         Buffer_Max_Size 40MB
         Mem_Buf_Limit 512MB
@@ -79,6 +100,12 @@ data:
         Remove container_hash
 
     [FILTER]
+        Name modify
+        Match syslog.*
+        Rename message log
+        Rename host k2s.host.name
+
+    [FILTER]
         Name     throttle
         Match    *
         Rate     800
@@ -91,5 +118,6 @@ data:
         Match *
         Host opensearch-cluster-master.logging.svc.cluster.local
         Port 9200
+        Index k2s
         Buffer_Size 10MB
         Suppress_Type_Name On
