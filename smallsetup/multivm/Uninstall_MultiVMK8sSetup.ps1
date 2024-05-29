@@ -49,6 +49,7 @@ Param(
 . $PSScriptRoot\..\common\GlobalFunctions.ps1
 Import-Module "$PSScriptRoot/../../addons/addons.module.psm1"
 Import-Module "$PSScriptRoot/../ps-modules/log/log.module.psm1"
+Import-Module "$PSScriptRoot\..\..\lib\modules\k2s\k2s.node.module\k2s.node.module.psm1"
 Initialize-Logging -ShowLogs:$ShowLogs
 
 $ErrorActionPreference = 'Continue'
@@ -91,6 +92,7 @@ if ($linuxOnly -ne $true) {
 
 Write-Log "Removing $global:VMName VM" -Console
 & $PSScriptRoot\..\kubemaster\UninstallKubeMaster.ps1 -DeleteFilesForOfflineInstallation $DeleteFilesForOfflineInstallation
+Remove-KubeNodeBaseImage -DeleteFilesForOfflineInstallation $DeleteFilesForOfflineInstallation
 
 Write-Log 'Cleaning up' -Console
 Write-Log 'Remove previous VM key from known_hosts file'
