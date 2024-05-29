@@ -93,7 +93,16 @@ function BuildAndProvisionKubemasterBaseImage($WindowsNodeArtifactsZip, $OutputP
             throw "The file '$OutputPath' was not created"
         }
     
-        New-WslRootfsForControlPlaneNode -VmImageInputPath $OutputPath -RootfsFileOutputPath $rootfsPath -Proxy $Proxy
+
+        $wslRootfsForControlPlaneNodeCreationParams = @{
+            VmImageInputPath=$OutputPath
+            RootfsFileOutputPath=$rootfsPath
+            Proxy=$Proxy
+            VMMemoryStartupBytes=$VMMemoryStartupBytes
+            VMProcessorCount=$VMProcessorCount
+            VMDiskSize=$VMDiskSize
+        }
+        New-WslRootfsForControlPlaneNode @wslRootfsForControlPlaneNodeCreationParams
     
         if (!(Test-Path -Path $rootfsPath)) {
             throw "The file '$rootfsPath' was not created"
