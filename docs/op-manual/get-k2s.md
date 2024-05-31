@@ -23,13 +23,7 @@ SPDX-License-Identifier: MIT
     - No special folders (e.g. symbolic links) are allowed
 
 !!! tip
-    Due to legal/license considerations, *K2s* cannot provide a full offline installation package for e.g. air-gap scenarios, but you can create one locally[^1] by running:<br/>
-    ```console
-    <repo>\k2s.exe system package --target-dir "<target-folder-for-package>" --name "<package-name>.zip" --for-offline-installation
-    ```
-    *K2s* can be installed completely offline with the resulting package archive.
-
-[^1]: Creating of and installing from an offline package is currently supported for [Host Variant](../user-guide/hosting-variants.md#host-default) and [Development-Only](../user-guide/hosting-variants.md#development-only) only.
+    Due to legal/license considerations, *K2s* cannot provide a full offline installation package for e.g. air-gap scenarios out-of-the-box, but you can [Create an Offline Package](create-offline-package.md) yourself locally.
 
 ## \[Option 1\] Download Official Release Package
 Download the latest released and officially cleared *K2s* version from [*K2s* Releases](https://github.com/Siemens-Healthineers/K2s/releases){target="_blank"}.
