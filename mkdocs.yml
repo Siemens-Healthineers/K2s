@@ -94,6 +94,7 @@ nav:
       - Supported OS Versions: op-manual/os-support.md
       - Get K2s: op-manual/get-k2s.md
       - k2s CLI: op-manual/k2s-cli.md
+      - Create Offline Package: op-manual/create-offline-package.md
       - Installation: op-manual/installation.md
       - Start K2s: op-manual/start-k2s.md
       - Check K2s Status: op-manual/check-k2s-status.md
