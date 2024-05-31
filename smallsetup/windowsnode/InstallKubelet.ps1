@@ -22,7 +22,7 @@ if (!$UseContainerd) {
     $FileContent = Get-Content -Path "' + "$global:SystemDriveLetter" + ':\var\lib\kubelet\kubeadm-flags.env"
     $global:KubeletArgs = $FileContent.Trim("KUBELET_KUBEADM_ARGS=`"")
     $hn = ($(hostname)).ToLower()
-    $cmd = "' + "&'$global:KubernetesPath\bin\exe\kubelet.exe'" + ' $global:KubeletArgs --root-dir=' + "$global:SystemDriveLetter" + ':\var\lib\kubelet --cert-dir=' + "$global:SystemDriveLetter" + ':\var\lib\kubelet\pki --config=' + "$global:SystemDriveLetter" + ':\var\lib\kubelet\config.yaml --bootstrap-kubeconfig=' + "$global:SystemDriveLetter" + ':\etc\kubernetes\bootstrap-kubelet.conf --kubeconfig=' + "'$global:KubernetesPath\config'" + ' --hostname-override=$hn --cgroups-per-qos=false"
+    $cmd = "' + "&'$global:KubernetesPath\bin\exe\kubelet.exe'" + ' $global:KubeletArgs --root-dir=' + "$global:SystemDriveLetter" + ':\var\lib\kubelet --cert-dir=' + "$global:SystemDriveLetter" + ':\var\lib\kubelet\pki --config=' + "$global:SystemDriveLetter" + ':\var\lib\kubelet\config.yaml --bootstrap-kubeconfig=' + "$global:SystemDriveLetter" + ':\etc\kubernetes\bootstrap-kubelet.conf --kubeconfig=' + "'$global:KubernetesPath\config'" + ' --hostname-override=$hn --cgroups-per-qos=false --enforce-node-allocatable=`"`""
 
     Invoke-Expression $cmd'
 }
@@ -31,7 +31,7 @@ else {
     $FileContent = Get-Content -Path "' + "$global:SystemDriveLetter" + ':\var\lib\kubelet\kubeadm-flags.env"
     $global:KubeletArgs = $FileContent.Trim("KUBELET_KUBEADM_ARGS=`"")
     $hn = ($(hostname)).ToLower()
-    $cmd = "' + "&'$global:KubernetesPath\bin\exe\kubelet.exe'" + ' $global:KubeletArgs --root-dir=' + "$global:SystemDriveLetter" + ':\var\lib\kubelet --cert-dir=' + "$global:SystemDriveLetter" + ':\var\lib\kubelet\pki --config=' + "$global:SystemDriveLetter" + ':\var\lib\kubelet\config.yaml --bootstrap-kubeconfig=' + "$global:SystemDriveLetter" + ':\etc\kubernetes\bootstrap-kubelet.conf --kubeconfig=' + "'$global:KubernetesPath\config'" + ' --hostname-override=$hn --container-runtime-endpoint=`"npipe:////./pipe/containerd-containerd`" --cgroups-per-qos=false"
+    $cmd = "' + "&'$global:KubernetesPath\bin\exe\kubelet.exe'" + ' $global:KubeletArgs --root-dir=' + "$global:SystemDriveLetter" + ':\var\lib\kubelet --cert-dir=' + "$global:SystemDriveLetter" + ':\var\lib\kubelet\pki --config=' + "$global:SystemDriveLetter" + ':\var\lib\kubelet\config.yaml --bootstrap-kubeconfig=' + "$global:SystemDriveLetter" + ':\etc\kubernetes\bootstrap-kubelet.conf --kubeconfig=' + "'$global:KubernetesPath\config'" + ' --hostname-override=$hn --container-runtime-endpoint=`"npipe:////./pipe/containerd-containerd`" --cgroups-per-qos=false --enforce-node-allocatable=`"`""
 
     Invoke-Expression $cmd'
 }
