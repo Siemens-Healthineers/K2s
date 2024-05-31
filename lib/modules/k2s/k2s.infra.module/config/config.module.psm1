@@ -446,7 +446,7 @@ function Get-DefaultProvisioningBaseImageDiskSize {
 }
 
 function Get-DefaultK8sVersion {
-    return 'v1.27.14'
+    return 'v1.28.10'
 }
 
 function Get-DefaultCrioVersion {
