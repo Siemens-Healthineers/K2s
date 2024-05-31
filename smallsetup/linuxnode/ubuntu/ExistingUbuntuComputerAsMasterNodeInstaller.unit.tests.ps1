@@ -90,7 +90,7 @@ Describe 'ExistingUbuntuComputerAsMasterNodeInstaller.ps1' -Tag 'unit', 'ci', 'l
             }
             $expectedNewUserName = 'remote'
             $expectedNewUserPwd = 'admin'
-            $expectedK8sVersion = 'v1.26.15'
+            $expectedK8sVersion = 'v1.27.14'
             $expectedCrioVersion = '1.25.2'
             $expectedDnsIpAddresses = 'myDnsIpAddress1,myDnsIpAddress2'
             $expectedPrefixLength = '24'

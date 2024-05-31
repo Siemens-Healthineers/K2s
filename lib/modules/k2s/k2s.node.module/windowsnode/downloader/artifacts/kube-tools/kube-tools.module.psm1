@@ -111,7 +111,7 @@ function Install-WinKubelet {
     $FileContent = Get-Content -Path "' + ($systemDefaultDriveLetter) + ':\var\lib\kubelet\kubeadm-flags.env"
     $global:KubeletArgs = $FileContent.Trim("KUBELET_KUBEADM_ARGS=`"")
     $hn = ($(hostname)).ToLower()
-    $cmd = "' + "&'$kubePath\bin\exe\kubelet.exe'" + ' $global:KubeletArgs --root-dir=' + ($systemDefaultDriveLetter) + ':\var\lib\kubelet --cert-dir=' + ($systemDefaultDriveLetter) + ':\var\lib\kubelet\pki --config=' + ($systemDefaultDriveLetter) + ':\var\lib\kubelet\config.yaml --bootstrap-kubeconfig=' + ($systemDefaultDriveLetter) + ':\etc\kubernetes\bootstrap-kubelet.conf --kubeconfig=' + "'$kubePath\config'" + ' --hostname-override=$hn --container-runtime=`"remote`" --container-runtime-endpoint=`"npipe:////./pipe/containerd-containerd`" --cgroups-per-qos=false --enforce-node-allocatable=`"`" "
+    $cmd = "' + "&'$kubePath\bin\exe\kubelet.exe'" + ' $global:KubeletArgs --root-dir=' + ($systemDefaultDriveLetter) + ':\var\lib\kubelet --cert-dir=' + ($systemDefaultDriveLetter) + ':\var\lib\kubelet\pki --config=' + ($systemDefaultDriveLetter) + ':\var\lib\kubelet\config.yaml --bootstrap-kubeconfig=' + ($systemDefaultDriveLetter) + ':\etc\kubernetes\bootstrap-kubelet.conf --kubeconfig=' + "'$kubePath\config'" + ' --hostname-override=$hn --container-runtime-endpoint=`"npipe:////./pipe/containerd-containerd`" --cgroups-per-qos=false --enforce-node-allocatable=`"`" "
 
     Invoke-Expression $cmd'
 
