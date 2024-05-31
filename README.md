@@ -76,9 +76,9 @@ See also [Windows-based Images](./smallsetup/ps-modules/windows-support/README.m
 ## Further Usage
 - [Get K2s](docs/op-manual/get-k2s.md)
 - [Install K2s](docs/op-manual/installation.md)
-- [Start K2s](doc/k2scli/start-stop_cmd.md) (optional, K8s cluster starts automatically after installation)
-- [Inspect Cluster Status](doc/k2scli/start-stop_cmd.md#inspect-cluster-status)
-- [Stop K2s](doc/k2scli/start-stop_cmd.md#stopping-kubernetes-cluster)
+- [Start K2s](docs/op-manual/start-k2s.md) (optional, K8s cluster starts automatically after installation)
+- [Check Cluster Status](docs/op-manual/check-k2s-status.md)
+- [Stop K2s](docs/op-manual/stop-k2s.md)
 - [Uninstall K2s](docs/op-manual/deinstallation.md)
 - [Add a registry](doc/K8s_AddRegistry.md)
 - [Build a container image](doc/K8s_BuildingAContainer.md)

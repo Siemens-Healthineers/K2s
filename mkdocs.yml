@@ -95,6 +95,9 @@ nav:
       - Get K2s: op-manual/get-k2s.md
       - k2s CLI: op-manual/k2s-cli.md
       - Installation: op-manual/installation.md
+      - Start K2s: op-manual/start-k2s.md
+      - Check K2s Status: op-manual/check-k2s-status.md
+      - Stop K2s: op-manual/stop-k2s.md
       - Deinstallation: op-manual/deinstallation.md
   - Developer Guide:
       - Contributing:
