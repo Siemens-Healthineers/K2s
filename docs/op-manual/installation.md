@@ -60,6 +60,9 @@ To inspect the different install options, run:
     git checkout v1.0.0
     ```
 
+!!! note
+    *K2s* will start automatically after the installation has finished.
+
 ### Installing Using Config Files
 Instead of assembling many command-line parameters/flags to customize the installation, you can also pass a YAML file to the `k2s install` command configuring install parameters like node resource definitions (e.g. CPU, RAM or size of the hard drive):
 ```console
