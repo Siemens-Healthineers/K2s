@@ -88,7 +88,6 @@ nav:
   - Getting Started:
       - Quick Start: quickstart/index.md
   - User Guide:
-      - user-guide/index.md
       - Hosting Variants: user-guide/hosting-variants.md
       - Assignment of Cluster IP Addresses for Services: user-guide/cluster-ip-addresses.md
   - Operator Manual:
@@ -106,7 +105,5 @@ nav:
           - Automated Testing: dev-guide/contributing/automated-testing.md
           - Tags/Labels: dev-guide/contributing/tags-labels.md
       - Architecture: dev-guide/architecture.md
-  - Roadmap: roadmap.md
-  - Showcase: showcase.md
 not_in_nav: |
   /includes/**/*.*
