@@ -272,7 +272,7 @@ function Restart-NlaSvc {
                     break
                 }
                 if ($iteration -ge 5) {
-                    Write-Log "'$networkLocationAwarenessServiceName' Service is not running !!" -Console
+                    Write-Log "'$networkLocationAwarenessServiceName' Service is not running !!"
                     break
                 }
                 Write-Log "'$networkLocationAwarenessServiceName' Waiting for service status to be started."
@@ -282,7 +282,7 @@ function Restart-NlaSvc {
         if ($serviceRestarted -eq $false) {
             Write-Log "[WARNING] '$networkLocationAwarenessServiceName' Service could not be successfully restarted !!" -Console
         } else {
-            Write-Log "Service re-started '$networkLocationAwarenessServiceName' " -Console
+            Write-Log "Service re-started '$networkLocationAwarenessServiceName' "
         }
 	}
 }
