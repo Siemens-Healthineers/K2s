@@ -10,10 +10,9 @@ metadata:
   name: fluent-bit
   namespace: logging
   labels:
-    helm.sh/chart: fluent-bit-0.43.0
     app.kubernetes.io/name: fluent-bit
     app.kubernetes.io/instance: fluent-bit
-    app.kubernetes.io/version: "2.2.2"
+    app.kubernetes.io/version: "3.0.4"
     app.kubernetes.io/managed-by: Helm
 spec:
   selector:
@@ -26,14 +25,14 @@ spec:
         app.kubernetes.io/name: fluent-bit
         app.kubernetes.io/instance: fluent-bit
       annotations:
-        checksum/config: cd24cc288474d290014d5855f36763d0653fb18d1375eaef7e5eeb9d81362783
+        checksum/config: 5e21008c3f8cec83d825bc62aed5405616b6a22b3db6f646b20ec10a08ec98f9
     spec:
       serviceAccountName: fluent-bit
       hostNetwork: false
       dnsPolicy: ClusterFirst
       containers:
         - name: fluent-bit
-          image: cr.fluentbit.io/fluent/fluent-bit:2.2.2
+          image: cr.fluentbit.io/fluent/fluent-bit:3.0.4
           imagePullPolicy: IfNotPresent
           command:
             - /fluent-bit/bin/fluent-bit
