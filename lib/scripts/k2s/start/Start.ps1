@@ -192,6 +192,7 @@ $switchname = Get-ControlPlaneNodeDefaultSwitchName
 Write-Log 'Configuring network for windows node' -Console
 Restart-WinService 'vmcompute'
 Restart-WinService 'hns'
+Restart-NlaSvc
 
 $adapterName = Get-L2BridgeName
 Write-Log "Using network adapter '$adapterName'"

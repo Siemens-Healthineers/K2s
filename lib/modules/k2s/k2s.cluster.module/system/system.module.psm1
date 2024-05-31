@@ -39,7 +39,7 @@ function Invoke-TimeSync {
     }
 
     if ($canPerformTimeSync) {
-        Write-Log 'Performing time synchronization between nodes' -Console
+        Write-Log 'Performing time synchronization between nodes'
 
         #Set timezone in kubemaster
         (Invoke-CmdOnControlPlaneViaSSHKey "sudo timedatectl set-timezone $timezoneLinux 2>&1").Output | Write-Log
