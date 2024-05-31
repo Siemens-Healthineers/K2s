@@ -5,6 +5,7 @@ SPDX-License-Identifier: MIT
 
 # Installation
 ## Prerequisites
+- [Get K2s](get-k2s.md)
 - The *Windows* host must match one of the [Supported OS Versions](os-support.md)
 - Local admin permissions are currently needed in order to be able to create virtual switches, VMs, etc.
 - Please try to install from an folder which is available on `C:\` drive, since most open-source components assume this. We are testing the solution also on other drives, but cannot guarantee that the cluster will work fully.
@@ -34,3 +35,114 @@ SPDX-License-Identifier: MIT
 
 !!! tip
     For installing in *WSL* mode, add the `Microsoft-Windows-Subsystem-Linux` feature to the prior command.
+
+## Installation via *k2s* CLI
+The *K2s* setup provides a variety of installation options. Based on the [Hosting Variants](../user-guide/hosting-variants.md), select one of the following setup variants:
+
+ - [Option 1: Host](#option-1-host-default) (Default, *Windows* host acts as a worker node).
+ - [Option 2: Multi VM](#option-2-multi-vm) (*Windows* worker node is a dedicated VM)
+ - [Option 3: Development-Only](#option-3-development-only) (no *K8s* cluster, for building and testing containers only)
+
+To inspect the different install options, run:
+```console
+<repo>\k2s.exe install -h
+```
+
+!!! info
+    By default, the installation assumes 6 CPU cores to be available on the host system. If less cores are available, reduce the number of virtual cores used by *K2s* according to the actual amount, e.g. when 4 cores are available, assign max. 4 virtual cores to *K2s*:
+    ```console
+    <repo>\k2s.exe install --master-cpus 4
+    ```
+
+!!! tip
+    If you acquired *K2s* via [Cloning the *Git* repository](get-k2s.md#option-2-clone-git-repository), you might want to checkout a specific version first, e.g.:
+    ```console
+    git checkout v1.0.0
+    ```
+
+### Installing Using Config Files
+Instead of assembling many command-line parameters/flags to customize the installation, you can also pass a YAML file to the `k2s install` command configuring install parameters like node resource definitions (e.g. CPU, RAM or size of the hard drive):
+```console
+<repo>\k2s.exe install [-c|--config] <path-to-config-file>
+```
+
+!!! example
+    Create a custom install config:
+    ```yaml linenums="1" title="my_config.yaml"
+    kind: k2s
+    apiVersion: v1
+    nodes:
+      - role: control-plane
+        resources:
+          cpu: 8
+          memory: 7GB
+          disk: 60GB
+    env:
+      httpProxy: 192.168.178.100:8765
+    installBehavior:
+      showOutput: true
+    ```
+    Start the installation passing this config:
+    ```console
+    <repo>\k2s.exe install -c c:\temp\my_config.yaml
+    ```
+
+To create a user-defined configuration for any of the hosting variants, take one of the corresponding [Base Configuration Files](https://github.com/Siemens-Healthineers/K2s/tree/main/k2s/cmd/k2s/cmd/install/config/embed){target="_blank"} as a template.
+
+### Online vs. Offline
+Downloading all dependencies (i.e. binaries) on-the-fly is referred to as *online* installation, whereas *offline* refers to an installation package containing parts of or all the dependencies. If *K2s* was acquired via [Downloading the Official Release Package](get-k2s.md#option-1-download-official-release-package), parts of the dependencies are already available locally. If an offline package was create via `k2s.exe system package`, all dependencies are available offline.
+
+As per default, the *k2s* CLI keeps downloaded files as well as the *Linux*-based control-plane image and reuses them. To change this behavior, use the following CLI flags (they apply to all installation variants[^1]).
+
+To delete all downloaded binaries and the control-plane image after installation, run:
+```console
+<repo>\k2s.exe install -d
+```
+
+To force the download of all binaries and the re-creation of the control-plane image regardless of their local presence, run:
+```console
+<repo>\k2s.exe install -f
+```
+
+??? info "Offline vs. Online Installation Diagram"
+    ```mermaid
+    graph TD
+        CallScript["Installation scripts\n (Default, MultiVM, BuildOnlySetup)\n\n with\n [-DeleteFilesForOfflineInstallation]\n [-ForceOnlineInstallation]"] --> if_force_online_installation{"Switch\n ForceOnlineInstallation\n used ?"}
+        if_force_online_installation --> |yes| BuildAndProvisionKubemasterBaseImage
+        if_force_online_installation --> |no| if_base_image_available{"c\k\bin\Kubemaster-Base.vhdx\n available?"}
+        if_base_image_available --> |yes| CopyBaseImage
+        if_base_image_available --> |no| BuildAndProvisionKubemasterBaseImage
+        BuildAndProvisionKubemasterBaseImage("Build and provision base image") --> PublishBaseImage("Publish base image as\n c\k\bin\Kubemaster-Base.vhdx")
+        PublishBaseImage --> CopyBaseImage("Copy published base image to\n C\Users\Public\Documents\Hyper-V\Virtual hard disks")
+        CopyBaseImage --> InstallLinuxNode("Install Linux node")
+        InstallLinuxNode --> if_delete_files_for_offline_installation{"Switch\n -DeleteFilesForOfflineInstallation\n used ?"}
+        if_delete_files_for_offline_installation --> |yes| DeleteBaseImage("Delete file c\k\bin\Kubemaster-Base.vhdx")
+        if_delete_files_for_offline_installation --> |no| End
+        DeleteBaseImage --> End
+    ```
+
+[^1]: Creating of and installing from an offline package is currently supported for [Host Variant](../user-guide/hosting-variants.md#host-default) and [Development-Only](../user-guide/hosting-variants.md#development-only) only. 
+
+### \[Option 1\] Host (Default)
+Simply run:
+```console
+<repo>\k2s.exe install
+```
+
+#### WSL
+To install the control-plane in WSL 2 instead of a dedicated *Linux* VM, run:
+```console
+<repo>\k2s.exe install --wsl
+```
+
+### \[Option 2\] Multi VM
+To create a new *Windows* worker VM on-the-fly based on an existing *Windows* image, run:
+```console
+<repo>\k2s.exe install multivm -i '<path-to-my-windows-image>.iso'
+```
+
+### \[Option 3\] Development-Only
+To build and test containers without a *K8s* cluster, run:
+```console
+<repo>\k2s.exe install buildonly
+```

@@ -17,8 +17,7 @@ This solution is installable on Windows hosts.
 
 Read the [K2s Documentation](https://siemens-healthineers.github.io/K2s/).
 
-## Why **K2s** distribution ?
-
+## Why **K2s** distribution?
 The problems that **K2s** solves are the following:
 1. It provides the option to construct a K8s cluster by reusing the Windows host as a node. This eliminates the need for an extra Windows license in the case of a mixed Windows & Linux cluster.
 2. Offline support is available for all use cases, eliminating the requirement for an internet connection.
@@ -31,13 +30,12 @@ The name **K2s** comes from the fact that we start with the default setting of 2
 See [Features](/doc/K8s_Features.md) for a full list of features.
 
 ## Quick Start
-
-Get **K2s** into a folder of your choice as [described here](doc/K8s_Get-K2s.md) (use **C:** drive if possible), open a command prompt as Administrator and navigate to the installation folder.
-
-Install **K2s** with (ensure to verify the [Prerequisites](./docs/op-manual/installation.md#prerequisites) first):
-```
-<installation folder>.\k2s.exe install
-```
+1. [Get *K2s*](docs/op-manual/get-k2s.md)
+3. Verify that the [Prerequisites](docs/op-manual/installation.md#prerequisites) are fulfilled
+4. Run as administrator in the installation/repository folder
+    ```console
+    k2s.exe install
+    ```
 
 After installation, you can utilize one of the [shortcuts](./doc/K8s_Shortcuts.md) to interact with your newly created cluster:
 ```
@@ -73,29 +71,15 @@ Checkout how to create such offline packages: [Offline packages](doc/K8s_Offline
 ## [Supported OS Versions](docs/op-manual/os-support.md)
 See also [Windows-based Images](./smallsetup/ps-modules/windows-support/README.md).
 
-## Hosting variants:
-1. **Host Variant**: On the Windows host, a single virtual machine is exclusively utilized as the Linux master node, while the Windows host itself functions as the worker node.
-This variant is also the default, it offers very low memory consumption and efficiency. Memory usage starts at 4GB.
-<br>![Image](/doc/assets/VariantHost400.jpg)<br>
-
-2. **Multi VM Variant**: For each node, a virtual machine is created, with a minimum configuration of one Windows node and one Linux node. The memory usage for each node starts at 10GB.
-<br>![Image](/doc/assets/VariantMultiVM400.jpg)<br>
-
-3. **Development Only Variant**: In this variant, the focus is on setting up an environment solely for building and testing Windows and Linux containers without creating a K8s cluster.
-<br>![Image](/doc/assets/VariantDevOnly400.jpg)<br>
-
-In addition to offering a K8s cluster setup, the **K2s** solution also provides tools for building and testing Windows and Linux container (checkout the ```k2s image``` command options).
-
-For development only cases where no K8s is needed and the focus is only on building and testing containers (Windows & Linux), **K2s** offers a
-way to do that.
+## [Hosting Variants](docs/user-guide/hosting-variants.md)
 
 ## Further Usage
-- [Get K2s](doc/K8s_Get-K2s.md)
-- [Install K2s](doc/k2scli/install-uninstall_cmd.md#installing)
+- [Get K2s](docs/op-manual/get-k2s.md)
+- [Install K2s](docs/op-manual/installation.md)
 - [Start K2s](doc/k2scli/start-stop_cmd.md) (optional, K8s cluster starts automatically after installation)
 - [Inspect Cluster Status](doc/k2scli/start-stop_cmd.md#inspect-cluster-status)
 - [Stop K2s](doc/k2scli/start-stop_cmd.md#stopping-kubernetes-cluster)
-- [Uninstall K2s](doc/k2scli/install-uninstall_cmd.md#uninstalling)
+- [Uninstall K2s](docs/op-manual/deinstallation.md)
 - [Add a registry](doc/K8s_AddRegistry.md)
 - [Build a container image](doc/K8s_BuildingAContainer.md)
 - [Shortcuts for interacting with cluster](doc/K8s_Shortcuts.md)
