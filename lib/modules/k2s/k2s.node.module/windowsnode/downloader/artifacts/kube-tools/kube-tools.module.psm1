@@ -95,6 +95,7 @@ function Install-WinKubelet {
     mkdir -force "$kubeletConfigDir\etc\kubernetes" | Out-Null
     mkdir -force "$kubeletConfigDir\etc\kubernetes\manifests" | Out-Null
     mkdir -force "$($systemDefaultDriveLetter):\etc\kubernetes\pki" | Out-Null
+    mkdir -force "$($global:SystemDriveLetter):\etc\kubernetes\kubelet.conf.d" | Out-Null
     Copy-Item -force "$kubePath\smallsetup\kubeadm-flags.env" $kubeletConfigDir
 
     if (!(Test-Path "$kubeletConfigDir\etc\kubernetes\pki")) {
@@ -110,7 +111,7 @@ function Install-WinKubelet {
     $FileContent = Get-Content -Path "' + ($systemDefaultDriveLetter) + ':\var\lib\kubelet\kubeadm-flags.env"
     $global:KubeletArgs = $FileContent.Trim("KUBELET_KUBEADM_ARGS=`"")
     $hn = ($(hostname)).ToLower()
-    $cmd = "' + "&'$kubePath\bin\exe\kubelet.exe'" + ' $global:KubeletArgs --root-dir=' + ($systemDefaultDriveLetter) + ':\var\lib\kubelet --cert-dir=' + ($systemDefaultDriveLetter) + ':\var\lib\kubelet\pki --config=' + ($systemDefaultDriveLetter) + ':\var\lib\kubelet\config.yaml --bootstrap-kubeconfig=' + ($systemDefaultDriveLetter) + ':\etc\kubernetes\bootstrap-kubelet.conf --kubeconfig=' + "'$kubePath\config'" + ' --hostname-override=$hn --pod-infra-container-image=`"shsk2s.azurecr.io/pause-win:v1.0.0`" --enable-debugging-handlers --cgroups-per-qos=false --enforce-node-allocatable=`"`" --resolv-conf=`"`" --log-dir=' + ($systemDefaultDriveLetter) + ':\var\log\kubelet --logtostderr=false --container-runtime=`"remote`" --container-runtime-endpoint=`"npipe:////./pipe/containerd-containerd`""
+    $cmd = "' + "&'$kubePath\bin\exe\kubelet.exe'" + ' $global:KubeletArgs --root-dir=' + ($systemDefaultDriveLetter) + ':\var\lib\kubelet --cert-dir=' + ($systemDefaultDriveLetter) + ':\var\lib\kubelet\pki --config=' + ($systemDefaultDriveLetter) + ':\var\lib\kubelet\config.yaml --bootstrap-kubeconfig=' + ($systemDefaultDriveLetter) + ':\etc\kubernetes\bootstrap-kubelet.conf --kubeconfig=' + "'$kubePath\config'" + ' --hostname-override=$hn --container-runtime=`"remote`" --container-runtime-endpoint=`"npipe:////./pipe/containerd-containerd`" --cgroups-per-qos=false --enforce-node-allocatable=`"`" "
 
     Invoke-Expression $cmd'
 
@@ -138,7 +139,7 @@ function Install-WinKubeProxy {
     &$kubeBinPath\nssm install kubeproxy "$kubeBinPath\exe\kube-proxy.exe"
     &$kubeBinPath\nssm set kubeproxy AppDirectory "$kubeBinPath\exe" | Out-Null
     $hn = ($(hostname)).ToLower()
-    &$kubeBinPath\nssm set kubeproxy AppParameters "--proxy-mode=kernelspace --hostname-override=$hn --kubeconfig=\`"$kubePath\config\`" --enable-dsr=false --log-dir=\`"$($systemDefaultDriveLetter):\var\log\kubeproxy\`" --logtostderr=false" | Out-Null
+    &$kubeBinPath\nssm set kubeproxy AppParameters "--proxy-mode=kernelspace --hostname-override=$hn --kubeconfig=\`"$kubePath\config\`" --enable-dsr=false " | Out-Null
     &$kubeBinPath\nssm set kubeproxy AppEnvironmentExtra KUBE_NETWORK=cbr0 | Out-Null
     &$kubeBinPath\nssm set kubeproxy DependOnService kubelet | Out-Null
     &$kubeBinPath\nssm set kubeproxy AppStdout "$($systemDefaultDriveLetter):\var\log\kubeproxy\kubeproxy_stdout.log" | Out-Null

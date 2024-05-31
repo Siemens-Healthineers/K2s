@@ -14,7 +14,7 @@ Param(
 Write-Log "Registering kubelet service, UseContainerd=$UseContainerd"
 $global:Powershell = (Get-Command powershell).Source
 $global:PowershellArgs = '-ExecutionPolicy Bypass -NoProfile'
-$global:StartKubeletScript = "StartKubelet.ps1"
+$global:StartKubeletScript = 'StartKubelet.ps1'
 $global:StartKubeletScriptPath = "$global:KubernetesPath\smallsetup\common\$global:StartKubeletScript"
 
 if (!$UseContainerd) {
@@ -22,7 +22,7 @@ if (!$UseContainerd) {
     $FileContent = Get-Content -Path "' + "$global:SystemDriveLetter" + ':\var\lib\kubelet\kubeadm-flags.env"
     $global:KubeletArgs = $FileContent.Trim("KUBELET_KUBEADM_ARGS=`"")
     $hn = ($(hostname)).ToLower()
-    $cmd = "' + "&'$global:KubernetesPath\bin\exe\kubelet.exe'" + ' $global:KubeletArgs --root-dir=' + "$global:SystemDriveLetter" + ':\var\lib\kubelet --cert-dir=' + "$global:SystemDriveLetter" + ':\var\lib\kubelet\pki --config=' + "$global:SystemDriveLetter" + ':\var\lib\kubelet\config.yaml --bootstrap-kubeconfig=' + "$global:SystemDriveLetter" + ':\etc\kubernetes\bootstrap-kubelet.conf --kubeconfig=' + "'$global:KubernetesPath\config'" + ' --hostname-override=$hn --pod-infra-container-image=`"shsk2s.azurecr.io/pause-win:v1.0.0`" --enable-debugging-handlers --cgroups-per-qos=false --enforce-node-allocatable=`"`" --resolv-conf=`"`" --log-dir=' + "$global:SystemDriveLetter" + ':\var\log\kubelet --logtostderr=false"
+    $cmd = "' + "&'$global:KubernetesPath\bin\exe\kubelet.exe'" + ' $global:KubeletArgs --root-dir=' + "$global:SystemDriveLetter" + ':\var\lib\kubelet --cert-dir=' + "$global:SystemDriveLetter" + ':\var\lib\kubelet\pki --config=' + "$global:SystemDriveLetter" + ':\var\lib\kubelet\config.yaml --bootstrap-kubeconfig=' + "$global:SystemDriveLetter" + ':\etc\kubernetes\bootstrap-kubelet.conf --kubeconfig=' + "'$global:KubernetesPath\config'" + ' --hostname-override=$hn --cgroups-per-qos=false"
 
     Invoke-Expression $cmd'
 }
@@ -31,7 +31,7 @@ else {
     $FileContent = Get-Content -Path "' + "$global:SystemDriveLetter" + ':\var\lib\kubelet\kubeadm-flags.env"
     $global:KubeletArgs = $FileContent.Trim("KUBELET_KUBEADM_ARGS=`"")
     $hn = ($(hostname)).ToLower()
-    $cmd = "' + "&'$global:KubernetesPath\bin\exe\kubelet.exe'" + ' $global:KubeletArgs --root-dir=' + "$global:SystemDriveLetter" + ':\var\lib\kubelet --cert-dir=' + "$global:SystemDriveLetter" + ':\var\lib\kubelet\pki --config=' + "$global:SystemDriveLetter" + ':\var\lib\kubelet\config.yaml --bootstrap-kubeconfig=' + "$global:SystemDriveLetter" + ':\etc\kubernetes\bootstrap-kubelet.conf --kubeconfig=' + "'$global:KubernetesPath\config'" + ' --hostname-override=$hn --pod-infra-container-image=`"shsk2s.azurecr.io/pause-win:v1.0.0`" --enable-debugging-handlers --cgroups-per-qos=false --enforce-node-allocatable=`"`" --resolv-conf=`"`" --log-dir=' + "$global:SystemDriveLetter" + ':\var\log\kubelet --logtostderr=false --container-runtime=`"remote`" --container-runtime-endpoint=`"npipe:////./pipe/containerd-containerd`" "
+    $cmd = "' + "&'$global:KubernetesPath\bin\exe\kubelet.exe'" + ' $global:KubeletArgs --root-dir=' + "$global:SystemDriveLetter" + ':\var\lib\kubelet --cert-dir=' + "$global:SystemDriveLetter" + ':\var\lib\kubelet\pki --config=' + "$global:SystemDriveLetter" + ':\var\lib\kubelet\config.yaml --bootstrap-kubeconfig=' + "$global:SystemDriveLetter" + ':\etc\kubernetes\bootstrap-kubelet.conf --kubeconfig=' + "'$global:KubernetesPath\config'" + ' --hostname-override=$hn --container-runtime=`"remote`" --container-runtime-endpoint=`"npipe:////./pipe/containerd-containerd`" --cgroups-per-qos=false"
 
     Invoke-Expression $cmd'
 }
