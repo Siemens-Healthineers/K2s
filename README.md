@@ -83,7 +83,7 @@ See also [Windows-based Images](./smallsetup/ps-modules/windows-support/README.m
 - [Add a registry](doc/K8s_AddRegistry.md)
 - [Build a container image](doc/K8s_BuildingAContainer.md)
 - [Shortcuts for interacting with cluster](doc/K8s_Shortcuts.md)
-- [Upgrading your cluster](doc/K8s_Upgrade.md)
+- [Upgrade K2s](docs/op-manual/upgrade-k2s.md)
 - [Create Offline Package](docs/op-manual/create-offline-package.md)
 
 ## Addons

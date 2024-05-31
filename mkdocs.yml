@@ -99,6 +99,7 @@ nav:
       - Start K2s: op-manual/start-k2s.md
       - Check K2s Status: op-manual/check-k2s-status.md
       - Stop K2s: op-manual/stop-k2s.md
+      - Upgrade K2s: op-manual/upgrade-k2s.md
       - Deinstallation: op-manual/deinstallation.md
   - Developer Guide:
       - Contributing:
