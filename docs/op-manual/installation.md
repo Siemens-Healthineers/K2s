@@ -93,7 +93,7 @@ Instead of assembling many command-line parameters/flags to customize the instal
 To create a user-defined configuration for any of the hosting variants, take one of the corresponding [Base Configuration Files](https://github.com/Siemens-Healthineers/K2s/tree/main/k2s/cmd/k2s/cmd/install/config/embed){target="_blank"} as a template.
 
 ### Online vs. Offline
-Downloading all dependencies (i.e. binaries) on-the-fly is referred to as *online* installation, whereas *offline* refers to an installation package containing parts of or all the dependencies. If *K2s* was acquired via [Downloading the Official Release Package](get-k2s.md#option-1-download-official-release-package), parts of the dependencies are already available locally. If an offline package was create via `k2s.exe system package`, all dependencies are available offline.
+Downloading all dependencies (i.e. binaries) on-the-fly is referred to as *online* installation, whereas *offline* refers to an installation package containing parts of or all the dependencies. If *K2s* was acquired via [Downloading the Official Release Package](get-k2s.md#option-1-download-official-release-package), parts of the dependencies are already available locally. If an offline package was create according to [Create Offline Package](create-offline-package.md), all dependencies are available offline.
 
 As per default, the *k2s* CLI keeps downloaded files as well as the *Linux*-based control-plane image and reuses them. To change this behavior, use the following CLI flags (they apply to all installation variants[^1]).
 
