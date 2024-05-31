@@ -16,7 +16,7 @@ SPDX-License-Identifier: MIT
 
 **The acceptance tests focus on testing *K2s* from a user's point of view** in an automated, repeatable and reproduceable fashion. They are intended to cover all available features across the various [Supported OS Versions](../../README.md#supported-os-versions). They are not intended to cover all the edge and corner cases, though (Unit Tests might be a better fit there).
 
-**To mark acceptance tests as such** and provide additional information about test prerequisites (e.g. a running *K2s* cluster, internet connectivity, etc.), **use labels/tags** (see [Tags/Labels](../../doc/contributing/CONTRIBUTING.md#tagslabels)).
+**To mark acceptance tests as such** and provide additional information about test prerequisites (e.g. a running *K2s* cluster, internet connectivity, etc.), **use labels/tags** (see [Tags/Labels](../../docs/dev-guide/contributing/tags-labels.md)).
 
 ## Tech Stack
 The tech stack mostly comprises the [*Go* testing package](https://pkg.go.dev/testing), [*Ginkgo*](https://onsi.github.io/ginkgo/#top)/[*Gomega*](https://onsi.github.io/gomega/#top) and the so called *[framework](./framework/README.md)* provided by *K2s* to write acceptance tests in an efficient way without having to write boilerplate code repeatedly. The levels of abstraction are depicted in the following:
@@ -27,7 +27,7 @@ The tech stack mostly comprises the [*Go* testing package](https://pkg.go.dev/te
 The acceptance tests' source code is organized under [*e2e* folder](./e2e/). The *[framework](./framework/README.md)* is located under the [*framework* folder](./framework/).
 
 ## Executing Tests/Specs
-See [Testing](../../doc/contributing/CONTRIBUTING.md#testing) for general information and technical prerequisites.
+See [Automated Testing](../../docs/dev-guide/contributing/automated-testing.md) for general information and technical prerequisites.
 
 ### Example: Core *K2s* Communication tests
 Test are located under [*core* folder](./e2e/cluster/core/). To run those tests, either run:
