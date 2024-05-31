@@ -15,6 +15,7 @@ on:
       - 'doc/**'
       - 'docs/**'
       - 'k2s.exe'
+      - 'mkdocs.yml'
       - '*.md'
       - '.github/ISSUE_TEMPLATE/**'
   pull_request:
@@ -26,6 +27,7 @@ on:
       - 'doc/**'
       - 'docs/**'
       - 'k2s.exe'
+      - 'mkdocs.yml'
       - '*.md'
       - '.github/ISSUE_TEMPLATE/**'
 
