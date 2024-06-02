@@ -105,7 +105,9 @@ function Start-ServiceAndSetToAutoStart {
     param (
         [Parameter()]
         [ValidateNotNullOrEmpty()]
-        [string] $Name = $(throw 'Please provide the name of the service.')
+        [string] $Name = $(throw 'Please provide the name of the service.'),
+        [Parameter(Mandatory = $false)]
+        [switch]$IgnoreErrors = $false
     )
     $svc = $(Get-Service -Name $Name -ErrorAction SilentlyContinue).Status
     if ($svc) {
@@ -116,7 +118,14 @@ function Start-ServiceAndSetToAutoStart {
         Write-Log "Changing service '$Name' to auto-start and starting.." 
 
         Set-ServiceProperty -Name $Name -PropertyName 'Start' -Value 'SERVICE_AUTO_START' -Nssm $nssm
-        Start-Service $Name -WarningAction SilentlyContinue
+
+        if ($IgnoreErrors) {
+            # Start-Service sometimes says "service cannot be started" e.g. flanneld but service is running after start 
+            # (-ErrorAction SilentlyContinue and checking afterwards if service is running)
+            Start-Service $Name -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
+        } else {
+            Start-Service $Name -WarningAction SilentlyContinue
+        }
 
         Write-Log "Service '$Name' started"
     }

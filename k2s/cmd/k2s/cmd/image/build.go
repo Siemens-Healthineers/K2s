@@ -63,11 +63,19 @@ var (
 	buildCommandShortDescription = "Build container images"
 
 	buildCommandLongDescription = `
-Build container images. 
-Linux images are built inside the KubeMaster VM.
-Windows images are built on the host.
-For GO projects, the environment variables GOPRIVATE, GOPROXY and GOSUMDB will be used in both cases.
-By default, the command tries to build a linux container image.
+Build container images.
+
+- Linux images are built inside the Linux VM (Control plane).
+- Windows images are built on the host.
+- For GO projects, the GOPRIVATE, GOPROXY, and GOSUMDB environment variables are used.
+- Builds a Linux container image by default.
+
+Registry Options:
+- Supports pushing to local or remote registries.
+- Enable local registry: 'k2s addons enable registry --default-credentials'.
+- Add remote registry: 'k2s image registry add'.
+- Specify the registry with '--image-name' (e.g., '--image-name k2s-registry.local/<myimage>').
+
 `
 
 	buildCommandExample = `
@@ -110,7 +118,7 @@ func addInitFlagsForBuildCommand(cmd *cobra.Command) {
 	cmd.Flags().StringP(inputFolderFlagName, inputFolderShortHand, defaultInputFolder, "Directory with the build context")
 	cmd.Flags().StringP(dockerfileFlagName, dockerfileShortHand, defaultDockerfile, "Location of the dockerfile. ")
 	cmd.Flags().BoolP(windowsFlagName, "w", defaultWindowsFlag, "Build a Windows container image")
-	cmd.Flags().BoolP(pushFlagName, pushShortHand, defaultPushFlag, "Push to private registry (--image-name must be named accordingly!)")
+	cmd.Flags().BoolP(pushFlagName, pushShortHand, defaultPushFlag, "Push to private registry (--image-name must be named accordingly! e.g k2s-registry.local/<myimage>, shsk2s.azurecr.io/<myimage>)")
 	cmd.Flags().StringP(imageNameFlagName, imageNameShortHand, defaultImageNameToBeBuilt, "Name of the image")
 	cmd.Flags().StringP(imageTagFlagName, imageTagShortHand, defaultImageNameToBeBuilt, "Tag of the image")
 	cmd.Flags().StringSlice(buildArgsFlagName, defaultBuildArgs, "Build arguments needed to build the container image.")
@@ -140,6 +148,10 @@ func buildImage(cmd *cobra.Command, args []string) error {
 			return common.CreateSystemNotInstalledCmdFailure()
 		}
 		return err
+	}
+
+	if config.SetupName == setupinfo.SetupNameMultiVMK8s {
+		return common.CreateFunctionalityNotAvailableCmdFailure(config.SetupName)
 	}
 
 	outputWriter, err := common.NewOutputWriter()

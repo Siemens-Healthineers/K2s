@@ -75,7 +75,7 @@ else {
     # stop vm
     $controlPlaneVMHostName = Get-ConfigControlPlaneNodeHostname
     if ($(Get-VM | Where-Object Name -eq $controlPlaneVMHostName | Measure-Object).Count -eq 1 ) {
-        Write-Log ('Stopping VM: ' + $controlPlaneVMHostName)
+        Write-Log ('Stopping ' + $controlPlaneVMHostName + ' VM') -Console
         Stop-VM -Name $controlPlaneVMHostName -Force -WarningAction SilentlyContinue
     }
 }

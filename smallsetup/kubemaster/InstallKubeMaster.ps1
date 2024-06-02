@@ -148,7 +148,7 @@ function CopyBaseImageTo($TargetPath) {
         Write-Log 'Create and provision the base image'
         $validationModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.infra.module\validation\validation.module.psm1"
         Import-Module $validationModule
-	    &"$global:KubernetesPath\smallsetup\baseimage\BuildAndProvisionKubemasterBaseImage.ps1" -Proxy $InstallationStageProxy -OutputPath $kubemasterBaseVhdxPath -VMMemoryStartupBytes $MemoryStartupBytes -VMProcessorCount $MasterVMProcessorCount
+	    &"$global:KubernetesPath\smallsetup\baseimage\BuildAndProvisionKubemasterBaseImage.ps1" -Proxy $InstallationStageProxy -OutputPath $kubemasterBaseVhdxPath -VMMemoryStartupBytes $MemoryStartupBytes -VMProcessorCount $MasterVMProcessorCount -VMDiskSize $MasterDiskSize
         if (!(Test-Path $kubemasterBaseVhdxPath)) {
             throw "The provisioned base image is not available as $kubemasterBaseVhdxPath"
         }

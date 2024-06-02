@@ -192,6 +192,7 @@ $switchname = Get-ControlPlaneNodeDefaultSwitchName
 Write-Log 'Configuring network for windows node' -Console
 Restart-WinService 'vmcompute'
 Restart-WinService 'hns'
+Restart-NlaSvc
 
 $adapterName = Get-L2BridgeName
 Write-Log "Using network adapter '$adapterName'"
@@ -350,7 +351,7 @@ EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\vfprules"
 Write-Log 'Starting Kubernetes services on the Windows node' -Console
 
 Start-ServiceAndSetToAutoStart -Name 'containerd'
-Start-ServiceAndSetToAutoStart -Name 'flanneld'
+Start-ServiceAndSetToAutoStart -Name 'flanneld' -IgnoreErrors
 Start-ServiceAndSetToAutoStart -Name 'kubelet'
 Start-ServiceAndSetToAutoStart -Name 'kubeproxy'
 Start-ServiceAndSetToAutoStart -Name 'windows_exporter'
@@ -399,6 +400,7 @@ while ($true) {
         $ProgressPreference = 'SilentlyContinue'
 
         Set-InterfacePrivate -InterfaceAlias "vEthernet ($adapterName)"
+        Write-Log "flanneld: $((Get-Service -Name "flanneld" -ErrorAction SilentlyContinue).Status)"
         if ($WSL) {
             $interfaceAlias = Get-NetAdapter -Name "vEthernet (WSL*)" -ErrorAction SilentlyContinue -IncludeHidden | Select-Object -expandproperty name
             New-NetFirewallRule -DisplayName 'WSL Inbound' -Group "k2s" -Direction Inbound -InterfaceAlias $interfaceAlias -Action Allow

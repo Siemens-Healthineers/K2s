@@ -53,7 +53,7 @@ var _ = AfterSuite(func(ctx context.Context) {
 var _ = Describe("build container image", Ordered, func() {
 
 	When("Default Ingress", func() {
-		Context("addon is enabled {nginx}", func() {
+		Context("registry addon is enabled {nginx}", func() {
 			BeforeAll(func(ctx context.Context) {
 				suite.K2sCli().Run(ctx, "addons", "enable", "registry", "-d", "-o")
 			})
@@ -90,7 +90,36 @@ var _ = Describe("build container image", Ordered, func() {
 
 					It("Built image is available in registry", func(ctx context.Context) {
 						images := suite.K2sCli().GetImages(ctx)
-						Expect(images.IsImageAvailable(weatherImageName, randomImageTag)).To(BeTrue(), fmt.Sprintf("Image Not found in Registry Name:%v, Tag:%v", weatherImageName, randomImageTag))
+						Expect(images.IsImageAvailableInLocalRegistry(weatherImageName, randomImageTag)).To(BeTrue(), fmt.Sprintf("Image Not found in Registry Name:%v, Tag:%v", weatherImageName, randomImageTag))
+					})
+
+					It("Built image is available on node after removing and pulling from registry", func(ctx context.Context) {
+						suite.K2sCli().Run(ctx, "image", "rm", "--name", getImageNameWithTag(weatherImageName, randomImageTag))
+						images := suite.K2sCli().GetImages(ctx)
+						Expect(images.IsImageAvailableOnNode(weatherImageName, randomImageTag)).To(BeFalse(), fmt.Sprintf("Image found on node Name:%v, Tag:%v", weatherImageName, randomImageTag))
+
+						suite.K2sCli().Run(ctx, "image", "pull", getImageNameWithTag(weatherImageName, randomImageTag))
+
+						images = suite.K2sCli().GetImages(ctx)
+						Expect(images.IsImageAvailableOnNode(weatherImageName, randomImageTag)).To(BeTrue(), fmt.Sprintf("Image Not found on node Name:%v, Tag:%v", weatherImageName, randomImageTag))
+					})
+
+					It("Built image is available in registry after removing and pushing it to registry", func(ctx context.Context) {
+						images := suite.K2sCli().GetImages(ctx)
+						Expect(images.IsImageAvailableInLocalRegistry(weatherImageName, randomImageTag)).To(BeTrue(), fmt.Sprintf("Image found in Registry Name:%v, Tag:%v", weatherImageName, randomImageTag))
+
+						suite.K2sCli().Run(ctx, "image", "push", getImageNameWithTag(weatherImageName, randomImageTag))
+
+						images = suite.K2sCli().GetImages(ctx)
+						Expect(images.IsImageAvailableInLocalRegistry(weatherImageName, randomImageTag)).To(BeTrue(), fmt.Sprintf("Image Not found in Registry Name:%v, Tag:%v", weatherImageName, randomImageTag))
+					})
+
+					It("Built image can be tagged", func(ctx context.Context) {
+						newTag := "retagged"
+						suite.K2sCli().Run(ctx, "image", "tag", getImageNameWithTag(weatherImageName, randomImageTag), getImageNameWithTag(weatherImageName, newTag))
+
+						images := suite.K2sCli().GetImages(ctx)
+						Expect(images.IsImageAvailableOnNode(weatherImageName, newTag)).To(BeTrue(), fmt.Sprintf("Image Not found on node Name:%v, Tag:%v", weatherImageName, newTag))
 					})
 
 					It("Should be deployed in the cluster", func(ctx context.Context) {
@@ -121,7 +150,7 @@ var _ = Describe("build container image", Ordered, func() {
 					It("Built image is available in registry", func(ctx context.Context) {
 						images := suite.K2sCli().GetImages(ctx)
 
-						Expect(images.IsImageAvailable(weatherImageName, randomImageTag)).To(BeTrue(), fmt.Sprintf("Image Not found in Registry Name:%v, Tag:%v", weatherImageName, randomImageTag))
+						Expect(images.IsImageAvailableInLocalRegistry(weatherImageName, randomImageTag)).To(BeTrue(), fmt.Sprintf("Image Not found in Registry Name:%v, Tag:%v", weatherImageName, randomImageTag))
 					})
 
 					It("Should be deployed in the cluster", func(ctx context.Context) {
@@ -159,7 +188,7 @@ var _ = Describe("build container image", Ordered, func() {
 					It("Built image is available in registry", func(ctx context.Context) {
 						images := suite.K2sCli().GetImages(ctx)
 
-						Expect(images.IsImageAvailable(weatherImageName, randomImageTag)).To(BeTrue(), fmt.Sprintf("Image Not found in Registry Name:%v, Tag:%v", weatherImageName, randomImageTag))
+						Expect(images.IsImageAvailableInLocalRegistry(weatherImageName, randomImageTag)).To(BeTrue(), fmt.Sprintf("Image Not found in Registry Name:%v, Tag:%v", weatherImageName, randomImageTag))
 					})
 
 					It("Should be deployed in the cluster", func(ctx context.Context) {
@@ -195,7 +224,36 @@ var _ = Describe("build container image", Ordered, func() {
 					It("Built image is available in registry", func(ctx context.Context) {
 						images := suite.K2sCli().GetImages(ctx)
 
-						Expect(images.IsImageAvailable(weatherImageName, randomImageTag)).To(BeTrue(), fmt.Sprintf("Image Not found in Registry Name:%v, Tag:%v", weatherImageName, randomImageTag))
+						Expect(images.IsImageAvailableInLocalRegistry(weatherImageName, randomImageTag)).To(BeTrue(), fmt.Sprintf("Image Not found in Registry Name:%v, Tag:%v", weatherImageName, randomImageTag))
+					})
+
+					It("Built image is available on node after removing and pulling from registry", func(ctx context.Context) {
+						suite.K2sCli().Run(ctx, "image", "rm", "--name", getImageNameWithTag(weatherImageName, randomImageTag))
+						images := suite.K2sCli().GetImages(ctx)
+						Expect(images.IsImageAvailableOnNode(weatherImageName, randomImageTag)).To(BeFalse(), fmt.Sprintf("Image found on node Name:%v, Tag:%v", weatherImageName, randomImageTag))
+
+						suite.K2sCli().Run(ctx, "image", "pull", getImageNameWithTag(weatherImageName, randomImageTag), "-w")
+
+						images = suite.K2sCli().GetImages(ctx)
+						Expect(images.IsImageAvailableOnNode(weatherImageName, randomImageTag)).To(BeTrue(), fmt.Sprintf("Image Not found on node Name:%v, Tag:%v", weatherImageName, randomImageTag))
+					})
+
+					It("Built image is available in registry after removing and pushing it to registry", func(ctx context.Context) {
+						images := suite.K2sCli().GetImages(ctx)
+						Expect(images.IsImageAvailableInLocalRegistry(weatherImageName, randomImageTag)).To(BeTrue(), fmt.Sprintf("Image found in Registry Name:%v, Tag:%v", weatherImageName, randomImageTag))
+
+						suite.K2sCli().Run(ctx, "image", "push", getImageNameWithTag(weatherImageName, randomImageTag))
+
+						images = suite.K2sCli().GetImages(ctx)
+						Expect(images.IsImageAvailableInLocalRegistry(weatherImageName, randomImageTag)).To(BeTrue(), fmt.Sprintf("Image Not found in Registry Name:%v, Tag:%v", weatherImageName, randomImageTag))
+					})
+
+					It("Built image can be tagged", func(ctx context.Context) {
+						newTag := "retagged"
+						suite.K2sCli().Run(ctx, "image", "tag", getImageNameWithTag(weatherImageName, randomImageTag), getImageNameWithTag(weatherImageName, newTag))
+
+						images := suite.K2sCli().GetImages(ctx)
+						Expect(images.IsImageAvailableOnNode(weatherImageName, newTag)).To(BeTrue(), fmt.Sprintf("Image Not found on node Name:%v, Tag:%v", weatherImageName, newTag))
 					})
 
 					It("Should be deployed in the cluster", func(ctx context.Context) {
@@ -218,17 +276,9 @@ func getImageNameWithTag(name string, tag string) string {
 }
 
 func cleanupBuiltImage(ctx context.Context, imageName, tag, srcPath, deploymentName string) {
-	suite.Kubectl().Run(ctx, "delete", "-f", filepath.Join(srcPath, "ing-nginx.yaml"))
-	suite.Kubectl().Run(ctx, "delete", "-f", filepath.Join(srcPath, "weather.yaml"))
-
-	suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", deploymentName, "default")
-
-	suite.K2sCli().Run(ctx, "image", "rm", "--name", getImageNameWithTag(imageName, tag), "-o")
-	suite.K2sCli().Run(ctx, "image", "rm", "--from-registry", "--name", getImageNameWithTag(imageName, tag), "-o")
-
-	images := suite.K2sCli().GetImages(ctx)
-
-	Expect(images.IsImageAvailable(imageName, tag)).To(BeFalse(), fmt.Sprintf("Image should be cleaned up after test but found Registry Name:%v, Tag:%v", imageName, tag))
+	deleteApp(ctx, srcPath, deploymentName)
+	removeImageFromNode(ctx, imageName, tag)
+	removeImageFromLocalRegistry(ctx, imageName, tag)
 }
 
 func deployApp(ctx context.Context, srcPath, imageName, tag, deploymentName string) {
@@ -243,6 +293,29 @@ func deployApp(ctx context.Context, srcPath, imageName, tag, deploymentName stri
 
 	suite.Cluster().ExpectDeploymentToBeAvailable(deploymentName, "default")
 	suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", deploymentName, "default")
+}
+
+func deleteApp(ctx context.Context, srcPath, deploymentName string) {
+	suite.Kubectl().Run(ctx, "delete", "-f", filepath.Join(srcPath, "ing-nginx.yaml"))
+	suite.Kubectl().Run(ctx, "delete", "-f", filepath.Join(srcPath, "weather.yaml"))
+
+	suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", deploymentName, "default")
+}
+
+func removeImageFromNode(ctx context.Context, imageName, tag string) {
+	suite.K2sCli().Run(ctx, "image", "rm", "--name", getImageNameWithTag(imageName, tag), "-o")
+
+	images := suite.K2sCli().GetImages(ctx)
+
+	Expect(images.IsImageAvailableOnNode(imageName, tag)).To(BeFalse(), fmt.Sprintf("Image should be cleaned up after test but found on node -> Name:%v, Tag:%v", imageName, tag))
+}
+
+func removeImageFromLocalRegistry(ctx context.Context, imageName, tag string) {
+	suite.K2sCli().Run(ctx, "image", "rm", "--from-registry", "--name", getImageNameWithTag(imageName, tag), "-o")
+
+	images := suite.K2sCli().GetImages(ctx)
+
+	Expect(images.IsImageAvailableInLocalRegistry(imageName, tag)).To(BeFalse(), fmt.Sprintf("Image should be cleaned up after test but found in local registry -> Name:%v, Tag:%v", imageName, tag))
 }
 
 func checkAppAccessibility(ctx context.Context, url string) {

@@ -159,18 +159,18 @@ Write-Log 'enable virtualization in the VM'
 Install-DebianPackages -addon 'kubevirt' -packages 'qemu-system', 'libvirt-clients', 'libvirt-daemon-system'
 
 # disable app armor
-Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo systemctl stop apparmor 2>&1'
-Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo systemctl disable apparmor 2>&1'
-Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo apt remove --assume-yes --purge apparmor 2>&1'
+(Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo systemctl stop apparmor 2>&1').Output | Write-Log
+(Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo systemctl disable apparmor 2>&1').Output | Write-Log
+(Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo apt remove --assume-yes --purge apparmor 2>&1').Output | Write-Log
 
 # check state of virtualization
-Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo virt-host-validate qemu'
+(Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo virt-host-validate qemu').Output | Write-Log
 
 # add kernel parameter to use cgroup v1 (will be only valid after restart of VM)
 Write-Log 'change to cgroup v1'
-Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo sed -i 's,systemd.unified_cgroup_hierarchy=0\ ,,g' /etc/default/grub"
-Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo sed -i 's,console=tty0,systemd.unified_cgroup_hierarchy=0\ console=tty0,g' /etc/default/grub"
-Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo update-grub 2>&1'
+(Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo sed -i 's,systemd.unified_cgroup_hierarchy=0\ ,,g' /etc/default/grub").Output | Write-Log
+(Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo sed -i 's,console=tty0,systemd.unified_cgroup_hierarchy=0\ console=tty0,g' /etc/default/grub").Output | Write-Log
+(Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo update-grub 2>&1').Output | Write-Log
 
 # wait for API server
 Wait-ForAPIServer
@@ -195,20 +195,19 @@ $VERSION_VCTRL = 'v0.59.2'
 $IMPLICITPROXY = "http://$(Get-ConfiguredKubeSwitchIP):8181"
 Write-Log "deploy virtctl version $VERSION_VCTRL"
 if ( $K8sSetup -eq 'SmallSetup' ) {
-    Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "export VERSION_VCTRL=$VERSION_VCTRL"
-    Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "export IMPLICITPROXY=$IMPLICITPROXY"
-    # NOTE: DO NOT USE `ExecCmdMaster` here to get the return value.
-    ssh.exe -n -o StrictHostKeyChecking=no -i (Get-SSHKeyControlPlane) (Get-ControlPlaneRemoteUser) '[ -f /usr/local/bin/virtctl ]'
-    if (!$?) {
+    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "export VERSION_VCTRL=$VERSION_VCTRL").Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "export IMPLICITPROXY=$IMPLICITPROXY").Output | Write-Log
+    $success = (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute '[ -f /usr/local/bin/virtctl ]').Success
+    if (!$success) {
         $setupInfo = Get-SetupInfo
         if ($setupInfo.Name -ne 'MultiVMK8s') {
-            Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo curl --retry 3 --retry-all-errors --proxy $IMPLICITPROXY -sL -o /usr/local/bin/virtctl https://github.com/kubevirt/kubevirt/releases/download/$VERSION_VCTRL/virtctl-$VERSION_VCTRL-linux-amd64 2>&1"
+            (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo curl --retry 3 --retry-all-errors --proxy $IMPLICITPROXY -sL -o /usr/local/bin/virtctl https://github.com/kubevirt/kubevirt/releases/download/$VERSION_VCTRL/virtctl-$VERSION_VCTRL-linux-amd64 2>&1").Output | Write-Log
         }
         else {
-            Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo curl --retry 3 --retry-all-errors -sL -o /usr/local/bin/virtctl https://github.com/kubevirt/kubevirt/releases/download/$VERSION_VCTRL/virtctl-$VERSION_VCTRL-linux-amd64 2>&1"
+            (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo curl --retry 3 --retry-all-errors -sL -o /usr/local/bin/virtctl https://github.com/kubevirt/kubevirt/releases/download/$VERSION_VCTRL/virtctl-$VERSION_VCTRL-linux-amd64 2>&1").Output | Write-Log
         }
     }
-    Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo chmod +x /usr/local/bin/virtctl'
+    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo chmod +x /usr/local/bin/virtctl').Output | Write-Log
 }
 
 $binPath = Get-KubeBinPath

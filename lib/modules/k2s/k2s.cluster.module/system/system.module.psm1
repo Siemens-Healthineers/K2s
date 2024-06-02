@@ -39,10 +39,10 @@ function Invoke-TimeSync {
     }
 
     if ($canPerformTimeSync) {
-        Write-Log 'Performing time synchronization between nodes' -Console
+        Write-Log 'Performing time synchronization between nodes'
 
         #Set timezone in kubemaster
-        Invoke-CmdOnControlPlaneViaSSHKey "sudo timedatectl set-timezone $timezoneLinux 2>&1"
+        (Invoke-CmdOnControlPlaneViaSSHKey "sudo timedatectl set-timezone $timezoneLinux 2>&1").Output | Write-Log
 
         if ($WorkerVM) {
             $session = Open-DefaultWinVMRemoteSessionViaSSHKey
@@ -132,9 +132,9 @@ function Update-NodeLabelsAndTaints {
 
     # change default policy in VM (after restart of VM always policy is changed automatically)
     Write-Log 'Reconfiguring volatile settings in VM...'
-    Invoke-CmdOnControlPlaneViaSSHKey 'sudo iptables --policy FORWARD ACCEPT'
-    Invoke-CmdOnControlPlaneViaSSHKey 'sudo sysctl fs.inotify.max_user_instances=8192'
-    Invoke-CmdOnControlPlaneViaSSHKey 'sudo sysctl fs.inotify.max_user_watches=524288'
+    (Invoke-CmdOnControlPlaneViaSSHKey 'sudo iptables --policy FORWARD ACCEPT').Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaSSHKey 'sudo sysctl fs.inotify.max_user_instances=8192').Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaSSHKey 'sudo sysctl fs.inotify.max_user_watches=524288').Output | Write-Log
 }
 
 Export-ModuleMember Invoke-TimeSync, Wait-ForAPIServer, Update-NodeLabelsAndTaints

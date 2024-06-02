@@ -5,6 +5,7 @@ package reset
 
 import (
 	"errors"
+	"path/filepath"
 	"strconv"
 	"time"
 
@@ -50,7 +51,7 @@ func resetNetwork(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	resetNetworkCommand := utils.FormatScriptFilePath(utils.InstallDir() + "\\smallsetup\\helpers\\ResetNetwork.ps1")
+	resetNetworkCommand := utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "system", "reset", "network", "Reset-Network.ps1"))
 
 	params := []string{}
 

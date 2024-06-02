@@ -71,7 +71,7 @@ Write-Log 'Uninstalling Kubernetes registry' -Console
 (Invoke-Kubectl -Params 'delete', 'namespace', 'registry').Output | Write-Log
 
 if ($DeleteImages) {
-    Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo rm -rf /registry'
+    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo rm -rf /registry').Output | Write-Log
 }
 
 Remove-AddonFromSetupJson -Name 'registry'

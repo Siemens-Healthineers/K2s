@@ -1020,7 +1020,9 @@ function Start-ServiceAndSetToAutoStart {
     param (
         [Parameter()]
         [ValidateNotNullOrEmpty()]
-        [string] $Name = $(throw 'Please provide the name of the service.')
+        [string] $Name = $(throw 'Please provide the name of the service.'),
+        [Parameter(Mandatory = $false)]
+        [switch]$IgnoreErrors = $false
     )
 
     if (!$global:NssmInstallDirectory -or !$global:NssmInstallDirectoryLegacy) {
@@ -1036,8 +1038,15 @@ function Start-ServiceAndSetToAutoStart {
         }
         Write-Log ('Changing service to auto startup and starting: ' + $Name)
         &$nssm set $Name Start SERVICE_AUTO_START | Out-Null
-        Start-Service $Name -WarningAction SilentlyContinue
-        Write-Log "service started: $Name"
+        if ($IgnoreErrors) {
+            # Start-Service sometimes says "service cannot be started" e.g. flanneld but service is running after start 
+            # (-ErrorAction SilentlyContinue and checking afterwards if service is running)
+            Start-Service $Name -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
+        } else {
+            Start-Service $Name -WarningAction SilentlyContinue
+        }
+
+        Write-Log "Service '$Name' started"
     }
 }
 
@@ -1296,7 +1305,16 @@ function New-KubeSwitch() {
     Set-NetIPInterface -InterfaceIndex $ipindex1 -InterfaceMetric 25
 }
 
-function Set-WSL() {
+function Set-WSL {
+    param (
+        [Parameter()]
+        [ValidateNotNullOrEmpty()]
+        [long] $MasterVMMemory = $(throw 'Please specify kubemaster VM memory'),
+        [Parameter()]
+        [ValidateNotNullOrEmpty()]
+        [long] $MasterVMProcessorCount = $(throw 'Please specify kubemaster VM processor count')
+    )
+
     Write-Log 'Disable Remote App authentication warning dialog'
     REG ADD 'HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services' /V 'AuthenticationLevel' /T REG_DWORD /D '0' /F
 
@@ -1445,11 +1463,11 @@ function Install-AndInitKubemaster {
         [parameter(Mandatory = $false, HelpMessage = 'HTTP proxy to be used during operation')]
         [string] $OperationStageProxy,
         [parameter(Mandatory = $false, HelpMessage = 'Startup Memory Size of KubeMaster VM')]
-        [long] $VMStartUpMemory = 4GB,
+        [long] $VMStartUpMemory,
         [parameter(Mandatory = $false, HelpMessage = 'Number of Virtual Processors for KubeMaster VM')]
-        [long] $VMProcessorCount = 4,
+        [long] $VMProcessorCount,
         [parameter(Mandatory = $false, HelpMessage = 'Virtual hard disk size of KubeMaster VM')]
-        [long] $VMDiskSize = 50GB,
+        [long] $VMDiskSize,
         [parameter(Mandatory = $false, HelpMessage = 'Host-GW or VXLAN, Host-GW: true, false for VXLAN')]
         [bool] $HostGW = $true,
         [parameter(Mandatory = $false, HelpMessage = 'Deletes the needed files to perform an offline installation')]

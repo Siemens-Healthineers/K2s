@@ -27,13 +27,13 @@ function Get-CtrExePath {
 
 function Invoke-DownloadContainerdArtifacts($downloadsBaseDirectory, $Proxy, $windowsNodeArtifactsDirectory) {
     $containerdDownloadsDirectory = "$downloadsBaseDirectory\$windowsNode_ContainerdDirectory"
-    $compressedContainerdFile = 'containerd-1.7.9-windows-amd64.tar.gz'
+    $compressedContainerdFile = 'containerd-1.7.17-windows-amd64.tar.gz'
     $compressedFile = "$containerdDownloadsDirectory\$compressedContainerdFile"
 
     Write-Log "Create folder '$containerdDownloadsDirectory'"
     mkdir $containerdDownloadsDirectory | Out-Null
     Write-Log 'Download containerd'
-    Invoke-DownloadFile "$compressedFile" https://github.com/containerd/containerd/releases/download/v1.7.9/$compressedContainerdFile $true $Proxy
+    Invoke-DownloadFile "$compressedFile" https://github.com/containerd/containerd/releases/download/v1.7.17/$compressedContainerdFile $true $Proxy
     Write-Log '  ...done'
     Write-Log "Extract downloaded file '$compressedFile'"
     cmd /c tar xf `"$compressedFile`" -C `"$containerdDownloadsDirectory`"
@@ -227,7 +227,7 @@ function Install-WinContainerd {
     @'
 runtime-endpoint: npipe://./pipe/containerd-containerd
 image-endpoint: npipe://./pipe/containerd-containerd
-timeout: 10
+timeout: 30
 #debug: true
 '@ | Set-Content "$kubePath\bin\crictl.yaml" -Force
 

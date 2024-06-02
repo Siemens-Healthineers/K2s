@@ -1,0 +1,32 @@
+# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+# SPDX-License-Identifier: MIT
+
+name: Build - K2s Documentation
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - "main"
+
+jobs:
+  build-docs:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Configure Git Credentials
+      run: |
+        git config --local user.email github-actions@github.com
+        git config --local user.name github-actions
+    - uses: actions/setup-python@v5
+      with:
+        python-version: 3.x
+    - run: echo "cache_id=$(date --utc '+%V')" >> $GITHUB_ENV 
+    - uses: actions/cache@v4
+      with:
+        key: mkdocs-material-${{ env.cache_id }}
+        path: .cache
+        restore-keys: |
+          mkdocs-material-
+    - run: pip install mkdocs-material 
+    - run: mkdocs gh-deploy --force

@@ -41,8 +41,14 @@ if ($Script.Contains("-ShowLogs")) {
     Invoke-Expression $Script
 } *>&1 | ForEach-Object {
     if ($_ -is [System.Management.Automation.ErrorRecord] -and -not($_ -match "^\[\d{2}:\d{2}:\d{2}\]")) {
-        # ignore errors when uninstalling cluster
-        if ($Script -notmatch ".*Uninstall.*.ps1") {
+        # if an error occurs during install stop installation immediately
+        if ($Script -match ".*\\Install.*\.ps1") {
+            Write-Log $($_ | Out-String) -Error
+            Write-Log "Installation failed!"
+            exit
+        }
+        # ignore errors when uninstalling/resetting cluster
+        if (($Script -notmatch ".*\\Uninstall.*\.ps1") -and ($Script -notmatch ".*\\Reset-System.*\.ps1")) {
             Write-Log $($_ | Out-String) -Error
         }
     } elseif($_ -match "^\[\d{2}:\d{2}:\d{2}\]\[([^]]+)\]") {

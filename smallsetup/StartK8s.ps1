@@ -211,6 +211,9 @@ if ($ResetHns) {
 
 $ProgressPreference = 'SilentlyContinue'
 
+# Check for external switches before starting 
+Test-ExistingExternalSwitch
+
 Enable-LoopbackAdapter
 $adapterName = Get-L2BridgeName
 Write-Log "Using network adapter '$adapterName'"
@@ -246,6 +249,7 @@ else {
 Write-Log 'Configuring network for Windows node' -Console
 Restart-WinService 'vmcompute'
 Restart-WinService 'hns'
+Restart-NlaSvc
 
 Write-Log 'Figuring out IPv4DefaultGateway'
 $if = Get-NetIPConfiguration -InterfaceAlias "$adapterName" -ErrorAction SilentlyContinue 2>&1 | Out-Null
@@ -382,9 +386,9 @@ if (!$WSL) {
     $physicalInterfaceIndex = Get-NetAdapter -Physical | Where-Object Status -Eq 'Up' | Where-Object Name -ne $(Get-L2BridgeName) | Select-Object -expand 'ifIndex'
     if (![string]::IsNullOrWhiteSpace($physicalInterfaceIndex)) {
         $dnservers = ((Get-DnsClientServerAddress -InterfaceIndex $physicalInterfaceIndex | Select-Object -ExpandProperty ServerAddresses) | Select-Object -Unique) -join ' '
-        Invoke-CmdOnControlPlaneViaSSHKey "sudo sed -i 's/dns-nameservers.*/dns-nameservers $dnservers/' /etc/network/interfaces.d/50-cloud-init"
-        Invoke-CmdOnControlPlaneViaSSHKey 'sudo systemctl restart networking'
-        Invoke-CmdOnControlPlaneViaSSHKey 'sudo systemctl restart dnsmasq'
+        (Invoke-CmdOnControlPlaneViaSSHKey "sudo sed -i 's/dns-nameservers.*/dns-nameservers $dnservers/' /etc/network/interfaces.d/10-k2s").Output | Write-Log
+        (Invoke-CmdOnControlPlaneViaSSHKey 'sudo systemctl restart networking').Output | Write-Log
+        (Invoke-CmdOnControlPlaneViaSSHKey 'sudo systemctl restart dnsmasq').Output | Write-Log
     }
 }
 
@@ -426,7 +430,7 @@ netsh int ipv4 set int 'vEthernet (Ethernet)' forwarding=enabled | Out-Null
 
 Invoke-Hook -HookName BeforeStartK8sNetwork -AdditionalHooksDir $AdditionalHooksDir
 
-Write-Log "Ensuring service log directories exists" -Console
+Write-Log "Ensuring service log directories exists"
 EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\containerd"
 EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\dnsproxy"
 EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\dockerd"
@@ -441,7 +445,7 @@ EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\vfprules"
 
 Write-Log 'Starting Kubernetes services on the Windows node' -Console
 Start-ServiceAndSetToAutoStart -Name 'containerd'
-Start-ServiceAndSetToAutoStart -Name 'flanneld'
+Start-ServiceAndSetToAutoStart -Name 'flanneld' -IgnoreErrors
 Start-ServiceAndSetToAutoStart -Name 'kubelet'
 Start-ServiceAndSetToAutoStart -Name 'kubeproxy'
 Start-ServiceAndSetToAutoStart -Name 'windows_exporter'
@@ -489,6 +493,8 @@ while ($true) {
         $ProgressPreference = 'SilentlyContinue'
 
         Set-InterfacePrivate -InterfaceAlias "vEthernet ($adapterName)"
+        Write-Log "flanneld: $((Get-Service -Name "flanneld" -ErrorAction SilentlyContinue).Status)"
+
         if ($WSL) {
             $interfaceAlias = Get-NetAdapter -Name "vEthernet (WSL*)" -ErrorAction SilentlyContinue -IncludeHidden | Select-Object -expandproperty name
             New-NetFirewallRule -DisplayName 'WSL Inbound' -Group "k2s" -Direction Inbound -InterfaceAlias $interfaceAlias -Action Allow

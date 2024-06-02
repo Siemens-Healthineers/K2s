@@ -52,6 +52,10 @@ function Get-L2BridgeName {
     return $defaultLoopbackAdapterName
 }
 
+function Get-DevgonExePath {
+    return $devgonPath
+}
+
 function New-LoopbackAdapter {
     [OutputType([Microsoft.Management.Infrastructure.CimInstance])]
     [CmdLetBinding()]
@@ -210,4 +214,4 @@ Export-ModuleMember Get-LoopbackAdapter
 Export-ModuleMember Remove-LoopbackAdapter
 Export-ModuleMember Set-LoopbackAdapterProperties, Get-LoopbackAdapterIP,
 Get-LoopbackAdapterGateway, Get-LoopbackAdapterCIDR, New-DefaultLoopbackAdater, Get-L2BridgeName,
-Enable-LoopbackAdapter, Disable-LoopbackAdapter, Uninstall-LoopbackAdapter
+Enable-LoopbackAdapter, Disable-LoopbackAdapter, Uninstall-LoopbackAdapter, Get-DevgonExePath

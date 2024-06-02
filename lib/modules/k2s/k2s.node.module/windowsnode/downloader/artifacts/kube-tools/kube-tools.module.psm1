@@ -71,7 +71,19 @@ function Invoke-DeployKubetoolsArtifacts($windowsNodeArtifactsDirectory) {
     Copy-Item -Path "$kubetoolsArtifactsDirectory\$windowsNode_KubeadmExe" -Destination "$kubeBinPath\exe" -Force
     Write-Log 'Publish kubeproxy'
     Copy-Item -Path "$kubetoolsArtifactsDirectory\$windowsNode_KubeproxyExe" -Destination "$kubeBinPath\exe" -Force
+    Invoke-DeployKubetoolKubectl $windowsNodeArtifactsDirectory
+}
+
+function Invoke-DeployKubetoolKubectl($windowsNodeArtifactsDirectory) {
+    $kubetoolsArtifactsDirectory = "$windowsNodeArtifactsDirectory\$windowsNode_KubetoolsDirectory"
+    if (!(Test-Path "$kubetoolsArtifactsDirectory")) {
+        throw "Directory '$kubetoolsArtifactsDirectory' does not exist"
+    }
     Write-Log 'Publish kubectl'
+    $targetPath = "$kubeBinPath\exe"
+    if (!(Test-Path -Path $targetPath)) {
+        New-Item -Path $targetPath -ItemType Directory
+    }
     Copy-Item -Path "$kubetoolsArtifactsDirectory\$windowsNode_KubectlExe" -Destination "$kubeBinPath\exe" -Force
 }
 

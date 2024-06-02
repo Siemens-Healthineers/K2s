@@ -6,6 +6,7 @@ package dump
 import (
 	"errors"
 	"log/slog"
+	"path/filepath"
 	"strconv"
 	"time"
 
@@ -58,14 +59,14 @@ func dumpSystemStatus(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	dumpStatusCommand := utils.FormatScriptFilePath(utils.InstallDir() + "\\smallsetup\\debug\\DumpSystemStatus.ps1")
+	dumpStatusCommand := utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "system", "dump", "dump.ps1"))
 
 	if skipOpenDumpFlag {
 		dumpStatusCommand += " -OpenDumpFolder `$false"
 	}
 
 	if outputFlag {
-		dumpStatusCommand += " -ShowLogs `$true"
+		dumpStatusCommand += " -ShowLogs"
 	}
 
 	slog.Debug("PS command created", "command", dumpStatusCommand)
