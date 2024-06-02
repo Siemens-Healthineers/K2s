@@ -74,7 +74,7 @@ if ($Ingress -ne 'none') {
     Enable-IngressAddon -Ingress:$Ingress
 }
 
-Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo mkdir -m 777 -p /logging'
+(Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo mkdir -m 777 -p /logging').Output | Write-Log
 
 Write-Log 'Installing fluent-bit and opensearch stack' -Console
 
@@ -92,7 +92,7 @@ if ($setupInfo.LinuxOnly -eq $false) {
     (Invoke-Kubectl -Params 'create', '-k', "$manifestsPath\fluentbit\windows").Output | Write-Log
 }
 
-Write-Log 'Waiting for Pods..'
+Write-Log 'Waiting for pods being ready...' -Console
 $kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'deployments', '-n', 'logging', '--timeout=180s')
 Write-Log $kubectlCmd.Output
 if (!$kubectlCmd.Success) {
@@ -148,7 +148,7 @@ Add-HostEntries -Url 'k2s-logging.local'
 $dashboardIP = (Invoke-Kubectl -Params 'get', 'pods', '-l=app.kubernetes.io/name=opensearch-dashboards', '-n', 'logging', '-o=jsonpath="{.items[0].status.podIP}"').Output
 $dashboardIP = $dashboardIP -replace '"', ''
 
-$importingSavedObjects = curl.exe -X POST --retry 10 --retry-delay 5 --silent --disable --fail --retry-all-errors "http://${dashboardIP}:5601/api/saved_objects/_import?overwrite=true" -H 'osd-xsrf: true' -F "file=@$PSScriptRoot/opensearch-dashboard-saved-objects/fluent-bit-index-pattern.ndjson" 2>$null
+$importingSavedObjects = curl.exe -X POST --retry 10 --retry-delay 5 --silent --disable --fail --retry-all-errors "http://${dashboardIP}:5601/api/saved_objects/_import?overwrite=true" -H 'osd-xsrf: true' -F "file=@$PSScriptRoot/opensearch-dashboard-saved-objects/k2s-index-pattern.ndjson" 2>$null
 Write-Log $importingSavedObjects
 
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'logging' })

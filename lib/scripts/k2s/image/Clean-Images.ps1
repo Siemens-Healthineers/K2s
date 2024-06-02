@@ -58,7 +58,7 @@ foreach ($containerImage in $allContainerImages) {
     if ($alreadyDeleted.Count -eq 0) {
         $errorString = Remove-Image -ContainerImage $containerImage
         if ($null -eq $errorString) {
-            $deletedImages += $imageToBeDeleted.ImageId
+            $deletedImages += $containerImage.ImageId
         }
         $deletionExitCode = Show-ImageDeletionStatus -ContainerImage $containerImage -ErrorMessage $errorString
         if($deletionExitCode -eq 1) {

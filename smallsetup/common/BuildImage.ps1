@@ -255,10 +255,10 @@ if ($systemError) {
     exit 1
 }
 
-$GO_Ver = '1.21.4' # default go version
+$GO_Ver = '1.22.3' # default go version
 if ($null -ne $env:GOVERSION -and $env:GOVERSION -ne '') {
     Write-Log "Using local GOVERSION $Env:GOVERSION environment variable from the host machine"
-    # $env:GOVERSION will be go1.21.4, remove the go part.
+    # $env:GOVERSION will be go1.22.3, remove the go part.
     $GO_Ver = $env:GOVERSION -split 'go' | Select-Object -Last 1
 }
 
@@ -510,7 +510,7 @@ if (!$Windows -and $PreCompile) {
 
         # Install Go
         $goInstallScript = '/tmp/install_go.sh'
-        $copyGoInstallScript = "$global:Remote_Master"+ ":" + $goInstallScript
+        $copyGoInstallScript = "$global:Remote_Master" + ':' + $goInstallScript
         Copy-FromToMaster "$global:KubernetesPath\smallsetup\linuxnode\scripts\install_go.sh" $copyGoInstallScript
         # After copy we need to remove carriage line endings from the shell script.
         # TODO: Function to copy shell script to Linux host and remove CR in the shell script file before execution

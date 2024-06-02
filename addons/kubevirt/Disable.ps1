@@ -121,8 +121,8 @@ Write-Log "`nKubernetes pods after:`n"
 if ( $K8sSetup -eq 'SmallSetup' ) {
     # remove cgroup setting
     Write-Log 'change back to cgroup v2'
-    Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo sed -i 's,systemd.unified_cgroup_hierarchy=0\ ,,g' /etc/default/grub"
-    Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo update-grub 2>&1'
+    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo sed -i 's,systemd.unified_cgroup_hierarchy=0\ ,,g' /etc/default/grub").Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo update-grub 2>&1').Output | Write-Log
 
     $controlPlaneNodeName = Get-ConfigControlPlaneNodeHostname
 

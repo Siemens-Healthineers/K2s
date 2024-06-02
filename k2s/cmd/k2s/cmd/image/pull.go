@@ -56,7 +56,7 @@ func init() {
 func pullImage(cmd *cobra.Command, args []string) error {
 	pterm.Println("🤖 Pulling container image..")
 
-	err := validateArgs(args)
+	err := validatePullArgs(args)
 	if err != nil {
 		return fmt.Errorf("invalid arguments provided: %w", err)
 	}
@@ -91,6 +91,10 @@ func pullImage(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	if config.SetupName == setupinfo.SetupNameMultiVMK8s && pullForWindows {
+		return common.CreateFunctionalityNotAvailableCmdFailure(config.SetupName)
+	}
+
 	outputWriter, err := common.NewOutputWriter()
 	if err != nil {
 		return err
@@ -112,7 +116,7 @@ func pullImage(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func validateArgs(args []string) error {
+func validatePullArgs(args []string) error {
 	if len(args) == 0 {
 		return errors.New("no image to pull")
 	}

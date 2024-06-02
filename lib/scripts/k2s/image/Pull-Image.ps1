@@ -59,8 +59,8 @@ if ($systemError) {
 
 if (!$Windows) {
     Write-Log "Pulling Linux image $ImageName"
-    $output = Invoke-CmdOnControlPlaneViaSSHKey "sudo buildah pull $ImageName 2>&1" -Retries 5 -NoLog
-    if ($output -match ".*Error.*") {
+    $success = (Invoke-CmdOnControlPlaneViaSSHKey "sudo buildah pull $ImageName 2>&1" -Retries 5).Success
+    if (!$success) {
         $errMsg = "Error pulling image '$ImageName'"
         if ($EncodeStructuredOutput -eq $true) {
             $err = New-Error -Code 'image-pull-failed' -Message $errMsg

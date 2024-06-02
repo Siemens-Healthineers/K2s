@@ -13,7 +13,9 @@ on:
       - 'LICENSES/**'
       - 'bin/**'
       - 'doc/**'
+      - 'docs/**'
       - 'k2s.exe'
+      - 'mkdocs.yml'
       - '*.md'
       - '.github/ISSUE_TEMPLATE/**'
   pull_request:
@@ -23,12 +25,14 @@ on:
       - 'LICENSES/**'
       - 'bin/**'
       - 'doc/**'
+      - 'docs/**'
       - 'k2s.exe'
+      - 'mkdocs.yml'
       - '*.md'
       - '.github/ISSUE_TEMPLATE/**'
 
 env:
-  GOVERSION: "1.21.5"
+  GOVERSION: "1.22.3"
 
 jobs:
   run-unit-tests:
