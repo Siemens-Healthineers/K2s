@@ -127,7 +127,16 @@ function Test-ProxyConfiguration() {
     }
 }
 
-function Set-WSL() {
+function Set-WSL {
+    param (
+        [Parameter()]
+        [ValidateNotNullOrEmpty()]
+        [long] $MasterVMMemory = $(throw 'Please specify kubemaster VM memory'),
+        [Parameter()]
+        [ValidateNotNullOrEmpty()]
+        [long] $MasterVMProcessorCount = $(throw 'Please specify kubemaster VM processor count')
+    )
+
     Write-Log 'Disable Remote App authentication warning dialog'
     REG ADD 'HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services' /V 'AuthenticationLevel' /T REG_DWORD /D '0' /F
 
@@ -165,12 +174,6 @@ function Test-WindowsPrerequisites(
     }
 
     Enable-MissingWindowsFeatures $([bool]$WSL)
-
-    if ($WSL) {
-        Write-Log 'vEthernet (WSL) switch will be reconfigured! Your existing WSL distros will not work properly until you stop the cluster.'
-        Write-Log 'Configuring WSL2'
-        Set-WSL
-    }
 
     Test-ProxyConfiguration
 }
@@ -306,6 +309,7 @@ Enable-MissingWindowsFeatures,
 Stop-InstallIfDockerDesktopIsRunning,
 Test-WindowsPrerequisites,
 Test-ProxyConfiguration,
+Set-WSL,
 Get-StorageLocalDrive,
 Invoke-DownloadFile,
 Stop-InstallIfNoMandatoryServiceIsRunning,

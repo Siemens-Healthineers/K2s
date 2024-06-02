@@ -160,9 +160,8 @@ function GenerateBomDebian() {
     $source = "$global:Remote_Master" + ':/home/remote/kubemaster.json'
     Copy-FromToMaster -Source $source -Target "$bomRootDir\merge"
 
-    $kubeSBOMJsonFile = "$bomRootDir\merge\kubemaster.json"
-
     if ($Annotate) {
+        $kubeSBOMJsonFile = "$bomRootDir\merge\kubemaster.json"
         Write-Output "Enriching generated sbom with command 'sbomgenerator.exe -e `"$kubeSBOMJsonFile`" "
         &"$bomRootDir\sbomgenerator.exe" -e `"$kubeSBOMJsonFile`"
     }
@@ -231,9 +230,8 @@ function GenerateBomContainers() {
             $source = "$global:Remote_Master" + ":/home/remote/$imageName.json"
             Copy-FromToMaster -Source $source -Target "$bomRootDir\merge"
 
-            $imageSBOMJsonFile = "$bomRootDir\merge\$imageName.json"
-
             if ($Annotate) {
+                $imageSBOMJsonFile = "$bomRootDir\merge\$imageName.json"
                 Write-Output "Enriching generated sbom with command 'sbomgenerator.exe -e `"$imageSBOMJsonFile`" -t `"$type`" -c `"$version`" "
                 &"$bomRootDir\sbomgenerator.exe" -e `"$imageSBOMJsonFile`" -t `"$type`" -c `"$version`"
             }
@@ -291,9 +289,8 @@ function GenerateBomContainers() {
         $source = "$global:Remote_Master" + ":/home/remote/$imageName.json"
         Copy-FromToMaster -Source $source -Target "$bomRootDir\merge"
 
-        $imageSBOMJsonFile = "$bomRootDir\merge\$imageName.json"
-
         if ($Annotate) {
+            $imageSBOMJsonFile = "$bomRootDir\merge\$imageName.json"
             Write-Output "Enriching generated sbom with command 'sbomgenerator.exe -e `"$imageSBOMJsonFile`" -t `"$type`" -c `"$version`""
             &"$bomRootDir\sbomgenerator.exe" -e `"$imageSBOMJsonFile`" -t `"$type`" -c `"$version`"
         }

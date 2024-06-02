@@ -59,7 +59,7 @@ Import-Module $infraModule, $clusterModule, $nodeModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
-$systemError = Test-SystemAvailability
+$systemError = Test-SystemAvailability -Structured
 if ($systemError) {
     if ($EncodeStructuredOutput -eq $true) {
         Send-ToCli -MessageType $MessageType -Message @{Error = $systemError }
@@ -156,10 +156,10 @@ if ($foundLinuxImages.Count -eq 1) {
     }
 
     if (!$DockerArchive) {
-        Invoke-CmdOnControlPlaneViaSSHKey "sudo buildah push ${imageId} oci-archive:/tmp/${imageId}.tar:${imageFullName} 2>&1" -NoLog
+        (Invoke-CmdOnControlPlaneViaSSHKey "sudo buildah push ${imageId} oci-archive:/tmp/${imageId}.tar:${imageFullName} 2>&1" -NoLog).Output | Write-Log
     }
     else {
-        Invoke-CmdOnControlPlaneViaSSHKey "sudo buildah push ${imageId} docker-archive:/tmp/${imageId}.tar:${imageFullName} 2>&1" -NoLog
+        (Invoke-CmdOnControlPlaneViaSSHKey "sudo buildah push ${imageId} docker-archive:/tmp/${imageId}.tar:${imageFullName} 2>&1" -NoLog).Output | Write-Log
     }
 
     $exportSuccess = $?
@@ -169,7 +169,7 @@ if ($foundLinuxImages.Count -eq 1) {
         Write-Log "Image ${imageFullName} exported successfully to ${finalExportPath}."
     }
 
-    Invoke-CmdOnControlPlaneViaSSHKey "cd /tmp && sudo rm -rf ${imageId}.tar" -NoLog
+    (Invoke-CmdOnControlPlaneViaSSHKey "cd /tmp && sudo rm -rf ${imageId}.tar" -NoLog).Output | Write-Log
 }
 
 if ($foundWindowsImages.Count -gt 1) {

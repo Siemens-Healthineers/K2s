@@ -77,7 +77,7 @@ if ($PSVersionTable.PSVersion.Major -gt 5) {
 
 (Invoke-Kubectl -Params 'delete', 'namespace', 'logging', '--grace-period=0').Output | Write-Log
 
-Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo rm -rf /logging'
+(Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo rm -rf /logging').Output | Write-Log
 
 Remove-AddonFromSetupJson -Name 'logging'
 
