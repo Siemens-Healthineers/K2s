@@ -140,3 +140,16 @@ Waits for the oauth2-proxy pods to be available.
 function Wait-ForOauth2ProxyAvailable {
     return (Wait-ForPodCondition -Condition Ready -Label 'k8s-app=oauth2-proxy' -Namespace 'security' -TimeoutSeconds 120)
 }
+
+function Deploy-IngressForSecurity([string]$Ingress) {
+    switch ($Ingress) {
+        'ingress-nginx' {
+            (Invoke-Kubectl -Params 'apply', '-f', "$PSScriptRoot\manifests\keycloak\nginx-ingress.yaml").Output | Write-Log
+            break
+        }
+        'traefik' {
+            (Invoke-Kubectl -Params 'apply', '-f', "$PSScriptRoot\manifests\keycloak\traefik-ingress.yaml").Output | Write-Log
+            break
+        }
+    }
+}
