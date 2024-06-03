@@ -23,3 +23,4 @@ To interact with the *K2s* cluster, the following shortcuts can be used:
 | `kgp`    | `kubectl get pods -o wide -A`                                            | Get all *Pods* of all namespaces                    |
 | `kl`     | `kubectl logs`                                                           | Show logs of *Kubernetes* resource                  |
 | `krp`    | `kubectl delete pod`                                                     | Remove specified *Pod*                              |
+| `ks`     | `k2s status -o wide`                                                     | Inspect *K2s* system health                         |

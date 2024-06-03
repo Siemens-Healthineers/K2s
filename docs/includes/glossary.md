@@ -4,6 +4,7 @@ SPDX-License-Identifier: MIT
 -->
 
 *[API]: Application Programming Interface
+*[APIPA]: Automatic Private IP Addressing
 *[ASCII]: American Standard Code for Information Interchange
 *[BDD]: Behavior-Driven Development
 *[BIOS]: Basic Input/Output System
@@ -13,6 +14,7 @@ SPDX-License-Identifier: MIT
 *[CLI]: Command-Line Interface
 *[CPU]: Central Processing Unit
 *[CRI]: Container Runtime Interface
+*[DHCP]: Dynamic Host Configuration Protocol
 *[DNS]: Domain Name System
 *[e2e]: End-To-End
 *[FQDN]: Fully Qualified Domain Name
@@ -27,6 +29,7 @@ SPDX-License-Identifier: MIT
 *[NAT]: Network Address Translation
 *[NT]: New Technology
 *[NTLM]: NT LAN Manager
+*[OS]: Operating System
 *[PR]: Pull Request
 *[RAM]: Random-Access Memory
 *[REST]: Representational State Transfer
