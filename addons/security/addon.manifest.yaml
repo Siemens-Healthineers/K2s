@@ -22,6 +22,15 @@ spec:
     enable:
       cli:
         flags:
+          - name: ingress
+            shorthand: i
+            default: ingress-nginx
+            description: Ingress controller to use for exposing security
+            constraints:
+              kind: validation-set
+              validationSet:
+                - ingress-nginx
+                - traefik
           - name: proxy
             shorthand: p
             default: ""

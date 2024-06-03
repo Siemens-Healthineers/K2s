@@ -145,6 +145,7 @@ Import-Certificate @params
 Remove-Item -Path $tempFile.FullName -Force
 
 Write-Log 'Installing keycloak' -Console
+Add-HostEntries -Url 'k2s-security.local'
 $keyCloakFolder = Get-KeyCloakFolder
 (Invoke-Kubectl -Params 'apply', '-k', $keyCloakFolder).Output | Write-Log
 Deploy-IngressForSecurity -Ingress:$Ingress

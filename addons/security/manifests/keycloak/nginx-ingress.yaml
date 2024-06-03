@@ -4,43 +4,26 @@ metadata:
   name: keycloak
   namespace: security
   annotations:
-    nginx.ingress.kubernetes.io/proxy-body-size: 100m
     nginx.ingress.kubernetes.io/enable-cors: "true"
-    nginx.ingress.kubernetes.io/use-regex: "true"
+    cert-manager.io/cluster-issuer: k2s-ca-issuer
+    cert-manager.io/common-name: k2s-security.local
 spec:
   ingressClassName: "nginx"
   rules:
-    - host: k2s.cluster.net
+    - host: k2s-security.local
       http:
         paths:
-          - path: /realms/demo-app
+          - path: /
             pathType: Prefix
             backend:
               service:
                 name: keycloak
                 port:
                   number: 8080
-          - path: /resources/.*/common/keycloak
-            pathType: ImplementationSpecific
-            backend:
-              service:
-                name: keycloak
-                port:
-                  number: 8080
-          - path: /resources/.*/login/keycloak
-            pathType: ImplementationSpecific
-            backend:
-              service:
-                name: keycloak
-                port:
-                  number: 8080
-          - path: /admin/master/console
-            pathType: Prefix
-            backend:
-              service:
-                name: keycloak
-                port:
-                  number: 8080
+  tls:
+    - hosts:
+        - k2s-security.local
+      secretName: k2s-security-local-tls
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -61,3 +44,4 @@ spec:
                 port:
                   number: 4180
 ---
+
