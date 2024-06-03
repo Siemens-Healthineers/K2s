@@ -4,6 +4,7 @@ SPDX-License-Identifier: MIT
 -->
 
 *[API]: Application Programming Interface
+*[ASCII]: American Standard Code for Information Interchange
 *[BDD]: Behavior-Driven Development
 *[BIOS]: Basic Input/Output System
 *[CI]: Continuous Integration
@@ -18,6 +19,7 @@ SPDX-License-Identifier: MIT
 *[ID]: Identifier
 *[IIS]: Internet Information Services
 *[IP]: Internet Protocol
+*[JSON]: JavaScript Object Notation
 *[K8s]: Kubernetes
 *[LAN]: Local Area Network
 *[NAT]: Network Address Translation
@@ -31,3 +33,4 @@ SPDX-License-Identifier: MIT
 *[URL]: Uniform Resource Locator
 *[VM]: Virtual Machine
 *[WSL]: Windows Subsystem for Linux
+*[YAML]: Yet Another Markup Language
