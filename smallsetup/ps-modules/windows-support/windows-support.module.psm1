@@ -54,7 +54,7 @@ $WindowsImageVersions = [pscustomobject]@{
     OS          = 'windows';
     Arch        = 'amd64';
     BaseVersion = 'ltsc2022';
-    TagSuffix   = 'win11-s21H2';
+    TagSuffix   = 'win11-21H2';
     OSVersion   = '10.0.20348.2113'
 }
 
