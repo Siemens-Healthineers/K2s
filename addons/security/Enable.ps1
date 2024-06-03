@@ -69,10 +69,6 @@ if ((Test-IsAddonEnabled -Name 'security') -eq $true) {
     exit 1
 }
 
-Write-Log 'Installing keycloak' -Console
-$keyCloakFolder = Get-KeyCloakFolder
-(Invoke-Kubectl -Params 'apply', '-k', $keyCloakFolder).Output | Write-Log
-
 Write-Log 'Downloading cert-manager files' -Console
 $manifest = Get-FromYamlFile -Path "$PSScriptRoot\addon.manifest.yaml"
 $k2sRoot = "$PSScriptRoot\..\.."
@@ -144,6 +140,25 @@ $params = @{
 
 Import-Certificate @params
 Remove-Item -Path $tempFile.FullName -Force
+
+Write-Log 'Installing keycloak' -Console
+$keyCloakFolder = Get-KeyCloakFolder
+(Invoke-Kubectl -Params 'apply', '-k', $keyCloakFolder).Output | Write-Log
+
+Write-Log 'Waiting for security pods to be available' -Console
+$keycloakPodStatus = Wait-ForKeyCloakAvailable
+$oauth2ProxyPodStatus = Wait-ForOauth2ProxyAvailable
+if ($keycloakPodStatus -ne $true -or $oauth2ProxyPodStatus -ne $true) {
+    $errMsg = "All security pods could not become ready. Please use kubectl describe for more details.`nInstallation of secuirty addon failed."
+    if ($EncodeStructuredOutput -eq $true) {
+        $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+        return
+    }
+
+    Write-Log $errMsg -Error
+    exit 1
+}
 
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'security' })
 
