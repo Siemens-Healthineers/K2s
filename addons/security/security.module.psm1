@@ -27,8 +27,12 @@ function Get-CAIssuerConfig {
     return "$PSScriptRoot\manifests\ca-issuer.yaml"
 }
 
-function Get-KeyCloakFolder {
-    return "$PSScriptRoot\manifests\keycloak"
+function Get-KeyCloakConfig {
+    return "$PSScriptRoot\manifests\keycloak\keycloak.yaml"
+}
+
+function Get-OAuth2ProxyConfig {
+    return "$PSScriptRoot\manifests\keycloak\oauth2-proxy.yaml"
 }
 
 <#
