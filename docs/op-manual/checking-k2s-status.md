@@ -14,6 +14,8 @@ To display additional status details, run:
 <repo>k2s status -o wide
 ```
 
+Alternatively, the `ks` shortcut can be executed (see [CLI Shortcuts](../user-guide/cli-shortcuts.md)).
+
 <figure markdown="span">
   ![Status Command Output](assets/status_cmd_output.png){ loading=lazy }
   <figcaption>Output of "k2s status -o wide"</figcaption>
