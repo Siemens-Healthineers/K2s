@@ -253,11 +253,22 @@ function Set-WSLSwitch() {
 	The NlaSvc has to be killed explicitly since it has dependents. 
 #>
 function Restart-NlaSvc {
-	$networkLocationAwarenessServiceName = "NlaSvc"
-	$nlaSvcPid = Get-WmiObject -Class Win32_Service -Filter "Name LIKE '$networkLocationAwarenessServiceName'" | Select-Object -ExpandProperty ProcessId
-	if (![string]::IsNullOrWhitespace($nlaSvcPid)) {
-		Write-Log "Network Location Awareness service found on host runnig with pid $nlaSvcPid. Initiating service restart..."
-		Invoke-Expression "taskkill /f /pid $nlaSvcPid"
+    $networkLocationAwarenessServiceName = 'NlaSvc'
+    $nlaSvcProcess = Get-WmiObject -Class Win32_Service -Filter "Name LIKE '$networkLocationAwarenessServiceName'"
+    # if NlaSvc is found
+    if ($null -ne $nlaSvcProcess) {
+        $nlaSvcStartMode = $nlaSvcProcess.StartMode
+        $nlaSvcPid = $nlaSvcProcess.ProcessId
+        $nlaSvcState = $nlaSvcProcess.State
+    
+        # if service is in Manual mode and in Stopped state, the service should not be started by K2s.
+        if (($nlaSvcStartMode -eq 'Manual') -and (($nlaSvcState -eq 'Stopped') -or ($nlaSvcPid -eq 0))) {
+            Write-Log 'Network Location Awareness service found in Manual mode and Stopped state. Service will not be restarted...'
+            return;
+        }
+
+        Write-Log "Network Location Awareness service found on host runnig with pid $nlaSvcPid. Initiating service restart..."
+        Invoke-Expression "taskkill /f /pid $nlaSvcPid"
         Start-Sleep -seconds 10
         $networkLocationAwarenessService = Get-Service $networkLocationAwarenessServiceName
         $serviceRestarted = $false
@@ -281,10 +292,11 @@ function Restart-NlaSvc {
         }
         if ($serviceRestarted -eq $false) {
             Write-Log "[WARNING] '$networkLocationAwarenessServiceName' Service could not be successfully restarted !!" -Console
-        } else {
+        }
+        else {
             Write-Log "Service re-started '$networkLocationAwarenessServiceName' "
         }
-	}
+    }
 }
 
 
