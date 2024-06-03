@@ -37,7 +37,7 @@ See [Features](docs/index.md#features) for a list of features.
     k2s.exe install
     ```
 
-After installation, you can utilize one of the [shortcuts](./doc/K8s_Shortcuts.md) to interact with your newly created cluster:
+After installation, you can utilize one of the [CLI Shortcuts](docs/user-guide/cli-shortcuts.md) to interact with your newly created cluster:
 ```
 k   - shows the commands available for interacting with the K8s cluster
 ks  - get the state of the cluster
@@ -82,7 +82,7 @@ See also [*Windows*-based Images](./smallsetup/ps-modules/windows-support/README
 - [Uninstalling *K2s*](docs/op-manual/uninstalling-k2s.md)
 - [Adding a Container Registry](docs/user-guide/adding-container-registry.md)
 - [Building a Container Image](docs/user-guide/building-container-image.md)
-- [Shortcuts for interacting with cluster](doc/K8s_Shortcuts.md)
+- [CLI Shortcuts](docs/user-guide/cli-shortcuts.md)
 - [Upgrading *K2s*](docs/op-manual/upgrading-k2s.md)
 - [Creating Offline Package](docs/op-manual/creating-offline-package.md)
 
