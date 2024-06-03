@@ -70,6 +70,7 @@ mkdir -force "$($global:SystemDriveLetter):\var\log\kubelet" | Out-Null
 mkdir -force "$($global:SystemDriveLetter):\var\log\kubeproxy" | Out-Null
 mkdir -force "$global:KubeletConfigDir\etc\kubernetes" | Out-Null
 mkdir -force "$($global:SystemDriveLetter):\etc\kubernetes\pki" | Out-Null
+mkdir -force "$($global:SystemDriveLetter):\etc\kubernetes\kubelet.conf.d" | Out-Null
 mkdir -force "$global:KubeletConfigDir\etc" | Out-Null
 mkdir -force "$global:KubeletConfigDir\etc\kubernetes" | Out-Null
 mkdir -force "$global:KubeletConfigDir\etc\kubernetes\manifests" | Out-Null
