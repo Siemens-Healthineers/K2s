@@ -23,6 +23,7 @@ spec:
         - ip: "172.19.1.100"
           hostnames:
             - "k2s-security.local"
+            - "k2s.cluster.net"
       containers:
         - name: oauth-proxy
           image: quay.io/oauth2-proxy/oauth2-proxy:v7.6.0
@@ -61,3 +62,4 @@ spec:
   selector:
     k8s-app: oauth2-proxy
 ---
+
