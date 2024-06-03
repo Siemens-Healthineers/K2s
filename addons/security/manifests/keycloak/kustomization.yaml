@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: © 2024 Siemens Healthcare GmbH
+#
+# SPDX-License-Identifier: MIT
+
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
@@ -9,13 +13,3 @@ resources:
 
 generatorOptions:
   disableNameSuffixHash: true
-
-configMapGenerator:
-  - name: keycloak-config-map
-    namespace: security
-    files:
-      - demo-app.json
-  - name: oauth2-proxy-config
-    namespace: security
-    files:
-      - oauth2-proxy.cfg
