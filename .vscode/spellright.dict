@@ -16,3 +16,6 @@ gpg
 nbsp
 larr
 rarr
+Buildah
+containerd
+Dockerfile

@@ -56,7 +56,7 @@ The CI runs will check all files against the *REUSE* specification, but you can 
 
 ### Building Locally
 #### Workspace Prerequisites
-All the prerequisites mentioned in [Installation Prerequisites](../../op-manual/installation.md#prerequisites) must be fulfilled.
+All the prerequisites mentioned in [Installation Prerequisites](../../op-manual/installing-k2s.md#prerequisites) must be fulfilled.
 
 * Install [*Go*](https://go.dev/dl/){target="_blank"} for *Windows*.
 
