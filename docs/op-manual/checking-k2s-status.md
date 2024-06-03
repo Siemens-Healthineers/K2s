@@ -3,7 +3,7 @@ SPDX-FileCopyrightText: © 2024 Siemens Healthcare GmbH
 SPDX-License-Identifier: MIT
 -->
 
-# Check *K2s* Status
+# Checking *K2s* Status
 To check *K2s*'s health status (including *K8s*'s health), run:
 ```console
 k2s status
