@@ -12,6 +12,7 @@ SPDX-License-Identifier: MIT
 *[CD]: Continuous Delivery/Deployment (even though delivery and deployment might be different activities)
 *[CLI]: Command-Line Interface
 *[CPU]: Central Processing Unit
+*[CRI]: Container Runtime Interface
 *[DNS]: Domain Name System
 *[e2e]: End-To-End
 *[FQDN]: Fully Qualified Domain Name

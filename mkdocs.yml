@@ -89,13 +89,14 @@ nav:
       - Quick Start: quickstart/index.md
   - User Guide:
       - Hosting Variants: user-guide/hosting-variants.md
+      - k2s CLI: user-guide/k2s-cli.md
+      - CLI Shortcuts: user-guide/cli-shortcuts.md
       - Assignment of Cluster IP Addresses for Services: user-guide/cluster-ip-addresses.md
       - Adding a Container Registry: user-guide/adding-container-registry.md
       - Building a Container Image: user-guide/building-container-image.md
   - Operator Manual:
       - Supported OS Versions: op-manual/os-support.md
       - Getting K2s: op-manual/getting-k2s.md
-      - k2s CLI: op-manual/k2s-cli.md
       - Creating Offline Package: op-manual/creating-offline-package.md
       - Installing K2s: op-manual/installing-k2s.md
       - Starting K2s: op-manual/starting-k2s.md
