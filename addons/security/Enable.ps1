@@ -19,6 +19,9 @@ powershell <installation folder>\addons\security\Enable.ps1
 
 [CmdletBinding(SupportsShouldProcess = $true)]
 Param (
+    [parameter(Mandatory = $false, HelpMessage = 'Enable Ingress-Nginx Addon')]
+    [ValidateSet('ingress-nginx', 'traefik')]
+    [string] $Ingress = 'ingress-nginx',
     [parameter(Mandatory = $false, HelpMessage = 'HTTP proxy if available')]
     [string] $Proxy,
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
@@ -159,6 +162,8 @@ if ($keycloakPodStatus -ne $true -or $oauth2ProxyPodStatus -ne $true) {
     Write-Log $errMsg -Error
     exit 1
 }
+
+Deploy-IngressForSecurity -Ingress:$Ingress
 
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'security' })
 
