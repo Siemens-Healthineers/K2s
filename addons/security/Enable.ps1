@@ -146,13 +146,17 @@ Remove-Item -Path $tempFile.FullName -Force
 
 Write-Log 'Installing keycloak' -Console
 Add-HostEntries -Url 'k2s-security.local'
-$keyCloakFolder = Get-KeyCloakFolder
-(Invoke-Kubectl -Params 'apply', '-k', $keyCloakFolder).Output | Write-Log
+$keyCloakYaml = Get-KeyCloakConfig
+(Invoke-Kubectl -Params 'apply', '-f', $keyCloakYaml).Output | Write-Log
 Deploy-IngressForSecurity -Ingress:$Ingress
-
-Write-Log 'Waiting for security pods to be available' -Console
+Write-Log 'Waiting for keycloak pods to be available' -Console
 $keycloakPodStatus = Wait-ForKeyCloakAvailable
+
+$oauth2ProxyYaml = Get-OAuth2ProxyConfig
+(Invoke-Kubectl -Params 'apply', '-f', $oauth2ProxyYaml).Output | Write-Log
+Write-Log 'Waiting for oauth2-proxy pods to be available' -Console
 $oauth2ProxyPodStatus = Wait-ForOauth2ProxyAvailable
+
 if ($keycloakPodStatus -ne $true -or $oauth2ProxyPodStatus -ne $true) {
     $errMsg = "All security pods could not become ready. Please use kubectl describe for more details.`nInstallation of secuirty addon failed."
     if ($EncodeStructuredOutput -eq $true) {
