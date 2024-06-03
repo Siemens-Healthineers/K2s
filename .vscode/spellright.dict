@@ -19,3 +19,5 @@ rarr
 Buildah
 containerd
 Dockerfile
+Kustomize
+flanneld
