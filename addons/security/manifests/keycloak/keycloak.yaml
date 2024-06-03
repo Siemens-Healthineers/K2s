@@ -71,7 +71,8 @@ metadata:
 spec:
   ingressClassName: "nginx"
   rules:
-    - http:
+    - host: k2s.cluster.net
+      http:
         paths:
           - path: /realms/demo-app
             pathType: Prefix
