@@ -15,3 +15,4 @@ SPDX-License-Identifier: MIT
 *[PR]: Pull Request
 *[RAM]: Random-Access Memory
 *[VM]: Virtual Machine
+*[WSL]: Windows Subsystem for Linux
