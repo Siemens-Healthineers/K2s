@@ -147,6 +147,7 @@ Remove-Item -Path $tempFile.FullName -Force
 Write-Log 'Installing keycloak' -Console
 $keyCloakFolder = Get-KeyCloakFolder
 (Invoke-Kubectl -Params 'apply', '-k', $keyCloakFolder).Output | Write-Log
+Deploy-IngressForSecurity -Ingress:$Ingress
 
 Write-Log 'Waiting for security pods to be available' -Console
 $keycloakPodStatus = Wait-ForKeyCloakAvailable
@@ -162,8 +163,6 @@ if ($keycloakPodStatus -ne $true -or $oauth2ProxyPodStatus -ne $true) {
     Write-Log $errMsg -Error
     exit 1
 }
-
-Deploy-IngressForSecurity -Ingress:$Ingress
 
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'security' })
 
