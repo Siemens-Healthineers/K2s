@@ -1,3 +1,41 @@
+# SPDX-FileCopyrightText: © 2024 Siemens Healthcare GmbH
+#
+# SPDX-License-Identifier: MIT
+
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: oauth2-proxy-config
+  namespace: security
+data:
+  oauth2-proxy.cfg: |
+    # Provider config
+    provider="keycloak-oidc"
+    provider_display_name="Keycloak"
+    login_url="https://k2s-security.local/realms/demo-app/protocol/openid-connect/auth"
+    redeem_url="https://k2s-security.local/realms/demo-app/protocol/openid-connect/token"
+    validate_url="https://k2s-security.local/realms/demo-app/protocol/openid-connect/userinfo"
+    profile_url="https://k2s-security.local/realms/demo-app/protocol/openid-connect/userinfo"
+    ssl_insecure_skip_verify=true
+    # Client config
+    client_id="demo-client"
+    client_secret="1f3QCCQoDQXEwU7ngw9X8kaSe1uX8EIl"
+    cookie_secret="ZzBkN000Wm0pQkVkKUhzMk5YPntQRUw_ME1oMTZZTy0="
+    cookie_secure="false"
+    # Upstream config
+    http_address="0.0.0.0:4180"
+    upstreams="file:///dev/null"
+    email_domains=["*"]
+    oidc_issuer_url="https://k2s-security.local/realms/demo-app"
+    scope="openid"
+    # token
+    pass_access_token=true
+    # Redis session store config
+    session_store_type="redis"
+    redis_connection_url="redis://redis-service:6379"
+    pass_authorization_header=true
+    set_authorization_header=true
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
