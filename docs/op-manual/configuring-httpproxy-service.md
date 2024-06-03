@@ -4,7 +4,7 @@ SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
 SPDX-License-Identifier: MIT
 -->
 
-# Configure *HTTPProxy* Service
+# Configuring *HTTPProxy* Service
 The *HTTPProxy* service is a proxy server that can be used to provide external network access to virtual machines running in *Hyper-V* without setting up a *NAT* network. 
 
 During *K2s* installation, *HTTPProxy* is deployed as a *Windows* Service.
@@ -13,7 +13,7 @@ By default, *HTTPProxy* service listens for requests on **ALL** available interf
 
 The logs for *HTTPProxy* service are in directory `<installation-drive>\var\log\httpproxy`. For example, if *K2s* is installed in directory `D:\k2s` then *HTTPProxy* service logs will be available in directory `D:\var\log\httpproxy`.
 
-## Customize *HTTPProxy* Listen Port
+## Customizing *HTTPProxy* Listen Port
 *HTTPProxy* can be started on a different port using the `addr` parameter. For example, if we want to start *HTTPProxy* service on *Windows 10 Hyper-V* host at port `30000`, then the it can be achieved as follows:
 ```console
 httpproxy --addr ":30000"
@@ -22,7 +22,7 @@ To edit the *Windows* service deployed by *K2s*, you can use [NSSM](https://nssm
 
 ![Image](assets/httpproxy_addr_nssm.PNG)
 
-## Configure Forward Proxy
+## Configuring Forward Proxy
 In some cases, the *Windows 10* host itself receives internet connection via an internet proxy. In these cases, the *HTTPProxy* service must forward the requests to this internet proxy.
 
 This can be achieved by using the `--forward-proxy` parameter as shown below:
@@ -35,7 +35,7 @@ Using the *NSSM* UI, it can be achieved as shown below:
 
 ![Image](assets/httpproxy_forwardproxy_nssm.PNG)
 
-### Configure `NO_PROXY` with Forward Proxy
+### Configuring `NO_PROXY` with Forward Proxy
 In some case, when the *Windows 10* host receives internet connection via an internet proxy, certain requests are not meant to be forwarded to the internet. For example, we would want to pull a container image from a container registry hosted over the intranet. In these cases, the environment variable `NO_PROXY` can be appropriately configured on the host or in the *NSSM* UI.
 
 For example, we want to pull images from a container registry `registry.internal.com` we can configure the `NO_PROXY` variable as follows:
@@ -53,7 +53,7 @@ The `NO_PROXY` environment variable can be configured as a system environment va
 
 ![Image](assets/httpproxy_noproxy_nssm.PNG)
 
-## Configure Listen Interfaces
+## Configuring Listen Interfaces
 In some cases, *HTTPProxy* should be used to provide internet access to only certain networks. In this case, we can specify the *Network CIDRs* of the interfaces for which *HTTPProxy* must provide internet access.
 
 For example, if *HTTPProxy* must provide internet access to network with CIDR `192.19.1.0/24` and `192.20.0.0/16`, then we can start the *HTTPProxy* service with the following parameters:

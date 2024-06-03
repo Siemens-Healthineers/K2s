@@ -4,7 +4,7 @@ SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
 SPDX-License-Identifier: MIT
 -->
 
-# Create Offline Package
+# Creating Offline Package
 ## *K2s* Offline Package
 *K2s* provides support for creating an offline installation package[^1].
 

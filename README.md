@@ -15,7 +15,7 @@ SPDX-License-Identifier: MIT
 
 This solution is installable on Windows hosts.
 
-Read the [K2s Documentation](https://siemens-healthineers.github.io/K2s/).
+Read the [*K2s* Documentation](https://siemens-healthineers.github.io/K2s/).
 
 ## Why **K2s** distribution?
 The problems that **K2s** solves are the following:
@@ -30,8 +30,8 @@ The name **K2s** comes from the fact that we start with the default setting of 2
 See [Features](/doc/K8s_Features.md) for a full list of features.
 
 ## Quick Start
-1. [Get *K2s*](docs/op-manual/get-k2s.md)
-3. Verify that the [Prerequisites](docs/op-manual/installation.md#prerequisites) are fulfilled
+1. [Getting *K2s*](docs/op-manual/getting-k2s.md)
+3. Verify that the [Prerequisites](docs/op-manual/installing-k2s.md#prerequisites) are fulfilled
 4. Run as administrator in the installation/repository folder
     ```console
     k2s.exe install
@@ -66,25 +66,25 @@ Uninstalling the cluster removes not only the cluster itself but also all the wo
 
 In case that multiple systems need to be provisioned with Kubernetes or you want to reduce the install time dramatically, it is better to create one **K2s** offline package (contains all downloaded artifacts) before starting the install command.
 Setting up the Kubernetes cluster with the offline package takes only 2-3 minutes and needs no internet connection.
-Checkout how to create such offline packages: [Create Offline Package](docs/op-manual/create-offline-package.md).
+Checkout how to create such offline packages: [Creating Offline Package](docs/op-manual/creating-offline-package.md).
 
 ## [Supported OS Versions](docs/op-manual/os-support.md)
-See also [Windows-based Images](./smallsetup/ps-modules/windows-support/README.md).
+See also [*Windows*-based Images](./smallsetup/ps-modules/windows-support/README.md).
 
 ## [Hosting Variants](docs/user-guide/hosting-variants.md)
 
 ## Further Usage
-- [Get K2s](docs/op-manual/get-k2s.md)
-- [Install K2s](docs/op-manual/installation.md)
-- [Start K2s](docs/op-manual/start-k2s.md) (optional, K8s cluster starts automatically after installation)
-- [Check Cluster Status](docs/op-manual/check-k2s-status.md)
-- [Stop K2s](docs/op-manual/stop-k2s.md)
-- [Uninstall K2s](docs/op-manual/deinstallation.md)
-- [Add a registry](doc/K8s_AddRegistry.md)
-- [Build a container image](doc/K8s_BuildingAContainer.md)
+- [Getting *K2s*](docs/op-manual/getting-k2s.md)
+- [Installing *K2s*](docs/op-manual/installing-k2s.md)
+- [Starting *K2s*](docs/op-manual/starting-k2s.md)
+- [Checking *K2s* Status](docs/op-manual/checking-k2s-status.md)
+- [Stopping *K2s*](docs/op-manual/stopping-k2s.md)
+- [Uninstalling *K2s*](docs/op-manual/uninstalling-k2s.md)
+- [Adding a Container Registry](docs/user-guide/adding-container-registry.md)
+- [Building a Container Image](docs/user-guide/building-container-image.md)
 - [Shortcuts for interacting with cluster](doc/K8s_Shortcuts.md)
-- [Upgrade K2s](docs/op-manual/upgrade-k2s.md)
-- [Create Offline Package](docs/op-manual/create-offline-package.md)
+- [Upgrading *K2s*](docs/op-manual/upgrading-k2s.md)
+- [Creating Offline Package](docs/op-manual/creating-offline-package.md)
 
 ## Addons
 K2s provides a [rich set of addons](./addons/README.md) which are containing specific functionality, checkout the ```k2s addons``` command for all options.
