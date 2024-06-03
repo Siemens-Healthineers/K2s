@@ -113,6 +113,7 @@ nav:
           - PowerShell Development: dev-guide/contributing/powershell-dev.md
           - Automated Testing: dev-guide/contributing/automated-testing.md
           - Tags/Labels: dev-guide/contributing/tags-labels.md
+      - Hosting Variants Features Matrix: dev-guide/hosting-variants-features-matrix.md
       - Architecture: dev-guide/architecture.md
 not_in_nav: |
   /includes/**/*.*
