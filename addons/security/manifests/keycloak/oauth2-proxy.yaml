@@ -36,6 +36,8 @@ spec:
             - --standard-logging
             - --auth-logging
             - --request-logging
+            - --ssl-upstream-insecure-skip-verify
+            - --ssl-insecure-skip-verify
       nodeSelector:
         kubernetes.io/os: linux
 ---
@@ -63,7 +65,8 @@ metadata:
 spec:
   ingressClassName: nginx
   rules:
-    - http:
+    - host: k2s.cluster.net
+      http:
         paths:
           - path: /oauth2
             pathType: Prefix

@@ -58,6 +58,13 @@ The following features are available:
        - your-ingress-host.domain
        secretName: your-secret-name
    ---
+2. security: Basic authentication support is enabled. Dummy users are also created for development.
+   user: demo-user
+   password: adm$Pass1234$
+   Add below annotations in ingress to enable authentication support.
+    nginx.ingress.kubernetes.io/auth-url: "https://k2s.cluster.net/oauth2/auth"
+    nginx.ingress.kubernetes.io/auth-signin: "https://k2s.cluster.net/oauth2/start?rd=$escaped_request_uri"
+    nginx.ingress.kubernetes.io/auth-response-headers: "Authorization"
 This addon is documented in <installation folder>\addons\security\README.md
 '@ -split "`r`n" | ForEach-Object { Write-Log $_ -Console }
 }
@@ -116,4 +123,20 @@ function Wait-ForCARootCertificate(
 function Remove-Cmctl {
     Write-Log "Removing $cmctlExe.."
     Remove-Item -Path $cmctlExe -Force -ErrorAction SilentlyContinue
+}
+
+<#
+.DESCRIPTION
+Waits for the keycloak pods to be available.
+#>
+function Wait-ForKeyCloakAvailable {
+    return (Wait-ForPodCondition -Condition Ready -Label 'app=keycloak' -Namespace 'security' -TimeoutSeconds 120)
+}
+
+<#
+.DESCRIPTION
+Waits for the oauth2-proxy pods to be available.
+#>
+function Wait-ForOauth2ProxyAvailable {
+    return (Wait-ForPodCondition -Condition Ready -Label 'k8s-app=oauth2-proxy' -Namespace 'security' -TimeoutSeconds 120)
 }
