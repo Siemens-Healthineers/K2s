@@ -27,7 +27,7 @@ The problems that **K2s** solves are the following:
 
 The name **K2s** comes from the fact that we start with the default setting of 2 K8s nodes (Windows & Linux) and it relates to K8s with the intention to solve the problems mentioned above.
 
-See [Features](/doc/K8s_Features.md) for a full list of features.
+See [Features](docs/index.md#features) for a list of features.
 
 ## Quick Start
 1. [Getting *K2s*](docs/op-manual/getting-k2s.md)
