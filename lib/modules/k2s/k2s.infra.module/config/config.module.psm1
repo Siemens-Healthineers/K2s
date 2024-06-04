@@ -449,10 +449,6 @@ function Get-DefaultK8sVersion {
     return 'v1.29.5'
 }
 
-function Get-DefaultCrioVersion {
-    return '1.29.5'
-}
-
 <#
 .SYNOPSIS
 Gets the configured proxy overrides for the user in windows. Proxy overrides are the hosts for which the requests must not
@@ -526,7 +522,6 @@ Get-DefaultProvisioningBaseImageDiskSize,
 Get-RootConfig,
 Get-DefaultTempPwd,
 Get-DefaultK8sVersion,
-Get-DefaultCrioVersion,
 Get-LinuxLocalSharePath,
 Get-WindowsLocalSharePath,
 Get-ReuseExistingLinuxComputerForMasterNodeFlag,
