@@ -90,10 +90,8 @@ See also [*Windows*-based Images](./smallsetup/ps-modules/windows-support/README
 K2s provides a [rich set of addons](./addons/README.md) which are containing specific functionality, checkout the ```k2s addons``` command for all options.
 These addons can be used for testing and rapid prototyping purposes, as well in selected product scenarios.
 
-## [Troubleshooting](docs/troubleshooting.md)
-
 ## [Contributing](docs/dev-guide/contributing/index.md)
 
-## Training for Kubernetes
-- [Kubernetes Trainings](doc/K8s_Trainings.md)
+## [Training](docs/dev-guide/training.md)
 
+## [Troubleshooting](docs/troubleshooting.md)
