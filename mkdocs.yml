@@ -116,6 +116,7 @@ nav:
           - Tags/Labels: dev-guide/contributing/tags-labels.md
       - Hosting Variants Features Matrix: dev-guide/hosting-variants-features-matrix.md
       - Architecture: dev-guide/architecture.md
+      - Training: dev-guide/training.md
   - Troubleshooting: troubleshooting.md
 not_in_nav: |
   /includes/**/*.*

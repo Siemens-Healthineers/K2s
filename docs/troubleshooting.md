@@ -1,6 +1,5 @@
 <!--
-SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
-
+SPDX-FileCopyrightText: © 2024 Siemens Healthcare GmbH
 SPDX-License-Identifier: MIT
 -->
 
@@ -157,6 +156,16 @@ More information on this topic:
 - [What is APIPA](https://www.geeksforgeeks.org/what-is-apipa-automatic-private-ip-addressing/){target="blank"}
 - [Wikipedia on APIPA](https://en.wikipedia.org/wiki/Link-local_address){target="blank"}
 - [Microsoft on APIPA](https://docs.microsoft.com/en-us/previous-versions/windows/it-pro/windows-2000-server/cc958957(v=technet.10)?redirectedfrom=MSDN){target="blank"}
+
+### Unable to Mount File Share Between Nodes
+#### Problem
+Mounting errors like the following occurred:
+``` title=""
+mount: /mnt/k8s-smb-share: can't read superblock on //172.x.x.x/k8s-smb-share.
+```
+
+#### Solution
+Respective user must have local permissions to use file shares in order to host/mount SMB shares.
 
 ### `k2s.exe` Missing / *k2s* Command Not Found
 #### Problem
