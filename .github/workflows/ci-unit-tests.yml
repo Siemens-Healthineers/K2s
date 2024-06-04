@@ -12,24 +12,24 @@ on:
     paths-ignore:
       - 'LICENSES/**'
       - 'bin/**'
-      - 'doc/**'
       - 'docs/**'
       - 'k2s.exe'
       - 'mkdocs.yml'
       - '*.md'
       - '.github/ISSUE_TEMPLATE/**'
+      - '.vscode/**'
   pull_request:
     branches:
       - "main"
     paths-ignore:
       - 'LICENSES/**'
       - 'bin/**'
-      - 'doc/**'
       - 'docs/**'
       - 'k2s.exe'
       - 'mkdocs.yml'
       - '*.md'
       - '.github/ISSUE_TEMPLATE/**'
+      - '.vscode/**'
 
 env:
   GOVERSION: "1.22.3"

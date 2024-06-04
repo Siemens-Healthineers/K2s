@@ -4,13 +4,13 @@ SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
 SPDX-License-Identifier: MIT
 -->
 
-- [*K2s* Testing *framework*](#k2s-testing-framework)
+- [*K2s Testing Framework*](#k2s-testing-framework)
 	- [Creating a new Test Suite](#creating-a-new-test-suite)
 	- [Writing Test Specs](#writing-test-specs)
 	- [Test Suite APIs](#test-suite-apis)
 
 
-# *K2s* Testing *framework*
+# *K2s Testing Framework*
 To avoid writing redundant *K2s* interop code for testing purpose, *K2s* provides a testing framework.
 
 Since this framework uses [*Ginkgo*](https://onsi.github.io/ginkgo/#top) under the hood (see also [Tech Stack](../README.md#tech-stack)), the tests/specs are organized in test suites.

@@ -16,3 +16,10 @@ gpg
 nbsp
 larr
 rarr
+Buildah
+containerd
+Dockerfile
+Kustomize
+flanneld
+Redis
+Golang

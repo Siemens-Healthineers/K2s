@@ -3,7 +3,7 @@
 
 site_name: K2s - Kubernetes distribution for Windows & Linux workloads
 site_url: https://Siemens-Healthineers.github.io/K2s
-copyright: Copyright &copy; 2024 Siemens Healthcare GmbH
+copyright: Copyright &copy; 2024 Siemens Healthineers AG
 repo_url: https://github.com/Siemens-Healthineers/K2s
 edit_uri: edit/main/docs/
 strict: true
@@ -89,26 +89,39 @@ nav:
       - Quick Start: quickstart/index.md
   - User Guide:
       - Hosting Variants: user-guide/hosting-variants.md
+      - k2s CLI: user-guide/k2s-cli.md
+      - CLI Shortcuts: user-guide/cli-shortcuts.md
       - Assignment of Cluster IP Addresses for Services: user-guide/cluster-ip-addresses.md
+      - Adding a Container Registry: user-guide/adding-container-registry.md
+      - Building a Container Image: user-guide/building-container-image.md
   - Operator Manual:
       - Supported OS Versions: op-manual/os-support.md
-      - Get K2s: op-manual/get-k2s.md
-      - k2s CLI: op-manual/k2s-cli.md
-      - Create Offline Package: op-manual/create-offline-package.md
-      - Installation: op-manual/installation.md
-      - Start K2s: op-manual/start-k2s.md
-      - Check K2s Status: op-manual/check-k2s-status.md
-      - Stop K2s: op-manual/stop-k2s.md
-      - Upgrade K2s: op-manual/upgrade-k2s.md
-      - Deinstallation: op-manual/deinstallation.md
+      - Getting K2s: op-manual/getting-k2s.md
+      - Creating Offline Package: op-manual/creating-offline-package.md
+      - Installing K2s: op-manual/installing-k2s.md
+      - Starting K2s: op-manual/starting-k2s.md
+      - Checking K2s Status: op-manual/checking-k2s-status.md
+      - Stopping K2s: op-manual/stopping-k2s.md
+      - Upgrading K2s: op-manual/upgrading-k2s.md
+      - Configuring HTTPProxy Service: op-manual/configuring-httpproxy-service.md
+      - Secure Host Access: op-manual/secure-host-access.md
+      - Uninstalling K2s: op-manual/uninstalling-k2s.md
   - Developer Guide:
       - Contributing:
           - dev-guide/contributing/index.md
           - Corporate Contributors: dev-guide/contributing/cla-corporate-contributor.md
           - Individual Contributors: dev-guide/contributing/cla-individual-contributor.md
+          - Licensing: dev-guide/contributing/licensing.md
           - PowerShell Development: dev-guide/contributing/powershell-dev.md
+          - Building Locally: dev-guide/contributing/building-locally.md
           - Automated Testing: dev-guide/contributing/automated-testing.md
           - Tags/Labels: dev-guide/contributing/tags-labels.md
-      - Architecture: dev-guide/architecture.md
+          - Updating Documentation: dev-guide/contributing/updating-documentation.md
+          - Submitting Changes: dev-guide/contributing/submitting-changes.md
+      - Hosting Variants Features Matrix: dev-guide/hosting-variants-features-matrix.md
+      - Training: dev-guide/training.md
+  - Troubleshooting:
+      - Diagnostics: troubleshooting/diagnostics.md
+      - Known Issues: troubleshooting/known-issues.md
 not_in_nav: |
   /includes/**/*.*
