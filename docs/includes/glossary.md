@@ -33,6 +33,7 @@ SPDX-License-Identifier: MIT
 *[PR]: Pull Request
 *[RAM]: Random-Access Memory
 *[REST]: Representational State Transfer
+*[SMB]: Server Message Block
 *[SSL]: Secure Sockets Layer
 *[UI]: User Interface
 *[URL]: Uniform Resource Locator

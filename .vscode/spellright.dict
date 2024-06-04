@@ -21,3 +21,5 @@ containerd
 Dockerfile
 Kustomize
 flanneld
+Redis
+Golang
