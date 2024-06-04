@@ -1,16 +1,16 @@
 <!--
-SPDX-FileCopyrightText: © 2024 Siemens Healthcare GmbH
+SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 SPDX-License-Identifier: MIT
 -->
 
 # Known Issues
-## Secret Issue When Loading via [Kustomize](https://github.com/kubernetes-sigs/kustomize){target="blank"}
+## Secret Issue When Loading via [Kustomize](https://github.com/kubernetes-sigs/kustomize){target="_blank"}
 ```console
 kubectl apply -k <folder>
 error: rawResources failed to read Resources: Load from path ../secrets failed: '../secrets' must be a file (got d='..\kubernetes\secrets')
 ```
 
-=> [kubectl](https://kubernetes.io/docs/reference/kubectl/){target="blank"} might be outdated, please us a newer version.
+=> [kubectl](https://kubernetes.io/docs/reference/kubectl/){target="_blank"} might be outdated, please us a newer version.
 
 ## Disk Pressure
 You may suddenly find that *Kubernetes* cannot start a large number of *Pods*. This is often due to *Disk Pressure* meaning that you are lacking available space on your hard disk.
@@ -66,7 +66,7 @@ kubectl -k .\<manifest-folder>
 ```
 
 ## No `cbr0` Switch Being Created During Start
-When starting *K2s*, you run into an error (e.g. timeout) while the script is waiting for the `cbr0` switch to be created by [flannel](https://github.com/flannel-io/flannel){target="blank"}:
+When starting *K2s*, you run into an error (e.g. timeout) while the script is waiting for the `cbr0` switch to be created by [flannel](https://github.com/flannel-io/flannel){target="_blank"}:
 
 ```title="Example Output"
     [10:19:22] waiting for cbr0 switch to be created by flanneld...
@@ -116,7 +116,7 @@ If you face network errors especially between *Linux* and *Microsoft* services, 
 ## *Microsoft* APIPA / Link-Local Address
 Another reason could be the *Windows* Automatic Private IP Addressing (APIPA). It is enabled by default in *Windows 10* and depending on the speed of the physical adapter, the CPU and the DHCP server, it may happen that *Windows* decides to use an "automatic APIPA address".
 
-There is a reserved IPv4 address block `169.254.0.0/16` (`169.254.0.0` – `169.254.255.255`) for link-local addressing. If such an address is chosen by *Microsoft*, it will no longer be overwritten by the DHCP server (depending on OS version). This will make the *flanneld* approach unusable. Such APIPA addresses are detected during the *K2s* start routine. A workaround is also provided the script [FixAutoconfiguration.ps1](https://github.com/Siemens-Healthineers/K2s/blob/main/smallsetup/FixAutoconfiguration.ps1){target="blank"}.
+There is a reserved IPv4 address block `169.254.0.0/16` (`169.254.0.0` – `169.254.255.255`) for link-local addressing. If such an address is chosen by *Microsoft*, it will no longer be overwritten by the DHCP server (depending on OS version). This will make the *flanneld* approach unusable. Such APIPA addresses are detected during the *K2s* start routine. A workaround is also provided the script [FixAutoconfiguration.ps1](https://github.com/Siemens-Healthineers/K2s/blob/main/smallsetup/FixAutoconfiguration.ps1){target="_blank"}.
 
 ![IMAGE here](assets/apipa_err.png)
 
@@ -125,9 +125,9 @@ There is a reserved IPv4 address block `169.254.0.0/16` (`169.254.0.0` – `169.
 
 More information on this topic:
 
-- [What is APIPA](https://www.geeksforgeeks.org/what-is-apipa-automatic-private-ip-addressing/){target="blank"}
-- [Wikipedia on APIPA](https://en.wikipedia.org/wiki/Link-local_address){target="blank"}
-- [Microsoft on APIPA](https://docs.microsoft.com/en-us/previous-versions/windows/it-pro/windows-2000-server/cc958957(v=technet.10)?redirectedfrom=MSDN){target="blank"}
+- [What is APIPA](https://www.geeksforgeeks.org/what-is-apipa-automatic-private-ip-addressing/){target="_blank"}
+- [Wikipedia on APIPA](https://en.wikipedia.org/wiki/Link-local_address){target="_blank"}
+- [Microsoft on APIPA](https://docs.microsoft.com/en-us/previous-versions/windows/it-pro/windows-2000-server/cc958957(v=technet.10)?redirectedfrom=MSDN){target="_blank"}
 
 ## Unable to Mount File Share Between Nodes
 ### Problem
