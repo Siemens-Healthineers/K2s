@@ -3,36 +3,8 @@ SPDX-FileCopyrightText: © 2024 Siemens Healthcare GmbH
 SPDX-License-Identifier: MIT
 -->
 
-# Troubleshooting
-## Diagnostics
-### *K2s* System Status
-To inspect the full *K2s* system status, run:
-```console
-k2s status -o wide
-```
-
-### Log Files
-To analyze the log files, browse the directory `<install-drive>\var\log`. The main log file is `k2s.log`.
-
-### Dumping *K2s* Debug Information
-To dump *K2s* system information, run:
-```console
-k2s system dump
-```
-
-### Listing ALL PVCs
-Get the list of all mounted volumes, their size and their namespace:
-```console
-kg pv
-```
-
-Get the list of all mounted volume claims and their current usage:
-```console
-kg pvc -A
-```
-
-## Known Issues
-### Secret Issue When Loading via [Kustomize](https://github.com/kubernetes-sigs/kustomize){target="blank"}
+# Known Issues
+## Secret Issue When Loading via [Kustomize](https://github.com/kubernetes-sigs/kustomize){target="blank"}
 ```console
 kubectl apply -k <folder>
 error: rawResources failed to read Resources: Load from path ../secrets failed: '../secrets' must be a file (got d='..\kubernetes\secrets')
@@ -40,10 +12,10 @@ error: rawResources failed to read Resources: Load from path ../secrets failed: 
 
 => [kubectl](https://kubernetes.io/docs/reference/kubectl/){target="blank"} might be outdated, please us a newer version.
 
-### Disk Pressure
+## Disk Pressure
 You may suddenly find that *Kubernetes* cannot start a large number of *Pods*. This is often due to *Disk Pressure* meaning that you are lacking available space on your hard disk.
 
-For diagnostics, either inspect the [*K2s* System Status](#k2s-system-status) or use *kubectl* directly:
+For diagnostics, either inspect the [*K2s* System Status](diagnostics.md#k2s-system-status) or use *kubectl* directly:
 ```console
 kubectl describe nodes
 ```
@@ -76,7 +48,7 @@ The problem comes most probably from the *Docker* registry and you can clean it 
 
     You must rebuild them locally on your system with the `k2s image build` command.
 
-### Volume Access Problem
+## Volume Access Problem
 TP remove unbound volumes, run:
 ```console
 k delete pvc <pvc-name> -n <namespace> --f
@@ -93,7 +65,7 @@ Then re-apply the manifest of the service consuming the volumes:
 kubectl -k .\<manifest-folder>
 ```
 
-### No `cbr0` Switch Being Created During Start
+## No `cbr0` Switch Being Created During Start
 When starting *K2s*, you run into an error (e.g. timeout) while the script is waiting for the `cbr0` switch to be created by [flannel](https://github.com/flannel-io/flannel){target="blank"}:
 
 ```title="Example Output"
@@ -121,10 +93,10 @@ When starting *K2s*, you run into an error (e.g. timeout) while the script is wa
 
 There are several reasons which can cause this. Basically the *flanneld* process is waiting for a new virtual switch to be created which has the same IP as the original, physical ethernet adapter. 
 
-### Networking Problems
+## Networking Problems
 If you face network errors especially between *Linux* and *Microsoft* services, you may need to reset your networking.
 
-#### Minor Workaround
+### Minor Workaround
 - Run `k2s stop`
 - Run `ipconfig`
 - Run:<br/>
@@ -134,14 +106,14 @@ If you face network errors especially between *Linux* and *Microsoft* services, 
 - Run `ipconfig` to check cleanup result
 - Run `k2s start`
 
-#### Major Workaround
+### Major Workaround
 !!! warning
     This workaround resets the networking on *Windows*.
 
 - Run `netcfg -d`
 - Reboot the host system
 
-### *Microsoft* APIPA / Link-Local Address
+## *Microsoft* APIPA / Link-Local Address
 Another reason could be the *Windows* Automatic Private IP Addressing (APIPA). It is enabled by default in *Windows 10* and depending on the speed of the physical adapter, the CPU and the DHCP server, it may happen that *Windows* decides to use an "automatic APIPA address".
 
 There is a reserved IPv4 address block `169.254.0.0/16` (`169.254.0.0` – `169.254.255.255`) for link-local addressing. If such an address is chosen by *Microsoft*, it will no longer be overwritten by the DHCP server (depending on OS version). This will make the *flanneld* approach unusable. Such APIPA addresses are detected during the *K2s* start routine. A workaround is also provided the script [FixAutoconfiguration.ps1](https://github.com/Siemens-Healthineers/K2s/blob/main/smallsetup/FixAutoconfiguration.ps1){target="blank"}.
@@ -157,28 +129,28 @@ More information on this topic:
 - [Wikipedia on APIPA](https://en.wikipedia.org/wiki/Link-local_address){target="blank"}
 - [Microsoft on APIPA](https://docs.microsoft.com/en-us/previous-versions/windows/it-pro/windows-2000-server/cc958957(v=technet.10)?redirectedfrom=MSDN){target="blank"}
 
-### Unable to Mount File Share Between Nodes
-#### Problem
+## Unable to Mount File Share Between Nodes
+### Problem
 Mounting errors like the following occurred:
 ``` title=""
 mount: /mnt/k8s-smb-share: can't read superblock on //172.x.x.x/k8s-smb-share.
 ```
 
-#### Solution
+### Solution
 Respective user must have local permissions to use file shares in order to host/mount SMB shares.
 
-### `k2s.exe` Missing / *k2s* Command Not Found
-#### Problem
+## `k2s.exe` Missing / *k2s* Command Not Found
+### Problem
 If the `k2s.exe` is missing in the install folder, most likely the *Windows Virus & thread protection* identified it as a thread and moved it to quarantine. Despite all exclusion lists this file was added to by the *K2s* maintainers, this can happen from time to time.
 
-#### Solution
+### Solution
 - If the *Windows Virus & thread protection* asks for the appropriate action, allow the `k2s.exe` file on your system.
 - To restore the file, go to `Windows Virus & thread protection` -> `Protection history` and restore `k2s.exe`. The result should look similar to this:
 
   ![Protection history](assets/ProtectionHistory.png)
 
-### Unable to Run *Windows* Container on a Hardened Machine (*AppLocker* Rules)
-#### Problem
+## Unable to Run *Windows* Container on a Hardened Machine (*AppLocker* Rules)
+### Problem
 If the *K2s* cluster is installed on a machine where security hardening is applied using *AppLocker* rules, then running *Windows* containers will be blocked. If you describe the *Windows* container *Pod* then you might see the following error, where the application is blocked by group policy:
 ```title=""
 Warning  FailedCreatePodSandBox  0s    kubelet            Failed to create pod sandbox: rpc error: code = Unknown desc = failed to start sandbox container task "459fe28ca0da5a154964c80e1b5d74de3abefc83cf7ad77418a5d6cd9a7e5605": hcs::System::CreateProcess 459fe28ca0da5a154964c80e1b5d74de3abefc83cf7ad77418a5d6cd9a7e5605: This program is blocked by group policy. For more information, contact your system administrator.: unknown
@@ -188,7 +160,7 @@ You can check the existing *AppLocker* rules by opening `Local Group Policy Edit
 
 ![AppLocker Rules](assets/WindowsAppLockerRules.png)
 
-#### Solution
+### Solution
 !!! warning
     This is not an ideal solution, rather a workaround.
 
@@ -199,8 +171,8 @@ Although, this is just a hack to continue working, we should allow *Windows* con
 !!! warning
     Please review the `AppLocker` rules with your security experts.
 
-### Unable to Run *Windows Hyper-V* on Host Machine
-#### Problem
+## Unable to Run *Windows Hyper-V* on Host Machine
+### Problem
 *Hyper-V Manager* unable to connect to *Virtual Machine Management* service on host machine. To reproduce, run:
 ```PowerShell
 Get-VM
@@ -212,14 +184,14 @@ If an error occurs, it might look like:
 Hyper-V encountered an error trying to access an object on computer ‘localhost’ because the object was not found. The object might have been deleted. Verify that the Virtual Machine Management service on the computer is running. If the service is running, try to perform the task again by using Run as Administrator.
 ```
 
-#### Solution
+### Solution
 This is due to a prior uninstall which has deleted a *MOF* file which is required for *HyperVisor*. In order to regenerate this file, run the following command from an elevated (administrator) command prompt:
 ```console
 MOFCOMP %SYSTEMROOT%\System32\WindowsVirtualization.V2.mof
 ```
 
-### Unable to Run *Windows* Containers on Host Machine
-#### Problem
+## Unable to Run *Windows* Containers on Host Machine
+### Problem
 *Windows* containers are unable to run due to failure in `hcs::CreateComputeSystem`:
 ```title="Error Log from Pod"
 Failed to create pod sandbox: rpc error: code = Unknown desc = failed to create containerd task: failed to create shim task: hcs::CreateComputeSystem 9f078e725c4f6b36dc2647d6323bc214da46fa24ba88d3d5652bc687993c27ed: The request is not supported.: unknown
@@ -228,7 +200,7 @@ Failed to create pod sandbox: rpc error: code = Unknown desc = failed to create 
 Error response from daemon: hcsshim::CreateComputeSystem 70b6cf806eef813a8a93b40780c32e43f5406f0cbec10b922d3bd35ecc677b6c: The request is not supported.
 ```
 
-#### Solution
+### Solution
   1. Run `k2s stop`
   2. Run:<br/>
     ```PowerShell
