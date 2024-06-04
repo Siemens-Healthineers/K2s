@@ -17,12 +17,8 @@ This CLA does not enable Siemens Healthineers to use or process personal data. T
 ## Contributing with code
 The code is mainly written in *Go* and *PowerShell*. See [*PowerShell* Development](powershell-dev.md) for more information.
 
-### Clone *Git* Repository
-
-```console
-> mkdir c:\myFolder; cd c:\myFolder
-C:\myFolder> git clone https://github.com/Siemens-Healthineers/K2s .
-```
+### Cloning *Git* Repository
+See [Cloning *Git* Repository](../../op-manual/getting-k2s.md#option-2-cloning-git-repository).
 
 ### Codebase Structure
 <pre>
