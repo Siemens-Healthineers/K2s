@@ -450,7 +450,7 @@ function Get-DefaultK8sVersion {
 }
 
 function Get-DefaultCrioVersion {
-    return '1.25.2'
+    return '1.29.5'
 }
 
 <#
