@@ -9,7 +9,7 @@ The ultimate goal is to automate every test case and type, i.e.:
 
 - Unit tests
 - Integration Tests
-- e2e tests / system tests / acceptance tests / executable specifications (BDD)
+- e2e tests / system tests / acceptance tests / executable specifications (BDD-style, see also [*K2s* Acceptance Testing](#k2s-acceptance-testing))
 
 !!! info
     Acceptance tests might require a running *K2s* cluster.
@@ -163,3 +163,45 @@ var _ = BeforeSuite(func() {
 ```
 
 This enables control over *slog* output, i.e. the output can be enabled when running *Ginkgo* in verbose mode (`ginkog -v`) and be omitted in non-verbose mode.
+
+### *K2s* Acceptance Testing
+!!! info
+    **The acceptance tests focus on testing *K2s* from a user's point of view** in an automated, repeatable and reproduceable fashion. They are intended to cover all available features across the various [Supported OS Versions](../../op-manual/os-support.md). They are not intended to cover all the edge and corner cases, though (Unit Tests might be a better fit there).
+
+**To mark acceptance tests as such** and provide additional information about test prerequisites (e.g. a running *K2s* cluster, internet connectivity, etc.), **use [Tags/Labels](tags-labels.md)**.
+
+#### Tech Stack
+The tech stack mostly comprises the [*Go* testing package](https://pkg.go.dev/testing){target="blank"}, [*Ginkgo*](https://onsi.github.io/ginkgo/#top){target="blank"}/[*Gomega*](https://onsi.github.io/gomega/#top){target="blank"} and the *[K2s Testing Framework](https://github.com/Siemens-Healthineers/K2s/blob/main/k2s/test/framework/README.md){target="blank"}* to write acceptance tests in an efficient way without having to write boilerplate code repeatedly. The levels of abstraction are depicted in the following:
+
+```mermaid
+flowchart TD
+    A(K2s Testing Framework) --> |utilizes|B(Ginkgo/Gomega)
+    B --> |utilizes|C(Go Testing Package)
+```
+
+#### Implementing Tests/Specs
+See [*K2s* Acceptance Tests/Specs](https://github.com/Siemens-Healthineers/K2s/blob/main/k2s/test/README.md){target="blank"}.
+
+#### Executing Tests/Specs
+Multiple options exist to run *Go*-based test specs:
+
+- [Main Script: execute_all_tests.ps1](#main-script-execute_all_testsps1) - Recommended, provides most flexibility
+- Running *Ginkgo*:
+    ```console
+    ginkgo <dir-with-test-specs>
+    ```
+- Running `go test`:
+    ```console
+    cd <dir-with-test-specs>
+    go test 
+    ```
+
+!!! tip "Ginkgo and go test"
+    Use `-v` flag to enable verbose test execution output.
+    
+    Use `-r` or `./...` to scan for and execute tests recursively starting in the given directory.
+
+!!! tip "Optimizing Test Execution Speed"
+    When executing *Go*-based tests, the packages containing the test specs will get built right before test execution. This compilation is rather time-consuming compared to the actual test runs, especially when executing short-running unit tests.
+
+    To optimize the overall execution speed, the packages containing test specs can be build before hand, either through `ginkgo build` or `go test -c`.
