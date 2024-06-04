@@ -111,9 +111,13 @@ nav:
           - dev-guide/contributing/index.md
           - Corporate Contributors: dev-guide/contributing/cla-corporate-contributor.md
           - Individual Contributors: dev-guide/contributing/cla-individual-contributor.md
+          - Licensing: dev-guide/contributing/licensing.md
           - PowerShell Development: dev-guide/contributing/powershell-dev.md
+          - Building Locally: dev-guide/contributing/building-locally.md
           - Automated Testing: dev-guide/contributing/automated-testing.md
           - Tags/Labels: dev-guide/contributing/tags-labels.md
+          - Updating Documentation: dev-guide/contributing/updating-documentation.md
+          - Submitting Changes: dev-guide/contributing/submitting-changes.md
       - Hosting Variants Features Matrix: dev-guide/hosting-variants-features-matrix.md
       - Training: dev-guide/training.md
   - Troubleshooting:
