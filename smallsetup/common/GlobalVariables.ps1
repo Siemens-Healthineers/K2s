@@ -57,7 +57,6 @@ $global:ExecutableFolderPath = "$global:KubernetesPath\bin\exe"
 $global:DockerDir = "$global:KubernetesPath\bin\docker"
 $global:DockerExe = "$global:DockerDir\docker.exe"
 $global:KubernetesVersion = 'v1.29.5'
-$global:CrioVersion = '1.29.5'
 $global:FlannelVersion = 'v0.17.0'
 $global:CNIPluginVersion = 'v1.1.1'
 $global:CNIFlannelVersion = 'v1.0.1'

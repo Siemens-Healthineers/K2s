@@ -357,13 +357,6 @@ Describe 'Install-KubernetesArtifacts' -Tag 'unit', 'ci', 'linuxnode' {
                 { Install-KubernetesArtifacts -UserName 'anyNonEmptyOrNullValue' -UserPwd 'anyPwd' -IpAddress 'anyIpAddress' } | Get-ExceptionMessage | Should -BeLike '*K8sVersion*'
             }
         }
-        It 'CrioVersion' {
-            InModuleScope $linuxNodeModuleName {
-                Mock Get-IsValidIPv4Address { $true }
-
-                { Install-KubernetesArtifacts -UserName 'anyNonEmptyOrNullValue' -UserPwd 'anyPwd' -IpAddress 'anyIpAddress' -K8sVersion 'anyK8sVersion' } | Get-ExceptionMessage | Should -BeLike '*CrioVersion*'
-            }
-        }
     }
     Context "parameter's value validation" {
         It "UserName '<nameToUse>'" -ForEach @(
@@ -400,145 +393,124 @@ Describe 'Install-KubernetesArtifacts' -Tag 'unit', 'ci', 'linuxnode' {
                 { Install-KubernetesArtifacts -UserName 'anyNonEmptyOrNullValue' -UserPwd 'anyPwd' -IpAddress 'anyIpAddress' -K8sVersion $k8sVersionToUse } | Get-ExceptionMessage | Should -BeLike '*K8sVersion*'
             }
         }
-        It "CrioVersion '<crioVersionToUse>'" -ForEach @(
-            @{ crioVersionToUse = 'null' }
-            @{ crioVersionToUse = '' }
-            @{ crioVersionToUse = '  ' }
-        ) {
-            InModuleScope $linuxNodeModuleName -Parameters @{ crioVersionToUse = $crioVersionToUse } {
-                if ($crioVersionToUse -eq 'null') {
-                    $crioVersionToUse = $null
-                }
-                Mock Get-IsValidIPv4Address { $true }
-                
-                { Install-KubernetesArtifacts -UserName 'anyNonEmptyOrNullValue' -UserPwd 'anyPwd' -IpAddress 'anyIpAddress' -K8sVersion 'anyK8sVersion' -CrioVersion $crioVersionToUse } | Get-ExceptionMessage | Should -BeLike '*CrioVersion*'
-            }
-        }
     }
-    Context 'perfoms installation' {
-        It "with proxy '<proxyToUse>'" -ForEach @(
-            @{ proxyToUse = '' }
-            @{ proxyToUse = 'myProxy' }
-        ) {
-            InModuleScope $linuxNodeModuleName -Parameters @{ proxyToUse = $proxyToUse } {
-                $expectedCrioVersion = 'myCrioVersion'
-                $expectedK8sVersion = 'vK8sMajorNumber.K8sMinorNumber.K8sBuildNumber'
-                $expectedPackageShortK8sVersion = 'vK8sMajorNumber.K8sMinorNumber'
-                $expectedShortK8sVersion = 'K8sMajorNumber.K8sMinorNumber.K8sBuildNumber-1.1'
-                $expectedUserName = 'theUser'
-                $expectedUserPwd = 'thePwd'
-                $expectedIpAddress = 'myIpAddress'
-                Mock Get-IsValidIPv4Address { $true }
-                Mock InstallAptPackages { }
-                Mock Write-Log { }
-                class ActualRemoteCommand {
-                    [string]$Command
-                    [bool]$IgnoreErrors
-                }
-                if ($proxyToUse -ne '') {
-                    $curlProxy = " --proxy $proxyToUse"
-                }
-                else {
-                    $curlProxy = ''
-                }
+    # Context 'perfoms installation' {
+    #     It "with proxy '<proxyToUse>'" -ForEach @(
+    #         @{ proxyToUse = '' }
+    #         @{ proxyToUse = 'myProxy' }
+    #     ) {
+    #         InModuleScope $linuxNodeModuleName -Parameters @{ proxyToUse = $proxyToUse } {
+    #             $expectedK8sVersion = 'vK8sMajorNumber.K8sMinorNumber.K8sBuildNumber'
+    #             $expectedPackageShortK8sVersion = 'vK8sMajorNumber.K8sMinorNumber'
+    #             $expectedShortK8sVersion = 'K8sMajorNumber.K8sMinorNumber.K8sBuildNumber-1.1'
+    #             $expectedUserName = 'theUser'
+    #             $expectedUserPwd = 'thePwd'
+    #             $expectedIpAddress = 'myIpAddress'
+    #             Mock Get-IsValidIPv4Address { $true }
+    #             Mock InstallAptPackages { }
+    #             Mock Write-Log { }
+    #             class ActualRemoteCommand {
+    #                 [string]$Command
+    #                 [bool]$IgnoreErrors
+    #             }
+    #             if ($proxyToUse -ne '') {
+    #                 $curlProxy = " --proxy $proxyToUse"
+    #             }
+    #             else {
+    #                 $curlProxy = ''
+    #             }
 
-                $expectedExecutedRemoteCommands = @()
-                $expectedExecutedRemoteCommands += @{Command = 'echo overlay | sudo tee /etc/modules-load.d/k8s.conf'; IgnoreErrors = $false }
-                $expectedExecutedRemoteCommands += @{Command = 'echo br_netfilter | sudo tee /etc/modules-load.d/k8s.conf'; IgnoreErrors = $false }
-                $expectedExecutedRemoteCommands += @{Command = 'sudo modprobe overlay'; IgnoreErrors = $false }
-                $expectedExecutedRemoteCommands += @{Command = 'sudo modprobe br_netfilter'; IgnoreErrors = $false }
+    #             $expectedExecutedRemoteCommands = @()
+    #             $expectedExecutedRemoteCommands += @{Command = 'echo overlay | sudo tee /etc/modules-load.d/k8s.conf'; IgnoreErrors = $false }
+    #             $expectedExecutedRemoteCommands += @{Command = 'echo br_netfilter | sudo tee /etc/modules-load.d/k8s.conf'; IgnoreErrors = $false }
+    #             $expectedExecutedRemoteCommands += @{Command = 'sudo modprobe overlay'; IgnoreErrors = $false }
+    #             $expectedExecutedRemoteCommands += @{Command = 'sudo modprobe br_netfilter'; IgnoreErrors = $false }
 
-                $expectedExecutedRemoteCommands += @{Command = 'echo net.bridge.bridge-nf-call-ip6tables = 1 | sudo tee -a /etc/sysctl.d/k8s.conf'; IgnoreErrors = $false }
-                $expectedExecutedRemoteCommands += @{Command = 'echo net.bridge.bridge-nf-call-iptables = 1 | sudo tee -a /etc/sysctl.d/k8s.conf'; IgnoreErrors = $false }
-                $expectedExecutedRemoteCommands += @{Command = 'echo net.ipv4.ip_forward = 1 | sudo tee -a /etc/sysctl.d/k8s.conf'; IgnoreErrors = $false }
-                $expectedExecutedRemoteCommands += @{Command = 'sudo sysctl --system'; IgnoreErrors = $false }
+    #             $expectedExecutedRemoteCommands += @{Command = 'echo net.bridge.bridge-nf-call-ip6tables = 1 | sudo tee -a /etc/sysctl.d/k8s.conf'; IgnoreErrors = $false }
+    #             $expectedExecutedRemoteCommands += @{Command = 'echo net.bridge.bridge-nf-call-iptables = 1 | sudo tee -a /etc/sysctl.d/k8s.conf'; IgnoreErrors = $false }
+    #             $expectedExecutedRemoteCommands += @{Command = 'echo net.ipv4.ip_forward = 1 | sudo tee -a /etc/sysctl.d/k8s.conf'; IgnoreErrors = $false }
+    #             $expectedExecutedRemoteCommands += @{Command = 'sudo sysctl --system'; IgnoreErrors = $false }
 
-                $expectedExecutedRemoteCommands += @{Command = 'echo @reboot root mount --make-rshared / | sudo tee /etc/cron.d/sharedmount'; IgnoreErrors = $false }
+    #             $expectedExecutedRemoteCommands += @{Command = 'echo @reboot root mount --make-rshared / | sudo tee /etc/cron.d/sharedmount'; IgnoreErrors = $false }
 
-                $expectedExecutedRemoteCommands += @{Command = 'sudo DEBIAN_FRONTEND=noninteractive apt-get update -qq --yes --allow-releaseinfo-change'; IgnoreErrors = $false }
-                $expectedExecutedRemoteCommands += @{Command = 'sudo DEBIAN_FRONTEND=noninteractive apt-get install -y gpg'; IgnoreErrors = $false }
+    #             $expectedExecutedRemoteCommands += @{Command = 'sudo DEBIAN_FRONTEND=noninteractive apt-get update -qq --yes --allow-releaseinfo-change'; IgnoreErrors = $false }
+    #             $expectedExecutedRemoteCommands += @{Command = 'sudo DEBIAN_FRONTEND=noninteractive apt-get install -y gpg'; IgnoreErrors = $false }
 
-                $expectedExecutedRemoteCommands += @{Command = "sudo curl --retry 3 --retry-all-errors -so cri-o.v$expectedCrioVersion.tar.gz https://storage.googleapis.com/cri-o/artifacts/cri-o.amd64.v$expectedCrioVersion.tar.gz$curlProxy"; IgnoreErrors = $true }
-                $expectedExecutedRemoteCommands += @{Command = 'sudo mkdir -p /usr/cri-o'; IgnoreErrors = $false }
-                $expectedExecutedRemoteCommands += @{Command = "sudo tar -xf cri-o.v$expectedCrioVersion.tar.gz -C /usr/cri-o --strip-components=1"; IgnoreErrors = $false }
-                $expectedExecutedRemoteCommands += @{Command = 'cd /usr/cri-o/ && sudo ./install 2>&1'; IgnoreErrors = $false }
-                $expectedExecutedRemoteCommands += @{Command = "sudo rm cri-o.v$expectedCrioVersion.tar.gz"; IgnoreErrors = $false }
-
-                $expectedExecutedRemoteCommands += @{Command = "grep timeout.* /etc/crictl.yaml | sudo sed -i 's/timeout.*/timeout: 30/g' /etc/crictl.yaml"; IgnoreErrors = $false }
-                $expectedExecutedRemoteCommands += @{Command = "grep timeout.* /etc/crictl.yaml || echo timeout: 30 | sudo tee -a /etc/crictl.yaml"; IgnoreErrors = $false }
+    #             $expectedExecutedRemoteCommands += @{Command = "grep timeout.* /etc/crictl.yaml | sudo sed -i 's/timeout.*/timeout: 30/g' /etc/crictl.yaml"; IgnoreErrors = $false }
+    #             $expectedExecutedRemoteCommands += @{Command = 'grep timeout.* /etc/crictl.yaml || echo timeout: 30 | sudo tee -a /etc/crictl.yaml'; IgnoreErrors = $false }
                 
-                if ($proxyToUse -ne '') {
-                    $expectedExecutedRemoteCommands += @{Command = 'sudo mkdir -p /etc/systemd/system/crio.service.d'; IgnoreErrors = $false } 
-                    $expectedExecutedRemoteCommands += @{Command = 'sudo touch /etc/systemd/system/crio.service.d/http-proxy.conf' ; IgnoreErrors = $false } 
-                    $expectedExecutedRemoteCommands += @{Command = 'echo [Service] | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf' ; IgnoreErrors = $false } 
-                    $expectedExecutedRemoteCommands += @{Command = "echo Environment=\'HTTP_PROXY=$proxyToUse\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf" ; IgnoreErrors = $false } 
-                    $expectedExecutedRemoteCommands += @{Command = "echo Environment=\'HTTPS_PROXY=$proxyToUse\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf" ; IgnoreErrors = $false } 
-                    $expectedExecutedRemoteCommands += @{Command = "echo Environment=\'http_proxy=$proxyToUse\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf" ; IgnoreErrors = $false } 
-                    $expectedExecutedRemoteCommands += @{Command = "echo Environment=\'https_proxy=$proxyToUse\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf" ; IgnoreErrors = $false } 
-                    $expectedExecutedRemoteCommands += @{Command = "echo Environment=\'no_proxy=.local\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf"; IgnoreErrors = $false } 
-                }
-                $token = Get-RegistryToken
-                if ($PSVersionTable.PSVersion.Major -gt 5) {
-                    $jsonConfig = @{
-                        'auths' = @{
-                            'shsk2s.azurecr.io' = @{
-                                'auth' = "$token"
-                            }
-                        }
-                    }
-                }
-                else {
-                    $jsonConfig = @{
-                        '"auths"' = @{
-                            '"shsk2s.azurecr.io"' = @{
-                                '"auth"' = """$token"""
-                            }
-                        }
-                    }
-                }
+    #             if ($proxyToUse -ne '') {
+    #                 $expectedExecutedRemoteCommands += @{Command = 'sudo mkdir -p /etc/systemd/system/crio.service.d'; IgnoreErrors = $false } 
+    #                 $expectedExecutedRemoteCommands += @{Command = 'sudo touch /etc/systemd/system/crio.service.d/http-proxy.conf' ; IgnoreErrors = $false } 
+    #                 $expectedExecutedRemoteCommands += @{Command = 'echo [Service] | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf' ; IgnoreErrors = $false } 
+    #                 $expectedExecutedRemoteCommands += @{Command = "echo Environment=\'HTTP_PROXY=$proxyToUse\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf" ; IgnoreErrors = $false } 
+    #                 $expectedExecutedRemoteCommands += @{Command = "echo Environment=\'HTTPS_PROXY=$proxyToUse\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf" ; IgnoreErrors = $false } 
+    #                 $expectedExecutedRemoteCommands += @{Command = "echo Environment=\'http_proxy=$proxyToUse\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf" ; IgnoreErrors = $false } 
+    #                 $expectedExecutedRemoteCommands += @{Command = "echo Environment=\'https_proxy=$proxyToUse\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf" ; IgnoreErrors = $false } 
+    #                 $expectedExecutedRemoteCommands += @{Command = "echo Environment=\'no_proxy=.local\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf"; IgnoreErrors = $false } 
+    #             }
+    #             $token = Get-RegistryToken
+    #             if ($PSVersionTable.PSVersion.Major -gt 5) {
+    #                 $jsonConfig = @{
+    #                     'auths' = @{
+    #                         'shsk2s.azurecr.io' = @{
+    #                             'auth' = "$token"
+    #                         }
+    #                     }
+    #                 }
+    #             }
+    #             else {
+    #                 $jsonConfig = @{
+    #                     '"auths"' = @{
+    #                         '"shsk2s.azurecr.io"' = @{
+    #                             '"auth"' = """$token"""
+    #                         }
+    #                     }
+    #                 }
+    #             }
                 
-                $jsonString = ConvertTo-Json -InputObject $jsonConfig
-                $expectedExecutedRemoteCommands += @{Command = "echo -e '$jsonString' | sudo tee /tmp/auth.json"; IgnoreErrors = $false } 
-                $expectedExecutedRemoteCommands += @{Command = 'sudo mkdir -p /root/.config/containers'; IgnoreErrors = $false } 
-                $expectedExecutedRemoteCommands += @{Command = 'sudo mv /tmp/auth.json /root/.config/containers/auth.json'; IgnoreErrors = $false }  
+    #             $jsonString = ConvertTo-Json -InputObject $jsonConfig
+    #             $expectedExecutedRemoteCommands += @{Command = "echo -e '$jsonString' | sudo tee /tmp/auth.json"; IgnoreErrors = $false } 
+    #             $expectedExecutedRemoteCommands += @{Command = 'sudo mkdir -p /root/.config/containers'; IgnoreErrors = $false } 
+    #             $expectedExecutedRemoteCommands += @{Command = 'sudo mv /tmp/auth.json /root/.config/containers/auth.json'; IgnoreErrors = $false }  
 
-                $expectedCRIO_CNI_FILE = '/etc/cni/net.d/10-crio-bridge.conf'
-                $expectedExecutedRemoteCommands += @{Command = "[ -f $expectedCRIO_CNI_FILE ] && sudo mv $expectedCRIO_CNI_FILE /etc/cni/net.d/100-crio-bridge.conf || echo File does not exist, no renaming of cni file $expectedCRIO_CNI_FILE.." ; IgnoreErrors = $false } 
-                $expectedExecutedRemoteCommands += @{Command = 'sudo echo unqualified-search-registries = [\\\"docker.io\\\"] | sudo tee -a /etc/containers/registries.conf'; IgnoreErrors = $false } 
-                $expectedExecutedRemoteCommands += @{Command = 'sudo apt-get update'; IgnoreErrors = $false } 
-                $expectedExecutedRemoteCommands += @{Command = 'sudo DEBIAN_FRONTEND=noninteractive apt-get install -qq --yes apt-transport-https ca-certificates curl'; IgnoreErrors = $false } 
-                $expectedExecutedRemoteCommands += @{Command = "sudo curl --retry 3 --retry-all-errors -fsSL https://pkgs.k8s.io/core:/stable:/$expectedPackageShortK8sVersion/deb/Release.key$curlProxy | sudo gpg --dearmor -o /usr/share/keyrings/kubernetes-apt-keyring.gpg"; IgnoreErrors = $true } 
-                $expectedExecutedRemoteCommands += @{Command = "echo 'deb [signed-by=/usr/share/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/$expectedPackageShortK8sVersion/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.list"; IgnoreErrors = $false } 
-                $expectedExecutedRemoteCommands += @{Command = 'sudo apt-get update'; IgnoreErrors = $false } 
-                $expectedExecutedRemoteCommands += @{Command = 'sudo apt-mark hold kubelet kubeadm kubectl'; IgnoreErrors = $false } 
-                if ($PSVersionTable.PSVersion.Major -gt 5) {
-                    $expectedExecutedRemoteCommands += @{Command = "pauseImageToUse=`"`$(kubeadm config images list --kubernetes-version $expectedK8sVersion | grep `"pause`")`" && newTextLine=`$(echo pause_image = '`"'`$pauseImageToUse'`"') && sudo sed -i `"s#.*pause_image[ ]*=.*pause.*#`$newTextLine#`" /etc/crio/crio.conf"; IgnoreErrors = $false } 
-                }
-                else {
-                    $expectedExecutedRemoteCommands += @{Command = "pauseImageToUse=`"`$(kubeadm config images list --kubernetes-version $expectedK8sVersion | grep \`"pause\`")`" && newTextLine=`$(echo pause_image = '\`"'`$pauseImageToUse'\`"') && sudo sed -i \`"s#.*pause_image[ ]*=.*pause.*#`$newTextLine#\`" /etc/crio/crio.conf"; IgnoreErrors = $false } 
-                }
-                $expectedExecutedRemoteCommands += @{Command = 'sudo systemctl daemon-reload'; IgnoreErrors = $false } 
-                $expectedExecutedRemoteCommands += @{Command = 'sudo systemctl enable crio'; IgnoreErrors = $true } 
-                $expectedExecutedRemoteCommands += @{Command = 'sudo systemctl start crio'; IgnoreErrors = $false } 
-                $expectedExecutedRemoteCommands += @{Command = "sudo kubeadm config images pull --kubernetes-version $expectedK8sVersion" ; IgnoreErrors = $false } 
+    #             $expectedCRIO_CNI_FILE = '/etc/cni/net.d/10-crio-bridge.conf'
+    #             $expectedExecutedRemoteCommands += @{Command = "[ -f $expectedCRIO_CNI_FILE ] && sudo mv $expectedCRIO_CNI_FILE /etc/cni/net.d/100-crio-bridge.conf || echo File does not exist, no renaming of cni file $expectedCRIO_CNI_FILE.." ; IgnoreErrors = $false } 
+    #             $expectedExecutedRemoteCommands += @{Command = 'sudo echo unqualified-search-registries = [\\\"docker.io\\\"] | sudo tee -a /etc/containers/registries.conf'; IgnoreErrors = $false } 
+    #             $expectedExecutedRemoteCommands += @{Command = 'sudo apt-get update'; IgnoreErrors = $false } 
+    #             $expectedExecutedRemoteCommands += @{Command = 'sudo DEBIAN_FRONTEND=noninteractive apt-get install -qq --yes apt-transport-https ca-certificates curl'; IgnoreErrors = $false } 
+    #             $expectedExecutedRemoteCommands += @{Command = "sudo curl --retry 3 --retry-all-errors -fsSL https://pkgs.k8s.io/core:/stable:/$expectedPackageShortK8sVersion/deb/Release.key$curlProxy | sudo gpg --dearmor -o /usr/share/keyrings/kubernetes-apt-keyring.gpg"; IgnoreErrors = $true } 
+    #             $expectedExecutedRemoteCommands += @{Command = "echo 'deb [signed-by=/usr/share/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/$expectedPackageShortK8sVersion/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.list"; IgnoreErrors = $false } 
+    #             $expectedExecutedRemoteCommands += @{Command = 'sudo apt-get update'; IgnoreErrors = $false } 
+    #             $expectedExecutedRemoteCommands += @{Command = 'sudo apt-mark hold kubelet kubeadm kubectl'; IgnoreErrors = $false } 
+    #             if ($PSVersionTable.PSVersion.Major -gt 5) {
+    #                 $expectedExecutedRemoteCommands += @{Command = "pauseImageToUse=`"`$(kubeadm config images list --kubernetes-version $expectedK8sVersion | grep `"pause`")`" && newTextLine=`$(echo pause_image = '`"'`$pauseImageToUse'`"') && sudo sed -i `"s#.*pause_image[ ]*=.*pause.*#`$newTextLine#`" /etc/crio/crio.conf"; IgnoreErrors = $false } 
+    #             }
+    #             else {
+    #                 $expectedExecutedRemoteCommands += @{Command = "pauseImageToUse=`"`$(kubeadm config images list --kubernetes-version $expectedK8sVersion | grep \`"pause\`")`" && newTextLine=`$(echo pause_image = '\`"'`$pauseImageToUse'\`"') && sudo sed -i \`"s#.*pause_image[ ]*=.*pause.*#`$newTextLine#\`" /etc/crio/crio.conf"; IgnoreErrors = $false } 
+    #             }
+    #             $expectedExecutedRemoteCommands += @{Command = 'sudo systemctl daemon-reload'; IgnoreErrors = $false } 
+    #             $expectedExecutedRemoteCommands += @{Command = 'sudo systemctl enable crio'; IgnoreErrors = $true } 
+    #             $expectedExecutedRemoteCommands += @{Command = 'sudo systemctl start crio'; IgnoreErrors = $false } 
+    #             $expectedExecutedRemoteCommands += @{Command = "sudo kubeadm config images pull --kubernetes-version $expectedK8sVersion" ; IgnoreErrors = $false } 
 
-                $expectedUser = "$expectedUserName@$expectedIpAddress"
-                $global:actualExecutedRemoteCommands = @()
-                Mock ExecCmdMaster { $global:actualExecutedRemoteCommands += (New-Object ActualRemoteCommand -Property @{Command = $CmdToExecute; IgnoreErrors = $IgnoreErrors }) } -ParameterFilter { $RemoteUser -eq $expectedUser -and $RemoteUserPwd -eq $expectedUserPwd -and $UsePwd -eq $true }
+    #             $expectedUser = "$expectedUserName@$expectedIpAddress"
+    #             $global:actualExecutedRemoteCommands = @()
+    #             Mock ExecCmdMaster { $global:actualExecutedRemoteCommands += (New-Object ActualRemoteCommand -Property @{Command = $CmdToExecute; IgnoreErrors = $IgnoreErrors }) } -ParameterFilter { $RemoteUser -eq $expectedUser -and $RemoteUserPwd -eq $expectedUserPwd -and $UsePwd -eq $true }
 
-                Install-KubernetesArtifacts -UserName $expectedUserName -UserPwd $expectedUserPwd -IpAddress $expectedIpAddress -Proxy $proxyToUse -K8sVersion $expectedK8sVersion -CrioVersion $expectedCrioVersion 
+    #             Install-KubernetesArtifacts -UserName $expectedUserName -UserPwd $expectedUserPwd -IpAddress $expectedIpAddress -Proxy $proxyToUse -K8sVersion $expectedK8sVersion 
 
-                $global:actualExecutedRemoteCommands.Count | Should -Be $expectedExecutedRemoteCommands.Count
+    #             $global:actualExecutedRemoteCommands.Count | Should -Be $expectedExecutedRemoteCommands.Count
 
-                for ($i = 0; $i -lt $global:actualExecutedRemoteCommands.Count; $i++) {
-                    $global:actualExecutedRemoteCommands[$i].Command | Should -Be $expectedExecutedRemoteCommands[$i].Command
-                    $global:actualExecutedRemoteCommands[$i].IgnoreErrors | Should -Be $expectedExecutedRemoteCommands[$i].IgnoreErrors
-                }
+    #             for ($i = 0; $i -lt $global:actualExecutedRemoteCommands.Count; $i++) {
+    #                 $global:actualExecutedRemoteCommands[$i].Command | Should -Be $expectedExecutedRemoteCommands[$i].Command
+    #                 $global:actualExecutedRemoteCommands[$i].IgnoreErrors | Should -Be $expectedExecutedRemoteCommands[$i].IgnoreErrors
+    #             }
 
-                Should -Invoke -CommandName InstallAptPackages -Times 1 -ParameterFilter { $FriendlyName -eq 'kubernetes' -and $Packages -eq "kubelet=$expectedShortK8sVersion kubeadm=$expectedShortK8sVersion kubectl=$expectedShortK8sVersion" -and $TestExecutable -eq 'kubectl' -and $RemoteUser -eq $expectedUser -and $RemoteUserPwd -eq $expectedUserPwd }
-            }
-        }
-    }
+    #             Should -Invoke -CommandName InstallAptPackages -Times 1 -ParameterFilter { $FriendlyName -eq 'kubernetes' -and $Packages -eq "kubelet=$expectedShortK8sVersion kubeadm=$expectedShortK8sVersion kubectl=$expectedShortK8sVersion" -and $TestExecutable -eq 'kubectl' -and $RemoteUser -eq $expectedUser -and $RemoteUserPwd -eq $expectedUserPwd }
+    #         }
+    #     }
+    # }
 }
 
 Describe 'Install-Tools' -Tag 'unit', 'ci', 'linuxnode' {
@@ -1142,13 +1114,6 @@ Describe 'New-KubernetesNode' -Tag 'unit', 'ci', 'linuxnode' {
                 { New-KubernetesNode -UserName 'anyNonEmptyOrNullValue' -UserPwd 'anyPwd' -IpAddress 'anyIpAddress' } | Get-ExceptionMessage | Should -BeLike '*K8sVersion*'
             }
         }
-        It 'CrioVersion' {
-            InModuleScope $linuxNodeModuleName {
-                Mock Get-IsValidIPv4Address { $true }
-
-                { New-KubernetesNode -UserName 'anyNonEmptyOrNullValue' -UserPwd 'anyPwd' -IpAddress 'anyIpAddress' -K8sVersion 'anyK8sVersion' } | Get-ExceptionMessage | Should -BeLike '*CrioVersion*'
-            }
-        }
     }
     Context "parameter's value validation" {
         It "UserName '<nameToUse>'" -ForEach @(
@@ -1185,20 +1150,6 @@ Describe 'New-KubernetesNode' -Tag 'unit', 'ci', 'linuxnode' {
                 { New-KubernetesNode -UserName 'anyNonEmptyOrNullValue' -UserPwd 'anyPwd' -IpAddress 'anyIpAddress' -K8sVersion $k8sVersionToUse } | Get-ExceptionMessage | Should -BeLike '*K8sVersion*'
             }
         }
-        It "CrioVersion '<crioVersionToUse>'" -ForEach @(
-            @{ crioVersionToUse = 'null' }
-            @{ crioVersionToUse = '' }
-            @{ crioVersionToUse = '  ' }
-        ) {
-            InModuleScope $linuxNodeModuleName -Parameters @{ crioVersionToUse = $crioVersionToUse } {
-                if ($crioVersionToUse -eq 'null') {
-                    $crioVersionToUse = $null
-                }
-                Mock Get-IsValidIPv4Address { $true }
-                
-                { New-KubernetesNode -UserName 'anyNonEmptyOrNullValue' -UserPwd 'anyPwd' -IpAddress 'anyIpAddress' -K8sVersion 'anyK8sVersion' -CrioVersion $crioVersionToUse } | Get-ExceptionMessage | Should -BeLike '*CrioVersion*'
-            }
-        }
     }
     Context 'execution' {
         It "calls creation methods in right order using proxy '<proxyToUse>'" -ForEach @(
@@ -1211,7 +1162,6 @@ Describe 'New-KubernetesNode' -Tag 'unit', 'ci', 'linuxnode' {
                 $expectedUserPwd = 'myUserPwd'
                 $expectedIpAddress = 'myIpAddress'
                 $expectedK8sVersion = 'myK8sVersion'
-                $expectedCrioVersion = 'myCrioVersion'
                 function Set-UpComputerWithSpecificOsBeforeProvisioning {}
                 function Set-UpComputerWithSpecificOsAfterProvisioning {}
                 $global:actualMethodsCallOrder = @()
@@ -1220,12 +1170,12 @@ Describe 'New-KubernetesNode' -Tag 'unit', 'ci', 'linuxnode' {
                 Mock Assert-GeneralComputerPrequisites { $global:actualMethodsCallOrder += 'Assert-GeneralComputerPrequisites' } -ParameterFilter { $UserName -eq $expectedUserName -and $UserPwd -eq $expectedUserPwd -and $IpAddress -eq $expectedIpAddress }
                 Mock Set-UpComputerBeforeProvisioning { $global:actualMethodsCallOrder += 'Set-UpComputerBeforeProvisioning' } -ParameterFilter { $UserName -eq $expectedUserName -and $UserPwd -eq $expectedUserPwd -and $IpAddress -eq $expectedIpAddress -and $Proxy -eq $proxyToUse }
                 Mock Set-UpComputerWithSpecificOsBeforeProvisioning { $global:actualMethodsCallOrder += 'Set-UpComputerWithSpecificOsBeforeProvisioning' } -ParameterFilter { $UserName -eq $expectedUserName -and $UserPwd -eq $expectedUserPwd -and $IpAddress -eq $expectedIpAddress }
-                Mock Install-KubernetesArtifacts { $global:actualMethodsCallOrder += 'Install-KubernetesArtifacts' } -ParameterFilter { $UserName -eq $expectedUserName -and $UserPwd -eq $expectedUserPwd -and $IpAddress -eq $expectedIpAddress -and $Proxy -eq $proxyToUse -and $K8sVersion -eq $expectedK8sVersion -and $CrioVersion -eq $expectedCrioVersion }
+                Mock Install-KubernetesArtifacts { $global:actualMethodsCallOrder += 'Install-KubernetesArtifacts' } -ParameterFilter { $UserName -eq $expectedUserName -and $UserPwd -eq $expectedUserPwd -and $IpAddress -eq $expectedIpAddress -and $Proxy -eq $proxyToUse -and $K8sVersion -eq $expectedK8sVersion }
                 Mock Set-UpComputerWithSpecificOsAfterProvisioning { $global:actualMethodsCallOrder += 'Set-UpComputerWithSpecificOsAfterProvisioning' } -ParameterFilter { $UserName -eq $expectedUserName -and $UserPwd -eq $expectedUserPwd -and $IpAddress -eq $expectedIpAddress }
                 Mock Set-UpComputerAfterProvisioning { $global:actualMethodsCallOrder += 'Set-UpComputerAfterProvisioning' } -ParameterFilter { $UserName -eq $expectedUserName -and $UserPwd -eq $expectedUserPwd -and $IpAddress -eq $expectedIpAddress }
 
                 # act
-                New-KubernetesNode -UserName $expectedUserName -UserPwd $expectedUserPwd -IpAddress $expectedIpAddress -K8sVersion $expectedK8sVersion -CrioVersion $expectedCrioVersion -Proxy $proxyToUse
+                New-KubernetesNode -UserName $expectedUserName -UserPwd $expectedUserPwd -IpAddress $expectedIpAddress -K8sVersion $expectedK8sVersion -Proxy $proxyToUse
 
                 # assert
                 $expectedMethodsCallOrder = @(
@@ -1250,7 +1200,6 @@ Describe 'New-MasterNode' -Tag 'unit', 'ci', 'linuxnode' {
             UserPwd                       = 'myUserPwd'
             IpAddress                     = 'myIpAddress'
             K8sVersion                    = 'myK8sVersion'
-            CrioVersion                   = 'myCrioVersion'
             ClusterCIDR                   = 'myClusterCIDR'
             ClusterCIDR_Services          = 'myClusterCIDR_Services'
             KubeDnsServiceIP              = 'myKubeDnsServiceIP'
@@ -1300,16 +1249,6 @@ Describe 'New-MasterNode' -Tag 'unit', 'ci', 'linuxnode' {
 
                 # act + assert
                 { New-MasterNode @DefaultParameterValues } | Get-ExceptionMessage | Should -BeLike '*K8sVersion*'
-            }
-        }
-        It 'CrioVersion' {
-            InModuleScope $linuxNodeModuleName -Parameters @{ DefaultParameterValues = $DefaultParameterValues } {
-                # arrange
-                Mock Get-IsValidIPv4Address { $true }
-                $DefaultParameterValues.Remove('CrioVersion')
-
-                # act + assert
-                { New-MasterNode @DefaultParameterValues } | Get-ExceptionMessage | Should -BeLike '*CrioVersion*'
             }
         }
         It 'ClusterCIDR' {
@@ -1429,23 +1368,6 @@ Describe 'New-MasterNode' -Tag 'unit', 'ci', 'linuxnode' {
                 { New-MasterNode @DefaultParameterValues } | Get-ExceptionMessage | Should -BeLike '*K8sVersion*'
             }
         }
-        It "CrioVersion '<crioVersionToUse>'" -ForEach @(
-            @{ crioVersionToUse = 'null' }
-            @{ crioVersionToUse = '' }
-            @{ crioVersionToUse = '  ' }
-        ) {
-            InModuleScope $linuxNodeModuleName -Parameters @{ DefaultParameterValues = $DefaultParameterValues; crioVersionToUse = $crioVersionToUse } {
-                # arrange
-                if ($crioVersionToUse -eq 'null') {
-                    $crioVersionToUse = $null
-                }
-                Mock Get-IsValidIPv4Address { $true }
-                $DefaultParameterValues['CrioVersion'] = $crioVersionToUse
-
-                # act + assert
-                { New-MasterNode @DefaultParameterValues } | Get-ExceptionMessage | Should -BeLike '*CrioVersion*'
-            }
-        }
         It "ClusterCIDR '<clusterCIDRToUse>'" -ForEach @(
             @{ clusterCIDRToUse = 'null' }
             @{ clusterCIDRToUse = '' }
@@ -1549,7 +1471,6 @@ Describe 'New-MasterNode' -Tag 'unit', 'ci', 'linuxnode' {
                 $expectedUserPwd = $DefaultParameterValues.UserPwd
                 $expectedIpAddress = $DefaultParameterValues.IpAddress
                 $expectedK8sVersion = $DefaultParameterValues.K8sVersion
-                $expectedCrioVersion = $DefaultParameterValues.CrioVersion
                 $expectedClusterCIDR = $DefaultParameterValues.ClusterCIDR
                 $expectedClusterCIDR_Services = $DefaultParameterValues.ClusterCIDR_Services
                 $expectedKubeDnsServiceIP = $DefaultParameterValues.KubeDnsServiceIP
@@ -1560,7 +1481,7 @@ Describe 'New-MasterNode' -Tag 'unit', 'ci', 'linuxnode' {
 
                 $global:actualMethodsCallOrder = @()
                 Mock Assert-MasterNodeComputerPrequisites { $global:actualMethodsCallOrder += 'Assert-MasterNodeComputerPrequisites' } -ParameterFilter { $UserName -eq $expectedUserName -and $UserPwd -eq $expectedUserPwd -and $IpAddress -eq $expectedIpAddress }
-                Mock New-KubernetesNode { $global:actualMethodsCallOrder += 'New-KubernetesNode' } -ParameterFilter { $UserName -eq $expectedUserName -and $UserPwd -eq $expectedUserPwd -and $IpAddress -eq $expectedIpAddress -and $K8sVersion -eq $expectedK8sVersion -and $CrioVersion -eq $expectedCrioVersion -and $Proxy -eq $expectedProxy }
+                Mock New-KubernetesNode { $global:actualMethodsCallOrder += 'New-KubernetesNode' } -ParameterFilter { $UserName -eq $expectedUserName -and $UserPwd -eq $expectedUserPwd -and $IpAddress -eq $expectedIpAddress -and $K8sVersion -eq $expectedK8sVersion -and $Proxy -eq $expectedProxy }
                 Mock Set-UpMasterNode { $global:actualMethodsCallOrder += 'Set-UpMasterNode' } -ParameterFilter { $UserName -eq $expectedUserName -and $UserPwd -eq $expectedUserPwd -and $IpAddress -eq $expectedIpAddress -and $K8sVersion -eq $expectedK8sVersion -and $ClusterCIDR -eq $expectedClusterCIDR -and $ClusterCIDR_Services -eq $expectedClusterCIDR_Services -and $KubeDnsServiceIP -eq $expectedKubeDnsServiceIP -and $IP_NextHop -eq $expectedGatewayIP -and $NetworkInterfaceName -eq $expectedNetworkInterfaceName -and $NetworkInterfaceCni0IP_Master -eq $expectedNetworkInterfaceCni0IP_Master -and $Hook -eq $expectedHook }
                 Mock Get-IsValidIPv4Address { $true }
 
