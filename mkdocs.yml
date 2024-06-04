@@ -117,6 +117,8 @@ nav:
       - Hosting Variants Features Matrix: dev-guide/hosting-variants-features-matrix.md
       - Architecture: dev-guide/architecture.md
       - Training: dev-guide/training.md
-  - Troubleshooting: troubleshooting.md
+  - Troubleshooting:
+      - Diagnostics: troubleshooting/diagnostics.md
+      - Known Issues: troubleshooting/known-issues.md
 not_in_nav: |
   /includes/**/*.*
