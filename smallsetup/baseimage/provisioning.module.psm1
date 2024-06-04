@@ -12,11 +12,10 @@ $baseImageModule = "$PSScriptRoot\BaseImage.module.psm1"
 $linuxNodeModule = "$global:KubernetesPath\smallsetup\linuxnode\linuxnode.module.psm1"
 $linuxNodeDebianModule = "$global:KubernetesPath\smallsetup\linuxnode\debian\linuxnode.debian.module.psm1"
 
-Import-Module $validationModule,$baseImageModule,$linuxNodeModule,$linuxNodeDebianModule
+Import-Module $validationModule, $baseImageModule, $linuxNodeModule, $linuxNodeDebianModule
 
 $downloadsDirectory = $global:DownloadsDirectory
 $provisioningTargetDirectory = $global:ProvisioningTargetDirectory
-$crioVersion = $global:CrioVersion
 
 $KubemasterVmProvisioningVmName = 'KUBEMASTER_IN_PROVISIONING'
 $RawBaseImageInProvisioningForKubemasterImageName = 'Debian-11-Base-In-Provisioning-For-Kubemaster.vhdx'
@@ -124,7 +123,6 @@ function New-VmBaseImageProvisioning {
             UserPwd                       = $guestOsParameters.UserPwd
             Proxy                         = $Proxy
             K8sVersion                    = $global:KubernetesVersion
-            CrioVersion                   = $crioVersion
             ClusterCIDR                   = $global:ClusterCIDR 
             ClusterCIDR_Services          = $global:ClusterCIDR_Services
             KubeDnsServiceIP              = $global:KubeDnsServiceIP
@@ -157,14 +155,14 @@ function New-VmBaseImageProvisioning {
     }
 
     $baseImageCreationParameters = @{
-        VmParameters                      = $vmParameters
-        GuestOsParameters                 = $guestOsParameters
-        NetworkParameters                 = $networkParameters
-        Proxy                             = $Proxy
-        NodeRoleAssignmentHook            = $createControlPlaneNode
-        AfterProvisioningFinishedHook     = $createRootfsForWSL
-        OutputPath                        = $OutputPath
-        KeepArtifactsUsedOnProvisioning   = $KeepArtifactsUsedOnProvisioning
+        VmParameters                    = $vmParameters
+        GuestOsParameters               = $guestOsParameters
+        NetworkParameters               = $networkParameters
+        Proxy                           = $Proxy
+        NodeRoleAssignmentHook          = $createControlPlaneNode
+        AfterProvisioningFinishedHook   = $createRootfsForWSL
+        OutputPath                      = $OutputPath
+        KeepArtifactsUsedOnProvisioning = $KeepArtifactsUsedOnProvisioning
     }
 
     New-ProvisionedBaseImage @baseImageCreationParameters
@@ -225,27 +223,26 @@ function New-KubeworkerBaseImage {
         $addToWorkerNode = { }
 
         $workerNodeParameters = @{
-            IpAddress                     = $networkParameters.GuestIpAddress
-            UserName                      = $guestOsParameters.UserName
-            UserPwd                       = $guestOsParameters.UserPwd
-            Proxy                         = $Proxy
-            K8sVersion                    = $global:KubernetesVersion
-            CrioVersion                   = $crioVersion
-            Hook                          = $addToWorkerNode
+            IpAddress   = $networkParameters.GuestIpAddress
+            UserName    = $guestOsParameters.UserName
+            UserPwd     = $guestOsParameters.UserPwd
+            Proxy       = $Proxy
+            K8sVersion  = $global:KubernetesVersion
+            Hook        = $addToWorkerNode
         }
 
         New-WorkerNode @workerNodeParameters
     }
     
     $baseImageCreationParameters = @{
-        VmParameters                      = $vmParameters
-        GuestOsParameters                 = $guestOsParameters
-        NetworkParameters                 = $networkParameters
-        Proxy                             = $Proxy
-        NodeRoleAssignmentHook            = $createWorkerNode
-        AfterProvisioningFinishedHook     = { }
-        OutputPath                        = $OutputPath
-        KeepArtifactsUsedOnProvisioning   = $KeepArtifactsUsedOnProvisioning
+        VmParameters                    = $vmParameters
+        GuestOsParameters               = $guestOsParameters
+        NetworkParameters               = $networkParameters
+        Proxy                           = $Proxy
+        NodeRoleAssignmentHook          = $createWorkerNode
+        AfterProvisioningFinishedHook   = { }
+        OutputPath                      = $OutputPath
+        KeepArtifactsUsedOnProvisioning = $KeepArtifactsUsedOnProvisioning
     }
 
     New-ProvisionedBaseImage @baseImageCreationParameters
@@ -253,19 +250,19 @@ function New-KubeworkerBaseImage {
 
 function New-ProvisionedBaseImage {
     param (
-        [VmParameters]$VmParameters = $(throw "Argument missing: VmParameters"),
-        [GuestOsParameters]$GuestOsParameters = $(throw "Argument missing: GuestOsParameters"),
-        [NetworkParameters]$NetworkParameters = $(throw "Argument missing: NetworkParameters"),
-        [string] $Proxy = $(throw "Argument missing: Proxy"),
-        [scriptblock] $NodeRoleAssignmentHook = $(throw "Argument missing: NodeRoleAssignmentHook"),
-        [scriptblock] $AfterProvisioningFinishedHook = $(throw "Argument missing: AfterProvisioningFinishedHook"),
+        [VmParameters]$VmParameters = $(throw 'Argument missing: VmParameters'),
+        [GuestOsParameters]$GuestOsParameters = $(throw 'Argument missing: GuestOsParameters'),
+        [NetworkParameters]$NetworkParameters = $(throw 'Argument missing: NetworkParameters'),
+        [string] $Proxy = $(throw 'Argument missing: Proxy'),
+        [scriptblock] $NodeRoleAssignmentHook = $(throw 'Argument missing: NodeRoleAssignmentHook'),
+        [scriptblock] $AfterProvisioningFinishedHook = $(throw 'Argument missing: AfterProvisioningFinishedHook'),
         [string] $OutputPath = $(throw 'Argument missing: OutputPath'),
-        [bool] $KeepArtifactsUsedOnProvisioning = $(throw "Argument missing: KeepArtifactsUsedOnProvisioning")
+        [bool] $KeepArtifactsUsedOnProvisioning = $(throw 'Argument missing: KeepArtifactsUsedOnProvisioning')
     )
 
     $vmIP = $NetworkParameters.GuestIpAddress
     $userName = $GuestOsParameters.UserName
-    $userPwd =  $GuestOsParameters.UserPwd
+    $userPwd = $GuestOsParameters.UserPwd
 
     Write-Log "Remove eventually existing key for IP $vmIP from 'known_hosts' file"
     Remove-SshKeyFromKnownHostsFile -IpAddress $vmIP
@@ -318,9 +315,9 @@ function New-ProvisionedBaseImage {
     Write-Log "Checking if an SSH login into remote computer '$vmIP' with user '$user' is possible"
     Wait-ForSshPossible -RemoteUser "$user" -RemotePwd "$userPwd" -SshTestCommand 'which ls' -ExpectedSshTestCommandResult '/usr/bin/ls'
 
-    Write-Log "Run role assignment hook"
+    Write-Log 'Run role assignment hook'
     &$NodeRoleAssignmentHook
-    Write-Log "Role assignment finished"
+    Write-Log 'Role assignment finished'
 
     Write-Log "Stop the VM $vmName"
     Stop-VirtualMachineForBaseImageProvisioning -Name $vmName
@@ -330,9 +327,9 @@ function New-ProvisionedBaseImage {
     Copy-VhdxFile -SourceFilePath $inProvisioningVhdxPath -TargetPath $provisionedVhdxPath
     Write-Log "Provisioned image available as $provisionedVhdxPath"
 
-    Write-Log "Run WSL support creation hook"
+    Write-Log 'Run WSL support creation hook'
     &$AfterProvisioningFinishedHook
-    Write-Log "WSL support creation finished"
+    Write-Log 'WSL support creation finished'
 
     Write-Log 'Detach the image from Hyper-V'
     Remove-VirtualMachineForBaseImageProvisioning -VhdxFilePath $inProvisioningVhdxPath -VmName $vmName
@@ -353,19 +350,19 @@ function New-ProvisionedBaseImage {
     }
 }
 function Get-VmIpForProvisioningWorkerNode {
-    return "172.18.12.22"
+    return '172.18.12.22'
 }
 
 function Get-HostIpForProvisioningWorkerNode {
-    return "172.18.12.1"
+    return '172.18.12.1'
 }
 
 function Get-NatIpForProvisioningWorkerNode {
-    return "172.18.12.0"
+    return '172.18.12.0'
 }
 
 function Get-NetworkPrefixLengthForProvisioningWorkerNode {
-    return "24"
+    return '24'
 }
 
 function Get-DefaultUserNameWorkerNode {
@@ -377,7 +374,7 @@ function Get-DefaultUserPwdWorkerNode {
 }
 
 function Get-HostnameForProvisioningWorkerNode {
-    return "kubeworkerbase"
+    return 'kubeworkerbase'
 }
 
 function Clear-ProvisioningArtifacts {
@@ -386,25 +383,25 @@ function Clear-ProvisioningArtifacts {
 
     $stopVm = { 
         param(
-            [string]$VmName = $(throw "Argument missing: VmName")
-            ) 
+            [string]$VmName = $(throw 'Argument missing: VmName')
+        ) 
 
-            $vm = Get-VM | Where-Object Name -Like $VmName
-            Write-Log "Ensure VM $VmName is stopped" -Console
-            if ($null -ne $vm) {
-                Stop-VirtualMachineForBaseImageProvisioning -Name $VmName
-            }
+        $vm = Get-VM | Where-Object Name -Like $VmName
+        Write-Log "Ensure VM $VmName is stopped" -Console
+        if ($null -ne $vm) {
+            Stop-VirtualMachineForBaseImageProvisioning -Name $VmName
+        }
     }
     &$stopVm -VmName $kubemasterVmName
     &$stopVm -VmName $kubeworkerVmName
 
     $removeVm = {
         param(
-            [string]$VmName = $(throw "Argument missing: VmName"),
-            [string]$NatName = $(throw "Argument missing: NatName"),
-            [string]$SwitchName = $(throw "Argument missing: SwitchName"),
-            [string]$VhdxFilePath = $(throw "Argument missing: VhdxFilePath")
-            ) 
+            [string]$VmName = $(throw 'Argument missing: VmName'),
+            [string]$NatName = $(throw 'Argument missing: NatName'),
+            [string]$SwitchName = $(throw 'Argument missing: SwitchName'),
+            [string]$VhdxFilePath = $(throw 'Argument missing: VhdxFilePath')
+        ) 
 
         Write-Log "Detach the image '$VhdxFilePath' from the VM '$VmName'" -Console
         Remove-VirtualMachineForBaseImageProvisioning -VmName $VmName -VhdxFilePath $VhdxFilePath
