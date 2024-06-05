@@ -139,7 +139,6 @@ Function Install-KubernetesArtifacts {
     &$executeRemoteCommand 'echo net.bridge.bridge-nf-call-ip6tables = 1 | sudo tee -a /etc/sysctl.d/k8s.conf' 
     &$executeRemoteCommand 'echo net.bridge.bridge-nf-call-iptables = 1 | sudo tee -a /etc/sysctl.d/k8s.conf' 
     &$executeRemoteCommand 'echo net.ipv4.ip_forward = 1 | sudo tee -a /etc/sysctl.d/k8s.conf' 
-    &$executeRemoteCommand 'echo net.ipv4.ip_unprivileged_port_start = 0 | sudo tee -a /etc/sysctl.d/k8s.conf'
     &$executeRemoteCommand 'sudo sysctl --system' 
 
     &$executeRemoteCommand 'echo @reboot root mount --make-rshared / | sudo tee /etc/cron.d/sharedmount' 
