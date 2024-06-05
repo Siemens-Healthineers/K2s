@@ -11,6 +11,8 @@ Import-Module $infraModule, $provisioningModule, $vmModule
 
 $kubernetesVersion = Get-DefaultK8sVersion
 
+$isWsl = Get-ConfigWslFlag
+
 $wslConfigurationFilePath = '/etc/wsl.conf'
 
 Function Assert-GeneralComputerPrequisites {
@@ -573,6 +575,18 @@ Function Set-UpMasterNode {
     &$executeRemoteCommand 'sudo cp /etc/kubernetes/admin.conf ~/.kube/config' 
     &$executeRemoteCommand "sudo chown $UserName ~/.kube/config" 
     &$executeRemoteCommand 'kubectl get nodes' 
+
+    if ( $isWsl ) {
+        Write-Log 'Patch CoreDNS for WSL variant'
+        $operation = @(
+            @{
+                'op'    = 'replace'
+                'path'  = '/spec/template/spec/containers/0/image'
+                'value' = 'registry.k8s.io/coredns/coredns:v1.10.1'
+            }
+        )
+        &$executeRemoteCommand "kubectl patch deployment coredns --type=json -p=$operation -n kube-system"
+    }
 
     Write-Log 'Install custom DNS server'
     &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get install dnsutils --yes' 
