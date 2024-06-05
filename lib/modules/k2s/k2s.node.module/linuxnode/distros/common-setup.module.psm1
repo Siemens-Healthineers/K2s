@@ -134,6 +134,10 @@ Function Install-KubernetesArtifacts {
     &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get install -y gpg' -Retries 2 -RepairCmd 'sudo apt --fix-broken install'
 
     # we need major and minor for apt keys
+    $proxyToAdd = ''
+    if ($Proxy -ne '') {
+        $proxyToAdd = " --Proxy $Proxy"
+    }
     $pkgShortK8sVersion = $K8sVersion.Substring(0, $K8sVersion.lastIndexOf('.'))
     &$executeRemoteCommand "sudo curl --retry 3 --retry-all-errors -fsSL https://pkgs.k8s.io/core:/stable:/$pkgShortK8sVersion/deb/Release.key$proxyToAdd | sudo gpg --dearmor -o /usr/share/keyrings/kubernetes-apt-keyring.gpg" -IgnoreErrors 
     &$executeRemoteCommand "echo 'deb [signed-by=/usr/share/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/$pkgShortK8sVersion/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.list" 
@@ -204,11 +208,6 @@ Function Install-KubernetesArtifacts {
     }
 
     Write-Log 'Install kubetools (kubelet, kubeadm, kubectl)'
-    $proxyToAdd = ''
-    if ($Proxy -ne '') {
-        $proxyToAdd = " --Proxy $Proxy"
-    }
-
     &$executeRemoteCommand 'sudo apt-get update' 
     InstallAptPackages -FriendlyName 'kubernetes' -Packages "kubelet=$shortKubeVers kubeadm=$shortKubeVers kubectl=$shortKubeVers" -TestExecutable 'kubectl' -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd" 
     &$executeRemoteCommand 'sudo apt-mark hold kubelet kubeadm kubectl' 
