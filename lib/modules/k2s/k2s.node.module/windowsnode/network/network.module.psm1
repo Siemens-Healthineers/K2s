@@ -147,7 +147,7 @@ function Set-InterfacePrivate {
             Write-Log "Exhausted 30 attempts to set $InterfaceAlias to private. This could be due to issues in NlaSvc. Triggering its restart...."
             Restart-NlaSvc
         }
-        
+
         Start-Sleep 5
     }
 
@@ -311,4 +311,4 @@ Export-ModuleMember Set-IndexForDefaultSwitch, Get-ConfiguredClusterCIDRHost,
 New-ExternalSwitch, Remove-ExternalSwitch,
 Invoke-RecreateNAT, Set-InterfacePrivate,
 Get-L2BridgeSwitchName, Remove-DefaultNetNat,
-New-DefaultNetNat, Set-IPAdressAndDnsClientServerAddress, Set-WSLSwitch, Restart-NlaSvc
+New-DefaultNetNat, Set-IPAdressAndDnsClientServerAddress, Set-WSLSwitch
