@@ -4,7 +4,7 @@
 site_name: K2s - Kubernetes distribution for Windows & Linux workloads
 site_url: https://Siemens-Healthineers.github.io/K2s
 copyright: Copyright &copy; 2024 Siemens Healthineers AG
-repo_url: https://github.com/Siemens-Healthineers/K2s
+repo_url: https://github.com/Siemens-Healthineers/K2s/
 edit_uri: edit/main/docs/
 strict: true
 theme:
@@ -125,3 +125,8 @@ nav:
       - Known Issues: troubleshooting/known-issues.md
 not_in_nav: |
   /includes/**/*.*
+extra:
+  version:
+    provider: mike
+    default: latest
+    alias: true
