@@ -9,7 +9,7 @@ SPDX-License-Identifier: MIT
 [![ci](https://github.com/Siemens-Healthineers/K2s/actions/workflows/ci-unit-tests.yml/badge.svg)](https://github.com/Siemens-Healthineers/K2s/actions/workflows/ci-unit-tests.yml)
 [![ci](https://github.com/Siemens-Healthineers/K2s/actions/workflows/build-k2s-cli.yml/badge.svg)](https://github.com/Siemens-Healthineers/K2s/actions/workflows/build-k2s-cli.yml)
 [![ci](https://github.com/Siemens-Healthineers/K2s/actions/workflows/build-k2s-artifacts.yml/badge.svg)](https://github.com/Siemens-Healthineers/K2s/actions/workflows/build-k2s-artifacts.yml)
-[![ci](https://github.com/Siemens-Healthineers/K2s/actions/workflows/build-docs.yml/badge.svg)](https://github.com/Siemens-Healthineers/K2s/actions/workflows/build-docs.yml)
+[![ci](https://github.com/Siemens-Healthineers/K2s/actions/workflows/build-docs-next.yml/badge.svg)](https://github.com/Siemens-Healthineers/K2s/actions/workflows/build-docs-next.yml)
 
 <span style="font-size: large;border: medium solid #326CE5;border-radius: 5px;padding: 10px;">Read the [K2s Online Documentation](https://siemens-healthineers.github.io/K2s/).</span>
 
