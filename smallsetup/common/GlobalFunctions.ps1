@@ -1747,6 +1747,63 @@ function RemoveExternalSwitch () {
     Get-HnsNetwork | Where-Object Name -Like "$global:L2BridgeSwitchName" | Remove-HnsNetwork -ErrorAction SilentlyContinue
 }
 
+<# .DESCRIPTION
+	This function restarts the Network Location Awareness Service in Windows 10. 
+	After 128 cluster start and stop operations, a buffer overflow happens in this service
+	This causes the Loopback Adapter detection failures in SmallK8s. 
+	Restarting this service resets the buffer.
+
+	For now the hook will suffice. An official solution for this shall come as part of K2s 1.1 or beyond.
+
+	The NlaSvc has to be killed explicitly since it has dependents. 
+#>
+function Restart-NlaSvc {
+    $networkLocationAwarenessServiceName = 'NlaSvc'
+    $nlaSvcProcess = Get-WmiObject -Class Win32_Service -Filter "Name LIKE '$networkLocationAwarenessServiceName'"
+    # if NlaSvc is found
+    if ($null -ne $nlaSvcProcess) {
+        $nlaSvcStartMode = $nlaSvcProcess.StartMode
+        $nlaSvcPid = $nlaSvcProcess.ProcessId
+        $nlaSvcState = $nlaSvcProcess.State
+    
+        # if service is in Manual mode and in Stopped state, the service should not be started by K2s.
+        if (($nlaSvcStartMode -eq 'Manual') -and (($nlaSvcState -eq 'Stopped') -or ($nlaSvcPid -eq 0))) {
+            Write-Log 'Network Location Awareness service found in Manual mode and Stopped state. Service will not be restarted...'
+            return;
+        }
+
+        Write-Log "Network Location Awareness service found on host runnig with pid $nlaSvcPid. Initiating service restart..."
+        Invoke-Expression "taskkill /f /pid $nlaSvcPid"
+        Start-Sleep -seconds 10
+        $networkLocationAwarenessService = Get-Service $networkLocationAwarenessServiceName
+        $serviceRestarted = $false
+        if ($networkLocationAwarenessService.Status -ne 'Running') {
+            Write-Log "'$networkLocationAwarenessServiceName' Service is not restarted. Starting it explicitly..."
+            Start-Service $networkLocationAwarenessServiceName
+            while ($true) {
+                $iteration++
+                $svcstatus = $(Get-Service -Name $networkLocationAwarenessServiceName -ErrorAction SilentlyContinue).Status
+                if ($svcstatus -eq 'Running') {
+                    $serviceRestarted = $true
+                    break
+                }
+                if ($iteration -ge 5) {
+                    Write-Log "'$networkLocationAwarenessServiceName' Service is not running !!"
+                    break
+                }
+                Write-Log "'$networkLocationAwarenessServiceName' Waiting for service status to be started."
+                Start-Sleep -s 2
+            }
+        }
+        if ($serviceRestarted -eq $false) {
+            Write-Log "[WARNING] '$networkLocationAwarenessServiceName' Service could not be successfully restarted !!" -Console
+        }
+        else {
+            Write-Log "Service re-started '$networkLocationAwarenessServiceName' "
+        }
+    }
+}
+
 function Set-InterfacePrivate {
     param (
         [Parameter()]
@@ -1765,6 +1822,12 @@ function Set-InterfacePrivate {
         }
 
         Write-Log "$InterfaceAlias not set to private yet..."
+
+        if($iteration -eq 30) {
+            Write-Log "Exhausted 30 attempts to set $InterfaceAlias to private. This could be due to issues in NlaSvc. Triggering its restart...."
+            Restart-NlaSvc
+        }
+        
         Start-Sleep 5
     }
 
