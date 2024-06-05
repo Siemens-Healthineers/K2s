@@ -5,6 +5,9 @@ SPDX-License-Identifier: MIT
 
 {% extends "base.html" %}
 
-{% block announce %}
-<div class="announcement">This documentation is under heavy development, expect the content to change frequently.</div>
+{% block outdated %}
+You're not viewing the latest version.
+<a href="{{ '../' ~ base_url }}">
+    <strong>Click here to go to latest.</strong>
+</a>
 {% endblock %}
