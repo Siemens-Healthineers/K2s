@@ -1764,7 +1764,7 @@ function Set-InterfacePrivate {
             }
         }
 
-        Write-Log "$InterfaceAlias not set to private yet..."      
+        Write-Log "$InterfaceAlias not set to private yet..."
         Start-Sleep 5
     }
 
