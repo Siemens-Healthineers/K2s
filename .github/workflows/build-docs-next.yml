@@ -32,4 +32,5 @@ jobs:
         restore-keys: |
           mkdocs-material-
     - run: pip install mkdocs-material mike
+    - run: git fetch origin gh-pages --depth=1
     - run: mike deploy next unstable --push
