@@ -3,8 +3,8 @@
 
 site_name: K2s - Kubernetes distribution for Windows & Linux workloads
 site_url: https://Siemens-Healthineers.github.io/K2s
-copyright: Copyright &copy; 2024 Siemens Healthcare GmbH
-repo_url: https://github.com/Siemens-Healthineers/K2s
+copyright: Copyright &copy; 2024 Siemens Healthineers AG
+repo_url: https://github.com/Siemens-Healthineers/K2s/
 edit_uri: edit/main/docs/
 strict: true
 theme:
@@ -111,9 +111,13 @@ nav:
           - dev-guide/contributing/index.md
           - Corporate Contributors: dev-guide/contributing/cla-corporate-contributor.md
           - Individual Contributors: dev-guide/contributing/cla-individual-contributor.md
+          - Licensing: dev-guide/contributing/licensing.md
           - PowerShell Development: dev-guide/contributing/powershell-dev.md
+          - Building Locally: dev-guide/contributing/building-locally.md
           - Automated Testing: dev-guide/contributing/automated-testing.md
           - Tags/Labels: dev-guide/contributing/tags-labels.md
+          - Updating Documentation: dev-guide/contributing/updating-documentation.md
+          - Submitting Changes: dev-guide/contributing/submitting-changes.md
       - Hosting Variants Features Matrix: dev-guide/hosting-variants-features-matrix.md
       - Training: dev-guide/training.md
   - Troubleshooting:
@@ -121,3 +125,8 @@ nav:
       - Known Issues: troubleshooting/known-issues.md
 not_in_nav: |
   /includes/**/*.*
+extra:
+  version:
+    provider: mike
+    default: latest
+    alias: true

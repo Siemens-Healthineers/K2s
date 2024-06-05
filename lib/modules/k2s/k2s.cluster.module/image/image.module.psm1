@@ -442,6 +442,83 @@ function New-WindowsImage {
     }
 }
 
+function Set-DockerToExpermental {
+    $env:DOCKER_CLI_EXPERIMENTAL = 'enabled'
+
+    nssm restart docker
+
+    if ($LASTEXITCODE -ne 0) {
+        throw 'error while restarting Docker'
+    }
+}
+
+function New-DockerManifest {
+    param (
+        [Parameter(Mandatory = $false)]
+        [string]
+        $Tag = $(throw 'Tag not specified'),
+        [Parameter(Mandatory = $false)]
+        [string]
+        $AmmendTag = $(throw 'AmmendTag not specified'),
+        [parameter(Mandatory = $false, HelpMessage = 'If set to true, insecure registries like local registries are allowed.')]
+        [switch] $AllowInsecureRegistries
+    )
+    if ($AllowInsecureRegistries -eq $true) {
+        &$dockerExe manifest create --insecure $Tag --amend $AmmendTag
+    }
+    else {
+        &$dockerExe manifest create $Tag --amend $AmmendTag
+    }
+
+    if ($LASTEXITCODE -ne 0) {
+        throw 'error while creating manifest'
+    }
+}
+
+function New-DockerManifestAnnotation {
+    param (
+        [Parameter(Mandatory = $false)]
+        [string]
+        $Tag = $(throw 'Tag not specified'),
+        [Parameter(Mandatory = $false)]
+        [string]
+        $AmmendTag = $(throw 'AmmendTag not specified'),
+        [Parameter(Mandatory = $false)]
+        [string]
+        $OS = $(throw 'OS not specified'),
+        [Parameter(Mandatory = $false)]
+        [string]
+        $Arch = $(throw 'Arch not specified'),
+        [string]
+        $OSVersion = $(throw 'OSVersion not specified')
+    )
+    &$dockerExe manifest annotate --os $OS --arch $Arch --os-version $OSVersion $Tag $AmmendTag
+
+    if ($LASTEXITCODE -ne 0) {
+        throw 'error while annotating manifest'
+    }
+}
+
+function Push-DockerManifest {
+    param (
+        [Parameter(Mandatory = $false)]
+        [string]
+        $Tag = $(throw 'Tag not specified'),
+        [parameter(Mandatory = $false, HelpMessage = 'If set to true, insecure registries like local registries are allowed.')]
+        [switch] $AllowInsecureRegistries
+    )
+    if ($AllowInsecureRegistries -eq $true) {
+        &$dockerExe manifest push --insecure $Tag
+    }
+    else {
+        &$dockerExe manifest push $Tag
+    }
+
+    if ($LASTEXITCODE -ne 0) {
+        throw 'error pushing manifest'
+    }
+}
+
 Export-ModuleMember -Function Get-ContainerImagesInk2s,
 Remove-Image,
 Get-PushedContainerImages,
@@ -452,4 +529,8 @@ Get-ContainerImagesOnWindowsNode,
 Write-KubernetesImagesIntoJson,
 Get-BuildArgs,
 Get-DockerfileAbsolutePathAndPreCompileFlag,
-New-WindowsImage
+New-WindowsImage,
+Set-DockerToExpermental,
+New-DockerManifest,
+New-DockerManifestAnnotation,
+Push-DockerManifest
