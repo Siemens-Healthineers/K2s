@@ -11,8 +11,6 @@ Import-Module $infraModule, $provisioningModule, $vmModule
 
 $kubernetesVersion = Get-DefaultK8sVersion
 
-$isWsl = Get-ConfigWslFlag
-
 $wslConfigurationFilePath = '/etc/wsl.conf'
 
 Function Assert-GeneralComputerPrequisites {
@@ -227,6 +225,8 @@ Function Install-KubernetesArtifacts {
     &$executeRemoteCommand 'sudo systemctl enable crio' -IgnoreErrors 
     &$executeRemoteCommand 'sudo systemctl start crio' 
 
+    $isWsl = Get-ConfigWslFlag
+    Write-Log "WSL check in Install-KubernetesArtifacts: $isWsl"
     if ( $isWsl ) {
         Write-Log 'Add cri-o fix for WSL'
         $configWSL = '/etc/crio/crio.conf.d/20-wsl.conf'
