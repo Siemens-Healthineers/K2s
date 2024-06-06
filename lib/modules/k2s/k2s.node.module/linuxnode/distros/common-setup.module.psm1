@@ -196,7 +196,7 @@ Function Install-KubernetesArtifacts {
     &$executeRemoteCommand 'sudo mkdir -p /root/.config/containers'
     &$executeRemoteCommand 'sudo mv /tmp/auth.json /root/.config/containers/auth.json'
 
-    Write-Log 'Configure CRI-O (part 1 of 2)'
+    Write-Log 'Configure CRI-O'
     # cri-o default cni bridge should have least priority
     $CRIO_CNI_FILE = '/etc/cni/net.d/10-crio-bridge.conf'
     &$executeRemoteCommand "[ -f $CRIO_CNI_FILE ] && sudo mv $CRIO_CNI_FILE /etc/cni/net.d/100-crio-bridge.conf || echo File does not exist, no renaming of cni file $CRIO_CNI_FILE.." 
