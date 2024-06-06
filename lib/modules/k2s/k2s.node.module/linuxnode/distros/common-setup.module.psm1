@@ -227,6 +227,16 @@ Function Install-KubernetesArtifacts {
     &$executeRemoteCommand 'sudo systemctl enable crio' -IgnoreErrors 
     &$executeRemoteCommand 'sudo systemctl start crio' 
 
+    if ( $isWsl ) {
+        Write-Log 'Add cri-o fix for WSL'
+        $configWSL = '/etc/crio/crio.conf.d/20-wsl.conf'
+        # add to /etc/crio/crio.conf.d/20-wsl.conf the following line:  [crio.runtime]
+        &$executeRemoteCommand "echo [crio.runtime] | sudo tee -a $configWSL > /dev/null"
+        &$executeRemoteCommand "echo add_inheritable_capabilities=true | sudo tee -a $configWSL > /dev/null"
+        &$executeRemoteCommand "echo default_sysctls=[\`"net.ipv4.ip_unprivileged_port_start=0\`"] | sudo tee -a $configWSL > /dev/null"
+        &$executeRemoteCommand 'sudo systemctl restart crio'
+    }   
+
     Write-Log 'Pull images used by K8s'
     &$executeRemoteCommand "sudo kubeadm config images pull --kubernetes-version $K8sVersion" 
 }
@@ -575,18 +585,6 @@ Function Set-UpMasterNode {
     &$executeRemoteCommand 'sudo cp /etc/kubernetes/admin.conf ~/.kube/config' 
     &$executeRemoteCommand "sudo chown $UserName ~/.kube/config" 
     &$executeRemoteCommand 'kubectl get nodes' 
-
-    if ( $isWsl ) {
-        Write-Log 'Patch CoreDNS for WSL variant'
-        $operation = @(
-            @{
-                'op'    = 'replace'
-                'path'  = '/spec/template/spec/containers/0/image'
-                'value' = 'registry.k8s.io/coredns/coredns:v1.10.1'
-            }
-        )
-        &$executeRemoteCommand "kubectl patch deployment coredns --type=json -p=$operation -n kube-system"
-    }
 
     Write-Log 'Install custom DNS server'
     &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get install dnsutils --yes' 
