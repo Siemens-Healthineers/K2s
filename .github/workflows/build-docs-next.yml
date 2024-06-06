@@ -1,16 +1,19 @@
 # SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
 # SPDX-License-Identifier: MIT
 
-name: Build - K2s Documentation
+name: Build - Documentation (next)
 
 on:
   workflow_dispatch:
   push:
     branches:
       - "main"
+    paths:
+      - 'docs/**'
+      - 'mkdocs.yml'
 
 jobs:
-  build-docs:
+  build-docs-next:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
@@ -28,5 +31,6 @@ jobs:
         path: .cache
         restore-keys: |
           mkdocs-material-
-    - run: pip install mkdocs-material 
-    - run: mkdocs gh-deploy --force
+    - run: pip install mkdocs-material mike
+    - run: git fetch origin gh-pages --depth=1
+    - run: mike deploy next unstable --push
