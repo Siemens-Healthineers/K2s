@@ -91,7 +91,6 @@ Describe 'ExistingUbuntuComputerAsMasterNodeInstaller.ps1' -Tag 'unit', 'ci', 'l
             $expectedNewUserName = 'remote'
             $expectedNewUserPwd = 'admin'
             $expectedK8sVersion = 'v1.29.5'
-            $expectedCrioVersion = '1.25.2'
             $expectedDnsIpAddresses = 'myDnsIpAddress1,myDnsIpAddress2'
             $expectedPrefixLength = '24'
             $expectedLocalIpAddress = '172.19.1.1'
@@ -115,7 +114,7 @@ Describe 'ExistingUbuntuComputerAsMasterNodeInstaller.ps1' -Tag 'unit', 'ci', 'l
             Mock Write-Log { }
             Mock Wait-ForSshPossible { $global:actualMethodCallSequence += 'Wait-ForSshPossible' } -ParameterFilter { $RemoteUser -eq $expectedRemoteUser -and $RemotePwd -eq $($DefaultParameterValues.UserPwd) -and $SshTestCommand -eq 'which ls' -and $ExpectedSshTestCommandResult -eq '/usr/bin/ls' }
             Mock New-User { $global:actualMethodCallSequence += 'New-User' } -ParameterFilter { $UserName -eq $($DefaultParameterValues.UserName) -and $UserPwd -eq $($DefaultParameterValues.UserPwd) -and $IpAddress -eq $($DefaultParameterValues.IpAddress) -and $NewUserName -eq $expectedNewUserName -and $NewUserPwd -eq $expectedNewUserPwd }
-            Mock New-KubernetesNode { $global:actualMethodCallSequence += 'New-KubernetesNode' } -ParameterFilter { $UserName -eq $expectedNewUserName -and $UserPwd -eq $expectedNewUserPwd -and $IpAddress -eq $($DefaultParameterValues.IpAddress) -and $K8sVersion -eq $expectedK8sVersion -and $CrioVersion -eq $expectedCrioVersion -and $Proxy -eq $expectedProxy }
+            Mock New-KubernetesNode { $global:actualMethodCallSequence += 'New-KubernetesNode' } -ParameterFilter { $UserName -eq $expectedNewUserName -and $UserPwd -eq $expectedNewUserPwd -and $IpAddress -eq $($DefaultParameterValues.IpAddress) -and $K8sVersion -eq $expectedK8sVersion -and $Proxy -eq $expectedProxy }
             Mock Install-Tools { $global:actualMethodCallSequence += 'Install-Tools' } -ParameterFilter { $UserName -eq $expectedNewUserName -and $UserPwd -eq $expectedNewUserPwd -and $IpAddress -eq $($DefaultParameterValues.IpAddress) -and $Proxy -eq $expectedProxy }
             Mock Find-DnsIpAddress { $global:actualMethodCallSequence += 'Find-DnsIpAddress'; $expectedDnsIpAddresses } 
             Mock Add-LocalIPAddress { $global:actualMethodCallSequence += 'Add-LocalIPAddress' } -ParameterFilter { $UserName -eq $expectedNewUserName -and $UserPwd -eq $expectedNewUserPwd -and $IpAddress -eq $($DefaultParameterValues.IpAddress) -and $LocalIpAddress -eq $expectedLocalIpAddress -and $PrefixLength -eq $expectedPrefixLength }

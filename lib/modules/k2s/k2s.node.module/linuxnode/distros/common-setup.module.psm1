@@ -5,7 +5,7 @@
 
 
 $infraModule = "$PSScriptRoot\..\..\..\k2s.infra.module\k2s.infra.module.psm1"
-$provisioningModule =  "$PSScriptRoot\..\baseimage\provisioning.module.psm1"
+$provisioningModule = "$PSScriptRoot\..\baseimage\provisioning.module.psm1"
 $vmModule = "$PSScriptRoot\..\vm\vm.module.psm1"
 Import-Module $infraModule, $provisioningModule, $vmModule
 
@@ -15,36 +15,37 @@ $wslConfigurationFilePath = '/etc/wsl.conf'
 
 Function Assert-GeneralComputerPrequisites {
     Param(
-        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_))})]
-        [string]$UserName = $(throw "Argument missing: UserName"),
-        [string]$UserPwd = $(throw "Argument missing: UserPwd"),
+        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
+        [string]$UserName = $(throw 'Argument missing: UserName'),
+        [string]$UserPwd = $(throw 'Argument missing: UserPwd'),
         [ValidateScript({ Get-IsValidIPv4Address($_) })]
-        [string]$IpAddress = $(throw "Argument missing: IpAddress")
+        [string]$IpAddress = $(throw 'Argument missing: IpAddress')
     )
     $remoteUser = "$UserName@$IpAddress"
     $remoteUserPwd = $UserPwd
 
-    Write-Log "Checking if the hostname contains only allowed characters..."
+    Write-Log 'Checking if the hostname contains only allowed characters...'
     [string]$hostname = (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute 'hostname' -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output
     if ([string]::IsNullOrWhiteSpace($hostname) -eq $true) {
         throw "The hostname of the computer with IP '$IpAddress' could not be retrieved."
     }
-    $hasHostnameUppercaseChars = [regex]::IsMatch($hostname, "[^a-z]+")
+    $hasHostnameUppercaseChars = [regex]::IsMatch($hostname, '[^a-z]+')
     if ($hasHostnameUppercaseChars) {
         throw "The hostname '$hostname' of the computer reachable on IP '$IpAddress' contains not allowed characters. " +
-        "Only a hostname that follows the pattern [a-z] is allowed."
-    } else {
-        Write-Log " ...done"
+        'Only a hostname that follows the pattern [a-z] is allowed.'
+    }
+    else {
+        Write-Log ' ...done'
     }
 }
 
 Function Set-UpComputerBeforeProvisioning {
     param (
-        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_))})]
-        [string]$UserName = $(throw "Argument missing: UserName"),
-        [string]$UserPwd = $(throw "Argument missing: UserPwd"),
+        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
+        [string]$UserName = $(throw 'Argument missing: UserName'),
+        [string]$UserPwd = $(throw 'Argument missing: UserPwd'),
         [ValidateScript({ Get-IsValidIPv4Address($_) })]
-        [string]$IpAddress = $(throw "Argument missing: IpAddress"),
+        [string]$IpAddress = $(throw 'Argument missing: IpAddress'),
         [parameter(Mandatory = $false)]
         [string] $Proxy = ''
     )
@@ -56,7 +57,8 @@ Function Set-UpComputerBeforeProvisioning {
         (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute 'sudo touch /etc/apt/apt.conf.d/proxy.conf' -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output | Write-Log
         if ($PSVersionTable.PSVersion.Major -gt 5) {
             (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "echo Acquire::http::Proxy \""$Proxy\""\; | sudo tee -a /etc/apt/apt.conf.d/proxy.conf" -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output | Write-Log
-        } else {
+        }
+        else {
             (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "echo Acquire::http::Proxy \\\""$Proxy\\\""\; | sudo tee -a /etc/apt/apt.conf.d/proxy.conf" -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output | Write-Log
         }
     }
@@ -64,11 +66,11 @@ Function Set-UpComputerBeforeProvisioning {
 
 Function Set-UpComputerAfterProvisioning {
     param (
-        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_))})]
-        [string]$UserName = $(throw "Argument missing: UserName"),
-        [string]$UserPwd = $(throw "Argument missing: UserPwd"),
+        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
+        [string]$UserName = $(throw 'Argument missing: UserName'),
+        [string]$UserPwd = $(throw 'Argument missing: UserPwd'),
         [ValidateScript({ Get-IsValidIPv4Address($_) })]
-        [string]$IpAddress = $(throw "Argument missing: IpAddress")
+        [string]$IpAddress = $(throw 'Argument missing: IpAddress')
     )
     $remoteUser = "$UserName@$IpAddress"
     $remoteUserPwd = $UserPwd
@@ -89,66 +91,76 @@ Function Set-UpComputerAfterProvisioning {
 
 Function Install-KubernetesArtifacts {
     param (
-        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_))})]
-        [string]$UserName = $(throw "Argument missing: UserName"),
-        [string]$UserPwd = $(throw "Argument missing: UserPwd"),
+        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
+        [string]$UserName = $(throw 'Argument missing: UserName'),
+        [string]$UserPwd = $(throw 'Argument missing: UserPwd'),
         [ValidateScript({ Get-IsValidIPv4Address($_) })]
-        [string]$IpAddress = $(throw "Argument missing: IpAddress"),
+        [string]$IpAddress = $(throw 'Argument missing: IpAddress'),
         [string] $Proxy = '',
-        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_))})]
-        [string] $K8sVersion = $(throw "Argument missing: K8sVersion"),
-        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_))})]
-        [string] $CrioVersion = $(throw "Argument missing: CrioVersion")
+        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
+        [string] $K8sVersion = $(throw 'Argument missing: K8sVersion')
     )
     $remoteUser = "$UserName@$IpAddress"
     $remoteUserPwd = $UserPwd
 
     $executeRemoteCommand = { 
         param(
-            $command = $(throw "Argument missing: Command"), 
+            $command = $(throw 'Argument missing: Command'), 
             [switch]$IgnoreErrors = $false, [string]$RepairCmd = $null, [uint16]$Retries = 0
-            )
+        )
         if ($IgnoreErrors) {
             (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd" -Retries $Retries -IgnoreErrors).Output | Write-Log
-        } else {
+        }
+        else {
             (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd" -Retries $Retries -RepairCmd $RepairCmd).Output | Write-Log
         }
     }
 
-    Write-Log "Configure bridged traffic"
-    &$executeRemoteCommand "echo overlay | sudo tee /etc/modules-load.d/k8s.conf" 
-    &$executeRemoteCommand "echo br_netfilter | sudo tee /etc/modules-load.d/k8s.conf" 
-    &$executeRemoteCommand "sudo modprobe overlay" 
-    &$executeRemoteCommand "sudo modprobe br_netfilter" 
+    Write-Log 'Configure bridged traffic'
+    &$executeRemoteCommand 'echo overlay | sudo tee /etc/modules-load.d/k8s.conf' 
+    &$executeRemoteCommand 'echo br_netfilter | sudo tee /etc/modules-load.d/k8s.conf' 
+    &$executeRemoteCommand 'sudo modprobe overlay' 
+    &$executeRemoteCommand 'sudo modprobe br_netfilter' 
 
-    &$executeRemoteCommand "echo net.bridge.bridge-nf-call-ip6tables = 1 | sudo tee -a /etc/sysctl.d/k8s.conf" 
-    &$executeRemoteCommand "echo net.bridge.bridge-nf-call-iptables = 1 | sudo tee -a /etc/sysctl.d/k8s.conf" 
-    &$executeRemoteCommand "echo net.ipv4.ip_forward = 1 | sudo tee -a /etc/sysctl.d/k8s.conf" 
-    &$executeRemoteCommand "sudo sysctl --system" 
+    &$executeRemoteCommand 'echo net.bridge.bridge-nf-call-ip6tables = 1 | sudo tee -a /etc/sysctl.d/k8s.conf' 
+    &$executeRemoteCommand 'echo net.bridge.bridge-nf-call-iptables = 1 | sudo tee -a /etc/sysctl.d/k8s.conf' 
+    &$executeRemoteCommand 'echo net.ipv4.ip_forward = 1 | sudo tee -a /etc/sysctl.d/k8s.conf' 
+    &$executeRemoteCommand 'sudo sysctl --system' 
 
-    &$executeRemoteCommand "echo @reboot root mount --make-rshared / | sudo tee /etc/cron.d/sharedmount" 
+    &$executeRemoteCommand 'echo @reboot root mount --make-rshared / | sudo tee /etc/cron.d/sharedmount' 
 
-    Write-Log "Download and install CRI-O"
-    &$executeRemoteCommand "sudo DEBIAN_FRONTEND=noninteractive apt-get update -qq --yes --allow-releaseinfo-change" -Retries 2 -RepairCmd "sudo apt --fix-broken install"
-    &$executeRemoteCommand "sudo DEBIAN_FRONTEND=noninteractive apt-get install -y gpg" -Retries 2 -RepairCmd "sudo apt --fix-broken install"
+    Write-Log 'Prepare for Kubernetes installation'
+    &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get update -qq --yes --allow-releaseinfo-change' -Retries 2 -RepairCmd 'sudo apt --fix-broken install'
+    &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get install -y gpg' -Retries 2 -RepairCmd 'sudo apt --fix-broken install'
 
-    if ( $Proxy -ne '' ) {
-        &$executeRemoteCommand "sudo curl --retry 3 --retry-all-errors -so cri-o.v$CrioVersion.tar.gz https://storage.googleapis.com/cri-o/artifacts/cri-o.amd64.v$CrioVersion.tar.gz --proxy $Proxy" -IgnoreErrors 
-    } else {
-        &$executeRemoteCommand "sudo curl --retry 3 --retry-all-errors -so cri-o.v$CrioVersion.tar.gz https://storage.googleapis.com/cri-o/artifacts/cri-o.amd64.v$CrioVersion.tar.gz" -IgnoreErrors 
+    # we need major and minor for apt keys
+    $proxyToAdd = ''
+    if ($Proxy -ne '') {
+        $proxyToAdd = " --Proxy $Proxy"
     }
-    &$executeRemoteCommand "sudo mkdir -p /usr/cri-o" 
-    &$executeRemoteCommand "sudo tar -xf cri-o.v$CrioVersion.tar.gz -C /usr/cri-o --strip-components=1" 
-    &$executeRemoteCommand 'cd /usr/cri-o/ && sudo ./install 2>&1' 
-    #Delete downloaded file
-    &$executeRemoteCommand "sudo rm cri-o.v$CrioVersion.tar.gz" 
+    $pkgShortK8sVersion = $K8sVersion.Substring(0, $K8sVersion.lastIndexOf('.'))
+    &$executeRemoteCommand "sudo curl --retry 3 --retry-all-errors -fsSL https://pkgs.k8s.io/core:/stable:/$pkgShortK8sVersion/deb/Release.key$proxyToAdd | sudo gpg --dearmor -o /usr/share/keyrings/kubernetes-apt-keyring.gpg" -IgnoreErrors 
+    &$executeRemoteCommand "echo 'deb [signed-by=/usr/share/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/$pkgShortK8sVersion/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.list" 
+    $shortKubeVers = ($K8sVersion -replace 'v', '') + '-1.1'
+    
+    # package locations for cri-o
+    &$executeRemoteCommand "sudo curl --retry 3 --retry-all-errors -fsSL https://pkgs.k8s.io/addons:/cri-o:/stable:/$pkgShortK8sVersion/deb/Release.key$proxyToAdd | sudo gpg --dearmor -o /usr/share/keyrings/cri-o-apt-keyring.gpg" -IgnoreErrors 
+    &$executeRemoteCommand "echo 'deb [signed-by=/usr/share/keyrings/cri-o-apt-keyring.gpg] https://pkgs.k8s.io/addons:/cri-o:/stable:/$pkgShortK8sVersion/deb/ /' | sudo tee /etc/apt/sources.list.d/cri-o.list" 
+
+    Write-Log 'Install other depended-on tools'
+    &$executeRemoteCommand 'sudo apt-get update' -Retries 2 -RepairCmd 'sudo apt --fix-broken install'
+    &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get install -qq --yes apt-transport-https ca-certificates curl' -Retries 2 -RepairCmd 'sudo apt --fix-broken install'
+
+    Write-Log 'Install cri-o'
+    InstallAptPackages -FriendlyName 'cri-o' -Packages 'cri-o' -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd" 
+    &$executeRemoteCommand 'sudo apt-mark hold cri-o'
 
     # increase timeout for crictl to connect to crio.sock
     &$executeRemoteCommand "grep timeout.* /etc/crictl.yaml | sudo sed -i 's/timeout.*/timeout: 30/g' /etc/crictl.yaml"
-    &$executeRemoteCommand "grep timeout.* /etc/crictl.yaml || echo timeout: 30 | sudo tee -a /etc/crictl.yaml"
+    &$executeRemoteCommand 'grep timeout.* /etc/crictl.yaml || echo timeout: 30 | sudo tee -a /etc/crictl.yaml'
     
     if ( $Proxy -ne '' ) {
-        Write-Log "Set proxy to CRI-O"
+        Write-Log 'Set proxy to CRI-O'
         &$executeRemoteCommand 'sudo mkdir -p /etc/systemd/system/crio.service.d' 
         &$executeRemoteCommand 'sudo touch /etc/systemd/system/crio.service.d/http-proxy.conf' 
         &$executeRemoteCommand 'echo [Service] | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf' 
@@ -162,17 +174,18 @@ Function Install-KubernetesArtifacts {
     $token = Get-RegistryToken
     if ($PSVersionTable.PSVersion.Major -gt 5) {
         $jsonConfig = @{
-            "auths" = @{
-                "shsk2s.azurecr.io" = @{
-                    "auth" = "$token"
+            'auths' = @{
+                'shsk2s.azurecr.io' = @{
+                    'auth' = "$token"
                 }
             }
         }
-    } else {
+    }
+    else {
         $jsonConfig = @{
-            """auths""" = @{
-                """shsk2s.azurecr.io""" = @{
-                    """auth""" = """$token"""
+            '"auths"' = @{
+                '"shsk2s.azurecr.io"' = @{
+                    '"auth"' = """$token"""
                 }
             }
         }
@@ -183,49 +196,48 @@ Function Install-KubernetesArtifacts {
     &$executeRemoteCommand 'sudo mkdir -p /root/.config/containers'
     &$executeRemoteCommand 'sudo mv /tmp/auth.json /root/.config/containers/auth.json'
 
-    Write-Log "Configure CRI-O (part 1 of 2)"
+    Write-Log 'Configure CRI-O'
     # cri-o default cni bridge should have least priority
     $CRIO_CNI_FILE = '/etc/cni/net.d/10-crio-bridge.conf'
     &$executeRemoteCommand "[ -f $CRIO_CNI_FILE ] && sudo mv $CRIO_CNI_FILE /etc/cni/net.d/100-crio-bridge.conf || echo File does not exist, no renaming of cni file $CRIO_CNI_FILE.." 
     if ($PSVersionTable.PSVersion.Major -gt 5) {
-        &$executeRemoteCommand "sudo echo unqualified-search-registries = [\""docker.io\""] | sudo tee -a /etc/containers/registries.conf"
-    } else {
-        &$executeRemoteCommand "sudo echo unqualified-search-registries = [\\\""docker.io\\\""] | sudo tee -a /etc/containers/registries.conf"
+        &$executeRemoteCommand 'sudo echo unqualified-search-registries = [\"docker.io\"] | sudo tee -a /etc/containers/registries.conf'
+    }
+    else {
+        &$executeRemoteCommand 'sudo echo unqualified-search-registries = [\\\"docker.io\\\"] | sudo tee -a /etc/containers/registries.conf'
     }
 
-    Write-Log "Install other depended-on tools"
-    &$executeRemoteCommand "sudo apt-get update" -Retries 2 -RepairCmd "sudo apt --fix-broken install"
-    &$executeRemoteCommand "sudo DEBIAN_FRONTEND=noninteractive apt-get install -qq --yes apt-transport-https ca-certificates curl" -Retries 2 -RepairCmd "sudo apt --fix-broken install"
-
-    Write-Log "Install kubetools (kubelet, kubeadm, kubectl)"
-    $proxyToAdd = ""
-    if($Proxy -ne '') {
-        $proxyToAdd = " --Proxy $Proxy"
-    }
-
-    # we need major and minor for apt keys
-    $pkgShortK8sVersion = $K8sVersion.Substring(0, $K8sVersion.lastIndexOf('.'))
-    &$executeRemoteCommand "sudo curl --retry 3 --retry-all-errors -fsSL https://pkgs.k8s.io/core:/stable:/$pkgShortK8sVersion/deb/Release.key$proxyToAdd | sudo gpg --dearmor -o /usr/share/keyrings/kubernetes-apt-keyring.gpg" -IgnoreErrors 
-    &$executeRemoteCommand "echo 'deb [signed-by=/usr/share/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/$pkgShortK8sVersion/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.list" 
-    $shortKubeVers = ($K8sVersion -replace 'v', '') + '-1.1'
-
-    &$executeRemoteCommand "sudo apt-get update" 
+    Write-Log 'Install kubetools (kubelet, kubeadm, kubectl)'
+    &$executeRemoteCommand 'sudo apt-get update' 
     InstallAptPackages -FriendlyName 'kubernetes' -Packages "kubelet=$shortKubeVers kubeadm=$shortKubeVers kubectl=$shortKubeVers" -TestExecutable 'kubectl' -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd" 
-    &$executeRemoteCommand "sudo apt-mark hold kubelet kubeadm kubectl" 
+    &$executeRemoteCommand 'sudo apt-mark hold kubelet kubeadm kubectl' 
 
-    Write-Log "Configure CRI-O (part 2 of 2): adapt CRI-O config file to use pause image version specified by kubeadm" 
-    if ($PSVersionTable.PSVersion.Major -gt 5) {
-        &$executeRemoteCommand "pauseImageToUse=`"`$(kubeadm config images list --kubernetes-version $K8sVersion | grep `"pause`")`" && newTextLine=`$(echo pause_image = '`"'`$pauseImageToUse'`"') && sudo sed -i `"s#.*pause_image[ ]*=.*pause.*#`$newTextLine#`" /etc/crio/crio.conf" 
-    } else {
-        &$executeRemoteCommand "pauseImageToUse=`"`$(kubeadm config images list --kubernetes-version $K8sVersion | grep \`"pause\`")`" && newTextLine=`$(echo pause_image = '\`"'`$pauseImageToUse'\`"') && sudo sed -i \`"s#.*pause_image[ ]*=.*pause.*#`$newTextLine#\`" /etc/crio/crio.conf" 
-    }
+    # Write-Log 'Configure CRI-O (part 2 of 2): adapt CRI-O config file to use pause image version specified by kubeadm' 
+    # if ($PSVersionTable.PSVersion.Major -gt 5) {
+    #     &$executeRemoteCommand "pauseImageToUse=`"`$(kubeadm config images list --kubernetes-version $K8sVersion | grep `"pause`")`" && newTextLine=`$(echo pause_image = '`"'`$pauseImageToUse'`"') && sudo sed -i `"s#.*pause_image[ ]*=.*pause.*#`$newTextLine#`" /etc/crio/crio.conf" 
+    # }
+    # else {
+    #     &$executeRemoteCommand "pauseImageToUse=`"`$(kubeadm config images list --kubernetes-version $K8sVersion | grep \`"pause\`")`" && newTextLine=`$(echo pause_image = '\`"'`$pauseImageToUse'\`"') && sudo sed -i \`"s#.*pause_image[ ]*=.*pause.*#`$newTextLine#\`" /etc/crio/crio.conf" 
+    # }
 
-    Write-Log "Start CRI-O"
+    Write-Log 'Start CRI-O'
     &$executeRemoteCommand 'sudo systemctl daemon-reload' 
     &$executeRemoteCommand 'sudo systemctl enable crio' -IgnoreErrors 
     &$executeRemoteCommand 'sudo systemctl start crio' 
 
-    Write-Log "Pull images used by K8s"
+    $isWsl = Get-ConfigWslFlag
+    Write-Log "WSL check in Install-KubernetesArtifacts: $isWsl"
+    if ( $isWsl ) {
+        Write-Log 'Add cri-o fix for WSL'
+        $configWSL = '/etc/crio/crio.conf.d/20-wsl.conf'
+        # add to /etc/crio/crio.conf.d/20-wsl.conf the following line:  [crio.runtime]
+        &$executeRemoteCommand "echo [crio.runtime] | sudo tee -a $configWSL > /dev/null"
+        &$executeRemoteCommand "echo add_inheritable_capabilities=true | sudo tee -a $configWSL > /dev/null"
+        &$executeRemoteCommand "echo default_sysctls='[\`"net.ipv4.ip_unprivileged_port_start=0\`"]' | sudo tee -a $configWSL > /dev/null"
+        &$executeRemoteCommand 'sudo systemctl restart crio'
+    }   
+
+    Write-Log 'Pull images used by K8s'
     &$executeRemoteCommand "sudo kubeadm config images pull --kubernetes-version $K8sVersion" 
 }
 
@@ -246,45 +258,45 @@ The proxy to use.
 #>
 Function Install-Tools {
     param (
-        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_))})]
-        [string]$UserName = $(throw "Argument missing: UserName"),
-        [string]$UserPwd = $(throw "Argument missing: UserPwd"),
+        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
+        [string]$UserName = $(throw 'Argument missing: UserName'),
+        [string]$UserPwd = $(throw 'Argument missing: UserPwd'),
         [ValidateScript({ Get-IsValidIPv4Address($_) })]
-        [string]$IpAddress = $(throw "Argument missing: IpAddress"),
+        [string]$IpAddress = $(throw 'Argument missing: IpAddress'),
         [string] $Proxy = ''
     )
     $remoteUser = "$UserName@$IpAddress"
     $remoteUserPwd = $UserPwd
 
-    $executeRemoteCommand = { param($Command = $(throw "Argument missing: Command")) 
+    $executeRemoteCommand = { param($Command = $(throw 'Argument missing: Command')) 
     (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $Command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output | Write-Log
     }
 
-    Write-Log "Start installing tools in the Linux VM"
+    Write-Log 'Start installing tools in the Linux VM'
 
     # INSTALL buildah FROM TESTING REPO IN ORDER TO GET A NEWER VERSION
     #################################################################################################################################################################
-    Write-Log "Install container image creation tool: buildah"                                                                                                   #
+    Write-Log 'Install container image creation tool: buildah'                                                                                                   #
     #First install buildah from latest debian bullseye                                                                                                              #
     &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Options::="--force-confnew" install buildah --yes'                                   #
     #Remove chrony as it is unstable with latest version of buildah                                                                                                 #
     #&$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get remove chrony --yes'                                                                          #
-                                                                                                                                                                    #
-    &$executeRemoteCommand "sudo DEBIAN_FRONTEND=noninteractive apt-get install -qq --yes software-properties-common"                                                 #
-                                                                                                                                                                    #
+    #
+    &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get install -qq --yes software-properties-common'                                                 #
+    #
     #Now update apt sources to get latest from bookworm                                                                                                              #
     AddAptRepo -RepoDebString 'deb http://deb.debian.org/debian bookworm main' -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd"                                        #
     AddAptRepo -RepoDebString 'deb http://deb.debian.org/debian-security/ bookworm-security main' -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd"                     #
-                                                                                                                                                                    #
+    #
     &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get update -qq --yes'                                                                             #
     #&$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get remove chrony --yes'                                                                          #
-                                                                                                                                                                    #
+    #
     #Install latest from bookworm now                                                                                                                                #
     &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get install -t bookworm --no-install-recommends --no-install-suggests buildah --yes'              #
     &$executeRemoteCommand 'sudo buildah -v'                                                                                                                          #
-                                                                                                                                                                    #
+    #
     &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get autoremove -qq --yes'                                                                         #
-                                                                                                                                                                    #
+    #
     #Remove bookworm source now                                                                                                                                      #
     &$executeRemoteCommand "sudo apt-add-repository 'deb http://deb.debian.org/debian bookworm main' -r"                                                              #
     &$executeRemoteCommand "sudo apt-add-repository 'deb http://deb.debian.org/debian-security/ bookworm-security main' -r"                                           #
@@ -295,11 +307,12 @@ Function Install-Tools {
     # Issue is fixed in buildah 1.26 but exists in experimental stage
     #&$executeRemoteCommand "sudo sed -i 's/\[machine/#&/' /usr/share/containers/containers.conf"
 
-    if($Proxy -ne '') {
-        &$executeRemoteCommand "echo [engine] | sudo tee -a /etc/containers/containers.conf"
+    if ($Proxy -ne '') {
+        &$executeRemoteCommand 'echo [engine] | sudo tee -a /etc/containers/containers.conf'
         if ($PSVersionTable.PSVersion.Major -gt 5) {
             &$executeRemoteCommand "echo env = [\""https_proxy=$Proxy\""] | sudo tee -a /etc/containers/containers.conf"
-        } else {
+        }
+        else {
             &$executeRemoteCommand "echo env = [\\\""https_proxy=$Proxy\\\""] | sudo tee -a /etc/containers/containers.conf"
         }
     }
@@ -307,17 +320,18 @@ Function Install-Tools {
     $token = Get-RegistryToken
     if ($PSVersionTable.PSVersion.Major -gt 5) {
         $jsonConfig = @{
-            "auths" = @{
-                "shsk2s.azurecr.io" = @{
-                    "auth" = "$token"
+            'auths' = @{
+                'shsk2s.azurecr.io' = @{
+                    'auth' = "$token"
                 }
             }
         }
-    } else {
+    }
+    else {
         $jsonConfig = @{
-            """auths""" = @{
-                """shsk2s.azurecr.io""" = @{
-                    """auth""" = """$token"""
+            '"auths"' = @{
+                '"shsk2s.azurecr.io"' = @{
+                    '"auth"' = """$token"""
                 }
             }
         }
@@ -328,84 +342,85 @@ Function Install-Tools {
     &$executeRemoteCommand 'sudo mkdir -p /root/.config/containers'
     &$executeRemoteCommand 'sudo mv /tmp/auth.json /root/.config/containers/auth.json'
 
-    Write-Log "Need to update registry conf file which is added as part of buildah installation"
+    Write-Log 'Need to update registry conf file which is added as part of buildah installation'
     #&$executeRemoteCommand "sudo sed -i '/.*unqualified-search-registries.*/cunqualified-search-registries = [\\\""docker.io\\\"", \\\""quay.io\\\""]' /etc/containers/registries.conf"
     if ($PSVersionTable.PSVersion.Major -gt 5) {
-        &$executeRemoteCommand "sudo echo unqualified-search-registries = [\""docker.io\"", \""quay.io\""] | sudo tee -a /etc/containers/registries.conf"
-    } else {
-        &$executeRemoteCommand "sudo echo unqualified-search-registries = [\\\""docker.io\\\"", \\\""quay.io\\\""] | sudo tee -a /etc/containers/registries.conf"
+        &$executeRemoteCommand 'sudo echo unqualified-search-registries = [\"docker.io\", \"quay.io\"] | sudo tee -a /etc/containers/registries.conf'
+    }
+    else {
+        &$executeRemoteCommand 'sudo echo unqualified-search-registries = [\\\"docker.io\\\", \\\"quay.io\\\"] | sudo tee -a /etc/containers/registries.conf'
     }
     # restart crio after updating registry.conf
     &$executeRemoteCommand 'sudo systemctl daemon-reload'
     &$executeRemoteCommand 'sudo systemctl restart crio'
 
-    Write-Log "Finished installing tools in Linux"
+    Write-Log 'Finished installing tools in Linux'
 
 }
 
 function Install-DnsServer {
     param (
-        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_))})]
-        [string]$UserName = $(throw "Argument missing: UserName"),
-        [string]$UserPwd = $(throw "Argument missing: UserPwd"),
+        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
+        [string]$UserName = $(throw 'Argument missing: UserName'),
+        [string]$UserPwd = $(throw 'Argument missing: UserPwd'),
         [ValidateScript({ Get-IsValidIPv4Address($_) })]
-        [string]$IpAddress = $(throw "Argument missing: IpAddress")
+        [string]$IpAddress = $(throw 'Argument missing: IpAddress')
     )
     $remoteUser = "$UserName@$IpAddress"
     $remoteUserPwd = $UserPwd
 
-    $executeRemoteCommand = { param($Command = $(throw "Argument missing: Command")) 
+    $executeRemoteCommand = { param($Command = $(throw 'Argument missing: Command')) 
     (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $Command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output | Write-Log
     }
 
-    Write-Log "Install custom DNS server"
+    Write-Log 'Install custom DNS server'
     &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get install dnsutils --yes' 
     &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get install dnsmasq --yes' 
 
-    Write-Log "Stop custom DNS server"
+    Write-Log 'Stop custom DNS server'
     &$executeRemoteCommand 'sudo systemctl stop dnsmasq' 
 }
 
 function Get-FlannelImages {
     param (
-        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_))})]
-        [string]$UserName = $(throw "Argument missing: UserName"),
-        [string]$UserPwd = $(throw "Argument missing: UserPwd"),
+        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
+        [string]$UserName = $(throw 'Argument missing: UserName'),
+        [string]$UserPwd = $(throw 'Argument missing: UserPwd'),
         [ValidateScript({ Get-IsValidIPv4Address($_) })]
-        [string]$IpAddress = $(throw "Argument missing: IpAddress")
+        [string]$IpAddress = $(throw 'Argument missing: IpAddress')
     )
     $remoteUser = "$UserName@$IpAddress"
     $remoteUserPwd = $UserPwd
 
-    $executeRemoteCommand = { param($Command = $(throw "Argument missing: Command")) 
+    $executeRemoteCommand = { param($Command = $(throw 'Argument missing: Command')) 
     (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $Command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output | Write-Log
     }
 
-    Write-Log "Get images used by flannel"
+    Write-Log 'Get images used by flannel'
     &$executeRemoteCommand 'sudo crictl pull rancher/mirrored-flannelcni-flannel-cni-plugin:v1.1.0' 
     &$executeRemoteCommand 'sudo crictl pull rancher/mirrored-flannelcni-flannel:v0.18.1' 
 }
 
 function Set-Nameserver {
     param (
-        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_))})]
-        [string]$UserName = $(throw "Argument missing: UserName"),
-        [string]$UserPwd = $(throw "Argument missing: UserPwd"),
+        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
+        [string]$UserName = $(throw 'Argument missing: UserName'),
+        [string]$UserPwd = $(throw 'Argument missing: UserPwd'),
         [ValidateScript({ Get-IsValidIPv4Address($_) })]
-        [string]$IpAddress = $(throw "Argument missing: IpAddress")
+        [string]$IpAddress = $(throw 'Argument missing: IpAddress')
     )
     $remoteUser = "$UserName@$IpAddress"
     $remoteUserPwd = $UserPwd
 
-    $executeRemoteCommand = { param($Command = $(throw "Argument missing: Command")) 
+    $executeRemoteCommand = { param($Command = $(throw 'Argument missing: Command')) 
     (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $Command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output | Write-Log
     }
 
-    Write-Log "Set nameserver"
+    Write-Log 'Set nameserver'
     # DNS
-    &$executeRemoteCommand  'sudo chattr -i /etc/resolv.conf'
-    &$executeRemoteCommand  'sudo rm -f /etc/resolv.conf'
-    &$executeRemoteCommand  'echo nameserver 172.19.1.100 | sudo tee /etc/resolv.conf'
+    &$executeRemoteCommand 'sudo chattr -i /etc/resolv.conf'
+    &$executeRemoteCommand 'sudo rm -f /etc/resolv.conf'
+    &$executeRemoteCommand 'echo nameserver 172.19.1.100 | sudo tee /etc/resolv.conf'
 }
 
 <#
@@ -422,68 +437,68 @@ The IP address of the VM.
 #>
 Function Add-SupportForWSL {
     param (
-        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_))})]
-        [string]$UserName = $(throw "Argument missing: UserName"),
-        [string]$UserPwd = $(throw "Argument missing: UserPwd"),
+        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
+        [string]$UserName = $(throw 'Argument missing: UserName'),
+        [string]$UserPwd = $(throw 'Argument missing: UserPwd'),
         [ValidateScript({ Get-IsValidIPv4Address($_) })]
-        [string]$IpAddress = $(throw "Argument missing: IpAddress")
+        [string]$IpAddress = $(throw 'Argument missing: IpAddress')
     )
     $remoteUser = "$UserName@$IpAddress"
     $remoteUserPwd = $UserPwd
 
-    $executeRemoteCommand = { param($command = $(throw "Argument missing: Command"))
+    $executeRemoteCommand = { param($command = $(throw 'Argument missing: Command'))
         (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output | Write-Log
     }
 
     # WSL2 config
-    Write-Log "Configure WSL2"
-    &$executeRemoteCommand "sudo touch /etc/wsl.conf" 
-    &$executeRemoteCommand "echo [automount] | sudo tee -a /etc/wsl.conf" 
-    &$executeRemoteCommand "echo enabled = false | sudo tee -a /etc/wsl.conf" 
+    Write-Log 'Configure WSL2'
+    &$executeRemoteCommand 'sudo touch /etc/wsl.conf' 
+    &$executeRemoteCommand 'echo [automount] | sudo tee -a /etc/wsl.conf' 
+    &$executeRemoteCommand 'echo enabled = false | sudo tee -a /etc/wsl.conf' 
     &$executeRemoteCommand "echo -e 'mountFsTab = false\n' | sudo tee -a /etc/wsl.conf" 
 
-    &$executeRemoteCommand "echo [interop] | sudo tee -a /etc/wsl.conf" 
-    &$executeRemoteCommand "echo enabled = false | sudo tee -a /etc/wsl.conf" 
+    &$executeRemoteCommand 'echo [interop] | sudo tee -a /etc/wsl.conf' 
+    &$executeRemoteCommand 'echo enabled = false | sudo tee -a /etc/wsl.conf' 
     &$executeRemoteCommand "echo -e 'appendWindowsPath = false\n' | sudo tee -a /etc/wsl.conf" 
 
-    &$executeRemoteCommand "echo [user] | sudo tee -a /etc/wsl.conf" 
+    &$executeRemoteCommand 'echo [user] | sudo tee -a /etc/wsl.conf' 
     &$executeRemoteCommand "echo -e 'default = __USERNAME__\n' | sudo tee -a /etc/wsl.conf" 
 
-    &$executeRemoteCommand "echo [network] | sudo tee -a /etc/wsl.conf" 
-    &$executeRemoteCommand "echo generateHosts = false | sudo tee -a /etc/wsl.conf" 
-    &$executeRemoteCommand "echo generateResolvConf = false | sudo tee -a /etc/wsl.conf" 
-    &$executeRemoteCommand "echo hostname = __HOSTNAME__ | sudo tee -a /etc/wsl.conf"
-    &$executeRemoteCommand "echo | sudo tee -a /etc/wsl.conf"
+    &$executeRemoteCommand 'echo [network] | sudo tee -a /etc/wsl.conf' 
+    &$executeRemoteCommand 'echo generateHosts = false | sudo tee -a /etc/wsl.conf' 
+    &$executeRemoteCommand 'echo generateResolvConf = false | sudo tee -a /etc/wsl.conf' 
+    &$executeRemoteCommand 'echo hostname = __HOSTNAME__ | sudo tee -a /etc/wsl.conf'
+    &$executeRemoteCommand 'echo | sudo tee -a /etc/wsl.conf'
 
-    &$executeRemoteCommand "echo [boot] | sudo tee -a /etc/wsl.conf" 
-    &$executeRemoteCommand "echo systemd = true | sudo tee -a /etc/wsl.conf" 
+    &$executeRemoteCommand 'echo [boot] | sudo tee -a /etc/wsl.conf' 
+    &$executeRemoteCommand 'echo systemd = true | sudo tee -a /etc/wsl.conf' 
     &$executeRemoteCommand "echo 'command = ""sudo ifconfig __INTERFACE_NAME__ __IP_ADDRESS__ && sudo ifconfig __INTERFACE_NAME__ netmask __NETWORK_MASK__"" && sudo route add default gw __GATEWAY_IP_ADDRESS__' | sudo tee -a /etc/wsl.conf" 
 }
 
 function Edit-SupportForWSL {
     param (
-        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_))})]
-        [string]$UserName = $(throw "Argument missing: UserName"),
-        [string]$UserPwd = $(throw "Argument missing: UserPwd"),
-        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_))})]
-        [string]$Hostname = $(throw "Argument missing: Hostname"),
+        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
+        [string]$UserName = $(throw 'Argument missing: UserName'),
+        [string]$UserPwd = $(throw 'Argument missing: UserPwd'),
+        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
+        [string]$Hostname = $(throw 'Argument missing: Hostname'),
         [ValidateScript({ Get-IsValidIPv4Address($_) })]
-        [string]$IpAddress = $(throw "Argument missing: IpAddress"),
-        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_))})]
-        [string]$NetworkInterfaceName = $(throw "Argument missing: NetworkInterfaceName"),
+        [string]$IpAddress = $(throw 'Argument missing: IpAddress'),
+        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
+        [string]$NetworkInterfaceName = $(throw 'Argument missing: NetworkInterfaceName'),
         [ValidateScript({ Get-IsValidIPv4Address($_) })]
-        [string]$NetworkMask = $(throw "Argument missing: NetworkMask"),
+        [string]$NetworkMask = $(throw 'Argument missing: NetworkMask'),
         [ValidateScript({ Get-IsValidIPv4Address($_) })]
-        [string]$GatewayIpAddress = $(throw "Argument missing: GatewayIpAddress")
+        [string]$GatewayIpAddress = $(throw 'Argument missing: GatewayIpAddress')
     )
     $remoteUser = "$UserName@$IpAddress"
     $remoteUserPwd = $UserPwd
 
-    $executeRemoteCommand = { param($command = $(throw "Argument missing: Command"))
+    $executeRemoteCommand = { param($command = $(throw 'Argument missing: Command'))
         (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output | Write-Log
     }
 
-    Write-Log "Edit WSL2 support"
+    Write-Log 'Edit WSL2 support'
     &$executeRemoteCommand "sudo sed -i `"s/__USERNAME__/$UserName/g`" $wslConfigurationFilePath"
     &$executeRemoteCommand "sudo sed -i `"s/__HOSTNAME__/$Hostname/g`" $wslConfigurationFilePath"
     &$executeRemoteCommand "sudo sed -i `"s/__IP_ADDRESS__/$IpAddress/g`" $wslConfigurationFilePath"
@@ -522,26 +537,26 @@ A script block that will get executed at the end of the set-up process (can be u
 #>
 Function Set-UpMasterNode {
     param (
-        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_))})]
-        [string]$UserName = $(throw "Argument missing: UserName"),
-        [string]$UserPwd = $(throw "Argument missing: UserPwd"),
+        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
+        [string]$UserName = $(throw 'Argument missing: UserName'),
+        [string]$UserPwd = $(throw 'Argument missing: UserPwd'),
         [ValidateScript({ Get-IsValidIPv4Address($_) })]
-        [string]$IpAddress = $(throw "Argument missing: IpAddress"),
-        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_))})]
-        [string] $K8sVersion = $(throw "Argument missing: K8sVersion"),
-        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_))})]
-        [string] $ClusterCIDR = $(throw "Argument missing: ClusterCIDR"),
-        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_))})]
-        [string] $ClusterCIDR_Services = $(throw "Argument missing: ClusterCIDR_Services"),
+        [string]$IpAddress = $(throw 'Argument missing: IpAddress'),
+        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
+        [string] $K8sVersion = $(throw 'Argument missing: K8sVersion'),
+        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
+        [string] $ClusterCIDR = $(throw 'Argument missing: ClusterCIDR'),
+        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
+        [string] $ClusterCIDR_Services = $(throw 'Argument missing: ClusterCIDR_Services'),
         [ValidateScript({ Get-IsValidIPv4Address($_) })]
-        [string] $KubeDnsServiceIP = $(throw "Argument missing: KubeDnsServiceIP"),
+        [string] $KubeDnsServiceIP = $(throw 'Argument missing: KubeDnsServiceIP'),
         [ValidateScript({ Get-IsValidIPv4Address($_) })]
-        [string] $IP_NextHop = $(throw "Argument missing: IP_NextHop"),
-        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_))})]
-        [string] $NetworkInterfaceName = $(throw "Argument missing: NetworkInterfaceName"),
+        [string] $IP_NextHop = $(throw 'Argument missing: IP_NextHop'),
+        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
+        [string] $NetworkInterfaceName = $(throw 'Argument missing: NetworkInterfaceName'),
         [ValidateScript({ Get-IsValidIPv4Address($_) })]
-        [string] $NetworkInterfaceCni0IP_Master = $(throw "Argument missing: NetworkInterfaceCni0IP_Master"),
-        [ScriptBlock] $Hook = $(throw "Argument missing: Hook")
+        [string] $NetworkInterfaceCni0IP_Master = $(throw 'Argument missing: NetworkInterfaceCni0IP_Master'),
+        [ScriptBlock] $Hook = $(throw 'Argument missing: Hook')
     )
 
     $remoteUser = "$UserName@$IpAddress"
@@ -549,12 +564,13 @@ Function Set-UpMasterNode {
 
     $executeRemoteCommand = { 
         param(
-            $command = $(throw "Argument missing: Command"), 
+            $command = $(throw 'Argument missing: Command'), 
             [switch]$IgnoreErrors = $false
-            ) 
+        ) 
         if ($IgnoreErrors) {
             (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd" -IgnoreErrors).Output | Write-Log
-        } else {
+        }
+        else {
             (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output | Write-Log
         }
     }
@@ -563,18 +579,18 @@ Function Set-UpMasterNode {
 
     &$executeRemoteCommand "sudo kubeadm init --kubernetes-version $K8sVersion --apiserver-advertise-address $IpAddress --pod-network-cidr=$ClusterCIDR --service-cidr=$ClusterCIDR_Services" -IgnoreErrors 
 
-    Write-Log "Copy K8s config file to user profile"
-    &$executeRemoteCommand "mkdir -p ~/.kube" 
-    &$executeRemoteCommand "chmod 755 ~/.kube" 
-    &$executeRemoteCommand "sudo cp /etc/kubernetes/admin.conf ~/.kube/config" 
+    Write-Log 'Copy K8s config file to user profile'
+    &$executeRemoteCommand 'mkdir -p ~/.kube' 
+    &$executeRemoteCommand 'chmod 755 ~/.kube' 
+    &$executeRemoteCommand 'sudo cp /etc/kubernetes/admin.conf ~/.kube/config' 
     &$executeRemoteCommand "sudo chown $UserName ~/.kube/config" 
     &$executeRemoteCommand 'kubectl get nodes' 
 
-    Write-Log "Install custom DNS server"
+    Write-Log 'Install custom DNS server'
     &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get install dnsutils --yes' 
     &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get install dnsmasq --yes' 
 
-    Write-Log "Configure custom DNS server"
+    Write-Log 'Configure custom DNS server'
     # add more interfaces to listen on
     &$executeRemoteCommand "echo server=/cluster.local/$KubeDnsServiceIP | sudo tee -a /etc/dnsmasq.conf" 
     &$executeRemoteCommand "echo server=$IP_NextHop@$NetworkInterfaceName | sudo tee -a /etc/dnsmasq.conf" 
@@ -582,45 +598,45 @@ Function Set-UpMasterNode {
     &$executeRemoteCommand 'echo interface=cni0 | sudo tee -a /etc/dnsmasq.conf' 
     &$executeRemoteCommand 'echo interface=lo | sudo tee -a /etc/dnsmasq.conf' 
 
-    Write-Log "Restart custom DNS server"
+    Write-Log 'Restart custom DNS server'
     &$executeRemoteCommand 'sudo systemctl restart dnsmasq' 
 
-    Write-Log "Add DNS resolution rules to K8s DNS component"
+    Write-Log 'Add DNS resolution rules to K8s DNS component'
     # change config map to forward all non cluster DNS request to proxy (dnsmasq) running on master
     &$executeRemoteCommand "kubectl get configmap/coredns -n kube-system -o yaml | sed -e 's|forward . /etc/resolv.conf|forward . $NetworkInterfaceCni0IP_Master|' | kubectl apply -f -" -IgnoreErrors 
 
-    Write-Log "Initialize Flannel"
+    Write-Log 'Initialize Flannel'
     Add-FlannelPluginToMasterNode -IpAddress $IpAddress -UserName $UserName -UserPwd $UserPwd -PodNetworkCIDR $ClusterCIDR
 
-    Write-Log "Run setup hook"
+    Write-Log 'Run setup hook'
     &$Hook
-    Write-Log "Setup hook finished"
+    Write-Log 'Setup hook finished'
 
-    Write-Log "Redirect to localhost IP address for DNS resolution"
-    &$executeRemoteCommand "sudo chattr -i /etc/resolv.conf" 
+    Write-Log 'Redirect to localhost IP address for DNS resolution'
+    &$executeRemoteCommand 'sudo chattr -i /etc/resolv.conf' 
     &$executeRemoteCommand "echo 'nameserver 127.0.0.1' | sudo tee /etc/resolv.conf" 
 
-    Write-Log "Finished setting up Linux computer as master"
+    Write-Log 'Finished setting up Linux computer as master'
 
 }
 
 Function Add-FlannelPluginToMasterNode {
     param (
-        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_))})]
-        [string]$UserName = $(throw "Argument missing: UserName"),
-        [string]$UserPwd = $(throw "Argument missing: UserPwd"),
+        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
+        [string]$UserName = $(throw 'Argument missing: UserName'),
+        [string]$UserPwd = $(throw 'Argument missing: UserPwd'),
         [ValidateScript({ Get-IsValidIPv4Address($_) })]
-        [string]$IpAddress = $(throw "Argument missing: IpAddress"),
-        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_))})]
-        [string] $PodNetworkCIDR = $(throw "Argument missing: PodNetworkCIDR")
+        [string]$IpAddress = $(throw 'Argument missing: IpAddress'),
+        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
+        [string] $PodNetworkCIDR = $(throw 'Argument missing: PodNetworkCIDR')
     )
 
     $remoteUser = "$UserName@$IpAddress"
     $remoteUserPwd = $UserPwd
 
-    $fileName = "flannel.yml"
+    $fileName = 'flannel.yml'
 
-    $executeRemoteCommand = { param($command = $(throw "Argument missing: Command")) 
+    $executeRemoteCommand = { param($command = $(throw 'Argument missing: Command')) 
     (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output | Write-Log
     }
 
@@ -655,10 +671,10 @@ Function Add-FlannelPluginToMasterNode {
         }
     }
 
-    Write-Log "Change default forward policy"
+    Write-Log 'Change default forward policy'
     &$executeRemoteCommand 'sudo iptables --policy FORWARD ACCEPT' 
 
-    Write-Log "Prepare Flannel configuration file"
+    Write-Log 'Prepare Flannel configuration file'
     $NetworkAddress = "      ""Network"": ""$PodNetworkCIDR"","
     $NetworkName = '      "name": "cbr0",'
     $NetworkType = '        "Type": "host-gw"' 
@@ -680,11 +696,11 @@ Function Add-FlannelPluginToMasterNode {
         $content = Get-Content "$configurationFile"
         $content | ForEach-Object { $_ -replace $lineNetworkAddress, $NetworkAddress } | Set-Content "$configurationFile"
     }
-    Write-Log "Copy Flannel configuration file to computer"
+    Write-Log 'Copy Flannel configuration file to computer'
     $target = "/home/$UserName"
     Copy-ToControlPlaneViaUserAndPwd -Source "$configurationFile" -Target $target
 
-    Write-Log "Apply flannel configuration file on computer"
+    Write-Log 'Apply flannel configuration file on computer'
     &$executeRemoteCommand "kubectl apply -f ~/$fileName" 
 
     &$waitUntilContainerNetworkPluginIsRunning
@@ -703,23 +719,19 @@ The password to use to log in.
 .PARAMETER IpAddress
 The IP address of the VM.
 .PARAMETER K8sVersion
-The Kubernetes version to use.
-.PARAMETER CrioVersion
 The CRI-O version to use.
 .PARAMETER Proxy
 The proxy to use.
 #>
 Function New-KubernetesNode {
     param (
-        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_))})]
-        [string]$UserName = $(throw "Argument missing: UserName"),
-        [string]$UserPwd = $(throw "Argument missing: UserPwd"),
+        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
+        [string]$UserName = $(throw 'Argument missing: UserName'),
+        [string]$UserPwd = $(throw 'Argument missing: UserPwd'),
         [ValidateScript({ Get-IsValidIPv4Address($_) })]
-        [string]$IpAddress = $(throw "Argument missing: IpAddress"),
-        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_))})]
-        [string] $K8sVersion = $(throw "Argument missing: K8sVersion"),
-        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_))})]
-        [string] $CrioVersion = $(throw "Argument missing: CrioVersion"),
+        [string]$IpAddress = $(throw 'Argument missing: IpAddress'),
+        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
+        [string] $K8sVersion = $(throw 'Argument missing: K8sVersion'),
         [string]$Proxy = '' 
     )
 
@@ -732,11 +744,11 @@ Function New-KubernetesNode {
     Write-Log "Finished preparation of computer $IpAddress for provisioning"
 
     Write-Log "Start provisioning the computer $IpAddress"
-    Install-KubernetesArtifacts -IpAddress $IpAddress -UserName $userName -UserPwd $userPwd -Proxy $Proxy -K8sVersion $K8sVersion -CrioVersion $CrioVersion
+    Install-KubernetesArtifacts -IpAddress $IpAddress -UserName $userName -UserPwd $userPwd -Proxy $Proxy -K8sVersion $K8sVersion 
 
     Write-Log "Finalize preparation of the computer $IpAddress after provisioning"
     Set-UpComputerWithSpecificOsAfterProvisioning -IpAddress $IpAddress -UserName $userName -UserPwd $userPwd
-    Write-Log "Linux VM is now prepared to be used as master node"
+    Write-Log 'Linux VM is now prepared to be used as master node'
 
     Set-UpComputerAfterProvisioning -IpAddress $IpAddress -UserName $userName -UserPwd $userPwd
     Write-Log "Finished provisioning the computer $IpAddress"
@@ -748,7 +760,7 @@ $kubenodeBaseFileName = 'Kubenode-Base.vhdx'
 function New-VmImageForKubernetesNode {
     param (
         [parameter(Mandatory = $false, HelpMessage = 'The path to save the prepared base image.')]
-        [string] $VmImageOutputPath = $(throw "Argument missing: VmImageOutputPath"),
+        [string] $VmImageOutputPath = $(throw 'Argument missing: VmImageOutputPath'),
         [parameter(Mandatory = $false, HelpMessage = 'The HTTP proxy if available.')]
         [string]$Proxy = '',
         [string]$DnsIpAddresses = $(throw 'Argument missing: DnsIpAddresses'),
@@ -773,12 +785,11 @@ function New-VmImageForKubernetesNode {
         }
 
         $kubeNodeParameters = @{
-            IpAddress                     = $vmIpAddress
-            UserName                      = $vmUserName
-            UserPwd                       = $vmUserPwd
-            Proxy                         = $Proxy
-            K8sVersion                    = $kubernetesVersion
-            CrioVersion                   = $(Get-DefaultCrioVersion)
+            IpAddress  = $vmIpAddress
+            UserName   = $vmUserName
+            UserPwd    = $vmUserPwd
+            Proxy      = $Proxy
+            K8sVersion = $kubernetesVersion
         }
 
         New-KubernetesNode @kubeNodeParameters
@@ -787,13 +798,13 @@ function New-VmImageForKubernetesNode {
     }
 
     $kubenodeBaseImageCreationParams = @{
-        Proxy=$Proxy
-        DnsIpAddresses=$DnsIpAddresses
-        Hook=$setUpKubenode
-        OutputPath=$VmImageOutputPath
-        VMMemoryStartupBytes=$VMMemoryStartupBytes
-        VMProcessorCount=$VMProcessorCount
-        VMDiskSize=$VMDiskSize
+        Proxy                = $Proxy
+        DnsIpAddresses       = $DnsIpAddresses
+        Hook                 = $setUpKubenode
+        OutputPath           = $VmImageOutputPath
+        VMMemoryStartupBytes = $VMMemoryStartupBytes
+        VMProcessorCount     = $VMProcessorCount
+        VMDiskSize           = $VMDiskSize
     }
 
     New-KubenodeBaseImage @kubenodeBaseImageCreationParams
@@ -806,7 +817,7 @@ function New-VmImageForControlPlaneNode {
         [string]$GatewayIpAddress,
         [string]$DnsServers,
         [parameter(Mandatory = $false, HelpMessage = 'The path to save the prepared base image.')]
-        [string] $VmImageOutputPath = $(throw "Argument missing: VmImageOutputPath"),
+        [string] $VmImageOutputPath = $(throw 'Argument missing: VmImageOutputPath'),
         [parameter(Mandatory = $false, HelpMessage = 'Startup Memory Size of VM')]
         [long]$VMMemoryStartupBytes,
         [parameter(Mandatory = $false, HelpMessage = 'Number of Virtual Processors for VM')]
@@ -831,12 +842,12 @@ function New-VmImageForControlPlaneNode {
 
     if (!(Test-Path -Path $kubenodeBaseImagePath)) {
         $vmImageForKubernetesNodeCreationParams = @{
-            Proxy=$Proxy
-            DnsIpAddresses=$DnsServers
-            VmImageOutputPath=$kubenodeBaseImagePath
-            VMMemoryStartupBytes=$VMMemoryStartupBytes
-            VMProcessorCount=$VMProcessorCount
-            VMDiskSize=$VMDiskSize
+            Proxy                = $Proxy
+            DnsIpAddresses       = $DnsServers
+            VmImageOutputPath    = $kubenodeBaseImagePath
+            VMMemoryStartupBytes = $VMMemoryStartupBytes
+            VMProcessorCount     = $VMProcessorCount
+            VMDiskSize           = $VMDiskSize
         }
         New-VmImageForKubernetesNode @vmImageForKubernetesNodeCreationParams
     }
@@ -848,45 +859,45 @@ function New-VmImageForControlPlaneNode {
     $setUpAsMasterNode = {
         $addToControlPlane = {
             $supportForWSLParams = @{
-                UserName=$vmUserName
-                UserPwd=$vmUserPwd
-                Hostname=$Hostname
-                IpAddress=$IpAddress
-                NetworkInterfaceName=$(Get-NetworkInterfaceName)
-                NetworkMask="255.255.255.0"
-                GatewayIpAddress=$GatewayIpAddress
+                UserName             = $vmUserName
+                UserPwd              = $vmUserPwd
+                Hostname             = $Hostname
+                IpAddress            = $IpAddress
+                NetworkInterfaceName = $(Get-NetworkInterfaceName)
+                NetworkMask          = '255.255.255.0'
+                GatewayIpAddress     = $GatewayIpAddress
             }
             Edit-SupportForWSL @supportForWSLParams
         }
 
         $masterNodeParams = @{
-            IpAddress=$IpAddress
-            UserName=$vmUserName
-            UserPwd=$vmUserPwd
-            K8sVersion=$kubernetesVersion
-            ClusterCIDR=$(Get-ConfiguredClusterCIDR)
-            ClusterCIDR_Services=$(Get-ConfiguredClusterCIDRServices)
-            KubeDnsServiceIP=$(Get-ConfiguredKubeDnsServiceIP)
-            IP_NextHop=$GatewayIpAddress
-            NetworkInterfaceName=$vmNetworkInterfaceName
-            NetworkInterfaceCni0IP_Master=$(Get-ConfiguredMasterNetworkInterfaceCni0IP)
-            Hook=$addToControlPlane
+            IpAddress                     = $IpAddress
+            UserName                      = $vmUserName
+            UserPwd                       = $vmUserPwd
+            K8sVersion                    = $kubernetesVersion
+            ClusterCIDR                   = $(Get-ConfiguredClusterCIDR)
+            ClusterCIDR_Services          = $(Get-ConfiguredClusterCIDRServices)
+            KubeDnsServiceIP              = $(Get-ConfiguredKubeDnsServiceIP)
+            IP_NextHop                    = $GatewayIpAddress
+            NetworkInterfaceName          = $vmNetworkInterfaceName
+            NetworkInterfaceCni0IP_Master = $(Get-ConfiguredMasterNetworkInterfaceCni0IP)
+            Hook                          = $addToControlPlane
         }
         Set-UpMasterNode @masterNodeParams 
     }
     
     $kubemasterCreationParams = @{
-        VMMemoryStartupBytes=$VMMemoryStartupBytes
-        VMProcessorCount=$VMProcessorCount
-        VMDiskSize=$VMDiskSize
-        Hostname=$Hostname
-        IpAddress=$IpAddress
-        InterfaceName=$vmNetworkInterfaceName
-        DnsServers=$DnsServers
-        GatewayIpAddress=$GatewayIpAddress
-        InputPath=$kubenodeBaseImagePath
-        OutputPath=$VmImageOutputPath
-        Hook=$setUpAsMasterNode
+        VMMemoryStartupBytes = $VMMemoryStartupBytes
+        VMProcessorCount     = $VMProcessorCount
+        VMDiskSize           = $VMDiskSize
+        Hostname             = $Hostname
+        IpAddress            = $IpAddress
+        InterfaceName        = $vmNetworkInterfaceName
+        DnsServers           = $DnsServers
+        GatewayIpAddress     = $GatewayIpAddress
+        InputPath            = $kubenodeBaseImagePath
+        OutputPath           = $VmImageOutputPath
+        Hook                 = $setUpAsMasterNode
     }
     New-KubemasterBaseImage @kubemasterCreationParams
 
@@ -902,7 +913,7 @@ function New-LinuxVmImageForWorkerNode {
         [string]$GatewayIpAddress,
         [string]$DnsServers,
         [parameter(Mandatory = $false, HelpMessage = 'The path to save the prepared base image.')]
-        [string] $VmImageOutputPath = $(throw "Argument missing: VmImageOutputPath"),
+        [string] $VmImageOutputPath = $(throw 'Argument missing: VmImageOutputPath'),
         [string]$Proxy = '',
         [parameter(Mandatory = $false, HelpMessage = 'Startup Memory Size of VM')]
         [long]$VMMemoryStartupBytes,
@@ -927,17 +938,17 @@ function New-LinuxVmImageForWorkerNode {
     }
 
     $kubeworkerCreationParams = @{
-        Hostname=$Hostname
-        IpAddress=$IpAddress
-        InterfaceName=$vmNetworkInterfaceName
-        DnsServers=$DnsServers
-        GatewayIpAddress=$GatewayIpAddress
-        InputPath=$kubenodeBaseImagePath
-        OutputPath=$VmImageOutputPath
-        Hook=$performConfiguration
-        VMMemoryStartupBytes=$VMMemoryStartupBytes
-        VMProcessorCount=$VMProcessorCount
-        VMDiskSize=$VMDiskSize
+        Hostname             = $Hostname
+        IpAddress            = $IpAddress
+        InterfaceName        = $vmNetworkInterfaceName
+        DnsServers           = $DnsServers
+        GatewayIpAddress     = $GatewayIpAddress
+        InputPath            = $kubenodeBaseImagePath
+        OutputPath           = $VmImageOutputPath
+        Hook                 = $performConfiguration
+        VMMemoryStartupBytes = $VMMemoryStartupBytes
+        VMProcessorCount     = $VMProcessorCount
+        VMDiskSize           = $VMDiskSize
     }
     New-KubeworkerBaseImage @kubeworkerCreationParams
 
@@ -982,7 +993,7 @@ function InstallAptPackages {
         [string]$RemoteUserPwd
     )
     Write-Log "installing needed apt packages for $FriendlyName..."
-    (Invoke-CmdOnControlPlaneViaUserAndPwd "sudo DEBIAN_FRONTEND=noninteractive apt-get install -qq --yes --fix-missing $Packages" -Retries 2 -Timeout 2 -RemoteUser "$RemoteUser" -RemoteUserPwd "$RemoteUserPwd" -RepairCmd "sudo apt --fix-broken install").Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaUserAndPwd "sudo DEBIAN_FRONTEND=noninteractive apt-get install -qq --yes --fix-missing $Packages" -Retries 2 -Timeout 2 -RemoteUser "$RemoteUser" -RemoteUserPwd "$RemoteUserPwd" -RepairCmd 'sudo apt --fix-broken install').Output | Write-Log
 
     if ($TestExecutable -ne '') {
         $exeInstalled = (Invoke-CmdOnControlPlaneViaUserAndPwd "which $TestExecutable" -RemoteUser "$RemoteUser" -RemoteUserPwd "$RemoteUserPwd").Output
@@ -1025,7 +1036,7 @@ function AddAptRepo {
 
 function Import-SpecificDistroSettingsModule {
     param (
-        [string] $ModulePath = $(throw "Argument missing: ModulePath")
+        [string] $ModulePath = $(throw 'Argument missing: ModulePath')
     )
     Import-Module $ModulePath
 }
@@ -1036,9 +1047,9 @@ function Remove-VmImageForControlPlaneNode {
 
 function New-WslRootfsForControlPlaneNode {
     param (
-        [string] $VmImageInputPath = $(throw "Argument missing: VmImageInputPath"),
+        [string] $VmImageInputPath = $(throw 'Argument missing: VmImageInputPath'),
         [parameter(Mandatory = $false, HelpMessage = 'The path to save the prepared rootfs file.')]
-        [string] $RootfsFileOutputPath = $(throw "Argument missing: RootfsFileOutputPath"),
+        [string] $RootfsFileOutputPath = $(throw 'Argument missing: RootfsFileOutputPath'),
         [string]$Proxy = '',
         [parameter(Mandatory = $false, HelpMessage = 'Startup Memory Size of VM')]
         [long]$VMMemoryStartupBytes,
@@ -1052,22 +1063,22 @@ function New-WslRootfsForControlPlaneNode {
     
     if (!(Test-Path -Path $kubenodeBaseImagePath)) {
         $vmImageForKubernetesNodeCreationParams = @{
-            VmImageOutputPath=$kubenodeBaseImagePath
-            Proxy=$Proxy
-            VMDiskSize = $VMDiskSize
+            VmImageOutputPath    = $kubenodeBaseImagePath
+            Proxy                = $Proxy
+            VMDiskSize           = $VMDiskSize
             VMMemoryStartupBytes = $VMMemoryStartupBytes
-            VMProcessorCount = $VMProcessorCount
+            VMProcessorCount     = $VMProcessorCount
         }
         New-VmImageForKubernetesNode @vmImageForKubernetesNodeCreationParams
     }
 
     $vhdxToRootfsCreationParams = @{
-        KubenodeBaseImagePath=$kubenodeBaseImagePath
-        SourceVhdxPath=$VmImageInputPath
-        TargetRootfsFilePath = $RootfsFileOutputPath
-        VMDiskSize = $VMDiskSize
-        VMMemoryStartupBytes = $VMMemoryStartupBytes
-        VMProcessorCount = $VMProcessorCount
+        KubenodeBaseImagePath = $kubenodeBaseImagePath
+        SourceVhdxPath        = $VmImageInputPath
+        TargetRootfsFilePath  = $RootfsFileOutputPath
+        VMDiskSize            = $VMDiskSize
+        VMMemoryStartupBytes  = $VMMemoryStartupBytes
+        VMProcessorCount      = $VMProcessorCount
     }
     Convert-VhdxToRootfs @vhdxToRootfsCreationParams
 }
@@ -1089,7 +1100,8 @@ function Set-ProxySettingsOnKubenode {
     if ($removeProxySettings) {
         Write-Log 'Delete proxy settings for package tool'
         (Invoke-CmdOnVmViaSSHKey 'sudo rm -f /etc/apt/apt.conf.d/proxy.conf' -IpAddress $IpAddress).Output | Write-Log
-    } else {
+    }
+    else {
         Write-Log 'Set proxy settings for package tool'
         (Invoke-CmdOnVmViaSSHKey 'sudo touch /etc/apt/apt.conf.d/proxy.conf' -IpAddress $IpAddress).Output | Write-Log
         if ($PSVersionTable.PSVersion.Major -gt 5) {
@@ -1104,7 +1116,8 @@ function Set-ProxySettingsOnKubenode {
     if ($removeProxySettings) {
         Write-Log 'Delete proxy settings for container runtime'
         (Invoke-CmdOnVmViaSSHKey 'sudo rm -fr /etc/systemd/system/crio.service.d' -IpAddress $IpAddress).Output | Write-Log
-    } else {
+    }
+    else {
         Write-Log 'Set proxy settings for container runtime'
         (Invoke-CmdOnVmViaSSHKey 'sudo mkdir -p /etc/systemd/system/crio.service.d' -IpAddress $IpAddress).Output | Write-Log
         (Invoke-CmdOnVmViaSSHKey 'sudo touch /etc/systemd/system/crio.service.d/http-proxy.conf' -IpAddress $IpAddress).Output | Write-Log
@@ -1120,7 +1133,8 @@ function Set-ProxySettingsOnKubenode {
     if ($removeProxySettings) {
         Write-Log 'Delete proxy settings for containers'
         (Invoke-CmdOnVmViaSSHKey 'sudo rm -f /etc/containers/containers.conf' -IpAddress $IpAddress).Output | Write-Log
-    } else {
+    }
+    else {
         Write-Log 'Set proxy settings for containers'
         (Invoke-CmdOnVmViaSSHKey 'echo [engine] | sudo tee /etc/containers/containers.conf' -IpAddress $IpAddress).Output | Write-Log
         if ($PSVersionTable.PSVersion.Major -gt 5) {
