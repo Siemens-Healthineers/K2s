@@ -124,7 +124,7 @@ func upgradeCluster(cmd *cobra.Command, args []string) error {
 }
 
 func createUpgradeCommand(cmd *cobra.Command) string {
-	psCmd := filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "upgrade", "Start-ClusterUpgrade.ps1")
+	psCmd := filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "system", "upgrade", "Start-ClusterUpgrade.ps1")
 	cmd.Flags().VisitAll(func(f *pflag.Flag) {
 		slog.Debug("Param", "name", f.Name, "value", f.Value)
 	})
