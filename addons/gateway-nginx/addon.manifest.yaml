@@ -6,7 +6,7 @@ apiVersion: v1
 kind: AddonManifest
 metadata:
   name: gateway-nginx
-  description: "EXPERIMENTAL USE: Gateway Controller for external access that provides an implementation of the Gateway API"
+  description: "EXPERIMENTAL: Gateway Controller for external access that provides an implementation of the Gateway API"
 spec:
   commands:
     enable:
