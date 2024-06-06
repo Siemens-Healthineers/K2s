@@ -233,7 +233,7 @@ Function Install-KubernetesArtifacts {
         # add to /etc/crio/crio.conf.d/20-wsl.conf the following line:  [crio.runtime]
         &$executeRemoteCommand "echo [crio.runtime] | sudo tee -a $configWSL > /dev/null"
         &$executeRemoteCommand "echo add_inheritable_capabilities=true | sudo tee -a $configWSL > /dev/null"
-        &$executeRemoteCommand "echo default_sysctls=[\`"net.ipv4.ip_unprivileged_port_start=0\`"] | sudo tee -a $configWSL > /dev/null"
+        &$executeRemoteCommand "echo default_sysctls=[\""net.ipv4.ip_unprivileged_port_start=0\""] | sudo tee -a $configWSL > /dev/null"
         &$executeRemoteCommand 'sudo systemctl restart crio'
     }   
 
