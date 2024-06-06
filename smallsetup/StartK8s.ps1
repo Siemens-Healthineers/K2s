@@ -249,7 +249,6 @@ else {
 Write-Log 'Configuring network for Windows node' -Console
 Restart-WinService 'vmcompute'
 Restart-WinService 'hns'
-Restart-NlaSvc
 
 Write-Log 'Figuring out IPv4DefaultGateway'
 $if = Get-NetIPConfiguration -InterfaceAlias "$adapterName" -ErrorAction SilentlyContinue 2>&1 | Out-Null
