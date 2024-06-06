@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/siemens-healthineers/k2s/test/framework"
+	"github.com/siemens-healthineers/k2s/test/framework/k2s"
 )
 
 var suite *framework.K2sTestSuite
@@ -35,99 +36,157 @@ var _ = AfterSuite(func(ctx context.Context) {
 var _ = Describe("system", func() {
 	Describe("scp", func() {
 		Describe("m", func() {
-			const testFileName = "system_scp_m_test.txt"
-			const tempFileContent = "scp-m-test\n"
-			var localTempFilePath string
-			var remoteTempFilePath string
+			Context("source file not existing", func() {
+				It("returns a warning after failure", func(ctx context.Context) {
+					output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "system", "scp", "m", "non-existing.file", "/tmp")
 
-			BeforeEach(func() {
-				tempDir := GinkgoT().TempDir()
-				localTempFilePath = filepath.Join(tempDir, testFileName)
-				remoteTempFilePath = fmt.Sprintf("/tmp/%s", testFileName)
-
-				Expect(os.WriteFile(localTempFilePath, []byte(tempFileContent), fs.ModePerm)).To(Succeed())
-
-				GinkgoWriter.Println("Test file <", localTempFilePath, "> written")
+					Expect(output).To(SatisfyAll(
+						MatchRegexp("WARNING"),
+						MatchRegexp("Could not copy"),
+						MatchRegexp("No such file"),
+					))
+				})
 			})
 
-			AfterEach(func(ctx context.Context) {
-				var localErr error
+			Context("source file and target dir exist", func() {
+				const testFileName = "system_scp_m_test.txt"
+				const tempFileContent = "scp-m-test\n"
+				var localTempFilePath string
+				var remoteTempFilePath string
 
-				_, err := os.Stat(localTempFilePath)
-				if err == nil {
-					GinkgoWriter.Println("Deleting <", localTempFilePath, ">..")
+				BeforeEach(func() {
+					tempDir := GinkgoT().TempDir()
+					localTempFilePath = filepath.Join(tempDir, testFileName)
+					remoteTempFilePath = fmt.Sprintf("/tmp/%s", testFileName)
 
-					Expect(os.Remove(localTempFilePath)).To(Succeed())
-				} else {
-					if os.IsNotExist(err) {
-						GinkgoWriter.Println("Test file <", localTempFilePath, "> does not exist anymore")
-						return
+					Expect(os.WriteFile(localTempFilePath, []byte(tempFileContent), fs.ModePerm)).To(Succeed())
+
+					GinkgoWriter.Println("Test file <", localTempFilePath, "> written")
+				})
+
+				AfterEach(func(ctx context.Context) {
+					var localErr error
+
+					_, err := os.Stat(localTempFilePath)
+					if err == nil {
+						GinkgoWriter.Println("Deleting <", localTempFilePath, ">..")
+
+						Expect(os.Remove(localTempFilePath)).To(Succeed())
+					} else {
+						if os.IsNotExist(err) {
+							GinkgoWriter.Println("Test file <", localTempFilePath, "> does not exist anymore")
+							return
+						}
+						localErr = err
 					}
-					localErr = err
-				}
 
-				GinkgoWriter.Println("Deleting <", remoteTempFilePath, ">..")
+					GinkgoWriter.Println("Deleting <", remoteTempFilePath, ">..")
 
-				suite.K2sCli().Run(ctx, "system", "ssh", "m", "--", fmt.Sprintf("rm -f %s", remoteTempFilePath))
+					suite.K2sCli().Run(ctx, "system", "ssh", "m", "--", fmt.Sprintf("rm -f %s", remoteTempFilePath))
 
-				Expect(localErr).ToNot(HaveOccurred())
-			})
+					Expect(localErr).ToNot(HaveOccurred())
+				})
 
-			It("copies a file from host to Linux node", func(ctx context.Context) {
-				suite.K2sCli().Run(ctx, "system", "scp", "m", localTempFilePath, "/tmp")
+				It("copies a file from host to Linux node", func(ctx context.Context) {
+					suite.K2sCli().Run(ctx, "system", "scp", "m", localTempFilePath, "/tmp")
 
-				output := suite.K2sCli().Run(ctx, "system", "ssh", "m", "--", fmt.Sprintf("cat %s", remoteTempFilePath))
+					output := suite.K2sCli().Run(ctx, "system", "ssh", "m", "--", fmt.Sprintf("cat %s", remoteTempFilePath))
 
-				Expect(output).To(Equal(tempFileContent))
+					Expect(output).To(Equal(tempFileContent))
+				})
 			})
 		})
 
 		Describe("m reverse", func() {
-			const testFileName = "system_scp_m_reverse_test.txt"
-			const tempFileContent = "scp-m-reverse-test"
-			var localTempFilePath string
-			var remoteTempFilePath string
+			Context("source file not existing", func() {
+				It("returns a warning after failure", func(ctx context.Context) {
+					output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "system", "scp", "m", "/tmp/non-existing.file", "C:\\", "-r")
 
-			BeforeEach(func(ctx context.Context) {
-				tempDir := GinkgoT().TempDir()
-				localTempFilePath = filepath.Join(tempDir, testFileName)
-				remoteTempFilePath = fmt.Sprintf("/tmp/%s", testFileName)
-
-				suite.K2sCli().Run(ctx, "system", "ssh", "m", "--", fmt.Sprintf("echo %s >> %s", tempFileContent, remoteTempFilePath))
-
-				GinkgoWriter.Println("Test file <", remoteTempFilePath, "> written")
+					Expect(output).To(SatisfyAll(
+						MatchRegexp("WARNING"),
+						MatchRegexp("Could not copy"),
+						MatchRegexp("No such file"),
+					))
+				})
 			})
 
-			AfterEach(func(ctx context.Context) {
-				var localErr error
+			Context("target dir not existing", func() {
+				const testFileName = "system_scp_m_reverse_test.txt"
+				const tempFileContent = "scp-m-reverse-test"
+				var remoteTempFilePath string
 
-				_, err := os.Stat(localTempFilePath)
-				if err == nil {
-					GinkgoWriter.Println("Deleting <", localTempFilePath, ">..")
+				BeforeEach(func(ctx context.Context) {
+					remoteTempFilePath = fmt.Sprintf("/tmp/%s", testFileName)
 
-					Expect(os.Remove(localTempFilePath)).To(Succeed())
-				} else {
-					if os.IsNotExist(err) {
-						GinkgoWriter.Println("Test file <", localTempFilePath, "> does not exist anymore")
-						return
+					suite.K2sCli().Run(ctx, "system", "ssh", "m", "--", fmt.Sprintf("echo %s >> %s", tempFileContent, remoteTempFilePath))
+
+					GinkgoWriter.Println("Test file <", remoteTempFilePath, "> written")
+				})
+
+				AfterEach(func(ctx context.Context) {
+					GinkgoWriter.Println("Deleting <", remoteTempFilePath, ">..")
+
+					suite.K2sCli().Run(ctx, "system", "ssh", "m", "--", fmt.Sprintf("rm -f %s", remoteTempFilePath))
+				})
+
+				It("returns a warning after failure", func(ctx context.Context) {
+					output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "system", "scp", "m", remoteTempFilePath, "C:\\temp\\most-likely-not-existent\\", "-r")
+
+					Expect(output).To(SatisfyAll(
+						MatchRegexp("WARNING"),
+						MatchRegexp("Could not copy"),
+						MatchRegexp("No such.+directory"),
+					))
+				})
+			})
+
+			Context("source file and target dir exist", func() {
+				const testFileName = "system_scp_m_reverse_test.txt"
+				const tempFileContent = "scp-m-reverse-test"
+				var localTempFilePath string
+				var remoteTempFilePath string
+
+				BeforeEach(func(ctx context.Context) {
+					tempDir := GinkgoT().TempDir()
+					localTempFilePath = filepath.Join(tempDir, testFileName)
+					remoteTempFilePath = fmt.Sprintf("/tmp/%s", testFileName)
+
+					suite.K2sCli().Run(ctx, "system", "ssh", "m", "--", fmt.Sprintf("echo %s >> %s", tempFileContent, remoteTempFilePath))
+
+					GinkgoWriter.Println("Test file <", remoteTempFilePath, "> written")
+				})
+
+				AfterEach(func(ctx context.Context) {
+					var localErr error
+
+					_, err := os.Stat(localTempFilePath)
+					if err == nil {
+						GinkgoWriter.Println("Deleting <", localTempFilePath, ">..")
+
+						Expect(os.Remove(localTempFilePath)).To(Succeed())
+					} else {
+						if os.IsNotExist(err) {
+							GinkgoWriter.Println("Test file <", localTempFilePath, "> does not exist anymore")
+							return
+						}
+						localErr = err
 					}
-					localErr = err
-				}
 
-				GinkgoWriter.Println("Deleting <", remoteTempFilePath, ">..")
+					GinkgoWriter.Println("Deleting <", remoteTempFilePath, ">..")
 
-				suite.K2sCli().Run(ctx, "system", "ssh", "m", "--", fmt.Sprintf("rm -f %s", remoteTempFilePath))
+					suite.K2sCli().Run(ctx, "system", "ssh", "m", "--", fmt.Sprintf("rm -f %s", remoteTempFilePath))
 
-				Expect(localErr).ToNot(HaveOccurred())
-			})
+					Expect(localErr).ToNot(HaveOccurred())
+				})
 
-			It("copies a file from Linux node to host", func(ctx context.Context) {
-				suite.K2sCli().Run(ctx, "system", "scp", "m", remoteTempFilePath, localTempFilePath, "-r")
+				It("copies a file from Linux node to host", func(ctx context.Context) {
+					suite.K2sCli().Run(ctx, "system", "scp", "m", remoteTempFilePath, localTempFilePath, "-r")
 
-				data, err := os.ReadFile(localTempFilePath)
-				Expect(err).ToNot(HaveOccurred())
+					data, err := os.ReadFile(localTempFilePath)
+					Expect(err).ToNot(HaveOccurred())
 
-				Expect(string(data)).To(Equal(fmt.Sprintf("%s\n", tempFileContent)))
+					Expect(string(data)).To(Equal(fmt.Sprintf("%s\n", tempFileContent)))
+				})
 			})
 		})
 
