@@ -231,7 +231,7 @@ function BuildWindowsImage () {
     Remove-Item $exportedImageFullFileName -Force
     Write-Log '...removed'
 
-    $imageList = &$global:CtrExe -n="k8s.io" images list | Out-string
+    $imageList = &$global:CtrExe -n="k8s.io" images list 2>&1 | Out-string
 
     if (!$imageList.Contains($imageFullName)) {
         throw "The built image '$imageFullName' was not imported in the containerd's local repository."
