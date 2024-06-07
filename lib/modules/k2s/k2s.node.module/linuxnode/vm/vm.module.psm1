@@ -212,7 +212,7 @@ function Copy-FromControlPlaneViaSSHKey($Source, $Target,
     }
     else {
         $output = scp.exe -o StrictHostKeyChecking=no -r -i $key "${remoteUser}:$Source" "$Target" 2>&1
-        if ($LASTEXITCODE -ne 0) {
+        if ($LASTEXITCODE -ne 0 -and !$IgnoreErrors) {
             throw "Could not copy '$Source' to '$Target': $output"
         }
         Write-Log $output
@@ -261,7 +261,7 @@ function Copy-ToControlPlaneViaSSHKey($Source, $Target,
     }
     else {
         $output = scp.exe -o StrictHostKeyChecking=no -r -i $key "$Source" "${remoteUser}:$Target" 2>&1
-        if ($LASTEXITCODE -ne 0) {
+        if ($LASTEXITCODE -ne 0 -and !$IgnoreErrors) {
             throw "Could not copy '$Source' to '$Target': $output"
         }
         Write-Log $output
