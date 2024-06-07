@@ -63,17 +63,17 @@ function Invoke-CmdOnControlPlaneViaSSHKey(
     [Parameter(Mandatory = $false, HelpMessage = 'repair CMD for the case first run did not work out')]
     [string]$RepairCmd = $null) {
 
-        $invocationParams = @{
-            CmdToExecute = $CmdToExecute
-            IgnoreErrors = $IgnoreErrors
-            Retries = $Retries
-            Timeout = $Timeout
-            NoLog = $NoLog
-            Nested = $Nested
-            RepairCmd = $RepairCmd
-            IpAddress = $ipControlPlane
-        }
-        return Invoke-CmdOnVmViaSSHKey @invocationParams
+    $invocationParams = @{
+        CmdToExecute = $CmdToExecute
+        IgnoreErrors = $IgnoreErrors
+        Retries      = $Retries
+        Timeout      = $Timeout
+        NoLog        = $NoLog
+        Nested       = $Nested
+        RepairCmd    = $RepairCmd
+        IpAddress    = $ipControlPlane
+    }
+    return Invoke-CmdOnVmViaSSHKey @invocationParams
 }
 
 function Invoke-CmdOnVmViaSSHKey(
@@ -201,16 +201,21 @@ function Copy-FromControlPlaneViaSSHKey($Source, $Target,
     ssh.exe -n -o StrictHostKeyChecking=no -i $key $remoteUser "[ -d '$linuxSourceDirectory' ]"
     if ($?) {
         # is directory
-        (Invoke-CmdOnControlPlaneViaSSHKey "sudo rm -rf /tmp/copy.tar").Output | Write-Log
+        (Invoke-CmdOnControlPlaneViaSSHKey 'sudo rm -rf /tmp/copy.tar').Output | Write-Log
         $leaf = Split-Path $linuxSourceDirectory -Leaf
         (Invoke-CmdOnControlPlaneViaSSHKey "sudo tar -cf /tmp/copy.tar -C $linuxSourceDirectory .").Output | Write-Log
         scp.exe -o StrictHostKeyChecking=no -i $key "${remoteUser}:/tmp/copy.tar" "$env:temp\copy.tar" 2>&1 | ForEach-Object { "$_" }
         New-Item -Path "$Target\$leaf" -ItemType Directory | Out-Null
         tar.exe -xf "$env:temp\copy.tar" -C "$Target\$leaf"
-        (Invoke-CmdOnControlPlaneViaSSHKey "sudo rm -rf /tmp/copy.tar").Output | Write-Log
+        (Invoke-CmdOnControlPlaneViaSSHKey 'sudo rm -rf /tmp/copy.tar').Output | Write-Log
         Remove-Item -Path "$env:temp\copy.tar" -Force -ErrorAction SilentlyContinue
-    } else {
-        scp.exe -o StrictHostKeyChecking=no -r -i $key "${remoteUser}:$Source" "$Target" 2>&1 | ForEach-Object { "$_" }
+    }
+    else {
+        $output = scp.exe -o StrictHostKeyChecking=no -r -i $key "${remoteUser}:$Source" "$Target" 2>&1
+        if ($LASTEXITCODE -ne 0 -and !$IgnoreErrors) {
+            throw "Could not copy '$Source' to '$Target': $output"
+        }
+        Write-Log $output
     }
 
     if ($error.Count -gt 0 -and !$IgnoreErrors) { throw "Copying $Source to $Target failed! " + $error }
@@ -242,19 +247,24 @@ function Copy-ToControlPlaneViaSSHKey($Source, $Target,
     Write-Log "copy: $Source to: $Target IgnoreErrors: $IgnoreErrors"
     $error.Clear()
     $leaf = Split-Path $Source -leaf
-    if ($(Test-Path $Source) -and (Get-Item $Source) -is [System.IO.DirectoryInfo] -and $leaf -ne "*") {
+    if ($(Test-Path $Source) -and (Get-Item $Source) -is [System.IO.DirectoryInfo] -and $leaf -ne '*') {
         # is directory
-        (Invoke-CmdOnControlPlaneViaSSHKey "sudo rm -rf /tmp/copy.tar").Output | Write-Log
+        (Invoke-CmdOnControlPlaneViaSSHKey 'sudo rm -rf /tmp/copy.tar').Output | Write-Log
         $leaf = Split-Path $Source -Leaf
         tar.exe -cf "$env:TEMP\copy.tar" -C $Source .
         scp.exe -o StrictHostKeyChecking=no -i $key "$env:temp\copy.tar" "${remoteUser}:/tmp" 2>&1 | ForEach-Object { "$_" }
         $targetDirectory = $Target -replace "${remoteUser}:", ''
         (Invoke-CmdOnControlPlaneViaSSHKey "mkdir -p $targetDirectory/$leaf").Output | Write-Log
         (Invoke-CmdOnControlPlaneViaSSHKey "tar -xf /tmp/copy.tar -C $targetDirectory/$leaf").Output | Write-Log
-        (Invoke-CmdOnControlPlaneViaSSHKey "sudo rm -rf /tmp/copy.tar").Output | Write-Log
+        (Invoke-CmdOnControlPlaneViaSSHKey 'sudo rm -rf /tmp/copy.tar').Output | Write-Log
         Remove-Item -Path "$env:temp\copy.tar" -Force -ErrorAction SilentlyContinue
-    } else {
-        scp.exe -o StrictHostKeyChecking=no -r -i $key "$Source" "${remoteUser}:$Target" 2>&1 | ForEach-Object { "$_" }
+    }
+    else {
+        $output = scp.exe -o StrictHostKeyChecking=no -r -i $key "$Source" "${remoteUser}:$Target" 2>&1
+        if ($LASTEXITCODE -ne 0 -and !$IgnoreErrors) {
+            throw "Could not copy '$Source' to '$Target': $output"
+        }
+        Write-Log $output
     }
  
     if ($error.Count -gt 0 -and !$IgnoreErrors) { throw "Copying $Source to $Target failed! " + $error }
@@ -328,10 +338,10 @@ function Test-ExistingExternalSwitch {
     if ($externalSwitches) {
         Write-Log 'Found External Switches:'
         Write-Log $($externalSwitches | Select-Object -Property Name)
-        Write-Log "Precheck failed: Cannot proceed further with existing External Network Switches as it conflicts with k2s networking" -Console
+        Write-Log 'Precheck failed: Cannot proceed further with existing External Network Switches as it conflicts with k2s networking' -Console
         Write-Log "Remove all your External Network Switches with command PS>Get-VMSwitch | Where-Object { `$_.SwitchType -eq 'External' } | Remove-VMSwitch -Force" -Console
-        Write-Log "WARNING: This will remove your External Switches, please check whether these switches are required before executing the command" -Console
-        throw "Remove all the existing External Network Switches and retry the k2s command again"
+        Write-Log 'WARNING: This will remove your External Switches, please check whether these switches are required before executing the command' -Console
+        throw 'Remove all the existing External Network Switches and retry the k2s command again'
     }
 }
 

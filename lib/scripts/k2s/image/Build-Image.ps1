@@ -439,19 +439,17 @@ if ($Push) {
     if ($null -ne $registry) {
         &"$PSScriptRoot\registry\Switch-Registry.ps1" -RegistryName $registry
     }
-    else {
-        if (!$registriesMemberExists) {
-            $errMsg = "Registry $registry is not configured! Please add it: k2s image registry add $registry"
-            if ($EncodeStructuredOutput -eq $true) {
-                $err = New-Error -Code 'build-image-failed' -Message $errMsg
-                Send-ToCli -MessageType $MessageType -Message @{Error = $err }
-                return
-            }
-    
-            Write-Log $errMsg -Error
-            exit 1
+    else {    
+        $errMsg = "Registry $registry is not configured! Please add it: k2s image registry add $registry"
+        if ($EncodeStructuredOutput -eq $true) {
+            $err = New-Error -Code 'build-image-failed' -Message $errMsg
+            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+            return
         }
-    }
+
+        Write-Log $errMsg -Error
+        exit 1
+}
 
     Write-Log "Trying to push image ${ImageName}:$ImageTag to repository" -Console
 
