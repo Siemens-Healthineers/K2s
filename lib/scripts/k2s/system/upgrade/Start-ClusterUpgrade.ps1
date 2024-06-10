@@ -37,9 +37,9 @@ Param(
 $infraModule = "$PSScriptRoot/../../../../modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $clusterModule = "$PSScriptRoot/../../../../modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $addonsModule = "$PSScriptRoot/../../../../../addons\addons.module.psm1"
-$upgradeModule = "$PSScriptRoot\upgrade.module.psm1"
 
-Import-Module $infraModule, $clusterModule, $addonsModule, $upgradeModule
+
+Import-Module $infraModule, $clusterModule, $addonsModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
