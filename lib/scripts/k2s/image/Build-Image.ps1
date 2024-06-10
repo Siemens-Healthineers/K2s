@@ -440,7 +440,7 @@ if ($Push) {
         &"$PSScriptRoot\registry\Switch-Registry.ps1" -RegistryName $registry
     }
     else {    
-        $errMsg = "Registry $registry is not configured! Please add it: k2s image registry add $registry"
+        $errMsg = "Unable to push the built container image, Registry is not configured in k2s! You can add it: k2s image registry add <registry_name>"
         if ($EncodeStructuredOutput -eq $true) {
             $err = New-Error -Code 'build-image-failed' -Message $errMsg
             Send-ToCli -MessageType $MessageType -Message @{Error = $err }
