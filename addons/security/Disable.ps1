@@ -73,6 +73,12 @@ $caIssuerName = Get-CAIssuerName
 $trustedRootStoreLocation = Get-TrustedRootStoreLocation
 Get-ChildItem -Path $trustedRootStoreLocation | Where-Object { $_.Subject -match $caIssuerName } | Remove-Item
 
+$oauth2ProxyYaml = Get-OAuth2ProxyConfig
+(Invoke-Kubectl -Params 'delete', '-f', $oauth2ProxyYaml).Output | Write-Log
+
+$keyCloakYaml = Get-KeyCloakConfig
+(Invoke-Kubectl -Params 'delete', '-f', $keyCloakYaml).Output | Write-Log
+
 Remove-AddonFromSetupJson -Name 'security'
 Write-Log 'Uninstallation of security finished' -Console
 

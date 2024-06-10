@@ -19,6 +19,9 @@ powershell <installation folder>\addons\security\Enable.ps1
 
 [CmdletBinding(SupportsShouldProcess = $true)]
 Param (
+    [parameter(Mandatory = $false, HelpMessage = 'Enable Ingress-Nginx Addon')]
+    [ValidateSet('ingress-nginx', 'traefik')]
+    [string] $Ingress = 'ingress-nginx',
     [parameter(Mandatory = $false, HelpMessage = 'HTTP proxy if available')]
     [string] $Proxy,
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
@@ -140,6 +143,31 @@ $params = @{
 
 Import-Certificate @params
 Remove-Item -Path $tempFile.FullName -Force
+
+Write-Log 'Installing keycloak' -Console
+Add-HostEntries -Url 'k2s-security.local'
+$keyCloakYaml = Get-KeyCloakConfig
+(Invoke-Kubectl -Params 'apply', '-f', $keyCloakYaml).Output | Write-Log
+Deploy-IngressForSecurity -Ingress:$Ingress
+Write-Log 'Waiting for keycloak pods to be available' -Console
+$keycloakPodStatus = Wait-ForKeyCloakAvailable
+
+$oauth2ProxyYaml = Get-OAuth2ProxyConfig
+(Invoke-Kubectl -Params 'apply', '-f', $oauth2ProxyYaml).Output | Write-Log
+Write-Log 'Waiting for oauth2-proxy pods to be available' -Console
+$oauth2ProxyPodStatus = Wait-ForOauth2ProxyAvailable
+
+if ($keycloakPodStatus -ne $true -or $oauth2ProxyPodStatus -ne $true) {
+    $errMsg = "All security pods could not become ready. Please use kubectl describe for more details.`nInstallation of secuirty addon failed."
+    if ($EncodeStructuredOutput -eq $true) {
+        $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+        return
+    }
+
+    Write-Log $errMsg -Error
+    exit 1
+}
 
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'security' })
 
