@@ -1,0 +1,50 @@
+# SPDX-FileCopyrightText: © 2024 Siemens Healthcare GmbH
+#
+# SPDX-License-Identifier: MIT
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: keycloak
+  namespace: security
+  annotations:
+    cert-manager.io/cluster-issuer: k2s-ca-issuer
+    cert-manager.io/common-name: k2s-security.local
+spec:
+  ingressClassName: "traefik"
+  rules:
+    - host: k2s-security.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: keycloak
+                port:
+                  number: 8080
+  tls:
+    - hosts:
+        - k2s-security.local
+      secretName: k2s-security-local-tls
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: oauth2-proxy
+  namespace: security
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: k2s.cluster.net
+      http:
+        paths:
+          - path: /oauth2
+            pathType: Prefix
+            backend:
+              service:
+                name: oauth2-proxy
+                port:
+                  number: 4180
+---
+
