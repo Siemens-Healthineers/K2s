@@ -83,6 +83,12 @@ function Start-ClusterUpgrade {
         $SkipImages = $false
     )
     $errUpgrade = $null
+    $addonsBackupPath = $null
+    $logFilePathBeforeUninstall = $null
+    $tpath = $null
+    $coresVM = $null
+    $memoryVM = $null
+    $storageVM = $null
 
     try {
         # start progress
@@ -144,7 +150,16 @@ function Start-ClusterUpgrade {
         # backup log file
         $logFilePathBeforeUninstall = Join-Path $tpath 'k2s-before-uninstall.log'
         Backup-LogFile -LogFile $logFilePathBeforeUninstall
-
+    }
+    catch {
+        Write-Log 'An ERROR occurred:' -Console
+        Write-Log $_.ScriptStackTrace -Console
+        Write-Log $_ -Console
+        $errUpgrade = $_
+        Write-Log 'Unfortunately preliminary steps to export resources of current cluster failed, please check the logs for more information !' -Console
+        return $false
+    }
+    try {
         # uninstall of old cluster
         if ($ShowProgress -eq $true) {
             Write-Progress -Activity 'Uninstall cluster..' -Id 1 -Status '5/10' -PercentComplete 40 -CurrentOperation 'Uninstalling cluster, please wait..'

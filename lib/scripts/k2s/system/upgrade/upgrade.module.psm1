@@ -375,6 +375,7 @@ function Enable-ClusterIsRunning {
         }
         else {
             Write-Log 'Error in calling start on K2s!'
+            throw 'Error: Not possible to start existing cluster!'
         }
     }
 }
