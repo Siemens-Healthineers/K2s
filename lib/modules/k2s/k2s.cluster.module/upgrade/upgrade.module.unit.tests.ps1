@@ -3,9 +3,8 @@
 # SPDX-License-Identifier: MIT
 
 BeforeAll {
-    $module = "$PSScriptRoot\upgrade.module.psm1"
-
-    $moduleName = (Import-Module $module -Force -PassThru).Name
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('UseDeclaredVarsMoreThanAssignments', '', Justification = 'Pester Test')]
+    $moduleName = (Import-Module "$PSScriptRoot\upgrade.module.psm1" -PassThru -Force).Name
 }
 
 Describe 'Assert-UpgradeVersionIsValid' -Tag 'unit', 'ci', 'upgrade' {
@@ -50,3 +49,63 @@ Describe 'Assert-UpgradeVersionIsValid' -Tag 'unit', 'ci', 'upgrade' {
         }
     }
 }
+
+Describe 'Invoke-ClusterInstall' -Tag 'unit', 'ci', 'upgrade' {
+    BeforeAll {
+        $log = [System.Collections.ArrayList]@()
+        Mock -ModuleName $moduleName Copy-Item { }
+        Mock -ModuleName $moduleName Write-Log  { $log.Add($Messages) | Out-Null }
+        Mock -ModuleName $moduleName Invoke-Cmd { return 0 }
+    }
+
+    It 'calls Write-Log with correct message' {
+        InModuleScope -ModuleName $moduleName -Parameters @{log = $log } {
+            Invoke-ClusterInstall
+            $log.Count | Should -BeGreaterOrEqual 3
+            $log[2] | Should -Be 'Install of cluster successfully called'
+        }
+    }
+
+    It 'calls Copy-Item with correct source and destination' {
+        InModuleScope -ModuleName $moduleName {
+            Invoke-ClusterInstall
+            Assert-MockCalled Copy-Item -ParameterFilter { $Path -eq "$kubePath\k2s.exe" -and $Destination -eq "$kubePath\k2sx.exe" -and $Force -and $PassThru }
+        }
+    }
+
+    It 'calls Invoke-Cmd with correct command' {
+        InModuleScope -ModuleName $moduleName {
+            Invoke-ClusterInstall
+            Assert-MockCalled Invoke-Cmd -ParameterFilter { $Executable -Match "k2sx.exe" }
+            Should -Invoke -CommandName Invoke-Cmd -Times 1 -Exactly
+        }
+    }
+}
+
+Describe 'Invoke-ClusterUninstall' -Tag 'unit', 'ci', 'upgrade' {
+    BeforeAll {
+        $log = [System.Collections.ArrayList]@()
+        Mock -ModuleName $moduleName Copy-Item { }
+        Mock -ModuleName $moduleName Write-Log  { $log.Add($Messages) | Out-Null }
+        Mock -ModuleName $moduleName Invoke-Cmd { return 0 } 
+    }
+
+    It 'calls Write-Log with correct message' {
+        InModuleScope -ModuleName $moduleName -Parameters @{log = $log } {
+            Invoke-ClusterUninstall
+            $log.Count | Should -BeGreaterOrEqual 3
+            $log[2] | Should -Be 'Uninstall of cluster successfully called'
+        }
+    }
+
+    It 'calls Invoke-Cmd with correct command' {
+        InModuleScope -ModuleName $moduleName {
+            Invoke-ClusterUninstall
+            Assert-MockCalled Invoke-Cmd -ParameterFilter { $Executable -Match "k2s.exe" }
+            Should -Invoke -CommandName Invoke-Cmd -Times 1 -Exactly
+        }
+    }
+}
+
+
+
