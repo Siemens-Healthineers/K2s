@@ -7,13 +7,13 @@
 # in the deployment.yaml, we configure these environment variables:
 # SERVER_BASEPATH = "/logging": the application will generate all relative
 #    URLs starting with this prefix!
-# SERVER_REWRITEBASEPATH = "false": the application will NOT expect the 
+# SERVER_REWRITEBASEPATH = "false": the application will NOT expect the
 # incoming calls to be part of the request path
 # This gives us the flexibility to expose the application on the configured
 # path, in this case "/logging"
 ---
 # This middleware trips the prefix "/logging" from the request, if present
-# is is used below in 
+# is is used below in
 # 'traefik.ingress.kubernetes.io/router.middlewares' annotation
 apiVersion: traefik.containo.us/v1alpha1
 kind: Middleware
@@ -44,25 +44,25 @@ metadata:
 spec:
   ingressClassName: traefik
   tls:
-  - hosts:
-    - k2s-logging.local
-    secretName: k2s-logging-local-tls
+    - hosts:
+        - k2s-logging.local
+      secretName: k2s-logging-local-tls
   rules:
     - host: k2s-logging.local
       http:
         paths:
-        - backend:
-            service:
-              name: opensearch-dashboards
-              port: 
-                number: 5601
-          pathType: Prefix
-          path: /
+          - backend:
+              service:
+                name: opensearch-dashboards
+                port:
+                  number: 5601
+            pathType: Prefix
+            path: /
 ---
 # this ingress will be merged with ingress provided in:
 # addons/traefik/manifests/cluster-net-ingress.yaml
 # and exposes the opensearch-dashboards angular application on:
-# https://k2s.cluster.net/logging/
+# https://k2s.cluster.local/logging/
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -73,7 +73,7 @@ metadata:
 spec:
   ingressClassName: traefik
   rules:
-    - host: k2s.cluster.net
+    - host: k2s.cluster.local
       http:
         paths:
           - backend:
