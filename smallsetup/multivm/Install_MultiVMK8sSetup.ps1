@@ -199,7 +199,8 @@ function Initialize-SSHConnectionToWinVM($session) {
 
         if ($PSVersionTable.PSVersion.Major -gt 5) {
             echo y | ssh-keygen.exe -t rsa -b 2048 -f $global:WindowsVMKey -N ''
-        } else {
+        }
+        else {
             echo y | ssh-keygen.exe -t rsa -b 2048 -f $global:WindowsVMKey -N '""'
         }
     }
@@ -459,7 +460,7 @@ function Set-DiskPressureLimitsOnWindowsNode($session) {
 function Add-IPsToHostsFiles($session) {
     Write-Log 'Adding IPs to hosts files ...'
 
-    & "$global:KubernetesPath\smallsetup\AddToHosts.ps1" -DesiredIP $global:IP_Master -Hostname 'k2s.cluster.net'
+    & "$global:KubernetesPath\smallsetup\AddToHosts.ps1" -DesiredIP $global:IP_Master -Hostname 'k2s.cluster.local'
 
     if ($LinuxOnly -ne $true) {
         & "$global:KubernetesPath\smallsetup\AddToHosts.ps1" -DesiredIP $global:MultiVMWinNodeIP -Hostname $global:MultiVMHostName
@@ -477,7 +478,7 @@ function Add-IPsToHostsFiles($session) {
             Import-Module $env:SystemDrive\k\smallsetup\ps-modules\log\log.module.psm1
             Initialize-Logging -Nested:$true
 
-            & "$global:KubernetesPath\smallsetup\AddToHosts.ps1" -DesiredIP $using:masterIp -Hostname 'k2s.cluster.net'
+            & "$global:KubernetesPath\smallsetup\AddToHosts.ps1" -DesiredIP $using:masterIp -Hostname 'k2s.cluster.local'
         }
     }
 
@@ -501,7 +502,7 @@ function Write-K8sNodesStatus {
         }
 
         if ($retryIteration -eq 10) {
-            throw "Unable to get cluster node status information"
+            throw 'Unable to get cluster node status information'
         }
         $retryIteration++
     }
@@ -530,14 +531,15 @@ function Enable-SSHRemotingViaSSHKeyToWinNode ($session) {
         Set-Location "$env:SystemDrive\k"
         Set-ExecutionPolicy Bypass -Force -ErrorAction SilentlyContinue
 
-        if ($using:Proxy -ne "") {
+        if ($using:Proxy -ne '') {
             pwsh -Command "`$ENV:HTTPS_PROXY='$using:Proxy';Install-Module -Name Microsoft.PowerShell.RemotingTools -Force -Confirm:`$false"
-        } else {
+        }
+        else {
             pwsh -Command "Install-Module -Name Microsoft.PowerShell.RemotingTools -Force -Confirm:`$false"
         }
 
-        pwsh -Command "Get-InstalledModule"
-        pwsh -Command "Enable-SSHRemoting -Force"
+        pwsh -Command 'Get-InstalledModule'
+        pwsh -Command 'Enable-SSHRemoting -Force'
 
         Restart-Service sshd
     }
@@ -552,17 +554,17 @@ function Disable-PasswordAuthenticationToWinNode () {
 
         # Change password on next login
         cmd.exe /c "wmic UserAccount where name='Administrator' set Passwordexpires=true"
-        cmd.exe /c "net user Administrator /logonpasswordchg:yes"
+        cmd.exe /c 'net user Administrator /logonpasswordchg:yes'
 
         # Disable password authentication over ssh
-        Add-Content "C:\ProgramData\ssh\sshd_config" "`nPasswordAuthentication no"
+        Add-Content 'C:\ProgramData\ssh\sshd_config' "`nPasswordAuthentication no"
         Restart-Service sshd
 
         # Disable WinRM
         netsh advfirewall firewall set rule name="Windows Remote Management (HTTP-In)" new enable=yes action=block
         netsh advfirewall firewall set rule group="Windows Remote Management" new enable=yes
         $winrmService = Get-Service -Name WinRM
-        if ($winrmService.Status -eq "Running"){
+        if ($winrmService.Status -eq 'Running') {
             Disable-PSRemoting -Force
         }
         Stop-Service winrm

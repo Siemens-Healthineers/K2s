@@ -37,7 +37,7 @@ metadata:
 spec:
   ingressClassName: nginx
   rules:
-    - host: k2s.cluster.net
+    - host: k2s.cluster.local
       http:
         paths:
           - path: /oauth2
