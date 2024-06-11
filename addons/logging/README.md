@@ -44,6 +44,18 @@ kubectl -n logging port-forward svc/opensearch-dashboards 5601:5601
 ```
 In this case, the logging dashboard UI can be accessed at the following link: http://localhost:5601
 
+Once the `Home` section appears, navigate to `Menu -> Discover`. Now logs can be searched and analyzed.
+
+## OpenTelemetry
+
+The OpenTelemetry input plugin of the logging addon allows receiving data as per the OTLP specification. The following endpoint can be used to send logs to the logging addon:
+
+```
+http://otel.logging.svc.cluster.local:4318/v1/logs
+```
+
+Those logs are added to the same index like all other logs and are visible under the `Discover` section.
+
 ## Disable logging
 
 The logging addon can be disabled using the k2s CLI by running the following command:
