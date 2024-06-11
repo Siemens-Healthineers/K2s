@@ -45,6 +45,8 @@ spec:
         parameterMappings:
           - cliFlagName: proxy
             scriptParameterName: Proxy
+          - cliFlagName: ingress
+            scriptParameterName: Ingress            
     disable:
       cli:
         examples:
