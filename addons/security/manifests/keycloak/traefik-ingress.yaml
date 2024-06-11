@@ -36,7 +36,7 @@ metadata:
 spec:
   ingressClassName: traefik
   rules:
-    - host: k2s.cluster.net
+    - host: k2s.cluster.local
       http:
         paths:
           - path: /oauth2
