@@ -5,7 +5,7 @@
 #Requires -RunAsAdministrator
 
 param([string]$DesiredIP = ''
-    , [string]$Hostname = 'k2s.cluster.net'
+    , [string]$Hostname = 'k2s.cluster.local'
     , [bool]$CheckHostnameOnly = $false)
 
 # check ip

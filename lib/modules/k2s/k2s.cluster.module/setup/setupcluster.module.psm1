@@ -210,7 +210,7 @@ function Join-WindowsNode {
 
 function Add-ClusterDnsNameToHost {
     param([string]$DesiredIP = ''
-        , [string]$Hostname = 'k2s.cluster.net'
+        , [string]$Hostname = 'k2s.cluster.local'
         , [bool]$CheckHostnameOnly = $false)
 
     # check ip
@@ -420,7 +420,7 @@ function Set-DiskPressureLimitsOnWindowsNode($vmSession) {
 function Add-IPsToHostsFiles($vmSession, $VMName, $IpAddress) {
     Write-Log 'Adding IPs to hosts files ...'
 
-    Add-ClusterDnsNameToHost -Hostname 'k2s.cluster.net'
+    Add-ClusterDnsNameToHost -Hostname 'k2s.cluster.local'
     Add-ClusterDnsNameToHost -DesiredIP $IpAddress -Hostname $VMName
 
     Invoke-Command -Session $vmSession {
@@ -432,7 +432,7 @@ function Add-IPsToHostsFiles($vmSession, $VMName, $IpAddress) {
         Import-Module $env:SystemDrive\k\lib\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1
         Initialize-Logging -Nested:$true
 
-        Add-ClusterDnsNameToHost -Hostname 'k2s.cluster.net'
+        Add-ClusterDnsNameToHost -Hostname 'k2s.cluster.local'
     }
 
     Write-Log 'IPs added to hosts files.'

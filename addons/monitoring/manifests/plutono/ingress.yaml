@@ -37,9 +37,9 @@ metadata:
 spec:
   ingressClassName: nginx
   tls:
-  - hosts:
-      - k2s-monitoring.local
-    secretName: k2s-monitoring-local-tls
+    - hosts:
+        - k2s-monitoring.local
+      secretName: k2s-monitoring-local-tls
   rules:
     - host: k2s-monitoring.local
       http:
@@ -49,16 +49,16 @@ spec:
                 name: kube-prometheus-stack-plutono
                 port:
                   number: 443
-# this is tricky: the optional match (monitoring/)? will allow us to make
-# the first call to /. After that, all relative paths start with /monitoring
-# as configured in the configmap.yaml, and will also match the path:
+            # this is tricky: the optional match (monitoring/)? will allow us to make
+            # the first call to /. After that, all relative paths start with /monitoring
+            # as configured in the configmap.yaml, and will also match the path:
             path: /(monitoring/)?(.*)
             pathType: Prefix
 ---
 # This ingress will be merged with ingress provided in:
 # addons/ingress-nginx/manifests/cluster-net-ingress.yaml
 # and exposes the plutono web application on:
-# https://k2s.cluster.net/monitoring/
+# https://k2s.cluster.local/monitoring/
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -70,7 +70,7 @@ metadata:
 spec:
   ingressClassName: nginx
   rules:
-    - host: k2s.cluster.net
+    - host: k2s.cluster.local
       http:
         paths:
           - backend:

@@ -8,7 +8,7 @@
 # This enables us to expose it trough the ingress under this configured path
 ---
 # This middleware strips the prefix "/monitoring" from the request, if present
-# is is used below in 
+# is is used below in
 # 'traefik.ingress.kubernetes.io/router.middlewares' annotation
 apiVersion: traefik.containo.us/v1alpha1
 kind: Middleware
@@ -40,9 +40,9 @@ metadata:
 spec:
   ingressClassName: traefik
   tls:
-  - hosts:
-      - k2s-monitoring.local
-    secretName: k2s-monitoring-local-tls
+    - hosts:
+        - k2s-monitoring.local
+      secretName: k2s-monitoring-local-tls
   rules:
     - host: k2s-monitoring.local
       http:
@@ -58,7 +58,7 @@ spec:
 # this ingress will be merged with ingress provided in:
 # addons/traefik/manifests/cluster-net-ingress.yaml
 # and exposes the plutono web application on:
-# https://k2s.cluster.net/monitoring/
+# https://k2s.cluster.local/monitoring/
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -70,7 +70,7 @@ metadata:
 spec:
   ingressClassName: traefik
   rules:
-    - host: k2s.cluster.net
+    - host: k2s.cluster.local
       http:
         paths:
           - backend:
