@@ -1,0 +1,27 @@
+# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+#
+# SPDX-License-Identifier: MIT
+
+---
+# Source: fluent-bit/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: otel
+  namespace: logging
+  labels:
+    helm.sh/chart: fluent-bit-0.46.7
+    app.kubernetes.io/name: fluent-bit
+    app.kubernetes.io/instance: fluent-bit
+    app.kubernetes.io/version: "3.0.4"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  type: ClusterIP
+  ports:
+    - port: 4318
+      targetPort: 4318
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: fluent-bit
+    app.kubernetes.io/instance: fluent-bit
+  clusterIP: 172.21.0.13

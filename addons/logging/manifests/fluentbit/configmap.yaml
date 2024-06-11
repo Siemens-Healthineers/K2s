@@ -44,6 +44,12 @@ data:
         HTTP_Listen 0.0.0.0
         HTTP_Port 2020
         Health_Check On
+
+    [INPUT]
+        name opentelemetry
+        listen 0.0.0.0
+        port 4318
+        Tag otel.*
     
     [INPUT]
         Name tail
