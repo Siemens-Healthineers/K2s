@@ -839,8 +839,8 @@ data:
           "secret": "1f3QCCQoDQXEwU7ngw9X8kaSe1uX8EIl",
           "redirectUris": [
             "http://localhost:4200",
-            "http://k2s.cluster.net/oauth2/callback",
-            "https://k2s.cluster.net/oauth2/callback",
+            "http://k2s.cluster.local/oauth2/callback",
+            "https://k2s.cluster.local/oauth2/callback",
             "http://172.19.1.100/oauth2/callback",
             "https://172.19.1.100/oauth2/callback"
           ],
@@ -859,7 +859,7 @@ data:
             "oidc.ciba.grant.enabled": "true",
             "client.secret.creation.time": "1713239258",
             "backchannel.logout.session.required": "true",
-            "post.logout.redirect.uris": "http://localhost:4200/##http://k2s.cluster.net/oauth2/callback/##https://k2s.cluster.net/oauth2/callback/##http://172.19.1.100/oauth2/callback/##https://172.19.1.100/oauth2/callback/",
+            "post.logout.redirect.uris": "http://localhost:4200/##http://k2s.cluster.local/oauth2/callback/##https://k2s.cluster.local/oauth2/callback/##http://172.19.1.100/oauth2/callback/##https://172.19.1.100/oauth2/callback/",
             "oauth2.device.authorization.grant.enabled": "true",
             "backchannel.logout.revoke.offline.tokens": "false"
           },
@@ -1059,8 +1059,8 @@ data:
           "clientAuthenticatorType": "client-secret",
           "redirectUris": [
             "http://localhost:4200",
-            "http://k2s.cluster.net/oauth2/callback",
-            "https://k2s.cluster.net/oauth2/callback",
+            "http://k2s.cluster.local/oauth2/callback",
+            "https://k2s.cluster.local/oauth2/callback",
             "http://172.19.1.100/oauth2/callback",
             "https://172.19.1.100/oauth2/callback"
           ],
@@ -1077,7 +1077,7 @@ data:
           "protocol": "openid-connect",
           "attributes": {
             "oidc.ciba.grant.enabled": "false",
-            "post.logout.redirect.uris": "http://localhost:4200/##http://k2s.cluster.net/oauth2/callback/##https://k2s.cluster.net/oauth2/callback/##http://172.19.1.100/oauth2/callback/##https://172.19.1.100/oauth2/callback/",
+            "post.logout.redirect.uris": "http://localhost:4200/##http://k2s.cluster.local/oauth2/callback/##https://k2s.cluster.local/oauth2/callback/##http://172.19.1.100/oauth2/callback/##https://172.19.1.100/oauth2/callback/",
             "oauth2.device.authorization.grant.enabled": "true",
             "backchannel.logout.session.required": "true",
             "backchannel.logout.revoke.offline.tokens": "false"
@@ -1218,8 +1218,8 @@ data:
           "secret": "f0GBomAr8auLt8G7M1zWM4V1Ng4Che1Q",
           "redirectUris": [
             "http://localhost:4200",
-            "http://k2s.cluster.net/oauth2/callback",
-            "https://k2s.cluster.net/oauth2/callback",
+            "http://k2s.cluster.local/oauth2/callback",
+            "https://k2s.cluster.local/oauth2/callback",
             "http://172.19.1.100/oauth2/callback",
             "https://172.19.1.100/oauth2/callback"
           ],
@@ -1238,7 +1238,7 @@ data:
             "oidc.ciba.grant.enabled": "true",
             "client.secret.creation.time": "1713239536",
             "backchannel.logout.session.required": "true",
-            "post.logout.redirect.uris": "http://localhost:4200/##http://k2s.cluster.net/oauth2/callback/##https://k2s.cluster.net/oauth2/callback/##http://172.19.1.100/oauth2/callback/##https://172.19.1.100/oauth2/callback/",
+            "post.logout.redirect.uris": "http://localhost:4200/##http://k2s.cluster.local/oauth2/callback/##https://k2s.cluster.local/oauth2/callback/##http://172.19.1.100/oauth2/callback/##https://172.19.1.100/oauth2/callback/",
             "oauth2.device.authorization.grant.enabled": "true",
             "backchannel.logout.revoke.offline.tokens": "false"
           },
@@ -1437,8 +1437,8 @@ data:
           "clientAuthenticatorType": "client-secret",
           "redirectUris": [
             "http://localhost:4200",
-            "http://k2s.cluster.net/oauth2/callback",
-            "https://k2s.cluster.net/oauth2/callback",
+            "http://k2s.cluster.local/oauth2/callback",
+            "https://k2s.cluster.local/oauth2/callback",
             "http://172.19.1.100/oauth2/callback",
             "https://172.19.1.100/oauth2/callback"
           ],
@@ -1455,7 +1455,7 @@ data:
           "protocol": "openid-connect",
           "attributes": {
             "oidc.ciba.grant.enabled": "false",
-            "post.logout.redirect.uris": "http://localhost:4200/##http://k2s.cluster.net/oauth2/callback/##https://k2s.cluster.net/oauth2/callback/##http://172.19.1.100/oauth2/callback/##https://172.19.1.100/oauth2/callback/",
+            "post.logout.redirect.uris": "http://localhost:4200/##http://k2s.cluster.local/oauth2/callback/##https://k2s.cluster.local/oauth2/callback/##http://172.19.1.100/oauth2/callback/##https://172.19.1.100/oauth2/callback/",
             "oauth2.device.authorization.grant.enabled": "true",
             "backchannel.logout.session.required": "true",
             "backchannel.logout.revoke.offline.tokens": "false"
@@ -3050,3 +3050,4 @@ spec:
     app: keycloak
   type: ClusterIP
 ---
+

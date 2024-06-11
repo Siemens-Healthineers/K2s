@@ -3,17 +3,17 @@
 # SPDX-License-Identifier: MIT
 
 # The kubernetes-dashboard service exposes an angular application on port 443
-# The angular application is design in such a way that it constructs the 
+# The angular application is design in such a way that it constructs the
 # relative paths based on the value stored in the x-forwarded-prefix header
 # of the request. So if the application is exposed on another path than root,
 # this header must have as value that path.
 ---
 # This ingress will expose the angular application on:
-# HTTP: http://k2s-dashboard.local 
-# TLS: https://k2s-dashboard.local 
+# HTTP: http://k2s-dashboard.local
+# TLS: https://k2s-dashboard.local
 # For TLS, the certificate is taken from k8s secret 'k2s-dashboard-local-tls'
 # This secret will be created by cert-manager, if it is installed and running.
-# If cert-manager is not installed, the secret will not be present and 
+# If cert-manager is not installed, the secret will not be present and
 # traefik will use an own self-signed certificate.
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -30,17 +30,17 @@ spec:
     - host: k2s-dashboard.local
       http:
         paths:
-        - backend:
-            service:
-              name: kubernetes-dashboard
-              port: 
-                number: 443
-          pathType: Prefix
-          path: /
+          - backend:
+              service:
+                name: kubernetes-dashboard
+                port:
+                  number: 443
+            pathType: Prefix
+            path: /
   tls:
-  - hosts:
-    - k2s-dashboard.local
-    secretName: k2s-dashboard-local-tls
+    - hosts:
+        - k2s-dashboard.local
+      secretName: k2s-dashboard-local-tls
 ---
 # this MiddleWare will strip the prefix /dashboard from the request path
 # and set the x-forwarded-prefix header of the request to /dashboard/
@@ -58,8 +58,8 @@ spec:
 # this ingress will be merged with ingress provided in:
 # addons/traefik/manifests/cluster-net-ingress.yaml
 # and exposes the kubernetes-dashboard angular application on:
-# https://k2s.cluster.net/dashboard/
-# The certificate is taken from k8s secret 'k2s.cluster.net-tls'
+# https://k2s.cluster.local/dashboard/
+# The certificate is taken from k8s secret 'k2s.cluster.local-tls'
 # (see addons/traefik/manifests/cluster-net-ingress.yaml)
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -72,13 +72,13 @@ metadata:
 spec:
   ingressClassName: traefik
   rules:
-    - host: k2s.cluster.net
+    - host: k2s.cluster.local
       http:
         paths:
-        - path: /dashboard/
-          pathType: Prefix
-          backend:
-            service:
-              name: kubernetes-dashboard
-              port: 
-                number: 443
+          - path: /dashboard/
+            pathType: Prefix
+            backend:
+              service:
+                name: kubernetes-dashboard
+                port:
+                  number: 443
