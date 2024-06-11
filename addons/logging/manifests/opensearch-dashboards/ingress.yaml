@@ -7,7 +7,7 @@
 # in the deployment.yaml, we configure these environment variables:
 # SERVER_BASEPATH = "/logging": the application will generate all relative
 #    URLs starting with this prefix!
-# SERVER_REWRITEBASEPATH = "false": the application will NOT expect the 
+# SERVER_REWRITEBASEPATH = "false": the application will NOT expect the
 # incoming calls to be part of the request path
 # This gives us the flexibility to expose the application on the configured
 # path, in this case "/logging"
@@ -40,9 +40,9 @@ metadata:
 spec:
   ingressClassName: nginx
   tls:
-  - hosts:
-    - k2s-logging.local
-    secretName: k2s-logging-local-tls
+    - hosts:
+        - k2s-logging.local
+      secretName: k2s-logging-local-tls
   rules:
     - host: k2s-logging.local
       http:
@@ -52,18 +52,18 @@ spec:
                 name: opensearch-dashboards
                 port:
                   number: 5601
-# this is tricky: when we call first time http://k2s-logging.local, 
-# the first parameter will not match and is ignored. The result will
-# contain relative paths starting with "/logging", when the client
-# calls them, the first parameter will be matched, but ignored.
-# In all cases, only the second parameters is forwarded to the backend
+            # this is tricky: when we call first time http://k2s-logging.local,
+            # the first parameter will not match and is ignored. The result will
+            # contain relative paths starting with "/logging", when the client
+            # calls them, the first parameter will be matched, but ignored.
+            # In all cases, only the second parameters is forwarded to the backend
             path: /(logging/)?(.*)
             pathType: Prefix
 ---
 # this ingress will be merged with ingress provided in:
 # addons/ingress-nginx/manifests/cluster-net-ingress.yaml
 # and exposes the opensearch-dashboards web application on:
-# https://k2s.cluster.net/logging/
+# https://k2s.cluster.local/logging/
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -74,7 +74,7 @@ metadata:
 spec:
   ingressClassName: nginx
   rules:
-    - host: k2s.cluster.net
+    - host: k2s.cluster.local
       http:
         paths:
           - backend:
