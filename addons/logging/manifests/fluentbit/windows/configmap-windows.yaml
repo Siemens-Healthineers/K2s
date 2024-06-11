@@ -46,6 +46,15 @@ data:
         Time_Keep On
 
     [PARSER]
+        Name kubeproxy
+        Format regex
+        Regex ^(?<level>.+(\d{4})) (?<time>(\d{2}:\d{2}:\d{2}\.\d{6})) +(?<pid>(\d+)) (?<message>.*)$
+        Time_Key time
+        Time_Format %H:%M:%S.%L
+        Time_Keep On
+        Time_Offset +0200
+
+    [PARSER]
         Name nssm3
         Format regex
         Regex ^(?<time>\d{4}\/\d{2}\/\d{2} \d{2}:\d{2}:\d{2}) (?<message>.*)$
@@ -163,12 +172,6 @@ data:
         # storage.backlog.mem_limit 5M
 
     [INPUT]
-        name opentelemetry
-        listen 0.0.0.0
-        port 4318
-        Tag otel.*
-
-    [INPUT]
         Name tail
         Path C:\\var\\log\\containers\\*.log
         Exclude_Path *fluent-bit*.log
@@ -184,7 +187,6 @@ data:
         Path C:\\var\\log\\bridge\\*.log
         Tag bridge.*
         Parser nssm1
-        Read_from_Head true
         Buffer_Chunk_Size 10MB
         Buffer_Max_Size 40MB
         Mem_Buf_Limit 512MB
@@ -195,7 +197,6 @@ data:
         Path C:\\var\\log\\cli\\*.log
         Tag cli.*
         Parser cli
-        Read_from_Head true
         Buffer_Chunk_Size 10MB
         Buffer_Max_Size 40MB
         Mem_Buf_Limit 512MB
@@ -206,7 +207,6 @@ data:
         Path C:\\var\\log\\cloud-init\\*.log
         Tag cloudinit.*
         Parser cloudinit
-        Read_from_Head true
         Buffer_Chunk_Size 10MB
         Buffer_Max_Size 40MB
         Mem_Buf_Limit 512MB
@@ -217,7 +217,6 @@ data:
         Path C:\\var\\log\\containerd\\*.log
         Tag containerd.*
         Parser nssm1
-        Read_from_Head true
         Buffer_Chunk_Size 10MB
         Buffer_Max_Size 40MB
         Mem_Buf_Limit 512MB
@@ -228,7 +227,6 @@ data:
         Path C:\\var\\log\\dnsproxy\\*.log
         Tag dnsproxy.*
         Parser dnsproxy
-        Read_from_Head true
         Buffer_Chunk_Size 10MB
         Buffer_Max_Size 40MB
         Mem_Buf_Limit 512MB
@@ -239,7 +237,6 @@ data:
         Path C:\\var\\log\\dockerd\\*.log
         Tag dockerd.*
         Parser nssm1
-        Read_from_Head true
         Buffer_Chunk_Size 10MB
         Buffer_Max_Size 40MB
         Mem_Buf_Limit 512MB
@@ -250,7 +247,6 @@ data:
         Path C:\\var\\log\\flanneld\\*.log
         Tag flanneld.*
         Parser nssm2
-        Read_from_Head true
         Buffer_Chunk_Size 10MB
         Buffer_Max_Size 40MB
         Mem_Buf_Limit 512MB
@@ -261,7 +257,6 @@ data:
         Path C:\\var\\log\\httpproxy\\*.log
         Tag httpproxy.*
         Parser nssm3
-        Read_from_Head true
         Buffer_Chunk_Size 10MB
         Buffer_Max_Size 40MB
         Mem_Buf_Limit 512MB
@@ -272,7 +267,6 @@ data:
         Path C:\\var\\log\\kubelet\\*.log
         Tag kubelet.*
         Parser nssm2
-        Read_from_Head true
         Buffer_Chunk_Size 10MB
         Buffer_Max_Size 40MB
         Mem_Buf_Limit 512MB
@@ -282,8 +276,7 @@ data:
         Name tail
         Path C:\\var\\log\\kubeproxy\\*.log
         Tag kubeproxy.*
-        Parser nssm2
-        Read_from_Head true
+        Parser kubeproxy
         Buffer_Chunk_Size 10MB
         Buffer_Max_Size 40MB
         Mem_Buf_Limit 512MB
@@ -294,7 +287,6 @@ data:
         Path C:\\var\\log\\vfprules\\*.log
         Tag vfprules.*
         Parser nssm1
-        Read_from_Head true
         Buffer_Chunk_Size 10MB
         Buffer_Max_Size 40MB
         Mem_Buf_Limit 512MB
@@ -305,7 +297,6 @@ data:
         Path C:\\var\\log\\windows_exporter\\*.log
         Tag windowsexporter.*
         Parser nssm1
-        Read_from_Head true
         Buffer_Chunk_Size 10MB
         Buffer_Max_Size 40MB
         Mem_Buf_Limit 512MB
