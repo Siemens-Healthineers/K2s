@@ -10,5 +10,6 @@ resources:
 - clusterrolebinding.yaml
 - configmap.yaml
 - service.yaml
+- service-otel.yaml
 - serviceaccount.yaml
 - daemonset.yaml
