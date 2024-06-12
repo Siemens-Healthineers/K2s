@@ -44,7 +44,7 @@ function EnsureTrivy() {
     }
 
     $compressedFile = "$global:BinPath\trivy.zip"
-    DownloadFile $compressedFile "https://github.com/aquasecurity/trivy/releases/download/v0.50.0/trivy_0.50.0_windows-64bit.zip" $true -ProxyToUse $Proxy
+    DownloadFile $compressedFile 'https://github.com/aquasecurity/trivy/releases/download/v0.52.1/trivy_0.52.1_windows-64bit.zip' $true -ProxyToUse $Proxy
 
     # Extract the archive.
     Write-Output "Extract archive to '$global:BinPath"
@@ -141,14 +141,15 @@ function GenerateBomDebian() {
 
     $hostname = Get-ControlPlaneNodeHostname
 
-    $trivyInstalled = $(ExecCmdMaster "which /usr/local/bin/trivy" -NoLog)
+    $trivyInstalled = $(ExecCmdMaster 'which /usr/local/bin/trivy' -NoLog)
     if ($trivyInstalled -match '/bin/trivy') {
         Write-Output "Trivy already available in VM $hostname"
-    } else {
+    }
+    else {
         Write-Output "Install trivy into $hostname"
-        ExecCmdMaster 'sudo curl --proxy http://172.19.1.1:8181 -sLO https://github.com/aquasecurity/trivy/releases/download/v0.50.0/trivy_0.50.0_Linux-64bit.tar.gz 2>&1'
-        ExecCmdMaster 'sudo tar -xzf ./trivy_0.50.0_Linux-64bit.tar.gz trivy'
-        ExecCmdMaster 'sudo rm ./trivy_0.50.0_Linux-64bit.tar.gz'
+        ExecCmdMaster 'sudo curl --proxy http://172.19.1.1:8181 -sLO https://github.com/aquasecurity/trivy/releases/download/v0.52.1/trivy_0.52.1_Linux-64bit.tar.gz 2>&1'
+        ExecCmdMaster 'sudo tar -xzf ./trivy_0.52.1_Linux-64bit.tar.gz trivy'
+        ExecCmdMaster 'sudo rm ./trivy_0.52.1_Linux-64bit.tar.gz'
         ExecCmdMaster 'sudo mv ./trivy /usr/local/bin/'
         ExecCmdMaster 'sudo chmod +x /usr/local/bin/trivy'
     }
@@ -172,15 +173,15 @@ function LoadK2sImages() {
 
     $tempDir = [System.Environment]::GetEnvironmentVariable('TEMP')
 
+    # dump all images
+    &$bomRootDir\DumpK2sImages.ps1
+        
     # export all addons to have all images pull
     Write-Output "Writing to temp all containers $tempDir"
     &k2s.exe addons export -d $tempDir -o
     if ( Test-Path -Path $tempDir\addons.zip) {
         Remove-Item -Path $tempDir\addons.zip -Force
     }
-
-    # dump all images
-    &$bomRootDir\DumpK2sImages.ps1
 
     Write-Output 'Containers images now available'
 }
@@ -243,8 +244,8 @@ function GenerateBomContainers() {
         else {
             Write-Output '  -> Image is windows image, skipping'
             $imageObject = [PSCustomObject]@{
-                ImageName = $name
-                ImageType = $type
+                ImageName    = $name
+                ImageType    = $type
                 ImageVersion = $version
             }
             $imagesWindows += $imageObject
@@ -303,6 +304,14 @@ function GenerateBomContainers() {
     Write-Output 'Containers bom files now available'
 }
 
+function RemoveOldContainerFiles() {
+    Write-Output 'Remove old container files'
+
+    $path = "$bomRootDir\merge"
+    # cleanup files except k2s-static.json and k2s-static.json.license and surpress errors
+    Get-ChildItem -Path $path -Recurse -Exclude 'k2s-static.json', 'k2s-static.json.license' | Remove-Item -Force -ErrorAction SilentlyContinue
+}
+
 #################################################################################################
 # SCRIPT START                                                                                  #
 #################################################################################################
@@ -337,7 +346,8 @@ $generationStopwatch = [system.diagnostics.stopwatch]::StartNew()
 CheckVMState
 EnsureTrivy
 EnsureCdxCli
-GenerateBomGolang("k2s")
+RemoveOldContainerFiles
+GenerateBomGolang('k2s')
 GenerateBomDebian
 LoadK2sImages
 GenerateBomContainers
