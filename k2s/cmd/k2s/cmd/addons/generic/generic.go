@@ -202,7 +202,7 @@ func convertToPsParam(flag *pflag.Flag, cmdConfig addons.AddonCmd, add func(stri
 	})
 
 	if !found {
-		slog.Debug("flag set, but not considered for parameterization", "flag", flag.Name, "value", flag.Value)
+		slog.Warn("CLI flag set, but missing PowerShell parameter mapping in `parameterMappings` of `addon.manifest.yaml`; not parameterized.", "flag", flag.Name, "value", flag.Value)
 		return nil
 	}
 
