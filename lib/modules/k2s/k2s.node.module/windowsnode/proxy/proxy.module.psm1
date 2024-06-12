@@ -5,6 +5,14 @@
 $logModule = "$PSScriptRoot\..\..\..\k2s.infra.module\log\log.module.psm1"
 Import-Module $logModule
 
+$configFilePath = "C:\etc\k2s\proxy.conf"
+
+class ProxyConf {
+    [string]$HttpProxy
+    [string]$HttpsProxy
+    [string]$NoProxy
+}
+
 <#
 .SYNOPSIS
 Gets whether proxy settings are configured for the user in Windows.
@@ -81,6 +89,58 @@ function Get-OrUpdateProxyServer ([string]$Proxy) {
         }
     }
     return $Proxy
+}
+
+function Get-ProxyServer ([string]$Proxy) {
+    if ($Proxy -eq '') {
+        Write-Log 'Determining if proxy is configured by the user in Windows Proxy settings.' -Console
+        $proxyEnabledStatus = Get-ProxyEnabledStatusFromWindowsSettings
+        if ($proxyEnabledStatus) {
+            $Proxy = Get-ProxyServerFromWindowsSettings
+            Write-Log "Configured proxy server in Windows Proxy settings: $Proxy" -Console
+        }
+        else {
+            Write-Log 'No proxy configured in Windows Proxy Settings.' -Console
+        }
+    }
+    return $Proxy
+}
+
+function Get-ProxySettings {
+    if (Test-Path -Path $configFilePath) {
+        Write-Log "Proxy config file '$configFilePath' found"
+        return Get-ProxyConfig
+    }
+
+    $proxy = Get-ProxyServer
+    $noProxy = Get-ProxyOverrideFromWindowsSettings
+
+    return [ProxyConf]@{
+        HttpProxy = $proxy; 
+        Httpsproxy = $proxy; 
+        NoProxy = $noProxy
+    }
+}
+
+function Get-ProxyConfig {
+    $httpProxy = ""
+    $httpsProxy = ""
+    $noProxy = ""
+
+    Get-Content "$PSScriptRoot\nginx.tmp" | ForEach-Object {
+        $line = $_
+        switch -regex ($line) {
+            "http_proxy=" { $httpProxy = (($_ -replace "http_proxy=", "") -replace '"', '') -replace "'",""}
+            "https_proxy=" { $httpsProxy = (($_ -replace "https_proxy=", "") -replace '"', '') -replace "'",""}
+            "no_proxy=" { $noProxy = (($_ -replace "no_proxy=", "") -replace '"', '') -replace "'",""}
+        }
+    }
+
+    return [ProxyConf]@{
+        HttpProxy = $httpProxy; 
+        Httpsproxy = $httpsProxy; 
+        NoProxy = $noProxy
+    }
 }
 
 Export-ModuleMember -Function Get-OrUpdateProxyServer
