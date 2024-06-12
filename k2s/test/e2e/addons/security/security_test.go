@@ -127,6 +127,10 @@ var _ = Describe("'security' addon", Ordered, func() {
 		suite.K2sCli().Run(ctx, "addons", "disable", addonName, "-o")
 	})
 
+	It("disables default ingress addon", func(ctx context.Context) {
+		suite.K2sCli().Run(ctx, "addons", "disable", "ingress-nginx", "-o")
+	})
+
 	It("uninstalls cmctl.exe, the cert-manager CLI", func(ctx context.Context) {
 		cmCtlPath := path.Join(suite.RootDir(), "bin", "exe", "cmctl.exe")
 		_, err := os.Stat(cmCtlPath)
