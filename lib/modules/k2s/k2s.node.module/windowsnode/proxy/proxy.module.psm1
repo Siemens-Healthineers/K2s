@@ -87,19 +87,32 @@ function Get-OrUpdateProxyServer ([string]$Proxy) {
 }
 
 function Get-ProxySettings {
+    Write-Log 'Determining if proxy conf file '$configFilePath' is available'
     if (Test-Path -Path $configFilePath) {
-        return Get-ProxyConfig
+        Write-Log "Proxy conf file '$configFilePath' found"
+
+        $proxySettings = Get-ProxyConfig
+        Write-Log "Proxy settings from proxy conf file: http_proxy=$($proxySettings.HttpProxy), https_proxy=$($proxySettings.HttpsProxy), no_proxy=$($proxySettings.NoProxy)"
+        
+        return $proxySettings
     }
 
+    Write-Log "No proxy conf file '$configFilePath' found"
+
+    Write-Log 'Determining if proxy is configured by the user in Windows Proxy settings.'
     if (Get-ProxyEnabledStatusFromWindowsSettings) {
+        Write-Log "Configured proxy server in Windows Proxy settings: $Proxy" -Console
         $proxy = Get-ProxyServerFromWindowsSettings
         $noProxy = Get-ProxyOverrideFromWindowsSettings
 
-        return [ProxyConf]@{
-            HttpProxy = $proxy; 
-            Httpsproxy = $proxy; 
-            NoProxy = $noProxy
-        }
+        [ProxyConf]$proxySettings = [ProxyConf]::new()
+        $proxySettings.HttpProxy = $proxy
+        $proxySettings.HttpsProxy = $proxy
+        $proxySettings.NoProxy = $noProxy
+
+        Write-Log "Configured proxy server in Windows Proxy settings: http_proxy=$($proxySettings.HttpProxy), https_proxy=$($proxySettings.HttpsProxy), no_proxy=$($proxySettings.NoProxy)"
+        
+        return $proxySettings
     }
 
     return $null
@@ -110,7 +123,7 @@ function Get-ProxyConfig {
     $httpsProxy = ""
     $noProxy = ""
 
-    Get-Content "$PSScriptRoot\nginx.tmp" | ForEach-Object {
+    Get-Content "$configFilePath" | ForEach-Object {
         $line = $_
         switch -regex ($line) {
             "http_proxy=" { $httpProxy = (($_ -replace "http_proxy=", "") -replace '"', '') -replace "'",""}
