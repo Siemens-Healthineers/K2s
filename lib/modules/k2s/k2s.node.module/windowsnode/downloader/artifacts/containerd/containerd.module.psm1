@@ -25,7 +25,7 @@ function Get-CtrExePath {
     return "$kubePath\bin\containerd\ctr.exe"
 }
 
-function Invoke-DownloadContainerdArtifacts($downloadsBaseDirectory, $Proxy, $windowsNodeArtifactsDirectory) {
+function Invoke-DownloadContainerdArtifacts($downloadsBaseDirectory, $windowsNodeArtifactsDirectory) {
     $containerdDownloadsDirectory = "$downloadsBaseDirectory\$windowsNode_ContainerdDirectory"
     $compressedContainerdFile = 'containerd-1.7.17-windows-amd64.tar.gz'
     $compressedFile = "$containerdDownloadsDirectory\$compressedContainerdFile"
@@ -33,7 +33,7 @@ function Invoke-DownloadContainerdArtifacts($downloadsBaseDirectory, $Proxy, $wi
     Write-Log "Create folder '$containerdDownloadsDirectory'"
     mkdir $containerdDownloadsDirectory | Out-Null
     Write-Log 'Download containerd'
-    Invoke-DownloadFile "$compressedFile" https://github.com/containerd/containerd/releases/download/v1.7.17/$compressedContainerdFile $true $Proxy
+    Invoke-DownloadFile "$compressedFile" https://github.com/containerd/containerd/releases/download/v1.7.17/$compressedContainerdFile $true
     Write-Log '  ...done'
     Write-Log "Extract downloaded file '$compressedFile'"
     cmd /c tar xf `"$compressedFile`" -C `"$containerdDownloadsDirectory`"
@@ -68,7 +68,7 @@ function Invoke-DeployContainerdArtifacts($windowsNodeArtifactsDirectory) {
     Copy-Item -Path "$containerdSourceDirectory\*.*" -Destination "$containerdTargetDirectory"
 }
 
-function Invoke-DownloadCrictlArtifacts($downloadsBaseDirectory, $Proxy, $windowsNodeArtifactsDirectory) {
+function Invoke-DownloadCrictlArtifacts($downloadsBaseDirectory, $windowsNodeArtifactsDirectory) {
     $crictlDownloadsDirectory = "$downloadsBaseDirectory\$windowsNode_CrictlDirectory"
 
     $compressedCrictlFile = 'crictl-v1.28.0-windows-amd64.tar.gz'
@@ -77,7 +77,7 @@ function Invoke-DownloadCrictlArtifacts($downloadsBaseDirectory, $Proxy, $window
     Write-Log "Create folder '$crictlDownloadsDirectory'"
     mkdir $crictlDownloadsDirectory | Out-Null
     Write-Log 'Download crictl'
-    Invoke-DownloadFile "$compressedFile" https://github.com/kubernetes-sigs/cri-tools/releases/download/v1.28.0/$compressedCrictlFile $true $Proxy
+    Invoke-DownloadFile "$compressedFile" https://github.com/kubernetes-sigs/cri-tools/releases/download/v1.28.0/$compressedCrictlFile $true
     Write-Log '  ...done'
     Write-Log "Extract downloaded file '$compressedFile'"
     cmd /c tar xf `"$compressedFile`" -C `"$crictlDownloadsDirectory`"
@@ -102,7 +102,7 @@ function Invoke-DeployCrictlArtifacts($windowsNodeArtifactsDirectory) {
     Copy-Item -Path "$crictlArtifactsDirectory\crictl.exe" -Destination "$kubeBinPath" -Force
 }
 
-function Invoke-DownloadNerdctlArtifacts($downloadsBaseDirectory, $Proxy, $windowsNodeArtifactsDirectory) {
+function Invoke-DownloadNerdctlArtifacts($downloadsBaseDirectory, $windowsNodeArtifactsDirectory) {
     $nerdctlDownloadsDirectory = "$downloadsBaseDirectory\$windowsNode_NerdctlDirectory"
     $compressedNerdFile = 'nerdctl-1.7.2-windows-amd64.tar.gz'
     $compressedFile = "$nerdctlDownloadsDirectory\$compressedNerdFile"
@@ -110,7 +110,7 @@ function Invoke-DownloadNerdctlArtifacts($downloadsBaseDirectory, $Proxy, $windo
     Write-Log "Create folder '$nerdctlDownloadsDirectory'"
     mkdir $nerdctlDownloadsDirectory | Out-Null
     Write-Log 'Download nerdctl'
-    Invoke-DownloadFile "$compressedFile" https://github.com/containerd/nerdctl/releases/download/v1.7.2/$compressedNerdFile $true $Proxy
+    Invoke-DownloadFile "$compressedFile" https://github.com/containerd/nerdctl/releases/download/v1.7.2/$compressedNerdFile $true
     Write-Log '  ...done'
     Write-Log "Extract downloaded file '$compressedFile'"
     cmd /c tar xf `"$compressedFile`" -C `"$nerdctlDownloadsDirectory`"
@@ -207,8 +207,6 @@ function Uninstall-WinContainerd {
 
 function Install-WinContainerd {
     Param(
-        [parameter(Mandatory = $false, HelpMessage = 'HTTP proxy if available')]
-        [string] $Proxy = '',
         [parameter(Mandatory = $false, HelpMessage = 'Will skip setting up networking which is required only for cluster purposes')]
         [bool] $SkipNetworkingSetup = $false,
         $WindowsNodeArtifactsDirectory
@@ -312,11 +310,7 @@ timeout: 30
     &$kubeBinPath\nssm set containerd AppRotateSeconds 0 | Out-Null
     &$kubeBinPath\nssm set containerd AppRotateBytes 500000 | Out-Null
     &$kubeBinPath\nssm set containerd Start SERVICE_AUTO_START | Out-Null
-
-    Write-Log "Proxy to use with containerd: '$Proxy'"
-    if ( $Proxy -ne '' ) {
-        &$kubeBinPath\nssm set containerd AppEnvironmentExtra HTTP_PROXY=$Proxy HTTPS_PROXY=$Proxy NO_PROXY=.local | Out-Null
-    }
+    &$kubeBinPath\nssm set containerd AppEnvironmentExtra HTTP_PROXY=$(Get-HttpProxyServiceAddress) HTTPS_PROXY=$(Get-HttpProxyServiceAddress) | Out-Null
 
     # add firewall entries (else firewall will keep your CPU busy)
     Write-Log 'Adding firewall rules for containerd'

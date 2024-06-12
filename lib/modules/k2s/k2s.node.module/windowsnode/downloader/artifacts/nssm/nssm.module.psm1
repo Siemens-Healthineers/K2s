@@ -16,7 +16,7 @@ $nssmInstallDirectory = "$kubeBinPath"
 $nssmInstallDirectoryLegacy = "$env:ProgramFiles\nssm"
 $nssmExe = "$nssmInstallDirectory\nssm.exe"
 
-function Invoke-DownloadNssmArtifacts($downloadsBaseDirectory, $Proxy, $windowsNodeArtifactsDirectory) {
+function Invoke-DownloadNssmArtifacts($downloadsBaseDirectory, $windowsNodeArtifactsDirectory) {
     $nssmDownloadsDirectory = "$downloadsBaseDirectory\$windowsNode_NssmDirectory"
     $compressedNssmFile = 'nssm.zip'
     $compressedFile = "$nssmDownloadsDirectory\$compressedNssmFile"
@@ -29,7 +29,7 @@ function Invoke-DownloadNssmArtifacts($downloadsBaseDirectory, $Proxy, $windowsN
     Write-Log "Create folder '$nssmDownloadsDirectory'"
     mkdir $nssmDownloadsDirectory | Out-Null
     Write-Log 'Download nssm'
-    Invoke-DownloadFile "$compressedFile" 'https://k8stestinfrabinaries.blob.core.windows.net/nssm-mirror/nssm-2.24.zip' $true $Proxy
+    Invoke-DownloadFile "$compressedFile" 'https://k8stestinfrabinaries.blob.core.windows.net/nssm-mirror/nssm-2.24.zip' $true
     $ErrorActionPreference = 'SilentlyContinue'
     cmd /c tar C `"$nssmDownloadsDirectory`" -xvf `"$compressedFile`" --strip-components 2 */$arch/*.exe 2>&1 | ForEach-Object { "$_" }
     $ErrorActionPreference = 'Stop'

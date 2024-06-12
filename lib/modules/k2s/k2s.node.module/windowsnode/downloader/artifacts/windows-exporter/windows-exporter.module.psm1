@@ -16,14 +16,14 @@ $kubeBinPath = Get-KubeBinPath
 $windowsNode_WindowsExporterDirectory = 'windowsexporter'
 $windowsNode_WindowsExporterExe = 'windows_exporter.exe'
 
-function Invoke-DownloadWindowsExporterArtifacts($downloadsBaseDirectory, $Proxy) {
+function Invoke-DownloadWindowsExporterArtifacts($downloadsBaseDirectory) {
     $windowsExporterDownloadsDirectory = "$downloadsBaseDirectory\$windowsNode_WindowsExporterDirectory"
     $file = "$windowsExporterDownloadsDirectory\$windowsNode_WindowsExporterExe"
 
     Write-Log "Create folder '$windowsExporterDownloadsDirectory'"
     mkdir $windowsExporterDownloadsDirectory | Out-Null
     Write-Log 'Download windows exporter'
-    Invoke-DownloadFile "$file" https://github.com/prometheus-community/windows_exporter/releases/download/v0.22.0/windows_exporter-0.22.0-amd64.exe $true $Proxy
+    Invoke-DownloadFile "$file" https://github.com/prometheus-community/windows_exporter/releases/download/v0.22.0/windows_exporter-0.22.0-amd64.exe $true
 }
 
 function Invoke-DeployWindowsExporterArtifacts($windowsNodeArtifactsDirectory) {

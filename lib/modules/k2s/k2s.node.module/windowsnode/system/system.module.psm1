@@ -229,21 +229,14 @@ function Get-StorageLocalDrive {
 .Description
 Invoke-DownloadFile download file from internet.
 #>
-function Invoke-DownloadFile($destination, $source, $forceDownload,
-    [parameter(Mandatory = $false)]
-    [string] $ProxyToUse = $Proxy) {
+function Invoke-DownloadFile($destination, $source, $forceDownload) {
     if ((Test-Path $destination) -and (!$forceDownload)) {
         Write-Log "using existing $destination"
         return
     }
-    if ( $ProxyToUse -ne '' ) {
-        Write-Log "Downloading '$source' to '$destination' with proxy: $ProxyToUse"
-        curl.exe --retry 5 --connect-timeout 60 --retry-all-errors --retry-delay 60 --silent --disable --fail -Lo $destination $source --proxy $ProxyToUse --ssl-no-revoke -k #ignore server certificate error for cloudbase.it
-    }
-    else {
-        Write-Log "Downloading '$source' to '$destination' (no proxy)"
-        curl.exe --retry 5 --connect-timeout 60 --retry-all-errors --retry-delay 60 --silent --disable --fail -Lo $destination $source --ssl-no-revoke --noproxy '*'
-    }
+
+    Write-Log "Downloading '$source' to '$destination'"
+    curl.exe --retry 5 --connect-timeout 60 --retry-all-errors --retry-delay 60 --silent --disable --fail -Lo $destination $source --proxy $(Get-HttpProxyServiceAddress) --ssl-no-revoke -k #ignore server certificate error for cloudbase.it
 
     if (!$?) {
         if ($ErrorActionPreference -eq 'Stop') {

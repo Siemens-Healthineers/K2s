@@ -105,8 +105,6 @@ function Initialize-WinNode {
         [string] $KubernetesVersion,
         [parameter(Mandatory = $false, HelpMessage = 'Host machine is a VM: true, Host machine is not a VM')]
         [bool] $HostVM = $false,
-        [parameter(Mandatory = $false, HelpMessage = 'HTTP proxy if available')]
-        [string] $Proxy = '',
         [parameter(Mandatory = $true, HelpMessage = 'Host-GW or VXLAN, Host-GW: true, false for vxlan')]
         [bool] $HostGW,
         [parameter(Mandatory = $false, HelpMessage = 'Deletes the needed files to perform an offline installation')]
@@ -117,7 +115,10 @@ function Initialize-WinNode {
         [boolean] $SkipClusterSetup = $false
     )
 
-    Invoke-DeployWinArtifacts -KubernetesVersion $KubernetesVersion -Proxy "$Proxy" -DeleteFilesForOfflineInstallation $DeleteFilesForOfflineInstallation -ForceOnlineInstallation $ForceOnlineInstallation -SkipClusterSetup:$SkipClusterSetup
+    # httpproxy service is the overall proxy pre-requisite 
+    Install-WinHttpProxy
+
+    Invoke-DeployWinArtifacts -KubernetesVersion $KubernetesVersion -DeleteFilesForOfflineInstallation $DeleteFilesForOfflineInstallation -ForceOnlineInstallation $ForceOnlineInstallation -SkipClusterSetup:$SkipClusterSetup
 
     Set-ConfigInstallFolder -Value $kubePath
     Set-ConfigProductVersion -Value $productVersion
@@ -149,7 +150,7 @@ function Initialize-WinNode {
         Write-Log 'Skipping networking setup on windows node'
     }
 
-    Install-WinNodeArtifacts -Proxy "$Proxy" -HostVM:$HostVM -SkipClusterSetup:$SkipClusterSetup
+    Install-WinNodeArtifacts -HostVM:$HostVM -SkipClusterSetup:$SkipClusterSetup
 
     if (! $SkipClusterSetup) {
         Reset-WinServices

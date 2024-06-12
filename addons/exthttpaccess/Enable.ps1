@@ -46,8 +46,6 @@ Import-Module $infraModule, $clusterModule, $nodeModule, $addonsModule, $commonM
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
-$Proxy = Get-OrUpdateProxyServer -Proxy:$Proxy
-
 $systemError = Test-SystemAvailability -Structured
 if ($systemError) {
   if ($EncodeStructuredOutput -eq $true) {
@@ -234,7 +232,7 @@ Get-Content "$PSScriptRoot\nginx.tmp" | ForEach-Object {
 
 Write-Log 'Downloading nginx executable' -Console
 if (!(Test-Path "$binPath\nginx\nginx.zip")) {
-  Invoke-DownloadFile "$binPath\nginx\nginx.zip" 'https://nginx.org/download/nginx-1.23.2.zip' $true -ProxyToUse $Proxy
+  Invoke-DownloadFile "$binPath\nginx\nginx.zip" 'https://nginx.org/download/nginx-1.23.2.zip' $true
 }
 
 tar C "$binPath\nginx" -xvf "$binPath\nginx\nginx.zip" --strip-components 1 *.exe 2>&1 | ForEach-Object { "$_" }

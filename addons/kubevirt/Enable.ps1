@@ -55,8 +55,6 @@ Import-Module $infraModule, $clusterModule, $addonsModule, $nodeModule, $kubevir
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
-$Proxy = Get-OrUpdateProxyServer -Proxy:$Proxy
-
 Write-Log 'Checking cluster status' -Console
 
 $systemError = Test-SystemAvailability -Structured
@@ -212,7 +210,7 @@ if ( $K8sSetup -eq 'SmallSetup' ) {
 
 $binPath = Get-KubeBinPath
 if (!(Test-Path "$binPath\virtctl.exe")) {
-    Invoke-DownloadFile "$binPath\virtctl.exe" "https://github.com/kubevirt/kubevirt/releases/download/$VERSION_VCTRL/virtctl-$VERSION_VCTRL-windows-amd64.exe" $true -ProxyToUse $Proxy
+    Invoke-DownloadFile "$binPath\virtctl.exe" "https://github.com/kubevirt/kubevirt/releases/download/$VERSION_VCTRL/virtctl-$VERSION_VCTRL-windows-amd64.exe" $true
 }
 
 # enable config
@@ -240,7 +238,7 @@ $virtviewer = Get-VirtViewerMsiFileName
 if (!(Test-Path "$binPath\$virtviewer")) {
     Write-Log 'Installing VirtViewer ...'
     if (!(Test-Path "$binPath\$virtviewer")) {
-        Invoke-DownloadFile "$binPath\$virtviewer" "https://releases.pagure.org/virt-viewer/$virtviewer" $true -ProxyToUse $Proxy
+        Invoke-DownloadFile "$binPath\$virtviewer" "https://releases.pagure.org/virt-viewer/$virtviewer" $true
     }
     msiexec.exe /i "$binPath\$virtviewer" /L*VX "$binPath\msiinstall.log" /quiet /passive /norestart
 

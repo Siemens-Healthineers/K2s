@@ -27,7 +27,7 @@ function Get-KubeletConfigDir {
     return $kubeletConfigDir
 }
 
-function Invoke-DownloadKubetoolsArtifacts($downloadsBaseDirectory, $KubernetesVersion, $Proxy) {
+function Invoke-DownloadKubetoolsArtifacts($downloadsBaseDirectory, $KubernetesVersion) {
     $kubetoolsDownloadsDirectory = "$downloadsBaseDirectory\$windowsNode_KubetoolsDirectory"
 
     Write-Log "Create folder '$kubetoolsDownloadsDirectory'"
@@ -38,13 +38,13 @@ function Invoke-DownloadKubetoolsArtifacts($downloadsBaseDirectory, $KubernetesV
     }
 
     Write-Log 'Download kubelet'
-    Invoke-DownloadFile "$kubetoolsDownloadsDirectory\$windowsNode_KubeletExe" https://dl.k8s.io/$KubernetesVersion/bin/windows/amd64/$windowsNode_KubeletExe $true $Proxy
+    Invoke-DownloadFile "$kubetoolsDownloadsDirectory\$windowsNode_KubeletExe" https://dl.k8s.io/$KubernetesVersion/bin/windows/amd64/$windowsNode_KubeletExe $true
     Write-Log 'Download kubeadm'
-    Invoke-DownloadFile "$kubetoolsDownloadsDirectory\$windowsNode_KubeadmExe" https://dl.k8s.io/$KubernetesVersion/bin/windows/amd64/$windowsNode_KubeadmExe $true $Proxy
+    Invoke-DownloadFile "$kubetoolsDownloadsDirectory\$windowsNode_KubeadmExe" https://dl.k8s.io/$KubernetesVersion/bin/windows/amd64/$windowsNode_KubeadmExe $true
     Write-Log 'Download kubeproxy'
-    Invoke-DownloadFile "$kubetoolsDownloadsDirectory\$windowsNode_KubeproxyExe" https://dl.k8s.io/$KubernetesVersion/bin/windows/amd64/$windowsNode_KubeproxyExe $true $Proxy
+    Invoke-DownloadFile "$kubetoolsDownloadsDirectory\$windowsNode_KubeproxyExe" https://dl.k8s.io/$KubernetesVersion/bin/windows/amd64/$windowsNode_KubeproxyExe $true
     Write-Log 'Download kubectl'
-    Invoke-DownloadKubectl -Destination "$kubetoolsDownloadsDirectory\$windowsNode_KubectlExe" -KubernetesVersion $KubernetesVersion -Proxy "$Proxy"
+    Invoke-DownloadKubectl -Destination "$kubetoolsDownloadsDirectory\$windowsNode_KubectlExe" -KubernetesVersion $KubernetesVersion
 }
 
 function Invoke-DownloadKubectl {
@@ -52,12 +52,10 @@ function Invoke-DownloadKubectl {
         [Parameter(Mandatory = $true)]
         [string]$Destination,
         [Parameter(Mandatory = $true)]
-        [string]$KubernetesVersion,
-        [Parameter(Mandatory = $false)]
-        [string]$Proxy
+        [string]$KubernetesVersion
     )
 
-    Invoke-DownloadFile "$Destination" https://dl.k8s.io/release/$KubernetesVersion/bin/windows/amd64/$windowsNode_KubectlExe $true $Proxy
+    Invoke-DownloadFile "$Destination" https://dl.k8s.io/release/$KubernetesVersion/bin/windows/amd64/$windowsNode_KubectlExe $true
 }
 
 function Invoke-DeployKubetoolsArtifacts($windowsNodeArtifactsDirectory) {

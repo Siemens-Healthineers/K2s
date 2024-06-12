@@ -14,14 +14,14 @@ $setupConfigRoot = Get-RootConfigk2s
 # dns proxy
 $windowsNode_DnsProxyDirectory = 'dnsproxy'
 
-function Invoke-DownloadDnsProxyArtifacts($downloadsBaseDirectory, $Proxy) {
+function Invoke-DownloadDnsProxyArtifacts($downloadsBaseDirectory) {
     $dnsproxyDownloadsDirectory = "$downloadsBaseDirectory\$windowsNode_DnsProxyDirectory"
     $compressedFile = "$dnsproxyDownloadsDirectory\dnsproxy.zip"
 
     Write-Log "Create folder '$dnsproxyDownloadsDirectory'"
     mkdir $dnsproxyDownloadsDirectory | Out-Null
     Write-Log 'Download dnsproxy'
-    Invoke-DownloadFile "$compressedFile" https://github.com/AdguardTeam/dnsproxy/releases/download/v0.43.1/dnsproxy-windows-amd64-v0.43.1.zip $true $Proxy
+    Invoke-DownloadFile "$compressedFile" https://github.com/AdguardTeam/dnsproxy/releases/download/v0.43.1/dnsproxy-windows-amd64-v0.43.1.zip $true
     Write-Log '  ...done'
     Write-Log "Extract downloaded file '$compressedFile'"
     $ErrorActionPreference = 'SilentlyContinue'

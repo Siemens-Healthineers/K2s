@@ -471,6 +471,15 @@ function Get-WindowsLocalSharePath {
     return $windowsLocalSharePath
 }
 
+function Get-HttpProxyServiceAddress {
+    return "http://172.19.1.1:8181"
+}
+
+function Get-HttpProxyServicePort {
+    $splits = $(Get-HttpProxyServiceAddress) -split ':'
+    return $splits[$splits.Length - 1]
+}
+
 Export-ModuleMember -Function Get-ConfigValue,
 Set-ConfigValue,
 Get-ConfiguredKubeConfigDir,
@@ -525,4 +534,6 @@ Get-DefaultK8sVersion,
 Get-LinuxLocalSharePath,
 Get-WindowsLocalSharePath,
 Get-ReuseExistingLinuxComputerForMasterNodeFlag,
-Get-ControlPlaneNodeWslSwitchName
+Get-ControlPlaneNodeWslSwitchName, 
+Get-HttpProxyServiceAddress,
+Get-HttpProxyServicePort

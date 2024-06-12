@@ -111,8 +111,6 @@ Write-Log 'Starting installation...'
 # Add K2s executables as part of environment variable
 Set-EnvVars
 
-$Proxy = Get-OrUpdateProxyServer -Proxy:$Proxy
-
 ################################ SCRIPT START ###############################################
 
 # make sure we are at the right place for install
@@ -138,7 +136,6 @@ Set-InstallationPathIntoScriptsIsolationModule -Value $installationPath
 
 Initialize-WinNode -KubernetesVersion $KubernetesVersion `
     -HostGW:$HostGW `
-    -Proxy:"$Proxy" `
     -DeleteFilesForOfflineInstallation $DeleteFilesForOfflineInstallation `
     -ForceOnlineInstallation $ForceOnlineInstallation
 
@@ -152,7 +149,7 @@ $controlPlaneParams = @{
     VMMemoryStartupBytes = $MasterVMMemory
     VMProcessorCount = $MasterVMProcessorCount
     VMDiskSize = $MasterDiskSize
-    Proxy = $Proxy
+    Proxy = $(Get-HttpProxyServiceAddress)
     DeleteFilesForOfflineInstallation = $DeleteFilesForOfflineInstallation
     ForceOnlineInstallation = $ForceOnlineInstallation
 }
@@ -178,7 +175,7 @@ New-SshKey -IpAddress $($controlPlaneParams.IpAddress)
 Copy-LocalPublicSshKeyToRemoteComputer -UserName $(Get-DefaultUserNameControlPlane) -UserPwd $(Get-DefaultUserPwdControlPlane) -IpAddress $($controlPlaneParams.IpAddress)
 Wait-ForSSHConnectionToLinuxVMViaSshKey
 Remove-ControlPlaneAccessViaUserAndPwd
-$transparentproxy = 'http://' + $($controlPlaneParams.GatewayIpAddress) + ':8181'
+$transparentproxy = Get-HttpProxyServiceAddress
 Set-ProxySettingsOnKubenode -ProxySettings $transparentproxy -IpAddress $($controlPlaneParams.IpAddress)
 Restart-Service httpproxy -ErrorAction SilentlyContinue
 

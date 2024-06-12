@@ -16,7 +16,7 @@ $kubeBinPath = Get-KubeBinPath
 # docker
 $windowsNode_DockerDirectory = 'docker'
 
-function Invoke-DownloadDockerArtifacts($downloadsBaseDirectory, $Proxy, $windowsNodeArtifactsDirectory) {
+function Invoke-DownloadDockerArtifacts($downloadsBaseDirectory, $windowsNodeArtifactsDirectory) {
     $dockerDownloadsDirectory = "$downloadsBaseDirectory\$windowsNode_DockerDirectory"
     $DockerVersion = '24.0.7'
     $compressedDockerFile = 'docker-' + $DockerVersion + '.zip'
@@ -28,7 +28,7 @@ function Invoke-DownloadDockerArtifacts($downloadsBaseDirectory, $Proxy, $window
     mkdir $dockerDownloadsDirectory | Out-Null
     Write-Log 'Download docker'
     Write-Log "Fetching $url (approx. 130 MB)...."
-    Invoke-DownloadFile "$compressedFile" $url $true $Proxy
+    Invoke-DownloadFile "$compressedFile" $url $true
     Expand-Archive "$compressedFile" -DestinationPath "$dockerDownloadsDirectory" -Force
     Write-Log '  ...done'
     Remove-Item -Path "$compressedFile" -Force -ErrorAction SilentlyContinue
@@ -54,9 +54,7 @@ function Invoke-DeployDockerArtifacts($windowsNodeArtifactsDirectory) {
 function Install-WinDocker {
     Param(
         [parameter(Mandatory = $false, HelpMessage = 'Start docker daemon and keep running')]
-        [switch] $AutoStart = $false,
-        [parameter(Mandatory = $false, HelpMessage = 'Proxy to use')]
-        [string] $Proxy = ''
+        [switch] $AutoStart = $false
     )
 
     if ((Get-Service 'docker' -ErrorAction SilentlyContinue)) {
@@ -102,17 +100,7 @@ function Install-WinDocker {
         &$kubeBinPath\nssm set docker AppRotateOnline 1 | Out-Null
         &$kubeBinPath\nssm set docker AppRotateSeconds 0 | Out-Null
         &$kubeBinPath\nssm set docker AppRotateBytes 500000 | Out-Null
-
-        if ( $Proxy -ne '' ) {
-            Write-Log("Setting proxy for docker: $Proxy")
-            $ipControlPlane = Get-ConfiguredIPControlPlane
-            $clusterCIDR = Get-ConfiguredClusterCIDR
-            $clusterCIDRServices = Get-ConfiguredClusterCIDRServices
-            $ipControlPlaneCIDR = Get-ConfiguredControlPlaneCIDR
-
-            $NoProxy = "localhost,$ipControlPlane,10.81.0.0/16,$clusterCIDR,$clusterCIDRServices,$ipControlPlaneCIDR,.local"
-            &$kubeBinPath\nssm set docker AppEnvironmentExtra HTTP_PROXY=$Proxy HTTPS_PROXY=$Proxy NO_PROXY=$NoProxy | Out-Null
-        }
+        &$kubeBinPath\nssm set docker AppEnvironmentExtra HTTP_PROXY=$(Get-HttpProxyServiceAddress) HTTPS_PROXY=$(Get-HttpProxyServiceAddress) | Out-Null
     }
 
     # check nssm

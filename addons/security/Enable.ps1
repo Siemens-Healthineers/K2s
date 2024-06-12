@@ -47,8 +47,6 @@ Import-Module PKI;
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
-$Proxy = Get-OrUpdateProxyServer -Proxy:$Proxy
-
 Write-Log 'Checking cluster status' -Console
 
 $systemError = Test-SystemAvailability -Structured
@@ -85,7 +83,7 @@ if ($windowsCurlPackages) {
         $destination = "$k2sRoot\$destination"
         if (!(Test-Path $destination)) {
             $url = $package.url
-            Invoke-DownloadFile $destination $url $true -ProxyToUse $Proxy
+            Invoke-DownloadFile $destination $url $true
         }
         else {
             Write-Log "File $destination already exists. Skipping download."
