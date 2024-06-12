@@ -25,17 +25,12 @@ If ProxyEnable is set to 1, the proxy settings are enabled. In this case, the fu
 If ProxyEnable is set to 0, the proxy settings are enabled. In this case, the function returns false.
 #>
 function Get-ProxyEnabledStatusFromWindowsSettings {
-    try {
-        $reg = Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings'
+    $reg = Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings'
         
-        if ($reg.ProxyEnable -eq '1') {
-            return $true
-        }
-        else {
-            return $false
-        }
+    if ($reg.ProxyEnable -eq '1') {
+        return $true
     }
-    catch {
+    else {
         return $false
     }
 }
@@ -91,35 +86,23 @@ function Get-OrUpdateProxyServer ([string]$Proxy) {
     return $Proxy
 }
 
-function Get-ProxyServer ([string]$Proxy) {
-    if ($Proxy -eq '') {
-        Write-Log 'Determining if proxy is configured by the user in Windows Proxy settings.' -Console
-        $proxyEnabledStatus = Get-ProxyEnabledStatusFromWindowsSettings
-        if ($proxyEnabledStatus) {
-            $Proxy = Get-ProxyServerFromWindowsSettings
-            Write-Log "Configured proxy server in Windows Proxy settings: $Proxy" -Console
-        }
-        else {
-            Write-Log 'No proxy configured in Windows Proxy Settings.' -Console
-        }
-    }
-    return $Proxy
-}
-
 function Get-ProxySettings {
     if (Test-Path -Path $configFilePath) {
-        Write-Log "Proxy config file '$configFilePath' found"
         return Get-ProxyConfig
     }
 
-    $proxy = Get-ProxyServer
-    $noProxy = Get-ProxyOverrideFromWindowsSettings
+    if (Get-ProxyEnabledStatusFromWindowsSettings) {
+        $proxy = Get-ProxyServerFromWindowsSettings
+        $noProxy = Get-ProxyOverrideFromWindowsSettings
 
-    return [ProxyConf]@{
-        HttpProxy = $proxy; 
-        Httpsproxy = $proxy; 
-        NoProxy = $noProxy
+        return [ProxyConf]@{
+            HttpProxy = $proxy; 
+            Httpsproxy = $proxy; 
+            NoProxy = $noProxy
+        }
     }
+
+    return $null
 }
 
 function Get-ProxyConfig {
@@ -143,4 +126,4 @@ function Get-ProxyConfig {
     }
 }
 
-Export-ModuleMember -Function Get-OrUpdateProxyServer
+Export-ModuleMember -Function Get-OrUpdateProxyServer, Get-ProxySettings
