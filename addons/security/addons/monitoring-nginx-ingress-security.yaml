@@ -1,0 +1,96 @@
+# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+#
+# SPDX-License-Identifier: MIT
+
+# This web application can be configured to re-encode its relative URLs
+# with a configurable prefix, see file `configmap.yaml`:
+# root_url = https://k2s-monitoring.local/monitoring
+# This enables us to expose it trough the ingress under this configured path
+---
+# Source: kube-prometheus-stack/charts/grafana/templates/ingress.yaml
+# Modified by us!
+#
+# This ingress will expose the plutono web application on:
+# HTTP: http://k2s-monitoring.local
+# TLS: https://k2s-monitoring.local
+# For TLS, the certificate is taken from k8s secret 'k2s-monitoring-local-tls'
+# This secret will be created by cert-manager, if it is running.
+# If cert-manager is not running, the secret will not be present and nginx
+# will use an own self-signed certificate.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: monitoring-nginx-local
+  namespace: monitoring
+  labels:
+    helm.sh/chart: grafana-6.57.4
+    app.kubernetes.io/name: kube-prometheus-stack-plutono
+    app.kubernetes.io/instance: kube-prometheus-stack
+    app.kubernetes.io/version: "9.5.5"
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    cert-manager.io/cluster-issuer: k2s-ca-issuer
+    cert-manager.io/common-name: k2s-monitoring.local
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+    nginx.ingress.kubernetes.io/auth-url: "https://k2s.cluster.local/oauth2/auth"
+    nginx.ingress.kubernetes.io/auth-signin: "https://k2s.cluster.local/oauth2/start?rd=$escaped_request_uri"
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      auth_request_set $user   $upstream_http_x_auth_request_user;
+      auth_request_set $email  $upstream_http_x_auth_request_email;
+      proxy_set_header X-User  $user;
+      proxy_set_header X-Email $email;
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - k2s-monitoring.local
+      secretName: k2s-monitoring-local-tls
+  rules:
+    - host: k2s-monitoring.local
+      http:
+        paths:
+          - backend:
+              service:
+                name: kube-prometheus-stack-plutono
+                port:
+                  number: 443
+            # this is tricky: the optional match (monitoring/)? will allow us to make
+            # the first call to /. After that, all relative paths start with /monitoring
+            # as configured in the configmap.yaml, and will also match the path:
+            path: /(monitoring/)?(.*)
+            pathType: Prefix
+---
+# This ingress will be merged with ingress provided in:
+# addons/ingress-nginx/manifests/cluster-net-ingress.yaml
+# and exposes the plutono web application on:
+# https://k2s.cluster.local/monitoring/
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: monitoring-nginx-cluster-net
+  namespace: monitoring
+  annotations:
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
+    nginx.ingress.kubernetes.io/rewrite-target: "/$1"
+    nginx.ingress.kubernetes.io/auth-url: "https://k2s.cluster.local/oauth2/auth"
+    nginx.ingress.kubernetes.io/auth-signin: "https://k2s.cluster.local/oauth2/start?rd=$escaped_request_uri"
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      auth_request_set $user   $upstream_http_x_auth_request_user;
+      auth_request_set $email  $upstream_http_x_auth_request_email;
+      proxy_set_header X-User  $user;
+      proxy_set_header X-Email $email;
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: k2s.cluster.local
+      http:
+        paths:
+          - backend:
+              service:
+                name: kube-prometheus-stack-plutono
+                port:
+                  number: 443
+            path: /monitoring/?(.*)
+            pathType: Prefix
