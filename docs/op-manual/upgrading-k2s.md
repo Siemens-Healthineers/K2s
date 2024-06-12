@@ -9,7 +9,7 @@ The *k2s* CLI offers the possibility to upgrade your cluster from a previously r
 The [*K2s* Release Versions](https://github.com/Siemens-Healthineers/K2s/releases){target="_blank"} follow the format `MAJOR.MINOR.PATCH`.
 The upgrade in general is only from `MINOR-1` to `MINOR` possible (same `MAJOR` version). Upgrading from older versions is also possible only by upgrading each intermediate version individually.
 
-Upgrade is overall available starting from *K2s* `v1.0.0.`.
+Upgrade is overall available starting from *K2s* `v1.1.0.`.
 
 <figure markdown="span">
   ![Cluster Upgrade](assets/Upgrade.png){ loading=lazy }

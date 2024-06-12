@@ -141,3 +141,4 @@ bin/cdxgen.exe
 # static docs generator
 .cache
 site
+build/bom/sbomgenerator.exe
