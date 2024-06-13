@@ -23,8 +23,8 @@ data:
     url = https://grafana.net
     [log]
     mode = console
-    [log.console]
-    level=debug
+    # [log.console]
+    # level=debug
     [paths]
     data = /var/lib/plutono/
     logs = /var/log/plutono

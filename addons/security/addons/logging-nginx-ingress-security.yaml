@@ -70,7 +70,7 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: logging-nginx-cluster-net
+  name: logging-nginx-cluster-local
   namespace: logging
   annotations:
     nginx.ingress.kubernetes.io/rewrite-target: "/$1"
