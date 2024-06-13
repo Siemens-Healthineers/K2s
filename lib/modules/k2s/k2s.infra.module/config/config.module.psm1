@@ -472,7 +472,7 @@ function Get-WindowsLocalSharePath {
 }
 
 function Get-HttpProxyServiceAddress {
-    return "http://172.19.1.1:8181"
+    return "http://127.0.0.1:8181"
 }
 
 function Get-HttpProxyServicePort {

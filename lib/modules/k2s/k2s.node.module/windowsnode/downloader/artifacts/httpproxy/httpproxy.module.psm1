@@ -26,7 +26,7 @@ function Install-WinHttpProxy {
     $clusterCIDRServices = Get-ConfiguredClusterCIDRServices
     $loopbackAdapterCIDR = Get-LoopbackAdapterCIDR
 
-    $appParameters = "--allowed-cidr $clusterCIDR --allowed-cidr $clusterCIDRServices --allowed-cidr $ipControlPlaneCIDR --allowed-cidr $loopbackAdapterCIDR"
+    $appParameters = "--allowed-cidr $clusterCIDR --allowed-cidr $clusterCIDRServices --allowed-cidr $ipControlPlaneCIDR --allowed-cidr $loopbackAdapterCIDR --allowed-cidr 127.0.0.0/24"
     if (($null -ne $proxyConf) -and ($proxyConf.HttpProxy -ne '')) {
         $appParameters = $appParameters + " --forwardproxy $($proxyConf.HttpProxy)"
     }
