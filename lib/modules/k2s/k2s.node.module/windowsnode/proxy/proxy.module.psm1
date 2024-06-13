@@ -87,7 +87,7 @@ function Get-OrUpdateProxyServer ([string]$Proxy) {
 }
 
 function Get-ProxySettings {
-    Write-Log 'Determining if proxy conf file '$configFilePath' is available'
+    Write-Log "Determining if proxy conf file '$configFilePath' is available"
     if (Test-Path -Path $configFilePath) {
         Write-Log "Proxy conf file '$configFilePath' found"
 
