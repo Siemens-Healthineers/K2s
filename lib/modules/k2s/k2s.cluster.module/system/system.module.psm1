@@ -137,4 +137,23 @@ function Update-NodeLabelsAndTaints {
     (Invoke-CmdOnControlPlaneViaSSHKey 'sudo sysctl fs.inotify.max_user_watches=524288').Output | Write-Log
 }
 
-Export-ModuleMember Invoke-TimeSync, Wait-ForAPIServer, Update-NodeLabelsAndTaints
+function Get-Cni0IpAddressInControlPlaneUsingSshWithRetries {
+    param (
+        [int] $Retries,
+        [int] $RetryTimeoutInSeconds
+    )
+    $ipAddr = ''
+    for($i = 1; $i -le $Retries; ++$i) {
+        $ipAddr = (Invoke-CmdOnControlPlaneViaSSHKey "ip addr show dev cni0 | grep 'inet ' | awk '{print `$2}' | cut -d/ -f1" -NoLog).Output
+        $isIpAddress = [bool]($ipAddr -as [ipaddress])
+        if ($isIpAddress) {
+            return $ipAddr
+        }
+        if ($i -lt $Retries) {
+            Start-Sleep -s $RetryTimeoutInSeconds
+        }
+    }
+    return $ipAddr
+}
+
+Export-ModuleMember Invoke-TimeSync, Wait-ForAPIServer, Update-NodeLabelsAndTaints, Get-Cni0IpAddressInControlPlaneUsingSshWithRetries
