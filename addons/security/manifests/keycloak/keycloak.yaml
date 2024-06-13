@@ -531,7 +531,7 @@ data:
               "type": "password",
               "userLabel": "My password",
               "createdDate": 1713238552955,
-              "secretData": "{\"value\":\"O3VHP16k7eAT4lFHwYRAOLbaowMlwg7GHx089O8fJq9YP4gboALItNna2rQ3w/2zDOo38KW0lFUySe3bT5dJHQ==\",\"salt\":\"NrxLPNNhDROebEq8Gjofgg==\",\"additionalParameters\":{}}",
+              "secretData": "{\"value\":\"25jOpnlnL+PeSuRxKvojs6fl/zBTvjM12YaNSeJQ4Jsv9O3hiYL7I2Q/n+a0WgieVPbH6l0iZ8MYtx8D8KPVzw==\",\"salt\":\"bo4HBOMFy45xpoT02YJe4w==\",\"additionalParameters\":{}}",
               "credentialData": "{\"hashIterations\":210000,\"algorithm\":\"pbkdf2-sha512\",\"additionalParameters\":{}}"
             }
           ],
@@ -3009,7 +3009,12 @@ spec:
       containers:
         - name: keycloak
           image: quay.io/keycloak/keycloak:24.0.2
-          args: ["start-dev", "--import-realm"]
+          args:
+            - start-dev
+            - '--hostname-strict=false'
+            - '--import-realm'
+            - '--proxy=edge'
+            - '--http-relative-path=keycloak'
           env:
             - name: KEYCLOAK_ADMIN
               value: "admin"
@@ -3022,7 +3027,7 @@ spec:
               containerPort: 8080
           readinessProbe:
             httpGet:
-              path: /realms/master
+              path: /keycloak/realms/master
               port: 8080
           volumeMounts:
             - name: keycloak-config-volume
