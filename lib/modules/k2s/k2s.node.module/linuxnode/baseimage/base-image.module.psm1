@@ -9,44 +9,11 @@ Import-Module $infraModule
 
 <#
 .Description
-#TODO Move to infra module if used frequently in linux node
-Invoke-DownloadFile download file from internet.
-#>
-function Invoke-Download($destination, $source, $forceDownload,
-    [parameter(Mandatory = $false)]
-    [string] $ProxyToUse = $Proxy) {
-    if ((Test-Path $destination) -and (!$forceDownload)) {
-        Write-Log "using existing $destination"
-        return
-    }
-    if ( $ProxyToUse -ne '' ) {
-        Write-Log "Downloading '$source' to '$destination' with proxy: $ProxyToUse"
-        curl.exe --retry 5 --connect-timeout 60 --retry-all-errors --retry-delay 60 --silent --disable --fail -Lo $destination $source --proxy $ProxyToUse --ssl-no-revoke -k #ignore server certificate error for cloudbase.it
-    }
-    else {
-        Write-Log "Downloading '$source' to '$destination' (no proxy)"
-        curl.exe --retry 5 --connect-timeout 60 --retry-all-errors --retry-delay 60 --silent --disable --fail -Lo $destination $source --ssl-no-revoke --noproxy '*'
-    }
-
-    if (!$?) {
-        if ($ErrorActionPreference -eq 'Stop') {
-            #If Stop is the ErrorActionPreference from the caller then Write-Error throws an exception which is not logged in k2s.log file.
-            #So we need to write a warning to capture Download failed information in the log file.
-            Write-Warning "Download '$source' failed"
-        }
-        Write-Error "Download '$source' failed"
-        exit 1
-    }
-}
-
-<#
-.Description
 #From Get-DebianImage.ps1
 #>
 function Invoke-DownloadDebianImage {
     param(
-        [string]$OutputPath,
-        [string]$Proxy = ''
+        [string]$OutputPath
     )
 
     $urlRoot = 'https://cloud.debian.org/images/cloud/bullseye/latest'
@@ -67,18 +34,13 @@ function Invoke-DownloadDebianImage {
         Write-Log "File '$imgFile' already exists. Nothing to do."
     }
     else {
-        Invoke-Download $imgFile $url $false $Proxy
+        Invoke-Download $imgFile $url $false
 
         Write-Log 'Checking file integrity...'
         $allHashs = ''
 
-        if ( $Proxy -ne '') {
-            Write-Log "Using Proxy $Proxy to download SHA sum from $urlRoot"
-            $allHashs = curl.exe --retry 3 --connect-timeout 60 --retry-connrefused --silent --disable --fail "$urlRoot/SHA512SUMS" --proxy $Proxy --ssl-no-revoke -k
-        }
-        else {
-            $allHashs = curl.exe --retry 3 --connect-timeout 60 --retry-connrefused --silent --disable --fail "$urlRoot/SHA512SUMS" --ssl-no-revoke --noproxy '*'
-        }
+        Write-Log "Download SHA sum from $urlRoot"
+        $allHashs = curl.exe --retry 3 --connect-timeout 60 --retry-connrefused --silent --disable --fail "$urlRoot/SHA512SUMS" --proxy $(Get-HttpProxyServiceAddressForLocalhost) --ssl-no-revoke -k
 
         $sha1Hash = Get-FileHash $imgFile -Algorithm SHA512
         $m = [regex]::Matches($allHashs, "(?<Hash>\w{128})\s\s$urlFile")
@@ -99,9 +61,7 @@ Function New-VhdxDebianCloud {
         [string]$TargetFilePath,
         [Parameter(Mandatory = $false, ValueFromPipeline=$true)]
         [ValidateScript({ Assert-LegalCharactersInPath -Path $_ })]
-        [string]$DownloadsDirectory,
-        [parameter(Mandatory = $false)]
-        [string]$Proxy = ''
+        [string]$DownloadsDirectory
     )
 
     Assert-Path -Path $TargetFilePath -PathType "Leaf" -ShallExist $false | Out-Null
@@ -110,8 +70,8 @@ Function New-VhdxDebianCloud {
 
     Assert-Path -Path $DownloadsDirectory -PathType "Container" -ShallExist $true | Out-Null
 
-    $debianImage = Get-DebianImage -Proxy $Proxy -DownloadsDirectory $DownloadsDirectory | Assert-Path -PathType "Leaf" -ShallExist $true
-    $qemuTool = Get-QemuTool -Proxy $Proxy -DownloadsDirectory $DownloadsDirectory | Assert-Path -PathType "Leaf" -ShallExist $true
+    $debianImage = Get-DebianImage -DownloadsDirectory $DownloadsDirectory | Assert-Path -PathType "Leaf" -ShallExist $true
+    $qemuTool = Get-QemuTool -DownloadsDirectory $DownloadsDirectory | Assert-Path -PathType "Leaf" -ShallExist $true
     $vhdxFile = New-VhdxFile -SourcePath $debianImage -VhdxPath $TargetFilePath -QemuExePath $qemuTool | Assert-Path -PathType "Leaf" -ShallExist $true
 }
 
@@ -120,13 +80,11 @@ Function Get-DebianImage {
     param (
         [Parameter(Mandatory = $false, ValueFromPipeline=$true)]
         [ValidateScript({ Assert-LegalCharactersInPath -Path $_ })]
-        [string]$DownloadsDirectory,
-        [parameter(Mandatory = $false, HelpMessage = 'The HTTP proxy if available.')]
-        [string]$Proxy = ''
+        [string]$DownloadsDirectory
     )
     Assert-Path -Path $DownloadsDirectory -PathType 'Container' -ShallExist $true | Out-Null
 
-    $imgFile = Invoke-DownloadDebianImage $DownloadsDirectory $Proxy
+    $imgFile = Invoke-DownloadDebianImage $DownloadsDirectory
 
     Write-Output $imgFile
 }
@@ -135,13 +93,11 @@ Function Get-QemuTool {
     param (
         [Parameter(Mandatory = $false, ValueFromPipeline=$true)]
         [ValidateScript({ Assert-LegalCharactersInPath -Path $_ })]
-        [string]$DownloadsDirectory,
-        [parameter(Mandatory = $false, HelpMessage = 'The HTTP proxy if available.')]
-        [string]$Proxy = ''
+        [string]$DownloadsDirectory
     )
     Assert-Path -Path $DownloadsDirectory -PathType "Container" -ShallExist $true | Out-Null
 
-    $qemuTool = Get-QemuExecutable -Proxy $Proxy -OutputDirectory $DownloadsDirectory
+    $qemuTool = Get-QemuExecutable -OutputDirectory $DownloadsDirectory
 
     Write-Output $qemuTool
 }
@@ -242,8 +198,6 @@ Function New-IsoFile {
 Function Get-QemuExecutable {
     [CmdletBinding()]
     param(
-        [parameter(Mandatory = $false, HelpMessage = 'The HTTP proxy if available.')]
-        [string]$Proxy = '',
         [parameter(Mandatory = $true, HelpMessage = 'The directory where the executable will be available.')]
         [string]$OutputDirectory
     )
@@ -254,7 +208,7 @@ Function Get-QemuExecutable {
     $url = "https://cloudbase.it/downloads/$zipFileName"
     if (!(Test-Path $zipFilePath)) {
         Write-Log "Start download..."
-        Invoke-Download $zipFilePath $url $true $Proxy
+        Invoke-Download $zipFilePath $url $true
         Write-Log "  ...done"
     }
     else {
@@ -455,7 +409,6 @@ Function New-DebianCloudBasedVirtualMachine {
     $VMProcessorCount=$VirtualMachineParams.VMProcessorCount
     $VMDiskSize=$VirtualMachineParams.VMDiskSize
 
-    $Proxy = $NetworkParams.Proxy
     $SwitchName=$NetworkParams.SwitchName
     $HostIpAddress=$NetworkParams.HostIpAddress
     $HostIpPrefixLength=$NetworkParams.HostIpPrefixLength
@@ -493,7 +446,7 @@ Function New-DebianCloudBasedVirtualMachine {
     New-Folder $provisioningFolder | Out-Null
 
     Write-Log "Create the base vhdx"
-    New-VhdxDebianCloud -Proxy $Proxy -TargetFilePath $inProvisioningVhdxPath -DownloadsDirectory $downloadsFolder
+    New-VhdxDebianCloud -TargetFilePath $inProvisioningVhdxPath -DownloadsDirectory $downloadsFolder
 
     Write-Log "Create the iso file"
     $isoContentParameterValues = [hashtable]@{

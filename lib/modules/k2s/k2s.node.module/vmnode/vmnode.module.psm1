@@ -320,8 +320,7 @@ function Wait-ForDesiredVMState {
 function Get-VirtioImage {
     [CmdletBinding()]
     param(
-        [string]$OutputPath,
-        [string]$Proxy = ''
+        [string]$OutputPath
     )
     $urlRoot = 'https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/stable-virtio/'
     $urlFile = 'virtio-win.iso'
@@ -344,12 +343,9 @@ function Get-VirtioImage {
         [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
         $client = New-Object System.Net.WebClient
 
-        if ($Proxy -ne '') {
-            Write-Log "Using Proxy $Proxy to download $url"
-            $webProxy = New-Object System.Net.WebProxy($Proxy)
-            $webProxy.UseDefaultCredentials = $true
-            $client.Proxy = $webProxy
-        }
+        $webProxy = New-Object System.Net.WebProxy($(Get-HttpProxyServiceAddressForLocalhost))
+        $webProxy.UseDefaultCredentials = $true
+        $client.Proxy = $webProxy
 
         $client.DownloadFile($url, $imgFile)
     }
@@ -1609,7 +1605,7 @@ function Initialize-WinVM {
     $virtioImgFile = ''
     if ( ($VirtioDrivers) ) {
         Write-Log 'Start to download virtio image ...'
-        $virtioImgFile = Get-VirtioImage -Proxy "$Proxy"
+        $virtioImgFile = Get-VirtioImage
         Write-Log "Virtio image: $virtioImgFile"
     }
 

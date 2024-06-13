@@ -45,22 +45,18 @@ Function Set-UpComputerBeforeProvisioning {
         [string]$UserName = $(throw 'Argument missing: UserName'),
         [string]$UserPwd = $(throw 'Argument missing: UserPwd'),
         [ValidateScript({ Get-IsValidIPv4Address($_) })]
-        [string]$IpAddress = $(throw 'Argument missing: IpAddress'),
-        [parameter(Mandatory = $false)]
-        [string] $Proxy = ''
+        [string]$IpAddress = $(throw 'Argument missing: IpAddress')
     )
     $remoteUser = "$UserName@$IpAddress"
     $remoteUserPwd = $UserPwd
 
-    if ( $Proxy -ne '' ) {
-        Write-Log "Setting proxy '$Proxy' for apt"
-        (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute 'sudo touch /etc/apt/apt.conf.d/proxy.conf' -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output | Write-Log
-        if ($PSVersionTable.PSVersion.Major -gt 5) {
-            (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "echo Acquire::http::Proxy \""$Proxy\""\; | sudo tee -a /etc/apt/apt.conf.d/proxy.conf" -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output | Write-Log
-        }
-        else {
-            (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "echo Acquire::http::Proxy \\\""$Proxy\\\""\; | sudo tee -a /etc/apt/apt.conf.d/proxy.conf" -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output | Write-Log
-        }
+    Write-Log "Setting proxy '$(Get-HttpProxyServiceAddressForKubemaster)' for apt"
+    (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute 'sudo touch /etc/apt/apt.conf.d/proxy.conf' -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output | Write-Log
+    if ($PSVersionTable.PSVersion.Major -gt 5) {
+        (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "echo Acquire::http::Proxy \""$(Get-HttpProxyServiceAddressForKubemaster)\""\; | sudo tee -a /etc/apt/apt.conf.d/proxy.conf" -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output | Write-Log
+    }
+    else {
+        (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "echo Acquire::http::Proxy \\\""$(Get-HttpProxyServiceAddressForKubemaster)\\\""\; | sudo tee -a /etc/apt/apt.conf.d/proxy.conf" -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output | Write-Log
     }
 }
 
@@ -96,7 +92,6 @@ Function Install-KubernetesArtifacts {
         [string]$UserPwd = $(throw 'Argument missing: UserPwd'),
         [ValidateScript({ Get-IsValidIPv4Address($_) })]
         [string]$IpAddress = $(throw 'Argument missing: IpAddress'),
-        [string] $Proxy = '',
         [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
         [string] $K8sVersion = $(throw 'Argument missing: K8sVersion')
     )
@@ -133,18 +128,13 @@ Function Install-KubernetesArtifacts {
     &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get update -qq --yes --allow-releaseinfo-change' -Retries 2 -RepairCmd 'sudo apt --fix-broken install'
     &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get install -y gpg' -Retries 2 -RepairCmd 'sudo apt --fix-broken install'
 
-    # we need major and minor for apt keys
-    $proxyToAdd = ''
-    if ($Proxy -ne '') {
-        $proxyToAdd = " --Proxy $Proxy"
-    }
     $pkgShortK8sVersion = $K8sVersion.Substring(0, $K8sVersion.lastIndexOf('.'))
-    &$executeRemoteCommand "sudo curl --retry 3 --retry-all-errors -fsSL https://pkgs.k8s.io/core:/stable:/$pkgShortK8sVersion/deb/Release.key$proxyToAdd | sudo gpg --dearmor -o /usr/share/keyrings/kubernetes-apt-keyring.gpg" -IgnoreErrors 
+    &$executeRemoteCommand "sudo curl --retry 3 --retry-all-errors -fsSL https://pkgs.k8s.io/core:/stable:/$pkgShortK8sVersion/deb/Release.key --Proxy $(Get-HttpProxyServiceAddressForKubemaster) | sudo gpg --dearmor -o /usr/share/keyrings/kubernetes-apt-keyring.gpg" -IgnoreErrors 
     &$executeRemoteCommand "echo 'deb [signed-by=/usr/share/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/$pkgShortK8sVersion/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.list" 
     $shortKubeVers = ($K8sVersion -replace 'v', '') + '-1.1'
     
     # package locations for cri-o
-    &$executeRemoteCommand "sudo curl --retry 3 --retry-all-errors -fsSL https://pkgs.k8s.io/addons:/cri-o:/stable:/$pkgShortK8sVersion/deb/Release.key$proxyToAdd | sudo gpg --dearmor -o /usr/share/keyrings/cri-o-apt-keyring.gpg" -IgnoreErrors 
+    &$executeRemoteCommand "sudo curl --retry 3 --retry-all-errors -fsSL https://pkgs.k8s.io/addons:/cri-o:/stable:/$pkgShortK8sVersion/deb/Release.key --Proxy $(Get-HttpProxyServiceAddressForKubemaster) | sudo gpg --dearmor -o /usr/share/keyrings/cri-o-apt-keyring.gpg" -IgnoreErrors 
     &$executeRemoteCommand "echo 'deb [signed-by=/usr/share/keyrings/cri-o-apt-keyring.gpg] https://pkgs.k8s.io/addons:/cri-o:/stable:/$pkgShortK8sVersion/deb/ /' | sudo tee /etc/apt/sources.list.d/cri-o.list" 
 
     Write-Log 'Install other depended-on tools'
@@ -159,17 +149,15 @@ Function Install-KubernetesArtifacts {
     &$executeRemoteCommand "grep timeout.* /etc/crictl.yaml | sudo sed -i 's/timeout.*/timeout: 30/g' /etc/crictl.yaml"
     &$executeRemoteCommand 'grep timeout.* /etc/crictl.yaml || echo timeout: 30 | sudo tee -a /etc/crictl.yaml'
     
-    if ( $Proxy -ne '' ) {
-        Write-Log 'Set proxy to CRI-O'
-        &$executeRemoteCommand 'sudo mkdir -p /etc/systemd/system/crio.service.d' 
-        &$executeRemoteCommand 'sudo touch /etc/systemd/system/crio.service.d/http-proxy.conf' 
-        &$executeRemoteCommand 'echo [Service] | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf' 
-        &$executeRemoteCommand "echo Environment=\'HTTP_PROXY=$Proxy\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf" 
-        &$executeRemoteCommand "echo Environment=\'HTTPS_PROXY=$Proxy\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf" 
-        &$executeRemoteCommand "echo Environment=\'http_proxy=$Proxy\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf" 
-        &$executeRemoteCommand "echo Environment=\'https_proxy=$Proxy\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf" 
-        &$executeRemoteCommand "echo Environment=\'no_proxy=.local\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf"
-    }
+    Write-Log 'Set proxy to CRI-O'
+    &$executeRemoteCommand 'sudo mkdir -p /etc/systemd/system/crio.service.d' 
+    &$executeRemoteCommand 'sudo touch /etc/systemd/system/crio.service.d/http-proxy.conf' 
+    &$executeRemoteCommand 'echo [Service] | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf' 
+    &$executeRemoteCommand "echo Environment=\'HTTP_PROXY=$(Get-HttpProxyServiceAddressForKubemaster)\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf" 
+    &$executeRemoteCommand "echo Environment=\'HTTPS_PROXY=$(Get-HttpProxyServiceAddressForKubemaster)\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf" 
+    &$executeRemoteCommand "echo Environment=\'http_proxy=$(Get-HttpProxyServiceAddressForKubemaster)\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf" 
+    &$executeRemoteCommand "echo Environment=\'https_proxy=$(Get-HttpProxyServiceAddressForKubemaster)\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf" 
+    &$executeRemoteCommand "echo Environment=\'no_proxy=.local\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf"
 
     $token = Get-RegistryToken
     if ($PSVersionTable.PSVersion.Major -gt 5) {
@@ -262,8 +250,7 @@ Function Install-Tools {
         [string]$UserName = $(throw 'Argument missing: UserName'),
         [string]$UserPwd = $(throw 'Argument missing: UserPwd'),
         [ValidateScript({ Get-IsValidIPv4Address($_) })]
-        [string]$IpAddress = $(throw 'Argument missing: IpAddress'),
-        [string] $Proxy = ''
+        [string]$IpAddress = $(throw 'Argument missing: IpAddress')
     )
     $remoteUser = "$UserName@$IpAddress"
     $remoteUserPwd = $UserPwd
@@ -307,14 +294,12 @@ Function Install-Tools {
     # Issue is fixed in buildah 1.26 but exists in experimental stage
     #&$executeRemoteCommand "sudo sed -i 's/\[machine/#&/' /usr/share/containers/containers.conf"
 
-    if ($Proxy -ne '') {
-        &$executeRemoteCommand 'echo [engine] | sudo tee -a /etc/containers/containers.conf'
-        if ($PSVersionTable.PSVersion.Major -gt 5) {
-            &$executeRemoteCommand "echo env = [\""https_proxy=$Proxy\""] | sudo tee -a /etc/containers/containers.conf"
-        }
-        else {
-            &$executeRemoteCommand "echo env = [\\\""https_proxy=$Proxy\\\""] | sudo tee -a /etc/containers/containers.conf"
-        }
+    &$executeRemoteCommand 'echo [engine] | sudo tee -a /etc/containers/containers.conf'
+    if ($PSVersionTable.PSVersion.Major -gt 5) {
+        &$executeRemoteCommand "echo env = [\""https_proxy=$(Get-HttpProxyServiceAddressForKubemaster)\""] | sudo tee -a /etc/containers/containers.conf"
+    }
+    else {
+        &$executeRemoteCommand "echo env = [\\\""https_proxy=$(Get-HttpProxyServiceAddressForKubemaster)\\\""] | sudo tee -a /etc/containers/containers.conf"
     }
 
     $token = Get-RegistryToken
@@ -731,20 +716,19 @@ Function New-KubernetesNode {
         [ValidateScript({ Get-IsValidIPv4Address($_) })]
         [string]$IpAddress = $(throw 'Argument missing: IpAddress'),
         [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
-        [string] $K8sVersion = $(throw 'Argument missing: K8sVersion'),
-        [string]$Proxy = '' 
+        [string] $K8sVersion = $(throw 'Argument missing: K8sVersion')
     )
 
     Assert-GeneralComputerPrequisites -IpAddress $IpAddress -UserName $userName -UserPwd $userPwd
 
     Write-Log "Prepare the computer $IpAddress for provisioning"
-    Set-UpComputerBeforeProvisioning -IpAddress $IpAddress -UserName $userName -UserPwd $userPwd -Proxy $Proxy
+    Set-UpComputerBeforeProvisioning -IpAddress $IpAddress -UserName $userName -UserPwd $userPwd
 
     Set-UpComputerWithSpecificOsBeforeProvisioning -IpAddress $IpAddress -UserName $userName -UserPwd $userPwd
     Write-Log "Finished preparation of computer $IpAddress for provisioning"
 
     Write-Log "Start provisioning the computer $IpAddress"
-    Install-KubernetesArtifacts -IpAddress $IpAddress -UserName $userName -UserPwd $userPwd -Proxy $Proxy -K8sVersion $K8sVersion 
+    Install-KubernetesArtifacts -IpAddress $IpAddress -UserName $userName -UserPwd $userPwd -K8sVersion $K8sVersion 
 
     Write-Log "Finalize preparation of the computer $IpAddress after provisioning"
     Set-UpComputerWithSpecificOsAfterProvisioning -IpAddress $IpAddress -UserName $userName -UserPwd $userPwd
@@ -761,8 +745,6 @@ function New-VmImageForKubernetesNode {
     param (
         [parameter(Mandatory = $false, HelpMessage = 'The path to save the prepared base image.')]
         [string] $VmImageOutputPath = $(throw 'Argument missing: VmImageOutputPath'),
-        [parameter(Mandatory = $false, HelpMessage = 'The HTTP proxy if available.')]
-        [string]$Proxy = '',
         [string]$DnsIpAddresses = $(throw 'Argument missing: DnsIpAddresses'),
         [parameter(Mandatory = $false, HelpMessage = 'Startup Memory Size of VM')]
         [long]$VMMemoryStartupBytes,
@@ -779,7 +761,7 @@ function New-VmImageForKubernetesNode {
     $setUpKubenode = {
         $addToKubeNode = {
             Install-DnsServer -IpAddress $vmIpAddress -UserName $vmUserName -UserPwd $vmUserPwd
-            Install-Tools -IpAddress $vmIpAddress -UserName $vmUserName -UserPwd $vmUserPwd -Proxy $Proxy
+            Install-Tools -IpAddress $vmIpAddress -UserName $vmUserName -UserPwd $vmUserPwd
             Get-FlannelImages -IpAddress $vmIpAddress -UserName $vmUserName -UserPwd $vmUserPwd
             Add-SupportForWSL -IpAddress $vmIpAddress -UserName $vmUserName -UserPwd $vmUserPwd
         }
@@ -788,7 +770,6 @@ function New-VmImageForKubernetesNode {
             IpAddress  = $vmIpAddress
             UserName   = $vmUserName
             UserPwd    = $vmUserPwd
-            Proxy      = $Proxy
             K8sVersion = $kubernetesVersion
         }
 
@@ -798,7 +779,6 @@ function New-VmImageForKubernetesNode {
     }
 
     $kubenodeBaseImageCreationParams = @{
-        Proxy                = $Proxy
         DnsIpAddresses       = $DnsIpAddresses
         Hook                 = $setUpKubenode
         OutputPath           = $VmImageOutputPath
@@ -824,7 +804,6 @@ function New-VmImageForControlPlaneNode {
         [long]$VMProcessorCount,
         [parameter(Mandatory = $false, HelpMessage = 'Virtual hard disk size of VM')]
         [uint64]$VMDiskSize,
-        [string]$Proxy = '',
         [parameter(Mandatory = $false, HelpMessage = 'Deletes the needed files to perform an offline installation')]
         [Boolean] $DeleteFilesForOfflineInstallation = $false,
         [parameter(Mandatory = $false, HelpMessage = 'Forces the installation online')]
@@ -842,7 +821,6 @@ function New-VmImageForControlPlaneNode {
 
     if (!(Test-Path -Path $kubenodeBaseImagePath)) {
         $vmImageForKubernetesNodeCreationParams = @{
-            Proxy                = $Proxy
             DnsIpAddresses       = $DnsServers
             VmImageOutputPath    = $kubenodeBaseImagePath
             VMMemoryStartupBytes = $VMMemoryStartupBytes
@@ -914,7 +892,6 @@ function New-LinuxVmImageForWorkerNode {
         [string]$DnsServers,
         [parameter(Mandatory = $false, HelpMessage = 'The path to save the prepared base image.')]
         [string] $VmImageOutputPath = $(throw 'Argument missing: VmImageOutputPath'),
-        [string]$Proxy = '',
         [parameter(Mandatory = $false, HelpMessage = 'Startup Memory Size of VM')]
         [long]$VMMemoryStartupBytes,
         [parameter(Mandatory = $false, HelpMessage = 'Number of Virtual Processors for VM')]
@@ -926,7 +903,7 @@ function New-LinuxVmImageForWorkerNode {
     $kubenodeBaseImagePath = "$(Split-Path $VmImageOutputPath)\$kubenodeBaseFileName"
 
     if (!(Test-Path -Path $kubenodeBaseImagePath)) {
-        New-VmImageForKubernetesNode -VmImageOutputPath $kubenodeBaseImagePath -Proxy $Proxy
+        New-VmImageForKubernetesNode -VmImageOutputPath $kubenodeBaseImagePath
     }
 
     $vmNetworkInterfaceName = Get-NetworkInterfaceName
@@ -1050,7 +1027,6 @@ function New-WslRootfsForControlPlaneNode {
         [string] $VmImageInputPath = $(throw 'Argument missing: VmImageInputPath'),
         [parameter(Mandatory = $false, HelpMessage = 'The path to save the prepared rootfs file.')]
         [string] $RootfsFileOutputPath = $(throw 'Argument missing: RootfsFileOutputPath'),
-        [string]$Proxy = '',
         [parameter(Mandatory = $false, HelpMessage = 'Startup Memory Size of VM')]
         [long]$VMMemoryStartupBytes,
         [parameter(Mandatory = $false, HelpMessage = 'Number of Virtual Processors for VM')]
@@ -1064,7 +1040,6 @@ function New-WslRootfsForControlPlaneNode {
     if (!(Test-Path -Path $kubenodeBaseImagePath)) {
         $vmImageForKubernetesNodeCreationParams = @{
             VmImageOutputPath    = $kubenodeBaseImagePath
-            Proxy                = $Proxy
             VMDiskSize           = $VMDiskSize
             VMMemoryStartupBytes = $VMMemoryStartupBytes
             VMProcessorCount     = $VMProcessorCount
@@ -1085,64 +1060,39 @@ function New-WslRootfsForControlPlaneNode {
 
 function Set-ProxySettingsOnKubenode {
     param (
-        [parameter(Mandatory = $true, HelpMessage = 'The HTTP proxy')]
-        [string] $ProxySettings,
         [Parameter(Mandatory = $false)]
         [string]$IpAddress = $(throw 'Argument missing: IpAddress')
     )
 
-    $removeProxySettings = [string]::IsNullOrWhiteSpace($ProxySettings)
-    if ($removeProxySettings) {
-        Write-Log 'The passed proxy settings are null, empty or contains only white spaces --> eventually set proxy settings will be removed'
-    }
-
     # packages
-    if ($removeProxySettings) {
-        Write-Log 'Delete proxy settings for package tool'
-        (Invoke-CmdOnVmViaSSHKey 'sudo rm -f /etc/apt/apt.conf.d/proxy.conf' -IpAddress $IpAddress).Output | Write-Log
+    Write-Log 'Set proxy settings for package tool'
+    (Invoke-CmdOnVmViaSSHKey 'sudo touch /etc/apt/apt.conf.d/proxy.conf' -IpAddress $IpAddress).Output | Write-Log
+    if ($PSVersionTable.PSVersion.Major -gt 5) {
+        (Invoke-CmdOnVmViaSSHKey "echo Acquire::http::Proxy \""$(Get-HttpProxyServiceAddressForKubemaster)\""\; | sudo tee -a /etc/apt/apt.conf.d/proxy.conf" -IpAddress $IpAddress).Output | Write-Log
     }
     else {
-        Write-Log 'Set proxy settings for package tool'
-        (Invoke-CmdOnVmViaSSHKey 'sudo touch /etc/apt/apt.conf.d/proxy.conf' -IpAddress $IpAddress).Output | Write-Log
-        if ($PSVersionTable.PSVersion.Major -gt 5) {
-            (Invoke-CmdOnVmViaSSHKey "echo Acquire::http::Proxy \""$ProxySettings\""\; | sudo tee -a /etc/apt/apt.conf.d/proxy.conf" -IpAddress $IpAddress).Output | Write-Log
-        }
-        else {
-            (Invoke-CmdOnVmViaSSHKey "echo Acquire::http::Proxy \\\""$ProxySettings\\\""\; | sudo tee -a /etc/apt/apt.conf.d/proxy.conf" -IpAddress $IpAddress).Output | Write-Log
-        }
+        (Invoke-CmdOnVmViaSSHKey "echo Acquire::http::Proxy \\\""$(Get-HttpProxyServiceAddressForKubemaster)\\\""\; | sudo tee -a /etc/apt/apt.conf.d/proxy.conf" -IpAddress $IpAddress).Output | Write-Log
     }
 
     # Container runtime
-    if ($removeProxySettings) {
-        Write-Log 'Delete proxy settings for container runtime'
-        (Invoke-CmdOnVmViaSSHKey 'sudo rm -fr /etc/systemd/system/crio.service.d' -IpAddress $IpAddress).Output | Write-Log
-    }
-    else {
-        Write-Log 'Set proxy settings for container runtime'
-        (Invoke-CmdOnVmViaSSHKey 'sudo mkdir -p /etc/systemd/system/crio.service.d' -IpAddress $IpAddress).Output | Write-Log
-        (Invoke-CmdOnVmViaSSHKey 'sudo touch /etc/systemd/system/crio.service.d/http-proxy.conf' -IpAddress $IpAddress).Output | Write-Log
-        (Invoke-CmdOnVmViaSSHKey 'echo [Service] | sudo tee /etc/systemd/system/crio.service.d/http-proxy.conf' -IpAddress $IpAddress).Output | Write-Log
-        (Invoke-CmdOnVmViaSSHKey "echo Environment=\'HTTP_PROXY=$ProxySettings\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf" -IpAddress $IpAddress).Output | Write-Log
-        (Invoke-CmdOnVmViaSSHKey "echo Environment=\'HTTPS_PROXY=$ProxySettings\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf" -IpAddress $IpAddress).Output | Write-Log
-        (Invoke-CmdOnVmViaSSHKey "echo Environment=\'http_proxy=$ProxySettings\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf" -IpAddress $IpAddress).Output | Write-Log
-        (Invoke-CmdOnVmViaSSHKey "echo Environment=\'https_proxy=$ProxySettings\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf" -IpAddress $IpAddress).Output | Write-Log
-        (Invoke-CmdOnVmViaSSHKey "echo Environment=\'no_proxy=.local\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf" -IpAddress $IpAddress).Output | Write-Log
-    }
+    Write-Log 'Set proxy settings for container runtime'
+    (Invoke-CmdOnVmViaSSHKey 'sudo mkdir -p /etc/systemd/system/crio.service.d' -IpAddress $IpAddress).Output | Write-Log
+    (Invoke-CmdOnVmViaSSHKey 'sudo touch /etc/systemd/system/crio.service.d/http-proxy.conf' -IpAddress $IpAddress).Output | Write-Log
+    (Invoke-CmdOnVmViaSSHKey 'echo [Service] | sudo tee /etc/systemd/system/crio.service.d/http-proxy.conf' -IpAddress $IpAddress).Output | Write-Log
+    (Invoke-CmdOnVmViaSSHKey "echo Environment=\'HTTP_PROXY=$(Get-HttpProxyServiceAddressForKubemaster)\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf" -IpAddress $IpAddress).Output | Write-Log
+    (Invoke-CmdOnVmViaSSHKey "echo Environment=\'HTTPS_PROXY=$(Get-HttpProxyServiceAddressForKubemaster)\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf" -IpAddress $IpAddress).Output | Write-Log
+    (Invoke-CmdOnVmViaSSHKey "echo Environment=\'http_proxy=$(Get-HttpProxyServiceAddressForKubemaster)\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf" -IpAddress $IpAddress).Output | Write-Log
+    (Invoke-CmdOnVmViaSSHKey "echo Environment=\'https_proxy=$(Get-HttpProxyServiceAddressForKubemaster)\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf" -IpAddress $IpAddress).Output | Write-Log
+    (Invoke-CmdOnVmViaSSHKey "echo Environment=\'no_proxy=.local\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf" -IpAddress $IpAddress).Output | Write-Log
 
     # Containers
-    if ($removeProxySettings) {
-        Write-Log 'Delete proxy settings for containers'
-        (Invoke-CmdOnVmViaSSHKey 'sudo rm -f /etc/containers/containers.conf' -IpAddress $IpAddress).Output | Write-Log
+    Write-Log 'Set proxy settings for containers'
+    (Invoke-CmdOnVmViaSSHKey 'echo [engine] | sudo tee /etc/containers/containers.conf' -IpAddress $IpAddress).Output | Write-Log
+    if ($PSVersionTable.PSVersion.Major -gt 5) {
+        (Invoke-CmdOnVmViaSSHKey "echo env = [\""https_proxy=$(Get-HttpProxyServiceAddressForKubemaster)\""] | sudo tee -a /etc/containers/containers.conf" -IpAddress $IpAddress).Output | Write-Log
     }
     else {
-        Write-Log 'Set proxy settings for containers'
-        (Invoke-CmdOnVmViaSSHKey 'echo [engine] | sudo tee /etc/containers/containers.conf' -IpAddress $IpAddress).Output | Write-Log
-        if ($PSVersionTable.PSVersion.Major -gt 5) {
-            (Invoke-CmdOnVmViaSSHKey "echo env = [\""https_proxy=$ProxySettings\""] | sudo tee -a /etc/containers/containers.conf" -IpAddress $IpAddress).Output | Write-Log
-        }
-        else {
-            (Invoke-CmdOnVmViaSSHKey "echo env = [\\\""https_proxy=$ProxySettings\\\""] | sudo tee -a /etc/containers/containers.conf" -IpAddress $IpAddress).Output | Write-Log
-        }
+        (Invoke-CmdOnVmViaSSHKey "echo env = [\\\""https_proxy=$(Get-HttpProxyServiceAddressForKubemaster)\\\""] | sudo tee -a /etc/containers/containers.conf" -IpAddress $IpAddress).Output | Write-Log
     }
 }
 

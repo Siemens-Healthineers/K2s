@@ -149,7 +149,6 @@ $controlPlaneParams = @{
     VMMemoryStartupBytes = $MasterVMMemory
     VMProcessorCount = $MasterVMProcessorCount
     VMDiskSize = $MasterDiskSize
-    Proxy = $(Get-HttpProxyServiceAddressForKubemaster)
     DeleteFilesForOfflineInstallation = $DeleteFilesForOfflineInstallation
     ForceOnlineInstallation = $ForceOnlineInstallation
 }
@@ -175,8 +174,7 @@ New-SshKey -IpAddress $($controlPlaneParams.IpAddress)
 Copy-LocalPublicSshKeyToRemoteComputer -UserName $(Get-DefaultUserNameControlPlane) -UserPwd $(Get-DefaultUserPwdControlPlane) -IpAddress $($controlPlaneParams.IpAddress)
 Wait-ForSSHConnectionToLinuxVMViaSshKey
 Remove-ControlPlaneAccessViaUserAndPwd
-$transparentproxy = Get-HttpProxyServiceAddressForKubemaster
-Set-ProxySettingsOnKubenode -ProxySettings $transparentproxy -IpAddress $($controlPlaneParams.IpAddress)
+Set-ProxySettingsOnKubenode -IpAddress $($controlPlaneParams.IpAddress)
 Restart-Service httpproxy -ErrorAction SilentlyContinue
 
 $hostname = (Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'hostname' -NoLog).Output

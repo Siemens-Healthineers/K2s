@@ -8,8 +8,7 @@ param (
     [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
     [string]$UserName = $(throw 'Argument missing: UserName'),
     [string]$UserPwd = $(throw 'Argument missing: UserPwd'),
-    [string]$IpAddress = $(throw 'Argument missing: IpAddress'),
-    [string] $Proxy = ''
+    [string]$IpAddress = $(throw 'Argument missing: IpAddress')
 )
 
 &"$PSScriptRoot\..\..\common\GlobalVariables.ps1"
@@ -33,9 +32,9 @@ $newUserName = $global:RemoteUserName_Master
 $newUserPwd = $global:VMPwd
 New-User -UserName $remoteUserName -UserPwd $remoteUserPwd -IpAddress $IpAddress -NewUserName $newUserName -NewUserPwd $newUserPwd
 
-New-KubernetesNode -UserName $newUserName -UserPwd $newUserPwd -IpAddress $IpAddress -K8sVersion $global:KubernetesVersion -Proxy $Proxy
+New-KubernetesNode -UserName $newUserName -UserPwd $newUserPwd -IpAddress $IpAddress -K8sVersion $global:KubernetesVersion
 
-Install-Tools -IpAddress $IpAddress -UserName $newUserName -UserPwd $newUserPwd -Proxy $Proxy
+Install-Tools -IpAddress $IpAddress -UserName $newUserName -UserPwd $newUserPwd
 
 $dnsEntries = Find-DnsIpAddress
 $prefixLength = $global:IP_CIDR.Substring($global:IP_CIDR.IndexOf('/') + 1)

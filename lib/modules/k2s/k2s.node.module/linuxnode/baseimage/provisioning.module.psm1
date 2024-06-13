@@ -67,8 +67,6 @@ function New-KubenodeBaseImage {
         [long]$VMProcessorCount,
         [parameter(Mandatory = $false, HelpMessage = 'Virtual hard disk size of VM')]
         [uint64]$VMDiskSize,
-        [parameter(Mandatory = $false, HelpMessage = 'The HTTP proxy if available.')]
-        [string]$Proxy = '',
         [string]$DnsIpAddresses = $(throw 'Argument missing: DnsIpAddresses'),
         [ValidateScript({ Assert-LegalCharactersInPath -Path $_ })]
         [ValidateScript({ Assert-Pattern -Path $_ -Pattern '.*\.vhdx$' })]
@@ -117,7 +115,6 @@ function New-KubenodeBaseImage {
         VmParameters                      = $vmParameters
         GuestOsParameters                 = $guestOsParameters
         NetworkParameters                 = $networkParameters
-        Proxy                             = $Proxy
         InstallationHook                  = $Hook
         AfterProvisioningFinishedHook     = { }
         OutputPath                        = $OutputPath
@@ -495,7 +492,6 @@ function New-ProvisionedBaseImage {
         [VmParameters]$VmParameters = $(throw "Argument missing: VmParameters"),
         [GuestOsParameters]$GuestOsParameters = $(throw "Argument missing: GuestOsParameters"),
         [NetworkParameters]$NetworkParameters = $(throw "Argument missing: NetworkParameters"),
-        [string] $Proxy = $(throw "Argument missing: Proxy"),
         #[scriptblock] $NodeRoleAssignmentHook = $(throw "Argument missing: NodeRoleAssignmentHook"),
         [scriptblock] $InstallationHook = $(throw "Argument missing: InstallationHook"),
         [scriptblock] $AfterProvisioningFinishedHook = $(throw "Argument missing: AfterProvisioningFinishedHook"),
@@ -524,7 +520,6 @@ function New-ProvisionedBaseImage {
         VMDiskSize           = $VmParameters.DiskSize
     }
     $NetworkParams = @{
-        Proxy              = $Proxy
         SwitchName         = $NetworkParameters.SwitchName
         HostIpAddress      = $NetworkParameters.HostIpAddress
         HostIpPrefixLength = $NetworkParameters.HostNetworkPrefixLength
