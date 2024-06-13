@@ -241,8 +241,8 @@ function Invoke-DownloadFile($destination, $source, $forceDownload,
         curl.exe --retry 5 --connect-timeout 60 --retry-all-errors --retry-delay 60 --silent --disable --fail -Lo $destination $source --proxy $Proxy --ssl-no-revoke -k #ignore server certificate error for cloudbase.it
     }
     else {
-        Write-Log "Downloading '$source' to '$destination' $(Get-HttpProxyServiceAddress)"
-        curl.exe --retry 5 --connect-timeout 60 --retry-all-errors --retry-delay 60 --silent --disable --fail -Lo $destination $source --proxy $(Get-HttpProxyServiceAddress) --ssl-no-revoke -k #ignore server certificate error for cloudbase.it
+        Write-Log "Downloading '$source' to '$destination'"
+        curl.exe --retry 5 --connect-timeout 60 --retry-all-errors --retry-delay 60 --silent --disable --fail -Lo $destination $source --proxy $(Get-HttpProxyServiceAddressForLocalhost) --ssl-no-revoke -k #ignore server certificate error for cloudbase.it
     }
 
     if (!$?) {

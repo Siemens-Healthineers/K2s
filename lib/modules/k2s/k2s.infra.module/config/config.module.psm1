@@ -471,12 +471,16 @@ function Get-WindowsLocalSharePath {
     return $windowsLocalSharePath
 }
 
-function Get-HttpProxyServiceAddress {
+function Get-HttpProxyServiceAddressForLocalhost {
     return "http://127.0.0.1:8181"
 }
 
+function Get-HttpProxyServiceAddressForKubemaster {
+    return "http://$(Get-ConfiguredKubeSwitchIP):8181"
+}
+
 function Get-HttpProxyServicePort {
-    $splits = $(Get-HttpProxyServiceAddress) -split ':'
+    $splits = $(Get-HttpProxyServiceAddressForLocalhost) -split ':'
     return $splits[$splits.Length - 1]
 }
 
@@ -535,5 +539,6 @@ Get-LinuxLocalSharePath,
 Get-WindowsLocalSharePath,
 Get-ReuseExistingLinuxComputerForMasterNodeFlag,
 Get-ControlPlaneNodeWslSwitchName, 
-Get-HttpProxyServiceAddress,
+Get-HttpProxyServiceAddressForLocalhost,
+Get-HttpProxyServiceAddressForKubemaster,
 Get-HttpProxyServicePort

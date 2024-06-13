@@ -41,7 +41,7 @@ function Install-WinHttpProxy {
     &$kubeBinPath\nssm set httpproxy AppRotateBytes 500000 | Out-Null
 
     if (($null -ne $proxyConf) -and ($proxyConf.NoProxy -ne '')) {
-        &$kubeBinPath\nssm set httpproxy AppEnvironmentExtra NO_PROXY=$proxyConf.NoProxy
+        &$kubeBinPath\nssm set httpproxy AppEnvironmentExtra NO_PROXY=$($proxyConf.NoProxy)
     }
 
     &$kubeBinPath\nssm set httpproxy Start SERVICE_AUTO_START | Out-Null

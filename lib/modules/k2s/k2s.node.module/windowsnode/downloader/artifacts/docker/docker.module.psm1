@@ -100,7 +100,7 @@ function Install-WinDocker {
         &$kubeBinPath\nssm set docker AppRotateOnline 1 | Out-Null
         &$kubeBinPath\nssm set docker AppRotateSeconds 0 | Out-Null
         &$kubeBinPath\nssm set docker AppRotateBytes 500000 | Out-Null
-        &$kubeBinPath\nssm set docker AppEnvironmentExtra HTTP_PROXY=$(Get-HttpProxyServiceAddress) HTTPS_PROXY=$(Get-HttpProxyServiceAddress) | Out-Null
+        &$kubeBinPath\nssm set docker AppEnvironmentExtra HTTP_PROXY=$(Get-HttpProxyServiceAddressForLocalhost) HTTPS_PROXY=$(Get-HttpProxyServiceAddressForLocalhost) | Out-Null
     }
 
     # check nssm
