@@ -101,7 +101,6 @@ function Get-ProxySettings {
 
     Write-Log 'Determining if proxy is configured by the user in Windows Proxy settings.'
     if (Get-ProxyEnabledStatusFromWindowsSettings) {
-        Write-Log "Configured proxy server in Windows Proxy settings: $Proxy" -Console
         $proxy = Get-ProxyServerFromWindowsSettings
         $noProxy = Get-ProxyOverrideFromWindowsSettings
 

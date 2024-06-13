@@ -189,8 +189,12 @@ function Invoke-DownloadWindowsNodeArtifacts {
         mkdir $windowsNodeArtifactsDirectory | Out-Null
     }
 
-    # NSSM
+    # First of all make NSSM available
     Invoke-DownloadNssmArtifacts $downloadsBaseDirectory $windowsNodeArtifactsDirectory
+    Invoke-DeployNssmArtifacts $windowsNodeArtifactsDirectory
+
+    # Secondly install httpproxy service for central proxy handling 
+    Install-WinHttpProxy
 
     # DOCKER
     Invoke-DownloadDockerArtifacts $downloadsBaseDirectory $windowsNodeArtifactsDirectory
@@ -221,8 +225,6 @@ function Invoke-DownloadWindowsNodeArtifacts {
     Invoke-DownloadPuttyArtifacts $downloadsBaseDirectory
 
     #START OF DEPLOYMENT OF DOWNLOADED ARTIFACTS
-    # NSSM
-    Invoke-DeployNssmArtifacts $windowsNodeArtifactsDirectory
 
     # CONTAINERD
     Invoke-DeployContainerdArtifacts $windowsNodeArtifactsDirectory

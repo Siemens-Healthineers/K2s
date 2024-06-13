@@ -115,9 +115,6 @@ function Initialize-WinNode {
         [boolean] $SkipClusterSetup = $false
     )
 
-    # httpproxy service is the overall proxy pre-requisite 
-    Install-WinHttpProxy
-
     Invoke-DeployWinArtifacts -KubernetesVersion $KubernetesVersion -DeleteFilesForOfflineInstallation $DeleteFilesForOfflineInstallation -ForceOnlineInstallation $ForceOnlineInstallation -SkipClusterSetup:$SkipClusterSetup
 
     Set-ConfigInstallFolder -Value $kubePath
