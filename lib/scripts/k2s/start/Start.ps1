@@ -135,6 +135,64 @@ function CheckFlannelConfig () {
     }
 }
 
+function Restart-ControlPlane {
+    param (
+        [string] $ControlPlaneVMName,
+        [string] $ControlPlaneIpAddr
+    )
+    Write-Log "Restarting $ControlPlaneVMName..."
+    #check VM status
+    $Iteration = 0
+    while ($true) {
+        $Iteration++
+        Write-Log "VM Handling loop (iteration #$Iteration):"
+        Start-Sleep -s 4
+
+        if ( $Iteration -eq 1 ) {
+            Write-Log "           stopping VM ($Iteration)"
+            Stop-VM -Name $ControlPlaneVMName -Force -WarningAction SilentlyContinue
+
+            $state = (Get-VM -Name $ControlPlaneVMName).State -eq [Microsoft.HyperV.PowerShell.VMState]::Off
+            while (!$state) {
+                Write-Log "           still waiting for stop, current VM state: $(Get-VM -Name $ControlPlaneVMName | Select-Object -expand 'State')"
+                Start-Sleep -s 1
+            }
+
+            Write-Log "           re-starting VM ($Iteration)"
+            Start-VM -Name $ControlPlaneVMName
+            Start-Sleep -s 4
+        }
+        $con = Test-Connection $ControlPlaneIpAddr -Count 1 -ErrorAction SilentlyContinue
+        if ($con) {
+            Write-Log "           ping succeeded to $ControlPlaneVMName VM"
+            $startStatus = (Get-VM -Name $ControlPlaneVMName).State -eq [Microsoft.HyperV.PowerShell.VMState]::Running
+            if ($startStatus) {
+                Write-Log "           $ControlPlaneVMName VM Started"
+                break;
+            }
+        }
+
+        if ($Iteration -eq 3) {
+            # If the connection did not succeed or VM is not in Running state, try starting again for three times
+            $startCycle = 0
+            $startState = (Get-VM -Name $ControlPlaneVMName).State -eq [Microsoft.HyperV.PowerShell.VMState]::Running
+            while (!$startState -And $startCycle -lt 3) {
+                $startCycle++
+                Write-Log "           still waiting for start, current VM state: $(Get-VM -Name $ControlPlaneVMName | Select-Object -expand 'State')"
+                Start-VM -Name $ControlPlaneVMName
+                Start-Sleep -s 4
+                $startState = (Get-VM -Name $ControlPlaneVMName).State -eq [Microsoft.HyperV.PowerShell.VMState]::Running
+            }
+        }
+
+        # End the loop if the connection to VM is unsuccessful
+        if ($Iteration -eq 10) {
+            throw "Fatal: Failed to connect to $ControlPlaneVMName VM"
+        }
+    }
+    Wait-ForSSHConnectionToLinuxVMViaSshKey
+}
+
 if ($SkipHeaderDisplay -ne $true) {
     Write-Log 'Starting kubernetes cluster on Windows host' -Console
 }
@@ -240,57 +298,28 @@ Invoke-RecreateNAT
 $controlPlaneVMHostName = Get-ConfigControlPlaneNodeHostname
 $ipControlPlane = Get-ConfiguredIPControlPlane
 
-$i = 0;
-while ($true) {
+# VM restart loop
+$i = 0
+while($true) {
     $i++
-    Write-Log "VM Handling loop (iteration #$i):"
-    Start-Sleep -s 4
+    Restart-ControlPlane -ControlPlaneVMName $controlPlaneVMHostName `
+                         -ControlPlaneIpAddr $ipControlPlane
+    $controlPlaneCni0IpAddr = Get-Cni0IpAddressInControlPlaneUsingSshWithRetries -Retries 10 -RetryTimeoutInSeconds 5
+    $expectedControlPlaneCni0IpAddr = Get-ConfiguredMasterNetworkInterfaceCni0IP
+                 
+    if ($controlPlaneCni0IpAddr -ne $expectedControlPlaneCni0IpAddr) {
+        Write-Log "cni0 interface in $controlPlaneVMHostName is not correctly initialized."
+        Write-Log "           Expected:$expectedControlPlaneCni0IpAddr"
+        Write-Log "           Actual:$controlPlaneCni0IpAddr"
 
-    if ( $i -eq 1 ) {
-        Write-Log "           stopping VM ($i)"
-        Stop-VM -Name $controlPlaneVMHostName -Force -WarningAction SilentlyContinue
-
-        $state = (Get-VM -Name $controlPlaneVMHostName).State -eq [Microsoft.HyperV.PowerShell.VMState]::Off
-        while (!$state) {
-            Write-Log "           still waiting for stop, current VM state: $(Get-VM -Name $controlPlaneVMHostName | Select-Object -expand 'State')"
-            Start-Sleep -s 1
+        if ($i -eq 3) {
+            throw "cni0 interface in $controlPlaneVMHostName is not correctly initialized after $i retries."
         }
-
-        Write-Log "           re-starting VM ($i)"
-        Start-VM -Name $controlPlaneVMHostName
-        Start-Sleep -s 4
-    }
-
-    $con = Test-Connection $ipControlPlane -Count 1 -ErrorAction SilentlyContinue
-    if ($con) {
-        Write-Log "           ping succeeded to $controlPlaneVMHostName VM"
-        $startStatus = (Get-VM -Name $controlPlaneVMHostName).State -eq [Microsoft.HyperV.PowerShell.VMState]::Running
-        if ($startStatus) {
-            Write-Log "           $controlPlaneVMHostName VM Started"
-            break;
-        }
-    }
-
-    if ($i -eq 3) {
-        # If the connection did not succeed or VM is not in Running state, try starting again for three times
-        $startCycle = 0
-        $startState = (Get-VM -Name $controlPlaneVMHostName).State -eq [Microsoft.HyperV.PowerShell.VMState]::Running
-        while (!$startState -And $startCycle -lt 3) {
-            $startCycle++
-            Write-Log "           still waiting for start, current VM state: $(Get-VM -Name $controlPlaneVMHostName | Select-Object -expand 'State')"
-            Start-VM -Name $controlPlaneVMHostName
-            Start-Sleep -s 4
-            $startState = (Get-VM -Name $controlPlaneVMHostName).State -eq [Microsoft.HyperV.PowerShell.VMState]::Running
-        }
-    }
-
-    # End the loop if the connection to VM is unsuccessful
-    if ($i -eq 10) {
-        throw "Fatal: Failed to connect to $controlPlaneVMHostName VM"
-    }
-}
-
-Wait-ForSSHConnectionToLinuxVMViaSshKey
+    } else {
+        Write-Log "cni0 interface in $controlPlaneVMHostName correctly initialized."
+        break
+    }  
+}  
 
 Invoke-TimeSync
 
