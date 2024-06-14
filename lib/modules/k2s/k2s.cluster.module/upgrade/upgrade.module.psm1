@@ -98,6 +98,7 @@ function Invoke-Cmd {
     $rt = [Proc.Tools.exec]::runCommand($Executable, $Arguments, $WorkingDirectory, $Verb)
     if ( $rt -eq 0 ) {
         Write-Log 'Command successfully called'
+        return $rt
     }
     else {
         Write-Log 'Error in calling command!'
