@@ -333,10 +333,32 @@ function Restart-NlaSvc {
     }
 }
 
+function Get-VfpRulesFilePath {
+    $kubeBinPath = Get-KubeBinPath
+    return "$kubeBinPath\cni\vfprules.json"
+}
+
+function Remove-VfpRulesFromWindowsNode {
+    $file = Get-VfpRulesFilePath
+    Remove-Item -Path $file -Force -ErrorAction SilentlyContinue
+    Write-Log "Removed file '$file'"
+}
+
+function Add-VfpRulesToWindowsNode {
+    param (
+        [string]$VfpRulesInJsonFormat = $(throw 'Argument missing: VfpRulesInJsonFormat')
+    )
+    $file = Get-VfpRulesFilePath
+    Remove-Item -Path $file -Force -ErrorAction SilentlyContinue
+    Write-Log "Removed file '$file'"
+
+    $VfpRulesInJsonFormat | Out-File "$file" -Encoding ascii
+    Write-Log "Added file '$file' with vfp rules"
+}
 
 Export-ModuleMember Set-IndexForDefaultSwitch, Get-ConfiguredClusterCIDRHost,
 New-ExternalSwitch, Remove-ExternalSwitch,
 Invoke-RecreateNAT, Set-InterfacePrivate,
 Get-L2BridgeSwitchName, Remove-DefaultNetNat,
 New-DefaultNetNat, Set-IPAdressAndDnsClientServerAddress, Set-WSLSwitch,
-Add-VfpRulesToWindowsHost, Remove-VfpRulesFromWindowsHost, Add-VfpRulesToWindowsNode, Remove-VfpRulesFromWindowsNode, Get-ConfiguredClusterCIDRNextHop
+Add-VfpRulesToWindowsNode, Remove-VfpRulesFromWindowsNode, Get-ConfiguredClusterCIDRNextHop

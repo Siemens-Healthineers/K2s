@@ -29,6 +29,11 @@ function Add-WindowsWorkerNodeOnWindowsHost {
     # Install loopback adapter for l2bridge
     New-DefaultLoopbackAdater
 
+    Write-Log 'Add vfp rules'
+    $rootConfiguration = Get-RootConfigk2s
+    $vfpRoutingRules = $rootConfiguration.psobject.properties['vfprules-k2s'].value | ConvertTo-Json
+    Add-VfpRulesToWindowsNode -VfpRulesInJsonFormat $vfpRoutingRules
+
     $kubernetesVersion = Get-DefaultK8sVersion
     $controlPlaneIpAddress = Get-ConfiguredIPControlPlane
     $windowsHostIpAddress = Get-ConfiguredKubeSwitchIP
@@ -73,6 +78,9 @@ function Remove-WindowsWorkerNodeOnWindowsHost {
     Write-Log 'Uninstall the loopback adapter'
     Uninstall-LoopbackAdapter
     
+    Write-Log 'Remove vfp rules'
+    Remove-VfpRulesFromWindowsNode
+
     Write-Log 'Uninstalling K2s worker node on Windows host done.'  
 }
 
