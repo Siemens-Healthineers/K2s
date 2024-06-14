@@ -22,7 +22,7 @@
     "component": {
       "group": "",
       "name": "k2s",
-      "version": "v1.0.0",
+      "version": "v1.1.0",
       "type": "application"
     }
   },
@@ -646,6 +646,52 @@
         }
       ],
       "purl": "pkg:github/kubevirt/kubevirt@v0.58.0",
+      "type": "application"
+    },
+    {
+      "group": "https://github.com/traefik/traefik",
+      "name": "traefik",
+      "version": "v2.9.6",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "url": "https://github.com/traefik/traefik/blob/master/LICENSE"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "sw360:projectName",
+          "value": "k2s:addons:pkg:executables"
+        }
+      ],
+      "purl": "pkg:github/traefik/traefik@v2.9.6",
+      "type": "application"
+    },
+    {
+      "group": "https://github.com/distribution/distribution",
+      "name": "registry",
+      "version": "v2.8.3",
+      "description": "",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0",
+            "url": "https://github.com/distribution/distribution/blob/main/LICENSE"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "sw360:projectName",
+          "value": "k2s:addons:pkg:executables"
+        }
+      ],
+      "purl": "pkg:github.com/distribution/distribution@v2.8.3",
       "type": "application"
     }
   ],
