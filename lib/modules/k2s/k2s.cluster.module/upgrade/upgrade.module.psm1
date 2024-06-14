@@ -2,10 +2,9 @@
 #
 # SPDX-License-Identifier: MIT
 
-$infraModule = "$PSScriptRoot/../../../../modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
-$clusterModule = "$PSScriptRoot/../../../../modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
+$infraModule = "$PSScriptRoot/../../k2s.infra.module/k2s.infra.module.psm1"
 
-Import-Module $infraModule, $clusterModule
+Import-Module $infraModule
 
 $processTools = @'
 
@@ -82,6 +81,30 @@ $productVersion = Get-ProductVersion
 $controlPlaneName = Get-ConfigControlPlaneNodeHostname
 $systemDriveLetter = Get-SystemDriveLetter
 $logFilePath = Get-LogFilePath
+
+function Invoke-Cmd {
+    param (
+        [parameter(Mandatory = $true, HelpMessage = 'Executable to run')]
+        [string] $Executable,
+        [parameter(Mandatory = $false, HelpMessage = 'Arguments to pass to executable')]
+        [string] $Arguments,
+        [parameter(Mandatory = $false, HelpMessage = 'Working directory for executable')]
+        [string] $WorkingDirectory,
+        [parameter(Mandatory = $false, HelpMessage = 'Verb to use for executable')]
+        [string] $Verb = 'runas'
+    )
+
+    Write-Log "Run command: $Executable $Arguments" -Console
+    $rt = [Proc.Tools.exec]::runCommand($Executable, $Arguments, $WorkingDirectory, $Verb)
+    if ( $rt -eq 0 ) {
+        Write-Log 'Command successfully called'
+        return $rt
+    }
+    else {
+        Write-Log 'Error in calling command!'
+        throw 'Error: Not possible to call command!'
+    }
+}
 
 function Export-NotNamespacedResources {
     param (
@@ -375,6 +398,7 @@ function Enable-ClusterIsRunning {
         }
         else {
             Write-Log 'Error in calling start on K2s!'
+            throw 'Error: Not possible to start existing cluster!'
         }
     }
 }
@@ -434,7 +458,8 @@ function Invoke-ClusterUninstall {
     if ( $ShowLogs ) { $argsCall += ' -o' }
     if ( $DeleteFiles ) { $argsCall += ' -d' }
     Write-Log "Uninstall with arguments: $installFolder\k2s.exe $argsCall"
-    $rt = [Proc.Tools.exec]::runCommand("$installFolder\k2s.exe", $argsCall)
+    $texe = "$installFolder\k2s.exe"
+    $rt = Invoke-Cmd -Executable $texe -Arguments $argsCall
     if ( $rt -eq 0 ) {
         Write-Log 'Uninstall of cluster successfully called'
     }
@@ -478,7 +503,7 @@ function Invoke-ClusterInstall {
     if ( -not [string]::IsNullOrEmpty($MasterVMMemory) ) { $argsCall += " --master-memory $MasterVMMemory" }
     if ( -not [string]::IsNullOrEmpty($MasterDiskSize) ) { $argsCall += " --master-disk $MasterDiskSize" }
     Write-Log "Install with arguments: $kubePath\k2s $argsCall"
-    $rt = [Proc.Tools.exec]::runCommand($texe, $argsCall)
+    $rt = Invoke-Cmd -Executable $texe -Arguments $argsCall
     if ( $rt -eq 0 ) {
         Write-Log 'Install of cluster successfully called'
     }
@@ -570,6 +595,7 @@ function Restore-MergeLogFiles {
     $intermediate = "$($systemDriveLetter):\var\log\k2s-*.log"
     Get-Content -Path $intermediate, $logFilePath -Encoding utf8 | Set-Content -Path $merge -Encoding utf8
 }
+
 
 Export-ModuleMember -Function Assert-UpgradeOperation, Enable-ClusterIsRunning, Assert-YamlTools, Export-ClusterResources,
 Invoke-ClusterUninstall, Invoke-ClusterInstall, Import-NotNamespacedResources, Import-NamespacedResources, Remove-ExportedClusterResources,
