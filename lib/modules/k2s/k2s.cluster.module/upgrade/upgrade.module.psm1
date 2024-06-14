@@ -95,9 +95,6 @@ function Invoke-Cmd {
     )
 
     Write-Log "Run command: $Executable $Arguments" -Console
-
-    Write-Host "Run command: $Executable $Arguments" 
-
     $rt = [Proc.Tools.exec]::runCommand($Executable, $Arguments, $WorkingDirectory, $Verb)
     if ( $rt -eq 0 ) {
         Write-Log 'Command successfully called'
