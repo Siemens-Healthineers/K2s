@@ -190,6 +190,10 @@ function GenerateBomContainers() {
     Write-Output 'Generate bom for container images'
 
     $tempDir = [System.Environment]::GetEnvironmentVariable('TEMP')
+    
+    # cleanup existing container json files
+    Write-Output "Cleaning up existing container json files"
+    Get-ChildItem -Path "$bomRootDir\merge" -Filter "*.json" | Where-Object { $_.Name -notin "k2s-static.json", "k2s-static.json.license" } | Remove-Item -Force
 
     # read json file and iterate through entries, filter out windows images
     $jsonFile = "$bomRootDir\container-images-used.json"
