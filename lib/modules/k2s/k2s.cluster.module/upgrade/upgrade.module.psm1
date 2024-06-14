@@ -461,7 +461,7 @@ function Invoke-ClusterUninstall {
     if ( $DeleteFiles ) { $argsCall += ' -d' }
     Write-Log "Uninstall with arguments: $installFolder\k2s.exe $argsCall"
     $texe = "$installFolder\k2s.exe"
-    $rt = Invoke-Cmd -Executable $texe -Arguments -$argsCall
+    $rt = Invoke-Cmd -Executable $texe -Arguments $argsCall
     if ( $rt -eq 0 ) {
         Write-Log 'Uninstall of cluster successfully called'
     }
