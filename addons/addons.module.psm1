@@ -597,8 +597,64 @@ function Add-HostEntries {
     }
 }
 
+function Update-IngressForAddons {
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]
+        $Enable
+    )
+    Write-Log "Adapting ingress entries for addons, security is on: $Enable" -Console
+
+    # TODO: this implementation needs to be adapted to be more generic in next version
+    $addons = Get-EnabledAddons
+    $addons.Addons | ForEach-Object {
+        $addon = $_
+        $addonConfig = Get-AddonConfig -Name $addon
+        if ($null -eq $addonConfig) {
+            Write-Log "Addon '$addon' not found in config, skipping.." -Console
+            return
+        }
+
+        # addon dashboard
+        $name = 'dashboard'
+        if ($addon -eq $name -and $Enable -eq $true) {
+            Write-Log "Security addon enabled: adapting $name addon ..." -Console
+            return
+        }
+        if ($addon -eq $name -and $Enable -eq $false) {
+            Write-Log "Security addon disable: adapting $name addon ..." -Console
+            return
+        }
+
+        # addon logging
+        $name = 'logging'
+        if ($addon -eq $name -and $Enable -eq $true) {
+            Write-Log "Security addon enabled: adapting $name addon ..." -Console
+            return
+        }
+        if ($addon -eq $name -and $Enable -eq $false) {
+            Write-Log "Security addon disable: adapting $name addon ..." -Console
+            return
+        }
+
+        # addon monitoring
+        $name = 'monitoring'
+        if ($addon -eq $name -and $Enable -eq $true) {
+            Write-Log "Security addon enabled: adapting $name addon ..." -Console
+            return
+        }
+        if ($addon -eq $name -and $Enable -eq $false) {
+            Write-Log "Security addon disable: adapting $name addon ..." -Console
+            return
+        }
+                
+        # $addonDir = "$PSScriptRoot\$addon" 
+    }
+    Write-Log 'Addons have been adapted to new security settings' -Console
+} 
+
 Export-ModuleMember -Function Get-EnabledAddons, Add-AddonToSetupJson, Remove-AddonFromSetupJson,
 Install-DebianPackages, Get-DebianPackageAvailableOffline, Test-IsAddonEnabled, Invoke-AddonsHooks, Copy-ScriptsToHooksDir,
 Remove-ScriptsFromHooksDir, Get-AddonConfig, Backup-Addons, Restore-Addons, Get-AddonStatus, Find-AddonManifests,
 Get-ErrCodeAddonAlreadyDisabled, Get-ErrCodeAddonAlreadyEnabled, Get-ErrCodeAddonEnableFailed, Get-ErrCodeAddonNotFound,
-Add-HostEntries
+Add-HostEntries, Update-IngressForAddons
