@@ -518,6 +518,9 @@ Function Set-UpMasterNode {
     # change config map to forward all non cluster DNS request to proxy (dnsmasq) running on master
     &$executeRemoteCommand "kubectl get configmap/coredns -n kube-system -o yaml | sed -e 's|forward . /etc/resolv.conf|forward . $NetworkInterfaceCni0IP_Master|' | kubectl apply -f -" -IgnoreErrors 
 
+    # change core-dns to have predefined host mapping for DNS resolution
+    &$executeRemoteCommand "kubectl get configmap coredns -n kube-system -o yaml | sed '/^\s*cache 30/i\        hosts {\n         $IpAddress k2s.cluster.local\n         fallthrough\n        }' | kubectl apply -f -" -IgnoreErrors 
+
     Write-Log 'Initialize Flannel'
     Add-FlannelPluginToMasterNode -IpAddress $IpAddress -UserName $UserName -UserPwd $UserPwd -PodNetworkCIDR $ClusterCIDR
 
