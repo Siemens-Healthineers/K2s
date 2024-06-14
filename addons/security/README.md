@@ -8,13 +8,11 @@ SPDX-License-Identifier: MIT
 
 Enables secure communication into / out of the cluster (basic) and inside the cluster (advanced).
 
+In this version only basic security is provided on an experimental level.
+
+Basic and Advanced security options for the addon will be added and improved in the next versions.
+
 ![Upstream - downstream](doc/downstream-upstream.drawio.png)
-
-## Introduction
-
-This addon installs services needed to secure the network communication by configuration. This includes:
-
-- [cert-manager](https://cert-manager.io/) - services for certificate provisioning and renewing, based on annotations. `cert-manager` observes these annotations and automates obtaining and renewing certificates.
 
 ## Getting Started
 
@@ -23,6 +21,32 @@ The `security` addon can be enabled using the `k2s` CLI:
 ```cmd
 k2s addons enable security
 ```
+
+These addons have currently also web applications included: **dashboard**, **login** and **monitoring**.
+In this version in order to test the basic security model on these addons they have to be enabled **before** the security addon is enabled !
+In addition also the security settings where tested only with the **ingress-nginx** addon.
+
+## Disable security
+
+The `security` addon can be disabled using the k2s CLI:
+
+```cmd
+k2s addons disable security
+```
+
+After disabled security also please reset the policies (navigate to [chrome://net-internals/#hsts](chrome://net-internals/#hsts)) for the following domains:
+
+```cmd
+k2s.cluster.local, k2s-dashboard.local, k2s-logging.local, k2s-monitoring.local
+```
+
+## Services used
+
+This addon installs services needed to secure the network communication by configuration. This includes:
+
+- [cert-manager](https://cert-manager.io/) - services for certificate provisioning and renewing, based on annotations. `cert-manager` observes these annotations and automates obtaining and renewing certificates.
+
+- [keycloak](https://www.keycloak.org/) - services for identity and access management. `keycloak` provides user federation, strong authentication, user management, fine-grained authorization, and more.
 
 ## How to use it
 
@@ -59,18 +83,12 @@ server certificate by visiting the dashboard URL in your browser and clicking on
 
 You can also use the command line interface `cmctl.exe` to interact with cert-manager, it is installed in the `bin\exe` path of your K2s install directory.
 
-## Disable security
-
-The `security` addon can be disabled using the k2s CLI:
-
-```cmd
-k2s addons disable security
-```
-
 ## Further Reading
 
 - Docs: <https://cert-manager.io/docs/>
 - Code: <https://github.com/cert-manager/cert-manager>
+- Docs: <https://www.keycloak.org/documentation>
+- Code: <https://github.com/keycloak/keycloak>
 
 ## Knowledge Base
 
