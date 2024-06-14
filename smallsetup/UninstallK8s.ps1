@@ -26,55 +26,36 @@ $infraModule = "$PSScriptRoot\..\lib\modules\k2s\k2s.infra.module\k2s.infra.modu
 $nodeModule = "$PSScriptRoot\..\lib\modules\k2s\k2s.node.module\k2s.node.module.psm1"
 $clusterModule = "$PSScriptRoot\..\lib\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1"
 $addonsModule = "$PSScriptRoot\..\addons\addons.module.psm1"
-$temporaryIsolatedCalledScriptsModule = "$PSScriptRoot\ps-modules\only-while-refactoring\installation\still-to-merge.isolatedcalledscripts.module.psm1"
-Import-Module $infraModule, $nodeModule, $clusterModule, $addonsModule, $temporaryIsolatedCalledScriptsModule
+Import-Module $infraModule, $nodeModule, $clusterModule, $addonsModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
-Set-LoggingPreferencesIntoScriptsIsolationModule -ShowLogs:$ShowLogs -AppendLogFile:$true
 
 # make sure we are at the right place for executing this script
 $installationPath = Get-KubePath
 Set-Location $installationPath
-Set-InstallationPathIntoScriptsIsolationModule -Value $installationPath
 
 if ($SkipHeaderDisplay -eq $false) {
     Write-Log 'Uninstalling kubernetes system'
 }
 
-# stop services
+# stop nodes
 Write-Log 'First stop complete kubernetes incl. VM'
 & "$PSScriptRoot\StopK8s.ps1" -AdditionalHooksDir $AdditionalHooksDir -ShowLogs:$ShowLogs -SkipHeaderDisplay
 
-Write-Log 'Remove external switch'
-Remove-ExternalSwitch
+Write-Log 'Remove the worker node on the Windows host'
+Remove-WindowsWorkerNodeOnWindowsHost -SkipPurge:$SkipPurge -AdditionalHooksDir $AdditionalHooksDir -SkipHeaderDisplay:$SkipHeaderDisplay
 
 $controlPlaneVMHostName = Get-ConfigControlPlaneNodeHostname
-Write-Log "Uninstalling $controlPlaneVMHostName VM" -Console
-
-Invoke-Script_UninstallKubeMaster -DeleteFilesForOfflineInstallation $DeleteFilesForOfflineInstallation
-Remove-KubeNodeBaseImage -DeleteFilesForOfflineInstallation $DeleteFilesForOfflineInstallation
-
-Uninstall-WinNode -ShallowUninstallation $SkipPurge
-
-Uninstall-LoopbackAdapter
-
-Write-Log 'Cleaning up' -Console
-
-Write-Log 'Remove previous VM key from known_hosts file'
-$ipControlPlane = Get-ConfiguredIPControlPlane
-ssh-keygen.exe -R $ipControlPlane 2>&1 | % { "$_" } | Out-Null
-
-Invoke-AddonsHooks -HookType 'AfterUninstall'
+Write-Log "Uninstalling the control plane located in the $controlPlaneVMHostName VM" -Console
+Remove-ControlPlaneNodeOnNewVM -SkipPurge:$SkipPurge -AdditionalHooksDir $AdditionalHooksDir -SkipHeaderDisplay:$SkipHeaderDisplay -DeleteFilesForOfflineInstallation:$DeleteFilesForOfflineInstallation
 
 if (!$SkipPurge) {
     Uninstall-Cluster
-    $ipControlPlane = Get-ConfiguredIPControlPlane
-    Remove-SshKey -IpAddress $ipControlPlane
 }
 
-Clear-WinNode -DeleteFilesForOfflineInstallation $DeleteFilesForOfflineInstallation
+Remove-KubeNodeBaseImage -DeleteFilesForOfflineInstallation $DeleteFilesForOfflineInstallation
 
-Reset-EnvVars
+Invoke-AddonsHooks -HookType 'AfterUninstall'
 
 Write-Log 'Uninstalling K2s setup done.'
 

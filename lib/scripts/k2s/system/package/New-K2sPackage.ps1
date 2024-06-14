@@ -133,7 +133,7 @@ function DownloadAndZipWindowsNodeArtifacts($outputPath) {
     Write-Log "Download and create zip file with Windows node artifacts for $outputPath with proxy $Proxy" -Console
     $kubernetesVersion = Get-DefaultK8sVersion
     try {
-        Invoke-DeployWinArtifacts -KubernetesVersion $kubernetesVersion -Proxy "$Proxy" -SkipClusterSetup $true
+        Invoke-DeployWinArtifacts -KubernetesVersion $kubernetesVersion -Proxy "$Proxy"
     } finally {
         Invoke-DownloadsCleanup -DeleteFilesForOfflineInstallation $false
     }
