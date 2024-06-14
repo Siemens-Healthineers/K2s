@@ -605,6 +605,12 @@ function Update-IngressForAddons {
     )
     Write-Log "Adapting ingress entries for addons, security is on: $Enable" -Console
 
+    # check ingress type
+    if ((Test-IsAddonEnabled -Name 'ingress-nginx') -eq $false) {
+        Write-Log 'Traefik ingress is used, adaptions cannot be made for traefik, please use nginx !' -Console
+        return
+    }
+
     # TODO: this implementation needs to be adapted to be more generic in next version
     $addons = Get-EnabledAddons
     $addons.Addons | ForEach-Object {
@@ -619,10 +625,14 @@ function Update-IngressForAddons {
         $name = 'dashboard'
         if ($addon -eq $name -and $Enable -eq $true) {
             Write-Log "Security addon enabled: adapting $name addon ..." -Console
+            (Invoke-Kubectl -Params 'delete' , '-f', "$PSScriptRoot\dashboard\manifests\dashboard-nginx-ingress.yaml").Output | Write-Log
+            (Invoke-Kubectl -Params 'apply' , '-f', "$PSScriptRoot\security\addons\dashboard-nginx-ingress-security.yaml").Output | Write-Log
             return
         }
         if ($addon -eq $name -and $Enable -eq $false) {
             Write-Log "Security addon disable: adapting $name addon ..." -Console
+            (Invoke-Kubectl -Params 'delete' , '-f', "$PSScriptRoot\security\addons\dashboard-nginx-ingress-security.yaml").Output | Write-Log
+            (Invoke-Kubectl -Params 'apply' , '-f', "$PSScriptRoot\dashboard\manifests\dashboard-nginx-ingress.yaml").Output | Write-Log
             return
         }
 
@@ -630,10 +640,14 @@ function Update-IngressForAddons {
         $name = 'logging'
         if ($addon -eq $name -and $Enable -eq $true) {
             Write-Log "Security addon enabled: adapting $name addon ..." -Console
+            (Invoke-Kubectl -Params 'delete' , '-f', "$PSScriptRoot\logging\manifests\opensearch-dashboards\ingress.yaml").Output | Write-Log
+            (Invoke-Kubectl -Params 'apply' , '-f', "$PSScriptRoot\security\addons\logging-nginx-ingress-security.yaml").Output | Write-Log
             return
         }
         if ($addon -eq $name -and $Enable -eq $false) {
             Write-Log "Security addon disable: adapting $name addon ..." -Console
+            (Invoke-Kubectl -Params 'delete' , '-f', "$PSScriptRoot\security\addons\logging-nginx-ingress-security.yaml").Output | Write-Log
+            (Invoke-Kubectl -Params 'apply' , '-f', "$PSScriptRoot\logging\manifests\opensearch-dashboards\ingress.yaml").Output | Write-Log
             return
         }
 
@@ -641,14 +655,24 @@ function Update-IngressForAddons {
         $name = 'monitoring'
         if ($addon -eq $name -and $Enable -eq $true) {
             Write-Log "Security addon enabled: adapting $name addon ..." -Console
+            (Invoke-Kubectl -Params 'delete' , '-f', "$PSScriptRoot\monitoring\manifests\plutono\ingress.yaml").Output | Write-Log
+            (Invoke-Kubectl -Params 'delete' , '-f', "$PSScriptRoot\monitoring\manifests\plutono\configmap.yaml").Output | Write-Log
+            (Invoke-Kubectl -Params 'apply' , '-f', "$PSScriptRoot\security\addons\monitoring-nginx-ingress-security.yaml").Output | Write-Log
+            (Invoke-Kubectl -Params 'apply' , '-f', "$PSScriptRoot\security\addons\monitoring-configmap-plutono-security.yaml").Output | Write-Log
+            # restart pod plutono
+            (Invoke-Kubectl -Params 'delete' , 'pod', '-l', 'app.kubernetes.io/name=kube-prometheus-stack-plutono', '-n', 'monitoring').Output | Write-Log
             return
         }
         if ($addon -eq $name -and $Enable -eq $false) {
             Write-Log "Security addon disable: adapting $name addon ..." -Console
+            (Invoke-Kubectl -Params 'delete' , '-f', "$PSScriptRoot\security\addons\monitoring-nginx-ingress-security.yaml").Output | Write-Log
+            (Invoke-Kubectl -Params 'delete' , '-f', "$PSScriptRoot\security\addons\monitoring-configmap-plutono-security.yaml").Output | Write-Log
+            (Invoke-Kubectl -Params 'apply' , '-f', "$PSScriptRoot\monitoring\manifests\plutono\ingress.yaml").Output | Write-Log
+            (Invoke-Kubectl -Params 'apply' , '-f', "$PSScriptRoot\monitoring\manifests\plutono\configmap.yaml").Output | Write-Log
+            # restart pod plutono
+            (Invoke-Kubectl -Params 'delete' , 'pod', '-l', 'app.kubernetes.io/name=kube-prometheus-stack-plutono', '-n', 'monitoring').Output | Write-Log
             return
         }
-                
-        # $addonDir = "$PSScriptRoot\$addon" 
     }
     Write-Log 'Addons have been adapted to new security settings' -Console
 } 
