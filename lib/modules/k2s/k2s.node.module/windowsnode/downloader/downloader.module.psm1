@@ -71,8 +71,8 @@ function Invoke-DownloadWindowsImages($downloadsBaseDirectory) {
     $HttpProxyVariableOriginalValue = $env:HTTP_PROXY
     $HttpsProxyVariableOriginalValue = $env:HTTPS_PROXY
     try {
-        $env:HTTP_PROXY=$(Get-HttpProxyServiceAddressForLocalhost)
-        $env:HTTPS_PROXY=$(Get-HttpProxyServiceAddressForLocalhost)
+        $env:HTTP_PROXY=$(Get-HttpProxyServiceAddressForWindowsHost)
+        $env:HTTPS_PROXY=$(Get-HttpProxyServiceAddressForWindowsHost)
 
         $retryNumber = 0
         $maxAmountOfRetries = 3

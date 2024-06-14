@@ -106,7 +106,7 @@ function Install-WinDocker {
         $clusterCIDRServices = Get-ConfiguredClusterCIDRServices
         $ipControlPlaneCIDR = Get-ConfiguredControlPlaneCIDR
         $NoProxy = "localhost,$ipControlPlane,10.81.0.0/16,$clusterCIDR,$clusterCIDRServices,$ipControlPlaneCIDR,.local"
-        &$kubeBinPath\nssm set docker AppEnvironmentExtra HTTP_PROXY=$(Get-HttpProxyServiceAddressForLocalhost) HTTPS_PROXY=$(Get-HttpProxyServiceAddressForLocalhost) NO_PROXY=$NoProxy | Out-Null
+        &$kubeBinPath\nssm set docker AppEnvironmentExtra HTTP_PROXY=$(Get-HttpProxyServiceAddressForWindowsHost) HTTPS_PROXY=$(Get-HttpProxyServiceAddressForWindowsHost) NO_PROXY=$NoProxy | Out-Null
     }
 
     # check nssm

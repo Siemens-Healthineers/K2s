@@ -40,7 +40,7 @@ function Invoke-DownloadDebianImage {
         $allHashs = ''
 
         Write-Log "Download SHA sum from $urlRoot"
-        $allHashs = curl.exe --retry 3 --connect-timeout 60 --retry-connrefused --silent --disable --fail "$urlRoot/SHA512SUMS" --proxy $(Get-HttpProxyServiceAddressForLocalhost) --ssl-no-revoke -k
+        $allHashs = curl.exe --retry 3 --connect-timeout 60 --retry-connrefused --silent --disable --fail "$urlRoot/SHA512SUMS" --proxy $(Get-HttpProxyServiceAddressForWindowsHost) --ssl-no-revoke -k
 
         $sha1Hash = Get-FileHash $imgFile -Algorithm SHA512
         $m = [regex]::Matches($allHashs, "(?<Hash>\w{128})\s\s$urlFile")

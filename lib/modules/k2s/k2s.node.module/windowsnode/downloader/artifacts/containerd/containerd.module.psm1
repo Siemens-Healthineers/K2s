@@ -310,7 +310,7 @@ timeout: 30
     &$kubeBinPath\nssm set containerd AppRotateSeconds 0 | Out-Null
     &$kubeBinPath\nssm set containerd AppRotateBytes 500000 | Out-Null
     &$kubeBinPath\nssm set containerd Start SERVICE_AUTO_START | Out-Null
-    &$kubeBinPath\nssm set containerd AppEnvironmentExtra HTTP_PROXY=$(Get-HttpProxyServiceAddressForLocalhost) HTTPS_PROXY=$(Get-HttpProxyServiceAddressForLocalhost) | Out-Null
+    &$kubeBinPath\nssm set containerd AppEnvironmentExtra HTTP_PROXY=$(Get-HttpProxyServiceAddressForWindowsHost) HTTPS_PROXY=$(Get-HttpProxyServiceAddressForWindowsHost) | Out-Null
 
     # add firewall entries (else firewall will keep your CPU busy)
     Write-Log 'Adding firewall rules for containerd'

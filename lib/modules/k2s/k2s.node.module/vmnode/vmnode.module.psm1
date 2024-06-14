@@ -343,7 +343,7 @@ function Get-VirtioImage {
         [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
         $client = New-Object System.Net.WebClient
 
-        $webProxy = New-Object System.Net.WebProxy($(Get-HttpProxyServiceAddressForLocalhost))
+        $webProxy = New-Object System.Net.WebProxy($(Get-HttpProxyServiceAddressForWindowsHost))
         $webProxy.UseDefaultCredentials = $true
         $client.Proxy = $webProxy
 
