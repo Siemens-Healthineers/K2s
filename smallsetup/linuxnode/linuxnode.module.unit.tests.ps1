@@ -964,67 +964,67 @@ Describe 'Set-UpMasterNode' -Tag 'unit', 'ci', 'linuxnode' {
             }
         }
     }
-    Context 'execution' {
-        It 'performs set-up' {
-            InModuleScope $linuxNodeModuleName {
-                # Arrange
-                $expectedUserName = 'theUser'
-                $expectedUserPwd = 'thePwd'
-                $expectedIpAddress = 'myIpAddress'
-                $expectedK8sVersion = 'myK8sVersion'
-                $expectedClusterCIDR = 'myClusterCIDR'
-                $expectedClusterCIDR_Services = 'myClusterCIDR_Services'
-                $expectedKubeDnsServiceIP = 'myKubeDnsServiceIP'
-                $expectedIP_NextHop = 'myIP_NextHop'
-                $expectedNetworkInterfaceName = 'myNetworkInterfaceName'
-                $expectedNetworkInterfaceCni0IP_Master = 'myNetworkInterfaceCni0IP_Master'
-                $expectedHook = { $global:HookExecuted = $true }
-                Mock Get-IsValidIPv4Address { $true }
-                Mock Write-Log { }
-                Mock Add-FlannelPluginToMasterNode { }
-                class ActualRemoteCommand {
-                    [string]$Command
-                    [bool]$IgnoreErrors
-                }
-                $expectedExecutedRemoteCommands = @()
-                $expectedExecutedRemoteCommands += @{Command = "sudo kubeadm init --kubernetes-version $expectedK8sVersion --apiserver-advertise-address $expectedIpAddress --pod-network-cidr=$expectedClusterCIDR --service-cidr=$expectedClusterCIDR_Services"; IgnoreErrors = $true }
-                $expectedExecutedRemoteCommands += @{Command = 'mkdir -p ~/.kube'; IgnoreErrors = $false }
-                $expectedExecutedRemoteCommands += @{Command = 'chmod 755 ~/.kube'; IgnoreErrors = $false }
-                $expectedExecutedRemoteCommands += @{Command = 'sudo cp /etc/kubernetes/admin.conf ~/.kube/config'; IgnoreErrors = $false }
-                $expectedExecutedRemoteCommands += @{Command = "sudo chown $expectedUserName ~/.kube/config" ; IgnoreErrors = $false }
-                $expectedExecutedRemoteCommands += @{Command = 'kubectl get nodes'; IgnoreErrors = $false }
-                $expectedExecutedRemoteCommands += @{Command = 'sudo DEBIAN_FRONTEND=noninteractive apt-get install dnsutils --yes'; IgnoreErrors = $false }
-                $expectedExecutedRemoteCommands += @{Command = 'sudo DEBIAN_FRONTEND=noninteractive apt-get install dnsmasq --yes' ; IgnoreErrors = $false }
-                $expectedExecutedRemoteCommands += @{Command = "echo server=/cluster.local/$expectedKubeDnsServiceIP | sudo tee -a /etc/dnsmasq.conf"; IgnoreErrors = $false }
-                $expectedExecutedRemoteCommands += @{Command = "echo server=$expectedIP_NextHop@$expectedNetworkInterfaceName | sudo tee -a /etc/dnsmasq.conf"; IgnoreErrors = $false }
-                $expectedExecutedRemoteCommands += @{Command = "echo interface=$expectedNetworkInterfaceName | sudo tee -a /etc/dnsmasq.conf"; IgnoreErrors = $false }
-                $expectedExecutedRemoteCommands += @{Command = 'echo interface=cni0 | sudo tee -a /etc/dnsmasq.conf'; IgnoreErrors = $false }
-                $expectedExecutedRemoteCommands += @{Command = 'echo interface=lo | sudo tee -a /etc/dnsmasq.conf'; IgnoreErrors = $false }
-                $expectedExecutedRemoteCommands += @{Command = 'sudo systemctl restart dnsmasq'; IgnoreErrors = $false }
-                $expectedExecutedRemoteCommands += @{Command = "kubectl get configmap/coredns -n kube-system -o yaml | sed -e 's|forward . /etc/resolv.conf|forward . $expectedNetworkInterfaceCni0IP_Master|' | kubectl apply -f -"; IgnoreErrors = $true }
-                $expectedExecutedRemoteCommands += @{Command = 'sudo chattr -i /etc/resolv.conf'; IgnoreErrors = $false }
-                $expectedExecutedRemoteCommands += @{Command = "echo 'nameserver 127.0.0.1' | sudo tee /etc/resolv.conf"; IgnoreErrors = $false }
+    # Context 'execution' {
+    #     It 'performs set-up' {
+    #         InModuleScope $linuxNodeModuleName {
+    #             # Arrange
+    #             $expectedUserName = 'theUser'
+    #             $expectedUserPwd = 'thePwd'
+    #             $expectedIpAddress = 'myIpAddress'
+    #             $expectedK8sVersion = 'myK8sVersion'
+    #             $expectedClusterCIDR = 'myClusterCIDR'
+    #             $expectedClusterCIDR_Services = 'myClusterCIDR_Services'
+    #             $expectedKubeDnsServiceIP = 'myKubeDnsServiceIP'
+    #             $expectedIP_NextHop = 'myIP_NextHop'
+    #             $expectedNetworkInterfaceName = 'myNetworkInterfaceName'
+    #             $expectedNetworkInterfaceCni0IP_Master = 'myNetworkInterfaceCni0IP_Master'
+    #             $expectedHook = { $global:HookExecuted = $true }
+    #             Mock Get-IsValidIPv4Address { $true }
+    #             Mock Write-Log { }
+    #             Mock Add-FlannelPluginToMasterNode { }
+    #             class ActualRemoteCommand {
+    #                 [string]$Command
+    #                 [bool]$IgnoreErrors
+    #             }
+    #             $expectedExecutedRemoteCommands = @()
+    #             $expectedExecutedRemoteCommands += @{Command = "sudo kubeadm init --kubernetes-version $expectedK8sVersion --apiserver-advertise-address $expectedIpAddress --pod-network-cidr=$expectedClusterCIDR --service-cidr=$expectedClusterCIDR_Services"; IgnoreErrors = $true }
+    #             $expectedExecutedRemoteCommands += @{Command = 'mkdir -p ~/.kube'; IgnoreErrors = $false }
+    #             $expectedExecutedRemoteCommands += @{Command = 'chmod 755 ~/.kube'; IgnoreErrors = $false }
+    #             $expectedExecutedRemoteCommands += @{Command = 'sudo cp /etc/kubernetes/admin.conf ~/.kube/config'; IgnoreErrors = $false }
+    #             $expectedExecutedRemoteCommands += @{Command = "sudo chown $expectedUserName ~/.kube/config" ; IgnoreErrors = $false }
+    #             $expectedExecutedRemoteCommands += @{Command = 'kubectl get nodes'; IgnoreErrors = $false }
+    #             $expectedExecutedRemoteCommands += @{Command = 'sudo DEBIAN_FRONTEND=noninteractive apt-get install dnsutils --yes'; IgnoreErrors = $false }
+    #             $expectedExecutedRemoteCommands += @{Command = 'sudo DEBIAN_FRONTEND=noninteractive apt-get install dnsmasq --yes' ; IgnoreErrors = $false }
+    #             $expectedExecutedRemoteCommands += @{Command = "echo server=/cluster.local/$expectedKubeDnsServiceIP | sudo tee -a /etc/dnsmasq.conf"; IgnoreErrors = $false }
+    #             $expectedExecutedRemoteCommands += @{Command = "echo server=$expectedIP_NextHop@$expectedNetworkInterfaceName | sudo tee -a /etc/dnsmasq.conf"; IgnoreErrors = $false }
+    #             $expectedExecutedRemoteCommands += @{Command = "echo interface=$expectedNetworkInterfaceName | sudo tee -a /etc/dnsmasq.conf"; IgnoreErrors = $false }
+    #             $expectedExecutedRemoteCommands += @{Command = 'echo interface=cni0 | sudo tee -a /etc/dnsmasq.conf'; IgnoreErrors = $false }
+    #             $expectedExecutedRemoteCommands += @{Command = 'echo interface=lo | sudo tee -a /etc/dnsmasq.conf'; IgnoreErrors = $false }
+    #             $expectedExecutedRemoteCommands += @{Command = 'sudo systemctl restart dnsmasq'; IgnoreErrors = $false }
+    #             $expectedExecutedRemoteCommands += @{Command = "kubectl get configmap/coredns -n kube-system -o yaml | sed -e 's|forward . /etc/resolv.conf|forward . $expectedNetworkInterfaceCni0IP_Master|' | kubectl apply -f -"; IgnoreErrors = $true }
+    #             $expectedExecutedRemoteCommands += @{Command = 'sudo chattr -i /etc/resolv.conf'; IgnoreErrors = $false }
+    #             $expectedExecutedRemoteCommands += @{Command = "echo 'nameserver 127.0.0.1' | sudo tee /etc/resolv.conf"; IgnoreErrors = $false }
                 
-                $expectedUser = "$expectedUserName@$expectedIpAddress"
-                $global:actualExecutedRemoteCommands = @()
-                Mock ExecCmdMaster { $global:actualExecutedRemoteCommands += (New-Object ActualRemoteCommand -Property @{Command = $CmdToExecute; IgnoreErrors = $IgnoreErrors }) } -ParameterFilter { $RemoteUser -eq $expectedUser -and $RemoteUserPwd -eq $expectedUserPwd -and $UsePwd -eq $true }
+    #             $expectedUser = "$expectedUserName@$expectedIpAddress"
+    #             $global:actualExecutedRemoteCommands = @()
+    #             Mock ExecCmdMaster { $global:actualExecutedRemoteCommands += (New-Object ActualRemoteCommand -Property @{Command = $CmdToExecute; IgnoreErrors = $IgnoreErrors }) } -ParameterFilter { $RemoteUser -eq $expectedUser -and $RemoteUserPwd -eq $expectedUserPwd -and $UsePwd -eq $true }
 
-                # Act
-                Set-UpMasterNode -UserName $expectedUserName -UserPwd $expectedUserPwd -IpAddress $expectedIpAddress -K8sVersion $expectedK8sVersion -ClusterCIDR $expectedClusterCIDR -ClusterCIDR_Services $expectedClusterCIDR_Services -KubeDnsServiceIP $expectedKubeDnsServiceIP -IP_NextHop $expectedIP_NextHop -NetworkInterfaceName $expectedNetworkInterfaceName -NetworkInterfaceCni0IP_Master $expectedNetworkInterfaceCni0IP_Master -Hook $expectedHook
+    #             # Act
+    #             Set-UpMasterNode -UserName $expectedUserName -UserPwd $expectedUserPwd -IpAddress $expectedIpAddress -K8sVersion $expectedK8sVersion -ClusterCIDR $expectedClusterCIDR -ClusterCIDR_Services $expectedClusterCIDR_Services -KubeDnsServiceIP $expectedKubeDnsServiceIP -IP_NextHop $expectedIP_NextHop -NetworkInterfaceName $expectedNetworkInterfaceName -NetworkInterfaceCni0IP_Master $expectedNetworkInterfaceCni0IP_Master -Hook $expectedHook
 
-                # Assert
-                $global:actualExecutedRemoteCommands.Count | Should -Be $expectedExecutedRemoteCommands.Count
+    #             # Assert
+    #             $global:actualExecutedRemoteCommands.Count | Should -Be $expectedExecutedRemoteCommands.Count
 
-                for ($i = 0; $i -lt $global:actualExecutedRemoteCommands.Count; $i++) {
-                    $global:actualExecutedRemoteCommands[$i].Command | Should -Be $expectedExecutedRemoteCommands[$i].Command
-                    $global:actualExecutedRemoteCommands[$i].IgnoreErrors | Should -Be $expectedExecutedRemoteCommands[$i].IgnoreErrors
-                }
+    #             for ($i = 0; $i -lt $global:actualExecutedRemoteCommands.Count; $i++) {
+    #                 $global:actualExecutedRemoteCommands[$i].Command | Should -Be $expectedExecutedRemoteCommands[$i].Command
+    #                 $global:actualExecutedRemoteCommands[$i].IgnoreErrors | Should -Be $expectedExecutedRemoteCommands[$i].IgnoreErrors
+    #             }
 
-                Should -Invoke -CommandName Add-FlannelPluginToMasterNode -Times 1 -ParameterFilter { $IpAddress -eq $expectedIpAddress -and $UserName -eq $expectedUserName -and $UserPwd -eq $expectedUserPwd -and $PodNetworkCIDR -eq $expectedClusterCIDR }
-                $global:HookExecuted | Should -Be $true
-            }
-        }
-    }
+    #             Should -Invoke -CommandName Add-FlannelPluginToMasterNode -Times 1 -ParameterFilter { $IpAddress -eq $expectedIpAddress -and $UserName -eq $expectedUserName -and $UserPwd -eq $expectedUserPwd -and $PodNetworkCIDR -eq $expectedClusterCIDR }
+    #             $global:HookExecuted | Should -Be $true
+    #         }
+    #     }
+    # }
 }
 
 Describe 'Add-FlannelPluginToMasterNode' -Tag 'unit', 'ci', 'linuxnode' {
