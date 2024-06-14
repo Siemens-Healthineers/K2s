@@ -17,7 +17,7 @@ Requires only the source code, no cluster needed.
 
 Param(
     [parameter(Mandatory = $false, HelpMessage = 'Name of Addons to dump container images')]
-    [string[]] $AddonNames
+    [string[]] $Addons
 )
 
 &$PSScriptRoot\..\..\smallsetup\common\GlobalVariables.ps1
@@ -29,8 +29,8 @@ Import-Module $addonsModule, $yamlModule
 
 $addonManifests = @()
 
-if ($AddonNames.Count -ne 0) {
-    foreach ($addonDirName in $AddonNames) {
+if ($Addons.Count -ne 0) {
+    foreach ($addonDirName in $Addons) {
         Write-Output "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] Starting Scrapping of Container Image for addon: $addonDirName"
         $addonManifests += Find-AddonManifests -Directory "$global:KubernetesPath\addons\$addonDirName" |`
             ForEach-Object {
