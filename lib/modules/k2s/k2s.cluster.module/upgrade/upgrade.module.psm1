@@ -502,7 +502,7 @@ function Invoke-ClusterInstall {
     if ( -not [string]::IsNullOrEmpty($MasterVMMemory) ) { $argsCall += " --master-memory $MasterVMMemory" }
     if ( -not [string]::IsNullOrEmpty($MasterDiskSize) ) { $argsCall += " --master-disk $MasterDiskSize" }
     Write-Log "Install with arguments: $kubePath\k2s $argsCall"
-    $rt = Invoke-Cmd -Executable $texe -Arguments -$argsCall
+    $rt = Invoke-Cmd -Executable $texe -Arguments $argsCall
     if ( $rt -eq 0 ) {
         Write-Log 'Install of cluster successfully called'
     }
