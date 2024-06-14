@@ -64,11 +64,15 @@ The following features are available:
    ---
 2. security: Basic authentication support is enabled. Dummy users are also created for development.
    user: demo-user
-   password: adm$Pass1234$
+   password: password
    Add below annotations in ingress to enable authentication support.
-    nginx.ingress.kubernetes.io/auth-url: "https://k2s.cluster.net/oauth2/auth"
-    nginx.ingress.kubernetes.io/auth-signin: "https://k2s.cluster.net/oauth2/start?rd=$escaped_request_uri"
+    nginx.ingress.kubernetes.io/auth-url: "https://k2s.cluster.local/oauth2/auth"
+    nginx.ingress.kubernetes.io/auth-signin: "https://k2s.cluster.local/oauth2/start?rd=$escaped_request_uri"
     nginx.ingress.kubernetes.io/auth-response-headers: "Authorization"
+   To access keycloak admin ui: https://k2s.cluster.local/keycloak/
+        user: admin
+        password: admin
+   Refer https://www.keycloak.org/guides for more information about keycloak
 This addon is documented in <installation folder>\addons\security\README.md
 '@ -split "`r`n" | ForEach-Object { Write-Log $_ -Console }
 }

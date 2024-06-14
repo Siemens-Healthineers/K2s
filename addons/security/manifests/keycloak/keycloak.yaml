@@ -531,7 +531,7 @@ data:
               "type": "password",
               "userLabel": "My password",
               "createdDate": 1713238552955,
-              "secretData": "{\"value\":\"O3VHP16k7eAT4lFHwYRAOLbaowMlwg7GHx089O8fJq9YP4gboALItNna2rQ3w/2zDOo38KW0lFUySe3bT5dJHQ==\",\"salt\":\"NrxLPNNhDROebEq8Gjofgg==\",\"additionalParameters\":{}}",
+              "secretData": "{\"value\":\"25jOpnlnL+PeSuRxKvojs6fl/zBTvjM12YaNSeJQ4Jsv9O3hiYL7I2Q/n+a0WgieVPbH6l0iZ8MYtx8D8KPVzw==\",\"salt\":\"bo4HBOMFy45xpoT02YJe4w==\",\"additionalParameters\":{}}",
               "credentialData": "{\"hashIterations\":210000,\"algorithm\":\"pbkdf2-sha512\",\"additionalParameters\":{}}"
             }
           ],
@@ -839,8 +839,8 @@ data:
           "secret": "1f3QCCQoDQXEwU7ngw9X8kaSe1uX8EIl",
           "redirectUris": [
             "http://localhost:4200",
-            "http://k2s.cluster.net/oauth2/callback",
-            "https://k2s.cluster.net/oauth2/callback",
+            "http://k2s.cluster.local/oauth2/callback",
+            "https://k2s.cluster.local/oauth2/callback",
             "http://172.19.1.100/oauth2/callback",
             "https://172.19.1.100/oauth2/callback"
           ],
@@ -859,7 +859,7 @@ data:
             "oidc.ciba.grant.enabled": "true",
             "client.secret.creation.time": "1713239258",
             "backchannel.logout.session.required": "true",
-            "post.logout.redirect.uris": "http://localhost:4200/##http://k2s.cluster.net/oauth2/callback/##https://k2s.cluster.net/oauth2/callback/##http://172.19.1.100/oauth2/callback/##https://172.19.1.100/oauth2/callback/",
+            "post.logout.redirect.uris": "http://localhost:4200/##http://k2s.cluster.local/oauth2/callback/##https://k2s.cluster.local/oauth2/callback/##http://172.19.1.100/oauth2/callback/##https://172.19.1.100/oauth2/callback/",
             "oauth2.device.authorization.grant.enabled": "true",
             "backchannel.logout.revoke.offline.tokens": "false"
           },
@@ -1059,8 +1059,8 @@ data:
           "clientAuthenticatorType": "client-secret",
           "redirectUris": [
             "http://localhost:4200",
-            "http://k2s.cluster.net/oauth2/callback",
-            "https://k2s.cluster.net/oauth2/callback",
+            "http://k2s.cluster.local/oauth2/callback",
+            "https://k2s.cluster.local/oauth2/callback",
             "http://172.19.1.100/oauth2/callback",
             "https://172.19.1.100/oauth2/callback"
           ],
@@ -1077,7 +1077,7 @@ data:
           "protocol": "openid-connect",
           "attributes": {
             "oidc.ciba.grant.enabled": "false",
-            "post.logout.redirect.uris": "http://localhost:4200/##http://k2s.cluster.net/oauth2/callback/##https://k2s.cluster.net/oauth2/callback/##http://172.19.1.100/oauth2/callback/##https://172.19.1.100/oauth2/callback/",
+            "post.logout.redirect.uris": "http://localhost:4200/##http://k2s.cluster.local/oauth2/callback/##https://k2s.cluster.local/oauth2/callback/##http://172.19.1.100/oauth2/callback/##https://172.19.1.100/oauth2/callback/",
             "oauth2.device.authorization.grant.enabled": "true",
             "backchannel.logout.session.required": "true",
             "backchannel.logout.revoke.offline.tokens": "false"
@@ -1218,8 +1218,8 @@ data:
           "secret": "f0GBomAr8auLt8G7M1zWM4V1Ng4Che1Q",
           "redirectUris": [
             "http://localhost:4200",
-            "http://k2s.cluster.net/oauth2/callback",
-            "https://k2s.cluster.net/oauth2/callback",
+            "http://k2s.cluster.local/oauth2/callback",
+            "https://k2s.cluster.local/oauth2/callback",
             "http://172.19.1.100/oauth2/callback",
             "https://172.19.1.100/oauth2/callback"
           ],
@@ -1238,7 +1238,7 @@ data:
             "oidc.ciba.grant.enabled": "true",
             "client.secret.creation.time": "1713239536",
             "backchannel.logout.session.required": "true",
-            "post.logout.redirect.uris": "http://localhost:4200/##http://k2s.cluster.net/oauth2/callback/##https://k2s.cluster.net/oauth2/callback/##http://172.19.1.100/oauth2/callback/##https://172.19.1.100/oauth2/callback/",
+            "post.logout.redirect.uris": "http://localhost:4200/##http://k2s.cluster.local/oauth2/callback/##https://k2s.cluster.local/oauth2/callback/##http://172.19.1.100/oauth2/callback/##https://172.19.1.100/oauth2/callback/",
             "oauth2.device.authorization.grant.enabled": "true",
             "backchannel.logout.revoke.offline.tokens": "false"
           },
@@ -1437,8 +1437,8 @@ data:
           "clientAuthenticatorType": "client-secret",
           "redirectUris": [
             "http://localhost:4200",
-            "http://k2s.cluster.net/oauth2/callback",
-            "https://k2s.cluster.net/oauth2/callback",
+            "http://k2s.cluster.local/oauth2/callback",
+            "https://k2s.cluster.local/oauth2/callback",
             "http://172.19.1.100/oauth2/callback",
             "https://172.19.1.100/oauth2/callback"
           ],
@@ -1455,7 +1455,7 @@ data:
           "protocol": "openid-connect",
           "attributes": {
             "oidc.ciba.grant.enabled": "false",
-            "post.logout.redirect.uris": "http://localhost:4200/##http://k2s.cluster.net/oauth2/callback/##https://k2s.cluster.net/oauth2/callback/##http://172.19.1.100/oauth2/callback/##https://172.19.1.100/oauth2/callback/",
+            "post.logout.redirect.uris": "http://localhost:4200/##http://k2s.cluster.local/oauth2/callback/##https://k2s.cluster.local/oauth2/callback/##http://172.19.1.100/oauth2/callback/##https://172.19.1.100/oauth2/callback/",
             "oauth2.device.authorization.grant.enabled": "true",
             "backchannel.logout.session.required": "true",
             "backchannel.logout.revoke.offline.tokens": "false"
@@ -3009,7 +3009,12 @@ spec:
       containers:
         - name: keycloak
           image: quay.io/keycloak/keycloak:24.0.2
-          args: ["start-dev", "--import-realm"]
+          args:
+            - start-dev
+            - '--hostname-strict=false'
+            - '--import-realm'
+            - '--proxy=edge'
+            - '--http-relative-path=keycloak'
           env:
             - name: KEYCLOAK_ADMIN
               value: "admin"
@@ -3022,7 +3027,7 @@ spec:
               containerPort: 8080
           readinessProbe:
             httpGet:
-              path: /realms/master
+              path: /keycloak/realms/master
               port: 8080
           volumeMounts:
             - name: keycloak-config-volume
@@ -3050,3 +3055,4 @@ spec:
     app: keycloak
   type: ClusterIP
 ---
+

@@ -39,7 +39,10 @@ $nodeModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.node.module\k2s.node.modu
 $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
 $securityModule = "$PSScriptRoot\security.module.psm1"
 
-Import-Module $infraModule, $clusterModule, $nodeModule, $addonsModule, $securityModule
+# TODO: Remove cross referencing once the code clones are removed and use the central module for these functions.
+$loggingModule = "$PSScriptRoot\..\logging\logging.module.psm1"
+
+Import-Module $infraModule, $clusterModule, $nodeModule, $addonsModule, $securityModule, $loggingModule
 Import-Module PKI;
 
 Initialize-Logging -ShowLogs:$ShowLogs
@@ -144,8 +147,14 @@ $params = @{
 Import-Certificate @params
 Remove-Item -Path $tempFile.FullName -Force
 
+Write-Log 'Checking for availability of Ingress Controller' -Console
+if (!(Test-NginxIngressControllerAvailability) -and !(Test-TraefikIngressControllerAvailability)) {
+    #Enable required ingress addon
+    Write-Log "No Ingress controller found in the cluster, enabling $Ingress controller" -Console
+    Enable-IngressAddon -Ingress:$Ingress
+}
+
 Write-Log 'Installing keycloak' -Console
-Add-HostEntries -Url 'k2s-security.local'
 $keyCloakYaml = Get-KeyCloakConfig
 (Invoke-Kubectl -Params 'apply', '-f', $keyCloakYaml).Output | Write-Log
 Deploy-IngressForSecurity -Ingress:$Ingress

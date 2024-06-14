@@ -52,10 +52,10 @@ data:
     # Provider config
     provider="keycloak-oidc"
     provider_display_name="Keycloak"
-    login_url="https://k2s-security.local/realms/demo-app/protocol/openid-connect/auth"
-    redeem_url="https://k2s-security.local/realms/demo-app/protocol/openid-connect/token"
-    validate_url="https://k2s-security.local/realms/demo-app/protocol/openid-connect/userinfo"
-    profile_url="https://k2s-security.local/realms/demo-app/protocol/openid-connect/userinfo"
+    login_url="https://k2s.cluster.local/keycloak/realms/demo-app/protocol/openid-connect/auth"
+    redeem_url="https://k2s.cluster.local/keycloak/realms/demo-app/protocol/openid-connect/token"
+    validate_url="https://k2s.cluster.local/keycloak/realms/demo-app/protocol/openid-connect/userinfo"
+    profile_url="https://k2s.cluster.local/keycloak/realms/demo-app/protocol/openid-connect/userinfo"
     ssl_insecure_skip_verify=true
     # Client config
     client_id="demo-client"
@@ -66,7 +66,7 @@ data:
     http_address="0.0.0.0:4180"
     upstreams="file:///dev/null"
     email_domains=["*"]
-    oidc_issuer_url="https://k2s-security.local/realms/demo-app"
+    oidc_issuer_url="https://k2s.cluster.local/keycloak/realms/demo-app"
     scope="openid"
     # token
     pass_access_token=true
@@ -100,8 +100,7 @@ spec:
       hostAliases:
         - ip: "172.19.1.100"
           hostnames:
-            - "k2s-security.local"
-            - "k2s.cluster.net"
+            - "k2s.cluster.local"
       containers:
         - name: oauth-proxy
           image: quay.io/oauth2-proxy/oauth2-proxy:v7.6.0

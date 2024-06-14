@@ -5,39 +5,12 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: keycloak
-  namespace: security
-  annotations:
-    nginx.ingress.kubernetes.io/enable-cors: "true"
-    cert-manager.io/cluster-issuer: k2s-ca-issuer
-    cert-manager.io/common-name: k2s-security.local
-spec:
-  ingressClassName: "nginx"
-  rules:
-    - host: k2s-security.local
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: keycloak
-                port:
-                  number: 8080
-  tls:
-    - hosts:
-        - k2s-security.local
-      secretName: k2s-security-local-tls
----
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
   name: oauth2-proxy
   namespace: security
 spec:
   ingressClassName: nginx
   rules:
-    - host: k2s.cluster.net
+    - host: k2s.cluster.local
       http:
         paths:
           - path: /oauth2
@@ -48,4 +21,24 @@ spec:
                 port:
                   number: 4180
 ---
-
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: keycloak
+  namespace: security
+  annotations:
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: k2s.cluster.local
+      http:
+        paths:
+          - path: /keycloak
+            pathType: Prefix
+            backend:
+              service:
+                name: keycloak
+                port:
+                  number: 8080
+---
