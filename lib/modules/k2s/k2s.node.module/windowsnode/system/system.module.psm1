@@ -231,7 +231,9 @@ Invoke-DownloadFile download file from internet.
 #>
 function Invoke-DownloadFile($destination, $source, $forceDownload,
     [parameter(Mandatory = $false)]
-    [string] $Proxy) {
+    [string] $Proxy,
+    [parameter(Mandatory = $false)]
+    [switch] $WithoutHttpProxyService) {
     if ((Test-Path $destination) -and (!$forceDownload)) {
         Write-Log "using existing $destination"
         return
@@ -239,10 +241,13 @@ function Invoke-DownloadFile($destination, $source, $forceDownload,
     if ( $Proxy -ne '' ) {
         Write-Log "Downloading '$source' to '$destination' with proxy: $Proxy"
         curl.exe --retry 5 --connect-timeout 60 --retry-all-errors --retry-delay 60 --silent --disable --fail -Lo $destination $source --proxy $Proxy --ssl-no-revoke -k #ignore server certificate error for cloudbase.it
-    }
-    else {
-        Write-Log "Downloading '$source' to '$destination'"
-        curl.exe --retry 5 --connect-timeout 60 --retry-all-errors --retry-delay 60 --silent --disable --fail -Lo $destination $source --proxy $(Get-HttpProxyServiceAddressForWindowsHost) --ssl-no-revoke -k #ignore server certificate error for cloudbase.it
+    } elseif ( $WithoutHttpProxyService -eq $true) {
+        Write-Log "Downloading '$source' to '$destination' (no proxy)"
+        curl.exe --retry 5 --connect-timeout 60 --retry-all-errors --retry-delay 60 --silent --disable --fail -Lo $destination $source --ssl-no-revoke --noproxy '*'
+    } else {
+        $httpProxyServiceUrl = $(Get-HttpProxyServiceAddressForWindowsHost)
+        Write-Log "Downloading '$source' to '$destination' with proxy: $httpProxyServiceUrl"
+        curl.exe --retry 5 --connect-timeout 60 --retry-all-errors --retry-delay 60 --silent --disable --fail -Lo $destination $source --proxy $httpProxyServiceUrl --ssl-no-revoke -k #ignore server certificate error for cloudbase.it
     }
 
     if (!$?) {
