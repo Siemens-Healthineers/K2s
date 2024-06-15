@@ -86,35 +86,39 @@ function Get-OrUpdateProxyServer ([string]$Proxy) {
     return $Proxy
 }
 
-function Get-ProxySettings {
-    Write-Log "Determining if proxy conf file '$configFilePath' is available"
-    if (Test-Path -Path $configFilePath) {
-        Write-Log "Proxy conf file '$configFilePath' found"
+function New-ProxyConfig {
+    param(
+        [string] $Proxy,
+        [string] $NoProxy
+    )
 
-        $proxySettings = Get-ProxyConfig
-        Write-Log "Proxy settings from proxy conf file: http_proxy=$($proxySettings.HttpProxy), https_proxy=$($proxySettings.HttpsProxy), no_proxy=$($proxySettings.NoProxy)"
-        
-        return $proxySettings
+    # If $Proxy and $NoProxy are empty, get values from the Windows registry
+    if ($Proxy -eq '' -and $NoProxy -eq '') {
+        Write-Log 'Determining if proxy is configured by the user in Windows Proxy settings.' -Console
+        $proxyEnabledStatus = Get-ProxyEnabledStatusFromWindowsSettings
+        if ($proxyEnabledStatus) {
+            $Proxy = Get-ProxyServerFromWindowsSettings
+            $NoProxy = Get-ProxyOverrideFromWindowsSettings
+            Write-Log "Configured proxy server in Windows Proxy settings: $Proxy" -Console
+        }
+        else {
+            Write-Log 'No proxy configured in Windows Proxy Settings.' -Console
+        }
     }
 
-    Write-Log "No proxy conf file '$configFilePath' found"
-
-    Write-Log 'Determining if proxy is configured by the user in Windows Proxy settings.'
-    if (Get-ProxyEnabledStatusFromWindowsSettings) {
-        $proxy = Get-ProxyServerFromWindowsSettings
-        $noProxy = Get-ProxyOverrideFromWindowsSettings
-
-        [ProxyConf]$proxySettings = [ProxyConf]::new()
-        $proxySettings.HttpProxy = $proxy
-        $proxySettings.HttpsProxy = $proxy
-        $proxySettings.NoProxy = $noProxy
-
-        Write-Log "Configured proxy server in Windows Proxy settings: http_proxy=$($proxySettings.HttpProxy), https_proxy=$($proxySettings.HttpsProxy), no_proxy=$($proxySettings.NoProxy)"
-        
-        return $proxySettings
+    # Ensure the directory exists
+    $configFileDirectory = Split-Path -Path $configFilePath -Parent
+    if (!(Test-Path -Path $configFileDirectory)) {
+        New-Item -ItemType Directory -Path $configFileDirectory | Out-Null
     }
 
-    return $null
+    # Create or overwrite the config file
+    New-Item -ItemType File -Path $configFilePath -Force | Out-Null
+
+    # Write the proxy settings to the config file
+    Add-Content -Path $configFilePath -Value "http_proxy=$Proxy"
+    Add-Content -Path $configFilePath -Value "https_proxy=$Proxy"
+    Add-Content -Path $configFilePath -Value "no_proxy=$NoProxy"
 }
 
 function Get-ProxyConfig {
@@ -122,6 +126,11 @@ function Get-ProxyConfig {
     $httpsProxy = ""
     $noProxy = ""
 
+    # Check if the config file exists
+    if (!(Test-Path -Path $configFilePath)) {
+        throw "Config file not found at path: $configFilePath"
+    }
+    
     Get-Content "$configFilePath" | ForEach-Object {
         $line = $_
         switch -regex ($line) {
@@ -138,4 +147,4 @@ function Get-ProxyConfig {
     }
 }
 
-Export-ModuleMember -Function Get-OrUpdateProxyServer, Get-ProxySettings
+Export-ModuleMember -Function Get-OrUpdateProxyServer, Get-ProxySettings, New-ProxyConfig, Get-ProxyConfig

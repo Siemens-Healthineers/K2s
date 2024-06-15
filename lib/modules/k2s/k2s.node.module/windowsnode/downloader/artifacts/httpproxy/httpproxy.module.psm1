@@ -15,7 +15,10 @@ $kubeBinPath = Get-KubeBinPath
 
 function Install-WinHttpProxy {
     # Get user proxy settings
-    $proxyConf = Get-ProxySettings
+    $proxyConf = Get-ProxyConfig
+
+    # Remove existing service
+    Remove-ServiceIfExists 'httpproxy'
 
     mkdir -Force "$(Get-SystemDriveLetter):\var\log\httpproxy" | Out-Null
     &$kubeBinPath\nssm install httpproxy "$kubeBinPath\httpproxy.exe"

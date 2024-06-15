@@ -37,6 +37,8 @@ Param(
     [uint64] $MasterDiskSize = 50GB,
     [parameter(Mandatory = $false, HelpMessage = 'HTTP proxy if available')]
     [string] $Proxy,
+    [parameter(Mandatory = $false, HelpMessage = 'No proxy if available')]
+    [string] $NoProxy,
     [parameter(Mandatory = $false, HelpMessage = 'DNS Addresses if available')]
     [string[]]$DnsAddresses = @('8.8.8.8', '8.8.4.4'),
     [parameter(Mandatory = $false, HelpMessage = 'Directory containing additional hooks to be executed after local hooks are executed')]
@@ -110,6 +112,9 @@ Write-Log 'Starting installation...'
 
 # Add K2s executables as part of environment variable
 Set-EnvVars
+
+# Initialize the proxy settings before starting installation.
+New-ProxyConfig -Proxy:$Proxy -NoProxy:$NoProxy
 
 $Proxy = Get-OrUpdateProxyServer -Proxy:$Proxy
 

@@ -359,6 +359,7 @@ function Install-WinNodeArtifacts {
         }
     }
 
+    Install-WinHttpProxy
     Invoke-DeployPuttytoolsArtifacts $windowsNodeArtifactsDirectory
 
     # remove folder with windows node artifacts since all of them are already published to the expected locations

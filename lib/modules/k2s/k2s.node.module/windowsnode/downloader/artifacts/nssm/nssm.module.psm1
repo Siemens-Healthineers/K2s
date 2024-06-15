@@ -29,7 +29,7 @@ function Invoke-DownloadNssmArtifacts($downloadsBaseDirectory, $windowsNodeArtif
     Write-Log "Create folder '$nssmDownloadsDirectory'"
     mkdir $nssmDownloadsDirectory | Out-Null
     Write-Log 'Download nssm'
-    Invoke-DownloadFile "$compressedFile" 'https://k8stestinfrabinaries.blob.core.windows.net/nssm-mirror/nssm-2.24.zip' $true $(Get-ProxySettings).HttpProxy
+    Invoke-DownloadFile "$compressedFile" 'https://k8stestinfrabinaries.blob.core.windows.net/nssm-mirror/nssm-2.24.zip' $true $(Get-ProxyConfig).HttpProxy
     $ErrorActionPreference = 'SilentlyContinue'
     cmd /c tar C `"$nssmDownloadsDirectory`" -xvf `"$compressedFile`" --strip-components 2 */$arch/*.exe 2>&1 | ForEach-Object { "$_" }
     $ErrorActionPreference = 'Stop'

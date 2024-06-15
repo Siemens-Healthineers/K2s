@@ -111,6 +111,9 @@ Write-Log 'Starting installation...'
 # Add K2s executables as part of environment variable
 Set-EnvVars
 
+# Initialize the proxy settings before starting installation.
+New-ProxyConfig -Proxy:$Proxy -NoProxy:$NoProxy
+
 ################################ SCRIPT START ###############################################
 
 # make sure we are at the right place for install
