@@ -34,7 +34,7 @@ function Invoke-DownloadDebianImage {
         Write-Log "File '$imgFile' already exists. Nothing to do."
     }
     else {
-        Invoke-Download $imgFile $url $false
+        Invoke-DownloadFile $imgFile $url $false
 
         Write-Log 'Checking file integrity...'
         $allHashs = ''
@@ -208,7 +208,7 @@ Function Get-QemuExecutable {
     $url = "https://cloudbase.it/downloads/$zipFileName"
     if (!(Test-Path $zipFilePath)) {
         Write-Log "Start download..."
-        Invoke-Download $zipFilePath $url $true
+        Invoke-DownloadFile $zipFilePath $url $true
         Write-Log "  ...done"
     }
     else {
