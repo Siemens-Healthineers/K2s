@@ -338,6 +338,9 @@ if ($ForOfflineInstallation) {
     $exclusionList += $winNodeArtifactsZipFilePath
 }
 
+$kubenodeBaseVhdxPath = "$(Split-Path -Path $controlPlaneBaseVhdxPath)\Kubenode-Base.vhdx"
+$exclusionList += $kubenodeBaseVhdxPath
+
 Write-Log 'Content of the exclusion list:' -Console
 $exclusionList | ForEach-Object { " - $_ " } | Write-Log -Console
 
