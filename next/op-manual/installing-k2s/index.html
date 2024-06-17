@@ -23,7 +23,7 @@ SPDX-License-Identifier: MIT
       
       
       <link rel="icon" href="../../assets/logo.png">
-      <meta name="generator" content="mkdocs-1.6.0, mkdocs-material-9.5.26">
+      <meta name="generator" content="mkdocs-1.6.0, mkdocs-material-9.5.27">
     
     
       
@@ -1802,6 +1802,7 @@ Start the installation passing this config:
 </code></pre></div></p>
 <details class="info">
 <summary>Offline vs. Online Installation Diagram</summary>
+</details>
 <pre class="mermaid"><code>graph TD
     CallScript["Installation scripts\n (Default, MultiVM, BuildOnlySetup)\n\n with\n [-DeleteFilesForOfflineInstallation]\n [-ForceOnlineInstallation]"] --&gt; if_force_online_installation{"Switch\n ForceOnlineInstallation\n used ?"}
     if_force_online_installation --&gt; |yes| BuildAndProvisionKubemasterBaseImage
@@ -1815,7 +1816,6 @@ Start the installation passing this config:
     if_delete_files_for_offline_installation --&gt; |yes| DeleteBaseImage("Delete file c\k\bin\Kubemaster-Base.vhdx")
     if_delete_files_for_offline_installation --&gt; |no| End
     DeleteBaseImage --&gt; End</code></pre>
-</details>
 <h3 id="option-1-host-default">[Option 1] Host (Default)</h3>
 <p>Simply run:
 <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="go">&lt;repo&gt;\k2s.exe install</span>

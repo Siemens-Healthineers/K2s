@@ -23,7 +23,7 @@ SPDX-License-Identifier: MIT
       
       
       <link rel="icon" href="../../assets/logo.png">
-      <meta name="generator" content="mkdocs-1.6.0, mkdocs-material-9.5.26">
+      <meta name="generator" content="mkdocs-1.6.0, mkdocs-material-9.5.27">
     
     
       
@@ -1627,6 +1627,7 @@ SPDX-License-Identifier: MIT
 <p>When running the aforementioned command and no <em>K2s</em> variant has been installed on the current system yet, the <a href="../../user-guide/hosting-variants/#development-only">Development-Only Variant</a> will be installed in order to create an offline package (which requires an internet connection). If all dependencies are already available locally due to prior installation of <em>K2s</em>, the offline package creation does not require internet connection.</p>
 <details class="info">
 <summary>Offline Package Creation Diagram</summary>
+</details>
 <pre class="mermaid"><code>graph TD
     CallScript["'c\k\smallsetup\helpers\Buildk2sZipPackage.ps1\n [-Proxy myProxy]\n -TargetDirectory myExistingDirectory\n -ZipPackageFileName myZipPackage.zip\n [-ForOfflineInstallation]'"] --&gt; if_for_offline{for offline\n installation?}
     if_for_offline --&gt;|no| AddBaseImageToExclusionList("Include c\k\bin\Kubemaster-Base.vhdx to exclusion list")
@@ -1638,7 +1639,6 @@ SPDX-License-Identifier: MIT
     GetFilesAndDirectories("Get a list with all files and directories") --&gt; FilterByExclusionList
     FilterByExclusionList("Remove files and directories from list according to exclusion list") --&gt; CreateZipPackage
     CreateZipPackage("Create zip package") --&gt; PopulateZipPackage("Populate zip package with directories and files")</code></pre>
-</details>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>Omitting the <code>--for-offline-installation</code> flag will effectively bundle only repository source files similar to the <a href="https://github.com/Siemens-Healthineers/K2s/releases" target="_blank"><em>K2s</em> Releases</a>.</p>
