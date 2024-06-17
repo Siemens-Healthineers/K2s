@@ -1,9 +1,13 @@
-name: release
+# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+# SPDX-License-Identifier: MIT
+
+name: Release a version
 
 on:
+  workflow_dispatch:
   push:
     tags:
-      - '*'
+      - 'v1.*'
 
 jobs:
   build_release:
