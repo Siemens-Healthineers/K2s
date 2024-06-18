@@ -49,6 +49,8 @@ jobs:
       run: |
         git config --local user.email github-actions@github.com
         git config --local user.name github-actions
+        git remote add ssh://git@github.com/Siemens-Healthineers/K2s.git
+        git remote -v
 
     - name: Current working directory
       run: |
