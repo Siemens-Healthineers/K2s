@@ -62,7 +62,8 @@ jobs:
         .\test\execute_all_tests.ps1 -Tags ci -ExcludeTags unit, integration -V -ThrowOnFailure
 
     - name: Commit k2s cli
-      run: |
-        git add k2s.exe
-        git commit -m  "${{ env.CI_COMMIT_MESSAGE }}"
-        git push
+      uses: leigholiver/commit-with-deploy-key@v1.0.4
+      with:
+        source: k2s.exe
+        destination_repo: Siemens-Healthineers/K2s
+        deploy_key: ${{ secrets.AUTOCOMMITPRIVATEKEY }}
