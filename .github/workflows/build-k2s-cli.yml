@@ -30,6 +30,10 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+      
+    - uses: webfactory/ssh-agent@v0.9.0
+      with:
+          ssh-private-key: ${{ secrets.AUTOCOMMITKEY }}
 
     - name: Set up Golang
       uses: actions/setup-go@v5
@@ -62,8 +66,7 @@ jobs:
         .\test\execute_all_tests.ps1 -Tags ci -ExcludeTags unit, integration -V -ThrowOnFailure
 
     - name: Commit k2s cli
-      uses: leigholiver/commit-with-deploy-key@v1.0.4
-      with:
-        source: k2s.exe
-        destination_repo: Siemens-Healthineers/K2s
-        deploy_key: ${{ secrets.AUTOCOMMITPRIVATEKEY }}
+      run: |
+        git add k2s.exe
+        git commit -m  "${{ env.CI_COMMIT_MESSAGE }}"
+        git push
