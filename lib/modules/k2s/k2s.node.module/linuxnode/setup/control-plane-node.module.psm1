@@ -20,7 +20,7 @@ function New-ControlPlaneNodeOnNewVM {
         [parameter(Mandatory = $false, HelpMessage = 'HTTP proxy if available')]
         [string] $Proxy,
         [parameter(Mandatory = $false, HelpMessage = 'DNS Addresses if available')]
-        [string[]]$DnsAddresses = @('8.8.8.8', '8.8.4.4'),
+        [string]$DnsServers = $(throw 'Argument missing: DnsServers'),
         [parameter(Mandatory = $false, HelpMessage = 'Directory containing additional hooks to be executed after local hooks are executed')]
         [string] $AdditionalHooksDir = '',
         [parameter(Mandatory = $false, HelpMessage = 'Deletes the needed files to perform an offline installation')]
@@ -61,7 +61,7 @@ function New-ControlPlaneNodeOnNewVM {
         Hostname = Get-ConfigControlPlaneNodeHostname
         IpAddress = Get-ConfiguredIPControlPlane
         GatewayIpAddress = Get-ConfiguredKubeSwitchIP
-        DnsServers= $(Get-DnsIpAddressesFromActivePhysicalNetworkInterfacesOnWindowsHost)
+        DnsServers= $DnsServers
         VmName = 'KubeMaster'
         VMMemoryStartupBytes = $MasterVMMemory
         VMProcessorCount = $MasterVMProcessorCount
@@ -119,7 +119,8 @@ function Start-ControlPlaneNodeOnNewVM {
         [parameter(Mandatory = $false, HelpMessage = 'Use cached vSwitches')]
         [switch] $UseCachedK2sVSwitches,
         [parameter(Mandatory = $false, HelpMessage = 'Skips showing start header display')]
-        [switch] $SkipHeaderDisplay = $false
+        [switch] $SkipHeaderDisplay = $false,
+        [string] $DnsServers = $(throw 'Argument missing: DnsServers')
     )
     
     $windowsHostIpAddress = Get-ConfiguredKubeSwitchIP
@@ -147,12 +148,43 @@ function Start-ControlPlaneNodeOnNewVM {
         return $true
     }
 
+    function EnsureCni0InterfaceIsCreated {
+        param (
+            [string] $VmName = $(throw 'Argument missing: VmName'),
+            [bool] $WSL  = $(throw 'Argument missing: WSL')
+        )
+        $i = 0
+        while($true) {
+            $controlPlaneCni0IpAddr = Get-Cni0IpAddressInControlPlaneUsingSshWithRetries -Retries 10 -RetryTimeoutInSeconds 5
+            $expectedControlPlaneCni0IpAddr = Get-ConfiguredMasterNetworkInterfaceCni0IP
+                         
+            if ($controlPlaneCni0IpAddr -ne $expectedControlPlaneCni0IpAddr) {
+                Write-Log "cni0 interface in $controlPlaneVMHostName is not correctly initialized."
+                Write-Log "           Expected:$expectedControlPlaneCni0IpAddr"
+                Write-Log "           Actual:$controlPlaneCni0IpAddr"
+        
+                if ($i -eq 3) {
+                    throw "cni0 interface in $controlPlaneVMHostName is not correctly initialized after $i retries."
+                }
+            } else {
+                Write-Log "cni0 interface in $controlPlaneVMHostName correctly initialized."
+                break
+            }  
+            if (!$WSL) {
+                Stop-VirtualMachine -VmName $VmName -Wait
+                Start-VirtualMachine -VmName $VmName -Wait
+            } else {
+                wsl --shutdown
+                Start-WSL
+            }
+            Wait-ForSSHConnectionToLinuxVMViaSshKey
+            $i++
+        }              
+    }
+
     if ($SkipHeaderDisplay -eq $false) {
         Write-Log 'Starting K2s control plane'
     }
-
-    # set ConfigKey_LoggedInRegistry empty, since not logged in into registry after restart anymore
-    Set-ConfigLoggedInRegistry -Value ''
 
     $WSL = Get-ConfigWslFlag
     if ($WSL) {
@@ -162,8 +194,6 @@ function Start-ControlPlaneNodeOnNewVM {
         Write-Log 'Using Hyper-V as hosting environment for the control plane node'
     }
 
-
-    $ProgressPreference = 'SilentlyContinue'
 
     $NumOfProcessors = (Get-CimInstance Win32_ComputerSystem).NumberOfLogicalProcessors
     if ([int]$NumOfProcessors -lt 4) {
@@ -233,10 +263,6 @@ function Start-ControlPlaneNodeOnNewVM {
         New-NetFirewallRule -DisplayName 'WSL Outbound'-Group "k2s" -Direction Outbound -InterfaceAlias $interfaceAlias -Action Allow
     }
 
-    $ipindex = Get-NetIPInterface | Where-Object InterfaceAlias -Like "*$switchname*" | Where-Object AddressFamily -Eq IPv4 | Select-Object -expand 'ifIndex'
-    Write-Log "Index for interface $switchname : ($ipindex) -> metric 25"
-    Set-NetIPInterface -InterfaceIndex $ipindex -InterfaceMetric 25
-
     # add DNS proxy for cluster searches
     Add-DnsServer $switchname
 
@@ -246,16 +272,18 @@ function Start-ControlPlaneNodeOnNewVM {
 
     Wait-ForSSHConnectionToLinuxVMViaSshKey
 
+    EnsureCni0InterfaceIsCreated -VmName $controlPlaneVMHostName -WSL:$WSL
+
+    $ipindex = Get-NetIPInterface | Where-Object InterfaceAlias -Like "*$switchname*" | Where-Object AddressFamily -Eq IPv4 | Select-Object -expand 'ifIndex'
+    Write-Log "Index for interface $switchname : ($ipindex) -> metric 25"
+    Set-NetIPInterface -InterfaceIndex $ipindex -InterfaceMetric 25
+
     Invoke-TimeSync
     
     Write-Log 'Set the DNS server(s) used by the Windows Host as the default DNS server(s) of the VM'
-    $defaultDnsServer = '8.8.8.8'
-    $commaSeparatedDnsServers = $(Get-DnsIpAddressesFromActivePhysicalNetworkInterfacesOnWindowsHost) + ",$defaultDnsServer"
-    $dnsServers = $commaSeparatedDnsServers.Replace(',', ' ')
-    Invoke-CmdOnControlPlaneViaSSHKey "sudo sed -i 's/dns-nameservers.*/dns-nameservers $dnsServers/' /etc/network/interfaces.d/10-k2s"
-    Invoke-CmdOnControlPlaneViaSSHKey 'sudo /sbin/ifup -a --ignore-errors'
-    Invoke-CmdOnControlPlaneViaSSHKey 'sudo systemctl restart networking'
-    Invoke-CmdOnControlPlaneViaSSHKey 'sudo systemctl restart dnsmasq'
+    (Invoke-CmdOnControlPlaneViaSSHKey "sudo sed -i 's/dns-nameservers.*/dns-nameservers $DnsServers/' /etc/network/interfaces.d/10-k2s").Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaSSHKey 'sudo systemctl restart networking').Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaSSHKey 'sudo systemctl restart dnsmasq').Output | Write-Log
 
     $ipControlPlane = Get-ConfiguredIPControlPlane
     $setupConfigRoot = Get-RootConfigk2s
@@ -287,8 +315,6 @@ function Start-ControlPlaneNodeOnNewVM {
     netsh int ipv4 set int "vEthernet ($switchname)" forwarding=enabled | Out-Null
     netsh int ipv4 set int 'vEthernet (Ethernet)' forwarding=enabled | Out-Null
 
-    Invoke-AddonsHooks -HookType 'AfterStart'
-
     if ($SkipHeaderDisplay -eq $false) {
         Write-Log 'K2s control plane started'
     }
@@ -315,8 +341,6 @@ function Stop-ControlPlaneNodeOnNewVM {
         Write-Log 'Resetting default namespace for kubernetes'
         &"$kubectlExe" config set-context --current --namespace=default | Out-Null
     }
-
-    $ProgressPreference = 'SilentlyContinue'
 
     $WSL = Get-ConfigWslFlag
 

@@ -816,7 +816,7 @@ function New-VmImageForControlPlaneNode {
         [string]$Hostname,
         [string]$IpAddress,
         [string]$GatewayIpAddress,
-        [string]$DnsServers,
+        [string]$DnsServers = $(throw 'Argument missing: DnsServers'),
         [parameter(Mandatory = $false, HelpMessage = 'The path to save the prepared base image.')]
         [string] $VmImageOutputPath = $(throw 'Argument missing: VmImageOutputPath'),
         [parameter(Mandatory = $false, HelpMessage = 'Startup Memory Size of VM')]

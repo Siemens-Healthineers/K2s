@@ -44,12 +44,17 @@ param (
     $hostname = Get-ConfigControlPlaneNodeHostname
     $ipAddress = Get-ConfiguredIPControlPlane
     $gatewayIpAddress = Get-ConfiguredKubeSwitchIP
+    $loopbackAdapter = Get-L2BridgeName
+    $dnsServers = Get-DnsIpAddressesFromActivePhysicalNetworkInterfacesOnWindowsHost -ExcludeNetworkInterfaceName $loopbackAdapter
+    if ([string]::IsNullOrWhiteSpace($dnsServers)) {
+        $dnsServers = '8.8.8.8'
+    }
 
     $controlPlaneNodeCreationParams = @{
         Hostname=$hostname
         IpAddress=$ipAddress
         GatewayIpAddress=$gatewayIpAddress
-        DnsServers= $(Get-DnsIpAddressesFromActivePhysicalNetworkInterfacesOnWindowsHost)
+        DnsServers= $dnsServers
         VmImageOutputPath=$OutputPath
         Proxy=$Proxy
         VMMemoryStartupBytes=$VMMemoryStartupBytes

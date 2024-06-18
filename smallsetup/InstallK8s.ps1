@@ -41,7 +41,7 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'HTTP proxy if available')]
     [string] $Proxy,
     [parameter(Mandatory = $false, HelpMessage = 'DNS Addresses if available')]
-    [string[]]$DnsAddresses = @('8.8.8.8', '8.8.4.4'),
+    [string[]]$DnsAddresses,
     [parameter(Mandatory = $false, HelpMessage = 'Directory containing additional hooks to be executed after local hooks are executed')]
     [string] $AdditionalHooksDir = '',
     [parameter(Mandatory = $false, HelpMessage = 'Deletes the needed files to perform an offline installation')]
@@ -105,6 +105,16 @@ $Proxy = Get-OrUpdateProxyServer -Proxy:$Proxy
 $linuxOsType = Get-LinuxOsType $LinuxVhdxPath
 Set-ConfigLinuxOsType -Value $linuxOsType
 
+$dnsServers = $DnsAddresses -join ','
+if ([string]::IsNullOrWhiteSpace($dnsServers)) {
+    $loopbackAdapter = Get-L2BridgeName
+    $dnsServers = Get-DnsIpAddressesFromActivePhysicalNetworkInterfacesOnWindowsHost -ExcludeNetworkInterfaceName $loopbackAdapter
+    if ([string]::IsNullOrWhiteSpace($dnsServers)) {
+        $dnsServers = '8.8.8.8,8.8.4.4'
+    }
+}
+
+
 Write-Log 'Setting up control plane on new VM' -Console
 
 $controlPlaneNodeParams = @{
@@ -112,12 +122,12 @@ $controlPlaneNodeParams = @{
     MasterVMProcessorCount = $MasterVMProcessorCount
     MasterDiskSize = $MasterDiskSize
     Proxy = $Proxy
-    DnsAddresses = $DnsAddresses
     AdditionalHooksDir = $AdditionalHooksDir
     DeleteFilesForOfflineInstallation = $DeleteFilesForOfflineInstallation
     ForceOnlineInstallation = $ForceOnlineInstallation
     CheckOnly = $CheckOnly
     WSL = $WSL
+    DnsServers = $dnsServers
 }
 New-ControlPlaneNodeOnNewVM @controlPlaneNodeParams
 
