@@ -1,0 +1,17 @@
+# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+# SPDX-License-Identifier: MIT
+
+name: Commitlint
+
+on:
+  push:
+    branches: ['main']
+  pull_request:
+
+jobs:
+  commitlint:
+    runs-on: ubuntu-latest
+    name: Commitlint
+    steps:
+      - name: Conventional Commitlint
+        uses: opensource-nepal/commitlint@v1
