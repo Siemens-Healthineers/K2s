@@ -20,7 +20,7 @@ jobs:
     continue-on-error: false
     runs-on: windows-latest
     env:
-      CI_COMMIT_MESSAGE: Auto-commit k2s artifacts
+      CI_COMMIT_MESSAGE: "ci: auto-commit k2s artifacts"
     steps:
     - name: Checkout code
       uses: actions/checkout@v4

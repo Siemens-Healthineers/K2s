@@ -26,7 +26,7 @@ jobs:
     continue-on-error: false
     runs-on: windows-latest
     env:
-      CI_COMMIT_MESSAGE: Auto-commit k2s cli
+      CI_COMMIT_MESSAGE: "ci: auto-commit k2s cli"
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
