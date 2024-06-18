@@ -32,7 +32,7 @@ jobs:
         uses: loopwerk/tag-changelog@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          exclude_types: chore   
+          exclude_types: ci, chore   
 
         # create the release for the version
       - name: release
