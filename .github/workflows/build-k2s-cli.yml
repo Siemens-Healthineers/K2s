@@ -41,16 +41,17 @@ jobs:
         go-version: ${{env.GOVERSION}}
         cache-dependency-path: "**/*.sum"
 
-    - name: Show all diff
-      run: |
-        git diff --exit-code -- .
-
     - name: Configure repo
       run: |
         git config --local user.email github-actions@github.com
         git config --local user.name github-actions
-        git remote add ssh://git@github.com/Siemens-Healthineers/K2s.git
         git remote -v
+        git remote set-url origin git@github.com/Siemens-Healthineers/K2s.git
+        git remote -v
+
+    - name: Show all diff
+      run: |
+        git diff --exit-code -- .
 
     - name: Current working directory
       run: |
