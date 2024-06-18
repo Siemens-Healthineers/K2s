@@ -24,6 +24,10 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+      # use an older version since under windows it caues an key verification error
+    - uses: webfactory/ssh-agent@v0.7.0
+      with:
+        ssh-private-key: ${{ secrets.AUTOCOMMITKEY }}
 
     - name: Set up Golang
       uses: actions/setup-go@v5
@@ -39,6 +43,7 @@ jobs:
       run: |
         git config --local user.email github-actions@github.com
         git config --local user.name github-actions
+        git remote -v
 
     - name: Current working directory
       run: |
