@@ -22,8 +22,9 @@ jobs:
 
         # get the version from the k2s cli
       - name: version
-        run: echo "version=$(powershell (.\k2s.exe version).Split()[1].Substring(0, 6))" >> $GITHUB_OUTPUT
+        run: echo "version=(.\k2s.exe version).Split()[1].Substring(0, 6)" >> $env:$GITHUB_OUTPUT
         id: version
+        shell: pwsh
 
         # create the changelog text
       - name: Create changelog text
