@@ -22,6 +22,12 @@ Show all logs in terminal
 
 .EXAMPLE
 PS> .\build\bom\GenerateBom.ps1
+
+Generate SBOM with annotations for clearance purpose
+PS> .\build\bom\GenerateBom.ps1 -Annotate
+
+Generate SBOM with annotations for clearance for specific addons
+PS> .\build\bom\GenerateBom.ps1 -Annotate -Addons registry,traefik
 #>
 
 Param(
@@ -30,7 +36,9 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
     [switch] $ShowLogs = $false,
     [parameter(Mandatory = $false, HelpMessage = 'If true, final SBOM file will have component annotations, this is required only for component clearance')]
-    [switch] $Annotate = $false
+    [switch] $Annotate = $false,
+    [parameter(Mandatory = $false, HelpMessage = 'Name of Addons to include for SBOM generation')]
+    [string[]] $Addons
 )
 
 function EnsureTrivy() {
@@ -174,11 +182,12 @@ function LoadK2sImages() {
     $tempDir = [System.Environment]::GetEnvironmentVariable('TEMP')
 
     # dump all images
-    &$bomRootDir\DumpK2sImages.ps1
-        
+    &$bomRootDir\DumpK2sImages.ps1 -Addons $Addons
+
     # export all addons to have all images pull
-    Write-Output "Writing to temp all containers $tempDir"
-    &k2s.exe addons export -d $tempDir -o
+    Write-Output "Exporting addons to trigger pulling of containers under $tempDir"
+
+    &k2s.exe addons export $Addons -d $tempDir -o
     if ( Test-Path -Path $tempDir\addons.zip) {
         Remove-Item -Path $tempDir\addons.zip -Force
     }
@@ -190,10 +199,6 @@ function GenerateBomContainers() {
     Write-Output 'Generate bom for container images'
 
     $tempDir = [System.Environment]::GetEnvironmentVariable('TEMP')
-    
-    # cleanup existing container json files
-    Write-Output "Cleaning up existing container json files"
-    Get-ChildItem -Path "$bomRootDir\merge" -Filter "*.json" | Where-Object { $_.Name -notin "k2s-static.json", "k2s-static.json.license" } | Remove-Item -Force
 
     # read json file and iterate through entries, filter out windows images
     $jsonFile = "$bomRootDir\container-images-used.json"
@@ -335,14 +340,20 @@ if ($Trace) {
 }
 
 Write-Output '---------------------------------------------------------------'
-Write-Output ' Generation of bom file started.'
+Write-Output 'Generation of bom file started.'
 Write-Output '---------------------------------------------------------------'
 
 if ($Annotate) {
-    Write-Output ' Annotation of SBOM enabled.'
+    Write-Output 'Annotation of SBOM enabled.'
     if (!(Test-Path "$bomRootDir\sbomgenerator.exe")) {
         throw "sbomgenerator.exe is not present under directory $bomRootDir"
     }
+}
+
+if ($Addons) {
+    Write-Output "Generating SBOM for addons '$Addons'"
+} else {
+    Write-Output "Generating SBOM for all the available addons"
 }
 
 $generationStopwatch = [system.diagnostics.stopwatch]::StartNew()
