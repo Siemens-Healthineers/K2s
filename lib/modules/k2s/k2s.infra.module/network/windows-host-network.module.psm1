@@ -5,7 +5,7 @@ $logModule = "$PSScriptRoot\..\log\log.module.psm1"
 
 Import-Module $logModule
 
-Function Get-DnsIpAddressesFromActivePhysicalNetworkInterfacesOnWindowsHost {
+function Get-DnsIpAddressesFromActivePhysicalNetworkInterfacesOnWindowsHost {
     param (
         [string]$ExcludeNetworkInterfaceName = ''
     )

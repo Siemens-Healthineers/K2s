@@ -75,12 +75,17 @@ function BuildAndProvisionKubemasterBaseImage($WindowsNodeArtifactsZip, $OutputP
         $hostname = Get-ConfigControlPlaneNodeHostname
         $ipAddress = Get-ConfiguredIPControlPlane
         $gatewayIpAddress = Get-ConfiguredKubeSwitchIP
-    
+        $loopbackAdapter = Get-L2BridgeName
+        $dnsServers = Get-DnsIpAddressesFromActivePhysicalNetworkInterfacesOnWindowsHost -ExcludeNetworkInterfaceName $loopbackAdapter
+        if ([string]::IsNullOrWhiteSpace($dnsServers)) {
+            $dnsServers = '8.8.8.8'
+        }
+
         $controlPlaneNodeCreationParams = @{
             Hostname=$hostname
             IpAddress=$ipAddress
             GatewayIpAddress=$gatewayIpAddress
-            DnsServers= $(Get-DnsIpAddressesFromActivePhysicalNetworkInterfacesOnWindowsHost)
+            DnsServers= $dnsServers
             VmImageOutputPath=$OutputPath
             Proxy=$Proxy
             VMMemoryStartupBytes=$VMMemoryStartupBytes
@@ -133,7 +138,7 @@ function DownloadAndZipWindowsNodeArtifacts($outputPath) {
     Write-Log "Download and create zip file with Windows node artifacts for $outputPath with proxy $Proxy" -Console
     $kubernetesVersion = Get-DefaultK8sVersion
     try {
-        Invoke-DeployWinArtifacts -KubernetesVersion $kubernetesVersion -Proxy "$Proxy" -SkipClusterSetup $true
+        Invoke-DeployWinArtifacts -KubernetesVersion $kubernetesVersion -Proxy "$Proxy"
     } finally {
         Invoke-DownloadsCleanup -DeleteFilesForOfflineInstallation $false
     }

@@ -103,8 +103,8 @@ Join the windows node with linux control plane node
 #>
 function Join-WindowsNode {
     Param(
-        [Parameter(HelpMessage = 'When executing ssh.exe in nested environment[host=>VM=>VM], -n flag should not be used.')]
-        [switch]$Nested = $false
+        [string]$CommandForJoining = $(throw 'Argument missing: CommandForJoining'),
+        [string] $WorkerNodeNumber = $(throw 'Argument missing: WorkerNodeNumber')
     )
 
     # join node if necessary
@@ -132,8 +132,7 @@ function Join-WindowsNode {
         # Remove-Job -Name JoinK8sJob -Force -ErrorAction SilentlyContinue
         Write-Log 'Build join command ..'
 
-        $tokenCreationCommand = 'sudo kubeadm token create --print-join-command'
-        $cmdjoin = (Invoke-CmdOnControlPlaneViaSSHKey "$tokenCreationCommand" -Nested:$Nested).Output 2>&1 | Select-String -Pattern 'kubeadm join' -CaseSensitive -SimpleMatch
+        $cmdjoin = $CommandForJoining | Select-String -Pattern 'kubeadm join' -CaseSensitive -SimpleMatch
         $cmdjoin.Line = $cmdjoin.Line.replace("`n", '').replace("`r", '')
 
         $searchPattern = 'kubeadm join (?<api>[^\s]*) --token (?<token>[^\s]*) --discovery-token-ca-cert-hash (?<hash>[^\s]*)'
@@ -150,7 +149,7 @@ function Join-WindowsNode {
         $token = $patternSearchResult.Matches.Groups[2].Value
         $hash = $patternSearchResult.Matches.Groups[3].Value
         $caCertFilePath = "$(Get-SystemDriveLetter):\etc\kubernetes\pki\ca.crt"
-        $windowsNodeIpAddress = $setupConfigRoot.psobject.properties['cbr0'].value
+        $windowsNodeIpAddress = Get-ConfiguredClusterCIDRNextHop -WorkerNodeNumber $WorkerNodeNumber
 
         Write-Log 'Create config file for join command'
         $joinConfigurationTemplateFilePath = "$kubePath\cfg\kubeadm\joinwindowsnode.template.yaml"
@@ -251,7 +250,8 @@ function Set-KubeletDiskPressure {
 function Initialize-KubernetesCluster {
     Param(
         [parameter(Mandatory = $false, HelpMessage = 'Directory containing additional hooks to be executed after local hooks are executed')]
-        [string] $AdditionalHooksDir = ''
+        [string] $AdditionalHooksDir = '',
+        [string] $WorkerNodeNumber = $(throw 'Argument missing: WorkerNodeNumber')
     )
     Copy-KubeConfigFromControlPlaneNode
     Add-K8sContext
@@ -259,7 +259,9 @@ function Initialize-KubernetesCluster {
 
     # try to join host windows node
     Write-Log 'starting the join process'
-    Join-WindowsNode
+    
+    $joinCommand = New-JoinCommand
+    Join-WindowsNode -CommandForJoining $joinCommand -WorkerNodeNumber $WorkerNodeNumber
 
     Set-KubeletDiskPressure
 
@@ -372,10 +374,12 @@ function Save-ControlPlaneNodeHostnameIntoWinVM($vmSession) {
     Write-Log '  done.'
 }
 
-function Join-VMWindowsNode($vmSession) {
+function Join-VMWindowsNode($vmSession, $workerNodeNumber) {
     Write-Log 'Joining Windows node ...'
 
     $ErrorActionPreference = 'Continue'
+
+    $joinCommand = New-JoinCommand
 
     Invoke-Command -Session $vmSession {
         Set-Location "$env:SystemDrive\k"
@@ -391,12 +395,18 @@ function Join-VMWindowsNode($vmSession) {
         Import-Module $env:SystemDrive\k\lib\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1
         Initialize-Logging -Nested:$true
 
-        Join-WindowsNode -Nested:$true
+        Join-WindowsNode -CommandForJoining $using:joinCommand -WorkerNodeNumber $using:workerNodeNumber
     }
 
     $ErrorActionPreference = 'Stop'
 
     Write-Log 'Windows node joined.'
+}
+
+function New-JoinCommand {
+    $tokenCreationCommand = 'sudo kubeadm token create --print-join-command'
+    $joinCommand = (Invoke-CmdOnControlPlaneViaSSHKey "$tokenCreationCommand").Output 2>&1
+    return $joinCommand
 }
 
 function Set-DiskPressureLimitsOnWindowsNode($vmSession) {
@@ -465,5 +475,7 @@ function Write-K8sNodesStatus {
 
 Export-ModuleMember Initialize-KubernetesCluster,
 Uninstall-Cluster, Set-KubeletDiskPressure,
-Join-WindowsNode, Add-K8sContext,
-Add-ClusterDnsNameToHost, Initialize-VMKubernetesCluster
+Join-WindowsNode, Join-VMWindowsNode, Add-K8sContext,
+Add-ClusterDnsNameToHost, Initialize-VMKubernetesCluster,
+Set-DiskPressureLimitsOnWindowsNode, Add-IPsToHostsFiles,
+Write-K8sNodesStatus
