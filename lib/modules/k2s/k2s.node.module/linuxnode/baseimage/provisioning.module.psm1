@@ -771,7 +771,7 @@ function Get-CIDRForProvisioningKubeNode {
 }
 
 function Get-HttpProxyServiceAddressForProvisioningKubeNode {
-    return "172.18.12.1:8181"
+    return "http://172.18.12.1:8181"
 }
 
 function Get-DefaultUserNameKubeNode {
