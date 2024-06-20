@@ -211,7 +211,8 @@ function Install-WinContainerd {
         [string] $Proxy = '',
         [parameter(Mandatory = $false, HelpMessage = 'Will skip setting up networking which is required only for cluster purposes')]
         [bool] $SkipNetworkingSetup = $false,
-        $WindowsNodeArtifactsDirectory
+        $WindowsNodeArtifactsDirectory,
+        [string] $WorkerNodeNumber = '1'
     )
 
     Write-Log 'First uninstall containerd service if existent'
@@ -258,7 +259,7 @@ timeout: 30
         $nameServers = Get-Content "$kubePath\cfg\containerd\flannel-l2bridge.conf" | Select-String 'NAME.SERVERS' | Select-Object -ExpandProperty Line
         if ( $nameServers ) {
             $configuredNameservers = ''
-            $clusterCIDRNextHop = $setupConfigRoot.psobject.properties['cbr0'].value
+            $clusterCIDRNextHop = Get-ConfiguredClusterCIDRNextHop -WorkerNodeNumber $WorkerNodeNumber
             $kubeDnsServiceIP = $setupConfigRoot.psobject.properties['kubeDnsServiceIP'].value
 
             $clusterCIDRNextHop | ForEach-Object { $configuredNameservers += "                                ""$_"",`n" }

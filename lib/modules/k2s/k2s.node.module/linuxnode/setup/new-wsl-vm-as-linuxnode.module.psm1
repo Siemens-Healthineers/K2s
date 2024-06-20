@@ -34,17 +34,12 @@ function New-WslLinuxVmAsControlPlaneNode {
     )
 
     $kubebinPath = Get-KubeBinPath
-    $vhdxPath = "$kubebinPath\Kubemaster-Base-for-WSL.vhdx"
+    $vhdxPath = "$kubebinPath\Kubemaster-Base.vhdx"
     $rootfsPath = Get-ControlPlaneOnWslRootfsFilePath
 
     $isRootfsFileAlreadyAvailable = (Test-Path $rootfsPath)
-    $isOnlineInstallation = (!$isRootfsFileAlreadyAvailable -or $ForceOnlineInstallation)
-
-    if ($isOnlineInstallation -and $isRootfsFileAlreadyAvailable) {
+    if ($ForceOnlineInstallation -and $isRootfsFileAlreadyAvailable) {
         Remove-Item -Path $rootfsPath -Force
-    }
-    if (Test-Path -Path $vhdxPath) {
-        Remove-Item -Path $vhdxPath -Force
     }
 
     if (!(Test-Path -Path $rootfsPath)) {
@@ -58,6 +53,8 @@ function New-WslLinuxVmAsControlPlaneNode {
                 VMDiskSize = $VMDiskSize
                 VMMemoryStartupBytes = $VMMemoryStartupBytes
                 VMProcessorCount = $VMProcessorCount
+                DeleteFilesForOfflineInstallation = $DeleteFilesForOfflineInstallation
+                ForceOnlineInstallation = $ForceOnlineInstallation
             }
         New-VmImageForControlPlaneNode @controlPlaneNodeCreationParams
 
@@ -70,10 +67,6 @@ function New-WslLinuxVmAsControlPlaneNode {
                 VMProcessorCount = $VMProcessorCount
             }
         New-WslRootfsForControlPlaneNode @wslRootfsForControlPlaneNodeCreationParams
-
-        if (Test-Path -Path $vhdxPath) {
-            Remove-Item -Path $vhdxPath -Force
-        }
 
         if (!(Test-Path -Path $rootfsPath)) {
             throw "The file '$rootfsPath' is not available"

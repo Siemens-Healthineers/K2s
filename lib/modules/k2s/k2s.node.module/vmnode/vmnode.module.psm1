@@ -2030,21 +2030,6 @@ function Initialize-SSHConnectionToWinVM($session, $IpAddress) {
         }
     }
 
-    #TODO Check whether copy of local ssh config files necessary
-    $targetDirectory = '~\.ssh\kubemaster'
-    Write-Log "Creating target directory '$targetDirectory' on VM ..."
-
-    $remoteTargetDirectory = Invoke-Command -Session $session {
-        Set-Location "$env:SystemDrive\k"
-        Set-ExecutionPolicy Bypass -Force -ErrorAction Stop
-
-        mkdir $using:targetDirectory
-    }
-
-    Write-Log "Target directory '$remoteTargetDirectory' created on remote VM."
-    $localSourceFiles = "$sshConfigDir\kubemaster\*"
-    Copy-Item -ToSession $session $localSourceFiles -Destination "$remoteTargetDirectory" -Recurse -Force
-    Write-Log "Copied private key from local '$localSourceFiles' to remote '$remoteTargetDirectory'."
 }
 
 function Remove-VMSshKey() {
