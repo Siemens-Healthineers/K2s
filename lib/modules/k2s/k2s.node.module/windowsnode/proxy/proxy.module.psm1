@@ -89,7 +89,7 @@ function Get-OrUpdateProxyServer ([string]$Proxy) {
 function New-ProxyConfig {
     param(
         [string] $Proxy,
-        [string] $NoProxy
+        [string[]] $NoProxy
     )
 
     # If $Proxy and $NoProxy are empty, get values from the Windows registry
@@ -116,9 +116,10 @@ function New-ProxyConfig {
     New-Item -ItemType File -Path $configFilePath -Force | Out-Null
 
     # Write the proxy settings to the config file
+    $NoProxyString = $NoProxy -join ','
     Add-Content -Path $configFilePath -Value "http_proxy=$Proxy"
     Add-Content -Path $configFilePath -Value "https_proxy=$Proxy"
-    Add-Content -Path $configFilePath -Value "no_proxy=$NoProxy"
+    Add-Content -Path $configFilePath -Value "no_proxy=$NoProxyString"
 }
 
 function Get-ProxyConfig {

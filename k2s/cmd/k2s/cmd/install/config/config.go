@@ -76,9 +76,10 @@ type ResourceConfig struct {
 }
 
 type EnvConfig struct {
-	Proxy              string `mapstructure:"httpProxy"`
-	AdditionalHooksDir string `mapstructure:"additionalHooksDir"`
-	RestartPostInstall string `mapstructure:"restartPostInstallCount"`
+	Proxy              string   `mapstructure:"httpProxy"`
+	NoProxy            []string `mapstructure:"noProxy"`
+	AdditionalHooksDir string   `mapstructure:"additionalHooksDir"`
+	RestartPostInstall string   `mapstructure:"restartPostInstallCount"`
 }
 
 type BehaviorConfig struct {
@@ -120,6 +121,9 @@ const (
 	ProxyFlagName      = "proxy"
 	ProxyFlagShorthand = "p"
 	ProxyFlagUsage     = "HTTP Proxy"
+
+	NoProxyFlagName  = "no-proxy"
+	NoProxyFlagUsage = "NO PROXY"
 
 	ConfigFileFlagName      = "config"
 	ConfigFileFlagShorthand = "c"
@@ -325,6 +329,8 @@ func overwriteConfigWithCliParam(iConfig *InstallConfig, vConfig *viper.Viper, f
 		(iConfig.getNodeByRolePanic(ControlPlaneRoleName)).Resources.Memory = vConfig.GetString(flagName)
 	case ProxyFlagName:
 		iConfig.Env.Proxy = vConfig.GetString(flagName)
+	case NoProxyFlagName:
+		iConfig.Env.NoProxy = vConfig.GetStringSlice(flagName)
 	case RestartFlagName:
 		iConfig.Env.RestartPostInstall = vConfig.GetString(flagName)
 	case SkipStartFlagName:

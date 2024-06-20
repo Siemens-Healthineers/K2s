@@ -38,7 +38,7 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'HTTP proxy if available')]
     [string] $Proxy,
     [parameter(Mandatory = $false, HelpMessage = 'No proxy if available')]
-    [string] $NoProxy,
+    [string[]] $NoProxy = @(),
     [parameter(Mandatory = $false, HelpMessage = 'DNS Addresses if available')]
     [string[]]$DnsAddresses = @('8.8.8.8', '8.8.4.4'),
     [parameter(Mandatory = $false, HelpMessage = 'Directory containing additional hooks to be executed after local hooks are executed')]

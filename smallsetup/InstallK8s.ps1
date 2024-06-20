@@ -40,6 +40,8 @@ Param(
     [uint64] $MasterDiskSize = 50GB,
     [parameter(Mandatory = $false, HelpMessage = 'HTTP proxy if available')]
     [string] $Proxy,
+    [parameter(Mandatory = $false, HelpMessage = 'NO proxy')]
+    [string[]] $NoProxy = @(),
     [parameter(Mandatory = $false, HelpMessage = 'DNS Addresses if available')]
     [string[]]$DnsAddresses = @('8.8.8.8', '8.8.4.4'),
     [parameter(Mandatory = $false, HelpMessage = 'Directory containing additional hooks to be executed after local hooks are executed')]
