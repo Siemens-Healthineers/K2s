@@ -50,7 +50,7 @@ Function Set-UpComputerBeforeProvisioning {
     $remoteUser = "$UserName@$IpAddress"
     $remoteUserPwd = $UserPwd
 
-    Write-Log "Setting proxy '$(Get-HttpProxyServiceAddressForKubemaster)' for apt"
+    Write-Log "Setting proxy '$(Get-HttpProxyServiceAddressForProvisioningKubeNode)' for apt"
     (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute 'sudo touch /etc/apt/apt.conf.d/proxy.conf' -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output | Write-Log
     if ($PSVersionTable.PSVersion.Major -gt 5) {
         (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "echo Acquire::http::Proxy \""$(Get-HttpProxyServiceAddressForProvisioningKubeNode)\""\; | sudo tee -a /etc/apt/apt.conf.d/proxy.conf" -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output | Write-Log
@@ -129,12 +129,12 @@ Function Install-KubernetesArtifacts {
     &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get install -y gpg' -Retries 2 -RepairCmd 'sudo apt --fix-broken install'
 
     $pkgShortK8sVersion = $K8sVersion.Substring(0, $K8sVersion.lastIndexOf('.'))
-    &$executeRemoteCommand "sudo curl --retry 3 --retry-all-errors -fsSL https://pkgs.k8s.io/core:/stable:/$pkgShortK8sVersion/deb/Release.key --Proxy $(Get-HttpProxyServiceAddressForKubemaster) | sudo gpg --dearmor -o /usr/share/keyrings/kubernetes-apt-keyring.gpg" -IgnoreErrors 
+    &$executeRemoteCommand "sudo curl --retry 3 --retry-all-errors -fsSL https://pkgs.k8s.io/core:/stable:/$pkgShortK8sVersion/deb/Release.key --Proxy $(Get-HttpProxyServiceAddressForProvisioningKubeNode) | sudo gpg --dearmor -o /usr/share/keyrings/kubernetes-apt-keyring.gpg" -IgnoreErrors 
     &$executeRemoteCommand "echo 'deb [signed-by=/usr/share/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/$pkgShortK8sVersion/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.list" 
     $shortKubeVers = ($K8sVersion -replace 'v', '') + '-1.1'
     
     # package locations for cri-o
-    &$executeRemoteCommand "sudo curl --retry 3 --retry-all-errors -fsSL https://pkgs.k8s.io/addons:/cri-o:/stable:/$pkgShortK8sVersion/deb/Release.key --Proxy $(Get-HttpProxyServiceAddressForKubemaster) | sudo gpg --dearmor -o /usr/share/keyrings/cri-o-apt-keyring.gpg" -IgnoreErrors 
+    &$executeRemoteCommand "sudo curl --retry 3 --retry-all-errors -fsSL https://pkgs.k8s.io/addons:/cri-o:/stable:/$pkgShortK8sVersion/deb/Release.key --Proxy $(Get-HttpProxyServiceAddressForProvisioningKubeNode) | sudo gpg --dearmor -o /usr/share/keyrings/cri-o-apt-keyring.gpg" -IgnoreErrors 
     &$executeRemoteCommand "echo 'deb [signed-by=/usr/share/keyrings/cri-o-apt-keyring.gpg] https://pkgs.k8s.io/addons:/cri-o:/stable:/$pkgShortK8sVersion/deb/ /' | sudo tee /etc/apt/sources.list.d/cri-o.list" 
 
     Write-Log 'Install other depended-on tools'
@@ -153,10 +153,10 @@ Function Install-KubernetesArtifacts {
     &$executeRemoteCommand 'sudo mkdir -p /etc/systemd/system/crio.service.d' 
     &$executeRemoteCommand 'sudo touch /etc/systemd/system/crio.service.d/http-proxy.conf' 
     &$executeRemoteCommand 'echo [Service] | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf' 
-    &$executeRemoteCommand "echo Environment=\'HTTP_PROXY=$(Get-HttpProxyServiceAddressForKubemaster)\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf" 
-    &$executeRemoteCommand "echo Environment=\'HTTPS_PROXY=$(Get-HttpProxyServiceAddressForKubemaster)\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf" 
-    &$executeRemoteCommand "echo Environment=\'http_proxy=$(Get-HttpProxyServiceAddressForKubemaster)\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf" 
-    &$executeRemoteCommand "echo Environment=\'https_proxy=$(Get-HttpProxyServiceAddressForKubemaster)\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf" 
+    &$executeRemoteCommand "echo Environment=\'HTTP_PROXY=$(Get-HttpProxyServiceAddressForProvisioningKubeNode)\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf" 
+    &$executeRemoteCommand "echo Environment=\'HTTPS_PROXY=$(Get-HttpProxyServiceAddressForProvisioningKubeNode)\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf" 
+    &$executeRemoteCommand "echo Environment=\'http_proxy=$(Get-HttpProxyServiceAddressForProvisioningKubeNode)\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf" 
+    &$executeRemoteCommand "echo Environment=\'https_proxy=$(Get-HttpProxyServiceAddressForProvisioningKubeNode)\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf" 
     &$executeRemoteCommand "echo Environment=\'no_proxy=.local\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf"
 
     $token = Get-RegistryToken
