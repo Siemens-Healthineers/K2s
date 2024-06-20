@@ -149,10 +149,10 @@ function Get-EnabledAddons {
 
     $enabledAddons = @{Addons = [System.Collections.ArrayList]@() }
 
-    $config | ForEach-Object { 
+    $config | ForEach-Object {
         Write-Log "[$script::$function] found addon '$($_.Name)'"
         $enabledAddons.Addons.Add($_.Name) | Out-Null
-    }    
+    }
 
     return $enabledAddons
 }
@@ -465,6 +465,27 @@ function Backup-Addons {
     $backupContentRoot | ConvertTo-Json -Depth 100 | Set-Content -Force $backupFilePath -Confirm:$false
 
     Write-Log "Addons config migrated and saved to '$backupFilePath'."
+
+    # Copy backup and restore addon hooks for cluster upgrade
+    # Why only backup and restore script being copied?
+    # As remaining scripts(AfterStart,..) will be copied during re-enabling of addon.
+    # NOTE!! If we copy earlier then it interferes with installation procedure.
+    foreach ($addonConfig in $backupContentRoot.Config) {
+        if ($null -eq $addonConfig.Name) {
+            Write-Warning "Invalid addon config '$addonConfig' found, skipping it."
+            continue
+        }
+
+        $root = Get-ScriptRoot
+        $addonHookPath = "$root\$($addonConfig.Name)\hooks"
+        if ((Test-Path $addonHookPath) -ne $true) {
+            Write-Warning "Addon '$($addonConfig.Name)' no hooks found under $addonHookPath, skipping it."
+            continue
+        }
+
+        Copy-ScriptsToHooksDir -ScriptPaths @(Get-ChildItem -Path "$addonHookPath" | Where-Object { $_.Name -match "BackUp|Restore" } | ForEach-Object { $_.FullName })
+    }
+
     Write-Log 'Backing-up addons data..'
 
     Invoke-BackupRestoreHooks -HookType Backup -BackupDir $BackupDir
@@ -526,13 +547,13 @@ function Get-AddonStatus {
     $status = @{Error = $null }
 
     if ((Test-Path -Path $Directory) -ne $true) {
-        $status.Error = New-Error -Severity Warning -Code (Get-ErrCodeAddonNotFound) -Message "Addon '$Name' not found in directory '$Directory'." 
+        $status.Error = New-Error -Severity Warning -Code (Get-ErrCodeAddonNotFound) -Message "Addon '$Name' not found in directory '$Directory'."
         return $status
     }
-    
+
     $addonStatusScript = "$Directory\Get-Status.ps1"
     if ((Test-Path -Path $addonStatusScript) -ne $true) {
-        $status.Error = New-Error -Severity Warning -Code 'no-addon-status' -Message "Addon '$Name' does not provide detailed status information." 
+        $status.Error = New-Error -Severity Warning -Code 'no-addon-status' -Message "Addon '$Name' does not provide detailed status information."
         return $status
     }
 
@@ -675,7 +696,7 @@ function Update-IngressForAddons {
         }
     }
     Write-Log 'Addons have been adapted to new security settings' -Console
-} 
+}
 
 Export-ModuleMember -Function Get-EnabledAddons, Add-AddonToSetupJson, Remove-AddonFromSetupJson,
 Install-DebianPackages, Get-DebianPackageAvailableOffline, Test-IsAddonEnabled, Invoke-AddonsHooks, Copy-ScriptsToHooksDir,

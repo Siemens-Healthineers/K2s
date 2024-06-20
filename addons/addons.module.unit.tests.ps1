@@ -13,7 +13,7 @@ Describe 'Find-AddonManifests' -Tag 'unit', 'ci', 'addon' {
             { Find-AddonManifests } | Should -Throw -ExpectedMessage 'Directory not specified'
         }
     }
-  
+
     Context 'Directory specified' {
         BeforeAll {
             $foundFiles = @{FullName = 'f1' }, @{FullName = 'f2' }, @{FullName = 'f3' }
@@ -45,7 +45,7 @@ Describe 'Get-EnabledAddons' -Tag 'unit', 'ci', 'addon' {
         It 'returns object with null array' {
             InModuleScope $moduleName {
                 $result = Get-EnabledAddons
-    
+
                 $result.Addons | Should -BeNullOrEmpty
             }
         }
@@ -74,7 +74,7 @@ Describe 'Get-EnabledAddons' -Tag 'unit', 'ci', 'addon' {
 Describe 'ConvertTo-NewConfigStructure' -Tag 'unit', 'ci', 'addon' {
     Context 'config structure needs to be migrated from <= v0.5 to current version' {
         BeforeAll {
-            [Diagnostics.CodeAnalysis.SuppressMessageAttribute('UseDeclaredVarsMoreThanAssignments', '', Justification = 'Pester Test')]    
+            [Diagnostics.CodeAnalysis.SuppressMessageAttribute('UseDeclaredVarsMoreThanAssignments', '', Justification = 'Pester Test')]
             $oldConfig = ConvertFrom-Json '[ "metrics-server", "dashboard", "ingress-nginx" ]'
 
             [Diagnostics.CodeAnalysis.SuppressMessageAttribute('UseDeclaredVarsMoreThanAssignments', '', Justification = 'Pester Test')]
@@ -471,6 +471,7 @@ Describe 'Backup-Addons' -Tag 'unit', 'ci', 'addon' {
             Mock -ModuleName $moduleName ConvertTo-Json { return 'json' } -ParameterFilter { $InputObject.Config -eq 'migrated' }
             Mock -ModuleName $moduleName Set-Content {  }
             Mock -ModuleName $moduleName Invoke-BackupRestoreHooks {  }
+            Mock -ModuleName $moduleName Write-Warning { }
 
             InModuleScope -ModuleName $moduleName {
                 Backup-Addons -BackupDir 'dir'
@@ -493,6 +494,74 @@ Describe 'Backup-Addons' -Tag 'unit', 'ci', 'addon' {
         It 'saves the config structure to config file' {
             InModuleScope -ModuleName $moduleName {
                 Should -Invoke Set-Content -Times 1 -Scope Context -ParameterFilter { $Value -eq 'json' -and $Path -eq 'path' }
+            }
+        }
+
+        It 'invokes backup hooks' {
+            InModuleScope -ModuleName $moduleName {
+                Should -Invoke Invoke-BackupRestoreHooks -Times 1 -Scope Context -ParameterFilter { $HookType -eq 'Backup' -and $BackupDir -eq 'dir' }
+            }
+        }
+    }
+
+    Context 'addon hooks exist for backup and restore' {
+        BeforeAll {
+            $warnings = [System.Collections.ArrayList]@()
+
+            Mock -ModuleName $moduleName Write-Log {  }
+            Mock -ModuleName $moduleName Write-Warning { $warnings.Add($Message) | Out-Null }
+            Mock -ModuleName $moduleName Get-AddonsConfig {
+                return @(
+                    [pscustomobject]@{ Name = 'Addon1' },
+                    [pscustomobject]@{ Name = $null }
+                )
+            }
+            Mock -ModuleName $moduleName Test-Path { return $true } -ParameterFilter { $Path -eq 'dir' }
+            Mock -ModuleName $moduleName ConvertTo-NewConfigStructure { Write-Information 'log-from-migration'
+                return @(
+                    [pscustomobject]@{ Name = 'Addon1' },
+                    [pscustomobject]@{ Name = $null }
+                )
+            }
+            Mock -ModuleName $moduleName Join-Path { return 'path' } -ParameterFilter { $Path[0] -eq 'dir' -and $Path[1] -eq $backupFileName }
+            Mock -ModuleName $moduleName ConvertTo-Json { return 'json' } -ParameterFilter { $InputObject.Config -eq @(
+                [pscustomobject]@{ Name = 'Addon1' },
+                [pscustomobject]@{ Name = $null }
+            ) }
+            Mock -ModuleName $moduleName Set-Content {  }
+            Mock -ModuleName $moduleName Get-ScriptRoot { return 'C:\Scripts' }
+            Mock -ModuleName $moduleName Test-Path { return $true } -ParameterFilter { $Path -eq 'C:\Scripts\Addon1\hooks' }
+            Mock -ModuleName $moduleName Get-ChildItem {
+                return @(
+                    [pscustomobject]@{ FullName = 'C:\Scripts\Addon1\hooks\Backup.ps1'; Name = 'Backup.ps1' },
+                    [pscustomobject]@{ FullName = 'C:\Scripts\Addon1\hooks\Restore.ps1'; Name = 'Restore.ps1' },
+                    [pscustomobject]@{ FullName = 'C:\Scripts\Addon1\hooks\Other.ps1'; Name = 'Other.ps1' }
+                )
+            }
+            Mock -ModuleName $moduleName Copy-ScriptsToHooksDir { }
+            Mock -ModuleName $moduleName Invoke-BackupRestoreHooks {  }
+
+            InModuleScope -ModuleName $moduleName {
+                Backup-Addons -BackupDir 'dir'
+            }
+        }
+
+        It 'copies only backup and restore scripts' {
+            InModuleScope -ModuleName $moduleName {
+                Should -Invoke Copy-ScriptsToHooksDir -Times 1 -Scope Context -ParameterFilter {
+                    $ScriptPaths -contains 'C:\Scripts\Addon1\hooks\Backup.ps1' -and
+                    $ScriptPaths -contains 'C:\Scripts\Addon1\hooks\Restore.ps1' -and
+                    -not ($ScriptPaths -contains 'C:\Scripts\Addon1\hooks\Other.ps1')
+                }
+            }
+        }
+
+        It 'logs a warning for addons without a name' {
+            InModuleScope -ModuleName $moduleName -Parameters @{warnings = $warnings } {
+                # Write-Host "Warning messages captured during the test:"
+                # $warnings | ForEach-Object { Write-Host $_ }
+
+                $warnings[0] | Should -Be "Invalid addon config '@{Name=}' found, skipping it."
             }
         }
 
@@ -775,7 +844,7 @@ Describe 'Get-AddonStatus' -Tag 'unit', 'ci', 'addon' {
             { Get-AddonStatus -Directory 'test-dir' } | Should -Throw -ExpectedMessage 'Name not specified'
         }
     }
-   
+
     Context 'Directory not specified' {
         It 'throws' {
             { Get-AddonStatus -Name 'test-name' } | Should -Throw -ExpectedMessage 'Directory not specified'
@@ -798,7 +867,7 @@ Describe 'Get-AddonStatus' -Tag 'unit', 'ci', 'addon' {
             }
         }
     }
-    
+
     Context 'addon does not provide a status script' {
         BeforeAll {
             $addonDirectory = 'test-addon-dir'
@@ -816,11 +885,11 @@ Describe 'Get-AddonStatus' -Tag 'unit', 'ci', 'addon' {
             }
         }
     }
-   
+
     Context 'system error occurred' {
         BeforeAll {
-            Mock -ModuleName $moduleName Test-Path { return $true } 
-            Mock -ModuleName $moduleName Test-SystemAvailability { 'nothing-there' }  
+            Mock -ModuleName $moduleName Test-Path { return $true }
+            Mock -ModuleName $moduleName Test-SystemAvailability { 'nothing-there' }
         }
 
         It 'returns error' {
@@ -835,8 +904,8 @@ Describe 'Get-AddonStatus' -Tag 'unit', 'ci', 'addon' {
     Context 'addon is disabled' {
         BeforeAll {
             $addonName = 'test-addon'
-            Mock -ModuleName $moduleName Test-Path { return $true } 
-            Mock -ModuleName $moduleName Test-SystemAvailability { return $null } 
+            Mock -ModuleName $moduleName Test-Path { return $true }
+            Mock -ModuleName $moduleName Test-SystemAvailability { return $null }
             Mock -ModuleName $moduleName Test-IsAddonEnabled { return $false } -ParameterFilter { $Name -eq $addonName }
         }
 
@@ -848,14 +917,14 @@ Describe 'Get-AddonStatus' -Tag 'unit', 'ci', 'addon' {
             }
         }
     }
-    
+
     Context 'addon is enabled' {
         BeforeAll {
             $addonName = 'test-addon'
             $addonDirectory = 'test-dir'
             $props = @{Name = 'p1' }, @{Name = 'p2' }
-            Mock -ModuleName $moduleName Test-Path { return $true } 
-            Mock -ModuleName $moduleName Test-SystemAvailability { return $null } 
+            Mock -ModuleName $moduleName Test-Path { return $true }
+            Mock -ModuleName $moduleName Test-SystemAvailability { return $null }
             Mock -ModuleName $moduleName Test-IsAddonEnabled { return $true } -ParameterFilter { $Name -eq $addonName }
             Mock -ModuleName $moduleName Invoke-Script { return $props } -ParameterFilter { $FilePath -match "$addonDirectory\\Get-Status.ps1" }
         }
@@ -867,7 +936,7 @@ Describe 'Get-AddonStatus' -Tag 'unit', 'ci', 'addon' {
                 $result.Enabled | Should -BeTrue
             }
         }
-        
+
         It 'returns addon-specific props' {
             InModuleScope -ModuleName $moduleName -Parameters @{addonName = $addonName; addonDirectory = $addonDirectory; props = $props } {
                 $result = Get-AddonStatus -Name $addonName -Directory $addonDirectory
