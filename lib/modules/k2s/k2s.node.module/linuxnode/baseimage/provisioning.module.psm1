@@ -766,6 +766,10 @@ function Get-NetworkPrefixLengthForProvisioningKubeNode {
     return "24"
 }
 
+function Get-CIDRForProvisioningKubeNode {
+    return "172.18.12.0/24"
+}
+
 function Get-DefaultUserNameKubeNode {
     return Get-DefaultUserNameControlPlane
 }
@@ -863,4 +867,5 @@ Remove-KubeNodeBaseImage,
 New-KubenodeBaseImage, 
 New-KubemasterBaseImage, 
 New-KubeworkerBaseImage,
-Convert-VhdxToRootfs
+Convert-VhdxToRootfs,
+Get-CIDRForProvisioningKubeNode

@@ -6,10 +6,11 @@
 $configModule = "$PSScriptRoot\..\..\..\..\..\k2s.infra.module\config\config.module.psm1"
 $pathModule = "$PSScriptRoot\..\..\..\..\..\k2s.infra.module\path\path.module.psm1"
 $logModule = "$PSScriptRoot\..\..\..\..\..\k2s.infra.module\log\log.module.psm1"
+$provisioningModule = "$PSScriptRoot\..\..\..\..\..\k2s.node.module\linuxnode\baseimage\provisioning.module.psm1"
 $systemModule = "$PSScriptRoot\..\..\..\system\system.module.psm1"
 $networkModule = "$PSScriptRoot\..\..\..\network\loopbackadapter.module.psm1"
-$proxy = "$PSScriptRoot\..\..\..\proxy\proxy.module.psm1"
-Import-Module $logModule, $configModule, $pathModule, $systemModule, $networkModule, $proxy
+$proxyModule = "$PSScriptRoot\..\..\..\proxy\proxy.module.psm1"
+Import-Module $logModule, $configModule, $pathModule, $systemModule, $networkModule, $proxyModule, $provisioningModule
 
 $kubeBinPath = Get-KubeBinPath
 
@@ -28,8 +29,10 @@ function Install-WinHttpProxy {
     $clusterCIDR = Get-ConfiguredClusterCIDR
     $clusterCIDRServices = Get-ConfiguredClusterCIDRServices
     $loopbackAdapterCIDR = Get-LoopbackAdapterCIDR
+    $provisioningCIDR = Get-CIDRForProvisioningKubeNode
+    $localhostCIDR = "127.0.0.0/24"
 
-    $appParameters = "--allowed-cidr $clusterCIDR --allowed-cidr $clusterCIDRServices --allowed-cidr $ipControlPlaneCIDR --allowed-cidr $loopbackAdapterCIDR --allowed-cidr 127.0.0.0/24"
+    $appParameters = "--allowed-cidr $clusterCIDR --allowed-cidr $clusterCIDRServices --allowed-cidr $ipControlPlaneCIDR --allowed-cidr $loopbackAdapterCIDR --allowed-cidr $localhostCIDR --allowed-cidr $provisioningCIDR"
     if (($null -ne $proxyConf) -and ($proxyConf.HttpProxy -ne '')) {
         $appParameters = $appParameters + " --forwardproxy $($proxyConf.HttpProxy)"
     }
