@@ -770,6 +770,10 @@ function Get-CIDRForProvisioningKubeNode {
     return "172.18.12.0/24"
 }
 
+function Get-HttpProxyServiceAddressForProvisioningKubeNode {
+    return "172.18.12.1:8181"
+}
+
 function Get-DefaultUserNameKubeNode {
     return Get-DefaultUserNameControlPlane
 }
@@ -868,4 +872,5 @@ New-KubenodeBaseImage,
 New-KubemasterBaseImage, 
 New-KubeworkerBaseImage,
 Convert-VhdxToRootfs,
-Get-CIDRForProvisioningKubeNode
+Get-CIDRForProvisioningKubeNode,
+Get-HttpProxyServiceAddressForProvisioningKubeNode
