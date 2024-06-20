@@ -206,7 +206,7 @@ function Start-WindowsWorkerNode {
     Enable-LoopbackAdapter
 
     Write-Log 'Configuring network for windows node' -Console
-    Restart-WinService 'vmcompute'
+    Restart-WinServiceVmCompute 
     Restart-WinService 'hns'
 
     Write-Log 'Figuring out IPv4DefaultGateway'
@@ -420,6 +420,24 @@ function EnsureDirectoryPathExists(
 ) {
     if (-not (Test-Path $DirPath)) {
         New-Item -Path $DirPath -ItemType Directory -Force | Out-Null
+    }
+}
+
+function Restart-WinServiceVmCompute {
+    # Rationale for the logic used in this function: 
+    #  if a virtual machine is running under WSL when the Windows service 'vmcompute' is restarted
+    #  the Windows host freezes and a blue screen is displayed.
+    #  This was observed in Microsoft Windows 10 Version 22H2 (OS Build 19045)
+    $windowsServiceName = 'vmcompute'
+    $isWslUsed = Get-ConfigWslFlag
+    if ($isWslUsed) {
+        Write-Log "Shutdown WSL before restarting Windows service '$windowsServiceName'"
+        wsl --shutdown
+    }
+    Restart-WinService $windowsServiceName
+    if ($isWslUsed) {
+        Write-Log "Start WSL after restarting Windows service '$windowsServiceName'"
+        Start-WSL
     }
 }
 
