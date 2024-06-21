@@ -304,7 +304,7 @@ while($true) {
     $i++
     Restart-ControlPlane -ControlPlaneVMName $controlPlaneVMHostName `
                          -ControlPlaneIpAddr $ipControlPlane
-    $controlPlaneCni0IpAddr = Get-Cni0IpAddressInControlPlaneUsingSshWithRetries -Retries 10 -RetryTimeoutInSeconds 5
+    $controlPlaneCni0IpAddr = Get-Cni0IpAddressInControlPlaneUsingSshWithRetries -Retries 30 -RetryTimeoutInSeconds 5
     $expectedControlPlaneCni0IpAddr = Get-ConfiguredMasterNetworkInterfaceCni0IP
                  
     if ($controlPlaneCni0IpAddr -ne $expectedControlPlaneCni0IpAddr) {
