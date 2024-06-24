@@ -27,7 +27,7 @@ var _ = Describe("upgrade", func() {
 		When("no flags set", func() {
 			It("creates the command", func() {
 				const staticPartOfExpectedCmd = `\lib\scripts\k2s\system\upgrade\Start-ClusterUpgrade.ps1`
-				expected := utils.InstallDir() + staticPartOfExpectedCmd
+				expected := utils.FormatScriptFilePath(utils.InstallDir() + staticPartOfExpectedCmd)
 
 				actual := createUpgradeCommand(UpgradeCmd)
 
@@ -37,8 +37,9 @@ var _ = Describe("upgrade", func() {
 
 		When("flags set", func() {
 			It("creates the command", func() {
-				const staticPartOfExpectedCmd = `\lib\scripts\k2s\system\upgrade\Start-ClusterUpgrade.ps1 -ShowLogs -SkipResources  -DeleteFiles  -Config config.yaml -Proxy http://myproxy:81 -SkipImages `
-				expected := utils.InstallDir() + staticPartOfExpectedCmd
+				const staticPartOfExpectedCmd = `\lib\scripts\k2s\system\upgrade\Start-ClusterUpgrade.ps1`
+				const args = ` -ShowLogs -SkipResources  -DeleteFiles  -Config config.yaml -Proxy http://myproxy:81 -SkipImages `
+				expected := utils.FormatScriptFilePath(utils.InstallDir()+staticPartOfExpectedCmd) + args
 
 				flags := UpgradeCmd.Flags()
 				flags.Set(common.OutputFlagName, "true")
