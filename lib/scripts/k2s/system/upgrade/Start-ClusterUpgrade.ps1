@@ -135,7 +135,7 @@ function Start-ClusterUpgrade {
         if ($ShowProgress -eq $true) {
             Write-Progress -Activity 'Check if resources need to be exported..' -Id 1 -Status '3/10' -PercentComplete 30 -CurrentOperation 'Starting cluster, please wait..'
         }
-        
+
         $tpath = Get-TempPath
         $currentExeFolder = "$(Get-ClusterInstalledFolder)\bin\exe"
         Export-ClusterResources -SkipResources:$SkipResources -PathResources $tpath -ExePath $currentExeFolder
@@ -156,7 +156,7 @@ function Start-ClusterUpgrade {
         Write-Log $_.ScriptStackTrace -Console
         Write-Log $_ -Console
         $errUpgrade = $_
-        Write-Log 'Unfortunately preliminary steps to export resources of current cluster failed, please check the logs for more information !' -Console
+        Write-Error 'Unfortunately preliminary steps to export resources of current cluster failed, please check the logs for more information !'
         return $false
     }
     try {
@@ -165,7 +165,7 @@ function Start-ClusterUpgrade {
             Write-Progress -Activity 'Uninstall cluster..' -Id 1 -Status '5/10' -PercentComplete 40 -CurrentOperation 'Uninstalling cluster, please wait..'
         }
         Invoke-ClusterUninstall -ShowLogs:$ShowLogs -DeleteFiles:$DeleteFiles
-        
+
         $logFilePath = Get-LogFilePath
         Get-Content $logFilePath -Encoding utf8 | Out-File $logFilePath -Encoding utf8
 
@@ -214,6 +214,7 @@ function Start-ClusterUpgrade {
         Write-Log $_.ScriptStackTrace -Console
         Write-Log $_ -Console
         $errUpgrade = $_
+        Write-Error 'System upgrade failed, please check the logs for more information !'
     }
     finally {
         if ($ShowProgress -eq $true) {
