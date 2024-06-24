@@ -413,9 +413,6 @@ function Remove-ControlPlaneNodeOnNewVM {
         Write-Log 'Uninstalling K2s control plane'
     }
 
-    $controlPlaneVMHostName = Get-ConfigControlPlaneNodeHostname
-    Write-Log "Uninstalling $controlPlaneVMHostName VM" -Console
-
     $WSL = Get-ConfigWslFlag
     $VmName = 'KubeMaster'
 
@@ -427,6 +424,8 @@ function Remove-ControlPlaneNodeOnNewVM {
         Remove-VirtualMachine $VmName
     }
 
+    Write-Log 'Cleaning up' -Console
+    
     Clear-ProvisioningArtifacts
 
     if ($DeleteFilesForOfflineInstallation) {
