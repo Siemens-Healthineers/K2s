@@ -387,7 +387,7 @@ function Clear-ProvisioningArtifacts {
         ) 
 
         $vm = Get-VM | Where-Object Name -Like $VmName
-        Write-Log "Ensure VM $VmName is stopped" -Console
+        Write-Log "Ensure VM $VmName is stopped"
         if ($null -ne $vm) {
             Stop-VirtualMachineForBaseImageProvisioning -Name $VmName
         }
@@ -416,12 +416,12 @@ function Clear-ProvisioningArtifacts {
     &$removeVm -VmName $kubeworkerVmName -NatName $KubeworkerVmProvisioningNatName -SwitchName $KubeworkerVmProvisioningSwitchName -VhdxFilePath $kubeworkerInProvisioningImagePath 
 
     if (Test-Path $provisioningTargetDirectory) {
-        Write-Log "Deleting folder '$provisioningTargetDirectory'" -Console
+        Write-Log "Deleting folder '$provisioningTargetDirectory'"
         Remove-Item -Path $provisioningTargetDirectory -Recurse -Force
     }
 
     if (Test-Path $downloadsDirectory) {
-        Write-Log "Deleting folder '$downloadsDirectory'" -Console
+        Write-Log "Deleting folder '$downloadsDirectory'"
         Remove-Item -Path $downloadsDirectory -Recurse -Force
     }
 }

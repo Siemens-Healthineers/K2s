@@ -155,7 +155,6 @@ function Uninstall-WinNode {
     param(
         $ShallowUninstallation = $false
     )
-    Write-Log 'Uninstalling Windows worker node' -Console
     Remove-DefaultNetNat
 
     Remove-ServiceIfExists 'flanneld'
