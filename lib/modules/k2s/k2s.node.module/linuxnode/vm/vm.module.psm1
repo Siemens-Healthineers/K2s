@@ -251,9 +251,17 @@ function Copy-ToControlPlaneViaSSHKey($Source, $Target,
     $leaf = Split-Path $Source -leaf
     $targetDirectory = $Target -replace "${remoteUser}:", ''
     
-    if ($leaf -eq '*') {
+    if ($leaf.Contains("*")) {
         # copy all files in directory
-        $tarFolder = Split-Path $Source -Parent
+        $filter = $leaf
+
+        New-Item -Path "$env:TEMP\matchedFilesCopyToControlPlaneViaSSHKey" -ItemType Directory -Force | Out-Null
+        Get-ChildItem -Path $(Split-Path $Source -Parent) -Filter $filter -Force | ForEach-Object {
+            Write-Log "  Adding '$($_.FullName)'.."
+            Copy-Item "$($_.FullName)" "$env:TEMP\matchedFilesCopyToControlPlaneViaSSHKey" -Force -Recurse
+        }
+
+        $tarFolder = "$env:TEMP\matchedFilesCopyToControlPlaneViaSSHKey"
     } elseif ($(Test-Path $Source) -and (Get-Item $Source) -is [System.IO.DirectoryInfo]) {
         # simple folder copy
         $tarFolder = $Source
@@ -284,6 +292,7 @@ function Copy-ToControlPlaneViaSSHKey($Source, $Target,
     (Invoke-CmdOnControlPlaneViaSSHKey "tar -xf /tmp/copy.tar -C $targetDirectory").Output | Write-Log
     (Invoke-CmdOnControlPlaneViaSSHKey 'sudo rm -rf /tmp/copy.tar').Output | Write-Log
     Remove-Item -Path "$env:temp\copy.tar" -Force -ErrorAction SilentlyContinue
+    Remove-Item -Path "$env:TEMP\matchedFilesCopyToControlPlaneViaSSHKey" -Force -Recurse -ErrorAction SilentlyContinue
 }
 
 function Copy-ToControlPlaneViaUserAndPwd($Source, $Target,
