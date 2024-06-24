@@ -87,8 +87,6 @@ Reset-LogFile -AppendLogFile:$AppendLogFile
 
 $ErrorActionPreference = 'Continue'
 
-Write-Log 'Prerequisites checks before installation' -Console
-
 # make sure we are at the right place for install
 $installationPath = Get-KubePath
 Set-Location $installationPath
@@ -113,9 +111,6 @@ if ([string]::IsNullOrWhiteSpace($dnsServers)) {
         $dnsServers = '8.8.8.8,8.8.4.4'
     }
 }
-
-
-Write-Log 'Setting up control plane on new VM' -Console
 
 $controlPlaneNodeParams = @{
     MasterVMMemory = $MasterVMMemory
