@@ -118,6 +118,10 @@ func upgradeCluster(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	if outputWriter.ErrorOccurred {
+		return common.CreateSystemUnableToUpgradeCmdFailure()
+	}
+
 	duration := time.Since(start)
 	common.PrintCompletedMessage(duration, "Upgrade")
 

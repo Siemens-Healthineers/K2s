@@ -21,7 +21,6 @@ function Add-WindowsWorkerNodeOnWindowsHost {
         [switch] $ForceOnlineInstallation = $false,
         [string] $WorkerNodeNumber = $(throw 'Argument missing: WorkerNodeNumber')
     )
-    Write-Log 'Prerequisites checks before installation' -Console
     Stop-InstallIfNoMandatoryServiceIsRunning
 
     Write-Log 'Starting installation of K2s worker node on Windows host.'
@@ -110,8 +109,6 @@ function Stop-WindowsWorkerNodeOnWindowsHost {
     if ($SkipHeaderDisplay -eq $false) {
         Write-Log 'Stopping K2s worker node on Windows host'
     }
-
-    Write-Log 'Stopping Kubernetes services on the Windows node' -Console
 
     Stop-ServiceAndSetToManualStart 'httpproxy'
     Stop-ServiceAndSetToManualStart 'dnsproxy'
@@ -244,6 +241,7 @@ function Start-WindowsWorkerNode {
     EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\bridge"
     EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\vfprules"
 
+    Write-Log 'Starting Kubernetes services on the Windows node' -Console
     Start-ServiceAndSetToAutoStart -Name 'containerd'
     Start-ServiceAndSetToAutoStart -Name 'flanneld' -IgnoreErrors
     Start-ServiceAndSetToAutoStart -Name 'kubelet'

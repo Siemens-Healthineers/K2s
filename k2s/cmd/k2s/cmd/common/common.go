@@ -154,6 +154,14 @@ func CreateSystemInCorruptedStateCmdFailure() *CmdFailure {
 	}
 }
 
+func CreateSystemUnableToUpgradeCmdFailure() *CmdFailure {
+	return &CmdFailure{
+		Severity: SeverityError,
+		Code:     "unable-to-upgrade",
+		Message:  "'k2s system upgrade' failed",
+	}
+}
+
 func CreateFunctionalityNotAvailableCmdFailure(setupName setupinfo.SetupName) *CmdFailure {
 	return &CmdFailure{
 		Severity: SeverityWarning,
