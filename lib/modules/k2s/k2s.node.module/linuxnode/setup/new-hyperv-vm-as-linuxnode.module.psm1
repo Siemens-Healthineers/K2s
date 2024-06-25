@@ -53,6 +53,7 @@ function New-LinuxVmAsControlPlaneNode {
             VMDiskSize = $VMDiskSize
             VMMemoryStartupBytes = $VMMemoryStartupBytes
             VMProcessorCount = $VMProcessorCount
+            ForceOnlineInstallation = $ForceOnlineInstallation
         }
         New-VmImageForControlPlaneNode @controlPlaneNodeCreationParams
     }
