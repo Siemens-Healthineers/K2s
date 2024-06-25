@@ -16,6 +16,8 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 
+	"github.com/siemens-healthineers/k2s/internal/setupinfo"
+
 	"github.com/spf13/cobra"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
@@ -84,6 +86,13 @@ func resetWinStorage(cmd *cobra.Command, args []string) error {
 	slog.Debug("PS command created", "command", psCmd, "params", params)
 
 	start := time.Now()
+
+	configDir := cmd.Context().Value(common.ContextKeyConfigDir).(string)
+	config, err := setupinfo.LoadConfig(configDir)
+	if err != nil {
+		if !(errors.Is(err, setupinfo.ErrSystemNotInstalled) || errors.Is(err, setupinfo.ErrSystemInCorruptedState)) {
+		return err
+	}
 
 	outputWriter, err := common.NewOutputWriter()
 	if err != nil {
