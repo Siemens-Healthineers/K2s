@@ -95,12 +95,17 @@ func resetWinStorage(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	psVersion := common.GetDefaultPsVersion()
+	if config != nil {
+		psVersion = common.DeterminePsVersion(config)
+	}
+
 	outputWriter, err := common.NewOutputWriter()
 	if err != nil {
 		return err
 	}
 
-	cmdResult, err := powershell.ExecutePsWithStructuredResult[*common.CmdResult](psCmd, "CmdResult", common.DeterminePsVersion(config), outputWriter, params...)
+	cmdResult, err := powershell.ExecutePsWithStructuredResult[*common.CmdResult](psCmd, "CmdResult", psVersion, outputWriter, params...)
 	if err != nil {
 		return err
 	}
