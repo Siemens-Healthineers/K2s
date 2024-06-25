@@ -617,14 +617,14 @@ function Invoke-BackupRestoreHooks {
 
     $executionCount = 0
 
-    Get-ChildItem -Path $hooksDir -Filter $hooksFilter -Force | ForEach-Object {
+    Get-ChildItem -Path $hooksDir -Filter $hooksFilter -Force -ErrorAction SilentlyContinue | ForEach-Object {
         Write-Log "  Executing '$($_.FullName)'.."
         & "$($_.FullName)" -BackupDir $BackupDir -ShowLogs:$ShowLogs
         $executionCount++
     }
 
     if ($AdditionalHooksDir -ne '') {
-        Get-ChildItem -Path $AdditionalHooksDir -Filter $hooksFilter -Force | ForEach-Object {
+        Get-ChildItem -Path $AdditionalHooksDir -Filter $hooksFilter -Force -ErrorAction SilentlyContinue | ForEach-Object {
             Write-Log "  Executing '$($_.FullName)'.."
             & "$($_.FullName)" -BackupDir $BackupDir -ShowLogs:$ShowLogs
             $executionCount++

@@ -22,14 +22,14 @@ function Invoke-Hook {
 
     $executionCount = 0
 
-    Get-ChildItem -Path $hookDir -Filter $hooksFilter -Force | ForEach-Object {
+    Get-ChildItem -Path $hookDir -Filter $hooksFilter -Force -ErrorAction SilentlyContinue | ForEach-Object {
         Write-Log "  Executing '$($_.FullName)'.."
         & "$($_.FullName)"
         $executionCount++
     }
 
     if ($AdditionalHooksDir -ne '') {
-        Get-ChildItem -Path $AdditionalHooksDir -Filter $hooksFilter -Force | ForEach-Object {
+        Get-ChildItem -Path $AdditionalHooksDir -Filter $hooksFilter -Force -ErrorAction SilentlyContinue | ForEach-Object {
             Write-Log "  Executing '$($_.FullName)'.."
             & "$($_.FullName)"
             $executionCount++
