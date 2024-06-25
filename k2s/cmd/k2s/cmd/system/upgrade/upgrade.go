@@ -117,6 +117,10 @@ func upgradeCluster(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	if outputWriter.ErrorOccurred {
+		return common.CreateSystemUnableToUpgradeCmdFailure()
+	}
+
 	duration := time.Since(start)
 	common.PrintCompletedMessage(duration, "Upgrade")
 
@@ -124,7 +128,7 @@ func upgradeCluster(cmd *cobra.Command, args []string) error {
 }
 
 func createUpgradeCommand(cmd *cobra.Command) string {
-	psCmd := filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "system", "upgrade", "Start-ClusterUpgrade.ps1")
+	psCmd := utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "system", "upgrade", "Start-ClusterUpgrade.ps1"))
 	cmd.Flags().VisitAll(func(f *pflag.Flag) {
 		slog.Debug("Param", "name", f.Name, "value", f.Value)
 	})

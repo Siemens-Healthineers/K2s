@@ -10,6 +10,11 @@ Import-Module $infraModule, $commonDistroModule
 $debianDistroModule = "$PSScriptRoot\..\distros\debian\debian.module.psm1"
 Import-SpecificDistroSettingsModule -ModulePath $debianDistroModule
 
+function Get-KubemasterBaseFilePath {
+    $kubebinPath = Get-KubeBinPath
+    return "$kubebinPath\Kubemaster-Base.vhdx"
+}
+
 function New-LinuxVmAsControlPlaneNode {
     param (
         [string]$Hostname,
@@ -29,8 +34,7 @@ function New-LinuxVmAsControlPlaneNode {
         [Boolean] $ForceOnlineInstallation = $false
 
     )
-    $kubebinPath = Get-KubeBinPath
-    $outputPath = "$kubebinPath\Kubemaster-Base.vhdx"
+    $outputPath = Get-KubemasterBaseFilePath
 
     $isKubemasterBaseImageAlreadyAvailable = (Test-Path $outputPath)
     $isOnlineInstallation = (!$isKubemasterBaseImageAlreadyAvailable -or $ForceOnlineInstallation)
@@ -163,4 +167,4 @@ function New-VmFromIso {
     Write-Log 'VM started ok'
 }
 
-Export-ModuleMember -Function New-LinuxVmAsControlPlaneNode, Remove-LinuxVmAsControlPlaneNode
+Export-ModuleMember -Function New-LinuxVmAsControlPlaneNode, Remove-LinuxVmAsControlPlaneNode, Get-KubemasterBaseFilePath

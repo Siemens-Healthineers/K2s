@@ -741,8 +741,9 @@ Function New-KubernetesNode {
     Write-Log "Finished provisioning the computer $IpAddress"
 }
 
-
-$kubenodeBaseFileName = 'Kubenode-Base.vhdx'
+function Get-KubenodeBaseFileName {
+    return 'Kubenode-Base.vhdx'
+}
 
 function New-VmImageForKubernetesNode {
     param (
@@ -798,7 +799,7 @@ function New-VmImageForControlPlaneNode {
         [string]$Hostname,
         [string]$IpAddress,
         [string]$GatewayIpAddress,
-        [string]$DnsServers,
+        [string]$DnsServers = $(throw 'Argument missing: DnsServers'),
         [parameter(Mandatory = $false, HelpMessage = 'The path to save the prepared base image.')]
         [string] $VmImageOutputPath = $(throw 'Argument missing: VmImageOutputPath'),
         [parameter(Mandatory = $false, HelpMessage = 'Startup Memory Size of VM')]
@@ -813,7 +814,7 @@ function New-VmImageForControlPlaneNode {
         [Boolean] $ForceOnlineInstallation = $false
     )
       
-    $kubenodeBaseImagePath = "$(Split-Path $VmImageOutputPath)\$kubenodeBaseFileName"
+    $kubenodeBaseImagePath = "$(Split-Path $VmImageOutputPath)\$(Get-KubenodeBaseFileName)"
     
     $isKubenodeBaseImageAlreadyAvailable = (Test-Path $kubenodeBaseImagePath)
     $isOnlineInstallation = (!$isKubenodeBaseImageAlreadyAvailable -or $ForceOnlineInstallation)
@@ -903,7 +904,7 @@ function New-LinuxVmImageForWorkerNode {
         [uint64]$VMDiskSize
     )
 
-    $kubenodeBaseImagePath = "$(Split-Path $VmImageOutputPath)\$kubenodeBaseFileName"
+    $kubenodeBaseImagePath = "$(Split-Path $VmImageOutputPath)\$(Get-KubenodeBaseFileName)"
 
     if (!(Test-Path -Path $kubenodeBaseImagePath)) {
         New-VmImageForKubernetesNode -VmImageOutputPath $kubenodeBaseImagePath
@@ -1038,7 +1039,7 @@ function New-WslRootfsForControlPlaneNode {
         [uint64]$VMDiskSize
     )
 
-    $kubenodeBaseImagePath = "$(Split-Path $VmImageInputPath)\$kubenodeBaseFileName"
+    $kubenodeBaseImagePath = "$(Split-Path $VmImageInputPath)\$(Get-KubenodeBaseFileName)"
     
     if (!(Test-Path -Path $kubenodeBaseImagePath)) {
         $vmImageForKubernetesNodeCreationParams = @{
@@ -1063,6 +1064,9 @@ function New-WslRootfsForControlPlaneNode {
 
 function Set-ProxySettingsOnKubenode {
     param (
+        [parameter(Mandatory = $true, HelpMessage = 'The HTTP proxy')]
+        [AllowEmptyString()]
+        [string] $ProxySettings,
         [Parameter(Mandatory = $false)]
         [string]$IpAddress = $(throw 'Argument missing: IpAddress')
     )
@@ -1105,4 +1109,5 @@ New-LinuxVmImageForWorkerNode,
 Remove-VmImageForControlPlaneNode, 
 Import-SpecificDistroSettingsModule, 
 New-WslRootfsForControlPlaneNode,
-Set-ProxySettingsOnKubenode
+Set-ProxySettingsOnKubenode,
+Get-KubenodeBaseFileName

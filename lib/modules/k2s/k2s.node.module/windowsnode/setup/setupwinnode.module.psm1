@@ -19,7 +19,8 @@ function Initialize-Networking {
         [parameter(Mandatory = $true, HelpMessage = 'Host machine is a VM: true, Host machine is not a VM')]
         [bool] $HostVM,
         [parameter(Mandatory = $true, HelpMessage = 'Host-GW or VXLAN, Host-GW: true, false for vxlan')]
-        [bool] $HostGW
+        [bool] $HostGW,
+        [string] $WorkerNodeNumber = $(throw 'Argument missing: WorkerNodeNumber')
     )
 
     # copy flannel files
@@ -59,7 +60,7 @@ function Initialize-Networking {
     $ipaddress = $ipaddresses[0] | Select-Object -ExpandProperty IPAddress
     Write-Log "Using local IP $ipaddress for setup of CNI"
 
-    $clusterCIDRHost = Get-ConfiguredClusterCIDRHost
+    $clusterCIDRHost = Get-ConfiguredClusterCIDRHost -WorkerNodeNumber $WorkerNodeNumber
     $NetworkAddress = "  ""Network"": ""$clusterCIDRHost"","
 
 
@@ -112,13 +113,9 @@ function Initialize-WinNode {
         [parameter(Mandatory = $false, HelpMessage = 'Force the installation online. This option is needed if the files for an offline installation are available but you want to recreate them.')]
         [boolean] $ForceOnlineInstallation = $false,
         [parameter(Mandatory = $false, HelpMessage = 'Skips networking setup and installation of cluster dependent tools kubelet, flannel on windows node')]
-        [boolean] $SkipClusterSetup = $false
+        [boolean] $SkipClusterSetup = $false,
+        [string] $WorkerNodeNumber = $(throw 'Argument missing: WorkerNodeNumber')
     )
-
-    Invoke-DeployWinArtifacts -KubernetesVersion $KubernetesVersion -DeleteFilesForOfflineInstallation $DeleteFilesForOfflineInstallation -ForceOnlineInstallation $ForceOnlineInstallation -SkipClusterSetup:$SkipClusterSetup
-
-    Set-ConfigInstallFolder -Value $kubePath
-    Set-ConfigProductVersion -Value $productVersion
 
     if (!(Test-Path "$kubeBinPath\exe")) {
         New-Item -ItemType 'directory' -Path "$kubeBinPath\exe" | Out-Null
@@ -137,17 +134,15 @@ function Initialize-WinNode {
         $previousKubernetesVersion = Get-ConfigInstalledKubernetesVersion
         Write-Log("Previous K8s version: $previousKubernetesVersion, current K8s version to install: $KubernetesVersion")
 
-        $productVersion = Get-ProductVersion
-
         Set-ConfigInstalledKubernetesVersion -Value $KubernetesVersion
 
-        Initialize-Networking -HostVM:$HostVM -HostGW:$HostGW
+        Initialize-Networking -HostVM:$HostVM -HostGW:$HostGW -WorkerNodeNumber $WorkerNodeNumber
     }
     else {
         Write-Log 'Skipping networking setup on windows node'
     }
 
-    Install-WinNodeArtifacts -HostVM:$HostVM -SkipClusterSetup:$SkipClusterSetup
+    Install-WinNodeArtifacts -HostVM:$HostVM -SkipClusterSetup:$SkipClusterSetup -WorkerNodeNumber $WorkerNodeNumber
 
     if (! $SkipClusterSetup) {
         Reset-WinServices
@@ -158,7 +153,6 @@ function Uninstall-WinNode {
     param(
         $ShallowUninstallation = $false
     )
-    Write-Log 'Uninstalling Windows worker node' -Console
     Remove-DefaultNetNat
 
     Remove-ServiceIfExists 'flanneld'

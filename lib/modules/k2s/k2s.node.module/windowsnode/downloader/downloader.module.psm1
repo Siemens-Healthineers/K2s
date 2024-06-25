@@ -164,9 +164,7 @@ function Invoke-DeployWindowsImages($windowsNodeArtifactsDirectory) {
 function Invoke-DownloadWindowsNodeArtifacts {
     Param(
         [parameter(Mandatory = $true, HelpMessage = 'Kubernetes version to use')]
-        [string] $KubernetesVersion,
-        [parameter(Mandatory = $false, HelpMessage = 'Skips networking setup and installation of cluster dependent tools kubelet, flannel on windows node')]
-        [boolean] $SkipClusterSetup = $false
+        [string] $KubernetesVersion
     )
 
     if (Test-Path($windowsNodeArtifactsDownloadsDirectory)) {
@@ -224,8 +222,6 @@ function Invoke-DownloadWindowsNodeArtifacts {
     #PUTTY TOOLS
     Invoke-DownloadPuttyArtifacts $downloadsBaseDirectory
 
-    #START OF DEPLOYMENT OF DOWNLOADED ARTIFACTS
-
     # CONTAINERD
     Invoke-DeployContainerdArtifacts $windowsNodeArtifactsDirectory
     Invoke-DeployCrictlArtifacts $windowsNodeArtifactsDirectory
@@ -234,7 +230,7 @@ function Invoke-DownloadWindowsNodeArtifacts {
     # YAML TOOLS
     Invoke-DeployYamlArtifacts $windowsNodeArtifactsDirectory
 
-    Install-WinContainerd -SkipNetworkingSetup:$SkipClusterSetup -WindowsNodeArtifactsDirectory $windowsNodeArtifactsDirectory
+    Install-WinContainerd -SkipNetworkingSetup:$true -WindowsNodeArtifactsDirectory $windowsNodeArtifactsDirectory
     Invoke-DownloadWindowsImages $downloadsBaseDirectory
     Uninstall-WinContainerd -ShallowUninstallation $true
 
@@ -267,9 +263,7 @@ function Invoke-DeployWinArtifacts {
         [parameter(Mandatory = $false, HelpMessage = 'Deletes the needed files to perform an offline installation')]
         [boolean] $DeleteFilesForOfflineInstallation = $false,
         [parameter(Mandatory = $false, HelpMessage = 'Force the installation online. This option is needed if the files for an offline installation are available but you want to recreate them.')]
-        [boolean] $ForceOnlineInstallation = $false,
-        [parameter(Mandatory = $false, HelpMessage = 'Skips networking setup and installation of cluster dependent tools kubelet, flannel on windows node')]
-        [boolean] $SkipClusterSetup = $false
+        [boolean] $ForceOnlineInstallation = $false
     )
 
     $isZipFileAlreadyAvailable = Test-Path -Path "$windowsNodeArtifactsZipFilePath"
@@ -288,7 +282,7 @@ function Invoke-DeployWinArtifacts {
         }
         Write-Log "Create folder '$downloadsDirectory'"
         New-Item -Path "$downloadsDirectory" -ItemType Directory -Force -ErrorAction SilentlyContinue
-        Invoke-DownloadWindowsNodeArtifacts -KubernetesVersion $KubernetesVersion -SkipClusterSetup:$SkipClusterSetup
+        Invoke-DownloadWindowsNodeArtifacts -KubernetesVersion $KubernetesVersion
         Write-Log "Remove folder '$downloadsDirectory'"
         Remove-Item -Path "$downloadsDirectory" -Recurse -Force -ErrorAction SilentlyContinue
     }
@@ -328,13 +322,14 @@ function Install-WinNodeArtifacts {
         [parameter(Mandatory = $true, HelpMessage = 'Host machine is a VM: true, Host machine is not a VM')]
         [bool] $HostVM,
         [parameter(Mandatory = $false, HelpMessage = 'Skips installation of cluster dependent tools')]
-        [bool] $SkipClusterSetup = $false
+        [bool] $SkipClusterSetup = $false,
+        [string] $WorkerNodeNumber = $(throw 'Argument missing: WorkerNodeNumber')
     )
 
     Invoke-DeployDockerArtifacts $windowsNodeArtifactsDirectory
     Install-WinDocker
 
-    Install-WinContainerd -SkipNetworkingSetup:$SkipClusterSetup -WindowsNodeArtifactsDirectory $windowsNodeArtifactsDirectory
+    Install-WinContainerd -Proxy "$Proxy" -SkipNetworkingSetup:$SkipClusterSetup -WindowsNodeArtifactsDirectory $windowsNodeArtifactsDirectory -WorkerNodeNumber $WorkerNodeNumber
 
     if (!($SkipClusterSetup)) {
         Invoke-DeployWindowsImages $windowsNodeArtifactsDirectory
@@ -355,7 +350,7 @@ function Install-WinNodeArtifacts {
         if (!($HostVM)) {
             # DNS Proxy is not required if Host machine is a VM
             Invoke-DeployDnsProxyArtifacts $windowsNodeArtifactsDirectory
-            Install-WinDnsProxy
+            Install-WinDnsProxy -WorkerNodeNumber $WorkerNodeNumber
         }
     }
 
