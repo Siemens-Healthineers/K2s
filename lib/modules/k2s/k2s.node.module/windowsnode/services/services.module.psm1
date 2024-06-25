@@ -1,9 +1,9 @@
 # SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
 # SPDX-License-Identifier: MIT
 
-$logModule = "$PSScriptRoot\..\..\..\k2s.infra.module\log\log.module.psm1"
+$infraModule = "$PSScriptRoot\..\..\..\k2s.infra.module\k2s.infra.module.psm1"
 $loopBackAdapterModule = "$PSScriptRoot\..\network\loopbackadapter.module.psm1"
-Import-Module $logModule, $loopBackAdapterModule
+Import-Module $infraModule, $loopBackAdapterModule
 
 $kubeBinPath = Get-KubeBinPath
 
