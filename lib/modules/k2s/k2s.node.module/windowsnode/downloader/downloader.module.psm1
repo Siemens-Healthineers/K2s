@@ -143,19 +143,20 @@ function Invoke-DeployWindowsImages($windowsNodeArtifactsDirectory) {
         throw "Directory '$windowsImagesArtifactsDirectory' does not exist"
     }
 
-    $ctrExe = Get-CtrExePath
+    $nerdctlExe = "$kubeBinPath\nerdctl.exe"
     $fileSearchPattern = "$windowsImagesArtifactsDirectory\*.tar"
     $files = Get-ChildItem -Path "$fileSearchPattern"
     $amountOfFiles = $files.Count
     Write-Log "Amount of images found that matches the search pattern '$fileSearchPattern': $amountOfFiles"
     $fileIndex = 1
+
     foreach ($file in $files){
         $fileFullName = $file.FullName
         Write-Log "Import image from file '$fileFullName'... ($fileIndex of $amountOfFiles)"
-        # &$ctrExe -n="k8s.io" images import `"$file`"
-        # if (!$?) {
-        #     throw "The file '$fileFullName' could not be imported"
-        # }
+        &$nerdctlExe -n k8s.io load -i `"$file`"
+        if (!$?) {
+            throw "The file '$fileFullName' could not be imported"
+        }
         Write-Log "  done"
         $fileIndex++
     }
