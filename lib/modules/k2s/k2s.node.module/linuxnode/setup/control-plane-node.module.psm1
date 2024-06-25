@@ -54,7 +54,7 @@ function New-ControlPlaneNodeOnNewVM {
 
     Set-ConfigWslFlag -Value $([bool]$WSL)
 
-    Invoke-DeployWinArtifacts -KubernetesVersion $KubernetesVersion -Proxy $Proxy
+    Invoke-DeployWinArtifacts -KubernetesVersion $KubernetesVersion -Proxy $Proxy -ForceOnlineInstallation:$ForceOnlineInstallation
     Install-PuttyTools
 
     $controlPlaneParams = @{
