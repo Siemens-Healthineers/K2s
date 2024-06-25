@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"runtime/debug"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
@@ -16,10 +17,17 @@ import (
 	"github.com/pterm/pterm"
 )
 
+const generalErrMsg = "critical error occurred during command execution, aborting"
+
 func main() {
 	exitCode := 0
 
 	defer func() {
+		if err := recover(); err != nil {
+			exitCode = 1
+			handleUnexpectedError(err)
+		}
+
 		logging.Finalize()
 		os.Exit(exitCode)
 	}()
@@ -42,8 +50,7 @@ func main() {
 
 	var cmdFailure *common.CmdFailure
 	if !errors.As(err, &cmdFailure) {
-		pterm.Error.Println(err)
-		slog.Error("error occurred during command execution", "error", err)
+		handleUnexpectedError(err)
 		return
 	}
 
@@ -65,4 +72,10 @@ func main() {
 		"code", cmdFailure.Code,
 		"message", cmdFailure.Message,
 		"suppressCliOutput", cmdFailure.SuppressCliOutput)
+}
+
+func handleUnexpectedError(err any) {
+	pterm.Error.Println(fmt.Errorf("%s: %v", generalErrMsg, err))
+
+	slog.Error(generalErrMsg, "error", err, "stack", string(debug.Stack()))
 }
