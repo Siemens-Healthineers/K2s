@@ -78,6 +78,7 @@ func AddInitFlags(cmd *cobra.Command) {
 	cmd.Flags().StringP(configFileFlagName, "c", "", "Path to config file to load. This configuration overwrites other CLI parameters")
 	cmd.Flags().StringP(proxy, "p", defaultProxy, "HTTP Proxy")
 	cmd.Flags().BoolP(skipImages, "i", false, "Skip takeover of container images from old cluster to new cluster")
+	cmd.Flags().String(common.AdditionalHooksDirFlagName, "", common.AdditionalHooksDirFlagUsage)
 	cmd.Flags().SortFlags = false
 	cmd.Flags().PrintDefaults()
 }
@@ -154,7 +155,11 @@ func createUpgradeCommand(cmd *cobra.Command) string {
 	}
 	skipImages, _ := strconv.ParseBool(cmd.Flags().Lookup(skipImages).Value.String())
 	if skipImages {
-		psCmd += " -SkipImages "
+		psCmd += " -SkipImages"
+	}
+	additionalHooksDir := cmd.Flags().Lookup(common.AdditionalHooksDirFlagName).Value.String()
+	if additionalHooksDir != "" {
+		psCmd += " -AdditionalHooksDir " + utils.EscapeWithSingleQuotes(additionalHooksDir)
 	}
 	return psCmd
 }

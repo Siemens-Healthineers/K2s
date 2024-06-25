@@ -38,7 +38,7 @@ var _ = Describe("upgrade", func() {
 		When("flags set", func() {
 			It("creates the command", func() {
 				const staticPartOfExpectedCmd = `\lib\scripts\k2s\system\upgrade\Start-ClusterUpgrade.ps1`
-				const args = ` -ShowLogs -SkipResources  -DeleteFiles  -Config config.yaml -Proxy http://myproxy:81 -SkipImages `
+				const args = ` -ShowLogs -SkipResources  -DeleteFiles  -Config config.yaml -Proxy http://myproxy:81 -SkipImages -AdditionalHooksDir 'hookDir'`
 				expected := utils.FormatScriptFilePath(utils.InstallDir()+staticPartOfExpectedCmd) + args
 
 				flags := UpgradeCmd.Flags()
@@ -48,6 +48,7 @@ var _ = Describe("upgrade", func() {
 				flags.Set(configFileFlagName, "config.yaml")
 				flags.Set(proxy, "http://myproxy:81")
 				flags.Set(skipImages, "true")
+				flags.Set(common.AdditionalHooksDirFlagName, "hookDir")
 
 				actual := createUpgradeCommand(UpgradeCmd)
 

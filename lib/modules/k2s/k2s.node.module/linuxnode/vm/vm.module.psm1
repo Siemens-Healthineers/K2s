@@ -197,37 +197,52 @@ function Copy-FromControlPlaneViaSSHKey($Source, $Target,
     Write-Log "Copying '$Source' to '$Target', ignoring errors: '$IgnoreErrors'"
 
     $linuxSourceDirectory = $Source -replace "${remoteUser}:", ''
+    $leaf = Split-Path $linuxSourceDirectory -Leaf
+    $filter = $leaf
+
     ssh.exe -n -o StrictHostKeyChecking=no -i $key $remoteUser "[ -d '$linuxSourceDirectory' ]"
-    if ($?) {
-        # is directory
-        (Invoke-CmdOnControlPlaneViaSSHKey 'sudo rm -rf /tmp/copy.tar').Output | Write-Log
-        $leaf = Split-Path $linuxSourceDirectory -Leaf
-        (Invoke-CmdOnControlPlaneViaSSHKey "sudo tar -cf /tmp/copy.tar -C $linuxSourceDirectory .").Output | Write-Log
+    $isDir = $?
 
-        $output = scp.exe -o StrictHostKeyChecking=no -i $key "${remoteUser}:/tmp/copy.tar" "$env:temp\copy.tar" 2>&1
+    if ($leaf.Contains("*")) {
+        # copy all/specific files in directory e.g. pvc-* or *
+        (Invoke-CmdOnControlPlaneViaSSHKey 'sudo mkdir /tmp/matchedFilesCopyFromControlPlaneViaSSHKey').Output | Write-Log
+        (Invoke-CmdOnControlPlaneViaSSHKey "cd `$(dirname '$linuxSourceDirectory') && find . -name '$filter' | sudo xargs -i cp --parents {} -r /tmp/matchedFilesCopyFromControlPlaneViaSSHKey").Output | Write-Log
+
+        $tarFolder = "/tmp/matchedFilesCopyFromControlPlaneViaSSHKey"
+        $targetDirectory = $Target
+    } elseif ($isDir) {
+        # single folder copy
+        $tarFolder = $linuxSourceDirectory
+        $targetDirectory = "$Target\$leaf"
+    } else {
+        $output = scp.exe -o StrictHostKeyChecking=no -r -i $key "${remoteUser}:$Source" "$Target" 2>&1
         if ($LASTEXITCODE -ne 0 -and !$IgnoreErrors) {
             throw "Could not copy '$Source' to '$Target': $output"
         }
         Write-Log $output
-
-        New-Item -Path "$Target\$leaf" -ItemType Directory | Out-Null
-        
-        $output = tar.exe -xf "$env:temp\copy.tar" -C "$Target\$leaf"
-        if ($LASTEXITCODE -ne 0 -and !$IgnoreErrors) {
-            throw "Could not copy '$Source' to '$Target': $output"
-        }
-        Write-Log $output
-
-        (Invoke-CmdOnControlPlaneViaSSHKey 'sudo rm -rf /tmp/copy.tar').Output | Write-Log
-        Remove-Item -Path "$env:temp\copy.tar" -Force -ErrorAction SilentlyContinue
         return
     }
 
-    $output = scp.exe -o StrictHostKeyChecking=no -r -i $key "${remoteUser}:$Source" "$Target" 2>&1
+    (Invoke-CmdOnControlPlaneViaSSHKey 'sudo rm -rf /tmp/copy.tar').Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaSSHKey "sudo tar -cf /tmp/copy.tar -C $tarFolder .").Output | Write-Log
+
+    $output = scp.exe -o StrictHostKeyChecking=no -i $key "${remoteUser}:/tmp/copy.tar" "$env:temp\copy.tar" 2>&1
     if ($LASTEXITCODE -ne 0 -and !$IgnoreErrors) {
         throw "Could not copy '$Source' to '$Target': $output"
     }
     Write-Log $output
+
+    New-Item -Path "$targetDirectory" -ItemType Directory -ErrorAction SilentlyContinue | Out-Null
+    
+    $output = tar.exe -xf "$env:temp\copy.tar" -C "$targetDirectory"
+    if ($LASTEXITCODE -ne 0 -and !$IgnoreErrors) {
+        throw "Could not copy '$Source' to '$Target': $output"
+    }
+    Write-Log $output
+
+    (Invoke-CmdOnControlPlaneViaSSHKey 'sudo rm -rf /tmp/copy.tar').Output | Write-Log
+    Remove-Item -Path "$env:temp\copy.tar" -Force -ErrorAction SilentlyContinue
+    (Invoke-CmdOnControlPlaneViaSSHKey 'sudo rm -rf /tmp/matchedFilesCopyFromControlPlaneViaSSHKey').Output | Write-Log
 }
 
 function Copy-FromRemoteComputerViaUserAndPwd($Source, $Target, $IpAddress,
@@ -247,36 +262,52 @@ function Copy-ToControlPlaneViaSSHKey($Source, $Target,
     [Parameter(Mandatory = $false)]
     [switch]$IgnoreErrors = $false) {
     Write-Log "Copying '$Source' to '$Target', ignoring errors: '$IgnoreErrors'"
-    
+   
     $leaf = Split-Path $Source -leaf
-    if ($(Test-Path $Source) -and (Get-Item $Source) -is [System.IO.DirectoryInfo] -and $leaf -ne '*') {
-        # is directory
-        (Invoke-CmdOnControlPlaneViaSSHKey 'sudo rm -rf /tmp/copy.tar').Output | Write-Log
-        $leaf = Split-Path $Source -Leaf
+    $targetDirectory = $Target -replace "${remoteUser}:", ''
+    
+    if ($leaf.Contains("*")) {
+        # copy all/specific files in directory e.g. pvc-* or *
+        $filter = $leaf
 
-        $output = tar.exe -cf "$env:TEMP\copy.tar" -C $Source .
+        New-Item -Path "$env:TEMP\matchedFilesCopyToControlPlaneViaSSHKey" -ItemType Directory -Force | Out-Null
+        Get-ChildItem -Path $(Split-Path $Source -Parent) -Filter $filter -Force | ForEach-Object {
+            Write-Log "  Adding '$($_.FullName)'.."
+            Copy-Item "$($_.FullName)" "$env:TEMP\matchedFilesCopyToControlPlaneViaSSHKey" -Force -Recurse
+        }
+
+        $tarFolder = "$env:TEMP\matchedFilesCopyToControlPlaneViaSSHKey"
+    } elseif ($(Test-Path $Source) -and (Get-Item $Source) -is [System.IO.DirectoryInfo]) {
+        # single folder copy
+        $tarFolder = $Source
+        $targetDirectory = "$targetDirectory/$leaf"
+    } else {
+         # single file copy
+        $output = scp.exe -o StrictHostKeyChecking=no -r -i $key "$Source" "${remoteUser}:$Target" 2>&1
         if ($LASTEXITCODE -ne 0 -and !$IgnoreErrors) {
             throw "Could not copy '$Source' to '$Target': $output"
         }
-
-        $output = scp.exe -o StrictHostKeyChecking=no -i $key "$env:temp\copy.tar" "${remoteUser}:/tmp" 2>&1
-        if ($LASTEXITCODE -ne 0 -and !$IgnoreErrors) {
-            throw "Could not copy '$Source' to '$Target': $output"
-        }
-
-        $targetDirectory = $Target -replace "${remoteUser}:", ''
-        (Invoke-CmdOnControlPlaneViaSSHKey "mkdir -p $targetDirectory/$leaf").Output | Write-Log
-        (Invoke-CmdOnControlPlaneViaSSHKey "tar -xf /tmp/copy.tar -C $targetDirectory/$leaf").Output | Write-Log
-        (Invoke-CmdOnControlPlaneViaSSHKey 'sudo rm -rf /tmp/copy.tar').Output | Write-Log
-        Remove-Item -Path "$env:temp\copy.tar" -Force -ErrorAction SilentlyContinue
+        Write-Log $output
         return
     }
 
-    $output = scp.exe -o StrictHostKeyChecking=no -r -i $key "$Source" "${remoteUser}:$Target" 2>&1
+    (Invoke-CmdOnControlPlaneViaSSHKey 'sudo rm -rf /tmp/copy.tar').Output | Write-Log
+
+    $output = tar.exe -cf "$env:TEMP\copy.tar" -C $tarFolder .
     if ($LASTEXITCODE -ne 0 -and !$IgnoreErrors) {
         throw "Could not copy '$Source' to '$Target': $output"
     }
-    Write-Log $output
+
+    $output = scp.exe -o StrictHostKeyChecking=no -i $key "$env:temp\copy.tar" "${remoteUser}:/tmp" 2>&1
+    if ($LASTEXITCODE -ne 0 -and !$IgnoreErrors) {
+        throw "Could not copy '$Source' to '$Target': $output"
+    }
+
+    (Invoke-CmdOnControlPlaneViaSSHKey "mkdir -p $targetDirectory").Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaSSHKey "tar -xf /tmp/copy.tar -C $targetDirectory").Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaSSHKey 'sudo rm -rf /tmp/copy.tar').Output | Write-Log
+    Remove-Item -Path "$env:temp\copy.tar" -Force -ErrorAction SilentlyContinue
+    Remove-Item -Path "$env:TEMP\matchedFilesCopyToControlPlaneViaSSHKey" -Force -Recurse -ErrorAction SilentlyContinue
 }
 
 function Copy-ToControlPlaneViaUserAndPwd($Source, $Target,
