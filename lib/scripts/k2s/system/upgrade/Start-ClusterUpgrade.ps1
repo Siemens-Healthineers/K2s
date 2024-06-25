@@ -32,7 +32,9 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'Config file for setting up new cluster')]
     [string] $Config,
     [parameter(Mandatory = $false, HelpMessage = 'HTTP proxy if available')]
-    [string] $Proxy
+    [string] $Proxy,
+    [parameter(Mandatory = $false, HelpMessage = 'Directory containing additional hooks to be executed after local hooks are executed')]
+    [string] $AdditionalHooksDir = ''
 )
 $infraModule = "$PSScriptRoot/../../../../modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $clusterModule = "$PSScriptRoot/../../../../modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
@@ -139,6 +141,11 @@ function Start-ClusterUpgrade {
         $tpath = Get-TempPath
         $currentExeFolder = "$(Get-ClusterInstalledFolder)\bin\exe"
         Export-ClusterResources -SkipResources:$SkipResources -PathResources $tpath -ExePath $currentExeFolder
+
+        # Invoke backup hooks
+        $hooksBackupPath = Join-Path $tpath 'hooks'
+        Invoke-BackupRestoreHooks -HookType Backup -BackupDir $hooksBackupPath -ShowLogs:$ShowLogs -AdditionalHooksDir $AdditionalHooksDir
+
         if ($ShowProgress -eq $true) {
             Write-Progress -Activity 'Backing up addons..' -Id 1 -Status '4/10' -PercentComplete 40 -CurrentOperation 'Backing up addons, please wait..'
         }
@@ -183,6 +190,9 @@ function Start-ClusterUpgrade {
             Write-Progress -Activity 'Apply not namespaced resources on cluster..' -Id 1 -Status '7/10' -PercentComplete 70 -CurrentOperation 'Apply not namespaced resources, please wait..'
         }
         Restore-Addons -BackupDir $addonsBackupPath
+
+        # Invoke restore hooks
+        Invoke-BackupRestoreHooks -HookType Restore -BackupDir $hooksBackupPath -ShowLogs:$ShowLogs -AdditionalHooksDir $AdditionalHooksDir
 
         $exeFolder = Get-KubeToolsPath
         # import of resources
