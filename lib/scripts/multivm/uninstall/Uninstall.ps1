@@ -101,10 +101,9 @@ Remove-VMSshKey
 Remove-DefaultNetNat
 
 if ($global:PurgeOnUninstall) {
-    $setupFilePath = Get-SetupConfigFilePath
-    Remove-Item -Path "$setupFilePath" -Force -ErrorAction SilentlyContinue
-    $kubePath = Get-KubePath
+    Remove-Item -Path "$(Get-K2sConfigDir)" -Force -Recurse -ErrorAction SilentlyContinue
 
+    $kubePath = Get-KubePath
     Remove-Item -Path "$kubePath\smallsetup\multivm\debian*.qcow2" -Force -ErrorAction SilentlyContinue
     Remove-Item -Path "$global:KubernetesImagesJson" -Force -ErrorAction SilentlyContinue
     Remove-Item -Path "$kubePath\bin\kube*.exe" -Force -ErrorAction SilentlyContinue
