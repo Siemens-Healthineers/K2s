@@ -24,6 +24,7 @@ import (
 	"github.com/siemens-healthineers/k2s/internal/setupinfo"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/install/core"
+	cfg "github.com/siemens-healthineers/k2s/internal/config"
 
 	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
@@ -78,12 +79,12 @@ var _ = Describe("core", func() {
 			It("returns silent error", func() {
 				config := &setupinfo.Config{SetupName: "existent"}
 				cmd := &cobra.Command{}
-				cmd.SetContext(context.WithValue(context.TODO(), common.ContextKeyConfigDir, "some-dir"))
+				cmd.SetContext(context.WithValue(context.TODO(), common.ContextKeyConfig, &cfg.Config{Host: cfg.HostConfig{K2sConfigDir: "some-dir"}}))
 
 				printerMock := &myMock{}
 
 				configMock := &myMock{}
-				configMock.On(reflection.GetFunctionName(configMock.loadConfig), mock.AnythingOfType("string")).Return(config, nil)
+				configMock.On(reflection.GetFunctionName(configMock.loadConfig), "some-dir").Return(config, nil)
 
 				sut := &core.Installer{
 					Printer:        printerMock,
@@ -108,14 +109,14 @@ var _ = Describe("core", func() {
 				It("returns error", func() {
 					kind := ic.Kind("test-kind")
 					cmd := &cobra.Command{}
-					cmd.SetContext(context.WithValue(context.TODO(), common.ContextKeyConfigDir, "some-dir"))
+					cmd.SetContext(context.WithValue(context.TODO(), common.ContextKeyConfig, &cfg.Config{Host: cfg.HostConfig{K2sConfigDir: "some-dir"}}))
 
 					expectedError := errors.New("oops")
 					var nilConfig *setupinfo.Config
 					var nilInstallConfig *ic.InstallConfig
 
 					configMock := &myMock{}
-					configMock.On(reflection.GetFunctionName(configMock.loadConfig), mock.AnythingOfType("string")).Return(nilConfig, setupinfo.ErrSystemNotInstalled)
+					configMock.On(reflection.GetFunctionName(configMock.loadConfig), "some-dir").Return(nilConfig, setupinfo.ErrSystemNotInstalled)
 
 					installConfigMock := &myMock{}
 					installConfigMock.On(r.GetFunctionName(installConfigMock.Load), kind, cmd.Flags()).Return(nilInstallConfig, expectedError)
@@ -135,13 +136,13 @@ var _ = Describe("core", func() {
 				It("returns error", func() {
 					kind := ic.Kind("test-kind")
 					cmd := &cobra.Command{}
-					cmd.SetContext(context.WithValue(context.TODO(), common.ContextKeyConfigDir, "some-dir"))
+					cmd.SetContext(context.WithValue(context.TODO(), common.ContextKeyConfig, &cfg.Config{Host: cfg.HostConfig{K2sConfigDir: "some-dir"}}))
 
 					expectedError := common.CreateSystemInCorruptedStateCmdFailure()
 					config := &setupinfo.Config{SetupName: "existent", Corrupted: true}
 
 					configMock := &myMock{}
-					configMock.On(reflection.GetFunctionName(configMock.loadConfig), mock.AnythingOfType("string")).Return(config, setupinfo.ErrSystemInCorruptedState)
+					configMock.On(reflection.GetFunctionName(configMock.loadConfig), "some-dir").Return(config, setupinfo.ErrSystemInCorruptedState)
 
 					sut := &core.Installer{
 						LoadConfigFunc: configMock.loadConfig,
@@ -158,7 +159,7 @@ var _ = Describe("core", func() {
 			It("returns error", func() {
 				kind := ic.Kind("test-kind")
 				cmd := &cobra.Command{}
-				cmd.SetContext(context.WithValue(context.TODO(), common.ContextKeyConfigDir, "some-dir"))
+				cmd.SetContext(context.WithValue(context.TODO(), common.ContextKeyConfig, &cfg.Config{Host: cfg.HostConfig{K2sConfigDir: "some-dir"}}))
 
 				config := &ic.InstallConfig{}
 				expectedError := errors.New("oops")
@@ -167,7 +168,7 @@ var _ = Describe("core", func() {
 				buildCmdFunc := func(_ *ic.InstallConfig) (cmd string, err error) { return "", expectedError }
 
 				configMock := &myMock{}
-				configMock.On(reflection.GetFunctionName(configMock.loadConfig), mock.AnythingOfType("string")).Return(nilConfig, setupinfo.ErrSystemNotInstalled)
+				configMock.On(reflection.GetFunctionName(configMock.loadConfig), "some-dir").Return(nilConfig, setupinfo.ErrSystemNotInstalled)
 
 				installConfigMock := &myMock{}
 				installConfigMock.On(r.GetFunctionName(installConfigMock.Load), kind, cmd.Flags()).Return(config, nil)
@@ -187,7 +188,7 @@ var _ = Describe("core", func() {
 			It("returns error", func() {
 				kind := ic.Kind("test-kind")
 				cmd := &cobra.Command{}
-				cmd.SetContext(context.WithValue(context.TODO(), common.ContextKeyConfigDir, "some-dir"))
+				cmd.SetContext(context.WithValue(context.TODO(), common.ContextKeyConfig, &cfg.Config{Host: cfg.HostConfig{K2sConfigDir: "some-dir"}}))
 
 				config := &ic.InstallConfig{}
 				testCmd := "test-cmd"
@@ -203,7 +204,7 @@ var _ = Describe("core", func() {
 				printerMock.On(r.GetFunctionName(printerMock.Printfln), mock.Anything, mock.Anything)
 
 				configMock := &myMock{}
-				configMock.On(reflection.GetFunctionName(configMock.loadConfig), mock.AnythingOfType("string")).Return(nilConfig, setupinfo.ErrSystemNotInstalled)
+				configMock.On(reflection.GetFunctionName(configMock.loadConfig), "some-dir").Return(nilConfig, setupinfo.ErrSystemNotInstalled)
 
 				installConfigMock := &myMock{}
 				installConfigMock.On(r.GetFunctionName(installConfigMock.Load), kind, cmd.Flags()).Return(config, nil)
@@ -231,7 +232,7 @@ var _ = Describe("core", func() {
 			It("calls printing and command execution correctly", func() {
 				kind := ic.Kind("test-kind")
 				cmd := &cobra.Command{}
-				cmd.SetContext(context.WithValue(context.TODO(), common.ContextKeyConfigDir, "some-dir"))
+				cmd.SetContext(context.WithValue(context.TODO(), common.ContextKeyConfig, &cfg.Config{Host: cfg.HostConfig{K2sConfigDir: "some-dir"}}))
 
 				config := &ic.InstallConfig{}
 				testCmd := "test-cmd"
@@ -243,7 +244,7 @@ var _ = Describe("core", func() {
 				}
 
 				configMock := &myMock{}
-				configMock.On(reflection.GetFunctionName(configMock.loadConfig), mock.AnythingOfType("string")).Return(nilConfig, setupinfo.ErrSystemNotInstalled)
+				configMock.On(reflection.GetFunctionName(configMock.loadConfig), "some-dir").Return(nilConfig, setupinfo.ErrSystemNotInstalled)
 
 				printerMock := &myMock{}
 				printerMock.On(r.GetFunctionName(printerMock.Printfln), mock.Anything, mock.MatchedBy(func(a any) bool {
@@ -282,7 +283,7 @@ var _ = Describe("core", func() {
 			It("calls printing and command execution correctly", func() {
 				kind := ic.MultivmConfigType
 				cmd := &cobra.Command{}
-				cmd.SetContext(context.WithValue(context.TODO(), common.ContextKeyConfigDir, "some-dir"))
+				cmd.SetContext(context.WithValue(context.TODO(), common.ContextKeyConfig, &cfg.Config{Host: cfg.HostConfig{K2sConfigDir: "some-dir"}}))
 
 				config := &ic.InstallConfig{}
 				testCmd := "test-cmd"
@@ -294,7 +295,7 @@ var _ = Describe("core", func() {
 				}
 
 				configMock := &myMock{}
-				configMock.On(reflection.GetFunctionName(configMock.loadConfig), mock.AnythingOfType("string")).Return(nilConfig, setupinfo.ErrSystemNotInstalled)
+				configMock.On(reflection.GetFunctionName(configMock.loadConfig), "some-dir").Return(nilConfig, setupinfo.ErrSystemNotInstalled)
 
 				printerMock := &myMock{}
 				printerMock.On(r.GetFunctionName(printerMock.Printfln), mock.Anything, mock.MatchedBy(func(a any) bool {

@@ -53,7 +53,7 @@ const (
 	SeverityWarning FailureSeverity = 3
 	SeverityError   FailureSeverity = 4
 
-	ContextKeyConfigDir ContextKey = "config"
+	ContextKeyConfig ContextKey = "config"
 
 	OutputFlagName      = "output"
 	OutputFlagShorthand = "o"

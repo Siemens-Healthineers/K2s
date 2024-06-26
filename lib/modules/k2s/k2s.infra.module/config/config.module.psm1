@@ -29,12 +29,13 @@ function Expand-Path {
     return $FileName
 }
 
-$configDir = $smallsetup.psobject.properties['configDir'].value
+$configDir = $rootConfig.psobject.properties['configDir'].value
 $configuredStorageLocalDriveLetter = $smallsetup.psobject.properties['storageLocalDriveLetter'].value
 
 $kubeConfigDir = Expand-Path $configDir.psobject.properties['kube'].value
 $sshConfigDir = Expand-Path $configDir.psobject.properties['ssh'].value
 $dockerConfigDir = Expand-Path $configDir.psobject.properties['docker'].value
+$k2sConfigDir = Expand-Path $configDir.psobject.properties['k2s'].value
 
 $sshKeyFileName = 'id_rsa'
 $kubernetesImagesJsonFile = "$kubeConfigDir\kubernetes_images.json"
@@ -61,7 +62,7 @@ $kubeDnsServiceIP = $smallsetup.psobject.properties['kubeDnsServiceIP'].value
 $masterNetworkInterfaceCni0IP = $smallsetup.psobject.properties['masterNetworkInterfaceCni0IP'].value
 
 #CONSTANTS
-New-Variable -Name 'SetupJsonFile' -Value "$kubeConfigDir\setup.json" -Option Constant
+New-Variable -Name 'SetupJsonFile' -Value "$k2sConfigDir\setup.json" -Option Constant
 
 
 # PUBLIC FUNCTIONS
