@@ -150,7 +150,6 @@ function Export-NotNamespacedResources {
                 .items[].metadata.uid,
                 .items[].metadata.selfLink,
                 .items[].metadata.creationTimestamp,
-                .items[].metadata.annotations,
                 .items[].metadata.generation,
                 .items[].metadata.ownerReferences,
                 .items[].spec.finalizers,
@@ -160,7 +159,6 @@ function Export-NotNamespacedResources {
                 .metadata.uid,
                 .metadata.selfLink,
                 .metadata.creationTimestamp,
-                .metadata.annotations,
                 .metadata.generation,
                 .metadata.ownerReferences)'
             $filter = $filter -replace '\r*\n', ''
@@ -228,7 +226,6 @@ function Export-NamespacedResources {
                 .items[].metadata.uid,
                 .items[].metadata.selfLink,
                 .items[].metadata.creationTimestamp,
-                .items[].metadata.annotations,
                 .items[].metadata.generation,
                 .items[].metadata.ownerReferences,
                 .items[].spec.finalizers,
@@ -237,7 +234,6 @@ function Export-NamespacedResources {
                 .metadata.uid,
                 .metadata.selfLink,
                 .metadata.creationTimestamp,
-                .metadata.annotations,
                 .metadata.generation,
                 .metadata.ownerReferences)'
                 $filter = $filter -replace '\r*\n', ''
