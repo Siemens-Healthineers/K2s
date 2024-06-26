@@ -40,6 +40,7 @@ func CreateRootCmd(levelVar *slog.LevelVar) (*cobra.Command, error) {
 			}
 
 			// TODO: always load setup config and determine PS version?
+
 			config, err := config.LoadConfig(utils.InstallDir())
 			if err != nil {
 				return err
@@ -47,7 +48,7 @@ func CreateRootCmd(levelVar *slog.LevelVar) (*cobra.Command, error) {
 
 			slog.Debug("config loaded", "config", config)
 
-			cmd.SetContext(context.WithValue(cmd.Context(), cc.ContextKeyConfigDir, config.Host.KubeConfigDir))
+			cmd.SetContext(context.WithValue(cmd.Context(), cc.ContextKeyConfig, config))
 
 			return nil
 		},

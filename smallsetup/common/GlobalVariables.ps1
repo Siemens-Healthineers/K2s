@@ -90,7 +90,7 @@ $global:Remote_Master = "$global:RemoteUserName_Master@$global:IP_Master"
 $global:VMPwd = 'admin'
 
 # key for accessing VMs over SSH
-$configDir = $smallsetup.psobject.properties['configDir'].value
+$configDir = $clusterConfig.psobject.properties['configDir'].value
 
 $global:SshConfigDir = Force-Resolve-Path $configDir.psobject.properties['ssh'].value
 $global:keyFileName = 'id_rsa'
@@ -100,6 +100,7 @@ $global:WindowsVMKey = $global:SshConfigDir + "\windowsvm\$global:keyFileName"
 $global:KubeConfigDir = Force-Resolve-Path $configDir.psobject.properties['kube'].value
 $global:KubeletConfigDir = $global:SystemDriveLetter + ':\var\lib\kubelet'
 $global:DockerConfigDir = Force-Resolve-Path $configDir.psobject.properties['docker'].value
+$global:K2sConfigDir = Force-Resolve-Path $configDir.psobject.properties['k2s'].value
 
 # NSSM for controlling services
 $global:NssmInstallDirectoryLegacy = "$env:ProgramFiles\nssm"
@@ -148,7 +149,7 @@ $global:MultiVMHostName = 'win.k8s.onehc.net'
 $global:Admin_WinNode = "administrator@$global:MultiVMWinNodeIP"
 
 # setup config file
-$global:SetupJsonFile = "$global:KubeConfigDir\setup.json"
+$global:SetupJsonFile = "$global:K2sConfigDir\setup.json"
 $global:KubernetesImagesJson = "$global:KubeConfigDir\kubernetes_images.json"
 $global:WindowsTimezoneConfig = "$global:KubeConfigDir\windowsZones.xml"
 $global:SetupType_k2s = 'k2s'

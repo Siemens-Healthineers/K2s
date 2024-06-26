@@ -26,7 +26,7 @@ func GetSetupInfo(installDir string) (*SetupInfo, error) {
 		return nil, err
 	}
 
-	setupConfig, err := setupinfo.LoadConfig(config.Host.KubeConfigDir)
+	setupConfig, err := setupinfo.ReadConfig(config.Host.K2sConfigDir)
 	if err != nil {
 		return nil, err
 	}

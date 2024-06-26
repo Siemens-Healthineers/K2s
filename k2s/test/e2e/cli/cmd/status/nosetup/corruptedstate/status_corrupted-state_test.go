@@ -63,7 +63,7 @@ var _ = Describe("status", Ordered, func() {
 
 		config, err := config.LoadConfig(installDir)
 		Expect(err).ToNot(HaveOccurred())
-		configPath = filepath.Join(config.Host.KubeConfigDir, "setup.json")
+		configPath = filepath.Join(config.Host.K2sConfigDir, "setup.json")
 
 		GinkgoWriter.Println("Writing test data to <", configPath, ">")
 
