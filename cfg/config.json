@@ -96,6 +96,6 @@
         "ssh": "~/.ssh",
         "kube": "~/.kube",
         "docker": "~/.docker",
-        "k2s": "C:\\Program Files\\K2s"
+        "k2s": "C:\\ProgramData\\K2s"
     }
 }
