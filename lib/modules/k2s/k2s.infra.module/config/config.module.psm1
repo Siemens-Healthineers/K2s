@@ -87,6 +87,10 @@ function Get-k2sConfigFilePath {
     return $configFile
 }
 
+function Get-K2sConfigDir {
+    return $k2sConfigDir
+}
+
 function Get-SetupConfigFilePath {
     return $SetupJsonFile
 }
@@ -477,6 +481,7 @@ Set-ConfigValue,
 Get-ConfiguredKubeConfigDir,
 Get-k2sConfigFilePath,
 Get-SetupConfigFilePath,
+Get-K2sConfigDir,
 Get-KubernetesImagesFilePath,
 Get-ProductVersion,
 Get-SSHKeyControlPlane,
