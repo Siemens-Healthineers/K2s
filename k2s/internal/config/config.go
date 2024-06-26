@@ -22,6 +22,7 @@ type Config struct {
 
 type HostConfig struct {
 	KubeConfigDir string
+	K2sConfigDir  string
 }
 
 type NodeConfig struct {
@@ -31,15 +32,16 @@ type NodeConfig struct {
 
 type config struct {
 	SmallSetup smallSetup `json:"smallsetup"`
+	ConfigDir  configDir  `json:"configDir"`
 }
 
 type smallSetup struct {
-	ConfigDir configDir `json:"configDir"`
-	ShareDir  shareDir  `json:"shareDir"`
+	ShareDir shareDir `json:"shareDir"`
 }
 
 type configDir struct {
 	Kube string `json:"kube"`
+	K2s  string `json:"k2s"`
 }
 
 type shareDir struct {
@@ -60,7 +62,7 @@ func LoadConfig(installDir string) (*Config, error) {
 		return nil, fmt.Errorf("error occurred while loading config file: %w", err)
 	}
 
-	kubeConfigDir, err := resolveTildeInPath(config.SmallSetup.ConfigDir.Kube)
+	kubeConfigDir, err := resolveTildeInPath(config.ConfigDir.Kube)
 	if err != nil {
 		return nil, fmt.Errorf("error occurred while resolving tilde in file path: %w", err)
 	}
@@ -68,6 +70,7 @@ func LoadConfig(installDir string) (*Config, error) {
 	return &Config{
 		Host: HostConfig{
 			KubeConfigDir: kubeConfigDir,
+			K2sConfigDir:  config.ConfigDir.K2s,
 		},
 		Nodes: []NodeConfig{
 			{

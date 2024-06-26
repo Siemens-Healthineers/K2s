@@ -30,7 +30,7 @@ const (
 	SetupNameMultiVMK8s   SetupName = "MultiVMK8s"
 	SetupNameBuildOnlyEnv SetupName = "BuildOnlyEnv"
 
-	configFileName = "setup.json"
+	ConfigFileName = "setup.json"
 )
 
 var (
@@ -38,8 +38,8 @@ var (
 	ErrSystemInCorruptedState = errors.New("system-in-corrupted-state")
 )
 
-func LoadConfig(configDir string) (*Config, error) {
-	configPath := filepath.Join(configDir, configFileName)
+func ReadConfig(configDir string) (*Config, error) {
+	configPath := filepath.Join(configDir, ConfigFileName)
 
 	config, err := json.FromFile[Config](configPath)
 	if err != nil {
@@ -58,8 +58,14 @@ func LoadConfig(configDir string) (*Config, error) {
 	return config, nil
 }
 
-func SetConfig(configDir string, config *Config) error {
-	configPath := filepath.Join(configDir, configFileName)
+func WriteConfig(configDir string, config *Config) error {
+	configPath := filepath.Join(configDir, ConfigFileName)
 
 	return json.ToFile(configPath, config)
+}
+
+func DeleteConfig(configDir string) error {
+	configPath := filepath.Join(configDir, ConfigFileName)
+
+	return os.Remove(configPath)
 }

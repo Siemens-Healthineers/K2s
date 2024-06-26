@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
+	"github.com/siemens-healthineers/k2s/internal/config"
 	"github.com/siemens-healthineers/k2s/internal/powershell"
 	"github.com/siemens-healthineers/k2s/internal/setupinfo"
 
@@ -83,8 +84,8 @@ func systemPackage(cmd *cobra.Command, args []string) error {
 
 	slog.Debug("PS command created", "command", systemPackageCommand, "params", params)
 
-	configDir := cmd.Context().Value(common.ContextKeyConfigDir).(string)
-	setupConfig, err := setupinfo.LoadConfig(configDir)
+	cfg := cmd.Context().Value(common.ContextKeyConfig).(*config.Config)
+	setupConfig, err := setupinfo.ReadConfig(cfg.Host.K2sConfigDir)
 	if err != nil {
 		if errors.Is(err, setupinfo.ErrSystemInCorruptedState) {
 			return common.CreateSystemInCorruptedStateCmdFailure()

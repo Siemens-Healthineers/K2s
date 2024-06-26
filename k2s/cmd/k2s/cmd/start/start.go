@@ -19,6 +19,7 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 
+	"github.com/siemens-healthineers/k2s/internal/config"
 	"github.com/siemens-healthineers/k2s/internal/powershell"
 	"github.com/siemens-healthineers/k2s/internal/setupinfo"
 )
@@ -39,8 +40,8 @@ func init() {
 func startk8s(ccmd *cobra.Command, args []string) error {
 	pterm.Printfln("🤖 Starting K2s on %s", utils.Platform())
 
-	configDir := ccmd.Context().Value(common.ContextKeyConfigDir).(string)
-	config, err := setupinfo.LoadConfig(configDir)
+	cfg := ccmd.Context().Value(common.ContextKeyConfig).(*config.Config)
+	config, err := setupinfo.ReadConfig(cfg.Host.K2sConfigDir)
 	if err != nil {
 		if errors.Is(err, setupinfo.ErrSystemInCorruptedState) {
 			return common.CreateSystemInCorruptedStateCmdFailure()

@@ -13,6 +13,7 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 
+	"github.com/siemens-healthineers/k2s/internal/config"
 	"github.com/siemens-healthineers/k2s/internal/powershell"
 	"github.com/siemens-healthineers/k2s/internal/setupinfo"
 	"github.com/siemens-healthineers/k2s/internal/version"
@@ -45,8 +46,8 @@ func (i *Installer) Install(
 	kind ic.Kind,
 	ccmd *cobra.Command,
 	buildCmdFunc func(config *ic.InstallConfig) (cmd string, err error)) error {
-	configDir := ccmd.Context().Value(common.ContextKeyConfigDir).(string)
-	setupConfig, err := i.LoadConfigFunc(configDir)
+	cfg := ccmd.Context().Value(common.ContextKeyConfig).(*config.Config)
+	setupConfig, err := i.LoadConfigFunc(cfg.Host.K2sConfigDir)
 	if errors.Is(err, setupinfo.ErrSystemInCorruptedState) {
 		return common.CreateSystemInCorruptedStateCmdFailure()
 	}
@@ -93,17 +94,17 @@ func (i *Installer) Install(
 
 	if outputWriter.ErrorOccurred {
 		// corrupted state
-		setupConfig, err := i.LoadConfigFunc(configDir)
+		setupConfig, err := i.LoadConfigFunc(cfg.Host.K2sConfigDir)
 		if err != nil {
 			if setupConfig == nil {
 				setupConfig = &setupinfo.Config{
 					Corrupted: true,
 				}
-				i.SetConfigFunc(configDir, setupConfig)
+				i.SetConfigFunc(cfg.Host.K2sConfigDir, setupConfig)
 			}
 		} else {
 			setupConfig.Corrupted = true
-			i.SetConfigFunc(configDir, setupConfig)
+			i.SetConfigFunc(cfg.Host.K2sConfigDir, setupConfig)
 		}
 
 		return common.CreateSystemInCorruptedStateCmdFailure()
