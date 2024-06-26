@@ -160,8 +160,8 @@ var _ = Describe("'dashboard' addon", Ordered, func() {
 				Expect(addonsStatus.IsAddonEnabled("dashboard")).To(BeTrue())
 			})
 
-			It("is reachable through k2s-dashboard.local", func(ctx context.Context) {
-				url := "https://k2s-dashboard.local/#/pod?namespace=_all"
+			It("is reachable through k2s-dashboard.cluster.local", func(ctx context.Context) {
+				url := "https://k2s-dashboard.cluster.local/#/pod?namespace=_all"
 				httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-I", "-m", "5", "--retry", "3", "--fail")
 				Expect(httpStatus).To(ContainSubstring("200"))
 			})
@@ -213,8 +213,8 @@ var _ = Describe("'dashboard' addon", Ordered, func() {
 				Expect(addonsStatus.IsAddonEnabled("dashboard")).To(BeTrue())
 			})
 
-			It("is reachable through k2s-dashboard.local", func(ctx context.Context) {
-				url := "https://k2s-dashboard.local/#/pod?namespace=_all"
+			It("is reachable through k2s-dashboard.cluster.local", func(ctx context.Context) {
+				url := "https://k2s-dashboard.cluster.local/#/pod?namespace=_all"
 				httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-I", "-m", "5", "--retry", "10", "--fail", "--retry-all-errors")
 				Expect(httpStatus).To(ContainSubstring("200"))
 			})

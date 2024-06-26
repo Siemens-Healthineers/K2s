@@ -34,7 +34,7 @@ The monitoring dashboard UI can be accessed via the following methods.
 ### Access using ingress
 
 To access monitoring dashboard via ingress, the ingress-nginx or the traefik addon has to enabled.
-Once the addons are enabled, then the monitoring dashboard UI can be accessed at the following links: https://k2s.cluster.local/monitoring/ and https://k2s-monitoring.local (with HTTP using http://.. unstead of https://..)
+Once the addons are enabled, then the monitoring dashboard UI can be accessed at the following links: https://k2s.cluster.local/monitoring/ and https://k2s-monitoring.cluster.local (with HTTP using http://.. unstead of https://..)
 
 ### Access using port-forwarding
 

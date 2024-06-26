@@ -144,8 +144,8 @@ var _ = Describe("'monitoring' addon", Ordered, func() {
 			expectStatusToBePrinted(ctx)
 		})
 
-		It("is reachable through k2s-monitoring.local", func(ctx context.Context) {
-			url := "https://k2s-monitoring.local/login"
+		It("is reachable through k2s-monitoring.cluster.local", func(ctx context.Context) {
+			url := "https://k2s-monitoring.cluster.local/login"
 			httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-I", "-m", "5", "--retry", "3", "--fail")
 			Expect(httpStatus).To(ContainSubstring("200"))
 		})
@@ -202,8 +202,8 @@ var _ = Describe("'monitoring' addon", Ordered, func() {
 			expectStatusToBePrinted(ctx)
 		})
 
-		It("is reachable through k2s-monitoring.local", func(ctx context.Context) {
-			url := "https://k2s-monitoring.local/login"
+		It("is reachable through k2s-monitoring.cluster.local", func(ctx context.Context) {
+			url := "https://k2s-monitoring.cluster.local/login"
 			httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-I", "-m", "5", "--retry", "10", "--fail")
 			Expect(httpStatus).To(ContainSubstring("200"))
 		})

@@ -142,7 +142,7 @@ if (Test-TraefikIngressControllerAvailability) {
 elseif (Test-NginxIngressControllerAvailability) {
     (Invoke-Kubectl -Params 'apply', '-f', "$manifestsPath\opensearch-dashboards\ingress.yaml").Output | Write-Log
 }
-Add-HostEntries -Url 'k2s-logging.local'
+Add-HostEntries -Url 'k2s-logging.cluster.local'
 
 # Import saved objects 
 $dashboardIP = (Invoke-Kubectl -Params 'get', 'pods', '-l=app.kubernetes.io/name=opensearch-dashboards', '-n', 'logging', '-o=jsonpath="{.items[0].status.podIP}"').Output

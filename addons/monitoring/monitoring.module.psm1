@@ -38,7 +38,7 @@ function Write-UsageForUser {
  eg. k2s addons enable ingress-nginx
  Once the ingress controller is running in the cluster, run the command to enable monitoring again (disable it first if monitoring addon was already enabled).
  k2s addons enable monitoring
- The plutono dashboard will be accessible on the following URL: https://k2s.cluster.local/monitoring/ and https://k2s-monitoring.local (with HTTP using http://.. unstead of https://..)
+ The plutono dashboard will be accessible on the following URL: https://k2s.cluster.local/monitoring/ and https://k2s-monitoring.cluster.local (with HTTP using http://.. unstead of https://..)
 
  Option 2: Port-forwading
  Use port-forwarding to the plutono dashboard using the command below:

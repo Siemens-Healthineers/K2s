@@ -124,7 +124,7 @@ elseif (Test-NginxIngressControllerAvailability) {
     (Invoke-Kubectl -Params 'apply', '-f', "$manifestsPath\plutono\ingress.yaml").Output | Write-Log
 }
 
-Add-HostEntries -Url 'k2s-monitoring.local'
+Add-HostEntries -Url 'k2s-monitoring.cluster.local'
 
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'monitoring' })
 
