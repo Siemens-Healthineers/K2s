@@ -110,6 +110,8 @@ spec:
           - "--providers.kubernetescrd.ingressclass=traefik"
           - "--providers.kubernetesingress"
           - "--providers.kubernetesingress.ingressclass=traefik"
+          - "--providers.kubernetesIngress.ingressEndpoint"
+          - "--providers.kubernetesIngress.ingressEndpoint.publishedService=traefik/traefik"
           - "--entrypoints.websecure.http.tls=true"
           - "--serverstransport.insecureskipverify=true"
           - "--log.level=DEBUG"

@@ -82,7 +82,7 @@ Steps:
    kubectl create secret -n kube-system tls etcd-client-for-core-dns --cert=etcd/healthcheck-client.crt --key=etcd/healthcheck-client.key
    ```
 
-3. Mounting the secrets in the deployment, see [external-dns.yaml](external-dns.yaml):
+3. Use the secrets in the deployment of [external-dns.yaml](external-dns.yaml):
 
     ```yaml
     ...
@@ -102,11 +102,53 @@ Steps:
             env:
             - name: ETCD_URLS
               value: https://172.19.1.100:2379
-            - name: ETCD_CA_FILE
-              value: /etc/kubernetes/pki/etcd-ca/tls.crt
             - name: ETCD_CERT_FILE
               value: /etc/kubernetes/pki/etcd-client/tls.crt
             - name: ETCD_KEY_FILE
               value: /etc/kubernetes/pki/etcd-client/tls.key
+            - name: ETCD_CA_FILE
+              value: /etc/kubernetes/pki/etcd-ca/tls.crt
     ...
+    ```
+
+4. Use the same secrets in the deployment of [coredns.yaml](coredns.yaml):
+
+    ```yaml
+        volumeMounts:
+        - mountPath: /etc/coredns
+          name: config-volume
+          readOnly: true
+        - mountPath: /etc/kubernetes/pki/etcd-ca
+          name: etcd-ca-cert
+        - mountPath: /etc/kubernetes/pki/etcd-client
+          name: etcd-client-cert
+    
+    ...
+
+      volumes:
+      - configMap:
+          defaultMode: 420
+          items:
+          - key: Corefile
+            path: Corefile
+          name: coredns
+        name: config-volume
+      - name: etcd-ca-cert
+        secret:
+          secretName: etcd-ca
+      - name: etcd-client-cert
+        secret:
+          secretName: etcd-client-for-core-dns
+    ```
+
+    Also the [CoreDNS ConfigMap](coredns-configmap.yaml):
+  
+    ```text
+        etcd cluster.local {
+          stubzones
+          path /skydns
+          endpoint https://172.19.1.100:2379
+          tls /etc/kubernetes/pki/etcd-client/tls.crt /etc/kubernetes/pki/etcd-client/tls.key /etc/kubernetes/pki/etcd-ca/tls.crt
+          fallthrough
+    }
     ```
