@@ -109,7 +109,7 @@ Remove-Item -Path "$($global:SystemDriveLetter):\run" -Force -Recurse -ErrorActi
 
 if ($global:PurgeOnUninstall) {
     Remove-Item -Path "$global:KubernetesPath\smallsetup\multivm\debian*.qcow2" -Force -ErrorAction SilentlyContinue
-    Remove-Item -Path "$global:SetupJsonFile" -Force -ErrorAction SilentlyContinue
+    Remove-Item -Path "$global:K2sConfigDir" -Force -Recurse -ErrorAction SilentlyContinue
     Remove-Item -Path "$global:KubernetesImagesJson" -Force -ErrorAction SilentlyContinue
     Remove-Item -Path "$global:BinPath\kube*.exe" -Force -ErrorAction SilentlyContinue
     Remove-Item -Path "$global:BinPath\cri*.exe" -Force -ErrorAction SilentlyContinue
