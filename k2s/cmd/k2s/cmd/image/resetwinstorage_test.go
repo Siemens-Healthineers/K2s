@@ -4,13 +4,16 @@
 package image
 
 import (
+	"context"
 	"errors"
+	"fmt"
 	"path/filepath"
 	"strconv"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 	"github.com/siemens-healthineers/k2s/internal/powershell"
+	"github.com/siemens-healthineers/k2s/internal/reflection"
 	"github.com/siemens-healthineers/k2s/internal/setupinfo"
 	"github.com/stretchr/testify/mock"
 
@@ -23,7 +26,7 @@ type mockSetupConfigProvider struct {
 }
 
 func (m *mockSetupConfigProvider) LoadConfig(configDir string) (*setupinfo.Config, error) {
-	args := m.Called()
+	args := m.Called(configDir)
 	return args.Get(0).(*setupinfo.Config), args.Error(1)
 }
 
@@ -36,7 +39,15 @@ func (m *mockPowershellExecutor) ExecutePsWithStructuredResult(psVersion powersh
 	return args.Get(0).(*common.CmdResult), args.Error(1)
 }
 
-var _ = Describe("reset-win-storage", func() {
+var _ = Describe("reset-win-storage", Ordered, func() {
+	BeforeAll(func() {
+		resetWinStorageCmd.Flags().BoolP(common.OutputFlagName, common.OutputFlagShorthand, false, common.OutputFlagUsage)
+	})
+	BeforeEach(func() {
+		resetFlags()
+
+		DeferCleanup(resetFlags)
+	})
 	Describe("buildResetPsCmd", func() {
 		Context("with containerd directory and docker directory", func() {
 			It("returns correct reset-win-storage command", func() {
@@ -47,7 +58,7 @@ var _ = Describe("reset-win-storage", func() {
 
 				Expect(err).ToNot(HaveOccurred())
 				Expect(cmd).To(Equal("&'" + filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "image", "ResetWinContainerStorage.ps1") + "'"))
-				Expect(params).To(ConsistOf("-Containerd", "containerdDir", "-Docker", "dockerDir", "-MaxRetries", strconv.Itoa(defaultMaxRetry)))
+				Expect(params).To(ConsistOf(" -Containerd 'containerdDir'", " -Docker 'dockerDir'", fmt.Sprintf(" -MaxRetries %v", strconv.Itoa(defaultMaxRetry))))
 			})
 		})
 
@@ -59,7 +70,7 @@ var _ = Describe("reset-win-storage", func() {
 
 				Expect(err).ToNot(HaveOccurred())
 				Expect(cmd).To(Equal("&'" + filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "image", "ResetWinContainerStorage.ps1") + "'"))
-				Expect(params).To(ConsistOf("-Containerd", "containerdir", "-MaxRetries", strconv.Itoa(defaultMaxRetry)))
+				Expect(params).To(ConsistOf(" -Containerd 'containerdDir'", fmt.Sprintf(" -Docker '%v'", defaultDockerDir), fmt.Sprintf(" -MaxRetries %v", strconv.Itoa(defaultMaxRetry))))
 			})
 		})
 
@@ -70,8 +81,8 @@ var _ = Describe("reset-win-storage", func() {
 				cmd, params, err := buildResetPsCmd(resetWinStorageCmd)
 
 				Expect(err).ToNot(HaveOccurred())
-				Expect(cmd).To(Equal("&'" + filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "image", "ResetWinDockerStorage.ps1") + "'"))
-				Expect(params).To(ConsistOf("-Docker", "dockerDir", "MaxRetries", strconv.Itoa(defaultMaxRetry)))
+				Expect(cmd).To(Equal("&'" + filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "image", "ResetWinContainerStorage.ps1") + "'"))
+				Expect(params).To(ConsistOf(fmt.Sprintf(" -Containerd '%v'", defaultContainerdDir), " -Docker 'dockerDir'", fmt.Sprintf(" -MaxRetries %v", strconv.Itoa(defaultMaxRetry))))
 			})
 		})
 
@@ -83,7 +94,7 @@ var _ = Describe("reset-win-storage", func() {
 
 				Expect(err).ToNot(HaveOccurred())
 				Expect(cmd).To(Equal("&'" + filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "image", "ResetWinContainerStorage.ps1") + "'"))
-				Expect(params).To(ConsistOf("-Containerd", defaultContainerdDir, "-Docker", defaultDockerDir, "-MaxRetries", "5"))
+				Expect(params).To(ConsistOf(fmt.Sprintf(" -Containerd '%v'", defaultContainerdDir), fmt.Sprintf(" -Docker '%v'", defaultDockerDir), fmt.Sprintf(" -MaxRetries %v", strconv.Itoa(5))))
 			})
 		})
 
@@ -95,7 +106,7 @@ var _ = Describe("reset-win-storage", func() {
 
 				Expect(err).ToNot(HaveOccurred())
 				Expect(cmd).To(Equal("&'" + filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "image", "ResetWinContainerStorage.ps1") + "'"))
-				Expect(params).To(ConsistOf("-Containerd", defaultContainerdDir, "-Docker", defaultDockerDir, "-MaxRetries", strconv.Itoa(defaultMaxRetry), "-ForceZap"))
+				Expect(params).To(ConsistOf(fmt.Sprintf(" -Containerd '%v'", defaultContainerdDir), fmt.Sprintf(" -Docker '%v'", defaultDockerDir), fmt.Sprintf(" -MaxRetries %v", strconv.Itoa(defaultMaxRetry)), " -ForceZap"))
 			})
 		})
 	})
@@ -105,14 +116,16 @@ var _ = Describe("reset-win-storage", func() {
 			It("command is executed", func() {
 				mockSetupConfigProvider := &mockSetupConfigProvider{}
 				mockPowershellExecutor := &mockPowershellExecutor{}
-				mockSetupConfigProvider.On("LoadConfig").Return(nil, setupinfo.ErrSystemNotInstalled)
+				var nilConfig *setupinfo.Config
+				mockSetupConfigProvider.On(reflection.GetFunctionName(mockSetupConfigProvider.LoadConfig), mock.AnythingOfType("string")).Return(nilConfig, setupinfo.ErrSystemNotInstalled)
+				mockPowershellExecutor.On(reflection.GetFunctionName(mockPowershellExecutor.ExecutePsWithStructuredResult), mock.Anything, mock.Anything, mock.Anything).Return(&common.CmdResult{}, nil)
 				getSetupConfigProvider = func() setupConfigProvider { return mockSetupConfigProvider }
 				getPowershellExecutor = func() powershellExecutor { return mockPowershellExecutor }
 				resetWinStorageCmd.Flags().Set(containerdDirFlag, "containerdDir")
 
 				resetWinStorage(resetWinStorageCmd, nil)
 
-				mockPowershellExecutor.AssertCalled(GinkgoT(), "ExecutePsWithStructuredResult", common.GetDefaultPsVersion(), "&'"+filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "image", "ResetWinContainerStorage.ps1")+"'", "-Containerd", "containerdDir", "-Docker", defaultDockerDir, "-MaxRetries", strconv.Itoa(defaultMaxRetry))
+				mockPowershellExecutor.AssertCalled(GinkgoT(), reflection.GetFunctionName(mockPowershellExecutor.ExecutePsWithStructuredResult), mock.Anything, mock.Anything, mock.Anything)
 			})
 		})
 
@@ -124,14 +137,15 @@ var _ = Describe("reset-win-storage", func() {
 					config := &setupinfo.Config{
 						Corrupted: true,
 					}
-					mockSetupConfigProvider.On("LoadConfig").Return(config, setupinfo.ErrSystemInCorruptedState)
+					mockSetupConfigProvider.On(reflection.GetFunctionName(mockSetupConfigProvider.LoadConfig), mock.AnythingOfType("string")).Return(config, setupinfo.ErrSystemInCorruptedState)
+					mockPowershellExecutor.On(reflection.GetFunctionName(mockPowershellExecutor.ExecutePsWithStructuredResult), mock.Anything, mock.Anything, mock.Anything).Return(&common.CmdResult{}, nil)
 					getSetupConfigProvider = func() setupConfigProvider { return mockSetupConfigProvider }
 					getPowershellExecutor = func() powershellExecutor { return mockPowershellExecutor }
 					resetWinStorageCmd.Flags().Set(containerdDirFlag, "containerdDir")
 
 					resetWinStorage(resetWinStorageCmd, nil)
 
-					mockPowershellExecutor.AssertCalled(GinkgoT(), "ExecutePsWithStructuredResult", common.GetDefaultPsVersion(), "&'"+filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "image", "ResetWinContainerStorage.ps1")+"'", "-Containerd", "containerdDir", "-Docker", defaultDockerDir, "-MaxRetries", strconv.Itoa(defaultMaxRetry))
+					mockPowershellExecutor.AssertCalled(GinkgoT(), reflection.GetFunctionName(mockPowershellExecutor.ExecutePsWithStructuredResult), mock.Anything, mock.Anything, mock.Anything)
 				})
 			})
 			Context("when MultiVMK8s variant", func() {
@@ -142,14 +156,15 @@ var _ = Describe("reset-win-storage", func() {
 						Corrupted: true,
 						SetupName: setupinfo.SetupNameMultiVMK8s,
 					}
-					mockSetupConfigProvider.On("LoadConfig").Return(config, setupinfo.ErrSystemInCorruptedState)
+					mockSetupConfigProvider.On(reflection.GetFunctionName(mockSetupConfigProvider.LoadConfig), mock.AnythingOfType("string")).Return(config, setupinfo.ErrSystemInCorruptedState)
+					mockPowershellExecutor.On(reflection.GetFunctionName(mockPowershellExecutor.ExecutePsWithStructuredResult), mock.Anything, mock.Anything, mock.Anything).Return(&common.CmdResult{}, nil)
 					getSetupConfigProvider = func() setupConfigProvider { return mockSetupConfigProvider }
 					getPowershellExecutor = func() powershellExecutor { return mockPowershellExecutor }
 					resetWinStorageCmd.Flags().Set(containerdDirFlag, "containerdDir")
 
 					resetWinStorage(resetWinStorageCmd, nil)
 
-					mockPowershellExecutor.AssertCalled(GinkgoT(), "ExecutePsWithStructuredResult", common.GetDefaultPsVersion(), "&'"+filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "image", "ResetWinContainerStorage.ps1")+"'", "-Containerd", "containerdDir", "-Docker", defaultDockerDir, "-MaxRetries", strconv.Itoa(defaultMaxRetry))
+					mockPowershellExecutor.AssertCalled(GinkgoT(), reflection.GetFunctionName(mockPowershellExecutor.ExecutePsWithStructuredResult), mock.Anything, mock.Anything, mock.Anything)
 				})
 			})
 			Context("when Linux-only variant", func() {
@@ -160,14 +175,15 @@ var _ = Describe("reset-win-storage", func() {
 						Corrupted: true,
 						LinuxOnly: true,
 					}
-					mockSetupConfigProvider.On("LoadConfig").Return(config, setupinfo.ErrSystemInCorruptedState)
+					mockSetupConfigProvider.On(reflection.GetFunctionName(mockSetupConfigProvider.LoadConfig), mock.AnythingOfType("string")).Return(config, setupinfo.ErrSystemInCorruptedState)
+					mockPowershellExecutor.On(reflection.GetFunctionName(mockPowershellExecutor.ExecutePsWithStructuredResult), mock.Anything, mock.Anything, mock.Anything).Return(&common.CmdResult{}, nil)
 					getSetupConfigProvider = func() setupConfigProvider { return mockSetupConfigProvider }
 					getPowershellExecutor = func() powershellExecutor { return mockPowershellExecutor }
 					resetWinStorageCmd.Flags().Set(containerdDirFlag, "containerdDir")
 
 					resetWinStorage(resetWinStorageCmd, nil)
 
-					mockPowershellExecutor.AssertCalled(GinkgoT(), "ExecutePsWithStructuredResult", common.GetDefaultPsVersion(), "&'"+filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "image", "ResetWinContainerStorage.ps1")+"'", "-Containerd", "containerdDir", "-Docker", defaultDockerDir, "-MaxRetries", strconv.Itoa(defaultMaxRetry))
+					mockPowershellExecutor.AssertCalled(GinkgoT(), reflection.GetFunctionName(mockPowershellExecutor.ExecutePsWithStructuredResult), mock.Anything, mock.Anything, mock.Anything)
 				})
 			})
 		})
@@ -178,7 +194,9 @@ var _ = Describe("reset-win-storage", func() {
 					mockSetupConfigProvider := &mockSetupConfigProvider{}
 					mockPowershellExecutor := &mockPowershellExecutor{}
 					err := errors.New("error")
-					mockSetupConfigProvider.On("LoadConfig").Return(nil, err)
+					var nilConfig *setupinfo.Config
+					mockSetupConfigProvider.On(reflection.GetFunctionName(mockSetupConfigProvider.LoadConfig), mock.AnythingOfType("string")).Return(nilConfig, err)
+					mockPowershellExecutor.On(reflection.GetFunctionName(mockPowershellExecutor.ExecutePsWithStructuredResult), mock.Anything, mock.Anything, mock.Anything).Return(&common.CmdResult{}, nil)
 					getSetupConfigProvider = func() setupConfigProvider { return mockSetupConfigProvider }
 					getPowershellExecutor = func() powershellExecutor { return mockPowershellExecutor }
 					resetWinStorageCmd.Flags().Set(containerdDirFlag, "containerdDir")
@@ -191,3 +209,11 @@ var _ = Describe("reset-win-storage", func() {
 		})
 	})
 })
+
+func resetFlags() {
+	resetWinStorageCmd.Flags().Set(containerdDirFlag, "")
+	resetWinStorageCmd.Flags().Set(dockerDirFlag, "")
+	resetWinStorageCmd.Flags().Set(maxRetryFlag, "1")
+	resetWinStorageCmd.Flags().Set(forceZapFlag, "false")
+	resetWinStorageCmd.SetContext(context.WithValue(context.TODO(), common.ContextKeyConfigDir, "some-dir"))
+}
