@@ -18,6 +18,8 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 
+	"github.com/siemens-healthineers/k2s/internal/config"
+	"github.com/siemens-healthineers/k2s/internal/host"
 	"github.com/siemens-healthineers/k2s/internal/powershell"
 	"github.com/siemens-healthineers/k2s/internal/setupinfo"
 )
@@ -89,8 +91,8 @@ func AddInitFlags(cmd *cobra.Command) {
 func upgradeCluster(cmd *cobra.Command, args []string) error {
 	pterm.Println("🤖 Analyze current cluster and check prerequisites ...")
 
-	configDir := cmd.Context().Value(common.ContextKeyConfigDir).(string)
-	config, err := setupinfo.LoadConfig(configDir)
+	cfg := cmd.Context().Value(common.ContextKeyConfig).(*config.Config)
+	config, err := readConfigLegacyAware(cfg)
 	if err != nil {
 		if errors.Is(err, setupinfo.ErrSystemInCorruptedState) {
 			return common.CreateSystemInCorruptedStateCmdFailure()
@@ -128,6 +130,47 @@ func upgradeCluster(cmd *cobra.Command, args []string) error {
 	duration := time.Since(start)
 	common.PrintCompletedMessage(duration, "Upgrade")
 
+	return nil
+}
+
+func readConfigLegacyAware(cfg *config.Config) (*setupinfo.Config, error) {
+	slog.Info("Trying to read the config file", "config-dir", cfg.Host.K2sConfigDir)
+
+	config, err := setupinfo.ReadConfig(cfg.Host.K2sConfigDir)
+	if err != nil {
+		if !errors.Is(err, setupinfo.ErrSystemNotInstalled) {
+			return nil, err
+		}
+
+		slog.Info("Config file not found, trying to read the config file from legacy dir", "legacy-dir", cfg.Host.KubeConfigDir)
+
+		config, err = setupinfo.ReadConfig(cfg.Host.KubeConfigDir)
+		if err != nil {
+			return nil, err
+		}
+
+		if err := moveLegacyConfigFile(cfg.Host.KubeConfigDir, cfg.Host.K2sConfigDir, config); err != nil {
+			return nil, err
+		}
+	}
+
+	slog.Info("Config file read")
+
+	return config, nil
+}
+
+func moveLegacyConfigFile(legacyDir string, expectedDir string, config *setupinfo.Config) error {
+	slog.Info("Moving the config file from legacy dir to expected dir", "legacy-dir", legacyDir, "expected-dir", expectedDir)
+
+	if err := host.CreateDirIfNotExisting(expectedDir); err != nil {
+		return err
+	}
+	if err := setupinfo.WriteConfig(expectedDir, config); err != nil {
+		return err
+	}
+	if err := setupinfo.DeleteConfig(legacyDir); err != nil {
+		return err
+	}
 	return nil
 }
 
