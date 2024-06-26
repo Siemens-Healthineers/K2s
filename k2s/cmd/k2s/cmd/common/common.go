@@ -198,6 +198,10 @@ func DeterminePsVersion(config *setupinfo.Config) powershell.PowerShellVersion {
 	return powershell.PowerShellV5
 }
 
+func GetDefaultPsVersion() powershell.PowerShellVersion {
+	return powershell.PowerShellV5
+}
+
 func createErrorLineBuffer() (*logging.LogBuffer, error) {
 	return logging.NewLogBuffer(logging.BufferConfig{
 		Limit: 100,
