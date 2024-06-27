@@ -11,8 +11,6 @@ Import-Module $infraModule, $clusterModule
 
 function Add-WindowsWorkerNodeOnWindowsHost {
     Param(
-        [parameter(Mandatory = $false, HelpMessage = 'HTTP proxy if available')]
-        [string] $Proxy,
         [parameter(Mandatory = $false, HelpMessage = 'Directory containing additional hooks to be executed after local hooks are executed')]
         [string] $AdditionalHooksDir = '',
         [parameter(Mandatory = $false, HelpMessage = 'Deletes the needed files to perform an offline installation')]
@@ -35,7 +33,6 @@ function Add-WindowsWorkerNodeOnWindowsHost {
 
     $kubernetesVersion = Get-DefaultK8sVersion
     $controlPlaneIpAddress = Get-ConfiguredIPControlPlane
-    $windowsHostIpAddress = Get-ConfiguredKubeSwitchIP
 
     Initialize-WinNode -KubernetesVersion $kubernetesVersion `
         -HostGW:$true `
@@ -43,8 +40,7 @@ function Add-WindowsWorkerNodeOnWindowsHost {
         -ForceOnlineInstallation $ForceOnlineInstallation `
         -WorkerNodeNumber $WorkerNodeNumber
 
-    $transparentproxy = 'http://' + $windowsHostIpAddress + ':8181'
-    Set-ProxySettingsOnKubenode -ProxySettings $transparentproxy -IpAddress $controlPlaneIpAddress
+    Set-ProxySettingsOnKubenode -IpAddress $controlPlaneIpAddress
     Restart-Service httpproxy -ErrorAction SilentlyContinue
 
     # join the cluster

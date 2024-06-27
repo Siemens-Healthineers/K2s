@@ -103,8 +103,6 @@ Set-ConfigInstallFolder -Value $installationPath
 # Initialize the proxy settings before starting installation.
 New-ProxyConfig -Proxy:$Proxy -NoProxy:$NoProxy
 
-$Proxy = Get-OrUpdateProxyServer -Proxy:$Proxy
-
 $linuxOsType = Get-LinuxOsType $LinuxVhdxPath
 Set-ConfigLinuxOsType -Value $linuxOsType
 
@@ -121,7 +119,6 @@ $controlPlaneNodeParams = @{
     MasterVMMemory = $MasterVMMemory
     MasterVMProcessorCount = $MasterVMProcessorCount
     MasterDiskSize = $MasterDiskSize
-    Proxy = $Proxy
     AdditionalHooksDir = $AdditionalHooksDir
     DeleteFilesForOfflineInstallation = $DeleteFilesForOfflineInstallation
     ForceOnlineInstallation = $ForceOnlineInstallation
@@ -134,7 +131,6 @@ New-ControlPlaneNodeOnNewVM @controlPlaneNodeParams
 Write-Log 'Setting up Windows worker node' -Console
 
 $workerNodeParams = @{
-    Proxy = $Proxy
     AdditionalHooksDir = $AdditionalHooksDir
     DeleteFilesForOfflineInstallation = $DeleteFilesForOfflineInstallation
     ForceOnlineInstallation = $ForceOnlineInstallation

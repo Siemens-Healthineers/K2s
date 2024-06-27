@@ -94,7 +94,7 @@ function New-ProxyConfig {
     )
 
     # If $Proxy and $NoProxy are empty, get values from the Windows registry
-    if ($Proxy -eq '' -and $NoProxy.Count -gt 0) {
+    if ([string]::IsNullOrWhiteSpace($Proxy)) {
         Write-Log 'Determining if proxy is configured by the user in Windows Proxy settings.' -Console
         $proxyEnabledStatus = Get-ProxyEnabledStatusFromWindowsSettings
         if ($proxyEnabledStatus) {

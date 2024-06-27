@@ -17,8 +17,6 @@ function New-ControlPlaneNodeOnNewVM {
         [long] $MasterVMProcessorCount = 6,
         [parameter(Mandatory = $false, HelpMessage = 'Virtual hard disk size of master VM (Linux)')]
         [uint64] $MasterDiskSize = 50GB,
-        [parameter(Mandatory = $false, HelpMessage = 'HTTP proxy if available')]
-        [string] $Proxy,
         [parameter(Mandatory = $false, HelpMessage = 'DNS Addresses if available')]
         [string]$DnsServers = $(throw 'Argument missing: DnsServers'),
         [parameter(Mandatory = $false, HelpMessage = 'Directory containing additional hooks to be executed after local hooks are executed')]
@@ -92,7 +90,7 @@ function New-ControlPlaneNodeOnNewVM {
     Wait-ForSSHConnectionToLinuxVMViaSshKey
     Remove-ControlPlaneAccessViaUserAndPwd
 
-    Set-ProxySettingsOnKubenode -ProxySettings $Proxy -IpAddress $($controlPlaneParams.IpAddress)
+    Set-ProxySettingsOnKubenode -IpAddress $($controlPlaneParams.IpAddress)
 
     # add kubectl to Windows host
     Install-KubectlTool

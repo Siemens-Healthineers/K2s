@@ -1064,9 +1064,6 @@ function New-WslRootfsForControlPlaneNode {
 
 function Set-ProxySettingsOnKubenode {
     param (
-        [parameter(Mandatory = $true, HelpMessage = 'The HTTP proxy')]
-        [AllowEmptyString()]
-        [string] $ProxySettings,
         [Parameter(Mandatory = $false)]
         [string]$IpAddress = $(throw 'Argument missing: IpAddress')
     )
