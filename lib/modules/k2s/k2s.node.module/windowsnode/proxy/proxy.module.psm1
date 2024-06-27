@@ -61,7 +61,8 @@ HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings\ProxyOverrides
 #>
 function Get-ProxyOverrideFromWindowsSettings {
     $reg = Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings'
-    return $reg.ProxyOverride
+    $proxyOverrides = $reg.ProxyOverride -replace ";", ","
+    return $proxyOverrides
 }
 
 <#
@@ -93,13 +94,13 @@ function New-ProxyConfig {
     )
 
     # If $Proxy and $NoProxy are empty, get values from the Windows registry
-    if ($Proxy -eq '' -and $NoProxy -eq '') {
+    if ($Proxy -eq '' -and $NoProxy.Count -gt 0) {
         Write-Log 'Determining if proxy is configured by the user in Windows Proxy settings.' -Console
         $proxyEnabledStatus = Get-ProxyEnabledStatusFromWindowsSettings
         if ($proxyEnabledStatus) {
             $Proxy = Get-ProxyServerFromWindowsSettings
             $NoProxy = Get-ProxyOverrideFromWindowsSettings
-            Write-Log "Configured proxy server in Windows Proxy settings: $Proxy" -Console
+            Write-Log "Configured proxy server in Windows Proxy settings: Proxy: $Proxy, ProxyOverrides: $NoProxy" -Console
         }
         else {
             Write-Log 'No proxy configured in Windows Proxy Settings.' -Console

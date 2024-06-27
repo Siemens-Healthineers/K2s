@@ -329,7 +329,7 @@ function Install-WinNodeArtifacts {
     Invoke-DeployDockerArtifacts $windowsNodeArtifactsDirectory
     Install-WinDocker
 
-    Install-WinContainerd -Proxy "$Proxy" -SkipNetworkingSetup:$SkipClusterSetup -WindowsNodeArtifactsDirectory $windowsNodeArtifactsDirectory -WorkerNodeNumber $WorkerNodeNumber
+    Install-WinContainerd -SkipNetworkingSetup:$SkipClusterSetup -WindowsNodeArtifactsDirectory $windowsNodeArtifactsDirectory -WorkerNodeNumber $WorkerNodeNumber
 
     if (!($SkipClusterSetup)) {
         Invoke-DeployWindowsImages $windowsNodeArtifactsDirectory

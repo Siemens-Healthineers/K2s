@@ -39,7 +39,6 @@ function Add-WindowsWorkerNodeOnWindowsHost {
 
     Initialize-WinNode -KubernetesVersion $kubernetesVersion `
         -HostGW:$true `
-        -Proxy:"$Proxy" `
         -DeleteFilesForOfflineInstallation $DeleteFilesForOfflineInstallation `
         -ForceOnlineInstallation $ForceOnlineInstallation `
         -WorkerNodeNumber $WorkerNodeNumber

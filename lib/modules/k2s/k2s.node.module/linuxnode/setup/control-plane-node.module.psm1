@@ -54,7 +54,7 @@ function New-ControlPlaneNodeOnNewVM {
 
     Set-ConfigWslFlag -Value $([bool]$WSL)
 
-    Invoke-DeployWinArtifacts -KubernetesVersion $KubernetesVersion -Proxy $Proxy -ForceOnlineInstallation:$ForceOnlineInstallation
+    Invoke-DeployWinArtifacts -KubernetesVersion $KubernetesVersion -ForceOnlineInstallation:$ForceOnlineInstallation
     Install-PuttyTools
 
     $controlPlaneParams = @{
@@ -66,7 +66,6 @@ function New-ControlPlaneNodeOnNewVM {
         VMMemoryStartupBytes = $MasterVMMemory
         VMProcessorCount = $MasterVMProcessorCount
         VMDiskSize = $MasterDiskSize
-        Proxy = $Proxy
         DeleteFilesForOfflineInstallation = $DeleteFilesForOfflineInstallation
         ForceOnlineInstallation = $ForceOnlineInstallation
     }
