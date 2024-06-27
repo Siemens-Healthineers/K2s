@@ -68,7 +68,10 @@ param (
     $ExcludePowershellTests,
     [Parameter(Mandatory = $false, HelpMessage = 'Exclude Go/Ginkgo tests')]
     [switch]
-    $ExcludeGoTests
+    $ExcludeGoTests,
+    [Parameter(Mandatory = $false, HelpMessage = 'Indicates system test running in offline mode and all internet based tests can be skipped with this')]
+    [switch]
+    $OfflineMode
 
 )
 
@@ -95,6 +98,14 @@ $results = @{PowerShell = -1; Go = -1 }
 if ($Proxy -ne '') {
     # Set proxy which will be used by tests
     $env:SYSTEM_TEST_PROXY = $Proxy
+}
+
+if ($OfflineMode) {
+    # Set proxy which will be used by tests
+    Write-Output 'Set to System Test Offline mode'
+    $env:SYSTEM_OFFLINE_MODE = $true
+} else {
+    $env:SYSTEM_OFFLINE_MODE = $false
 }
 
 try {
@@ -166,7 +177,7 @@ if ($results.PowerShell -ne 0 -and $results.PowerShell -ne -1) {
 }
 
 if ($results.Go -ne 0 -and $results.Go -ne -1) {
-    Write-Warning '     Go tests :-(' 
+    Write-Warning '     Go tests :-('
 }
 
 Write-Output '------------------------------------------------'
