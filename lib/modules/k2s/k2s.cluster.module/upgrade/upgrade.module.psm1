@@ -544,8 +544,8 @@ function Get-LinuxVMMemory {
 }
 
 function Get-LinuxVMStorageSize {
-    $disksize = Get-VM $controlPlaneName | ForEach-Object { $Vm = $_; $_.HardDrives } | ForEach-Object {
-        $GetVhd = Get-VHD -Path $_.Path
+    $disksize = Get-VM $controlPlaneName | ForEach-Object { $Vm = $_; $_.HardDrives[0] } | ForEach-Object {
+        $GetVhd = Get-VHD -Path $_.Path 
         [pscustomobject]@{
             Vm            = $Vm.Name
             Name          = $_.Name
