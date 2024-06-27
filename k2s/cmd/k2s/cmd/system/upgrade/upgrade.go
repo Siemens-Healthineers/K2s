@@ -60,6 +60,8 @@ const (
 	proxy              = "proxy"
 	defaultProxy       = ""
 	skipImages         = "skip-images"
+	backupDir          = "backup-dir"
+	defaultBackupDir   = ""
 )
 
 var UpgradeCmd = &cobra.Command{
@@ -79,6 +81,7 @@ func AddInitFlags(cmd *cobra.Command) {
 	cmd.Flags().BoolP(deleteFiles, "d", false, "Delete downloaded files")
 	cmd.Flags().StringP(configFileFlagName, "c", "", "Path to config file to load. This configuration overwrites other CLI parameters")
 	cmd.Flags().StringP(proxy, "p", defaultProxy, "HTTP Proxy")
+	cmd.Flags().StringP(backupDir, "b", defaultBackupDir, "Backup directory")
 	cmd.Flags().BoolP(skipImages, "i", false, "Skip takeover of container images from old cluster to new cluster")
 	cmd.Flags().String(common.AdditionalHooksDirFlagName, "", common.AdditionalHooksDirFlagUsage)
 	cmd.Flags().SortFlags = false
@@ -203,6 +206,10 @@ func createUpgradeCommand(cmd *cobra.Command) string {
 	additionalHooksDir := cmd.Flags().Lookup(common.AdditionalHooksDirFlagName).Value.String()
 	if additionalHooksDir != "" {
 		psCmd += " -AdditionalHooksDir " + utils.EscapeWithSingleQuotes(additionalHooksDir)
+	}
+	backupDir := cmd.Flags().Lookup(backupDir).Value.String()
+	if backupDir != "" {
+		psCmd += " -BackupDir " + utils.EscapeWithSingleQuotes(backupDir)
 	}
 	return psCmd
 }
