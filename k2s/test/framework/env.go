@@ -6,6 +6,7 @@ package framework
 
 import (
 	"os"
+	"strconv"
 	"time"
 
 	//lint:ignore ST1001 test framework code
@@ -27,6 +28,24 @@ func determineProxy() string {
 	}
 
 	return proxy
+}
+
+func determineOfflineMode() bool {
+	value, ok := os.LookupEnv("SYSTEM_OFFLINE_MODE")
+	if ok {
+
+		boolValue, err := strconv.ParseBool(value)
+		if err != nil {
+			GinkgoWriter.Println("Error parsing boolean environment variable: %v\n", err)
+		}
+
+		if boolValue {
+			GinkgoWriter.Println("Set to System Offline Mode")
+		}
+		return boolValue
+	}
+
+	return false
 }
 
 func determineTestStepTimeout() time.Duration {
