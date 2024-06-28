@@ -14,9 +14,3 @@ subjects:
 - kind: ServiceAccount
   name: external-dns
   namespace: kube-system
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: external-dns
-  namespace: kube-system
