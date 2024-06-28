@@ -608,6 +608,24 @@ Function Set-UpMasterNode {
     # change core-dns to have predefined host mapping for DNS resolution
     &$executeRemoteCommand "kubectl get configmap coredns -n kube-system -o yaml | sed '/^\s*cache 30/i\        hosts {\n         $IpAddress k2s.cluster.local\n         fallthrough\n        }' | kubectl apply -f -" -IgnoreErrors     
 
+    # import etcd certificates as k8s secrets, so that coredns can access etcd
+    &$executeRemoteCommand 'sudo mkdir etcd'
+    &$executeRemoteCommand 'sudo cp /etc/kubernetes/pki/etcd/* etcd/'
+    &$executeRemoteCommand 'sudo chmod 444 etcd/*'
+    &$executeRemoteCommand 'kubectl create secret -n kube-system tls etcd-ca --cert=etcd/ca.crt --key=etcd/ca.key'
+    &$executeRemoteCommand 'kubectl create secret -n kube-system tls etcd-client-for-core-dns --cert=etcd/healthcheck-client.crt --key=etcd/healthcheck-client.key'
+    &$executeRemoteCommand 'sudo rm -r etcd'
+
+    # update coredns configmap kubernetes plugin to fallthrough for all zones
+    &$executeRemoteCommand "kubectl get configmap coredns -n kube-system -o yaml | sed 's/fallthrough\ in-addr.arpa\ ip6.arpa/fallthrough/1' | kubectl apply -f -" -IgnoreErrors
+    
+    # change core-dns to serve the cluster.local zone from the etcd plugin as fallback
+    &$executeRemoteCommand "kubectl get configmap coredns -n kube-system -o yaml | sed '/^\s*prometheus :9153/i\        etcd cluster.local {\n            path /skydns\n            endpoint https://${IpAddress}:2379\n            tls /etc/kubernetes/pki/etcd-client/tls.crt /etc/kubernetes/pki/etcd-client/tls.key /etc/kubernetes/pki/etcd-ca/tls.crt\n            fallthrough\n        }' | kubectl apply -f -" -IgnoreErrors
+
+    # mount the certificate secrets in coredns, so it can read them
+    &$executeRemoteCommand "kubectl get deployment coredns -n kube-system -o yaml | sed '/^\s*\- configMap:/i\      - name: etcd-ca-cert\n        secret:\n          secretName: etcd-ca\n      - name: etcd-client-cert\n        secret:\n          secretName: etcd-client-for-core-dns' | kubectl apply -f -" -IgnoreErrors
+    &$executeRemoteCommand "kubectl get deployment coredns -n kube-system -o yaml | sed '/^\s*\- mountPath: \/etc\/coredns/i\        - mountPath: /etc/kubernetes/pki/etcd-ca\n          name: etcd-ca-cert\n        - mountPath: /etc/kubernetes/pki/etcd-client\n          name: etcd-client-cert' | kubectl apply -f -" -IgnoreErrors
+
     Write-Log 'Initialize Flannel'
     Add-FlannelPluginToMasterNode -IpAddress $IpAddress -UserName $UserName -UserPwd $UserPwd -PodNetworkCIDR $ClusterCIDR
 

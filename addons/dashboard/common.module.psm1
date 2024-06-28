@@ -117,7 +117,6 @@ function Enable-ExternalAccessIfIngressControllerIsFound {
         Write-Log 'Deploying traefik ingress for dashboard ...' -Console
         Deploy-DashboardIngressForTraefik
     }
-    Add-HostEntries -Url 'k2s-dashboard.cluster.local'
 }
 
 <#
