@@ -133,9 +133,12 @@ function Write-UsageForUser {
  or you can install them on your own. 
  Enable ingress controller via k2s cli
  eg. k2s addons enable ingress-nginx
- Once the ingress controller is running in the cluster, run the command to enable dashboard again (disable it first if dashboard addon was already enabled).
+ Once the ingress controller is running in the cluster, run the command to enable dashboard again 
+ (disable it first if dashboard addon was already enabled).
  k2s addons enable dashboard
- the Kubernetes Dashboard will be accessible on the following URL: https://k2s.cluster.local/dashboard/ and https://k2s-dashboard.cluster.local (with HTTP using http://.. unstead of https://..)
+ the Kubernetes Dashboard will be accessible on the following URLs:
+ https://k2s.cluster.local/dashboard/ and https://k2s-dashboard.cluster.local 
+ (with HTTP using http://.. instead of https://..)
 
  Option 2: Port-forwarding
  Use port-forwarding to the kubernetes-dashboard using the command below:
