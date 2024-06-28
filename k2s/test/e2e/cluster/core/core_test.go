@@ -317,10 +317,18 @@ var _ = Describe("Cluster Core", func() {
 		Describe("Internet is Reachable from Pods", func() {
 
 			It("Internet is reachable from Pod of Deployment curl", func(ctx SpecContext) {
+				if suite.IsOfflineMode() {
+					Skip("Offline-Mode")
+				}
+
 				suite.Cluster().ExpectInternetToBeReachableFromPodOfDeployment("curl", namespace, proxy, ctx)
 			})
 
 			It("Internet is reachable from Pod of Deployment albums-win1", func(ctx SpecContext) {
+				if suite.IsOfflineMode() {
+					Skip("Offline-Mode")
+				}
+
 				if suite.SetupInfo().SetupConfig.LinuxOnly {
 					Skip("Linux-only")
 				}
@@ -329,6 +337,10 @@ var _ = Describe("Cluster Core", func() {
 			})
 
 			It("Internet is reachable from Pod of Deployment albums-win2", func(ctx SpecContext) {
+				if suite.IsOfflineMode() {
+					Skip("Offline-Mode")
+				}
+
 				if suite.SetupInfo().SetupConfig.LinuxOnly {
 					Skip("Linux-only")
 				}
