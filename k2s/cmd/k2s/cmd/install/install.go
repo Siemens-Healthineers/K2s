@@ -89,8 +89,8 @@ func init() {
 		GetPlatformFunc:           utils.Platform,
 		GetInstallDirFunc:         utils.InstallDir,
 		PrintCompletedMessageFunc: common.PrintCompletedMessage,
-		LoadConfigFunc:            setupinfo.LoadConfig,
-		SetConfigFunc:             setupinfo.SetConfig,
+		LoadConfigFunc:            setupinfo.ReadConfig,
+		SetConfigFunc:             setupinfo.WriteConfig,
 	}
 
 	multivm.Installer = installer

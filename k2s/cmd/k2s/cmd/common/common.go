@@ -53,7 +53,7 @@ const (
 	SeverityWarning FailureSeverity = 3
 	SeverityError   FailureSeverity = 4
 
-	ContextKeyConfigDir ContextKey = "config"
+	ContextKeyConfig ContextKey = "config"
 
 	OutputFlagName      = "output"
 	OutputFlagShorthand = "o"
@@ -195,6 +195,10 @@ func DeterminePsVersion(config *setupinfo.Config) powershell.PowerShellVersion {
 		return powershell.PowerShellV7
 	}
 
+	return powershell.PowerShellV5
+}
+
+func GetDefaultPsVersion() powershell.PowerShellVersion {
 	return powershell.PowerShellV5
 }
 

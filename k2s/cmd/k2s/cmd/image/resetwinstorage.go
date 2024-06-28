@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/siemens-healthineers/k2s/internal/config"
 	"github.com/siemens-healthineers/k2s/internal/host"
 	"github.com/siemens-healthineers/k2s/internal/powershell"
 
@@ -22,6 +23,38 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 )
+
+type setupConfigProvider interface {
+	ReadConfig(configDir string) (*setupinfo.Config, error)
+}
+
+type powershellExecutor interface {
+	ExecutePsWithStructuredResult(psVersion powershell.PowerShellVersion, psCmd string, params ...string) (*common.CmdResult, error)
+}
+
+type setupConfigProviderImpl struct{}
+
+type powershellExecutorImpl struct{}
+
+func (s *setupConfigProviderImpl) ReadConfig(configDir string) (*setupinfo.Config, error) {
+	return setupinfo.ReadConfig(configDir)
+}
+
+func (p *powershellExecutorImpl) ExecutePsWithStructuredResult(psVersion powershell.PowerShellVersion, psCmd string, params ...string) (*common.CmdResult, error) {
+	outputWriter, err := common.NewOutputWriter()
+	if err != nil {
+		return nil, err
+	}
+	return powershell.ExecutePsWithStructuredResult[*common.CmdResult](psCmd, "CmdResult", psVersion, outputWriter, params...)
+}
+
+func newSetupConfigProvider() setupConfigProvider {
+	return &setupConfigProviderImpl{}
+}
+
+func newPowershellExecutor() powershellExecutor {
+	return &powershellExecutorImpl{}
+}
 
 const (
 	containerdDirFlag     = "containerd"
@@ -65,6 +98,9 @@ var (
 		RunE:    resetWinStorage,
 		Example: resetWinStorageCommandExample,
 	}
+
+	getSetupConfigProvider func() setupConfigProvider
+	getPowershellExecutor  func() powershellExecutor
 )
 
 func init() {
@@ -75,6 +111,9 @@ func init() {
 	resetWinStorageCmd.Flags().BoolP(forceFlag, forceFlagShorthand, false, "Trigger clean-up of windows container storage without user prompts")
 	resetWinStorageCmd.Flags().SortFlags = false
 	resetWinStorageCmd.Flags().PrintDefaults()
+
+	getSetupConfigProvider = newSetupConfigProvider
+	getPowershellExecutor = newPowershellExecutor
 }
 
 func resetWinStorage(cmd *cobra.Command, args []string) error {
@@ -87,24 +126,23 @@ func resetWinStorage(cmd *cobra.Command, args []string) error {
 
 	start := time.Now()
 
-	configDir := cmd.Context().Value(common.ContextKeyConfigDir).(string)
-	config, err := setupinfo.LoadConfig(configDir)
+	setupConfigProvider := getSetupConfigProvider()
+	cfg := cmd.Context().Value(common.ContextKeyConfig).(*config.Config)
+	config, err := setupConfigProvider.ReadConfig(cfg.Host.K2sConfigDir)
 	if err != nil {
-		if errors.Is(err, setupinfo.ErrSystemInCorruptedState) {
-			return common.CreateSystemInCorruptedStateCmdFailure()
+		if !(errors.Is(err, setupinfo.ErrSystemNotInstalled) || errors.Is(err, setupinfo.ErrSystemInCorruptedState)) {
+			return err
 		}
-		if errors.Is(err, setupinfo.ErrSystemNotInstalled) {
-			return common.CreateSystemNotInstalledCmdFailure()
-		}
-		return err
 	}
 
-	outputWriter, err := common.NewOutputWriter()
-	if err != nil {
-		return err
+	psVersion := common.GetDefaultPsVersion()
+	if config != nil {
+		psVersion = common.DeterminePsVersion(config)
 	}
 
-	cmdResult, err := powershell.ExecutePsWithStructuredResult[*common.CmdResult](psCmd, "CmdResult", common.DeterminePsVersion(config), outputWriter, params...)
+	powershellExecutor := getPowershellExecutor()
+	cmdResult, err := powershellExecutor.ExecutePsWithStructuredResult(psVersion, psCmd, params...)
+
 	if err != nil {
 		return err
 	}
