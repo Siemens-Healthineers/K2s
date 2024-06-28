@@ -46,7 +46,6 @@ and we adjust the configuration like this:
             path /skydns
             endpoint https://172.19.1.100:2379
             tls /etc/kubernetes/pki/etcd-client/tls.crt /etc/kubernetes/pki/etcd-client/tls.key /etc/kubernetes/pki/etcd-ca/tls.crt
-            fallthrough
         }
 ```
 
