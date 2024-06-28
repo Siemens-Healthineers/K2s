@@ -15,14 +15,10 @@ in order to handle such request by kubernetes load balancer/ingress service
 .EXAMPLE
 # For k2sSetup
 powershell <installation folder>\addons\exthttpaccess\Enable.ps1
-# For k2sSetup behind proxy
-powershell <installation folder>\addons\exthttpaccess\Enable.ps1 -Proxy http://139.22.102.14:8888
 #>
 Param(
   [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
   [switch] $ShowLogs = $false,
-  [parameter(Mandatory = $false, HelpMessage = 'HTTP proxy if available')]
-  [string] $Proxy = '',
   [parameter(Mandatory = $false, HelpMessage = 'JSON config object to override preceeding parameters')]
   [pscustomobject] $Config,
   [parameter(Mandatory = $false, HelpMessage = 'HTTP port to use (valid range is 49152 to 65535)')]

@@ -22,8 +22,6 @@ Param (
     [parameter(Mandatory = $false, HelpMessage = 'Enable Ingress-Nginx Addon')]
     [ValidateSet('ingress-nginx', 'traefik')]
     [string] $Ingress = 'ingress-nginx',
-    [parameter(Mandatory = $false, HelpMessage = 'HTTP proxy if available')]
-    [string] $Proxy,
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
     [switch] $ShowLogs = $false,
     [parameter(Mandatory = $false, HelpMessage = 'JSON config object to override preceeding parameters')]

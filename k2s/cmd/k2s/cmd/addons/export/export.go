@@ -36,8 +36,6 @@ var exportCommandExample = `
 const (
 	directoryLabel   = "directory"
 	defaultDirectory = ""
-	proxyLabel       = "proxy"
-	defaultproxy     = ""
 	errLinuxOnlyMsg  = "linux-only"
 )
 
@@ -50,7 +48,6 @@ func NewCommand() *cobra.Command {
 	}
 
 	cmd.Flags().StringP(directoryLabel, "d", defaultDirectory, "Directory for addon export")
-	cmd.Flags().StringP(proxyLabel, "p", defaultproxy, "HTTP Proxy")
 	cmd.Flags().SortFlags = false
 	cmd.Flags().PrintDefaults()
 
@@ -146,15 +143,6 @@ func buildPsCmd(cmd *cobra.Command, addonsToExport ...string) (psCmd string, par
 
 	if outputFlag {
 		params = append(params, " -ShowLogs")
-	}
-
-	httpProxy, err := cmd.Flags().GetString(proxyLabel)
-	if err != nil {
-		return "", nil, fmt.Errorf("unable to parse flag: %s", proxyLabel)
-	}
-
-	if httpProxy != "" {
-		params = append(params, " -Proxy "+httpProxy)
 	}
 
 	return

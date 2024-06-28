@@ -30,8 +30,6 @@ powershell <installation folder>\addons\Kubevirt\Enable.ps1 -K8sSetup  OnPremise
 #>
 
 Param(
-    [parameter(Mandatory = $false, HelpMessage = 'HTTP proxy if available')]
-    [string] $Proxy,
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
     [switch] $ShowLogs = $false,
     [parameter(Mandatory = $false, HelpMessage = 'Use software virtualization')]
@@ -190,7 +188,7 @@ Write-Log "deploy kubevirt version $VERSION_KV"
 
 # deploy virtctrl
 $VERSION_VCTRL = 'v0.59.2'
-$IMPLICITPROXY = "http://$(Get-ConfiguredKubeSwitchIP):8181"
+$IMPLICITPROXY = Get-HttpProxyServiceAddressForKubemaster
 Write-Log "deploy virtctl version $VERSION_VCTRL"
 if ( $K8sSetup -eq 'SmallSetup' ) {
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "export VERSION_VCTRL=$VERSION_VCTRL").Output | Write-Log

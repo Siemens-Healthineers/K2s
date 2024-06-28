@@ -22,10 +22,6 @@ spec:
     enable:
       cli:
         flags:
-          - name: proxy
-            shorthand: p
-            default: ""
-            description: HTTP Proxy
           - name: autoconfirm-alt-ports
             shorthand: a
             default: false
@@ -39,13 +35,9 @@ spec:
         examples:
           - cmd: k2s addons enable exthttpaccess
             comment: Enable exthttpaccess in k2s
-          - cmd: k2s addons enable exthttpaccess --proxy http://10.11.12.13:5000
-            comment: Enable exthttpaccess in k2s with proxy
       script:
         subPath: Enable.ps1
         parameterMappings:
-          - cliFlagName: proxy
-            scriptParameterName: Proxy
           - cliFlagName: autoconfirm-alt-ports
             scriptParameterName: AutoconfirmUseAlternativePortsIfNeeded
           - cliFlagName: http-port
