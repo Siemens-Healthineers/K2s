@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+SPDX-License-Identifier: MIT
+-->
+
 # External DNS
 
 ExternalDNS synchronizes ingress endpoints with a DNS provider.
@@ -10,7 +15,7 @@ resolve the internal k8s svc host names.
 
 Here is how DNS resolution work on K2s:
 
-![overview](assets/overview.drawio.png)
+![overview](assets/dns-overview.drawio.png)
 
 ### CoreDNS
 
