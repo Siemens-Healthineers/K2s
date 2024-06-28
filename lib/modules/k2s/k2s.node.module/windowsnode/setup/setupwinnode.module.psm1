@@ -155,7 +155,6 @@ function Uninstall-WinNode {
     param(
         $ShallowUninstallation = $false
     )
-    Write-Log 'Uninstalling Windows worker node' -Console
     Remove-DefaultNetNat
 
     Remove-ServiceIfExists 'flanneld'
@@ -189,8 +188,7 @@ function Clear-WinNode {
     Remove-Item -Path "$(Get-InstallationDriveLetter):\run" -Force -Recurse -ErrorAction SilentlyContinue
 
     if (!$ShallowDeletion) {
-        $setupFilePath = Get-SetupConfigFilePath
-        Remove-Item -Path "$setupFilePath" -Force -ErrorAction SilentlyContinue
+        Remove-Item -Path "$(Get-K2sConfigDir)" -Force -Recurse -ErrorAction SilentlyContinue
         Remove-Item -Path "$kubeBinPath\kube*.exe" -Force -ErrorAction SilentlyContinue
         Remove-Item -Path "$kubeBinPath\nerdctl.exe" -Force -ErrorAction SilentlyContinue
         Remove-Item -Path "$kubeBinPath\jq.exe" -Force -ErrorAction SilentlyContinue

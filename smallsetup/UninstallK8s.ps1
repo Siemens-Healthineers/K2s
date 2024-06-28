@@ -42,11 +42,11 @@ if ($SkipHeaderDisplay -eq $false) {
 Write-Log 'First stop complete kubernetes incl. VM'
 & "$PSScriptRoot\StopK8s.ps1" -AdditionalHooksDir $AdditionalHooksDir -ShowLogs:$ShowLogs -SkipHeaderDisplay
 
-Write-Log 'Remove the worker node on the Windows host'
+Write-Log 'Uninstalling Windows worker node' -Console
 Remove-WindowsWorkerNodeOnWindowsHost -SkipPurge:$SkipPurge -AdditionalHooksDir $AdditionalHooksDir -SkipHeaderDisplay:$SkipHeaderDisplay
 
 $controlPlaneVMHostName = Get-ConfigControlPlaneNodeHostname
-Write-Log "Uninstalling the control plane located in the $controlPlaneVMHostName VM" -Console
+Write-Log "Uninstalling $controlPlaneVMHostName VM" -Console
 Remove-ControlPlaneNodeOnNewVM -SkipPurge:$SkipPurge -AdditionalHooksDir $AdditionalHooksDir -SkipHeaderDisplay:$SkipHeaderDisplay -DeleteFilesForOfflineInstallation:$DeleteFilesForOfflineInstallation
 
 if (!$SkipPurge) {

@@ -13,6 +13,7 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 
+	"github.com/siemens-healthineers/k2s/internal/config"
 	"github.com/siemens-healthineers/k2s/internal/setupinfo"
 	"github.com/siemens-healthineers/k2s/internal/terminal"
 
@@ -72,8 +73,8 @@ func runStatusCmd(cmd *cobra.Command, addon addons.Addon, determinePrinterFunc f
 
 	printer := determinePrinterFunc(outputOption)
 
-	configDir := cmd.Context().Value(common.ContextKeyConfigDir).(string)
-	config, err := setupinfo.LoadConfig(configDir)
+	cfg := cmd.Context().Value(common.ContextKeyConfig).(*config.Config)
+	config, err := setupinfo.ReadConfig(cfg.Host.K2sConfigDir)
 	if err != nil {
 		if errors.Is(err, setupinfo.ErrSystemInCorruptedState) {
 			return printer.PrintSystemError(addon.Metadata.Name, setupinfo.ErrSystemInCorruptedState, common.CreateSystemInCorruptedStateCmdFailure)

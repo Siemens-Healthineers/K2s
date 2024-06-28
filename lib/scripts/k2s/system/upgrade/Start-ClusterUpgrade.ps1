@@ -20,11 +20,9 @@ PS> .\Start-ClusterUpgrade.ps1
 
 Param(
     [Parameter(Mandatory = $false, HelpMessage = 'Show progress bar')]
-    [switch]
-    $ShowProgress = $false,
+    [switch] $ShowProgress = $false,
     [Parameter(Mandatory = $false, HelpMessage = 'Skip move of resources during upgrade')]
-    [switch]
-    $SkipResources = $false,
+    [switch] $SkipResources = $false,
     [Parameter(Mandatory = $false, HelpMessage = 'Delete resource files after upgrade')]
     [switch] $DeleteFiles = $false,
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
@@ -32,7 +30,11 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'Config file for setting up new cluster')]
     [string] $Config,
     [parameter(Mandatory = $false, HelpMessage = 'HTTP proxy if available')]
-    [string] $Proxy
+    [string] $Proxy,
+    [parameter(Mandatory = $false, HelpMessage = 'Directory containing additional hooks to be executed after local hooks are executed')]
+    [string] $AdditionalHooksDir = '',
+    [parameter(Mandatory = $false, HelpMessage = 'Directory for resource backup')]
+    [string] $BackupDir = ''
 )
 $infraModule = "$PSScriptRoot/../../../../modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $clusterModule = "$PSScriptRoot/../../../../modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
@@ -65,11 +67,9 @@ Initialize-Logging -ShowLogs:$ShowLogs
 function Start-ClusterUpgrade {
     param(
         [Parameter(Mandatory = $false, HelpMessage = 'Show progress bar')]
-        [switch]
-        $ShowProgress = $false,
+        [switch] $ShowProgress = $false,
         [Parameter(Mandatory = $false, HelpMessage = 'Skip move of resources during upgrade')]
-        [switch]
-        $SkipResources = $false,
+        [switch] $SkipResources = $false,
         [Parameter(Mandatory = $false, HelpMessage = 'Delete resource files after upgrade')]
         [switch] $DeleteFiles = $false,
         [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
@@ -79,16 +79,20 @@ function Start-ClusterUpgrade {
         [parameter(Mandatory = $false, HelpMessage = 'HTTP proxy if available')]
         [string] $Proxy,
         [Parameter(Mandatory = $false, HelpMessage = 'Skip takeover of container images')]
-        [switch]
-        $SkipImages = $false
+        [switch] $SkipImages = $false,
+        [parameter(Mandatory = $false, HelpMessage = 'Directory for resource backup')]
+        [string] $BackupDir = ''
     )
     $errUpgrade = $null
     $addonsBackupPath = $null
     $logFilePathBeforeUninstall = $null
-    $tpath = $null
     $coresVM = $null
     $memoryVM = $null
     $storageVM = $null
+
+    if ($BackupDir -eq '') {
+        $BackupDir = Get-TempPath
+    }
 
     try {
         # start progress
@@ -136,19 +140,23 @@ function Start-ClusterUpgrade {
             Write-Progress -Activity 'Check if resources need to be exported..' -Id 1 -Status '3/10' -PercentComplete 30 -CurrentOperation 'Starting cluster, please wait..'
         }
 
-        $tpath = Get-TempPath
         $currentExeFolder = "$(Get-ClusterInstalledFolder)\bin\exe"
-        Export-ClusterResources -SkipResources:$SkipResources -PathResources $tpath -ExePath $currentExeFolder
+        Export-ClusterResources -SkipResources:$SkipResources -PathResources $BackupDir -ExePath $currentExeFolder
+
+        # Invoke backup hooks
+        $hooksBackupPath = Join-Path $BackupDir 'hooks'
+        Invoke-BackupRestoreHooks -HookType Backup -BackupDir $hooksBackupPath -ShowLogs:$ShowLogs -AdditionalHooksDir $AdditionalHooksDir
+
         if ($ShowProgress -eq $true) {
             Write-Progress -Activity 'Backing up addons..' -Id 1 -Status '4/10' -PercentComplete 40 -CurrentOperation 'Backing up addons, please wait..'
         }
 
         # backup all addons
-        $addonsBackupPath = Join-Path $tpath 'addons'
+        $addonsBackupPath = Join-Path $BackupDir 'addons'
         Backup-Addons -BackupDir $addonsBackupPath
 
         # backup log file
-        $logFilePathBeforeUninstall = Join-Path $tpath 'k2s-before-uninstall.log'
+        $logFilePathBeforeUninstall = Join-Path $BackupDir 'k2s-before-uninstall.log'
         Backup-LogFile -LogFile $logFilePathBeforeUninstall
     }
     catch {
@@ -184,13 +192,16 @@ function Start-ClusterUpgrade {
         }
         Restore-Addons -BackupDir $addonsBackupPath
 
+        # Invoke restore hooks
+        Invoke-BackupRestoreHooks -HookType Restore -BackupDir $hooksBackupPath -ShowLogs:$ShowLogs -AdditionalHooksDir $AdditionalHooksDir
+
         $exeFolder = Get-KubeToolsPath
         # import of resources
-        Import-NotNamespacedResources -FolderIn $tpath -ExePath $exeFolder
+        Import-NotNamespacedResources -FolderIn $BackupDir -ExePath $exeFolder
         if ($ShowProgress -eq $true) {
             Write-Progress -Activity 'Apply namespaced resources on cluster..' -Id 1 -Status '8/10' -PercentComplete 80 -CurrentOperation 'Apply namespaced resources, please wait..'
         }
-        Import-NamespacedResources -FolderIn $tpath -ExePath $exeFolder
+        Import-NamespacedResources -FolderIn $BackupDir -ExePath $exeFolder
         if ($ShowProgress -eq $true) {
             Write-Progress -Activity 'Restoring addons..' -Id 1 -Status '9/10' -PercentComplete 90 -CurrentOperation 'Restoring addons, please wait..'
         }
@@ -221,7 +232,7 @@ function Start-ClusterUpgrade {
             Write-Progress -Activity 'Remove exported resources..' -Id 1 -Status '5/8' -PercentComplete 50 -CurrentOperation 'Remove exported resources, please wait..'
         }
         # remove temp cluster resources
-        Remove-ExportedClusterResources -PathResources $tpath
+        Remove-ExportedClusterResources -PathResources $BackupDir
     }
     if ( $errUpgrade ) {
         return $false
@@ -233,7 +244,7 @@ function Start-ClusterUpgrade {
 #####################################################
 
 Write-Log 'Starting upgrading cluster' -Console
-$ret = Start-ClusterUpgrade -ShowProgress:$ShowProgress -SkipResources:$SkipResources -DeleteFiles:$DeleteFiles -ShowLogs:$ShowLogs -Proxy $Proxy
+$ret = Start-ClusterUpgrade -ShowProgress:$ShowProgress -SkipResources:$SkipResources -DeleteFiles:$DeleteFiles -ShowLogs:$ShowLogs -Proxy $Proxy -BackupDir $BackupDir
 if ( $ret ) {
     Restore-MergeLogFiles
 }

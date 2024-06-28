@@ -82,6 +82,8 @@ $controlPlaneName = Get-ConfigControlPlaneNodeHostname
 $systemDriveLetter = Get-SystemDriveLetter
 $logFilePath = Get-LogFilePath
 
+$hooksDir = "$kubePath\LocalHooks"
+
 function Invoke-Cmd {
     param (
         [parameter(Mandatory = $true, HelpMessage = 'Executable to run')]
@@ -148,7 +150,6 @@ function Export-NotNamespacedResources {
                 .items[].metadata.uid,
                 .items[].metadata.selfLink,
                 .items[].metadata.creationTimestamp,
-                .items[].metadata.annotations,
                 .items[].metadata.generation,
                 .items[].metadata.ownerReferences,
                 .items[].spec.finalizers,
@@ -158,7 +159,6 @@ function Export-NotNamespacedResources {
                 .metadata.uid,
                 .metadata.selfLink,
                 .metadata.creationTimestamp,
-                .metadata.annotations,
                 .metadata.generation,
                 .metadata.ownerReferences)'
             $filter = $filter -replace '\r*\n', ''
@@ -226,7 +226,6 @@ function Export-NamespacedResources {
                 .items[].metadata.uid,
                 .items[].metadata.selfLink,
                 .items[].metadata.creationTimestamp,
-                .items[].metadata.annotations,
                 .items[].metadata.generation,
                 .items[].metadata.ownerReferences,
                 .items[].spec.finalizers,
@@ -235,7 +234,6 @@ function Export-NamespacedResources {
                 .metadata.uid,
                 .metadata.selfLink,
                 .metadata.creationTimestamp,
-                .metadata.annotations,
                 .metadata.generation,
                 .metadata.ownerReferences)'
                 $filter = $filter -replace '\r*\n', ''
@@ -546,8 +544,8 @@ function Get-LinuxVMMemory {
 }
 
 function Get-LinuxVMStorageSize {
-    $disksize = Get-VM $controlPlaneName | ForEach-Object { $Vm = $_; $_.HardDrives } | ForEach-Object {
-        $GetVhd = Get-VHD -Path $_.Path
+    $disksize = Get-VM $controlPlaneName | ForEach-Object { $Vm = $_; $_.HardDrives[0] } | ForEach-Object {
+        $GetVhd = Get-VHD -Path $_.Path 
         [pscustomobject]@{
             Vm            = $Vm.Name
             Name          = $_.Name
@@ -596,7 +594,46 @@ function Restore-MergeLogFiles {
     Get-Content -Path $intermediate, $logFilePath -Encoding utf8 | Set-Content -Path $merge -Encoding utf8
 }
 
+function Invoke-BackupRestoreHooks {
+    param (
+        [parameter(Mandatory = $false)]
+        [ValidateSet('Backup', 'Restore')]
+        [string]$HookType = $(throw 'Hook type not specified'),
+        [Parameter(Mandatory = $false)]
+        [string]$BackupDir = $(throw 'Back-up directory not specified'),
+        [parameter()]
+        [string] $AdditionalHooksDir = '',
+        [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
+        [switch] $ShowLogs = $false
+    )
+
+    $hooksFilter = "*.$HookType.ps1"
+
+    Write-Log "Executing addons hooks with hook type '$HookType'.."
+
+    $executionCount = 0
+
+    Get-ChildItem -Path $hooksDir -Filter $hooksFilter -Force -ErrorAction SilentlyContinue | ForEach-Object {
+        Write-Log "  Executing '$($_.FullName)'.."
+        & "$($_.FullName)" -BackupDir $BackupDir -ShowLogs:$ShowLogs
+        $executionCount++
+    }
+
+    if ($AdditionalHooksDir -ne '') {
+        Get-ChildItem -Path $AdditionalHooksDir -Filter $hooksFilter -Force -ErrorAction SilentlyContinue | ForEach-Object {
+            Write-Log "  Executing '$($_.FullName)'.."
+            & "$($_.FullName)" -BackupDir $BackupDir -ShowLogs:$ShowLogs
+            $executionCount++
+        }
+    }
+
+    if ($executionCount -eq 0) {
+        Write-Log 'No back-up/restore hooks found.'
+    }
+}
+
 
 Export-ModuleMember -Function Assert-UpgradeOperation, Enable-ClusterIsRunning, Assert-YamlTools, Export-ClusterResources,
 Invoke-ClusterUninstall, Invoke-ClusterInstall, Import-NotNamespacedResources, Import-NamespacedResources, Remove-ExportedClusterResources,
-Get-TempPath, Get-LinuxVMCores, Get-LinuxVMMemory, Get-LinuxVMStorageSize, Get-ClusterInstalledFolder, Backup-LogFile, Restore-LogFile, Restore-MergeLogFiles
+Get-TempPath, Get-LinuxVMCores, Get-LinuxVMMemory, Get-LinuxVMStorageSize, Get-ClusterInstalledFolder, Backup-LogFile, Restore-LogFile, Restore-MergeLogFiles,
+Invoke-BackupRestoreHooks
