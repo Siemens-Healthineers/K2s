@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText:  © 2024 Siemens Healthcare GmbH
+// SPDX-License-Identifier:   MIT
+
 package override
 
 import "github.com/spf13/cobra"
