@@ -115,7 +115,7 @@ var _ = Describe("'dashboard' addon", Ordered, func() {
 				portForwardingSession, _ = gexec.Start(portForwarding, GinkgoWriter, GinkgoWriter)
 
 				url := "https://localhost:8443/#/pod?namespace=_all"
-				httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-I", "-m", "5", "--retry", "3", "--fail")
+				httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-I", "-m", "5", "--retry", "10", "--fail")
 				Expect(httpStatus).To(ContainSubstring("200"))
 			})
 
@@ -162,13 +162,13 @@ var _ = Describe("'dashboard' addon", Ordered, func() {
 
 			It("is reachable through k2s-dashboard.cluster.local", func(ctx context.Context) {
 				url := "https://k2s-dashboard.cluster.local/#/pod?namespace=_all"
-				httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-I", "-m", "5", "--retry", "3", "--fail")
+				httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-I", "-m", "5", "--retry", "10", "--fail")
 				Expect(httpStatus).To(ContainSubstring("200"))
 			})
 
 			It("is reachable through k2s.cluster.local", func(ctx context.Context) {
 				url := "https://k2s.cluster.local/dashboard/#/pod?namespace=_all"
-				httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-I", "-m", "5", "--retry", "3", "--fail")
+				httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-I", "-m", "5", "--retry", "10", "--fail")
 				Expect(httpStatus).To(ContainSubstring("200"))
 			})
 

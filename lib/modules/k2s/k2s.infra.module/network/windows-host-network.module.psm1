@@ -38,7 +38,7 @@ function Set-K2sDnsProxyForActivePhysicalInterfacesOnWindowsHost {
         [string]$ExcludeNetworkInterfaceName = ''
     )
 
-    $k2sDnsProxyIpAddress = Get-ConfiguredIPControlPlane
+    $k2sDnsProxyIpAddress = Get-ConfiguredKubeSwitchIP
     $physicalInterfaceIndexes = Get-NetAdapter -Physical | Where-Object Status -Eq 'Up' | Where-Object Name -ne $ExcludeNetworkInterfaceName | Select-Object -expand 'ifIndex'
 
     foreach ($networkInterfaceIndex in $physicalInterfaceIndexes) {

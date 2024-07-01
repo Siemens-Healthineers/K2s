@@ -109,7 +109,7 @@ kubectl create secret -n kube-system tls etcd-client-for-core-dns --cert=etcd/he
 ### Physical Network Adapter DNS Configuration
 
 At the end of `k2s start`, we change the DNS Server of all physical network interfaces
-to use the `netmasq` DNS service running on the master node.
+to use the `dnsproxy` DNS service running on the host.
 At the end of `k2s stop` we reset the DNS Configuration of these adapters.
 
 ## Links
