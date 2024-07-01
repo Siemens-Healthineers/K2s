@@ -45,7 +45,7 @@ if ($Script.Contains("-ShowLogs")) {
         if ($Script -match ".*\\Install.*\.ps1") {
             Write-Log $($_ | Out-String) -Error
             Write-Log "Installation failed!"
-            exit
+            exit 1
         }
         # ignore errors when uninstalling/resetting cluster
         if (($Script -notmatch ".*\\Uninstall.*\.ps1") -and ($Script -notmatch ".*\\Reset-System.*\.ps1")) {
