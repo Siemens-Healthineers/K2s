@@ -25,8 +25,6 @@ function New-WslLinuxVmAsControlPlaneNode {
         [long]$VMProcessorCount,
         [parameter(Mandatory = $false, HelpMessage = 'Virtual hard disk size of VM')]
         [uint64]$VMDiskSize,
-        [parameter(Mandatory = $false, HelpMessage = 'The HTTP proxy if available.')]
-        [string]$Proxy = '',
         [parameter(Mandatory = $false, HelpMessage = 'Deletes the needed files to perform an offline installation')]
         [Boolean] $DeleteFilesForOfflineInstallation = $false,
         [parameter(Mandatory = $false, HelpMessage = 'Forces the installation online')]
@@ -49,7 +47,6 @@ function New-WslLinuxVmAsControlPlaneNode {
                 GatewayIpAddress=$GatewayIpAddress
                 DnsServers=$DnsServers
                 VmImageOutputPath=$vhdxPath
-                Proxy=$Proxy
                 VMDiskSize = $VMDiskSize
                 VMMemoryStartupBytes = $VMMemoryStartupBytes
                 VMProcessorCount = $VMProcessorCount
@@ -61,7 +58,6 @@ function New-WslLinuxVmAsControlPlaneNode {
         $wslRootfsForControlPlaneNodeCreationParams = @{
                 VmImageInputPath=$vhdxPath
                 RootfsFileOutputPath=$rootfsPath
-                Proxy=$Proxy
                 VMDiskSize = $VMDiskSize
                 VMMemoryStartupBytes = $VMMemoryStartupBytes
                 VMProcessorCount = $VMProcessorCount

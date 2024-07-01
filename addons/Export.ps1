@@ -7,8 +7,6 @@
 Param(
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
     [switch] $ShowLogs = $false,
-    [parameter(Mandatory = $false, HelpMessage = 'HTTP proxy if available')]
-    [string] $Proxy,
     [parameter(Mandatory = $false, HelpMessage = 'Export directory of addon')]
     [string] $ExportDir,
     [parameter(Mandatory = $false, HelpMessage = 'Export all addons')]
@@ -103,8 +101,8 @@ $currentHttpProxy = $env:http_proxy
 $currentHttpsProxy = $env:https_proxy
 
 try {
-    $env:http_proxy = $Proxy
-    $env:https_proxy = $Proxy
+    $env:http_proxy = Get-HttpProxyServiceAddressForWindowsHost
+    $env:https_proxy = Get-HttpProxyServiceAddressForWindowsHost
 
     foreach ($manifest in $addonManifests) {
         Write-Log "Pulling images for addon $($manifest.metadata.name)" -Console
@@ -242,7 +240,7 @@ try {
                 Write-Log 'Adding repos for debian packages download'
                 foreach ($repo in $repos) {
                     if ($setupInfo.Name -ne 'MultiVMK8s') {
-                        $repoWithReplacedHttpProxyPlaceHolder = $repo.Replace('__LOCAL_HTTP_PROXY__', "$(Get-ConfiguredKubeSwitchIP):8181")
+                        $repoWithReplacedHttpProxyPlaceHolder = $repo.Replace('__LOCAL_HTTP_PROXY__', "$(Get-HttpProxyServiceAddressForKubemaster)")
                     }
                     else {
                         $repoWithReplacedHttpProxyPlaceHolder = $repo.Replace('__LOCAL_HTTP_PROXY__', "''")
@@ -282,7 +280,7 @@ try {
                 foreach ($package in $linuxCurlPackages) {
                     $filename = ([uri]$package.url).Segments[-1]
 
-                    Invoke-DownloadFile "$targetLinuxPkgDir\${filename}" $package.url $true -ProxyToUse $Proxy
+                    Invoke-DownloadFile "$targetLinuxPkgDir\${filename}" $package.url $true
                 }
             }
 
@@ -295,7 +293,7 @@ try {
                 foreach ($package in $windowsCurlPackages) {
                     $filename = ([uri]$package.url).Segments[-1]
 
-                    Invoke-DownloadFile "$targetWinPkgDir\${filename}" $package.url $true -ProxyToUse $Proxy
+                    Invoke-DownloadFile "$targetWinPkgDir\${filename}" $package.url $true
                 }
             }
         }

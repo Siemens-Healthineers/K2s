@@ -23,7 +23,7 @@ $windowsNode_CniFlannelDirectory = 'cni_flannel'
 $windowsNode_FlanneldExe = 'flanneld.exe'
 $windowsNode_Flannel64exe = 'flannel-amd64.exe'
 
-function Invoke-DownloadFlannelArtifacts($downloadsBaseDirectory, $Proxy) {
+function Invoke-DownloadFlannelArtifacts($downloadsBaseDirectory) {
     $flannelDownloadsDirectory = "$downloadsBaseDirectory\$windowsNode_FlannelDirectory"
     $flannelVersion = 'v0.17.0'
     $file = "$flannelDownloadsDirectory\$windowsNode_FlanneldExe"
@@ -31,10 +31,10 @@ function Invoke-DownloadFlannelArtifacts($downloadsBaseDirectory, $Proxy) {
     Write-Log "Create folder '$flannelDownloadsDirectory'"
     mkdir $flannelDownloadsDirectory | Out-Null
     Write-Log 'Download flannel'
-    Invoke-DownloadFile "$file" https://github.com/coreos/flannel/releases/download/$flannelVersion/$windowsNode_FlanneldExe $true $Proxy
+    Invoke-DownloadFile "$file" https://github.com/coreos/flannel/releases/download/$flannelVersion/$windowsNode_FlanneldExe $true
 }
 
-function Invoke-DownloadCniPlugins($downloadsBaseDirectory, $Proxy) {
+function Invoke-DownloadCniPlugins($downloadsBaseDirectory) {
     $cniPluginsDownloadsDirectory = "$downloadsBaseDirectory\$windowsNode_CniPluginsDirectory"
     $cniPluginVersion = 'v1.1.1'
     $cniPlugins = "cni-plugins-windows-amd64-$cniPluginVersion.tgz"
@@ -43,7 +43,7 @@ function Invoke-DownloadCniPlugins($downloadsBaseDirectory, $Proxy) {
     Write-Log "Create folder '$cniPluginsDownloadsDirectory'"
     mkdir $cniPluginsDownloadsDirectory | Out-Null
     Write-Log 'Download cni plugins'
-    Invoke-DownloadFile "$compressedFile" https://github.com/containernetworking/plugins/releases/download/$cniPluginVersion/$cniPlugins $true $Proxy
+    Invoke-DownloadFile "$compressedFile" https://github.com/containernetworking/plugins/releases/download/$cniPluginVersion/$cniPlugins $true
     Write-Log '  ...done'
     Write-Log "Extract downloaded file '$compressedFile'"
     $ErrorActionPreference = 'Continue'
@@ -53,7 +53,7 @@ function Invoke-DownloadCniPlugins($downloadsBaseDirectory, $Proxy) {
     Remove-Item -Path "$compressedFile" -Force -ErrorAction SilentlyContinue
 }
 
-function Invoke-DownloadCniFlannelArtifacts($downloadsBaseDirectory, $Proxy) {
+function Invoke-DownloadCniFlannelArtifacts($downloadsBaseDirectory) {
     $cniFlannelDownloadsDirectory = "$downloadsBaseDirectory\$windowsNode_CniFlannelDirectory"
     $cniFlannelVersion = 'v1.0.1'
     $file = "$cniFlannelDownloadsDirectory\$windowsNode_Flannel64exe"
@@ -61,7 +61,7 @@ function Invoke-DownloadCniFlannelArtifacts($downloadsBaseDirectory, $Proxy) {
     Write-Log "Create folder '$cniFlannelDownloadsDirectory'"
     mkdir $cniFlannelDownloadsDirectory | Out-Null
     Write-Log 'Download cni flannel'
-    Invoke-DownloadFile "$file" https://github.com/flannel-io/cni-plugin/releases/download/$cniFlannelVersion/$windowsNode_Flannel64exe $true $Proxy
+    Invoke-DownloadFile "$file" https://github.com/flannel-io/cni-plugin/releases/download/$cniFlannelVersion/$windowsNode_Flannel64exe $true
     Write-Log '  ...done'
 }
 

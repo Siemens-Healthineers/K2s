@@ -15,14 +15,10 @@ in order to handle such request by kubernetes load balancer/ingress service
 .EXAMPLE
 # For k2sSetup
 powershell <installation folder>\addons\exthttpaccess\Enable.ps1
-# For k2sSetup behind proxy
-powershell <installation folder>\addons\exthttpaccess\Enable.ps1 -Proxy http://139.22.102.14:8888
 #>
 Param(
   [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
   [switch] $ShowLogs = $false,
-  [parameter(Mandatory = $false, HelpMessage = 'HTTP proxy if available')]
-  [string] $Proxy = '',
   [parameter(Mandatory = $false, HelpMessage = 'JSON config object to override preceeding parameters')]
   [pscustomobject] $Config,
   [parameter(Mandatory = $false, HelpMessage = 'HTTP port to use (valid range is 49152 to 65535)')]
@@ -45,8 +41,6 @@ $commonModule = "$PSScriptRoot\common.module.psm1"
 Import-Module $infraModule, $clusterModule, $nodeModule, $addonsModule, $commonModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
-
-$Proxy = Get-OrUpdateProxyServer -Proxy:$Proxy
 
 $systemError = Test-SystemAvailability -Structured
 if ($systemError) {
@@ -234,7 +228,7 @@ Get-Content "$PSScriptRoot\nginx.tmp" | ForEach-Object {
 
 Write-Log 'Downloading nginx executable' -Console
 if (!(Test-Path "$binPath\nginx\nginx.zip")) {
-  Invoke-DownloadFile "$binPath\nginx\nginx.zip" 'https://nginx.org/download/nginx-1.23.2.zip' $true -ProxyToUse $Proxy
+  Invoke-DownloadFile "$binPath\nginx\nginx.zip" 'https://nginx.org/download/nginx-1.23.2.zip' $true
 }
 
 tar C "$binPath\nginx" -xvf "$binPath\nginx\nginx.zip" --strip-components 1 *.exe 2>&1 | ForEach-Object { "$_" }

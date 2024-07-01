@@ -30,8 +30,6 @@ powershell <installation folder>\addons\Kubevirt\Enable.ps1 -K8sSetup  OnPremise
 #>
 
 Param(
-    [parameter(Mandatory = $false, HelpMessage = 'HTTP proxy if available')]
-    [string] $Proxy,
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
     [switch] $ShowLogs = $false,
     [parameter(Mandatory = $false, HelpMessage = 'Use software virtualization')]
@@ -54,8 +52,6 @@ $kubevirtModule = "$PSScriptRoot\kubevirt.module.psm1"
 Import-Module $infraModule, $clusterModule, $addonsModule, $nodeModule, $kubevirtModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
-
-$Proxy = Get-OrUpdateProxyServer -Proxy:$Proxy
 
 Write-Log 'Checking cluster status' -Console
 
@@ -192,7 +188,7 @@ Write-Log "deploy kubevirt version $VERSION_KV"
 
 # deploy virtctrl
 $VERSION_VCTRL = 'v0.59.2'
-$IMPLICITPROXY = "http://$(Get-ConfiguredKubeSwitchIP):8181"
+$IMPLICITPROXY = Get-HttpProxyServiceAddressForKubemaster
 Write-Log "deploy virtctl version $VERSION_VCTRL"
 if ( $K8sSetup -eq 'SmallSetup' ) {
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "export VERSION_VCTRL=$VERSION_VCTRL").Output | Write-Log
@@ -212,7 +208,7 @@ if ( $K8sSetup -eq 'SmallSetup' ) {
 
 $binPath = Get-KubeBinPath
 if (!(Test-Path "$binPath\virtctl.exe")) {
-    Invoke-DownloadFile "$binPath\virtctl.exe" "https://github.com/kubevirt/kubevirt/releases/download/$VERSION_VCTRL/virtctl-$VERSION_VCTRL-windows-amd64.exe" $true -ProxyToUse $Proxy
+    Invoke-DownloadFile "$binPath\virtctl.exe" "https://github.com/kubevirt/kubevirt/releases/download/$VERSION_VCTRL/virtctl-$VERSION_VCTRL-windows-amd64.exe" $true
 }
 
 # enable config
@@ -240,7 +236,7 @@ $virtviewer = Get-VirtViewerMsiFileName
 if (!(Test-Path "$binPath\$virtviewer")) {
     Write-Log 'Installing VirtViewer ...'
     if (!(Test-Path "$binPath\$virtviewer")) {
-        Invoke-DownloadFile "$binPath\$virtviewer" "https://releases.pagure.org/virt-viewer/$virtviewer" $true -ProxyToUse $Proxy
+        Invoke-DownloadFile "$binPath\$virtviewer" "https://releases.pagure.org/virt-viewer/$virtviewer" $true
     }
     msiexec.exe /i "$binPath\$virtviewer" /L*VX "$binPath\msiinstall.log" /quiet /passive /norestart
 

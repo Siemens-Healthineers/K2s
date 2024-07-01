@@ -6,6 +6,7 @@ package install
 import (
 	"fmt"
 	"log/slog"
+	"strings"
 
 	"github.com/siemens-healthineers/k2s/internal/powershell"
 	"github.com/siemens-healthineers/k2s/internal/setupinfo"
@@ -109,6 +110,7 @@ func bindFlags(cmd *cobra.Command) {
 	cmd.Flags().String(ic.ControlPlaneMemoryFlagName, "", ic.ControlPlaneMemoryFlagUsage)
 	cmd.Flags().String(ic.ControlPlaneDiskSizeFlagName, "", ic.ControlPlaneDiskSizeFlagUsage)
 	cmd.Flags().StringP(ic.ProxyFlagName, ic.ProxyFlagShorthand, "", ic.ProxyFlagUsage)
+	cmd.Flags().StringSlice(ic.NoProxyFlagName, make([]string, 0), ic.NoProxyFlagUsage)
 	cmd.Flags().StringP(ic.ConfigFileFlagName, ic.ConfigFileFlagShorthand, "", ic.ConfigFileFlagUsage)
 	cmd.Flags().Bool(ic.WslFlagName, false, ic.WslFlagUsage)
 
@@ -175,6 +177,9 @@ func buildInstallCmd(c *ic.InstallConfig) (cmd string, err error) {
 
 	if c.Env.Proxy != "" {
 		cmd += " -Proxy " + c.Env.Proxy
+	}
+	if len(c.Env.NoProxy) != 0 {
+		cmd += " -NoProxy " + strings.Join(c.Env.NoProxy, ",")
 	}
 	if c.Env.AdditionalHooksDir != "" {
 		cmd += fmt.Sprintf(" -AdditionalHooksDir '%s'", c.Env.AdditionalHooksDir)

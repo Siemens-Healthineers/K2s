@@ -15,15 +15,15 @@ $windowsNode_PuttytoolsDirectory = "puttytools"
 $windowsNode_Plink = "plink.exe"
 $windowsNode_Pscp = "pscp.exe"
 
-function Invoke-DownloadPuttyArtifacts($downloadsBaseDirectory, $Proxy) {
+function Invoke-DownloadPuttyArtifacts($downloadsBaseDirectory) {
     $puttytoolsDownloadsDirectory = "$downloadsBaseDirectory\$windowsNode_PuttytoolsDirectory"
     Write-Log "Create folder '$puttytoolsDownloadsDirectory'"
     mkdir $puttytoolsDownloadsDirectory | Out-Null
 
     Write-Log "Download plink"
-    Invoke-DownloadPlink -Destination "$puttytoolsDownloadsDirectory\$windowsNode_Plink" -Proxy "$Proxy"
+    Invoke-DownloadPlink -Destination "$puttytoolsDownloadsDirectory\$windowsNode_Plink"
     Write-Log "Download pscp"
-    Invoke-DownloadPscp -Destination "$puttytoolsDownloadsDirectory\$windowsNode_Pscp" -Proxy "$Proxy"
+    Invoke-DownloadPscp -Destination "$puttytoolsDownloadsDirectory\$windowsNode_Pscp"
 }
 
 function Invoke-DeployPuttytoolsArtifacts($windowsNodeArtifactsDirectory) {
@@ -38,35 +38,26 @@ function Invoke-DeployPuttytoolsArtifacts($windowsNodeArtifactsDirectory) {
 }
 
 function Invoke-DowloadPuttyTools {
-    param (
-        [Parameter(Mandatory = $false)]
-        [string]$Proxy
-    )
-
-    Invoke-DownloadPlink -Destination "$kubeBinPath\$windowsNode_Plink" -Proxy "$Proxy"
-    Invoke-DownloadPscp -Destination "$kubeBinPath\$windowsNode_Pscp" -Proxy "$Proxy"
+    Invoke-DownloadPlink -Destination "$kubeBinPath\$windowsNode_Plink"
+    Invoke-DownloadPscp -Destination "$kubeBinPath\$windowsNode_Pscp"
 }
 
 function Invoke-DownloadPlink {
     param (
         [Parameter(Mandatory = $false)]
-        [string]$Destination,
-        [Parameter(Mandatory = $false)]
-        [string]$Proxy
+        [string]$Destination
     )
 
-    Invoke-DownloadFile $Destination https://the.earth.li/~sgtatham/putty/0.76/w64/$windowsNode_Plink $true $Proxy
+    Invoke-DownloadFile $Destination https://the.earth.li/~sgtatham/putty/0.76/w64/$windowsNode_Plink $true
 }
 
 function Invoke-DownloadPscp {
     param (
         [Parameter(Mandatory = $true)]
-        [string]$Destination,
-        [Parameter(Mandatory = $false)]
-        [string]$Proxy
+        [string]$Destination
     )
 
-    Invoke-DownloadFile $Destination https://the.earth.li/~sgtatham/putty/0.76/w64/$windowsNode_Pscp $true $Proxy
+    Invoke-DownloadFile $Destination https://the.earth.li/~sgtatham/putty/0.76/w64/$windowsNode_Pscp $true
 }
 
 Export-ModuleMember Invoke-DownloadPuttyArtifacts, Invoke-DeployPuttytoolsArtifacts,

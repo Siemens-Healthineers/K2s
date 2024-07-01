@@ -22,8 +22,6 @@ Param (
     [parameter(Mandatory = $false, HelpMessage = 'Enable Ingress-Nginx Addon')]
     [ValidateSet('ingress-nginx', 'traefik')]
     [string] $Ingress = 'ingress-nginx',
-    [parameter(Mandatory = $false, HelpMessage = 'HTTP proxy if available')]
-    [string] $Proxy,
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
     [switch] $ShowLogs = $false,
     [parameter(Mandatory = $false, HelpMessage = 'JSON config object to override preceeding parameters')]
@@ -46,8 +44,6 @@ Import-Module $infraModule, $clusterModule, $nodeModule, $addonsModule, $securit
 Import-Module PKI;
 
 Initialize-Logging -ShowLogs:$ShowLogs
-
-$Proxy = Get-OrUpdateProxyServer -Proxy:$Proxy
 
 Write-Log 'Checking cluster status' -Console
 
@@ -85,7 +81,7 @@ if ($windowsCurlPackages) {
         $destination = "$k2sRoot\$destination"
         if (!(Test-Path $destination)) {
             $url = $package.url
-            Invoke-DownloadFile $destination $url $true -ProxyToUse $Proxy
+            Invoke-DownloadFile $destination $url $true
         }
         else {
             Write-Log "File $destination already exists. Skipping download."

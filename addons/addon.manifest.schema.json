@@ -164,11 +164,11 @@
                                 "type": "object",
                                 "properties": {
                                     "name": {
-                                        "description": "flag name as it is used via CLI, e.g. 'proxy' for usage '--proxy'",
+                                        "description": "flag name as it is used via CLI",
                                         "type": "string"
                                     },
                                     "shorthand": {
-                                        "description": "flag shorthand as it is used via CLI, e.g. 'p' for usage '-p'",
+                                        "description": "flag shorthand as it is used via CLI",
                                         "type": "string"
                                     },
                                     "default": {

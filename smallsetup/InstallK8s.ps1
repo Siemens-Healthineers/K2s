@@ -40,6 +40,8 @@ Param(
     [uint64] $MasterDiskSize = 50GB,
     [parameter(Mandatory = $false, HelpMessage = 'HTTP proxy if available')]
     [string] $Proxy,
+    [parameter(Mandatory = $false, HelpMessage = 'NO proxy')]
+    [string[]] $NoProxy = @(),
     [parameter(Mandatory = $false, HelpMessage = 'DNS Addresses if available')]
     [string[]]$DnsAddresses,
     [parameter(Mandatory = $false, HelpMessage = 'Directory containing additional hooks to be executed after local hooks are executed')]
@@ -98,7 +100,8 @@ $productVersion = Get-ProductVersion
 Set-ConfigProductVersion -Value $productVersion
 Set-ConfigInstallFolder -Value $installationPath
 
-$Proxy = Get-OrUpdateProxyServer -Proxy:$Proxy
+# Initialize the proxy settings before starting installation.
+New-ProxyConfig -Proxy:$Proxy -NoProxy:$NoProxy
 
 $linuxOsType = Get-LinuxOsType $LinuxVhdxPath
 Set-ConfigLinuxOsType -Value $linuxOsType
@@ -116,7 +119,6 @@ $controlPlaneNodeParams = @{
     MasterVMMemory = $MasterVMMemory
     MasterVMProcessorCount = $MasterVMProcessorCount
     MasterDiskSize = $MasterDiskSize
-    Proxy = $Proxy
     AdditionalHooksDir = $AdditionalHooksDir
     DeleteFilesForOfflineInstallation = $DeleteFilesForOfflineInstallation
     ForceOnlineInstallation = $ForceOnlineInstallation
@@ -129,7 +131,6 @@ New-ControlPlaneNodeOnNewVM @controlPlaneNodeParams
 Write-Log 'Setting up Windows worker node' -Console
 
 $workerNodeParams = @{
-    Proxy = $Proxy
     AdditionalHooksDir = $AdditionalHooksDir
     DeleteFilesForOfflineInstallation = $DeleteFilesForOfflineInstallation
     ForceOnlineInstallation = $ForceOnlineInstallation

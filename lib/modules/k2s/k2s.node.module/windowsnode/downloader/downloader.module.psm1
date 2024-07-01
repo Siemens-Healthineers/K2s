@@ -43,7 +43,7 @@ function Get-StringFromText([string]$text, [string]$searchPattern) {
     return $foundValue
 }
 
-function Invoke-DownloadWindowsImages($downloadsBaseDirectory, $Proxy) {
+function Invoke-DownloadWindowsImages($downloadsBaseDirectory) {
     $windowsImagesDownloadsDirectory = "$downloadsBaseDirectory\$windowsNode_ImagesDirectory"
     $tomlFilePath = "$kubePath\cfg\containerd\config.toml"
     if (!(Test-Path -Path $tomlFilePath)) {
@@ -63,7 +63,7 @@ function Invoke-DownloadWindowsImages($downloadsBaseDirectory, $Proxy) {
 
     Write-Log "Create folder '$windowsImagesDownloadsDirectory'"
     mkdir $windowsImagesDownloadsDirectory | Out-Null
-    Write-Log "Pull image '$sandboxImageName' from repository using proxy:$Proxy"
+    Write-Log "Pull image '$sandboxImageName' from repository"
 
     $initialized = $false
     $imagePulledSuccessfully = $false
@@ -71,8 +71,8 @@ function Invoke-DownloadWindowsImages($downloadsBaseDirectory, $Proxy) {
     $HttpProxyVariableOriginalValue = $env:HTTP_PROXY
     $HttpsProxyVariableOriginalValue = $env:HTTPS_PROXY
     try {
-        $env:HTTP_PROXY=$Proxy
-        $env:HTTPS_PROXY=$Proxy
+        $env:HTTP_PROXY=$(Get-HttpProxyServiceAddressForWindowsHost)
+        $env:HTTPS_PROXY=$(Get-HttpProxyServiceAddressForWindowsHost)
 
         $retryNumber = 0
         $maxAmountOfRetries = 3
@@ -165,9 +165,7 @@ function Invoke-DeployWindowsImages($windowsNodeArtifactsDirectory) {
 function Invoke-DownloadWindowsNodeArtifacts {
     Param(
         [parameter(Mandatory = $true, HelpMessage = 'Kubernetes version to use')]
-        [string] $KubernetesVersion,
-        [parameter(Mandatory = $false, HelpMessage = 'HTTP proxy if available')]
-        [string] $Proxy = ''
+        [string] $KubernetesVersion
     )
 
     if (Test-Path($windowsNodeArtifactsDownloadsDirectory)) {
@@ -190,40 +188,40 @@ function Invoke-DownloadWindowsNodeArtifacts {
         mkdir $windowsNodeArtifactsDirectory | Out-Null
     }
 
-    # NSSM
-    Invoke-DownloadNssmArtifacts $downloadsBaseDirectory $Proxy $windowsNodeArtifactsDirectory
+    # First of all make NSSM available
+    Invoke-DownloadNssmArtifacts $downloadsBaseDirectory $windowsNodeArtifactsDirectory
+    Invoke-DeployNssmArtifacts $windowsNodeArtifactsDirectory
+
+    # Secondly install httpproxy service for central proxy handling 
+    Install-WinHttpProxy
 
     # DOCKER
-    Invoke-DownloadDockerArtifacts $downloadsBaseDirectory $Proxy $windowsNodeArtifactsDirectory
+    Invoke-DownloadDockerArtifacts $downloadsBaseDirectory $windowsNodeArtifactsDirectory
 
     # CONTAINERD
-    Invoke-DownloadContainerdArtifacts $downloadsBaseDirectory $Proxy $windowsNodeArtifactsDirectory
-    Invoke-DownloadCrictlArtifacts $downloadsBaseDirectory $Proxy $windowsNodeArtifactsDirectory
-    Invoke-DownloadNerdctlArtifacts $downloadsBaseDirectory $Proxy $windowsNodeArtifactsDirectory
+    Invoke-DownloadContainerdArtifacts $downloadsBaseDirectory $windowsNodeArtifactsDirectory
+    Invoke-DownloadCrictlArtifacts $downloadsBaseDirectory $windowsNodeArtifactsDirectory
+    Invoke-DownloadNerdctlArtifacts $downloadsBaseDirectory $windowsNodeArtifactsDirectory
 
     # DNSPROXY
-    Invoke-DownloadDnsProxyArtifacts $downloadsBaseDirectory $Proxy
+    Invoke-DownloadDnsProxyArtifacts $downloadsBaseDirectory
 
     # FLANNEL
-    Invoke-DownloadFlannelArtifacts $downloadsBaseDirectory $Proxy
-    Invoke-DownloadCniPlugins $downloadsBaseDirectory $Proxy
-    Invoke-DownloadCniFlannelArtifacts $downloadsBaseDirectory $Proxy
+    Invoke-DownloadFlannelArtifacts $downloadsBaseDirectory
+    Invoke-DownloadCniPlugins $downloadsBaseDirectory
+    Invoke-DownloadCniFlannelArtifacts $downloadsBaseDirectory
 
     # KUBETOOLS
-    Invoke-DownloadKubetoolsArtifacts $downloadsBaseDirectory $KubernetesVersion $Proxy
+    Invoke-DownloadKubetoolsArtifacts $downloadsBaseDirectory $KubernetesVersion
 
     # WINDOWS EXPORTER
-    Invoke-DownloadWindowsExporterArtifacts $downloadsBaseDirectory $Proxy
+    Invoke-DownloadWindowsExporterArtifacts $downloadsBaseDirectory
 
     #YAML TOOLS
-    Invoke-DownloadYamlArtifacts $downloadsBaseDirectory $Proxy $windowsNodeArtifactsDirectory
+    Invoke-DownloadYamlArtifacts $downloadsBaseDirectory $windowsNodeArtifactsDirectory
 
     #PUTTY TOOLS
-    Invoke-DownloadPuttyArtifacts $downloadsBaseDirectory $Proxy
-
-    #START OF DEPLOYMENT OF DOWNLOADED ARTIFACTS
-    # NSSM
-    Invoke-DeployNssmArtifacts $windowsNodeArtifactsDirectory
+    Invoke-DownloadPuttyArtifacts $downloadsBaseDirectory
 
     # CONTAINERD
     Invoke-DeployContainerdArtifacts $windowsNodeArtifactsDirectory
@@ -233,8 +231,8 @@ function Invoke-DownloadWindowsNodeArtifacts {
     # YAML TOOLS
     Invoke-DeployYamlArtifacts $windowsNodeArtifactsDirectory
 
-    Install-WinContainerd -Proxy $Proxy -SkipNetworkingSetup:$true -WindowsNodeArtifactsDirectory $windowsNodeArtifactsDirectory
-    Invoke-DownloadWindowsImages $downloadsBaseDirectory $Proxy
+    Install-WinContainerd -SkipNetworkingSetup:$true -WindowsNodeArtifactsDirectory $windowsNodeArtifactsDirectory
+    Invoke-DownloadWindowsImages $downloadsBaseDirectory
     Uninstall-WinContainerd -ShallowUninstallation $true
 
     Write-Log 'Finished downloading artifacts for the Windows node'
@@ -263,8 +261,6 @@ function Invoke-DeployWinArtifacts {
     Param(
         [parameter(Mandatory = $true, HelpMessage = 'Kubernetes version to use')]
         [string] $KubernetesVersion,
-        [parameter(Mandatory = $false, HelpMessage = 'HTTP proxy if available')]
-        [string] $Proxy = '',
         [parameter(Mandatory = $false, HelpMessage = 'Deletes the needed files to perform an offline installation')]
         [boolean] $DeleteFilesForOfflineInstallation = $false,
         [parameter(Mandatory = $false, HelpMessage = 'Force the installation online. This option is needed if the files for an offline installation are available but you want to recreate them.')]
@@ -287,7 +283,7 @@ function Invoke-DeployWinArtifacts {
         }
         Write-Log "Create folder '$downloadsDirectory'"
         New-Item -Path "$downloadsDirectory" -ItemType Directory -Force -ErrorAction SilentlyContinue
-        Invoke-DownloadWindowsNodeArtifacts -KubernetesVersion $KubernetesVersion -Proxy $Proxy
+        Invoke-DownloadWindowsNodeArtifacts -KubernetesVersion $KubernetesVersion
         Write-Log "Remove folder '$downloadsDirectory'"
         Remove-Item -Path "$downloadsDirectory" -Recurse -Force -ErrorAction SilentlyContinue
     }
@@ -324,8 +320,6 @@ function Invoke-DeployWinArtifacts {
 
 function Install-WinNodeArtifacts {
     Param(
-        [parameter(Mandatory = $false, HelpMessage = 'HTTP proxy if available')]
-        [string] $Proxy = '',
         [parameter(Mandatory = $true, HelpMessage = 'Host machine is a VM: true, Host machine is not a VM')]
         [bool] $HostVM,
         [parameter(Mandatory = $false, HelpMessage = 'Skips installation of cluster dependent tools')]
@@ -334,9 +328,9 @@ function Install-WinNodeArtifacts {
     )
 
     Invoke-DeployDockerArtifacts $windowsNodeArtifactsDirectory
-    Install-WinDocker -Proxy "$Proxy"
+    Install-WinDocker
 
-    Install-WinContainerd -Proxy "$Proxy" -SkipNetworkingSetup:$SkipClusterSetup -WindowsNodeArtifactsDirectory $windowsNodeArtifactsDirectory -WorkerNodeNumber $WorkerNodeNumber
+    Install-WinContainerd -SkipNetworkingSetup:$SkipClusterSetup -WindowsNodeArtifactsDirectory $windowsNodeArtifactsDirectory -WorkerNodeNumber $WorkerNodeNumber
 
     if (!($SkipClusterSetup)) {
         Invoke-DeployWindowsImages $windowsNodeArtifactsDirectory
@@ -361,7 +355,7 @@ function Install-WinNodeArtifacts {
         }
     }
 
-    Install-WinHttpProxy -Proxy "$Proxy"
+    Install-WinHttpProxy
     Invoke-DeployPuttytoolsArtifacts $windowsNodeArtifactsDirectory
 
     # remove folder with windows node artifacts since all of them are already published to the expected locations
@@ -393,11 +387,6 @@ function Invoke-DownloadsCleanup {
 }
 
 function Install-DefaultTools {
-    Param(
-        [parameter(Mandatory = $false, HelpMessage = 'HTTP proxy if available')]
-        [string] $Proxy = ''
-    )
-
     if (Test-Path($windowsNodeArtifactsDownloadsDirectory)) {
         Write-Log "Windows Node artifacts downloads directory already exists"
     }
@@ -406,7 +395,7 @@ function Install-DefaultTools {
         mkdir $windowsNodeArtifactsDownloadsDirectory | Out-Null
     }
 
-    Invoke-DownloadPuttyArtifacts $windowsNodeArtifactsDownloadsDirectory $Proxy
+    Invoke-DownloadPuttyArtifacts $windowsNodeArtifactsDownloadsDirectory
     Invoke-DeployPuttytoolsArtifacts $windowsNodeArtifactsDownloadsDirectory
 }
 

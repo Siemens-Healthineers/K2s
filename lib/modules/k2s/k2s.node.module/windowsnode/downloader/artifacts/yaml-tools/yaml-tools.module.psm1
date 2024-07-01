@@ -13,20 +13,20 @@ $kubeBinPath = Get-KubeBinPath
 # yaml
 $windowsNode_YamlDirectory = "yaml"
 
-function Invoke-DownloadYamlArtifacts($downloadsBaseDirectory, $Proxy, $windowsNodeArtifactsDirectory) {
+function Invoke-DownloadYamlArtifacts($downloadsBaseDirectory, $windowsNodeArtifactsDirectory) {
     $yamlDownloadsDirectory = "$downloadsBaseDirectory\$windowsNode_YamlDirectory"
     Write-Log "Create folder '$yamlDownloadsDirectory'"
     mkdir $yamlDownloadsDirectory -ErrorAction SilentlyContinue | Out-Null
     Write-Log "Download jq executable"
 
     $downloadedFile1 = "$yamlDownloadsDirectory\jq.exe"
-    Invoke-DownloadFile "$downloadedFile1" https://github.com/stedolan/jq/releases/download/jq-1.6/jq-win64.exe $true $Proxy
+    Invoke-DownloadFile "$downloadedFile1" https://github.com/stedolan/jq/releases/download/jq-1.6/jq-win64.exe $true
     Move-Item -Path "$downloadedFile1" -Destination $yamlDownloadsDirectory
     Write-Log "Move $downloadedFile1 to $yamlDownloadsDirectory done"
 
     $downloadedFile2 = "$yamlDownloadsDirectory\yq.exe"
     Write-Log "Download yq executable"
-    Invoke-DownloadFile "$downloadedFile2" https://github.com/mikefarah/yq/releases/download/v4.33.3/yq_windows_amd64.exe $true $Proxy
+    Invoke-DownloadFile "$downloadedFile2" https://github.com/mikefarah/yq/releases/download/v4.33.3/yq_windows_amd64.exe $true
     Move-Item -Path "$downloadedFile2" -Destination $yamlDownloadsDirectory
     Write-Log "Move $downloadedFile2 to $yamlDownloadsDirectory done"
 
