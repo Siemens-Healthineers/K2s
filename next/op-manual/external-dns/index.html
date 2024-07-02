@@ -13,26 +13,24 @@ SPDX-License-Identifier: MIT
       
       
       
-        <link rel="canonical" href="https://Siemens-Healthineers.github.io/K2s/next/">
+        <link rel="canonical" href="https://Siemens-Healthineers.github.io/K2s/next/op-manual/external-dns/">
       
       
       
-        <link rel="next" href="quickstart/">
       
-      
-      <link rel="icon" href="assets/logo.png">
+      <link rel="icon" href="../../assets/logo.png">
       <meta name="generator" content="mkdocs-1.6.0, mkdocs-material-9.5.27">
     
     
       
-        <title>K2s - Kubernetes distribution for Windows & Linux workloads</title>
+        <title>External dns - K2s - Kubernetes distribution for Windows & Linux workloads</title>
       
     
     
-      <link rel="stylesheet" href="assets/stylesheets/main.6543a935.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.6543a935.min.css">
       
         
-        <link rel="stylesheet" href="assets/stylesheets/palette.06af60db.min.css">
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.06af60db.min.css">
       
       
 
@@ -46,14 +44,14 @@ SPDX-License-Identifier: MIT
         
         
         
-        <link rel="stylesheet" href="assets/external/fonts.googleapis.com/css.49ea35f2.css">
+        <link rel="stylesheet" href="../../assets/external/fonts.googleapis.com/css.49ea35f2.css">
         <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
       
     
     
-      <link rel="stylesheet" href="stylesheets/extra.css">
+      <link rel="stylesheet" href="../../stylesheets/extra.css">
     
-    <script>__md_scope=new URL(".",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
 
@@ -79,7 +77,7 @@ SPDX-License-Identifier: MIT
     <div data-md-component="skip">
       
         
-        <a href="#home" class="md-skip">
+        <a href="#external-dns" class="md-skip">
           Skip to content
         </a>
       
@@ -94,7 +92,7 @@ SPDX-License-Identifier: MIT
             <div class="md-banner__inner md-grid md-typeset">
               
 You're not viewing the latest release version.
-<a href="../.">
+<a href="../../..">
     <strong>Click here to go to latest release.</strong>
 </a>
 
@@ -111,9 +109,9 @@ You're not viewing the latest release version.
 
 <header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href="." title="K2s - Kubernetes distribution for Windows &amp; Linux workloads" class="md-header__button md-logo" aria-label="K2s - Kubernetes distribution for Windows & Linux workloads" data-md-component="logo">
+    <a href="../.." title="K2s - Kubernetes distribution for Windows &amp; Linux workloads" class="md-header__button md-logo" aria-label="K2s - Kubernetes distribution for Windows & Linux workloads" data-md-component="logo">
       
-  <img src="assets/logo.png" alt="logo">
+  <img src="../../assets/logo.png" alt="logo">
 
     </a>
     <label class="md-header__button md-icon" for="__drawer">
@@ -130,7 +128,7 @@ You're not viewing the latest release version.
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Home
+              External dns
             
           </span>
         </div>
@@ -236,11 +234,9 @@ You're not viewing the latest release version.
         
   
   
-    
   
-  
-    <li class="md-tabs__item md-tabs__item--active">
-      <a href="." class="md-tabs__link">
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
         
   
     
@@ -259,7 +255,7 @@ You're not viewing the latest release version.
     
     
       <li class="md-tabs__item">
-        <a href="quickstart/" class="md-tabs__link">
+        <a href="../../quickstart/" class="md-tabs__link">
           
   
     
@@ -279,7 +275,7 @@ You're not viewing the latest release version.
     
     
       <li class="md-tabs__item">
-        <a href="user-guide/hosting-variants/" class="md-tabs__link">
+        <a href="../../user-guide/hosting-variants/" class="md-tabs__link">
           
   
     
@@ -299,7 +295,7 @@ You're not viewing the latest release version.
     
     
       <li class="md-tabs__item">
-        <a href="op-manual/os-support/" class="md-tabs__link">
+        <a href="../os-support/" class="md-tabs__link">
           
   
     
@@ -325,7 +321,7 @@ You're not viewing the latest release version.
     
     
       <li class="md-tabs__item">
-        <a href="dev-guide/contributing/" class="md-tabs__link">
+        <a href="../../dev-guide/contributing/" class="md-tabs__link">
           
   
     
@@ -348,7 +344,7 @@ You're not viewing the latest release version.
     
     
       <li class="md-tabs__item">
-        <a href="troubleshooting/diagnostics/" class="md-tabs__link">
+        <a href="../../troubleshooting/diagnostics/" class="md-tabs__link">
           
   
     
@@ -389,9 +385,9 @@ You're not viewing the latest release version.
 
 <nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href="." title="K2s - Kubernetes distribution for Windows &amp; Linux workloads" class="md-nav__button md-logo" aria-label="K2s - Kubernetes distribution for Windows & Linux workloads" data-md-component="logo">
+    <a href="../.." title="K2s - Kubernetes distribution for Windows &amp; Linux workloads" class="md-nav__button md-logo" aria-label="K2s - Kubernetes distribution for Windows & Linux workloads" data-md-component="logo">
       
-  <img src="assets/logo.png" alt="logo">
+  <img src="../../assets/logo.png" alt="logo">
 
     </a>
     K2s - Kubernetes distribution for Windows & Linux workloads
@@ -415,30 +411,10 @@ You're not viewing the latest release version.
       
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  <span class="md-ellipsis">
-    Home
-  </span>
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="." class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -447,104 +423,6 @@ You're not viewing the latest release version.
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#what-is-k2s" class="md-nav__link">
-    <span class="md-ellipsis">
-      What is K2s?
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#why-k2s" class="md-nav__link">
-    <span class="md-ellipsis">
-      Why K2s?
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#who-uses-k2s" class="md-nav__link">
-    <span class="md-ellipsis">
-      Who uses K2s?
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#quick-start" class="md-nav__link">
-    <span class="md-ellipsis">
-      Quick Start
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#features" class="md-nav__link">
-    <span class="md-ellipsis">
-      Features
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#security" class="md-nav__link">
-    <span class="md-ellipsis">
-      Security
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Security">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#reporting-a-vulnerability" class="md-nav__link">
-    <span class="md-ellipsis">
-      Reporting a Vulnerability
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#security-team" class="md-nav__link">
-    <span class="md-ellipsis">
-      Security Team
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -577,7 +455,7 @@ You're not viewing the latest release version.
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="quickstart/" class="md-nav__link ">
+            <a href="../../quickstart/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -664,7 +542,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="user-guide/hosting-variants/" class="md-nav__link">
+      <a href="../../user-guide/hosting-variants/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -685,7 +563,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="user-guide/k2s-cli/" class="md-nav__link">
+      <a href="../../user-guide/k2s-cli/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -706,7 +584,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="user-guide/cli-shortcuts/" class="md-nav__link">
+      <a href="../../user-guide/cli-shortcuts/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -727,7 +605,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="user-guide/cluster-ip-addresses/" class="md-nav__link">
+      <a href="../../user-guide/cluster-ip-addresses/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -748,7 +626,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="user-guide/adding-container-registry/" class="md-nav__link">
+      <a href="../../user-guide/adding-container-registry/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -769,7 +647,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="user-guide/building-container-image/" class="md-nav__link">
+      <a href="../../user-guide/building-container-image/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -859,7 +737,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="op-manual/os-support/" class="md-nav__link">
+      <a href="../os-support/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -880,7 +758,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="op-manual/getting-k2s/" class="md-nav__link">
+      <a href="../getting-k2s/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -901,7 +779,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="op-manual/creating-offline-package/" class="md-nav__link">
+      <a href="../creating-offline-package/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -922,7 +800,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="op-manual/installing-k2s/" class="md-nav__link">
+      <a href="../installing-k2s/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -943,7 +821,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="op-manual/starting-k2s/" class="md-nav__link">
+      <a href="../starting-k2s/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -964,7 +842,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="op-manual/checking-k2s-status/" class="md-nav__link">
+      <a href="../checking-k2s-status/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -985,7 +863,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="op-manual/stopping-k2s/" class="md-nav__link">
+      <a href="../stopping-k2s/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1006,7 +884,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="op-manual/upgrading-k2s/" class="md-nav__link">
+      <a href="../upgrading-k2s/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1027,7 +905,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="op-manual/configuring-httpproxy-service/" class="md-nav__link">
+      <a href="../configuring-httpproxy-service/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1048,7 +926,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="op-manual/secure-host-access/" class="md-nav__link">
+      <a href="../secure-host-access/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1069,7 +947,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="op-manual/uninstalling-k2s/" class="md-nav__link">
+      <a href="../uninstalling-k2s/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1182,7 +1060,7 @@ You're not viewing the latest release version.
           
           
           <div class="md-nav__link md-nav__container">
-            <a href="dev-guide/contributing/" class="md-nav__link ">
+            <a href="../../dev-guide/contributing/" class="md-nav__link ">
               
   
   <span class="md-ellipsis">
@@ -1215,7 +1093,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="dev-guide/contributing/cla-corporate-contributor/" class="md-nav__link">
+      <a href="../../dev-guide/contributing/cla-corporate-contributor/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1236,7 +1114,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="dev-guide/contributing/cla-individual-contributor/" class="md-nav__link">
+      <a href="../../dev-guide/contributing/cla-individual-contributor/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1257,7 +1135,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="dev-guide/contributing/licensing/" class="md-nav__link">
+      <a href="../../dev-guide/contributing/licensing/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1278,7 +1156,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="dev-guide/contributing/powershell-dev/" class="md-nav__link">
+      <a href="../../dev-guide/contributing/powershell-dev/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1299,7 +1177,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="dev-guide/contributing/building-locally/" class="md-nav__link">
+      <a href="../../dev-guide/contributing/building-locally/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1320,7 +1198,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="dev-guide/contributing/automated-testing/" class="md-nav__link">
+      <a href="../../dev-guide/contributing/automated-testing/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1341,7 +1219,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="dev-guide/contributing/tags-labels/" class="md-nav__link">
+      <a href="../../dev-guide/contributing/tags-labels/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1362,7 +1240,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="dev-guide/contributing/updating-documentation/" class="md-nav__link">
+      <a href="../../dev-guide/contributing/updating-documentation/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1383,7 +1261,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="dev-guide/contributing/submitting-changes/" class="md-nav__link">
+      <a href="../../dev-guide/contributing/submitting-changes/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1412,7 +1290,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="dev-guide/hosting-variants-features-matrix/" class="md-nav__link">
+      <a href="../../dev-guide/hosting-variants-features-matrix/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1433,7 +1311,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="dev-guide/training/" class="md-nav__link">
+      <a href="../../dev-guide/training/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1505,7 +1383,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="troubleshooting/diagnostics/" class="md-nav__link">
+      <a href="../../troubleshooting/diagnostics/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1526,7 +1404,7 @@ You're not viewing the latest release version.
   
   
     <li class="md-nav__item">
-      <a href="troubleshooting/known-issues/" class="md-nav__link">
+      <a href="../../troubleshooting/known-issues/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1574,73 +1452,46 @@ You're not viewing the latest release version.
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#what-is-k2s" class="md-nav__link">
+  <a href="#overview" class="md-nav__link">
     <span class="md-ellipsis">
-      What is K2s?
+      Overview
     </span>
   </a>
   
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#why-k2s" class="md-nav__link">
-    <span class="md-ellipsis">
-      Why K2s?
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#who-uses-k2s" class="md-nav__link">
-    <span class="md-ellipsis">
-      Who uses K2s?
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#quick-start" class="md-nav__link">
-    <span class="md-ellipsis">
-      Quick Start
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#features" class="md-nav__link">
-    <span class="md-ellipsis">
-      Features
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#security" class="md-nav__link">
-    <span class="md-ellipsis">
-      Security
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Security">
+    <nav class="md-nav" aria-label="Overview">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#reporting-a-vulnerability" class="md-nav__link">
+  <a href="#coredns" class="md-nav__link">
     <span class="md-ellipsis">
-      Reporting a Vulnerability
+      CoreDNS
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#security-team" class="md-nav__link">
+  <a href="#externaldns" class="md-nav__link">
     <span class="md-ellipsis">
-      Security Team
+      ExternalDNS
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#etcd" class="md-nav__link">
+    <span class="md-ellipsis">
+      etcd
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#physical-network-adapter-dns-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      Physical Network Adapter DNS Configuration
     </span>
   </a>
   
@@ -1648,6 +1499,24 @@ You're not viewing the latest release version.
         
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#links" class="md-nav__link">
+    <span class="md-ellipsis">
+      Links
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#todo" class="md-nav__link">
+    <span class="md-ellipsis">
+      TODO
+    </span>
+  </a>
   
 </li>
       
@@ -1666,7 +1535,7 @@ You're not viewing the latest release version.
                   
 
   
-    <a href="https://github.com/Siemens-Healthineers/K2s/edit/main/docs/index.md" title="Edit this page" class="md-content__button md-icon">
+    <a href="https://github.com/Siemens-Healthineers/K2s/edit/main/docs/op-manual/external-dns.md" title="Edit this page" class="md-content__button md-icon">
       
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4v-2m10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1 2.1 2.1Z"/></svg>
     </a>
@@ -1679,69 +1548,104 @@ SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 SPDX-License-Identifier: MIT
 -->
 
-<h1 id="home">Home</h1>
-<p><a href="https://github.com/Siemens-Healthineers/K2s/actions/workflows/ci-reuse-checks.yml" target="_blank"><img alt="ci" src="assets/external/github.com/Siemens-Healthineers/K2s/actions/workflows/ci-reuse-checks.yml/badge.svg"></a>
-<a href="https://github.com/Siemens-Healthineers/K2s/actions/workflows/ci-unit-tests.yml" target="_blank"><img alt="ci" src="assets/external/github.com/Siemens-Healthineers/K2s/actions/workflows/ci-unit-tests.yml/badge.svg"></a>
-<a href="https://github.com/Siemens-Healthineers/K2s/actions/workflows/build-k2s-cli.yml" target="_blank"><img alt="ci" src="assets/external/github.com/Siemens-Healthineers/K2s/actions/workflows/build-k2s-cli.yml/badge.svg"></a>
-<a href="https://github.com/Siemens-Healthineers/K2s/actions/workflows/build-k2s-artifacts.yml" target="_blank"><img alt="ci" src="assets/external/github.com/Siemens-Healthineers/K2s/actions/workflows/build-k2s-artifacts.yml/badge.svg"></a>
-<a href="https://github.com/Siemens-Healthineers/K2s/actions/workflows/build-docs-next.yml" target="_blank"><img alt="ci" src="https:/github.com/Siemens-Healthineers/K2s/actions/workflows/build-docs-next.yml/badge.svg"></a></p>
-<h2 id="what-is-k2s">What is <em>K2s</em>?</h2>
-<p><em>K2s</em> is a <em>Kubernetes</em> distribution which packages different open-source components into one small and easy to use solution focusing on running mixed <em>Windows</em>-based &amp; <em>Linux</em>-based workloads in <em>Kubernetes</em>. </p>
-<p>This solution is installable on <em>Windows</em> hosts.</p>
-<p>The name <em>K2s</em> comes from the fact that we start with the default setting of 2 <em>Kubernetes</em> nodes (<em>Windows</em> &amp; <em>Linux</em>) and it relates to <em><abbr title="Kubernetes">K8s</abbr></em> as synonym for <em>Kubernetes</em>.</p>
-<h2 id="why-k2s">Why <em>K2s</em>?</h2>
-<p>The problems that <em>K2s</em> solves are the following:</p>
+<h1 id="external-dns">External <abbr title="Domain Name System">DNS</abbr></h1>
+<p>ExternalDNS synchronizes ingress endpoints with a <abbr title="Domain Name System">DNS</abbr> provider.
+In a Cloud environment, the <abbr title="Domain Name System">DNS</abbr> provider would be an external <abbr title="Domain Name System">DNS</abbr>.<br />
+For K2s, we re-use the CoreDNS and configure ExternalDNS to sync
+all hosts it finds in the ingresses to the same <abbr title="Domain Name System">DNS</abbr> which is used to
+resolve the internal k8s svc host names.</p>
+<h2 id="overview">Overview</h2>
+<p>Here is how <abbr title="Domain Name System">DNS</abbr> resolution work on K2s:</p>
+<p><img alt="overview" src="../assets/dns-overview.drawio.png" /></p>
+<h3 id="coredns">CoreDNS</h3>
+<p>CoreDNS is a <abbr title="Domain Name System">DNS</abbr> server part of the core kubernetes system. It monitors kubernetes
+services and pods, the relevant part of the default configuration is:</p>
+<div class="highlight"><span class="filename">YAML</span><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="l l-Scalar l-Scalar-Plain">k get cm coredns -n kube-system -o yaml</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nn">...</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">        </span><span class="l l-Scalar l-Scalar-Plain">kubernetes cluster.local in-addr.arpa ip6.arpa {</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">           </span><span class="l l-Scalar l-Scalar-Plain">pods insecure</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">           </span><span class="l l-Scalar l-Scalar-Plain">fallthrough in-addr.arpa ip6.arpa</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">           </span><span class="l l-Scalar l-Scalar-Plain">ttl 30</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">        </span><span class="l l-Scalar l-Scalar-Plain">}</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="nn">...</span>
+</code></pre></div>
+<p>During the installation phase of K2s, we extend CodeDNS with the <code>etcd</code> CoreDNS plugin
+and we adjust the configuration like this:</p>
+<div class="highlight"><span class="filename">YAML</span><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="w">        </span><span class="l l-Scalar l-Scalar-Plain">kubernetes cluster.local in-addr.arpa ip6.arpa {</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">           </span><span class="l l-Scalar l-Scalar-Plain">pods insecure</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">           </span><span class="l l-Scalar l-Scalar-Plain">fallthrough</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">           </span><span class="l l-Scalar l-Scalar-Plain">ttl 30</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">        </span><span class="l l-Scalar l-Scalar-Plain">}</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">        </span><span class="l l-Scalar l-Scalar-Plain">etcd cluster.local {</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">            </span><span class="l l-Scalar l-Scalar-Plain">path /skydns</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">            </span><span class="l l-Scalar l-Scalar-Plain">endpoint https://172.19.1.100:2379</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">            </span><span class="l l-Scalar l-Scalar-Plain">tls /etc/kubernetes/pki/etcd-client/tls.crt /etc/kubernetes/pki/etcd-client/tls.key /etc/kubernetes/pki/etcd-ca/tls.crt</span>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">        </span><span class="l l-Scalar l-Scalar-Plain">}</span>
+</code></pre></div>
+<p>Observe the modified fallthrough in the kubernetes plugin, which gives a chance
+to the etcd plugin to serve the zone <code>cluster.local</code> as well.<br />
+The etcd plugin will serve all entries it finds in the <code>etcd</code> database under the
+prefix <code>/skydns</code>,  in SkyDNS Format (done by ExternalDNS - see below).</p>
+<p>In this configuration, we use the same etcd instance used by kubernetes. For this,
+we import the etcd certificates as secrets and mount them to the CoreDNS
+deployment:</p>
+<div class="highlight"><span class="filename">YAML</span><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="l l-Scalar l-Scalar-Plain">k get deployment coredns -n kube-system -o yaml</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="nn">...</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">        </span><span class="nt">volumeMounts</span><span class="p">:</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">mountPath</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/etc/kubernetes/pki/etcd-ca</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">          </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">etcd-ca-cert</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">mountPath</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/etc/kubernetes/pki/etcd-client</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">          </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">etcd-client-cert</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="nn">...</span>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">      </span><span class="nt">volumes</span><span class="p">:</span>
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">etcd-ca-cert</span>
+<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="w">        </span><span class="nt">secret</span><span class="p">:</span>
+<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="w">          </span><span class="nt">secretName</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">etcd-ca</span>
+<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">etcd-client-cert</span>
+<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="w">        </span><span class="nt">secret</span><span class="p">:</span>
+<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="w">          </span><span class="nt">secretName</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">etcd-client-for-core-dns</span>
+<a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a><span class="nn">...</span>
+</code></pre></div>
+<h3 id="externaldns">ExternalDNS</h3>
+<p>Both K2s Ingress addons: `ingress-nginx'  and ' traefik' will install ExternalDNS,
+which will observe all ingresses and populate the etcd /skydns path with
+<abbr title="Domain Name System">DNS</abbr> entries  corresponding to the identified endpoints.</p>
+<p>The External <abbr title="Domain Name System">DNS</abbr> Deployment uses the same credentials as CoreDNS to access the
+cluster etcd database.</p>
+<p>See [addons/common/manifests/external-dns]</p>
+<h3 id="etcd">etcd</h3>
+<p>As already mentioned, we use the kubernetes cluster etcd instance to store the
+<abbr title="Domain Name System">DNS</abbr> entries corresponding to the ingresses. The etcd certificates are generated
+during cluster installation and located under:</p>
+<div class="highlight"><span class="filename">Text Only</span><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>/etc/kubernetes/pki/etcd/*
+</code></pre></div>
+<p>At installation time, when we prepare the Linux <abbr title="Virtual Machine">VM</abbr>, we also import these
+certificates as kubernetes secrets:</p>
+<div class="highlight"><span class="filename">Text Only</span><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>kubectl create secret -n kube-system tls etcd-ca --cert=etcd/ca.crt --key=etcd/ca.key
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>kubectl create secret -n kube-system tls etcd-client-for-core-dns --cert=etcd/healthcheck-client.crt --key=etcd/healthcheck-client.key
+</code></pre></div>
+<h3 id="physical-network-adapter-dns-configuration">Physical Network Adapter <abbr title="Domain Name System">DNS</abbr> Configuration</h3>
+<p>At the end of <code>k2s start</code>, we change the <abbr title="Domain Name System">DNS</abbr> Server of all physical network interfaces
+to use the <code>dnsproxy</code> <abbr title="Domain Name System">DNS</abbr> service running on the host.
+At the end of <code>k2s stop</code> we reset the <abbr title="Domain Name System">DNS</abbr> Configuration of these adapters.</p>
+<h2 id="links">Links</h2>
 <ul>
-<li>It provides the option to construct a <em><abbr title="Kubernetes">K8s</abbr></em> cluster by reusing the <em>Windows</em> host as a node. This eliminates the need for an extra <em>Windows</em> license in the case of a mixed <em>Windows</em> &amp; <em>Linux</em> cluster.</li>
-<li>Offline support is available for all use cases, eliminating the requirement for an internet connection.</li>
-<li>It offers an easy path for migrating bare metal <em>Windows</em> applications to <em><abbr title="Kubernetes">K8s</abbr></em> workloads.</li>
-<li>It maintains a low footprint by utilizing a single virtual machine for <em>Linux</em> workloads (<em>Hyper-V</em> or <abbr title="Windows Subsystem for Linux">WSL</abbr>).</li>
-<li>It is built 100% on open-source technology, requiring no additional licenses.</li>
+<li><a href="https://kubernetes-sigs.github.io/external-dns/v0.14.2/">ExternalDNS</a>:
+  project overview</li>
+<li><a href="https://coredns.io/plugins/etcd/">CoreDNS etcd plugin</a>:
+  extends CoreDNS to answers <abbr title="Domain Name System">DNS</abbr> queries using data in SkyDNS format found in etcd.</li>
+<li><a href="https://github.com/kubernetes-sigs/external-dns/blob/master/docs/tutorials/coredns.md">ExternalDNS coredns plugin</a>:
+  extends ExternalDNS and saves all hosts in SkyDNS format to etcd.<br />
+<a href="https://github.com/kubernetes-sigs/external-dns/blob/master/provider/coredns/coredns.go#L212">Configuration Env. Variables</a>:
+  this will help us setting up the connection to a secured etcd.</li>
 </ul>
-<h2 id="who-uses-k2s">Who uses <em>K2s</em>?</h2>
-<p><em>K2s</em> started as an internal project of <a href="https://www.siemens-healthineers.com/" target="_blank">Siemens Healthineers AG</a> under a different name and is now used across different business units.</p>
-<figure>
-  <img alt="Siemens Healthineers AG Logo" loading="lazy" src="assets/logo.png" />
-  <figcaption>Siemens Healthineers AG</figcaption>
-</figure>
-<p>See also <a href="https://github.com/Siemens-Healthineers" target="_blank">Siemens Healthineers on GitHub</a>.</p>
-<h2 id="quick-start">Quick Start</h2>
-<p>Get started <a href="quickstart/">here</a>.</p>
-<h2 id="features">Features</h2>
-<p><em>K2s</em> includes the following features:</p>
+<h2 id="todo">TODO</h2>
+<p>These hosts are not yet migrated to cluster.local, so they are not known by <abbr title="Domain Name System">DNS</abbr> Query.
+They are added to the windows <code>hosts</code> file, so they are addressable by name:</p>
 <ul>
-<li>Support of mixed <em>Windows</em> and <em>Linux</em> <em>Kubernetes</em> workloads</li>
-<li>Support for multiple <em>Windows</em> versions (e.g. 10, 11 and Server <abbr title="Operating System">OS</abbr> versions, see <a href="op-manual/os-support/">Supported <abbr title="Operating System">OS</abbr> Versions</a>)</li>
-<li>Multiple network cards support, including support for <abbr title="Local Area Network">LAN</abbr> and <em>WI-FI</em> network interfaces</li>
-<li>Offline support by being able to operate the <em><abbr title="Kubernetes">K8s</abbr></em> cluster and workloads without internet connectivity</li>
-<li><a href="user-guide/building-container-image/">Building a Container Image</a> for building and testing <em>Windows</em> and <em>Linux</em> containers</li>
-<li><a href="https://github.com/Siemens-Healthineers/K2s/blob/main/addons/README.md" target="_blank">Rich Set of Addons</a> which can be used optionally for additional functionality </li>
-<li><em>K2</em>s supports 3 different <a href="user-guide/hosting-variants/">Hosting Variants</a></li>
-<li>Template-based setup of the different variants through configuration files</li>
-<li>Main configuration through central configuration file</li>
-<li><abbr title="Hypertext Transfer Protocol">HTTP</abbr> proxy support in entire functionality</li>
-<li>Debugging helpers for analyzing network connectivity</li>
-<li>Status information on cluster availability</li>
-<li>Helpers for setting up the <em><abbr title="Kubernetes">K8s</abbr></em> cluster for on-premises bare metal nodes and in the cloud using <em>Azure Kubernetes Service</em></li>
-<li>Improved overall <abbr title="Domain Name System">DNS</abbr> support and extension possibilities with custom <abbr title="Domain Name System">DNS</abbr> servers</li>
-<li>Overall <abbr title="Hypertext Transfer Protocol">HTTP</abbr>(S) extension support for intranet resources or custom locations </li>
-<li>Acceptance tests for ensuring full functionality of the cluster</li>
+<li>k2s-registry.local</li>
+<li>k2s-gateway.local</li>
 </ul>
-<h2 id="security">Security</h2>
-<h3 id="reporting-a-vulnerability">Reporting a Vulnerability</h3>
-<p>The <em>K2s</em> project treats security vulnerabilities seriously, so we strive to take action quickly when required.</p>
-<p>The project requests that security issues be disclosed in a responsible manner to allow adequate time to respond. If a security issue or vulnerability has been found, please disclose the details to our dedicated email address:<br/>
-<a href="mailto:dieter.krotz@siemens-healthineers.com">dieter.krotz@siemens-healthineers.com</a></p>
-<p>Please include as much information as possible with the report. The
-following details assist with analysis efforts:</p>
-<ul>
-<li>Description of the vulnerability</li>
-<li>Affected component (version, commit, branch, etc.)</li>
-<li>Affected code (file path, line numbers, etc.)</li>
-<li>Exploit code</li>
-</ul>
-<h3 id="security-team">Security Team</h3>
-<p>The security team currently consists of the <em>K2s</em> maintainers.</p>
 <!--
 SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 SPDX-License-Identifier: MIT
@@ -1777,28 +1681,6 @@ SPDX-License-Identifier: MIT
         <footer class="md-footer">
   
     
-      
-      <nav class="md-footer__inner md-grid" aria-label="Footer" >
-        
-        
-          
-          <a href="quickstart/" class="md-footer__link md-footer__link--next" aria-label="Next: Quick Start">
-            <div class="md-footer__title">
-              <span class="md-footer__direction">
-                Next
-              </span>
-              <div class="md-ellipsis">
-                Quick Start
-              </div>
-            </div>
-            <div class="md-footer__button md-icon">
-              
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11H4Z"/></svg>
-            </div>
-          </a>
-        
-      </nav>
-    
   
   <div class="md-footer-meta md-typeset">
     <div class="md-footer-meta__inner md-grid">
@@ -1828,10 +1710,10 @@ SPDX-License-Identifier: MIT
       <div class="md-progress" data-md-component="progress" role="progressbar"></div>
     
     
-    <script id="__config" type="application/json">{"base": ".", "features": ["navigation.top", "navigation.tabs", "navigation.tabs.sticky", "navigation.instant", "navigation.instant.progress", "navigation.tracking", "navigation.footer", "navigation.indexes", "search.suggest", "search.highlight", "search.share", "announce.dismiss", "content.action.edit", "content.code.copy", "content.code.annotate"], "search": "assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"alias": true, "default": "latest", "provider": "mike"}}</script>
+    <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.top", "navigation.tabs", "navigation.tabs.sticky", "navigation.instant", "navigation.instant.progress", "navigation.tracking", "navigation.footer", "navigation.indexes", "search.suggest", "search.highlight", "search.share", "announce.dismiss", "content.action.edit", "content.code.copy", "content.code.annotate"], "search": "../../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"alias": true, "default": "latest", "provider": "mike"}}</script>
     
     
-      <script src="assets/javascripts/bundle.ad660dcc.min.js"></script>
+      <script src="../../assets/javascripts/bundle.ad660dcc.min.js"></script>
       
     
   </body>

@@ -1587,7 +1587,7 @@ SPDX-License-Identifier: MIT
 <h1 id="secure-host-access">Secure Host Access</h1>
 <p><em>K2s</em> provides three addons which can be used to expose the functionality implemented inside the <em>Kubernetes</em> cluster outside of it: <code>ingress-nginx</code>, <code>traefik</code> and <code>gateway-nginx</code>.</p>
 <p>However, because the whole <em>K2s</em> solution relies on a private network, the exposed endpoints are only available inside this private network, running behind the <em>Windows</em> host - regardless which <a href="../../user-guide/hosting-variants/">Hosting Variant</a> is used.</p>
-<p>In this document, we will assume you have enabled the <em>K2s</em> addon <code>dashboard</code>, so it is usable on your local host at <code>http://k2s-dashboard.local</code>, and we further more assume you have an own product configured in one of the <em>K2s</em> ingress, reachable locally under <code>http://my-product.local</code>.</p>
+<p>In this document, we will assume you have enabled the <em>K2s</em> addon <code>dashboard</code>, so it is usable on your local host at <code>http://k2s-dashboard.cluster.local</code>, and we further more assume you have an own product configured in one of the <em>K2s</em> ingress, reachable locally under <code>http://my-product.local</code>.</p>
 <p>If we want to expose the <em>ingress</em> / <em>gateway</em> endpoints outside of the <em>Windows</em> host in a secure manner, we need to configure a reverse proxy on the <em>Windows</em> host. The following picture shows this schematically for one of the variants:</p>
 <p><img alt="reverse-proxy" src="../assets/reverse-proxy.drawio.png" /></p>
 <p>We describe here two ways to do that: using the addon <code>exthttpaccess</code> and using <em><abbr title="Internet Information Services">IIS</abbr></em>.</p>
@@ -1596,7 +1596,7 @@ SPDX-License-Identifier: MIT
 <p>See <a href="https://docs.nginx.com/nginx/admin-guide/web-server/reverse-proxy/" target="_blank">NGINX Reverse Proxy</a>.</p>
 <p>The example shows how to make the two web applications <em>K2s</em> dashboard available outside your host, under an  <code>https</code> endpoint:</p>
 <ul>
-<li><code>https://my-host.my-domain.com/dashboard</code> -&gt; <code>http://k2s-dashboard.local</code></li>
+<li><code>https://my-host.my-domain.com/dashboard</code> -&gt; <code>http://k2s-dashboard.cluster.local</code></li>
 <li><code>https://my-host.my-domain.com/my-product</code> -&gt; <code>http://my-product.local</code></li>
 </ul>
 <p>For this you need a server certificate issued by a trusted authority for the <abbr title="Fully Qualified Domain Name">FQDN</abbr> of your host, in this example <code>my-host.my-domain.com</code>:</p>
@@ -1615,7 +1615,7 @@ SPDX-License-Identifier: MIT
 <a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    ssl_certificate_key my-host.my-domain.com.key;
 <a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>
 <a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    location /dashboard/ {
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>      proxy_pass http://k2s-dashboard.local/;
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>      proxy_pass http://k2s-dashboard.cluster.local/;
 <a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>      proxy_set_header Accept-Encoding &quot;&quot;;
 <a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>    }
 <a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>
@@ -1650,7 +1650,7 @@ SPDX-License-Identifier: MIT
 <p>Using the <em><abbr title="Internet Information Services">IIS</abbr></em> will ease up integration in the site network environment regarding secure communication and user management, as the <em><abbr title="Internet Information Services">IIS</abbr></em> can be configured for <abbr title="Secure Sockets Layer">SSL</abbr> using the existing host certificate and the <abbr title="NT LAN Manager">NTLM</abbr> authentication can be configured in <em><abbr title="Internet Information Services">IIS</abbr></em>.</p>
 <p>The example below shows again how to make the same two applications available outside your host over <code>https</code>, and this time also making sure that the <strong>user is authenticated</strong> against the local host (i.e. he would also be allowed to log in on your local host):</p>
 <ul>
-<li><code>https://my-host.my-domain.com/dashboard</code> -&gt; <code>http://k2s-dashboard.local</code></li>
+<li><code>https://my-host.my-domain.com/dashboard</code> -&gt; <code>http://k2s-dashboard.cluster.local</code></li>
 <li><code>https://my-host.my-domain.com/my-product</code> -&gt; <code>http://my-product.local</code></li>
 </ul>
 <p>Follow these steps:</p>
@@ -1685,7 +1685,7 @@ SPDX-License-Identifier: MIT
 <a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">          </span><span class="nt">&lt;serverVariables&gt;</span>
 <a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">            </span><span class="nt">&lt;set</span><span class="w"> </span><span class="na">name=</span><span class="s">&quot;HTTP_ACCEPT_ENCODING&quot;</span><span class="w"> </span><span class="na">value=</span><span class="s">&quot;&quot;</span><span class="w"> </span><span class="nt">/&gt;</span>
 <a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">          </span><span class="nt">&lt;/serverVariables&gt;</span>
-<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="w">          </span><span class="nt">&lt;action</span><span class="w"> </span><span class="na">type=</span><span class="s">&quot;Rewrite&quot;</span><span class="w"> </span><span class="na">url=</span><span class="s">&quot;http://k2s-dashboard.local/{R:1}&quot;</span><span class="w"> </span><span class="na">logRewrittenUrl=</span><span class="s">&quot;true&quot;</span><span class="w"> </span><span class="nt">/&gt;</span>
+<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="w">          </span><span class="nt">&lt;action</span><span class="w"> </span><span class="na">type=</span><span class="s">&quot;Rewrite&quot;</span><span class="w"> </span><span class="na">url=</span><span class="s">&quot;http://k2s-dashboard.cluster.local/{R:1}&quot;</span><span class="w"> </span><span class="na">logRewrittenUrl=</span><span class="s">&quot;true&quot;</span><span class="w"> </span><span class="nt">/&gt;</span>
 <a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="w">        </span><span class="nt">&lt;/rule&gt;</span>
 <a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="w">        </span><span class="nt">&lt;rule</span><span class="w"> </span><span class="na">name=</span><span class="s">&quot;my-product&quot;</span><span class="w"> </span><span class="na">stopProcessing=</span><span class="s">&quot;true&quot;</span><span class="nt">&gt;</span>
 <a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="w">          </span><span class="nt">&lt;match</span><span class="w"> </span><span class="na">url=</span><span class="s">&quot;^my-product/?(.*)&quot;</span><span class="w"> </span><span class="nt">/&gt;</span>
@@ -1720,9 +1720,9 @@ SPDX-License-Identifier: MIT
 <p class="admonition-title">Open Point</p>
 <p>It seems that <em><abbr title="Internet Information Services">IIS</abbr> Application Request Routing</em> has an issue with URLs ending with a space character (as this is forbidden) - although <em>NGINX</em> is tolerant with this.</p>
 <p>The dashboard web application makes calls to APIs, and in many of them the namespace is used as <abbr title="Representational State Transfer">REST</abbr> <abbr title="Application Programming Interface">API</abbr> resource <abbr title="Identifier">ID</abbr>, e.g. all <em>Pods</em> of namespace <code>kubernetes-dashboard</code> are retrieved with this <abbr title="Application Programming Interface">API</abbr> call:</p>
-<p><code>http://k2s-dashboard.local/api/v1/pod/kubernetes-dashboard?query=value&amp;...</code></p>
+<p><code>http://k2s-dashboard.cluster.local/api/v1/pod/kubernetes-dashboard?query=value&amp;...</code></p>
 <p>But when the user selects <code>All Namespaces</code> in the User Interface, the same <abbr title="Uniform Resource Locator">URL</abbr> is invoked with a space character (<code>%20</code>) as the name of the resource - it seems as this is the convention the developers of the <em>Dashboard</em> made:</p>
-<p><code>http://k2s-dashboard.local/api/v1/pod/%20?query=value&amp;...</code></p>
+<p><code>http://k2s-dashboard.cluster.local/api/v1/pod/%20?query=value&amp;...</code></p>
 <p>The <abbr title="Hypertext Transfer Protocol">HTTP</abbr> specs forbid to have a space at the end on an <abbr title="Uniform Resource Locator">URL</abbr>, but it works for some reasons. However, when the rewrite rules kick in, it seems they drop the space and the application is not working with <code>All Namespaces</code> selected.</p>
 <p>This line in the <em>Kubernetes</em> dashboard sources is causing the issue (the space character):</p>
 <p><a href="https://github.com/kubernetes/dashboard/blob/master/modules/web/src/common/services/resource/resource.ts#L69" target="_blank"><code>return this.namespace_.isMultiNamespace(currentNamespace) ? ' ' : currentNamespace;</code></a></p>
