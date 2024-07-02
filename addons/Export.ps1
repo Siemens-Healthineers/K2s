@@ -146,7 +146,19 @@ try {
 
         foreach ($image in $linuxImages) {
             Write-Log "Pulling linux image $image"
-            (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -Retries 5 -CmdToExecute "sudo buildah pull $image 2>&1").Output | Write-Log
+            $pull = Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -Retries 5 -CmdToExecute "sudo buildah pull $image 2>&1"
+            Write-Log $pull.Output
+            if (!$pull.Success) {
+                $errMsg = "Pulling linux image $image failed"
+                if ($EncodeStructuredOutput -eq $true) {
+                    $err = New-Error -Severity Warning -Code ErrCodeAddonNotFound -Message $errMsg
+                    Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+                    return
+                }
+            
+                Write-Log $errMsg -Error
+                exit 1
+            }
         }
 
         foreach ($image in $windowsImages) {
@@ -166,6 +178,17 @@ try {
             else {
                 &$(Get-NerdctlExe) -n 'k8s.io' pull $image --all-platforms 2>&1 | Out-Null
                 &$(Get-CrictlExe) pull $image
+                if (!$?) {
+                    $errMsg = "Pulling linux image $image failed"
+                    if ($EncodeStructuredOutput -eq $true) {
+                        $err = New-Error -Severity Warning -Code ErrCodeAddonNotFound -Message $errMsg
+                        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+                        return
+                    }
+                
+                    Write-Log $errMsg -Error
+                    exit 1
+                }
             }
         }
 

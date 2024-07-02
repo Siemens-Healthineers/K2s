@@ -12,8 +12,8 @@ Uninstalls Kubernetes Metrics Server
 NA
 
 .EXAMPLE
-# For k2sSetup.
-powershell <installation folder>\addons\metrics-server\Disable.ps1
+# For k2s setup
+powershell <installation folder>\addons\metrics\Disable.ps1
 #>
 
 Param (
@@ -27,9 +27,9 @@ Param (
 $clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
-$metricsServerModule = "$PSScriptRoot\metrics-server.module.psm1"
+$metricsModule = "$PSScriptRoot\metrics.module.psm1"
 
-Import-Module $clusterModule, $infraModule, $addonsModule, $metricsServerModule
+Import-Module $clusterModule, $infraModule, $addonsModule, $metricsModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -46,8 +46,8 @@ if ($systemError) {
     exit 1
 }
 
-if ((Test-IsAddonEnabled -Name 'metrics-server') -ne $true) {
-    $errMsg = "Addon 'metrics-server' is already disabled, nothing to do."
+if ((Test-IsAddonEnabled -Name 'metrics') -ne $true) {
+    $errMsg = "Addon 'metrics' is already disabled, nothing to do."
 
     if ($EncodeStructuredOutput -eq $true) {
         $err = New-Error -Severity Warning -Code (Get-ErrCodeAddonAlreadyDisabled) -Message $errMsg
@@ -61,7 +61,7 @@ if ((Test-IsAddonEnabled -Name 'metrics-server') -ne $true) {
 
 Write-Log 'Uninstalling Kubernetes Metrics Server' -Console
 (Invoke-Kubectl -Params 'delete', '-f', (Get-MetricsServerConfig)).Output | Write-Log
-Remove-AddonFromSetupJson -Name 'metrics-server'
+Remove-AddonFromSetupJson -Name 'metrics'
 Write-Log 'Uninstallation of Kubernetes Metrics Server finished' -Console
 
 if ($EncodeStructuredOutput -eq $true) {
