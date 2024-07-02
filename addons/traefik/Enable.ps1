@@ -94,6 +94,10 @@ if ((Test-IsAddonEnabled -Name 'gateway-nginx') -eq $true) {
     exit 1
 }
 
+Write-Log 'Installing external-dns' -Console
+$externalDnsConfig = Get-ExternalDnsConfigDir
+(Invoke-Kubectl -Params 'apply' , '-k', $externalDnsConfig).Output | Write-Log
+
 Write-Log 'Installing Traefik Ingress controller' -Console
 $traefikYamlDir = Get-TraefikYamlDir
 

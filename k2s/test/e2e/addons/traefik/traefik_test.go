@@ -106,7 +106,7 @@ var _ = Describe("'traefik' addon", Ordered, func() {
 
 	It("makes k2s.cluster.local reachable, with http status NotFound", func(ctx context.Context) {
 		url := "https://k2s.cluster.local/"
-		httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-I", "-m", "5", "--retry", "3")
+		httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-I", "-m", "5", "--retry", "10")
 		Expect(httpStatus).To(ContainSubstring("404"))
 	})
 
