@@ -34,7 +34,7 @@ The logging dashboard UI can be accessed via the following methods.
 ### Access using ingress
 
 To access logging dashboard via ingress, the ingress-nginx or the traefik addon has to enabled.
-Once the addons are enabled, then the logging dashboard UI can be accessed at the following link: https://k2s.cluster.local/logging/ and https://k2s-logging.local (with HTTP using http://.. unstead of https://..)
+Once the addons are enabled, then the logging dashboard UI can be accessed at the following link: https://k2s.cluster.local/logging/ and https://k2s-logging.cluster.local (with HTTP using http://.. instead of https://..)
 
 ### Access using port-forwarding
 

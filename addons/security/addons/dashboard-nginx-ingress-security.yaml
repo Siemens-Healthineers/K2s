@@ -9,8 +9,8 @@
 # this header must have as value that path.
 ---
 # This ingress will expose the angular application on:
-# HTTP: http://k2s-dashboard.local
-# TLS: https://k2s-dashboard.local
+# HTTP: http://k2s-dashboard.cluster.local
+# TLS: https://k2s-dashboard.cluster.local
 # For TLS, the certificate is taken from k8s secret 'k2s-dashboard-local-tls'
 # This secret will be created by cert-manager, if it is installed and running.
 # If cert-manager is not installed, the secret will not be present and nginx
@@ -22,7 +22,7 @@ metadata:
   namespace: kubernetes-dashboard
   annotations:
     cert-manager.io/cluster-issuer: k2s-ca-issuer
-    cert-manager.io/common-name: k2s-dashboard.local
+    cert-manager.io/common-name: k2s-dashboard.cluster.local
     nginx.ingress.kubernetes.io/ssl-redirect: "false"
     nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
     nginx.ingress.kubernetes.io/auth-url: "https://k2s.cluster.local/oauth2/auth"
@@ -31,7 +31,7 @@ metadata:
 spec:
   ingressClassName: nginx
   rules:
-    - host: k2s-dashboard.local
+    - host: k2s-dashboard.cluster.local
       http:
         paths:
           - backend:
@@ -43,7 +43,7 @@ spec:
             path: /
   tls:
     - hosts:
-        - k2s-dashboard.local
+        - k2s-dashboard.cluster.local
       secretName: k2s-dashboard-local-tls
 ---
 # this ingress will be merged with ingress provided in:

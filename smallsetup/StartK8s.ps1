@@ -58,23 +58,26 @@ if ([string]::IsNullOrWhiteSpace($dnsServers)) {
 }
 
 $controlPlaneStartParams = @{
-    VmProcessors = $VmProcessors
-    AdditionalHooksDir = $AdditionalHooksDir
+    VmProcessors          = $VmProcessors
+    AdditionalHooksDir    = $AdditionalHooksDir
     UseCachedK2sVSwitches = $UseCachedK2sVSwitches
-    SkipHeaderDisplay = $SkipHeaderDisplay
-    DnsServers = $dnsServers
+    SkipHeaderDisplay     = $SkipHeaderDisplay
+    DnsServers            = $dnsServers
 }
 Start-ControlPlaneNodeOnNewVM @controlPlaneStartParams
 
 $workerNodeStartParams = @{
-    ResetHns = $ResetHns
-    AdditionalHooksDir = $AdditionalHooksDir
+    ResetHns              = $ResetHns
+    AdditionalHooksDir    = $AdditionalHooksDir
     UseCachedK2sVSwitches = $UseCachedK2sVSwitches
-    SkipHeaderDisplay = $SkipHeaderDisplay
-    DnsServers = $dnsServers
-    WorkerNodeNumber = '1'
+    SkipHeaderDisplay     = $SkipHeaderDisplay
+    DnsServers            = $dnsServers
+    WorkerNodeNumber      = '1'
 }
 Start-WindowsWorkerNodeOnWindowsHost @workerNodeStartParams
+
+# Set DNS proxy for all physical network interfaces on Windows host to the DNS proxy
+Set-K2sDnsProxyForActivePhysicalInterfacesOnWindowsHost -ExcludeNetworkInterfaceName $loopbackAdapter
 
 Invoke-AddonsHooks -HookType 'AfterStart'
 
