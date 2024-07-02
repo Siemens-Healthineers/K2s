@@ -65,15 +65,15 @@ Set-ConfigValue -Path $global:SetupJsonFile -Key $global:ConfigKey_SetupType -Va
 
 # check memory
 if ( $MasterVMMemory -lt 2GB ) {
-    Write-Log 'SmallSetup needs minimal 2GB main memory, you have passed a lower value!'
-    throw 'Memory passed to low'
+    Write-Log 'k2s needs minimal 2GB main memory, you have passed a lower value!'
+    throw '[PREREQ-FAILED] Memory passed too low'
 }
 Write-Log "Using $([math]::round($MasterVMMemory/1GB, 2))GB of memory for master VM"
 
 # check disk
 if ( $MasterDiskSize -lt 20GB ) {
-    Write-Log 'SmallSetup needs minimal 20GB disk space, you have passed a lower value!'
-    throw 'Disk size passed to low'
+    Write-Log 'k2s needs minimal 20GB disk space, you have passed a lower value!'
+    throw '[PREREQ-FAILED] Disk size passed too low'
 }
 Write-Log "Using $([math]::round($MasterDiskSize/1GB, 2))GB of disk space for master VM"
 

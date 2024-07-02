@@ -62,7 +62,7 @@ function Enable-MissingWindowsFeatures($wsl) {
 
     if (!$isServerOS) {
         $features += 'Microsoft-Hyper-V-All', 'Microsoft-Hyper-V-Tools-All', 'Microsoft-Hyper-V-Hypervisor', 'Microsoft-Hyper-V-Management-Clients', 'Microsoft-Hyper-V-Services'
-    } 
+    }
 
     if ($wsl) {
         $features += 'Microsoft-Windows-Subsystem-Linux'
@@ -84,7 +84,7 @@ function Enable-MissingWindowsFeatures($wsl) {
 
     if ($restartRequired) {
         Write-Log '!!! Restart is required. Reason: Changes in WindowsOptionalFeature. Please call install after reboot again. !!! '
-        throw '!!! Restart is required. Reason: Changes in WindowsOptionalFeature !!!'
+        throw '[PREREQ-FAILED] !!! Restart is required. Reason: Changes in WindowsOptionalFeature !!!'
     }
 }
 
@@ -169,8 +169,8 @@ function Test-WindowsPrerequisites(
 
     $ReleaseId = (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion').CurrentBuild
     if ($ReleaseId -lt 17763) {
-        Write-Log "SmallSetup needs minimal Windows Version 1809, you have $ReleaseId"
-        throw "Windows release $ReleaseId not usable"
+        Write-Log "k2s needs minimal Windows Version 1809, you have $ReleaseId"
+        throw "[PREREQ-FAILED] Windows release $ReleaseId not usable"
     }
 
     Enable-MissingWindowsFeatures $([bool]$WSL)
@@ -263,11 +263,11 @@ Stop-InstallIfNoMandatoryServiceIsRunning checks for mandatory services on the s
 function Stop-InstallIfNoMandatoryServiceIsRunning {
     $hns = Get-Service 'hns' -ErrorAction SilentlyContinue
     if (!$hns) {
-        throw 'Host Network Service is not running. This is need for containers. Please enable prerequisites for K2s - https://github.com/Siemens-Healthineers/K2s !'
+        throw '[PREREQ-FAILED] Host Network Service is not running. This is required for Windows containers. Please enable prerequisites for K2s - https://github.com/Siemens-Healthineers/K2s !'
     }
     $hcs = Get-Service 'vmcompute' -ErrorAction SilentlyContinue
     if (!$hcs) {
-        throw 'Host Compute Service is not running. This is needed for containers. Please enable prerequisites for K2s - https://github.com/Siemens-Healthineers/K2s !'
+        throw '[PREREQ-FAILED] Host Compute Service is not running. This is needed for containers. Please enable prerequisites for K2s - https://github.com/Siemens-Healthineers/K2s !'
     }
 }
 
@@ -276,7 +276,7 @@ function Stop-InstallationIfRequiredCurlVersionNotInstalled {
         $versionOutput = curl.exe --version
     }
     catch {
-        $errorMessage = "The tool 'curl' is not installed. Please install it and add its installation location to the 'PATH' environment variable"
+        $errorMessage = "[PREREQ-FAILED] The tool 'curl' is not installed. Please install it and add its installation location to the 'PATH' environment variable"
         Write-Log $errorMessage
         throw $errorMessage
     }
@@ -286,7 +286,7 @@ function Stop-InstallationIfRequiredCurlVersionNotInstalled {
         $actualVersion = [Version]::new($actualVersionParts[0], $actualVersionParts[1], $actualVersionParts[2])
     }
     catch {
-        $errorMessage = "The version of 'curl' could not be determined because: `n $_"
+        $errorMessage = "[PREREQ-FAILED] The version of 'curl' could not be determined because: `n $_"
         Write-Log $errorMessage
         throw $errorMessage
     }
@@ -294,7 +294,7 @@ function Stop-InstallationIfRequiredCurlVersionNotInstalled {
     $minimumRequiredVersion = [Version]"7.71.0"
 
     if ($actualVersion -lt $minimumRequiredVersion) {
-        $errorMessage = ("The installed version of 'curl' ($actualVersionAsString) is not at least the required one ($($minimumRequiredVersion.ToString())).",
+        $errorMessage = ("[PREREQ-FAILED] The installed version of 'curl' ($actualVersionAsString) is not at least the required one ($($minimumRequiredVersion.ToString())).",
         "`n",
         "Call 'curl.exe --version' to check the installed version.",
         "`n",

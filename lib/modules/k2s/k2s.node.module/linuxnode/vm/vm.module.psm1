@@ -105,7 +105,7 @@ function Invoke-CmdOnVmViaSSHKey(
             $success = ($LASTEXITCODE -eq 0)
 
             if (!$success -and !$IgnoreErrors) {
-                throw "Error occurred while executing command '$CmdToExecute' in control plane (exit code: '$LASTEXITCODE')" 
+                throw "Error occurred while executing command '$CmdToExecute' in control plane (exit code: '$LASTEXITCODE')"
             }
             $Stoploop = $true
         }
@@ -175,7 +175,7 @@ function Invoke-CmdOnControlPlaneViaUserAndPwd(
                     Write-Log "Executing repair cmd: $RepairCmd"
                     &"$plinkExe" -ssh -4 $RemoteUser -pw $RemoteUserPwd -no-antispoof $RepairCmd 2>&1 | ForEach-Object { Write-Log $_ -Console -Raw }
                 }
-                
+
                 Start-Sleep -Seconds $Timeout
                 $Retrycount = $Retrycount + 1
             }
@@ -233,7 +233,7 @@ function Copy-FromControlPlaneViaSSHKey($Source, $Target,
     Write-Log $output
 
     New-Item -Path "$targetDirectory" -ItemType Directory -ErrorAction SilentlyContinue | Out-Null
-    
+
     $output = tar.exe -xf "$env:temp\copy.tar" -C "$targetDirectory"
     if ($LASTEXITCODE -ne 0 -and !$IgnoreErrors) {
         throw "Could not copy '$Source' to '$Target': $output"
@@ -249,7 +249,7 @@ function Copy-FromRemoteComputerViaUserAndPwd($Source, $Target, $IpAddress,
     [Parameter(Mandatory = $false)]
     [switch]$IgnoreErrors = $false) {
     Write-Log "Copying '$Source' to '$Target' at '$IpAddress', ignoring errors: '$IgnoreErrors'"
-    
+
     $output = Write-Output yes | &"$scpExe" -ssh -4 -q -r -pw $remotePwd "${defaultUserName}@${IpAddress}:$Source" "$Target" 2>&1
 
     if ($LASTEXITCODE -ne 0 -and !$IgnoreErrors) {
@@ -262,10 +262,10 @@ function Copy-ToControlPlaneViaSSHKey($Source, $Target,
     [Parameter(Mandatory = $false)]
     [switch]$IgnoreErrors = $false) {
     Write-Log "Copying '$Source' to '$Target', ignoring errors: '$IgnoreErrors'"
-   
+
     $leaf = Split-Path $Source -leaf
     $targetDirectory = $Target -replace "${remoteUser}:", ''
-    
+
     if ($leaf.Contains("*")) {
         # copy all/specific files in directory e.g. pvc-* or *
         $filter = $leaf
@@ -314,8 +314,8 @@ function Copy-ToControlPlaneViaUserAndPwd($Source, $Target,
     [Parameter(Mandatory = $false)]
     [switch]$IgnoreErrors = $false) {
     Write-Log "Copying '$Source' to '$Target', ignoring errors: '$IgnoreErrors'"
-    
-    $output = Write-Output yes | &"$scpExe" -ssh -4 -q -r -pw $remotePwd "$Source" "${remoteUser}:$Target" 2>&1 
+
+    $output = Write-Output yes | &"$scpExe" -ssh -4 -q -r -pw $remotePwd "$Source" "${remoteUser}:$Target" 2>&1
 
     if ($LASTEXITCODE -ne 0 -and !$IgnoreErrors) {
         throw "Could not copy '$Source' to '$Target': $output"
@@ -327,8 +327,8 @@ function Copy-ToRemoteComputerViaUserAndPwd($Source, $Target, $IpAddress,
     [Parameter(Mandatory = $false)]
     [switch]$IgnoreErrors = $false) {
     Write-Log "Copying '$Source' to '$Target', ignoring errors: '$IgnoreErrors'"
-    
-    $output = Write-Output yes | &"$scpExe" -ssh -4 -q -r -pw $remotePwd "$Source" "${defaultUserName}@${IpAddress}:$Target" 2>&1 
+
+    $output = Write-Output yes | &"$scpExe" -ssh -4 -q -r -pw $remotePwd "$Source" "${defaultUserName}@${IpAddress}:$Target" 2>&1
 
     if ($LASTEXITCODE -ne 0 -and !$IgnoreErrors) {
         throw "Could not copy '$Source' to '$Target': $output"
@@ -350,15 +350,15 @@ function Test-ControlPlanePrerequisites(
 
     # check memory
     if ( $MasterVMMemory -lt 2GB ) {
-        Write-Log 'SmallSetup needs minimal 2GB main memory, you have passed a lower value!'
-        throw 'Memory passed to low'
+        Write-Log 'k2s needs minimal 2GB main memory, you have passed a lower value!' -Error
+        throw '[PREREQ-FAILED] Master node memory passed too low'
     }
 
     # check disk
     $defaultProvisioningBaseImageSize = Get-DefaultProvisioningBaseImageDiskSize
     if ( $MasterDiskSize -lt $defaultProvisioningBaseImageSize ) {
-        Write-Log "SmallSetup needs minimal $defaultProvisioningBaseImageSize disk space, you have passed a lower value!"
-        throw 'Disk size passed to low'
+        Write-Log "k2s needs minimal $defaultProvisioningBaseImageSize disk space, you have passed a lower value!" -Error
+        throw '[PREREQ-FAILED] Master VM Disk size passed too low'
     }
 
     #Check for running VMs and minikube
@@ -367,7 +367,7 @@ function Test-ControlPlanePrerequisites(
         Write-Log 'Active Hyper-V VM:'
         Write-Log $($runningVMs | Select-Object -Property Name)
         if ($runningVMs | Where-Object Name -eq 'minikube') {
-            throw "Minikube must be stopped before running the installer, do 'minikube stop'"
+            throw "[PREREQ-FAILED] Minikube must be stopped before running the installer, do 'minikube stop'"
         }
     }
 
@@ -375,7 +375,7 @@ function Test-ControlPlanePrerequisites(
     Test-ExistingExternalSwitch
 
     if (Get-VM -ErrorAction SilentlyContinue -Name $nameControlPlane) {
-        throw "$nameControlPlane VM must not exist before installation, please perform k2s uninstall"
+        throw "[PREREQ-FAILED] $nameControlPlane VM must not exist before installation, please perform k2s uninstall"
     }
 }
 
@@ -387,7 +387,7 @@ function Test-ExistingExternalSwitch {
         Write-Log 'Precheck failed: Cannot proceed further with existing External Network Switches as it conflicts with k2s networking' -Console
         Write-Log "Remove all your External Network Switches with command PS>Get-VMSwitch | Where-Object { `$_.SwitchType -eq 'External' } | Remove-VMSwitch -Force" -Console
         Write-Log 'WARNING: This will remove your External Switches, please check whether these switches are required before executing the command' -Console
-        throw 'Remove all the existing External Network Switches and retry the k2s command again'
+        throw '[PREREQ-FAILED] Remove all the existing External Network Switches and retry the k2s command again'
     }
 }
 
