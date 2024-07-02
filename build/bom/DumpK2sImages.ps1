@@ -65,24 +65,85 @@ if (Test-Path -Path $finalJsonFile) {
 $staticImages = Get-Content -Path "$global:KubernetesPath\build\bom\images\static-images.txt"
 $images = @()
 $addonImages = @()
+$addonNameImagesMapping = @{}
+
 
 foreach ($manifest in $addonManifests) {
     $files = Get-Childitem -recurse $manifest.dir.path | Where-Object { $_.Name -match '.*.yaml$' } | ForEach-Object { $_.Fullname }
 
     foreach ($file in $files) {
         $imageLines = Get-Content $file | Select-String 'image:' | Select-Object -ExpandProperty Line
-        foreach ($imageLine in $imageLines) {
-            $images += (($imageLine -split 'image: ')[1] -split '#')[0]
+
+        if ($imageLines -and $file -match "addons\\([^\\]+)\\") {
+            #Write-Output $matches[1]
+            $addonName = $matches[1]
         }
+        foreach ($imageLine in $imageLines) {
+            $unTrimmedFullImageName = (($imageLine -split 'image: ')[1] -split '#')[0]
+            $fullImageName = $unTrimmedFullImageName.Trim().Trim("`"'")
+
+            if ($fullImageName -eq '') {
+                continue
+            }
+
+            $images += "$fullImageName"
+
+            # Initialize the image list if not already present
+            if (-not $addonNameImagesMapping.ContainsKey($addonName)) {
+                $addonNameImagesMapping[$addonName] = @()
+            }
+
+            # Add the image name if it does not already exist in the list
+            if (-not ($addonNameImagesMapping[$addonName] -contains $fullImageName)) {
+                $addonNameImagesMapping[$addonName] += "$fullImageName"
+            }
+        }
+
     }
 
     if ($null -ne $manifest.spec.offline_usage) {
         $linuxPackages = $manifest.spec.offline_usage.linux
         $additionImages = $linuxPackages.additionalImages
-        $images += $additionImages
+
+        if ($additionImages.Count -ne 0) {
+            if ($manifest.path -match "addons\\([^\\]+)\\") {
+                #Write-Output $matches[1]
+                $addonName = $matches[1]
+            }
+
+            if (-not $addonNameImagesMapping.ContainsKey($addonName)) {
+                $addonNameImagesMapping[$addonName] = @()
+            }
+
+            if (-not ($addonNameImagesMapping[$addonName] -contains $additionImages)) {
+                $addonNameImagesMapping[$addonName] += $additionImages
+            }
+            $images += $additionImages
+        }
     }
 
     $addonImages = $images | Select-Object -Unique | Where-Object { $_ -ne '' } | ForEach-Object { $_.Trim("`"'") }
+}
+
+
+$totalCountMapping = 0
+
+foreach ($addonName in $addonNameImagesMapping.Keys) {
+    $uniqueImages = $addonNameImagesMapping[$addonName] | Sort-Object -Unique
+    $finalImages = @()
+    $finalImages = $uniqueImages -notlike ''
+    $totalCountMapping = $totalCountMapping + $($finalImages.Count)
+    Write-Output "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] Addon: $addonName"
+    Write-Output "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] Addon Images Count: $($finalImages.Count)"
+    Write-Output "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] Images: $([string]::Join(', ', $uniqueImages))"
+    Write-Output "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] -----------------------------------------------------------------------------"
+}
+
+Write-Output "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] Number of addon images: $($addonImages.Count)"
+Write-Output "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] Number of images in mapping: $totalCountMapping"
+
+if ($($addonImages.Count) -ne $totalCountMapping) {
+    Write-Warning "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] Check the image mapping and addon list for duplicates or a single image referenced by two addons"
 }
 
 $finalImages = ($staticImages + $addonImages) | Select-Object -Unique
@@ -102,14 +163,37 @@ foreach ($image in $finalImages) {
     # Determine the type of image
     $imageType = if ($staticImages -contains $image) { 'core' } else { 'addons' }
 
+    $referrerName = 'core'
+    if ($imageType -eq 'addons') {
+        # Look for addon name using image name
+        foreach ($addonName in $addonNameImagesMapping.Keys) {
+
+            $tempImages = $addonNameImagesMapping[$addonName]
+            #Write-Output "Addon images '$addonName' $([string]::Join(', ', $tempImages))"
+
+            if ($tempImages.contains("$image")) {
+                Write-Output "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] Belongs to addon '$addonName'"
+                $referrerName = $addonName
+                break
+            }
+        }
+
+        if ($referrerName -eq 'core') {
+            throw "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] Unable to find addon referring image: $image !!!"
+        }
+    }
+
+
     $imageDetailsObject = New-Object PSObject -Property @{
         ImageName    = $imageName
         ImageVersion = $imageVersion
         ImageType    = $imageType
+        ImageRef     = $referrerName
     }
 
     # Add the object to the array
     $imageDetailsArray.Add($imageDetailsObject) | Out-Null
+    Write-Output "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] *********************************************************************************"
 }
 
 # Output the image details in a JSON format file
