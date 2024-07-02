@@ -8,7 +8,7 @@ SPDX-License-Identifier: MIT
 
 However, because the whole *K2s* solution relies on a private network, the exposed endpoints are only available inside this private network, running behind the *Windows* host - regardless which [Hosting Variant](../user-guide/hosting-variants.md) is used.
 
-In this document, we will assume you have enabled the *K2s* addon `dashboard`, so it is usable on your local host at `http://k2s-dashboard.local`, and we further more assume you have an own product configured in one of the *K2s* ingress, reachable locally under `http://my-product.local`.
+In this document, we will assume you have enabled the *K2s* addon `dashboard`, so it is usable on your local host at `http://k2s-dashboard.cluster.local`, and we further more assume you have an own product configured in one of the *K2s* ingress, reachable locally under `http://my-product.local`.
 
 If we want to expose the *ingress* / *gateway* endpoints outside of the *Windows* host in a secure manner, we need to configure a reverse proxy on the *Windows* host. The following picture shows this schematically for one of the variants:
 
@@ -23,7 +23,7 @@ See [NGINX Reverse Proxy](https://docs.nginx.com/nginx/admin-guide/web-server/re
 
 The example shows how to make the two web applications *K2s* dashboard available outside your host, under an  `https` endpoint:
 
-* `https://my-host.my-domain.com/dashboard` -> `http://k2s-dashboard.local`
+* `https://my-host.my-domain.com/dashboard` -> `http://k2s-dashboard.cluster.local`
 * `https://my-host.my-domain.com/my-product` -> `http://my-product.local`
 
 For this you need a server certificate issued by a trusted authority for the FQDN of your host, in this example `my-host.my-domain.com`:
@@ -42,7 +42,7 @@ For this you need a server certificate issued by a trusted authority for the FQD
         ssl_certificate_key my-host.my-domain.com.key;
 
         location /dashboard/ {
-          proxy_pass http://k2s-dashboard.local/;
+          proxy_pass http://k2s-dashboard.cluster.local/;
           proxy_set_header Accept-Encoding "";
         }
 
@@ -75,7 +75,7 @@ Using the *IIS* will ease up integration in the site network environment regardi
 
 The example below shows again how to make the same two applications available outside your host over `https`, and this time also making sure that the **user is authenticated** against the local host (i.e. he would also be allowed to log in on your local host):
 
-* `https://my-host.my-domain.com/dashboard` -> `http://k2s-dashboard.local`
+* `https://my-host.my-domain.com/dashboard` -> `http://k2s-dashboard.cluster.local`
 * `https://my-host.my-domain.com/my-product` -> `http://my-product.local`
 
 Follow these steps:
@@ -115,7 +115,7 @@ The example below shows how to forward requests to two different ingress endpoin
           <serverVariables>
             <set name="HTTP_ACCEPT_ENCODING" value="" />
           </serverVariables>
-          <action type="Rewrite" url="http://k2s-dashboard.local/{R:1}" logRewrittenUrl="true" />
+          <action type="Rewrite" url="http://k2s-dashboard.cluster.local/{R:1}" logRewrittenUrl="true" />
         </rule>
         <rule name="my-product" stopProcessing="true">
           <match url="^my-product/?(.*)" />
@@ -152,11 +152,11 @@ The example below shows how to forward requests to two different ingress endpoin
 
     The dashboard web application makes calls to APIs, and in many of them the namespace is used as REST API resource ID, e.g. all *Pods* of namespace `kubernetes-dashboard` are retrieved with this API call:
 
-    `http://k2s-dashboard.local/api/v1/pod/kubernetes-dashboard?query=value&...`
+    `http://k2s-dashboard.cluster.local/api/v1/pod/kubernetes-dashboard?query=value&...`
 
     But when the user selects `All Namespaces` in the User Interface, the same URL is invoked with a space character (`%20`) as the name of the resource - it seems as this is the convention the developers of the *Dashboard* made:
 
-    `http://k2s-dashboard.local/api/v1/pod/%20?query=value&...`
+    `http://k2s-dashboard.cluster.local/api/v1/pod/%20?query=value&...`
 
     The HTTP specs forbid to have a space at the end on an URL, but it works for some reasons. However, when the rewrite rules kick in, it seems they drop the space and the application is not working with `All Namespaces` selected.
 

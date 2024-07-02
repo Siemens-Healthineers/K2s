@@ -4,15 +4,15 @@
 
 # This web application can be configured to re-encode its relative URLs
 # with a configurable prefix, see file `configmap.yaml`:
-# root_url = https://k2s-monitoring.local/monitoring
+# root_url = https://k2s-monitoring.cluster.local/monitoring
 # This enables us to expose it trough the ingress under this configured path
 ---
 # Source: kube-prometheus-stack/charts/grafana/templates/ingress.yaml
 # Modified by us!
 #
 # This ingress will expose the plutono web application on:
-# HTTP: http://k2s-monitoring.local
-# TLS: https://k2s-monitoring.local
+# HTTP: http://k2s-monitoring.cluster.local
+# TLS: https://k2s-monitoring.cluster.local
 # For TLS, the certificate is taken from k8s secret 'k2s-monitoring-local-tls'
 # This secret will be created by cert-manager, if it is running.
 # If cert-manager is not running, the secret will not be present and nginx
@@ -30,7 +30,7 @@ metadata:
     app.kubernetes.io/managed-by: Helm
   annotations:
     cert-manager.io/cluster-issuer: k2s-ca-issuer
-    cert-manager.io/common-name: k2s-monitoring.local
+    cert-manager.io/common-name: k2s-monitoring.cluster.local
     nginx.ingress.kubernetes.io/ssl-redirect: "false"
     nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
     nginx.ingress.kubernetes.io/rewrite-target: /$2
@@ -45,10 +45,10 @@ spec:
   ingressClassName: nginx
   tls:
     - hosts:
-        - k2s-monitoring.local
+        - k2s-monitoring.cluster.local
       secretName: k2s-monitoring-local-tls
   rules:
-    - host: k2s-monitoring.local
+    - host: k2s-monitoring.cluster.local
       http:
         paths:
           - backend:

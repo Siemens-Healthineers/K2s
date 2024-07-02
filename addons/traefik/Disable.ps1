@@ -67,6 +67,10 @@ $traefikYamlDir = Get-TraefikYamlDir
 (Invoke-Kubectl -Params 'delete', '-k', $traefikYamlDir).Output | Write-Log
 (Invoke-Kubectl -Params 'delete', 'namespace', 'traefik').Output | Write-Log
 
+Write-log 'Uninstalling ExternalDNS' -Console
+$externalDnsConfigDir = Get-ExternalDnsConfigDir
+(Invoke-Kubectl -Params 'delete', '-k', $externalDnsConfigDir).Output | Write-Log
+
 Remove-AddonFromSetupJson -Name 'traefik'
 Write-Log 'Uninstallation of Traefik addon finished' -Console
 

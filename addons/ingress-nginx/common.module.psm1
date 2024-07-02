@@ -12,3 +12,7 @@ Contains common methods for installing and uninstalling ingress-nginx
 function Get-IngressNginxConfig {
     return "$PSScriptRoot\manifests\ingress-nginx.yaml"
 }
+
+function Get-ExternalDnsConfigDir {
+    return "$PSScriptRoot\..\common\manifests\external-dns"
+}

@@ -124,7 +124,7 @@ function Join-WindowsNode {
 
         Write-Log "Host $env:COMPUTERNAME not yet available as worker node."
 
-        & "$tempKubeadmDirectory\kubeadm.exe" reset -f 3>&1 2>&1 | Write-Log
+        & "$tempKubeadmDirectory\kubeadm.exe" reset -f 2>&1 | Write-Log
         Get-ChildItem -Path $kubeletConfigDir -Force -Recurse -Attributes Reparsepoint -ErrorAction 'silentlycontinue' | % { $n = $_.FullName.Trim('\'); fsutil reparsepoint delete "$n" }
         Remove-Item -Path "$kubeletConfigDir\etc" -Force -Recurse -ErrorAction SilentlyContinue
         New-Item -Path "$kubeletConfigDir\etc" -ItemType SymbolicLink -Value "$(Get-SystemDriveLetter):\etc" | Out-Null
@@ -264,9 +264,6 @@ function Initialize-KubernetesCluster {
     Join-WindowsNode -CommandForJoining $joinCommand -WorkerNodeNumber $WorkerNodeNumber
 
     Set-KubeletDiskPressure
-
-    # add ip to hosts file
-    Add-ClusterDnsNameToHost
 
     # show results
     Write-Log "Current state of kubernetes nodes:`n"
@@ -430,7 +427,6 @@ function Set-DiskPressureLimitsOnWindowsNode($vmSession) {
 function Add-IPsToHostsFiles($vmSession, $VMName, $IpAddress) {
     Write-Log 'Adding IPs to hosts files ...'
 
-    Add-ClusterDnsNameToHost -Hostname 'k2s.cluster.local'
     Add-ClusterDnsNameToHost -DesiredIP $IpAddress -Hostname $VMName
 
     Invoke-Command -Session $vmSession {
@@ -466,7 +462,7 @@ function Write-K8sNodesStatus {
         }
 
         if ($retryIteration -eq 10) {
-            throw "Unable to get cluster node status information"
+            throw 'Unable to get cluster node status information'
         }
         $retryIteration++
     }
