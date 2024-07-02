@@ -4,8 +4,8 @@
 
 #Requires -RunAsAdministrator
 
-$k8sApiModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k8s-api/k8s-api.module.psm1"
-$configModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/config/config.module.psm1"
+$k8sApiModule = "$PSScriptRoot/../../../lib/modules/k2s/k2s.cluster.module/k8s-api/k8s-api.module.psm1"
+$configModule = "$PSScriptRoot/../../../lib/modules/k2s/k2s.infra.module/config/config.module.psm1"
 
 Import-Module $k8sApiModule, $configModule
 

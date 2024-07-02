@@ -33,8 +33,9 @@ type Addon struct {
 }
 
 type AddonMetadata struct {
-	Name        string `yaml:"name"`
-	Description string `yaml:"description"`
+	Name           string `yaml:"name"`
+	Implementation string `yaml:"implementation"`
+	Description    string `yaml:"description"`
 }
 
 type AddonSpec struct {

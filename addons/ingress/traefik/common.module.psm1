@@ -14,5 +14,5 @@ function Get-TraefikYamlDir {
 }
 
 function Get-ExternalDnsConfigDir {
-    return "$PSScriptRoot\..\common\manifests\external-dns"
+    return "$PSScriptRoot\..\..\common\manifests\external-dns"
 }

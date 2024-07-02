@@ -22,7 +22,7 @@ The ingress-nginx addon can be enabled using the `k2s` CLI
 by running the following command:
 
 ```cmd
-k2s addons enable ingress-nginx
+k2s addons enable ingress -i nginx
 ```
 
 ## Creating ingress routes
@@ -46,7 +46,7 @@ This Addon prepares one central TLS termination, matching the hostname
 `k2s-cluster-net-tls` which is configured to be created and updated by
 `cert-manager` - if the `security` addon is installed.
 If the security add-on is not installed, NGINX provides a default certificate.
-See also [Security Addon](../security/README.md).
+See also [Security Addon](../../security/README.md).
 
 Web applications can use this host name in their ingress rules
 and do not need to care about TLS anymore, since it is handled by this
@@ -66,11 +66,11 @@ The Ingress Resource definitions are worth being analyzed,
 to understand the different mechanisms:
 
 - Kubernetes Dashboard:
-  [NGINX Ingresses](../dashboard/manifests/dashboard-nginx-ingress.yaml).
+  [NGINX Ingresses](../../dashboard/manifests/dashboard-nginx-ingress.yaml).
 - Logging:
-  [NGINX Ingress](../logging/manifests/opensearch-dashboards/ingress.yaml).
+  [NGINX Ingress](../../logging/manifests/opensearch-dashboards/ingress.yaml).
 - Monitoring:
-  [NGINX Ingress](../monitoring/manifests/plutono/ingress.yaml).
+  [NGINX Ingress](../../monitoring/manifests/plutono/ingress.yaml).
 
 ## Further Reading
 

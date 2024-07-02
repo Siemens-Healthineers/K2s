@@ -14,5 +14,5 @@ function Get-IngressNginxConfig {
 }
 
 function Get-ExternalDnsConfigDir {
-    return "$PSScriptRoot\..\common\manifests\external-dns"
+    return "$PSScriptRoot\..\..\common\manifests\external-dns"
 }
