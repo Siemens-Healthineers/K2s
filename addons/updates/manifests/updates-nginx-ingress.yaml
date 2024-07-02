@@ -1,0 +1,46 @@
+# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+#
+# SPDX-License-Identifier: MIT
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: updates-nginx-local
+  namespace: updates
+  annotations:
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: k2s-updates.local
+      http:
+        paths:
+        - backend:
+            service:
+              name: argocd-server
+              port: 
+                number: 443
+          pathType: Prefix
+          path: /
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: updates-nginx-cluster-net
+  namespace: updates
+  annotations:
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: k2s.cluster.local
+      http:
+        paths:
+          - backend:
+              service:
+                name: argocd-server
+                port:
+                  number: 443
+            path: /updates/
+            pathType: Prefix

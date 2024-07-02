@@ -1,0 +1,40 @@
+# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+#
+# SPDX-License-Identifier: MIT
+
+apiVersion: v1
+kind: AddonManifest
+metadata:
+  name: updates
+  description: Updates addon (ArgoCD)
+spec:
+  commands:
+    enable:
+      cli:
+        flags:
+          - name: ingress
+            default: none
+            description: Ingress controller to use for exposing the updates dashboard
+            constraints:
+              kind: validation-set
+              validationSet:
+                - none
+                - ingress-nginx
+                - traefik
+        examples:
+          - cmd: k2s addons enable updates
+            comment: Enable updates in k2s
+          - cmd: k2s addons enable updates --ingress traefik
+            comment: Enable updates in k2s with traefik ingress
+      script:
+        subPath: Enable.ps1
+        parameterMappings:
+          - cliFlagName: ingress
+            scriptParameterName: Ingress
+    disable:
+      cli:
+        examples:
+          - cmd: k2s addons disable updates
+            comment: Disable addon updates in k2s
+      script:
+        subPath: Disable.ps1

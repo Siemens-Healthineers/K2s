@@ -1,0 +1,71 @@
+# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+#
+# SPDX-License-Identifier: MIT
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    cert-manager.io/cluster-issuer: k2s-ca-issuer
+    cert-manager.io/common-name: k2s-updates.local
+    traefik.ingress.kubernetes.io/router.tls: "true"
+  name: updates-traefik-local
+  namespace: updates
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: k2s-updates.local
+      http:
+        paths:
+          - backend:
+              service:
+                name: argocd-server
+                port:
+                  number: 443
+            pathType: Prefix
+            path: /
+  tls:
+    - hosts:
+        - k2s-updates.local
+      secretName: k2s-updates-local-tls
+---
+# this MiddleWare will strip the prefix /updates from the request path
+# and set the x-forwarded-prefix header of the request to /dashboard/
+# see https://doc.traefik.io/traefik/middlewares/http/stripprefix/
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: strip-prefix
+  namespace: updates
+spec:
+  stripPrefix:
+    prefixes:
+      - /updates
+---
+# this ingress will be merged with ingress provided in:
+# addons/traefik/manifests/cluster-net-ingress.yaml
+# and exposes the kubernetes-dashboard angular application on:
+# https://k2s.cluster.local/updates/
+# The certificate is taken from k8s secret 'k2s.cluster.local-tls'
+# (see addons/traefik/manifests/cluster-net-ingress.yaml)
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: updates-traefik-cluster-net
+  namespace: updates
+  annotations:
+    traefik.ingress.kubernetes.io/router.middlewares: updates-strip-prefix@kubernetescrd
+    traefik.ingress.kubernetes.io/router.tls: "true"
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: k2s.cluster.local
+      http:
+        paths:
+          - path: /argocd/
+            pathType: Prefix
+            backend:
+              service:
+                name: argocd-server
+                port:
+                  number: 443
