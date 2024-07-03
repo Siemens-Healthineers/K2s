@@ -98,7 +98,7 @@ Write-Log 'Installing external-dns' -Console
 $externalDnsConfig = Get-ExternalDnsConfigDir
 (Invoke-Kubectl -Params 'apply' , '-k', $externalDnsConfig).Output | Write-Log
 
-Write-Log "Preparing kusomization with $controlPlaneIp as an external IP for traefik service" -Console
+Write-Log "Preparing kustomization with $controlPlaneIp as an external IP for traefik service" -Console
 
 # we prepare all patches and apply them in a single kustomization,
 # instead of applying the unpatched manifests and then applying patches one by one
