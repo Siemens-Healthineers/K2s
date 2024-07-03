@@ -98,25 +98,55 @@ Write-Log 'Installing external-dns' -Console
 $externalDnsConfig = Get-ExternalDnsConfigDir
 (Invoke-Kubectl -Params 'apply' , '-k', $externalDnsConfig).Output | Write-Log
 
-Write-Log 'Installing Traefik Ingress controller' -Console
-$traefikYamlDir = Get-TraefikYamlDir
+Write-Log "Preparing kustomization with $controlPlaneIp as an external IP for traefik service" -Console
 
+# we prepare all patches and apply them in a single kustomization,
+# instead of applying the unpatched manifests and then applying patches one by one
+$controlPlaneIp = Get-ConfiguredIPControlPlane
+$kustomization = @"
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+bases:
+- ../manifests
+
+patches:
+- patch: |-
+    - op: add
+      path: /spec/template/spec/containers/0/args/-
+      value: --providers.kubernetesIngress.ingressEndpoint
+    - op: add
+      path: /spec/template/spec/containers/0/args/-
+      value: --providers.kubernetesIngress.ingressEndpoint.ip=$controlPlaneIp
+  target:
+    kind: Deployment
+    name: traefik
+    namespace: traefik
+- patch: |-
+    - op: replace
+      path: /spec/externalIPs
+      value: 
+        - $controlPlaneIp
+  target:
+    kind: Service
+    name: traefik
+    namespace: traefik
+"@
+
+# create a temporary directory to store the kustomization file
+$kustomizationDir = "$PSScriptRoot/kustomizationDir"
+New-Item -Path $kustomizationDir -ItemType 'directory' -ErrorAction SilentlyContinue
+$kustomizationFile = "$kustomizationDir\kustomization.yaml"
+$kustomization | Out-File $kustomizationFile
+
+Write-Log 'Installing Traefik Ingress controller' -Console
 (Invoke-Kubectl -Params 'create' , 'namespace', 'traefik').Output | Write-Log
-(Invoke-Kubectl -Params 'apply', '-k', $traefikYamlDir).Output | Write-Log
+(Invoke-Kubectl -Params 'apply', '-k', $kustomizationDir).Output | Write-Log
+
+# delete the temporary directory
+Remove-Item -Path $kustomizationDir -Recurse
 
 $allPodsAreUp = (Wait-ForPodCondition -Condition Ready -Label 'app.kubernetes.io/name=traefik' -Namespace 'traefik' -TimeoutSeconds 120)
-
-$controlPlaneIp = Get-ConfiguredIPControlPlane
-
-Write-Log "Setting $controlPlaneIp as an external IP for traefik service" -Console
-$patchJson = ''
-if ($PSVersionTable.PSVersion.Major -gt 5) {
-    $patchJson = '{"spec":{"externalIPs":["' + $controlPlaneIp + '"]}}'
-}
-else {
-    $patchJson = '{\"spec\":{\"externalIPs\":[\"' + $controlPlaneIp + '\"]}}'
-}
-(Invoke-Kubectl -Params 'patch', 'svc', 'traefik', '-p', "$patchJson", '-n', 'traefik').Output | Write-Log
 
 if ($allPodsAreUp -ne $true) {
     $errMsg = "All traefik pods could not become ready. Please use kubectl describe for more details.`nInstallation of traefik addon failed"

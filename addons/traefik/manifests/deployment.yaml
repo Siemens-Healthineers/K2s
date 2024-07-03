@@ -110,8 +110,6 @@ spec:
           - "--providers.kubernetescrd.ingressclass=traefik"
           - "--providers.kubernetesingress"
           - "--providers.kubernetesingress.ingressclass=traefik"
-          - "--providers.kubernetesIngress.ingressEndpoint"
-          - "--providers.kubernetesIngress.ingressEndpoint.ip=172.19.1.100"
           - "--entrypoints.websecure.http.tls=true"
           - "--serverstransport.insecureskipverify=true"
           - "--log.level=DEBUG"
