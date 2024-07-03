@@ -17,8 +17,6 @@ import (
 	"github.com/pterm/pterm"
 )
 
-const generalErrMsg = "critical error occurred during command execution, aborting"
-
 func main() {
 	exitCode := 0
 
@@ -50,7 +48,7 @@ func main() {
 
 	var cmdFailure *common.CmdFailure
 	if !errors.As(err, &cmdFailure) {
-		handleUnexpectedError(err)
+		pterm.Error.Println(fmt.Errorf("%v", err))
 		return
 	}
 
@@ -75,7 +73,6 @@ func main() {
 }
 
 func handleUnexpectedError(err any) {
-	pterm.Error.Println(fmt.Errorf("%s: %v", generalErrMsg, err))
-
-	slog.Error(generalErrMsg, "error", err, "stack", string(debug.Stack()))
+	pterm.Error.Println(fmt.Errorf("%v", err))
+	slog.Error("error", err, "stack", string(debug.Stack()))
 }
