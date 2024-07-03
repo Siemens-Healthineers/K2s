@@ -15,8 +15,8 @@
 # Source: kube-prometheus-stack/charts/grafana/templates/ingress.yaml
 # Modified by us!
 # This ingress will expose the opensearch-dashboards web application on:
-# HTTP: http://k2s-logging.local
-# TLS: https://k2s-logging.local
+# HTTP: http://k2s-logging.cluster.local
+# TLS: https://k2s-logging.cluster.local
 # For TLS, the certificate is taken from k8s secret 'k2s-logging-local-tls'
 # This secret will be created by cert-manager, if it is running.
 # If cert-manager is not running, the secret will not be present and nginx
@@ -34,17 +34,17 @@ metadata:
     app.kubernetes.io/managed-by: Helm
   annotations:
     cert-manager.io/cluster-issuer: k2s-ca-issuer
-    cert-manager.io/common-name: k2s-logging.local
+    cert-manager.io/common-name: k2s-logging.cluster.local
     nginx.ingress.kubernetes.io/ssl-redirect: "false"
     nginx.ingress.kubernetes.io/rewrite-target: /$2
 spec:
   ingressClassName: nginx
   tls:
     - hosts:
-        - k2s-logging.local
+        - k2s-logging.cluster.local
       secretName: k2s-logging-local-tls
   rules:
-    - host: k2s-logging.local
+    - host: k2s-logging.cluster.local
       http:
         paths:
           - backend:
@@ -52,7 +52,7 @@ spec:
                 name: opensearch-dashboards
                 port:
                   number: 5601
-            # this is tricky: when we call first time http://k2s-logging.local,
+            # this is tricky: when we call first time http://k2s-logging.cluster.local,
             # the first parameter will not match and is ignored. The result will
             # contain relative paths starting with "/logging", when the client
             # calls them, the first parameter will be matched, but ignored.

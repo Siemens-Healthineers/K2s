@@ -67,6 +67,10 @@ $ingressNginxConfig = Get-IngressNginxConfig
 (Invoke-Kubectl -Params 'delete' , '-f', $ingressNginxConfig).Output | Write-Log
 (Invoke-Kubectl -Params 'delete', 'ns', 'ingress-nginx').Output | Write-Log
 
+Write-log 'Uninstalling ExternalDNS' -Console
+$externalDnsConfigDir = Get-ExternalDnsConfigDir
+(Invoke-Kubectl -Params 'delete', '-k', $externalDnsConfigDir).Output | Write-Log
+
 Remove-AddonFromSetupJson -Name 'ingress-nginx'
 
 Write-Log 'ingress-nginx disabled' -Console

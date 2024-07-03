@@ -110,6 +110,10 @@ if ("$existingServices" -match '.*ingress-nginx-controller.*') {
     exit 1
 }
 
+Write-Log 'Installing ExternalDNS' -Console
+$externalDnsConfig = Get-ExternalDnsConfigDir
+(Invoke-Kubectl -Params 'apply' , '-k', $externalDnsConfig).Output | Write-Log
+
 Write-Log 'Installing ingress-nginx' -Console
 $ingressNginxNamespace = 'ingress-nginx'
 $ingressNginxConfig = Get-IngressNginxConfig

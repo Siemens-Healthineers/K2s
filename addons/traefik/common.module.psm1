@@ -12,3 +12,7 @@ Contains common methods for installing and uninstalling Traefik Ingress Controll
 function Get-TraefikYamlDir {
     return "$PSScriptRoot\manifests"
 }
+
+function Get-ExternalDnsConfigDir {
+    return "$PSScriptRoot\..\common\manifests\external-dns"
+}
