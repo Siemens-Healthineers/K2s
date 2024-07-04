@@ -90,6 +90,7 @@ func init() {
 		PrintCompletedMessageFunc: common.PrintCompletedMessage,
 		LoadConfigFunc:            setupinfo.ReadConfig,
 		SetConfigFunc:             setupinfo.WriteConfig,
+		DeleteConfigFunc:          setupinfo.DeleteConfig,
 	}
 
 	multivm.Installer = installer
