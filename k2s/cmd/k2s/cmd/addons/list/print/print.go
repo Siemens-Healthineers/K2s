@@ -28,9 +28,9 @@ type AddonsPrinter struct {
 }
 
 type addon struct {
-	Name           string `json:"name"`
-	Description    string `json:"description"`
-	Implementation string `json:"implementation"`
+	Name            string   `json:"name"`
+	Description     string   `json:"description"`
+	Implementations []string `json:"implementations"`
 }
 
 type printList struct {

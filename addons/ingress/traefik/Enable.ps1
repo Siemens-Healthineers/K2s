@@ -165,7 +165,7 @@ Write-Log 'All traefik pods are up and ready.' -Console
 $clusterIngressConfig = "$PSScriptRoot\manifests\cluster-net-ingress.yaml"
 (Invoke-Kubectl -Params 'apply' , '-f', $clusterIngressConfig).Output | Write-Log
 
-Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'traefik' })
+Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'ingress'; Implementation = 'traefik' })
 
 Write-Log 'Installation of Traefik addon finished.' -Console
 

@@ -151,7 +151,7 @@ function Get-EnabledAddons {
 
     $config | ForEach-Object {
         Write-Log "[$script::$function] found addon '$($_.Name)'"
-        $enabledAddons.Addons.Add($_.Name) | Out-Null
+        $enabledAddons.Addons.Add(@{Name = $_.Name; }) | Out-Null
     }
 
     return $enabledAddons
@@ -188,8 +188,14 @@ function Add-AddonToSetupJson() {
         $parsedSetupJson = $parsedSetupJson | Add-Member -NotePropertyMembers @{EnabledAddons = @() } -PassThru
     }
     $addonAlreadyExists = $parsedSetupJson.EnabledAddons | Where-Object { $_.Name -eq $Addon.Name }
-    if (!$addonAlreadyExists) {
-        $parsedSetupJson.EnabledAddons += $Addon
+    if ($addonAlreadyExists) {
+        $addon = $parsedSetupJson.EnabledAddons | Where-Object { $_.Name -eq $Addon.Name}
+        $addon.Implementations.Add($Addon.Implementation)
+        $newEnabledAddons = @($parsedSetupJson.EnabledAddons | Where-Object { $_.Name -ne $Addon.Name })
+        $newEnabledAddons += $addon
+        $parsedSetupJson.EnabledAddons = $newEnabledAddons
+    } else {
+        $parsedSetupJson.EnabledAddons += @{Name = $Addon.Name; Implementations = [System.Collections.ArrayList]@($Addon.Implementation)}
         $parsedSetupJson | ConvertTo-Json -Depth 100 | Set-Content -Force $filePath -Confirm:$false
     }
 }
@@ -205,8 +211,19 @@ function Add-AddonToSetupJson() {
 .EXAMPLE
     Remove-AddonFromSetupJson -Name "DummyAddon"
 #>
-function Remove-AddonFromSetupJson([string]$Name) {
-    Write-Log "Removing '$Name' from addons config.."
+function Remove-AddonFromSetupJson {
+    param (
+        [Parameter(Mandatory = $false)]
+        [pscustomobject]$Addon = $(throw 'Please specify the addon.')
+    )
+    if ($Addon -eq $null) {
+        throw 'Addon not specified'
+    }
+    if ($null -eq ($Addon | Get-Member -MemberType Properties -Name 'Name')) {
+        throw "Addon does not contain a property with name 'Name'"
+    }
+
+    Write-Log "Removing '$($Addon.Name)' from addons config.."
 
     $filePath = Get-SetupConfigFilePath
     $parsedSetupJson = Get-Content -Raw $filePath | ConvertFrom-Json
@@ -214,7 +231,21 @@ function Remove-AddonFromSetupJson([string]$Name) {
     $enabledAddonMemberExists = Get-Member -InputObject $parsedSetupJson -Name $ConfigKey_EnabledAddons -MemberType Properties
     if ($enabledAddonMemberExists) {
         $enabledAddons = $parsedSetupJson.EnabledAddons
-        $newEnabledAddons = @($enabledAddons | Where-Object { $_.Name -ne $Name })
+        if ($null -eq ($Addon | Get-Member -MemberType Properties -Name 'Implementation')) {
+            $newEnabledAddons = @($enabledAddons | Where-Object { $_.Name -ne $Addon.Name })
+        } else {
+            $newEnabledAddons = @($enabledAddons | Where-Object { $_.Name -ne $Addon.Name })
+            $addon = $enabledAddons | Where-Object { $_.Name -eq $Addon.Name}
+            [System.Collections.ArrayList]$implementations = $addon.Implementations
+            $implementations.Remove($Addon.Implementation.ToString())
+            Write-Log $implementations -Console
+            $addon.Implementations = $implementations
+            Write-Log $addon.Implementations.Count -Console
+            if ($addon.Implementations.Count -gt 0) {
+                $newEnabledAddons += $addon
+            }
+        }
+        
         if ($newEnabledAddons) {
             $parsedSetupJson.EnabledAddons = $newEnabledAddons
         }

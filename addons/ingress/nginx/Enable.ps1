@@ -154,7 +154,7 @@ $clusterIngressConfig = "$PSScriptRoot\manifests\cluster-net-ingress.yaml"
 
 Write-Log 'All ingress-nginx pods are up and ready.'
 
-Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'ingress-nginx' })
+Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'ingress'; Implementation = 'nginx' })
 
 Write-Log 'ingress-nginx installed successfully' -Console
 
