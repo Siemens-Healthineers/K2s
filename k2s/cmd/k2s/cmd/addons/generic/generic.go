@@ -26,7 +26,18 @@ import (
 func NewCommands(allAddons addons.Addons) (commands []*cobra.Command, err error) {
 	commandMap := map[string]*cobra.Command{}
 
+	addonImplMapping := map[string][]addons.Addon{}
 	for _, addon := range allAddons {
+		if _, ok := addonImplMapping[addon.Metadata.Name]; !ok {
+			addonImplMapping[addon.Metadata.Name] = []addons.Addon{addon}
+		} else {
+			implementations := addonImplMapping[addon.Metadata.Name]
+			implementations = append(implementations, addon)
+			addonImplMapping[addon.Metadata.Name] = implementations
+		}
+	}
+
+	for _, addon := range lo.UniqBy(allAddons, func(item addons.Addon) string { return item.Metadata.Name }) {
 		if addon.Spec.Commands == nil || len(*addon.Spec.Commands) == 0 {
 			return nil, fmt.Errorf("no cmd config found for addon '%s'", addon.Metadata.Name)
 		}
@@ -42,7 +53,7 @@ func NewCommands(allAddons addons.Addons) (commands []*cobra.Command, err error)
 				commandMap[cmdName] = cmd
 			}
 
-			subCmd, err := newAddonCmd(addon, cmdName)
+			subCmd, err := newAddonCmd(addon, cmdName, addonImplMapping[addon.Metadata.Name])
 			if err != nil {
 				return nil, err
 			}
@@ -61,30 +72,65 @@ func NewCommands(allAddons addons.Addons) (commands []*cobra.Command, err error)
 	return
 }
 
-func newAddonCmd(addon addons.Addon, cmdName string) (*cobra.Command, error) {
-	slog.Debug("Creating sub-command for addond", "command", cmdName, "addon", addon.Metadata.Name)
+func newAddonCmd(addon addons.Addon, cmdName string, addonSpecs []addons.Addon) (*cobra.Command, error) {
+	slog.Debug("Creating sub-command for addon", "command", cmdName, "addon", addon.Metadata.Name)
 
-	cmdConfig := (*addon.Spec.Commands)[cmdName]
-	cmd := &cobra.Command{
-		Use:   addon.Metadata.Name,
-		Short: fmt.Sprintf("Runs '%s' for '%s' addon", cmdName, addon.Metadata.Name),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCmd(cmd, addon, cmdName)
-		},
-	}
+	var cmd *cobra.Command
+	if len(addonSpecs) > 1 {
+		cmd = &cobra.Command{
+			Use:   addon.Metadata.Name,
+			Short: fmt.Sprintf("Runs '%s' for '%s' addon", cmdName, addon.Metadata.Name),
+		}
 
-	if cmdConfig.Cli != nil {
-		cmd.Example = cmdConfig.Cli.Examples.String()
+		for _, addonSpec := range addonSpecs {
+			slog.Debug("Creating sub-command for addon implementation", "command", cmdName, "addon", addon.Metadata.Name, "implemetation", addonSpec.Metadata.Implementation)
+			implementationCmd := &cobra.Command{
+				Use:   addonSpec.Metadata.Implementation,
+				Short: fmt.Sprintf("Runs '%s' for '%s' implementation", cmdName, addonSpec.Metadata.Implementation),
+				RunE: func(cmd *cobra.Command, args []string) error {
+					return runCmd(cmd, addonSpec, cmdName)
+				},
+			}
 
-		for _, flag := range cmdConfig.Cli.Flags {
-			if err := addFlag(flag, cmd.Flags()); err != nil {
-				return nil, err
+			cmdConfig := (*addonSpec.Spec.Commands)[cmdName]
+			if cmdConfig.Cli != nil {
+				implementationCmd.Example = cmdConfig.Cli.Examples.String()
+
+				for _, flag := range cmdConfig.Cli.Flags {
+					if err := addFlag(flag, cmd.Flags()); err != nil {
+						return nil, err
+					}
+				}
+			}
+
+			cmd.Flags().SortFlags = false
+			cmd.Flags().PrintDefaults()
+
+			cmd.AddCommand(implementationCmd)
+		}
+	} else {
+		cmd = &cobra.Command{
+			Use:   addon.Metadata.Name,
+			Short: fmt.Sprintf("Runs '%s' for '%s' addon", cmdName, addon.Metadata.Name),
+			RunE: func(cmd *cobra.Command, args []string) error {
+				return runCmd(cmd, addon, cmdName)
+			},
+		}
+
+		cmdConfig := (*addon.Spec.Commands)[cmdName]
+		if cmdConfig.Cli != nil {
+			cmd.Example = cmdConfig.Cli.Examples.String()
+
+			for _, flag := range cmdConfig.Cli.Flags {
+				if err := addFlag(flag, cmd.Flags()); err != nil {
+					return nil, err
+				}
 			}
 		}
-	}
 
-	cmd.Flags().SortFlags = false
-	cmd.Flags().PrintDefaults()
+		cmd.Flags().SortFlags = false
+		cmd.Flags().PrintDefaults()
+	}
 
 	return cmd, nil
 }

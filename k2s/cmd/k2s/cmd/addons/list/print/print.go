@@ -28,8 +28,9 @@ type AddonsPrinter struct {
 }
 
 type addon struct {
-	Name        string `json:"name"`
-	Description string `json:"description"`
+	Name           string `json:"name"`
+	Description    string `json:"description"`
+	Implementation string `json:"implementation"`
 }
 
 type printList struct {
@@ -81,8 +82,9 @@ func toPrintList(enabledAddonNames []string, allAddons addons.Addons) *printList
 
 	for _, a := range allAddons {
 		addon := addon{
-			Name:        a.Metadata.Name,
-			Description: a.Metadata.Description,
+			Name:           a.Metadata.Name,
+			Description:    a.Metadata.Description,
+			Implementation: a.Metadata.Implementation,
 		}
 
 		if lo.Contains(enabledAddonNames, addon.Name) {
