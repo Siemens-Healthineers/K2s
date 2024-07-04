@@ -156,7 +156,7 @@ var _ = Describe("generic pkg", func() {
 					},
 				}
 
-				result, err := newAddonCmd(addon, command)
+				result, err := newAddonCmd([]addons.Addon{addon}, command)
 
 				Expect(err).ToNot(HaveOccurred())
 				Expect(result.Use).To(Equal(addon.Metadata.Name))
@@ -191,7 +191,7 @@ var _ = Describe("generic pkg", func() {
 					},
 				}
 
-				result, err := newAddonCmd(addon, command)
+				result, err := newAddonCmd([]addons.Addon{addon}, command)
 
 				Expect(err).ToNot(HaveOccurred())
 				Expect(result.Use).To(Equal(addon.Metadata.Name))
@@ -230,7 +230,7 @@ var _ = Describe("generic pkg", func() {
 					},
 				}
 
-				result, err := newAddonCmd(addon, command)
+				result, err := newAddonCmd([]addons.Addon{addon}, command)
 
 				Expect(err).ToNot(HaveOccurred())
 				Expect(result.Use).To(Equal(addon.Metadata.Name))
@@ -265,7 +265,7 @@ var _ = Describe("generic pkg", func() {
 					},
 				}
 
-				result, err := newAddonCmd(addon, command)
+				result, err := newAddonCmd([]addons.Addon{addon}, command)
 
 				Expect(err).To(HaveOccurred())
 				Expect(result).To(BeNil())
