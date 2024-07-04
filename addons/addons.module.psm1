@@ -235,14 +235,10 @@ function Remove-AddonFromSetupJson {
             $newEnabledAddons = @($enabledAddons | Where-Object { $_.Name -ne $Addon.Name })
         } else {
             $newEnabledAddons = @($enabledAddons | Where-Object { $_.Name -ne $Addon.Name })
-            $addon = $enabledAddons | Where-Object { $_.Name -eq $Addon.Name}
-            [System.Collections.ArrayList]$implementations = $addon.Implementations
-            $implementations.Remove($Addon.Implementation.ToString())
-            Write-Log $implementations -Console
-            $addon.Implementations = $implementations
-            Write-Log $addon.Implementations.Count -Console
+            $addonToDelete = $enabledAddons | Where-Object { $_.Name -eq $Addon.Name}
+            ([System.Collections.ArrayList]($addonToDelete.Implementations)).Remove($Addon.Implementation)
             if ($addon.Implementations.Count -gt 0) {
-                $newEnabledAddons += $addon
+                $newEnabledAddons += $addonToDelete
             }
         }
         
