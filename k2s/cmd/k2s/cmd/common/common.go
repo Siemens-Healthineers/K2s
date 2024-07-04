@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	kl "github.com/siemens-healthineers/k2s/cmd/k2s/utils/logging"
@@ -44,6 +45,7 @@ type OutputWriter struct {
 	ShowProgress    bool
 	errorLineBuffer *logging.LogBuffer
 	ErrorOccurred   bool
+	ErrorLines      []string
 }
 
 const (
@@ -75,6 +77,8 @@ const (
 
 	CacheVSwitchFlagName  = "cache-vswitch"
 	CacheVSwitchFlagUsage = "Cache vswitches 'cbr0' and 'KubeSwitch' for cluster connectivity through the host machine."
+
+	PreReqMarker = "[PREREQ-FAILED]"
 )
 
 func (c *CmdFailure) Error() string {
@@ -103,6 +107,7 @@ func (o *OutputWriter) WriteStd(line string) {
 func (o *OutputWriter) WriteErr(line string) {
 	o.errorLineBuffer.Log(line)
 	o.ErrorOccurred = true
+	o.ErrorLines = append(o.ErrorLines, line)
 
 	pterm.Printfln("⏳ %s", pterm.Yellow(line))
 }
@@ -200,6 +205,19 @@ func DeterminePsVersion(config *setupinfo.Config) powershell.PowerShellVersion {
 
 func GetDefaultPsVersion() powershell.PowerShellVersion {
 	return powershell.PowerShellV5
+}
+
+func GetInstallPreRequisiteError(errorLines []string) (line string, found bool) {
+	for _, line := range errorLines {
+		if strings.Contains(line, PreReqMarker) {
+			// Remove error line with pre-requisite marker e.g [PREREQ-FAILED] Master node memory passed too low
+			cleanedLine := strings.Replace(line, PreReqMarker, "", -1)
+			cleanedLine = strings.Replace(cleanedLine, " ", "", 1)
+			return cleanedLine, true
+		}
+	}
+
+	return "", false
 }
 
 func createErrorLineBuffer() (*logging.LogBuffer, error) {
