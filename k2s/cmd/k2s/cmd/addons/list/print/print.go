@@ -82,9 +82,8 @@ func toPrintList(enabledAddonNames []string, allAddons addons.Addons) *printList
 
 	for _, a := range allAddons {
 		addon := addon{
-			Name:           a.Metadata.Name,
-			Description:    a.Metadata.Description,
-			Implementation: a.Metadata.Implementation,
+			Name:        a.Metadata.Name,
+			Description: a.Metadata.Description,
 		}
 
 		if lo.Contains(enabledAddonNames, addon.Name) {

@@ -265,7 +265,7 @@ var _ = Describe("generic pkg", func() {
 					},
 				}
 
-				result, err := newAddonCmd([]addons.Addon{addon}, command)
+				result, err := newAddonCmd(addon, command)
 
 				Expect(err).To(HaveOccurred())
 				Expect(result).To(BeNil())

@@ -61,7 +61,7 @@ if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'traefik', '--ignore-n
     exit 1
 }
 
-Write-Log 'Uninstalling Traefik addon' -Console
+Write-Log 'Uninstalling traefik ingress addon' -Console
 $traefikYamlDir = Get-TraefikYamlDir
 
 (Invoke-Kubectl -Params 'delete', '-k', $traefikYamlDir).Output | Write-Log

@@ -33,14 +33,12 @@ type Addon struct {
 }
 
 type AddonMetadata struct {
-	Name           string `yaml:"name"`
-	Description    string `yaml:"description"`
-	Implementation string `yaml:"implementation"`
+	Name        string `yaml:"name"`
+	Description string `yaml:"description"`
 }
 
 type AddonSpec struct {
-	Commands     *map[string]AddonCmd `yaml:"commands"`
-	OfflineUsage OfflineUsage         `yaml:"offline_usage"`
+	Implementations []Implementation `yaml:"implementations"`
 }
 
 type OfflineUsage struct {
@@ -61,6 +59,12 @@ type WindowsResources struct {
 type CurlPackages struct {
 	Url         string `yaml:"url"`
 	Destination string `yaml:"destination"`
+}
+
+type Implementation struct {
+	Name         string               `yaml:"name"`
+	Commands     *map[string]AddonCmd `yaml:"commands"`
+	OfflineUsage OfflineUsage         `yaml:"offline_usage"`
 }
 
 type AddonCmd struct {

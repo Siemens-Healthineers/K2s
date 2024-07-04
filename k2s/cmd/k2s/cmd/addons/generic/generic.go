@@ -26,23 +26,12 @@ import (
 func NewCommands(allAddons addons.Addons) (commands []*cobra.Command, err error) {
 	commandMap := map[string]*cobra.Command{}
 
-	addonImplMapping := map[string][]addons.Addon{}
 	for _, addon := range allAddons {
-		if _, ok := addonImplMapping[addon.Metadata.Name]; !ok {
-			addonImplMapping[addon.Metadata.Name] = []addons.Addon{addon}
-		} else {
-			implementations := addonImplMapping[addon.Metadata.Name]
-			implementations = append(implementations, addon)
-			addonImplMapping[addon.Metadata.Name] = implementations
-		}
-	}
-
-	for addonName, addonManifests := range addonImplMapping {
-		if addonManifests[0].Spec.Commands == nil || len(*addonManifests[0].Spec.Commands) == 0 {
-			return nil, fmt.Errorf("no cmd config found for addon '%s'", addonName)
+		if addon.Spec.Implementations[0].Commands == nil || len(*addon.Spec.Implementations[0].Commands) == 0 {
+			return nil, fmt.Errorf("no cmd config found for addon '%s'", addon.Metadata.Name)
 		}
 
-		for cmdName, _ := range *addonManifests[0].Spec.Commands {
+		for cmdName, _ := range *addon.Spec.Implementations[0].Commands {
 			if _, ok := commandMap[cmdName]; !ok {
 				slog.Debug("Command not existing, creating it", "command", cmdName)
 
@@ -53,7 +42,7 @@ func NewCommands(allAddons addons.Addons) (commands []*cobra.Command, err error)
 				commandMap[cmdName] = cmd
 			}
 
-			subCmd, err := newAddonCmd(addonManifests, cmdName)
+			subCmd, err := newAddonCmd(addon, cmdName)
 			if err != nil {
 				return nil, err
 			}
@@ -72,18 +61,18 @@ func NewCommands(allAddons addons.Addons) (commands []*cobra.Command, err error)
 	return
 }
 
-func newAddonCmd(addonManifests []addons.Addon, cmdName string) (*cobra.Command, error) {
-	slog.Debug("Creating sub-command for addon", "command", cmdName, "addon", addonManifests[0].Metadata.Name)
+func newAddonCmd(addon addons.Addon, cmdName string) (*cobra.Command, error) {
+	slog.Debug("Creating sub-command for addon", "command", cmdName, "addon", addon.Metadata.Name)
 
 	cmd := &cobra.Command{
-		Use:   addonManifests[0].Metadata.Name,
-		Short: fmt.Sprintf("Runs '%s' for '%s' addon", cmdName, addonManifests[0].Metadata.Name),
+		Use:   addon.Metadata.Name,
+		Short: fmt.Sprintf("Runs '%s' for '%s' addon", cmdName, addon.Metadata.Name),
 	}
 
-	if len(addonManifests) > 1 {
-		for _, addonManifest := range addonManifests {
-			slog.Debug("Creating sub-command for addon implementation", "command", cmdName, "addon", addonManifest.Metadata.Name, "implemetation", addonManifest.Metadata.Implementation)
-			implementationCmd, err := newImplementationCmd(addonManifest, cmdName)
+	if len(addon.Spec.Implementations) > 1 {
+		for _, implementation := range addon.Spec.Implementations {
+			slog.Debug("Creating sub-command for addon implementation", "command", cmdName, "addon", addon.Metadata.Name, "implementation", implementation)
+			implementationCmd, err := newImplementationCmd(addon, cmdName, implementation)
 			if err != nil {
 				return nil, err
 			}
@@ -91,10 +80,10 @@ func newAddonCmd(addonManifests []addons.Addon, cmdName string) (*cobra.Command,
 		}
 	} else {
 		cmd.RunE = func(cmd *cobra.Command, args []string) error {
-			return runCmd(cmd, addonManifests[0], cmdName)
+			return runCmd(cmd, addon, cmdName, addon.Spec.Implementations[0])
 		}
 
-		cmdConfig := (*addonManifests[0].Spec.Commands)[cmdName]
+		cmdConfig := (*addon.Spec.Implementations[0].Commands)[cmdName]
 		if cmdConfig.Cli != nil {
 			cmd.Example = cmdConfig.Cli.Examples.String()
 
@@ -112,16 +101,16 @@ func newAddonCmd(addonManifests []addons.Addon, cmdName string) (*cobra.Command,
 	return cmd, nil
 }
 
-func newImplementationCmd(addonManifest addons.Addon, cmdName string) (*cobra.Command, error) {
+func newImplementationCmd(addon addons.Addon, cmdName string, implementation addons.Implementation) (*cobra.Command, error) {
 	cmd := &cobra.Command{
-		Use:   addonManifest.Metadata.Implementation,
-		Short: fmt.Sprintf("Runs '%s' for '%s' implementation of '%s' addon", cmdName, addonManifest.Metadata.Implementation, addonManifest.Metadata.Name),
+		Use:   implementation.Name,
+		Short: fmt.Sprintf("Runs '%s' for '%s' implementation of '%s' addon", cmdName, implementation.Name, addon.Metadata.Name),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCmd(cmd, addonManifest, cmdName)
+			return runCmd(cmd, addon, cmdName, implementation)
 		},
 	}
 
-	cmdConfig := (*addonManifest.Spec.Commands)[cmdName]
+	cmdConfig := (*implementation.Commands)[cmdName]
 	if cmdConfig.Cli != nil {
 		cmd.Example = cmdConfig.Cli.Examples.String()
 
@@ -176,11 +165,16 @@ func addFlag(flag addons.CliFlag, flagSet *pflag.FlagSet) error {
 	return nil
 }
 
-func runCmd(cmd *cobra.Command, addon addons.Addon, cmdName string) error {
-	slog.Info("Running addon command", "command", cmdName, "addon", addon.Metadata.Name)
-	pterm.Printfln("🤖 Running '%s' for '%s' addon", cmdName, addon.Metadata.Name)
+func runCmd(cmd *cobra.Command, addon addons.Addon, cmdName string, implementation addons.Implementation) error {
+	if len(addon.Spec.Implementations) > 1 {
+		slog.Info("Running addon command", "command", cmdName, "addon", addon.Metadata.Name, "implementation", implementation.Name)
+		pterm.Printfln("🤖 Running '%s' for implementation '%s' of '%s' addon", cmdName, implementation.Name, addon.Metadata.Name)
+	} else {
+		slog.Info("Running addon command", "command", cmdName, "addon", addon.Metadata.Name)
+		pterm.Printfln("🤖 Running '%s' for '%s' addon", cmdName, addon.Metadata.Name)
+	}
 
-	psCmd, params, err := buildPsCmd(cmd.Flags(), (*addon.Spec.Commands)[cmdName], addon.Directory)
+	psCmd, params, err := buildPsCmd(cmd.Flags(), (*implementation.Commands)[cmdName], addon.Directory)
 	if err != nil {
 		return err
 	}

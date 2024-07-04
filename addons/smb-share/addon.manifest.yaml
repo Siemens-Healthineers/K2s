@@ -8,51 +8,53 @@ metadata:
   name: smb-share
   description: StorageClass provisioning based on SMB share between K8s nodes (Windows/Linux)
 spec:
-  offline_usage:
-    linux:
-      repos: []
-      deb:
-        - cifs-utils
-        - samba
-      curl: []
-      additionalImages: []
-    windows:
-      curl: []
-  commands:
-    enable:
-      cli:
-        flags:
-          - name: smbHostType
-            shorthand: t
-            default: windows
-            description: SMB host type
-            constraints:
-              kind: validation-set
-              validationSet:
-                - windows
-                - linux
-        examples:
-          - cmd: k2s addons enable smb-share
-            comment: Creates an SMB share between K8s nodes and Windows host system
-      script:
-        subPath: Enable.ps1
-        parameterMappings:
-          - cliFlagName: smbHostType
-            scriptParameterName: SmbHostType
-    disable:
-      cli:
-        flags:
-          - name: force
-            shorthand: f
-            default: false
-            description: Disable the addon and DELETE ALL DATA without user confirmation
-        examples:
-          - cmd: k2s addons disable smb-share
-            comment: Disable addon smb-share in k2s
-          - cmd: k2s addons disable smb-share -f
-            comment: Removes an SMB share between K8s nodes and Windows host system without prompting for confirmation
-      script:
-        subPath: Disable.ps1
-        parameterMappings:
-          - cliFlagName: force
-            scriptParameterName: Force
+  implementations:
+    - name: smb-share
+      offline_usage:
+        linux:
+          repos: []
+          deb:
+            - cifs-utils
+            - samba
+          curl: []
+          additionalImages: []
+        windows:
+          curl: []
+      commands:
+        enable:
+          cli:
+            flags:
+              - name: smbHostType
+                shorthand: t
+                default: windows
+                description: SMB host type
+                constraints:
+                  kind: validation-set
+                  validationSet:
+                    - windows
+                    - linux
+            examples:
+              - cmd: k2s addons enable smb-share
+                comment: Creates an SMB share between K8s nodes and Windows host system
+          script:
+            subPath: Enable.ps1
+            parameterMappings:
+              - cliFlagName: smbHostType
+                scriptParameterName: SmbHostType
+        disable:
+          cli:
+            flags:
+              - name: force
+                shorthand: f
+                default: false
+                description: Disable the addon and DELETE ALL DATA without user confirmation
+            examples:
+              - cmd: k2s addons disable smb-share
+                comment: Disable addon smb-share in k2s
+              - cmd: k2s addons disable smb-share -f
+                comment: Removes an SMB share between K8s nodes and Windows host system without prompting for confirmation
+          script:
+            subPath: Disable.ps1
+            parameterMappings:
+              - cliFlagName: force
+                scriptParameterName: Force

@@ -8,71 +8,73 @@ metadata:
   name: registry
   description: Private image registry running in the Kubernetes cluster exposed on k2s-registry.local
 spec:
-  offline_usage:
-    linux:
-      repos: []
-      deb:
-        - apache2-utils
-      curl: []
-      additionalImages: []
-    windows:
-      curl: []
-  commands:
-    enable:
-      cli:
-        flags:
-          - name: ingress
-            shorthand: i
-            default: ingress-nginx
-            description: Ingress controller to use for exposing registry if not already enabled
-            constraints:
-              kind: validation-set
-              validationSet:
-                - ingress-nginx
-                - traefik
-          - name: default-credentials
-            shorthand: d
-            default: false
-            description: Use default credential for registry authentification
-          - name: nodeport
-            shorthand: n
-            default: 0
-            description: Use nodeport for registry access
-            constraints:
-              kind: range
-              range:
-                min: 30000
-                max: 32767
-        examples:
-          - cmd: k2s addons enable registry
-            comment: Enable registry in k2s
-          - cmd: k2s addons enable registry --default-credentials
-            comment: Enable addon registry in k2s with default credentials
-          - cmd: k2s addons enable registry --ingress traefik
-            comment: Enable addon registry in k2s with traefik ingress controller
-      script:
-        subPath: Enable.ps1
-        parameterMappings:
-          - cliFlagName: ingress
-            scriptParameterName: Ingress
-          - cliFlagName: default-credentials
-            scriptParameterName: UseDefaultCredentials
-          - cliFlagName: nodeport
-            scriptParameterName: Nodeport
-    disable:
-      cli:
-        flags:
-          - name: delete-images
-            shorthand: d
-            default: false
-            description: Delete local image storage
-        examples:
-          - cmd: k2s addons disable registry
-            comment: Disable addon registry in k2s
-          - cmd: k2s addons disable registry --delete-images
-            comment: Disable addon registry in k2s and delete local images
-      script:
-        subPath: Disable.ps1
-        parameterMappings:
-          - cliFlagName: delete-images
-            scriptParameterName: DeleteImages
+  implementations:
+    - name: registry
+      offline_usage:
+        linux:
+          repos: []
+          deb:
+            - apache2-utils
+          curl: []
+          additionalImages: []
+        windows:
+          curl: []
+      commands:
+        enable:
+          cli:
+            flags:
+              - name: ingress
+                shorthand: i
+                default: ingress-nginx
+                description: Ingress controller to use for exposing registry if not already enabled
+                constraints:
+                  kind: validation-set
+                  validationSet:
+                    - ingress-nginx
+                    - traefik
+              - name: default-credentials
+                shorthand: d
+                default: false
+                description: Use default credential for registry authentification
+              - name: nodeport
+                shorthand: n
+                default: 0
+                description: Use nodeport for registry access
+                constraints:
+                  kind: range
+                  range:
+                    min: 30000
+                    max: 32767
+            examples:
+              - cmd: k2s addons enable registry
+                comment: Enable registry in k2s
+              - cmd: k2s addons enable registry --default-credentials
+                comment: Enable addon registry in k2s with default credentials
+              - cmd: k2s addons enable registry --ingress traefik
+                comment: Enable addon registry in k2s with traefik ingress controller
+          script:
+            subPath: Enable.ps1
+            parameterMappings:
+              - cliFlagName: ingress
+                scriptParameterName: Ingress
+              - cliFlagName: default-credentials
+                scriptParameterName: UseDefaultCredentials
+              - cliFlagName: nodeport
+                scriptParameterName: Nodeport
+        disable:
+          cli:
+            flags:
+              - name: delete-images
+                shorthand: d
+                default: false
+                description: Delete local image storage
+            examples:
+              - cmd: k2s addons disable registry
+                comment: Disable addon registry in k2s
+              - cmd: k2s addons disable registry --delete-images
+                comment: Disable addon registry in k2s and delete local images
+          script:
+            subPath: Disable.ps1
+            parameterMappings:
+              - cliFlagName: delete-images
+                scriptParameterName: DeleteImages
