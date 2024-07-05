@@ -147,11 +147,11 @@ function Get-EnabledAddons {
 
     Write-Log "[$script::$function] Addons config found"
 
-    $enabledAddons = @{Addons = [System.Collections.ArrayList]@() }
+    $enabledAddons = [System.Collections.ArrayList]@()
 
     $config | ForEach-Object {
         Write-Log "[$script::$function] found addon '$($_.Name)'"
-        $enabledAddons.Addons.Add(@{Name = $_.Name; }) | Out-Null
+        $enabledAddons.Add($_) | Out-Null
     }
 
     return $enabledAddons
@@ -189,11 +189,13 @@ function Add-AddonToSetupJson() {
     }
     $addonAlreadyExists = $parsedSetupJson.EnabledAddons | Where-Object { $_.Name -eq $Addon.Name }
     if ($addonAlreadyExists) {
-        $addon = $parsedSetupJson.EnabledAddons | Where-Object { $_.Name -eq $Addon.Name}
-        $addon.Implementations.Add($Addon.Implementation)
+        $implementations = [System.Collections.ArrayList]($addonAlreadyExists.Implementations)
+        $implementations.Add($Addon.Implementation)
+        $addonAlreadyExists.Implementations = $implementations
         $newEnabledAddons = @($parsedSetupJson.EnabledAddons | Where-Object { $_.Name -ne $Addon.Name })
-        $newEnabledAddons += $addon
+        $newEnabledAddons += $addonAlreadyExists
         $parsedSetupJson.EnabledAddons = $newEnabledAddons
+        $parsedSetupJson | ConvertTo-Json -Depth 100 | Set-Content -Force $filePath -Confirm:$false
     } else {
         $parsedSetupJson.EnabledAddons += @{Name = $Addon.Name; Implementations = [System.Collections.ArrayList]@($Addon.Implementation)}
         $parsedSetupJson | ConvertTo-Json -Depth 100 | Set-Content -Force $filePath -Confirm:$false
@@ -236,8 +238,10 @@ function Remove-AddonFromSetupJson {
         } else {
             $newEnabledAddons = @($enabledAddons | Where-Object { $_.Name -ne $Addon.Name })
             $addonToDelete = $enabledAddons | Where-Object { $_.Name -eq $Addon.Name}
-            ([System.Collections.ArrayList]($addonToDelete.Implementations)).Remove($Addon.Implementation)
-            if ($addon.Implementations.Count -gt 0) {
+            $implementations = [System.Collections.ArrayList]($addonToDelete.Implementations)
+            $implementations.Remove($Addon.Implementation)
+            $addonToDelete.Implementations = $implementations
+            if ($addonToDelete.Implementations.Count -gt 0) {
                 $newEnabledAddons += $addonToDelete
             }
         }
