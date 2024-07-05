@@ -95,7 +95,7 @@ func (i *Installer) Install(
 		errorLine, found := common.GetInstallPreRequisiteError(outputWriter.ErrorLines)
 		if found {
 			i.Printer.PrintWarning("Prerequisite check failed,", errorLine)
-			i.Printer.PrintWarning("Have a look at the pre-requisites https://github.com/Siemens-Healthineers/K2s and re-issue 'k2s install'")
+			i.Printer.PrintWarning("Have a look at the pre-requisites 'https://github.com/Siemens-Healthineers/K2s/blob/main/docs/op-manual/installing-k2s.md#prerequisites' and re-issue 'k2s install'")
 			err = i.DeleteConfigFunc(cfg.Host.K2sConfigDir)
 			if err != nil {
 				slog.Debug("config file does not exist, nothing to do")
