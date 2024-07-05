@@ -6,10 +6,10 @@
 
 <#
 .SYNOPSIS
-Uninstalls nginx kubernetes gateway
+Uninstalls nginx kubernetes gateway controller
 
 .DESCRIPTION
-Uninstalls nginx kubernetes gateway
+Uninstalls nginx kubernetes gateway controller
 #>
 
 Param (
@@ -41,8 +41,8 @@ if ($systemError) {
     exit 1
 }
 
-if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'nginx-gateway', '--ignore-not-found').Output -and (Test-IsAddonEnabled -Name 'gateway-nginx') -ne $true) {
-    $errMsg = "Addon 'gateway-nginx' is already disabled, nothing to do."
+if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'gateway-api', '--ignore-not-found').Output -and (Test-IsAddonEnabled -Name 'gateway-api') -ne $true) {
+    $errMsg = "Addon 'gateway-api' is already disabled, nothing to do."
 
     if ($EncodeStructuredOutput -eq $true) {
         $err = New-Error -Severity Warning -Code (Get-ErrCodeAddonAlreadyDisabled) -Message $errMsg
@@ -54,9 +54,9 @@ if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'nginx-gateway', '--ig
     exit 1
 }
 
-$manifestsPath = "$(Get-KubePath)\addons\gateway-nginx\manifests"
+$manifestsPath = "$(Get-KubePath)\addons\gateway-api\manifests"
 
-Write-Log 'Uninstalling NGINX Kubernetes Gateway' -Console
+Write-Log 'Uninstalling NGINX Kubernetes Gateway Controller' -Console
 (Invoke-Kubectl -Params 'delete', '-f', "$manifestsPath\nginx-gateway-fabric-v1.1.0.yaml").Output | Write-Log
 (Invoke-Kubectl -Params 'delete', '-f', "$manifestsPath\crds").Output | Write-Log
 
@@ -64,7 +64,7 @@ Write-Log 'Uninstalling Gateway API' -Console
 (Invoke-Kubectl -Params 'delete', '-f', "$manifestsPath\gateway-api-v1.0.0.yaml").Output | Write-Log
 
 Remove-ScriptsFromHooksDir -ScriptNames @(Get-ChildItem -Path "$PSScriptRoot\hooks" | ForEach-Object { $_.Name })
-Remove-AddonFromSetupJson -Name 'gateway-nginx'
+Remove-AddonFromSetupJson -Name 'gateway-api'
 
 if ($EncodeStructuredOutput -eq $true) {
     Send-ToCli -MessageType $MessageType -Message @{Error = $null }

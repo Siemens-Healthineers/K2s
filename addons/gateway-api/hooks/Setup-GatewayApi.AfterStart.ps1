@@ -17,6 +17,6 @@ $k8sApiModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k8s-api/
 
 Import-Module $k8sApiModule
 
-Invoke-Kubectl -Params 'delete', 'pods', '--all', '-n', 'nginx-gateway' | Out-Null
+Invoke-Kubectl -Params 'delete', 'pods', '--all', '-n', 'gateway-api' | Out-Null
 
 Write-Log 'nginx gateway fabric re-established after cluster start' -Console

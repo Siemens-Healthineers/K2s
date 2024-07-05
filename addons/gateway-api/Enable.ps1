@@ -6,10 +6,10 @@
 
 <#
 .SYNOPSIS
-Installs nginx kubernetes gateway
+Installs nginx kubernetes gateway controller
 
 .DESCRIPTION
-Installs nginx kubernetes gateway
+Installs nginx kubernetes gateway controller
 
 #>
 
@@ -48,13 +48,13 @@ if ($systemError) {
 
 $setupInfo = Get-SetupInfo
 if ($setupInfo.Name -ne 'k2s') {
-  $err = New-Error -Severity Warning -Code (Get-ErrCodeWrongSetupType) -Message "Addon 'gateway-nginx' can only be enabled for 'k2s' setup type."  
+  $err = New-Error -Severity Warning -Code (Get-ErrCodeWrongSetupType) -Message "Addon 'gateway-api' can only be enabled for 'k2s' setup type."  
   Send-ToCli -MessageType $MessageType -Message @{Error = $err }
   return
 }
 
-if ((Test-IsAddonEnabled -Name 'gateway-nginx') -eq $true -or "$((Invoke-Kubectl -Params 'get', 'deployment', '-n', 'nginx-gateway' ,'-o', 'yaml').Output)" -match 'nginx-gateway') {
-  $errMsg = "Addon 'gateway-nginx' is already enabled, nothing to do."
+if ((Test-IsAddonEnabled -Name 'gateway-api') -eq $true -or "$((Invoke-Kubectl -Params 'get', 'deployment', '-n', 'gateway-api' ,'-o', 'yaml').Output)" -match 'gateway-api') {
+  $errMsg = "Addon 'gateway-api' is already enabled, nothing to do."
 
   if ($EncodeStructuredOutput -eq $true) {
     $err = New-Error -Severity Warning -Code (Get-ErrCodeAddonAlreadyEnabled) -Message $errMsg
@@ -66,8 +66,8 @@ if ((Test-IsAddonEnabled -Name 'gateway-nginx') -eq $true -or "$((Invoke-Kubectl
   exit 1
 }
 
-if ((Test-IsAddonEnabled -Name 'ingress-nginx') -eq $true) {
-  $errMsg = "Addon 'ingress-nginx' is enabled. Disable it first to avoid port conflicts."
+if ((Test-IsAddonEnabled -Name 'ingress') -eq $true) {
+  $errMsg = "Addon 'ingress' is enabled. Disable it first to avoid port conflicts."
 
   if ($EncodeStructuredOutput -eq $true) {
     $err = New-Error -Severity Warning -Code (Get-ErrCodeAddonAlreadyEnabled) -Message $errMsg
@@ -79,20 +79,7 @@ if ((Test-IsAddonEnabled -Name 'ingress-nginx') -eq $true) {
   exit 1
 }
 
-if ((Test-IsAddonEnabled -Name 'traefik') -eq $true) {
-  $errMsg = "Addon 'traefik' is enabled. Disable it first to avoid port conflicts."
-  
-  if ($EncodeStructuredOutput -eq $true) {
-    $err = New-Error -Severity Warning -Code (Get-ErrCodeAddonAlreadyEnabled) -Message $errMsg
-    Send-ToCli -MessageType $MessageType -Message @{Error = $err }
-    return
-  }
-
-  Write-Log $errMsg -Error
-  exit 1
-}
-
-$manifestsPath = "$(Get-KubePath)\addons\gateway-nginx\manifests"
+$manifestsPath = "$(Get-KubePath)\addons\gateway-api\manifests"
 
 Write-Log 'Installing Gateway API' -Console
 (Invoke-Kubectl -Params 'apply', '-f', "$manifestsPath\gateway-api-v1.0.0.yaml").Output | Write-Log
@@ -111,10 +98,10 @@ if ($PSVersionTable.PSVersion.Major -gt 5) {
 else {
   $patchJson = '{\"spec\":{\"externalIPs\":[\"' + $controlPlaneIp + '\"]}}'
 }
-$gatewayNginxSvc = 'nginx-gateway'
-(Invoke-Kubectl -Params 'patch', 'svc', $gatewayNginxSvc , '-p', "$patchJson", '-n', 'nginx-gateway').Output | Write-Log
+$gatewayNginxSvc = 'gateway-nginx'
+(Invoke-Kubectl -Params 'patch', 'svc', $gatewayNginxSvc , '-p', "$patchJson", '-n', 'gateway-api').Output | Write-Log
 
-$kubectlCmd = (Invoke-Kubectl -Params 'wait', '--timeout=60s', '--for=condition=Available', '-n', 'nginx-gateway', 'deployment/nginx-gateway')
+$kubectlCmd = (Invoke-Kubectl -Params 'wait', '--timeout=60s', '--for=condition=Available', '-n', 'gateway-api', 'deployment/nginx-gateway')
 Write-Log $kubectlCmd.Output
 if (!$kubectlCmd.Success) {
   $errMsg = 'Not all pods could become ready. Please use kubectl describe for more details.'
@@ -129,7 +116,7 @@ if (!$kubectlCmd.Success) {
   exit 1
 }
 
-Write-Log 'gateway-nginx addon installed successfully' -Console
+Write-Log 'gateway-api addon installed successfully' -Console
 if ($SharedGateway) {
   Add-HostEntries -Url 'k2s-gateway.local'
   (Invoke-Kubectl -Params 'apply', '-f', "$manifestsPath\shared-gateway.yaml").Output | Write-Log
@@ -148,7 +135,7 @@ name: example-route
 spec:
 parentRefs:
 - name: shared-gateway
-namespace: nginx-gateway
+namespace: gateway-api
 rules:
 - matches:
 - path:
@@ -181,7 +168,7 @@ port: 80
 }
 
 Copy-ScriptsToHooksDir -ScriptPaths @(Get-ChildItem -Path "$PSScriptRoot\hooks" | ForEach-Object { $_.FullName })
-Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'gateway-nginx' })
+Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'gateway-api' })
 
 if ($EncodeStructuredOutput -eq $true) {
   Send-ToCli -MessageType $MessageType -Message @{Error = $null }

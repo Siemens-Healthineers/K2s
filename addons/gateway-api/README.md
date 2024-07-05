@@ -4,17 +4,17 @@ SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
 SPDX-License-Identifier: MIT
 -->
 
-# gateway-nginx
+# gateway-api
 
 ## Introduction
 
-The `gateway-nginx` addon provides an implementation of the [NGINX Gateway Fabric](https://github.com/nginxinc/nginx-gateway-fabric). It is an open-source project that provides an implementation of the [Gateway API](https://gateway-api.sigs.k8s.io/) using NGINX as the data plane. The goal of this project is to implement the core Gateway APIs to configure an HTTP or TCP/UDP load balancer, reverse-proxy, or API gateway for applications running on Kubernetes.
+The `gateway-api` addon provides an implementation of the [NGINX Gateway Fabric](https://github.com/nginxinc/nginx-gateway-fabric). It is an open-source project that provides an implementation of the [Gateway API](https://gateway-api.sigs.k8s.io/) using NGINX as the data plane. The goal of this project is to implement the core Gateway APIs to configure an HTTP or TCP/UDP load balancer, reverse-proxy, or API gateway for applications running on Kubernetes.
 
 ## Getting started
 
-The gateway-nginx addon can be enabled using the k2s CLI by running the following command:
+The gateway-api addon can be enabled using the k2s CLI by running the following command:
 ```
-k2s addons enable gateway-nginx
+k2s addons enable gateway-api
 ```
 ## Creating a sample Gateway and HTTPRoute
 

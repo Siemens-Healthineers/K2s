@@ -12,7 +12,7 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: nginx-gateway
-  namespace: nginx-gateway
+  namespace: gateway-api
   labels:
     app.kubernetes.io/name: nginx-gateway
     app.kubernetes.io/instance: nginx-gateway
@@ -117,14 +117,14 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: nginx-gateway
-  namespace: nginx-gateway
+  namespace: gateway-api
 ---
 # Source: nginx-gateway-fabric/templates/deployment.yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: nginx-gateway
-  namespace: nginx-gateway
+  namespace: gateway-api
   labels:
     app.kubernetes.io/name: nginx-gateway
     app.kubernetes.io/instance: nginx-gateway
@@ -261,7 +261,7 @@ apiVersion: gateway.nginx.org/v1alpha1
 kind: NginxGateway
 metadata:
   name: nginx-gateway-config
-  namespace: nginx-gateway
+  namespace: gateway-api
   labels:
     app.kubernetes.io/name: nginx-gateway
     app.kubernetes.io/instance: nginx-gateway
@@ -275,7 +275,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: nginx-gateway
-  namespace: nginx-gateway
+  namespace: gateway-api
   labels:
     app.kubernetes.io/name: nginx-gateway
     app.kubernetes.io/instance: nginx-gateway

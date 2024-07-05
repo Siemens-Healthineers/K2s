@@ -6,7 +6,7 @@ apiVersion: gateway.networking.k8s.io/v1beta1
 kind: Gateway
 metadata:
   name: shared-gateway
-  namespace: nginx-gateway
+  namespace: gateway-api
   annotations:
     cert-manager.io/cluster-issuer: k2s-ca-issuer
     cert-manager.io/common-name: k2s-gateway.local

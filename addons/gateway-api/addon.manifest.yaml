@@ -5,11 +5,11 @@
 apiVersion: v1
 kind: AddonManifest
 metadata:
-  name: gateway-nginx
+  name: gateway-api
   description: "Gateway Controller for external access that provides an implementation of the Gateway API"
 spec:
   implementations:
-    - name: gateway-nginx
+    - name: gateway-api
       commands:
         enable:
           cli:
@@ -18,8 +18,8 @@ spec:
                 default: false
                 description: Use shared gateway
             examples:
-              - cmd: k2s addons enable gateway-nginx
-                comment: Enable gateway-nginx in k2s
+              - cmd: k2s addons enable gateway-api
+                comment: Enable gateway-api in k2s
           script:
             subPath: Enable.ps1
             parameterMappings:
@@ -28,7 +28,7 @@ spec:
         disable:
           cli:
             examples:
-              - cmd: k2s addons disable gateway-nginx
-                comment: Disable addon gateway-nginx in k2s
+              - cmd: k2s addons disable gateway-api
+                comment: Disable addon gateway-api in k2s
           script:
             subPath: Disable.ps1
