@@ -4,11 +4,11 @@ SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
 SPDX-License-Identifier: MIT
 -->
 
-# smb-share
+# storage
 
 ## Introduction
 
-The `smb-share` addon provides a Samba share in order to share files between the k2s nodes:
+The `storage` addon provides a Samba share in order to share files between the k2s nodes:
 
 - smb share between k2s nodes can be either hosted by Windows or by Linux (Samba)
 - smb share can be accessed by the node's OSs
@@ -16,9 +16,9 @@ The `smb-share` addon provides a Samba share in order to share files between the
 
 ## Getting started
 
-The smb-share addon can be enabled using the k2s CLI by running the following command:
+The storage addon can be enabled using the k2s CLI by running the following command:
 ```
-k2s addons enable smb-share
+k2s addons enable storage
 ```
 
 ## Shared folder
@@ -37,4 +37,4 @@ C:\k8s-smb-share
 ```
   
 ## Examples
-- [Example Workloads](../../k2s/test/e2e/addons/smb-share/workloads/)
+- [Example Workloads](../../k2s/test/e2e/addons/storage/workloads/)

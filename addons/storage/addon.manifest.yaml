@@ -5,11 +5,11 @@
 apiVersion: v1
 kind: AddonManifest
 metadata:
-  name: smb-share
+  name: storage
   description: StorageClass provisioning based on SMB share between K8s nodes (Windows/Linux)
 spec:
   implementations:
-    - name: smb-share
+    - name: storage
       offline_usage:
         linux:
           repos: []
@@ -34,7 +34,7 @@ spec:
                     - windows
                     - linux
             examples:
-              - cmd: k2s addons enable smb-share
+              - cmd: k2s addons enable storage
                 comment: Creates an SMB share between K8s nodes and Windows host system
           script:
             subPath: Enable.ps1
@@ -49,9 +49,9 @@ spec:
                 default: false
                 description: Disable the addon and DELETE ALL DATA without user confirmation
             examples:
-              - cmd: k2s addons disable smb-share
-                comment: Disable addon smb-share in k2s
-              - cmd: k2s addons disable smb-share -f
+              - cmd: k2s addons disable storage
+                comment: Disable addon storage in k2s
+              - cmd: k2s addons disable storage -f
                 comment: Removes an SMB share between K8s nodes and Windows host system without prompting for confirmation
           script:
             subPath: Disable.ps1

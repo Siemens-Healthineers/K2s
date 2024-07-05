@@ -32,7 +32,7 @@ Initialize-Logging -ShowLogs:$ShowLogs
 if ($Force -ne $true) {
     $answer = Read-Host 'WARNING: This DELETES ALL DATA of the shared SMB folder. Continue? (y/N)'
     if ($answer -ne 'y') {
-        $errMsg = 'Disable smb-share cancelled.'
+        $errMsg = 'Disable storage cancelled.'
         if ($EncodeStructuredOutput -eq $true) {
             $err = New-Error -Severity Warning -Code (Get-ErrCodeUserCancellation) -Message $errMsg
             Send-ToCli -MessageType $MessageType -Message @{Error = $err }

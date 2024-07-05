@@ -10,7 +10,7 @@ $passwordModule = "$PSScriptRoot/password.module.psm1"
 
 Import-Module $clusterModule, $infraModule, $nodeModule, $addonsModule, $passwordModule
 
-$AddonName = 'smb-share'
+$AddonName = 'storage'
 $localHooksDir = "$PSScriptRoot\..\hooks"
 $logFile = "$(Get-SystemDriveLetter):\var\log\ssh_smbSetup.log"
 $linuxLocalPath = Get-LinuxLocalSharePath
@@ -106,7 +106,7 @@ function Get-IsWinVmSmbShareWorking {
     $isWinVmSmbShareWorking = Invoke-Command -Session $Session {
         Set-ExecutionPolicy Bypass -Force -ErrorAction Continue | Out-Null
 
-        Import-Module "$env:SystemDrive\k\addons\smb-share\module\Smb-share.module.psm1" | Out-Null
+        Import-Module "$env:SystemDrive\k\addons\storage\module\Smb-share.module.psm1" | Out-Null
 
         return (Test-SharedFolderMountOnWinNodeSilently)
     }
@@ -177,7 +177,7 @@ function New-SmbHostOnLinuxIfNotExisting {
     # download samba and rest
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo DEBIAN_FRONTEND=noninteractive apt-get update -qq --yes').Output | Write-Log
 
-    Install-DebianPackages -addon 'smb-share' -packages 'cifs-utils', 'samba'
+    Install-DebianPackages -addon 'storage' -packages 'cifs-utils', 'samba'
 
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo adduser --no-create-home --disabled-password --disabled-login --gecos '' $smbUserName").Output | Write-Log
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "(echo '$($creds.GetNetworkCredential().Password)'; echo '$($creds.GetNetworkCredential().Password)') | sudo smbpasswd -s -a $smbUserName" -NoLog).Output | Write-Log
@@ -861,7 +861,7 @@ function Add-SharedFolderToWinVM {
         Set-ExecutionPolicy Bypass -Force -ErrorAction Continue
 
         $logModule = "$env:SystemDrive/k/lib/modules/k2s/k2s.infra.module/log/log.module.psm1"
-        $smbShareModule = "$env:SystemDrive\k\addons\smb-share\module\Smb-share.module.psm1"
+        $smbShareModule = "$env:SystemDrive\k\addons\storage\module\Smb-share.module.psm1"
 
         Import-Module $logModule, $smbShareModule
         
@@ -893,7 +893,7 @@ function Remove-SharedFolderFromWinVM {
         Set-ExecutionPolicy Bypass -Force -ErrorAction Continue
 
         $logModule = "$env:SystemDrive/k/lib/modules/k2s/k2s.infra.module/log/log.module.psm1"
-        $smbShareModule = "$env:SystemDrive\k\addons\smb-share\module\Smb-share.module.psm1"
+        $smbShareModule = "$env:SystemDrive\k\addons\storage\module\Smb-share.module.psm1"
 
         Import-Module $logModule, $smbShareModule
 
@@ -1030,7 +1030,7 @@ function Enable-SmbShare {
     Write-Log -Console '********************************************************************************************'
     Write-Log -Console '** IMPORTANT:                                                                             **' 
     Write-Log -Console "**       - use the StorageClass name '$smbStorageClassName' to provide storage.                            **"
-    Write-Log -Console "**         See '<root>\k2s\test\e2e\addons\smb-share\workloads\' for example deployments. **"
+    Write-Log -Console "**         See '<root>\k2s\test\e2e\addons\storage\workloads\' for example deployments. **"
     Write-Log -Console '********************************************************************************************'
 
     return @{Error = $null }

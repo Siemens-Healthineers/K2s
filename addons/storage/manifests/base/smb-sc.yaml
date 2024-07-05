@@ -14,9 +14,9 @@ parameters:
   # if csi.storage.k8s.io/provisioner-secret is provided, will create a sub directory
   # with PV name under source
   csi.storage.k8s.io/provisioner-secret-name: "smbcreds"
-  csi.storage.k8s.io/provisioner-secret-namespace: "kube-system"
+  csi.storage.k8s.io/provisioner-secret-namespace: "storage"
   csi.storage.k8s.io/node-stage-secret-name: "smbcreds"
-  csi.storage.k8s.io/node-stage-secret-namespace: "kube-system"
+  csi.storage.k8s.io/node-stage-secret-namespace: "storage"
 reclaimPolicy: Delete # default; available values: Delete, Retain
 volumeBindingMode: Immediate
 mountOptions:
