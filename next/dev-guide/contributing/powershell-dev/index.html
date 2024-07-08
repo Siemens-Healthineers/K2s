@@ -23,7 +23,7 @@ SPDX-License-Identifier: MIT
       
       
       <link rel="icon" href="../../../assets/logo.png">
-      <meta name="generator" content="mkdocs-1.6.0, mkdocs-material-9.5.27">
+      <meta name="generator" content="mkdocs-1.6.0, mkdocs-material-9.5.28">
     
     
       
@@ -1244,6 +1244,15 @@ You're not viewing the latest release version.
 </li>
       
         <li class="md-nav__item">
+  <a href="#markers" class="md-nav__link">
+    <span class="md-ellipsis">
+      Markers
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#testing" class="md-nav__link">
     <span class="md-ellipsis">
       Testing
@@ -1570,6 +1579,15 @@ You're not viewing the latest release version.
 </li>
       
         <li class="md-nav__item">
+  <a href="#markers" class="md-nav__link">
+    <span class="md-ellipsis">
+      Markers
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#testing" class="md-nav__link">
     <span class="md-ellipsis">
       Testing
@@ -1609,18 +1627,18 @@ SPDX-License-Identifier: MIT
 <h1 id="powershell-development">PowerShell Development</h1>
 <h2 id="strings">Strings</h2>
 <p><em>PowerShell</em> takes us a lot of thinking off when it comes to strings.</p>
-<p>For example just using 
+<p>For example just using</p>
 <div class="highlight"><span class="filename">PowerShell</span><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nv">$myPath</span><span class="p">\</span><span class="n">theFile</span><span class="p">.</span><span class="n">yaml</span>
 </code></pre></div>
-will be interpreted as a string in the end.<br/>
-When using double quotes like 
+<p>will be interpreted as a string in the end.<br/>
+When using double quotes like</p>
 <div class="highlight"><span class="filename">PowerShell</span><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="s2">&quot;$myPath\theFile.yaml&quot;</span>
 </code></pre></div>
-we are then telling <em>PowerShell</em> that it is a string (<em>PowerShell</em> doesn't have to do its best guess).<br/>
-And if our string must contain double quotes, then 
+<p>we are then telling <em>PowerShell</em> that it is a string (<em>PowerShell</em> doesn't have to do its best guess).<br/>
+And if our string must contain double quotes, then</p>
 <div class="highlight"><span class="filename">PowerShell</span><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="s2">&quot;</span><span class="se">`&quot;</span><span class="s2">$myPath\theFile.yaml</span><span class="se">`&quot;</span><span class="s2">&quot;</span>
 </code></pre></div>
-(in the latter case, <em>PowerShell</em> interprets a string out of it) has to be used.</p>
+<p>(in the latter case, <em>PowerShell</em> interprets a string out of it) has to be used.</p>
 <h2 id="paths">Paths</h2>
 <p>Since a path can contain empty spaces extra attention has to be paid, specially when calling an external <em>Windows</em> tool with a path as argument.</p>
 <p>The rule of thumb is the following:</p>
@@ -1645,6 +1663,17 @@ next developer that is confronted with the code (many times just ourselves...)</
 <a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>    <span class="n">ExecCmdMaster</span> <span class="s2">&quot;echo Acquire::http::Proxy \\\&quot;&quot;$Proxy\\\&quot;&quot;\; | sudo tee -a /etc/apt/apt.conf.d/proxy.conf&quot;</span> <span class="n">-UsePwd</span>
 <a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="p">}</span>
 </code></pre></div>
+<h2 id="markers">Markers</h2>
+<p>Passing markers from PowerShell to the <abbr title="Command-Line Interface">CLI</abbr> will result in appropriate user messages. The following example shows how during installation, if some pre-requisite checks fail then marker <code>[PREREQ-FAILED]</code> is sent through error stream which results in only warning message to user without going to corrupted install state.</p>
+<div class="highlight"><span class="filename">PowerShell</span><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">if</span> <span class="p">(</span> <span class="nv">$MasterVMMemory</span> <span class="o">-lt</span> <span class="n">2GB</span> <span class="p">)</span> <span class="p">{</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>    <span class="nb">Write-Log</span> <span class="s1">&#39;k2s needs minimal 2GB main memory, you have passed a lower value!&#39;</span> <span class="n">-Error</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>    <span class="k">throw</span> <span class="s1">&#39;[PREREQ-FAILED] Master node memory passed too low&#39;</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="p">}</span>
+</code></pre></div>
+<p>Following markers are in use:</p>
+<ul>
+<li><code>[PREREQ-FAILED]</code> : Used in installation step, does not lead to corrupted state, uninstall is not necessary, cleanup of setup.json is performed.</li>
+</ul>
 <h2 id="testing">Testing</h2>
 <p>See <a href="../automated-testing/#automated-testing-with-pester">Automated Testing with Pester</a>.</p>
 <!--
@@ -1752,7 +1781,7 @@ SPDX-License-Identifier: MIT
     <script id="__config" type="application/json">{"base": "../../..", "features": ["navigation.top", "navigation.tabs", "navigation.tabs.sticky", "navigation.instant", "navigation.instant.progress", "navigation.tracking", "navigation.footer", "navigation.indexes", "search.suggest", "search.highlight", "search.share", "announce.dismiss", "content.action.edit", "content.code.copy", "content.code.annotate"], "search": "../../../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"alias": true, "default": "latest", "provider": "mike"}}</script>
     
     
-      <script src="../../../assets/javascripts/bundle.ad660dcc.min.js"></script>
+      <script src="../../../assets/javascripts/bundle.fe8b6f2b.min.js"></script>
       
     
   </body>
