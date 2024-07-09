@@ -64,14 +64,9 @@ func uninstallk8s(cmd *cobra.Command, args []string) error {
 
 	slog.Debug("PS command created", "command", uninstallCmd)
 
-	outputWriter, err := common.NewOutputWriter()
-	if err != nil {
-		return err
-	}
-
 	start := time.Now()
 
-	err = powershell.ExecutePs(uninstallCmd, common.DeterminePsVersion(config), outputWriter)
+	err = powershell.ExecutePs(uninstallCmd, common.DeterminePsVersion(config), common.NewOutputWriter())
 	if err != nil {
 		return err
 	}
