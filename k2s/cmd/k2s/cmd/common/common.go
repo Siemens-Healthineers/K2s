@@ -96,7 +96,7 @@ func (s FailureSeverity) String() string {
 	}
 }
 
-func (o *OutputWriter) WriteStd(line string) {
+func (o *OutputWriter) WriteStdOut(line string) {
 	if o.ShowProgress {
 		pterm.Printfln("⏳ %s", line)
 	} else {
@@ -104,7 +104,7 @@ func (o *OutputWriter) WriteStd(line string) {
 	}
 }
 
-func (o *OutputWriter) WriteErr(line string) {
+func (o *OutputWriter) WriteStdErr(line string) {
 	o.errorLineBuffer.Log(line)
 	o.ErrorOccurred = true
 	o.ErrorLines = append(o.ErrorLines, line)
@@ -116,15 +116,11 @@ func (o *OutputWriter) Flush() {
 	o.errorLineBuffer.Flush()
 }
 
-func NewOutputWriter() (*OutputWriter, error) {
-	errorLineBuffer, err := createErrorLineBuffer()
-	if err != nil {
-		return nil, err
-	}
-
+func NewOutputWriter() *OutputWriter {
 	return &OutputWriter{
 		ShowProgress:    true,
-		errorLineBuffer: errorLineBuffer}, nil
+		errorLineBuffer: createErrorLineBuffer(),
+	}
 }
 
 func PrintCompletedMessage(duration time.Duration, command string) {
@@ -220,9 +216,8 @@ func GetInstallPreRequisiteError(errorLines []string) (line string, found bool) 
 	return "", false
 }
 
-func createErrorLineBuffer() (*logging.LogBuffer, error) {
+func createErrorLineBuffer() *logging.LogBuffer {
 	return logging.NewLogBuffer(logging.BufferConfig{
-		Limit: 100,
 		FlushFunc: func(buffer []string) {
 			slog.Error("Flushing error lines", "count", len(buffer), "lines", buffer)
 		},

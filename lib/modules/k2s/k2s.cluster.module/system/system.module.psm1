@@ -66,8 +66,8 @@ function Wait-ForAPIServer {
             break;
         }
         if ($iteration -eq 10) {
-            Write-Log 'API Server could not be started up, aborting...'
-            throw 'Unable to get the API Server running !'
+            Write-Log $result -Error
+            throw $result
         }
         Start-Sleep 2
     }
@@ -143,7 +143,7 @@ function Get-Cni0IpAddressInControlPlaneUsingSshWithRetries {
         [int] $RetryTimeoutInSeconds
     )
     $ipAddr = ''
-    for($i = 1; $i -le $Retries; ++$i) {
+    for ($i = 1; $i -le $Retries; ++$i) {
         $ipAddr = (Invoke-CmdOnControlPlaneViaSSHKey "ip addr show dev cni0 | grep 'inet ' | awk '{print `$2}' | cut -d/ -f1" -NoLog).Output
         $isIpAddress = [bool]($ipAddr -as [ipaddress])
         if ($isIpAddress) {

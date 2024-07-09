@@ -41,11 +41,7 @@ func (s *setupConfigProviderImpl) ReadConfig(configDir string) (*setupinfo.Confi
 }
 
 func (p *powershellExecutorImpl) ExecutePsWithStructuredResult(psVersion powershell.PowerShellVersion, psCmd string, params ...string) (*common.CmdResult, error) {
-	outputWriter, err := common.NewOutputWriter()
-	if err != nil {
-		return nil, err
-	}
-	return powershell.ExecutePsWithStructuredResult[*common.CmdResult](psCmd, "CmdResult", psVersion, outputWriter, params...)
+	return powershell.ExecutePsWithStructuredResult[*common.CmdResult](psCmd, "CmdResult", psVersion, common.NewOutputWriter(), params...)
 }
 
 func newSetupConfigProvider() setupConfigProvider {

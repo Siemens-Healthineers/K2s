@@ -226,12 +226,7 @@ func getImages(includeK8sImages bool, psVersion powershell.PowerShellVersion) (*
 		params = []string{"-IncludeK8sImages"}
 	}
 
-	outputWriter, err := common.NewOutputWriter()
-	if err != nil {
-		return nil, err
-	}
-
-	return powershell.ExecutePsWithStructuredResult[*LoadedImages](cmd, "StoredImages", psVersion, outputWriter, params...)
+	return powershell.ExecutePsWithStructuredResult[*LoadedImages](cmd, "StoredImages", psVersion, common.NewOutputWriter(), params...)
 }
 
 func printAvailableImages(terminalPrinter terminal.TerminalPrinter, containerImages []containerImage) {
