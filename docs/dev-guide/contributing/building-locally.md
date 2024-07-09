@@ -35,11 +35,11 @@ C:\k\bin\bgo
 
 To build all *Go* executables:
 ```console
-C:\k\bin\bgo -BuildAll 1
+C:\k\bin\bgo -BuildAll
 ```
 
 If *K2s* is installed then just simply execute the command without the full path:
 ```console
 bgo -ProjectDir "C:\k\k2s\cmd\httpproxy\" -ExeOutDir "c:\k\bin"
-bgo -BuildAll 1
+bgo -BuildAll
 ```

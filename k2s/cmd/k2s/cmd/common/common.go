@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	kl "github.com/siemens-healthineers/k2s/cmd/k2s/utils/logging"
 	"github.com/siemens-healthineers/k2s/internal/logging"
 	"github.com/siemens-healthineers/k2s/internal/powershell"
 
@@ -126,7 +125,7 @@ func NewOutputWriter() *OutputWriter {
 func PrintCompletedMessage(duration time.Duration, command string) {
 	pterm.Success.Printfln("'%s' completed in %v", command, duration)
 
-	logHint := pterm.LightCyan(fmt.Sprintf("Please see '%s' for more information", kl.PsLogPath()))
+	logHint := pterm.LightCyan(fmt.Sprintf("Please see '%s' for more information", logging.GlobalLogFilePath()))
 
 	pterm.Println(logHint)
 }
