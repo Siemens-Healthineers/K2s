@@ -1,12 +1,11 @@
 // SPDX-FileCopyrightText:  © 2023 Siemens Healthcare GmbH
 // SPDX-License-Identifier:   MIT
 
-package logging_test
+package logging
 
 import (
 	"testing"
 
-	"github.com/siemens-healthineers/k2s/internal/logging"
 	"github.com/siemens-healthineers/k2s/internal/reflection"
 	"github.com/stretchr/testify/mock"
 
@@ -30,7 +29,7 @@ func TestLogging(t *testing.T) {
 var _ = Describe("logging", func() {
 	Describe("RootLogDir", Label("integration"), func() {
 		It("return root log dir on Windows system drive", func() {
-			dir := logging.RootLogDir()
+			dir := RootLogDir()
 
 			Expect(dir).To(Equal("C:\\var\\log"))
 		})
@@ -39,44 +38,42 @@ var _ = Describe("logging", func() {
 	Describe("LogBuffer", Label("unit", "ci"), func() {
 		Describe("NewLogBuffer", func() {
 			When("buffer limit is 0", func() {
-				It("returns error", func() {
-					config := logging.BufferConfig{
+				It("limit is reset to default", func() {
+					config := BufferConfig{
 						Limit: 0,
 					}
 
-					result, err := logging.NewLogBuffer(config)
+					result := NewLogBuffer(config)
 
-					Expect(result).To(BeNil())
-					Expect(err).To(MatchError(ContainSubstring("limit must be greater than 0")))
+					Expect(result.config.Limit).To(Equal(DefaultBufferLimit))
 				})
 			})
 
 			When("flush function is nil", func() {
-				It("returns error", func() {
-					config := logging.BufferConfig{
-						Limit: 1,
+				It("function is set to default", func() {
+					config := BufferConfig{
+						FlushFunc: nil,
 					}
 
-					result, err := logging.NewLogBuffer(config)
+					result := NewLogBuffer(config)
 
-					Expect(result).To(BeNil())
-					Expect(err).To(MatchError(ContainSubstring("flush function must not be nil")))
+					Expect(result.config.FlushFunc).NotTo(BeNil())
 				})
 			})
 
-			When("config is valid", func() {
-				It("returns buffer", func() {
-					config := logging.BufferConfig{
-						Limit: 1,
-						FlushFunc: func(buffer []string) {
-							// empty
-						},
+			When("limit and flush function set", func() {
+				It("config values set correctly", func() {
+					called := false
+					config := BufferConfig{
+						Limit:     1,
+						FlushFunc: func(_ []string) { called = true },
 					}
 
-					result, err := logging.NewLogBuffer(config)
+					result := NewLogBuffer(config)
+					result.config.FlushFunc(nil)
 
-					Expect(result).ToNot(BeNil())
-					Expect(err).ToNot(HaveOccurred())
+					Expect(result.config.Limit).To(Equal(config.Limit))
+					Expect(called).To(BeTrue())
 				})
 			})
 		})
@@ -87,14 +84,12 @@ var _ = Describe("logging", func() {
 					flushMock := &mockObject{}
 					flushMock.On(reflection.GetFunctionName(flushMock.Flush), mock.Anything)
 
-					config := logging.BufferConfig{
+					config := BufferConfig{
 						Limit:     4,
 						FlushFunc: flushMock.Flush,
 					}
 
-					logger, err := logging.NewLogBuffer(config)
-
-					Expect(err).ToNot(HaveOccurred())
+					logger := NewLogBuffer(config)
 
 					logger.Log("a")
 					logger.Log("b")
@@ -113,14 +108,12 @@ var _ = Describe("logging", func() {
 					flushMock := &mockObject{}
 					flushMock.On(reflection.GetFunctionName(flushMock.Flush), mock.Anything)
 
-					config := logging.BufferConfig{
+					config := BufferConfig{
 						Limit:     3,
 						FlushFunc: flushMock.Flush,
 					}
 
-					logger, err := logging.NewLogBuffer(config)
-
-					Expect(err).ToNot(HaveOccurred())
+					logger := NewLogBuffer(config)
 
 					logger.Log("a")
 					logger.Log("b")
@@ -145,14 +138,12 @@ var _ = Describe("logging", func() {
 				flushMock := &mockObject{}
 				flushMock.On(reflection.GetFunctionName(flushMock.Flush), mock.Anything)
 
-				config := logging.BufferConfig{
+				config := BufferConfig{
 					Limit:     4,
 					FlushFunc: flushMock.Flush,
 				}
 
-				logger, err := logging.NewLogBuffer(config)
-
-				Expect(err).ToNot(HaveOccurred())
+				logger := NewLogBuffer(config)
 
 				logger.Log("a")
 				logger.Log("b")
