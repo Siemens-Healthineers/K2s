@@ -51,14 +51,9 @@ func resetSystem(cmd *cobra.Command, args []string) error {
 		return common.CreateFunctionalityNotAvailableCmdFailure(config.SetupName)
 	}
 
-	outputWriter, err := common.NewOutputWriter()
-	if err != nil {
-		return err
-	}
-
 	start := time.Now()
 
-	err = powershell.ExecutePs(resetSystemCommand, common.DeterminePsVersion(config), outputWriter)
+	err = powershell.ExecutePs(resetSystemCommand, common.DeterminePsVersion(config), common.NewOutputWriter())
 	if err != nil {
 		return err
 	}

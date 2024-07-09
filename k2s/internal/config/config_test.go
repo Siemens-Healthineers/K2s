@@ -92,6 +92,13 @@ var _ = Describe("config pkg", func() {
 				Expect(filepath.IsAbs(actual.Host.K2sConfigDir)).To(BeTrue())
 			})
 
+			It("SSH path is cleaned and absolute", func() {
+				GinkgoWriter.Println("ssh dir: <", actual.Host.SshDir, ">")
+
+				Expect(filepath.IsAbs(actual.Host.SshDir)).To(BeTrue())
+				Expect(actual.Host.SshDir).ToNot(ContainSubstring("/"))
+			})
+
 			It("nodes config contains Windows and Linux nodes", func() {
 				Expect(actual.Nodes).To(ConsistOf(
 					HaveField("OsType", config.OsTypeLinux),
