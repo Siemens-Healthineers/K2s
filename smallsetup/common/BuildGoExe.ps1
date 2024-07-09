@@ -26,7 +26,7 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'Folder path where executable shall be dumped')]
     [string] $ExeOutDir,
     [parameter(Mandatory = $false, HelpMessage = 'Build all K2s executables with assumption all are under single git repository')]
-    [bool] $BuildAll
+    [switch] $BuildAll
 )
 
 # load global settings
@@ -106,7 +106,7 @@ Write-Output "GIT_TREE_STATE: $GIT_TREE_STATE"
 
 $goExecutables = @()
 
-if ($BuildAll) {
+if ($BuildAll -eq $true) {
     foreach ($appMapping in $appsOutputMapping.GetEnumerator()) {
         $inputDir = [IO.Path]::Combine($appsDir, $appMapping.Name)
         $goExecutables += Add-GoExecutableToList $inputDir $appMapping.Value
