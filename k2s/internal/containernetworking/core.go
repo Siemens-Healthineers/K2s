@@ -56,28 +56,18 @@ func Core() {
 		logrus.AddHook(hook)
 	}
 
-	logDir := determineLogDir()
-	if err := os.MkdirAll(logDir, os.ModePerm); err != nil {
-		logrus.Println(err)
-		os.Exit(1)
-	}
-
-	// logrus.SetFormatter(&logrus.JSONFormatter{})
-	// logrus.SetFormatter(&logrus.JSONFormatter{})
 	logrus.SetFormatter(&logrus.TextFormatter{
 		DisableColors: true,
 		FullTimestamp: true,
 	})
-
 	logrus.SetLevel(logrus.DebugLevel)
-	filename := filepath.Join(logDir, logFileName+".log")
-	file, err := os.OpenFile(filename, os.O_CREATE|os.O_WRONLY, os.FileMode(0777))
-	if err != nil {
-		logrus.Println("OpenFile " + logFileName + " error")
-		os.Exit(1)
-	}
-	logrus.SetOutput(file)
-	defer file.Close()
+
+	logDir := filepath.Join(logging.RootLogDir(), "bridge")
+	logFilePath := filepath.Join(logDir, logFileName+".log")
+
+	logFile := logging.InitializeLogFile(logFilePath)
+	defer logFile.Close()
+	logrus.SetOutput(logFile)
 
 	// print all arguments
 	logrus.Println("PLUGIN ENVIRONMENT:")
@@ -87,7 +77,7 @@ func Core() {
 	logrus.Println("   CNI_IFNAME: ", os.Getenv("CNI_IFNAME"))
 	logrus.Println("   CNI_ARGS: ", argsPlugin)
 	logrus.Println("   CNI_PATH: ", os.Getenv("CNI_PATH"))
-	logrus.Println("   LOG FILE: ", filename)
+	logrus.Println("   LOG FILE: ", logFilePath)
 
 	netPlugin, err := NewPlugin(&config)
 	if err != nil {
@@ -137,8 +127,4 @@ func findFilesOlderThanOneDay(dir string) (files []os.FileInfo, err error) {
 		}
 	}
 	return
-}
-
-func determineLogDir() string {
-	return filepath.Join(logging.RootLogDir(), "bridge")
 }

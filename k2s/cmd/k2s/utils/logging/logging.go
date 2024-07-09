@@ -11,7 +11,6 @@ import (
 	"path/filepath"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/common"
-	"github.com/siemens-healthineers/k2s/internal/host"
 
 	bl "github.com/siemens-healthineers/k2s/internal/logging"
 
@@ -19,38 +18,18 @@ import (
 )
 
 var (
-	rootLogDir string
-	cliLogPath string
-	psLogPath  string
 	logFile    *os.File
 	cliLogger  slog.Handler
 	fileLogger slog.Handler
 )
-
-func init() {
-	rootLogDir = bl.RootLogDir()
-	cliLogPath = filepath.Join(rootLogDir, "cli", fmt.Sprintf("%s.exe.log", common.CliName))
-	psLogPath = filepath.Join(rootLogDir, "k2s.log")
-}
 
 func Initialize() *slog.LevelVar {
 	if logFile != nil {
 		panic("logging already initialized")
 	}
 
-	if err := host.CreateDirIfNotExisting(filepath.Dir(cliLogPath)); err != nil {
-		panic(err)
-	}
-
-	var err error
-	logFile, err = os.OpenFile(
-		cliLogPath,
-		os.O_APPEND|os.O_CREATE|os.O_WRONLY,
-		0664,
-	)
-	if err != nil {
-		panic(err)
-	}
+	logFilePath := filepath.Join(bl.RootLogDir(), "cli", fmt.Sprintf("%s.exe.log", common.CliName))
+	logFile = bl.InitializeLogFile(logFilePath)
 
 	var levelVar = new(slog.LevelVar)
 	options := createDefaultOptions(levelVar)
@@ -73,10 +52,6 @@ func Finalize() {
 	if err := logFile.Close(); err != nil {
 		log.Fatal(err)
 	}
-}
-
-func PsLogPath() string {
-	return psLogPath
 }
 
 func DisableCliOutput() {
