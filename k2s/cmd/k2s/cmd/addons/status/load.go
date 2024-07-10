@@ -31,7 +31,7 @@ func LoadAddonStatus(addonName string, addonDirectory string, psVersion powershe
 		scriptPath,
 		"Status",
 		psVersion,
-		common.NewOutputWriter(),
+		common.NewPsCommandOutputWriter(),
 		"-Name",
 		addonName,
 		"-Directory",

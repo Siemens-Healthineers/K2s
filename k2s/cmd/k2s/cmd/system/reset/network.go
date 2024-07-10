@@ -76,7 +76,7 @@ func resetNetwork(cmd *cobra.Command, args []string) error {
 
 	start := time.Now()
 
-	cmdResult, err := powershell.ExecutePsWithStructuredResult[*common.CmdResult](resetNetworkCommand, "CmdResult", powershell.PowerShellV5, common.NewOutputWriter(), params...)
+	cmdResult, err := powershell.ExecutePsWithStructuredResult[*common.CmdResult](resetNetworkCommand, "CmdResult", powershell.PowerShellV5, common.NewPsCommandOutputWriter(), params...)
 
 	duration := time.Since(start)
 
