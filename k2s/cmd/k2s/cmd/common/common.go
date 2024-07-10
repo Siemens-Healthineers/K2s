@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	ul "github.com/siemens-healthineers/k2s/cmd/k2s/utils/logging"
+
 	"github.com/siemens-healthineers/k2s/internal/logging"
 	"github.com/siemens-healthineers/k2s/internal/powershell"
 
@@ -40,11 +42,15 @@ type CmdResult struct {
 	Failure *CmdFailure `json:"error"`
 }
 
-type OutputWriter struct {
+type PsCommandOutputWriter struct {
 	ShowProgress    bool
 	errorLineBuffer *logging.LogBuffer
 	ErrorOccurred   bool
 	ErrorLines      []string
+}
+
+type ExecOutputWriter struct {
+	*ul.Slogger
 }
 
 const (
@@ -80,46 +86,24 @@ const (
 	PreReqMarker = "[PREREQ-FAILED]"
 )
 
-func (c *CmdFailure) Error() string {
-	return fmt.Sprintf("%s: %s", c.Code, c.Message)
-}
-
-func (s FailureSeverity) String() string {
-	switch s {
-	case SeverityWarning:
-		return "warning"
-	case SeverityError:
-		return "error"
-	default:
-		return "unknown"
-	}
-}
-
-func (o *OutputWriter) WriteStdOut(line string) {
-	if o.ShowProgress {
-		pterm.Printfln("⏳ %s", line)
-	} else {
-		pterm.Println(line)
-	}
-}
-
-func (o *OutputWriter) WriteStdErr(line string) {
-	o.errorLineBuffer.Log(line)
-	o.ErrorOccurred = true
-	o.ErrorLines = append(o.ErrorLines, line)
-
-	pterm.Printfln("⏳ %s", pterm.Yellow(line))
-}
-
-func (o *OutputWriter) Flush() {
-	o.errorLineBuffer.Flush()
-}
-
-func NewOutputWriter() *OutputWriter {
-	return &OutputWriter{
+func NewPsCommandOutputWriter() *PsCommandOutputWriter {
+	return &PsCommandOutputWriter{
 		ShowProgress:    true,
 		errorLineBuffer: createErrorLineBuffer(),
 	}
+}
+
+func NewExecOutputWriter(showOutputOnCli bool) *ExecOutputWriter {
+	builders := []ul.HandlerBuilder{ul.NewFileHandler(logging.GlobalLogFilePath())}
+
+	if showOutputOnCli {
+		builders = append(builders, ul.NewCliPtermHandler())
+	}
+
+	logger := ul.NewSlogger().SetHandlers(builders...)
+	logger.LevelVar.Set(slog.LevelInfo)
+
+	return &ExecOutputWriter{Slogger: logger}
 }
 
 func PrintCompletedMessage(duration time.Duration, command string) {
@@ -213,6 +197,49 @@ func GetInstallPreRequisiteError(errorLines []string) (line string, found bool) 
 	}
 
 	return "", false
+}
+
+func (c *CmdFailure) Error() string {
+	return fmt.Sprintf("%s: %s", c.Code, c.Message)
+}
+
+func (s FailureSeverity) String() string {
+	switch s {
+	case SeverityWarning:
+		return "warning"
+	case SeverityError:
+		return "error"
+	default:
+		return "unknown"
+	}
+}
+
+func (o *PsCommandOutputWriter) WriteStdOut(line string) {
+	if o.ShowProgress {
+		pterm.Printfln("⏳ %s", line)
+	} else {
+		pterm.Println(line)
+	}
+}
+
+func (o *PsCommandOutputWriter) WriteStdErr(line string) {
+	o.errorLineBuffer.Log(line)
+	o.ErrorOccurred = true
+	o.ErrorLines = append(o.ErrorLines, line)
+
+	pterm.Printfln("⏳ %s", pterm.Yellow(line))
+}
+
+func (o *PsCommandOutputWriter) Flush() {
+	o.errorLineBuffer.Flush()
+}
+
+func (w *ExecOutputWriter) WriteStdOut(message string) {
+	w.Logger.Info(message)
+}
+
+func (w *ExecOutputWriter) WriteStdErr(message string) {
+	w.Logger.Error(message)
 }
 
 func createErrorLineBuffer() *logging.LogBuffer {

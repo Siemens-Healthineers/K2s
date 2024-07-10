@@ -152,7 +152,7 @@ func runCmd(cmd *cobra.Command, addon addons.Addon, cmdName string) error {
 		return err
 	}
 
-	cmdResult, err := powershell.ExecutePsWithStructuredResult[*common.CmdResult](psCmd, "CmdResult", common.DeterminePsVersion(config), common.NewOutputWriter(), params...)
+	cmdResult, err := powershell.ExecutePsWithStructuredResult[*common.CmdResult](psCmd, "CmdResult", common.DeterminePsVersion(config), common.NewPsCommandOutputWriter(), params...)
 	if err != nil {
 		return err
 	}
