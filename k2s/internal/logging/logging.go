@@ -63,10 +63,11 @@ func LevelToLowerString(level slog.Level) string {
 	return strings.ToLower(level.String())
 }
 
-func ReplaceSourceFilePath(_ []string, attribute slog.Attr) slog.Attr {
+func ShortenSourceAttribute(_ []string, attribute slog.Attr) slog.Attr {
 	if attribute.Key == slog.SourceKey {
 		source := attribute.Value.Any().(*slog.Source)
 		source.File = filepath.Base(source.File)
+		source.Function = ""
 	}
 	return attribute
 }

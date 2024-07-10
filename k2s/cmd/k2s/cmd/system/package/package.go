@@ -101,7 +101,7 @@ func systemPackage(cmd *cobra.Command, args []string) error {
 
 	start := time.Now()
 
-	cmdResult, err := powershell.ExecutePsWithStructuredResult[*common.CmdResult](systemPackageCommand, "CmdResult", powershell.DefaultPsVersions, common.NewOutputWriter(), params...)
+	cmdResult, err := powershell.ExecutePsWithStructuredResult[*common.CmdResult](systemPackageCommand, "CmdResult", powershell.DefaultPsVersions, common.NewPsCommandOutputWriter(), params...)
 	if err != nil {
 		return err
 	}
