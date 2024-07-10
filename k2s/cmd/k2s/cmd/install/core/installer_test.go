@@ -220,8 +220,8 @@ var _ = Describe("core", func() {
 				installConfigMock.On(reflection.GetFunctionName(installConfigMock.Load), kind, cmd.Flags()).Return(config, nil)
 
 				executorMock := &myMock{}
-				executorMock.On(reflection.GetFunctionName(executorMock.ExecutePs), testCmd, powershell.PowerShellV5, mock.AnythingOfType("*common.OutputWriter")).Return(expectedError)
-				executorMock.On(reflection.GetFunctionName(executorMock.ExecutePs), testCmd, powershell.PowerShellV5, mock.AnythingOfType("*common.OutputWriter.ErrorLines")).Return("[PREREQ-FAILED] pre-requisite failed")
+				executorMock.On(reflection.GetFunctionName(executorMock.ExecutePs), testCmd, powershell.PowerShellV5, mock.AnythingOfType("*common.PsCommandOutputWriter")).Return(expectedError)
+				executorMock.On(reflection.GetFunctionName(executorMock.ExecutePs), testCmd, powershell.PowerShellV5, mock.AnythingOfType("*common.PsCommandOutputWriter.ErrorLines")).Return("[PREREQ-FAILED] pre-requisite failed")
 				executorMock.On(reflection.GetFunctionName(executorMock.ExecutePs), testCmd, powershell.PowerShellV5, mock.AnythingOfType("*common.GetInstallPreRequisiteError")).Return("[PREREQ-FAILED] pre-requisite failed", true)
 
 				sut := &core.Installer{
@@ -269,8 +269,8 @@ var _ = Describe("core", func() {
 
 				prereqErrorLine := "[PREREQ-FAILED] random check fails"
 				executorMock := &myMock{}
-				executorMock.On(reflection.GetFunctionName(executorMock.ExecutePs), testCmd, powershell.PowerShellV5, mock.AnythingOfType("*common.OutputWriter")).Return(expectedError).Run(func(args mock.Arguments) {
-					ow := args.Get(2).(*common.OutputWriter)
+				executorMock.On(reflection.GetFunctionName(executorMock.ExecutePs), testCmd, powershell.PowerShellV5, mock.AnythingOfType("*common.PsCommandOutputWriter")).Return(expectedError).Run(func(args mock.Arguments) {
+					ow := args.Get(2).(*common.PsCommandOutputWriter)
 					ow.WriteStdErr(prereqErrorLine)
 				})
 
@@ -318,7 +318,7 @@ var _ = Describe("core", func() {
 				installConfigMock.On(reflection.GetFunctionName(installConfigMock.Load), kind, cmd.Flags()).Return(config, nil)
 
 				executorMock := &myMock{}
-				executorMock.On(reflection.GetFunctionName(executorMock.ExecutePs), testCmd, powershell.PowerShellV5, mock.AnythingOfType("*common.OutputWriter")).Return(nil)
+				executorMock.On(reflection.GetFunctionName(executorMock.ExecutePs), testCmd, powershell.PowerShellV5, mock.AnythingOfType("*common.PsCommandOutputWriter")).Return(nil)
 
 				completedMsgPrinterMock := &myMock{}
 				completedMsgPrinterMock.On(reflection.GetFunctionName(completedMsgPrinterMock.PrintCompletedMessage), mock.AnythingOfType("time.Duration"), mock.MatchedBy(func(m string) bool { return strings.Contains(m, string(kind)) }))
@@ -369,7 +369,7 @@ var _ = Describe("core", func() {
 				installConfigMock.On(reflection.GetFunctionName(installConfigMock.Load), kind, cmd.Flags()).Return(config, nil)
 
 				executorMock := &myMock{}
-				executorMock.On(reflection.GetFunctionName(executorMock.ExecutePs), testCmd, powershell.PowerShellV7, mock.AnythingOfType("*common.OutputWriter")).Return(nil)
+				executorMock.On(reflection.GetFunctionName(executorMock.ExecutePs), testCmd, powershell.PowerShellV7, mock.AnythingOfType("*common.PsCommandOutputWriter")).Return(nil)
 
 				completedMsgPrinterMock := &myMock{}
 				completedMsgPrinterMock.On(reflection.GetFunctionName(completedMsgPrinterMock.PrintCompletedMessage), mock.AnythingOfType("time.Duration"), mock.MatchedBy(func(m string) bool { return strings.Contains(m, string(kind)) }))

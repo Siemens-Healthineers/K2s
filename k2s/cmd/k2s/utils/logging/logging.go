@@ -4,71 +4,69 @@
 package logging
 
 import (
-	"fmt"
-	"log"
 	"log/slog"
-	"os"
-	"path/filepath"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/common"
-
-	bl "github.com/siemens-healthineers/k2s/internal/logging"
-
+	"github.com/samber/lo"
 	slogmulti "github.com/samber/slog-multi"
 )
 
-var (
-	logFile    *os.File
-	cliLogger  slog.Handler
-	fileLogger slog.Handler
-)
-
-func Initialize() *slog.LevelVar {
-	if logFile != nil {
-		panic("logging already initialized")
-	}
-
-	logFilePath := filepath.Join(bl.RootLogDir(), "cli", fmt.Sprintf("%s.exe.log", common.CliName))
-	logFile = bl.InitializeLogFile(logFilePath)
-
-	var levelVar = new(slog.LevelVar)
-	options := createDefaultOptions(levelVar)
-	cliLogger = createCliLogger(options)
-	fileLogger = createFileLogger(logFile, options)
-
-	slog.SetDefault(slog.New(slogmulti.Fanout(cliLogger, fileLogger)))
-
-	return levelVar
+type SlogHandler interface {
+	slog.Handler
+	Flush()
+	Close()
 }
 
-func Finalize() {
-	if logFile == nil {
-		return
-	}
+type HandlerBuilder func(levelVar *slog.LevelVar) SlogHandler
 
-	if err := logFile.Sync(); err != nil {
-		log.Fatal(err)
-	}
-	if err := logFile.Close(); err != nil {
-		log.Fatal(err)
+type Slogger struct {
+	LevelVar *slog.LevelVar
+	Logger   *slog.Logger
+	handlers []SlogHandler
+}
+
+// NewSlogger creates a new logger with the default slog logger attached
+func NewSlogger() *Slogger {
+	return &Slogger{
+		handlers: []SlogHandler{},
+		LevelVar: new(slog.LevelVar),
+		Logger:   slog.Default(),
 	}
 }
 
-func DisableCliOutput() {
-	slog.SetDefault(slog.New(fileLogger))
+// SetHandlers flushes and closes existing handlers and replaces them with the given handlers
+func (l *Slogger) SetHandlers(handlerBuilders ...HandlerBuilder) *Slogger {
+	l.Flush()
+	l.Close()
+
+	l.handlers = lo.Map(handlerBuilders, func(b HandlerBuilder, _ int) SlogHandler {
+		return b(l.LevelVar)
+	})
+
+	slogHandlers := lo.Map(l.handlers, func(h SlogHandler, _ int) slog.Handler {
+		return h.(slog.Handler)
+	})
+
+	l.Logger = slog.New(slogmulti.Fanout(slogHandlers...))
+
+	return l
 }
 
-func createDefaultOptions(levelVar *slog.LevelVar) *slog.HandlerOptions {
-	return &slog.HandlerOptions{
-		Level:       levelVar,
-		AddSource:   true,
-		ReplaceAttr: bl.ReplaceSourceFilePath}
+// SetGlobally sets the slog logger as global default
+func (l *Slogger) SetGlobally() *Slogger {
+	slog.SetDefault(l.Logger)
+	return l
 }
 
-func createCliLogger(options *slog.HandlerOptions) slog.Handler {
-	return slog.NewTextHandler(os.Stdout, options)
+// Flush flushes existing handlers
+func (l *Slogger) Flush() {
+	lo.ForEach(l.handlers, func(h SlogHandler, _ int) {
+		h.Flush()
+	})
 }
 
-func createFileLogger(file *os.File, options *slog.HandlerOptions) slog.Handler {
-	return slog.NewJSONHandler(file, options)
+// Close closes existing handlers
+func (l *Slogger) Close() {
+	lo.ForEach(l.handlers, func(h SlogHandler, _ int) {
+		h.Close()
+	})
 }

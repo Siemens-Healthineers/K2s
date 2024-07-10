@@ -59,7 +59,7 @@ func stopk8s(cmd *cobra.Command, args []string) error {
 
 	start := time.Now()
 
-	err = powershell.ExecutePs(stopCmd, common.DeterminePsVersion(config), common.NewOutputWriter())
+	err = powershell.ExecutePs(stopCmd, common.DeterminePsVersion(config), common.NewPsCommandOutputWriter())
 	if err != nil {
 		return err
 	}

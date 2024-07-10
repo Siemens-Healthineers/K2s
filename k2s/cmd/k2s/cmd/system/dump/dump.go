@@ -74,7 +74,7 @@ func dumpSystemStatus(cmd *cobra.Command, args []string) error {
 
 	start := time.Now()
 
-	err = powershell.ExecutePs(dumpStatusCommand, common.DeterminePsVersion(config), common.NewOutputWriter())
+	err = powershell.ExecutePs(dumpStatusCommand, common.DeterminePsVersion(config), common.NewPsCommandOutputWriter())
 	if err != nil {
 		return err
 	}
