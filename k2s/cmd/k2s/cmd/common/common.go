@@ -7,9 +7,11 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
-	kl "github.com/siemens-healthineers/k2s/cmd/k2s/utils/logging"
+	ul "github.com/siemens-healthineers/k2s/cmd/k2s/utils/logging"
+
 	"github.com/siemens-healthineers/k2s/internal/logging"
 	"github.com/siemens-healthineers/k2s/internal/powershell"
 
@@ -40,10 +42,15 @@ type CmdResult struct {
 	Failure *CmdFailure `json:"error"`
 }
 
-type OutputWriter struct {
+type PsCommandOutputWriter struct {
 	ShowProgress    bool
 	errorLineBuffer *logging.LogBuffer
 	ErrorOccurred   bool
+	ErrorLines      []string
+}
+
+type ExecOutputWriter struct {
+	*ul.Slogger
 }
 
 const (
@@ -75,57 +82,34 @@ const (
 
 	CacheVSwitchFlagName  = "cache-vswitch"
 	CacheVSwitchFlagUsage = "Cache vswitches 'cbr0' and 'KubeSwitch' for cluster connectivity through the host machine."
+
+	PreReqMarker = "[PREREQ-FAILED]"
 )
 
-func (c *CmdFailure) Error() string {
-	return fmt.Sprintf("%s: %s", c.Code, c.Message)
-}
-
-func (s FailureSeverity) String() string {
-	switch s {
-	case SeverityWarning:
-		return "warning"
-	case SeverityError:
-		return "error"
-	default:
-		return "unknown"
-	}
-}
-
-func (o *OutputWriter) WriteStd(line string) {
-	if o.ShowProgress {
-		pterm.Printfln("⏳ %s", line)
-	} else {
-		pterm.Println(line)
-	}
-}
-
-func (o *OutputWriter) WriteErr(line string) {
-	o.errorLineBuffer.Log(line)
-	o.ErrorOccurred = true
-
-	pterm.Printfln("⏳ %s", pterm.Yellow(line))
-}
-
-func (o *OutputWriter) Flush() {
-	o.errorLineBuffer.Flush()
-}
-
-func NewOutputWriter() (*OutputWriter, error) {
-	errorLineBuffer, err := createErrorLineBuffer()
-	if err != nil {
-		return nil, err
-	}
-
-	return &OutputWriter{
+func NewPsCommandOutputWriter() *PsCommandOutputWriter {
+	return &PsCommandOutputWriter{
 		ShowProgress:    true,
-		errorLineBuffer: errorLineBuffer}, nil
+		errorLineBuffer: createErrorLineBuffer(),
+	}
+}
+
+func NewExecOutputWriter(showOutputOnCli bool) *ExecOutputWriter {
+	builders := []ul.HandlerBuilder{ul.NewFileHandler(logging.GlobalLogFilePath())}
+
+	if showOutputOnCli {
+		builders = append(builders, ul.NewCliPtermHandler())
+	}
+
+	logger := ul.NewSlogger().SetHandlers(builders...)
+	logger.LevelVar.Set(slog.LevelInfo)
+
+	return &ExecOutputWriter{Slogger: logger}
 }
 
 func PrintCompletedMessage(duration time.Duration, command string) {
 	pterm.Success.Printfln("'%s' completed in %v", command, duration)
 
-	logHint := pterm.LightCyan(fmt.Sprintf("Please see '%s' for more information", kl.PsLogPath()))
+	logHint := pterm.LightCyan(fmt.Sprintf("Please see '%s' for more information", logging.GlobalLogFilePath()))
 
 	pterm.Println(logHint)
 }
@@ -202,9 +186,64 @@ func GetDefaultPsVersion() powershell.PowerShellVersion {
 	return powershell.PowerShellV5
 }
 
-func createErrorLineBuffer() (*logging.LogBuffer, error) {
+func GetInstallPreRequisiteError(errorLines []string) (line string, found bool) {
+	for _, line := range errorLines {
+		if strings.Contains(line, PreReqMarker) {
+			// Remove error line with pre-requisite marker e.g [PREREQ-FAILED] Master node memory passed too low
+			cleanedLine := strings.Replace(line, PreReqMarker, "", -1)
+			cleanedLine = strings.Replace(cleanedLine, " ", "", 1)
+			return cleanedLine, true
+		}
+	}
+
+	return "", false
+}
+
+func (c *CmdFailure) Error() string {
+	return fmt.Sprintf("%s: %s", c.Code, c.Message)
+}
+
+func (s FailureSeverity) String() string {
+	switch s {
+	case SeverityWarning:
+		return "warning"
+	case SeverityError:
+		return "error"
+	default:
+		return "unknown"
+	}
+}
+
+func (o *PsCommandOutputWriter) WriteStdOut(line string) {
+	if o.ShowProgress {
+		pterm.Printfln("⏳ %s", line)
+	} else {
+		pterm.Println(line)
+	}
+}
+
+func (o *PsCommandOutputWriter) WriteStdErr(line string) {
+	o.errorLineBuffer.Log(line)
+	o.ErrorOccurred = true
+	o.ErrorLines = append(o.ErrorLines, line)
+
+	pterm.Printfln("⏳ %s", pterm.Yellow(line))
+}
+
+func (o *PsCommandOutputWriter) Flush() {
+	o.errorLineBuffer.Flush()
+}
+
+func (w *ExecOutputWriter) WriteStdOut(message string) {
+	w.Logger.Info(message)
+}
+
+func (w *ExecOutputWriter) WriteStdErr(message string) {
+	w.Logger.Error(message)
+}
+
+func createErrorLineBuffer() *logging.LogBuffer {
 	return logging.NewLogBuffer(logging.BufferConfig{
-		Limit: 100,
 		FlushFunc: func(buffer []string) {
 			slog.Error("Flushing error lines", "count", len(buffer), "lines", buffer)
 		},

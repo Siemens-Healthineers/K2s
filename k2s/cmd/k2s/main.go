@@ -17,10 +17,13 @@ import (
 	"github.com/pterm/pterm"
 )
 
-const generalErrMsg = "critical error occurred during command execution, aborting"
-
 func main() {
 	exitCode := 0
+
+	logger := logging.NewSlogger().SetHandlers(
+		logging.NewFileHandler(logging.DefaultLogFilePath()),
+		logging.NewCliTextHandler(),
+	).SetGlobally()
 
 	defer func() {
 		if err := recover(); err != nil {
@@ -28,13 +31,12 @@ func main() {
 			handleUnexpectedError(err)
 		}
 
-		logging.Finalize()
+		logger.Flush()
+		logger.Close()
 		os.Exit(exitCode)
 	}()
 
-	levelVar := logging.Initialize()
-
-	rootCmd, err := cmd.CreateRootCmd(levelVar)
+	rootCmd, err := cmd.CreateRootCmd(logger.LevelVar)
 	if err != nil {
 		exitCode = 1
 		slog.Error("error occurred during root command creation", "error", err)
@@ -50,7 +52,7 @@ func main() {
 
 	var cmdFailure *common.CmdFailure
 	if !errors.As(err, &cmdFailure) {
-		handleUnexpectedError(err)
+		pterm.Error.Println(fmt.Errorf("%v", err))
 		return
 	}
 
@@ -65,7 +67,8 @@ func main() {
 		}
 	}
 
-	logging.DisableCliOutput()
+	// remove CLI text log handler
+	logger.SetHandlers(logging.NewFileHandler(logging.DefaultLogFilePath())).SetGlobally()
 
 	slog.Error("command failed",
 		"severity", fmt.Sprintf("%d(%s)", cmdFailure.Severity, cmdFailure.Severity),
@@ -75,7 +78,6 @@ func main() {
 }
 
 func handleUnexpectedError(err any) {
-	pterm.Error.Println(fmt.Errorf("%s: %v", generalErrMsg, err))
-
-	slog.Error(generalErrMsg, "error", err, "stack", string(debug.Stack()))
+	pterm.Error.Println(fmt.Errorf("%v", err))
+	slog.Error("error", err, "stack", string(debug.Stack()))
 }

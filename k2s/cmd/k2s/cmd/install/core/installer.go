@@ -14,6 +14,7 @@ import (
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 
 	"github.com/siemens-healthineers/k2s/internal/config"
+	"github.com/siemens-healthineers/k2s/internal/host"
 	"github.com/siemens-healthineers/k2s/internal/powershell"
 	"github.com/siemens-healthineers/k2s/internal/setupinfo"
 	"github.com/siemens-healthineers/k2s/internal/version"
@@ -28,18 +29,20 @@ type InstallConfigAccess interface {
 
 type Printer interface {
 	Printfln(format string, m ...any)
+	PrintWarning(m ...any)
 }
 
 type Installer struct {
 	InstallConfigAccess       InstallConfigAccess
 	Printer                   Printer
-	ExecutePsScript           func(script string, psVersion powershell.PowerShellVersion, writer powershell.OutputWriter) error
+	ExecutePsScript           func(script string, psVersion powershell.PowerShellVersion, writer host.StdWriter) error
 	GetVersionFunc            func() version.Version
 	GetPlatformFunc           func() string
 	GetInstallDirFunc         func() string
 	PrintCompletedMessageFunc func(duration time.Duration, command string)
 	LoadConfigFunc            func(configDir string) (*setupinfo.Config, error)
 	SetConfigFunc             func(configDir string, config *setupinfo.Config) error
+	DeleteConfigFunc          func(configDir string) error
 }
 
 func (i *Installer) Install(
@@ -80,34 +83,43 @@ func (i *Installer) Install(
 
 	i.Printer.Printfln("🤖 Installing K2s '%s' %s in '%s' on %s using PowerShell %s", kind, i.GetVersionFunc(), i.GetInstallDirFunc(), i.GetPlatformFunc(), psVersion)
 
-	outputWriter, err := common.NewOutputWriter()
-	if err != nil {
-		return err
-	}
+	outputWriter := common.NewPsCommandOutputWriter()
 
 	start := time.Now()
 
 	err = i.ExecutePsScript(cmd, psVersion, outputWriter)
 	if err != nil {
-		return err
-	}
-
-	if outputWriter.ErrorOccurred {
-		// corrupted state
-		setupConfig, err := i.LoadConfigFunc(cfg.Host.K2sConfigDir)
-		if err != nil {
-			if setupConfig == nil {
-				setupConfig = &setupinfo.Config{
-					Corrupted: true,
-				}
-				i.SetConfigFunc(cfg.Host.K2sConfigDir, setupConfig)
+		// Check for pre-requisites first
+		errorLine, found := common.GetInstallPreRequisiteError(outputWriter.ErrorLines)
+		if found {
+			i.Printer.PrintWarning("Prerequisite check failed,", errorLine)
+			i.Printer.PrintWarning("Have a look at the pre-requisites 'https://github.com/Siemens-Healthineers/K2s/blob/main/docs/op-manual/installing-k2s.md#prerequisites' and re-issue 'k2s install'")
+			err = i.DeleteConfigFunc(cfg.Host.K2sConfigDir)
+			if err != nil {
+				slog.Debug("config file does not exist, nothing to do")
 			}
-		} else {
-			setupConfig.Corrupted = true
-			i.SetConfigFunc(cfg.Host.K2sConfigDir, setupConfig)
+			return nil
 		}
 
-		return common.CreateSystemInCorruptedStateCmdFailure()
+		if outputWriter.ErrorOccurred {
+			// corrupted state
+			setupConfig, err := i.LoadConfigFunc(cfg.Host.K2sConfigDir)
+			if err != nil {
+				if setupConfig == nil {
+					setupConfig = &setupinfo.Config{
+						Corrupted: true,
+					}
+					i.SetConfigFunc(cfg.Host.K2sConfigDir, setupConfig)
+				}
+			} else {
+				setupConfig.Corrupted = true
+				i.SetConfigFunc(cfg.Host.K2sConfigDir, setupConfig)
+			}
+
+			return common.CreateSystemInCorruptedStateCmdFailure()
+		}
+
+		return err
 	}
 
 	duration := time.Since(start)

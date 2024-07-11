@@ -43,11 +43,7 @@ var (
 	}
 
 	cmdOverSshExecFunc func(baseCmd, cmd string, psVersion powershell.PowerShellVersion) error = func(baseCmd, cmd string, psVersion powershell.PowerShellVersion) error {
-		outputWriter, err := common.NewOutputWriter()
-		if err != nil {
-			return err
-		}
-
+		outputWriter := common.NewPsCommandOutputWriter()
 		outputWriter.ShowProgress = false
 
 		cmdResult, err := powershell.ExecutePsWithStructuredResult[*common.CmdResult](

@@ -25,18 +25,13 @@ type AddonStatusProp struct {
 }
 
 func LoadAddonStatus(addonName string, addonDirectory string, psVersion powershell.PowerShellVersion) (*LoadedAddonStatus, error) {
-	outputWriter, err := common.NewOutputWriter()
-	if err != nil {
-		return nil, err
-	}
-
 	scriptPath := utils.FormatScriptFilePath(utils.InstallDir() + "\\addons\\Get-Status.ps1")
 
 	return powershell.ExecutePsWithStructuredResult[*LoadedAddonStatus](
 		scriptPath,
 		"Status",
 		psVersion,
-		outputWriter,
+		common.NewPsCommandOutputWriter(),
 		"-Name",
 		addonName,
 		"-Directory",
