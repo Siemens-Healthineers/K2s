@@ -10,9 +10,8 @@ import (
 	"strings"
 	"time"
 
-	ul "github.com/siemens-healthineers/k2s/cmd/k2s/utils/logging"
-
-	"github.com/siemens-healthineers/k2s/internal/logging"
+	"github.com/siemens-healthineers/k2s/internal/host"
+	bl "github.com/siemens-healthineers/k2s/internal/logging"
 	"github.com/siemens-healthineers/k2s/internal/powershell"
 
 	"github.com/siemens-healthineers/k2s/internal/setupinfo"
@@ -42,15 +41,14 @@ type CmdResult struct {
 	Failure *CmdFailure `json:"error"`
 }
 
-type PsCommandOutputWriter struct {
+type PtermWriter struct {
 	ShowProgress    bool
-	errorLineBuffer *logging.LogBuffer
+	errorLineBuffer *bl.LogBuffer
 	ErrorOccurred   bool
 	ErrorLines      []string
 }
 
-type ExecOutputWriter struct {
-	*ul.Slogger
+type SlogWriter struct {
 }
 
 const (
@@ -64,7 +62,7 @@ const (
 
 	OutputFlagName      = "output"
 	OutputFlagShorthand = "o"
-	OutputFlagUsage     = "Show all logs in terminal"
+	OutputFlagUsage     = "Show log in terminal"
 
 	AdditionalHooksDirFlagName  = "additional-hooks-dir"
 	AdditionalHooksDirFlagUsage = "Directory containing additional hooks to be executed"
@@ -86,30 +84,21 @@ const (
 	PreReqMarker = "[PREREQ-FAILED]"
 )
 
-func NewPsCommandOutputWriter() *PsCommandOutputWriter {
-	return &PsCommandOutputWriter{
+func NewPtermWriter() *PtermWriter {
+	return &PtermWriter{
 		ShowProgress:    true,
 		errorLineBuffer: createErrorLineBuffer(),
 	}
 }
 
-func NewExecOutputWriter(showOutputOnCli bool) *ExecOutputWriter {
-	builders := []ul.HandlerBuilder{ul.NewFileHandler(logging.GlobalLogFilePath())}
-
-	if showOutputOnCli {
-		builders = append(builders, ul.NewCliPtermHandler())
-	}
-
-	logger := ul.NewSlogger().SetHandlers(builders...)
-	logger.LevelVar.Set(slog.LevelInfo)
-
-	return &ExecOutputWriter{Slogger: logger}
+func NewSlogWriter() host.StdWriter {
+	return &SlogWriter{}
 }
 
 func PrintCompletedMessage(duration time.Duration, command string) {
 	pterm.Success.Printfln("'%s' completed in %v", command, duration)
 
-	logHint := pterm.LightCyan(fmt.Sprintf("Please see '%s' for more information", logging.GlobalLogFilePath()))
+	logHint := pterm.LightCyan(fmt.Sprintf("Please see '%s' for more information", bl.GlobalLogFilePath()))
 
 	pterm.Println(logHint)
 }
@@ -214,36 +203,38 @@ func (s FailureSeverity) String() string {
 	}
 }
 
-func (o *PsCommandOutputWriter) WriteStdOut(line string) {
-	if o.ShowProgress {
+func (w *PtermWriter) WriteStdOut(line string) {
+	if w.ShowProgress {
 		pterm.Printfln("⏳ %s", line)
 	} else {
 		pterm.Println(line)
 	}
 }
 
-func (o *PsCommandOutputWriter) WriteStdErr(line string) {
-	o.errorLineBuffer.Log(line)
-	o.ErrorOccurred = true
-	o.ErrorLines = append(o.ErrorLines, line)
+func (w *PtermWriter) WriteStdErr(line string) {
+	w.errorLineBuffer.Log(line)
+	w.ErrorOccurred = true
+	w.ErrorLines = append(w.ErrorLines, line)
 
 	pterm.Printfln("⏳ %s", pterm.Yellow(line))
 }
 
-func (o *PsCommandOutputWriter) Flush() {
-	o.errorLineBuffer.Flush()
+func (w *PtermWriter) Flush() {
+	w.errorLineBuffer.Flush()
 }
 
-func (w *ExecOutputWriter) WriteStdOut(message string) {
-	w.Logger.Info(message)
+func (*SlogWriter) WriteStdOut(message string) {
+	slog.Info(message)
 }
 
-func (w *ExecOutputWriter) WriteStdErr(message string) {
-	w.Logger.Error(message)
+func (*SlogWriter) WriteStdErr(message string) {
+	slog.Error(message)
 }
 
-func createErrorLineBuffer() *logging.LogBuffer {
-	return logging.NewLogBuffer(logging.BufferConfig{
+func (*SlogWriter) Flush() { /*empty*/ }
+
+func createErrorLineBuffer() *bl.LogBuffer {
+	return bl.NewLogBuffer(bl.BufferConfig{
 		FlushFunc: func(buffer []string) {
 			slog.Error("Flushing error lines", "count", len(buffer), "lines", buffer)
 		},

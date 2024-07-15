@@ -111,7 +111,7 @@ func upgradeCluster(cmd *cobra.Command, args []string) error {
 
 	slog.Debug("PS command created", "command", psCmd)
 
-	outputWriter := common.NewPsCommandOutputWriter()
+	outputWriter := common.NewPtermWriter()
 
 	start := time.Now()
 

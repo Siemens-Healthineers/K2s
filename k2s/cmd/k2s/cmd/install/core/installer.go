@@ -83,7 +83,7 @@ func (i *Installer) Install(
 
 	i.Printer.Printfln("🤖 Installing K2s '%s' %s in '%s' on %s using PowerShell %s", kind, i.GetVersionFunc(), i.GetInstallDirFunc(), i.GetPlatformFunc(), psVersion)
 
-	outputWriter := common.NewPsCommandOutputWriter()
+	outputWriter := common.NewPtermWriter()
 
 	start := time.Now()
 
