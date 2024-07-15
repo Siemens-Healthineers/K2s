@@ -64,11 +64,6 @@ func run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	showOutputOnCli, err := cmd.Flags().GetBool(common.OutputFlagName)
-	if err != nil {
-		return err
-	}
-
 	if (userName == "" && userId == "") || (userName != "" && userId != "") {
 		return &common.CmdFailure{
 			Severity: common.SeverityWarning,
@@ -93,6 +88,8 @@ func run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("could not load setup info to add the Windows user: %w", err)
 	}
 
+	// TODO: check if system is running
+
 	confirmOverwrite := func() bool {
 		if force {
 			slog.Info("Overwriting existing access is enforced")
@@ -114,13 +111,7 @@ func run(cmd *cobra.Command, args []string) error {
 		return true
 	}
 
-	outputWriter := common.NewExecOutputWriter(showOutputOnCli)
-	defer func() {
-		outputWriter.Flush()
-		outputWriter.Close()
-	}()
-
-	usersManagement := users.NewUsersManagement(setupConfig.ControlPlaneNodeHostname, cfg, confirmOverwrite, outputWriter)
+	usersManagement := users.NewUsersManagement(setupConfig.ControlPlaneNodeHostname, cfg, confirmOverwrite, common.NewSlogWriter())
 
 	var userNotFoundErr users.UserNotFoundErr
 
