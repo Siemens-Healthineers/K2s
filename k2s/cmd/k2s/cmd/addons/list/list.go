@@ -131,7 +131,7 @@ func loadEnabledAddons(psVersion powershell.PowerShellVersion) ([]print.Addon, e
 	scriptPath := filepath.Join(utils.InstallDir(), addons.AddonsDirName, "Get-EnabledAddons.ps1")
 	formattedPath := utils.FormatScriptFilePath(scriptPath)
 
-	enabledAddons, err := powershell.ExecutePsWithStructuredResult[[]print.Addon](formattedPath, "EnabledAddons", psVersion, cc.NewPsCommandOutputWriter())
+	enabledAddons, err := powershell.ExecutePsWithStructuredResult[[]print.Addon](formattedPath, "EnabledAddons", psVersion, cc.NewPtermWriter())
 	if err != nil {
 		return nil, fmt.Errorf("could not load enabled addons: %s", err)
 	}

@@ -53,7 +53,7 @@ func resetSystem(cmd *cobra.Command, args []string) error {
 
 	start := time.Now()
 
-	err = powershell.ExecutePs(resetSystemCommand, common.DeterminePsVersion(config), common.NewPsCommandOutputWriter())
+	err = powershell.ExecutePs(resetSystemCommand, common.DeterminePsVersion(config), common.NewPtermWriter())
 	if err != nil {
 		return err
 	}

@@ -1,13 +1,16 @@
 // SPDX-FileCopyrightText:  © 2023 Siemens Healthcare GmbH
 // SPDX-License-Identifier:   MIT
 
-package logging
+package logging_test
 
 import (
+	"log/slog"
 	"os"
 	"path/filepath"
 	"testing"
 
+	"github.com/go-logr/logr"
+	"github.com/siemens-healthineers/k2s/internal/logging"
 	"github.com/siemens-healthineers/k2s/internal/reflection"
 	"github.com/stretchr/testify/mock"
 
@@ -28,10 +31,14 @@ func TestLogging(t *testing.T) {
 	RunSpecs(t, "Logging Tests", Label("logging"))
 }
 
+var _ = BeforeSuite(func() {
+	slog.SetDefault(slog.New(logr.ToSlogHandler(GinkgoLogr)))
+})
+
 var _ = Describe("logging", func() {
 	Describe("RootLogDir", Label("integration"), func() {
 		It("returns root log dir on Windows system drive", func() {
-			dir := RootLogDir()
+			dir := logging.RootLogDir()
 
 			Expect(dir).To(Equal("C:\\var\\log"))
 		})
@@ -39,13 +46,13 @@ var _ = Describe("logging", func() {
 
 	Describe("GlobalLogFilePath", Label("integration"), func() {
 		It("returns global file path on Windows system drive", func() {
-			dir := GlobalLogFilePath()
+			dir := logging.GlobalLogFilePath()
 
 			Expect(dir).To(Equal("C:\\var\\log\\k2s.log"))
 		})
 	})
 
-	Describe("InitializeLogFile", func() {
+	Describe("InitializeLogFile", Label("integration", "ci"), func() {
 		When("dir not existing", func() {
 			It("creates dir and log file", func() {
 				tempDir := GinkgoT().TempDir()
@@ -53,7 +60,7 @@ var _ = Describe("logging", func() {
 
 				GinkgoWriter.Println("Creating test log file <", logFilePath, ">..")
 
-				result := InitializeLogFile(logFilePath)
+				result := logging.InitializeLogFile(logFilePath)
 				DeferCleanup(func() {
 					GinkgoWriter.Println("Closing test log file <", logFilePath, ">..")
 					Expect(result.Close()).To(Succeed())
@@ -81,7 +88,7 @@ var _ = Describe("logging", func() {
 
 				GinkgoWriter.Println("Opening test log file <", logFilePath, ">..")
 
-				result := InitializeLogFile(logFilePath)
+				result := logging.InitializeLogFile(logFilePath)
 				DeferCleanup(func() {
 					GinkgoWriter.Println("Closing test log file <", logFilePath, ">..")
 					Expect(result.Close()).To(Succeed())
@@ -93,45 +100,151 @@ var _ = Describe("logging", func() {
 		})
 	})
 
+	Describe("SetVerbosity", Label("unit", "ci"), func() {
+		When("verbosity parsing failed", func() {
+			It("returns error", func() {
+				const verbosity = "<invalid>"
+				levelVar := new(slog.LevelVar)
+
+				err := logging.SetVerbosity(verbosity, levelVar)
+
+				Expect(err).To(MatchError(ContainSubstring("cannot convert")))
+			})
+		})
+
+		When("verbosity passed as word", func() {
+			It("returns correct level", func() {
+				const verbosity = "debug"
+				levelVar := new(slog.LevelVar)
+
+				err := logging.SetVerbosity(verbosity, levelVar)
+
+				Expect(err).ToNot(HaveOccurred())
+				Expect(levelVar.Level()).To(Equal(slog.LevelDebug))
+			})
+		})
+
+		When("verbosity passed as number", func() {
+			It("returns correct level", func() {
+				const verbosity = "4"
+				levelVar := new(slog.LevelVar)
+
+				err := logging.SetVerbosity(verbosity, levelVar)
+
+				Expect(err).ToNot(HaveOccurred())
+				Expect(levelVar.Level()).To(Equal(slog.LevelWarn))
+			})
+		})
+	})
+
+	Describe("LevelToLowerString", Label("unit", "ci"), func() {
+		It("converts level to lower string", func() {
+			actual := logging.LevelToLowerString(slog.LevelWarn)
+
+			Expect(actual).To(Equal("warn"))
+		})
+	})
+
+	Describe("ShortenSourceAttribute", Label("unit", "ci"), func() {
+		When("attribute is not source attribute", func() {
+			It("does nothing", func() {
+				input := slog.Attr{Key: "some-key", Value: slog.StringValue("some-value")}
+
+				actual := logging.ShortenSourceAttribute(nil, input)
+
+				Expect(actual).To(Equal(input))
+			})
+		})
+
+		When("attribute is source attribute", func() {
+			It("shortens the properties", func() {
+				source := &slog.Source{
+					Function: "some-function",
+					File:     "c:\\this\\is\\a\\full\\file.path",
+				}
+				input := slog.Attr{Key: slog.SourceKey, Value: slog.AnyValue(source)}
+
+				actual := logging.ShortenSourceAttribute(nil, input)
+
+				actualSource := actual.Value.Any().(*slog.Source)
+
+				Expect(actualSource.Function).To(BeEmpty())
+				Expect(actualSource.File).To(Equal("file.path"))
+			})
+		})
+	})
+
 	Describe("LogBuffer", Label("unit", "ci"), func() {
 		Describe("NewLogBuffer", func() {
 			When("buffer limit is 0", func() {
 				It("limit is reset to default", func() {
-					config := BufferConfig{
-						Limit: 0,
+					const arbitraryOffset = 10
+					called := false
+
+					flushMock := &mockObject{}
+					flushMock.On(reflection.GetFunctionName(flushMock.Flush), mock.Anything).Once().Run(func(args mock.Arguments) {
+						called = true
+
+						buffer := args.Get(0).([]string)
+						Expect(buffer).To(HaveLen(int(logging.DefaultBufferLimit)))
+					})
+
+					config := logging.BufferConfig{
+						Limit:     0,
+						FlushFunc: flushMock.Flush,
 					}
 
-					result := NewLogBuffer(config)
+					buffer := logging.NewLogBuffer(config)
 
-					Expect(result.config.Limit).To(Equal(DefaultBufferLimit))
+					for i := 0; i <= int(logging.DefaultBufferLimit)+arbitraryOffset; i++ {
+						buffer.Log("test")
+					}
+
+					Expect(called).To(BeTrue())
+					flushMock.AssertExpectations(GinkgoT())
 				})
 			})
 
 			When("flush function is nil", func() {
-				It("function is set to default", func() {
-					config := BufferConfig{
+				It("function is set to stub doing nothing", func() {
+					config := logging.BufferConfig{
 						FlushFunc: nil,
+						Limit:     5,
 					}
+					runs := config.Limit * 2 // ensure flush is called at least once
 
-					result := NewLogBuffer(config)
+					buffer := logging.NewLogBuffer(config)
 
-					Expect(result.config.FlushFunc).NotTo(BeNil())
+					for i := 0; i <= int(runs); i++ {
+						buffer.Log("test")
+					}
 				})
 			})
 
 			When("limit and flush function set", func() {
-				It("config values set correctly", func() {
-					called := false
-					config := BufferConfig{
-						Limit:     1,
-						FlushFunc: func(_ []string) { called = true },
+				It("flush function is invoked when the limit is reached", func() {
+					const limit = 5
+					const invocations = 15
+					expectedFlushTimes := invocations / limit
+
+					flushMock := &mockObject{}
+					flushMock.On(reflection.GetFunctionName(flushMock.Flush), mock.Anything).Times(expectedFlushTimes).Run(func(args mock.Arguments) {
+						buffer := args.Get(0).([]string)
+						Expect(buffer).To(HaveLen(limit))
+					})
+
+					config := logging.BufferConfig{
+						Limit:     limit,
+						FlushFunc: flushMock.Flush,
 					}
 
-					result := NewLogBuffer(config)
-					result.config.FlushFunc(nil)
+					buffer := logging.NewLogBuffer(config)
 
-					Expect(result.config.Limit).To(Equal(config.Limit))
-					Expect(called).To(BeTrue())
+					for i := 0; i <= invocations; i++ {
+						buffer.Log("test")
+					}
+
+					flushMock.AssertExpectations(GinkgoT())
 				})
 			})
 		})
@@ -142,12 +255,12 @@ var _ = Describe("logging", func() {
 					flushMock := &mockObject{}
 					flushMock.On(reflection.GetFunctionName(flushMock.Flush), mock.Anything)
 
-					config := BufferConfig{
+					config := logging.BufferConfig{
 						Limit:     4,
 						FlushFunc: flushMock.Flush,
 					}
 
-					logger := NewLogBuffer(config)
+					logger := logging.NewLogBuffer(config)
 
 					logger.Log("a")
 					logger.Log("b")
@@ -166,12 +279,12 @@ var _ = Describe("logging", func() {
 					flushMock := &mockObject{}
 					flushMock.On(reflection.GetFunctionName(flushMock.Flush), mock.Anything)
 
-					config := BufferConfig{
+					config := logging.BufferConfig{
 						Limit:     3,
 						FlushFunc: flushMock.Flush,
 					}
 
-					logger := NewLogBuffer(config)
+					logger := logging.NewLogBuffer(config)
 
 					logger.Log("a")
 					logger.Log("b")
@@ -196,12 +309,12 @@ var _ = Describe("logging", func() {
 				flushMock := &mockObject{}
 				flushMock.On(reflection.GetFunctionName(flushMock.Flush), mock.Anything)
 
-				config := BufferConfig{
+				config := logging.BufferConfig{
 					Limit:     4,
 					FlushFunc: flushMock.Flush,
 				}
 
-				logger := NewLogBuffer(config)
+				logger := logging.NewLogBuffer(config)
 
 				logger.Log("a")
 				logger.Log("b")
