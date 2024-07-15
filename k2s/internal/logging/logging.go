@@ -15,23 +15,12 @@ import (
 	"github.com/siemens-healthineers/k2s/internal/host"
 )
 
-func SetVerbosity(verbosity string, levelVar *slog.LevelVar) error {
-	level, err := parseLevel(verbosity)
-	if err != nil {
-		return err
-	}
-
-	levelVar.Set(level)
-
-	slog.Info("logger level set", "level", level)
-
-	return nil
-}
-
+// RootLogDir returns K2s' central log directory
 func RootLogDir() string {
 	return filepath.Join(host.SystemDrive(), "var", "log")
 }
 
+// GlobalLogFilePath returns K2s' global log file path
 func GlobalLogFilePath() string {
 	return filepath.Join(RootLogDir(), "k2s.log")
 }
@@ -59,10 +48,25 @@ func InitializeLogFile(path string) *os.File {
 	return logFile
 }
 
+// SetVerbosity sets the given verbosity on the log level variable after successful parsing
+func SetVerbosity(verbosity string, levelVar *slog.LevelVar) error {
+	level, err := parseLevel(verbosity)
+	if err != nil {
+		return err
+	}
+
+	levelVar.Set(level)
+
+	return nil
+}
+
+// LevelToLowerString stringifies the given log level.
+// The result can be parsed back to slog.Level
 func LevelToLowerString(level slog.Level) string {
 	return strings.ToLower(level.String())
 }
 
+// ShortenSourceAttribute replaces the full source file path with the file name and removes the function completely since the source line number gets logged as well
 func ShortenSourceAttribute(_ []string, attribute slog.Attr) slog.Attr {
 	if attribute.Key == slog.SourceKey {
 		source := attribute.Value.Any().(*slog.Source)

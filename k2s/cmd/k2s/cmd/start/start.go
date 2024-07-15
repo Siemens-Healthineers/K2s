@@ -67,7 +67,7 @@ func startk8s(ccmd *cobra.Command, args []string) error {
 
 	start := time.Now()
 
-	err = powershell.ExecutePs(startCmd, common.DeterminePsVersion(config), common.NewPsCommandOutputWriter())
+	err = powershell.ExecutePs(startCmd, common.DeterminePsVersion(config), common.NewPtermWriter())
 	if err != nil {
 		return err
 	}
