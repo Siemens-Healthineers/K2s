@@ -195,12 +195,7 @@ func runCmd(cmd *cobra.Command, addon addons.Addon, cmdName string, implementati
 		return err
 	}
 
-	outputWriter, err := common.NewOutputWriter()
-	if err != nil {
-		return err
-	}
-
-	cmdResult, err := powershell.ExecutePsWithStructuredResult[*common.CmdResult](psCmd, "CmdResult", common.DeterminePsVersion(config), outputWriter, params...)
+	cmdResult, err := powershell.ExecutePsWithStructuredResult[*common.CmdResult](psCmd, "CmdResult", common.DeterminePsVersion(config), common.NewPsCommandOutputWriter(), params...)
 	if err != nil {
 		return err
 	}

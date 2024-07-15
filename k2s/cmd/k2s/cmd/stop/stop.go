@@ -57,14 +57,9 @@ func stopk8s(cmd *cobra.Command, args []string) error {
 
 	slog.Debug("PS command created", "command", stopCmd)
 
-	outputWriter, err := common.NewOutputWriter()
-	if err != nil {
-		return err
-	}
-
 	start := time.Now()
 
-	err = powershell.ExecutePs(stopCmd, common.DeterminePsVersion(config), outputWriter)
+	err = powershell.ExecutePs(stopCmd, common.DeterminePsVersion(config), common.NewPsCommandOutputWriter())
 	if err != nil {
 		return err
 	}

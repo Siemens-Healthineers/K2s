@@ -4,15 +4,11 @@
 package powershell
 
 import (
-	"bufio"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"log/slog"
-	"os"
-	"os/exec"
 	"strings"
 
 	"github.com/siemens-healthineers/k2s/internal/host"
@@ -28,17 +24,14 @@ type Decoder interface {
 	DecodeMessage(message string, targetType string) ([]byte, error)
 }
 
-type OutputWriter interface {
-	WriteStd(line string)
-	WriteErr(line string)
-	Flush()
-}
-
 type messageDecoder struct{}
 
-type executor struct {
-	decoder Decoder
-	writer  OutputWriter
+type structuredOutputWriter struct {
+	decoder      Decoder
+	stdWriter    host.StdWriter
+	targetType   string
+	messages     []message
+	decodeErrors []error
 }
 
 const (
@@ -55,8 +48,8 @@ func (messageDecoder) DecodeMessage(message string, targetType string) ([]byte, 
 }
 
 // ExecutePsWithStructuredResult waits until the command has finished and returns the structured data it received or errors that occurred
-// Calls to OutputWriter happen asynchroniously
-func ExecutePsWithStructuredResult[T any](psScriptPath string, targetType string, psVersion PowerShellVersion, writer OutputWriter, additionalParams ...string) (v T, err error) {
+// Calls to OutputWriter happen asynchronous
+func ExecutePsWithStructuredResult[T any](psScriptPath string, targetType string, psVersion PowerShellVersion, writer host.StdWriter, additionalParams ...string) (v T, err error) {
 	if psVersion == "" {
 		return v, errors.New("PowerShell version not specified")
 	}
@@ -69,25 +62,34 @@ func ExecutePsWithStructuredResult[T any](psScriptPath string, targetType string
 
 	slog.Debug("PS command created", "command", cmdString)
 
-	cmd, err := buildCmd(psVersion, cmdString)
+	cmdName, args, err := buildCmd(psVersion, cmdString)
 	if err != nil {
 		return v, err
 	}
 
-	executor := executor{
-		decoder: messageDecoder{},
-		writer:  writer,
+	structuredWriter := &structuredOutputWriter{
+		decoder:      messageDecoder{},
+		stdWriter:    writer,
+		targetType:   targetType,
+		messages:     []message{},
+		decodeErrors: []error{},
 	}
+	exe := host.NewCmdExecutor(structuredWriter)
 
-	messages, err := executor.execute(cmd, targetType)
+	err = exe.ExecuteCmd(cmdName, args...)
 	if err != nil {
 		return v, err
 	}
 
-	return convertToResult[T](messages)
+	err = errors.Join(structuredWriter.decodeErrors...)
+	if err != nil {
+		return v, err
+	}
+
+	return convertToResult[T](structuredWriter.messages)
 }
 
-func ExecutePs(script string, psVersion PowerShellVersion, writer OutputWriter) error {
+func ExecutePs(script string, psVersion PowerShellVersion, writer host.StdWriter) error {
 	if psVersion == "" {
 		return errors.New("PowerShell version not specified")
 	}
@@ -99,90 +101,37 @@ func ExecutePs(script string, psVersion PowerShellVersion, writer OutputWriter) 
 
 	slog.Debug("PS command created", "command", script)
 
-	cmd, err := buildCmd(psVersion, script)
+	cmdName, args, err := buildCmd(psVersion, script)
 	if err != nil {
 		return err
 	}
 
-	executor := executor{
-		decoder: messageDecoder{},
-		writer:  writer,
-	}
-
-	_, err = executor.execute(cmd, "")
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return host.NewCmdExecutor(writer).ExecuteCmd(cmdName, args...)
 }
 
-func (e *executor) execute(cmd *exec.Cmd, targetType string) ([]message, error) {
-	stdOut, stdErr, err := setupCmdInOutStreams(cmd)
+func (sWriter *structuredOutputWriter) WriteStdOut(message string) {
+	if !sWriter.decoder.IsEncodedMessage(message) {
+		sWriter.stdWriter.WriteStdOut(message)
+		return
+	}
+
+	obj, err := sWriter.decoder.DecodeMessage(message, sWriter.targetType)
 	if err != nil {
-		return nil, err
+		sWriter.decodeErrors = append(sWriter.decodeErrors, err)
+		return
 	}
 
-	messageChan := make(chan string)
-	errorChan := make(chan string)
+	sWriter.messages = append(sWriter.messages, obj)
 
-	go readStream(stdOut, messageChan)
-	go readStream(stdErr, errorChan)
+	slog.Debug("Message decoded")
+}
 
-	if err := cmd.Start(); err != nil {
-		return nil, fmt.Errorf("command execution could not be started: %w", err)
-	}
+func (sWriter *structuredOutputWriter) WriteStdErr(message string) {
+	sWriter.stdWriter.WriteStdErr(message)
+}
 
-	slog.Debug("PS command started")
-
-	messages := []message{}
-	decodeErrors := []error{}
-
-	for messageChan != nil || errorChan != nil {
-		select {
-		case errorLine, ok := <-errorChan:
-			if !ok {
-				errorChan = nil
-
-				slog.Debug("Channel closed", "channel", "error")
-				continue
-			}
-			e.writer.WriteErr(errorLine)
-		case message, ok := <-messageChan:
-			if !ok {
-				messageChan = nil
-
-				slog.Debug("Channel closed", "channel", "message")
-				continue
-			}
-			if !e.decoder.IsEncodedMessage(message) {
-				e.writer.WriteStd(message)
-				continue
-			}
-
-			obj, err := e.decoder.DecodeMessage(message, targetType)
-			if err != nil {
-				decodeErrors = append(decodeErrors, err)
-				continue
-			}
-
-			messages = append(messages, obj)
-
-			slog.Debug("Message decoded")
-		}
-	}
-
-	e.writer.Flush()
-
-	slog.Debug("Waiting for PS command to finish")
-
-	if err := cmd.Wait(); err != nil {
-		return nil, fmt.Errorf("command execution failed, see log output above. Error: %w", err)
-	}
-
-	slog.Debug("PS command finished")
-
-	return messages, errors.Join(decodeErrors...)
+func (sWriter *structuredOutputWriter) Flush() {
+	sWriter.stdWriter.Flush()
 }
 
 func buildCmdString(psScriptPath string, targetType string, additionalParams ...string) string {
@@ -197,50 +146,20 @@ func buildCmdString(psScriptPath string, targetType string, additionalParams ...
 	return builder.String()
 }
 
-func buildCmd(psVersion PowerShellVersion, cmdString string) (*exec.Cmd, error) {
+func buildCmd(psVersion PowerShellVersion, cmdString string) (string, []string, error) {
 	if psVersion == PowerShellV7 {
 		slog.Info("Switching to PowerShell 7 command syntax")
 
 		if err := AssertPowerShellV7Installed(); err != nil {
-			return nil, err
+			return "", nil, err
 		}
 
-		return exec.Command(string(Ps7CmdName), "-Command", cmdString), nil
+		return string(Ps7CmdName), []string{"-Command", cmdString}, nil
 	}
 
 	slog.Info("Using PowerShell 5 command syntax")
 
-	return exec.Command(string(Ps5CmdName), cmdString), nil
-}
-
-func setupCmdInOutStreams(cmd *exec.Cmd) (stdOut io.ReadCloser, stdErr io.ReadCloser, err error) {
-	stdOut, err = cmd.StdoutPipe()
-	if err != nil {
-		return nil, nil, err
-	}
-
-	stdErr, err = cmd.StderrPipe()
-	if err != nil {
-		return nil, nil, err
-	}
-
-	cmd.Stdin = os.Stdin
-
-	return
-}
-
-func readStream(stream io.ReadCloser, dataReceived chan string) {
-	defer close(dataReceived)
-
-	slog.Debug("routine started", "routine", "readStream")
-
-	scanner := bufio.NewScanner(stream)
-
-	for scanner.Scan() {
-		dataReceived <- scanner.Text()
-	}
-
-	slog.Debug("routine finished", "routine", "readStream")
+	return string(Ps5CmdName), []string{cmdString}, nil
 }
 
 func convertToResult[T any](messages []message) (v T, err error) {

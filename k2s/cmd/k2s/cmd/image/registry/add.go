@@ -88,12 +88,7 @@ func addRegistry(cmd *cobra.Command, args []string) error {
 		return common.CreateFunctionalityNotAvailableCmdFailure(config.SetupName)
 	}
 
-	outputWriter, err := common.NewOutputWriter()
-	if err != nil {
-		return err
-	}
-
-	cmdResult, err := powershell.ExecutePsWithStructuredResult[*common.CmdResult](psCmd, "CmdResult", common.DeterminePsVersion(config), outputWriter, params...)
+	cmdResult, err := powershell.ExecutePsWithStructuredResult[*common.CmdResult](psCmd, "CmdResult", common.DeterminePsVersion(config), common.NewPsCommandOutputWriter(), params...)
 	if err != nil {
 		return err
 	}

@@ -14,6 +14,7 @@ import (
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 
 	"github.com/siemens-healthineers/k2s/internal/config"
+	"github.com/siemens-healthineers/k2s/internal/host"
 	"github.com/siemens-healthineers/k2s/internal/powershell"
 	"github.com/siemens-healthineers/k2s/internal/setupinfo"
 	"github.com/siemens-healthineers/k2s/internal/version"
@@ -34,7 +35,7 @@ type Printer interface {
 type Installer struct {
 	InstallConfigAccess       InstallConfigAccess
 	Printer                   Printer
-	ExecutePsScript           func(script string, psVersion powershell.PowerShellVersion, writer powershell.OutputWriter) error
+	ExecutePsScript           func(script string, psVersion powershell.PowerShellVersion, writer host.StdWriter) error
 	GetVersionFunc            func() version.Version
 	GetPlatformFunc           func() string
 	GetInstallDirFunc         func() string
@@ -82,10 +83,7 @@ func (i *Installer) Install(
 
 	i.Printer.Printfln("🤖 Installing K2s '%s' %s in '%s' on %s using PowerShell %s", kind, i.GetVersionFunc(), i.GetInstallDirFunc(), i.GetPlatformFunc(), psVersion)
 
-	outputWriter, err := common.NewOutputWriter()
-	if err != nil {
-		return err
-	}
+	outputWriter := common.NewPsCommandOutputWriter()
 
 	start := time.Now()
 
@@ -95,7 +93,7 @@ func (i *Installer) Install(
 		errorLine, found := common.GetInstallPreRequisiteError(outputWriter.ErrorLines)
 		if found {
 			i.Printer.PrintWarning("Prerequisite check failed,", errorLine)
-			i.Printer.PrintWarning("Have a look at the pre-requisites https://github.com/Siemens-Healthineers/K2s and re-issue 'k2s install'")
+			i.Printer.PrintWarning("Have a look at the pre-requisites 'https://github.com/Siemens-Healthineers/K2s/blob/main/docs/op-manual/installing-k2s.md#prerequisites' and re-issue 'k2s install'")
 			err = i.DeleteConfigFunc(cfg.Host.K2sConfigDir)
 			if err != nil {
 				slog.Debug("config file does not exist, nothing to do")
