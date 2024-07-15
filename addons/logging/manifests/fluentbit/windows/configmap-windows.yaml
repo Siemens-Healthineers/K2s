@@ -24,10 +24,19 @@ data:
     [PARSER]
         Name cli
         Format regex
-        Regex \{"time":"(?<time>[^ ]*)","level":"(?<level>(DEBUG|INFO|WARN|ERROR))","source":\{"function":"(?<function>[^"]+)","file":"(?<file>[^"]+)","line":(?<line>\d+)\},"msg":"(?<message>.*)\}
+        Regex \{"time":"(?<time>[^ ]*)","level":"(?<level>(DEBUG|INFO|WARN|ERROR))","source":(?<source>.*),"msg":"(?<message>.*)","component":.*\}
         Time_Key time
         Time_Format %Y-%m-%dT%H:%M:%S.%L%z
         Time_Keep On
+    
+    [PARSER]
+        Name centrallog
+        Format regex
+        Regex \[(?<time>(\d{2}-\d{2}-\d{4} \d{2}:\d{2}:\d{2}))\] (?<message>.*)$
+        Time_Key time
+        Time_Format %d-%m-%Y %H:%M:%S
+        Time_Keep Off
+        Time_Offset +0200
     
     [PARSER]
         Name nssm1
@@ -44,6 +53,7 @@ data:
         Time_Key time
         Time_Format %H:%M:%S.%L
         Time_Keep On
+        Time_Offset +0200
 
     [PARSER]
         Name kubeproxy
@@ -194,9 +204,9 @@ data:
 
     [INPUT]
         Name tail
-        Path C:\\var\\log\\cli\\*.log
-        Tag cli.*
-        Parser cli
+        Path C:\\var\\log\\k2s.log
+        Tag centrallog.*
+        Parser centrallog
         Buffer_Chunk_Size 10MB
         Buffer_Max_Size 40MB
         Mem_Buf_Limit 512MB
@@ -343,10 +353,17 @@ data:
 
     [FILTER]
         Name modify
-        Match cli.*
+        Match centrallog.*
         Rename message log
         Add k2s.host.name ${COMPUTERNAME}
-        Add ident cli
+        Add ident k2s.exe
+
+    [FILTER]
+        Name parser
+        Match centrallog.*
+        Parser cli
+        Reserve_Data true
+        Key_Name log
 
     [FILTER]
         Name modify
