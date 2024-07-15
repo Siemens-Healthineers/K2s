@@ -125,31 +125,32 @@ function Write-Log {
                     if ($script:ConsoleLogging) {
                         Write-Information $message -InformationAction Continue
                     }
-                    $logFileMessage | Out-File -Append -FilePath $k2sLogFilePath -Encoding utf8
+                    $logFileMessage | Out-File -Append -FilePath $k2sLogFilePath -Encoding utf8 -Force
                     return
                 }
 
                 if ($Error) {
-                    "[$dayTimestamp][ERROR] $message" | Out-File -Append -FilePath $k2sLogFilePath -Encoding utf8
+                    "[$dayTimestamp][ERROR] $message" | Out-File -Append -FilePath $k2sLogFilePath -Encoding utf8 -Force
                     Write-Error $consoleMessage
                 }
                 elseif ($Progress -and ($Console -or $script:ConsoleLogging)) {
                     Write-Host $consoleMessage -NoNewline
-                    $logFileMessage | Out-File -Append -FilePath $k2sLogFilePath -Encoding utf8 -NoNewline
+                    $logFileMessage | Out-File -Append -FilePath $k2sLogFilePath -Encoding utf8 -NoNewline -Force
                 }
                 elseif ($Console -or $script:ConsoleLogging) {
                     if ($Raw) {
                         Write-Output $message
-                    } elseif ($Ssh) {
+                    }
+                    elseif ($Ssh) {
                         Write-Output "#ssh#$message"
                     }
                     else {
                         Write-Information $consoleMessage -InformationAction Continue
                     }
-                    $logFileMessage | Out-File -Append -FilePath $k2sLogFilePath -Encoding utf8
+                    $logFileMessage | Out-File -Append -FilePath $k2sLogFilePath -Encoding utf8 -Force
                 }
                 else {
-                    $logFileMessage | Out-File -Append -FilePath $k2sLogFilePath -Encoding utf8
+                    $logFileMessage | Out-File -Append -FilePath $k2sLogFilePath -Encoding utf8 -Force
                 }
             }
         }
@@ -168,7 +169,7 @@ function Save-Log {
     )
 
     if (!(Test-Path "$env:TEMP")) {
-        New-Item -Path "$env:TEMP" -ItemType Directory | Out-Null
+        New-Item -Path "$env:TEMP" -ItemType Directory -Force | Out-Null
     }
 
     $destinationFolder = "$env:TEMP\k2s_log_$(get-date -f yyyyMMdd_HHmmss)"

@@ -19,15 +19,18 @@ import (
 	ve "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/version"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/common"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
+	"github.com/siemens-healthineers/k2s/cmd/k2s/utils/logging"
 	"github.com/siemens-healthineers/k2s/internal/cli"
 	"github.com/siemens-healthineers/k2s/internal/config"
-	"github.com/siemens-healthineers/k2s/internal/logging"
+	bl "github.com/siemens-healthineers/k2s/internal/logging"
 
 	"github.com/spf13/cobra"
 )
 
-func CreateRootCmd(levelVar *slog.LevelVar) (*cobra.Command, error) {
-	verbosity := ""
+func CreateRootCmd(logger *logging.Slogger) (*cobra.Command, error) {
+	verbosity := bl.LevelToLowerString(slog.LevelInfo)
+	showLog := false
+
 	cmd := &cobra.Command{
 		Use:               common.CliName,
 		Short:             "k2s – command-line tool to interact with the K2s cluster",
@@ -35,9 +38,17 @@ func CreateRootCmd(levelVar *slog.LevelVar) (*cobra.Command, error) {
 		SilenceUsage:      true,
 		CompletionOptions: cobra.CompletionOptions{DisableDefaultCmd: true},
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-			if err := logging.SetVerbosity(verbosity, levelVar); err != nil {
+			if err := logger.SetVerbosity(verbosity); err != nil {
 				return err
 			}
+
+			logHandlers := []logging.HandlerBuilder{logging.NewFileHandler(bl.GlobalLogFilePath())}
+			if showLog {
+				logHandlers = append(logHandlers, logging.NewCliHandler())
+			}
+			logger.SetHandlers(logHandlers...).SetGlobally()
+
+			slog.Debug("log level set", "level", verbosity)
 
 			// TODO: always load setup config and determine PS version?
 
@@ -70,8 +81,8 @@ func CreateRootCmd(levelVar *slog.LevelVar) (*cobra.Command, error) {
 	cmd.AddCommand(sys.SystemCmd)
 
 	persistentFlags := cmd.PersistentFlags()
-	persistentFlags.BoolP(cc.OutputFlagName, cc.OutputFlagShorthand, false, cc.OutputFlagUsage)
-	persistentFlags.StringVarP(&verbosity, cli.VerbosityFlagName, cli.VerbosityFlagShorthand, logging.LevelToLowerString(slog.LevelWarn), cli.VerbosityFlagHelp())
+	persistentFlags.BoolVarP(&showLog, cc.OutputFlagName, cc.OutputFlagShorthand, showLog, cc.OutputFlagUsage)
+	persistentFlags.StringVarP(&verbosity, cli.VerbosityFlagName, cli.VerbosityFlagShorthand, verbosity, cli.VerbosityFlagHelp())
 
 	return cmd, nil
 }

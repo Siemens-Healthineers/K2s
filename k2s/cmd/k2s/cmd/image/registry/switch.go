@@ -77,7 +77,7 @@ func switchRegistry(cmd *cobra.Command, args []string) error {
 		return common.CreateFunctionalityNotAvailableCmdFailure(config.SetupName)
 	}
 
-	cmdResult, err := powershell.ExecutePsWithStructuredResult[*common.CmdResult](psCmd, "CmdResult", common.DeterminePsVersion(config), common.NewPsCommandOutputWriter(), params...)
+	cmdResult, err := powershell.ExecutePsWithStructuredResult[*common.CmdResult](psCmd, "CmdResult", common.DeterminePsVersion(config), common.NewPtermWriter(), params...)
 	if err != nil {
 		return err
 	}

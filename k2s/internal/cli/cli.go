@@ -21,7 +21,7 @@ func VerbosityFlagHelp() string {
 	warn := logging.LevelToLowerString(slog.LevelWarn)
 	err := logging.LevelToLowerString(slog.LevelError)
 
-	return "log level verbosity, either pre-defined levels, integer values or a combination of both.\n" +
+	return "log level/verbosity, either pre-defined levels, integer values or a combination of both.\n" +
 		fmt.Sprintf("Pre-defined levels: %s = %d | %s = %d | %s = %d | %s = %d\n", debug, slog.LevelDebug, info, slog.LevelInfo, warn, slog.LevelWarn, err, slog.LevelError) +
 		fmt.Sprintf("- e.g. '-v %s'\t-> %s\n", debug, debug) +
 		fmt.Sprintf("- e.g. '-v %d'\t-> %s\n", slog.LevelWarn, warn) +

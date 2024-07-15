@@ -4,13 +4,10 @@
 package logging
 
 import (
-	"fmt"
 	"log"
 	"log/slog"
 	"os"
-	"path/filepath"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/common"
 	base "github.com/siemens-healthineers/k2s/internal/logging"
 )
 
@@ -19,10 +16,10 @@ type FileHandler struct {
 	logFile *os.File
 }
 
-// DefaultLogFilePath returns the default path of the CLI's log file
-func DefaultLogFilePath() string {
-	return filepath.Join(base.RootLogDir(), "cli", fmt.Sprintf("%s.exe.log", common.CliName))
-}
+const (
+	componentAttributeName = "component"
+	componentName          = "k2s.exe"
+)
 
 // NewFileHandler initializes the log file at the given path and creates an slog handler logging to this file
 func NewFileHandler(filePath string) HandlerBuilder {
@@ -33,10 +30,12 @@ func NewFileHandler(filePath string) HandlerBuilder {
 			AddSource:   true,
 			ReplaceAttr: base.ShortenSourceAttribute,
 		}
-		jsonHandler := slog.NewJSONHandler(logFile, options)
+		componentAttribute := slog.String(componentAttributeName, componentName)
+		jsonHandler := slog.NewJSONHandler(logFile, options).WithAttrs([]slog.Attr{componentAttribute}).(*slog.JSONHandler)
 
 		return &FileHandler{
 			JSONHandler: *jsonHandler,
+			logFile:     logFile,
 		}
 	}
 }
