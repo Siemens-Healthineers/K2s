@@ -34,9 +34,10 @@ Param (
 $clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
+$nodeModule = "$PSScriptRoot/../../lib\modules\k2s\k2s.node.module\k2s.node.module.psm1"
 $commonModule = "$PSScriptRoot\common.module.psm1"
 
-Import-Module $clusterModule, $infraModule, $addonsModule, $commonModule
+Import-Module $clusterModule, $infraModule, $addonsModule, $nodeModule, $commonModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -75,12 +76,20 @@ if ((Test-IsAddonEnabled -Name 'updates') -eq $true) {
 
 $UpdatesNamespace = 'updates'
 
+$VERSION_ARGOCD = 'v2.9.18'
+
 Write-Log 'Creating updates namespace' -Console
 (Invoke-Kubectl -Params 'create', 'namespace', $UpdatesNamespace)
 
 Write-Log 'Installing Updates addon' -Console
 $UpdatesConfig = Get-UpdatesConfig
 (Invoke-Kubectl -Params 'apply' , '-n', $UpdatesNamespace, '-f', $UpdatesConfig).Output | Write-Log
+
+$binPath = Get-KubeBinPath
+if (!(Test-Path "$binPath\argocd.exe")) {
+    Write-Log "Downloading ArgoCD binary with version $VERSION_ARGOCD"
+    Invoke-DownloadFile "$binPath\argocd.exe" "https://github.com/argoproj/argo-cd/releases/download/$VERSION_ARGOCD/argocd-windows-amd64.exe" $true -ProxyToUse $Proxy
+}
 
 Write-Log 'Waiting for pods being ready...' -Console
 
@@ -112,7 +121,6 @@ if (!$kubectlCmd.Success) {
     exit 1
 }
 
-Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'updates' })
 
 switch ($Ingress) {
     'ingress-nginx' {
@@ -132,7 +140,19 @@ switch ($Ingress) {
 
 Enable-ExternalAccessIfIngressControllerIsFound
 
+$ArgoCD_Password_output = argocd.exe admin initial-password -n $UpdatesNamespace
+
+$pattern = '^\S+' # Match first squence of non-whitespace characters
+$ARGOCD_Password = [regex]::Match($ArgoCD_Password_output, $pattern).Value
+
+$kubectlCmd = (Invoke-Kubectl -Params 'delete', 'secret', 'argocd-initial-secret', '-n', $UpdatesNamespace)
+Write-Log $kubectlCmd.Output
+
 Write-Log 'Installation of Kubernetes updates addon finished.' -Console
+
+Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'updates' })
+
+Write-UsageForUser $ARGOCD_Password
 
 if ($EncodeStructuredOutput -eq $true) {
     Send-ToCli -MessageType $MessageType -Message @{Error = $null }
