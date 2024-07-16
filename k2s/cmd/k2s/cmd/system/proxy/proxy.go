@@ -11,10 +11,6 @@ import (
 var ProxyCmd = &cobra.Command{
 	Use:   "proxy",
 	Short: "Manage proxy settings",
-	Long:  "This command allows you to manage proxy settings.",
-	Run: func(cmd *cobra.Command, args []string) {
-		// Add your code here to handle the proxy command
-	},
 }
 
 func init() {
