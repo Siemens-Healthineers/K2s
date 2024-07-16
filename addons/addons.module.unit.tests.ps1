@@ -53,7 +53,7 @@ Describe 'Get-EnabledAddons' -Tag 'unit', 'ci', 'addon' {
 
     Context 'some addons enabled' {
         BeforeAll {
-            $addonsConfig = @{Name = 'a1' }, @{Name = 'a2' }
+            $addonsConfig = @{Name = 'a1'; Implementations = @("i1") }, @{Name = 'a2' }
 
             Mock -ModuleName $moduleName Write-Log { }
             Mock -ModuleName $moduleName Get-AddonsConfig { return $addonsConfig }
@@ -63,9 +63,10 @@ Describe 'Get-EnabledAddons' -Tag 'unit', 'ci', 'addon' {
             InModuleScope $moduleName {
                 $result = Get-EnabledAddons
 
-                $result.Addons.Count | Should -Be 2
-                $result.Addons[0] | Should -Be 'a1'
-                $result.Addons[1] | Should -Be 'a2'
+                $result.Count | Should -Be 2
+                $result[0].Name | Should -Be 'a1'
+                $result[0].Implementations[0] | Should -Be 'i1'
+                $result[1].Name | Should -Be 'a2'
             }
         }
     }
