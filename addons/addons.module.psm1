@@ -154,7 +154,7 @@ function Get-EnabledAddons {
         $enabledAddons.Add($_) | Out-Null
     }
 
-    return $enabledAddons
+    return ,$enabledAddons
 }
 
 <#
