@@ -139,10 +139,12 @@ function Get-EnabledAddons {
 
     $config = Get-AddonsConfig
 
+    $enabledAddons = [System.Collections.ArrayList]@()
+
     if ($null -eq $config) {
         Write-Log "[$script::$function] No addons config found"
 
-        return @{Addons = $null }
+        return ,$enabledAddons
     }
 
     Write-Log "[$script::$function] Addons config found"
@@ -197,7 +199,11 @@ function Add-AddonToSetupJson() {
         $parsedSetupJson.EnabledAddons = $newEnabledAddons
         $parsedSetupJson | ConvertTo-Json -Depth 100 | Set-Content -Force $filePath -Confirm:$false
     } else {
-        $parsedSetupJson.EnabledAddons += @{Name = $Addon.Name; Implementations = [System.Collections.ArrayList]@($Addon.Implementation)}
+        if ($null -eq $Addon.Implementation) {
+            $parsedSetupJson.EnabledAddons += @{Name = $Addon.Name}
+        } else {
+            $parsedSetupJson.EnabledAddons += @{Name = $Addon.Name; Implementations = [System.Collections.ArrayList]@($Addon.Implementation)}
+        }
         $parsedSetupJson | ConvertTo-Json -Depth 100 | Set-Content -Force $filePath -Confirm:$false
     }
 }
