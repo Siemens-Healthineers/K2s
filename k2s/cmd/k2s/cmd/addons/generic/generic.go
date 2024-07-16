@@ -27,7 +27,7 @@ func NewCommands(allAddons addons.Addons) (commands []*cobra.Command, err error)
 	commandMap := map[string]*cobra.Command{}
 
 	for _, addon := range allAddons {
-		if addon.Spec.Implementations[0].Commands == nil || len(*addon.Spec.Implementations[0].Commands) == 0 {
+		if len(addon.Spec.Implementations) == 0 || addon.Spec.Implementations[0].Commands == nil || len(*addon.Spec.Implementations[0].Commands) == 0 {
 			return nil, fmt.Errorf("no cmd config found for addon '%s'", addon.Metadata.Name)
 		}
 

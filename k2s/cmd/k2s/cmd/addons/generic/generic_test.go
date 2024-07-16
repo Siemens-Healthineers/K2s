@@ -66,8 +66,7 @@ var _ = Describe("generic pkg", func() {
 		When("addons's cmd config has no entries'", func() {
 			It("returns error", func() {
 				addons := addons.Addons{
-					addons.Addon{Spec: addons.AddonSpec{Commands: &map[string]addons.AddonCmd{}}},
-				}
+					addons.Addon{Spec: addons.AddonSpec{Implementations: []addons.Implementation{addons.Implementation{Commands: &map[string]addons.AddonCmd{}}}}}}
 
 				result, err := NewCommands(addons)
 
@@ -82,19 +81,19 @@ var _ = Describe("generic pkg", func() {
 					addons.Addon{
 						Metadata: addons.AddonMetadata{Name: "a1"},
 						Spec: addons.AddonSpec{
-							Commands: &map[string]addons.AddonCmd{
+							Implementations: []addons.Implementation{addons.Implementation{Commands: &map[string]addons.AddonCmd{
 								"c1": {},
 								"c2": {},
-							},
+							}}},
 						},
 					},
 					addons.Addon{
 						Metadata: addons.AddonMetadata{Name: "a2"},
 						Spec: addons.AddonSpec{
-							Commands: &map[string]addons.AddonCmd{
+							Implementations: []addons.Implementation{addons.Implementation{Commands: &map[string]addons.AddonCmd{
 								"c2": {},
 								"c3": {},
-							},
+							}}},
 						},
 					},
 				}
@@ -118,7 +117,7 @@ var _ = Describe("generic pkg", func() {
 				addons := addons.Addons{
 					addons.Addon{
 						Spec: addons.AddonSpec{
-							Commands: &map[string]addons.AddonCmd{
+							Implementations: []addons.Implementation{addons.Implementation{Commands: &map[string]addons.AddonCmd{
 								"do-this": {
 									Cli: &addons.CliConfig{
 										Flags: []addons.CliFlag{
@@ -128,7 +127,7 @@ var _ = Describe("generic pkg", func() {
 										},
 									},
 								},
-							},
+							}}},
 						},
 					},
 				}
@@ -150,13 +149,13 @@ var _ = Describe("generic pkg", func() {
 						Name: "a1",
 					},
 					Spec: addons.AddonSpec{
-						Commands: &map[string]addons.AddonCmd{
+						Implementations: []addons.Implementation{addons.Implementation{Commands: &map[string]addons.AddonCmd{
 							command: {},
-						},
+						}}},
 					},
 				}
 
-				result, err := newAddonCmd([]addons.Addon{addon}, command)
+				result, err := newAddonCmd(addon, command)
 
 				Expect(err).ToNot(HaveOccurred())
 				Expect(result.Use).To(Equal(addon.Metadata.Name))
@@ -176,7 +175,7 @@ var _ = Describe("generic pkg", func() {
 						Name: "a1",
 					},
 					Spec: addons.AddonSpec{
-						Commands: &map[string]addons.AddonCmd{
+						Implementations: []addons.Implementation{addons.Implementation{Commands: &map[string]addons.AddonCmd{
 							command: {
 								Cli: &addons.CliConfig{
 									Examples: addons.CliExamples{
@@ -187,19 +186,19 @@ var _ = Describe("generic pkg", func() {
 									},
 								},
 							},
-						},
+						}}},
 					},
 				}
 
-				result, err := newAddonCmd([]addons.Addon{addon}, command)
+				result, err := newAddonCmd(addon, command)
 
 				Expect(err).ToNot(HaveOccurred())
 				Expect(result.Use).To(Equal(addon.Metadata.Name))
 				Expect(result.Short).To(SatisfyAll(ContainSubstring(command), ContainSubstring(addon.Metadata.Name)))
 				Expect(result.RunE).ToNot(BeNil())
 				Expect(result.Example).To(SatisfyAll(
-					ContainSubstring((*addon.Spec.Commands)[command].Cli.Examples[0].Cmd),
-					ContainSubstring(*(*addon.Spec.Commands)[command].Cli.Examples[0].Comment),
+					ContainSubstring((*addon.Spec.Implementations[0].Commands)[command].Cli.Examples[0].Cmd),
+					ContainSubstring(*(*addon.Spec.Implementations[0].Commands)[command].Cli.Examples[0].Comment),
 				))
 				Expect(result.HasFlags()).To(BeFalse())
 			})
@@ -215,7 +214,7 @@ var _ = Describe("generic pkg", func() {
 						Name: "a1",
 					},
 					Spec: addons.AddonSpec{
-						Commands: &map[string]addons.AddonCmd{
+						Implementations: []addons.Implementation{addons.Implementation{Commands: &map[string]addons.AddonCmd{
 							command: {
 								Cli: &addons.CliConfig{
 									Flags: []addons.CliFlag{
@@ -226,11 +225,11 @@ var _ = Describe("generic pkg", func() {
 									},
 								},
 							},
-						},
+						}}},
 					},
 				}
 
-				result, err := newAddonCmd([]addons.Addon{addon}, command)
+				result, err := newAddonCmd(addon, command)
 
 				Expect(err).ToNot(HaveOccurred())
 				Expect(result.Use).To(Equal(addon.Metadata.Name))
@@ -251,7 +250,7 @@ var _ = Describe("generic pkg", func() {
 				command := "do-this"
 				addon := addons.Addon{
 					Spec: addons.AddonSpec{
-						Commands: &map[string]addons.AddonCmd{
+						Implementations: []addons.Implementation{addons.Implementation{Commands: &map[string]addons.AddonCmd{
 							command: {
 								Cli: &addons.CliConfig{
 									Flags: []addons.CliFlag{
@@ -261,7 +260,7 @@ var _ = Describe("generic pkg", func() {
 									},
 								},
 							},
-						},
+						}}},
 					},
 				}
 
