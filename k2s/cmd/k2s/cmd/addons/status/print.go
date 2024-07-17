@@ -137,7 +137,7 @@ func (s *UserFriendlyPrinter) PrintStatus(addonName string, implementation strin
 
 	if !*status.Enabled {
 		if implementation != "" {
-			s.terminalPrinter.Println("Implementation", coloredImplemetationName, "of Addon", coloredAddonName, "is", s.terminalPrinter.PrintCyanFg("enabled"))
+			s.terminalPrinter.Println("Implementation", coloredImplemetationName, "of Addon", coloredAddonName, "is", s.terminalPrinter.PrintCyanFg("disabled"))
 		} else {
 			s.terminalPrinter.Println("Addon", coloredAddonName, "is", s.terminalPrinter.PrintCyanFg("disabled"))
 		}
