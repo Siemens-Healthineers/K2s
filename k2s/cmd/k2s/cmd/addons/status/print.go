@@ -72,8 +72,8 @@ func NewPropPrinter(terminalPrinter TerminalPrinter) *propPrint {
 	}
 }
 
-func (s *JsonPrinter) PrintStatus(addonName string, loadFunc func(addonName string) (*LoadedAddonStatus, error)) error {
-	loadedStatus, err := loadFunc(addonName)
+func (s *JsonPrinter) PrintStatus(addonName string, implementation string, loadFunc func(addonName string, implementation string) (*LoadedAddonStatus, error)) error {
+	loadedStatus, err := loadFunc(addonName, implementation)
 	if err != nil {
 		return err
 	}
@@ -108,13 +108,13 @@ func (s *JsonPrinter) PrintStatus(addonName string, loadFunc func(addonName stri
 	return deferredErr
 }
 
-func (s *UserFriendlyPrinter) PrintStatus(addonName string, loadFunc func(addonName string) (*LoadedAddonStatus, error)) error {
+func (s *UserFriendlyPrinter) PrintStatus(addonName string, implementation string, loadFunc func(addonName string, implementation string) (*LoadedAddonStatus, error)) error {
 	spinner, err := common.StartSpinner(s.terminalPrinter)
 	if err != nil {
 		return err
 	}
 
-	status, err := loadFunc(addonName)
+	status, err := loadFunc(addonName, implementation)
 
 	common.StopSpinner(spinner)
 
@@ -133,13 +133,23 @@ func (s *UserFriendlyPrinter) PrintStatus(addonName string, loadFunc func(addonN
 	s.terminalPrinter.PrintHeader("ADDON STATUS")
 
 	coloredAddonName := s.terminalPrinter.PrintCyanFg(addonName)
+	coloredImplemetationName := s.terminalPrinter.PrintCyanFg(implementation)
 
 	if !*status.Enabled {
-		s.terminalPrinter.Println("Addon", coloredAddonName, "is", s.terminalPrinter.PrintCyanFg("disabled"))
+		if implementation != "" {
+			s.terminalPrinter.Println("Implementation", coloredImplemetationName, "of Addon", coloredAddonName, "is", s.terminalPrinter.PrintCyanFg("enabled"))
+		} else {
+			s.terminalPrinter.Println("Addon", coloredAddonName, "is", s.terminalPrinter.PrintCyanFg("disabled"))
+		}
+
 		return nil
 	}
 
-	s.terminalPrinter.Println("Addon", coloredAddonName, "is", s.terminalPrinter.PrintCyanFg("enabled"))
+	if implementation != "" {
+		s.terminalPrinter.Println("Implementation", coloredImplemetationName, "of Addon", coloredAddonName, "is", s.terminalPrinter.PrintCyanFg("enabled"))
+	} else {
+		s.terminalPrinter.Println("Addon", coloredAddonName, "is", s.terminalPrinter.PrintCyanFg("enabled"))
+	}
 
 	for _, prop := range status.Props {
 		s.propPrinter.PrintProp(prop)

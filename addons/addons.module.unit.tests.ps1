@@ -76,10 +76,10 @@ Describe 'ConvertTo-NewConfigStructure' -Tag 'unit', 'ci', 'addon' {
     Context 'config structure needs to be migrated from <= v0.5 to current version' {
         BeforeAll {
             [Diagnostics.CodeAnalysis.SuppressMessageAttribute('UseDeclaredVarsMoreThanAssignments', '', Justification = 'Pester Test')]
-            $oldConfig = ConvertFrom-Json '[ "metrics", "dashboard", "ingress-nginx" ]'
+            $oldConfig = ConvertFrom-Json '[ "metrics", "dashboard", "ingress nginx" ]'
 
             [Diagnostics.CodeAnalysis.SuppressMessageAttribute('UseDeclaredVarsMoreThanAssignments', '', Justification = 'Pester Test')]
-            $expectedResult = [pscustomobject]@{Name = 'metrics' }, [pscustomobject]@{Name = 'dashboard' }, [pscustomobject]@{Name = 'ingress-nginx' }
+            $expectedResult = [pscustomobject]@{Name = 'metrics' }, [pscustomobject]@{Name = 'dashboard' }, [pscustomobject]@{Name = 'ingress nginx' }
         }
 
         BeforeEach {
