@@ -88,8 +88,17 @@ func toPrintList(enabledAddonsList []Addon, allAddons addons.Addons) *printList 
 		}
 
 		if lo.Contains(lo.Map(enabledAddonsList, func(e Addon, _ int) string { return e.Name }), addon.Name) {
-			addon.Implementations = lo.Filter(enabledAddonsList, func(item Addon, _ int) bool { return item.Name == addon.Name })[0].Implementations
+			enabledImplementations := lo.Filter(enabledAddonsList, func(item Addon, _ int) bool { return item.Name == addon.Name })[0].Implementations
+			disabledImplementations := lo.Without(addon.Implementations, enabledImplementations...)
+			addon.Implementations = enabledImplementations
 			enabledAddons = append(enabledAddons, addon)
+
+			// In case not all implementations of the addon are enabled, add still disabled ones to disabled section
+			if len(disabledImplementations) > 0 {
+				addon.Implementations = disabledImplementations
+				disabledAddons = append(disabledAddons, addon)
+			}
+
 		} else {
 			disabledAddons = append(disabledAddons, addon)
 		}
