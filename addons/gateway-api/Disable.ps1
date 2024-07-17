@@ -41,7 +41,7 @@ if ($systemError) {
     exit 1
 }
 
-if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'gateway-api', '--ignore-not-found').Output -and (Test-IsAddonEnabled -Name 'gateway-api') -ne $true) {
+if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'gateway-api', '--ignore-not-found').Output -and (Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'gateway-api' })) -ne $true) {
     $errMsg = "Addon 'gateway-api' is already disabled, nothing to do."
 
     if ($EncodeStructuredOutput -eq $true) {
@@ -64,7 +64,7 @@ Write-Log 'Uninstalling Gateway API' -Console
 (Invoke-Kubectl -Params 'delete', '-f', "$manifestsPath\gateway-api-v1.0.0.yaml").Output | Write-Log
 
 Remove-ScriptsFromHooksDir -ScriptNames @(Get-ChildItem -Path "$PSScriptRoot\hooks" | ForEach-Object { $_.Name })
-Remove-AddonFromSetupJson -Name 'gateway-api'
+Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'gateway-api' })
 
 if ($EncodeStructuredOutput -eq $true) {
     Send-ToCli -MessageType $MessageType -Message @{Error = $null }

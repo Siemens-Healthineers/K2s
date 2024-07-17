@@ -21,7 +21,7 @@ spec:
                   kind: validation-set
                   validationSet:
                     - none
-                    - ingress-nginx
+                    - nginx
                     - traefik
               - name: enable-metrics-server
                 default: false
@@ -30,9 +30,9 @@ spec:
               - cmd: k2s addons enable dashboard
                 comment: Enable dashboard in k2s
               - cmd: k2s addons enable dashboard --ingress traefik
-                comment: Enable dashboard in k2s with traefik ingress
+                comment: Enable dashboard in k2s with ingress traefik
               - cmd: k2s addons enable dashboard --ingress traefik --enable-metrics-server
-                comment: Enable dashboard in k2s with traefik and metrics server
+                comment: Enable dashboard in k2s with ingress traefik and metrics server
           script:
             subPath: Enable.ps1
             parameterMappings:

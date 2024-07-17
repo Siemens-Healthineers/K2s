@@ -1010,7 +1010,7 @@ function Enable-SmbShare {
         return @{Error = $systemError }
     }
 
-    if ((Test-IsAddonEnabled -Name $AddonName) -eq $true) {
+    if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = $AddonName })) -eq $true) {
         $err = New-Error -Severity Warning -Code (Get-ErrCodeAddonAlreadyEnabled) -Message "Addon '$AddonName' is already enabled, nothing to do." 
         return @{Error = $err }
     }
@@ -1065,7 +1065,7 @@ function Disable-SmbShare {
         }
     }
 
-    if ((Test-IsAddonEnabled -Name $AddonName) -ne $true) {
+    if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = $AddonName })) -ne $true) {
         $err = New-Error -Severity Warning -Code (Get-ErrCodeAddonAlreadyDisabled) -Message "Addon '$AddonName' is already disabled, nothing to do."
         return @{Error = $err }
     }
@@ -1073,7 +1073,7 @@ function Disable-SmbShare {
     Write-Log "Disabling '$AddonName'.."
 
     Remove-SmbShareAndFolder -SkipNodesCleanup:$SkipNodesCleanup
-    Remove-AddonFromSetupJson -Name $AddonName
+    Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = $AddonName })
     Remove-ScriptsFromHooksDir -ScriptNames @(Get-ChildItem -Path $localHooksDir | ForEach-Object { $_.Name })
 
     return @{Error = $null }

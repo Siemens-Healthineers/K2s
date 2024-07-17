@@ -217,7 +217,7 @@ function Add-AddonToSetupJson() {
 .PARAMETER Name
     Name of the enabled addon
 .EXAMPLE
-    Remove-AddonFromSetupJson -Name "DummyAddon"
+    Remove-AddonFromSetupJson -Addon -Addon ([pscustomobject] @{Name = 'DummyAddon' })
 #>
 function Remove-AddonFromSetupJson {
     param (
@@ -313,15 +313,31 @@ function Get-DebianPackageAvailableOffline {
 #>
 function Test-IsAddonEnabled {
     param (
-        [parameter(Mandatory = $false)]
-        [string] $Name = $(throw 'Name not specified')
+        [Parameter(Mandatory = $false)]
+        [pscustomobject]$Addon = $(throw 'Please specify the addon.')
     )
-    $addons = Get-AddonsConfig
-    foreach ($addon in $addons) {
-        if ($addon.Name -eq $Name) {
-            return $true
-        }
+    if ($Addon -eq $null) {
+        throw 'Addon not specified'
     }
+    if ($null -eq ($Addon | Get-Member -MemberType Properties -Name 'Name')) {
+        throw "Addon does not contain a property with name 'Name'"
+    }
+
+    $enabledAddons = Get-AddonsConfig
+    foreach ($enabledAddon in $enabledAddons) {
+        if ($enabledAddon.Name -eq $Addon.Name) {
+            if ($null -eq $Addon.Implementation) {
+                return $true
+            }
+
+            if ($enabledAddon.Implementations -contains $Addon.Implementation) {
+                return $true
+            } 
+
+            return $false
+        }    
+    }
+    
     return $false
 }
 
@@ -600,7 +616,7 @@ function Get-AddonStatus {
         return $status
     }
 
-    $isEnabled = Test-IsAddonEnabled -Name $Name
+    $isEnabled = Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = $Name })
 
     $status.Enabled = $isEnabled
     if ($isEnabled -ne $true) {
@@ -664,8 +680,8 @@ function Update-IngressForAddons {
     Write-Log "Adapting ingress entries for addons, security is on: $Enable" -Console
 
     # check ingress type
-    if ((Test-IsAddonEnabled -Name 'ingress-nginx') -eq $false) {
-        Write-Log 'Traefik ingress is used, adaptions cannot be made for traefik, please use nginx !' -Console
+    if (Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'ingress'; Implementation = 'nginx' }) -eq $false) {
+        Write-Log 'Traefik ingress is used, adaptions cannot be made for traefik, please use nginx!' -Console
         return
     }
 

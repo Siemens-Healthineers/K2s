@@ -53,7 +53,7 @@ if ($setupInfo.Name -ne 'k2s') {
   return
 }
 
-if ((Test-IsAddonEnabled -Name 'gateway-api') -eq $true -or "$((Invoke-Kubectl -Params 'get', 'deployment', '-n', 'gateway-api' ,'-o', 'yaml').Output)" -match 'gateway-api') {
+if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'gateway-api' })) -eq $true -or "$((Invoke-Kubectl -Params 'get', 'deployment', '-n', 'gateway-api' ,'-o', 'yaml').Output)" -match 'gateway-api') {
   $errMsg = "Addon 'gateway-api' is already enabled, nothing to do."
 
   if ($EncodeStructuredOutput -eq $true) {
@@ -66,8 +66,21 @@ if ((Test-IsAddonEnabled -Name 'gateway-api') -eq $true -or "$((Invoke-Kubectl -
   exit 1
 }
 
-if ((Test-IsAddonEnabled -Name 'ingress') -eq $true) {
-  $errMsg = "Addon 'ingress' is enabled. Disable it first to avoid port conflicts."
+if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'ingress'; Implementation = 'nginx' })) -eq $true) {
+  $errMsg = "Addon 'ingress nginx' is enabled. Disable it first to avoid port conflicts."
+
+  if ($EncodeStructuredOutput -eq $true) {
+    $err = New-Error -Severity Warning -Code (Get-ErrCodeAddonAlreadyEnabled) -Message $errMsg
+    Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+    return
+  }
+
+  Write-Log $errMsg -Error
+  exit 1
+}
+
+if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'ingress'; Implementation = 'traefik' })) -eq $true) {
+  $errMsg = "Addon 'ingress traefik' is enabled. Disable it first to avoid port conflicts."
 
   if ($EncodeStructuredOutput -eq $true) {
     $err = New-Error -Severity Warning -Code (Get-ErrCodeAddonAlreadyEnabled) -Message $errMsg

@@ -25,12 +25,12 @@ spec:
             flags:
               - name: ingress
                 shorthand: i
-                default: ingress-nginx
+                default: nginx
                 description: Ingress controller to use for exposing registry if not already enabled
                 constraints:
                   kind: validation-set
                   validationSet:
-                    - ingress-nginx
+                    - nginx
                     - traefik
               - name: default-credentials
                 shorthand: d

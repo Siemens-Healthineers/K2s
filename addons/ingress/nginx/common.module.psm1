@@ -6,7 +6,7 @@
 
 <#
 .SYNOPSIS
-Contains common methods for installing and uninstalling ingress-nginx
+Contains common methods for installing and uninstalling ingress nginx
 #>
 
 function Get-IngressNginxConfig {

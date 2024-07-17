@@ -46,10 +46,10 @@ if ($systemError) {
     exit 1
 }
 
-Write-Log 'Check whether traefik addon is already disabled'
+Write-Log 'Check whether ingress traefik addon is already disabled'
 
-if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'traefik', '--ignore-not-found').Output -and (Test-IsAddonEnabled -Name 'traefik') -ne $true) {
-    $errMsg = "Addon 'traefik' is already disabled, nothing to do."
+if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'traefik', '--ignore-not-found').Output -and (Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'ingress'; Implementation = 'traefik' })) -ne $true) {
+    $errMsg = "Addon 'ingress traefik' is already disabled, nothing to do."
 
     if ($EncodeStructuredOutput -eq $true) {
         $err = New-Error -Severity Warning -Code (Get-ErrCodeAddonAlreadyDisabled) -Message $errMsg
@@ -61,7 +61,7 @@ if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'traefik', '--ignore-n
     exit 1
 }
 
-Write-Log 'Uninstalling traefik ingress addon' -Console
+Write-Log 'Uninstalling ingress traefik addon' -Console
 $traefikYamlDir = Get-TraefikYamlDir
 
 (Invoke-Kubectl -Params 'delete', '-k', $traefikYamlDir).Output | Write-Log
@@ -71,8 +71,8 @@ Write-log 'Uninstalling ExternalDNS' -Console
 $externalDnsConfigDir = Get-ExternalDnsConfigDir
 (Invoke-Kubectl -Params 'delete', '-k', $externalDnsConfigDir).Output | Write-Log
 
-Remove-AddonFromSetupJson -Name 'traefik'
-Write-Log 'Uninstallation of Traefik addon finished' -Console
+Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'ingress'; Implementation = 'traefik' })
+Write-Log 'Uninstallation of ingress traefik addon finished' -Console
 
 if ($EncodeStructuredOutput -eq $true) {
     Send-ToCli -MessageType $MessageType -Message @{Error = $null }

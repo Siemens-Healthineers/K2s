@@ -15,7 +15,7 @@ The "monitoring" addons enables Prometheus/Grafana monitoring features for the k
 Param(
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
     [switch] $ShowLogs = $false,
-    [ValidateSet('ingress-nginx', 'traefik', 'none')]
+    [ValidateSet('nginx', 'traefik', 'none')]
     [string] $Ingress = 'none',
     [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
     [switch] $EncodeStructuredOutput,
@@ -51,7 +51,7 @@ if ($setupInfo.Name -ne 'k2s') {
     return
 }
 
-if ((Test-IsAddonEnabled -Name 'monitoring') -eq $true) {
+if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'monitoring' })) -eq $true) {
     $errMsg = "Addon 'monitoring' is already enabled, nothing to do."
 
     if ($EncodeStructuredOutput -eq $true) {

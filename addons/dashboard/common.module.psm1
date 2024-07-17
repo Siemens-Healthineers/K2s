@@ -82,10 +82,10 @@ function Deploy-DashboardIngressForTraefik {
 
 <#
 .DESCRIPTION
-Enables the ingress-nginx addon for external access.
+Enables the ingress nginx addon for external access.
 #>
 function Enable-IngressAddon {
-    &"$PSScriptRoot\..\ingress-nginx\Enable.ps1" -ShowLogs:$ShowLogs
+    &"$PSScriptRoot\..\ingress\nginx\Enable.ps1" -ShowLogs:$ShowLogs
 }
 
 <#
@@ -93,7 +93,7 @@ function Enable-IngressAddon {
 Enables the traefik addon for external access.
 #>
 function Enable-TraefikAddon {
-    &"$PSScriptRoot\..\traefik\Enable.ps1" -ShowLogs:$ShowLogs
+    &"$PSScriptRoot\..\ingress\traefik\Enable.ps1" -ShowLogs:$ShowLogs
 }
 
 <#
@@ -101,7 +101,7 @@ function Enable-TraefikAddon {
 Enables the metrics server addon.
 #>
 function Enable-MetricsServer {
-    &"$PSScriptRoot\..\metrics-server\Enable.ps1" -ShowLogs:$ShowLogs
+    &"$PSScriptRoot\..\metrics\Enable.ps1" -ShowLogs:$ShowLogs
 }
 
 <#
@@ -129,10 +129,10 @@ function Write-UsageForUser {
  To open dashboard, please use one of the options:
 
  Option 1: Access via ingress
- Please install either ingress-nginx addon or traefik addon from k2s.
+ Please install either ingress nginx or ingress traefik addon from k2s.
  or you can install them on your own. 
  Enable ingress controller via k2s cli
- eg. k2s addons enable ingress-nginx
+ eg. k2s addons enable ingress nginx
  Once the ingress controller is running in the cluster, run the command to enable dashboard again 
  (disable it first if dashboard addon was already enabled).
  k2s addons enable dashboard

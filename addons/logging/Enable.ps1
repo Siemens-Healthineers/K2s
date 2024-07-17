@@ -20,7 +20,7 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
     [switch] $ShowLogs = $false,
     [parameter(Mandatory = $false, HelpMessage = 'External access option')]
-    [ValidateSet('ingress-nginx', 'traefik', 'none')]
+    [ValidateSet('nginx', 'traefik', 'none')]
     [string] $Ingress = 'none',
     [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
     [switch] $EncodeStructuredOutput,
@@ -57,7 +57,7 @@ if ($setupInfo.Name -ne 'k2s') {
     return
 }
 
-if ((Test-IsAddonEnabled -Name 'logging') -eq $true) {
+if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'logging' })) -eq $true) {
     $errMsg = "Addon 'logging' is already enabled, nothing to do."
 
     if ($EncodeStructuredOutput -eq $true) {

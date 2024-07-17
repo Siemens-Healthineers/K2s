@@ -19,9 +19,9 @@ powershell <installation folder>\addons\security\Enable.ps1
 
 [CmdletBinding(SupportsShouldProcess = $true)]
 Param (
-    [parameter(Mandatory = $false, HelpMessage = 'Enable Ingress-Nginx Addon')]
-    [ValidateSet('ingress-nginx', 'traefik')]
-    [string] $Ingress = 'ingress-nginx',
+    [parameter(Mandatory = $false, HelpMessage = 'Enable ingress addon')]
+    [ValidateSet('nginx', 'traefik')]
+    [string] $Ingress = 'nginx',
     [parameter(Mandatory = $false, HelpMessage = 'HTTP proxy if available')]
     [string] $Proxy,
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
@@ -62,7 +62,7 @@ if ($systemError) {
     exit 1
 }
 
-if ((Test-IsAddonEnabled -Name 'security') -eq $true) {
+if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'security' })) -eq $true) {
     $errMsg = "Addon 'security' is already enabled, nothing to do."
 
     if ($EncodeStructuredOutput -eq $true) {

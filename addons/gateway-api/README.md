@@ -24,4 +24,4 @@ The NGINX Gateway Fabric provides several examples which can be found [here](htt
 
 The gateway controller is configured so that it can be reached from outside the cluster via the external IP Address `172.19.1.100`.
 
-_Note:_ It is only possible to enable one ingress controller or gateway controller (ingress-nginx, traefik or gateway-nginx) in the k2s cluster at the same time since they use the same ports.
+_Note:_ It is only possible to enable one ingress controller or gateway controller (ingress nginx, ingress traefik or gateway-api) in the k2s cluster at the same time since they use the same ports.

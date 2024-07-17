@@ -61,7 +61,7 @@ spec:
             pathType: Prefix
 ---
 # this ingress will be merged with ingress provided in:
-# addons/ingress-nginx/manifests/cluster-net-ingress.yaml
+# addons/ingress/nginx/manifests/cluster-net-ingress.yaml
 # and exposes the opensearch-dashboards web application on:
 # https://k2s.cluster.local/logging/
 apiVersion: networking.k8s.io/v1

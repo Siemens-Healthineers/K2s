@@ -4,18 +4,18 @@ SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
 SPDX-License-Identifier: MIT
 -->
 
-# ingress-traefik
+# ingress traefik
 
 ## Introduction
 
-The `ingress-traefik` addon provides an implementation of the Ingress Controller with
+The `ingress traefik` addon provides an implementation of the Ingress Controller with
 [ingressClassName: traefik](https://github.com/traefik/traefik).
 Traefik is a modern HTTP reverse proxy and load balancer that makes
 deploying and accessing microservices easy.
 
 ## Getting started
 
-The ingress-traefik addon can be enabled using the `k2s` CLI by running the following command:
+The ingress traefik addon can be enabled using the `k2s` CLI by running the following command:
 
 ```cmd
 k2s addons enable ingress -i traefik
@@ -34,7 +34,7 @@ The ingress controller is configured so that it can be reached from outside
 the cluster via the external IP Address `172.19.1.100`.
 
 _Note:_ It is only possible to enable one ingress controller or gateway
-controller (ingress-nginx, ingress-traefik or gateway-nginx) in the K2s cluster at the
+controller (ingress nginx, ingress traefik or gateway nginx) in the K2s cluster at the
 same time since they use the same ports.
 
 This Addon prepares one central TLS termination, matching the hostname

@@ -13,7 +13,7 @@ Ingress nginx is using k8s load balancer and is bound to the IP of the master ma
 It allows applications to register their ingress resources and handles incomming HTTP/HTPPS traffic.
 
 .EXAMPLE
-powershell <installation folder>\addons\ingress-nginx\Disable.ps1
+powershell <installation folder>\addons\ingress\nginx\Disable.ps1
 #>
 
 Param(
@@ -46,10 +46,10 @@ if ($systemError) {
     exit 1
 }
 
-Write-Log 'Check whether ingress-nginx addon is already disabled'
+Write-Log 'Check whether ingress nginx addon is already disabled'
 
-if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'ingress-nginx', '--ignore-not-found').Output -and (Test-IsAddonEnabled -Name 'ingress-nginx') -ne $true) {
-    $errMsg = "Addon 'ingress-nginx' is already disabled, nothing to do."
+if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'ingress-nginx', '--ignore-not-found').Output -and (Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'ingress'; Implementation = 'nginx' })) -ne $true) {
+    $errMsg = "Addon 'ingress nginx' is already disabled, nothing to do."
 
     if ($EncodeStructuredOutput -eq $true) {
         $err = New-Error -Severity Warning -Code (Get-ErrCodeAddonAlreadyDisabled) -Message $errMsg
@@ -61,7 +61,7 @@ if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'ingress-nginx', '--ig
     exit 1
 }
 
-Write-Log 'Uninstalling ingress-nginx' -Console
+Write-Log 'Uninstalling ingress nginx' -Console
 $ingressNginxConfig = Get-IngressNginxConfig
 
 (Invoke-Kubectl -Params 'delete' , '-f', $ingressNginxConfig).Output | Write-Log
@@ -73,7 +73,7 @@ $externalDnsConfigDir = Get-ExternalDnsConfigDir
 
 Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'ingress'; Implementation = 'nginx' })
 
-Write-Log 'ingress-nginx disabled' -Console
+Write-Log 'ingress nginx disabled' -Console
 
 if ($EncodeStructuredOutput -eq $true) {
     Send-ToCli -MessageType $MessageType -Message @{Error = $null }

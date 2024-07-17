@@ -11,12 +11,12 @@ Import-Module $logModule, $k8sApiModule
 
 function Enable-IngressAddon([string]$Ingress) {
     switch ($Ingress) {
-        'ingress-nginx' {
-            &"$PSScriptRoot\..\ingress-nginx\Enable.ps1"
+        'nginx' {
+            &"$PSScriptRoot\..\ingress\nginx\Enable.ps1"
             break
         }
         'traefik' {
-            &"$PSScriptRoot\..\traefik\Enable.ps1"
+            &"$PSScriptRoot\..\ingress\traefik\Enable.ps1"
             break
         }
     }
@@ -32,10 +32,10 @@ function Write-UsageForUser {
  To open plutono dashboard, please use one of the options:
  
  Option 1: Access via ingress
- Please install either ingress-nginx addon or traefik addon from k2s.
+ Please install either ingress nginx addon or ingress traefik addon from k2s.
  or you can install them on your own.
  Enable ingress controller via k2s cli
- eg. k2s addons enable ingress-nginx
+ eg. k2s addons enable ingress nginx
  Once the ingress controller is running in the cluster, run the command to enable monitoring again 
  (disable it first if monitoring addon was already enabled).
  k2s addons enable monitoring

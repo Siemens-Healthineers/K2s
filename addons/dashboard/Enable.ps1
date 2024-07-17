@@ -20,16 +20,16 @@ Dashboard also provides information on the state of Kubernetes resources in your
 Enable Dashboard in k2s
 powershell <installation folder>\addons\dashboard\Enable.ps1
 
-Enable Dashboard in k2s with ingress-nginx addon and metrics server addon
-powershell <installation folder>\addons\dashboard\Enable.ps1 -Ingress "ingress-nginx" -EnableMetricsServer
+Enable Dashboard in k2s with nginx addon and metrics server addon
+powershell <installation folder>\addons\dashboard\Enable.ps1 -Ingress "nginx" -EnableMetricsServer
 #>
 
 [CmdletBinding(SupportsShouldProcess = $true)]
 Param (
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
     [switch] $ShowLogs = $false,
-    [parameter(Mandatory = $false, HelpMessage = 'Enable Ingress-Nginx Addon')]
-    [ValidateSet('ingress-nginx', 'traefik', 'none')]
+    [parameter(Mandatory = $false, HelpMessage = 'Enable ingress addon')]
+    [ValidateSet('nginx', 'traefik', 'none')]
     [string] $Ingress = 'none',
     [parameter(Mandatory = $false, HelpMessage = 'Enable metrics-server Addon')]
     [switch] $EnableMetricsServer = $false,
@@ -69,7 +69,7 @@ if ($setupInfo.Name -ne 'k2s') {
     return
 }
 
-if ((Test-IsAddonEnabled -Name 'dashboard') -eq $true) {
+if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'dashboard' })) -eq $true) {
     $errMsg = "Addon 'dashboard' is already enabled, nothing to do."
 
     if ($EncodeStructuredOutput -eq $true) {
@@ -104,13 +104,13 @@ if ($dashboardStatus -ne $true) {
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'dashboard' })
 
 switch ($Ingress) {
-    'ingress-nginx' {
-        Write-Log 'Deploying ingress-nginx addon for external access to dashboard...' -Console
+    'nginx' {
+        Write-Log 'Deploying ingress nginx addon for external access to dashboard...' -Console
         Enable-IngressAddon
         break
     }
     'traefik' {
-        Write-Log 'Deploying traefik addon for external access to dashboard...' -Console
+        Write-Log 'Deploying ingress traefik addon for external access to dashboard...' -Console
         Enable-TraefikAddon
         break
     }

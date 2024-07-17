@@ -48,7 +48,7 @@ if ($systemError) {
     exit 1
 }
 
-if ((Test-IsAddonEnabled -Name 'metrics') -eq $true) {
+if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'metrics' })) -eq $true) {
     $errMsg = "Addon 'metrics' is already enabled, nothing to do."
 
     if ($EncodeStructuredOutput -eq $true) {

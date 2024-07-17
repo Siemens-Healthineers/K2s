@@ -21,13 +21,13 @@ spec:
                   kind: validation-set
                   validationSet:
                     - none
-                    - ingress-nginx
+                    - nginx
                     - traefik
             examples:
               - cmd: k2s addons enable logging
                 comment: Enable logging in k2s
               - cmd: k2s addons enable logging --ingress traefik
-                comment: Enable logging in k2s with traefik ingress
+                comment: Enable logging in k2s with ingress traefik
           script:
             subPath: Enable.ps1
             parameterMappings:

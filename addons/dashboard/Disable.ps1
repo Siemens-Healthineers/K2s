@@ -45,7 +45,7 @@ if ($systemError) {
     exit 1
 }
 
-if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'kubernetes-dashboard', '--ignore-not-found').Output -and (Test-IsAddonEnabled -Name 'dashboard') -ne $true) {
+if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'kubernetes-dashboard', '--ignore-not-found').Output -and (Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'dashboard' })) -ne $true) {
     $errMsg = "Addon 'dashboard' is already disabled, nothing to do."
 
     if ($EncodeStructuredOutput -eq $true) {
@@ -65,7 +65,7 @@ $dashboardNginxIngressConfig = Get-DashboardNginxConfig
 (Invoke-Kubectl -Params 'delete', '-f', $dashboardConfig).Output | Write-Log
 (Invoke-Kubectl -Params 'delete', '-f', $dashboardNginxIngressConfig, '--ignore-not-found').Output | Write-Log
 
-Remove-AddonFromSetupJson -Name 'dashboard'
+Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'dashboard'})
 Write-Log 'Uninstallation of Kubernetes dashboard finished' -Console
 
 if ($EncodeStructuredOutput -eq $true) {

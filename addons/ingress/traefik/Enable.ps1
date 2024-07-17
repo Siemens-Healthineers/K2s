@@ -13,7 +13,7 @@ NA
 
 .EXAMPLE
 # For k2sSetup.
-powershell <installation folder>\addons\traefik\Enable.ps1
+powershell <installation folder>\addons\ingress\traefik\Enable.ps1
 #>
 
 Param (
@@ -50,13 +50,13 @@ if ($systemError) {
 
 $setupInfo = Get-SetupInfo
 if ($setupInfo.Name -ne 'k2s') {
-    $err = New-Error -Severity Warning -Code (Get-ErrCodeWrongSetupType) -Message "Addon 'traefik' can only be enabled for 'k2s' setup type."  
+    $err = New-Error -Severity Warning -Code (Get-ErrCodeWrongSetupType) -Message "Addon 'ingress traefik' can only be enabled for 'k2s' setup type."  
     Send-ToCli -MessageType $MessageType -Message @{Error = $err }
     return
 }
 
-if ((Test-IsAddonEnabled -Name 'traefik') -eq $true) {
-    $errMsg = "Addon 'traefik' is already enabled, nothing to do."
+if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'ingress'; Implementation = 'traefik' })) -eq $true) {
+    $errMsg = "Addon 'ingress traefik' is already enabled, nothing to do."
 
     if ($EncodeStructuredOutput -eq $true) {
         $err = New-Error -Severity Warning -Code (Get-ErrCodeAddonAlreadyEnabled) -Message $errMsg
@@ -68,8 +68,8 @@ if ((Test-IsAddonEnabled -Name 'traefik') -eq $true) {
     exit 1
 }
 
-if ((Test-IsAddonEnabled -Name 'ingress-nginx') -eq $true) {
-    $errMsg = "Addon 'ingress-nginx' is enabled. Disable it first to avoid port conflicts."
+if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'ingress'; Implementation = 'nginx' })) -eq $true) {
+    $errMsg = "Addon 'ingress nginx' is enabled. Disable it first to avoid port conflicts."
 
     if ($EncodeStructuredOutput -eq $true) {
         $err = New-Error -Severity Warning -Code (Get-ErrCodeAddonAlreadyEnabled) -Message $errMsg
@@ -81,8 +81,8 @@ if ((Test-IsAddonEnabled -Name 'ingress-nginx') -eq $true) {
     exit 1
 }
 
-if ((Test-IsAddonEnabled -Name 'gateway-nginx') -eq $true) {
-    $errMsg = "Addon 'gateway-nginx' is enabled. Disable it first to avoid port conflicts."
+if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'gateway-api' })) -eq $true) {
+    $errMsg = "Addon 'gateway-api' is enabled. Disable it first to avoid port conflicts."
 
     if ($EncodeStructuredOutput -eq $true) {
         $err = New-Error -Severity Warning -Code (Get-ErrCodeAddonAlreadyEnabled) -Message $errMsg
@@ -139,7 +139,7 @@ New-Item -Path $kustomizationDir -ItemType 'directory' -ErrorAction SilentlyCont
 $kustomizationFile = "$kustomizationDir\kustomization.yaml"
 $kustomization | Out-File $kustomizationFile
 
-Write-Log 'Installing Traefik Ingress controller' -Console
+Write-Log 'Installing traefik ingress controller' -Console
 (Invoke-Kubectl -Params 'create' , 'namespace', 'traefik').Output | Write-Log
 (Invoke-Kubectl -Params 'apply', '-k', $kustomizationDir).Output | Write-Log
 
@@ -149,7 +149,7 @@ Remove-Item -Path $kustomizationDir -Recurse
 $allPodsAreUp = (Wait-ForPodCondition -Condition Ready -Label 'app.kubernetes.io/name=traefik' -Namespace 'traefik' -TimeoutSeconds 120)
 
 if ($allPodsAreUp -ne $true) {
-    $errMsg = "All traefik pods could not become ready. Please use kubectl describe for more details.`nInstallation of traefik addon failed"
+    $errMsg = "All traefik pods could not become ready. Please use kubectl describe for more details.`nInstallation of ingress traefik addon failed"
     if ($EncodeStructuredOutput -eq $true) {
         $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
         Send-ToCli -MessageType $MessageType -Message @{Error = @{Message = $err } }
@@ -160,7 +160,7 @@ if ($allPodsAreUp -ne $true) {
     exit 1 
 }
 
-Write-Log 'All traefik pods are up and ready.' -Console
+Write-Log 'All ingress traefik pods are up and ready.' -Console
 
 $clusterIngressConfig = "$PSScriptRoot\manifests\cluster-net-ingress.yaml"
 (Invoke-Kubectl -Params 'apply' , '-f', $clusterIngressConfig).Output | Write-Log

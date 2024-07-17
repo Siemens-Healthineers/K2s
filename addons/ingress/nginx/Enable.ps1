@@ -14,7 +14,7 @@ It allows applications to register their ingress resources and handles incoming 
 
 .EXAMPLE
 # For k2sSetup
-powershell <installation folder>\addons\ingress-nginx\Enable.ps1
+powershell <installation folder>\addons\ingress\nginx\Enable.ps1
 #>
 Param(
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
@@ -50,15 +50,15 @@ if ($systemError) {
 
 $setupInfo = Get-SetupInfo
 if ($setupInfo.Name -ne 'k2s') {
-    $err = New-Error -Severity Warning -Code (Get-ErrCodeWrongSetupType) -Message "Addon 'ingress-nginx' can only be enabled for 'k2s' setup type."  
+    $err = New-Error -Severity Warning -Code (Get-ErrCodeWrongSetupType) -Message "Addon 'ingress nginx' can only be enabled for 'k2s' setup type."  
     Send-ToCli -MessageType $MessageType -Message @{Error = $err }
     return
 }
 
-Write-Log 'Checking if ingress-nginx is already enabled'
+Write-Log 'Checking if ingress nginx is already enabled'
 
-if ((Test-IsAddonEnabled -Name 'ingress-nginx') -eq $true) {
-    $errMsg = "Addon 'ingress-nginx' is already enabled, nothing to do."
+if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'ingress'; Implementation = 'nginx' })) -eq $true) {
+    $errMsg = "Addon 'ingress nginx' is already enabled, nothing to do."
 
     if ($EncodeStructuredOutput -eq $true) {
         $err = New-Error -Severity Warning -Code (Get-ErrCodeAddonAlreadyEnabled) -Message $errMsg
@@ -70,8 +70,8 @@ if ((Test-IsAddonEnabled -Name 'ingress-nginx') -eq $true) {
     exit 1
 }
 
-if ((Test-IsAddonEnabled -Name 'traefik') -eq $true) {
-    $errMsg = "Addon 'traefik' is enabled. Disable it first to avoid port conflicts."
+if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'ingress'; Implementation = 'traefik' })) -eq $true) {
+    $errMsg = "Addon 'ingress traefik' is enabled. Disable it first to avoid port conflicts."
 
     if ($EncodeStructuredOutput -eq $true) {
         $err = New-Error -Severity Warning -Code (Get-ErrCodeAddonAlreadyEnabled) -Message $errMsg
@@ -83,8 +83,8 @@ if ((Test-IsAddonEnabled -Name 'traefik') -eq $true) {
     exit 1
 }
 
-if ((Test-IsAddonEnabled -Name 'gateway-nginx') -eq $true) {
-    $errMsg = "Addon 'gateway-nginx' is enabled. Disable it first to avoid port conflicts."
+if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'gateway-api'})) -eq $true) {
+    $errMsg = "Addon 'gateway-api' is enabled. Disable it first to avoid port conflicts."
 
     if ($EncodeStructuredOutput -eq $true) {
         $err = New-Error -Severity Warning -Code (Get-ErrCodeAddonAlreadyEnabled) -Message $errMsg
@@ -114,7 +114,7 @@ Write-Log 'Installing ExternalDNS' -Console
 $externalDnsConfig = Get-ExternalDnsConfigDir
 (Invoke-Kubectl -Params 'apply' , '-k', $externalDnsConfig).Output | Write-Log
 
-Write-Log 'Installing ingress-nginx' -Console
+Write-Log 'Installing ingress nginx' -Console
 $ingressNginxNamespace = 'ingress-nginx'
 $ingressNginxConfig = Get-IngressNginxConfig
 
@@ -138,7 +138,7 @@ $ingressNginxSvc = 'ingress-nginx-controller'
 $allPodsAreUp = (Wait-ForPodCondition -Condition Ready -Label 'app.kubernetes.io/component=controller' -Namespace 'ingress-nginx' -TimeoutSeconds 120)
 
 if ($allPodsAreUp -ne $true) {
-    $errMsg = "All ingress-nginx pods could not become ready. Please use kubectl describe for more details.`nInstallation of ingress-nginx failed."
+    $errMsg = "All ingress nginx pods could not become ready. Please use kubectl describe for more details.`nInstallation of ingress nginx failed."
     if ($EncodeStructuredOutput -eq $true) {
         $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
         Send-ToCli -MessageType $MessageType -Message @{Error = $err }
@@ -152,11 +152,11 @@ if ($allPodsAreUp -ne $true) {
 $clusterIngressConfig = "$PSScriptRoot\manifests\cluster-net-ingress.yaml"
 (Invoke-Kubectl -Params 'apply' , '-f', $clusterIngressConfig).Output | Write-Log
 
-Write-Log 'All ingress-nginx pods are up and ready.'
+Write-Log 'All ingress nginx pods are up and ready.'
 
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'ingress'; Implementation = 'nginx' })
 
-Write-Log 'ingress-nginx installed successfully' -Console
+Write-Log 'ingress nginx installed successfully' -Console
 
 if ($EncodeStructuredOutput -eq $true) {
     Send-ToCli -MessageType $MessageType -Message @{Error = $null }

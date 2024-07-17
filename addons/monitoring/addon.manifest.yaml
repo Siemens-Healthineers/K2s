@@ -31,7 +31,7 @@ spec:
                   kind: validation-set
                   validationSet:
                     - none
-                    - ingress-nginx
+                    - nginx
                     - traefik
             examples:
               - cmd: k2s addons enable monitoring
@@ -39,7 +39,7 @@ spec:
               - cmd: k2s addons enable monitoring -o
                 comment: Enable monitoring with detailed logs
               - cmd: k2s addons enable monitoring --ingress traefik
-                comment: Enable monitoring in k2s with traefik ingress
+                comment: Enable monitoring in k2s with ingress traefik
           script:
             subPath: Enable.ps1
             parameterMappings:

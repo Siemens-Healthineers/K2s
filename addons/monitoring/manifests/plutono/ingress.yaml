@@ -56,7 +56,7 @@ spec:
             pathType: Prefix
 ---
 # This ingress will be merged with ingress provided in:
-# addons/ingress-nginx/manifests/cluster-net-ingress.yaml
+# addons/ingress/nginx/manifests/cluster-net-ingress.yaml
 # and exposes the plutono web application on:
 # https://k2s.cluster.local/monitoring/
 apiVersion: networking.k8s.io/v1

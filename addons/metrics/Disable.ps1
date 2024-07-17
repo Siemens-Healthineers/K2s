@@ -46,7 +46,7 @@ if ($systemError) {
     exit 1
 }
 
-if ((Test-IsAddonEnabled -Name 'metrics') -ne $true) {
+if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'metrics' })) -ne $true) {
     $errMsg = "Addon 'metrics' is already disabled, nothing to do."
 
     if ($EncodeStructuredOutput -eq $true) {
@@ -61,7 +61,7 @@ if ((Test-IsAddonEnabled -Name 'metrics') -ne $true) {
 
 Write-Log 'Uninstalling Kubernetes Metrics Server' -Console
 (Invoke-Kubectl -Params 'delete', '-f', (Get-MetricsServerConfig)).Output | Write-Log
-Remove-AddonFromSetupJson -Name 'metrics'
+Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'metrics' })
 Write-Log 'Uninstallation of Kubernetes Metrics Server finished' -Console
 
 if ($EncodeStructuredOutput -eq $true) {
