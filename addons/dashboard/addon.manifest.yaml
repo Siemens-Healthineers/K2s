@@ -23,7 +23,7 @@ spec:
                     - none
                     - nginx
                     - traefik
-              - name: enable-metrics-server
+              - name: enable-metrics
                 default: false
                 description: Enable metrics in dashboard
             examples:
@@ -31,14 +31,14 @@ spec:
                 comment: Enable dashboard in k2s
               - cmd: k2s addons enable dashboard --ingress traefik
                 comment: Enable dashboard in k2s with ingress traefik
-              - cmd: k2s addons enable dashboard --ingress traefik --enable-metrics-server
+              - cmd: k2s addons enable dashboard --ingress traefik --enable-metrics
                 comment: Enable dashboard in k2s with ingress traefik and metrics server
           script:
             subPath: Enable.ps1
             parameterMappings:
               - cliFlagName: ingress
                 scriptParameterName: Ingress
-              - cliFlagName: enable-metrics-server
+              - cliFlagName: enable-metrics
                 scriptParameterName: EnableMetricsServer
         disable:
           cli:

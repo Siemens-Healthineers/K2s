@@ -20,5 +20,5 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: traefik
-    namespace: traefik
+    namespace: ingress-traefik
 

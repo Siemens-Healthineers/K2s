@@ -46,7 +46,7 @@ var _ = Describe("'traefik' addon", Ordered, func() {
 		suite.K2sCli().Run(ctx, "addons", "disable", "traefik", "-o")
 
 		suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "traefik", "traefik")
-		suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "albums-linux1", "traefik-test")
+		suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "albums-linux1", "ingress-traefik-test")
 
 		addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
 		Expect(addonsStatus.IsAddonEnabled("traefik")).To(BeFalse())
@@ -112,7 +112,7 @@ var _ = Describe("'traefik' addon", Ordered, func() {
 
 	It("sample app is reachable through traefik ingress controller", func(ctx context.Context) {
 		suite.Kubectl().Run(ctx, "apply", "-k", "workloads")
-		suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "albums-linux1", "traefik-test")
+		suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "albums-linux1", "ingress-traefik-test")
 
 		url := "http://172.19.1.100/albums-linux1"
 		res, err := httpGet(url, 5)

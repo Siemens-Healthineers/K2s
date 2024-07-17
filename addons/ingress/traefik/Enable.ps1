@@ -121,7 +121,7 @@ patches:
   target:
     kind: Deployment
     name: traefik
-    namespace: traefik
+    namespace: ingress-traefik
 - patch: |-
     - op: replace
       path: /spec/externalIPs
@@ -130,7 +130,7 @@ patches:
   target:
     kind: Service
     name: traefik
-    namespace: traefik
+    namespace: ingress-traefik
 "@
 
 # create a temporary directory to store the kustomization file
@@ -140,13 +140,13 @@ $kustomizationFile = "$kustomizationDir\kustomization.yaml"
 $kustomization | Out-File $kustomizationFile
 
 Write-Log 'Installing traefik ingress controller' -Console
-(Invoke-Kubectl -Params 'create' , 'namespace', 'traefik').Output | Write-Log
+(Invoke-Kubectl -Params 'create' , 'namespace', 'ingress-traefik').Output | Write-Log
 (Invoke-Kubectl -Params 'apply', '-k', $kustomizationDir).Output | Write-Log
 
 # delete the temporary directory
 Remove-Item -Path $kustomizationDir -Recurse
 
-$allPodsAreUp = (Wait-ForPodCondition -Condition Ready -Label 'app.kubernetes.io/name=traefik' -Namespace 'traefik' -TimeoutSeconds 120)
+$allPodsAreUp = (Wait-ForPodCondition -Condition Ready -Label 'app.kubernetes.io/name=traefik' -Namespace 'ingress-traefik' -TimeoutSeconds 120)
 
 if ($allPodsAreUp -ne $true) {
     $errMsg = "All traefik pods could not become ready. Please use kubectl describe for more details.`nInstallation of ingress traefik addon failed"

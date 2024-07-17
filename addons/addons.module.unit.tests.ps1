@@ -76,10 +76,10 @@ Describe 'ConvertTo-NewConfigStructure' -Tag 'unit', 'ci', 'addon' {
     Context 'config structure needs to be migrated from <= v0.5 to current version' {
         BeforeAll {
             [Diagnostics.CodeAnalysis.SuppressMessageAttribute('UseDeclaredVarsMoreThanAssignments', '', Justification = 'Pester Test')]
-            $oldConfig = ConvertFrom-Json '[ "metrics-server", "dashboard", "ingress-nginx" ]'
+            $oldConfig = ConvertFrom-Json '[ "metrics", "dashboard", "ingress-nginx" ]'
 
             [Diagnostics.CodeAnalysis.SuppressMessageAttribute('UseDeclaredVarsMoreThanAssignments', '', Justification = 'Pester Test')]
-            $expectedResult = [pscustomobject]@{Name = 'metrics-server' }, [pscustomobject]@{Name = 'dashboard' }, [pscustomobject]@{Name = 'ingress-nginx' }
+            $expectedResult = [pscustomobject]@{Name = 'metrics' }, [pscustomobject]@{Name = 'dashboard' }, [pscustomobject]@{Name = 'ingress-nginx' }
         }
 
         BeforeEach {
@@ -98,7 +98,7 @@ Describe 'ConvertTo-NewConfigStructure' -Tag 'unit', 'ci', 'addon' {
                 ConvertTo-NewConfigStructure -Config $oldConfig
 
                 $log.Count | Should -Be 3
-                $log[0] | Should -Be "Config for addon 'metrics-server' migrated."
+                $log[0] | Should -Be "Config for addon 'metrics' migrated."
                 $log[1] | Should -Be "Config for addon 'dashboard' migrated."
                 $log[2] | Should -Be "Config for addon 'ingress nginx' migrated."
             }
@@ -107,7 +107,7 @@ Describe 'ConvertTo-NewConfigStructure' -Tag 'unit', 'ci', 'addon' {
 
     Context 'config structure is up to date' {
         BeforeAll {
-            $oldConfig = [pscustomobject]@{Name = 'metrics-server' }, [pscustomobject]@{Name = 'dashboard' }, [pscustomobject]@{Name = 'ingress-nginx' }
+            $oldConfig = [pscustomobject]@{Name = 'metrics' }, [pscustomobject]@{Name = 'dashboard' }, [pscustomobject]@{Name = 'ingress-nginx' }
 
             [Diagnostics.CodeAnalysis.SuppressMessageAttribute('UseDeclaredVarsMoreThanAssignments', '', Justification = 'Pester Test')]
             $expectedResult = $oldConfig

@@ -26,7 +26,7 @@ var suite *framework.K2sTestSuite
 
 func TestTraefik(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "metrics-server Addon Acceptance Tests", Label("addon", "acceptance", "setup-required", "invasive", "metrics-server", "system-running"))
+	RunSpecs(t, "metrics Addon Acceptance Tests", Label("addon", "acceptance", "setup-required", "invasive", "metrics", "system-running"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
@@ -37,17 +37,17 @@ var _ = AfterSuite(func(ctx context.Context) {
 	suite.TearDown(ctx)
 })
 
-var _ = Describe("'metrics-server' addon", Ordered, func() {
+var _ = Describe("'metrics' addon", Ordered, func() {
 	AfterAll(func(ctx context.Context) {
-		suite.K2sCli().Run(ctx, "addons", "disable", "metrics-server", "-o")
+		suite.K2sCli().Run(ctx, "addons", "disable", "metrics", "-o")
 		suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "k8s-app", "metrics-server", "kube-system")
 
 		addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
-		Expect(addonsStatus.IsAddonEnabled("metrics-server")).To(BeFalse())
+		Expect(addonsStatus.IsAddonEnabled("metrics")).To(BeFalse())
 	})
 
 	It("prints already-disabled message on disable command and exits with non-zero", func(ctx context.Context) {
-		output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "disable", "metrics-server")
+		output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "disable", "metrics")
 
 		Expect(output).To(ContainSubstring("already disabled"))
 	})
@@ -55,24 +55,24 @@ var _ = Describe("'metrics-server' addon", Ordered, func() {
 	Describe("status", func() {
 		Context("default output", func() {
 			It("displays disabled message", func(ctx context.Context) {
-				output := suite.K2sCli().Run(ctx, "addons", "status", "metrics-server")
+				output := suite.K2sCli().Run(ctx, "addons", "status", "metrics")
 
 				Expect(output).To(SatisfyAll(
 					MatchRegexp(`ADDON STATUS`),
-					MatchRegexp(`Addon .+metrics-server.+ is .+disabled.+`),
+					MatchRegexp(`Addon .+metrics.+ is .+disabled.+`),
 				))
 			})
 		})
 
 		Context("JSON output", func() {
 			It("displays JSON", func(ctx context.Context) {
-				output := suite.K2sCli().Run(ctx, "addons", "status", "metrics-server", "-o", "json")
+				output := suite.K2sCli().Run(ctx, "addons", "status", "metrics", "-o", "json")
 
 				var status status.AddonPrintStatus
 
 				Expect(json.Unmarshal([]byte(output), &status)).To(Succeed())
 
-				Expect(status.Name).To(Equal("metrics-server"))
+				Expect(status.Name).To(Equal("metrics"))
 				Expect(status.Enabled).NotTo(BeNil())
 				Expect(*status.Enabled).To(BeFalse())
 				Expect(status.Props).To(BeNil())
@@ -82,38 +82,38 @@ var _ = Describe("'metrics-server' addon", Ordered, func() {
 	})
 
 	It("is in enabled state and pods are in running state", func(ctx context.Context) {
-		suite.K2sCli().Run(ctx, "addons", "enable", "metrics-server", "-o")
+		suite.K2sCli().Run(ctx, "addons", "enable", "metrics", "-o")
 
-		suite.Cluster().ExpectDeploymentToBeAvailable("metrics-server", "kube-system")
+		suite.Cluster().ExpectDeploymentToBeAvailable("metrics-server", "metrics")
 
-		suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "k8s-app", "metrics-server", "kube-system")
+		suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "k8s-app", "metrics-server", "metrics")
 
 		addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
-		Expect(addonsStatus.IsAddonEnabled("metrics-server")).To(BeTrue())
+		Expect(addonsStatus.IsAddonEnabled("metrics")).To(BeTrue())
 	})
 
 	It("prints already-enabled message on enable command and exits with non-zero", func(ctx context.Context) {
-		output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "enable", "metrics-server")
+		output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "enable", "metrics")
 
 		Expect(output).To(ContainSubstring("already enabled"))
 	})
 
 	It("prints the status", func(ctx context.Context) {
-		output := suite.K2sCli().Run(ctx, "addons", "status", "metrics-server")
+		output := suite.K2sCli().Run(ctx, "addons", "status", "metrics")
 
 		Expect(output).To(SatisfyAll(
 			MatchRegexp("ADDON STATUS"),
-			MatchRegexp(`Addon .+metrics-server.+ is .+enabled.+`),
+			MatchRegexp(`Addon .+metrics.+ is .+enabled.+`),
 			MatchRegexp("The metrics server is working"),
 		))
 
-		output = suite.K2sCli().Run(ctx, "addons", "status", "metrics-server", "-o", "json")
+		output = suite.K2sCli().Run(ctx, "addons", "status", "metrics", "-o", "json")
 
 		var status status.AddonPrintStatus
 
 		Expect(json.Unmarshal([]byte(output), &status)).To(Succeed())
 
-		Expect(status.Name).To(Equal("metrics-server"))
+		Expect(status.Name).To(Equal("metrics"))
 		Expect(status.Error).To(BeNil())
 		Expect(status.Enabled).NotTo(BeNil())
 		Expect(*status.Enabled).To(BeTrue())

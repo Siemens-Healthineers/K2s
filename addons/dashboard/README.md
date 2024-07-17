@@ -18,21 +18,21 @@ The Kubernetes dashboard can be enabled using the k2s CLI by running the followi
 k2s addons enable dashboard
 ```
 
-### Intergration with metrics-server addon
+### Intergration with metrics addon
 
-By enabling the metrics-server addon, the dashboard addon can present the collected metrics in the dashboard UI.
+By enabling the metrics addon, the dashboard addon can present the collected metrics in the dashboard UI.
 
-The following commands enable the metrics-server addon and the dashboard addon:
+The following commands enable the metrics addon and the dashboard addon:
 
 ```
-k2s addons enable metrics-server
+k2s addons enable metrics
 k2s addons enable dashboard
 ```
 
-The metrics-server addon can be enabled while enabling the dashboard addon using the following command:
+The metrics addon can be enabled while enabling the dashboard addon using the following command:
 
 ```
-k2s addons enable dashboard --enable-metrics-server
+k2s addons enable dashboard --enable-metrics
 ```
 
 ### Integration with ingress nginx and ingress traefik addons

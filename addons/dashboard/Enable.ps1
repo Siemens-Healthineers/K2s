@@ -31,7 +31,7 @@ Param (
     [parameter(Mandatory = $false, HelpMessage = 'Enable ingress addon')]
     [ValidateSet('nginx', 'traefik', 'none')]
     [string] $Ingress = 'none',
-    [parameter(Mandatory = $false, HelpMessage = 'Enable metrics-server Addon')]
+    [parameter(Mandatory = $false, HelpMessage = 'Enable metrics addon')]
     [switch] $EnableMetricsServer = $false,
     [parameter(Mandatory = $false, HelpMessage = 'JSON config object to override preceeding parameters')]
     [pscustomobject] $Config,

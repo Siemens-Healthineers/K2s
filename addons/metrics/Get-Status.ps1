@@ -13,7 +13,7 @@ if ($isMetricsServerRunningProp.Value -eq $true) {
     $isMetricsServerRunningProp.Message = 'The metrics server is working'
 }
 else {
-    $isMetricsServerRunningProp.Message = "The metrics server is not working. Try restarting the cluster with 'k2s start' or disable and re-enable the addon with 'k2s addons disable metrics-server' and 'k2s addons enable metrics-server'"
+    $isMetricsServerRunningProp.Message = "The metrics server is not working. Try restarting the cluster with 'k2s start' or disable and re-enable the addon with 'k2s addons disable metrics' and 'k2s addons enable metrics'"
 } 
 
 return , @($isMetricsServerRunningProp)

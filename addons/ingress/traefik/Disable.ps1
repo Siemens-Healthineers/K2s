@@ -13,7 +13,7 @@ NA
 
 .EXAMPLE
 # For k2sSetup.
-powershell <installation folder>\addons\metrics-server\Disable.ps1
+powershell <installation folder>\addons\metrics\Disable.ps1
 #>
 
 Param (
@@ -48,7 +48,7 @@ if ($systemError) {
 
 Write-Log 'Check whether ingress traefik addon is already disabled'
 
-if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'traefik', '--ignore-not-found').Output -and (Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'ingress'; Implementation = 'traefik' })) -ne $true) {
+if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'ingress-traefik', '--ignore-not-found').Output -and (Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'ingress'; Implementation = 'traefik' })) -ne $true) {
     $errMsg = "Addon 'ingress traefik' is already disabled, nothing to do."
 
     if ($EncodeStructuredOutput -eq $true) {
@@ -65,7 +65,7 @@ Write-Log 'Uninstalling ingress traefik addon' -Console
 $traefikYamlDir = Get-TraefikYamlDir
 
 (Invoke-Kubectl -Params 'delete', '-k', $traefikYamlDir).Output | Write-Log
-(Invoke-Kubectl -Params 'delete', 'namespace', 'traefik').Output | Write-Log
+(Invoke-Kubectl -Params 'delete', 'namespace', 'ingress-traefik').Output | Write-Log
 
 Write-log 'Uninstalling ExternalDNS' -Console
 $externalDnsConfigDir = Get-ExternalDnsConfigDir

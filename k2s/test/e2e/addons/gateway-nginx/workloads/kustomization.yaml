@@ -5,5 +5,5 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-- gateway-nginx-test-namespace.yaml
-- gateway-nginx-test-linux-albums.yaml
+- gateway-api-test-namespace.yaml
+- gateway-api-test-linux-albums.yaml

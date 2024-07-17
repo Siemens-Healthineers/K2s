@@ -9,7 +9,7 @@ $configModule = "$PSScriptRoot/../../../lib/modules/k2s/k2s.infra.module/config/
 
 Import-Module $k8sApiModule, $configModule
 
-$success = (Invoke-Kubectl -Params 'wait', '--timeout=5s', '--for=condition=Available', '-n', 'traefik', 'deployment/traefik').Success
+$success = (Invoke-Kubectl -Params 'wait', '--timeout=5s', '--for=condition=Available', '-n', 'ingress-traefik', 'deployment/traefik').Success
 
 $isTraefikRunningProp = @{Name = 'IsTraefikRunning'; Value = $success; Okay = $success }
 if ($isTraefikRunningProp.Value -eq $true) {
@@ -19,7 +19,7 @@ else {
     $isTraefikRunningProp.Message = "The traefik ingress controller is not working. Try restarting the cluster with 'k2s start' or disable and re-enable the addon with 'k2s addons disable traefik' and 'k2s addons enable traefik'"
 } 
 
-$externalIp = (Invoke-Kubectl -Params 'get', 'service', 'traefik', '-n', 'traefik', '-o', 'jsonpath="{.spec.externalIPs[0]}"').Output
+$externalIp = (Invoke-Kubectl -Params 'get', 'service', 'traefik', '-n', 'ingress-traefik', '-o', 'jsonpath="{.spec.externalIPs[0]}"').Output
 $controlPlaneIp = Get-ConfiguredIPControlPlane
 
 $isExternalIPSetProp = @{Name = 'IsExternalIPSet'; Value = ($externalIp -eq $controlPlaneIp); Okay = ($externalIp -eq $controlPlaneIp) }
