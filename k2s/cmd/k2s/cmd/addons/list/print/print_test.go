@@ -69,7 +69,7 @@ var _ = Describe("print pkg", func() {
 
 		When("successful", func() {
 			It("prints leveled list", func() {
-				tableString := "addon1 | this is addon 1\naddon2 | this is addon 2\n$---$\naddon3 | this is addon 3"
+				tableString := "addon1 # this is addon 1\naddon2 # this is addon 2\n$---$\naddon3 # this is addon 3\n$impl$ implementation1 # this is implementation 1 of addon 3"
 
 				printerMock := &mockObject{}
 				printerMock.On(reflection.GetFunctionName(printerMock.Println), mock.Anything)
@@ -78,12 +78,13 @@ var _ = Describe("print pkg", func() {
 					Level int
 					Text  string
 				}) bool {
-					return len(items) == 5 &&
+					return len(items) == 6 &&
 						items[0].Level == 0 && items[0].Text == "Enabled" &&
-						items[1].Level == 1 && items[1].Text == "addon1 | this is addon 1" &&
-						items[2].Level == 1 && items[2].Text == "addon2 | this is addon 2" &&
+						items[1].Level == 1 && items[1].Text == "addon1 # this is addon 1" &&
+						items[2].Level == 1 && items[2].Text == "addon2 # this is addon 2" &&
 						items[3].Level == 0 && items[3].Text == "Disabled" &&
-						items[4].Level == 1 && items[4].Text == "addon3 | this is addon 3"
+						items[4].Level == 1 && items[4].Text == "addon3 # this is addon 3" &&
+						items[5].Level == 2 && items[5].Text == " implementation1     # this is implementation 1 of addon 3"
 				}))
 
 				sut := NewAddonsPrinter(printerMock)
