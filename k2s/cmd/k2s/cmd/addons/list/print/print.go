@@ -105,7 +105,11 @@ func toPrintList(enabledAddonsList []EnabledAddon, allAddons addons.Addons) *pri
 
 		if lo.Contains(lo.Map(enabledAddonsList, func(e EnabledAddon, _ int) string { return e.Name }), addon.Name) {
 			enabledImplementationNames := lo.Filter(enabledAddonsList, func(item EnabledAddon, _ int) bool { return item.Name == addon.Name })[0].Implementations
-			disabledImplementationNames := lo.Without(lo.Map(addon.Implementations, func(e Implementation, _ int) string { return e.Name }), enabledImplementationNames...)
+			// In case there are no different implementations
+			var disabledImplementationNames []string
+			if len(enabledImplementationNames) > 0 {
+				disabledImplementationNames = lo.Without(lo.Map(addon.Implementations, func(e Implementation, _ int) string { return e.Name }), enabledImplementationNames...)
+			}
 
 			var enabledImplementations []Implementation
 			lo.ForEach(enabledImplementationNames, func(enabledImplementationName string, index int) {
