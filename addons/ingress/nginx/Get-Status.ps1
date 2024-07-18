@@ -16,7 +16,7 @@ if ($isIngressNginxRunningProp.Value -eq $true) {
     $isIngressNginxRunningProp.Message = 'The ingress-nginx ingress controller is working'
 }
 else {
-    $isIngressNginxRunningProp.Message = "The ingress-nginx ingress controller is not working. Try restarting the cluster with 'k2s start' or disable and re-enable the addon with 'k2s addons disable ingress-nginx' and 'k2s addons enable ingress-nginx'"
+    $isIngressNginxRunningProp.Message = "The ingress-nginx ingress controller is not working. Try restarting the cluster with 'k2s start' or disable and re-enable the addon with 'k2s addons disable ingress nginx' and 'k2s addons enable ingress nginx'"
 } 
 
 $externalIp = (Invoke-Kubectl -Params 'get', 'service', 'ingress-nginx-controller', '-n', 'ingress-nginx', '-o', 'jsonpath="{.spec.externalIPs[0]}"').Output
@@ -27,7 +27,7 @@ if ($isExternalIPSetProp.Value -eq $true) {
     $isExternalIPSetProp.Message = "The external IP for ingress-nginx service is set to $controlPlaneIp"
 }
 else {
-    $isExternalIPSetProp.Message = "The external IP for ingress-nginx service is not set properly. Try restarting the cluster with 'k2s start' or disable and re-enable the addon with 'k2s addons disable ingress-nginx' and 'k2s addons enable ingress-nginx'"
+    $isExternalIPSetProp.Message = "The external IP for ingress-nginx service is not set properly. Try restarting the cluster with 'k2s start' or disable and re-enable the addon with 'k2s addons disable ingress nginx' and 'k2s addons enable ingress nginx'"
 }
 
 return $isIngressNginxRunningProp, $isExternalIPSetProp

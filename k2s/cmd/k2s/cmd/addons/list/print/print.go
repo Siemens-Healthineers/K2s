@@ -98,7 +98,6 @@ func toPrintList(enabledAddonsList []Addon, allAddons addons.Addons) *printList 
 				addon.Implementations = disabledImplementations
 				disabledAddons = append(disabledAddons, addon)
 			}
-
 		} else {
 			disabledAddons = append(disabledAddons, addon)
 		}
