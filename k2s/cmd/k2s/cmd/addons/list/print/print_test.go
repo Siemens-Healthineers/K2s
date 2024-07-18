@@ -100,12 +100,9 @@ var _ = Describe("print pkg", func() {
 
 	Describe("PrintAddonsAsJson", func() {
 		It("prints addons as json", func() {
-			enabledAddons := []EnabledAddon{
-				EnabledAddon{Name: "a1", Description: "d2"},
-				EnabledAddon{Name: "a3", Description: "d3"},
-			}
+			enabledAddons := []EnabledAddon{{Name: "a1", Description: "d1", Implementations: []string{"i1"}}, {Name: "a3", Description: "d3"}}
 			allAddons := addons.Addons{
-				addons.Addon{Metadata: addons.AddonMetadata{Name: "a1", Description: "d1"}},
+				addons.Addon{Metadata: addons.AddonMetadata{Name: "a1", Description: "d1"}, Spec: addons.AddonSpec{Implementations: []addons.Implementation{{Name: "i1"}, {Name: "i2"}}}},
 				addons.Addon{Metadata: addons.AddonMetadata{Name: "a2", Description: "d2"}},
 				addons.Addon{Metadata: addons.AddonMetadata{Name: "a3", Description: "d3"}},
 			}
@@ -120,13 +117,16 @@ var _ = Describe("print pkg", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(list.EnabledAddons).To(ConsistOf(
 					SatisfyAll(
-						HaveField("Name", "a1"), HaveField("Description", "d1"),
+						HaveField("Name", "a1"), HaveField("Description", "d1"), HaveField("Implementations", []Implementation{{Name: "i1"}}),
 					),
 					SatisfyAll(
 						HaveField("Name", "a3"), HaveField("Description", "d3"),
 					),
 				))
 				Expect(list.DisabledAddons).To(ConsistOf(
+					SatisfyAll(
+						HaveField("Name", "a1"), HaveField("Description", "d1"), HaveField("Implementations", []Implementation{{Name: "i2"}}),
+					),
 					SatisfyAll(
 						HaveField("Name", "a2"), HaveField("Description", "d2"),
 					),
