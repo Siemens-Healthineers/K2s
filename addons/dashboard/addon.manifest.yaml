@@ -10,6 +10,7 @@ metadata:
 spec:
   implementations:
     - name: dashboard
+      description: Dashboard for Kubernetes
       commands:
         enable:
           cli:

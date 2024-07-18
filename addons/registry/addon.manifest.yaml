@@ -10,6 +10,7 @@ metadata:
 spec:
   implementations:
     - name: registry
+      description: Private image registry running in the Kubernetes cluster exposed on k2s-registry.local
       offline_usage:
         linux:
           repos: []

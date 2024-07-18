@@ -10,6 +10,7 @@ metadata:
 spec:
   implementations:
     - name: kubevirt
+      description: Manage VM workloads with k2s
       offline_usage:
         linux:
           repos: []

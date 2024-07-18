@@ -35,10 +35,11 @@ type UserFriendlyPrinter struct {
 }
 
 type AddonPrintStatus struct {
-	Name    string            `json:"name"`
-	Enabled *bool             `json:"enabled"`
-	Props   []AddonStatusProp `json:"props"`
-	Error   *string           `json:"error"`
+	Name           string            `json:"name"`
+	Implementation string            `json:"implementation"`
+	Enabled        *bool             `json:"enabled"`
+	Props          []AddonStatusProp `json:"props"`
+	Error          *string           `json:"error"`
 }
 
 type propPrint struct {
@@ -80,6 +81,10 @@ func (s *JsonPrinter) PrintStatus(addonName string, implementation string, loadF
 
 	printStatus := AddonPrintStatus{
 		Name: addonName,
+	}
+
+	if implementation != "" {
+		printStatus.Implementation = implementation
 	}
 
 	var deferredErr error
@@ -133,10 +138,10 @@ func (s *UserFriendlyPrinter) PrintStatus(addonName string, implementation strin
 	s.terminalPrinter.PrintHeader("ADDON STATUS")
 
 	coloredAddonName := s.terminalPrinter.PrintCyanFg(addonName)
-	coloredImplemetationName := s.terminalPrinter.PrintCyanFg(implementation)
 
 	if !*status.Enabled {
 		if implementation != "" {
+			coloredImplemetationName := s.terminalPrinter.PrintCyanFg(implementation)
 			s.terminalPrinter.Println("Implementation", coloredImplemetationName, "of Addon", coloredAddonName, "is", s.terminalPrinter.PrintCyanFg("disabled"))
 		} else {
 			s.terminalPrinter.Println("Addon", coloredAddonName, "is", s.terminalPrinter.PrintCyanFg("disabled"))
@@ -146,6 +151,7 @@ func (s *UserFriendlyPrinter) PrintStatus(addonName string, implementation strin
 	}
 
 	if implementation != "" {
+		coloredImplemetationName := s.terminalPrinter.PrintCyanFg(implementation)
 		s.terminalPrinter.Println("Implementation", coloredImplemetationName, "of Addon", coloredAddonName, "is", s.terminalPrinter.PrintCyanFg("enabled"))
 	} else {
 		s.terminalPrinter.Println("Addon", coloredAddonName, "is", s.terminalPrinter.PrintCyanFg("enabled"))

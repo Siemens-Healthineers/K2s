@@ -63,6 +63,7 @@ type CurlPackages struct {
 
 type Implementation struct {
 	Name         string               `yaml:"name"`
+	Description  string               `yaml:"description"`
 	Commands     *map[string]AddonCmd `yaml:"commands"`
 	OfflineUsage OfflineUsage         `yaml:"offline_usage"`
 }

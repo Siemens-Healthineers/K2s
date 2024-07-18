@@ -439,66 +439,132 @@ var _ = Describe("status pkg", func() {
 			})
 
 			When("addon is disabled", func() {
-				It("prints the disabled-status", func() {
-					addonName := "test-addon"
-					implementation := "test-implementation"
-					state := "disabled"
-					enabled := false
-					loadedStatus := &LoadedAddonStatus{Enabled: &enabled}
+				When("addon has different implementations", func() {
+					It("prints the disabled-status", func() {
+						addonName := "test-addon"
+						implementation := "test-implementation"
+						state := "disabled"
+						enabled := false
+						loadedStatus := &LoadedAddonStatus{Enabled: &enabled}
 
-					spinnerMock := &mockObject{}
-					spinnerMock.On(r.GetFunctionName(spinnerMock.Stop)).Return(nil).Once()
+						spinnerMock := &mockObject{}
+						spinnerMock.On(r.GetFunctionName(spinnerMock.Stop)).Return(nil).Once()
 
-					printerMock := &mockObject{}
-					printerMock.On(r.GetFunctionName(printerMock.PrintHeader), "ADDON STATUS").Once()
-					printerMock.On(r.GetFunctionName(printerMock.StartSpinner), mock.Anything).Return(spinnerMock, nil)
-					printerMock.On(r.GetFunctionName(printerMock.Println), "Implementation", implementation, "of Addon", addonName, "is", state).Once()
-					printerMock.On(r.GetFunctionName(printerMock.PrintCyanFg), implementation).Return(implementation).Once()
-					printerMock.On(r.GetFunctionName(printerMock.PrintCyanFg), addonName).Return(addonName).Once()
-					printerMock.On(r.GetFunctionName(printerMock.PrintCyanFg), state).Return(state).Once()
+						printerMock := &mockObject{}
+						printerMock.On(r.GetFunctionName(printerMock.PrintHeader), "ADDON STATUS").Once()
+						printerMock.On(r.GetFunctionName(printerMock.StartSpinner), mock.Anything).Return(spinnerMock, nil)
+						printerMock.On(r.GetFunctionName(printerMock.Println), "Implementation", implementation, "of Addon", addonName, "is", state).Once()
+						printerMock.On(r.GetFunctionName(printerMock.PrintCyanFg), implementation).Return(implementation).Once()
+						printerMock.On(r.GetFunctionName(printerMock.PrintCyanFg), addonName).Return(addonName).Once()
+						printerMock.On(r.GetFunctionName(printerMock.PrintCyanFg), state).Return(state).Once()
 
-					loaderMock := &mockObject{}
-					loaderMock.On(r.GetFunctionName(loaderMock.loadAddonStatus), addonName, implementation).Return(loadedStatus, nil)
+						loaderMock := &mockObject{}
+						loaderMock.On(r.GetFunctionName(loaderMock.loadAddonStatus), addonName, implementation).Return(loadedStatus, nil)
 
-					sut := NewUserFriendlyPrinter(printerMock)
+						sut := NewUserFriendlyPrinter(printerMock)
 
-					err := sut.PrintStatus(addonName, implementation, loaderMock.loadAddonStatus)
+						err := sut.PrintStatus(addonName, implementation, loaderMock.loadAddonStatus)
 
-					Expect(err).ToNot(HaveOccurred())
-					printerMock.AssertExpectations(GinkgoT())
-					spinnerMock.AssertExpectations(GinkgoT())
+						Expect(err).ToNot(HaveOccurred())
+						printerMock.AssertExpectations(GinkgoT())
+						spinnerMock.AssertExpectations(GinkgoT())
+					})
+				})
+
+				When("addon has only one implementations", func() {
+					It("prints the disabled-status", func() {
+						addonName := "test-addon"
+						implementation := ""
+						state := "disabled"
+						enabled := false
+						loadedStatus := &LoadedAddonStatus{Enabled: &enabled}
+
+						spinnerMock := &mockObject{}
+						spinnerMock.On(r.GetFunctionName(spinnerMock.Stop)).Return(nil).Once()
+
+						printerMock := &mockObject{}
+						printerMock.On(r.GetFunctionName(printerMock.PrintHeader), "ADDON STATUS").Once()
+						printerMock.On(r.GetFunctionName(printerMock.StartSpinner), mock.Anything).Return(spinnerMock, nil)
+						printerMock.On(r.GetFunctionName(printerMock.Println), "Addon", addonName, "is", state).Once()
+						printerMock.On(r.GetFunctionName(printerMock.PrintCyanFg), addonName).Return(addonName).Once()
+						printerMock.On(r.GetFunctionName(printerMock.PrintCyanFg), state).Return(state).Once()
+
+						loaderMock := &mockObject{}
+						loaderMock.On(r.GetFunctionName(loaderMock.loadAddonStatus), addonName, implementation).Return(loadedStatus, nil)
+
+						sut := NewUserFriendlyPrinter(printerMock)
+
+						err := sut.PrintStatus(addonName, implementation, loaderMock.loadAddonStatus)
+
+						Expect(err).ToNot(HaveOccurred())
+						printerMock.AssertExpectations(GinkgoT())
+						spinnerMock.AssertExpectations(GinkgoT())
+					})
 				})
 			})
 
 			When("addon is enabled", func() {
-				It("prints the enabled-status", func() {
-					addonName := "test-addon"
-					implementation := "test-implementation"
-					state := "enabled"
-					enabled := true
-					loadedStatus := &LoadedAddonStatus{Enabled: &enabled}
+				When("addon has different implementations", func() {
+					It("prints the enabled-status", func() {
+						addonName := "test-addon"
+						implementation := "test-implementation"
+						state := "enabled"
+						enabled := true
+						loadedStatus := &LoadedAddonStatus{Enabled: &enabled}
 
-					spinnerMock := &mockObject{}
-					spinnerMock.On(r.GetFunctionName(spinnerMock.Stop)).Return(nil).Once()
+						spinnerMock := &mockObject{}
+						spinnerMock.On(r.GetFunctionName(spinnerMock.Stop)).Return(nil).Once()
 
-					printerMock := &mockObject{}
-					printerMock.On(r.GetFunctionName(printerMock.PrintHeader), "ADDON STATUS").Once()
-					printerMock.On(r.GetFunctionName(printerMock.StartSpinner), mock.Anything).Return(spinnerMock, nil)
-					printerMock.On(r.GetFunctionName(printerMock.Println), "Implementation", implementation, "of Addon", addonName, "is", state).Once()
-					printerMock.On(r.GetFunctionName(printerMock.PrintCyanFg), implementation).Return(implementation).Once()
-					printerMock.On(r.GetFunctionName(printerMock.PrintCyanFg), addonName).Return(addonName).Once()
-					printerMock.On(r.GetFunctionName(printerMock.PrintCyanFg), state).Return(state).Once()
+						printerMock := &mockObject{}
+						printerMock.On(r.GetFunctionName(printerMock.PrintHeader), "ADDON STATUS").Once()
+						printerMock.On(r.GetFunctionName(printerMock.StartSpinner), mock.Anything).Return(spinnerMock, nil)
+						printerMock.On(r.GetFunctionName(printerMock.Println), "Implementation", implementation, "of Addon", addonName, "is", state).Once()
+						printerMock.On(r.GetFunctionName(printerMock.PrintCyanFg), implementation).Return(implementation).Once()
+						printerMock.On(r.GetFunctionName(printerMock.PrintCyanFg), addonName).Return(addonName).Once()
+						printerMock.On(r.GetFunctionName(printerMock.PrintCyanFg), state).Return(state).Once()
 
-					loaderMock := &mockObject{}
-					loaderMock.On(r.GetFunctionName(loaderMock.loadAddonStatus), addonName, implementation).Return(loadedStatus, nil)
+						loaderMock := &mockObject{}
+						loaderMock.On(r.GetFunctionName(loaderMock.loadAddonStatus), addonName, implementation).Return(loadedStatus, nil)
 
-					sut := NewUserFriendlyPrinter(printerMock)
+						sut := NewUserFriendlyPrinter(printerMock)
 
-					err := sut.PrintStatus(addonName, implementation, loaderMock.loadAddonStatus)
+						err := sut.PrintStatus(addonName, implementation, loaderMock.loadAddonStatus)
 
-					Expect(err).ToNot(HaveOccurred())
-					printerMock.AssertExpectations(GinkgoT())
-					spinnerMock.AssertExpectations(GinkgoT())
+						Expect(err).ToNot(HaveOccurred())
+						printerMock.AssertExpectations(GinkgoT())
+						spinnerMock.AssertExpectations(GinkgoT())
+					})
+				})
+
+				When("addon has only one implementations", func() {
+					It("prints the enabled-status", func() {
+						addonName := "test-addon"
+						implementation := ""
+						state := "enabled"
+						enabled := true
+						loadedStatus := &LoadedAddonStatus{Enabled: &enabled}
+
+						spinnerMock := &mockObject{}
+						spinnerMock.On(r.GetFunctionName(spinnerMock.Stop)).Return(nil).Once()
+
+						printerMock := &mockObject{}
+						printerMock.On(r.GetFunctionName(printerMock.PrintHeader), "ADDON STATUS").Once()
+						printerMock.On(r.GetFunctionName(printerMock.StartSpinner), mock.Anything).Return(spinnerMock, nil)
+						printerMock.On(r.GetFunctionName(printerMock.Println), "Addon", addonName, "is", state).Once()
+						printerMock.On(r.GetFunctionName(printerMock.PrintCyanFg), addonName).Return(addonName).Once()
+						printerMock.On(r.GetFunctionName(printerMock.PrintCyanFg), state).Return(state).Once()
+
+						loaderMock := &mockObject{}
+						loaderMock.On(r.GetFunctionName(loaderMock.loadAddonStatus), addonName, implementation).Return(loadedStatus, nil)
+
+						sut := NewUserFriendlyPrinter(printerMock)
+
+						err := sut.PrintStatus(addonName, implementation, loaderMock.loadAddonStatus)
+
+						Expect(err).ToNot(HaveOccurred())
+						printerMock.AssertExpectations(GinkgoT())
+						spinnerMock.AssertExpectations(GinkgoT())
+					})
 				})
 
 				It("prints the addon-specific props", func() {

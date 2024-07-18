@@ -27,10 +27,21 @@ type AddonsPrinter struct {
 	terminalPrinter TerminalPrinter
 }
 
-type Addon struct {
+type EnabledAddon struct {
 	Name            string   `json:"name"`
 	Description     string   `json:"description"`
 	Implementations []string `json:"implementations"`
+}
+
+type Addon struct {
+	Name            string
+	Description     string
+	Implementations []Implementation
+}
+
+type Implementation struct {
+	Name        string
+	Description string
 }
 
 type printList struct {
@@ -46,7 +57,7 @@ func NewAddonsPrinter(terminalPrinter TerminalPrinter) AddonsPrinter {
 	}
 }
 
-func (p AddonsPrinter) PrintAddonsUserFriendly(enabledAddons []Addon, allAddons addons.Addons) error {
+func (p AddonsPrinter) PrintAddonsUserFriendly(enabledAddons []EnabledAddon, allAddons addons.Addons) error {
 	p.terminalPrinter.Println()
 
 	list := toPrintList(enabledAddons, allAddons)
@@ -63,7 +74,7 @@ func (p AddonsPrinter) PrintAddonsUserFriendly(enabledAddons []Addon, allAddons 
 	return nil
 }
 
-func (p AddonsPrinter) PrintAddonsAsJson(enabledAddonNames []Addon, allAddons addons.Addons) error {
+func (p AddonsPrinter) PrintAddonsAsJson(enabledAddonNames []EnabledAddon, allAddons addons.Addons) error {
 	list := toPrintList(enabledAddonNames, allAddons)
 
 	bytes, err := json.MarshalIndent(list)
@@ -76,25 +87,41 @@ func (p AddonsPrinter) PrintAddonsAsJson(enabledAddonNames []Addon, allAddons ad
 	return nil
 }
 
-func toPrintList(enabledAddonsList []Addon, allAddons addons.Addons) *printList {
+func toPrintList(enabledAddonsList []EnabledAddon, allAddons addons.Addons) *printList {
 	var enabledAddons []Addon
 	var disabledAddons []Addon
 
 	for _, a := range allAddons {
 		addon := Addon{
-			Name:            a.Metadata.Name,
-			Description:     a.Metadata.Description,
-			Implementations: lo.Map(a.Spec.Implementations, func(e addons.Implementation, _ int) string { return e.Name }),
+			Name:        a.Metadata.Name,
+			Description: a.Metadata.Description,
+			Implementations: lo.Map(a.Spec.Implementations, func(e addons.Implementation, _ int) Implementation {
+				return Implementation{
+					e.Name,
+					e.Description,
+				}
+			}),
 		}
 
-		if lo.Contains(lo.Map(enabledAddonsList, func(e Addon, _ int) string { return e.Name }), addon.Name) {
-			enabledImplementations := lo.Filter(enabledAddonsList, func(item Addon, _ int) bool { return item.Name == addon.Name })[0].Implementations
-			disabledImplementations := lo.Without(addon.Implementations, enabledImplementations...)
+		if lo.Contains(lo.Map(enabledAddonsList, func(e EnabledAddon, _ int) string { return e.Name }), addon.Name) {
+			enabledImplementationNames := lo.Filter(enabledAddonsList, func(item EnabledAddon, _ int) bool { return item.Name == addon.Name })[0].Implementations
+			disabledImplementationNames := lo.Without(lo.Map(addon.Implementations, func(e Implementation, _ int) string { return e.Name }), enabledImplementationNames...)
+
+			var enabledImplementations []Implementation
+			lo.ForEach(enabledImplementationNames, func(enabledImplementationName string, index int) {
+				enabledImplementations = append(enabledImplementations, Implementation{Name: enabledImplementationName, Description: lo.Filter(addon.Implementations, func(item Implementation, _ int) bool { return item.Name == enabledImplementationName })[0].Description})
+			})
+
+			var disabledImplementations []Implementation
+			lo.ForEach(disabledImplementationNames, func(disabledImplementationName string, index int) {
+				disabledImplementations = append(disabledImplementations, Implementation{Name: disabledImplementationName, Description: lo.Filter(addon.Implementations, func(item Implementation, _ int) bool { return item.Name == disabledImplementationName })[0].Description})
+			})
+
 			addon.Implementations = enabledImplementations
 			enabledAddons = append(enabledAddons, addon)
 
 			// In case not all implementations of the addon are enabled, add still disabled ones to disabled section
-			if len(disabledImplementations) > 0 {
+			if len(disabledImplementationNames) > 0 {
 				addon.Implementations = disabledImplementations
 				disabledAddons = append(disabledAddons, addon)
 			}
@@ -134,9 +161,9 @@ func (p AddonsPrinter) createRows(addons []Addon) [][]string {
 		row := []string{fmt.Sprintf(" %s", addonName), addon.Description}
 		rows = append(rows, row)
 		for _, implementation := range addon.Implementations {
-			if implementation != addon.Name {
-				implementation := p.terminalPrinter.PrintCyanFg(implementation)
-				implementationRow := []string{fmt.Sprintf("$implementation$ %s", implementation)}
+			if implementation.Name != addon.Name {
+				implementationString := p.terminalPrinter.PrintCyanFg(implementation.Name)
+				implementationRow := []string{fmt.Sprintf("$impl$ %s", implementationString), implementation.Description}
 				rows = append(rows, implementationRow)
 			}
 		}
@@ -160,8 +187,10 @@ func buildLeveledList(addonsList []string) []struct {
 				Level int
 				Text  string
 			}{Level: 0, Text: "Disabled"})
-		} else if strings.Contains(row, "$implementation$") {
-			row = strings.Replace(row, "$implementation$", "", 1)
+		} else if strings.Contains(row, "$impl$") {
+			row = strings.Replace(row, "$impl$", "", -1)
+			index := strings.Index(row, "#")
+			row = row[:index-1] + "    " + row[index-1:]
 			list = append(list, struct {
 				Level int
 				Text  string

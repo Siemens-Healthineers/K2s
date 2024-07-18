@@ -127,11 +127,11 @@ func printAddonsUserFriendly(allAddons addons.Addons, psVersion powershell.Power
 	return nil
 }
 
-func loadEnabledAddons(psVersion powershell.PowerShellVersion) ([]print.Addon, error) {
+func loadEnabledAddons(psVersion powershell.PowerShellVersion) ([]print.EnabledAddon, error) {
 	scriptPath := filepath.Join(utils.InstallDir(), addons.AddonsDirName, "Get-EnabledAddons.ps1")
 	formattedPath := utils.FormatScriptFilePath(scriptPath)
 
-	enabledAddons, err := powershell.ExecutePsWithStructuredResult[[]print.Addon](formattedPath, "EnabledAddons", psVersion, cc.NewPtermWriter())
+	enabledAddons, err := powershell.ExecutePsWithStructuredResult[[]print.EnabledAddon](formattedPath, "EnabledAddons", psVersion, cc.NewPtermWriter())
 	if err != nil {
 		return nil, fmt.Errorf("could not load enabled addons: %s", err)
 	}

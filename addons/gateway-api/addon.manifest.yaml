@@ -6,10 +6,11 @@ apiVersion: v1
 kind: AddonManifest
 metadata:
   name: gateway-api
-  description: "Gateway Controller for external access that provides an implementation of the Gateway API"
+  description: Gateway Controller for external access that provides an implementation of the Gateway API
 spec:
   implementations:
     - name: gateway-api
+      description: Gateway Controller for external access that provides an implementation of the Gateway API
       commands:
         enable:
           cli:

@@ -10,6 +10,7 @@ metadata:
 spec:
   implementations:
     - name: security
+      description: "EXPERIMENTAL: Enables secure communication into and inside the cluster"
       offline_usage:
         linux:
           repos: []

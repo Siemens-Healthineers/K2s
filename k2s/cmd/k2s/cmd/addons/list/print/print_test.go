@@ -59,7 +59,7 @@ var _ = Describe("print pkg", func() {
 
 				sut := NewAddonsPrinter(printerMock)
 
-				err := sut.PrintAddonsUserFriendly([]Addon{}, addons.Addons{})
+				err := sut.PrintAddonsUserFriendly([]EnabledAddon{}, addons.Addons{})
 
 				Expect(err).To(MatchError(expectedError))
 
@@ -88,7 +88,7 @@ var _ = Describe("print pkg", func() {
 
 				sut := NewAddonsPrinter(printerMock)
 
-				err := sut.PrintAddonsUserFriendly([]Addon{}, addons.Addons{})
+				err := sut.PrintAddonsUserFriendly([]EnabledAddon{}, addons.Addons{})
 
 				Expect(err).ToNot(HaveOccurred())
 
@@ -99,9 +99,9 @@ var _ = Describe("print pkg", func() {
 
 	Describe("PrintAddonsAsJson", func() {
 		It("prints addons as json", func() {
-			enabledAddons := []Addon{
-				Addon{Name: "a1", Description: "d2"},
-				Addon{Name: "a3", Description: "d3"},
+			enabledAddons := []EnabledAddon{
+				EnabledAddon{Name: "a1", Description: "d2"},
+				EnabledAddon{Name: "a3", Description: "d3"},
 			}
 			allAddons := addons.Addons{
 				addons.Addon{Metadata: addons.AddonMetadata{Name: "a1", Description: "d1"}},
@@ -146,9 +146,9 @@ var _ = Describe("print pkg", func() {
 
 	Describe("toPrintList", func() {
 		It("builds a print list based on enabled/disabled addons", func() {
-			enabledAddons := []Addon{
-				Addon{Name: "a1", Description: "d2"},
-				Addon{Name: "a3", Description: "d3"},
+			enabledAddons := []EnabledAddon{
+				EnabledAddon{Name: "a1", Description: "d2"},
+				EnabledAddon{Name: "a3", Description: "d3"},
 			}
 			allAddons := addons.Addons{
 				addons.Addon{Metadata: addons.AddonMetadata{Name: "a1", Description: "d1"}},

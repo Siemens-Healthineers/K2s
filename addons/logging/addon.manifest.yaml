@@ -10,6 +10,7 @@ metadata:
 spec:
   implementations:
     - name: logging
+      description: Dashboard for Kubernetes container logs
       commands:
         enable:
           cli:

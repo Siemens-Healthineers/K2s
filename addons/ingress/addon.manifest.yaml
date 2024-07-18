@@ -10,6 +10,7 @@ metadata:
 spec:
   implementations:
     - name: nginx
+      description: Ingress Controller for external access that uses nginx as a reverse proxy
       commands:
         enable:
           cli:
@@ -26,6 +27,7 @@ spec:
           script:
             subPath: nginx/Disable.ps1
     - name: traefik
+      description: Ingress Controller for external access that uses traefik as a reverse proxy
       commands:
         enable:
           cli:

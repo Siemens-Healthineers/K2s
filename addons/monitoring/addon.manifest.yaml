@@ -10,6 +10,7 @@ metadata:
 spec:
   implementations:
     - name: monitoring
+      description: Dashboard for cluster resource monitoring and logging
       offline_usage:
         linux:
           repos: []

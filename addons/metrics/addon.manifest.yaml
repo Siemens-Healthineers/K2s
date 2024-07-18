@@ -10,6 +10,7 @@ metadata:
 spec:
   implementations:
     - name: metrics
+      description: Kubernetes metrics server for API Access to service metrics
       commands:
         enable:
           cli:

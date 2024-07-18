@@ -10,6 +10,7 @@ metadata:
 spec:
   implementations:
     - name: exthttpaccess
+      description: Handle HTTP/HTTPS request coming to windows machine from local or external network
       offline_usage:
         linux:
           repos: []

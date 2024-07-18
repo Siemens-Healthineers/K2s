@@ -10,6 +10,7 @@ metadata:
 spec:
   implementations:
     - name: storage
+      description: StorageClass provisioning based on SMB share between K8s nodes (Windows/Linux)
       offline_usage:
         linux:
           repos: []

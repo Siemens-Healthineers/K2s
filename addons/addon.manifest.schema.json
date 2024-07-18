@@ -45,6 +45,9 @@
                             "name": {
                                 "type": "string"
                             },
+                            "description": {
+                                "type": "string"
+                            },
                             "offline_usage": {
                                 "$ref": "/schemas/offline_usage"
                             },

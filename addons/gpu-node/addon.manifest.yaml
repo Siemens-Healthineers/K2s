@@ -10,6 +10,7 @@ metadata:
 spec:
   implementations:
     - name: gpu-node
+      description: Configure KubeMaster as GPU node for direct GPU access
       offline_usage:
         linux:
           repos:
