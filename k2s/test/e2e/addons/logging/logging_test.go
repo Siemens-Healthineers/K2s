@@ -58,7 +58,7 @@ var _ = Describe("'logging' addon", Ordered, func() {
 			}
 
 			addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
-			Expect(addonsStatus.IsAddonEnabled("logging")).To(BeFalse())
+			Expect(addonsStatus.IsAddonEnabled("logging", "")).To(BeFalse())
 		})
 
 		It("prints already-disabled message on disable command and exits with non-zero", func(ctx context.Context) {
@@ -111,7 +111,7 @@ var _ = Describe("'logging' addon", Ordered, func() {
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "opensearch-dashboards", "logging")
 
 			addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
-			Expect(addonsStatus.IsAddonEnabled("logging")).To(BeTrue())
+			Expect(addonsStatus.IsAddonEnabled("logging", "")).To(BeTrue())
 		})
 
 		It("prints already-enabled message on enable command and exits with non-zero", func(ctx context.Context) {
@@ -137,13 +137,13 @@ var _ = Describe("'logging' addon", Ordered, func() {
 
 	When("traefik as ingress controller", func() {
 		BeforeAll(func(ctx context.Context) {
-			suite.K2sCli().Run(ctx, "addons", "enable", "traefik", "-o")
-			suite.Cluster().ExpectDeploymentToBeAvailable("traefik", "traefik")
+			suite.K2sCli().Run(ctx, "addons", "enable", "inrgess", "traefik", "-o")
+			suite.Cluster().ExpectDeploymentToBeAvailable("traefik", "ingress-traefik")
 		})
 
 		AfterAll(func(ctx context.Context) {
 			suite.K2sCli().Run(ctx, "addons", "disable", "logging", "-o")
-			suite.K2sCli().Run(ctx, "addons", "disable", "traefik", "-o")
+			suite.K2sCli().Run(ctx, "addons", "disable", "ingress", "traefik", "-o")
 
 			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "opensearch-dashboards", "logging")
 			suite.Cluster().ExpectStatefulSetToBeDeleted("opensearch-cluster-master", "logging", ctx)
@@ -152,10 +152,10 @@ var _ = Describe("'logging' addon", Ordered, func() {
 				suite.Cluster().ExpectDaemonSetToBeDeleted("fluent-bit-win", "logging", ctx)
 			}
 
-			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "traefik", "traefik")
+			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "traefik", "ingress-traefik")
 
 			addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
-			Expect(addonsStatus.IsAddonEnabled("logging")).To(BeFalse())
+			Expect(addonsStatus.IsAddonEnabled("logging", "")).To(BeFalse())
 		})
 
 		It("is in enabled state and pods are in running state", func(ctx context.Context) {
@@ -173,7 +173,7 @@ var _ = Describe("'logging' addon", Ordered, func() {
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "fluent-bit", "logging")
 
 			addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
-			Expect(addonsStatus.IsAddonEnabled("logging")).To(BeTrue())
+			Expect(addonsStatus.IsAddonEnabled("logging", "")).To(BeTrue())
 		})
 
 		It("prints already-enabled message on enable command and exits with non-zero", func(ctx context.Context) {
@@ -203,15 +203,15 @@ var _ = Describe("'logging' addon", Ordered, func() {
 		})
 	})
 
-	Describe("ingress-nginx as ingress controller", func() {
+	Describe("nginx as ingress controller", func() {
 		BeforeAll(func(ctx context.Context) {
-			suite.K2sCli().Run(ctx, "addons", "enable", "ingress-nginx", "-o")
+			suite.K2sCli().Run(ctx, "addons", "enable", "ingress", "nginx", "-o")
 			suite.Cluster().ExpectDeploymentToBeAvailable("ingress-nginx-controller", "ingress-nginx")
 		})
 
 		AfterAll(func(ctx context.Context) {
 			suite.K2sCli().Run(ctx, "addons", "disable", "logging", "-o")
-			suite.K2sCli().Run(ctx, "addons", "disable", "ingress-nginx", "-o")
+			suite.K2sCli().Run(ctx, "addons", "disable", "ingress", "nginx", "-o")
 
 			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "opensearch-dashboards", "logging")
 			suite.Cluster().ExpectStatefulSetToBeDeleted("opensearch-cluster-master", "logging", ctx)
@@ -223,7 +223,7 @@ var _ = Describe("'logging' addon", Ordered, func() {
 			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "ingress-nginx", "ingress-nginx")
 
 			addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
-			Expect(addonsStatus.IsAddonEnabled("logging")).To(BeFalse())
+			Expect(addonsStatus.IsAddonEnabled("logging", "")).To(BeFalse())
 		})
 
 		It("is in enabled state and pods are in running state", func(ctx context.Context) {
@@ -241,7 +241,7 @@ var _ = Describe("'logging' addon", Ordered, func() {
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "fluent-bit", "logging")
 
 			addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
-			Expect(addonsStatus.IsAddonEnabled("logging")).To(BeTrue())
+			Expect(addonsStatus.IsAddonEnabled("logging", "")).To(BeTrue())
 		})
 
 		It("prints already-enabled message on enable command and exits with non-zero", func(ctx context.Context) {

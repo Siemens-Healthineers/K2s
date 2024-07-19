@@ -29,7 +29,7 @@ var suite *framework.K2sTestSuite
 
 func TestIngressNginx(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "ingress-nginx Addon Acceptance Tests", Label("addon", "acceptance", "setup-required", "invasive", "ingress-nginx", "system-running"))
+	RunSpecs(t, "ingress nginx Addon Acceptance Tests", Label("addon", "acceptance", "setup-required", "invasive", "ingress nginx", "system-running"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
@@ -43,34 +43,34 @@ var _ = AfterSuite(func(ctx context.Context) {
 var _ = Describe("'ingress-nginx' addon", Ordered, func() {
 	AfterAll(func(ctx context.Context) {
 		suite.Kubectl().Run(ctx, "delete", "-k", "workloads")
-		suite.K2sCli().Run(ctx, "addons", "disable", "ingress-nginx", "-o")
+		suite.K2sCli().Run(ctx, "addons", "disable", "ingress", "nginx", "-o")
 
 		suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "ingress-nginx", "ingress-nginx")
 		suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "albums-linux1", "ingress-nginx-test")
 
 		addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
-		Expect(addonsStatus.IsAddonEnabled("ingress-nginx")).To(BeFalse())
+		Expect(addonsStatus.IsAddonEnabled("ingress", "nginx")).To(BeFalse())
 	})
 
 	It("prints already-disabled message on disable command and exits with non-zero", func(ctx context.Context) {
-		output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "disable", "ingress-nginx")
+		output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "disable", "ingress", "nginx")
 
 		Expect(output).To(ContainSubstring("already disabled"))
 	})
 
 	It("is in enabled state and pods are in running state", func(ctx context.Context) {
-		suite.K2sCli().Run(ctx, "addons", "enable", "ingress-nginx", "-o")
+		suite.K2sCli().Run(ctx, "addons", "enable", "ingress", "nginx", "-o")
 
 		suite.Cluster().ExpectDeploymentToBeAvailable("ingress-nginx-controller", "ingress-nginx")
 
 		suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "ingress-nginx", "ingress-nginx")
 
 		addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
-		Expect(addonsStatus.IsAddonEnabled("ingress-nginx")).To(BeTrue())
+		Expect(addonsStatus.IsAddonEnabled("ingress", "nginx")).To(BeTrue())
 	})
 
 	It("prints already-enabled message on enable command and exits with non-zero", func(ctx context.Context) {
-		output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "enable", "ingress-nginx")
+		output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "enable", "ingress", "nginx")
 
 		Expect(output).To(ContainSubstring("already enabled"))
 	})
@@ -81,7 +81,7 @@ var _ = Describe("'ingress-nginx' addon", Ordered, func() {
 		Expect(httpStatus).To(ContainSubstring("404"))
 	})
 
-	It("sample app is reachable through ingress-nginx ingress controller", func(ctx context.Context) {
+	It("sample app is reachable through nginx ingress controller", func(ctx context.Context) {
 		suite.Kubectl().Run(ctx, "apply", "-k", "workloads")
 		suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "albums-linux1", "ingress-nginx-test")
 
@@ -103,22 +103,22 @@ var _ = Describe("'ingress-nginx' addon", Ordered, func() {
 	})
 
 	It("prints the status", func(ctx context.Context) {
-		output := suite.K2sCli().Run(ctx, "addons", "status", "ingress-nginx")
+		output := suite.K2sCli().Run(ctx, "addons", "status", "ingress", "nginx")
 
 		Expect(output).To(SatisfyAll(
 			MatchRegexp("ADDON STATUS"),
-			MatchRegexp(`Addon .+ingress-nginx.+ is .+enabled.+`),
-			MatchRegexp("The ingress-nginx ingress controller is working"),
+			MatchRegexp(`Addon .+ingress nginx.+ is .+enabled.+`),
+			MatchRegexp("The nginx ingress controller is working"),
 			MatchRegexp("The external IP for ingress-nginx service is set to %s", regex.IpAddressRegex),
 		))
 
-		output = suite.K2sCli().Run(ctx, "addons", "status", "ingress-nginx", "-o", "json")
+		output = suite.K2sCli().Run(ctx, "addons", "status", "ingress", "nginx", "-o", "json")
 
 		var status status.AddonPrintStatus
 
 		Expect(json.Unmarshal([]byte(output), &status)).To(Succeed())
 
-		Expect(status.Name).To(Equal("ingress-nginx"))
+		Expect(status.Name).To(Equal("ingress nginx"))
 		Expect(status.Error).To(BeNil())
 		Expect(status.Enabled).NotTo(BeNil())
 		Expect(*status.Enabled).To(BeTrue())
@@ -128,7 +128,7 @@ var _ = Describe("'ingress-nginx' addon", Ordered, func() {
 				HaveField("Name", "IsIngressNginxRunning"),
 				HaveField("Value", true),
 				HaveField("Okay", gstruct.PointTo(BeTrue())),
-				HaveField("Message", gstruct.PointTo(ContainSubstring("The ingress-nginx ingress controller is working")))),
+				HaveField("Message", gstruct.PointTo(ContainSubstring("The nginx ingress controller is working")))),
 			SatisfyAll(
 				HaveField("Name", "IsExternalIPSet"),
 				HaveField("Value", true),

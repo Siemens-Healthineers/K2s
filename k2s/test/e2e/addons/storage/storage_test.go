@@ -24,8 +24,8 @@ import (
 )
 
 const (
-	addonName  = "smb-share"
-	namespace  = "smb-share-test"
+	addonName  = "storage"
+	namespace  = "storage-test"
 	secretName = "regcred"
 
 	linuxWorkloadName   = "smb-share-test-linux"
@@ -51,7 +51,7 @@ var (
 
 func TestSmbshare(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "smb-share Addon Acceptance Tests", Label("addon", "acceptance", "internet-required", "setup-required", "invasive", "smb-share", "system-running"))
+	RunSpecs(t, "storage Addon Acceptance Tests", Label("addon", "acceptance", "internet-required", "setup-required", "invasive", "storage", "system-running"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
@@ -75,7 +75,7 @@ var _ = AfterSuite(func(ctx context.Context) {
 	GinkgoWriter.Println("Checking if addon is disabled..")
 
 	addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
-	enabled := addonsStatus.IsAddonEnabled(addonName)
+	enabled := addonsStatus.IsAddonEnabled(addonName, "")
 
 	if enabled {
 		GinkgoWriter.Println("Addon is still enabled, disabling it..")

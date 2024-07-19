@@ -195,7 +195,7 @@ func buildLeveledList(addonsList []string) []struct {
 		} else if strings.Contains(row, implemenationSeparator) {
 			row = strings.Replace(row, implemenationSeparator, "", -1)
 			index := strings.Index(row, "#")
-			row = row[:index-1] + "    " + row[index-1:]
+			row = row[:index-1] + "   " + row[index-1:]
 			list = append(list, struct {
 				Level int
 				Text  string

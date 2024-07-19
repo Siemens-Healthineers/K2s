@@ -48,7 +48,7 @@ apiVersion: gateway.networking.k8s.io/v1beta1
 kind: Gateway
 metadata:
   name: gateway
-  namespace: nginx-gateway
+  namespace: gateway-api
 spec:
   gatewayClassName: nginx
   listeners:
@@ -67,7 +67,7 @@ metadata:
 spec:
   parentRefs:
   - name:  gateway
-    namespace: nginx-gateway
+    namespace: gateway-api
     sectionName: http
   rules:
   - matches:

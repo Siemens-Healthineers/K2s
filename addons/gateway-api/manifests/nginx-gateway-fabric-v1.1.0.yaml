@@ -5,7 +5,7 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: nginx-gateway
+  name: gateway-api
 ---
 # Source: nginx-gateway-fabric/templates/rbac.yaml
 apiVersion: v1

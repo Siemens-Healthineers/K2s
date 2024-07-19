@@ -5,5 +5,5 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-- traefik-test-namespace.yaml
-- traefik-test-linux-albums.yaml
+- ingress-traefik-test-namespace.yaml
+- ingress-traefik-test-linux-albums.yaml

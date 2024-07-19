@@ -22,6 +22,12 @@ import (
 )
 
 type Addon struct {
+	Name            string           `json:"name"`
+	Description     string           `json:"description"`
+	Implementations []Implementation `json:"implementations"`
+}
+
+type Implementation struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
 }
@@ -43,10 +49,22 @@ func (r *K2sCliRunner) GetAddonsStatus(ctx context.Context) *AddonsStatus {
 	return unmarshalStatus[AddonsStatus](output)
 }
 
-func (addonsStatus *AddonsStatus) IsAddonEnabled(addonName string) bool {
-	return lo.SomeBy(addonsStatus.EnabledAddons, func(addon Addon) bool {
+func (addonsStatus *AddonsStatus) IsAddonEnabled(addonName string, implementationName string) bool {
+	isAddonEnabled := lo.SomeBy(addonsStatus.EnabledAddons, func(addon Addon) bool {
 		return addon.Name == addonName
 	})
+
+	if isAddonEnabled && implementationName != "" {
+		addon := lo.Filter(addonsStatus.EnabledAddons, func(enabledAddon Addon, index int) bool {
+			return enabledAddon.Name != addonName
+		})[0]
+
+		return lo.SomeBy(addon.Implementations, func(implementation Implementation) bool {
+			return implementation.Name == implementationName
+		})
+	}
+
+	return false
 }
 
 func (addonsStatus *AddonsStatus) GetEnabledAddons() []string {
@@ -114,7 +132,7 @@ func (info *AddonsAdditionalInfo) GetImagesForAddon(addon addons.Addon) ([]strin
 		return trimedFindings
 	})
 
-	if len(addon.Spec.OfflineUsage.LinuxResources.AdditionalImages) > 0 {
+	if len(addon.Spec.ImplementationsOfflineUsage.LinuxResources.AdditionalImages) > 0 {
 		images = append(images, addon.Spec.OfflineUsage.LinuxResources.AdditionalImages...)
 	}
 

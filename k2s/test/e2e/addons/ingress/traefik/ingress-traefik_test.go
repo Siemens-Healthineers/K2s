@@ -27,9 +27,9 @@ const testClusterTimeout = time.Minute * 10
 
 var suite *framework.K2sTestSuite
 
-func TestTraefik(t *testing.T) {
+func TestIngressTraefik(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "traefik Addon Acceptance Tests", Label("addon", "acceptance", "setup-required", "invasive", "traefik", "system-running"))
+	RunSpecs(t, "ingress traefik Addon Acceptance Tests", Label("addon", "acceptance", "setup-required", "invasive", "ingress traefik", "system-running"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
@@ -40,20 +40,20 @@ var _ = AfterSuite(func(ctx context.Context) {
 	suite.TearDown(ctx)
 })
 
-var _ = Describe("'traefik' addon", Ordered, func() {
+var _ = Describe("'ingress traefik' addon", Ordered, func() {
 	AfterAll(func(ctx context.Context) {
 		suite.Kubectl().Run(ctx, "delete", "-k", "workloads")
-		suite.K2sCli().Run(ctx, "addons", "disable", "traefik", "-o")
+		suite.K2sCli().Run(ctx, "addons", "disable", "ingress", "traefik", "-o")
 
-		suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "traefik", "traefik")
+		suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "traefik", "ingress-traefik")
 		suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "albums-linux1", "ingress-traefik-test")
 
 		addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
-		Expect(addonsStatus.IsAddonEnabled("traefik")).To(BeFalse())
+		Expect(addonsStatus.IsAddonEnabled("ingress", "traefik")).To(BeFalse())
 	})
 
 	It("prints already-disabled message and exits with non-zero", func(ctx context.Context) {
-		output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "disable", "traefik")
+		output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "disable", "ingress", "traefik")
 
 		Expect(output).To(ContainSubstring("already disabled"))
 	})
@@ -61,24 +61,24 @@ var _ = Describe("'traefik' addon", Ordered, func() {
 	Describe("status", func() {
 		Context("default output", func() {
 			It("displays disabled message", func(ctx context.Context) {
-				output := suite.K2sCli().Run(ctx, "addons", "status", "traefik")
+				output := suite.K2sCli().Run(ctx, "addons", "status", "ingress", "traefik")
 
 				Expect(output).To(SatisfyAll(
 					MatchRegexp(`ADDON STATUS`),
-					MatchRegexp(`Addon .+traefik.+ is .+disabled.+`),
+					MatchRegexp(`Addon .+ingress traefik.+ is .+disabled.+`),
 				))
 			})
 		})
 
 		Context("JSON output", func() {
 			It("displays JSON", func(ctx context.Context) {
-				output := suite.K2sCli().Run(ctx, "addons", "status", "traefik", "-o", "json")
+				output := suite.K2sCli().Run(ctx, "addons", "status", "ingress", "traefik", "-o", "json")
 
 				var status status.AddonPrintStatus
 
 				Expect(json.Unmarshal([]byte(output), &status)).To(Succeed())
 
-				Expect(status.Name).To(Equal("traefik"))
+				Expect(status.Name).To(Equal("ingress traefik"))
 				Expect(status.Enabled).NotTo(BeNil())
 				Expect(*status.Enabled).To(BeFalse())
 				Expect(status.Props).To(BeNil())
@@ -88,18 +88,18 @@ var _ = Describe("'traefik' addon", Ordered, func() {
 	})
 
 	It("is in enabled state and pods are in running state", func(ctx context.Context) {
-		suite.K2sCli().Run(ctx, "addons", "enable", "traefik", "-o")
+		suite.K2sCli().Run(ctx, "addons", "enable", "ingress", "traefik", "-o")
 
-		suite.Cluster().ExpectDeploymentToBeAvailable("traefik", "traefik")
+		suite.Cluster().ExpectDeploymentToBeAvailable("traefik", "ingress-traefik")
 
-		suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "traefik", "traefik")
+		suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "traefik", "-ingresstraefik")
 
 		addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
-		Expect(addonsStatus.IsAddonEnabled("traefik")).To(BeTrue())
+		Expect(addonsStatus.IsAddonEnabled("ingress", "traefik")).To(BeTrue())
 	})
 
 	It("prints already-enabled message and exits with non-zero", func(ctx context.Context) {
-		output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "enable", "traefik")
+		output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "enable", "ingress", "traefik")
 
 		Expect(output).To(ContainSubstring("already enabled"))
 	})
@@ -132,22 +132,22 @@ var _ = Describe("'traefik' addon", Ordered, func() {
 	})
 
 	It("prints the status", func(ctx context.Context) {
-		output := suite.K2sCli().Run(ctx, "addons", "status", "traefik")
+		output := suite.K2sCli().Run(ctx, "addons", "status", "ingress", "traefik")
 
 		Expect(output).To(SatisfyAll(
 			MatchRegexp("ADDON STATUS"),
-			MatchRegexp(`Addon .+traefik.+ is .+enabled.+`),
+			MatchRegexp(`Addon .+ingress traefik.+ is .+enabled.+`),
 			MatchRegexp("The traefik ingress controller is working"),
 			MatchRegexp("The external IP for traefik service is set to %s", regex.IpAddressRegex),
 		))
 
-		output = suite.K2sCli().Run(ctx, "addons", "status", "traefik", "-o", "json")
+		output = suite.K2sCli().Run(ctx, "addons", "status", "ingress", "traefik", "-o", "json")
 
 		var status status.AddonPrintStatus
 
 		Expect(json.Unmarshal([]byte(output), &status)).To(Succeed())
 
-		Expect(status.Name).To(Equal("traefik"))
+		Expect(status.Name).To(Equal("ingress traefik"))
 		Expect(status.Error).To(BeNil())
 		Expect(status.Enabled).NotTo(BeNil())
 		Expect(*status.Enabled).To(BeTrue())

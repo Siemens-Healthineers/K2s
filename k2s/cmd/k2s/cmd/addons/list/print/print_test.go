@@ -85,7 +85,7 @@ var _ = Describe("print pkg", func() {
 						items[2].Level == 1 && items[2].Text == "addon2 # this is addon 2" &&
 						items[3].Level == 0 && items[3].Text == "Disabled" &&
 						items[4].Level == 1 && items[4].Text == "addon3 # this is addon 3" &&
-						items[5].Level == 2 && items[5].Text == " implementation1     # this is implementation 1 of addon 3"
+						items[5].Level == 2 && items[5].Text == " implementation1    # this is implementation 1 of addon 3"
 				}))
 
 				sut := NewAddonsPrinter(printerMock)
@@ -295,7 +295,7 @@ var _ = Describe("print pkg", func() {
 				Expect(actual[3].Level).To(Equal(1))
 				Expect(actual[3].Text).To(Equal("addon2"))
 				Expect(actual[4].Level).To(Equal(2))
-				Expect(actual[4].Text).To(Equal(" implementation1     # description1"))
+				Expect(actual[4].Text).To(Equal(" implementation1    # description1"))
 			})
 		})
 	})
