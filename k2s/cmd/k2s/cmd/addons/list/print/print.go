@@ -50,7 +50,6 @@ type printList struct {
 }
 
 const separator = "$---$"
-const implemenationSeparator = "$+++$"
 
 func NewAddonsPrinter(terminalPrinter TerminalPrinter) AddonsPrinter {
 	return AddonsPrinter{
@@ -168,7 +167,7 @@ func (p AddonsPrinter) createRows(addons []Addon) [][]string {
 		for _, implementation := range addon.Implementations {
 			if implementation.Name != addon.Name {
 				implementationString := p.terminalPrinter.PrintCyanFg(implementation.Name)
-				implementationRow := []string{fmt.Sprintf("%s %s", implemenationSeparator, implementationString), implementation.Description}
+				implementationRow := []string{fmt.Sprintf("   %s", implementationString), implementation.Description}
 				rows = append(rows, implementationRow)
 			}
 		}
@@ -192,10 +191,8 @@ func buildLeveledList(addonsList []string) []struct {
 				Level int
 				Text  string
 			}{Level: 0, Text: "Disabled"})
-		} else if strings.Contains(row, implemenationSeparator) {
-			row = strings.Replace(row, implemenationSeparator, "", -1)
-			index := strings.Index(row, "#")
-			row = row[:index-1] + "   " + row[index-1:]
+		} else if row[:3] == "   " {
+			row = row[2:]
 			list = append(list, struct {
 				Level int
 				Text  string

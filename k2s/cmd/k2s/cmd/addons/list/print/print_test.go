@@ -6,7 +6,6 @@ package print
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -70,7 +69,7 @@ var _ = Describe("print pkg", func() {
 
 		When("successful", func() {
 			It("prints leveled list", func() {
-				tableString := fmt.Sprintf("addon1 # this is addon 1\naddon2 # this is addon 2\n$---$\naddon3 # this is addon 3\n%s implementation1 # this is implementation 1 of addon 3", implemenationSeparator)
+				tableString := "addon1 # this is addon 1\naddon2 # this is addon 2\n$---$\naddon3 # this is addon 3\n   implementation1 # this is implementation 1 of addon 3"
 
 				printerMock := &mockObject{}
 				printerMock.On(reflection.GetFunctionName(printerMock.Println), mock.Anything)
@@ -85,7 +84,7 @@ var _ = Describe("print pkg", func() {
 						items[2].Level == 1 && items[2].Text == "addon2 # this is addon 2" &&
 						items[3].Level == 0 && items[3].Text == "Disabled" &&
 						items[4].Level == 1 && items[4].Text == "addon3 # this is addon 3" &&
-						items[5].Level == 2 && items[5].Text == " implementation1    # this is implementation 1 of addon 3"
+						items[5].Level == 2 && items[5].Text == " implementation1 # this is implementation 1 of addon 3"
 				}))
 
 				sut := NewAddonsPrinter(printerMock)
@@ -237,7 +236,7 @@ var _ = Describe("print pkg", func() {
 				[]string{" a1*", "d1"},
 				[]string{" a2*", "d2"},
 				[]string{" a3*", "d3"},
-				[]string{implemenationSeparator + " i1*", "d1"},
+				[]string{"   i1*", "d1"},
 			))
 		})
 	})
@@ -281,7 +280,7 @@ var _ = Describe("print pkg", func() {
 					"addon1",
 					separator,
 					"addon2",
-					implemenationSeparator + " implementation1 # description1"}
+					"   implementation1 # description1"}
 
 				actual := buildLeveledList(addons)
 
@@ -295,7 +294,7 @@ var _ = Describe("print pkg", func() {
 				Expect(actual[3].Level).To(Equal(1))
 				Expect(actual[3].Text).To(Equal("addon2"))
 				Expect(actual[4].Level).To(Equal(2))
-				Expect(actual[4].Text).To(Equal(" implementation1    # description1"))
+				Expect(actual[4].Text).To(Equal(" implementation1 # description1"))
 			})
 		})
 	})
