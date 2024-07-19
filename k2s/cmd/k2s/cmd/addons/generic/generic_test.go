@@ -81,7 +81,7 @@ var _ = Describe("generic pkg", func() {
 					addons.Addon{
 						Metadata: addons.AddonMetadata{Name: "a1"},
 						Spec: addons.AddonSpec{
-							Implementations: []addons.Implementation{addons.Implementation{Commands: &map[string]addons.AddonCmd{
+							Implementations: []addons.Implementation{{Commands: &map[string]addons.AddonCmd{
 								"c1": {},
 								"c2": {},
 							}}},
@@ -90,7 +90,7 @@ var _ = Describe("generic pkg", func() {
 					addons.Addon{
 						Metadata: addons.AddonMetadata{Name: "a2"},
 						Spec: addons.AddonSpec{
-							Implementations: []addons.Implementation{addons.Implementation{Commands: &map[string]addons.AddonCmd{
+							Implementations: []addons.Implementation{{Commands: &map[string]addons.AddonCmd{
 								"c2": {},
 								"c3": {},
 							}}},
@@ -117,7 +117,7 @@ var _ = Describe("generic pkg", func() {
 				addons := addons.Addons{
 					addons.Addon{
 						Spec: addons.AddonSpec{
-							Implementations: []addons.Implementation{addons.Implementation{Commands: &map[string]addons.AddonCmd{
+							Implementations: []addons.Implementation{{Commands: &map[string]addons.AddonCmd{
 								"do-this": {
 									Cli: &addons.CliConfig{
 										Flags: []addons.CliFlag{
@@ -149,7 +149,7 @@ var _ = Describe("generic pkg", func() {
 						Name: "a1",
 					},
 					Spec: addons.AddonSpec{
-						Implementations: []addons.Implementation{addons.Implementation{Commands: &map[string]addons.AddonCmd{
+						Implementations: []addons.Implementation{{Commands: &map[string]addons.AddonCmd{
 							command: {},
 						}}},
 					},
@@ -175,7 +175,7 @@ var _ = Describe("generic pkg", func() {
 						Name: "a1",
 					},
 					Spec: addons.AddonSpec{
-						Implementations: []addons.Implementation{addons.Implementation{Commands: &map[string]addons.AddonCmd{
+						Implementations: []addons.Implementation{{Commands: &map[string]addons.AddonCmd{
 							command: {
 								Cli: &addons.CliConfig{
 									Examples: addons.CliExamples{
@@ -214,7 +214,7 @@ var _ = Describe("generic pkg", func() {
 						Name: "a1",
 					},
 					Spec: addons.AddonSpec{
-						Implementations: []addons.Implementation{addons.Implementation{Commands: &map[string]addons.AddonCmd{
+						Implementations: []addons.Implementation{{Commands: &map[string]addons.AddonCmd{
 							command: {
 								Cli: &addons.CliConfig{
 									Flags: []addons.CliFlag{
@@ -250,7 +250,7 @@ var _ = Describe("generic pkg", func() {
 				command := "do-this"
 				addon := addons.Addon{
 					Spec: addons.AddonSpec{
-						Implementations: []addons.Implementation{addons.Implementation{Commands: &map[string]addons.AddonCmd{
+						Implementations: []addons.Implementation{{Commands: &map[string]addons.AddonCmd{
 							command: {
 								Cli: &addons.CliConfig{
 									Flags: []addons.CliFlag{

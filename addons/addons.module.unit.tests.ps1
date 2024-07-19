@@ -146,6 +146,18 @@ Describe 'Test-IsAddonEnabled' -Tag 'unit', 'ci', 'addon' {
         It 'returns false' {
             Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'a1' }) | Should -BeFalse
         }
+
+        Context 'implementation disabled' {
+            BeforeAll {
+                $enabledAddons = @{ Name = 'a2'; Implementations = @('i1') }, @{ Name = 'a3' }
+    
+                Mock -ModuleName $moduleName Get-AddonsConfig { return $enabledAddons }
+            }
+    
+            It 'returns false' {
+                Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'a2'; Implementation = 'i2' }) | Should -BeFalse
+            }
+        }
     }
 
     Context 'addon enabled' {
@@ -157,6 +169,18 @@ Describe 'Test-IsAddonEnabled' -Tag 'unit', 'ci', 'addon' {
 
         It 'returns true' {
             Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'a1' }) | Should -BeTrue
+        }
+
+        Context 'implementation enabled' {
+            BeforeAll {
+                $enabledAddons = @{ Name = 'a1'; Implementations = @('i1') }, @{ Name = 'a2' }
+    
+                Mock -ModuleName $moduleName Get-AddonsConfig { return $enabledAddons }
+            }
+    
+            It 'returns true' {
+                Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'a1'; Implementation = 'i1'  }) | Should -BeTrue
+            }
         }
     }
 }
@@ -907,7 +931,7 @@ Describe 'Get-AddonStatus' -Tag 'unit', 'ci', 'addon' {
             $addonName = 'test-addon'
             Mock -ModuleName $moduleName Test-Path { return $true }
             Mock -ModuleName $moduleName Test-SystemAvailability { return $null }
-            Mock -ModuleName $moduleName Test-IsAddonEnabled { return $false } -ParameterFilter { $Addon -eq ([pscustomobject] @{Name = $addonName }) } 
+            Mock -ModuleName $moduleName Test-IsAddonEnabled { return $false } -ParameterFilter { $Addon.Name -eq $addonName } 
         }
 
         It 'returns addon-disabled status' {
@@ -926,7 +950,7 @@ Describe 'Get-AddonStatus' -Tag 'unit', 'ci', 'addon' {
             $props = @{Name = 'p1' }, @{Name = 'p2' }
             Mock -ModuleName $moduleName Test-Path { return $true }
             Mock -ModuleName $moduleName Test-SystemAvailability { return $null }
-            Mock -ModuleName $moduleName Test-IsAddonEnabled { return $true } -ParameterFilter { $Addon -eq ([pscustomobject] @{Name = $addonName }) }
+            Mock -ModuleName $moduleName Test-IsAddonEnabled { return $true } -ParameterFilter { $Addon.Name -eq $addonName }
             Mock -ModuleName $moduleName Invoke-Script { return $props } -ParameterFilter { $FilePath -match "$addonDirectory\\Get-Status.ps1" }
         }
 

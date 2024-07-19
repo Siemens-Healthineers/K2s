@@ -1476,7 +1476,7 @@ Describe 'Enable-SmbShare' -Tag 'unit', 'ci', 'addon', 'storage' {
     Context 'addon is disabled' {
         BeforeAll {
             Mock -ModuleName $moduleName Test-SystemAvailability { }
-            Mock -ModuleName $moduleName Test-IsAddonEnabled { return $false } -ParameterFilter { $Name -eq ([pscustomobject] @{Name = $AddonName }) }
+            Mock -ModuleName $moduleName Test-IsAddonEnabled { return $false } -ParameterFilter { $Addon.Name -eq $AddonName }
         }
 
         Context 'setup type invalid for this addon' {
@@ -1611,7 +1611,7 @@ Describe 'Disable-SmbShare' -Tag 'unit', 'ci', 'addon', 'storage' {
                 $err | Should -BeNullOrEmpty
 
                 Should -Invoke Remove-SmbShareAndFolder -Times 1 -Scope Context -ParameterFilter { $SkipNodesCleanup -eq $true }
-                Should -Invoke Remove-AddonFromSetupJson -Times 1 -Scope Context -ParameterFilter { $Name -eq ([pscustomobject] @{Name = $AddonName }) }
+                Should -Invoke Remove-AddonFromSetupJson -Times 1 -Scope Context -ParameterFilter { $Addon.Name -eq $AddonName }
                 Should -Invoke Remove-ScriptsFromHooksDir -Times 1 -Scope Context
             }
         }
