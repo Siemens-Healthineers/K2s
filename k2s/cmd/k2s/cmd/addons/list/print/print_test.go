@@ -6,6 +6,7 @@ package print
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -69,7 +70,7 @@ var _ = Describe("print pkg", func() {
 
 		When("successful", func() {
 			It("prints leveled list", func() {
-				tableString := "addon1 # this is addon 1\naddon2 # this is addon 2\n$---$\naddon3 # this is addon 3\n$impl$ implementation1 # this is implementation 1 of addon 3"
+				tableString := fmt.Sprintf("addon1 # this is addon 1\naddon2 # this is addon 2\n$---$\naddon3 # this is addon 3\n%s implementation1 # this is implementation 1 of addon 3", implemenationSeparator)
 
 				printerMock := &mockObject{}
 				printerMock.On(reflection.GetFunctionName(printerMock.Println), mock.Anything)
@@ -148,11 +149,11 @@ var _ = Describe("print pkg", func() {
 	Describe("toPrintList", func() {
 		It("builds a print list based on enabled/disabled addons", func() {
 			enabledAddons := []EnabledAddon{
-				EnabledAddon{Name: "a1", Description: "d2"},
-				EnabledAddon{Name: "a3", Description: "d3"},
+				{Name: "a1", Description: "d2", Implementations: []string{"i1"}},
+				{Name: "a3", Description: "d3"},
 			}
 			allAddons := addons.Addons{
-				addons.Addon{Metadata: addons.AddonMetadata{Name: "a1", Description: "d1"}},
+				addons.Addon{Metadata: addons.AddonMetadata{Name: "a1", Description: "d1"}, Spec: addons.AddonSpec{Implementations: []addons.Implementation{{Name: "i1"}, {Name: "i2"}}}},
 				addons.Addon{Metadata: addons.AddonMetadata{Name: "a2", Description: "d2"}},
 				addons.Addon{Metadata: addons.AddonMetadata{Name: "a3", Description: "d3"}},
 			}
@@ -161,13 +162,16 @@ var _ = Describe("print pkg", func() {
 
 			Expect(result.EnabledAddons).To(ConsistOf(
 				SatisfyAll(
-					HaveField("Name", "a1"), HaveField("Description", "d1"),
+					HaveField("Name", "a1"), HaveField("Description", "d1"), HaveField("Implementations", []Implementation{{Name: "i1"}}),
 				),
 				SatisfyAll(
 					HaveField("Name", "a3"), HaveField("Description", "d3"),
 				),
 			))
 			Expect(result.DisabledAddons).To(ConsistOf(
+				SatisfyAll(
+					HaveField("Name", "a1"), HaveField("Description", "d1"), HaveField("Implementations", []Implementation{{Name: "i2"}}),
+				),
 				SatisfyAll(
 					HaveField("Name", "a2"), HaveField("Description", "d2"),
 				),
@@ -214,7 +218,7 @@ var _ = Describe("print pkg", func() {
 	Describe("createRows", func() {
 		It("creates rows", func() {
 			addons := []Addon{
-				{Name: "a1", Description: "d1"},
+				{Name: "a1", Description: "d1", Implementations: []Implementation{{Name: "i1", Description: "d1"}}},
 				{Name: "a2", Description: "d2"},
 				{Name: "a3", Description: "d3"},
 			}
@@ -223,6 +227,7 @@ var _ = Describe("print pkg", func() {
 			printerMock.On(reflection.GetFunctionName(printerMock.PrintCyanFg), "a1").Return("a1*")
 			printerMock.On(reflection.GetFunctionName(printerMock.PrintCyanFg), "a2").Return("a2*")
 			printerMock.On(reflection.GetFunctionName(printerMock.PrintCyanFg), "a3").Return("a3*")
+			printerMock.On(reflection.GetFunctionName(printerMock.PrintCyanFg), "i1").Return("i1*")
 
 			sut := NewAddonsPrinter(printerMock)
 
@@ -232,6 +237,7 @@ var _ = Describe("print pkg", func() {
 				[]string{" a1*", "d1"},
 				[]string{" a2*", "d2"},
 				[]string{" a3*", "d3"},
+				[]string{implemenationSeparator + " i1*", "d1"},
 			))
 		})
 	})
@@ -274,11 +280,12 @@ var _ = Describe("print pkg", func() {
 				addons := []string{
 					"addon1",
 					separator,
-					"addon2"}
+					"addon2",
+					implemenationSeparator + " implementation1 # description1"}
 
 				actual := buildLeveledList(addons)
 
-				Expect(actual).To(HaveLen(4))
+				Expect(actual).To(HaveLen(5))
 				Expect(actual[0].Level).To(Equal(0))
 				Expect(actual[0].Text).To(Equal("Enabled"))
 				Expect(actual[1].Level).To(Equal(1))
@@ -287,6 +294,8 @@ var _ = Describe("print pkg", func() {
 				Expect(actual[2].Text).To(Equal("Disabled"))
 				Expect(actual[3].Level).To(Equal(1))
 				Expect(actual[3].Text).To(Equal("addon2"))
+				Expect(actual[4].Level).To(Equal(2))
+				Expect(actual[4].Text).To(Equal(" implementation1     # description1"))
 			})
 		})
 	})
