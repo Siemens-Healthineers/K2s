@@ -41,7 +41,7 @@ func ValidateAddonNames(allAddons addons.Addons, activity string, terminalPrinte
 		} else if len(splits) < 2 {
 			// in case there is no implementation specified
 			found = lo.ContainsBy(allAddons, func(addon addons.Addon) bool {
-				return addon.Metadata.Name == name && len(addon.Spec.Implementations) == 1
+				return addon.Metadata.Name == name
 			})
 		}
 
