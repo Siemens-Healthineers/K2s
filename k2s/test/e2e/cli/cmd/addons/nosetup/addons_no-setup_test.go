@@ -94,7 +94,12 @@ var _ = Describe("addons commands", func() {
 			for _, addon := range allAddons {
 				GinkgoWriter.Println("Calling addons disable for", addon.Metadata.Name)
 
-				output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "disable", addon.Metadata.Name)
+				params := []string{"addons", "disable", addon.Metadata.Name}
+				if addon.Metadata.Name == "smb-share" {
+					params = append(params, "-f")
+				}
+
+				output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, params...)
 
 				Expect(output).To(ContainSubstring("not installed"))
 			}

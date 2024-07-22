@@ -5,11 +5,13 @@ package host_test
 
 import (
 	"context"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strconv"
 	"testing"
 
+	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/siemens-healthineers/k2s/internal/host"
@@ -35,8 +37,12 @@ func (m *stdWriterMock) Flush() {
 
 func TestHostPkg(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "host pkg Integration Tests", Label("integration", "ci", "host"))
+	RunSpecs(t, "host pkg Integration Tests", Label("integration", "ci", "internal", "host"))
 }
+
+var _ = BeforeSuite(func() {
+	slog.SetDefault(slog.New(logr.ToSlogHandler(GinkgoLogr)))
+})
 
 var _ = Describe("host pkg", func() {
 	Describe("SystemDrive", func() {

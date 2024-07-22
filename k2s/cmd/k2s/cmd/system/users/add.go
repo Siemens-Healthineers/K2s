@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2023 Siemens Healthcare GmbH
+// SPDX-FileCopyrightText:  © 2024 Siemens Healthcare GmbH
 // SPDX-License-Identifier:   MIT
 
 package users
@@ -10,7 +10,9 @@ import (
 
 	"github.com/pterm/pterm"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
+	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/status"
 	"github.com/siemens-healthineers/k2s/internal/config"
+	"github.com/siemens-healthineers/k2s/internal/host"
 	"github.com/siemens-healthineers/k2s/internal/setupinfo"
 	"github.com/siemens-healthineers/k2s/internal/users"
 	"github.com/spf13/cobra"
@@ -25,7 +27,7 @@ const (
 func newAddCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "add",
-		Short: "EXPERIMENTAL - Grants a Windows user access to K2s",
+		Short: "Grants a Windows user access to K2s",
 		RunE:  run,
 	}
 
@@ -39,14 +41,7 @@ func newAddCommand() *cobra.Command {
 }
 
 func run(cmd *cobra.Command, args []string) error {
-	proceed, err := pterm.DefaultInteractiveConfirm.Show("This feature is experimental and incomplete and may lead to unexpected results, proceed anyways?")
-	if err != nil {
-		return err
-	}
-	if !proceed {
-		return nil
-	}
-
+	// TODO: refactor
 	slog.Info("Granting Windows user access to K2s..")
 
 	userName, err := cmd.Flags().GetString(userNameFlag)
@@ -88,53 +83,45 @@ func run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("could not load setup info to add the Windows user: %w", err)
 	}
 
-	// TODO: check if system is running
-
-	confirmOverwrite := func() bool {
-		if force {
-			slog.Info("Overwriting existing access is enforced")
-			return true
-		}
-
-		confirmed, err := pterm.DefaultInteractiveConfirm.Show("Windows user already granted access to K2s, overwrite existing access anyway?")
-		if err != nil {
-			slog.Error("cannot show confirmation", "error", err)
-			return false
-		}
-
-		if !confirmed {
-			slog.Info("Overwriting existing access aborted by user")
-			return false
-		}
-
-		slog.Info("Overwriting existing access confirmed by user")
-		return true
+	psVersion := common.DeterminePsVersion(setupConfig)
+	systemStatus, err := status.LoadStatus(psVersion)
+	if err != nil {
+		return fmt.Errorf("could not determine system status: %w", err)
 	}
 
-	usersManagement := users.NewUsersManagement(setupConfig.ControlPlaneNodeHostname, cfg, confirmOverwrite, common.NewSlogWriter())
+	if !systemStatus.RunningState.IsRunning {
+		return common.CreateSystemNotRunningCmdFailure()
+	}
 
-	var userNotFoundErr users.UserNotFoundErr
+	confirmOverwrite := func() bool { return confirmOverwrite(force, pterm.DefaultInteractiveConfirm.Show) }
+
+	usersManagement, err := users.NewUsersManagement(setupConfig.ControlPlaneNodeHostname, cfg, confirmOverwrite, host.NewCmdExecutor(common.NewSlogWriter()))
+	if err != nil {
+		return err
+	}
 
 	if userName != "" {
-		err := usersManagement.AddUserByName(userName)
-		if err != nil {
-			if errors.As(err, &userNotFoundErr) {
-				return newUserNotFoundFailure(err)
-			}
-			return err
-		}
+		err = usersManagement.AddUserByName(userName)
+
 	} else {
-		err := usersManagement.AddUserById(userId)
-		if err != nil {
-			if errors.As(err, &userNotFoundErr) {
-				return newUserNotFoundFailure(err)
-			}
-			return err
-		}
+		err = usersManagement.AddUserById(userId)
 	}
 
-	pterm.Success.Println("DONE")
+	if err != nil {
+		var userNotFoundErr users.UserNotFoundErr
+		if errors.As(err, &userNotFoundErr) {
+			return newUserNotFoundFailure(userNotFoundErr)
+		}
 
+		var overwriteAbortedErr users.OverwriteAbortedErr
+		if errors.As(err, &overwriteAbortedErr) {
+			pterm.Info.Println("Aborted by user")
+			return nil
+		}
+		return err
+	}
+
+	pterm.Success.Println("Granted Windows user access to K2s")
 	return nil
 }
 
@@ -144,4 +131,25 @@ func newUserNotFoundFailure(err error) *common.CmdFailure {
 		Code:     "user-not-found",
 		Message:  err.Error(),
 	}
+}
+
+func confirmOverwrite(force bool, showConfirmation func(...string) (bool, error)) bool {
+	if force {
+		slog.Info("Overwriting existing access is enforced")
+		return true
+	}
+
+	confirmed, err := showConfirmation("Windows user already granted access to K2s, overwrite existing access anyway?")
+	if err != nil {
+		slog.Error("cannot show confirmation", "error", err)
+		return false
+	}
+
+	if !confirmed {
+		slog.Info("Overwriting existing access aborted by user")
+		return false
+	}
+
+	slog.Info("Overwriting existing access confirmed by user")
+	return true
 }
