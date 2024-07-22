@@ -480,7 +480,7 @@ var _ = Describe("status pkg", func() {
 							printerMock.On(reflection.GetFunctionName(printerMock.PrintCyanFg), mock.Anything).Return("")
 							printerMock.On(reflection.GetFunctionName(printerMock.Println), mock.Anything)
 							printerMock.On(reflection.GetFunctionName(printerMock.PrintInfoln), mock.MatchedBy(func(info string) bool {
-								return Expect(info).To(ContainSubstring("system is not running"))
+								return Expect(info).To(ContainSubstring("system is stopped"))
 							})).Once()
 							printerMock.On(reflection.GetFunctionName(printerMock.PrintTreeListItems), mock.Anything)
 

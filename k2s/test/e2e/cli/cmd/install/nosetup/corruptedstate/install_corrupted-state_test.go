@@ -61,24 +61,22 @@ var _ = Describe("install", Ordered, func() {
 
 		config, err := config.LoadConfig(installDir)
 		Expect(err).ToNot(HaveOccurred())
+
+		GinkgoWriter.Println("Creating <", config.Host.K2sConfigDir, ">..")
+
+		Expect(os.MkdirAll(config.Host.K2sConfigDir, os.ModePerm)).To(Succeed())
+
 		configPath = filepath.Join(config.Host.K2sConfigDir, "setup.json")
 
-		GinkgoWriter.Println("Writing test data to <", configPath, ">")
+		GinkgoWriter.Println("Writing test data to <", configPath, ">..")
 
-		file, err := os.OpenFile(configPath, os.O_CREATE, os.ModePerm)
-		Expect(err).ToNot(HaveOccurred())
+		Expect(os.WriteFile(configPath, inputData, os.ModePerm)).To(Succeed())
 
-		_, err = file.Write(inputData)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(file.Close()).To(Succeed())
-	})
+		DeferCleanup(func() {
+			GinkgoWriter.Println("Deleting <", config.Host.K2sConfigDir, ">..")
 
-	AfterAll(func() {
-		_, err := os.Stat(configPath)
-		if err == nil {
-			GinkgoWriter.Println("Deleting <", configPath, ">..")
-			Expect(os.Remove(configPath)).To(Succeed())
-		}
+			Expect(os.RemoveAll(config.Host.K2sConfigDir)).To(Succeed())
+		})
 	})
 
 	It("prints system-in-corrupted-state message and exits with non-zero", func(ctx context.Context) {

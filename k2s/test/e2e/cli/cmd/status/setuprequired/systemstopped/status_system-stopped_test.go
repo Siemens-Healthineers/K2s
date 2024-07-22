@@ -57,7 +57,7 @@ var _ = Describe("status", Ordered, func() {
 
 		It("states that system is not running with details about what is not running", func(ctx context.Context) {
 			matchers := []types.GomegaMatcher{
-				ContainSubstring("The system is not running."),
+				ContainSubstring("The system is stopped."),
 				ContainSubstring("control-plane 'kubemaster' not running, state is 'Off' (VM)"),
 			}
 
@@ -96,7 +96,7 @@ var _ = Describe("status", Ordered, func() {
 
 		It("states that system is not running with details about what is not running", func(ctx context.Context) {
 			matchers := []types.GomegaMatcher{
-				ContainSubstring("The system is not running."),
+				ContainSubstring("The system is stopped."),
 				ContainSubstring("control-plane 'kubemaster' not running, state is 'Off' (VM)"),
 			}
 
