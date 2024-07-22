@@ -168,7 +168,7 @@ func (p *UserFriendlyPrinter) Print() error {
 	p.terminalPrinter.Println(printText)
 
 	if !status.RunningState.IsRunning {
-		p.terminalPrinter.PrintInfoln("The system is not running. Run 'k2s start' to start the system")
+		p.terminalPrinter.PrintInfoln(common.ErrSystemNotRunningMsg)
 		p.terminalPrinter.PrintTreeListItems(status.RunningState.Issues)
 		return nil
 	}

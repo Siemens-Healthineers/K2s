@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"runtime/debug"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
@@ -74,5 +73,5 @@ func main() {
 func handleUnexpectedError(err any) {
 	pterm.Error.Println(fmt.Errorf("%v", err))
 
-	slog.Error("unexpected error", "error", err, "stack", string(debug.Stack()))
+	slog.Error("unexpected error", "error", err)
 }
