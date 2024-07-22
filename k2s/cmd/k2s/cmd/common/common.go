@@ -54,6 +54,7 @@ type SlogWriter struct {
 const (
 	ErrSystemNotInstalledMsg     = "You have not installed K2s setup yet, please start the installation with command 'k2s.exe install' first"
 	ErrSystemInCorruptedStateMsg = "Errors occurred during K2s setup. K2s cluster is in corrupted state. Please uninstall and reinstall K2s cluster."
+	ErrSystemNotRunningMsg       = "The system is stopped. Run 'k2s start' to start the system."
 
 	SeverityWarning FailureSeverity = 3
 	SeverityError   FailureSeverity = 4
@@ -140,6 +141,14 @@ func CreateFunctionalityNotAvailableCmdFailure(setupName setupinfo.SetupName) *C
 		Severity: SeverityWarning,
 		Code:     "functionality-not-available",
 		Message:  fmt.Sprintf("This functionality is not available because '%s' setup is deprecated.", setupName),
+	}
+}
+
+func CreateSystemNotRunningCmdFailure() *CmdFailure {
+	return &CmdFailure{
+		Severity: SeverityWarning,
+		Code:     "system-not-running",
+		Message:  ErrSystemNotRunningMsg,
 	}
 }
 

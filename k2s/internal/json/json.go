@@ -14,25 +14,24 @@ func MarshalIndent(data any) ([]byte, error) {
 	return j.MarshalIndent(data, "", "  ")
 }
 
-func FromFile[T any](filePath string) (v *T, err error) {
-	binaries, err := os.ReadFile(filePath)
+func FromFile[T any](path string) (v *T, err error) {
+	binaries, err := os.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("error occurred while reading file '%s': %w", filePath, err)
+		return nil, fmt.Errorf("could not read file '%s': %w", path, err)
 	}
 
 	err = j.Unmarshal(binaries, &v)
 	if err != nil {
-		return nil, fmt.Errorf("error occurred while unmarshalling file '%s': %w", filePath, err)
+		return nil, fmt.Errorf("could not unmarshall file '%s' to json: %w", path, err)
 	}
-
 	return v, nil
 }
 
-func ToFile[T any](filePath string, v *T) (err error) {
+func ToFile[T any](path string, v *T) (err error) {
 	binaries, err := j.Marshal(v)
 	if err != nil {
-		return fmt.Errorf("error occurred while marshalling file '%s': %w", filePath, err)
+		return fmt.Errorf("could not marshal json to file '%s': %w", path, err)
 	}
 
-	return os.WriteFile(filePath, binaries, fs.ModePerm)
+	return os.WriteFile(path, binaries, fs.ModePerm)
 }

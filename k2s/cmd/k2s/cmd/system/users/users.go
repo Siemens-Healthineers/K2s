@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2023 Siemens Healthcare GmbH
+// SPDX-FileCopyrightText:  © 2024 Siemens Healthcare GmbH
 // SPDX-License-Identifier:   MIT
 
 package users
@@ -10,7 +10,7 @@ import (
 func NewCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "users",
-		Short: "EXPERIMENTAL - K2s users management",
+		Short: "K2s users management",
 	}
 
 	cmd.AddCommand(newAddCommand())

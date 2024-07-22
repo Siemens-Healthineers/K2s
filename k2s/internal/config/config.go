@@ -15,6 +15,7 @@ import (
 type OsType string
 type Nodes []NodeConfig
 
+// TODO: immutable read objects
 type Config struct {
 	Host  HostConfig
 	Nodes Nodes

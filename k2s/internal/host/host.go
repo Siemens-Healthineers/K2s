@@ -22,6 +22,7 @@ type StdWriter interface {
 	Flush()
 }
 
+// TODO: extract to e.g. OS package?
 type CmdExecutor struct {
 	stdWriter StdWriter
 	ctx       context.Context
@@ -66,6 +67,18 @@ func PathExists(path string) bool {
 		slog.Error("could not check existence of path", "path", path, "error", err)
 	}
 	return false
+}
+
+func RemoveFiles(files ...string) error {
+	slog.Debug("Deleting files", "paths", files)
+
+	for _, file := range files {
+		if err := os.Remove(file); err != nil {
+			return fmt.Errorf("could not remove file '%s': %w", file, err)
+		}
+		slog.Debug("File deleted", "path", file)
+	}
+	return nil
 }
 
 func NewCmdExecutor(stdWriter StdWriter) *CmdExecutor {
