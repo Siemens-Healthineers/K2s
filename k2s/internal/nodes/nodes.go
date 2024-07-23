@@ -25,8 +25,9 @@ type sshExecutor interface {
 }
 
 type ControlPlane struct {
-	ssh  sshExecutor
-	name string
+	ssh       sshExecutor
+	name      string
+	ipAddress string
 }
 
 const (
@@ -47,13 +48,18 @@ func NewControlPlane(sshExecutor sshExecutor, cfg *config.Config, controlPlaneNa
 	sshExecutor.SetConfig(sshKeyPath, controlPlaneUserName, controlePlaneCfg.IpAddress)
 
 	return &ControlPlane{
-		name: controlPlaneName,
-		ssh:  sshExecutor,
+		name:      controlPlaneName,
+		ssh:       sshExecutor,
+		ipAddress: controlePlaneCfg.IpAddress,
 	}, nil
 }
 
 func (c *ControlPlane) Name() string {
 	return c.name
+}
+
+func (c *ControlPlane) IpAddress() string {
+	return c.ipAddress
 }
 
 func (c *ControlPlane) Exec(cmd string) error {

@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"log/slog"
 	"os/user"
-	"path/filepath"
 	"strings"
 
 	"github.com/siemens-healthineers/k2s/internal/config"
@@ -26,18 +25,30 @@ type UsersManagement struct {
 	k8sAccessGranter accessGranter
 }
 
-func NewUsersManagement(controlPlaneName string, cfg *config.Config, confirmOverwrite func() bool, cmdExecutor cmdExecutor) (*UsersManagement, error) {
-	ssh := ssh.NewSsh(cmdExecutor)
-	controlPlane, err := nodes.NewControlPlane(ssh, cfg, controlPlaneName)
+type UsersManagementConfig struct {
+	ControlPlaneName     string
+	Config               *config.Config
+	ConfirmOverwriteFunc func() bool
+	CmdExecutor          cmdExecutor
+	FileSystem           fileSystem
+}
+
+func NewUsersManagement(config *UsersManagementConfig) (*UsersManagement, error) {
+	ssh := ssh.NewSsh(config.CmdExecutor)
+	controlPlane, err := nodes.NewControlPlane(ssh, config.Config, config.ControlPlaneName)
 	if err != nil {
 		return nil, fmt.Errorf("could not create control-plane access: %w", err)
 	}
 
-	accessGranter := &commonAccessGranter{cmdExecutor: cmdExecutor, controlPlane: controlPlane}
+	accessGranter := &commonAccessGranter{
+		exec:         config.CmdExecutor,
+		controlPlane: controlPlane,
+		fs:           config.FileSystem,
+	}
 
 	return &UsersManagement{
-		sshAccessGranter: newSshAccessGranter(accessGranter, confirmOverwrite, filepath.Base(cfg.Host.SshDir)),
-		k8sAccessGranter: newK8sAccessGranter(accessGranter, cfg.Host.KubeConfigDir),
+		sshAccessGranter: newSshAccessGranter(accessGranter, config.ConfirmOverwriteFunc, config.Config.Host.SshDir, user.Current),
+		k8sAccessGranter: newK8sAccessGranter(accessGranter, config.Config.Host.KubeConfigDir),
 	}, nil
 }
 
@@ -64,7 +75,8 @@ func (m *UsersManagement) AddUserById(id string) error {
 }
 
 func (m *UsersManagement) addUser(winUser user.User) error {
-	slog.Debug("Adding Windows user", "username", winUser.Username, "id", winUser.Uid, "homedir", winUser.HomeDir, "group-id", winUser.Gid) // omit user's display name for privacy reasons
+	// omit user's display name for privacy reasons
+	slog.Debug("Adding Windows user", "username", winUser.Username, "id", winUser.Uid, "homedir", winUser.HomeDir, "group-id", winUser.Gid)
 
 	k2sUserName := k2sPrefix + strings.ReplaceAll(winUser.Username, "\\", "-")
 

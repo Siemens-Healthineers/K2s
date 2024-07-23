@@ -69,14 +69,31 @@ func PathExists(path string) bool {
 	return false
 }
 
-func RemoveFiles(files ...string) error {
-	slog.Debug("Deleting files", "paths", files)
+func RemovePaths(paths ...string) error {
+	slog.Debug("Deleting paths", "paths", paths)
 
-	for _, file := range files {
-		if err := os.Remove(file); err != nil {
-			return fmt.Errorf("could not remove file '%s': %w", file, err)
+	for _, path := range paths {
+		if err := os.Remove(path); err != nil {
+			return fmt.Errorf("could not remove '%s': %w", path, err)
 		}
-		slog.Debug("File deleted", "path", file)
+		slog.Debug("Path removed", "path", path)
+	}
+	return nil
+}
+
+func AppendToFile(path string, text string) error {
+	file, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, os.ModePerm)
+	if err != nil {
+		return fmt.Errorf("could not open file '%s': %w", path, err)
+	}
+	defer func() {
+		if err := file.Close(); err != nil {
+			slog.Error("could not close file", "path", path, "error", err)
+		}
+	}()
+
+	if _, err = file.WriteString(text); err != nil {
+		return fmt.Errorf("could not write to file '%s': %w", path, err)
 	}
 	return nil
 }
