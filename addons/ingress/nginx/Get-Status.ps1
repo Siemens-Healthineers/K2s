@@ -13,10 +13,10 @@ $success = (Invoke-Kubectl -Params 'wait', '--timeout=5s', '--for=condition=Avai
 
 $isIngressNginxRunningProp = @{Name = 'IsIngressNginxRunning'; Value = $success; Okay = $success }
 if ($isIngressNginxRunningProp.Value -eq $true) {
-    $isIngressNginxRunningProp.Message = 'The ingress-nginx ingress controller is working'
+    $isIngressNginxRunningProp.Message = 'The nginx ingress controller is working'
 }
 else {
-    $isIngressNginxRunningProp.Message = "The ingress-nginx ingress controller is not working. Try restarting the cluster with 'k2s start' or disable and re-enable the addon with 'k2s addons disable ingress nginx' and 'k2s addons enable ingress nginx'"
+    $isIngressNginxRunningProp.Message = "The nginx ingress controller is not working. Try restarting the cluster with 'k2s start' or disable and re-enable the addon with 'k2s addons disable ingress nginx' and 'k2s addons enable ingress nginx'"
 } 
 
 $externalIp = (Invoke-Kubectl -Params 'get', 'service', 'ingress-nginx-controller', '-n', 'ingress-nginx', '-o', 'jsonpath="{.spec.externalIPs[0]}"').Output

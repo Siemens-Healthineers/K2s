@@ -56,7 +56,7 @@ func (addonsStatus *AddonsStatus) IsAddonEnabled(addonName string, implementatio
 
 	if isAddonEnabled && implementationName != "" {
 		addon := lo.Filter(addonsStatus.EnabledAddons, func(enabledAddon Addon, index int) bool {
-			return enabledAddon.Name != addonName
+			return enabledAddon.Name == addonName
 		})[0]
 
 		return lo.SomeBy(addon.Implementations, func(implementation Implementation) bool {

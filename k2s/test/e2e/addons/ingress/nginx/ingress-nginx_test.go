@@ -107,7 +107,7 @@ var _ = Describe("'ingress-nginx' addon", Ordered, func() {
 
 		Expect(output).To(SatisfyAll(
 			MatchRegexp("ADDON STATUS"),
-			MatchRegexp(`Addon .+ingress nginx.+ is .+enabled.+`),
+			MatchRegexp(`Implementation .+nginx.+ of Addon .+ingress.+ is .+enabled.+`),
 			MatchRegexp("The nginx ingress controller is working"),
 			MatchRegexp("The external IP for ingress-nginx service is set to %s", regex.IpAddressRegex),
 		))
@@ -118,7 +118,8 @@ var _ = Describe("'ingress-nginx' addon", Ordered, func() {
 
 		Expect(json.Unmarshal([]byte(output), &status)).To(Succeed())
 
-		Expect(status.Name).To(Equal("ingress nginx"))
+		Expect(status.Name).To(Equal("ingress"))
+		Expect(status.Implementation).To(Equal("nginx"))
 		Expect(status.Error).To(BeNil())
 		Expect(status.Enabled).NotTo(BeNil())
 		Expect(*status.Enabled).To(BeTrue())
@@ -142,7 +143,7 @@ func httpGet(url string, retryCount int) (*http.Response, error) {
 	var res *http.Response
 	var err error
 	for i := 0; i < retryCount; i++ {
-		GinkgoWriter.Println("retry count: ", retryCount)
+		GinkgoWriter.Println("retry count: ", i+1)
 		res, err = http.Get(url)
 
 		if err == nil && res.StatusCode == 200 {

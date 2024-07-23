@@ -65,7 +65,7 @@ var _ = Describe("'ingress traefik' addon", Ordered, func() {
 
 				Expect(output).To(SatisfyAll(
 					MatchRegexp(`ADDON STATUS`),
-					MatchRegexp(`Addon .+ingress traefik.+ is .+disabled.+`),
+					MatchRegexp(`Implementation .+traefik.+ of Addon .+ingress.+ is .+disabled.+`),
 				))
 			})
 		})
@@ -78,7 +78,8 @@ var _ = Describe("'ingress traefik' addon", Ordered, func() {
 
 				Expect(json.Unmarshal([]byte(output), &status)).To(Succeed())
 
-				Expect(status.Name).To(Equal("ingress traefik"))
+				Expect(status.Name).To(Equal("ingress"))
+				Expect(status.Implementation).To(Equal("traefik"))
 				Expect(status.Enabled).NotTo(BeNil())
 				Expect(*status.Enabled).To(BeFalse())
 				Expect(status.Props).To(BeNil())
@@ -92,7 +93,7 @@ var _ = Describe("'ingress traefik' addon", Ordered, func() {
 
 		suite.Cluster().ExpectDeploymentToBeAvailable("traefik", "ingress-traefik")
 
-		suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "traefik", "-ingresstraefik")
+		suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "traefik", "ingress-traefik")
 
 		addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
 		Expect(addonsStatus.IsAddonEnabled("ingress", "traefik")).To(BeTrue())
@@ -136,7 +137,7 @@ var _ = Describe("'ingress traefik' addon", Ordered, func() {
 
 		Expect(output).To(SatisfyAll(
 			MatchRegexp("ADDON STATUS"),
-			MatchRegexp(`Addon .+ingress traefik.+ is .+enabled.+`),
+			MatchRegexp(`Implementation .+traefik.+ of Addon .+ingress.+ is .+enabled.+`),
 			MatchRegexp("The traefik ingress controller is working"),
 			MatchRegexp("The external IP for traefik service is set to %s", regex.IpAddressRegex),
 		))
@@ -147,7 +148,8 @@ var _ = Describe("'ingress traefik' addon", Ordered, func() {
 
 		Expect(json.Unmarshal([]byte(output), &status)).To(Succeed())
 
-		Expect(status.Name).To(Equal("ingress traefik"))
+		Expect(status.Name).To(Equal("ingress"))
+		Expect(status.Implementation).To(Equal("traefik"))
 		Expect(status.Error).To(BeNil())
 		Expect(status.Enabled).NotTo(BeNil())
 		Expect(*status.Enabled).To(BeTrue())
@@ -171,7 +173,7 @@ func httpGet(url string, retryCount int) (*http.Response, error) {
 	var res *http.Response
 	var err error
 	for i := 0; i < retryCount; i++ {
-		GinkgoWriter.Println("retry count: ", retryCount)
+		GinkgoWriter.Println("retry count: ", i+1)
 		res, err = http.Get(url)
 
 		if err == nil && res.StatusCode == 200 {
