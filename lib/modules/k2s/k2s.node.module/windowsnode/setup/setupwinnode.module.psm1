@@ -14,42 +14,15 @@ $kubePath = Get-KubePath
 $kubeBinPath = Get-KubeBinPath
 
 
-function Initialize-Networking {
+function Initialize-WinNodeNetworking {
+
+    Copy-Item -Path "$kubeBinPath\cni\*" -Destination "$(Get-SystemDriveLetter):\opt\cni\bin" -Recurse
+}
+
+function Add-DnsToWinNodeFlannel {
     Param(
-        [parameter(Mandatory = $true, HelpMessage = 'Host machine is a VM: true, Host machine is not a VM')]
-        [bool] $HostVM,
-        [parameter(Mandatory = $true, HelpMessage = 'Host-GW or VXLAN, Host-GW: true, false for vxlan')]
-        [bool] $HostGW,
-        [string] $WorkerNodeNumber = $(throw 'Argument missing: WorkerNodeNumber')
+        [string] $PodSubnetworkNumber = $(throw 'Argument missing: PodSubnetworkNumber')
     )
-
-    # copy flannel files
-    Write-Log 'Copy flannel files to right directory'
-    mkdir -force "$(Get-SystemDriveLetter):\etc\cni" | Out-Null
-    mkdir -force "$(Get-SystemDriveLetter):\etc\cni\net.d" | Out-Null
-    mkdir -force "$(Get-SystemDriveLetter):\etc\kube-flannel" | Out-Null
-    mkdir -force "$(Get-SystemDriveLetter):\opt" | Out-Null
-    mkdir -force "$(Get-SystemDriveLetter):\opt\cni" | Out-Null
-    mkdir -force "$(Get-SystemDriveLetter):\opt\cni\bin" | Out-Null
-    mkdir -force "$(Get-SystemDriveLetter):\run" | Out-Null
-    mkdir -force "$(Get-SystemDriveLetter):\run\flannel" | Out-Null
-    mkdir -force "$(Get-SystemDriveLetter):\var\log\flanneld" | Out-Null
-    mkdir -force "$(Get-SystemDriveLetter):\var\lib" | Out-Null
-
-    $r = Get-NetFirewallRule -DisplayName 'kubelet' 2> $null;
-    if ( $r ) {
-        Remove-NetFirewallRule -DisplayName 'kubelet'
-    }
-
-    if (!($HostVM)) {
-        $kubeVMFirewallRuleName = 'KubeMaster VM'
-        $r = Get-NetFirewallRule -DisplayName $kubeVMFirewallRuleName -ErrorAction SilentlyContinue
-        if ( $r ) {
-            Remove-NetFirewallRule -DisplayName $kubeVMFirewallRuleName -ErrorAction SilentlyContinue
-        }
-        $ipControlPlane = Get-ConfiguredIPControlPlane
-        New-NetFirewallRule -DisplayName $kubeVMFirewallRuleName -Group 'k2s' -Description 'Allow inbound traffic from the Linux VM on ports above 8000' -RemoteAddress $ipControlPlane -RemotePort '8000-32000' -Enabled True -Direction Inbound -Protocol TCP -Action Allow | Out-Null
-    }
 
     $adapterName = Get-L2BridgeName
     Write-Log "Using network adapter '$adapterName'"
@@ -60,38 +33,54 @@ function Initialize-Networking {
     $ipaddress = $ipaddresses[0] | Select-Object -ExpandProperty IPAddress
     Write-Log "Using local IP $ipaddress for setup of CNI"
 
-    $clusterCIDRHost = Get-ConfiguredClusterCIDRHost -WorkerNodeNumber $WorkerNodeNumber
+    $clusterCIDRHost = Get-ConfiguredClusterCIDRHost -PodSubnetworkNumber $PodSubnetworkNumber
     $NetworkAddress = "  ""Network"": ""$clusterCIDRHost"","
 
-
     $targetFilePath = "$(Get-SystemDriveLetter):\etc\kube-flannel\net-conf.json"
-    if ( $HostGW) {
-        Write-Log "Writing $targetFilePath for HostGW mode"
-        Copy-Item -force "$kubePath\cfg\cni\net-conf.json.template" $targetFilePath
+    
+    Write-Log "Writing $targetFilePath for HostGW mode"
+    Copy-Item -force "$kubePath\cfg\cni\net-conf.json.template" $targetFilePath
 
-        $lineNetworkAddress = Get-Content $targetFilePath | Select-String NETWORK.ADDRESS | Select-Object -ExpandProperty Line
-        if ( $lineNetworkAddress ) {
-            $content = Get-Content $targetFilePath
-            $content | ForEach-Object { $_ -replace $lineNetworkAddress, $NetworkAddress } | Set-Content $targetFilePath
-        }
-    }
-    else {
-        Write-Log "Writing $targetFilePath for VXLAN mode"
-        Copy-Item -force "$kubePath\cfg\cni\net-conf-vxlan.json.template" $targetFilePath
-
-        $lineNetworkAddress = Get-Content $targetFilePath | Select-String NETWORK.ADDRESS | Select-Object -ExpandProperty Line
-        if ( $lineNetworkAddress ) {
-            $content = Get-Content $targetFilePath
-            $content | ForEach-Object { $_ -replace $lineNetworkAddress, $NetworkAddress } | Set-Content $targetFilePath
-        }
+    $lineNetworkAddress = Get-Content $targetFilePath | Select-String NETWORK.ADDRESS | Select-Object -ExpandProperty Line
+    if ( $lineNetworkAddress ) {
+        $content = Get-Content $targetFilePath
+        $content | ForEach-Object { $_ -replace $lineNetworkAddress, $NetworkAddress } | Set-Content $targetFilePath
     }
 
-    if (!($HostVM)) {
-        # save the current IP address to make a later check possible
-        Set-ConfigHostGW -Value $HostGW
+    # save the current IP address to make a later check possible
+    Set-ConfigHostGW -Value $HostGW
+}
+
+function Initialize-WinNodeDirectories {
+
+    Write-Log 'Create needed directories on Windows node'
+    mkdir -force "$(Get-SystemDriveLetter):\etc\cni" | Out-Null
+    mkdir -force "$(Get-SystemDriveLetter):\etc\cni\net.d" | Out-Null
+    mkdir -force "$(Get-SystemDriveLetter):\etc\kube-flannel" | Out-Null
+    mkdir -force "$(Get-SystemDriveLetter):\opt" | Out-Null
+    mkdir -force "$(Get-SystemDriveLetter):\opt\cni" | Out-Null
+    mkdir -force "$(Get-SystemDriveLetter):\opt\cni\bin" | Out-Null
+    mkdir -force "$(Get-SystemDriveLetter):\run" | Out-Null
+    mkdir -force "$(Get-SystemDriveLetter):\run\flannel" | Out-Null
+    mkdir -force "$(Get-SystemDriveLetter):\var\log\flanneld" | Out-Null
+    mkdir -force "$(Get-SystemDriveLetter):\var\lib" | Out-Null
+}
+
+function Initialize-WinNodeFirewallRules {
+   
+    Write-Log 'Delete/add firewall rules on Windows node'
+    $r = Get-NetFirewallRule -DisplayName 'kubelet' 2> $null;
+    if ( $r ) {
+        Remove-NetFirewallRule -DisplayName 'kubelet'
     }
 
-    Copy-Item -Path "$kubeBinPath\cni\*" -Destination "$(Get-SystemDriveLetter):\opt\cni\bin" -Recurse
+    $kubeVMFirewallRuleName = 'KubeMaster VM'
+    $r = Get-NetFirewallRule -DisplayName $kubeVMFirewallRuleName -ErrorAction SilentlyContinue
+    if ( $r ) {
+        Remove-NetFirewallRule -DisplayName $kubeVMFirewallRuleName -ErrorAction SilentlyContinue
+    }
+    $ipControlPlane = Get-ConfiguredIPControlPlane
+    New-NetFirewallRule -DisplayName $kubeVMFirewallRuleName -Group 'k2s' -Description 'Allow inbound traffic from the Linux VM on ports above 8000' -RemoteAddress $ipControlPlane -RemotePort '8000-32000' -Enabled True -Direction Inbound -Protocol TCP -Action Allow | Out-Null
 }
 
 function Reset-WinServices {
@@ -104,72 +93,46 @@ function Initialize-WinNode {
     Param(
         [parameter(Mandatory = $true, HelpMessage = 'Kubernetes version to use')]
         [string] $KubernetesVersion,
-        [parameter(Mandatory = $false, HelpMessage = 'Host machine is a VM: true, Host machine is not a VM')]
-        [bool] $HostVM = $false,
         [parameter(Mandatory = $false, HelpMessage = 'HTTP proxy if available')]
-        [string] $Proxy = '',
-        [parameter(Mandatory = $true, HelpMessage = 'Host-GW or VXLAN, Host-GW: true, false for vxlan')]
-        [bool] $HostGW,
-        [parameter(Mandatory = $false, HelpMessage = 'Deletes the needed files to perform an offline installation')]
-        [boolean] $DeleteFilesForOfflineInstallation = $false,
-        [parameter(Mandatory = $false, HelpMessage = 'Force the installation online. This option is needed if the files for an offline installation are available but you want to recreate them.')]
-        [boolean] $ForceOnlineInstallation = $false,
-        [parameter(Mandatory = $false, HelpMessage = 'Skips networking setup and installation of cluster dependent tools kubelet, flannel on windows node')]
-        [boolean] $SkipClusterSetup = $false,
-        [string] $WorkerNodeNumber = $(throw 'Argument missing: WorkerNodeNumber')
+        [string] $Proxy = ''
     )
 
     if (!(Test-Path "$kubeBinPath\exe")) {
         New-Item -ItemType 'directory' -Path "$kubeBinPath\exe" | Out-Null
     }
 
-    if (! $SkipClusterSetup ) {
-        if (!$KubernetesVersion.StartsWith('v')) {
-            $KubernetesVersion = 'v' + $KubernetesVersion
-        }
-        Write-Log "Using Kubernetes version: $KubernetesVersion"
-
-        if ($HostVM) {
-            [Environment]::SetEnvironmentVariable('KUBECONFIG', "$kubePath\config", [System.EnvironmentVariableTarget]::Machine)
-        }
-
-        $previousKubernetesVersion = Get-ConfigInstalledKubernetesVersion
-        Write-Log("Previous K8s version: $previousKubernetesVersion, current K8s version to install: $KubernetesVersion")
-
-        Set-ConfigInstalledKubernetesVersion -Value $KubernetesVersion
-
-        Initialize-Networking -HostVM:$HostVM -HostGW:$HostGW -WorkerNodeNumber $WorkerNodeNumber
+    if (!$KubernetesVersion.StartsWith('v')) {
+        $KubernetesVersion = 'v' + $KubernetesVersion
     }
-    else {
-        Write-Log 'Skipping networking setup on windows node'
-    }
+    Write-Log "Using Kubernetes version: $KubernetesVersion"
 
-    Install-WinNodeArtifacts -Proxy "$Proxy" -HostVM:$HostVM -SkipClusterSetup:$SkipClusterSetup -WorkerNodeNumber $WorkerNodeNumber
+    $previousKubernetesVersion = Get-ConfigInstalledKubernetesVersion
+    Write-Log("Previous K8s version: $previousKubernetesVersion, current K8s version to install: $KubernetesVersion")
 
-    if (! $SkipClusterSetup) {
-        Reset-WinServices
-    }
+    Set-ConfigInstalledKubernetesVersion -Value $KubernetesVersion
+
+    Initialize-WinNodeDirectories
+    Initialize-WinNodeFirewallRules
+    Initialize-WinNodeNetworking
+    
+    Install-WinNodeArtifacts -Proxy "$Proxy"
+    
+    
+    Reset-WinServices
 }
 
 function Uninstall-WinNode {
-    param(
-        $ShallowUninstallation = $false
-    )
-    Remove-DefaultNetNat
-
     Remove-ServiceIfExists 'flanneld'
     Remove-ServiceIfExists 'kubelet'
     Remove-ServiceIfExists 'kubeproxy'
     Remove-ServiceIfExists 'windows_exporter'
-    Remove-ServiceIfExists 'httpproxy'
-    Remove-ServiceIfExists 'dnsproxy'
 
     # remove firewall rules
     Remove-NetFirewallRule -Group 'k2s' -ErrorAction SilentlyContinue
 
     Write-Log 'Uninstall containerd service if existent'
-    Uninstall-WinContainerd -ShallowUninstallation $ShallowUninstallation
-    Uninstall-WinDocker -ShallowUninstallation $ShallowUninstallation
+    Uninstall-WinContainerd -ShallowUninstallation $false
+    Uninstall-WinDocker -ShallowUninstallation $false
 }
 
 
@@ -226,4 +189,8 @@ function Clear-WinNode {
     Invoke-DownloadsCleanup -DeleteFilesForOfflineInstallation $DeleteFilesForOfflineInstallation
 }
 
-Export-ModuleMember Initialize-WinNode, Uninstall-WinNode, Clear-WinNode, Initialize-Networking, Reset-WinServices
+Export-ModuleMember Initialize-WinNode, Uninstall-WinNode, Clear-WinNode, Reset-WinServices,
+Initialize-WinNodeNetworking, 
+Initialize-WinNodeDirectories, 
+Initialize-WinNodeFirewallRules,
+Add-DnsToWinNodeFlannel

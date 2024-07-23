@@ -107,7 +107,7 @@ function New-ControlPlaneNodeOnNewVM {
     # add to Path variable
     Set-EnvVars
 
-    Update-NodeLabelsAndTaints
+    Update-ControlPlaneNodeLabelsAndTaints
 }
 
 function Start-ControlPlaneNodeOnNewVM {

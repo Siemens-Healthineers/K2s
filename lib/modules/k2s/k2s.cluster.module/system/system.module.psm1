@@ -137,6 +137,61 @@ function Update-NodeLabelsAndTaints {
     (Invoke-CmdOnControlPlaneViaSSHKey 'sudo sysctl fs.inotify.max_user_watches=524288').Output | Write-Log
 }
 
+<#
+.SYNOPSIS
+    Sets the correct labels and taints for the control plane node.
+.DESCRIPTION
+    Sets the correct labels and taints for the control plane node.
+#>
+function Update-ControlPlaneNodeLabelsAndTaints {
+    Write-Log 'Updating node labels and taints...'
+    Write-Log 'Waiting for K8s API server to be ready...'
+
+    Wait-ForAPIServer
+
+    $controlPlaneTaint = 'node-role.kubernetes.io/control-plane'
+
+    # mark control-plane as worker (remove the control-plane tainting)
+    (&"$kubeToolsPath\kubectl.exe" get nodes -o=jsonpath='{range .items[*]}~{.metadata.name}#{.spec.taints[*].key}') -split '~' | ForEach-Object {
+        $parts = $_ -split '#'
+
+        if ($parts[1] -match $controlPlaneTaint) {
+            $node = $parts[0]
+
+            Write-Log "Taint '$controlPlaneTaint' found on node '$node', untainting..."
+
+            &"$kubeToolsPath\kubectl.exe" taint nodes $node "$controlPlaneTaint-"
+        }
+    }
+}
+
+<#
+.SYNOPSIS
+    Sets the correct labels and taints for the Windows worker node.
+.DESCRIPTION
+    Sets the correct labels and taints for the Windows worker node.
+#>
+function Update-WindowsWorkerNodeLabelsAndTaints {
+    param(
+        [string] $NodeName = $(throw 'Argument missing: NodeName')
+    )
+    Write-Log 'Updating node labels and taints...'
+    Write-Log 'Waiting for K8s API server to be ready...'
+
+    Wait-ForAPIServer
+
+    $name = $NodeName.ToLower()
+
+    Write-Log "Labeling and tainting worker node '$name'..."
+
+    # mark nodes as worker
+    &"$kubeToolsPath\kubectl.exe" label nodes $name kubernetes.io/role=worker --overwrite
+
+    # taint windows nodes
+    &"$kubeToolsPath\kubectl.exe" taint nodes $name OS=Windows:NoSchedule --overwrite
+}
+
+
 function Get-Cni0IpAddressInControlPlaneUsingSshWithRetries {
     param (
         [int] $Retries,
@@ -156,4 +211,23 @@ function Get-Cni0IpAddressInControlPlaneUsingSshWithRetries {
     return $ipAddr
 }
 
-Export-ModuleMember Invoke-TimeSync, Wait-ForAPIServer, Update-NodeLabelsAndTaints, Get-Cni0IpAddressInControlPlaneUsingSshWithRetries
+function Get-AssignedPodSubnetworkNumber {
+    param (
+        [string] $NodeName = $(throw 'Argument missing: NodeName')
+    )
+    $podCIDR = &"$kubeToolsPath\kubectl.exe" get nodes $NodeName -o jsonpath="'{.spec.podCIDR}'"
+    if ([string]::IsNullOrWhiteSpace($podCIDR)) {
+        throw "Cannot obtain container network information from node '$NodeName'"
+    }
+
+    $searchPattern = "^'\d{1,3}\.\d{1,3}\.(?<subnet>\d{1,3})\.\d{1,3}\/24'$"
+    $m = [regex]::Matches($podCIDR, $searchPattern)
+    if (-not $m[0]) { throw "Cannot get subnet number from '$podCIDR'." }
+    $subnetNumber = $m[0].Groups['subnet'].Value
+
+    return $subnetNumber
+}
+
+Export-ModuleMember Invoke-TimeSync, Wait-ForAPIServer, Get-Cni0IpAddressInControlPlaneUsingSshWithRetries,
+Update-ControlPlaneNodeLabelsAndTaints, Update-WindowsWorkerNodeLabelsAndTaints, Update-NodeLabelsAndTaints,
+Get-AssignedPodSubnetworkNumber

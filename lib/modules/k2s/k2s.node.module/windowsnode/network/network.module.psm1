@@ -32,36 +32,33 @@ function Get-L2BridgeSwitchName {
 
 function Get-ConfiguredClusterCIDRHost {
     param (
-        [string] $WorkerNodeNumber = $(throw 'Argument missing: WorkerNodeNumber')
+        [string] $PodSubnetworkNumber = $(throw 'Argument missing: PodSubnetworkNumber')
     )
-    # $podNetworkCIDR = $clusterCIDRHost.Replace('__SUBNETWORK_NUMBER__', $WorkerNodeNumber)
-    # return $podNetworkCIDR
-    return $clusterCIDRHost
+    $podNetworkCIDR = $clusterCIDRHost.Replace('__SUBNETWORK_NUMBER__', $PodSubnetworkNumber)
+    return $podNetworkCIDR
 }
 
 function Get-ConfiguredClusterCIDRNextHop {
     param (
-        [string] $WorkerNodeNumber = $(throw 'Argument missing: WorkerNodeNumber')
+        [string] $PodSubnetworkNumber = $(throw 'Argument missing: PodSubnetworkNumber')
     )
-    # $nextHop = $clusterCIDRNextHop.Replace('__SUBNETWORK_NUMBER__', $WorkerNodeNumber)
-    # return $nextHop
-    return $clusterCIDRNextHop
+    $nextHop = $clusterCIDRNextHop.Replace('__SUBNETWORK_NUMBER__', $PodSubnetworkNumber)
+    return $nextHop
 }
 
 function Get-ConfiguredClusterCIDRGateway {
     param (
-        [string] $WorkerNodeNumber = $(throw 'Argument missing: WorkerNodeNumber')
+        [string] $PodSubnetworkNumber = $(throw 'Argument missing: PodSubnetworkNumber')
     )
-    # $gateway = $clusterCIDRGateway.Replace('__SUBNETWORK_NUMBER__', $WorkerNodeNumber)
-    # return $gateway
-    return $clusterCIDRGateway
+    $gateway = $clusterCIDRGateway.Replace('__SUBNETWORK_NUMBER__', $PodSubnetworkNumber)
+    return $gateway
 }
 
 function New-ExternalSwitch {
     param (
         [Parameter()]
         [string] $adapterName,
-        [string] $WorkerNodeNumber = '1'
+        [string] $PodSubnetworkNumber = '1'
     )
 
     $nic = Get-NetIPAddress -InterfaceAlias $adapterName -ErrorAction SilentlyContinue
@@ -88,8 +85,8 @@ function New-ExternalSwitch {
     $dnsserver = $($adr -join ',')
 
     # start of external switch
-    $gatewayIpAddress = Get-ConfiguredClusterCIDRGateway -WorkerNodeNumber $WorkerNodeNumber
-    $podNetworkCIDR = Get-ConfiguredClusterCIDRHost -WorkerNodeNumber $WorkerNodeNumber
+    $gatewayIpAddress = Get-ConfiguredClusterCIDRGateway -PodSubnetworkNumber $PodSubnetworkNumber
+    $podNetworkCIDR = Get-ConfiguredClusterCIDRHost -PodSubnetworkNumber $PodSubnetworkNumber
     Write-Log "Create l2 bridge network with subnet: $podNetworkCIDR, switch name: $l2BridgeSwitchName, DNS server: $dnsserver, gateway: $gatewayIpAddress, NAT exceptions: $clusterCIDRNatExceptions, adapter name: $adapterName"
     $netResult = New-HnsNetwork -Type 'L2Bridge' -Name "$l2BridgeSwitchName" -AdapterName "$adapterName" -AddressPrefix "$podNetworkCIDR" -Gateway "$gatewayIpAddress" -DNSServer "$dnserver"
     Write-Log $netResult
@@ -101,7 +98,7 @@ function New-ExternalSwitch {
     }
 
     $endpointname = $l2BridgeSwitchName + '_ep'
-    $podNetworkNextHop = Get-ConfiguredClusterCIDRNextHop -WorkerNodeNumber $WorkerNodeNumber
+    $podNetworkNextHop = Get-ConfiguredClusterCIDRNextHop -PodSubnetworkNumber $PodSubnetworkNumber
     $hnsEndpoint = New-HnsEndpoint -NetworkId $cbr0.ID -Name $endpointname -IPAddress $podNetworkNextHop -Verbose -EnableOutboundNat -OutboundNatExceptions $clusterCIDRNatExceptions
     if ($null -Eq $hnsEndpoint) {
         throw 'Not able to create a endpoint. Please do a stopk8s and restart again. Aborting.'
@@ -333,6 +330,10 @@ function Restart-NlaSvc {
     }
 }
 
+function Get-CniBinariesTargetPath {
+    return "$(Get-SystemDriveLetter):\opt\cni\bin"
+}
+
 function Get-VfpRulesFilePath {
     $kubeBinPath = Get-KubeBinPath
     return "$kubeBinPath\cni\vfprules.json"
@@ -354,6 +355,10 @@ function Add-VfpRulesToWindowsNode {
 
     $VfpRulesInJsonFormat | Out-File "$file" -Encoding ascii
     Write-Log "Added file '$file' with vfp rules"
+
+    $cniBinariesTargetPath = Get-CniBinariesTargetPath
+    Write-Log "Copy '$file' with vfp rules to '$cniBinariesTargetPath'"
+    Copy-Item -Path $file -Destination $cniBinariesTargetPath | Out-Null
 }
 
 Export-ModuleMember Set-IndexForDefaultSwitch, Get-ConfiguredClusterCIDRHost,

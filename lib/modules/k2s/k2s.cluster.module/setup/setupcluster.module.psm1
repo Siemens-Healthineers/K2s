@@ -103,8 +103,8 @@ Join the windows node with linux control plane node
 #>
 function Join-WindowsNode {
     Param(
-        [string]$CommandForJoining = $(throw 'Argument missing: CommandForJoining'),
-        [string] $WorkerNodeNumber = $(throw 'Argument missing: WorkerNodeNumber')
+        [string] $CommandForJoining = $(throw 'Argument missing: CommandForJoining'),
+        [string] $NodeIpAddress = $(throw 'Argument missing: IpAddress')
     )
 
     # join node if necessary
@@ -149,13 +149,12 @@ function Join-WindowsNode {
         $token = $patternSearchResult.Matches.Groups[2].Value
         $hash = $patternSearchResult.Matches.Groups[3].Value
         $caCertFilePath = "$(Get-SystemDriveLetter):\etc\kubernetes\pki\ca.crt"
-        $windowsNodeIpAddress = Get-ConfiguredClusterCIDRNextHop -WorkerNodeNumber $WorkerNodeNumber
 
         Write-Log 'Create config file for join command'
         $joinConfigurationTemplateFilePath = "$kubePath\cfg\kubeadm\joinwindowsnode.template.yaml"
 
         $content = (Get-Content -path $joinConfigurationTemplateFilePath -Raw)
-        $content.Replace('__CA_CERT__', $caCertFilePath).Replace('__API__', $apiServerEndpoint).Replace('__TOKEN__', $token).Replace('__SHA__', $hash).Replace('__NODE_IP__', $windowsNodeIpAddress) | Set-Content -Path "$joinConfigurationFilePath"
+        $content.Replace('__CA_CERT__', $caCertFilePath).Replace('__API__', $apiServerEndpoint).Replace('__TOKEN__', $token).Replace('__SHA__', $hash).Replace('__NODE_IP__', "$NodeIpAddress") | Set-Content -Path "$joinConfigurationFilePath"
 
         $joinCommand = '.\' + "kubeadm join $apiServerEndpoint" + ' --node-name ' + $env:COMPUTERNAME + ' --ignore-preflight-errors IsPrivilegedUser' + " --config `"$joinConfigurationFilePath`""
 
@@ -251,7 +250,7 @@ function Initialize-KubernetesCluster {
     Param(
         [parameter(Mandatory = $false, HelpMessage = 'Directory containing additional hooks to be executed after local hooks are executed')]
         [string] $AdditionalHooksDir = '',
-        [string] $WorkerNodeNumber = $(throw 'Argument missing: WorkerNodeNumber')
+        [string] $PodSubnetworkNumber = $(throw 'Argument missing: PodSubnetworkNumber')
     )
     Copy-KubeConfigFromControlPlaneNode
     Add-K8sContext
@@ -261,7 +260,7 @@ function Initialize-KubernetesCluster {
     Write-Log 'starting the join process'
     
     $joinCommand = New-JoinCommand
-    Join-WindowsNode -CommandForJoining $joinCommand -WorkerNodeNumber $WorkerNodeNumber
+    Join-WindowsNode -CommandForJoining $joinCommand -PodSubnetworkNumber $PodSubnetworkNumber
 
     Set-KubeletDiskPressure
 
@@ -371,7 +370,7 @@ function Save-ControlPlaneNodeHostnameIntoWinVM($vmSession) {
     Write-Log '  done.'
 }
 
-function Join-VMWindowsNode($vmSession, $workerNodeNumber) {
+function Join-VMWindowsNode($vmSession, $PodSubnetworkNumber) {
     Write-Log 'Joining Windows node ...'
 
     $ErrorActionPreference = 'Continue'
@@ -392,7 +391,7 @@ function Join-VMWindowsNode($vmSession, $workerNodeNumber) {
         Import-Module $env:SystemDrive\k\lib\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1
         Initialize-Logging -Nested:$true
 
-        Join-WindowsNode -CommandForJoining $using:joinCommand -WorkerNodeNumber $using:workerNodeNumber
+        Join-WindowsNode -CommandForJoining $using:joinCommand -PodSubnetworkNumber $using:PodSubnetworkNumber
     }
 
     $ErrorActionPreference = 'Stop'
@@ -474,4 +473,4 @@ Uninstall-Cluster, Set-KubeletDiskPressure,
 Join-WindowsNode, Join-VMWindowsNode, Add-K8sContext,
 Add-ClusterDnsNameToHost, Initialize-VMKubernetesCluster,
 Set-DiskPressureLimitsOnWindowsNode, Add-IPsToHostsFiles,
-Write-K8sNodesStatus
+Write-K8sNodesStatus, New-JoinCommand

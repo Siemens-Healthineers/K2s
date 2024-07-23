@@ -326,17 +326,14 @@ function Install-WinNodeArtifacts {
     Param(
         [parameter(Mandatory = $false, HelpMessage = 'HTTP proxy if available')]
         [string] $Proxy = '',
-        [parameter(Mandatory = $true, HelpMessage = 'Host machine is a VM: true, Host machine is not a VM')]
-        [bool] $HostVM,
         [parameter(Mandatory = $false, HelpMessage = 'Skips installation of cluster dependent tools')]
-        [bool] $SkipClusterSetup = $false,
-        [string] $WorkerNodeNumber = $(throw 'Argument missing: WorkerNodeNumber')
+        [bool] $SkipClusterSetup = $false
     )
 
     Invoke-DeployDockerArtifacts $windowsNodeArtifactsDirectory
     Install-WinDocker -Proxy "$Proxy"
 
-    Install-WinContainerd -Proxy "$Proxy" -SkipNetworkingSetup:$SkipClusterSetup -WindowsNodeArtifactsDirectory $windowsNodeArtifactsDirectory -WorkerNodeNumber $WorkerNodeNumber
+    Install-WinContainerd -Proxy "$Proxy" -SkipNetworkingSetup:$SkipClusterSetup -WindowsNodeArtifactsDirectory $windowsNodeArtifactsDirectory
 
     if (!($SkipClusterSetup)) {
         Invoke-DeployWindowsImages $windowsNodeArtifactsDirectory
@@ -353,19 +350,7 @@ function Install-WinNodeArtifacts {
 
         Invoke-DeployWindowsExporterArtifacts $windowsNodeArtifactsDirectory
         Install-WindowsExporter
-
-        if (!($HostVM)) {
-            # DNS Proxy is not required if Host machine is a VM
-            Invoke-DeployDnsProxyArtifacts $windowsNodeArtifactsDirectory
-            Install-WinDnsProxy -WorkerNodeNumber $WorkerNodeNumber
-        }
     }
-
-    Install-WinHttpProxy -Proxy "$Proxy"
-    Invoke-DeployPuttytoolsArtifacts $windowsNodeArtifactsDirectory
-
-    # remove folder with windows node artifacts since all of them are already published to the expected locations
-    Remove-Item "$windowsNodeArtifactsDirectory" -Recurse -Force -ErrorAction SilentlyContinue
 }
 
 function Invoke-DownloadsCleanup {
@@ -428,4 +413,9 @@ function Install-KubectlTool{
     Invoke-DeployKubetoolKubectl $windowsNodeArtifactsDirectory
 }
 
-Export-ModuleMember Invoke-DeployWinArtifacts, Invoke-DownloadsCleanup, Install-WinNodeArtifacts, Install-DefaultTools, Get-WindowsNodeArtifactsZipFilePath, Install-PuttyTools, Install-KubectlTool
+function Get-WindowsArtifactsDirectory {
+    return $windowsNodeArtifactsDirectory
+}
+
+Export-ModuleMember Invoke-DeployWinArtifacts, Invoke-DownloadsCleanup, Install-WinNodeArtifacts, Install-DefaultTools, Get-WindowsNodeArtifactsZipFilePath, Install-PuttyTools, Install-KubectlTool,
+Get-WindowsArtifactsDirectory

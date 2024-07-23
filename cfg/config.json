@@ -5,12 +5,12 @@
         "masterNetworkCIDR": "172.19.1.0/24",
         "podNetworkCIDR": "172.20.0.0/16",
         "podNetworkMasterCIDR": "172.20.0.0/24",
-        "podNetworkWorkerCIDR": "172.20.1.0/24",
+        "podNetworkWorkerCIDR": "172.20.__SUBNETWORK_NUMBER__.0/24",
         "servicesCIDR": "172.21.0.0/16",
         "servicesCIDRLinux": "172.21.0.0/24",
         "servicesCIDRWindows": "172.21.1.0/24",
-        "cbr0Gateway": "172.20.1.1",
-        "cbr0": "172.20.1.2",
+        "cbr0Gateway": "172.20.__SUBNETWORK_NUMBER__.1",
+        "cbr0": "172.20.__SUBNETWORK_NUMBER__.2",
         "loopbackAdapterCIDR": "172.22.1.0/24",
         "loopbackGateway": "172.22.1.1",
         "loopback": "172.22.1.2",
@@ -31,19 +31,19 @@
                 {
                     "name": "PA_ROUTE_k2s_1",
                     "subnet": "172.19.1.0/24",
-                    "gateway": "172.20.1.2",
+                    "gateway": "172.20.__SUBNETWORK_NUMBER__.2",
                     "priority": "200"
                 },
                 {
                     "name": "PA_ROUTE_k2s_2",
                     "subnet": "172.20.0.0/24",
-                    "gateway": "172.20.1.2",
+                    "gateway": "172.20.__SUBNETWORK_NUMBER__.2",
                     "priority": "201"
                 },
                 {
                     "name": "PA_ROUTE_k2s_3",
                     "subnet": "172.21.0.0/24",
-                    "gateway": "172.20.1.2",
+                    "gateway": "172.20.__SUBNETWORK_NUMBER__.2",
                     "priority": "202"
                 },
                 {

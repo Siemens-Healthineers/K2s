@@ -211,8 +211,7 @@ function Install-WinContainerd {
         [string] $Proxy = '',
         [parameter(Mandatory = $false, HelpMessage = 'Will skip setting up networking which is required only for cluster purposes')]
         [bool] $SkipNetworkingSetup = $false,
-        $WindowsNodeArtifactsDirectory,
-        [string] $WorkerNodeNumber = '1'
+        $WindowsNodeArtifactsDirectory
     )
 
     Write-Log 'First uninstall containerd service if existent'
@@ -255,19 +254,6 @@ timeout: 30
         }
         $ipaddress = $ipaddresses[0] | Select-Object -ExpandProperty IPAddress
         Write-Log "Using local IP $ipaddress for setup of CNI"
-
-        $nameServers = Get-Content "$kubePath\cfg\containerd\flannel-l2bridge.conf" | Select-String 'NAME.SERVERS' | Select-Object -ExpandProperty Line
-        if ( $nameServers ) {
-            $configuredNameservers = ''
-            $clusterCIDRNextHop = Get-ConfiguredClusterCIDRNextHop -WorkerNodeNumber $WorkerNodeNumber
-            $kubeDnsServiceIP = $setupConfigRoot.psobject.properties['kubeDnsServiceIP'].value
-
-            $clusterCIDRNextHop | ForEach-Object { $configuredNameservers += "                                ""$_"",`n" }
-            $kubeDnsServiceIP | ForEach-Object { $configuredNameservers += "                                ""$_""" }
-
-            $content = Get-Content "$kubePath\cfg\containerd\flannel-l2bridge.conf"
-            $content | ForEach-Object { $_ -replace $nameServers, $configuredNameservers } | Set-Content "$kubePath\cfg\containerd\flannel-l2bridge.conf"
-        }
 
         $natExceptions = Get-Content "$kubePath\cfg\containerd\flannel-l2bridge.conf" | Select-String 'NAT.EXCEPTIONS' | Select-Object -ExpandProperty Line
         if ( $natExceptions ) {
@@ -349,4 +335,26 @@ timeout: 30
         throw "Service 'containerd' is not running."
     }
     Write-Log "Service 'containerd' has status '$expectedServiceStatus'"
+}
+
+function Add-WinContainerdNetworking {
+    param(
+        [string] $PodSubnetworkNumber = $(throw 'Argument missing: PodSubnetworkNumber')
+    )
+    
+    # Stop-Service containerd
+
+    $targetFilePath = "$kubePath\cfg\containerd\cni\conf\flannel-l2bridge.conf"
+    $nameServers = Get-Content "$targetFilePath" | Select-String 'NAME.SERVERS' | Select-Object -ExpandProperty Line
+    if ( $nameServers ) {
+        $configuredNameservers = ''
+        $clusterCIDRNextHop = Get-ConfiguredClusterCIDRNextHop -PodSubnetworkNumber $PodSubnetworkNumber
+        $kubeDnsServiceIP = $setupConfigRoot.psobject.properties['kubeDnsServiceIP'].value
+
+        $clusterCIDRNextHop | ForEach-Object { $configuredNameservers += "                                ""$_"",`n" }
+        $kubeDnsServiceIP | ForEach-Object { $configuredNameservers += "                                ""$_""" }
+
+        $content = Get-Content "$targetFilePath"
+        $content | ForEach-Object { $_ -replace $nameServers, $configuredNameservers } | Set-Content "$targetFilePath"
+    }
 }

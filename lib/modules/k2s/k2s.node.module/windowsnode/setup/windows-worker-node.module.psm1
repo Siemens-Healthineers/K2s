@@ -11,51 +11,65 @@ Import-Module $infraModule, $clusterModule
 
 function Add-WindowsWorkerNodeOnWindowsHost {
     Param(
-        [parameter(Mandatory = $false, HelpMessage = 'HTTP proxy if available')]
-        [string] $Proxy,
-        [parameter(Mandatory = $false, HelpMessage = 'Directory containing additional hooks to be executed after local hooks are executed')]
-        [string] $AdditionalHooksDir = '',
-        [parameter(Mandatory = $false, HelpMessage = 'Deletes the needed files to perform an offline installation')]
-        [switch] $DeleteFilesForOfflineInstallation = $false,
-        [parameter(Mandatory = $false, HelpMessage = 'Force the installation online. This option is needed if the files for an offline installation are available but you want to recreate them.')]
-        [switch] $ForceOnlineInstallation = $false,
-        [string] $WorkerNodeNumber = $(throw 'Argument missing: WorkerNodeNumber')
+        [string] $Hostname = $(throw 'Argument missing: Hostname'),
+        [string] $IpAddress = $(throw 'Argument missing: IpAddress'),
+        [string] $Proxy = $(throw 'Argument missing: Proxy'),
+        [string] $JoinCommand = $(throw 'Argument missing: JoinCommand'),
+        [string] $PodSubnetworkNumber = $(throw 'Argument missing: PodSubnetworkNumber')
     )
+
+    $params = @{
+        Hostname = $Hostname
+        IpAddress = $IpAddress
+        Proxy = $Proxy
+        JoinCommand = $JoinCommand
+        PodSubnetworkNumber = $PodSubnetworkNumber
+    }
+    Add-WindowsWorkerNode @params
+}
+
+function Add-WindowsWorkerNode {
+    Param(
+        [string] $Hostname = $(throw 'Argument missing: Hostname'),
+        [string] $IpAddress = $(throw 'Argument missing: IpAddress'),
+        [string] $Proxy = $(throw 'Argument missing: Proxy'),
+        [string] $JoinCommand = $(throw 'Argument missing: JoinCommand'),
+        [string] $PodSubnetworkNumber = $(throw 'Argument missing: PodSubnetworkNumber')
+    )
+
     Stop-InstallIfNoMandatoryServiceIsRunning
-
-    Write-Log 'Starting installation of K2s worker node on Windows host.'
-
+    
     # Install loopback adapter for l2bridge
     New-DefaultLoopbackAdater
 
-    Write-Log 'Add vfp rules'
-    $rootConfiguration = Get-RootConfigk2s
-    $vfpRoutingRules = $rootConfiguration.psobject.properties['vfprules-k2s'].value | ConvertTo-Json
-    Add-VfpRulesToWindowsNode -VfpRulesInJsonFormat $vfpRoutingRules
-
     $kubernetesVersion = Get-DefaultK8sVersion
-    $controlPlaneIpAddress = Get-ConfiguredIPControlPlane
-    $windowsHostIpAddress = Get-ConfiguredKubeSwitchIP
 
     Initialize-WinNode -KubernetesVersion $kubernetesVersion `
-        -HostGW:$true `
         -Proxy:"$Proxy" `
-        -DeleteFilesForOfflineInstallation $DeleteFilesForOfflineInstallation `
-        -ForceOnlineInstallation $ForceOnlineInstallation `
-        -WorkerNodeNumber $WorkerNodeNumber
 
-    $transparentproxy = 'http://' + $windowsHostIpAddress + ':8181'
-    Set-ProxySettingsOnKubenode -ProxySettings $transparentproxy -IpAddress $controlPlaneIpAddress
-    Restart-Service httpproxy -ErrorAction SilentlyContinue
 
-    # join the cluster
-    Write-Log "Preparing Kubernetes $KubernetesVersion by joining nodes" -Console
+    # disable IPv6 completely
+    Get-NetAdapterBinding -ComponentID ms_tcpip6 | ForEach-Object {
+        Disable-NetAdapterBinding -Name $_.Name -ComponentID ms_tcpip6
+    }
 
-    Initialize-KubernetesCluster -AdditionalHooksDir $AdditionalHooksDir -WorkerNodeNumber $WorkerNodeNumber
+    Add-K8sContext
+
+    Join-WindowsNode -CommandForJoining $JoinCommand -NodeIpAddress $IpAddress
+
+    Add-DnsToWinNodeFlannel -PodSubnetworkNumber $PodSubnetworkNumber
+    Add-WinContainerdNetworking -PodSubnetworkNumber $PodSubnetworkNumber
+
+    Set-KubeletDiskPressure
+    Add-ClusterDnsNameToHost -Hostname 'k2s.cluster.local'
+    Add-ClusterDnsNameToHost -DesiredIP $IpAddress -Hostname $Hostname
+
+    Write-K8sNodesStatus
 }
 
 function Start-WindowsWorkerNodeOnWindowsHost {
     Param(
+        [string] $Hostname = $(throw 'Argument missing: Hostname'),
         [parameter(Mandatory = $false, HelpMessage = 'Do a full reset of the HNS network at start')]
         [switch] $ResetHns = $false,
         [parameter(Mandatory = $false, HelpMessage = 'Directory containing additional hooks to be executed after local hooks are executed')]
@@ -64,15 +78,12 @@ function Start-WindowsWorkerNodeOnWindowsHost {
         [switch] $UseCachedK2sVSwitches,
         [parameter(Mandatory = $false, HelpMessage = 'Skips showing start header display')]
         [switch] $SkipHeaderDisplay = $false,
-        [string] $WorkerNodeNumber = $(throw 'Argument missing: WorkerNodeNumber'),
+        [string] $VfpRoutingRules = $(throw 'Argument missing: VfpRules'),
+        [string] $PodSubnetworkNumber = $(throw 'Argument missing: PodSubnetworkNumber'),
         [string] $DnsServers = $(throw 'Argument missing: DnsServers')
     )
 
-    $smallsetup = Get-RootConfigk2s
-    $vfpRoutingRules = $smallsetup.psobject.properties['vfprules-k2s'].value | ConvertTo-Json
-    Add-VfpRulesToWindowsNode -VfpRulesInJsonFormat $vfpRoutingRules
-
-    Remove-DefaultNetNat
+    Add-VfpRulesToWindowsNode -VfpRulesInJsonFormat $VfpRoutingRules
 
     $ipControlPlane = Get-ConfiguredIPControlPlane
     $setupConfigRoot = Get-RootConfigk2s
@@ -84,15 +95,12 @@ function Start-WindowsWorkerNodeOnWindowsHost {
     Write-Log "Add route to $clusterCIDRServicesWindows"
     route -p add $clusterCIDRServicesWindows $ipControlPlane METRIC 7 | Out-Null
 
-    Start-WindowsWorkerNode -DnsServers $DnsServers -ResetHns:$ResetHns -AdditionalHooksDir $AdditionalHooksDir -UseCachedK2sVSwitches:$UseCachedK2sVSwitches -SkipHeaderDisplay:$SkipHeaderDisplay -WorkerNodeNumber $WorkerNodeNumber
+    Start-WindowsWorkerNode -DnsServers $DnsServers -ResetHns:$ResetHns -AdditionalHooksDir $AdditionalHooksDir -UseCachedK2sVSwitches:$UseCachedK2sVSwitches -SkipHeaderDisplay:$SkipHeaderDisplay -PodSubnetworkNumber $PodSubnetworkNumber
 
-    # start dns proxy
-    Write-Log 'Starting dns proxy'
-    Start-ServiceAndSetToAutoStart -Name 'httpproxy'
-    Start-ServiceAndSetToAutoStart -Name 'dnsproxy'
+    $clusterCIDRNextHop = Get-ConfiguredClusterCIDRNextHop -PodSubnetworkNumber $PodSubnetworkNumber
+    Add-WinDnsProxyListenAddress -IpAddress $clusterCIDRNextHop
 
-    Update-NodeLabelsAndTaints -WorkerMachineName $env:computername
-
+    Update-WindowsWorkerNodeLabelsAndTaints -NodeName $Hostname
 }
 
 function Stop-WindowsWorkerNodeOnWindowsHost {
@@ -103,17 +111,17 @@ function Stop-WindowsWorkerNodeOnWindowsHost {
         [switch] $CacheK2sVSwitches,
         [parameter(Mandatory = $false, HelpMessage = 'Skips showing stop header display')]
         [switch] $SkipHeaderDisplay = $false,
-        [string] $WorkerNodeNumber = $(throw 'Argument missing: WorkerNodeNumber')
+        [string] $PodSubnetworkNumber = $(throw 'Argument missing: PodSubnetworkNumber')
     )
 
     if ($SkipHeaderDisplay -eq $false) {
         Write-Log 'Stopping K2s worker node on Windows host'
     }
 
-    Stop-ServiceAndSetToManualStart 'httpproxy'
-    Stop-ServiceAndSetToManualStart 'dnsproxy'
+    $clusterCIDRNextHop = Get-ConfiguredClusterCIDRNextHop -PodSubnetworkNumber $PodSubnetworkNumber
+    Remove-WinDnsProxyListenAddress -IpAddress $clusterCIDRNextHop
 
-    Stop-WindowsWorkerNode -WorkerNodeNumber $WorkerNodeNumber -AdditionalHooksDir $AdditionalHooksDir -CacheK2sVSwitches:$CacheK2sVSwitches -SkipHeaderDisplay:$SkipHeaderDisplay
+    Stop-WindowsWorkerNode -PodSubnetworkNumber $PodSubnetworkNumber -AdditionalHooksDir $AdditionalHooksDir -CacheK2sVSwitches:$CacheK2sVSwitches -SkipHeaderDisplay:$SkipHeaderDisplay
 
     # Remove routes
     $setupConfigRoot = Get-RootConfigk2s
@@ -122,8 +130,6 @@ function Stop-WindowsWorkerNodeOnWindowsHost {
 
     Remove-VfpRulesFromWindowsNode
 
-    New-DefaultNetNat
-    
     Write-Log 'K2s worker node on Windows host stopped.'
 }
 
@@ -137,15 +143,29 @@ function Remove-WindowsWorkerNodeOnWindowsHost {
         [switch] $SkipHeaderDisplay = $false
     )
 
-    if ($SkipHeaderDisplay -eq $false) {
-        Write-Log 'Removing K2s worker node on Windows host from cluster'
+    $params = @{
+        SkipPurge = $SkipPurge
+        AdditionalHooksDir = $AdditionalHooksDir
+        SkipHeaderDisplay = $SkipHeaderDisplay
     }
-    
+    Remove-WindowsWorkerNode @params
+}
+
+function Remove-WindowsWorkerNode {
+    Param(
+        [parameter(Mandatory = $false, HelpMessage = 'Do not purge all files')]
+        [switch] $SkipPurge = $false,
+        [parameter(Mandatory = $false, HelpMessage = 'Directory containing additional hooks to be executed after local hooks are executed')]
+        [string] $AdditionalHooksDir = '',
+        [parameter(Mandatory = $false, HelpMessage = 'Skips showing uninstall header display')]
+        [switch] $SkipHeaderDisplay = $false
+    )
+   
     Write-Log 'Remove external switch'
     Remove-ExternalSwitch
    
     Write-Log 'Uninstall the worker node artifacts from the Windows host'
-    Uninstall-WinNode -ShallowUninstallation $SkipPurge
+    Uninstall-WinNode
     
     Write-Log 'Uninstall the loopback adapter'
     Uninstall-LoopbackAdapter
@@ -153,7 +173,20 @@ function Remove-WindowsWorkerNodeOnWindowsHost {
     Write-Log 'Remove vfp rules'
     Remove-VfpRulesFromWindowsNode
 
-    Write-Log 'Uninstalling K2s worker node on Windows host done.'  
+    Remove-Folder -Value "$env:SystemDrive\etc"
+    Remove-Folder -Value "$env:SystemDrive\opt"
+    Remove-Folder -Value "$env:SystemDrive\run"
+    Remove-Folder -Value "$env:SystemDrive\var\lib"
+    #Remove-Folder -Value "$(Get-InstallationDriveLetter):\run"
+}
+
+function Remove-Folder {
+    param(
+        $Value = $(throw 'Argument missing: Value')
+    )
+    if (Test-Path -Path $Value) {
+        Remove-Item -Path $Value -Recurse -Force | Out-Null
+    }
 }
 
 function Start-WindowsWorkerNode {
@@ -170,7 +203,7 @@ function Start-WindowsWorkerNode {
         [switch] $UseCachedK2sVSwitches,
         [parameter(Mandatory = $false, HelpMessage = 'Skips showing start header display')]
         [switch] $SkipHeaderDisplay = $false,
-        [string] $WorkerNodeNumber = $(throw 'Argument missing: WorkerNodeNumber')
+        [string] $PodSubnetworkNumber = $(throw 'Argument missing: PodSubnetworkNumber')
     )
 
     function Get-NeedsStopFirst () {
@@ -187,7 +220,7 @@ function Start-WindowsWorkerNode {
 
     if (Get-NeedsStopFirst) {
         Write-Log 'Stopping existing K8s system...'
-        Stop-WindowsWorkerNode -WorkerNodeNumber $WorkerNodeNumber -AdditionalHooksDir $AdditionalHooksDir -CacheK2sVSwitches:$UseCachedK2sVSwitches -SkipHeaderDisplay:$SkipHeaderDisplay
+        Stop-WindowsWorkerNode -PodSubnetworkNumber $PodSubnetworkNumber -AdditionalHooksDir $AdditionalHooksDir -CacheK2sVSwitches:$UseCachedK2sVSwitches -SkipHeaderDisplay:$SkipHeaderDisplay
         Start-Sleep 10
     }
 
@@ -215,7 +248,7 @@ function Start-WindowsWorkerNode {
     }
     Write-Log "The following gateway IP address will be used: $gw"
 
-    New-ExternalSwitch -adapterName $adapterName -WorkerNodeNumber $WorkerNodeNumber
+    New-ExternalSwitch -adapterName $adapterName -PodSubnetworkNumber $PodSubnetworkNumber
 
     Invoke-Hook -HookName BeforeStartK8sNetwork -AdditionalHooksDir $AdditionalHooksDir
 
@@ -283,8 +316,8 @@ function Start-WindowsWorkerNode {
             Write-Output "Index for interface $l2BridgeSwitchName : ($l2BridgeInterfaceIndex) -> metric 5"
 
             # $setupConfigRoot = Get-RootConfigk2s
-            $clusterCIDRWorker = Get-ConfiguredClusterCIDRHost -WorkerNodeNumber $WorkerNodeNumber #$setupConfigRoot.psobject.properties['podNetworkWorkerCIDR'].value
-            $clusterCIDRNextHop = Get-ConfiguredClusterCIDRNextHop -WorkerNodeNumber $WorkerNodeNumber #$setupConfigRoot.psobject.properties['cbr0'].value
+            $clusterCIDRWorker = Get-ConfiguredClusterCIDRHost -PodSubnetworkNumber $PodSubnetworkNumber #$setupConfigRoot.psobject.properties['podNetworkWorkerCIDR'].value
+            $clusterCIDRNextHop = Get-ConfiguredClusterCIDRNextHop -PodSubnetworkNumber $PodSubnetworkNumber #$setupConfigRoot.psobject.properties['cbr0'].value
 
             # routes for Windows pods
             Write-Output "Remove obsolete route to $clusterCIDRWorker"
@@ -318,7 +351,7 @@ function Stop-WindowsWorkerNode {
         [switch] $CacheK2sVSwitches,
         [parameter(Mandatory = $false, HelpMessage = 'Skips showing stop header display')]
         [switch] $SkipHeaderDisplay = $false,
-        [string] $WorkerNodeNumber = $(throw "Argument missing: WorkerNodeNumber")
+        [string] $PodSubnetworkNumber = $(throw "Argument missing: PodSubnetworkNumber")
     )
 
     Write-Log 'Stopping Kubernetes services on the Windows node' -Console
@@ -359,7 +392,7 @@ function Stop-WindowsWorkerNode {
         Start-ServiceProcess 'docker'
     }
 
-    $podNetworkCIDR = Get-ConfiguredClusterCIDRHost -WorkerNodeNumber $WorkerNodeNumber
+    $podNetworkCIDR = Get-ConfiguredClusterCIDRHost -PodSubnetworkNumber $PodSubnetworkNumber
     # Remove routes
     route delete $podNetworkCIDR >$null 2>&1
 
@@ -371,33 +404,32 @@ function Stop-WindowsWorkerNode {
 }
 
 function CheckFlannelConfig {
-    $flannelFile = "$(Get-InstallationDriveLetter):\run\flannel\subnet.env"
-    $existsFlannelFile = Test-Path -Path $flannelFile
-    if( $existsFlannelFile ) {
-        Write-Log "Flannel file $flannelFile exists"
-        return
-    }
-    # only in case that we used another drive than C for the installation
-    if( ($(Get-InstallationDriveLetter) -ne $(Get-SystemDriveLetter))) {
-        $i = 0
-        $flannelFileSource = "$(Get-SystemDriveLetter):\run\flannel\subnet.env"
-        Write-Log "Check $flannelFileSource file creation, this can take minutes depending on your network setup ..."
-        while ($true) {
-            $i++
-            Write-Log "flannel handling loop (iteration #$i):"
-            if( Test-Path -Path $flannelFileSource ) {
-                $targetPath = "$(Get-InstallationDriveLetter):\run\flannel"
-                New-Item -ItemType Directory -Path $targetPath -Force | Out-Null
-                Copy-Item -Path $flannelFileSource -Destination $targetPath -Force | Out-Null
-                break
-            }
-            Start-Sleep -s 5
-
-            # End the loop
-            if ($i -eq 50) {
-                throw "Fatal: Flannel failed to create file: $flannelFileSource for target drive $(Get-InstallationDriveLetter):\run\flannel\subnet.env !"
-            }
+    $i = 0
+    $sourceFilePath = "$(Get-SystemDriveLetter):\run\flannel\subnet.env"
+    Write-Log "Check '$sourceFilePath' file creation, this can take minutes depending on your network setup ..."
+    while ($true) {
+        $i++
+        Write-Log "flannel handling loop (iteration #$i):"
+        if( Test-Path -Path $sourceFilePath ) {
+            break
         }
+        Start-Sleep -s 5
+
+        # End the loop
+        if ($i -eq 50) {
+            throw "Fatal: Flannel failed to create file: '$sourceFilePath' !"
+        }
+    }
+
+    # only in case that another drive than C was used for the installation
+    if( ($(Get-InstallationDriveLetter) -ne $(Get-SystemDriveLetter))) {
+        $targetFilePath = "$(Get-InstallationDriveLetter):\run\flannel\subnet.env"
+        if(Test-Path -Path $targetFilePath) {
+            Remove-item $targetFilePath -Force
+        }
+        $targetPath = Split-Path -Path $targetFilePath
+        New-Item -ItemType Directory -Path $targetPath -Force | Out-Null
+        Copy-Item -Path $sourceFilePath -Destination $targetPath -Force | Out-Null
     }
 }
 
@@ -439,7 +471,9 @@ function Restart-WinServiceVmCompute {
     }
 }
 
+
 Export-ModuleMember -Function Add-WindowsWorkerNodeOnWindowsHost,
 Remove-WindowsWorkerNodeOnWindowsHost,
 Start-WindowsWorkerNodeOnWindowsHost,
-Stop-WindowsWorkerNodeOnWindowsHost
+Stop-WindowsWorkerNodeOnWindowsHost,
+Add-WindowsWorkerNode

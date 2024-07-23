@@ -22,41 +22,12 @@ Param(
     [switch] $SkipHeaderDisplay = $false
 )
 
-$infraModule = "$PSScriptRoot\..\lib\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
-$nodeModule = "$PSScriptRoot\..\lib\modules\k2s\k2s.node.module\k2s.node.module.psm1"
-$clusterModule = "$PSScriptRoot\..\lib\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1"
-$addonsModule = "$PSScriptRoot\..\addons\addons.module.psm1"
-Import-Module $infraModule, $nodeModule, $clusterModule, $addonsModule
-
-Initialize-Logging -ShowLogs:$ShowLogs
-
-# make sure we are at the right place for executing this script
-$installationPath = Get-KubePath
-Set-Location $installationPath
-
-if ($SkipHeaderDisplay -eq $false) {
-    Write-Log 'Uninstalling kubernetes system'
+$uninstallParameters = @{
+    SkipPurge = $SkipPurge
+    ShowLogs = $ShowLogs
+    AdditionalHooksDir = $AdditionalHooksDir
+    DeleteFilesForOfflineInstallation = $DeleteFilesForOfflineInstallation
+    SkipHeaderDisplay = $SkipHeaderDisplay
 }
 
-# stop nodes
-Write-Log 'First stop complete kubernetes incl. VM'
-& "$PSScriptRoot\StopK8s.ps1" -AdditionalHooksDir $AdditionalHooksDir -ShowLogs:$ShowLogs -SkipHeaderDisplay
-
-Write-Log 'Uninstalling Windows worker node' -Console
-Remove-WindowsWorkerNodeOnWindowsHost -SkipPurge:$SkipPurge -AdditionalHooksDir $AdditionalHooksDir -SkipHeaderDisplay:$SkipHeaderDisplay
-
-$controlPlaneVMHostName = Get-ConfigControlPlaneNodeHostname
-Write-Log "Uninstalling $controlPlaneVMHostName VM" -Console
-Remove-ControlPlaneNodeOnNewVM -SkipPurge:$SkipPurge -AdditionalHooksDir $AdditionalHooksDir -SkipHeaderDisplay:$SkipHeaderDisplay -DeleteFilesForOfflineInstallation:$DeleteFilesForOfflineInstallation
-
-if (!$SkipPurge) {
-    Uninstall-Cluster
-}
-
-Remove-KubeNodeBaseImage -DeleteFilesForOfflineInstallation $DeleteFilesForOfflineInstallation
-
-Invoke-AddonsHooks -HookType 'AfterUninstall'
-
-Write-Log 'Uninstalling K2s setup done.'
-
-Save-k2sLogDirectory -RemoveVar
+& "$PSScriptRoot\..\lib\scripts\k2s\uninstall\uninstall.ps1" @uninstallParameters
