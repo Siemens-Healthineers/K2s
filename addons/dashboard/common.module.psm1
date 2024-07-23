@@ -51,7 +51,7 @@ function Test-NginxIngressControllerAvailability {
 Determines if Traefik ingress controller is deployed in the cluster
 #>
 function Test-TraefikIngressControllerAvailability {
-    $existingServices = (Invoke-Kubectl -Params 'get', 'service', '-n', 'traefik', '-o', 'yaml').Output
+    $existingServices = (Invoke-Kubectl -Params 'get', 'service', '-n', 'ingress-traefik', '-o', 'yaml').Output
     if ("$existingServices" -match '.*traefik.*') {
         return $true
     }
@@ -142,7 +142,7 @@ function Write-UsageForUser {
 
  Option 2: Port-forwarding
  Use port-forwarding to the kubernetes-dashboard using the command below:
- kubectl -n kubernetes-dashboard port-forward svc/kubernetes-dashboard 8443:443
+ kubectl -n dashboard port-forward svc/kubernetes-dashboard 8443:443
 
  In this case, the Kubernetes Dashboard will be accessible on the following URL: https://localhost:8443
  It is not necessary to use port 8443. Please feel free to use a port number of your choice.
@@ -162,5 +162,5 @@ function Write-UsageForUser {
 Waits for the dashboard pods to be available.
 #>
 function Wait-ForDashboardAvailable {
-    return (Wait-ForPodCondition -Condition Ready -Label 'k8s-app=kubernetes-dashboard' -Namespace 'kubernetes-dashboard' -TimeoutSeconds 120)
+    return (Wait-ForPodCondition -Condition Ready -Label 'k8s-app=kubernetes-dashboard' -Namespace 'dashboard' -TimeoutSeconds 120)
 }

@@ -19,7 +19,7 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: dashboard-nginx-local
-  namespace: kubernetes-dashboard
+  namespace: dashboard
   annotations:
     cert-manager.io/cluster-issuer: k2s-ca-issuer
     cert-manager.io/common-name: k2s-dashboard.cluster.local
@@ -56,7 +56,7 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: dashboard-nginx-cluster-net
-  namespace: kubernetes-dashboard
+  namespace: dashboard
   annotations:
     nginx.ingress.kubernetes.io/rewrite-target: /$1
     nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"

@@ -64,7 +64,7 @@ func (addonsStatus *AddonsStatus) IsAddonEnabled(addonName string, implementatio
 		})
 	}
 
-	return false
+	return isAddonEnabled
 }
 
 func (addonsStatus *AddonsStatus) GetEnabledAddons() []string {
@@ -87,8 +87,12 @@ func (info *AddonsAdditionalInfo) AllAddons() addons.Addons {
 	return allAddons
 }
 
-func (info *AddonsAdditionalInfo) GetImagesForAddon(addon addons.Addon) ([]string, error) {
-	yamlFiles, err := sos.GetFilesMatch(addon.Directory, "*.yaml")
+func (info *AddonsAdditionalInfo) GetImagesForAddon(addon addons.Addon, implementation addons.Implementation) ([]string, error) {
+	dir := addon.Directory
+	if addon.Metadata.Name != implementation.Name {
+		dir = filepath.Join(addon.Directory, implementation.Name)
+	}
+	yamlFiles, err := sos.GetFilesMatch(dir, "*.yaml")
 	if err != nil {
 		return nil, err
 	}
@@ -132,8 +136,8 @@ func (info *AddonsAdditionalInfo) GetImagesForAddon(addon addons.Addon) ([]strin
 		return trimedFindings
 	})
 
-	if len(addon.Spec.ImplementationsOfflineUsage.LinuxResources.AdditionalImages) > 0 {
-		images = append(images, addon.Spec.OfflineUsage.LinuxResources.AdditionalImages...)
+	if len(implementation.OfflineUsage.LinuxResources.AdditionalImages) > 0 {
+		images = append(images, implementation.OfflineUsage.LinuxResources.AdditionalImages...)
 	}
 
 	return lo.Union(images), nil

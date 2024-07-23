@@ -23,7 +23,7 @@ metadata:
     cert-manager.io/common-name: k2s-dashboard.cluster.local
     traefik.ingress.kubernetes.io/router.tls: "true"
   name: dashboard-traefik-local
-  namespace: kubernetes-dashboard
+  namespace: dashboard
 spec:
   ingressClassName: traefik
   rules:
@@ -49,7 +49,7 @@ apiVersion: traefik.containo.us/v1alpha1
 kind: Middleware
 metadata:
   name: strip-prefix
-  namespace: kubernetes-dashboard
+  namespace: dashboard
 spec:
   stripPrefix:
     prefixes:
@@ -65,7 +65,7 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: dashboard-traefik-cluster-net
-  namespace: kubernetes-dashboard
+  namespace: dashboard
   annotations:
     traefik.ingress.kubernetes.io/router.middlewares: kubernetes-dashboard-strip-prefix@kubernetescrd
     traefik.ingress.kubernetes.io/router.tls: "true"
