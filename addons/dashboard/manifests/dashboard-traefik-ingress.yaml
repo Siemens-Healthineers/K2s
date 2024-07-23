@@ -67,7 +67,7 @@ metadata:
   name: dashboard-traefik-cluster-net
   namespace: dashboard
   annotations:
-    traefik.ingress.kubernetes.io/router.middlewares: kubernetes-dashboard-strip-prefix@kubernetescrd
+    traefik.ingress.kubernetes.io/router.middlewares: dashboard-strip-prefix@kubernetescrd
     traefik.ingress.kubernetes.io/router.tls: "true"
 spec:
   ingressClassName: traefik
