@@ -49,10 +49,10 @@ var _ = Describe("'gateway-api' addon", Ordered, func() {
 		suite.K2sCli().Run(ctx, "addons", "disable", "gateway-api", "-o")
 
 		suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "albums-linux1", "gateway-api-test")
-		suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "nginx-gateway", "nginx-gateway")
+		suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "nginx-gateway", "gateway-api")
 
 		addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
-		Expect(addonsStatus.IsAddonEnabled("gateway-api")).To(BeFalse())
+		Expect(addonsStatus.IsAddonEnabled("gateway-api", "")).To(BeFalse())
 	})
 
 	It("prints already-disabled message on disable command and exits with non-zero", func(ctx context.Context) {
@@ -64,12 +64,12 @@ var _ = Describe("'gateway-api' addon", Ordered, func() {
 	It("is in enabled state and pods are in running state", func(ctx context.Context) {
 		suite.K2sCli().Run(ctx, "addons", "enable", "gateway-api", "-o")
 
-		suite.Cluster().ExpectDeploymentToBeAvailable("nginx-gateway", "nginx-gateway")
+		suite.Cluster().ExpectDeploymentToBeAvailable("nginx-gateway", "gateway-api")
 
-		suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "nginx-gateway", "nginx-gateway")
+		suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "nginx-gateway", "gateway-api")
 
 		addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
-		Expect(addonsStatus.IsAddonEnabled("gateway-api")).To(BeTrue())
+		Expect(addonsStatus.IsAddonEnabled("gateway-api", "")).To(BeTrue())
 	})
 
 	It("prints already-enabled message on enable command and exits with non-zero", func(ctx context.Context) {
@@ -139,7 +139,7 @@ func httpGet(url string, retryCount int) (*http.Response, error) {
 	var res *http.Response
 	var err error
 	for i := 0; i < retryCount; i++ {
-		GinkgoWriter.Println("retry count: ", retryCount)
+		GinkgoWriter.Println("retry count: ", i+1)
 		res, err = http.Get(url)
 
 		if err == nil && res.StatusCode == 200 {

@@ -111,7 +111,7 @@ if ($PSVersionTable.PSVersion.Major -gt 5) {
 else {
   $patchJson = '{\"spec\":{\"externalIPs\":[\"' + $controlPlaneIp + '\"]}}'
 }
-$gatewayNginxSvc = 'gateway-nginx'
+$gatewayNginxSvc = 'nginx-gateway'
 (Invoke-Kubectl -Params 'patch', 'svc', $gatewayNginxSvc , '-p', "$patchJson", '-n', 'gateway-api').Output | Write-Log
 
 $kubectlCmd = (Invoke-Kubectl -Params 'wait', '--timeout=60s', '--for=condition=Available', '-n', 'gateway-api', 'deployment/nginx-gateway')
