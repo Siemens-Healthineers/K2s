@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/go-logr/logr"
@@ -114,6 +115,69 @@ var _ = Describe("host pkg", func() {
 				result := host.PathExists(input)
 
 				Expect(result).To(BeFalse())
+			})
+		})
+	})
+
+	Describe("RemovePaths", func() {
+		When("no paths passed", func() {
+			It("does nothing", func() {
+				Expect(host.RemovePaths()).To(Succeed())
+			})
+		})
+
+		When("non-existent path passed", func() {
+			It("returns error", func() {
+				Expect(host.RemovePaths("non-existent")).ToNot(Succeed())
+			})
+		})
+
+		When("paths exist", func() {
+			var filePath string
+			var dirPath string
+
+			BeforeEach(func() {
+				temp := GinkgoT().TempDir()
+				dirPath = filepath.Join(temp, "test-dir")
+				filePath = filepath.Join(temp, "test.file")
+
+				Expect(os.MkdirAll(dirPath, os.ModePerm)).To(Succeed())
+				Expect(os.WriteFile(filePath, []byte("test-content"), os.ModePerm)).To(Succeed())
+			})
+
+			It("deletes files and directories", func() {
+				Expect(host.RemovePaths(filePath, dirPath)).To(Succeed())
+			})
+		})
+	})
+
+	Describe("AppendToFile", func() {
+		When("non-existent path passed", func() {
+			It("returns error", func() {
+				Expect(host.AppendToFile("non-existent", "")).ToNot(Succeed())
+			})
+		})
+
+		When("path exists", func() {
+			var path string
+
+			BeforeEach(func() {
+				path = filepath.Join(GinkgoT().TempDir(), "test.file")
+
+				Expect(os.WriteFile(path, []byte("first-entry"), os.ModePerm)).To(Succeed())
+			})
+
+			It("appends to file", func() {
+				const textToAppend = "last-entry"
+
+				err := host.AppendToFile(path, textToAppend)
+
+				Expect(err).ToNot(HaveOccurred())
+
+				content, err := os.ReadFile(path)
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(strings.HasSuffix(string(content), textToAppend)).To(BeTrue())
 			})
 		})
 	})
