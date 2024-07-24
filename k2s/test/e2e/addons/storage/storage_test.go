@@ -25,7 +25,7 @@ import (
 
 const (
 	addonName  = "storage"
-	namespace  = "storage-test"
+	namespace  = "smb-share-test"
 	secretName = "regcred"
 
 	linuxWorkloadName   = "smb-share-test-linux"
