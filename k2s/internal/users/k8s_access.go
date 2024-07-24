@@ -10,7 +10,6 @@ import (
 	"os/user"
 	"path/filepath"
 
-	"github.com/siemens-healthineers/k2s/internal/host"
 	"github.com/siemens-healthineers/k2s/internal/http"
 	"github.com/siemens-healthineers/k2s/internal/k8s"
 	"github.com/siemens-healthineers/k2s/internal/yaml"
@@ -78,7 +77,7 @@ func (g *k8sAccessGranter) deriveKubeconfigFromAdmin(winUser user.User) (*k8s.Ku
 
 	kubeconfigPath := filepath.Join(kubeconfigDir, kubeconfigName)
 
-	kubeconfigFile := k8s.NewKubeconfigFile(kubeconfigPath, g.cmdExecutor, http.NewRestClient()) // todo: fetch from where?
+	kubeconfigFile := k8s.NewKubeconfigFile(kubeconfigPath, g.exec, http.NewRestClient()) // todo: fetch from where?
 
 	if err := kubeconfigFile.SetCluster(k2sClusterConfig); err != nil {
 		return nil, fmt.Errorf("could not set K2s cluster config for new user in kubeconfig: %w", err)
@@ -187,7 +186,7 @@ func (g *k8sAccessGranter) initKubeconfigDir(userHomeDir string) (kubeconfigDir 
 	kubeconfigDirName := filepath.Base(g.kubeconfigDir)
 	kubeconfigDir = filepath.Join(userHomeDir, kubeconfigDirName)
 
-	if err := host.CreateDirIfNotExisting(kubeconfigDir); err != nil { // TODO: as interface
+	if err := g.fs.CreateDirIfNotExisting(kubeconfigDir); err != nil {
 		return "", fmt.Errorf("could not create kubeconfig dir: %w", err)
 	}
 	return

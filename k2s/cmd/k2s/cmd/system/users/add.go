@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"os"
 
 	"github.com/pterm/pterm"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
@@ -17,6 +18,8 @@ import (
 	"github.com/siemens-healthineers/k2s/internal/users"
 	"github.com/spf13/cobra"
 )
+
+type fileSystem struct{}
 
 const (
 	userNameFlag = "username"
@@ -40,8 +43,8 @@ func newAddCommand() *cobra.Command {
 	return cmd
 }
 
+// TODO: refactor
 func run(cmd *cobra.Command, args []string) error {
-	// TODO: refactor
 	slog.Info("Granting Windows user access to K2s..")
 
 	userName, err := cmd.Flags().GetString(userNameFlag)
@@ -54,7 +57,7 @@ func run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	force, err := cmd.Flags().GetBool(forceFlag)
+	forceOverwrite, err := cmd.Flags().GetBool(forceFlag)
 	if err != nil {
 		return err
 	}
@@ -93,9 +96,7 @@ func run(cmd *cobra.Command, args []string) error {
 		return common.CreateSystemNotRunningCmdFailure()
 	}
 
-	confirmOverwrite := func() bool { return confirmOverwrite(force, pterm.DefaultInteractiveConfirm.Show) }
-
-	usersManagement, err := users.NewUsersManagement(setupConfig.ControlPlaneNodeHostname, cfg, confirmOverwrite, host.NewCmdExecutor(common.NewSlogWriter()))
+	usersManagement, err := newUsersManagement(setupConfig.ControlPlaneNodeHostname, cfg, forceOverwrite)
 	if err != nil {
 		return err
 	}
@@ -125,6 +126,18 @@ func run(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
+func newUsersManagement(controlPlaneName string, cfg *config.Config, forceOverwrite bool) (*users.UsersManagement, error) {
+	umConfig := &users.UsersManagementConfig{
+		ControlPlaneName:     controlPlaneName,
+		Config:               cfg,
+		ConfirmOverwriteFunc: func() bool { return confirmOverwrite(forceOverwrite, pterm.DefaultInteractiveConfirm.Show) },
+		CmdExecutor:          host.NewCmdExecutor(common.NewSlogWriter()),
+		FileSystem:           &fileSystem{},
+	}
+
+	return users.NewUsersManagement(umConfig)
+}
+
 func newUserNotFoundFailure(err error) *common.CmdFailure {
 	return &common.CmdFailure{
 		Severity: common.SeverityWarning,
@@ -152,4 +165,28 @@ func confirmOverwrite(force bool, showConfirmation func(...string) (bool, error)
 
 	slog.Info("Overwriting existing access confirmed by user")
 	return true
+}
+
+func (*fileSystem) PathExists(path string) bool {
+	return host.PathExists(path)
+}
+
+func (*fileSystem) AppendToFile(path string, text string) error {
+	return host.AppendToFile(path, text)
+}
+
+func (*fileSystem) ReadFile(path string) ([]byte, error) {
+	return os.ReadFile(path)
+}
+
+func (*fileSystem) WriteFile(path string, data []byte) error {
+	return os.WriteFile(path, data, os.ModePerm)
+}
+
+func (*fileSystem) RemovePaths(files ...string) error {
+	return host.RemovePaths(files...)
+}
+
+func (*fileSystem) CreateDirIfNotExisting(path string) error {
+	return host.CreateDirIfNotExisting(path)
 }
