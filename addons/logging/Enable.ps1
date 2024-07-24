@@ -137,10 +137,10 @@ if (!$kubectlCmd.Success) {
 
 # traefik uses crd, so we have define ingressRoute after traefik has been enabled
 if (Test-TraefikIngressControllerAvailability) {
-    (Invoke-Kubectl -Params 'apply', '-f', "$manifestsPath\opensearch-dashboards\traefik.yaml").Output | Write-Log
+    (Invoke-Kubectl -Params 'apply', '-f', "$manifestsPath\opensearch-dashboards\ingress-traefik.yaml").Output | Write-Log
 }
 elseif (Test-NginxIngressControllerAvailability) {
-    (Invoke-Kubectl -Params 'apply', '-f', "$manifestsPath\opensearch-dashboards\ingress.yaml").Output | Write-Log
+    (Invoke-Kubectl -Params 'apply', '-f', "$manifestsPath\opensearch-dashboards\ingress-nginx.yaml").Output | Write-Log
 }
 
 # Import saved objects 

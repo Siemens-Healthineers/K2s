@@ -60,7 +60,7 @@ function Write-UsageForUser {
 Determines if Traefik ingress controller is deployed in the cluster
 #>
 function Test-TraefikIngressControllerAvailability {
-    $existingServices = (Invoke-Kubectl -Params 'get', 'service', '-n', 'traefik', '-o', 'yaml').Output
+    $existingServices = (Invoke-Kubectl -Params 'get', 'service', '-n', 'ingress-traefik', '-o', 'yaml').Output
     if ("$existingServices" -match '.*traefik.*') {
         return $true
     }

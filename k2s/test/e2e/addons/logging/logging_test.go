@@ -137,7 +137,7 @@ var _ = Describe("'logging' addon", Ordered, func() {
 
 	When("traefik as ingress controller", func() {
 		BeforeAll(func(ctx context.Context) {
-			suite.K2sCli().Run(ctx, "addons", "enable", "inrgess", "traefik", "-o")
+			suite.K2sCli().Run(ctx, "addons", "enable", "ingress", "traefik", "-o")
 			suite.Cluster().ExpectDeploymentToBeAvailable("traefik", "ingress-traefik")
 		})
 

@@ -118,10 +118,10 @@ if (!$kubectlCmd.Success) {
 
 # traefik uses crd, so we have define ingressRoute after traefik has been enabled
 if (Test-TraefikIngressControllerAvailability) {
-    (Invoke-Kubectl -Params 'apply', '-f', "$manifestsPath\plutono\traefik.yaml").Output | Write-Log
+    (Invoke-Kubectl -Params 'apply', '-f', "$manifestsPath\plutono\ingress-traefik.yaml").Output | Write-Log
 }
 elseif (Test-NginxIngressControllerAvailability) {
-    (Invoke-Kubectl -Params 'apply', '-f', "$manifestsPath\plutono\ingress.yaml").Output | Write-Log
+    (Invoke-Kubectl -Params 'apply', '-f', "$manifestsPath\plutono\ingress-nginx.yaml").Output | Write-Log
 }
 
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'monitoring' })
