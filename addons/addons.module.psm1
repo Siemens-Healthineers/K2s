@@ -122,13 +122,31 @@ function ConvertTo-NewConfigStructure {
             Write-Information "Config for addon '$addon' migrated."
         }
         elseif ($addon -is [pscustomobject]) {
-            switch ($addon.Name) {
-                "gateway-nginx" { $newAddon = [pscustomobject]@{Name = "gateway-api"} }
-                "ingress-nginx" { $newAddon = [pscustomobject]@{Name = "ingress"; Implementations = @("nginx") } }
-                "traefik" { $newAddon = [pscustomobject]@{Name = "ingress"; Implementations = @("traefik") } }
-                "metrics-server" { $newAddon = [pscustomobject]@{Name = "metrics"} }
-                "smb-share" { $newAddon = [pscustomobject]@{Name = "storage"} }
+            switch ($($addon.Name)) {
+                "gateway-nginx" { 
+                    $newAddon = [pscustomobject]@{Name = "gateway-api"} 
+                    Write-Information "Config for addon '$($addon.Name)' migrated."
+                }
+                "ingress-nginx" { 
+                    $newAddon = [pscustomobject]@{Name = "ingress"; Implementations = @("nginx") }
+                    Write-Information "Config for addon '$($addon.Name)' migrated."                
+                }
+                "traefik" { 
+                    $newAddon = [pscustomobject]@{Name = "ingress"; Implementations = @("traefik") } 
+                    Write-Information "Config for addon '$($addon.Name)' migrated."
+                }
+                "metrics-server" { 
+                    $newAddon = [pscustomobject]@{Name = "metrics"} 
+                    Write-Information "Config for addon '$($addon.Name)' migrated."
+                }
+                "smb-share" { 
+                    $newAddon = [pscustomobject]@{Name = "storage"} 
+                    Write-Information "Config for addon '$($addon.Name)' migrated."
+                }
             }
+        }
+        elseif ($addon -isnot [pscustomobject]) {
+            throw "Unexpected addon config type '$($addon.GetType().Name)'"
         }
 
         $newConfig.Add($newAddon) > $null

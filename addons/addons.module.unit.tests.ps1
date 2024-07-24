@@ -76,10 +76,10 @@ Describe 'ConvertTo-NewConfigStructure' -Tag 'unit', 'ci', 'addon' {
     Context 'config structure needs to be migrated from <= v0.5 to current version' {
         BeforeAll {
             [Diagnostics.CodeAnalysis.SuppressMessageAttribute('UseDeclaredVarsMoreThanAssignments', '', Justification = 'Pester Test')]
-            $oldConfig = ConvertFrom-Json '[ "metrics", "dashboard", "ingress nginx" ]'
+            $oldConfig = ConvertFrom-Json '[ "gateway-nginx", "metrics-server", "dashboard", "ingress-nginx", "traefik", "smb-share" ]'
 
             [Diagnostics.CodeAnalysis.SuppressMessageAttribute('UseDeclaredVarsMoreThanAssignments', '', Justification = 'Pester Test')]
-            $expectedResult = [pscustomobject]@{Name = 'metrics' }, [pscustomobject]@{Name = 'dashboard' }, [pscustomobject]@{Name = 'ingress nginx' }
+            $expectedResult = [pscustomobject]@{Name = 'gateway-api' }, [pscustomobject]@{Name = 'metrics' }, [pscustomobject]@{Name = 'dashboard' }, [pscustomobject]@{Name = 'ingress'; Implementations = @("nginx")}, [pscustomobject]@{Name = 'ingress'; Implementations = @("traefik")}, [pscustomobject]@{Name = 'storage' } 
         }
 
         BeforeEach {
@@ -97,25 +97,47 @@ Describe 'ConvertTo-NewConfigStructure' -Tag 'unit', 'ci', 'addon' {
             InModuleScope -ModuleName $moduleName -Parameters @{oldConfig = $oldConfig; log = $log } {
                 ConvertTo-NewConfigStructure -Config $oldConfig
 
-                $log.Count | Should -Be 3
-                $log[0] | Should -Be "Config for addon 'metrics' migrated."
-                $log[1] | Should -Be "Config for addon 'dashboard' migrated."
-                $log[2] | Should -Be "Config for addon 'ingress nginx' migrated."
+                $log.Count | Should -Be 6
+                $log[0] | Should -Be "Config for addon 'gateway-nginx' migrated."
+                $log[1] | Should -Be "Config for addon 'metrics-server' migrated."
+                $log[2] | Should -Be "Config for addon 'dashboard' migrated."
+                $log[3] | Should -Be "Config for addon 'ingress-nginx' migrated."
+                $log[4] | Should -Be "Config for addon 'traefik' migrated."
+                $log[5] | Should -Be "Config for addon 'smb-share' migrated."
             }
         }
     }
 
-    Context 'config structure is up to date' {
+    Context 'config structure needs to be migrated from v0.5 < version <= v1.1.1 to current version' {
         BeforeAll {
-            $oldConfig = [pscustomobject]@{Name = 'metrics' }, [pscustomobject]@{Name = 'dashboard' }, [pscustomobject]@{Name = 'ingress-nginx' }
+            [Diagnostics.CodeAnalysis.SuppressMessageAttribute('UseDeclaredVarsMoreThanAssignments', '', Justification = 'Pester Test')]
+            $oldConfig = [pscustomobject]@{Name = 'gateway-nginx' }, [pscustomobject]@{Name = 'metrics-server' }, [pscustomobject]@{Name = 'dashboard' }, [pscustomobject]@{Name = 'ingress-nginx'}, [pscustomobject]@{Name = 'traefik'}, [pscustomobject]@{Name = 'smb-share' } 
 
             [Diagnostics.CodeAnalysis.SuppressMessageAttribute('UseDeclaredVarsMoreThanAssignments', '', Justification = 'Pester Test')]
-            $expectedResult = $oldConfig
+            $expectedResult = [pscustomobject]@{Name = 'gateway-api' }, [pscustomobject]@{Name = 'metrics' }, [pscustomobject]@{Name = 'dashboard' }, [pscustomobject]@{Name = 'ingress'; Implementations = @("nginx")}, [pscustomobject]@{Name = 'ingress'; Implementations = @("traefik")}, [pscustomobject]@{Name = 'storage' } 
         }
 
-        It 'keeps the structure as is' {
+        BeforeEach {
+            $log = [System.Collections.ArrayList]@()
+            Mock -ModuleName $moduleName Write-Information { $log.Add($MessageData) | Out-Null }
+        }
+    
+        It 'migrates the structure correctly' {
             InModuleScope -ModuleName $moduleName -Parameters @{oldConfig = $oldConfig; expectedResult = $expectedResult } {
                 ConvertTo-NewConfigStructure -Config $oldConfig | ConvertTo-Json | Should -Be $($expectedResult | ConvertTo-Json)
+            }
+        }
+
+        It 'logs the migration for each addon' {
+            InModuleScope -ModuleName $moduleName -Parameters @{oldConfig = $oldConfig; log = $log } {
+                ConvertTo-NewConfigStructure -Config $oldConfig
+
+                $log.Count | Should -Be 5
+                $log[0] | Should -Be "Config for addon 'gateway-nginx' migrated."
+                $log[1] | Should -Be "Config for addon 'metrics-server' migrated."
+                $log[2] | Should -Be "Config for addon 'ingress-nginx' migrated."
+                $log[3] | Should -Be "Config for addon 'traefik' migrated."
+                $log[4] | Should -Be "Config for addon 'smb-share' migrated."
             }
         }
     }
