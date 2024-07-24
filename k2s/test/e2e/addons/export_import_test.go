@@ -116,13 +116,7 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 
 			for _, a := range allAddons {
 				for _, i := range a.Spec.Implementations {
-					contains := false
-					if a.Metadata.Name != i.Name {
-						contains = slices.Contains(exportedAddons, (filepath.Base(a.Directory) + "_" + i.Name))
-					} else {
-						contains = slices.Contains(exportedAddons, filepath.Base(a.Directory))
-					}
-
+					contains := slices.Contains(exportedAddons, i.ExportDirectoryName)
 					Expect(contains).To(BeTrue())
 				}
 			}
@@ -136,14 +130,8 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 		It("all resources have been exported", func(ctx context.Context) {
 			for _, a := range allAddons {
 				for _, i := range a.Spec.Implementations {
-					addonName := a.Metadata.Name
-					dirName := filepath.Base(a.Directory)
-					if i.Name != addonName {
-						addonName += " " + i.Name
-						dirName += "_" + i.Name
-					}
-					GinkgoWriter.Println("Addon:", addonName, ", Directory name:", dirName)
-					addonExportDir := filepath.Join(exportPath, "addons", dirName)
+					GinkgoWriter.Println("Addon:", a.Metadata.Name, ", Implementation:", i.Name, ", Directory name:", i.ExportDirectoryName)
+					addonExportDir := filepath.Join(exportPath, "addons", i.ExportDirectoryName)
 
 					images, err := suite.AddonsAdditionalInfo().GetImagesForAddonImplementation(i)
 
@@ -190,14 +178,18 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 			// clean all downloaded
 			GinkgoWriter.Println("remove all download debian packages")
 			for _, a := range allAddons {
-				suite.K2sCli().Run(ctx, "system", "ssh", "m", "--", "sudo rm -rf", fmt.Sprintf(".%s", filepath.Base(a.Directory)))
+				for _, i := range a.Spec.Implementations {
+					suite.K2sCli().Run(ctx, "system", "ssh", "m", "--", "sudo rm -rf", fmt.Sprintf(".%s", i.ExportDirectoryName))
+				}
 			}
 		})
 
 		It("no debian packages available before import", func(ctx context.Context) {
 			for _, a := range allAddons {
-				exists := suite.K2sCli().Run(ctx, "system", "ssh", "m", "--", fmt.Sprintf("[ -d .%s ] && echo .%s exists", filepath.Base(a.Directory), filepath.Base(a.Directory)))
-				Expect(exists).To(BeEmpty())
+				for _, i := range a.Spec.Implementations {
+					exists := suite.K2sCli().Run(ctx, "system", "ssh", "m", "--", fmt.Sprintf("[ -d .%s ] && echo .%s exists", i.ExportDirectoryName, i.ExportDirectoryName))
+					Expect(exists).To(BeEmpty())
+				}
 			}
 		})
 
@@ -223,12 +215,8 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 		It("debian packages available after import", func(ctx context.Context) {
 			for _, a := range allAddons {
 				for _, i := range a.Spec.Implementations {
-					dirName := filepath.Base(a.Directory)
-					if i.Name != a.Metadata.Name {
-						dirName += "_" + i.Name
-					}
 					for _, v := range i.OfflineUsage.LinuxResources.DebPackages {
-						exists := suite.K2sCli().Run(ctx, "system", "ssh", "m", "--", fmt.Sprintf("[ -d .%s/%s ] && echo .%s/%s exists", dirName, v, dirName, v))
+						exists := suite.K2sCli().Run(ctx, "system", "ssh", "m", "--", fmt.Sprintf("[ -d .%s/%s ] && echo .%s/%s exists", i.ExportDirectoryName, v, i.ExportDirectoryName, v))
 						Expect(exists).ToNot(BeEmpty())
 					}
 				}
