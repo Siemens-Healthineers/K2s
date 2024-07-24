@@ -1459,7 +1459,7 @@ Describe 'Enable-SmbShare' -Tag 'unit', 'ci', 'addon', 'storage' {
     Context 'addon is already enabled' {
         BeforeAll {
             Mock -ModuleName $moduleName Test-SystemAvailability { }
-            Mock -ModuleName $moduleName Test-IsAddonEnabled { return $true } -ParameterFilter { $Name -eq ([pscustomobject] @{Name = $AddonName }) } 
+            Mock -ModuleName $moduleName Test-IsAddonEnabled { return $true } -ParameterFilter { $Addon.Name -eq $AddonName } 
         }
 
         It 'returns error' {
