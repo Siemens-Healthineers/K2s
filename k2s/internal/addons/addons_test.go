@@ -6,6 +6,7 @@ package addons
 import (
 	"errors"
 	"log/slog"
+	"path/filepath"
 	"testing"
 
 	r "github.com/siemens-healthineers/k2s/internal/reflection"
@@ -473,7 +474,7 @@ var _ = Describe("addons", func() {
 				path := dir + "\\test-path"
 				data := []byte{1, 2, 3}
 				var genericJson any
-				addon := Addon{Metadata: AddonMetadata{Name: "test-name", Description: "test-description"}}
+				addon := Addon{Metadata: AddonMetadata{Name: "test-name", Description: "test-description"}, Spec: AddonSpec{Implementations: []Implementation{{Name: "test-implementation"}}}}
 
 				schemaValidationMock := &mockObject{}
 				schemaValidationMock.On(r.GetFunctionName(schemaValidationMock.validateAgainstSchema), genericJson).Return(nil)
@@ -524,6 +525,7 @@ var _ = Describe("addons", func() {
 						Description: "test-description",
 					},
 					Directory: dir,
+					Spec:      AddonSpec{Implementations: []Implementation{{Name: "test-implementation", Directory: filepath.Join(dir, "test-implementation")}}},
 				}))
 			})
 		})

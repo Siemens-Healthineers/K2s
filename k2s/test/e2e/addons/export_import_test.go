@@ -115,8 +115,16 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 			})
 
 			for _, a := range allAddons {
-				contains := slices.Contains(exportedAddons, filepath.Base(a.Directory))
-				Expect(contains).To(BeTrue())
+				for _, i := range a.Spec.Implementations {
+					contains := false
+					if a.Metadata.Name != i.Name {
+						contains = slices.Contains(exportedAddons, (filepath.Base(a.Directory) + "_" + i.Name))
+					} else {
+						contains = slices.Contains(exportedAddons, filepath.Base(a.Directory))
+					}
+
+					Expect(contains).To(BeTrue())
+				}
 			}
 
 			for _, e := range exportedAddons {
@@ -137,7 +145,7 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 					GinkgoWriter.Println("Addon:", addonName, ", Directory name:", dirName)
 					addonExportDir := filepath.Join(exportPath, "addons", dirName)
 
-					images, err := suite.AddonsAdditionalInfo().GetImagesForAddon(a, i)
+					images, err := suite.AddonsAdditionalInfo().GetImagesForAddonImplementation(i)
 
 					Expect(err).ToNot(HaveOccurred())
 
@@ -231,7 +239,7 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 			importedImages := suite.K2sCli().GetImages(ctx).GetContainerImages()
 			for _, a := range allAddons {
 				for _, i := range a.Spec.Implementations {
-					images, err := suite.AddonsAdditionalInfo().GetImagesForAddon(a, i)
+					images, err := suite.AddonsAdditionalInfo().GetImagesForAddonImplementation(i)
 					Expect(err).To(BeNil())
 
 					for _, i := range images {

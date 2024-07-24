@@ -110,12 +110,25 @@ function ConvertTo-NewConfigStructure {
     foreach ($addon in $Config) {
         $newAddon = $addon
         if ($addon -is [string]) {
-            $newAddon = [pscustomobject]@{Name = $addon }
+            switch ($addon) {
+                "gateway-nginx" { $newAddon = [pscustomobject]@{Name = "gateway-api"} }
+                "ingress-nginx" { $newAddon = [pscustomobject]@{Name = "ingress"; Implementations = @("nginx") } }
+                "traefik" { $newAddon = [pscustomobject]@{Name = "ingress"; Implementations = @("traefik") } }
+                "metrics-server" { $newAddon = [pscustomobject]@{Name = "metrics"} }
+                "smb-share" { $newAddon = [pscustomobject]@{Name = "storage"} }
+                Default { $newAddon = [pscustomobject]@{Name = $addon } }
+            }
 
             Write-Information "Config for addon '$addon' migrated."
         }
-        elseif ($addon -isnot [pscustomobject]) {
-            throw "Unexpected addon config type '$($addon.GetType().Name)'"
+        elseif ($addon -is [pscustomobject]) {
+            switch ($addon.Name) {
+                "gateway-nginx" { $newAddon = [pscustomobject]@{Name = "gateway-api"} }
+                "ingress-nginx" { $newAddon = [pscustomobject]@{Name = "ingress"; Implementations = @("nginx") } }
+                "traefik" { $newAddon = [pscustomobject]@{Name = "ingress"; Implementations = @("traefik") } }
+                "metrics-server" { $newAddon = [pscustomobject]@{Name = "metrics"} }
+                "smb-share" { $newAddon = [pscustomobject]@{Name = "storage"} }
+            }
         }
 
         $newConfig.Add($newAddon) > $null
@@ -680,7 +693,7 @@ function Update-IngressForAddons {
     Write-Log "Adapting ingress entries for addons, security is on: $Enable" -Console
 
     # check ingress type
-    if (Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'ingress'; Implementation = 'nginx' }) -eq $false) {
+    if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'ingress'; Implementation = 'nginx' })) -eq $false) {
         Write-Log 'Traefik ingress is used, adaptions cannot be made for traefik, please use nginx!' -Console
         return
     }

@@ -87,12 +87,8 @@ func (info *AddonsAdditionalInfo) AllAddons() addons.Addons {
 	return allAddons
 }
 
-func (info *AddonsAdditionalInfo) GetImagesForAddon(addon addons.Addon, implementation addons.Implementation) ([]string, error) {
-	dir := addon.Directory
-	if addon.Metadata.Name != implementation.Name {
-		dir = filepath.Join(addon.Directory, implementation.Name)
-	}
-	yamlFiles, err := sos.GetFilesMatch(dir, "*.yaml")
+func (info *AddonsAdditionalInfo) GetImagesForAddonImplementation(implementation addons.Implementation) ([]string, error) {
+	yamlFiles, err := sos.GetFilesMatch(implementation.Directory, "*.yaml")
 	if err != nil {
 		return nil, err
 	}

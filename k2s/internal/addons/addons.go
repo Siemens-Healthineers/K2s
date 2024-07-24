@@ -64,6 +64,7 @@ type CurlPackages struct {
 type Implementation struct {
 	Name         string               `yaml:"name"`
 	Description  string               `yaml:"description"`
+	Directory    string               // infered from manifest location
 	Commands     *map[string]AddonCmd `yaml:"commands"`
 	OfflineUsage OfflineUsage         `yaml:"offline_usage"`
 }
@@ -339,6 +340,14 @@ func loadAndValidate(params loadParams) (addons []Addon, err error) {
 		}
 
 		addon.Directory = filepath.Dir(path)
+
+		for i, impl := range addon.Spec.Implementations {
+			if addon.Metadata.Name != impl.Name {
+				addon.Spec.Implementations[i].Directory = filepath.Join(addon.Directory, impl.Name)
+			} else {
+				addon.Spec.Implementations[i].Directory = addon.Directory
+			}
+		}
 
 		addons = append(addons, addon)
 		return nil

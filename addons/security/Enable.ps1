@@ -78,7 +78,7 @@ if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'security' })) -eq $t
 Write-Log 'Downloading cert-manager files' -Console
 $manifest = Get-FromYamlFile -Path "$PSScriptRoot\addon.manifest.yaml"
 $k2sRoot = "$PSScriptRoot\..\.."
-$windowsCurlPackages = $manifest.spec.offline_usage.windows.curl
+$windowsCurlPackages = $manifest.spec.implementations[0].offline_usage.windows.curl
 if ($windowsCurlPackages) {
     foreach ($package in $windowsCurlPackages) {
         $destination = $package.destination
