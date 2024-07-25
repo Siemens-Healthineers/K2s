@@ -38,7 +38,7 @@ $dockerConfigDir = Expand-Path $configDir.psobject.properties['docker'].value
 $k2sConfigDir = Expand-Path $configDir.psobject.properties['k2s'].value
 
 $sshKeyFileName = 'id_rsa'
-$kubernetesImagesJsonFile = "$kubeConfigDir\kubernetes_images.json"
+$kubernetesImagesJsonFile = "$k2sConfigDir\kubernetes_images.json"
 $sshKeyControlPlane = "$sshConfigDir\kubemaster\$sshKeyFileName"
 
 #NETWORKING
