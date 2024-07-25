@@ -32,7 +32,7 @@ As a `K2s` user, I want an overview of the cluster's networking health, particul
 
 A key step in ensuring a healthy cluster, both during initial deployment and ongoing operation, is to verify pod-to-pod and node-to-node communication. This functionality is a prerequisite for a functioning cluster. As a user, I do not have a mechanism to verify the cluster networking. This needs an dynamic deployment of pods on each nodes and verify the communication among them which is arduous and highly likely to miss out verifying connectivity in certain combination.
 
-[<img src="k2s-network-status-dark.png" width="500"/>](k2s-network-status-dark.png)
+[<img src="k2s-network-status-dark.png" width="800"/>](k2s-network-status-dark.png)
 
 ### Goals
 
@@ -60,7 +60,7 @@ A key step in ensuring a healthy cluster, both during initial deployment and ong
 
 Sample output for the user:
 
-[<img src="sample-status-network.png" width="500"/>](sample-status-network.png)
+[<img src="sample-status-network.png" width="800"/>](sample-status-network.png)
 
 ### User Stories
 
