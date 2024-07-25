@@ -44,7 +44,7 @@ spec:
             - "-v=2"
             - "--csi-address=$(ADDRESS)"
             - "--leader-election"
-            - "--leader-election-namespace=kube-system"
+            - "--leader-election-namespace=storage"
             - "--extra-create-metadata=true"
           env:
             - name: ADDRESS

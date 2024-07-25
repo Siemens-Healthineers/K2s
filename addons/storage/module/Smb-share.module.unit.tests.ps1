@@ -29,7 +29,7 @@ Describe 'Test-CsiPodsCondition' -Tag 'unit', 'ci', 'addon', 'storage' {
             Context 'Linux node Pod not running' {
                 BeforeAll {
                     Mock -ModuleName $moduleName Wait-ForPodCondition { return $false } -ParameterFilter {
-                        $Condition -eq 'Ready' -and $Label -eq 'app=csi-smb-node' -and $Namespace -eq 'kube-system' -and $TimeoutSeconds -eq 0 }
+                        $Condition -eq 'Ready' -and $Label -eq 'app=csi-smb-node' -and $Namespace -eq 'storage' -and $TimeoutSeconds -eq 0 }
                 }
 
                 It 'returns $false' {
@@ -42,9 +42,9 @@ Describe 'Test-CsiPodsCondition' -Tag 'unit', 'ci', 'addon', 'storage' {
             Context 'controller Pod not running' {
                 BeforeAll {
                     Mock -ModuleName $moduleName Wait-ForPodCondition { return $true } -ParameterFilter {
-                        $Condition -eq 'Ready' -and $Label -eq 'app=csi-smb-node' -and $Namespace -eq 'kube-system' -and $TimeoutSeconds -eq 0 }
+                        $Condition -eq 'Ready' -and $Label -eq 'app=csi-smb-node' -and $Namespace -eq 'storage' -and $TimeoutSeconds -eq 0 }
                     Mock -ModuleName $moduleName Wait-ForPodCondition { return $false } -ParameterFilter {
-                        $Condition -eq 'Ready' -and $Label -eq 'app=csi-smb-controller' -and $Namespace -eq 'kube-system' -and $TimeoutSeconds -eq 0 }
+                        $Condition -eq 'Ready' -and $Label -eq 'app=csi-smb-controller' -and $Namespace -eq 'storage' -and $TimeoutSeconds -eq 0 }
                 }
 
                 It 'returns $false' {
@@ -57,9 +57,9 @@ Describe 'Test-CsiPodsCondition' -Tag 'unit', 'ci', 'addon', 'storage' {
             Context 'all Pods running' {
                 BeforeAll {
                     Mock -ModuleName $moduleName Wait-ForPodCondition { return $true } -ParameterFilter {
-                        $Condition -eq 'Ready' -and $Label -eq 'app=csi-smb-node' -and $Namespace -eq 'kube-system' -and $TimeoutSeconds -eq 0 }
+                        $Condition -eq 'Ready' -and $Label -eq 'app=csi-smb-node' -and $Namespace -eq 'storage' -and $TimeoutSeconds -eq 0 }
                     Mock -ModuleName $moduleName Wait-ForPodCondition { return $true } -ParameterFilter {
-                        $Condition -eq 'Ready' -and $Label -eq 'app=csi-smb-controller' -and $Namespace -eq 'kube-system' -and $TimeoutSeconds -eq 0 }
+                        $Condition -eq 'Ready' -and $Label -eq 'app=csi-smb-controller' -and $Namespace -eq 'storage' -and $TimeoutSeconds -eq 0 }
                 }
 
                 It 'returns $true' {
@@ -74,7 +74,7 @@ Describe 'Test-CsiPodsCondition' -Tag 'unit', 'ci', 'addon', 'storage' {
             Context 'Linux node Pod not deleted' {
                 BeforeAll {
                     Mock -ModuleName $moduleName Wait-ForPodCondition { return $false } -ParameterFilter {
-                        $Condition -eq 'Deleted' -and $Label -eq 'app=csi-smb-node' -and $Namespace -eq 'kube-system' -and $TimeoutSeconds -eq 123 }
+                        $Condition -eq 'Deleted' -and $Label -eq 'app=csi-smb-node' -and $Namespace -eq 'storage' -and $TimeoutSeconds -eq 123 }
                 }
 
                 It 'returns $false' {
@@ -87,9 +87,9 @@ Describe 'Test-CsiPodsCondition' -Tag 'unit', 'ci', 'addon', 'storage' {
             Context 'controller Pod not deleted' {
                 BeforeAll {
                     Mock -ModuleName $moduleName Wait-ForPodCondition { return $true } -ParameterFilter {
-                        $Condition -eq 'Deleted' -and $Label -eq 'app=csi-smb-node' -and $Namespace -eq 'kube-system' -and $TimeoutSeconds -eq 123 }
+                        $Condition -eq 'Deleted' -and $Label -eq 'app=csi-smb-node' -and $Namespace -eq 'storage' -and $TimeoutSeconds -eq 123 }
                     Mock -ModuleName $moduleName Wait-ForPodCondition { return $false } -ParameterFilter {
-                        $Condition -eq 'Deleted' -and $Label -eq 'app=csi-smb-controller' -and $Namespace -eq 'kube-system' -and $TimeoutSeconds -eq 123 }
+                        $Condition -eq 'Deleted' -and $Label -eq 'app=csi-smb-controller' -and $Namespace -eq 'storage' -and $TimeoutSeconds -eq 123 }
                 }
 
                 It 'returns $false' {
@@ -102,9 +102,9 @@ Describe 'Test-CsiPodsCondition' -Tag 'unit', 'ci', 'addon', 'storage' {
             Context 'all Pods deleted' {
                 BeforeAll {
                     Mock -ModuleName $moduleName Wait-ForPodCondition { return $true } -ParameterFilter {
-                        $Condition -eq 'Deleted' -and $Label -eq 'app=csi-smb-node' -and $Namespace -eq 'kube-system' -and $TimeoutSeconds -eq 123 }
+                        $Condition -eq 'Deleted' -and $Label -eq 'app=csi-smb-node' -and $Namespace -eq 'storage' -and $TimeoutSeconds -eq 123 }
                     Mock -ModuleName $moduleName Wait-ForPodCondition { return $true } -ParameterFilter {
-                        $Condition -eq 'Deleted' -and $Label -eq 'app=csi-smb-controller' -and $Namespace -eq 'kube-system' -and $TimeoutSeconds -eq 123 }
+                        $Condition -eq 'Deleted' -and $Label -eq 'app=csi-smb-controller' -and $Namespace -eq 'storage' -and $TimeoutSeconds -eq 123 }
                 }
 
                 It 'returns $true' {
@@ -125,11 +125,11 @@ Describe 'Test-CsiPodsCondition' -Tag 'unit', 'ci', 'addon', 'storage' {
             Context 'Windows node Pod not running' {
                 BeforeAll {
                     Mock -ModuleName $moduleName Wait-ForPodCondition { return $true } -ParameterFilter {
-                        $Condition -eq 'Ready' -and $Label -eq 'app=csi-smb-node' -and $Namespace -eq 'kube-system' -and $TimeoutSeconds -eq 0 }
+                        $Condition -eq 'Ready' -and $Label -eq 'app=csi-smb-node' -and $Namespace -eq 'storage' -and $TimeoutSeconds -eq 0 }
                     Mock -ModuleName $moduleName Wait-ForPodCondition { return $true } -ParameterFilter {
-                        $Condition -eq 'Ready' -and $Label -eq 'app=csi-smb-controller' -and $Namespace -eq 'kube-system' -and $TimeoutSeconds -eq 0 }
+                        $Condition -eq 'Ready' -and $Label -eq 'app=csi-smb-controller' -and $Namespace -eq 'storage' -and $TimeoutSeconds -eq 0 }
                     Mock -ModuleName $moduleName Wait-ForPodCondition { return $false } -ParameterFilter {
-                        $Condition -eq 'Ready' -and $Label -eq 'app=csi-smb-node-win' -and $Namespace -eq 'kube-system' -and $TimeoutSeconds -eq 0 }
+                        $Condition -eq 'Ready' -and $Label -eq 'app=csi-smb-node-win' -and $Namespace -eq 'storage' -and $TimeoutSeconds -eq 0 }
                 }
 
                 It 'returns $false' {
@@ -142,13 +142,13 @@ Describe 'Test-CsiPodsCondition' -Tag 'unit', 'ci', 'addon', 'storage' {
             Context 'proxy Pod not running' {
                 BeforeAll {
                     Mock -ModuleName $moduleName Wait-ForPodCondition { return $true } -ParameterFilter {
-                        $Condition -eq 'Ready' -and $Label -eq 'app=csi-smb-node' -and $Namespace -eq 'kube-system' -and $TimeoutSeconds -eq 0 }
+                        $Condition -eq 'Ready' -and $Label -eq 'app=csi-smb-node' -and $Namespace -eq 'storage' -and $TimeoutSeconds -eq 0 }
                     Mock -ModuleName $moduleName Wait-ForPodCondition { return $true } -ParameterFilter {
-                        $Condition -eq 'Ready' -and $Label -eq 'app=csi-smb-controller' -and $Namespace -eq 'kube-system' -and $TimeoutSeconds -eq 0 }
+                        $Condition -eq 'Ready' -and $Label -eq 'app=csi-smb-controller' -and $Namespace -eq 'storage' -and $TimeoutSeconds -eq 0 }
                     Mock -ModuleName $moduleName Wait-ForPodCondition { return $true } -ParameterFilter {
-                        $Condition -eq 'Ready' -and $Label -eq 'app=csi-smb-node-win' -and $Namespace -eq 'kube-system' -and $TimeoutSeconds -eq 0 }
+                        $Condition -eq 'Ready' -and $Label -eq 'app=csi-smb-node-win' -and $Namespace -eq 'storage' -and $TimeoutSeconds -eq 0 }
                     Mock -ModuleName $moduleName Wait-ForPodCondition { return $false } -ParameterFilter {
-                        $Condition -eq 'Ready' -and $Label -eq 'k8s-app=csi-proxy' -and $Namespace -eq 'kube-system' -and $TimeoutSeconds -eq 0 }
+                        $Condition -eq 'Ready' -and $Label -eq 'k8s-app=csi-proxy' -and $Namespace -eq 'storage' -and $TimeoutSeconds -eq 0 }
                 }
 
                 It 'returns $false' {
@@ -161,13 +161,13 @@ Describe 'Test-CsiPodsCondition' -Tag 'unit', 'ci', 'addon', 'storage' {
             Context 'all Pods running' {
                 BeforeAll {
                     Mock -ModuleName $moduleName Wait-ForPodCondition { return $true } -ParameterFilter {
-                        $Condition -eq 'Ready' -and $Label -eq 'app=csi-smb-node' -and $Namespace -eq 'kube-system' -and $TimeoutSeconds -eq 0 }
+                        $Condition -eq 'Ready' -and $Label -eq 'app=csi-smb-node' -and $Namespace -eq 'storage' -and $TimeoutSeconds -eq 0 }
                     Mock -ModuleName $moduleName Wait-ForPodCondition { return $true } -ParameterFilter {
-                        $Condition -eq 'Ready' -and $Label -eq 'app=csi-smb-controller' -and $Namespace -eq 'kube-system' -and $TimeoutSeconds -eq 0 }
+                        $Condition -eq 'Ready' -and $Label -eq 'app=csi-smb-controller' -and $Namespace -eq 'storage' -and $TimeoutSeconds -eq 0 }
                     Mock -ModuleName $moduleName Wait-ForPodCondition { return $true } -ParameterFilter {
-                        $Condition -eq 'Ready' -and $Label -eq 'app=csi-smb-node-win' -and $Namespace -eq 'kube-system' -and $TimeoutSeconds -eq 0 }
+                        $Condition -eq 'Ready' -and $Label -eq 'app=csi-smb-node-win' -and $Namespace -eq 'storage' -and $TimeoutSeconds -eq 0 }
                     Mock -ModuleName $moduleName Wait-ForPodCondition { return $true } -ParameterFilter {
-                        $Condition -eq 'Ready' -and $Label -eq 'k8s-app=csi-proxy' -and $Namespace -eq 'kube-system' -and $TimeoutSeconds -eq 0 }
+                        $Condition -eq 'Ready' -and $Label -eq 'k8s-app=csi-proxy' -and $Namespace -eq 'storage' -and $TimeoutSeconds -eq 0 }
                 }
 
                 It 'returns $true' {
@@ -182,11 +182,11 @@ Describe 'Test-CsiPodsCondition' -Tag 'unit', 'ci', 'addon', 'storage' {
             Context 'Windows node Pod not deleted' {
                 BeforeAll {
                     Mock -ModuleName $moduleName Wait-ForPodCondition { return $true } -ParameterFilter {
-                        $Condition -eq 'Deleted' -and $Label -eq 'app=csi-smb-node' -and $Namespace -eq 'kube-system' -and $TimeoutSeconds -eq 123 }
+                        $Condition -eq 'Deleted' -and $Label -eq 'app=csi-smb-node' -and $Namespace -eq 'storage' -and $TimeoutSeconds -eq 123 }
                     Mock -ModuleName $moduleName Wait-ForPodCondition { return $true } -ParameterFilter {
-                        $Condition -eq 'Deleted' -and $Label -eq 'app=csi-smb-controller' -and $Namespace -eq 'kube-system' -and $TimeoutSeconds -eq 123 }
+                        $Condition -eq 'Deleted' -and $Label -eq 'app=csi-smb-controller' -and $Namespace -eq 'storage' -and $TimeoutSeconds -eq 123 }
                     Mock -ModuleName $moduleName Wait-ForPodCondition { return $false } -ParameterFilter {
-                        $Condition -eq 'Deleted' -and $Label -eq 'app=csi-smb-node-win' -and $Namespace -eq 'kube-system' -and $TimeoutSeconds -eq 123 }
+                        $Condition -eq 'Deleted' -and $Label -eq 'app=csi-smb-node-win' -and $Namespace -eq 'storage' -and $TimeoutSeconds -eq 123 }
                 }
 
                 It 'returns $false' {
@@ -199,13 +199,13 @@ Describe 'Test-CsiPodsCondition' -Tag 'unit', 'ci', 'addon', 'storage' {
             Context 'proxy Pod not deleted' {
                 BeforeAll {
                     Mock -ModuleName $moduleName Wait-ForPodCondition { return $true } -ParameterFilter {
-                        $Condition -eq 'Deleted' -and $Label -eq 'app=csi-smb-node' -and $Namespace -eq 'kube-system' -and $TimeoutSeconds -eq 123 }
+                        $Condition -eq 'Deleted' -and $Label -eq 'app=csi-smb-node' -and $Namespace -eq 'storage' -and $TimeoutSeconds -eq 123 }
                     Mock -ModuleName $moduleName Wait-ForPodCondition { return $true } -ParameterFilter {
-                        $Condition -eq 'Deleted' -and $Label -eq 'app=csi-smb-controller' -and $Namespace -eq 'kube-system' -and $TimeoutSeconds -eq 123 }
+                        $Condition -eq 'Deleted' -and $Label -eq 'app=csi-smb-controller' -and $Namespace -eq 'storage' -and $TimeoutSeconds -eq 123 }
                     Mock -ModuleName $moduleName Wait-ForPodCondition { return $true } -ParameterFilter {
-                        $Condition -eq 'Deleted' -and $Label -eq 'app=csi-smb-node-win' -and $Namespace -eq 'kube-system' -and $TimeoutSeconds -eq 123 }
+                        $Condition -eq 'Deleted' -and $Label -eq 'app=csi-smb-node-win' -and $Namespace -eq 'storage' -and $TimeoutSeconds -eq 123 }
                     Mock -ModuleName $moduleName Wait-ForPodCondition { return $false } -ParameterFilter {
-                        $Condition -eq 'Deleted' -and $Label -eq 'k8s-app=csi-proxy' -and $Namespace -eq 'kube-system' -and $TimeoutSeconds -eq 123 }
+                        $Condition -eq 'Deleted' -and $Label -eq 'k8s-app=csi-proxy' -and $Namespace -eq 'storage' -and $TimeoutSeconds -eq 123 }
                 }
 
                 It 'returns $false' {
@@ -218,13 +218,13 @@ Describe 'Test-CsiPodsCondition' -Tag 'unit', 'ci', 'addon', 'storage' {
             Context 'all Pods deleted' {
                 BeforeAll {
                     Mock -ModuleName $moduleName Wait-ForPodCondition { return $true } -ParameterFilter {
-                        $Condition -eq 'Deleted' -and $Label -eq 'app=csi-smb-node' -and $Namespace -eq 'kube-system' -and $TimeoutSeconds -eq 123 }
+                        $Condition -eq 'Deleted' -and $Label -eq 'app=csi-smb-node' -and $Namespace -eq 'storage' -and $TimeoutSeconds -eq 123 }
                     Mock -ModuleName $moduleName Wait-ForPodCondition { return $true } -ParameterFilter {
-                        $Condition -eq 'Deleted' -and $Label -eq 'app=csi-smb-controller' -and $Namespace -eq 'kube-system' -and $TimeoutSeconds -eq 123 }
+                        $Condition -eq 'Deleted' -and $Label -eq 'app=csi-smb-controller' -and $Namespace -eq 'storage' -and $TimeoutSeconds -eq 123 }
                     Mock -ModuleName $moduleName Wait-ForPodCondition { return $true } -ParameterFilter {
-                        $Condition -eq 'Deleted' -and $Label -eq 'app=csi-smb-node-win' -and $Namespace -eq 'kube-system' -and $TimeoutSeconds -eq 123 }
+                        $Condition -eq 'Deleted' -and $Label -eq 'app=csi-smb-node-win' -and $Namespace -eq 'storage' -and $TimeoutSeconds -eq 123 }
                     Mock -ModuleName $moduleName Wait-ForPodCondition { return $true } -ParameterFilter {
-                        $Condition -eq 'Deleted' -and $Label -eq 'k8s-app=csi-proxy' -and $Namespace -eq 'kube-system' -and $TimeoutSeconds -eq 123 }
+                        $Condition -eq 'Deleted' -and $Label -eq 'k8s-app=csi-proxy' -and $Namespace -eq 'storage' -and $TimeoutSeconds -eq 123 }
                 }
 
                 It 'returns $true' {
@@ -739,7 +739,7 @@ Describe 'Restore-StorageClass' -Tag 'unit', 'ci', 'addon', 'storage' {
         It 'creates SMB creds secret' {
             InModuleScope -ModuleName $moduleName {
                 Should -Invoke Add-Secret -Times 1 -Scope Context -ParameterFilter {
-                    $Name -eq $script:smbCredsName -and $Namespace -eq 'kube-system' -and $Literals -contains "username=$script:smbUserName" -and $Literals -contains "password=$($creds.GetNetworkCredential().Password)"
+                    $Name -eq $script:smbCredsName -and $Namespace -eq 'storage' -and $Literals -contains "username=$script:smbUserName" -and $Literals -contains "password=$($creds.GetNetworkCredential().Password)"
                 }
             }
         }
@@ -869,7 +869,7 @@ Describe 'Remove-StorageClass' -Tag 'unit', 'ci', 'addon', 'storage' {
 
             It 'deletes the SMB creds secret' {
                 InModuleScope -ModuleName $moduleName {
-                    Should -Invoke Remove-Secret -Times 1 -Scope Context -ParameterFilter { $Name -eq $script:smbCredsName -and $Namespace -eq 'kube-system' }
+                    Should -Invoke Remove-Secret -Times 1 -Scope Context -ParameterFilter { $Name -eq $script:smbCredsName -and $Namespace -eq 'storage' }
                 }
             }
         }
@@ -911,7 +911,7 @@ Describe 'Remove-StorageClass' -Tag 'unit', 'ci', 'addon', 'storage' {
 
             It 'deletes the SMB creds secret' {
                 InModuleScope -ModuleName $moduleName {
-                    Should -Invoke Remove-Secret -Times 1 -Scope Context -ParameterFilter { $Name -eq $script:smbCredsName -and $Namespace -eq 'kube-system' }
+                    Should -Invoke Remove-Secret -Times 1 -Scope Context -ParameterFilter { $Name -eq $script:smbCredsName -and $Namespace -eq 'storage' }
                 }
             }
         }
@@ -938,6 +938,7 @@ Describe 'Remove-StorageClass' -Tag 'unit', 'ci', 'addon', 'storage' {
             Mock -ModuleName $moduleName Test-Path { return $false } -ParameterFilter { $Path -match $script:patchFilePath }
             Mock -ModuleName $moduleName Write-Log {}
             Mock -ModuleName $moduleName Remove-Secret {}
+            Mock -ModuleName $moduleName Remove-SmbShareNamespace {}
 
             InModuleScope -ModuleName $moduleName {
                 Remove-StorageClass
@@ -960,7 +961,7 @@ Describe 'Remove-StorageClass' -Tag 'unit', 'ci', 'addon', 'storage' {
 
         It 'deletes the SMB creds secret' {
             InModuleScope -ModuleName $moduleName {
-                Should -Invoke Remove-Secret -Times 1 -Scope Context -ParameterFilter { $Name -eq $script:smbCredsName -and $Namespace -eq 'kube-system' }
+                Should -Invoke Remove-Secret -Times 1 -Scope Context -ParameterFilter { $Name -eq $script:smbCredsName -and $Namespace -eq 'storage' }
             }
         }
     }

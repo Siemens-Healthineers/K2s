@@ -112,10 +112,9 @@ function ConvertTo-NewConfigStructure {
         if ($addon -is [string]) {
             switch ($addon) {
                 "gateway-nginx" { $newAddon = [pscustomobject]@{Name = "gateway-api"} }
-                "ingress-nginx" { $newAddon = [pscustomobject]@{Name = "ingress"; Implementations = @("nginx") } }
-                "traefik" { $newAddon = [pscustomobject]@{Name = "ingress"; Implementations = @("traefik") } }
+                "ingress-nginx" { $newAddon = [pscustomobject]@{Name = "ingress"; Implementation = @("nginx") } }
+                "traefik" { $newAddon = [pscustomobject]@{Name = "ingress"; Implementation = @("traefik") } }
                 "metrics-server" { $newAddon = [pscustomobject]@{Name = "metrics"} }
-                "smb-share" { $newAddon = [pscustomobject]@{Name = "storage"} }
                 Default { $newAddon = [pscustomobject]@{Name = $addon } }
             }
 
@@ -128,11 +127,11 @@ function ConvertTo-NewConfigStructure {
                     Write-Information "Config for addon '$($addon.Name)' migrated."
                 }
                 "ingress-nginx" { 
-                    $newAddon = [pscustomobject]@{Name = "ingress"; Implementations = @("nginx") }
+                    $newAddon = [pscustomobject]@{Name = "ingress"; Implementation = @("nginx") }
                     Write-Information "Config for addon '$($addon.Name)' migrated."                
                 }
                 "traefik" { 
-                    $newAddon = [pscustomobject]@{Name = "ingress"; Implementations = @("traefik") } 
+                    $newAddon = [pscustomobject]@{Name = "ingress"; Implementation = @("traefik") } 
                     Write-Information "Config for addon '$($addon.Name)' migrated."
                 }
                 "metrics-server" { 
@@ -140,7 +139,7 @@ function ConvertTo-NewConfigStructure {
                     Write-Information "Config for addon '$($addon.Name)' migrated."
                 }
                 "smb-share" { 
-                    $newAddon = [pscustomobject]@{Name = "storage"} 
+                    $newAddon = [pscustomobject]@{Name = "storage"; SmbHostType = $addon.SmbHostType } 
                     Write-Information "Config for addon '$($addon.Name)' migrated."
                 }
             }

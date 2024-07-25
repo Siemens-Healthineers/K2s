@@ -34,7 +34,7 @@ $manifestWinDir = "$PSScriptRoot\..\manifests\windows"
 $patchTemplateFilePath = "$manifestBaseDir\$hostPathPatchTemplateFileName"
 $patchFilePath = "$manifestBaseDir\$hostPathPatchFileName"
 $storageClassTimeoutSeconds = 600
-$systemNamespace = 'kube-system'
+$namespace = 'storage'
 
 function Test-CsiPodsCondition {
     param (
@@ -46,12 +46,12 @@ function Test-CsiPodsCondition {
         [int]
         $TimeoutSeconds = 0 # zero returns immediately without waiting
     )
-    $csiSmbLinuxNodePodCondition = Wait-ForPodCondition -Condition $Condition -Label 'app=csi-smb-node' -Namespace $systemNamespace -TimeoutSeconds $TimeoutSeconds
+    $csiSmbLinuxNodePodCondition = Wait-ForPodCondition -Condition $Condition -Label 'app=csi-smb-node' -Namespace $namespace -TimeoutSeconds $TimeoutSeconds
     if ($false -eq $csiSmbLinuxNodePodCondition) {
         return $false
     }
 
-    $csiSmbControllerPodCondition = Wait-ForPodCondition -Condition $Condition -Label 'app=csi-smb-controller' -Namespace $systemNamespace -TimeoutSeconds $TimeoutSeconds
+    $csiSmbControllerPodCondition = Wait-ForPodCondition -Condition $Condition -Label 'app=csi-smb-controller' -Namespace $namespace -TimeoutSeconds $TimeoutSeconds
     if ($false -eq $csiSmbControllerPodCondition) {
         return $false
     }
@@ -61,12 +61,12 @@ function Test-CsiPodsCondition {
         return $true
     }
 
-    $csiSmbWindowsNodePodCondition = Wait-ForPodCondition -Condition $Condition -Label 'app=csi-smb-node-win' -Namespace $systemNamespace -TimeoutSeconds $TimeoutSeconds
+    $csiSmbWindowsNodePodCondition = Wait-ForPodCondition -Condition $Condition -Label 'app=csi-smb-node-win' -Namespace $namespace -TimeoutSeconds $TimeoutSeconds
     if ($false -eq $csiSmbWindowsNodePodCondition) {
         return $false
     }
 
-    $csiProxyPodCondition = Wait-ForPodCondition -Condition $Condition -Label 'k8s-app=csi-proxy' -Namespace $systemNamespace -TimeoutSeconds $TimeoutSeconds
+    $csiProxyPodCondition = Wait-ForPodCondition -Condition $Condition -Label 'k8s-app=csi-proxy' -Namespace $namespace -TimeoutSeconds $TimeoutSeconds
     return $true -eq $csiProxyPodCondition
 }
 
@@ -713,7 +713,9 @@ function Restore-StorageClass {
         $manifestDir = $manifestBaseDir
     }
 
-    Add-Secret -Name $smbCredsName -Namespace 'kube-system' -Literals "username=$smbUserName", "password=$($creds.GetNetworkCredential().Password)" | Write-Log
+    New-SmbShareNamespace
+
+    Add-Secret -Name $smbCredsName -Namespace 'storage' -Literals "username=$smbUserName", "password=$($creds.GetNetworkCredential().Password)" | Write-Log
 
     New-StorageClassManifest -RemotePath $remotePath
 
@@ -761,7 +763,9 @@ function Remove-StorageClass {
         Write-Log 'StorageClass manifest already deleted, skipping.'
     }
 
-    Remove-Secret -Name $smbCredsName -Namespace 'kube-system' | Write-Log
+    Remove-Secret -Name $smbCredsName -Namespace 'storage' | Write-Log
+
+    Remove-SmbShareNamespace
 }
 
 function Remove-SmbShareAndFolderWindowsHost {
@@ -1329,6 +1333,25 @@ function Remove-LocalWinMountIfExisting {
         Write-Log "Directory '$windowsLocalPath' deleted."
     }
 }
+
+function New-SmbShareNamespace {
+    $params = 'create', 'namespace', $namespace
+    Write-Log "Invoking kubectl with '$params'.."
+    $result = Invoke-Kubectl -Params $params
+    if ($result.Success -ne $true) {
+        throw $result.Output
+    }
+}
+
+function Remove-SmbShareNamespace {
+    $params = 'delete', 'namespace', $namespace
+    Write-Log "Invoking kubectl with '$params'.."
+    $result = Invoke-Kubectl -Params $params
+    if ($result.Success -ne $true) {
+        throw $result.Output
+    }
+}
+
 
 Export-ModuleMember -Function Enable-SmbShare, Disable-SmbShare, Restore-SmbShareAndFolder, Get-SmbHostType,
 Connect-WinVMClientToSmbHost, Test-SharedFolderMountOnWinNodeSilently, Get-Status, Backup-AddonData,
