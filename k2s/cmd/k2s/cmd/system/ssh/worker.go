@@ -9,7 +9,6 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
-	"github.com/siemens-healthineers/k2s/internal/config"
 	"github.com/siemens-healthineers/k2s/internal/setupinfo"
 
 	"github.com/spf13/cobra"
@@ -67,8 +66,8 @@ func (m *workerBaseCommandProvider) getShellExecutorCommand() string {
 }
 
 func sshWorker(cmd *cobra.Command, args []string) error {
-	cfg := cmd.Context().Value(common.ContextKeyConfig).(*config.Config)
-	config, err := setupinfo.ReadConfig(cfg.Host.K2sConfigDir)
+	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
+	config, err := setupinfo.ReadConfig(context.Config().Host.K2sConfigDir)
 	if err != nil {
 		if errors.Is(err, setupinfo.ErrSystemInCorruptedState) {
 			return common.CreateSystemInCorruptedStateCmdFailure()
