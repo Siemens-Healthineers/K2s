@@ -249,9 +249,14 @@ function Start-ControlPlaneNodeOnNewVM {
 
             # connect VM to switch
             Connect-KubeSwitch
-        } 
+        }
+        # route for VM
+        Write-Log "Remove obsolete route to $ipControlPlaneCIDR"
+        route delete $ipControlPlaneCIDR >$null 2>&1
+        Write-Log "Add route to $ipControlPlaneCIDR"
+        route -p add $ipControlPlaneCIDR $windowsHostIpAddress METRIC 3 | Out-Null
+        
         Start-VirtualMachine -VmName $controlPlaneVMHostName -Wait
-
     } else {
         Write-Log 'Configuring KubeMaster Distro' -Console
         wsl --shutdown
@@ -290,12 +295,6 @@ function Start-ControlPlaneNodeOnNewVM {
     $clusterCIDRMaster = $setupConfigRoot.psobject.properties['podNetworkMasterCIDR'].value
     $clusterCIDRServices = $setupConfigRoot.psobject.properties['servicesCIDR'].value
     $clusterCIDRServicesLinux = $setupConfigRoot.psobject.properties['servicesCIDRLinux'].value
-
-    # route for VM
-    Write-Log "Remove obsolete route to $ipControlPlaneCIDR"
-    route delete $ipControlPlaneCIDR >$null 2>&1
-    Write-Log "Add route to $ipControlPlaneCIDR"
-    route -p add $ipControlPlaneCIDR $windowsHostIpAddress METRIC 3 | Out-Null
 
     # routes for Linux pods
     Write-Log "Remove obsolete route to $clusterCIDRMaster"
