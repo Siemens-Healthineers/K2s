@@ -216,5 +216,6 @@ func resetFlags() {
 	resetWinStorageCmd.Flags().Set(dockerDirFlag, "")
 	resetWinStorageCmd.Flags().Set(maxRetryFlag, "1")
 	resetWinStorageCmd.Flags().Set(forceZapFlag, "false")
-	resetWinStorageCmd.SetContext(context.WithValue(context.TODO(), common.ContextKeyConfig, &cfg.Config{Host: cfg.HostConfig{K2sConfigDir: "some-dir"}}))
+	cmdContext := common.NewCmdContext(&cfg.Config{Host: cfg.HostConfig{K2sConfigDir: "some-dir"}}, nil)
+	resetWinStorageCmd.SetContext(context.WithValue(context.TODO(), common.ContextKeyCmdContext, cmdContext))
 }

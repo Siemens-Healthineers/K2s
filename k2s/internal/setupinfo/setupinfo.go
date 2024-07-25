@@ -38,13 +38,18 @@ var (
 	ErrSystemInCorruptedState = errors.New("system-in-corrupted-state")
 )
 
+// TODO: basically not necessary since dir and file name are known to caller
+func ConfigPath(configDir string) string {
+	return filepath.Join(configDir, ConfigFileName)
+}
+
 func ReadConfig(configDir string) (*Config, error) {
-	configPath := filepath.Join(configDir, ConfigFileName)
+	configPath := ConfigPath(configDir)
 
 	config, err := json.FromFile[Config](configPath)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			slog.Info("Setup config file not found, assuming setup is not installed", "error", err, "path", configPath)
+			slog.Info("Setup config file not found, assuming setup is not installed", "err-msg", err, "path", configPath)
 
 			return nil, ErrSystemNotInstalled
 		}
@@ -59,13 +64,13 @@ func ReadConfig(configDir string) (*Config, error) {
 }
 
 func WriteConfig(configDir string, config *Config) error {
-	configPath := filepath.Join(configDir, ConfigFileName)
+	configPath := ConfigPath(configDir)
 
 	return json.ToFile(configPath, config)
 }
 
 func DeleteConfig(configDir string) error {
-	configPath := filepath.Join(configDir, ConfigFileName)
+	configPath := ConfigPath(configDir)
 
 	return os.Remove(configPath)
 }

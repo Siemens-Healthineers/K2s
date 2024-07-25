@@ -45,7 +45,7 @@ var _ = BeforeSuite(func() {
 	slog.SetDefault(slog.New(logr.ToSlogHandler(GinkgoLogr)))
 })
 
-var _ = Describe("host pkg", func() {
+var _ = Describe("host pkg", Ordered, func() {
 	Describe("SystemDrive", func() {
 		It("returns Windows system drive with trailing backslash", func() {
 			drive := host.SystemDrive()
@@ -53,6 +53,7 @@ var _ = Describe("host pkg", func() {
 			Expect(drive).To(Equal("C:\\"))
 		})
 	})
+
 	Describe("CreateDirIfNotExisting", func() {
 		var dirToCreate string
 
@@ -178,6 +179,59 @@ var _ = Describe("host pkg", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(strings.HasSuffix(string(content), textToAppend)).To(BeTrue())
+			})
+		})
+	})
+
+	Describe("CopyFile", func() {
+		When("source file non-existent", func() {
+			It("returns error", func() {
+				const source = "non-existent"
+				const target = ""
+
+				err := host.CopyFile(source, target)
+
+				Expect(err).To(MatchError(ContainSubstring("could not read file")))
+			})
+		})
+
+		When("target dir non-existent", func() {
+			var source string
+			var target string
+
+			BeforeEach(func() {
+				temp := GinkgoT().TempDir()
+				source = filepath.Join(temp, "test.file")
+				target = temp
+
+				Expect(os.WriteFile(source, []byte("test-content"), os.ModePerm)).To(Succeed())
+			})
+
+			It("returns error", func() {
+				err := host.CopyFile(source, target)
+
+				Expect(err).To(MatchError(ContainSubstring("could not write file")))
+			})
+		})
+
+		When("successful", func() {
+			var source string
+			var target string
+
+			BeforeEach(func() {
+				temp := GinkgoT().TempDir()
+				source = filepath.Join(temp, "test.file")
+				target = filepath.Join(temp, "copy.file")
+
+				Expect(os.WriteFile(source, []byte("test-content"), os.ModePerm)).To(Succeed())
+			})
+
+			It("copies the file", func() {
+				Expect(host.CopyFile(source, target)).To(Succeed())
+
+				content, err := os.ReadFile(target)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(string(content)).To(Equal("test-content"))
 			})
 		})
 	})
