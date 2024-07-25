@@ -65,9 +65,10 @@ function New-ExternalSwitch {
     )
 
     # if the L2 bridge is already found we don't need to create it again
-    $found = Get-HNSNetwork | ? Name -Like "$global:L2BridgeSwitchName"
+    $l2BridgeSwitchName = Get-L2BridgeSwitchName
+    $found = Get-HNSNetwork | ? Name -Like "$l2BridgeSwitchName"
     if ( $found ) {
-        Write-Log "L2 bridge network switch name: $global:L2BridgeSwitchName already exists"
+        Write-Log "L2 bridge network switch name: $l2BridgeSwitchName already exists"
         return
     }
 
