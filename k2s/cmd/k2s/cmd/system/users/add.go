@@ -71,9 +71,9 @@ func run(cmd *cobra.Command, args []string) error {
 	}
 
 	// TODO: code clone!
-	cfg := cmd.Context().Value(common.ContextKeyConfig).(*config.Config)
+	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
 	// TODO: code clone!
-	setupConfig, err := setupinfo.ReadConfig(cfg.Host.K2sConfigDir)
+	setupConfig, err := setupinfo.ReadConfig(context.Config().Host.K2sConfigDir)
 	if err != nil {
 		// TODO: code clone!
 		if errors.Is(err, setupinfo.ErrSystemNotInstalled) {
@@ -96,7 +96,7 @@ func run(cmd *cobra.Command, args []string) error {
 		return common.CreateSystemNotRunningCmdFailure()
 	}
 
-	usersManagement, err := newUsersManagement(setupConfig.ControlPlaneNodeHostname, cfg, forceOverwrite)
+	usersManagement, err := newUsersManagement(setupConfig.ControlPlaneNodeHostname, context.Config(), forceOverwrite)
 	if err != nil {
 		return err
 	}
