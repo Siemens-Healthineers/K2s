@@ -379,7 +379,7 @@ function Test-IsAddonEnabled {
                 return $true
             }
 
-            if ($enabledAddon.Implementations -contains $Addon.Implementation) {
+            if ($enabledAddon.Implementation -eq $Addon.Implementation) {
                 return $true
             } 
 

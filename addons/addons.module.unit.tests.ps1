@@ -53,7 +53,7 @@ Describe 'Get-EnabledAddons' -Tag 'unit', 'ci', 'addon' {
 
     Context 'some addons enabled' {
         BeforeAll {
-            $addonsConfig = @{Name = 'a1'; Implementations = @("i1") }, @{Name = 'a2' }
+            $addonsConfig = @{Name = 'a1'; Implementation = @("i1") }, @{Name = 'a2' }
 
             Mock -ModuleName $moduleName Write-Log { }
             Mock -ModuleName $moduleName Get-AddonsConfig { return $addonsConfig }
@@ -97,13 +97,12 @@ Describe 'ConvertTo-NewConfigStructure' -Tag 'unit', 'ci', 'addon' {
             InModuleScope -ModuleName $moduleName -Parameters @{oldConfig = $oldConfig; log = $log } {
                 ConvertTo-NewConfigStructure -Config $oldConfig
 
-                $log.Count | Should -Be 6
+                $log.Count | Should -Be 5
                 $log[0] | Should -Be "Config for addon 'gateway-nginx' migrated."
                 $log[1] | Should -Be "Config for addon 'metrics-server' migrated."
                 $log[2] | Should -Be "Config for addon 'dashboard' migrated."
                 $log[3] | Should -Be "Config for addon 'ingress-nginx' migrated."
                 $log[4] | Should -Be "Config for addon 'traefik' migrated."
-                $log[5] | Should -Be "Config for addon 'smb-share' migrated."
             }
         }
     }
@@ -171,7 +170,7 @@ Describe 'Test-IsAddonEnabled' -Tag 'unit', 'ci', 'addon' {
 
         Context 'implementation disabled' {
             BeforeAll {
-                $enabledAddons = @{ Name = 'a2'; Implementations = @('i1') }, @{ Name = 'a3' }
+                $enabledAddons = @{ Name = 'a2'; Implementation = @('i1') }, @{ Name = 'a3' }
     
                 Mock -ModuleName $moduleName Get-AddonsConfig { return $enabledAddons }
             }
@@ -195,7 +194,7 @@ Describe 'Test-IsAddonEnabled' -Tag 'unit', 'ci', 'addon' {
 
         Context 'implementation enabled' {
             BeforeAll {
-                $enabledAddons = @{ Name = 'a1'; Implementations = @('i1') }, @{ Name = 'a2' }
+                $enabledAddons = @{ Name = 'a1'; Implementation = @('i1') }, @{ Name = 'a2' }
     
                 Mock -ModuleName $moduleName Get-AddonsConfig { return $enabledAddons }
             }
