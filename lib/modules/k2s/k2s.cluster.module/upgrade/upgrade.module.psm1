@@ -632,8 +632,16 @@ function Invoke-BackupRestoreHooks {
     }
 }
 
+function Remove-SetupConfigIfExisting {
+    $setupConfigPath = Get-SetupConfigFilePath
+    
+    if (Test-Path $setupConfigPath) {
+        Write-Log "Setup config still existing at '$setupConfigPath', deleting it.."
+        Remove-Item -Path $setupConfigPath -Force | Out-Null
+    }
+}
 
 Export-ModuleMember -Function Assert-UpgradeOperation, Enable-ClusterIsRunning, Assert-YamlTools, Export-ClusterResources,
 Invoke-ClusterUninstall, Invoke-ClusterInstall, Import-NotNamespacedResources, Import-NamespacedResources, Remove-ExportedClusterResources,
 Get-TempPath, Get-LinuxVMCores, Get-LinuxVMMemory, Get-LinuxVMStorageSize, Get-ClusterInstalledFolder, Backup-LogFile, Restore-LogFile, Restore-MergeLogFiles,
-Invoke-BackupRestoreHooks
+Invoke-BackupRestoreHooks, Remove-SetupConfigIfExisting

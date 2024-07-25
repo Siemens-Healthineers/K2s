@@ -29,6 +29,16 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = Describe("setupinfo pkg", func() {
+	Describe("ConfigPath", func() {
+		It("returns full config file path", func() {
+			const dir = "my-dir"
+
+			actual := setupinfo.ConfigPath(dir)
+
+			Expect(actual).To(Equal("my-dir\\setup.json"))
+		})
+	})
+
 	Describe("ReadConfig", func() {
 		When("config file does not exist", func() {
 			It("returns system-not-installed error", func() {
