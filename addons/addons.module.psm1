@@ -180,11 +180,25 @@ function Get-EnabledAddons {
 
     Write-Log "[$script::$function] Addons config found"
 
-    $enabledAddons = [System.Collections.ArrayList]@()
-
     $config | ForEach-Object {
+        $addon = $_
         Write-Log "[$script::$function] found addon '$($_.Name)'"
-        $enabledAddons.Add($_) | Out-Null
+        $alreadyExistingAddon = $enabledAddons | Where-Object { $_.Name -eq $addon.Name }
+        if ($alreadyExistingAddon) {
+            $alreadyExistingAddon.Implementations.Add($addon.Implementation) | Out-Null
+            $enabledAddons = $enabledAddons | Where-Object { $_ -ne $addon.Name }
+            if ($enableAddons) {
+                $enabledAddons.Add($alreadyExistingAddon) | Out-Null
+            } else {
+                $enabledAddons = [System.Collections.ArrayList]@($enabledAddons)
+            }
+        } else {
+            if ($null -eq $addon.Implementation) {
+                $enabledAddons.Add([pscustomobject]@{ Name = $addon.Name }) | Out-Null
+            } else {
+                $enabledAddons.Add([pscustomobject]@{ Name = $addon.Name; Implementations = [System.Collections.ArrayList]@($addon.Implementation)}) | Out-Null
+            }
+        }
     }
 
     return ,$enabledAddons
@@ -220,23 +234,22 @@ function Add-AddonToSetupJson() {
     if (!$enabledAddonMemberExists) {
         $parsedSetupJson = $parsedSetupJson | Add-Member -NotePropertyMembers @{EnabledAddons = @() } -PassThru
     }
+
     $addonAlreadyExists = $parsedSetupJson.EnabledAddons | Where-Object { $_.Name -eq $Addon.Name }
     if ($addonAlreadyExists) {
-        $implementations = [System.Collections.ArrayList]($addonAlreadyExists.Implementations)
-        $implementations.Add($Addon.Implementation)
-        $addonAlreadyExists.Implementations = $implementations
-        $newEnabledAddons = @($parsedSetupJson.EnabledAddons | Where-Object { $_.Name -ne $Addon.Name })
-        $newEnabledAddons += $addonAlreadyExists
-        $parsedSetupJson.EnabledAddons = $newEnabledAddons
-        $parsedSetupJson | ConvertTo-Json -Depth 100 | Set-Content -Force $filePath -Confirm:$false
-    } else {
-        if ($null -eq $Addon.Implementation) {
-            $parsedSetupJson.EnabledAddons += @{Name = $Addon.Name}
-        } else {
-            $parsedSetupJson.EnabledAddons += @{Name = $Addon.Name; Implementations = [System.Collections.ArrayList]@($Addon.Implementation)}
+        if ($null -ne $Addon.Implementation) {
+            $implementationAlreadyExists = $parsedSetupJson.EnabledAddons | Where-Object { ($_.Name -eq $Addon.Name) -and ($_.Implementation -eq $Addon.Implementation)}
+            if (!$implementationAlreadyExists) {
+                $parsedSetupJson.EnabledAddons += $Addon
+                $parsedSetupJson | ConvertTo-Json -Depth 100 | Set-Content -Force $filePath -Confirm:$false
+            }
         }
+    } else {
+        $parsedSetupJson.EnabledAddons += $Addon
         $parsedSetupJson | ConvertTo-Json -Depth 100 | Set-Content -Force $filePath -Confirm:$false
     }
+    
+    
 }
 
 <#
@@ -270,16 +283,22 @@ function Remove-AddonFromSetupJson {
     $enabledAddonMemberExists = Get-Member -InputObject $parsedSetupJson -Name $ConfigKey_EnabledAddons -MemberType Properties
     if ($enabledAddonMemberExists) {
         $enabledAddons = $parsedSetupJson.EnabledAddons
-        if ($null -eq ($Addon | Get-Member -MemberType Properties -Name 'Implementation')) {
-            $newEnabledAddons = @($enabledAddons | Where-Object { $_.Name -ne $Addon.Name })
-        } else {
-            $newEnabledAddons = @($enabledAddons | Where-Object { $_.Name -ne $Addon.Name })
-            $addonToDelete = $enabledAddons | Where-Object { $_.Name -eq $Addon.Name}
-            $implementations = [System.Collections.ArrayList]($addonToDelete.Implementations)
-            $implementations.Remove($Addon.Implementation)
-            $addonToDelete.Implementations = $implementations
-            if ($addonToDelete.Implementations.Count -gt 0) {
-                $newEnabledAddons += $addonToDelete
+        $newEnabledAddons = $enabledAddons
+
+        $addonExists = $enabledAddons | Where-Object { $_.Name -eq $Addon.Name }
+        if ($addonExists) {
+            if ($null -ne $Addon.Implementation) {
+                $implementationExists = $addonExists | Where-Object { $_.Implementation -eq $Addon.Implementation }
+                if ($implementationExists) {
+                    $newEnabledAddons = @($enabledAddons | Where-Object { $_.Implementation -ne $Addon.Implementation})
+                }
+            } else {
+                $hasImplementationProperty = $addonExists | Where-Object { $null -ne $_.Implementation }
+                if (!$hasImplementationProperty) {
+                    $newEnabledAddons = $enabledAddons | Where-Object { $_.Name -ne $Addon.Name }
+                } else {
+                    throw "More than one implementation of addon '$($Addon.Name)'. Please specify the implementation!"
+                }
             }
         }
         
