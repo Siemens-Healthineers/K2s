@@ -11,7 +11,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/siemens-healthineers/k2s/internal/config"
 	"github.com/siemens-healthineers/k2s/internal/powershell"
 	"github.com/siemens-healthineers/k2s/internal/setupinfo"
 	"github.com/siemens-healthineers/k2s/internal/terminal"
@@ -61,8 +60,8 @@ func listAddons(cmd *cobra.Command, allAddons addons.Addons) error {
 		return fmt.Errorf("parameter '%s' not supported for flag 'o'", outputOption)
 	}
 
-	cfg := cmd.Context().Value(cc.ContextKeyConfig).(*config.Config)
-	config, err := setupinfo.ReadConfig(cfg.Host.K2sConfigDir)
+	context := cmd.Context().Value(cc.ContextKeyCmdContext).(*cc.CmdContext)
+	config, err := setupinfo.ReadConfig(context.Config().Host.K2sConfigDir)
 	psVersion := powershell.DefaultPsVersions
 	if err != nil {
 		if errors.Is(err, setupinfo.ErrSystemInCorruptedState) {
