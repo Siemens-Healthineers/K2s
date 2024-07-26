@@ -55,19 +55,26 @@ function Enable-AddonFromConfig {
         return
     }
 
+    $dirName = $Config.Name
+    $addonName = $Config.Name
+    if ($null -ne $Config.Implementation) {
+        $dirName += "\$($Config.Implementation)"
+        $addonName += " $($Config.Implementation)"
+    }
+
     $root = Get-ScriptRoot
-    $enableCmdPath = "$root\$($Config.Name)\Enable.ps1"
+    $enableCmdPath = "$root\$dirName\Enable.ps1"
 
     if ((Test-Path $enableCmdPath) -ne $true) {
         Write-Warning "Addon '$($Config.Name)' seems to be deprecated, skipping it."
         return
     }
 
-    Write-Log "Re-enabling addon '$($Config.Name)'.."
+    Write-Log "Re-enabling addon '$addonName'.."
 
     & $enableCmdPath -Config $Config
 
-    Write-Log "Addon '$($Config.Name)' re-enabled."
+    Write-Log "Addon '$addonName' re-enabled."
 }
 
 function Invoke-BackupRestoreHooks {
@@ -127,11 +134,11 @@ function ConvertTo-NewConfigStructure {
                     Write-Information "Config for addon '$($addon.Name)' migrated."
                 }
                 "ingress-nginx" { 
-                    $newAddon = [pscustomobject]@{Name = "ingress"; Implementation = @("nginx") }
+                    $newAddon = [pscustomobject]@{Name = "ingress"; Implementation = "nginx" }
                     Write-Information "Config for addon '$($addon.Name)' migrated."                
                 }
                 "traefik" { 
-                    $newAddon = [pscustomobject]@{Name = "ingress"; Implementation = @("traefik") } 
+                    $newAddon = [pscustomobject]@{Name = "ingress"; Implementation = "traefik" } 
                     Write-Information "Config for addon '$($addon.Name)' migrated."
                 }
                 "metrics-server" { 
