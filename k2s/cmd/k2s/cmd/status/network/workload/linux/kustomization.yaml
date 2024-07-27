@@ -1,0 +1,9 @@
+# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+#
+# SPDX-License-Identifier: MIT
+
+namespace: k2s
+resources:
+  - namespace.yaml
+  - linux-albums.yaml
+  - linux-curl.yaml
