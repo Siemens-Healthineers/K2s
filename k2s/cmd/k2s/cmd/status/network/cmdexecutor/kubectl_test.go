@@ -21,7 +21,7 @@ func mockCommandRunner(output []byte, err error) cmdexecutor.CommandRunner {
 
 func TestCmdExecutorPkg(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "status pkg Unit Tests", Label("unit", "ci", "status", "network", "cmdexecutor"))
+	RunSpecs(t, "cmdexecutor pkg Unit Tests", Label("unit", "ci", "status", "network", "cmdexecutor"))
 }
 
 var _ = Describe("Kubectl", func() {

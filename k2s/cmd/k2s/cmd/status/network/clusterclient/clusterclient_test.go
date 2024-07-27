@@ -22,7 +22,7 @@ import (
 
 func TestClusterClientPkg(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "status pkg Unit Tests", Label("unit", "ci", "status", "network", "clusterclient"))
+	RunSpecs(t, "clusterclient pkg Unit Tests", Label("unit", "ci", "status", "network", "clusterclient"))
 }
 
 var _ = Describe("ClusterClient", func() {
