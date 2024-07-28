@@ -9,6 +9,7 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 
+	networkStat "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/status/network"
 	"github.com/siemens-healthineers/k2s/internal/json"
 	"github.com/siemens-healthineers/k2s/internal/setupinfo"
 	"github.com/siemens-healthineers/k2s/internal/terminal"
@@ -45,6 +46,7 @@ var StatusCmd = &cobra.Command{
 }
 
 func init() {
+	StatusCmd.AddCommand(networkStat.NetworkStatusCmd)
 	StatusCmd.Flags().StringP(outputFlagName, "o", "", "Output format modifier. Currently supported: 'wide' for more information and 'json' for output as JSON structure")
 	StatusCmd.Flags().SortFlags = false
 	StatusCmd.Flags().PrintDefaults()
