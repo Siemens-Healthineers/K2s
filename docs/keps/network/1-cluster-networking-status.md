@@ -9,6 +9,7 @@
   - [Notes/Constraints/Caveats](#notesconstraintscaveats)
 - [Design Details](#design-details)
   - [Test Plan](#test-plan)
+    - [Objectives](#objectives)
     - [Unit tests](#unit-tests)
     - [Integration tests](#integration-tests)
     - [e2e tests](#e2e-tests)
@@ -107,10 +108,36 @@ Global Flags:
 
 ### Design Goals
 
-- Abstraction: Abstract third-party packages to reduce direct dependencies.
-- Reusability: Provide modular `go` packages which can be re-used.
-- Scalability: Provide a mechanism to perform checks independent of cluster nodes.
-- Observability: Provide mechanism to observe network checks health.
+1. **Automated Deployment and Dynamic Configuration**:
+    - Automate the deployment of network probes across all nodes.
+    - Deploy network probes dynamically based on the available number of nodes in the cluster.
+
+2. **Comprehensive Network Checks**:
+    - Dynamically configure network check rules based on the cluster's node configuration.
+    - Ensure pod-to-pod and node-to-node communication testing, covering both intra-node and inter-node scenarios.
+
+3. **Flexible and Detailed Result Reporting**:
+    - Provider observability for the network check results for appropriate actions. (e.g troubleshooting)
+    - Provide multiple formats for result output, including user-friendly summaries and detailed JSON reports.
+
+4. **Kubernetes/K2s-Native Implementation**:
+    - Utilize Kubernetes-native resources such as `Deployment` for deploying and managing network probes and checks.
+    - Ensure the solution integrates seamlessly with the existing `k2s` environment without requiring additional external tools.
+
+5. **Security and Minimal Privilege**:
+    - Perform all operations through the Kubernetes API, avoiding direct node access.
+
+6. **Scalability and Maintainability**:
+    - Design the solution to automatically include new nodes in the network health checks as they join the cluster.
+    - Ensure maintainability through clear separation of concerns.
+
+7. **User-Friendly Interface and Troubleshooting**:
+    - Provide a CLI command for easy initiation of network health checks and viewing of results.
+    - Include a troubleshooting module to offer potential fixes for identified network issues.
+
+8. **Minimal Footprint**:
+    - Ensure the solution has a minimal footprint on the machine and is less resource-intensive.
+    - Perform clean-up of deployments once the checks are done without impacting the existing applications and workloads.
 
 ### High level Flow
 
@@ -121,10 +148,17 @@ Global Flags:
 - `workloaddeployer`: Manages lifecycle of networking probes.
 - `networkchecker`: Manages connectivity checks between pods.
 - `clusterclient`: Interface for Kubernetes operations using the Kubernetes client-go library.
-- `resultlogger`: Responsible for providing networking health overview.
+- `terminalprinter`: Responsible for providing networking health overview.
 - `cmdexecutor`: Responsible for CLI operations e.g. kubectl
 
 ### Test Plan
+
+#### Objectives
+
+- Validate the automated deployment of network probes across all nodes.
+- Verify the dynamic configuration of network check rules.
+- Ensure comprehensive pod-to-pod and node-to-node communication testing.
+- Test the functionality of user-friendly and JSON output observers.
 
 #### Unit tests
 
@@ -144,4 +178,4 @@ Global Flags:
 
 ## Alternatives
 
-- Provide deployment through PowerShell.
+- Provide manual deployment through PowerShell.
