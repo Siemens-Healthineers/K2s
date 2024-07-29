@@ -91,18 +91,19 @@ function Deploy-UpdatesDashboardIngressForTraefik {
 
 <#
 .DESCRIPTION
-Enables the ingress-nginx addon for external access.
+Enables a ingress addon based on the input
 #>
-function Enable-IngressAddon {
-    &"$PSScriptRoot\..\ingress-nginx\Enable.ps1" -ShowLogs:$ShowLogs
-}
-
-<#
-.DESCRIPTION
-Enables the traefik addon for external access.
-#>
-function Enable-TraefikAddon {
-    &"$PSScriptRoot\..\traefik\Enable.ps1" -ShowLogs:$ShowLogs
+function Enable-IngressAddon([string]$Ingress) {
+    switch ($Ingress) {
+        'nginx' {
+            &"$PSScriptRoot\..\ingress\nginx\Enable.ps1"
+            break
+        }
+        'traefik' {
+            &"$PSScriptRoot\..\ingress\traefik\Enable.ps1"
+            break
+        }
+    }
 }
 
 

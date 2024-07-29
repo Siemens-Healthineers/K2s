@@ -29,19 +29,6 @@ spec:
         - k2s-updates.local
       secretName: k2s-updates-local-tls
 ---
-# this MiddleWare will strip the prefix /updates from the request path
-# and set the x-forwarded-prefix header of the request to /dashboard/
-# see https://doc.traefik.io/traefik/middlewares/http/stripprefix/
-apiVersion: traefik.containo.us/v1alpha1
-kind: Middleware
-metadata:
-  name: strip-prefix
-  namespace: updates
-spec:
-  stripPrefix:
-    prefixes:
-      - /updates
----
 # this ingress will be merged with ingress provided in:
 # addons/traefik/manifests/cluster-net-ingress.yaml
 # and exposes the kubernetes-dashboard angular application on:
@@ -54,7 +41,6 @@ metadata:
   name: updates-traefik-cluster-net
   namespace: updates
   annotations:
-    traefik.ingress.kubernetes.io/router.middlewares: updates-strip-prefix@kubernetescrd
     traefik.ingress.kubernetes.io/router.tls: "true"
 spec:
   ingressClassName: traefik
@@ -62,7 +48,7 @@ spec:
     - host: k2s.cluster.local
       http:
         paths:
-          - path: /argocd/
+          - path: /updates
             pathType: Prefix
             backend:
               service:

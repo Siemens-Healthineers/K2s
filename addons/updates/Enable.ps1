@@ -22,7 +22,7 @@ Param (
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
     [switch] $ShowLogs = $false,
     [parameter(Mandatory = $false, HelpMessage = 'Enable Ingress-Nginx Addon')]
-    [ValidateSet('ingress-nginx', 'traefik', 'none')]
+    [ValidateSet('nginx', 'traefik', 'none')]
     [string] $Ingress = 'none',
     [parameter(Mandatory = $false, HelpMessage = 'JSON config object to override preceeding parameters')]
     [pscustomobject] $Config,
@@ -35,9 +35,9 @@ $clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.clu
 $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
 $nodeModule = "$PSScriptRoot/../../lib\modules\k2s\k2s.node.module\k2s.node.module.psm1"
-$commonModule = "$PSScriptRoot\common.module.psm1"
+$updatesModule = "$PSScriptRoot\updates.module.psm1"
 
-Import-Module $clusterModule, $infraModule, $addonsModule, $nodeModule, $commonModule
+Import-Module $clusterModule, $infraModule, $addonsModule, $nodeModule, $updatesModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -121,21 +121,8 @@ if (!$kubectlCmd.Success) {
     exit 1
 }
 
-
-switch ($Ingress) {
-    'ingress-nginx' {
-        Write-Log 'Deploying ingress-nginx addon for external access to dashboard...' -Console
-        Enable-IngressAddon
-        break
-    }
-    'traefik' {
-        Write-Log 'Deploying traefik addon for external access to dashboard...' -Console
-        Enable-TraefikAddon
-        break
-    }
-    'none' {
-        Write-Log 'No ingress deployed...' -Console
-    }
+if ($Ingress -ne 'none') {
+    Enable-IngressAddon -Ingress:$Ingress
 }
 
 Enable-ExternalAccessIfIngressControllerIsFound
