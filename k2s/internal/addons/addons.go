@@ -65,6 +65,7 @@ type Implementation struct {
 	Name                string `yaml:"name"`
 	Description         string `yaml:"description"`
 	Directory           string
+	AddonsCmdName       string
 	ExportDirectoryName string
 	Commands            *map[string]AddonCmd `yaml:"commands"`
 	OfflineUsage        OfflineUsage         `yaml:"offline_usage"`
@@ -346,9 +347,11 @@ func loadAndValidate(params loadParams) (addons []Addon, err error) {
 			if addon.Metadata.Name != impl.Name {
 				addon.Spec.Implementations[i].Directory = filepath.Join(addon.Directory, impl.Name)
 				addon.Spec.Implementations[i].ExportDirectoryName = addon.Metadata.Name + "_" + impl.Name
+				addon.Spec.Implementations[i].AddonsCmdName = addon.Metadata.Name + " " + impl.Name
 			} else {
 				addon.Spec.Implementations[i].Directory = addon.Directory
 				addon.Spec.Implementations[i].ExportDirectoryName = addon.Metadata.Name
+				addon.Spec.Implementations[i].AddonsCmdName = addon.Metadata.Name
 			}
 		}
 
