@@ -70,7 +70,7 @@ if ($systemError) {
     exit 1
 }
 
-if ((Test-IsAddonEnabled -Name 'kubevirt') -eq $true) {
+if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'kubevirt' })) -eq $true) {
     $errMsg = "Addon 'kubevirt' is already enabled, nothing to do."
 
     if ($EncodeStructuredOutput -eq $true) {

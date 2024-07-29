@@ -23,8 +23,9 @@ Param (
 )
 $infraModule = "$PSScriptRoot\..\lib\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
 $clusterModule = "$PSScriptRoot\..\lib\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1"
+$addonsModule = "$PSScriptRoot\addons.module.psm1"
 
-Import-Module $infraModule, $clusterModule
+Import-Module $infraModule, $clusterModule, $addonsModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -39,7 +40,7 @@ if ($systemError) {
     exit 1
 }
 
-Write-Log 'Extracting images' -Console
+Write-Log "Extracting $ZipFile" -Console
 Write-Log '---' -Console
 $dir = Split-Path $ZipFile
 $extractionFolder = "${dir}\tmp-extracted-addons\addons"
@@ -62,17 +63,11 @@ if ($null -eq $exportedAddons -or $exportedAddons.Count -lt 1) {
 $addonsToImport = @()
 if ($Names.Count -gt 0) {
     foreach ($name in $Names) {
-        $foundAddon = $null
+        $foundAddons = $null
+        $foundAddons = $exportedAddons | Where-Object { $_.name -match $name }
 
-        foreach ($addon in $exportedAddons) {
-            if ($addon.name -eq $name) {
-                $foundAddon = $addon
-                break
-            }
-        }
-
-        if ($null -eq $foundAddon) {
-            Remove-Item -Force "$extractionFolder" -Recurse -Confirm:$False -ErrorAction SilentlyContinue
+        if ($null -eq $foundAddons) {
+            Remove-Item -Force $(Split-Path -Path "$extractionFolder" -Parent) -Recurse -Confirm:$False -ErrorAction SilentlyContinue
             $errMsg = "Addon `'$name`' not found in zip package for import!"
             if ($EncodeStructuredOutput -eq $true) {
                 $err = New-Error -Code (Get-ErrCodeAddonNotFound) -Message $errMsg
@@ -84,7 +79,7 @@ if ($Names.Count -gt 0) {
             exit 1
         }
 
-        $addonsToImport += $foundAddon
+        $addonsToImport += $foundAddons
     }
 }
 else {

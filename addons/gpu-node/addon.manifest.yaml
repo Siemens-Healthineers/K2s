@@ -8,32 +8,35 @@ metadata:
   name: gpu-node
   description: Configure KubeMaster as GPU node for direct GPU access
 spec:
-  offline_usage:
-    linux:
-      repos:
-        - distribution=$(. /etc/os-release;echo $ID$VERSION_ID) && curl --retry 3 --retry-all-errors -fsSL https://nvidia.github.io/libnvidia-container/gpgkey -x __LOCAL_HTTP_PROXY__ | sudo gpg --dearmor --batch --yes -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg && curl --retry 3 --retry-all-errors -s -L https://nvidia.github.io/libnvidia-container/$distribution/libnvidia-container.list -x __LOCAL_HTTP_PROXY__ | sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
-      deb:
-        - libnvidia-container1
-        - libnvidia-container-tools
-        - nvidia-container-runtime
-        - nvidia-container-toolkit
-      curl: []
-      additionalImages:
-        - shsk2s.azurecr.io/microsoft-standard-wsl2:6.1.21.2
-    windows:
-      curl: []
-  commands:
-    enable:
-      cli:
-        examples:
-          - cmd: k2s addons enable gpu-node
-            comment: Enable gpu-node in k2s
-      script:
-        subPath: Enable.ps1
-    disable:
-      cli:
-        examples:
-          - cmd: k2s addons disable gpu-node
-            comment: Disable addon gpu-node in k2s
-      script:
-        subPath: Disable.ps1
+  implementations:
+    - name: gpu-node
+      description: Configure KubeMaster as GPU node for direct GPU access
+      offline_usage:
+        linux:
+          repos:
+            - distribution=$(. /etc/os-release;echo $ID$VERSION_ID) && curl --retry 3 --retry-all-errors -fsSL https://nvidia.github.io/libnvidia-container/gpgkey -x __LOCAL_HTTP_PROXY__ | sudo gpg --dearmor --batch --yes -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg && curl --retry 3 --retry-all-errors -s -L https://nvidia.github.io/libnvidia-container/$distribution/libnvidia-container.list -x __LOCAL_HTTP_PROXY__ | sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
+          deb:
+            - libnvidia-container1
+            - libnvidia-container-tools
+            - nvidia-container-runtime
+            - nvidia-container-toolkit
+          curl: []
+          additionalImages:
+            - shsk2s.azurecr.io/microsoft-standard-wsl2:6.1.21.2
+        windows:
+          curl: []
+      commands:
+        enable:
+          cli:
+            examples:
+              - cmd: k2s addons enable gpu-node
+                comment: Enable gpu-node in k2s
+          script:
+            subPath: Enable.ps1
+        disable:
+          cli:
+            examples:
+              - cmd: k2s addons disable gpu-node
+                comment: Disable addon gpu-node in k2s
+          script:
+            subPath: Disable.ps1

@@ -30,6 +30,6 @@ var _ = AfterSuite(func(ctx context.Context) {
 var _ = Describe("addons commands", func() {
 	It("status", func() {
 		Skip("test to be implemented")
-		// TODO: implement general status test? dashboard, traefik and smb-share already implement status tests
+		// TODO: implement general status test? dashboard, ingress traefik and storage already implement status tests
 	})
 })

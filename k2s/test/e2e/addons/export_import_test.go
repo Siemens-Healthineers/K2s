@@ -115,8 +115,10 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 			})
 
 			for _, a := range allAddons {
-				contains := slices.Contains(exportedAddons, filepath.Base(a.Directory))
-				Expect(contains).To(BeTrue())
+				for _, i := range a.Spec.Implementations {
+					contains := slices.Contains(exportedAddons, i.ExportDirectoryName)
+					Expect(contains).To(BeTrue())
+				}
 			}
 
 			for _, e := range exportedAddons {
@@ -127,39 +129,41 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 
 		It("all resources have been exported", func(ctx context.Context) {
 			for _, a := range allAddons {
-				GinkgoWriter.Println("Addon:", a.Metadata.Name, ", Directory name:", filepath.Base(a.Directory))
-				addonExportDir := filepath.Join(exportPath, "addons", filepath.Base(a.Directory))
+				for _, i := range a.Spec.Implementations {
+					GinkgoWriter.Println("Addon:", a.Metadata.Name, ", Implementation:", i.Name, ", Directory name:", i.ExportDirectoryName)
+					addonExportDir := filepath.Join(exportPath, "addons", i.ExportDirectoryName)
 
-				images, err := suite.AddonsAdditionalInfo().GetImagesForAddon(a)
+					images, err := suite.AddonsAdditionalInfo().GetImagesForAddonImplementation(i)
 
-				Expect(err).ToNot(HaveOccurred())
+					Expect(err).ToNot(HaveOccurred())
 
-				GinkgoWriter.Println("	check count of exported images is equal")
-				exportedImages, err := sos.GetFilesMatch(addonExportDir, "*.tar")
+					GinkgoWriter.Println("	check count of exported images is equal")
+					exportedImages, err := sos.GetFilesMatch(addonExportDir, "*.tar")
 
-				Expect(err).ToNot(HaveOccurred())
-				GinkgoWriter.Println("	exportedImages:", len(exportedImages), ", images:", len(images))
-				Expect(len(exportedImages)).To(Equal(len(images)))
+					Expect(err).ToNot(HaveOccurred())
+					GinkgoWriter.Println("	exportedImages:", len(exportedImages), ", images:", len(images))
+					Expect(len(exportedImages)).To(Equal(len(images)))
 
-				// check linux curl package count is equal
-				GinkgoWriter.Println("	check linux curl package count is equal")
-				for _, lp := range a.Spec.OfflineUsage.LinuxResources.CurlPackages {
-					_, err = os.Stat(filepath.Join(addonExportDir, "linuxpackages", filepath.Base(lp.Url)))
-					Expect(os.IsNotExist(err)).To(BeFalse())
-				}
+					// check linux curl package count is equal
+					GinkgoWriter.Println("	check linux curl package count is equal")
+					for _, lp := range i.OfflineUsage.LinuxResources.CurlPackages {
+						_, err = os.Stat(filepath.Join(addonExportDir, "linuxpackages", filepath.Base(lp.Url)))
+						Expect(os.IsNotExist(err)).To(BeFalse())
+					}
 
-				// check linux debian package count is equal
-				GinkgoWriter.Println("	check linux debian package count is equal")
-				for _, d := range a.Spec.OfflineUsage.LinuxResources.DebPackages {
-					_, err = os.Stat(filepath.Join(addonExportDir, "debianpackages", d))
-					Expect(os.IsNotExist(err)).To(BeFalse())
-				}
+					// check linux debian package count is equal
+					GinkgoWriter.Println("	check linux debian package count is equal")
+					for _, d := range i.OfflineUsage.LinuxResources.DebPackages {
+						_, err = os.Stat(filepath.Join(addonExportDir, "debianpackages", d))
+						Expect(os.IsNotExist(err)).To(BeFalse())
+					}
 
-				// check windows curl package count is equal
-				GinkgoWriter.Println("	check windows curl package count is equal")
-				for _, wp := range a.Spec.OfflineUsage.WindowsResources.CurlPackages {
-					_, err = os.Stat(filepath.Join(addonExportDir, "windowspackages", filepath.Base(wp.Url)))
-					Expect(os.IsNotExist(err)).To(BeFalse())
+					// check windows curl package count is equal
+					GinkgoWriter.Println("	check windows curl package count is equal")
+					for _, wp := range i.OfflineUsage.WindowsResources.CurlPackages {
+						_, err = os.Stat(filepath.Join(addonExportDir, "windowspackages", filepath.Base(wp.Url)))
+						Expect(os.IsNotExist(err)).To(BeFalse())
+					}
 				}
 			}
 		})
@@ -174,14 +178,18 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 			// clean all downloaded
 			GinkgoWriter.Println("remove all download debian packages")
 			for _, a := range allAddons {
-				suite.K2sCli().Run(ctx, "system", "ssh", "m", "--", "sudo rm -rf", fmt.Sprintf(".%s", filepath.Base(a.Directory)))
+				for _, i := range a.Spec.Implementations {
+					suite.K2sCli().Run(ctx, "system", "ssh", "m", "--", "sudo rm -rf", fmt.Sprintf(".%s", i.ExportDirectoryName))
+				}
 			}
 		})
 
 		It("no debian packages available before import", func(ctx context.Context) {
 			for _, a := range allAddons {
-				exists := suite.K2sCli().Run(ctx, "system", "ssh", "m", "--", fmt.Sprintf("[ -d .%s ] && echo .%s exists", filepath.Base(a.Directory), filepath.Base(a.Directory)))
-				Expect(exists).To(BeEmpty())
+				for _, i := range a.Spec.Implementations {
+					exists := suite.K2sCli().Run(ctx, "system", "ssh", "m", "--", fmt.Sprintf("[ -d .%s ] && echo .%s exists", i.ExportDirectoryName, i.ExportDirectoryName))
+					Expect(exists).To(BeEmpty())
+				}
 			}
 		})
 
@@ -206,9 +214,11 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 
 		It("debian packages available after import", func(ctx context.Context) {
 			for _, a := range allAddons {
-				for _, v := range a.Spec.OfflineUsage.LinuxResources.DebPackages {
-					exists := suite.K2sCli().Run(ctx, "system", "ssh", "m", "--", fmt.Sprintf("[ -d .%s/%s ] && echo .%s/%s exists", filepath.Base(a.Directory), v, filepath.Base(a.Directory), v))
-					Expect(exists).ToNot(BeEmpty())
+				for _, i := range a.Spec.Implementations {
+					for _, v := range i.OfflineUsage.LinuxResources.DebPackages {
+						exists := suite.K2sCli().Run(ctx, "system", "ssh", "m", "--", fmt.Sprintf("[ -d .%s/%s ] && echo .%s/%s exists", i.ExportDirectoryName, v, i.ExportDirectoryName, v))
+						Expect(exists).ToNot(BeEmpty())
+					}
 				}
 			}
 		})
@@ -216,32 +226,38 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 		It("images available after import", func(ctx context.Context) {
 			importedImages := suite.K2sCli().GetImages(ctx).GetContainerImages()
 			for _, a := range allAddons {
-				images, err := suite.AddonsAdditionalInfo().GetImagesForAddon(a)
-				Expect(err).To(BeNil())
+				for _, i := range a.Spec.Implementations {
+					images, err := suite.AddonsAdditionalInfo().GetImagesForAddonImplementation(i)
+					Expect(err).To(BeNil())
 
-				for _, i := range images {
-					contains := slices.ContainsFunc(importedImages, func(image string) bool {
-						return strings.Contains(image, i)
-					})
-					Expect(contains).To(BeTrue())
+					for _, i := range images {
+						contains := slices.ContainsFunc(importedImages, func(image string) bool {
+							return strings.Contains(image, i)
+						})
+						Expect(contains).To(BeTrue())
+					}
 				}
 			}
 		})
 
 		It("linux curl packagages available after import", func(ctx context.Context) {
 			for _, a := range allAddons {
-				for _, p := range a.Spec.OfflineUsage.LinuxResources.CurlPackages {
-					exists := suite.K2sCli().Run(ctx, "system", "ssh", "m", "--", fmt.Sprintf("[ -f %s ] && echo %s exists", p.Destination, p.Destination))
-					Expect(exists).ToNot(BeEmpty())
+				for _, i := range a.Spec.Implementations {
+					for _, p := range i.OfflineUsage.LinuxResources.CurlPackages {
+						exists := suite.K2sCli().Run(ctx, "system", "ssh", "m", "--", fmt.Sprintf("[ -f %s ] && echo %s exists", p.Destination, p.Destination))
+						Expect(exists).ToNot(BeEmpty())
+					}
 				}
 			}
 		})
 
 		It("windows curl packagages available after import", func(ctx context.Context) {
 			for _, a := range allAddons {
-				for _, p := range a.Spec.OfflineUsage.WindowsResources.CurlPackages {
-					_, err := os.Stat(filepath.Join(suite.RootDir(), p.Destination))
-					Expect(os.IsNotExist(err)).To(BeFalse())
+				for _, i := range a.Spec.Implementations {
+					for _, p := range i.OfflineUsage.WindowsResources.CurlPackages {
+						_, err := os.Stat(filepath.Join(suite.RootDir(), p.Destination))
+						Expect(os.IsNotExist(err)).To(BeFalse())
+					}
 				}
 			}
 		})

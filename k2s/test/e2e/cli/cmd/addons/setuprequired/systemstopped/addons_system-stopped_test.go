@@ -88,7 +88,7 @@ var _ = Describe("addons commands", Ordered, func() {
 				GinkgoWriter.Println("Calling addons disable for", addon.Metadata.Name)
 
 				params := []string{"addons", "disable", addon.Metadata.Name}
-				if addon.Metadata.Name == "smb-share" {
+				if addon.Metadata.Name == "storage" {
 					params = append(params, "-f") // skip confirmation
 				}
 
