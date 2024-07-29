@@ -19,7 +19,6 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 
-	"github.com/siemens-healthineers/k2s/internal/config"
 	"github.com/siemens-healthineers/k2s/internal/powershell"
 	"github.com/siemens-healthineers/k2s/internal/setupinfo"
 )
@@ -40,8 +39,8 @@ func init() {
 func startk8s(ccmd *cobra.Command, args []string) error {
 	pterm.Printfln("🤖 Starting K2s on %s", utils.Platform())
 
-	cfg := ccmd.Context().Value(common.ContextKeyConfig).(*config.Config)
-	config, err := setupinfo.ReadConfig(cfg.Host.K2sConfigDir)
+	context := ccmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
+	config, err := setupinfo.ReadConfig(context.Config().Host.K2sConfigDir)
 	if err != nil {
 		if errors.Is(err, setupinfo.ErrSystemInCorruptedState) {
 			return common.CreateSystemInCorruptedStateCmdFailure()
@@ -65,14 +64,9 @@ func startk8s(ccmd *cobra.Command, args []string) error {
 
 	slog.Debug("PS command created", "command", startCmd)
 
-	outputWriter, err := common.NewOutputWriter()
-	if err != nil {
-		return err
-	}
-
 	start := time.Now()
 
-	err = powershell.ExecutePs(startCmd, common.DeterminePsVersion(config), outputWriter)
+	err = powershell.ExecutePs(startCmd, common.DeterminePsVersion(config), common.NewPtermWriter())
 	if err != nil {
 		return err
 	}

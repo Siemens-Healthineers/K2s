@@ -62,12 +62,7 @@ type Capacity struct {
 }
 
 func LoadStatus(psVersion powershell.PowerShellVersion) (*LoadedStatus, error) {
-	outputWriter, err := common.NewOutputWriter()
-	if err != nil {
-		return nil, err
-	}
-
 	scriptPath := utils.FormatScriptFilePath(utils.InstallDir() + `\lib\scripts\k2s\status\Get-Status.ps1`)
 
-	return powershell.ExecutePsWithStructuredResult[*LoadedStatus](scriptPath, "CmdResult", psVersion, outputWriter)
+	return powershell.ExecutePsWithStructuredResult[*LoadedStatus](scriptPath, "CmdResult", psVersion, common.NewPtermWriter())
 }

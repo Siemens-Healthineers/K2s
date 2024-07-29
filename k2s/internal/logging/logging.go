@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -14,6 +15,40 @@ import (
 	"github.com/siemens-healthineers/k2s/internal/host"
 )
 
+// RootLogDir returns K2s' central log directory
+func RootLogDir() string {
+	return filepath.Join(host.SystemDrive(), "var", "log")
+}
+
+// GlobalLogFilePath returns K2s' global log file path
+func GlobalLogFilePath() string {
+	return filepath.Join(RootLogDir(), "k2s.log")
+}
+
+// InitializeLogFile creates the log directory and file if not existing
+// Returns the log file handle
+// path - The log file path
+func InitializeLogFile(path string) *os.File {
+	dir := filepath.Dir(path)
+
+	if err := host.CreateDirIfNotExisting(dir); err != nil {
+		panic(err)
+	}
+
+	var err error
+	logFile, err := os.OpenFile(
+		path,
+		os.O_APPEND|os.O_CREATE|os.O_WRONLY,
+		os.ModePerm,
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	return logFile
+}
+
+// SetVerbosity sets the given verbosity on the log level variable after successful parsing
 func SetVerbosity(verbosity string, levelVar *slog.LevelVar) error {
 	level, err := parseLevel(verbosity)
 	if err != nil {
@@ -22,23 +57,21 @@ func SetVerbosity(verbosity string, levelVar *slog.LevelVar) error {
 
 	levelVar.Set(level)
 
-	slog.Info("logger level set", "level", level)
-
 	return nil
 }
 
-func RootLogDir() string {
-	return filepath.Join(host.SystemDrive(), "var", "log")
-}
-
+// LevelToLowerString stringifies the given log level.
+// The result can be parsed back to slog.Level
 func LevelToLowerString(level slog.Level) string {
 	return strings.ToLower(level.String())
 }
 
-func ReplaceSourceFilePath(_ []string, attribute slog.Attr) slog.Attr {
+// ShortenSourceAttribute replaces the full source file path with the file name and removes the function completely since the source line number gets logged as well
+func ShortenSourceAttribute(_ []string, attribute slog.Attr) slog.Attr {
 	if attribute.Key == slog.SourceKey {
 		source := attribute.Value.Any().(*slog.Source)
 		source.File = filepath.Base(source.File)
+		source.Function = ""
 	}
 	return attribute
 }

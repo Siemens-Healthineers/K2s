@@ -34,18 +34,20 @@ $ProgressPreference = 'SilentlyContinue'
 
 $workerNodeStopParams = @{
     AdditionalHooksDir = $AdditionalHooksDir
-    CacheK2sVSwitches = $CacheK2sVSwitches
-    SkipHeaderDisplay = $SkipHeaderDisplay
-    WorkerNodeNumber = '1'
+    CacheK2sVSwitches  = $CacheK2sVSwitches
+    SkipHeaderDisplay  = $SkipHeaderDisplay
+    WorkerNodeNumber   = '1'
 }
 Stop-WindowsWorkerNodeOnWindowsHost @workerNodeStopParams
 
 $controlPlaneStopParams = @{
     AdditionalHooksDir = $AdditionalHooksDir
-    CacheK2sVSwitches = $CacheK2sVSwitches
-    SkipHeaderDisplay = $SkipHeaderDisplay
+    CacheK2sVSwitches  = $CacheK2sVSwitches
+    SkipHeaderDisplay  = $SkipHeaderDisplay
 }
 Stop-ControlPlaneNodeOnNewVM @controlPlaneStopParams
+
+Reset-DnsForActivePhysicalInterfacesOnWindowsHost -ExcludeNetworkInterfaceName $loopbackAdapter
 
 Write-Log '...Kubernetes system stopped.'
 

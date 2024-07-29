@@ -11,12 +11,12 @@ Import-Module $logModule, $k8sApiModule
 
 function Enable-IngressAddon([string]$Ingress) {
     switch ($Ingress) {
-        'ingress-nginx' {
-            &"$PSScriptRoot\..\ingress-nginx\Enable.ps1"
+        'nginx' {
+            &"$PSScriptRoot\..\ingress\nginx\Enable.ps1"
             break
         }
         'traefik' {
-            &"$PSScriptRoot\..\traefik\Enable.ps1"
+            &"$PSScriptRoot\..\ingress\traefik\Enable.ps1"
             break
         }
     }
@@ -39,7 +39,7 @@ function Test-NginxIngressControllerAvailability {
 Determines if Traefik ingress controller is deployed in the cluster
 #>
 function Test-TraefikIngressControllerAvailability {
-    $existingServices = (Invoke-Kubectl -Params 'get', 'service', '-n', 'traefik', '-o', 'yaml').Output
+    $existingServices = (Invoke-Kubectl -Params 'get', 'service', '-n', 'ingress-traefik', '-o', 'yaml').Output
     if ("$existingServices" -match '.*traefik.*') {
         return $true
     }
@@ -56,13 +56,16 @@ function Write-UsageForUser {
  To open opensearch dashboard, please use one of the options:
  
  Option 1: Access via ingress
- Please install either ingress-nginx addon or traefik addon from k2s.
+ Please install either ingress nginx or ingress traefik addon from k2s.
  or you can install them on your own.
  Enable ingress controller via k2s cli
- eg. k2s addons enable ingress-nginx
- Once the ingress controller is running in the cluster, run the command to enable logging again (disable it first if logging addon was already enabled).
+ eg. k2s addons enable ingress nginx
+ Once the ingress controller is running in the cluster, run the command to enable logging again 
+ (disable it first if logging addon was already enabled).
  k2s addons enable logging
- The opensearch dashboard will be accessible on the following URL: https://k2s.cluster.local/logging/ and http://k2s-logging.local (with HTTP using http://.. unstead of https://..)
+ The opensearch dashboard will be accessible on the following URLs:
+ https://k2s.cluster.local/logging/ and http://k2s-logging.cluster.local 
+ (with HTTP using http://.. instead of https://..)
 
  Option 2: Port-forwading
  Use port-forwarding to the opensearch dashboard using the command below:

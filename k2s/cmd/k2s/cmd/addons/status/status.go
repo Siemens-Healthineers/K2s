@@ -6,6 +6,7 @@ package status
 import (
 	"errors"
 	"log/slog"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
 
@@ -13,7 +14,6 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 
-	"github.com/siemens-healthineers/k2s/internal/config"
 	"github.com/siemens-healthineers/k2s/internal/setupinfo"
 	"github.com/siemens-healthineers/k2s/internal/terminal"
 
@@ -22,7 +22,7 @@ import (
 )
 
 type StatusPrinter interface {
-	PrintStatus(addonName string, loadFunc func(addonName string) (*LoadedAddonStatus, error)) error
+	PrintStatus(addonName string, implementation string, loadFunc func(addonName string, implementation string) (*LoadedAddonStatus, error)) error
 	PrintSystemError(addon string, systemError error, systemCmdFailureFunc func() *common.CmdFailure) error
 }
 
@@ -46,22 +46,46 @@ func NewCommand(allAddons addons.Addons) *cobra.Command {
 
 func newStatusCmd(addon addons.Addon) *cobra.Command {
 	statusCmd := &cobra.Command{
-		Use:     addon.Metadata.Name,
-		Short:   fmt.Sprintf("Prints the %s status", addon.Metadata.Name),
-		Example: fmt.Sprintf("\n# Prints the %s status\nK2s addons status %s\n", addon.Metadata.Name, addon.Metadata.Name),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return runStatusCmd(cmd, addon, determinePrinter)
-		},
+		Use:   addon.Metadata.Name,
+		Short: fmt.Sprintf("Prints the %s status", addon.Metadata.Name),
 	}
 
-	statusCmd.Flags().StringP(outputFlagName, "o", "", "Output format modifier. Currently supported: 'json' for output as JSON structure")
-	statusCmd.Flags().SortFlags = false
-	statusCmd.Flags().PrintDefaults()
+	if len(addon.Spec.Implementations) > 1 {
+		for _, implementation := range addon.Spec.Implementations {
+			slog.Debug("Creating sub-command for addon implementation", "command", "status", "addon", addon.Metadata.Name, "implementation", implementation)
+			implementationCmd := newImplementationCmd(addon, implementation)
+			statusCmd.AddCommand(implementationCmd)
+		}
+	} else {
+		statusCmd.Example = fmt.Sprintf("\n# Prints the %s status\nK2s addons status %s\n", addon.Metadata.Name, addon.Metadata.Name)
+		statusCmd.RunE = func(cmd *cobra.Command, args []string) error {
+			return runStatusCmd(cmd, addon, "", determinePrinter)
+		}
+		statusCmd.Flags().StringP(outputFlagName, "o", "", "Output format modifier. Currently supported: 'json' for output as JSON structure")
+		statusCmd.Flags().SortFlags = false
+		statusCmd.Flags().PrintDefaults()
+	}
 
 	return statusCmd
 }
 
-func runStatusCmd(cmd *cobra.Command, addon addons.Addon, determinePrinterFunc func(outputOption string) StatusPrinter) error {
+func newImplementationCmd(addon addons.Addon, implementation addons.Implementation) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   implementation.Name,
+		Short: fmt.Sprintf("Prints the %s %s status", addon.Metadata.Name, implementation.Name),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runStatusCmd(cmd, addon, implementation.Name, determinePrinter)
+		},
+	}
+
+	cmd.Flags().StringP(outputFlagName, "o", "", "Output format modifier. Currently supported: 'json' for output as JSON structure")
+	cmd.Flags().SortFlags = false
+	cmd.Flags().PrintDefaults()
+
+	return cmd
+}
+
+func runStatusCmd(cmd *cobra.Command, addon addons.Addon, implementation string, determinePrinterFunc func(outputOption string) StatusPrinter) error {
 	outputOption, err := cmd.Flags().GetString(outputFlagName)
 	if err != nil {
 		return err
@@ -73,8 +97,8 @@ func runStatusCmd(cmd *cobra.Command, addon addons.Addon, determinePrinterFunc f
 
 	printer := determinePrinterFunc(outputOption)
 
-	cfg := cmd.Context().Value(common.ContextKeyConfig).(*config.Config)
-	config, err := setupinfo.ReadConfig(cfg.Host.K2sConfigDir)
+	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
+	config, err := setupinfo.ReadConfig(context.Config().Host.K2sConfigDir)
 	if err != nil {
 		if errors.Is(err, setupinfo.ErrSystemInCorruptedState) {
 			return printer.PrintSystemError(addon.Metadata.Name, setupinfo.ErrSystemInCorruptedState, common.CreateSystemInCorruptedStateCmdFailure)
@@ -86,13 +110,17 @@ func runStatusCmd(cmd *cobra.Command, addon addons.Addon, determinePrinterFunc f
 		return err
 	}
 
-	loadFunc := func(addonName string) (*LoadedAddonStatus, error) {
+	loadFunc := func(addonName string, implementation string) (*LoadedAddonStatus, error) {
 		slog.Info("Loading status", "addon", addonName, "directory", addon.Directory)
+
+		if implementation != "" {
+			return LoadAddonStatus(addonName, filepath.Join(addon.Directory, implementation), common.DeterminePsVersion(config))
+		}
 
 		return LoadAddonStatus(addonName, addon.Directory, common.DeterminePsVersion(config))
 	}
 
-	return printer.PrintStatus(addon.Metadata.Name, loadFunc)
+	return printer.PrintStatus(addon.Metadata.Name, implementation, loadFunc)
 }
 
 func determinePrinter(outputOption string) StatusPrinter {

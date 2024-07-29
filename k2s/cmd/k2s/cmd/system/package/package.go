@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
-	"github.com/siemens-healthineers/k2s/internal/config"
 	"github.com/siemens-healthineers/k2s/internal/powershell"
 	"github.com/siemens-healthineers/k2s/internal/setupinfo"
 
@@ -84,8 +83,8 @@ func systemPackage(cmd *cobra.Command, args []string) error {
 
 	slog.Debug("PS command created", "command", systemPackageCommand, "params", params)
 
-	cfg := cmd.Context().Value(common.ContextKeyConfig).(*config.Config)
-	setupConfig, err := setupinfo.ReadConfig(cfg.Host.K2sConfigDir)
+	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
+	setupConfig, err := setupinfo.ReadConfig(context.Config().Host.K2sConfigDir)
 	if err != nil {
 		if errors.Is(err, setupinfo.ErrSystemInCorruptedState) {
 			return common.CreateSystemInCorruptedStateCmdFailure()
@@ -99,14 +98,9 @@ func systemPackage(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	outputWriter, err := common.NewOutputWriter()
-	if err != nil {
-		return err
-	}
-
 	start := time.Now()
 
-	cmdResult, err := powershell.ExecutePsWithStructuredResult[*common.CmdResult](systemPackageCommand, "CmdResult", powershell.DefaultPsVersions, outputWriter, params...)
+	cmdResult, err := powershell.ExecutePsWithStructuredResult[*common.CmdResult](systemPackageCommand, "CmdResult", powershell.DefaultPsVersions, common.NewPtermWriter(), params...)
 	if err != nil {
 		return err
 	}

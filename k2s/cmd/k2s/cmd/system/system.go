@@ -10,6 +10,7 @@ import (
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/system/scp"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/system/ssh"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/system/upgrade"
+	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/system/users"
 
 	"github.com/spf13/cobra"
 )
@@ -26,4 +27,5 @@ func init() {
 	SystemCmd.AddCommand(upgrade.UpgradeCmd)
 	SystemCmd.AddCommand(reset.ResetCmd)
 	SystemCmd.AddCommand(systempackage.PackageCmd)
+	SystemCmd.AddCommand(users.NewCommand())
 }

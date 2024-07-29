@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"runtime/debug"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
@@ -17,10 +16,10 @@ import (
 	"github.com/pterm/pterm"
 )
 
-const generalErrMsg = "critical error occurred during command execution, aborting"
-
 func main() {
 	exitCode := 0
+
+	logger := logging.NewSlogger()
 
 	defer func() {
 		if err := recover(); err != nil {
@@ -28,13 +27,12 @@ func main() {
 			handleUnexpectedError(err)
 		}
 
-		logging.Finalize()
+		logger.Flush()
+		logger.Close()
 		os.Exit(exitCode)
 	}()
 
-	levelVar := logging.Initialize()
-
-	rootCmd, err := cmd.CreateRootCmd(levelVar)
+	rootCmd, err := cmd.CreateRootCmd(logger)
 	if err != nil {
 		exitCode = 1
 		slog.Error("error occurred during root command creation", "error", err)
@@ -65,8 +63,6 @@ func main() {
 		}
 	}
 
-	logging.DisableCliOutput()
-
 	slog.Error("command failed",
 		"severity", fmt.Sprintf("%d(%s)", cmdFailure.Severity, cmdFailure.Severity),
 		"code", cmdFailure.Code,
@@ -75,7 +71,7 @@ func main() {
 }
 
 func handleUnexpectedError(err any) {
-	pterm.Error.Println(fmt.Errorf("%s: %v", generalErrMsg, err))
+	pterm.Error.Println(fmt.Errorf("%v", err))
 
-	slog.Error(generalErrMsg, "error", err, "stack", string(debug.Stack()))
+	slog.Error("unexpected error", "error", err)
 }

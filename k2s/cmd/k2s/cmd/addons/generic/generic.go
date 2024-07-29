@@ -16,7 +16,6 @@ import (
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 	"github.com/siemens-healthineers/k2s/internal/addons"
-	"github.com/siemens-healthineers/k2s/internal/config"
 	"github.com/siemens-healthineers/k2s/internal/powershell"
 	"github.com/siemens-healthineers/k2s/internal/setupinfo"
 	"github.com/spf13/cobra"
@@ -27,11 +26,11 @@ func NewCommands(allAddons addons.Addons) (commands []*cobra.Command, err error)
 	commandMap := map[string]*cobra.Command{}
 
 	for _, addon := range allAddons {
-		if addon.Spec.Commands == nil || len(*addon.Spec.Commands) == 0 {
+		if len(addon.Spec.Implementations) == 0 || addon.Spec.Implementations[0].Commands == nil || len(*addon.Spec.Implementations[0].Commands) == 0 {
 			return nil, fmt.Errorf("no cmd config found for addon '%s'", addon.Metadata.Name)
 		}
 
-		for cmdName, _ := range *addon.Spec.Commands {
+		for cmdName, _ := range *addon.Spec.Implementations[0].Commands {
 			if _, ok := commandMap[cmdName]; !ok {
 				slog.Debug("Command not existing, creating it", "command", cmdName)
 
@@ -62,17 +61,55 @@ func NewCommands(allAddons addons.Addons) (commands []*cobra.Command, err error)
 }
 
 func newAddonCmd(addon addons.Addon, cmdName string) (*cobra.Command, error) {
-	slog.Debug("Creating sub-command for addond", "command", cmdName, "addon", addon.Metadata.Name)
+	slog.Debug("Creating sub-command for addon", "command", cmdName, "addon", addon.Metadata.Name)
 
-	cmdConfig := (*addon.Spec.Commands)[cmdName]
 	cmd := &cobra.Command{
 		Use:   addon.Metadata.Name,
 		Short: fmt.Sprintf("Runs '%s' for '%s' addon", cmdName, addon.Metadata.Name),
+	}
+
+	if len(addon.Spec.Implementations) > 1 {
+		for _, implementation := range addon.Spec.Implementations {
+			slog.Debug("Creating sub-command for addon implementation", "command", cmdName, "addon", addon.Metadata.Name, "implementation", implementation)
+			implementationCmd, err := newImplementationCmd(addon, cmdName, implementation)
+			if err != nil {
+				return nil, err
+			}
+			cmd.AddCommand(implementationCmd)
+		}
+	} else {
+		cmd.RunE = func(cmd *cobra.Command, args []string) error {
+			return runCmd(cmd, addon, cmdName, addon.Spec.Implementations[0])
+		}
+
+		cmdConfig := (*addon.Spec.Implementations[0].Commands)[cmdName]
+		if cmdConfig.Cli != nil {
+			cmd.Example = cmdConfig.Cli.Examples.String()
+
+			for _, flag := range cmdConfig.Cli.Flags {
+				if err := addFlag(flag, cmd.Flags()); err != nil {
+					return nil, err
+				}
+			}
+		}
+
+		cmd.Flags().SortFlags = false
+		cmd.Flags().PrintDefaults()
+	}
+
+	return cmd, nil
+}
+
+func newImplementationCmd(addon addons.Addon, cmdName string, implementation addons.Implementation) (*cobra.Command, error) {
+	cmd := &cobra.Command{
+		Use:   implementation.Name,
+		Short: fmt.Sprintf("Runs '%s' for '%s' implementation of '%s' addon", cmdName, implementation.Name, addon.Metadata.Name),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCmd(cmd, addon, cmdName)
+			return runCmd(cmd, addon, cmdName, implementation)
 		},
 	}
 
+	cmdConfig := (*implementation.Commands)[cmdName]
 	if cmdConfig.Cli != nil {
 		cmd.Example = cmdConfig.Cli.Examples.String()
 
@@ -127,11 +164,16 @@ func addFlag(flag addons.CliFlag, flagSet *pflag.FlagSet) error {
 	return nil
 }
 
-func runCmd(cmd *cobra.Command, addon addons.Addon, cmdName string) error {
-	slog.Info("Running addon command", "command", cmdName, "addon", addon.Metadata.Name)
-	pterm.Printfln("🤖 Running '%s' for '%s' addon", cmdName, addon.Metadata.Name)
+func runCmd(cmd *cobra.Command, addon addons.Addon, cmdName string, implementation addons.Implementation) error {
+	if len(addon.Spec.Implementations) > 1 {
+		slog.Info("Running addon command", "command", cmdName, "addon", addon.Metadata.Name, "implementation", implementation.Name)
+		pterm.Printfln("🤖 Running '%s' for implementation '%s' of '%s' addon", cmdName, implementation.Name, addon.Metadata.Name)
+	} else {
+		slog.Info("Running addon command", "command", cmdName, "addon", addon.Metadata.Name)
+		pterm.Printfln("🤖 Running '%s' for '%s' addon", cmdName, addon.Metadata.Name)
+	}
 
-	psCmd, params, err := buildPsCmd(cmd.Flags(), (*addon.Spec.Commands)[cmdName], addon.Directory)
+	psCmd, params, err := buildPsCmd(cmd.Flags(), (*implementation.Commands)[cmdName], addon.Directory)
 	if err != nil {
 		return err
 	}
@@ -140,8 +182,8 @@ func runCmd(cmd *cobra.Command, addon addons.Addon, cmdName string) error {
 
 	start := time.Now()
 
-	cfg := cmd.Context().Value(common.ContextKeyConfig).(*config.Config)
-	config, err := setupinfo.ReadConfig(cfg.Host.K2sConfigDir)
+	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
+	config, err := setupinfo.ReadConfig(context.Config().Host.K2sConfigDir)
 	if err != nil {
 		if errors.Is(err, setupinfo.ErrSystemInCorruptedState) {
 			return common.CreateSystemInCorruptedStateCmdFailure()
@@ -152,12 +194,7 @@ func runCmd(cmd *cobra.Command, addon addons.Addon, cmdName string) error {
 		return err
 	}
 
-	outputWriter, err := common.NewOutputWriter()
-	if err != nil {
-		return err
-	}
-
-	cmdResult, err := powershell.ExecutePsWithStructuredResult[*common.CmdResult](psCmd, "CmdResult", common.DeterminePsVersion(config), outputWriter, params...)
+	cmdResult, err := powershell.ExecutePsWithStructuredResult[*common.CmdResult](psCmd, "CmdResult", common.DeterminePsVersion(config), common.NewPtermWriter(), params...)
 	if err != nil {
 		return err
 	}

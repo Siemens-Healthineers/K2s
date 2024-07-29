@@ -4,7 +4,6 @@
 package logging
 
 import (
-	"errors"
 	"log/slog"
 	"sync"
 )
@@ -20,17 +19,21 @@ type LogBuffer struct {
 	lock   sync.Mutex
 }
 
-func NewLogBuffer(config BufferConfig) (*LogBuffer, error) {
+const DefaultBufferLimit uint = 100
+
+func NewLogBuffer(config BufferConfig) *LogBuffer {
 	if config.Limit == 0 {
-		return nil, errors.New("buffer limit must be greater than 0")
+		config.Limit = DefaultBufferLimit
+
+		slog.Debug("Log buffer limit set to default", "value", DefaultBufferLimit)
 	}
 	if config.FlushFunc == nil {
-		return nil, errors.New("flush function must not be nil")
+		config.FlushFunc = func(_ []string) { /*stub*/ }
+
+		slog.Debug("Log buffer flush func set to stub implementation")
 	}
 
-	return &LogBuffer{
-		config: config,
-	}, nil
+	return &LogBuffer{config: config}
 }
 
 func (e *LogBuffer) Log(line string) {
