@@ -22,6 +22,12 @@ import (
 )
 
 type Addon struct {
+	Name            string           `json:"name"`
+	Description     string           `json:"description"`
+	Implementations []Implementation `json:"implementations"`
+}
+
+type Implementation struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
 }
@@ -43,10 +49,22 @@ func (r *K2sCliRunner) GetAddonsStatus(ctx context.Context) *AddonsStatus {
 	return unmarshalStatus[AddonsStatus](output)
 }
 
-func (addonsStatus *AddonsStatus) IsAddonEnabled(addonName string) bool {
-	return lo.SomeBy(addonsStatus.EnabledAddons, func(addon Addon) bool {
+func (addonsStatus *AddonsStatus) IsAddonEnabled(addonName string, implementationName string) bool {
+	isAddonEnabled := lo.SomeBy(addonsStatus.EnabledAddons, func(addon Addon) bool {
 		return addon.Name == addonName
 	})
+
+	if isAddonEnabled && implementationName != "" {
+		addon := lo.Filter(addonsStatus.EnabledAddons, func(enabledAddon Addon, index int) bool {
+			return enabledAddon.Name == addonName
+		})[0]
+
+		return lo.SomeBy(addon.Implementations, func(implementation Implementation) bool {
+			return implementation.Name == implementationName
+		})
+	}
+
+	return isAddonEnabled
 }
 
 func (addonsStatus *AddonsStatus) GetEnabledAddons() []string {
@@ -69,8 +87,8 @@ func (info *AddonsAdditionalInfo) AllAddons() addons.Addons {
 	return allAddons
 }
 
-func (info *AddonsAdditionalInfo) GetImagesForAddon(addon addons.Addon) ([]string, error) {
-	yamlFiles, err := sos.GetFilesMatch(addon.Directory, "*.yaml")
+func (info *AddonsAdditionalInfo) GetImagesForAddonImplementation(implementation addons.Implementation) ([]string, error) {
+	yamlFiles, err := sos.GetFilesMatch(implementation.Directory, "*.yaml")
 	if err != nil {
 		return nil, err
 	}
@@ -114,8 +132,8 @@ func (info *AddonsAdditionalInfo) GetImagesForAddon(addon addons.Addon) ([]strin
 		return trimedFindings
 	})
 
-	if len(addon.Spec.OfflineUsage.LinuxResources.AdditionalImages) > 0 {
-		images = append(images, addon.Spec.OfflineUsage.LinuxResources.AdditionalImages...)
+	if len(implementation.OfflineUsage.LinuxResources.AdditionalImages) > 0 {
+		images = append(images, implementation.OfflineUsage.LinuxResources.AdditionalImages...)
 	}
 
 	return lo.Union(images), nil

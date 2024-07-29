@@ -31,12 +31,12 @@ function Test-TraefikIngressControllerAvailability {
 # TODO: code clone
 function Enable-IngressAddon([string]$Ingress) {
     switch ($Ingress) {
-        'ingress-nginx' {
-            &"$PSScriptRoot\..\ingress-nginx\Enable.ps1"
+        'nginx' {
+            &"$PSScriptRoot\..\ingress\nginx\Enable.ps1"
             break
         }
         'traefik' {
-            &"$PSScriptRoot\..\traefik\Enable.ps1"
+            &"$PSScriptRoot\..\ingress\traefik\Enable.ps1"
             break
         }
     }
@@ -44,7 +44,7 @@ function Enable-IngressAddon([string]$Ingress) {
 
 function Deploy-IngressForRegistry([string]$Ingress) {
     switch ($Ingress) {
-        'ingress-nginx' {
+        'nginx' {
             (Invoke-Kubectl -Params 'apply', '-f', "$PSScriptRoot\manifests\k2s-registry-nginx-ingress.yaml").Output | Write-Log
             break
         }

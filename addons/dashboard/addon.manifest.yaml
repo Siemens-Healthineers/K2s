@@ -8,40 +8,43 @@ metadata:
   name: dashboard
   description: Dashboard for Kubernetes
 spec:
-  commands:
-    enable:
-      cli:
-        flags:
-          - name: ingress
-            default: none
-            description: Ingress controller to use for exposing dashboard
-            constraints:
-              kind: validation-set
-              validationSet:
-                - none
-                - ingress-nginx
-                - traefik
-          - name: enable-metrics-server
-            default: false
-            description: Enable metrics in dashboard
-        examples:
-          - cmd: k2s addons enable dashboard
-            comment: Enable dashboard in k2s
-          - cmd: k2s addons enable dashboard --ingress traefik
-            comment: Enable dashboard in k2s with traefik ingress
-          - cmd: k2s addons enable dashboard --ingress traefik --enable-metrics-server
-            comment: Enable dashboard in k2s with traefik and metrics server
-      script:
-        subPath: Enable.ps1
-        parameterMappings:
-          - cliFlagName: ingress
-            scriptParameterName: Ingress
-          - cliFlagName: enable-metrics-server
-            scriptParameterName: EnableMetricsServer
-    disable:
-      cli:
-        examples:
-          - cmd: k2s addons disable dashboard
-            comment: Disable addon dashboard in k2s
-      script:
-        subPath: Disable.ps1
+  implementations:
+    - name: dashboard
+      description: Dashboard for Kubernetes
+      commands:
+        enable:
+          cli:
+            flags:
+              - name: ingress
+                default: none
+                description: Ingress controller to use for exposing dashboard
+                constraints:
+                  kind: validation-set
+                  validationSet:
+                    - none
+                    - nginx
+                    - traefik
+              - name: enable-metrics
+                default: false
+                description: Enable metrics in dashboard
+            examples:
+              - cmd: k2s addons enable dashboard
+                comment: Enable dashboard in k2s
+              - cmd: k2s addons enable dashboard --ingress traefik
+                comment: Enable dashboard in k2s with ingress traefik
+              - cmd: k2s addons enable dashboard --ingress traefik --enable-metrics
+                comment: Enable dashboard in k2s with ingress traefik and metrics server
+          script:
+            subPath: Enable.ps1
+            parameterMappings:
+              - cliFlagName: ingress
+                scriptParameterName: Ingress
+              - cliFlagName: enable-metrics
+                scriptParameterName: EnableMetricsServer
+        disable:
+          cli:
+            examples:
+              - cmd: k2s addons disable dashboard
+                comment: Disable addon dashboard in k2s
+          script:
+            subPath: Disable.ps1

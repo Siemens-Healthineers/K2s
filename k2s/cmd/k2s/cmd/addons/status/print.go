@@ -35,10 +35,11 @@ type UserFriendlyPrinter struct {
 }
 
 type AddonPrintStatus struct {
-	Name    string            `json:"name"`
-	Enabled *bool             `json:"enabled"`
-	Props   []AddonStatusProp `json:"props"`
-	Error   *string           `json:"error"`
+	Name           string            `json:"name"`
+	Implementation string            `json:"implementation"`
+	Enabled        *bool             `json:"enabled"`
+	Props          []AddonStatusProp `json:"props"`
+	Error          *string           `json:"error"`
 }
 
 type propPrint struct {
@@ -72,14 +73,18 @@ func NewPropPrinter(terminalPrinter TerminalPrinter) *propPrint {
 	}
 }
 
-func (s *JsonPrinter) PrintStatus(addonName string, loadFunc func(addonName string) (*LoadedAddonStatus, error)) error {
-	loadedStatus, err := loadFunc(addonName)
+func (s *JsonPrinter) PrintStatus(addonName string, implementation string, loadFunc func(addonName string, implementation string) (*LoadedAddonStatus, error)) error {
+	loadedStatus, err := loadFunc(addonName, implementation)
 	if err != nil {
 		return err
 	}
 
 	printStatus := AddonPrintStatus{
 		Name: addonName,
+	}
+
+	if implementation != "" {
+		printStatus.Implementation = implementation
 	}
 
 	var deferredErr error
@@ -108,13 +113,13 @@ func (s *JsonPrinter) PrintStatus(addonName string, loadFunc func(addonName stri
 	return deferredErr
 }
 
-func (s *UserFriendlyPrinter) PrintStatus(addonName string, loadFunc func(addonName string) (*LoadedAddonStatus, error)) error {
+func (s *UserFriendlyPrinter) PrintStatus(addonName string, implementation string, loadFunc func(addonName string, implementation string) (*LoadedAddonStatus, error)) error {
 	spinner, err := common.StartSpinner(s.terminalPrinter)
 	if err != nil {
 		return err
 	}
 
-	status, err := loadFunc(addonName)
+	status, err := loadFunc(addonName, implementation)
 
 	common.StopSpinner(spinner)
 
@@ -135,11 +140,22 @@ func (s *UserFriendlyPrinter) PrintStatus(addonName string, loadFunc func(addonN
 	coloredAddonName := s.terminalPrinter.PrintCyanFg(addonName)
 
 	if !*status.Enabled {
-		s.terminalPrinter.Println("Addon", coloredAddonName, "is", s.terminalPrinter.PrintCyanFg("disabled"))
+		if implementation != "" {
+			coloredImplemetationName := s.terminalPrinter.PrintCyanFg(implementation)
+			s.terminalPrinter.Println("Implementation", coloredImplemetationName, "of Addon", coloredAddonName, "is", s.terminalPrinter.PrintCyanFg("disabled"))
+		} else {
+			s.terminalPrinter.Println("Addon", coloredAddonName, "is", s.terminalPrinter.PrintCyanFg("disabled"))
+		}
+
 		return nil
 	}
 
-	s.terminalPrinter.Println("Addon", coloredAddonName, "is", s.terminalPrinter.PrintCyanFg("enabled"))
+	if implementation != "" {
+		coloredImplemetationName := s.terminalPrinter.PrintCyanFg(implementation)
+		s.terminalPrinter.Println("Implementation", coloredImplemetationName, "of Addon", coloredAddonName, "is", s.terminalPrinter.PrintCyanFg("enabled"))
+	} else {
+		s.terminalPrinter.Println("Addon", coloredAddonName, "is", s.terminalPrinter.PrintCyanFg("enabled"))
+	}
 
 	for _, prop := range status.Props {
 		s.propPrinter.PrintProp(prop)

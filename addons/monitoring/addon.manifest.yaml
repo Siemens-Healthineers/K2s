@@ -8,45 +8,48 @@ metadata:
   name: monitoring
   description: Dashboard for cluster resource monitoring and logging
 spec:
-  offline_usage:
-    linux:
-      repos: []
-      deb: []
-      curl: []
-      additionalImages:
-        - quay.io/prometheus-operator/prometheus-config-reloader:v0.66.0
-    windows:
-      curl: []
-  commands:
-    enable:
-      cli:
-        flags:
-          - name: ingress
-            shorthand: i
-            default: none
-            description: Ingress controller to use for exposing dashboard
-            constraints:
-              kind: validation-set
-              validationSet:
-                - none
-                - ingress-nginx
-                - traefik
-        examples:
-          - cmd: k2s addons enable monitoring
-            comment: Enable monitoring in k2s
-          - cmd: k2s addons enable monitoring -o
-            comment: Enable monitoring with detailed logs
-          - cmd: k2s addons enable monitoring --ingress traefik
-            comment: Enable monitoring in k2s with traefik ingress
-      script:
-        subPath: Enable.ps1
-        parameterMappings:
-          - cliFlagName: ingress
-            scriptParameterName: Ingress
-    disable:
-      cli:
-        examples:
-          - cmd: k2s addons disable monitoring
-            comment: Disable addon monitoring in k2s
-      script:
-        subPath: Disable.ps1
+  implementations:
+    - name: monitoring
+      description: Dashboard for cluster resource monitoring and logging
+      offline_usage:
+        linux:
+          repos: []
+          deb: []
+          curl: []
+          additionalImages:
+            - quay.io/prometheus-operator/prometheus-config-reloader:v0.66.0
+        windows:
+          curl: []
+      commands:
+        enable:
+          cli:
+            flags:
+              - name: ingress
+                shorthand: i
+                default: none
+                description: Ingress controller to use for exposing dashboard
+                constraints:
+                  kind: validation-set
+                  validationSet:
+                    - none
+                    - nginx
+                    - traefik
+            examples:
+              - cmd: k2s addons enable monitoring
+                comment: Enable monitoring in k2s
+              - cmd: k2s addons enable monitoring -o
+                comment: Enable monitoring with detailed logs
+              - cmd: k2s addons enable monitoring --ingress traefik
+                comment: Enable monitoring in k2s with ingress traefik
+          script:
+            subPath: Enable.ps1
+            parameterMappings:
+              - cliFlagName: ingress
+                scriptParameterName: Ingress
+        disable:
+          cli:
+            examples:
+              - cmd: k2s addons disable monitoring
+                comment: Disable addon monitoring in k2s
+          script:
+            subPath: Disable.ps1

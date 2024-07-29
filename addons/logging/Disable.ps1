@@ -43,7 +43,7 @@ if ($systemError) {
 
 Write-Log 'Check whether logging addon is already disabled'
 
-if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'logging', '--ignore-not-found').Output -and (Test-IsAddonEnabled -Name 'logging') -ne $true) {
+if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'logging', '--ignore-not-found').Output -and (Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'logging' })) -ne $true) {
     $errMsg = "Addon 'logging' is already disabled, nothing to do."
 
     if ($EncodeStructuredOutput -eq $true) {
@@ -79,7 +79,7 @@ if ($PSVersionTable.PSVersion.Major -gt 5) {
 
 (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo rm -rf /logging').Output | Write-Log
 
-Remove-AddonFromSetupJson -Name 'logging'
+Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'logging' })
 
 Write-Log 'Logging Stack uninstalled successfully' -Console
 
