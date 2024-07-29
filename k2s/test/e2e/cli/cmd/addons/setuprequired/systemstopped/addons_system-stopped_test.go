@@ -134,12 +134,7 @@ var _ = Describe("addons commands", Ordered, func() {
 				for _, impl := range addon.Spec.Implementations {
 					GinkgoWriter.Println("Calling addons export for", impl.AddonsCmdName)
 
-					var output string
-					if addon.Metadata.Name == impl.Name {
-						output = suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "export", addon.Metadata.Name, "-d", "test-dir")
-					} else {
-						output = suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "export", addon.Metadata.Name, impl.Name, "-d", "test-dir")
-					}
+					output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "export", impl.AddonsCmdName, "-d", "test-dir")
 
 					Expect(output).To(ContainSubstring("not running"))
 				}
@@ -159,12 +154,7 @@ var _ = Describe("addons commands", Ordered, func() {
 				for _, impl := range addon.Spec.Implementations {
 					GinkgoWriter.Println("Calling addons import for", impl.AddonsCmdName)
 
-					var output string
-					if addon.Metadata.Name == impl.Name {
-						output = suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "import", addon.Metadata.Name, "-z", "test-dir")
-					} else {
-						output = suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "import", addon.Metadata.Name, impl.Name, "-z", "test-dir")
-					}
+					output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "import", impl.AddonsCmdName, "-z", "test-dir")
 
 					Expect(output).To(ContainSubstring("not running"))
 				}
