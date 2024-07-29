@@ -525,7 +525,7 @@ var _ = Describe("addons", func() {
 						Description: "test-description",
 					},
 					Directory: dir,
-					Spec:      AddonSpec{Implementations: []Implementation{{Name: "test-implementation", Directory: filepath.Join(dir, "test-implementation"), ExportDirectoryName: "test-name_test-implementation"}}},
+					Spec:      AddonSpec{Implementations: []Implementation{{Name: "test-implementation", Directory: filepath.Join(dir, "test-implementation"), ExportDirectoryName: "test-name_test-implementation", AddonsCmdName: ("test-name" + " " + "test-implementation")}}},
 				}))
 			})
 		})
