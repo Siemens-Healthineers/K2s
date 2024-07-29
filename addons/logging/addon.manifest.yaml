@@ -8,33 +8,36 @@ metadata:
   name: logging
   description: Dashboard for Kubernetes container logs
 spec:
-  commands:
-    enable:
-      cli:
-        flags:
-          - name: ingress
-            default: none
-            description: Ingress controller to use for exposing logging dashboards
-            constraints:
-              kind: validation-set
-              validationSet:
-                - none
-                - ingress-nginx
-                - traefik
-        examples:
-          - cmd: k2s addons enable logging
-            comment: Enable logging in k2s
-          - cmd: k2s addons enable logging --ingress traefik
-            comment: Enable logging in k2s with traefik ingress
-      script:
-        subPath: Enable.ps1
-        parameterMappings:
-          - cliFlagName: ingress
-            scriptParameterName: Ingress
-    disable:
-      cli:
-        examples:
-          - cmd: k2s addons disable logging
-            comment: Disable addon logging in k2s
-      script:
-        subPath: Disable.ps1
+  implementations:
+    - name: logging
+      description: Dashboard for Kubernetes container logs
+      commands:
+        enable:
+          cli:
+            flags:
+              - name: ingress
+                default: none
+                description: Ingress controller to use for exposing logging dashboards
+                constraints:
+                  kind: validation-set
+                  validationSet:
+                    - none
+                    - nginx
+                    - traefik
+            examples:
+              - cmd: k2s addons enable logging
+                comment: Enable logging in k2s
+              - cmd: k2s addons enable logging --ingress traefik
+                comment: Enable logging in k2s with ingress traefik
+          script:
+            subPath: Enable.ps1
+            parameterMappings:
+              - cliFlagName: ingress
+                scriptParameterName: Ingress
+        disable:
+          cli:
+            examples:
+              - cmd: k2s addons disable logging
+                comment: Disable addon logging in k2s
+          script:
+            subPath: Disable.ps1
