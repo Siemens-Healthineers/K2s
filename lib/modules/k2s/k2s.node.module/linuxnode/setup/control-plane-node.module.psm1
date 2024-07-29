@@ -93,7 +93,7 @@ function New-ControlPlaneNodeOnNewVM {
     Wait-ForSSHConnectionToLinuxVMViaSshKey
 
     Write-Log "Copying ZScaler Root CA certificate to master node"
-    Copy-ToControlPlaneViaUserAndPwd  -Source "$(Get-KubePath)\smallsetup\common\Certificate\ZScalerRootCA.crt" -Target "/tmp/ZScalerRootCA.crt"   
+    Copy-ToControlPlaneViaUserAndPwd  -Source "$(Get-KubePath)\lib\modules\k2s\k2s.node.module\linuxnode\setup\certificate\ZScalerRootCA.crt" -Target "/tmp/ZScalerRootCA.crt"   
     Remove-ControlPlaneAccessViaUserAndPwd
     (Invoke-CmdOnControlPlaneViaSSHKey "sudo mv /tmp/ZScalerRootCA.crt /usr/local/share/ca-certificates/" ).Output | Write-Log
     (Invoke-CmdOnControlPlaneViaSSHKey "sudo update-ca-certificates").Output | Write-Log
