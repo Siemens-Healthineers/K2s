@@ -24,9 +24,9 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'Nodeport for registry access')]
     [ValidateRange(30000, 32767)]
     [Int] $Nodeport = 0,
-    [parameter(Mandatory = $false, HelpMessage = 'Enable Ingress-Nginx Addon')]
-    [ValidateSet('ingress-nginx', 'traefik')]
-    [string] $Ingress = 'ingress-nginx',
+    [parameter(Mandatory = $false, HelpMessage = 'Enable ingress addon')]
+    [ValidateSet('nginx', 'traefik')]
+    [string] $Ingress = 'nginx',
     [parameter(Mandatory = $false, HelpMessage = 'JSON config object to override preceeding parameters')]
     [pscustomobject] $Config,
     [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
@@ -64,7 +64,7 @@ if ($setupInfo.Name -ne 'k2s') {
     return
 }
 
-if ((Test-IsAddonEnabled -Name 'registry') -eq $true) {
+if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'registry' })) -eq $true) {
     $errMsg = "Addon 'registry' is already enabled, nothing to do."
 
     if ($EncodeStructuredOutput -eq $true) {

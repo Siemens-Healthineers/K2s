@@ -44,7 +44,7 @@ var _ = AfterSuite(func(ctx context.Context) {
 
 	GinkgoWriter.Println("Checking if addon is disabled..")
 	addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
-	enabled := addonsStatus.IsAddonEnabled("gpu-node")
+	enabled := addonsStatus.IsAddonEnabled("gpu-node", "")
 
 	if enabled {
 		GinkgoWriter.Println("Addon is still enabled, disabling it..")

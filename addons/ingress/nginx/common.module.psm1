@@ -1,0 +1,18 @@
+# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+#
+# SPDX-License-Identifier: MIT
+
+#Requires -RunAsAdministrator
+
+<#
+.SYNOPSIS
+Contains common methods for installing and uninstalling ingress nginx
+#>
+
+function Get-IngressNginxConfig {
+    return "$PSScriptRoot\manifests\ingress-nginx.yaml"
+}
+
+function Get-ExternalDnsConfigDir {
+    return "$PSScriptRoot\..\..\common\manifests\external-dns"
+}
