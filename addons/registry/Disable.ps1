@@ -51,7 +51,7 @@ if ($systemError) {
 
 Write-Log 'Check whether registry addon is already disabled'
 
-if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'registry', '--ignore-not-found').Output -and (Test-IsAddonEnabled -Name 'registry') -ne $true) {
+if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'registry', '--ignore-not-found').Output -and (Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'registry' })) -ne $true) {
     $errMsg = "Addon 'registry' is already disabled, nothing to do."
 
     if ($EncodeStructuredOutput -eq $true) {
@@ -74,7 +74,7 @@ if ($DeleteImages) {
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo rm -rf /registry').Output | Write-Log
 }
 
-Remove-AddonFromSetupJson -Name 'registry'
+Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'registry' })
 Remove-RegistryFromSetupJson -Name 'k2s.*' -IsRegex $true
 
 if ((Get-ConfigLoggedInRegistry) -match 'k2s-registry.*') {
