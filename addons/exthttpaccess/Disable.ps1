@@ -44,7 +44,7 @@ if ($systemError) {
   exit 1
 }
 
-if ( (Test-IsAddonEnabled -Name 'exthttpaccess') -ne $true) {
+if ( (Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'exthttpaccess' })) -ne $true) {
   $errMsg = "Addon 'exthttpaccess' is already disabled, nothing to do."
 
   if ($EncodeStructuredOutput -eq $true) {
@@ -59,7 +59,7 @@ if ( (Test-IsAddonEnabled -Name 'exthttpaccess') -ne $true) {
 
 Remove-Nginx
 Remove-ScriptsFromHooksDir -ScriptNames @(Get-ChildItem -Path "$PSScriptRoot\hooks" | ForEach-Object { $_.Name })
-Remove-AddonFromSetupJson -Name 'exthttpaccess'
+Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'exthttpaccess' })
 
 Write-Log 'exthttpaccess disabled' -Console
 

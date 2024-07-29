@@ -140,7 +140,7 @@ function Get-ContainerImagesOnWindowsNode([bool]$IncludeK8sImages = $false) {
 }
 
 function Get-PushedContainerImages() {
-    if ((Test-IsAddonEnabled -Name 'registry') -eq $false) {
+    if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'registry' })) -eq $false) {
         return
     }
 

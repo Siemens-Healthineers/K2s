@@ -1,8 +1,0 @@
-# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
-#
-# SPDX-License-Identifier: MIT
-
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: traefik-test

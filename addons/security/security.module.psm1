@@ -151,7 +151,7 @@ function Wait-ForOauth2ProxyAvailable {
 
 function Deploy-IngressForSecurity([string]$Ingress) {
     switch ($Ingress) {
-        'ingress-nginx' {
+        'nginx' {
             (Invoke-Kubectl -Params 'apply', '-f', "$PSScriptRoot\manifests\keycloak\nginx-ingress.yaml").Output | Write-Log
             break
         }
