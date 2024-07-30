@@ -42,7 +42,7 @@ if ($systemError) {
     exit 1
 }
 
-if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'updates', '--ignore-not-found').Output -and (Test-IsAddonEnabled -Name 'updates') -ne $true) {
+if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'updates', '--ignore-not-found').Output -and (Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'updates' })) -ne $true) {
     $errMsg = "Addon 'updates' is already disabled, nothing to do."
 
     if ($EncodeStructuredOutput -eq $true) {
@@ -71,7 +71,7 @@ elseif (Test-NginxIngressControllerAvailability) {
     (Invoke-Kubectl -Params 'delete', '-f', $updatesDashboardNginxIngressConfig, '--ignore-not-found').Output | Write-Log
 }
 
-Remove-AddonFromSetupJson -Name 'updates'
+Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'updates' })
 Write-Log 'Uninstallation of updates addon finished' -Console
 
 if ($EncodeStructuredOutput -eq $true) {

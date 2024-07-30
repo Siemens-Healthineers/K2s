@@ -61,7 +61,7 @@ if ($setupInfo.Name -ne 'k2s') {
     return
 }
 
-if ((Test-IsAddonEnabled -Name 'updates') -eq $true) {
+if ((Test-IsAddonEnabled -Addon ([PSCustomObject]@{Name = 'updates'})) -eq $true) {
     $errMsg = "Addon 'updates' is already enabled, nothing to do."
 
     if ($EncodeStructuredOutput -eq $true) {
