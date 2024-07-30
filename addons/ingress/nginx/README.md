@@ -22,7 +22,7 @@ The ingress nginx addon can be enabled using the `k2s` CLI
 by running the following command:
 
 ```cmd
-k2s addons enable ingress -i nginx
+k2s addons enable ingress nginx
 ```
 
 ## Creating ingress routes
