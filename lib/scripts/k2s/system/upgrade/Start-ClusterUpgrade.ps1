@@ -175,7 +175,12 @@ function Start-ClusterUpgrade {
         Invoke-ClusterUninstall -ShowLogs:$ShowLogs -DeleteFiles:$DeleteFiles
 
         $logFilePath = Get-LogFilePath
+        
+        # ensure UTF-8 even for legacy encodings
         Get-Content $logFilePath -Encoding utf8 | Out-File $logFilePath -Encoding utf8
+
+        # setup config might be still there if previous version stored the setup config in a different location
+        Remove-SetupConfigIfExisting
 
         Start-Sleep -s 1
 

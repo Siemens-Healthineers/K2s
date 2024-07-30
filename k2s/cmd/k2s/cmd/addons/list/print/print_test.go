@@ -59,7 +59,7 @@ var _ = Describe("print pkg", func() {
 
 				sut := NewAddonsPrinter(printerMock)
 
-				err := sut.PrintAddonsUserFriendly([]string{}, addons.Addons{})
+				err := sut.PrintAddonsUserFriendly([]EnabledAddon{}, addons.Addons{})
 
 				Expect(err).To(MatchError(expectedError))
 
@@ -69,7 +69,7 @@ var _ = Describe("print pkg", func() {
 
 		When("successful", func() {
 			It("prints leveled list", func() {
-				tableString := "addon1 | this is addon 1\naddon2 | this is addon 2\n$---$\naddon3 | this is addon 3"
+				tableString := "addon1 # this is addon 1\naddon2 # this is addon 2\n$---$\naddon3 # this is addon 3\n   implementation1 # this is implementation 1 of addon 3"
 
 				printerMock := &mockObject{}
 				printerMock.On(reflection.GetFunctionName(printerMock.Println), mock.Anything)
@@ -78,17 +78,18 @@ var _ = Describe("print pkg", func() {
 					Level int
 					Text  string
 				}) bool {
-					return len(items) == 5 &&
+					return len(items) == 6 &&
 						items[0].Level == 0 && items[0].Text == "Enabled" &&
-						items[1].Level == 1 && items[1].Text == "addon1 | this is addon 1" &&
-						items[2].Level == 1 && items[2].Text == "addon2 | this is addon 2" &&
+						items[1].Level == 1 && items[1].Text == "addon1 # this is addon 1" &&
+						items[2].Level == 1 && items[2].Text == "addon2 # this is addon 2" &&
 						items[3].Level == 0 && items[3].Text == "Disabled" &&
-						items[4].Level == 1 && items[4].Text == "addon3 | this is addon 3"
+						items[4].Level == 1 && items[4].Text == "addon3 # this is addon 3" &&
+						items[5].Level == 2 && items[5].Text == " implementation1 # this is implementation 1 of addon 3"
 				}))
 
 				sut := NewAddonsPrinter(printerMock)
 
-				err := sut.PrintAddonsUserFriendly([]string{}, addons.Addons{})
+				err := sut.PrintAddonsUserFriendly([]EnabledAddon{}, addons.Addons{})
 
 				Expect(err).ToNot(HaveOccurred())
 
@@ -99,9 +100,9 @@ var _ = Describe("print pkg", func() {
 
 	Describe("PrintAddonsAsJson", func() {
 		It("prints addons as json", func() {
-			enabledAddons := []string{"a1", "a3"}
+			enabledAddons := []EnabledAddon{{Name: "a1", Description: "d1", Implementations: []string{"i1"}}, {Name: "a3", Description: "d3"}}
 			allAddons := addons.Addons{
-				addons.Addon{Metadata: addons.AddonMetadata{Name: "a1", Description: "d1"}},
+				addons.Addon{Metadata: addons.AddonMetadata{Name: "a1", Description: "d1"}, Spec: addons.AddonSpec{Implementations: []addons.Implementation{{Name: "i1"}, {Name: "i2"}}}},
 				addons.Addon{Metadata: addons.AddonMetadata{Name: "a2", Description: "d2"}},
 				addons.Addon{Metadata: addons.AddonMetadata{Name: "a3", Description: "d3"}},
 			}
@@ -116,13 +117,16 @@ var _ = Describe("print pkg", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(list.EnabledAddons).To(ConsistOf(
 					SatisfyAll(
-						HaveField("Name", "a1"), HaveField("Description", "d1"),
+						HaveField("Name", "a1"), HaveField("Description", "d1"), HaveField("Implementations", []Implementation{{Name: "i1"}}),
 					),
 					SatisfyAll(
 						HaveField("Name", "a3"), HaveField("Description", "d3"),
 					),
 				))
 				Expect(list.DisabledAddons).To(ConsistOf(
+					SatisfyAll(
+						HaveField("Name", "a1"), HaveField("Description", "d1"), HaveField("Implementations", []Implementation{{Name: "i2"}}),
+					),
 					SatisfyAll(
 						HaveField("Name", "a2"), HaveField("Description", "d2"),
 					),
@@ -143,9 +147,12 @@ var _ = Describe("print pkg", func() {
 
 	Describe("toPrintList", func() {
 		It("builds a print list based on enabled/disabled addons", func() {
-			enabledAddons := []string{"a1", "a3"}
+			enabledAddons := []EnabledAddon{
+				{Name: "a1", Description: "d2", Implementations: []string{"i1"}},
+				{Name: "a3", Description: "d3"},
+			}
 			allAddons := addons.Addons{
-				addons.Addon{Metadata: addons.AddonMetadata{Name: "a1", Description: "d1"}},
+				addons.Addon{Metadata: addons.AddonMetadata{Name: "a1", Description: "d1"}, Spec: addons.AddonSpec{Implementations: []addons.Implementation{{Name: "i1"}, {Name: "i2"}}}},
 				addons.Addon{Metadata: addons.AddonMetadata{Name: "a2", Description: "d2"}},
 				addons.Addon{Metadata: addons.AddonMetadata{Name: "a3", Description: "d3"}},
 			}
@@ -154,13 +161,16 @@ var _ = Describe("print pkg", func() {
 
 			Expect(result.EnabledAddons).To(ConsistOf(
 				SatisfyAll(
-					HaveField("Name", "a1"), HaveField("Description", "d1"),
+					HaveField("Name", "a1"), HaveField("Description", "d1"), HaveField("Implementations", []Implementation{{Name: "i1"}}),
 				),
 				SatisfyAll(
 					HaveField("Name", "a3"), HaveField("Description", "d3"),
 				),
 			))
 			Expect(result.DisabledAddons).To(ConsistOf(
+				SatisfyAll(
+					HaveField("Name", "a1"), HaveField("Description", "d1"), HaveField("Implementations", []Implementation{{Name: "i2"}}),
+				),
 				SatisfyAll(
 					HaveField("Name", "a2"), HaveField("Description", "d2"),
 				),
@@ -206,8 +216,8 @@ var _ = Describe("print pkg", func() {
 
 	Describe("createRows", func() {
 		It("creates rows", func() {
-			addons := []addon{
-				{Name: "a1", Description: "d1"},
+			addons := []Addon{
+				{Name: "a1", Description: "d1", Implementations: []Implementation{{Name: "i1", Description: "d1"}}},
 				{Name: "a2", Description: "d2"},
 				{Name: "a3", Description: "d3"},
 			}
@@ -216,6 +226,7 @@ var _ = Describe("print pkg", func() {
 			printerMock.On(reflection.GetFunctionName(printerMock.PrintCyanFg), "a1").Return("a1*")
 			printerMock.On(reflection.GetFunctionName(printerMock.PrintCyanFg), "a2").Return("a2*")
 			printerMock.On(reflection.GetFunctionName(printerMock.PrintCyanFg), "a3").Return("a3*")
+			printerMock.On(reflection.GetFunctionName(printerMock.PrintCyanFg), "i1").Return("i1*")
 
 			sut := NewAddonsPrinter(printerMock)
 
@@ -225,6 +236,7 @@ var _ = Describe("print pkg", func() {
 				[]string{" a1*", "d1"},
 				[]string{" a2*", "d2"},
 				[]string{" a3*", "d3"},
+				[]string{"   i1*", "d1"},
 			))
 		})
 	})
@@ -267,11 +279,12 @@ var _ = Describe("print pkg", func() {
 				addons := []string{
 					"addon1",
 					separator,
-					"addon2"}
+					"addon2",
+					"   implementation1 # description1"}
 
 				actual := buildLeveledList(addons)
 
-				Expect(actual).To(HaveLen(4))
+				Expect(actual).To(HaveLen(5))
 				Expect(actual[0].Level).To(Equal(0))
 				Expect(actual[0].Text).To(Equal("Enabled"))
 				Expect(actual[1].Level).To(Equal(1))
@@ -280,6 +293,8 @@ var _ = Describe("print pkg", func() {
 				Expect(actual[2].Text).To(Equal("Disabled"))
 				Expect(actual[3].Level).To(Equal(1))
 				Expect(actual[3].Text).To(Equal("addon2"))
+				Expect(actual[4].Level).To(Equal(2))
+				Expect(actual[4].Text).To(Equal(" implementation1 # description1"))
 			})
 		})
 	})

@@ -50,7 +50,7 @@ if ($systemError) {
 
 Write-Log 'Check whether kubevirt addon is already disabled'
 
-if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'kubevirt', '--ignore-not-found').Output -and (Test-IsAddonEnabled -Name 'kubevirt') -ne $true) {
+if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'kubevirt', '--ignore-not-found').Output -and (Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'kubevirt' })) -ne $true) {
     $errMsg = "Addon 'kubevirt' is already disabled, nothing to do."
 
     if ($EncodeStructuredOutput -eq $true) {
@@ -139,7 +139,7 @@ if ( $K8sSetup -eq 'SmallSetup' ) {
     Wait-ForSSHConnectionToLinuxVMViaSshKey
 }
 
-Remove-AddonFromSetupJson -Name 'kubevirt'
+Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'kubevirt' })
 
 $binPath = Get-KubeBinPath
 

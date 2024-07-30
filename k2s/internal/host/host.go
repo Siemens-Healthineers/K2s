@@ -98,6 +98,20 @@ func AppendToFile(path string, text string) error {
 	return nil
 }
 
+func CopyFile(source string, target string) error {
+	slog.Debug("Copying file", "source-path", source, "target-path", target)
+
+	data, err := os.ReadFile(source)
+	if err != nil {
+		return fmt.Errorf("could not read file '%s': %w", source, err)
+	}
+
+	if err = os.WriteFile(target, data, os.ModePerm); err != nil {
+		return fmt.Errorf("could not write file '%s': %w", target, err)
+	}
+	return nil
+}
+
 func NewCmdExecutor(stdWriter StdWriter) *CmdExecutor {
 	return &CmdExecutor{stdWriter: stdWriter}
 }

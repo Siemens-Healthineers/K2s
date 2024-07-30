@@ -1,0 +1,85 @@
+# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+#
+# SPDX-License-Identifier: MIT
+
+# The opensearch-dashboards service exposes a web application on port 5601
+# It is uses a very tricky design to solve the problem of relative paths:
+# in the deployment.yaml, we configure these environment variables:
+# SERVER_BASEPATH = "/logging": the application will generate all relative
+#    URLs starting with this prefix!
+# SERVER_REWRITEBASEPATH = "false": the application will NOT expect the
+# incoming calls to be part of the request path
+# This gives us the flexibility to expose the application on the configured
+# path, in this case "/logging"
+---
+# This middleware trips the prefix "/logging" from the request, if present
+# is is used below in
+# 'traefik.ingress.kubernetes.io/router.middlewares' annotation
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: strip-prefix
+  namespace: logging
+spec:
+  stripPrefix:
+    prefixes:
+      - /logging
+---
+# This ingress will expose the opensearch-dashboards web application on:
+# HTTP: http://k2s-logging.cluster.local
+# TLS: https://k2s-logging.cluster.local
+# For TLS, the certificate is taken from k8s secret 'k2s-logging-local-tls'
+# This secret will be created by cert-manager, if it is running.
+# If cert-manager is not running, the secret will not be present and traefik
+# will use an own self-signed certificate.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: logging-traefik-local
+  namespace: logging
+  annotations:
+    cert-manager.io/cluster-issuer: k2s-ca-issuer
+    cert-manager.io/common-name: k2s-logging.cluster.local
+    traefik.ingress.kubernetes.io/router.middlewares: logging-strip-prefix@kubernetescrd
+spec:
+  ingressClassName: traefik
+  tls:
+    - hosts:
+        - k2s-logging.cluster.local
+      secretName: k2s-logging-local-tls
+  rules:
+    - host: k2s-logging.cluster.local
+      http:
+        paths:
+          - backend:
+              service:
+                name: opensearch-dashboards
+                port:
+                  number: 5601
+            pathType: Prefix
+            path: /
+---
+# this ingress will be merged with ingress provided in:
+# addons/ingress/traefik/manifests/cluster-net-ingress.yaml
+# and exposes the opensearch-dashboards angular application on:
+# https://k2s.cluster.local/logging/
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: logging-traefik-cluster-net
+  namespace: logging
+  annotations:
+    traefik.ingress.kubernetes.io/router.middlewares: logging-strip-prefix@kubernetescrd
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: k2s.cluster.local
+      http:
+        paths:
+          - backend:
+              service:
+                name: opensearch-dashboards
+                port:
+                  number: 5601
+            path: /logging
+            pathType: Prefix

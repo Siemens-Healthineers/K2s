@@ -137,8 +137,8 @@ var _ = Describe("'registry' addon", Ordered, func() {
 
 			It("registry addon with default ingress is in enabled state", func(ctx context.Context) {
 				addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
-				Expect(addonsStatus.IsAddonEnabled("registry")).To(BeTrue())
-				Expect(addonsStatus.IsAddonEnabled("ingress-nginx")).To(BeTrue())
+				Expect(addonsStatus.IsAddonEnabled("registry", "")).To(BeTrue())
+				Expect(addonsStatus.IsAddonEnabled("ingress", "nginx")).To(BeTrue())
 			})
 
 			It("local container registry is configured", func(ctx context.Context) {
@@ -155,7 +155,7 @@ var _ = Describe("'registry' addon", Ordered, func() {
 		Context("addon is disabled {nginx}", func() {
 			BeforeAll(func(ctx context.Context) {
 				suite.K2sCli().Run(ctx, "addons", "disable", "registry", "-o")
-				suite.K2sCli().Run(ctx, "addons", "disable", "ingress-nginx", "-o")
+				suite.K2sCli().Run(ctx, "addons", "disable", "ingress", "nginx", "-o")
 			})
 
 			It("prints already-disabled message on disable command and exits with non-zero", func(ctx context.Context) {
@@ -191,8 +191,8 @@ var _ = Describe("'registry' addon", Ordered, func() {
 
 			It("registry addon with traefik ingress is in enabled state", func(ctx context.Context) {
 				addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
-				Expect(addonsStatus.IsAddonEnabled("registry")).To(BeTrue())
-				Expect(addonsStatus.IsAddonEnabled("traefik")).To(BeTrue())
+				Expect(addonsStatus.IsAddonEnabled("registry", "")).To(BeTrue())
+				Expect(addonsStatus.IsAddonEnabled("ingress", "traefik")).To(BeTrue())
 			})
 
 			It("prints the status", func(ctx context.Context) {
@@ -213,7 +213,7 @@ var _ = Describe("'registry' addon", Ordered, func() {
 		Context("addon is disabled {traefik}", func() {
 			BeforeAll(func(ctx context.Context) {
 				suite.K2sCli().Run(ctx, "addons", "disable", "registry", "-o")
-				suite.K2sCli().Run(ctx, "addons", "disable", "traefik", "-o")
+				suite.K2sCli().Run(ctx, "addons", "disable", "ingress", "traefik", "-o")
 			})
 
 			It("prints already-disabled message on disable command and exits with non-zero", func(ctx context.Context) {
