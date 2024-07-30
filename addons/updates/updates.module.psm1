@@ -120,7 +120,6 @@ function Enable-ExternalAccessIfIngressControllerIsFound {
         Write-Log 'Deploying traefik ingress for upates dashboard ...' -Console
         Deploy-UpdatesDashboardIngressForTraefik
     }
-    Add-HostEntries -Url 'k2s-updates.local'
 }
 
 function Write-UsageForUser {
