@@ -49,13 +49,7 @@ function New-ControlPlaneNodeOnNewVM {
 
     Write-Log 'Starting installation...'
 
-    # set defaults for unset arguments
-    $KubernetesVersion = Get-DefaultK8sVersion
-
     Set-ConfigWslFlag -Value $([bool]$WSL)
-
-    Invoke-DeployWinArtifacts -KubernetesVersion $KubernetesVersion -Proxy $Proxy -ForceOnlineInstallation:$ForceOnlineInstallation
-    Install-PuttyTools
 
     $controlPlaneParams = @{
         Hostname = Get-ConfigControlPlaneNodeHostname
@@ -266,10 +260,6 @@ function Start-ControlPlaneNodeOnNewVM {
     # add DNS proxy for cluster searches
     Add-DnsServer $switchname
 
-    # configure NAT
-    Remove-DefaultNetNat
-    New-DefaultNetNat
-
     Wait-ForSSHConnectionToLinuxVMViaSshKey
 
     EnsureCni0InterfaceIsCreated -VmName $controlPlaneVMHostName -WSL:$WSL
@@ -374,8 +364,6 @@ function Stop-ControlPlaneNodeOnNewVM {
     }
 
     Reset-DnsServer $switchname
-
-    Remove-DefaultNetNat
 
     $ipControlPlaneCIDR = Get-ConfiguredControlPlaneCIDR
     $setupConfigRoot = Get-RootConfigk2s

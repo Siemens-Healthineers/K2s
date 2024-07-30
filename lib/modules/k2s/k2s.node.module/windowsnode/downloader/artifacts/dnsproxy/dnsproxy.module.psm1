@@ -110,7 +110,7 @@ function Add-WinDnsProxyListenAddress {
 
     $configContent = Get-Content $configFile
     if (!($configContent.Contains($newListenAddress))) {
-        $newConfigContent = $configContent.Replace("$markerForAddingAdditionalListenAddresses`n", "$markerForAddingAdditionalListenAddresses`n$newListenAddress`n") 
+        $newConfigContent = $configContent.Replace("$markerForAddingAdditionalListenAddresses", "$markerForAddingAdditionalListenAddresses`r`n$newListenAddress")
         $newConfigContent | Set-Content $configFile -Force
     }
 
@@ -126,7 +126,8 @@ function Remove-WinDnsProxyListenAddress {
     $entryToDelete = Format-ListenAddress -IpAddress $IpAddress
 
     $configContent = Get-Content $configFile
-    $configContent.Replace("$entryToDelete`n", '') | Set-Content $configFile -Force
+    $filteredContent = $configcontent | Where-Object { $_ -ne $entryToDelete }
+    $filteredContent | Set-Content $configFile -Force
 
     Restart-WinDnsProxyIfRunning
 }

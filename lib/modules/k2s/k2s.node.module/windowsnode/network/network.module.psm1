@@ -355,7 +355,10 @@ function Add-VfpRulesToWindowsNode {
 
     $VfpRulesInJsonFormat | Out-File "$file" -Encoding ascii
     Write-Log "Added file '$file' with vfp rules"
+}
 
+function Copy-VfpRulesToCniBinariesTargetLocation{
+    $file = Get-VfpRulesFilePath
     $cniBinariesTargetPath = Get-CniBinariesTargetPath
     Write-Log "Copy '$file' with vfp rules to '$cniBinariesTargetPath'"
     Copy-Item -Path $file -Destination $cniBinariesTargetPath | Out-Null
@@ -366,4 +369,5 @@ New-ExternalSwitch, Remove-ExternalSwitch,
 Invoke-RecreateNAT, Set-InterfacePrivate,
 Get-L2BridgeSwitchName, Remove-DefaultNetNat,
 New-DefaultNetNat, Set-IPAdressAndDnsClientServerAddress, Set-WSLSwitch,
-Add-VfpRulesToWindowsNode, Remove-VfpRulesFromWindowsNode, Get-ConfiguredClusterCIDRNextHop
+Add-VfpRulesToWindowsNode, Remove-VfpRulesFromWindowsNode, Get-ConfiguredClusterCIDRNextHop,
+Copy-VfpRulesToCniBinariesTargetLocation

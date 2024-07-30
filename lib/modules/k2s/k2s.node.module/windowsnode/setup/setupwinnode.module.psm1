@@ -46,9 +46,6 @@ function Add-DnsToWinNodeFlannel {
         $content = Get-Content $targetFilePath
         $content | ForEach-Object { $_ -replace $lineNetworkAddress, $NetworkAddress } | Set-Content $targetFilePath
     }
-
-    # save the current IP address to make a later check possible
-    Set-ConfigHostGW -Value $HostGW
 }
 
 function Initialize-WinNodeDirectories {
@@ -94,7 +91,8 @@ function Initialize-WinNode {
         [parameter(Mandatory = $true, HelpMessage = 'Kubernetes version to use')]
         [string] $KubernetesVersion,
         [parameter(Mandatory = $false, HelpMessage = 'HTTP proxy if available')]
-        [string] $Proxy = ''
+        [string] $Proxy = '',
+        [string] $PodSubnetworkNumber = $(throw 'Argument missing: PodSubnetworkNumber')
     )
 
     if (!(Test-Path "$kubeBinPath\exe")) {
@@ -113,10 +111,12 @@ function Initialize-WinNode {
 
     Initialize-WinNodeDirectories
     Initialize-WinNodeFirewallRules
+    Add-DnsToWinNodeFlannel -PodSubnetworkNumber $PodSubnetworkNumber
     Initialize-WinNodeNetworking
     
     Install-WinNodeArtifacts -Proxy "$Proxy"
     
+    Add-WinContainerdNetworking -PodSubnetworkNumber $PodSubnetworkNumber
     
     Reset-WinServices
 }

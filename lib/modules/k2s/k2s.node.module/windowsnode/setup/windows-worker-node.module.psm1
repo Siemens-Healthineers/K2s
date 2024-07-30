@@ -42,10 +42,16 @@ function Add-WindowsWorkerNode {
     # Install loopback adapter for l2bridge
     New-DefaultLoopbackAdater
 
+    $setupConfigRoot = Get-RootConfigk2s
+    $templateVfpRules = $setupConfigRoot.psobject.properties['vfprules-k2s'].value | ConvertTo-Json
+    $vfpRoutingRules = $templateVfpRules.Replace('__SUBNETWORK_NUMBER__', '1')
+    Add-VfpRulesToWindowsNode -VfpRulesInJsonFormat $vfpRoutingRules
+
     $kubernetesVersion = Get-DefaultK8sVersion
 
     Initialize-WinNode -KubernetesVersion $kubernetesVersion `
         -Proxy:"$Proxy" `
+        -PodSubnetworkNumber $PodSubnetworkNumber
 
 
     # disable IPv6 completely
@@ -56,9 +62,6 @@ function Add-WindowsWorkerNode {
     Add-K8sContext
 
     Join-WindowsNode -CommandForJoining $JoinCommand -NodeIpAddress $IpAddress
-
-    Add-DnsToWinNodeFlannel -PodSubnetworkNumber $PodSubnetworkNumber
-    Add-WinContainerdNetworking -PodSubnetworkNumber $PodSubnetworkNumber
 
     Set-KubeletDiskPressure
     Add-ClusterDnsNameToHost -Hostname 'k2s.cluster.local'
@@ -84,7 +87,8 @@ function Start-WindowsWorkerNodeOnWindowsHost {
     )
 
     Add-VfpRulesToWindowsNode -VfpRulesInJsonFormat $VfpRoutingRules
-
+    Copy-VfpRulesToCniBinariesTargetLocation
+    
     $ipControlPlane = Get-ConfiguredIPControlPlane
     $setupConfigRoot = Get-RootConfigk2s
     $clusterCIDRServicesWindows = $setupConfigRoot.psobject.properties['servicesCIDRWindows'].value
