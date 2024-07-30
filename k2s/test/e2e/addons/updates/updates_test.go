@@ -61,7 +61,7 @@ var _ = Describe("'updates' addon", Ordered, func() {
 			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "argocd-server", "updates")
 
 			addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
-			Expect(addonsStatus.IsAddonEnabled("updates")).To(BeFalse())
+			Expect(addonsStatus.IsAddonEnabled("updates", "")).To(BeFalse())
 		})
 
 		It("prints already-disabled message on disable command and exits with non-zero", func(ctx context.Context) {
@@ -121,7 +121,7 @@ var _ = Describe("'updates' addon", Ordered, func() {
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "argocd-server", "updates")
 
 			addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
-			Expect(addonsStatus.IsAddonEnabled("updates")).To(BeTrue())
+			Expect(addonsStatus.IsAddonEnabled("updates", "")).To(BeTrue())
 		})
 
 		It("prints already-enabled message on enable command and exits with non-zero", func(ctx context.Context) {
@@ -147,13 +147,13 @@ var _ = Describe("'updates' addon", Ordered, func() {
 
 	When("traefik as ingress controller", func() {
 		BeforeAll(func(ctx context.Context) {
-			suite.K2sCli().Run(ctx, "addons", "enable", "traefik", "-o")
-			suite.Cluster().ExpectDeploymentToBeAvailable("traefik", "traefik")
+			suite.K2sCli().Run(ctx, "addons", "enable", "ingress", "traefik", "-o")
+			suite.Cluster().ExpectDeploymentToBeAvailable("traefik", "ingress-traefik")
 		})
 
 		AfterAll(func(ctx context.Context) {
 			suite.K2sCli().Run(ctx, "addons", "disable", "updates", "-o")
-			suite.K2sCli().Run(ctx, "addons", "disable", "traefik", "-o")
+			suite.K2sCli().Run(ctx, "addons", "disable", "ingress", "traefik", "-o")
 
 			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "argocd-applicationset-controller", "updates")
 
@@ -165,10 +165,10 @@ var _ = Describe("'updates' addon", Ordered, func() {
 			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "argocd-repo-server", "updates")
 			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "argocd-server", "updates")
 
-			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "traefik", "traefik")
+			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "traefik", "ingress-traefik")
 
 			addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
-			Expect(addonsStatus.IsAddonEnabled("updates")).To(BeFalse())
+			Expect(addonsStatus.IsAddonEnabled("updates", "")).To(BeFalse())
 		})
 
 		It("is in enabled state and pods are in running state", func(ctx context.Context) {
@@ -193,7 +193,7 @@ var _ = Describe("'updates' addon", Ordered, func() {
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "argocd-server", "updates")
 
 			addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
-			Expect(addonsStatus.IsAddonEnabled("updates")).To(BeTrue())
+			Expect(addonsStatus.IsAddonEnabled("updates", "")).To(BeTrue())
 		})
 
 		It("prints already-enabled message on enable command and exits with non-zero", func(ctx context.Context) {
@@ -207,11 +207,11 @@ var _ = Describe("'updates' addon", Ordered, func() {
 		})
 
 		It("is reachable through k2s-updates.local", func(ctx context.Context) {
-			url := "http://k2s-updates.local"
+			url := "https://k2s-updates.local"
 			httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-I", "-m", "5", "--retry", "3", "--fail")
 			//Maybe adjust later
 			Expect(httpStatus).To(ContainSubstring("301"))
-			Expect(httpStatus).To(ContainSubstring("/upates/"))
+			Expect(httpStatus).To(ContainSubstring("/updates/"))
 		})
 
 		It("is reachable through k2s.cluster.local/updates", func(ctx context.Context) {
@@ -224,13 +224,13 @@ var _ = Describe("'updates' addon", Ordered, func() {
 
 	Describe("ingress-nginx as ingress controller", func() {
 		BeforeAll(func(ctx context.Context) {
-			suite.K2sCli().Run(ctx, "addons", "enable", "ingress-nginx", "-o")
+			suite.K2sCli().Run(ctx, "addons", "enable", "ingress", "nginx", "-o")
 			suite.Cluster().ExpectDeploymentToBeAvailable("ingress-nginx-controller", "ingress-nginx")
 		})
 
 		AfterAll(func(ctx context.Context) {
 			suite.K2sCli().Run(ctx, "addons", "disable", "logging", "-o")
-			suite.K2sCli().Run(ctx, "addons", "disable", "ingress-nginx", "-o")
+			suite.K2sCli().Run(ctx, "addons", "disable", "ingress", "nginx", "-o")
 
 			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "argocd-applicationset-controller", "updates")
 
@@ -245,7 +245,7 @@ var _ = Describe("'updates' addon", Ordered, func() {
 			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "ingress-nginx", "ingress-nginx")
 
 			addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
-			Expect(addonsStatus.IsAddonEnabled("logging")).To(BeFalse())
+			Expect(addonsStatus.IsAddonEnabled("updates", "")).To(BeFalse())
 		})
 
 		It("is in enabled state and pods are in running state", func(ctx context.Context) {
@@ -270,7 +270,7 @@ var _ = Describe("'updates' addon", Ordered, func() {
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "argocd-server", "updates")
 
 			addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
-			Expect(addonsStatus.IsAddonEnabled("updates")).To(BeTrue())
+			Expect(addonsStatus.IsAddonEnabled("updates", "")).To(BeTrue())
 		})
 
 		It("prints already-enabled message on enable command and exits with non-zero", func(ctx context.Context) {
