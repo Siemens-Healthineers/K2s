@@ -6,11 +6,11 @@ apiVersion: v1
 kind: AddonManifest
 metadata:
   name: updates
-  description: Updates addon (ArgoCD)
+  description: Tool for automating the deployment/updating of applications in k2s
 spec:
   implementations:
     - name: updates
-      description: Tool for automating the deployment/updating of applications
+      description: Tool for automating the deployment/updating of applications in k2s
       commands:
         enable:
           cli:
