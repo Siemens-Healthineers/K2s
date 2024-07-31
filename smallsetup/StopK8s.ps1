@@ -15,39 +15,11 @@ Param(
     [switch] $SkipHeaderDisplay = $false
 )
 
-$infraModule = "$PSScriptRoot\..\lib\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
-$nodeModule = "$PSScriptRoot\..\lib\modules\k2s\k2s.node.module\k2s.node.module.psm1"
-$clusterModule = "$PSScriptRoot\..\lib\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1"
-Import-Module $infraModule, $nodeModule, $clusterModule
-
-Initialize-Logging -ShowLogs:$ShowLogs
-
-# make sure we are at the right place for executing this script
-$kubePath = Get-KubePath
-Set-Location $kubePath
-
-if ($SkipHeaderDisplay -eq $false) {
-    Write-Log 'Stopping K2s'
-}
-
-$ProgressPreference = 'SilentlyContinue'
-
-$workerNodeStopParams = @{
+$stopParameters = @{
+    ShowLogs = $ShowLogs
     AdditionalHooksDir = $AdditionalHooksDir
-    CacheK2sVSwitches  = $CacheK2sVSwitches
-    SkipHeaderDisplay  = $SkipHeaderDisplay
-    PodSubnetworkNumber   = '1'
+    CacheK2sVSwitches = $CacheK2sVSwitches
+    SkipHeaderDisplay = $SkipHeaderDisplay
 }
-Stop-WindowsWorkerNodeOnWindowsHost @workerNodeStopParams
 
-$controlPlaneStopParams = @{
-    AdditionalHooksDir = $AdditionalHooksDir
-    CacheK2sVSwitches  = $CacheK2sVSwitches
-    SkipHeaderDisplay  = $SkipHeaderDisplay
-}
-Stop-ControlPlaneNodeOnNewVM @controlPlaneStopParams
-
-Reset-DnsForActivePhysicalInterfacesOnWindowsHost -ExcludeNetworkInterfaceName $loopbackAdapter
-
-Write-Log '...Kubernetes system stopped.'
-
+& "$PSScriptRoot\..\lib\scripts\k2s\stop\stop.ps1" @stopParameters
