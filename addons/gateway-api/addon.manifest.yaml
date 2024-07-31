@@ -6,11 +6,11 @@ apiVersion: v1
 kind: AddonManifest
 metadata:
   name: gateway-api
-  description: Gateway Controller for external access that provides an implementation of the Gateway API
+  description: Manage ingress traffic and routing for services within a cluster using Gateway API resource
 spec:
   implementations:
     - name: gateway-api
-      description: Gateway Controller for external access that provides an implementation of the Gateway API
+      description: Manage ingress traffic and routing for services within a cluster using Gateway API resource
       commands:
         enable:
           cli:
