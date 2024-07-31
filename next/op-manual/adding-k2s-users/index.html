@@ -13,13 +13,13 @@ SPDX-License-Identifier: MIT
       
       
       
-        <link rel="canonical" href="https://Siemens-Healthineers.github.io/K2s/next/op-manual/external-dns/">
+        <link rel="canonical" href="https://Siemens-Healthineers.github.io/K2s/next/op-manual/adding-k2s-users/">
       
       
-        <link rel="prev" href="../configuring-httpproxy-service/">
+        <link rel="prev" href="../checking-k2s-status/">
       
       
-        <link rel="next" href="../secure-host-access/">
+        <link rel="next" href="../stopping-k2s/">
       
       
       <link rel="icon" href="../../assets/logo.png">
@@ -27,7 +27,7 @@ SPDX-License-Identifier: MIT
     
     
       
-        <title>External DNS - K2s - Kubernetes distribution for Windows & Linux workloads</title>
+        <title>Adding K2s Users - K2s - Kubernetes distribution for Windows & Linux workloads</title>
       
     
     
@@ -81,7 +81,7 @@ SPDX-License-Identifier: MIT
     <div data-md-component="skip">
       
         
-        <a href="#external-dns" class="md-skip">
+        <a href="#adding-k2s-users" class="md-skip">
           Skip to content
         </a>
       
@@ -132,7 +132,7 @@ You're not viewing the latest release version.
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              External DNS
+              Adding K2s Users
             
           </span>
         </div>
@@ -875,10 +875,30 @@ You're not viewing the latest release version.
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../adding-k2s-users/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    Adding K2s Users
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   <span class="md-ellipsis">
@@ -887,6 +907,149 @@ You're not viewing the latest release version.
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#granting-access-to-k2s" class="md-nav__link">
+    <span class="md-ellipsis">
+      Granting Access to K2s
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Granting Access to K2s">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#access-verification" class="md-nav__link">
+    <span class="md-ellipsis">
+      Access Verification
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Access Verification">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#control-plane-node" class="md-nav__link">
+    <span class="md-ellipsis">
+      Control-Plane Node
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#k8s-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      K8s API
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#authorizing-users-to-call-k8s-api-endpoints" class="md-nav__link">
+    <span class="md-ellipsis">
+      Authorizing Users to Call K8s API Endpoints
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#revoking-access" class="md-nav__link">
+    <span class="md-ellipsis">
+      Revoking Access
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Revoking Access">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#control-plane" class="md-nav__link">
+    <span class="md-ellipsis">
+      Control-plane
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#k8s-api_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      K8s API
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="K8s API">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#authn" class="md-nav__link">
+    <span class="md-ellipsis">
+      AuthN
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#authz" class="md-nav__link">
+    <span class="md-ellipsis">
+      AuthZ
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#caveats" class="md-nav__link">
+    <span class="md-ellipsis">
+      Caveats
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -959,30 +1122,10 @@ You're not viewing the latest release version.
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  <span class="md-ellipsis">
-    External DNS
-  </span>
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../external-dns/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -991,95 +1134,6 @@ You're not viewing the latest release version.
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#overview" class="md-nav__link">
-    <span class="md-ellipsis">
-      Overview
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Overview">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#coredns" class="md-nav__link">
-    <span class="md-ellipsis">
-      CoreDNS
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#externaldns" class="md-nav__link">
-    <span class="md-ellipsis">
-      ExternalDNS
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#etcd" class="md-nav__link">
-    <span class="md-ellipsis">
-      etcd
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#physical-network-adapter-dns-configuration" class="md-nav__link">
-    <span class="md-ellipsis">
-      Physical Network Adapter DNS Configuration
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#links" class="md-nav__link">
-    <span class="md-ellipsis">
-      Links
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#todo" class="md-nav__link">
-    <span class="md-ellipsis">
-      TODO
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -1618,46 +1672,38 @@ You're not viewing the latest release version.
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#overview" class="md-nav__link">
+  <a href="#granting-access-to-k2s" class="md-nav__link">
     <span class="md-ellipsis">
-      Overview
+      Granting Access to K2s
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Overview">
+    <nav class="md-nav" aria-label="Granting Access to K2s">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#coredns" class="md-nav__link">
+  <a href="#access-verification" class="md-nav__link">
     <span class="md-ellipsis">
-      CoreDNS
+      Access Verification
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Access Verification">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#control-plane-node" class="md-nav__link">
+    <span class="md-ellipsis">
+      Control-Plane Node
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#externaldns" class="md-nav__link">
+  <a href="#k8s-api" class="md-nav__link">
     <span class="md-ellipsis">
-      ExternalDNS
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#etcd" class="md-nav__link">
-    <span class="md-ellipsis">
-      etcd
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#physical-network-adapter-dns-configuration" class="md-nav__link">
-    <span class="md-ellipsis">
-      Physical Network Adapter DNS Configuration
+      K8s API
     </span>
   </a>
   
@@ -1667,20 +1713,82 @@ You're not viewing the latest release version.
     </nav>
   
 </li>
+        
+      </ul>
+    </nav>
+  
+</li>
       
         <li class="md-nav__item">
-  <a href="#links" class="md-nav__link">
+  <a href="#authorizing-users-to-call-k8s-api-endpoints" class="md-nav__link">
     <span class="md-ellipsis">
-      Links
+      Authorizing Users to Call K8s API Endpoints
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#todo" class="md-nav__link">
+  <a href="#revoking-access" class="md-nav__link">
     <span class="md-ellipsis">
-      TODO
+      Revoking Access
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Revoking Access">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#control-plane" class="md-nav__link">
+    <span class="md-ellipsis">
+      Control-plane
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#k8s-api_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      K8s API
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="K8s API">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#authn" class="md-nav__link">
+    <span class="md-ellipsis">
+      AuthN
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#authz" class="md-nav__link">
+    <span class="md-ellipsis">
+      AuthZ
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#caveats" class="md-nav__link">
+    <span class="md-ellipsis">
+      Caveats
     </span>
   </a>
   
@@ -1701,7 +1809,7 @@ You're not viewing the latest release version.
                   
 
   
-    <a href="https://github.com/Siemens-Healthineers/K2s/edit/main/docs/op-manual/external-dns.md" title="Edit this page" class="md-content__button md-icon">
+    <a href="https://github.com/Siemens-Healthineers/K2s/edit/main/docs/op-manual/adding-k2s-users.md" title="Edit this page" class="md-content__button md-icon">
       
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4v-2m10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1 2.1 2.1Z"/></svg>
     </a>
@@ -1714,103 +1822,113 @@ SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 SPDX-License-Identifier: MIT
 -->
 
-<h1 id="external-dns">External <abbr title="Domain Name System">DNS</abbr></h1>
-<p>ExternalDNS synchronizes ingress endpoints with a <abbr title="Domain Name System">DNS</abbr> provider.
-In a Cloud environment, the <abbr title="Domain Name System">DNS</abbr> provider would be an external <abbr title="Domain Name System">DNS</abbr>.<br />
-For K2s, we re-use the CoreDNS and configure ExternalDNS to sync
-all hosts it finds in the ingresses to the same <abbr title="Domain Name System">DNS</abbr> which is used to
-resolve the internal k8s svc host names.</p>
-<h2 id="overview">Overview</h2>
-<p>Here is how <abbr title="Domain Name System">DNS</abbr> resolution work on K2s:</p>
-<p><img alt="overview" src="../assets/dns-overview.drawio.png" /></p>
-<h3 id="coredns">CoreDNS</h3>
-<p>CoreDNS is a <abbr title="Domain Name System">DNS</abbr> server part of the core kubernetes system. It monitors kubernetes
-services and pods, the relevant part of the default configuration is:</p>
-<div class="highlight"><span class="filename">YAML</span><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="l l-Scalar l-Scalar-Plain">k get cm coredns -n kube-system -o yaml</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nn">...</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">        </span><span class="l l-Scalar l-Scalar-Plain">kubernetes cluster.local in-addr.arpa ip6.arpa {</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">           </span><span class="l l-Scalar l-Scalar-Plain">pods insecure</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">           </span><span class="l l-Scalar l-Scalar-Plain">fallthrough in-addr.arpa ip6.arpa</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">           </span><span class="l l-Scalar l-Scalar-Plain">ttl 30</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">        </span><span class="l l-Scalar l-Scalar-Plain">}</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="nn">...</span>
-</code></pre></div>
-<p>During the installation phase of K2s, we extend CodeDNS with the <code>etcd</code> CoreDNS plugin
-and we adjust the configuration like this:</p>
-<div class="highlight"><span class="filename">YAML</span><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="w">        </span><span class="l l-Scalar l-Scalar-Plain">kubernetes cluster.local in-addr.arpa ip6.arpa {</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">           </span><span class="l l-Scalar l-Scalar-Plain">pods insecure</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">           </span><span class="l l-Scalar l-Scalar-Plain">fallthrough</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">           </span><span class="l l-Scalar l-Scalar-Plain">ttl 30</span>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">        </span><span class="l l-Scalar l-Scalar-Plain">}</span>
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">        </span><span class="l l-Scalar l-Scalar-Plain">etcd cluster.local {</span>
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">            </span><span class="l l-Scalar l-Scalar-Plain">path /skydns</span>
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">            </span><span class="l l-Scalar l-Scalar-Plain">endpoint https://172.19.1.100:2379</span>
-<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">            </span><span class="l l-Scalar l-Scalar-Plain">tls /etc/kubernetes/pki/etcd-client/tls.crt /etc/kubernetes/pki/etcd-client/tls.key /etc/kubernetes/pki/etcd-ca/tls.crt</span>
-<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">        </span><span class="l l-Scalar l-Scalar-Plain">}</span>
-</code></pre></div>
-<p>Observe the modified fallthrough in the kubernetes plugin, which gives a chance
-to the etcd plugin to serve the zone <code>cluster.local</code> as well.<br />
-The etcd plugin will serve all entries it finds in the <code>etcd</code> database under the
-prefix <code>/skydns</code>,  in SkyDNS Format (done by ExternalDNS - see below).</p>
-<p>In this configuration, we use the same etcd instance used by kubernetes. For this,
-we import the etcd certificates as secrets and mount them to the CoreDNS
-deployment:</p>
-<div class="highlight"><span class="filename">YAML</span><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="l l-Scalar l-Scalar-Plain">k get deployment coredns -n kube-system -o yaml</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="nn">...</span>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">        </span><span class="nt">volumeMounts</span><span class="p">:</span>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">mountPath</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/etc/kubernetes/pki/etcd-ca</span>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">          </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">etcd-ca-cert</span>
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">mountPath</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/etc/kubernetes/pki/etcd-client</span>
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">          </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">etcd-client-cert</span>
-<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="nn">...</span>
-<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">      </span><span class="nt">volumes</span><span class="p">:</span>
-<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">etcd-ca-cert</span>
-<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="w">        </span><span class="nt">secret</span><span class="p">:</span>
-<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="w">          </span><span class="nt">secretName</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">etcd-ca</span>
-<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">etcd-client-cert</span>
-<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="w">        </span><span class="nt">secret</span><span class="p">:</span>
-<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="w">          </span><span class="nt">secretName</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">etcd-client-for-core-dns</span>
-<a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a><span class="nn">...</span>
-</code></pre></div>
-<h3 id="externaldns">ExternalDNS</h3>
-<p>Both K2s Ingress addons: `ingress-nginx'  and ' traefik' will install ExternalDNS,
-which will observe all ingresses and populate the etcd /skydns path with
-<abbr title="Domain Name System">DNS</abbr> entries  corresponding to the identified endpoints.</p>
-<p>The External <abbr title="Domain Name System">DNS</abbr> Deployment uses the same credentials as CoreDNS to access the
-cluster etcd database.</p>
-<p>See [addons/common/manifests/external-dns]</p>
-<h3 id="etcd">etcd</h3>
-<p>As already mentioned, we use the kubernetes cluster etcd instance to store the
-<abbr title="Domain Name System">DNS</abbr> entries corresponding to the ingresses. The etcd certificates are generated
-during cluster installation and located under:</p>
-<div class="highlight"><span class="filename">Text Only</span><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>/etc/kubernetes/pki/etcd/*
-</code></pre></div>
-<p>At installation time, when we prepare the Linux <abbr title="Virtual Machine">VM</abbr>, we also import these
-certificates as kubernetes secrets:</p>
-<div class="highlight"><span class="filename">Text Only</span><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>kubectl create secret -n kube-system tls etcd-ca --cert=etcd/ca.crt --key=etcd/ca.key
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>kubectl create secret -n kube-system tls etcd-client-for-core-dns --cert=etcd/healthcheck-client.crt --key=etcd/healthcheck-client.key
-</code></pre></div>
-<h3 id="physical-network-adapter-dns-configuration">Physical Network Adapter <abbr title="Domain Name System">DNS</abbr> Configuration</h3>
-<p>At the end of <code>k2s start</code>, we change the <abbr title="Domain Name System">DNS</abbr> Server of all physical network interfaces
-to use the <code>dnsproxy</code> <abbr title="Domain Name System">DNS</abbr> service running on the host.
-At the end of <code>k2s stop</code> we reset the <abbr title="Domain Name System">DNS</abbr> Configuration of these adapters.</p>
-<h2 id="links">Links</h2>
+<h1 id="adding-k2s-users">Adding <em>K2s</em> Users</h1>
+<p>A <em>K2s</em> user is a <em>Windows</em> user that:</p>
 <ul>
-<li><a href="https://kubernetes-sigs.github.io/external-dns/v0.14.2/">ExternalDNS</a>:
-  project overview</li>
-<li><a href="https://coredns.io/plugins/etcd/">CoreDNS etcd plugin</a>:
-  extends CoreDNS to answers <abbr title="Domain Name System">DNS</abbr> queries using data in SkyDNS format found in etcd.</li>
-<li><a href="https://github.com/kubernetes-sigs/external-dns/blob/master/docs/tutorials/coredns.md">ExternalDNS coredns plugin</a>:
-  extends ExternalDNS and saves all hosts in SkyDNS format to etcd.<br />
-<a href="https://github.com/kubernetes-sigs/external-dns/blob/master/provider/coredns/coredns.go#L212">Configuration Env. Variables</a>:
-  this will help us setting up the connection to a secured etcd.</li>
+<li>has administrative access to the <em><abbr title="Kubernetes">K8s</abbr></em> nodes (<abbr title="Authentication">authN</abbr>/<abbr title="Authorization">authZ</abbr>)</li>
+<li>can call the <em><abbr title="Kubernetes">K8s</abbr></em> <abbr title="Application Programming Interface">API</abbr> (<abbr title="Authentication">authN</abbr> only, see <a href="#authorizing-users-to-call-k8s-api-endpoints">Authorizing Users to Call <em><abbr title="Kubernetes">K8s</abbr></em> <abbr title="Application Programming Interface">API</abbr> Endpoints</a>)</li>
 </ul>
-<h2 id="todo">TODO</h2>
-<p>These hosts are not yet migrated to cluster.local, so they are not known by <abbr title="Domain Name System">DNS</abbr> Query.
-They are added to the windows <code>hosts</code> file, so they are addressable by name:</p>
+<p>When <em>K2s</em> is being installed, the <em>Windows</em> user executing the installation routine will be granted administrator access to the control-plane (via <abbr title="Secure Shell">SSH</abbr>) and worker nodes. In addition, this user will be configured as <em><abbr title="Kubernetes">K8s</abbr></em> cluster admin (<abbr title="Authentication">authN</abbr> via cert).</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><em><abbr title="Kubernetes">K8s</abbr></em> provides different ways to authenticate users (<abbr title="Authentication">authN</abbr>). <em>K2s</em> uses <a href="https://kubernetes.io/docs/reference/access-authn-authz/authentication/#x509-client-certificates" target="_blank">X509 client certificates</a>.</p>
+</div>
+<p>How to enable other <em>Windows</em> users on the same host machine to interact with <em>K2s</em> will be shown in the following.</p>
+<h2 id="granting-access-to-k2s">Granting Access to <em>K2s</em></h2>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>A <em>Windows</em> user must have a local profile on the host machine in order to be granted access to <em>K2s</em>.</p>
+<p>Additionally, a <em>Windows</em> user must have administrator privileges to interact with <em>K2s</em> (see <a href="../installing-k2s/#prerequisites">Prerequisites</a>).</p>
+</div>
+<p>To grant a specific <em>Windows</em> user access to <em>K2s</em>, run as <em>K2s</em> admin:
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="go">k2s system users add -u &lt;username&gt;</span>
+</code></pre></div></p>
+<p>See <code>k2s system users add -h</code> for more options.</p>
+<div class="admonition tip">
+<p class="admonition-title">Windows Username</p>
+<p>Typically the <em>Windows</em> username can be specified without the domain.</p>
+</div>
+<details class="example">
+<summary>Full Example With Detailed Steps</summary>
+<p>Given that the <em>Windows</em> user <code>desktop1234\john</code> exists on the host and has a local profile/home directory, the <em>K2s</em> admin runs <code>k2s system users add -u john</code> which triggers the following steps:</p>
 <ul>
-<li>k2s-registry.local</li>
-<li>k2s-gateway.local</li>
+<li>Creating an <abbr title="Secure Shell">SSH</abbr> key pair for <em>John</em> in <code>c:\users\john\.ssh\kubemaster\</code> on the host. The admin must confirm overwriting existing key pairs. Since the <abbr title="Secure Shell">SSH</abbr> key pair was initially created by the admin's <em>Windows</em> account, the file security inheritance must be disabled, the <em>Administrators</em> group granted full file access (so that the <em>K2s</em> admin can revoke/delete <em>John's</em> access later) and the admin user must be removed from the <abbr title="Access Control List">ACL</abbr>, otherwise <abbr title="Secure Shell">SSH</abbr> would complain about too open access permissions when <em>John</em> tries to use his <abbr title="Secure Shell">SSH</abbr> key. <em>John's</em> public <abbr title="Secure Shell">SSH</abbr> key contains the <em>K2s</em>-specific username as comment, i.e. <code>k2s-desktop1234-john</code>, so that removing entries only targets <abbr title="Secure Shell">SSH</abbr> fingerprints that have been created by <em>K2s</em>. As of now, none of the <abbr title="Secure Shell">SSH</abbr> keys being created by <em>K2s</em> are password-protected.</li>
+<li>Adding control-plane's <abbr title="Secure Shell">SSH</abbr> fingerprint to <code>c:\users\john\.ssh\known_hosts</code> file on the host. It removes previous control-plane fingerprint if existing.</li>
+<li>Adding <em>John's</em> <abbr title="Secure Shell">SSH</abbr> fingerprint to <code>~/.ssh/authorized_keys</code> on the control-plane. It removes <em>John's</em> previous fingerprint if existing.</li>
+<li>Creating <code>c:\users\john\.kube\config</code> if not existing, copying the <em>K2s</em> cluster configuration from admin's <code>kubeconfig</code>.</li>
+<li>Signing a new certificate for username <code>k2s-desktop1234-john</code> and group <code>k2s-users</code> using <em><abbr title="Kubernetes">K8s</abbr>'s</em> <abbr title="Certificate Authority">CA</abbr> cert on the control-plane.</li>
+<li>Copying the new certificate to the host, embedding the certificate data for <code>k2s-desktop1234-john</code> in <code>c:\users\john\.kube\config</code> and deleting the cert files.</li>
+<li>Adding a new <em><abbr title="Kubernetes">K8s</abbr></em> context for <code>k2s-desktop1234-john</code> to <code>c:\users\john\.kube\config</code>, verifying the <em><abbr title="Kubernetes">K8s</abbr></em> authentication and switching back to previously active context if there was any.</li>
+</ul>
+<p><em>John</em> has access to the control-plane now (<abbr title="Authentication">authN</abbr>/<abbr title="Authorization">authZ</abbr>) as well as to the <em><abbr title="Kubernetes">K8s</abbr></em> <abbr title="Application Programming Interface">API</abbr> (<abbr title="Authentication">authN</abbr>). To authorize <em>John</em> (<abbr title="Authorization">authZ</abbr>) on the <em><abbr title="Kubernetes">K8s</abbr></em> cluster, see <a href="#authorizing-users-to-call-k8s-api-endpoints">Authorizing Users to Call <em><abbr title="Kubernetes">K8s</abbr></em> <abbr title="Application Programming Interface">API</abbr> Endpoints</a>.</p>
+</details>
+<h3 id="access-verification">Access Verification</h3>
+<h4 id="control-plane-node">Control-Plane Node</h4>
+<p>The new user can verify the <abbr title="Secure Shell">SSH</abbr> access to the control-plane by running:</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="go">ssh -o StrictHostKeyChecking=no -i &quot;~/.ssh\kubemaster\id_rsa&quot; &quot;remote@172.19.1.100&quot;</span>
+</code></pre></div>
+<p>where <code>172.19.1.100</code> is the <abbr title="Internet Protocol">IP</abbr> address of the control-plane and <code>remote</code> the <em>Linux</em> user with admin privileges.</p>
+<h4 id="k8s-api"><em><abbr title="Kubernetes">K8s</abbr></em> <abbr title="Application Programming Interface">API</abbr></h4>
+<p>As the new user, run:</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="go">kubectl auth whoami -o jsonpath=&quot;{.status.userInfo}&quot;</span>
+</code></pre></div>
+<p>The response should look similar to:
+<div class="highlight"><span class="filename">JSON</span><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="p">{</span><span class="nt">&quot;groups&quot;</span><span class="p">:[</span><span class="s2">&quot;k2s-users&quot;</span><span class="p">,</span><span class="s2">&quot;system:authenticated&quot;</span><span class="p">],</span><span class="nt">&quot;username&quot;</span><span class="p">:</span><span class="s2">&quot;k2s-DESKTOP-user1234&quot;</span><span class="p">}</span>
+</code></pre></div></p>
+<p>This response proves that <em><abbr title="Kubernetes">K8s</abbr></em> verified the user cert presented in the current <code>kubeconfig</code> and extracted the username and group successfully.</p>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>To run this check for a different <em>Windows</em> user, e.g. as admin for a new <em>K2s</em> user, specify the <code>kubeconfig</code> explicitly:</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="go">kubectl auth whoami -o jsonpath=&quot;{.status.userInfo} --kubeconfig path\to\other\users\kube\config&quot;</span>
+</code></pre></div>
+</div>
+<h2 id="authorizing-users-to-call-k8s-api-endpoints">Authorizing Users to Call <em><abbr title="Kubernetes">K8s</abbr></em> <abbr title="Application Programming Interface">API</abbr> Endpoints</h2>
+<p>Since <em><abbr title="Kubernetes">K8s</abbr></em> authorization is highly dependent on use cases and can get very complex, <em>K2s</em> does not provide built-in <em><abbr title="Kubernetes">K8s</abbr></em> <abbr title="Authorization">authZ</abbr> besides the cluster admin permissions.</p>
+<p>A common approach to <em><abbr title="Kubernetes">K8s</abbr></em> <abbr title="Authorization">authZ</abbr> is <a href="https://kubernetes.io/docs/reference/access-authn-authz/rbac/" target="_blank"><abbr title="Role-Based Access Control">RBAC</abbr> Authorization</a>.</p>
+<div class="admonition example">
+<p class="admonition-title">Grant Permissions to Start <em>K2s</em></p>
+<p>This example shows how to grant the new <em>K2s</em> user <em>John</em> from the previous example <abbr title="Role-Based Access Control">RBAC</abbr>-based permissions to start the <em>K2s</em> cluster and inspect its status.</p>
+<p>To create a role for displaying nodes' status and taint nodes at startup, run:</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="go">kubectl create clusterrole EditNodesRole --verb=&quot;get,list,watch,patch&quot; --resource=&quot;nodes&quot;</span>
+</code></pre></div>
+<p>To create a role for displaying Pod status, run:</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="go">kubectl create clusterrole ViewPodsRole --verb=&quot;get,list,watch&quot; --resource=&quot;pods&quot;</span>
+</code></pre></div>
+<p><img alt="ℹ" class="twemoji" src="../../assets/external/cdn.jsdelivr.net/gh/jdecked/twemoji@15.0.3/assets/svg/2139.svg" title=":information:"> It is common practice to define roles cluster-wide (i.e. <code>clusterrole</code>) and to use them in a narrower scope/context (i.e. <code>rolebinding</code>). They can be seen as globally available templates with local instances.</p>
+<p>To assign <em>John</em> the <code>EditNodesRole</code> role, run:</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="go">kubectl create clusterrolebinding EditNodesBinding --clusterrole=EditNodesRole --user=k2s-desktop1234-john</span>
+</code></pre></div>
+<p><img alt="ℹ" class="twemoji" src="../../assets/external/cdn.jsdelivr.net/gh/jdecked/twemoji@15.0.3/assets/svg/2139.svg" title=":information:"> Instead of assigning a role to specific users, roles can also be assigned to groups, e.g. the <code>k2s-users</code> group. The downside would be, that roles cannot be removed from specific users if e.g. an admin wants to revoke access to <em>K2s</em>.</p>
+<p>To assign <em>John</em> the <code>ViewPodsRole</code> role in <code>kube-system</code> and <code>kube-flannel</code> namespaces, run:</p>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="go">kubectl create rolebinding ViewPodsBinding --clusterrole=ViewPodsRole --user=k2s-desktop1234-john -n &quot;kube-system&quot;</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="go">kubectl create rolebinding ViewPodsBinding --clusterrole=ViewPodsRole --user=k2s-desktop1234-john -n &quot;kube-flannel&quot;</span>
+</code></pre></div>
+<p><img alt="ℹ" class="twemoji" src="../../assets/external/cdn.jsdelivr.net/gh/jdecked/twemoji@15.0.3/assets/svg/2139.svg" title=":information:"> In contrast to the role <code>EditNodesRole</code> which applies to the whole cluster, the role <code>ViewPodsRole</code> is only applied in <code>kube-system</code> and <code>kube-flannel</code> namespaces, therefore scoped to a narrow context.</p>
+</div>
+<h2 id="revoking-access">Revoking Access</h2>
+<p>There is no automated or bullet-proof way to revoke access to <em>K2s</em> (or removing a <em>K2s</em> user respectively). The manual best-effort steps will be described in the following.</p>
+<h3 id="control-plane">Control-plane</h3>
+<ul>
+<li>[Essential] On control-plane, remove <abbr title="Secure Shell">SSH</abbr> key fingerprint from <code>~/.ssh/authorized_keys</code> for the specific user (entry should contain username with <code>k2s-</code> prefix).</li>
+<li>[Cleanup] Remove <abbr title="Secure Shell">SSH</abbr> key pair folder <code>&lt;home-dir&gt;\.ssh\kubemaster\</code>.</li>
+<li>[Cleanup] Remove control-plane fingerprint from <code>&lt;home-dir&gt;\.ssh\known_hosts</code>, normally starting with the control-plane's <abbr title="Internet Protocol">IP</abbr> address <code>172.19.1.100</code>.</li>
+</ul>
+<h3 id="k8s-api_1"><em><abbr title="Kubernetes">K8s</abbr></em> <abbr title="Application Programming Interface">API</abbr></h3>
+<h4 id="authn">AuthN</h4>
+<p><em><abbr title="Kubernetes">K8s</abbr></em> offers no mechanism to revoke user certificates. As long as the user holds the certificate (assuming it did not expire yet), the user can authenticate himself to <em><abbr title="Kubernetes">K8s</abbr></em>. Without permissions, though, the user can only call unrestricted <abbr title="Application Programming Interface">API</abbr> endpoints like <code>kubectl version</code>.</p>
+<ul>
+<li>Assuming the user is unharmful and did not create a copy of his certificate, his credentials including the certificate data can be removed from the <code>&lt;home-dir&gt;\.kube\config</code> file. The <code>k2s-</code> prefix uniquely identifies the user.</li>
+<li>Additionally, the <em>K2s</em> cluster config and corresponding context can be removed. If no more clusters are configured, the whole <code>kubeconfig</code> file can be removed.</li>
+</ul>
+<h4 id="authz">AuthZ</h4>
+<p>Remove all <code>rolebinding</code> and <code>clusterrolebinding</code> <em><abbr title="Kubernetes">K8s</abbr></em> resources associated with the user, e.g. undo the example steps in <a href="#authorizing-users-to-call-k8s-api-endpoints">Authorizing Users to Call <em><abbr title="Kubernetes">K8s</abbr></em> <abbr title="Application Programming Interface">API</abbr> Endpoints</a>.</p>
+<h2 id="caveats">Caveats</h2>
+<ul>
+<li>Without external <abbr title="Identity and Access Management">IAM</abbr>, <em><abbr title="Kubernetes">K8s</abbr></em> does not provide user management or means to revoke access when cert <abbr title="Authentication">authN</abbr> is being used. As long as a user presents a valid cert, he is authenticated to <em><abbr title="Kubernetes">K8s</abbr></em>.</li>
+<li>When <em><abbr title="Kubernetes">K8s</abbr></em>' <abbr title="Certificate Authority">CA</abbr> cert expires, all derived user certs have to be re-generated and all <code>kubeconfig</code> files must be updated with the new cluster config and user credentials.</li>
+<li><em>K2s</em> does not provide <abbr title="Role-Based Access Control">RBAC</abbr> for control-plane access, all <em>Windows</em> users use the same <em>Linux</em> admin account.</li>
+<li>There is no info available yet, which <em>k2s</em> <abbr title="Command-Line Interface">CLI</abbr> command requires which <em><abbr title="Kubernetes">K8s</abbr></em> permissions (<abbr title="Role-Based Access Control">RBAC</abbr>), e.g. for stopping the <em>K2s</em> cluster, <abbr title="Secure Shell">SSH</abbr> access to the control-plane is sufficient, whereas for starting the cluster, the <em><abbr title="Kubernetes">K8s</abbr></em> permissions to patch a node's config is required (see example in <a href="#authorizing-users-to-call-k8s-api-endpoints">Authorizing Users to Call <em><abbr title="Kubernetes">K8s</abbr></em> <abbr title="Application Programming Interface">API</abbr> Endpoints</a>).</li>
+<li>The <abbr title="Secure Shell">SSH</abbr> keys created by <em>K2s</em> are not password-protected.</li>
 </ul>
 <!--
 SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
@@ -1851,7 +1969,7 @@ SPDX-License-Identifier: MIT
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../configuring-httpproxy-service/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Configuring HTTPProxy Service">
+          <a href="../checking-k2s-status/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Checking K2s Status">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
@@ -1861,20 +1979,20 @@ SPDX-License-Identifier: MIT
                 Previous
               </span>
               <div class="md-ellipsis">
-                Configuring HTTPProxy Service
+                Checking K2s Status
               </div>
             </div>
           </a>
         
         
           
-          <a href="../secure-host-access/" class="md-footer__link md-footer__link--next" aria-label="Next: Secure Host Access">
+          <a href="../stopping-k2s/" class="md-footer__link md-footer__link--next" aria-label="Next: Stopping K2s">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Secure Host Access
+                Stopping K2s
               </div>
             </div>
             <div class="md-footer__button md-icon">
