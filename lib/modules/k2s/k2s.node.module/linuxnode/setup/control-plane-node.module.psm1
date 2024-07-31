@@ -256,11 +256,6 @@ function Start-ControlPlaneNodeOnNewVM {
             # connect VM to switch
             Connect-KubeSwitch
         }
-        # route for VM
-        Write-Log "Remove obsolete route to $ipControlPlaneCIDR"
-        route delete $ipControlPlaneCIDR >$null 2>&1
-        Write-Log "Add route to $ipControlPlaneCIDR"
-        route -p add $ipControlPlaneCIDR $windowsHostIpAddress METRIC 3 | Out-Null
         
         Start-VirtualMachine -VmName $controlPlaneVMHostName -Wait
     } else {
@@ -280,6 +275,12 @@ function Start-ControlPlaneNodeOnNewVM {
     # configure NAT
     Remove-DefaultNetNat
     New-DefaultNetNat
+
+    # route for VM
+    Write-Log "Remove obsolete route to $ipControlPlaneCIDR"
+    route delete $ipControlPlaneCIDR >$null 2>&1
+    Write-Log "Add route to $ipControlPlaneCIDR"
+    route -p add $ipControlPlaneCIDR $windowsHostIpAddress METRIC 3 | Out-Null
 
     Wait-ForSSHConnectionToLinuxVMViaSshKey
 
