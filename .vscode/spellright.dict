@@ -24,3 +24,5 @@ flanneld
 Redis
 Golang
 mkdocs
+authN
+authZ
