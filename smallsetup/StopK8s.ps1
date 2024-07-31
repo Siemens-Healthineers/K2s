@@ -36,7 +36,7 @@ $workerNodeStopParams = @{
     AdditionalHooksDir = $AdditionalHooksDir
     CacheK2sVSwitches  = $CacheK2sVSwitches
     SkipHeaderDisplay  = $SkipHeaderDisplay
-    WorkerNodeNumber   = '1'
+    PodSubnetworkNumber   = '1'
 }
 Stop-WindowsWorkerNodeOnWindowsHost @workerNodeStopParams
 

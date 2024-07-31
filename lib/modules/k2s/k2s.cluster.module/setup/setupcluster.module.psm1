@@ -104,7 +104,7 @@ Join the windows node with linux control plane node
 function Join-WindowsNode {
     Param(
         [string]$CommandForJoining = $(throw 'Argument missing: CommandForJoining'),
-        [string] $WorkerNodeNumber = $(throw 'Argument missing: WorkerNodeNumber')
+        [string] $PodSubnetworkNumber = $(throw 'Argument missing: PodSubnetworkNumber')
     )
 
     # join node if necessary
@@ -149,7 +149,7 @@ function Join-WindowsNode {
         $token = $patternSearchResult.Matches.Groups[2].Value
         $hash = $patternSearchResult.Matches.Groups[3].Value
         $caCertFilePath = "$(Get-SystemDriveLetter):\etc\kubernetes\pki\ca.crt"
-        $windowsNodeIpAddress = Get-ConfiguredClusterCIDRNextHop -WorkerNodeNumber $WorkerNodeNumber
+        $windowsNodeIpAddress = Get-ConfiguredClusterCIDRNextHop -PodSubnetworkNumber $PodSubnetworkNumber
 
         Write-Log 'Create config file for join command'
         $joinConfigurationTemplateFilePath = "$kubePath\cfg\kubeadm\joinwindowsnode.template.yaml"
@@ -251,7 +251,7 @@ function Initialize-KubernetesCluster {
     Param(
         [parameter(Mandatory = $false, HelpMessage = 'Directory containing additional hooks to be executed after local hooks are executed')]
         [string] $AdditionalHooksDir = '',
-        [string] $WorkerNodeNumber = $(throw 'Argument missing: WorkerNodeNumber')
+        [string] $PodSubnetworkNumber = $(throw 'Argument missing: PodSubnetworkNumber')
     )
     Copy-KubeConfigFromControlPlaneNode
     Add-K8sContext
@@ -261,7 +261,7 @@ function Initialize-KubernetesCluster {
     Write-Log 'starting the join process'
     
     $joinCommand = New-JoinCommand
-    Join-WindowsNode -CommandForJoining $joinCommand -WorkerNodeNumber $WorkerNodeNumber
+    Join-WindowsNode -CommandForJoining $joinCommand -PodSubnetworkNumber $PodSubnetworkNumber
 
     Set-KubeletDiskPressure
 
@@ -371,7 +371,7 @@ function Save-ControlPlaneNodeHostnameIntoWinVM($vmSession) {
     Write-Log '  done.'
 }
 
-function Join-VMWindowsNode($vmSession, $workerNodeNumber) {
+function Join-VMWindowsNode($vmSession, $podSubnetworkNumber) {
     Write-Log 'Joining Windows node ...'
 
     $ErrorActionPreference = 'Continue'
@@ -392,7 +392,7 @@ function Join-VMWindowsNode($vmSession, $workerNodeNumber) {
         Import-Module $env:SystemDrive\k\lib\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1
         Initialize-Logging -Nested:$true
 
-        Join-WindowsNode -CommandForJoining $using:joinCommand -WorkerNodeNumber $using:workerNodeNumber
+        Join-WindowsNode -CommandForJoining $using:joinCommand -PodSubnetworkNumber $using:podSubnetworkNumber
     }
 
     $ErrorActionPreference = 'Stop'

@@ -72,7 +72,7 @@ $workerNodeStartParams = @{
     UseCachedK2sVSwitches = $UseCachedK2sVSwitches
     SkipHeaderDisplay     = $SkipHeaderDisplay
     DnsServers            = $dnsServers
-    WorkerNodeNumber      = '1'
+    PodSubnetworkNumber      = '1'
 }
 Start-WindowsWorkerNodeOnWindowsHost @workerNodeStartParams
 
