@@ -142,7 +142,7 @@ function Start-ControlPlaneNodeOnNewVM {
             Write-Log "vEthernet ($controlPlaneNodeDefaultSwitchName) not set to private."
             return $false
         }
-        $if = Get-NetIPAddress -InterfaceAlias "vEthernet ($controlPlaneNodeDefaultSwitchName)" -ErrorAction SilentlyContinue
+        $if = Get-NetIPAddress -InterfaceAlias "vEthernet ($controlPlaneNodeDefaultSwitchName)" -AddressFamily IPv4 -ErrorAction SilentlyContinue
         if (!$if) {
             Write-Log "Unable get IP Address for host on vEthernet ($controlPlaneNodeDefaultSwitchName) interface..."
             return $false
@@ -255,9 +255,9 @@ function Start-ControlPlaneNodeOnNewVM {
 
             # connect VM to switch
             Connect-KubeSwitch
-        } 
+        }
+        
         Start-VirtualMachine -VmName $controlPlaneVMHostName -Wait
-
     } else {
         Write-Log 'Configuring KubeMaster Distro' -Console
         wsl --shutdown
@@ -275,6 +275,12 @@ function Start-ControlPlaneNodeOnNewVM {
     # configure NAT
     Remove-DefaultNetNat
     New-DefaultNetNat
+
+    # route for VM
+    Write-Log "Remove obsolete route to $ipControlPlaneCIDR"
+    route delete $ipControlPlaneCIDR >$null 2>&1
+    Write-Log "Add route to $ipControlPlaneCIDR"
+    route -p add $ipControlPlaneCIDR $windowsHostIpAddress METRIC 3 | Out-Null
 
     Wait-ForSSHConnectionToLinuxVMViaSshKey
 
@@ -296,12 +302,6 @@ function Start-ControlPlaneNodeOnNewVM {
     $clusterCIDRMaster = $setupConfigRoot.psobject.properties['podNetworkMasterCIDR'].value
     $clusterCIDRServices = $setupConfigRoot.psobject.properties['servicesCIDR'].value
     $clusterCIDRServicesLinux = $setupConfigRoot.psobject.properties['servicesCIDRLinux'].value
-
-    # route for VM
-    Write-Log "Remove obsolete route to $ipControlPlaneCIDR"
-    route delete $ipControlPlaneCIDR >$null 2>&1
-    Write-Log "Add route to $ipControlPlaneCIDR"
-    route -p add $ipControlPlaneCIDR $windowsHostIpAddress METRIC 3 | Out-Null
 
     # routes for Linux pods
     Write-Log "Remove obsolete route to $clusterCIDRMaster"
