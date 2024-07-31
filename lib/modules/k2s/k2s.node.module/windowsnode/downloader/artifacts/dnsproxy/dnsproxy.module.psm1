@@ -42,7 +42,7 @@ function Invoke-DeployDnsProxyArtifacts($windowsNodeArtifactsDirectory) {
 
 function Install-WinDnsProxy {
     param (
-        [string] $WorkerNodeNumber = $(throw 'Argument missing: WorkerNodeNumber')
+        [string] $PodSubnetworkNumber = $(throw 'Argument missing: PodSubnetworkNumber')
     )
 
     Write-Log 'Registering dnsproxy service'
@@ -51,7 +51,7 @@ function Install-WinDnsProxy {
     &$kubeBinPath\nssm set dnsproxy AppDirectory $kubeBinPath | Out-Null
 
     Write-Log 'Creating dnsproxy.yaml (config for dnsproxy.exe)'
-    $clusterCIDRNextHop = Get-ConfiguredClusterCIDRNextHop -WorkerNodeNumber $WorkerNodeNumber
+    $clusterCIDRNextHop = Get-ConfiguredClusterCIDRNextHop -PodSubnetworkNumber $PodSubnetworkNumber
     $ipNextHop = $setupConfigRoot.psobject.properties['kubeSwitch'].value
     $ipControlPlane = $setupConfigRoot.psobject.properties['masterIP'].value
     $dnsServer = '8.8.8.8'

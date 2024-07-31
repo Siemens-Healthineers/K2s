@@ -330,13 +330,13 @@ function Install-WinNodeArtifacts {
         [bool] $HostVM,
         [parameter(Mandatory = $false, HelpMessage = 'Skips installation of cluster dependent tools')]
         [bool] $SkipClusterSetup = $false,
-        [string] $WorkerNodeNumber = $(throw 'Argument missing: WorkerNodeNumber')
+        [string] $PodSubnetworkNumber = $(throw 'Argument missing: PodSubnetworkNumber')
     )
 
     Invoke-DeployDockerArtifacts $windowsNodeArtifactsDirectory
     Install-WinDocker -Proxy "$Proxy"
 
-    Install-WinContainerd -Proxy "$Proxy" -SkipNetworkingSetup:$SkipClusterSetup -WindowsNodeArtifactsDirectory $windowsNodeArtifactsDirectory -WorkerNodeNumber $WorkerNodeNumber
+    Install-WinContainerd -Proxy "$Proxy" -SkipNetworkingSetup:$SkipClusterSetup -WindowsNodeArtifactsDirectory $windowsNodeArtifactsDirectory -PodSubnetworkNumber $PodSubnetworkNumber
 
     if (!($SkipClusterSetup)) {
         Invoke-DeployWindowsImages $windowsNodeArtifactsDirectory
@@ -357,7 +357,7 @@ function Install-WinNodeArtifacts {
         if (!($HostVM)) {
             # DNS Proxy is not required if Host machine is a VM
             Invoke-DeployDnsProxyArtifacts $windowsNodeArtifactsDirectory
-            Install-WinDnsProxy -WorkerNodeNumber $WorkerNodeNumber
+            Install-WinDnsProxy -PodSubnetworkNumber $PodSubnetworkNumber
         }
     }
 

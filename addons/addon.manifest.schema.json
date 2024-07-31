@@ -21,6 +21,10 @@
                 "description": {
                     "description": "The description of an addon for user display",
                     "type": "string"
+                },
+                "implementation": {
+                    "description": "The implementation type of the addon",
+                    "type": "string"
                 }
             },
             "required": [
@@ -31,30 +35,50 @@
         "spec": {
             "type": "object",
             "properties": {
-                "offline_usage": {
-                    "$ref": "/schemas/offline_usage"
-                },
-                "commands": {
-                    "description": "Metadata for mandatory commands the addon has to support/provide",
-                    "type": "object",
-                    "properties": {
-                        "enable": {
-                            "description": "Command to enable the addon",
-                            "$ref": "/schemas/command"
+                "implementations": {
+                    "description": "Implementations of the addon",
+                    "type": "array",
+                    "uniqueItems": true,
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "name": {
+                                "type": "string"
+                            },
+                            "description": {
+                                "type": "string"
+                            },
+                            "offline_usage": {
+                                "$ref": "/schemas/offline_usage"
+                            },
+                            "commands": {
+                                "description": "Metadata for mandatory commands the addon has to support/provide",
+                                "type": "object",
+                                "properties": {
+                                    "enable": {
+                                        "description": "Command to enable the addon",
+                                        "$ref": "/schemas/command"
+                                    },
+                                    "disable": {
+                                        "description": "Command to enable the addon",
+                                        "$ref": "/schemas/command"
+                                    }
+                                },
+                                "required": [
+                                    "enable",
+                                    "disable"
+                                ]
+                            }
                         },
-                        "disable": {
-                            "description": "Command to enable the addon",
-                            "$ref": "/schemas/command"
-                        }
-                    },
-                    "required": [
-                        "enable",
-                        "disable"
-                    ]
+                        "required": [
+                            "name",
+                            "commands"
+                        ]
+                    }
                 }
             },
             "required": [
-                "commands"
+                "implementations"
             ]
         }
     },

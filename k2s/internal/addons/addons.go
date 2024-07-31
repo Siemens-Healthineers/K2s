@@ -38,8 +38,7 @@ type AddonMetadata struct {
 }
 
 type AddonSpec struct {
-	Commands     *map[string]AddonCmd `yaml:"commands"`
-	OfflineUsage OfflineUsage         `yaml:"offline_usage"`
+	Implementations []Implementation `yaml:"implementations"`
 }
 
 type OfflineUsage struct {
@@ -60,6 +59,16 @@ type WindowsResources struct {
 type CurlPackages struct {
 	Url         string `yaml:"url"`
 	Destination string `yaml:"destination"`
+}
+
+type Implementation struct {
+	Name                string `yaml:"name"`
+	Description         string `yaml:"description"`
+	Directory           string
+	AddonsCmdName       string
+	ExportDirectoryName string
+	Commands            *map[string]AddonCmd `yaml:"commands"`
+	OfflineUsage        OfflineUsage         `yaml:"offline_usage"`
 }
 
 type AddonCmd struct {
@@ -333,6 +342,18 @@ func loadAndValidate(params loadParams) (addons []Addon, err error) {
 		}
 
 		addon.Directory = filepath.Dir(path)
+
+		for i, impl := range addon.Spec.Implementations {
+			if addon.Metadata.Name != impl.Name {
+				addon.Spec.Implementations[i].Directory = filepath.Join(addon.Directory, impl.Name)
+				addon.Spec.Implementations[i].ExportDirectoryName = addon.Metadata.Name + "_" + impl.Name
+				addon.Spec.Implementations[i].AddonsCmdName = addon.Metadata.Name + " " + impl.Name
+			} else {
+				addon.Spec.Implementations[i].Directory = addon.Directory
+				addon.Spec.Implementations[i].ExportDirectoryName = addon.Metadata.Name
+				addon.Spec.Implementations[i].AddonsCmdName = addon.Metadata.Name
+			}
+		}
 
 		addons = append(addons, addon)
 		return nil
