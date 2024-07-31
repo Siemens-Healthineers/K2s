@@ -133,7 +133,7 @@ $workerNodeParams = @{
     AdditionalHooksDir = $AdditionalHooksDir
     DeleteFilesForOfflineInstallation = $DeleteFilesForOfflineInstallation
     ForceOnlineInstallation = $ForceOnlineInstallation
-    WorkerNodeNumber = '1'
+    PodSubnetworkNumber = '1'
 }
 Add-WindowsWorkerNodeOnWindowsHost @workerNodeParams
 
