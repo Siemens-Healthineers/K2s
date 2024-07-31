@@ -19,7 +19,7 @@ function Add-WindowsWorkerNodeOnWindowsHost {
         [switch] $DeleteFilesForOfflineInstallation = $false,
         [parameter(Mandatory = $false, HelpMessage = 'Force the installation online. This option is needed if the files for an offline installation are available but you want to recreate them.')]
         [switch] $ForceOnlineInstallation = $false,
-        [string] $WorkerNodeNumber = $(throw 'Argument missing: WorkerNodeNumber')
+        [string] $PodSubnetworkNumber = $(throw 'Argument missing: PodSubnetworkNumber')
     )
     Stop-InstallIfNoMandatoryServiceIsRunning
 
@@ -42,7 +42,7 @@ function Add-WindowsWorkerNodeOnWindowsHost {
         -Proxy:"$Proxy" `
         -DeleteFilesForOfflineInstallation $DeleteFilesForOfflineInstallation `
         -ForceOnlineInstallation $ForceOnlineInstallation `
-        -WorkerNodeNumber $WorkerNodeNumber
+        -PodSubnetworkNumber $PodSubnetworkNumber
 
     $transparentproxy = 'http://' + $windowsHostIpAddress + ':8181'
     Set-ProxySettingsOnKubenode -ProxySettings $transparentproxy -IpAddress $controlPlaneIpAddress
@@ -51,7 +51,7 @@ function Add-WindowsWorkerNodeOnWindowsHost {
     # join the cluster
     Write-Log "Preparing Kubernetes $KubernetesVersion by joining nodes" -Console
 
-    Initialize-KubernetesCluster -AdditionalHooksDir $AdditionalHooksDir -WorkerNodeNumber $WorkerNodeNumber
+    Initialize-KubernetesCluster -AdditionalHooksDir $AdditionalHooksDir -PodSubnetworkNumber $PodSubnetworkNumber
 }
 
 function Start-WindowsWorkerNodeOnWindowsHost {
@@ -64,7 +64,7 @@ function Start-WindowsWorkerNodeOnWindowsHost {
         [switch] $UseCachedK2sVSwitches,
         [parameter(Mandatory = $false, HelpMessage = 'Skips showing start header display')]
         [switch] $SkipHeaderDisplay = $false,
-        [string] $WorkerNodeNumber = $(throw 'Argument missing: WorkerNodeNumber'),
+        [string] $PodSubnetworkNumber = $(throw 'Argument missing: PodSubnetworkNumber'),
         [string] $DnsServers = $(throw 'Argument missing: DnsServers')
     )
 
@@ -84,7 +84,7 @@ function Start-WindowsWorkerNodeOnWindowsHost {
     Write-Log "Add route to $clusterCIDRServicesWindows"
     route -p add $clusterCIDRServicesWindows $ipControlPlane METRIC 7 | Out-Null
 
-    Start-WindowsWorkerNode -DnsServers $DnsServers -ResetHns:$ResetHns -AdditionalHooksDir $AdditionalHooksDir -UseCachedK2sVSwitches:$UseCachedK2sVSwitches -SkipHeaderDisplay:$SkipHeaderDisplay -WorkerNodeNumber $WorkerNodeNumber
+    Start-WindowsWorkerNode -DnsServers $DnsServers -ResetHns:$ResetHns -AdditionalHooksDir $AdditionalHooksDir -UseCachedK2sVSwitches:$UseCachedK2sVSwitches -SkipHeaderDisplay:$SkipHeaderDisplay -PodSubnetworkNumber $PodSubnetworkNumber
 
     # start dns proxy
     Write-Log 'Starting dns proxy'
@@ -103,7 +103,7 @@ function Stop-WindowsWorkerNodeOnWindowsHost {
         [switch] $CacheK2sVSwitches,
         [parameter(Mandatory = $false, HelpMessage = 'Skips showing stop header display')]
         [switch] $SkipHeaderDisplay = $false,
-        [string] $WorkerNodeNumber = $(throw 'Argument missing: WorkerNodeNumber')
+        [string] $PodSubnetworkNumber = $(throw 'Argument missing: PodSubnetworkNumber')
     )
 
     if ($SkipHeaderDisplay -eq $false) {
@@ -113,7 +113,7 @@ function Stop-WindowsWorkerNodeOnWindowsHost {
     Stop-ServiceAndSetToManualStart 'httpproxy'
     Stop-ServiceAndSetToManualStart 'dnsproxy'
 
-    Stop-WindowsWorkerNode -WorkerNodeNumber $WorkerNodeNumber -AdditionalHooksDir $AdditionalHooksDir -CacheK2sVSwitches:$CacheK2sVSwitches -SkipHeaderDisplay:$SkipHeaderDisplay
+    Stop-WindowsWorkerNode -PodSubnetworkNumber $PodSubnetworkNumber -AdditionalHooksDir $AdditionalHooksDir -CacheK2sVSwitches:$CacheK2sVSwitches -SkipHeaderDisplay:$SkipHeaderDisplay
 
     # Remove routes
     $setupConfigRoot = Get-RootConfigk2s
@@ -170,7 +170,7 @@ function Start-WindowsWorkerNode {
         [switch] $UseCachedK2sVSwitches,
         [parameter(Mandatory = $false, HelpMessage = 'Skips showing start header display')]
         [switch] $SkipHeaderDisplay = $false,
-        [string] $WorkerNodeNumber = $(throw 'Argument missing: WorkerNodeNumber')
+        [string] $PodSubnetworkNumber = $(throw 'Argument missing: PodSubnetworkNumber')
     )
 
     function Get-NeedsStopFirst () {
@@ -187,7 +187,7 @@ function Start-WindowsWorkerNode {
 
     if (Get-NeedsStopFirst) {
         Write-Log 'Stopping existing K8s system...'
-        Stop-WindowsWorkerNode -WorkerNodeNumber $WorkerNodeNumber -AdditionalHooksDir $AdditionalHooksDir -CacheK2sVSwitches:$UseCachedK2sVSwitches -SkipHeaderDisplay:$SkipHeaderDisplay
+        Stop-WindowsWorkerNode -PodSubnetworkNumber $PodSubnetworkNumber -AdditionalHooksDir $AdditionalHooksDir -CacheK2sVSwitches:$UseCachedK2sVSwitches -SkipHeaderDisplay:$SkipHeaderDisplay
         Start-Sleep 10
     }
 
@@ -215,7 +215,7 @@ function Start-WindowsWorkerNode {
     }
     Write-Log "The following gateway IP address will be used: $gw"
 
-    New-ExternalSwitch -adapterName $adapterName -WorkerNodeNumber $WorkerNodeNumber
+    New-ExternalSwitch -adapterName $adapterName -PodSubnetworkNumber $PodSubnetworkNumber
 
     Invoke-Hook -HookName BeforeStartK8sNetwork -AdditionalHooksDir $AdditionalHooksDir
 
@@ -283,8 +283,8 @@ function Start-WindowsWorkerNode {
             Write-Output "Index for interface $l2BridgeSwitchName : ($l2BridgeInterfaceIndex) -> metric 5"
 
             # $setupConfigRoot = Get-RootConfigk2s
-            $clusterCIDRWorker = Get-ConfiguredClusterCIDRHost -WorkerNodeNumber $WorkerNodeNumber #$setupConfigRoot.psobject.properties['podNetworkWorkerCIDR'].value
-            $clusterCIDRNextHop = Get-ConfiguredClusterCIDRNextHop -WorkerNodeNumber $WorkerNodeNumber #$setupConfigRoot.psobject.properties['cbr0'].value
+            $clusterCIDRWorker = Get-ConfiguredClusterCIDRHost -PodSubnetworkNumber $PodSubnetworkNumber #$setupConfigRoot.psobject.properties['podNetworkWorkerCIDR'].value
+            $clusterCIDRNextHop = Get-ConfiguredClusterCIDRNextHop -PodSubnetworkNumber $PodSubnetworkNumber #$setupConfigRoot.psobject.properties['cbr0'].value
 
             # routes for Windows pods
             Write-Output "Remove obsolete route to $clusterCIDRWorker"
@@ -318,7 +318,7 @@ function Stop-WindowsWorkerNode {
         [switch] $CacheK2sVSwitches,
         [parameter(Mandatory = $false, HelpMessage = 'Skips showing stop header display')]
         [switch] $SkipHeaderDisplay = $false,
-        [string] $WorkerNodeNumber = $(throw "Argument missing: WorkerNodeNumber")
+        [string] $PodSubnetworkNumber = $(throw "Argument missing: PodSubnetworkNumber")
     )
 
     Write-Log 'Stopping Kubernetes services on the Windows node' -Console
@@ -359,7 +359,7 @@ function Stop-WindowsWorkerNode {
         Start-ServiceProcess 'docker'
     }
 
-    $podNetworkCIDR = Get-ConfiguredClusterCIDRHost -WorkerNodeNumber $WorkerNodeNumber
+    $podNetworkCIDR = Get-ConfiguredClusterCIDRHost -PodSubnetworkNumber $PodSubnetworkNumber
     # Remove routes
     route delete $podNetworkCIDR >$null 2>&1
 

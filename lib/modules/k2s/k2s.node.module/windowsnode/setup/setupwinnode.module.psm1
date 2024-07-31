@@ -20,7 +20,7 @@ function Initialize-Networking {
         [bool] $HostVM,
         [parameter(Mandatory = $true, HelpMessage = 'Host-GW or VXLAN, Host-GW: true, false for vxlan')]
         [bool] $HostGW,
-        [string] $WorkerNodeNumber = $(throw 'Argument missing: WorkerNodeNumber')
+        [string] $PodSubnetworkNumber = $(throw 'Argument missing: PodSubnetworkNumber')
     )
 
     # copy flannel files
@@ -60,7 +60,7 @@ function Initialize-Networking {
     $ipaddress = $ipaddresses[0] | Select-Object -ExpandProperty IPAddress
     Write-Log "Using local IP $ipaddress for setup of CNI"
 
-    $clusterCIDRHost = Get-ConfiguredClusterCIDRHost -WorkerNodeNumber $WorkerNodeNumber
+    $clusterCIDRHost = Get-ConfiguredClusterCIDRHost -PodSubnetworkNumber $PodSubnetworkNumber
     $NetworkAddress = "  ""Network"": ""$clusterCIDRHost"","
 
 
@@ -116,7 +116,7 @@ function Initialize-WinNode {
         [boolean] $ForceOnlineInstallation = $false,
         [parameter(Mandatory = $false, HelpMessage = 'Skips networking setup and installation of cluster dependent tools kubelet, flannel on windows node')]
         [boolean] $SkipClusterSetup = $false,
-        [string] $WorkerNodeNumber = $(throw 'Argument missing: WorkerNodeNumber')
+        [string] $PodSubnetworkNumber = $(throw 'Argument missing: PodSubnetworkNumber')
     )
 
     if (!(Test-Path "$kubeBinPath\exe")) {
@@ -138,13 +138,13 @@ function Initialize-WinNode {
 
         Set-ConfigInstalledKubernetesVersion -Value $KubernetesVersion
 
-        Initialize-Networking -HostVM:$HostVM -HostGW:$HostGW -WorkerNodeNumber $WorkerNodeNumber
+        Initialize-Networking -HostVM:$HostVM -HostGW:$HostGW -PodSubnetworkNumber $PodSubnetworkNumber
     }
     else {
         Write-Log 'Skipping networking setup on windows node'
     }
 
-    Install-WinNodeArtifacts -Proxy "$Proxy" -HostVM:$HostVM -SkipClusterSetup:$SkipClusterSetup -WorkerNodeNumber $WorkerNodeNumber
+    Install-WinNodeArtifacts -Proxy "$Proxy" -HostVM:$HostVM -SkipClusterSetup:$SkipClusterSetup -PodSubnetworkNumber $PodSubnetworkNumber
 
     if (! $SkipClusterSetup) {
         Reset-WinServices
