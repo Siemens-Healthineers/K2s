@@ -6,11 +6,11 @@ apiVersion: v1
 kind: AddonManifest
 metadata:
   name: exthttpaccess
-  description: Handle HTTP/HTTPS request coming to windows machine from local or external network
+  description: Expose the K2s cluster via HTTP/HTTPS outside the host machine boundary.
 spec:
   implementations:
     - name: exthttpaccess
-      description: Handle HTTP/HTTPS request coming to windows machine from local or external network
+      description: Expose the K2s cluster via HTTP/HTTPS outside the host machine boundary.
       offline_usage:
         linux:
           repos: []
