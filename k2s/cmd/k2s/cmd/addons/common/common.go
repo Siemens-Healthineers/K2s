@@ -85,14 +85,14 @@ func printValidAddonNames(allAddons addons.Addons, terminalPrinter terminal.Term
 	addonTable := [][]string{tableHeaders}
 
 	for _, addon := range allAddons {
-		if len(addon.Spec.Implementations) > 1 {
-			for _, impl := range addon.Spec.Implementations {
+		for _, impl := range addon.Spec.Implementations {
+			if addon.Metadata.Name != impl.Name {
 				row := []string{string(addon.Metadata.Name + " " + impl.Name)}
 				addonTable = append(addonTable, row)
+			} else {
+				row := []string{string(addon.Metadata.Name)}
+				addonTable = append(addonTable, row)
 			}
-		} else {
-			row := []string{string(addon.Metadata.Name)}
-			addonTable = append(addonTable, row)
 		}
 	}
 	terminalPrinter.PrintTableWithHeaders(addonTable)

@@ -9,7 +9,7 @@ metadata:
   labels:
     k8s-app: csi-proxy
   name: csi-proxy
-  namespace: storage
+  namespace: storage-smb
 spec:
   selector:
     matchLabels:

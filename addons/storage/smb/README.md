@@ -8,7 +8,7 @@ SPDX-License-Identifier: MIT
 
 ## Introduction
 
-The `storage` addon provides a Samba share in order to share files between the k2s nodes:
+The `storage smb` addon provides a Samba share in order to share files between the k2s nodes:
 
 - smb share between k2s nodes can be either hosted by Windows or by Linux (Samba)
 - smb share can be accessed by the node's OSs
@@ -16,9 +16,9 @@ The `storage` addon provides a Samba share in order to share files between the k
 
 ## Getting started
 
-The storage addon can be enabled using the k2s CLI by running the following command:
+The storage smb addon can be enabled using the k2s CLI by running the following command:
 ```
-k2s addons enable storage
+k2s addons enable storage smb
 ```
 
 ## Shared folder
