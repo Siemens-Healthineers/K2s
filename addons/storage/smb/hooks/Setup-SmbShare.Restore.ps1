@@ -16,7 +16,7 @@ param (
     [string]$BackupDir = $(throw 'Please specify the back-up directory.')
 )
 $logModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/log/log.module.psm1"
-$smbShareModule = "$PSScriptRoot\..\storage\module\Smb-share.module.psm1"
+$smbShareModule = "$PSScriptRoot\..\storage\smb\module\Smb-share.module.psm1"
 
 Import-Module $logModule, $smbShareModule
 
