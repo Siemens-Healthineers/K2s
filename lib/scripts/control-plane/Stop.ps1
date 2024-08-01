@@ -28,6 +28,12 @@ Set-Location $kubePath
 
 $ProgressPreference = 'SilentlyContinue'
 
+$loopbackAdapter = Get-L2BridgeName
+Reset-DnsForActivePhysicalInterfacesOnWindowsHost -ExcludeNetworkInterfaceName $loopbackAdapter
+
+Stop-WinHttpProxy
+Stop-WinDnsProxy
+
 $controlPlaneStopParams = @{
     AdditionalHooksDir = $AdditionalHooksDir
     CacheK2sVSwitches  = $CacheK2sVSwitches

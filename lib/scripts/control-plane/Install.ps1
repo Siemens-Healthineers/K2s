@@ -53,6 +53,16 @@ $ErrorActionPreference = 'Continue'
 $installationPath = Get-KubePath
 Set-Location $installationPath
 
+$productVersion = Get-ProductVersion
+Set-ConfigProductVersion -Value $productVersion
+Set-ConfigInstallFolder -Value $installationPath
+
+# set defaults for unset arguments
+$KubernetesVersion = Get-DefaultK8sVersion
+
+Invoke-DeployWinArtifacts -KubernetesVersion $KubernetesVersion -Proxy $Proxy -ForceOnlineInstallation:$ForceOnlineInstallation
+Install-PuttyTools
+
 $controlPlaneNodeParams = @{
     MasterVMMemory = $MasterVMMemory
     MasterVMProcessorCount = $MasterVMProcessorCount
@@ -67,6 +77,16 @@ $controlPlaneNodeParams = @{
 }
 New-ControlPlaneNodeOnNewVM @controlPlaneNodeParams
 
+# add transparent proxy to Windows host
+Install-WinHttpProxy -Proxy $Proxy
+$controlPlaneIpAddress = Get-ConfiguredIPControlPlane
+$windowsHostIpAddress = Get-ConfiguredKubeSwitchIP
+$transparentProxy = "http://$($windowsHostIpAddress):8181"
+Set-ProxySettingsOnKubenode -ProxySettings $transparentProxy -IpAddress $controlPlaneIpAddress
+
+$windowsArtifactsDirectory = Get-WindowsArtifactsDirectory
+Invoke-DeployDnsProxyArtifacts $windowsArtifactsDirectory
+Install-WinDnsProxy -ListenIpAddresses @($windowsHostIpAddress) -UpstreamIpAddressForCluster $controlPlaneIpAddress -UpstreamIpAddressesForNonCluster $($DnsAddresses -split ',')
 
 if (! $SkipStart) {
     Write-Log 'Starting control plane'

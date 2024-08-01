@@ -155,14 +155,10 @@ function Uninstall-WinNode {
     param(
         $ShallowUninstallation = $false
     )
-    Remove-DefaultNetNat
-
     Remove-ServiceIfExists 'flanneld'
     Remove-ServiceIfExists 'kubelet'
     Remove-ServiceIfExists 'kubeproxy'
     Remove-ServiceIfExists 'windows_exporter'
-    Remove-ServiceIfExists 'httpproxy'
-    Remove-ServiceIfExists 'dnsproxy'
 
     # remove firewall rules
     Remove-NetFirewallRule -Group 'k2s' -ErrorAction SilentlyContinue

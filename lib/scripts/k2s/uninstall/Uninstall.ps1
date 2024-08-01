@@ -55,14 +55,9 @@ $controlPlaneParams = @{
 }
 & "$PSScriptRoot\..\..\control-plane\Uninstall.ps1" @controlPlaneParams
 
-$loopbackAdapter = Get-L2BridgeName
-Reset-DnsForActivePhysicalInterfacesOnWindowsHost -ExcludeNetworkInterfaceName $loopbackAdapter
-
 if (!$SkipPurge) {
     Uninstall-Cluster
 }
-
-Remove-KubeNodeBaseImage -DeleteFilesForOfflineInstallation $DeleteFilesForOfflineInstallation
 
 Invoke-AddonsHooks -HookType 'AfterUninstall'
 
