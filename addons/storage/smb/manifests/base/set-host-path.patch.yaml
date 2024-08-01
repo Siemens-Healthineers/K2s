@@ -4,4 +4,4 @@
 
 - op: replace
   path: /parameters/source
-  value: "//172.19.1.100/k8sshare"
+  value: "//172.19.1.1/k8s-smb-share"

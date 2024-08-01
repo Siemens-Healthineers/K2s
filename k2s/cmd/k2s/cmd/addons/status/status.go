@@ -50,20 +50,20 @@ func newStatusCmd(addon addons.Addon) *cobra.Command {
 		Short: fmt.Sprintf("Prints the %s status", addon.Metadata.Name),
 	}
 
-	if len(addon.Spec.Implementations) > 1 {
-		for _, implementation := range addon.Spec.Implementations {
+	for _, implementation := range addon.Spec.Implementations {
+		if addon.Metadata.Name != implementation.Name {
 			slog.Debug("Creating sub-command for addon implementation", "command", "status", "addon", addon.Metadata.Name, "implementation", implementation)
 			implementationCmd := newImplementationCmd(addon, implementation)
 			statusCmd.AddCommand(implementationCmd)
+		} else {
+			statusCmd.Example = fmt.Sprintf("\n# Prints the %s status\nK2s addons status %s\n", addon.Metadata.Name, addon.Metadata.Name)
+			statusCmd.RunE = func(cmd *cobra.Command, args []string) error {
+				return runStatusCmd(cmd, addon, "", determinePrinter)
+			}
+			statusCmd.Flags().StringP(outputFlagName, "o", "", "Output format modifier. Currently supported: 'json' for output as JSON structure")
+			statusCmd.Flags().SortFlags = false
+			statusCmd.Flags().PrintDefaults()
 		}
-	} else {
-		statusCmd.Example = fmt.Sprintf("\n# Prints the %s status\nK2s addons status %s\n", addon.Metadata.Name, addon.Metadata.Name)
-		statusCmd.RunE = func(cmd *cobra.Command, args []string) error {
-			return runStatusCmd(cmd, addon, "", determinePrinter)
-		}
-		statusCmd.Flags().StringP(outputFlagName, "o", "", "Output format modifier. Currently supported: 'json' for output as JSON structure")
-		statusCmd.Flags().SortFlags = false
-		statusCmd.Flags().PrintDefaults()
 	}
 
 	return statusCmd

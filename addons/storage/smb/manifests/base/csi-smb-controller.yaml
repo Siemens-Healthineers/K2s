@@ -7,7 +7,7 @@ kind: Deployment
 apiVersion: apps/v1
 metadata:
   name: csi-smb-controller
-  namespace: storage
+  namespace: storage-smb
 spec:
   replicas: 1
   selector:
@@ -44,7 +44,7 @@ spec:
             - "-v=2"
             - "--csi-address=$(ADDRESS)"
             - "--leader-election"
-            - "--leader-election-namespace=storage"
+            - "--leader-election-namespace=storage-smb"
             - "--extra-create-metadata=true"
           env:
             - name: ADDRESS

@@ -142,106 +142,242 @@ var _ = Describe("generic pkg", func() {
 
 	Describe("newAddonCmd", func() {
 		When("no CLI config exists", func() {
-			It("returns command without flags or examples", func() {
-				command := "do-this"
-				addon := addons.Addon{
-					Metadata: addons.AddonMetadata{
-						Name: "a1",
-					},
-					Spec: addons.AddonSpec{
-						Implementations: []addons.Implementation{{Commands: &map[string]addons.AddonCmd{
-							command: {},
-						}}},
-					},
-				}
+			When("addon name and implementation name are the same", func() {
+				It("returns command without flags or examples", func() {
+					command := "do-this"
+					addon := addons.Addon{
+						Metadata: addons.AddonMetadata{
+							Name: "a1",
+						},
+						Spec: addons.AddonSpec{
+							Implementations: []addons.Implementation{{Name: "a1", Commands: &map[string]addons.AddonCmd{
+								command: {},
+							}}},
+						},
+					}
 
-				result, err := newAddonCmd(addon, command)
+					result, err := newAddonCmd(addon, command)
 
-				Expect(err).ToNot(HaveOccurred())
-				Expect(result.Use).To(Equal(addon.Metadata.Name))
-				Expect(result.Short).To(SatisfyAll(ContainSubstring(command), ContainSubstring(addon.Metadata.Name)))
-				Expect(result.RunE).ToNot(BeNil())
-				Expect(result.Example).To(BeEmpty())
-				Expect(result.HasFlags()).To(BeFalse())
+					Expect(err).ToNot(HaveOccurred())
+					Expect(result.Use).To(Equal(addon.Metadata.Name))
+					Expect(result.Short).To(SatisfyAll(ContainSubstring(command), ContainSubstring(addon.Metadata.Name)))
+					Expect(result.RunE).ToNot(BeNil())
+					Expect(result.Example).To(BeEmpty())
+					Expect(result.HasFlags()).To(BeFalse())
+				})
+			})
+
+			When("addon name and implementation name are different", func() {
+				It("returns command without flags or examples", func() {
+					command := "do-this"
+					addon := addons.Addon{
+						Metadata: addons.AddonMetadata{
+							Name: "a1",
+						},
+						Spec: addons.AddonSpec{
+							Implementations: []addons.Implementation{{Name: "i1", Commands: &map[string]addons.AddonCmd{
+								command: {},
+							}}},
+						},
+					}
+
+					result, err := newAddonCmd(addon, command)
+
+					Expect(err).ToNot(HaveOccurred())
+					Expect(result.Use).To(Equal(addon.Metadata.Name))
+					Expect(result.Short).To(SatisfyAll(ContainSubstring(command), ContainSubstring(addon.Metadata.Name)))
+					Expect(result.RunE).To(BeNil())
+					Expect(result.Example).To(BeEmpty())
+					Expect(result.HasFlags()).To(BeFalse())
+
+					//sub command
+					Expect(err).ToNot(HaveOccurred())
+					Expect(result.Commands()[0].Use).To(Equal(addon.Spec.Implementations[0].Name))
+					Expect(result.Commands()[0].Short).To(SatisfyAll(ContainSubstring(command), ContainSubstring(addon.Spec.Implementations[0].Name), ContainSubstring(addon.Metadata.Name)))
+					Expect(result.Commands()[0].RunE).ToNot(BeNil())
+					Expect(result.Commands()[0].Example).To(BeEmpty())
+					Expect(result.Commands()[0].HasFlags()).To(BeFalse())
+				})
 			})
 		})
 
 		When("CLI config exists with examples", func() {
-			It("returns command with examples", func() {
-				command := "do-this"
-				comment := "this is a comment"
-				addon := addons.Addon{
-					Metadata: addons.AddonMetadata{
-						Name: "a1",
-					},
-					Spec: addons.AddonSpec{
-						Implementations: []addons.Implementation{{Commands: &map[string]addons.AddonCmd{
-							command: {
-								Cli: &addons.CliConfig{
-									Examples: addons.CliExamples{
-										addons.CliExample{
-											Cmd:     command,
-											Comment: &comment,
+			When("addon name and implementation name are the same", func() {
+				It("returns command with examples", func() {
+					command := "do-this"
+					comment := "this is a comment"
+					addon := addons.Addon{
+						Metadata: addons.AddonMetadata{
+							Name: "a1",
+						},
+						Spec: addons.AddonSpec{
+							Implementations: []addons.Implementation{{Name: "a1", Commands: &map[string]addons.AddonCmd{
+								command: {
+									Cli: &addons.CliConfig{
+										Examples: addons.CliExamples{
+											addons.CliExample{
+												Cmd:     command,
+												Comment: &comment,
+											},
 										},
 									},
 								},
-							},
-						}}},
-					},
-				}
+							}}},
+						},
+					}
 
-				result, err := newAddonCmd(addon, command)
+					result, err := newAddonCmd(addon, command)
 
-				Expect(err).ToNot(HaveOccurred())
-				Expect(result.Use).To(Equal(addon.Metadata.Name))
-				Expect(result.Short).To(SatisfyAll(ContainSubstring(command), ContainSubstring(addon.Metadata.Name)))
-				Expect(result.RunE).ToNot(BeNil())
-				Expect(result.Example).To(SatisfyAll(
-					ContainSubstring((*addon.Spec.Implementations[0].Commands)[command].Cli.Examples[0].Cmd),
-					ContainSubstring(*(*addon.Spec.Implementations[0].Commands)[command].Cli.Examples[0].Comment),
-				))
-				Expect(result.HasFlags()).To(BeFalse())
+					Expect(err).ToNot(HaveOccurred())
+					Expect(result.Use).To(Equal(addon.Metadata.Name))
+					Expect(result.Short).To(SatisfyAll(ContainSubstring(command), ContainSubstring(addon.Metadata.Name)))
+					Expect(result.RunE).ToNot(BeNil())
+					Expect(result.Example).To(SatisfyAll(
+						ContainSubstring((*addon.Spec.Implementations[0].Commands)[command].Cli.Examples[0].Cmd),
+						ContainSubstring(*(*addon.Spec.Implementations[0].Commands)[command].Cli.Examples[0].Comment),
+					))
+					Expect(result.HasFlags()).To(BeFalse())
+				})
+			})
+
+			When("addon name and implementation name are different", func() {
+				It("returns command with examples", func() {
+					command := "do-this"
+					comment := "this is a comment"
+					addon := addons.Addon{
+						Metadata: addons.AddonMetadata{
+							Name: "a1",
+						},
+						Spec: addons.AddonSpec{
+							Implementations: []addons.Implementation{{Name: "i1", Commands: &map[string]addons.AddonCmd{
+								command: {
+									Cli: &addons.CliConfig{
+										Examples: addons.CliExamples{
+											addons.CliExample{
+												Cmd:     command,
+												Comment: &comment,
+											},
+										},
+									},
+								},
+							}}},
+						},
+					}
+
+					result, err := newAddonCmd(addon, command)
+
+					Expect(err).ToNot(HaveOccurred())
+					Expect(result.Use).To(Equal(addon.Metadata.Name))
+					Expect(result.Short).To(SatisfyAll(ContainSubstring(command), ContainSubstring(addon.Metadata.Name)))
+					Expect(result.RunE).To(BeNil())
+					Expect(result.Example).To(BeEmpty())
+					Expect(result.HasFlags()).To(BeFalse())
+
+					//sub command
+					Expect(result.Commands()[0].Use).To(Equal(addon.Spec.Implementations[0].Name))
+					Expect(result.Commands()[0].Short).To(SatisfyAll(ContainSubstring(command), ContainSubstring(addon.Spec.Implementations[0].Name), ContainSubstring(addon.Metadata.Name)))
+					Expect(result.Commands()[0].RunE).ToNot(BeNil())
+					Expect(result.Commands()[0].Example).To(SatisfyAll(
+						ContainSubstring((*addon.Spec.Implementations[0].Commands)[command].Cli.Examples[0].Cmd),
+						ContainSubstring(*(*addon.Spec.Implementations[0].Commands)[command].Cli.Examples[0].Comment),
+					))
+					Expect(result.Commands()[0].HasFlags()).To(BeFalse())
+				})
 			})
 		})
 
 		When("CLI config exists with flags", func() {
-			It("returns command with flags", func() {
-				command := "do-this"
-				flagName := "test-flag"
-				flagValue := "test-flag"
-				addon := addons.Addon{
-					Metadata: addons.AddonMetadata{
-						Name: "a1",
-					},
-					Spec: addons.AddonSpec{
-						Implementations: []addons.Implementation{{Commands: &map[string]addons.AddonCmd{
-							command: {
-								Cli: &addons.CliConfig{
-									Flags: []addons.CliFlag{
-										{
-											Name:    flagName,
-											Default: flagValue,
+			When("addon name and implementation name are the same", func() {
+				It("returns command with flags", func() {
+					command := "do-this"
+					flagName := "test-flag"
+					flagValue := "test-flag"
+					addon := addons.Addon{
+						Metadata: addons.AddonMetadata{
+							Name: "a1",
+						},
+						Spec: addons.AddonSpec{
+							Implementations: []addons.Implementation{{Name: "a1", Commands: &map[string]addons.AddonCmd{
+								command: {
+									Cli: &addons.CliConfig{
+										Flags: []addons.CliFlag{
+											{
+												Name:    flagName,
+												Default: flagValue,
+											},
 										},
 									},
 								},
-							},
-						}}},
-					},
-				}
+							}}},
+						},
+					}
 
-				result, err := newAddonCmd(addon, command)
+					result, err := newAddonCmd(addon, command)
 
-				Expect(err).ToNot(HaveOccurred())
-				Expect(result.Use).To(Equal(addon.Metadata.Name))
-				Expect(result.Short).To(SatisfyAll(ContainSubstring(command), ContainSubstring(addon.Metadata.Name)))
-				Expect(result.RunE).ToNot(BeNil())
-				Expect(result.Example).To(BeEmpty())
-				Expect(result.HasFlags()).To(BeTrue())
+					Expect(err).ToNot(HaveOccurred())
+					Expect(result.Use).To(Equal(addon.Metadata.Name))
+					Expect(result.Short).To(SatisfyAll(ContainSubstring(command), ContainSubstring(addon.Metadata.Name)))
+					Expect(result.RunE).ToNot(BeNil())
+					Expect(result.Example).To(BeEmpty())
+					Expect(result.HasFlags()).To(BeTrue())
 
-				value, err := result.Flags().GetString(flagName)
+					value, err := result.Flags().GetString(flagName)
 
-				Expect(err).ToNot(HaveOccurred())
-				Expect(value).To(Equal(flagValue))
+					Expect(err).ToNot(HaveOccurred())
+					Expect(value).To(Equal(flagValue))
+				})
+			})
+
+			When("addon name and implementation name are different", func() {
+				It("returns command with flags", func() {
+					command := "do-this"
+					flagName := "test-flag"
+					flagValue := "test-flag"
+					addon := addons.Addon{
+						Metadata: addons.AddonMetadata{
+							Name: "a1",
+						},
+						Spec: addons.AddonSpec{
+							Implementations: []addons.Implementation{{Name: "i1", Commands: &map[string]addons.AddonCmd{
+								command: {
+									Cli: &addons.CliConfig{
+										Flags: []addons.CliFlag{
+											{
+												Name:    flagName,
+												Default: flagValue,
+											},
+										},
+									},
+								},
+							}}},
+						},
+					}
+
+					result, err := newAddonCmd(addon, command)
+
+					Expect(err).ToNot(HaveOccurred())
+					Expect(result.Use).To(Equal(addon.Metadata.Name))
+					Expect(result.Short).To(SatisfyAll(ContainSubstring(command), ContainSubstring(addon.Metadata.Name)))
+					Expect(result.RunE).To(BeNil())
+					Expect(result.Example).To(BeEmpty())
+					Expect(result.HasFlags()).To(BeFalse())
+
+					value, err := result.Flags().GetString(flagName)
+					Expect(err).To(HaveOccurred())
+					Expect(value).To(BeEmpty())
+
+					//sub command
+					Expect(result.Commands()[0].Use).To(Equal(addon.Spec.Implementations[0].Name))
+					Expect(result.Commands()[0].Short).To(SatisfyAll(ContainSubstring(command), ContainSubstring(addon.Spec.Implementations[0].Name), ContainSubstring(addon.Metadata.Name)))
+					Expect(result.Commands()[0].RunE).ToNot(BeNil())
+					Expect(result.Commands()[0].Example).To(BeEmpty())
+					Expect(result.Commands()[0].HasFlags()).To(BeTrue())
+
+					value, err = result.Commands()[0].Flags().GetString(flagName)
+
+					Expect(err).ToNot(HaveOccurred())
+					Expect(value).To(Equal(flagValue))
+				})
 			})
 		})
 
