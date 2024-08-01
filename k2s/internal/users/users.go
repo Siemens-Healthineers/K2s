@@ -6,7 +6,9 @@ package users
 import (
 	"fmt"
 	"log/slog"
+	"os"
 	"os/user"
+	"path/filepath"
 	"strings"
 
 	"github.com/siemens-healthineers/k2s/internal/config"
@@ -33,6 +35,14 @@ type UsersManagementConfig struct {
 	FileSystem           fileSystem
 }
 
+const (
+	systemAccountName     = "SYSTEM"
+	systemAccountFullName = "NT AUTHORITY\\" + systemAccountName
+	systemAccountId       = "S-1-5-18"
+)
+
+var systemAccountHomeDir = filepath.Join(os.Getenv("SYSTEMROOT"), "System32\\config\\systemprofile")
+
 func NewUsersManagement(config *UsersManagementConfig) (*UsersManagement, error) {
 	ssh := ssh.NewSsh(config.CmdExecutor)
 	controlPlane, err := nodes.NewControlPlane(ssh, config.Config, config.ControlPlaneName)
@@ -57,7 +67,7 @@ func (e UserNotFoundErr) Error() string {
 }
 
 func (m *UsersManagement) AddUserByName(name string) error {
-	winUser, err := user.Lookup(name)
+	winUser, err := lookupUserByName(name)
 	if err != nil {
 		return UserNotFoundErr(fmt.Sprintf("could not find Windows user by name '%s'", name))
 	}
@@ -66,7 +76,7 @@ func (m *UsersManagement) AddUserByName(name string) error {
 }
 
 func (m *UsersManagement) AddUserById(id string) error {
-	winUser, err := user.LookupId(id)
+	winUser, err := lookupUserById(id)
 	if err != nil {
 		return UserNotFoundErr(fmt.Sprintf("could not find Windows user by id '%s'", id))
 	}
@@ -78,7 +88,8 @@ func (m *UsersManagement) addUser(winUser user.User) error {
 	// omit user's display name for privacy reasons
 	slog.Debug("Adding Windows user", "username", winUser.Username, "id", winUser.Uid, "homedir", winUser.HomeDir, "group-id", winUser.Gid)
 
-	k2sUserName := k2sPrefix + strings.ReplaceAll(winUser.Username, "\\", "-")
+	beautifiedUsername := strings.ReplaceAll(strings.ReplaceAll(winUser.Username, " ", "-"), "\\", "-")
+	k2sUserName := k2sPrefix + beautifiedUsername
 
 	if err := m.sshAccessGranter.GrantAccess(winUser, k2sUserName); err != nil {
 		return fmt.Errorf("cannot grant Windows user SSH access to control-plane: %w", err)
@@ -87,4 +98,34 @@ func (m *UsersManagement) addUser(winUser user.User) error {
 		return fmt.Errorf("cannot grant Windows user K8s access: %w", err)
 	}
 	return nil
+}
+
+func lookupUserByName(name string) (*user.User, error) {
+	if isSystemAccountName(name) {
+		return newSystemUser(), nil
+	}
+	return user.Lookup(name)
+}
+
+func lookupUserById(id string) (*user.User, error) {
+	if isSystemAccountId(id) {
+		return newSystemUser(), nil
+	}
+	return user.LookupId(id)
+}
+
+func isSystemAccountName(name string) bool {
+	return strings.EqualFold(name, systemAccountName) || strings.EqualFold(name, systemAccountFullName)
+}
+
+func isSystemAccountId(id string) bool {
+	return strings.EqualFold(id, systemAccountId)
+}
+
+func newSystemUser() *user.User {
+	return &user.User{
+		Uid:      systemAccountId,
+		Username: systemAccountFullName,
+		HomeDir:  systemAccountHomeDir,
+	}
 }
