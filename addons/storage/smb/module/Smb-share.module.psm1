@@ -1071,7 +1071,7 @@ function Disable-SmbShare {
     }
 
     if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = $AddonName })) -ne $true) {
-        $err = New-Error -Severity Warning -Code (Get-ErrCodeAddonAlreadyDisabled) -Message "Addon '$AddonName' is already disabled, nothing to do."
+        $err = New-Error -Severity Warning -Code (Get-ErrCodeAddonAlreadyDisabled) -Message "Addon '$AddonName $ImplementationName' is already disabled, nothing to do."
         return @{Error = $err }
     }
 

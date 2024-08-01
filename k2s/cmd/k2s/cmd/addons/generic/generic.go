@@ -165,7 +165,7 @@ func addFlag(flag addons.CliFlag, flagSet *pflag.FlagSet) error {
 }
 
 func runCmd(cmd *cobra.Command, addon addons.Addon, cmdName string, implementation addons.Implementation) error {
-	if len(addon.Spec.Implementations) > 1 {
+	if addon.Metadata.Name != implementation.Name {
 		slog.Info("Running addon command", "command", cmdName, "addon", addon.Metadata.Name, "implementation", implementation.Name)
 		pterm.Printfln("🤖 Running '%s' for implementation '%s' of '%s' addon", cmdName, implementation.Name, addon.Metadata.Name)
 	} else {
@@ -204,7 +204,11 @@ func runCmd(cmd *cobra.Command, addon addons.Addon, cmdName string, implementati
 	}
 
 	duration := time.Since(start)
-	common.PrintCompletedMessage(duration, fmt.Sprintf("addons %s %s", cmdName, addon.Metadata.Name))
+	if addon.Metadata.Name != implementation.Name {
+		common.PrintCompletedMessage(duration, fmt.Sprintf("addons %s %s %s", cmdName, addon.Metadata.Name, implementation.Name))
+	} else {
+		common.PrintCompletedMessage(duration, fmt.Sprintf("addons %s %s", cmdName, addon.Metadata.Name))
+	}
 
 	return nil
 }
