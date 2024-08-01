@@ -24,9 +24,10 @@ import (
 )
 
 const (
-	addonName  = "storage"
-	namespace  = "smb-share-test"
-	secretName = "regcred"
+	addonName          = "storage"
+	implementationName = "smb"
+	namespace          = "smb-share-test"
+	secretName         = "regcred"
 
 	linuxWorkloadName   = "smb-share-test-linux"
 	windowsWorkloadName = "smb-share-test-windows"
@@ -75,12 +76,12 @@ var _ = AfterSuite(func(ctx context.Context) {
 	GinkgoWriter.Println("Checking if addon is disabled..")
 
 	addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
-	enabled := addonsStatus.IsAddonEnabled(addonName, "")
+	enabled := addonsStatus.IsAddonEnabled(addonName, implementationName)
 
 	if enabled {
 		GinkgoWriter.Println("Addon is still enabled, disabling it..")
 
-		output := suite.K2sCli().Run(ctx, "addons", "disable", addonName, "-f", "-o")
+		output := suite.K2sCli().Run(ctx, "addons", "disable", addonName, implementationName, "-f", "-o")
 
 		GinkgoWriter.Println(output)
 	} else {
@@ -90,11 +91,11 @@ var _ = AfterSuite(func(ctx context.Context) {
 	suite.TearDown(ctx)
 })
 
-var _ = Describe(fmt.Sprintf("%s Addon", addonName), Ordered, func() {
+var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implementationName), Ordered, func() {
 	Describe("status command", func() {
 		Context("default output", func() {
 			It("displays disabled message", func(ctx context.Context) {
-				output := suite.K2sCli().Run(ctx, "addons", "status", addonName)
+				output := suite.K2sCli().Run(ctx, "addons", "status", addonName, implementationName)
 
 				Expect(output).To(SatisfyAll(
 					MatchRegexp(`ADDON STATUS`),

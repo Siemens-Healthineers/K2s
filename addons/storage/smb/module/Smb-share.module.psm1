@@ -716,7 +716,7 @@ function Restore-StorageClass {
 
     New-SmbShareNamespace
 
-    Add-Secret -Name $smbCredsName -Namespace 'storage' -Literals "username=$smbUserName", "password=$($creds.GetNetworkCredential().Password)" | Write-Log
+    Add-Secret -Name $smbCredsName -Namespace $namespace -Literals "username=$smbUserName", "password=$($creds.GetNetworkCredential().Password)" | Write-Log
 
     New-StorageClassManifest -RemotePath $remotePath
 
@@ -764,7 +764,7 @@ function Remove-StorageClass {
         Write-Log 'StorageClass manifest already deleted, skipping.'
     }
 
-    Remove-Secret -Name $smbCredsName -Namespace 'storage' | Write-Log
+    Remove-Secret -Name $smbCredsName -Namespace $namespace | Write-Log
 
     Remove-SmbShareNamespace
 }
