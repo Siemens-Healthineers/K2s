@@ -330,7 +330,7 @@ function Install-DebianPackages {
 
     $dirName = $addon
     if (($implementation -ne "") -and ($implementation -ne $addon)) {
-        $dirName += "-$implementation"
+        $dirName += "_$implementation"
     }
 
     foreach ($package in $packages) {
