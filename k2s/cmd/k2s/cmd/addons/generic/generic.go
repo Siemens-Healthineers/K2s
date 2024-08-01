@@ -68,33 +68,33 @@ func newAddonCmd(addon addons.Addon, cmdName string) (*cobra.Command, error) {
 		Short: fmt.Sprintf("Runs '%s' for '%s' addon", cmdName, addon.Metadata.Name),
 	}
 
-	if len(addon.Spec.Implementations) > 1 {
-		for _, implementation := range addon.Spec.Implementations {
+	for _, implementation := range addon.Spec.Implementations {
+		if addon.Metadata.Name != implementation.Name {
 			slog.Debug("Creating sub-command for addon implementation", "command", cmdName, "addon", addon.Metadata.Name, "implementation", implementation)
 			implementationCmd, err := newImplementationCmd(addon, cmdName, implementation)
 			if err != nil {
 				return nil, err
 			}
 			cmd.AddCommand(implementationCmd)
-		}
-	} else {
-		cmd.RunE = func(cmd *cobra.Command, args []string) error {
-			return runCmd(cmd, addon, cmdName, addon.Spec.Implementations[0])
-		}
+		} else {
+			cmd.RunE = func(cmd *cobra.Command, args []string) error {
+				return runCmd(cmd, addon, cmdName, implementation)
+			}
 
-		cmdConfig := (*addon.Spec.Implementations[0].Commands)[cmdName]
-		if cmdConfig.Cli != nil {
-			cmd.Example = cmdConfig.Cli.Examples.String()
+			cmdConfig := (*implementation.Commands)[cmdName]
+			if cmdConfig.Cli != nil {
+				cmd.Example = cmdConfig.Cli.Examples.String()
 
-			for _, flag := range cmdConfig.Cli.Flags {
-				if err := addFlag(flag, cmd.Flags()); err != nil {
-					return nil, err
+				for _, flag := range cmdConfig.Cli.Flags {
+					if err := addFlag(flag, cmd.Flags()); err != nil {
+						return nil, err
+					}
 				}
 			}
-		}
 
-		cmd.Flags().SortFlags = false
-		cmd.Flags().PrintDefaults()
+			cmd.Flags().SortFlags = false
+			cmd.Flags().PrintDefaults()
+		}
 	}
 
 	return cmd, nil
@@ -165,7 +165,7 @@ func addFlag(flag addons.CliFlag, flagSet *pflag.FlagSet) error {
 }
 
 func runCmd(cmd *cobra.Command, addon addons.Addon, cmdName string, implementation addons.Implementation) error {
-	if len(addon.Spec.Implementations) > 1 {
+	if addon.Metadata.Name != implementation.Name {
 		slog.Info("Running addon command", "command", cmdName, "addon", addon.Metadata.Name, "implementation", implementation.Name)
 		pterm.Printfln("🤖 Running '%s' for implementation '%s' of '%s' addon", cmdName, implementation.Name, addon.Metadata.Name)
 	} else {
@@ -204,7 +204,11 @@ func runCmd(cmd *cobra.Command, addon addons.Addon, cmdName string, implementati
 	}
 
 	duration := time.Since(start)
-	common.PrintCompletedMessage(duration, fmt.Sprintf("addons %s %s", cmdName, addon.Metadata.Name))
+	if addon.Metadata.Name != implementation.Name {
+		common.PrintCompletedMessage(duration, fmt.Sprintf("addons %s %s %s", cmdName, addon.Metadata.Name, implementation.Name))
+	} else {
+		common.PrintCompletedMessage(duration, fmt.Sprintf("addons %s %s", cmdName, addon.Metadata.Name))
+	}
 
 	return nil
 }

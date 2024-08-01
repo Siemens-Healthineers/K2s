@@ -2,15 +2,16 @@
 #
 # SPDX-License-Identifier: MIT
 
-$infraModule = "$PSScriptRoot/../../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
-$clusterModule = "$PSScriptRoot/../../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
-$nodeModule = "$PSScriptRoot/../../../lib/modules/k2s/k2s.node.module/k2s.node.module.psm1"
-$addonsModule = "$PSScriptRoot/../../addons.module.psm1"
+$infraModule = "$PSScriptRoot/../../../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
+$clusterModule = "$PSScriptRoot/../../../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
+$nodeModule = "$PSScriptRoot/../../../../lib/modules/k2s/k2s.node.module/k2s.node.module.psm1"
+$addonsModule = "$PSScriptRoot/../../../addons.module.psm1"
 $passwordModule = "$PSScriptRoot/password.module.psm1"
 
 Import-Module $clusterModule, $infraModule, $nodeModule, $addonsModule, $passwordModule
 
 $AddonName = 'storage'
+$ImplementationName = 'smb'
 $localHooksDir = "$PSScriptRoot\..\hooks"
 $logFile = "$(Get-SystemDriveLetter):\var\log\ssh_smbSetup.log"
 $linuxLocalPath = Get-LinuxLocalSharePath
@@ -34,7 +35,7 @@ $manifestWinDir = "$PSScriptRoot\..\manifests\windows"
 $patchTemplateFilePath = "$manifestBaseDir\$hostPathPatchTemplateFileName"
 $patchFilePath = "$manifestBaseDir\$hostPathPatchFileName"
 $storageClassTimeoutSeconds = 600
-$namespace = 'storage'
+$namespace = 'storage-smb'
 
 function Test-CsiPodsCondition {
     param (
@@ -177,7 +178,7 @@ function New-SmbHostOnLinuxIfNotExisting {
     # download samba and rest
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo DEBIAN_FRONTEND=noninteractive apt-get update -qq --yes').Output | Write-Log
 
-    Install-DebianPackages -addon 'storage' -packages 'cifs-utils', 'samba'
+    Install-DebianPackages -addon 'storage' -implementation 'smb' -packages 'cifs-utils', 'samba'
 
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo adduser --no-create-home --disabled-password --disabled-login --gecos '' $smbUserName").Output | Write-Log
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "(echo '$($creds.GetNetworkCredential().Password)'; echo '$($creds.GetNetworkCredential().Password)') | sudo smbpasswd -s -a $smbUserName" -NoLog).Output | Write-Log
@@ -715,7 +716,7 @@ function Restore-StorageClass {
 
     New-SmbShareNamespace
 
-    Add-Secret -Name $smbCredsName -Namespace 'storage' -Literals "username=$smbUserName", "password=$($creds.GetNetworkCredential().Password)" | Write-Log
+    Add-Secret -Name $smbCredsName -Namespace $namespace -Literals "username=$smbUserName", "password=$($creds.GetNetworkCredential().Password)" | Write-Log
 
     New-StorageClassManifest -RemotePath $remotePath
 
@@ -763,7 +764,7 @@ function Remove-StorageClass {
         Write-Log 'StorageClass manifest already deleted, skipping.'
     }
 
-    Remove-Secret -Name $smbCredsName -Namespace 'storage' | Write-Log
+    Remove-Secret -Name $smbCredsName -Namespace $namespace | Write-Log
 
     Remove-SmbShareNamespace
 }
@@ -1027,7 +1028,7 @@ function Enable-SmbShare {
     }
 
     Copy-ScriptsToHooksDir -ScriptPaths @(Get-ChildItem -Path $localHooksDir | ForEach-Object { $_.FullName })
-    Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = $AddonName; SmbHostType = $SmbHostType })
+    Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = $AddonName; Implementation = $ImplementationName; SmbHostType = $SmbHostType })
     Restore-SmbShareAndFolder -SmbHostType $SmbHostType -SkipTest -SetupInfo $setupInfo
     Restore-StorageClass -SmbHostType $SmbHostType -LinuxOnly $setupInfo.LinuxOnly
 
@@ -1070,14 +1071,14 @@ function Disable-SmbShare {
     }
 
     if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = $AddonName })) -ne $true) {
-        $err = New-Error -Severity Warning -Code (Get-ErrCodeAddonAlreadyDisabled) -Message "Addon '$AddonName' is already disabled, nothing to do."
+        $err = New-Error -Severity Warning -Code (Get-ErrCodeAddonAlreadyDisabled) -Message "Addon '$AddonName $ImplementationName' is already disabled, nothing to do."
         return @{Error = $err }
     }
 
     Write-Log "Disabling '$AddonName'.."
 
     Remove-SmbShareAndFolder -SkipNodesCleanup:$SkipNodesCleanup
-    Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = $AddonName })
+    Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = $AddonName; Implementation = $ImplementationName })
     Remove-ScriptsFromHooksDir -ScriptNames @(Get-ChildItem -Path $localHooksDir | ForEach-Object { $_.Name })
 
     return @{Error = $null }
@@ -1202,7 +1203,7 @@ function Get-Status {
         $isSmbShareWorkingProp.Message = 'The SMB share is working'
     }
     else {
-        $isSmbShareWorkingProp.Message = "The SMB share is not working. Try restarting the cluster with 'k2s start' or disable and re-enable the addon with 'k2s addons disable $AddonName' and 'k2s addons enable $AddonName'"
+        $isSmbShareWorkingProp.Message = "The SMB share is not working. Try restarting the cluster with 'k2s start' or disable and re-enable the addon with 'k2s addons disable $AddonName $ImplementationName' and 'k2s addons enable $AddonName $ImplementationName'"
     }
 
     $areCsiPodsRunning = Test-CsiPodsCondition -Condition 'Ready'
@@ -1212,7 +1213,7 @@ function Get-Status {
         $areCsiPodsRunningProp.Message = 'The CSI Pods are running'
     }
     else {
-        $areCsiPodsRunningProp.Message = "The CSI Pods are not running. Try restarting the cluster with 'k2s start' or disable and re-enable the addon with 'k2s addons disable $AddonName' and 'k2s addons enable $AddonName'"
+        $areCsiPodsRunningProp.Message = "The CSI Pods are not running. Try restarting the cluster with 'k2s start' or disable and re-enable the addon with 'k2s addons disable $AddonName $ImplementationName' and 'k2s addons enable $AddonName $ImplementationName'"
     }
 
     return $smbHostTypeProp, $isSmbShareWorkingProp, $areCsiPodsRunningProp

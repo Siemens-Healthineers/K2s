@@ -24,9 +24,10 @@ import (
 )
 
 const (
-	addonName  = "storage"
-	namespace  = "smb-share-test"
-	secretName = "regcred"
+	addonName          = "storage"
+	implementationName = "smb"
+	namespace          = "smb-share-test"
+	secretName         = "regcred"
 
 	linuxWorkloadName   = "smb-share-test-linux"
 	windowsWorkloadName = "smb-share-test-windows"
@@ -75,12 +76,12 @@ var _ = AfterSuite(func(ctx context.Context) {
 	GinkgoWriter.Println("Checking if addon is disabled..")
 
 	addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
-	enabled := addonsStatus.IsAddonEnabled(addonName, "")
+	enabled := addonsStatus.IsAddonEnabled(addonName, implementationName)
 
 	if enabled {
 		GinkgoWriter.Println("Addon is still enabled, disabling it..")
 
-		output := suite.K2sCli().Run(ctx, "addons", "disable", addonName, "-f", "-o")
+		output := suite.K2sCli().Run(ctx, "addons", "disable", addonName, implementationName, "-f", "-o")
 
 		GinkgoWriter.Println(output)
 	} else {
@@ -90,28 +91,29 @@ var _ = AfterSuite(func(ctx context.Context) {
 	suite.TearDown(ctx)
 })
 
-var _ = Describe(fmt.Sprintf("%s Addon", addonName), Ordered, func() {
+var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implementationName), Ordered, func() {
 	Describe("status command", func() {
 		Context("default output", func() {
 			It("displays disabled message", func(ctx context.Context) {
-				output := suite.K2sCli().Run(ctx, "addons", "status", addonName)
+				output := suite.K2sCli().Run(ctx, "addons", "status", addonName, implementationName)
 
 				Expect(output).To(SatisfyAll(
 					MatchRegexp(`ADDON STATUS`),
-					MatchRegexp(`Addon .+%s.+ is .+disabled.+`, addonName),
+					MatchRegexp(`Implementation .+%s.+ of Addon .+%s.+ is .+disabled.+`, implementationName, addonName),
 				))
 			})
 		})
 
 		Context("JSON output", func() {
 			It("displays JSON", func(ctx context.Context) {
-				output := suite.K2sCli().Run(ctx, "addons", "status", addonName, "-o", "json")
+				output := suite.K2sCli().Run(ctx, "addons", "status", addonName, implementationName, "-o", "json")
 
 				var status status.AddonPrintStatus
 
 				Expect(json.Unmarshal([]byte(output), &status)).To(Succeed())
 
 				Expect(status.Name).To(Equal(addonName))
+				Expect(status.Implementation).To(Equal(implementationName))
 				Expect(status.Enabled).NotTo(BeNil())
 				Expect(*status.Enabled).To(BeFalse())
 				Expect(status.Props).To(BeNil())
@@ -122,12 +124,12 @@ var _ = Describe(fmt.Sprintf("%s Addon", addonName), Ordered, func() {
 
 	Describe("disable command", func() {
 		It("displays already-disabled message and exits with non-zero", func(ctx context.Context) {
-			output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "disable", addonName, "-f", "-o")
+			output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "disable", addonName, implementationName, "-f", "-o")
 
 			Expect(output).To(SatisfyAll(
 				ContainSubstring("disable"),
 				ContainSubstring(addonName),
-				MatchRegexp(`Addon \'%s\' is already disabled`, addonName),
+				MatchRegexp(`Addon \'%s %s\' is already disabled`, addonName, implementationName),
 			))
 		})
 	})
@@ -135,13 +137,13 @@ var _ = Describe(fmt.Sprintf("%s Addon", addonName), Ordered, func() {
 	Describe("enable command", func() {
 		When("SMB host type is Windows", Ordered, func() {
 			It("enables the addon", func(ctx context.Context) {
-				output := suite.K2sCli().Run(ctx, "addons", "enable", addonName, "-o")
+				output := suite.K2sCli().Run(ctx, "addons", "enable", addonName, implementationName, "-o")
 
 				expectEnableMessage(output, "windows")
 			})
 
 			It("prints already-enabled message on enable command and exits with non-zero", func(ctx context.Context) {
-				output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "enable", addonName)
+				output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "enable", addonName, implementationName)
 
 				Expect(output).To(ContainSubstring("already enabled"))
 			})
@@ -215,13 +217,13 @@ var _ = Describe(fmt.Sprintf("%s Addon", addonName), Ordered, func() {
 	Describe("enable command", func() {
 		When("SMB host type is linux", Ordered, func() {
 			It("enables the addon", func(ctx context.Context) {
-				output := suite.K2sCli().Run(ctx, "addons", "enable", addonName, "-o", "-t", "linux")
+				output := suite.K2sCli().Run(ctx, "addons", "enable", addonName, implementationName, "-o", "-t", "linux")
 
 				expectEnableMessage(output, "linux")
 			})
 
 			It("prints already-enabled message on enable command and exits with non-zero", func(ctx context.Context) {
-				output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "enable", addonName)
+				output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "enable", addonName, implementationName)
 
 				Expect(output).To(ContainSubstring("already enabled"))
 			})
@@ -320,33 +322,34 @@ func expectWindowsWorkloadToRun(ctx context.Context) {
 }
 
 func disableAddon(ctx context.Context) {
-	output := suite.K2sCli().Run(ctx, "addons", "disable", addonName, "-f", "-o")
+	output := suite.K2sCli().Run(ctx, "addons", "disable", addonName, implementationName, "-f", "-o")
 
 	Expect(output).To(SatisfyAll(
 		ContainSubstring("disable"),
 		ContainSubstring(addonName),
-		MatchRegexp("'addons disable %s' completed", addonName),
+		MatchRegexp("'addons disable %s %s' completed", addonName, implementationName),
 	))
 }
 
 func expectStatusToBePrinted(smbHostType string, ctx context.Context) {
-	output := suite.K2sCli().Run(ctx, "addons", "status", addonName)
+	output := suite.K2sCli().Run(ctx, "addons", "status", addonName, implementationName)
 
 	Expect(output).To(SatisfyAll(
 		MatchRegexp("ADDON STATUS"),
-		MatchRegexp(`Addon .+%s.+ is .+enabled.+`, addonName),
+		MatchRegexp(`Implementation .+%s.+ of Addon .+%s.+ is .+enabled.+`, implementationName, addonName),
 		MatchRegexp("SmbHostType: .+%s.+", smbHostType),
 		MatchRegexp("SMB share is working"),
 		MatchRegexp("CSI Pods are running"),
 	))
 
-	output = suite.K2sCli().Run(ctx, "addons", "status", addonName, "-o", "json")
+	output = suite.K2sCli().Run(ctx, "addons", "status", addonName, implementationName, "-o", "json")
 
 	var status status.AddonPrintStatus
 
 	Expect(json.Unmarshal([]byte(output), &status)).To(Succeed())
 
 	Expect(status.Name).To(Equal(addonName))
+	Expect(status.Implementation).To(Equal(implementationName))
 	Expect(status.Error).To(BeNil())
 	Expect(status.Enabled).NotTo(BeNil())
 	Expect(*status.Enabled).To(BeTrue())
@@ -371,6 +374,6 @@ func expectStatusToBePrinted(smbHostType string, ctx context.Context) {
 func expectEnableMessage(output string, smbHostType string) {
 	Expect(output).To(SatisfyAll(
 		MatchRegexp("Enabling addon \\'%s\\' with SMB host type \\'%s\\'", addonName, smbHostType),
-		MatchRegexp("'addons enable %s' completed", addonName),
+		MatchRegexp("'addons enable %s %s' completed", addonName, implementationName),
 	))
 }
