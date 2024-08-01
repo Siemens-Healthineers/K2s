@@ -1848,6 +1848,17 @@ SPDX-License-Identifier: MIT
 <p class="admonition-title">Windows Username</p>
 <p>Typically the <em>Windows</em> username can be specified without the domain.</p>
 </div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The <em>Windows</em> account <code>NT AUTHORITY\SYSTEM</code> (<code>SID S-1-5-18</code>) is a special case since it is not a user account. Nevertheless, you can specify the system account's name or <code>SID</code> to grant the system account access to <em>K2s</em>.</p>
+<p>Examples how to specify the <em>Windows</em> system account:
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="go">k2s system users add -u system</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="go">k2s system users add -u &quot;NT AUTHORITY\SYSTEM&quot;</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="go">k2s system users add -i S-1-5-18</span>
+</code></pre></div></p>
+</div>
 <details class="example">
 <summary>Full Example With Detailed Steps</summary>
 <p>Given that the <em>Windows</em> user <code>desktop1234\john</code> exists on the host and has a local profile/home directory, the <em>K2s</em> admin runs <code>k2s system users add -u john</code> which triggers the following steps:</p>
@@ -1865,21 +1876,21 @@ SPDX-License-Identifier: MIT
 <h3 id="access-verification">Access Verification</h3>
 <h4 id="control-plane-node">Control-Plane Node</h4>
 <p>The new user can verify the <abbr title="Secure Shell">SSH</abbr> access to the control-plane by running:</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="go">ssh -o StrictHostKeyChecking=no -i &quot;~/.ssh\kubemaster\id_rsa&quot; &quot;remote@172.19.1.100&quot;</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="go">ssh -o StrictHostKeyChecking=no -i &quot;~/.ssh\kubemaster\id_rsa&quot; &quot;remote@172.19.1.100&quot;</span>
 </code></pre></div>
 <p>where <code>172.19.1.100</code> is the <abbr title="Internet Protocol">IP</abbr> address of the control-plane and <code>remote</code> the <em>Linux</em> user with admin privileges.</p>
 <h4 id="k8s-api"><em><abbr title="Kubernetes">K8s</abbr></em> <abbr title="Application Programming Interface">API</abbr></h4>
 <p>As the new user, run:</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="go">kubectl auth whoami -o jsonpath=&quot;{.status.userInfo}&quot;</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="go">kubectl auth whoami -o jsonpath=&quot;{.status.userInfo}&quot;</span>
 </code></pre></div>
 <p>The response should look similar to:
-<div class="highlight"><span class="filename">JSON</span><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="p">{</span><span class="nt">&quot;groups&quot;</span><span class="p">:[</span><span class="s2">&quot;k2s-users&quot;</span><span class="p">,</span><span class="s2">&quot;system:authenticated&quot;</span><span class="p">],</span><span class="nt">&quot;username&quot;</span><span class="p">:</span><span class="s2">&quot;k2s-DESKTOP-user1234&quot;</span><span class="p">}</span>
+<div class="highlight"><span class="filename">JSON</span><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="p">{</span><span class="nt">&quot;groups&quot;</span><span class="p">:[</span><span class="s2">&quot;k2s-users&quot;</span><span class="p">,</span><span class="s2">&quot;system:authenticated&quot;</span><span class="p">],</span><span class="nt">&quot;username&quot;</span><span class="p">:</span><span class="s2">&quot;k2s-DESKTOP-user1234&quot;</span><span class="p">}</span>
 </code></pre></div></p>
 <p>This response proves that <em><abbr title="Kubernetes">K8s</abbr></em> verified the user cert presented in the current <code>kubeconfig</code> and extracted the username and group successfully.</p>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
 <p>To run this check for a different <em>Windows</em> user, e.g. as admin for a new <em>K2s</em> user, specify the <code>kubeconfig</code> explicitly:</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="go">kubectl auth whoami -o jsonpath=&quot;{.status.userInfo} --kubeconfig path\to\other\users\kube\config&quot;</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="go">kubectl auth whoami -o jsonpath=&quot;{.status.userInfo} --kubeconfig path\to\other\users\kube\config&quot;</span>
 </code></pre></div>
 </div>
 <h2 id="authorizing-users-to-call-k8s-api-endpoints">Authorizing Users to Call <em><abbr title="Kubernetes">K8s</abbr></em> <abbr title="Application Programming Interface">API</abbr> Endpoints</h2>
@@ -1889,19 +1900,19 @@ SPDX-License-Identifier: MIT
 <p class="admonition-title">Grant Permissions to Start <em>K2s</em></p>
 <p>This example shows how to grant the new <em>K2s</em> user <em>John</em> from the previous example <abbr title="Role-Based Access Control">RBAC</abbr>-based permissions to start the <em>K2s</em> cluster and inspect its status.</p>
 <p>To create a role for displaying nodes' status and taint nodes at startup, run:</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="go">kubectl create clusterrole EditNodesRole --verb=&quot;get,list,watch,patch&quot; --resource=&quot;nodes&quot;</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="go">kubectl create clusterrole EditNodesRole --verb=&quot;get,list,watch,patch&quot; --resource=&quot;nodes&quot;</span>
 </code></pre></div>
 <p>To create a role for displaying Pod status, run:</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="go">kubectl create clusterrole ViewPodsRole --verb=&quot;get,list,watch&quot; --resource=&quot;pods&quot;</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="go">kubectl create clusterrole ViewPodsRole --verb=&quot;get,list,watch&quot; --resource=&quot;pods&quot;</span>
 </code></pre></div>
 <p><img alt="ℹ" class="twemoji" src="../../assets/external/cdn.jsdelivr.net/gh/jdecked/twemoji@15.0.3/assets/svg/2139.svg" title=":information:"> It is common practice to define roles cluster-wide (i.e. <code>clusterrole</code>) and to use them in a narrower scope/context (i.e. <code>rolebinding</code>). They can be seen as globally available templates with local instances.</p>
 <p>To assign <em>John</em> the <code>EditNodesRole</code> role, run:</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="go">kubectl create clusterrolebinding EditNodesBinding --clusterrole=EditNodesRole --user=k2s-desktop1234-john</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="go">kubectl create clusterrolebinding EditNodesBinding --clusterrole=EditNodesRole --user=k2s-desktop1234-john</span>
 </code></pre></div>
 <p><img alt="ℹ" class="twemoji" src="../../assets/external/cdn.jsdelivr.net/gh/jdecked/twemoji@15.0.3/assets/svg/2139.svg" title=":information:"> Instead of assigning a role to specific users, roles can also be assigned to groups, e.g. the <code>k2s-users</code> group. The downside would be, that roles cannot be removed from specific users if e.g. an admin wants to revoke access to <em>K2s</em>.</p>
 <p>To assign <em>John</em> the <code>ViewPodsRole</code> role in <code>kube-system</code> and <code>kube-flannel</code> namespaces, run:</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="go">kubectl create rolebinding ViewPodsBinding --clusterrole=ViewPodsRole --user=k2s-desktop1234-john -n &quot;kube-system&quot;</span>
-<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="go">kubectl create rolebinding ViewPodsBinding --clusterrole=ViewPodsRole --user=k2s-desktop1234-john -n &quot;kube-flannel&quot;</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="go">kubectl create rolebinding ViewPodsBinding --clusterrole=ViewPodsRole --user=k2s-desktop1234-john -n &quot;kube-system&quot;</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="go">kubectl create rolebinding ViewPodsBinding --clusterrole=ViewPodsRole --user=k2s-desktop1234-john -n &quot;kube-flannel&quot;</span>
 </code></pre></div>
 <p><img alt="ℹ" class="twemoji" src="../../assets/external/cdn.jsdelivr.net/gh/jdecked/twemoji@15.0.3/assets/svg/2139.svg" title=":information:"> In contrast to the role <code>EditNodesRole</code> which applies to the whole cluster, the role <code>ViewPodsRole</code> is only applied in <code>kube-system</code> and <code>kube-flannel</code> namespaces, therefore scoped to a narrow context.</p>
 </div>
