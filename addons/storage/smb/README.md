@@ -16,7 +16,7 @@ The `storage smb` addon provides a Samba share in order to share files between t
 
 ## Getting started
 
-The storage addon can be enabled using the k2s CLI by running the following command:
+The storage smb addon can be enabled using the k2s CLI by running the following command:
 ```
 k2s addons enable storage smb
 ```

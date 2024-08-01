@@ -1203,7 +1203,7 @@ function Get-Status {
         $isSmbShareWorkingProp.Message = 'The SMB share is working'
     }
     else {
-        $isSmbShareWorkingProp.Message = "The SMB share is not working. Try restarting the cluster with 'k2s start' or disable and re-enable the addon with 'k2s addons disable $AddonName' and 'k2s addons enable $AddonName'"
+        $isSmbShareWorkingProp.Message = "The SMB share is not working. Try restarting the cluster with 'k2s start' or disable and re-enable the addon with 'k2s addons disable $AddonName $ImplementationName' and 'k2s addons enable $AddonName $ImplementationName'"
     }
 
     $areCsiPodsRunning = Test-CsiPodsCondition -Condition 'Ready'
@@ -1213,7 +1213,7 @@ function Get-Status {
         $areCsiPodsRunningProp.Message = 'The CSI Pods are running'
     }
     else {
-        $areCsiPodsRunningProp.Message = "The CSI Pods are not running. Try restarting the cluster with 'k2s start' or disable and re-enable the addon with 'k2s addons disable $AddonName' and 'k2s addons enable $AddonName'"
+        $areCsiPodsRunningProp.Message = "The CSI Pods are not running. Try restarting the cluster with 'k2s start' or disable and re-enable the addon with 'k2s addons disable $AddonName $ImplementationName' and 'k2s addons enable $AddonName $ImplementationName'"
     }
 
     return $smbHostTypeProp, $isSmbShareWorkingProp, $areCsiPodsRunningProp

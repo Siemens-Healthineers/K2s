@@ -6,7 +6,7 @@ apiVersion: v1
 kind: AddonManifest
 metadata:
   name: storage
-  description: Storage solutions for persistency
+  description: Persistent storage solutions
 spec:
   implementations:
     - name: smb
