@@ -361,7 +361,7 @@ function Get-DebianPackageAvailableOffline {
 
     $dirName = $addon
     if (($implementation -ne "") -and ($implementation -ne $addon)) {
-        $dirName += "-$implementation"
+        $dirName += "_$implementation"
     }
 
     # TODO: NOTE: DO NOT USE `ExecCmdMaster` here to get the return value.
