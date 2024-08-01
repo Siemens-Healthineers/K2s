@@ -323,21 +323,29 @@ function Install-DebianPackages {
         [parameter()]
         [string] $addon,
         [parameter()]
+        [string] $implementation = "",
+        [parameter()]
         [string[]]$packages
     )
+
+    $dirName = $addon
+    if (($implementation -ne "") -and ($implementation -ne $addon)) {
+        $dirName += "-$implementation"
+    }
+
     foreach ($package in $packages) {
-        if (!(Get-DebianPackageAvailableOffline -addon $addon -package $package)) {
-            (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "mkdir -p .${addon}/${package} && cd .${addon}/${package} && sudo chown -R _apt:root .").Output | Write-Log
-            (Invoke-CmdOnControlPlaneViaSSHKey -Retries 2 -Timeout 2 -CmdToExecute "cd .${addon}/${package} && sudo apt-get download $package" -RepairCmd 'sudo apt --fix-broken install').Output | Write-Log
+        if (!(Get-DebianPackageAvailableOffline -addon $addon -implementation $implementation -package $package)) {
+            (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "mkdir -p .${dirName}/${package} && cd .${dirName}/${package} && sudo chown -R _apt:root .").Output | Write-Log
+            (Invoke-CmdOnControlPlaneViaSSHKey -Retries 2 -Timeout 2 -CmdToExecute "cd .${dirName}/${package} && sudo apt-get download $package" -RepairCmd 'sudo apt --fix-broken install').Output | Write-Log
             (Invoke-CmdOnControlPlaneViaSSHKey `
                 -Retries 2 `
                 -Timeout 2 `
-                -CmdToExecute "cd .${addon}/${package} && sudo DEBIAN_FRONTEND=noninteractive apt-get --reinstall install -y --no-install-recommends --no-install-suggests --simulate ./${package}*.deb | grep 'Inst ' | cut -d ' ' -f 2 | sort -u | xargs sudo apt-get download" `
+                -CmdToExecute "cd .${dirName}/${package} && sudo DEBIAN_FRONTEND=noninteractive apt-get --reinstall install -y --no-install-recommends --no-install-suggests --simulate ./${package}*.deb | grep 'Inst ' | cut -d ' ' -f 2 | sort -u | xargs sudo apt-get download" `
                 -RepairCmd 'sudo apt --fix-broken install').Output | Write-Log
         }
 
         Write-Log "Installing $package offline."
-        (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo dpkg -i .${addon}/${package}/*.deb 2>&1").Output | Write-Log
+        (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo dpkg -i .${dirName}/${package}/*.deb 2>&1").Output | Write-Log
     }
 }
 
@@ -346,10 +354,18 @@ function Get-DebianPackageAvailableOffline {
         [parameter()]
         [string] $addon,
         [parameter()]
+        [string] $implementation = "",
+        [parameter()]
         [string]$package
     )
+
+    $dirName = $addon
+    if (($implementation -ne "") -and ($implementation -ne $addon)) {
+        $dirName += "-$implementation"
+    }
+
     # TODO: NOTE: DO NOT USE `ExecCmdMaster` here to get the return value.
-    ssh.exe -n -o StrictHostKeyChecking=no -i (Get-SSHKeyControlPlane) (Get-ControlPlaneRemoteUser) "[ -d .${addon}/${package} ]"
+    ssh.exe -n -o StrictHostKeyChecking=no -i (Get-SSHKeyControlPlane) (Get-ControlPlaneRemoteUser) "[ -d .${dirName}/${package} ]"
     if (!$?) {
         return $false
     }

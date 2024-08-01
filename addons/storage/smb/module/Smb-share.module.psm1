@@ -178,7 +178,7 @@ function New-SmbHostOnLinuxIfNotExisting {
     # download samba and rest
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo DEBIAN_FRONTEND=noninteractive apt-get update -qq --yes').Output | Write-Log
 
-    Install-DebianPackages -addon 'storage' -packages 'cifs-utils', 'samba'
+    Install-DebianPackages -addon 'storage' -implementation 'smb' -packages 'cifs-utils', 'samba'
 
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo adduser --no-create-home --disabled-password --disabled-login --gecos '' $smbUserName").Output | Write-Log
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "(echo '$($creds.GetNetworkCredential().Password)'; echo '$($creds.GetNetworkCredential().Password)') | sudo smbpasswd -s -a $smbUserName" -NoLog).Output | Write-Log
