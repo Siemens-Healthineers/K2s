@@ -328,7 +328,7 @@ function Install-DebianPackages {
     foreach ($package in $packages) {
         if (!(Get-DebianPackageAvailableOffline -addon $addon -package $package)) {
             (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "mkdir -p .${addon}/${package} && cd .${addon}/${package} && sudo chown -R _apt:root .").Output | Write-Log
-            (Invoke-CmdOnControlPlaneViaSSHKey -Retries 2 -Timeout 2 -CmdToExecute "cd .${addon}/${package} && sudo apt-get download $package" -RepairCmd 'sudo apt --fix-broken install').Output | Write-Log
+            (Invoke-CmdOnControlPlaneViaSSHKey -Retries 2 -Timeout 2 -CmdToExecute "cd .${addon}/${package} && sudo apt-get update && sudo apt-get download $package" -RepairCmd 'sudo apt --fix-broken install').Output | Write-Log
             (Invoke-CmdOnControlPlaneViaSSHKey `
                 -Retries 2 `
                 -Timeout 2 `

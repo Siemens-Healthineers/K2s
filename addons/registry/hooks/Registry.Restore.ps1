@@ -25,5 +25,6 @@ Initialize-Logging -ShowLogs:$ShowLogs
 Write-Log "Restoring local registry data from '$BackupDir'.." -Console
 
 Copy-ToControlPlaneViaSSHKey -Source "$BackupDir\images\*" -Target '/registry/repository'
+Copy-ToControlPlaneViaSSHKey -Source "$BackupDir\auth\auth.json" -Target '/root/.config/containers/auth.json'
 
 Write-Log "Local registry data restored from '$BackupDir'." -Console

@@ -3,8 +3,8 @@
 # SPDX-License-Identifier: MIT
 
 $infraModule = "$PSScriptRoot/../../k2s.infra.module/k2s.infra.module.psm1"
-
-Import-Module $infraModule
+$clusterModule = "$PSScriptRoot/../../k2s.cluster.module/k2s.cluster.module.psm1"
+Import-Module $infraModule, $clusterModule
 
 $processTools = @'
 
@@ -641,7 +641,35 @@ function Remove-SetupConfigIfExisting {
     }
 }
 
+function Backup-RegistryAuths {
+    param (
+        [Parameter(Mandatory = $false)]
+        [string]$BackupDir = $(throw 'Back-up directory not specified')
+    )
+    Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo cp /root/.config/containers/auth.json auth.json"
+    Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo chmod 755 auth.json"
+    Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo rm -rf auth.json"
+
+    #backup /etc/containers/registries.conf
+
+    Copy-FromControlPlaneViaSSHKey -Source "auth.json" -Target "$BackupDir\registries"
+}
+
+function Restore-RegistryAuths {
+    param (
+        [Parameter(Mandatory = $false)]
+        [string]$BackupDir = $(throw 'Back-up directory not specified')
+    )
+
+
+    $registries = Get-ConfigValue -Path $(Get-SetupConfigFilePath) -Key "Registries"
+
+    foreach ($registry in $registries) {
+        Add-RegistryToContainerdConf -RegistryName $registry -authJson $authJson
+    }
+}
+
 Export-ModuleMember -Function Assert-UpgradeOperation, Enable-ClusterIsRunning, Assert-YamlTools, Export-ClusterResources,
 Invoke-ClusterUninstall, Invoke-ClusterInstall, Import-NotNamespacedResources, Import-NamespacedResources, Remove-ExportedClusterResources,
 Get-TempPath, Get-LinuxVMCores, Get-LinuxVMMemory, Get-LinuxVMStorageSize, Get-ClusterInstalledFolder, Backup-LogFile, Restore-LogFile, Restore-MergeLogFiles,
-Invoke-BackupRestoreHooks, Remove-SetupConfigIfExisting
+Invoke-BackupRestoreHooks, Remove-SetupConfigIfExisting, Backup-RegistryAuths

@@ -147,6 +147,9 @@ function Start-ClusterUpgrade {
         $hooksBackupPath = Join-Path $BackupDir 'hooks'
         Invoke-BackupRestoreHooks -HookType Backup -BackupDir $hooksBackupPath -ShowLogs:$ShowLogs -AdditionalHooksDir $AdditionalHooksDir
 
+        # backup configured registries auths
+        Backup-RegistryAuths
+
         if ($ShowProgress -eq $true) {
             Write-Progress -Activity 'Backing up addons..' -Id 1 -Status '4/10' -PercentComplete 40 -CurrentOperation 'Backing up addons, please wait..'
         }
