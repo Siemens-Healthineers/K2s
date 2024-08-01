@@ -2,15 +2,16 @@
 #
 # SPDX-License-Identifier: MIT
 
-$infraModule = "$PSScriptRoot/../../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
-$clusterModule = "$PSScriptRoot/../../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
-$nodeModule = "$PSScriptRoot/../../../lib/modules/k2s/k2s.node.module/k2s.node.module.psm1"
-$addonsModule = "$PSScriptRoot/../../addons.module.psm1"
+$infraModule = "$PSScriptRoot/../../../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
+$clusterModule = "$PSScriptRoot/../../../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
+$nodeModule = "$PSScriptRoot/../../../../lib/modules/k2s/k2s.node.module/k2s.node.module.psm1"
+$addonsModule = "$PSScriptRoot/../../../addons.module.psm1"
 $passwordModule = "$PSScriptRoot/password.module.psm1"
 
 Import-Module $clusterModule, $infraModule, $nodeModule, $addonsModule, $passwordModule
 
 $AddonName = 'storage'
+$ImplementationName = 'smb'
 $localHooksDir = "$PSScriptRoot\..\hooks"
 $logFile = "$(Get-SystemDriveLetter):\var\log\ssh_smbSetup.log"
 $linuxLocalPath = Get-LinuxLocalSharePath
@@ -34,7 +35,7 @@ $manifestWinDir = "$PSScriptRoot\..\manifests\windows"
 $patchTemplateFilePath = "$manifestBaseDir\$hostPathPatchTemplateFileName"
 $patchFilePath = "$manifestBaseDir\$hostPathPatchFileName"
 $storageClassTimeoutSeconds = 600
-$namespace = 'storage'
+$namespace = 'storage-smb'
 
 function Test-CsiPodsCondition {
     param (
@@ -1027,7 +1028,7 @@ function Enable-SmbShare {
     }
 
     Copy-ScriptsToHooksDir -ScriptPaths @(Get-ChildItem -Path $localHooksDir | ForEach-Object { $_.FullName })
-    Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = $AddonName; SmbHostType = $SmbHostType })
+    Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = $AddonName; Implementation = $ImplementationName; SmbHostType = $SmbHostType })
     Restore-SmbShareAndFolder -SmbHostType $SmbHostType -SkipTest -SetupInfo $setupInfo
     Restore-StorageClass -SmbHostType $SmbHostType -LinuxOnly $setupInfo.LinuxOnly
 
@@ -1077,7 +1078,7 @@ function Disable-SmbShare {
     Write-Log "Disabling '$AddonName'.."
 
     Remove-SmbShareAndFolder -SkipNodesCleanup:$SkipNodesCleanup
-    Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = $AddonName })
+    Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = $AddonName; Implementation = $ImplementationName })
     Remove-ScriptsFromHooksDir -ScriptNames @(Get-ChildItem -Path $localHooksDir | ForEach-Object { $_.Name })
 
     return @{Error = $null }

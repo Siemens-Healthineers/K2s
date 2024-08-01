@@ -7,7 +7,7 @@ kind: DaemonSet
 apiVersion: apps/v1
 metadata:
   name: csi-smb-node
-  namespace: storage
+  namespace: storage-smb
 spec:
   updateStrategy:
     rollingUpdate:

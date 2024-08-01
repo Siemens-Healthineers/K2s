@@ -8,7 +8,7 @@ BeforeAll {
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('UseDeclaredVarsMoreThanAssignments', '', Justification = 'Pester Test')]
     $moduleName = (Import-Module $module -PassThru -Force).Name
 
-    Import-Module "$PSScriptRoot\..\..\..\lib\modules\k2s\k2s.infra.module\errors\errors.module.psm1" -Force
+    Import-Module "$PSScriptRoot\..\..\..\..\lib\modules\k2s\k2s.infra.module\errors\errors.module.psm1" -Force
 }
 
 Describe 'Test-CsiPodsCondition' -Tag 'unit', 'ci', 'addon', 'storage' {
