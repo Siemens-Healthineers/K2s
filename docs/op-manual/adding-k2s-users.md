@@ -32,6 +32,19 @@ See `k2s system users add -h` for more options.
 !!! tip "Windows Username"
     Typically the *Windows* username can be specified without the domain.
 
+!!! note
+    The *Windows* account `NT AUTHORITY\SYSTEM` (`SID S-1-5-18`) is a special case since it is not a user account. Nevertheless, you can specify the system account's name or `SID` to grant the system account access to *K2s*.
+    
+    Examples how to specify the *Windows* system account:
+    ```console
+    k2s system users add -u system
+
+    k2s system users add -u "NT AUTHORITY\SYSTEM"
+    
+    k2s system users add -i S-1-5-18
+    ```
+
+
 ??? example "Full Example With Detailed Steps"
     Given that the *Windows* user `desktop1234\john` exists on the host and has a local profile/home directory, the *K2s* admin runs `k2s system users add -u john` which triggers the following steps:
     
