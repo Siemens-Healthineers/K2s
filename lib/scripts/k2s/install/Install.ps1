@@ -58,14 +58,8 @@ Set-Location $installationPath
 # set defaults for unset arguments
 $script:SetupType = 'k2s'
 Set-ConfigSetupType -Value $script:SetupType
-$productVersion = Get-ProductVersion
-Set-ConfigProductVersion -Value $productVersion
-Set-ConfigInstallFolder -Value $installationPath
 
 $Proxy = Get-OrUpdateProxyServer -Proxy:$Proxy
-
-$linuxOsType = Get-LinuxOsType $LinuxVhdxPath
-Set-ConfigLinuxOsType -Value $linuxOsType
 
 $dnsServers = $DnsAddresses -join ','
 if ([string]::IsNullOrWhiteSpace($dnsServers)) {
@@ -103,10 +97,6 @@ $workerNodeParams = @{
     DnsAddresses = $dnsServers
 }
 & "$PSScriptRoot\..\..\worker-node\windows\windows-host\Install.ps1" @workerNodeParams
-
-$loopbackAdapter = Get-L2BridgeName
-# Set DNS proxy for all physical network interfaces on Windows host to the DNS proxy
-Set-K2sDnsProxyForActivePhysicalInterfacesOnWindowsHost -ExcludeNetworkInterfaceName $loopbackAdapter
 
 # show results
 Write-Log "Current state of kubernetes nodes:`n"

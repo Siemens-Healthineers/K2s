@@ -68,9 +68,6 @@ $workerNodeParams = @{
 }
 & "$PSScriptRoot\..\..\worker-node\windows\windows-host\Start.ps1" @workerNodeParams
 
-# Set DNS proxy for all physical network interfaces on Windows host to the DNS proxy
-Set-K2sDnsProxyForActivePhysicalInterfacesOnWindowsHost -ExcludeNetworkInterfaceName $loopbackAdapter
-
 Invoke-AddonsHooks -HookType 'AfterStart'
 
 if ($SkipHeaderDisplay -eq $false) {
