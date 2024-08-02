@@ -49,9 +49,6 @@ $controlPlaneParams = @{
 }
 & "$PSScriptRoot\..\..\control-plane\Stop.ps1" @controlPlaneParams
 
-$loopbackAdapter = Get-L2BridgeName
-Reset-DnsForActivePhysicalInterfacesOnWindowsHost -ExcludeNetworkInterfaceName $loopbackAdapter
-
 if ($SkipHeaderDisplay -eq $false) {
     Write-Log '...Kubernetes system stopped.'
 }

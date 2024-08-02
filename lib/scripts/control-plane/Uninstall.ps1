@@ -33,8 +33,11 @@ Set-Location $installationPath
 Write-Log 'Stop the control plane'
 & "$PSScriptRoot\Stop.ps1" -AdditionalHooksDir $AdditionalHooksDir -ShowLogs:$ShowLogs -SkipHeaderDisplay:$SkipHeaderDisplay
 
+Remove-WinHttpProxy
+Remove-WinDnsProxy
+
 $controlPlaneVMHostName = Get-ConfigControlPlaneNodeHostname
 Write-Log "Uninstalling $controlPlaneVMHostName VM" -Console
 Remove-ControlPlaneNodeOnNewVM -SkipPurge:$SkipPurge -AdditionalHooksDir $AdditionalHooksDir -SkipHeaderDisplay:$SkipHeaderDisplay -DeleteFilesForOfflineInstallation:$DeleteFilesForOfflineInstallation
 
-
+Remove-KubeNodeBaseImage -DeleteFilesForOfflineInstallation $DeleteFilesForOfflineInstallation

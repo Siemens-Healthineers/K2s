@@ -34,8 +34,6 @@ function Add-WindowsWorkerNodeOnWindowsHost {
     Add-VfpRulesToWindowsNode -VfpRulesInJsonFormat $vfpRoutingRules
 
     $kubernetesVersion = Get-DefaultK8sVersion
-    $controlPlaneIpAddress = Get-ConfiguredIPControlPlane
-    $windowsHostIpAddress = Get-ConfiguredKubeSwitchIP
 
     Initialize-WinNode -KubernetesVersion $kubernetesVersion `
         -HostGW:$true `
@@ -44,9 +42,6 @@ function Add-WindowsWorkerNodeOnWindowsHost {
         -ForceOnlineInstallation $ForceOnlineInstallation `
         -PodSubnetworkNumber $PodSubnetworkNumber
 
-    $transparentproxy = 'http://' + $windowsHostIpAddress + ':8181'
-    Set-ProxySettingsOnKubenode -ProxySettings $transparentproxy -IpAddress $controlPlaneIpAddress
-    Restart-Service httpproxy -ErrorAction SilentlyContinue
 
     # join the cluster
     Write-Log "Preparing Kubernetes $KubernetesVersion by joining nodes" -Console
@@ -72,8 +67,6 @@ function Start-WindowsWorkerNodeOnWindowsHost {
     $vfpRoutingRules = $smallsetup.psobject.properties['vfprules-k2s'].value | ConvertTo-Json
     Add-VfpRulesToWindowsNode -VfpRulesInJsonFormat $vfpRoutingRules
 
-    Remove-DefaultNetNat
-
     $ipControlPlane = Get-ConfiguredIPControlPlane
     $setupConfigRoot = Get-RootConfigk2s
     $clusterCIDRServicesWindows = $setupConfigRoot.psobject.properties['servicesCIDRWindows'].value
@@ -86,10 +79,8 @@ function Start-WindowsWorkerNodeOnWindowsHost {
 
     Start-WindowsWorkerNode -DnsServers $DnsServers -ResetHns:$ResetHns -AdditionalHooksDir $AdditionalHooksDir -UseCachedK2sVSwitches:$UseCachedK2sVSwitches -SkipHeaderDisplay:$SkipHeaderDisplay -PodSubnetworkNumber $PodSubnetworkNumber
 
-    # start dns proxy
-    Write-Log 'Starting dns proxy'
-    Start-ServiceAndSetToAutoStart -Name 'httpproxy'
-    Start-ServiceAndSetToAutoStart -Name 'dnsproxy'
+    $clusterCIDRNextHop = Get-ConfiguredClusterCIDRNextHop -PodSubnetworkNumber $PodSubnetworkNumber
+    Add-WinDnsProxyListenAddress -IpAddress $clusterCIDRNextHop
 
     Update-NodeLabelsAndTaints -WorkerMachineName $env:computername
 
@@ -110,8 +101,8 @@ function Stop-WindowsWorkerNodeOnWindowsHost {
         Write-Log 'Stopping K2s worker node on Windows host'
     }
 
-    Stop-ServiceAndSetToManualStart 'httpproxy'
-    Stop-ServiceAndSetToManualStart 'dnsproxy'
+    $clusterCIDRNextHop = Get-ConfiguredClusterCIDRNextHop -PodSubnetworkNumber $PodSubnetworkNumber
+    Remove-WinDnsProxyListenAddress -IpAddress $clusterCIDRNextHop
 
     Stop-WindowsWorkerNode -PodSubnetworkNumber $PodSubnetworkNumber -AdditionalHooksDir $AdditionalHooksDir -CacheK2sVSwitches:$CacheK2sVSwitches -SkipHeaderDisplay:$SkipHeaderDisplay
 
@@ -121,9 +112,7 @@ function Stop-WindowsWorkerNodeOnWindowsHost {
     route delete $clusterCIDRServicesWindows >$null 2>&1
 
     Remove-VfpRulesFromWindowsNode
-
-    New-DefaultNetNat
-    
+   
     Write-Log 'K2s worker node on Windows host stopped.'
 }
 

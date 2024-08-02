@@ -12,6 +12,8 @@ Import-Module $logModule, $configModule, $pathModule, $systemModule, $networkMod
 
 $kubeBinPath = Get-KubeBinPath
 
+$httpProxyPort = '8181'
+$proxyInboundFirewallRule = "HTTP Proxy Inbound Allow Port $httpProxyPort"
 
 function Install-WinHttpProxy {
     Param(
@@ -44,10 +46,23 @@ function Install-WinHttpProxy {
     &$kubeBinPath\nssm set httpproxy AppRotateBytes 500000 | Out-Null
     &$kubeBinPath\nssm set httpproxy Start SERVICE_AUTO_START | Out-Null
 
-    $httpProxyPort = '8181'
-    $proxyInboundFirewallRule = "HTTP Proxy Inbound Allow Port $httpProxyPort"
-
     New-NetFirewallRule -DisplayName $proxyInboundFirewallRule -Group 'k2s' -Direction Inbound -LocalPort 8181 -Protocol TCP -Action Allow | Out-Null
     Start-Service httpproxy
+}
+
+function Start-WinHttpProxy {
+    Start-ServiceAndSetToAutoStart -Name 'httpproxy'
+}
+
+function Stop-WinHttpProxy {
+    Stop-ServiceAndSetToManualStart 'httpproxy'
+}
+
+function Remove-WinHttpProxy {
+    Remove-ServiceIfExists 'httpproxy'
+    $rule = Get-NetFirewallRule -DisplayName $proxyInboundFirewallRule -ErrorAction SilentlyContinue
+    if ($null -ne $rule) {
+        Remove-NetFirewallRule -DisplayName $proxyInboundFirewallRule
+    }
 }
 

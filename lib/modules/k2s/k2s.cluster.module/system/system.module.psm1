@@ -129,12 +129,6 @@ function Update-NodeLabelsAndTaints {
         # taint windows nodes
         &"$kubeToolsPath\kubectl.exe" taint nodes $nodeName OS=Windows:NoSchedule --overwrite
     }
-
-    # change default policy in VM (after restart of VM always policy is changed automatically)
-    Write-Log 'Reconfiguring volatile settings in VM...'
-    (Invoke-CmdOnControlPlaneViaSSHKey 'sudo iptables --policy FORWARD ACCEPT').Output | Write-Log
-    (Invoke-CmdOnControlPlaneViaSSHKey 'sudo sysctl fs.inotify.max_user_instances=8192').Output | Write-Log
-    (Invoke-CmdOnControlPlaneViaSSHKey 'sudo sysctl fs.inotify.max_user_watches=524288').Output | Write-Log
 }
 
 function Get-Cni0IpAddressInControlPlaneUsingSshWithRetries {

@@ -354,18 +354,8 @@ function Install-WinNodeArtifacts {
         Invoke-DeployWindowsExporterArtifacts $windowsNodeArtifactsDirectory
         Install-WindowsExporter
 
-        if (!($HostVM)) {
-            # DNS Proxy is not required if Host machine is a VM
-            Invoke-DeployDnsProxyArtifacts $windowsNodeArtifactsDirectory
-            Install-WinDnsProxy -PodSubnetworkNumber $PodSubnetworkNumber
-        }
     }
 
-    Install-WinHttpProxy -Proxy "$Proxy"
-    Invoke-DeployPuttytoolsArtifacts $windowsNodeArtifactsDirectory
-
-    # remove folder with windows node artifacts since all of them are already published to the expected locations
-    Remove-Item "$windowsNodeArtifactsDirectory" -Recurse -Force -ErrorAction SilentlyContinue
 }
 
 function Invoke-DownloadsCleanup {
@@ -428,4 +418,8 @@ function Install-KubectlTool{
     Invoke-DeployKubetoolKubectl $windowsNodeArtifactsDirectory
 }
 
-Export-ModuleMember Invoke-DeployWinArtifacts, Invoke-DownloadsCleanup, Install-WinNodeArtifacts, Install-DefaultTools, Get-WindowsNodeArtifactsZipFilePath, Install-PuttyTools, Install-KubectlTool
+function Get-WindowsArtifactsDirectory {
+    return $windowsNodeArtifactsDirectory
+}
+
+Export-ModuleMember Invoke-DeployWinArtifacts, Invoke-DownloadsCleanup, Install-WinNodeArtifacts, Install-DefaultTools, Get-WindowsNodeArtifactsZipFilePath, Install-PuttyTools, Install-KubectlTool, Get-WindowsArtifactsDirectory
