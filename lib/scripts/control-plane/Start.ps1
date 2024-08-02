@@ -41,3 +41,16 @@ $controlPlaneStartParams = @{
     DnsServers = $DnsAddresses
 }
 Start-ControlPlaneNodeOnNewVM @controlPlaneStartParams
+
+Start-WinHttpProxy
+Start-WinDnsProxy
+
+# change default policy in VM (after restart of VM always policy is changed automatically)
+Write-Log 'Reconfiguring volatile settings in VM...'
+(Invoke-CmdOnControlPlaneViaSSHKey 'sudo iptables --policy FORWARD ACCEPT').Output | Write-Log
+(Invoke-CmdOnControlPlaneViaSSHKey 'sudo sysctl fs.inotify.max_user_instances=8192').Output | Write-Log
+(Invoke-CmdOnControlPlaneViaSSHKey 'sudo sysctl fs.inotify.max_user_watches=524288').Output | Write-Log
+
+$loopbackAdapter = Get-L2BridgeName
+# Set DNS proxy for all physical network interfaces on Windows host to the DNS proxy
+Set-K2sDnsProxyForActivePhysicalInterfacesOnWindowsHost -ExcludeNetworkInterfaceName $loopbackAdapter

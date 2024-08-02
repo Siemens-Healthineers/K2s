@@ -39,8 +39,11 @@ Set-Location $installationPath
 
 Write-Log 'Setting up Windows worker node' -Console
 
+$windowsHostIpAddress = Get-ConfiguredKubeSwitchIP
+$transparentProxy = "http://$($windowsHostIpAddress):8181"
+
 $workerNodeParams = @{
-    Proxy = $Proxy
+    Proxy = $transparentProxy
     AdditionalHooksDir = $AdditionalHooksDir
     DeleteFilesForOfflineInstallation = $DeleteFilesForOfflineInstallation
     ForceOnlineInstallation = $ForceOnlineInstallation

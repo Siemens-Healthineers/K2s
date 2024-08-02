@@ -49,13 +49,7 @@ function New-ControlPlaneNodeOnNewVM {
 
     Write-Log 'Starting installation...'
 
-    # set defaults for unset arguments
-    $KubernetesVersion = Get-DefaultK8sVersion
-
     Set-ConfigWslFlag -Value $([bool]$WSL)
-
-    Invoke-DeployWinArtifacts -KubernetesVersion $KubernetesVersion -Proxy $Proxy -ForceOnlineInstallation:$ForceOnlineInstallation
-    Install-PuttyTools
 
     $controlPlaneParams = @{
         Hostname = Get-ConfigControlPlaneNodeHostname
@@ -98,8 +92,6 @@ function New-ControlPlaneNodeOnNewVM {
     (Invoke-CmdOnControlPlaneViaSSHKey "sudo mv /tmp/ZScalerRootCA.crt /usr/local/share/ca-certificates/" ).Output | Write-Log
     (Invoke-CmdOnControlPlaneViaSSHKey "sudo update-ca-certificates").Output | Write-Log
     Write-Log "Zscaler certificate added to CA certificates of master node"
-
-    Set-ProxySettingsOnKubenode -ProxySettings $Proxy -IpAddress $($controlPlaneParams.IpAddress)
 
     # add kubectl to Windows host
     Install-KubectlTool
@@ -272,10 +264,6 @@ function Start-ControlPlaneNodeOnNewVM {
     # add DNS proxy for cluster searches
     Add-DnsServer $switchname
 
-    # configure NAT
-    Remove-DefaultNetNat
-    New-DefaultNetNat
-
     # route for VM
     Write-Log "Remove obsolete route to $ipControlPlaneCIDR"
     route delete $ipControlPlaneCIDR >$null 2>&1
@@ -380,8 +368,6 @@ function Stop-ControlPlaneNodeOnNewVM {
     }
 
     Reset-DnsServer $switchname
-
-    Remove-DefaultNetNat
 
     $ipControlPlaneCIDR = Get-ConfiguredControlPlaneCIDR
     $setupConfigRoot = Get-RootConfigk2s
