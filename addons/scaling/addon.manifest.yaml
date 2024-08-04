@@ -1,0 +1,25 @@
+# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+#
+# SPDX-License-Identifier: MIT
+
+apiVersion: v1
+kind: AddonManifest
+metadata:
+  name: keda
+  description: Keda is uses for autoscaling(CPU, memory and custome resource based scaling)
+spec:
+  commands:
+    enable:
+      cli:
+        examples:
+          - cmd: k2s addons enable keda
+            comment: Enable keda in k2s
+      script:
+        subPath: Enable.ps1
+    disable:
+      cli:
+        examples:
+          - cmd: k2s addons disable keda
+            comment: Disable addon keda in k2s
+      script:
+        subPath: Disable.ps1
