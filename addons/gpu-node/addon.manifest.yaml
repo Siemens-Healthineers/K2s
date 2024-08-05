@@ -6,11 +6,11 @@ apiVersion: v1
 kind: AddonManifest
 metadata:
   name: gpu-node
-  description: Configure KubeMaster as GPU node for direct GPU access
+  description: Configure the control plane node to utilize GPUs for direct GPU access and high-performance computing tasks.
 spec:
   implementations:
     - name: gpu-node
-      description: Configure KubeMaster as GPU node for direct GPU access
+      description: Configure the control plane node to utilize GPUs for direct GPU access and high-performance computing tasks.
       offline_usage:
         linux:
           repos:

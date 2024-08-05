@@ -18,7 +18,7 @@ deploying and accessing microservices easy.
 The ingress traefik addon can be enabled using the `k2s` CLI by running the following command:
 
 ```cmd
-k2s addons enable ingress -i traefik
+k2s addons enable ingress traefik
 ```
 
 ## Creating ingress routes
@@ -52,7 +52,7 @@ controller - so the only important thing is to have distinct Prefix rules.
 All Addons with a Web UI use this feature,
 and are configured to be reachable under two endpoints:
 
-- k2s-_nameOfAddOn_.local/
+- k2s-_nameOfAddOn_.cluster.local/
 - k2s.cluster.local/_nameOfAddOn_/
 
 Making web applications available under different paths is not trivial,
