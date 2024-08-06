@@ -11,6 +11,16 @@ spec:
   implementations:
     - name: updates
       description: Tool for automating the deployment/updating of applications in k2s
+      offline_usage:
+        linux:
+          repos: []
+          deb: []
+          curl: []
+          additionalImages: []
+        windows:
+          curl:
+            - url: https://github.com/argoproj/argo-cd/releases/download/v2.12.0/argocd-windows-amd64.exe
+              destination: bin\argocd.exe
       commands:
         enable:
           cli:
@@ -25,16 +35,24 @@ spec:
                     - none
                     - nginx
                     - traefik
+              - name: proxy
+                shorthand: p
+                default: ""
+                description: HTTP Proxy
             examples:
               - cmd: k2s addons enable updates
                 comment: Enable updates in k2s
               - cmd: k2s addons enable updates --ingress traefik
                 comment: Enable updates in k2s with traefik ingress
+              - cmd: k2s addons enable updates --proxy http://10.11.12.13:5000
+                comment: Enable updates in k2s with proxy
           script:
             subPath: Enable.ps1
             parameterMappings:
               - cliFlagName: ingress
                 scriptParameterName: Ingress
+              - cliFlagName: proxy
+                scriptParameterName: Proxy
         disable:
           cli:
             examples:

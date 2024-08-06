@@ -141,7 +141,7 @@ function Write-UsageForUser {
 
  Option 2: Port-forwading
  Use port-forwarding to the ArgoCD dashboard using the command below:
- kubectl -n updates port-forward svc/argocd-server 3000:443
+ kubectl -n updates port-forward svc/argocd-server 8080:443
  
  In this case, the ArgoCD dashboard will be accessible on the following URL: https://localhost:3000
  

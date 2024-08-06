@@ -6,10 +6,16 @@
 
 <#
 .SYNOPSIS
+Uninstalls the updates addons (ArgoCD) in the cluster
 
 .DESCRIPTION
+The updates addons utilizes ArgoCD to provide the user with the possibility 
+to automate the deployment of application based on Git repositories. The addon can 
+either be used by directly accessing the argocd cli or using the exposed web interface.
 
 .EXAMPLE
+Disable updates in k2s
+powershell <installation folder>\addons\update\Disable.ps1
 #>
 
 Param (

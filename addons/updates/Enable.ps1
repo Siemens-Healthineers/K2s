@@ -6,19 +6,25 @@
 
 <#
 .SYNOPSIS
+Installs the updates addons (ArgoCD) in the cluster
 
 .DESCRIPTION
+The updates addons utilizes ArgoCD to provide the user with the possibility 
+to automate the deployment of application based on Git repositories. The addon can 
+either be used by directly accessing the argocd cli or using the exposed web interface.
 
 .EXAMPLE
 Enable updates in k2s
 powershell <installation folder>\addons\update\Enable.ps1
 
 Enable Dashboard in k2s with ingress-nginx addon and metrics server addon
-powershell <installation folder>\addons\update\Enable.ps1 -Ingress "ingress-nginx"
+powershell <installation folder>\addons\update\Enable.ps1 -Ingress "nginx"
 #>
 
 [CmdletBinding(SupportsShouldProcess = $true)]
 Param (
+    [parameter(Mandatory = $false, HelpMessage = 'HTTP proxy if available')]
+    [string] $Proxy,
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
     [switch] $ShowLogs = $false,
     [parameter(Mandatory = $false, HelpMessage = 'Enable Ingress-Nginx Addon')]
@@ -40,6 +46,8 @@ $updatesModule = "$PSScriptRoot\updates.module.psm1"
 Import-Module $clusterModule, $infraModule, $addonsModule, $nodeModule, $updatesModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
+
+$Proxy = Get-OrUpdateProxyServer -Proxy:$Proxy
 
 Write-Log 'Checking cluster status' -Console
 
@@ -76,7 +84,7 @@ if ((Test-IsAddonEnabled -Addon ([PSCustomObject]@{Name = 'updates'})) -eq $true
 
 $UpdatesNamespace = 'updates'
 
-$VERSION_ARGOCD = 'v2.9.18'
+$VERSION_ARGOCD = 'v2.12.0'
 
 Write-Log 'Creating updates namespace' -Console
 (Invoke-Kubectl -Params 'create', 'namespace', $UpdatesNamespace)
