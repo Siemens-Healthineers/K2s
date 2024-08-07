@@ -67,7 +67,7 @@ if ([string]::IsNullOrWhitespace($Command)) {
     ssh.exe -o StrictHostKeyChecking=no -i $key $remoteUser "$(($MyInvocation).UnboundArguments)"
 }
 else {
-    ssh.exe -n -o StrictHostKeyChecking=no -i $key $remoteUser "$Command" | ForEach-Object { Write-Log $_ -Console -Ssh }
+    ssh.exe -n -o StrictHostKeyChecking=no -i $key $remoteUser $Command | ForEach-Object { Write-Log $_ -Console -Ssh }
 }
 
 if ($EncodeStructuredOutput -eq $true) {
