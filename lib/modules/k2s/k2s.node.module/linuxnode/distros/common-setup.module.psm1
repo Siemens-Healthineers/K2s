@@ -1116,6 +1116,9 @@ function Set-ProxySettingsOnKubenode {
     else {
         (Invoke-CmdOnVmViaSSHKey "echo env = [\\\""https_proxy=$(Get-HttpProxyServiceAddressForKubemaster)\\\""] | sudo tee -a /etc/containers/containers.conf" -IpAddress $IpAddress).Output | Write-Log
     }
+
+    (Invoke-CmdOnVmViaSSHKey 'sudo systemctl daemon-reload' -IpAddress $IpAddress).Output | Write-Log
+    (Invoke-CmdOnVmViaSSHKey 'sudo systemctl restart crio' -IpAddress $IpAddress).Output | Write-Log
 }
 
 Export-ModuleMember -Function New-VmImageForKubernetesNode, 

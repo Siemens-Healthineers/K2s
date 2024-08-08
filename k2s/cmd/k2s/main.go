@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"runtime/debug"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
@@ -20,10 +19,7 @@ import (
 func main() {
 	exitCode := 0
 
-	logger := logging.NewSlogger().SetHandlers(
-		logging.NewFileHandler(logging.DefaultLogFilePath()),
-		logging.NewCliTextHandler(),
-	).SetGlobally()
+	logger := logging.NewSlogger()
 
 	defer func() {
 		if err := recover(); err != nil {
@@ -36,7 +32,7 @@ func main() {
 		os.Exit(exitCode)
 	}()
 
-	rootCmd, err := cmd.CreateRootCmd(logger.LevelVar)
+	rootCmd, err := cmd.CreateRootCmd(logger)
 	if err != nil {
 		exitCode = 1
 		slog.Error("error occurred during root command creation", "error", err)
@@ -52,7 +48,7 @@ func main() {
 
 	var cmdFailure *common.CmdFailure
 	if !errors.As(err, &cmdFailure) {
-		pterm.Error.Println(fmt.Errorf("%v", err))
+		handleUnexpectedError(err)
 		return
 	}
 
@@ -67,9 +63,6 @@ func main() {
 		}
 	}
 
-	// remove CLI text log handler
-	logger.SetHandlers(logging.NewFileHandler(logging.DefaultLogFilePath())).SetGlobally()
-
 	slog.Error("command failed",
 		"severity", fmt.Sprintf("%d(%s)", cmdFailure.Severity, cmdFailure.Severity),
 		"code", cmdFailure.Code,
@@ -79,5 +72,6 @@ func main() {
 
 func handleUnexpectedError(err any) {
 	pterm.Error.Println(fmt.Errorf("%v", err))
-	slog.Error("error", err, "stack", string(debug.Stack()))
+
+	slog.Error("unexpected error", "error", err)
 }

@@ -19,9 +19,9 @@ powershell <installation folder>\addons\security\Enable.ps1
 
 [CmdletBinding(SupportsShouldProcess = $true)]
 Param (
-    [parameter(Mandatory = $false, HelpMessage = 'Enable Ingress-Nginx Addon')]
-    [ValidateSet('ingress-nginx', 'traefik')]
-    [string] $Ingress = 'ingress-nginx',
+    [parameter(Mandatory = $false, HelpMessage = 'Enable ingress addon')]
+    [ValidateSet('nginx', 'traefik')]
+    [string] $Ingress = 'nginx',
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
     [switch] $ShowLogs = $false,
     [parameter(Mandatory = $false, HelpMessage = 'JSON config object to override preceeding parameters')]
@@ -58,7 +58,7 @@ if ($systemError) {
     exit 1
 }
 
-if ((Test-IsAddonEnabled -Name 'security') -eq $true) {
+if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'security' })) -eq $true) {
     $errMsg = "Addon 'security' is already enabled, nothing to do."
 
     if ($EncodeStructuredOutput -eq $true) {
@@ -74,7 +74,7 @@ if ((Test-IsAddonEnabled -Name 'security') -eq $true) {
 Write-Log 'Downloading cert-manager files' -Console
 $manifest = Get-FromYamlFile -Path "$PSScriptRoot\addon.manifest.yaml"
 $k2sRoot = "$PSScriptRoot\..\.."
-$windowsCurlPackages = $manifest.spec.offline_usage.windows.curl
+$windowsCurlPackages = $manifest.spec.implementations[0].offline_usage.windows.curl
 if ($windowsCurlPackages) {
     foreach ($package in $windowsCurlPackages) {
         $destination = $package.destination

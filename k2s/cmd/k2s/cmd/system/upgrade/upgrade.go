@@ -15,6 +15,8 @@ import (
 	"github.com/spf13/pflag"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
+	"github.com/siemens-healthineers/k2s/cmd/k2s/utils/logging"
+	bl "github.com/siemens-healthineers/k2s/internal/logging"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 
@@ -91,8 +93,14 @@ func AddInitFlags(cmd *cobra.Command) {
 func upgradeCluster(cmd *cobra.Command, args []string) error {
 	pterm.Println("🤖 Analyze current cluster and check prerequisites ...")
 
-	cfg := cmd.Context().Value(common.ContextKeyConfig).(*config.Config)
-	config, err := readConfigLegacyAware(cfg)
+	showLog, err := cmd.Flags().GetBool(common.OutputFlagName)
+	if err != nil {
+		return err
+	}
+
+	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
+
+	config, err := readConfigLegacyAware(context.Config())
 	if err != nil {
 		if errors.Is(err, setupinfo.ErrSystemInCorruptedState) {
 			return common.CreateSystemInCorruptedStateCmdFailure()
@@ -111,13 +119,18 @@ func upgradeCluster(cmd *cobra.Command, args []string) error {
 
 	slog.Debug("PS command created", "command", psCmd)
 
-	outputWriter := common.NewPsCommandOutputWriter()
+	outputWriter := common.NewPtermWriter()
 
 	start := time.Now()
 
-	err = powershell.ExecutePs(psCmd, common.DeterminePsVersion(config), outputWriter)
-	if err != nil {
-		return err
+	switchToUpgradeLogFile(showLog, context.Logger())
+
+	psErr := powershell.ExecutePs(psCmd, common.DeterminePsVersion(config), outputWriter)
+
+	switchToDefaultLogFile(showLog, context.Logger())
+
+	if psErr != nil {
+		return psErr
 	}
 
 	if outputWriter.ErrorOccurred {
@@ -146,7 +159,7 @@ func readConfigLegacyAware(cfg *config.Config) (*setupinfo.Config, error) {
 			return nil, err
 		}
 
-		if err := moveLegacyConfigFile(cfg.Host.KubeConfigDir, cfg.Host.K2sConfigDir, config); err != nil {
+		if err := copyLegacyConfigFile(cfg.Host.KubeConfigDir, cfg.Host.K2sConfigDir); err != nil {
 			return nil, err
 		}
 	}
@@ -156,16 +169,13 @@ func readConfigLegacyAware(cfg *config.Config) (*setupinfo.Config, error) {
 	return config, nil
 }
 
-func moveLegacyConfigFile(legacyDir string, expectedDir string, config *setupinfo.Config) error {
-	slog.Info("Moving the config file from legacy dir to expected dir", "legacy-dir", legacyDir, "expected-dir", expectedDir)
+func copyLegacyConfigFile(legacyDir string, targetDir string) error {
+	slog.Info("Copying config file from legacy dir to target dir", "legacy-dir", legacyDir, "target-dir", targetDir)
 
-	if err := host.CreateDirIfNotExisting(expectedDir); err != nil {
+	if err := host.CreateDirIfNotExisting(targetDir); err != nil {
 		return err
 	}
-	if err := setupinfo.WriteConfig(expectedDir, config); err != nil {
-		return err
-	}
-	if err := setupinfo.DeleteConfig(legacyDir); err != nil {
+	if err := host.CopyFile(setupinfo.ConfigPath(legacyDir), setupinfo.ConfigPath(targetDir)); err != nil {
 		return err
 	}
 	return nil
@@ -184,8 +194,8 @@ func createUpgradeCommand(cmd *cobra.Command) string {
 	if skip {
 		psCmd += " -SkipResources "
 	}
-	keep, _ := strconv.ParseBool(cmd.Flags().Lookup(deleteFiles).Value.String())
-	if keep {
+	delete, _ := strconv.ParseBool(cmd.Flags().Lookup(deleteFiles).Value.String())
+	if delete {
 		psCmd += " -DeleteFiles "
 	}
 	config := cmd.Flags().Lookup(configFileFlagName).Value.String()
@@ -209,4 +219,28 @@ func createUpgradeCommand(cmd *cobra.Command) string {
 		psCmd += " -BackupDir " + utils.EscapeWithSingleQuotes(backupDir)
 	}
 	return psCmd
+}
+
+func switchToUpgradeLogFile(showLog bool, logger *logging.Slogger) {
+	upgradeLogFilePath := bl.GlobalLogFilePath() + "_cli_upgrade_" + time.Now().Format("2006-01-02_15-04-05")
+
+	slog.Debug("Switching temporary to CLI upgrade log file", "path", upgradeLogFilePath)
+
+	setLogger(showLog, logger, upgradeLogFilePath)
+}
+
+func switchToDefaultLogFile(showLog bool, logger *logging.Slogger) {
+	globalLogFilePath := bl.GlobalLogFilePath()
+
+	slog.Debug("Switching back to default log file", "path", globalLogFilePath)
+
+	setLogger(showLog, logger, globalLogFilePath)
+}
+
+func setLogger(showLog bool, logger *logging.Slogger, path string) {
+	logHandlers := []logging.HandlerBuilder{logging.NewFileHandler(path)}
+	if showLog {
+		logHandlers = append(logHandlers, logging.NewCliHandler())
+	}
+	logger.SetHandlers(logHandlers...).SetGlobally()
 }

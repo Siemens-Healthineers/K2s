@@ -8,8 +8,10 @@ import (
 
 	"github.com/samber/lo"
 	slogmulti "github.com/samber/slog-multi"
+	base "github.com/siemens-healthineers/k2s/internal/logging"
 )
 
+// SlogHandler extends slog.Handler interface for e.g. log file sync/close
 type SlogHandler interface {
 	slog.Handler
 	Flush()
@@ -19,8 +21,8 @@ type SlogHandler interface {
 type HandlerBuilder func(levelVar *slog.LevelVar) SlogHandler
 
 type Slogger struct {
-	LevelVar *slog.LevelVar
 	Logger   *slog.Logger
+	levelVar *slog.LevelVar
 	handlers []SlogHandler
 }
 
@@ -28,18 +30,24 @@ type Slogger struct {
 func NewSlogger() *Slogger {
 	return &Slogger{
 		handlers: []SlogHandler{},
-		LevelVar: new(slog.LevelVar),
+		levelVar: new(slog.LevelVar),
 		Logger:   slog.Default(),
 	}
 }
 
-// SetHandlers flushes and closes existing handlers and replaces them with the given handlers
+/*
+SetHandlers flushes and closes existing handlers and replaces them with the given handlers
+
+Example:
+
+	logger.SetHandlers(logging.NewFileHandler("log.file"), logging.NewCliHandler())
+*/
 func (l *Slogger) SetHandlers(handlerBuilders ...HandlerBuilder) *Slogger {
 	l.Flush()
 	l.Close()
 
 	l.handlers = lo.Map(handlerBuilders, func(b HandlerBuilder, _ int) SlogHandler {
-		return b(l.LevelVar)
+		return b(l.levelVar)
 	})
 
 	slogHandlers := lo.Map(l.handlers, func(h SlogHandler, _ int) slog.Handler {
@@ -69,4 +77,9 @@ func (l *Slogger) Close() {
 	lo.ForEach(l.handlers, func(h SlogHandler, _ int) {
 		h.Close()
 	})
+}
+
+// SetVerbosity sets the given verbosity
+func (l *Slogger) SetVerbosity(verbosity string) error {
+	return base.SetVerbosity(verbosity, l.levelVar)
 }

@@ -88,7 +88,8 @@ var _ = Describe("core", func() {
 			It("returns silent error", func() {
 				config := &setupinfo.Config{SetupName: "existent"}
 				cmd := &cobra.Command{}
-				cmd.SetContext(context.WithValue(context.TODO(), common.ContextKeyConfig, &cfg.Config{Host: cfg.HostConfig{K2sConfigDir: "some-dir"}}))
+				cmdContext := common.NewCmdContext(&cfg.Config{Host: cfg.HostConfig{K2sConfigDir: "some-dir"}}, nil)
+				cmd.SetContext(context.WithValue(context.TODO(), common.ContextKeyCmdContext, cmdContext))
 
 				printerMock := &myMock{}
 
@@ -118,7 +119,8 @@ var _ = Describe("core", func() {
 				It("returns error", func() {
 					kind := ic.Kind("test-kind")
 					cmd := &cobra.Command{}
-					cmd.SetContext(context.WithValue(context.TODO(), common.ContextKeyConfig, &cfg.Config{Host: cfg.HostConfig{K2sConfigDir: "some-dir"}}))
+					cmdContext := common.NewCmdContext(&cfg.Config{Host: cfg.HostConfig{K2sConfigDir: "some-dir"}}, nil)
+					cmd.SetContext(context.WithValue(context.TODO(), common.ContextKeyCmdContext, cmdContext))
 
 					expectedError := errors.New("oops")
 					var nilConfig *setupinfo.Config
@@ -145,7 +147,8 @@ var _ = Describe("core", func() {
 				It("returns error", func() {
 					kind := ic.Kind("test-kind")
 					cmd := &cobra.Command{}
-					cmd.SetContext(context.WithValue(context.TODO(), common.ContextKeyConfig, &cfg.Config{Host: cfg.HostConfig{K2sConfigDir: "some-dir"}}))
+					cmdContext := common.NewCmdContext(&cfg.Config{Host: cfg.HostConfig{K2sConfigDir: "some-dir"}}, nil)
+					cmd.SetContext(context.WithValue(context.TODO(), common.ContextKeyCmdContext, cmdContext))
 
 					expectedError := common.CreateSystemInCorruptedStateCmdFailure()
 					config := &setupinfo.Config{SetupName: "existent", Corrupted: true}
@@ -168,7 +171,8 @@ var _ = Describe("core", func() {
 			It("returns error", func() {
 				kind := ic.Kind("test-kind")
 				cmd := &cobra.Command{}
-				cmd.SetContext(context.WithValue(context.TODO(), common.ContextKeyConfig, &cfg.Config{Host: cfg.HostConfig{K2sConfigDir: "some-dir"}}))
+				cmdContext := common.NewCmdContext(&cfg.Config{Host: cfg.HostConfig{K2sConfigDir: "some-dir"}}, nil)
+				cmd.SetContext(context.WithValue(context.TODO(), common.ContextKeyCmdContext, cmdContext))
 
 				config := &ic.InstallConfig{}
 				expectedError := errors.New("oops")
@@ -197,7 +201,8 @@ var _ = Describe("core", func() {
 			It("returns error", func() {
 				kind := ic.Kind("test-kind")
 				cmd := &cobra.Command{}
-				cmd.SetContext(context.WithValue(context.TODO(), common.ContextKeyConfig, &cfg.Config{Host: cfg.HostConfig{K2sConfigDir: "some-dir"}}))
+				cmdContext := common.NewCmdContext(&cfg.Config{Host: cfg.HostConfig{K2sConfigDir: "some-dir"}}, nil)
+				cmd.SetContext(context.WithValue(context.TODO(), common.ContextKeyCmdContext, cmdContext))
 
 				config := &ic.InstallConfig{}
 				testCmd := "test-cmd"
@@ -220,8 +225,8 @@ var _ = Describe("core", func() {
 				installConfigMock.On(reflection.GetFunctionName(installConfigMock.Load), kind, cmd.Flags()).Return(config, nil)
 
 				executorMock := &myMock{}
-				executorMock.On(reflection.GetFunctionName(executorMock.ExecutePs), testCmd, powershell.PowerShellV5, mock.AnythingOfType("*common.PsCommandOutputWriter")).Return(expectedError)
-				executorMock.On(reflection.GetFunctionName(executorMock.ExecutePs), testCmd, powershell.PowerShellV5, mock.AnythingOfType("*common.PsCommandOutputWriter.ErrorLines")).Return("[PREREQ-FAILED] pre-requisite failed")
+				executorMock.On(reflection.GetFunctionName(executorMock.ExecutePs), testCmd, powershell.PowerShellV5, mock.AnythingOfType("*common.PtermWriter")).Return(expectedError)
+				executorMock.On(reflection.GetFunctionName(executorMock.ExecutePs), testCmd, powershell.PowerShellV5, mock.AnythingOfType("*common.PtermWriter.ErrorLines")).Return("[PREREQ-FAILED] pre-requisite failed")
 				executorMock.On(reflection.GetFunctionName(executorMock.ExecutePs), testCmd, powershell.PowerShellV5, mock.AnythingOfType("*common.GetInstallPreRequisiteError")).Return("[PREREQ-FAILED] pre-requisite failed", true)
 
 				sut := &core.Installer{
@@ -244,7 +249,8 @@ var _ = Describe("core", func() {
 			It("returns prints warning", func() {
 				kind := ic.Kind("test-kind")
 				cmd := &cobra.Command{}
-				cmd.SetContext(context.WithValue(context.TODO(), common.ContextKeyConfig, &cfg.Config{Host: cfg.HostConfig{K2sConfigDir: "some-dir"}}))
+				cmdContext := common.NewCmdContext(&cfg.Config{Host: cfg.HostConfig{K2sConfigDir: "some-dir"}}, nil)
+				cmd.SetContext(context.WithValue(context.TODO(), common.ContextKeyCmdContext, cmdContext))
 
 				config := &ic.InstallConfig{}
 				testCmd := "test-cmd"
@@ -269,8 +275,8 @@ var _ = Describe("core", func() {
 
 				prereqErrorLine := "[PREREQ-FAILED] random check fails"
 				executorMock := &myMock{}
-				executorMock.On(reflection.GetFunctionName(executorMock.ExecutePs), testCmd, powershell.PowerShellV5, mock.AnythingOfType("*common.PsCommandOutputWriter")).Return(expectedError).Run(func(args mock.Arguments) {
-					ow := args.Get(2).(*common.PsCommandOutputWriter)
+				executorMock.On(reflection.GetFunctionName(executorMock.ExecutePs), testCmd, powershell.PowerShellV5, mock.AnythingOfType("*common.PtermWriter")).Return(expectedError).Run(func(args mock.Arguments) {
+					ow := args.Get(2).(*common.PtermWriter)
 					ow.WriteStdErr(prereqErrorLine)
 				})
 
@@ -295,7 +301,8 @@ var _ = Describe("core", func() {
 			It("calls printing and command execution correctly", func() {
 				kind := ic.Kind("test-kind")
 				cmd := &cobra.Command{}
-				cmd.SetContext(context.WithValue(context.TODO(), common.ContextKeyConfig, &cfg.Config{Host: cfg.HostConfig{K2sConfigDir: "some-dir"}}))
+				cmdContext := common.NewCmdContext(&cfg.Config{Host: cfg.HostConfig{K2sConfigDir: "some-dir"}}, nil)
+				cmd.SetContext(context.WithValue(context.TODO(), common.ContextKeyCmdContext, cmdContext))
 
 				config := &ic.InstallConfig{}
 				testCmd := "test-cmd"
@@ -318,7 +325,7 @@ var _ = Describe("core", func() {
 				installConfigMock.On(reflection.GetFunctionName(installConfigMock.Load), kind, cmd.Flags()).Return(config, nil)
 
 				executorMock := &myMock{}
-				executorMock.On(reflection.GetFunctionName(executorMock.ExecutePs), testCmd, powershell.PowerShellV5, mock.AnythingOfType("*common.PsCommandOutputWriter")).Return(nil)
+				executorMock.On(reflection.GetFunctionName(executorMock.ExecutePs), testCmd, powershell.PowerShellV5, mock.AnythingOfType("*common.PtermWriter")).Return(nil)
 
 				completedMsgPrinterMock := &myMock{}
 				completedMsgPrinterMock.On(reflection.GetFunctionName(completedMsgPrinterMock.PrintCompletedMessage), mock.AnythingOfType("time.Duration"), mock.MatchedBy(func(m string) bool { return strings.Contains(m, string(kind)) }))
@@ -346,7 +353,8 @@ var _ = Describe("core", func() {
 			It("calls printing and command execution correctly", func() {
 				kind := ic.MultivmConfigType
 				cmd := &cobra.Command{}
-				cmd.SetContext(context.WithValue(context.TODO(), common.ContextKeyConfig, &cfg.Config{Host: cfg.HostConfig{K2sConfigDir: "some-dir"}}))
+				cmdContext := common.NewCmdContext(&cfg.Config{Host: cfg.HostConfig{K2sConfigDir: "some-dir"}}, nil)
+				cmd.SetContext(context.WithValue(context.TODO(), common.ContextKeyCmdContext, cmdContext))
 
 				config := &ic.InstallConfig{}
 				testCmd := "test-cmd"
@@ -369,7 +377,7 @@ var _ = Describe("core", func() {
 				installConfigMock.On(reflection.GetFunctionName(installConfigMock.Load), kind, cmd.Flags()).Return(config, nil)
 
 				executorMock := &myMock{}
-				executorMock.On(reflection.GetFunctionName(executorMock.ExecutePs), testCmd, powershell.PowerShellV7, mock.AnythingOfType("*common.PsCommandOutputWriter")).Return(nil)
+				executorMock.On(reflection.GetFunctionName(executorMock.ExecutePs), testCmd, powershell.PowerShellV7, mock.AnythingOfType("*common.PtermWriter")).Return(nil)
 
 				completedMsgPrinterMock := &myMock{}
 				completedMsgPrinterMock.On(reflection.GetFunctionName(completedMsgPrinterMock.PrintCompletedMessage), mock.AnythingOfType("time.Duration"), mock.MatchedBy(func(m string) bool { return strings.Contains(m, string(kind)) }))

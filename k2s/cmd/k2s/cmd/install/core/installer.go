@@ -13,7 +13,6 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 
-	"github.com/siemens-healthineers/k2s/internal/config"
 	"github.com/siemens-healthineers/k2s/internal/host"
 	"github.com/siemens-healthineers/k2s/internal/powershell"
 	"github.com/siemens-healthineers/k2s/internal/setupinfo"
@@ -49,8 +48,9 @@ func (i *Installer) Install(
 	kind ic.Kind,
 	ccmd *cobra.Command,
 	buildCmdFunc func(config *ic.InstallConfig) (cmd string, err error)) error {
-	cfg := ccmd.Context().Value(common.ContextKeyConfig).(*config.Config)
-	setupConfig, err := i.LoadConfigFunc(cfg.Host.K2sConfigDir)
+	context := ccmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
+	configDir := context.Config().Host.K2sConfigDir
+	setupConfig, err := i.LoadConfigFunc(configDir)
 	if errors.Is(err, setupinfo.ErrSystemInCorruptedState) {
 		return common.CreateSystemInCorruptedStateCmdFailure()
 	}
@@ -83,7 +83,7 @@ func (i *Installer) Install(
 
 	i.Printer.Printfln("🤖 Installing K2s '%s' %s in '%s' on %s using PowerShell %s", kind, i.GetVersionFunc(), i.GetInstallDirFunc(), i.GetPlatformFunc(), psVersion)
 
-	outputWriter := common.NewPsCommandOutputWriter()
+	outputWriter := common.NewPtermWriter()
 
 	start := time.Now()
 
@@ -94,7 +94,7 @@ func (i *Installer) Install(
 		if found {
 			i.Printer.PrintWarning("Prerequisite check failed,", errorLine)
 			i.Printer.PrintWarning("Have a look at the pre-requisites 'https://github.com/Siemens-Healthineers/K2s/blob/main/docs/op-manual/installing-k2s.md#prerequisites' and re-issue 'k2s install'")
-			err = i.DeleteConfigFunc(cfg.Host.K2sConfigDir)
+			err = i.DeleteConfigFunc(configDir)
 			if err != nil {
 				slog.Debug("config file does not exist, nothing to do")
 			}
@@ -103,17 +103,17 @@ func (i *Installer) Install(
 
 		if outputWriter.ErrorOccurred {
 			// corrupted state
-			setupConfig, err := i.LoadConfigFunc(cfg.Host.K2sConfigDir)
+			setupConfig, err := i.LoadConfigFunc(configDir)
 			if err != nil {
 				if setupConfig == nil {
 					setupConfig = &setupinfo.Config{
 						Corrupted: true,
 					}
-					i.SetConfigFunc(cfg.Host.K2sConfigDir, setupConfig)
+					i.SetConfigFunc(configDir, setupConfig)
 				}
 			} else {
 				setupConfig.Corrupted = true
-				i.SetConfigFunc(cfg.Host.K2sConfigDir, setupConfig)
+				i.SetConfigFunc(configDir, setupConfig)
 			}
 
 			return common.CreateSystemInCorruptedStateCmdFailure()

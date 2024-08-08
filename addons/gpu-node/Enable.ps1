@@ -42,7 +42,7 @@ if ($systemError) {
     exit 1
 }
 
-if ((Test-IsAddonEnabled -Name 'gpu-node') -eq $true) {
+if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'gpu-node' })) -eq $true) {
     $errMsg = "Addon 'gpu-node' is already enabled, nothing to do."
 
     if ($EncodeStructuredOutput -eq $true) {

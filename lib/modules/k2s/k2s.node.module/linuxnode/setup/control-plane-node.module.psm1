@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+# SPDX-FileCopyrightText: © 2024 Siemens Healthcare GmbH
 # SPDX-License-Identifier: MIT
 
 #Requires -RunAsAdministrator
@@ -47,13 +47,7 @@ function New-ControlPlaneNodeOnNewVM {
 
     Write-Log 'Starting installation...'
 
-    # set defaults for unset arguments
-    $KubernetesVersion = Get-DefaultK8sVersion
-
     Set-ConfigWslFlag -Value $([bool]$WSL)
-
-    Invoke-DeployWinArtifacts -KubernetesVersion $KubernetesVersion -ForceOnlineInstallation:$ForceOnlineInstallation
-    Install-PuttyTools
 
     $controlPlaneParams = @{
         Hostname = Get-ConfigControlPlaneNodeHostname
@@ -88,9 +82,13 @@ function New-ControlPlaneNodeOnNewVM {
     New-SshKey -IpAddress $($controlPlaneParams.IpAddress)
     Copy-LocalPublicSshKeyToRemoteComputer -UserName $(Get-DefaultUserNameControlPlane) -UserPwd $(Get-DefaultUserPwdControlPlane) -IpAddress $($controlPlaneParams.IpAddress)
     Wait-ForSSHConnectionToLinuxVMViaSshKey
-    Remove-ControlPlaneAccessViaUserAndPwd
 
-    Set-ProxySettingsOnKubenode -IpAddress $($controlPlaneParams.IpAddress)
+    Write-Log "Copying ZScaler Root CA certificate to master node"
+    Copy-ToControlPlaneViaUserAndPwd  -Source "$(Get-KubePath)\lib\modules\k2s\k2s.node.module\linuxnode\setup\certificate\ZScalerRootCA.crt" -Target "/tmp/ZScalerRootCA.crt"   
+    Remove-ControlPlaneAccessViaUserAndPwd
+    (Invoke-CmdOnControlPlaneViaSSHKey "sudo mv /tmp/ZScalerRootCA.crt /usr/local/share/ca-certificates/" ).Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaSSHKey "sudo update-ca-certificates").Output | Write-Log
+    Write-Log "Zscaler certificate added to CA certificates of master node"
 
     # add kubectl to Windows host
     Install-KubectlTool
@@ -133,7 +131,7 @@ function Start-ControlPlaneNodeOnNewVM {
             Write-Log "vEthernet ($controlPlaneNodeDefaultSwitchName) not set to private."
             return $false
         }
-        $if = Get-NetIPAddress -InterfaceAlias "vEthernet ($controlPlaneNodeDefaultSwitchName)" -ErrorAction SilentlyContinue
+        $if = Get-NetIPAddress -InterfaceAlias "vEthernet ($controlPlaneNodeDefaultSwitchName)" -AddressFamily IPv4 -ErrorAction SilentlyContinue
         if (!$if) {
             Write-Log "Unable get IP Address for host on vEthernet ($controlPlaneNodeDefaultSwitchName) interface..."
             return $false
@@ -246,9 +244,9 @@ function Start-ControlPlaneNodeOnNewVM {
 
             # connect VM to switch
             Connect-KubeSwitch
-        } 
+        }
+        
         Start-VirtualMachine -VmName $controlPlaneVMHostName -Wait
-
     } else {
         Write-Log 'Configuring KubeMaster Distro' -Console
         wsl --shutdown
@@ -263,9 +261,11 @@ function Start-ControlPlaneNodeOnNewVM {
     # add DNS proxy for cluster searches
     Add-DnsServer $switchname
 
-    # configure NAT
-    Remove-DefaultNetNat
-    New-DefaultNetNat
+    # route for VM
+    Write-Log "Remove obsolete route to $ipControlPlaneCIDR"
+    route delete $ipControlPlaneCIDR >$null 2>&1
+    Write-Log "Add route to $ipControlPlaneCIDR"
+    route -p add $ipControlPlaneCIDR $windowsHostIpAddress METRIC 3 | Out-Null
 
     Wait-ForSSHConnectionToLinuxVMViaSshKey
 
@@ -287,12 +287,6 @@ function Start-ControlPlaneNodeOnNewVM {
     $clusterCIDRMaster = $setupConfigRoot.psobject.properties['podNetworkMasterCIDR'].value
     $clusterCIDRServices = $setupConfigRoot.psobject.properties['servicesCIDR'].value
     $clusterCIDRServicesLinux = $setupConfigRoot.psobject.properties['servicesCIDRLinux'].value
-
-    # route for VM
-    Write-Log "Remove obsolete route to $ipControlPlaneCIDR"
-    route delete $ipControlPlaneCIDR >$null 2>&1
-    Write-Log "Add route to $ipControlPlaneCIDR"
-    route -p add $ipControlPlaneCIDR $windowsHostIpAddress METRIC 3 | Out-Null
 
     # routes for Linux pods
     Write-Log "Remove obsolete route to $clusterCIDRMaster"
@@ -371,8 +365,6 @@ function Stop-ControlPlaneNodeOnNewVM {
     }
 
     Reset-DnsServer $switchname
-
-    Remove-DefaultNetNat
 
     $ipControlPlaneCIDR = Get-ConfiguredControlPlaneCIDR
     $setupConfigRoot = Get-RootConfigk2s

@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
-	"github.com/siemens-healthineers/k2s/internal/config"
 	"github.com/siemens-healthineers/k2s/internal/powershell"
 	"github.com/siemens-healthineers/k2s/internal/setupinfo"
 
@@ -39,8 +38,8 @@ func resetSystem(cmd *cobra.Command, args []string) error {
 
 	slog.Debug("PS command created", "command", resetSystemCommand)
 
-	cfg := cmd.Context().Value(common.ContextKeyConfig).(*config.Config)
-	config, err := setupinfo.ReadConfig(cfg.Host.K2sConfigDir)
+	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
+	config, err := setupinfo.ReadConfig(context.Config().Host.K2sConfigDir)
 	if err != nil {
 		if !errors.Is(err, setupinfo.ErrSystemInCorruptedState) && !errors.Is(err, setupinfo.ErrSystemNotInstalled) {
 			return err
@@ -53,7 +52,7 @@ func resetSystem(cmd *cobra.Command, args []string) error {
 
 	start := time.Now()
 
-	err = powershell.ExecutePs(resetSystemCommand, common.DeterminePsVersion(config), common.NewPsCommandOutputWriter())
+	err = powershell.ExecutePs(resetSystemCommand, common.DeterminePsVersion(config), common.NewPtermWriter())
 	if err != nil {
 		return err
 	}

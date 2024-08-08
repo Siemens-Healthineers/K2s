@@ -11,7 +11,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/siemens-healthineers/k2s/internal/config"
 	"github.com/siemens-healthineers/k2s/internal/host"
 	"github.com/siemens-healthineers/k2s/internal/powershell"
 
@@ -41,7 +40,7 @@ func (s *setupConfigProviderImpl) ReadConfig(configDir string) (*setupinfo.Confi
 }
 
 func (p *powershellExecutorImpl) ExecutePsWithStructuredResult(psVersion powershell.PowerShellVersion, psCmd string, params ...string) (*common.CmdResult, error) {
-	return powershell.ExecutePsWithStructuredResult[*common.CmdResult](psCmd, "CmdResult", psVersion, common.NewPsCommandOutputWriter(), params...)
+	return powershell.ExecutePsWithStructuredResult[*common.CmdResult](psCmd, "CmdResult", psVersion, common.NewPtermWriter(), params...)
 }
 
 func newSetupConfigProvider() setupConfigProvider {
@@ -123,8 +122,8 @@ func resetWinStorage(cmd *cobra.Command, args []string) error {
 	start := time.Now()
 
 	setupConfigProvider := getSetupConfigProvider()
-	cfg := cmd.Context().Value(common.ContextKeyConfig).(*config.Config)
-	config, err := setupConfigProvider.ReadConfig(cfg.Host.K2sConfigDir)
+	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
+	config, err := setupConfigProvider.ReadConfig(context.Config().Host.K2sConfigDir)
 	if err != nil {
 		if !(errors.Is(err, setupinfo.ErrSystemNotInstalled) || errors.Is(err, setupinfo.ErrSystemInCorruptedState)) {
 			return err

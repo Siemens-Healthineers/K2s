@@ -54,7 +54,7 @@ Describe 'Invoke-ClusterInstall' -Tag 'unit', 'ci', 'upgrade' {
     BeforeAll {
         $log = [System.Collections.ArrayList]@()
         Mock -ModuleName $moduleName Copy-Item { }
-        Mock -ModuleName $moduleName Write-Log  { $log.Add($Messages) | Out-Null }
+        Mock -ModuleName $moduleName Write-Log { $log.Add($Messages) | Out-Null }
         Mock -ModuleName $moduleName Invoke-Cmd { return 0 }
     }
 
@@ -76,7 +76,7 @@ Describe 'Invoke-ClusterInstall' -Tag 'unit', 'ci', 'upgrade' {
     It 'calls Invoke-Cmd with correct command' {
         InModuleScope -ModuleName $moduleName {
             Invoke-ClusterInstall
-            Assert-MockCalled Invoke-Cmd -ParameterFilter { $Executable -Match "k2sx.exe" }
+            Assert-MockCalled Invoke-Cmd -ParameterFilter { $Executable -Match 'k2sx.exe' }
             Should -Invoke -CommandName Invoke-Cmd -Times 1 -Exactly
         }
     }
@@ -86,7 +86,7 @@ Describe 'Invoke-ClusterUninstall' -Tag 'unit', 'ci', 'upgrade' {
     BeforeAll {
         $log = [System.Collections.ArrayList]@()
         Mock -ModuleName $moduleName Copy-Item { }
-        Mock -ModuleName $moduleName Write-Log  { $log.Add($Messages) | Out-Null }
+        Mock -ModuleName $moduleName Write-Log { $log.Add($Messages) | Out-Null }
         Mock -ModuleName $moduleName Invoke-Cmd { return 0 } 
     }
 
@@ -101,8 +101,44 @@ Describe 'Invoke-ClusterUninstall' -Tag 'unit', 'ci', 'upgrade' {
     It 'calls Invoke-Cmd with correct command' {
         InModuleScope -ModuleName $moduleName {
             Invoke-ClusterUninstall
-            Assert-MockCalled Invoke-Cmd -ParameterFilter { $Executable -Match "k2s.exe" }
+            Assert-MockCalled Invoke-Cmd -ParameterFilter { $Executable -Match 'k2s.exe' }
             Should -Invoke -CommandName Invoke-Cmd -Times 1 -Exactly
+        }
+    }
+}
+
+Describe 'Remove-SetupConfigIfExisting' -Tag 'unit', 'ci', 'upgrade' {
+    BeforeAll {
+        Mock -ModuleName $moduleName Write-Log { }
+        Mock -ModuleName $moduleName Get-SetupConfigFilePath { return 'my-config' }
+        Mock -ModuleName $moduleName Remove-Item { }
+    }
+
+    Context 'config not existing' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Test-Path { return $false } -ParameterFilter { $Path -eq 'my-config' }            
+        }
+
+        It 'does nothing' {
+            InModuleScope -ModuleName $moduleName {
+                Remove-SetupConfigIfExisting
+                
+                Should -Invoke -Scope Context Remove-Item -Times 0
+            }
+        }
+    }
+    
+    Context 'config existing' {
+        BeforeAll {
+            Mock -ModuleName $moduleName Test-Path { return $true } -ParameterFilter { $Path -eq 'my-config' }            
+        }
+
+        It 'removes the config' {
+            InModuleScope -ModuleName $moduleName {
+                Remove-SetupConfigIfExisting
+                
+                Should -Invoke -Scope Context Remove-Item -Times 1 -ParameterFilter { $Path -eq 'my-config' }
+            }
         }
     }
 }

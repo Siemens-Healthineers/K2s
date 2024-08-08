@@ -11,7 +11,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/siemens-healthineers/k2s/internal/config"
 	"github.com/siemens-healthineers/k2s/internal/powershell"
 	"github.com/siemens-healthineers/k2s/internal/setupinfo"
 	"github.com/siemens-healthineers/k2s/internal/terminal"
@@ -23,10 +22,6 @@ import (
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/addons/list/print"
 	"github.com/siemens-healthineers/k2s/internal/addons"
 )
-
-type EnabledAddons struct {
-	Addons []string `json:"addons"`
-}
 
 const (
 	Enabled        = "Enabled"
@@ -65,8 +60,8 @@ func listAddons(cmd *cobra.Command, allAddons addons.Addons) error {
 		return fmt.Errorf("parameter '%s' not supported for flag 'o'", outputOption)
 	}
 
-	cfg := cmd.Context().Value(cc.ContextKeyConfig).(*config.Config)
-	config, err := setupinfo.ReadConfig(cfg.Host.K2sConfigDir)
+	context := cmd.Context().Value(cc.ContextKeyCmdContext).(*cc.CmdContext)
+	config, err := setupinfo.ReadConfig(context.Config().Host.K2sConfigDir)
 	psVersion := powershell.DefaultPsVersions
 	if err != nil {
 		if errors.Is(err, setupinfo.ErrSystemInCorruptedState) {
@@ -96,7 +91,7 @@ func printAddonsAsJson(allAddons addons.Addons, psVersion powershell.PowerShellV
 		return err
 	}
 
-	if err := addonsPrinter.PrintAddonsAsJson(enabledAddons.Addons, allAddons); err != nil {
+	if err := addonsPrinter.PrintAddonsAsJson(enabledAddons, allAddons); err != nil {
 		return fmt.Errorf("addons could not be printed: %w", err)
 	}
 
@@ -122,7 +117,7 @@ func printAddonsUserFriendly(allAddons addons.Addons, psVersion powershell.Power
 
 	terminalPrinter.PrintHeader("Available Addons")
 
-	if err := addonsPrinter.PrintAddonsUserFriendly(enabledAddons.Addons, allAddons); err != nil {
+	if err := addonsPrinter.PrintAddonsUserFriendly(enabledAddons, allAddons); err != nil {
 		return fmt.Errorf("addons could not be printed: %w", err)
 	}
 
@@ -131,11 +126,11 @@ func printAddonsUserFriendly(allAddons addons.Addons, psVersion powershell.Power
 	return nil
 }
 
-func loadEnabledAddons(psVersion powershell.PowerShellVersion) (*EnabledAddons, error) {
+func loadEnabledAddons(psVersion powershell.PowerShellVersion) ([]print.EnabledAddon, error) {
 	scriptPath := filepath.Join(utils.InstallDir(), addons.AddonsDirName, "Get-EnabledAddons.ps1")
 	formattedPath := utils.FormatScriptFilePath(scriptPath)
 
-	enabledAddons, err := powershell.ExecutePsWithStructuredResult[*EnabledAddons](formattedPath, "EnabledAddons", psVersion, cc.NewPsCommandOutputWriter())
+	enabledAddons, err := powershell.ExecutePsWithStructuredResult[[]print.EnabledAddon](formattedPath, "EnabledAddons", psVersion, cc.NewPtermWriter())
 	if err != nil {
 		return nil, fmt.Errorf("could not load enabled addons: %s", err)
 	}
