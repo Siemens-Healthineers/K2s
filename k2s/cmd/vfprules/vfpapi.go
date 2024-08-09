@@ -5,6 +5,11 @@
 package main
 
 import (
+	"bufio"
+	"fmt"
+	"log"
+	"os"
+	"path/filepath"
 	"syscall"
 	"unsafe"
 
@@ -138,6 +143,28 @@ func RtlZeroMemoryLength(destination unsafe.Pointer, length uint16) {
 
 func AddVfpRulesWithVfpApi(portid string, port string, vfpRoutes *VfpRoutes, logDir string) error {
 	logrus.Debug("[cni-net] AddVfpRulesWithVfpApi: ", portid, port, vfpRoutes, logDir)
+	// open file for adding commands
+	filename := filepath.Join(logDir, "vfp-rules-"+portid+".cmd")
+	fileCmds, errCmds := os.OpenFile(filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if errCmds != nil {
+		log.Fatalf("AddVfpRules: Failed creating file: %s", errCmds)
+		return errCmds
+	}
 
+	datawriter := bufio.NewWriter(fileCmds)
+	for _, vfpRoute := range vfpRoutes.Routes {
+		debugLog := fmt.Sprintf("[cni-net] Name: %s, Subnet: %s, Gateway: %s, Priority: %s", vfpRoute.Name, vfpRoute.Subnet, vfpRoute.Gateway, vfpRoute.Priority)
+		logrus.Info(debugLog)
+		// get mac address of gateway
+		mac, errmac := GetMacOfGateway(vfpRoute.Gateway)
+		if errmac != nil {
+			logrus.Info("AddVfpRules: Getting MAC not found error, will continue with the other rules, err:", errmac)
+		} else {
+			// write the rules to be added
+			WriteVFPRule(datawriter, vfpRoute.Name, port, mac, vfpRoute.Subnet, vfpRoute.Priority)
+		}
+	}
+	datawriter.Flush()
+	fileCmds.Close()
 	return nil
 }
