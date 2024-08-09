@@ -119,3 +119,17 @@ func VfcAddObject(parameters *VFC_PARAMETERS, objectId *VFC_OBJECT_ID, descripto
 	}
 	return 0, err
 }
+
+func RtlZeroMemory(dest unsafe.Pointer, size uintptr) {
+	mem := (*[1 << 30]byte)(dest)[:size:size]
+	for i := range mem {
+		mem[i] = 0
+	}
+}
+
+func RtlZeroMemoryLength(destination unsafe.Pointer, length uint16) {
+	mem := unsafe.Slice((*byte)(destination), length)
+	for i := range mem {
+		mem[i] = 0
+	}
+}
