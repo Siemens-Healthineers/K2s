@@ -87,7 +87,7 @@ function New-ControlPlaneNodeOnNewVM {
     Wait-ForSSHConnectionToLinuxVMViaSshKey
 
     Write-Log "Copying ZScaler Root CA certificate to master node"
-    Copy-ToControlPlaneViaUserAndPwd  -Source "$(Get-KubePath)\lib\modules\k2s\k2s.node.module\linuxnode\setup\certificate\ZScalerRootCA.crt" -Target "/tmp/ZScalerRootCA.crt"   
+    Copy-ToControlPlaneViaUserAndPwd  -Source "$(Get-KubePath)\lib\modules\k2s\k2s.node.module\linuxnode\setup\certificate\ZScalerRootCA.crt" -Target "/tmp/ZScalerRootCA.crt"
     Remove-ControlPlaneAccessViaUserAndPwd
     (Invoke-CmdOnControlPlaneViaSSHKey "sudo mv /tmp/ZScalerRootCA.crt /usr/local/share/ca-certificates/" ).Output | Write-Log
     (Invoke-CmdOnControlPlaneViaSSHKey "sudo update-ca-certificates").Output | Write-Log
@@ -120,7 +120,7 @@ function Start-ControlPlaneNodeOnNewVM {
         [switch] $SkipHeaderDisplay = $false,
         [string] $DnsServers = $(throw 'Argument missing: DnsServers')
     )
-    
+
     $windowsHostIpAddress = Get-ConfiguredKubeSwitchIP
 
     function CheckKubeSwitchInExpectedState() {
@@ -155,19 +155,19 @@ function Start-ControlPlaneNodeOnNewVM {
         while($true) {
             $controlPlaneCni0IpAddr = Get-Cni0IpAddressInControlPlaneUsingSshWithRetries -Retries 30 -RetryTimeoutInSeconds 5
             $expectedControlPlaneCni0IpAddr = Get-ConfiguredMasterNetworkInterfaceCni0IP
-                         
+
             if ($controlPlaneCni0IpAddr -ne $expectedControlPlaneCni0IpAddr) {
                 Write-Log "cni0 interface in $controlPlaneVMHostName is not correctly initialized."
                 Write-Log "           Expected:$expectedControlPlaneCni0IpAddr"
                 Write-Log "           Actual:$controlPlaneCni0IpAddr"
-        
+
                 if ($i -eq 3) {
                     throw "cni0 interface in $controlPlaneVMHostName is not correctly initialized after $i retries."
                 }
             } else {
                 Write-Log "cni0 interface in $controlPlaneVMHostName correctly initialized."
                 break
-            }  
+            }
             if (!$WSL) {
                 Stop-VirtualMachine -VmName $VmName -Wait
                 Start-VirtualMachine -VmName $VmName -Wait
@@ -177,7 +177,7 @@ function Start-ControlPlaneNodeOnNewVM {
             }
             Wait-ForSSHConnectionToLinuxVMViaSshKey
             $i++
-        }              
+        }
     }
 
     if ($SkipHeaderDisplay -eq $false) {
@@ -248,7 +248,7 @@ function Start-ControlPlaneNodeOnNewVM {
             # connect VM to switch
             Connect-KubeSwitch
         }
-        
+
         Start-VirtualMachine -VmName $controlPlaneVMHostName -Wait
     } else {
         Write-Log 'Configuring KubeMaster Distro' -Console
@@ -279,7 +279,7 @@ function Start-ControlPlaneNodeOnNewVM {
     Set-NetIPInterface -InterfaceIndex $ipindex -InterfaceMetric 25
 
     Invoke-TimeSync
-    
+
     Write-Log 'Set the DNS server(s) used by the Windows Host as the default DNS server(s) of the VM'
     (Invoke-CmdOnControlPlaneViaSSHKey "sudo sed -i 's/dns-nameservers.*/dns-nameservers $DnsServers/' /etc/network/interfaces.d/10-k2s").Output | Write-Log
     (Invoke-CmdOnControlPlaneViaSSHKey 'sudo systemctl restart networking').Output | Write-Log
@@ -308,6 +308,9 @@ function Start-ControlPlaneNodeOnNewVM {
     # enable ip forwarding
     netsh int ipv4 set int "vEthernet ($switchname)" forwarding=enabled | Out-Null
     netsh int ipv4 set int 'vEthernet (Ethernet)' forwarding=enabled | Out-Null
+
+    # Double check for KubeSwitch is in expected Private state
+    Set-InterfacePrivate -InterfaceAlias "vEthernet ($switchname)"
 
     if ($SkipHeaderDisplay -eq $false) {
         Write-Log 'K2s control plane started'
@@ -417,7 +420,7 @@ function Remove-ControlPlaneNodeOnNewVM {
     }
 
     Write-Log 'Cleaning up' -Console
-    
+
     Clear-ProvisioningArtifacts
 
     if ($DeleteFilesForOfflineInstallation) {
