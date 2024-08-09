@@ -23,7 +23,7 @@ SPDX-License-Identifier: MIT
       
       
       <link rel="icon" href="../../assets/logo.png">
-      <meta name="generator" content="mkdocs-1.6.0, mkdocs-material-9.5.30">
+      <meta name="generator" content="mkdocs-1.6.0, mkdocs-material-9.5.31">
     
     
       
@@ -1495,6 +1495,15 @@ You're not viewing the latest release version.
 </li>
       
         <li class="md-nav__item">
+  <a href="#disruption-in-networking" class="md-nav__link">
+    <span class="md-ellipsis">
+      Disruption in networking
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#log-files" class="md-nav__link">
     <span class="md-ellipsis">
       Log Files
@@ -1594,6 +1603,15 @@ You're not viewing the latest release version.
 </li>
       
         <li class="md-nav__item">
+  <a href="#disruption-in-networking" class="md-nav__link">
+    <span class="md-ellipsis">
+      Disruption in networking
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#log-files" class="md-nav__link">
     <span class="md-ellipsis">
       Log Files
@@ -1653,18 +1671,29 @@ SPDX-License-Identifier: MIT
 <p>To inspect the full <em>K2s</em> system status, run:
 <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="go">k2s status -o wide</span>
 </code></pre></div></p>
+<h2 id="disruption-in-networking">Disruption in networking</h2>
+<p>When there is no internet access on the host machine or when container images cannot be pulled, it is recommended to restart the cluster networking in the following scenarios:</p>
+<ul>
+<li>The host machine is switched between networks (e.g. remote or office).</li>
+<li>The host machine experiences an unintended crash.</li>
+<li>After booting the host machine from hibernation, or following a reboot or shutdown.</li>
+<li>The VPN on the host machine is turned on or off (e.g., Zscaler).</li>
+</ul>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="go">k2s stop</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="go">k2s start</span>
+</code></pre></div>
 <h2 id="log-files">Log Files</h2>
 <p>To analyze the log files, browse the directory <code>&lt;install-drive&gt;\var\log</code>. The main log file is <code>k2s.log</code>.</p>
 <h2 id="dumping-k2s-debug-information">Dumping <em>K2s</em> Debug Information</h2>
 <p>To dump <em>K2s</em> system information, run:
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="go">k2s system dump</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="go">k2s system dump</span>
 </code></pre></div></p>
 <h2 id="listing-all-pvcs">Listing ALL PVCs</h2>
 <p>Get the list of all mounted volumes, their size and their namespace:
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="go">kg pv</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="go">kg pv</span>
 </code></pre></div></p>
 <p>Get the list of all mounted volume claims and their current usage:
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="go">kg pvc -A</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="go">kg pvc -A</span>
 </code></pre></div></p>
 <!--
 SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
