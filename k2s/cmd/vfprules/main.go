@@ -174,7 +174,7 @@ func GetMacOfGateway(ipgateway string) (string, error) {
 	return returnMac, err
 }
 
-func AddVfpRules(portid string, vfpRoutes *VfpRoutes, logDir string) error {
+func AddVfpRules(portid string, vfpRoutes *VfpRoutes, logDir string, vfpapi bool) error {
 	// get the port related to id
 	found, port := false, ""
 	for i := 1; i < 30 && !found; i++ {
@@ -195,11 +195,23 @@ func AddVfpRules(portid string, vfpRoutes *VfpRoutes, logDir string) error {
 	}
 
 	// add the rules with the vfp ctrl exe
-	err := AddVfpRulesWithVfpCtrlExe(portid, port, vfpRoutes, logDir)
-	if err != nil {
-		logrus.Error("[cni-net] Error: Adding VFP rules with vfpctrl.exe failed:", err)
-		return err
+	if vfpapi {
+		// adding vfp rules works with vfpapi.dll
+		err := AddVfpRulesWithVfpApi(portid, port, vfpRoutes, logDir)
+		if err != nil {
+			logrus.Error("[cni-net] Error: Adding VFP rules with vfpapi.dll failed:", err)
+			return err
+		}
+
+	} else {
+		// adding vfp rules works with vfpctrl.exe
+		err := AddVfpRulesWithVfpCtrlExe(portid, port, vfpRoutes, logDir)
+		if err != nil {
+			logrus.Error("[cni-net] Error: Adding VFP rules with vfpctrl.exe failed:", err)
+			return err
+		}
 	}
+
 	return nil
 }
 
@@ -279,11 +291,11 @@ func printCLIVersion() {
 
 func main() {
 
+	// parse the flags
 	version := flag.Bool("version", false, "show the current version of the CLI")
-	// parameter for portid
 	flag.StringVar(&portid, "portid", portid, "portid of the new port created (GUID)")
+	vfpapi := flag.Bool("usevfpapi", true, "use the vfpapi.dll for adding the rules")
 	flag.Parse()
-
 	if *version {
 		printCLIVersion()
 		os.Exit(0)
@@ -329,7 +341,7 @@ func main() {
 	}
 
 	// call to add the vfp rules
-	errAdd := AddVfpRules(portid, vfpRoutes, logDir)
+	errAdd := AddVfpRules(portid, vfpRoutes, logDir, *vfpapi)
 	if errAdd != nil {
 		log.Fatalf("Fatal error in applying the vfp rules: %s", errAdd)
 	}

@@ -7,6 +7,8 @@ package main
 import (
 	"syscall"
 	"unsafe"
+
+	"github.com/sirupsen/logrus"
 )
 
 type VFXItemType uint8
@@ -132,4 +134,10 @@ func RtlZeroMemoryLength(destination unsafe.Pointer, length uint16) {
 	for i := range mem {
 		mem[i] = 0
 	}
+}
+
+func AddVfpRulesWithVfpApi(portid string, port string, vfpRoutes *VfpRoutes, logDir string) error {
+	logrus.Debug("[cni-net] AddVfpRulesWithVfpApi: ", portid, port, vfpRoutes, logDir)
+
+	return nil
 }
