@@ -17,11 +17,7 @@ $addons = [System.Collections.ArrayList]@()
 
 Get-ChildItem -File -Recurse -Depth 1 -Path $PSScriptRoot -Filter $manifestFileName `
 | ForEach-Object { 
-    @{Path = $_.FullName; ReadmePath = "./$($_.Directory.Name)/$readmeFileName" }
-} `
-| ForEach-Object { 
-    $addon = Get-FromYamlFile -Path $_.Path | Select-Object -Property metadata
-    $addon | Add-Member -NotePropertyName ReadmePath -NotePropertyValue $_.ReadmePath
+    $addon = Get-FromYamlFile -Path $_.FullName
     $addons.Add($addon) | Out-Null
 }
 
@@ -29,14 +25,20 @@ Write-Output "Found $($addons.Count) addons, creating markdown table.."
 
 $newLines = [System.Collections.ArrayList]::new(('|Addon|Description|', '|---|---|'))
 
-$lines = ($addons | ForEach-Object { "| [$($_.metadata.name)]($($_.ReadmePath)) | $($_.metadata.description) | " })
+$lines = [System.Collections.ArrayList]@()
+foreach ($addonManifest in $addons) {
+    foreach ($implementation in $addonManifest.spec.implementations) {
+        $addonName = $addonManifest.metadata.name
+        $readmePath = "./$($addonManifest.metadata.name)/$readmeFileName"
+        if ($addonManifest.metadata.name -ne $implementation.name) {
+            $addonName += " $($implementation.name)"
+            $readmePath = "./$($addonManifest.metadata.name)/$($implementation.name)/$readmeFileName"
+        }
+        $lines.Add("| [$($addonName)]($readmePath) | $($implementation.description) | ")
+    }
+}
 
-if ($lines.GetType().Name -eq 'String') {
-    $newLines.Add($lines) | Out-Null
-}
-else {
-    $newLines.AddRange($lines) | Out-Null
-}
+$newLines.AddRange($lines) | Out-Null
 
 $path = "$PSScriptRoot\$readmeFileName"
 $content = Get-Content -Path $path
