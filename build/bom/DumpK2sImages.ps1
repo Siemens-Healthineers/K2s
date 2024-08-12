@@ -43,7 +43,7 @@ $allAddonManifests = Find-AddonManifests -Directory "$global:KubernetesPath\addo
 if ($Addons.Count -eq 0) {
     $addonManifests += $allAddonManifests
 }
-else {    
+else {
     foreach ($name in $Addons) {
         Write-Output "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] Filter Container Images for addon: $name"
         $foundManifest = $null
@@ -90,7 +90,7 @@ foreach ($manifest in $addonManifests) {
         $addonName = $manifest.metadata.name
         if ($implementation.name -ne $manifest.metadata.name) {
             $dirPath = Join-Path -Path $($manifest.dir.path) -ChildPath $($implementation.name)
-            $addonName += " $($implementation.name)"
+            $addonName += "-$($implementation.name)"
         }
         $files = Get-Childitem -recurse $dirPath | Where-Object { $_.Name -match '.*.yaml$' } | ForEach-Object { $_.Fullname }
 
