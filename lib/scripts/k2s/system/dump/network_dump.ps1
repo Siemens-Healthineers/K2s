@@ -37,15 +37,17 @@ $networkOutfile = Join-Path $DumpDir 'network.txt'
 
 # Network Interface Information
 Get-NetIPInterface -IncludeAllCompartments | Sort-Object InterfaceMetric | Out-String `
-| Write-OutputIntoDumpFile -DumpFilePath $networkOutfile -Description "Network Interface Information" -Separator $lineBreak 
+| Write-OutputIntoDumpFile -DumpFilePath $networkOutfile -Description "Network Interface Information" -Separator $lineBreak
 
 # IP Address and Compartments
-ipconfig /all | Out-String | Write-OutputIntoDumpFile -DumpFilePath $networkOutfile -Description "IP addresses" -Separator $lineBreak 
+ipconfig /all | Out-String | Write-OutputIntoDumpFile -DumpFilePath $networkOutfile -Description "IP addresses" -Separator $lineBreak
 
 ipconfig /allcompartments | Out-String | Write-OutputIntoDumpFile -DumpFilePath $networkOutfile -Description "IP compartments" -Separator $lineBreak
 
 # Windows routes
 route print | Out-String | Write-OutputIntoDumpFile -DumpFilePath $networkOutfile -Description "route print" -Separator $lineBreak
+
+Get-NetConnectionProfile | Out-String | Write-OutputIntoDumpFile -DumpFilePath $networkOutfile -Description "Get-NetConnectionProfile" -Separator $lineBreak
 
 Get-NetRoute -IncludeAllCompartments | Sort-Object RouteMetric | Out-String `
 | Write-OutputIntoDumpFile -DumpFilePath $networkOutfile -Description "Get-NetRoute" -Separator $lineBreak
@@ -135,7 +137,7 @@ if ($hnsdiagExists) {
     hcsdiag list | Out-String | Write-OutputIntoDumpFile -DumpFilePath $hnsDiagFile -Description "hcsdiag list"
 }
 
-# Linux VM Networking 
+# Linux VM Networking
 $isLinuxVMRunning = Get-IsControlPlaneRunning
 if ($isLinuxVMRunning) {
     (Invoke-CmdOnControlPlaneViaSSHKey "sudo ifconfig").Output | Out-String | Write-OutputIntoDumpFile -DumpFilePath $networkOutfile -Description "KubeMaster~$ sudo ifconfig" -Separator $lineBreak
