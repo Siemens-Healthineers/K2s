@@ -48,10 +48,8 @@ var _ = BeforeSuite(func(ctx context.Context) {
 	}
 
 	if suite.SetupInfo().SetupConfig.SetupName == setupinfo.SetupNameMultiVMK8s {
-		proxy = "http://172.19.1.101:8181"
-
-		if suite.SetupInfo().SetupConfig.LinuxOnly {
-			proxy = suite.Proxy()
+		if !suite.SetupInfo().SetupConfig.LinuxOnly {
+			proxy = "http://172.19.1.101:8181"
 		}
 	}
 

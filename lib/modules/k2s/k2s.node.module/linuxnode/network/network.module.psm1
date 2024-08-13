@@ -111,7 +111,7 @@ function Disconnect-NetworkAdapterFromVm {
         [string]$VmName = $(throw 'Argument missing: VmName')
     )
     # Remove old switch
-    Write-Log 'Remove KubeSwitch'
+    Write-Log "Disconnect VM '$VmName' from network adapter"
     $networkAdapter = Get-VMNetworkAdapter -VMName $VmName -ErrorAction SilentlyContinue
     if ( $networkAdapter ) {
         Disconnect-VMNetworkAdapter -VmName $VmName
