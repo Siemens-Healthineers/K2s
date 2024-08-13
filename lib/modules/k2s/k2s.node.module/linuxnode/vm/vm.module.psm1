@@ -187,7 +187,13 @@ function Invoke-CmdOnControlPlaneViaUserAndPwd(
 }
 
 function Get-IsControlPlaneRunning {
-    $masterVmState = (Get-VM -Name $nameControlPlane).State
+    $vmNode = Get-VM -Name $nameControlPlane -ErrorAction SilentlyContinue
+
+    if ($null -eq ($vmNode)) {
+        return $false
+    }
+
+    $masterVmState = ($vmNode).State
     return $masterVmState -eq [Microsoft.HyperV.PowerShell.VMState]::Running
 }
 
