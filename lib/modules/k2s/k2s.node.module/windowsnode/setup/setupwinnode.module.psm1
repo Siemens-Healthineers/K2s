@@ -175,8 +175,7 @@ function Uninstall-WinNode {
 function Clear-WinNode {
     Param(
         [parameter(Mandatory = $false, HelpMessage = 'Deletes the needed files to perform an offline installation')]
-        [Boolean] $DeleteFilesForOfflineInstallation = $false,
-        [Boolean] $ShallowDeletion = $false
+        [Boolean] $DeleteFilesForOfflineInstallation = $false
     )
     $kubeletConfigDir = Get-KubeletConfigDir
     # remove folders from installation folder
@@ -186,42 +185,43 @@ function Clear-WinNode {
     Remove-Item -Path "$(Get-SystemDriveLetter):\opt" -Force -Recurse -ErrorAction SilentlyContinue
     Remove-Item -Path "$(Get-InstallationDriveLetter):\run" -Force -Recurse -ErrorAction SilentlyContinue
 
-    if (!$ShallowDeletion) {
-        Remove-Item -Path "$(Get-K2sConfigDir)" -Force -Recurse -ErrorAction SilentlyContinue
-        Remove-Item -Path "$kubeBinPath\kube*.exe" -Force -ErrorAction SilentlyContinue
-        Remove-Item -Path "$kubeBinPath\nerdctl.exe" -Force -ErrorAction SilentlyContinue
-        Remove-Item -Path "$kubeBinPath\jq.exe" -Force -ErrorAction SilentlyContinue
-        Remove-Item -Path "$kubeBinPath\yq.exe" -Force -ErrorAction SilentlyContinue
-        Remove-Item -Path "$kubeBinPath\dnsproxy.exe" -Force -ErrorAction SilentlyContinue
-        Remove-Item -Path "$kubeBinPath\dnsproxy.yaml" -Force -ErrorAction SilentlyContinue
-        Remove-Item -Path "$kubeBinPath\cri*.exe" -Force -ErrorAction SilentlyContinue
-        Remove-Item -Path "$kubeBinPath\crictl.yaml" -Force -ErrorAction SilentlyContinue
-        Remove-Item -Path "$kubeBinPath\kube" -Force -Recurse -ErrorAction SilentlyContinue
-        Remove-Item -Path "$kubePath\config" -Force -ErrorAction SilentlyContinue
-        #Backward compatibility for few versions
-        Remove-Item -Path "$kubePath\cni\bin\win*.exe" -Force -ErrorAction SilentlyContinue
-        Remove-Item -Path "$kubePath\cni\bin\flannel.exe" -Force -ErrorAction SilentlyContinue
-        Remove-Item -Path "$kubePath\cni\bin\host-local.exe" -Force -ErrorAction SilentlyContinue
-        Remove-Item -Path "$kubePath\cni\bin\vfprules.json" -Force -ErrorAction SilentlyContinue
-        Remove-Item -Path "$kubePath\cni\bin" -Force -ErrorAction SilentlyContinue
-        Remove-Item -Path "$kubePath\cni\conf" -Force -ErrorAction SilentlyContinue
-        Remove-Item -Path "$kubePath\cni" -Force -ErrorAction SilentlyContinue
+    Remove-Item -Path "$(Get-K2sConfigDir)" -Force -Recurse -ErrorAction SilentlyContinue
+    Remove-Item -Path "$kubeBinPath\kube*.exe" -Force -ErrorAction SilentlyContinue
+    Remove-Item -Path "$kubeBinPath\nerdctl.exe" -Force -ErrorAction SilentlyContinue
+    Remove-Item -Path "$kubeBinPath\windows_exporter.exe" -Force -ErrorAction SilentlyContinue
+    Remove-Item -Path "$kubeBinPath\cni\flanneld.exe" -Force -ErrorAction SilentlyContinue
+    Remove-Item -Path "$kubeBinPath\jq.exe" -Force -ErrorAction SilentlyContinue
+    Remove-Item -Path "$kubeBinPath\yq.exe" -Force -ErrorAction SilentlyContinue
+    Remove-Item -Path "$kubeBinPath\dnsproxy.exe" -Force -ErrorAction SilentlyContinue
+    Remove-Item -Path "$kubeBinPath\dnsproxy.yaml" -Force -ErrorAction SilentlyContinue
+    Remove-Item -Path "$kubeBinPath\cri*.exe" -Force -ErrorAction SilentlyContinue
+    Remove-Item -Path "$kubeBinPath\crictl.yaml" -Force -ErrorAction SilentlyContinue
+    Remove-Item -Path "$kubeBinPath\kube" -Force -Recurse -ErrorAction SilentlyContinue
+    Remove-Item -Path "$kubePath\config" -Force -ErrorAction SilentlyContinue
+    #Backward compatibility for few versions
+    Remove-Item -Path "$kubePath\cni\bin\win*.exe" -Force -ErrorAction SilentlyContinue
+    Remove-Item -Path "$kubePath\cni\bin\flannel.exe" -Force -ErrorAction SilentlyContinue
+    Remove-Item -Path "$kubePath\cni\bin\host-local.exe" -Force -ErrorAction SilentlyContinue
+    Remove-Item -Path "$kubePath\cni\bin\vfprules.json" -Force -ErrorAction SilentlyContinue
+    Remove-Item -Path "$kubePath\cni\bin" -Force -ErrorAction SilentlyContinue
+    Remove-Item -Path "$kubePath\cni\conf" -Force -ErrorAction SilentlyContinue
+    Remove-Item -Path "$kubePath\cni" -Force -ErrorAction SilentlyContinue
 
-        Remove-Item -Path "$kubePath\bin\cni\win*.exe" -Force -ErrorAction SilentlyContinue
-        Remove-Item -Path "$kubePath\bin\cni\flannel.exe" -Force -ErrorAction SilentlyContinue
-        Remove-Item -Path "$kubePath\bin\cni\host-local.exe" -Force -ErrorAction SilentlyContinue
-        Remove-Item -Path "$kubePath\bin\cni\vfprules.json" -Force -ErrorAction SilentlyContinue
+    Remove-Item -Path "$kubePath\bin\cni\win*.exe" -Force -ErrorAction SilentlyContinue
+    Remove-Item -Path "$kubePath\bin\cni\flannel.exe" -Force -ErrorAction SilentlyContinue
+    Remove-Item -Path "$kubePath\bin\cni\host-local.exe" -Force -ErrorAction SilentlyContinue
+    Remove-Item -Path "$kubePath\bin\cni\vfprules.json" -Force -ErrorAction SilentlyContinue
 
-        Remove-Item -Path "$kubePath\kubevirt\bin\*.exe" -Force -ErrorAction SilentlyContinue
+    Remove-Item -Path "$kubePath\kubevirt\bin\*.exe" -Force -ErrorAction SilentlyContinue
 
-        Remove-Item -Path "$kubePath\smallsetup\en_windows*business*.iso" -Force -ErrorAction SilentlyContinue
-        Remove-Item -Path "$kubePath\debian*.qcow2" -Force -ErrorAction SilentlyContinue
+    Remove-Item -Path "$kubePath\smallsetup\en_windows*business*.iso" -Force -ErrorAction SilentlyContinue
+    Remove-Item -Path "$kubePath\debian*.qcow2" -Force -ErrorAction SilentlyContinue
 
-        Remove-Item -Path "$kubeBinPath\plink.exe" -Force -ErrorAction SilentlyContinue
-        Remove-Item -Path "$kubeBinPath\pscp.exe" -Force -ErrorAction SilentlyContinue
+    Remove-Item -Path "$kubeBinPath\plink.exe" -Force -ErrorAction SilentlyContinue
+    Remove-Item -Path "$kubeBinPath\pscp.exe" -Force -ErrorAction SilentlyContinue
 
-        Remove-Nssm
-    }
+    Remove-Nssm
+
     Invoke-DownloadsCleanup -DeleteFilesForOfflineInstallation $DeleteFilesForOfflineInstallation
 }
 
