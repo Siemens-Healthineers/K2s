@@ -185,7 +185,7 @@ func buildInstallCmd(c *ic.InstallConfig) (cmd string, err error) {
 		cmd += fmt.Sprintf(" -RestartAfterInstallCount %s", c.Env.RestartPostInstall)
 	}
 	if c.Env.K8sBin != "" {
-		cmd += fmt.Sprintf(" -K8sBinPath %s", c.Env.K8sBin)
+		cmd += fmt.Sprintf(" -K8sBinPath '%s'", c.Env.K8sBin)
 	}
 	if c.Behavior.ShowOutput {
 		cmd += " -ShowLogs"
@@ -201,9 +201,6 @@ func buildInstallCmd(c *ic.InstallConfig) (cmd string, err error) {
 	}
 	if c.Behavior.Wsl {
 		cmd += " -WSL"
-	}
-	if c.Behavior.AppendLog {
-		cmd += " -AppendLogFile"
 	}
 	if c.Behavior.AppendLog {
 		cmd += " -AppendLogFile"

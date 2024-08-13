@@ -138,7 +138,7 @@ var _ = Describe("install", func() {
 		Context("with all switches", func() {
 			It("returns correct command", func() {
 				const staticPartOfExpectedCmd = `\smallsetup\InstallK8s.ps1' -MasterVMProcessorCount 5 -MasterVMMemory 6GB -MasterDiskSize 7GB` +
-					` -Proxy my_proxy -AdditionalHooksDir 'c:\hooks\dir' -RestartAfterInstallCount 123 -ShowLogs -SkipStart -DeleteFilesForOfflineInstallation -ForceOnlineInstallation -WSL -AppendLogFile`
+					` -Proxy my_proxy -AdditionalHooksDir 'c:\hooks\dir' -RestartAfterInstallCount 123 -K8sBinPath 'c:\k8sBin\dir' -ShowLogs -SkipStart -DeleteFilesForOfflineInstallation -ForceOnlineInstallation -WSL -AppendLogFile`
 				expected := "&'" + utils.InstallDir() + staticPartOfExpectedCmd
 
 				config := &ic.InstallConfig{
@@ -146,6 +146,7 @@ var _ = Describe("install", func() {
 						Proxy:              "my_proxy",
 						AdditionalHooksDir: "c:\\hooks\\dir",
 						RestartPostInstall: "123",
+						K8sBin:             "c:\\k8sBin\\dir",
 					},
 					Behavior: ic.BehaviorConfig{
 						ShowOutput:                        true,
