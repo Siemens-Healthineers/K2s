@@ -157,7 +157,7 @@ function Install-WinKubeProxy {
     &$kubeBinPath\nssm set kubeproxy Start SERVICE_AUTO_START | Out-Null
 }
 
-function Copy-LocalBuildsOfKubetools {
+function Copy-LocalBuildsOfKubeTools {
     Param (
         [parameter(Mandatory = $false, HelpMessage = 'The path to local builds of Kubernetes binaries')]
         [string] $K8sBinPath = ''

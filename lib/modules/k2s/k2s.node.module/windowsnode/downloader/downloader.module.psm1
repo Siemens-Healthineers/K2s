@@ -345,7 +345,7 @@ function Install-WinNodeArtifacts {
 
         Invoke-DeployKubetoolsArtifacts $windowsNodeArtifactsDirectory
         if ($K8sBinPath -ne '') {
-            Copy-LocalBuildsOfKubetools -K8sBinPath $K8sBinPath
+            Copy-LocalBuildsOfKubeTools -K8sBinPath $K8sBinPath
         }
 
         Install-WinKubelet
