@@ -39,7 +39,6 @@ var _ = Describe("system", func() {
 
 			Expect(output).To(ContainSubstring("not installed"))
 		},
-		Entry("dump", "system", "dump"),
 		Entry("scp m", "system", "scp", "m", "a1", "a2"),
 		Entry("scp w", "system", "scp", "w", "a1", "a2"),
 		Entry("ssh m connect", "system", "ssh", "m"),
@@ -107,6 +106,18 @@ var _ = Describe("system", func() {
 				output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "system", "package", "-d", tempDir, "-n", "package")
 
 				Expect(output).To(ContainSubstring("does not have the extension '.zip'"))
+			})
+		})
+	})
+
+	Describe("k2s is not installed system dump", Ordered, Label("cli", "system", "dump", "acceptance", "no-setup"), func() {
+		When("CLI execution successful", func() {
+			It("dumps system information", func(ctx context.Context) {
+				output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeSuccess, "system", "dump", "-S")
+
+				Expect(output).To(SatisfyAll(
+					ContainSubstring("SUCCESS"),
+				))
 			})
 		})
 	})
