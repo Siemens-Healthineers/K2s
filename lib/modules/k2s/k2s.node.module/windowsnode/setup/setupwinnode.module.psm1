@@ -12,6 +12,7 @@ Import-Module $logModule, $configModule, $pathModule, $downloaderModule, $networ
 
 $kubePath = Get-KubePath
 $kubeBinPath = Get-KubeBinPath
+$kubeToolsPath = Get-KubeToolsPath
 
 
 function Initialize-Networking {
@@ -116,11 +117,13 @@ function Initialize-WinNode {
         [boolean] $ForceOnlineInstallation = $false,
         [parameter(Mandatory = $false, HelpMessage = 'Skips networking setup and installation of cluster dependent tools kubelet, flannel on windows node')]
         [boolean] $SkipClusterSetup = $false,
-        [string] $PodSubnetworkNumber = $(throw 'Argument missing: PodSubnetworkNumber')
+        [string] $PodSubnetworkNumber = $(throw 'Argument missing: PodSubnetworkNumber'),
+        [parameter(Mandatory = $false, HelpMessage = 'The path to locally builds of Kubernetes binaries')]
+        [string] $K8sBinPath = ''
     )
 
-    if (!(Test-Path "$kubeBinPath\exe")) {
-        New-Item -ItemType 'directory' -Path "$kubeBinPath\exe" | Out-Null
+    if (!(Test-Path "$kubeToolsPath")) {
+        New-Item -ItemType 'directory' -Path "$kubeToolsPath" | Out-Null
     }
 
     if (! $SkipClusterSetup ) {
@@ -144,7 +147,7 @@ function Initialize-WinNode {
         Write-Log 'Skipping networking setup on windows node'
     }
 
-    Install-WinNodeArtifacts -Proxy "$Proxy" -HostVM:$HostVM -SkipClusterSetup:$SkipClusterSetup -PodSubnetworkNumber $PodSubnetworkNumber
+    Install-WinNodeArtifacts -Proxy "$Proxy" -HostVM:$HostVM -SkipClusterSetup:$SkipClusterSetup -PodSubnetworkNumber $PodSubnetworkNumber -K8sBinPath $K8sBinPath
 
     if (! $SkipClusterSetup) {
         Reset-WinServices
@@ -193,7 +196,7 @@ function Clear-WinNode {
         Remove-Item -Path "$kubeBinPath\dnsproxy.yaml" -Force -ErrorAction SilentlyContinue
         Remove-Item -Path "$kubeBinPath\cri*.exe" -Force -ErrorAction SilentlyContinue
         Remove-Item -Path "$kubeBinPath\crictl.yaml" -Force -ErrorAction SilentlyContinue
-        Remove-Item -Path "$kubeBinPath\exe" -Force -Recurse -ErrorAction SilentlyContinue
+        Remove-Item -Path "$kubeBinPath\kube" -Force -Recurse -ErrorAction SilentlyContinue
         Remove-Item -Path "$kubePath\config" -Force -ErrorAction SilentlyContinue
         #Backward compatibility for few versions
         Remove-Item -Path "$kubePath\cni\bin\win*.exe" -Force -ErrorAction SilentlyContinue

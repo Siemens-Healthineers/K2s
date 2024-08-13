@@ -330,7 +330,9 @@ function Install-WinNodeArtifacts {
         [bool] $HostVM,
         [parameter(Mandatory = $false, HelpMessage = 'Skips installation of cluster dependent tools')]
         [bool] $SkipClusterSetup = $false,
-        [string] $PodSubnetworkNumber = $(throw 'Argument missing: PodSubnetworkNumber')
+        [string] $PodSubnetworkNumber = $(throw 'Argument missing: PodSubnetworkNumber'),
+        [parameter(Mandatory = $false, HelpMessage = 'The path to locally builds of Kubernetes binaries')]
+        [string] $K8sBinPath = ''
     )
 
     Invoke-DeployDockerArtifacts $windowsNodeArtifactsDirectory
@@ -342,6 +344,10 @@ function Install-WinNodeArtifacts {
         Invoke-DeployWindowsImages $windowsNodeArtifactsDirectory
 
         Invoke-DeployKubetoolsArtifacts $windowsNodeArtifactsDirectory
+        if ($K8sBinPath -ne '') {
+            Copy-LocalBuildsOfKubetools -K8sBinPath $K8sBinPath
+        }
+
         Install-WinKubelet
 
         Invoke-DeployFlannelArtifacts $windowsNodeArtifactsDirectory

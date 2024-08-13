@@ -140,7 +140,7 @@ function Start-ClusterUpgrade {
             Write-Progress -Activity 'Check if resources need to be exported..' -Id 1 -Status '3/10' -PercentComplete 30 -CurrentOperation 'Starting cluster, please wait..'
         }
 
-        $currentExeFolder = "$(Get-ClusterInstalledFolder)\bin\exe"
+        $currentExeFolder = "$(Get-ClusterInstalledFolder)\bin\kube"
         Export-ClusterResources -SkipResources:$SkipResources -PathResources $BackupDir -ExePath $currentExeFolder
 
         # Invoke backup hooks

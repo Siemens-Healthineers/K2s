@@ -109,7 +109,7 @@ if ($global:PurgeOnUninstall) {
     Remove-Item -Path "$kubePath\bin\kube*.exe" -Force -ErrorAction SilentlyContinue
     Remove-Item -Path "$kubePath\bin\cri*.exe" -Force -ErrorAction SilentlyContinue
     Remove-Item -Path "$kubePath\bin\crictl.yaml" -Force -ErrorAction SilentlyContinue
-    Remove-Item -Path "$kubePath\bin\exe" -Force -Recurse -ErrorAction SilentlyContinue
+    Remove-Item -Path "$kubePath\bin\kube" -Force -Recurse -ErrorAction SilentlyContinue
     Remove-Item -Path "$kubePath\config" -Force -ErrorAction SilentlyContinue
 
     Remove-Item -Path "$kubePath\bin\cni\win*.exe" -Force -ErrorAction SilentlyContinue

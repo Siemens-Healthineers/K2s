@@ -112,6 +112,7 @@ func bindFlags(cmd *cobra.Command) {
 	cmd.Flags().StringP(ic.ProxyFlagName, ic.ProxyFlagShorthand, "", ic.ProxyFlagUsage)
 	cmd.Flags().StringP(ic.ConfigFileFlagName, ic.ConfigFileFlagShorthand, "", ic.ConfigFileFlagUsage)
 	cmd.Flags().Bool(ic.WslFlagName, false, ic.WslFlagUsage)
+	cmd.Flags().String(ic.K8sBinFlagName, "", ic.K8sBinFlagUsage)
 
 	// convenience flag; not configurable in config file; leads to multivm setup if true
 	cmd.Flags().Bool(ic.LinuxOnlyFlagName, false, ic.LinuxOnlyFlagUsage)
@@ -183,6 +184,9 @@ func buildInstallCmd(c *ic.InstallConfig) (cmd string, err error) {
 	if c.Env.RestartPostInstall != "" {
 		cmd += fmt.Sprintf(" -RestartAfterInstallCount %s", c.Env.RestartPostInstall)
 	}
+	if c.Env.K8sBin != "" {
+		cmd += fmt.Sprintf(" -K8sBinPath %s", c.Env.K8sBin)
+	}
 	if c.Behavior.ShowOutput {
 		cmd += " -ShowLogs"
 	}
@@ -197,6 +201,9 @@ func buildInstallCmd(c *ic.InstallConfig) (cmd string, err error) {
 	}
 	if c.Behavior.Wsl {
 		cmd += " -WSL"
+	}
+	if c.Behavior.AppendLog {
+		cmd += " -AppendLogFile"
 	}
 	if c.Behavior.AppendLog {
 		cmd += " -AppendLogFile"
