@@ -41,6 +41,7 @@ Write-Log 'Setting up Windows worker node' -Console
 
 $windowsHostIpAddress = Get-ConfiguredKubeSwitchIP
 $transparentProxy = "http://$($windowsHostIpAddress):8181"
+$joinCommand = New-JoinCommand
 
 $workerNodeParams = @{
     Proxy = $transparentProxy
@@ -48,6 +49,7 @@ $workerNodeParams = @{
     DeleteFilesForOfflineInstallation = $DeleteFilesForOfflineInstallation
     ForceOnlineInstallation = $ForceOnlineInstallation
     PodSubnetworkNumber = '1'
+    JoinCommand = $JoinCommand
 }
 Add-WindowsWorkerNodeOnWindowsHost @workerNodeParams
 
