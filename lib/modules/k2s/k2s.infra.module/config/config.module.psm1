@@ -476,6 +476,13 @@ function Get-WindowsLocalSharePath {
     return $windowsLocalSharePath
 }
 
+function Get-WindowsVmIpAddress {
+    $rootConfig = Get-RootConfigk2s
+    $multivmRootConfig = $rootConfig.psobject.properties['multivm'].value
+    $multiVMWinNodeIP = $multivmRootConfig.psobject.properties['multiVMK8sWindowsVMIP'].value
+    return $multiVMWinNodeIP
+}
+
 Export-ModuleMember -Function Get-ConfigValue,
 Set-ConfigValue,
 Get-ConfiguredKubeConfigDir,
@@ -531,4 +538,5 @@ Get-DefaultK8sVersion,
 Get-LinuxLocalSharePath,
 Get-WindowsLocalSharePath,
 Get-ReuseExistingLinuxComputerForMasterNodeFlag,
-Get-ControlPlaneNodeWslSwitchName
+Get-ControlPlaneNodeWslSwitchName,
+Get-WindowsVmIpAddress
