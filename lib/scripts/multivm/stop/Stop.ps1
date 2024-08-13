@@ -50,8 +50,14 @@ Initialize-Logging -ShowLogs:$ShowLogs
 
 $ErrorActionPreference = 'Continue'
 
+if ($(Get-ConfigLinuxOnly) -eq $true) {
+    $installationType = 'Linux-only'
+} else {
+    $installationType = 'Multi-VM'
+}
+
 if ($HideHeaders -eq $false) {
-    Write-Log 'Stopping MultiVM K2s'
+    Write-Log "Stopping $installationType K2s"
 }
 
 Invoke-Hook -HookName 'BeforeStopK8sNetwork' -AdditionalHooksDir $AdditionalHooksDir
@@ -67,7 +73,7 @@ if ($(Get-ConfigLinuxOnly) -eq $false) {
 
 Invoke-Hook -HookName 'AfterStopK8sNetwork' -AdditionalHooksDir $AdditionalHooksDir
 
-$controlPlaneParams = " -AdditionalHooksDir `"$AdditionalHooksDir`""
+$controlPlaneParams = " -AdditionalHooksDir '$AdditionalHooksDir'"
 if ($HideHeaders.IsPresent) {
     $controlPlaneParams += " -SkipHeaderDisplay"
 }
@@ -77,5 +83,5 @@ if ($ShowLogs.IsPresent) {
 & powershell.exe "$PSScriptRoot\..\..\control-plane\Stop.ps1" $controlPlaneParams
 
 if ($HideHeaders -eq $false) {
-    Write-Log 'K2s MultiVM stopped.'
+    Write-Log "K2s $installationType stopped."
 }

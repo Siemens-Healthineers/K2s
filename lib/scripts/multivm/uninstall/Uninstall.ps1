@@ -55,8 +55,14 @@ Initialize-Logging -ShowLogs:$ShowLogs
 
 $ErrorActionPreference = 'Continue'
 
+if ($(Get-ConfigLinuxOnly) -eq $true) {
+    $installationType = 'Linux-only'
+} else {
+    $installationType = 'Multi-VM'
+}
+
 if ($HideHeaders -eq $false) {
-    Write-Log 'Uninstalling MultiVM K2s'
+    Write-Log "Uninstalling $installationType K2s"
 }
 
 if ($(Get-ConfigLinuxOnly) -eq $false) {
@@ -68,7 +74,7 @@ if ($(Get-ConfigLinuxOnly) -eq $false) {
     & "$PSScriptRoot\..\..\worker-node\windows\hyper-v-vm\Uninstall.ps1" @workerNodeParams
 }
 
-$controlPlaneParams = " -AdditionalHooksDir `"$AdditionalHooksDir`""
+$controlPlaneParams = " -AdditionalHooksDir '$AdditionalHooksDir'"
 if ($DeleteFilesForOfflineInstallation.IsPresent) {
     $controlPlaneParams += " -DeleteFilesForOfflineInstallation"
 }
@@ -84,7 +90,7 @@ if ($SkipPurge.IsPresent) {
 Invoke-AddonsHooks -HookType 'AfterUninstall'
 
 if ($HideHeaders -eq $false) {
-    Write-Log 'K2s MultiVM uninstalled.'
+    Write-Log "K2s $installationType uninstalled."
 }
 
 Save-k2sLogDirectory -RemoveVar

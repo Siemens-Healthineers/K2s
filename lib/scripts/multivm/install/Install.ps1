@@ -89,12 +89,12 @@ $controlPlaneParams = @{
     WSL = $WSL
 }
 
-$controlPlaneParams = " -MasterVMMemory `"$MasterVMMemory`""
-$controlPlaneParams += " -MasterVMProcessorCount `"$MasterVMProcessorCount`""
-$controlPlaneParams += " -MasterDiskSize `"$MasterDiskSize`""
-$controlPlaneParams += " -Proxy `"$Proxy`""
-$controlPlaneParams += " -DnsAddresses `"$dnsServers`""
-$controlPlaneParams += " -AdditionalHooksDir `"$AdditionalHooksDir`""
+$controlPlaneParams = " -MasterVMMemory '$MasterVMMemory'"
+$controlPlaneParams += " -MasterVMProcessorCount '$MasterVMProcessorCount'"
+$controlPlaneParams += " -MasterDiskSize '$MasterDiskSize'"
+$controlPlaneParams += " -Proxy '$Proxy'"
+$controlPlaneParams += " -DnsAddresses '$dnsServers'"
+$controlPlaneParams += " -AdditionalHooksDir '$AdditionalHooksDir'"
 if ($DeleteFilesForOfflineInstallation.IsPresent) {
     $controlPlaneParams += " -DeleteFilesForOfflineInstallation"
 }
@@ -112,7 +112,11 @@ if ($WSL.IsPresent) {
 }
 & powershell.exe "$PSScriptRoot\..\..\control-plane\Install.ps1" $controlPlaneParams
         
+$installationType = 'Linux-only'
+
 if ($(Get-ConfigLinuxOnly) -eq $false) {
+
+    $installationType = 'Multi-VM'
 
     $windowsHostIpAddress = Get-ConfiguredKubeSwitchIP
     $transparentProxy = "http://$($windowsHostIpAddress):8181"
@@ -142,8 +146,10 @@ $kubeToolsPath = Get-KubeToolsPath
 
 Invoke-Hook -HookName 'AfterBaseInstall' -AdditionalHooksDir $AdditionalHooksDir
 
+
+
 Write-Log '---------------------------------------------------------------'
-Write-Log "Multi-VM setup finished.  Total duration: $('{0:hh\:mm\:ss}' -f $installStopwatch.Elapsed )"
+Write-Log "$installationType setup finished.  Total duration: $('{0:hh\:mm\:ss}' -f $installStopwatch.Elapsed )"
 Write-Log '---------------------------------------------------------------'
 
 

@@ -23,8 +23,14 @@ Initialize-Logging -ShowLogs:$ShowLogs
 
 $ErrorActionPreference = 'Continue'
 
+if ($(Get-ConfigLinuxOnly) -eq $true) {
+    $installationType = 'Linux-only'
+} else {
+    $installationType = 'Multi-VM'
+}
+
 if ($HideHeaders -eq $false) {
-    Write-Log 'Starting MultiVM K2s'
+    Write-Log "Starting $installationType K2s"
 }
 
 $loopbackAdapter = Get-L2BridgeName
@@ -33,8 +39,8 @@ if ([string]::IsNullOrWhiteSpace($dnsServersForControlPlane)) {
     $dnsServersForControlPlane = '8.8.8.8,8.8.4.4'
 }
 
-$controlPlaneParams = " -AdditionalHooksDir `"$AdditionalHooksDir`""
-$controlPlaneParams += " -DnsAddresses `"$dnsServersForControlPlane`""
+$controlPlaneParams = " -AdditionalHooksDir '$AdditionalHooksDir'"
+$controlPlaneParams += " -DnsAddresses '$dnsServersForControlPlane'"
 if ($HideHeaders.IsPresent) {
     $controlPlaneParams += " -SkipHeaderDisplay"
 }
@@ -64,5 +70,5 @@ Invoke-AddonsHooks -HookType 'AfterStart'
 Invoke-Hook -HookName 'AfterStartK8sNetwork' -AdditionalHooksDir $AdditionalHooksDir
 
 if ($HideHeaders -eq $false) {
-    Write-Log 'K2s MultiVM started.'
+    Write-Log "K2s $installationType started."
 }
