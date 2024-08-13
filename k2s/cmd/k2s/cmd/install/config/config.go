@@ -129,8 +129,8 @@ const (
 	WslFlagName  = "wsl"
 	WslFlagUsage = "Use WSL2 for hosting of KubeMaster"
 
-	K8sBinFlagName  = "k8s-bin"
-	K8sBinFlagUsage = "Use local build of Kubernetes binaries for testing"
+	K8sBinFlagName  = "k8s-bins"
+	K8sBinFlagUsage = "Path to directory of locally built Kubernetes binaries (kubelet.exe, kube-proxy.exe, kubeadm.exe, kubectl.exe)"
 
 	LinuxOnlyFlagName  = "linux-only"
 	LinuxOnlyFlagUsage = "No Windows worker node will be set up (creates a 'multivm' setup without Windows VM)"

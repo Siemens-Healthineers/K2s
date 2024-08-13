@@ -163,6 +163,11 @@ function Copy-LocalBuildsOfKubetools {
         [string] $K8sBinPath = ''
     )
 
+    if (!$(Test-Path $K8sBinPath)) {
+        Write-Log "No local Kubernetes binary folder '$K8sBinPath' found"
+        return
+    }
+
     $kubetools = @($windowsNode_KubeletExe, $windowsNode_KubeadmExe, $windowsNode_KubeproxyExe, $windowsNode_KubectlExe)
 
     $kubetools | ForEach-Object {
