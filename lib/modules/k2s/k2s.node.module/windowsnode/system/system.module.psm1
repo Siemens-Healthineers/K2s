@@ -188,9 +188,9 @@ function Get-StorageLocalDrive {
     else {
         $configuredStorageLocalDriveLetter = Get-ConfiguredStorageLocalDriveLetter
         $searchAvailableFixedLogicalDrives = {
-            $fixedHardDrives = Get-WmiObject -ClassName Win32_DiskDrive | Where-Object { $_.Mediatype -eq 'Fixed hard disk media' }
-            $partitionsOnFixedHardDrives = $fixedHardDrives | Foreach-Object { Get-WmiObject -Query "ASSOCIATORS OF {Win32_DiskDrive.DeviceID=`"$($_.DeviceID.Replace('\','\\'))`"} WHERE AssocClass = Win32_DiskDriveToDiskPartition" }
-            $fixedLogicalDrives = $partitionsOnFixedHardDrives | Foreach-Object { Get-WmiObject -Query "ASSOCIATORS OF {Win32_DiskPartition.DeviceID=`"$($_.DeviceID)`"} WHERE AssocClass = Win32_LogicalDiskToPartition" }
+            $fixedHardDrives = Get-CimInstance -ClassName Win32_DiskDrive | Where-Object { $_.Mediatype -eq 'Fixed hard disk media' }
+            $partitionsOnFixedHardDrives = $fixedHardDrives | Foreach-Object { Get-CimInstance -Query "ASSOCIATORS OF {Win32_DiskDrive.DeviceID=`"$($_.DeviceID.Replace('\','\\'))`"} WHERE AssocClass = Win32_DiskDriveToDiskPartition" }
+            $fixedLogicalDrives = $partitionsOnFixedHardDrives | Foreach-Object { Get-CimInstance -Query "ASSOCIATORS OF {Win32_DiskPartition.DeviceID=`"$($_.DeviceID)`"} WHERE AssocClass = Win32_LogicalDiskToPartition" }
             return $fixedLogicalDrives | Sort-Object $_.DeviceID
         }
         if ([string]::IsNullOrWhiteSpace($configuredStorageLocalDriveLetter)) {

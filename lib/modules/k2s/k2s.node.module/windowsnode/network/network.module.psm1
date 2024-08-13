@@ -296,7 +296,7 @@ function Set-WSLSwitch() {
 #>
 function Restart-NlaSvc {
     $networkLocationAwarenessServiceName = 'NlaSvc'
-    $nlaSvcProcess = Get-WmiObject -Class Win32_Service -Filter "Name LIKE '$networkLocationAwarenessServiceName'"
+    $nlaSvcProcess = Get-CimInstance -Class Win32_Service -Filter "Name LIKE '$networkLocationAwarenessServiceName'"
     # if NlaSvc is found
     if ($null -ne $nlaSvcProcess) {
         $nlaSvcStartMode = $nlaSvcProcess.StartMode

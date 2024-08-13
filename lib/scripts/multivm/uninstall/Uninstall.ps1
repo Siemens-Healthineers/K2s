@@ -1,4 +1,5 @@
 # SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+#
 # SPDX-License-Identifier: MIT
 
 #Requires -RunAsAdministrator
@@ -43,82 +44,48 @@ Param(
     [switch] $DeleteFilesForOfflineInstallation = $false
 )
 
+$infraModule = "$PSScriptRoot\..\..\..\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
+$nodeModule = "$PSScriptRoot\..\..\..\modules\k2s\k2s.node.module\k2s.node.module.psm1"
+$clusterModule = "$PSScriptRoot\..\..\..\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1"
+$addonsModule = "$PSScriptRoot\..\..\..\..\addons\addons.module.psm1"
 
-$infraModule = "$PSScriptRoot/../../../modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
-$nodeModule = "$PSScriptRoot/../../../modules/k2s/k2s.node.module/k2s.node.module.psm1"
-$clusterModule = "$PSScriptRoot/../../../modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
-Import-Module $infraModule, $nodeModule, $clusterModule
-$kubePath = Get-KubePath
-Import-Module "$kubePath/addons/addons.module.psm1"
-
-$multiVMWindowsVMName = Get-ConfigVMNodeHostname
+Import-Module $infraModule, $nodeModule, $clusterModule, $addonsModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
 $ErrorActionPreference = 'Continue'
 
-if ($Trace) {
-    Set-PSDebug -Trace 1
+if ($HideHeaders -eq $false) {
+    Write-Log 'Uninstalling MultiVM K2s'
 }
 
-Write-Log '---------------------------------------------------------------'
-Write-Log 'Multi-VM Kubernetes Deinstallation started.'
-Write-Log '---------------------------------------------------------------'
-
-if (! $SkipPurge) {
-    # this negative logic is important to have the right defaults:
-    # if UninstallK8s is called directly, the default is to purge
-    # if UninstallK8s is called from InstallK8s, the default is not to purge
-    $global:PurgeOnUninstall = $true
+if ($(Get-ConfigLinuxOnly) -eq $false) {
+    $workerNodeParams = @{
+        ShowLogs = $ShowLogs
+        AdditionalHooksDir = $AdditionalHooksDir
+        DeleteFilesForOfflineInstallation = $DeleteFilesForOfflineInstallation
+    }
+    & "$PSScriptRoot\..\..\worker-node\windows\hyper-v-vm\Uninstall.ps1" @workerNodeParams
 }
 
-Write-Log 'First stop complete K8s incl. VMs'
-
-& "$PSScriptRoot\..\stop\Stop.ps1" -AdditionalHooksDir:$AdditionalHooksDir -StopDuringUninstall
-
-Stop-VirtualMachine $multiVMWindowsVMName
-
-# remove from kubeswitch
-$svm = Get-VMNetworkAdapter -VMName $multiVMWindowsVMName -ErrorAction SilentlyContinue
-if ( $svm ) {
-    Write-Log "VM with name: $multiVMWindowsVMName found"
-    Write-Log "Disconnect current network adapter from VM: $multiVMWindowsVMName"
-
-    Disconnect-VMNetworkAdapter -VMName $multiVMWindowsVMName
+$controlPlaneParams = " -AdditionalHooksDir `"$AdditionalHooksDir`""
+if ($DeleteFilesForOfflineInstallation.IsPresent) {
+    $controlPlaneParams += " -DeleteFilesForOfflineInstallation"
 }
+if ($ShowLogs.IsPresent) {
+    $controlPlaneParams += " -ShowLogs"
+}
+if ($SkipPurge.IsPresent) {
+    $controlPlaneParams += " -SkipPurge"
+}
+& powershell.exe "$PSScriptRoot\..\..\control-plane\Uninstall.ps1" $controlPlaneParams
 
-Write-Log "Removing $multiVMWindowsVMName VM" -Console
-Remove-VirtualMachine $multiVMWindowsVMName
-
-Uninstall-LinuxNode -DeleteFilesForOfflineInstallation $DeleteFilesForOfflineInstallation
-
-Write-Log 'Cleaning up' -Console
 
 Invoke-AddonsHooks -HookType 'AfterUninstall'
 
-Remove-SshKey
-Remove-VMSshKey
-Remove-DefaultNetNat
-
-if ($global:PurgeOnUninstall) {
-    Remove-Item -Path "$(Get-K2sConfigDir)" -Force -Recurse -ErrorAction SilentlyContinue
-
-    $kubePath = Get-KubePath
-    Remove-Item -Path "$kubePath\smallsetup\multivm\debian*.qcow2" -Force -ErrorAction SilentlyContinue
-    Remove-Item -Path "$global:KubernetesImagesJson" -Force -ErrorAction SilentlyContinue
-    Remove-Item -Path "$kubePath\bin\kube*.exe" -Force -ErrorAction SilentlyContinue
-    Remove-Item -Path "$kubePath\bin\cri*.exe" -Force -ErrorAction SilentlyContinue
-    Remove-Item -Path "$kubePath\bin\crictl.yaml" -Force -ErrorAction SilentlyContinue
-    Remove-Item -Path "$kubePath\bin\exe" -Force -Recurse -ErrorAction SilentlyContinue
-    Remove-Item -Path "$kubePath\config" -Force -ErrorAction SilentlyContinue
-
-    Remove-Item -Path "$kubePath\bin\cni\win*.exe" -Force -ErrorAction SilentlyContinue
-    Remove-Item -Path "$kubePath\bin\cni\vfprules.json" -Force -ErrorAction SilentlyContinue
-    Remove-Item -Path "$kubePath\kubevirt\bin\*.exe" -Force -ErrorAction SilentlyContinue
+if ($HideHeaders -eq $false) {
+    Write-Log 'K2s MultiVM uninstalled.'
 }
 
-Reset-EnvVars
-
-Write-Log 'Uninstalling MultiVMK8s setup done.'
-
 Save-k2sLogDirectory -RemoveVar
+
