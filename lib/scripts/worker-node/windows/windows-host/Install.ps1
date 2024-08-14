@@ -19,8 +19,8 @@ Param(
     [switch] $ForceOnlineInstallation = $false,
     [parameter(HelpMessage = 'DNS Addresses')]
     [string]$DnsAddresses = $(throw 'Argument missing: DnsAddresses'),
-    [parameter(Mandatory = $false, HelpMessage = 'The path to locally builds of Kubernetes binaries')]
-    [string] $K8sBinPath = ''
+    [parameter(Mandatory = $false, HelpMessage = 'The path to local builds of Kubernetes binaries')]
+    [string] $K8sBinsPath = ''
 )
 
 $installStopwatch = [system.diagnostics.stopwatch]::StartNew()
@@ -50,7 +50,7 @@ $workerNodeParams = @{
     DeleteFilesForOfflineInstallation = $DeleteFilesForOfflineInstallation
     ForceOnlineInstallation = $ForceOnlineInstallation
     PodSubnetworkNumber = '1'
-    K8sBinPath = $K8sBinPath
+    K8sBinsPath = $K8sBinsPath
 }
 Add-WindowsWorkerNodeOnWindowsHost @workerNodeParams
 

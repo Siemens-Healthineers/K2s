@@ -72,8 +72,8 @@ Param(
     [switch] $WSL = $false,
     [parameter(Mandatory = $false, HelpMessage = 'Append to log file (do not start from scratch)')]
     [switch] $AppendLogFile = $false,
-    [parameter(Mandatory = $false, HelpMessage = 'The path to locally builds of Kubernetes binaries')]
-    [string] $K8sBinPath = ''
+    [parameter(Mandatory = $false, HelpMessage = 'The path to local builds of Kubernetes binaries')]
+    [string] $K8sBinsPath = ''
 )
 
 $installationParameters = @{
@@ -91,7 +91,7 @@ $installationParameters = @{
     RestartAfterInstallCount = $RestartAfterInstallCount
     WSL = $WSL
     AppendLogFile = $AppendLogFile
-    K8sBinPath = $K8sBinPath
+    K8sBinsPath = $K8sBinsPath
 }
 
 & "$PSScriptRoot\..\lib\scripts\k2s\install\install.ps1" @installationParameters

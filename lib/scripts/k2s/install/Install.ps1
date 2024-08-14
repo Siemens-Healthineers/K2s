@@ -36,8 +36,8 @@ Param(
     [switch] $WSL = $false,
     [parameter(Mandatory = $false, HelpMessage = 'Append to log file (do not start from scratch)')]
     [switch] $AppendLogFile = $false,
-    [parameter(Mandatory = $false, HelpMessage = 'The path to locally builds of Kubernetes binaries')]
-    [string] $K8sBinPath = ''
+    [parameter(Mandatory = $false, HelpMessage = 'The path to local builds of Kubernetes binaries')]
+    [string] $K8sBinsPath = ''
 )
 
 $installStopwatch = [system.diagnostics.stopwatch]::StartNew()
@@ -97,7 +97,7 @@ $workerNodeParams = @{
     DeleteFilesForOfflineInstallation = $DeleteFilesForOfflineInstallation
     ForceOnlineInstallation = $ForceOnlineInstallation
     DnsAddresses = $dnsServers
-    K8sBinPath = $K8sBinPath
+    K8sBinsPath = $K8sBinsPath
 }
 & "$PSScriptRoot\..\..\worker-node\windows\windows-host\Install.ps1" @workerNodeParams
 

@@ -118,8 +118,8 @@ function Initialize-WinNode {
         [parameter(Mandatory = $false, HelpMessage = 'Skips networking setup and installation of cluster dependent tools kubelet, flannel on windows node')]
         [boolean] $SkipClusterSetup = $false,
         [string] $PodSubnetworkNumber = $(throw 'Argument missing: PodSubnetworkNumber'),
-        [parameter(Mandatory = $false, HelpMessage = 'The path to locally builds of Kubernetes binaries')]
-        [string] $K8sBinPath = ''
+        [parameter(Mandatory = $false, HelpMessage = 'The path to local builds of Kubernetes binaries')]
+        [string] $K8sBinsPath = ''
     )
 
     if (!(Test-Path "$kubeToolsPath")) {
@@ -147,7 +147,7 @@ function Initialize-WinNode {
         Write-Log 'Skipping networking setup on windows node'
     }
 
-    Install-WinNodeArtifacts -Proxy "$Proxy" -HostVM:$HostVM -SkipClusterSetup:$SkipClusterSetup -PodSubnetworkNumber $PodSubnetworkNumber -K8sBinPath $K8sBinPath
+    Install-WinNodeArtifacts -Proxy "$Proxy" -HostVM:$HostVM -SkipClusterSetup:$SkipClusterSetup -PodSubnetworkNumber $PodSubnetworkNumber -K8sBinsPath $K8sBinsPath
 
     if (! $SkipClusterSetup) {
         Reset-WinServices

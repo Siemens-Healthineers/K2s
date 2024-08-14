@@ -20,8 +20,8 @@ function Add-WindowsWorkerNodeOnWindowsHost {
         [parameter(Mandatory = $false, HelpMessage = 'Force the installation online. This option is needed if the files for an offline installation are available but you want to recreate them.')]
         [switch] $ForceOnlineInstallation = $false,
         [string] $PodSubnetworkNumber = $(throw 'Argument missing: PodSubnetworkNumber'),
-        [parameter(Mandatory = $false, HelpMessage = 'The path to locally builds of Kubernetes binaries')]
-        [string] $K8sBinPath = ''
+        [parameter(Mandatory = $false, HelpMessage = 'The path to local builds of Kubernetes binaries')]
+        [string] $K8sBinsPath = ''
     )
     Stop-InstallIfNoMandatoryServiceIsRunning
 
@@ -43,7 +43,7 @@ function Add-WindowsWorkerNodeOnWindowsHost {
         -DeleteFilesForOfflineInstallation $DeleteFilesForOfflineInstallation `
         -ForceOnlineInstallation $ForceOnlineInstallation `
         -PodSubnetworkNumber $PodSubnetworkNumber `
-        -K8sBinPath $K8sBinPath
+        -K8sBinsPath $K8sBinsPath
 
 
     # join the cluster

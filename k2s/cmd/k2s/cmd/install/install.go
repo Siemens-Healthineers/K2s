@@ -184,8 +184,8 @@ func buildInstallCmd(c *ic.InstallConfig) (cmd string, err error) {
 	if c.Env.RestartPostInstall != "" {
 		cmd += fmt.Sprintf(" -RestartAfterInstallCount %s", c.Env.RestartPostInstall)
 	}
-	if c.Env.K8sBin != "" {
-		cmd += fmt.Sprintf(" -K8sBinPath '%s'", c.Env.K8sBin)
+	if c.Env.K8sBins != "" {
+		cmd += fmt.Sprintf(" -K8sBinsPath '%s'", c.Env.K8sBins)
 	}
 	if c.Behavior.ShowOutput {
 		cmd += " -ShowLogs"

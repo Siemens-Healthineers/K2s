@@ -79,7 +79,7 @@ type EnvConfig struct {
 	Proxy              string `mapstructure:"httpProxy"`
 	AdditionalHooksDir string `mapstructure:"additionalHooksDir"`
 	RestartPostInstall string `mapstructure:"restartPostInstallCount"`
-	K8sBin             string `mapstructure:"k8sBin"`
+	K8sBins            string `mapstructure:"k8sBins"`
 }
 
 type BehaviorConfig struct {
@@ -342,7 +342,7 @@ func overwriteConfigWithCliParam(iConfig *InstallConfig, vConfig *viper.Viper, f
 	case WslFlagName:
 		iConfig.Behavior.Wsl = vConfig.GetBool(flagName)
 	case K8sBinFlagName:
-		iConfig.Env.K8sBin = vConfig.GetString(flagName)
+		iConfig.Env.K8sBins = vConfig.GetString(flagName)
 	}
 }
 
