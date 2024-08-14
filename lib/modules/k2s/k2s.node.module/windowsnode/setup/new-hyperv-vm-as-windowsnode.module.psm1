@@ -30,7 +30,7 @@ function New-WindowsVmForWorkerNode {
         [parameter(Mandatory = $false, HelpMessage = 'Force the installation online. This option is needed if the files for an offline installation are available but you want to recreate them.')]
         [switch] $ForceOnlineInstallation = $false
     )
-    $provisionedFileName = "Windows-Kubenode-Base.vhdx"
+    $provisionedFileName = "Windows-Kubeworker-Base.vhdx"
     $outputPath = "$(Get-KubeBinPath)\$provisionedFileName"
 
     $isWindowsKubeworkerBaseImageAlreadyAvailable = (Test-Path $outputPath)

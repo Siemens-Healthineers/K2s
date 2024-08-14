@@ -127,9 +127,9 @@ function New-ProvisionedWindowsNodeBaseImage {
     )
 
     $inputPath = "$kubeBinPath\Windows-Base.vhdx"
-    $inPreparationFileName = "Windows-Kubenode-Base-in-preparation.vhdx"
+    $inPreparationFileName = "Windows-Kubeworker-Base-in-preparation.vhdx"
     $inPreparationFilePath = "$provisioningTargetDirectory\$inPreparationFileName"
-    $preparedFileName = "Windows-Kubenode-Base-prepared.vhdx"
+    $preparedFileName = "Windows-Kubeworker-Base-prepared.vhdx"
     $preparedFilePath = "$provisioningTargetDirectory\$preparedFileName"
 
     if (Test-Path -Path $OutputPath) {
