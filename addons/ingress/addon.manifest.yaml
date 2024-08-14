@@ -11,6 +11,15 @@ spec:
   implementations:
     - name: nginx
       description: Ingress Controller for external access that uses nginx as a reverse proxy
+      offline_usage:
+        linux:
+          repos: []
+          deb: []
+          curl: []
+          additionalImages:
+            - registry.k8s.io/external-dns/external-dns:v0.13.4
+        windows:
+          curl: []
       commands:
         enable:
           cli:
@@ -28,6 +37,15 @@ spec:
             subPath: nginx/Disable.ps1
     - name: traefik
       description: Ingress Controller for external access that uses traefik as a reverse proxy
+      offline_usage:
+        linux:
+          repos: []
+          deb: []
+          curl: []
+          additionalImages:
+            - registry.k8s.io/external-dns/external-dns:v0.13.4
+        windows:
+          curl: []
       commands:
         enable:
           cli:
