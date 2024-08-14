@@ -755,7 +755,7 @@ function Remove-WindowsWorkerNodeOnNewVM {
     if ($DeleteFilesForOfflineInstallation) {
         $kubeBinPath = Get-KubeBinPath
         $windowsBaseFilePath = "$kubeBinPath\Windows-Base.vhdx"
-        $windowsKubenodeBaseFilePath = "$kubeBinPath\Windows-Kubenode-Base.vhdx"
+        $windowsKubenodeBaseFilePath = "$kubeBinPath\Windows-Kubeworker-Base.vhdx"
         if (Test-Path $windowsBaseFilePath) {
             Remove-Item -Path $windowsBaseFilePath -Force
         }
