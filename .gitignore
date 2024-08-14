@@ -86,7 +86,7 @@ containerd/nerdctl.exe
 /bin/Kubemaster-Base-Ubuntu.vhdx
 /bin/Kubenode-Base.vhdx
 /bin/Windows-Base.vhdx
-/bin/Windows-Kubenode-Base.vhdx
+/bin/Windows-Kubeworker-Base.vhdx
 /bin/windowsnode
 /bin/WindowsNodeArtifacts.zip
 
