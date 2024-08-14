@@ -42,7 +42,7 @@ Write-Log "- Package file name: $ZipPackageFileName"
 
 Add-type -AssemblyName System.IO.Compression
 
-function BuildAndProvisionKubemasterBaseImage($WindowsNodeArtifactsZip, $OutputPath) {
+function New-ProvisionedKubemasterBaseImage($WindowsNodeArtifactsZip, $OutputPath) {
     # Expand windows node artifacts directory.
     # Deploy putty and plink for provisioning.
     if (!(Test-Path $WindowsNodeArtifactsZip)) {
@@ -136,7 +136,7 @@ function BuildAndProvisionKubemasterBaseImage($WindowsNodeArtifactsZip, $OutputP
     Write-Log "Provisioned base image available as $OutputPath" -Console
 }
 
-function DownloadAndZipWindowsNodeArtifacts($outputPath) {
+function Get-AndZipWindowsNodeArtifacts($outputPath) {
     Write-Log "Download and create zip file with Windows node artifacts for $outputPath with proxy $Proxy" -Console
     $kubernetesVersion = Get-DefaultK8sVersion
     try {
@@ -166,7 +166,7 @@ function DownloadAndZipWindowsNodeArtifacts($outputPath) {
     Write-Log "Windows node artifacts available as '$outputPath'" -Console
 }
 
-function CreateZipArchive() {
+function New-ZipArchive() {
     Param(
         [parameter(Mandatory = $true)]
         [AllowEmptyCollection()]
@@ -187,7 +187,7 @@ function CreateZipArchive() {
             $zipFile = [System.IO.Compression.ZipArchive]::new($zipFileStream, $zipMode)
         }
         catch {
-            Write-Log "ERROR in CreateZipArchive: $_"
+            Write-Log "ERROR in New-ZipArchive: $_"
             $zipFile, $zipFileStream | ForEach-Object Dispose
 
             if ($EncodeStructuredOutput -eq $true) {
@@ -299,7 +299,7 @@ if ($ForOfflineInstallation) {
     } else {
         try {
             Write-Log "The file '$winNodeArtifactsZipFilePath' does not exist. Creating it using proxy $Proxy ..." -Console
-            DownloadAndZipWindowsNodeArtifacts($winNodeArtifactsZipFilePath)
+            Get-AndZipWindowsNodeArtifacts($winNodeArtifactsZipFilePath)
         }
         catch {
             Write-Log "Creation of file '$winNodeArtifactsZipFilePath' failed. Performing clean-up...Error: $_" -Console
@@ -324,7 +324,7 @@ if ($ForOfflineInstallation) {
     } else {
         try {
             Write-Log "The file '$controlPlaneBaseVhdxPath' does not exist. Creating it..." -Console
-            BuildAndProvisionKubemasterBaseImage -WindowsNodeArtifactsZip:$winNodeArtifactsZipFilePath -OutputPath:$controlPlaneBaseVhdxPath
+            New-ProvisionedKubemasterBaseImage -WindowsNodeArtifactsZip:$winNodeArtifactsZipFilePath -OutputPath:$controlPlaneBaseVhdxPath
         }
         catch {
             Write-Log "Creation of file '$controlPlaneBaseVhdxPath' failed. Performing clean-up... Error: $_" -Console
@@ -355,7 +355,7 @@ $exclusionList | ForEach-Object { " - $_ " } | Write-Log -Console
 
 # create the zip package
 Write-Log 'Start creation of zip package...' -Console
-CreateZipArchive -ExclusionList $exclusionList -BaseDirectory $kubePath -TargetPath "$zipPackagePath"
+New-ZipArchive -ExclusionList $exclusionList -BaseDirectory $kubePath -TargetPath "$zipPackagePath"
 Write-Log 'Finished creation of zip package' -Console
 
 Write-Log "Zip package available as '$zipPackagePath'." -Console
