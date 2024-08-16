@@ -35,7 +35,9 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'Use WSL2 for hosting Control Plane VM')]
     [switch] $WSL = $false,
     [parameter(Mandatory = $false, HelpMessage = 'Append to log file (do not start from scratch)')]
-    [switch] $AppendLogFile = $false
+    [switch] $AppendLogFile = $false,
+    [parameter(Mandatory = $false, HelpMessage = 'The path to local builds of Kubernetes binaries')]
+    [string] $K8sBinsPath = ''
 )
 
 $installStopwatch = [system.diagnostics.stopwatch]::StartNew()
@@ -95,6 +97,7 @@ $workerNodeParams = @{
     DeleteFilesForOfflineInstallation = $DeleteFilesForOfflineInstallation
     ForceOnlineInstallation = $ForceOnlineInstallation
     DnsAddresses = $dnsServers
+    K8sBinsPath = $K8sBinsPath
 }
 & "$PSScriptRoot\..\..\worker-node\windows\windows-host\Install.ps1" @workerNodeParams
 
