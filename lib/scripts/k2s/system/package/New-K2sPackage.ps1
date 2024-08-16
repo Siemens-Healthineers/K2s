@@ -140,7 +140,7 @@ function Get-AndZipWindowsNodeArtifacts($outputPath) {
     Write-Log "Download and create zip file with Windows node artifacts for $outputPath with proxy $Proxy" -Console
     $kubernetesVersion = Get-DefaultK8sVersion
     try {
-        Invoke-DeployWinArtifacts -KubernetesVersion $kubernetesVersion -Proxy "$Proxy"
+        Invoke-DeployWinArtifacts -KubernetesVersion $kubernetesVersion -Proxy "$Proxy" -K8sBinsPath $K8sBinsPath
     } finally {
         Invoke-DownloadsCleanup -DeleteFilesForOfflineInstallation $false
     }
@@ -295,6 +295,9 @@ $winNodeArtifactsZipFilePath = Get-WindowsNodeArtifactsZipFilePath
 if ($ForOfflineInstallation) {
     # Provide windows parts
     if (Test-Path $winNodeArtifactsZipFilePath) {
+        if ($K8sBinsPath -ne '') {
+            Compress-WindowsNodeArtifactsWithLocalKubeTools -K8sBinsPath $K8sBinsPath
+        }
         Write-Log "The already existing file '$winNodeArtifactsZipFilePath' will be used." -Console
     } else {
         try {
@@ -315,8 +318,6 @@ if ($ForOfflineInstallation) {
             exit 1
         }
     }
-
-    exit
 
     # Provide linux parts
     if (Test-Path $controlPlaneBaseVhdxPath) {

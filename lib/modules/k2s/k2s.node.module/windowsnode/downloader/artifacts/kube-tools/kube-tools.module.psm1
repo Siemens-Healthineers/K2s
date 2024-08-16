@@ -28,11 +28,16 @@ function Get-KubeletConfigDir {
     return $kubeletConfigDir
 }
 
-function Invoke-DownloadKubetoolsArtifacts($downloadsBaseDirectory, $KubernetesVersion, $Proxy) {
+function Invoke-DownloadKubetoolsArtifacts($downloadsBaseDirectory, $KubernetesVersion, $Proxy, $K8sBinsPath) {
     $kubetoolsDownloadsDirectory = "$downloadsBaseDirectory\$windowsNode_KubetoolsDirectory"
 
     Write-Log "Create folder '$kubetoolsDownloadsDirectory'"
     mkdir $kubetoolsDownloadsDirectory | Out-Null
+
+    if ($K8sBinsPath -ne '') {
+        Copy-LocalBuildsOfKubeTools -K8sBinsPath $K8sBinsPath -Destination $kubetoolsDownloadsDirectory
+        return
+    }
 
     if (!$KubernetesVersion.StartsWith('v')) {
         $KubernetesVersion = 'v' + $KubernetesVersion
@@ -160,24 +165,46 @@ function Install-WinKubeProxy {
 function Copy-LocalBuildsOfKubeTools {
     Param (
         [parameter(Mandatory = $false, HelpMessage = 'The path to local builds of Kubernetes binaries')]
-        [string] $K8sBinPath = ''
+        [string] $K8sBinsPath = '',
+        [parameter(Mandatory = $false, HelpMessage = 'The destination path where to copy Kubernetes binaries')]
+        [string] $Destination = ''
     )
 
-    if (!$(Test-Path $K8sBinPath)) {
-        Write-Log "No local Kubernetes binary folder '$K8sBinPath' found"
+    if (!$(Test-Path $K8sBinsPath)) {
+        Write-Log "No local Kubernetes binary folder '$K8sBinsPath' found"
         return
     }
 
     $kubetools = @($windowsNode_KubeletExe, $windowsNode_KubeadmExe, $windowsNode_KubeproxyExe, $windowsNode_KubectlExe)
 
     $kubetools | ForEach-Object {
-        $toolPath = Join-Path $K8sBinPath $_
+        $toolPath = Join-Path $K8sBinsPath $_
         if ($(Test-Path $toolPath)) {
             Write-Log "Found local build of '$_' at '$toolPath'"
-            Write-Log "Copying '$toolPath' to '$(Get-KubeToolsPath)'"
-            Copy-Item $toolPath -Destination $(Get-KubeToolsPath) -Force
+            Write-Log "Copying '$toolPath' to '$Destination'"
+            Copy-Item $toolPath -Destination $Destination -Force
         }
     }
+}
+
+function Compress-WindowsNodeArtifactsWithLocalKubeTools {
+    Param (
+        [parameter(Mandatory = $false, HelpMessage = 'The path to local builds of Kubernetes binaries')]
+        [string] $K8sBinsPath = ''
+    )
+
+    $windowsNodeArtifactsZipFilePath = Get-WindowsNodeArtifactsZipFilePath
+    $windowsArtifactsDirectory = Get-WindowsArtifactsDirectory
+    $kubeToolsDirectory = $(Join-Path $windowsArtifactsDirectory $windowsNode_KubetoolsDirectory)
+
+    Expand-Archive -LiteralPath $windowsNodeArtifactsZipFilePath -DestinationPath $windowsArtifactsDirectory
+
+    Copy-LocalBuildsOfKubeTools -K8sBinsPath $K8sBinsPath -Destination $kubeToolsDirectory
+
+    Write-Log 'Create compressed file with artifacts for the Windows node with local builds of Kubernetes binaries'
+    Compress-Archive -Path "$windowsArtifactsDirectory\*" -DestinationPath "$windowsNodeArtifactsZipFilePath" -Force
+
+    Remove-Item $windowsArtifactsDirectory -Force -Recurse
 }
 
 Export-ModuleMember -Function *
