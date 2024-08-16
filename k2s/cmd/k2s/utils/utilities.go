@@ -57,3 +57,8 @@ func EscapeWithDoubleQuotes(str string) string {
 func EscapeWithSingleQuotes(str string) string {
 	return "'" + str + "'"
 }
+
+// Escape $ in case of ssh cmd
+func EscapeDollar(str string) string {
+	return strings.ReplaceAll(str, "$", "```$")
+}
