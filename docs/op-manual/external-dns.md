@@ -79,7 +79,7 @@ k get deployment coredns -n kube-system -o yaml
 
 ### ExternalDNS
 
-Both K2s Ingress addons: `ingress-nginx'  and ' traefik' will install ExternalDNS,
+Both K2s ingress implementations `nginx' and 'traefik' will install ExternalDNS,
 which will observe all ingresses and populate the etcd /skydns path with
 DNS entries  corresponding to the identified endpoints.
 

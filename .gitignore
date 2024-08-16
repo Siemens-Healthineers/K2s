@@ -3,8 +3,8 @@
 # SPDX-License-Identifier: CC0-1.0
 
 #Binaries
-bin/exe/*.exe
-bin/exe/*.dll
+bin/kube/*.exe
+bin/kube/*.dll
 bin/nginx
 bin/helm.exe
 flannel*.exe

@@ -71,7 +71,7 @@ function Invoke-DeployFlannelArtifacts($windowsNodeArtifactsDirectory) {
         throw "Directory '$flannelArtifactsDirectory' does not exist"
     }
     Write-Log 'Publish flannel artifacts'
-    Copy-Item -Path "$flannelArtifactsDirectory\$windowsNode_FlanneldExe" -Destination "$kubeBinPath\exe" -Force
+    Copy-Item -Path "$flannelArtifactsDirectory\$windowsNode_FlanneldExe" -Destination "$kubeBinPath\cni" -Force
 }
 
 function Invoke-DeployCniPlugins($windowsNodeArtifactsDirectory) {
@@ -93,7 +93,7 @@ function Invoke-DeployCniFlannelArtifacts($windowsNodeArtifactsDirectory) {
 }
 
 function Install-WinFlannel {
-    &$kubeBinPath\nssm install flanneld "$kubeBinPath\exe\flanneld.exe"
+    &$kubeBinPath\nssm install flanneld "$kubeBinPath\cni\flanneld.exe"
     $adapterName = Get-L2BridgeName
     Write-Log "Using network adapter '$adapterName'"
     $ipaddresses = @(Get-NetIPAddress -AddressFamily IPv4 -InterfaceAlias $adapterName)

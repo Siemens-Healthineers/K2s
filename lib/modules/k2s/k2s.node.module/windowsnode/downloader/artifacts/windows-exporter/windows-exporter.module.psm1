@@ -32,7 +32,7 @@ function Invoke-DeployWindowsExporterArtifacts($windowsNodeArtifactsDirectory) {
         throw "Directory '$windowsExporterArtifactsDirectory' does not exist"
     }
     Write-Log 'Publish windows exporter artifacts'
-    Copy-Item -Path "$windowsExporterArtifactsDirectory\$windowsNode_WindowsExporterExe" -Destination "$kubeBinPath\exe" -Force
+    Copy-Item -Path "$windowsExporterArtifactsDirectory\$windowsNode_WindowsExporterExe" -Destination "$kubeBinPath" -Force
 }
 
 function Install-WindowsExporter {
@@ -42,7 +42,7 @@ function Install-WindowsExporter {
         mkdir $logDir -Force | Out-Null
     }
 
-    &$kubeBinPath\nssm install windows_exporter "$kubeBinPath\exe\windows_exporter.exe"
+    &$kubeBinPath\nssm install windows_exporter "$kubeBinPath\windows_exporter.exe"
 
     # possible to add --log.level="debug"
     &$kubeBinPath\nssm set windows_exporter AppParameters --web.listen-address=":9100" --collectors.enabled="cpu,cs,logical_disk,net,os,service,system,cpu_info,thermalzone,container" --collector.service.services-where "`"`"Name='kubelet' OR Name='kubeproxy' OR Name='flanneld' OR Name='windows_exporter' OR Name LIKE '%docker%'`"`"" --collector.logical_disk.volume-blacklist 'HarddiskVolume.*' | Out-Null
