@@ -250,17 +250,15 @@ function Initialize-KubernetesCluster {
     Param(
         [parameter(Mandatory = $false, HelpMessage = 'Directory containing additional hooks to be executed after local hooks are executed')]
         [string] $AdditionalHooksDir = '',
-        [string] $PodSubnetworkNumber = $(throw 'Argument missing: PodSubnetworkNumber')
+        [string] $PodSubnetworkNumber = $(throw 'Argument missing: PodSubnetworkNumber'),
+        [string] $JoinCommand = $(throw 'Argument missing: JoinCommand')
     )
-    Copy-KubeConfigFromControlPlaneNode
-    Add-K8sContext
     Invoke-Hook -HookName 'AfterVmInitialized' -AdditionalHooksDir $AdditionalHooksDir
 
     # try to join host windows node
     Write-Log 'starting the join process'
     
-    $joinCommand = New-JoinCommand
-    Join-WindowsNode -CommandForJoining $joinCommand -PodSubnetworkNumber $PodSubnetworkNumber
+    Join-WindowsNode -CommandForJoining $JoinCommand -PodSubnetworkNumber $PodSubnetworkNumber
 
     Set-KubeletDiskPressure
 
@@ -473,4 +471,4 @@ Uninstall-Cluster, Set-KubeletDiskPressure,
 Join-WindowsNode, Join-VMWindowsNode, Add-K8sContext,
 Add-ClusterDnsNameToHost, Initialize-VMKubernetesCluster,
 Set-DiskPressureLimitsOnWindowsNode, Add-IPsToHostsFiles,
-Write-K8sNodesStatus
+Write-K8sNodesStatus, New-JoinCommand
