@@ -15,7 +15,6 @@ Import-Module $configModule, $logModule, $pathModule, $vmModule, $hooksModule, $
 
 $kubePath = Get-KubePath
 $kubeConfigDir = Get-ConfiguredKubeConfigDir
-$setupConfigRoot = Get-RootConfigk2s
 
 $kubeletConfigDir = Get-KubeletConfigDir
 $joinConfigurationFilePath = "$kubePath\cfg\kubeadm\joinwindowsnode.yaml"
@@ -115,12 +114,12 @@ function Join-WindowsNode {
         $tempKubeadmDirectory = $(Get-SystemDriveLetter) + ':\k'
         $bPathAvailable = Test-Path -Path $tempKubeadmDirectory
         if ( !$bPathAvailable ) { mkdir -Force $tempKubeadmDirectory | Out-Null }
-        Copy-Item -Path "$kubePath\bin\exe\kubeadm.exe" -Destination $tempKubeadmDirectory -Force
+        Copy-Item -Path "$kubeToolsPath\kubeadm.exe" -Destination $tempKubeadmDirectory -Force
 
         Write-Log 'Add kubeadm to firewall rules'
         New-NetFirewallRule -DisplayName 'Allow temp Kubeadm' -Group 'k2s' -Direction Inbound -Action Allow -Program "$tempKubeadmDirectory\kubeadm.exe" -Enabled True | Out-Null
         #Below rule is not neccessary but adding in case we perform subsequent operations.
-        New-NetFirewallRule -DisplayName 'Allow Kubeadm' -Group 'k2s' -Direction Inbound -Action Allow -Program "$kubePath\bin\exe\kubeadm.exe" -Enabled True | Out-Null
+        New-NetFirewallRule -DisplayName 'Allow Kubeadm' -Group 'k2s' -Direction Inbound -Action Allow -Program "$kubeToolsPath\kubeadm.exe" -Enabled True | Out-Null
 
         Write-Log "Host $env:COMPUTERNAME not yet available as worker node."
 
@@ -190,7 +189,7 @@ function Join-WindowsNode {
 
     # check success in creating kubelet config file
     $kubeletConfig = "$kubeletConfigDir\config.yaml"
-    Write-Log "kubelect config under: $kubeletConfig"
+    Write-Log "kubelet config under: $kubeletConfig"
     if (! (Test-Path $kubeletConfig)) {
         throw "Expected file not created: $kubeletConfig"
     }

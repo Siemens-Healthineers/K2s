@@ -14,7 +14,7 @@ function Get-KubeBinPath {
 
 function Get-KubeToolsPath {
     $kubeBinPath = Get-KubeBinPath
-    return "$kubeBinPath\exe"
+    return "$kubeBinPath\kube"
 }
 
 function Get-InstallationDriveLetter {
@@ -62,7 +62,7 @@ function Set-EnvVars {
     $kubePath = Get-KubePath
     Update-SystemPath -Action 'add' "$kubePath"
     Update-SystemPath -Action 'add' "$kubePath\bin"
-    Update-SystemPath -Action 'add' "$kubePath\bin\exe"
+    Update-SystemPath -Action 'add' "$kubePath\bin\kube"
     Update-SystemPath -Action 'add' "$kubePath\bin\docker"
     Update-SystemPath -Action 'add' "$kubePath\bin\containerd"
 }
@@ -71,7 +71,7 @@ function Reset-EnvVars {
     $kubePath = Get-KubePath
     Update-SystemPath -Action 'remove' "$kubePath"
     Update-SystemPath -Action 'remove' "$kubePath\bin"
-    Update-SystemPath -Action 'remove' "$kubePath\bin\exe"
+    Update-SystemPath -Action 'remove' "$kubePath\bin\kube"
     Update-SystemPath -Action 'remove' "$kubePath\bin\docker"
     Update-SystemPath -Action 'remove' "$kubePath\containerd" # Backward compatibility
     Update-SystemPath -Action 'remove' "$kubePath\bin\containerd"
