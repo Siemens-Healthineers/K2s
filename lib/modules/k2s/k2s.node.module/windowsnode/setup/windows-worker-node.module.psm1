@@ -549,7 +549,7 @@ function Add-WindowsWorkerNodeOnNewVM {
 
     Write-Log "Initialize ssh connection to Windows VM"
     Initialize-SSHConnectionToWinVM $session2 $IpAddress
-    Enable-SSHRemotingViaSSHKeyToWinNode $session2 $Proxy
+    Enable-SSHRemotingViaSSHKeyToWinNode $session2
 
     $adminWinNode = Get-DefaultWinVMName
     $windowsVMKey = Get-DefaultWinVMKey
