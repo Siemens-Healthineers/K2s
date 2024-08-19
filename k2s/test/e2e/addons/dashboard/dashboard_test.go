@@ -110,7 +110,7 @@ var _ = Describe("'dashboard' addon", Ordered, func() {
 			})
 
 			It("is reachable through port forwarding", func(ctx context.Context) {
-				kubectl := path.Join(suite.RootDir(), "bin", "exe", "kubectl.exe")
+				kubectl := path.Join(suite.RootDir(), "bin", "kube", "kubectl.exe")
 				portForwarding := exec.Command(kubectl, "-n", "dashboard", "port-forward", "svc/kubernetes-dashboard", "8443:443")
 				portForwardingSession, _ = gexec.Start(portForwarding, GinkgoWriter, GinkgoWriter)
 

@@ -113,7 +113,7 @@ var _ = Describe("'security' addon", Ordered, func() {
 	})
 
 	It("installs cmctl.exe, the cert-manager CLI", func(ctx context.Context) {
-		cmCtlPath := path.Join(suite.RootDir(), "bin", "exe", "cmctl.exe")
+		cmCtlPath := path.Join(suite.RootDir(), "bin", "cmctl.exe")
 		_, err := os.Stat(cmCtlPath)
 		Expect(err).To(BeNil())
 	})
@@ -132,7 +132,7 @@ var _ = Describe("'security' addon", Ordered, func() {
 	})
 
 	It("uninstalls cmctl.exe, the cert-manager CLI", func(ctx context.Context) {
-		cmCtlPath := path.Join(suite.RootDir(), "bin", "exe", "cmctl.exe")
+		cmCtlPath := path.Join(suite.RootDir(), "bin", "cmctl.exe")
 		_, err := os.Stat(cmCtlPath)
 		Expect(os.IsNotExist(err)).To(BeTrue())
 	})
