@@ -125,7 +125,7 @@ var _ = Describe("'logging' addon", Ordered, func() {
 		})
 
 		It("is reachable through port forwarding", func(ctx context.Context) {
-			kubectl := path.Join(suite.RootDir(), "bin", "exe", "kubectl.exe")
+			kubectl := path.Join(suite.RootDir(), "bin", "kube", "kubectl.exe")
 			portForwarding := exec.Command(kubectl, "-n", "logging", "port-forward", "svc/opensearch-dashboards", "5601:5601")
 			portForwardingSession, _ = gexec.Start(portForwarding, GinkgoWriter, GinkgoWriter)
 

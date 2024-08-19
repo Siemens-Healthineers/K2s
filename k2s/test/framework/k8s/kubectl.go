@@ -19,7 +19,7 @@ type Kubectl struct {
 }
 
 func NewCli(cliExecutor CliExecutor, rootDir string) *Kubectl {
-	cliPath := filepath.Join(rootDir, "bin", "exe", "kubectl.exe")
+	cliPath := filepath.Join(rootDir, "bin", "kube", "kubectl.exe")
 
 	return &Kubectl{
 		cliPath:     cliPath,
