@@ -137,7 +137,7 @@ function Write-UsageForUser {
  eg. k2s addons enable ingress-nginx
  Once the ingress controller is running in the cluster, run the command to enable updates again (disable it first if updates addon was already enabled).
  k2s addons enable updates
- The ArgoCD dashboard will be accessible on the following URL: https://k2s.cluster.local/updates/ and https://k2s-updates.local (with HTTP using http://.. unstead of https://..)
+ The ArgoCD dashboard will be accessible on the following URL: https://k2s.cluster.local/updates/ and https://k2s-updates.cluster.local (with HTTP using http://.. unstead of https://..)
 
  Option 2: Port-forwading
  Use port-forwarding to the ArgoCD dashboard using the command below:

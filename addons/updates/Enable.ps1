@@ -89,7 +89,7 @@ $VERSION_ARGOCD = 'v2.12.0'
 Write-Log 'Creating updates namespace' -Console
 (Invoke-Kubectl -Params 'create', 'namespace', $UpdatesNamespace)
 
-Write-Log 'Installing Updates addon' -Console
+Write-Log 'Installing updates addon' -Console
 $UpdatesConfig = Get-UpdatesConfig
 (Invoke-Kubectl -Params 'apply' , '-n', $UpdatesNamespace, '-f', $UpdatesConfig).Output | Write-Log
 
