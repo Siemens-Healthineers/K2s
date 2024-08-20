@@ -61,6 +61,9 @@ const (
 
 	ForOfflineInstallationFlagName  = "for-offline-installation"
 	ForOfflineInstallationFlagUsage = "Creates a zip package that can be used for offline installation"
+
+	K8sBinsFlagName  = "k8s-bins"
+	K8sBinsFlagUsage = "Path to directory of locally built Kubernetes binaries (kubelet.exe, kube-proxy.exe, kubeadm.exe, kubectl.exe)"
 )
 
 func init() {
@@ -71,6 +74,7 @@ func init() {
 	PackageCmd.Flags().StringP(TargetDirectoryFlagName, "d", "", TargetDirectoryFlagUsage)
 	PackageCmd.Flags().StringP(ZipPackageFileNameFlagName, "n", "", ZipPackageFileNameFlagUsage)
 	PackageCmd.Flags().Bool(ForOfflineInstallationFlagName, false, ForOfflineInstallationFlagUsage)
+	PackageCmd.Flags().String(K8sBinsFlagName, "", K8sBinsFlagUsage)
 	PackageCmd.Flags().SortFlags = false
 	PackageCmd.Flags().PrintDefaults()
 }
@@ -158,6 +162,11 @@ func buildSystemPackageCmd(flags *pflag.FlagSet) (string, []string, error) {
 	forOfflineInstallation, _ := strconv.ParseBool(flags.Lookup(ForOfflineInstallationFlagName).Value.String())
 	if forOfflineInstallation {
 		params = append(params, " -ForOfflineInstallation")
+	}
+
+	k8sBins := flags.Lookup(K8sBinsFlagName).Value.String()
+	if k8sBins != "" {
+		params = append(params, fmt.Sprintf(" -K8sBinsPath '%s'", k8sBins))
 	}
 
 	return systemPackageCommand, params, nil
