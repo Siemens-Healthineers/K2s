@@ -136,10 +136,10 @@ var _ = Describe("'updates' addon", Ordered, func() {
 
 		It("is reachable through port forwarding", func(ctx context.Context) {
 			kubectl := path.Join(suite.RootDir(), "bin", "exe", "kubectl.exe")
-			portForwarding := exec.Command(kubectl, "-n", "updates", "port-forward", "svc/argocd-server", "3234:443")
+			portForwarding := exec.Command(kubectl, "-n", "updates", "port-forward", "svc/argocd-server", "8080:443")
 			portForwardingSession, _ = gexec.Start(portForwarding, GinkgoWriter, GinkgoWriter)
 
-			url := "https://localhost:3234/updates/"
+			url := "https://localhost:8080/updates/"
 			httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-I", "-m", "5", "--retry", "3", "--fail")
 			Expect(httpStatus).To(ContainSubstring("200"))
 		})
