@@ -14,8 +14,8 @@ to automate the deployment of application based on Git repositories. The addon c
 either be used by directly accessing the argocd cli or using the exposed web interface.
 
 .EXAMPLE
-Disable updates in k2s
-powershell <installation folder>\addons\update\Disable.ps1
+Disable updates addon in k2s
+powershell <installation folder>\addons\updates\Disable.ps1
 #>
 
 Param (
