@@ -2,19 +2,6 @@
 #
 # SPDX-License-Identifier: MIT
 ---
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  labels:
-    app.kubernetes.io/name: argocd-cmd-params-cm
-    app.kubernetes.io/part-of: argocd
-  name: argocd-cmd-params-cm
-data:
-  # Value for base href in index.html. Used if Argo CD is running behind reverse proxy under subpath different from / (default "/")
-  server.basehref: "/updates"
-  # Used if Argo CD is running behind reverse proxy under subpath different from /
-  server.rootpath: "/updates"
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -83,9 +70,7 @@ subjects:
 - kind: ServiceAccount
   name: argocd-application-controller
   namespace: updates
-
 ---
-
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
