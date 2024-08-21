@@ -78,7 +78,7 @@ argocd app sync guestbook
 #### Via the web UI
 
 Step 1 - Login via the UI
-Visit k2s-updates.cluster.local and login using the credentials return by the enable process.
+Visit `k2s-updates.cluster.local` and login using the credentials return by the enable process.
 
 Step 2 - Add a repository
 Navigate to Settings -> Repository -> Connect Repo

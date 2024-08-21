@@ -15,10 +15,10 @@ either be used by directly accessing the argocd cli or using the exposed web int
 
 .EXAMPLE
 Enable updates in k2s
-powershell <installation folder>\addons\update\Enable.ps1
+powershell <installation folder>\addons\updates\Enable.ps1
 
-Enable Dashboard in k2s with ingress-nginx addon and metrics server addon
-powershell <installation folder>\addons\update\Enable.ps1 -Ingress "nginx"
+Enable updates addon in k2s with ingress nginx addon
+powershell <installation folder>\addons\updates\Enable.ps1 -Ingress "nginx"
 #>
 
 [CmdletBinding(SupportsShouldProcess = $true)]
