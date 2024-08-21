@@ -84,7 +84,7 @@ if ((Test-IsAddonEnabled -Addon ([PSCustomObject]@{Name = 'updates'})) -eq $true
 
 $UpdatesNamespace = 'updates'
 
-$VERSION_ARGOCD = 'v2.12.0'
+$VERSION_ARGOCD = 'v2.12.1'
 
 Write-Log 'Creating updates namespace' -Console
 (Invoke-Kubectl -Params 'create', 'namespace', $UpdatesNamespace)
