@@ -42,7 +42,7 @@ To access updates dashboard via port-forwarding, the following command can be ex
 ```
 kubectl -n updates port-forward svc/argocd-server 8080:443
 ```
-In this case, the updates dashboard UI can be accessed at the following link: http://localhost:8080
+In this case, the updates dashboard UI can be accessed at the following link: http://localhost:8080/updates
 
 ### Deploy an application with the updates addon
 
@@ -119,7 +119,7 @@ The reason for this is the scoped installtion of ArgoCD to the `updates` namespa
 [-] k2-updates.cluster.local/ - nginx (modify with strip)
 [-] k2-updates.cluster.local/ - Traefik (modify with strip)
 
-[] Kubectl port forward -> problem mit basepath
+[x] Kubectl port forward -> problem mit basepath
 
 [x] ArgoCD binary download
 [x] Retrieve Credentials and add Write-UsageForUser
@@ -128,7 +128,7 @@ The reason for this is the scoped installtion of ArgoCD to the `updates` namespa
 
 [] `k2s system upgrade` functionallity
 
-[] Add documentation for deploying applications
+[x] Add documentation for deploying applications
 
 [x] Go e2e tests
 
