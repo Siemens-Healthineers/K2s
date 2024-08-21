@@ -91,7 +91,7 @@ Write-Log 'Creating updates namespace'
 
 Write-Log 'Installing updates addon' -Console
 $UpdatesConfig = Get-UpdatesConfig
-(Invoke-Kubectl -Params 'apply' , '-n', $UpdatesNamespace, '-f', $UpdatesConfig).Output | Write-Log
+(Invoke-Kubectl -Params 'apply' , '-n', $UpdatesNamespace, '-k', $UpdatesConfig).Output | Write-Log
 
 $binPath = Get-KubeBinPath
 if (!(Test-Path "$binPath\argocd.exe")) {

@@ -21,12 +21,12 @@ Contains common methods for installing and uninstalling updates addon
 Gets the location of manifests to deploy ArgoCD
 #>
 function Get-UpdatesConfig {
-    return "$PSScriptRoot\manifests\argocd.yaml"
+    return "$PSScriptRoot\manifests\argocd\overlay"
 }
 
 <#
 .DESCRIPTION
-Gets the location of nginx ingress yaml to expose the addons dashboard
+Gets the location of nginx ingress yaml to expose the ArgoCD dashboard
 #>
 function Get-UpdatesDashboardNginxConfig {
     return "$PSScriptRoot\manifests\updates-nginx-ingress.yaml"
@@ -35,7 +35,7 @@ function Get-UpdatesDashboardNginxConfig {
 
 <#
 .DESCRIPTION
-Gets the location of traefik ingress yaml to expose the addons dashboard
+Gets the location of traefik ingress yaml to expose the ArgoCD dasboard
 #>
 function Get-UpdatesDashboardTraefikConfig {
     return "$PSScriptRoot\manifests\updates-traefik-ingress.yaml"

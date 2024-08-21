@@ -143,5 +143,16 @@ data:
   server.rootpath: "/updates"
 ```
 
+```
+kubectl -n updates set env deployment/argocd-server HTTP_PROXY=http://172.19.1.1:8181/ HTTPS_PROXY=http://172.19.1.1:8181/ 
+
+kubectl -n updates set env deployment/argocd-server HTTP_PROXY=http://172.19.1.1:8181/ HTTPS_PROXY=http://172.19.1.1:8181/ NO_PROXY=argocd-repo-server,argocd-application-controller,argocd-metrics,argocd-server,argocd-server-metrics,argocd-redis,argocd-dex-server,172.20.0.0,172.19.0.0,localhost
+
+kubectl -n updates set env deployment/argocd-repo-server HTTP_PROXY=http://172.19.1.1:8181/ HTTPS_PROXY=http://172.19.1.1:8181/
+
+kubectl -n updates set env deployment/argocd-dex-server HTTP_PROXY=http://172.19.1.1:8181/ HTTPS_PROXY=http://172.19.1.1:8181/
+```
+
+
 
 
