@@ -105,6 +105,11 @@ k2s addons disable updates
 
 _Note:_ The above command will only disable updates addon. If other addons were enabled while enabling the updates addon, they will not be disabled.
 
+## Further Information
+
+If you want to use `argocd admin export` and `argocd admin import` you have to specific the `updates` namespace: e.g. `argocd admin export -n updates`.
+The reason for this is the scoped installtion of ArgoCD to the `updates` namespace 
+
 ## Further Reading
 - [ArgoCD](https://argo-cd.readthedocs.io/en/stable/)
 
