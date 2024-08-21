@@ -86,8 +86,8 @@ $UpdatesNamespace = 'updates'
 
 $VERSION_ARGOCD = 'v2.12.0'
 
-Write-Log 'Creating updates namespace' -Console
-(Invoke-Kubectl -Params 'create', 'namespace', $UpdatesNamespace)
+Write-Log 'Creating updates namespace'
+(Invoke-Kubectl -Params 'create', 'namespace', $UpdatesNamespace).Output | Write-Log
 
 Write-Log 'Installing updates addon' -Console
 $UpdatesConfig = Get-UpdatesConfig
@@ -140,8 +140,7 @@ $ArgoCD_Password_output = argocd.exe admin initial-password -n $UpdatesNamespace
 $pattern = '^\S+' # Match first squence of non-whitespace characters
 $ARGOCD_Password = [regex]::Match($ArgoCD_Password_output, $pattern).Value
 
-$kubectlCmd = (Invoke-Kubectl -Params 'delete', 'secret', 'argocd-initial-secret', '-n', $UpdatesNamespace)
-Write-Log $kubectlCmd.Output
+(Invoke-Kubectl -Params 'delete', 'secret', 'argocd-initial-secret', '-n', $UpdatesNamespace).Output | Write-Log
 
 Write-Log 'Installation of Kubernetes updates addon finished.' -Console
 

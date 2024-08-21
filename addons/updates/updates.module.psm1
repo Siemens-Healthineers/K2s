@@ -131,10 +131,10 @@ function Write-UsageForUser {
  To open ArgoCD dashboard, please use one of the options:
  
  Option 1: Access via ingress
- Please install either ingress-nginx addon or traefik addon from k2s.
+ Please install either ingress nginx addon or ingress traefik addon from k2s.
  or you can install them on your own.
  Enable ingress controller via k2s cli
- eg. k2s addons enable ingress-nginx
+ eg. k2s addons enable ingress nginx
  Once the ingress controller is running in the cluster, run the command to enable updates again (disable it first if updates addon was already enabled).
  k2s addons enable updates
  The ArgoCD dashboard will be accessible on the following URL: https://k2s.cluster.local/updates/ and https://k2s-updates.cluster.local (with HTTP using http://.. unstead of https://..)
@@ -151,6 +151,6 @@ function Write-UsageForUser {
 
  To use the argo cli please login with: argocd login k2s-updates.local
 
- Please change the password immediately, this ca be done via the dashboard or via the cli with: argocd account update-password
+ Please change the password immediately, this can be done via the dashboard or via the cli with: argocd account update-password
 "@ -split "`r`n" | ForEach-Object { Write-Log $_ -Console }
 }
