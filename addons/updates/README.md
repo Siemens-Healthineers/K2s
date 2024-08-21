@@ -133,15 +133,3 @@ The reason for this is the scoped installtion of ArgoCD to the `updates` namespa
 [x] Go e2e tests
 
 ([] ArgoRollout)
-
-Argo ConfigMap
-```
-data:
-  # Value for base href in index.html. Used if Argo CD is running behind reverse proxy under subpath different from / (default "/")
-  server.basehref: "/updates"
-  # Used if Argo CD is running behind reverse proxy under subpath different from /
-  server.rootpath: "/updates"
-```
-
-
-

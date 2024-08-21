@@ -1,0 +1,96 @@
+# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+#
+# SPDX-License-Identifier: MIT
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/name: argocd-cmd-params-cm
+    app.kubernetes.io/part-of: argocd
+  name: argocd-cmd-params-cm
+data:
+  # Value for base href in index.html. Used if Argo CD is running behind reverse proxy under subpath different from / (default "/")
+  server.basehref: "/updates"
+  # Used if Argo CD is running behind reverse proxy under subpath different from /
+  server.rootpath: "/updates"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: argocd-server
+spec:
+  template:
+    spec:
+      containers:
+        - name: argocd-server
+          env:
+            - name: HTTP_PROXY
+              value: "http://172.19.1.1:8181/"
+            - name: HTTPS_PROXY
+              value: "http://172.19.1.1:8181/"
+            - name: NO_PROXY
+              value: argocd-repo-server,argocd-application-controller,argocd-metrics,argocd-server,argocd-server-metrics,argocd-redis,argocd-dex-server,172.20.0.0,172.19.0.0,localhost
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: argocd-repo-server
+spec:
+  template:
+    spec:
+      containers:
+        - name: argocd-repo-server
+          env:
+            - name: HTTP_PROXY
+              value: "http://172.19.1.1:8181/"
+            - name: HTTPS_PROXY
+              value: "http://172.19.1.1:8181/"
+            - name: NO_PROXY
+              value: argocd-repo-server,argocd-application-controller,argocd-metrics,argocd-server,argocd-server-metrics,argocd-redis,argocd-dex-server,172.20.0.0,172.19.0.0,localhost
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: argocd-dex-server
+spec:
+  template:
+    spec:
+      containers:
+        - name: dex
+          env:
+            - name: HTTP_PROXY
+              value: "http://172.19.1.1:8181/"
+            - name: HTTPS_PROXY
+              value: "http://172.19.1.1:8181/"
+            - name: NO_PROXY
+              value: argocd-repo-server,argocd-application-controller,argocd-metrics,argocd-server,argocd-server-metrics,argocd-redis,argocd-dex-server,172.20.0.0,172.19.0.0,localhost
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: argocd-applicationset-controller
+subjects:
+- kind: ServiceAccount
+  name: argocd-applicationset-controller
+  namespace: updates
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: argocd-application-controller
+subjects:
+- kind: ServiceAccount
+  name: argocd-application-controller
+  namespace: updates
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: argocd-server
+subjects:
+- kind: ServiceAccount
+  name: argocd-server
+  namespace: updates
