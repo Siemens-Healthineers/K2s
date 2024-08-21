@@ -1,9 +1,7 @@
 # SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
 #
 # SPDX-License-Identifier: MIT
-
 ---
-
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
@@ -21299,7 +21297,7 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: argocd-application-controller
-  namespace: updates
+  namespace: argocd
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -21316,7 +21314,7 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: argocd-applicationset-controller
-  namespace: updates
+  namespace: argocd
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -21333,7 +21331,7 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: argocd-server
-  namespace: updates
+  namespace: argocd
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -21350,11 +21348,6 @@ metadata:
     app.kubernetes.io/name: argocd-cmd-params-cm
     app.kubernetes.io/part-of: argocd
   name: argocd-cmd-params-cm
-data:
-  # Value for base href in index.html. Used if Argo CD is running behind reverse proxy under subpath different from / (default "/")
-  server.basehref: "/updates"
-  # Used if Argo CD is running behind reverse proxy under subpath different from /
-  server.rootpath: "/updates"
 ---
 apiVersion: v1
 kind: ConfigMap

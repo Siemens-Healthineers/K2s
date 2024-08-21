@@ -64,7 +64,7 @@ if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'updates', '--ignore-n
 Write-Log 'Uninstalling updates addon' -Console
 $UpdatesConfig = Get-UpdatesConfig
 
-(Invoke-Kubectl -Params 'delete', '-n', 'updates', '-f', $UpdatesConfig).Output | Write-Log
+(Invoke-Kubectl -Params 'delete', '-n', 'updates', '-k', $UpdatesConfig).Output | Write-Log
 
 (Invoke-Kubectl -Params 'delete', 'namespace', 'updates').Output | Write-Log
 

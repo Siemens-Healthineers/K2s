@@ -42,7 +42,7 @@ To access updates dashboard via port-forwarding, the following command can be ex
 ```
 kubectl -n updates port-forward svc/argocd-server 8080:443
 ```
-In this case, the updates dashboard UI can be accessed at the following link: http://localhost:8080
+In this case, the updates dashboard UI can be accessed at the following link: http://localhost:8080/updates
 
 ### Deploy an application with the updates addon
 
@@ -105,6 +105,11 @@ k2s addons disable updates
 
 _Note:_ The above command will only disable updates addon. If other addons were enabled while enabling the updates addon, they will not be disabled.
 
+## Further Information
+
+If you want to use `argocd admin export` and `argocd admin import` you have to specific the `updates` namespace: e.g. `argocd admin export -n updates`.
+The reason for this is the scoped installtion of ArgoCD to the `updates` namespace 
+
 ## Further Reading
 - [ArgoCD](https://argo-cd.readthedocs.io/en/stable/)
 
@@ -114,7 +119,7 @@ _Note:_ The above command will only disable updates addon. If other addons were 
 [-] k2-updates.cluster.local/ - nginx (modify with strip)
 [-] k2-updates.cluster.local/ - Traefik (modify with strip)
 
-[] Kubectl port forward -> problem mit basepath
+[x] Kubectl port forward -> problem mit basepath
 
 [x] ArgoCD binary download
 [x] Retrieve Credentials and add Write-UsageForUser
@@ -123,20 +128,8 @@ _Note:_ The above command will only disable updates addon. If other addons were 
 
 [] `k2s system upgrade` functionallity
 
-[] Add documentation for deploying applications
+[x] Add documentation for deploying applications
 
 [x] Go e2e tests
 
 ([] ArgoRollout)
-
-Argo ConfigMap
-```
-data:
-  # Value for base href in index.html. Used if Argo CD is running behind reverse proxy under subpath different from / (default "/")
-  server.basehref: "/updates"
-  # Used if Argo CD is running behind reverse proxy under subpath different from /
-  server.rootpath: "/updates"
-```
-
-
-
