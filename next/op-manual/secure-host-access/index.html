@@ -23,7 +23,7 @@ SPDX-License-Identifier: MIT
       
       
       <link rel="icon" href="../../assets/logo.png">
-      <meta name="generator" content="mkdocs-1.6.0, mkdocs-material-9.5.31">
+      <meta name="generator" content="mkdocs-1.6.0, mkdocs-material-9.5.32">
     
     
       
@@ -1631,7 +1631,7 @@ SPDX-License-Identifier: MIT
 -->
 
 <h1 id="secure-host-access">Secure Host Access</h1>
-<p><em>K2s</em> provides three addons which can be used to expose the functionality implemented inside the <em>Kubernetes</em> cluster outside of it: <code>ingress-nginx</code>, <code>ingress traefik</code> and <code>gateway-api</code>.</p>
+<p><em>K2s</em> provides three addons which can be used to expose the functionality implemented inside the <em>Kubernetes</em> cluster outside of it: <code>ingress nginx</code>, <code>ingress traefik</code> and <code>gateway-api</code>.</p>
 <p>However, because the whole <em>K2s</em> solution relies on a private network, the exposed endpoints are only available inside this private network, running behind the <em>Windows</em> host - regardless which <a href="../../user-guide/hosting-variants/">Hosting Variant</a> is used.</p>
 <p>In this document, we will assume you have enabled the <em>K2s</em> addon <code>dashboard</code>, so it is usable on your local host at <code>http://k2s-dashboard.cluster.local</code>, and we further more assume you have an own product configured in one of the <em>K2s</em> ingress, reachable locally under <code>http://my-product.local</code>.</p>
 <p>If we want to expose the <em>ingress</em> / <em>gateway</em> endpoints outside of the <em>Windows</em> host in a secure manner, we need to configure a reverse proxy on the <em>Windows</em> host. The following picture shows this schematically for one of the variants:</p>
@@ -1708,17 +1708,17 @@ SPDX-License-Identifier: MIT
 <p>Activate <abbr title="Secure Sockets Layer">SSL</abbr> binding for your default site in <em><abbr title="Internet Information Services">IIS</abbr></em>. You need a server certificate to do that.</p>
 <p><img alt="IIS Site Bindings" src="../assets/iis-site-bindings.png" /></p>
 <ol>
-<li>In <em><abbr title="Internet Information Services">IIS</abbr> Manager</em>, navigate to your default site and select <code>Authentication</code> in the <code>IIS</code> section of the <code>Features View</code>.</li>
+<li>In <em><abbr title="Internet Information Services">IIS</abbr> Manager</em>, navigate to your default site and select <code>Authentication</code> in the <code><abbr title="Internet Information Services">IIS</abbr></code> section of the <code>Features View</code>.</li>
 </ol>
 <p>Enable <code>Windows Authentication</code>:</p>
 <p><img alt="IIS Windows Authentication" src="../assets/iis-windows-auth.png" /></p>
 <ol>
-<li>In <em><abbr title="Internet Information Services">IIS</abbr> Manager</em>, select your computer (root node) and then select <code>Application Request Routing Cache</code> in the <code>IIS</code> section of the <code>Features View</code>. Then select <code>Server Proxy Settings...</code> in the <code>Actions pane</code>, and enable the proxy:</li>
+<li>In <em><abbr title="Internet Information Services">IIS</abbr> Manager</em>, select your computer (root node) and then select <code>Application Request Routing Cache</code> in the <code><abbr title="Internet Information Services">IIS</abbr></code> section of the <code>Features View</code>. Then select <code>Server Proxy Settings...</code> in the <code>Actions pane</code>, and enable the proxy:</li>
 </ol>
 <p><img alt="IIS Proxy Settings" src="../assets/iis-proxy-settings.png" /></p>
 <p>Also activate the <code>Reverse rewrite host in response headers</code>.</p>
 <ol>
-<li>Finally, in <em><abbr title="Internet Information Services">IIS</abbr> Manager</em>, navigate to your default site again, select <code>URL Rewrite</code>, and create your inbound and outbound rules. Alternatively, update the configuration file under <code>C:\inetpub\wwwroot\web.config</code> and restart the site in <em><abbr title="Internet Information Services">IIS</abbr></em>.</li>
+<li>Finally, in <em><abbr title="Internet Information Services">IIS</abbr> Manager</em>, navigate to your default site again, select <code><abbr title="Uniform Resource Locator">URL</abbr> Rewrite</code>, and create your inbound and outbound rules. Alternatively, update the configuration file under <code>C:\inetpub\wwwroot\web.config</code> and restart the site in <em><abbr title="Internet Information Services">IIS</abbr></em>.</li>
 </ol>
 <p>The example below shows how to forward requests to two different ingress endpoints, one of them being the <em>K2s</em> dashboard also used in the previous section.</p>
 <div class="highlight"><span class="filename">XML</span><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="cp">&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;</span>
@@ -1885,7 +1885,7 @@ SPDX-License-Identifier: MIT
     <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.top", "navigation.tabs", "navigation.tabs.sticky", "navigation.instant", "navigation.instant.progress", "navigation.tracking", "navigation.footer", "navigation.indexes", "search.suggest", "search.highlight", "search.share", "announce.dismiss", "content.action.edit", "content.code.copy", "content.code.annotate"], "search": "../../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"alias": true, "default": "latest", "provider": "mike"}}</script>
     
     
-      <script src="../../assets/javascripts/bundle.fe8b6f2b.min.js"></script>
+      <script src="../../assets/javascripts/bundle.471ce7a9.min.js"></script>
       
     
   </body>
