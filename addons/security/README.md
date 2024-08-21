@@ -22,7 +22,7 @@ The `security` addon can be enabled using the `k2s` CLI:
 k2s addons enable security
 ```
 
-These addons have currently also web applications included: **dashboard**, **login** and **monitoring**.
+These addons have currently also web applications included: **dashboard**, **logging** and **monitoring**.
 In this version in order to test the basic security model on these addons they have to be enabled **before** the security addon is enabled!
 In addition also the security settings were tested only with the **ingress nginx** addon.
 
