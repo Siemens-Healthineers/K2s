@@ -4,7 +4,7 @@ SPDX-License-Identifier: MIT
 -->
 
 # Secure Host Access
-*K2s* provides three addons which can be used to expose the functionality implemented inside the *Kubernetes* cluster outside of it: `ingress-nginx`, `ingress traefik` and `gateway-api`.
+*K2s* provides three addons which can be used to expose the functionality implemented inside the *Kubernetes* cluster outside of it: `ingress nginx`, `ingress traefik` and `gateway-api`.
 
 However, because the whole *K2s* solution relies on a private network, the exposed endpoints are only available inside this private network, running behind the *Windows* host - regardless which [Hosting Variant](../user-guide/hosting-variants.md) is used.
 
