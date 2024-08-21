@@ -77,6 +77,8 @@ elseif (Test-NginxIngressControllerAvailability) {
     (Invoke-Kubectl -Params 'delete', '-f', $updatesDashboardNginxIngressConfig, '--ignore-not-found').Output | Write-Log
 }
 
+Remove-Item "$binPath\argocd.exe" -Force -ErrorAction SilentlyContinue
+
 Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'updates' })
 Write-Log 'Uninstallation of updates addon finished' -Console
 
