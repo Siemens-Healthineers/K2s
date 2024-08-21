@@ -301,7 +301,7 @@ function Remove-AddonFromSetupJson {
             } else {
                 $hasImplementationProperty = $addonExists | Where-Object { $null -ne $_.Implementation }
                 if (!$hasImplementationProperty) {
-                    $newEnabledAddons = $enabledAddons | Where-Object { $_.Name -ne $Addon.Name }
+                    $newEnabledAddons = @($enabledAddons | Where-Object { $_.Name -ne $Addon.Name })
                 } else {
                     throw "More than one implementation of addon '$($Addon.Name)'. Please specify the implementation!"
                 }
