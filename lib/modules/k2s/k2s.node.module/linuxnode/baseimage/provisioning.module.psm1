@@ -815,7 +815,7 @@ function Clear-ProvisioningArtifacts {
             ) 
 
             $vm = Get-VM | Where-Object Name -Like $VmName
-            Write-Log "Ensure VM $VmName is stopped" -Console
+            Write-Log "Ensure VM $VmName is stopped"
             if ($null -ne $vm) {
                 Stop-VirtualMachineForBaseImageProvisioning -Name $VmName
             }
@@ -833,9 +833,9 @@ function Clear-ProvisioningArtifacts {
             [string]$VhdxFilePath = $(throw "Argument missing: VhdxFilePath")
             ) 
 
-        Write-Log "Detach the image '$VhdxFilePath' from the VM '$VmName'" -Console
+        Write-Log "Detach the image '$VhdxFilePath' from the VM '$VmName'"
         Remove-VirtualMachineForBaseImageProvisioning -VmName $VmName -VhdxFilePath $VhdxFilePath
-        Write-Log "Remove the switch '$SwitchName' and nat '$NatName' for provisioning the image" -Console
+        Write-Log "Remove the switch '$SwitchName' and nat '$NatName' for provisioning the image"
         Remove-NetworkForProvisioning -NatName $NatName -SwitchName $SwitchName
     }
 

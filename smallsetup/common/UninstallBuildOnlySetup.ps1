@@ -35,7 +35,7 @@ Write-Log "Uninstalling $global:VMName" -Console
 Remove-Item -Path "$global:NssmInstallDirectory\nssm.exe" -Force -ErrorAction SilentlyContinue
 
 Get-ChildItem "$($global:SystemDriveLetter):\var" -Recurse -ErrorAction SilentlyContinue | ? LinkType -eq 'SymbolicLink' | % { $_.Delete() }
-Remove-Item -Path "$global:SetupJsonFile" -Force -ErrorAction SilentlyContinue
+Remove-Item -Path "$global:K2sConfigDir" -Force -Recurse -ErrorAction SilentlyContinue
 
 Write-Log 'Delete downloaded artifacts for the Windows node'
 &"$global:KubernetesPath\smallsetup\windowsnode\downloader\DownloadsCleaner.ps1" -DeleteFilesForOfflineInstallation $DeleteFilesForOfflineInstallation

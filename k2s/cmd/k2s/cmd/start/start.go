@@ -39,8 +39,8 @@ func init() {
 func startk8s(ccmd *cobra.Command, args []string) error {
 	pterm.Printfln("🤖 Starting K2s on %s", utils.Platform())
 
-	configDir := ccmd.Context().Value(common.ContextKeyConfigDir).(string)
-	config, err := setupinfo.LoadConfig(configDir)
+	context := ccmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
+	config, err := setupinfo.ReadConfig(context.Config().Host.K2sConfigDir)
 	if err != nil {
 		if errors.Is(err, setupinfo.ErrSystemInCorruptedState) {
 			return common.CreateSystemInCorruptedStateCmdFailure()
@@ -64,14 +64,9 @@ func startk8s(ccmd *cobra.Command, args []string) error {
 
 	slog.Debug("PS command created", "command", startCmd)
 
-	outputWriter, err := common.NewOutputWriter()
-	if err != nil {
-		return err
-	}
-
 	start := time.Now()
 
-	err = powershell.ExecutePs(startCmd, common.DeterminePsVersion(config), outputWriter)
+	err = powershell.ExecutePs(startCmd, common.DeterminePsVersion(config), common.NewPtermWriter())
 	if err != nil {
 		return err
 	}

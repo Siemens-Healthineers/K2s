@@ -38,8 +38,8 @@ func resetSystem(cmd *cobra.Command, args []string) error {
 
 	slog.Debug("PS command created", "command", resetSystemCommand)
 
-	configDir := cmd.Context().Value(common.ContextKeyConfigDir).(string)
-	config, err := setupinfo.LoadConfig(configDir)
+	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
+	config, err := setupinfo.ReadConfig(context.Config().Host.K2sConfigDir)
 	if err != nil {
 		if !errors.Is(err, setupinfo.ErrSystemInCorruptedState) && !errors.Is(err, setupinfo.ErrSystemNotInstalled) {
 			return err
@@ -50,14 +50,9 @@ func resetSystem(cmd *cobra.Command, args []string) error {
 		return common.CreateFunctionalityNotAvailableCmdFailure(config.SetupName)
 	}
 
-	outputWriter, err := common.NewOutputWriter()
-	if err != nil {
-		return err
-	}
-
 	start := time.Now()
 
-	err = powershell.ExecutePs(resetSystemCommand, common.DeterminePsVersion(config), outputWriter)
+	err = powershell.ExecutePs(resetSystemCommand, common.DeterminePsVersion(config), common.NewPtermWriter())
 	if err != nil {
 		return err
 	}

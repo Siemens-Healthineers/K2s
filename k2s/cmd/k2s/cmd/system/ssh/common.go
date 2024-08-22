@@ -43,11 +43,7 @@ var (
 	}
 
 	cmdOverSshExecFunc func(baseCmd, cmd string, psVersion powershell.PowerShellVersion) error = func(baseCmd, cmd string, psVersion powershell.PowerShellVersion) error {
-		outputWriter, err := common.NewOutputWriter()
-		if err != nil {
-			return err
-		}
-
+		outputWriter := common.NewPtermWriter()
 		outputWriter.ShowProgress = false
 
 		cmdResult, err := powershell.ExecutePsWithStructuredResult[*common.CmdResult](
@@ -56,7 +52,7 @@ var (
 			psVersion,
 			outputWriter,
 			"-Command",
-			utils.EscapeWithSingleQuotes(cmd))
+			utils.EscapeWithDoubleQuotes(utils.EscapeWithDoubleQuotes(utils.EscapeDollar(cmd)))) //must be escaped doubled to be invoked properly from central Invoke-ExecScript.ps1
 		if err != nil {
 			return err
 		}

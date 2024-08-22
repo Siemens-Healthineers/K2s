@@ -30,6 +30,7 @@ type K2sTestSuite struct {
 	proxy                string
 	rootDir              string
 	setupInstalled       bool
+	offlineMode          bool
 	initialSystemState   initialSystemStateType
 	testStepTimeout      time.Duration
 	testStepPollInterval time.Duration
@@ -61,6 +62,7 @@ const (
 
 func Setup(ctx context.Context, args ...any) *K2sTestSuite {
 	proxy := determineProxy()
+	offlineMode := determineOfflineMode()
 	testStepTimeout := determineTestStepTimeout()
 	testStepPollInterval := determineTestStepPollInterval()
 
@@ -100,6 +102,7 @@ func Setup(ctx context.Context, args ...any) *K2sTestSuite {
 		proxy:                proxy,
 		rootDir:              rootDir,
 		setupInstalled:       !noSetupInstalled,
+		offlineMode:          offlineMode,
 		initialSystemState:   initialSystemState,
 		testStepTimeout:      clusterTestStepTimeout,
 		testStepPollInterval: clusterTestStepPollInterval,
@@ -167,6 +170,10 @@ func (s *K2sTestSuite) TestStepPollInterval() time.Duration {
 
 func (s *K2sTestSuite) Proxy() string {
 	return s.proxy
+}
+
+func (s *K2sTestSuite) IsOfflineMode() bool {
+	return s.offlineMode
 }
 
 func (s *K2sTestSuite) RootDir() string {

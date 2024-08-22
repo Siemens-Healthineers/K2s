@@ -66,8 +66,8 @@ function Wait-ForAPIServer {
             break;
         }
         if ($iteration -eq 10) {
-            Write-Log 'API Server could not be started up, aborting...'
-            throw 'Unable to get the API Server running !'
+            Write-Log $result -Error
+            throw $result
         }
         Start-Sleep 2
     }
@@ -129,12 +129,6 @@ function Update-NodeLabelsAndTaints {
         # taint windows nodes
         &"$kubeToolsPath\kubectl.exe" taint nodes $nodeName OS=Windows:NoSchedule --overwrite
     }
-
-    # change default policy in VM (after restart of VM always policy is changed automatically)
-    Write-Log 'Reconfiguring volatile settings in VM...'
-    (Invoke-CmdOnControlPlaneViaSSHKey 'sudo iptables --policy FORWARD ACCEPT').Output | Write-Log
-    (Invoke-CmdOnControlPlaneViaSSHKey 'sudo sysctl fs.inotify.max_user_instances=8192').Output | Write-Log
-    (Invoke-CmdOnControlPlaneViaSSHKey 'sudo sysctl fs.inotify.max_user_watches=524288').Output | Write-Log
 }
 
 function Get-Cni0IpAddressInControlPlaneUsingSshWithRetries {
@@ -143,7 +137,7 @@ function Get-Cni0IpAddressInControlPlaneUsingSshWithRetries {
         [int] $RetryTimeoutInSeconds
     )
     $ipAddr = ''
-    for($i = 1; $i -le $Retries; ++$i) {
+    for ($i = 1; $i -le $Retries; ++$i) {
         $ipAddr = (Invoke-CmdOnControlPlaneViaSSHKey "ip addr show dev cni0 | grep 'inet ' | awk '{print `$2}' | cut -d/ -f1" -NoLog).Output
         $isIpAddress = [bool]($ipAddr -as [ipaddress])
         if ($isIpAddress) {

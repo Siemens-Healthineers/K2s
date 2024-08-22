@@ -61,6 +61,9 @@ const (
 
 	ForOfflineInstallationFlagName  = "for-offline-installation"
 	ForOfflineInstallationFlagUsage = "Creates a zip package that can be used for offline installation"
+
+	K8sBinsFlagName  = "k8s-bins"
+	K8sBinsFlagUsage = "Path to directory of locally built Kubernetes binaries (kubelet.exe, kube-proxy.exe, kubeadm.exe, kubectl.exe)"
 )
 
 func init() {
@@ -71,6 +74,7 @@ func init() {
 	PackageCmd.Flags().StringP(TargetDirectoryFlagName, "d", "", TargetDirectoryFlagUsage)
 	PackageCmd.Flags().StringP(ZipPackageFileNameFlagName, "n", "", ZipPackageFileNameFlagUsage)
 	PackageCmd.Flags().Bool(ForOfflineInstallationFlagName, false, ForOfflineInstallationFlagUsage)
+	PackageCmd.Flags().String(K8sBinsFlagName, "", K8sBinsFlagUsage)
 	PackageCmd.Flags().SortFlags = false
 	PackageCmd.Flags().PrintDefaults()
 }
@@ -83,8 +87,8 @@ func systemPackage(cmd *cobra.Command, args []string) error {
 
 	slog.Debug("PS command created", "command", systemPackageCommand, "params", params)
 
-	configDir := cmd.Context().Value(common.ContextKeyConfigDir).(string)
-	setupConfig, err := setupinfo.LoadConfig(configDir)
+	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
+	setupConfig, err := setupinfo.ReadConfig(context.Config().Host.K2sConfigDir)
 	if err != nil {
 		if errors.Is(err, setupinfo.ErrSystemInCorruptedState) {
 			return common.CreateSystemInCorruptedStateCmdFailure()
@@ -98,14 +102,9 @@ func systemPackage(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	outputWriter, err := common.NewOutputWriter()
-	if err != nil {
-		return err
-	}
-
 	start := time.Now()
 
-	cmdResult, err := powershell.ExecutePsWithStructuredResult[*common.CmdResult](systemPackageCommand, "CmdResult", powershell.DefaultPsVersions, outputWriter, params...)
+	cmdResult, err := powershell.ExecutePsWithStructuredResult[*common.CmdResult](systemPackageCommand, "CmdResult", powershell.DefaultPsVersions, common.NewPtermWriter(), params...)
 	if err != nil {
 		return err
 	}
@@ -163,6 +162,11 @@ func buildSystemPackageCmd(flags *pflag.FlagSet) (string, []string, error) {
 	forOfflineInstallation, _ := strconv.ParseBool(flags.Lookup(ForOfflineInstallationFlagName).Value.String())
 	if forOfflineInstallation {
 		params = append(params, " -ForOfflineInstallation")
+	}
+
+	k8sBins := flags.Lookup(K8sBinsFlagName).Value.String()
+	if k8sBins != "" {
+		params = append(params, fmt.Sprintf(" -K8sBinsPath '%s'", k8sBins))
 	}
 
 	return systemPackageCommand, params, nil

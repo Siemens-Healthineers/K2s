@@ -46,7 +46,7 @@ if ($systemError) {
     exit 1
 }
 
-if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'cert-manager', '--ignore-not-found').Output -and (Test-IsAddonEnabled -Name 'security') -ne $true) {
+if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'cert-manager', '--ignore-not-found').Output -and (Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'security' })) -ne $true) {
     $errMsg = "Addon 'security' is already disabled, nothing to do."
 
     if ($EncodeStructuredOutput -eq $true) {
@@ -83,7 +83,8 @@ $keyCloakYaml = Get-KeyCloakConfig
 Write-Log 'Adapting ingress for other addons' -Console
 Update-IngressForAddons -Enable $false
 
-Remove-AddonFromSetupJson -Name 'security'
+
+Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'security' })
 Write-Log 'Uninstallation of security finished' -Console
 
 Write-WarningForUser

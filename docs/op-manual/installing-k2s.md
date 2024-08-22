@@ -57,7 +57,7 @@ To inspect the different install options, run:
 !!! tip
     If you acquired *K2s* via [Cloning the *Git* repository](getting-k2s.md#option-2-cloning-git-repository), you might want to checkout a specific version first, e.g.:
     ```console
-    git checkout v1.1.0
+    git checkout tags/v1.1.1
     ```
 
 !!! note
@@ -108,21 +108,21 @@ To force the download of all binaries and the re-creation of the control-plane i
 ```
 
 ??? info "Offline vs. Online Installation Diagram"
-    ```mermaid
-    graph TD
-        CallScript["Installation scripts\n (Default, MultiVM, BuildOnlySetup)\n\n with\n [-DeleteFilesForOfflineInstallation]\n [-ForceOnlineInstallation]"] --> if_force_online_installation{"Switch\n ForceOnlineInstallation\n used ?"}
-        if_force_online_installation --> |yes| BuildAndProvisionKubemasterBaseImage
-        if_force_online_installation --> |no| if_base_image_available{"c\k\bin\Kubemaster-Base.vhdx\n available?"}
-        if_base_image_available --> |yes| CopyBaseImage
-        if_base_image_available --> |no| BuildAndProvisionKubemasterBaseImage
-        BuildAndProvisionKubemasterBaseImage("Build and provision base image") --> PublishBaseImage("Publish base image as\n c\k\bin\Kubemaster-Base.vhdx")
-        PublishBaseImage --> CopyBaseImage("Copy published base image to\n C\Users\Public\Documents\Hyper-V\Virtual hard disks")
-        CopyBaseImage --> InstallLinuxNode("Install Linux node")
-        InstallLinuxNode --> if_delete_files_for_offline_installation{"Switch\n -DeleteFilesForOfflineInstallation\n used ?"}
-        if_delete_files_for_offline_installation --> |yes| DeleteBaseImage("Delete file c\k\bin\Kubemaster-Base.vhdx")
-        if_delete_files_for_offline_installation --> |no| End
-        DeleteBaseImage --> End
-    ```
+   ```mermaid
+   graph TD
+       CallScript["Installation scripts\n (Default, MultiVM, BuildOnlySetup)\n\n with\n [-DeleteFilesForOfflineInstallation]\n [-ForceOnlineInstallation]"] --> if_force_online_installation{"Switch\n ForceOnlineInstallation\n used ?"}
+       if_force_online_installation --> |yes| BuildAndProvisionKubemasterBaseImage
+       if_force_online_installation --> |no| if_base_image_available{"c\k\bin\Kubemaster-Base.vhdx\n available?"}
+       if_base_image_available --> |yes| CopyBaseImage
+       if_base_image_available --> |no| BuildAndProvisionKubemasterBaseImage
+       BuildAndProvisionKubemasterBaseImage("Build and provision base image") --> PublishBaseImage("Publish base image as\n c\k\bin\Kubemaster-Base.vhdx")
+       PublishBaseImage --> CopyBaseImage("Copy published base image to\n C\Users\Public\Documents\Hyper-V\Virtual hard disks")
+       CopyBaseImage --> InstallLinuxNode("Install Linux node")
+       InstallLinuxNode --> if_delete_files_for_offline_installation{"Switch\n -DeleteFilesForOfflineInstallation\n used ?"}
+       if_delete_files_for_offline_installation --> |yes| DeleteBaseImage("Delete file c\k\bin\Kubemaster-Base.vhdx")
+       if_delete_files_for_offline_installation --> |no| End
+       DeleteBaseImage --> End
+   ```
 
 [^1]: Creating of and installing from an offline package is currently supported for [Host Variant](../user-guide/hosting-variants.md#host-default) and [Development-Only](../user-guide/hosting-variants.md#development-only) only. 
 

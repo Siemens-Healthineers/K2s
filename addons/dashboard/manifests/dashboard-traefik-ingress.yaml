@@ -9,8 +9,8 @@
 # this header must have as value that path.
 ---
 # This ingress will expose the angular application on:
-# HTTP: http://k2s-dashboard.local
-# TLS: https://k2s-dashboard.local
+# HTTP: http://k2s-dashboard.cluster.local
+# TLS: https://k2s-dashboard.cluster.local
 # For TLS, the certificate is taken from k8s secret 'k2s-dashboard-local-tls'
 # This secret will be created by cert-manager, if it is installed and running.
 # If cert-manager is not installed, the secret will not be present and
@@ -20,14 +20,14 @@ kind: Ingress
 metadata:
   annotations:
     cert-manager.io/cluster-issuer: k2s-ca-issuer
-    cert-manager.io/common-name: k2s-dashboard.local
+    cert-manager.io/common-name: k2s-dashboard.cluster.local
     traefik.ingress.kubernetes.io/router.tls: "true"
   name: dashboard-traefik-local
-  namespace: kubernetes-dashboard
+  namespace: dashboard
 spec:
   ingressClassName: traefik
   rules:
-    - host: k2s-dashboard.local
+    - host: k2s-dashboard.cluster.local
       http:
         paths:
           - backend:
@@ -39,7 +39,7 @@ spec:
             path: /
   tls:
     - hosts:
-        - k2s-dashboard.local
+        - k2s-dashboard.cluster.local
       secretName: k2s-dashboard-local-tls
 ---
 # this MiddleWare will strip the prefix /dashboard from the request path
@@ -49,25 +49,25 @@ apiVersion: traefik.containo.us/v1alpha1
 kind: Middleware
 metadata:
   name: strip-prefix
-  namespace: kubernetes-dashboard
+  namespace: dashboard
 spec:
   stripPrefix:
     prefixes:
       - /dashboard
 ---
 # this ingress will be merged with ingress provided in:
-# addons/traefik/manifests/cluster-net-ingress.yaml
+# addons/ingress/traefik/manifests/cluster-net-ingress.yaml
 # and exposes the kubernetes-dashboard angular application on:
 # https://k2s.cluster.local/dashboard/
 # The certificate is taken from k8s secret 'k2s.cluster.local-tls'
-# (see addons/traefik/manifests/cluster-net-ingress.yaml)
+# (see addons/ingress/traefik/manifests/cluster-net-ingress.yaml)
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: dashboard-traefik-cluster-net
-  namespace: kubernetes-dashboard
+  namespace: dashboard
   annotations:
-    traefik.ingress.kubernetes.io/router.middlewares: kubernetes-dashboard-strip-prefix@kubernetescrd
+    traefik.ingress.kubernetes.io/router.middlewares: dashboard-strip-prefix@kubernetescrd
     traefik.ingress.kubernetes.io/router.tls: "true"
 spec:
   ingressClassName: traefik

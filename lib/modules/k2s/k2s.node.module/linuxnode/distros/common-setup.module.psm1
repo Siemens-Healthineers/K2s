@@ -603,7 +603,28 @@ Function Set-UpMasterNode {
 
     Write-Log 'Add DNS resolution rules to K8s DNS component'
     # change config map to forward all non cluster DNS request to proxy (dnsmasq) running on master
-    &$executeRemoteCommand "kubectl get configmap/coredns -n kube-system -o yaml | sed -e 's|forward . /etc/resolv.conf|forward . $NetworkInterfaceCni0IP_Master|' | kubectl apply -f -" -IgnoreErrors 
+    &$executeRemoteCommand "kubectl get configmap/coredns -n kube-system -o yaml | sed -e 's|forward . /etc/resolv.conf|forward . $NetworkInterfaceCni0IP_Master|' | kubectl apply -f -" -IgnoreErrors
+    
+    # import etcd certificates as k8s secrets, so that coredns can access etcd
+    &$executeRemoteCommand 'sudo mkdir etcd'
+    &$executeRemoteCommand 'sudo cp /etc/kubernetes/pki/etcd/* etcd/'
+    &$executeRemoteCommand 'sudo chmod 444 etcd/*'
+    &$executeRemoteCommand 'kubectl create secret -n kube-system tls etcd-ca --cert=etcd/ca.crt --key=etcd/ca.key'
+    &$executeRemoteCommand 'kubectl create secret -n kube-system tls etcd-client-for-core-dns --cert=etcd/healthcheck-client.crt --key=etcd/healthcheck-client.key'
+    &$executeRemoteCommand 'sudo rm -r etcd'
+
+    # update coredns configmap kubernetes plugin to fallthrough for all zones
+    &$executeRemoteCommand "kubectl get configmap coredns -n kube-system -o yaml | sed 's/fallthrough\ in-addr.arpa\ ip6.arpa/fallthrough/1' | kubectl apply -f -" -IgnoreErrors
+    
+    # change core-dns to serve the cluster.local zone from the etcd plugin as fallback
+    &$executeRemoteCommand "kubectl get configmap coredns -n kube-system -o yaml | sed '/^\s*prometheus :9153/i\        etcd cluster.local {\n            path /skydns\n            endpoint https://${IpAddress}:2379\n            tls /etc/kubernetes/pki/etcd-client/tls.crt /etc/kubernetes/pki/etcd-client/tls.key /etc/kubernetes/pki/etcd-ca/tls.crt\n        }' | kubectl apply -f -" -IgnoreErrors
+
+    # mount the certificate secrets in coredns, so it can read them
+    &$executeRemoteCommand "kubectl get deployment coredns -n kube-system -o yaml | sed '/^\s*\- configMap:/i\      - name: etcd-ca-cert\n        secret:\n          secretName: etcd-ca\n      - name: etcd-client-cert\n        secret:\n          secretName: etcd-client-for-core-dns' | kubectl apply -f -" -IgnoreErrors
+    &$executeRemoteCommand "kubectl get deployment coredns -n kube-system -o yaml | sed '/^\s*\- mountPath: \/etc\/coredns/i\        - mountPath: /etc/kubernetes/pki/etcd-ca\n          name: etcd-ca-cert\n        - mountPath: /etc/kubernetes/pki/etcd-client\n          name: etcd-client-cert' | kubectl apply -f -" -IgnoreErrors
+
+    # change core-dns to have predefined host mapping for DNS resolution
+    &$executeRemoteCommand "kubectl get configmap coredns -n kube-system -o yaml | sed '/^\s*cache 30/i\        hosts {\n         $IpAddress k2s.cluster.local\n         fallthrough\n        }' | kubectl apply -f -" -IgnoreErrors     
 
     Write-Log 'Initialize Flannel'
     Add-FlannelPluginToMasterNode -IpAddress $IpAddress -UserName $UserName -UserPwd $UserPwd -PodNetworkCIDR $ClusterCIDR
@@ -754,8 +775,9 @@ Function New-KubernetesNode {
     Write-Log "Finished provisioning the computer $IpAddress"
 }
 
-
-$kubenodeBaseFileName = 'Kubenode-Base.vhdx'
+function Get-KubenodeBaseFileName {
+    return 'Kubenode-Base.vhdx'
+}
 
 function New-VmImageForKubernetesNode {
     param (
@@ -815,7 +837,7 @@ function New-VmImageForControlPlaneNode {
         [string]$Hostname,
         [string]$IpAddress,
         [string]$GatewayIpAddress,
-        [string]$DnsServers,
+        [string]$DnsServers = $(throw 'Argument missing: DnsServers'),
         [parameter(Mandatory = $false, HelpMessage = 'The path to save the prepared base image.')]
         [string] $VmImageOutputPath = $(throw 'Argument missing: VmImageOutputPath'),
         [parameter(Mandatory = $false, HelpMessage = 'Startup Memory Size of VM')]
@@ -831,7 +853,7 @@ function New-VmImageForControlPlaneNode {
         [Boolean] $ForceOnlineInstallation = $false
     )
       
-    $kubenodeBaseImagePath = "$(Split-Path $VmImageOutputPath)\$kubenodeBaseFileName"
+    $kubenodeBaseImagePath = "$(Split-Path $VmImageOutputPath)\$(Get-KubenodeBaseFileName)"
     
     $isKubenodeBaseImageAlreadyAvailable = (Test-Path $kubenodeBaseImagePath)
     $isOnlineInstallation = (!$isKubenodeBaseImageAlreadyAvailable -or $ForceOnlineInstallation)
@@ -923,7 +945,7 @@ function New-LinuxVmImageForWorkerNode {
         [uint64]$VMDiskSize
     )
 
-    $kubenodeBaseImagePath = "$(Split-Path $VmImageOutputPath)\$kubenodeBaseFileName"
+    $kubenodeBaseImagePath = "$(Split-Path $VmImageOutputPath)\$(Get-KubenodeBaseFileName)"
 
     if (!(Test-Path -Path $kubenodeBaseImagePath)) {
         New-VmImageForKubernetesNode -VmImageOutputPath $kubenodeBaseImagePath -Proxy $Proxy
@@ -1059,7 +1081,7 @@ function New-WslRootfsForControlPlaneNode {
         [uint64]$VMDiskSize
     )
 
-    $kubenodeBaseImagePath = "$(Split-Path $VmImageInputPath)\$kubenodeBaseFileName"
+    $kubenodeBaseImagePath = "$(Split-Path $VmImageInputPath)\$(Get-KubenodeBaseFileName)"
     
     if (!(Test-Path -Path $kubenodeBaseImagePath)) {
         $vmImageForKubernetesNodeCreationParams = @{
@@ -1086,6 +1108,7 @@ function New-WslRootfsForControlPlaneNode {
 function Set-ProxySettingsOnKubenode {
     param (
         [parameter(Mandatory = $true, HelpMessage = 'The HTTP proxy')]
+        [AllowEmptyString()]
         [string] $ProxySettings,
         [Parameter(Mandatory = $false)]
         [string]$IpAddress = $(throw 'Argument missing: IpAddress')
@@ -1144,6 +1167,9 @@ function Set-ProxySettingsOnKubenode {
             (Invoke-CmdOnVmViaSSHKey "echo env = [\\\""https_proxy=$ProxySettings\\\""] | sudo tee -a /etc/containers/containers.conf" -IpAddress $IpAddress).Output | Write-Log
         }
     }
+
+    (Invoke-CmdOnVmViaSSHKey 'sudo systemctl daemon-reload' -IpAddress $IpAddress).Output | Write-Log
+    (Invoke-CmdOnVmViaSSHKey 'sudo systemctl restart crio' -IpAddress $IpAddress).Output | Write-Log
 }
 
 Export-ModuleMember -Function New-VmImageForKubernetesNode, 
@@ -1152,4 +1178,5 @@ New-LinuxVmImageForWorkerNode,
 Remove-VmImageForControlPlaneNode, 
 Import-SpecificDistroSettingsModule, 
 New-WslRootfsForControlPlaneNode,
-Set-ProxySettingsOnKubenode
+Set-ProxySettingsOnKubenode,
+Get-KubenodeBaseFileName

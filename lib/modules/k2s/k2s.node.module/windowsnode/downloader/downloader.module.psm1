@@ -143,19 +143,20 @@ function Invoke-DeployWindowsImages($windowsNodeArtifactsDirectory) {
         throw "Directory '$windowsImagesArtifactsDirectory' does not exist"
     }
 
-    $ctrExe = Get-CtrExePath
+    $nerdctlExe = "$kubeBinPath\nerdctl.exe"
     $fileSearchPattern = "$windowsImagesArtifactsDirectory\*.tar"
     $files = Get-ChildItem -Path "$fileSearchPattern"
     $amountOfFiles = $files.Count
     Write-Log "Amount of images found that matches the search pattern '$fileSearchPattern': $amountOfFiles"
     $fileIndex = 1
+
     foreach ($file in $files){
         $fileFullName = $file.FullName
         Write-Log "Import image from file '$fileFullName'... ($fileIndex of $amountOfFiles)"
-        # &$ctrExe -n="k8s.io" images import `"$file`"
-        # if (!$?) {
-        #     throw "The file '$fileFullName' could not be imported"
-        # }
+        &$nerdctlExe -n k8s.io load -i `"$file`"
+        if (!$?) {
+            throw "The file '$fileFullName' could not be imported"
+        }
         Write-Log "  done"
         $fileIndex++
     }
@@ -167,8 +168,8 @@ function Invoke-DownloadWindowsNodeArtifacts {
         [string] $KubernetesVersion,
         [parameter(Mandatory = $false, HelpMessage = 'HTTP proxy if available')]
         [string] $Proxy = '',
-        [parameter(Mandatory = $false, HelpMessage = 'Skips networking setup and installation of cluster dependent tools kubelet, flannel on windows node')]
-        [boolean] $SkipClusterSetup = $false
+        [parameter(Mandatory = $false, HelpMessage = 'The path to local builds of Kubernetes binaries')]
+        [string] $K8sBinsPath = ''
     )
 
     if (Test-Path($windowsNodeArtifactsDownloadsDirectory)) {
@@ -211,7 +212,7 @@ function Invoke-DownloadWindowsNodeArtifacts {
     Invoke-DownloadCniFlannelArtifacts $downloadsBaseDirectory $Proxy
 
     # KUBETOOLS
-    Invoke-DownloadKubetoolsArtifacts $downloadsBaseDirectory $KubernetesVersion $Proxy
+    Invoke-DownloadKubetoolsArtifacts $downloadsBaseDirectory $KubernetesVersion $Proxy $K8sBinsPath
 
     # WINDOWS EXPORTER
     Invoke-DownloadWindowsExporterArtifacts $downloadsBaseDirectory $Proxy
@@ -234,7 +235,7 @@ function Invoke-DownloadWindowsNodeArtifacts {
     # YAML TOOLS
     Invoke-DeployYamlArtifacts $windowsNodeArtifactsDirectory
 
-    Install-WinContainerd -Proxy $Proxy -SkipNetworkingSetup:$SkipClusterSetup -WindowsNodeArtifactsDirectory $windowsNodeArtifactsDirectory
+    Install-WinContainerd -Proxy $Proxy -SkipNetworkingSetup:$true -WindowsNodeArtifactsDirectory $windowsNodeArtifactsDirectory
     Invoke-DownloadWindowsImages $downloadsBaseDirectory $Proxy
     Uninstall-WinContainerd -ShallowUninstallation $true
 
@@ -270,8 +271,8 @@ function Invoke-DeployWinArtifacts {
         [boolean] $DeleteFilesForOfflineInstallation = $false,
         [parameter(Mandatory = $false, HelpMessage = 'Force the installation online. This option is needed if the files for an offline installation are available but you want to recreate them.')]
         [boolean] $ForceOnlineInstallation = $false,
-        [parameter(Mandatory = $false, HelpMessage = 'Skips networking setup and installation of cluster dependent tools kubelet, flannel on windows node')]
-        [boolean] $SkipClusterSetup = $false
+        [parameter(Mandatory = $false, HelpMessage = 'The path to local builds of Kubernetes binaries')]
+        [string] $K8sBinsPath = ''
     )
 
     $isZipFileAlreadyAvailable = Test-Path -Path "$windowsNodeArtifactsZipFilePath"
@@ -290,7 +291,7 @@ function Invoke-DeployWinArtifacts {
         }
         Write-Log "Create folder '$downloadsDirectory'"
         New-Item -Path "$downloadsDirectory" -ItemType Directory -Force -ErrorAction SilentlyContinue
-        Invoke-DownloadWindowsNodeArtifacts -KubernetesVersion $KubernetesVersion -Proxy $Proxy -SkipClusterSetup:$SkipClusterSetup
+        Invoke-DownloadWindowsNodeArtifacts -KubernetesVersion $KubernetesVersion -Proxy $Proxy -K8sBinsPath $K8sBinsPath
         Write-Log "Remove folder '$downloadsDirectory'"
         Remove-Item -Path "$downloadsDirectory" -Recurse -Force -ErrorAction SilentlyContinue
     }
@@ -332,18 +333,25 @@ function Install-WinNodeArtifacts {
         [parameter(Mandatory = $true, HelpMessage = 'Host machine is a VM: true, Host machine is not a VM')]
         [bool] $HostVM,
         [parameter(Mandatory = $false, HelpMessage = 'Skips installation of cluster dependent tools')]
-        [bool] $SkipClusterSetup = $false
+        [bool] $SkipClusterSetup = $false,
+        [string] $PodSubnetworkNumber = $(throw 'Argument missing: PodSubnetworkNumber'),
+        [parameter(Mandatory = $false, HelpMessage = 'The path to local builds of Kubernetes binaries')]
+        [string] $K8sBinsPath = ''
     )
 
     Invoke-DeployDockerArtifacts $windowsNodeArtifactsDirectory
     Install-WinDocker -Proxy "$Proxy"
 
-    Install-WinContainerd -Proxy "$Proxy" -SkipNetworkingSetup:$SkipClusterSetup -WindowsNodeArtifactsDirectory $windowsNodeArtifactsDirectory
+    Install-WinContainerd -Proxy "$Proxy" -SkipNetworkingSetup:$SkipClusterSetup -WindowsNodeArtifactsDirectory $windowsNodeArtifactsDirectory -PodSubnetworkNumber $PodSubnetworkNumber
 
     if (!($SkipClusterSetup)) {
         Invoke-DeployWindowsImages $windowsNodeArtifactsDirectory
 
         Invoke-DeployKubetoolsArtifacts $windowsNodeArtifactsDirectory
+        if ($K8sBinsPath -ne '') {
+            Copy-LocalBuildsOfKubeTools -K8sBinsPath $K8sBinsPath -Destination $(Get-KubeToolsPath)
+        }
+
         Install-WinKubelet
 
         Invoke-DeployFlannelArtifacts $windowsNodeArtifactsDirectory
@@ -356,18 +364,8 @@ function Install-WinNodeArtifacts {
         Invoke-DeployWindowsExporterArtifacts $windowsNodeArtifactsDirectory
         Install-WindowsExporter
 
-        if (!($HostVM)) {
-            # DNS Proxy is not required if Host machine is a VM
-            Invoke-DeployDnsProxyArtifacts $windowsNodeArtifactsDirectory
-            Install-WinDnsProxy
-        }
     }
 
-    Install-WinHttpProxy -Proxy "$Proxy"
-    Invoke-DeployPuttytoolsArtifacts $windowsNodeArtifactsDirectory
-
-    # remove folder with windows node artifacts since all of them are already published to the expected locations
-    Remove-Item "$windowsNodeArtifactsDirectory" -Recurse -Force -ErrorAction SilentlyContinue
 }
 
 function Invoke-DownloadsCleanup {
@@ -430,4 +428,8 @@ function Install-KubectlTool{
     Invoke-DeployKubetoolKubectl $windowsNodeArtifactsDirectory
 }
 
-Export-ModuleMember Invoke-DeployWinArtifacts, Invoke-DownloadsCleanup, Install-WinNodeArtifacts, Install-DefaultTools, Get-WindowsNodeArtifactsZipFilePath, Install-PuttyTools, Install-KubectlTool
+function Get-WindowsArtifactsDirectory {
+    return $windowsNodeArtifactsDirectory
+}
+
+Export-ModuleMember Invoke-DeployWinArtifacts, Invoke-DownloadsCleanup, Install-WinNodeArtifacts, Install-DefaultTools, Get-WindowsNodeArtifactsZipFilePath, Install-PuttyTools, Install-KubectlTool, Get-WindowsArtifactsDirectory

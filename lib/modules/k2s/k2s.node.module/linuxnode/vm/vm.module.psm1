@@ -105,7 +105,7 @@ function Invoke-CmdOnVmViaSSHKey(
             $success = ($LASTEXITCODE -eq 0)
 
             if (!$success -and !$IgnoreErrors) {
-                throw "Error occurred while executing command '$CmdToExecute' in control plane (exit code: '$LASTEXITCODE')" 
+                throw "Error occurred while executing command '$CmdToExecute' in control plane (exit code: '$LASTEXITCODE')"
             }
             $Stoploop = $true
         }
@@ -175,7 +175,7 @@ function Invoke-CmdOnControlPlaneViaUserAndPwd(
                     Write-Log "Executing repair cmd: $RepairCmd"
                     &"$plinkExe" -ssh -4 $RemoteUser -pw $RemoteUserPwd -no-antispoof $RepairCmd 2>&1 | ForEach-Object { Write-Log $_ -Console -Raw }
                 }
-                
+
                 Start-Sleep -Seconds $Timeout
                 $Retrycount = $Retrycount + 1
             }
@@ -187,7 +187,13 @@ function Invoke-CmdOnControlPlaneViaUserAndPwd(
 }
 
 function Get-IsControlPlaneRunning {
-    $masterVmState = (Get-VM -Name $nameControlPlane).State
+    $vmNode = Get-VM -Name $nameControlPlane -ErrorAction SilentlyContinue
+
+    if ($null -eq ($vmNode)) {
+        return $false
+    }
+
+    $masterVmState = ($vmNode).State
     return $masterVmState -eq [Microsoft.HyperV.PowerShell.VMState]::Running
 }
 
@@ -197,44 +203,59 @@ function Copy-FromControlPlaneViaSSHKey($Source, $Target,
     Write-Log "Copying '$Source' to '$Target', ignoring errors: '$IgnoreErrors'"
 
     $linuxSourceDirectory = $Source -replace "${remoteUser}:", ''
+    $leaf = Split-Path $linuxSourceDirectory -Leaf
+    $filter = $leaf
+
     ssh.exe -n -o StrictHostKeyChecking=no -i $key $remoteUser "[ -d '$linuxSourceDirectory' ]"
-    if ($?) {
-        # is directory
-        (Invoke-CmdOnControlPlaneViaSSHKey 'sudo rm -rf /tmp/copy.tar').Output | Write-Log
-        $leaf = Split-Path $linuxSourceDirectory -Leaf
-        (Invoke-CmdOnControlPlaneViaSSHKey "sudo tar -cf /tmp/copy.tar -C $linuxSourceDirectory .").Output | Write-Log
+    $isDir = $?
 
-        $output = scp.exe -o StrictHostKeyChecking=no -i $key "${remoteUser}:/tmp/copy.tar" "$env:temp\copy.tar" 2>&1
+    if ($leaf.Contains("*")) {
+        # copy all/specific files in directory e.g. pvc-* or *
+        (Invoke-CmdOnControlPlaneViaSSHKey 'sudo mkdir /tmp/matchedFilesCopyFromControlPlaneViaSSHKey').Output | Write-Log
+        (Invoke-CmdOnControlPlaneViaSSHKey "cd `$(dirname '$linuxSourceDirectory') && find . -name '$filter' | sudo xargs -i cp --parents {} -r /tmp/matchedFilesCopyFromControlPlaneViaSSHKey").Output | Write-Log
+
+        $tarFolder = "/tmp/matchedFilesCopyFromControlPlaneViaSSHKey"
+        $targetDirectory = $Target
+    } elseif ($isDir) {
+        # single folder copy
+        $tarFolder = $linuxSourceDirectory
+        $targetDirectory = "$Target\$leaf"
+    } else {
+        $output = scp.exe -o StrictHostKeyChecking=no -r -i $key "${remoteUser}:$Source" "$Target" 2>&1
         if ($LASTEXITCODE -ne 0 -and !$IgnoreErrors) {
             throw "Could not copy '$Source' to '$Target': $output"
         }
         Write-Log $output
-
-        New-Item -Path "$Target\$leaf" -ItemType Directory | Out-Null
-        
-        $output = tar.exe -xf "$env:temp\copy.tar" -C "$Target\$leaf"
-        if ($LASTEXITCODE -ne 0 -and !$IgnoreErrors) {
-            throw "Could not copy '$Source' to '$Target': $output"
-        }
-        Write-Log $output
-
-        (Invoke-CmdOnControlPlaneViaSSHKey 'sudo rm -rf /tmp/copy.tar').Output | Write-Log
-        Remove-Item -Path "$env:temp\copy.tar" -Force -ErrorAction SilentlyContinue
         return
     }
 
-    $output = scp.exe -o StrictHostKeyChecking=no -r -i $key "${remoteUser}:$Source" "$Target" 2>&1
+    (Invoke-CmdOnControlPlaneViaSSHKey 'sudo rm -rf /tmp/copy.tar').Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaSSHKey "sudo tar -cf /tmp/copy.tar -C $tarFolder .").Output | Write-Log
+
+    $output = scp.exe -o StrictHostKeyChecking=no -i $key "${remoteUser}:/tmp/copy.tar" "$env:temp\copy.tar" 2>&1
     if ($LASTEXITCODE -ne 0 -and !$IgnoreErrors) {
         throw "Could not copy '$Source' to '$Target': $output"
     }
     Write-Log $output
+
+    New-Item -Path "$targetDirectory" -ItemType Directory -ErrorAction SilentlyContinue | Out-Null
+
+    $output = tar.exe -xf "$env:temp\copy.tar" -C "$targetDirectory"
+    if ($LASTEXITCODE -ne 0 -and !$IgnoreErrors) {
+        throw "Could not copy '$Source' to '$Target': $output"
+    }
+    Write-Log $output
+
+    (Invoke-CmdOnControlPlaneViaSSHKey 'sudo rm -rf /tmp/copy.tar').Output | Write-Log
+    Remove-Item -Path "$env:temp\copy.tar" -Force -ErrorAction SilentlyContinue
+    (Invoke-CmdOnControlPlaneViaSSHKey 'sudo rm -rf /tmp/matchedFilesCopyFromControlPlaneViaSSHKey').Output | Write-Log
 }
 
 function Copy-FromRemoteComputerViaUserAndPwd($Source, $Target, $IpAddress,
     [Parameter(Mandatory = $false)]
     [switch]$IgnoreErrors = $false) {
     Write-Log "Copying '$Source' to '$Target' at '$IpAddress', ignoring errors: '$IgnoreErrors'"
-    
+
     $output = Write-Output yes | &"$scpExe" -ssh -4 -q -r -pw $remotePwd "${defaultUserName}@${IpAddress}:$Source" "$Target" 2>&1
 
     if ($LASTEXITCODE -ne 0 -and !$IgnoreErrors) {
@@ -247,44 +268,60 @@ function Copy-ToControlPlaneViaSSHKey($Source, $Target,
     [Parameter(Mandatory = $false)]
     [switch]$IgnoreErrors = $false) {
     Write-Log "Copying '$Source' to '$Target', ignoring errors: '$IgnoreErrors'"
-    
+
     $leaf = Split-Path $Source -leaf
-    if ($(Test-Path $Source) -and (Get-Item $Source) -is [System.IO.DirectoryInfo] -and $leaf -ne '*') {
-        # is directory
-        (Invoke-CmdOnControlPlaneViaSSHKey 'sudo rm -rf /tmp/copy.tar').Output | Write-Log
-        $leaf = Split-Path $Source -Leaf
+    $targetDirectory = $Target -replace "${remoteUser}:", ''
 
-        $output = tar.exe -cf "$env:TEMP\copy.tar" -C $Source .
+    if ($leaf.Contains("*")) {
+        # copy all/specific files in directory e.g. pvc-* or *
+        $filter = $leaf
+
+        New-Item -Path "$env:TEMP\matchedFilesCopyToControlPlaneViaSSHKey" -ItemType Directory -Force | Out-Null
+        Get-ChildItem -Path $(Split-Path $Source -Parent) -Filter $filter -Force | ForEach-Object {
+            Write-Log "  Adding '$($_.FullName)'.."
+            Copy-Item "$($_.FullName)" "$env:TEMP\matchedFilesCopyToControlPlaneViaSSHKey" -Force -Recurse
+        }
+
+        $tarFolder = "$env:TEMP\matchedFilesCopyToControlPlaneViaSSHKey"
+    } elseif ($(Test-Path $Source) -and (Get-Item $Source) -is [System.IO.DirectoryInfo]) {
+        # single folder copy
+        $tarFolder = $Source
+        $targetDirectory = "$targetDirectory/$leaf"
+    } else {
+         # single file copy
+        $output = scp.exe -o StrictHostKeyChecking=no -r -i $key "$Source" "${remoteUser}:$Target" 2>&1
         if ($LASTEXITCODE -ne 0 -and !$IgnoreErrors) {
             throw "Could not copy '$Source' to '$Target': $output"
         }
-
-        $output = scp.exe -o StrictHostKeyChecking=no -i $key "$env:temp\copy.tar" "${remoteUser}:/tmp" 2>&1
-        if ($LASTEXITCODE -ne 0 -and !$IgnoreErrors) {
-            throw "Could not copy '$Source' to '$Target': $output"
-        }
-
-        $targetDirectory = $Target -replace "${remoteUser}:", ''
-        (Invoke-CmdOnControlPlaneViaSSHKey "mkdir -p $targetDirectory/$leaf").Output | Write-Log
-        (Invoke-CmdOnControlPlaneViaSSHKey "tar -xf /tmp/copy.tar -C $targetDirectory/$leaf").Output | Write-Log
-        (Invoke-CmdOnControlPlaneViaSSHKey 'sudo rm -rf /tmp/copy.tar').Output | Write-Log
-        Remove-Item -Path "$env:temp\copy.tar" -Force -ErrorAction SilentlyContinue
+        Write-Log $output
         return
     }
 
-    $output = scp.exe -o StrictHostKeyChecking=no -r -i $key "$Source" "${remoteUser}:$Target" 2>&1
+    (Invoke-CmdOnControlPlaneViaSSHKey 'sudo rm -rf /tmp/copy.tar').Output | Write-Log
+
+    $output = tar.exe -cf "$env:TEMP\copy.tar" -C $tarFolder .
     if ($LASTEXITCODE -ne 0 -and !$IgnoreErrors) {
         throw "Could not copy '$Source' to '$Target': $output"
     }
-    Write-Log $output
+
+    $output = scp.exe -o StrictHostKeyChecking=no -i $key "$env:temp\copy.tar" "${remoteUser}:/tmp" 2>&1
+    if ($LASTEXITCODE -ne 0 -and !$IgnoreErrors) {
+        throw "Could not copy '$Source' to '$Target': $output"
+    }
+
+    (Invoke-CmdOnControlPlaneViaSSHKey "mkdir -p $targetDirectory").Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaSSHKey "tar -xf /tmp/copy.tar -C $targetDirectory").Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaSSHKey 'sudo rm -rf /tmp/copy.tar').Output | Write-Log
+    Remove-Item -Path "$env:temp\copy.tar" -Force -ErrorAction SilentlyContinue
+    Remove-Item -Path "$env:TEMP\matchedFilesCopyToControlPlaneViaSSHKey" -Force -Recurse -ErrorAction SilentlyContinue
 }
 
 function Copy-ToControlPlaneViaUserAndPwd($Source, $Target,
     [Parameter(Mandatory = $false)]
     [switch]$IgnoreErrors = $false) {
     Write-Log "Copying '$Source' to '$Target', ignoring errors: '$IgnoreErrors'"
-    
-    $output = Write-Output yes | &"$scpExe" -ssh -4 -q -r -pw $remotePwd "$Source" "${remoteUser}:$Target" 2>&1 
+
+    $output = Write-Output yes | &"$scpExe" -ssh -4 -q -r -pw $remotePwd "$Source" "${remoteUser}:$Target" 2>&1
 
     if ($LASTEXITCODE -ne 0 -and !$IgnoreErrors) {
         throw "Could not copy '$Source' to '$Target': $output"
@@ -296,8 +333,8 @@ function Copy-ToRemoteComputerViaUserAndPwd($Source, $Target, $IpAddress,
     [Parameter(Mandatory = $false)]
     [switch]$IgnoreErrors = $false) {
     Write-Log "Copying '$Source' to '$Target', ignoring errors: '$IgnoreErrors'"
-    
-    $output = Write-Output yes | &"$scpExe" -ssh -4 -q -r -pw $remotePwd "$Source" "${defaultUserName}@${IpAddress}:$Target" 2>&1 
+
+    $output = Write-Output yes | &"$scpExe" -ssh -4 -q -r -pw $remotePwd "$Source" "${defaultUserName}@${IpAddress}:$Target" 2>&1
 
     if ($LASTEXITCODE -ne 0 -and !$IgnoreErrors) {
         throw "Could not copy '$Source' to '$Target': $output"
@@ -319,15 +356,15 @@ function Test-ControlPlanePrerequisites(
 
     # check memory
     if ( $MasterVMMemory -lt 2GB ) {
-        Write-Log 'SmallSetup needs minimal 2GB main memory, you have passed a lower value!'
-        throw 'Memory passed to low'
+        Write-Log 'k2s needs minimal 2GB main memory, you have passed a lower value!' -Error
+        throw '[PREREQ-FAILED] Master node memory passed too low'
     }
 
     # check disk
     $defaultProvisioningBaseImageSize = Get-DefaultProvisioningBaseImageDiskSize
     if ( $MasterDiskSize -lt $defaultProvisioningBaseImageSize ) {
-        Write-Log "SmallSetup needs minimal $defaultProvisioningBaseImageSize disk space, you have passed a lower value!"
-        throw 'Disk size passed to low'
+        Write-Log "k2s needs minimal $defaultProvisioningBaseImageSize disk space, you have passed a lower value!" -Error
+        throw '[PREREQ-FAILED] Master VM Disk size passed too low'
     }
 
     #Check for running VMs and minikube
@@ -336,7 +373,7 @@ function Test-ControlPlanePrerequisites(
         Write-Log 'Active Hyper-V VM:'
         Write-Log $($runningVMs | Select-Object -Property Name)
         if ($runningVMs | Where-Object Name -eq 'minikube') {
-            throw "Minikube must be stopped before running the installer, do 'minikube stop'"
+            throw "[PREREQ-FAILED] Minikube must be stopped before running the installer, do 'minikube stop'"
         }
     }
 
@@ -344,7 +381,7 @@ function Test-ControlPlanePrerequisites(
     Test-ExistingExternalSwitch
 
     if (Get-VM -ErrorAction SilentlyContinue -Name $nameControlPlane) {
-        throw "$nameControlPlane VM must not exist before installation, please perform k2s uninstall"
+        throw "[PREREQ-FAILED] $nameControlPlane VM must not exist before installation, please perform k2s uninstall"
     }
 }
 
@@ -356,7 +393,7 @@ function Test-ExistingExternalSwitch {
         Write-Log 'Precheck failed: Cannot proceed further with existing External Network Switches as it conflicts with k2s networking' -Console
         Write-Log "Remove all your External Network Switches with command PS>Get-VMSwitch | Where-Object { `$_.SwitchType -eq 'External' } | Remove-VMSwitch -Force" -Console
         Write-Log 'WARNING: This will remove your External Switches, please check whether these switches are required before executing the command' -Console
-        throw 'Remove all the existing External Network Switches and retry the k2s command again'
+        throw '[PREREQ-FAILED] Remove all the existing External Network Switches and retry the k2s command again'
     }
 }
 

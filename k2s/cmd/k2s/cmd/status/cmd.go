@@ -62,8 +62,8 @@ func printStatus(cmd *cobra.Command, args []string) error {
 
 	terminalPrinter := terminal.NewTerminalPrinter()
 
-	configDir := cmd.Context().Value(common.ContextKeyConfigDir).(string)
-	config, err := setupinfo.LoadConfig(configDir)
+	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
+	config, err := setupinfo.ReadConfig(context.Config().Host.K2sConfigDir)
 	if err != nil {
 		if errors.Is(err, setupinfo.ErrSystemInCorruptedState) {
 			if outputOption == jsonOption {

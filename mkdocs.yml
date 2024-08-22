@@ -101,9 +101,11 @@ nav:
       - Installing K2s: op-manual/installing-k2s.md
       - Starting K2s: op-manual/starting-k2s.md
       - Checking K2s Status: op-manual/checking-k2s-status.md
+      - Adding K2s Users: op-manual/adding-k2s-users.md
       - Stopping K2s: op-manual/stopping-k2s.md
       - Upgrading K2s: op-manual/upgrading-k2s.md
       - Configuring HTTPProxy Service: op-manual/configuring-httpproxy-service.md
+      - External DNS: op-manual/external-dns.md
       - Secure Host Access: op-manual/secure-host-access.md
       - Uninstalling K2s: op-manual/uninstalling-k2s.md
   - Developer Guide:

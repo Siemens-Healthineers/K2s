@@ -1438,8 +1438,8 @@ function Set-VmIPAddress {
         [Parameter(Mandatory = $true)]
         [System.Management.Automation.Runspaces.PSSession[]]$PSSession,
 
-        [Parameter(Mandatory = $false)]
-        [string[]]$DnsAddr = @('8.8.8.8', '8.8.4.4'),
+        [parameter(HelpMessage = 'DNS Addresses')]
+        [string]$DnsAddr = $(throw 'Argument missing: DnsAddr'),
 
         [Parameter(Mandatory = $true)]
         [string]$IPAddr,
@@ -1470,7 +1470,7 @@ function Set-VmIPAddress {
         $neta | Set-NetIPInterface -Dhcp Disabled
 
         Write-Output 'Set DNS servers'
-        $neta | Set-DnsClientServerAddress -Addresses $using:DnsAddr
+        $neta | Set-DnsClientServerAddress -Addresses $($DnsAddr -split ',')
     }
 
 }
@@ -2030,21 +2030,6 @@ function Initialize-SSHConnectionToWinVM($session, $IpAddress) {
         }
     }
 
-    #TODO Check whether copy of local ssh config files necessary
-    $targetDirectory = '~\.ssh\kubemaster'
-    Write-Log "Creating target directory '$targetDirectory' on VM ..."
-
-    $remoteTargetDirectory = Invoke-Command -Session $session {
-        Set-Location "$env:SystemDrive\k"
-        Set-ExecutionPolicy Bypass -Force -ErrorAction Stop
-
-        mkdir $using:targetDirectory
-    }
-
-    Write-Log "Target directory '$remoteTargetDirectory' created on remote VM."
-    $localSourceFiles = "$sshConfigDir\kubemaster\*"
-    Copy-Item -ToSession $session $localSourceFiles -Destination "$remoteTargetDirectory" -Recurse -Force
-    Write-Log "Copied private key from local '$localSourceFiles' to remote '$remoteTargetDirectory'."
 }
 
 function Remove-VMSshKey() {
@@ -2135,7 +2120,7 @@ function Disable-PasswordAuthenticationToWinNode () {
         # Disable Powershell Direct
         Stop-Service vmicvmsession
         Set-Service -Name vmicvmsession -StartupType Disabled
-    }
+    } 
 }
 
 function Get-DefaultWinVMName {
@@ -2208,4 +2193,6 @@ Wait-ForSSHConnectionToWindowsVMViaSshKey,Get-DefaultWinVMKey,
 Open-DefaultWinVMRemoteSessionViaSSHKey, Enable-SSHRemotingViaSSHKeyToWinNode,
 Disable-PasswordAuthenticationToWinNode, Get-DefaultWinVMName,
 Set-VMVFPRules, Remove-VMSshKey,
-Invoke-CmdOnVMWorkerNodeViaSSH
+Invoke-CmdOnVMWorkerNodeViaSSH,
+New-VHDXFromWinImage,
+Initialize-SSHConnectionToWinVM

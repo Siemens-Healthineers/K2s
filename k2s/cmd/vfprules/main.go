@@ -348,38 +348,28 @@ func main() {
 		return
 	}
 
-	// create log dir
-	logDir := determineLogDir()
-	if err := os.MkdirAll(logDir, os.ModePerm); err != nil {
-		log.Println(err)
-		os.Exit(1)
-	}
-
-	// log parts
-	var filename = filepath.Join(logDir, "vfprules-"+portid+".log")
-
-	// remove old log file
-	os.Remove(filename)
-
-	// logrus.SetFormatter(&logrus.JSONFormatter{})
 	logrus.SetFormatter(&logrus.TextFormatter{
 		DisableColors: true,
 		FullTimestamp: true,
 	})
-
-	// logrus.SetReportCaller(true)
 	logrus.SetLevel(logrus.DebugLevel)
-	file, err := os.OpenFile(filename, os.O_CREATE|os.O_WRONLY, os.FileMode(0777))
-	if err != nil {
-		log.Println("OpenFile error: ", filename)
-		os.Exit(1)
+
+	logDir := filepath.Join(logging.RootLogDir(), "vfprules")
+	logFilePath := filepath.Join(logDir, "vfprules-"+portid+".log")
+
+	if host.PathExists(logFilePath) {
+		if err := os.Remove(logFilePath); err != nil {
+			log.Fatalf("cannot remove log file '%s': %s", logFilePath, err)
+		}
 	}
-	defer file.Close()
-	logrus.SetOutput(file)
+
+	logFile := logging.InitializeLogFile(logFilePath)
+	defer logFile.Close()
+	logrus.SetOutput(logFile)
 
 	// first log entry
 	logrus.Debug("VFPRules started with portid:", portid)
-	logrus.Debug("VFPRules logs in:", filename)
+	logrus.Debug("VFPRules logs in:", logFilePath)
 
 	vfpRoutes, err := getVfpRoutes()
 	if err != nil {
@@ -402,7 +392,7 @@ func main() {
 	}
 
 	// print final message
-	fmt.Printf("VFPRules finished, please checks logs in %s\n", filepath.Join(logDir, filename))
+	fmt.Printf("VFPRules finished, please checks logs in %s\n", filepath.Join(logDir, logFilePath))
 }
 
 func init() {
@@ -414,7 +404,3 @@ func init() {
 }
 
 var directoryOfExecutable string
-
-func determineLogDir() string {
-	return filepath.Join(logging.RootLogDir(), "vfprules")
-}

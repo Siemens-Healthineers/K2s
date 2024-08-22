@@ -11,6 +11,7 @@ Import-Module $logModule, $configModule, $pathModule, $systemModule
 
 $kubePath = Get-KubePath
 $kubeBinPath = Get-KubeBinPath
+$kubeToolsPath = Get-KubeToolsPath
 
 
 # kubetools
@@ -27,11 +28,16 @@ function Get-KubeletConfigDir {
     return $kubeletConfigDir
 }
 
-function Invoke-DownloadKubetoolsArtifacts($downloadsBaseDirectory, $KubernetesVersion, $Proxy) {
+function Invoke-DownloadKubetoolsArtifacts($downloadsBaseDirectory, $KubernetesVersion, $Proxy, $K8sBinsPath) {
     $kubetoolsDownloadsDirectory = "$downloadsBaseDirectory\$windowsNode_KubetoolsDirectory"
 
     Write-Log "Create folder '$kubetoolsDownloadsDirectory'"
     mkdir $kubetoolsDownloadsDirectory | Out-Null
+
+    if ($K8sBinsPath -ne '') {
+        Copy-LocalBuildsOfKubeTools -K8sBinsPath $K8sBinsPath -Destination $kubetoolsDownloadsDirectory
+        return
+    }
 
     if (!$KubernetesVersion.StartsWith('v')) {
         $KubernetesVersion = 'v' + $KubernetesVersion
@@ -66,11 +72,11 @@ function Invoke-DeployKubetoolsArtifacts($windowsNodeArtifactsDirectory) {
         throw "Directory '$kubetoolsArtifactsDirectory' does not exist"
     }
     Write-Log 'Publish kubelet'
-    Copy-Item -Path "$kubetoolsArtifactsDirectory\$windowsNode_KubeletExe" -Destination "$kubeBinPath\exe" -Force
+    Copy-Item -Path "$kubetoolsArtifactsDirectory\$windowsNode_KubeletExe" -Destination "$kubeToolsPath" -Force
     Write-Log 'Publish kubeadm'
-    Copy-Item -Path "$kubetoolsArtifactsDirectory\$windowsNode_KubeadmExe" -Destination "$kubeBinPath\exe" -Force
+    Copy-Item -Path "$kubetoolsArtifactsDirectory\$windowsNode_KubeadmExe" -Destination "$kubeToolsPath" -Force
     Write-Log 'Publish kubeproxy'
-    Copy-Item -Path "$kubetoolsArtifactsDirectory\$windowsNode_KubeproxyExe" -Destination "$kubeBinPath\exe" -Force
+    Copy-Item -Path "$kubetoolsArtifactsDirectory\$windowsNode_KubeproxyExe" -Destination "$kubeToolsPath" -Force
     Invoke-DeployKubetoolKubectl $windowsNodeArtifactsDirectory
 }
 
@@ -80,11 +86,11 @@ function Invoke-DeployKubetoolKubectl($windowsNodeArtifactsDirectory) {
         throw "Directory '$kubetoolsArtifactsDirectory' does not exist"
     }
     Write-Log 'Publish kubectl'
-    $targetPath = "$kubeBinPath\exe"
+    $targetPath = "$kubeToolsPath"
     if (!(Test-Path -Path $targetPath)) {
         New-Item -Path $targetPath -ItemType Directory
     }
-    Copy-Item -Path "$kubetoolsArtifactsDirectory\$windowsNode_KubectlExe" -Destination "$kubeBinPath\exe" -Force
+    Copy-Item -Path "$kubetoolsArtifactsDirectory\$windowsNode_KubectlExe" -Destination "$kubeToolsPath" -Force
 }
 
 function Install-WinKubelet {
@@ -114,8 +120,8 @@ function Install-WinKubelet {
     $global:KubeletArgs = $FileContent.Trim("KUBELET_KUBEADM_ARGS=`"")
     $hn = ($(hostname)).ToLower()
 #   Prepare for kubelet >= 1.30    
-#   $cmd = "' + "&'$kubePath\bin\exe\kubelet.exe'" + ' $global:KubeletArgs --root-dir=' + ($systemDefaultDriveLetter) + ':\var\lib\kubelet --cert-dir=' + ($systemDefaultDriveLetter) + ':\var\lib\kubelet\pki --config=' + ($systemDefaultDriveLetter) + ':\var\lib\kubelet\config.yaml --bootstrap-kubeconfig=' + ($systemDefaultDriveLetter) + ':\etc\kubernetes\bootstrap-kubelet.conf --kubeconfig=' + "'$kubePath\config'" + ' --hostname-override=$hn --container-runtime-endpoint=`"npipe:////./pipe/containerd-containerd`" --config-dir=' + ($systemDefaultDriveLetter) + ':\etc\kubernetes\kubelet.conf.d "
-    $cmd = "' + "&'$kubePath\bin\exe\kubelet.exe'" + ' $global:KubeletArgs --root-dir=' + ($systemDefaultDriveLetter) + ':\var\lib\kubelet --cert-dir=' + ($systemDefaultDriveLetter) + ':\var\lib\kubelet\pki --config=' + ($systemDefaultDriveLetter) + ':\var\lib\kubelet\config.yaml --bootstrap-kubeconfig=' + ($systemDefaultDriveLetter) + ':\etc\kubernetes\bootstrap-kubelet.conf --kubeconfig=' + "'$kubePath\config'" + ' --hostname-override=$hn --container-runtime-endpoint=`"npipe:////./pipe/containerd-containerd`" --cgroups-per-qos=false --enforce-node-allocatable=`"`" "
+#   $cmd = "' + "&'$kubeToolsPath\kubelet.exe'" + ' $global:KubeletArgs --root-dir=' + ($systemDefaultDriveLetter) + ':\var\lib\kubelet --cert-dir=' + ($systemDefaultDriveLetter) + ':\var\lib\kubelet\pki --config=' + ($systemDefaultDriveLetter) + ':\var\lib\kubelet\config.yaml --bootstrap-kubeconfig=' + ($systemDefaultDriveLetter) + ':\etc\kubernetes\bootstrap-kubelet.conf --kubeconfig=' + "'$kubePath\config'" + ' --hostname-override=$hn --container-runtime-endpoint=`"npipe:////./pipe/containerd-containerd`" --config-dir=' + ($systemDefaultDriveLetter) + ':\etc\kubernetes\kubelet.conf.d "
+    $cmd = "' + "&'$kubeToolsPath\kubelet.exe'" + ' $global:KubeletArgs --root-dir=' + ($systemDefaultDriveLetter) + ':\var\lib\kubelet --cert-dir=' + ($systemDefaultDriveLetter) + ':\var\lib\kubelet\pki --config=' + ($systemDefaultDriveLetter) + ':\var\lib\kubelet\config.yaml --bootstrap-kubeconfig=' + ($systemDefaultDriveLetter) + ':\etc\kubernetes\bootstrap-kubelet.conf --kubeconfig=' + "'$kubePath\config'" + ' --hostname-override=$hn --container-runtime-endpoint=`"npipe:////./pipe/containerd-containerd`" --cgroups-per-qos=false --enforce-node-allocatable=`"`" "
 
     Invoke-Expression $cmd'
 
@@ -139,8 +145,8 @@ function Install-WinKubeProxy {
     Write-Log 'Registering kubeproxy service'
     mkdir -force "$($systemDefaultDriveLetter):\var\log\kubeproxy" | Out-Null
 
-    &$kubeBinPath\nssm install kubeproxy "$kubeBinPath\exe\kube-proxy.exe"
-    &$kubeBinPath\nssm set kubeproxy AppDirectory "$kubeBinPath\exe" | Out-Null
+    &$kubeBinPath\nssm install kubeproxy "$kubeToolsPath\kube-proxy.exe"
+    &$kubeBinPath\nssm set kubeproxy AppDirectory "$kubeToolsPath" | Out-Null
     $hn = ($(hostname)).ToLower()
     &$kubeBinPath\nssm set kubeproxy AppParameters "--proxy-mode=kernelspace --hostname-override=$hn --kubeconfig=\`"$kubePath\config\`" --enable-dsr=false " | Out-Null
     &$kubeBinPath\nssm set kubeproxy AppEnvironmentExtra KUBE_NETWORK=cbr0 | Out-Null
@@ -154,6 +160,51 @@ function Install-WinKubeProxy {
     &$kubeBinPath\nssm set kubeproxy AppRotateSeconds 0 | Out-Null
     &$kubeBinPath\nssm set kubeproxy AppRotateBytes 500000 | Out-Null
     &$kubeBinPath\nssm set kubeproxy Start SERVICE_AUTO_START | Out-Null
+}
+
+function Copy-LocalBuildsOfKubeTools {
+    Param (
+        [parameter(Mandatory = $false, HelpMessage = 'The path to local builds of Kubernetes binaries')]
+        [string] $K8sBinsPath = '',
+        [parameter(Mandatory = $false, HelpMessage = 'The destination path where to copy Kubernetes binaries')]
+        [string] $Destination = ''
+    )
+
+    if (!$(Test-Path $K8sBinsPath)) {
+        Write-Log "No local Kubernetes binary folder '$K8sBinsPath' found"
+        return
+    }
+
+    $kubetools = @($windowsNode_KubeletExe, $windowsNode_KubeadmExe, $windowsNode_KubeproxyExe, $windowsNode_KubectlExe)
+
+    $kubetools | ForEach-Object {
+        $toolPath = Join-Path $K8sBinsPath $_
+        if ($(Test-Path $toolPath)) {
+            Write-Log "Found local build of '$_' at '$toolPath'"
+            Write-Log "Copying '$toolPath' to '$Destination'"
+            Copy-Item $toolPath -Destination $Destination -Force
+        }
+    }
+}
+
+function Compress-WindowsNodeArtifactsWithLocalKubeTools {
+    Param (
+        [parameter(Mandatory = $false, HelpMessage = 'The path to local builds of Kubernetes binaries')]
+        [string] $K8sBinsPath = ''
+    )
+
+    $windowsNodeArtifactsZipFilePath = Get-WindowsNodeArtifactsZipFilePath
+    $windowsArtifactsDirectory = Get-WindowsArtifactsDirectory
+    $kubeToolsDirectory = $(Join-Path $windowsArtifactsDirectory $windowsNode_KubetoolsDirectory)
+
+    Expand-Archive -LiteralPath $windowsNodeArtifactsZipFilePath -DestinationPath $windowsArtifactsDirectory
+
+    Copy-LocalBuildsOfKubeTools -K8sBinsPath $K8sBinsPath -Destination $kubeToolsDirectory
+
+    Write-Log 'Create compressed file with artifacts for the Windows node with local builds of Kubernetes binaries'
+    Compress-Archive -Path "$windowsArtifactsDirectory\*" -DestinationPath "$windowsNodeArtifactsZipFilePath" -Force
+
+    Remove-Item $windowsArtifactsDirectory -Force -Recurse
 }
 
 Export-ModuleMember -Function *

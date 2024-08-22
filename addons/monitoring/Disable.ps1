@@ -42,7 +42,7 @@ if ($systemError) {
 
 Write-Log 'Check whether monitoring addon is already disabled'
 
-if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'monitoring', '--ignore-not-found').Output -and (Test-IsAddonEnabled -Name 'monitoring') -ne $true) {
+if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'monitoring', '--ignore-not-found').Output -and (Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'monitoring' })) -ne $true) {
     $errMsg = "Addon 'monitoring' is already disabled, nothing to do."
 
     if ($EncodeStructuredOutput -eq $true) {
@@ -62,7 +62,7 @@ Write-Log 'Uninstalling Kube Prometheus Stack' -Console
 (Invoke-Kubectl -Params 'delete', '-f', "$manifestsPath\crds").Output | Write-Log
 (Invoke-Kubectl -Params 'delete', '-f', "$manifestsPath\namespace.yaml").Output | Write-Log
 
-Remove-AddonFromSetupJson -Name 'monitoring'
+Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'monitoring' })
 
 Write-Log 'Kube Prometheus Stack uninstalled successfully' -Console
 

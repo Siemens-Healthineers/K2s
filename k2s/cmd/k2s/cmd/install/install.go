@@ -88,8 +88,9 @@ func init() {
 		GetPlatformFunc:           utils.Platform,
 		GetInstallDirFunc:         utils.InstallDir,
 		PrintCompletedMessageFunc: common.PrintCompletedMessage,
-		LoadConfigFunc:            setupinfo.LoadConfig,
-		SetConfigFunc:             setupinfo.SetConfig,
+		LoadConfigFunc:            setupinfo.ReadConfig,
+		SetConfigFunc:             setupinfo.WriteConfig,
+		DeleteConfigFunc:          setupinfo.DeleteConfig,
 	}
 
 	multivm.Installer = installer
@@ -111,6 +112,7 @@ func bindFlags(cmd *cobra.Command) {
 	cmd.Flags().StringP(ic.ProxyFlagName, ic.ProxyFlagShorthand, "", ic.ProxyFlagUsage)
 	cmd.Flags().StringP(ic.ConfigFileFlagName, ic.ConfigFileFlagShorthand, "", ic.ConfigFileFlagUsage)
 	cmd.Flags().Bool(ic.WslFlagName, false, ic.WslFlagUsage)
+	cmd.Flags().String(ic.K8sBinFlagName, "", ic.K8sBinFlagUsage)
 
 	// convenience flag; not configurable in config file; leads to multivm setup if true
 	cmd.Flags().Bool(ic.LinuxOnlyFlagName, false, ic.LinuxOnlyFlagUsage)
@@ -181,6 +183,9 @@ func buildInstallCmd(c *ic.InstallConfig) (cmd string, err error) {
 	}
 	if c.Env.RestartPostInstall != "" {
 		cmd += fmt.Sprintf(" -RestartAfterInstallCount %s", c.Env.RestartPostInstall)
+	}
+	if c.Env.K8sBins != "" {
+		cmd += fmt.Sprintf(" -K8sBinsPath '%s'", c.Env.K8sBins)
 	}
 	if c.Behavior.ShowOutput {
 		cmd += " -ShowLogs"

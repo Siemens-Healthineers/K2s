@@ -81,16 +81,41 @@ function Connect-KubeSwitch() {
 function Remove-KubeSwitch() {
     # Remove old switch
     Write-Log 'Remove KubeSwitch'
-    $vm = Get-VMNetworkAdapter -VMName $controlPlaneVMHostName -ErrorAction SilentlyContinue
-    if ( $vm ) {
-        $vm | Disconnect-VMNetworkAdapter
-    }
+    Get-VM | ForEach-Object { Get-VMNetworkAdapter -VMName $_.Name } | Where-Object { $_.SwitchName -eq $controlPlaneSwitchName } | Disconnect-VMNetworkAdapter
+
     $sw = Get-VMSwitch -Name $controlPlaneSwitchName -ErrorAction SilentlyContinue
     if ( $sw ) {
         Remove-VMSwitch -Name $controlPlaneSwitchName -Force
     }
 
     Remove-NetIPAddress -IPAddress $kubeSwitchIp -PrefixLength 24 -Confirm:$False -ErrorAction SilentlyContinue
+}
+
+function Connect-NetworkAdapterToVm() {
+    param (
+        [string]$VmName = $(throw 'Argument missing: VmName'),
+        [string]$SwitchName = $(throw 'Argument missing: SwitchName')
+    )
+    Write-Log "Connect switch '$SwitchName' to VM '$VmName'"
+    # connect VM to switch
+    $ad = Get-VMNetworkAdapter -VMName $VmName
+    if ( !($ad) ) {
+        Write-Log "Adding network adapter to VM '$VmName' ..."
+        Add-VMNetworkAdapter -VMName $VmName -Name 'Network Adapter'
+    }
+    Connect-VMNetworkAdapter -VMName $VmName -SwitchName $SwitchName
+}
+
+function Disconnect-NetworkAdapterFromVm {
+    param (
+        [string]$VmName = $(throw 'Argument missing: VmName')
+    )
+    # Remove old switch
+    Write-Log "Disconnect VM '$VmName' from network adapter"
+    $networkAdapter = Get-VMNetworkAdapter -VMName $VmName -ErrorAction SilentlyContinue
+    if ( $networkAdapter ) {
+        Disconnect-VMNetworkAdapter -VmName $VmName
+    }
 }
 
 <#
@@ -126,4 +151,4 @@ Export-ModuleMember New-DefaultControlPlaneSwitch,
 Get-ControlPlaneNodeDefaultSwitchName,
 Get-ControlPlaneNodeNetworkInterfaceName,
 Get-WorkerNodeNetworkInterfaceName,
-Add-DnsServer, New-KubeSwitch, Connect-KubeSwitch, Remove-KubeSwitch, Get-WslSwitchName, Reset-DnsServer
+Add-DnsServer, New-KubeSwitch, Connect-KubeSwitch, Remove-KubeSwitch, Get-WslSwitchName, Reset-DnsServer, Disconnect-NetworkAdapterFromVm, Connect-NetworkAdapterToVm

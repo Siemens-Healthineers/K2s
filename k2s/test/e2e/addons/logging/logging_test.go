@@ -58,7 +58,7 @@ var _ = Describe("'logging' addon", Ordered, func() {
 			}
 
 			addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
-			Expect(addonsStatus.IsAddonEnabled("logging")).To(BeFalse())
+			Expect(addonsStatus.IsAddonEnabled("logging", "")).To(BeFalse())
 		})
 
 		It("prints already-disabled message on disable command and exits with non-zero", func(ctx context.Context) {
@@ -111,7 +111,7 @@ var _ = Describe("'logging' addon", Ordered, func() {
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "opensearch-dashboards", "logging")
 
 			addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
-			Expect(addonsStatus.IsAddonEnabled("logging")).To(BeTrue())
+			Expect(addonsStatus.IsAddonEnabled("logging", "")).To(BeTrue())
 		})
 
 		It("prints already-enabled message on enable command and exits with non-zero", func(ctx context.Context) {
@@ -125,25 +125,25 @@ var _ = Describe("'logging' addon", Ordered, func() {
 		})
 
 		It("is reachable through port forwarding", func(ctx context.Context) {
-			kubectl := path.Join(suite.RootDir(), "bin", "exe", "kubectl.exe")
+			kubectl := path.Join(suite.RootDir(), "bin", "kube", "kubectl.exe")
 			portForwarding := exec.Command(kubectl, "-n", "logging", "port-forward", "svc/opensearch-dashboards", "5601:5601")
 			portForwardingSession, _ = gexec.Start(portForwarding, GinkgoWriter, GinkgoWriter)
 
 			url := "http://localhost:5601"
-			httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-I", "-m", "5", "--retry", "3", "--fail")
+			httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-I", "-m", "5", "--retry", "10", "--fail")
 			Expect(httpStatus).To(ContainSubstring("302"))
 		})
 	})
 
 	When("traefik as ingress controller", func() {
 		BeforeAll(func(ctx context.Context) {
-			suite.K2sCli().Run(ctx, "addons", "enable", "traefik", "-o")
-			suite.Cluster().ExpectDeploymentToBeAvailable("traefik", "traefik")
+			suite.K2sCli().Run(ctx, "addons", "enable", "ingress", "traefik", "-o")
+			suite.Cluster().ExpectDeploymentToBeAvailable("traefik", "ingress-traefik")
 		})
 
 		AfterAll(func(ctx context.Context) {
 			suite.K2sCli().Run(ctx, "addons", "disable", "logging", "-o")
-			suite.K2sCli().Run(ctx, "addons", "disable", "traefik", "-o")
+			suite.K2sCli().Run(ctx, "addons", "disable", "ingress", "traefik", "-o")
 
 			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "opensearch-dashboards", "logging")
 			suite.Cluster().ExpectStatefulSetToBeDeleted("opensearch-cluster-master", "logging", ctx)
@@ -152,10 +152,10 @@ var _ = Describe("'logging' addon", Ordered, func() {
 				suite.Cluster().ExpectDaemonSetToBeDeleted("fluent-bit-win", "logging", ctx)
 			}
 
-			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "traefik", "traefik")
+			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "traefik", "ingress-traefik")
 
 			addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
-			Expect(addonsStatus.IsAddonEnabled("logging")).To(BeFalse())
+			Expect(addonsStatus.IsAddonEnabled("logging", "")).To(BeFalse())
 		})
 
 		It("is in enabled state and pods are in running state", func(ctx context.Context) {
@@ -173,7 +173,7 @@ var _ = Describe("'logging' addon", Ordered, func() {
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "fluent-bit", "logging")
 
 			addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
-			Expect(addonsStatus.IsAddonEnabled("logging")).To(BeTrue())
+			Expect(addonsStatus.IsAddonEnabled("logging", "")).To(BeTrue())
 		})
 
 		It("prints already-enabled message on enable command and exits with non-zero", func(ctx context.Context) {
@@ -186,9 +186,9 @@ var _ = Describe("'logging' addon", Ordered, func() {
 			expectStatusToBePrinted(ctx)
 		})
 
-		It("is reachable through k2s-logging.local", func(ctx context.Context) {
-			url := "http://k2s-logging.local"
-			httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-I", "-m", "5", "--retry", "3", "--fail")
+		It("is reachable through k2s-logging.cluster.local", func(ctx context.Context) {
+			url := "http://k2s-logging.cluster.local"
+			httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-I", "-m", "5", "--retry", "10", "--fail")
 			// we expect a re-direct to /logging/app/home
 			Expect(httpStatus).To(ContainSubstring("302"))
 			Expect(httpStatus).To(ContainSubstring("/logging/app/home"))
@@ -196,22 +196,22 @@ var _ = Describe("'logging' addon", Ordered, func() {
 
 		It("is reachable through k2s.cluster.local/logging", func(ctx context.Context) {
 			url := "https://k2s.cluster.local/logging"
-			httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-I", "-m", "5", "--retry", "3", "--fail")
+			httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-I", "-m", "5", "--retry", "10", "--fail")
 			// we expect a re-direct to /logging/app/home
 			Expect(httpStatus).To(ContainSubstring("302"))
 			Expect(httpStatus).To(ContainSubstring("/logging/app/home"))
 		})
 	})
 
-	Describe("ingress-nginx as ingress controller", func() {
+	Describe("nginx as ingress controller", func() {
 		BeforeAll(func(ctx context.Context) {
-			suite.K2sCli().Run(ctx, "addons", "enable", "ingress-nginx", "-o")
+			suite.K2sCli().Run(ctx, "addons", "enable", "ingress", "nginx", "-o")
 			suite.Cluster().ExpectDeploymentToBeAvailable("ingress-nginx-controller", "ingress-nginx")
 		})
 
 		AfterAll(func(ctx context.Context) {
 			suite.K2sCli().Run(ctx, "addons", "disable", "logging", "-o")
-			suite.K2sCli().Run(ctx, "addons", "disable", "ingress-nginx", "-o")
+			suite.K2sCli().Run(ctx, "addons", "disable", "ingress", "nginx", "-o")
 
 			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "opensearch-dashboards", "logging")
 			suite.Cluster().ExpectStatefulSetToBeDeleted("opensearch-cluster-master", "logging", ctx)
@@ -223,7 +223,7 @@ var _ = Describe("'logging' addon", Ordered, func() {
 			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "ingress-nginx", "ingress-nginx")
 
 			addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
-			Expect(addonsStatus.IsAddonEnabled("logging")).To(BeFalse())
+			Expect(addonsStatus.IsAddonEnabled("logging", "")).To(BeFalse())
 		})
 
 		It("is in enabled state and pods are in running state", func(ctx context.Context) {
@@ -241,7 +241,7 @@ var _ = Describe("'logging' addon", Ordered, func() {
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "fluent-bit", "logging")
 
 			addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
-			Expect(addonsStatus.IsAddonEnabled("logging")).To(BeTrue())
+			Expect(addonsStatus.IsAddonEnabled("logging", "")).To(BeTrue())
 		})
 
 		It("prints already-enabled message on enable command and exits with non-zero", func(ctx context.Context) {
@@ -254,8 +254,8 @@ var _ = Describe("'logging' addon", Ordered, func() {
 			expectStatusToBePrinted(ctx)
 		})
 
-		It("is reachable through k2s-logging.local/", func(ctx context.Context) {
-			url := "http://k2s-logging.local"
+		It("is reachable through k2s-logging.cluster.local/", func(ctx context.Context) {
+			url := "http://k2s-logging.cluster.local"
 			httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-I", "-m", "5", "--retry", "10", "--fail")
 			// we expect a re-direct to /logging/app/home
 			Expect(httpStatus).To(ContainSubstring("302"))
@@ -264,7 +264,7 @@ var _ = Describe("'logging' addon", Ordered, func() {
 
 		It("is reachable through k2s.cluster.local/logging/", func(ctx context.Context) {
 			url := "https://k2s.cluster.local/logging"
-			httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-I", "-m", "5", "--retry", "3", "--fail")
+			httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-I", "-m", "5", "--retry", "10", "--fail")
 			// we expect a re-direct to /logging/app/home
 			Expect(httpStatus).To(ContainSubstring("302"))
 			Expect(httpStatus).To(ContainSubstring("/logging/app/home"))

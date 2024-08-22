@@ -16,16 +16,28 @@ function Invoke-Hook {
         [parameter()]
         [string] $AdditionalHooksDir = ''
     )
-    $hook = "$hookDir\\$HookName.ps1"
-    if (Test-Path $hook) {
-        &$hook
+    $hooksFilter = "*$HookName.ps1"
+
+    Write-Log "Executing hooks with hook name '$HookName'.."
+
+    $executionCount = 0
+
+    Get-ChildItem -Path $hookDir -Filter $hooksFilter -Force -ErrorAction SilentlyContinue | ForEach-Object {
+        Write-Log "  Executing '$($_.FullName)'.."
+        & "$($_.FullName)"
+        $executionCount++
     }
 
     if ($AdditionalHooksDir -ne '') {
-        $additionalHook = "$AdditionalHooksDir\\$HookName.ps1"
-        if (Test-Path $additionalHook) {
-            &$additionalHook
+        Get-ChildItem -Path $AdditionalHooksDir -Filter $hooksFilter -Force -ErrorAction SilentlyContinue | ForEach-Object {
+            Write-Log "  Executing '$($_.FullName)'.."
+            & "$($_.FullName)"
+            $executionCount++
         }
+    }
+
+    if ($executionCount -eq 0) {
+        Write-Log "No '$HookName' hooks found."
     }
 }
 

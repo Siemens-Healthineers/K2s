@@ -60,7 +60,7 @@ var _ = Describe("build container image", Ordered, func() {
 
 			AfterAll(func(ctx context.Context) {
 				suite.K2sCli().Run(ctx, "addons", "disable", "registry", "-o", "-d")
-				suite.K2sCli().Run(ctx, "addons", "disable", "ingress-nginx", "-o")
+				suite.K2sCli().Run(ctx, "addons", "disable", "ingress", "nginx", "-o")
 
 				addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
 				Expect(addonsStatus.GetEnabledAddons()).To(BeEmpty())
@@ -319,5 +319,5 @@ func removeImageFromLocalRegistry(ctx context.Context, imageName, tag string) {
 }
 
 func checkAppAccessibility(ctx context.Context, url string) {
-	suite.Cli().ExecOrFail(ctx, "curl.exe", url, "--fail", "-v", "-ipv4", "--retry", "3", "--retry-all-errors", "--retry-connrefused", "--retry-delay", "30")
+	suite.Cli().ExecOrFail(ctx, "curl.exe", url, "--fail", "-v", "-ipv4", "--retry", "10", "--retry-all-errors", "--retry-connrefused", "--retry-delay", "30")
 }

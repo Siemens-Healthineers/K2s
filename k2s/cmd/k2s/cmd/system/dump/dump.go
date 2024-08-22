@@ -4,7 +4,6 @@
 package dump
 
 import (
-	"errors"
 	"log/slog"
 	"path/filepath"
 	"strconv"
@@ -17,7 +16,6 @@ import (
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 
 	"github.com/siemens-healthineers/k2s/internal/powershell"
-	"github.com/siemens-healthineers/k2s/internal/setupinfo"
 )
 
 var (
@@ -38,17 +36,6 @@ func init() {
 }
 
 func dumpSystemStatus(cmd *cobra.Command, args []string) error {
-	configDir := cmd.Context().Value(common.ContextKeyConfigDir).(string)
-	config, err := setupinfo.LoadConfig(configDir)
-	if err != nil {
-		if errors.Is(err, setupinfo.ErrSystemNotInstalled) {
-			return common.CreateSystemNotInstalledCmdFailure()
-		}
-		if !errors.Is(err, setupinfo.ErrSystemInCorruptedState) {
-			return err
-		}
-	}
-
 	skipOpenDumpFlag, err := strconv.ParseBool(cmd.Flags().Lookup(skipOpenDumpFlagName).Value.String())
 	if err != nil {
 		return err
@@ -71,14 +58,9 @@ func dumpSystemStatus(cmd *cobra.Command, args []string) error {
 
 	slog.Debug("PS command created", "command", dumpStatusCommand)
 
-	outputWriter, err := common.NewOutputWriter()
-	if err != nil {
-		return err
-	}
-
 	start := time.Now()
 
-	err = powershell.ExecutePs(dumpStatusCommand, common.DeterminePsVersion(config), outputWriter)
+	err = powershell.ExecutePs(dumpStatusCommand, powershell.PowerShellV5, common.NewPtermWriter())
 	if err != nil {
 		return err
 	}

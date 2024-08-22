@@ -20,8 +20,10 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
     [switch] $ShowLogs = $false,
     [parameter(Mandatory = $false, HelpMessage = 'External access option')]
-    [ValidateSet('ingress-nginx', 'traefik', 'none')]
+    [ValidateSet('nginx', 'traefik', 'none')]
     [string] $Ingress = 'none',
+    [parameter(Mandatory = $false, HelpMessage = 'JSON config object to override preceeding parameters')]
+    [pscustomobject] $Config,
     [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
     [switch] $EncodeStructuredOutput,
     [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
@@ -57,7 +59,7 @@ if ($setupInfo.Name -ne 'k2s') {
     return
 }
 
-if ((Test-IsAddonEnabled -Name 'logging') -eq $true) {
+if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'logging' })) -eq $true) {
     $errMsg = "Addon 'logging' is already enabled, nothing to do."
 
     if ($EncodeStructuredOutput -eq $true) {
@@ -137,12 +139,11 @@ if (!$kubectlCmd.Success) {
 
 # traefik uses crd, so we have define ingressRoute after traefik has been enabled
 if (Test-TraefikIngressControllerAvailability) {
-    (Invoke-Kubectl -Params 'apply', '-f', "$manifestsPath\opensearch-dashboards\traefik.yaml").Output | Write-Log
+    (Invoke-Kubectl -Params 'apply', '-f', "$manifestsPath\opensearch-dashboards\ingress-traefik.yaml").Output | Write-Log
 }
 elseif (Test-NginxIngressControllerAvailability) {
-    (Invoke-Kubectl -Params 'apply', '-f', "$manifestsPath\opensearch-dashboards\ingress.yaml").Output | Write-Log
+    (Invoke-Kubectl -Params 'apply', '-f', "$manifestsPath\opensearch-dashboards\ingress-nginx.yaml").Output | Write-Log
 }
-Add-HostEntries -Url 'k2s-logging.local'
 
 # Import saved objects 
 $dashboardIP = (Invoke-Kubectl -Params 'get', 'pods', '-l=app.kubernetes.io/name=opensearch-dashboards', '-n', 'logging', '-o=jsonpath="{.items[0].status.podIP}"').Output

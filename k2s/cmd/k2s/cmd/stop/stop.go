@@ -37,8 +37,8 @@ func init() {
 func stopk8s(cmd *cobra.Command, args []string) error {
 	pterm.Printfln("🛑 Stopping K2s cluster")
 
-	configDir := cmd.Context().Value(common.ContextKeyConfigDir).(string)
-	config, err := setupinfo.LoadConfig(configDir)
+	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
+	config, err := setupinfo.ReadConfig(context.Config().Host.K2sConfigDir)
 	if err != nil {
 		if errors.Is(err, setupinfo.ErrSystemInCorruptedState) {
 			return common.CreateSystemInCorruptedStateCmdFailure()
@@ -56,14 +56,9 @@ func stopk8s(cmd *cobra.Command, args []string) error {
 
 	slog.Debug("PS command created", "command", stopCmd)
 
-	outputWriter, err := common.NewOutputWriter()
-	if err != nil {
-		return err
-	}
-
 	start := time.Now()
 
-	err = powershell.ExecutePs(stopCmd, common.DeterminePsVersion(config), outputWriter)
+	err = powershell.ExecutePs(stopCmd, common.DeterminePsVersion(config), common.NewPtermWriter())
 	if err != nil {
 		return err
 	}

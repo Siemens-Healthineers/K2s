@@ -15,9 +15,13 @@ import (
 	"github.com/spf13/pflag"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
+	"github.com/siemens-healthineers/k2s/cmd/k2s/utils/logging"
+	bl "github.com/siemens-healthineers/k2s/internal/logging"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 
+	"github.com/siemens-healthineers/k2s/internal/config"
+	"github.com/siemens-healthineers/k2s/internal/host"
 	"github.com/siemens-healthineers/k2s/internal/powershell"
 	"github.com/siemens-healthineers/k2s/internal/setupinfo"
 )
@@ -58,6 +62,8 @@ const (
 	proxy              = "proxy"
 	defaultProxy       = ""
 	skipImages         = "skip-images"
+	backupDir          = "backup-dir"
+	defaultBackupDir   = ""
 )
 
 var UpgradeCmd = &cobra.Command{
@@ -77,7 +83,9 @@ func AddInitFlags(cmd *cobra.Command) {
 	cmd.Flags().BoolP(deleteFiles, "d", false, "Delete downloaded files")
 	cmd.Flags().StringP(configFileFlagName, "c", "", "Path to config file to load. This configuration overwrites other CLI parameters")
 	cmd.Flags().StringP(proxy, "p", defaultProxy, "HTTP Proxy")
+	cmd.Flags().StringP(backupDir, "b", defaultBackupDir, "Backup directory")
 	cmd.Flags().BoolP(skipImages, "i", false, "Skip takeover of container images from old cluster to new cluster")
+	cmd.Flags().String(common.AdditionalHooksDirFlagName, "", common.AdditionalHooksDirFlagUsage)
 	cmd.Flags().SortFlags = false
 	cmd.Flags().PrintDefaults()
 }
@@ -85,8 +93,14 @@ func AddInitFlags(cmd *cobra.Command) {
 func upgradeCluster(cmd *cobra.Command, args []string) error {
 	pterm.Println("🤖 Analyze current cluster and check prerequisites ...")
 
-	configDir := cmd.Context().Value(common.ContextKeyConfigDir).(string)
-	config, err := setupinfo.LoadConfig(configDir)
+	showLog, err := cmd.Flags().GetBool(common.OutputFlagName)
+	if err != nil {
+		return err
+	}
+
+	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
+
+	config, err := readConfigLegacyAware(context.Config())
 	if err != nil {
 		if errors.Is(err, setupinfo.ErrSystemInCorruptedState) {
 			return common.CreateSystemInCorruptedStateCmdFailure()
@@ -105,16 +119,22 @@ func upgradeCluster(cmd *cobra.Command, args []string) error {
 
 	slog.Debug("PS command created", "command", psCmd)
 
-	outputWriter, err := common.NewOutputWriter()
-	if err != nil {
-		return err
-	}
+	outputWriter := common.NewPtermWriter()
 
 	start := time.Now()
 
-	err = powershell.ExecutePs(psCmd, common.DeterminePsVersion(config), outputWriter)
-	if err != nil {
-		return err
+	switchToUpgradeLogFile(showLog, context.Logger())
+
+	psErr := powershell.ExecutePs(psCmd, common.DeterminePsVersion(config), outputWriter)
+
+	switchToDefaultLogFile(showLog, context.Logger())
+
+	if psErr != nil {
+		return psErr
+	}
+
+	if outputWriter.ErrorOccurred {
+		return common.CreateSystemUnableToUpgradeCmdFailure()
 	}
 
 	duration := time.Since(start)
@@ -123,8 +143,46 @@ func upgradeCluster(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
+func readConfigLegacyAware(cfg *config.Config) (*setupinfo.Config, error) {
+	slog.Info("Trying to read the config file", "config-dir", cfg.Host.K2sConfigDir)
+
+	config, err := setupinfo.ReadConfig(cfg.Host.K2sConfigDir)
+	if err != nil {
+		if !errors.Is(err, setupinfo.ErrSystemNotInstalled) {
+			return nil, err
+		}
+
+		slog.Info("Config file not found, trying to read the config file from legacy dir", "legacy-dir", cfg.Host.KubeConfigDir)
+
+		config, err = setupinfo.ReadConfig(cfg.Host.KubeConfigDir)
+		if err != nil {
+			return nil, err
+		}
+
+		if err := copyLegacyConfigFile(cfg.Host.KubeConfigDir, cfg.Host.K2sConfigDir); err != nil {
+			return nil, err
+		}
+	}
+
+	slog.Info("Config file read")
+
+	return config, nil
+}
+
+func copyLegacyConfigFile(legacyDir string, targetDir string) error {
+	slog.Info("Copying config file from legacy dir to target dir", "legacy-dir", legacyDir, "target-dir", targetDir)
+
+	if err := host.CreateDirIfNotExisting(targetDir); err != nil {
+		return err
+	}
+	if err := host.CopyFile(setupinfo.ConfigPath(legacyDir), setupinfo.ConfigPath(targetDir)); err != nil {
+		return err
+	}
+	return nil
+}
+
 func createUpgradeCommand(cmd *cobra.Command) string {
-	psCmd := filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "system", "upgrade", "Start-ClusterUpgrade.ps1")
+	psCmd := utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "system", "upgrade", "Start-ClusterUpgrade.ps1"))
 	cmd.Flags().VisitAll(func(f *pflag.Flag) {
 		slog.Debug("Param", "name", f.Name, "value", f.Value)
 	})
@@ -136,8 +194,8 @@ func createUpgradeCommand(cmd *cobra.Command) string {
 	if skip {
 		psCmd += " -SkipResources "
 	}
-	keep, _ := strconv.ParseBool(cmd.Flags().Lookup(deleteFiles).Value.String())
-	if keep {
+	delete, _ := strconv.ParseBool(cmd.Flags().Lookup(deleteFiles).Value.String())
+	if delete {
 		psCmd += " -DeleteFiles "
 	}
 	config := cmd.Flags().Lookup(configFileFlagName).Value.String()
@@ -150,7 +208,39 @@ func createUpgradeCommand(cmd *cobra.Command) string {
 	}
 	skipImages, _ := strconv.ParseBool(cmd.Flags().Lookup(skipImages).Value.String())
 	if skipImages {
-		psCmd += " -SkipImages "
+		psCmd += " -SkipImages"
+	}
+	additionalHooksDir := cmd.Flags().Lookup(common.AdditionalHooksDirFlagName).Value.String()
+	if additionalHooksDir != "" {
+		psCmd += " -AdditionalHooksDir " + utils.EscapeWithSingleQuotes(additionalHooksDir)
+	}
+	backupDir := cmd.Flags().Lookup(backupDir).Value.String()
+	if backupDir != "" {
+		psCmd += " -BackupDir " + utils.EscapeWithSingleQuotes(backupDir)
 	}
 	return psCmd
+}
+
+func switchToUpgradeLogFile(showLog bool, logger *logging.Slogger) {
+	upgradeLogFilePath := bl.GlobalLogFilePath() + "_cli_upgrade_" + time.Now().Format("2006-01-02_15-04-05")
+
+	slog.Debug("Switching temporary to CLI upgrade log file", "path", upgradeLogFilePath)
+
+	setLogger(showLog, logger, upgradeLogFilePath)
+}
+
+func switchToDefaultLogFile(showLog bool, logger *logging.Slogger) {
+	globalLogFilePath := bl.GlobalLogFilePath()
+
+	slog.Debug("Switching back to default log file", "path", globalLogFilePath)
+
+	setLogger(showLog, logger, globalLogFilePath)
+}
+
+func setLogger(showLog bool, logger *logging.Slogger, path string) {
+	logHandlers := []logging.HandlerBuilder{logging.NewFileHandler(path)}
+	if showLog {
+		logHandlers = append(logHandlers, logging.NewCliHandler())
+	}
+	logger.SetHandlers(logHandlers...).SetGlobally()
 }

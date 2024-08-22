@@ -9,7 +9,7 @@ $k8sApiModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k8s-api/
 
 Import-Module $infraModule, $k8sApiModule
 
-$cmctlExe = "$(Get-KubeToolsPath)\cmctl.exe"
+$cmctlExe = "$(Get-KubeBinPath)\cmctl.exe"
 
 function Get-CAIssuerName {
     return 'K2s Self-Signed CA'
@@ -82,7 +82,7 @@ function Write-WarningForUser {
     
 ATTENTION:
 If you disable this add-on, the sites protected by cert-manager certificates 
-will become untrusted. Delete the HSTS settings for your site (e.g. 'k2s-dashboard.local')
+will become untrusted. Delete the HSTS settings for your site (e.g. 'k2s-dashboard.cluster.local')
 here (works in Chrome and Edge):
 chrome://net-internals/#hsts
   
@@ -151,7 +151,7 @@ function Wait-ForOauth2ProxyAvailable {
 
 function Deploy-IngressForSecurity([string]$Ingress) {
     switch ($Ingress) {
-        'ingress-nginx' {
+        'nginx' {
             (Invoke-Kubectl -Params 'apply', '-f', "$PSScriptRoot\manifests\keycloak\nginx-ingress.yaml").Output | Write-Log
             break
         }

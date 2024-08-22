@@ -17,15 +17,15 @@ The logging addon can be enabled using the k2s CLI by running the following comm
 k2s addons enable logging
 ```
 
-### Integration with ingress-nginx and traefik addons
+### Integration with ingress nginx and ingress traefik addons
 
-The logging addon can be integrated with either the ingress-nginx addon or the traefik addon so that it can be exposed outside the cluster.
+The logging addon can be integrated with either the ingress nginx or the ingress traefik addon so that it can be exposed outside the cluster.
 
 For example, the logging addon can be enabled along with traefik addon using the following command:
 ```
 k2s addons enable logging --ingress traefik
 ```
-_Note:_ The above command shall enable the traefik addon if it is not enabled.
+_Note:_ The above command shall enable the ingress traefik addon if it is not enabled.
 
 ## Accessing the logging dashboard
 
@@ -33,8 +33,8 @@ The logging dashboard UI can be accessed via the following methods.
 
 ### Access using ingress
 
-To access logging dashboard via ingress, the ingress-nginx or the traefik addon has to enabled.
-Once the addons are enabled, then the logging dashboard UI can be accessed at the following link: https://k2s.cluster.local/logging/ and https://k2s-logging.local (with HTTP using http://.. unstead of https://..)
+To access logging dashboard via ingress, the ingress nginx or the ingress traefik addon has to enabled.
+Once the addons are enabled, then the logging dashboard UI can be accessed at the following link: https://k2s.cluster.local/logging/ and https://k2s-logging.cluster.local (with HTTP using http://.. instead of https://..)
 
 ### Access using port-forwarding
 

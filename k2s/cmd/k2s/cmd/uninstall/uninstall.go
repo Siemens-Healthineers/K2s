@@ -45,8 +45,8 @@ func uninstallk8s(cmd *cobra.Command, args []string) error {
 
 	pterm.Printfln("🤖 Uninstalling K2s %s", version)
 
-	configDir := cmd.Context().Value(common.ContextKeyConfigDir).(string)
-	config, err := setupinfo.LoadConfig(configDir)
+	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
+	config, err := setupinfo.ReadConfig(context.Config().Host.K2sConfigDir)
 	if err != nil {
 		if errors.Is(err, setupinfo.ErrSystemNotInstalled) {
 			return common.CreateSystemNotInstalledCmdFailure()
@@ -63,14 +63,9 @@ func uninstallk8s(cmd *cobra.Command, args []string) error {
 
 	slog.Debug("PS command created", "command", uninstallCmd)
 
-	outputWriter, err := common.NewOutputWriter()
-	if err != nil {
-		return err
-	}
-
 	start := time.Now()
 
-	err = powershell.ExecutePs(uninstallCmd, common.DeterminePsVersion(config), outputWriter)
+	err = powershell.ExecutePs(uninstallCmd, common.DeterminePsVersion(config), common.NewPtermWriter())
 	if err != nil {
 		return err
 	}
@@ -110,7 +105,9 @@ func buildUninstallCmd(flags *pflag.FlagSet, setupName setupinfo.SetupName) (str
 	case setupinfo.SetupNameMultiVMK8s:
 		cmd = buildMultiVMUninstallCmd(skipPurgeFlag, outputFlag, additionalHooksDir, deleteFilesForOfflineInstallation)
 	default:
-		return "", errors.New("could not determine the setup type, aborting. If you are sure you have a K2s setup installed, call the correct uninstall script directly")
+		slog.Warn("Uninstall", "Found invalid setup type", string(setupName))
+		pterm.Warning.Printfln("could not determine the setup type, proceeding uninstall with default variant 'k2s'")
+		cmd = buildk2sUninstallCmd(skipPurgeFlag, outputFlag, additionalHooksDir, deleteFilesForOfflineInstallation)
 	}
 
 	return cmd, nil

@@ -20,10 +20,14 @@ jobs:
     continue-on-error: false
     runs-on: windows-latest
     env:
-      CI_COMMIT_MESSAGE: Auto-commit k2s artifacts
+      CI_COMMIT_MESSAGE: "ci: auto-commit k2s artifacts"
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+      # use an older version since under windows it caues an key verification error
+    - uses: webfactory/ssh-agent@v0.7.0
+      with:
+        ssh-private-key: ${{ secrets.AUTOCOMMITKEY }}
 
     - name: Set up Golang
       uses: actions/setup-go@v5
@@ -39,6 +43,7 @@ jobs:
       run: |
         git config --local user.email github-actions@github.com
         git config --local user.name github-actions
+        git remote -v
 
     - name: Current working directory
       run: |
@@ -46,7 +51,7 @@ jobs:
 
     - name: Build all k2s executables
       run: |
-        .\smallsetup\common\BuildGoExe.ps1 -BuildAll:$true
+        .\smallsetup\common\BuildGoExe.ps1 -BuildAll
         ls
 
     - name: Run ci Acceptance Tests

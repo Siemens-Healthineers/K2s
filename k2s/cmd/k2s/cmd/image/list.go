@@ -105,8 +105,8 @@ func listImages(cmd *cobra.Command, args []string) error {
 
 	terminalPrinter := terminal.NewTerminalPrinter()
 
-	configDir := cmd.Context().Value(common.ContextKeyConfigDir).(string)
-	config, err := setupinfo.LoadConfig(configDir)
+	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
+	config, err := setupinfo.ReadConfig(context.Config().Host.K2sConfigDir)
 	if err != nil {
 		if errors.Is(err, setupinfo.ErrSystemInCorruptedState) {
 			if outputOption == jsonOption {
@@ -225,12 +225,7 @@ func getImages(includeK8sImages bool, psVersion powershell.PowerShellVersion) (*
 		params = []string{"-IncludeK8sImages"}
 	}
 
-	outputWriter, err := common.NewOutputWriter()
-	if err != nil {
-		return nil, err
-	}
-
-	return powershell.ExecutePsWithStructuredResult[*LoadedImages](cmd, "StoredImages", psVersion, outputWriter, params...)
+	return powershell.ExecutePsWithStructuredResult[*LoadedImages](cmd, "StoredImages", psVersion, common.NewPtermWriter(), params...)
 }
 
 func printAvailableImages(terminalPrinter terminal.TerminalPrinter, containerImages []containerImage) {

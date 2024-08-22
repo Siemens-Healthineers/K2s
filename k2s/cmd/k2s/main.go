@@ -19,14 +19,20 @@ import (
 func main() {
 	exitCode := 0
 
+	logger := logging.NewSlogger()
+
 	defer func() {
-		logging.Finalize()
+		if err := recover(); err != nil {
+			exitCode = 1
+			handleUnexpectedError(err)
+		}
+
+		logger.Flush()
+		logger.Close()
 		os.Exit(exitCode)
 	}()
 
-	levelVar := logging.Initialize()
-
-	rootCmd, err := cmd.CreateRootCmd(levelVar)
+	rootCmd, err := cmd.CreateRootCmd(logger)
 	if err != nil {
 		exitCode = 1
 		slog.Error("error occurred during root command creation", "error", err)
@@ -42,8 +48,7 @@ func main() {
 
 	var cmdFailure *common.CmdFailure
 	if !errors.As(err, &cmdFailure) {
-		pterm.Error.Println(err)
-		slog.Error("error occurred during command execution", "error", err)
+		handleUnexpectedError(err)
 		return
 	}
 
@@ -58,11 +63,15 @@ func main() {
 		}
 	}
 
-	logging.DisableCliOutput()
-
 	slog.Error("command failed",
 		"severity", fmt.Sprintf("%d(%s)", cmdFailure.Severity, cmdFailure.Severity),
 		"code", cmdFailure.Code,
 		"message", cmdFailure.Message,
 		"suppressCliOutput", cmdFailure.SuppressCliOutput)
+}
+
+func handleUnexpectedError(err any) {
+	pterm.Error.Println(fmt.Errorf("%v", err))
+
+	slog.Error("unexpected error", "error", err)
 }

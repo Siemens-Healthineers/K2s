@@ -1,9 +1,11 @@
 # SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
 # SPDX-License-Identifier: MIT
 
-$logModule = "$PSScriptRoot\..\..\..\k2s.infra.module\log\log.module.psm1"
+$infraModule = "$PSScriptRoot\..\..\..\k2s.infra.module\k2s.infra.module.psm1"
 $loopBackAdapterModule = "$PSScriptRoot\..\network\loopbackadapter.module.psm1"
-Import-Module $logModule, $loopBackAdapterModule
+Import-Module $infraModule, $loopBackAdapterModule
+
+$kubeBinPath = Get-KubeBinPath
 
 function Get-IsNssmServiceRunning($name) {
     return $(Get-Service -Name $name -ErrorAction SilentlyContinue).Status -eq "Running"
@@ -13,7 +15,7 @@ function Start-NssmService($name) {
     $svc = $(Get-Service -Name $name -ErrorAction SilentlyContinue).Status
     if (($svc) -and ($svc -ne 'Running')) {
         Write-Log ('Starting service: ' + $name)
-        nssm start $name
+        &$kubeBinPath\nssm start $name
     }
 }
 
@@ -21,7 +23,7 @@ function Restart-NssmService($name) {
     $svc = $(Get-Service -Name $name -ErrorAction SilentlyContinue).Status
     if (($svc) -and ($svc -eq 'Running')) {
         Write-Log ('Restarting service: ' + $name)
-        nssm restart $name
+        &$kubeBinPath\nssm restart $name
     }
 }
 
@@ -29,7 +31,7 @@ function Stop-NssmService($name) {
     $svc = $(Get-Service -Name $name -ErrorAction SilentlyContinue).Status
     if (($svc) -and ($svc -ne 'Stopped')) {
         Write-Log ('Stopping service: ' + $name)
-        nssm stop $name
+        &$kubeBinPath\nssm stop $name
     }
 }
 

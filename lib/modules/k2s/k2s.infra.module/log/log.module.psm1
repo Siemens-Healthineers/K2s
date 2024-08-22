@@ -123,7 +123,7 @@ function Write-Log {
                 $dayTimestamp = [DateTime]::Now.ToString('dd-MM-yyyy HH:mm:ss')
                 $timestamp = [DateTime]::Now.ToString('HH:mm:ss')
 
-                $consoleMessage = if (!$Progress) { "[$timestamp] $message" } else { $message }
+                $consoleMessage = if ($Error) { "[$timestamp][ERROR] $message" } elseif (!$Progress) { "[$timestamp] $message" } else { $message }
 
                 if ($consoleMessage -match '\[([^]]+::[^]]+)\]\s?') {
                     # module message, eg. [11:39:19] [cli-messages.module.psm1::Send-ToCli] message converted
@@ -148,17 +148,17 @@ function Write-Log {
                     if ($script:ConsoleLogging) {
                         Write-Information $message -InformationAction Continue
                     }
-                    $logFileMessage | Out-File -Append -FilePath $k2sLogFile -Encoding utf8
+                    $logFileMessage | Out-File -Append -FilePath $k2sLogFile -Encoding utf8 -Force
                     return
                 }
 
                 if ($Error) {
-                    "[$dayTimestamp][ERROR] $message" | Out-File -Append -FilePath $k2sLogFile -Encoding utf8
+                    "[$dayTimestamp][ERROR] $message" | Out-File -Append -FilePath $k2sLogFile -Encoding utf8 -Force
                     Write-Error $consoleMessage
                 }
                 elseif ($Progress -and ($Console -or $script:ConsoleLogging)) {
                     Write-Host $consoleMessage -NoNewline
-                    $logFileMessage | Out-File -Append -FilePath $k2sLogFile -Encoding utf8 -NoNewline
+                    $logFileMessage | Out-File -Append -FilePath $k2sLogFile -Encoding utf8 -NoNewline -Force
                 }
                 elseif ($Console -or $script:ConsoleLogging) {
                     if ($Raw) {
@@ -170,10 +170,10 @@ function Write-Log {
                     else {
                         Write-Information $consoleMessage -InformationAction Continue
                     }
-                    $logFileMessage | Out-File -Append -FilePath $k2sLogFile -Encoding utf8
+                    $logFileMessage | Out-File -Append -FilePath $k2sLogFile -Encoding utf8 -Force
                 }
                 else {
-                    $logFileMessage | Out-File -Append -FilePath $k2sLogFile -Encoding utf8
+                    $logFileMessage | Out-File -Append -FilePath $k2sLogFile -Encoding utf8 -Force
                 }
             }
         }
@@ -191,11 +191,11 @@ function Get-k2sLogDirectory {
 }
 
 function Get-LogFilePath {
-    return $k2sLogFile 
+    return $k2sLogFile
 }
 
 function Get-LogFilePathPart {
-    return $k2sLogFilePart 
+    return $k2sLogFilePart
 }
 
 function Save-k2sLogDirectory {

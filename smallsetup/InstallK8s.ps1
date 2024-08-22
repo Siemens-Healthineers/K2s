@@ -41,7 +41,7 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'HTTP proxy if available')]
     [string] $Proxy,
     [parameter(Mandatory = $false, HelpMessage = 'DNS Addresses if available')]
-    [string[]]$DnsAddresses = @('8.8.8.8', '8.8.4.4'),
+    [string[]]$DnsAddresses,
     [parameter(Mandatory = $false, HelpMessage = 'Directory containing additional hooks to be executed after local hooks are executed')]
     [string] $AdditionalHooksDir = '',
     [parameter(Mandatory = $false, HelpMessage = 'Deletes the needed files to perform an offline installation')]
@@ -60,8 +60,6 @@ Param(
     # These are specific developer options
     [parameter(Mandatory = $false, HelpMessage = 'Exit after initial checks')]
     [switch] $CheckOnly = $false,
-    [parameter(Mandatory = $false, HelpMessage = 'Output every line that gets executed')]
-    [switch] $Trace = $false,
     [parameter(Mandatory = $false, HelpMessage = 'Do not call the StartK8s at end')]
     [switch] $SkipStart = $false,
     [parameter(Mandatory = $false, HelpMessage = 'Host-GW or VXLAN, Host-GW: true, false for VXLAN')]
@@ -73,162 +71,28 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'Use WSL2 for hosting KubeMaster VM')]
     [switch] $WSL = $false,
     [parameter(Mandatory = $false, HelpMessage = 'Append to log file (do not start from scratch)')]
-    [switch] $AppendLogFile = $false
+    [switch] $AppendLogFile = $false,
+    [parameter(Mandatory = $false, HelpMessage = 'The path to local builds of Kubernetes binaries')]
+    [string] $K8sBinsPath = ''
 )
 
-$installStopwatch = [system.diagnostics.stopwatch]::StartNew()
-
-$infraModule =   "$PSScriptRoot\..\lib\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
-$nodeModule =    "$PSScriptRoot\..\lib\modules\k2s\k2s.node.module\k2s.node.module.psm1"
-$clusterModule = "$PSScriptRoot\..\lib\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1"
-$temporaryIsolatedCalledScriptsModule = "$PSScriptRoot\ps-modules\only-while-refactoring\installation\still-to-merge.isolatedcalledscripts.module.psm1"
-
-Import-Module $infraModule, $nodeModule, $clusterModule, $temporaryIsolatedCalledScriptsModule
-
-
-Initialize-Logging -ShowLogs:$ShowLogs
-Reset-LogFile -AppendLogFile:$AppendLogFile
-Set-LoggingPreferencesIntoScriptsIsolationModule -ShowLogs:$ShowLogs -AppendLogFile:$false
-
-$ErrorActionPreference = 'Continue'
-
-Write-Log 'Prerequisites checks before installation' -Console
-
-Test-PathPrerequisites
-Test-ControlPlanePrerequisites -MasterVMProcessorCount $MasterVMProcessorCount -MasterVMMemory $MasterVMMemory -MasterDiskSize $MasterDiskSize
-Test-WindowsPrerequisites -WSL:$WSL
-Stop-InstallationIfRequiredCurlVersionNotInstalled
-
-Stop-InstallIfNoMandatoryServiceIsRunning
-
-if ($CheckOnly) {
-    Write-Log 'Early exit (CheckOnly)'
-    exit
-}
-
-Write-Log 'Starting installation...'
-
-# Add K2s executables as part of environment variable
-Set-EnvVars
-
-$Proxy = Get-OrUpdateProxyServer -Proxy:$Proxy
-
-################################ SCRIPT START ###############################################
-
-# make sure we are at the right place for install
-$installationPath = Get-KubePath
-Set-Location $installationPath
-
-# set defaults for unset arguments
-$KubernetesVersion = Get-DefaultK8sVersion
-$script:SetupType = 'k2s'
-
-Set-ConfigWslFlag -Value $([bool]$WSL)
-Set-ConfigSetupType -Value $script:SetupType
-
-$linuxOsType = Get-LinuxOsType $LinuxVhdxPath
-Set-ConfigLinuxOsType -Value $linuxOsType
-
-Write-Log 'Setting up Windows worker node' -Console
-
-# Install loopback adapter for l2bridge
-New-DefaultLoopbackAdater
-
-Set-InstallationPathIntoScriptsIsolationModule -Value $installationPath
-
-Initialize-WinNode -KubernetesVersion $KubernetesVersion `
-    -HostGW:$HostGW `
-    -Proxy:"$Proxy" `
-    -DeleteFilesForOfflineInstallation $DeleteFilesForOfflineInstallation `
-    -ForceOnlineInstallation $ForceOnlineInstallation
-
-
-$controlPlaneParams = @{
-    Hostname = Get-ConfigControlPlaneNodeHostname
-    IpAddress = Get-ConfiguredIPControlPlane
-    GatewayIpAddress = Get-ConfiguredKubeSwitchIP
-    DnsServers= $(Get-DnsIpAddressesFromActivePhysicalNetworkInterfacesOnWindowsHost)
-    VmName = 'KubeMaster'
-    VMMemoryStartupBytes = $MasterVMMemory
-    VMProcessorCount = $MasterVMProcessorCount
-    VMDiskSize = $MasterDiskSize
+$installationParameters = @{
+    MasterVMMemory = $MasterVMMemory
+    MasterVMProcessorCount = $MasterVMProcessorCount
+    MasterDiskSize = $MasterDiskSize
     Proxy = $Proxy
+    DnsAddresses = $DnsAddresses
+    AdditionalHooksDir = $AdditionalHooksDir
     DeleteFilesForOfflineInstallation = $DeleteFilesForOfflineInstallation
     ForceOnlineInstallation = $ForceOnlineInstallation
+    CheckOnly = $CheckOnly
+    SkipStart = $SkipStart
+    ShowLogs = $ShowLogs
+    RestartAfterInstallCount = $RestartAfterInstallCount
+    WSL = $WSL
+    AppendLogFile = $AppendLogFile
+    K8sBinsPath = $K8sBinsPath
 }
 
-if ($WSL) {
-    Write-Log "Setting up $($controlPlaneParams.VmName) Distro" -Console
-    Write-Log 'vEthernet (WSL) switch will be reconfigured! Your existing WSL distros will not work properly until you stop the cluster.'
-    Write-Log 'Configuring WSL2'
-    Set-WSL -MasterVMMemory $MasterVMMemory -MasterVMProcessorCount $MasterVMProcessorCount
-    New-WslLinuxVmAsControlPlaneNode @controlPlaneParams
-    Start-WSL
-    Set-WSLSwitch -IpAddress $($controlPlaneParams.GatewayIpAddress)
-}
-else {
-    Write-Log "Setting up $($controlPlaneParams.VmName) VM" -Console
-    New-LinuxVmAsControlPlaneNode @controlPlaneParams
-    New-KubeSwitch
-    Connect-KubeSwitch
-}
-
-Wait-ForSSHConnectionToLinuxVMViaPwd
-New-SshKey -IpAddress $($controlPlaneParams.IpAddress)
-Copy-LocalPublicSshKeyToRemoteComputer -UserName $(Get-DefaultUserNameControlPlane) -UserPwd $(Get-DefaultUserPwdControlPlane) -IpAddress $($controlPlaneParams.IpAddress)
-Wait-ForSSHConnectionToLinuxVMViaSshKey
-Remove-ControlPlaneAccessViaUserAndPwd
-$transparentproxy = 'http://' + $($controlPlaneParams.GatewayIpAddress) + ':8181'
-Set-ProxySettingsOnKubenode -ProxySettings $transparentproxy -IpAddress $($controlPlaneParams.IpAddress)
-Restart-Service httpproxy -ErrorAction SilentlyContinue
-
-$hostname = (Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'hostname' -NoLog).Output
-Set-ConfigControlPlaneNodeHostname($hostname)
-
-
-# JOIN NODES
-Write-Log "Preparing Kubernetes $KubernetesVersion by joining nodes" -Console
-
-Initialize-KubernetesCluster -AdditionalHooksDir $AdditionalHooksDir
-
-
-if (! $SkipStart) {
-    Write-Log 'Starting Kubernetes System'
-    & "$PSScriptRoot\StartK8s.ps1" -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs -SkipHeaderDisplay
-
-    if ($RestartAfterInstallCount -gt 0) {
-        $restartCount = 0;
-    
-        while ($true) {
-            $restartCount++
-            Write-Log "Restarting Kubernetes System (iteration #$restartCount):"
-    
-            & "$PSScriptRoot\StopK8s.ps1" -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs -SkipHeaderDisplay
-            Start-Sleep 10 # Wait for renew of IP
-    
-            & "$PSScriptRoot\StartK8s.ps1" -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs -SkipHeaderDisplay
-            Start-Sleep -s 5
-    
-            if ($restartCount -eq $RestartAfterInstallCount) {
-                Write-Log 'Restarting Kubernetes System Completed'
-                break;
-            }
-        }
-    }
-
-    # show results
-    Write-Log "Current state of kubernetes nodes:`n"
-    Start-Sleep 2
-    &$kubectlExe get nodes -o wide
-} else {
-    & "$PSScriptRoot\StopK8s.ps1" -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs -SkipHeaderDisplay
-}
-
-Invoke-Hook -HookName 'AfterBaseInstall' -AdditionalHooksDir $AdditionalHooksDir
-
-Write-Log '---------------------------------------------------------------'
-Write-Log "K2s setup finished.   Total duration: $('{0:hh\:mm\:ss}' -f $installStopwatch.Elapsed )"
-Write-Log '---------------------------------------------------------------'
-
-Write-RefreshEnvVariables
+& "$PSScriptRoot\..\lib\scripts\k2s\install\install.ps1" @installationParameters
 

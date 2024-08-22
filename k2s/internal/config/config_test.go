@@ -80,10 +80,23 @@ var _ = Describe("config pkg", func() {
 			})
 
 			It("kube config path is cleaned and absolute", func() {
-				GinkgoWriter.Println("Setup config dir: <", actual.Host.KubeConfigDir, ">")
+				GinkgoWriter.Println("kube config dir: <", actual.Host.KubeConfigDir, ">")
 
 				Expect(filepath.IsAbs(actual.Host.KubeConfigDir)).To(BeTrue())
 				Expect(actual.Host.KubeConfigDir).ToNot(ContainSubstring("/"))
+			})
+
+			It("K2s config path is absolute", func() {
+				GinkgoWriter.Println("K2s config dir: <", actual.Host.K2sConfigDir, ">")
+
+				Expect(filepath.IsAbs(actual.Host.K2sConfigDir)).To(BeTrue())
+			})
+
+			It("SSH path is cleaned and absolute", func() {
+				GinkgoWriter.Println("ssh dir: <", actual.Host.SshDir, ">")
+
+				Expect(filepath.IsAbs(actual.Host.SshDir)).To(BeTrue())
+				Expect(actual.Host.SshDir).ToNot(ContainSubstring("/"))
 			})
 
 			It("nodes config contains Windows and Linux nodes", func() {

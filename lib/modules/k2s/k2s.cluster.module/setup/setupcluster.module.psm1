@@ -15,7 +15,6 @@ Import-Module $configModule, $logModule, $pathModule, $vmModule, $hooksModule, $
 
 $kubePath = Get-KubePath
 $kubeConfigDir = Get-ConfiguredKubeConfigDir
-$setupConfigRoot = Get-RootConfigk2s
 
 $kubeletConfigDir = Get-KubeletConfigDir
 $joinConfigurationFilePath = "$kubePath\cfg\kubeadm\joinwindowsnode.yaml"
@@ -103,8 +102,8 @@ Join the windows node with linux control plane node
 #>
 function Join-WindowsNode {
     Param(
-        [Parameter(HelpMessage = 'When executing ssh.exe in nested environment[host=>VM=>VM], -n flag should not be used.')]
-        [switch]$Nested = $false
+        [string]$CommandForJoining = $(throw 'Argument missing: CommandForJoining'),
+        [string] $PodSubnetworkNumber = $(throw 'Argument missing: PodSubnetworkNumber')
     )
 
     # join node if necessary
@@ -115,16 +114,16 @@ function Join-WindowsNode {
         $tempKubeadmDirectory = $(Get-SystemDriveLetter) + ':\k'
         $bPathAvailable = Test-Path -Path $tempKubeadmDirectory
         if ( !$bPathAvailable ) { mkdir -Force $tempKubeadmDirectory | Out-Null }
-        Copy-Item -Path "$kubePath\bin\exe\kubeadm.exe" -Destination $tempKubeadmDirectory -Force
+        Copy-Item -Path "$kubeToolsPath\kubeadm.exe" -Destination $tempKubeadmDirectory -Force
 
         Write-Log 'Add kubeadm to firewall rules'
         New-NetFirewallRule -DisplayName 'Allow temp Kubeadm' -Group 'k2s' -Direction Inbound -Action Allow -Program "$tempKubeadmDirectory\kubeadm.exe" -Enabled True | Out-Null
         #Below rule is not neccessary but adding in case we perform subsequent operations.
-        New-NetFirewallRule -DisplayName 'Allow Kubeadm' -Group 'k2s' -Direction Inbound -Action Allow -Program "$kubePath\bin\exe\kubeadm.exe" -Enabled True | Out-Null
+        New-NetFirewallRule -DisplayName 'Allow Kubeadm' -Group 'k2s' -Direction Inbound -Action Allow -Program "$kubeToolsPath\kubeadm.exe" -Enabled True | Out-Null
 
         Write-Log "Host $env:COMPUTERNAME not yet available as worker node."
 
-        & "$tempKubeadmDirectory\kubeadm.exe" reset -f 3>&1 2>&1 | Write-Log
+        & "$tempKubeadmDirectory\kubeadm.exe" reset -f 2>&1 | Write-Log
         Get-ChildItem -Path $kubeletConfigDir -Force -Recurse -Attributes Reparsepoint -ErrorAction 'silentlycontinue' | % { $n = $_.FullName.Trim('\'); fsutil reparsepoint delete "$n" }
         Remove-Item -Path "$kubeletConfigDir\etc" -Force -Recurse -ErrorAction SilentlyContinue
         New-Item -Path "$kubeletConfigDir\etc" -ItemType SymbolicLink -Value "$(Get-SystemDriveLetter):\etc" | Out-Null
@@ -132,8 +131,7 @@ function Join-WindowsNode {
         # Remove-Job -Name JoinK8sJob -Force -ErrorAction SilentlyContinue
         Write-Log 'Build join command ..'
 
-        $tokenCreationCommand = 'sudo kubeadm token create --print-join-command'
-        $cmdjoin = (Invoke-CmdOnControlPlaneViaSSHKey "$tokenCreationCommand" -Nested:$Nested).Output 2>&1 | Select-String -Pattern 'kubeadm join' -CaseSensitive -SimpleMatch
+        $cmdjoin = $CommandForJoining | Select-String -Pattern 'kubeadm join' -CaseSensitive -SimpleMatch
         $cmdjoin.Line = $cmdjoin.Line.replace("`n", '').replace("`r", '')
 
         $searchPattern = 'kubeadm join (?<api>[^\s]*) --token (?<token>[^\s]*) --discovery-token-ca-cert-hash (?<hash>[^\s]*)'
@@ -150,7 +148,7 @@ function Join-WindowsNode {
         $token = $patternSearchResult.Matches.Groups[2].Value
         $hash = $patternSearchResult.Matches.Groups[3].Value
         $caCertFilePath = "$(Get-SystemDriveLetter):\etc\kubernetes\pki\ca.crt"
-        $windowsNodeIpAddress = $setupConfigRoot.psobject.properties['cbr0'].value
+        $windowsNodeIpAddress = Get-ConfiguredClusterCIDRNextHop -PodSubnetworkNumber $PodSubnetworkNumber
 
         Write-Log 'Create config file for join command'
         $joinConfigurationTemplateFilePath = "$kubePath\cfg\kubeadm\joinwindowsnode.template.yaml"
@@ -191,7 +189,7 @@ function Join-WindowsNode {
 
     # check success in creating kubelet config file
     $kubeletConfig = "$kubeletConfigDir\config.yaml"
-    Write-Log "kubelect config under: $kubeletConfig"
+    Write-Log "kubelet config under: $kubeletConfig"
     if (! (Test-Path $kubeletConfig)) {
         throw "Expected file not created: $kubeletConfig"
     }
@@ -251,20 +249,18 @@ function Set-KubeletDiskPressure {
 function Initialize-KubernetesCluster {
     Param(
         [parameter(Mandatory = $false, HelpMessage = 'Directory containing additional hooks to be executed after local hooks are executed')]
-        [string] $AdditionalHooksDir = ''
+        [string] $AdditionalHooksDir = '',
+        [string] $PodSubnetworkNumber = $(throw 'Argument missing: PodSubnetworkNumber'),
+        [string] $JoinCommand = $(throw 'Argument missing: JoinCommand')
     )
-    Copy-KubeConfigFromControlPlaneNode
-    Add-K8sContext
     Invoke-Hook -HookName 'AfterVmInitialized' -AdditionalHooksDir $AdditionalHooksDir
 
     # try to join host windows node
     Write-Log 'starting the join process'
-    Join-WindowsNode
+    
+    Join-WindowsNode -CommandForJoining $JoinCommand -PodSubnetworkNumber $PodSubnetworkNumber
 
     Set-KubeletDiskPressure
-
-    # add ip to hosts file
-    Add-ClusterDnsNameToHost
 
     # show results
     Write-Log "Current state of kubernetes nodes:`n"
@@ -372,10 +368,12 @@ function Save-ControlPlaneNodeHostnameIntoWinVM($vmSession) {
     Write-Log '  done.'
 }
 
-function Join-VMWindowsNode($vmSession) {
+function Join-VMWindowsNode($vmSession, $podSubnetworkNumber) {
     Write-Log 'Joining Windows node ...'
 
     $ErrorActionPreference = 'Continue'
+
+    $joinCommand = New-JoinCommand
 
     Invoke-Command -Session $vmSession {
         Set-Location "$env:SystemDrive\k"
@@ -391,12 +389,18 @@ function Join-VMWindowsNode($vmSession) {
         Import-Module $env:SystemDrive\k\lib\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1
         Initialize-Logging -Nested:$true
 
-        Join-WindowsNode -Nested:$true
+        Join-WindowsNode -CommandForJoining $using:joinCommand -PodSubnetworkNumber $using:podSubnetworkNumber
     }
 
     $ErrorActionPreference = 'Stop'
 
     Write-Log 'Windows node joined.'
+}
+
+function New-JoinCommand {
+    $tokenCreationCommand = 'sudo kubeadm token create --print-join-command'
+    $joinCommand = (Invoke-CmdOnControlPlaneViaSSHKey "$tokenCreationCommand").Output 2>&1
+    return $joinCommand
 }
 
 function Set-DiskPressureLimitsOnWindowsNode($vmSession) {
@@ -420,7 +424,6 @@ function Set-DiskPressureLimitsOnWindowsNode($vmSession) {
 function Add-IPsToHostsFiles($vmSession, $VMName, $IpAddress) {
     Write-Log 'Adding IPs to hosts files ...'
 
-    Add-ClusterDnsNameToHost -Hostname 'k2s.cluster.local'
     Add-ClusterDnsNameToHost -DesiredIP $IpAddress -Hostname $VMName
 
     Invoke-Command -Session $vmSession {
@@ -456,7 +459,7 @@ function Write-K8sNodesStatus {
         }
 
         if ($retryIteration -eq 10) {
-            throw "Unable to get cluster node status information"
+            throw 'Unable to get cluster node status information'
         }
         $retryIteration++
     }
@@ -465,5 +468,7 @@ function Write-K8sNodesStatus {
 
 Export-ModuleMember Initialize-KubernetesCluster,
 Uninstall-Cluster, Set-KubeletDiskPressure,
-Join-WindowsNode, Add-K8sContext,
-Add-ClusterDnsNameToHost, Initialize-VMKubernetesCluster
+Join-WindowsNode, Join-VMWindowsNode, Add-K8sContext,
+Add-ClusterDnsNameToHost, Initialize-VMKubernetesCluster,
+Set-DiskPressureLimitsOnWindowsNode, Add-IPsToHostsFiles,
+Write-K8sNodesStatus, New-JoinCommand
