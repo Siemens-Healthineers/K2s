@@ -140,6 +140,7 @@ function Start-ClusterUpgrade {
             Write-Progress -Activity 'Check if resources need to be exported..' -Id 1 -Status '3/10' -PercentComplete 30 -CurrentOperation 'Starting cluster, please wait..'
         }
 
+        # kube tools folder changed from bin\exe to bin\kube
         $currentKubeToolsFolder = "$(Get-ClusterInstalledFolder)\bin\kube"
         if (!(Test-Path $currentKubeToolsFolder)) {
             $currentKubeToolsFolder = "$(Get-ClusterInstalledFolder)\bin\exe"
