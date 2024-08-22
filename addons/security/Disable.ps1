@@ -83,7 +83,6 @@ $keyCloakYaml = Get-KeyCloakConfig
 Write-Log 'Adapting ingress for other addons' -Console
 Update-IngressForAddons -Enable $false
 
-
 Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'security' })
 Write-Log 'Uninstallation of security finished' -Console
 
