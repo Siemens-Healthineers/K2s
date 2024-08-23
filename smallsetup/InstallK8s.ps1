@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+# SPDX-FileCopyrightText: © 2024 Siemens Healthcare GmbH
 #
 # SPDX-License-Identifier: MIT
 
@@ -177,7 +177,6 @@ Wait-ForSSHConnectionToLinuxVMViaPwd
 New-SshKey -IpAddress $($controlPlaneParams.IpAddress)
 Copy-LocalPublicSshKeyToRemoteComputer -UserName $(Get-DefaultUserNameControlPlane) -UserPwd $(Get-DefaultUserPwdControlPlane) -IpAddress $($controlPlaneParams.IpAddress)
 Wait-ForSSHConnectionToLinuxVMViaSshKey
-Remove-ControlPlaneAccessViaUserAndPwd
 $transparentproxy = 'http://' + $($controlPlaneParams.GatewayIpAddress) + ':8181'
 Set-ProxySettingsOnKubenode -ProxySettings $transparentproxy -IpAddress $($controlPlaneParams.IpAddress)
 Restart-Service httpproxy -ErrorAction SilentlyContinue
@@ -185,6 +184,12 @@ Restart-Service httpproxy -ErrorAction SilentlyContinue
 $hostname = (Invoke-CmdOnControlPlaneViaSSHKey -CmdToExecute 'hostname' -NoLog).Output
 Set-ConfigControlPlaneNodeHostname($hostname)
 
+Write-Log "Copying ZScaler Root CA certificate to master node"
+Copy-ToControlPlaneViaUserAndPwd  -Source "$(Get-KubePath)\smallsetup\certificate\ZScalerRootCA.crt" -Target "/tmp/ZScalerRootCA.crt"
+Remove-ControlPlaneAccessViaUserAndPwd
+(Invoke-CmdOnControlPlaneViaSSHKey "sudo mv /tmp/ZScalerRootCA.crt /usr/local/share/ca-certificates/" ).Output | Write-Log
+(Invoke-CmdOnControlPlaneViaSSHKey "sudo update-ca-certificates").Output | Write-Log
+Write-Log "Zscaler certificate added to CA certificates of master node"
 
 # JOIN NODES
 Write-Log "Preparing Kubernetes $KubernetesVersion by joining nodes" -Console
