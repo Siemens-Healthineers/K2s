@@ -72,7 +72,7 @@ function Test-NginxIngressControllerAvailability {
 Deploys the updates dashboard's ingress manifest for Nginx ingress controller
 #>
 function Deploy-UpdatesDashboardIngressForNginx {
-    Write-Log 'Deploying nginx ingress manifest for dashboard...' -Console
+    Write-Log 'Deploying nginx ingress manifest for updates dashboard...' -Console
     $updatesDashboardNginxIngressConfig = Get-UpdatesDashboardNginxConfig
 
     Invoke-Kubectl -Params 'apply', '-f', $updatesDashboardNginxIngressConfig | Write-Log
@@ -83,7 +83,7 @@ function Deploy-UpdatesDashboardIngressForNginx {
 Deploys the updates dashboard's ingress manifest for Traefik ingress controller
 #>
 function Deploy-UpdatesDashboardIngressForTraefik {
-    Write-Log 'Deploying traefik ingress manifest for dashboard...' -Console
+    Write-Log 'Deploying traefik ingress manifest for updates dashboard...' -Console
     $updatesDashboardTraefikIngressConfig = Get-UpdatesDashboardTraefikConfig
     
     Invoke-Kubectl -Params 'apply', '-f', $updatesdashboardTraefikIngressConfig | Write-Log
@@ -113,11 +113,9 @@ Deploys the ingress manifest for updates dashboard based on the ingress controll
 #>
 function Enable-ExternalAccessIfIngressControllerIsFound {
     if (Test-NginxIngressControllerAvailability) {
-        Write-Log 'Deploying nginx ingress for updates dashboard ...' -Console
         Deploy-UpdatesDashboardIngressForNginx
     }
     if (Test-TraefikIngressControllerAvailability) {
-        Write-Log 'Deploying traefik ingress for upates dashboard ...' -Console
         Deploy-UpdatesDashboardIngressForTraefik
     }
 }
