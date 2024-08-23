@@ -123,7 +123,7 @@ function CheckKubeSwitchInExpectedState() {
         Write-Log "vEthernet ($controlPlaneNodeDefaultSwitchName) not set to private."
         return $false
     }
-    $if = Get-NetIPAddress -InterfaceAlias "vEthernet ($controlPlaneNodeDefaultSwitchName)" -ErrorAction SilentlyContinue
+    $if = Get-NetIPAddress -InterfaceAlias "vEthernet ($controlPlaneNodeDefaultSwitchName)" -AddressFamily IPv4 -ErrorAction SilentlyContinue
     if (!$if) {
         Write-Log "Unable get IP Address for host on vEthernet ($controlPlaneNodeDefaultSwitchName) interface..."
         return $false

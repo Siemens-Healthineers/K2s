@@ -40,6 +40,14 @@ function New-ExternalSwitch {
         [string] $adapterName
     )
 
+    # if the L2 bridge is already found we don't need to create it again
+    $l2BridgeSwitchName = Get-L2BridgeSwitchName
+    $found = Get-HNSNetwork | ? Name -Like "$l2BridgeSwitchName"
+    if ( $found ) {
+        Write-Log "L2 bridge network switch name: $l2BridgeSwitchName already exists"
+        return
+    }
+
     $nic = Get-NetIPAddress -InterfaceAlias $adapterName -ErrorAction SilentlyContinue
     if ($nic) {
         $ipaddress = $nic.IPv4Address
