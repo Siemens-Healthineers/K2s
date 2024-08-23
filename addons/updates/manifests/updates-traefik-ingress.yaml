@@ -61,7 +61,7 @@ spec:
     - host: k2s.cluster.local
       http:
         paths:
-          - path: /
+          - path: /updates
             pathType: Prefix
             backend:
               service:
