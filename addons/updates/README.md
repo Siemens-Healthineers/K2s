@@ -109,8 +109,14 @@ _Note:_ The above command will only disable updates addon. If other addons were 
 
 ## Further Information
 
-If you want to use `argocd admin export` and `argocd admin import` you have to specific the `updates` namespace: e.g. `argocd admin export -n updates`.
-The reason for this is the scoped installtion of ArgoCD to the `updates` namespace 
+If you want to use `argocd admin export` and `argocd admin import` you have to specific the `updates` namespace: e.g. `argocd admin export -n updates > backup.yaml`.
+The reason for this is the scoped installtion of ArgoCD to the `updates` namespace.
+
+To import:
+```
+ Get-Content -Raw .\backup.yaml | argocd admin import -n updates -
+```
+
 
 ## Further Reading
 - [ArgoCD](https://argo-cd.readthedocs.io/en/stable/)

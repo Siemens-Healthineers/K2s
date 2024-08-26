@@ -9,6 +9,9 @@ $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.m
 $clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
 
+$AddonName = 'updates'
+$UpdatesNamespace = 'updates'
+
 Import-Module $infraModule, $clusterModule, $addonsModule
 
 <#
@@ -120,6 +123,62 @@ function Enable-ExternalAccessIfIngressControllerIsFound {
     }
 }
 
+
+<#
+.SYNOPSIS
+Creates a backup of the updates addon data
+
+.DESCRIPTION
+Creates a backup of the updates addon data
+
+.PARAMETER BackupDir
+Back-up directory to write data to (gets created if not existing)
+#>
+function Backup-AddonData {
+    param (
+        [Parameter(Mandatory = $false, HelpMessage = 'Back-up directory to write data to (gets created if not existing).')]
+        [string]$BackupDir = $(throw 'Please specify the back-up directory.')
+    )
+    $BackupDir = "$BackupDir\$AddonName"
+
+    if ((Test-Path $BackupDir) -ne $true) {
+        Write-Log "  '$AddonName' backup dir not existing, creating it.."
+        New-Item -Path $BackupDir -ItemType Directory -Force | Out-Null
+    }
+
+    Write-Log "  Exporting the addon data to '$BackupDir' .."
+
+    argocd.exe admin export -n $UpdatesNamespace > "$BackupDir/updates-backup.yaml"
+
+    Write-Log "  Addon data exported to '$BackupDir'."
+}
+
+<#
+.SYNOPSIS
+Restores the backup of the updates addon data
+
+.DESCRIPTION
+Restores the backup of the updates addon data
+
+.PARAMETER BackupDir
+Back-up directory to restore data from
+#>
+function Restore-AddonData {
+    param (
+        [Parameter(Mandatory = $false, HelpMessage = 'Back-up directory to restore data from.')]
+        [string]$BackupDir = $(throw 'Please specify the back-up directory.')
+    )
+    $BackupDir = "$BackupDir\$AddonName"
+
+    if ((Test-Path $BackupDir) -ne $true) {
+        Write-Log "  '$AddonName' backup dir not existing, skipping."
+        return
+    }
+
+    Write-Log "  Importing the addon data from '$BackupDir' .."
+    Get-Content -Raw "$BackupDir/updates-backup.yaml" | argocd.exe admin import -n updates -
+    Write-Log "  Imported the addon data from '$BackupDir'."
+}
 function Write-UsageForUser {
     param (
         [String]$ARGOCD_Password
