@@ -12,7 +12,7 @@ metadata:
 data:
   # https://argo-cd.readthedocs.io/en/stable/operator-manual/ingress/#ui-base-path
   server.basehref: "/updates"
-  server.rootpath: "/updates"
+  #server.rootpath: "/updates"
 ---
 apiVersion: apps/v1
 kind: Deployment
