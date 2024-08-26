@@ -36,6 +36,8 @@ The updates dashboard UI can be accessed via the following methods.
 To access updates dashboard via ingress, the ingress nginx or the ingress traefik addon has to enabled.
 Once the addons are enabled, then the ArgoCD dashboard UI can be accessed at the following link: https://k2s.cluster.local/updates/ and https://k2s-updates.cluster.local (with HTTP using http://.. instead of https://..)
 
+_Note:_ If the login doesn't work for https://k2s-updates.cluster.local, please wait a little bit after enabling the addon and restart your browser or use an ingoknito tab to access the UI.  
+
 ### Access using port-forwarding
 
 To access updates dashboard via port-forwarding, the following command can be executed:
