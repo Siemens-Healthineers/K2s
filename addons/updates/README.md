@@ -44,7 +44,7 @@ To access updates dashboard via port-forwarding, the following command can be ex
 ```
 kubectl -n updates port-forward svc/argocd-server 8080:443
 ```
-In this case, the updates dashboard UI can be accessed at the following link: http://localhost:8080/updates
+In this case, the updates dashboard UI can be accessed at the following link: http://localhost:8080/
 
 ### Deploy an application with the updates addon
 
@@ -60,11 +60,9 @@ Proceed with the username and the password returend by the enable process.
 
 Step 2 - Add a repository 
 ```
-argocd repo add https://github.com/argoproj/argocd-example-apps.git  --proxy http://172.19.1.1:8181
+argocd repo add https://github.com/argoproj/argocd-example-apps.git
 ```
 Here we add a Git repository where our configurations files are located. If the repository is private we can still access it by providing the corresponding credentials with `--username <username> --password <password>`.
-
-**Important:** Make sure to use the `--proxy` flag otherwise no connection will be established
 
 Step 3 - Deploy example application
 ```
@@ -86,8 +84,6 @@ Step 2 - Add a repository
 Navigate to Settings -> Repository -> Connect Repo
 
 Fill in the information required information. If the repository is private, either provide your username and password or use the specific keys.
-
-**Important:** Please make sure to use the proxy option at the bottom with this input: `http://172.19.1.1:8181`
 
 Step 3 - Deploy example application
 Navigate to Applications -> New App 
@@ -120,24 +116,3 @@ To import:
 
 ## Further Reading
 - [ArgoCD](https://argo-cd.readthedocs.io/en/stable/)
-
-## TODO
-[x] k2.cluster.local/updates - Traefik
-[x] k2.cluster.local/updates - nginx
-[-] k2-updates.cluster.local/ - nginx (modify with strip)
-[-] k2-updates.cluster.local/ - Traefik (modify with strip)
-
-[x] Kubectl port forward -> problem mit basepath
-
-[x] ArgoCD binary download
-[x] Retrieve Credentials and add Write-UsageForUser
-
-[x] Description in addon manifest
-
-[] `k2s system upgrade` functionallity
-
-[x] Add documentation for deploying applications
-
-[x] Go e2e tests
-
-([] ArgoRollout)
