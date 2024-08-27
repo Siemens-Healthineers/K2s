@@ -148,7 +148,7 @@ function Backup-AddonData {
 
     Write-Log "  Exporting the addon data to '$BackupDir' .."
 
-    argocd.exe admin export -n $UpdatesNamespace > "$BackupDir/updates-backup.yaml"
+    argocd.exe admin export -n $UpdatesNamespace > "$BackupDir\updates-backup.yaml"
 
     Write-Log "  Addon data exported to '$BackupDir'."
 }
@@ -176,8 +176,10 @@ function Restore-AddonData {
     }
 
     Write-Log "  Importing the addon data from '$BackupDir' .."
-    Get-Content -Raw "$BackupDir/updates-backup.yaml" | argocd.exe admin import -n updates -
+    Get-Content -Raw "$BackupDir\updates-backup.yaml" | & argocd.exe admin import -n updates -
     Write-Log "  Imported the addon data from '$BackupDir'."
+    # Delete the backup since it contains the user credentials
+    Remove-Item -Path "$BackupDir\updates-backup.yaml"
 }
 function Write-UsageForUser {
     param (
@@ -206,7 +208,7 @@ function Write-UsageForUser {
  username: admin
  password: $ARGOCD_Password
 
- To use the argo cli please login with: argocd login k2s-updates.local
+ To use the argo cli please login with: argocd login k2s.cluster.local:443 --grpc-web-root-path "updates"
 
  Please change the password immediately, this can be done via the dashboard or via the cli with: argocd account update-password
 "@ -split "`r`n" | ForEach-Object { Write-Log $_ -Console }
