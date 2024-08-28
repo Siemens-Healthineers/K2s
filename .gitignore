@@ -3,8 +3,8 @@
 # SPDX-License-Identifier: CC0-1.0
 
 #Binaries
-bin/exe/*.exe
-bin/exe/*.dll
+bin/kube/*.exe
+bin/kube/*.dll
 bin/nginx
 bin/helm.exe
 flannel*.exe
@@ -85,6 +85,8 @@ containerd/nerdctl.exe
 /bin/KubeMaster-Base.rootfs.tar.gz
 /bin/Kubemaster-Base-Ubuntu.vhdx
 /bin/Kubenode-Base.vhdx
+/bin/Windows-Base.vhdx
+/bin/Windows-Kubeworker-Base.vhdx
 /bin/windowsnode
 /bin/WindowsNodeArtifacts.zip
 

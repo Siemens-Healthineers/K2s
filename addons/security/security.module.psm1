@@ -9,7 +9,7 @@ $k8sApiModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k8s-api/
 
 Import-Module $infraModule, $k8sApiModule
 
-$cmctlExe = "$(Get-KubeToolsPath)\cmctl.exe"
+$cmctlExe = "$(Get-KubeBinPath)\cmctl.exe"
 
 function Get-CAIssuerName {
     return 'K2s Self-Signed CA'

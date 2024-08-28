@@ -18,7 +18,9 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'Force the installation online. This option is needed if the files for an offline installation are available but you want to recreate them.')]
     [switch] $ForceOnlineInstallation = $false,
     [parameter(HelpMessage = 'DNS Addresses')]
-    [string]$DnsAddresses = $(throw 'Argument missing: DnsAddresses')
+    [string]$DnsAddresses = $(throw 'Argument missing: DnsAddresses'),
+    [parameter(Mandatory = $false, HelpMessage = 'The path to local builds of Kubernetes binaries')]
+    [string] $K8sBinsPath = ''
 )
 
 $installStopwatch = [system.diagnostics.stopwatch]::StartNew()
@@ -41,6 +43,7 @@ Write-Log 'Setting up Windows worker node' -Console
 
 $windowsHostIpAddress = Get-ConfiguredKubeSwitchIP
 $transparentProxy = "http://$($windowsHostIpAddress):8181"
+$joinCommand = New-JoinCommand
 
 $workerNodeParams = @{
     Proxy = $transparentProxy
@@ -48,6 +51,8 @@ $workerNodeParams = @{
     DeleteFilesForOfflineInstallation = $DeleteFilesForOfflineInstallation
     ForceOnlineInstallation = $ForceOnlineInstallation
     PodSubnetworkNumber = '1'
+    JoinCommand = $JoinCommand
+    K8sBinsPath = $K8sBinsPath
 }
 Add-WindowsWorkerNodeOnWindowsHost @workerNodeParams
 

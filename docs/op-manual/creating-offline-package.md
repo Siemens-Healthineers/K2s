@@ -52,7 +52,7 @@ k2s addons export -h
 
 Either specify one or more addons to export:
 ```console
-k2s addons export traefik registry -d <export-output-directory>
+k2s addons export registry -d <export-output-directory>
 ```
 
 Or export all addons:
@@ -68,7 +68,7 @@ k2s addons import -h
 
 Either specify one or more addons to import from the offline package:
 ```console
-k2s addons import traefik registry -z <directory-containing-addons-archive>\addons.zip
+k2s addons import registry -z <directory-containing-addons-archive>\addons.zip
 ```
 
 Or import all addons from the offline package:
