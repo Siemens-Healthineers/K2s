@@ -144,3 +144,7 @@ bin/cdxgen.exe
 .cache
 site
 build/bom/sbomgenerator.exe
+k2s/cmd/vfprules/vfprules/vfprules.obj
+k2s/cmd/vfprules/vfprules/vfprules.dll
+k2s/cmd/vfprules/vfprules/vfprules.exp
+k2s/cmd/vfprules/vfprules/vfprules.lib

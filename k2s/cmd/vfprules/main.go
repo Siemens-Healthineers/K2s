@@ -176,6 +176,7 @@ func GetMacOfGateway(ipgateway string) (string, error) {
 
 func AddVfpRules(portid string, vfpRoutes *VfpRoutes, logDir string, vfpapi bool) error {
 	// get the port related to id
+	fmt.Println("Searching for port: ", portid, " ...")
 	found, port := false, ""
 	for i := 1; i < 30 && !found; i++ {
 		var errPort error
@@ -294,14 +295,14 @@ func main() {
 	// parse the flags
 	version := flag.Bool("version", false, "show the current version of the CLI")
 	flag.StringVar(&portid, "portid", portid, "portid of the new port created (GUID)")
-	vfpapi := flag.Bool("usevfpapi", true, "use the vfpapi.dll for adding the rules")
+	vfpapi := flag.Bool("usevfpapi", false, "use the vfpapi.dll for adding the rules")
 	flag.Parse()
 	if *version {
 		printCLIVersion()
 		os.Exit(0)
 	}
 
-	fmt.Println("VFPRules started with portid:", portid)
+	// fmt.Println("VFPRules started with portid:", portid)
 
 	// check portid
 	if IsValidUUID(portid) {
@@ -374,7 +375,7 @@ func AddVfpRulesWithVfpCtrlExe(portid string, port string, vfpRoutes *VfpRoutes,
 	filename := filepath.Join(logDir, "vfp-rules-"+portid+".cmd")
 	fileCmds, errCmds := os.OpenFile(filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if errCmds != nil {
-		log.Fatalf("AddVfpRules: Failed creating file: %s", errCmds)
+		log.Fatalf("AddVfpRulesWithVfpCtrlExe: Failed creating file: %s", errCmds)
 		return errCmds
 	}
 
@@ -385,7 +386,7 @@ func AddVfpRulesWithVfpCtrlExe(portid string, port string, vfpRoutes *VfpRoutes,
 		// get mac address of gateway
 		mac, errmac := GetMacOfGateway(vfpRoute.Gateway)
 		if errmac != nil {
-			logrus.Info("AddVfpRules: Getting MAC not found error, will continue with the other rules, err:", errmac)
+			logrus.Info("AddVfpRulesWithVfpCtrlExe: Getting MAC not found error, will continue with the other rules, err:", errmac)
 		} else {
 			// write the rules to be added
 			WriteVFPRule(datawriter, vfpRoute.Name, port, mac, vfpRoute.Subnet, vfpRoute.Priority)
