@@ -149,7 +149,7 @@ function Backup-AddonData {
 
     Write-Log "  Exporting the addon data to '$BackupDir' .."
 
-    $argoExe = "$binPath\argocd.exe"
+    $argoExe = "$(Get-ClusterInstalledFolder)\argocd.exe"
     &$argoExe admin export -n $UpdatesNamespace > "$BackupDir\updates-backup.yaml"
 
     Write-Log "  Addon data exported to '$BackupDir'."
