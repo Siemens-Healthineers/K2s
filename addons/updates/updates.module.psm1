@@ -8,11 +8,12 @@
 $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
+Import-Module $infraModule, $clusterModule, $addonsModule
 
 $AddonName = 'updates'
 $UpdatesNamespace = 'updates'
 
-Import-Module $infraModule, $clusterModule, $addonsModule
+$binPath = Get-KubeBinPath
 
 <#
 .SYNOPSIS
@@ -148,7 +149,8 @@ function Backup-AddonData {
 
     Write-Log "  Exporting the addon data to '$BackupDir' .."
 
-    argocd.exe admin export -n $UpdatesNamespace > "$BackupDir\updates-backup.yaml"
+    $argoExe = "$binPath\argocd.exe"
+    &$argoExe admin export -n $UpdatesNamespace > "$BackupDir\updates-backup.yaml"
 
     Write-Log "  Addon data exported to '$BackupDir'."
 }
@@ -176,10 +178,11 @@ function Restore-AddonData {
     }
 
     Write-Log "  Importing the addon data from '$BackupDir' .."
-    Get-Content -Raw "$BackupDir\updates-backup.yaml" | & argocd.exe admin import -n updates -
+    $argoExe = "$binPath\argocd.exe"
+    Get-Content -Raw "$BackupDir\updates-backup.yaml" | &$argoExe admin import -n updates -
     Write-Log "  Imported the addon data from '$BackupDir'."
     # Delete the backup since it contains the user credentials
-    Remove-Item -Path "$BackupDir\updates-backup.yaml"
+    Remove-Item -Path "$BackupDir\updates-backup.yaml" -Force -ErrorAction SilentlyContinue
 }
 function Write-UsageForUser {
     param (
