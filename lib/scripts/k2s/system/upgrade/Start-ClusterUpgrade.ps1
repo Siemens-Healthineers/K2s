@@ -149,7 +149,7 @@ function Start-ClusterUpgrade {
 
         # Invoke backup hooks
         $hooksBackupPath = Join-Path $BackupDir 'hooks'
-        Invoke-BackupRestoreHooks -HookType Backup -BackupDir $hooksBackupPath -ShowLogs:$ShowLogs -AdditionalHooksDir $AdditionalHooksDir
+        Invoke-UpgradeBackupRestoreHooks -HookType Backup -BackupDir $hooksBackupPath -ShowLogs:$ShowLogs -AdditionalHooksDir $AdditionalHooksDir
 
         if ($ShowProgress -eq $true) {
             Write-Progress -Activity 'Backing up addons..' -Id 1 -Status '4/10' -PercentComplete 40 -CurrentOperation 'Backing up addons, please wait..'
@@ -202,7 +202,7 @@ function Start-ClusterUpgrade {
         Restore-Addons -BackupDir $addonsBackupPath
 
         # Invoke restore hooks
-        Invoke-BackupRestoreHooks -HookType Restore -BackupDir $hooksBackupPath -ShowLogs:$ShowLogs -AdditionalHooksDir $AdditionalHooksDir
+        Invoke-UpgradeBackupRestoreHooks -HookType Restore -BackupDir $hooksBackupPath -ShowLogs:$ShowLogs -AdditionalHooksDir $AdditionalHooksDir
 
         $kubeExeFolder = Get-KubeToolsPath
         # import of resources
