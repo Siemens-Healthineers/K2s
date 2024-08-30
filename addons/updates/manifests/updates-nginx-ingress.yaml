@@ -6,42 +6,11 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: updates-nginx-local
-  namespace: updates
-  annotations:
-    cert-manager.io/cluster-issuer: k2s-ca-issuer
-    cert-manager.io/common-name: k2s-updates.cluster.local
-    nginx.ingress.kubernetes.io/ssl-redirect: "false"
-    nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
-    nginx.ingress.kubernetes.io/rewrite-target: /$2
-spec:
-  ingressClassName: nginx
-  tls:
-    - hosts:
-        - k2s-updates.cluster.local
-      secretName: k2s-updates.cluster.local-tls
-  rules:
-    - host: k2s-updates.cluster.local
-      http:
-        paths:
-        - backend:
-            service:
-              name: argocd-server
-              port: 
-                number: 443
-          path: /(updates/)?(.*)
-          pathType: Prefix
----
-
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
   name: updates-nginx-cluster-net
   namespace: updates
   annotations:
     nginx.ingress.kubernetes.io/ssl-redirect: "false"
     nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
-    nginx.ingress.kubernetes.io/rewrite-target: /$1
 spec:
   ingressClassName: nginx
   rules:
@@ -53,5 +22,5 @@ spec:
                 name: argocd-server
                 port:
                   number: 443
-            path: /updates/(.*)
+            path: /updates/
             pathType: Prefix

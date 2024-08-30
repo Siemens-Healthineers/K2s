@@ -3,44 +3,6 @@
 # SPDX-License-Identifier: MIT
 
 ---
-apiVersion: traefik.containo.us/v1alpha1
-kind: Middleware
-metadata:
-  name: strip-prefix
-  namespace: updates
-spec:
-  stripPrefix:
-    prefixes:
-      - /updates
----
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  annotations:
-    cert-manager.io/cluster-issuer: k2s-ca-issuer
-    cert-manager.io/common-name: k2s-updates.cluster.local
-    traefik.ingress.kubernetes.io/router.tls: "true"
-    traefik.ingress.kubernetes.io/router.middlewares: updates-strip-prefix@kubernetescrd
-  name: updates-traefik-local
-  namespace: updates
-spec:
-  ingressClassName: traefik
-  rules:
-    - host: k2s-updates.cluster.local
-      http:
-        paths:
-          - backend:
-              service:
-                name: argocd-server
-                port:
-                  number: 443
-            pathType: Prefix
-            path: /
-  tls:
-    - hosts:
-        - k2s-updates.local
-      secretName: k2s-updates-local-tls
----
 # this ingress will be merged with ingress provided in:
 # addons/ingress/traefik/manifests/cluster-net-ingress.yaml
 # and exposes the kubernetes-dashboard angular application on:
@@ -54,14 +16,13 @@ metadata:
   namespace: updates
   annotations:
     traefik.ingress.kubernetes.io/router.tls: "true"
-    traefik.ingress.kubernetes.io/router.middlewares: updates-strip-prefix@kubernetescrd
 spec:
   ingressClassName: traefik
   rules:
     - host: k2s.cluster.local
       http:
         paths:
-          - path: /updates
+          - path: /updates/
             pathType: Prefix
             backend:
               service:
