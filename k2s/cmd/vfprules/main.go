@@ -294,8 +294,8 @@ func main() {
 
 	// parse the flags
 	version := flag.Bool("version", false, "show the current version of the CLI")
-	flag.StringVar(&portid, "portid", portid, "portid of the new port created (GUID)")
-	vfpapi := flag.Bool("usevfpapi", false, "use the vfpapi.dll for adding the rules")
+	flag.StringVar(&portid, "portid", portid, "portid of the new port created (GUID). Please use lowercase !")
+	vfpapi := flag.Bool("usevfpapi", false, "use the vfpapi.dll for adding the rules. Else vfpctrl.exe is used.")
 	flag.Parse()
 	if *version {
 		printCLIVersion()
