@@ -8,40 +8,6 @@
 # of the request. So if the application is exposed on another path than root,
 # this header must have as value that path.
 ---
-# This ingress will expose the angular application on:
-# HTTP: http://k2s-dashboard.cluster.local
-# TLS: https://k2s-dashboard.cluster.local
-# For TLS, the certificate is taken from k8s secret 'k2s-dashboard-local-tls'
-# This secret will be created by cert-manager, if it is installed and running.
-# If cert-manager is not installed, the secret will not be present and
-# traefik will use an own self-signed certificate.
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  annotations:
-    cert-manager.io/cluster-issuer: k2s-ca-issuer
-    cert-manager.io/common-name: k2s-dashboard.cluster.local
-    traefik.ingress.kubernetes.io/router.tls: "true"
-  name: dashboard-traefik-local
-  namespace: dashboard
-spec:
-  ingressClassName: traefik
-  rules:
-    - host: k2s-dashboard.cluster.local
-      http:
-        paths:
-          - backend:
-              service:
-                name: kubernetes-dashboard
-                port:
-                  number: 443
-            pathType: Prefix
-            path: /
-  tls:
-    - hosts:
-        - k2s-dashboard.cluster.local
-      secretName: k2s-dashboard-local-tls
----
 # this MiddleWare will strip the prefix /dashboard from the request path
 # and set the x-forwarded-prefix header of the request to /dashboard/
 # see https://doc.traefik.io/traefik/middlewares/http/stripprefix/

@@ -64,13 +64,12 @@ function Write-UsageForUser {
  (disable it first if logging addon was already enabled).
  k2s addons enable logging
  The opensearch dashboard will be accessible on the following URLs:
- https://k2s.cluster.local/logging/ and http://k2s-logging.cluster.local 
- (with HTTP using http://.. instead of https://..)
+ https://k2s.cluster.local/logging/ (with HTTP using http://.. instead of https://..)
 
  Option 2: Port-forwading
  Use port-forwarding to the opensearch dashboard using the command below:
  kubectl -n logging port-forward svc/opensearch-dashboards 5601:5601
  
- In this case, the opensearch dashboard will be accessible on the following URL: http://localhost:5601
+ In this case, the opensearch dashboard will be accessible on the following URL: http://localhost:5601/logging/
 '@ -split "`r`n" | ForEach-Object { Write-Log $_ -Console }
 }
