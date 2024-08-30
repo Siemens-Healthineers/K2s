@@ -36,6 +36,7 @@ type VfpRoute struct {
 
 type VfpRoutes struct {
 	Routes []VfpRoute `json:routes`
+	VfpApi []string   `json:vfpapi`
 }
 
 func logDuration(startTime time.Time, methodName string) {
@@ -174,7 +175,7 @@ func GetMacOfGateway(ipgateway string) (string, error) {
 	return returnMac, err
 }
 
-func AddVfpRules(portid string, vfpRoutes *VfpRoutes, logDir string, vfpapi bool) error {
+func AddVfpRules(portid string, vfpRoutes *VfpRoutes, logDir string) error {
 	// get the port related to id
 	fmt.Println("Searching for port: ", portid, " ...")
 	found, port := false, ""
@@ -195,17 +196,42 @@ func AddVfpRules(portid string, vfpRoutes *VfpRoutes, logDir string, vfpapi bool
 		return errors.New("Port was not found")
 	}
 
+	// get version of windows OS
+	cmd := exec.Command("cmd", "/c", "ver")
+	output, err := cmd.Output()
+	if err != nil {
+		logrus.Error("[cni-net] Error: Getting windows version failed:", err)
+		return err
+	}
+	logrus.Debugf("[cni-net] Windows version: %s", output)
+
+	// check if version is matching version from vfpRoutes.VfpApi
+	vfpapi := false
+	if vfpRoutes.VfpApi != nil && len(vfpRoutes.VfpApi) > 0 {
+		// check if version is matching
+		version := strings.TrimSpace(string(output))
+		for _, v := range vfpRoutes.VfpApi {
+			if strings.Contains(version, v) {
+				vfpapi = true
+				break
+			}
+		}
+	}
+
 	// add the rules with the vfp ctrl exe
 	if vfpapi {
 		// adding vfp rules works with vfpapi.dll
+		logrus.Debugf("[cni-net] Using vfpapi for adding rules because this was configured in the vfprules.json")
+		fmt.Println("VfpAPi is configured for this version of windows: ", string(output))
 		err := AddVfpRulesWithVfpApi(portid, port, vfpRoutes, logDir)
 		if err != nil {
 			logrus.Error("[cni-net] Error: Adding VFP rules with vfpapi.dll failed:", err)
 			return err
 		}
-
 	} else {
 		// adding vfp rules works with vfpctrl.exe
+		logrus.Debugf("[cni-net] Using vfpctrl for adding rules, no version matches in vfprules.json")
+		fmt.Println("VfpCtrl will be used for this version of windows: ", string(output))
 		err := AddVfpRulesWithVfpCtrlExe(portid, port, vfpRoutes, logDir)
 		if err != nil {
 			logrus.Error("[cni-net] Error: Adding VFP rules with vfpctrl.exe failed:", err)
@@ -295,7 +321,6 @@ func main() {
 	// parse the flags
 	version := flag.Bool("version", false, "show the current version of the CLI")
 	flag.StringVar(&portid, "portid", portid, "portid of the new port created (GUID). Please use lowercase !")
-	vfpapi := flag.Bool("usevfpapi", false, "use the vfpapi.dll for adding the rules. Else vfpctrl.exe is used.")
 	flag.Parse()
 	if *version {
 		printCLIVersion()
@@ -342,7 +367,7 @@ func main() {
 	}
 
 	// call to add the vfp rules
-	errAdd := AddVfpRules(portid, vfpRoutes, logDir, *vfpapi)
+	errAdd := AddVfpRules(portid, vfpRoutes, logDir)
 	if errAdd != nil {
 		log.Fatalf("Fatal error in applying the vfp rules: %s", errAdd)
 	}
