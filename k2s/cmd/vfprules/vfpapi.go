@@ -7,20 +7,29 @@ package main
 import (
 	"fmt"
 	"net"
+	"os"
+	"path/filepath"
 	"syscall"
 	"unsafe"
 
 	"github.com/sirupsen/logrus"
 )
 
-// Load the DLL and the VfcAddObject function
-var (
-	vfrulesDLL     = syscall.NewLazyDLL("vfrules.dll")
-	procVfpAddRule = vfrulesDLL.NewProc("VfpAddRule")
-)
+// Get the directory of the module
+func GetModuleDirectory() string {
+	exePath, err := os.Executable()
+	if err != nil {
+		logrus.Fatal("GetModuleDirectory: Error getting executable path, err:", err)
+	}
+	dir := filepath.Dir(exePath)
+	logrus.Debug("Module directory where vfprules.dll is searched: ", dir)
+	return dir
+}
 
 // VfpRoutes struct to hold the routes to be added
 func VfpAddRule(name string, portid string, startip string, stopip string, priority string, gateway string) (uint32, error) {
+	vfrulesDLL := syscall.NewLazyDLL(GetModuleDirectory() + "\\vfprules.dll")
+	procVfpAddRule := vfrulesDLL.NewProc("VfpAddRule")
 	ret, _, err := procVfpAddRule.Call(
 		uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(name))),
 		uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(portid))),

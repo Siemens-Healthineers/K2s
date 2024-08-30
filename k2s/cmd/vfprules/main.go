@@ -357,7 +357,7 @@ func main() {
 	}
 
 	// print final message
-	fmt.Printf("VFPRules finished, please checks logs in %s\n", filepath.Join(logDir, logFilePath))
+	fmt.Printf("VFPRules finished, please checks logs in %s\n", logFilePath)
 }
 
 func init() {

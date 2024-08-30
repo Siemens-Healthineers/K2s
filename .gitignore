@@ -148,3 +148,13 @@ k2s/cmd/vfprules/vfprules/vfprules.obj
 k2s/cmd/vfprules/vfprules/vfprules.dll
 k2s/cmd/vfprules/vfprules/vfprules.exp
 k2s/cmd/vfprules/vfprules/vfprules.lib
+k2s/cmd/vfprules/vfprules/.vs/** 
+k2s/cmd/vfprules/vfprules/x64/**
+k2s/cmd/vfprules/vfprules/vfprules.sln
+k2s/cmd/vfprules/vfprules/vfprules.vcxproj
+k2s/cmd/vfprules/vfprules/vfprules.vcxproj.filters
+k2s/cmd/vfprules/vfprules/vfprules.vcxproj.user
+bin/cni/vfprules.lib
+bin/cni/vfprules.json.origin
+bin/cni/vfprules.exp
+bin/cni/vfprules.pdb
