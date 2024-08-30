@@ -4,3 +4,5 @@
 ---
 resources:
   - argocd.yaml
+  - updates-nginx-ingress.yaml
+  - updates-traefik-ingress.yaml

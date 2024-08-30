@@ -135,7 +135,7 @@ var _ = Describe("'updates' addon", Ordered, func() {
 		})
 
 		It("is reachable through port forwarding", func(ctx context.Context) {
-			kubectl := path.Join(suite.RootDir(), "bin", "exe", "kubectl.exe")
+			kubectl := path.Join(suite.RootDir(), "bin", "kube", "kubectl.exe")
 			portForwarding := exec.Command(kubectl, "-n", "updates", "port-forward", "svc/argocd-server", "8080:443")
 			portForwardingSession, _ = gexec.Start(portForwarding, GinkgoWriter, GinkgoWriter)
 
@@ -206,19 +206,10 @@ var _ = Describe("'updates' addon", Ordered, func() {
 			expectStatusToBePrinted(ctx)
 		})
 
-		It("is reachable through k2s-updates.local", func(ctx context.Context) {
-			url := "https://k2s-updates.local"
+		It("is reachable through k2s.cluster.local/updates/", func(ctx context.Context) {
+			url := "https://k2s.cluster.local/updates/"
 			httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-I", "-m", "5", "--retry", "3", "--fail")
-			//Maybe adjust later
-			Expect(httpStatus).To(ContainSubstring("301"))
-			Expect(httpStatus).To(ContainSubstring("/updates/"))
-		})
-
-		It("is reachable through k2s.cluster.local/updates", func(ctx context.Context) {
-			url := "https://k2s.cluster.local/updates"
-			httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-I", "-m", "5", "--retry", "3", "--fail")
-			Expect(httpStatus).To(ContainSubstring("301"))
-			Expect(httpStatus).To(ContainSubstring("/updates/"))
+			Expect(httpStatus).To(ContainSubstring("200"))
 		})
 	})
 
@@ -229,7 +220,7 @@ var _ = Describe("'updates' addon", Ordered, func() {
 		})
 
 		AfterAll(func(ctx context.Context) {
-			suite.K2sCli().Run(ctx, "addons", "disable", "logging", "-o")
+			suite.K2sCli().Run(ctx, "addons", "disable", "updates", "-o")
 			suite.K2sCli().Run(ctx, "addons", "disable", "ingress", "nginx", "-o")
 
 			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "argocd-applicationset-controller", "updates")
@@ -283,19 +274,10 @@ var _ = Describe("'updates' addon", Ordered, func() {
 			expectStatusToBePrinted(ctx)
 		})
 
-		It("is reachable through k2s-updates.local/", func(ctx context.Context) {
-			url := "http://k2s-updates.local"
-			httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-I", "-m", "5", "--retry", "10", "--fail")
-			//maybe adjust later
-			Expect(httpStatus).To(ContainSubstring("301"))
-			Expect(httpStatus).To(ContainSubstring("/updates/"))
-		})
-
 		It("is reachable through k2s.cluster.local/updates/", func(ctx context.Context) {
-			url := "https://k2s.cluster.local/updates"
+			url := "https://k2s.cluster.local/updates/"
 			httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-I", "-m", "5", "--retry", "3", "--fail")
-			Expect(httpStatus).To(ContainSubstring("301"))
-			Expect(httpStatus).To(ContainSubstring("/updates/"))
+			Expect(httpStatus).To(ContainSubstring("200"))
 		})
 	})
 })

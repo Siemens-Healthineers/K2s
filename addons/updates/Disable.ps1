@@ -68,15 +68,6 @@ $UpdatesConfig = Get-UpdatesConfig
 
 (Invoke-Kubectl -Params 'delete', 'namespace', 'updates').Output | Write-Log
 
-if (Test-TraefikIngressControllerAvailability) {
-    $updatesDashboardTraefikIngressConfig = Get-UpdatesDashboardTraefikConfig
-    (Invoke-Kubectl -Params 'delete', '-f', $updatesDashboardTraefikIngressConfig, '--ignore-not-found').Output | Write-Log
-}
-elseif (Test-NginxIngressControllerAvailability) {
-    $updatesDashboardNginxIngressConfig = Get-UpdatesDashboardNginxConfig
-    (Invoke-Kubectl -Params 'delete', '-f', $updatesDashboardNginxIngressConfig, '--ignore-not-found').Output | Write-Log
-}
-
 $binPath = Get-KubeBinPath
 Remove-Item "$binPath\argocd.exe" -Force -ErrorAction SilentlyContinue
 

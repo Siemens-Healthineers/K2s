@@ -46,53 +46,6 @@ function Get-UpdatesDashboardTraefikConfig {
     
 }
 
-
-<#
-.DESCRIPTION
-Determines if Traefik ingress controller is deployed in the cluster
-#>
-function Test-TraefikIngressControllerAvailability {
-    $existingServices = (Invoke-Kubectl -Params 'get', 'service', '-n', 'ingress-traefik', '-o', 'yaml').Output
-    if ("$existingServices" -match '.*traefik.*') {
-        return $true
-    }
-    return $false
-}
-
-<#
-.DESCRIPTION
-Determines if Nginx ingress controller is deployed in the cluster
-#>
-function Test-NginxIngressControllerAvailability {
-    $existingServices = (Invoke-Kubectl -Params 'get', 'service', '-n', 'ingress-nginx', '-o', 'yaml').Output 
-    if ("$existingServices" -match '.*ingress-nginx-controller.*') {
-        return $true
-    }
-    return $false
-}
-
-<#
-.DESCRIPTION
-Deploys the updates dashboard's ingress manifest for Nginx ingress controller
-#>
-function Enable-UpdatesDashboardIngressForNginx {
-    Write-Log 'Deploying nginx ingress manifest for updates dashboard...' -Console
-    $updatesDashboardNginxIngressConfig = Get-UpdatesDashboardNginxConfig
-
-    Invoke-Kubectl -Params 'apply', '-f', $updatesDashboardNginxIngressConfig | Write-Log
-}
-
-<#
-.DESCRIPTION
-Deploys the updates dashboard's ingress manifest for Traefik ingress controller
-#>
-function Enable-UpdatesDashboardIngressForTraefik {
-    Write-Log 'Deploying traefik ingress manifest for updates dashboard...' -Console
-    $updatesDashboardTraefikIngressConfig = Get-UpdatesDashboardTraefikConfig
-    
-    Invoke-Kubectl -Params 'apply', '-f', $updatesdashboardTraefikIngressConfig | Write-Log
-}
-
 <#
 .DESCRIPTION
 Enables a ingress addon based on the input
@@ -109,21 +62,6 @@ function Enable-IngressAddon([string]$Ingress) {
         }
     }
 }
-
-
-<#
-.DESCRIPTION
-Deploys the ingress manifest for updates dashboard based on the ingress controller detected in the cluster.
-#>
-function Enable-ExternalAccessIfIngressControllerIsFound {
-    if (Test-NginxIngressControllerAvailability) {
-        Enable-UpdatesDashboardIngressForNginx
-    }
-    if (Test-TraefikIngressControllerAvailability) {
-        Enable-UpdatesDashboardIngressForTraefik
-    }
-}
-
 
 <#
 .SYNOPSIS
@@ -211,7 +149,11 @@ function Write-UsageForUser {
  username: admin
  password: $ARGOCD_Password
 
- To use the argo cli please login with: argocd login k2s.cluster.local:443 --grpc-web-root-path "updates"
+ To use the argo cli please login with: 
+ Option 1: When ingress is enabled
+ argocd login k2s.cluster.local:443 --grpc-web-root-path "updates"
+ Option 2: When using port-forwading
+ argocd login localhost:8080 --grpc-web-root-path "updates"
 
  Please change the password immediately, this can be done via the dashboard or via the cli with: argocd account update-password
 "@ -split "`r`n" | ForEach-Object { Write-Log $_ -Console }

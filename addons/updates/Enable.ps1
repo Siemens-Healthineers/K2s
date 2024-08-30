@@ -133,9 +133,7 @@ if ($Ingress -ne 'none') {
     Enable-IngressAddon -Ingress:$Ingress
 }
 
-Enable-ExternalAccessIfIngressControllerIsFound
-
-$ArgoCD_Password_output = argocd.exe admin initial-password -n $UpdatesNamespace
+$ArgoCD_Password_output = &"$binPath\argocd.exe" admin initial-password -n $UpdatesNamespace
 
 $pattern = '^\S+' # Match first squence of non-whitespace characters
 $ARGOCD_Password = [regex]::Match($ArgoCD_Password_output, $pattern).Value
