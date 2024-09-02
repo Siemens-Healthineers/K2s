@@ -61,11 +61,13 @@ if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'dashboard', '--ignore
 Write-Log 'Uninstalling Kubernetes dashboard' -Console
 $dashboardConfig = Get-DashboardConfig
 $dashboardNginxIngressConfig = Get-DashboardNginxConfig
+$dashboardTraefikIngressConfig = Get-DashboardTraefikConfig
 
-(Invoke-Kubectl -Params 'delete', '-f', $dashboardConfig).Output | Write-Log
-(Invoke-Kubectl -Params 'delete', '-f', $dashboardNginxIngressConfig, '--ignore-not-found').Output | Write-Log
+(Invoke-Kubectl -Params 'delete', '-k', $dashboardConfig).Output | Write-Log
+(Invoke-Kubectl -Params 'delete', '-k', $dashboardNginxIngressConfig, '--ignore-not-found').Output | Write-Log
+(Invoke-Kubectl -Params 'delete', '-k', $dashboardTraefikIngressConfig, '--ignore-not-found').Output | Write-Log
 
-Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'dashboard'})
+Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'dashboard' })
 Write-Log 'Uninstallation of Kubernetes dashboard finished' -Console
 
 if ($EncodeStructuredOutput -eq $true) {

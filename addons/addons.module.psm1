@@ -118,10 +118,10 @@ function ConvertTo-NewConfigStructure {
         $newAddon = $addon
         if ($addon -is [string]) {
             switch ($addon) {
-                "gateway-nginx" { $newAddon = [pscustomobject]@{Name = "gateway-api"} }
-                "ingress-nginx" { $newAddon = [pscustomobject]@{Name = "ingress"; Implementation = @("nginx") } }
-                "traefik" { $newAddon = [pscustomobject]@{Name = "ingress"; Implementation = @("traefik") } }
-                "metrics-server" { $newAddon = [pscustomobject]@{Name = "metrics"} }
+                'gateway-nginx' { $newAddon = [pscustomobject]@{Name = 'gateway-api' } }
+                'ingress-nginx' { $newAddon = [pscustomobject]@{Name = 'ingress'; Implementation = @('nginx') } }
+                'traefik' { $newAddon = [pscustomobject]@{Name = 'ingress'; Implementation = @('traefik') } }
+                'metrics-server' { $newAddon = [pscustomobject]@{Name = 'metrics' } }
                 Default { $newAddon = [pscustomobject]@{Name = $addon } }
             }
 
@@ -129,24 +129,24 @@ function ConvertTo-NewConfigStructure {
         }
         elseif ($addon -is [pscustomobject]) {
             switch ($($addon.Name)) {
-                "gateway-nginx" { 
-                    $newAddon = [pscustomobject]@{Name = "gateway-api"} 
+                'gateway-nginx' { 
+                    $newAddon = [pscustomobject]@{Name = 'gateway-api' } 
                     Write-Information "Config for addon '$($addon.Name)' migrated."
                 }
-                "ingress-nginx" { 
-                    $newAddon = [pscustomobject]@{Name = "ingress"; Implementation = "nginx" }
+                'ingress-nginx' { 
+                    $newAddon = [pscustomobject]@{Name = 'ingress'; Implementation = 'nginx' }
                     Write-Information "Config for addon '$($addon.Name)' migrated."                
                 }
-                "traefik" { 
-                    $newAddon = [pscustomobject]@{Name = "ingress"; Implementation = "traefik" } 
+                'traefik' { 
+                    $newAddon = [pscustomobject]@{Name = 'ingress'; Implementation = 'traefik' } 
                     Write-Information "Config for addon '$($addon.Name)' migrated."
                 }
-                "metrics-server" { 
-                    $newAddon = [pscustomobject]@{Name = "metrics"} 
+                'metrics-server' { 
+                    $newAddon = [pscustomobject]@{Name = 'metrics' } 
                     Write-Information "Config for addon '$($addon.Name)' migrated."
                 }
-                "smb-share" { 
-                    $newAddon = [pscustomobject]@{Name = "storage"; SmbHostType = $addon.SmbHostType } 
+                'smb-share' { 
+                    $newAddon = [pscustomobject]@{Name = 'storage'; SmbHostType = $addon.SmbHostType } 
                     Write-Information "Config for addon '$($addon.Name)' migrated."
                 }
             }
@@ -181,7 +181,7 @@ function Get-EnabledAddons {
     if ($null -eq $config) {
         Write-Log "[$script::$function] No addons config found"
 
-        return ,$enabledAddons
+        return , $enabledAddons
     }
 
     Write-Log "[$script::$function] Addons config found"
@@ -195,19 +195,22 @@ function Get-EnabledAddons {
             $enabledAddons = $enabledAddons | Where-Object { $_ -ne $addon.Name }
             if ($enableAddons) {
                 $enabledAddons.Add($alreadyExistingAddon) | Out-Null
-            } else {
+            }
+            else {
                 $enabledAddons = [System.Collections.ArrayList]@($enabledAddons)
             }
-        } else {
+        }
+        else {
             if ($null -eq $addon.Implementation) {
                 $enabledAddons.Add([pscustomobject]@{ Name = $addon.Name }) | Out-Null
-            } else {
-                $enabledAddons.Add([pscustomobject]@{ Name = $addon.Name; Implementations = [System.Collections.ArrayList]@($addon.Implementation)}) | Out-Null
+            }
+            else {
+                $enabledAddons.Add([pscustomobject]@{ Name = $addon.Name; Implementations = [System.Collections.ArrayList]@($addon.Implementation) }) | Out-Null
             }
         }
     }
 
-    return ,$enabledAddons
+    return , $enabledAddons
 }
 
 <#
@@ -244,13 +247,14 @@ function Add-AddonToSetupJson() {
     $addonAlreadyExists = $parsedSetupJson.EnabledAddons | Where-Object { $_.Name -eq $Addon.Name }
     if ($addonAlreadyExists) {
         if ($null -ne $Addon.Implementation) {
-            $implementationAlreadyExists = $parsedSetupJson.EnabledAddons | Where-Object { ($_.Name -eq $Addon.Name) -and ($_.Implementation -eq $Addon.Implementation)}
+            $implementationAlreadyExists = $parsedSetupJson.EnabledAddons | Where-Object { ($_.Name -eq $Addon.Name) -and ($_.Implementation -eq $Addon.Implementation) }
             if (!$implementationAlreadyExists) {
                 $parsedSetupJson.EnabledAddons += $Addon
                 $parsedSetupJson | ConvertTo-Json -Depth 100 | Set-Content -Force $filePath -Confirm:$false
             }
         }
-    } else {
+    }
+    else {
         $parsedSetupJson.EnabledAddons += $Addon
         $parsedSetupJson | ConvertTo-Json -Depth 100 | Set-Content -Force $filePath -Confirm:$false
     }
@@ -296,13 +300,15 @@ function Remove-AddonFromSetupJson {
             if ($null -ne $Addon.Implementation) {
                 $implementationExists = $addonExists | Where-Object { $_.Implementation -eq $Addon.Implementation }
                 if ($implementationExists) {
-                    $newEnabledAddons = @($enabledAddons | Where-Object { $_.Implementation -ne $Addon.Implementation})
+                    $newEnabledAddons = @($enabledAddons | Where-Object { $_.Implementation -ne $Addon.Implementation })
                 }
-            } else {
+            }
+            else {
                 $hasImplementationProperty = $addonExists | Where-Object { $null -ne $_.Implementation }
                 if (!$hasImplementationProperty) {
                     $newEnabledAddons = @($enabledAddons | Where-Object { $_.Name -ne $Addon.Name })
-                } else {
+                }
+                else {
                     throw "More than one implementation of addon '$($Addon.Name)'. Please specify the implementation!"
                 }
             }
@@ -323,13 +329,13 @@ function Install-DebianPackages {
         [parameter()]
         [string] $addon,
         [parameter()]
-        [string] $implementation = "",
+        [string] $implementation = '',
         [parameter()]
         [string[]]$packages
     )
 
     $dirName = $addon
-    if (($implementation -ne "") -and ($implementation -ne $addon)) {
+    if (($implementation -ne '') -and ($implementation -ne $addon)) {
         $dirName += "_$implementation"
     }
 
@@ -354,13 +360,13 @@ function Get-DebianPackageAvailableOffline {
         [parameter()]
         [string] $addon,
         [parameter()]
-        [string] $implementation = "",
+        [string] $implementation = '',
         [parameter()]
         [string]$package
     )
 
     $dirName = $addon
-    if (($implementation -ne "") -and ($implementation -ne $addon)) {
+    if (($implementation -ne '') -and ($implementation -ne $addon)) {
         $dirName += "_$implementation"
     }
 
@@ -608,7 +614,7 @@ function Backup-Addons {
             continue
         }
 
-        Copy-ScriptsToHooksDir -ScriptPaths @(Get-ChildItem -Path "$addonHookPath" | Where-Object { $_.Name -match "BackUp|Restore" } | ForEach-Object { $_.FullName })
+        Copy-ScriptsToHooksDir -ScriptPaths @(Get-ChildItem -Path "$addonHookPath" | Where-Object { $_.Name -match 'BackUp|Restore' } | ForEach-Object { $_.FullName })
     }
 
     Write-Log 'Backing-up addons data..'
@@ -751,16 +757,10 @@ function Update-IngressForAddons {
     )
     Write-Log "Adapting ingress entries for addons, security is on: $Enable" -Console
 
-    # check ingress type
-    if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'ingress'; Implementation = 'nginx' })) -eq $false) {
-        Write-Log 'Traefik ingress is used, adaptions cannot be made for traefik, please use nginx!' -Console
-        return
-    }
-
     # TODO: this implementation needs to be adapted to be more generic in next version
-    $addons = Get-EnabledAddons
-    $addons.Addons | ForEach-Object {
-        $addon = $_
+    $addons = Get-AddonsConfig
+    $addons | ForEach-Object {
+        $addon = $_.Name
         $addonConfig = Get-AddonConfig -Name $addon
         if ($null -eq $addonConfig) {
             Write-Log "Addon '$addon' not found in config, skipping.." -Console
@@ -769,29 +769,29 @@ function Update-IngressForAddons {
 
         # addon dashboard
         $name = 'dashboard'
-        if ($addon -eq $name -and $Enable -eq $true) {
-            Write-Log "Security addon enabled: adapting $name addon ..." -Console
-            (Invoke-Kubectl -Params 'delete' , '-f', "$PSScriptRoot\dashboard\manifests\dashboard-nginx-ingress.yaml").Output | Write-Log
-            (Invoke-Kubectl -Params 'apply' , '-f', "$PSScriptRoot\security\addons\dashboard-nginx-ingress-security.yaml").Output | Write-Log
+        if ($addon -eq $name) {
+            Write-Log "  Updating $name addon ..." -Console
+            Enable-AddonFromConfig -Config $addonConfig
             return
         }
-        if ($addon -eq $name -and $Enable -eq $false) {
-            Write-Log "Security addon disable: adapting $name addon ..." -Console
-            (Invoke-Kubectl -Params 'delete' , '-f', "$PSScriptRoot\security\addons\dashboard-nginx-ingress-security.yaml").Output | Write-Log
-            (Invoke-Kubectl -Params 'apply' , '-f', "$PSScriptRoot\dashboard\manifests\dashboard-nginx-ingress.yaml").Output | Write-Log
+
+        # check ingress type
+        if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'ingress'; Implementation = 'nginx' })) -eq $false) {
+            Write-Log "  Ingress implementation 'traefik' is in use, but only 'nginx' supported. Adaptions cannot be made for '$addon'!" -Console
             return
         }
+
 
         # addon logging
         $name = 'logging'
         if ($addon -eq $name -and $Enable -eq $true) {
-            Write-Log "Security addon enabled: adapting $name addon ..." -Console
+            Write-Log "  Security addon enabled: adapting $name addon ..." -Console
             (Invoke-Kubectl -Params 'delete' , '-f', "$PSScriptRoot\logging\manifests\opensearch-dashboards\ingress.yaml").Output | Write-Log
             (Invoke-Kubectl -Params 'apply' , '-f', "$PSScriptRoot\security\addons\logging-nginx-ingress-security.yaml").Output | Write-Log
             return
         }
         if ($addon -eq $name -and $Enable -eq $false) {
-            Write-Log "Security addon disable: adapting $name addon ..." -Console
+            Write-Log "  Security addon disabled: adapting $name addon ..." -Console
             (Invoke-Kubectl -Params 'delete' , '-f', "$PSScriptRoot\security\addons\logging-nginx-ingress-security.yaml").Output | Write-Log
             (Invoke-Kubectl -Params 'apply' , '-f', "$PSScriptRoot\logging\manifests\opensearch-dashboards\ingress.yaml").Output | Write-Log
             return
@@ -800,7 +800,7 @@ function Update-IngressForAddons {
         # addon monitoring
         $name = 'monitoring'
         if ($addon -eq $name -and $Enable -eq $true) {
-            Write-Log "Security addon enabled: adapting $name addon ..." -Console
+            Write-Log "  Security addon enabled: adapting $name addon ..." -Console
             (Invoke-Kubectl -Params 'delete' , '-f', "$PSScriptRoot\monitoring\manifests\plutono\ingress.yaml").Output | Write-Log
             (Invoke-Kubectl -Params 'delete' , '-f', "$PSScriptRoot\monitoring\manifests\plutono\configmap.yaml").Output | Write-Log
             (Invoke-Kubectl -Params 'apply' , '-f', "$PSScriptRoot\security\addons\monitoring-nginx-ingress-security.yaml").Output | Write-Log
@@ -810,7 +810,7 @@ function Update-IngressForAddons {
             return
         }
         if ($addon -eq $name -and $Enable -eq $false) {
-            Write-Log "Security addon disable: adapting $name addon ..." -Console
+            Write-Log "  Security addon disabled: adapting $name addon ..." -Console
             (Invoke-Kubectl -Params 'delete' , '-f', "$PSScriptRoot\security\addons\monitoring-nginx-ingress-security.yaml").Output | Write-Log
             (Invoke-Kubectl -Params 'delete' , '-f', "$PSScriptRoot\security\addons\monitoring-configmap-plutono-security.yaml").Output | Write-Log
             (Invoke-Kubectl -Params 'apply' , '-f', "$PSScriptRoot\monitoring\manifests\plutono\ingress.yaml").Output | Write-Log

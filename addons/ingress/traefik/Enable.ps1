@@ -98,11 +98,11 @@ Write-Log 'Installing external-dns' -Console
 $externalDnsConfig = Get-ExternalDnsConfigDir
 (Invoke-Kubectl -Params 'apply' , '-k', $externalDnsConfig).Output | Write-Log
 
-Write-Log "Preparing kustomization with $controlPlaneIp as an external IP for traefik service" -Console
 
 # we prepare all patches and apply them in a single kustomization,
 # instead of applying the unpatched manifests and then applying patches one by one
 $controlPlaneIp = Get-ConfiguredIPControlPlane
+Write-Log "Preparing kustomization with $controlPlaneIp as an external IP for traefik service" -Console
 $kustomization = @"
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
@@ -166,6 +166,10 @@ $clusterIngressConfig = "$PSScriptRoot\manifests\cluster-net-ingress.yaml"
 (Invoke-Kubectl -Params 'apply' , '-f', $clusterIngressConfig).Output | Write-Log
 
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'ingress'; Implementation = 'traefik' })
+
+# adapt ingress for other addons
+Write-Log 'Adapting ingress for other addons' -Console
+Update-IngressForAddons -Enable $true
 
 Write-Log 'Installation of Traefik addon finished.' -Console
 

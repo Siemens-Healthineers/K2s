@@ -69,22 +69,45 @@ if ($setupInfo.Name -ne 'k2s') {
     return
 }
 
-if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'dashboard' })) -eq $true) {
-    $errMsg = "Addon 'dashboard' is already enabled, nothing to do."
-
-    if ($EncodeStructuredOutput -eq $true) {
-        $err = New-Error -Severity Warning -Code (Get-ErrCodeAddonAlreadyEnabled) -Message $errMsg
-        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
-        return
-    }
+$isDashboardEnabled = (Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'dashboard' }))
+if ( $isDashboardEnabled -eq $true) {
+    if ($Ingress -ne 'none') {
+        $errMsg = "Addon 'dashboard' is already enabled. You can only use --Ingress when enabling for the first time."
+        if ($EncodeStructuredOutput -eq $true) {
+            $err = New-Error -Severity Warning -Code (Get-ErrCodeAddonAlreadyEnabled) -Message $errMsg
+            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+            return
+        }
     
-    Write-Log $errMsg -Error
-    exit 1
+        Write-Log $errMsg -Error
+        exit 1
+    }
 }
 
-Write-Log 'Installing Kubernetes dashboard' -Console
-$dashboardConfig = Get-DashboardConfig
-(Invoke-Kubectl -Params 'apply' , '-f', $dashboardConfig).Output | Write-Log
+switch ($Ingress) {
+    'nginx' {
+        Write-Log 'Deploying ingress nginx addon for external access to dashboard...' -Console
+        Enable-IngressAddon
+        break
+    }
+    'traefik' {
+        Write-Log 'Deploying ingress traefik addon for external access to dashboard...' -Console
+        Enable-TraefikAddon
+        break
+    }
+}
+
+if ($EnableMetricsServer) {
+    Enable-MetricsServer
+}
+
+if ( $isDashboardEnabled -eq $true) {
+    Write-Log 'Updating Kubernetes dashboard' -Console
+}
+else {
+    Write-Log 'Installing Kubernetes dashboard' -Console
+}
+Update-DashboardKustomizationFittingActiveAddons
 
 Write-Log 'Checking Dashboard status' -Console
 $dashboardStatus = Wait-ForDashboardAvailable
@@ -102,28 +125,6 @@ if ($dashboardStatus -ne $true) {
 }
 
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'dashboard' })
-
-switch ($Ingress) {
-    'nginx' {
-        Write-Log 'Deploying ingress nginx addon for external access to dashboard...' -Console
-        Enable-IngressAddon
-        break
-    }
-    'traefik' {
-        Write-Log 'Deploying ingress traefik addon for external access to dashboard...' -Console
-        Enable-TraefikAddon
-        break
-    }
-    'none' {
-        Write-Log 'No ingress deployed...' -Console
-    }
-}
-
-if ($EnableMetricsServer) {
-    Enable-MetricsServer
-}
-
-Enable-ExternalAccessIfIngressControllerIsFound
 
 Write-UsageForUser
 

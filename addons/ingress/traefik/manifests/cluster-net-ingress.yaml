@@ -5,7 +5,7 @@
 # This Ingress serves as central ingress host for the cluster.
 # Any ingress, in any namespace, can use the same hostname, and it will be
 # merged with this one. See for example:
-#  addons/dashboard/manifests/dashboard-traefik-ingress.yaml
+#  addons/dashboard/manifests/ingress-nginx/dashboard-traefik-ingress.yaml
 #  addons/logging/manifests/opensearch-dashboards/traefik.yaml
 # The certificate is taken from k8s secret 'k2s-cluster-net-tls'
 # This secret will be created by cert-manager, if it is running.

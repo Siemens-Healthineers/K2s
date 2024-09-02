@@ -148,16 +148,23 @@ Import-Certificate @params
 Remove-Item -Path $tempFile.FullName -Force
 
 Write-Log 'Checking for availability of Ingress Controller' -Console
-if (!(Test-NginxIngressControllerAvailability) -and !(Test-TraefikIngressControllerAvailability)) {
+if (Test-NginxIngressControllerAvailability) {
+    $activeIngress = 'nginx'
+}
+elseif (Test-TraefikIngressControllerAvailability) {
+    $activeIngress = 'traefik'
+}
+else {
     #Enable required ingress addon
     Write-Log "No Ingress controller found in the cluster, enabling $Ingress controller" -Console
     Enable-IngressAddon -Ingress:$Ingress
+    $activeIngress = $Ingress
 }
 
 Write-Log 'Installing keycloak' -Console
 $keyCloakYaml = Get-KeyCloakConfig
 (Invoke-Kubectl -Params 'apply', '-f', $keyCloakYaml).Output | Write-Log
-Deploy-IngressForSecurity -Ingress:$Ingress
+Deploy-IngressForSecurity -Ingress:$activeIngress
 Write-Log 'Waiting for keycloak pods to be available' -Console
 $keycloakPodStatus = Wait-ForKeyCloakAvailable
 

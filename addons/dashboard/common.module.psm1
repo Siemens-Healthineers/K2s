@@ -15,7 +15,7 @@ Import-Module $infraModule, $clusterModule, $addonsModule
 Gets the location of manifests to deploy dashboard dashboard
 #>
 function Get-DashboardConfig {
-    return "$PSScriptRoot\manifests\dashboard.yaml"
+    return "$PSScriptRoot\manifests\dashboard"
 }
 
 <#
@@ -23,7 +23,15 @@ function Get-DashboardConfig {
 Gets the location of nginx ingress yaml for dashboard
 #>
 function Get-DashboardNginxConfig {
-    return "$PSScriptRoot\manifests\dashboard-nginx-ingress.yaml"
+    return "$PSScriptRoot\manifests\ingress-nginx"
+}
+
+<#
+.DESCRIPTION
+Gets the location of secure nginx ingress yaml for dashboard
+#>
+function Get-DashboardSecureNginxConfig {
+    return "$PSScriptRoot\manifests\secure-nginx"
 }
 
 <#
@@ -31,7 +39,7 @@ function Get-DashboardNginxConfig {
 Gets the location of traefik ingress yaml for dashboard
 #>
 function Get-DashboardTraefikConfig {
-    return "$PSScriptRoot\manifests\dashboard-traefik-ingress.yaml"
+    return "$PSScriptRoot\manifests\ingress-traefik"
 }
 
 <#
@@ -60,13 +68,30 @@ function Test-TraefikIngressControllerAvailability {
 
 <#
 .DESCRIPTION
+Determines if KeyCloak is deployed in the cluster
+#>
+function Test-KeyCloakServiceAvailability {
+    $existingServices = (Invoke-Kubectl -Params 'get', 'service', '-n', 'security', '-o', 'yaml').Output
+    if ("$existingServices" -match '.*keycloak.*') {
+        return $true
+    }
+    return $false
+}
+
+<#
+.DESCRIPTION
 Deploys the dashboard's ingress manifest for Nginx ingress controller
 #>
 function Deploy-DashboardIngressForNginx {
-    Write-Log 'Deploying nginx ingress manifest for dashboard...' -Console
-    $dashboardNginxIngressConfig = Get-DashboardNginxConfig
-
-    Invoke-Kubectl -Params 'apply', '-f', $dashboardNginxIngressConfig | Out-Null
+    if (Test-KeyCloakServiceAvailability) {
+        Write-Log 'Deploying secure nginx ingress manifest for dashboard...' -Console
+        $kustomizationDir = Get-DashboardSecureNginxConfig
+    }
+    else {
+        $kustomizationDir = Get-DashboardNginxConfig
+        Write-Log 'Deploying nginx ingress manifest for dashboard...' -Console
+    }
+    Invoke-Kubectl -Params 'apply', '-k', $kustomizationDir | Out-Null
 }
 
 <#
@@ -77,7 +102,7 @@ function Deploy-DashboardIngressForTraefik {
     Write-Log 'Deploying traefik ingress manifest for dashboard...' -Console
     $dashboardTraefikIngressConfig = Get-DashboardTraefikConfig
     
-    Invoke-Kubectl -Params 'apply', '-f', $dashboardTraefikIngressConfig | Out-Null
+    Invoke-Kubectl -Params 'apply', '-k', $dashboardTraefikIngressConfig | Out-Null
 }
 
 <#
@@ -108,14 +133,17 @@ function Enable-MetricsServer {
 .DESCRIPTION
 Deploys the ingress manifest for dashboard based on the ingress controller detected in the cluster.
 #>
-function Enable-ExternalAccessIfIngressControllerIsFound {
+function Update-DashboardKustomizationFittingActiveAddons {
     if (Test-NginxIngressControllerAvailability) {
-        Write-Log 'Deploying nginx ingress for dashboard ...' -Console
         Deploy-DashboardIngressForNginx
     }
-    if (Test-TraefikIngressControllerAvailability) {
-        Write-Log 'Deploying traefik ingress for dashboard ...' -Console
+    elseif (Test-TraefikIngressControllerAvailability) {
         Deploy-DashboardIngressForTraefik
+    }
+    else {
+        Write-Log 'Deploying plain manifest for dashboard...' -Console
+        $dashboardConfig = Get-DashboardConfig
+        (Invoke-Kubectl -Params 'apply' , '-k', $dashboardConfig).Output | Write-Log        
     }
 }
 
@@ -136,9 +164,8 @@ function Write-UsageForUser {
  Once the ingress controller is running in the cluster, run the command to enable dashboard again 
  (disable it first if dashboard addon was already enabled).
  k2s addons enable dashboard
- the Kubernetes Dashboard will be accessible on the following URLs:
- https://k2s.cluster.local/dashboard/ and https://k2s-dashboard.cluster.local 
- (with HTTP using http://.. instead of https://..)
+ the Kubernetes Dashboard will be accessible on
+ https://k2s.cluster.local/dashboard/
 
  Option 2: Port-forwarding
  Use port-forwarding to the kubernetes-dashboard using the command below:

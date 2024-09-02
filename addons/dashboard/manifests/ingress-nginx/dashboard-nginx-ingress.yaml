@@ -7,42 +7,7 @@
 # relative paths based on the value stored in the x-forwarded-prefix header
 # of the request. So if the application is exposed on another path than root,
 # this header must have as value that path.
----
-# This ingress will expose the angular application on:
-# HTTP: http://k2s-dashboard.cluster.local
-# TLS: https://k2s-dashboard.cluster.local
-# For TLS, the certificate is taken from k8s secret 'k2s-dashboard-local-tls'
-# This secret will be created by cert-manager, if it is installed and running.
-# If cert-manager is not installed, the secret will not be present and nginx
-# will use an own self-signed certificate.
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: dashboard-nginx-local
-  namespace: dashboard
-  annotations:
-    cert-manager.io/cluster-issuer: k2s-ca-issuer
-    cert-manager.io/common-name: k2s-dashboard.cluster.local
-    nginx.ingress.kubernetes.io/ssl-redirect: "false"
-    nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
-spec:
-  ingressClassName: nginx
-  rules:
-    - host: k2s-dashboard.cluster.local
-      http:
-        paths:
-          - backend:
-              service:
-                name: kubernetes-dashboard
-                port:
-                  number: 443
-            pathType: Prefix
-            path: /
-  tls:
-    - hosts:
-        - k2s-dashboard.cluster.local
-      secretName: k2s-dashboard-local-tls
----
+
 # this ingress will be merged with ingress provided in:
 # addons/ingress/nginx/manifests/cluster-net-ingress.yaml
 # and exposes the kubernetes-dashboard angular application on:
@@ -55,7 +20,7 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: dashboard-nginx-cluster-net
+  name: dashboard-nginx-cluster-local
   namespace: dashboard
   annotations:
     nginx.ingress.kubernetes.io/rewrite-target: /$1

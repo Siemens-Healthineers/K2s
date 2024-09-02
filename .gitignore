@@ -15,6 +15,7 @@ virt*.exe
 ARGO.EXE
 nssm.exe
 vc_redist.x64.exe
+bin/cmctl.exe
 
 
 #Scripts
