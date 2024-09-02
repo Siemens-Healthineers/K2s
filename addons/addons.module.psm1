@@ -759,11 +759,11 @@ function Update-IngressForAddons {
 
     # TODO: this implementation needs to be adapted to be more generic in next version
     $addons = Get-EnabledAddons
-    $addons.Addons | ForEach-Object {
-        $addon = $_
+    $addons | ForEach-Object {
+        $addon = $_.Name
         $addonConfig = Get-AddonConfig -Name $addon
         if ($null -eq $addonConfig) {
-            Write-Log "Addon '$addon' not found in config, skipping.." -Console
+            Write-Log "Addon '$($addon.Name)' not found in config, skipping.." -Console
             return
         }
 
@@ -830,7 +830,7 @@ function Update-IngressForAddons {
         }
         if ($addon -eq $name -and $Enable -eq $false) {
             Write-Log "Security addon disable: adapting $name addon ..." -Console
-            (Invoke-Kubectl -Params 'delete' , '-f', "$PSScriptRoot\security\addons\logging-nginx-ingress-security.yaml").Output | Write-Log
+            (Invoke-Kubectl -Params 'delete' , '-f', "$PSScriptRoot\security\addons\rollout-nginx-ingress-security.yaml").Output | Write-Log
             (Invoke-Kubectl -Params 'apply' , '-f', "$PSScriptRoot\rollout\manifests\argocd\base\rollout-nginx-ingress.yaml").Output | Write-Log
             return
         }
