@@ -4,7 +4,7 @@
 
 # This web application can be configured to re-encode its relative URLs
 # with a configurable prefix, see file `configmap.yaml`:
-# root_url = https://k2s-monitoring.cluster.local/monitoring
+# root_url = https://k2s.cluster.local/monitoring
 # This enables us to expose it trough the ingress under this configured path
 ---
 # This ingress will be merged with ingress provided in:

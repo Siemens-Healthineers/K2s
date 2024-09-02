@@ -137,8 +137,7 @@ function Write-UsageForUser {
  (disable it first if dashboard addon was already enabled).
  k2s addons enable dashboard
  the Kubernetes Dashboard will be accessible on the following URLs:
- https://k2s.cluster.local/dashboard/ and https://k2s-dashboard.cluster.local 
- (with HTTP using http://.. instead of https://..)
+ https://k2s.cluster.local/dashboard/ (with HTTP using http://.. instead of https://..)
 
  Option 2: Port-forwarding
  Use port-forwarding to the kubernetes-dashboard using the command below:

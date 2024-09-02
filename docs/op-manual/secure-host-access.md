@@ -8,7 +8,7 @@ SPDX-License-Identifier: MIT
 
 However, because the whole *K2s* solution relies on a private network, the exposed endpoints are only available inside this private network, running behind the *Windows* host - regardless which [Hosting Variant](../user-guide/hosting-variants.md) is used.
 
-In this document, we will assume you have enabled the *K2s* addon `dashboard`, so it is usable on your local host at `http://k2s-dashboard.cluster.local`, and we further more assume you have an own product configured in one of the *K2s* ingress, reachable locally under `http://my-product.local`.
+In this document, we will assume you have enabled the *K2s* addon `dashboard`, so it is usable on your local host at `http://k2s.cluster.local`, and we further more assume you have an own product configured in one of the *K2s* ingress, reachable locally under `http://my-product.local`.
 
 If we want to expose the *ingress* / *gateway* endpoints outside of the *Windows* host in a secure manner, we need to configure a reverse proxy on the *Windows* host. The following picture shows this schematically for one of the variants:
 
