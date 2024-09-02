@@ -6,24 +6,24 @@
 
 <#
 .SYNOPSIS
-Hook to back-up the data of the updates addon.
+Hook to back-up the data of the rollout addon.
 
 .DESCRIPTION
-Hook to back-up the data of the updates addon.
+Hook to back-up the data of the rollout addon.
 #>
 param (
     [Parameter(Mandatory = $false, HelpMessage = 'Back-up directory to write data to.')]
     [string]$BackupDir = $(throw 'Please specify the back-up directory.')
 )
 $logModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/log/log.module.psm1"
-$updatesModule = "$PSScriptRoot\..\updates\updates.module.psm1"
+$rolloutModule = "$PSScriptRoot\..\rollout\rollout.module.psm1"
 
-Import-Module $logModule, $updatesModule
+Import-Module $logModule, $rolloutModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
-Write-Log 'Backing-up data of updates addon..' -Console
+Write-Log 'Backing-up data of rollout addon..' -Console
 
 Backup-AddonData -BackupDir $BackupDir
 
-Write-Log 'Updates addons data backed-up.' -Console
+Write-Log 'rollout addons data backed-up.' -Console

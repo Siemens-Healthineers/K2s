@@ -11,7 +11,7 @@ metadata:
   name: argocd-cmd-params-cm
 data:
   # https://argo-cd.readthedocs.io/en/stable/operator-manual/ingress/#ui-base-path
-  server.rootpath: "/updates"
+  server.rootpath: "/rollout"
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -71,7 +71,7 @@ metadata:
 subjects:
 - kind: ServiceAccount
   name: argocd-applicationset-controller
-  namespace: updates
+  namespace: rollout
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -80,7 +80,7 @@ metadata:
 subjects:
 - kind: ServiceAccount
   name: argocd-application-controller
-  namespace: updates
+  namespace: rollout
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -89,4 +89,4 @@ metadata:
 subjects:
 - kind: ServiceAccount
   name: argocd-server
-  namespace: updates
+  namespace: rollout

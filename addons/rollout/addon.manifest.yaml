@@ -5,11 +5,11 @@
 apiVersion: v1
 kind: AddonManifest
 metadata:
-  name: updates
+  name: rollout
   description: Tool for automating the deployment/updating of applications
 spec:
   implementations:
-    - name: updates
+    - name: rollout
       description: Tool for automating the deployment/updating of applications
       offline_usage:
         linux:
@@ -28,7 +28,7 @@ spec:
               - name: ingress
                 shorthand: i
                 default: none
-                description: Ingress controller to use for exposing the updates dashboard
+                description: Ingress controller to use for exposing the rollout dashboard
                 constraints:
                   kind: validation-set
                   validationSet:
@@ -40,12 +40,12 @@ spec:
                 default: ""
                 description: HTTP Proxy
             examples:
-              - cmd: k2s addons enable updates
-                comment: Enable updates in k2s
-              - cmd: k2s addons enable updates --ingress traefik
-                comment: Enable updates in k2s with traefik ingress
-              - cmd: k2s addons enable updates --proxy http://10.11.12.13:5000
-                comment: Enable updates in k2s with proxy
+              - cmd: k2s addons enable rollout
+                comment: Enable rollout in k2s
+              - cmd: k2s addons enable rollout --ingress traefik
+                comment: Enable rollout in k2s with traefik ingress
+              - cmd: k2s addons enable rollout --proxy http://10.11.12.13:5000
+                comment: Enable rollout in k2s with proxy
           script:
             subPath: Enable.ps1
             parameterMappings:
@@ -56,7 +56,7 @@ spec:
         disable:
           cli:
             examples:
-              - cmd: k2s addons disable updates
-                comment: Disable addon updates in k2s
+              - cmd: k2s addons disable rollout
+                comment: Disable addon rollout in k2s
           script:
             subPath: Disable.ps1

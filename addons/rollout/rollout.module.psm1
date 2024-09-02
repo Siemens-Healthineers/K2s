@@ -1,4 +1,3 @@
-
 # SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
 #
 # SPDX-License-Identifier: MIT
@@ -10,21 +9,21 @@ $clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.clu
 $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
 Import-Module $infraModule, $clusterModule, $addonsModule
 
-$AddonName = 'updates'
-$UpdatesNamespace = 'updates'
+$AddonName = 'rollout'
+$rolloutNamespace = 'rollout'
 
 $binPath = Get-KubeBinPath
 
 <#
 .SYNOPSIS
-Contains common methods for installing and uninstalling updates addon
+Contains common methods for installing and uninstalling the rollout addon
 #>
 
 <#
 .DESCRIPTION
 Gets the location of manifests to deploy ArgoCD
 #>
-function Get-UpdatesConfig {
+function Get-RolloutConfig {
     return "$PSScriptRoot\manifests\argocd\overlay"
 }
 
@@ -32,8 +31,8 @@ function Get-UpdatesConfig {
 .DESCRIPTION
 Gets the location of nginx ingress yaml to expose the ArgoCD dashboard
 #>
-function Get-UpdatesDashboardNginxConfig {
-    return "$PSScriptRoot\manifests\updates-nginx-ingress.yaml"
+function Get-RolloutDashboardNginxConfig {
+    return "$PSScriptRoot\manifests\rollout-nginx-ingress.yaml"
     
 }
 
@@ -41,8 +40,8 @@ function Get-UpdatesDashboardNginxConfig {
 .DESCRIPTION
 Gets the location of traefik ingress yaml to expose the ArgoCD dasboard
 #>
-function Get-UpdatesDashboardTraefikConfig {
-    return "$PSScriptRoot\manifests\updates-traefik-ingress.yaml"
+function Get-RolloutDashboardTraefikConfig {
+    return "$PSScriptRoot\manifests\rollout-traefik-ingress.yaml"
     
 }
 
@@ -65,10 +64,10 @@ function Enable-IngressAddon([string]$Ingress) {
 
 <#
 .SYNOPSIS
-Creates a backup of the updates addon data
+Creates a backup of the rollout addon data
 
 .DESCRIPTION
-Creates a backup of the updates addon data
+Creates a backup of the rollout addon data
 
 .PARAMETER BackupDir
 Back-up directory to write data to (gets created if not existing)
@@ -88,17 +87,17 @@ function Backup-AddonData {
     Write-Log "  Exporting the addon data to '$BackupDir' .."
 
     $argoExe = "$(Get-ClusterInstalledFolder)\bin\argocd.exe"
-    &$argoExe admin export -n $UpdatesNamespace > "$BackupDir\updates-backup.yaml"
+    &$argoExe admin export -n $rolloutNamespace > "$BackupDir\rollout-backup.yaml"
 
     Write-Log "  Addon data exported to '$BackupDir'."
 }
 
 <#
 .SYNOPSIS
-Restores the backup of the updates addon data
+Restores the backup of the rollout addon data
 
 .DESCRIPTION
-Restores the backup of the updates addon data
+Restores the backup of the rollout addon data
 
 .PARAMETER BackupDir
 Back-up directory to restore data from
@@ -117,10 +116,10 @@ function Restore-AddonData {
 
     Write-Log "  Importing the addon data from '$BackupDir' .."
     $argoExe = "$binPath\argocd.exe"
-    Get-Content -Raw "$BackupDir\updates-backup.yaml" | &$argoExe admin import -n updates -
+    Get-Content -Raw "$BackupDir\rollout-backup.yaml" | &$argoExe admin import -n rollout -
     Write-Log "  Imported the addon data from '$BackupDir'."
     # Delete the backup since it contains the user credentials
-    Remove-Item -Path "$BackupDir\updates-backup.yaml" -Force -ErrorAction SilentlyContinue
+    Remove-Item -Path "$BackupDir\rollout-backup.yaml" -Force -ErrorAction SilentlyContinue
 }
 function Write-UsageForUser {
     param (
@@ -128,22 +127,22 @@ function Write-UsageForUser {
     )
     @"
                                         USAGE NOTES
- To open ArgoCD dashboard, please use one of the options:
+ To open rollout dashboard, please use one of the options:
  
  Option 1: Access via ingress
  Please install either ingress nginx addon or ingress traefik addon from k2s.
  or you can install them on your own.
  Enable ingress controller via k2s cli
  eg. k2s addons enable ingress nginx
- Once the ingress controller is running in the cluster, run the command to enable updates again (disable it first if updates addon was already enabled).
- k2s addons enable updates
- The ArgoCD dashboard will be accessible on the following URL: https://k2s.cluster.local/updates/ (with HTTP using http://.. unstead of https://..)
+ Once the ingress controller is running in the cluster, run the command to enable rollout again (disable it first if rollout addon was already enabled).
+ k2s addons enable rollout
+ The rollout dashboard will be accessible on the following URL: https://k2s.cluster.local/rollout/ (with HTTP using http://.. unstead of https://..)
 
  Option 2: Port-forwading
- Use port-forwarding to the ArgoCD dashboard using the command below:
- kubectl -n updates port-forward svc/argocd-server 8080:443
+ Use port-forwarding to the rollout dashboard using the command below:
+ kubectl -n rollout port-forward svc/argocd-server 8080:443
  
- In this case, the ArgoCD dashboard will be accessible on the following URL: https://localhost:8080/updates/
+ In this case, the rollout dashboard will be accessible on the following URL: https://localhost:8080/rollout/
  
  On opening the URL in the browser, the login page appears.
  username: admin
@@ -151,9 +150,9 @@ function Write-UsageForUser {
 
  To use the argo cli please login with: 
  Option 1: When ingress is enabled
- argocd login k2s.cluster.local:443 --grpc-web-root-path "updates"
+ argocd login k2s.cluster.local:443 --grpc-web-root-path "rollout"
  Option 2: When using port-forwading
- argocd login localhost:8080 --grpc-web-root-path "updates"
+ argocd login localhost:8080 --grpc-web-root-path "rollout"
 
  Please change the password immediately, this can be done via the dashboard or via the cli with: argocd account update-password
 "@ -split "`r`n" | ForEach-Object { Write-Log $_ -Console }

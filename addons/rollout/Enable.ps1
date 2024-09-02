@@ -6,19 +6,19 @@
 
 <#
 .SYNOPSIS
-Installs the updates addons (ArgoCD) in the cluster
+Installs the rollout addons (ArgoCD) in the cluster
 
 .DESCRIPTION
-The updates addons utilizes ArgoCD to provide the user with the possibility 
+The rollout addons utilizes ArgoCD to provide the user with the possibility 
 to automate the deployment of application based on Git repositories. The addon can 
 either be used by directly accessing the argocd cli or using the exposed web interface.
 
 .EXAMPLE
-Enable updates in k2s
-powershell <installation folder>\addons\updates\Enable.ps1
+Enable rollout in k2s
+powershell <installation folder>\addons\rollout\Enable.ps1
 
-Enable updates addon in k2s with ingress nginx addon
-powershell <installation folder>\addons\updates\Enable.ps1 -Ingress "nginx"
+Enable rollout addon in k2s with ingress nginx addon
+powershell <installation folder>\addons\rollout\Enable.ps1 -Ingress "nginx"
 #>
 
 [CmdletBinding(SupportsShouldProcess = $true)]
@@ -41,9 +41,9 @@ $clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.clu
 $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
 $nodeModule = "$PSScriptRoot/../../lib\modules\k2s\k2s.node.module\k2s.node.module.psm1"
-$updatesModule = "$PSScriptRoot\updates.module.psm1"
+$rolloutModule = "$PSScriptRoot\rollout.module.psm1"
 
-Import-Module $clusterModule, $infraModule, $addonsModule, $nodeModule, $updatesModule
+Import-Module $clusterModule, $infraModule, $addonsModule, $nodeModule, $rolloutModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -64,13 +64,13 @@ if ($systemError) {
 
 $setupInfo = Get-SetupInfo
 if ($setupInfo.Name -ne 'k2s') {
-    $err = New-Error -Severity Warning -Code (Get-ErrCodeWrongSetupType) -Message "Addon 'updates' can only be enabled for 'k2s' setup type."  
+    $err = New-Error -Severity Warning -Code (Get-ErrCodeWrongSetupType) -Message "Addon 'rollout' can only be enabled for 'k2s' setup type."  
     Send-ToCli -MessageType $MessageType -Message @{Error = $err }
     return
 }
 
-if ((Test-IsAddonEnabled -Addon ([PSCustomObject]@{Name = 'updates'})) -eq $true) {
-    $errMsg = "Addon 'updates' is already enabled, nothing to do."
+if ((Test-IsAddonEnabled -Addon ([PSCustomObject]@{Name = 'rollout'})) -eq $true) {
+    $errMsg = "Addon 'rollout' is already enabled, nothing to do."
 
     if ($EncodeStructuredOutput -eq $true) {
         $err = New-Error -Severity Warning -Code (Get-ErrCodeAddonAlreadyEnabled) -Message $errMsg
@@ -82,16 +82,16 @@ if ((Test-IsAddonEnabled -Addon ([PSCustomObject]@{Name = 'updates'})) -eq $true
     exit 1
 }
 
-$UpdatesNamespace = 'updates'
+$rolloutNamespace = 'rollout'
 
 $VERSION_ARGOCD = 'v2.12.1'
 
-Write-Log 'Creating updates namespace'
-(Invoke-Kubectl -Params 'create', 'namespace', $UpdatesNamespace).Output | Write-Log
+Write-Log 'Creating rollout namespace'
+(Invoke-Kubectl -Params 'create', 'namespace', $rolloutNamespace).Output | Write-Log
 
-Write-Log 'Installing updates addon' -Console
-$UpdatesConfig = Get-UpdatesConfig
-(Invoke-Kubectl -Params 'apply' , '-n', $UpdatesNamespace, '-k', $UpdatesConfig).Output | Write-Log
+Write-Log 'Installing rollout addon' -Console
+$rolloutConfig = Get-RolloutConfig
+(Invoke-Kubectl -Params 'apply' , '-n', $rolloutNamespace, '-k', $rolloutConfig).Output | Write-Log
 
 $binPath = Get-KubeBinPath
 if (!(Test-Path "$binPath\argocd.exe")) {
@@ -101,10 +101,10 @@ if (!(Test-Path "$binPath\argocd.exe")) {
 
 Write-Log 'Waiting for pods being ready...' -Console
 
-$kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'deployments', '-n', $UpdatesNamespace, '--timeout=300s')
+$kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'deployments', '-n', $rolloutNamespace, '--timeout=300s')
 Write-Log $kubectlCmd.Output
 if (!$kubectlCmd.Success) {
-    $errMsg = 'Updates addon could not be deployed successfully!'
+    $errMsg = 'rollout addon could not be deployed successfully!'
     if ($EncodeStructuredOutput -eq $true) {
         $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
         Send-ToCli -MessageType $MessageType -Message @{Error = $err }
@@ -115,10 +115,10 @@ if (!$kubectlCmd.Success) {
     exit 1
 }
 
-$kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'statefulsets', '-n', $UpdatesNamespace, '--timeout=300s')
+$kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'statefulsets', '-n', $rolloutNamespace, '--timeout=300s')
 Write-Log $kubectlCmd.Output
 if (!$kubectlCmd.Success) {
-    $errMsg = 'Updates addon (ArgoCD application controller) could not be deployed successfully'
+    $errMsg = 'rollout addon (ArgoCD application controller) could not be deployed successfully'
     if ($EncodeStructuredOutput -eq $true) {
         $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
         Send-ToCli -MessageType $MessageType -Message @{Error = $err }
@@ -133,16 +133,16 @@ if ($Ingress -ne 'none') {
     Enable-IngressAddon -Ingress:$Ingress
 }
 
-$ArgoCD_Password_output = &"$binPath\argocd.exe" admin initial-password -n $UpdatesNamespace
+$ArgoCD_Password_output = &"$binPath\argocd.exe" admin initial-password -n $rolloutNamespace
 
 $pattern = '^\S+' # Match first squence of non-whitespace characters
 $ARGOCD_Password = [regex]::Match($ArgoCD_Password_output, $pattern).Value
 
-(Invoke-Kubectl -Params 'delete', 'secret', 'argocd-initial-secret', '-n', $UpdatesNamespace).Output | Write-Log
+(Invoke-Kubectl -Params 'delete', 'secret', 'argocd-initial-secret', '-n', $rolloutNamespace).Output | Write-Log
 
-Write-Log 'Installation of Kubernetes updates addon finished.' -Console
+Write-Log 'Installation of Kubernetes rollout addon finished.' -Console
 
-Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'updates' })
+Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'rollout' })
 
 Write-UsageForUser $ARGOCD_Password
 

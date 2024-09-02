@@ -6,7 +6,7 @@
 
 Import-Module "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k8s-api/k8s-api.module.psm1"
 
-$success = (Invoke-Kubectl -Params 'wait', '--timeout=5s', '--for=condition=Available', '-n', 'updates', 'deployment/argocd-applicationset-controller').Success
+$success = (Invoke-Kubectl -Params 'wait', '--timeout=5s', '--for=condition=Available', '-n', 'rollout', 'deployment/argocd-applicationset-controller').Success
 
 $isArgoCDApplicationsetControllerRunningProp = @{Name = 'IsArgoCDApplicationsetControllerRunning'; Value = $success; Okay = $success }
 if ($isArgoCDApplicationsetControllerRunningProp.Value -eq $true) {
@@ -16,7 +16,7 @@ else {
     $isArgoCDApplicationsetControllerRunningProp.Message = "ArgoCD Application Set Controller is not working. Try restarting the cluster with 'k2s start' or disable and re-enable the addon with 'k2s addons disable update' and 'k2s addons enable update'"
 } 
 
-$success = (Invoke-Kubectl -Params 'wait', '--timeout=5s', '--for=condition=Available', '-n', 'updates', 'deployment/argocd-dex-server').Success
+$success = (Invoke-Kubectl -Params 'wait', '--timeout=5s', '--for=condition=Available', '-n', 'rollout', 'deployment/argocd-dex-server').Success
 
 $isArgoCDDexServerRunningProp = @{Name = 'IsArgoCDDexServerRunning'; Value = $success; Okay = $success }
 if ($isArgoCDDexServerRunningProp.Value -eq $true) {
@@ -26,7 +26,7 @@ else {
     $isArgoCDDexServerRunningProp.Message = "ArgoCD Dex Server is working is not working. Try restarting the cluster with 'k2s start' or disable and re-enable the addon with 'k2s addons disable update' and 'k2s addons enable update'"
 } 
 
-$success = (Invoke-Kubectl -Params 'wait', '--timeout=5s', '--for=condition=Available', '-n', 'updates', 'deployment/argocd-notifications-controller').Success
+$success = (Invoke-Kubectl -Params 'wait', '--timeout=5s', '--for=condition=Available', '-n', 'rollout', 'deployment/argocd-notifications-controller').Success
 
 $IsArgoCDNotificationControllerRunningProp = @{Name = 'IsArgoCDNotificationControllerRunning'; Value = $success; Okay = $success }
 if ($IsArgoCDNotificationControllerRunningProp.Value -eq $true) {
@@ -36,7 +36,7 @@ else {
     $IsArgoCDNotificationControllerRunningProp.Message = "ArgoCD Notification Controller is not working. Try restarting the cluster with 'k2s start' or disable and re-enable the addon with 'k2s addons disable update' and 'k2s addons enable update'"
 } 
 
-$success = (Invoke-Kubectl -Params 'wait', '--timeout=5s', '--for=condition=Available', '-n', 'updates', 'deployment/argocd-redis').Success
+$success = (Invoke-Kubectl -Params 'wait', '--timeout=5s', '--for=condition=Available', '-n', 'rollout', 'deployment/argocd-redis').Success
 
 $isArgoCDRedisDBRunningProp = @{Name = 'IsArgoCDRedisRunning'; Value = $success; Okay = $success }
 if ($isArgoCDRedisDBRunningProp.Value -eq $true) {
@@ -46,7 +46,7 @@ else {
     $isArgoCDRedisDBRunningProp.Message = "ArgoCD Redis DB is not working. Try restarting the cluster with 'k2s start' or disable and re-enable the addon with 'k2s addons disable update' and 'k2s addons enable update'"
 } 
 
-$success = (Invoke-Kubectl -Params 'wait', '--timeout=5s', '--for=condition=Available', '-n', 'updates', 'deployment/argocd-repo-server').Success
+$success = (Invoke-Kubectl -Params 'wait', '--timeout=5s', '--for=condition=Available', '-n', 'rollout', 'deployment/argocd-repo-server').Success
 
 $isArgoCDRepoServerRunningProp = @{Name = 'IsArgoCDRepoServerRunning'; Value = $success; Okay = $success }
 if ($isArgoCDRepoServerRunningProp.Value -eq $true) {
@@ -56,7 +56,7 @@ else {
     $isArgoCDRepoServerRunningProp.Message = "ArgoCD Repo Server is not working. Try restarting the cluster with 'k2s start' or disable and re-enable the addon with 'k2s addons disable update' and 'k2s addons enable update'"
 } 
 
-$success = (Invoke-Kubectl -Params 'wait', '--timeout=5s', '--for=condition=Available', '-n', 'updates', 'deployment/argocd-server').Success
+$success = (Invoke-Kubectl -Params 'wait', '--timeout=5s', '--for=condition=Available', '-n', 'rollout', 'deployment/argocd-server').Success
 
 $isArgoCDServerRunningProp = @{Name = 'IsArgoCDServerRunning'; Value = $success; Okay = $success }
 if ($isArgoCDServerRunningProp.Value -eq $true) {
@@ -66,7 +66,7 @@ else {
     $isArgoCDServerRunningProp.Message = "ArgoCD Server is not working. Try restarting the cluster with 'k2s start' or disable and re-enable the addon with 'k2s addons disable update' and 'k2s addons enable update'"
 } 
 
-$success = (Invoke-Kubectl -Params 'rollout', 'status', 'statefulsets', '-n', 'updates', '--timeout=5s').Success
+$success = (Invoke-Kubectl -Params 'rollout', 'status', 'statefulsets', '-n', 'rollout', '--timeout=5s').Success
 
 $areStatefulsetsRunningProp = @{Name = 'AreStatefulsetsRunning'; Value = $success; Okay = $success }
 if ($areStatefulsetsRunningProp.Value -eq $true) {

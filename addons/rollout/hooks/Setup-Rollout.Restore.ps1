@@ -6,24 +6,24 @@
 
 <#
 .SYNOPSIS
-Hook to restore the data of updates addon.
+Hook to restore the data of rollout addon.
 
 .DESCRIPTION
-Hook to restore the data of updates addon.
+Hook to restore the data of rollout addon.
 #>
 param (
     [Parameter(Mandatory = $false, HelpMessage = 'Back-up directory to restore data from.')]
     [string]$BackupDir = $(throw 'Please specify the back-up directory.')
 )
 $logModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/log/log.module.psm1"
-$updatesModule = "$PSScriptRoot\..\updates\updates.module.psm1"
+$rolloutModule = "$PSScriptRoot\..\rollout\rollout.module.psm1"
 
-Import-Module $logModule, $updatesModule
+Import-Module $logModule, $rolloutModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
-Write-Log "Restoring the data of updates addon from '$BackupDir'.." -Console
+Write-Log "Restoring the data of rollout addon from '$BackupDir'.." -Console
 
 Restore-AddonData -BackupDir $BackupDir
 
-Write-Log "Updates addons data restored from '$BackupDir'." -Console
+Write-Log "Rollout addons data restored from '$BackupDir'." -Console

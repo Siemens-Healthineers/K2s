@@ -6,16 +6,16 @@
 
 <#
 .SYNOPSIS
-Uninstalls the updates addons (ArgoCD) in the cluster
+Uninstalls the rollout addons (ArgoCD) in the cluster
 
 .DESCRIPTION
-The updates addons utilizes ArgoCD to provide the user with the possibility 
+The rollout addons utilizes ArgoCD to provide the user with the possibility 
 to automate the deployment of application based on Git repositories. The addon can 
 either be used by directly accessing the argocd cli or using the exposed web interface.
 
 .EXAMPLE
-Disable updates addon in k2s
-powershell <installation folder>\addons\updates\Disable.ps1
+Disable rollout addon in k2s
+powershell <installation folder>\addons\rollout\Disable.ps1
 #>
 
 Param (
@@ -29,9 +29,9 @@ Param (
 $clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
-$updatesModule = "$PSScriptRoot\updates.module.psm1"
+$rolloutModule = "$PSScriptRoot\rollout.module.psm1"
 
-Import-Module $clusterModule, $infraModule, $addonsModule, $updatesModule
+Import-Module $clusterModule, $infraModule, $addonsModule, $rolloutModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -48,8 +48,8 @@ if ($systemError) {
     exit 1
 }
 
-if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'updates', '--ignore-not-found').Output -and (Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'updates' })) -ne $true) {
-    $errMsg = "Addon 'updates' is already disabled, nothing to do."
+if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'rollout', '--ignore-not-found').Output -and (Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'rollout' })) -ne $true) {
+    $errMsg = "Addon 'rollout' is already disabled, nothing to do."
 
     if ($EncodeStructuredOutput -eq $true) {
         $err = New-Error -Severity Warning -Code (Get-ErrCodeAddonAlreadyDisabled) -Message $errMsg
@@ -61,18 +61,18 @@ if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'updates', '--ignore-n
     exit 1
 }
 
-Write-Log 'Uninstalling updates addon' -Console
-$UpdatesConfig = Get-UpdatesConfig
+Write-Log 'Uninstalling rollout addon' -Console
+$rolloutConfig = Get-RolloutConfig
 
-(Invoke-Kubectl -Params 'delete', '-n', 'updates', '-k', $UpdatesConfig).Output | Write-Log
+(Invoke-Kubectl -Params 'delete', '-n', 'rollout', '-k', $rolloutConfig).Output | Write-Log
 
-(Invoke-Kubectl -Params 'delete', 'namespace', 'updates').Output | Write-Log
+(Invoke-Kubectl -Params 'delete', 'namespace', 'rollout').Output | Write-Log
 
 $binPath = Get-KubeBinPath
 Remove-Item "$binPath\argocd.exe" -Force -ErrorAction SilentlyContinue
 
-Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'updates' })
-Write-Log 'Uninstallation of updates addon finished' -Console
+Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'rollout' })
+Write-Log 'Uninstallation of rollout addon finished' -Console
 
 if ($EncodeStructuredOutput -eq $true) {
     Send-ToCli -MessageType $MessageType -Message @{Error = $null }
