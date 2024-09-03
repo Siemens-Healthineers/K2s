@@ -12,7 +12,8 @@ host-local.exe
 win*.exe
 kub*.exe
 virt*.exe
-ARGO.EXE
+bin/argocd.exe
+bin/cmctl.exe
 nssm.exe
 vc_redist.x64.exe
 
