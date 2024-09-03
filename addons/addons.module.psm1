@@ -775,13 +775,6 @@ function Update-IngressForAddons {
             return
         }
 
-        # check ingress type
-        if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'ingress'; Implementation = 'nginx' })) -eq $false) {
-            Write-Log "  Ingress implementation 'traefik' is in use, but only 'nginx' supported. Adaptions cannot be made for '$addon'!" -Console
-            return
-        }
-
-
         # addon logging
         $name = 'logging'
         if ($addon -eq $name -and $Enable -eq $true) {
@@ -820,7 +813,7 @@ function Update-IngressForAddons {
             return
         }
     }
-    Write-Log 'Addons have been adapted to new security settings' -Console
+    Write-Log 'Addons have been adapted to new configuration' -Console
 }
 
 Export-ModuleMember -Function Get-EnabledAddons, Add-AddonToSetupJson, Remove-AddonFromSetupJson,

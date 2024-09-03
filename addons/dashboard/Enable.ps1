@@ -101,13 +101,15 @@ if ($EnableMetricsServer) {
     Enable-MetricsServer
 }
 
-if ( $isDashboardEnabled -eq $true) {
-    Write-Log 'Updating Kubernetes dashboard' -Console
+if ( $isDashboardEnabled -eq $false) {
+    Write-Log 'Installing Kubernetes dashboard' -Console
+    $dashboardConfig = Get-DashboardConfig
+    (Invoke-Kubectl -Params 'apply' , '-k', $dashboardConfig).Output | Write-Log        
 }
 else {
-    Write-Log 'Installing Kubernetes dashboard' -Console
+    Write-Log 'Updating Kubernetes dashboard' -Console
 }
-Update-DashboardKustomizationFittingActiveAddons
+Update-DashboardIngressConfiguration
 
 Write-Log 'Checking Dashboard status' -Console
 $dashboardStatus = Wait-ForDashboardAvailable
@@ -126,7 +128,9 @@ if ($dashboardStatus -ne $true) {
 
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'dashboard' })
 
-Write-UsageForUser
+if ( $isDashboardEnabled -eq $false) {
+    Write-DashboardUsageForUser
+}
 
 Write-Log 'Installation of Kubernetes dashboard finished.' -Console
 

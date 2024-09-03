@@ -82,27 +82,48 @@ function Test-KeyCloakServiceAvailability {
 .DESCRIPTION
 Deploys the dashboard's ingress manifest for Nginx ingress controller
 #>
-function Deploy-DashboardIngressForNginx {
+function Update-DashboardIngressForNginx {
     if (Test-KeyCloakServiceAvailability) {
-        Write-Log 'Deploying secure nginx ingress manifest for dashboard...' -Console
+        Write-Log 'Applying secure nginx ingress manifest for dashboard...' -Console
         $kustomizationDir = Get-DashboardSecureNginxConfig
     }
     else {
         $kustomizationDir = Get-DashboardNginxConfig
-        Write-Log 'Deploying nginx ingress manifest for dashboard...' -Console
+        Write-Log 'Applying nginx ingress manifest for dashboard...' -Console
     }
     Invoke-Kubectl -Params 'apply', '-k', $kustomizationDir | Out-Null
 }
 
 <#
 .DESCRIPTION
+Delete the dashboard's ingress manifest for Nginx ingress controller
+#>
+function Remove-DashboardIngressForNginx {
+    # SecureNginxConfig is a superset of NginsConfig, so we delete that:
+    $kustomizationDir = Get-DashboardSecureNginxConfig
+    Invoke-Kubectl -Params 'delete', '-k', $kustomizationDir | Out-Null
+}
+
+<#
+.DESCRIPTION
 Deploys the dashboard's ingress manifest for Traefik ingress controller
 #>
-function Deploy-DashboardIngressForTraefik {
-    Write-Log 'Deploying traefik ingress manifest for dashboard...' -Console
+function Update-DashboardIngressForTraefik {
+    Write-Log 'Applying traefik ingress manifest for dashboard...' -Console
     $dashboardTraefikIngressConfig = Get-DashboardTraefikConfig
     
     Invoke-Kubectl -Params 'apply', '-k', $dashboardTraefikIngressConfig | Out-Null
+}
+
+<#
+.DESCRIPTION
+Delete the dashboard's ingress manifest for Traefik ingress controller
+#>
+function Remove-DashboardIngressForTraefik {
+    Write-Log 'Deleting traefik ingress manifest for dashboard...' -Console
+    $dashboardTraefikIngressConfig = Get-DashboardTraefikConfig
+    
+    Invoke-Kubectl -Params 'delete', '-k', $dashboardTraefikIngressConfig | Out-Null
 }
 
 <#
@@ -131,19 +152,20 @@ function Enable-MetricsServer {
 
 <#
 .DESCRIPTION
-Deploys the ingress manifest for dashboard based on the ingress controller detected in the cluster.
+Updates the ingress manifest for dashboard based on the ingress controller detected in the cluster.
 #>
-function Update-DashboardKustomizationFittingActiveAddons {
+function Update-DashboardIngressConfiguration {
     if (Test-NginxIngressControllerAvailability) {
-        Deploy-DashboardIngressForNginx
+        Remove-DashboardIngressForTraefik
+        Update-DashboardIngressForNginx
     }
     elseif (Test-TraefikIngressControllerAvailability) {
-        Deploy-DashboardIngressForTraefik
+        Remove-DashboardIngressForNginx
+        Update-DashboardIngressForTraefik
     }
     else {
-        Write-Log 'Deploying plain manifest for dashboard...' -Console
-        $dashboardConfig = Get-DashboardConfig
-        (Invoke-Kubectl -Params 'apply' , '-k', $dashboardConfig).Output | Write-Log        
+        Remove-DashboardIngressForNginx
+        Remove-DashboardIngressForTraefik
     }
 }
 
@@ -151,9 +173,9 @@ function Update-DashboardKustomizationFittingActiveAddons {
 .DESCRIPTION
 Writes the usage notes for dashboard for the user.
 #>
-function Write-UsageForUser {
+function Write-DashboardUsageForUser {
     @"
-                                        USAGE NOTES
+                DASHBOARD ADDON - USAGE NOTES
  To open dashboard, please use one of the options:
 
  Option 1: Access via ingress
