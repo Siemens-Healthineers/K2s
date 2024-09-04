@@ -44,7 +44,7 @@ To access the rollout dashboard via port-forwarding, the following command can b
 ```
 kubectl -n rollout port-forward svc/argocd-server 8080:443
 ```
-In this case, the rollout dashboard UI can be accessed at the following link: http://localhost:8080/
+In this case, the rollout dashboard UI can be accessed at the following link: https://localhost:8080/rollout/
 
 ### Deploy an application with the rollout addon
 

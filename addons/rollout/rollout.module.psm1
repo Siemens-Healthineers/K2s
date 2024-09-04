@@ -134,7 +134,7 @@ function Write-UsageForUser {
  or you can install them on your own.
  Enable ingress controller via k2s cli
  eg. k2s addons enable ingress nginx
- Once the ingress controller is running in the cluster, run the command to enable rollout again (disable it first if rollout addon was already enabled).
+ Once the ingress controller is running in the cluster, run the command to enable rollout
  k2s addons enable rollout
  The rollout dashboard will be accessible on the following URL: https://k2s.cluster.local/rollout/ (with HTTP using http://.. unstead of https://..)
 
