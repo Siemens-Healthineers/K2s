@@ -8,7 +8,7 @@
 # This enables us to expose it trough the ingress under this configured path
 ---
 # this ingress will be merged with ingress provided in:
-# addons/ingress/traefik/manifests/cluster-net-ingress.yaml
+# addons/ingress/traefik/manifests/cluster-local-ingress.yaml
 # and exposes the plutono web application on:
 # https://k2s.cluster.local/monitoring/
 apiVersion: networking.k8s.io/v1

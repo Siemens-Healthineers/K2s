@@ -11,7 +11,7 @@
 # incoming calls to be part of the request path (needed for port forwarding)
 ---
 # this ingress will be merged with ingress provided in:
-# addons/ingress/traefik/manifests/cluster-net-ingress.yaml
+# addons/ingress/traefik/manifests/cluster-local-ingress.yaml
 # and exposes the opensearch-dashboards angular application on:
 # https://k2s.cluster.local/logging/
 apiVersion: networking.k8s.io/v1
