@@ -55,7 +55,7 @@ The dashboard UI can be accessed via the following methods.
 
 To access dashboard via ingress, the ingress nginx or the ingress traefik addon has to enabled.
 Once the addons are enabled, then the dashboard UI can be accessed at the following links:
-<https://k2s.cluster.local/dashboard/> and <https://k2s-dashboard.cluster.local> (with HTTP using http://.. instead of https://..)
+<https://k2s.cluster.local/dashboard/> (with HTTP using http://.. instead of https://..)
 
 ### Access using port-forwarding
 
