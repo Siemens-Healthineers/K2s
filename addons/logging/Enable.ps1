@@ -6,7 +6,7 @@
 
 <#
 .SYNOPSIS
-Enables k2s-logging in the cluster to the logging namespace
+Enables logging addon in the cluster to the logging namespace
 
 .DESCRIPTION
 The logging addon collects all logs from containers/pods running inside the k2s cluster.

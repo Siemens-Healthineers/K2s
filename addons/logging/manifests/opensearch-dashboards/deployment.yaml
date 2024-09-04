@@ -76,7 +76,7 @@ spec:
         - name: SERVER_BASEPATH
           value: "/logging"
         - name: SERVER_REWRITEBASEPATH
-          value: "false"
+          value: "true"
         - name: DISABLE_SECURITY_DASHBOARDS_PLUGIN
           value: "true"
         ports:
