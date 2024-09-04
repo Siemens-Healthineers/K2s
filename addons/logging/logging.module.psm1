@@ -60,11 +60,9 @@ function Write-UsageForUser {
  or you can install them on your own.
  Enable ingress controller via k2s cli
  eg. k2s addons enable ingress nginx
- Once the ingress controller is running in the cluster, run the command to enable logging again 
- (disable it first if logging addon was already enabled).
+ Once the ingress controller is running in the cluster, run the command to enable logging 
  k2s addons enable logging
- The opensearch dashboard will be accessible on the following URLs:
- https://k2s.cluster.local/logging/ (with HTTP using http://.. instead of https://..)
+ The opensearch dashboard will be accessible on the following URL: https://k2s.cluster.local/logging/ 
 
  Option 2: Port-forwading
  Use port-forwarding to the opensearch dashboard using the command below:
