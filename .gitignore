@@ -151,7 +151,6 @@ k2s/cmd/vfprules/vfprules/vfprules.lib
 k2s/cmd/vfprules/vfprules/.vs/** 
 k2s/cmd/vfprules/vfprules/x64/**
 k2s/cmd/vfprules/vfprules/vfprules.sln
-k2s/cmd/vfprules/vfprules/vfprules.vcxproj
 k2s/cmd/vfprules/vfprules/vfprules.vcxproj.filters
 k2s/cmd/vfprules/vfprules/vfprules.vcxproj.user
 bin/cni/vfprules.lib

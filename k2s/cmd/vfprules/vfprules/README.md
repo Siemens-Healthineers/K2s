@@ -9,11 +9,8 @@ SPDX-License-Identifier: MIT
 ### Setup build environment
 ### -> open x64 studio command window
 
-### Build the dll with the cl compiler from Microsoft (start from an x64 dev env)
-cl /LD vfprules.c /Fe:..\..\..\..\bin\cni\vfprules.dll /link ntdll.lib /subsystem:console
-
-### or with gcc
-gcc -shared -o vfprules.dll vfprules.c
+### Build the dll with Visual Studio
+### Open vcxproj file with Visual Studio
 
 ### Cleanup
 del /s *.dll
