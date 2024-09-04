@@ -24,7 +24,9 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
     [switch] $EncodeStructuredOutput,
     [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
-    [string] $MessageType
+    [string] $MessageType,
+    [parameter(Mandatory = $false, HelpMessage = 'The path to local builds of Kubernetes binaries')]
+    [string] $K8sBinsPath = ''
 )
 
 $infraModule = "$PSScriptRoot/../../../../modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
@@ -40,7 +42,7 @@ Write-Log "- Package file name: $ZipPackageFileName"
 
 Add-type -AssemblyName System.IO.Compression
 
-function BuildAndProvisionKubemasterBaseImage($WindowsNodeArtifactsZip, $OutputPath) {
+function New-ProvisionedKubemasterBaseImage($WindowsNodeArtifactsZip, $OutputPath) {
     # Expand windows node artifacts directory.
     # Deploy putty and plink for provisioning.
     if (!(Test-Path $WindowsNodeArtifactsZip)) {
@@ -134,11 +136,11 @@ function BuildAndProvisionKubemasterBaseImage($WindowsNodeArtifactsZip, $OutputP
     Write-Log "Provisioned base image available as $OutputPath" -Console
 }
 
-function DownloadAndZipWindowsNodeArtifacts($outputPath) {
+function Get-AndZipWindowsNodeArtifacts($outputPath) {
     Write-Log "Download and create zip file with Windows node artifacts for $outputPath with proxy $Proxy" -Console
     $kubernetesVersion = Get-DefaultK8sVersion
     try {
-        Invoke-DeployWinArtifacts -KubernetesVersion $kubernetesVersion -Proxy "$Proxy"
+        Invoke-DeployWinArtifacts -KubernetesVersion $kubernetesVersion -Proxy "$Proxy" -K8sBinsPath $K8sBinsPath
     } finally {
         Invoke-DownloadsCleanup -DeleteFilesForOfflineInstallation $false
     }
@@ -164,7 +166,7 @@ function DownloadAndZipWindowsNodeArtifacts($outputPath) {
     Write-Log "Windows node artifacts available as '$outputPath'" -Console
 }
 
-function CreateZipArchive() {
+function New-ZipArchive() {
     Param(
         [parameter(Mandatory = $true)]
         [AllowEmptyCollection()]
@@ -185,7 +187,7 @@ function CreateZipArchive() {
             $zipFile = [System.IO.Compression.ZipArchive]::new($zipFileStream, $zipMode)
         }
         catch {
-            Write-Log "ERROR in CreateZipArchive: $_"
+            Write-Log "ERROR in New-ZipArchive: $_"
             $zipFile, $zipFileStream | ForEach-Object Dispose
 
             if ($EncodeStructuredOutput -eq $true) {
@@ -293,11 +295,14 @@ $winNodeArtifactsZipFilePath = Get-WindowsNodeArtifactsZipFilePath
 if ($ForOfflineInstallation) {
     # Provide windows parts
     if (Test-Path $winNodeArtifactsZipFilePath) {
+        if ($K8sBinsPath -ne '') {
+            Compress-WindowsNodeArtifactsWithLocalKubeTools -K8sBinsPath $K8sBinsPath
+        }
         Write-Log "The already existing file '$winNodeArtifactsZipFilePath' will be used." -Console
     } else {
         try {
             Write-Log "The file '$winNodeArtifactsZipFilePath' does not exist. Creating it using proxy $Proxy ..." -Console
-            DownloadAndZipWindowsNodeArtifacts($winNodeArtifactsZipFilePath)
+            Get-AndZipWindowsNodeArtifacts($winNodeArtifactsZipFilePath)
         }
         catch {
             Write-Log "Creation of file '$winNodeArtifactsZipFilePath' failed. Performing clean-up...Error: $_" -Console
@@ -320,7 +325,7 @@ if ($ForOfflineInstallation) {
     } else {
         try {
             Write-Log "The file '$controlPlaneBaseVhdxPath' does not exist. Creating it..." -Console
-            BuildAndProvisionKubemasterBaseImage -WindowsNodeArtifactsZip:$winNodeArtifactsZipFilePath -OutputPath:$controlPlaneBaseVhdxPath
+            New-ProvisionedKubemasterBaseImage -WindowsNodeArtifactsZip:$winNodeArtifactsZipFilePath -OutputPath:$controlPlaneBaseVhdxPath
         }
         catch {
             Write-Log "Creation of file '$controlPlaneBaseVhdxPath' failed. Performing clean-up... Error: $_" -Console
@@ -351,7 +356,7 @@ $exclusionList | ForEach-Object { " - $_ " } | Write-Log -Console
 
 # create the zip package
 Write-Log 'Start creation of zip package...' -Console
-CreateZipArchive -ExclusionList $exclusionList -BaseDirectory $kubePath -TargetPath "$zipPackagePath"
+New-ZipArchive -ExclusionList $exclusionList -BaseDirectory $kubePath -TargetPath "$zipPackagePath"
 Write-Log 'Finished creation of zip package' -Console
 
 Write-Log "Zip package available as '$zipPackagePath'." -Console

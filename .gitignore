@@ -3,8 +3,8 @@
 # SPDX-License-Identifier: CC0-1.0
 
 #Binaries
-bin/exe/*.exe
-bin/exe/*.dll
+bin/kube/*.exe
+bin/kube/*.dll
 bin/nginx
 bin/helm.exe
 flannel*.exe
@@ -12,7 +12,8 @@ host-local.exe
 win*.exe
 kub*.exe
 virt*.exe
-ARGO.EXE
+bin/argocd.exe
+bin/cmctl.exe
 nssm.exe
 vc_redist.x64.exe
 
