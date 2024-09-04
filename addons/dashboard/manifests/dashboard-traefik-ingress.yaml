@@ -30,7 +30,7 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: dashboard-traefik-cluster-net
+  name: dashboard-traefik-cluster-local
   namespace: dashboard
   annotations:
     traefik.ingress.kubernetes.io/router.middlewares: dashboard-strip-prefix@kubernetescrd
