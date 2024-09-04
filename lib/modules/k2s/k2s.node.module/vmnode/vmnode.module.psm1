@@ -2074,16 +2074,10 @@ function Repair-WindowsAutoConfigOnVM($session) {
     }
 }
 
-function Enable-SSHRemotingViaSSHKeyToWinNode ($session, $Proxy) {
+function Enable-SSHRemotingViaSSHKeyToWinNode ($session) {
     Invoke-Command -Session $session {
         Set-Location "$env:SystemDrive\k"
         Set-ExecutionPolicy Bypass -Force -ErrorAction SilentlyContinue
-
-        if ($using:Proxy -ne "") {
-            pwsh -Command "`$ENV:HTTPS_PROXY='$using:Proxy';Install-Module -Name Microsoft.PowerShell.RemotingTools -Force -Confirm:`$false"
-        } else {
-            pwsh -Command "Install-Module -Name Microsoft.PowerShell.RemotingTools -Force -Confirm:`$false"
-        }
 
         pwsh -Command "Get-InstalledModule"
         pwsh -Command "Enable-SSHRemoting -Force"
