@@ -31,6 +31,7 @@ data:
     [server]
     # these settings needed to make it work with Ingress
     root_url = https://k2s.cluster.local/monitoring
+    serve_from_sub_path = true
     domain = k2s.cluster.local
     protocol = https
     cert_key = /cert/tls.key
