@@ -1775,6 +1775,11 @@ SPDX-License-Identifier: MIT
 <p class="admonition-title">Tip</p>
 <p>For installing in <em><abbr title="Windows Subsystem for Linux">WSL</abbr></em> mode, add the <code>Microsoft-Windows-Subsystem-Linux</code> feature to the prior command.</p>
 </div>
+<ul>
+<li><em>VC Runtime 140</em>: please install the VC runtime dlls, either with choco</li>
+</ul>
+<p><code>choco install vcredist140 -y</code></p>
+<p>or download them from <a href="https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist">Microsoft</a> directly and install the appropriate VC runtime.</p>
 <h2 id="installation-via-k2s-cli">Installation via <em>k2s</em> <abbr title="Command-Line Interface">CLI</abbr></h2>
 <p>The <em>K2s</em> setup provides a variety of installation options. Based on the <a href="../../user-guide/hosting-variants/">Hosting Variants</a>, select one of the following setup variants:</p>
 <ul>
