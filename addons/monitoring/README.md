@@ -37,8 +37,7 @@ The monitoring dashboard UI can be accessed via the following methods.
 ### Access using ingress
 
 To access monitoring dashboard via ingress, the ingress nginx or the ingress traefik addon has to enabled.
-Once the addons are enabled, then the monitoring dashboard UI can be accessed at the following links:
- <https://k2s.cluster.local/monitoring/> (with HTTP using http://.. instead of https://..)
+Once the addons are enabled, then the monitoring dashboard UI can be accessed at the following URL: <https://k2s.cluster.local/monitoring>
 
 ### Access using port-forwarding
 
@@ -48,7 +47,7 @@ To access monitoring dashboard via port-forwarding, the following command can be
 kubectl -n monitoring port-forward svc/kube-prometheus-stack-plutono 3000:443
 ```
 
-In this case, the monitoring dashboard UI can be accessed at the following link: <https://localhost:3000>
+In this case, the monitoring dashboard UI can be accessed at the following URL: <https://localhost:3000/monitoring>
 
 ### Login to monitoring dashboard
 

@@ -10,7 +10,7 @@
 # This ingress will be merged with ingress provided in:
 # addons/ingress/nginx/manifests/cluster-local-ingress.yaml
 # and exposes the plutono web application on:
-# https://k2s.cluster.local/monitoring/
+# https://k2s.cluster.local/monitoring
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -29,5 +29,5 @@ spec:
                 name: kube-prometheus-stack-plutono
                 port:
                   number: 443
-            path: /monitoring/
+            path: /monitoring
             pathType: Prefix
