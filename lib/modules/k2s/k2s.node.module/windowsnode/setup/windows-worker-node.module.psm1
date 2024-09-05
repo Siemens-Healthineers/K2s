@@ -20,7 +20,9 @@ function Add-WindowsWorkerNodeOnWindowsHost {
         [parameter(Mandatory = $false, HelpMessage = 'Force the installation online. This option is needed if the files for an offline installation are available but you want to recreate them.')]
         [switch] $ForceOnlineInstallation = $false,
         [string] $PodSubnetworkNumber = $(throw 'Argument missing: PodSubnetworkNumber'),
-        [string] $JoinCommand = $(throw 'Argument missing: JoinCommand')
+        [string] $JoinCommand = $(throw 'Argument missing: JoinCommand'),
+        [parameter(Mandatory = $false, HelpMessage = 'The path to local builds of Kubernetes binaries')]
+        [string] $K8sBinsPath = ''
     )
     Stop-InstallIfNoMandatoryServiceIsRunning
 
@@ -41,7 +43,8 @@ function Add-WindowsWorkerNodeOnWindowsHost {
         -Proxy:"$Proxy" `
         -DeleteFilesForOfflineInstallation $DeleteFilesForOfflineInstallation `
         -ForceOnlineInstallation $ForceOnlineInstallation `
-        -PodSubnetworkNumber $PodSubnetworkNumber
+        -PodSubnetworkNumber $PodSubnetworkNumber `
+        -K8sBinsPath $K8sBinsPath
 
 
     # join the cluster
@@ -549,7 +552,7 @@ function Add-WindowsWorkerNodeOnNewVM {
 
     Write-Log "Initialize ssh connection to Windows VM"
     Initialize-SSHConnectionToWinVM $session2 $IpAddress
-    Enable-SSHRemotingViaSSHKeyToWinNode $session2 $Proxy
+    Enable-SSHRemotingViaSSHKeyToWinNode $session2
 
     $adminWinNode = Get-DefaultWinVMName
     $windowsVMKey = Get-DefaultWinVMKey
