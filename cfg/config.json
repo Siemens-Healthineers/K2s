@@ -52,6 +52,9 @@
                     "gateway": "172.22.1.2",
                     "priority": "203"
                 }
+            ],
+            "vfpapi": [
+                "10.0.20348"
             ]
         },
         "vfprules-multivm": {
