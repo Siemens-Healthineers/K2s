@@ -162,7 +162,7 @@ if ($allPodsAreUp -ne $true) {
 
 Write-Log 'All ingress traefik pods are up and ready.' -Console
 
-$clusterIngressConfig = "$PSScriptRoot\manifests\cluster-net-ingress.yaml"
+$clusterIngressConfig = "$PSScriptRoot\manifests\cluster-local-ingress.yaml"
 (Invoke-Kubectl -Params 'apply' , '-f', $clusterIngressConfig).Output | Write-Log
 
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'ingress'; Implementation = 'traefik' })

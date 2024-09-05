@@ -9,11 +9,11 @@
 # this header must have as value that path.
 
 # this ingress will be merged with ingress provided in:
-# addons/ingress/nginx/manifests/cluster-net-ingress.yaml
+# addons/ingress/nginx/manifests/cluster-local-ingress.yaml
 # and exposes the kubernetes-dashboard angular application on:
 # https://k2s.cluster.local/dashboard/
 # The certificate is taken from k8s secret 'k2s.cluster.local-tls'
-# (see addons/ingress/nginx/manifests/cluster-net-ingress.yaml)
+# (see addons/ingress/nginx/manifests/cluster-local-ingress.yaml)
 # NOTE: there is a glitch in dashboard,
 # causing the trailing / in bot URLs to be needed, i.e.
 # https://k2s.cluster.local/dashboard will not work!
