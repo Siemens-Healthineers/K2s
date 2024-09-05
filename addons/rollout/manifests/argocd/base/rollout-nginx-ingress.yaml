@@ -22,5 +22,5 @@ spec:
                 name: argocd-server
                 port:
                   number: 443
-            path: /rollout/
+            path: /rollout
             pathType: Prefix

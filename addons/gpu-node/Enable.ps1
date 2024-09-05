@@ -60,7 +60,7 @@ Write-Log 'Checking Nvidia driver installation' -Console
 $WSL = Get-ConfigWslFlag
 
 if (!(Test-Path -Path 'C:\Windows\System32\lxss\lib\libdxcore.so')) {
-    $errMsg = "It seems that the needed Nvidia drivers are not installed.`nPlease install them from the following link: https://www.nvidia.com/Download/index.aspx"
+    $errMsg = "It seems that the needed Nvidia drivers are not installed.`nPlease install them from the following URL: https://www.nvidia.com/Download/index.aspx"
 
     if ($WSL) {
         $errMsg += "`nAfter Nvidia driver installation you need to reinstall the cluster for the changes to take effect."
@@ -80,7 +80,7 @@ if ($WSL) {
     $success = (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute '[ -f /usr/lib/wsl/lib/libdxcore.so ]').Success
     if (!$success) {
         $errMsg = "It seems that the needed Nvidia drivers are not installed.`n" `
-            + "Please install them from the following link: https://www.nvidia.com/Download/index.aspx`n"`
+            + "Please install them from the following URL: https://www.nvidia.com/Download/index.aspx`n"`
             + 'After Nvidia driver installation you need to reinstall the cluster for the changes to take effect.'
 
         if ($EncodeStructuredOutput -eq $true) {

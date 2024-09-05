@@ -13,14 +13,13 @@
 # this ingress will be merged with ingress provided in:
 # addons/ingress/nginx/manifests/cluster-local-ingress.yaml
 # and exposes the opensearch-dashboards web application on:
-# https://k2s.cluster.local/logging/
+# https://k2s.cluster.local/logging
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: logging-nginx-cluster-local
   namespace: logging
   annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: "/$1"
     nginx.ingress.kubernetes.io/auth-url: "https://k2s.cluster.local/oauth2/auth"
     nginx.ingress.kubernetes.io/auth-signin: "https://k2s.cluster.local/oauth2/start?rd=$escaped_request_uri"
     nginx.ingress.kubernetes.io/auth-response-headers: "Authorization"
@@ -35,5 +34,5 @@ spec:
                 name: opensearch-dashboards
                 port:
                   number: 5601
-            path: /logging/?(.*)
+            path: /logging
             pathType: Prefix

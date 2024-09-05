@@ -6,7 +6,7 @@
 # this ingress will be merged with ingress provided in:
 # addons/ingress/traefik/manifests/cluster-local-ingress.yaml
 # and exposes the kubernetes-dashboard angular application on:
-# https://k2s.cluster.local/rollout/
+# https://k2s.cluster.local/rollout
 # The certificate is taken from k8s secret 'k2s.cluster.local-tls'
 # (see addons/ingress/traefik/manifests/cluster-local-ingress.yaml)
 apiVersion: networking.k8s.io/v1
@@ -22,7 +22,7 @@ spec:
     - host: k2s.cluster.local
       http:
         paths:
-          - path: /rollout/
+          - path: /rollout
             pathType: Prefix
             backend:
               service:
