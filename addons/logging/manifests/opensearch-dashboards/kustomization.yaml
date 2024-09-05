@@ -10,3 +10,5 @@ resources:
 - serviceaccount.yaml
 - deployment.yaml
 - service.yaml
+- ingress-nginx.yaml
+- ingress-traefik.yaml

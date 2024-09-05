@@ -34,9 +34,7 @@ The rollout dashboard can be accessed via the following methods.
 ### Access using ingress
 
 To access the rollout dashboard via ingress, the ingress nginx or the ingress traefik addon has to be enabled.
-Once the addons are enabled, then the rollout dashboard can be accessed at the following link: https://k2s.cluster.local/rollout/ (with HTTP using http://.. instead of https://..).
-
-_Note:_ If the login doesn't work for https://k2s.cluster.local/rollout/, please wait a little bit after enabling the addon and restart your browser or use an ingoknito tab to access the dashboard.  
+Once the addons are enabled, then the rollout dashboard can be accessed at the following URL: <https://k2s.cluster.local/rollout>
 
 ### Access using port-forwarding
 
@@ -44,7 +42,7 @@ To access the rollout dashboard via port-forwarding, the following command can b
 ```
 kubectl -n rollout port-forward svc/argocd-server 8080:443
 ```
-In this case, the rollout dashboard UI can be accessed at the following link: https://localhost:8080/rollout/
+In this case, the rollout dashboard UI can be accessed at the following URL: <https://localhost:8080/rollout>
 
 ### Deploy an application with the rollout addon
 
@@ -78,7 +76,7 @@ argocd app sync guestbook
 #### Via the web UI
 
 Step 1 - Login via the UI
-Visit `k2s.cluster.local/rollout/` and login using the credentials return by the enable process.
+Visit `k2s.cluster.local/rollout` and login using the credentials return by the enable process.
 
 Step 2 - Add a repository
 Navigate to Settings -> Repository -> Connect Repo
