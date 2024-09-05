@@ -5,11 +5,9 @@
 package containernetworking
 
 import (
-	"bufio"
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"net"
 	"os"
 	"os/exec"
@@ -86,155 +84,6 @@ func (plugin *netPlugin) Stop() {
 	plugin.nm.Uninitialize()
 	plugin.Uninitialize()
 	logrus.Debugf("[cni-net] Plugin stopped.")
-}
-
-func GetPort(name string) (string, error) {
-	logrus.Debugf("[cni-net] XXXX GetPort for port with name %s", name)
-	// open file for writing ports
-	filename := "vfp-ports-" + name + ".log"
-	file, err := os.OpenFile(filename, os.O_CREATE|os.O_WRONLY, os.FileMode(0777))
-	if err != nil {
-		log.Fatalf("failed opening file: %s", err)
-	}
-	// construct `vfpctrl` command
-	cmd := exec.Command("vfpctrl", "/list-vmswitch-port")
-	cmd.Stdout = file
-	// run command
-	if err := cmd.Run(); err != nil {
-		logrus.Debugf("[cni-net] XXXX Get port name. Error:", err)
-		file.Close()
-		return "", err
-	} else {
-		logrus.Debugf("[cni-net] XXXX Get port name. Successfull\n")
-	}
-	file.Close()
-	// read file line by line and parse
-	readFile, err := os.Open(filename)
-	if err != nil {
-		logrus.Debugf("[cni-net] XXXX Get port name. Open file rrror:", err)
-	}
-	// scan the whole file
-	scanner := bufio.NewScanner(readFile)
-	scanner.Split(bufio.ScanLines)
-	lastportname := ""
-	for scanner.Scan() {
-		line := scanner.Text()
-		s := strings.Split(line, ":")
-		if len(s) > 1 {
-			// keep port name
-			param := strings.TrimSpace(s[0])
-			if param == "Port name" {
-				lastportname = s[1]
-			}
-
-			// check switch name
-			if param == "Port Friendly name" {
-				value := strings.TrimSpace(s[1])
-				valuelower := strings.ToLower(value)
-				namelower := strings.ToLower(name)
-				logrus.Debugf("[cni-net] Compare '%s' with '%s'", valuelower, namelower)
-				if valuelower == namelower {
-					break
-				}
-			}
-		}
-	}
-	readFile.Close()
-	err = os.Remove(filename)
-	if err != nil {
-		logrus.Debugf("[cni-net] XXXX Get port name. Deleting file error:", err)
-	}
-	return strings.TrimSpace(lastportname), nil
-}
-
-func WriteVFPRule(datawriter *bufio.Writer, name string, port string, macgateway string, subnet string, priority string) error {
-	// build args
-	command := "vfpctrl /port " + port + " /layer VNET_PA_ROUTE_LAYER /group VNET_GROUP_PA_ROUTE_IPV4_OUT /add-rule-ex "
-	rulex := "\"" + name + " " + name + " * * * " + subnet + " * 128 * " + priority + " transpose *,0/*,0 modify 00-00-00-00-00-00 " + macgateway + "\""
-	// use echo to format correctly
-	stringunformated := command + rulex
-	bytes, errWrite := datawriter.WriteString(stringunformated + "\n")
-	if errWrite != nil {
-		log.Fatalf("failed writing file: %s, bytes: %s", errWrite, string(bytes))
-	}
-	return errWrite
-}
-
-func GetMacOfGateway(ipgateway string) (string, error) {
-	// get all the system's or local machine's network interfaces
-	var currentNetworkHardwareName string
-	interfaces, _ := net.Interfaces()
-	for _, interf := range interfaces {
-
-		if addrs, err := interf.Addrs(); err == nil {
-			for index, addr := range addrs {
-				logrus.Debugf("[cni-net] XXXX GetMacOfGateway [", index, "]", interf.Name, ">", addr)
-				// only interested in the name with current IP address
-				if strings.Contains(addr.String(), ipgateway) {
-					logrus.Debugf("[cni-net] XXXX Use name : ", interf.Name)
-					currentNetworkHardwareName = interf.Name
-				}
-			}
-		}
-	}
-
-	logrus.Debugf("[cni-net] XXXX GetMacOfGateway ------------------------------")
-
-	// extract the hardware information base on the interface name
-	// capture above
-	netInterface, err := net.InterfaceByName(currentNetworkHardwareName)
-	if err != nil {
-		fmt.Println(err)
-	}
-	name := netInterface.Name
-	macAddress := netInterface.HardwareAddr
-	logrus.Debugf("[cni-net] XXXX GetMacOfGateway Hardware name : ", name)
-	logrus.Debugf("[cni-net] XXXX GetMacOfGateway MAC address : ", macAddress)
-
-	// verify if the MAC address can be parsed properly
-	hwAddr, err := net.ParseMAC(macAddress.String())
-	if err != nil {
-		logrus.Debugf("[cni-net] XXXX GetMacOfGateway No able to parse MAC address : ", err)
-	}
-	logrus.Debugf("[cni-net] XXXX GetMacOfGateway Physical hardware address : %s \n", hwAddr.String())
-	return hwAddr.String(), err
-}
-
-func AddVfpRules(portid string) error {
-	// get the port related to id
-	port, err := GetPort(portid)
-	logrus.Debugf("[cni-net] XXXX Result of port name:'%s'", port)
-	// open file for adding commands
-	filename := "vfp-rules-" + portid + ".cmd"
-	fileCmds, errCmds := os.OpenFile(filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if errCmds != nil {
-		log.Fatalf("AddVfpRules: Failed creating file: %s", errCmds)
-		return errCmds
-	}
-	defer fileCmds.Close()
-	// get mac address of gateway
-	mac, errmac := GetMacOfGateway("172.20.1.2")
-	if errmac != nil {
-		log.Fatalf("AddVfpRules: Getting MAC not found error, mac:%s", mac)
-		return errmac
-	}
-	// write the rules to be added
-	datawriter := bufio.NewWriter(fileCmds)
-	WriteVFPRule(datawriter, "PA_ROUTE_k2s_1", port, mac, "172.17.1.0/24", "200")
-	WriteVFPRule(datawriter, "PA_ROUTE_k2s_2", port, mac, "172.20.0.0/24", "201")
-	WriteVFPRule(datawriter, "PA_ROUTE_k2s_3", port, mac, "172.22.0.0/24", "202")
-	datawriter.Flush()
-	// construct command for execution
-	cmd := exec.Command("cmd", "/c", filename)
-	// run command
-	if output, err := cmd.Output(); err != nil {
-		logrus.Debugf("[cni-net] XXXX Adding extra VFP rules. Error:", err)
-	} else {
-		logrus.Debugf("[cni-net] XXXX Adding extra VFP rules. Output: %s\n", output)
-	}
-	// remove old vfp rules
-	// os.Remove(filename)
-	return err
 }
 
 func AreVfpRulesEnabled() bool {
