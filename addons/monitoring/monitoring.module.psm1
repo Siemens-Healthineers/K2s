@@ -50,27 +50,3 @@ function Write-UsageForUser {
  password: admin
 '@ -split "`r`n" | ForEach-Object { Write-Log $_ -Console }
 }
-
-<#
-.DESCRIPTION
-Determines if Traefik ingress controller is deployed in the cluster
-#>
-function Test-TraefikIngressControllerAvailability {
-    $existingServices = (Invoke-Kubectl -Params 'get', 'service', '-n', 'ingress-traefik', '-o', 'yaml').Output
-    if ("$existingServices" -match '.*traefik.*') {
-        return $true
-    }
-    return $false
-}
-
-<#
-.DESCRIPTION
-Determines if Nginx ingress controller is deployed in the cluster
-#>
-function Test-NginxIngressControllerAvailability {
-    $existingServices = (Invoke-Kubectl -Params 'get', 'service', '-n', 'ingress-nginx', '-o', 'yaml').Output 
-    if ("$existingServices" -match '.*ingress-nginx-controller.*') {
-        return $true
-    }
-    return $false
-}
