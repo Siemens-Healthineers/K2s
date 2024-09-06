@@ -4,6 +4,9 @@
 package host
 
 import (
+	"errors"
+	"io/fs"
+	"log/slog"
 	"os"
 	"path/filepath"
 )
@@ -35,4 +38,17 @@ func ExecutableDir() (string, error) {
 		return "", err
 	}
 	return filepath.Dir(exePath), nil
+}
+
+func PathExists(path string) bool {
+	_, err := os.Stat(path)
+	if err == nil {
+		slog.Debug("Path exists", "path", path)
+		return true
+	}
+
+	if !errors.Is(err, fs.ErrNotExist) {
+		slog.Error("could not check existence of path", "path", path, "error", err)
+	}
+	return false
 }

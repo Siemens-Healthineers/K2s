@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -55,4 +56,27 @@ func parseLevel(input string) (slog.Level, error) {
 	}
 
 	return level, nil
+}
+
+// InitializeLogFile creates the log directory and file if not existing
+// Returns the log file handle
+// path - The log file path
+func InitializeLogFile(path string) *os.File {
+	dir := filepath.Dir(path)
+
+	if err := host.CreateDirIfNotExisting(dir); err != nil {
+		panic(err)
+	}
+
+	var err error
+	logFile, err := os.OpenFile(
+		path,
+		os.O_APPEND|os.O_CREATE|os.O_WRONLY,
+		os.ModePerm,
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	return logFile
 }
