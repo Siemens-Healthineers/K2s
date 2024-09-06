@@ -10,7 +10,7 @@ $proxyConfigFp = "C:\ProgramData\k2s\proxy.conf"
 class ProxyConfig {
     [string] $HttpProxy
     [string] $HttpsProxy
-    [string] $NoProxy
+    [string[]] $NoProxy
 }
 
 <#
@@ -160,10 +160,12 @@ function Get-ProxyConfig {
         }
     }
 
+    $noProxyList = if ($noProxy -eq "") { @() } else { $noProxy -split ',' }
+
     return [ProxyConfig]@{
         HttpProxy = $httpProxy; 
         Httpsproxy = $httpsProxy; 
-        NoProxy = $noProxy
+        NoProxy = [string[]]$noProxyList
     }
 }
 
@@ -251,9 +253,9 @@ function Add-NoProxyEntry {
 
     # Prepare the new content for the config file
     $newContent = @(
-        "http_proxy='$($proxyConfig.HttpProxy)'"
-        "https_proxy='$($proxyConfig.HttpsProxy)'"
-        "no_proxy='$($proxyConfig.NoProxy -join ",")'"
+        "http_proxy=$($proxyConfig.HttpProxy)"
+        "https_proxy=$($proxyConfig.HttpsProxy)"
+        "no_proxy=$($proxyConfig.NoProxy -join ",")"
     )
 
     # Write the updated configuration back to the file
@@ -299,9 +301,9 @@ function Remove-NoProxyEntry {
 
     # Prepare the new content for the config file
     $newContent = @(
-        "http_proxy='$($proxyConfig.HttpProxy)'"
-        "https_proxy='$($proxyConfig.HttpsProxy)'"
-        "no_proxy='$($proxyConfig.NoProxy -join ",")'"
+        "http_proxy=$($proxyConfig.HttpProxy)"
+        "https_proxy=$($proxyConfig.HttpsProxy)"
+        "no_proxy=$($proxyConfig.NoProxy -join ",")"
     )
 
     # Write the updated configuration back to the file
@@ -310,7 +312,7 @@ function Remove-NoProxyEntry {
 
 <#
 .SYNOPSIS
-Resets the proxy configuration by setting all entries to empty.
+Reset the proxy configuration by setting all entries to empty.
 
 .DESCRIPTION
 The Reset-ProxyConfig function sets the HttpProxy, HttpsProxy, and NoProxy entries in the proxy configuration file to empty values. This effectively resets the proxy configuration to a default state with no proxy settings.
@@ -328,19 +330,19 @@ function Reset-ProxyConfig {
         throw "Config file not found at path: $proxyConfigFp"
     }
 
-    $proxyConfig = @{
-        HttpProxy  = ""
-        HttpsProxy = ""
-        NoProxy    = @()
-    }
-
     $newContent = @(
-        "http_proxy=''"
-        "https_proxy=''"
-        "no_proxy=''"
+        "http_proxy="
+        "https_proxy="
+        "no_proxy="
     )
 
     $newContent | Set-Content -Path $proxyConfigFp
 }
 
-Export-ModuleMember -Function Get-OrUpdateProxyServer, New-ProxyConfig, Get-ProxyConfig, Add-NoProxyEntry, Remove-NoProxyEntry
+Export-ModuleMember -Function Get-OrUpdateProxyServer,
+                              New-ProxyConfig, 
+                              Get-ProxyConfig,
+                              Set-ProxyServer, 
+                              Add-NoProxyEntry, 
+                              Remove-NoProxyEntry, 
+                              Reset-ProxyConfig
