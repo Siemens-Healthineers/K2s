@@ -308,4 +308,39 @@ function Remove-NoProxyEntry {
     $newContent | Set-Content -Path $proxyConfigFp
 }
 
+<#
+.SYNOPSIS
+Resets the proxy configuration by setting all entries to empty.
+
+.DESCRIPTION
+The Reset-ProxyConfig function sets the HttpProxy, HttpsProxy, and NoProxy entries in the proxy configuration file to empty values. This effectively resets the proxy configuration to a default state with no proxy settings.
+
+.NOTES
+The function checks if the proxy configuration file exists before attempting to reset the configuration.
+The proxy configuration file path is hardcoded as C:\ProgramData\k2s\proxy.conf.
+
+.EXAMPLE
+Reset-ProxyConfig
+Resets the proxy configuration by setting all entries to empty.
+#>
+function Reset-ProxyConfig {
+    if (!(Test-Path -Path $proxyConfigFp)) {
+        throw "Config file not found at path: $proxyConfigFp"
+    }
+
+    $proxyConfig = @{
+        HttpProxy  = ""
+        HttpsProxy = ""
+        NoProxy    = @()
+    }
+
+    $newContent = @(
+        "http_proxy=''"
+        "https_proxy=''"
+        "no_proxy=''"
+    )
+
+    $newContent | Set-Content -Path $proxyConfigFp
+}
+
 Export-ModuleMember -Function Get-OrUpdateProxyServer, New-ProxyConfig, Get-ProxyConfig, Add-NoProxyEntry, Remove-NoProxyEntry

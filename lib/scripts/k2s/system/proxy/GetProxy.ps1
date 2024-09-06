@@ -17,9 +17,27 @@ Param(
 
 
 $infraModule = "$PSScriptRoot/../../../../modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
+$nodeModule = "$PSScriptRoot/../../../../modules/k2s/k2s.node.module/k2s.node.module.psm1"
 
-Import-Module $infraModule
-
+Import-Module $infraModule, $nodeModule
 Initialize-Logging
 
-Write-Log "GetProxy command."
+try {
+    $ProxyConfig = Get-ProxyConfig
+    $getProxyResult = @{Error = $null}
+    $getProxyResult.Proxy = $ProxyConfig.HttpProxy
+
+    if ($EncodeStructuredOutput) {
+        Send-ToCli -MessageType $MessageType -Message $getProxyResult
+    }
+    else {
+        $getProxyResult
+    }
+
+    Write-Log "[$script] finished"
+} catch {
+    Write-Log "[$script] $($_.Exception.Message) - $($_.ScriptStackTrace)" -Error
+
+    throw $_
+}
+

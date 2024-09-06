@@ -18,9 +18,26 @@ Param(
 
 
 $infraModule = "$PSScriptRoot/../../../../../modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
+$nodeModule = "$PSScriptRoot/../../../../../modules/k2s/k2s.node.module/k2s.node.module.psm1"
 
-Import-Module $infraModule
-
+Import-Module $infraModule, $nodeModule
 Initialize-Logging
 
-Write-Log "ListProxyOverrides command."
+try {
+    $ProxyConfig = Get-ProxyConfig
+    $listProxyOverridesResult = @{Error = $null}
+    $listProxyOverridesResult.ProxyOverrides = $ProxyConfig.NoProxy
+
+    if ($EncodeStructuredOutput) {
+        Send-ToCli -MessageType $MessageType -Message $listProxyOverridesResult
+    }
+    else {
+        $listProxyOverridesResult
+    }
+
+    Write-Log "[$script] finished"
+} catch {
+    Write-Log "[$script] $($_.Exception.Message) - $($_.ScriptStackTrace)" -Error
+
+    throw $_
+}
