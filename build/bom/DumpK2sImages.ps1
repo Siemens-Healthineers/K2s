@@ -29,29 +29,44 @@ Import-Module $addonsModule, $yamlModule
 
 $addonManifests = @()
 
-if ($Addons.Count -ne 0) {
-    foreach ($addonDirName in $Addons) {
-        Write-Output "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] Starting Scrapping of Container Image for addon: $addonDirName"
-        $addonManifests += Find-AddonManifests -Directory "$global:KubernetesPath\addons\$addonDirName" |`
-            ForEach-Object {
-            $manifest = Get-FromYamlFile -Path $_
-            $manifest | Add-Member -NotePropertyName 'path' -NotePropertyValue $_
-            $dirPath = Split-Path -Path $_ -Parent
-            $dirName = Split-Path -Path $dirPath -Leaf
-            $manifest | Add-Member -NotePropertyName 'dir' -NotePropertyValue @{path = $dirPath; name = $dirName }
-            $manifest
+Write-Output "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] Starting Scrapping of Container Images for all addons"
+$allAddonManifests = Find-AddonManifests -Directory "$global:KubernetesPath\addons\" |`
+    ForEach-Object {
+    $manifest = Get-FromYamlFile -Path $_
+    $manifest | Add-Member -NotePropertyName 'path' -NotePropertyValue $_
+    $dirPath = Split-Path -Path $_ -Parent
+    $dirName = Split-Path -Path $dirPath -Leaf
+    $manifest | Add-Member -NotePropertyName 'dir' -NotePropertyValue @{path = $dirPath; name = $dirName }
+    $manifest
+}
+
+if ($Addons.Count -eq 0) {
+    $addonManifests += $allAddonManifests
+}
+else {
+    foreach ($name in $Addons) {
+        Write-Output "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] Filter Container Images for addon: $name"
+        $foundManifest = $null
+        $addonName = ($name -split " ")[0]
+        $implementationName = ($name -split " ")[1]
+
+        foreach ($manifest in $allAddonManifests) {
+            if ($manifest.metadata.name -eq $addonName) {
+                $foundManifest = $manifest
+
+                # specific implementation specified
+                if ($null -ne $implementationName) {
+                    $foundManifest.spec.implementations = $foundManifest.spec.implementations | Where-Object { $_.name -eq $implementationName}
+                }
+                break
+            }
         }
-    }
-} else {
-    Write-Output "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] Starting Scrapping of Container Images for all addons"
-    $addonManifests = Find-AddonManifests -Directory "$global:KubernetesPath\addons\" |`
-        ForEach-Object {
-        $manifest = Get-FromYamlFile -Path $_
-        $manifest | Add-Member -NotePropertyName 'path' -NotePropertyValue $_
-        $dirPath = Split-Path -Path $_ -Parent
-        $dirName = Split-Path -Path $dirPath -Leaf
-        $manifest | Add-Member -NotePropertyName 'dir' -NotePropertyValue @{path = $dirPath; name = $dirName }
-        $manifest
+
+        if ($null -eq $foundManifest) {
+            Write-Output "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] No addon manifest for addon: $name"
+        } else {
+            $addonManifests += $foundManifest
+        }
     }
 }
 
@@ -69,60 +84,60 @@ $addonNameImagesMapping = @{}
 
 
 foreach ($manifest in $addonManifests) {
-    $files = Get-Childitem -recurse $manifest.dir.path | Where-Object { $_.Name -match '.*.yaml$' } | ForEach-Object { $_.Fullname }
-
-    foreach ($file in $files) {
-        $imageLines = Get-Content $file | Select-String 'image:' | Select-Object -ExpandProperty Line
-
-        if ($imageLines -and $file -match "addons\\([^\\]+)\\") {
-            #Write-Output $matches[1]
-            $addonName = $matches[1]
+    foreach ($implementation in $manifest.spec.implementations) {
+        # there are more than one implementation
+        $dirPath = $manifest.dir.path
+        $addonName = $manifest.metadata.name
+        if ($implementation.name -ne $manifest.metadata.name) {
+            $dirPath = Join-Path -Path $($manifest.dir.path) -ChildPath $($implementation.name)
+            $addonName += "-$($implementation.name)"
         }
-        foreach ($imageLine in $imageLines) {
-            $unTrimmedFullImageName = (($imageLine -split 'image: ')[1] -split '#')[0]
-            $fullImageName = $unTrimmedFullImageName.Trim().Trim("`"'")
+        $files = Get-Childitem -recurse $dirPath | Where-Object { $_.Name -match '.*.yaml$' } | ForEach-Object { $_.Fullname }
 
-            if ($fullImageName -eq '') {
-                continue
+        foreach ($file in $files) {
+            $imageLines = Get-Content $file | Select-String 'image:' | Select-Object -ExpandProperty Line
+
+            foreach ($imageLine in $imageLines) {
+                $unTrimmedFullImageName = (($imageLine -split 'image: ')[1] -split '#')[0]
+                $fullImageName = $unTrimmedFullImageName.Trim().Trim("`"'")
+
+                if ($fullImageName -eq '') {
+                    continue
+                }
+
+                $images += "$fullImageName"
+
+                # Initialize the image list if not already present
+                if (-not $addonNameImagesMapping.ContainsKey($addonName)) {
+                    $addonNameImagesMapping[$addonName] = @()
+                }
+
+                # Add the image name if it does not already exist in the list
+                if (-not ($addonNameImagesMapping[$addonName] -contains $fullImageName)) {
+                    $addonNameImagesMapping[$addonName] += "$fullImageName"
+                }
             }
 
-            $images += "$fullImageName"
+        }
 
-            # Initialize the image list if not already present
-            if (-not $addonNameImagesMapping.ContainsKey($addonName)) {
-                $addonNameImagesMapping[$addonName] = @()
-            }
+        if ($null -ne $implementation.offline_usage) {
+            $linuxPackages = $implementation.offline_usage.linux
+            $additionImages = $linuxPackages.additionalImages
 
-            # Add the image name if it does not already exist in the list
-            if (-not ($addonNameImagesMapping[$addonName] -contains $fullImageName)) {
-                $addonNameImagesMapping[$addonName] += "$fullImageName"
+            if ($additionImages.Count -ne 0) {
+                if (-not $addonNameImagesMapping.ContainsKey($addonName)) {
+                    $addonNameImagesMapping[$addonName] = @()
+                }
+
+                if (-not ($addonNameImagesMapping[$addonName] -contains $additionImages)) {
+                    $addonNameImagesMapping[$addonName] += $additionImages
+                }
+                $images += $additionImages
             }
         }
 
+        $addonImages = $images | Select-Object -Unique | Where-Object { $_ -ne '' } | ForEach-Object { $_.Trim("`"'") }
     }
-
-    if ($null -ne $manifest.spec.offline_usage) {
-        $linuxPackages = $manifest.spec.offline_usage.linux
-        $additionImages = $linuxPackages.additionalImages
-
-        if ($additionImages.Count -ne 0) {
-            if ($manifest.path -match "addons\\([^\\]+)\\") {
-                #Write-Output $matches[1]
-                $addonName = $matches[1]
-            }
-
-            if (-not $addonNameImagesMapping.ContainsKey($addonName)) {
-                $addonNameImagesMapping[$addonName] = @()
-            }
-
-            if (-not ($addonNameImagesMapping[$addonName] -contains $additionImages)) {
-                $addonNameImagesMapping[$addonName] += $additionImages
-            }
-            $images += $additionImages
-        }
-    }
-
-    $addonImages = $images | Select-Object -Unique | Where-Object { $_ -ne '' } | ForEach-Object { $_.Trim("`"'") }
 }
 
 

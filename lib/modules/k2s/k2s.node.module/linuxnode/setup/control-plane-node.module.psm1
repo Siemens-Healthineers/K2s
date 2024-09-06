@@ -49,13 +49,7 @@ function New-ControlPlaneNodeOnNewVM {
 
     Write-Log 'Starting installation...'
 
-    # set defaults for unset arguments
-    $KubernetesVersion = Get-DefaultK8sVersion
-
     Set-ConfigWslFlag -Value $([bool]$WSL)
-
-    Invoke-DeployWinArtifacts -KubernetesVersion $KubernetesVersion -Proxy $Proxy -ForceOnlineInstallation:$ForceOnlineInstallation
-    Install-PuttyTools
 
     $controlPlaneParams = @{
         Hostname = Get-ConfigControlPlaneNodeHostname
@@ -93,13 +87,11 @@ function New-ControlPlaneNodeOnNewVM {
     Wait-ForSSHConnectionToLinuxVMViaSshKey
 
     Write-Log "Copying ZScaler Root CA certificate to master node"
-    Copy-ToControlPlaneViaUserAndPwd  -Source "$(Get-KubePath)\lib\modules\k2s\k2s.node.module\linuxnode\setup\certificate\ZScalerRootCA.crt" -Target "/tmp/ZScalerRootCA.crt"   
+    Copy-ToControlPlaneViaUserAndPwd  -Source "$(Get-KubePath)\lib\modules\k2s\k2s.node.module\linuxnode\setup\certificate\ZScalerRootCA.crt" -Target "/tmp/ZScalerRootCA.crt"
     Remove-ControlPlaneAccessViaUserAndPwd
     (Invoke-CmdOnControlPlaneViaSSHKey "sudo mv /tmp/ZScalerRootCA.crt /usr/local/share/ca-certificates/" ).Output | Write-Log
     (Invoke-CmdOnControlPlaneViaSSHKey "sudo update-ca-certificates").Output | Write-Log
     Write-Log "Zscaler certificate added to CA certificates of master node"
-
-    Set-ProxySettingsOnKubenode -ProxySettings $Proxy -IpAddress $($controlPlaneParams.IpAddress)
 
     # add kubectl to Windows host
     Install-KubectlTool
@@ -128,7 +120,7 @@ function Start-ControlPlaneNodeOnNewVM {
         [switch] $SkipHeaderDisplay = $false,
         [string] $DnsServers = $(throw 'Argument missing: DnsServers')
     )
-    
+
     $windowsHostIpAddress = Get-ConfiguredKubeSwitchIP
 
     function CheckKubeSwitchInExpectedState() {
@@ -142,7 +134,7 @@ function Start-ControlPlaneNodeOnNewVM {
             Write-Log "vEthernet ($controlPlaneNodeDefaultSwitchName) not set to private."
             return $false
         }
-        $if = Get-NetIPAddress -InterfaceAlias "vEthernet ($controlPlaneNodeDefaultSwitchName)" -ErrorAction SilentlyContinue
+        $if = Get-NetIPAddress -InterfaceAlias "vEthernet ($controlPlaneNodeDefaultSwitchName)" -AddressFamily IPv4 -ErrorAction SilentlyContinue
         if (!$if) {
             Write-Log "Unable get IP Address for host on vEthernet ($controlPlaneNodeDefaultSwitchName) interface..."
             return $false
@@ -163,19 +155,19 @@ function Start-ControlPlaneNodeOnNewVM {
         while($true) {
             $controlPlaneCni0IpAddr = Get-Cni0IpAddressInControlPlaneUsingSshWithRetries -Retries 30 -RetryTimeoutInSeconds 5
             $expectedControlPlaneCni0IpAddr = Get-ConfiguredMasterNetworkInterfaceCni0IP
-                         
+
             if ($controlPlaneCni0IpAddr -ne $expectedControlPlaneCni0IpAddr) {
                 Write-Log "cni0 interface in $controlPlaneVMHostName is not correctly initialized."
                 Write-Log "           Expected:$expectedControlPlaneCni0IpAddr"
                 Write-Log "           Actual:$controlPlaneCni0IpAddr"
-        
+
                 if ($i -eq 3) {
                     throw "cni0 interface in $controlPlaneVMHostName is not correctly initialized after $i retries."
                 }
             } else {
                 Write-Log "cni0 interface in $controlPlaneVMHostName correctly initialized."
                 break
-            }  
+            }
             if (!$WSL) {
                 Stop-VirtualMachine -VmName $VmName -Wait
                 Start-VirtualMachine -VmName $VmName -Wait
@@ -185,7 +177,7 @@ function Start-ControlPlaneNodeOnNewVM {
             }
             Wait-ForSSHConnectionToLinuxVMViaSshKey
             $i++
-        }              
+        }
     }
 
     if ($SkipHeaderDisplay -eq $false) {
@@ -255,9 +247,9 @@ function Start-ControlPlaneNodeOnNewVM {
 
             # connect VM to switch
             Connect-KubeSwitch
-        } 
-        Start-VirtualMachine -VmName $controlPlaneVMHostName -Wait
+        }
 
+        Start-VirtualMachine -VmName $controlPlaneVMHostName -Wait
     } else {
         Write-Log 'Configuring KubeMaster Distro' -Console
         wsl --shutdown
@@ -272,9 +264,11 @@ function Start-ControlPlaneNodeOnNewVM {
     # add DNS proxy for cluster searches
     Add-DnsServer $switchname
 
-    # configure NAT
-    Remove-DefaultNetNat
-    New-DefaultNetNat
+    # route for VM
+    Write-Log "Remove obsolete route to $ipControlPlaneCIDR"
+    route delete $ipControlPlaneCIDR >$null 2>&1
+    Write-Log "Add route to $ipControlPlaneCIDR"
+    route -p add $ipControlPlaneCIDR $windowsHostIpAddress METRIC 3 | Out-Null
 
     Wait-ForSSHConnectionToLinuxVMViaSshKey
 
@@ -285,7 +279,7 @@ function Start-ControlPlaneNodeOnNewVM {
     Set-NetIPInterface -InterfaceIndex $ipindex -InterfaceMetric 25
 
     Invoke-TimeSync
-    
+
     Write-Log 'Set the DNS server(s) used by the Windows Host as the default DNS server(s) of the VM'
     (Invoke-CmdOnControlPlaneViaSSHKey "sudo sed -i 's/dns-nameservers.*/dns-nameservers $DnsServers/' /etc/network/interfaces.d/10-k2s").Output | Write-Log
     (Invoke-CmdOnControlPlaneViaSSHKey 'sudo systemctl restart networking').Output | Write-Log
@@ -296,12 +290,6 @@ function Start-ControlPlaneNodeOnNewVM {
     $clusterCIDRMaster = $setupConfigRoot.psobject.properties['podNetworkMasterCIDR'].value
     $clusterCIDRServices = $setupConfigRoot.psobject.properties['servicesCIDR'].value
     $clusterCIDRServicesLinux = $setupConfigRoot.psobject.properties['servicesCIDRLinux'].value
-
-    # route for VM
-    Write-Log "Remove obsolete route to $ipControlPlaneCIDR"
-    route delete $ipControlPlaneCIDR >$null 2>&1
-    Write-Log "Add route to $ipControlPlaneCIDR"
-    route -p add $ipControlPlaneCIDR $windowsHostIpAddress METRIC 3 | Out-Null
 
     # routes for Linux pods
     Write-Log "Remove obsolete route to $clusterCIDRMaster"
@@ -320,6 +308,9 @@ function Start-ControlPlaneNodeOnNewVM {
     # enable ip forwarding
     netsh int ipv4 set int "vEthernet ($switchname)" forwarding=enabled | Out-Null
     netsh int ipv4 set int 'vEthernet (Ethernet)' forwarding=enabled | Out-Null
+
+    # Double check for KubeSwitch is in expected Private state
+    Set-InterfacePrivate -InterfaceAlias "vEthernet ($switchname)"
 
     if ($SkipHeaderDisplay -eq $false) {
         Write-Log 'K2s control plane started'
@@ -381,8 +372,6 @@ function Stop-ControlPlaneNodeOnNewVM {
 
     Reset-DnsServer $switchname
 
-    Remove-DefaultNetNat
-
     $ipControlPlaneCIDR = Get-ConfiguredControlPlaneCIDR
     $setupConfigRoot = Get-RootConfigk2s
     $clusterCIDRMaster = $setupConfigRoot.psobject.properties['podNetworkMasterCIDR'].value
@@ -431,7 +420,7 @@ function Remove-ControlPlaneNodeOnNewVM {
     }
 
     Write-Log 'Cleaning up' -Console
-    
+
     Clear-ProvisioningArtifacts
 
     if ($DeleteFilesForOfflineInstallation) {

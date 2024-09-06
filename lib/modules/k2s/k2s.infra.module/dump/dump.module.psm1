@@ -3,9 +3,6 @@
 
 function Write-OutputIntoDumpFile {
     param (
-        [Parameter(Mandatory = $true, HelpMessage = 'Output of the command being executed', ValueFromPipeline = $true)]
-        [string[]]$Messages,
-
         [Parameter(Mandatory = $true, HelpMessage = 'File in which the message should be dumped')]
         [ValidateNotNullOrEmpty()]
         [string]$DumpFilePath,
@@ -13,6 +10,9 @@ function Write-OutputIntoDumpFile {
         [Parameter(Mandatory = $true, HelpMessage = 'Description of the command being executed')]
         [ValidateNotNullOrEmpty()]
         [string]$Description,
+
+        [Parameter(Mandatory = $false, HelpMessage = 'Output of the command being executed', ValueFromPipeline = $true)]
+        [string[]]$Messages,
 
         [Parameter(Mandatory = $false, HelpMessage = 'Helps to distinguish the output of the previous execution with the current execution')]
         [string]$Separator = ' '
@@ -29,7 +29,9 @@ function Write-OutputIntoDumpFile {
     }
 
     Process {
-        $Messages | Out-File -Append -FilePath $DumpFilePath -Encoding UTF8
+        if ($null -ne $Messages -and $Messages.Length -gt 0) {
+            $Messages | Out-File -Append -FilePath $DumpFilePath -Encoding UTF8
+        }
     }
 }
 
@@ -40,7 +42,7 @@ function New-DumpFile(
 
     #Check If directory is present. If not create it.
     $directoryPath = [System.IO.Path]::GetDirectoryName($FilePath)
-    
+
     if (-not (Test-Path $directoryPath)) {
         New-Item -Path $directoryPath -ItemType Directory -Force | Out-Null
     }

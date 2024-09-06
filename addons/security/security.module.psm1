@@ -9,7 +9,7 @@ $k8sApiModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k8s-api/
 
 Import-Module $infraModule, $k8sApiModule
 
-$cmctlExe = "$(Get-KubeToolsPath)\cmctl.exe"
+$cmctlExe = "$(Get-KubeBinPath)\cmctl.exe"
 
 function Get-CAIssuerName {
     return 'K2s Self-Signed CA'
@@ -82,7 +82,7 @@ function Write-WarningForUser {
     
 ATTENTION:
 If you disable this add-on, the sites protected by cert-manager certificates 
-will become untrusted. Delete the HSTS settings for your site (e.g. 'k2s-dashboard.cluster.local')
+will become untrusted. Delete the HSTS settings for your site (e.g. 'k2s.cluster.local')
 here (works in Chrome and Edge):
 chrome://net-internals/#hsts
   
@@ -160,4 +160,28 @@ function Deploy-IngressForSecurity([string]$Ingress) {
             break
         }
     }
+}
+
+<#
+.DESCRIPTION
+Determines if Nginx ingress controller is deployed in the cluster
+#>
+function Test-NginxIngressControllerAvailability {
+    $existingServices = (Invoke-Kubectl -Params 'get', 'service', '-n', 'ingress-nginx', '-o', 'yaml').Output 
+    if ("$existingServices" -match '.*ingress-nginx-controller.*') {
+        return $true
+    }
+    return $false
+}
+
+<#
+.DESCRIPTION
+Determines if Traefik ingress controller is deployed in the cluster
+#>
+function Test-TraefikIngressControllerAvailability {
+    $existingServices = (Invoke-Kubectl -Params 'get', 'service', '-n', 'ingress-traefik', '-o', 'yaml').Output
+    if ("$existingServices" -match '.*traefik.*') {
+        return $true
+    }
+    return $false
 }

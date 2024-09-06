@@ -301,7 +301,7 @@ function Remove-AddonFromSetupJson {
             } else {
                 $hasImplementationProperty = $addonExists | Where-Object { $null -ne $_.Implementation }
                 if (!$hasImplementationProperty) {
-                    $newEnabledAddons = $enabledAddons | Where-Object { $_.Name -ne $Addon.Name }
+                    $newEnabledAddons = @($enabledAddons | Where-Object { $_.Name -ne $Addon.Name })
                 } else {
                     throw "More than one implementation of addon '$($Addon.Name)'. Please specify the implementation!"
                 }
@@ -323,21 +323,29 @@ function Install-DebianPackages {
         [parameter()]
         [string] $addon,
         [parameter()]
+        [string] $implementation = "",
+        [parameter()]
         [string[]]$packages
     )
+
+    $dirName = $addon
+    if (($implementation -ne "") -and ($implementation -ne $addon)) {
+        $dirName += "_$implementation"
+    }
+
     foreach ($package in $packages) {
-        if (!(Get-DebianPackageAvailableOffline -addon $addon -package $package)) {
-            (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "mkdir -p .${addon}/${package} && cd .${addon}/${package} && sudo chown -R _apt:root .").Output | Write-Log
-            (Invoke-CmdOnControlPlaneViaSSHKey -Retries 2 -Timeout 2 -CmdToExecute "cd .${addon}/${package} && sudo apt-get update && sudo apt-get download $package" -RepairCmd 'sudo apt --fix-broken install').Output | Write-Log
+        if (!(Get-DebianPackageAvailableOffline -addon $addon -implementation $implementation -package $package)) {
+            (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "mkdir -p .${dirName}/${package} && cd .${dirName}/${package} && sudo chown -R _apt:root .").Output | Write-Log
+            (Invoke-CmdOnControlPlaneViaSSHKey -Retries 2 -Timeout 2 -CmdToExecute "cd .${dirName}/${package} && sudo apt-get update && sudo apt-get download $package" -RepairCmd 'sudo apt --fix-broken install').Output | Write-Log
             (Invoke-CmdOnControlPlaneViaSSHKey `
                 -Retries 2 `
                 -Timeout 2 `
-                -CmdToExecute "cd .${addon}/${package} && sudo DEBIAN_FRONTEND=noninteractive apt-get --reinstall install -y --no-install-recommends --no-install-suggests --simulate ./${package}*.deb | grep 'Inst ' | cut -d ' ' -f 2 | sort -u | xargs sudo apt-get download" `
+                -CmdToExecute "cd .${dirName}/${package} && sudo DEBIAN_FRONTEND=noninteractive apt-get --reinstall install -y --no-install-recommends --no-install-suggests --simulate ./${package}*.deb | grep 'Inst ' | cut -d ' ' -f 2 | sort -u | xargs sudo apt-get download" `
                 -RepairCmd 'sudo apt --fix-broken install').Output | Write-Log
         }
 
         Write-Log "Installing $package offline."
-        (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo dpkg -i .${addon}/${package}/*.deb 2>&1").Output | Write-Log
+        (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo dpkg -i .${dirName}/${package}/*.deb 2>&1").Output | Write-Log
     }
 }
 
@@ -346,10 +354,18 @@ function Get-DebianPackageAvailableOffline {
         [parameter()]
         [string] $addon,
         [parameter()]
+        [string] $implementation = "",
+        [parameter()]
         [string]$package
     )
+
+    $dirName = $addon
+    if (($implementation -ne "") -and ($implementation -ne $addon)) {
+        $dirName += "_$implementation"
+    }
+
     # TODO: NOTE: DO NOT USE `ExecCmdMaster` here to get the return value.
-    ssh.exe -n -o StrictHostKeyChecking=no -i (Get-SSHKeyControlPlane) (Get-ControlPlaneRemoteUser) "[ -d .${addon}/${package} ]"
+    ssh.exe -n -o StrictHostKeyChecking=no -i (Get-SSHKeyControlPlane) (Get-ControlPlaneRemoteUser) "[ -d .${dirName}/${package} ]"
     if (!$?) {
         return $false
     }
@@ -743,11 +759,11 @@ function Update-IngressForAddons {
 
     # TODO: this implementation needs to be adapted to be more generic in next version
     $addons = Get-EnabledAddons
-    $addons.Addons | ForEach-Object {
-        $addon = $_
+    $addons | ForEach-Object {
+        $addon = $_.Name
         $addonConfig = Get-AddonConfig -Name $addon
         if ($null -eq $addonConfig) {
-            Write-Log "Addon '$addon' not found in config, skipping.." -Console
+            Write-Log "Addon '$($addon.Name)' not found in config, skipping.." -Console
             return
         }
 
@@ -770,14 +786,14 @@ function Update-IngressForAddons {
         $name = 'logging'
         if ($addon -eq $name -and $Enable -eq $true) {
             Write-Log "Security addon enabled: adapting $name addon ..." -Console
-            (Invoke-Kubectl -Params 'delete' , '-f', "$PSScriptRoot\logging\manifests\opensearch-dashboards\ingress.yaml").Output | Write-Log
+            (Invoke-Kubectl -Params 'delete' , '-f', "$PSScriptRoot\logging\manifests\opensearch-dashboards\ingress-nginx.yaml").Output | Write-Log
             (Invoke-Kubectl -Params 'apply' , '-f', "$PSScriptRoot\security\addons\logging-nginx-ingress-security.yaml").Output | Write-Log
             return
         }
         if ($addon -eq $name -and $Enable -eq $false) {
             Write-Log "Security addon disable: adapting $name addon ..." -Console
             (Invoke-Kubectl -Params 'delete' , '-f', "$PSScriptRoot\security\addons\logging-nginx-ingress-security.yaml").Output | Write-Log
-            (Invoke-Kubectl -Params 'apply' , '-f', "$PSScriptRoot\logging\manifests\opensearch-dashboards\ingress.yaml").Output | Write-Log
+            (Invoke-Kubectl -Params 'apply' , '-f', "$PSScriptRoot\logging\manifests\opensearch-dashboards\ingress-nginx.yaml").Output | Write-Log
             return
         }
 
@@ -785,7 +801,7 @@ function Update-IngressForAddons {
         $name = 'monitoring'
         if ($addon -eq $name -and $Enable -eq $true) {
             Write-Log "Security addon enabled: adapting $name addon ..." -Console
-            (Invoke-Kubectl -Params 'delete' , '-f', "$PSScriptRoot\monitoring\manifests\plutono\ingress.yaml").Output | Write-Log
+            (Invoke-Kubectl -Params 'delete' , '-f', "$PSScriptRoot\monitoring\manifests\plutono\ingress-nginx.yaml").Output | Write-Log
             (Invoke-Kubectl -Params 'delete' , '-f', "$PSScriptRoot\monitoring\manifests\plutono\configmap.yaml").Output | Write-Log
             (Invoke-Kubectl -Params 'apply' , '-f', "$PSScriptRoot\security\addons\monitoring-nginx-ingress-security.yaml").Output | Write-Log
             (Invoke-Kubectl -Params 'apply' , '-f', "$PSScriptRoot\security\addons\monitoring-configmap-plutono-security.yaml").Output | Write-Log
@@ -797,10 +813,25 @@ function Update-IngressForAddons {
             Write-Log "Security addon disable: adapting $name addon ..." -Console
             (Invoke-Kubectl -Params 'delete' , '-f', "$PSScriptRoot\security\addons\monitoring-nginx-ingress-security.yaml").Output | Write-Log
             (Invoke-Kubectl -Params 'delete' , '-f', "$PSScriptRoot\security\addons\monitoring-configmap-plutono-security.yaml").Output | Write-Log
-            (Invoke-Kubectl -Params 'apply' , '-f', "$PSScriptRoot\monitoring\manifests\plutono\ingress.yaml").Output | Write-Log
+            (Invoke-Kubectl -Params 'apply' , '-f', "$PSScriptRoot\monitoring\manifests\plutono\ingress-nginx.yaml").Output | Write-Log
             (Invoke-Kubectl -Params 'apply' , '-f', "$PSScriptRoot\monitoring\manifests\plutono\configmap.yaml").Output | Write-Log
             # restart pod plutono
             (Invoke-Kubectl -Params 'delete' , 'pod', '-l', 'app.kubernetes.io/name=kube-prometheus-stack-plutono', '-n', 'monitoring').Output | Write-Log
+            return
+        }
+
+        # addon rollout
+        $name = 'rollout'
+        if ($addon -eq $name -and $Enable -eq $true) {
+            Write-Log "Security addon enabled: adapting $name addon ..." -Console
+            (Invoke-Kubectl -Params 'delete' , '-f', "$PSScriptRoot\rollout\manifests\argocd\base\rollout-nginx-ingress.yaml").Output | Write-Log
+            (Invoke-Kubectl -Params 'apply' , '-f', "$PSScriptRoot\security\addons\rollout-nginx-ingress-security.yaml").Output | Write-Log
+            return
+        }
+        if ($addon -eq $name -and $Enable -eq $false) {
+            Write-Log "Security addon disable: adapting $name addon ..." -Console
+            (Invoke-Kubectl -Params 'delete' , '-f', "$PSScriptRoot\security\addons\rollout-nginx-ingress-security.yaml").Output | Write-Log
+            (Invoke-Kubectl -Params 'apply' , '-f', "$PSScriptRoot\rollout\manifests\argocd\base\rollout-nginx-ingress.yaml").Output | Write-Log
             return
         }
     }

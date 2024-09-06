@@ -10,6 +10,19 @@ To inspect the full *K2s* system status, run:
 k2s status -o wide
 ```
 
+## Disruption in networking
+When there is no internet access on the host machine or when container images cannot be pulled, it is recommended to restart the cluster networking in the following scenarios:
+
+- The host machine is switched between networks (e.g. remote or office).
+- The host machine experiences an unintended crash.
+- After booting the host machine from hibernation, or following a reboot or shutdown.
+- The VPN on the host machine is turned on or off (e.g., Zscaler).
+
+```console
+k2s stop
+k2s start
+```
+
 ## Log Files
 To analyze the log files, browse the directory `<install-drive>\var\log`. The main log file is `k2s.log`.
 

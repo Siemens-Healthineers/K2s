@@ -71,110 +71,28 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'Use WSL2 for hosting KubeMaster VM')]
     [switch] $WSL = $false,
     [parameter(Mandatory = $false, HelpMessage = 'Append to log file (do not start from scratch)')]
-    [switch] $AppendLogFile = $false
+    [switch] $AppendLogFile = $false,
+    [parameter(Mandatory = $false, HelpMessage = 'The path to local builds of Kubernetes binaries')]
+    [string] $K8sBinsPath = ''
 )
 
-$installStopwatch = [system.diagnostics.stopwatch]::StartNew()
-
-$infraModule =   "$PSScriptRoot\..\lib\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
-$nodeModule =    "$PSScriptRoot\..\lib\modules\k2s\k2s.node.module\k2s.node.module.psm1"
-$clusterModule = "$PSScriptRoot\..\lib\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1"
-
-Import-Module $infraModule, $nodeModule, $clusterModule
-
-Initialize-Logging -ShowLogs:$ShowLogs
-Reset-LogFile -AppendLogFile:$AppendLogFile
-
-$ErrorActionPreference = 'Continue'
-
-# make sure we are at the right place for install
-$installationPath = Get-KubePath
-Set-Location $installationPath
-
-# set defaults for unset arguments
-$script:SetupType = 'k2s'
-Set-ConfigSetupType -Value $script:SetupType
-$productVersion = Get-ProductVersion
-Set-ConfigProductVersion -Value $productVersion
-Set-ConfigInstallFolder -Value $installationPath
-
-$Proxy = Get-OrUpdateProxyServer -Proxy:$Proxy
-
-$linuxOsType = Get-LinuxOsType $LinuxVhdxPath
-Set-ConfigLinuxOsType -Value $linuxOsType
-
-$dnsServers = $DnsAddresses -join ','
-if ([string]::IsNullOrWhiteSpace($dnsServers)) {
-    $loopbackAdapter = Get-L2BridgeName
-    $dnsServers = Get-DnsIpAddressesFromActivePhysicalNetworkInterfacesOnWindowsHost -ExcludeNetworkInterfaceName $loopbackAdapter
-    if ([string]::IsNullOrWhiteSpace($dnsServers)) {
-        $dnsServers = '8.8.8.8,8.8.4.4'
-    }
-}
-
-$controlPlaneNodeParams = @{
+$installationParameters = @{
     MasterVMMemory = $MasterVMMemory
     MasterVMProcessorCount = $MasterVMProcessorCount
     MasterDiskSize = $MasterDiskSize
     Proxy = $Proxy
+    DnsAddresses = $DnsAddresses
     AdditionalHooksDir = $AdditionalHooksDir
     DeleteFilesForOfflineInstallation = $DeleteFilesForOfflineInstallation
     ForceOnlineInstallation = $ForceOnlineInstallation
     CheckOnly = $CheckOnly
+    SkipStart = $SkipStart
+    ShowLogs = $ShowLogs
+    RestartAfterInstallCount = $RestartAfterInstallCount
     WSL = $WSL
-    DnsServers = $dnsServers
-}
-New-ControlPlaneNodeOnNewVM @controlPlaneNodeParams
-
-Write-Log 'Setting up Windows worker node' -Console
-
-$workerNodeParams = @{
-    Proxy = $Proxy
-    AdditionalHooksDir = $AdditionalHooksDir
-    DeleteFilesForOfflineInstallation = $DeleteFilesForOfflineInstallation
-    ForceOnlineInstallation = $ForceOnlineInstallation
-    WorkerNodeNumber = '1'
-}
-Add-WindowsWorkerNodeOnWindowsHost @workerNodeParams
-
-if (! $SkipStart) {
-    Write-Log 'Starting Kubernetes System'
-    & "$PSScriptRoot\StartK8s.ps1" -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs -SkipHeaderDisplay
-
-    if ($RestartAfterInstallCount -gt 0) {
-        $restartCount = 0;
-    
-        while ($true) {
-            $restartCount++
-            Write-Log "Restarting Kubernetes System (iteration #$restartCount):"
-    
-            & "$PSScriptRoot\StopK8s.ps1" -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs -SkipHeaderDisplay
-            Start-Sleep 10 # Wait for renew of IP
-    
-            & "$PSScriptRoot\StartK8s.ps1" -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs -SkipHeaderDisplay
-            Start-Sleep -s 5
-    
-            if ($restartCount -eq $RestartAfterInstallCount) {
-                Write-Log 'Restarting Kubernetes System Completed'
-                break;
-            }
-        }
-    }
-
-    # show results
-    Write-Log "Current state of kubernetes nodes:`n"
-    Start-Sleep 2
-    $kubeToolsPath = Get-KubeToolsPath
-    &"$kubeToolsPath\kubectl.exe" get nodes -o wide
-} else {
-    & "$PSScriptRoot\StopK8s.ps1" -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs -SkipHeaderDisplay
+    AppendLogFile = $AppendLogFile
+    K8sBinsPath = $K8sBinsPath
 }
 
-Invoke-Hook -HookName 'AfterBaseInstall' -AdditionalHooksDir $AdditionalHooksDir
-
-Write-Log '---------------------------------------------------------------'
-Write-Log "K2s setup finished.   Total duration: $('{0:hh\:mm\:ss}' -f $installStopwatch.Elapsed )"
-Write-Log '---------------------------------------------------------------'
-
-Write-RefreshEnvVariables
+& "$PSScriptRoot\..\lib\scripts\k2s\install\install.ps1" @installationParameters
 

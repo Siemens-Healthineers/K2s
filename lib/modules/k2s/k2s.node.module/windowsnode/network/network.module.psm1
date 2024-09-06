@@ -32,27 +32,27 @@ function Get-L2BridgeSwitchName {
 
 function Get-ConfiguredClusterCIDRHost {
     param (
-        [string] $WorkerNodeNumber = $(throw 'Argument missing: WorkerNodeNumber')
+        [string] $PodSubnetworkNumber = $(throw 'Argument missing: PodSubnetworkNumber')
     )
-    # $podNetworkCIDR = $clusterCIDRHost.Replace('__SUBNETWORK_NUMBER__', $WorkerNodeNumber)
+    # $podNetworkCIDR = $clusterCIDRHost.Replace('__SUBNETWORK_NUMBER__', $PodSubnetworkNumber)
     # return $podNetworkCIDR
     return $clusterCIDRHost
 }
 
 function Get-ConfiguredClusterCIDRNextHop {
     param (
-        [string] $WorkerNodeNumber = $(throw 'Argument missing: WorkerNodeNumber')
+        [string] $PodSubnetworkNumber = $(throw 'Argument missing: PodSubnetworkNumber')
     )
-    # $nextHop = $clusterCIDRNextHop.Replace('__SUBNETWORK_NUMBER__', $WorkerNodeNumber)
+    # $nextHop = $clusterCIDRNextHop.Replace('__SUBNETWORK_NUMBER__', $PodSubnetworkNumber)
     # return $nextHop
     return $clusterCIDRNextHop
 }
 
 function Get-ConfiguredClusterCIDRGateway {
     param (
-        [string] $WorkerNodeNumber = $(throw 'Argument missing: WorkerNodeNumber')
+        [string] $PodSubnetworkNumber = $(throw 'Argument missing: PodSubnetworkNumber')
     )
-    # $gateway = $clusterCIDRGateway.Replace('__SUBNETWORK_NUMBER__', $WorkerNodeNumber)
+    # $gateway = $clusterCIDRGateway.Replace('__SUBNETWORK_NUMBER__', $PodSubnetworkNumber)
     # return $gateway
     return $clusterCIDRGateway
 }
@@ -61,8 +61,16 @@ function New-ExternalSwitch {
     param (
         [Parameter()]
         [string] $adapterName,
-        [string] $WorkerNodeNumber = '1'
+        [string] $PodSubnetworkNumber = '1'
     )
+
+    # if the L2 bridge is already found we don't need to create it again
+    $l2BridgeSwitchName = Get-L2BridgeSwitchName
+    $found = Get-HNSNetwork | ? Name -Like "$l2BridgeSwitchName"
+    if ( $found ) {
+        Write-Log "L2 bridge network switch name: $l2BridgeSwitchName already exists"
+        return
+    }
 
     $nic = Get-NetIPAddress -InterfaceAlias $adapterName -ErrorAction SilentlyContinue
     if ($nic) {
@@ -88,8 +96,8 @@ function New-ExternalSwitch {
     $dnsserver = $($adr -join ',')
 
     # start of external switch
-    $gatewayIpAddress = Get-ConfiguredClusterCIDRGateway -WorkerNodeNumber $WorkerNodeNumber
-    $podNetworkCIDR = Get-ConfiguredClusterCIDRHost -WorkerNodeNumber $WorkerNodeNumber
+    $gatewayIpAddress = Get-ConfiguredClusterCIDRGateway -PodSubnetworkNumber $PodSubnetworkNumber
+    $podNetworkCIDR = Get-ConfiguredClusterCIDRHost -PodSubnetworkNumber $PodSubnetworkNumber
     Write-Log "Create l2 bridge network with subnet: $podNetworkCIDR, switch name: $l2BridgeSwitchName, DNS server: $dnsserver, gateway: $gatewayIpAddress, NAT exceptions: $clusterCIDRNatExceptions, adapter name: $adapterName"
     $netResult = New-HnsNetwork -Type 'L2Bridge' -Name "$l2BridgeSwitchName" -AdapterName "$adapterName" -AddressPrefix "$podNetworkCIDR" -Gateway "$gatewayIpAddress" -DNSServer "$dnserver"
     Write-Log $netResult
@@ -101,7 +109,7 @@ function New-ExternalSwitch {
     }
 
     $endpointname = $l2BridgeSwitchName + '_ep'
-    $podNetworkNextHop = Get-ConfiguredClusterCIDRNextHop -WorkerNodeNumber $WorkerNodeNumber
+    $podNetworkNextHop = Get-ConfiguredClusterCIDRNextHop -PodSubnetworkNumber $PodSubnetworkNumber
     $hnsEndpoint = New-HnsEndpoint -NetworkId $cbr0.ID -Name $endpointname -IPAddress $podNetworkNextHop -Verbose -EnableOutboundNat -OutboundNatExceptions $clusterCIDRNatExceptions
     if ($null -Eq $hnsEndpoint) {
         throw 'Not able to create a endpoint. Please do a stopk8s and restart again. Aborting.'
@@ -288,7 +296,7 @@ function Set-WSLSwitch() {
 #>
 function Restart-NlaSvc {
     $networkLocationAwarenessServiceName = 'NlaSvc'
-    $nlaSvcProcess = Get-WmiObject -Class Win32_Service -Filter "Name LIKE '$networkLocationAwarenessServiceName'"
+    $nlaSvcProcess = Get-CimInstance -Class Win32_Service -Filter "Name LIKE '$networkLocationAwarenessServiceName'"
     # if NlaSvc is found
     if ($null -ne $nlaSvcProcess) {
         $nlaSvcStartMode = $nlaSvcProcess.StartMode

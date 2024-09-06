@@ -594,7 +594,7 @@ function Restore-MergeLogFiles {
     Get-Content -Path $intermediate, $logFilePath -Encoding utf8 | Set-Content -Path $merge -Encoding utf8
 }
 
-function Invoke-BackupRestoreHooks {
+function Invoke-UpgradeBackupRestoreHooks {
     param (
         [parameter(Mandatory = $false)]
         [ValidateSet('Backup', 'Restore')]
@@ -672,4 +672,4 @@ function Restore-RegistryAuths {
 Export-ModuleMember -Function Assert-UpgradeOperation, Enable-ClusterIsRunning, Assert-YamlTools, Export-ClusterResources,
 Invoke-ClusterUninstall, Invoke-ClusterInstall, Import-NotNamespacedResources, Import-NamespacedResources, Remove-ExportedClusterResources,
 Get-TempPath, Get-LinuxVMCores, Get-LinuxVMMemory, Get-LinuxVMStorageSize, Get-ClusterInstalledFolder, Backup-LogFile, Restore-LogFile, Restore-MergeLogFiles,
-Invoke-BackupRestoreHooks, Remove-SetupConfigIfExisting, Backup-RegistryAuths
+Invoke-UpgradeBackupRestoreHooks, Remove-SetupConfigIfExisting

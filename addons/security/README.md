@@ -22,7 +22,7 @@ The `security` addon can be enabled using the `k2s` CLI:
 k2s addons enable security
 ```
 
-These addons have currently also web applications included: **dashboard**, **login** and **monitoring**.
+These addons have currently also web applications included: **dashboard**, **logging** and **monitoring**.
 In this version in order to test the basic security model on these addons they have to be enabled **before** the security addon is enabled!
 In addition also the security settings were tested only with the **ingress nginx** addon.
 
@@ -34,10 +34,10 @@ The `security` addon can be disabled using the k2s CLI:
 k2s addons disable security
 ```
 
-After disabled security also please reset the policies (navigate to [chrome://net-internals/#hsts](chrome://net-internals/#hsts)) for the following domains:
+After disabled security also please reset the policies (navigate to [chrome://net-internals/#hsts](chrome://net-internals/#hsts)) for the following domain:
 
 ```cmd
-k2s.cluster.local, k2s-dashboard.cluster.local, k2s-logging.cluster.local, k2s-monitoring.cluster.local
+k2s.cluster.local
 ```
 
 ## Services used
@@ -79,9 +79,9 @@ spec:
 cert-manager will observe annotations, create a certificate and store it in the secret named 'your-secret-name' so that the ingress class uses it.
 
 If you enable one of `ingress nginx` or `ingress traefik`, and also the `dashboard` addons, you can inspect the
-server certificate by visiting the dashboard URL in your browser and clicking on the lock icon: <https://k2s-dashboard.cluster.local>. This is done with [this manifest file](../dashboard/manifests/dashboard-nginx-ingress.yaml).
+server certificate by visiting the dashboard URL in your browser and clicking on the lock icon: <https://k2s.cluster.local>. This is done with [this manifest file](../ingress/nginx/manifests/cluster-local-ingress.yaml).
 
-You can also use the command line interface `cmctl.exe` to interact with cert-manager, it is installed in the `bin\exe` path of your K2s install directory.
+You can also use the command line interface `cmctl.exe` to interact with cert-manager, it is installed in the `bin` path of your K2s install directory.
 
 ## Further Reading
 

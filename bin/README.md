@@ -29,10 +29,3 @@ The same could be achieved with some DOSKEY macros.
 Yet, the approach with the *.cmd files has the advantage that it works
 both in cmd.exe as well as in PowerShell. No need to keep two different
 alias definition files in sync.
-
-# Some *.exe files
-
-To avoid another directory in the PATH, we put some *.exe here as well, which shall
-be reachable from everywhere.
-
-<`installation folder`>\bin is in PATH, <`installation folder`>\bin\exe is not!

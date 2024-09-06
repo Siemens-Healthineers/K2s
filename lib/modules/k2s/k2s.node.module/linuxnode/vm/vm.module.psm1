@@ -187,7 +187,13 @@ function Invoke-CmdOnControlPlaneViaUserAndPwd(
 }
 
 function Get-IsControlPlaneRunning {
-    $masterVmState = (Get-VM -Name $nameControlPlane).State
+    $vmNode = Get-VM -Name $nameControlPlane -ErrorAction SilentlyContinue
+
+    if ($null -eq ($vmNode)) {
+        return $false
+    }
+
+    $masterVmState = ($vmNode).State
     return $masterVmState -eq [Microsoft.HyperV.PowerShell.VMState]::Running
 }
 
@@ -503,11 +509,11 @@ function Wait-ForSshPossible {
         }
 
         if ($iteration -eq 25) {
-            Write-Log "SSH login into VM with $($User) still not available, aborting..."
-            throw "Unable to login into VM with $($User)"
+            Write-Log "SSH login into VM with $($User) still not available, ssh result is '$($result)' aborting..." -Console
+            throw "Unable to SSH login into VM"
         }
         if ($iteration -ge 3 ) {
-            Write-Log "SSH login into VM with $($User) not yet possible, waiting for it..."
+            Write-Log "SSH login into VM with $($User) not yet possible, current result is '$($result)' waiting for it..."
         }
         Start-Sleep 4
     }
@@ -523,7 +529,7 @@ function Wait-ForSshPossible {
 .SYNOPSIS
     Establishes first time connection with VM by accepting the key and retries until a command can be executet via SSH on a Linux machine.
 .DESCRIPTION
-    Waits until Initial connection command can be executet via SSH on a Linux machine.
+    Waits until Initial connection command can be executed via SSH on a Linux machine.
 .EXAMPLE
     Wait-ForSSHConnectionToLinuxVMViaPwd
 #>
