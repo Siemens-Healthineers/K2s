@@ -35,6 +35,11 @@ SPDX-License-Identifier: MIT
 
 !!! tip
     For installing in *WSL* mode, add the `Microsoft-Windows-Subsystem-Linux` feature to the prior command.
+- *VC Runtime 140*: please install the VC runtime dlls, either with choco
+
+   ```choco install vcredist140 -y```
+
+   or download them from [Microsoft](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist) directly and install the appropriate VC runtime.
 
 ## Installation via *k2s* CLI
 The *K2s* setup provides a variety of installation options. Based on the [Hosting Variants](../user-guide/hosting-variants.md), select one of the following setup variants:
@@ -57,7 +62,7 @@ To inspect the different install options, run:
 !!! tip
     If you acquired *K2s* via [Cloning the *Git* repository](getting-k2s.md#option-2-cloning-git-repository), you might want to checkout a specific version first, e.g.:
     ```console
-    git checkout v1.1.0
+    git checkout tags/v1.1.1
     ```
 
 !!! note
