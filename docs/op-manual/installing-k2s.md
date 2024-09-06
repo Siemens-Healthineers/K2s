@@ -62,7 +62,7 @@ To inspect the different install options, run:
 !!! tip
     If you acquired *K2s* via [Cloning the *Git* repository](getting-k2s.md#option-2-cloning-git-repository), you might want to checkout a specific version first, e.g.:
     ```console
-    git checkout tags/v1.1.1
+    git checkout tags/v1.1.2
     ```
 
 !!! note
