@@ -55,6 +55,8 @@ data:
         rootdirectory: /var/lib/registry
     http:
       addr: :5000
+      prefix: /registry
+      host: k2s.cluster.local
       headers:
     health:
       storagedriver:
@@ -90,8 +92,6 @@ spec:
       value: "Registry Realm"
     - name: REGISTRY_AUTH_HTPASSWD_PATH
       value: "/auth/htpasswd"
-    - name: REGISTRY_HTTP_RELATIVEURLS
-      value: "true"
     # - name: REGISTRY_HTTP_TLS_CERTIFICATE
     #   value: "/certs/tls.crt"
     # - name: REGISTRY_HTTP_TLS_KEY
