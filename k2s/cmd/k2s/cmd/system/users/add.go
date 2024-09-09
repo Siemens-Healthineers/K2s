@@ -7,19 +7,15 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"os"
 
 	"github.com/pterm/pterm"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/status"
 	"github.com/siemens-healthineers/k2s/internal/config"
-	"github.com/siemens-healthineers/k2s/internal/host"
+	"github.com/siemens-healthineers/k2s/internal/core/users"
 	"github.com/siemens-healthineers/k2s/internal/setupinfo"
-	"github.com/siemens-healthineers/k2s/internal/users"
 	"github.com/spf13/cobra"
 )
-
-type fileSystem struct{}
 
 const (
 	userNameFlag = "username"
@@ -131,8 +127,7 @@ func newUsersManagement(controlPlaneName string, cfg *config.Config, forceOverwr
 		ControlPlaneName:     controlPlaneName,
 		Config:               cfg,
 		ConfirmOverwriteFunc: func() bool { return confirmOverwrite(forceOverwrite, pterm.DefaultInteractiveConfirm.Show) },
-		CmdExecutor:          host.NewCmdExecutor(common.NewSlogWriter()),
-		FileSystem:           &fileSystem{},
+		StdWriter:            common.NewSlogWriter(),
 	}
 
 	return users.NewUsersManagement(umConfig)
@@ -165,28 +160,4 @@ func confirmOverwrite(force bool, showConfirmation func(...string) (bool, error)
 
 	slog.Info("Overwriting existing access confirmed by user")
 	return true
-}
-
-func (*fileSystem) PathExists(path string) bool {
-	return host.PathExists(path)
-}
-
-func (*fileSystem) AppendToFile(path string, text string) error {
-	return host.AppendToFile(path, text)
-}
-
-func (*fileSystem) ReadFile(path string) ([]byte, error) {
-	return os.ReadFile(path)
-}
-
-func (*fileSystem) WriteFile(path string, data []byte) error {
-	return os.WriteFile(path, data, os.ModePerm)
-}
-
-func (*fileSystem) RemovePaths(files ...string) error {
-	return host.RemovePaths(files...)
-}
-
-func (*fileSystem) CreateDirIfNotExisting(path string) error {
-	return host.CreateDirIfNotExisting(path)
 }
