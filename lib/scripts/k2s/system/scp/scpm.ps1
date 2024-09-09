@@ -40,9 +40,13 @@ Param (
 )
 
 $statusModule = "$PSScriptRoot\..\..\..\..\..\lib\modules\k2s\k2s.cluster.module\status\status.module.psm1"
-$infraModule = "$PSScriptRoot\..\..\..\..\..\lib\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
-$nodeModule = "$PSScriptRoot\..\..\..\..\..\lib\modules\k2s\k2s.node.module\k2s.node.module.psm1"
-Import-Module $statusModule, $infraModule, $nodeModule -Force
+$logModule = "$PSScriptRoot\..\..\..\..\..\lib\modules\k2s\k2s.infra.module\log\log.module.psm1"
+$cliMessagesModule = "$PSScriptRoot\..\..\..\..\..\lib\modules\k2s\k2s.infra.module\cli-messages\cli-messages.module.psm1"
+$errorsModule = "$PSScriptRoot\..\..\..\..\..\lib\modules\k2s\k2s.infra.module\errors\errors.module.psm1"
+$configModule = "$PSScriptRoot\..\..\..\..\..\lib\modules\k2s\k2s.infra.module\config\config.module.psm1"
+$vmModule = "$PSScriptRoot\..\..\..\..\..\lib\modules\k2s\k2s.node.module\linuxnode\vm\vm.module.psm1"
+
+Import-Module $statusModule, $logModule, $cliMessagesModule, $errorsModule, $configModule, $vmModule
 
 Initialize-Logging
 
