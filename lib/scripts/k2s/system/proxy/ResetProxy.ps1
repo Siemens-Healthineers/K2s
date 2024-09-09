@@ -24,10 +24,13 @@ Initialize-Logging
 
 try {
     Reset-ProxyConfig
+    Stop-WinHttpProxy
+    $updatedProxyConfig = Get-ProxyConfig
+    Set-ProxyConfigInHttpProxy -Proxy $updatedProxyConfig.HttpProxy -ProxyOverride $updatedProxyConfig.NoProxy
+    Start-WinHttpProxy
     if ($EncodeStructuredOutput) {
         Send-ToCli -MessageType $MessageType -Message @{Error = $null}
     }
-    # TO-DO Restart Http proxy service
     Write-Log "[$script] finished"
 } catch {
     Write-Log "[$script] $($_.Exception.Message) - $($_.ScriptStackTrace)" -Error
