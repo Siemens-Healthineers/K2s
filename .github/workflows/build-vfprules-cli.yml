@@ -1,0 +1,55 @@
+# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+#
+# SPDX-License-Identifier: MIT
+
+# Build vfprules.dll
+
+name: "Build - vfprules.dll"
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - "main"
+    paths:
+      - "k2s/cmd/vfprules/vfprules/**"
+
+jobs:
+  build-vfp-dll:
+    name: Build vfp dll
+    timeout-minutes: 30
+    continue-on-error: false
+    runs-on: windows-latest
+    env:
+      CI_COMMIT_MESSAGE: "ci: auto-commit vfp.dll"
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        # use an older version since under windows it caues an key verification error
+      - uses: webfactory/ssh-agent@v0.7.0
+        with:
+          ssh-private-key: ${{ secrets.AUTOCOMMITKEY }}
+
+      - uses: TheMrMilchmann/setup-msvc-dev@v3
+        with:
+          arch: x64
+          sdk: 10.0.26100.0
+
+      - name: Configure repo
+        run: |
+          git config --local user.email github-actions@github.com
+          git config --local user.name github-actions
+          git remote -v
+
+      - name: Show all diff
+        run: |
+          git diff --exit-code -- .
+
+      - name: Current working directory
+        run: |
+          ls
+
+      - name: Build k2s executable
+        run: |
+          gcc -version
+          ls
