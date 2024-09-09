@@ -7,8 +7,9 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"os/user"
 	"path/filepath"
+
+	"github.com/siemens-healthineers/k2s/internal/windows/users"
 
 	"github.com/siemens-healthineers/k2s/internal/http"
 	"github.com/siemens-healthineers/k2s/internal/k8s"
@@ -32,7 +33,7 @@ const (
 	k8sCaKey        = "/etc/kubernetes/pki/ca.key"
 )
 
-func (g *k8sAccessGranter) GrantAccess(winUser user.User, k2sUserName string) error {
+func (g *k8sAccessGranter) GrantAccess(winUser *users.WinUser, k2sUserName string) error {
 	kubeconfigFile, err := g.deriveKubeconfigFromAdmin(winUser)
 	if err != nil {
 		return fmt.Errorf("could not derive new kubeconfig from admin's config: %w", err)
@@ -49,13 +50,6 @@ func (g *k8sAccessGranter) GrantAccess(winUser user.User, k2sUserName string) er
 	return nil
 }
 
-func newK8sAccessGranter(accessGranter *commonAccessGranter, kubeconfigDir string) accessGranter {
-	return &k8sAccessGranter{
-		commonAccessGranter: accessGranter,
-		kubeconfigDir:       kubeconfigDir,
-	}
-}
-
 func findK2sClusterConf(clusters k8s.Clusters) (*k8s.ClusterConf, error) {
 	cluster, err := clusters.Find(k2sClusterName)
 	if err != nil {
@@ -64,7 +58,7 @@ func findK2sClusterConf(clusters k8s.Clusters) (*k8s.ClusterConf, error) {
 	return cluster, nil
 }
 
-func (g *k8sAccessGranter) deriveKubeconfigFromAdmin(winUser user.User) (*k8s.KubeconfigFile, error) {
+func (g *k8sAccessGranter) deriveKubeconfigFromAdmin(winUser *users.WinUser) (*k8s.KubeconfigFile, error) {
 	kubeconfigDir, err := g.initKubeconfigDir(winUser.HomeDir)
 	if err != nil {
 		return nil, fmt.Errorf("could not initialize kubeconfig dir for '%s': %w", winUser.Username, err)

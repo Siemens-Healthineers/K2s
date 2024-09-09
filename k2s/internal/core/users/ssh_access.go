@@ -6,11 +6,10 @@ package users
 import (
 	"fmt"
 	"log/slog"
-	"os/user"
+
 	"path/filepath"
 
-	"github.com/siemens-healthineers/k2s/internal/ssh"
-	"github.com/siemens-healthineers/k2s/internal/windows/acl"
+	"github.com/siemens-healthineers/k2s/internal/windows/users"
 )
 
 type sshKeyGen interface {
@@ -26,12 +25,16 @@ type accessControl interface {
 	RevokeAccess(path string, username string) error
 }
 
+type currentUserFinder interface {
+	Current() (*users.WinUser, error)
+}
+
 type OverwriteAbortedErr string
 
 type sshAccessGranter struct {
 	*commonAccessGranter
 	confirmOverwrite func() bool
-	currentUser      func() (*user.User, error)
+	userFinder       currentUserFinder
 	sshKeyGen        sshKeyGen
 	accessControl    accessControl
 	adminSshDir      string
@@ -43,22 +46,11 @@ const (
 	authorizedKeysPath = "~/.ssh/authorized_keys"
 )
 
-func newSshAccessGranter(accessGranter *commonAccessGranter, confirmOverwrite func() bool, sshDir string, currentUser func() (*user.User, error)) accessGranter {
-	return &sshAccessGranter{
-		commonAccessGranter: accessGranter,
-		confirmOverwrite:    confirmOverwrite,
-		sshKeyGen:           ssh.NewSshKeyGen(accessGranter.exec, accessGranter.fs),
-		accessControl:       acl.NewAcl(accessGranter.exec),
-		adminSshDir:         sshDir,
-		currentUser:         currentUser,
-	}
-}
-
 func (e OverwriteAbortedErr) Error() string {
 	return string(e)
 }
 
-func (g *sshAccessGranter) GrantAccess(winUser user.User, k2sUserName string) error {
+func (g *sshAccessGranter) GrantAccess(winUser *users.WinUser, k2sUserName string) error {
 	sshDirName := filepath.Base(g.adminSshDir)
 	newUserSshDir := filepath.Join(winUser.HomeDir, sshDirName)
 	newUserSshControlPlaneDir := filepath.Join(newUserSshDir, g.controlPlane.Name())
@@ -129,13 +121,13 @@ func (g *sshAccessGranter) transferKeyOwnership(keyPath string, newOwner string)
 		return fmt.Errorf("could not grant new user full access to SSH key: %w", err)
 	}
 
-	admin, err := g.currentUser()
+	admin, err := g.userFinder.Current()
 	if err != nil {
 		return fmt.Errorf("could not determine current Windows user: %w", err)
 	}
 
 	// omit user's display name for privacy reasons
-	slog.Debug("Admin determined", "username", admin.Username, "id", admin.Uid)
+	slog.Debug("Admin determined", "username", admin.Username, "id", admin.UserId)
 
 	if err := g.accessControl.RevokeAccess(keyPath, admin.Username); err != nil {
 		return fmt.Errorf("could not revoke access to SSH key for admin user: %w", err)
