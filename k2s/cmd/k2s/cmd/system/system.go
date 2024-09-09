@@ -6,7 +6,6 @@ package system
 import (
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/system/dump"
 	systempackage "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/system/package"
-	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/system/proxy"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/system/reset"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/system/scp"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/system/ssh"
@@ -29,5 +28,4 @@ func init() {
 	SystemCmd.AddCommand(reset.ResetCmd)
 	SystemCmd.AddCommand(systempackage.PackageCmd)
 	SystemCmd.AddCommand(users.NewCommand())
-	SystemCmd.AddCommand(proxy.ProxyCmd)
 }
