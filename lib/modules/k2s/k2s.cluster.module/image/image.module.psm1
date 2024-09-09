@@ -157,7 +157,7 @@ function Get-PushedContainerImages() {
         return
     }
 
-    $registryName = $(Get-RegistriesFromSetupJson) | Where-Object { $_ -match 'k2s-registry.*' }
+    $registryName = "k2s.cluster.local/registry"
     $auth = Get-RegistryAuthToken $registryName
     if (!$auth) {
         Write-Error "Can't find authentification token for $registryName."

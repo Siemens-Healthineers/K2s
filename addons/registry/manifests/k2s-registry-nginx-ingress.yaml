@@ -31,7 +31,7 @@ metadata:
   annotations:
     nginx.ingress.kubernetes.io/ssl-redirect: "false"
     nginx.ingress.kubernetes.io/proxy-body-size: "0"
-    nginx.ingress.kubernetes.io/rewrite-target: /registry/v2$1
+    nginx.ingress.kubernetes.io/rewrite-target: /registry/v2/$1
   name: registry-v2
   namespace: registry
 spec:
@@ -46,4 +46,4 @@ spec:
               port: 
                 number: 5000
           pathType: Prefix
-          path: /v2(.*)
+          path: /v2/(.*)

@@ -21,9 +21,6 @@ Param(
     [switch] $ShowLogs = $false,
     [parameter(Mandatory = $false, HelpMessage = 'Use default credentials')]
     [switch] $UseDefaultCredentials = $false,
-    [parameter(Mandatory = $false, HelpMessage = 'Nodeport for registry access')]
-    [ValidateRange(30000, 32767)]
-    [Int] $Nodeport = 0,
     [parameter(Mandatory = $false, HelpMessage = 'Enable ingress addon')]
     [ValidateSet('nginx', 'traefik')]
     [string] $Ingress = 'nginx',
@@ -78,15 +75,13 @@ if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'registry' })) -eq $t
 }
 
 # Enable ingress controller in case no nodeport is specified
-if ($Nodeport -eq 0) {
-    if (!(Test-NginxIngressControllerAvailability) -and !(Test-TraefikIngressControllerAvailability)) {
-        #Enable required ingress addon
-        Enable-IngressAddon -Ingress:$Ingress
-    }
-    elseif (Test-TraefikIngressControllerAvailability) {
-        $Ingress = 'traefik'
-        Write-Log 'Using traefik ingress controller since it has been already enabled' -Console
-    }
+if (!(Test-NginxIngressControllerAvailability) -and !(Test-TraefikIngressControllerAvailability)) {
+    #Enable required ingress addon
+    Enable-IngressAddon -Ingress:$Ingress
+}
+elseif (Test-TraefikIngressControllerAvailability) {
+    $Ingress = 'traefik'
+    Write-Log 'Using traefik ingress controller since it has been already enabled' -Console
 }
 
 if ($UseDefaultCredentials) {
@@ -141,22 +136,7 @@ Install-DebianPackages -addon 'registry' -packages 'apache2-utils'
 # Apply registry pod with persistent volume
 Write-Log 'Creating local registry' -Console
 (Invoke-Kubectl -Params 'apply', '-f', "$PSScriptRoot\manifests\k2s-registry.yaml").Output | Write-Log
-if ($Nodeport -eq 0) {
-    Deploy-IngressForRegistry -Ingress:$Ingress
-}
-else {
-    (Invoke-Kubectl -Params 'apply', '-f', "$PSScriptRoot\manifests\k2s-registry-nodeport.yaml").Output | Write-Log
-
-    $patchJson = ''
-    if ($PSVersionTable.PSVersion.Major -gt 5) {
-        $patchJson = '{"spec":{"ports":[{"nodePort":' + $Nodeport + ',"port": 80,"protocol": "TCP","targetPort": 5000}]}}'
-    }
-    else {
-        $patchJson = '{\"spec\":{\"ports\":[{\"nodePort\":' + $Nodeport + ',\"port\": 80,\"protocol\": \"TCP\",\"targetPort\": 5000}]}}'
-    }
-
-    (Invoke-Kubectl -Params 'patch', 'svc', 'k2s-registry', '-p', "$patchJson", '-n', 'registry').Output | Write-Log
-}
+Deploy-IngressForRegistry -Ingress:$Ingress
 
 $kubectlCmd = (Invoke-Kubectl -Params 'wait', '--timeout=60s', '--for=condition=Ready', '-n', 'registry', 'pod/k2s-registry-pod')
 Write-Log $kubectlCmd.Output
@@ -172,26 +152,16 @@ if (!$kubectlCmd.Success) {
     exit 1
 }
 
-$registryName = 'k2s-registry.local'
-
-Add-HostEntries -Url $registryName
-
-if ($Nodeport -gt 0) {
-    $registryName = "$($registryName):$Nodeport"
-}
+$registryHostName = 'k2s.cluster.local'
+$registryPrefix = "registry"
+$registryName = "$registryHostName/$registryPrefix"
 
 # Create secret for enabling all the nodes in the cluster to authenticate with private registry
-(Invoke-Kubectl -Params 'create', 'secret', 'docker-registry', 'k2s-registry', "--docker-server=$registryName", "--docker-username=$username", "--docker-password=$password").Output | Write-Log
+(Invoke-Kubectl -Params 'create', 'secret', 'docker-registry', 'k2s-registry', "--docker-server=$registryHostName", "--docker-username=$username", "--docker-password=$password").Output | Write-Log
 
 # set insecure-registries (remove this section in case of self signed certificates)
-if ($PSVersionTable.PSVersion.Major -gt 5) {
-    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "grep location=\""k2s.*\"" /etc/containers/registries.conf | sudo sed -i -z 's/\[\[registry]]\nlocation=\""k2s.*\""\ninsecure=true/[[registry]]\nlocation=""$registryName""\ninsecure=true/g' /etc/containers/registries.conf").Output | Write-Log
-    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "grep location=\""k2s.*\"" /etc/containers/registries.conf || echo -e `'\n[[registry]]\nlocation=""$registryName""\ninsecure=true`' | sudo tee -a /etc/containers/registries.conf").Output | Write-Log
-}
-else {
-    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "grep location=\\\""k2s.*\\\"" /etc/containers/registries.conf | sudo sed -i -z 's/\[\[registry]]\nlocation=\\\""k2s.*\\\""\ninsecure=true/[[registry]]\nlocation=\\\""$registryName\\\""\ninsecure=true/g' /etc/containers/registries.conf").Output | Write-Log
-    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "grep location=\\\""k2s.*\\\"" /etc/containers/registries.conf || echo -e `'\n[[registry]]\nlocation=\""$registryName\""\ninsecure=true`' | sudo tee -a /etc/containers/registries.conf").Output | Write-Log
-}
+(Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "grep location=\\\""k2s.*\\\"" /etc/containers/registries.conf | sudo sed -i -z 's/\[\[registry]]\nlocation=\\\""k2s.*\\\""\ninsecure=true/[[registry]]\nlocation=\\\""$registryHostName\\\""\ninsecure=true/g' /etc/containers/registries.conf").Output | Write-Log
+(Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "grep location=\\\""k2s.*\\\"" /etc/containers/registries.conf || echo -e `'\n[[registry]]\nlocation=\""$registryHostName\""\ninsecure=true`' | sudo tee -a /etc/containers/registries.conf").Output | Write-Log
 
 (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo systemctl daemon-reload').Output | Write-Log
 (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo systemctl restart crio').Output | Write-Log
@@ -203,67 +173,21 @@ Connect-Buildah -username $username -password $password -registry $registryName
 $authJson = (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo cat /root/.config/containers/auth.json').Output | Out-String
 
 # Add dockerd parameters and restart docker daemon to push nondistributable artifacts and use insecure registry
-if ($setupInfo.Name -eq 'k2s') {
-    $storageLocalDrive = Get-StorageLocalDrive
-    Set-ServiceProperty -Name 'docker' -PropertyName 'AppParameters' -Value "--exec-opt isolation=process --data-root ""$storageLocalDrive\docker"" --log-level debug --allow-nondistributable-artifacts $registryName --insecure-registry $registryName"
-    if (Get-IsNssmServiceRunning('docker')) {
-        Restart-NssmService('docker')
-    }
-    else {
-        Start-NssmService('docker')
-    }
-
-    Connect-Docker -username $username -password $password -registry $registryName
-
-    # set authentification for containerd
-    Set-Containerd-Config -registryName $registryName -authJson $authJson
-
-    Restart-Services | Write-Log -Console
+$storageLocalDrive = Get-StorageLocalDrive
+Set-ServiceProperty -Name 'docker' -PropertyName 'AppParameters' -Value "--exec-opt isolation=process --data-root ""$storageLocalDrive\docker"" --log-level debug --allow-nondistributable-artifacts $registryHostName --insecure-registry $registryHostName"
+if (Get-IsNssmServiceRunning('docker')) {
+    Restart-NssmService('docker')
 }
-elseif ($setupInfo.Name -eq 'MultiVMK8s' -and $setupInfo.LinuxOnly -ne $true) {
-    $session = Open-DefaultWinVMRemoteSessionViaSSHKey
-
-    Invoke-Command -Session $session {
-        Set-Location "$env:SystemDrive\k"
-        Set-ExecutionPolicy Bypass -Force -ErrorAction Stop
-
-        $infraModule = "$env:SystemDrive/k/lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
-        $clusterModule = "$env:SystemDrive/k/lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
-        $nodeModule = "$env:SystemDrive/k/lib/modules/k2s/k2s.node.module/k2s.node.module.psm1"       
-
-        Import-Module $infraModule, $clusterModule, $nodeModule
-
-        Initialize-Logging -Nested:$true
-
-        # TODO: --- code clone ---
-        Set-ServiceProperty -Name 'docker' -PropertyName 'AppParameters' -Value "--exec-opt isolation=process --data-root 'C:\docker' --log-level debug --allow-nondistributable-artifacts $using:registryName --insecure-registry $using:registryName"
-        if (Get-IsNssmServiceRunning('docker')) {
-            Restart-NssmService('docker')
-        }
-        else {
-            Start-NssmService('docker')
-        }
-
-        Connect-Docker -username $using:username -password $using:password -registry $using:registryName
-
-        Set-Containerd-Config -registryName $registryName -authJson $authJson
-
-        Restart-Services | Write-Log -Console
-        # TODO: --- code clone ---
-    }
-
-    if (!$?) {
-        $errMsg = 'Login to private registry not possible! Please disable addon and try to enable it again!'
-        if ($EncodeStructuredOutput -eq $true) {
-            $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
-            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
-            return
-        }
-
-        Write-Log $errMsg -Error
-        exit 1
-    }
+else {
+    Start-NssmService('docker')
 }
+
+Connect-Docker -username $username -password $password -registry $registryHostName
+
+# set authentification for containerd
+Set-Containerd-Config -registryName $registryName -authJson $authJson
+
+Restart-Services | Write-Log -Console
 
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'registry' })
 Add-RegistryToSetupJson -Name $registryName

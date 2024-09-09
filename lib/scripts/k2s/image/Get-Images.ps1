@@ -64,7 +64,7 @@ try {
 
     $images = @{Error = $null }
     $images.ContainerImages = @(Get-ContainerImagesInk2s -IncludeK8sImages $IncludeK8sImages -WorkerVM $WorkerVM)
-    $images.ContainerRegistry = $(Get-RegistriesFromSetupJson) | Where-Object { $_ -match 'k2s-registry.*' }
+    $images.ContainerRegistry = "k2s.cluster.local/registry"
     $images.PushedImages = @(Get-PushedContainerImages)
 
     if ($EncodeStructuredOutput) {
