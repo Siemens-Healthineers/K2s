@@ -369,6 +369,35 @@ function Get-DockerfileAbsolutePathAndPreCompileFlag {
     return $filePath, $PreCompile
 }
 
+function Wait-UntilServiceIsRunning {
+    param (
+        $Name = $(throw 'Argument missing: ServiceName')
+    )
+
+    # ensure service is running
+    $expectedServiceStatus = 'SERVICE_RUNNING'
+    Write-Log "Waiting until service '$Name' has status '$expectedServiceStatus'"
+    $retryNumber = 0
+    $maxAmountOfRetries = 3
+    $waitTimeInSeconds = 2
+    $serviceIsRunning = $false
+    while ($retryNumber -lt $maxAmountOfRetries) {
+        $serviceStatus = (&$kubeBinPath\nssm status $Name)
+        if ($serviceStatus -eq "$expectedServiceStatus") {
+            $serviceIsRunning = $true
+            break;
+        }
+        $retryNumber++
+        Start-Sleep -Seconds $waitTimeInSeconds
+        $totalWaitingTime = $waitTimeInSeconds * $retryNumber
+        Write-Log "Waiting since $totalWaitingTime seconds for service '$Name' to be in status '$expectedServiceStatus' (current status: $serviceStatus)"
+    }
+    if (!$serviceIsRunning) {
+        throw "Service '$Name' is not running."
+    }
+    Write-Log "Service '$Name' has status '$expectedServiceStatus'"
+}
+
 function New-WindowsImage {
     param(
         [Parameter()]
@@ -389,6 +418,7 @@ function New-WindowsImage {
     if ($svc.Status -ne 'Running') {
         Write-Log 'Starting docker backend...'
         Start-Service docker
+        Wait-UntilServiceIsRunning -Name 'docker'
         $shouldStopDocker = $true
     }
 
@@ -397,14 +427,13 @@ function New-WindowsImage {
     Write-Log "Building Windows image $imageFullName" -Console
     if ($BuildArgsString -ne '') {
         $cmd = "$dockerExe build ""$InputFolder"" -f ""$Dockerfile"" --force-rm $NoCacheFlag -t $imageFullName $BuildArgsString"
-        Write-Log "Build cmd: $cmd"
-        Invoke-Expression -Command $cmd
     }
     else {
         $cmd = "$dockerExe build ""$InputFolder"" -f ""$Dockerfile"" --force-rm $NoCacheFlag -t $imageFullName"
-        Write-Log "Build cmd: $cmd"
-        Invoke-Expression -Command $cmd
     }
+    Write-Log "Build cmd: $cmd"
+    & cmd.exe /c $cmd *>&1 | Where-Object { (-not(($_ -is [System.Management.Automation.ErrorRecord])) -or (($_ -is [System.Management.Automation.ErrorRecord]) -and -not($_ -match 'System.Management.Automation.RemoteException'))) } | ForEach-Object { Write-Log $_ }
+    
     if ($LASTEXITCODE -ne 0) { throw "error while creating image with 'docker build' on Windows. Error code returned was $LastExitCode" }
 
     Write-Log "Output of checking if the image $imageFullName is now available in docker:"

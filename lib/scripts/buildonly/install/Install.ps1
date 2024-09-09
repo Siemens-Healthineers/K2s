@@ -3,12 +3,13 @@
 # SPDX-License-Identifier: MIT
 
 #Requires -RunAsAdministrator
+
 Param(
-    [parameter(Mandatory = $false, HelpMessage = 'Master VM memory')]
+    [parameter(Mandatory = $false, HelpMessage = 'Startup Memory Size of Control Plane VM (Linux)')]
     [long] $MasterVMMemory = 6GB,
-    [parameter(Mandatory = $false, HelpMessage = 'Number of Virtual Processors for master VM (Linux)')]
+    [parameter(Mandatory = $false, HelpMessage = 'Number of Virtual Processors for Control Plane VM (Linux)')]
     [long] $MasterVMProcessorCount = 6,
-    [parameter(Mandatory = $false, HelpMessage = 'Virtual hard disk size of master VM (Linux)')]
+    [parameter(Mandatory = $false, HelpMessage = 'Virtual hard disk size of Control Plane VM (Linux)')]
     [uint64] $MasterDiskSize = 50GB,
     [parameter(Mandatory = $false, HelpMessage = 'HTTP proxy if available')]
     [string] $Proxy,
@@ -18,91 +19,61 @@ Param(
     [switch] $DeleteFilesForOfflineInstallation = $false,
     [parameter(Mandatory = $false, HelpMessage = 'Force the installation online. This option is needed if the files for an offline installation are available but you want to recreate them.')]
     [switch] $ForceOnlineInstallation = $false,
-    [parameter(Mandatory = $false, HelpMessage = 'Use WSL2 for hosting KubeMaster VM')]
+    [parameter(Mandatory = $false, HelpMessage = 'Use WSL2 for hosting Control Plane VM')]
     [switch] $WSL = $false,
     [parameter(Mandatory = $false, HelpMessage = 'Append to log file (do not start from scratch)')]
     [switch] $AppendLogFile = $false
 )
 
-$infraModule = "$PSScriptRoot/../../../modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
-$nodeModule = "$PSScriptRoot/../../../modules/k2s/k2s.node.module/k2s.node.module.psm1"
-Import-Module $infraModule, $nodeModule
+$installStopwatch = [system.diagnostics.stopwatch]::StartNew()
 
-$KubernetesVersion = Get-DefaultK8sVersion
-$script:SetupType = 'BuildOnlyEnv'
+$infraModule =   "$PSScriptRoot\..\..\..\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
+$nodeModule =    "$PSScriptRoot\..\..\..\modules\k2s\k2s.node.module\k2s.node.module.psm1"
+$clusterModule = "$PSScriptRoot\..\..\..\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1"
+
+Import-Module $infraModule, $nodeModule, $clusterModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 Reset-LogFile -AppendLogFile:$AppendLogFile
 
-$installStopwatch = [system.diagnostics.stopwatch]::StartNew()
-
-Write-Log 'Installing Build Only Environment'
-Set-EnvVars
-
 $ErrorActionPreference = 'Continue'
 
+# make sure we are at the right place for install
+$installationPath = Get-KubePath
+Set-Location $installationPath
 
-Set-EnvVars
+# set defaults for unset arguments
+$script:SetupType = 'BuildOnlyEnv'
+Set-ConfigSetupType -Value $script:SetupType
+
+$installationType = 'Build-only'
+Write-Log "Installing $installationType setup"
 
 $Proxy = Get-OrUpdateProxyServer -Proxy:$Proxy
 
-Add-k2sToDefenderExclusion
-Stop-InstallIfDockerDesktopIsRunning
-
-Enable-MissingWindowsFeatures $([bool]$WSL)
-
-Stop-InstallIfNoMandatoryServiceIsRunning
-
-Set-ConfigSetupType -Value $script:SetupType
-Set-ConfigWslFlag -Value $([bool]$WSL)
-
-$productVersion = Get-ProductVersion
-$kubePath = Get-KubePath
-
-Set-ConfigInstallFolder -Value $kubePath
-Set-ConfigProductVersion -Value $productVersion
-
-if ($WSL) {
-    Write-Log 'vEthernet (WSL) switch will be reconfigured! Your existing WSL distros will not work properly until you stop the cluster.'
-    Write-Log 'Configuring WSL2'
-    Set-WSL -MasterVMMemory $MasterVMMemory -MasterVMProcessorCount $MasterVMProcessorCount
+$loopbackAdapter = Get-L2BridgeName
+$dnsServers = Get-DnsIpAddressesFromActivePhysicalNetworkInterfacesOnWindowsHost -ExcludeNetworkInterfaceName $loopbackAdapter
+if ([string]::IsNullOrWhiteSpace($dnsServers)) {
+    $dnsServers = '8.8.8.8,8.8.4.4'
 }
 
-
-# check memory
-if ( $MasterVMMemory -lt 2GB ) {
-    Write-Log 'k2s needs minimal 2GB main memory, you have passed a lower value!'
-    throw '[PREREQ-FAILED] Memory passed too low'
+$controlPlaneNodeParams = @{
+    MasterVMMemory = $MasterVMMemory
+    MasterVMProcessorCount = $MasterVMProcessorCount
+    MasterDiskSize = $MasterDiskSize
+    Proxy = $Proxy
+    DnsAddresses = $dnsServers
+    DeleteFilesForOfflineInstallation = $DeleteFilesForOfflineInstallation
+    ForceOnlineInstallation = $ForceOnlineInstallation
+    CheckOnly = $false
+    SkipStart = $true
+    ShowLogs = $ShowLogs
+    WSL = $WSL
 }
-Write-Log "Using $([math]::round($MasterVMMemory/1GB, 2))GB of memory for master VM"
+& "$PSScriptRoot\..\..\control-plane\Install.ps1" @controlPlaneNodeParams
 
-# check disk
-if ( $MasterDiskSize -lt 20GB ) {
-    Write-Log 'k2s needs minimal 20GB disk space, you have passed a lower value!'
-    throw '[PREREQ-FAILED] Disk size passed too low'
-}
-Write-Log "Using $([math]::round($MasterDiskSize/1GB, 2))GB of disk space for master VM"
-
-Initialize-WinNode -KubernetesVersion $KubernetesVersion `
-    -HostGW:$false `
-    -Proxy:"$Proxy" `
-    -DeleteFilesForOfflineInstallation $DeleteFilesForOfflineInstallation `
-    -ForceOnlineInstallation $ForceOnlineInstallation `
-    -SkipClusterSetup:$true
-
-Write-Log 'Using NAT in dev build only environment'
-New-DefaultNetNat
-
-Initialize-LinuxNode -VMStartUpMemory $MasterVMMemory `
-    -VMProcessorCount $MasterVMProcessorCount `
-    -VMDiskSize $MasterDiskSize `
-    -InstallationStageProxy $Proxy `
-    -DeleteFilesForOfflineInstallation $DeleteFilesForOfflineInstallation `
-    -ForceOnlineInstallation $ForceOnlineInstallation `
-    -WSL:$WSL
+Install-WinNodeArtifacts -Proxy $Proxy -SkipClusterSetup $true $PodSubnetworkNumber '1' -HostVM $false
 
 Write-Log '---------------------------------------------------------------'
-Write-Log "Build-only setup finished.   Total duration: $('{0:hh\:mm\:ss}' -f $installStopwatch.Elapsed )"
+Write-Log "$installationType setup finished.  Total duration: $('{0:hh\:mm\:ss}' -f $installStopwatch.Elapsed )"
 Write-Log '---------------------------------------------------------------'
-
-Write-RefreshEnvVariables
