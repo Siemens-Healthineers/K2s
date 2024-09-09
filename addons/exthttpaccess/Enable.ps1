@@ -66,7 +66,7 @@ if ($setupInfo.Name -ne 'k2s') {
   return
 }
 
-if ((Test-IsAddonEnabled -Name 'exthttpaccess') -eq $true) {
+if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'exthttpaccess' })) -eq $true) {
   $errMsg = "Addon 'exthttpaccess' is already enabled, nothing to do."
 
   if ($EncodeStructuredOutput -eq $true) {

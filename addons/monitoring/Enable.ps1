@@ -15,8 +15,10 @@ The "monitoring" addons enables Prometheus/Grafana monitoring features for the k
 Param(
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
     [switch] $ShowLogs = $false,
-    [ValidateSet('ingress-nginx', 'traefik', 'none')]
+    [ValidateSet('nginx', 'traefik', 'none')]
     [string] $Ingress = 'none',
+    [parameter(Mandatory = $false, HelpMessage = 'JSON config object to override preceeding parameters')]
+    [pscustomobject] $Config,
     [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
     [switch] $EncodeStructuredOutput,
     [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
@@ -51,7 +53,7 @@ if ($setupInfo.Name -ne 'k2s') {
     return
 }
 
-if ((Test-IsAddonEnabled -Name 'monitoring') -eq $true) {
+if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'monitoring' })) -eq $true) {
     $errMsg = "Addon 'monitoring' is already enabled, nothing to do."
 
     if ($EncodeStructuredOutput -eq $true) {
@@ -114,14 +116,6 @@ if (!$kubectlCmd.Success) {
 
     Write-Log $errMsg -Error
     exit 1
-}
-
-# traefik uses crd, so we have define ingressRoute after traefik has been enabled
-if (Test-TraefikIngressControllerAvailability) {
-    (Invoke-Kubectl -Params 'apply', '-f', "$manifestsPath\plutono\traefik.yaml").Output | Write-Log
-}
-elseif (Test-NginxIngressControllerAvailability) {
-    (Invoke-Kubectl -Params 'apply', '-f', "$manifestsPath\plutono\ingress.yaml").Output | Write-Log
 }
 
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'monitoring' })

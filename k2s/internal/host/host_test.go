@@ -5,11 +5,14 @@ package host_test
 
 import (
 	"context"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 
+	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/siemens-healthineers/k2s/internal/host"
@@ -35,10 +38,14 @@ func (m *stdWriterMock) Flush() {
 
 func TestHostPkg(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "host pkg Integration Tests", Label("integration", "ci", "host"))
+	RunSpecs(t, "host pkg Integration Tests", Label("integration", "ci", "internal", "host"))
 }
 
-var _ = Describe("host pkg", func() {
+var _ = BeforeSuite(func() {
+	slog.SetDefault(slog.New(logr.ToSlogHandler(GinkgoLogr)))
+})
+
+var _ = Describe("host pkg", Ordered, func() {
 	Describe("SystemDrive", func() {
 		It("returns Windows system drive with trailing backslash", func() {
 			drive := host.SystemDrive()
@@ -46,6 +53,7 @@ var _ = Describe("host pkg", func() {
 			Expect(drive).To(Equal("C:\\"))
 		})
 	})
+
 	Describe("CreateDirIfNotExisting", func() {
 		var dirToCreate string
 
@@ -108,6 +116,122 @@ var _ = Describe("host pkg", func() {
 				result := host.PathExists(input)
 
 				Expect(result).To(BeFalse())
+			})
+		})
+	})
+
+	Describe("RemovePaths", func() {
+		When("no paths passed", func() {
+			It("does nothing", func() {
+				Expect(host.RemovePaths()).To(Succeed())
+			})
+		})
+
+		When("non-existent path passed", func() {
+			It("returns error", func() {
+				Expect(host.RemovePaths("non-existent")).ToNot(Succeed())
+			})
+		})
+
+		When("paths exist", func() {
+			var filePath string
+			var dirPath string
+
+			BeforeEach(func() {
+				temp := GinkgoT().TempDir()
+				dirPath = filepath.Join(temp, "test-dir")
+				filePath = filepath.Join(temp, "test.file")
+
+				Expect(os.MkdirAll(dirPath, os.ModePerm)).To(Succeed())
+				Expect(os.WriteFile(filePath, []byte("test-content"), os.ModePerm)).To(Succeed())
+			})
+
+			It("deletes files and directories", func() {
+				Expect(host.RemovePaths(filePath, dirPath)).To(Succeed())
+			})
+		})
+	})
+
+	Describe("AppendToFile", func() {
+		When("non-existent path passed", func() {
+			It("returns error", func() {
+				Expect(host.AppendToFile("non-existent", "")).ToNot(Succeed())
+			})
+		})
+
+		When("path exists", func() {
+			var path string
+
+			BeforeEach(func() {
+				path = filepath.Join(GinkgoT().TempDir(), "test.file")
+
+				Expect(os.WriteFile(path, []byte("first-entry"), os.ModePerm)).To(Succeed())
+			})
+
+			It("appends to file", func() {
+				const textToAppend = "last-entry"
+
+				err := host.AppendToFile(path, textToAppend)
+
+				Expect(err).ToNot(HaveOccurred())
+
+				content, err := os.ReadFile(path)
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(strings.HasSuffix(string(content), textToAppend)).To(BeTrue())
+			})
+		})
+	})
+
+	Describe("CopyFile", func() {
+		When("source file non-existent", func() {
+			It("returns error", func() {
+				const source = "non-existent"
+				const target = ""
+
+				err := host.CopyFile(source, target)
+
+				Expect(err).To(MatchError(ContainSubstring("could not read file")))
+			})
+		})
+
+		When("target dir non-existent", func() {
+			var source string
+			var target string
+
+			BeforeEach(func() {
+				temp := GinkgoT().TempDir()
+				source = filepath.Join(temp, "test.file")
+				target = temp
+
+				Expect(os.WriteFile(source, []byte("test-content"), os.ModePerm)).To(Succeed())
+			})
+
+			It("returns error", func() {
+				err := host.CopyFile(source, target)
+
+				Expect(err).To(MatchError(ContainSubstring("could not write file")))
+			})
+		})
+
+		When("successful", func() {
+			var source string
+			var target string
+
+			BeforeEach(func() {
+				temp := GinkgoT().TempDir()
+				source = filepath.Join(temp, "test.file")
+				target = filepath.Join(temp, "copy.file")
+
+				Expect(os.WriteFile(source, []byte("test-content"), os.ModePerm)).To(Succeed())
+			})
+
+			It("copies the file", func() {
+				Expect(host.CopyFile(source, target)).To(Succeed())
+
+				content, err := os.ReadFile(target)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(string(content)).To(Equal("test-content"))
 			})
 		})
 	})

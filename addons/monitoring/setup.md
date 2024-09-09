@@ -30,8 +30,9 @@ SPDX-License-Identifier: MIT
 ```
     [server]
     # these settings needed to make it work with Ingress
-    root_url = http://k2s-monitoring.cluster.local
-    domain: k2s-monitoring.cluster.local
+    root_url = https://k2s.cluster.local/monitoring
+    serve_from_sub_path = true
+    domain = k2s.cluster.local
 
 ```
 

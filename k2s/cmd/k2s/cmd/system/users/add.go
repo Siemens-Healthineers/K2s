@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2023 Siemens Healthcare GmbH
+// SPDX-FileCopyrightText:  © 2024 Siemens Healthcare GmbH
 // SPDX-License-Identifier:   MIT
 
 package users
@@ -7,14 +7,19 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"os"
 
 	"github.com/pterm/pterm"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
+	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/status"
 	"github.com/siemens-healthineers/k2s/internal/config"
+	"github.com/siemens-healthineers/k2s/internal/host"
 	"github.com/siemens-healthineers/k2s/internal/setupinfo"
 	"github.com/siemens-healthineers/k2s/internal/users"
 	"github.com/spf13/cobra"
 )
+
+type fileSystem struct{}
 
 const (
 	userNameFlag = "username"
@@ -25,7 +30,7 @@ const (
 func newAddCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "add",
-		Short: "EXPERIMENTAL - Grants a Windows user access to K2s",
+		Short: "Grants a Windows user access to K2s",
 		RunE:  run,
 	}
 
@@ -38,15 +43,8 @@ func newAddCommand() *cobra.Command {
 	return cmd
 }
 
+// TODO: refactor
 func run(cmd *cobra.Command, args []string) error {
-	proceed, err := pterm.DefaultInteractiveConfirm.Show("This feature is experimental and incomplete and may lead to unexpected results, proceed anyways?")
-	if err != nil {
-		return err
-	}
-	if !proceed {
-		return nil
-	}
-
 	slog.Info("Granting Windows user access to K2s..")
 
 	userName, err := cmd.Flags().GetString(userNameFlag)
@@ -59,7 +57,7 @@ func run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	force, err := cmd.Flags().GetBool(forceFlag)
+	forceOverwrite, err := cmd.Flags().GetBool(forceFlag)
 	if err != nil {
 		return err
 	}
@@ -73,9 +71,9 @@ func run(cmd *cobra.Command, args []string) error {
 	}
 
 	// TODO: code clone!
-	cfg := cmd.Context().Value(common.ContextKeyConfig).(*config.Config)
+	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
 	// TODO: code clone!
-	setupConfig, err := setupinfo.ReadConfig(cfg.Host.K2sConfigDir)
+	setupConfig, err := setupinfo.ReadConfig(context.Config().Host.K2sConfigDir)
 	if err != nil {
 		// TODO: code clone!
 		if errors.Is(err, setupinfo.ErrSystemNotInstalled) {
@@ -88,54 +86,56 @@ func run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("could not load setup info to add the Windows user: %w", err)
 	}
 
-	// TODO: check if system is running
-
-	confirmOverwrite := func() bool {
-		if force {
-			slog.Info("Overwriting existing access is enforced")
-			return true
-		}
-
-		confirmed, err := pterm.DefaultInteractiveConfirm.Show("Windows user already granted access to K2s, overwrite existing access anyway?")
-		if err != nil {
-			slog.Error("cannot show confirmation", "error", err)
-			return false
-		}
-
-		if !confirmed {
-			slog.Info("Overwriting existing access aborted by user")
-			return false
-		}
-
-		slog.Info("Overwriting existing access confirmed by user")
-		return true
+	psVersion := common.DeterminePsVersion(setupConfig)
+	systemStatus, err := status.LoadStatus(psVersion)
+	if err != nil {
+		return fmt.Errorf("could not determine system status: %w", err)
 	}
 
-	usersManagement := users.NewUsersManagement(setupConfig.ControlPlaneNodeHostname, cfg, confirmOverwrite, common.NewSlogWriter())
+	if !systemStatus.RunningState.IsRunning {
+		return common.CreateSystemNotRunningCmdFailure()
+	}
 
-	var userNotFoundErr users.UserNotFoundErr
+	usersManagement, err := newUsersManagement(setupConfig.ControlPlaneNodeHostname, context.Config(), forceOverwrite)
+	if err != nil {
+		return err
+	}
 
 	if userName != "" {
-		err := usersManagement.AddUserByName(userName)
-		if err != nil {
-			if errors.As(err, &userNotFoundErr) {
-				return newUserNotFoundFailure(err)
-			}
-			return err
-		}
+		err = usersManagement.AddUserByName(userName)
+
 	} else {
-		err := usersManagement.AddUserById(userId)
-		if err != nil {
-			if errors.As(err, &userNotFoundErr) {
-				return newUserNotFoundFailure(err)
-			}
-			return err
-		}
+		err = usersManagement.AddUserById(userId)
 	}
 
-	pterm.Success.Println("DONE")
+	if err != nil {
+		var userNotFoundErr users.UserNotFoundErr
+		if errors.As(err, &userNotFoundErr) {
+			return newUserNotFoundFailure(userNotFoundErr)
+		}
 
+		var overwriteAbortedErr users.OverwriteAbortedErr
+		if errors.As(err, &overwriteAbortedErr) {
+			pterm.Info.Println("Aborted by user")
+			return nil
+		}
+		return err
+	}
+
+	pterm.Success.Println("Granted Windows user access to K2s")
 	return nil
+}
+
+func newUsersManagement(controlPlaneName string, cfg *config.Config, forceOverwrite bool) (*users.UsersManagement, error) {
+	umConfig := &users.UsersManagementConfig{
+		ControlPlaneName:     controlPlaneName,
+		Config:               cfg,
+		ConfirmOverwriteFunc: func() bool { return confirmOverwrite(forceOverwrite, pterm.DefaultInteractiveConfirm.Show) },
+		CmdExecutor:          host.NewCmdExecutor(common.NewSlogWriter()),
+		FileSystem:           &fileSystem{},
+	}
+
+	return users.NewUsersManagement(umConfig)
 }
 
 func newUserNotFoundFailure(err error) *common.CmdFailure {
@@ -144,4 +144,49 @@ func newUserNotFoundFailure(err error) *common.CmdFailure {
 		Code:     "user-not-found",
 		Message:  err.Error(),
 	}
+}
+
+func confirmOverwrite(force bool, showConfirmation func(...string) (bool, error)) bool {
+	if force {
+		slog.Info("Overwriting existing access is enforced")
+		return true
+	}
+
+	confirmed, err := showConfirmation("Windows user already granted access to K2s, overwrite existing access anyway?")
+	if err != nil {
+		slog.Error("cannot show confirmation", "error", err)
+		return false
+	}
+
+	if !confirmed {
+		slog.Info("Overwriting existing access aborted by user")
+		return false
+	}
+
+	slog.Info("Overwriting existing access confirmed by user")
+	return true
+}
+
+func (*fileSystem) PathExists(path string) bool {
+	return host.PathExists(path)
+}
+
+func (*fileSystem) AppendToFile(path string, text string) error {
+	return host.AppendToFile(path, text)
+}
+
+func (*fileSystem) ReadFile(path string) ([]byte, error) {
+	return os.ReadFile(path)
+}
+
+func (*fileSystem) WriteFile(path string, data []byte) error {
+	return os.WriteFile(path, data, os.ModePerm)
+}
+
+func (*fileSystem) RemovePaths(files ...string) error {
+	return host.RemovePaths(files...)
+}
+
+func (*fileSystem) CreateDirIfNotExisting(path string) error {
+	return host.CreateDirIfNotExisting(path)
 }

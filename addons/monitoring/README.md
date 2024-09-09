@@ -18,9 +18,9 @@ The monitoring addon can be enabled using the k2s CLI by running the following c
 k2s addons enable monitoring
 ```
 
-### Integration with ingress-nginx and traefik addons
+### Integration with ingress nginx and ingress traefik addons
 
-The monitoring addon can be integrated with either the ingress-nginx addon or the traefik addon so that it can be exposed outside the cluster.
+The monitoring addon can be integrated with either the ingress nginx or the ingress traefik addon so that it can be exposed outside the cluster.
 
 For example, the monitoring addon can be enabled along with traefik addon using the following command:
 
@@ -28,7 +28,7 @@ For example, the monitoring addon can be enabled along with traefik addon using 
 k2s addons enable monitoring --ingress traefik
 ```
 
-_Note:_ The above command shall enable the traefik addon if it is not enabled.
+_Note:_ The above command shall enable the ingress traefik addon if it is not enabled.
 
 ## Accessing the monitoring dashboard
 
@@ -36,10 +36,8 @@ The monitoring dashboard UI can be accessed via the following methods.
 
 ### Access using ingress
 
-To access monitoring dashboard via ingress, the ingress-nginx or the traefik addon has to enabled.
-Once the addons are enabled, then the monitoring dashboard UI can be accessed at the following links:
- <https://k2s.cluster.local/monitoring/> and <https://k2s-monitoring.cluster.local> 
- (with HTTP using http://.. instead of https://..)
+To access monitoring dashboard via ingress, the ingress nginx or the ingress traefik addon has to enabled.
+Once the addons are enabled, then the monitoring dashboard UI can be accessed at the following URL: <https://k2s.cluster.local/monitoring>
 
 ### Access using port-forwarding
 
@@ -49,7 +47,7 @@ To access monitoring dashboard via port-forwarding, the following command can be
 kubectl -n monitoring port-forward svc/kube-prometheus-stack-plutono 3000:443
 ```
 
-In this case, the monitoring dashboard UI can be accessed at the following link: <https://localhost:3000>
+In this case, the monitoring dashboard UI can be accessed at the following URL: <https://localhost:3000/monitoring>
 
 ### Login to monitoring dashboard
 

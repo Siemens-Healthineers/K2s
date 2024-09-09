@@ -140,12 +140,16 @@ function Start-ClusterUpgrade {
             Write-Progress -Activity 'Check if resources need to be exported..' -Id 1 -Status '3/10' -PercentComplete 30 -CurrentOperation 'Starting cluster, please wait..'
         }
 
-        $currentExeFolder = "$(Get-ClusterInstalledFolder)\bin\exe"
-        Export-ClusterResources -SkipResources:$SkipResources -PathResources $BackupDir -ExePath $currentExeFolder
+        # kube tools folder changed from bin\exe to bin\kube
+        $currentKubeToolsFolder = "$(Get-ClusterInstalledFolder)\bin\kube"
+        if (!(Test-Path $currentKubeToolsFolder)) {
+            $currentKubeToolsFolder = "$(Get-ClusterInstalledFolder)\bin\exe"
+        }
+        Export-ClusterResources -SkipResources:$SkipResources -PathResources $BackupDir -ExePath $currentKubeToolsFolder
 
         # Invoke backup hooks
         $hooksBackupPath = Join-Path $BackupDir 'hooks'
-        Invoke-BackupRestoreHooks -HookType Backup -BackupDir $hooksBackupPath -ShowLogs:$ShowLogs -AdditionalHooksDir $AdditionalHooksDir
+        Invoke-UpgradeBackupRestoreHooks -HookType Backup -BackupDir $hooksBackupPath -ShowLogs:$ShowLogs -AdditionalHooksDir $AdditionalHooksDir
 
         if ($ShowProgress -eq $true) {
             Write-Progress -Activity 'Backing up addons..' -Id 1 -Status '4/10' -PercentComplete 40 -CurrentOperation 'Backing up addons, please wait..'
@@ -175,7 +179,12 @@ function Start-ClusterUpgrade {
         Invoke-ClusterUninstall -ShowLogs:$ShowLogs -DeleteFiles:$DeleteFiles
 
         $logFilePath = Get-LogFilePath
+        
+        # ensure UTF-8 even for legacy encodings
         Get-Content $logFilePath -Encoding utf8 | Out-File $logFilePath -Encoding utf8
+
+        # setup config might be still there if previous version stored the setup config in a different location
+        Remove-SetupConfigIfExisting
 
         Start-Sleep -s 1
 
@@ -193,15 +202,15 @@ function Start-ClusterUpgrade {
         Restore-Addons -BackupDir $addonsBackupPath
 
         # Invoke restore hooks
-        Invoke-BackupRestoreHooks -HookType Restore -BackupDir $hooksBackupPath -ShowLogs:$ShowLogs -AdditionalHooksDir $AdditionalHooksDir
+        Invoke-UpgradeBackupRestoreHooks -HookType Restore -BackupDir $hooksBackupPath -ShowLogs:$ShowLogs -AdditionalHooksDir $AdditionalHooksDir
 
-        $exeFolder = Get-KubeToolsPath
+        $kubeExeFolder = Get-KubeToolsPath
         # import of resources
-        Import-NotNamespacedResources -FolderIn $BackupDir -ExePath $exeFolder
+        Import-NotNamespacedResources -FolderIn $BackupDir -ExePath $kubeExeFolder
         if ($ShowProgress -eq $true) {
             Write-Progress -Activity 'Apply namespaced resources on cluster..' -Id 1 -Status '8/10' -PercentComplete 80 -CurrentOperation 'Apply namespaced resources, please wait..'
         }
-        Import-NamespacedResources -FolderIn $BackupDir -ExePath $exeFolder
+        Import-NamespacedResources -FolderIn $BackupDir -ExePath $kubeExeFolder
         if ($ShowProgress -eq $true) {
             Write-Progress -Activity 'Restoring addons..' -Id 1 -Status '9/10' -PercentComplete 90 -CurrentOperation 'Restoring addons, please wait..'
         }

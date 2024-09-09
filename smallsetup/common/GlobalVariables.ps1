@@ -150,7 +150,7 @@ $global:Admin_WinNode = "administrator@$global:MultiVMWinNodeIP"
 
 # setup config file
 $global:SetupJsonFile = "$global:K2sConfigDir\setup.json"
-$global:KubernetesImagesJson = "$global:KubeConfigDir\kubernetes_images.json"
+$global:KubernetesImagesJson = "$global:K2sConfigDir\kubernetes_images.json"
 $global:WindowsTimezoneConfig = "$global:KubeConfigDir\windowsZones.xml"
 $global:SetupType_k2s = 'k2s'
 $global:SetupType_MultiVMK8s = 'MultiVMK8s'

@@ -19,7 +19,10 @@ function Add-WindowsWorkerNodeOnWindowsHost {
         [switch] $DeleteFilesForOfflineInstallation = $false,
         [parameter(Mandatory = $false, HelpMessage = 'Force the installation online. This option is needed if the files for an offline installation are available but you want to recreate them.')]
         [switch] $ForceOnlineInstallation = $false,
-        [string] $WorkerNodeNumber = $(throw 'Argument missing: WorkerNodeNumber')
+        [string] $PodSubnetworkNumber = $(throw 'Argument missing: PodSubnetworkNumber'),
+        [string] $JoinCommand = $(throw 'Argument missing: JoinCommand'),
+        [parameter(Mandatory = $false, HelpMessage = 'The path to local builds of Kubernetes binaries')]
+        [string] $K8sBinsPath = ''
     )
     Stop-InstallIfNoMandatoryServiceIsRunning
 
@@ -34,24 +37,20 @@ function Add-WindowsWorkerNodeOnWindowsHost {
     Add-VfpRulesToWindowsNode -VfpRulesInJsonFormat $vfpRoutingRules
 
     $kubernetesVersion = Get-DefaultK8sVersion
-    $controlPlaneIpAddress = Get-ConfiguredIPControlPlane
-    $windowsHostIpAddress = Get-ConfiguredKubeSwitchIP
 
     Initialize-WinNode -KubernetesVersion $kubernetesVersion `
         -HostGW:$true `
         -Proxy:"$Proxy" `
         -DeleteFilesForOfflineInstallation $DeleteFilesForOfflineInstallation `
         -ForceOnlineInstallation $ForceOnlineInstallation `
-        -WorkerNodeNumber $WorkerNodeNumber
+        -PodSubnetworkNumber $PodSubnetworkNumber `
+        -K8sBinsPath $K8sBinsPath
 
-    $transparentproxy = 'http://' + $windowsHostIpAddress + ':8181'
-    Set-ProxySettingsOnKubenode -ProxySettings $transparentproxy -IpAddress $controlPlaneIpAddress
-    Restart-Service httpproxy -ErrorAction SilentlyContinue
 
     # join the cluster
     Write-Log "Preparing Kubernetes $KubernetesVersion by joining nodes" -Console
 
-    Initialize-KubernetesCluster -AdditionalHooksDir $AdditionalHooksDir -WorkerNodeNumber $WorkerNodeNumber
+    Initialize-KubernetesCluster -AdditionalHooksDir $AdditionalHooksDir -PodSubnetworkNumber $PodSubnetworkNumber -JoinCommand $JoinCommand
 }
 
 function Start-WindowsWorkerNodeOnWindowsHost {
@@ -64,15 +63,13 @@ function Start-WindowsWorkerNodeOnWindowsHost {
         [switch] $UseCachedK2sVSwitches,
         [parameter(Mandatory = $false, HelpMessage = 'Skips showing start header display')]
         [switch] $SkipHeaderDisplay = $false,
-        [string] $WorkerNodeNumber = $(throw 'Argument missing: WorkerNodeNumber'),
+        [string] $PodSubnetworkNumber = $(throw 'Argument missing: PodSubnetworkNumber'),
         [string] $DnsServers = $(throw 'Argument missing: DnsServers')
     )
 
     $smallsetup = Get-RootConfigk2s
     $vfpRoutingRules = $smallsetup.psobject.properties['vfprules-k2s'].value | ConvertTo-Json
     Add-VfpRulesToWindowsNode -VfpRulesInJsonFormat $vfpRoutingRules
-
-    Remove-DefaultNetNat
 
     $ipControlPlane = Get-ConfiguredIPControlPlane
     $setupConfigRoot = Get-RootConfigk2s
@@ -84,12 +81,10 @@ function Start-WindowsWorkerNodeOnWindowsHost {
     Write-Log "Add route to $clusterCIDRServicesWindows"
     route -p add $clusterCIDRServicesWindows $ipControlPlane METRIC 7 | Out-Null
 
-    Start-WindowsWorkerNode -DnsServers $DnsServers -ResetHns:$ResetHns -AdditionalHooksDir $AdditionalHooksDir -UseCachedK2sVSwitches:$UseCachedK2sVSwitches -SkipHeaderDisplay:$SkipHeaderDisplay -WorkerNodeNumber $WorkerNodeNumber
+    Start-WindowsWorkerNode -DnsServers $DnsServers -ResetHns:$ResetHns -AdditionalHooksDir $AdditionalHooksDir -UseCachedK2sVSwitches:$UseCachedK2sVSwitches -SkipHeaderDisplay:$SkipHeaderDisplay -PodSubnetworkNumber $PodSubnetworkNumber
 
-    # start dns proxy
-    Write-Log 'Starting dns proxy'
-    Start-ServiceAndSetToAutoStart -Name 'httpproxy'
-    Start-ServiceAndSetToAutoStart -Name 'dnsproxy'
+    $clusterCIDRNextHop = Get-ConfiguredClusterCIDRNextHop -PodSubnetworkNumber $PodSubnetworkNumber
+    Add-WinDnsProxyListenAddress -IpAddress $clusterCIDRNextHop
 
     Update-NodeLabelsAndTaints -WorkerMachineName $env:computername
 
@@ -103,17 +98,17 @@ function Stop-WindowsWorkerNodeOnWindowsHost {
         [switch] $CacheK2sVSwitches,
         [parameter(Mandatory = $false, HelpMessage = 'Skips showing stop header display')]
         [switch] $SkipHeaderDisplay = $false,
-        [string] $WorkerNodeNumber = $(throw 'Argument missing: WorkerNodeNumber')
+        [string] $PodSubnetworkNumber = $(throw 'Argument missing: PodSubnetworkNumber')
     )
 
     if ($SkipHeaderDisplay -eq $false) {
         Write-Log 'Stopping K2s worker node on Windows host'
     }
 
-    Stop-ServiceAndSetToManualStart 'httpproxy'
-    Stop-ServiceAndSetToManualStart 'dnsproxy'
+    $clusterCIDRNextHop = Get-ConfiguredClusterCIDRNextHop -PodSubnetworkNumber $PodSubnetworkNumber
+    Remove-WinDnsProxyListenAddress -IpAddress $clusterCIDRNextHop
 
-    Stop-WindowsWorkerNode -WorkerNodeNumber $WorkerNodeNumber -AdditionalHooksDir $AdditionalHooksDir -CacheK2sVSwitches:$CacheK2sVSwitches -SkipHeaderDisplay:$SkipHeaderDisplay
+    Stop-WindowsWorkerNode -PodSubnetworkNumber $PodSubnetworkNumber -AdditionalHooksDir $AdditionalHooksDir -CacheK2sVSwitches:$CacheK2sVSwitches -SkipHeaderDisplay:$SkipHeaderDisplay
 
     # Remove routes
     $setupConfigRoot = Get-RootConfigk2s
@@ -121,9 +116,7 @@ function Stop-WindowsWorkerNodeOnWindowsHost {
     route delete $clusterCIDRServicesWindows >$null 2>&1
 
     Remove-VfpRulesFromWindowsNode
-
-    New-DefaultNetNat
-    
+   
     Write-Log 'K2s worker node on Windows host stopped.'
 }
 
@@ -170,7 +163,7 @@ function Start-WindowsWorkerNode {
         [switch] $UseCachedK2sVSwitches,
         [parameter(Mandatory = $false, HelpMessage = 'Skips showing start header display')]
         [switch] $SkipHeaderDisplay = $false,
-        [string] $WorkerNodeNumber = $(throw 'Argument missing: WorkerNodeNumber')
+        [string] $PodSubnetworkNumber = $(throw 'Argument missing: PodSubnetworkNumber')
     )
 
     function Get-NeedsStopFirst () {
@@ -187,7 +180,7 @@ function Start-WindowsWorkerNode {
 
     if (Get-NeedsStopFirst) {
         Write-Log 'Stopping existing K8s system...'
-        Stop-WindowsWorkerNode -WorkerNodeNumber $WorkerNodeNumber -AdditionalHooksDir $AdditionalHooksDir -CacheK2sVSwitches:$UseCachedK2sVSwitches -SkipHeaderDisplay:$SkipHeaderDisplay
+        Stop-WindowsWorkerNode -PodSubnetworkNumber $PodSubnetworkNumber -AdditionalHooksDir $AdditionalHooksDir -CacheK2sVSwitches:$UseCachedK2sVSwitches -SkipHeaderDisplay:$SkipHeaderDisplay
         Start-Sleep 10
     }
 
@@ -215,9 +208,9 @@ function Start-WindowsWorkerNode {
     }
     Write-Log "The following gateway IP address will be used: $gw"
 
-    New-ExternalSwitch -adapterName $adapterName -WorkerNodeNumber $WorkerNodeNumber
+    New-ExternalSwitch -adapterName $adapterName -PodSubnetworkNumber $PodSubnetworkNumber
 
-    Invoke-Hook -HookName BeforeStartK8sNetwork -AdditionalHooksDir $AdditionalHooksDir
+    Invoke-Hook -HookName 'BeforeStartK8sNetwork' -AdditionalHooksDir $AdditionalHooksDir
 
     $ipindexEthernet = Get-NetIPInterface | Where-Object InterfaceAlias -Like "vEthernet ($adapterName)" | Where-Object AddressFamily -Eq IPv4 | Select-Object -expand 'ifIndex'
     $ipAddressForLoopbackAdapter = Get-LoopbackAdapterIP
@@ -283,8 +276,8 @@ function Start-WindowsWorkerNode {
             Write-Output "Index for interface $l2BridgeSwitchName : ($l2BridgeInterfaceIndex) -> metric 5"
 
             # $setupConfigRoot = Get-RootConfigk2s
-            $clusterCIDRWorker = Get-ConfiguredClusterCIDRHost -WorkerNodeNumber $WorkerNodeNumber #$setupConfigRoot.psobject.properties['podNetworkWorkerCIDR'].value
-            $clusterCIDRNextHop = Get-ConfiguredClusterCIDRNextHop -WorkerNodeNumber $WorkerNodeNumber #$setupConfigRoot.psobject.properties['cbr0'].value
+            $clusterCIDRWorker = Get-ConfiguredClusterCIDRHost -PodSubnetworkNumber $PodSubnetworkNumber #$setupConfigRoot.psobject.properties['podNetworkWorkerCIDR'].value
+            $clusterCIDRNextHop = Get-ConfiguredClusterCIDRNextHop -PodSubnetworkNumber $PodSubnetworkNumber #$setupConfigRoot.psobject.properties['cbr0'].value
 
             # routes for Windows pods
             Write-Output "Remove obsolete route to $clusterCIDRWorker"
@@ -318,7 +311,7 @@ function Stop-WindowsWorkerNode {
         [switch] $CacheK2sVSwitches,
         [parameter(Mandatory = $false, HelpMessage = 'Skips showing stop header display')]
         [switch] $SkipHeaderDisplay = $false,
-        [string] $WorkerNodeNumber = $(throw "Argument missing: WorkerNodeNumber")
+        [string] $PodSubnetworkNumber = $(throw "Argument missing: PodSubnetworkNumber")
     )
 
     Write-Log 'Stopping Kubernetes services on the Windows node' -Console
@@ -359,7 +352,7 @@ function Stop-WindowsWorkerNode {
         Start-ServiceProcess 'docker'
     }
 
-    $podNetworkCIDR = Get-ConfiguredClusterCIDRHost -WorkerNodeNumber $WorkerNodeNumber
+    $podNetworkCIDR = Get-ConfiguredClusterCIDRHost -PodSubnetworkNumber $PodSubnetworkNumber
     # Remove routes
     route delete $podNetworkCIDR >$null 2>&1
 
@@ -402,12 +395,13 @@ function CheckFlannelConfig {
 }
 
 function Test-ExistingExternalSwitch {
-    $externalSwitches = Get-VMSwitch | Where-Object { $_.SwitchType -eq 'External' }
+    $l2BridgeSwitchName = Get-L2BridgeSwitchName
+    $externalSwitches = Get-VMSwitch | Where-Object { $_.SwitchType -eq 'External'  -and $_.Name -ne $l2BridgeSwitchName}
     if ($externalSwitches) {
         Write-Log 'Found External Switches:'
         Write-Log $($externalSwitches | Select-Object -Property Name)
         Write-Log 'Precheck failed: Cannot proceed further with existing External Network Switches as it conflicts with k2s networking' -Console
-        Write-Log "Remove all your External Network Switches with command PS>Get-VMSwitch | Where-Object { `$_.SwitchType -eq 'External' } | Remove-VMSwitch -Force" -Console
+        Write-Log "Remove all your External Network Switches with command PS>Get-VMSwitch | Where-Object { `$_.SwitchType -eq 'External'  -and `$_.Name -ne '$l2BridgeSwitchName'} | Remove-VMSwitch -Force" -Console
         Write-Log 'WARNING: This will remove your External Switches, please check whether these switches are required before executing the command' -Console
         throw 'Remove all the existing External Network Switches and retry the k2s command again'
     }
@@ -439,7 +433,355 @@ function Restart-WinServiceVmCompute {
     }
 }
 
+function Add-WindowsWorkerNodeOnNewVM {
+    Param(
+        [parameter(Mandatory = $false, HelpMessage = 'Windows Image to use')]
+        [string] $Image,
+        [parameter(Mandatory = $false, HelpMessage = 'Windows hostname')]
+        [string] $Hostname = $(throw 'Argument missing: Name'),
+        [parameter(Mandatory = $false, HelpMessage = 'Windows hostname')]
+        [string] $VmName = $(throw 'Argument missing: VmName'),
+        [parameter(Mandatory = $false, HelpMessage = 'Startup Memory Size of Windows VM')]
+        [long] $VMStartUpMemory = $(throw 'Argument missing: VMStartUpMemory'),
+        [parameter(Mandatory = $false, HelpMessage = 'Virtual hard disk size of VM')]
+        [long] $VMDiskSize = $(throw 'Argument missing: VMDiskSize'),
+        [parameter(Mandatory = $false, HelpMessage = 'Number of Virtual Processors of Windows VM')]
+        [long] $VMProcessorCount = $(throw 'Argument missing: VMProcessorCount'),
+        [string]$IpAddress = $(throw 'Argument missing: IpAddress'),
+        [parameter(HelpMessage = 'DNS Addresses')]
+        [string] $DnsAddresses = $(throw 'Argument missing: DnsAddresses'),
+        [parameter(Mandatory = $false, HelpMessage = 'HTTP proxy if available')]
+        [string] $Proxy,
+        [parameter(Mandatory = $false, HelpMessage = 'Directory containing additional hooks to be executed after local hooks are executed')]
+        [string] $AdditionalHooksDir = '',
+        [parameter(Mandatory = $false, HelpMessage = 'Deletes the needed files to perform an offline installation')]
+        [switch] $DeleteFilesForOfflineInstallation = $false,
+        [parameter(Mandatory = $false, HelpMessage = 'Force the installation online. This option is needed if the files for an offline installation are available but you want to recreate them.')]
+        [switch] $ForceOnlineInstallation = $false
+    )
+
+    $workerNodeParams = @{
+        Image = $Image
+        Hostname = 'no_hostname'
+        VmName = $VmName
+        VMStartUpMemory = $VMStartUpMemory
+        VMProcessorCount = $VMProcessorCount
+        VMDiskSize = $VMDiskSize
+        DnsAddresses = $DnsAddresses
+        Proxy = $Proxy
+        DeleteFilesForOfflineInstallation = $DeleteFilesForOfflineInstallation
+        ForceOnlineInstallation = $ForceOnlineInstallation
+    }
+
+    New-WindowsVmForWorkerNode @workerNodeParams
+
+    $vmPwd = Get-DefaultTempPwd
+
+    $session1 = Open-RemoteSession -VMName $VmName -VmPwd $vmPwd
+
+    Invoke-Command -Session $session1 -WarningAction SilentlyContinue {
+        Rename-Computer -NewName $using:Hostname -Force | Out-Null
+    }
+    Stop-VirtualMachine -VmName $VmName -Wait
+    Start-VirtualMachine -VmName $VmName -Wait
+
+    $session2 = Open-RemoteSession -VMName $VmName -VmPwd $vmPwd
+
+    $kubePath = Get-KubePath
+    Write-Log "Copying sources from $kubePath..."
+    # Write-Log 'Copy Source from Host to VM node'
+    Invoke-Command -Session $session2 { New-Item -Path 'C:\k' -ItemType Directory }
+    Invoke-Command -Session $session2 { New-Item -Path 'C:\k\bin' -ItemType Directory }
+    Copy-Item -ToSession $session2 -Path (Get-Item -Path "$kubePath\*" -Exclude ('.git', '.github', '.vscode', '.gitignore', 'bin', 'addons', 'test', 'docs', 'build' )).FullName -Destination "c:\k" -Recurse -Force
+    Copy-Item -ToSession $session2 -Path (Get-Item -Path "$kubePath\bin\*" -Exclude ('*.vhdx', '*.gz', 'windowsnode' )).FullName -Destination "c:\k\bin" -Recurse -Force
+    Write-Log "  done."
+
+    $gatewayIpAddress = Get-ConfiguredKubeSwitchIP
+    Set-VmIPAddress -PSSession $session2 -IPAddr $IpAddress -DefaultGatewayIpAddr $gatewayIpAddress -DnsAddr $IpAddress -MaskPrefixLength 24
+
+    Write-Log "Copy K8s config file to VM..."
+    $userPath = Invoke-Command -Session $session2 { return "$(Resolve-Path '~')" }
+    $target = "$userPath\.kube"
+    Invoke-Command -Session $session2 { New-Item -Path $using:target -ItemType Directory }
+    Copy-Item -ToSession $session2 -Path "$(Resolve-Path "~\.kube")\config" -Destination "$target\config"
+    Write-Log "   done."
+    
+    $joinCommand = New-JoinCommand
+    $kubernetesVersion = Get-DefaultK8sVersion
+    $ipControlPlane = Get-ConfiguredIPControlPlane
+
+    Invoke-Command -Session $session2 -WarningAction SilentlyContinue {
+        Set-Location $env:SystemDrive\k
+        Set-ExecutionPolicy Bypass -Force -ErrorAction SilentlyContinue
+        
+        Import-Module $env:SystemDrive\k\lib\modules\k2s\k2s.infra.module\k2s.infra.module.psm1
+        Import-Module $env:SystemDrive\k\lib\modules\k2s\k2s.node.module\k2s.node.module.psm1
+        Import-Module $env:SystemDrive\k\lib\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1
+        Initialize-Logging -Nested:$true
+
+        Set-EnvVars
+        Invoke-DeployWinArtifacts -KubernetesVersion $using:kubernetesVersion -Proxy $using:Proxy
+
+        Install-WinHttpProxy -Proxy $using:Proxy
+
+        $windowsArtifactsDirectory = Get-WindowsArtifactsDirectory
+        Invoke-DeployDnsProxyArtifacts $windowsArtifactsDirectory
+        $ipWorkerNode = $using:IpAddress
+        $ipControlPlane = $using:ipControlPlane
+        Install-WinDnsProxy -ListenIpAddresses @($ipWorkerNode) -UpstreamIpAddressForCluster $ipControlPlane -UpstreamIpAddressesForNonCluster $($using:DnsAddresses -split ',')
+
+        $transparentProxy = "http://$($ipWorkerNode):8181"
+
+        $params = @{
+            Proxy = $transparentProxy
+            PodSubnetworkNumber = '1'
+            JoinCommand = $using:joinCommand
+        }
+        Add-WindowsWorkerNodeOnWindowsHost @params
+
+        # create shell shortcut
+        $WshShell = New-Object -comObject WScript.Shell
+        $Shortcut = $WshShell.CreateShortcut("$Home\Desktop\cmd.lnk")
+        $Shortcut.TargetPath = 'C:\Windows\System32\cmd.exe'
+        $Shortcut.Arguments = "/K `"cd c:\k`""
+        $Shortcut.Save()
+
+        # Stop Microsoft Defender interference with K2s setup
+        Add-K2sToDefenderExclusion
+    }
+
+    Write-Log "Initialize ssh connection to Windows VM"
+    Initialize-SSHConnectionToWinVM $session2 $IpAddress
+    Enable-SSHRemotingViaSSHKeyToWinNode $session2
+
+    $adminWinNode = Get-DefaultWinVMName
+    $windowsVMKey = Get-DefaultWinVMKey
+    # Initiate first time ssh to establish connection over key for subsequent operations
+    ssh.exe -n -o StrictHostKeyChecking=no -i $windowsVMKey $adminWinNode hostname 2> $null
+   
+    Disable-PasswordAuthenticationToWinNode
+
+    Write-Log "Collecting kubernetes images and storing them to $(Get-KubernetesImagesFilePath)."
+    Write-KubernetesImagesIntoJson -WorkerVM $true 
+}
+
+function Start-WindowsWorkerNodeOnNewVM {
+    param (
+        [parameter(Mandatory = $false, HelpMessage = 'Do a full reset of the HNS network at start')]
+        [switch] $ResetHns = $false,
+        [parameter(Mandatory = $false, HelpMessage = 'Directory containing additional hooks to be executed after local hooks are executed')]
+        [string] $AdditionalHooksDir = '',
+        [parameter(Mandatory = $false, HelpMessage = 'Use cached vSwitches')]
+        [switch] $UseCachedK2sVSwitches,
+        [parameter(Mandatory = $false, HelpMessage = 'Skips showing start header display')]
+        [switch] $SkipHeaderDisplay = $false,
+        [string] $SwitchName = $(throw 'Argument missing: SwitchName'),
+        [string] $VmName = $(throw 'Argument missing: VmName'),
+        [string] $VfpRules = $(throw 'Argument missing: VfpRules'),
+        [string] $VmIpAddress = $(throw 'Argument missing: VmIpAddress'),
+        [string] $PodSubnetworkNumber = $(throw "Argument missing: PodSubnetworkNumber"),
+        [string] $Hostname = $(throw 'Argument missing: Hostname'),
+        [string] $DnsServers = $(throw 'Argument missing: DnsServers')
+    )
+
+    $timezoneStandardNameOnHost = (Get-TimeZone).StandardName
+
+    $windowsVmName = $VmName
+
+    $isVmExisting = Get-VmExists -VmName $windowsVmName
+    if ($isVmExisting)
+    {
+        Disconnect-NetworkAdapterFromVm -VmName $windowsVmName
+        Connect-NetworkAdapterToVm -VmName $windowsVmName -SwitchName $SwitchName
+
+        $isVmRunning = Get-IsVmOperating -VmName $windowsVmName
+        if (!$isVmRunning) {
+            Start-VirtualMachine -VmName $windowsVmName -Wait
+        }
+    } else {
+        throw "The VM '$windowsVmName' does not exist"
+    }
+   
+    Wait-ForSSHConnectionToWindowsVMViaSshKey
+
+    $session = Open-DefaultWinVMRemoteSessionViaSSHKey
+
+    Invoke-Command -Session $session {
+        Set-Location "$env:SystemDrive\k"
+        Set-ExecutionPolicy Bypass -Force -ErrorAction SilentlyContinue
+
+        Import-Module $env:SystemDrive\k\lib\modules\k2s\k2s.infra.module\k2s.infra.module.psm1
+        Import-Module $env:SystemDrive\k\lib\modules\k2s\k2s.node.module\k2s.node.module.psm1
+        Initialize-Logging -Nested:$true
+
+        Set-IndexForDefaultSwitch
+
+        Start-WinHttpProxy
+        Start-WinDnsProxy
+
+        netsh int ipv4 set int 'Ethernet' forwarding=enabled | Out-Null
+
+        $workerNodeStartParams = @{
+            ResetHns = $using:ResetHns
+            AdditionalHooksDir = $using:AdditionalHooksDir
+            UseCachedK2sVSwitches = $using:UseCachedK2sVSwitches
+            SkipHeaderDisplay = $using:SkipHeaderDisplay
+            DnsServers = $using:DnsServers
+            PodSubnetworkNumber = $using:PodSubnetworkNumber
+        }
+        Start-WindowsWorkerNodeOnWindowsHost @workerNodeStartParams
+
+        Set-TimeZone -Name $using:timezoneStandardNameOnHost
+    }
+
+    $ipControlPlane = Get-ConfiguredIPControlPlane
+    $setupConfigRoot = Get-RootConfigk2s
+    $clusterCIDRServicesWindows = $setupConfigRoot.psobject.properties['servicesCIDRWindows'].value
+    $clusterCIDRWorker = Get-ConfiguredClusterCIDRHost -PodSubnetworkNumber $PodSubnetworkNumber
+
+    # routes for Windows pods
+    Write-Output "Remove obsolete route to $clusterCIDRWorker"
+    route delete $clusterCIDRWorker >$null 2>&1
+    Write-Output "Add route to $clusterCIDRWorker"
+    route -p add $clusterCIDRWorker $VmIpAddress METRIC 5 | Out-Null
+
+    # routes for services
+    Write-Log "Remove obsolete route to $clusterCIDRServicesWindows"
+    route delete $clusterCIDRServicesWindows >$null 2>&1
+    Write-Log "Add route to $clusterCIDRServicesWindows"
+    route -p add $clusterCIDRServicesWindows $ipControlPlane METRIC 7 | Out-Null
+}
+
+function Stop-WindowsWorkerNodeOnNewVM {
+    param (
+        [parameter(Mandatory = $false, HelpMessage = 'Directory containing additional hooks to be executed after local hooks are executed')]
+        [string] $AdditionalHooksDir = '',
+        [parameter(Mandatory = $false, HelpMessage = 'Cache vSwitches on stop')]
+        [switch] $CacheK2sVSwitches,
+        [parameter(Mandatory = $false, HelpMessage = 'Skips showing stop header display')]
+        [switch] $SkipHeaderDisplay = $false,
+        [string] $PodSubnetworkNumber = $(throw 'Argument missing: PodSubnetworkNumber'),
+        [string] $SwitchName = $(throw 'Argument missing: SwitchName')
+    )
+
+    $windowsVmName = Get-ConfigVMNodeHostname
+    $isVmExisting = Get-VmExists -VmName $windowsVmName
+    if ($isVmExisting)
+    {
+        $isVmRunning = Get-IsVmOperating -VmName $windowsVmName
+        if (!$isVmRunning) {
+            Disconnect-NetworkAdapterFromVm -VmName $windowsVmName
+            Connect-NetworkAdapterToVm -VmName $windowsVmName -SwitchName $SwitchName
+            Start-VirtualMachine -VmName $windowsVmName -Wait
+        }
+            
+        Wait-ForSSHConnectionToWindowsVMViaSshKey
+
+        $session = Open-DefaultWinVMRemoteSessionViaSSHKey
+
+        Invoke-Command -Session $session {
+            Set-Location "$env:SystemDrive\k"
+            Set-ExecutionPolicy Bypass -Force -ErrorAction SilentlyContinue
+
+            Import-Module $env:SystemDrive\k\lib\modules\k2s\k2s.infra.module\k2s.infra.module.psm1
+            Import-Module $env:SystemDrive\k\lib\modules\k2s\k2s.node.module\k2s.node.module.psm1
+            Initialize-Logging -Nested:$true
+
+            Stop-WinHttpProxy
+            Stop-WinDnsProxy
+
+            $workerNodeStopParams = @{
+                AdditionalHooksDir = $using:AdditionalHooksDir
+                CacheK2sVSwitches = $using:CacheK2sVSwitches
+                SkipHeaderDisplay = $using:SkipHeaderDisplay
+                PodSubnetworkNumber = $using:PodSubnetworkNumber
+            }
+            Stop-WindowsWorkerNodeOnWindowsHost @workerNodeStopParams
+        }
+
+        Stop-VirtualMachine -VmName $windowsVmName -Wait
+        Disconnect-NetworkAdapterFromVm -VmName $windowsVmName
+    }
+
+    # Remove routes
+    $clusterCIDRWorker = Get-ConfiguredClusterCIDRHost -PodSubnetworkNumber $PodSubnetworkNumber
+    route delete $clusterCIDRWorker >$null 2>&1
+    $setupConfigRoot = Get-RootConfigk2s
+    $clusterCIDRServicesWindows = $setupConfigRoot.psobject.properties['servicesCIDRWindows'].value
+    route delete $clusterCIDRServicesWindows >$null 2>&1
+}
+
+function Remove-WindowsWorkerNodeOnNewVM {
+    Param(
+        [parameter(Mandatory = $false, HelpMessage = 'Deletes the needed files to perform an offline installation')]
+        [switch] $DeleteFilesForOfflineInstallation = $false,
+        [parameter(Mandatory = $false, HelpMessage = 'Directory containing additional hooks to be executed after local hooks are executed')]
+        [string] $AdditionalHooksDir = '',
+        [parameter(Mandatory = $false, HelpMessage = 'Skips showing uninstall header display')]
+        [switch] $SkipHeaderDisplay = $false,
+        [string] $PodSubnetworkNumber = $(throw 'Argument missing: PodSubnetworkNumber'),
+        [string] $VmName = $(throw 'Argument missing: VmName'),
+        [string] $SwitchName = $(throw 'Argument missing: SwitchName')
+    )
+
+    $isVmExisting = Get-VmExists -VmName $VmName
+
+    if ($isVmExisting)
+    {
+        $isVmRunning = Get-IsVmOperating -VmName $VmName
+        if ($isVmRunning) {
+            Stop-VirtualMachine -VmName $VmName -Wait
+        }
+        Disconnect-NetworkAdapterFromVm -VmName $VmName
+        Remove-VirtualMachine $VmName
+    }
+    
+    $setupConfigRoot = Get-RootConfigk2s
+    $clusterCIDRServicesWindows = $setupConfigRoot.psobject.properties['servicesCIDRWindows'].value
+    $clusterCIDRWorker = Get-ConfiguredClusterCIDRNextHop -PodSubnetworkNumber $PodSubnetworkNumber 
+
+    # routes for Windows pods
+    Write-Output "Remove obsolete route to $clusterCIDRWorker"
+    route delete $clusterCIDRWorker >$null 2>&1
+    # routes for services
+    Write-Log "Remove obsolete route to $clusterCIDRServicesWindows"
+    route delete $clusterCIDRServicesWindows >$null 2>&1
+
+    Write-Log 'Remove previous VM key from known_hosts file'
+    $vmWinNodeIP = Get-WindowsVmIpAddress
+    ssh-keygen.exe -R $vmWinNodeIP 2>&1 | % { "$_" } | Out-Null
+
+    $windowsVMKey = Get-DefaultWinVMKey
+    $windowsVMKeyDirectory = Split-Path $windowsVMKey
+    Remove-Item -Path $windowsVMKeyDirectory -Recurse -Force | Out-Null
+
+    if ($DeleteFilesForOfflineInstallation) {
+        $kubeBinPath = Get-KubeBinPath
+        $windowsBaseFilePath = "$kubeBinPath\Windows-Base.vhdx"
+        $windowsKubenodeBaseFilePath = "$kubeBinPath\Windows-Kubeworker-Base.vhdx"
+        if (Test-Path $windowsBaseFilePath) {
+            Remove-Item -Path $windowsBaseFilePath -Force
+        }
+        if (Test-Path $windowsKubenodeBaseFilePath) {
+            Remove-Item -Path $windowsKubenodeBaseFilePath -Force
+        }
+    }
+}
+
+function Get-VmExists {
+    param(
+        [string] $VmName = $(throw 'Argument missing: VmName')
+    )
+
+    $vm = Get-VM | Where-Object Name -eq $VmName
+    return ($null -ne $vm)
+}
+
 Export-ModuleMember -Function Add-WindowsWorkerNodeOnWindowsHost,
 Remove-WindowsWorkerNodeOnWindowsHost,
 Start-WindowsWorkerNodeOnWindowsHost,
-Stop-WindowsWorkerNodeOnWindowsHost
+Stop-WindowsWorkerNodeOnWindowsHost,
+Add-WindowsWorkerNodeOnNewVM,
+Start-WindowsWorkerNodeOnNewVM,
+Stop-WindowsWorkerNodeOnNewVM,
+Remove-WindowsWorkerNodeOnNewVM

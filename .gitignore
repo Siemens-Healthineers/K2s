@@ -3,8 +3,8 @@
 # SPDX-License-Identifier: CC0-1.0
 
 #Binaries
-bin/exe/*.exe
-bin/exe/*.dll
+bin/kube/*.exe
+bin/kube/*.dll
 bin/nginx
 bin/helm.exe
 flannel*.exe
@@ -12,7 +12,8 @@ host-local.exe
 win*.exe
 kub*.exe
 virt*.exe
-ARGO.EXE
+bin/argocd.exe
+bin/cmctl.exe
 nssm.exe
 vc_redist.x64.exe
 
@@ -85,6 +86,8 @@ containerd/nerdctl.exe
 /bin/KubeMaster-Base.rootfs.tar.gz
 /bin/Kubemaster-Base-Ubuntu.vhdx
 /bin/Kubenode-Base.vhdx
+/bin/Windows-Base.vhdx
+/bin/Windows-Kubeworker-Base.vhdx
 /bin/windowsnode
 /bin/WindowsNodeArtifacts.zip
 
@@ -142,3 +145,16 @@ bin/cdxgen.exe
 .cache
 site
 build/bom/sbomgenerator.exe
+k2s/cmd/vfprules/vfprules/vfprules.obj
+k2s/cmd/vfprules/vfprules/vfprules.dll
+k2s/cmd/vfprules/vfprules/vfprules.exp
+k2s/cmd/vfprules/vfprules/vfprules.lib
+k2s/cmd/vfprules/vfprules/.vs/** 
+k2s/cmd/vfprules/vfprules/x64/**
+k2s/cmd/vfprules/vfprules/vfprules.sln
+k2s/cmd/vfprules/vfprules/vfprules.vcxproj.filters
+k2s/cmd/vfprules/vfprules/vfprules.vcxproj.user
+bin/cni/vfprules.lib
+bin/cni/vfprules.json.origin
+bin/cni/vfprules.exp
+bin/cni/vfprules.pdb

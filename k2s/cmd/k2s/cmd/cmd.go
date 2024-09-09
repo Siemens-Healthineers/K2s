@@ -59,7 +59,7 @@ func CreateRootCmd(logger *logging.Slogger) (*cobra.Command, error) {
 
 			slog.Debug("config loaded", "config", config)
 
-			cmd.SetContext(context.WithValue(cmd.Context(), cc.ContextKeyConfig, config))
+			cmd.SetContext(context.WithValue(cmd.Context(), cc.ContextKeyCmdContext, cc.NewCmdContext(config, logger)))
 
 			return nil
 		},

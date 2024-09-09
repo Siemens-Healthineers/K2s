@@ -18,34 +18,34 @@ The Kubernetes dashboard can be enabled using the k2s CLI by running the followi
 k2s addons enable dashboard
 ```
 
-### Intergration with metrics-server addon
+### Intergration with metrics addon
 
-By enabling the metrics-server addon, the dashboard addon can present the collected metrics in the dashboard UI.
+By enabling the metrics addon, the dashboard addon can present the collected metrics in the dashboard UI.
 
-The following commands enable the metrics-server addon and the dashboard addon:
+The following commands enable the metrics addon and the dashboard addon:
 
 ```
-k2s addons enable metrics-server
+k2s addons enable metrics
 k2s addons enable dashboard
 ```
 
-The metrics-server addon can be enabled while enabling the dashboard addon using the following command:
+The metrics addon can be enabled while enabling the dashboard addon using the following command:
 
 ```
-k2s addons enable dashboard --enable-metrics-server
+k2s addons enable dashboard --enable-metrics
 ```
 
-### Integration with ingress-nginx and traefik addons
+### Integration with ingress nginx and ingress traefik addons
 
-The dashboard addon can be integrated with either the ingress-nginx addon or the traefik addon so that it can be exposed outside the cluster.
+The dashboard addon can be integrated with either the ingress nginx or the ingress traefik addon so that it can be exposed outside the cluster.
 
-For example, the dashboard can be enabled along with traefik addon using the following command:
+For example, the dashboard can be enabled along with ingress traefik addon using the following command:
 
 ```
 k2s addons enable dashboard --ingress traefik
 ```
 
-_Note:_ The above command shall enable the traefik addon if it is not enabled.
+_Note:_ The above command shall enable the ingress traefik addon if it is not enabled.
 
 ## Accessing the dashboard
 
@@ -53,9 +53,9 @@ The dashboard UI can be accessed via the following methods.
 
 ### Access using ingress
 
-To access dashboard via ingress, the ingress-nginx or the traefik addon has to enabled.
+To access dashboard via ingress, the ingress nginx or the ingress traefik addon has to enabled.
 Once the addons are enabled, then the dashboard UI can be accessed at the following links:
-<https://k2s.cluster.local/dashboard/> and <https://k2s-dashboard.cluster.local> (with HTTP using http://.. instead of https://..)
+<https://k2s.cluster.local/dashboard/> (with HTTP using http://.. instead of https://..)
 
 ### Access using port-forwarding
 

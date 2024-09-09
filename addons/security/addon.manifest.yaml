@@ -8,49 +8,52 @@ metadata:
   name: security
   description: "EXPERIMENTAL: Enables secure communication into and inside the cluster"
 spec:
-  offline_usage:
-    linux:
-      repos: []
-      deb: []
-      curl: []
-      additionalImages: []
-    windows:
-      curl:
-        - url: https://github.com/cert-manager/cmctl/releases/download/v2.0.0/cmctl_windows_amd64.exe
-          destination: bin\exe\cmctl.exe
-  commands:
-    enable:
-      cli:
-        flags:
-          - name: ingress
-            shorthand: i
-            default: ingress-nginx
-            description: Ingress controller to use for exposing security
-            constraints:
-              kind: validation-set
-              validationSet:
-                - ingress-nginx
-                - traefik
-          - name: proxy
-            shorthand: p
-            default: ""
-            description: HTTP Proxy
-        examples:
-          - cmd: k2s addons enable security
-            comment: Enable security addon with CA issuer configured
-          - cmd: k2s addons enable security --proxy http://10.11.12.13:5000
-            comment: Enable security addon with CA issuer configured using an HTTP proxy
-      script:
-        subPath: Enable.ps1
-        parameterMappings:
-          - cliFlagName: proxy
-            scriptParameterName: Proxy
-          - cliFlagName: ingress
-            scriptParameterName: Ingress            
-    disable:
-      cli:
-        examples:
-          - cmd: k2s addons disable security
-            comment: Disable addon security in K2s
-      script:
-        subPath: Disable.ps1
+  implementations:
+    - name: security
+      description: "EXPERIMENTAL: Enables secure communication into and inside the cluster"
+      offline_usage:
+        linux:
+          repos: []
+          deb: []
+          curl: []
+          additionalImages: []
+        windows:
+          curl:
+            - url: https://github.com/cert-manager/cmctl/releases/download/v2.0.0/cmctl_windows_amd64.exe
+              destination: bin\cmctl.exe
+      commands:
+        enable:
+          cli:
+            flags:
+              - name: ingress
+                shorthand: i
+                default: nginx
+                description: Ingress controller to use for exposing security
+                constraints:
+                  kind: validation-set
+                  validationSet:
+                    - nginx
+                    - traefik
+              - name: proxy
+                shorthand: p
+                default: ""
+                description: HTTP Proxy
+            examples:
+              - cmd: k2s addons enable security
+                comment: Enable security addon with CA issuer configured
+              - cmd: k2s addons enable security --proxy http://10.11.12.13:5000
+                comment: Enable security addon with CA issuer configured using an HTTP proxy
+          script:
+            subPath: Enable.ps1
+            parameterMappings:
+              - cliFlagName: proxy
+                scriptParameterName: Proxy
+              - cliFlagName: ingress
+                scriptParameterName: Ingress            
+        disable:
+          cli:
+            examples:
+              - cmd: k2s addons disable security
+                comment: Disable addon security in K2s
+          script:
+            subPath: Disable.ps1

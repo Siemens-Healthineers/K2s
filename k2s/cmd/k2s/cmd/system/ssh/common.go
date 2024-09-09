@@ -52,7 +52,7 @@ var (
 			psVersion,
 			outputWriter,
 			"-Command",
-			utils.EscapeWithSingleQuotes(cmd))
+			utils.EscapeWithDoubleQuotes(utils.EscapeWithDoubleQuotes(utils.EscapeDollar(cmd)))) //must be escaped doubled to be invoked properly from central Invoke-ExecScript.ps1
 		if err != nil {
 			return err
 		}

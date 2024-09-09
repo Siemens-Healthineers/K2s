@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/siemens-healthineers/k2s/cmd/k2s/utils/logging"
+	"github.com/siemens-healthineers/k2s/internal/config"
 	"github.com/siemens-healthineers/k2s/internal/host"
 	bl "github.com/siemens-healthineers/k2s/internal/logging"
 	"github.com/siemens-healthineers/k2s/internal/powershell"
@@ -51,14 +53,20 @@ type PtermWriter struct {
 type SlogWriter struct {
 }
 
+type CmdContext struct {
+	config *config.Config
+	logger *logging.Slogger
+}
+
 const (
 	ErrSystemNotInstalledMsg     = "You have not installed K2s setup yet, please start the installation with command 'k2s.exe install' first"
 	ErrSystemInCorruptedStateMsg = "Errors occurred during K2s setup. K2s cluster is in corrupted state. Please uninstall and reinstall K2s cluster."
+	ErrSystemNotRunningMsg       = "The system is stopped. Run 'k2s start' to start the system."
 
 	SeverityWarning FailureSeverity = 3
 	SeverityError   FailureSeverity = 4
 
-	ContextKeyConfig ContextKey = "config"
+	ContextKeyCmdContext ContextKey = "cmd-context"
 
 	OutputFlagName      = "output"
 	OutputFlagShorthand = "o"
@@ -91,8 +99,13 @@ func NewPtermWriter() *PtermWriter {
 	}
 }
 
-func NewSlogWriter() host.StdWriter {
-	return &SlogWriter{}
+func NewSlogWriter() host.StdWriter { return &SlogWriter{} }
+
+func NewCmdContext(config *config.Config, logger *logging.Slogger) *CmdContext {
+	return &CmdContext{
+		config: config,
+		logger: logger,
+	}
 }
 
 func PrintCompletedMessage(duration time.Duration, command string) {
@@ -143,6 +156,14 @@ func CreateFunctionalityNotAvailableCmdFailure(setupName setupinfo.SetupName) *C
 	}
 }
 
+func CreateSystemNotRunningCmdFailure() *CmdFailure {
+	return &CmdFailure{
+		Severity: SeverityWarning,
+		Code:     "system-not-running",
+		Message:  ErrSystemNotRunningMsg,
+	}
+}
+
 func StartSpinner(printer TerminalPrinter) (Spinner, error) {
 	startResult, err := printer.StartSpinner("Gathering information..")
 	if err != nil {
@@ -171,9 +192,7 @@ func DeterminePsVersion(config *setupinfo.Config) powershell.PowerShellVersion {
 	return powershell.PowerShellV5
 }
 
-func GetDefaultPsVersion() powershell.PowerShellVersion {
-	return powershell.PowerShellV5
-}
+func GetDefaultPsVersion() powershell.PowerShellVersion { return powershell.PowerShellV5 }
 
 func GetInstallPreRequisiteError(errorLines []string) (line string, found bool) {
 	for _, line := range errorLines {
@@ -188,9 +207,7 @@ func GetInstallPreRequisiteError(errorLines []string) (line string, found bool) 
 	return "", false
 }
 
-func (c *CmdFailure) Error() string {
-	return fmt.Sprintf("%s: %s", c.Code, c.Message)
-}
+func (c *CmdFailure) Error() string { return fmt.Sprintf("%s: %s", c.Code, c.Message) }
 
 func (s FailureSeverity) String() string {
 	switch s {
@@ -219,19 +236,17 @@ func (w *PtermWriter) WriteStdErr(line string) {
 	pterm.Printfln("⏳ %s", pterm.Yellow(line))
 }
 
-func (w *PtermWriter) Flush() {
-	w.errorLineBuffer.Flush()
-}
+func (w *PtermWriter) Flush() { w.errorLineBuffer.Flush() }
 
-func (*SlogWriter) WriteStdOut(message string) {
-	slog.Info(message)
-}
+func (*SlogWriter) WriteStdOut(message string) { slog.Info(message) }
 
-func (*SlogWriter) WriteStdErr(message string) {
-	slog.Error(message)
-}
+func (*SlogWriter) WriteStdErr(message string) { slog.Error(message) }
 
 func (*SlogWriter) Flush() { /*empty*/ }
+
+func (c *CmdContext) Config() *config.Config { return c.config }
+
+func (c *CmdContext) Logger() *logging.Slogger { return c.logger }
 
 func createErrorLineBuffer() *bl.LogBuffer {
 	return bl.NewLogBuffer(bl.BufferConfig{

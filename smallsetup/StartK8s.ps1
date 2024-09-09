@@ -28,57 +28,13 @@ Param(
     [switch] $SkipHeaderDisplay = $false
 )
 
-$infraModule = "$PSScriptRoot\..\lib\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
-$nodeModule = "$PSScriptRoot\..\lib\modules\k2s\k2s.node.module\k2s.node.module.psm1"
-$clusterModule = "$PSScriptRoot\..\lib\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1"
-$addonsModule = "$PSScriptRoot\..\addons\addons.module.psm1"
-Import-Module $infraModule, $nodeModule, $clusterModule, $addonsModule
-
-Initialize-Logging -ShowLogs:$ShowLogs
-$kubePath = Get-KubePath
-
-# make sure we are at the right place for executing this script
-Set-Location $kubePath
-
-if ($SkipHeaderDisplay -eq $false) {
-    Write-Log 'Starting K2s'
-}
-
-# set ConfigKey_LoggedInRegistry empty, since not logged in into registry after restart anymore
-Set-ConfigLoggedInRegistry -Value ''
-    
-$ProgressPreference = 'SilentlyContinue'
-
-Write-Log 'Starting Kubernetes System'
-
-$loopbackAdapter = Get-L2BridgeName
-$dnsServers = Get-DnsIpAddressesFromActivePhysicalNetworkInterfacesOnWindowsHost -ExcludeNetworkInterfaceName $loopbackAdapter
-if ([string]::IsNullOrWhiteSpace($dnsServers)) {
-    $dnsServers = '8.8.8.8'
-}
-
-$controlPlaneStartParams = @{
-    VmProcessors          = $VmProcessors
-    AdditionalHooksDir    = $AdditionalHooksDir
+$startParameters = @{
+    VmProcessors = $VmProcessors
+    ResetHns = $ResetHns
+    ShowLogs = $ShowLogs
+    AdditionalHooksDir = $AdditionalHooksDir
     UseCachedK2sVSwitches = $UseCachedK2sVSwitches
-    SkipHeaderDisplay     = $SkipHeaderDisplay
-    DnsServers            = $dnsServers
+    SkipHeaderDisplay = $SkipHeaderDisplay
 }
-Start-ControlPlaneNodeOnNewVM @controlPlaneStartParams
 
-$workerNodeStartParams = @{
-    ResetHns              = $ResetHns
-    AdditionalHooksDir    = $AdditionalHooksDir
-    UseCachedK2sVSwitches = $UseCachedK2sVSwitches
-    SkipHeaderDisplay     = $SkipHeaderDisplay
-    DnsServers            = $dnsServers
-    WorkerNodeNumber      = '1'
-}
-Start-WindowsWorkerNodeOnWindowsHost @workerNodeStartParams
-
-# Set DNS proxy for all physical network interfaces on Windows host to the DNS proxy
-Set-K2sDnsProxyForActivePhysicalInterfacesOnWindowsHost -ExcludeNetworkInterfaceName $loopbackAdapter
-
-Invoke-AddonsHooks -HookType 'AfterStart'
-
-Write-Log 'Script StartK8s.ps1 finished'
+& "$PSScriptRoot\..\lib\scripts\k2s\start\start.ps1" @startParameters

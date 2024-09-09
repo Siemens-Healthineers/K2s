@@ -38,7 +38,7 @@ var _ = AfterSuite(func(ctx context.Context) {
 	GinkgoWriter.Println("Checking if addon is disabled..")
 
 	addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
-	enabled := addonsStatus.IsAddonEnabled(addonName)
+	enabled := addonsStatus.IsAddonEnabled(addonName, "")
 
 	if enabled {
 		GinkgoWriter.Println("Addon is still enabled, disabling it..")
@@ -113,7 +113,7 @@ var _ = Describe("'security' addon", Ordered, func() {
 	})
 
 	It("installs cmctl.exe, the cert-manager CLI", func(ctx context.Context) {
-		cmCtlPath := path.Join(suite.RootDir(), "bin", "exe", "cmctl.exe")
+		cmCtlPath := path.Join(suite.RootDir(), "bin", "cmctl.exe")
 		_, err := os.Stat(cmCtlPath)
 		Expect(err).To(BeNil())
 	})
@@ -128,11 +128,11 @@ var _ = Describe("'security' addon", Ordered, func() {
 	})
 
 	It("disables default ingress addon", func(ctx context.Context) {
-		suite.K2sCli().Run(ctx, "addons", "disable", "ingress-nginx", "-o")
+		suite.K2sCli().Run(ctx, "addons", "disable", "ingress", "nginx", "-o")
 	})
 
 	It("uninstalls cmctl.exe, the cert-manager CLI", func(ctx context.Context) {
-		cmCtlPath := path.Join(suite.RootDir(), "bin", "exe", "cmctl.exe")
+		cmCtlPath := path.Join(suite.RootDir(), "bin", "cmctl.exe")
 		_, err := os.Stat(cmCtlPath)
 		Expect(os.IsNotExist(err)).To(BeTrue())
 	})
