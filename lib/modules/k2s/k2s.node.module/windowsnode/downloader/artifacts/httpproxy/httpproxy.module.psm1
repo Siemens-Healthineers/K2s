@@ -18,7 +18,9 @@ $proxyInboundFirewallRule = "HTTP Proxy Inbound Allow Port $httpProxyPort"
 function Install-WinHttpProxy {
     Param(
         [parameter(Mandatory = $false, HelpMessage = 'Proxy for Host')]
-        [string]$Proxy = ''
+        [string]$Proxy = '',
+        [parameter(Mandatory = $false, HelpMessage = 'No Proxy for Host')]
+        [string[]]$ProxyOverrides = @()
     )
 
 
@@ -26,16 +28,8 @@ function Install-WinHttpProxy {
     &$kubeBinPath\nssm install httpproxy "$kubeBinPath\httpproxy.exe"
     &$kubeBinPath\nssm set httpproxy AppDirectory $kubeBinPath | Out-Null
 
-    $ipControlPlaneCIDR = Get-ConfiguredControlPlaneCIDR
-    $clusterCIDR = Get-ConfiguredClusterCIDR
-    $clusterCIDRServices = Get-ConfiguredClusterCIDRServices
-    $loopbackAdapterCIDR = Get-LoopbackAdapterCIDR
+    Set-ProxyConfigInHttpProxy -Proxy:$Proxy -ProxyOverrides:$ProxyOverrides
 
-    $appParameters = "--allowed-cidr $clusterCIDR --allowed-cidr $clusterCIDRServices --allowed-cidr $ipControlPlaneCIDR --allowed-cidr $loopbackAdapterCIDR"
-    if ( $Proxy -ne '' ) {
-        $appParameters = $appParameters + " --forwardproxy $Proxy"
-    }
-    &$kubeBinPath\nssm set httpproxy AppParameters $appParameters | Out-Null
     &$kubeBinPath\nssm set httpproxy AppStdout "$(Get-SystemDriveLetter):\var\log\httpproxy\httpproxy_stdout.log" | Out-Null
     &$kubeBinPath\nssm set httpproxy AppStderr "$(Get-SystemDriveLetter):\var\log\httpproxy\httpproxy_stderr.log" | Out-Null
     &$kubeBinPath\nssm set httpproxy AppStdoutCreationDisposition 4 | Out-Null
@@ -66,3 +60,29 @@ function Remove-WinHttpProxy {
     }
 }
 
+function Set-ProxyConfigInHttpProxy {
+    Param(
+        [parameter(Mandatory = $false, HelpMessage = 'Proxy for Host')]
+        [string]$Proxy = '',
+        [parameter(Mandatory = $false, HelpMessage = 'No Proxy for Host')]
+        [string[]]$ProxyOverrides = @()
+    )
+    $ipControlPlaneCIDR = Get-ConfiguredControlPlaneCIDR
+    $clusterCIDR = Get-ConfiguredClusterCIDR
+    $clusterCIDRServices = Get-ConfiguredClusterCIDRServices
+    $loopbackAdapterCIDR = Get-LoopbackAdapterCIDR
+
+    $appParameters = "--allowed-cidr $clusterCIDR --allowed-cidr $clusterCIDRServices --allowed-cidr $ipControlPlaneCIDR --allowed-cidr $loopbackAdapterCIDR"
+    if ( $Proxy -ne '' ) {
+        $appParameters = $appParameters + " --forwardproxy $Proxy"
+    }
+    
+    if ($ProxyOverrides.Count -gt 0) {
+        $noProxyValue = $ProxyOverrides -join ','
+        &$kubeBinPath\nssm set httpproxy AppEnvironmentExtra "NO_PROXY=$noProxyValue" | Out-Null
+    } else {
+        &$kubeBinPath\nssm set httpproxy AppEnvironmentExtra "NO_PROXY=" | Out-Null
+    }
+        
+    &$kubeBinPath\nssm set httpproxy AppParameters $appParameters | Out-Null
+}
