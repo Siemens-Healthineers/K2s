@@ -22,6 +22,7 @@ jobs:
     runs-on: windows-latest
     env:
       CI_COMMIT_MESSAGE: "ci: auto-commit vfprules.dll"
+      CI_COMMIT_MESSAGE: "ci: auto-commit vfprules.dll"
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
