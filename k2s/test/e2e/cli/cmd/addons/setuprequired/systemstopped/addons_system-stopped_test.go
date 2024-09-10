@@ -116,7 +116,7 @@ var _ = Describe("addons commands", Ordered, func() {
 						params = []string{"addons", "disable", addon.Metadata.Name, impl.Name}
 					}
 
-					if impl.AddonsCmdName == "storage" {
+					if impl.AddonsCmdName == "storage smb" {
 						params = append(params, "-f") // skip confirmation
 					}
 
