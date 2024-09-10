@@ -68,4 +68,11 @@ jobs:
       - name: Build vfprules.dll
         run: |
           msbuild .\k2s\cmd\vfprules\vfprules\vfprules.vcxproj -t:rebuild -verbosity:diag -property:Configuration=Release /property:Platform=x64
-          ls .\k2s\cmd\vfprules\vfprules\Release\vfprules.dll
+          ls .\bin\cni\vfprules.dll
+
+      - name: Commit dll
+        run: |
+          git status
+          git add bin/cni/vfprules.dll
+          git commit -m "${{ env.CI_COMMIT_MESSAGE }}"
+          git push
