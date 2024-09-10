@@ -16,7 +16,7 @@ SPDX-License-Identifier: MIT
 ### or
 "C:\Program Files (x86)\Microsoft Visual Studio\2019\Professional\VC\Auxiliary\Build\vcvars64.bat"
 ### Build the dll with cl
-msbuild .\k2s\cmd\vfprules\vfprules\vfprules.vcxproj -t:rebuild -verbosity:diag -property:Configuration=Release
+msbuild .\k2s\cmd\vfprules\vfprules\vfprules.vcxproj -t:rebuild -verbosity:diag -property:Configuration=Release /property:Platform=x64
 
 ### Cleanup
 del /s *.dll

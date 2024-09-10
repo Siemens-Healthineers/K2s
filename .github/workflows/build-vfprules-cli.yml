@@ -21,7 +21,7 @@ jobs:
     continue-on-error: false
     runs-on: windows-latest
     env:
-      CI_COMMIT_MESSAGE: "ci: auto-commit vfp.dll"
+      CI_COMMIT_MESSAGE: "ci: auto-commit vfprules.dll"
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -67,5 +67,5 @@ jobs:
 
       - name: Build vfprules.dll
         run: |
-          msbuild .\k2s\cmd\vfprules\vfprules\vfprules.vcxproj -t:rebuild -verbosity:diag -property:Configuration=Release
+          msbuild .\k2s\cmd\vfprules\vfprules\vfprules.vcxproj -t:rebuild -verbosity:diag -property:Configuration=Release /property:Platform=x64
           ls .\k2s\cmd\vfprules\vfprules\Release\vfprules.dll
