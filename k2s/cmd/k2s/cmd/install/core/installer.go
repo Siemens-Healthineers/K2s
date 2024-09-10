@@ -13,9 +13,9 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 
+	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
 	"github.com/siemens-healthineers/k2s/internal/host"
 	"github.com/siemens-healthineers/k2s/internal/powershell"
-	"github.com/siemens-healthineers/k2s/internal/setupinfo"
 	"github.com/siemens-healthineers/k2s/internal/version"
 
 	"github.com/spf13/cobra"

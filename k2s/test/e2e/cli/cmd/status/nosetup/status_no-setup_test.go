@@ -9,7 +9,7 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/status"
 
-	"github.com/siemens-healthineers/k2s/internal/setupinfo"
+	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
 
 	"testing"
 

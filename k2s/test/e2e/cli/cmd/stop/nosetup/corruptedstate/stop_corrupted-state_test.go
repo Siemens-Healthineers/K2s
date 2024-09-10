@@ -9,9 +9,9 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/siemens-healthineers/k2s/internal/config"
+	"github.com/siemens-healthineers/k2s/internal/core/config"
+	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
 	"github.com/siemens-healthineers/k2s/internal/host"
-	"github.com/siemens-healthineers/k2s/internal/setupinfo"
 
 	"testing"
 

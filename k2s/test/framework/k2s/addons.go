@@ -10,7 +10,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/siemens-healthineers/k2s/internal/addons"
+	"github.com/siemens-healthineers/k2s/internal/core/addons"
 	sos "github.com/siemens-healthineers/k2s/test/framework/os"
 
 	//lint:ignore ST1001 test framework code

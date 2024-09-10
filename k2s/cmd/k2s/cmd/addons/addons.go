@@ -13,7 +13,7 @@ import (
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/addons/list"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/addons/status"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
-	"github.com/siemens-healthineers/k2s/internal/addons"
+	"github.com/siemens-healthineers/k2s/internal/core/addons"
 
 	"github.com/spf13/cobra"
 )

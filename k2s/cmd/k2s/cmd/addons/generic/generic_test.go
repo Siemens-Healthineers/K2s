@@ -11,7 +11,7 @@ import (
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 	"github.com/siemens-healthineers/k2s/internal/reflection"
 
-	"github.com/siemens-healthineers/k2s/internal/addons"
+	"github.com/siemens-healthineers/k2s/internal/core/addons"
 
 	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"

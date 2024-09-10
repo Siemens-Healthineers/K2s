@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/siemens-healthineers/k2s/internal/addons"
+	"github.com/siemens-healthineers/k2s/internal/core/addons"
 	"github.com/siemens-healthineers/k2s/test/framework"
 
 	sos "github.com/siemens-healthineers/k2s/test/framework/os"

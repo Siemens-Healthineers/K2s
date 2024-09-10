@@ -7,8 +7,8 @@ import (
 	"log/slog"
 	"testing"
 
+	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
 	"github.com/siemens-healthineers/k2s/internal/powershell"
-	"github.com/siemens-healthineers/k2s/internal/setupinfo"
 
 	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
