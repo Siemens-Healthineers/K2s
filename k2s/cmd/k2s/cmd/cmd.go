@@ -21,7 +21,7 @@ import (
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils/logging"
 	"github.com/siemens-healthineers/k2s/internal/cli"
-	"github.com/siemens-healthineers/k2s/internal/config"
+	"github.com/siemens-healthineers/k2s/internal/core/config"
 	bl "github.com/siemens-healthineers/k2s/internal/logging"
 
 	"github.com/spf13/cobra"
