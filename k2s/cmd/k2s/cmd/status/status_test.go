@@ -13,8 +13,8 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/status"
+	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
 	"github.com/siemens-healthineers/k2s/internal/reflection"
-	"github.com/siemens-healthineers/k2s/internal/setupinfo"
 	"github.com/stretchr/testify/mock"
 )
 
