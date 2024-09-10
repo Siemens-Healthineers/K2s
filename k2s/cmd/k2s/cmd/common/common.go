@@ -11,12 +11,12 @@ import (
 	"time"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils/logging"
-	"github.com/siemens-healthineers/k2s/internal/config"
+	"github.com/siemens-healthineers/k2s/internal/core/config"
 	"github.com/siemens-healthineers/k2s/internal/host"
 	bl "github.com/siemens-healthineers/k2s/internal/logging"
 	"github.com/siemens-healthineers/k2s/internal/powershell"
 
-	"github.com/siemens-healthineers/k2s/internal/setupinfo"
+	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
 
 	"github.com/pterm/pterm"
 )

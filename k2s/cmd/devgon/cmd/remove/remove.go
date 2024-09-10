@@ -5,7 +5,7 @@
 package remove
 
 import (
-	"github.com/siemens-healthineers/k2s/internal/windevice"
+	"github.com/siemens-healthineers/k2s/internal/windows/device"
 	"github.com/spf13/cobra"
 )
 
@@ -40,5 +40,5 @@ func includeAddFlags(cmd *cobra.Command) {
 func execRemoveDeviceCmd(cmd *cobra.Command, args []string) error {
 	hardwareInstanceId := cmd.Flags().Lookup(hardwareInstanceIdFlag).Value.String()
 
-	return windevice.Remove(hardwareInstanceId)
+	return device.Remove(hardwareInstanceId)
 }

@@ -19,11 +19,11 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 
+	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
 	"github.com/siemens-healthineers/k2s/internal/powershell"
-	"github.com/siemens-healthineers/k2s/internal/setupinfo"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/install/core"
-	cfg "github.com/siemens-healthineers/k2s/internal/config"
+	cfg "github.com/siemens-healthineers/k2s/internal/core/config"
 
 	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"

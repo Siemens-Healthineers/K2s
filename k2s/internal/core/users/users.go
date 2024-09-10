@@ -6,9 +6,9 @@ package users
 import (
 	"fmt"
 
-	"github.com/siemens-healthineers/k2s/internal/config"
+	"github.com/siemens-healthineers/k2s/internal/core/config"
+	"github.com/siemens-healthineers/k2s/internal/core/nodes"
 	"github.com/siemens-healthineers/k2s/internal/host"
-	"github.com/siemens-healthineers/k2s/internal/nodes"
 	"github.com/siemens-healthineers/k2s/internal/ssh"
 	"github.com/siemens-healthineers/k2s/internal/windows/acl"
 )

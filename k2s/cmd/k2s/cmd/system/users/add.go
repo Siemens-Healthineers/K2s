@@ -11,9 +11,9 @@ import (
 	"github.com/pterm/pterm"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/status"
-	"github.com/siemens-healthineers/k2s/internal/config"
+	"github.com/siemens-healthineers/k2s/internal/core/config"
+	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
 	"github.com/siemens-healthineers/k2s/internal/core/users"
-	"github.com/siemens-healthineers/k2s/internal/setupinfo"
 	"github.com/spf13/cobra"
 )
 

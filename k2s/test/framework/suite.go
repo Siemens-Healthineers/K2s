@@ -17,7 +17,7 @@ import (
 
 	"github.com/siemens-healthineers/k2s/test/framework/k2s"
 
-	"github.com/siemens-healthineers/k2s/internal/setupinfo"
+	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
 
 	//lint:ignore ST1001 test framework code
 	. "github.com/onsi/ginkgo/v2"

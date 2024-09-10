@@ -10,9 +10,9 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 
+	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
 	"github.com/siemens-healthineers/k2s/internal/primitives/arrays"
 	"github.com/siemens-healthineers/k2s/internal/primitives/units"
-	"github.com/siemens-healthineers/k2s/internal/setupinfo"
 )
 
 type TerminalPrinter interface {
