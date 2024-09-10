@@ -34,6 +34,7 @@ jobs:
         uses: GuillaumeFalourd/setup-windows10-sdk-action@v2
         with:
           sdk-version: 22621
+          sdk-version: 22621
 
       # - uses: TheMrMilchmann/setup-msvc-dev@v3
       #   with:
