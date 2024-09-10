@@ -10,8 +10,8 @@ import (
 	"strings"
 
 	"github.com/onsi/ginkgo/v2"
-	"github.com/siemens-healthineers/k2s/internal/config"
-	"github.com/siemens-healthineers/k2s/internal/setupinfo"
+	"github.com/siemens-healthineers/k2s/internal/core/config"
+	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
 )
 
 type SetupInfo struct {

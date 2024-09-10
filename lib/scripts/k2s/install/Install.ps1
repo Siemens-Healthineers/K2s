@@ -61,6 +61,9 @@ Set-Location $installationPath
 $script:SetupType = 'k2s'
 Set-ConfigSetupType -Value $script:SetupType
 
+# Initialize the proxy settings before starting installation.
+New-ProxyConfig -Proxy:$Proxy -NoProxy:$NoProxy
+
 $Proxy = Get-OrUpdateProxyServer -Proxy:$Proxy
 
 $dnsServers = $DnsAddresses -join ','

@@ -5,7 +5,7 @@
 package install
 
 import (
-	"github.com/siemens-healthineers/k2s/internal/windevice"
+	"github.com/siemens-healthineers/k2s/internal/windows/device"
 	"github.com/spf13/cobra"
 )
 
@@ -43,5 +43,5 @@ func installDevice(cmd *cobra.Command, args []string) error {
 	infPath := cmd.Flags().Lookup(infPathFlag).Value.String()
 	hardwareId := cmd.Flags().Lookup(hardwareIdFlag).Value.String()
 
-	return windevice.Install(infPath, hardwareId)
+	return device.Install(infPath, hardwareId)
 }

@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: MIT
 
-package windevice
+package device
 
 import (
 	"errors"

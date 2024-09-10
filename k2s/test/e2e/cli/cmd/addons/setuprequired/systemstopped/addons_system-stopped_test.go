@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/addons/status"
-	"github.com/siemens-healthineers/k2s/internal/addons"
+	"github.com/siemens-healthineers/k2s/internal/core/addons"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -116,7 +116,7 @@ var _ = Describe("addons commands", Ordered, func() {
 						params = []string{"addons", "disable", addon.Metadata.Name, impl.Name}
 					}
 
-					if impl.AddonsCmdName == "storage" {
+					if impl.AddonsCmdName == "storage smb" {
 						params = append(params, "-f") // skip confirmation
 					}
 
