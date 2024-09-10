@@ -30,6 +30,11 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.AUTOCOMMITKEY }}
 
+      - name: Set up Windows SDK
+        uses: GuillaumeFalourd/setup-windows10-sdk-action@v2
+        with:
+          sdk-version: 26100
+
       - uses: TheMrMilchmann/setup-msvc-dev@v3
         with:
           arch: x64
