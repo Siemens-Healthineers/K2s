@@ -228,6 +228,13 @@ function New-KubemasterBaseImage {
         (Invoke-CmdOnControlPlaneViaUserAndPwd "echo mtu 1400 | sudo tee -a $interfaceConfigurationPath" -RemoteUser $remoteUser1).Output | Write-Log
         (Invoke-CmdOnControlPlaneViaUserAndPwd "sudo rm -f /etc/network/interfaces.d/50-cloud-init" -RemoteUser $remoteUser1).Output | Write-Log
 
+        Write-Log "Copying ZScaler Root CA certificate to kubemaster_in_provisioning node"
+        $Provisioning_Node_IPAddress = Get-VmIpForProvisioningKubeNode
+        Copy-ToRemoteComputerViaUserAndPwd -Source "$(Get-KubePath)\smallsetup\certificate\ZScalerRootCA.crt" -Target "/tmp/ZScalerRootCA.crt" -IpAddress $Provisioning_Node_IPAddress            
+       (Invoke-CmdOnControlPlaneViaUserAndPwd "sudo mv /tmp/ZScalerRootCA.crt /usr/local/share/ca-certificates/" -RemoteUser $remoteUser1 ).Output | Write-Log
+       (Invoke-CmdOnControlPlaneViaUserAndPwd "sudo update-ca-certificates" -RemoteUser $remoteUser1 ).Output | Write-Log         
+        Write-Log "Zscaler certificate added to CA certificates of kubemaster_in_provisioning node"        
+
         # ssh keys
         (Invoke-CmdOnControlPlaneViaUserAndPwd "sudo rm -f /etc/ssh/ssh_host_*; sudo ssh-keygen -A; sudo systemctl restart ssh" -RemoteUser $remoteUser1).Output | Write-Log
 
