@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: MIT
 
-package keda
+package autoscaling
 
 import (
 	"context"
@@ -25,7 +25,7 @@ var suite *framework.K2sTestSuite
 
 func TestTraefik(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "keda Addon Acceptance Tests", Label("addon", "acceptance", "setup-required", "invasive", "keda", "system-running"))
+	RunSpecs(t, "autoscaling Addon Acceptance Tests", Label("addon", "acceptance", "setup-required", "invasive", "autoscaling", "system-running"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
@@ -36,16 +36,16 @@ var _ = AfterSuite(func(ctx context.Context) {
 	suite.TearDown(ctx)
 })
 
-var _ = Describe("'keda' addon", Ordered, func() {
+var _ = Describe("'autoscaling' addon", Ordered, func() {
 	AfterAll(func(ctx context.Context) {
-		suite.K2sCli().Run(ctx, "addons", "disable", "keda", "-o")
+		suite.K2sCli().Run(ctx, "addons", "disable", "autoscaling", "-o")
 
 		addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
-		Expect(addonsStatus.IsAddonEnabled("keda")).To(BeFalse())
+		Expect(addonsStatus.IsAddonEnabled("autoscaling", "")).To(BeFalse())
 	})
 
 	It("prints already-disabled message on disable command and exits with non-zero", func(ctx context.Context) {
-		output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "disable", "keda")
+		output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "disable", "autoscaling")
 
 		Expect(output).To(ContainSubstring("already disabled"))
 	})
@@ -53,24 +53,24 @@ var _ = Describe("'keda' addon", Ordered, func() {
 	Describe("status", func() {
 		Context("default output", func() {
 			It("displays disabled message", func(ctx context.Context) {
-				output := suite.K2sCli().Run(ctx, "addons", "status", "keda")
+				output := suite.K2sCli().Run(ctx, "addons", "status", "autoscaling")
 
 				Expect(output).To(SatisfyAll(
 					MatchRegexp(`ADDON STATUS`),
-					MatchRegexp(`Addon .+keda.+ is .+disabled.+`),
+					MatchRegexp(`Addon .+autoscaling.+ is .+disabled.+`),
 				))
 			})
 		})
 
 		Context("JSON output", func() {
 			It("displays JSON", func(ctx context.Context) {
-				output := suite.K2sCli().Run(ctx, "addons", "status", "keda", "-o", "json")
+				output := suite.K2sCli().Run(ctx, "addons", "status", "autoscaling", "-o", "json")
 
 				var status status.AddonPrintStatus
 
 				Expect(json.Unmarshal([]byte(output), &status)).To(Succeed())
 
-				Expect(status.Name).To(Equal("keda"))
+				Expect(status.Name).To(Equal("autoscaling"))
 				Expect(status.Enabled).NotTo(BeNil())
 				Expect(*status.Enabled).To(BeFalse())
 				Expect(status.Props).To(BeNil())
@@ -80,38 +80,38 @@ var _ = Describe("'keda' addon", Ordered, func() {
 	})
 
 	It("is in enabled state and pods are in running state", func(ctx context.Context) {
-		suite.K2sCli().Run(ctx, "addons", "enable", "keda", "-o")
+		suite.K2sCli().Run(ctx, "addons", "enable", "autoscaling", "-o")
 
-		suite.Cluster().ExpectDeploymentToBeAvailable("keda-admission", "keda")
+		suite.Cluster().ExpectDeploymentToBeAvailable("keda-admission", "autoscaling")
 
-		suite.Cluster().ExpectPodsInReadyState(ctx, "app=keda-admission-webhooks", "keda")
+		suite.Cluster().ExpectPodsInReadyState(ctx, "app=keda-admission-webhooks", "autoscaling")
 
 		addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
-		Expect(addonsStatus.IsAddonEnabled("keda")).To(BeTrue())
+		Expect(addonsStatus.IsAddonEnabled("autoscaling", "")).To(BeTrue())
 	})
 
 	It("prints already-enabled message on enable command and exits with non-zero", func(ctx context.Context) {
-		output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "enable", "keda")
+		output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "enable", "autoscaling")
 
 		Expect(output).To(ContainSubstring("already enabled"))
 	})
 
 	It("prints the status", func(ctx context.Context) {
-		output := suite.K2sCli().Run(ctx, "addons", "status", "keda")
+		output := suite.K2sCli().Run(ctx, "addons", "status", "autoscaling")
 
 		Expect(output).To(SatisfyAll(
 			MatchRegexp("ADDON STATUS"),
-			MatchRegexp(`Addon .+keda.+ is .+enabled.+`),
-			MatchRegexp("The keda is working"),
+			MatchRegexp(`Addon .+autoscaling.+ is .+enabled.+`),
+			MatchRegexp("KEDA is working"),
 		))
 
-		output = suite.K2sCli().Run(ctx, "addons", "status", "keda", "-o", "json")
+		output = suite.K2sCli().Run(ctx, "addons", "status", "autoscaling", "-o", "json")
 
 		var status status.AddonPrintStatus
 
 		Expect(json.Unmarshal([]byte(output), &status)).To(Succeed())
 
-		Expect(status.Name).To(Equal("keda"))
+		Expect(status.Name).To(Equal("autoscaling"))
 		Expect(status.Error).To(BeNil())
 		Expect(status.Enabled).NotTo(BeNil())
 		Expect(*status.Enabled).To(BeTrue())
@@ -121,8 +121,7 @@ var _ = Describe("'keda' addon", Ordered, func() {
 				HaveField("Name", "IsKedaRunning"),
 				HaveField("Value", true),
 				HaveField("Okay", gstruct.PointTo(BeTrue())),
-				HaveField("Message", gstruct.PointTo(ContainSubstring("The keda is working")))),
+				HaveField("Message", gstruct.PointTo(ContainSubstring("KEDA is working")))),
 		))
-		GinkgoWriter.Println("done at 127")
 	})
 })
