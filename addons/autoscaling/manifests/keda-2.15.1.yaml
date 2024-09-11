@@ -9982,7 +9982,7 @@ metadata:
     app.kubernetes.io/part-of: keda-operator
     app.kubernetes.io/version: 2.15.1
   name: keda-auth-reader
-  namespace: kube-system
+  namespace: autoscaling
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -10007,7 +10007,7 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: horizontal-pod-autoscaler
-  namespace: kube-system
+  namespace: autoscaling
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding

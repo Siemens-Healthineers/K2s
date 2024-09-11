@@ -6,10 +6,10 @@
 
 Import-Module "$PSScriptRoot/../../lib\modules\k2s\k2s.cluster.module\k8s-api\k8s-api.module.psm1"
 
-$deploymentAvailable = (Invoke-Kubectl -Params 'wait', '--timeout=5s', '--for=condition=Available', '-n', 'keda', 'deployment/keda-admission').Success
+$deploymentAvailable = (Invoke-Kubectl -Params 'wait', '--timeout=5s', '--for=condition=Available', '-n', 'autoscaling', 'deployment/keda-admission').Success
 $allPodsAreUp = (Wait-ForPodCondition -Condition Ready -Label 'app=keda-operator' -Namespace 'autoscaling' -TimeoutSeconds 120)
 
-$isKedaProp = @{Name = 'IsKedaRunning'; Value = $success; Okay = ($deploymentAvailable -and $allPodsAreUp) }
+$isKedaProp = @{Name = 'IsKedaRunning'; Value = ($deploymentAvailable -and $allPodsAreUp); Okay = ($deploymentAvailable -and $allPodsAreUp) }
 if ($isKedaProp.Value -eq $true) {
     $isKedaProp.Message = 'KEDA is working'
 }
