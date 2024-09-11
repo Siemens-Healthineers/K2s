@@ -10148,7 +10148,7 @@ spec:
         - name: KEDA_HTTP_DEFAULT_TIMEOUT
           value: ""
         image: ghcr.io/kedacore/keda-admission-webhooks:2.15.1
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         livenessProbe:
           httpGet:
             path: /healthz
@@ -10241,7 +10241,7 @@ spec:
         - name: KEDA_HTTP_DEFAULT_TIMEOUT
           value: ""
         image: ghcr.io/kedacore/keda-metrics-apiserver:2.15.1
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         livenessProbe:
           httpGet:
             path: /healthz
@@ -10337,7 +10337,7 @@ spec:
         - name: KEDA_HTTP_DEFAULT_TIMEOUT
           value: ""
         image: ghcr.io/kedacore/keda:2.15.1
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         livenessProbe:
           httpGet:
             path: /healthz
