@@ -48,7 +48,7 @@ if ($systemError) {
     exit 1
 }
 
-if ((Test-IsAddonEnabled -Name 'autoscaling') -ne $true) {
+if ((Test-IsAddonEnabled -Addon ([PSCustomObject]@{Name = 'autoscaling'})) -ne $true) {
     $errMsg = "Addon 'autoscaling' is already disabled, nothing to do."
 
     if ($EncodeStructuredOutput -eq $true) {

@@ -49,7 +49,14 @@ if ($systemError) {
     exit 1
 }
 
-if ((Test-IsAddonEnabled -Name 'autoscaling') -eq $true) {
+$setupInfo = Get-SetupInfo
+if ($setupInfo.Name -ne 'k2s') {
+    $err = New-Error -Severity Warning -Code (Get-ErrCodeWrongSetupType) -Message "Addon 'autocaling' can only be enabled for 'k2s' setup type."  
+    Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+    return
+}
+
+if ((Test-IsAddonEnabled -Addon ([PSCustomObject]@{Name = 'autoscaling'})) -eq $true) {
     $errMsg = "Addon 'autoscaling' is already enabled, nothing to do."
 
     if ($EncodeStructuredOutput -eq $true) {
