@@ -116,6 +116,13 @@ Function Install-KubernetesArtifacts {
         }
     }
 
+    Write-Log "Copying ZScaler Root CA certificate to kubenode_in_provisioning VM"
+    $Provisioning_Node_IPAddress = Get-VmIpForProvisioningKubeNode
+    Copy-ToRemoteComputerViaUserAndPwd -Source "$(Get-KubePath)\smallsetup\certificate\ZScalerRootCA.crt" -Target "/tmp/ZScalerRootCA.crt" -IpAddress $Provisioning_Node_IPAddress            
+    &$executeRemoteCommand "sudo mv /tmp/ZScalerRootCA.crt /usr/local/share/ca-certificates/"
+    &$executeRemoteCommand "sudo update-ca-certificates"       
+    Write-Log "Zscaler certificate added to CA certificates of kubenode_in_provisioning VM"        
+
     Write-Log 'Configure bridged traffic'
     &$executeRemoteCommand 'echo overlay | sudo tee /etc/modules-load.d/k8s.conf' 
     &$executeRemoteCommand 'echo br_netfilter | sudo tee /etc/modules-load.d/k8s.conf' 
