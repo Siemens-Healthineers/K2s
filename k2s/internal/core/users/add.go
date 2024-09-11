@@ -4,14 +4,14 @@
 package users
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
-
-	"github.com/siemens-healthineers/k2s/internal/windows/users"
+	"sync"
 )
 
 type accessGranter interface {
-	GrantAccess(winUser *users.WinUser, k2sUserName string) error
+	GrantAccess(winUser WinUser, k2sUserName string) error
 }
 
 type winUserAdder struct {
@@ -20,16 +20,37 @@ type winUserAdder struct {
 	createK2sUserName func(winUserName string) string
 }
 
-func (a *winUserAdder) Add(winUser *users.WinUser) error {
-	slog.Debug("Adding Windows user", "username", winUser.Username, "id", winUser.UserId, "homedir", winUser.HomeDir, "group-id", winUser.GroupId)
-
-	k2sUserName := a.createK2sUserName(winUser.Username)
-
-	if err := a.sshAccessGranter.GrantAccess(winUser, k2sUserName); err != nil {
-		return fmt.Errorf("cannot grant Windows user SSH access to control-plane: %w", err)
+func NewWinUserAdder(sshAccessGranter accessGranter, k8sAccessGranter accessGranter, createK2sUserName func(winUserName string) string) *winUserAdder {
+	return &winUserAdder{
+		sshAccessGranter:  sshAccessGranter,
+		k8sAccessGranter:  k8sAccessGranter,
+		createK2sUserName: createK2sUserName,
 	}
-	if err := a.k8sAccessGranter.GrantAccess(winUser, k2sUserName); err != nil {
-		return fmt.Errorf("cannot grant Windows user K8s access: %w", err)
-	}
-	return nil
+}
+
+func (a *winUserAdder) Add(winUser WinUser) (err error) {
+	slog.Debug("Adding Windows user", "username", winUser.Username(), "id", winUser.UserId(), "homedir", winUser.HomeDir())
+
+	k2sUserName := a.createK2sUserName(winUser.Username())
+
+	tasks := sync.WaitGroup{}
+	tasks.Add(2)
+
+	go func() {
+		defer tasks.Done()
+		if innerErr := a.sshAccessGranter.GrantAccess(winUser, k2sUserName); innerErr != nil {
+			err = errors.Join(err, fmt.Errorf("cannot grant Windows user SSH access to control-plane: %w", innerErr))
+		}
+	}()
+
+	go func() {
+		defer tasks.Done()
+		if innerErr := a.k8sAccessGranter.GrantAccess(winUser, k2sUserName); innerErr != nil {
+			err = errors.Join(err, fmt.Errorf("cannot grant Windows user K8s access: %w", innerErr))
+		}
+	}()
+
+	tasks.Wait()
+
+	return err
 }
