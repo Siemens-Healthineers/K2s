@@ -12,11 +12,10 @@ import (
 	"strings"
 )
 
-type WinUser struct {
-	UserId   string
-	GroupId  string
-	Username string
-	HomeDir  string
+type winUser struct {
+	userId   string
+	username string
+	homeDir  string
 }
 
 const (
@@ -27,7 +26,7 @@ const (
 
 var systemAccountHomeDir = filepath.Join(os.Getenv("SYSTEMROOT"), "System32\\config\\systemprofile")
 
-func FindByName(name string) (*WinUser, error) {
+func FindByName(name string) (*winUser, error) {
 	if isSystemAccountName(name) {
 		return newSystemUser(), nil
 	}
@@ -40,7 +39,7 @@ func FindByName(name string) (*WinUser, error) {
 	return newWinUser(found), nil
 }
 
-func FindById(id string) (*WinUser, error) {
+func FindById(id string) (*winUser, error) {
 	if isSystemAccountId(id) {
 		return newSystemUser(), nil
 	}
@@ -53,13 +52,25 @@ func FindById(id string) (*WinUser, error) {
 	return newWinUser(found), nil
 }
 
-func Current() (*WinUser, error) {
+func Current() (*winUser, error) {
 	current, err := user.Current()
 	if err != nil {
 		return nil, errors.New("could not determine current Windows user")
 	}
 
 	return newWinUser(current), nil
+}
+
+func (u *winUser) UserId() string {
+	return u.userId
+}
+
+func (u *winUser) Username() string {
+	return u.username
+}
+
+func (u *winUser) HomeDir() string {
+	return u.homeDir
 }
 
 func isSystemAccountName(name string) bool {
@@ -70,19 +81,18 @@ func isSystemAccountId(id string) bool {
 	return strings.EqualFold(id, systemAccountId)
 }
 
-func newSystemUser() *WinUser {
-	return &WinUser{
-		UserId:   systemAccountId,
-		Username: systemAccountFullName,
-		HomeDir:  systemAccountHomeDir,
+func newSystemUser() *winUser {
+	return &winUser{
+		userId:   systemAccountId,
+		username: systemAccountFullName,
+		homeDir:  systemAccountHomeDir,
 	}
 }
 
-func newWinUser(u *user.User) *WinUser {
-	return &WinUser{
-		UserId:   u.Uid,
-		GroupId:  u.Gid,
-		Username: u.Username,
-		HomeDir:  u.HomeDir,
+func newWinUser(u *user.User) *winUser {
+	return &winUser{
+		userId:   u.Uid,
+		username: u.Username,
+		homeDir:  u.HomeDir,
 	}
 }

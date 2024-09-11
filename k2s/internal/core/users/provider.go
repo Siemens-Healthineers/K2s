@@ -7,16 +7,16 @@ import (
 	"github.com/siemens-healthineers/k2s/internal/windows/users"
 )
 
-type winUserFinder struct{}
+type winUserProvider struct{}
 
-func (*winUserFinder) FindByName(name string) (*users.WinUser, error) {
+func (*winUserProvider) FindByName(name string) (WinUser, error) {
 	return users.FindByName(name)
 }
 
-func (*winUserFinder) FindById(id string) (*users.WinUser, error) {
+func (*winUserProvider) FindById(id string) (WinUser, error) {
 	return users.FindById(id)
 }
 
-func (*winUserFinder) Current() (*users.WinUser, error) {
+func (*winUserProvider) Current() (WinUser, error) {
 	return users.Current()
 }
