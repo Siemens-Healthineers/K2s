@@ -140,7 +140,7 @@ $ARGOCD_Password = [regex]::Match($ArgoCD_Password_output, $pattern).Value
 
 (Invoke-Kubectl -Params 'delete', 'secret', 'argocd-initial-secret', '-n', $rolloutNamespace).Output | Write-Log
 
-Write-Log 'Installation of Kubernetes rollout addon finished.' -Console
+Write-Log 'Installation of rollout addon finished.' -Console
 
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'rollout' })
 
