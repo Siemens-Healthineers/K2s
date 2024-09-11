@@ -63,7 +63,7 @@ if ((Test-IsAddonEnabled -Addon ([PSCustomObject]@{Name = 'autoscaling'})) -ne $
 
 Write-Log 'Uninstalling KEDA' -Console
 (Invoke-Kubectl -Params 'delete', '-f', $kedaManifest).Output | Write-Log
-Remove-AddonFromSetupJson -Name 'autoscaling'
+Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'autoscaling' })
 Write-Log 'Uninstallation of autoscaling addon finished' -Console
 
 if ($EncodeStructuredOutput -eq $true) {
