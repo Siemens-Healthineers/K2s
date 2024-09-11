@@ -13,14 +13,29 @@ import (
 	"github.com/siemens-healthineers/k2s/internal/windows/acl"
 )
 
-type UsersManagementConfig struct {
-	ControlPlaneName     string
-	Config               *config.Config
-	ConfirmOverwriteFunc func() bool
-	StdWriter            host.StdWriter
+type userProvider interface {
+	FindByName(name string) (WinUser, error)
+	FindById(id string) (WinUser, error)
 }
 
-func NewUsersManagement(config *UsersManagementConfig) (*UsersManagement, error) {
+type userAdder interface {
+	Add(winUser WinUser) error
+}
+
+type UserNotFoundErr string
+
+type UsersManagementConfig struct {
+	ControlPlaneName string
+	Config           *config.Config
+	StdWriter        host.StdWriter
+}
+
+type usersManagement struct {
+	userProvider userProvider
+	userAdder    userAdder
+}
+
+func NewUsersManagement(config *UsersManagementConfig) (*usersManagement, error) {
 	cmdExecutor := host.NewCmdExecutor(config.StdWriter)
 
 	ssh := ssh.NewSsh(cmdExecutor)
@@ -35,22 +50,42 @@ func NewUsersManagement(config *UsersManagementConfig) (*UsersManagement, error)
 		fs:           &winFileSystem{},
 	}
 
-	userFinder := &winUserFinder{}
+	userProvider := &winUserProvider{}
+	sshAccessGranter := newSshAccessGranter(accessGranter, config.Config.Host.SshDir, userProvider)
+	k8sAccessGranter := newK8sAccessGranter(accessGranter, config.Config.Host.KubeConfigDir)
+	userAdder := NewWinUserAdder(sshAccessGranter, k8sAccessGranter, CreateK2sUserName)
 
-	return &UsersManagement{
-		userFinder: userFinder,
-		userAdder: &winUserAdder{
-			sshAccessGranter:  newSshAccessGranter(accessGranter, config.ConfirmOverwriteFunc, config.Config.Host.SshDir, userFinder),
-			k8sAccessGranter:  newK8sAccessGranter(accessGranter, config.Config.Host.KubeConfigDir),
-			createK2sUserName: CreateK2sUserName,
-		},
+	return &usersManagement{
+		userProvider: userProvider,
+		userAdder:    userAdder,
 	}, nil
 }
 
-func newSshAccessGranter(accessGranter *commonAccessGranter, confirmOverwrite func() bool, sshDir string, userFinder currentUserFinder) accessGranter {
+func (e UserNotFoundErr) Error() string {
+	return string(e)
+}
+
+func (m *usersManagement) AddUserByName(name string) error {
+	winUser, err := m.userProvider.FindByName(name)
+	if err != nil {
+		return UserNotFoundErr(err.Error())
+	}
+
+	return m.userAdder.Add(winUser)
+}
+
+func (m *usersManagement) AddUserById(id string) error {
+	winUser, err := m.userProvider.FindById(id)
+	if err != nil {
+		return UserNotFoundErr(err.Error())
+	}
+
+	return m.userAdder.Add(winUser)
+}
+
+func newSshAccessGranter(accessGranter *commonAccessGranter, sshDir string, userFinder currentUserFinder) accessGranter {
 	return &sshAccessGranter{
 		commonAccessGranter: accessGranter,
-		confirmOverwrite:    confirmOverwrite,
 		sshKeyGen:           ssh.NewSshKeyGen(accessGranter.exec, accessGranter.fs),
 		accessControl:       acl.NewAcl(accessGranter.exec),
 		adminSshDir:         sshDir,

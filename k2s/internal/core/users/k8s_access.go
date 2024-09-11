@@ -9,8 +9,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/siemens-healthineers/k2s/internal/windows/users"
-
 	"github.com/siemens-healthineers/k2s/internal/http"
 	"github.com/siemens-healthineers/k2s/internal/k8s"
 	"github.com/siemens-healthineers/k2s/internal/yaml"
@@ -33,7 +31,7 @@ const (
 	k8sCaKey        = "/etc/kubernetes/pki/ca.key"
 )
 
-func (g *k8sAccessGranter) GrantAccess(winUser *users.WinUser, k2sUserName string) error {
+func (g *k8sAccessGranter) GrantAccess(winUser WinUser, k2sUserName string) error {
 	kubeconfigFile, err := g.deriveKubeconfigFromAdmin(winUser)
 	if err != nil {
 		return fmt.Errorf("could not derive new kubeconfig from admin's config: %w", err)
@@ -50,28 +48,20 @@ func (g *k8sAccessGranter) GrantAccess(winUser *users.WinUser, k2sUserName strin
 	return nil
 }
 
-func findK2sClusterConf(clusters k8s.Clusters) (*k8s.ClusterConf, error) {
-	cluster, err := clusters.Find(k2sClusterName)
+func (g *k8sAccessGranter) deriveKubeconfigFromAdmin(winUser WinUser) (*k8s.KubeconfigFile, error) {
+	kubeconfigDir, err := g.initKubeconfigDir(winUser.HomeDir())
 	if err != nil {
-		return nil, fmt.Errorf("K2s cluster config '%s' not found", k2sClusterName)
-	}
-	return cluster, nil
-}
-
-func (g *k8sAccessGranter) deriveKubeconfigFromAdmin(winUser *users.WinUser) (*k8s.KubeconfigFile, error) {
-	kubeconfigDir, err := g.initKubeconfigDir(winUser.HomeDir)
-	if err != nil {
-		return nil, fmt.Errorf("could not initialize kubeconfig dir for '%s': %w", winUser.Username, err)
-	}
-
-	k2sClusterConfig, err := g.readAdminsK2sClusterConfig()
-	if err != nil {
-		return nil, fmt.Errorf("could not read K2s cluster config from admin's kubeconfig")
+		return nil, fmt.Errorf("could not initialize kubeconfig dir for '%s': %w", winUser.Username(), err)
 	}
 
 	kubeconfigPath := filepath.Join(kubeconfigDir, kubeconfigName)
 
 	kubeconfigFile := k8s.NewKubeconfigFile(kubeconfigPath, g.exec, http.NewRestClient()) // todo: fetch from where?
+
+	k2sClusterConfig, err := g.readAdminsK2sClusterConfig()
+	if err != nil {
+		return nil, fmt.Errorf("could not read K2s cluster config from admin's kubeconfig")
+	}
 
 	if err := kubeconfigFile.SetCluster(k2sClusterConfig); err != nil {
 		return nil, fmt.Errorf("could not set K2s cluster config for new user in kubeconfig: %w", err)
@@ -100,8 +90,7 @@ func (g *k8sAccessGranter) addUserAccessToKubeconfig(k2sUserName string, certPat
 		return fmt.Errorf("could not set user credentials for '%s' in kubeconfig: %w", k2sUserName, err)
 	}
 
-	certDir := filepath.Dir(certPath)
-	if err := os.RemoveAll(certDir); err != nil {
+	if err := removeCertDir(certPath); err != nil {
 		return fmt.Errorf("could not remove cert dir: %w", err)
 	}
 
@@ -212,4 +201,18 @@ func (g *k8sAccessGranter) readAdminsK2sClusterConfig() (*k8s.ClusterConf, error
 	}
 
 	return findK2sClusterConf(adminConfig.Clusters)
+}
+
+func findK2sClusterConf(clusters k8s.Clusters) (*k8s.ClusterConf, error) {
+	cluster, err := clusters.Find(k2sClusterName)
+	if err != nil {
+		return nil, fmt.Errorf("K2s cluster config '%s' not found", k2sClusterName)
+	}
+	return cluster, nil
+}
+
+func removeCertDir(certPath string) error {
+	certDir := filepath.Dir(certPath)
+
+	return os.RemoveAll(certDir)
 }

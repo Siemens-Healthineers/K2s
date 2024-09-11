@@ -3,6 +3,12 @@
 
 package users
 
+type WinUser interface {
+	UserId() string
+	Username() string
+	HomeDir() string
+}
+
 type controlPlane interface {
 	Name() string
 	IpAddress() string

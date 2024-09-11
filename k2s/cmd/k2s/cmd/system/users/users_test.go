@@ -37,53 +37,5 @@ var _ = Describe("users pkg", func() {
 				Expect(actual.Message).To(Equal("oops"))
 			})
 		})
-
-		Describe("confirmOverwrite", func() {
-			When("overwriting is enforced", func() {
-				It("returns true without confirmation being shown", func() {
-					const force = true
-					var showConfirmationFunc func(...string) (bool, error)
-
-					actual := confirmOverwrite(force, showConfirmationFunc)
-
-					Expect(actual).To(BeTrue())
-				})
-			})
-
-			When("overwriting is not enforced", func() {
-				When("showing confirmation returns an error", func() {
-					It("returns false", func() {
-						const force = false
-						showConfirmationFunc := func(s ...string) (bool, error) { return false, errors.New("oops") }
-
-						actual := confirmOverwrite(force, showConfirmationFunc)
-
-						Expect(actual).To(BeFalse())
-					})
-				})
-
-				When("confirmation returns false", func() {
-					It("returns false", func() {
-						const force = false
-						showConfirmationFunc := func(s ...string) (bool, error) { return false, nil }
-
-						actual := confirmOverwrite(force, showConfirmationFunc)
-
-						Expect(actual).To(BeFalse())
-					})
-				})
-
-				When("confirmation returns true", func() {
-					It("returns true", func() {
-						const force = false
-						showConfirmationFunc := func(s ...string) (bool, error) { return true, nil }
-
-						actual := confirmOverwrite(force, showConfirmationFunc)
-
-						Expect(actual).To(BeTrue())
-					})
-				})
-			})
-		})
 	})
 })

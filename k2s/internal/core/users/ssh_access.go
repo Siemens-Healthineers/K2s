@@ -4,12 +4,12 @@
 package users
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
+	"sync"
 
 	"path/filepath"
-
-	"github.com/siemens-healthineers/k2s/internal/windows/users"
 )
 
 type sshKeyGen interface {
@@ -26,18 +26,15 @@ type accessControl interface {
 }
 
 type currentUserFinder interface {
-	Current() (*users.WinUser, error)
+	Current() (WinUser, error)
 }
-
-type OverwriteAbortedErr string
 
 type sshAccessGranter struct {
 	*commonAccessGranter
-	confirmOverwrite func() bool
-	userFinder       currentUserFinder
-	sshKeyGen        sshKeyGen
-	accessControl    accessControl
-	adminSshDir      string
+	userFinder    currentUserFinder
+	sshKeyGen     sshKeyGen
+	accessControl accessControl
+	adminSshDir   string
 }
 
 const (
@@ -46,53 +43,50 @@ const (
 	authorizedKeysPath = "~/.ssh/authorized_keys"
 )
 
-func (e OverwriteAbortedErr) Error() string {
-	return string(e)
-}
-
-func (g *sshAccessGranter) GrantAccess(winUser *users.WinUser, k2sUserName string) error {
+func (g *sshAccessGranter) GrantAccess(winUser WinUser, k2sUserName string) (err error) {
 	sshDirName := filepath.Base(g.adminSshDir)
-	newUserSshDir := filepath.Join(winUser.HomeDir, sshDirName)
+	newUserSshDir := filepath.Join(winUser.HomeDir(), sshDirName)
 	newUserSshControlPlaneDir := filepath.Join(newUserSshDir, g.controlPlane.Name())
 	newUserSshKeyPath := filepath.Join(newUserSshControlPlaneDir, sshKeyName)
 
-	if err := g.createSshKey(newUserSshKeyPath, k2sUserName); err != nil {
+	if err = g.createSshKey(newUserSshKeyPath, k2sUserName); err != nil {
 		return fmt.Errorf("could not create SSH key '%s' for user '%s': %w", newUserSshKeyPath, k2sUserName, err)
 	}
 
-	if err := g.transferKeyOwnership(newUserSshKeyPath, winUser.Username); err != nil {
-		return fmt.Errorf("could not transfer ownership of key file '%s' to '%s': %w", newUserSshKeyPath, winUser.Username, err)
+	if err = g.transferKeyOwnership(newUserSshKeyPath, winUser.Username()); err != nil {
+		return fmt.Errorf("could not transfer ownership of key file '%s' to '%s': %w", newUserSshKeyPath, winUser.Username(), err)
 	}
 
-	if err := g.authorizePubKeyOnControlPlane(newUserSshControlPlaneDir, k2sUserName); err != nil {
-		return fmt.Errorf("could not authorize public key on control-plane: %w", err)
-	}
+	tasks := sync.WaitGroup{}
+	tasks.Add(2)
 
-	if err := g.addControlPlaneToKnownHosts(newUserSshDir); err != nil {
-		return fmt.Errorf("could not add control-plane fingerprint to known_hosts: %w", err)
-	}
-	return nil
+	go func() {
+		defer tasks.Done()
+		if innerErr := g.authorizePubKeyOnControlPlane(newUserSshControlPlaneDir, k2sUserName); innerErr != nil {
+			err = errors.Join(err, fmt.Errorf("could not authorize public key on control-plane: %w", innerErr))
+		}
+	}()
+
+	go func() {
+		defer tasks.Done()
+		if innerErr := g.addControlPlaneToKnownHosts(newUserSshDir); innerErr != nil {
+			err = errors.Join(err, fmt.Errorf("could not add control-plane fingerprint to known_hosts: %w", innerErr))
+		}
+	}()
+
+	tasks.Wait()
+
+	return err
 }
 
 func (g *sshAccessGranter) createSshKey(keyPath string, keyComment string) error {
 	slog.Debug("Checking if SSH key is already existing", "path", keyPath)
 
 	if g.fs.PathExists(keyPath) {
-		slog.Debug("SSH key already existing, requiring confirmation", "path", keyPath)
+		slog.Debug("SSH key already existing, overwriting it", "path", keyPath)
 
-		if !g.confirmOverwrite() {
-			return OverwriteAbortedErr("Overwriting SSH key aborted")
-		}
-
-		slog.Debug("Overwriting SSH key confirmed")
-
-		keyFiles, err := filepath.Glob(keyPath + "*")
-		if err != nil {
-			return fmt.Errorf("could not determine SSH key files: %w", err)
-		}
-
-		if err := g.fs.RemovePaths(keyFiles...); err != nil {
-			return fmt.Errorf("could not delete existing SSH key files: %w", err)
+		if err := g.removeSShKey(keyPath); err != nil {
+			return err
 		}
 	} else {
 		slog.Debug("SSH key not existing", "path", keyPath)
@@ -104,6 +98,18 @@ func (g *sshAccessGranter) createSshKey(keyPath string, keyComment string) error
 
 	if err := g.sshKeyGen.CreateKey(keyPath, keyComment); err != nil {
 		return fmt.Errorf("could not generate SSH key '%s' for new user: %w", keyPath, err)
+	}
+	return nil
+}
+
+func (g *sshAccessGranter) removeSShKey(keyPath string) error {
+	keyFiles, err := filepath.Glob(keyPath + "*")
+	if err != nil {
+		return fmt.Errorf("could not determine SSH key files: %w", err)
+	}
+
+	if err := g.fs.RemovePaths(keyFiles...); err != nil {
+		return fmt.Errorf("could not delete existing SSH key files: %w", err)
 	}
 	return nil
 }
@@ -126,10 +132,9 @@ func (g *sshAccessGranter) transferKeyOwnership(keyPath string, newOwner string)
 		return fmt.Errorf("could not determine current Windows user: %w", err)
 	}
 
-	// omit user's display name for privacy reasons
 	slog.Debug("Admin determined", "username", admin.Username, "id", admin.UserId)
 
-	if err := g.accessControl.RevokeAccess(keyPath, admin.Username); err != nil {
+	if err := g.accessControl.RevokeAccess(keyPath, admin.Username()); err != nil {
 		return fmt.Errorf("could not revoke access to SSH key for admin user: %w", err)
 	}
 	return nil
