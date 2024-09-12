@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/siemens-healthineers/k2s/internal/setupinfo"
+	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

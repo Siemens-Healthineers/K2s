@@ -490,6 +490,31 @@ func (c *Cluster) ExpectPodsUnderDeploymentReady(ctx context.Context, labelName 
 	}, c.testStepTimeout, c.testStepPollInterval, ctx).Should(BeTrue())
 }
 
+func (c *Cluster) ExpectPodsInReadyState(ctx context.Context, labelName string, namespace string) {
+	client := c.Client()
+	clientSet, err := kubernetes.NewForConfig(client.Resources().GetConfig())
+	Expect(err).To(BeNil())
+
+	Eventually(func() bool {
+		pods, err := clientSet.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{
+			LabelSelector: labelName})
+		if err != nil {
+			return false
+		}
+
+		// Check if there is at least one pod in the "Running" state.
+		for _, pod := range pods.Items {
+			GinkgoWriter.Println("Pod name:", pod.Name, "| Pod Status:", pod.Status.Phase)
+			if pod.Status.Phase == corev1.PodRunning || pod.Status.Phase == corev1.PodSucceeded {
+				return true
+			}
+		}
+
+		GinkgoWriter.Println("Waiting for a pod to become available...")
+		return false
+	}, c.testStepTimeout, c.testStepPollInterval, ctx).Should(BeTrue())
+}
+
 func (c *Cluster) ExpectNodeToBeReady(name string, ctx context.Context) {
 	var node corev1.Node
 

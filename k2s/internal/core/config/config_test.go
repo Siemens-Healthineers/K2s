@@ -12,7 +12,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/siemens-healthineers/k2s/internal/config"
+	"github.com/siemens-healthineers/k2s/internal/core/config"
 	"github.com/siemens-healthineers/k2s/internal/host"
 )
 
@@ -68,7 +68,7 @@ var _ = Describe("config pkg", func() {
 
 			BeforeAll(func() {
 				currentDir, err := host.ExecutableDir()
-				installDir := filepath.Join(currentDir, "..\\..\\..")
+				installDir := filepath.Join(currentDir, "..\\..\\..\\..")
 
 				Expect(err).ToNot(HaveOccurred())
 
