@@ -98,6 +98,7 @@ Test-PathPrerequisites
 Test-ControlPlanePrerequisites -MasterVMProcessorCount $MasterVMProcessorCount -MasterVMMemory $MasterVMMemory -MasterDiskSize $MasterDiskSize
 Test-WindowsPrerequisites -WSL:$WSL
 Stop-InstallationIfRequiredCurlVersionNotInstalled
+Write-WarningIfRequiredSshVersionNotInstalled
 
 Stop-InstallIfNoMandatoryServiceIsRunning
 
