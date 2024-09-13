@@ -304,8 +304,7 @@ function Stop-InstallationIfRequiredCurlVersionNotInstalled {
     }
 }
 
-function Stop-InstallationIfRequiredSshVersionNotInstalled {
-    Write-Log "Checking ssh version"
+function Write-WarningIfRequiredSshVersionNotInstalled {
     try {
         $sshPath = (Get-Command "ssh.exe").Path
         $majorVersion = (Get-Item $sshPath).VersionInfo.FileVersionRaw.Major
@@ -318,13 +317,11 @@ function Stop-InstallationIfRequiredSshVersionNotInstalled {
     }
 
     if ($majorVersion -lt 8) {
-        $errorMessage = ("[PREREQ-FAILED] The installed version of 'ssh' ($fileVersion) is not at least the required one (major version 8).",
-        "`n",
-        "Call 'ssh.exe -V' to check the installed version.",
-        "`n",
-        "Update 'ssh' and add its installation location to the 'PATH' environment variable.")
-        Write-Log $errorMessage
-        throw $errorMessage
+        $warnMessage = "[PREREQ-WARNING] The installed version of 'ssh' ($fileVersion) is not at least the required one (major version 8). " `
+        + "Call 'ssh.exe -V' to check the installed version. " `
+        + "Update 'ssh' and add its installation location to the 'PATH' environment variable to ensure successful cluster installation."
+
+        Write-Log $warnMessage
     }
 }
 
@@ -338,4 +335,4 @@ Get-StorageLocalDrive,
 Invoke-DownloadFile,
 Stop-InstallIfNoMandatoryServiceIsRunning,
 Stop-InstallationIfRequiredCurlVersionNotInstalled,
-Stop-InstallationIfRequiredSshVersionNotInstalled
+Write-WarningIfRequiredSshVersionNotInstalled

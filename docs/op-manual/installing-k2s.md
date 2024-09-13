@@ -23,7 +23,7 @@ SPDX-License-Identifier: MIT
   Set-ExecutionPolicy RemoteSigned -Force
   ```
 - *curl.exe*: the installed version in the *Windows* host must be at least **7.71.0** (to check it call `curl.exe --version` from the command shell).
-- *ssh.exe*: the installed version in the *Windows* host must be at least major version **8** (to check it call `ssh.exe -V` from the command shell). Normally, only Windows Server 2019 does not fulfill this requirement from the supported operating systems.
+- *Optional: ssh.exe*: the installed version in the *Windows* host must be at least major version **8** to prevent the installation from hanging in certain situations (to check it call `ssh.exe -V` from the command shell). Normally, only Windows Server 2019 does not fulfill this requirement from the supported operating systems.
 - *Optional:* Enable required *Windows Features* beforehand (they will get enabled during the installation anyways, but would require a system restart and installation re-run):
   - *Windows 10/11*
     ```powershell
