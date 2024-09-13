@@ -17,7 +17,7 @@ import (
 	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/siemens-healthineers/k2s/internal/http"
+	"github.com/siemens-healthineers/k2s/internal/core/users/http"
 )
 
 type ping struct {

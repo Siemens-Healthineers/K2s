@@ -6,17 +6,15 @@ package acl
 import (
 	"fmt"
 	"log/slog"
+
+	"github.com/siemens-healthineers/k2s/internal/core/users/common"
 )
 
-type cmdExecutor interface {
-	ExecuteCmd(name string, arg ...string) error
-}
-
 type acl struct {
-	exec cmdExecutor
+	exec common.CmdExecutor
 }
 
-func NewAcl(exec cmdExecutor) *acl {
+func NewAcl(exec common.CmdExecutor) *acl {
 	return &acl{
 		exec: exec,
 	}
