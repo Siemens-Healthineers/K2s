@@ -304,6 +304,27 @@ function Stop-InstallationIfRequiredCurlVersionNotInstalled {
     }
 }
 
+function Write-WarningIfRequiredSshVersionNotInstalled {
+    try {
+        $sshPath = (Get-Command "ssh.exe").Path
+        $majorVersion = (Get-Item $sshPath).VersionInfo.FileVersionRaw.Major
+        $fileVersion = (Get-Item $sshPath).VersionInfo.FileVersion
+    }
+    catch {
+        $errorMessage = "[PREREQ-FAILED] The tool 'ssh' is not installed. Please install it and add its installation location to the 'PATH' environment variable"
+        Write-Log $errorMessage
+        throw $errorMessage
+    }
+
+    if ($majorVersion -lt 8) {
+        $warnMessage = "[PREREQ-WARNING] The installed version of 'ssh' ($fileVersion) is not at least the required one (major version 8). " `
+        + "Call 'ssh.exe -V' to check the installed version. " `
+        + "Update 'ssh' and add its installation location to the 'PATH' environment variable to ensure successful cluster installation."
+
+        Write-Log $warnMessage
+    }
+}
+
 Export-ModuleMember -Function Add-K2sToDefenderExclusion,
 Enable-MissingWindowsFeatures,
 Stop-InstallIfDockerDesktopIsRunning,
@@ -313,4 +334,5 @@ Set-WSL,
 Get-StorageLocalDrive,
 Invoke-DownloadFile,
 Stop-InstallIfNoMandatoryServiceIsRunning,
-Stop-InstallationIfRequiredCurlVersionNotInstalled
+Stop-InstallationIfRequiredCurlVersionNotInstalled,
+Write-WarningIfRequiredSshVersionNotInstalled
