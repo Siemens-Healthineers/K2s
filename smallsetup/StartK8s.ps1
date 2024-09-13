@@ -103,8 +103,8 @@ function UpdateIpAddress {
 }
 
 function GetNetworkAdapterNameFromInterfaceAlias([string]$interfaceAlias) {
-    [regex]$regex = ".*\((.*)\).*"
-    $foundValue = ""
+    [regex]$regex = '.*\((.*)\).*'
+    $foundValue = ''
     $result = $regex.match($interfaceAlias)
     if ($result.Success -and $result.Groups.Count -gt 1) {
         $foundValue = $result.Groups[1].Value
@@ -215,19 +215,19 @@ if ($SkipHeaderDisplay -eq $false) {
 function CheckFlannelConfig {
     $flannelFile = "$(Get-InstallationDriveLetter):\run\flannel\subnet.env"
     $existsFlannelFile = Test-Path -Path $flannelFile
-    if( $existsFlannelFile ) {
+    if ( $existsFlannelFile ) {
         Write-Log "Flannel file $flannelFile exists"
         return
     }
     # only in case that we used another drive than C for the installation
-    if( ($(Get-InstallationDriveLetter) -ne $(Get-SystemDriveLetter))) {
+    if ( ($(Get-InstallationDriveLetter) -ne $(Get-SystemDriveLetter))) {
         $i = 0
         $flannelFileSource = "$(Get-SystemDriveLetter):\run\flannel\subnet.env"
         Write-Log "Check $flannelFileSource file creation, this can take minutes depending on your network setup ..."
         while ($true) {
             $i++
             Write-Log "flannel handling loop (iteration #$i):"
-            if( Test-Path -Path $flannelFileSource ) {
+            if ( Test-Path -Path $flannelFileSource ) {
                 $targetPath = "$(Get-InstallationDriveLetter):\run\flannel"
                 New-Item -ItemType Directory -Path $targetPath -Force | Out-Null
                 Copy-Item -Path $flannelFileSource -Destination $targetPath -Force | Out-Null
@@ -267,9 +267,10 @@ else {
 if (Get-NeedsStopFirst) {
     Write-Log 'Stopping existing K8s system...'
     if ($UseCachedK2sVSwitches) {
-        Write-Log "Invoking cluster stop with vSwitch caching so that the cached switches can be used again on restart."
+        Write-Log 'Invoking cluster stop with vSwitch caching so that the cached switches can be used again on restart.'
         &"$PSScriptRoot\StopK8s.ps1" -AdditionalHooksDir $AdditionalHooksDir -ShowLogs:$ShowLogs -CacheK2sVSwitches -SkipHeaderDisplay
-    } else {
+    }
+    else {
         &"$PSScriptRoot\StopK8s.ps1" -AdditionalHooksDir $AdditionalHooksDir -ShowLogs:$ShowLogs -SkipHeaderDisplay
     }
     Start-Sleep 10
@@ -307,7 +308,7 @@ if ($WSL) {
     $switchname = Get-WslSwitchName
 }
 elseif ($isReusingExistingLinuxComputer) {
-    $interfaceAlias =  get-netipaddress -IPAddress $windowsHostIpAddress | Select-Object -ExpandProperty "InterfaceAlias"
+    $interfaceAlias = get-netipaddress -IPAddress $windowsHostIpAddress | Select-Object -ExpandProperty 'InterfaceAlias'
     $switchName = GetNetworkAdapterNameFromInterfaceAlias($interfaceAlias)
     if ([string]::IsNullOrWhiteSpace($switchName)) {
         throw "The network adapter name having the IP $windowsHostIpAddress could not be found."
@@ -323,8 +324,8 @@ Restart-WinService 'hns'
 
 Write-Log 'Figuring out IPv4DefaultGateway'
 $if = Get-NetIPConfiguration -InterfaceAlias "$adapterName" -ErrorAction SilentlyContinue 2>&1 | Out-Null
-$gw =  Get-LoopbackAdapterGateway
-if( $if ) {
+$gw = Get-LoopbackAdapterGateway
+if ( $if ) {
     $gw = $if.IPv4DefaultGateway.NextHop
     Write-Log "Gateway found (from interface '$adapterName'): $gw"
 }
@@ -354,7 +355,7 @@ if (!$WSL -and !$isReusingExistingLinuxComputer) {
     }
 
     $kubeSwitchInExpectedState = CheckKubeSwitchInExpectedState
-    if(!$UseCachedK2sVSwitches -or !$kubeSwitchInExpectedState) {
+    if (!$UseCachedK2sVSwitches -or !$kubeSwitchInExpectedState) {
         # Remove old switch
         Write-Log 'Updating VM networking...'
         Remove-KubeSwitch
@@ -367,7 +368,8 @@ if (!$WSL -and !$isReusingExistingLinuxComputer) {
 
         # add DNS proxy for cluster searches
         Add-DnsServer $switchname
-    } else {
+    }
+    else {
         # route for VM
         Write-Log "Remove obsolete route to $ipControlPlaneCIDR"
         route delete $ipControlPlaneCIDR >$null 2>&1
@@ -375,7 +377,8 @@ if (!$WSL -and !$isReusingExistingLinuxComputer) {
         route -p add $ipControlPlaneCIDR $windowsHostIpAddress METRIC 3 | Out-Null
     }
 
-} elseif ($isReusingExistingLinuxComputer) {
+}
+elseif ($isReusingExistingLinuxComputer) {
     # add DNS proxy for cluster searches
     Add-DnsServer $switchname
 }
@@ -385,12 +388,12 @@ Invoke-RecreateNAT
 
 # VM restart loop
 $i = 0
-while($true) {
+while ($true) {
     $i++
     Restart-ControlPlane -ControlPlaneVMName $controlPlaneVMHostName `
-                     -ControlPlaneIpAddr $ipControlPlane `
-                     -WSL $WSL `
-                     -ReusingExistingLinuxMachine $isReusingExistingLinuxComputer
+        -ControlPlaneIpAddr $ipControlPlane `
+        -WSL $WSL `
+        -ReusingExistingLinuxMachine $isReusingExistingLinuxComputer
     $controlPlaneCni0IpAddr = Get-Cni0IpAddressInControlPlaneUsingSshWithRetries -Retries 30 -RetryTimeoutInSeconds 5
     $expectedControlPlaneCni0IpAddr = Get-ConfiguredMasterNetworkInterfaceCni0IP
                  
@@ -402,7 +405,8 @@ while($true) {
         if ($i -eq 3) {
             throw "cni0 interface in $controlPlaneVMHostName is not correctly initialized after $i retries."
         }
-    } else {
+    }
+    else {
         Write-Log "cni0 interface in $controlPlaneVMHostName correctly initialized."
         break
     }  
@@ -418,10 +422,23 @@ if (!$WSL) {
     Write-Log 'Set the DNS server(s) used by the Windows Host as the default DNS server(s) of the VM'
     $physicalInterfaceIndex = Get-NetAdapter -Physical | Where-Object Status -Eq 'Up' | Where-Object Name -ne $(Get-L2BridgeName) | Select-Object -expand 'ifIndex'
     if (![string]::IsNullOrWhiteSpace($physicalInterfaceIndex)) {
-        $dnservers = ((Get-DnsClientServerAddress -InterfaceIndex $physicalInterfaceIndex | Select-Object -ExpandProperty ServerAddresses) | Select-Object -Unique) -join ' '
-        (Invoke-CmdOnControlPlaneViaSSHKey "sudo sed -i 's/dns-nameservers.*/dns-nameservers $dnservers/' /etc/network/interfaces.d/10-k2s").Output | Write-Log
-        (Invoke-CmdOnControlPlaneViaSSHKey 'sudo systemctl restart networking').Output | Write-Log
-        (Invoke-CmdOnControlPlaneViaSSHKey 'sudo systemctl restart dnsmasq').Output | Write-Log
+        $DNSServersAll = ''
+        foreach ($interfaceId in $physicalInterfaceIndex) {
+            $interfaceDnsEntries = Get-DnsClientServerAddress -InterfaceIndex $interfaceId -ErrorAction SilentlyContinue 
+            if ($null -eq $interfaceDnsEntries) {
+                Write-Log "No DNS servers found for interface index $interfaceId"
+                continue
+            }
+            $dnservers = (($interfaceDnsEntries | Select-Object -ExpandProperty ServerAddresses) | Select-Object -Unique) -join ' '
+            $DNSServersAll += $dnservers + ' '
+        }
+        $DNSServersAll = $DNSServersAll.Trim()
+        Write-Log "Setting DNS servers: $DNSServersAll for the VM"
+        if (![string]::IsNullOrWhiteSpace($DNSServersAll)) {
+            (Invoke-CmdOnControlPlaneViaSSHKey "sudo sed -i 's/dns-nameservers.*/dns-nameservers $DNSServersAll/' /etc/network/interfaces.d/10-k2s").Output | Write-Log
+            (Invoke-CmdOnControlPlaneViaSSHKey 'sudo systemctl restart networking').Output | Write-Log
+            (Invoke-CmdOnControlPlaneViaSSHKey 'sudo systemctl restart dnsmasq').Output | Write-Log
+        }    
     }
 }
 
@@ -463,7 +480,7 @@ netsh int ipv4 set int 'vEthernet (Ethernet)' forwarding=enabled | Out-Null
 
 Invoke-Hook -HookName BeforeStartK8sNetwork -AdditionalHooksDir $AdditionalHooksDir
 
-Write-Log "Ensuring service log directories exists"
+Write-Log 'Ensuring service log directories exists'
 EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\containerd"
 EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\dnsproxy"
 EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\dockerd"
@@ -526,12 +543,12 @@ while ($true) {
         $ProgressPreference = 'SilentlyContinue'
 
         Set-InterfacePrivate -InterfaceAlias "vEthernet ($adapterName)"
-        Write-Log "flanneld: $((Get-Service -Name "flanneld" -ErrorAction SilentlyContinue).Status)"
+        Write-Log "flanneld: $((Get-Service -Name 'flanneld' -ErrorAction SilentlyContinue).Status)"
 
         if ($WSL) {
-            $interfaceAlias = Get-NetAdapter -Name "vEthernet (WSL*)" -ErrorAction SilentlyContinue -IncludeHidden | Select-Object -expandproperty name
-            New-NetFirewallRule -DisplayName 'WSL Inbound' -Group "k2s" -Direction Inbound -InterfaceAlias $interfaceAlias -Action Allow
-            New-NetFirewallRule -DisplayName 'WSL Outbound'-Group "k2s" -Direction Outbound -InterfaceAlias $interfaceAlias -Action Allow
+            $interfaceAlias = Get-NetAdapter -Name 'vEthernet (WSL*)' -ErrorAction SilentlyContinue -IncludeHidden | Select-Object -expandproperty name
+            New-NetFirewallRule -DisplayName 'WSL Inbound' -Group 'k2s' -Direction Inbound -InterfaceAlias $interfaceAlias -Action Allow
+            New-NetFirewallRule -DisplayName 'WSL Outbound'-Group 'k2s' -Direction Outbound -InterfaceAlias $interfaceAlias -Action Allow
         }
         else {
             Set-InterfacePrivate -InterfaceAlias "vEthernet ($switchname)"
