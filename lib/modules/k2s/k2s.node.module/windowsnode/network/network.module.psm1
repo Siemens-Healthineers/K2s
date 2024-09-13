@@ -142,11 +142,6 @@ function Invoke-RecreateNAT {
         Write-Log "  $netNatName exists, removing it"
         Remove-NetNat -Name $netNatName -Confirm:$False | Out-Null
     }
-    # Write-Log 'Configure NAT...'
-    # New-NetNat -Name $netNatName -InternalIPInterfaceAddressPrefix $global:IP_CIDR | Out-Null
-
-    # disable IPv6
-    # Disable-NetAdapterBinding -Name "vEthernet ($global:SwitchName)" -ComponentID ms_tcpip6 | Out-Null
 }
 
 function New-DefaultNetNat {
