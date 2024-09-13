@@ -11,9 +11,9 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/status"
-	"github.com/siemens-healthineers/k2s/internal/core/config"
 	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
 	"github.com/siemens-healthineers/k2s/internal/core/users"
+	"github.com/siemens-healthineers/k2s/internal/host"
 	"github.com/spf13/cobra"
 )
 
@@ -68,8 +68,9 @@ func run(cmd *cobra.Command, args []string) error {
 
 	// TODO: code clone!
 	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
+	cfg := context.Config()
 	// TODO: code clone!
-	setupConfig, err := setupinfo.ReadConfig(context.Config().Host.K2sConfigDir)
+	setupConfig, err := setupinfo.ReadConfig(cfg.Host.K2sConfigDir)
 	if err != nil {
 		// TODO: code clone!
 		if errors.Is(err, setupinfo.ErrSystemNotInstalled) {
@@ -92,7 +93,9 @@ func run(cmd *cobra.Command, args []string) error {
 		return common.CreateSystemNotRunningCmdFailure()
 	}
 
-	usersManagement, err := newUsersManagement(setupConfig.ControlPlaneNodeHostname, context.Config())
+	cmdExecutor := host.NewCmdExecutor(common.NewSlogWriter())
+	userProvider := users.DefaultUserProvider()
+	usersManagement, err := users.NewUsersManagement(setupConfig.ControlPlaneNodeHostname, cfg, cmdExecutor, userProvider)
 	if err != nil {
 		return err
 	}
@@ -114,16 +117,6 @@ func run(cmd *cobra.Command, args []string) error {
 
 	common.PrintCompletedMessage(time.Since(start), cmd.CommandPath())
 	return nil
-}
-
-func newUsersManagement(controlPlaneName string, cfg *config.Config) (UsersManagement, error) {
-	umConfig := &users.UsersManagementConfig{
-		ControlPlaneName: controlPlaneName,
-		Config:           cfg,
-		StdWriter:        common.NewSlogWriter(),
-	}
-
-	return users.NewUsersManagement(umConfig)
 }
 
 func newUserNotFoundFailure(err error) *common.CmdFailure {
