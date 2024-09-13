@@ -41,6 +41,7 @@ function New-ControlPlaneNodeOnNewVM {
     Test-ControlPlanePrerequisites -MasterVMProcessorCount $MasterVMProcessorCount -MasterVMMemory $MasterVMMemory -MasterDiskSize $MasterDiskSize
     Test-WindowsPrerequisites -WSL:$WSL
     Stop-InstallationIfRequiredCurlVersionNotInstalled
+    Write-WarningIfRequiredSshVersionNotInstalled
 
     if ($CheckOnly) {
         Write-Log 'Early exit (CheckOnly)'
