@@ -11,8 +11,8 @@ import (
 	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/siemens-healthineers/k2s/internal/core/users/acl"
 	"github.com/siemens-healthineers/k2s/internal/reflection"
-	"github.com/siemens-healthineers/k2s/internal/windows/acl"
 	"github.com/stretchr/testify/mock"
 )
 

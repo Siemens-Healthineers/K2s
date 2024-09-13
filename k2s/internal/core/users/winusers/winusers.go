@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText:  © 2024 Siemens Healthcare GmbH
 // SPDX-License-Identifier:   MIT
 
-package users
+package winusers
 
 import (
 	"errors"
@@ -12,11 +12,13 @@ import (
 	"strings"
 )
 
-type winUser struct {
-	userId   string
-	username string
-	homeDir  string
+type User struct {
+	id      string
+	name    string
+	homeDir string
 }
+
+type winUserProvider struct{}
 
 const (
 	systemAccountName     = "SYSTEM"
@@ -26,9 +28,21 @@ const (
 
 var systemAccountHomeDir = filepath.Join(os.Getenv("SYSTEMROOT"), "System32\\config\\systemprofile")
 
-func FindByName(name string) (*winUser, error) {
+func NewWinUserProvider() *winUserProvider {
+	return &winUserProvider{}
+}
+
+func NewUser(id, name, homeDir string) *User {
+	return &User{
+		id:      id,
+		name:    name,
+		homeDir: homeDir,
+	}
+}
+
+func (*winUserProvider) FindByName(name string) (*User, error) {
 	if isSystemAccountName(name) {
-		return newSystemUser(), nil
+		return NewUser(systemAccountId, systemAccountFullName, systemAccountHomeDir), nil
 	}
 
 	found, err := user.Lookup(name)
@@ -36,12 +50,12 @@ func FindByName(name string) (*winUser, error) {
 		return nil, fmt.Errorf("could not find Windows user by name '%s'", name)
 	}
 
-	return newWinUser(found), nil
+	return NewUser(found.Uid, found.Username, found.HomeDir), nil
 }
 
-func FindById(id string) (*winUser, error) {
+func (*winUserProvider) FindById(id string) (*User, error) {
 	if isSystemAccountId(id) {
-		return newSystemUser(), nil
+		return NewUser(systemAccountId, systemAccountFullName, systemAccountHomeDir), nil
 	}
 
 	found, err := user.LookupId(id)
@@ -49,27 +63,27 @@ func FindById(id string) (*winUser, error) {
 		return nil, fmt.Errorf("could not find Windows user by id '%s'", id)
 	}
 
-	return newWinUser(found), nil
+	return NewUser(found.Uid, found.Username, found.HomeDir), nil
 }
 
-func Current() (*winUser, error) {
+func (*winUserProvider) Current() (*User, error) {
 	current, err := user.Current()
 	if err != nil {
 		return nil, errors.New("could not determine current Windows user")
 	}
 
-	return newWinUser(current), nil
+	return NewUser(current.Uid, current.Username, current.HomeDir), nil
 }
 
-func (u *winUser) UserId() string {
-	return u.userId
+func (u *User) Id() string {
+	return u.id
 }
 
-func (u *winUser) Username() string {
-	return u.username
+func (u *User) Name() string {
+	return u.name
 }
 
-func (u *winUser) HomeDir() string {
+func (u *User) HomeDir() string {
 	return u.homeDir
 }
 
@@ -79,20 +93,4 @@ func isSystemAccountName(name string) bool {
 
 func isSystemAccountId(id string) bool {
 	return strings.EqualFold(id, systemAccountId)
-}
-
-func newSystemUser() *winUser {
-	return &winUser{
-		userId:   systemAccountId,
-		username: systemAccountFullName,
-		homeDir:  systemAccountHomeDir,
-	}
-}
-
-func newWinUser(u *user.User) *winUser {
-	return &winUser{
-		userId:   u.Uid,
-		username: u.Username,
-		homeDir:  u.HomeDir,
-	}
 }
