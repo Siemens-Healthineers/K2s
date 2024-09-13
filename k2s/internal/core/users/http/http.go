@@ -15,15 +15,15 @@ import (
 	"net/http"
 )
 
-type RestClient struct {
+type restClient struct {
 	httpClient *http.Client
 }
 
-func NewRestClient() *RestClient {
-	return &RestClient{httpClient: &http.Client{}}
+func NewRestClient() *restClient {
+	return &restClient{httpClient: &http.Client{}}
 }
 
-func (rc *RestClient) SetTlsClientConfig(caCert []byte, userCert []byte, userKey []byte) error {
+func (rc *restClient) SetTlsClientConfig(caCert []byte, userCert []byte, userKey []byte) error {
 	certPool := x509.NewCertPool()
 	if !certPool.AppendCertsFromPEM(caCert) {
 		return errors.New("could not parse CA cert")
@@ -43,7 +43,7 @@ func (rc *RestClient) SetTlsClientConfig(caCert []byte, userCert []byte, userKey
 	return nil
 }
 
-func (rc *RestClient) Post(url string, payload any, result any) error {
+func (rc *restClient) Post(url string, payload any, result any) error {
 	jsonBody, err := json.Marshal(payload)
 	if err != nil {
 		return fmt.Errorf("could not marshal json payload: %w", err)

@@ -1,13 +1,15 @@
 // SPDX-FileCopyrightText:  © 2024 Siemens Healthcare GmbH
 // SPDX-License-Identifier:   MIT
 
-package ssh
+package keygen
 
 import (
 	"fmt"
 	"log/slog"
 	"path/filepath"
 	"strings"
+
+	"github.com/siemens-healthineers/k2s/internal/core/users/common"
 )
 
 type fileSystem interface {
@@ -18,7 +20,7 @@ type fileSystem interface {
 }
 
 type sshKeyGen struct {
-	exec cmdExecutor
+	exec common.CmdExecutor
 	fs   fileSystem
 }
 
@@ -31,7 +33,7 @@ const (
 	lineSeparator  = "\n"
 )
 
-func NewSshKeyGen(cmdExecutor cmdExecutor, fileSystem fileSystem) *sshKeyGen {
+func NewSshKeyGen(cmdExecutor common.CmdExecutor, fileSystem fileSystem) *sshKeyGen {
 	return &sshKeyGen{
 		exec: cmdExecutor,
 		fs:   fileSystem,
