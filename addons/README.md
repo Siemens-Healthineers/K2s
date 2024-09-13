@@ -16,6 +16,7 @@ The following addons will be deployed with **K2s**:
 <!-- addons-list-start -->
 |Addon|Description|
 |---|---|
+| [autoscaling](./autoscaling/README.md) | Horizontally scale workloads based on external events or triggers with KEDA (Kubernetes Event-Driven Autoscaling) | 
 | [dashboard](./dashboard/README.md) | Dashboard for Kubernetes | 
 | [exthttpaccess](./exthttpaccess/README.md) | Expose the K2s cluster via HTTP/HTTPS outside the host machine boundary. | 
 | [gateway-api](./gateway-api/README.md) | Manage ingress traffic and routing for services within a cluster using Gateway API resource | 
@@ -27,7 +28,7 @@ The following addons will be deployed with **K2s**:
 | [metrics](./metrics/README.md) | Kubernetes metrics server for API Access to service metrics | 
 | [monitoring](./monitoring/README.md) | Dashboard for cluster resource monitoring and logging | 
 | [registry](./registry/README.md) | Private image registry running in the Kubernetes cluster exposed on k2s-registry.local | 
-| [rollout](./rollout/README.md) | Tool for automating the deployment/updating of applications | 
+| [rollout](./rollout/README.md) | Automating the deployment/updating of applications | 
 | [security](./security/README.md) | EXPERIMENTAL: Enables secure communication into and inside the cluster | 
 | [storage smb](./storage/smb/README.md) | StorageClass provisioning based on SMB share between K8s nodes (Windows/Linux) | 
 <!-- addons-list-end -->
