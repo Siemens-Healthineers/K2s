@@ -6,6 +6,7 @@ package nodes_test
 import (
 	"errors"
 	"log/slog"
+	"strings"
 	"testing"
 
 	"github.com/go-logr/logr"
@@ -16,13 +17,13 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-// type scpMock struct {
-// 	mock.Mock
-// }
+type scpMock struct {
+	mock.Mock
+}
 
-// type sshMock struct {
-// 	mock.Mock
-// }
+type sshMock struct {
+	mock.Mock
+}
 
 type fsMock struct {
 	mock.Mock
@@ -40,23 +41,23 @@ type aclMock struct {
 	mock.Mock
 }
 
-// func (m *sshMock) Exec(cmd string) error {
-// 	args := m.Called(cmd)
+func (m *sshMock) Exec(cmd string) error {
+	args := m.Called(cmd)
 
-// 	return args.Error(0)
-// }
+	return args.Error(0)
+}
 
-// func (m *scpMock) ScpToRemote(source string, target string) error {
-// 	args := m.Called(source, target)
+func (m *scpMock) CopyToRemote(source string, target string) error {
+	args := m.Called(source, target)
 
-// 	return args.Error(0)
-// }
+	return args.Error(0)
+}
 
-// func (m *scpMock) ScpFromRemote(source string, target string) error {
-// 	args := m.Called(source, target)
+func (m *scpMock) CopyFromRemote(source string, target string) error {
+	args := m.Called(source, target)
 
-// 	return args.Error(0)
-// }
+	return args.Error(0)
+}
 
 func (m *fsMock) PathExists(path string) bool {
 	args := m.Called(path)
@@ -100,7 +101,7 @@ func (m *keygenMock) CreateKey(keyPath string, comment string) error {
 	return args.Error(0)
 }
 
-func (m *keygenMock) FindHostInKnownHosts(host string, sshDir string) (hostEntry string, found bool) {
+func (m *keygenMock) FindHostInKnownHosts(host string, sshDir string) (string, bool) {
 	args := m.Called(host, sshDir)
 
 	return args.String(0), args.Bool(1)
@@ -290,7 +291,348 @@ var _ = Describe("nodes pkg", func() {
 				})
 			})
 
-			// TODO: continue
+			When("removing security attribute inheritance failes", func() {
+				It("returns error", func() {
+					const adminSshDir = ""
+					const currentUserName = ""
+					const k2sUserName = ""
+					expectedError := errors.New("oops")
+					host := nodes.ControlPlaneHost{}
+
+					fsMock := &fsMock{}
+					fsMock.On(reflection.GetFunctionName(fsMock.PathExists), mock.Anything).Return(false)
+					fsMock.On(reflection.GetFunctionName(fsMock.CreateDirIfNotExisting), mock.Anything).Return(nil)
+
+					userMock := &userMock{}
+					userMock.On(reflection.GetFunctionName(userMock.HomeDir)).Return("")
+					userMock.On(reflection.GetFunctionName(userMock.Name)).Return("")
+
+					keygenMock := &keygenMock{}
+					keygenMock.On(reflection.GetFunctionName(keygenMock.CreateKey), mock.Anything, mock.Anything).Return(nil)
+
+					aclMock := &aclMock{}
+					aclMock.On(reflection.GetFunctionName(aclMock.SetOwner), mock.Anything, mock.Anything).Return(nil)
+					aclMock.On(reflection.GetFunctionName(aclMock.RemoveInheritance), mock.Anything, mock.Anything).Return(expectedError)
+
+					sut := nodes.NewControlPlaneAccess(fsMock, keygenMock, nil, nil, aclMock, adminSshDir, host)
+
+					err := sut.GrantAccessTo(userMock, currentUserName, k2sUserName)
+
+					Expect(err).To(MatchError(expectedError))
+				})
+			})
+
+			When("granting full access to new user failes", func() {
+				It("returns error", func() {
+					const adminSshDir = ""
+					const currentUserName = ""
+					const k2sUserName = ""
+					expectedError := errors.New("oops")
+					host := nodes.ControlPlaneHost{}
+
+					fsMock := &fsMock{}
+					fsMock.On(reflection.GetFunctionName(fsMock.PathExists), mock.Anything).Return(false)
+					fsMock.On(reflection.GetFunctionName(fsMock.CreateDirIfNotExisting), mock.Anything).Return(nil)
+
+					userMock := &userMock{}
+					userMock.On(reflection.GetFunctionName(userMock.HomeDir)).Return("")
+					userMock.On(reflection.GetFunctionName(userMock.Name)).Return("")
+
+					keygenMock := &keygenMock{}
+					keygenMock.On(reflection.GetFunctionName(keygenMock.CreateKey), mock.Anything, mock.Anything).Return(nil)
+
+					aclMock := &aclMock{}
+					aclMock.On(reflection.GetFunctionName(aclMock.SetOwner), mock.Anything, mock.Anything).Return(nil)
+					aclMock.On(reflection.GetFunctionName(aclMock.RemoveInheritance), mock.Anything, mock.Anything).Return(nil)
+					aclMock.On(reflection.GetFunctionName(aclMock.GrantFullAccess), mock.Anything, mock.Anything).Return(expectedError)
+
+					sut := nodes.NewControlPlaneAccess(fsMock, keygenMock, nil, nil, aclMock, adminSshDir, host)
+
+					err := sut.GrantAccessTo(userMock, currentUserName, k2sUserName)
+
+					Expect(err).To(MatchError(expectedError))
+				})
+			})
+
+			When("revoking access for admin user failes", func() {
+				It("returns error", func() {
+					const adminSshDir = ""
+					const currentUserName = ""
+					const k2sUserName = ""
+					expectedError := errors.New("oops")
+					host := nodes.ControlPlaneHost{}
+
+					fsMock := &fsMock{}
+					fsMock.On(reflection.GetFunctionName(fsMock.PathExists), mock.Anything).Return(false)
+					fsMock.On(reflection.GetFunctionName(fsMock.CreateDirIfNotExisting), mock.Anything).Return(nil)
+
+					userMock := &userMock{}
+					userMock.On(reflection.GetFunctionName(userMock.HomeDir)).Return("")
+					userMock.On(reflection.GetFunctionName(userMock.Name)).Return("")
+
+					keygenMock := &keygenMock{}
+					keygenMock.On(reflection.GetFunctionName(keygenMock.CreateKey), mock.Anything, mock.Anything).Return(nil)
+
+					aclMock := &aclMock{}
+					aclMock.On(reflection.GetFunctionName(aclMock.SetOwner), mock.Anything, mock.Anything).Return(nil)
+					aclMock.On(reflection.GetFunctionName(aclMock.RemoveInheritance), mock.Anything, mock.Anything).Return(nil)
+					aclMock.On(reflection.GetFunctionName(aclMock.GrantFullAccess), mock.Anything, mock.Anything).Return(nil)
+					aclMock.On(reflection.GetFunctionName(aclMock.RevokeAccess), mock.Anything, mock.Anything).Return(expectedError)
+
+					sut := nodes.NewControlPlaneAccess(fsMock, keygenMock, nil, nil, aclMock, adminSshDir, host)
+
+					err := sut.GrantAccessTo(userMock, currentUserName, k2sUserName)
+
+					Expect(err).To(MatchError(expectedError))
+				})
+			})
+
+			When("removing of existing pub key on control-plane failes", func() {
+				It("returns error", func() {
+					const adminSshDir = ""
+					const currentUserName = ""
+					const k2sUserName = ""
+					expectedError := errors.New("oops")
+					host := nodes.ControlPlaneHost{}
+
+					fsMock := &fsMock{}
+					fsMock.On(reflection.GetFunctionName(fsMock.PathExists), mock.Anything).Return(false)
+					fsMock.On(reflection.GetFunctionName(fsMock.CreateDirIfNotExisting), mock.Anything).Return(nil)
+
+					userMock := &userMock{}
+					userMock.On(reflection.GetFunctionName(userMock.HomeDir)).Return("")
+					userMock.On(reflection.GetFunctionName(userMock.Name)).Return("")
+
+					keygenMock := &keygenMock{}
+					keygenMock.On(reflection.GetFunctionName(keygenMock.CreateKey), mock.Anything, mock.Anything).Return(nil)
+					keygenMock.On(reflection.GetFunctionName(keygenMock.FindHostInKnownHosts), mock.Anything, mock.Anything).Return("", true)
+					keygenMock.On(reflection.GetFunctionName(keygenMock.SetHostInKnownHosts), mock.Anything, mock.Anything).Return(nil)
+
+					aclMock := &aclMock{}
+					aclMock.On(reflection.GetFunctionName(aclMock.SetOwner), mock.Anything, mock.Anything).Return(nil)
+					aclMock.On(reflection.GetFunctionName(aclMock.RemoveInheritance), mock.Anything, mock.Anything).Return(nil)
+					aclMock.On(reflection.GetFunctionName(aclMock.GrantFullAccess), mock.Anything, mock.Anything).Return(nil)
+					aclMock.On(reflection.GetFunctionName(aclMock.RevokeAccess), mock.Anything, mock.Anything).Return(nil)
+
+					sshMock := &sshMock{}
+					sshMock.On(reflection.GetFunctionName(sshMock.Exec), mock.Anything).Return(expectedError)
+
+					sut := nodes.NewControlPlaneAccess(fsMock, keygenMock, sshMock, nil, aclMock, adminSshDir, host)
+
+					err := sut.GrantAccessTo(userMock, currentUserName, k2sUserName)
+
+					Expect(err).To(MatchError(expectedError))
+				})
+			})
+
+			When("copying pub key to control-plane failes", func() {
+				It("returns error", func() {
+					const adminSshDir = ""
+					const currentUserName = ""
+					const k2sUserName = ""
+					expectedError := errors.New("oops")
+					host := nodes.ControlPlaneHost{}
+
+					fsMock := &fsMock{}
+					fsMock.On(reflection.GetFunctionName(fsMock.PathExists), mock.Anything).Return(false)
+					fsMock.On(reflection.GetFunctionName(fsMock.CreateDirIfNotExisting), mock.Anything).Return(nil)
+
+					userMock := &userMock{}
+					userMock.On(reflection.GetFunctionName(userMock.HomeDir)).Return("")
+					userMock.On(reflection.GetFunctionName(userMock.Name)).Return("")
+
+					keygenMock := &keygenMock{}
+					keygenMock.On(reflection.GetFunctionName(keygenMock.CreateKey), mock.Anything, mock.Anything).Return(nil)
+					keygenMock.On(reflection.GetFunctionName(keygenMock.FindHostInKnownHosts), mock.Anything, mock.Anything).Return("", true)
+					keygenMock.On(reflection.GetFunctionName(keygenMock.SetHostInKnownHosts), mock.Anything, mock.Anything).Return(nil)
+
+					aclMock := &aclMock{}
+					aclMock.On(reflection.GetFunctionName(aclMock.SetOwner), mock.Anything, mock.Anything).Return(nil)
+					aclMock.On(reflection.GetFunctionName(aclMock.RemoveInheritance), mock.Anything, mock.Anything).Return(nil)
+					aclMock.On(reflection.GetFunctionName(aclMock.GrantFullAccess), mock.Anything, mock.Anything).Return(nil)
+					aclMock.On(reflection.GetFunctionName(aclMock.RevokeAccess), mock.Anything, mock.Anything).Return(nil)
+
+					sshMock := &sshMock{}
+					sshMock.On(reflection.GetFunctionName(sshMock.Exec), mock.Anything).Return(nil)
+
+					scpMock := &scpMock{}
+					scpMock.On(reflection.GetFunctionName(scpMock.CopyToRemote), mock.Anything, mock.Anything).Return(expectedError)
+
+					sut := nodes.NewControlPlaneAccess(fsMock, keygenMock, sshMock, scpMock, aclMock, adminSshDir, host)
+
+					err := sut.GrantAccessTo(userMock, currentUserName, k2sUserName)
+
+					Expect(err).To(MatchError(expectedError))
+				})
+			})
+
+			When("adding SSH pub key to authorized keys file on control-plane failes", func() {
+				It("returns error", func() {
+					const adminSshDir = ""
+					const currentUserName = ""
+					const k2sUserName = ""
+					expectedError := errors.New("oops")
+					host := nodes.ControlPlaneHost{}
+
+					fsMock := &fsMock{}
+					fsMock.On(reflection.GetFunctionName(fsMock.PathExists), mock.Anything).Return(false)
+					fsMock.On(reflection.GetFunctionName(fsMock.CreateDirIfNotExisting), mock.Anything).Return(nil)
+
+					userMock := &userMock{}
+					userMock.On(reflection.GetFunctionName(userMock.HomeDir)).Return("")
+					userMock.On(reflection.GetFunctionName(userMock.Name)).Return("")
+
+					keygenMock := &keygenMock{}
+					keygenMock.On(reflection.GetFunctionName(keygenMock.CreateKey), mock.Anything, mock.Anything).Return(nil)
+					keygenMock.On(reflection.GetFunctionName(keygenMock.FindHostInKnownHosts), mock.Anything, mock.Anything).Return("", true)
+					keygenMock.On(reflection.GetFunctionName(keygenMock.SetHostInKnownHosts), mock.Anything, mock.Anything).Return(nil)
+
+					aclMock := &aclMock{}
+					aclMock.On(reflection.GetFunctionName(aclMock.SetOwner), mock.Anything, mock.Anything).Return(nil)
+					aclMock.On(reflection.GetFunctionName(aclMock.RemoveInheritance), mock.Anything, mock.Anything).Return(nil)
+					aclMock.On(reflection.GetFunctionName(aclMock.GrantFullAccess), mock.Anything, mock.Anything).Return(nil)
+					aclMock.On(reflection.GetFunctionName(aclMock.RevokeAccess), mock.Anything, mock.Anything).Return(nil)
+
+					sshMock := &sshMock{}
+					sshMock.On(reflection.GetFunctionName(sshMock.Exec), mock.MatchedBy(func(cmd string) bool {
+						return strings.Contains(cmd, "sudo sed")
+					})).Return(expectedError)
+					sshMock.On(reflection.GetFunctionName(sshMock.Exec), mock.Anything).Return(nil)
+
+					scpMock := &scpMock{}
+					scpMock.On(reflection.GetFunctionName(scpMock.CopyToRemote), mock.Anything, mock.Anything).Return(nil)
+
+					sut := nodes.NewControlPlaneAccess(fsMock, keygenMock, sshMock, scpMock, aclMock, adminSshDir, host)
+
+					err := sut.GrantAccessTo(userMock, currentUserName, k2sUserName)
+
+					Expect(err).To(MatchError(expectedError))
+				})
+			})
+
+			When("host not found in known_hosts file", func() {
+				It("returns error", func() {
+					const adminSshDir = ""
+					const currentUserName = ""
+					const k2sUserName = ""
+					host := nodes.ControlPlaneHost{}
+
+					fsMock := &fsMock{}
+					fsMock.On(reflection.GetFunctionName(fsMock.PathExists), mock.Anything).Return(false)
+					fsMock.On(reflection.GetFunctionName(fsMock.CreateDirIfNotExisting), mock.Anything).Return(nil)
+
+					userMock := &userMock{}
+					userMock.On(reflection.GetFunctionName(userMock.HomeDir)).Return("")
+					userMock.On(reflection.GetFunctionName(userMock.Name)).Return("")
+
+					keygenMock := &keygenMock{}
+					keygenMock.On(reflection.GetFunctionName(keygenMock.CreateKey), mock.Anything, mock.Anything).Return(nil)
+					keygenMock.On(reflection.GetFunctionName(keygenMock.FindHostInKnownHosts), mock.Anything, mock.Anything).Return("", false)
+					keygenMock.On(reflection.GetFunctionName(keygenMock.SetHostInKnownHosts), mock.Anything, mock.Anything).Return(nil)
+
+					aclMock := &aclMock{}
+					aclMock.On(reflection.GetFunctionName(aclMock.SetOwner), mock.Anything, mock.Anything).Return(nil)
+					aclMock.On(reflection.GetFunctionName(aclMock.RemoveInheritance), mock.Anything, mock.Anything).Return(nil)
+					aclMock.On(reflection.GetFunctionName(aclMock.GrantFullAccess), mock.Anything, mock.Anything).Return(nil)
+					aclMock.On(reflection.GetFunctionName(aclMock.RevokeAccess), mock.Anything, mock.Anything).Return(nil)
+
+					sshMock := &sshMock{}
+					sshMock.On(reflection.GetFunctionName(sshMock.Exec), mock.Anything).Return(nil)
+
+					scpMock := &scpMock{}
+					scpMock.On(reflection.GetFunctionName(scpMock.CopyToRemote), mock.Anything, mock.Anything).Return(nil)
+
+					sut := nodes.NewControlPlaneAccess(fsMock, keygenMock, sshMock, scpMock, aclMock, adminSshDir, host)
+
+					err := sut.GrantAccessTo(userMock, currentUserName, k2sUserName)
+
+					Expect(err).To(MatchError(SatisfyAll(
+						ContainSubstring("could not find"),
+						ContainSubstring("entry for host"),
+					)))
+				})
+			})
+
+			When("setting host in known_hosts file failes", func() {
+				It("returns error", func() {
+					const adminSshDir = ""
+					const currentUserName = ""
+					const k2sUserName = ""
+					expectedError := errors.New("oops")
+					host := nodes.ControlPlaneHost{}
+
+					fsMock := &fsMock{}
+					fsMock.On(reflection.GetFunctionName(fsMock.PathExists), mock.Anything).Return(false)
+					fsMock.On(reflection.GetFunctionName(fsMock.CreateDirIfNotExisting), mock.Anything).Return(nil)
+
+					userMock := &userMock{}
+					userMock.On(reflection.GetFunctionName(userMock.HomeDir)).Return("")
+					userMock.On(reflection.GetFunctionName(userMock.Name)).Return("")
+
+					keygenMock := &keygenMock{}
+					keygenMock.On(reflection.GetFunctionName(keygenMock.CreateKey), mock.Anything, mock.Anything).Return(nil)
+					keygenMock.On(reflection.GetFunctionName(keygenMock.FindHostInKnownHosts), mock.Anything, mock.Anything).Return("", true)
+					keygenMock.On(reflection.GetFunctionName(keygenMock.SetHostInKnownHosts), mock.Anything, mock.Anything).Return(expectedError)
+
+					aclMock := &aclMock{}
+					aclMock.On(reflection.GetFunctionName(aclMock.SetOwner), mock.Anything, mock.Anything).Return(nil)
+					aclMock.On(reflection.GetFunctionName(aclMock.RemoveInheritance), mock.Anything, mock.Anything).Return(nil)
+					aclMock.On(reflection.GetFunctionName(aclMock.GrantFullAccess), mock.Anything, mock.Anything).Return(nil)
+					aclMock.On(reflection.GetFunctionName(aclMock.RevokeAccess), mock.Anything, mock.Anything).Return(nil)
+
+					sshMock := &sshMock{}
+					sshMock.On(reflection.GetFunctionName(sshMock.Exec), mock.Anything).Return(nil)
+
+					scpMock := &scpMock{}
+					scpMock.On(reflection.GetFunctionName(scpMock.CopyToRemote), mock.Anything, mock.Anything).Return(nil)
+
+					sut := nodes.NewControlPlaneAccess(fsMock, keygenMock, sshMock, scpMock, aclMock, adminSshDir, host)
+
+					err := sut.GrantAccessTo(userMock, currentUserName, k2sUserName)
+
+					Expect(err).To(MatchError(expectedError))
+				})
+			})
+
+			When("all succeeded", func() {
+				It("returns nil", func() {
+					const adminSshDir = ""
+					const currentUserName = ""
+					const k2sUserName = ""
+					host := nodes.ControlPlaneHost{}
+
+					fsMock := &fsMock{}
+					fsMock.On(reflection.GetFunctionName(fsMock.PathExists), mock.Anything).Return(false)
+					fsMock.On(reflection.GetFunctionName(fsMock.CreateDirIfNotExisting), mock.Anything).Return(nil)
+
+					userMock := &userMock{}
+					userMock.On(reflection.GetFunctionName(userMock.HomeDir)).Return("")
+					userMock.On(reflection.GetFunctionName(userMock.Name)).Return("")
+
+					keygenMock := &keygenMock{}
+					keygenMock.On(reflection.GetFunctionName(keygenMock.CreateKey), mock.Anything, mock.Anything).Return(nil)
+					keygenMock.On(reflection.GetFunctionName(keygenMock.FindHostInKnownHosts), mock.Anything, mock.Anything).Return("", true)
+					keygenMock.On(reflection.GetFunctionName(keygenMock.SetHostInKnownHosts), mock.Anything, mock.Anything).Return(nil)
+
+					aclMock := &aclMock{}
+					aclMock.On(reflection.GetFunctionName(aclMock.SetOwner), mock.Anything, mock.Anything).Return(nil)
+					aclMock.On(reflection.GetFunctionName(aclMock.RemoveInheritance), mock.Anything, mock.Anything).Return(nil)
+					aclMock.On(reflection.GetFunctionName(aclMock.GrantFullAccess), mock.Anything, mock.Anything).Return(nil)
+					aclMock.On(reflection.GetFunctionName(aclMock.RevokeAccess), mock.Anything, mock.Anything).Return(nil)
+
+					sshMock := &sshMock{}
+					sshMock.On(reflection.GetFunctionName(sshMock.Exec), mock.Anything).Return(nil)
+
+					scpMock := &scpMock{}
+					scpMock.On(reflection.GetFunctionName(scpMock.CopyToRemote), mock.Anything, mock.Anything).Return(nil)
+
+					sut := nodes.NewControlPlaneAccess(fsMock, keygenMock, sshMock, scpMock, aclMock, adminSshDir, host)
+
+					err := sut.GrantAccessTo(userMock, currentUserName, k2sUserName)
+
+					Expect(err).ToNot(HaveOccurred())
+				})
+			})
 		})
 	})
 })

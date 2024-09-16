@@ -35,7 +35,7 @@ type fileSystem interface {
 }
 
 type clusterAccess interface {
-	ValidateAccess(userParam *cluster.UserParam, clusterParam *cluster.ClusterParam) error
+	VerifyAccess(userParam *cluster.UserParam, clusterParam *cluster.ClusterParam) error
 }
 
 type kubeconfigReader interface {
@@ -173,8 +173,8 @@ func (g *k8sAccess) addUserAccessToKubeconfig(k2sUserName, certPath, keyPath str
 		return fmt.Errorf("could not set K2s context to active for new user in kubeconfig: %w", err)
 	}
 
-	if err := g.validateClusterAccess(kubeconfig, k2sUserName); err != nil {
-		return fmt.Errorf("K8s cluster access test failed: %w", err)
+	if err := g.verifyClusterAccess(kubeconfig, k2sUserName); err != nil {
+		return fmt.Errorf("could not verify K8s cluster access: %w", err)
 	}
 
 	if resetActiveContext {
@@ -185,7 +185,7 @@ func (g *k8sAccess) addUserAccessToKubeconfig(k2sUserName, certPath, keyPath str
 	return nil
 }
 
-func (g *k8sAccess) validateClusterAccess(kubeconfig *kubeconfig.KubeconfigRoot, k2sUserName string) error {
+func (g *k8sAccess) verifyClusterAccess(kubeconfig *kubeconfig.KubeconfigRoot, k2sUserName string) error {
 	userConf, err := kubeconfig.FindUser(k2sUserName)
 	if err != nil {
 		return err
@@ -206,7 +206,7 @@ func (g *k8sAccess) validateClusterAccess(kubeconfig *kubeconfig.KubeconfigRoot,
 		Server: clusterConf.Details.Server,
 	}
 
-	return g.clusterAccess.ValidateAccess(userParam, clusterParam)
+	return g.clusterAccess.VerifyAccess(userParam, clusterParam)
 }
 
 func (g *k8sAccess) createUserCertOnControlPlane(k2sUserName string) (certName, keyName string, err error) {
