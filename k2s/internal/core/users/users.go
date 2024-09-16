@@ -111,6 +111,8 @@ func (m *usersManagement) AddUserById(id string) error {
 }
 
 func (m *usersManagement) add(winUser *winusers.User) error {
+	slog.Debug("Adding Windows user", "name", winUser.Name(), "id", winUser.Id())
+
 	current, err := m.userProvider.Current()
 	if err != nil {
 		return fmt.Errorf("could not determine current Windows user: %w", err)
@@ -119,7 +121,7 @@ func (m *usersManagement) add(winUser *winusers.User) error {
 	slog.Debug("Current Windows user determined", "name", current.Name(), "id", current.Id())
 
 	if winUser.Id() == current.Id() {
-		return fmt.Errorf("cannot overwrite access of current Windows user (name='%s', id= '%s')", current.Name(), current.Id())
+		return fmt.Errorf("cannot overwrite access of current Windows user (name='%s', id='%s')", current.Name(), current.Id())
 	}
 
 	return m.userAdder.Add(winUser, current.Name())

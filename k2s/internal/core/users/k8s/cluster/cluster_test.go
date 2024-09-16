@@ -43,14 +43,14 @@ var _ = BeforeSuite(func() {
 
 var _ = Describe("cluster pkg", func() {
 	Describe("clusterAccess", func() {
-		Describe("ValidateAccess", func() {
+		Describe("VerifyAccess", func() {
 			When("cluster CA cert cannot be decoded", func() {
 				It("returns error", func() {
 					clusterConfig := &cluster.ClusterParam{Cert: "invalid"}
 
 					sut := cluster.NewClusterAccess(nil)
 
-					err := sut.ValidateAccess(nil, clusterConfig)
+					err := sut.VerifyAccess(nil, clusterConfig)
 
 					Expect(err).To(MatchError(ContainSubstring("could not decode cluster cert")))
 				})
@@ -63,7 +63,7 @@ var _ = Describe("cluster pkg", func() {
 
 					sut := cluster.NewClusterAccess(nil)
 
-					err := sut.ValidateAccess(userConfig, clusterConfig)
+					err := sut.VerifyAccess(userConfig, clusterConfig)
 
 					Expect(err).To(MatchError(ContainSubstring("could not decode user cert")))
 				})
@@ -76,7 +76,7 @@ var _ = Describe("cluster pkg", func() {
 
 					sut := cluster.NewClusterAccess(nil)
 
-					err := sut.ValidateAccess(userConfig, clusterConfig)
+					err := sut.VerifyAccess(userConfig, clusterConfig)
 
 					Expect(err).To(MatchError(ContainSubstring("could not decode user key")))
 				})
@@ -93,7 +93,7 @@ var _ = Describe("cluster pkg", func() {
 
 					sut := cluster.NewClusterAccess(restMock)
 
-					actualErr := sut.ValidateAccess(userConfig, clusterConfig)
+					actualErr := sut.VerifyAccess(userConfig, clusterConfig)
 
 					Expect(actualErr).To(MatchError(SatisfyAll(
 						ContainSubstring("could not set TLS client config"),
@@ -114,7 +114,7 @@ var _ = Describe("cluster pkg", func() {
 
 					sut := cluster.NewClusterAccess(restMock)
 
-					actualErr := sut.ValidateAccess(userConfig, clusterConfig)
+					actualErr := sut.VerifyAccess(userConfig, clusterConfig)
 
 					Expect(actualErr).To(MatchError(SatisfyAll(
 						ContainSubstring("could not post who-am-I request"),
@@ -137,7 +137,7 @@ var _ = Describe("cluster pkg", func() {
 
 					sut := cluster.NewClusterAccess(restMock)
 
-					err := sut.ValidateAccess(userConfig, clusterConfig)
+					err := sut.VerifyAccess(userConfig, clusterConfig)
 
 					Expect(err).To(MatchError(ContainSubstring("user 'john' not part of the group 'my-group'")))
 				})
@@ -170,7 +170,7 @@ var _ = Describe("cluster pkg", func() {
 
 					sut := cluster.NewClusterAccess(restMock)
 
-					err := sut.ValidateAccess(userConfig, clusterConfig)
+					err := sut.VerifyAccess(userConfig, clusterConfig)
 
 					Expect(err).To(MatchError(ContainSubstring("user name 'jessi' does not match given user name 'john'")))
 				})
@@ -203,7 +203,7 @@ var _ = Describe("cluster pkg", func() {
 
 					sut := cluster.NewClusterAccess(restMock)
 
-					err := sut.ValidateAccess(userConfig, clusterConfig)
+					err := sut.VerifyAccess(userConfig, clusterConfig)
 
 					Expect(err).ToNot(HaveOccurred())
 				})
