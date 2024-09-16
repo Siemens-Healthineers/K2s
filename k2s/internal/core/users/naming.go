@@ -9,8 +9,8 @@ import (
 	"github.com/siemens-healthineers/k2s/internal/core/users/common"
 )
 
-func CreateK2sUserName(winUserName string) string {
-	beautifiedUsername := strings.ReplaceAll(strings.ReplaceAll(winUserName, " ", "-"), "\\", "-")
+func CreateK2sUserName(userName string) string {
+	beautifiedUsername := strings.ReplaceAll(strings.ReplaceAll(userName, " ", "-"), "\\", "-")
 
 	return common.K2sPrefix + beautifiedUsername
 }
