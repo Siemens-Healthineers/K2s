@@ -59,7 +59,7 @@ func NewClusterAccess(restClient restClient) *clusterAccess {
 	}
 }
 
-func (c *clusterAccess) ValidateAccess(userConfig *UserParam, clusterConfig *ClusterParam) error {
+func (c *clusterAccess) VerifyAccess(userConfig *UserParam, clusterConfig *ClusterParam) error {
 	caCert, userCert, userKey, err := extractCertInfo(userConfig, clusterConfig.Cert)
 	if err != nil {
 		return fmt.Errorf("could not extract cert/key info from cluster/user config: %w", err)
