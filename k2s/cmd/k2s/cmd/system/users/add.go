@@ -11,6 +11,7 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/status"
+	"github.com/siemens-healthineers/k2s/internal/core/config"
 	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
 	"github.com/siemens-healthineers/k2s/internal/core/users"
 	"github.com/siemens-healthineers/k2s/internal/os"
@@ -42,7 +43,6 @@ func newAddCommand() *cobra.Command {
 	return cmd
 }
 
-// TODO: refactor
 func run(cmd *cobra.Command, args []string) error {
 	slog.Info("Granting Windows user access to K2s..")
 
@@ -66,21 +66,11 @@ func run(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// TODO: code clone!
-	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
-	cfg := context.Config()
-	// TODO: code clone!
-	setupConfig, err := setupinfo.ReadConfig(cfg.Host.K2sConfigDir)
+	config := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext).Config()
+
+	setupConfig, err := loadSetupConfig(config.Host.K2sConfigDir)
 	if err != nil {
-		// TODO: code clone!
-		if errors.Is(err, setupinfo.ErrSystemNotInstalled) {
-			return common.CreateSystemNotInstalledCmdFailure()
-		}
-		// TODO: code clone!
-		if errors.Is(err, setupinfo.ErrSystemInCorruptedState) {
-			return common.CreateSystemInCorruptedStateCmdFailure()
-		}
-		return fmt.Errorf("could not load setup info to add the Windows user: %w", err)
+		return err
 	}
 
 	psVersion := common.DeterminePsVersion(setupConfig)
@@ -93,20 +83,7 @@ func run(cmd *cobra.Command, args []string) error {
 		return common.CreateSystemNotRunningCmdFailure()
 	}
 
-	cmdExecutor := os.NewCmdExecutor(common.NewSlogWriter())
-	userProvider := users.DefaultUserProvider()
-	usersManagement, err := users.NewUsersManagement(setupConfig.ControlPlaneNodeHostname, cfg, cmdExecutor, userProvider)
-	if err != nil {
-		return err
-	}
-
-	if userName != "" {
-		err = usersManagement.AddUserByName(userName)
-
-	} else {
-		err = usersManagement.AddUserById(userId)
-	}
-
+	err = addUserFunc(setupConfig.ControlPlaneNodeHostname, userName, userId, config)()
 	if err != nil {
 		var userNotFoundErr users.UserNotFoundErr
 		if errors.As(err, &userNotFoundErr) {
@@ -117,6 +94,36 @@ func run(cmd *cobra.Command, args []string) error {
 
 	common.PrintCompletedMessage(time.Since(start), cmd.CommandPath())
 	return nil
+}
+
+func loadSetupConfig(configDir string) (*setupinfo.Config, error) {
+	setupConfig, err := setupinfo.ReadConfig(configDir)
+	if err == nil {
+		return setupConfig, nil
+	}
+
+	if errors.Is(err, setupinfo.ErrSystemNotInstalled) {
+		return nil, common.CreateSystemNotInstalledCmdFailure()
+	}
+	if errors.Is(err, setupinfo.ErrSystemInCorruptedState) {
+		return nil, common.CreateSystemInCorruptedStateCmdFailure()
+	}
+	return nil, fmt.Errorf("could not load setup info to add the Windows user: %w", err)
+}
+
+func addUserFunc(controlPlaneName, userName, userId string, cfg *config.Config) func() error {
+	cmdExecutor := os.NewCmdExecutor(common.NewSlogWriter())
+	userProvider := users.DefaultUserProvider()
+	usersManagement, err := users.NewUsersManagement(controlPlaneName, cfg, cmdExecutor, userProvider)
+	if err != nil {
+		return func() error { return err }
+	}
+
+	if userName != "" {
+		return func() error { return usersManagement.AddUserByName(userName) }
+
+	}
+	return func() error { return usersManagement.AddUserById(userId) }
 }
 
 func newUserNotFoundFailure(err error) *common.CmdFailure {
