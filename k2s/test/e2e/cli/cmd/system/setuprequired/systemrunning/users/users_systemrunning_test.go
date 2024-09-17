@@ -19,7 +19,7 @@ import (
 	"github.com/siemens-healthineers/k2s/internal/core/config"
 	"github.com/siemens-healthineers/k2s/internal/core/users"
 	"github.com/siemens-healthineers/k2s/internal/core/users/winusers"
-	"github.com/siemens-healthineers/k2s/internal/host"
+	"github.com/siemens-healthineers/k2s/internal/os"
 	"github.com/siemens-healthineers/k2s/test/framework"
 )
 
@@ -100,7 +100,7 @@ var _ = Describe("system users add", Ordered, func() {
 	})
 
 	It("grants Windows SYSTEM user access to K2s", MustPassRepeatedly(2), func(ctx context.Context) {
-		sut, err := users.NewUsersManagement(controlPlaneName, &suite.SetupInfo().Config, host.NewCmdExecutor(&ginkgoWriter{}), userProvider)
+		sut, err := users.NewUsersManagement(controlPlaneName, &suite.SetupInfo().Config, os.NewCmdExecutor(&ginkgoWriter{}), userProvider)
 
 		Expect(err).ToNot(HaveOccurred())
 		Expect(sut).ToNot(BeNil())

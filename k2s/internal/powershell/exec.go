@@ -11,7 +11,7 @@ import (
 	"log/slog"
 	"strings"
 
-	"github.com/siemens-healthineers/k2s/internal/host"
+	"github.com/siemens-healthineers/k2s/internal/os"
 	"github.com/siemens-healthineers/k2s/internal/powershell/decode"
 )
 
@@ -28,7 +28,7 @@ type messageDecoder struct{}
 
 type structuredOutputWriter struct {
 	decoder      Decoder
-	stdWriter    host.StdWriter
+	stdWriter    os.StdWriter
 	targetType   string
 	messages     []message
 	decodeErrors []error
@@ -49,7 +49,7 @@ func (messageDecoder) DecodeMessage(message string, targetType string) ([]byte, 
 
 // ExecutePsWithStructuredResult waits until the command has finished and returns the structured data it received or errors that occurred
 // Calls to OutputWriter happen asynchronous
-func ExecutePsWithStructuredResult[T any](psScriptPath string, targetType string, psVersion PowerShellVersion, writer host.StdWriter, additionalParams ...string) (v T, err error) {
+func ExecutePsWithStructuredResult[T any](psScriptPath string, targetType string, psVersion PowerShellVersion, writer os.StdWriter, additionalParams ...string) (v T, err error) {
 	if psVersion == "" {
 		return v, errors.New("PowerShell version not specified")
 	}
@@ -74,7 +74,7 @@ func ExecutePsWithStructuredResult[T any](psScriptPath string, targetType string
 		messages:     []message{},
 		decodeErrors: []error{},
 	}
-	exe := host.NewCmdExecutor(structuredWriter)
+	exe := os.NewCmdExecutor(structuredWriter)
 
 	err = exe.ExecuteCmd(cmdName, args...)
 	if err != nil {
@@ -89,7 +89,7 @@ func ExecutePsWithStructuredResult[T any](psScriptPath string, targetType string
 	return convertToResult[T](structuredWriter.messages)
 }
 
-func ExecutePs(script string, psVersion PowerShellVersion, writer host.StdWriter) error {
+func ExecutePs(script string, psVersion PowerShellVersion, writer os.StdWriter) error {
 	if psVersion == "" {
 		return errors.New("PowerShell version not specified")
 	}
@@ -106,7 +106,7 @@ func ExecutePs(script string, psVersion PowerShellVersion, writer host.StdWriter
 		return err
 	}
 
-	return host.NewCmdExecutor(writer).ExecuteCmd(cmdName, args...)
+	return os.NewCmdExecutor(writer).ExecuteCmd(cmdName, args...)
 }
 
 func (sWriter *structuredOutputWriter) WriteStdOut(message string) {
@@ -187,7 +187,7 @@ func prepareExecScript(script string) (string, error) {
 	slog.Debug("Execution script", "script", script)
 	wrapperScript := ""
 
-	installDir, err := host.ExecutableDir()
+	installDir, err := os.ExecutableDir()
 	if err != nil {
 		return "", err
 	}

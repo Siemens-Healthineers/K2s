@@ -13,7 +13,7 @@ import (
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/status"
 	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
 	"github.com/siemens-healthineers/k2s/internal/core/users"
-	"github.com/siemens-healthineers/k2s/internal/host"
+	"github.com/siemens-healthineers/k2s/internal/os"
 	"github.com/spf13/cobra"
 )
 
@@ -93,7 +93,7 @@ func run(cmd *cobra.Command, args []string) error {
 		return common.CreateSystemNotRunningCmdFailure()
 	}
 
-	cmdExecutor := host.NewCmdExecutor(common.NewSlogWriter())
+	cmdExecutor := os.NewCmdExecutor(common.NewSlogWriter())
 	userProvider := users.DefaultUserProvider()
 	usersManagement, err := users.NewUsersManagement(setupConfig.ControlPlaneNodeHostname, cfg, cmdExecutor, userProvider)
 	if err != nil {
