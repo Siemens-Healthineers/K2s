@@ -19,8 +19,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/siemens-healthineers/k2s/internal/host"
 	"github.com/siemens-healthineers/k2s/internal/logging"
+	kos "github.com/siemens-healthineers/k2s/internal/os"
 	ve "github.com/siemens-healthineers/k2s/internal/version"
 
 	"github.com/google/uuid"
@@ -347,7 +347,7 @@ func main() {
 	logDir := filepath.Join(logging.RootLogDir(), "vfprules")
 	logFilePath := filepath.Join(logDir, "vfprules-"+portid+".log")
 
-	if host.PathExists(logFilePath) {
+	if kos.PathExists(logFilePath) {
 		if err := os.Remove(logFilePath); err != nil {
 			log.Fatalf("cannot remove log file '%s': %s", logFilePath, err)
 		}
@@ -387,7 +387,7 @@ func main() {
 
 func init() {
 	var err error
-	directoryOfExecutable, err = host.ExecutableDir()
+	directoryOfExecutable, err = kos.ExecutableDir()
 	if err != nil {
 		panic(err)
 	}
