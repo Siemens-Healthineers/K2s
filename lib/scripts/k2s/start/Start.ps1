@@ -85,8 +85,8 @@ function Update-IpAddress {
 }
 
 function GetNetworkAdapterNameFromInterfaceAlias([string]$interfaceAlias) {
-    [regex]$regex = ".*\((.*)\).*"
-    $foundValue = ""
+    [regex]$regex = '.*\((.*)\).*'
+    $foundValue = ''
     $result = $regex.match($interfaceAlias)
     if ($result.Success -and $result.Groups.Count -gt 1) {
         $foundValue = $result.Groups[1].Value
@@ -107,19 +107,19 @@ function EnsureDirectoryPathExists(
 function CheckFlannelConfig () {
     $flannelFile = "$(Get-InstallationDriveLetter):\run\flannel\subnet.env"
     $existsFlannelFile = Test-Path -Path $flannelFile
-    if( $existsFlannelFile ) {
+    if ( $existsFlannelFile ) {
         Write-Log "Flannel file $flannelFile exists"
         return
     }
     # only in case that we used another drive than C for the installation
-    if( !(Get-InstallationDriveLetter -eq Get-SystemDriveLetter)) {
+    if ( !(Get-InstallationDriveLetter -eq Get-SystemDriveLetter)) {
         $i = 0
         $flannelFileSource = "$(Get-SystemDriveLetter):\run\flannel\subnet.env"
         Write-Log "Check $flannelFileSource file creation, this can take minutes depending on your network setup ..."
         while ($true) {
             $i++
             Write-Log "flannel handling loop (iteration #$i):"
-            if( Test-Path -Path $flannelFileSource ) {
+            if ( Test-Path -Path $flannelFileSource ) {
                 $targetPath = "$(Get-InstallationDriveLetter):\run\flannel"
                 New-Item -ItemType Directory -Path $targetPath -Force | Out-Null
                 Copy-Item -Path $flannelFileSource -Destination $targetPath -Force | Out-Null
@@ -159,7 +159,16 @@ function Restart-ControlPlane {
             }
 
             Write-Log "           re-starting VM ($Iteration)"
-            Start-VM -Name $ControlPlaneVMName
+
+            # Start the VM, this can fail if Hyper-V is not running yet
+            try {
+                Start-VM -Name $ControlPlaneVMName -ErrorAction Break
+            }
+            catch {
+                Write-Log '           failed to start VM, retrying again, Hyper-V not yet ready ...'
+                $Error.Clear()
+            }
+            
             Start-Sleep -s 4
         }
         $con = Test-Connection $ControlPlaneIpAddr -Count 1 -ErrorAction SilentlyContinue
@@ -256,8 +265,8 @@ Write-Log "Using network adapter '$adapterName'"
 
 Write-Log 'Figuring out IPv4DefaultGateway'
 $if = Get-NetIPConfiguration -InterfaceAlias "$adapterName" -ErrorAction SilentlyContinue 2>&1 | Out-Null
-$gw =  $global:Gateway_LoopbackAdapter
-if( $if ) {
+$gw = $global:Gateway_LoopbackAdapter
+if ( $if ) {
     $gw = $if.IPv4DefaultGateway.NextHop
     Write-Log "Gateway found: $gw"
 }
@@ -300,10 +309,10 @@ $ipControlPlane = Get-ConfiguredIPControlPlane
 
 # VM restart loop
 $i = 0
-while($true) {
+while ($true) {
     $i++
     Restart-ControlPlane -ControlPlaneVMName $controlPlaneVMHostName `
-                         -ControlPlaneIpAddr $ipControlPlane
+        -ControlPlaneIpAddr $ipControlPlane
     $controlPlaneCni0IpAddr = Get-Cni0IpAddressInControlPlaneUsingSshWithRetries -Retries 30 -RetryTimeoutInSeconds 5
     $expectedControlPlaneCni0IpAddr = Get-ConfiguredMasterNetworkInterfaceCni0IP
                  
@@ -315,7 +324,8 @@ while($true) {
         if ($i -eq 3) {
             throw "cni0 interface in $controlPlaneVMHostName is not correctly initialized after $i retries."
         }
-    } else {
+    }
+    else {
         Write-Log "cni0 interface in $controlPlaneVMHostName correctly initialized."
         break
     }  
@@ -363,7 +373,7 @@ netsh int ipv4 set int 'vEthernet (Ethernet)' forwarding=enabled | Out-Null
 
 Invoke-Hook -HookName 'BeforeStartK8sNetwork' -AdditionalHooksDir $AdditionalHooksDir
 
-Write-Log "Ensure service log directories exists" -Console
+Write-Log 'Ensure service log directories exists' -Console
 EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\containerd"
 EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\dnsproxy"
 EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\dockerd"
@@ -428,11 +438,11 @@ while ($true) {
         $ProgressPreference = 'SilentlyContinue'
 
         Set-InterfacePrivate -InterfaceAlias "vEthernet ($adapterName)"
-        Write-Log "flanneld: $((Get-Service -Name "flanneld" -ErrorAction SilentlyContinue).Status)"
+        Write-Log "flanneld: $((Get-Service -Name 'flanneld' -ErrorAction SilentlyContinue).Status)"
         if ($WSL) {
-            $interfaceAlias = Get-NetAdapter -Name "vEthernet (WSL*)" -ErrorAction SilentlyContinue -IncludeHidden | Select-Object -expandproperty name
-            New-NetFirewallRule -DisplayName 'WSL Inbound' -Group "k2s" -Direction Inbound -InterfaceAlias $interfaceAlias -Action Allow
-            New-NetFirewallRule -DisplayName 'WSL Outbound'-Group "k2s" -Direction Outbound -InterfaceAlias $interfaceAlias -Action Allow
+            $interfaceAlias = Get-NetAdapter -Name 'vEthernet (WSL*)' -ErrorAction SilentlyContinue -IncludeHidden | Select-Object -expandproperty name
+            New-NetFirewallRule -DisplayName 'WSL Inbound' -Group 'k2s' -Direction Inbound -InterfaceAlias $interfaceAlias -Action Allow
+            New-NetFirewallRule -DisplayName 'WSL Outbound'-Group 'k2s' -Direction Outbound -InterfaceAlias $interfaceAlias -Action Allow
         }
         else {
             Set-InterfacePrivate -InterfaceAlias "vEthernet ($switchname)"
@@ -460,14 +470,14 @@ while ($true) {
         Write-Log "Add route to $clusterCIDRHost"
         route -p add $clusterCIDRHost $clusterCIDRNextHop METRIC 5 | Out-Null
 
-        Write-Log "Networking setup done."
+        Write-Log 'Networking setup done.'
         break;
     }
     else {
         Write-Log '           No cbr0 switch created so far...'
         if ($cbr0Stopwatch.Elapsed.TotalSeconds -gt 150) {
             Stop-Service flanneld
-            Write-Log "FAIL: No cbr0 switch found, timeout. Aborting."
+            Write-Log 'FAIL: No cbr0 switch found, timeout. Aborting.'
             Write-Log 'flanneld logging is in C:\var\log\flanneld, look for errors there'
             Write-Log "`n`nAlready known reasons for this cbr0 problem:"
             Write-Log ' * Usage of certain docking stations: Try to connect the ethernet cable directly'
