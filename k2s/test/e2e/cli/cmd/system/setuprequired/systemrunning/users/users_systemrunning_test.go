@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"os/user"
 	"path/filepath"
 	"testing"
 	"time"
@@ -21,6 +22,7 @@ import (
 	"github.com/siemens-healthineers/k2s/internal/core/users/winusers"
 	"github.com/siemens-healthineers/k2s/internal/os"
 	"github.com/siemens-healthineers/k2s/test/framework"
+	"github.com/siemens-healthineers/k2s/test/framework/k2s"
 )
 
 type ginkgoWriter struct{}
@@ -74,41 +76,84 @@ var _ = AfterSuite(func(ctx context.Context) {
 })
 
 var _ = Describe("system users add", Ordered, func() {
-	var controlPlaneName string
-	var userProvider *winUserProvider
-	var expectedKeyPath string
-	var expectedRemoteUser string
+	When("user is SYSTEM user", func() {
+		var controlPlaneName string
+		var userProvider *winUserProvider
+		var expectedKeyPath string
+		var expectedRemoteUser string
 
-	BeforeAll(func() {
-		fakeHomeDir := filepath.Join(GinkgoT().TempDir(), systemUserId)
-		GinkgoWriter.Println("Using temp home dir <", fakeHomeDir, ">")
+		BeforeAll(func() {
+			fakeHomeDir := filepath.Join(GinkgoT().TempDir(), systemUserId)
+			GinkgoWriter.Println("Using temp home dir <", fakeHomeDir, ">")
 
-		controlPlaneConfig, found := lo.Find(suite.SetupInfo().Config.Nodes, func(node config.NodeConfig) bool {
-			return node.IsControlPlane
+			controlPlaneConfig, found := lo.Find(suite.SetupInfo().Config.Nodes, func(node config.NodeConfig) bool {
+				return node.IsControlPlane
+			})
+			Expect(found).To(BeTrue())
+			expectedRemoteUser = "remote@" + controlPlaneConfig.IpAddress
+			controlPlaneName = suite.SetupInfo().SetupConfig.ControlPlaneNodeHostname
+			expectedKeyPath = filepath.Join(fakeHomeDir, ".ssh", controlPlaneName, "id_rsa")
+
+			systemUserWithFakeHomeDir := winusers.NewUser(systemUserId, systemUserName, fakeHomeDir)
+
+			userProvider = &winUserProvider{
+				findByName: func(_ string) (*winusers.User, error) { return systemUserWithFakeHomeDir, nil },
+				getCurrent: winusers.NewWinUserProvider().Current,
+			}
 		})
-		Expect(found).To(BeTrue())
-		expectedRemoteUser = "remote@" + controlPlaneConfig.IpAddress
-		controlPlaneName = suite.SetupInfo().SetupConfig.ControlPlaneNodeHostname
-		expectedKeyPath = filepath.Join(fakeHomeDir, ".ssh", controlPlaneName, "id_rsa")
 
-		systemUserWithFakeHomeDir := winusers.NewUser(systemUserId, systemUserName, fakeHomeDir)
+		It("grants Windows SYSTEM user access to K2s", MustPassRepeatedly(2), func(ctx context.Context) {
+			sut, err := users.NewUsersManagement(controlPlaneName, &suite.SetupInfo().Config, os.NewCmdExecutor(&ginkgoWriter{}), userProvider)
 
-		userProvider = &winUserProvider{
-			findByName: func(_ string) (*winusers.User, error) { return systemUserWithFakeHomeDir, nil },
-			getCurrent: winusers.NewWinUserProvider().Current,
-		}
+			Expect(err).ToNot(HaveOccurred())
+			Expect(sut).ToNot(BeNil())
+
+			Expect(sut.AddUserByName(systemUserName)).To(Succeed())
+
+			output := suite.Cli().ExecOrFail(ctx, "ssh.exe", "-n", "-o", "StrictHostKeyChecking=no", "-i", expectedKeyPath, expectedRemoteUser, "echo 'SSH access test successful'")
+
+			Expect(output).To(ContainSubstring("SSH access test successful"))
+		})
 	})
 
-	It("grants Windows SYSTEM user access to K2s", MustPassRepeatedly(2), func(ctx context.Context) {
-		sut, err := users.NewUsersManagement(controlPlaneName, &suite.SetupInfo().Config, os.NewCmdExecutor(&ginkgoWriter{}), userProvider)
+	When("user not found by name", func() {
+		It("prints not-found warning", func(ctx context.Context) {
+			output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "system", "users", "add", "-u", "non-existent-name")
 
-		Expect(err).ToNot(HaveOccurred())
-		Expect(sut).ToNot(BeNil())
+			Expect(output).To(SatisfyAll(
+				ContainSubstring("WARNING"),
+				ContainSubstring("could not find"),
+				ContainSubstring("name 'non-existent-name'"),
+			))
+		})
+	})
 
-		Expect(sut.AddUserByName(systemUserName)).To(Succeed())
+	When("user not found by id", func() {
+		It("prints not-found warning", func(ctx context.Context) {
+			output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "system", "users", "add", "-i", "non-existent-id")
 
-		output := suite.Cli().ExecOrFail(ctx, "ssh.exe", "-n", "-o", "StrictHostKeyChecking=no", "-i", expectedKeyPath, expectedRemoteUser, "echo 'SSH access test successful'")
+			Expect(output).To(SatisfyAll(
+				ContainSubstring("WARNING"),
+				ContainSubstring("could not find"),
+				ContainSubstring("id 'non-existent-id'"),
+			))
+		})
+	})
 
-		Expect(output).To(ContainSubstring("SSH access test successful"))
+	When("user is current admin user", func() {
+		It("prints error", func(ctx context.Context) {
+			currentUser, err := user.Current()
+			Expect(err).ToNot(HaveOccurred())
+
+			output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "system", "users", "add", "-i", currentUser.Uid)
+
+			Expect(output).To(SatisfyAll(
+				ContainSubstring("ERROR"),
+				ContainSubstring("cannot overwrite"),
+				ContainSubstring("current Windows user"),
+				ContainSubstring(currentUser.Uid),
+				ContainSubstring(currentUser.Username),
+			))
+		})
 	})
 })
