@@ -36,6 +36,10 @@ func (*fileSystem) RemovePaths(files ...string) error {
 	return host.RemovePaths(files...)
 }
 
+func (*fileSystem) RemoveAll(path string) error {
+	return os.RemoveAll(path)
+}
+
 func (*fileSystem) CreateDirIfNotExisting(path string) error {
 	return host.CreateDirIfNotExisting(path)
 }

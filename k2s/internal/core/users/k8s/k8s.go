@@ -6,7 +6,6 @@ package k8s
 import (
 	"fmt"
 	"log/slog"
-	"os"
 	"path/filepath"
 
 	"github.com/siemens-healthineers/k2s/internal/core/users/common"
@@ -32,6 +31,7 @@ type scp interface {
 
 type fileSystem interface {
 	CreateDirIfNotExisting(path string) error
+	RemoveAll(path string) error
 }
 
 type clusterAccess interface {
@@ -105,14 +105,14 @@ func (g *k8sAccess) deriveKubeconfigFromAdmin(user common.User) (KubeconfigWrite
 		return nil, fmt.Errorf("could not initialize kubeconfig dir for '%s': %w", user.Name(), err)
 	}
 
+	k2sClusterConfig, err := g.readAdminsK2sClusterConfig()
+	if err != nil {
+		return nil, fmt.Errorf("could not read K2s cluster config from admin's kubeconfig: %w", err)
+	}
+
 	kubeconfigPath := filepath.Join(kubeconfigDir, kubeconfigName)
 
 	kubeconfigWriter := g.kubeconfigWriterFactory.NewKubeconfigWriter(kubeconfigPath)
-
-	k2sClusterConfig, err := g.readAdminsK2sClusterConfig()
-	if err != nil {
-		return nil, fmt.Errorf("could not read K2s cluster config from admin's kubeconfig")
-	}
 
 	if err := kubeconfigWriter.SetCluster(k2sClusterConfig); err != nil {
 		return nil, fmt.Errorf("could not set K2s cluster config for new user in kubeconfig: %w", err)
@@ -141,7 +141,7 @@ func (g *k8sAccess) addUserAccessToKubeconfig(k2sUserName, certPath, keyPath str
 		return fmt.Errorf("could not set user credentials for '%s' in kubeconfig: %w", k2sUserName, err)
 	}
 
-	if err := removeCertDir(certPath); err != nil {
+	if err := g.removeCertDir(certPath); err != nil {
 		return fmt.Errorf("could not remove cert dir: %w", err)
 	}
 
@@ -163,7 +163,7 @@ func (g *k8sAccess) addUserAccessToKubeconfig(k2sUserName, certPath, keyPath str
 		if kubeconfig.CurrentContext == k2sContext {
 			slog.Info("New user has already active K2s cluster context, will overwrite it")
 		} else {
-			slog.Info("New user has already active cluster context, restore needed after validation of K2s access", "context", kubeconfig.CurrentContext)
+			slog.Info("New user has already active cluster context, restore needed after verification of K2s access", "context", kubeconfig.CurrentContext)
 			targetContext = kubeconfig.CurrentContext
 			resetActiveContext = true
 		}
@@ -278,8 +278,8 @@ func (g *k8sAccess) readAdminsK2sClusterConfig() (*kubeconfig.ClusterEntry, erro
 	return adminConfig.FindCluster(k2sClusterName)
 }
 
-func removeCertDir(certPath string) error {
+func (g *k8sAccess) removeCertDir(certPath string) error {
 	certDir := filepath.Dir(certPath)
 
-	return os.RemoveAll(certDir) // TODO: fs
+	return g.fs.RemoveAll(certDir)
 }
