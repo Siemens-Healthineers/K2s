@@ -9,8 +9,8 @@ import (
 	"runtime"
 	"strings"
 
-	gopshost "github.com/shirou/gopsutil/v3/host"
-	"github.com/siemens-healthineers/k2s/internal/host"
+	"github.com/shirou/gopsutil/v3/host"
+	"github.com/siemens-healthineers/k2s/internal/os"
 
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
@@ -20,7 +20,7 @@ var installDir string
 
 func init() {
 	var err error
-	installDir, err = host.ExecutableDir()
+	installDir, err = os.ExecutableDir()
 	if err != nil {
 		panic(err)
 	}
@@ -34,12 +34,12 @@ func InstallDir() string {
 func Platform() string {
 	var s strings.Builder
 	// Show the distro version if possible
-	hi, err := gopshost.Info()
+	hi, err := host.Info()
 	if err == nil {
 		s.WriteString(fmt.Sprintf("%s %s", cases.Title(language.Und).String(hi.Platform), hi.PlatformVersion))
 		slog.Debug("Host info", "info", hi)
 	} else {
-		slog.Warn("gopshost.Info returned error", "error", err)
+		slog.Warn("host.Info returned error", "error", err)
 		s.WriteString(runtime.GOOS)
 	}
 

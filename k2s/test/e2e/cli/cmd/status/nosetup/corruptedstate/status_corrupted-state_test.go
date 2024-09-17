@@ -13,7 +13,7 @@ import (
 
 	"github.com/siemens-healthineers/k2s/internal/core/config"
 	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
-	"github.com/siemens-healthineers/k2s/internal/host"
+	kos "github.com/siemens-healthineers/k2s/internal/os"
 
 	"testing"
 
@@ -55,7 +55,7 @@ var _ = Describe("status", Ordered, func() {
 		inputData, err := json.Marshal(inputConfig)
 		Expect(err).ToNot(HaveOccurred())
 
-		currentDir, err := host.ExecutableDir()
+		currentDir, err := kos.ExecutableDir()
 		Expect(err).ToNot(HaveOccurred())
 		installDir := filepath.Join(currentDir, "..\\..\\..\\..\\..\\..\\..\\..")
 

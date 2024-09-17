@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/siemens-healthineers/k2s/internal/host"
+	kos "github.com/siemens-healthineers/k2s/internal/os"
 )
 
 type fileSystem struct{}
@@ -17,11 +17,11 @@ func NewFileSystem() *fileSystem {
 }
 
 func (*fileSystem) PathExists(path string) bool {
-	return host.PathExists(path)
+	return kos.PathExists(path)
 }
 
 func (*fileSystem) AppendToFile(path string, text string) error {
-	return host.AppendToFile(path, text)
+	return kos.AppendToFile(path, text)
 }
 
 func (*fileSystem) ReadFile(path string) ([]byte, error) {
@@ -33,7 +33,7 @@ func (*fileSystem) WriteFile(path string, data []byte) error {
 }
 
 func (*fileSystem) RemovePaths(files ...string) error {
-	return host.RemovePaths(files...)
+	return kos.RemovePaths(files...)
 }
 
 func (*fileSystem) RemoveAll(path string) error {
@@ -41,7 +41,7 @@ func (*fileSystem) RemoveAll(path string) error {
 }
 
 func (*fileSystem) CreateDirIfNotExisting(path string) error {
-	return host.CreateDirIfNotExisting(path)
+	return kos.CreateDirIfNotExisting(path)
 }
 
 func (*fileSystem) MatchingFiles(pattern string) (matches []string, err error) {
