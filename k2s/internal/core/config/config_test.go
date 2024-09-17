@@ -13,7 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/siemens-healthineers/k2s/internal/core/config"
-	"github.com/siemens-healthineers/k2s/internal/host"
+	kos "github.com/siemens-healthineers/k2s/internal/os"
 )
 
 func TestConfig(t *testing.T) {
@@ -67,7 +67,7 @@ var _ = Describe("config pkg", func() {
 			var actual *config.Config
 
 			BeforeAll(func() {
-				currentDir, err := host.ExecutableDir()
+				currentDir, err := kos.ExecutableDir()
 				installDir := filepath.Join(currentDir, "..\\..\\..\\..")
 
 				Expect(err).ToNot(HaveOccurred())

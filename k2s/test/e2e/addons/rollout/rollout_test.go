@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+// SPDX-FileCopyrightText: © 2024 Siemens Healthcare GmbH
 //
 // SPDX-License-Identifier: MIT
 
@@ -32,7 +32,7 @@ var (
 
 func TestRollout(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "rollout Addon Acceptance Tests", Label("rollout", "acceptance", "setup-required", "invasive", "rollout", "system-running"))
+	RunSpecs(t, "rollout Addon Acceptance Tests", Label("addon", "acceptance", "setup-required", "invasive", "rollout", "system-running"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {

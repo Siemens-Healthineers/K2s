@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/siemens-healthineers/k2s/internal/host"
+	kos "github.com/siemens-healthineers/k2s/internal/os"
 )
 
 // RootLogDir returns K2s' central log directory
@@ -31,7 +32,7 @@ func GlobalLogFilePath() string {
 func InitializeLogFile(path string) *os.File {
 	dir := filepath.Dir(path)
 
-	if err := host.CreateDirIfNotExisting(dir); err != nil {
+	if err := kos.CreateDirIfNotExisting(dir); err != nil {
 		panic(err)
 	}
 
