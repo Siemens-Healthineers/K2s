@@ -4,6 +4,7 @@ package nosetup
 
 import (
 	"context"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"testing"
@@ -25,7 +26,10 @@ func TestSystem(t *testing.T) {
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
-	suite = framework.Setup(ctx, framework.NoSetupInstalled, framework.ClusterTestStepPollInterval(100*time.Millisecond))
+	suite = framework.Setup(ctx,
+		framework.NoSetupInstalled,
+		framework.ClusterTestStepPollInterval(100*time.Millisecond),
+		framework.ClusterTestStepTimeout(30*time.Minute))
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
@@ -51,40 +55,32 @@ var _ = Describe("system", func() {
 
 	Describe("package", Ordered, Label("cli", "system", "package", "acceptance", "no-setup"), func() {
 		Context("valid parameters", func() {
-			var testFileName string
-			var tempDir string
-			var localTempFilePath string
+			var zipFilePath string
+			var output string
 
-			BeforeEach(func() {
-				testFileName = "package.zip"
-				tempDir = GinkgoT().TempDir()
-				localTempFilePath = filepath.Join(tempDir, testFileName)
+			BeforeAll(func(ctx context.Context) {
+				const zipFileName = "package.zip"
+				tempDir := GinkgoT().TempDir()
+				zipFilePath = filepath.Join(tempDir, zipFileName)
+
+				output = suite.K2sCli().Run(ctx, "system", "package", "--target-dir", tempDir, "--name", zipFileName, "--for-offline-installation", "-o")
 			})
 
-			AfterEach(func() {
-				_, err := os.Stat(localTempFilePath)
-				if err == nil {
-					GinkgoWriter.Println("Deleting <", localTempFilePath, ">..")
-					Expect(os.Remove(localTempFilePath)).To(Succeed())
-				} else {
-					if os.IsNotExist(err) {
-						GinkgoWriter.Println("Test file <", localTempFilePath, "> does not exist anymore")
-						return
-					}
-				}
-			})
-
-			It("generates zip package", func(ctx context.Context) {
-				output := suite.K2sCli().Run(ctx, "system", "package", "--target-dir", tempDir, "--name", testFileName, "--for-offline-installation")
-
-				Expect(output).To(SatisfyAny(
-					ContainSubstring("Finished creation of zip package"),
-					ContainSubstring("Zip package available as '"+localTempFilePath+"'"),
+			It("generates zip package", func() {
+				Expect(output).To(SatisfyAll(
+					ContainSubstring("package available"),
+					ContainSubstring(zipFilePath),
 				))
 
-				file, err := os.Stat(localTempFilePath)
+				file, err := os.Stat(zipFilePath)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(file.Size()).To(BeNumerically(">", 0))
+			})
+
+			It("removes setup config folder", func() {
+				_, err := os.Stat(suite.SetupInfo().Config.Host.K2sConfigDir)
+
+				Expect(err).To(MatchError(fs.ErrNotExist))
 			})
 		})
 
