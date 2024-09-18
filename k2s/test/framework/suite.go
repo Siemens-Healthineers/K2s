@@ -109,6 +109,7 @@ func Setup(ctx context.Context, args ...any) *K2sTestSuite {
 		cli:                  cli,
 		k2sCli:               k2sCli,
 		addonsAdditionalInfo: addonsAdditionalInfo,
+		setupInfo:            k2s.CreateSetupInfo(rootDir),
 	}
 
 	if noSetupInstalled {
@@ -125,10 +126,15 @@ func Setup(ctx context.Context, args ...any) *K2sTestSuite {
 		expectSystemState(ctx, initialSystemState, k2sCli, ensureAddonsAreDisabled)
 	}
 
-	info := loadSetupInfo(rootDir)
+	testSuite.setupInfo.LoadSetupConfig()
 
-	testSuite.setupInfo = info
-	testSuite.kubeProxyRestarter = k2s.NewKubeProxyRestarter(rootDir, info.SetupConfig, cli, *k2sCli)
+	GinkgoWriter.Println("Found setup type <", testSuite.setupInfo.SetupConfig.SetupName, "( Linux-only:", testSuite.setupInfo.SetupConfig.LinuxOnly, ") > in dir <", rootDir, ">")
+
+	if testSuite.setupInfo.SetupConfig.SetupName != setupinfo.SetupNamek2s && testSuite.setupInfo.SetupConfig.SetupName != setupinfo.SetupNameMultiVMK8s {
+		Fail(fmt.Sprintf("Unsupported setup type detected: '%s'", testSuite.setupInfo.SetupConfig.SetupName))
+	}
+
+	testSuite.kubeProxyRestarter = k2s.NewKubeProxyRestarter(rootDir, testSuite.setupInfo.SetupConfig, cli, *k2sCli)
 	testSuite.kubectl = k8s.NewCli(cli, rootDir)
 	testSuite.cluster = k8s.NewCluster(clusterTestStepTimeout, clusterTestStepPollInterval)
 
@@ -210,20 +216,6 @@ func (s *K2sTestSuite) Kubectl() *k8s.Kubectl {
 func (s *K2sTestSuite) Cluster() *k8s.Cluster {
 	Expect(s.cluster).ToNot(BeNil())
 	return s.cluster
-}
-
-func loadSetupInfo(rootDir string) *k2s.SetupInfo {
-	info, err := k2s.GetSetupInfo(rootDir)
-
-	Expect(err).ToNot(HaveOccurred())
-
-	GinkgoWriter.Println("Found setup type <", info.SetupConfig.SetupName, "( Linux-only:", info.SetupConfig.LinuxOnly, ") > in dir <", rootDir, ">")
-
-	if info.SetupConfig.SetupName != setupinfo.SetupNamek2s && info.SetupConfig.SetupName != setupinfo.SetupNameMultiVMK8s {
-		Fail(fmt.Sprintf("Unsupported setup type detected: '%s'", info.SetupConfig.SetupName))
-	}
-
-	return info
 }
 
 func expectSystemState(ctx context.Context, initialSystemState initialSystemStateType, k2sCli *k2s.K2sCliRunner, ensureAddonsAreDisabled bool) {
