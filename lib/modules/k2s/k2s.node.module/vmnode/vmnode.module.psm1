@@ -148,7 +148,16 @@ function Restart-VirtualMachine($VMName, $VmPwd) {
             }
 
             Write-Log "           re-starting VM ($i)"
-            Start-VM -Name $VMName
+
+            # Start the VM, this can fail if Hyper-V is not running yet
+            try {
+                Start-VM -Name $VMName -ErrorAction Break
+            }
+            catch {
+                Write-Log '           failed to start VM, retrying again, Hyper-V not yet ready ...'
+                $Error.Clear()
+            }
+            
             Start-Sleep -s 4
         }
 
@@ -655,8 +664,7 @@ Convert-WinImage {
             }
         }
 
-        Function Test-IsNetPath
-        {
+        Function Test-IsNetPath {
             param([string]$Path)
 
             try {
@@ -736,7 +744,7 @@ Convert-WinImage {
 
             if ('VHD' -ilike $VHDFormat) {
                 if ($SizeBytes -gt $vhdMaxSize) {
-                    Write-Warning "For the VHD file format, the maximum file size is ~2040GB.  We will automatically set size to 2040GB..."
+                    Write-Warning 'For the VHD file format, the maximum file size is ~2040GB.  We will automatically set size to 2040GB...'
                     $SizeBytes = $vhdMaxSize
                 }
 
@@ -855,7 +863,7 @@ Convert-WinImage {
                 $vhdDiskNumber = $vhdDisk.Number
             }
             else {
-                throw "Convert-WindowsImage only supports Hyper-V based VHD creation."
+                throw 'Convert-WindowsImage only supports Hyper-V based VHD creation.'
             }
 
             switch ($DiskLayout) {
@@ -980,7 +988,7 @@ Convert-WinImage {
                 Copy-Item -Path $UnattendDir -Destination (Join-Path $windowsDrive 'unattend.xml') -Force
             }
 
-            $wimArchitecture = ($wim | Out-String -Stream | Select-String Architecture | Out-String | ForEach-Object {$_ -replace '.*:', ''}).Trim()
+            $wimArchitecture = ($wim | Out-String -Stream | Select-String Architecture | Out-String | ForEach-Object { $_ -replace '.*:', '' }).Trim()
             Write-Log "Win VM Arch found $wimArchitecture ..."
 
             if (($wimArchitecture -ne 'ARM') -and ($wimArchitecture -ne 'ARM64')) {
@@ -1129,15 +1137,15 @@ function New-VHDXFromWinImage {
 
     # Source: https://docs.microsoft.com/en-us/windows-server/get-started/kmsclientkeys
     $key = @{
-        'Server2019Datacenter'     = 'WMDGN-G9PQG-XVVXX-R3X43-63DFG'
-        'Server2019Standard'       = 'N69G4-B89J2-4G8F4-WWYCC-J464C'
-        'Server2016Datacenter'     = 'CB7KF-BWN84-R7R2Y-793K2-8XDDG'
-        'Server2016Standard'       = 'WC2BQ-8NRM3-FDDYY-2BFGV-KHKQY'
-        'Windows10Enterprise'      = 'NPPR9-FWDCX-D2C8J-H872K-2YT43'
-        'Windows11Enterprise'      = 'NPPR9-FWDCX-D2C8J-H872K-2YT43'
-        'Windows10Professional'    = 'W269N-WFGWX-YVC9B-4J6C9-T83GX'
-        'Windows11Professional'    = 'W269N-WFGWX-YVC9B-4J6C9-T83GX'
-        'Windows81Professional'    = 'GCRJD-8NW9H-F2CDX-CCM8D-9D6T9'
+        'Server2019Datacenter'  = 'WMDGN-G9PQG-XVVXX-R3X43-63DFG'
+        'Server2019Standard'    = 'N69G4-B89J2-4G8F4-WWYCC-J464C'
+        'Server2016Datacenter'  = 'CB7KF-BWN84-R7R2Y-793K2-8XDDG'
+        'Server2016Standard'    = 'WC2BQ-8NRM3-FDDYY-2BFGV-KHKQY'
+        'Windows10Enterprise'   = 'NPPR9-FWDCX-D2C8J-H872K-2YT43'
+        'Windows11Enterprise'   = 'NPPR9-FWDCX-D2C8J-H872K-2YT43'
+        'Windows10Professional' = 'W269N-WFGWX-YVC9B-4J6C9-T83GX'
+        'Windows11Professional' = 'W269N-WFGWX-YVC9B-4J6C9-T83GX'
+        'Windows81Professional' = 'GCRJD-8NW9H-F2CDX-CCM8D-9D6T9'
     }[$Version]
 
     # Create unattend.xml
@@ -1787,7 +1795,7 @@ function Initialize-WinVM {
     $currentGitUserEmail = git config --get user.email
 
     Write-Log 'Copy Source from Host to VM node'
-    Get-ChildItem $kubePath -Recurse -File | ForEach-Object { Write-log $_.FullName.Replace($kubePath, "c:\k"); Copy-VMFile $Name -SourcePath $_.FullName -DestinationPath $_.FullName.Replace($kubePath, "c:\k") -CreateFullPath -FileSource Host }
+    Get-ChildItem $kubePath -Recurse -File | ForEach-Object { Write-log $_.FullName.Replace($kubePath, 'c:\k'); Copy-VMFile $Name -SourcePath $_.FullName -DestinationPath $_.FullName.Replace($kubePath, 'c:\k') -CreateFullPath -FileSource Host }
 
     Invoke-Command -Session $session2 -ErrorAction SilentlyContinue {
         Set-Location $env:SystemDrive\k
@@ -1887,9 +1895,9 @@ function Initialize-WinVM {
     Invoke-Command -Session $session5 -WarningAction SilentlyContinue {
         Set-Location $env:SystemDrive\k
         Set-ExecutionPolicy Bypass -Force -ErrorAction SilentlyContinue
-        New-Item -ItemType Directory "c:\k\lib\NSSM"
-        Copy-Item -Path 'C:\ProgramData\chocolatey\lib\NSSM\*' -Destination "c:\k\lib\NSSM" -Recurse -Force
-        Copy-Item -Path 'C:\ProgramData\chocolatey\bin\nssm.exe' -Destination "c:\k\bin" -Force
+        New-Item -ItemType Directory 'c:\k\lib\NSSM'
+        Copy-Item -Path 'C:\ProgramData\chocolatey\lib\NSSM\*' -Destination 'c:\k\lib\NSSM' -Recurse -Force
+        Copy-Item -Path 'C:\ProgramData\chocolatey\bin\nssm.exe' -Destination 'c:\k\bin' -Force
 
         Set-Service -Name sshd -StartupType Automatic
         Start-Service sshd
@@ -1993,7 +2001,8 @@ function Initialize-SSHConnectionToWinVM($session, $IpAddress) {
 
         if ($PSVersionTable.PSVersion.Major -gt 5) {
             echo y | ssh-keygen.exe -t rsa -b 2048 -f $windowsVMKey -N ''
-        } else {
+        }
+        else {
             echo y | ssh-keygen.exe -t rsa -b 2048 -f $windowsVMKey -N '""'
         }
     }
@@ -2079,8 +2088,8 @@ function Enable-SSHRemotingViaSSHKeyToWinNode ($session) {
         Set-Location "$env:SystemDrive\k"
         Set-ExecutionPolicy Bypass -Force -ErrorAction SilentlyContinue
 
-        pwsh -Command "Get-InstalledModule"
-        pwsh -Command "Enable-SSHRemoting -Force"
+        pwsh -Command 'Get-InstalledModule'
+        pwsh -Command 'Enable-SSHRemoting -Force'
 
         Restart-Service sshd
     }
@@ -2095,17 +2104,17 @@ function Disable-PasswordAuthenticationToWinNode () {
 
         # Change password on next login
         cmd.exe /c "wmic UserAccount where name='Administrator' set Passwordexpires=true"
-        cmd.exe /c "net user Administrator /logonpasswordchg:yes"
+        cmd.exe /c 'net user Administrator /logonpasswordchg:yes'
 
         # Disable password authentication over ssh
-        Add-Content "C:\ProgramData\ssh\sshd_config" "`nPasswordAuthentication no"
+        Add-Content 'C:\ProgramData\ssh\sshd_config' "`nPasswordAuthentication no"
         Restart-Service sshd
 
         # Disable WinRM
         netsh advfirewall firewall set rule name="Windows Remote Management (HTTP-In)" new enable=yes action=block
         netsh advfirewall firewall set rule group="Windows Remote Management" new enable=yes
         $winrmService = Get-Service -Name WinRM
-        if ($winrmService.Status -eq "Running"){
+        if ($winrmService.Status -eq 'Running') {
             Disable-PSRemoting -Force
         }
         Stop-Service winrm
@@ -2167,8 +2176,7 @@ function Set-VMVFPRules {
 
 function Invoke-CmdOnVMWorkerNodeViaSSH(
     [Parameter(Mandatory = $false)]
-    $CmdToExecute)
-{
+    $CmdToExecute) {
     $adminWinNode = Get-DefaultWinVMName
     $windowsVMKey = Get-DefaultWinVMKey
 
@@ -2183,7 +2191,7 @@ New-VMFromWinImage, Open-RemoteSession,
 New-VMSession, Set-VmIPAddress,
 Open-RemoteSessionViaSSHKey, New-VMSessionViaSSHKey,
 Initialize-WinVM, Initialize-WinVMNode,
-Wait-ForSSHConnectionToWindowsVMViaSshKey,Get-DefaultWinVMKey,
+Wait-ForSSHConnectionToWindowsVMViaSshKey, Get-DefaultWinVMKey,
 Open-DefaultWinVMRemoteSessionViaSSHKey, Enable-SSHRemotingViaSSHKeyToWinNode,
 Disable-PasswordAuthenticationToWinNode, Get-DefaultWinVMName,
 Set-VMVFPRules, Remove-VMSshKey,
