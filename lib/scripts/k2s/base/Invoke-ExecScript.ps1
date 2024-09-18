@@ -12,14 +12,14 @@ Wrapper script enables output formatting which is a common glue code for all hig
 
 .PARAMETER Script
 The high level script with all required parameters
-e.g."C:\ws\k\smallsetup\StopK8s.ps1"
+e.g."C:\ws\k\lib\scripts\k2s\stop\stop.ps1"
 
 .EXAMPLE
 No parameter
-&C:\ws\k\lib\scripts\k2s\base\Invoke-ExecScript.ps1 -Script "C:\ws\k\smallsetup\StopK8s.ps1"
+&C:\ws\k\lib\scripts\k2s\base\Invoke-ExecScript.ps1 -Script "C:\ws\k\lib\scripts\k2s\stop\stop.ps1"
 
 One or more parameters passed
-&C:\ws\k\lib\scripts\k2s\base\Invoke-ExecScript.ps1 -Script "C:\ws\k\smallsetup\InstallK8s.ps1 -MasterVMProcessorCount 6 -MasterVMMemory 6GB -MasterDiskSize 50GB -ShowLogs -DeleteFilesForOfflineInstallation"
+&C:\ws\k\lib\scripts\k2s\base\Invoke-ExecScript.ps1 -Script "C:\ws\k\lib\scripts\k2s\install\install.ps1 -MasterVMProcessorCount 6 -MasterVMMemory 6GB -MasterDiskSize 50GB -ShowLogs -DeleteFilesForOfflineInstallation"
 #>
 
 Param(

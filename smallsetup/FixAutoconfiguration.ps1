@@ -42,7 +42,7 @@ if ($(Get-ItemProperty -Path $path -Name $Name -ErrorAction 'SilentlyContinue'))
 if ($oldValue -ne $NewValue) {
     if ($(Get-Service -Name kubelet -ErrorAction SilentlyContinue).Status -eq 'Running') {
         Write-Output "First stop complete kubernetes incl. VM"
-        &"$global:KubernetesPath\smallsetup\StopK8s.ps1"
+        &"$global:KubernetesPath\lib\scripts\k2s\stop\stop.ps1"
     }
 
     Write-Output "Changing registry, set $Name to $NewValue"

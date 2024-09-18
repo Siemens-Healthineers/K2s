@@ -111,7 +111,7 @@ func buildInstallCmd(c *ic.InstallConfig) (cmd string, err error) {
 		return "", err
 	}
 
-	path := fmt.Sprintf("%s\\smallsetup\\multivm\\Install_MultiVMK8sSetup.ps1", utils.InstallDir())
+	path := fmt.Sprintf("%s\\lib\\scripts\\multivm\\install\\install.ps1", utils.InstallDir())
 	formattedPath := utils.FormatScriptFilePath(path)
 	cmd = fmt.Sprintf("%s -MasterVMProcessorCount %s -MasterVMMemory %s -MasterDiskSize %s",
 		formattedPath,

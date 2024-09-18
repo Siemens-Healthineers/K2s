@@ -23,7 +23,7 @@ Param(
 
 
 Write-Output 'Reset system'
-&"$global:KubernetesPath\smallsetup\UninstallK8s.ps1" | Out-Null
-&"$global:KubernetesPath\smallsetup\multivm\Uninstall_MultiVMK8sSetup.ps1" | Out-Null
-&"$global:KubernetesPath\smallsetup\common\UninstallBuildOnlySetup.ps1" | Out-Null
+&"$global:KubernetesPath\lib\scripts\k2s\uninstall\uninstall.ps1" | Out-Null
+&"$global:KubernetesPath\lib\scripts\multivm\uninstall\uninstall.ps1" | Out-Null
+&"$global:KubernetesPath\lib\scripts\buildonly\uninstall\uninstall.ps1" | Out-Null
 Write-Output 'System reset successful!'
