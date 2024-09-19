@@ -44,6 +44,7 @@ if (Test-Path($global:DownloadsDirectory)) {
     Remove-Item $global:DownloadsDirectory -Force -Recurse
 }
 
+Remove-K2sHostsFromNoProxyEnvVar
 Reset-EnvVars
 
 Write-Log 'Uninstalling Build Only Environment done.'

@@ -234,6 +234,7 @@ else {
 Set-EnvVars
 
 $Proxy = Get-OrUpdateProxyServer -Proxy:$Proxy
+Add-K2sHostsToNoProxyEnvVar
 
 Add-k2sToDefenderExclusion
 Stop-InstallIfDockerDesktopIsRunning

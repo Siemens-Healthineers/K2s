@@ -113,6 +113,7 @@ Write-Log 'Starting installation...'
 Set-EnvVars
 
 $Proxy = Get-OrUpdateProxyServer -Proxy:$Proxy
+Add-K2sHostsToNoProxyEnvVar
 
 # make sure we are at the right place for install
 $kubePath = Get-KubePath

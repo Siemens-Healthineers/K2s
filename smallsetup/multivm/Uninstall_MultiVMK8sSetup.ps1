@@ -136,6 +136,7 @@ if ($global:PurgeOnUninstall) {
     Remove-Item -Path ($global:SshConfigDir + '\windowsvm') -Force -Recurse -ErrorAction SilentlyContinue
 }
 
+Remove-K2sHostsFromNoProxyEnvVar
 Reset-EnvVars
 
 Write-Log 'Uninstalling MultiVMK8s setup done.'

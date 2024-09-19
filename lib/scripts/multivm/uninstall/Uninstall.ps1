@@ -118,6 +118,7 @@ if ($global:PurgeOnUninstall) {
     Remove-Item -Path "$kubePath\kubevirt\bin\*.exe" -Force -ErrorAction SilentlyContinue
 }
 
+Remove-K2sHostsFromNoProxyEnvVar
 Reset-EnvVars
 
 Write-Log 'Uninstalling MultiVMK8s setup done.'

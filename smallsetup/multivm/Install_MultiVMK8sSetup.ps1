@@ -643,6 +643,7 @@ else {
 Set-EnvVars
 
 $Proxy = Get-OrUpdateProxyServer -Proxy:$Proxy
+Add-K2sHostsToNoProxyEnvVar
 
 Addk2sToDefenderExclusion
 
