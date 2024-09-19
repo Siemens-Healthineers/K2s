@@ -26,13 +26,29 @@ jobs:
         id: version
         shell: pwsh
 
+        # get previous tag
+      - name: Get previous tag
+        id: previousTag
+        run: |
+          name=$(git --no-pager tag --sort=creatordate --merged ${{ github.ref_name }} | tail -2 | head -1)
+          echo "previousTag: $name"
+          echo "previousTag=$name" >> $GITHUB_ENV
+
         # create the changelog text
-      - name: Create changelog text
+        # - name: Create changelog text
+        # id: changelog
+        # uses: loopwerk/tag-changelog@v1
+        # with:
+        #  token: ${{ github.token }}
+        #  exclude_types: ci, chore   
+      - name: Update CHANGELOG
         id: changelog
-        uses: loopwerk/tag-changelog@v1
+        uses: requarks/changelog-action@v1
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          exclude_types: ci, chore   
+          token: ${{ github.token }}
+          fromTag: ${{ github.ref_name }}
+          toTag: ${{ env.previousTag }}
+          writeToFile: false
 
         # create the release for the version
       - name: release
