@@ -74,6 +74,7 @@ if (!$SkipPurge) {
 
 Clear-WinNode -DeleteFilesForOfflineInstallation $DeleteFilesForOfflineInstallation
 
+Remove-K2sHostsFromNoProxyEnvVar
 Reset-EnvVars
 
 Write-Log 'Uninstalling K2s setup done.'

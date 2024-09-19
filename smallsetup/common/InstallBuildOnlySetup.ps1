@@ -40,6 +40,7 @@ Write-Log 'Installing Build Only Environment'
 Set-EnvVars
 
 $Proxy = Get-OrUpdateProxyServer -Proxy:$Proxy
+Add-K2sHostsToNoProxyEnvVar
 
 $ErrorActionPreference = 'Continue'
 
