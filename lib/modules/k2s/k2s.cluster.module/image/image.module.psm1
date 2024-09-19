@@ -164,13 +164,13 @@ function Get-PushedContainerImages() {
         return
     }
 
-    $catalog = $(curl.exe --retry 3 --retry-all-errors -X GET http://$registryName/v2/_catalog -H "Authorization: Basic $auth") 2> $null | Out-String | ConvertFrom-Json
+    $catalog = $(curl.exe --noproxy $registryName --retry 3 --retry-all-errors -X GET http://$registryName/v2/_catalog -H "Authorization: Basic $auth") 2> $null | Out-String | ConvertFrom-Json
 
     $images = $catalog.psobject.properties['repositories'].value
 
     $pushedContainerImages = @()
     foreach ($image in $images) {
-        $imageWithTags = curl.exe --retry 3 --retry-all-errors -X GET http://$registryName/v2/$image/tags/list -H "Authorization: Basic $auth" 2> $null | Out-String | ConvertFrom-Json
+        $imageWithTags = curl.exe --noproxy $registryName --retry 3 --retry-all-errors -X GET http://$registryName/v2/$image/tags/list -H "Authorization: Basic $auth" 2> $null | Out-String | ConvertFrom-Json
         $tags = $imageWithTags.psobject.properties['tags'].value
 
         foreach ($tag in $tags) {
@@ -215,7 +215,7 @@ function Remove-PushedImage($name, $tag) {
     $status = $null
     $statusDescription = $null
 
-    $headRequest = "curl.exe -m 10 --retry 3 --retry-connrefused -I http://$registryName/v2/$name/manifests/$tag -H 'Authorization: Basic $auth' $concatinatedHeadersString -v 2>&1"
+    $headRequest = "curl.exe --noproxy $registryName -m 10 --retry 3 --retry-connrefused -I http://$registryName/v2/$name/manifests/$tag -H 'Authorization: Basic $auth' $concatinatedHeadersString -v 2>&1"
     $headResponse = Invoke-Expression $headRequest
     foreach ($line in $headResponse) {
         if ($line -match 'HTTP/1.1 (\d{3}) (.+)') {
@@ -238,7 +238,7 @@ function Remove-PushedImage($name, $tag) {
     $match = Select-String 'Docker-Content-Digest: (.*)' -InputObject $lineWithDigest
     $digest = $match.Matches.Groups[1].Value
 
-    $deleteRequest = "curl.exe -m 10 -I --retry 3 --retry-connrefused -X DELETE http://$registryName/v2/$name/manifests/$digest -H 'Authorization: Basic $auth' $concatinatedHeadersString -v 2>&1"
+    $deleteRequest = "curl.exe --noproxy $registryName -m 10 -I --retry 3 --retry-connrefused -X DELETE http://$registryName/v2/$name/manifests/$digest -H 'Authorization: Basic $auth' $concatinatedHeadersString -v 2>&1"
     $deleteResponse = Invoke-Expression $deleteRequest
 
     foreach ($line in $deleteResponse) {

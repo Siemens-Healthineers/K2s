@@ -24,6 +24,7 @@ Uninstall-WinNode
 
 Clear-WinNode -DeleteFilesForOfflineInstallation $DeleteFilesForOfflineInstallation
 
+Remove-K2sHostsFromNoProxyEnvVar
 Reset-EnvVars
 
 Write-Log 'Uninstalling Build Only Environment done.'

@@ -113,6 +113,7 @@ Write-Log 'Starting installation...'
 Set-EnvVars
 
 $Proxy = Get-OrUpdateProxyServer -Proxy:$Proxy
+Add-K2sHostsToNoProxyEnvVar
 
 ################################ SCRIPT START ###############################################
 
