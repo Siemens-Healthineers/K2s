@@ -72,6 +72,11 @@ $externalDnsConfigDir = Get-ExternalDnsConfigDir
 (Invoke-Kubectl -Params 'delete', '-k', $externalDnsConfigDir).Output | Write-Log
 
 Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'ingress'; Implementation = 'traefik' })
+
+# adapt ingress for other addons
+Write-Log 'Adapting ingress for other addons' -Console
+Update-IngressForAddons -Enable $false
+
 Write-Log 'Uninstallation of ingress traefik addon finished' -Console
 
 if ($EncodeStructuredOutput -eq $true) {
