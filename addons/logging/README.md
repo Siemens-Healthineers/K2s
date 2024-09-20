@@ -36,6 +36,8 @@ The logging dashboard UI can be accessed via the following methods.
 To access logging dashboard via ingress, the ingress-nginx or the traefik addon has to enabled.
 Once the addons are enabled, then the logging dashboard UI can be accessed at the following link: https://k2s.cluster.local/logging/ and https://k2s-logging.local (with HTTP using http://.. unstead of https://..)
 
+_Note:_ If a proxy server is configured in the Windows Proxy settings, please add the hosts **k2s.cluster.local** and **k2s-logging.local** as a proxy override.
+
 ### Access using port-forwarding
 
 To access logging dashboard via port-forwarding, the following command can be executed:
