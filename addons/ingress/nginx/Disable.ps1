@@ -73,6 +73,11 @@ $externalDnsConfigDir = Get-ExternalDnsConfigDir
 
 Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'ingress'; Implementation = 'nginx' })
 
+# adapt ingress for other addons
+Write-Log 'Adapting ingress for other addons' -Console
+Update-IngressForAddons -Enable $false
+
+
 if ($EncodeStructuredOutput -eq $true) {
     Send-ToCli -MessageType $MessageType -Message @{Error = $null }
 }

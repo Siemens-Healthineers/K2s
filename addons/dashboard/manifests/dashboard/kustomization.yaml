@@ -1,0 +1,18 @@
+# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+#
+# SPDX-License-Identifier: MIT
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+- dashboard-deployment.yaml
+- dashboard-service.yaml
+- namespace.yaml
+- role-bindings.yaml
+- roles.yaml
+- scrapper-deployment.yaml
+- scrapper-service.yaml
+- secrets.yaml
+- service-accounts.yaml
+- settings.yaml

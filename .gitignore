@@ -16,6 +16,7 @@ bin/argocd.exe
 bin/cmctl.exe
 nssm.exe
 vc_redist.x64.exe
+bin/cmctl.exe
 
 
 #Scripts

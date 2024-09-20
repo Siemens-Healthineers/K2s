@@ -62,7 +62,7 @@ The Ingress Resource definitions are worth being analyzed,
 to understand the different mechanisms:
 
 - Kubernetes Dashboard:
-  [Traefik Ingress](../../dashboard/manifests/dashboard-traefik-ingress.yaml).
+  [Traefik Ingress](../../dashboard/manifests/ingress-traefik/dashboard-traefik-ingress.yaml).
 - Logging:
   [Traefik Ingress](../../logging/manifests/opensearch-dashboards/traefik.yaml).
 - Monitoring:
