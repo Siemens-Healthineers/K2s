@@ -1,0 +1,12 @@
+# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+#
+# SPDX-License-Identifier: MIT
+
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  labels:
+    k8s-app: kubernetes-dashboard
+  name: kubernetes-dashboard-settings
+  namespace: dashboard
+

@@ -114,7 +114,7 @@ func buildUninstallCmd(flags *pflag.FlagSet, setupName setupinfo.SetupName) (str
 }
 
 func buildk2sUninstallCmd(skipPurge bool, showLogs bool, additionalHooksDir string, deleteFilesForOfflineInstallation bool) string {
-	cmd := utils.FormatScriptFilePath(utils.InstallDir() + "\\smallsetup\\UninstallK8s.ps1")
+	cmd := utils.FormatScriptFilePath(utils.InstallDir() + "\\lib\\scripts\\k2s\\uninstall\\uninstall.ps1")
 
 	if skipPurge {
 		cmd += " -SkipPurge"
@@ -136,7 +136,7 @@ func buildk2sUninstallCmd(skipPurge bool, showLogs bool, additionalHooksDir stri
 }
 
 func buildBuildOnlyUninstallCmd(showLogs bool, deleteFilesForOfflineInstallation bool) string {
-	cmd := utils.FormatScriptFilePath(utils.InstallDir() + "\\smallsetup\\common\\UninstallBuildOnlySetup.ps1")
+	cmd := utils.FormatScriptFilePath(utils.InstallDir() + "\\lib\\scripts\\buildonly\\uninstall\\uninstall.ps1")
 
 	if showLogs {
 		cmd += " -ShowLogs"
@@ -150,7 +150,7 @@ func buildBuildOnlyUninstallCmd(showLogs bool, deleteFilesForOfflineInstallation
 }
 
 func buildMultiVMUninstallCmd(skipPurge bool, showLogs bool, additionalHooksDir string, deleteFilesForOfflineInstallation bool) string {
-	cmd := utils.FormatScriptFilePath(utils.InstallDir() + "\\smallsetup\\multivm\\Uninstall_MultiVMK8sSetup.ps1")
+	cmd := utils.FormatScriptFilePath(utils.InstallDir() + "\\lib\\scripts\\multivm\\uninstall\\uninstall.ps1")
 
 	if skipPurge {
 		cmd += " -SkipPurge"

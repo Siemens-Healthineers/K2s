@@ -66,7 +66,7 @@ The Ingress Resource definitions are worth being analyzed,
 to understand the different mechanisms:
 
 - Kubernetes Dashboard:
-  [NGINX Ingresses](../../dashboard/manifests/dashboard-nginx-ingress.yaml).
+  [NGINX Ingresses](../../dashboard/manifests/ingress-nginx/dashboard-nginx-ingress.yaml).
 - Logging:
   [NGINX Ingress](../../logging/manifests/opensearch-dashboards/ingress.yaml).
 - Monitoring:

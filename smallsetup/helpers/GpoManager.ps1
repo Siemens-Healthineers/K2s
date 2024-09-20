@@ -9,7 +9,7 @@ this script provides a way to register a script based on Group Policy Object whi
 .EXAMPLE
 
 To register stop during shutdown
-PS> .\smallsetup\helpers\GpoManager.ps1 -method "Shutdown" -methodscript "C:\k\smallsetup\StopK8s.ps1"
+PS> .\smallsetup\helpers\GpoManager.ps1 -method "Shutdown" -methodscript "C:\k\lib\scripts\k2s\stop\stop.ps1"
 
 To cleanup registered Shutdown GPO
 PS> .\smallsetup\helpers\GpoManager.ps1 -method "Shutdown" -cleanup
@@ -20,7 +20,7 @@ Param (
     [ValidateSet('Startup', 'Shutdown')]
     [string] $method,
     [parameter(Mandatory = $false, HelpMessage="Script to be invoked")]
-    [string] $methodScript = 'C:\k\smallsetup\StopK8s.ps1',
+    [string] $methodScript = 'C:\k\lib\scripts\k2s\stop\stop.ps1',
     [parameter(Mandatory = $false, HelpMessage="Cleanup registered GPO")]
     [switch] $cleanup = $false
 )

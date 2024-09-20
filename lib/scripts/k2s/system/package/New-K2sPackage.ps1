@@ -30,7 +30,7 @@ Param(
 )
 
 $infraModule = "$PSScriptRoot/../../../../modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
-$nodeModule =    "$PSScriptRoot/../../../../modules/k2s/k2s.node.module/k2s.node.module.psm1"
+$nodeModule = "$PSScriptRoot/../../../../modules/k2s/k2s.node.module/k2s.node.module.psm1"
 $clusterModule = "$PSScriptRoot/../../../../modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 Import-Module $infraModule, $nodeModule, $clusterModule
 
@@ -59,9 +59,9 @@ function New-ProvisionedKubemasterBaseImage($WindowsNodeArtifactsZip, $OutputPat
         $windowsNodeArtifactsDirectory = "$(Split-Path -Parent $WindowsNodeArtifactsZip)\windowsnode"
         Write-Log "Extract the artifacts from the file '$WindowsNodeArtifactsZip' to the directory '$windowsNodeArtifactsDirectory'..."
         Expand-Archive -LiteralPath $windowsNodeArtifactsZip -DestinationPath $windowsNodeArtifactsDirectory -Force
-        Write-Log "  done"
+        Write-Log '  done'
         # Deploy putty tools
-        Write-Log "Temporarily deploying putty tools..." -Console
+        Write-Log 'Temporarily deploying putty tools...' -Console
         Invoke-DeployPuttytoolsArtifacts $windowsNodeArtifactsDirectory
         # Provision linux node artifacts
         Write-Log 'Create and provision the base image' -Console
@@ -70,7 +70,8 @@ function New-ProvisionedKubemasterBaseImage($WindowsNodeArtifactsZip, $OutputPat
         if (Test-Path -Path $rootfsPath) {
             Remove-Item -Path $rootfsPath -Force
             Write-Log "Deleted already existing file for WSL support '$rootfsPath'"
-        } else {
+        }
+        else {
             Write-Log "File for WSL support '$rootfsPath' does not exist. Nothing to delete."
         }
     
@@ -84,15 +85,15 @@ function New-ProvisionedKubemasterBaseImage($WindowsNodeArtifactsZip, $OutputPat
         }
 
         $controlPlaneNodeCreationParams = @{
-            Hostname=$hostname
-            IpAddress=$ipAddress
-            GatewayIpAddress=$gatewayIpAddress
-            DnsServers= $dnsServers
-            VmImageOutputPath=$OutputPath
-            Proxy=$Proxy
-            VMMemoryStartupBytes=$VMMemoryStartupBytes
-            VMProcessorCount=$VMProcessorCount
-            VMDiskSize=$VMDiskSize
+            Hostname             = $hostname
+            IpAddress            = $ipAddress
+            GatewayIpAddress     = $gatewayIpAddress
+            DnsServers           = $dnsServers
+            VmImageOutputPath    = $OutputPath
+            Proxy                = $Proxy
+            VMMemoryStartupBytes = $VMMemoryStartupBytes
+            VMProcessorCount     = $VMProcessorCount
+            VMDiskSize           = $VMDiskSize
         }
         New-VmImageForControlPlaneNode @controlPlaneNodeCreationParams
     
@@ -102,20 +103,21 @@ function New-ProvisionedKubemasterBaseImage($WindowsNodeArtifactsZip, $OutputPat
     
 
         $wslRootfsForControlPlaneNodeCreationParams = @{
-            VmImageInputPath=$OutputPath
-            RootfsFileOutputPath=$rootfsPath
-            Proxy=$Proxy
-            VMMemoryStartupBytes=$VMMemoryStartupBytes
-            VMProcessorCount=$VMProcessorCount
-            VMDiskSize=$VMDiskSize
+            VmImageInputPath     = $OutputPath
+            RootfsFileOutputPath = $rootfsPath
+            Proxy                = $Proxy
+            VMMemoryStartupBytes = $VMMemoryStartupBytes
+            VMProcessorCount     = $VMProcessorCount
+            VMDiskSize           = $VMDiskSize
         }
         New-WslRootfsForControlPlaneNode @wslRootfsForControlPlaneNodeCreationParams
     
         if (!(Test-Path -Path $rootfsPath)) {
             throw "The file '$rootfsPath' was not created"
         }
-    } finally {
-        Write-Log "Deleting the putty tools..." -Console
+    }
+    finally {
+        Write-Log 'Deleting the putty tools...' -Console
         Clear-ProvisioningArtifacts
         Remove-Item -Path "$kubeBinPath\plink.exe" -Force -ErrorAction SilentlyContinue
         Remove-Item -Path "$kubeBinPath\pscp.exe" -Force -ErrorAction SilentlyContinue
@@ -141,7 +143,8 @@ function Get-AndZipWindowsNodeArtifacts($outputPath) {
     $kubernetesVersion = Get-DefaultK8sVersion
     try {
         Invoke-DeployWinArtifacts -KubernetesVersion $kubernetesVersion -Proxy "$Proxy" -K8sBinsPath $K8sBinsPath
-    } finally {
+    }
+    finally {
         Invoke-DownloadsCleanup -DeleteFilesForOfflineInstallation $false
     }
 
@@ -271,7 +274,6 @@ if ($errMsg -ne '') {
 
 $zipPackagePath = Join-Path "$TargetDirectory" "$ZipPackageFileName"
 
-# delete eventuell already existing zip file
 if (Test-Path $zipPackagePath) {
     Write-Log "Removing already existing file '$zipPackagePath'" -Console
     Remove-Item $zipPackagePath -Force
@@ -299,7 +301,8 @@ if ($ForOfflineInstallation) {
             Compress-WindowsNodeArtifactsWithLocalKubeTools -K8sBinsPath $K8sBinsPath
         }
         Write-Log "The already existing file '$winNodeArtifactsZipFilePath' will be used." -Console
-    } else {
+    }
+    else {
         try {
             Write-Log "The file '$winNodeArtifactsZipFilePath' does not exist. Creating it using proxy $Proxy ..." -Console
             Get-AndZipWindowsNodeArtifacts($winNodeArtifactsZipFilePath)
@@ -322,7 +325,8 @@ if ($ForOfflineInstallation) {
     # Provide linux parts
     if (Test-Path $controlPlaneBaseVhdxPath) {
         Write-Log "The already existing file '$controlPlaneBaseVhdxPath' will be used." -Console
-    } else {
+    }
+    else {
         try {
             Write-Log "The file '$controlPlaneBaseVhdxPath' does not exist. Creating it..." -Console
             New-ProvisionedKubemasterBaseImage -WindowsNodeArtifactsZip:$winNodeArtifactsZipFilePath -OutputPath:$controlPlaneBaseVhdxPath
@@ -341,7 +345,8 @@ if ($ForOfflineInstallation) {
             exit 1
         }
     }
-} else {
+}
+else {
     $controlPlaneRootfsPath = Get-ControlPlaneVMRootfsPath
     $exclusionList += $controlPlaneBaseVhdxPath
     $exclusionList += $controlPlaneRootfsPath
@@ -354,12 +359,12 @@ $exclusionList += $kubenodeBaseVhdxPath
 Write-Log 'Content of the exclusion list:' -Console
 $exclusionList | ForEach-Object { " - $_ " } | Write-Log -Console
 
-# create the zip package
 Write-Log 'Start creation of zip package...' -Console
 New-ZipArchive -ExclusionList $exclusionList -BaseDirectory $kubePath -TargetPath "$zipPackagePath"
-Write-Log 'Finished creation of zip package' -Console
+Write-Log "Zip package available at '$zipPackagePath'." -Console
 
-Write-Log "Zip package available as '$zipPackagePath'." -Console
+Write-Log 'Removing implicitly created K2s config dir'
+Remove-Item -Path "$(Get-K2sConfigDir)" -Force -Recurse -ErrorAction SilentlyContinue
 
 if ($EncodeStructuredOutput -eq $true) {
     Send-ToCli -MessageType $MessageType -Message @{Error = $null }

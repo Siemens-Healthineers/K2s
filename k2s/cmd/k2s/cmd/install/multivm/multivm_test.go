@@ -95,7 +95,7 @@ var _ = Describe("multivm", func() {
 
 		Context("Linux-only without additional switches", func() {
 			It("returns command", func() {
-				const staticPartOfExpectedCmd = `\smallsetup\multivm\Install_MultiVMK8sSetup.ps1' -MasterVMProcessorCount 5 -MasterVMMemory 6GB -MasterDiskSize 7GB -LinuxOnly`
+				const staticPartOfExpectedCmd = `\lib\scripts\multivm\install\install.ps1' -MasterVMProcessorCount 5 -MasterVMMemory 6GB -MasterDiskSize 7GB -LinuxOnly`
 				expected := "&'" + utils.InstallDir() + staticPartOfExpectedCmd
 
 				config := &ic.InstallConfig{
@@ -118,7 +118,7 @@ var _ = Describe("multivm", func() {
 
 		Context("Linux-only with additional switches", func() {
 			It("returns command", func() {
-				const staticPartOfExpectedCmd = `\smallsetup\multivm\Install_MultiVMK8sSetup.ps1' -MasterVMProcessorCount 5 -MasterVMMemory 6GB -MasterDiskSize 7GB -LinuxOnly` +
+				const staticPartOfExpectedCmd = `\lib\scripts\multivm\install\install.ps1' -MasterVMProcessorCount 5 -MasterVMMemory 6GB -MasterDiskSize 7GB -LinuxOnly` +
 					` -Proxy my_proxy -AdditionalHooksDir 'c:\my\dir' -ShowLogs -SkipStart -DeleteFilesForOfflineInstallation -ForceOnlineInstallation -AppendLogFile`
 				expected := "&'" + utils.InstallDir() + staticPartOfExpectedCmd
 
@@ -181,7 +181,7 @@ var _ = Describe("multivm", func() {
 
 		Context("without additional switches", func() {
 			It("returns command", func() {
-				const staticPartOfExpectedCmd = `\smallsetup\multivm\Install_MultiVMK8sSetup.ps1' -MasterVMProcessorCount 5 -MasterVMMemory 6GB -MasterDiskSize 7GB` +
+				const staticPartOfExpectedCmd = `\lib\scripts\multivm\install\install.ps1' -MasterVMProcessorCount 5 -MasterVMMemory 6GB -MasterDiskSize 7GB` +
 					` -WinVMProcessorCount 8 -WinVMStartUpMemory 9GB -WinVMDiskSize 10GB -WindowsImage c:\path\to\image.file`
 				expected := "&'" + utils.InstallDir() + staticPartOfExpectedCmd
 
@@ -214,7 +214,7 @@ var _ = Describe("multivm", func() {
 
 		Context("with additional switches", func() {
 			It("returns command", func() {
-				const staticPartOfExpectedCmd = `\smallsetup\multivm\Install_MultiVMK8sSetup.ps1' -MasterVMProcessorCount 5 -MasterVMMemory 6GB -MasterDiskSize 7GB` +
+				const staticPartOfExpectedCmd = `\lib\scripts\multivm\install\install.ps1' -MasterVMProcessorCount 5 -MasterVMMemory 6GB -MasterDiskSize 7GB` +
 					` -WinVMProcessorCount 8 -WinVMStartUpMemory 9GB -WinVMDiskSize 10GB -WindowsImage c:\path\to\image.file` +
 					` -Proxy my_proxy -AdditionalHooksDir 'c:\my\dir' -ShowLogs -SkipStart -DeleteFilesForOfflineInstallation -ForceOnlineInstallation -AppendLogFile`
 				expected := "&'" + utils.InstallDir() + staticPartOfExpectedCmd
