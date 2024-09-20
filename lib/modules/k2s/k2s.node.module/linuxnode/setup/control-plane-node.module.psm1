@@ -283,7 +283,7 @@ function Start-ControlPlaneNodeOnNewVM {
 
     Write-Log 'Set the DNS server(s) used by the Windows Host as the default DNS server(s) of the VM'
     (Invoke-CmdOnControlPlaneViaSSHKey "sudo sed -i 's/dns-nameservers.*/dns-nameservers $DnsServers/' /etc/network/interfaces.d/10-k2s").Output | Write-Log
-    (Invoke-CmdOnControlPlaneViaSSHKey 'sudo systemctl restart networking').Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaSSHKey 'sudo systemctl restart systemd-networkd').Output | Write-Log
     (Invoke-CmdOnControlPlaneViaSSHKey 'sudo systemctl restart dnsmasq').Output | Write-Log
 
     $ipControlPlane = Get-ConfiguredIPControlPlane

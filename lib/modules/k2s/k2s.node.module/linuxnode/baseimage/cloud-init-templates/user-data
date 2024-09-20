@@ -26,5 +26,5 @@ apt:
 
 runcmd:
 - rm /etc/resolv.conf && echo "nameserver __IP_ADDRESSES_DNS_SERVERS__" > /etc/resolv.conf && chattr +i /etc/resolv.conf
-- /etc/init.d/networking restart
+- netplan apply
 
