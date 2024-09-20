@@ -39,9 +39,9 @@ function Get-OAuth2ProxyConfig {
 .DESCRIPTION
 Writes the usage notes for security for the user.
 #>
-function Write-UsageForUser {
+function Write-SecurityUsageForUser {
     @'
-THIS ADDON IS EXPERIMENTAL
+                SECURITY ADDON - EXPERIMENTAL
 
 The following features are available:
 1. cert-manager: The CA Issuer named 'k2s-ca-issuer' has beed created and can 
@@ -77,10 +77,10 @@ This addon is documented in <installation folder>\addons\security\README.md
 '@ -split "`r`n" | ForEach-Object { Write-Log $_ -Console }
 }
 
-function Write-WarningForUser {
+function Write-SecurityWarningForUser {
     @'
-    
-ATTENTION:
+
+                ATTENTION:
 If you disable this add-on, the sites protected by cert-manager certificates 
 will become untrusted. Delete the HSTS settings for your site (e.g. 'k2s.cluster.local')
 here (works in Chrome and Edge):
