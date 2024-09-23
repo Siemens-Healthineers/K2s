@@ -236,7 +236,7 @@ function CheckFlannelConfig {
             Start-Sleep -s 5
 
             # End the loop
-            if ($i -eq 50) {
+            if ($i -eq 100) {
                 throw "Fatal: Flannel failed to create file: $flannelFileSource for target drive $(Get-InstallationDriveLetter):\run\flannel\subnet.env !"
             }
         }
