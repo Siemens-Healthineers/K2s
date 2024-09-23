@@ -225,4 +225,4 @@ function Clear-WinNode {
     Invoke-DownloadsCleanup -DeleteFilesForOfflineInstallation $DeleteFilesForOfflineInstallation
 }
 
-Export-ModuleMember Initialize-WinNode, Uninstall-WinNode, Clear-WinNode, Initialize-Networking, Reset-WinServices
+Export-ModuleMember Initialize-WinNode, Uninstall-WinNode, Clear-WinNode
