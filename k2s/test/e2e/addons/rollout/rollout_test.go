@@ -100,7 +100,11 @@ var _ = Describe("'rollout' addon", Ordered, func() {
 		})
 
 		It("is in enabled state and pods are in running state", func(ctx context.Context) {
-			suite.K2sCli().Run(ctx, "addons", "enable", "rollout", "-o")
+			args := []string{"addons", "enable", "rollout", "-o"}
+			if suite.Proxy() != "" {
+				args = append(args, "-p", suite.Proxy())
+			}
+			suite.K2sCli().Run(ctx, args...)
 
 			suite.Cluster().ExpectDeploymentToBeAvailable("argocd-applicationset-controller", "rollout")
 
@@ -139,7 +143,7 @@ var _ = Describe("'rollout' addon", Ordered, func() {
 			portForwarding := exec.Command(kubectl, "-n", "rollout", "port-forward", "svc/argocd-server", "8080:443")
 			portForwardingSession, _ = gexec.Start(portForwarding, GinkgoWriter, GinkgoWriter)
 
-			url := "https://localhost:8080/rollout"
+			url := "https://localhost:8080/rollout/"
 			httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-I", "-m", "5", "--retry", "3", "--fail")
 			Expect(httpStatus).To(ContainSubstring("200"))
 		})
@@ -172,7 +176,11 @@ var _ = Describe("'rollout' addon", Ordered, func() {
 		})
 
 		It("is in enabled state and pods are in running state", func(ctx context.Context) {
-			suite.K2sCli().Run(ctx, "addons", "enable", "rollout", "-o")
+			args := []string{"addons", "enable", "rollout", "-o"}
+			if suite.Proxy() != "" {
+				args = append(args, "-p", suite.Proxy())
+			}
+			suite.K2sCli().Run(ctx, args...)
 
 			suite.Cluster().ExpectDeploymentToBeAvailable("argocd-applicationset-controller", "rollout")
 
@@ -207,7 +215,7 @@ var _ = Describe("'rollout' addon", Ordered, func() {
 		})
 
 		It("is reachable through k2s.cluster.local/rollout", func(ctx context.Context) {
-			url := "https://k2s.cluster.local/rollout"
+			url := "https://k2s.cluster.local/rollout/"
 			httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-I", "-m", "5", "--retry", "3", "--fail")
 			Expect(httpStatus).To(ContainSubstring("200"))
 		})
@@ -240,7 +248,11 @@ var _ = Describe("'rollout' addon", Ordered, func() {
 		})
 
 		It("is in enabled state and pods are in running state", func(ctx context.Context) {
-			suite.K2sCli().Run(ctx, "addons", "enable", "rollout", "-o")
+			args := []string{"addons", "enable", "rollout", "-o"}
+			if suite.Proxy() != "" {
+				args = append(args, "-p", suite.Proxy())
+			}
+			suite.K2sCli().Run(ctx, args...)
 
 			suite.Cluster().ExpectDeploymentToBeAvailable("argocd-applicationset-controller", "rollout")
 
@@ -275,7 +287,7 @@ var _ = Describe("'rollout' addon", Ordered, func() {
 		})
 
 		It("is reachable through k2s.cluster.local/rollout", func(ctx context.Context) {
-			url := "https://k2s.cluster.local/rollout"
+			url := "https://k2s.cluster.local/rollout/"
 			httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-I", "-m", "5", "--retry", "3", "--fail")
 			Expect(httpStatus).To(ContainSubstring("200"))
 		})

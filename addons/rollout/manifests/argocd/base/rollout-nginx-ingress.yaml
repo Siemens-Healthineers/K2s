@@ -9,7 +9,6 @@ metadata:
   name: rollout-nginx-cluster-local
   namespace: rollout
   annotations:
-    nginx.ingress.kubernetes.io/ssl-redirect: "false"
     nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
 spec:
   ingressClassName: nginx
