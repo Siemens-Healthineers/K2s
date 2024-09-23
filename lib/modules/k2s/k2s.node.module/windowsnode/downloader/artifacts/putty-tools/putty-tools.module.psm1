@@ -37,16 +37,6 @@ function Invoke-DeployPuttytoolsArtifacts($windowsNodeArtifactsDirectory) {
     Copy-Item -Path "$puttytoolsArtifactsDirectory\$windowsNode_Pscp" -Destination "$kubeBinPath" -Force
 }
 
-function Invoke-DowloadPuttyTools {
-    param (
-        [Parameter(Mandatory = $false)]
-        [string]$Proxy
-    )
-
-    Invoke-DownloadPlink -Destination "$kubeBinPath\$windowsNode_Plink" -Proxy "$Proxy"
-    Invoke-DownloadPscp -Destination "$kubeBinPath\$windowsNode_Pscp" -Proxy "$Proxy"
-}
-
 function Invoke-DownloadPlink {
     param (
         [Parameter(Mandatory = $false)]
@@ -70,4 +60,4 @@ function Invoke-DownloadPscp {
 }
 
 Export-ModuleMember Invoke-DownloadPuttyArtifacts, Invoke-DeployPuttytoolsArtifacts,
-Invoke-DownloadPlink, Invoke-DownloadPscp, Invoke-DowloadPuttyTools
+Invoke-DownloadPlink, Invoke-DownloadPscp

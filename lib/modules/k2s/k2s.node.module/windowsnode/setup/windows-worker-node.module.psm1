@@ -394,19 +394,6 @@ function CheckFlannelConfig {
     }
 }
 
-function Test-ExistingExternalSwitch {
-    $l2BridgeSwitchName = Get-L2BridgeSwitchName
-    $externalSwitches = Get-VMSwitch | Where-Object { $_.SwitchType -eq 'External'  -and $_.Name -ne $l2BridgeSwitchName}
-    if ($externalSwitches) {
-        Write-Log 'Found External Switches:'
-        Write-Log $($externalSwitches | Select-Object -Property Name)
-        Write-Log 'Precheck failed: Cannot proceed further with existing External Network Switches as it conflicts with k2s networking' -Console
-        Write-Log "Remove all your External Network Switches with command PS>Get-VMSwitch | Where-Object { `$_.SwitchType -eq 'External'  -and `$_.Name -ne '$l2BridgeSwitchName'} | Remove-VMSwitch -Force" -Console
-        Write-Log 'WARNING: This will remove your External Switches, please check whether these switches are required before executing the command' -Console
-        throw 'Remove all the existing External Network Switches and retry the k2s command again'
-    }
-}
-
 function EnsureDirectoryPathExists(
     [string]$DirPath
 ) {

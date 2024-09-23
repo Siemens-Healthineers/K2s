@@ -212,14 +212,6 @@ Function Install-KubernetesArtifacts {
     InstallAptPackages -FriendlyName 'kubernetes' -Packages "kubelet=$shortKubeVers kubeadm=$shortKubeVers kubectl=$shortKubeVers" -TestExecutable 'kubectl' -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd" 
     &$executeRemoteCommand 'sudo apt-mark hold kubelet kubeadm kubectl' 
 
-    # Write-Log 'Configure CRI-O (part 2 of 2): adapt CRI-O config file to use pause image version specified by kubeadm' 
-    # if ($PSVersionTable.PSVersion.Major -gt 5) {
-    #     &$executeRemoteCommand "pauseImageToUse=`"`$(kubeadm config images list --kubernetes-version $K8sVersion | grep `"pause`")`" && newTextLine=`$(echo pause_image = '`"'`$pauseImageToUse'`"') && sudo sed -i `"s#.*pause_image[ ]*=.*pause.*#`$newTextLine#`" /etc/crio/crio.conf" 
-    # }
-    # else {
-    #     &$executeRemoteCommand "pauseImageToUse=`"`$(kubeadm config images list --kubernetes-version $K8sVersion | grep \`"pause\`")`" && newTextLine=`$(echo pause_image = '\`"'`$pauseImageToUse'\`"') && sudo sed -i \`"s#.*pause_image[ ]*=.*pause.*#`$newTextLine#\`" /etc/crio/crio.conf" 
-    # }
-
     Write-Log 'Start CRI-O'
     &$executeRemoteCommand 'sudo systemctl daemon-reload' 
     &$executeRemoteCommand 'sudo systemctl enable crio' -IgnoreErrors 
@@ -230,7 +222,6 @@ Function Install-KubernetesArtifacts {
     if ( $isWsl ) {
         Write-Log 'Add cri-o fix for WSL'
         $configWSL = '/etc/crio/crio.conf.d/20-wsl.conf'
-        # add to /etc/crio/crio.conf.d/20-wsl.conf the following line:  [crio.runtime]
         &$executeRemoteCommand "echo [crio.runtime] | sudo tee -a $configWSL > /dev/null"
         &$executeRemoteCommand "echo add_inheritable_capabilities=true | sudo tee -a $configWSL > /dev/null"
         &$executeRemoteCommand "echo default_sysctls='[\`"net.ipv4.ip_unprivileged_port_start=0\`"]' | sudo tee -a $configWSL > /dev/null"
@@ -1172,8 +1163,7 @@ function Set-ProxySettingsOnKubenode {
     (Invoke-CmdOnVmViaSSHKey 'sudo systemctl restart crio' -IpAddress $IpAddress).Output | Write-Log
 }
 
-Export-ModuleMember -Function New-VmImageForKubernetesNode, 
-New-VmImageForControlPlaneNode, 
+Export-ModuleMember -Function New-VmImageForControlPlaneNode, 
 New-LinuxVmImageForWorkerNode, 
 Remove-VmImageForControlPlaneNode, 
 Import-SpecificDistroSettingsModule, 

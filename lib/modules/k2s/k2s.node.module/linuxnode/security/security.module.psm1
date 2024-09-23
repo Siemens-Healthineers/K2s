@@ -92,4 +92,7 @@ function Remove-ControlPlaneAccessViaUserAndPwd {
     (Invoke-CmdOnControlPlaneViaSSHKey 'sudo systemctl reload ssh').Output | Write-Log
 }
 
-Export-ModuleMember New-SshKey, Remove-SshKey, Copy-LocalPublicSshKeyToRemoteComputer, Remove-ControlPlaneAccessViaUserAndPwd
+Export-ModuleMember New-SshKey, 
+Remove-SshKey, 
+Copy-LocalPublicSshKeyToRemoteComputer, 
+Remove-ControlPlaneAccessViaUserAndPwd

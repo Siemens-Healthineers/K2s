@@ -136,23 +136,6 @@ function Remove-ExternalSwitch () {
     }
 }
 
-function Invoke-RecreateNAT {
-    # configure NAT
-    if (Get-NetNat -Name $netNatName -ErrorAction SilentlyContinue) {
-        Write-Log "  $netNatName exists, removing it"
-        Remove-NetNat -Name $netNatName -Confirm:$False | Out-Null
-    }
-}
-
-function New-DefaultNetNat {
-    New-NetNat -Name $netNatName -InternalIPInterfaceAddressPrefix $ipControlPlaneCIDR | Out-Null
-}
-
-function Remove-DefaultNetNat {
-    Remove-NetNatStaticMapping -NatName $netNatName -Confirm:$False -ErrorAction SilentlyContinue
-    Remove-NetNat -Name $netNatName -Confirm:$False -ErrorAction SilentlyContinue
-}
-
 function Set-InterfacePrivate {
     param (
         [Parameter()]
@@ -361,7 +344,7 @@ function Add-VfpRulesToWindowsNode {
 
 Export-ModuleMember Set-IndexForDefaultSwitch, Get-ConfiguredClusterCIDRHost,
 New-ExternalSwitch, Remove-ExternalSwitch,
-Invoke-RecreateNAT, Set-InterfacePrivate,
-Get-L2BridgeSwitchName, Remove-DefaultNetNat,
-New-DefaultNetNat, Set-IPAdressAndDnsClientServerAddress, Set-WSLSwitch,
+Set-InterfacePrivate,
+Get-L2BridgeSwitchName,
+Set-IPAdressAndDnsClientServerAddress, Set-WSLSwitch,
 Add-VfpRulesToWindowsNode, Remove-VfpRulesFromWindowsNode, Get-ConfiguredClusterCIDRNextHop
