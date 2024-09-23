@@ -326,10 +326,7 @@ function Write-WarningIfRequiredSshVersionNotInstalled {
 }
 
 Export-ModuleMember -Function Add-K2sToDefenderExclusion,
-Enable-MissingWindowsFeatures,
-Stop-InstallIfDockerDesktopIsRunning,
 Test-WindowsPrerequisites,
-Test-ProxyConfiguration,
 Set-WSL,
 Get-StorageLocalDrive,
 Invoke-DownloadFile,

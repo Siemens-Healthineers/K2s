@@ -96,15 +96,5 @@ function Get-ControlPlaneOnWslRootfsFileName {
     return $controlPlaneOnWslRootfsFileName
 }
 
-function Remove-WslLinuxVmAsControlPlaneNode {
-    param (
-        [string]$VmName,
-        [string]$SwitchName
-    )
-    wsl --shutdown | Out-Null
-    wsl --unregister $VmName | Out-Null
-    #Reset-DnsServer $SwitchName
-}
 
-
-Export-ModuleMember -Function New-WslLinuxVmAsControlPlaneNode, Get-ControlPlaneOnWslRootfsFilePath, Remove-WslLinuxVmAsControlPlaneNode, Get-ControlPlaneOnWslRootfsFileName
+Export-ModuleMember -Function New-WslLinuxVmAsControlPlaneNode, Get-ControlPlaneOnWslRootfsFilePath, Get-ControlPlaneOnWslRootfsFileName

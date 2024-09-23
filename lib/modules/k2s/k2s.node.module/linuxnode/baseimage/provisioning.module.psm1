@@ -496,7 +496,6 @@ function New-ProvisionedBaseImage {
         [GuestOsParameters]$GuestOsParameters = $(throw "Argument missing: GuestOsParameters"),
         [NetworkParameters]$NetworkParameters = $(throw "Argument missing: NetworkParameters"),
         [string] $Proxy = $(throw "Argument missing: Proxy"),
-        #[scriptblock] $NodeRoleAssignmentHook = $(throw "Argument missing: NodeRoleAssignmentHook"),
         [scriptblock] $InstallationHook = $(throw "Argument missing: InstallationHook"),
         [scriptblock] $AfterProvisioningFinishedHook = $(throw "Argument missing: AfterProvisioningFinishedHook"),
         [string] $OutputPath = $(throw 'Argument missing: OutputPath'),

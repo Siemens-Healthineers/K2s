@@ -559,8 +559,7 @@ function Add-VirtioDrivers {
 
 }
 
-function
-Convert-WinImage {
+function Convert-WinImage {
     <#
     .SYNOPSIS
         Minimalistic Script to Create a bootable VHD(X) based on Windows 10 installation media.
@@ -2041,18 +2040,6 @@ function Initialize-SSHConnectionToWinVM($session, $IpAddress) {
 
 }
 
-function Remove-VMSshKey() {
-    Write-Log 'Remove vm node worker ssh keys'
-    $rootConfig = Get-RootConfigk2s
-    $multivmRootConfig = $rootConfig.psobject.properties['multivm'].value
-    $multiVMWinNodeIP = $multivmRootConfig.psobject.properties['multiVMK8sWindowsVMIP'].value
-
-    $sshConfigDir = Get-SshConfigDir
-
-    ssh-keygen.exe -R $multiVMWinNodeIP 2>&1 | % { "$_" }
-    Remove-Item -Path ($sshConfigDir + '\kubemaster') -Force -Recurse -ErrorAction SilentlyContinue
-}
-
 function Initialize-PhysicalNetworkAdapterOnVM ($session) {
     Write-Log 'Checking physical network adapter on Windows node ...'
 
@@ -2164,16 +2151,6 @@ function Wait-ForSSHConnectionToWindowsVMViaSshKey() {
     Wait-ForSshPossible -User $adminWinNode -SshKey $windowsVMKey -SshTestCommand 'whoami' -ExpectedSshTestCommandResult "$multiVMWindowsVMName\administrator" -StrictEqualityCheck
 }
 
-function Set-VMVFPRules {
-    $kubeBinPath = Get-KubeBinPath
-    $file = "$kubeBinPath\cni\vfprules.json"
-    Remove-Item -Path $file -Force -ErrorAction SilentlyContinue
-
-    $smallsetup = Get-RootConfigk2s
-    $smallsetup.psobject.properties['vfprules-multivm'].value | ConvertTo-Json | Out-File "$kubeBinPath\cni\vfprules.json" -Encoding ascii
-    Write-Log "Created new version of $file for vm node"
-}
-
 function Invoke-CmdOnVMWorkerNodeViaSSH(
     [Parameter(Mandatory = $false)]
     $CmdToExecute) {
@@ -2185,16 +2162,13 @@ function Invoke-CmdOnVMWorkerNodeViaSSH(
 
 Export-ModuleMember Get-IsVmOperating,
 Start-VirtualMachine, Stop-VirtualMachine,
-Restart-VirtualMachine, Remove-VirtualMachine,
-Remove-VMSnapshots, Wait-ForDesiredVMState,
-New-VMFromWinImage, Open-RemoteSession,
-New-VMSession, Set-VmIPAddress,
-Open-RemoteSessionViaSSHKey, New-VMSessionViaSSHKey,
-Initialize-WinVM, Initialize-WinVMNode,
+Remove-VirtualMachine,
+Open-RemoteSession,
+Set-VmIPAddress,
+Open-RemoteSessionViaSSHKey, 
 Wait-ForSSHConnectionToWindowsVMViaSshKey, Get-DefaultWinVMKey,
 Open-DefaultWinVMRemoteSessionViaSSHKey, Enable-SSHRemotingViaSSHKeyToWinNode,
 Disable-PasswordAuthenticationToWinNode, Get-DefaultWinVMName,
-Set-VMVFPRules, Remove-VMSshKey,
 Invoke-CmdOnVMWorkerNodeViaSSH,
 New-VHDXFromWinImage,
 Initialize-SSHConnectionToWinVM

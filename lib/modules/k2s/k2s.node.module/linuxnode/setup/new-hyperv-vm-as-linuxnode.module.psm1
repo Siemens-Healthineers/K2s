@@ -82,10 +82,6 @@ function New-LinuxVmAsControlPlaneNode {
 
 }
 
-function Remove-LinuxVmAsControlPlaneNode {
-    Remove-VmImageForControlPlaneNode
-}
-
 function New-VmFromIso {
     param(
         [Parameter(Mandatory = $true)]
@@ -171,4 +167,4 @@ function New-VmFromIso {
     Write-Log 'VM started ok'
 }
 
-Export-ModuleMember -Function New-LinuxVmAsControlPlaneNode, Remove-LinuxVmAsControlPlaneNode, Get-KubemasterBaseFilePath
+Export-ModuleMember -Function New-LinuxVmAsControlPlaneNode, Get-KubemasterBaseFilePath
