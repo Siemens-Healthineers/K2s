@@ -100,7 +100,11 @@ var _ = Describe("'rollout' addon", Ordered, func() {
 		})
 
 		It("is in enabled state and pods are in running state", func(ctx context.Context) {
-			suite.K2sCli().Run(ctx, "addons", "enable", "rollout", "-o")
+			args := []string{"addons", "enable", "rollout", "-o"}
+			if suite.Proxy() != "" {
+				args = append(args, "-p", suite.Proxy())
+			}
+			suite.K2sCli().Run(ctx, args...)
 
 			suite.Cluster().ExpectDeploymentToBeAvailable("argocd-applicationset-controller", "rollout")
 
@@ -172,7 +176,11 @@ var _ = Describe("'rollout' addon", Ordered, func() {
 		})
 
 		It("is in enabled state and pods are in running state", func(ctx context.Context) {
-			suite.K2sCli().Run(ctx, "addons", "enable", "rollout", "-o")
+			args := []string{"addons", "enable", "rollout", "-o"}
+			if suite.Proxy() != "" {
+				args = append(args, "-p", suite.Proxy())
+			}
+			suite.K2sCli().Run(ctx, args...)
 
 			suite.Cluster().ExpectDeploymentToBeAvailable("argocd-applicationset-controller", "rollout")
 
@@ -240,7 +248,11 @@ var _ = Describe("'rollout' addon", Ordered, func() {
 		})
 
 		It("is in enabled state and pods are in running state", func(ctx context.Context) {
-			suite.K2sCli().Run(ctx, "addons", "enable", "rollout", "-o")
+			args := []string{"addons", "enable", "rollout", "-o"}
+			if suite.Proxy() != "" {
+				args = append(args, "-p", suite.Proxy())
+			}
+			suite.K2sCli().Run(ctx, args...)
 
 			suite.Cluster().ExpectDeploymentToBeAvailable("argocd-applicationset-controller", "rollout")
 
