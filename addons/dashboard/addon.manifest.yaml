@@ -7,6 +7,8 @@ kind: AddonManifest
 metadata:
   name: dashboard
   description: Dashboard for Kubernetes
+  annotations:
+    k2s.cluster.local/exposed-through-ingress: "true"
 spec:
   implementations:
     - name: dashboard

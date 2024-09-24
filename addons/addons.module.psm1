@@ -752,12 +752,19 @@ function Add-HostEntries {
 function Update-IngressForAddons {
     param (
         [Parameter(Mandatory = $true)]
-        [string]
+        [switch]
         $Enable
     )
-    Write-Log "Adapting ingress entries for addons, security is on: $Enable" -Console
+    Write-Log "Adapting ingress entries for addons" -Console
 
-    # TODO: this implementation needs to be adapted to be more generic in next version
+    $allManifests = Find-AddonManifests -Directory $PSScriptRoot |`
+        ForEach-Object { 
+        $manifest = Get-FromYamlFile -Path $_ 
+        $manifest
+    }
+
+    $exposedThroughIngressAnnotation = 'k2s.cluster.local/exposed-through-ingress'
+
     $addons = Get-AddonsConfig
     $addons | ForEach-Object {
         $addon = $_.Name
@@ -767,12 +774,10 @@ function Update-IngressForAddons {
             return
         }
 
-        # addon dashboard
-        $name = 'dashboard'
-        if ($addon -eq $name) {
-            Write-Log "  Updating $name addon ..." -Console
+        $manifest = $allManifests | Where-Object { $_.metadata.name -eq $addon}
+        if ($null -ne $manifest.metadata.annotations.$exposedThroughIngressAnnotation -and $manifest.metadata.annotations.$exposedThroughIngressAnnotation -eq "true") {
+            Write-Log "  Updating $addon addon ..." -Console
             Enable-AddonFromConfig -Config $addonConfig
-            return
         }
 
         # addon logging
