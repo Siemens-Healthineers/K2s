@@ -27,9 +27,9 @@ Param (
 $clusterModule = "$PSScriptRoot/../../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $infraModule = "$PSScriptRoot/../../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $addonsModule = "$PSScriptRoot\..\..\addons.module.psm1"
-$commonModule = "$PSScriptRoot\common.module.psm1"
+$traefikModule = "$PSScriptRoot\traefik.module.psm1"
 
-Import-Module $clusterModule, $infraModule, $addonsModule, $commonModule
+Import-Module $clusterModule, $infraModule, $addonsModule, $traefikModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -75,7 +75,7 @@ Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'ingress'; Implement
 
 # adapt ingress for other addons
 Write-Log 'Adapting ingress for other addons' -Console
-Update-IngressForAddons -Enable $false
+Update-IngressForAddons
 
 Write-Log 'Uninstallation of ingress traefik addon finished' -Console
 

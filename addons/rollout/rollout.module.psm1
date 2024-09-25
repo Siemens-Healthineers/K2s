@@ -46,23 +46,6 @@ function Get-RolloutDashboardTraefikConfig {
 }
 
 <#
-.DESCRIPTION
-Enables a ingress addon based on the input
-#>
-function Enable-IngressAddon([string]$Ingress) {
-    switch ($Ingress) {
-        'nginx' {
-            &"$PSScriptRoot\..\ingress\nginx\Enable.ps1"
-            break
-        }
-        'traefik' {
-            &"$PSScriptRoot\..\ingress\traefik\Enable.ps1"
-            break
-        }
-    }
-}
-
-<#
 .SYNOPSIS
 Creates a backup of the rollout addon data
 

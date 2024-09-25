@@ -8,7 +8,7 @@ metadata:
   name: monitoring
   description: Dashboard for cluster resource monitoring and logging
   annotations:
-    k2s.cluster.local/exposed-through-ingress: "true"
+    k2s.cluster.local/update-ingress-configuration: "true"
 spec:
   implementations:
     - name: monitoring

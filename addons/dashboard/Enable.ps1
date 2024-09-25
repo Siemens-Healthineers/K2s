@@ -43,9 +43,9 @@ Param (
 $clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
-$commonModule = "$PSScriptRoot\common.module.psm1"
+$dashboardModule = "$PSScriptRoot\dashboard.module.psm1"
 
-Import-Module $clusterModule, $infraModule, $addonsModule, $commonModule
+Import-Module $clusterModule, $infraModule, $addonsModule, $dashboardModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -69,46 +69,31 @@ if ($setupInfo.Name -ne 'k2s') {
     return
 }
 
-$isDashboardEnabled = (Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'dashboard' }))
-if ( $isDashboardEnabled -eq $true) {
-    if ($Ingress -ne 'none') {
-        $errMsg = "Addon 'dashboard' is already enabled. You can only use --Ingress when enabling for the first time."
-        if ($EncodeStructuredOutput -eq $true) {
-            $err = New-Error -Severity Warning -Code (Get-ErrCodeAddonAlreadyEnabled) -Message $errMsg
-            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
-            return
-        }
-    
-        Write-Log $errMsg -Error
-        exit 1
+if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'dashboard' })) -eq $true) {
+    $errMsg = "Addon 'dashboard' is already enabled, nothing to do."
+
+    if ($EncodeStructuredOutput -eq $true) {
+        $err = New-Error -Severity Warning -Code (Get-ErrCodeAddonAlreadyEnabled) -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+        return
     }
+    
+    Write-Log $errMsg -Error
+    exit 1
 }
 
-switch ($Ingress) {
-    'nginx' {
-        Write-Log 'Deploying ingress nginx addon for external access to dashboard...' -Console
-        Enable-IngressAddon
-        break
-    }
-    'traefik' {
-        Write-Log 'Deploying ingress traefik addon for external access to dashboard...' -Console
-        Enable-TraefikAddon
-        break
-    }
+if ($Ingress -ne 'none') {
+    Enable-IngressAddon -Ingress:$Ingress
 }
 
 if ($EnableMetricsServer) {
     Enable-MetricsServer
 }
 
-if ( $isDashboardEnabled -eq $false) {
-    Write-Log 'Installing Kubernetes dashboard' -Console
-    $dashboardConfig = Get-DashboardConfig
-    (Invoke-Kubectl -Params 'apply' , '-k', $dashboardConfig).Output | Write-Log        
-}
-else {
-    Write-Log 'Updating Kubernetes dashboard' -Console
-}
+Write-Log 'Installing Kubernetes dashboard' -Console
+$dashboardConfig = Get-DashboardConfig
+(Invoke-Kubectl -Params 'apply' , '-k', $dashboardConfig).Output | Write-Log     
+
 Update-DashboardIngressConfiguration
 
 Write-Log 'Checking Dashboard status' -Console
@@ -128,9 +113,7 @@ if ($dashboardStatus -ne $true) {
 
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'dashboard' })
 
-if ( $isDashboardEnabled -eq $false) {
-    Write-DashboardUsageForUser
-}
+Write-DashboardUsageForUser
 
 Write-Log 'Installation of Kubernetes dashboard finished.' -Console
 

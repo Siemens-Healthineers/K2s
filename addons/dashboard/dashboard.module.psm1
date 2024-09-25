@@ -44,42 +44,6 @@ function Get-DashboardTraefikConfig {
 
 <#
 .DESCRIPTION
-Determines if Nginx ingress controller is deployed in the cluster
-#>
-function Test-NginxIngressControllerAvailability {
-    $existingServices = (Invoke-Kubectl -Params 'get', 'service', '-n', 'ingress-nginx', '-o', 'yaml').Output 
-    if ("$existingServices" -match '.*ingress-nginx-controller.*') {
-        return $true
-    }
-    return $false
-}
-
-<#
-.DESCRIPTION
-Determines if Traefik ingress controller is deployed in the cluster
-#>
-function Test-TraefikIngressControllerAvailability {
-    $existingServices = (Invoke-Kubectl -Params 'get', 'service', '-n', 'ingress-traefik', '-o', 'yaml').Output
-    if ("$existingServices" -match '.*traefik.*') {
-        return $true
-    }
-    return $false
-}
-
-<#
-.DESCRIPTION
-Determines if KeyCloak is deployed in the cluster
-#>
-function Test-KeyCloakServiceAvailability {
-    $existingServices = (Invoke-Kubectl -Params 'get', 'service', '-n', 'security', '-o', 'yaml').Output
-    if ("$existingServices" -match '.*keycloak.*') {
-        return $true
-    }
-    return $false
-}
-
-<#
-.DESCRIPTION
 Deploys the dashboard's ingress manifest for Nginx ingress controller
 #>
 function Update-DashboardIngressForNginx {
@@ -128,22 +92,6 @@ function Remove-DashboardIngressForTraefik {
 
 <#
 .DESCRIPTION
-Enables the ingress nginx addon for external access.
-#>
-function Enable-IngressAddon {
-    &"$PSScriptRoot\..\ingress\nginx\Enable.ps1" -ShowLogs:$ShowLogs
-}
-
-<#
-.DESCRIPTION
-Enables the traefik addon for external access.
-#>
-function Enable-TraefikAddon {
-    &"$PSScriptRoot\..\ingress\traefik\Enable.ps1" -ShowLogs:$ShowLogs
-}
-
-<#
-.DESCRIPTION
 Enables the metrics server addon.
 #>
 function Enable-MetricsServer {
@@ -154,7 +102,7 @@ function Enable-MetricsServer {
 .DESCRIPTION
 Updates the ingress manifest for dashboard based on the ingress controller detected in the cluster.
 #>
-function Update-DashboardIngressConfiguration {
+function Update-IngressConfiguration {
     if (Test-NginxIngressControllerAvailability) {
         Remove-DashboardIngressForTraefik
         Update-DashboardIngressForNginx

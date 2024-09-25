@@ -187,7 +187,7 @@ if ($keycloakPodStatus -ne $true -or $oauth2ProxyPodStatus -ne $true) {
 
 # if security addon is enabled, than adapt ingress for other addons
 Write-Log 'Adapting ingress for other addons' -Console
-Update-IngressForAddons -Enable $true
+Update-IngressForAddons
 
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'security' })
 
