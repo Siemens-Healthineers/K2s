@@ -8,7 +8,6 @@ metadata:
   name: rollout-nginx-cluster-local
   namespace: rollout
   annotations:
-    nginx.ingress.kubernetes.io/ssl-redirect: "false"
     nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
     nginx.ingress.kubernetes.io/auth-url: "https://k2s.cluster.local/oauth2/auth"
     nginx.ingress.kubernetes.io/auth-signin: "https://k2s.cluster.local/oauth2/start?rd=$escaped_request_uri"
