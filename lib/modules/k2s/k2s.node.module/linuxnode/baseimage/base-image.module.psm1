@@ -39,10 +39,6 @@ function Invoke-Download($destination, $source, $forceDownload,
     }
 }
 
-<#
-.Description
-#From Get-DebianImage.ps1
-#>
 function Invoke-DownloadDebianImage {
     param(
         [string]$OutputPath,
@@ -186,7 +182,6 @@ Function New-IsoFile {
         [string]$SourcePath = $(throw 'Parameter missing: SourcePath'),
 
         [Parameter(Mandatory = $false)]
-        #[ValidateScript({ Assert-IsoContentParameters -Value $_ })]
         [hashtable]$IsoContentParameterValue = $(throw 'Parameter missing: IsoContentParameterValue')
     )
     Assert-Path -Path $IsoFileCreatorToolPath -PathType "Leaf" -ShallExist $true | Out-Null
@@ -576,37 +571,6 @@ function Stop-VirtualMachineForBaseImageProvisioning {
 
 <#
 .SYNOPSIS
-Creates a new ssh key pair.
-.DESCRIPTION
-Creates a new ssh key pair.
-.PARAMETER PrivateKeyPath
-The full path of the file that will contain the private key.
-#>
-function New-SshKeyPair {
-    param (
-        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_))})]
-        [string] $PrivateKeyPath = $(throw "Argument missing: PrivateKeyPath")
-    )
-    # Create SSH keypair, if not yet available
-    $sshDir = Split-Path -parent $PrivateKeyPath
-    if (!(Test-Path $sshDir)) {
-        mkdir $sshDir | Out-Null
-    }
-    if (!(Test-Path $PrivateKeyPath)) {
-        Write-Log "creating SSH key $PrivateKeyPath"
-        if ($PSVersionTable.PSVersion.Major -gt 5) {
-            echo y | ssh-keygen.exe -t rsa -b 2048 -f $PrivateKeyPath -N '' | Write-Log
-        } else {
-            echo y | ssh-keygen.exe -t rsa -b 2048 -f $PrivateKeyPath -N '""' | Write-Log  # strange powershell syntax for empty passphrase...
-        }
-    }
-    if (!(Test-Path $PrivateKeyPath)) {
-        throw "unable to generate SSH keys ($PrivateKeyPath)"
-    }
-}
-
-<#
-.SYNOPSIS
 Removes an ssh key from the 'knownhosts' file
 .DESCRIPTION
 Using the given IP address the corresponding entry is deleted from the file 'knownhosts'
@@ -618,47 +582,7 @@ Function Remove-SshKeyFromKnownHostsFile {
         [ValidateScript({ Get-IsValidIPv4Address($_) })]
         [string]$IpAddress = $(throw "Argument missing: IpAddress")
     )
-    #Invoke-Tool -ToolPath "ssh-keygen.exe" -Arguments "-R $IpAddress"
     ssh-keygen.exe -R $IpAddress 2>&1 | ForEach-Object { "$_" } | Write-Log
-}
-
-<#
-.SYNOPSIS
-Copies the public key file from the local computer to a remote computer.
-.DESCRIPTION
-Copies the public key file located in the local computer to a remote computer under the directory '~/.ssh/authorized_keys'
-.PARAMETER UserName
-The user name to log in into the remote computer.
-.PARAMETER UserPwd
-The password to log in into the remote computer.
-.PARAMETER IpAddress
-The IP address of the remote computer.
-.PARAMETER LocalPublicKeyPath
-The full path of the public key located on the local computer.
-#>
-function Copy-LocalPublicSshKeyToRemoteComputer() {
-    param (
-        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_))})]
-        [string]$UserName = $(throw "Argument missing: UserName"),
-        [string]$UserPwd = $(throw "Argument missing: UserPwd"),
-        [ValidateScript({ Get-IsValidIPv4Address($_) })]
-        [string]$IpAddress = $(throw "Argument missing: IpAddress"),
-        [ValidateScript({ Assert-LegalCharactersInPath -Path $_})]
-        [string]$LocalPublicKeyPath = $(throw "Argument missing: LocalPublicKeyPath")
-    )
-
-    Assert-Path -Path $LocalPublicKeyPath -PathType 'Leaf' -ShallExist $true | Out-Null
-
-    $user = "$UserName@$IpAddress"
-    $userPwd = $UserPwd
-
-    $localSourcePath = $LocalPublicKeyPath
-    $publicKeyFileName = Split-Path -Path $localSourcePath -Leaf
-    $targetPath = "/tmp/$publicKeyFileName"
-    $remoteTargetPath = "$targetPath"
-    Copy-ToControlPlaneViaUserAndPwd -Source $localSourcePath -Target $remoteTargetPath
-    (Invoke-CmdOnControlPlaneViaUserAndPwd "sudo mkdir -p ~/.ssh" -RemoteUser "$user" -RemoteUserPwd "$userPwd").Output | Write-Log
-    (Invoke-CmdOnControlPlaneViaUserAndPwd "sudo cat $targetPath | sudo tee ~/.ssh/authorized_keys" -RemoteUser "$user" -RemoteUserPwd "$userPwd").Output | Write-Log
 }
 
 ## Network for provisioning
@@ -736,15 +660,6 @@ Function Convert-Text {
     $convertedSource
 }
 
-Function Invoke-ScriptFile {
-    param (
-        [string]$ScriptPath = $(throw "Argument missing: ScriptPath"),
-        [hashtable]$Params
-    )
-
-    &$ScriptPath @Params
-}
-
 Function Invoke-Tool {
     param (
         [string]$ToolPath = $(throw "Argument missing: ToolPath"),
@@ -777,24 +692,6 @@ Function New-Folder {
     }
 }
 
-Function Remove-FolderContent {
-    param (
-        [Parameter(Mandatory = $false, ValueFromPipeline=$true)]
-        [ValidateScript({ Assert-LegalCharactersInPath -Path $_ })]
-        [string]$Path
-    )
-
-    $pathExists = Test-Path $Path -ErrorAction Stop
-
-    if ($pathExists) {
-    	Remove-Item -Path $Path -Recurse -Force -ErrorAction Stop | Out-Null
-    } else {
-        throw "The Path '$Path' does not exist"
-    }
-
-    $Path
-}
-
 <#
 .SYNOPSIS
 Copies a vhdx file from a source to a target location.
@@ -822,84 +719,14 @@ Function Copy-VhdxFile {
     Copy-Item -Path $SourceFilePath -Destination $TargetPath -Force -ErrorAction Stop | Out-Null
 }
 
-Function Assert-IsoContentParameters {
-    param (
-        [Parameter(Mandatory = $false)]
-        [ValidateNotNull()]
-        [Hashtable]$Parameter = $(throw 'Parameter missing: Parameter')
-    )
-
-    $isValidIPv4 = {
-        param ([string]$value)
-        $isValid = $true
-        $parts = $value -split '\.'
-        if ($parts.Count -eq 4) {
-            foreach ($part in $parts) {
-                try {
-                    [int]$partAsInt = $part
-                    if ($partAsInt -lt 0 -or $partAsInt -gt 255) {
-                        $isValid = $false
-                        break
-                    }
-
-                }
-                catch {
-                    $isValid = $false
-                    break
-                }
-
-            }
-        } else {
-            $isValid = $false
-        }
-
-        $isValid
-    }
-    $validateKeyExists = {
-        param ([string]$value)
-        if (!($Parameter.ContainsKey($value))) {
-            throw "Missing key: $value"
-        }
-    }
-
-    &$validateKeyExists("Hostname")
-    if ([string]::IsNullOrWhiteSpace($Parameter["Hostname"])) {
-        throw 'Argument is null, empty or contain only white spaces: Hostname'
-    }
-    $hostname = $Parameter["Hostname"]
-    if ([regex]::IsMatch($hostname, "[^a-z]+")) {
-        throw 'Argument not valid: Hostname (only lowercase letters of the english alphabet are allowed)'
-    }
-    &$validateKeyExists("NetworkInterfaceName")
-    if ([string]::IsNullOrWhiteSpace($Parameter["NetworkInterfaceName"])) {
-        throw 'Argument is null, empty or contain only white spaces: NetworkInterfaceName'
-    }
-    &$validateKeyExists("IPAddressVM")
-    if (!(&$isValidIPv4($Parameter["IPAddressVM"]))) {
-        throw 'Argument is not valid IPv4: IPAddressVM'
-    }
-    &$validateKeyExists("IPAddressGateway")
-    if (!(&$isValidIPv4($Parameter["IPAddressGateway"]))) {
-        throw 'Argument is not valid IPv4: IPAddressGateway'
-    }
-    &$validateKeyExists("IPAddressDnsServers")
-    $dnsServers = $Parameter["IPAddressDnsServers"] -split ","
-    foreach ($dnsServer in $dnsServers) {
-        if (!(&$isValidIPv4($dnsServer))) {
-            throw 'Argument does not contain a valid IPv4: IPAddressDnsServers (only a comma separated list of IPv4 addresses is allowed)'
-        }
-    }
-    &$validateKeyExists("UserName")
-    if ([string]::IsNullOrWhiteSpace($Parameter["UserName"])) {
-        throw 'Argument is null, empty or contain only white spaces: UserName'
-    }
-    &$validateKeyExists("UserPwd")
-    if ($Parameter["UserPwd"] -eq $null) {
-        throw 'Argument is null: UserPwd'
-    }
-    $True
-}
-
-Export-ModuleMember -Function Remove-VirtualMachineForBaseImageProvisioning, Start-VirtualMachineAndWaitForHeartbeat, New-DebianCloudBasedVirtualMachine, Stop-VirtualMachineForBaseImageProvisioning, New-SshKeyPair, Remove-SshKeyFromKnownHostsFile, Copy-LocalPublicSshKeyToRemoteComputer, Remove-NetworkForProvisioning, Get-IsValidIPv4Address, Copy-VhdxFile, New-VirtualMachineForBaseImageProvisioning, New-NetworkForProvisioning
+Export-ModuleMember -Function Remove-VirtualMachineForBaseImageProvisioning, 
+Start-VirtualMachineAndWaitForHeartbeat, 
+New-DebianCloudBasedVirtualMachine, 
+Stop-VirtualMachineForBaseImageProvisioning, 
+Remove-SshKeyFromKnownHostsFile, 
+Remove-NetworkForProvisioning, 
+Copy-VhdxFile, 
+New-VirtualMachineForBaseImageProvisioning, 
+New-NetworkForProvisioning
 
 
