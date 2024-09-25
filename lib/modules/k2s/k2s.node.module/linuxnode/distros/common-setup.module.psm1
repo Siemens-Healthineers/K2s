@@ -115,6 +115,13 @@ Function Install-KubernetesArtifacts {
             (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd" -Retries $Retries -RepairCmd $RepairCmd).Output | Write-Log
         }
     }
+    
+    Write-Log "Copying ZScaler Root CA certificate to kubenode_in_provisioning VM"
+    $Provisioning_Node_IPAddress = Get-VmIpForProvisioningKubeNode
+    Copy-ToRemoteComputerViaUserAndPwd -Source "$(Get-KubePath)\lib\modules\k2s\k2s.node.module\linuxnode\setup\certificate\ZScalerRootCA.crt" -Target "/tmp/ZScalerRootCA.crt" -IpAddress $Provisioning_Node_IPAddress            
+    &$executeRemoteCommand "sudo mv /tmp/ZScalerRootCA.crt /usr/local/share/ca-certificates/"
+    &$executeRemoteCommand "sudo update-ca-certificates"       
+    Write-Log "Zscaler certificate added to CA certificates of kubenode_in_provisioning VM" 
 
     Write-Log 'Configure bridged traffic'
     &$executeRemoteCommand 'echo overlay | sudo tee /etc/modules-load.d/k8s.conf' 
