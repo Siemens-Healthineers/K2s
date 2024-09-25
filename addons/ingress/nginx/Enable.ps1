@@ -83,7 +83,7 @@ if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'ingress'; Implementa
     exit 1
 }
 
-if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'gateway-api'})) -eq $true) {
+if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'gateway-api' })) -eq $true) {
     $errMsg = "Addon 'gateway-api' is enabled. Disable it first to avoid port conflicts."
 
     if ($EncodeStructuredOutput -eq $true) {
@@ -149,12 +149,16 @@ if ($allPodsAreUp -ne $true) {
     exit 1
 }
 
-$clusterIngressConfig = "$PSScriptRoot\manifests\cluster-net-ingress.yaml"
+$clusterIngressConfig = "$PSScriptRoot\manifests\cluster-local-ingress.yaml"
 (Invoke-Kubectl -Params 'apply' , '-f', $clusterIngressConfig).Output | Write-Log
 
 Write-Log 'All ingress nginx pods are up and ready.'
 
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'ingress'; Implementation = 'nginx' })
+
+# adapt ingress for other addons
+Write-Log 'Adapting ingress for other addons' -Console
+Update-IngressForAddons -Enable $true
 
 Write-Log 'ingress nginx installed successfully' -Console
 

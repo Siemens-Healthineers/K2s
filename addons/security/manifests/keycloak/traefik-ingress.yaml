@@ -7,6 +7,8 @@ kind: Ingress
 metadata:
   name: oauth2-proxy
   namespace: security
+  annotations:
+    traefik.ingress.kubernetes.io/router.tls: "true"
 spec:
   ingressClassName: traefik
   rules:
@@ -26,6 +28,8 @@ kind: Ingress
 metadata:
   name: keycloak
   namespace: security
+  annotations:
+    traefik.ingress.kubernetes.io/router.tls: "true"
 spec:
   ingressClassName: traefik
   rules:

@@ -7,70 +7,18 @@
 # in the deployment.yaml, we configure these environment variables:
 # SERVER_BASEPATH = "/logging": the application will generate all relative
 #    URLs starting with this prefix!
-# SERVER_REWRITEBASEPATH = "false": the application will NOT expect the
-# incoming calls to be part of the request path
-# This gives us the flexibility to expose the application on the configured
-# path, in this case "/logging"
----
-# Source: kube-prometheus-stack/charts/grafana/templates/ingress.yaml
-# Modified by us!
-# This ingress will expose the opensearch-dashboards web application on:
-# HTTP: http://k2s-logging.cluster.local
-# TLS: https://k2s-logging.cluster.local
-# For TLS, the certificate is taken from k8s secret 'k2s-logging-local-tls'
-# This secret will be created by cert-manager, if it is running.
-# If cert-manager is not running, the secret will not be present and nginx
-# will use an own self-signed certificate.
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: logging-nginx-local
-  namespace: logging
-  labels:
-    helm.sh/chart: opensearch-dashboards-2.16.0
-    app.kubernetes.io/name: opensearch-dashboards
-    app.kubernetes.io/instance: opensearch-dashboards
-    app.kubernetes.io/version: "2.12.0"
-    app.kubernetes.io/managed-by: Helm
-  annotations:
-    cert-manager.io/cluster-issuer: k2s-ca-issuer
-    cert-manager.io/common-name: k2s-logging.cluster.local
-    nginx.ingress.kubernetes.io/ssl-redirect: "false"
-    nginx.ingress.kubernetes.io/rewrite-target: /$2
-spec:
-  ingressClassName: nginx
-  tls:
-    - hosts:
-        - k2s-logging.cluster.local
-      secretName: k2s-logging-local-tls
-  rules:
-    - host: k2s-logging.cluster.local
-      http:
-        paths:
-          - backend:
-              service:
-                name: opensearch-dashboards
-                port:
-                  number: 5601
-            # this is tricky: when we call first time http://k2s-logging.cluster.local,
-            # the first parameter will not match and is ignored. The result will
-            # contain relative paths starting with "/logging", when the client
-            # calls them, the first parameter will be matched, but ignored.
-            # In all cases, only the second parameters is forwarded to the backend
-            path: /(logging/)?(.*)
-            pathType: Prefix
+# SERVER_REWRITEBASEPATH = "true": the application will expect the
+# incoming calls to be part of the request path (needed for port forwarding)
 ---
 # this ingress will be merged with ingress provided in:
-# addons/ingress/nginx/manifests/cluster-net-ingress.yaml
+# addons/ingress/nginx/manifests/cluster-local-ingress.yaml
 # and exposes the opensearch-dashboards web application on:
-# https://k2s.cluster.local/logging/
+# https://k2s.cluster.local/logging
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: logging-nginx-cluster-net
+  name: logging-nginx-cluster-local
   namespace: logging
-  annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: "/$1"
 spec:
   ingressClassName: nginx
   rules:
@@ -82,5 +30,5 @@ spec:
                 name: opensearch-dashboards
                 port:
                   number: 5601
-            path: /logging/?(.*)
+            path: /logging
             pathType: Prefix

@@ -387,23 +387,10 @@ function CheckFlannelConfig {
             Start-Sleep -s 5
 
             # End the loop
-            if ($i -eq 50) {
+            if ($i -eq 100) {
                 throw "Fatal: Flannel failed to create file: $flannelFileSource for target drive $(Get-InstallationDriveLetter):\run\flannel\subnet.env !"
             }
         }
-    }
-}
-
-function Test-ExistingExternalSwitch {
-    $l2BridgeSwitchName = Get-L2BridgeSwitchName
-    $externalSwitches = Get-VMSwitch | Where-Object { $_.SwitchType -eq 'External'  -and $_.Name -ne $l2BridgeSwitchName}
-    if ($externalSwitches) {
-        Write-Log 'Found External Switches:'
-        Write-Log $($externalSwitches | Select-Object -Property Name)
-        Write-Log 'Precheck failed: Cannot proceed further with existing External Network Switches as it conflicts with k2s networking' -Console
-        Write-Log "Remove all your External Network Switches with command PS>Get-VMSwitch | Where-Object { `$_.SwitchType -eq 'External'  -and `$_.Name -ne '$l2BridgeSwitchName'} | Remove-VMSwitch -Force" -Console
-        Write-Log 'WARNING: This will remove your External Switches, please check whether these switches are required before executing the command' -Console
-        throw 'Remove all the existing External Network Switches and retry the k2s command again'
     }
 }
 
@@ -552,7 +539,7 @@ function Add-WindowsWorkerNodeOnNewVM {
 
     Write-Log "Initialize ssh connection to Windows VM"
     Initialize-SSHConnectionToWinVM $session2 $IpAddress
-    Enable-SSHRemotingViaSSHKeyToWinNode $session2 $Proxy
+    Enable-SSHRemotingViaSSHKeyToWinNode $session2
 
     $adminWinNode = Get-DefaultWinVMName
     $windowsVMKey = Get-DefaultWinVMKey

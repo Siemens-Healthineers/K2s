@@ -111,9 +111,7 @@ if (! $SkipStart) {
             }
         }
     }
-} else {
-    & "$PSScriptRoot\Stop.ps1" -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs -SkipHeaderDisplay
-}
+} 
 
 Write-Log '---------------------------------------------------------------'
 Write-Log "K2s control plane node setup finished.   Total duration: $('{0:hh\:mm\:ss}' -f $installStopwatch.Elapsed )"

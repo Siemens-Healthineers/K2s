@@ -23,6 +23,7 @@ SPDX-License-Identifier: MIT
   Set-ExecutionPolicy RemoteSigned -Force
   ```
 - *curl.exe*: the installed version in the *Windows* host must be at least **7.71.0** (to check it call `curl.exe --version` from the command shell).
+- *Optional: ssh.exe*: the installed version in the *Windows* host must be at least major version **8** to prevent the installation from hanging in certain situations (to check it call `ssh.exe -V` from the command shell). Normally, only Windows Server 2019 does not fulfill this requirement from the supported operating systems.
 - *Optional:* Enable required *Windows Features* beforehand (they will get enabled during the installation anyways, but would require a system restart and installation re-run):
   - *Windows 10/11*
     ```powershell
@@ -35,6 +36,11 @@ SPDX-License-Identifier: MIT
 
 !!! tip
     For installing in *WSL* mode, add the `Microsoft-Windows-Subsystem-Linux` feature to the prior command.
+- *VC Runtime 140*: please install the VC runtime dlls, either with choco
+
+   ```choco install vcredist140 -y```
+
+   or download them from [Microsoft](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist) directly and install the appropriate VC runtime.
 
 ## Installation via *k2s* CLI
 The *K2s* setup provides a variety of installation options. Based on the [Hosting Variants](../user-guide/hosting-variants.md), select one of the following setup variants:

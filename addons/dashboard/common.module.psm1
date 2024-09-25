@@ -15,7 +15,7 @@ Import-Module $infraModule, $clusterModule, $addonsModule
 Gets the location of manifests to deploy dashboard dashboard
 #>
 function Get-DashboardConfig {
-    return "$PSScriptRoot\manifests\dashboard.yaml"
+    return "$PSScriptRoot\manifests\dashboard"
 }
 
 <#
@@ -23,7 +23,15 @@ function Get-DashboardConfig {
 Gets the location of nginx ingress yaml for dashboard
 #>
 function Get-DashboardNginxConfig {
-    return "$PSScriptRoot\manifests\dashboard-nginx-ingress.yaml"
+    return "$PSScriptRoot\manifests\ingress-nginx"
+}
+
+<#
+.DESCRIPTION
+Gets the location of secure nginx ingress yaml for dashboard
+#>
+function Get-DashboardSecureNginxConfig {
+    return "$PSScriptRoot\manifests\secure-nginx"
 }
 
 <#
@@ -31,7 +39,7 @@ function Get-DashboardNginxConfig {
 Gets the location of traefik ingress yaml for dashboard
 #>
 function Get-DashboardTraefikConfig {
-    return "$PSScriptRoot\manifests\dashboard-traefik-ingress.yaml"
+    return "$PSScriptRoot\manifests\ingress-traefik"
 }
 
 <#
@@ -60,24 +68,62 @@ function Test-TraefikIngressControllerAvailability {
 
 <#
 .DESCRIPTION
+Determines if KeyCloak is deployed in the cluster
+#>
+function Test-KeyCloakServiceAvailability {
+    $existingServices = (Invoke-Kubectl -Params 'get', 'service', '-n', 'security', '-o', 'yaml').Output
+    if ("$existingServices" -match '.*keycloak.*') {
+        return $true
+    }
+    return $false
+}
+
+<#
+.DESCRIPTION
 Deploys the dashboard's ingress manifest for Nginx ingress controller
 #>
-function Deploy-DashboardIngressForNginx {
-    Write-Log 'Deploying nginx ingress manifest for dashboard...' -Console
-    $dashboardNginxIngressConfig = Get-DashboardNginxConfig
+function Update-DashboardIngressForNginx {
+    if (Test-KeyCloakServiceAvailability) {
+        Write-Log 'Applying secure nginx ingress manifest for dashboard...' -Console
+        $kustomizationDir = Get-DashboardSecureNginxConfig
+    }
+    else {
+        $kustomizationDir = Get-DashboardNginxConfig
+        Write-Log 'Applying nginx ingress manifest for dashboard...' -Console
+    }
+    Invoke-Kubectl -Params 'apply', '-k', $kustomizationDir | Out-Null
+}
 
-    Invoke-Kubectl -Params 'apply', '-f', $dashboardNginxIngressConfig | Out-Null
+<#
+.DESCRIPTION
+Delete the dashboard's ingress manifest for Nginx ingress controller
+#>
+function Remove-DashboardIngressForNginx {
+    # SecureNginxConfig is a superset of NginsConfig, so we delete that:
+    $kustomizationDir = Get-DashboardSecureNginxConfig
+    Invoke-Kubectl -Params 'delete', '-k', $kustomizationDir | Out-Null
 }
 
 <#
 .DESCRIPTION
 Deploys the dashboard's ingress manifest for Traefik ingress controller
 #>
-function Deploy-DashboardIngressForTraefik {
-    Write-Log 'Deploying traefik ingress manifest for dashboard...' -Console
+function Update-DashboardIngressForTraefik {
+    Write-Log 'Applying traefik ingress manifest for dashboard...' -Console
     $dashboardTraefikIngressConfig = Get-DashboardTraefikConfig
     
-    Invoke-Kubectl -Params 'apply', '-f', $dashboardTraefikIngressConfig | Out-Null
+    Invoke-Kubectl -Params 'apply', '-k', $dashboardTraefikIngressConfig | Out-Null
+}
+
+<#
+.DESCRIPTION
+Delete the dashboard's ingress manifest for Traefik ingress controller
+#>
+function Remove-DashboardIngressForTraefik {
+    Write-Log 'Deleting traefik ingress manifest for dashboard...' -Console
+    $dashboardTraefikIngressConfig = Get-DashboardTraefikConfig
+    
+    Invoke-Kubectl -Params 'delete', '-k', $dashboardTraefikIngressConfig | Out-Null
 }
 
 <#
@@ -106,16 +152,20 @@ function Enable-MetricsServer {
 
 <#
 .DESCRIPTION
-Deploys the ingress manifest for dashboard based on the ingress controller detected in the cluster.
+Updates the ingress manifest for dashboard based on the ingress controller detected in the cluster.
 #>
-function Enable-ExternalAccessIfIngressControllerIsFound {
+function Update-DashboardIngressConfiguration {
     if (Test-NginxIngressControllerAvailability) {
-        Write-Log 'Deploying nginx ingress for dashboard ...' -Console
-        Deploy-DashboardIngressForNginx
+        Remove-DashboardIngressForTraefik
+        Update-DashboardIngressForNginx
     }
-    if (Test-TraefikIngressControllerAvailability) {
-        Write-Log 'Deploying traefik ingress for dashboard ...' -Console
-        Deploy-DashboardIngressForTraefik
+    elseif (Test-TraefikIngressControllerAvailability) {
+        Remove-DashboardIngressForNginx
+        Update-DashboardIngressForTraefik
+    }
+    else {
+        Remove-DashboardIngressForNginx
+        Remove-DashboardIngressForTraefik
     }
 }
 
@@ -123,9 +173,9 @@ function Enable-ExternalAccessIfIngressControllerIsFound {
 .DESCRIPTION
 Writes the usage notes for dashboard for the user.
 #>
-function Write-UsageForUser {
+function Write-DashboardUsageForUser {
     @"
-                                        USAGE NOTES
+                DASHBOARD ADDON - USAGE NOTES
  To open dashboard, please use one of the options:
 
  Option 1: Access via ingress
@@ -133,12 +183,9 @@ function Write-UsageForUser {
  or you can install them on your own. 
  Enable ingress controller via k2s cli
  eg. k2s addons enable ingress nginx
- Once the ingress controller is running in the cluster, run the command to enable dashboard again 
- (disable it first if dashboard addon was already enabled).
+ Once the ingress controller is running in the cluster, run the command to enable dashboard 
  k2s addons enable dashboard
- the Kubernetes Dashboard will be accessible on the following URLs:
- https://k2s.cluster.local/dashboard/ and https://k2s-dashboard.cluster.local 
- (with HTTP using http://.. instead of https://..)
+ the Kubernetes Dashboard will be accessible on the following URL: https://k2s.cluster.local/dashboard/
 
  Option 2: Port-forwarding
  Use port-forwarding to the kubernetes-dashboard using the command below:

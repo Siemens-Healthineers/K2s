@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/siemens-healthineers/k2s/internal/host"
+	"github.com/siemens-healthineers/k2s/internal/os"
 	"github.com/siemens-healthineers/k2s/internal/reflection"
 	"github.com/siemens-healthineers/k2s/internal/version"
 
@@ -19,11 +19,11 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 
+	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
 	"github.com/siemens-healthineers/k2s/internal/powershell"
-	"github.com/siemens-healthineers/k2s/internal/setupinfo"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/install/core"
-	cfg "github.com/siemens-healthineers/k2s/internal/config"
+	cfg "github.com/siemens-healthineers/k2s/internal/core/config"
 
 	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
@@ -63,7 +63,7 @@ func (m *myMock) Load(kind ic.Kind, cmdFlags *pflag.FlagSet) (*ic.InstallConfig,
 	return args.Get(0).(*ic.InstallConfig), args.Error(1)
 }
 
-func (m *myMock) ExecutePs(script string, psVersion powershell.PowerShellVersion, writer host.StdWriter) error {
+func (m *myMock) ExecutePs(script string, psVersion powershell.PowerShellVersion, writer os.StdWriter) error {
 	args := m.Called(script, psVersion, writer)
 
 	return args.Error(0)

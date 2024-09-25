@@ -11,17 +11,7 @@ $controlPlaneVMHostName = Get-ConfigControlPlaneNodeHostname
 $kubeSwitchIp = Get-ConfiguredKubeSwitchIP
 $controlPlaneSwitchName = Get-ControlPlaneNodeDefaultSwitchName
 $ipControlPlane = Get-ConfiguredIPControlPlane
-$controlePlaneNetworkInterfaceName = 'eth0'
-$workerNodeNetworkInterfaceName = 'eth0'
 $wslSwitchName = 'WSL'
-
-function Get-ControlPlaneNodeNetworkInterfaceName {
-    return $controlePlaneNetworkInterfaceName
-}
-
-function Get-WorkerNodeNetworkInterfaceName {
-    return $workerNodeNetworkInterfaceName
-}
 
 function Get-WslSwitchName {
     return $wslSwitchName
@@ -118,27 +108,6 @@ function Disconnect-NetworkAdapterFromVm {
     }
 }
 
-<#
-.SYNOPSIS
-    Create switch to Control Plane VM.
-.DESCRIPTION
-    Create switch to Control Plane VM.
-#>
-function New-DefaultControlPlaneSwitch {
-    # create new switch for debian VM
-    Write-Log "Create internal switch $controlPlaneSwitchName"
-    New-VMSwitch -Name $controlPlaneSwitchName -SwitchType Internal -MinimumBandwidthMode Weight | Out-Null
-    New-NetIPAddress -IPAddress $kubeSwitchIp -PrefixLength 24 -InterfaceAlias "vEthernet ($controlPlaneSwitchName)" | Out-Null
-    # set connection to private because of firewall rules
-    Set-NetConnectionProfile -InterfaceAlias "vEthernet ($controlPlaneSwitchName)" -NetworkCategory Private -ErrorAction SilentlyContinue
-    # enable forwarding
-    netsh int ipv4 set int "vEthernet ($controlPlaneSwitchName)" forwarding=enabled | Out-Null
-    # change index in order to have the Ethernet card as first card (also for much better DNS queries)
-    $ipindex1 = Get-NetIPInterface | ? InterfaceAlias -Like "*$controlPlaneSwitchName*" | ? AddressFamily -Eq IPv4 | select -expand 'ifIndex'
-    Write-Log "Index for interface $controlPlaneSwitchName : ($ipindex1) -> metric 25"
-    Set-NetIPInterface -InterfaceIndex $ipindex1 -InterfaceMetric 25
-}
-
 function Reset-DnsServer($switchname) {
     $ipindex = Get-NetIPInterface | ? InterfaceAlias -Like "*$switchname*" | ? AddressFamily -Eq IPv4 | select -expand 'ifIndex'
     if ($ipindex) {
@@ -147,8 +116,12 @@ function Reset-DnsServer($switchname) {
     }
 }
 
-Export-ModuleMember New-DefaultControlPlaneSwitch,
-Get-ControlPlaneNodeDefaultSwitchName,
-Get-ControlPlaneNodeNetworkInterfaceName,
-Get-WorkerNodeNetworkInterfaceName,
-Add-DnsServer, New-KubeSwitch, Connect-KubeSwitch, Remove-KubeSwitch, Get-WslSwitchName, Reset-DnsServer, Disconnect-NetworkAdapterFromVm, Connect-NetworkAdapterToVm
+Export-ModuleMember Get-ControlPlaneNodeDefaultSwitchName,
+Add-DnsServer, 
+New-KubeSwitch, 
+Connect-KubeSwitch, 
+Remove-KubeSwitch, 
+Get-WslSwitchName, 
+Reset-DnsServer, 
+Disconnect-NetworkAdapterFromVm, 
+Connect-NetworkAdapterToVm

@@ -17,13 +17,13 @@ import (
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils/logging"
 	bl "github.com/siemens-healthineers/k2s/internal/logging"
+	"github.com/siemens-healthineers/k2s/internal/os"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 
-	"github.com/siemens-healthineers/k2s/internal/config"
-	"github.com/siemens-healthineers/k2s/internal/host"
+	"github.com/siemens-healthineers/k2s/internal/core/config"
+	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
 	"github.com/siemens-healthineers/k2s/internal/powershell"
-	"github.com/siemens-healthineers/k2s/internal/setupinfo"
 )
 
 var upgradeCommandShortDescription = "Upgrades the installed K2s cluster to this version"
@@ -172,10 +172,10 @@ func readConfigLegacyAware(cfg *config.Config) (*setupinfo.Config, error) {
 func copyLegacyConfigFile(legacyDir string, targetDir string) error {
 	slog.Info("Copying config file from legacy dir to target dir", "legacy-dir", legacyDir, "target-dir", targetDir)
 
-	if err := host.CreateDirIfNotExisting(targetDir); err != nil {
+	if err := os.CreateDirIfNotExisting(targetDir); err != nil {
 		return err
 	}
-	if err := host.CopyFile(setupinfo.ConfigPath(legacyDir), setupinfo.ConfigPath(targetDir)); err != nil {
+	if err := os.CopyFile(setupinfo.ConfigPath(legacyDir), setupinfo.ConfigPath(targetDir)); err != nil {
 		return err
 	}
 	return nil

@@ -336,6 +336,12 @@ function New-ProvisionedWindowsNodeBaseImage {
         Set-Service -Name sshd -StartupType Automatic
         Start-Service sshd
 
+        if ($using:Proxy -ne "") {
+            pwsh -Command "`$ENV:HTTPS_PROXY='$using:Proxy';Install-Module -Name Microsoft.PowerShell.RemotingTools -Force -Confirm:`$false"
+        } else {
+            pwsh -Command "Install-Module -Name Microsoft.PowerShell.RemotingTools -Force -Confirm:`$false"
+        }
+
         REG ADD 'HKLM\SYSTEM\CurrentControlSet\Control\Windows Containers' /v SkipVersionCheck /t REG_DWORD /d 2 /f
     }
 

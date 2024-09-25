@@ -386,15 +386,17 @@ function Test-ControlPlanePrerequisites(
 }
 
 function Test-ExistingExternalSwitch {
-    $externalSwitches = Get-VMSwitch | Where-Object { $_.SwitchType -eq 'External' }
+    $l2BridgeSwitchName = Get-L2BridgeSwitchName
+    $externalSwitches = Get-VMSwitch | Where-Object { $_.SwitchType -eq 'External' -and $_.Name -ne $l2BridgeSwitchName}
     if ($externalSwitches) {
         Write-Log 'Found External Switches:'
         Write-Log $($externalSwitches | Select-Object -Property Name)
         Write-Log 'Precheck failed: Cannot proceed further with existing External Network Switches as it conflicts with k2s networking' -Console
-        Write-Log "Remove all your External Network Switches with command PS>Get-VMSwitch | Where-Object { `$_.SwitchType -eq 'External' } | Remove-VMSwitch -Force" -Console
+        Write-Log "Remove all your External Network Switches with command PS>Get-VMSwitch | Where-Object { `$_.SwitchType -eq 'External'  -and `$_.Name -ne '$l2BridgeSwitchName'} | Remove-VMSwitch -Force" -Console
         Write-Log 'WARNING: This will remove your External Switches, please check whether these switches are required before executing the command' -Console
         throw '[PREREQ-FAILED] Remove all the existing External Network Switches and retry the k2s command again'
     }
+
 }
 
 function Get-IsLinuxOsDebian {
@@ -509,11 +511,11 @@ function Wait-ForSshPossible {
         }
 
         if ($iteration -eq 25) {
-            Write-Log "SSH login into VM with $($User) still not available, aborting..."
-            throw "Unable to login into VM with $($User)"
+            Write-Log "SSH login into VM with $($User) still not available, ssh result is '$($result)' aborting..." -Console
+            throw "Unable to SSH login into VM"
         }
         if ($iteration -ge 3 ) {
-            Write-Log "SSH login into VM with $($User) not yet possible, waiting for it..."
+            Write-Log "SSH login into VM with $($User) not yet possible, current result is '$($result)' waiting for it..."
         }
         Start-Sleep 4
     }
@@ -529,7 +531,7 @@ function Wait-ForSshPossible {
 .SYNOPSIS
     Establishes first time connection with VM by accepting the key and retries until a command can be executet via SSH on a Linux machine.
 .DESCRIPTION
-    Waits until Initial connection command can be executet via SSH on a Linux machine.
+    Waits until Initial connection command can be executed via SSH on a Linux machine.
 .EXAMPLE
     Wait-ForSSHConnectionToLinuxVMViaPwd
 #>
@@ -616,7 +618,6 @@ function Get-ControlPlaneRemoteUser {
 Export-ModuleMember -Function Invoke-CmdOnControlPlaneViaSSHKey,
 Invoke-CmdOnVmViaSSHKey,
 Invoke-CmdOnControlPlaneViaUserAndPwd,
-Invoke-TerminalOnControlPanelViaSSHKey,
 Get-IsControlPlaneRunning,
 Copy-FromControlPlaneViaSSHKey,
 Copy-FromRemoteComputerViaUserAndPwd,
@@ -625,8 +626,6 @@ Copy-ToControlPlaneViaUserAndPwd,
 Copy-ToRemoteComputerViaUserAndPwd,
 Test-ControlPlanePrerequisites,
 Test-ExistingExternalSwitch,
-Get-LinuxOsType,
-Get-IsLinuxOsDebian,
 Get-ControlPlaneVMBaseImagePath,
 Get-ControlPlaneVMRootfsPath,
 Wait-ForSSHConnectionToLinuxVMViaPwd,
@@ -635,5 +634,4 @@ Wait-ForSshPossible,
 Get-DefaultUserNameControlPlane,
 Get-DefaultUserPwdControlPlane,
 Copy-KubeConfigFromControlPlaneNode,
-Get-ControlPlaneRemoteUser,
-Invoke-SSHWithKey
+Get-ControlPlaneRemoteUser

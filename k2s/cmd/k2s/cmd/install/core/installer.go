@@ -13,9 +13,9 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 
-	"github.com/siemens-healthineers/k2s/internal/host"
+	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
+	"github.com/siemens-healthineers/k2s/internal/os"
 	"github.com/siemens-healthineers/k2s/internal/powershell"
-	"github.com/siemens-healthineers/k2s/internal/setupinfo"
 	"github.com/siemens-healthineers/k2s/internal/version"
 
 	"github.com/spf13/cobra"
@@ -34,7 +34,7 @@ type Printer interface {
 type Installer struct {
 	InstallConfigAccess       InstallConfigAccess
 	Printer                   Printer
-	ExecutePsScript           func(script string, psVersion powershell.PowerShellVersion, writer host.StdWriter) error
+	ExecutePsScript           func(script string, psVersion powershell.PowerShellVersion, writer os.StdWriter) error
 	GetVersionFunc            func() version.Version
 	GetPlatformFunc           func() string
 	GetInstallDirFunc         func() string

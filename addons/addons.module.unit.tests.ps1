@@ -46,7 +46,7 @@ Describe 'Get-EnabledAddons' -Tag 'unit', 'ci', 'addon' {
             InModuleScope $moduleName {
                 $result = Get-EnabledAddons
 
-                $result.Addons | Should -BeNullOrEmpty
+                $result | Should -BeNullOrEmpty
             }
         }
     }

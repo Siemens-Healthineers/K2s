@@ -93,9 +93,9 @@ var _ = Describe("'monitoring' addon", Ordered, func() {
 			portForwarding := exec.Command(kubectl, "-n", "monitoring", "port-forward", "svc/kube-prometheus-stack-plutono", "3000:443")
 			portForwardingSession, _ = gexec.Start(portForwarding, GinkgoWriter, GinkgoWriter)
 
-			url := "https://localhost:3000"
+			url := "https://localhost:3000/monitoring/login"
 			httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-I", "-m", "5", "--retry", "10", "--fail")
-			Expect(httpStatus).To(ContainSubstring("302"))
+			Expect(httpStatus).To(ContainSubstring("200"))
 		})
 	})
 
@@ -142,12 +142,6 @@ var _ = Describe("'monitoring' addon", Ordered, func() {
 
 		It("prints the status", func(ctx context.Context) {
 			expectStatusToBePrinted(ctx)
-		})
-
-		It("is reachable through k2s-monitoring.cluster.local", func(ctx context.Context) {
-			url := "https://k2s-monitoring.cluster.local/login"
-			httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-I", "-m", "5", "--retry", "10", "--fail")
-			Expect(httpStatus).To(ContainSubstring("200"))
 		})
 
 		It("is reachable through k2s.cluster.local/monitoring", func(ctx context.Context) {
@@ -200,12 +194,6 @@ var _ = Describe("'monitoring' addon", Ordered, func() {
 
 		It("prints the status", func(ctx context.Context) {
 			expectStatusToBePrinted(ctx)
-		})
-
-		It("is reachable through k2s-monitoring.cluster.local", func(ctx context.Context) {
-			url := "https://k2s-monitoring.cluster.local/login"
-			httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-I", "-m", "5", "--retry", "10", "--fail")
-			Expect(httpStatus).To(ContainSubstring("200"))
 		})
 
 		It("is reachable through k2s.cluster.local/monitoring", func(ctx context.Context) {

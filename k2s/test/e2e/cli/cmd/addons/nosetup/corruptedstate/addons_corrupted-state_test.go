@@ -11,10 +11,10 @@ import (
 	"time"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/addons/status"
-	"github.com/siemens-healthineers/k2s/internal/addons"
-	"github.com/siemens-healthineers/k2s/internal/config"
-	"github.com/siemens-healthineers/k2s/internal/host"
-	"github.com/siemens-healthineers/k2s/internal/setupinfo"
+	"github.com/siemens-healthineers/k2s/internal/core/addons"
+	"github.com/siemens-healthineers/k2s/internal/core/config"
+	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
+	kos "github.com/siemens-healthineers/k2s/internal/os"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -56,7 +56,7 @@ var _ = Describe("addons commands", Ordered, func() {
 		inputData, err := json.Marshal(inputConfig)
 		Expect(err).ToNot(HaveOccurred())
 
-		currentDir, err := host.ExecutableDir()
+		currentDir, err := kos.ExecutableDir()
 		Expect(err).ToNot(HaveOccurred())
 		installDir := filepath.Join(currentDir, "..\\..\\..\\..\\..\\..\\..\\..")
 

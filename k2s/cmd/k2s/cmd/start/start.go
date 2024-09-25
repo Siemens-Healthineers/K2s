@@ -19,8 +19,8 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 
+	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
 	"github.com/siemens-healthineers/k2s/internal/powershell"
-	"github.com/siemens-healthineers/k2s/internal/setupinfo"
 )
 
 var Startk8sCmd = &cobra.Command{
@@ -107,7 +107,7 @@ func buildStartCmd(flags *pflag.FlagSet, setupName setupinfo.SetupName) (string,
 }
 
 func buildk2sStartCmd(showLogs bool, additionalHooksDir string, autouseCachedVSwitch bool) string {
-	cmd := utils.FormatScriptFilePath(utils.InstallDir() + "\\smallsetup\\StartK8s.ps1")
+	cmd := utils.FormatScriptFilePath(utils.InstallDir() + "\\lib\\scripts\\k2s\\start\\start.ps1")
 
 	if showLogs {
 		cmd += " -ShowLogs"
@@ -125,7 +125,7 @@ func buildk2sStartCmd(showLogs bool, additionalHooksDir string, autouseCachedVSw
 }
 
 func buildMultiVMStartCmd(showLogs bool, additionalHooksDir string) string {
-	cmd := utils.FormatScriptFilePath(utils.InstallDir() + "\\smallsetup\\multivm\\Start_MultiVMK8sSetup.ps1")
+	cmd := utils.FormatScriptFilePath(utils.InstallDir() + "\\lib\\scripts\\multivm\\start\\start.ps1")
 
 	if showLogs {
 		cmd += " -ShowLogs"

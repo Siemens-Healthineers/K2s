@@ -43,7 +43,7 @@ same time since they use the same ports.
 
 This Addon prepares one central TLS termination, matching the hostname
 `k2s.cluster.local`, and using as certificate a secret named
-`k2s-cluster-net-tls` which is configured to be created and updated by
+`k2s-cluster-local-tls` which is configured to be created and updated by
 `cert-manager` - if the `security` addon is installed.
 If the security add-on is not installed, NGINX provides a default certificate.
 See also [Security Addon](../../security/README.md).
@@ -66,7 +66,7 @@ The Ingress Resource definitions are worth being analyzed,
 to understand the different mechanisms:
 
 - Kubernetes Dashboard:
-  [NGINX Ingresses](../../dashboard/manifests/dashboard-nginx-ingress.yaml).
+  [NGINX Ingresses](../../dashboard/manifests/ingress-nginx/dashboard-nginx-ingress.yaml).
 - Logging:
   [NGINX Ingress](../../logging/manifests/opensearch-dashboards/ingress.yaml).
 - Monitoring:

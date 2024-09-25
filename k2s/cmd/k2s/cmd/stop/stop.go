@@ -17,8 +17,8 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 
+	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
 	"github.com/siemens-healthineers/k2s/internal/powershell"
-	"github.com/siemens-healthineers/k2s/internal/setupinfo"
 )
 
 var Stopk8sCmd = &cobra.Command{
@@ -86,7 +86,7 @@ func buildStopCmd(flags *pflag.FlagSet, setupName setupinfo.SetupName) (string, 
 
 	switch setupName {
 	case setupinfo.SetupNamek2s:
-		cmd = utils.FormatScriptFilePath(utils.InstallDir() + "\\smallsetup\\StopK8s.ps1")
+		cmd = utils.FormatScriptFilePath(utils.InstallDir() + "\\lib\\scripts\\k2s\\stop\\stop.ps1")
 		if additionalHooksdir != "" {
 			cmd += " -AdditionalHooksDir " + utils.EscapeWithSingleQuotes(additionalHooksdir)
 		}
@@ -94,7 +94,7 @@ func buildStopCmd(flags *pflag.FlagSet, setupName setupinfo.SetupName) (string, 
 			cmd += " -CacheK2sVSwitches"
 		}
 	case setupinfo.SetupNameMultiVMK8s:
-		cmd = utils.FormatScriptFilePath(utils.InstallDir() + "\\smallsetup\\multivm\\Stop_MultiVMK8sSetup.ps1")
+		cmd = utils.FormatScriptFilePath(utils.InstallDir() + "\\lib\\scripts\\multivm\\stop\\stop.ps1")
 		if additionalHooksdir != "" {
 			cmd += " -AdditionalHooksDir " + utils.EscapeWithSingleQuotes(additionalHooksdir)
 		}

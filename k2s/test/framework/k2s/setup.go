@@ -9,9 +9,12 @@ import (
 	"os"
 	"strings"
 
-	"github.com/onsi/ginkgo/v2"
-	"github.com/siemens-healthineers/k2s/internal/config"
-	"github.com/siemens-healthineers/k2s/internal/setupinfo"
+	//lint:ignore ST1001 test framework code
+	. "github.com/onsi/ginkgo/v2"
+	//lint:ignore ST1001 test framework code
+	. "github.com/onsi/gomega"
+	"github.com/siemens-healthineers/k2s/internal/core/config"
+	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
 )
 
 type SetupInfo struct {
@@ -20,39 +23,36 @@ type SetupInfo struct {
 	WinNodeName string
 }
 
-func GetSetupInfo(installDir string) (*SetupInfo, error) {
+func CreateSetupInfo(installDir string) *SetupInfo {
 	config, err := config.LoadConfig(installDir)
-	if err != nil {
-		return nil, err
-	}
-
-	setupConfig, err := setupinfo.ReadConfig(config.Host.K2sConfigDir)
-	if err != nil {
-		return nil, err
-	}
-
-	winNodeName, err := getWinNodeName(setupConfig.SetupName)
-	if err != nil {
-		return nil, err
-	}
+	Expect(err).ToNot(HaveOccurred())
 
 	return &SetupInfo{
-		WinNodeName: winNodeName,
-		Config:      *config,
-		SetupConfig: *setupConfig,
-	}, nil
+		Config: *config,
+	}
+}
+
+func (si *SetupInfo) LoadSetupConfig() {
+	setupConfig, err := setupinfo.ReadConfig(si.Config.Host.K2sConfigDir)
+	Expect(err).ToNot(HaveOccurred())
+
+	winNodeName, err := getWinNodeName(setupConfig.SetupName)
+	Expect(err).ToNot(HaveOccurred())
+
+	si.WinNodeName = winNodeName
+	si.SetupConfig = *setupConfig
 }
 
 func GetWindowsNode(nodes config.Nodes) config.NodeConfig {
 	for _, node := range nodes {
 		if node.OsType == config.OsTypeWindows {
-			ginkgo.GinkgoWriter.Println("Returning first Windows node found in config")
+			GinkgoWriter.Println("Returning first Windows node found in config")
 
 			return node
 		}
 	}
 
-	ginkgo.Fail("No Windows node config found")
+	Fail("No Windows node config found")
 
 	return config.NodeConfig{}
 }

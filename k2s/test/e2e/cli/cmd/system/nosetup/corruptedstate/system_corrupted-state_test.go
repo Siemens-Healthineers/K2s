@@ -13,9 +13,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/siemens-healthineers/k2s/internal/config"
-	"github.com/siemens-healthineers/k2s/internal/host"
-	"github.com/siemens-healthineers/k2s/internal/setupinfo"
+	"github.com/siemens-healthineers/k2s/internal/core/config"
+	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
+	kos "github.com/siemens-healthineers/k2s/internal/os"
 	"github.com/siemens-healthineers/k2s/test/framework"
 
 	"github.com/siemens-healthineers/k2s/test/framework/k2s"
@@ -25,7 +25,7 @@ var suite *framework.K2sTestSuite
 
 func TestSystem(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "system CLI Commands Acceptance Tests", Label("cli", "system", "scp", "ssh", "m", "w", "upgrade", "package", "acceptance", "no-setup", "corrupted-state"))
+	RunSpecs(t, "system CLI Commands Acceptance Tests", Label("cli", "system", "scp", "ssh", "m", "w", "upgrade", "package", "users", "acceptance", "no-setup", "corrupted-state"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
@@ -51,7 +51,7 @@ var _ = Describe("system", Ordered, func() {
 		inputData, err := json.Marshal(inputConfig)
 		Expect(err).ToNot(HaveOccurred())
 
-		currentDir, err := host.ExecutableDir()
+		currentDir, err := kos.ExecutableDir()
 		Expect(err).ToNot(HaveOccurred())
 		installDir := filepath.Join(currentDir, "..\\..\\..\\..\\..\\..\\..\\..")
 
@@ -93,5 +93,6 @@ var _ = Describe("system", Ordered, func() {
 		Entry("upgrade", "system", "upgrade"),
 		Entry("upgrade", "system", "reset", "network"),
 		Entry("package", "system", "package", "--target-dir", "tempDir", "--name", "package.zip", "--for-offline-installation"),
+		Entry("users add", "system", "users", "add", "-u", "non-existent"),
 	)
 })

@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
 	"github.com/siemens-healthineers/k2s/internal/powershell"
-	"github.com/siemens-healthineers/k2s/internal/setupinfo"
 	"github.com/siemens-healthineers/k2s/internal/version"
 
 	"github.com/spf13/cobra"
@@ -167,7 +167,7 @@ func buildInstallCmd(c *ic.InstallConfig) (cmd string, err error) {
 		return "", err
 	}
 
-	path := utils.InstallDir() + "\\smallsetup\\InstallK8s.ps1"
+	path := utils.InstallDir() + "\\lib\\scripts\\k2s\\install\\install.ps1"
 	formattedPath := utils.FormatScriptFilePath(path)
 	cmd = fmt.Sprintf("%s -MasterVMProcessorCount %s -MasterVMMemory %s -MasterDiskSize %s",
 		formattedPath,
