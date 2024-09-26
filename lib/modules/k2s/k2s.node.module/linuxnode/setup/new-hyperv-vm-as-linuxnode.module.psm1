@@ -138,9 +138,7 @@ function New-LinuxVmAsWorkerNode {
     }
     Copy-Item -Path $outputPath -Destination $vhdxPath -Force
 
-    if ($DeleteFilesForOfflineInstallation) {
-        Remove-Item -Path $outputPath -Force
-    }
+    Remove-Item -Path $outputPath -Force
 
     New-VmFromIso -VMName $VmName `
             -VhdxPath $vhdxPath `

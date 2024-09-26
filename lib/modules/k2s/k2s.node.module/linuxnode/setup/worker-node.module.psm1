@@ -32,7 +32,7 @@ function Add-LinuxWorkerNodeOnNewVM {
 
     Write-Log 'Starting addition of new node...'
     Write-Log "Setting up $($workerNodeParams.VmName) VM"
-    
+
     $workerNodeParams = @{
         Hostname = $WorkerNodeName
         IpAddress = $IpAddress
@@ -65,9 +65,13 @@ function Add-LinuxWorkerNodeOnNewVM {
 
     Copy-LocalPublicSshKeyToRemoteComputer -UserName $remoteUsername -UserPwd $remoteUserPwd -IpAddress $IpAddress
     Wait-ForSSHConnectionToLinuxVMViaSshKey -User $remoteUser
-    #Remove-VmAccessViaUserAndPwd -IpAddress $IpAddress
+
+    (Invoke-CmdOnVmViaSSHKey "sudo sed -i 's/dns-nameservers.*/dns-nameservers $(Get-ConfiguredIPControlPlane)/' /etc/network/interfaces.d/10-k2s" -IpAddress $IpAddress).Output | Write-Log
+    (Invoke-CmdOnVmViaSSHKey 'sudo systemctl restart networking' -IpAddress $IpAddress).Output | Write-Log
 
     Join-LinuxNode -NodeName $WorkerNodeName -NodeUserName $remoteUsername -NodeIpAddress $IpAddress
+
+    Remove-VmAccessViaUserAndPwd -IpAddress $IpAddress
 }
 
 function Start-LinuxWorkerNodeOnNewVM {
