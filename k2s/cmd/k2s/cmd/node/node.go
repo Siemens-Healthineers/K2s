@@ -5,6 +5,7 @@ package node
 
 import (
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/node/add"
+	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/node/remove"
 	"github.com/spf13/cobra"
 )
 
@@ -16,4 +17,5 @@ var NodeCmd = &cobra.Command{
 
 func init() {
 	NodeCmd.AddCommand(add.NodeAddCmd)
+	NodeCmd.AddCommand(remove.NodeRemoveCmd)
 }
