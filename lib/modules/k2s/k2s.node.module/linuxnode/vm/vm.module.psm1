@@ -555,10 +555,12 @@ function Wait-ForSSHConnectionToLinuxVMViaPwd(
 #>
 function Wait-ForSSHConnectionToLinuxVMViaSshKey {
     Param(
+        [Parameter(Mandatory = $false)]
+        [string]$User = $remoteUser,
         [parameter(Mandatory = $false, HelpMessage = 'When executing ssh.exe in nested environment[host=>VM=>VM], -n flag should not be used.')]
         [switch] $Nested = $false
     )
-    Wait-ForSshPossible -User $remoteUser -SshKey $key -SshTestCommand 'which curl' -ExpectedSshTestCommandResult '/bin/curl' -Nested:$Nested
+    Wait-ForSshPossible -User $User -SshKey $key -SshTestCommand 'which curl' -ExpectedSshTestCommandResult '/bin/curl' -Nested:$Nested
 }
 
 function Get-DefaultUserNameControlPlane {
@@ -566,6 +568,14 @@ function Get-DefaultUserNameControlPlane {
 }
 
 function Get-DefaultUserPwdControlPlane {
+    return $remotePwd
+}
+
+function Get-DefaultUserNameWorkerNode {
+    return $defaultUserName
+}
+
+function Get-DefaultUserPwdWorkerNode {
     return $remotePwd
 }
 
@@ -633,5 +643,7 @@ Wait-ForSSHConnectionToLinuxVMViaSshKey,
 Wait-ForSshPossible,
 Get-DefaultUserNameControlPlane,
 Get-DefaultUserPwdControlPlane,
+Get-DefaultUserNameWorkerNode,
+Get-DefaultUserPwdWorkerNode,
 Copy-KubeConfigFromControlPlaneNode,
 Get-ControlPlaneRemoteUser

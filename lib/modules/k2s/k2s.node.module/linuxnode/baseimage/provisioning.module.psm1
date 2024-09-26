@@ -291,17 +291,17 @@ function New-KubeworkerBaseImage {
         [scriptblock]$Hook = $(throw "Argument missing: Hook")
         )
 
-        if (!(Test-Path -Path $InputPath)) {
-            throw "The specified input path '$InputPath' does not exist"
-        }
-        if (Test-Path -Path $OutputPath) {
-            Remove-Item -Path $OutputPath -Force
-        }
+    if (!(Test-Path -Path $InputPath)) {
+        throw "The specified input path '$InputPath' does not exist"
+    }
+    if (Test-Path -Path $OutputPath) {
+        Remove-Item -Path $OutputPath -Force
+    }
 
-        if (Test-Path -Path $provisioningTargetDirectory) {
-            Remove-Item -Path $provisioningTargetDirectory -Recurse -Force
-        }
-        New-Item -Path $provisioningTargetDirectory -Type Directory 
+    if (Test-Path -Path $provisioningTargetDirectory) {
+        Remove-Item -Path $provisioningTargetDirectory -Recurse -Force
+    }
+    New-Item -Path $provisioningTargetDirectory -Type Directory | Write-Log
 
     $kubeworkerInPreparationName = "$Hostname-in-preparation.vhdx"
 
@@ -311,8 +311,6 @@ function New-KubeworkerBaseImage {
     $sourcePath = $InputPath
 
     Copy-Item -Path $sourcePath -Destination $inPreparationVhdxPath
-
-    
 
     $vmName = $KubeworkerVmProvisioningVmName
     $switchName = $KubenodeVmProvisioningSwitchName
@@ -353,6 +351,7 @@ function New-KubeworkerBaseImage {
     Wait-VM -Name $vmName -For Heartbeat
     Write-Log "  ok"
 
+
     $remoteUser1 = "$(Get-DefaultUserNameKubeNode)@$(Get-VmIpForProvisioningKubeNode)"
     Wait-ForSshPossible -User $remoteUser1 -UserPwd $(Get-DefaultUserPwdKubeNode) -SshTestCommand 'which ls' -ExpectedSshTestCommandResult '/usr/bin/ls'
 
@@ -367,7 +366,7 @@ function New-KubeworkerBaseImage {
     (Invoke-CmdOnControlPlaneViaUserAndPwd "echo auto $InterfaceName | sudo tee -a $interfaceConfigurationPath" -RemoteUser $remoteUser1).Output | Write-Log
     (Invoke-CmdOnControlPlaneViaUserAndPwd "echo iface $InterfaceName inet static | sudo tee -a $interfaceConfigurationPath" -RemoteUser $remoteUser1).Output | Write-Log
     (Invoke-CmdOnControlPlaneViaUserAndPwd "echo address $IpAddress/24 | sudo tee -a $interfaceConfigurationPath" -RemoteUser $remoteUser1).Output | Write-Log
-    (Invoke-CmdOnControlPlaneViaUserAndPwd "echo dns-nameservers 172.19.1.100 | sudo tee -a $interfaceConfigurationPath" -RemoteUser $remoteUser1).Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaUserAndPwd "echo dns-nameservers $($DnsServers.Replace(',', ' ')) | sudo tee -a $interfaceConfigurationPath" -RemoteUser $remoteUser1).Output | Write-Log
     (Invoke-CmdOnControlPlaneViaUserAndPwd "echo gateway $GatewayIpAddress | sudo tee -a $interfaceConfigurationPath" -RemoteUser $remoteUser1).Output | Write-Log
     (Invoke-CmdOnControlPlaneViaUserAndPwd "echo mtu 1400 | sudo tee -a $interfaceConfigurationPath" -RemoteUser $remoteUser1).Output | Write-Log
     (Invoke-CmdOnControlPlaneViaUserAndPwd "sudo rm -f /etc/network/interfaces.d/50-cloud-init" -RemoteUser $remoteUser1).Output | Write-Log
@@ -379,17 +378,9 @@ function New-KubeworkerBaseImage {
     Disconnect-VMNetworkAdapter -VmName $vmName
     Remove-NetworkForProvisioning -SwitchName $switchName -NatName $natName
 
-    $networkParams2 = @{
-        "SwitchName"=$KubeworkerVmProvisioningSwitchName
-        "HostIpAddress"=$GatewayIpAddress
-        "HostIpPrefixLength"="24"
-        "NatName"=$KubeworkerVmProvisioningNatName
-        "NatIpAddress"="172.19.1.0"
-    }
-    New-NetworkForProvisioning @networkParams2
-
-    Write-Log "Attach the VM to a network switch"
-    Connect-VMNetworkAdapter -VmName $vmName -SwitchName $networkParams2.SwitchName -ErrorAction Stop
+    Write-Log "Attach the VM to the existing network switch"
+    $switchName = Get-ControlPlaneNodeDefaultSwitchName
+    Connect-VMNetworkAdapter -VmName $vmName -SwitchName $switchName -ErrorAction Stop
 
     Start-VM -Name $vmName
     Write-Log "Waiting for VM to send heartbeat..."
@@ -401,14 +392,14 @@ function New-KubeworkerBaseImage {
     $remoteUser2 = "$(Get-DefaultUserNameKubeNode)@$IpAddress"
 
     Wait-ForSshPossible -User $remoteUser2 -UserPwd $(Get-DefaultUserPwdKubeNode) -SshTestCommand 'which ls' -ExpectedSshTestCommandResult '/usr/bin/ls'
-        
+    
+    &$Hook
+
     Stop-VirtualMachineForBaseImageProvisioning -Name $vmName
     Rename-Item $inPreparationVhdxPath $preparedVhdxPath
     Copy-Item $preparedVhdxPath $OutputPath -Force
 
     Remove-VM -Name $vmName -Force
-
-    Remove-NetworkForProvisioning -SwitchName $KubeworkerVmProvisioningSwitchName -NatName $KubeworkerVmProvisioningNatName
 
     Remove-Item -Path $provisioningTargetDirectory -Recurse -Force
 }

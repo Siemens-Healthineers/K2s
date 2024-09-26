@@ -17,7 +17,7 @@ $kubePath = Get-KubePath
 $kubeConfigDir = Get-ConfiguredKubeConfigDir
 
 $kubeletConfigDir = Get-KubeletConfigDir
-$joinConfigurationFilePath = "$kubePath\cfg\kubeadm\joinwindowsnode.yaml"
+$joinConfigurationFilePath = "$kubePath\cfg\kubeadm\joinnode.yaml"
 $kubernetesImagesJson = Get-KubernetesImagesFilePath
 $kubeToolsPath = Get-KubeToolsPath
 
@@ -151,10 +151,10 @@ function Join-WindowsNode {
         $windowsNodeIpAddress = Get-ConfiguredClusterCIDRNextHop -PodSubnetworkNumber $PodSubnetworkNumber
 
         Write-Log 'Create config file for join command'
-        $joinConfigurationTemplateFilePath = "$kubePath\cfg\kubeadm\joinwindowsnode.template.yaml"
+        $joinConfigurationTemplateFilePath = "$kubePath\cfg\kubeadm\joinnode.template.yaml"
 
         $content = (Get-Content -path $joinConfigurationTemplateFilePath -Raw)
-        $content.Replace('__CA_CERT__', $caCertFilePath).Replace('__API__', $apiServerEndpoint).Replace('__TOKEN__', $token).Replace('__SHA__', $hash).Replace('__NODE_IP__', $windowsNodeIpAddress) | Set-Content -Path "$joinConfigurationFilePath"
+        $content.Replace('__CA_CERT__', $caCertFilePath).Replace('__API__', $apiServerEndpoint).Replace('__TOKEN__', $token).Replace('__SHA__', $hash).Replace('__CRI_SOCKET__', 'npipe:////./pipe/containerd-containerd').Replace('__NODE_IP__', $windowsNodeIpAddress) | Set-Content -Path "$joinConfigurationFilePath"
 
         $joinCommand = '.\' + "kubeadm join $apiServerEndpoint" + ' --node-name ' + $env:COMPUTERNAME + ' --ignore-preflight-errors IsPrivilegedUser' + " --config `"$joinConfigurationFilePath`""
 
@@ -204,6 +204,81 @@ function Join-WindowsNode {
     # mark nodes as worker
     Write-Log 'Labeling windows node as worker node'
     &"$kubeToolsPath\kubectl.exe" label nodes $env:computername.ToLower() kubernetes.io/role=worker --overwrite | Out-Null
+}
+
+function Join-LinuxNode {
+    Param(
+        [string] $NodeName = $(throw 'Argument missing: NodeName'),
+        [string] $NodeUserName = $(throw 'Argument missing: NodeUserName'),
+        [string] $NodeIpAddress = $(throw 'Argument missing: NodeIpAddress')
+    )
+
+    # join node if necessary
+    $nodefound = &"$kubeToolsPath\kubectl.exe" get nodes | Select-String -Pattern $NodeName -SimpleMatch
+    if ( !($nodefound) ) {
+        Write-Log "Host $NodeName not yet available as worker node."
+
+        $CommandForJoining = New-JoinCommand
+
+        Write-Log 'Build join command ..'
+
+        $cmdjoin = $CommandForJoining | Select-String -Pattern 'kubeadm join' -CaseSensitive -SimpleMatch
+        $cmdjoin.Line = $cmdjoin.Line.replace("`n", '').replace("`r", '')
+
+        $searchPattern = 'kubeadm join (?<api>[^\s]*) --token (?<token>[^\s]*) --discovery-token-ca-cert-hash (?<hash>[^\s]*)'
+        $patternSearchResult = $cmdjoin.Line | Select-String -Pattern $searchPattern
+
+        if (($null -eq $patternSearchResult.Matches) -or ($patternSearchResult.Matches.Count -ne 1) -or ($patternSearchResult.Matches.Groups.Count -ne (3 + 1))) {
+            $errorMessage = "Could not find the api server endpoint and/or the token and/or the hash from the return value of the command 'sudo kubeadm token create --print-join-command'`n" +
+            "  - Command return value: '$($cmdjoin.Line)'`n" +
+            "  - Search pattern: '$searchPattern'`n"
+            throw $errorMessage
+        }
+
+        $apiServerEndpoint = $patternSearchResult.Matches.Groups[1].Value
+        $token = $patternSearchResult.Matches.Groups[2].Value
+        $hash = $patternSearchResult.Matches.Groups[3].Value
+        $caCertFilePath = '/etc/kubernetes/pki/ca.crt'
+
+        Write-Log 'Create config file for join command'
+        $joinConfigurationTemplateFilePath = "$kubePath\cfg\kubeadm\joinnode.template.yaml"
+        $content = (Get-Content -path $joinConfigurationTemplateFilePath -Raw)
+        $content.Replace('__CA_CERT__', $caCertFilePath).Replace('__API__', $apiServerEndpoint).Replace('__TOKEN__', $token).Replace('__SHA__', $hash).Replace('__CRI_SOCKET__', 'unix:///run/crio/crio.sock').Replace('__NODE_IP__', $NodeIpAddress) | Set-Content -Path "$joinConfigurationFilePath"
+
+        Write-Log "Copy config file for join command to node '$NodeIpAddress'"
+        $source = $joinConfigurationFilePath
+        $target = '/tmp/joinnode.yaml'
+        Copy-ToRemoteComputerViaUserAndPwd -Source $source -Target $target -IpAddress $NodeIpAddress
+   
+        $joinCommand = "sudo kubeadm join $apiServerEndpoint" + ' --node-name ' + $NodeName + ' --ignore-preflight-errors IsPrivilegedUser' + " --config `"$target`""
+        Write-Log "Created join command: $joinCommand"
+
+        $job = Invoke-Expression "Start-Job -ScriptBlock `${Function:Wait-ForNodesReady} -ArgumentList $NodeName"
+        Write-Log "Invoke join command in node '$NodeName'"
+        (Invoke-CmdOnVmViaSSHKey -CmdToExecute $joinCommand -IpAddress $NodeIpAddress).Output | Write-Log
+
+        # print the output of the WaitForJoin.ps1
+        Receive-Job $job
+        $job | Stop-Job
+
+
+        # check success in joining
+        Write-Log "Check join status for node '$NodeName'"
+        $nodefound = &"$kubeToolsPath\kubectl.exe" get nodes | Select-String -Pattern $NodeName -SimpleMatch
+        if ( !($nodefound) ) {
+            &"$kubeToolsPath\kubectl.exe" get nodes
+            throw "Joining the linux node '$NodeName' failed"
+        }
+
+        Write-Log "Joining linux node '$NodeName' to cluster is done."
+    }
+    else {
+        Write-Log "Host $NodeName already available as node !"
+    }
+
+    # mark node as worker
+    Write-Log "Labeling linux node '$NodeName' as worker node"
+    &"$kubeToolsPath\kubectl.exe" label nodes $Nodename.ToLower() kubernetes.io/role=worker --overwrite | Out-Null
 }
 
 function Add-ClusterDnsNameToHost {
@@ -468,7 +543,7 @@ function Write-K8sNodesStatus {
 
 Export-ModuleMember Initialize-KubernetesCluster,
 Uninstall-Cluster, Set-KubeletDiskPressure,
-Join-WindowsNode, Join-VMWindowsNode, Add-K8sContext,
+Join-WindowsNode, Join-LinuxNode, Join-VMWindowsNode, Add-K8sContext,
 Add-ClusterDnsNameToHost, Initialize-VMKubernetesCluster,
 Set-DiskPressureLimitsOnWindowsNode, Add-IPsToHostsFiles,
 Write-K8sNodesStatus, New-JoinCommand

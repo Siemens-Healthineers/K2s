@@ -15,6 +15,11 @@ function Get-KubemasterBaseFilePath {
     return "$kubebinPath\Kubemaster-Base.vhdx"
 }
 
+function Get-KubeworkerBaseFilePath {
+    $kubebinPath = Get-KubeBinPath
+    return "$kubebinPath\Kubeworker-Base.vhdx"
+}
+
 function New-LinuxVmAsControlPlaneNode {
     param (
         [string]$Hostname,
@@ -80,6 +85,70 @@ function New-LinuxVmAsControlPlaneNode {
             -ProcessorCount $VMProcessorCount `
             -UseGeneration1
 
+}
+
+function New-LinuxVmAsWorkerNode {
+    param (
+        [string]$Hostname,
+        [string]$IpAddress,
+        [string]$GatewayIpAddress,
+        [string]$DnsServers,
+        [string]$VmName,
+        [parameter(Mandatory = $false, HelpMessage = 'Startup Memory Size of VM')]
+        [long]$VMMemoryStartupBytes,
+        [parameter(Mandatory = $false, HelpMessage = 'Number of Virtual Processors for VM')]
+        [long]$VMProcessorCount,
+        [parameter(Mandatory = $false, HelpMessage = 'Virtual hard disk size of VM')]
+        [uint64]$VMDiskSize,
+        [parameter(Mandatory = $false, HelpMessage = 'The HTTP proxy if available.')]
+        [string]$Proxy = '',
+        [parameter(Mandatory = $false, HelpMessage = 'Deletes the needed files to perform an offline installation')]
+        [Boolean] $DeleteFilesForOfflineInstallation = $false,
+        [parameter(Mandatory = $false, HelpMessage = 'Forces the installation online')]
+        [Boolean] $ForceOnlineInstallation = $false
+
+    )
+    
+    $outputPath = Get-KubeworkerBaseFilePath
+
+    $isKubeworkerBaseImageAlreadyAvailable = (Test-Path $outputPath)
+    if ($isKubeworkerBaseImageAlreadyAvailable) {
+        Remove-Item -Path $outputPath -Force
+    }
+
+    $workerNodeCreationParams = @{
+        Hostname=$Hostname
+        IpAddress=$IpAddress
+        GatewayIpAddress=$GatewayIpAddress
+        DnsServers=$DnsServers
+        VmImageOutputPath=$outputPath
+        Proxy=$Proxy
+        VMDiskSize = $VMDiskSize
+        VMMemoryStartupBytes = $VMMemoryStartupBytes
+        VMProcessorCount = $VMProcessorCount
+        ForceOnlineInstallation = $ForceOnlineInstallation
+    }
+    New-LinuxVmImageForWorkerNode @workerNodeCreationParams
+
+    $vmmsSettings = Get-CimInstance -namespace root\virtualization\v2 Msvm_VirtualSystemManagementServiceSettingData
+    $vhdxPath = Join-Path $vmmsSettings.DefaultVirtualHardDiskPath "$VmName.vhdx"
+    Write-Log "Remove '$vhdxPath' if existing"
+    if (Test-Path $vhdxPath) {
+        Remove-Item $vhdxPath -Force
+    }
+    Copy-Item -Path $outputPath -Destination $vhdxPath -Force
+
+    Remove-Item -Path $outputPath -Force
+
+    New-VmFromIso -VMName $VmName `
+            -VhdxPath $vhdxPath `
+            -VHDXSizeBytes $VMDiskSize `
+            -MemoryStartupBytes $VMMemoryStartupBytes `
+            -ProcessorCount $VMProcessorCount `
+            -UseGeneration1
+
+    $switchName = Get-ControlPlaneNodeDefaultSwitchName
+    Connect-VMNetworkAdapter -VmName $VmName -SwitchName $switchName -ErrorAction Stop
 }
 
 function New-VmFromIso {
@@ -167,4 +236,4 @@ function New-VmFromIso {
     Write-Log 'VM started ok'
 }
 
-Export-ModuleMember -Function New-LinuxVmAsControlPlaneNode, Get-KubemasterBaseFilePath
+Export-ModuleMember -Function New-LinuxVmAsControlPlaneNode, New-LinuxVmAsWorkerNode, Get-KubemasterBaseFilePath
