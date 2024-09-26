@@ -489,14 +489,14 @@ function Wait-ForSshPossible {
 
         if ($SshKey -ne '') {
             if ($Nested) {
-                $result = ssh.exe -o StrictHostKeyChecking=no -i $SshKey $User "$($SshTestCommand)" 2>&1
+                $result = ssh.exe -o StrictHostKeyChecking=no -i $SshKey $User "$($SshTestCommand)" 2>&1                
             }
             else {
-                $result = ssh.exe -n -o StrictHostKeyChecking=no -i $SshKey $User "$($SshTestCommand)" 2>&1
+                $result = ssh.exe -n -o StrictHostKeyChecking=no -i $SshKey $User "$($SshTestCommand)" 2>&1                
             }
         }
         else {
-            $result = $(Write-Output yes | &"$plinkExe" -ssh -4 $User -pw $UserPwd -no-antispoof "$($SshTestCommand)" 2>&1)
+            $result = $(Write-Output yes | &"$plinkExe" -ssh -v -4 $User -pw $UserPwd -no-antispoof "$($SshTestCommand)" 2>&1)            
         }
 
         if ($StrictEqualityCheck -eq $true) {
