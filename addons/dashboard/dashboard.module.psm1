@@ -20,101 +20,10 @@ function Get-DashboardConfig {
 
 <#
 .DESCRIPTION
-Gets the location of nginx ingress yaml for dashboard
-#>
-function Get-DashboardNginxConfig {
-    return "$PSScriptRoot\manifests\ingress-nginx"
-}
-
-<#
-.DESCRIPTION
-Gets the location of secure nginx ingress yaml for dashboard
-#>
-function Get-DashboardSecureNginxConfig {
-    return "$PSScriptRoot\manifests\secure-nginx"
-}
-
-<#
-.DESCRIPTION
-Gets the location of traefik ingress yaml for dashboard
-#>
-function Get-DashboardTraefikConfig {
-    return "$PSScriptRoot\manifests\ingress-traefik"
-}
-
-<#
-.DESCRIPTION
-Deploys the dashboard's ingress manifest for Nginx ingress controller
-#>
-function Update-DashboardIngressForNginx {
-    if (Test-KeyCloakServiceAvailability) {
-        Write-Log 'Applying secure nginx ingress manifest for dashboard...' -Console
-        $kustomizationDir = Get-DashboardSecureNginxConfig
-    }
-    else {
-        $kustomizationDir = Get-DashboardNginxConfig
-        Write-Log 'Applying nginx ingress manifest for dashboard...' -Console
-    }
-    Invoke-Kubectl -Params 'apply', '-k', $kustomizationDir | Out-Null
-}
-
-<#
-.DESCRIPTION
-Delete the dashboard's ingress manifest for Nginx ingress controller
-#>
-function Remove-DashboardIngressForNginx {
-    # SecureNginxConfig is a superset of NginsConfig, so we delete that:
-    $kustomizationDir = Get-DashboardSecureNginxConfig
-    Invoke-Kubectl -Params 'delete', '-k', $kustomizationDir | Out-Null
-}
-
-<#
-.DESCRIPTION
-Deploys the dashboard's ingress manifest for Traefik ingress controller
-#>
-function Update-DashboardIngressForTraefik {
-    Write-Log 'Applying traefik ingress manifest for dashboard...' -Console
-    $dashboardTraefikIngressConfig = Get-DashboardTraefikConfig
-    
-    Invoke-Kubectl -Params 'apply', '-k', $dashboardTraefikIngressConfig | Out-Null
-}
-
-<#
-.DESCRIPTION
-Delete the dashboard's ingress manifest for Traefik ingress controller
-#>
-function Remove-DashboardIngressForTraefik {
-    Write-Log 'Deleting traefik ingress manifest for dashboard...' -Console
-    $dashboardTraefikIngressConfig = Get-DashboardTraefikConfig
-    
-    Invoke-Kubectl -Params 'delete', '-k', $dashboardTraefikIngressConfig | Out-Null
-}
-
-<#
-.DESCRIPTION
 Enables the metrics server addon.
 #>
 function Enable-MetricsServer {
     &"$PSScriptRoot\..\metrics\Enable.ps1" -ShowLogs:$ShowLogs
-}
-
-<#
-.DESCRIPTION
-Updates the ingress manifest for dashboard based on the ingress controller detected in the cluster.
-#>
-function Update-IngressConfiguration {
-    if (Test-NginxIngressControllerAvailability) {
-        Remove-DashboardIngressForTraefik
-        Update-DashboardIngressForNginx
-    }
-    elseif (Test-TraefikIngressControllerAvailability) {
-        Remove-DashboardIngressForNginx
-        Update-DashboardIngressForTraefik
-    }
-    else {
-        Remove-DashboardIngressForNginx
-        Remove-DashboardIngressForTraefik
-    }
 }
 
 <#

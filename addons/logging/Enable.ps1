@@ -33,9 +33,10 @@ $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.m
 $clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $nodeModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.node.module/k2s.node.module.psm1"
 $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
+$addonsIngressModule = "$PSScriptRoot\..\addons.ingress.module.psm1"
 $loggingModule = "$PSScriptRoot\logging.module.psm1"
 
-Import-Module $infraModule, $clusterModule, $addonsModule, $nodeModule, $loggingModule
+Import-Module $infraModule, $clusterModule, $addonsModule, $addonsIngressModule, $nodeModule, $loggingModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -93,6 +94,8 @@ $manifestsPath = "$PSScriptRoot\manifests"
 if ($setupInfo.LinuxOnly -eq $false) {
     (Invoke-Kubectl -Params 'create', '-k', "$manifestsPath\fluentbit\windows").Output | Write-Log
 }
+
+Update-IngressForAddon -Addon ([pscustomobject] @{Name = 'logging' })
 
 Write-Log 'Waiting for pods being ready...' -Console
 $kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'deployments', '-n', 'logging', '--timeout=300s')

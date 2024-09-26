@@ -23,8 +23,9 @@ $clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.clu
 $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $nodeModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.node.module/k2s.node.module.psm1"
 $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
+$addonsIngressModule = "$PSScriptRoot\..\addons.ingress.module.psm1"
 
-Import-Module $clusterModule, $infraModule, $addonsModule, $nodeModule
+Import-Module $clusterModule, $infraModule, $addonsModule, $addonsIngressModule, $nodeModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -59,6 +60,9 @@ if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'logging', '--ignore-n
 Write-Log 'Uninstalling Logging Stack' -Console
 
 $manifestsPath = "$PSScriptRoot\manifests"
+
+Remove-IngressForTraefik -Addon ([pscustomobject] @{Name = 'logging' })
+Remove-IngressForNginx -Addon ([pscustomobject] @{Name = 'logging' })
 
 (Invoke-Kubectl -Params 'delete', '-k', $manifestsPath, '--ignore-not-found', '--wait=false').Output | Write-Log
 (Invoke-Kubectl -Params 'delete', '-k', "$manifestsPath\fluentbit\windows", '--ignore-not-found', '--wait=false').Output | Write-Log

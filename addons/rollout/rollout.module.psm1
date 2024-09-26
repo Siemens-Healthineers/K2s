@@ -24,7 +24,7 @@ Contains common methods for installing and uninstalling the rollout addon
 Gets the location of manifests to deploy ArgoCD
 #>
 function Get-RolloutConfig {
-    return "$PSScriptRoot\manifests\argocd\overlay"
+    return "$PSScriptRoot\manifests\rollout\overlay"
 }
 
 <#

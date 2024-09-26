@@ -13,8 +13,6 @@ $ConfigKey_EnabledAddons = 'EnabledAddons'
 $hooksDir = "$PSScriptRoot\hooks"
 $backupFileName = 'backup_addons.json'
 
-$updateIngressConfigAnnotation = 'k2s.cluster.local/update-ingress-configuration'
-
 function Get-FileName {
     param (
         [Parameter(Mandatory = $false)]
@@ -36,10 +34,6 @@ function Invoke-Script {
 }
 
 function Get-AddonsConfig {
-    $function = $MyInvocation.MyCommand.Name
-
-    Write-Log "[$script::$function] Retrieving addons config.."
-
     return (Get-ConfigValue -Path (Get-SetupConfigFilePath) -Key $ConfigKey_EnabledAddons)
 }
 
@@ -783,142 +777,8 @@ function Add-HostEntries {
     }
 }
 
-function Update-IngressForAddons {
-    Write-Log "Adapting ingress entries for addons" -Console
-
-    $allManifests = Find-AddonManifests -Directory $PSScriptRoot |`
-        ForEach-Object { 
-        $manifest = Get-FromYamlFile -Path $_ 
-        $manifest
-    }
-
-    $addons = Get-AddonsConfig
-    $addons | ForEach-Object {
-        $addon = $_.Name
-        $addonConfig = Get-AddonConfig -Name $addon
-        if ($null -eq $addonConfig) {
-            Write-Log "Addon '$($addon.Name)' not found in config, skipping.." -Console
-            return
-        }
-
-        $manifest = $allManifests | Where-Object { $_.metadata.name -eq $addon}
-        if ($null -ne $manifest.metadata.annotations.$updateIngressConfigAnnotation -and $manifest.metadata.annotations.$updateIngressConfigAnnotation -eq "true") {
-            Write-Log "  Updating $addon addon ..." -Console
-            Update-IngressForAddon -Config $addonConfig
-        }
-
-        # addon logging
-        $name = 'logging'
-        if ($addon -eq $name -and $Enable -eq $true) {
-            Write-Log "  Security addon enabled: adapting $name addon ..." -Console
-            (Invoke-Kubectl -Params 'delete' , '-f', "$PSScriptRoot\logging\manifests\opensearch-dashboards\ingress-nginx.yaml").Output | Write-Log
-            (Invoke-Kubectl -Params 'apply' , '-f', "$PSScriptRoot\security\addons\logging-nginx-ingress-security.yaml").Output | Write-Log
-            return
-        }
-        if ($addon -eq $name -and $Enable -eq $false) {
-            Write-Log "  Security addon disabled: adapting $name addon ..." -Console
-            (Invoke-Kubectl -Params 'delete' , '-f', "$PSScriptRoot\security\addons\logging-nginx-ingress-security.yaml").Output | Write-Log
-            (Invoke-Kubectl -Params 'apply' , '-f', "$PSScriptRoot\logging\manifests\opensearch-dashboards\ingress-nginx.yaml").Output | Write-Log
-            return
-        }
-
-        # # addon monitoring
-        # $name = 'monitoring'
-        # if ($addon -eq $name -and $Enable -eq $true) {
-        #     Write-Log "  Security addon enabled: adapting $name addon ..." -Console
-        #     (Invoke-Kubectl -Params 'delete' , '-f', "$PSScriptRoot\monitoring\manifests\plutono\ingress-nginx.yaml").Output | Write-Log
-        #     (Invoke-Kubectl -Params 'delete' , '-f', "$PSScriptRoot\monitoring\manifests\plutono\configmap.yaml").Output | Write-Log
-        #     (Invoke-Kubectl -Params 'apply' , '-f', "$PSScriptRoot\security\addons\monitoring-nginx-ingress-security.yaml").Output | Write-Log
-        #     (Invoke-Kubectl -Params 'apply' , '-f', "$PSScriptRoot\security\addons\monitoring-configmap-plutono-security.yaml").Output | Write-Log
-        #     # restart pod plutono
-        #     (Invoke-Kubectl -Params 'delete' , 'pod', '-l', 'app.kubernetes.io/name=kube-prometheus-stack-plutono', '-n', 'monitoring').Output | Write-Log
-        #     return
-        # }
-        # if ($addon -eq $name -and $Enable -eq $false) {
-        #     Write-Log "  Security addon disabled: adapting $name addon ..." -Console
-        #     (Invoke-Kubectl -Params 'delete' , '-f', "$PSScriptRoot\security\addons\monitoring-nginx-ingress-security.yaml").Output | Write-Log
-        #     (Invoke-Kubectl -Params 'delete' , '-f', "$PSScriptRoot\security\addons\monitoring-configmap-plutono-security.yaml").Output | Write-Log
-        #     (Invoke-Kubectl -Params 'apply' , '-f', "$PSScriptRoot\monitoring\manifests\plutono\ingress-nginx.yaml").Output | Write-Log
-        #     (Invoke-Kubectl -Params 'apply' , '-f', "$PSScriptRoot\monitoring\manifests\plutono\configmap.yaml").Output | Write-Log
-        #     # restart pod plutono
-        #     (Invoke-Kubectl -Params 'delete' , 'pod', '-l', 'app.kubernetes.io/name=kube-prometheus-stack-plutono', '-n', 'monitoring').Output | Write-Log
-        #     return
-        # }
-
-        # # addon rollout
-        # $name = 'rollout'
-        # if ($addon -eq $name -and $Enable -eq $true) {
-        #     Write-Log "Security addon enabled: adapting $name addon ..." -Console
-        #     (Invoke-Kubectl -Params 'delete' , '-f', "$PSScriptRoot\rollout\manifests\argocd\base\rollout-nginx-ingress.yaml").Output | Write-Log
-        #     (Invoke-Kubectl -Params 'apply' , '-f', "$PSScriptRoot\security\addons\rollout-nginx-ingress-security.yaml").Output | Write-Log
-        #     return
-        # }
-        # if ($addon -eq $name -and $Enable -eq $false) {
-        #     Write-Log "Security addon disable: adapting $name addon ..." -Console
-        #     (Invoke-Kubectl -Params 'delete' , '-f', "$PSScriptRoot\security\addons\rollout-nginx-ingress-security.yaml").Output | Write-Log
-        #     (Invoke-Kubectl -Params 'apply' , '-f', "$PSScriptRoot\rollout\manifests\argocd\base\rollout-nginx-ingress.yaml").Output | Write-Log
-        #     return
-        # }
-    }
-    Write-Log 'Addons have been adapted to new ingress configuration' -Console
-}
-
-<#
-.DESCRIPTION
-Determines if Nginx ingress controller is deployed in the cluster
-#>
-function Test-NginxIngressControllerAvailability {
-    $existingServices = (Invoke-Kubectl -Params 'get', 'service', '-n', 'ingress-nginx', '-o', 'yaml').Output 
-    if ("$existingServices" -match '.*ingress-nginx-controller.*') {
-        return $true
-    }
-    return $false
-}
-
-<#
-.DESCRIPTION
-Determines if Traefik ingress controller is deployed in the cluster
-#>
-function Test-TraefikIngressControllerAvailability {
-    $existingServices = (Invoke-Kubectl -Params 'get', 'service', '-n', 'ingress-traefik', '-o', 'yaml').Output
-    if ("$existingServices" -match '.*traefik.*') {
-        return $true
-    }
-    return $false
-}
-
-<#
-.DESCRIPTION
-Determines if KeyCloak is deployed in the cluster
-#>
-function Test-KeyCloakServiceAvailability {
-    $existingServices = (Invoke-Kubectl -Params 'get', 'service', '-n', 'security', '-o', 'yaml').Output
-    if ("$existingServices" -match '.*keycloak.*') {
-        return $true
-    }
-    return $false
-}
-
-<#
-.DESCRIPTION
-Enables a ingress addon based on the input
-#>
-function Enable-IngressAddon([string]$Ingress) {
-    switch ($Ingress) {
-        'nginx' {
-            &"$PSScriptRoot\ingress\nginx\Enable.ps1"
-            break
-        }
-        'traefik' {
-            &"$PSScriptRoot\ingress\traefik\Enable.ps1"
-            break
-        }
-    }
-}
-
 Export-ModuleMember -Function Get-EnabledAddons, Add-AddonToSetupJson, Remove-AddonFromSetupJson,
 Install-DebianPackages, Get-DebianPackageAvailableOffline, Test-IsAddonEnabled, Invoke-AddonsHooks, Copy-ScriptsToHooksDir,
 Remove-ScriptsFromHooksDir, Get-AddonConfig, Backup-Addons, Restore-Addons, Get-AddonStatus, Find-AddonManifests,
 Get-ErrCodeAddonAlreadyDisabled, Get-ErrCodeAddonAlreadyEnabled, Get-ErrCodeAddonEnableFailed, Get-ErrCodeAddonNotFound,
-Add-HostEntries, Update-IngressForAddons, Test-NginxIngressControllerAvailability, Test-TraefikIngressControllerAvailability,
-Test-KeyCloakServiceAvailability, Enable-IngressAddon
+Add-HostEntries, Get-AddonsConfig

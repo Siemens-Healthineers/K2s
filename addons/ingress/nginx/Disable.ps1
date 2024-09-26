@@ -27,9 +27,10 @@ Param(
 $clusterModule = "$PSScriptRoot/../../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $infraModule = "$PSScriptRoot/../../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $addonsModule = "$PSScriptRoot\..\..\addons.module.psm1"
+$addonsIngressModule = "$PSScriptRoot\..\..\addons.ingress.module.psm1"
 $nginxModule = "$PSScriptRoot\nginx.module.psm1"
 
-Import-Module $clusterModule, $infraModule, $addonsModule, $nginxModule
+Import-Module $clusterModule, $infraModule, $addonsModule, $addonsIngressModule, $nginxModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -74,7 +75,6 @@ $externalDnsConfigDir = Get-ExternalDnsConfigDir
 Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'ingress'; Implementation = 'nginx' })
 
 # adapt ingress for other addons
-Write-Log 'Adapting ingress for other addons' -Console
 Update-IngressForAddons
 
 

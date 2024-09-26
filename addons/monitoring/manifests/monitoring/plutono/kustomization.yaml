@@ -20,5 +20,3 @@ resources:
 - service.yaml
 - serviceaccount.yaml
 - servicemonitor.yaml
-- ingress-nginx.yaml
-- ingress-traefik.yaml
