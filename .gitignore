@@ -33,7 +33,7 @@ cni/cni-conf.json
 vfprules.json
 bin/dnsproxy.yaml
 smallsetup/common/JoinWindowsHost.yaml
-cfg/kubeadm/joinwindowsnode.yaml
+cfg/kubeadm/joinnode.yaml
 addons/smb-share/**/set-host-path.patch.yaml
 
 # allow team-shared workspace to enable sharing of styles/rules/dictionaries
@@ -87,6 +87,7 @@ containerd/nerdctl.exe
 /bin/KubeMaster-Base.rootfs.tar.gz
 /bin/Kubemaster-Base-Ubuntu.vhdx
 /bin/Kubenode-Base.vhdx
+/bin/Kubeworker-Base.vhdx
 /bin/Windows-Base.vhdx
 /bin/Windows-Kubeworker-Base.vhdx
 /bin/windowsnode

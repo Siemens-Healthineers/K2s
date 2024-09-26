@@ -6,6 +6,7 @@
         "podNetworkCIDR": "172.20.0.0/16",
         "podNetworkMasterCIDR": "172.20.0.0/24",
         "podNetworkWorkerCIDR": "172.20.1.0/24",
+        "podNetworkWorkerCIDR_2": "172.20.X.0/24",
         "servicesCIDR": "172.21.0.0/16",
         "servicesCIDRLinux": "172.21.0.0/24",
         "servicesCIDRWindows": "172.21.1.0/24",

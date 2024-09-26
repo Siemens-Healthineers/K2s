@@ -6,7 +6,7 @@ apiVersion: kubeadm.k8s.io/v1beta3
 kind: JoinConfiguration
 caCertPath: __CA_CERT__
 nodeRegistration:
-    criSocket: npipe:////./pipe/containerd-containerd
+    criSocket: __CRI_SOCKET__
     kubeletExtraArgs:
         node-ip: "__NODE_IP__"
 discovery:
