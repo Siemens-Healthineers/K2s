@@ -632,6 +632,41 @@ Function Set-UpMasterNode {
 
 }
 
+Function Set-UpWorkerNode {
+    param (
+        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
+        [string]$UserName = $(throw 'Argument missing: UserName'),
+        [string]$UserPwd = $(throw 'Argument missing: UserPwd'),
+        [ValidateScript({ Get-IsValidIPv4Address($_) })]
+        [string]$IpAddress = $(throw 'Argument missing: IpAddress'),
+        [ScriptBlock] $Hook = $(throw 'Argument missing: Hook')
+    )
+
+    $remoteUser = "$UserName@$IpAddress"
+    $remoteUserPwd = $UserPwd
+
+    $executeRemoteCommand = { 
+        param(
+            $command = $(throw 'Argument missing: Command'), 
+            [switch]$IgnoreErrors = $false
+        ) 
+        if ($IgnoreErrors) {
+            (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd" -IgnoreErrors).Output | Write-Log
+        }
+        else {
+            (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output | Write-Log
+        }
+    }
+
+    Write-Log "Start setting up computer '$IpAddress' as worker node"
+
+    Write-Log 'Run setup hook'
+    &$Hook
+    Write-Log 'Setup hook finished'
+
+    Write-Log 'Finished setting up Linux computer for being used as worker node'
+}
+
 Function Add-FlannelPluginToMasterNode {
     param (
         [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
@@ -933,24 +968,61 @@ function New-LinuxVmImageForWorkerNode {
         [parameter(Mandatory = $false, HelpMessage = 'Number of Virtual Processors for VM')]
         [long]$VMProcessorCount,
         [parameter(Mandatory = $false, HelpMessage = 'Virtual hard disk size of VM')]
-        [uint64]$VMDiskSize
+        [uint64]$VMDiskSize,
+        [parameter(Mandatory = $false, HelpMessage = 'Deletes the needed files to perform an offline installation')]
+        [Boolean] $DeleteFilesForOfflineInstallation = $false,
+        [parameter(Mandatory = $false, HelpMessage = 'Forces the installation online')]
+        [Boolean] $ForceOnlineInstallation = $false
     )
 
     $kubenodeBaseImagePath = "$(Split-Path $VmImageOutputPath)\$(Get-KubenodeBaseFileName)"
+    
+    $isKubenodeBaseImageAlreadyAvailable = (Test-Path $kubenodeBaseImagePath)
+    $isOnlineInstallation = (!$isKubenodeBaseImageAlreadyAvailable -or $ForceOnlineInstallation)
 
-    if (!(Test-Path -Path $kubenodeBaseImagePath)) {
-        New-VmImageForKubernetesNode -VmImageOutputPath $kubenodeBaseImagePath -Proxy $Proxy
+    if ($isOnlineInstallation -and $isKubenodeBaseImageAlreadyAvailable) {
+        Remove-Item -Path $kubenodeBaseImagePath -Force
     }
 
-    $vmNetworkInterfaceName = Get-NetworkInterfaceName
+    if (!(Test-Path -Path $kubenodeBaseImagePath)) {
+        $vmImageForKubernetesNodeCreationParams = @{
+            Proxy                = $Proxy
+            DnsIpAddresses       = $DnsServers
+            VmImageOutputPath    = $kubenodeBaseImagePath
+            VMMemoryStartupBytes = $VMMemoryStartupBytes
+            VMProcessorCount     = $VMProcessorCount
+            VMDiskSize           = $VMDiskSize
+        }
+        New-VmImageForKubernetesNode @vmImageForKubernetesNodeCreationParams
+    }
+
     $vmUserName = Get-DefaultUserNameKubeNode
     $vmUserPwd = Get-DefaultUserPwdKubeNode
+    $vmNetworkInterfaceName = Get-NetworkInterfaceName
 
-    $performConfiguration = {
-        Set-Nameserver -IpAddress $IpAddress -UserName $vmUserName -UserPwd $vmUserPwd
+    $remoteUser = "$vmUserName@$IpAddress"
+    $remoteUserPwd = $vmUserPwd
+
+    $setUpAsWorkerNode = {
+        $executeInWorkerNode = {
+            (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute 'sudo systemctl stop dnsmasq; sudo systemctl disable dnsmasq' -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd" -IgnoreErrors).Output | Write-Log
+            (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute 'sudo chattr -i /etc/resolv.conf' -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd" -IgnoreErrors).Output | Write-Log
+            (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "echo nameserver $(Get-ConfiguredIPControlPlane) | sudo tee /etc/resolv.conf" -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd" -IgnoreErrors).Output | Write-Log
+        }
+
+        $workerNodeParams = @{
+            IpAddress                     = $IpAddress
+            UserName                      = $vmUserName
+            UserPwd                       = $vmUserPwd
+            Hook                          = $executeInWorkerNode
+        }
+        Set-UpWorkerNode @workerNodeParams 
     }
 
     $kubeworkerCreationParams = @{
+        VMMemoryStartupBytes = $VMMemoryStartupBytes
+        VMProcessorCount     = $VMProcessorCount
+        VMDiskSize           = $VMDiskSize
         Hostname             = $Hostname
         IpAddress            = $IpAddress
         InterfaceName        = $vmNetworkInterfaceName
@@ -958,12 +1030,13 @@ function New-LinuxVmImageForWorkerNode {
         GatewayIpAddress     = $GatewayIpAddress
         InputPath            = $kubenodeBaseImagePath
         OutputPath           = $VmImageOutputPath
-        Hook                 = $performConfiguration
-        VMMemoryStartupBytes = $VMMemoryStartupBytes
-        VMProcessorCount     = $VMProcessorCount
-        VMDiskSize           = $VMDiskSize
+        Hook                 = $setUpAsWorkerNode
     }
     New-KubeworkerBaseImage @kubeworkerCreationParams
+
+    if ($DeleteFilesForOfflineInstallation) {
+        Remove-Item -Path $kubenodeBaseImagePath -Force
+    }
 
 }
 
