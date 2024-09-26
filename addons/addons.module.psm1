@@ -73,38 +73,6 @@ function Enable-AddonFromConfig {
     Write-Log "Addon '$addonName' re-enabled."
 }
 
-function Update-IngressForAddon {
-    param (
-        [Parameter(Mandatory = $false)]
-        [pscustomobject]$Config = $(throw 'Config object not specified')
-    )
-    if ($null -eq $Config.Name) {
-        Write-Warning "Invalid addon config '$Config' found, skipping it."
-        return
-    }
-
-    $dirName = $Config.Name
-    $addonName = $Config.Name
-    if ($null -ne $Config.Implementation) {
-        $dirName += "\$($Config.Implementation)"
-        $addonName += " $($Config.Implementation)"
-    }
-
-    $root = Get-ScriptRoot
-    $enableCmdPath = "$root\$dirName\Enable.ps1"
-
-    if ((Test-Path $enableCmdPath) -ne $true) {
-        Write-Warning "Addon '$($Config.Name)' seems to be deprecated, skipping it."
-        return
-    }
-
-    Write-Log "Re-enabling addon '$addonName'.."
-
-    & $enableCmdPath -Config $Config
-
-    Write-Log "Addon '$addonName' re-enabled."
-}
-
 function Invoke-BackupRestoreHooks {
     param (
         [parameter(Mandatory = $false)]

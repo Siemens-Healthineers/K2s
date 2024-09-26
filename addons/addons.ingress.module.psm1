@@ -251,5 +251,5 @@ function Get-AddonProperties {
     return [pscustomobject]@{Name = $addonName; Directory = $directory }
 }
 
-Export-ModuleMember -Function Update-IngressForAddons, Test-NginxIngressControllerAvailability, Test-TraefikIngressControllerAvailability,
+Export-ModuleMember -Function Update-IngressForAddons, Update-IngressForAddon, Test-NginxIngressControllerAvailability, Test-TraefikIngressControllerAvailability,
 Enable-IngressAddon, Remove-IngressForTraefik, Remove-IngressForNginx
