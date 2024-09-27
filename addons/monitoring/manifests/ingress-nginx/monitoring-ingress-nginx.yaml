@@ -16,8 +16,6 @@ kind: Ingress
 metadata:
   name: monitoring-nginx-cluster-local
   namespace: monitoring
-  annotations:
-    nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
 spec:
   ingressClassName: nginx
   rules:
@@ -28,6 +26,6 @@ spec:
               service:
                 name: kube-prometheus-stack-plutono
                 port:
-                  number: 443
+                  number: 80
             path: /monitoring
             pathType: Prefix

@@ -16,8 +16,6 @@ kind: Ingress
 metadata:
   name: monitoring-traefik-cluster-local
   namespace: monitoring
-  annotations:
-    traefik.ingress.kubernetes.io/router.tls: "true"
 spec:
   ingressClassName: traefik
   rules:
@@ -28,6 +26,6 @@ spec:
               service:
                 name: kube-prometheus-stack-plutono
                 port:
-                  number: 443
+                  number: 80
             path: /monitoring
             pathType: Prefix

@@ -7,16 +7,15 @@ kind: Kustomization
 namespace: monitoring
 resources:
 - .\dashboards-1.14
-- secret-tls.yaml
 - clusterrole.yaml
 - clusterrolebinding.yaml
 - configmap-dashboard-provider.yaml
 - configmap.yaml
 - configmaps-datasources.yaml
-- deployment.yaml
 - role.yaml
 - rolebinding.yaml
 - secret.yaml
 - service.yaml
 - serviceaccount.yaml
 - servicemonitor.yaml
+- deployment.yaml

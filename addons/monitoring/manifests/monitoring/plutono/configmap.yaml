@@ -35,9 +35,6 @@ data:
     root_url = https://k2s.cluster.local/monitoring
     serve_from_sub_path = true
     domain = k2s.cluster.local
-    protocol = https
-    cert_key = /cert/tls.key
-    cert_file = /cert/tls.crt
     [auth]
     oauth_auto_login: true
     signout_redirect_url: "https://k2s.cluster.local/oauth2/sign_out"
