@@ -24,11 +24,11 @@ patches:
       value: "https://k2s.cluster.local/oauth2/start?rd=$escaped_request_uri"
     - op: add
       path: "/metadata/annotations/nginx.ingress.kubernetes.io~1configuration-snippet"
-      value: |-
-        "auth_request_set $user  $upstream_http_x_auth_request_user;
+      value: |
+        auth_request_set $user  $upstream_http_x_auth_request_user;
         auth_request_set $email  $upstream_http_x_auth_request_email;
         proxy_set_header X-User  $user;
-        proxy_set_header X-Email $email;"
+        proxy_set_header X-Email $email;
   target:
     kind: Ingress
     name: monitoring-nginx-cluster-local
