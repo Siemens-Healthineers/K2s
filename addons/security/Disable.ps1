@@ -26,7 +26,7 @@ Param (
 $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
-$addonsIngressModule = "$PSScriptRoot\..\..\addons.ingress.module.psm1"
+$addonsIngressModule = "$PSScriptRoot\..\addons.ingress.module.psm1"
 $securityModule = "$PSScriptRoot\security.module.psm1"
 
 Import-Module $infraModule, $clusterModule, $addonsModule, $addonsIngressModule, $securityModule
