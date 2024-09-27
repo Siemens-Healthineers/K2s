@@ -517,7 +517,7 @@ function Wait-ForSshPossible {
         if ($iteration -ge 3 ) {
             Write-Log "SSH login into VM with $($User) not yet possible, current result is '$($result)' waiting for it..."
         }
-        Start-Sleep 4
+        Start-Sleep 10
     }
     if ($iteration -eq 1) {
         Write-Log "SSH login into VM with $($User) possible, no waiting needed."
