@@ -86,6 +86,10 @@ $pesterVersion = '5.5.0'
 $ginkgoVersion = '2.16.0'
 $rootDir = "$PSScriptRoot\..\"
 
+# switch to drive
+$drive = Split-Path -Path $rootDir -Qualifier
+&$drive
+
 Write-Output 'All tests execution started.'
 
 $stopWatch = New-Object -TypeName 'System.Diagnostics.Stopwatch'
@@ -104,7 +108,8 @@ if ($OfflineMode) {
     # Set proxy which will be used by tests
     Write-Output 'Set to System Test Offline mode'
     $env:SYSTEM_OFFLINE_MODE = $true
-} else {
+}
+else {
     $env:SYSTEM_OFFLINE_MODE = $false
 }
 

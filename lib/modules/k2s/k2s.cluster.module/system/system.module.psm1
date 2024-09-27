@@ -150,4 +150,25 @@ function Get-Cni0IpAddressInControlPlaneUsingSshWithRetries {
     return $ipAddr
 }
 
-Export-ModuleMember Invoke-TimeSync, Wait-ForAPIServer, Update-NodeLabelsAndTaints, Get-Cni0IpAddressInControlPlaneUsingSshWithRetries
+function Get-AssignedPodSubnetworkNumber {
+    param (
+        [string] $NodeName = $(throw 'Argument missing: NodeName')
+    )
+    $podCIDR = &"$kubeToolsPath\kubectl.exe" get nodes $NodeName -o jsonpath="'{.spec.podCIDR}'"
+    if ([string]::IsNullOrWhiteSpace($podCIDR)) {
+        throw "Cannot obtain container network information from node '$NodeName'"
+    }
+
+    $searchPattern = "^'\d{1,3}\.\d{1,3}\.(?<subnet>\d{1,3})\.\d{1,3}\/24'$"
+    $m = [regex]::Matches($podCIDR, $searchPattern)
+    if (-not $m[0]) { throw "Cannot get subnet number from '$podCIDR'." }
+    $subnetNumber = $m[0].Groups['subnet'].Value
+
+    return $subnetNumber
+}
+
+Export-ModuleMember Invoke-TimeSync, 
+Wait-ForAPIServer, 
+Update-NodeLabelsAndTaints, 
+Get-Cni0IpAddressInControlPlaneUsingSshWithRetries,
+Get-AssignedPodSubnetworkNumber

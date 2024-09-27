@@ -69,30 +69,40 @@ function Copy-LocalPublicSshKeyToRemoteComputer {
     $publicKeyFileName = Split-Path -Path $localSourcePath -Leaf
     $targetPath = "/tmp/$publicKeyFileName"
     $remoteTargetPath = "$targetPath"
-    Copy-ToControlPlaneViaUserAndPwd -Source $localSourcePath -Target $remoteTargetPath
+    Copy-ToRemoteComputerViaUserAndPwd -Source $localSourcePath -Target $remoteTargetPath -IpAddress $IpAddress
     (Invoke-CmdOnControlPlaneViaUserAndPwd "sudo mkdir -p ~/.ssh" -RemoteUser "$user" -RemoteUserPwd "$userPwd").Output | Write-Log
     (Invoke-CmdOnControlPlaneViaUserAndPwd "sudo cat $targetPath | sudo tee ~/.ssh/authorized_keys" -RemoteUser "$user" -RemoteUserPwd "$userPwd").Output | Write-Log
 }
 
 function Remove-ControlPlaneAccessViaUserAndPwd {
-    # remove password for remote user and disable password login
-    (Invoke-CmdOnControlPlaneViaSSHKey 'sudo passwd -d remote').Output | Write-Log
+    $ipControlPlane = Get-ConfiguredIPControlPlane
+    Remove-VmAccessViaUserAndPwd -IpAddress $ipControlPlane
+}
 
-    (Invoke-CmdOnControlPlaneViaSSHKey "sudo sed -i 's/.*NAutoVTs.*/NAutoVTs=0/' /etc/systemd/logind.conf").Output | Write-Log
-    (Invoke-CmdOnControlPlaneViaSSHKey "sudo sed -i 's/.*ReserveVT.*/ReserveVT=0/' /etc/systemd/logind.conf").Output | Write-Log
-    (Invoke-CmdOnControlPlaneViaSSHKey 'sudo systemctl disable getty@tty1.service 2>&1').Output | Write-Log
-    (Invoke-CmdOnControlPlaneViaSSHKey 'sudo systemctl stop "getty@tty*.service"').Output | Write-Log
-    (Invoke-CmdOnControlPlaneViaSSHKey 'sudo systemctl restart systemd-logind.service').Output | Write-Log
-    (Invoke-CmdOnControlPlaneViaSSHKey 'echo Include /etc/ssh/sshd_config.d/*.conf | sudo tee -a /etc/ssh/sshd_config').Output | Write-Log
-    (Invoke-CmdOnControlPlaneViaSSHKey 'sudo touch /etc/ssh/sshd_config.d/disable_pwd_login.conf').Output | Write-Log
-    (Invoke-CmdOnControlPlaneViaSSHKey 'echo ChallengeResponseAuthentication no | sudo tee -a /etc/ssh/sshd_config.d/disable_pwd_login.conf').Output | Write-Log
-    (Invoke-CmdOnControlPlaneViaSSHKey 'echo PasswordAuthentication no | sudo tee -a /etc/ssh/sshd_config.d/disable_pwd_login.conf').Output | Write-Log
-    (Invoke-CmdOnControlPlaneViaSSHKey 'echo UsePAM no | sudo tee -a /etc/ssh/sshd_config.d/disable_pwd_login.conf').Output | Write-Log
-    (Invoke-CmdOnControlPlaneViaSSHKey 'echo PermitRootLogin no | sudo tee -a /etc/ssh/sshd_config.d/disable_pwd_login.conf').Output | Write-Log
-    (Invoke-CmdOnControlPlaneViaSSHKey 'sudo systemctl reload ssh').Output | Write-Log
+function Remove-VmAccessViaUserAndPwd {
+    param (
+        [string] $IpAddress = $(throw 'Argument missing: IpAddress')
+    )
+
+    # remove password for remote user and disable password login
+    (Invoke-CmdOnVmViaSSHKey 'sudo passwd -d remote' -IpAddress $IpAddress).Output | Write-Log
+
+    (Invoke-CmdOnVmViaSSHKey "sudo sed -i 's/.*NAutoVTs.*/NAutoVTs=0/' /etc/systemd/logind.conf" -IpAddress $IpAddress).Output | Write-Log
+    (Invoke-CmdOnVmViaSSHKey "sudo sed -i 's/.*ReserveVT.*/ReserveVT=0/' /etc/systemd/logind.conf" -IpAddress $IpAddress).Output | Write-Log
+    (Invoke-CmdOnVmViaSSHKey 'sudo systemctl disable getty@tty1.service 2>&1' -IpAddress $IpAddress).Output | Write-Log
+    (Invoke-CmdOnVmViaSSHKey 'sudo systemctl stop "getty@tty*.service"' -IpAddress $IpAddress).Output | Write-Log
+    (Invoke-CmdOnVmViaSSHKey 'sudo systemctl restart systemd-logind.service' -IpAddress $IpAddress).Output | Write-Log
+    (Invoke-CmdOnVmViaSSHKey 'echo Include /etc/ssh/sshd_config.d/*.conf | sudo tee -a /etc/ssh/sshd_config' -IpAddress $IpAddress).Output | Write-Log
+    (Invoke-CmdOnVmViaSSHKey 'sudo touch /etc/ssh/sshd_config.d/disable_pwd_login.conf' -IpAddress $IpAddress).Output | Write-Log
+    (Invoke-CmdOnVmViaSSHKey 'echo ChallengeResponseAuthentication no | sudo tee -a /etc/ssh/sshd_config.d/disable_pwd_login.conf' -IpAddress $IpAddress).Output | Write-Log
+    (Invoke-CmdOnVmViaSSHKey 'echo PasswordAuthentication no | sudo tee -a /etc/ssh/sshd_config.d/disable_pwd_login.conf' -IpAddress $IpAddress).Output | Write-Log
+    (Invoke-CmdOnVmViaSSHKey 'echo UsePAM no | sudo tee -a /etc/ssh/sshd_config.d/disable_pwd_login.conf' -IpAddress $IpAddress).Output | Write-Log
+    (Invoke-CmdOnVmViaSSHKey 'echo PermitRootLogin no | sudo tee -a /etc/ssh/sshd_config.d/disable_pwd_login.conf' -IpAddress $IpAddress).Output | Write-Log
+    (Invoke-CmdOnVmViaSSHKey 'sudo systemctl reload ssh' -IpAddress $IpAddress).Output | Write-Log
 }
 
 Export-ModuleMember New-SshKey, 
 Remove-SshKey, 
 Copy-LocalPublicSshKeyToRemoteComputer, 
-Remove-ControlPlaneAccessViaUserAndPwd
+Remove-ControlPlaneAccessViaUserAndPwd,
+Remove-VmAccessViaUserAndPwd
