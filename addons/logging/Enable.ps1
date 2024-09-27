@@ -85,7 +85,7 @@ Write-Log 'Installing fluent-bit and opensearch stack' -Console
 # opensearch dashboards
 # fluent-bit linux
 
-$manifestsPath = "$PSScriptRoot\manifests"
+$manifestsPath = "$PSScriptRoot\manifests\logging"
 
 (Invoke-Kubectl -Params 'apply', '-f', "$manifestsPath\namespace.yaml").Output | Write-Log
 (Invoke-Kubectl -Params 'create', '-k', "$manifestsPath\").Output | Write-Log
