@@ -496,7 +496,7 @@ function Wait-ForSshPossible {
             }
         }
         else {
-            $result = $(Write-Output yes | &"$plinkExe" -ssh -v -4 $User -pw $UserPwd -no-antispoof "$($SshTestCommand)" 2>&1)            
+            $result = $(Write-Output yes | &"$plinkExe" -ssh -v -4 -batch $User -pw $UserPwd -no-antispoof "$($SshTestCommand)" 2>&1)            
         }
 
         if ($StrictEqualityCheck -eq $true) {
@@ -517,7 +517,7 @@ function Wait-ForSshPossible {
         if ($iteration -ge 3 ) {
             Write-Log "SSH login into VM with $($User) not yet possible, current result is '$($result)' waiting for it..."
         }
-        Start-Sleep 10
+        Start-Sleep 4
     }
     if ($iteration -eq 1) {
         Write-Log "SSH login into VM with $($User) possible, no waiting needed."
