@@ -44,10 +44,10 @@ Once the addons are enabled, then the monitoring dashboard UI can be accessed at
 To access monitoring dashboard via port-forwarding, the following command can be executed:
 
 ```
-kubectl -n monitoring port-forward svc/kube-prometheus-stack-plutono 3000:443
+kubectl -n monitoring port-forward svc/kube-prometheus-stack-plutono 3000:80
 ```
 
-In this case, the monitoring dashboard UI can be accessed at the following URL: <https://localhost:3000/monitoring>
+In this case, the monitoring dashboard UI can be accessed at the following URL: <http://localhost:3000/monitoring>
 
 ### Login to monitoring dashboard
 
