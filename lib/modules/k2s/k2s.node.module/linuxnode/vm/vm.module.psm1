@@ -496,7 +496,19 @@ function Wait-ForSshPossible {
             }
         }
         else {
-            $result = $(Write-Output y | &"$plinkExe" -ssh -4 -batch $User -pw $UserPwd -no-antispoof "$($SshTestCommand)" 2>&1)            
+            Write-Log "plink"
+            Write-Log $plinkExe
+            Write-Log "user"
+            Write-Log  $User
+            Write-Log "userpwd"
+            Write-Log  $UserPwd
+            Write-Log "testcommand"
+            Write-Log  $SshTestCommand
+            
+            $result = $(Write-Output y | &"$plinkExe" -ssh -4 $User -pw $UserPwd -no-antispoof "$($SshTestCommand)" 2>&1)            
+
+            Write-Log "result"
+            Write-Log  $result
         }
 
         if ($StrictEqualityCheck -eq $true) {
@@ -510,7 +522,7 @@ function Wait-ForSshPossible {
             }
         }
 
-        if ($iteration -eq 25) {
+        if ($iteration -eq 500) {
             Write-Log "SSH login into VM with $($User) still not available, ssh result is '$($result)' aborting..." -Console
             throw "Unable to SSH login into VM"
         }
