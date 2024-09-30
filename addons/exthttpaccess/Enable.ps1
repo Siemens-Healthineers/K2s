@@ -40,9 +40,9 @@ $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.m
 $clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $nodeModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.node.module\k2s.node.module.psm1"
 $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
-$commonModule = "$PSScriptRoot\common.module.psm1"
+$exthttpaccessModule = "$PSScriptRoot\exthttpaccess.module.psm1"
 
-Import-Module $infraModule, $clusterModule, $nodeModule, $addonsModule, $commonModule
+Import-Module $infraModule, $clusterModule, $nodeModule, $addonsModule, $exthttpaccessModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 

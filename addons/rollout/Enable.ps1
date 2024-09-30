@@ -40,10 +40,11 @@ Param (
 $clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
+$addonsIngressModule = "$PSScriptRoot\..\addons.ingress.module.psm1"
 $nodeModule = "$PSScriptRoot/../../lib\modules\k2s\k2s.node.module\k2s.node.module.psm1"
 $rolloutModule = "$PSScriptRoot\rollout.module.psm1"
 
-Import-Module $clusterModule, $infraModule, $addonsModule, $nodeModule, $rolloutModule
+Import-Module $clusterModule, $infraModule, $addonsModule, $addonsIngressModule, $nodeModule, $rolloutModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -92,6 +93,8 @@ Write-Log 'Creating rollout namespace'
 Write-Log 'Installing rollout addon' -Console
 $rolloutConfig = Get-RolloutConfig
 (Invoke-Kubectl -Params 'apply' , '-n', $rolloutNamespace, '-k', $rolloutConfig).Output | Write-Log
+
+Update-IngressForAddon -Addon ([pscustomobject] @{Name = 'rollout' })
 
 $binPath = Get-KubeBinPath
 if (!(Test-Path "$binPath\argocd.exe")) {

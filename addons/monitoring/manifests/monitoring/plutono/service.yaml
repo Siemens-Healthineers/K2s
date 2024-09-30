@@ -19,7 +19,7 @@ spec:
   type: ClusterIP
   ports:
     - name: http-web
-      port: 443
+      port: 80
       protocol: TCP
       targetPort: 3000
   selector:

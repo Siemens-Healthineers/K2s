@@ -29,9 +29,10 @@ Param (
 $clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
+$addonsIngressModule = "$PSScriptRoot\..\addons.ingress.module.psm1"
 $rolloutModule = "$PSScriptRoot\rollout.module.psm1"
 
-Import-Module $clusterModule, $infraModule, $addonsModule, $rolloutModule
+Import-Module $clusterModule, $infraModule, $addonsModule, $addonsIngressModule, $rolloutModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -63,6 +64,9 @@ if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'rollout', '--ignore-n
 
 Write-Log 'Uninstalling rollout addon' -Console
 $rolloutConfig = Get-RolloutConfig
+
+Remove-IngressForTraefik -Addon ([pscustomobject] @{Name = 'rollout' })
+Remove-IngressForNginx -Addon ([pscustomobject] @{Name = 'rollout' })
 
 (Invoke-Kubectl -Params 'delete', '-n', 'rollout', '-k', $rolloutConfig).Output | Write-Log
 

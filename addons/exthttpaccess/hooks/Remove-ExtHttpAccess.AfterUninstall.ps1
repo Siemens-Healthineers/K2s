@@ -13,9 +13,9 @@ Post-uninstall hook to remove nginx-ext service.
 #>
 
 $logModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/log/log.module.psm1"
-$commonModule = "$PSScriptRoot/../exthttpaccess/common.module.psm1"
+$exthttpaccessModule = "$PSScriptRoot/../exthttpaccess/exthttpaccess.module.psm1"
 
-Import-Module $logModule, $commonModule
+Import-Module $logModule, $exthttpaccessModule
 
 Initialize-Logging
 

@@ -10,38 +10,6 @@ $serviceModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.node.module\windowsnod
 
 Import-Module $infraModule, $k8sApiModule, $serviceModule
 
-# TODO: code clone
-function Test-NginxIngressControllerAvailability {
-    $existingServices = (Invoke-Kubectl -Params 'get', 'service', '-n', 'ingress-nginx', '-o', 'yaml').Output
-    if ("$existingServices" -match '.*ingress-nginx-controller.*') {
-        return $true
-    }
-    return $false
-}
-
-# TODO: code clone
-function Test-TraefikIngressControllerAvailability {
-    $existingServices = (Invoke-Kubectl -Params 'get', 'service', '-n', 'traefik', '-o', 'yaml').Output
-    if ("$existingServices" -match '.*traefik.*') {
-        return $true
-    }
-    return $false
-}
-
-# TODO: code clone
-function Enable-IngressAddon([string]$Ingress) {
-    switch ($Ingress) {
-        'nginx' {
-            &"$PSScriptRoot\..\ingress\nginx\Enable.ps1"
-            break
-        }
-        'traefik' {
-            &"$PSScriptRoot\..\ingress\traefik\Enable.ps1"
-            break
-        }
-    }
-}
-
 function Deploy-IngressForRegistry([string]$Ingress) {
     switch ($Ingress) {
         'nginx' {

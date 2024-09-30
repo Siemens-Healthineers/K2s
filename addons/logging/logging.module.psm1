@@ -9,19 +9,6 @@ $k8sApiModule = "$PSScriptRoot/../../lib\modules\k2s\k2s.cluster.module\k8s-api\
 
 Import-Module $logModule, $k8sApiModule
 
-function Enable-IngressAddon([string]$Ingress) {
-    switch ($Ingress) {
-        'nginx' {
-            &"$PSScriptRoot\..\ingress\nginx\Enable.ps1"
-            break
-        }
-        'traefik' {
-            &"$PSScriptRoot\..\ingress\traefik\Enable.ps1"
-            break
-        }
-    }
-}
-
 <#
 .DESCRIPTION
 Writes the usage notes for dashboard for the user.

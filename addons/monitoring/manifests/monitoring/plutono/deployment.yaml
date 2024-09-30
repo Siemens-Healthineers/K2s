@@ -73,11 +73,9 @@ spec:
                   name: kube-prometheus-stack-plutono
                   key: admin-password
             - name: REQ_URL
-              value: https://localhost:3000/api/admin/provisioning/dashboards/reload
+              value: http://localhost:3000/api/admin/provisioning/dashboards/reload
             - name: REQ_METHOD
               value: POST
-            - name: REQUESTS_CA_BUNDLE
-              value: "/cert/tls.crt"
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
@@ -88,9 +86,6 @@ spec:
           volumeMounts:
             - name: sc-dashboard-volume
               mountPath: "/tmp/dashboards"
-            - name: certs-vol
-              mountPath: "/cert"
-              readOnly: true
         - name: plutono-sc-datasources
           image: "quay.io/kiwigrid/k8s-sidecar:1.24.3"
           imagePullPolicy: IfNotPresent
@@ -116,11 +111,9 @@ spec:
                   name: kube-prometheus-stack-plutono
                   key: admin-password
             - name: REQ_URL
-              value: https://localhost:3000/api/admin/provisioning/datasources/reload
+              value: http://localhost:3000/api/admin/provisioning/datasources/reload
             - name: REQ_METHOD
               value: POST
-            - name: REQUESTS_CA_BUNDLE
-              value: "/cert/tls.crt"
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
@@ -131,9 +124,6 @@ spec:
           volumeMounts:
             - name: sc-datasources-volume
               mountPath: "/etc/plutono/provisioning/datasources"
-            - name: certs-vol
-              mountPath: "/cert"
-              readOnly: true
         - name: plutono
           image: "ghcr.io/credativ/plutono:v7.5.29"
           imagePullPolicy: IfNotPresent
@@ -157,9 +147,6 @@ spec:
               subPath: provider.yaml
             - name: sc-datasources-volume
               mountPath: "/etc/plutono/provisioning/datasources"
-            - name: certs-vol
-              mountPath: "/cert"
-              readOnly: true
           ports:
             - name: grafana
               containerPort: 3000
@@ -198,18 +185,13 @@ spec:
             httpGet:
               path: /api/health
               port: 3000
-              scheme: HTTPS
             initialDelaySeconds: 60
             timeoutSeconds: 30
           readinessProbe:
             httpGet:
               path: /api/health
               port: 3000
-              scheme: HTTPS
       volumes:
-        - name: certs-vol
-          secret:
-            secretName: certs-secret-plutono
         - name: config
           configMap:
             name: kube-prometheus-stack-plutono

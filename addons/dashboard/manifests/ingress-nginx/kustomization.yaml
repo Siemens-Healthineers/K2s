@@ -6,4 +6,4 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 resources:
-- dashboard-nginx-ingress.yaml
+- dashboard-ingress-nginx.yaml

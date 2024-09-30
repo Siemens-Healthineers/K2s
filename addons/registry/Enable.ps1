@@ -38,9 +38,10 @@ $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.m
 $clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $nodeModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.node.module/k2s.node.module.psm1"
 $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
+$addonsIngressModule = "$PSScriptRoot\..\addons.ingress.module.psm1"
 $registryModule = "$PSScriptRoot\registry.module.psm1"
 
-Import-Module $infraModule, $clusterModule, $nodeModule, $addonsModule, $registryModule
+Import-Module $infraModule, $clusterModule, $nodeModule, $addonsModule, $addonsIngressModule, $registryModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
