@@ -1,3 +1,8 @@
+# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+#
+# SPDX-License-Identifier: MIT
+
+---
 # Source: kube-prometheus-stack/templates/grafana/dashboards-1.14/cluster-total.yaml
 apiVersion: v1
 kind: ConfigMap
