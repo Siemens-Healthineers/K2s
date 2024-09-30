@@ -6,7 +6,7 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 namespace: monitoring
 resources:
-- .\dashboards-1.14
+- dashboards.yaml
 - clusterrole.yaml
 - clusterrolebinding.yaml
 - configmap-dashboard-provider.yaml
