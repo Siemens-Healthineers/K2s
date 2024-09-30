@@ -31,9 +31,5 @@ function Write-UsageForUser {
  kubectl -n monitoring port-forward svc/kube-prometheus-stack-plutono 3000:80
  
  In this case, the plutono dashboard will be accessible on the following URL: http://localhost:3000/monitoring
- 
- On opening the URL in the browser, the login page appears.
- username: admin
- password: admin
 '@ -split "`r`n" | ForEach-Object { Write-Log $_ -Console }
 }
