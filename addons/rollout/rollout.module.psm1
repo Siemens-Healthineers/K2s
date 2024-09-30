@@ -24,7 +24,7 @@ Contains common methods for installing and uninstalling the rollout addon
 Gets the location of manifests to deploy ArgoCD
 #>
 function Get-RolloutConfig {
-    return "$PSScriptRoot\manifests\argocd\overlay"
+    return "$PSScriptRoot\manifests\rollout\overlay"
 }
 
 <#
@@ -43,23 +43,6 @@ Gets the location of traefik ingress yaml to expose the ArgoCD dasboard
 function Get-RolloutDashboardTraefikConfig {
     return "$PSScriptRoot\manifests\rollout-traefik-ingress.yaml"
     
-}
-
-<#
-.DESCRIPTION
-Enables a ingress addon based on the input
-#>
-function Enable-IngressAddon([string]$Ingress) {
-    switch ($Ingress) {
-        'nginx' {
-            &"$PSScriptRoot\..\ingress\nginx\Enable.ps1"
-            break
-        }
-        'traefik' {
-            &"$PSScriptRoot\..\ingress\traefik\Enable.ps1"
-            break
-        }
-    }
 }
 
 <#

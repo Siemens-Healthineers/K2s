@@ -9,19 +9,6 @@ $k8sApiModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k8s-api/
 
 Import-Module $logModule, $k8sApiModule
 
-function Enable-IngressAddon([string]$Ingress) {
-    switch ($Ingress) {
-        'nginx' {
-            &"$PSScriptRoot\..\ingress\nginx\Enable.ps1"
-            break
-        }
-        'traefik' {
-            &"$PSScriptRoot\..\ingress\traefik\Enable.ps1"
-            break
-        }
-    }
-}
-
 <#
 .DESCRIPTION
 Writes the usage notes for dashboard for the user.
@@ -41,9 +28,9 @@ function Write-UsageForUser {
  The plutono dashboard will be accessible on the following URL: https://k2s.cluster.local/monitoring
  Option 2: Port-forwading
  Use port-forwarding to the plutono dashboard using the command below:
- kubectl -n monitoring port-forward svc/kube-prometheus-stack-plutono 3000:443
+ kubectl -n monitoring port-forward svc/kube-prometheus-stack-plutono 3000:80
  
- In this case, the plutono dashboard will be accessible on the following URL: https://localhost:3000/monitoring
+ In this case, the plutono dashboard will be accessible on the following URL: http://localhost:3000/monitoring
  
  On opening the URL in the browser, the login page appears.
  username: admin

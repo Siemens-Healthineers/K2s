@@ -119,10 +119,8 @@ var _ = Describe("'dashboard' addon", Ordered, func() {
 				Expect(httpStatus).To(ContainSubstring("200"))
 			})
 
-			It("prints 'updating' message when enabling the addon again and remains enabled", func(ctx context.Context) {
+			It("prints already-enabled message when enabling the addon again and exits with non-zero", func(ctx context.Context) {
 				expectAddonToBeAlreadyEnabled(ctx)
-				addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
-				Expect(addonsStatus.IsAddonEnabled("dashboard", "")).To(BeTrue())
 			})
 
 			It("prints the status", func(ctx context.Context) {
@@ -168,10 +166,8 @@ var _ = Describe("'dashboard' addon", Ordered, func() {
 				Expect(httpStatus).To(ContainSubstring("200"))
 			})
 
-			It("prints 'updating' message when enabling the addon again and remains enabled", func(ctx context.Context) {
+			It("prints already-enabled message when enabling the addon again and exits with non-zero", func(ctx context.Context) {
 				expectAddonToBeAlreadyEnabled(ctx)
-				addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
-				Expect(addonsStatus.IsAddonEnabled("dashboard", "")).To(BeTrue())
 			})
 
 			It("prints the status", func(ctx context.Context) {
@@ -217,10 +213,8 @@ var _ = Describe("'dashboard' addon", Ordered, func() {
 				Expect(httpStatus).To(ContainSubstring("200"))
 			})
 
-			It("prints 'updating' message when enabling the addon again and remains enabled", func(ctx context.Context) {
+			It("prints already-enabled message when enabling the addon again and exits with non-zero", func(ctx context.Context) {
 				expectAddonToBeAlreadyEnabled(ctx)
-				addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
-				Expect(addonsStatus.IsAddonEnabled("dashboard", "")).To(BeTrue())
 			})
 
 			It("prints the status", func(ctx context.Context) {
@@ -231,8 +225,9 @@ var _ = Describe("'dashboard' addon", Ordered, func() {
 })
 
 func expectAddonToBeAlreadyEnabled(ctx context.Context) {
-	output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeSuccess, "addons", "enable", "dashboard")
-	Expect(output).To(ContainSubstring("Updating Kubernetes dashboard"))
+	output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "enable", "dashboard")
+
+	Expect(output).To(ContainSubstring("already enabled"))
 }
 
 func expectStatusToBePrinted(ctx context.Context) {

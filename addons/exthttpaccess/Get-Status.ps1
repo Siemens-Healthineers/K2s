@@ -4,9 +4,9 @@
 
 #Requires -RunAsAdministrator
 
-$commonModule = "$PSScriptRoot\common.module.psm1"
+$exthttpaccessModule = "$PSScriptRoot\exthttpaccess.module.psm1"
 
-Import-Module $commonModule
+Import-Module $exthttpaccessModule
 
 $serviceName = Get-ServiceName
 

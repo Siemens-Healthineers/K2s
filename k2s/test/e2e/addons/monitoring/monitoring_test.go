@@ -90,10 +90,10 @@ var _ = Describe("'monitoring' addon", Ordered, func() {
 
 		It("is reachable through port forwarding", func(ctx context.Context) {
 			kubectl := path.Join(suite.RootDir(), "bin", "kube", "kubectl.exe")
-			portForwarding := exec.Command(kubectl, "-n", "monitoring", "port-forward", "svc/kube-prometheus-stack-plutono", "3000:443")
+			portForwarding := exec.Command(kubectl, "-n", "monitoring", "port-forward", "svc/kube-prometheus-stack-plutono", "3000:80")
 			portForwardingSession, _ = gexec.Start(portForwarding, GinkgoWriter, GinkgoWriter)
 
-			url := "https://localhost:3000/monitoring/login"
+			url := "http://localhost:3000/monitoring/login"
 			httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-I", "-m", "5", "--retry", "10", "--fail")
 			Expect(httpStatus).To(ContainSubstring("200"))
 		})
