@@ -96,12 +96,6 @@ $rolloutConfig = Get-RolloutConfig
 
 Update-IngressForAddon -Addon ([pscustomobject] @{Name = 'rollout' })
 
-$binPath = Get-KubeBinPath
-if (!(Test-Path "$binPath\argocd.exe")) {
-    Write-Log "Downloading ArgoCD binary with version $VERSION_ARGOCD"
-    Invoke-DownloadFile "$binPath\argocd.exe" "https://github.com/argoproj/argo-cd/releases/download/$VERSION_ARGOCD/argocd-windows-amd64.exe" $true -ProxyToUse $Proxy
-}
-
 Write-Log 'Waiting for pods being ready...' -Console
 
 $kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'deployments', '-n', $rolloutNamespace, '--timeout=300s')
@@ -136,18 +130,13 @@ if ($Ingress -ne 'none') {
     Enable-IngressAddon -Ingress:$Ingress
 }
 
-$ArgoCD_Password_output = &"$binPath\argocd.exe" admin initial-password -n $rolloutNamespace
-
-$pattern = '^\S+' # Match first squence of non-whitespace characters
-$ARGOCD_Password = [regex]::Match($ArgoCD_Password_output, $pattern).Value
-
 (Invoke-Kubectl -Params 'delete', 'secret', 'argocd-initial-secret', '-n', $rolloutNamespace).Output | Write-Log
 
 Write-Log 'Installation of rollout addon finished.' -Console
 
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'rollout' })
 
-Write-UsageForUser $ARGOCD_Password
+Write-UsageForUser
 
 if ($EncodeStructuredOutput -eq $true) {
     Send-ToCli -MessageType $MessageType -Message @{Error = $null }
