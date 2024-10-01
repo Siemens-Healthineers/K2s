@@ -383,7 +383,9 @@ function Install-DnsServer {
     Write-Log 'Remove existing DNS server'
     &$executeRemoteCommand 'sudo systemctl disable systemd-resolved' 
     &$executeRemoteCommand 'sudo systemctl stop systemd-resolved' 
-    &$executeRemoteCommand 'sudo unlink /etc/resolv.conf' 
+    # Throwing error saying unable to unlink. Even though we make the unlink possible we fail at further steps during DNS resolution.
+    # Commenting it out for time being.
+    #&$executeRemoteCommand 'sudo unlink /etc/ resolv.conf' 
 
     Write-Log 'Install custom DNS server'
     &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get install dnsutils --yes' 
