@@ -13,16 +13,6 @@ spec:
   implementations:
     - name: rollout
       description: Automating the deployment/updating of applications
-      offline_usage:
-        linux:
-          repos: []
-          deb: []
-          curl: []
-          additionalImages: []
-        windows:
-          curl:
-            - url: https://github.com/argoproj/argo-cd/releases/download/v2.12.1/argocd-windows-amd64.exe
-              destination: bin\argocd.exe
       commands:
         enable:
           cli:

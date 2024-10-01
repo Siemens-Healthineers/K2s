@@ -13,6 +13,16 @@ data:
   # https://argo-cd.readthedocs.io/en/stable/operator-manual/ingress/#ui-base-path
   server.rootpath: "/rollout"
 ---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/name: argocd-cmd-params-cm
+    app.kubernetes.io/part-of: argocd
+  name: argocd-cmd-params-cm
+data:
+  server.disable.auth: "true"
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:

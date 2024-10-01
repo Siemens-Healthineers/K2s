@@ -72,9 +72,6 @@ Remove-IngressForNginx -Addon ([pscustomobject] @{Name = 'rollout' })
 
 (Invoke-Kubectl -Params 'delete', 'namespace', 'rollout').Output | Write-Log
 
-$binPath = Get-KubeBinPath
-Remove-Item "$binPath\argocd.exe" -Force -ErrorAction SilentlyContinue
-
 Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'rollout' })
 Write-Log 'Uninstallation of rollout addon finished' -Console
 
