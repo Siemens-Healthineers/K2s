@@ -123,7 +123,5 @@ function Write-UsageForUser {
  kubectl -n rollout port-forward svc/argocd-server 8080:443
  
  In this case, the rollout dashboard will be accessible on the following URL: https://localhost:8080/rollout
-
- Please change the password immediately, this can be done via the dashboard or via the cli with: argocd account update-password
 "@ -split "`r`n" | ForEach-Object { Write-Log $_ -Console }
 }
