@@ -16,7 +16,7 @@ import (
 	"github.com/siemens-healthineers/k2s/internal/core/users/k8s/kubeconfig"
 	"github.com/siemens-healthineers/k2s/internal/reflection"
 	"github.com/stretchr/testify/mock"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 )
 
 type cmdExecutorMock struct {
