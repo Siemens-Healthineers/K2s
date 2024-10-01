@@ -105,9 +105,6 @@ function Restore-AddonData {
     Remove-Item -Path "$BackupDir\rollout-backup.yaml" -Force -ErrorAction SilentlyContinue
 }
 function Write-UsageForUser {
-    param (
-        [String]$ARGOCD_Password
-    )
     @"
                                         USAGE NOTES
  To open rollout dashboard, please use one of the options:
@@ -126,16 +123,6 @@ function Write-UsageForUser {
  kubectl -n rollout port-forward svc/argocd-server 8080:443
  
  In this case, the rollout dashboard will be accessible on the following URL: https://localhost:8080/rollout
- 
- On opening the URL in the browser, the login page appears.
- username: admin
- password: $ARGOCD_Password
-
- To use the argo cli please login with: 
- Option 1: When ingress is enabled
- argocd login k2s.cluster.local:443 --grpc-web-root-path "rollout"
- Option 2: When using port-forwading
- argocd login localhost:8080 --grpc-web-root-path "rollout"
 
  Please change the password immediately, this can be done via the dashboard or via the cli with: argocd account update-password
 "@ -split "`r`n" | ForEach-Object { Write-Log $_ -Console }
