@@ -32,7 +32,7 @@ on:
       - '.vscode/**'
 
 env:
-  GOVERSION: "1.23.1"
+  GOVERSION: "1.23.2"
 
 jobs:
   run-unit-tests:
