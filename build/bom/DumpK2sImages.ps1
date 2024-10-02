@@ -42,7 +42,7 @@ if (Test-Path -Path $finalJsonFile) {
 
 # Read the static images
 $staticImages = Get-Content -Path "$global:KubernetesPath\build\bom\images\static-images.txt"
-$images = @()
+$images = New-Object System.Collections.Generic.List[System.Object]
 
 foreach ($manifest in $addonManifests) {
     $files = Get-Childitem -recurse $manifest.dir.path | Where-Object { $_.Name -match '.*.yaml$' } | ForEach-Object { $_.Fullname }
@@ -50,20 +50,23 @@ foreach ($manifest in $addonManifests) {
     foreach ($file in $files) {
         $imageLines = Get-Content $file | Select-String 'image:' | Select-Object -ExpandProperty Line
         foreach ($imageLine in $imageLines) {
-            $images += (($imageLine -split 'image: ')[1] -split '#')[0]
+            $singleImage = (($imageLine -split 'image: ')[1] -split '#')[0]
+            # add the image to the list
+            $images.Add("$singleImage")
         }
     }
 
     if ($null -ne $manifest.spec.offline_usage) {
         $linuxPackages = $manifest.spec.offline_usage.linux
         $additionImages = $linuxPackages.additionalImages
-        $images += $additionImages
+        $images.Add($additionImages)
     }
 
-    $images = $images | Select-Object -Unique | Where-Object { $_ -ne '' } | ForEach-Object { $_.Trim("`"'") }
+    #$images = $images | Select-Object -Unique | Where-Object { $_ -ne '' } | ForEach-Object { $_.Trim("`"'") }
 }
 
 $finalImages = ($staticImages + $images) | Select-Object -Unique
+
 $imageDetailsArray = New-Object System.Collections.ArrayList
 
 foreach ($image in $finalImages) {
