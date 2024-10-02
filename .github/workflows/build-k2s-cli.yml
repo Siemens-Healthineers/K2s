@@ -17,7 +17,7 @@ on:
       - '!k2s/test/**'
 
 env:
-  GOVERSION: "1.22.3"
+  GOVERSION: "1.23.2"
 
 jobs:
   build-k2s-cli:
