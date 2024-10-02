@@ -144,10 +144,10 @@ function Connect-Nerdctl {
     while ($retries -gt 0) {
         $retries--
         if ($username -eq '' -and $password -eq '') {
-            $success = $(&$nerdctlExe login $registry 2>$null | % { $_ -match 'Login Succeeded' })
+            $success = $(&$nerdctlExe -n="k8s.io" --insecure-registry login $registry 2>$null | % { $_ -match 'Login Succeeded' })
         }
         else {
-            $success = $(&$nerdctlExe login -u $username -p $password $registry 2>$null | % { $_ -match 'Login Succeeded' })
+            $success = $(&$nerdctlExe -n="k8s.io" --insecure-registry login -u $username -p $password $registry 2>$null | % { $_ -match 'Login Succeeded' })
         }
 
         if ($success) {
