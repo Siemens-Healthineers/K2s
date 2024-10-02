@@ -6,10 +6,10 @@
 
 <#
 .SYNOPSIS
-Add access to a registry 
+Add access to a registry
 
 .DESCRIPTION
-Add access to a registry 
+Add access to a registry
 
 .PARAMETER RegistryName
 The name of the registry to be added
@@ -24,7 +24,7 @@ The path where the image sould be exported
 Show all logs in terminal
 
 .EXAMPLE
-# Add registry 
+# Add registry
 PS> .\Add-Registry.ps1 -RegistryName "myregistry"
 
 .EXAMPLE
@@ -118,17 +118,7 @@ if (!$?) {
 
 $authJson = (Invoke-CmdOnControlPlaneViaSSHKey 'sudo cat /root/.config/containers/auth.json').Output | Out-String
 
-# Add dockerd parameters and restart docker daemon to push nondistributable artifacts and use insecure registry
-$storageLocalDrive = Get-StorageLocalDrive
-nssm set docker AppParameters --exec-opt isolation=process --data-root "$storageLocalDrive\docker" --log-level debug --allow-nondistributable-artifacts "$RegistryName" --insecure-registry "$RegistryName" | Out-Null
-if (Get-IsNssmServiceRunning('docker')) {
-    Restart-NssmService('docker')
-}
-else {
-    Start-NssmService('docker')
-}
-
-Connect-Docker -username $username -password $password -registry $RegistryName
+Connect-Nerdctl -username $username -password $password -registry $RegistryName
 
 # set authentification for containerd
 Add-RegistryToContainerdConf -RegistryName $RegistryName -authJson $authJson
