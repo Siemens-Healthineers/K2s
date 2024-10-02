@@ -162,7 +162,7 @@ if ($buildArgsString -ne '') {
 $InputFolder = [System.IO.Path]::GetFullPath($InputFolder)
 
 $kubeBinPath = Get-KubeBinPath
-$dockerExe = "$kubeBinPath\docker\docker.exe"
+$nerdctlExe = "$kubeBinPath\nerdctl.exe"
 
 $dockerfileAbsoluteFp, $PreCompile = Get-DockerfileAbsolutePathAndPreCompileFlag -InputFolder $InputFolder -Dockerfile $Dockerfile -PreCompile:$PreCompile
 
@@ -455,7 +455,7 @@ if ($Push) {
 
     $success = $false
     if ($Windows) {
-        &$dockerExe push "${ImageName}:$ImageTag" 2>&1
+        $(&$nerdctlExe -n="k8s.io" --insecure-registry image push "${ImageName}:$ImageTag" --allow-nondistributable-artifacts --quiet 2>&1) | Out-String
         $success = $?
     }
     else {
