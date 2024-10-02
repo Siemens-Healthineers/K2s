@@ -57,24 +57,14 @@ if ($registries) {
     if ($registries.Contains($RegistryName)) {
         Connect-Buildah -registry $RegistryName
 
-        # Add dockerd parameters and restart docker daemon to push nondistributable artifacts and use insecure registry
-        $storageLocalDrive = Get-StorageLocalDrive
-        nssm set docker AppParameters --exec-opt isolation=process --data-root "$storageLocalDrive\docker" --log-level debug --allow-nondistributable-artifacts "$RegistryName" --insecure-registry "$RegistryName" | Out-Null
-        if (Get-IsNssmServiceRunning('docker')) {
-            Restart-NssmService('docker')
-        }
-        else {
-            Start-NssmService('docker')
-        }
-
-        Connect-Docker -registry $RegistryName
+        Connect-Nerdctl -registry $RegistryName
 
         Set-ConfigLoggedInRegistry -Value $RegistryName
 
         Write-Log "Login to '$RegistryName' was successful." -Console
     }
     else {
-        $errMsg = "Registry $RegistryName not configured, please add it first."    
+        $errMsg = "Registry $RegistryName not configured, please add it first."
         if ($EncodeStructuredOutput -eq $true) {
             $err = New-Error -Severity Warning -Code 'registry-not-configured' -Message $errMsg
             Send-ToCli -MessageType $MessageType -Message @{Error = $err }
@@ -85,7 +75,7 @@ if ($registries) {
     }
 }
 else {
-    Write-Log 'No registries configured!' -Console$errMsg = 'No registries configured.'    
+    Write-Log 'No registries configured!' -Console$errMsg = 'No registries configured.'
     if ($EncodeStructuredOutput -eq $true) {
         $err = New-Error -Severity Warning -Code 'no-registry-configured' -Message $errMsg
         Send-ToCli -MessageType $MessageType -Message @{Error = $err }
