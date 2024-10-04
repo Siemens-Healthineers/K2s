@@ -111,8 +111,9 @@ function Install-WinDocker {
 
 
         if ($Proxy -eq '') {
-            # If present get proxy from containerd which should be set already during install
-            $Proxy = &$kubeBinPath\nssm get containerd AppEnvironmentExtra HTTP_PROXY
+            # If not present get proxy from configuration
+            $kubeSwitchIP = Get-ConfiguredKubeSwitchIP
+            $Proxy = "http://$($kubeSwitchIP):8181"
         }
 
         if ( $Proxy -ne '' ) {
@@ -124,6 +125,7 @@ function Install-WinDocker {
 
             $NoProxy = "localhost,$ipControlPlane,10.81.0.0/16,$clusterCIDR,$clusterCIDRServices,$ipControlPlaneCIDR,.local"
             &$kubeBinPath\nssm set docker AppEnvironmentExtra HTTP_PROXY=$Proxy HTTPS_PROXY=$Proxy NO_PROXY=$NoProxy | Out-Null
+            &$kubeBinPath\nssm get docker AppEnvironmentExtra
         }
     }
 
