@@ -59,9 +59,15 @@ function Install-WinDocker {
         [string] $Proxy = ''
     )
 
+    $WinBuildEnabled = Get-ConfigWinBuildEnabledFlag
+    if ($WinBuildEnabled) {
+        Write-Log 'docker is installed from K2s already, nothing to do.'
+        return
+    }
+
     if ((Get-Service 'docker' -ErrorAction SilentlyContinue)) {
-        Write-Log 'dockerd service found, please uninstall first'
-        throw 'dockerd service found. Please uninstall first in order to continue!'
+        Write-Log 'Found existing dockerd service, nothing to do'
+        return
     }
 
     if (Get-Service docker -ErrorAction SilentlyContinue) {
@@ -102,6 +108,12 @@ function Install-WinDocker {
         &$kubeBinPath\nssm set docker AppRotateOnline 1 | Out-Null
         &$kubeBinPath\nssm set docker AppRotateSeconds 0 | Out-Null
         &$kubeBinPath\nssm set docker AppRotateBytes 500000 | Out-Null
+
+
+        if ($Proxy -eq '') {
+            # If present get proxy from containerd which should be set already during install
+            $Proxy = &$kubeBinPath\nssm get containerd AppEnvironmentExtra HTTP_PROXY
+        }
 
         if ( $Proxy -ne '' ) {
             Write-Log("Setting proxy for docker: $Proxy")
@@ -145,6 +157,8 @@ function Install-WinDocker {
     if ($null -ne $ipindex2) {
         Set-NetIPInterface -InterfaceIndex $ipindex2 -InterfaceMetric 6000
     }
+
+    Set-ConfigWinBuildEnabledFlag -Value $([bool]$true)
 
     Write-Log 'Docker Install Finished'
 }

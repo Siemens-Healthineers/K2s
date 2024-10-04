@@ -60,6 +60,10 @@ Write-Output " - allow insecure registries: $AllowInsecureRegistries"
 
 Import-Module "$PSScriptRoot\..\docker\docker.module.psm1", "$PSScriptRoot\windows-support.module.psm1"
 
+Install-WinDocker
+
+Start-Service docker
+
 Set-DockerToExpermental
 
 Start-DockerLogin -Registry $Registry -RegUser $RegUser -RegPw $RegPw
@@ -71,11 +75,11 @@ Set-Location $PSScriptRoot
 try {
     if ($Name.StartsWith('/') -ne $true) {
         $Name = "/$($Name)"
-    }    
+    }
 
     $aggregateTag = "$($Registry)$($Name):$($Tag)"
 
-    Write-Output "Creating images and manifest for tag '$aggregateTag'.."   
+    Write-Output "Creating images and manifest for tag '$aggregateTag'.."
 
     $versions = Get-WindowsImageVersions
 
@@ -97,7 +101,7 @@ try {
         Write-Output "  Annotating manifest '$aggregateTag' with '$targetTag', OS '$($version.OS)', arch '$($version.Arch)' and OS version '$($version.OSVersion)'.."
 
         New-DockerManifestAnnotation -Tag $aggregateTag -AmmendTag $targetTag -OS $version.OS -Arch $version.Arch -OSVersion $version.OSVersion
-    }    
+    }
 
     Write-Output "  Pushing manifest for '$aggregateTag' to '$Registry'.."
 

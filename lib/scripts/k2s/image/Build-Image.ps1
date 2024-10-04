@@ -404,6 +404,7 @@ else {
 
 # Windows container
 if ($Windows) {
+    Install-WinDocker
     New-WindowsImage -InputFolder $InputFolder -Dockerfile 'Dockerfile.ForBuild.tmp' -ImageName $ImageName -ImageTag $ImageTag -NoCacheFlag $NoCacheFlag -BuildArgsString $buildArgsString
 }
 else {

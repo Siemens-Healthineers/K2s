@@ -355,6 +355,20 @@ function Set-ConfigWslFlag {
     Set-ConfigValue -Path $SetupJsonFile -Key 'WSL' -Value $Value
 }
 
+
+# Windows container image build is enabled or disabled. If enabled docker is installed.
+function Get-ConfigWinBuildEnabledFlag {
+    return Get-ConfigValue -Path $SetupJsonFile -Key 'WinBuildEnabled'
+}
+
+function Set-ConfigWinBuildEnabledFlag {
+    param (
+        [object] $Value = $(throw 'Please provide the config value.')
+    )
+    Set-ConfigValue -Path $SetupJsonFile -Key 'WinBuildEnabled' -Value $Value
+}
+
+
 function Get-ConfigLinuxOsType {
     return Get-ConfigValue -Path $SetupJsonFile -Key 'LinuxOs'
 }
@@ -539,4 +553,6 @@ Get-LinuxLocalSharePath,
 Get-WindowsLocalSharePath,
 Get-ReuseExistingLinuxComputerForMasterNodeFlag,
 Get-ControlPlaneNodeWslSwitchName,
-Get-WindowsVmIpAddress
+Get-WindowsVmIpAddress,
+Get-ConfigWinBuildEnabledFlag,
+Set-ConfigWinBuildEnabledFlag
