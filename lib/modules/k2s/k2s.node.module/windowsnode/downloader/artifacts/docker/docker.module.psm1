@@ -75,14 +75,6 @@ function Install-WinDocker {
         Stop-Service docker
     }
 
-    $dockerConfigDir = Get-ConfiguredDockerConfigDir
-
-
-    if (Test-Path $dockerConfigDir) {
-        $newName = $dockerConfigDir + '_' + $( Get-Date -Format yyyy-MM-dd_HHmmss )
-        Write-Log ("Saving: $dockerConfigDir to $newName")
-        Rename-Item $dockerConfigDir -NewName $newName
-    }
 
     # Register the Docker daemon as a service.
     $serviceName = 'docker'
