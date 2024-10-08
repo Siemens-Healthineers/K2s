@@ -340,7 +340,6 @@ function Install-WinNodeArtifacts {
     )
 
     Invoke-DeployDockerArtifacts $windowsNodeArtifactsDirectory
-    Install-WinDocker -Proxy "$Proxy"
 
     Install-WinContainerd -Proxy "$Proxy" -SkipNetworkingSetup:$SkipClusterSetup -WindowsNodeArtifactsDirectory $windowsNodeArtifactsDirectory -PodSubnetworkNumber $PodSubnetworkNumber
 
@@ -414,10 +413,10 @@ function Get-WindowsArtifactsDirectory {
     return $windowsNodeArtifactsDirectory
 }
 
-Export-ModuleMember Invoke-DeployWinArtifacts, 
-Invoke-DownloadsCleanup, 
-Install-WinNodeArtifacts, 
-Get-WindowsNodeArtifactsZipFilePath, 
-Install-PuttyTools, 
-Install-KubectlTool, 
+Export-ModuleMember Invoke-DeployWinArtifacts,
+Invoke-DownloadsCleanup,
+Install-WinNodeArtifacts,
+Get-WindowsNodeArtifactsZipFilePath,
+Install-PuttyTools,
+Install-KubectlTool,
 Get-WindowsArtifactsDirectory

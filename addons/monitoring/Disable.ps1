@@ -22,8 +22,9 @@ Param(
 $clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
+$addonsIngressModule = "$PSScriptRoot\..\addons.ingress.module.psm1"
 
-Import-Module $clusterModule, $infraModule, $addonsModule
+Import-Module $clusterModule, $infraModule, $addonsModule, $addonsIngressModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -55,9 +56,11 @@ if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'monitoring', '--ignor
     exit 1
 }
 
-$manifestsPath = "$PSScriptRoot\manifests"
+$manifestsPath = "$PSScriptRoot\manifests\monitoring"
 
 Write-Log 'Uninstalling Kube Prometheus Stack' -Console
+Remove-IngressForTraefik -Addon ([pscustomobject] @{Name = 'monitoring' })
+Remove-IngressForNginx -Addon ([pscustomobject] @{Name = 'monitoring' })
 (Invoke-Kubectl -Params 'delete', '-k', $manifestsPath).Output | Write-Log
 (Invoke-Kubectl -Params 'delete', '-f', "$manifestsPath\crds").Output | Write-Log
 (Invoke-Kubectl -Params 'delete', '-f', "$manifestsPath\namespace.yaml").Output | Write-Log

@@ -40,10 +40,11 @@ Param (
 $clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
+$addonsIngressModule = "$PSScriptRoot\..\addons.ingress.module.psm1"
 $nodeModule = "$PSScriptRoot/../../lib\modules\k2s\k2s.node.module\k2s.node.module.psm1"
 $rolloutModule = "$PSScriptRoot\rollout.module.psm1"
 
-Import-Module $clusterModule, $infraModule, $addonsModule, $nodeModule, $rolloutModule
+Import-Module $clusterModule, $infraModule, $addonsModule, $addonsIngressModule, $nodeModule, $rolloutModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -93,11 +94,7 @@ Write-Log 'Installing rollout addon' -Console
 $rolloutConfig = Get-RolloutConfig
 (Invoke-Kubectl -Params 'apply' , '-n', $rolloutNamespace, '-k', $rolloutConfig).Output | Write-Log
 
-$binPath = Get-KubeBinPath
-if (!(Test-Path "$binPath\argocd.exe")) {
-    Write-Log "Downloading ArgoCD binary with version $VERSION_ARGOCD"
-    Invoke-DownloadFile "$binPath\argocd.exe" "https://github.com/argoproj/argo-cd/releases/download/$VERSION_ARGOCD/argocd-windows-amd64.exe" $true -ProxyToUse $Proxy
-}
+Update-IngressForAddon -Addon ([pscustomobject] @{Name = 'rollout' })
 
 Write-Log 'Waiting for pods being ready...' -Console
 
@@ -133,18 +130,13 @@ if ($Ingress -ne 'none') {
     Enable-IngressAddon -Ingress:$Ingress
 }
 
-$ArgoCD_Password_output = &"$binPath\argocd.exe" admin initial-password -n $rolloutNamespace
-
-$pattern = '^\S+' # Match first squence of non-whitespace characters
-$ARGOCD_Password = [regex]::Match($ArgoCD_Password_output, $pattern).Value
-
 (Invoke-Kubectl -Params 'delete', 'secret', 'argocd-initial-secret', '-n', $rolloutNamespace).Output | Write-Log
 
 Write-Log 'Installation of rollout addon finished.' -Console
 
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'rollout' })
 
-Write-UsageForUser $ARGOCD_Password
+Write-UsageForUser
 
 if ($EncodeStructuredOutput -eq $true) {
     Send-ToCli -MessageType $MessageType -Message @{Error = $null }

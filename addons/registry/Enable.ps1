@@ -38,9 +38,10 @@ $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.m
 $clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $nodeModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.node.module/k2s.node.module.psm1"
 $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
+$addonsIngressModule = "$PSScriptRoot\..\addons.ingress.module.psm1"
 $registryModule = "$PSScriptRoot\registry.module.psm1"
 
-Import-Module $infraModule, $clusterModule, $nodeModule, $addonsModule, $registryModule
+Import-Module $infraModule, $clusterModule, $nodeModule, $addonsModule, $addonsIngressModule, $registryModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -59,7 +60,7 @@ if ($systemError) {
 
 $setupInfo = Get-SetupInfo
 if ($setupInfo.Name -ne 'k2s') {
-    $err = New-Error -Severity Warning -Code (Get-ErrCodeWrongSetupType) -Message "Addon 'registry' can only be enabled for 'k2s' setup type."  
+    $err = New-Error -Severity Warning -Code (Get-ErrCodeWrongSetupType) -Message "Addon 'registry' can only be enabled for 'k2s' setup type."
     Send-ToCli -MessageType $MessageType -Message @{Error = $err }
     return
 }
@@ -72,7 +73,7 @@ if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'registry' })) -eq $t
         Send-ToCli -MessageType $MessageType -Message @{Error = $err }
         return
     }
-    
+
     Write-Log $errMsg -Error
     exit 1
 }
@@ -202,18 +203,8 @@ Connect-Buildah -username $username -password $password -registry $registryName
 
 $authJson = (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo cat /root/.config/containers/auth.json').Output | Out-String
 
-# Add dockerd parameters and restart docker daemon to push nondistributable artifacts and use insecure registry
 if ($setupInfo.Name -eq 'k2s') {
-    $storageLocalDrive = Get-StorageLocalDrive
-    Set-ServiceProperty -Name 'docker' -PropertyName 'AppParameters' -Value "--exec-opt isolation=process --data-root ""$storageLocalDrive\docker"" --log-level debug --allow-nondistributable-artifacts $registryName --insecure-registry $registryName"
-    if (Get-IsNssmServiceRunning('docker')) {
-        Restart-NssmService('docker')
-    }
-    else {
-        Start-NssmService('docker')
-    }
-
-    Connect-Docker -username $username -password $password -registry $registryName
+    Connect-Nerdctl -username $username -password $password -registry $registryName
 
     # set authentification for containerd
     Set-Containerd-Config -registryName $registryName -authJson $authJson
@@ -229,22 +220,13 @@ elseif ($setupInfo.Name -eq 'MultiVMK8s' -and $setupInfo.LinuxOnly -ne $true) {
 
         $infraModule = "$env:SystemDrive/k/lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
         $clusterModule = "$env:SystemDrive/k/lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
-        $nodeModule = "$env:SystemDrive/k/lib/modules/k2s/k2s.node.module/k2s.node.module.psm1"       
+        $nodeModule = "$env:SystemDrive/k/lib/modules/k2s/k2s.node.module/k2s.node.module.psm1"
 
         Import-Module $infraModule, $clusterModule, $nodeModule
 
         Initialize-Logging -Nested:$true
 
-        # TODO: --- code clone ---
-        Set-ServiceProperty -Name 'docker' -PropertyName 'AppParameters' -Value "--exec-opt isolation=process --data-root 'C:\docker' --log-level debug --allow-nondistributable-artifacts $using:registryName --insecure-registry $using:registryName"
-        if (Get-IsNssmServiceRunning('docker')) {
-            Restart-NssmService('docker')
-        }
-        else {
-            Start-NssmService('docker')
-        }
-
-        Connect-Docker -username $using:username -password $using:password -registry $using:registryName
+        Connect-Nerdctl -username $using:username -password $using:password -registry $using:registryName
 
         Set-Containerd-Config -registryName $registryName -authJson $authJson
 

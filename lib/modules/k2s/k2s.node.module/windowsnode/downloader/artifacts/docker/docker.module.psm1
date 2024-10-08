@@ -59,9 +59,15 @@ function Install-WinDocker {
         [string] $Proxy = ''
     )
 
+    $WinBuildEnabled = Get-ConfigWinBuildEnabledFlag
+    if ($WinBuildEnabled) {
+        Write-Log 'docker is installed from K2s already, nothing to do.'
+        return
+    }
+
     if ((Get-Service 'docker' -ErrorAction SilentlyContinue)) {
-        Write-Log 'dockerd service found, please uninstall first'
-        throw 'dockerd service found. Please uninstall first in order to continue!'
+        Write-Log 'Found existing dockerd service, nothing to do'
+        return
     }
 
     if (Get-Service docker -ErrorAction SilentlyContinue) {
@@ -69,14 +75,6 @@ function Install-WinDocker {
         Stop-Service docker
     }
 
-    $dockerConfigDir = Get-ConfiguredDockerConfigDir
-
-
-    if (Test-Path $dockerConfigDir) {
-        $newName = $dockerConfigDir + '_' + $( Get-Date -Format yyyy-MM-dd_HHmmss )
-        Write-Log ("Saving: $dockerConfigDir to $newName")
-        Rename-Item $dockerConfigDir -NewName $newName
-    }
 
     # Register the Docker daemon as a service.
     $serviceName = 'docker'
@@ -103,6 +101,13 @@ function Install-WinDocker {
         &$kubeBinPath\nssm set docker AppRotateSeconds 0 | Out-Null
         &$kubeBinPath\nssm set docker AppRotateBytes 500000 | Out-Null
 
+
+        if ($Proxy -eq '') {
+            # If not present get proxy from configuration
+            $kubeSwitchIP = Get-ConfiguredKubeSwitchIP
+            $Proxy = "http://$($kubeSwitchIP):8181"
+        }
+
         if ( $Proxy -ne '' ) {
             Write-Log("Setting proxy for docker: $Proxy")
             $ipControlPlane = Get-ConfiguredIPControlPlane
@@ -112,6 +117,7 @@ function Install-WinDocker {
 
             $NoProxy = "localhost,$ipControlPlane,10.81.0.0/16,$clusterCIDR,$clusterCIDRServices,$ipControlPlaneCIDR,.local"
             &$kubeBinPath\nssm set docker AppEnvironmentExtra HTTP_PROXY=$Proxy HTTPS_PROXY=$Proxy NO_PROXY=$NoProxy | Out-Null
+            &$kubeBinPath\nssm get docker AppEnvironmentExtra
         }
     }
 
@@ -146,6 +152,8 @@ function Install-WinDocker {
         Set-NetIPInterface -InterfaceIndex $ipindex2 -InterfaceMetric 6000
     }
 
+    Set-ConfigWinBuildEnabledFlag -Value $([bool]$true)
+
     Write-Log 'Docker Install Finished'
 }
 
@@ -157,7 +165,9 @@ function Uninstall-WinDocker {
     $dockerDir = "$kubeBinPath\docker"
     $dockerExe = "$dockerDir\docker.exe"
 
-    if (Test-Path $dockerExe) {
+    $WinBuildEnabled = Get-ConfigWinBuildEnabledFlag
+
+    if ((Test-Path $dockerExe) -and $($WinBuildEnabled)) {
         if (Get-Service 'docker' -ErrorAction SilentlyContinue) {
             # only remove docker service if it is not from DockerDesktop
             Stop-ServiceProcess 'docker' 'dockerd'
@@ -179,8 +189,11 @@ function Uninstall-WinDocker {
 
         $dockerConfigDir = Get-ConfiguredDockerConfigDir
         if (Test-Path $dockerConfigDir) {
+            $newName = $dockerConfigDir + '_' + $( Get-Date -Format yyyy-MM-dd_HHmmss )
+            Write-Log "Saving: $dockerConfigDir to $newName"
+            Rename-Item $dockerConfigDir -NewName $newName
             Write-Log "Removing: $dockerConfigDir"
-            Remove-Item $dockerConfigDir -Recurse -Force
+            Remove-Item $dockerConfigDir -Recurse -Force -ErrorAction SilentlyContinue
         }
     }
 
@@ -189,10 +202,10 @@ function Uninstall-WinDocker {
         Write-Log 'Removing service: docker'
         Stop-Service -Force -Name 'docker' | Out-Null
         sc.exe delete 'docker' | Out-Null
-    }
 
-    # remove registry key which could remain from different docker installs
-    Remove-Item -Path 'HKLM:\SYSTEM\CurrentControlSet\Services\EventLog\Application\docker' -ErrorAction SilentlyContinue
+        # remove registry key which could remain from different docker installs
+        Remove-Item -Path 'HKLM:\SYSTEM\CurrentControlSet\Services\EventLog\Application\docker' -ErrorAction SilentlyContinue
+    }
 
     if (!$ShallowUninstallation) {
         Remove-Item -Path "$kubePath\smallsetup\docker*.zip" -Force -ErrorAction SilentlyContinue

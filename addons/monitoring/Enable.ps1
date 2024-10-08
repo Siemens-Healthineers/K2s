@@ -27,9 +27,10 @@ Param(
 $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
+$addonsIngressModule = "$PSScriptRoot\..\addons.ingress.module.psm1"
 $monitoringModule = "$PSScriptRoot\monitoring.module.psm1"
 
-Import-Module $infraModule, $clusterModule, $addonsModule, $monitoringModule
+Import-Module $infraModule, $clusterModule, $addonsModule, $addonsIngressModule, $monitoringModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -70,12 +71,14 @@ if ($Ingress -ne 'none') {
     Enable-IngressAddon -Ingress:$Ingress
 }
 
-$manifestsPath = "$PSScriptRoot\manifests"
+$manifestsPath = "$PSScriptRoot\manifests\monitoring"
 
 Write-Log 'Installing Kube Prometheus Stack' -Console
 (Invoke-Kubectl -Params 'apply', '-f', "$manifestsPath\namespace.yaml").Output | Write-Log
 (Invoke-Kubectl -Params 'create', '-f', "$manifestsPath\crds").Output | Write-Log
 (Invoke-Kubectl -Params 'create', '-k', $manifestsPath).Output | Write-Log
+
+Update-IngressForAddon -Addon ([pscustomobject] @{Name = 'monitoring' })
 
 Write-Log 'Waiting for Pods..'
 $kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'deployments', '-n', 'monitoring', '--timeout=180s')

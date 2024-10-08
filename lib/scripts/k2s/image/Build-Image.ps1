@@ -162,7 +162,7 @@ if ($buildArgsString -ne '') {
 $InputFolder = [System.IO.Path]::GetFullPath($InputFolder)
 
 $kubeBinPath = Get-KubeBinPath
-$dockerExe = "$kubeBinPath\docker\docker.exe"
+$nerdctlExe = "$kubeBinPath\nerdctl.exe"
 
 $dockerfileAbsoluteFp, $PreCompile = Get-DockerfileAbsolutePathAndPreCompileFlag -InputFolder $InputFolder -Dockerfile $Dockerfile -PreCompile:$PreCompile
 
@@ -274,10 +274,10 @@ if (!$Windows) {
     }
 }
 
-$GO_VERSION = '1.22.3'
+$GO_VERSION = '1.23.2'
 if ($null -ne $env:GOVERSION -and $env:GOVERSION -ne '') {
     Write-Log "Using local GOVERSION $Env:GOVERSION environment variable from the host machine"
-    # $env:GOVERSION will be go1.22.3, remove the go part.
+    # $env:GOVERSION will be go1.23.2, remove the go part.
     $GO_VERSION = $env:GOVERSION -split 'go' | Select-Object -Last 1
 }
 
@@ -404,6 +404,7 @@ else {
 
 # Windows container
 if ($Windows) {
+    Install-WinDocker
     New-WindowsImage -InputFolder $InputFolder -Dockerfile 'Dockerfile.ForBuild.tmp' -ImageName $ImageName -ImageTag $ImageTag -NoCacheFlag $NoCacheFlag -BuildArgsString $buildArgsString
 }
 else {
@@ -440,7 +441,7 @@ if ($Push) {
         &"$PSScriptRoot\registry\Switch-Registry.ps1" -RegistryName $registry
     }
     else {    
-        $errMsg = "Unable to push the built container image, Registry is not configured in k2s! You can add it: k2s image registry add <registry_name>"
+        $errMsg = 'Unable to push the built container image, Registry is not configured in k2s! You can add it: k2s image registry add <registry_name>'
         if ($EncodeStructuredOutput -eq $true) {
             $err = New-Error -Code 'build-image-failed' -Message $errMsg
             Send-ToCli -MessageType $MessageType -Message @{Error = $err }
@@ -449,13 +450,13 @@ if ($Push) {
 
         Write-Log $errMsg -Error
         exit 1
-}
+    }
 
     Write-Log "Trying to push image ${ImageName}:$ImageTag to repository" -Console
 
     $success = $false
     if ($Windows) {
-        &$dockerExe push "${ImageName}:$ImageTag" 2>&1
+        $(&$nerdctlExe -n="k8s.io" --insecure-registry image push "${ImageName}:$ImageTag" --allow-nondistributable-artifacts --quiet 2>&1) | Out-String
         $success = $?
     }
     else {
