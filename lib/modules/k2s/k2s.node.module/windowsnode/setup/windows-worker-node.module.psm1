@@ -116,7 +116,7 @@ function Stop-WindowsWorkerNodeOnWindowsHost {
     route delete $clusterCIDRServicesWindows >$null 2>&1
 
     Remove-VfpRulesFromWindowsNode
-   
+
     Write-Log 'K2s worker node on Windows host stopped.'
 }
 
@@ -133,20 +133,20 @@ function Remove-WindowsWorkerNodeOnWindowsHost {
     if ($SkipHeaderDisplay -eq $false) {
         Write-Log 'Removing K2s worker node on Windows host from cluster'
     }
-    
+
     Write-Log 'Remove external switch'
     Remove-ExternalSwitch
-   
+
     Write-Log 'Uninstall the worker node artifacts from the Windows host'
     Uninstall-WinNode -ShallowUninstallation $SkipPurge
-    
+
     Write-Log 'Uninstall the loopback adapter'
     Uninstall-LoopbackAdapter
-    
+
     Write-Log 'Remove vfp rules'
     Remove-VfpRulesFromWindowsNode
 
-    Write-Log 'Uninstalling K2s worker node on Windows host done.'  
+    Write-Log 'Uninstalling K2s worker node on Windows host done.'
 }
 
 function Start-WindowsWorkerNode {
@@ -196,7 +196,7 @@ function Start-WindowsWorkerNode {
     Enable-LoopbackAdapter
 
     Write-Log 'Configuring network for windows node' -Console
-    Restart-WinServiceVmCompute 
+    Restart-WinServiceVmCompute
     Restart-WinService 'hns'
 
     Write-Log 'Figuring out IPv4DefaultGateway'
@@ -212,14 +212,24 @@ function Start-WindowsWorkerNode {
 
     Invoke-Hook -HookName 'BeforeStartK8sNetwork' -AdditionalHooksDir $AdditionalHooksDir
 
-    $ipindexEthernet = Get-NetIPInterface | Where-Object InterfaceAlias -Like "vEthernet ($adapterName)" | Where-Object AddressFamily -Eq IPv4 | Select-Object -expand 'ifIndex'
+    $loopbackAdapterIfIndex = Get-NetIPInterface | Where-Object InterfaceAlias -Like "vEthernet ($adapterName)*" | Where-Object AddressFamily -Eq IPv4 | Select-Object -expand 'ifIndex' -First 1
+    $loopbackAdapterAlias = Get-NetIPInterface | Where-Object InterfaceAlias -Like "vEthernet ($adapterName)*" | Where-Object AddressFamily -Eq IPv4 | Select-Object -expand 'InterfaceAlias' -First 1
+
+    if ($null -eq $loopbackAdapterIfIndex -or $null -eq $loopbackAdapterAlias) {
+        Write-Log "Unable to find the loopback adapter" -Error
+        Write-Log "Found following interfaces:"
+        Get-NetIPInterface | Write-Log
+        throw "Unable to find the loopback adapter"
+    }
+
+    Write-Log "Found Loopback adapter with Alias: '$loopbackAdapterAlias' and ifIndex: '$loopbackAdapterIfIndex'"
     $ipAddressForLoopbackAdapter = Get-LoopbackAdapterIP
-    Set-NetIPInterface -InterfaceIndex $ipindexEthernet -Dhcp Disabled
+    Set-NetIPInterface -InterfaceIndex $loopbackAdapterIfIndex -Dhcp Disabled
     $dnsServersAsArray = $DnsServers -split ','
-    Set-IPAdressAndDnsClientServerAddress -IPAddress $ipAddressForLoopbackAdapter -DefaultGateway $gw -Index $ipindexEthernet -DnsAddresses $dnsServersAsArray
-    Set-InterfacePrivate -InterfaceAlias "vEthernet ($adapterName)"
-    Set-DnsClient -InterfaceIndex $ipindexEthernet -RegisterThisConnectionsAddress $false | Out-Null
-    netsh int ipv4 set int "vEthernet ($adapterName)" forwarding=enabled | Out-Null
+    Set-IPAdressAndDnsClientServerAddress -IPAddress $ipAddressForLoopbackAdapter -DefaultGateway $gw -Index $loopbackAdapterIfIndex -DnsAddresses $dnsServersAsArray
+    Set-InterfacePrivate -InterfaceAlias "$loopbackAdapterAlias"
+    Set-DnsClient -InterfaceIndex $loopbackAdapterIfIndex -RegisterThisConnectionsAddress $false | Out-Null
+    netsh int ipv4 set int "$loopbackAdapterAlias" forwarding=enabled | Out-Null
 
     Write-Log "Ensuring service log directories exists"
     EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\containerd"
@@ -332,7 +342,7 @@ function Stop-WindowsWorkerNode {
     Restart-WinService 'hns'
 
     Invoke-Hook -HookName 'BeforeStopK8sNetwork' -AdditionalHooksDir $AdditionalHooksDir
-    
+
     if (!$CacheK2sVSwitches) {
         # Remove the external switch
         Remove-ExternalSwitch
@@ -359,7 +369,7 @@ function Stop-WindowsWorkerNode {
     Invoke-Hook -HookName 'AfterStopK8sNetwork' -AdditionalHooksDir $AdditionalHooksDir
 
     Disable-LoopbackAdapter
-    
+
     Write-Log 'K2s worker node on Windows host stopped.'
 }
 
@@ -403,7 +413,7 @@ function EnsureDirectoryPathExists(
 }
 
 function Restart-WinServiceVmCompute {
-    # Rationale for the logic used in this function: 
+    # Rationale for the logic used in this function:
     #  if a virtual machine is running under WSL when the Windows service 'vmcompute' is restarted
     #  the Windows host freezes and a blue screen is displayed.
     #  This was observed in Microsoft Windows 10 Version 22H2 (OS Build 19045)
@@ -492,7 +502,7 @@ function Add-WindowsWorkerNodeOnNewVM {
     Invoke-Command -Session $session2 { New-Item -Path $using:target -ItemType Directory }
     Copy-Item -ToSession $session2 -Path "$(Resolve-Path "~\.kube")\config" -Destination "$target\config"
     Write-Log "   done."
-    
+
     $joinCommand = New-JoinCommand
     $kubernetesVersion = Get-DefaultK8sVersion
     $ipControlPlane = Get-ConfiguredIPControlPlane
@@ -500,7 +510,7 @@ function Add-WindowsWorkerNodeOnNewVM {
     Invoke-Command -Session $session2 -WarningAction SilentlyContinue {
         Set-Location $env:SystemDrive\k
         Set-ExecutionPolicy Bypass -Force -ErrorAction SilentlyContinue
-        
+
         Import-Module $env:SystemDrive\k\lib\modules\k2s\k2s.infra.module\k2s.infra.module.psm1
         Import-Module $env:SystemDrive\k\lib\modules\k2s\k2s.node.module\k2s.node.module.psm1
         Import-Module $env:SystemDrive\k\lib\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1
@@ -545,11 +555,11 @@ function Add-WindowsWorkerNodeOnNewVM {
     $windowsVMKey = Get-DefaultWinVMKey
     # Initiate first time ssh to establish connection over key for subsequent operations
     ssh.exe -n -o StrictHostKeyChecking=no -i $windowsVMKey $adminWinNode hostname 2> $null
-   
+
     Disable-PasswordAuthenticationToWinNode
 
     Write-Log "Collecting kubernetes images and storing them to $(Get-KubernetesImagesFilePath)."
-    Write-KubernetesImagesIntoJson -WorkerVM $true 
+    Write-KubernetesImagesIntoJson -WorkerVM $true
 }
 
 function Start-WindowsWorkerNodeOnNewVM {
@@ -588,7 +598,7 @@ function Start-WindowsWorkerNodeOnNewVM {
     } else {
         throw "The VM '$windowsVmName' does not exist"
     }
-   
+
     Wait-ForSSHConnectionToWindowsVMViaSshKey
 
     $session = Open-DefaultWinVMRemoteSessionViaSSHKey
@@ -661,7 +671,7 @@ function Stop-WindowsWorkerNodeOnNewVM {
             Connect-NetworkAdapterToVm -VmName $windowsVmName -SwitchName $SwitchName
             Start-VirtualMachine -VmName $windowsVmName -Wait
         }
-            
+
         Wait-ForSSHConnectionToWindowsVMViaSshKey
 
         $session = Open-DefaultWinVMRemoteSessionViaSSHKey
@@ -722,10 +732,10 @@ function Remove-WindowsWorkerNodeOnNewVM {
         Disconnect-NetworkAdapterFromVm -VmName $VmName
         Remove-VirtualMachine $VmName
     }
-    
+
     $setupConfigRoot = Get-RootConfigk2s
     $clusterCIDRServicesWindows = $setupConfigRoot.psobject.properties['servicesCIDRWindows'].value
-    $clusterCIDRWorker = Get-ConfiguredClusterCIDRNextHop -PodSubnetworkNumber $PodSubnetworkNumber 
+    $clusterCIDRWorker = Get-ConfiguredClusterCIDRNextHop -PodSubnetworkNumber $PodSubnetworkNumber
 
     # routes for Windows pods
     Write-Output "Remove obsolete route to $clusterCIDRWorker"
