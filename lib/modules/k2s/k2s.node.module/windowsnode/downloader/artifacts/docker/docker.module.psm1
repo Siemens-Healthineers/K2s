@@ -165,7 +165,9 @@ function Uninstall-WinDocker {
     $dockerDir = "$kubeBinPath\docker"
     $dockerExe = "$dockerDir\docker.exe"
 
-    if (Test-Path $dockerExe) {
+    $WinBuildEnabled = Get-ConfigWinBuildEnabledFlag
+
+    if ((Test-Path $dockerExe) -and $($WinBuildEnabled)) {
         if (Get-Service 'docker' -ErrorAction SilentlyContinue) {
             # only remove docker service if it is not from DockerDesktop
             Stop-ServiceProcess 'docker' 'dockerd'
@@ -187,8 +189,11 @@ function Uninstall-WinDocker {
 
         $dockerConfigDir = Get-ConfiguredDockerConfigDir
         if (Test-Path $dockerConfigDir) {
+            $newName = $dockerConfigDir + '_' + $( Get-Date -Format yyyy-MM-dd_HHmmss )
+            Write-Log "Saving: $dockerConfigDir to $newName"
+            Rename-Item $dockerConfigDir -NewName $newName
             Write-Log "Removing: $dockerConfigDir"
-            Remove-Item $dockerConfigDir -Recurse -Force
+            Remove-Item $dockerConfigDir -Recurse -Force -ErrorAction SilentlyContinue
         }
     }
 
@@ -197,10 +202,10 @@ function Uninstall-WinDocker {
         Write-Log 'Removing service: docker'
         Stop-Service -Force -Name 'docker' | Out-Null
         sc.exe delete 'docker' | Out-Null
-    }
 
-    # remove registry key which could remain from different docker installs
-    Remove-Item -Path 'HKLM:\SYSTEM\CurrentControlSet\Services\EventLog\Application\docker' -ErrorAction SilentlyContinue
+        # remove registry key which could remain from different docker installs
+        Remove-Item -Path 'HKLM:\SYSTEM\CurrentControlSet\Services\EventLog\Application\docker' -ErrorAction SilentlyContinue
+    }
 
     if (!$ShallowUninstallation) {
         Remove-Item -Path "$kubePath\smallsetup\docker*.zip" -Force -ErrorAction SilentlyContinue
