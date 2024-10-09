@@ -187,15 +187,15 @@ function Install-PesterIfNecessary {
         }
         return
     }
-    
+
     $foundVersion = "$($pesterModule.Version.Major).$($pesterModule.Version.Minor).$($pesterModule.Version.Build)"
-    
+
     Write-Output "Found Pester version $foundVersion"
-    
+
     if ($foundVersion -ne $PesterVersion) {
         Write-Output "Updating Pester to version $PesterVersion.."
 
-        Update-Module -Name Pester -RequiredVersion $PesterVersion -Force
+        Update-Module -Name Pester -RequiredVersion $PesterVersion -Force -Proxy "$Proxy"
     }
 }
 
@@ -235,8 +235,8 @@ function Start-GinkgoTests {
 
     if ($VV -eq $true) {
         Write-Output '  Found tests in folders:'
-        $testFolders | ForEach-Object { Write-Output "       $_" }  
-    }  
+        $testFolders | ForEach-Object { Write-Output "       $_" }
+    }
 
     foreach ($folder in $testFolders) {
         # TODO: refactor
@@ -249,10 +249,10 @@ function Start-GinkgoTests {
 
         $foundLabels = [System.Collections.ArrayList]@()
         $packageName = $labelsResult.Split(':')[0]
-        
+
         if ($labelsResult -match 'No labels found') {
             if ($VV -eq $true) {
-                Write-Output "  No labels found for package '$packageName'"            
+                Write-Output "  No labels found for package '$packageName'"
             }
         }
         else {
@@ -262,20 +262,20 @@ function Start-GinkgoTests {
         }
 
         if ($VV -eq $true) {
-            Write-Output "  Found labels for package '$packageName': $foundLabels"             
-        }  
+            Write-Output "  Found labels for package '$packageName': $foundLabels"
+        }
 
         $isMatch = (($null -eq $ExcludeTags) -or ($null -eq ($ExcludeTags | Where-Object { $foundLabels -contains $_ }))) -and (($null -eq $Tags) -or ($null -ne ($Tags | Where-Object { $foundLabels -contains $_ })))
         if ($isMatch -ne $true) {
             if ($VV -eq $true) {
-                Write-Output "  No match for package '$packageName'"            
+                Write-Output "  No match for package '$packageName'"
             }
             continue
         }
 
         if ($VV -eq $true) {
-            Write-Output "  Match for package '$packageName'"             
-        } 
+            Write-Output "  Match for package '$packageName'"
+        }
 
         $cmd = $ginkgoCmd -replace '{path}', $folder
 
