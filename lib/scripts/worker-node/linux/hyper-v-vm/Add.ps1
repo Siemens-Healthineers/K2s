@@ -76,7 +76,8 @@ Add-LinuxWorkerNodeOnNewVM @workerNodeParams
 
 $windowsHostIpAddress = Get-ConfiguredKubeSwitchIP
 $transparentProxy = "http://$($windowsHostIpAddress):8181"
-Set-ProxySettingsOnKubenode -ProxySettings $transparentProxy -IpAddress $IpAddress
+$workerNodeUserName = Get-DefaultUserNameWorkerNode
+Set-ProxySettingsOnKubenode -ProxySettings $transparentProxy -UserName $workerNodeUserName -IpAddress $IpAddress
 
 if (! $SkipStart) {
     Write-Log 'Starting worker node'

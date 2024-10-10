@@ -82,7 +82,8 @@ Install-WinHttpProxy -Proxy $Proxy
 $controlPlaneIpAddress = Get-ConfiguredIPControlPlane
 $windowsHostIpAddress = Get-ConfiguredKubeSwitchIP
 $transparentProxy = "http://$($windowsHostIpAddress):8181"
-Set-ProxySettingsOnKubenode -ProxySettings $transparentProxy -IpAddress $controlPlaneIpAddress
+$controlPlaneUserName = Get-DefaultUserNameControlPlane
+Set-ProxySettingsOnKubenode -ProxySettings $transparentProxy -UserName $controlPlaneUserName -IpAddress $controlPlaneIpAddress
 
 $windowsArtifactsDirectory = Get-WindowsArtifactsDirectory
 Invoke-DeployDnsProxyArtifacts $windowsArtifactsDirectory

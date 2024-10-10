@@ -34,9 +34,10 @@ function Invoke-SSHWithKey {
         [switch]
         $Nested,
         [Parameter(Mandatory = $false)]
-        [string]$IpAddress = $ipControlPlane
+        [string] $IpAddress = $ipControlPlane,
+        [string] $UserName = $defaultUserName
     )
-    $userOnRemoteMachine = "$defaultUserName@$IpAddress"
+    $userOnRemoteMachine = "$UserName@$IpAddress"
     $params = '-n', '-o', 'StrictHostKeyChecking=no', '-i', $key, $userOnRemoteMachine, $Command
 
     if ($Nested -eq $true) {
@@ -92,7 +93,8 @@ function Invoke-CmdOnVmViaSSHKey(
     [Parameter(Mandatory = $false, HelpMessage = 'repair CMD for the case first run did not work out')]
     [string]$RepairCmd = $null,
     [Parameter(Mandatory = $false)]
-    [string]$IpAddress = $(throw 'Argument missing: IpAddress')) {
+    [string]$IpAddress = $(throw 'Argument missing: IpAddress'),
+    [string]$UserName = $defaultUserName) {
 
     if (!$NoLog) {
         Write-Log "cmd: $CmdToExecute, retries: $Retries, timeout: $Timeout sec, ignore err: $IgnoreErrors, nested: $Nested, ip address: $IpAddress"
@@ -101,7 +103,7 @@ function Invoke-CmdOnVmViaSSHKey(
     [uint16]$Retrycount = 1
     do {
         try {
-            $output = Invoke-SSHWithKey -Command $CmdToExecute -Nested:$Nested -IpAddress $IpAddress
+            $output = Invoke-SSHWithKey -Command $CmdToExecute -Nested:$Nested -UserName $UserName -IpAddress $IpAddress
             $success = ($LASTEXITCODE -eq 0)
 
             if (!$success -and !$IgnoreErrors) {
@@ -120,7 +122,7 @@ function Invoke-CmdOnVmViaSSHKey(
                 if ($null -ne $RepairCmd -and !$IgnoreErrors) {
                     Write-Log "Executing repair cmd: $RepairCmd"
 
-                    Invoke-SSHWithKey -Command $RepairCmd -Nested:$Nested -IpAddress $IpAddress
+                    Invoke-SSHWithKey -Command $RepairCmd -Nested:$Nested -UserName $UserName -IpAddress $IpAddress
                 }
 
                 Start-Sleep -Seconds $Timeout
