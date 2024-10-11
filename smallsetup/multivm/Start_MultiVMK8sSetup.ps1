@@ -287,8 +287,10 @@ if ($linuxOnly -ne $true) {
         CreateExternalSwitch -adapterName $adapterName
 
         $ipindexEthernet = Get-NetIPInterface | Where-Object InterfaceAlias -Like "*vEthernet ($adapterName*)*" | Where-Object AddressFamily -Eq IPv4 | Select-Object -expand 'ifIndex'
+        $loopbackAdapterAlias = Get-NetIPInterface | Where-Object InterfaceAlias -Like "*vEthernet ($adapterName*)*" | Where-Object AddressFamily -Eq IPv4 | Select-Object -expand 'InterfaceAlias'
+
         Set-IPAdressAndDnsClientServerAddress -IPAddress $global:IP_LoopbackAdapter -DefaultGateway $global:Gateway_LoopbackAdapter -Index $ipindexEthernet
-        netsh int ipv4 set int "vEthernet ($adapterName)" forwarding=enabled | Out-Null
+        netsh int ipv4 set int "$loopbackAdapterAlias" forwarding=enabled | Out-Null
         netsh int ipv4 set int "Ethernet" forwarding=enabled | Out-Null
 
         Start-ServiceAndSetToAutoStart -Name 'containerd'
@@ -336,7 +338,7 @@ if ($linuxOnly -ne $true) {
                 # change firewall connection profile
                 Write-Output "Set connection profile for firewall rules to 'Private'"
                 $ProgressPreference = 'SilentlyContinue'
-                Set-InterfacePrivate -InterfaceAlias "vEthernet ($adapterName)"
+                Set-InterfacePrivate -InterfaceAlias "$loopbackAdapterAlias"
 
                 Write-Output 'Change metrics at network interfaces'
                 # change index
@@ -351,7 +353,7 @@ if ($linuxOnly -ne $true) {
                 Write-Output "Index for interface $global:L2BridgeSwitchName : ($l2BridgeInterfaceIndex) -> metric 5"
 
                 Write-Output 'Adding DNS server for internet lookup'
-                netsh interface ip set dns "vEthernet ($adapterName)" static 8.8.8.8
+                netsh interface ip set dns "$loopbackAdapterAlias" static 8.8.8.8
 
                 # routes for Windows pods
                 Write-Output "Remove obsolete route to $global:ClusterCIDR_Host"
@@ -366,7 +368,7 @@ if ($linuxOnly -ne $true) {
                 Write-Output '           No cbr0 switch created so far...'
 
                 # set fixed ip address
-                netsh interface ip set address name="vEthernet ($adapterName)" static $global:IP_LoopbackAdapter 255.255.255.0 $global:Gateway_LoopbackAdapter
+                netsh interface ip set address name="$loopbackAdapterAlias" static $global:IP_LoopbackAdapter 255.255.255.0 $global:Gateway_LoopbackAdapter
 
                 # check total duration
                 if ($cbr0Stopwatch.Elapsed.TotalSeconds -gt 150) {
