@@ -142,13 +142,12 @@ if (Test-TraefikIngressControllerAvailability) {
 elseif (Test-NginxIngressControllerAvailability) {
     (Invoke-Kubectl -Params 'apply', '-f', "$manifestsPath\opensearch-dashboards\ingress.yaml").Output | Write-Log
 }
-Add-HostEntries -Url 'k2s-logging.local'
 
 # Import saved objects 
 $dashboardIP = (Invoke-Kubectl -Params 'get', 'pods', '-l=app.kubernetes.io/name=opensearch-dashboards', '-n', 'logging', '-o=jsonpath="{.items[0].status.podIP}"').Output
 $dashboardIP = $dashboardIP -replace '"', ''
 
-$importingSavedObjects = curl.exe -X POST --retry 10 --retry-delay 5 --silent --disable --fail --retry-all-errors "http://${dashboardIP}:5601/api/saved_objects/_import?overwrite=true" -H 'osd-xsrf: true' -F "file=@$PSScriptRoot/opensearch-dashboard-saved-objects/k2s-index-pattern.ndjson" 2>$null
+$importingSavedObjects = curl.exe -X POST --retry 10 --retry-delay 5 --silent --disable --fail --retry-all-errors "http://${dashboardIP}:5601/logging/api/saved_objects/_import?overwrite=true" -H 'osd-xsrf: true' -F "file=@$PSScriptRoot/opensearch-dashboard-saved-objects/k2s-index-pattern.ndjson" 2>$null
 Write-Log $importingSavedObjects
 
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'logging' })

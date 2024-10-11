@@ -36,7 +36,6 @@ spec:
         checksum/secret: e997d22b85976e96f5cb019ff60bdd449e0a49b48fb1bc0ebd3d6786fce17e68
         kubectl.kubernetes.io/default-container: grafana
     spec:
-      
       serviceAccountName: kube-prometheus-stack-plutono
       automountServiceAccountToken: true
       securityContext:
@@ -45,13 +44,33 @@ spec:
         runAsNonRoot: true
         runAsUser: 472
       enableServiceLinks: true
+      initContainers:
+        - name: plutono-sc-datasources
+          image: "quay.io/kiwigrid/k8s-sidecar:1.24.3"
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: METHOD
+              value: LIST
+            - name: LABEL
+              value: "grafana_datasource"
+            - name: LABEL_VALUE
+              value: "1"
+            - name: FOLDER
+              value: "/etc/plutono/provisioning/datasources"
+            - name: RESOURCE
+              value: "both"
+          resources:
+            {}
+          volumeMounts:
+            - name: sc-datasources-volume
+              mountPath: "/etc/plutono/provisioning/datasources"
       containers:
         - name: plutono-sc-dashboard
           image: "quay.io/kiwigrid/k8s-sidecar:1.24.3"
           imagePullPolicy: IfNotPresent
           env:
             - name: METHOD
-              value: WATCH
+              value: 
             - name: LABEL
               value: "grafana_dashboard"
             - name: LABEL_VALUE
@@ -62,22 +81,6 @@ spec:
               value: "both"
             - name: NAMESPACE
               value: "ALL"
-            - name: REQ_USERNAME
-              valueFrom:
-                secretKeyRef:
-                  name: kube-prometheus-stack-plutono
-                  key: admin-user
-            - name: REQ_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: kube-prometheus-stack-plutono
-                  key: admin-password
-            - name: REQ_URL
-              value: https://localhost:3000/api/admin/provisioning/dashboards/reload
-            - name: REQ_METHOD
-              value: POST
-            - name: REQUESTS_CA_BUNDLE
-              value: "/cert/tls.crt"
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
@@ -85,55 +88,11 @@ spec:
               - ALL
             seccompProfile:
               type: RuntimeDefault
+          resources:
+            {}
           volumeMounts:
             - name: sc-dashboard-volume
               mountPath: "/tmp/dashboards"
-            - name: certs-vol
-              mountPath: "/cert"
-              readOnly: true
-        - name: plutono-sc-datasources
-          image: "quay.io/kiwigrid/k8s-sidecar:1.24.3"
-          imagePullPolicy: IfNotPresent
-          env:
-            - name: METHOD
-              value: WATCH
-            - name: LABEL
-              value: "grafana_datasource"
-            - name: LABEL_VALUE
-              value: "1"
-            - name: FOLDER
-              value: "/etc/plutono/provisioning/datasources"
-            - name: RESOURCE
-              value: "both"
-            - name: REQ_USERNAME
-              valueFrom:
-                secretKeyRef:
-                  name: kube-prometheus-stack-plutono
-                  key: admin-user
-            - name: REQ_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: kube-prometheus-stack-plutono
-                  key: admin-password
-            - name: REQ_URL
-              value: https://localhost:3000/api/admin/provisioning/datasources/reload
-            - name: REQ_METHOD
-              value: POST
-            - name: REQUESTS_CA_BUNDLE
-              value: "/cert/tls.crt"
-          securityContext:
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop:
-              - ALL
-            seccompProfile:
-              type: RuntimeDefault
-          volumeMounts:
-            - name: sc-datasources-volume
-              mountPath: "/etc/plutono/provisioning/datasources"
-            - name: certs-vol
-              mountPath: "/cert"
-              readOnly: true
         - name: plutono
           image: "ghcr.io/credativ/plutono:v7.5.29"
           imagePullPolicy: IfNotPresent
@@ -157,9 +116,6 @@ spec:
               subPath: provider.yaml
             - name: sc-datasources-volume
               mountPath: "/etc/plutono/provisioning/datasources"
-            - name: certs-vol
-              mountPath: "/cert"
-              readOnly: true
           ports:
             - name: grafana
               containerPort: 3000
@@ -198,18 +154,13 @@ spec:
             httpGet:
               path: /api/health
               port: 3000
-              scheme: HTTPS
             initialDelaySeconds: 60
             timeoutSeconds: 30
           readinessProbe:
             httpGet:
               path: /api/health
               port: 3000
-              scheme: HTTPS
       volumes:
-        - name: certs-vol
-          secret:
-            secretName: certs-secret-plutono
         - name: config
           configMap:
             name: kube-prometheus-stack-plutono
