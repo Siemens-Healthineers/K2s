@@ -60,8 +60,9 @@ function Install-WinDocker {
     )
 
     if ((Get-Service 'docker' -ErrorAction SilentlyContinue)) {
-        Write-Log 'dockerd service found, please uninstall first'
-        throw 'dockerd service found. Please uninstall first in order to continue!'
+        Write-Log '[WARN] Found an existing dockerd service.'
+        Write-Log '[WARN] Using an existing Docker service may cause instability or potential failures during the container image build process.'
+        return
     }
 
     if (Get-Service docker -ErrorAction SilentlyContinue) {
