@@ -38,6 +38,7 @@ data:
     [auth]
     oauth_auto_login: true
     signout_redirect_url: "https://k2s.cluster.local/oauth2/sign_out"
+    disable_login_form: true
     [auth.proxy]
     enabled: true
     header_name: X-Email
@@ -50,3 +51,5 @@ data:
     [auth.anonymous]
     enabled = true
     org_role = Viewer
+    [security]
+    disable_initial_admin_creation: true

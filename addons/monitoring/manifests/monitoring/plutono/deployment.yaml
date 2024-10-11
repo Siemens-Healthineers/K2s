@@ -131,16 +131,6 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: status.podIP
-            - name: PL_SECURITY_ADMIN_USER
-              valueFrom:
-                secretKeyRef:
-                  name: kube-prometheus-stack-plutono
-                  key: admin-user
-            - name: PL_SECURITY_ADMIN_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: kube-prometheus-stack-plutono
-                  key: admin-password
             - name: PL_PATHS_DATA
               value: /var/lib/plutono/
             - name: PL_PATHS_LOGS
