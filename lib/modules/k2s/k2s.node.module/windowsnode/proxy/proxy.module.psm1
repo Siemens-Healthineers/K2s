@@ -46,7 +46,7 @@ function Get-ProxyServerFromWindowsSettings {
     $reg = Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings'
 
     $proxyServer = $reg.ProxyServer
-    if (!($proxyServer | Select-String -Pattern 'http://')) {
+    if ($null -ne $proxyServer -and !($proxyServer | Select-String -Pattern 'http://')) {
         $proxyServer = 'http://' + $proxyServer
     }
 
