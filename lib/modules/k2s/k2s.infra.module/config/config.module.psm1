@@ -336,7 +336,11 @@ function Set-ConfigSetupType {
 }
 
 function Get-ConfigWslFlag {
-    return Get-ConfigValue -Path $SetupJsonFile -Key 'WSL'
+    $wslValue = Get-ConfigValue -Path $SetupJsonFile -Key 'WSL'
+    if ($null -eq $wslValue){
+        return $false
+    }
+    return $wslValue
 }
 
 function Get-ReuseExistingLinuxComputerForMasterNodeFlag {
