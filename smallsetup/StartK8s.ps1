@@ -80,12 +80,13 @@ function UpdateIpAddress {
         $ipAddressForLoopbackAdapter = Get-LoopbackAdapterIP
 
         Write-Log 'Try to get the valid network interface'
-        $ipindex = Get-NetIPInterface | Where-Object InterfaceAlias -Like "*vEthernet ($adapterName)*" | Where-Object AddressFamily -Eq IPv4 | Select-Object -expand 'ifIndex'
+        $ipindex = Get-NetIPInterface | Where-Object InterfaceAlias -Like "*vEthernet ($adapterName)*" | Where-Object AddressFamily -Eq IPv4 | Select-Object -expand 'ifIndex' -First 1
         if ( $ipindex ) {
-            Write-Log "           interface 'vEthernet ($adapterName)' with index $ipindex found:"
+            $loopbackAdapterAlias = Get-NetIPInterface | Where-Object InterfaceAlias -Like "vEthernet ($adapterName)*" | Where-Object AddressFamily -Eq IPv4 | Select-Object -expand 'InterfaceAlias' -First 1
+            Write-Log "           interface '$loopbackAdapterAlias' with index: $ipindex found"
             $ipaddress = $ipAddressForLoopbackAdapter
             Write-Log "           setting IP address manually to $ipaddress"
-            Write-Log "           setting IP address 'vEthernet ($adapterName)' with index $ipindex manually to $ipaddress"
+            Write-Log "           setting IP address '$loopbackAdapterAlias' with index $ipindex manually to $ipaddress"
             Set-NetIPInterface -InterfaceIndex $ipindex -Dhcp Disabled
             Write-Log '           Checking whether Physical adapter has DNS Servers'
             $loopbackAdapter = Get-L2BridgeName
@@ -283,7 +284,7 @@ if ($ResetHns) {
 
 $ProgressPreference = 'SilentlyContinue'
 
-# Check for external switches before starting 
+# Check for external switches before starting
 Test-ExistingExternalSwitch
 
 Enable-LoopbackAdapter
@@ -396,7 +397,7 @@ while ($true) {
         -ReusingExistingLinuxMachine $isReusingExistingLinuxComputer
     $controlPlaneCni0IpAddr = Get-Cni0IpAddressInControlPlaneUsingSshWithRetries -Retries 30 -RetryTimeoutInSeconds 5
     $expectedControlPlaneCni0IpAddr = Get-ConfiguredMasterNetworkInterfaceCni0IP
-                 
+
     if ($controlPlaneCni0IpAddr -ne $expectedControlPlaneCni0IpAddr) {
         Write-Log "cni0 interface in $controlPlaneVMHostName is not correctly initialized."
         Write-Log "           Expected:$expectedControlPlaneCni0IpAddr"
@@ -409,8 +410,8 @@ while ($true) {
     else {
         Write-Log "cni0 interface in $controlPlaneVMHostName correctly initialized."
         break
-    }  
-}               
+    }
+}
 
 $setupType = Get-ConfigSetupType
 $linuxOnly = Get-ConfigLinuxOnly
@@ -424,7 +425,7 @@ if (!$WSL) {
     if (![string]::IsNullOrWhiteSpace($physicalInterfaceIndex)) {
         $DNSServersAll = ''
         foreach ($interfaceId in $physicalInterfaceIndex) {
-            $interfaceDnsEntries = Get-DnsClientServerAddress -InterfaceIndex $interfaceId -ErrorAction SilentlyContinue 
+            $interfaceDnsEntries = Get-DnsClientServerAddress -InterfaceIndex $interfaceId -ErrorAction SilentlyContinue
             if ($null -eq $interfaceDnsEntries) {
                 Write-Log "No DNS servers found for interface index $interfaceId"
                 continue
@@ -438,7 +439,7 @@ if (!$WSL) {
             (Invoke-CmdOnControlPlaneViaSSHKey "sudo sed -i 's/dns-nameservers.*/dns-nameservers $DNSServersAll/' /etc/network/interfaces.d/10-k2s").Output | Write-Log
             (Invoke-CmdOnControlPlaneViaSSHKey 'sudo systemctl restart networking').Output | Write-Log
             (Invoke-CmdOnControlPlaneViaSSHKey 'sudo systemctl restart dnsmasq').Output | Write-Log
-        }    
+        }
     }
 }
 
@@ -542,7 +543,8 @@ while ($true) {
         Write-Log "Set connection profile for firewall rules to 'Private'"
         $ProgressPreference = 'SilentlyContinue'
 
-        Set-InterfacePrivate -InterfaceAlias "vEthernet ($adapterName)"
+        $loopbackAdapterAlias = Get-NetIPInterface | Where-Object InterfaceAlias -Like "*vEthernet ($adapterName*)*" | Where-Object AddressFamily -Eq IPv4 | Select-Object -expand 'InterfaceAlias'
+        Set-InterfacePrivate -InterfaceAlias "$loopbackAdapterAlias"
         Write-Log "flanneld: $((Get-Service -Name 'flanneld' -ErrorAction SilentlyContinue).Status)"
 
         if ($WSL) {

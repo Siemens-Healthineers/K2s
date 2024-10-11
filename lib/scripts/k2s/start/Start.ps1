@@ -63,12 +63,13 @@ function Update-IpAddress {
         $ipAddressForLoopbackAdapter = Get-LoopbackAdapterIP
 
         Write-Log 'Try to get the valid network interface'
-        $ipindex = Get-NetIPInterface | Where-Object InterfaceAlias -Like "*vEthernet ($adapterName)*" | Where-Object AddressFamily -Eq IPv4 | Select-Object -expand 'ifIndex'
+        $ipindex = Get-NetIPInterface | Where-Object InterfaceAlias -Like "*vEthernet ($adapterName)*" | Where-Object AddressFamily -Eq IPv4 | Select-Object -expand 'ifIndex' -First 1
         if ( $ipindex ) {
-            Write-Log "           interface 'vEthernet ($adapterName)' with index $ipindex found:"
+            $loopbackAdapterAlias = Get-NetIPInterface | Where-Object InterfaceAlias -Like "vEthernet ($adapterName)*" | Where-Object AddressFamily -Eq IPv4 | Select-Object -expand 'InterfaceAlias' -First 1
+            Write-Log "           interface $loopbackAdapterAlias with index: $ipindex found"
             $ipaddress = $ipAddressForLoopbackAdapter
             Write-Log "           setting IP address manually to $ipaddress"
-            Write-Log "           setting IP address 'vEthernet ($adapterName)' with index $ipindex manually to $ipaddress"
+            Write-Log "           setting IP address $loopbackAdapterAlias with index $ipindex manually to $ipaddress"
             Set-NetIPInterface -InterfaceIndex $ipindex -Dhcp Disabled
             Write-Log '           Checking whether Physical adapter has DNS Servers'
             $loopbackAdapter = Get-L2BridgeName
@@ -168,7 +169,7 @@ function Restart-ControlPlane {
                 Write-Log '           failed to start VM, retrying again, Hyper-V not yet ready ...'
                 $Error.Clear()
             }
-            
+
             Start-Sleep -s 4
         }
         $con = Test-Connection $ControlPlaneIpAddr -Count 1 -ErrorAction SilentlyContinue
@@ -315,7 +316,7 @@ while ($true) {
         -ControlPlaneIpAddr $ipControlPlane
     $controlPlaneCni0IpAddr = Get-Cni0IpAddressInControlPlaneUsingSshWithRetries -Retries 30 -RetryTimeoutInSeconds 5
     $expectedControlPlaneCni0IpAddr = Get-ConfiguredMasterNetworkInterfaceCni0IP
-                 
+
     if ($controlPlaneCni0IpAddr -ne $expectedControlPlaneCni0IpAddr) {
         Write-Log "cni0 interface in $controlPlaneVMHostName is not correctly initialized."
         Write-Log "           Expected:$expectedControlPlaneCni0IpAddr"
@@ -328,8 +329,8 @@ while ($true) {
     else {
         Write-Log "cni0 interface in $controlPlaneVMHostName correctly initialized."
         break
-    }  
-}  
+    }
+}
 
 Invoke-TimeSync
 
@@ -437,7 +438,8 @@ while ($true) {
         Write-Log "Set connection profile for firewall rules to 'Private'"
         $ProgressPreference = 'SilentlyContinue'
 
-        Set-InterfacePrivate -InterfaceAlias "vEthernet ($adapterName)"
+        $loopbackAdapterAlias  = Get-NetIPInterface | Where-Object InterfaceAlias -Like "*vEthernet ($adapterName*)*" | Where-Object AddressFamily -Eq IPv4 | Select-Object -expand 'InterfaceAlias'
+        Set-InterfacePrivate -InterfaceAlias "$loopbackAdapterAlias"
         Write-Log "flanneld: $((Get-Service -Name 'flanneld' -ErrorAction SilentlyContinue).Status)"
         if ($WSL) {
             $interfaceAlias = Get-NetAdapter -Name 'vEthernet (WSL*)' -ErrorAction SilentlyContinue -IncludeHidden | Select-Object -expandproperty name
