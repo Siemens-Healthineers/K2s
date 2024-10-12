@@ -39,7 +39,7 @@ function Get-OAuth2ProxyConfig {
 .DESCRIPTION
 Writes the usage notes for security for the user.
 #>
-function Write-UsageForUser {
+function Write-SecurityUsageForUser {
     @'
 THIS ADDON IS EXPERIMENTAL
 
@@ -77,7 +77,7 @@ This addon is documented in <installation folder>\addons\security\README.md
 '@ -split "`r`n" | ForEach-Object { Write-Log $_ -Console }
 }
 
-function Write-WarningForUser {
+function Write-SecurityWarningForUser {
     @'
     
 ATTENTION:
