@@ -4,7 +4,7 @@ SPDX-License-Identifier: MIT
 -->
 
 # Siemens Healthineers Contribution License Agreement for Corporate Contributors
-Thank you for your interest in contributing to open source software projects made available by Siemens Healthcare GmbH or an entity owned or controlled directly or indirectly by Siemens Healthineers AG (“Siemens Healthineers”). When you sign this Contribution License Agreement (CLA), you give Siemens Healthineers the legal permission to use and distribute your contribution. You do not surrender ownership of your contribution, and you do not give up any of your rights to use your contribution elsewhere.
+Thank you for your interest in contributing to open source software projects made available by Siemens Healthineers AG or an entity owned or controlled directly or indirectly by Siemens Healthineers AG (“Siemens Healthineers”). When you sign this Contribution License Agreement (CLA), you give Siemens Healthineers the legal permission to use and distribute your contribution. You do not surrender ownership of your contribution, and you do not give up any of your rights to use your contribution elsewhere.
 This CLA (“Agreement”) is agreed to by the party signing below (“You”), and conveys certain license rights to Siemens Healthineers for Your contributions to Siemens Healthineers open source projects. Please note that the choice of license for the Project is solely with Siemens Healthineers and Siemens Healthineers cannot accept any contributions under different licenses.
 This Agreement is effective as of the signature date below.
 
