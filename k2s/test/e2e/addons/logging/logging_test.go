@@ -129,7 +129,7 @@ var _ = Describe("'logging' addon", Ordered, func() {
 			portForwarding := exec.Command(kubectl, "-n", "logging", "port-forward", "svc/opensearch-dashboards", "5601:5601")
 			portForwardingSession, _ = gexec.Start(portForwarding, GinkgoWriter, GinkgoWriter)
 
-			url := "http://localhost:5601"
+			url := "http://localhost:5601/logging"
 			httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-I", "-m", "5", "--retry", "3", "--fail")
 			Expect(httpStatus).To(ContainSubstring("302"))
 		})
