@@ -46,17 +46,6 @@ kubectl -n monitoring port-forward svc/kube-prometheus-stack-plutono 3000:80
 ```
 In this case, the monitoring dashboard UI can be accessed at the following link: http://localhost:3000/monitoring
 
-### Login to monitoring dashboard
-
-When the monitoring dashboard UI is opened in the browser, please use the following credentials for initial login:
-
-```
-username: admin
-password: admin
-```
-
-_Note:_ Credentials can be changed after first login.
-
 ## Disable monitoring
 
 The monitoring addon can be disabled using the k2s CLI by running the following command:
