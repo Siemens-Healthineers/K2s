@@ -87,13 +87,6 @@ function New-ControlPlaneNodeOnNewVM {
     Copy-LocalPublicSshKeyToRemoteComputer -UserName $(Get-DefaultUserNameControlPlane) -UserPwd $(Get-DefaultUserPwdControlPlane) -IpAddress $($controlPlaneParams.IpAddress)
     Wait-ForSSHConnectionToLinuxVMViaSshKey
 
-    Write-Log "Copying ZScaler Root CA certificate to master node"
-    Copy-ToControlPlaneViaUserAndPwd  -Source "$(Get-KubePath)\lib\modules\k2s\k2s.node.module\linuxnode\setup\certificate\ZScalerRootCA.crt" -Target "/tmp/ZScalerRootCA.crt"
-    Remove-ControlPlaneAccessViaUserAndPwd
-    (Invoke-CmdOnControlPlaneViaSSHKey "sudo mv /tmp/ZScalerRootCA.crt /usr/local/share/ca-certificates/" ).Output | Write-Log
-    (Invoke-CmdOnControlPlaneViaSSHKey "sudo update-ca-certificates").Output | Write-Log
-    Write-Log "Zscaler certificate added to CA certificates of master node"
-
     # add kubectl to Windows host
     Install-KubectlTool
     # copy kubectl config file into Windows host
