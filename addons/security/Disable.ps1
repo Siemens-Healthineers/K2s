@@ -86,7 +86,7 @@ Update-IngressForAddons -Enable $false
 Remove-AddonFromSetupJson -Name 'security'
 Write-Log 'Uninstallation of security finished' -Console
 
-Write-WarningForUser
+Write-SecurityWarningForUser
 
 if ($EncodeStructuredOutput -eq $true) {
     Send-ToCli -MessageType $MessageType -Message @{Error = $null }

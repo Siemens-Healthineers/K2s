@@ -31,7 +31,22 @@ data:
     [server]
     # these settings needed to make it work with Ingress
     root_url = https://k2s.cluster.local/monitoring
+    serve_from_sub_path = true
     domain = k2s.cluster.local
-    protocol = https
-    cert_key = /cert/tls.key
-    cert_file = /cert/tls.crt
+    [auth]
+    oauth_auto_login: true
+    signout_redirect_url: "https://k2s.cluster.local/oauth2/sign_out"
+    [auth.proxy]
+    enabled: true
+    header_name: X-Email
+    header_property: email
+    auto_sign_up: true
+    [users]
+    allow_sign_up: false
+    auto_assign_org: true
+    auto_assign_org_role: Viewer
+    [auth.anonymous]
+    enabled = true
+    org_role = Viewer
+    
+
