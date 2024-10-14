@@ -186,8 +186,8 @@ Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'security' })
 
 Write-Log 'Installation of security finished.' -Console
 
-Write-UsageForUser
-Write-WarningForUser
+Write-SecurityUsageForUser
+Write-SecurityWarningForUser
 
 if ($EncodeStructuredOutput -eq $true) {
     Send-ToCli -MessageType $MessageType -Message @{Error = $null }
