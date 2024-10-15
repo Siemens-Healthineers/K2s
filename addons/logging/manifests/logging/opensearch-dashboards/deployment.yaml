@@ -10,11 +10,8 @@ metadata:
   name: opensearch-dashboards
   namespace: logging
   labels:
-    helm.sh/chart: opensearch-dashboards-2.16.0
     app.kubernetes.io/name: opensearch-dashboards
     app.kubernetes.io/instance: opensearch-dashboards
-    app.kubernetes.io/version: "2.12.0"
-    app.kubernetes.io/managed-by: Helm
 spec:
   replicas: 1
   strategy:
@@ -42,7 +39,7 @@ spec:
             - ALL
           runAsNonRoot: true
           runAsUser: 1000
-        image: "opensearchproject/opensearch-dashboards:2.12.0"
+        image: "opensearchproject/opensearch-dashboards:2.17.1"
         imagePullPolicy: "IfNotPresent"
         readinessProbe:
           failureThreshold: 10
