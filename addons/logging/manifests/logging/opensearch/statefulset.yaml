@@ -9,11 +9,8 @@ metadata:
   name: opensearch-cluster-master
   namespace: logging
   labels:
-    helm.sh/chart: opensearch-2.18.0
     app.kubernetes.io/name: opensearch
     app.kubernetes.io/instance: opensearch
-    app.kubernetes.io/version: "2.12.0"
-    app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/component: opensearch-cluster-master
   annotations:
     majorVersion: "2"
@@ -41,11 +38,8 @@ spec:
     metadata:
       name: "opensearch-cluster-master"
       labels:
-        helm.sh/chart: opensearch-2.18.0
         app.kubernetes.io/name: opensearch
         app.kubernetes.io/instance: opensearch
-        app.kubernetes.io/version: "2.12.0"
-        app.kubernetes.io/managed-by: Helm
         app.kubernetes.io/component: opensearch-cluster-master
       annotations:
         configchecksum: eb71989b6e157df7c944191e9d09e230f30bce470bd2b33c1917b5aa095f5be
@@ -98,7 +92,7 @@ spec:
           - name: "opensearch-cluster-master"
             mountPath: /usr/share/opensearch/data
       - name: configfile
-        image: "opensearchproject/opensearch:2.12.0"
+        image: "opensearchproject/opensearch:2.17.1"
         imagePullPolicy: "IfNotPresent"
         command:
         - sh
@@ -128,7 +122,7 @@ spec:
           runAsNonRoot: true
           runAsUser: 1000
 
-        image: "opensearchproject/opensearch:2.12.0"
+        image: "opensearchproject/opensearch:2.17.1"
         imagePullPolicy: "IfNotPresent"
         readinessProbe:
           failureThreshold: 3
