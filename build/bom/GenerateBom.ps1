@@ -80,7 +80,7 @@ function GenerateBomGolang($dirname) {
     $env:SCAN_DEBUG_MODE = 'debug'
     $indir = $global:KubernetesPath + '\' + $dirname
     Write-Output "Generate $dirname with command 'trivy.exe fs `"$indir`"' --scanners license --license-full --format cyclonedx -o `"$bomfile`" "
-    trivy.exe fs `"$indir`" --scanners license --license-full --format cyclonedx -o `"$bomfile`"
+    &"$global:BinPath\trivy.exe" fs `"$indir`" --scanners license --license-full --format cyclonedx -o `"$bomfile`"
 
     if ($Annotate) {
         Write-Output "Enriching generated sbom with command 'sbomgenerator.exe -e `"$bomfile`" "
