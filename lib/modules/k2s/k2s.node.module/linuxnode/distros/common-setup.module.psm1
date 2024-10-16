@@ -131,6 +131,10 @@ Function Install-KubernetesArtifacts {
     &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get update -qq --yes --allow-releaseinfo-change' -Retries 2 -RepairCmd 'sudo apt --fix-broken install'
     &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get install -y gpg' -Retries 2 -RepairCmd 'sudo apt --fix-broken install'
 
+    Write-Log 'Install curl'
+    &$executeRemoteCommand 'sudo apt-get update' -Retries 2 -RepairCmd 'sudo apt --fix-broken install'
+    &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get install -qq --yes curl' -Retries 2 -RepairCmd 'sudo apt --fix-broken install'
+
     # we need major and minor for apt keys
     $proxyToAdd = ''
     if ($Proxy -ne '') {
@@ -147,13 +151,14 @@ Function Install-KubernetesArtifacts {
 
     Write-Log 'Install other depended-on tools'
     &$executeRemoteCommand 'sudo apt-get update' -Retries 2 -RepairCmd 'sudo apt --fix-broken install'
-    &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get install -qq --yes apt-transport-https ca-certificates curl' -Retries 2 -RepairCmd 'sudo apt --fix-broken install'
+    &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get install -qq --yes apt-transport-https ca-certificates' -Retries 2 -RepairCmd 'sudo apt --fix-broken install'
 
     Write-Log 'Install cri-o'
     InstallAptPackages -FriendlyName 'cri-o' -Packages 'cri-o' -UserName $UserName -UserPwd $UserPwd -IpAddress $IpAddress
     &$executeRemoteCommand 'sudo apt-mark hold cri-o'
 
     # increase timeout for crictl to connect to crio.sock
+    &$executeRemoteCommand 'sudo touch /etc/crictl.yaml'
     &$executeRemoteCommand "grep timeout.* /etc/crictl.yaml | sudo sed -i 's/timeout.*/timeout: 30/g' /etc/crictl.yaml"
     &$executeRemoteCommand 'grep timeout.* /etc/crictl.yaml || echo timeout: 30 | sudo tee -a /etc/crictl.yaml'
     
@@ -216,7 +221,7 @@ Function Install-KubernetesArtifacts {
     &$executeRemoteCommand 'sudo systemctl start crio' 
 
     $isWsl = Get-ConfigWslFlag
-    Write-Log "WSL check in Install-KubernetesArtifacts: $isWsl"
+    Write-Log "Add WSL support?: $isWsl"
     if ( $isWsl ) {
         Write-Log 'Add cri-o fix for WSL'
         $configWSL = '/etc/crio/crio.conf.d/20-wsl.conf'
@@ -228,6 +233,52 @@ Function Install-KubernetesArtifacts {
 
     Write-Log 'Pull images used by K8s'
     &$executeRemoteCommand "sudo kubeadm config images pull --kubernetes-version $K8sVersion" 
+}
+
+Function Remove-KubernetesArtifacts {
+    param (
+        [string] $UserName = $(throw 'Argument missing: UserName'),
+        [string] $IpAddress = $(throw 'Argument missing: IpAddress')
+    )
+
+    $executeRemoteCommand = { 
+        param(
+            $command = $(throw 'Argument missing: Command'), 
+            [switch]$IgnoreErrors = $false, [string]$RepairCmd = $null, [uint16]$Retries = 0
+        )
+        (Invoke-CmdOnVmViaSSHKey -CmdToExecute $command -UserName $UserName -IpAddress $IpAddress -Retries $Retries -RepairCmd $RepairCmd -IgnoreErrors:$IgnoreErrors).Output | Write-Log
+    }
+
+    &$executeRemoteCommand 'sudo systemctl stop kubelet' 
+    &$executeRemoteCommand 'sudo systemctl disable kubelet' 
+
+    &$executeRemoteCommand 'sudo systemctl stop crio' 
+    &$executeRemoteCommand 'sudo systemctl disable crio' 
+
+    &$executeRemoteCommand 'sudo systemctl daemon-reload' 
+
+    &$executeRemoteCommand 'sudo apt-get remove --yes --allow-change-held-packages kubelet kubeadm kubectl' 
+
+    &$executeRemoteCommand 'sudo rm -f /etc/containers/registries.conf' 
+    &$executeRemoteCommand 'sudo rm -f /etc/cni/net.d/100-crio-bridge.conf'
+    &$executeRemoteCommand 'sudo rm -drf /root/.config/containers'
+    &$executeRemoteCommand 'sudo rm -drf /etc/systemd/system/crio.service.d'
+    &$executeRemoteCommand 'sudo rm -f /etc/crictl.yaml'
+
+    &$executeRemoteCommand 'sudo apt-get remove --yes --allow-change-held-packages cri-o'
+
+    &$executeRemoteCommand 'sudo rm -f /usr/share/keyrings/cri-o-apt-keyring.gpg'
+    &$executeRemoteCommand 'sudo rm -f /etc/apt/sources.list.d/cri-o.list'
+
+    &$executeRemoteCommand 'sudo rm -f /usr/share/keyrings/kubernetes-apt-keyring.gpg'
+    &$executeRemoteCommand 'sudo rm -f /etc/apt/sources.list.d/kubernetes.list'
+    
+    &$executeRemoteCommand 'sudo rm -drf /etc/kubernetes'
+    &$executeRemoteCommand 'sudo rm -drf /etc/crio'
+
+    &$executeRemoteCommand 'sudo rm -f /etc/sysctl.d/k8s.conf'
+    &$executeRemoteCommand 'sudo rm -f /etc/modules-load.d/k8s.conf'
+    &$executeRemoteCommand 'sudo sysctl --system'
 }
 
 <#
@@ -1191,6 +1242,25 @@ function Set-ProxySettingsOnKubenode {
 
     )
 
+    Set-ProxySettingsForApt -ProxySettings $ProxySettings -IpAddress $IpAddress -UserName $UserName
+    Set-ProxySettingsForContainerRuntime -ProxySettings $ProxySettings -IpAddress $IpAddress -UserName $UserName
+    Set-ProxySettingsForContainers -ProxySettings $ProxySettings -IpAddress $IpAddress -UserName $UserName
+
+    (Invoke-CmdOnVmViaSSHKey 'sudo systemctl daemon-reload' -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
+    (Invoke-CmdOnVmViaSSHKey 'sudo systemctl restart crio' -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
+}
+
+function Set-ProxySettingsForApt {
+    param (
+        [parameter(Mandatory = $true, HelpMessage = 'The HTTP proxy')]
+        [AllowEmptyString()]
+        [string] $ProxySettings,
+        [Parameter(Mandatory = $false)]
+        [string] $IpAddress = $(throw 'Argument missing: IpAddress'),
+        [string] $UserName = $(throw "Argument missing: UserName")
+
+    )
+
     $removeProxySettings = [string]::IsNullOrWhiteSpace($ProxySettings)
     if ($removeProxySettings) {
         Write-Log 'The passed proxy settings are null, empty or contains only white spaces --> eventually set proxy settings will be removed'
@@ -1211,6 +1281,23 @@ function Set-ProxySettingsOnKubenode {
             (Invoke-CmdOnVmViaSSHKey "echo Acquire::http::Proxy \\\""$ProxySettings\\\""\; | sudo tee -a /etc/apt/apt.conf.d/proxy.conf" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
         }
     }
+}
+
+function Set-ProxySettingsForContainerRuntime {
+    param (
+        [parameter(Mandatory = $true, HelpMessage = 'The HTTP proxy')]
+        [AllowEmptyString()]
+        [string] $ProxySettings,
+        [Parameter(Mandatory = $false)]
+        [string] $IpAddress = $(throw 'Argument missing: IpAddress'),
+        [string] $UserName = $(throw "Argument missing: UserName")
+
+    )
+
+    $removeProxySettings = [string]::IsNullOrWhiteSpace($ProxySettings)
+    if ($removeProxySettings) {
+        Write-Log 'The passed proxy settings are null, empty or contains only white spaces --> eventually set proxy settings will be removed'
+    }
 
     # Container runtime
     if ($removeProxySettings) {
@@ -1221,12 +1308,29 @@ function Set-ProxySettingsOnKubenode {
         Write-Log 'Set proxy settings for container runtime'
         (Invoke-CmdOnVmViaSSHKey 'sudo mkdir -p /etc/systemd/system/crio.service.d' -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
         (Invoke-CmdOnVmViaSSHKey 'sudo touch /etc/systemd/system/crio.service.d/http-proxy.conf' -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
-        (Invoke-CmdOnVmViaSSHKey 'echo [Service] | sudo tee /etc/systemd/system/crio.service.d/http-proxy.conf' -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
+        (Invoke-CmdOnVmViaSSHKey "echo [Service] | sudo tee /etc/systemd/system/crio.service.d/http-proxy.conf" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
         (Invoke-CmdOnVmViaSSHKey "echo Environment=\'HTTP_PROXY=$ProxySettings\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
         (Invoke-CmdOnVmViaSSHKey "echo Environment=\'HTTPS_PROXY=$ProxySettings\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
         (Invoke-CmdOnVmViaSSHKey "echo Environment=\'http_proxy=$ProxySettings\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
         (Invoke-CmdOnVmViaSSHKey "echo Environment=\'https_proxy=$ProxySettings\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
         (Invoke-CmdOnVmViaSSHKey "echo Environment=\'no_proxy=.local\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
+    }
+}
+
+function Set-ProxySettingsForContainers {
+    param (
+        [parameter(Mandatory = $true, HelpMessage = 'The HTTP proxy')]
+        [AllowEmptyString()]
+        [string] $ProxySettings,
+        [Parameter(Mandatory = $false)]
+        [string] $IpAddress = $(throw 'Argument missing: IpAddress'),
+        [string] $UserName = $(throw "Argument missing: UserName")
+
+    )
+
+    $removeProxySettings = [string]::IsNullOrWhiteSpace($ProxySettings)
+    if ($removeProxySettings) {
+        Write-Log 'The passed proxy settings are null, empty or contains only white spaces --> eventually set proxy settings will be removed'
     }
 
     # Containers
@@ -1244,9 +1348,6 @@ function Set-ProxySettingsOnKubenode {
             (Invoke-CmdOnVmViaSSHKey "echo env = [\\\""https_proxy=$ProxySettings\\\""] | sudo tee -a /etc/containers/containers.conf" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
         }
     }
-
-    (Invoke-CmdOnVmViaSSHKey 'sudo systemctl daemon-reload' -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
-    (Invoke-CmdOnVmViaSSHKey 'sudo systemctl restart crio' -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
 }
 
 Export-ModuleMember -Function New-VmImageForControlPlaneNode, 
@@ -1255,4 +1356,6 @@ Remove-VmImageForControlPlaneNode,
 Import-SpecificDistroSettingsModule, 
 New-WslRootfsForControlPlaneNode,
 Set-ProxySettingsOnKubenode,
-Get-KubenodeBaseFileName
+Get-KubenodeBaseFileName,
+Install-KubernetesArtifacts,
+Remove-KubernetesArtifacts
