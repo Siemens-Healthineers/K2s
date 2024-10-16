@@ -178,7 +178,7 @@ function LoadK2sImages() {
         
     # export all addons to have all images pull
     Write-Output "Writing to temp all containers $tempDir"
-    &"$global:BinPath\k2s.exe" addons export -d $tempDir -o
+    &"$global:KubernetesPath\k2s.exe" addons export -d $tempDir -o
     if ( Test-Path -Path $tempDir\addons.zip) {
         Remove-Item -Path $tempDir\addons.zip -Force
     }
@@ -230,7 +230,7 @@ function GenerateBomContainers() {
             # create bom file entry for linux image
             # TODO: with license it does not work yet from cdxgen point of view
             #ExecCmdMaster "sudo GLOBAL_AGENT_HTTP_PROXY=http://172.19.1.1:8181 SCAN_DEBUG_MODE=debug FETCH_LICENSE=true DEBIAN_FRONTEND=noninteractive cdxgen --required-only -t containerfile $imageId.tar -o $imageName.json"
-            &"$global:BinPath\k2s.exe" system ssh m -- "sudo HTTPS_PROXY=http://172.19.1.1:8181 trivy image --input $imageName.tar --scanners license --license-full --format cyclonedx -o $imageName.json 2>&1"
+            &"$global:KubernetesPath\k2s.exe" system ssh m -- "sudo HTTPS_PROXY=http://172.19.1.1:8181 trivy image --input $imageName.tar --scanners license --license-full --format cyclonedx -o $imageName.json 2>&1"
             # copy bom file to local folder
             $source = "$global:Remote_Master" + ":/home/remote/$imageName.json"
             Copy-FromToMaster -Source $source -Target "$bomRootDir\merge"
@@ -257,7 +257,7 @@ function GenerateBomContainers() {
     }
 
     # iterate through windows images
-    $ims = (&"$global:BinPath\k2s.exe" image ls -o json | ConvertFrom-Json).containerimages
+    $ims = (&"$global:KubernetesPath\k2s.exe" image ls -o json | ConvertFrom-Json).containerimages
 
     for ($j = 0; $j -lt $imagesWindows.Count; $j++) {
         $image = $imagesWindows[$j].ImageName
@@ -279,16 +279,16 @@ function GenerateBomContainers() {
 
         # copy to master
         Write-Output "  -> Exporting windows image: $imageName with id: $img.imageid to $tempDir\$imageName.tar"
-        &"$global:BinPath\k2s.exe" image export --id $img.imageid -t "$tempDir\\$imageName.tar" --docker-archive
+        &"$global:KubernetesPath\k2s.exe" image export --id $img.imageid -t "$tempDir\\$imageName.tar" --docker-archive
 
         # copy to master since cdxgen is not available on windows
         Write-Output "  -> Copied to kubemaster: $imageName.tar"
-        &"$global:BinPath\k2s.exe" system scp m "$tempDir\\$imageName.tar" '/home/remote'
+        &"$global:KubernetesPath\k2s.exe" system scp m "$tempDir\\$imageName.tar" '/home/remote'
 
         Write-Output "  -> Creating bom for windows image: $imageName"
         # TODO: with license it does not work yet from cdxgen point of view
         #ExecCmdMaster "sudo GLOBAL_AGENT_HTTP_PROXY=http://172.19.1.1:8181 SCAN_DEBUG_MODE=debug FETCH_LICENSE=true DEBIAN_FRONTEND=noninteractive cdxgen --required-only -t containerfile /home/remote/$imageName.tar -o $imageName.json" -IgnoreErrors -NoLog | Out-Null
-        &"$global:BinPath\k2s.exe" system ssh m -- "sudo HTTPS_PROXY=http://172.19.1.1:8181 trivy image --input $imageName.tar --scanners license --license-full --format cyclonedx -o $imageName.json 2>&1"
+        &"$global:KubernetesPath\k2s.exe" system ssh m -- "sudo HTTPS_PROXY=http://172.19.1.1:8181 trivy image --input $imageName.tar --scanners license --license-full --format cyclonedx -o $imageName.json 2>&1"
 
         # copy bom file to local folder
         $source = "$global:Remote_Master" + ":/home/remote/$imageName.json"
