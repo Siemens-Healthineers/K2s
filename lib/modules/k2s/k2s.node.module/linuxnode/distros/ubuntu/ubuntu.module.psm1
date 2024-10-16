@@ -12,18 +12,18 @@ $netplanFilePath = '/etc/netplan/k2s.yaml'
 
 function Add-RemoteIPAddress {
     param (
-        [string] $UserName = $(throw "Argument missing: UserName"),
-        [string] $IpAddress = $(throw "Argument missing: IpAddress"),
-        [string] $RemoteIpAddress = $(throw "Argument missing: RemoteIpAddress"),
-        [int] $PrefixLength = $(throw "Argument missing: PrefixLength"),
-        [string] $RemoteIpAddressGateway = $(throw "Argument missing: RemoteIpAddressGateway"),
-        [string] $DnsEntries = $(throw "Argument missing: DnsEntries"),
-        [string] $NetworkInterfaceName = $(throw "Argument missing: NetworkInterfaceName")
+        [string] $UserName = $(throw 'Argument missing: UserName'),
+        [string] $IpAddress = $(throw 'Argument missing: IpAddress'),
+        [string] $RemoteIpAddress = $(throw 'Argument missing: RemoteIpAddress'),
+        [int] $PrefixLength = $(throw 'Argument missing: PrefixLength'),
+        [string] $RemoteIpAddressGateway = $(throw 'Argument missing: RemoteIpAddressGateway'),
+        [string] $DnsEntries = $(throw 'Argument missing: DnsEntries'),
+        [string] $NetworkInterfaceName = $(throw 'Argument missing: NetworkInterfaceName')
     )
 
     $executeRemoteCommand = {
         param(
-            $command = $(throw "Argument missing: Command"),
+            $command = $(throw 'Argument missing: command'),
             [switch]$NoLog = $false
             )
         $result = (Invoke-CmdOnVmViaSSHKey -CmdToExecute $command -UserName $UserName -IpAddress $IpAddress -NoLog:$NoLog).Output
@@ -41,7 +41,7 @@ function Add-RemoteIPAddress {
     $configPath = "$PSScriptRoot\NetplanK2s.yaml"
     $netplanConfigurationTemplate = Get-Content $configPath
 
-    $netplanConfiguration = $netplanConfigurationTemplate.Replace("__NETWORK_INTERFACE_NAME__",$NetworkInterfaceName).Replace("__NETWORK_ADDRESSES__",$formattedCurrentConfiguredIPAddresses).Replace("__IP_GATEWAY__", $RemoteIpAddressGateway).Replace("__DNS_IP_ADDRESSES__",$DnsEntries)
+    $netplanConfiguration = $netplanConfigurationTemplate.Replace('__NETWORK_INTERFACE_NAME__',$NetworkInterfaceName).Replace('__NETWORK_ADDRESSES__',$formattedCurrentConfiguredIPAddresses).Replace('__IP_GATEWAY__', $RemoteIpAddressGateway).Replace('__DNS_IP_ADDRESSES__',$DnsEntries)
 
     &$executeRemoteCommand "echo '' | sudo tee $netplanFilePath" -NoLog
 
@@ -50,23 +50,23 @@ function Add-RemoteIPAddress {
     }
 
     &$executeRemoteCommand "sudo chmod 600 $netplanFilePath"
-    &$executeRemoteCommand "sudo netplan apply"
-    &$executeRemoteCommand "sudo systemctl restart systemd-networkd"
+    &$executeRemoteCommand 'sudo netplan apply'
+    &$executeRemoteCommand 'sudo systemctl restart systemd-networkd'
 
-    [string]$hostname = &$executeRemoteCommand "hostname" -NoLog
+    [string]$hostname = &$executeRemoteCommand 'hostname' -NoLog
 
     Write-Log "Added network address '$networkAddress' and gateway IP '$RemoteIpAddressGateway' to Linux based computer '$hostname' reachable on IP address '$IpAddress'"
 }
 
 function Remove-RemoteIPAddress {
     param (
-        [string] $UserName = $(throw "Argument missing: UserName"),
-        [string] $IpAddress = $(throw "Argument missing: IpAddress")
+        [string] $UserName = $(throw 'Argument missing: UserName'),
+        [string] $IpAddress = $(throw 'Argument missing: IpAddress')
     )
 
     $executeRemoteCommand = {
         param(
-            $command = $(throw "Argument missing: Command"),
+            $command = $(throw 'Argument missing: command'),
             [switch]$NoLog = $false
             )
         $result = (Invoke-CmdOnVmViaSSHKey -CmdToExecute $command -UserName $UserName -IpAddress $IpAddress -NoLog:$NoLog).Output

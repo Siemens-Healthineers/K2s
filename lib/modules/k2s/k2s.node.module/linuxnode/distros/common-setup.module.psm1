@@ -1238,7 +1238,7 @@ function Set-ProxySettingsOnKubenode {
         [string] $ProxySettings,
         [Parameter(Mandatory = $false)]
         [string] $IpAddress = $(throw 'Argument missing: IpAddress'),
-        [string] $UserName = $(throw "Argument missing: UserName")
+        [string] $UserName = $(throw 'Argument missing: UserName')
 
     )
 
@@ -1257,7 +1257,7 @@ function Set-ProxySettingsForApt {
         [string] $ProxySettings,
         [Parameter(Mandatory = $false)]
         [string] $IpAddress = $(throw 'Argument missing: IpAddress'),
-        [string] $UserName = $(throw "Argument missing: UserName")
+        [string] $UserName = $(throw 'Argument missing: UserName')
 
     )
 
@@ -1290,7 +1290,7 @@ function Set-ProxySettingsForContainerRuntime {
         [string] $ProxySettings,
         [Parameter(Mandatory = $false)]
         [string] $IpAddress = $(throw 'Argument missing: IpAddress'),
-        [string] $UserName = $(throw "Argument missing: UserName")
+        [string] $UserName = $(throw 'Argument missing: UserName')
 
     )
 
@@ -1324,7 +1324,7 @@ function Set-ProxySettingsForContainers {
         [string] $ProxySettings,
         [Parameter(Mandatory = $false)]
         [string] $IpAddress = $(throw 'Argument missing: IpAddress'),
-        [string] $UserName = $(throw "Argument missing: UserName")
+        [string] $UserName = $(throw 'Argument missing: UserName')
 
     )
 

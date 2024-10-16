@@ -161,20 +161,21 @@ function Add-LinuxWorkerNodeOnExistingUbuntuVM {
     Install-KubernetesArtifacts -UserName $UserName -IpAddress $IpAddress -K8sVersion $k8sVersion -Proxy $Proxy
     
     Write-Log " Add firewall rules for Kubernetes"
-    (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo ufw allow 6443/tcp" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
-    (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo ufw allow 2379:2380/tcp" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
-    (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo ufw allow 10250/tcp" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
-    (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo ufw allow 10259/tcp" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
-    (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo ufw allow 10257/tcp" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
-    (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo ufw allow 9153/tcp" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
+    (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo ufw allow 6443/tcp' -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
+    (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo ufw allow 2379:2380/tcp' -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
+    (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo ufw allow 10250/tcp' -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
+    (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo ufw allow 10259/tcp' -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
+    (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo ufw allow 10257/tcp' -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
+    (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo ufw allow 9153/tcp' -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
     
-    (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo mkdir -p /etc/netplan/backup" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
+    (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo mkdir -p /etc/netplan/backup' -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
     (Invoke-CmdOnVmViaSSHKey -CmdToExecute "find /etc/netplan -maxdepth 1 -type f -exec sudo mv {} /etc/netplan/backup ';'" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
     
     $windowsHostIpAddress = Get-ConfiguredKubeSwitchIP
     $controlPlaneIpAddress = Get-ConfiguredIPControlPlane
+    $networkPrefix = Get-ConfiguredClusterNetworkPrefix
     $networkInterfaceName = 'eth0'
-    Add-RemoteIPAddress -UserName $UserName -IPAddress $IpAddress -RemoteIpAddress $ClusterIpAddress -PrefixLength '24' -RemoteIpAddressGateway $windowsHostIpAddress -DnsEntries $controlPlaneIpAddress -NetworkInterfaceName $networkInterfaceName
+    Add-RemoteIPAddress -UserName $UserName -IPAddress $IpAddress -RemoteIpAddress $ClusterIpAddress -PrefixLength $networkPrefix -RemoteIpAddressGateway $windowsHostIpAddress -DnsEntries $controlPlaneIpAddress -NetworkInterfaceName $networkInterfaceName
     Disconnect-VMNetworkAdapter -VmName $VmName -ErrorAction Stop
     $switchName = Get-ControlPlaneNodeDefaultSwitchName
     Connect-VMNetworkAdapter -VmName $VmName -SwitchName $switchName -ErrorAction Stop 
@@ -212,7 +213,7 @@ function Remove-LinuxWorkerNodeOnExistingUbuntuVM {
     Remove-KubernetesArtifacts -UserName $UserName -IpAddress $IpAddress
 
     (Invoke-CmdOnVmViaSSHKey -CmdToExecute "if [[ -d /etc/netplan/backup ]]; then find /etc/netplan/backup -maxdepth 1 -type f -exec sudo mv {} /etc/netplan ';';fi" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
-    (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo rm -rf /etc/netplan/backup" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
+    (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo rm -rf /etc/netplan/backup' -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
     Remove-RemoteIPAddress -UserName $UserName -IpAddress $IpAddress
 
     Disconnect-VMNetworkAdapter -VmName $VmName -ErrorAction Stop
