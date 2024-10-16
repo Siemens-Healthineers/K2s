@@ -37,13 +37,12 @@ $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.m
 $clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $nodeModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.node.module\k2s.node.module.psm1"
 $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
-$addonsIngressModule = "$PSScriptRoot\..\addons.ingress.module.psm1"
 $securityModule = "$PSScriptRoot\security.module.psm1"
 
 # TODO: Remove cross referencing once the code clones are removed and use the central module for these functions.
 $loggingModule = "$PSScriptRoot\..\logging\logging.module.psm1"
 
-Import-Module $infraModule, $clusterModule, $nodeModule, $addonsModule, $addonsIngressModule, $securityModule, $loggingModule
+Import-Module $infraModule, $clusterModule, $nodeModule, $addonsModule, $securityModule, $loggingModule
 Import-Module PKI;
 
 Initialize-Logging -ShowLogs:$ShowLogs
@@ -186,8 +185,8 @@ if ($keycloakPodStatus -ne $true -or $oauth2ProxyPodStatus -ne $true) {
     exit 1
 }
 
-# if security addon is enabled, than adapt ingress for other addons
-Update-IngressForAddons
+# if security addon is enabled, than adapt other addons
+Update-Addons
 
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'security' })
 

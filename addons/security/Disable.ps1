@@ -26,10 +26,9 @@ Param (
 $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
-$addonsIngressModule = "$PSScriptRoot\..\addons.ingress.module.psm1"
 $securityModule = "$PSScriptRoot\security.module.psm1"
 
-Import-Module $infraModule, $clusterModule, $addonsModule, $addonsIngressModule, $securityModule
+Import-Module $infraModule, $clusterModule, $addonsModule, $securityModule
 Import-Module PKI;
 
 Initialize-Logging -ShowLogs:$ShowLogs
@@ -80,8 +79,8 @@ $oauth2ProxyYaml = Get-OAuth2ProxyConfig
 $keyCloakYaml = Get-KeyCloakConfig
 (Invoke-Kubectl -Params 'delete', '-f', $keyCloakYaml).Output | Write-Log
 
-# if security addon is enabled, than adapt ingress for other addons
-Update-IngressForAddons
+# if security addon is enabled, than adapt other addons
+Update-Addons
 
 Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'security' })
 Write-Log 'Uninstallation of security finished' -Console

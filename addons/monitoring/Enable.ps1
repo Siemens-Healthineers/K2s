@@ -27,10 +27,9 @@ Param(
 $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
-$addonsIngressModule = "$PSScriptRoot\..\addons.ingress.module.psm1"
 $monitoringModule = "$PSScriptRoot\monitoring.module.psm1"
 
-Import-Module $infraModule, $clusterModule, $addonsModule, $addonsIngressModule, $monitoringModule
+Import-Module $infraModule, $clusterModule, $addonsModule, $monitoringModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -78,8 +77,6 @@ Write-Log 'Installing Kube Prometheus Stack' -Console
 (Invoke-Kubectl -Params 'create', '-f', "$manifestsPath\crds").Output | Write-Log
 (Invoke-Kubectl -Params 'create', '-k', $manifestsPath).Output | Write-Log
 
-Update-IngressForAddon -Addon ([pscustomobject] @{Name = 'monitoring' })
-
 Write-Log 'Waiting for Pods..'
 $kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'deployments', '-n', 'monitoring', '--timeout=180s')
 Write-Log $kubectlCmd.Output
@@ -120,6 +117,8 @@ if (!$kubectlCmd.Success) {
     Write-Log $errMsg -Error
     exit 1
 }
+
+&"$PSScriptRoot\Update.ps1"
 
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'monitoring' })
 

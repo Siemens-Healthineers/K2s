@@ -7,8 +7,6 @@ kind: AddonManifest
 metadata:
   name: logging
   description: Dashboard for Kubernetes container logs
-  annotations:
-    k2s.cluster.local/update-ingress-configuration: "true"
 spec:
   implementations:
     - name: logging

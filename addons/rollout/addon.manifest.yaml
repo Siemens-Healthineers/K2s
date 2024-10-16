@@ -7,8 +7,6 @@ kind: AddonManifest
 metadata:
   name: rollout
   description: Automating the deployment/updating of applications
-  annotations:
-    k2s.cluster.local/update-ingress-configuration: "true"
 spec:
   implementations:
     - name: rollout
