@@ -21,19 +21,6 @@
                 "description": {
                     "description": "The description of an addon for user display",
                     "type": "string"
-                },
-                "annotations": {
-                "additionalProperties": {
-                    "type": [
-                    "string",
-                    "null"
-                    ]
-                },
-                "description": "Annotations of the addon",
-                "type": [
-                    "object",
-                    "null"
-                    ]
                 }
             },
             "required": [

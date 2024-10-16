@@ -43,10 +43,9 @@ Param (
 $clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
-$addonsIngressModule = "$PSScriptRoot\..\addons.ingress.module.psm1"
 $dashboardModule = "$PSScriptRoot\dashboard.module.psm1"
 
-Import-Module $clusterModule, $infraModule, $addonsModule, $addonsIngressModule, $dashboardModule
+Import-Module $clusterModule, $infraModule, $addonsModule, $dashboardModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -95,8 +94,6 @@ Write-Log 'Installing Kubernetes dashboard' -Console
 $dashboardConfig = Get-DashboardConfig
 (Invoke-Kubectl -Params 'apply' , '-k', $dashboardConfig).Output | Write-Log     
 
-Update-IngressForAddon -Addon ([pscustomobject] @{Name = 'dashboard' })
-
 Write-Log 'Checking Dashboard status' -Console
 $dashboardStatus = Wait-ForDashboardAvailable
 
@@ -111,6 +108,8 @@ if ($dashboardStatus -ne $true) {
     Write-Log $errMsg -Error
     exit 1
 }
+
+&"$PSScriptRoot\Update.ps1"
 
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'dashboard' })
 
