@@ -29,10 +29,9 @@ Param(
 $infraModule = "$PSScriptRoot/../../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $clusterModule = "$PSScriptRoot/../../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $addonsModule = "$PSScriptRoot\..\..\addons.module.psm1"
-$addonsIngressModule = "$PSScriptRoot\..\..\addons.ingress.module.psm1"
 $nginxModule = "$PSScriptRoot\nginx.module.psm1"
 
-Import-Module $infraModule, $clusterModule, $addonsModule, $addonsIngressModule, $nginxModule
+Import-Module $infraModule, $clusterModule, $addonsModule, $nginxModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -157,8 +156,8 @@ Write-Log 'All ingress nginx pods are up and ready.'
 
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'ingress'; Implementation = 'nginx' })
 
-# adapt ingress for other addons
-Update-IngressForAddons
+# adapt other addons
+Update-Addons
 
 Write-Log 'ingress nginx installed successfully' -Console
 
