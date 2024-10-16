@@ -40,11 +40,10 @@ Param (
 $clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
-$addonsIngressModule = "$PSScriptRoot\..\addons.ingress.module.psm1"
 $nodeModule = "$PSScriptRoot/../../lib\modules\k2s\k2s.node.module\k2s.node.module.psm1"
 $rolloutModule = "$PSScriptRoot\rollout.module.psm1"
 
-Import-Module $clusterModule, $infraModule, $addonsModule, $addonsIngressModule, $nodeModule, $rolloutModule
+Import-Module $clusterModule, $infraModule, $addonsModule, $nodeModule, $rolloutModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -94,8 +93,6 @@ Write-Log 'Installing rollout addon' -Console
 $rolloutConfig = Get-RolloutConfig
 (Invoke-Kubectl -Params 'apply' , '-n', $rolloutNamespace, '-k', $rolloutConfig).Output | Write-Log
 
-Update-IngressForAddon -Addon ([pscustomobject] @{Name = 'rollout' })
-
 Write-Log 'Waiting for pods being ready...' -Console
 
 $kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'deployments', '-n', $rolloutNamespace, '--timeout=300s')
@@ -130,7 +127,7 @@ if ($Ingress -ne 'none') {
     Enable-IngressAddon -Ingress:$Ingress
 }
 
-(Invoke-Kubectl -Params 'delete', 'secret', 'argocd-initial-secret', '-n', $rolloutNamespace).Output | Write-Log
+&"$PSScriptRoot\Update.ps1"
 
 Write-Log 'Installation of rollout addon finished.' -Console
 
