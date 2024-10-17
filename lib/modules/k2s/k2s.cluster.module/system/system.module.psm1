@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 # SPDX-License-Identifier: MIT
 
 #Requires -RunAsAdministrator
@@ -155,16 +155,16 @@ function Get-AssignedPodSubnetworkNumber {
         [string] $NodeName = $(throw 'Argument missing: NodeName')
     )
     $podCIDR = &"$kubeToolsPath\kubectl.exe" get nodes $NodeName -o jsonpath="'{.spec.podCIDR}'"
-    if ([string]::IsNullOrWhiteSpace($podCIDR)) {
-        throw "Cannot obtain container network information from node '$NodeName'"
+    $success = ($LASTEXITCODE -eq 0)
+    $subnetNumber = ''
+    
+    if ($success) {
+        $searchPattern = "^'\d{1,3}\.\d{1,3}\.(?<subnet>\d{1,3})\.\d{1,3}\/24'$"
+        $m = [regex]::Matches($podCIDR, $searchPattern)
+        if (-not $m[0]) { throw "Cannot get subnet number from '$podCIDR'." }
+        $subnetNumber = $m[0].Groups['subnet'].Value
     }
-
-    $searchPattern = "^'\d{1,3}\.\d{1,3}\.(?<subnet>\d{1,3})\.\d{1,3}\/24'$"
-    $m = [regex]::Matches($podCIDR, $searchPattern)
-    if (-not $m[0]) { throw "Cannot get subnet number from '$podCIDR'." }
-    $subnetNumber = $m[0].Groups['subnet'].Value
-
-    return $subnetNumber
+    return [pscustomobject]@{ Success = $success; PodSubnetworkNumber = $subnetNumber }
 }
 
 Export-ModuleMember Invoke-TimeSync, 
