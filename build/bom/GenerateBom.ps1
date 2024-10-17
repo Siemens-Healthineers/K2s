@@ -99,7 +99,7 @@ function MergeBomFilesFromDirectory() {
 
     # merge all files to one bom file
     $bomfiles = (Get-ChildItem -Path "$bomRootDir\merge" -Filter *.json -Recurse).FullName | Sort-Object length -Descending
-    $CMD = 'cyclonedx-win-x64'
+    $CMD = "$global:BinPath\cyclonedx-win-x64"
     $MERGE = @('merge', '--input-files')
     # adding at the beginning just to have the right naming for the component
     $MERGE += "`"$bomRootDir\merge\k2s-static.json`""
@@ -122,7 +122,7 @@ function ValidateResultBom() {
     Write-Output "Validate bom file: '$bomRootDir\k2s-bom.json'"
 
     # build and execute validate command
-    $CMD = 'cyclonedx-win-x64'
+    $CMD = "$global:BinPath\cyclonedx-win-x64"
     $VALIDATE = @('validate', '--input-file', "`"$bomRootDir\k2s-bom.json`"", '--fail-on-errors')
     & $CMD $VALIDATE
 }
