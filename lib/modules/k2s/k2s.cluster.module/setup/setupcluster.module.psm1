@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 # SPDX-License-Identifier: MIT
 
 
@@ -218,6 +218,9 @@ function Join-LinuxNode {
     if ( !($nodefound) ) {
         Write-Log "Host $NodeName not yet available as worker node."
 
+        (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo rm -f /etc/kubernetes/kubelet.conf' -UserName $NodeUserName -IpAddress $NodeIpAddress).Output | Write-Log
+        (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo rm -f /etc/kubernetes/pki/ca.crt' -UserName $NodeUserName -IpAddress $NodeIpAddress).Output | Write-Log
+    
         $CommandForJoining = New-JoinCommand
 
         Write-Log 'Build join command ..'
@@ -248,14 +251,14 @@ function Join-LinuxNode {
         Write-Log "Copy config file for join command to node '$NodeIpAddress'"
         $source = $joinConfigurationFilePath
         $target = '/tmp/joinnode.yaml'
-        Copy-ToRemoteComputerViaUserAndPwd -Source $source -Target $target -IpAddress $NodeIpAddress
+        Copy-ToRemoteComputerViaSshKey -Source $source -Target $target -UserName $NodeUserName -IpAddress $NodeIpAddress
    
         $joinCommand = "sudo kubeadm join $apiServerEndpoint" + ' --node-name ' + $NodeName + ' --ignore-preflight-errors IsPrivilegedUser' + " --config `"$target`""
         Write-Log "Created join command: $joinCommand"
 
         $job = Invoke-Expression "Start-Job -ScriptBlock `${Function:Wait-ForNodesReady} -ArgumentList $NodeName"
         Write-Log "Invoke join command in node '$NodeName'"
-        (Invoke-CmdOnVmViaSSHKey -CmdToExecute $joinCommand -IpAddress $NodeIpAddress).Output | Write-Log
+        (Invoke-CmdOnVmViaSSHKey -CmdToExecute $joinCommand -UserName $NodeUserName -IpAddress $NodeIpAddress).Output | Write-Log
 
         # print the output of the WaitForJoin.ps1
         Receive-Job $job
@@ -279,6 +282,22 @@ function Join-LinuxNode {
     # mark node as worker
     Write-Log "Labeling linux node '$NodeName' as worker node"
     &"$kubeToolsPath\kubectl.exe" label nodes $Nodename.ToLower() kubernetes.io/role=worker --overwrite | Out-Null
+}
+
+function Remove-LinuxNode {
+    Param(
+        [string] $NodeName = $(throw 'Argument missing: NodeName'),
+        [string] $NodeUserName = $(throw 'Argument missing: NodeUserName'),
+        [string] $NodeIpAddress = $(throw 'Argument missing: NodeIpAddress')
+    )
+
+    (Invoke-Kubectl -Params @('drain', "$NodeName", '--ignore-daemonsets', '--delete-emptydir-data')).Output | ForEach-Object { "$_" } | Write-Log
+    (Invoke-Kubectl -Params @('delete', 'node', "$NodeName")).Output | ForEach-Object { "$_" } | Write-Log
+    $controlPlaneCIDR = Get-ConfiguredControlPlaneCIDR
+    (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo ip route delete $controlPlaneCIDR" -UserName $NodeUserName -IpAddress $NodeIpAddress).Output | Write-Log
+    
+    (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo systemctl stop kubelet' -UserName $NodeUserName -IpAddress $NodeIpAddress).Output | Write-Log
+    (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo rm -rf /etc/kubernetes' -UserName $NodeUserName -IpAddress $NodeIpAddress).Output | Write-Log
 }
 
 function Add-ClusterDnsNameToHost {
@@ -546,4 +565,4 @@ Uninstall-Cluster, Set-KubeletDiskPressure,
 Join-WindowsNode, Join-LinuxNode, Join-VMWindowsNode, Add-K8sContext,
 Add-ClusterDnsNameToHost, Initialize-VMKubernetesCluster,
 Set-DiskPressureLimitsOnWindowsNode, Add-IPsToHostsFiles,
-Write-K8sNodesStatus, New-JoinCommand
+Write-K8sNodesStatus, New-JoinCommand, Remove-LinuxNode
