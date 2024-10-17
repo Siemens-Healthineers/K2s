@@ -78,4 +78,22 @@ function Get-OrUpdateProxyServer ([string]$Proxy) {
     return $Proxy
 }
 
-Export-ModuleMember -Function Get-OrUpdateProxyServer
+function Add-K2sHostsToNoProxyEnvVar() {
+    $noProxyEnvVar = [Environment]::GetEnvironmentVariable("NO_PROXY", "Machine")
+    if (![string]::IsNullOrWhiteSpace($noProxyEnvVar)) {
+        $noProxyEnvVar += ",local"
+        [Environment]::SetEnvironmentVariable("NO_PROXY", $noProxyEnvVar, "Machine")
+    }
+}
+
+function Remove-K2sHostsFromNoProxyEnvVar() {
+    $noProxyEnvVar = [Environment]::GetEnvironmentVariable("NO_PROXY", "Machine")
+    if (![string]::IsNullOrWhiteSpace($noProxyEnvVar)) {
+        $noProxyList = $noProxyEnvVar -split ","
+        $noProxyList = $noProxyList | Where-Object { $_ -ne "local" }
+        $updatedNoProxyEnvVar = $noProxyList -join ","
+        [Environment]::SetEnvironmentVariable("NO_PROXY", $updatedNoProxyEnvVar, "Machine")
+    }
+}
+
+Export-ModuleMember -Function Get-OrUpdateProxyServer, Add-K2sHostsToNoProxyEnvVar, Remove-K2sHostsFromNoProxyEnvVar
