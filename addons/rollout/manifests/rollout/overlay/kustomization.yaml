@@ -6,4 +6,4 @@ resources:
   - ../base
 
 patches:
-  - patch.yaml
+  - path: patch.yaml
