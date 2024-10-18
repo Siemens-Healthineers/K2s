@@ -1,0 +1,15 @@
+# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+#
+# SPDX-License-Identifier: MIT
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/name: argocd-cmd-params-cm
+    app.kubernetes.io/part-of: argocd
+  name: argocd-cmd-params-cm
+data:
+  # https://argo-cd.readthedocs.io/en/stable/operator-manual/ingress/#ui-base-path
+  server.rootpath: "/rollout"
+  server.disable.auth: "true"

@@ -2,8 +2,17 @@
 #
 # SPDX-License-Identifier: MIT
 ---
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
 resources:
   - ../base
 
-patchesStrategicMerge:
-  - patch.yaml
+patches:
+  - path: patches/argocd-application-controller.clusterrolebinding.patch.yaml
+  - path: patches/argocd-applicationset-controller.clusterrolebinding.patch
+  - path: patches/argocd-cmd-params-cm.configmap.patch.yaml
+  - path: patches/argocd-dex-server.deployment.patch.yaml
+  - path: patches/argocd-repo-server.deployment.patch.yaml
+  - path: patches/argocd-server.clusterrolebinding.patch.yaml
+  - path: patches/argocd-server.deployment.patch.yaml
