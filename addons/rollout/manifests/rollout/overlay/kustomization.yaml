@@ -5,5 +5,5 @@
 resources:
   - ../base
 
-patches:
+patchesStrategicMerge:
   - patch.yaml
