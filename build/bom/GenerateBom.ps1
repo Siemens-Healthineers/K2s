@@ -155,7 +155,7 @@ function GenerateBomDebian() {
     }
 
     Write-Output 'Generate bom for debian'
-    ExecCmdMaster 'sudo HTTPS_PROXY=http://172.19.1.1:8181 trivy rootfs / --scanners license --license-full --format cyclonedx -o kubemaster.json 2>&1'
+    ExecCmdMaster -CmdToExecute 'sudo HTTPS_PROXY=http://172.19.1.1:8181 trivy rootfs / --scanners license --license-full --format cyclonedx -o kubemaster.json 2>&1' -Retries 6 -Timeout 10
 
     Write-Output 'Copy bom file to local folder'
     $source = "$global:Remote_Master" + ':/home/remote/kubemaster.json'
