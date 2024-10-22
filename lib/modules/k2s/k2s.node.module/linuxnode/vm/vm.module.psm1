@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 # SPDX-License-Identifier: MIT
 
 $configModule = "$PSScriptRoot\..\..\..\k2s.infra.module\config\config.module.psm1"
@@ -34,9 +34,10 @@ function Invoke-SSHWithKey {
         [switch]
         $Nested,
         [Parameter(Mandatory = $false)]
-        [string]$IpAddress = $ipControlPlane
+        [string] $IpAddress = $ipControlPlane,
+        [string] $UserName = $defaultUserName
     )
-    $userOnRemoteMachine = "$defaultUserName@$IpAddress"
+    $userOnRemoteMachine = "$UserName@$IpAddress"
     $params = '-n', '-o', 'StrictHostKeyChecking=no', '-i', $key, $userOnRemoteMachine, $Command
 
     if ($Nested -eq $true) {
@@ -92,7 +93,8 @@ function Invoke-CmdOnVmViaSSHKey(
     [Parameter(Mandatory = $false, HelpMessage = 'repair CMD for the case first run did not work out')]
     [string]$RepairCmd = $null,
     [Parameter(Mandatory = $false)]
-    [string]$IpAddress = $(throw 'Argument missing: IpAddress')) {
+    [string]$IpAddress = $(throw 'Argument missing: IpAddress'),
+    [string]$UserName = $defaultUserName) {
 
     if (!$NoLog) {
         Write-Log "cmd: $CmdToExecute, retries: $Retries, timeout: $Timeout sec, ignore err: $IgnoreErrors, nested: $Nested, ip address: $IpAddress"
@@ -101,7 +103,7 @@ function Invoke-CmdOnVmViaSSHKey(
     [uint16]$Retrycount = 1
     do {
         try {
-            $output = Invoke-SSHWithKey -Command $CmdToExecute -Nested:$Nested -IpAddress $IpAddress
+            $output = Invoke-SSHWithKey -Command $CmdToExecute -Nested:$Nested -UserName $UserName -IpAddress $IpAddress
             $success = ($LASTEXITCODE -eq 0)
 
             if (!$success -and !$IgnoreErrors) {
@@ -120,7 +122,7 @@ function Invoke-CmdOnVmViaSSHKey(
                 if ($null -ne $RepairCmd -and !$IgnoreErrors) {
                     Write-Log "Executing repair cmd: $RepairCmd"
 
-                    Invoke-SSHWithKey -Command $RepairCmd -Nested:$Nested -IpAddress $IpAddress
+                    Invoke-SSHWithKey -Command $RepairCmd -Nested:$Nested -UserName $UserName -IpAddress $IpAddress
                 }
 
                 Start-Sleep -Seconds $Timeout
@@ -267,29 +269,39 @@ function Copy-FromRemoteComputerViaUserAndPwd($Source, $Target, $IpAddress,
 function Copy-ToControlPlaneViaSSHKey($Source, $Target,
     [Parameter(Mandatory = $false)]
     [switch]$IgnoreErrors = $false) {
+    
+    Copy-ToRemoteComputerViaSshKey -Source $Source -Target $Target -UserName $defaultUserName -IpAddress $ipControlPlane -IgnoreErrors:$IgnoreErrors
+}
+
+function Copy-ToRemoteComputerViaSshKey($Source, $Target, $UserName, $IpAddress,
+    [Parameter(Mandatory = $false)]
+    [switch]$IgnoreErrors = $false) {
     Write-Log "Copying '$Source' to '$Target', ignoring errors: '$IgnoreErrors'"
 
-    $leaf = Split-Path $Source -leaf
-    $targetDirectory = $Target -replace "${remoteUser}:", ''
+    $remoteComputerUser = "$UserName@$IpAddress"
 
+    $leaf = Split-Path $Source -leaf
+    $targetDirectory = $Target -replace "${remoteComputerUser}:", ''
+
+    $tempDirectory = "$env:TEMP\matchedFilesCopyToRemoteComputerViaSSHKey"
     if ($leaf.Contains("*")) {
         # copy all/specific files in directory e.g. pvc-* or *
         $filter = $leaf
 
-        New-Item -Path "$env:TEMP\matchedFilesCopyToControlPlaneViaSSHKey" -ItemType Directory -Force | Out-Null
+        New-Item -Path "$tempDirectory" -ItemType Directory -Force | Out-Null
         Get-ChildItem -Path $(Split-Path $Source -Parent) -Filter $filter -Force | ForEach-Object {
             Write-Log "  Adding '$($_.FullName)'.."
-            Copy-Item "$($_.FullName)" "$env:TEMP\matchedFilesCopyToControlPlaneViaSSHKey" -Force -Recurse
+            Copy-Item "$($_.FullName)" "$tempDirectory" -Force -Recurse
         }
 
-        $tarFolder = "$env:TEMP\matchedFilesCopyToControlPlaneViaSSHKey"
+        $tarFolder = "$tempDirectory"
     } elseif ($(Test-Path $Source) -and (Get-Item $Source) -is [System.IO.DirectoryInfo]) {
         # single folder copy
         $tarFolder = $Source
         $targetDirectory = "$targetDirectory/$leaf"
     } else {
          # single file copy
-        $output = scp.exe -o StrictHostKeyChecking=no -r -i $key "$Source" "${remoteUser}:$Target" 2>&1
+        $output = scp.exe -o StrictHostKeyChecking=no -r -i $key "$Source" "${remoteComputerUser}:$Target" 2>&1
         if ($LASTEXITCODE -ne 0 -and !$IgnoreErrors) {
             throw "Could not copy '$Source' to '$Target': $output"
         }
@@ -304,7 +316,7 @@ function Copy-ToControlPlaneViaSSHKey($Source, $Target,
         throw "Could not copy '$Source' to '$Target': $output"
     }
 
-    $output = scp.exe -o StrictHostKeyChecking=no -i $key "$env:temp\copy.tar" "${remoteUser}:/tmp" 2>&1
+    $output = scp.exe -o StrictHostKeyChecking=no -i $key "$env:temp\copy.tar" "${remoteComputerUser}:/tmp" 2>&1
     if ($LASTEXITCODE -ne 0 -and !$IgnoreErrors) {
         throw "Could not copy '$Source' to '$Target': $output"
     }
@@ -313,7 +325,7 @@ function Copy-ToControlPlaneViaSSHKey($Source, $Target,
     (Invoke-CmdOnControlPlaneViaSSHKey "tar -xf /tmp/copy.tar -C $targetDirectory").Output | Write-Log
     (Invoke-CmdOnControlPlaneViaSSHKey 'sudo rm -rf /tmp/copy.tar').Output | Write-Log
     Remove-Item -Path "$env:temp\copy.tar" -Force -ErrorAction SilentlyContinue
-    Remove-Item -Path "$env:TEMP\matchedFilesCopyToControlPlaneViaSSHKey" -Force -Recurse -ErrorAction SilentlyContinue
+    Remove-Item -Path "$tempDirectory" -Force -Recurse -ErrorAction SilentlyContinue
 }
 
 function Copy-ToControlPlaneViaUserAndPwd($Source, $Target,
@@ -632,6 +644,7 @@ Get-IsControlPlaneRunning,
 Copy-FromControlPlaneViaSSHKey,
 Copy-FromRemoteComputerViaUserAndPwd,
 Copy-ToControlPlaneViaSSHKey,
+Copy-ToRemoteComputerViaSshKey,
 Copy-ToControlPlaneViaUserAndPwd,
 Copy-ToRemoteComputerViaUserAndPwd,
 Test-ControlPlanePrerequisites,

@@ -159,6 +159,10 @@ function Get-DefaultTempPwd {
     return 'admin'
 }
 
+function Get-ConfiguredClusterNetworkPrefix {
+    return $ipControlPlaneCIDR.Substring($ipControlPlaneCIDR.IndexOf('/')+1)
+}
+
 <#
 .SYNOPSIS
     Creates a specified directory if not existing.
@@ -341,7 +345,11 @@ function Set-ConfigSetupType {
 }
 
 function Get-ConfigWslFlag {
-    return Get-ConfigValue -Path $SetupJsonFile -Key 'WSL'
+    $wslValue = Get-ConfigValue -Path $SetupJsonFile -Key 'WSL'
+    if ($null -eq $wslValue){
+        return $false
+    }
+    return $wslValue
 }
 
 function Get-ReuseExistingLinuxComputerForMasterNodeFlag {
@@ -555,4 +563,5 @@ Get-ReuseExistingLinuxComputerForMasterNodeFlag,
 Get-ControlPlaneNodeWslSwitchName,
 Get-WindowsVmIpAddress,
 Get-ConfigWinBuildEnabledFlag,
-Set-ConfigWinBuildEnabledFlag
+Set-ConfigWinBuildEnabledFlag,
+Get-ConfiguredClusterNetworkPrefix
