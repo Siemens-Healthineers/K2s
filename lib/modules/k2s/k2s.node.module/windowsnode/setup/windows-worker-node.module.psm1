@@ -3,7 +3,7 @@
 
 #Requires -RunAsAdministrator
 
-$infraModule =   "$PSScriptRoot\..\..\..\k2s.infra.module\k2s.infra.module.psm1"
+$infraModule = "$PSScriptRoot\..\..\..\k2s.infra.module\k2s.infra.module.psm1"
 $clusterModule = "$PSScriptRoot\..\..\..\k2s.cluster.module\k2s.cluster.module.psm1"
 
 Import-Module $infraModule, $clusterModule
@@ -195,14 +195,14 @@ function Start-WindowsWorkerNode {
     Write-Log "Using network adapter '$adapterName'"
     Enable-LoopbackAdapter
 
-    Write-Log 'Configuring network for windows node' -Console
-    Restart-WinServiceVmCompute
-    Restart-WinService 'hns'
+    Write-Log 'Starting windows services' -Console
+    Start-Service -Name 'vmcompute'
+    Start-Service -Name 'hns'
 
     Write-Log 'Figuring out IPv4DefaultGateway'
     $if = Get-NetIPConfiguration -InterfaceAlias "$adapterName" -ErrorAction SilentlyContinue 2>&1 | Out-Null
-    $gw =  Get-LoopbackAdapterGateway
-    if( $if ) {
+    $gw = Get-LoopbackAdapterGateway
+    if ( $if ) {
         $gw = $if.IPv4DefaultGateway.NextHop
         Write-Log "Gateway found (from interface '$adapterName'): $gw"
     }
@@ -216,10 +216,10 @@ function Start-WindowsWorkerNode {
     $loopbackAdapterAlias = Get-NetIPInterface | Where-Object InterfaceAlias -Like "vEthernet ($adapterName)*" | Where-Object AddressFamily -Eq IPv4 | Select-Object -expand 'InterfaceAlias' -First 1
 
     if ($null -eq $loopbackAdapterIfIndex -or $null -eq $loopbackAdapterAlias) {
-        Write-Log "Unable to find the loopback adapter" -Error
-        Write-Log "Found following interfaces:"
+        Write-Log 'Unable to find the loopback adapter' -Error
+        Write-Log 'Found following interfaces:'
         Get-NetIPInterface | Write-Log
-        throw "Unable to find the loopback adapter"
+        throw 'Unable to find the loopback adapter'
     }
 
     Write-Log "Found Loopback adapter with Alias: '$loopbackAdapterAlias' and ifIndex: '$loopbackAdapterIfIndex'"
@@ -231,7 +231,7 @@ function Start-WindowsWorkerNode {
     Set-DnsClient -InterfaceIndex $loopbackAdapterIfIndex -RegisterThisConnectionsAddress $false | Out-Null
     netsh int ipv4 set int "$loopbackAdapterAlias" forwarding=enabled | Out-Null
 
-    Write-Log "Ensuring service log directories exists"
+    Write-Log 'Ensuring service log directories exists'
     EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\containerd"
     EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\dnsproxy"
     EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\dockerd"
@@ -297,12 +297,13 @@ function Start-WindowsWorkerNode {
 
             Write-Output "Networking setup done.`n"
             break;
-        } elseif ($cbr0Stopwatch.Elapsed.TotalSeconds -gt 150) {
-                Stop-Service flanneld
-                Write-Output "FAIL: No cbr0 switch found, timeout. Aborting.`n"
-                Write-Output 'For troubleshooting look into the log file C:\var\log\flanneld'
-                Write-Output ''
-                throw 'Timeout: flanneld failed to create cbr0 switch'
+        }
+        elseif ($cbr0Stopwatch.Elapsed.TotalSeconds -gt 150) {
+            Stop-Service flanneld
+            Write-Output "FAIL: No cbr0 switch found, timeout. Aborting.`n"
+            Write-Output 'For troubleshooting look into the log file C:\var\log\flanneld'
+            Write-Output ''
+            throw 'Timeout: flanneld failed to create cbr0 switch'
         }
 
         Start-Sleep -s $SleepInLoop
@@ -321,7 +322,7 @@ function Stop-WindowsWorkerNode {
         [switch] $CacheK2sVSwitches,
         [parameter(Mandatory = $false, HelpMessage = 'Skips showing stop header display')]
         [switch] $SkipHeaderDisplay = $false,
-        [string] $PodSubnetworkNumber = $(throw "Argument missing: PodSubnetworkNumber")
+        [string] $PodSubnetworkNumber = $(throw 'Argument missing: PodSubnetworkNumber')
     )
 
     Write-Log 'Stopping Kubernetes services on the Windows node' -Console
@@ -376,19 +377,19 @@ function Stop-WindowsWorkerNode {
 function CheckFlannelConfig {
     $flannelFile = "$(Get-InstallationDriveLetter):\run\flannel\subnet.env"
     $existsFlannelFile = Test-Path -Path $flannelFile
-    if( $existsFlannelFile ) {
+    if ( $existsFlannelFile ) {
         Write-Log "Flannel file $flannelFile exists"
         return
     }
     # only in case that we used another drive than C for the installation
-    if( ($(Get-InstallationDriveLetter) -ne $(Get-SystemDriveLetter))) {
+    if ( ($(Get-InstallationDriveLetter) -ne $(Get-SystemDriveLetter))) {
         $i = 0
         $flannelFileSource = "$(Get-SystemDriveLetter):\run\flannel\subnet.env"
         Write-Log "Check $flannelFileSource file creation, this can take minutes depending on your network setup ..."
         while ($true) {
             $i++
             Write-Log "flannel handling loop (iteration #$i):"
-            if( Test-Path -Path $flannelFileSource ) {
+            if ( Test-Path -Path $flannelFileSource ) {
                 $targetPath = "$(Get-InstallationDriveLetter):\run\flannel"
                 New-Item -ItemType Directory -Path $targetPath -Force | Out-Null
                 Copy-Item -Path $flannelFileSource -Destination $targetPath -Force | Out-Null
@@ -458,16 +459,16 @@ function Add-WindowsWorkerNodeOnNewVM {
     )
 
     $workerNodeParams = @{
-        Image = $Image
-        Hostname = 'no_hostname'
-        VmName = $VmName
-        VMStartUpMemory = $VMStartUpMemory
-        VMProcessorCount = $VMProcessorCount
-        VMDiskSize = $VMDiskSize
-        DnsAddresses = $DnsAddresses
-        Proxy = $Proxy
+        Image                             = $Image
+        Hostname                          = 'no_hostname'
+        VmName                            = $VmName
+        VMStartUpMemory                   = $VMStartUpMemory
+        VMProcessorCount                  = $VMProcessorCount
+        VMDiskSize                        = $VMDiskSize
+        DnsAddresses                      = $DnsAddresses
+        Proxy                             = $Proxy
         DeleteFilesForOfflineInstallation = $DeleteFilesForOfflineInstallation
-        ForceOnlineInstallation = $ForceOnlineInstallation
+        ForceOnlineInstallation           = $ForceOnlineInstallation
     }
 
     New-WindowsVmForWorkerNode @workerNodeParams
@@ -489,19 +490,19 @@ function Add-WindowsWorkerNodeOnNewVM {
     # Write-Log 'Copy Source from Host to VM node'
     Invoke-Command -Session $session2 { New-Item -Path 'C:\k' -ItemType Directory }
     Invoke-Command -Session $session2 { New-Item -Path 'C:\k\bin' -ItemType Directory }
-    Copy-Item -ToSession $session2 -Path (Get-Item -Path "$kubePath\*" -Exclude ('.git', '.github', '.vscode', '.gitignore', 'bin', 'addons', 'test', 'docs', 'build' )).FullName -Destination "c:\k" -Recurse -Force
-    Copy-Item -ToSession $session2 -Path (Get-Item -Path "$kubePath\bin\*" -Exclude ('*.vhdx', '*.gz', 'windowsnode' )).FullName -Destination "c:\k\bin" -Recurse -Force
-    Write-Log "  done."
+    Copy-Item -ToSession $session2 -Path (Get-Item -Path "$kubePath\*" -Exclude ('.git', '.github', '.vscode', '.gitignore', 'bin', 'addons', 'test', 'docs', 'build' )).FullName -Destination 'c:\k' -Recurse -Force
+    Copy-Item -ToSession $session2 -Path (Get-Item -Path "$kubePath\bin\*" -Exclude ('*.vhdx', '*.gz', 'windowsnode' )).FullName -Destination 'c:\k\bin' -Recurse -Force
+    Write-Log '  done.'
 
     $gatewayIpAddress = Get-ConfiguredKubeSwitchIP
     Set-VmIPAddress -PSSession $session2 -IPAddr $IpAddress -DefaultGatewayIpAddr $gatewayIpAddress -DnsAddr $IpAddress -MaskPrefixLength 24
 
-    Write-Log "Copy K8s config file to VM..."
+    Write-Log 'Copy K8s config file to VM...'
     $userPath = Invoke-Command -Session $session2 { return "$(Resolve-Path '~')" }
     $target = "$userPath\.kube"
     Invoke-Command -Session $session2 { New-Item -Path $using:target -ItemType Directory }
-    Copy-Item -ToSession $session2 -Path "$(Resolve-Path "~\.kube")\config" -Destination "$target\config"
-    Write-Log "   done."
+    Copy-Item -ToSession $session2 -Path "$(Resolve-Path '~\.kube')\config" -Destination "$target\config"
+    Write-Log '   done.'
 
     $joinCommand = New-JoinCommand
     $kubernetesVersion = Get-DefaultK8sVersion
@@ -530,9 +531,9 @@ function Add-WindowsWorkerNodeOnNewVM {
         $transparentProxy = "http://$($ipWorkerNode):8181"
 
         $params = @{
-            Proxy = $transparentProxy
+            Proxy               = $transparentProxy
             PodSubnetworkNumber = '1'
-            JoinCommand = $using:joinCommand
+            JoinCommand         = $using:joinCommand
         }
         Add-WindowsWorkerNodeOnWindowsHost @params
 
@@ -547,7 +548,7 @@ function Add-WindowsWorkerNodeOnNewVM {
         Add-K2sToDefenderExclusion
     }
 
-    Write-Log "Initialize ssh connection to Windows VM"
+    Write-Log 'Initialize ssh connection to Windows VM'
     Initialize-SSHConnectionToWinVM $session2 $IpAddress
     Enable-SSHRemotingViaSSHKeyToWinNode $session2
 
@@ -576,7 +577,7 @@ function Start-WindowsWorkerNodeOnNewVM {
         [string] $VmName = $(throw 'Argument missing: VmName'),
         [string] $VfpRules = $(throw 'Argument missing: VfpRules'),
         [string] $VmIpAddress = $(throw 'Argument missing: VmIpAddress'),
-        [string] $PodSubnetworkNumber = $(throw "Argument missing: PodSubnetworkNumber"),
+        [string] $PodSubnetworkNumber = $(throw 'Argument missing: PodSubnetworkNumber'),
         [string] $Hostname = $(throw 'Argument missing: Hostname'),
         [string] $DnsServers = $(throw 'Argument missing: DnsServers')
     )
@@ -586,8 +587,7 @@ function Start-WindowsWorkerNodeOnNewVM {
     $windowsVmName = $VmName
 
     $isVmExisting = Get-VmExists -VmName $windowsVmName
-    if ($isVmExisting)
-    {
+    if ($isVmExisting) {
         Disconnect-NetworkAdapterFromVm -VmName $windowsVmName
         Connect-NetworkAdapterToVm -VmName $windowsVmName -SwitchName $SwitchName
 
@@ -595,7 +595,8 @@ function Start-WindowsWorkerNodeOnNewVM {
         if (!$isVmRunning) {
             Start-VirtualMachine -VmName $windowsVmName -Wait
         }
-    } else {
+    }
+    else {
         throw "The VM '$windowsVmName' does not exist"
     }
 
@@ -619,12 +620,12 @@ function Start-WindowsWorkerNodeOnNewVM {
         netsh int ipv4 set int 'Ethernet' forwarding=enabled | Out-Null
 
         $workerNodeStartParams = @{
-            ResetHns = $using:ResetHns
-            AdditionalHooksDir = $using:AdditionalHooksDir
+            ResetHns              = $using:ResetHns
+            AdditionalHooksDir    = $using:AdditionalHooksDir
             UseCachedK2sVSwitches = $using:UseCachedK2sVSwitches
-            SkipHeaderDisplay = $using:SkipHeaderDisplay
-            DnsServers = $using:DnsServers
-            PodSubnetworkNumber = $using:PodSubnetworkNumber
+            SkipHeaderDisplay     = $using:SkipHeaderDisplay
+            DnsServers            = $using:DnsServers
+            PodSubnetworkNumber   = $using:PodSubnetworkNumber
         }
         Start-WindowsWorkerNodeOnWindowsHost @workerNodeStartParams
 
@@ -663,8 +664,7 @@ function Stop-WindowsWorkerNodeOnNewVM {
 
     $windowsVmName = Get-ConfigVMNodeHostname
     $isVmExisting = Get-VmExists -VmName $windowsVmName
-    if ($isVmExisting)
-    {
+    if ($isVmExisting) {
         $isVmRunning = Get-IsVmOperating -VmName $windowsVmName
         if (!$isVmRunning) {
             Disconnect-NetworkAdapterFromVm -VmName $windowsVmName
@@ -688,9 +688,9 @@ function Stop-WindowsWorkerNodeOnNewVM {
             Stop-WinDnsProxy
 
             $workerNodeStopParams = @{
-                AdditionalHooksDir = $using:AdditionalHooksDir
-                CacheK2sVSwitches = $using:CacheK2sVSwitches
-                SkipHeaderDisplay = $using:SkipHeaderDisplay
+                AdditionalHooksDir  = $using:AdditionalHooksDir
+                CacheK2sVSwitches   = $using:CacheK2sVSwitches
+                SkipHeaderDisplay   = $using:SkipHeaderDisplay
                 PodSubnetworkNumber = $using:PodSubnetworkNumber
             }
             Stop-WindowsWorkerNodeOnWindowsHost @workerNodeStopParams
@@ -723,8 +723,7 @@ function Remove-WindowsWorkerNodeOnNewVM {
 
     $isVmExisting = Get-VmExists -VmName $VmName
 
-    if ($isVmExisting)
-    {
+    if ($isVmExisting) {
         $isVmRunning = Get-IsVmOperating -VmName $VmName
         if ($isVmRunning) {
             Stop-VirtualMachine -VmName $VmName -Wait
