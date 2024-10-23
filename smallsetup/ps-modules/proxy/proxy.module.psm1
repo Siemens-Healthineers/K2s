@@ -86,7 +86,6 @@ function Get-OrUpdateProxyServer ([string]$Proxy) {
     }
     return $Proxy
 }
-
 function Add-K2sHostsToNoProxyEnvVar() {
     $noProxyEnvVar = [Environment]::GetEnvironmentVariable("NO_PROXY", "Machine")
     $k2sHosts = Get-K2sHosts
