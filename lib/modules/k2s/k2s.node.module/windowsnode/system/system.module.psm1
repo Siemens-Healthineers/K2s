@@ -100,30 +100,8 @@ function Enable-MissingWindowsFeatures($wsl) {
     In order to display the correct IP to be configured in the proxy settings, the GlobalVariables.ps1 file must be included in the calling script first.
 #>
 function Test-ProxyConfiguration() {
-    $ipControlPlane = Get-ConfiguredIPControlPlane
     if (($env:HTTP_Proxy).Length -eq 0 -and ($env:HTTPS_Proxy).Length -eq 0 ) {
         return
-    }
-
-    if (!$ipControlPlane) {
-        throw "The calling script must include the file 'GlobalVariables.ps1' first!"
-    }
-
-    if (($env:NO_Proxy).Length -eq 0) {
-        Write-Log 'You have configured proxies with environment variable HTTP_Proxy, but the NO_Proxy'
-        Write-Log 'is not set. You have to configure NO_Proxy in the system environment variables.'
-        Write-Log "NO_Proxy must be set to $ipControlPlane"
-        Write-Log "Don't change the variable in the current shell only, that will not work!"
-        Write-Log "After configuring the system environment variable, log out and log in!`n"
-        throw "NO_Proxy must contain $ipControlPlane"
-    }
-
-    if (! ($env:NO_Proxy | Select-String -Pattern "\b$ipControlPlane\b")) {
-        Write-Log 'You have configured proxies with environment variable HTTP_Proxy, but the NO_Proxy'
-        Write-Log "doesn't contain $ipControlPlane. You have to configure NO_Proxy in the system environment variables."
-        Write-Log "Don't change the variable in the current shell only, that will not work!"
-        Write-Log "After configuring the system environment variable, log out and log in!`n"
-        throw "NO_Proxy must contain $ipControlPlane"
     }
 }
 

@@ -2,6 +2,15 @@
 #
 # SPDX-License-Identifier: MIT
 
+
+function Get-K2sHosts() {
+    $clusterServicesCidr = $global:ClusterCIDR_Services
+    $clusterCidr = $global:ClusterCIDR
+    $ipControlPlaneCidr = $global:IP_CIDR
+
+    return @($clusterServicesCidr, $clusterCidr, $ipControlPlaneCidr, "local", "svc.cluster.local")
+}
+
 <#
 .SYNOPSIS
 Gets whether proxy settings are configured for the user in Windows.
@@ -77,21 +86,32 @@ function Get-OrUpdateProxyServer ([string]$Proxy) {
     }
     return $Proxy
 }
-
 function Add-K2sHostsToNoProxyEnvVar() {
     $noProxyEnvVar = [Environment]::GetEnvironmentVariable("NO_PROXY", "Machine")
+    $k2sHosts = Get-K2sHosts
+
     if (![string]::IsNullOrWhiteSpace($noProxyEnvVar)) {
-        $noProxyEnvVar += ",local"
-        [Environment]::SetEnvironmentVariable("NO_PROXY", $noProxyEnvVar, "Machine")
+        $noProxyList = $noProxyEnvVar -split ","
+    } else {
+        $noProxyList = @()
     }
+
+    $noProxyList += $k2sHosts
+    $noProxyList = $noProxyList | Sort-Object -Unique
+    $updatedNoProxyEnvVar = $noProxyList -join ","
+    [Environment]::SetEnvironmentVariable("NO_PROXY", $updatedNoProxyEnvVar, "Process")
+    [Environment]::SetEnvironmentVariable("NO_PROXY", $updatedNoProxyEnvVar, "Machine")
 }
 
 function Remove-K2sHostsFromNoProxyEnvVar() {
     $noProxyEnvVar = [Environment]::GetEnvironmentVariable("NO_PROXY", "Machine")
+    $k2sHosts = Get-K2sHosts
+
     if (![string]::IsNullOrWhiteSpace($noProxyEnvVar)) {
         $noProxyList = $noProxyEnvVar -split ","
-        $noProxyList = $noProxyList | Where-Object { $_ -ne "local" }
+        $noProxyList = $noProxyList | Where-Object { $_ -notin $k2sHosts }
         $updatedNoProxyEnvVar = $noProxyList -join ","
+        [Environment]::SetEnvironmentVariable("NO_PROXY", $updatedNoProxyEnvVar, "Process")
         [Environment]::SetEnvironmentVariable("NO_PROXY", $updatedNoProxyEnvVar, "Machine")
     }
 }
