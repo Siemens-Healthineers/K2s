@@ -6,7 +6,7 @@
 apiVersion: traefik.containo.us/v1alpha1
 kind: IngressRoute
 metadata:
-  name: registry-ingressroute
+  name: registry-traefik-local
   namespace: registry
   annotations:
     kubernetes.io/ingress.class: traefik
@@ -15,9 +15,9 @@ spec:
     - web
     - websecure
   routes:
-    - match: Host(`k2s-registry.local`)
+    - match: Host(`k2s.registry.local`)
       kind: Rule
       services:
-        - name: k2s-registry
+        - name: registry
           namespace: registry
           port: 5000

@@ -9,17 +9,17 @@ metadata:
   annotations:
     nginx.ingress.kubernetes.io/ssl-redirect: "false"
     nginx.ingress.kubernetes.io/proxy-body-size: "0"
-  name: registry
+  name: registry-nginx-local
   namespace: registry
 spec:
   ingressClassName: nginx
   rules:
-    - host: k2s-registry.local
+    - host: k2s.registry.local
       http:
         paths:
         - backend:
             service:
-              name: k2s-registry
+              name: registry
               port: 
                 number: 5000
           pathType: Prefix

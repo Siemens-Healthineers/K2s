@@ -66,8 +66,7 @@ if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'registry', '--ignore-
 
 Write-Log 'Uninstalling Kubernetes registry' -Console
 
-(Invoke-Kubectl -Params 'delete', '-f', "$PSScriptRoot\manifests\k2s-registry.yaml").Output | Write-Log
-(Invoke-Kubectl -Params 'delete', 'secret', 'k2s-registry').Output | Write-Log
+(Invoke-Kubectl -Params 'delete', '-k', "$PSScriptRoot\manifests\registry").Output | Write-Log
 (Invoke-Kubectl -Params 'delete', 'namespace', 'registry').Output | Write-Log
 
 if ($DeleteImages) {

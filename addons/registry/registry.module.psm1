@@ -79,3 +79,47 @@ function Restart-Services() {
     Start-NssmService('kubelet')
     Start-NssmService('kubeproxy')
 }
+
+
+<#
+.DESCRIPTION
+Writes the usage notes for dashboard for the user.
+#>
+function Write-RegistryUsageForUser {
+    param(
+        [Parameter()]
+        [String]
+        $registryName
+    )
+    @"
+                                        USAGE NOTES
+ Registry is available via '$registryName'
+ 
+ In order to push your images to the private registry you have to tag your images as in the following example:
+ $registryName/<yourImageName>:<yourImageTag>
+"@ -split "`r`n" | ForEach-Object { Write-Log $_ -Console }
+}
+
+function Set-InsecureRegistry {
+    param(
+        [Parameter()]
+        [String]
+        $registryName
+    )
+
+    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "grep location=\\\""k2s.*\\\"" /etc/containers/registries.conf | sudo sed -i -z 's/\[\[registry]]\nlocation=\\\""k2s.*\\\""\ninsecure=true/[[registry]]\nlocation=\\\""$registryName\\\""\ninsecure=true/g' /etc/containers/registries.conf").Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "grep location=\\\""k2s.*\\\"" /etc/containers/registries.conf || echo -e `'\n[[registry]]\nlocation=\""$registryName\""\ninsecure=true`' | sudo tee -a /etc/containers/registries.conf").Output | Write-Log
+
+    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo systemctl daemon-reload').Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo systemctl restart crio').Output | Write-Log
+}
+
+function Update-NodePort {
+    Write-Log "  Applying nodeport service manifest for registry..." -Console
+    (Invoke-Kubectl -Params 'apply', '-f', "$PSScriptRoot\manifests\registry\service-nodeport.yaml").Output | Write-Log
+}
+
+function Remove-NodePort {
+    Write-Log "  Removing nodeport service manifest for registry..." -Console
+    (Invoke-Kubectl -Params 'delete', '-f', "$PSScriptRoot\manifests\registry\service-nodeport.yaml").Output | Write-Log
+}
