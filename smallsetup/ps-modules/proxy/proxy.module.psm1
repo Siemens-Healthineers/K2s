@@ -92,15 +92,13 @@ function Add-K2sHostsToNoProxyEnvVar() {
 
     if (![string]::IsNullOrWhiteSpace($noProxyEnvVar)) {
         $noProxyList = $noProxyEnvVar -split ","
-    } else {
-        $noProxyList = @()
-    }
 
-    $noProxyList += $k2sHosts
-    $noProxyList = $noProxyList | Sort-Object -Unique
-    $updatedNoProxyEnvVar = $noProxyList -join ","
-    [Environment]::SetEnvironmentVariable("NO_PROXY", $updatedNoProxyEnvVar, "Process")
-    [Environment]::SetEnvironmentVariable("NO_PROXY", $updatedNoProxyEnvVar, "Machine")
+        $noProxyList += $k2sHosts
+        $noProxyList = $noProxyList | Sort-Object -Unique
+        $updatedNoProxyEnvVar = $noProxyList -join ","
+        [Environment]::SetEnvironmentVariable("NO_PROXY", $updatedNoProxyEnvVar, "Process")
+        [Environment]::SetEnvironmentVariable("NO_PROXY", $updatedNoProxyEnvVar, "Machine")
+    }    
 }
 
 function Remove-K2sHostsFromNoProxyEnvVar() {
