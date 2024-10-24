@@ -45,7 +45,7 @@ if ($systemError) {
 if ($FromRegistry) {
     &$global:KubectlExe get namespace registry 2> $null | Out-Null
     if (!$?) {
-        $errMsg = 'k2s-registry.local is not running.'
+        $errMsg = 'k2s.registry.local is not running.'
         if ($EncodeStructuredOutput -eq $true) {
             $err = New-Error -Severity Warning -Code 'registry-not-running' -Message $errMsg
             Send-ToCli -MessageType $MessageType -Message @{Error = $err }

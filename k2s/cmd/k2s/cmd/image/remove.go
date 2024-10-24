@@ -39,7 +39,7 @@ var (
   k2s image rm --id 042a816809aa
 
   # Delete pushed image from registry
-  k2s image rm --name k2s-registry.local/alpine:v1 --from-registry
+  k2s image rm --name k2s.registry.local/alpine:v1 --from-registry
 `
 
 	removeCmd = &cobra.Command{

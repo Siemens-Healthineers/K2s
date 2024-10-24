@@ -120,13 +120,13 @@ version = 2
       config_path = ""
 
       [plugins."io.containerd.grpc.v1.cri".registry.auths]
-        [plugins."io.containerd.grpc.v1.cri".registry.configs."k2s-registry.local".auth] #auth_k2s_registry
+        [plugins."io.containerd.grpc.v1.cri".registry.configs."k2s.registry.local".auth] #auth_k2s_registry
           #auth_value_k2s_registry
 
         #add_new_registry_auth
 
       [plugins."io.containerd.grpc.v1.cri".registry.configs]
-        [plugins."io.containerd.grpc.v1.cri".registry.configs."k2s-registry.local".tls] #tls_k2s_registry
+        [plugins."io.containerd.grpc.v1.cri".registry.configs."k2s.registry.local".tls] #tls_k2s_registry
           insecure_skip_verify = true
 
         #add_new_insecure_verify_skip
@@ -134,8 +134,8 @@ version = 2
       [plugins."io.containerd.grpc.v1.cri".registry.headers]
 
       [plugins."io.containerd.grpc.v1.cri".registry.mirrors]
-        [plugins."io.containerd.grpc.v1.cri".registry.mirrors."k2s-registry.local"] #mirror_k2s_registry
-          endpoint = ["http://k2s-registry.local"] #mirror_value_k2s_registry
+        [plugins."io.containerd.grpc.v1.cri".registry.mirrors."k2s.registry.local"] #mirror_k2s_registry
+          endpoint = ["http://k2s.registry.local"] #mirror_value_k2s_registry
 
     [plugins."io.containerd.grpc.v1.cri".x509_key_pair_streaming]
       tls_cert_file = ""

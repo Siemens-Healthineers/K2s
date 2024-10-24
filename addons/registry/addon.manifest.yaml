@@ -6,11 +6,11 @@ apiVersion: v1
 kind: AddonManifest
 metadata:
   name: registry
-  description: Private image registry running in the Kubernetes cluster exposed on k2s-registry.local
+  description: Private image registry running in the Kubernetes cluster exposed on k2s.registry.local
 spec:
   implementations:
     - name: registry
-      description: Private image registry running in the Kubernetes cluster exposed on k2s-registry.local
+      description: Private image registry running in the Kubernetes cluster exposed on k2s.registry.local
       offline_usage:
         linux:
           repos: []

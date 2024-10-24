@@ -25,22 +25,23 @@ if (Test-NginxIngressControllerAvailability) {
     else {
         Write-Log "  Applying nginx ingress manifest for $($props.Name)..." -Console
         $kustomizationDir = Get-IngressNginxConfig -Directory $props.Directory
+        Set-InsecureRegistry
     }
     Invoke-Kubectl -Params 'apply', '-k', $kustomizationDir | Out-Null
 }
 elseif (Test-TraefikIngressControllerAvailability) {
     Remove-IngressForNginx -Addon $Addon
-    Update-IngressForTraefik -Addon $Addon
     Remove-NodePort
+
+    Update-IngressForTraefik -Addon $Addon
 }
 else {
     Remove-IngressForNginx -Addon $Addon
     Remove-IngressForTraefik -Addon $Addon
 
     Update-NodePort
-    
     $registryName = "$($registryName):$Nodeport"
-    Write-RegistryUsageForUser -registryName $registryName
 }
 
+Write-RegistryUsageForUser -registryName $registryName
 Add-RegistryToSetupJson -Name $registryName

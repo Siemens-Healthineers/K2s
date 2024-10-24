@@ -36,7 +36,7 @@ _Note:_ The above command shall enable the ingress traefik addon if it is not en
 In order to push container images to the local registry during `k2s image build -p` by using an ingress tagging must look like the following:
 
 ```
-k2s-registry.local/<imagename>:<imagetag>
+k2s.registry.local/<imagename>:<imagetag>
 ```
 
 ### NodePort
@@ -44,7 +44,7 @@ k2s-registry.local/<imagename>:<imagetag>
 In order to push container images to the local registry during `k2s image build -p` with node port configuration tagging must look like the following:
 
 ```
-k2s-registry.local:<nodeport>/<imagename>:<imagetag>
+k2s.registry.local:<nodeport>/<imagename>:<imagetag>
 ```
 
 ### Registry credentials

@@ -35,5 +35,5 @@ Once you have added a registry to *K2s*, the container runtimes are always confi
 In order to push images you have to be logged in into the registry you want to push to. Since it is only possible to be logged in into one registry at the same time you have to switch the login to the configured registry you want to push to:
 
 ```console
-k2s image registry switch k2s-registry.local
+k2s image registry switch k2s.registry.local
 ```

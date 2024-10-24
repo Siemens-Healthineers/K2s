@@ -27,7 +27,7 @@ diskwriter.exe -outfile "test.file" -interval 2000
 # Build the images
 ## Local Registry
 ```PowerShell
-PS> C:\k\smallsetup\ps-modules\windows-support\Build_Windows_Images.ps1 -Name "diskwriter" -Tag "v0.1.0" -Registry "k2s-registry.local" -Dockerfile "C:\k\k2s\test\e2e\addons\storage\smb\diskwriter\Dockerfile" -WorkDir "C:\k\k2s\test\e2e\addons\storage\smb\diskwriter" -RegUser test -RegPw test -AllowInsecureRegistries
+PS> C:\k\smallsetup\ps-modules\windows-support\Build_Windows_Images.ps1 -Name "diskwriter" -Tag "v0.1.0" -Registry "k2s.registry.local" -Dockerfile "C:\k\k2s\test\e2e\addons\storage\smb\diskwriter\Dockerfile" -WorkDir "C:\k\k2s\test\e2e\addons\storage\smb\diskwriter" -RegUser test -RegPw test -AllowInsecureRegistries
 ```
 
 ## PreDev Registry

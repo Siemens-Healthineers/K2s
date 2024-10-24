@@ -18,8 +18,8 @@ The name of the registry to be added
 Show all logs in terminal
 
 .EXAMPLE
-# Switch registry login to 'k2s-registry.local'
-PS> .\Switch-Registry.ps1 -RegistryName "k2s-registry.local"
+# Switch registry login to 'k2s.registry.local'
+PS> .\Switch-Registry.ps1 -RegistryName "k2s.registry.local"
 #>
 
 Param (
