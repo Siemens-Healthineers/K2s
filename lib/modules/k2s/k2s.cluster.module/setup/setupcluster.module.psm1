@@ -210,7 +210,8 @@ function Join-LinuxNode {
     Param(
         [string] $NodeName = $(throw 'Argument missing: NodeName'),
         [string] $NodeUserName = $(throw 'Argument missing: NodeUserName'),
-        [string] $NodeIpAddress = $(throw 'Argument missing: NodeIpAddress')
+        [string] $NodeIpAddress = $(throw 'Argument missing: NodeIpAddress'),
+        [scriptblock] $PreStepHook = {}
     )
 
     # join node if necessary
@@ -220,7 +221,10 @@ function Join-LinuxNode {
 
         (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo rm -f /etc/kubernetes/kubelet.conf' -UserName $NodeUserName -IpAddress $NodeIpAddress).Output | Write-Log
         (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo rm -f /etc/kubernetes/pki/ca.crt' -UserName $NodeUserName -IpAddress $NodeIpAddress).Output | Write-Log
-    
+        (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'echo y | sudo kubeadm reset' -UserName $NodeUserName -IpAddress $NodeIpAddress).Output | Write-Log
+
+        &$PreStepHook
+
         $CommandForJoining = New-JoinCommand
 
         Write-Log 'Build join command ..'
@@ -288,7 +292,8 @@ function Remove-LinuxNode {
     Param(
         [string] $NodeName = $(throw 'Argument missing: NodeName'),
         [string] $NodeUserName = $(throw 'Argument missing: NodeUserName'),
-        [string] $NodeIpAddress = $(throw 'Argument missing: NodeIpAddress')
+        [string] $NodeIpAddress = $(throw 'Argument missing: NodeIpAddress'),
+        [scriptblock] $PostStepHook = {}
     )
 
     (Invoke-Kubectl -Params @('drain', "$NodeName", '--ignore-daemonsets', '--delete-emptydir-data')).Output | ForEach-Object { "$_" } | Write-Log
@@ -298,6 +303,10 @@ function Remove-LinuxNode {
     
     (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo systemctl stop kubelet' -UserName $NodeUserName -IpAddress $NodeIpAddress).Output | Write-Log
     (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo rm -rf /etc/kubernetes' -UserName $NodeUserName -IpAddress $NodeIpAddress).Output | Write-Log
+    (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'echo y | sudo kubeadm reset' -UserName $NodeUserName -IpAddress $NodeIpAddress).Output | Write-Log
+
+    &$PostStepHook
+
 }
 
 function Add-ClusterDnsNameToHost {
