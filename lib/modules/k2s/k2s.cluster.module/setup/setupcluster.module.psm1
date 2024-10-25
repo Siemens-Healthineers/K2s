@@ -305,6 +305,8 @@ function Remove-LinuxNode {
     (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo rm -rf /etc/kubernetes' -UserName $NodeUserName -IpAddress $NodeIpAddress).Output | Write-Log
     (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'echo y | sudo kubeadm reset' -UserName $NodeUserName -IpAddress $NodeIpAddress).Output | Write-Log
 
+    (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo rm -rf /etc/cni' -UserName $NodeUserName -IpAddress $NodeIpAddress).Output | Write-Log
+
     &$PostStepHook
 
 }
