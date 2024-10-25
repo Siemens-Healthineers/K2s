@@ -268,6 +268,115 @@ function Stop-LinuxWorkerNodeOnExistingVM {
     }
 }
 
+function Add-LinuxWorkerNodeOnUbuntuBareMetal {
+    Param(
+        [string] $NodeName = $(throw 'Argument missing: NodeName'),
+        [string] $UserName = $(throw 'Argument missing: UserName'),
+        [string] $IpAddress = $(throw 'Argument missing: IpAddress'),
+        [string] $WindowsHostIpAddress = $(throw 'Argument missing: WindowsHostIpAddress'),
+        [string] $Proxy = '',
+        [string] $AdditionalHooksDir = ''
+    )
+
+    $k8sVersion = Get-DefaultK8sVersion
+    Install-KubernetesArtifacts -UserName $UserName -IpAddress $IpAddress -K8sVersion $k8sVersion -Proxy $Proxy
+    
+    Write-Log " Add firewall rules for Kubernetes"
+    (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo ufw allow 6443/tcp' -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
+    (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo ufw allow 2379:2380/tcp' -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
+    (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo ufw allow 10250/tcp' -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
+    (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo ufw allow 10259/tcp' -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
+    (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo ufw allow 10257/tcp' -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
+    (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo ufw allow 9153/tcp' -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
+    
+    $doBeforeJoining = {
+        # add a route to the cluster network over the Windows host IP address
+        $controlPlaneCIDR = Get-ConfiguredControlPlaneCIDR
+        (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo ip route add $controlPlaneCIDR via $WindowsHostIpAddress" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
+
+        $podNetworkCIDR = Get-ConfiguredClusterCIDR
+        (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo ip route add $podNetworkCIDR via $WindowsHostIpAddress" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
+
+        $networkInterfaceName = (Get-NetIPAddress | Where-Object { $_.AddressFamily -eq "IPv4" -and ($_.IPAddress -match $WindowsHostIpAddress)} | Select-Object -ExpandProperty InterfaceAlias)
+        if ([string]::IsNullOrWhiteSpace($networkInterfaceName)) {
+            throw "Cannot find the network interface belonging to the IP address '$WindowsHostIpAddress'"
+        }
+
+        netsh int ipv4 set int $networkInterfaceName forwarding=enabled | Out-Null 
+    }
+
+    $k8sFormattedNodeName = $NodeName.ToLower()
+    Join-LinuxNode -NodeName $k8sFormattedNodeName.ToLower() -NodeUserName $UserName -NodeIpAddress $IpAddress -PreStepHook $doBeforeJoining
+}
+
+function Remove-LinuxWorkerNodeOnUbuntuBareMetal {
+    Param(
+        [string] $NodeName = $(throw 'Argument missing: NodeName'),
+        [string] $UserName = $(throw 'Argument missing: UserName'),
+        [string] $IpAddress = $(throw 'Argument missing: IpAddress'),
+        [string] $AdditionalHooksDir = '',
+        [switch] $SkipHeaderDisplay = $false
+    )
+
+    if ($SkipHeaderDisplay -eq $false) {
+        Write-Log "Removing K2s worker node '$NodeName'"
+    }
+
+    $doAfterRemoving = {
+        # delete routes
+        $controlPlaneCIDR = Get-ConfiguredControlPlaneCIDR
+        (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo ip route delete $controlPlaneCIDR" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
+
+        $podNetworkCIDR = Get-ConfiguredClusterCIDR
+        (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo ip route delete $podNetworkCIDR" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
+        
+        # delete network interface 'cni0' that was created by flannel
+        (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo ip link delete cni0" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
+    }
+
+    $k8sFormattedNodeName = $NodeName.ToLower()
+    $clusterState = (Invoke-Kubectl -Params @('get', 'nodes', '-o', 'wide')).Output
+    if ($clusterState -match $k8sFormattedNodeName) {
+        Remove-LinuxNode -NodeName $k8sFormattedNodeName -NodeUserName $UserName -NodeIpAddress $IpAddress -PostStepHook $doAfterRemoving
+    }
+
+    Remove-KubernetesArtifacts -UserName $UserName -IpAddress $IpAddress
+
+    if ($SkipHeaderDisplay -eq $false) {
+        Write-Log "Removing K2s worker node '$NodeName' done."
+    }
+}
+
+function Start-LinuxWorkerNodeOnUbuntuBareMetal {
+    Param(
+        [string] $IpAddress = $(throw 'Argument missing: IpAddress'),
+        [string] $NodeName = $(throw 'Argument missing: NodeName'),
+        [string] $AdditionalHooksDir = '',
+        [switch] $SkipHeaderDisplay = $false
+    )
+
+    Add-RouteToLinuxWorkerNode -NodeName $NodeName -IpAddress $IpAddress
+
+    if ($SkipHeaderDisplay -eq $false) {
+        Write-Log "K2s worker node '$NodeName' started"
+    }
+}
+
+function Stop-LinuxWorkerNodeOnUbuntuBareMetal {
+    Param(
+        [string] $NodeName = $(throw 'Argument missing: NodeName'),
+        [string] $AdditionalHooksDir = '',
+        [switch] $SkipHeaderDisplay = $false
+
+    )
+
+    Remove-RouteToLinuxWorkerNode -NodeName $NodeName
+    
+    if ($SkipHeaderDisplay -eq $false) {
+        Write-Log "K2s worker node '$NodeName' stopped"
+    }
+}
+
 function Add-RouteToLinuxWorkerNode {
     Param(
         [string] $IpAddress = $(throw 'Argument missing: IpAddress'),
@@ -288,7 +397,7 @@ function Add-RouteToLinuxWorkerNode {
         Write-Log "Add route to $clusterCIDRWorker"
         route -p add $clusterCIDRWorker $IpAddress METRIC 4 | Out-Null
     } else {
-        throw "Cannot obtain container network information from node '$NodeName'"
+        throw "Cannot obtain pod network information from node '$NodeName'"
     }
 }
 
@@ -310,7 +419,7 @@ function Remove-RouteToLinuxWorkerNode {
         Write-Log "Remove obsolete route to $clusterCIDRWorker"
         route delete $clusterCIDRWorker >$null 2>&1
     } else {
-        Write-Log "Cannot obtain container network information from node '$NodeName'. The eventually existing routes belonging to this node will not be deleted."
+        Write-Log "Cannot obtain pod network information from node '$NodeName'. The eventually existing routes belonging to this node will not be deleted."
     }
 }
 
@@ -321,4 +430,8 @@ Remove-LinuxWorkerNodeOnNewVM,
 Start-LinuxWorkerNodeOnExistingVM,
 Stop-LinuxWorkerNodeOnExistingVM,
 Add-LinuxWorkerNodeOnExistingUbuntuVM,
-Remove-LinuxWorkerNodeOnExistingUbuntuVM
+Remove-LinuxWorkerNodeOnExistingUbuntuVM,
+Add-LinuxWorkerNodeOnUbuntuBareMetal,
+Remove-LinuxWorkerNodeOnUbuntuBareMetal,
+Start-LinuxWorkerNodeOnUbuntuBareMetal,
+Stop-LinuxWorkerNodeOnUbuntuBareMetal

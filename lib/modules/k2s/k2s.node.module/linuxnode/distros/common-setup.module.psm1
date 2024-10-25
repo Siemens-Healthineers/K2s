@@ -114,12 +114,18 @@ Function Install-KubernetesArtifacts {
         }
     }
     
-    Write-Log "Copying ZScaler Root CA certificate to KUBENODE_IN_PROVISIONING VM"
-    $Provisioning_Node_IPAddress = Get-VmIpForProvisioningKubeNode
-    Copy-ToRemoteComputerViaUserAndPwd -Source "$(Get-KubePath)\lib\modules\k2s\k2s.node.module\linuxnode\setup\certificate\ZScalerRootCA.crt" -Target "/tmp/ZScalerRootCA.crt" -IpAddress $Provisioning_Node_IPAddress            
+    Write-Log "Copying ZScaler Root CA certificate to computer with IP '$IpAddress'"
+    $zScalerCertificateSourcePath = "$(Get-KubePath)\lib\modules\k2s\k2s.node.module\linuxnode\setup\certificate\ZScalerRootCA.crt"
+    $zScalerCertificateTargetPath = "/tmp/ZScalerRootCA.crt"
+    if ([string]::IsNullOrWhiteSpace($UserPwd)) {
+        Copy-ToRemoteComputerViaSshKey -Source $zScalerCertificateSourcePath -Target $zScalerCertificateTargetPath -UserName $UserName -IpAddress $IpAddress
+    } else {
+        Copy-ToRemoteComputerViaUserAndPwd -Source $zScalerCertificateSourcePath -Target $zScalerCertificateTargetPath -UserName $UserName -UserPwd $UserPwd -IpAddress $IpAddress
+    }
+    
     &$executeRemoteCommand "sudo mv /tmp/ZScalerRootCA.crt /usr/local/share/ca-certificates/"
     &$executeRemoteCommand "sudo update-ca-certificates"       
-    Write-Log "Zscaler certificate added to CA certificates of KUBENODE_IN_PROVISIONING VM" 
+    Write-Log "Zscaler certificate added to CA certificates of computer with IP '$IpAddress'" 
 
     Write-Log 'Configure bridged traffic'
     &$executeRemoteCommand 'echo overlay | sudo tee /etc/modules-load.d/k8s.conf' 
@@ -264,7 +270,7 @@ Function Remove-KubernetesArtifacts {
 
     &$executeRemoteCommand 'sudo systemctl daemon-reload' 
 
-    &$executeRemoteCommand 'sudo apt-get remove --yes --allow-change-held-packages kubelet kubeadm kubectl' 
+    &$executeRemoteCommand 'sudo apt-get purge --yes --allow-change-held-packages kubelet kubeadm kubectl' 
 
     &$executeRemoteCommand 'sudo rm -f /etc/containers/registries.conf' 
     &$executeRemoteCommand 'sudo rm -f /etc/cni/net.d/100-crio-bridge.conf'
@@ -286,6 +292,9 @@ Function Remove-KubernetesArtifacts {
     &$executeRemoteCommand 'sudo rm -f /etc/sysctl.d/k8s.conf'
     &$executeRemoteCommand 'sudo rm -f /etc/modules-load.d/k8s.conf'
     &$executeRemoteCommand 'sudo sysctl --system'
+
+    &$executeRemoteCommand 'sudo apt-get purge --yes dnsmasq'
+    &$executeRemoteCommand 'sudo apt-get purge --yes cri-o'
 }
 
 <#
@@ -585,8 +594,10 @@ A script block that will get executed at the end of the set-up process (can be u
 Function Set-UpMasterNode {
     param (
         [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
+        [string]$NodeName = $(throw 'Argument missing: NodeName'),
+        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
         [string]$UserName = $(throw 'Argument missing: UserName'),
-        [string]$UserPwd = $(throw 'Argument missing: UserPwd'),
+        [string]$UserPwd = '',
         [ValidateScript({ Get-IsValidIPv4Address($_) })]
         [string]$IpAddress = $(throw 'Argument missing: IpAddress'),
         [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
@@ -601,8 +612,6 @@ Function Set-UpMasterNode {
         [string] $IP_NextHop = $(throw 'Argument missing: IP_NextHop'),
         [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
         [string] $NetworkInterfaceName = $(throw 'Argument missing: NetworkInterfaceName'),
-        [ValidateScript({ Get-IsValidIPv4Address($_) })]
-        [string] $NetworkInterfaceCni0IP_Master = $(throw 'Argument missing: NetworkInterfaceCni0IP_Master'),
         [ScriptBlock] $Hook = $(throw 'Argument missing: Hook')
     )
 
@@ -614,11 +623,10 @@ Function Set-UpMasterNode {
             $command = $(throw 'Argument missing: Command'), 
             [switch]$IgnoreErrors = $false
         ) 
-        if ($IgnoreErrors) {
-            (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd" -IgnoreErrors).Output | Write-Log
-        }
-        else {
-            (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output | Write-Log
+        if ([string]::IsNullOrWhiteSpace($remoteUserPwd)) {
+            (Invoke-CmdOnVmViaSSHKey -CmdToExecute $command -UserName $UserName -IpAddress $IpAddress -IgnoreErrors:$IgnoreErrors).Output | Write-Log
+        } else {
+            (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd" -IgnoreErrors:$IgnoreErrors).Output | Write-Log
         }
     }
 
@@ -648,10 +656,6 @@ Function Set-UpMasterNode {
     Write-Log 'Restart custom DNS server'
     &$executeRemoteCommand 'sudo systemctl restart dnsmasq' 
 
-    Write-Log 'Add DNS resolution rules to K8s DNS component'
-    # change config map to forward all non cluster DNS request to proxy (dnsmasq) running on master
-    &$executeRemoteCommand "kubectl get configmap/coredns -n kube-system -o yaml | sed -e 's|forward . /etc/resolv.conf|forward . $NetworkInterfaceCni0IP_Master|' | kubectl apply -f -" -IgnoreErrors
-    
     # import etcd certificates as k8s secrets, so that coredns can access etcd
     &$executeRemoteCommand 'sudo mkdir etcd'
     &$executeRemoteCommand 'sudo cp /etc/kubernetes/pki/etcd/* etcd/'
@@ -676,6 +680,19 @@ Function Set-UpMasterNode {
     Write-Log 'Initialize Flannel'
     Add-FlannelPluginToMasterNode -IpAddress $IpAddress -UserName $UserName -UserPwd $UserPwd -PodNetworkCIDR $ClusterCIDR
 
+    $getPodCidrOutput = Get-AssignedPodNetworkCIDR -NodeName $NodeName -UserName $UserName -UserPwd $UserPwd -IpAddress $IpAddress
+    if ($getPodCidrOutput.Success) {
+        $assignedPodNetworkCIDR = $($getPodCidrOutput.PodNetworkCIDR).Substring(0, $($getPodCidrOutput.PodNetworkCIDR).IndexOf('/'))
+    } else {
+        throw "Cannot obtain pod network information from node '$NodeName'"
+    }
+    $networkInterfaceCni0IP = "$($assignedPodNetworkCIDR.Substring(0, $assignedPodNetworkCIDR.lastIndexOf('.'))).1"
+
+    Write-Log 'Add DNS resolution rules to K8s DNS component'
+    # change config map to forward all non cluster DNS request to proxy (dnsmasq) running on master
+    &$executeRemoteCommand "kubectl get configmap/coredns -n kube-system -o yaml | sed -e 's|forward . /etc/resolv.conf|forward . $networkInterfaceCni0IP|' | kubectl apply -f -" -IgnoreErrors
+
+
     Write-Log 'Run setup hook'
     &$Hook
     Write-Log 'Setup hook finished'
@@ -685,7 +702,6 @@ Function Set-UpMasterNode {
     &$executeRemoteCommand "echo 'nameserver 127.0.0.1' | sudo tee /etc/resolv.conf" 
 
     Write-Log 'Finished setting up Linux computer as master'
-
 }
 
 Function Set-UpWorkerNode {
@@ -727,7 +743,7 @@ Function Add-FlannelPluginToMasterNode {
     param (
         [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
         [string]$UserName = $(throw 'Argument missing: UserName'),
-        [string]$UserPwd = $(throw 'Argument missing: UserPwd'),
+        [string]$UserPwd = '',
         [ValidateScript({ Get-IsValidIPv4Address($_) })]
         [string]$IpAddress = $(throw 'Argument missing: IpAddress'),
         [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
@@ -740,7 +756,11 @@ Function Add-FlannelPluginToMasterNode {
     $fileName = 'flannel.yml'
 
     $executeRemoteCommand = { param($command = $(throw 'Argument missing: Command')) 
-    (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output | Write-Log
+        if ([string]::IsNullOrWhiteSpace($remoteUserPwd)) {
+            (Invoke-CmdOnVmViaSSHKey -CmdToExecute $command -UserName $UserName -IpAddress $IpAddress -IgnoreErrors:$IgnoreErrors).Output | Write-Log
+        } else {
+            (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output | Write-Log
+        }
     }
 
     $waitUntilContainerNetworkPluginIsRunning = { 
@@ -748,7 +768,12 @@ Function Add-FlannelPluginToMasterNode {
         while ($true) {
             $iteration++
             # try to apply the flannel resources
-            $result = (Invoke-CmdOnControlPlaneViaUserAndPwd 'kubectl rollout status daemonset -n kube-flannel kube-flannel-ds --timeout 60s' -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output
+            $command = 'kubectl rollout status daemonset -n kube-flannel kube-flannel-ds --timeout 60s'
+            if ([string]::IsNullOrWhiteSpace($remoteUserPwd)) {
+                $result = (Invoke-CmdOnVmViaSSHKey -CmdToExecute $command -UserName $UserName -IpAddress $IpAddress -IgnoreErrors:$IgnoreErrors).Output
+            } else {
+                $result = (Invoke-CmdOnControlPlaneViaUserAndPwd $command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output
+            }
             if ($result -match 'successfully') {
                 break;
             } 
@@ -801,7 +826,11 @@ Function Add-FlannelPluginToMasterNode {
     }
     Write-Log 'Copy Flannel configuration file to computer'
     $target = "/home/$UserName"
-    Copy-ToControlPlaneViaUserAndPwd -Source "$configurationFile" -Target $target
+    if ([string]::IsNullOrWhiteSpace($remoteUserPwd)) {
+        Copy-ToRemoteComputerViaSshKey -Source "$configurationFile" -Target $target -UserName $UserName -IpAddress $IpAddress
+    } else {
+        Copy-ToRemoteComputerViaUserAndPwd -Source "$configurationFile" -Target $target -UserName $UserName -UserPwd $remoteUserPwd -IpAddress $IpAddress
+    }
 
     Write-Log 'Apply flannel configuration file on computer'
     &$executeRemoteCommand "kubectl apply -f ~/$fileName" 
@@ -975,6 +1004,7 @@ function New-VmImageForControlPlaneNode {
         }
 
         $masterNodeParams = @{
+            NodeName                      = $Hostname
             IpAddress                     = $IpAddress
             UserName                      = $vmUserName
             UserPwd                       = $vmUserPwd
@@ -984,7 +1014,6 @@ function New-VmImageForControlPlaneNode {
             KubeDnsServiceIP              = $(Get-ConfiguredKubeDnsServiceIP)
             IP_NextHop                    = $GatewayIpAddress
             NetworkInterfaceName          = $vmNetworkInterfaceName
-            NetworkInterfaceCni0IP_Master = $(Get-ConfiguredMasterNetworkInterfaceCni0IP)
             Hook                          = $addToControlPlane
         }
         Set-UpMasterNode @masterNodeParams 

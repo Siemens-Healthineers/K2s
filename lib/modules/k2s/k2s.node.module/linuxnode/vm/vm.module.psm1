@@ -343,10 +343,14 @@ function Copy-ToControlPlaneViaUserAndPwd($Source, $Target,
 
 function Copy-ToRemoteComputerViaUserAndPwd($Source, $Target, $IpAddress,
     [Parameter(Mandatory = $false)]
+    [string]$UserName = $defaultUserName,
+    [Parameter(Mandatory = $false)]
+    [string]$UserPwd = $remotePwd,
+    [Parameter(Mandatory = $false)]
     [switch]$IgnoreErrors = $false) {
     Write-Log "Copying '$Source' to '$Target', ignoring errors: '$IgnoreErrors'"
 
-    $output = Write-Output yes | &"$scpExe" -ssh -4 -q -r -pw $remotePwd "$Source" "${defaultUserName}@${IpAddress}:$Target" 2>&1
+    $output = Write-Output yes | &"$scpExe" -ssh -4 -q -r -pw $UserPwd "$Source" "${UserName}@${IpAddress}:$Target" 2>&1
 
     if ($LASTEXITCODE -ne 0 -and !$IgnoreErrors) {
         throw "Could not copy '$Source' to '$Target': $output"
