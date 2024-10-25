@@ -37,6 +37,8 @@ $controlPlaneNodeParams = @{
 }
 & "$PSScriptRoot\..\..\control-plane\Uninstall.ps1" @controlPlaneNodeParams
 
+Remove-K2sHostsFromNoProxyEnvVar
+
 Write-Log "K2s $installationType setup uninstalled."
 
 Save-k2sLogDirectory -RemoveVar
