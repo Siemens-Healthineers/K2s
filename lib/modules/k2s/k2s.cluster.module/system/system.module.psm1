@@ -167,8 +167,34 @@ function Get-AssignedPodSubnetworkNumber {
     return [pscustomobject]@{ Success = $success; PodSubnetworkNumber = $subnetNumber }
 }
 
+function Get-AssignedPodNetworkCIDR {
+    param (
+        [string] $NodeName = $(throw 'Argument missing: NodeName'),
+        [string] $UserName = $(throw 'Argument missing: UserName'),
+        [string] $UserPwd = '',
+        [string] $IpAddress = $(throw 'Argument missing: IpAddress')
+    )
+
+    $getPodCidrCommand = "kubectl get nodes $NodeName -o jsonpath=`"{.spec.podCIDR}`""
+    if ([string]::IsNullOrWhiteSpace($UserPwd)) {
+        $cmdExecutionResult = (Invoke-CmdOnVmViaSSHKey -CmdToExecute $getPodCidrCommand -UserName $UserName -IpAddress $IpAddress)
+    } else {
+        $remoteUser = "$UserName@$IpAddress"
+        $cmdExecutionResult = (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $getPodCidrCommand -RemoteUser "$remoteUser" -RemoteUserPwd "$UserPwd")
+    }
+
+    $success = $cmdExecutionResult.Success
+    $podNetworkCIDR = $cmdExecutionResult.Output
+
+    if ($success -and [string]::IsNullOrWhiteSpace($podNetworkCIDR)) {
+        throw "The retrieved pod network CIDR for the node '$NodeName' is empty, null or contain only whitespaces"
+    }
+    return [pscustomobject]@{ Success = $cmdExecutionResult.Success; PodNetworkCIDR = $cmdExecutionResult.Output }
+}
+
 Export-ModuleMember Invoke-TimeSync, 
 Wait-ForAPIServer, 
 Update-NodeLabelsAndTaints, 
 Get-Cni0IpAddressInControlPlaneUsingSshWithRetries,
-Get-AssignedPodSubnetworkNumber
+Get-AssignedPodSubnetworkNumber,
+Get-AssignedPodNetworkCIDR
