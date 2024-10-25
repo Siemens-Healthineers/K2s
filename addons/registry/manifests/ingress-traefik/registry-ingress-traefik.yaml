@@ -2,22 +2,28 @@
 #
 # SPDX-License-Identifier: MIT
 
----
-apiVersion: traefik.containo.us/v1alpha1
-kind: IngressRoute
+apiVersion: networking.k8s.io/v1
+kind: Ingress
 metadata:
+  annotations:
+    cert-manager.io/cluster-issuer: k2s-ca-issuer
+    cert-manager.io/common-name: k2s.registry.local
   name: registry-traefik-local
   namespace: registry
-  annotations:
-    kubernetes.io/ingress.class: traefik
 spec:
-  entryPoints:
-    - web
-    - websecure
-  routes:
-    - match: Host(`k2s.registry.local`)
-      kind: Rule
-      services:
-        - name: registry
-          namespace: registry
-          port: 5000
+  ingressClassName: traefik
+  tls:
+    - hosts:
+        - k2s.registry.local
+      secretName: k2s-registry-local-tls
+  rules:
+    - host: k2s.registry.local
+      http:
+        paths:
+        - backend:
+            service:
+              name: registry
+              port: 
+                number: 5000
+          pathType: Prefix
+          path: /

@@ -157,7 +157,7 @@ function Get-PushedContainerImages() {
         return
     }
 
-    $registryName = $(Get-RegistriesFromSetupJson) | Where-Object { $_ -match 'k2s.registry.*' }
+    $registryName = $(Get-RegistriesFromSetupJson) | Where-Object { $_ -match 'k2s.registry.local' }
     # $auth = Get-RegistryAuthToken $registryName
     # if (!$auth) {
     #     Write-Error "Can't find authentification token for $registryName."
@@ -201,12 +201,12 @@ function Remove-Image([ContainerImage]$ContainerImage) {
 }
 
 function Remove-PushedImage($name, $tag) {
-    $registryName = $(Get-RegistriesFromSetupJson) | Where-Object { $_ -match 'k2s-registry.*' }
-    $auth = Get-RegistryAuthToken $registryName
-    if (!$auth) {
-        Write-Error "Can't find authentification token for $registryName."
-        return
-    }
+    $registryName = $(Get-RegistriesFromSetupJson) | Where-Object { $_ -match 'k2s.registry.*' }
+    # $auth = Get-RegistryAuthToken $registryName
+    # if (!$auth) {
+    #     Write-Error "Can't find authentification token for $registryName."
+    #     return
+    # }
 
     if ($name.Contains("$registryName/")) {
         $name = $name.Replace("$registryName/", '')
@@ -215,7 +215,7 @@ function Remove-PushedImage($name, $tag) {
     $status = $null
     $statusDescription = $null
 
-    $headRequest = "curl.exe -m 10 --retry 3 --retry-connrefused -I http://$registryName/v2/$name/manifests/$tag -H 'Authorization: Basic $auth' $concatinatedHeadersString -v 2>&1"
+    $headRequest = "curl.exe -m 10 --retry 3 --retry-connrefused -I http://$registryName/v2/$name/manifests/$tag $concatinatedHeadersString -v 2>&1"
     $headResponse = Invoke-Expression $headRequest
     foreach ($line in $headResponse) {
         if ($line -match 'HTTP/1.1 (\d{3}) (.+)') {
@@ -238,7 +238,7 @@ function Remove-PushedImage($name, $tag) {
     $match = Select-String 'Docker-Content-Digest: (.*)' -InputObject $lineWithDigest
     $digest = $match.Matches.Groups[1].Value
 
-    $deleteRequest = "curl.exe -m 10 -I --retry 3 --retry-connrefused -X DELETE http://$registryName/v2/$name/manifests/$digest -H 'Authorization: Basic $auth' $concatinatedHeadersString -v 2>&1"
+    $deleteRequest = "curl.exe -m 10 -I --retry 3 --retry-connrefused -X DELETE http://$registryName/v2/$name/manifests/$digest $concatinatedHeadersString -v 2>&1"
     $deleteResponse = Invoke-Expression $deleteRequest
 
     foreach ($line in $deleteResponse) {

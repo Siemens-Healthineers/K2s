@@ -6,24 +6,11 @@
 
 $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $k8sApiModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k8s-api/k8s-api.module.psm1"
-$serviceModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.node.module\windowsnode\services\services.module.psm1"
+$nodeModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.node.module\k2s.node.module.psm1"
 
-Import-Module $infraModule, $k8sApiModule, $serviceModule
+Import-Module $infraModule, $k8sApiModule, $nodeModule
 
-function Deploy-IngressForRegistry([string]$Ingress) {
-    switch ($Ingress) {
-        'nginx' {
-            (Invoke-Kubectl -Params 'apply', '-f', "$PSScriptRoot\manifests\k2s-registry-nginx-ingress.yaml").Output | Write-Log
-            break
-        }
-        'traefik' {
-            (Invoke-Kubectl -Params 'apply', '-f', "$PSScriptRoot\manifests\k2s-registry-traefik-ingress.yaml").Output | Write-Log
-            break
-        }
-    }
-}
-
-function Set-Containerd-Config() {
+function Set-ContainerdConfig() {
     param(
         [Parameter()]
         [String]
@@ -89,14 +76,14 @@ function Write-RegistryUsageForUser {
     param(
         [Parameter()]
         [String]
-        $registryName
+        $Name
     )
     @"
                                         USAGE NOTES
- Registry is available via '$registryName'
+ Registry is available via '$Name'
  
  In order to push your images to the private registry you have to tag your images as in the following example:
- $registryName/<yourImageName>:<yourImageTag>
+ $Name/<yourImageName>:<yourImageTag>
 "@ -split "`r`n" | ForEach-Object { Write-Log $_ -Console }
 }
 
@@ -104,11 +91,18 @@ function Set-InsecureRegistry {
     param(
         [Parameter()]
         [String]
-        $registryName
+        $Name
     )
 
-    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "grep location=\\\""k2s.*\\\"" /etc/containers/registries.conf | sudo sed -i -z 's/\[\[registry]]\nlocation=\\\""k2s.*\\\""\ninsecure=true/[[registry]]\nlocation=\\\""$registryName\\\""\ninsecure=true/g' /etc/containers/registries.conf").Output | Write-Log
-    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "grep location=\\\""k2s.*\\\"" /etc/containers/registries.conf || echo -e `'\n[[registry]]\nlocation=\""$registryName\""\ninsecure=true`' | sudo tee -a /etc/containers/registries.conf").Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "grep location=\\\""k2s.*\\\"" /etc/containers/registries.conf | sudo sed -i -z 's/\[\[registry]]\nlocation=\\\""k2s.*\\\""\ninsecure=true/[[registry]]\nlocation=\\\""$Name\\\""\ninsecure=true/g' /etc/containers/registries.conf").Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "grep location=\\\""k2s.*\\\"" /etc/containers/registries.conf || echo -e `'\n[[registry]]\nlocation=\""$Name\""\ninsecure=true`' | sudo tee -a /etc/containers/registries.conf").Output | Write-Log
+
+    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo systemctl daemon-reload').Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo systemctl restart crio').Output | Write-Log
+}
+
+function Remove-InsecureRegistry {
+    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "grep location=\\\""k2s.*\\\"" /etc/containers/registries.conf | sudo sed -i -z 's/\[\[registry]]\nlocation=\\\""k2s.*\\\""\ninsecure=true//g' /etc/containers/registries.conf").Output | Write-Log
 
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo systemctl daemon-reload').Output | Write-Log
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo systemctl restart crio').Output | Write-Log
@@ -121,5 +115,5 @@ function Update-NodePort {
 
 function Remove-NodePort {
     Write-Log "  Removing nodeport service manifest for registry..." -Console
-    (Invoke-Kubectl -Params 'delete', '-f', "$PSScriptRoot\manifests\registry\service-nodeport.yaml").Output | Write-Log
+    (Invoke-Kubectl -Params 'delete', '-f', "$PSScriptRoot\manifests\registry\service-nodeport.yaml --ignore-not-found").Output | Write-Log
 }

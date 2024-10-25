@@ -6,7 +6,7 @@
 
 <#
 .SYNOPSIS
-Disables k2s-registry in the cluster
+Disables k2s.registry in the cluster
 
 .DESCRIPTION
 The local regsitry allows to push/pull images to/from the local volume of KubeMaster.
@@ -31,8 +31,9 @@ $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.m
 $clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $nodeModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.node.module/k2s.node.module.psm1"
 $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
+$registryModule = "$PSScriptRoot\registry.module.psm1"
 
-Import-Module $infraModule, $clusterModule, $nodeModule, $addonsModule
+Import-Module $infraModule, $clusterModule, $nodeModule, $addonsModule, $registryModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -73,10 +74,12 @@ if ($DeleteImages) {
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo rm -rf /registry').Output | Write-Log
 }
 
-Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'registry' })
-Remove-RegistryFromSetupJson -Name 'k2s.*' -IsRegex $true
+Remove-InsecureRegistry
 
-if ((Get-ConfigLoggedInRegistry) -match 'k2s-registry.*') {
+Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'registry' })
+Remove-RegistryFromSetupJson -Name 'k2s.registry.local*' -IsRegex $true
+
+if ((Get-ConfigLoggedInRegistry) -match 'k2s.registry.local') {
     Set-ConfigLoggedInRegistry -Value ''
 }
 

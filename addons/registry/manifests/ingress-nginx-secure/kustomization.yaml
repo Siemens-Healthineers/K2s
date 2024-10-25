@@ -1,0 +1,22 @@
+# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+#
+# SPDX-License-Identifier: MIT
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+- ../ingress-nginx
+
+patches:
+- patch: |-
+    - op: add
+      path: "/metadata/annotations/nginx.ingress.kubernetes.io~1auth-url"
+      value: "https://k2s.cluster.local/oauth2/auth"
+    - op: add
+      path: "/metadata/annotations/nginx.ingress.kubernetes.io~1auth-signin"
+      value: "https://k2s.cluster.local/oauth2/auth"
+  target:
+    kind: Ingress
+    name: registry-nginx-local
+    namespace: registry

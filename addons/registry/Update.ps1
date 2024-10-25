@@ -10,38 +10,48 @@ $registryModule = "$PSScriptRoot\registry.module.psm1"
 Import-Module $addonsModule, $registryModule
 
 $Addon = [pscustomobject] @{Name = 'registry' }
-$registryName = 'k2s.registry.local'
+
+Remove-RegistryFromSetupJson -Name 'k2s.registry*' -IsRegex $true
 
 if (Test-NginxIngressControllerAvailability) {
+    $registryName = 'k2s.registry.local'
+
     Remove-IngressForTraefik -Addon $Addon
     Remove-NodePort
 
     $props = Get-AddonProperties -Addon $Addon
 
     if (Test-KeyCloakServiceAvailability) {
+        Remove-InsecureRegistry
         Write-Log "  Applying secure nginx ingress manifest for $($props.Name)..." -Console
         $kustomizationDir = Get-IngressNginxSecureConfig -Directory $props.Directory
     }
     else {
         Write-Log "  Applying nginx ingress manifest for $($props.Name)..." -Console
         $kustomizationDir = Get-IngressNginxConfig -Directory $props.Directory
-        Set-InsecureRegistry
+        Set-InsecureRegistry -Name $registryName
     }
     Invoke-Kubectl -Params 'apply', '-k', $kustomizationDir | Out-Null
 }
 elseif (Test-TraefikIngressControllerAvailability) {
+    $registryName = 'k2s.registry.local'
+
     Remove-IngressForNginx -Addon $Addon
     Remove-NodePort
 
     Update-IngressForTraefik -Addon $Addon
+    Set-InsecureRegistry -Name $registryName
 }
 else {
+    $registryName = 'k2s.registry.local:30500'
+
     Remove-IngressForNginx -Addon $Addon
     Remove-IngressForTraefik -Addon $Addon
 
     Update-NodePort
-    $registryName = "$($registryName):$Nodeport"
+
+    Set-InsecureRegistry -Name $registryName
 }
 
-Write-RegistryUsageForUser -registryName $registryName
+Write-RegistryUsageForUser -Name $registryName
 Add-RegistryToSetupJson -Name $registryName

@@ -6,7 +6,7 @@
 
 <#
 .SYNOPSIS
-Enables k2s-registry in the cluster to the private-registry namespace
+Enables k2s.registry in the cluster to the private-registry namespace
 
 .DESCRIPTION
 The local registry allows to push/pull images to/from the local volume of KubeMaster.
@@ -19,15 +19,9 @@ powershell <installation folder>\addons\registry\Enable.ps1
 Param(
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
     [switch] $ShowLogs = $false,
-    [parameter(Mandatory = $false, HelpMessage = 'Use default credentials')]
-    [switch] $UseDefaultCredentials = $false,
-    [parameter(Mandatory = $false, HelpMessage = 'Nodeport for registry access')]
-    [Int] $Nodeport = 30500,
     [parameter(Mandatory = $false, HelpMessage = 'Enable ingress addon')]
     [ValidateSet('nginx', 'traefik', 'none')]
     [string] $Ingress = 'none',
-    [parameter(Mandatory = $false, HelpMessage = 'JSON config object to override preceeding parameters')]
-    [pscustomobject] $Config,
     [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
     [switch] $EncodeStructuredOutput,
     [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
@@ -87,7 +81,7 @@ if ($Ingress -ne 'none') {
 Write-Log 'Creating local registry' -Console
 (Invoke-Kubectl -Params 'apply', '-k', "$PSScriptRoot\manifests\registry").Output | Write-Log
 
-$kubectlCmd = (Invoke-Kubectl -Params 'wait', '--timeout=60s', '--for=condition=Ready', '-n', 'registry', 'pod/registry')
+$kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'statefulsets', '-n', 'registry', '--timeout=60s')
 Write-Log $kubectlCmd.Output
 if (!$kubectlCmd.Success) {
     $errMsg = 'k2s.registry.local did not start in time! Please disable addon and try to enable again!'
@@ -115,7 +109,7 @@ Add-HostEntries -Url 'k2s.registry.local'
 # Connect-Nerdctl -username $username -password $password -registry $registryName
 
 # # set authentification for containerd
-# Set-Containerd-Config -registryName $registryName -authJson $authJson
+# Set-ContainerdConfig -registryName $registryName -authJson $authJson
 
 # Restart-Services | Write-Log -Console
 
