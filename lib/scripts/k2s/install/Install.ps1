@@ -65,6 +65,7 @@ Set-ConfigSetupType -Value $script:SetupType
 New-ProxyConfig -Proxy:$Proxy -NoProxy:$NoProxy
 
 $Proxy = Get-OrUpdateProxyServer -Proxy:$Proxy
+Add-K2sHostsToNoProxyEnvVar
 
 $dnsServers = $DnsAddresses -join ','
 if ([string]::IsNullOrWhiteSpace($dnsServers)) {

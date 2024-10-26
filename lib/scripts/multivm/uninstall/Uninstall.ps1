@@ -86,6 +86,7 @@ if ($SkipPurge.IsPresent) {
 }
 & powershell.exe "$PSScriptRoot\..\..\control-plane\Uninstall.ps1" $controlPlaneParams
 
+Remove-K2sHostsFromNoProxyEnvVar
 
 Invoke-AddonsHooks -HookType 'AfterUninstall'
 

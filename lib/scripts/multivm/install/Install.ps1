@@ -64,6 +64,7 @@ Set-ConfigSetupType -Value $script:SetupType
 Set-ConfigLinuxOnly -Value ($LinuxOnly -eq $true)
 
 $Proxy = Get-OrUpdateProxyServer -Proxy:$Proxy
+Add-K2sHostsToNoProxyEnvVar
 
 $dnsServers = $DnsAddresses -join ','
 if ([string]::IsNullOrWhiteSpace($dnsServers)) {
