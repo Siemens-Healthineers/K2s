@@ -59,6 +59,8 @@ if (!$SkipPurge) {
     Uninstall-Cluster
 }
 
+Remove-K2sHostsFromNoProxyEnvVar
+
 Invoke-AddonsHooks -HookType 'AfterUninstall'
 
 Write-Log 'K2s uninstalled.'
