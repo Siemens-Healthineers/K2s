@@ -94,18 +94,37 @@ function Set-InsecureRegistry {
         $Name
     )
 
+    # Linux (cri-o)
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "grep location=\\\""k2s.*\\\"" /etc/containers/registries.conf | sudo sed -i -z 's/\[\[registry]]\nlocation=\\\""k2s.*\\\""\ninsecure=true/[[registry]]\nlocation=\\\""$Name\\\""\ninsecure=true/g' /etc/containers/registries.conf").Output | Write-Log
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "grep location=\\\""k2s.*\\\"" /etc/containers/registries.conf || echo -e `'\n[[registry]]\nlocation=\""$Name\""\ninsecure=true`' | sudo tee -a /etc/containers/registries.conf").Output | Write-Log
 
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo systemctl daemon-reload').Output | Write-Log
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo systemctl restart crio').Output | Write-Log
+
+    # Windows (containerd)
+    Remove-Item -Force "$(Get-SystemDriveLetter)\etc\containerd\k2s.registry.local*" -Recurse -Confirm:$False -ErrorAction SilentlyContinue
+
+    $Name = $Name -replace ':',''
+
+@"
+server = "http://k2s.registry.local:30500"
+
+[host."http://k2s.registry.local:30500"]
+  capabilities = ["pull", "resolve", "push"]
+  skip_verify = true
+  plain_http = true
+"@ | Set-Content -Path "$(Get-SystemDriveLetter)\etc\containerd\$Name\hosts.toml"
 }
 
 function Remove-InsecureRegistry {
+    # Linux (cri-o)
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "grep location=\\\""k2s.*\\\"" /etc/containers/registries.conf | sudo sed -i -z 's/\[\[registry]]\nlocation=\\\""k2s.*\\\""\ninsecure=true//g' /etc/containers/registries.conf").Output | Write-Log
 
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo systemctl daemon-reload').Output | Write-Log
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo systemctl restart crio').Output | Write-Log
+
+    # Windows (containerd)
+    Remove-Item -Force "$(Get-SystemDriveLetter)\etc\containerd\k2s.registry.local*" -Recurse -Confirm:$False -ErrorAction SilentlyContinue
 }
 
 function Update-NodePort {
