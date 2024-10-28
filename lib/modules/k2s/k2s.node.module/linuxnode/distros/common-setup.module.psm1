@@ -154,13 +154,18 @@ Function Install-KubernetesArtifacts {
         $proxyToAdd = " --Proxy $Proxy"
     }
     $pkgShortK8sVersion = $K8sVersion.Substring(0, $K8sVersion.lastIndexOf('.'))
-    &$executeRemoteCommand "sudo curl --retry 3 --retry-all-errors -fsSL https://pkgs.k8s.io/core:/stable:/$pkgShortK8sVersion/deb/Release.key$proxyToAdd | sudo gpg --dearmor -o /usr/share/keyrings/kubernetes-apt-keyring.gpg" -IgnoreErrors 
+    $kubernetesPublicKeyFilePath = '/tmp/kubernetes.key'
+    &$executeRemoteCommand "sudo curl --retry 3 --retry-all-errors -fsSL https://pkgs.k8s.io/core:/stable:/$pkgShortK8sVersion/deb/Release.key$proxyToAdd -o $kubernetesPublicKeyFilePath" -IgnoreErrors 
+    &$executeRemoteCommand "sudo gpg --dearmor -o /usr/share/keyrings/kubernetes-apt-keyring.gpg $kubernetesPublicKeyFilePath" -IgnoreErrors 
     &$executeRemoteCommand "echo 'deb [signed-by=/usr/share/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/$pkgShortK8sVersion/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.list" 
-    $shortKubeVers = ($K8sVersion -replace 'v', '') + '-1.1'
-    
-    # package locations for cri-o
-    &$executeRemoteCommand "sudo curl --retry 3 --retry-all-errors -fsSL https://pkgs.k8s.io/addons:/cri-o:/stable:/$pkgShortK8sVersion/deb/Release.key$proxyToAdd | sudo gpg --dearmor -o /usr/share/keyrings/cri-o-apt-keyring.gpg" -IgnoreErrors 
+    &$executeRemoteCommand "sudo rm -f $kubernetesPublicKeyFilePath" -IgnoreErrors 
+
+    # package locations for cri-o    
+    $crioPublicKeyFilePath = '/tmp/crio.key'
+    &$executeRemoteCommand "sudo curl --retry 3 --retry-all-errors -fsSL https://pkgs.k8s.io/addons:/cri-o:/stable:/$pkgShortK8sVersion/deb/Release.key$proxyToAdd -o $crioPublicKeyFilePath" -IgnoreErrors 
+    &$executeRemoteCommand "sudo gpg --dearmor -o /usr/share/keyrings/cri-o-apt-keyring.gpg $crioPublicKeyFilePath" -IgnoreErrors 
     &$executeRemoteCommand "echo 'deb [signed-by=/usr/share/keyrings/cri-o-apt-keyring.gpg] https://pkgs.k8s.io/addons:/cri-o:/stable:/$pkgShortK8sVersion/deb/ /' | sudo tee /etc/apt/sources.list.d/cri-o.list" 
+    &$executeRemoteCommand "sudo rm -f $crioPublicKeyFilePath" -IgnoreErrors 
 
     Write-Log 'Install other depended-on tools'
     &$executeRemoteCommand 'sudo apt-get update' -Retries 2 -RepairCmd 'sudo apt --fix-broken install'
@@ -222,6 +227,8 @@ Function Install-KubernetesArtifacts {
     else {
         &$executeRemoteCommand 'sudo echo unqualified-search-registries = [\\\"docker.io\\\"] | sudo tee -a /etc/containers/registries.conf'
     }
+
+    $shortKubeVers = ($K8sVersion -replace 'v', '') + '-1.1'
 
     Write-Log 'Install kubetools (kubelet, kubeadm, kubectl)'
     &$executeRemoteCommand 'sudo apt-get update' 
