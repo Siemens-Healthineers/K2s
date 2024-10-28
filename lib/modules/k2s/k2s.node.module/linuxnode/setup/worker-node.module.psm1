@@ -160,14 +160,6 @@ function Add-LinuxWorkerNodeOnExistingUbuntuVM {
     $k8sVersion = Get-DefaultK8sVersion
     Install-KubernetesArtifacts -UserName $UserName -IpAddress $IpAddress -K8sVersion $k8sVersion -Proxy $Proxy
     
-    Write-Log " Add firewall rules for Kubernetes"
-    (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo ufw allow 6443/tcp' -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
-    (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo ufw allow 2379:2380/tcp' -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
-    (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo ufw allow 10250/tcp' -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
-    (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo ufw allow 10259/tcp' -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
-    (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo ufw allow 10257/tcp' -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
-    (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo ufw allow 9153/tcp' -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
-    
     (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo mkdir -p /etc/netplan/backup' -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
     (Invoke-CmdOnVmViaSSHKey -CmdToExecute "find /etc/netplan -maxdepth 1 -type f -exec sudo mv {} /etc/netplan/backup ';'" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
     
@@ -280,14 +272,6 @@ function Add-LinuxWorkerNodeOnUbuntuBareMetal {
 
     $k8sVersion = Get-DefaultK8sVersion
     Install-KubernetesArtifacts -UserName $UserName -IpAddress $IpAddress -K8sVersion $k8sVersion -Proxy $Proxy
-    
-    Write-Log " Add firewall rules for Kubernetes"
-    (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo ufw allow 6443/tcp' -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
-    (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo ufw allow 2379:2380/tcp' -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
-    (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo ufw allow 10250/tcp' -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
-    (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo ufw allow 10259/tcp' -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
-    (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo ufw allow 10257/tcp' -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
-    (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo ufw allow 9153/tcp' -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
     
     $doBeforeJoining = {
         # add a route to the cluster network over the Windows host IP address
