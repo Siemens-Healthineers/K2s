@@ -23,7 +23,8 @@ import (
 )
 
 var (
-	tagCommandExample = `
+	targetImageNameFlagName = "target-name"
+	tagCommandExample       = `
   # Tag image 'k2s-registry.local/myimage:v1' as 'k2s-registry.local/myimage:release'
   k2s image tag k2s-registry.local/myimage:v1 k2s-registry.local/myimage:release
 `
@@ -36,6 +37,9 @@ var (
 )
 
 func init() {
+	tagCmd.Flags().String(imageIdFlagName, "", "Image ID of the container image")
+	tagCmd.Flags().StringP(imageNameFlagName, "n", "", "Name of the container image including tag")
+	tagCmd.Flags().StringP(targetImageNameFlagName, "t", "", "New name of the container image including tag")
 	tagCmd.Flags().SortFlags = false
 	tagCmd.Flags().PrintDefaults()
 }
@@ -43,20 +47,10 @@ func init() {
 func tagImage(cmd *cobra.Command, args []string) error {
 	pterm.Println("🤖 Tagging container image..")
 
-	err := validateTagArgs(args)
-	if err != nil {
-		return fmt.Errorf("invalid arguments provided: %w", err)
-	}
-
-	imageToTag := getImageToTag(args)
-	newImageName := getNewImageName(args)
-
-	showOutput, err := strconv.ParseBool(cmd.Flags().Lookup(common.OutputFlagName).Value.String())
+	psCmd, params, err := buildTagPsCmd(cmd)
 	if err != nil {
 		return err
 	}
-
-	psCmd, params := buildTagPsCmd(imageToTag, newImageName, showOutput)
 
 	slog.Debug("PS command created", "command", psCmd, "params", params)
 
@@ -94,28 +88,39 @@ func tagImage(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func validateTagArgs(args []string) error {
-	if len(args) != 2 {
-		return errors.New("Please specify source image and new image name")
+func buildTagPsCmd(cmd *cobra.Command) (psCmd string, params []string, err error) {
+
+	imageId, err := cmd.Flags().GetString(imageIdFlagName)
+	if err != nil {
+		return "", nil, fmt.Errorf("unable to parse flag '%s': %w", imageIdFlagName, err)
 	}
 
-	return nil
-}
+	imageName, err := cmd.Flags().GetString(imageNameFlagName)
+	if err != nil {
+		return "", nil, fmt.Errorf("unable to parse flag '%s': %w", imageNameFlagName, err)
+	}
 
-func getImageToTag(args []string) string {
-	return args[0]
-}
+	targetImageName, err := cmd.Flags().GetString(targetImageNameFlagName)
+	if err != nil {
+		return "", nil, fmt.Errorf("unable to parse flag '%s': %w", targetImageNameFlagName, err)
+	}
 
-func getNewImageName(args []string) string {
-	return args[1]
-}
+	showOutput, err := strconv.ParseBool(cmd.Flags().Lookup(common.OutputFlagName).Value.String())
+	if err != nil {
+		return "", nil, err
+	}
 
-func buildTagPsCmd(imageToTag string, newImageName string, showOutput bool) (psCmd string, params []string) {
 	psCmd = utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "image", "Tag-Image.ps1"))
 
-	params = append(params, " -ImageName "+imageToTag)
-	params = append(params, " -TargetImageName "+newImageName)
-
+	if imageId != "" {
+		params = append(params, " -Id "+imageId)
+	}
+	if imageName != "" {
+		params = append(params, " -ImageName "+imageName)
+	}
+	if targetImageName != "" {
+		params = append(params, " -TargetImageName "+targetImageName)
+	}
 	if showOutput {
 		params = append(params, " -ShowLogs")
 	}
