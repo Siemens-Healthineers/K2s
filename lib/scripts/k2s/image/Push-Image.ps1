@@ -114,6 +114,15 @@ $pushLinuxImage = $false
 $pushWindowsImage = $false
 $linuxAndWindowsImageFound = $false
 
+if($foundLinuxImages.Count -ge 1 -or $foundWindowsImages.Count -ge 1) {
+        $errMsg = "More than one image has the id: $Id. Please use --name to identify the image instead or delete the other image/s"
+        if ($EncodeStructuredOutput -eq $true) {
+            $err = New-Error -Severity Warning -Code 'two-images-found' -Message $errMsg
+            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+            return
+        }
+}
+
 if ($foundLinuxImages.Count -eq 1 -and $foundWindowsImages.Count -eq 1) {
     Write-Log "Linux and Windows image found"
     $linuxAndWindowsImageFound = $true
