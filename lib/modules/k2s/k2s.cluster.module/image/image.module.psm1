@@ -167,18 +167,18 @@ function Get-PushedContainerImages() {
     $isNodePort = $registryName -match ':'
 
     if (!$isNodePort) {
-        $catalog = $(curl.exe --retry 3 --retry-all-errors -k -X GET https://$registryName/v2/_catalog) 2> $null | Out-String | ConvertFrom-Json
+        $catalog = $(curl.exe --noproxy $registryName --retry 3 --retry-all-errors -k -X GET https://$registryName/v2/_catalog) 2> $null | Out-String | ConvertFrom-Json
     } else {
-        $catalog = $(curl.exe --retry 3 --retry-all-errors -X GET http://$registryName/v2/_catalog) 2> $null | Out-String | ConvertFrom-Json
+        $catalog = $(curl.exe --noproxy $registryName --retry 3 --retry-all-errors -X GET http://$registryName/v2/_catalog) 2> $null | Out-String | ConvertFrom-Json
     }
     $images = $catalog.psobject.properties['repositories'].value
 
     $pushedContainerImages = @()
     foreach ($image in $images) {
         if (!$isNodePort) {
-            $imageWithTags = curl.exe --retry 3 --retry-all-errors -k -X GET https://$registryName/v2/$image/tags/list 2> $null | Out-String | ConvertFrom-Json
+            $imageWithTags = curl.exe --noproxy $registryName --retry 3 --retry-all-errors -k -X GET https://$registryName/v2/$image/tags/list 2> $null | Out-String | ConvertFrom-Json
         } else {
-            $imageWithTags = curl.exe --retry 3 --retry-all-errors -X GET http://$registryName/v2/$image/tags/list 2> $null | Out-String | ConvertFrom-Json
+            $imageWithTags = curl.exe --noproxy $registryName --retry 3 --retry-all-errors -X GET http://$registryName/v2/$image/tags/list 2> $null | Out-String | ConvertFrom-Json
         }
         $tags = $imageWithTags.psobject.properties['tags'].value
 
@@ -226,9 +226,9 @@ function Remove-PushedImage($name, $tag) {
 
     $isNodePort = $registryName -match ':'
     if (!$isNodePort) {
-        $headRequest = "curl.exe -m 10 --retry 3 --retry-connrefused -k -I https://$registryName/v2/$name/manifests/$tag $concatinatedHeadersString -v 2>&1"
+        $headRequest = "curl.exe -m 10 --noproxy $registryName --retry 3 --retry-connrefused -k -I https://$registryName/v2/$name/manifests/$tag $concatinatedHeadersString -v 2>&1"
     } else {
-        $headRequest = "curl.exe -m 10 --retry 3 --retry-connrefused -I http://$registryName/v2/$name/manifests/$tag $concatinatedHeadersString -v 2>&1"
+        $headRequest = "curl.exe -m 10 --noproxy $registryName --retry 3 --retry-connrefused -I http://$registryName/v2/$name/manifests/$tag $concatinatedHeadersString -v 2>&1"
     }
 
     $headResponse = Invoke-Expression $headRequest
@@ -254,9 +254,9 @@ function Remove-PushedImage($name, $tag) {
     $digest = $match.Matches.Groups[1].Value
 
     if (!$isNodePort) {
-        $deleteRequest = "curl.exe -m 10 -k -I --retry 3 --retry-connrefused -X DELETE https://$registryName/v2/$name/manifests/$digest $concatinatedHeadersString -v 2>&1"
+        $deleteRequest = "curl.exe -m 10 -k -I --noproxy $registryName --retry 3 --retry-connrefused -X DELETE https://$registryName/v2/$name/manifests/$digest $concatinatedHeadersString -v 2>&1"
     } else {
-        $deleteRequest = "curl.exe -m 10 -I --retry 3 --retry-connrefused -X DELETE http://$registryName/v2/$name/manifests/$digest $concatinatedHeadersString -v 2>&1"
+        $deleteRequest = "curl.exe -m 10 -I --noproxy $registryName --retry 3 --retry-connrefused -X DELETE http://$registryName/v2/$name/manifests/$digest $concatinatedHeadersString -v 2>&1"
     }
     $deleteResponse = Invoke-Expression $deleteRequest
 

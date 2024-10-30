@@ -50,6 +50,7 @@ $installationType = 'Build-only'
 Write-Log "Installing $installationType setup"
 
 $Proxy = Get-OrUpdateProxyServer -Proxy:$Proxy
+Add-K2sHostsToNoProxyEnvVar
 
 $loopbackAdapter = Get-L2BridgeName
 $dnsServers = Get-DnsIpAddressesFromActivePhysicalNetworkInterfacesOnWindowsHost -ExcludeNetworkInterfaceName $loopbackAdapter
