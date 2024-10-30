@@ -8,7 +8,7 @@ Param(
     [string] $NodeName = $(throw 'Argument missing: NodeName'),
     [string] $UserName = $(throw 'Argument missing: UserName'),
     [string] $IpAddress = $(throw 'Argument missing: IpAddress'),
-    [string] $WindowsHostIpAddress = $(throw 'Argument missing: WindowsHostIpAddress'),
+    [string] $WindowsHostIpAddress = '',
     [string] $Proxy = '',
     [switch] $ShowLogs = $false
 )
@@ -68,6 +68,12 @@ Write-Log "Disable swap"
 (Invoke-CmdOnVmViaSSHKey -CmdToExecute "for swapFile in `$swapFiles; do sudo rm '`$swapFile'; done" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
 (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo sed -i '/\sswap\s/d' /etc/fstab" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
 
+if ($WindowsHostIpAddress -eq '') {
+    $loopbackAdapter = Get-L2BridgeName
+    $WindowsHostIpAddress = Get-HostPhysicalIp -ExcludeNetworkInterfaceName $loopbackAdapter
+}
+Write-Log "Windows Host IP address: $WindowsHostIpAddress"
+
 $workerNodeParams = @{
     NodeName = $NodeName
     UserName = $UserName
@@ -84,24 +90,24 @@ if (! $SkipStart) {
 
     if ($RestartAfterInstallCount -gt 0) {
         $restartCount = 0;
-    
+
         while ($true) {
             $restartCount++
             Write-Log "Restarting worker (iteration #$restartCount):"
-    
+
             & "$PSScriptRoot\Stop.ps1" -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs -SkipHeaderDisplay -NodeName $NodeName
             Start-Sleep 10
-    
+
             & "$PSScriptRoot\Start.ps1" -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs -SkipHeaderDisplay -IpAddress $IpAddress -NodeName $NodeName
             Start-Sleep -s 5
-    
+
             if ($restartCount -eq $RestartAfterInstallCount) {
                 Write-Log 'Restarting worker node completed'
                 break;
             }
         }
     }
-} 
+}
 
 Write-Log "Current state of kubernetes nodes:`n"
 Start-Sleep 2
