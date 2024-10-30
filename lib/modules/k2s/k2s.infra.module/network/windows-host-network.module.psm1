@@ -73,6 +73,16 @@ function Reset-DnsForActivePhysicalInterfacesOnWindowsHost {
 
 }
 
+function Get-HostPhysicalIp {
+    param (
+        [string]$ExcludeNetworkInterfaceName = ''
+    )
+
+    $hostphysicalIp = Get-NetAdapter | Where-Object { $_.Status -eq 'Up' -and $_.Name -notmatch 'vEthernet' -and $_.Name -ne $ExcludeNetworkInterfaceName } | ForEach-Object { Get-NetIPAddress -InterfaceIndex $_.InterfaceIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue } |  Select-Object -ExpandProperty IPAddress -First 1
+    return $hostphysicalIp
+}
+
 
 Export-ModuleMember -Function Get-DnsIpAddressesFromActivePhysicalNetworkInterfacesOnWindowsHost,
-Set-K2sDnsProxyForActivePhysicalInterfacesOnWindowsHost, Reset-DnsForActivePhysicalInterfacesOnWindowsHost
+Set-K2sDnsProxyForActivePhysicalInterfacesOnWindowsHost, Reset-DnsForActivePhysicalInterfacesOnWindowsHost,
+Get-HostPhysicalIp
