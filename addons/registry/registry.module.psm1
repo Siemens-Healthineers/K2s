@@ -102,18 +102,19 @@ function Set-InsecureRegistry {
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo systemctl restart crio').Output | Write-Log
 
     # Windows (containerd)
-    Remove-Item -Force "$(Get-SystemDriveLetter)\etc\containerd\k2s.registry.local*" -Recurse -Confirm:$False -ErrorAction SilentlyContinue
+    Remove-Item -Force "$(Get-SystemDriveLetter):\etc\containerd\certs.d\k2s.registry.local*" -Recurse -Confirm:$False -ErrorAction SilentlyContinue
 
-    $Name = $Name -replace ':',''
+    $folderName = $Name -replace ':',''
+    New-Item -Path "$(Get-SystemDriveLetter):\etc\containerd\certs.d\$folderName" -ItemType Directory -Force | Out-Null
 
 @"
-server = "http://k2s.registry.local:30500"
+server = "http://$Name"
 
-[host."http://k2s.registry.local:30500"]
+[host."http://$Name"]
   capabilities = ["pull", "resolve", "push"]
   skip_verify = true
   plain_http = true
-"@ | Set-Content -Path "$(Get-SystemDriveLetter)\etc\containerd\$Name\hosts.toml"
+"@ | Set-Content -Path "$(Get-SystemDriveLetter):\etc\containerd\certs.d\$folderName\hosts.toml"
 }
 
 function Remove-InsecureRegistry {
@@ -124,7 +125,7 @@ function Remove-InsecureRegistry {
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo systemctl restart crio').Output | Write-Log
 
     # Windows (containerd)
-    Remove-Item -Force "$(Get-SystemDriveLetter)\etc\containerd\k2s.registry.local*" -Recurse -Confirm:$False -ErrorAction SilentlyContinue
+    Remove-Item -Force "$(Get-SystemDriveLetter):\etc\containerd\certs.d\k2s.registry.local*" -Recurse -Confirm:$False -ErrorAction SilentlyContinue
 }
 
 function Update-NodePort {
@@ -134,5 +135,5 @@ function Update-NodePort {
 
 function Remove-NodePort {
     Write-Log "  Removing nodeport service manifest for registry..." -Console
-    (Invoke-Kubectl -Params 'delete', '-f', "$PSScriptRoot\manifests\registry\service-nodeport.yaml --ignore-not-found").Output | Write-Log
+    (Invoke-Kubectl -Params 'delete', '-f', "$PSScriptRoot\manifests\registry\service-nodeport.yaml", "--ignore-not-found").Output | Write-Log
 }

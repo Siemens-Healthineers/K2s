@@ -254,8 +254,6 @@ function Add-AddonToSetupJson() {
         $parsedSetupJson.EnabledAddons += $Addon
         $parsedSetupJson | ConvertTo-Json -Depth 100 | Set-Content -Force $filePath -Confirm:$false
     }
-    
-    
 }
 
 <#

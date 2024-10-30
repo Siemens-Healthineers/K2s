@@ -164,13 +164,22 @@ function Get-PushedContainerImages() {
     #     return
     # }
 
-    $catalog = $(curl.exe --retry 3 --retry-all-errors -X GET http://$registryName/v2/_catalog) 2> $null | Out-String | ConvertFrom-Json
+    $isNodePort = $registryName -match ':'
 
+    if (!$isNodePort) {
+        $catalog = $(curl.exe --retry 3 --retry-all-errors -k -X GET https://$registryName/v2/_catalog) 2> $null | Out-String | ConvertFrom-Json
+    } else {
+        $catalog = $(curl.exe --retry 3 --retry-all-errors -X GET http://$registryName/v2/_catalog) 2> $null | Out-String | ConvertFrom-Json
+    }
     $images = $catalog.psobject.properties['repositories'].value
 
     $pushedContainerImages = @()
     foreach ($image in $images) {
-        $imageWithTags = curl.exe --retry 3 --retry-all-errors -X GET http://$registryName/v2/$image/tags/list 2> $null | Out-String | ConvertFrom-Json
+        if (!$isNodePort) {
+            $imageWithTags = curl.exe --retry 3 --retry-all-errors -k -X GET https://$registryName/v2/$image/tags/list 2> $null | Out-String | ConvertFrom-Json
+        } else {
+            $imageWithTags = curl.exe --retry 3 --retry-all-errors -X GET http://$registryName/v2/$image/tags/list 2> $null | Out-String | ConvertFrom-Json
+        }
         $tags = $imageWithTags.psobject.properties['tags'].value
 
         foreach ($tag in $tags) {
@@ -215,7 +224,13 @@ function Remove-PushedImage($name, $tag) {
     $status = $null
     $statusDescription = $null
 
-    $headRequest = "curl.exe -m 10 --retry 3 --retry-connrefused -I http://$registryName/v2/$name/manifests/$tag $concatinatedHeadersString -v 2>&1"
+    $isNodePort = $registryName -match ':'
+    if (!$isNodePort) {
+        $headRequest = "curl.exe -m 10 --retry 3 --retry-connrefused -k -I https://$registryName/v2/$name/manifests/$tag $concatinatedHeadersString -v 2>&1"
+    } else {
+        $headRequest = "curl.exe -m 10 --retry 3 --retry-connrefused -I http://$registryName/v2/$name/manifests/$tag $concatinatedHeadersString -v 2>&1"
+    }
+
     $headResponse = Invoke-Expression $headRequest
     foreach ($line in $headResponse) {
         if ($line -match 'HTTP/1.1 (\d{3}) (.+)') {
@@ -238,7 +253,11 @@ function Remove-PushedImage($name, $tag) {
     $match = Select-String 'Docker-Content-Digest: (.*)' -InputObject $lineWithDigest
     $digest = $match.Matches.Groups[1].Value
 
-    $deleteRequest = "curl.exe -m 10 -I --retry 3 --retry-connrefused -X DELETE http://$registryName/v2/$name/manifests/$digest $concatinatedHeadersString -v 2>&1"
+    if (!$isNodePort) {
+        $deleteRequest = "curl.exe -m 10 -k -I --retry 3 --retry-connrefused -X DELETE https://$registryName/v2/$name/manifests/$digest $concatinatedHeadersString -v 2>&1"
+    } else {
+        $deleteRequest = "curl.exe -m 10 -I --retry 3 --retry-connrefused -X DELETE http://$registryName/v2/$name/manifests/$digest $concatinatedHeadersString -v 2>&1"
+    }
     $deleteResponse = Invoke-Expression $deleteRequest
 
     foreach ($line in $deleteResponse) {

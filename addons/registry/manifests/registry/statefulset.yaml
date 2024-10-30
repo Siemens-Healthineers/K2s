@@ -62,9 +62,6 @@ spec:
       containers:
       - name: registry
         image: public.ecr.aws/docker/library/registry:2
-        env:
-        - name: REGISTRY_VALIDATION_DISABLED
-          value: "true"
         volumeMounts:
         - name: repo-vol
           mountPath: "/var/lib/registry"

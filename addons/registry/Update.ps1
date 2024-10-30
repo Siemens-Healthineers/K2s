@@ -18,11 +18,11 @@ if (Test-NginxIngressControllerAvailability) {
 
     Remove-IngressForTraefik -Addon $Addon
     Remove-NodePort
+    Remove-InsecureRegistry
 
     $props = Get-AddonProperties -Addon $Addon
 
     if (Test-KeyCloakServiceAvailability) {
-        Remove-InsecureRegistry
         Write-Log "  Applying secure nginx ingress manifest for $($props.Name)..." -Console
         $kustomizationDir = Get-IngressNginxSecureConfig -Directory $props.Directory
     }
@@ -38,9 +38,9 @@ elseif (Test-TraefikIngressControllerAvailability) {
 
     Remove-IngressForNginx -Addon $Addon
     Remove-NodePort
+    Remove-InsecureRegistry
 
     Update-IngressForTraefik -Addon $Addon
-    Set-InsecureRegistry -Name $registryName
 }
 else {
     $registryName = 'k2s.registry.local:30500'

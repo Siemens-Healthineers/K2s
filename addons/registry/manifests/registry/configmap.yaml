@@ -20,6 +20,8 @@ data:
         blobdescriptor: inmemory
       filesystem:
         rootdirectory: /var/lib/registry
+    validation:
+      disabled: true
     http:
       addr: :5000
       headers:
