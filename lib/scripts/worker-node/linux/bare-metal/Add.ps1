@@ -74,6 +74,12 @@ if ($WindowsHostIpAddress -eq '') {
 }
 Write-Log "Windows Host IP address: $WindowsHostIpAddress"
 
+# If configuration is present, retrieve proxy
+if ($Proxy -eq '') {
+    $proxyConfig = Get-ProxyConfig
+    $Proxy = $proxyConfig.HttpProxy
+}
+
 $workerNodeParams = @{
     NodeName = $NodeName
     UserName = $UserName
