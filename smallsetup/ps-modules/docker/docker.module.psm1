@@ -16,7 +16,7 @@ function Set-DockerToExpermental {
 
 function Start-DockerLogin {
     param (
-        [parameter(Mandatory = $true, HelpMessage = "Registry to push to, e.g. 'k2s.registry.local'")]
+        [parameter(Mandatory = $true, HelpMessage = "Registry to push to, e.g. 'k2s-registry.local'")]
         [string] $Registry,
         [parameter(Mandatory = $true, HelpMessage = 'User for registry login')]
         [string] $RegUser,

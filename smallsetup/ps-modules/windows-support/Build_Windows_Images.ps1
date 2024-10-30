@@ -12,7 +12,7 @@ Builds the Windows-based images of a given 3rd-party tooling
 Builds the Windows-based images of a given 3rd-party tooling with supporting manifests for all supported Windows versions.
 
 .PARAMETER Registry
-Registry to push to, e.g. 'k2s.registry.local'
+Registry to push to, e.g. 'k2s-registry.local'
 
 .PARAMETER Name
 Name of the image including paths, e.g. '/sig-storage/livenessprobe'
@@ -34,7 +34,7 @@ If set to true, insecure registries like local registries are allowed.
 #>
 
 Param(
-    [parameter(Mandatory = $true, HelpMessage = "Registry to push to, e.g. 'k2s.registry.local'")]
+    [parameter(Mandatory = $true, HelpMessage = "Registry to push to, e.g. 'k2s-registry.local'")]
     [string] $Registry,
     [parameter(Mandatory = $true, HelpMessage = "Name of the image including paths, e.g. '/sig-storage/livenessprobe' or 'livenessprobe'")]
     [string] $Name,
