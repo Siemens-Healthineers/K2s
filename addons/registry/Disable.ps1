@@ -79,10 +79,6 @@ Remove-InsecureRegistry
 Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'registry' })
 Remove-RegistryFromSetupJson -Name 'k2s.registry.local*' -IsRegex $true
 
-if ((Get-ConfigLoggedInRegistry) -match 'k2s.registry.local') {
-    Set-ConfigLoggedInRegistry -Value ''
-}
-
 Write-Log 'Uninstallation of Kubernetes registry finished' -Console
 
 if ($EncodeStructuredOutput -eq $true) {

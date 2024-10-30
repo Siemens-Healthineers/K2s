@@ -87,12 +87,6 @@ function Add-RegistryToContainerdConf {
         $content = Get-Content $containerdConfig
         $content | ForEach-Object { $_.replace($authPlaceHolder, "        [plugins.""io.containerd.grpc.v1.cri"".registry.configs.""$registryName"".auth]`r`n          auth = ""$auth""`r`n`r`n        #add_new_registry_auth") } | Set-Content $containerdConfig
     }
-
-    $tlsPlaceHolder = Get-Content $containerdConfig | Select-String '#add_new_insecure_verify_skip' | Select-Object -ExpandProperty Line
-    if ( $tlsPlaceHolder ) {
-        $content = Get-Content $containerdConfig
-        $content | ForEach-Object { $_.replace($tlsPlaceHolder, "        [plugins.""io.containerd.grpc.v1.cri"".registry.configs.""$registryName"".tls]`r`n          insecure_skip_verify = true`r`n`r`n        #add_new_insecure_verify_skip") } | Set-Content $containerdConfig
-    }
 }
 
 
@@ -221,6 +215,56 @@ function Get-ConfiguredRegistryFromImageName {
     }
 }
 
+function Set-InsecureRegistry {
+    param(
+        [Parameter()]
+        [String]
+        $Name
+    )
+
+    # Linux (cri-o)
+    $fileName = $Name -replace ':',''
+
+    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'mkdir -p /etc/containers/registries.conf.d').Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "echo -e `'[[registry]]\nlocation=\""$Name\""\ninsecure=true`' | sudo tee /etc/containers/registries.conf.d/$fileName.conf").Output | Write-Log
+
+    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo systemctl daemon-reload').Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo systemctl restart crio').Output | Write-Log
+
+    # Windows (containerd)
+    $folderName = $Name -replace ':',''
+
+    New-Item -Path "$(Get-SystemDriveLetter):\etc\containerd\certs.d\$folderName" -ItemType Directory -Force | Out-Null
+
+@"
+server = "http://$Name"
+
+[host."http://$Name"]
+  capabilities = ["pull", "resolve", "push"]
+  skip_verify = true
+  plain_http = true
+"@ | Set-Content -Path "$(Get-SystemDriveLetter):\etc\containerd\certs.d\$folderName\hosts.toml"
+}
+
+function Remove-InsecureRegistry {
+    param(
+        [Parameter()]
+        [String]
+        $Name
+    )
+
+    # Linux (cri-o)
+    $fileName = $Name -replace ':',''
+    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo rm -rf /etc/containers/registries.conf.d/$fileName.conf").Output | Write-Log
+
+    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo systemctl daemon-reload').Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo systemctl restart crio').Output | Write-Log
+
+    # Windows (containerd)
+    $folderName = $Name -replace ':',''
+    Remove-Item -Force "$(Get-SystemDriveLetter):\etc\containerd\certs.d\$folderName" -Recurse -Confirm:$False -ErrorAction SilentlyContinue
+}
+
 Export-ModuleMember -Function Add-RegistryToSetupJson,
 Remove-RegistryFromSetupJson,
 Get-RegistriesFromSetupJson,
@@ -228,4 +272,6 @@ Add-RegistryToContainerdConf,
 Connect-Docker,
 Connect-Buildah,
 Connect-Nerdctl,
-Get-ConfiguredRegistryFromImageName
+Get-ConfiguredRegistryFromImageName,
+Set-InsecureRegistry,
+Remove-InsecureRegistry

@@ -6,8 +6,9 @@
 
 $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
 $registryModule = "$PSScriptRoot\registry.module.psm1"
+$imageRegistryModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.cluster.module\image\registry\registry.module.psm1"
 
-Import-Module $addonsModule, $registryModule
+Import-Module $addonsModule, $registryModule, $imageRegistryModule
 
 $Addon = [pscustomobject] @{Name = 'registry' }
 
@@ -18,7 +19,7 @@ if (Test-NginxIngressControllerAvailability) {
 
     Remove-IngressForTraefik -Addon $Addon
     Remove-NodePort
-    Remove-InsecureRegistry
+    Remove-InsecureRegistry -Name $registryName
 
     $props = Get-AddonProperties -Addon $Addon
 
@@ -38,7 +39,7 @@ elseif (Test-TraefikIngressControllerAvailability) {
 
     Remove-IngressForNginx -Addon $Addon
     Remove-NodePort
-    Remove-InsecureRegistry
+    Remove-InsecureRegistry -Name $registryName
 
     Update-IngressForTraefik -Addon $Addon
 }

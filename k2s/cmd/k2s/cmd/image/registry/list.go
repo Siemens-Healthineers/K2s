@@ -54,20 +54,8 @@ func listRegistries(cmd *cobra.Command, args []string) error {
 	}
 
 	pterm.Printfln("Configured registries:")
-	for i, v := range registries {
-		pterm.Printfln("%d. %s", (i + 1), v)
-	}
-
-	loggedInRegistry := config.LoggedInRegistry
-
-	if loggedInRegistry == "" {
-		pterm.Printfln("")
-		pterm.Printfln("Currently you are not logged in into a configured registry.")
-		pterm.Printfln("In order to login into configured registry, call 'k2s image registry switch <registry>'")
-	} else {
-		pterm.Printfln("")
-		pterm.Printfln("Currently you are logged in into configured registry:")
-		pterm.Printfln("%s", loggedInRegistry)
+	for _, v := range registries {
+		pterm.Printfln("- %s", v)
 	}
 
 	return nil

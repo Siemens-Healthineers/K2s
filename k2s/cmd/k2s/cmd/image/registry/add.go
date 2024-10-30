@@ -25,12 +25,16 @@ import (
 const (
 	usernameFlag = "username"
 	passwordFlag = "password"
+	insecureFlag = "insecure"
 )
 
 var (
 	addExample = `
 	# Add registry in K2s (enter credentials afterwards)
 	k2s image registry add myregistry
+
+	# Add registry in K2s (enter credentials afterwards) and configure as insecure registry (skips verifying HTTPS certs, and allows falling back to plain HTTP)
+	k2s image registry add myregistry --insecure
 
 	# Add registry with username and password in K2s 
 	k2s image registry add myregistry -u testuser -p testpassword
@@ -47,6 +51,7 @@ var (
 func init() {
 	addCmd.Flags().StringP(usernameFlag, "u", "", usernameFlag)
 	addCmd.Flags().StringP(passwordFlag, "p", "", passwordFlag)
+	addCmd.Flags().Bool(insecureFlag, false, "skips verifying HTTPS certs, and allows falling back to plain HTTP")
 	addCmd.Flags().SortFlags = false
 	addCmd.Flags().PrintDefaults()
 }
@@ -119,6 +124,15 @@ func buildAddPsCmd(registryName string, cmd *cobra.Command) (psCmd string, param
 	password, err := cmd.Flags().GetString(passwordFlag)
 	if err != nil {
 		return "", nil, fmt.Errorf("unable to parse flag '%s': %w", passwordFlag, err)
+	}
+
+	insecure, err := strconv.ParseBool(cmd.Flags().Lookup(insecureFlag).Value.String())
+	if err != nil {
+		return "", nil, fmt.Errorf("unable to parse flag '%s': %w", insecureFlag, err)
+	}
+
+	if insecure {
+		params = append(params, " -Insecure")
 	}
 
 	if showOutput {
