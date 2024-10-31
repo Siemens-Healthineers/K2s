@@ -19,7 +19,7 @@ if (Test-NginxIngressControllerAvailability) {
 
     Remove-IngressForTraefik -Addon $Addon
     Remove-NodePort
-    Remove-InsecureRegistry -Name $registryName
+    Remove-InsecureRegistry -Name "$registryName*"
 
     $props = Get-AddonProperties -Addon $Addon
 
@@ -39,7 +39,7 @@ elseif (Test-TraefikIngressControllerAvailability) {
 
     Remove-IngressForNginx -Addon $Addon
     Remove-NodePort
-    Remove-InsecureRegistry -Name $registryName
+    Remove-InsecureRegistry -Name "$registryName*"
 
     Update-IngressForTraefik -Addon $Addon
 }
