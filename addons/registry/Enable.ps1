@@ -135,7 +135,7 @@ Add-HostEntries -Url 'k2s.registry.local'
 
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'registry' })
 
-#Set-ConfigLoggedInRegistry -Value $registryName
+Write-RegistryUsageForUser
 
 if ($EncodeStructuredOutput -eq $true) {
     Send-ToCli -MessageType $MessageType -Message @{Error = $null }

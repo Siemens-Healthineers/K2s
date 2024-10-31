@@ -22,21 +22,31 @@ function Restart-Services() {
 
 <#
 .DESCRIPTION
-Writes the usage notes for dashboard for the user.
+Writes the usage notes for registry for the user.
 #>
 function Write-RegistryUsageForUser {
-    param(
-        [Parameter()]
-        [String]
-        $Name
-    )
     @"
-                                        USAGE NOTES
- Registry is available via '$Name'
- 
- In order to push your images to the private registry you have to tag your images as in the following example:
- $Name/<yourImageName>:<yourImageTag>
-"@ -split "`r`n" | ForEach-Object { Write-Log $_ -Console }
+REGISTRY ADDON - USAGE NOTES
+To access the local registry, please use one of the options:
+
+Option 1: Access via ingress
+Please install either ingress nginx or ingress traefik addon from k2s.
+or you can install them on your own. 
+Enable ingress controller via k2s cli
+eg. k2s addons enable ingress nginx
+Once the ingress controller is running in the cluster, run the command to enable registry 
+k2s addons enable registry
+The local registry will be accessible on the following URL: k2s.registry.local
+In order to push your images to the private registry you have to tag your images as in the following example:
+k2s.registry.local/<yourImageName>:<yourImageTag>
+
+Option 2: Access via Nodeport
+If no ingress controller is enabled the local registry is exposed via Nodeport (30500).
+
+In this case, the local registry will be accessible on the following URL: k2s.registry.local:30500
+In order to push your images to the private registry you have to tag your images as in the following example:
+k2s.registry.local:30500/<yourImageName>:<yourImageTag>
+"@ -split "`r`n" | ForEach-Object { Write-Log $_ }
 }
 
 function Update-NodePort {

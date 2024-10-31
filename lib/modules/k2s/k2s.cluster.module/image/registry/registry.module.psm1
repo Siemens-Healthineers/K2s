@@ -219,7 +219,10 @@ function Set-InsecureRegistry {
     param(
         [Parameter()]
         [String]
-        $Name
+        $Name,
+        [Parameter()]
+        [switch]
+        $Https
     )
 
     # Linux (cri-o)
@@ -236,6 +239,15 @@ function Set-InsecureRegistry {
 
     New-Item -Path "$(Get-SystemDriveLetter):\etc\containerd\certs.d\$folderName" -ItemType Directory -Force | Out-Null
 
+    if ($Https) {
+@"
+server = "https://$Name"
+
+[host."https://$Name"]
+  capabilities = ["pull", "resolve", "push"]
+  skip_verify = true
+"@ | Set-Content -Path "$(Get-SystemDriveLetter):\etc\containerd\certs.d\$folderName\hosts.toml"
+} else {
 @"
 server = "http://$Name"
 
@@ -244,6 +256,7 @@ server = "http://$Name"
   skip_verify = true
   plain_http = true
 "@ | Set-Content -Path "$(Get-SystemDriveLetter):\etc\containerd\certs.d\$folderName\hosts.toml"
+    }
 }
 
 function Remove-InsecureRegistry {
