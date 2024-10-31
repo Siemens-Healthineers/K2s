@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 # SPDX-License-Identifier: MIT
 
 #Requires -RunAsAdministrator
@@ -155,20 +155,46 @@ function Get-AssignedPodSubnetworkNumber {
         [string] $NodeName = $(throw 'Argument missing: NodeName')
     )
     $podCIDR = &"$kubeToolsPath\kubectl.exe" get nodes $NodeName -o jsonpath="'{.spec.podCIDR}'"
-    if ([string]::IsNullOrWhiteSpace($podCIDR)) {
-        throw "Cannot obtain container network information from node '$NodeName'"
+    $success = ($LASTEXITCODE -eq 0)
+    $subnetNumber = ''
+    
+    if ($success) {
+        $searchPattern = "^'\d{1,3}\.\d{1,3}\.(?<subnet>\d{1,3})\.\d{1,3}\/24'$"
+        $m = [regex]::Matches($podCIDR, $searchPattern)
+        if (-not $m[0]) { throw "Cannot get subnet number from '$podCIDR'." }
+        $subnetNumber = $m[0].Groups['subnet'].Value
+    }
+    return [pscustomobject]@{ Success = $success; PodSubnetworkNumber = $subnetNumber }
+}
+
+function Get-AssignedPodNetworkCIDR {
+    param (
+        [string] $NodeName = $(throw 'Argument missing: NodeName'),
+        [string] $UserName = $(throw 'Argument missing: UserName'),
+        [string] $UserPwd = '',
+        [string] $IpAddress = $(throw 'Argument missing: IpAddress')
+    )
+
+    $getPodCidrCommand = "kubectl get nodes $NodeName -o jsonpath=`"{.spec.podCIDR}`""
+    if ([string]::IsNullOrWhiteSpace($UserPwd)) {
+        $cmdExecutionResult = (Invoke-CmdOnVmViaSSHKey -CmdToExecute $getPodCidrCommand -UserName $UserName -IpAddress $IpAddress)
+    } else {
+        $remoteUser = "$UserName@$IpAddress"
+        $cmdExecutionResult = (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $getPodCidrCommand -RemoteUser "$remoteUser" -RemoteUserPwd "$UserPwd")
     }
 
-    $searchPattern = "^'\d{1,3}\.\d{1,3}\.(?<subnet>\d{1,3})\.\d{1,3}\/24'$"
-    $m = [regex]::Matches($podCIDR, $searchPattern)
-    if (-not $m[0]) { throw "Cannot get subnet number from '$podCIDR'." }
-    $subnetNumber = $m[0].Groups['subnet'].Value
+    $success = $cmdExecutionResult.Success
+    $podNetworkCIDR = $cmdExecutionResult.Output
 
-    return $subnetNumber
+    if ($success -and [string]::IsNullOrWhiteSpace($podNetworkCIDR)) {
+        throw "The retrieved pod network CIDR for the node '$NodeName' is empty, null or contain only whitespaces"
+    }
+    return [pscustomobject]@{ Success = $cmdExecutionResult.Success; PodNetworkCIDR = $cmdExecutionResult.Output }
 }
 
 Export-ModuleMember Invoke-TimeSync, 
 Wait-ForAPIServer, 
 Update-NodeLabelsAndTaints, 
 Get-Cni0IpAddressInControlPlaneUsingSshWithRetries,
-Get-AssignedPodSubnetworkNumber
+Get-AssignedPodSubnetworkNumber,
+Get-AssignedPodNetworkCIDR

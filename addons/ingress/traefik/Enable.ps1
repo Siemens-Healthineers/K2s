@@ -29,10 +29,9 @@ Param (
 $infraModule = "$PSScriptRoot/../../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $clusterModule = "$PSScriptRoot/../../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $addonsModule = "$PSScriptRoot\..\..\addons.module.psm1"
-$addonsIngressModule = "$PSScriptRoot\..\..\addons.ingress.module.psm1"
 $traefikModule = "$PSScriptRoot\traefik.module.psm1"
 
-Import-Module $infraModule, $clusterModule, $addonsModule, $addonsIngressModule, $traefikModule
+Import-Module $infraModule, $clusterModule, $addonsModule, $traefikModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -168,8 +167,8 @@ $clusterIngressConfig = "$PSScriptRoot\manifests\cluster-local-ingress.yaml"
 
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'ingress'; Implementation = 'traefik' })
 
-# adapt ingress for other addons
-Update-IngressForAddons
+# adapt other addons
+Update-Addons
 
 Write-Log 'Installation of Traefik addon finished.' -Console
 
