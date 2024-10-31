@@ -341,6 +341,11 @@ function Get-DockerfileAbsolutePathAndPreCompileFlag {
             if (! (Test-Path "$InputFolder\$Dockerfile")) { throw 'Unable to find Dockerfile' }
             $filePath = "$InputFolder\$Dockerfile"
         }
+        # If the Dockerfile ends with PreCompile, we set the PreCompile flag to true
+        if ($Dockerfile -like "*PreCompile") {
+            $PreCompile = $True
+        }
+
         # We return PreCompile flag
         return $filePath, $PreCompile
     }
