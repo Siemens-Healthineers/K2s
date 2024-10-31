@@ -32,7 +32,7 @@ var testFailed = false
 
 func TestClusterCore(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Cluster Core Acceptance Tests", Label("core", "acceptance", "internet-required", "setup-required", "system-running"))
+	RunSpecs(t, "Cluster Core Acceptance Tests", Label("core", "acceptance", "internet-required", "setup-required", "system-running", "sanity"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
