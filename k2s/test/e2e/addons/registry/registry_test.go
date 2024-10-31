@@ -5,6 +5,7 @@ package addons
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"net/http"
 	"time"
@@ -122,6 +123,7 @@ var _ = Describe("'registry' addon", Ordered, func() {
 	When("Default Ingress", func() {
 		Context("addon is enabled {nginx}", func() {
 			BeforeAll(func(ctx context.Context) {
+				suite.K2sCli().Run(ctx, "addons", "enable", "ingress", "nginx", "-o")
 				suite.K2sCli().Run(ctx, "addons", "enable", "registry", "-o")
 			})
 
@@ -282,6 +284,7 @@ func expectStatusToBePrinted(ctx context.Context) {
 func httpGet(url string, retryCount int) (*http.Response, error) {
 	var res *http.Response
 	var err error
+	http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 	for i := 0; i < retryCount; i++ {
 		GinkgoWriter.Println("retry count: ", retryCount)
 		res, err = http.Get(url)
