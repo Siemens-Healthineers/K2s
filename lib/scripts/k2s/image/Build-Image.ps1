@@ -182,9 +182,14 @@ if ( $NoCGO ) {
 $ImageNameFromDockerfile = ''
 $ccExecutableName = ''
 $GoBuild = 'build'
+# by default, we build the main module package:
+$goPackageToBuild = '.'
 Get-Content $dockerfileAbsoluteFp | ForEach-Object {
     if ($_ -match '^# *ExeName: +(\S+)') {
         $ccExecutableName = $matches[1]
+    }
+    if ($_ -match '^# *GoPackage: +(\S+)') {
+        $goPackageToBuild = $matches[1]
     }
     if ($_ -match '^# *ImageName: +(\S+)') {
         $ImageNameFromDockerfile = $matches[1]
@@ -352,15 +357,15 @@ if (!$Windows -and $PreCompile) {
     }
     else {
         Write-Log "Getting dependencies for GO: $ccExecutableName ..."
-        (Invoke-CmdOnControlPlaneViaSSHKey "cd $dirForBuild ; $setTransparentProxy $setGoEnvironment /usr/local/go-$GO_VERSION/bin/go get -v . 2>&1").Output | Write-Log
+        (Invoke-CmdOnControlPlaneViaSSHKey "cd $dirForBuild ; $setTransparentProxy $setGoEnvironment /usr/local/go-$GO_VERSION/bin/go get -v $goPackageToBuild 2>&1").Output | Write-Log
 
         if ( $Optimize ) {
             Write-Log "Pre-Compilation: Building optimized executable with GO: $ccExecutableName ..."
-            (Invoke-CmdOnControlPlaneViaSSHKey "cd $dirForBuild ; $setTransparentProxy $setGoEnvironment $CGOFlags /usr/local/go-$GO_VERSION/bin/go build -v -ldflags='-s -w' -o $ccExecutableName . 2>&1; upx $ccExecutableName ; ls -l").Output | Write-Log
+            (Invoke-CmdOnControlPlaneViaSSHKey "cd $dirForBuild ; $setTransparentProxy $setGoEnvironment $CGOFlags /usr/local/go-$GO_VERSION/bin/go build -v -ldflags='-s -w' -o $ccExecutableName $goPackageToBuild 2>&1; upx $ccExecutableName ; ls -l").Output | Write-Log
         }
         else {
             Write-Log "Pre-Compilation: Building executable with GO: $ccExecutableName ..."
-            (Invoke-CmdOnControlPlaneViaSSHKey "cd $dirForBuild ; $setTransparentProxy $setGoEnvironment $CGOFlags /usr/local/go-$GO_VERSION/bin/go build -v -o $ccExecutableName . 2>&1").Output | Write-Log
+            (Invoke-CmdOnControlPlaneViaSSHKey "cd $dirForBuild ; $setTransparentProxy $setGoEnvironment $CGOFlags /usr/local/go-$GO_VERSION/bin/go build -v -o $ccExecutableName $goPackageToBuild 2>&1").Output | Write-Log
         }
     }
     if ($LASTEXITCODE -ne 0) {
