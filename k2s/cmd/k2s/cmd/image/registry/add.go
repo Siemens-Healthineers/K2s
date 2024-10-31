@@ -23,9 +23,10 @@ import (
 )
 
 const (
-	usernameFlag = "username"
-	passwordFlag = "password"
-	insecureFlag = "insecure"
+	usernameFlag   = "username"
+	passwordFlag   = "password"
+	skipVerifyFlag = "skip-verify"
+	plainHttpFlag  = "plain-http"
 )
 
 var (
@@ -34,7 +35,7 @@ var (
 	k2s image registry add myregistry
 
 	# Add registry in K2s (enter credentials afterwards) and configure as insecure registry (skips verifying HTTPS certs, and allows falling back to plain HTTP)
-	k2s image registry add myregistry --insecure
+	k2s image registry add myregistry --skip-verify --plain-http
 
 	# Add registry with username and password in K2s 
 	k2s image registry add myregistry -u testuser -p testpassword
@@ -51,7 +52,8 @@ var (
 func init() {
 	addCmd.Flags().StringP(usernameFlag, "u", "", usernameFlag)
 	addCmd.Flags().StringP(passwordFlag, "p", "", passwordFlag)
-	addCmd.Flags().Bool(insecureFlag, false, "skips verifying HTTPS certs, and allows falling back to plain HTTP")
+	addCmd.Flags().Bool(skipVerifyFlag, false, "Skips verifying HTTPS certs")
+	addCmd.Flags().Bool(plainHttpFlag, false, "Allows falling back to plain HTTP")
 	addCmd.Flags().SortFlags = false
 	addCmd.Flags().PrintDefaults()
 }
@@ -126,13 +128,22 @@ func buildAddPsCmd(registryName string, cmd *cobra.Command) (psCmd string, param
 		return "", nil, fmt.Errorf("unable to parse flag '%s': %w", passwordFlag, err)
 	}
 
-	insecure, err := strconv.ParseBool(cmd.Flags().Lookup(insecureFlag).Value.String())
+	skipVerify, err := strconv.ParseBool(cmd.Flags().Lookup(skipVerifyFlag).Value.String())
 	if err != nil {
-		return "", nil, fmt.Errorf("unable to parse flag '%s': %w", insecureFlag, err)
+		return "", nil, fmt.Errorf("unable to parse flag '%s': %w", skipVerifyFlag, err)
 	}
 
-	if insecure {
-		params = append(params, " -Insecure")
+	plainHttp, err := strconv.ParseBool(cmd.Flags().Lookup(plainHttpFlag).Value.String())
+	if err != nil {
+		return "", nil, fmt.Errorf("unable to parse flag '%s': %w", plainHttpFlag, err)
+	}
+
+	if plainHttp {
+		params = append(params, " -PlainHttp")
+	}
+
+	if skipVerify {
+		params = append(params, " -SkipVerify")
 	}
 
 	if showOutput {

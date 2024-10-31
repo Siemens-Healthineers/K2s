@@ -45,8 +45,10 @@ Param (
     [switch] $EncodeStructuredOutput,
     [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
     [string] $MessageType,
-    [parameter(Mandatory = $false, HelpMessage = 'Insecure registry')]
-    [switch] $Insecure = $false
+    [parameter(Mandatory = $false, HelpMessage = 'Skips verifying HTTPS certs')]
+    [switch] $SkipVerify = $false,
+    [parameter(Mandatory = $false, HelpMessage = 'Plain http')]
+    [switch] $PlainHttp = $false
 )
 
 $clusterModule = "$PSScriptRoot/../../../../modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
@@ -97,8 +99,9 @@ else {
     $password = $cred.GetNetworkCredential().Password
 }
 
-if ($Insecure) {
-    Set-InsecureRegistry -Name $RegistryName
+if ($SkipVerify) {
+    $https = !$PlainHttp
+    Set-InsecureRegistry -Name $RegistryName -Https:$https
 }
 
 Write-Log 'Restarting Linux container runtime' -Console

@@ -25,14 +25,8 @@ if (Test-NginxIngressControllerAvailability) {
 
     $props = Get-AddonProperties -Addon $Addon
 
-    if (Test-KeyCloakServiceAvailability) {
-        Write-Log "  Applying secure nginx ingress manifest for $($props.Name)..." -Console
-        $kustomizationDir = Get-IngressNginxSecureConfig -Directory $props.Directory
-    }
-    else {
-        Write-Log "  Applying nginx ingress manifest for $($props.Name)..." -Console
-        $kustomizationDir = Get-IngressNginxConfig -Directory $props.Directory
-    }
+    Write-Log "  Applying nginx ingress manifest for $($props.Name)..." -Console
+    $kustomizationDir = Get-IngressNginxConfig -Directory $props.Directory
 
     Invoke-Kubectl -Params 'apply', '-k', $kustomizationDir | Out-Null
 }
