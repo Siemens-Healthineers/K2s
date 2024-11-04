@@ -415,10 +415,6 @@ function Test-ExistingExternalSwitch {
 
 }
 
-function Get-IsLinuxOsDebian {
-    return ((Get-ConfigLinuxOsType) -eq $LinuxOsTypeDebianCloud)
-}
-
 function Get-LinuxOsType($LinuxVhdxPath) {
     $linuxOsType = $LinuxOsTypeDebianCloud
     if (!([string]::IsNullOrWhiteSpace($LinuxVhdxPath))) {
