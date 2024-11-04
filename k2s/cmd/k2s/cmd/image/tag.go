@@ -48,11 +48,6 @@ func init() {
 func tagImage(cmd *cobra.Command, args []string) error {
 	pterm.Println("🤖 Tagging container image..")
 
-	err := validateTagArgs(args)
-	if err != nil {
-		return fmt.Errorf("invalid arguments provided: %w", err)
-	}
-
 	psCmd, params, err := buildTagPsCmd(cmd)
 	if err != nil {
 		return err
@@ -94,14 +89,6 @@ func tagImage(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func validateTagArgs(args []string) error {
-	if len(args) == 0 {
-		return errors.New("no image to tag")
-	}
-
-	return nil
-}
-
 func buildTagPsCmd(cmd *cobra.Command) (psCmd string, params []string, err error) {
 
 	imageId, err := cmd.Flags().GetString(imageIdFlagName)
@@ -122,6 +109,10 @@ func buildTagPsCmd(cmd *cobra.Command) (psCmd string, params []string, err error
 	showOutput, err := strconv.ParseBool(cmd.Flags().Lookup(common.OutputFlagName).Value.String())
 	if err != nil {
 		return "", nil, err
+	}
+
+	if imageId == "" && imageName == "" {
+		return "", nil, errors.New("no image id or image name provided")
 	}
 
 	psCmd = utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "image", "Tag-Image.ps1"))

@@ -46,11 +46,6 @@ func init() {
 func pushImage(cmd *cobra.Command, args []string) error {
 	pterm.Println("🤖 Pushing container image..")
 
-	err := validatePushArgs(args)
-	if err != nil {
-		return fmt.Errorf("invalid arguments provided: %w", err)
-	}
-
 	psCmd, params, err := buildPushPsCmd(cmd)
 
 	if err != nil {
@@ -93,18 +88,6 @@ func pushImage(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func validatePushArgs(args []string) error {
-	if len(args) == 0 {
-		return errors.New("no image to push")
-	}
-
-	if len(args) > 1 {
-		return errors.New("more than 1 image to push. Can only push 1 image at a time")
-	}
-
-	return nil
-}
-
 func buildPushPsCmd(cmd *cobra.Command) (psCmd string, params []string, err error) {
 
 	imageId, err := cmd.Flags().GetString(imageIdFlagName)
@@ -115,6 +98,10 @@ func buildPushPsCmd(cmd *cobra.Command) (psCmd string, params []string, err erro
 	imageName, err := cmd.Flags().GetString(imageNameFlagName)
 	if err != nil {
 		return "", nil, fmt.Errorf("unable to parse flag '%s': %w", imageNameFlagName, err)
+	}
+
+	if imageId == "" && imageName == "" {
+		return "", nil, errors.New("no image id or image name provided")
 	}
 
 	psCmd = utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "image", "Push-Image.ps1"))
