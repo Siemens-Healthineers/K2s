@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	registryName        = "k2s-registry.local"
+	registryName        = "k2s.registry.local"
 	clusterIp           = "172.19.1.100"
 	weatherLinuxSrcPath = "weather"
 	weatherWinSrcPath   = "weather-win"
@@ -68,7 +68,7 @@ var _ = Describe("build container image", Ordered, func() {
 
 			It("local container registry is configured", func(ctx context.Context) {
 				output := suite.K2sCli().Run(ctx, "image", "registry", "ls")
-				Expect(output).Should(ContainSubstring("k2s-registry.local"), "Local Registry was not enabled")
+				Expect(output).Should(ContainSubstring("k2s.registry.local"), "Local Registry was not enabled")
 			})
 
 			Context("build linux based container image", func() {

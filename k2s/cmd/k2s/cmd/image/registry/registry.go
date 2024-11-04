@@ -15,5 +15,4 @@ var Cmd = &cobra.Command{
 func init() {
 	Cmd.AddCommand(addCmd)
 	Cmd.AddCommand(listCmd)
-	Cmd.AddCommand(switchCmd)
 }
