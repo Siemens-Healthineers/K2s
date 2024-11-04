@@ -39,6 +39,8 @@ In order to push container images to the local registry during `k2s image build 
 k2s-registry.local/<imagename>:<imagetag>
 ```
 
+_Note:_ If a proxy server is configured in the Windows Proxy settings, please add the host **k2s-registry.local** as a proxy override.
+
 ### NodePort
 
 In order to push container images to the local registry during `k2s image build -p` with node port configuration tagging must look like the following:

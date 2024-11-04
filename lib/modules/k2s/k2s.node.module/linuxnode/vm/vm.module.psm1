@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 # SPDX-License-Identifier: MIT
 
 $configModule = "$PSScriptRoot\..\..\..\k2s.infra.module\config\config.module.psm1"
@@ -269,29 +269,39 @@ function Copy-FromRemoteComputerViaUserAndPwd($Source, $Target, $IpAddress,
 function Copy-ToControlPlaneViaSSHKey($Source, $Target,
     [Parameter(Mandatory = $false)]
     [switch]$IgnoreErrors = $false) {
+    
+    Copy-ToRemoteComputerViaSshKey -Source $Source -Target $Target -UserName $defaultUserName -IpAddress $ipControlPlane -IgnoreErrors:$IgnoreErrors
+}
+
+function Copy-ToRemoteComputerViaSshKey($Source, $Target, $UserName, $IpAddress,
+    [Parameter(Mandatory = $false)]
+    [switch]$IgnoreErrors = $false) {
     Write-Log "Copying '$Source' to '$Target', ignoring errors: '$IgnoreErrors'"
 
-    $leaf = Split-Path $Source -leaf
-    $targetDirectory = $Target -replace "${remoteUser}:", ''
+    $remoteComputerUser = "$UserName@$IpAddress"
 
+    $leaf = Split-Path $Source -leaf
+    $targetDirectory = $Target -replace "${remoteComputerUser}:", ''
+
+    $tempDirectory = "$env:TEMP\matchedFilesCopyToRemoteComputerViaSSHKey"
     if ($leaf.Contains("*")) {
         # copy all/specific files in directory e.g. pvc-* or *
         $filter = $leaf
 
-        New-Item -Path "$env:TEMP\matchedFilesCopyToControlPlaneViaSSHKey" -ItemType Directory -Force | Out-Null
+        New-Item -Path "$tempDirectory" -ItemType Directory -Force | Out-Null
         Get-ChildItem -Path $(Split-Path $Source -Parent) -Filter $filter -Force | ForEach-Object {
             Write-Log "  Adding '$($_.FullName)'.."
-            Copy-Item "$($_.FullName)" "$env:TEMP\matchedFilesCopyToControlPlaneViaSSHKey" -Force -Recurse
+            Copy-Item "$($_.FullName)" "$tempDirectory" -Force -Recurse
         }
 
-        $tarFolder = "$env:TEMP\matchedFilesCopyToControlPlaneViaSSHKey"
+        $tarFolder = "$tempDirectory"
     } elseif ($(Test-Path $Source) -and (Get-Item $Source) -is [System.IO.DirectoryInfo]) {
         # single folder copy
         $tarFolder = $Source
         $targetDirectory = "$targetDirectory/$leaf"
     } else {
          # single file copy
-        $output = scp.exe -o StrictHostKeyChecking=no -r -i $key "$Source" "${remoteUser}:$Target" 2>&1
+        $output = scp.exe -o StrictHostKeyChecking=no -r -i $key "$Source" "${remoteComputerUser}:$Target" 2>&1
         if ($LASTEXITCODE -ne 0 -and !$IgnoreErrors) {
             throw "Could not copy '$Source' to '$Target': $output"
         }
@@ -306,7 +316,7 @@ function Copy-ToControlPlaneViaSSHKey($Source, $Target,
         throw "Could not copy '$Source' to '$Target': $output"
     }
 
-    $output = scp.exe -o StrictHostKeyChecking=no -i $key "$env:temp\copy.tar" "${remoteUser}:/tmp" 2>&1
+    $output = scp.exe -o StrictHostKeyChecking=no -i $key "$env:temp\copy.tar" "${remoteComputerUser}:/tmp" 2>&1
     if ($LASTEXITCODE -ne 0 -and !$IgnoreErrors) {
         throw "Could not copy '$Source' to '$Target': $output"
     }
@@ -315,7 +325,7 @@ function Copy-ToControlPlaneViaSSHKey($Source, $Target,
     (Invoke-CmdOnControlPlaneViaSSHKey "tar -xf /tmp/copy.tar -C $targetDirectory").Output | Write-Log
     (Invoke-CmdOnControlPlaneViaSSHKey 'sudo rm -rf /tmp/copy.tar').Output | Write-Log
     Remove-Item -Path "$env:temp\copy.tar" -Force -ErrorAction SilentlyContinue
-    Remove-Item -Path "$env:TEMP\matchedFilesCopyToControlPlaneViaSSHKey" -Force -Recurse -ErrorAction SilentlyContinue
+    Remove-Item -Path "$tempDirectory" -Force -Recurse -ErrorAction SilentlyContinue
 }
 
 function Copy-ToControlPlaneViaUserAndPwd($Source, $Target,
@@ -333,10 +343,14 @@ function Copy-ToControlPlaneViaUserAndPwd($Source, $Target,
 
 function Copy-ToRemoteComputerViaUserAndPwd($Source, $Target, $IpAddress,
     [Parameter(Mandatory = $false)]
+    [string]$UserName = $defaultUserName,
+    [Parameter(Mandatory = $false)]
+    [string]$UserPwd = $remotePwd,
+    [Parameter(Mandatory = $false)]
     [switch]$IgnoreErrors = $false) {
     Write-Log "Copying '$Source' to '$Target', ignoring errors: '$IgnoreErrors'"
 
-    $output = Write-Output yes | &"$scpExe" -ssh -4 -q -r -pw $remotePwd "$Source" "${defaultUserName}@${IpAddress}:$Target" 2>&1
+    $output = Write-Output yes | &"$scpExe" -ssh -4 -q -r -pw $UserPwd "$Source" "${UserName}@${IpAddress}:$Target" 2>&1
 
     if ($LASTEXITCODE -ne 0 -and !$IgnoreErrors) {
         throw "Could not copy '$Source' to '$Target': $output"
@@ -634,6 +648,7 @@ Get-IsControlPlaneRunning,
 Copy-FromControlPlaneViaSSHKey,
 Copy-FromRemoteComputerViaUserAndPwd,
 Copy-ToControlPlaneViaSSHKey,
+Copy-ToRemoteComputerViaSshKey,
 Copy-ToControlPlaneViaUserAndPwd,
 Copy-ToRemoteComputerViaUserAndPwd,
 Test-ControlPlanePrerequisites,
