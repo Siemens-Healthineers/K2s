@@ -103,34 +103,6 @@ if (!$kubectlCmd.Success) {
 
 Add-HostEntries -Url 'k2s.registry.local'
 
-# Create secret for enabling all the nodes in the cluster to authenticate with private registry
-#(Invoke-Kubectl -Params 'create', 'secret', 'docker-registry', 'k2s-registry', "--docker-server=$registryName", "--docker-username=$username", "--docker-password=$password").Output | Write-Log
-
-# Start-Sleep 2
-
-# Connect-Buildah -username $username -password $password -registry $registryName
-
-# $authJson = (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo cat /root/.config/containers/auth.json').Output | Out-String
-
-# Connect-Nerdctl -username $username -password $password -registry $registryName
-
-# # set authentification for containerd
-# Set-ContainerdConfig -registryName $registryName -authJson $authJson
-
-# Restart-Services | Write-Log -Console
-
-# if (!$?) {
-#     $errMsg = 'Login to private registry not possible! Please disable addon and try to enable it again!'
-#     if ($EncodeStructuredOutput -eq $true) {
-#         $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
-#         Send-ToCli -MessageType $MessageType -Message @{Error = $err }
-#         return
-#     }
-
-#     Write-Log $errMsg -Error
-#     exit 1
-# }
-
 &"$PSScriptRoot\Update.ps1"
 
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'registry' })
