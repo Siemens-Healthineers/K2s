@@ -25,7 +25,8 @@ import (
 var (
 	pushCommandExample = `
   # Push image 'myimage:v1' into 'k2s.registry.local' registry
-  k2s image push k2s.registry.local/myimage:v1
+  k2s image push -n k2s.registry.local/myimage:v1
+  k2s image push --id 7ca25e0fabd39
 `
 	pushCmd = &cobra.Command{
 		Use:     "push",
@@ -36,6 +37,8 @@ var (
 )
 
 func init() {
+	pushCmd.Flags().String(imageIdFlagName, "", "Image ID of the container image")
+	pushCmd.Flags().StringP(imageNameFlagName, "n", "", "Name of the container image including tag")
 	pushCmd.Flags().SortFlags = false
 	pushCmd.Flags().PrintDefaults()
 }
@@ -43,19 +46,11 @@ func init() {
 func pushImage(cmd *cobra.Command, args []string) error {
 	pterm.Println("🤖 Pushing container image..")
 
-	err := validatePushArgs(args)
-	if err != nil {
-		return fmt.Errorf("invalid arguments provided: %w", err)
-	}
+	psCmd, params, err := buildPushPsCmd(cmd)
 
-	imageToPush := getImageToPush(args)
-
-	showOutput, err := strconv.ParseBool(cmd.Flags().Lookup(common.OutputFlagName).Value.String())
 	if err != nil {
 		return err
 	}
-
-	psCmd, params := buildPushPsCmd(imageToPush, showOutput)
 
 	slog.Debug("PS command created", "command", psCmd, "params", params)
 
@@ -93,26 +88,35 @@ func pushImage(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func validatePushArgs(args []string) error {
-	if len(args) == 0 {
-		return errors.New("no image to push")
+func buildPushPsCmd(cmd *cobra.Command) (psCmd string, params []string, err error) {
+
+	imageId, err := cmd.Flags().GetString(imageIdFlagName)
+	if err != nil {
+		return "", nil, fmt.Errorf("unable to parse flag '%s': %w", imageIdFlagName, err)
 	}
 
-	if len(args) > 1 {
-		return errors.New("more than 1 image to push. Can only push 1 image at a time")
+	imageName, err := cmd.Flags().GetString(imageNameFlagName)
+	if err != nil {
+		return "", nil, fmt.Errorf("unable to parse flag '%s': %w", imageNameFlagName, err)
 	}
 
-	return nil
-}
+	if imageId == "" && imageName == "" {
+		return "", nil, errors.New("no image id or image name provided")
+	}
 
-func getImageToPush(args []string) string {
-	return args[0]
-}
-
-func buildPushPsCmd(imageToPush string, showOutput bool) (psCmd string, params []string) {
 	psCmd = utils.FormatScriptFilePath(filepath.Join(utils.InstallDir(), "lib", "scripts", "k2s", "image", "Push-Image.ps1"))
 
-	params = append(params, " -ImageName "+imageToPush)
+	if imageId != "" {
+		params = append(params, " -Id "+imageId)
+	}
+	if imageName != "" {
+		params = append(params, " -ImageName "+imageName)
+	}
+
+	showOutput, err := strconv.ParseBool(cmd.Flags().Lookup(common.OutputFlagName).Value.String())
+	if err != nil {
+		return "", nil, err
+	}
 
 	if showOutput {
 		params = append(params, " -ShowLogs")

@@ -20,7 +20,9 @@ PS> .\Push-Image.ps1 -ImageName "image:v1"
 #>
 
 Param (
-    [parameter(Mandatory = $true, HelpMessage = 'Name of the image to be pushed.')]
+    [parameter(Mandatory = $false, HelpMessage = 'Id of the image to be pushed.')]
+    [string] $Id,
+    [parameter(Mandatory = $false, HelpMessage = 'Name of the image to be pushed.')]
     [string] $ImageName,
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
     [switch] $ShowLogs = $false,
@@ -52,31 +54,74 @@ $WorkerVM = Get-IsWorkerVM
 $linuxContainerImages = Get-ContainerImagesOnLinuxNode -IncludeK8sImages $true
 $windowsContainerImages = Get-ContainerImagesOnWindowsNode -IncludeK8sImages $true -WorkerVM $WorkerVM
 
-$foundLinuxImages = @($linuxContainerImages | Where-Object {
-    $calculatedName = $_.Repository + ':' + $_.Tag
-    return ($calculatedName -eq $ImageName)
-})
+$foundLinuxImages = @()
+if ($Id -ne '') {
+    $foundLinuxImages = @($linuxContainerImages | Where-Object { $_.ImageId -eq $Id })
+}
+else {
+    if ($ImageName -eq '') {
+        Write-Error 'Image Name or ImageId is not provided. Cannot push the image.'
+    }
+    else {
+        $foundLinuxImages = @($linuxContainerImages | Where-Object {
+                $retrievedName = $_.Repository + ':' + $_.Tag
+                return ($retrievedName -eq $ImageName)
+            })
+    }
+}
 
-$foundWindowsImages = @($windowsContainerImages | Where-Object {
-    $calculatedName = $_.Repository + ':' + $_.Tag
-    return ($calculatedName -eq $ImageName)
-})
+$foundWindowsImages = @()
+if ($Id -ne '') {
+    $foundWindowsImages = @($windowsContainerImages | Where-Object { $_.ImageId -eq $Id })
+}
+else {
+    if ($ImageName -eq '') {
+        Write-Error 'Image Name or ImageId is not provided. Cannot push the image.'
+    }
+    else {
+        $foundWindowsImages = @($windowsContainerImages | Where-Object {
+                $retrievedName = $_.Repository + ':' + $_.Tag
+                return ($retrievedName -eq $ImageName)
+            })
+    }
+}
 
 if ($foundLinuxImages.Count -eq 0 -and $foundWindowsImages.Count -eq 0) {
-    $errMsg = "Image '$ImageName' not found"
-    if ($EncodeStructuredOutput -eq $true) {
-        $err = New-Error -Code 'image-push-failed' -Message $errMsg
-        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
-        return
+    If ($Id -ne ''){
+        $errMsg = "Image with Id ${Id} not found!"
+        if ($EncodeStructuredOutput -eq $true) {
+            $err = New-Error -Severity Warning -Code 'image-not-found' -Message $errMsg
+            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+            return
+        }
+        Write-Log $errMsg -Error
+        exit 1
     }
 
-    Write-Log $errMsg -Error
-    exit 1
+    If ($ImageName -ne '') {
+        $errMsg = "Image '$ImageName' not found"
+        if ($EncodeStructuredOutput -eq $true) {
+            $err = New-Error -Code 'image-tag-failed' -Message $errMsg
+            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+            return
+        }
+        Write-Log $errMsg -Error
+        exit 1
+    }
 }
 
 $pushLinuxImage = $false
 $pushWindowsImage = $false
 $linuxAndWindowsImageFound = $false
+
+if($foundLinuxImages.Count -gt 1 -or $foundWindowsImages.Count -gt 1) {
+        $errMsg = "More than one image has the id: $Id. Please use --name to identify the image instead or delete the other image/s"
+        if ($EncodeStructuredOutput -eq $true) {
+            $err = New-Error -Severity Warning -Code 'two-images-found' -Message $errMsg
+            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+            return
+        }
+}
 
 if ($foundLinuxImages.Count -eq 1 -and $foundWindowsImages.Count -eq 1) {
     Write-Log "Linux and Windows image found"
@@ -103,6 +148,10 @@ if ($foundLinuxImages.Count -eq 1 -and $foundWindowsImages.Count -eq 1) {
 }
 
 if ((($foundLinuxImages.Count -eq 1) -and !$linuxAndWindowsImageFound) -or $pushLinuxImage) {
+    $image = $foundLinuxImages[0]
+    $imageTag = $image.Tag
+    $imageName = $image.Repository
+    $ImageName = "${imageName}:${imageTag}"
     Write-Log "Pushing Linux image $ImageName" -Console
     $success = (Invoke-CmdOnControlPlaneViaSSHKey "sudo buildah push $ImageName 2>&1" -Retries 5).Success
     if (!$success) {
@@ -125,6 +174,10 @@ if ((($foundLinuxImages.Count -eq 1) -and !$linuxAndWindowsImageFound) -or $push
 }
 
 if ((($foundWindowsImages.Count -eq 1) -and !$linuxAndWindowsImageFound) -or $pushWindowsImage) {
+    $image = $foundWindowsImages[0]
+    $imageTag = $image.Tag
+    $imageName = $image.Repository
+    $ImageName = "${imageName}:${imageTag}"
     Write-Log "Pushing Windows image $ImageName" -Console
     $kubeBinPath = Get-KubeBinPath
     $nerdctlExe = "$kubeBinPath\nerdctl.exe"
