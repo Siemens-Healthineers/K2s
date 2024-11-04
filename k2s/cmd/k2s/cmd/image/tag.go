@@ -25,9 +25,9 @@ import (
 var (
 	targetImageNameFlagName = "target-name"
 	tagCommandExample       = `
-  # Tag image 'k2s-registry.local/myimage:v1' as 'k2s-registry.local/myimage:release'
-  k2s image tag -n k2s-registry.local/myimage:v1 -t k2s-registry.local/myimage:release
-  k2s image tag --id 7ca25e0fabd39 -t k2s-registry.local/myimage:release
+  # Tag image 'k2s.registry.local/myimage:v1' as 'k2s.registry.local/myimage:release'
+  k2s image tag -n k2s.registry.local/myimage:v1 -t k2s.registry.local/myimage:release
+  k2s image tag --id 7ca25e0fabd39 -t k2s.registry.local/myimage:release
 `
 	tagCmd = &cobra.Command{
 		Use:     "tag",
