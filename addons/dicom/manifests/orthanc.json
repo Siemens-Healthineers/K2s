@@ -999,8 +999,33 @@
       // Display a warning message when Orthanc and its plugins are unable
       // to decode a frame (new in Orthanc 1.12.5).
       "W003_DecoderFailure": true
-    }
+    },
   
-    , "OrthancExplorer2" : { "IsDefaultOrthancUI": false }
+    "OrthancExplorer2": {
+      "IsDefaultOrthancUI": false
+    },
+    "DicomWeb": {
+      "Enable": true, // Whether DICOMweb support is enabled
+      "Root": "/dicom-web/", // Root URI of the DICOMweb API (for QIDO-RS, STOW-RS and WADO-RS)
+      "EnableWado": true, // Whether WADO-URI (previously known as WADO) support is enabled
+      "WadoRoot": "/wado", // Root URI of the WADO-URI (aka. WADO) API
+      "Ssl": false, // Whether HTTPS should be used for subsequent WADO-RS requests.
+      // If Orthanc is behind a reverse-proxy, the 'forwarded' headers will be used instead of the config.
+      "QidoCaseSensitive": true, // For QIDO-RS server, whether search is case sensitive (since release 0.5)
+      "Host": "", // Hard-codes the name of the host for subsequent WADO-RS requests.
+      // e.g: "localhost:8042", "dicomweb.mydomain.org"
+      // If empty (default), the plugin will guess it from other configurations or
+      // from the reverse-proxy 'forwarded' headers.
+      "StudiesMetadata": "Full", // How study-level metadata is retrieved (since release 1.1, cf. section below)
+      "SeriesMetadata": "Full", // How series-level metadata is retrieved (since release 1.1, cf. section below)
+      "EnableMetadataCache": true, // Wheter the plugin caches metadata as a gzipped attachment (since release 1.15)
+      "MetadataWorkerThreadsCount": 4, // The number of concurrent threads that are used to extract the metadata in Full mode
+      // (since release 1.14)
+      "PublicRoot": "/dicom-web/" // The public Root URI of the DICOMweb API in case it is different from "Root".
+      // This is useful if, e.g, your Orthanc is behind a reverse-proxy and has another
+      // base endpoint than the "Root" one.  Note that, if using a reverse-proxy, make sure to set the "host"
+      // and "proto" correctly in the "Forwarded" HTTP headers.
+      // (since release 1.8)
+    }
   }
   
