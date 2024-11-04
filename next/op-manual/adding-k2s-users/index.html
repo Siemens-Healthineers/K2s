@@ -23,7 +23,7 @@ SPDX-License-Identifier: MIT
       
       
       <link rel="icon" href="../../assets/logo.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.5.34">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.5.43">
     
     
       
@@ -31,7 +31,7 @@ SPDX-License-Identifier: MIT
       
     
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.35f28582.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.0253249f.min.css">
       
         
         <link rel="stylesheet" href="../../assets/stylesheets/palette.06af60db.min.css">
@@ -1905,16 +1905,16 @@ SPDX-License-Identifier: MIT
 <p>To create a role for displaying Pod status, run:</p>
 <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="go">kubectl create clusterrole ViewPodsRole --verb=&quot;get,list,watch&quot; --resource=&quot;pods&quot;</span>
 </code></pre></div>
-<p><img alt="ℹ" class="twemoji" src="../../assets/external/cdn.jsdelivr.net/gh/jdecked/twemoji@15.0.3/assets/svg/2139.svg" title=":information:"> It is common practice to define roles cluster-wide (i.e. <code>clusterrole</code>) and to use them in a narrower scope/context (i.e. <code>rolebinding</code>). They can be seen as globally available templates with local instances.</p>
+<p><img alt="ℹ" class="twemoji" src="../../assets/external/cdn.jsdelivr.net/gh/jdecked/twemoji@15.1.0/assets/svg/2139.svg" title=":information:"> It is common practice to define roles cluster-wide (i.e. <code>clusterrole</code>) and to use them in a narrower scope/context (i.e. <code>rolebinding</code>). They can be seen as globally available templates with local instances.</p>
 <p>To assign <em>John</em> the <code>EditNodesRole</code> role, run:</p>
 <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="go">kubectl create clusterrolebinding EditNodesBinding --clusterrole=EditNodesRole --user=k2s-desktop1234-john</span>
 </code></pre></div>
-<p><img alt="ℹ" class="twemoji" src="../../assets/external/cdn.jsdelivr.net/gh/jdecked/twemoji@15.0.3/assets/svg/2139.svg" title=":information:"> Instead of assigning a role to specific users, roles can also be assigned to groups, e.g. the <code>k2s-users</code> group. The downside would be, that roles cannot be removed from specific users if e.g. an admin wants to revoke access to <em>K2s</em>.</p>
+<p><img alt="ℹ" class="twemoji" src="../../assets/external/cdn.jsdelivr.net/gh/jdecked/twemoji@15.1.0/assets/svg/2139.svg" title=":information:"> Instead of assigning a role to specific users, roles can also be assigned to groups, e.g. the <code>k2s-users</code> group. The downside would be, that roles cannot be removed from specific users if e.g. an admin wants to revoke access to <em>K2s</em>.</p>
 <p>To assign <em>John</em> the <code>ViewPodsRole</code> role in <code>kube-system</code> and <code>kube-flannel</code> namespaces, run:</p>
 <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="go">kubectl create rolebinding ViewPodsBinding --clusterrole=ViewPodsRole --user=k2s-desktop1234-john -n &quot;kube-system&quot;</span>
 <a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="go">kubectl create rolebinding ViewPodsBinding --clusterrole=ViewPodsRole --user=k2s-desktop1234-john -n &quot;kube-flannel&quot;</span>
 </code></pre></div>
-<p><img alt="ℹ" class="twemoji" src="../../assets/external/cdn.jsdelivr.net/gh/jdecked/twemoji@15.0.3/assets/svg/2139.svg" title=":information:"> In contrast to the role <code>EditNodesRole</code> which applies to the whole cluster, the role <code>ViewPodsRole</code> is only applied in <code>kube-system</code> and <code>kube-flannel</code> namespaces, therefore scoped to a narrow context.</p>
+<p><img alt="ℹ" class="twemoji" src="../../assets/external/cdn.jsdelivr.net/gh/jdecked/twemoji@15.1.0/assets/svg/2139.svg" title=":information:"> In contrast to the role <code>EditNodesRole</code> which applies to the whole cluster, the role <code>ViewPodsRole</code> is only applied in <code>kube-system</code> and <code>kube-flannel</code> namespaces, therefore scoped to a narrow context.</p>
 </div>
 <h2 id="revoking-access">Revoking Access</h2>
 <p>There is no automated or bullet-proof way to revoke access to <em>K2s</em> (or removing a <em>K2s</em> user respectively). The manual best-effort steps will be described in the following.</p>
@@ -2043,10 +2043,10 @@ SPDX-License-Identifier: MIT
       <div class="md-progress" data-md-component="progress" role="progressbar"></div>
     
     
-    <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.top", "navigation.tabs", "navigation.tabs.sticky", "navigation.instant", "navigation.instant.progress", "navigation.tracking", "navigation.footer", "navigation.indexes", "search.suggest", "search.highlight", "search.share", "announce.dismiss", "content.action.edit", "content.code.copy", "content.code.annotate"], "search": "../../assets/javascripts/workers/search.07f07601.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"alias": true, "default": "latest", "provider": "mike"}}</script>
+    <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.top", "navigation.tabs", "navigation.tabs.sticky", "navigation.instant", "navigation.instant.progress", "navigation.tracking", "navigation.footer", "navigation.indexes", "search.suggest", "search.highlight", "search.share", "announce.dismiss", "content.action.edit", "content.code.copy", "content.code.annotate"], "search": "../../assets/javascripts/workers/search.6ce7567c.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"alias": true, "default": "latest", "provider": "mike"}}</script>
     
     
-      <script src="../../assets/javascripts/bundle.56dfad97.min.js"></script>
+      <script src="../../assets/javascripts/bundle.83f73b43.min.js"></script>
       
     
   </body>

@@ -23,7 +23,7 @@ SPDX-License-Identifier: MIT
       
       
       <link rel="icon" href="../../assets/logo.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.5.34">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.5.43">
     
     
       
@@ -31,7 +31,7 @@ SPDX-License-Identifier: MIT
       
     
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.35f28582.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.0253249f.min.css">
       
         
         <link rel="stylesheet" href="../../assets/stylesheets/palette.06af60db.min.css">
@@ -704,15 +704,6 @@ You're not viewing the latest release version.
   <a href="#listing-configured-registries" class="md-nav__link">
     <span class="md-ellipsis">
       Listing Configured Registries
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#switching-between-configured-registries" class="md-nav__link">
-    <span class="md-ellipsis">
-      Switching Between Configured Registries
     </span>
   </a>
   
@@ -1611,15 +1602,6 @@ You're not viewing the latest release version.
   
 </li>
       
-        <li class="md-nav__item">
-  <a href="#switching-between-configured-registries" class="md-nav__link">
-    <span class="md-ellipsis">
-      Switching Between Configured Registries
-    </span>
-  </a>
-  
-</li>
-      
     </ul>
   
 </nav>
@@ -1662,11 +1644,6 @@ SPDX-License-Identifier: MIT
 <h2 id="listing-configured-registries">Listing Configured Registries</h2>
 <p>The following command shows how to display all configured registries:</p>
 <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="go">k2s image registry ls</span>
-</code></pre></div>
-<h2 id="switching-between-configured-registries">Switching Between Configured Registries</h2>
-<p>Once you have added a registry to <em>K2s</em>, the container runtimes are always configured to pull images when deploying a pod with an image from a configured registry in the <em>K2s</em> cluster. </p>
-<p>In order to push images you have to be logged in into the registry you want to push to. Since it is only possible to be logged in into one registry at the same time you have to switch the login to the configured registry you want to push to:</p>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="go">k2s image registry switch k2s-registry.local</span>
 </code></pre></div>
 <!--
 SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
@@ -1770,10 +1747,10 @@ SPDX-License-Identifier: MIT
       <div class="md-progress" data-md-component="progress" role="progressbar"></div>
     
     
-    <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.top", "navigation.tabs", "navigation.tabs.sticky", "navigation.instant", "navigation.instant.progress", "navigation.tracking", "navigation.footer", "navigation.indexes", "search.suggest", "search.highlight", "search.share", "announce.dismiss", "content.action.edit", "content.code.copy", "content.code.annotate"], "search": "../../assets/javascripts/workers/search.07f07601.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"alias": true, "default": "latest", "provider": "mike"}}</script>
+    <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.top", "navigation.tabs", "navigation.tabs.sticky", "navigation.instant", "navigation.instant.progress", "navigation.tracking", "navigation.footer", "navigation.indexes", "search.suggest", "search.highlight", "search.share", "announce.dismiss", "content.action.edit", "content.code.copy", "content.code.annotate"], "search": "../../assets/javascripts/workers/search.6ce7567c.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"alias": true, "default": "latest", "provider": "mike"}}</script>
     
     
-      <script src="../../assets/javascripts/bundle.56dfad97.min.js"></script>
+      <script src="../../assets/javascripts/bundle.83f73b43.min.js"></script>
       
     
   </body>
