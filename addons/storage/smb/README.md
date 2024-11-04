@@ -37,4 +37,4 @@ C:\k8s-smb-share
 ```
   
 ## Examples
-- [Example Workloads](../../k2s/test/e2e/addons/storage/workloads/)
+- [Example Workloads](../../../k2s/test/e2e/addons/storage/workloads/)

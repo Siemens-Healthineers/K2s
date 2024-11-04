@@ -20,7 +20,7 @@ spec:
         - name: regcred
       containers:
         - name: weather-win
-          image: k2s-registry.local/weather-win:99
+          image: k2s.registry.local/weather-win:99
           ports:
             - containerPort: 80
           env:

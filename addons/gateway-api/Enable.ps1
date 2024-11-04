@@ -131,7 +131,6 @@ if (!$kubectlCmd.Success) {
 
 Write-Log 'gateway-api addon installed successfully' -Console
 if ($SharedGateway) {
-  Add-HostEntries -Url 'k2s-gateway.local'
   (Invoke-Kubectl -Params 'apply', '-f', "$manifestsPath\shared-gateway.yaml").Output | Write-Log
 
   @'

@@ -44,7 +44,11 @@ Param (
     [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
     [switch] $EncodeStructuredOutput,
     [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
-    [string] $MessageType
+    [string] $MessageType,
+    [parameter(Mandatory = $false, HelpMessage = 'Skips verifying HTTPS certs')]
+    [switch] $SkipVerify = $false,
+    [parameter(Mandatory = $false, HelpMessage = 'Plain http')]
+    [switch] $PlainHttp = $false
 )
 
 $clusterModule = "$PSScriptRoot/../../../../modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
@@ -95,8 +99,12 @@ else {
     $password = $cred.GetNetworkCredential().Password
 }
 
-(Invoke-CmdOnControlPlaneViaSSHKey "grep location=\\\""$RegistryName\\\"" /etc/containers/registries.conf || echo -e `'\n[[registry]]\nlocation=\""$RegistryName\""\ninsecure=true`' | sudo tee -a /etc/containers/registries.conf").Output | Write-Log
+if ($SkipVerify) {
+    $https = !$PlainHttp
+    Set-InsecureRegistry -Name $RegistryName -Https:$https
+}
 
+Write-Log 'Restarting Linux container runtime' -Console
 (Invoke-CmdOnControlPlaneViaSSHKey 'sudo systemctl daemon-reload').Output | Write-Log
 (Invoke-CmdOnControlPlaneViaSSHKey 'sudo systemctl restart crio').Output | Write-Log
 
@@ -105,7 +113,7 @@ Start-Sleep 2
 Connect-Buildah -username $username -password $password -registry $RegistryName
 
 if (!$?) {
-    (Invoke-CmdOnControlPlaneViaSSHKey "grep location=\\\""$RegistryName\\\"" /etc/containers/registries.conf | sudo sed -i -z 's/\[\[registry]]\nlocation=\\\""$RegistryName\\\""\ninsecure=true//g' /etc/containers/registries.conf").Output | Write-Log
+    Remove-InsecureRegistry -Name $RegistryName
     $errMsg = 'Login to private registry not possible, please check credentials.'
     if ($EncodeStructuredOutput -eq $true) {
         $err = New-Error -Code 'registry-login-impossible' -Message $errMsg
@@ -123,14 +131,13 @@ Connect-Nerdctl -username $username -password $password -registry $RegistryName
 # set authentification for containerd
 Add-RegistryToContainerdConf -RegistryName $RegistryName -authJson $authJson
 
-Write-Log 'Restarting kubernetes services' -Console
+Write-Log 'Restarting Windows container runtime' -Console
 Stop-NssmService('kubeproxy')
 Stop-NssmService('kubelet')
 Restart-NssmService('containerd')
 Start-NssmService('kubelet')
 Start-NssmService('kubeproxy')
 
-Set-ConfigLoggedInRegistry -Value $RegistryName
 Add-RegistryToSetupJson -Name $RegistryName
 Write-Log "Registry '$RegistryName' added successfully.'" -Console
 

@@ -38,8 +38,8 @@ var (
   # Delete image by id
   k2s image rm --id 042a816809aa
 
-  # Delete pushed image from registry
-  k2s image rm --name k2s-registry.local/alpine:v1 --from-registry
+  # Delete pushed image from local registry
+  k2s image rm --name k2s.registry.local/alpine:v1 --from-registry
 `
 
 	removeCmd = &cobra.Command{
@@ -57,7 +57,7 @@ func init() {
 func addInitFlagsForRemoveCommand(cmd *cobra.Command) {
 	cmd.Flags().String(imageIdFlagName, "", "Image ID of the container image")
 	cmd.Flags().String(removeImgNameFlagName, "", "Name of the container image")
-	cmd.Flags().Bool(fromRegistryFlagName, false, "Remove image from registry")
+	cmd.Flags().Bool(fromRegistryFlagName, false, "Remove image from local registry (when registry addon is enabled)")
 	cmd.Flags().SortFlags = false
 	cmd.Flags().PrintDefaults()
 }

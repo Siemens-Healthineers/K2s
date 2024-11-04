@@ -122,11 +122,3 @@ At the end of `k2s stop` we reset the DNS Configuration of these adapters.
   extends ExternalDNS and saves all hosts in SkyDNS format to etcd.  
   [Configuration Env. Variables](https://github.com/kubernetes-sigs/external-dns/blob/master/provider/coredns/coredns.go#L212):
   this will help us setting up the connection to a secured etcd.
-
-## TODO
-
-These hosts are not yet migrated to cluster.local, so they are not known by DNS Query.
-They are added to the windows `hosts` file, so they are addressable by name:
-
-- k2s-registry.local
-- k2s-gateway.local
