@@ -26,7 +26,8 @@ var (
 	targetImageNameFlagName = "target-name"
 	tagCommandExample       = `
   # Tag image 'k2s-registry.local/myimage:v1' as 'k2s-registry.local/myimage:release'
-  k2s image tag k2s-registry.local/myimage:v1 k2s-registry.local/myimage:release
+  k2s image tag -n k2s-registry.local/myimage:v1 -t k2s-registry.local/myimage:release
+  k2s image tag --id 7ca25e0fabd39 -t k2s-registry.local/myimage:release
 `
 	tagCmd = &cobra.Command{
 		Use:     "tag",
@@ -46,6 +47,11 @@ func init() {
 
 func tagImage(cmd *cobra.Command, args []string) error {
 	pterm.Println("🤖 Tagging container image..")
+
+	err := validateTagArgs(args)
+	if err != nil {
+		return fmt.Errorf("invalid arguments provided: %w", err)
+	}
 
 	psCmd, params, err := buildTagPsCmd(cmd)
 	if err != nil {
@@ -84,6 +90,14 @@ func tagImage(cmd *cobra.Command, args []string) error {
 	duration := time.Since(start)
 
 	common.PrintCompletedMessage(duration, "image tag")
+
+	return nil
+}
+
+func validateTagArgs(args []string) error {
+	if len(args) == 0 {
+		return errors.New("no image to tag")
+	}
 
 	return nil
 }

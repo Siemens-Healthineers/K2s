@@ -26,6 +26,7 @@ var (
 	pushCommandExample = `
   # Push image 'myimage:v1' into 'k2s-registry.local' registry
   k2s image push -n k2s-registry.local/myimage:v1
+  k2s image push --id 7ca25e0fabd39
 `
 	pushCmd = &cobra.Command{
 		Use:     "push",
@@ -44,6 +45,11 @@ func init() {
 
 func pushImage(cmd *cobra.Command, args []string) error {
 	pterm.Println("🤖 Pushing container image..")
+
+	err := validatePushArgs(args)
+	if err != nil {
+		return fmt.Errorf("invalid arguments provided: %w", err)
+	}
 
 	psCmd, params, err := buildPushPsCmd(cmd)
 
@@ -83,6 +89,18 @@ func pushImage(cmd *cobra.Command, args []string) error {
 	duration := time.Since(start)
 
 	common.PrintCompletedMessage(duration, "image push")
+
+	return nil
+}
+
+func validatePushArgs(args []string) error {
+	if len(args) == 0 {
+		return errors.New("no image to push")
+	}
+
+	if len(args) > 1 {
+		return errors.New("more than 1 image to push. Can only push 1 image at a time")
+	}
 
 	return nil
 }
