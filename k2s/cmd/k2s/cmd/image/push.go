@@ -24,8 +24,8 @@ import (
 
 var (
 	pushCommandExample = `
-  # Push image 'myimage:v1' into 'k2s-registry.local' registry
-  k2s image push k2s-registry.local/myimage:v1
+  # Push image 'myimage:v1' into 'k2s.registry.local' registry
+  k2s image push k2s.registry.local/myimage:v1
 `
 	pushCmd = &cobra.Command{
 		Use:     "push",
