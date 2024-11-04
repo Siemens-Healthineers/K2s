@@ -1,0 +1,21 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+  name: orthanc
+spec:
+  rules:
+    - http:
+        paths:
+        - path: /dicomweb(/|$)(.*)
+          pathType: ImplementationSpecific
+          backend:
+            service:
+              name: orthanc
+              port:
+                number: 8042
+  ingressClassName: nginx

@@ -1,0 +1,45 @@
+# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+#
+# SPDX-License-Identifier: MIT
+
+apiVersion: v1
+kind: AddonManifest
+metadata:
+  name: dicom
+  description: DICOM server for medical imaging data running in Kubernetes
+  annotations:
+    k2s.cluster.local/update-ingress-configuration: "true"
+spec:
+  implementations:
+    - name: dicom
+      description: DICOM server for medical imaging data running in Kubernetes
+      commands:
+        enable:
+          cli:
+            flags:
+              - name: ingress
+                default: none
+                description: Ingress controller to use for exposing dicom server user interface
+                constraints:
+                  kind: validation-set
+                  validationSet:
+                    - none
+                    - ingress-nginx
+                    - traefik
+            examples:
+              - cmd: smallk8s addons enable dicom
+                comment: Enable dicom in smallk8s
+              - cmd: smallk8s addons enable dicom --ingress traefik
+                comment: Enable dicom in smallk8s with traefik ingres
+          script:
+            subPath: Enable.ps1
+            parameterMappings:
+              - cliFlagName: ingress
+                scriptParameterName: Ingress
+        disable:
+          cli:
+            examples:
+              - cmd: smallk8s addons disable dicom
+                comment: Disable addon dicom in smallk8s
+          script:
+            subPath: Disable.ps1
