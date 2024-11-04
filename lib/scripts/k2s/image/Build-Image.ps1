@@ -61,12 +61,12 @@ Build Arguments for building container image
 Show all logs in terminal
 
 .EXAMPLE
-# Build a linux image 'k2s-registry.local/testserver:v1' and push to registry 'k2s-registry.local'
-PS> .\Build-Image.ps1 -ImageName k2s-registry.local/testserver -ImageTag v1 -Push
+# Build a linux image 'k2s.registry.local/testserver:v1' and push to registry 'k2s.registry.local'
+PS> .\Build-Image.ps1 -ImageName k2s.registry.local/testserver -ImageTag v1 -Push
 
 .EXAMPLE
-# Build a linux image 'k2s-registry.local/testserver:v1' with several options e.g. pre-compile outside of container and optimize size
-PS> .\Build-Image.ps1 -ImageName k2s-registry.local/testserver -Tag v1 -PreCompile -Optimize -Distroless -NoCGO
+# Build a linux image 'k2s.registry.local/testserver:v1' with several options e.g. pre-compile outside of container and optimize size
+PS> .\Build-Image.ps1 -ImageName k2s.registry.local/testserver -Tag v1 -PreCompile -Optimize -Distroless -NoCGO
 #>
 
 Param(
@@ -182,9 +182,14 @@ if ( $NoCGO ) {
 $ImageNameFromDockerfile = ''
 $ccExecutableName = ''
 $GoBuild = 'build'
+# by default, we build the main module package:
+$goPackageToBuild = '.'
 Get-Content $dockerfileAbsoluteFp | ForEach-Object {
     if ($_ -match '^# *ExeName: +(\S+)') {
         $ccExecutableName = $matches[1]
+    }
+    if ($_ -match '^# *GoPackage: +(\S+)') {
+        $goPackageToBuild = $matches[1]
     }
     if ($_ -match '^# *ImageName: +(\S+)') {
         $ImageNameFromDockerfile = $matches[1]
@@ -352,15 +357,15 @@ if (!$Windows -and $PreCompile) {
     }
     else {
         Write-Log "Getting dependencies for GO: $ccExecutableName ..."
-        (Invoke-CmdOnControlPlaneViaSSHKey "cd $dirForBuild ; $setTransparentProxy $setGoEnvironment /usr/local/go-$GO_VERSION/bin/go get -v . 2>&1").Output | Write-Log
+        (Invoke-CmdOnControlPlaneViaSSHKey "cd $dirForBuild ; $setTransparentProxy $setGoEnvironment /usr/local/go-$GO_VERSION/bin/go get -v $goPackageToBuild 2>&1").Output | Write-Log
 
         if ( $Optimize ) {
             Write-Log "Pre-Compilation: Building optimized executable with GO: $ccExecutableName ..."
-            (Invoke-CmdOnControlPlaneViaSSHKey "cd $dirForBuild ; $setTransparentProxy $setGoEnvironment $CGOFlags /usr/local/go-$GO_VERSION/bin/go build -v -ldflags='-s -w' -o $ccExecutableName . 2>&1; upx $ccExecutableName ; ls -l").Output | Write-Log
+            (Invoke-CmdOnControlPlaneViaSSHKey "cd $dirForBuild ; $setTransparentProxy $setGoEnvironment $CGOFlags /usr/local/go-$GO_VERSION/bin/go build -v -ldflags='-s -w' -o $ccExecutableName $goPackageToBuild 2>&1; upx $ccExecutableName ; ls -l").Output | Write-Log
         }
         else {
             Write-Log "Pre-Compilation: Building executable with GO: $ccExecutableName ..."
-            (Invoke-CmdOnControlPlaneViaSSHKey "cd $dirForBuild ; $setTransparentProxy $setGoEnvironment $CGOFlags /usr/local/go-$GO_VERSION/bin/go build -v -o $ccExecutableName . 2>&1").Output | Write-Log
+            (Invoke-CmdOnControlPlaneViaSSHKey "cd $dirForBuild ; $setTransparentProxy $setGoEnvironment $CGOFlags /usr/local/go-$GO_VERSION/bin/go build -v -o $ccExecutableName $goPackageToBuild 2>&1").Output | Write-Log
         }
     }
     if ($LASTEXITCODE -ne 0) {

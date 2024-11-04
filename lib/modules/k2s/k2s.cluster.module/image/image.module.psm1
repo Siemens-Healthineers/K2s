@@ -157,20 +157,29 @@ function Get-PushedContainerImages() {
         return
     }
 
-    $registryName = $(Get-RegistriesFromSetupJson) | Where-Object { $_ -match 'k2s-registry.*' }
-    $auth = Get-RegistryAuthToken $registryName
-    if (!$auth) {
-        Write-Error "Can't find authentification token for $registryName."
-        return
+    $registryName = $(Get-RegistriesFromSetupJson) | Where-Object { $_ -match 'k2s.registry.local' }
+    # $auth = Get-RegistryAuthToken $registryName
+    # if (!$auth) {
+    #     Write-Error "Can't find authentification token for $registryName."
+    #     return
+    # }
+
+    $isNodePort = $registryName -match ':'
+
+    if (!$isNodePort) {
+        $catalog = $(curl.exe --noproxy $registryName --retry 3 --retry-all-errors -k -X GET https://$registryName/v2/_catalog) 2> $null | Out-String | ConvertFrom-Json
+    } else {
+        $catalog = $(curl.exe --noproxy $registryName --retry 3 --retry-all-errors -X GET http://$registryName/v2/_catalog) 2> $null | Out-String | ConvertFrom-Json
     }
-
-    $catalog = $(curl.exe --noproxy $registryName --retry 3 --retry-all-errors -X GET http://$registryName/v2/_catalog -H "Authorization: Basic $auth") 2> $null | Out-String | ConvertFrom-Json
-
     $images = $catalog.psobject.properties['repositories'].value
 
     $pushedContainerImages = @()
     foreach ($image in $images) {
-        $imageWithTags = curl.exe --noproxy $registryName --retry 3 --retry-all-errors -X GET http://$registryName/v2/$image/tags/list -H "Authorization: Basic $auth" 2> $null | Out-String | ConvertFrom-Json
+        if (!$isNodePort) {
+            $imageWithTags = curl.exe --noproxy $registryName --retry 3 --retry-all-errors -k -X GET https://$registryName/v2/$image/tags/list 2> $null | Out-String | ConvertFrom-Json
+        } else {
+            $imageWithTags = curl.exe --noproxy $registryName --retry 3 --retry-all-errors -X GET http://$registryName/v2/$image/tags/list 2> $null | Out-String | ConvertFrom-Json
+        }
         $tags = $imageWithTags.psobject.properties['tags'].value
 
         foreach ($tag in $tags) {
@@ -201,12 +210,12 @@ function Remove-Image([ContainerImage]$ContainerImage) {
 }
 
 function Remove-PushedImage($name, $tag) {
-    $registryName = $(Get-RegistriesFromSetupJson) | Where-Object { $_ -match 'k2s-registry.*' }
-    $auth = Get-RegistryAuthToken $registryName
-    if (!$auth) {
-        Write-Error "Can't find authentification token for $registryName."
-        return
-    }
+    $registryName = $(Get-RegistriesFromSetupJson) | Where-Object { $_ -match 'k2s.registry.*' }
+    # $auth = Get-RegistryAuthToken $registryName
+    # if (!$auth) {
+    #     Write-Error "Can't find authentification token for $registryName."
+    #     return
+    # }
 
     if ($name.Contains("$registryName/")) {
         $name = $name.Replace("$registryName/", '')
@@ -215,7 +224,13 @@ function Remove-PushedImage($name, $tag) {
     $status = $null
     $statusDescription = $null
 
-    $headRequest = "curl.exe -m 10 --noproxy $registryName --retry 3 --retry-connrefused -I http://$registryName/v2/$name/manifests/$tag -H 'Authorization: Basic $auth' $concatinatedHeadersString -v 2>&1"
+    $isNodePort = $registryName -match ':'
+    if (!$isNodePort) {
+        $headRequest = "curl.exe -m 10 --noproxy $registryName --retry 3 --retry-connrefused -k -I https://$registryName/v2/$name/manifests/$tag $concatinatedHeadersString -v 2>&1"
+    } else {
+        $headRequest = "curl.exe -m 10 --noproxy $registryName --retry 3 --retry-connrefused -I http://$registryName/v2/$name/manifests/$tag $concatinatedHeadersString -v 2>&1"
+    }
+
     $headResponse = Invoke-Expression $headRequest
     foreach ($line in $headResponse) {
         if ($line -match 'HTTP/1.1 (\d{3}) (.+)') {
@@ -238,7 +253,11 @@ function Remove-PushedImage($name, $tag) {
     $match = Select-String 'Docker-Content-Digest: (.*)' -InputObject $lineWithDigest
     $digest = $match.Matches.Groups[1].Value
 
-    $deleteRequest = "curl.exe -m 10 -I --noproxy $registryName --retry 3 --retry-connrefused -X DELETE http://$registryName/v2/$name/manifests/$digest -H 'Authorization: Basic $auth' $concatinatedHeadersString -v 2>&1"
+    if (!$isNodePort) {
+        $deleteRequest = "curl.exe -m 10 -k -I --noproxy $registryName --retry 3 --retry-connrefused -X DELETE https://$registryName/v2/$name/manifests/$digest $concatinatedHeadersString -v 2>&1"
+    } else {
+        $deleteRequest = "curl.exe -m 10 -I --noproxy $registryName --retry 3 --retry-connrefused -X DELETE http://$registryName/v2/$name/manifests/$digest $concatinatedHeadersString -v 2>&1"
+    }
     $deleteResponse = Invoke-Expression $deleteRequest
 
     foreach ($line in $deleteResponse) {
@@ -341,6 +360,11 @@ function Get-DockerfileAbsolutePathAndPreCompileFlag {
             if (! (Test-Path "$InputFolder\$Dockerfile")) { throw 'Unable to find Dockerfile' }
             $filePath = "$InputFolder\$Dockerfile"
         }
+        # If the Dockerfile ends with PreCompile, we set the PreCompile flag to true
+        if ($Dockerfile -like "*PreCompile") {
+            $PreCompile = $True
+        }
+
         # We return PreCompile flag
         return $filePath, $PreCompile
     }

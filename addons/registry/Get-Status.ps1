@@ -6,7 +6,7 @@
 
 Import-Module "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 
-$success = (Invoke-Kubectl -Params 'wait', '--timeout=5s', '--for=condition=ready', '-n', 'registry', 'pod/k2s-registry-pod').Success
+$success = (Invoke-Kubectl -Params 'rollout', 'status', 'statefulsets', '-n', 'registry', '--timeout=60s').Success
 
 $isRegistryPodRunningProp = @{Name = 'IsRegistryPodRunning'; Value = $success; Okay = $success }
 if ($isRegistryPodRunningProp.Value -eq $true) {
@@ -20,10 +20,17 @@ $registries = Get-RegistriesFromSetupJson
 
 $success = $false
 if ($registries) {
-    $registry = $registries | Where-Object { $_.Contains('k2s-registry.local') }
+    $registry = $registries | Where-Object { $_.Contains('k2s.registry.local') }
 
-    $statusCode = Invoke-WebRequest -Uri "http://$registry" -UseBasicParsing | Select-Object -Expand StatusCode
-    $success = ($statusCode -eq 200)
+    if ($registry -match ':') {
+        # Nodeport
+        $statusCode = curl.exe "http://$registry" -I -m 5 --retry 10 --fail 2>&1 | Out-String
+    } else {
+        # Ingress
+        $statusCode = curl.exe "https://$registry" -k -I -m 5 --retry 10 --fail 2>&1 | Out-String
+    }
+    
+    $success = ($statusCode -match 200)
 }
 
 $isRegistryReachableProp = @{Name = 'IsRegistryReachable'; Value = $success; Okay = $success }
