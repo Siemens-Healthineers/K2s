@@ -34,9 +34,6 @@ Set-Location $kubePath
 if ($SkipHeaderDisplay -eq $false) {
     Write-Log 'Starting K2s'
 }
-
-# set ConfigKey_LoggedInRegistry empty, since not logged in into registry after restart anymore
-Set-ConfigLoggedInRegistry -Value ''
     
 $ProgressPreference = 'SilentlyContinue'
 

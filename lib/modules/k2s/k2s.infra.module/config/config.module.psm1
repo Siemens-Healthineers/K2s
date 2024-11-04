@@ -159,6 +159,10 @@ function Get-DefaultTempPwd {
     return 'admin'
 }
 
+function Get-ConfiguredClusterNetworkPrefix {
+    return $ipControlPlaneCIDR.Substring($ipControlPlaneCIDR.IndexOf('/')+1)
+}
+
 <#
 .SYNOPSIS
     Creates a specified directory if not existing.
@@ -402,17 +406,6 @@ function Set-ConfigUsedStorageLocalDriveLetter {
     Set-ConfigValue -Path $SetupJsonFile -Key 'UsedStorageLocalDriveLetter' -Value $Value
 }
 
-function Get-ConfigLoggedInRegistry {
-    return Get-ConfigValue -Path $SetupJsonFile -Key 'LoggedInRegistry'
-}
-
-function Set-ConfigLoggedInRegistry {
-    param (
-        [object] $Value = $(throw 'Please provide the config value.')
-    )
-    Set-ConfigValue -Path $SetupJsonFile -Key 'LoggedInRegistry' -Value $Value
-}
-
 function Get-ConfigHostGW {
     return Get-ConfigValue -Path $SetupJsonFile -Key 'HostGW'
 }
@@ -533,8 +526,6 @@ Get-ConfigLinuxOnly,
 Set-ConfigLinuxOnly,
 Get-RootConfigk2s,
 Set-ConfigUsedStorageLocalDriveLetter,
-Get-ConfigLoggedInRegistry,
-Set-ConfigLoggedInRegistry,
 Set-ConfigInstalledKubernetesVersion,
 Get-ConfigInstallFolder,
 Set-ConfigInstallFolder,
@@ -559,4 +550,5 @@ Get-ReuseExistingLinuxComputerForMasterNodeFlag,
 Get-ControlPlaneNodeWslSwitchName,
 Get-WindowsVmIpAddress,
 Get-ConfigWinBuildEnabledFlag,
-Set-ConfigWinBuildEnabledFlag
+Set-ConfigWinBuildEnabledFlag,
+Get-ConfiguredClusterNetworkPrefix
