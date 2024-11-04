@@ -67,6 +67,8 @@ if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'registry', '--ignore-
 
 Write-Log 'Uninstalling Kubernetes registry' -Console
 
+Remove-IngressForTraefik -Addon ([pscustomobject] @{Name = 'registry' })
+Remove-IngressForNginx -Addon ([pscustomobject] @{Name = 'registry' })
 (Invoke-Kubectl -Params 'delete', '-k', "$PSScriptRoot\manifests\registry").Output | Write-Log
 (Invoke-Kubectl -Params 'delete', 'namespace', 'registry').Output | Write-Log
 
