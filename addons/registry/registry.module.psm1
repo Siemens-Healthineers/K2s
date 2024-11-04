@@ -26,7 +26,7 @@ Writes the usage notes for registry for the user.
 #>
 function Write-RegistryUsageForUser {
     @"
-REGISTRY ADDON - USAGE NOTES
+                        REGISTRY ADDON - USAGE NOTES
 To access the local registry, please use one of the options:
 
 Option 1: Access via ingress
