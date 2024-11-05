@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2023 Siemens Healthcare GmbH
+// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package cmd
@@ -11,7 +11,7 @@ import (
 	cc "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 	im "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/image"
 	in "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/install"
-	node "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/node"
+	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/node"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/start"
 	stat "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/status"
 	stop "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/stop"
@@ -80,7 +80,7 @@ func CreateRootCmd(logger *logging.Slogger) (*cobra.Command, error) {
 	cmd.AddCommand(addonsCmd)
 	cmd.AddCommand(ve.VersionCmd)
 	cmd.AddCommand(sys.SystemCmd)
-	cmd.AddCommand(node.NodeCmd)
+	cmd.AddCommand(node.NewCmd())
 
 	persistentFlags := cmd.PersistentFlags()
 	persistentFlags.BoolVarP(&showLog, cc.OutputFlagName, cc.OutputFlagShorthand, showLog, cc.OutputFlagUsage)
