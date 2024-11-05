@@ -61,12 +61,12 @@ Build Arguments for building container image
 Show all logs in terminal
 
 .EXAMPLE
-# Build a linux image 'k2s-registry.local/testserver:v1' and push to registry 'k2s-registry.local'
-PS> .\Build-Image.ps1 -ImageName k2s-registry.local/testserver -ImageTag v1 -Push
+# Build a linux image 'k2s.registry.local/testserver:v1' and push to registry 'k2s.registry.local'
+PS> .\Build-Image.ps1 -ImageName k2s.registry.local/testserver -ImageTag v1 -Push
 
 .EXAMPLE
-# Build a linux image 'k2s-registry.local/testserver:v1' with several options e.g. pre-compile outside of container and optimize size
-PS> .\Build-Image.ps1 -ImageName k2s-registry.local/testserver -Tag v1 -PreCompile -Optimize -Distroless -NoCGO
+# Build a linux image 'k2s.registry.local/testserver:v1' with several options e.g. pre-compile outside of container and optimize size
+PS> .\Build-Image.ps1 -ImageName k2s.registry.local/testserver -Tag v1 -PreCompile -Optimize -Distroless -NoCGO
 #>
 
 Param(

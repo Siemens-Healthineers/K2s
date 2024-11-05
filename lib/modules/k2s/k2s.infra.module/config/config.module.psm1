@@ -7,7 +7,6 @@ Import-Module $pathModule
 # Read cluster configuration json
 $kubePath = Get-KubePath
 $controlPlaneSwitchName = 'KubeSwitch'
-$wslControlPlaneSwitchName = 'WSL'
 $configFile = "$kubePath\cfg\config.json"
 $rootConfig = Get-Content $configFile | Out-String | ConvertFrom-Json
 $smallsetup = $rootConfig.psobject.properties['smallsetup'].value
@@ -149,10 +148,6 @@ function Get-ConfiguredControlPlaneCIDR {
 
 function Get-ControlPlaneNodeDefaultSwitchName {
     return $controlPlaneSwitchName
-}
-
-function Get-ControlPlaneNodeWslSwitchName {
-    return $wslControlPlaneSwitchName
 }
 
 function Get-DefaultTempPwd {
@@ -352,10 +347,6 @@ function Get-ConfigWslFlag {
     return $wslValue
 }
 
-function Get-ReuseExistingLinuxComputerForMasterNodeFlag {
-    return Get-ConfigValue -Path $SetupJsonFile -Key 'ReuseExistingLinuxComputerForMasterNode'
-}
-
 function Set-ConfigWslFlag {
     param (
         [object] $Value = $(throw 'Please provide the config value.')
@@ -377,17 +368,6 @@ function Set-ConfigWinBuildEnabledFlag {
 }
 
 
-function Get-ConfigLinuxOsType {
-    return Get-ConfigValue -Path $SetupJsonFile -Key 'LinuxOs'
-}
-
-function Set-ConfigLinuxOsType {
-    param (
-        [object] $Value = $(throw 'Please provide the config value.')
-    )
-    Set-ConfigValue -Path $SetupJsonFile -Key 'LinuxOs' -Value $Value
-}
-
 function Get-ConfigLinuxOnly {
     return Get-ConfigValue -Path $SetupJsonFile -Key 'LinuxOnly'
 }
@@ -404,17 +384,6 @@ function Set-ConfigUsedStorageLocalDriveLetter {
         [object] $Value = $(throw 'Please provide the config value.')
     )
     Set-ConfigValue -Path $SetupJsonFile -Key 'UsedStorageLocalDriveLetter' -Value $Value
-}
-
-function Get-ConfigLoggedInRegistry {
-    return Get-ConfigValue -Path $SetupJsonFile -Key 'LoggedInRegistry'
-}
-
-function Set-ConfigLoggedInRegistry {
-    param (
-        [object] $Value = $(throw 'Please provide the config value.')
-    )
-    Set-ConfigValue -Path $SetupJsonFile -Key 'LoggedInRegistry' -Value $Value
 }
 
 function Get-ConfigHostGW {
@@ -527,18 +496,14 @@ Get-ConfiguredClusterCIDRServices,
 Get-ConfiguredKubeDnsServiceIP,
 Get-ConfiguredMasterNetworkInterfaceCni0IP,
 Get-ConfigControlPlaneNodeHostname,
-Get-ConfigLinuxOsType,
 Get-SSHKeyFileName,
 Set-ConfigSetupType,
 Get-ConfigWslFlag,
 Set-ConfigWslFlag,
-Set-ConfigLinuxOsType,
 Get-ConfigLinuxOnly,
 Set-ConfigLinuxOnly,
 Get-RootConfigk2s,
 Set-ConfigUsedStorageLocalDriveLetter,
-Get-ConfigLoggedInRegistry,
-Set-ConfigLoggedInRegistry,
 Set-ConfigInstalledKubernetesVersion,
 Get-ConfigInstallFolder,
 Set-ConfigInstallFolder,
@@ -559,8 +524,6 @@ Get-DefaultTempPwd,
 Get-DefaultK8sVersion,
 Get-LinuxLocalSharePath,
 Get-WindowsLocalSharePath,
-Get-ReuseExistingLinuxComputerForMasterNodeFlag,
-Get-ControlPlaneNodeWslSwitchName,
 Get-WindowsVmIpAddress,
 Get-ConfigWinBuildEnabledFlag,
 Set-ConfigWinBuildEnabledFlag,

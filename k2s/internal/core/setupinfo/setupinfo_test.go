@@ -83,11 +83,10 @@ var _ = Describe("setupinfo pkg", func() {
 			BeforeEach(func() {
 				dir = GinkgoT().TempDir()
 				inputConfig = &setupinfo.Config{
-					SetupName:        "test-name",
-					Registries:       []string{"r1", "r2"},
-					LoggedInRegistry: "r2",
-					LinuxOnly:        true,
-					Version:          "test-version",
+					SetupName:  "test-name",
+					Registries: []string{"r1", "r2"},
+					LinuxOnly:  true,
+					Version:    "test-version",
 				}
 
 				Expect(setupinfo.WriteConfig(dir, inputConfig)).ToNot(HaveOccurred())
@@ -98,7 +97,6 @@ var _ = Describe("setupinfo pkg", func() {
 
 				Expect(err).ToNot(HaveOccurred())
 				Expect(config.LinuxOnly).To(Equal(inputConfig.LinuxOnly))
-				Expect(config.LoggedInRegistry).To(Equal(inputConfig.LoggedInRegistry))
 				Expect(config.Registries).To(Equal(inputConfig.Registries))
 				Expect(config.SetupName).To(Equal(inputConfig.SetupName))
 				Expect(config.Version).To(Equal(inputConfig.Version))
@@ -112,12 +110,11 @@ var _ = Describe("setupinfo pkg", func() {
 			BeforeEach(func() {
 				dir = GinkgoT().TempDir()
 				inputConfig = &setupinfo.Config{
-					SetupName:        "test-name",
-					Registries:       []string{"r1", "r2"},
-					LoggedInRegistry: "r2",
-					LinuxOnly:        true,
-					Version:          "test-version",
-					Corrupted:        true,
+					SetupName:  "test-name",
+					Registries: []string{"r1", "r2"},
+					LinuxOnly:  true,
+					Version:    "test-version",
+					Corrupted:  true,
 				}
 
 				Expect(setupinfo.WriteConfig(dir, inputConfig)).ToNot(HaveOccurred())
@@ -128,7 +125,6 @@ var _ = Describe("setupinfo pkg", func() {
 
 				Expect(err).To(Equal(setupinfo.ErrSystemInCorruptedState))
 				Expect(config.LinuxOnly).To(Equal(inputConfig.LinuxOnly))
-				Expect(config.LoggedInRegistry).To(Equal(inputConfig.LoggedInRegistry))
 				Expect(config.Registries).To(Equal(inputConfig.Registries))
 				Expect(config.SetupName).To(Equal(inputConfig.SetupName))
 				Expect(config.Version).To(Equal(inputConfig.Version))
