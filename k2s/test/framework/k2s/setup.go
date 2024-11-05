@@ -57,6 +57,18 @@ func GetWindowsNode(nodes config.Nodes) config.NodeConfig {
 	return config.NodeConfig{}
 }
 
+func GetControlPlane(nodes config.Nodes) config.NodeConfig {
+	for _, node := range nodes {
+		if node.IsControlPlane {
+			return node
+		}
+	}
+
+	Fail("No control-plane config found")
+
+	return config.NodeConfig{}
+}
+
 func getWinNodeName(setupName setupinfo.SetupName) (string, error) {
 	switch setupName {
 	case setupinfo.SetupNamek2s:
