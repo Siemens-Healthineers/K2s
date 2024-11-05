@@ -7,6 +7,7 @@ import (
 	"errors"
 	"log/slog"
 	"testing"
+	"time"
 
 	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
@@ -165,10 +166,10 @@ var _ = Describe("users pkg", func() {
 					userNameMock.On(reflection.GetFunctionName(userNameMock.createK2sUserName), mock.Anything).Return("")
 
 					cpAccessMock := &controlPlaneAccessMock{}
-					cpAccessMock.On(reflection.GetFunctionName(cpAccessMock.GrantAccessTo), userMock, currentUser, mock.Anything).Return(cpError)
+					cpAccessMock.On(reflection.GetFunctionName(cpAccessMock.GrantAccessTo), userMock, currentUser, mock.Anything).After(1 * time.Second).Return(cpError)
 
 					k8sMock := &k8sAccessMock{}
-					k8sMock.On(reflection.GetFunctionName(k8sMock.GrantAccessTo), userMock, mock.Anything).Return(k8sError)
+					k8sMock.On(reflection.GetFunctionName(k8sMock.GrantAccessTo), userMock, mock.Anything).After(1 * time.Second).Return(k8sError)
 
 					sut := users.NewWinUserAdder(cpAccessMock, k8sMock, userNameMock.createK2sUserName)
 
