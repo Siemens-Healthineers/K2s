@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
 	"github.com/siemens-healthineers/k2s/test/framework"
 	"github.com/siemens-healthineers/k2s/test/framework/k2s"
 )
@@ -28,6 +29,7 @@ type sshExecutor struct {
 }
 
 var suite *framework.K2sTestSuite
+var skipWinNodeTests bool
 
 func TestCopy(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -36,6 +38,8 @@ func TestCopy(t *testing.T) {
 
 var _ = BeforeSuite(func(ctx context.Context) {
 	suite = framework.Setup(ctx, framework.SystemMustBeRunning, framework.ClusterTestStepPollInterval(100*time.Millisecond))
+
+	skipWinNodeTests = suite.SetupInfo().SetupConfig.SetupName != setupinfo.SetupNameMultiVMK8s || suite.SetupInfo().SetupConfig.LinuxOnly
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
@@ -508,6 +512,10 @@ var _ = Describe("node copy", Ordered, func() {
 			var sshExec *sshExecutor
 
 			BeforeEach(func(ctx context.Context) {
+				if skipWinNodeTests {
+					Skip("Windows node tests are skipped")
+				}
+
 				localTempDir = GinkgoT().TempDir()
 				remoteTempDirName = fmt.Sprintf("test_%d/", GinkgoRandomSeed())
 				remoteTempDir = filepath.Join("C:\\Users", remoteUser, remoteTempDirName)
@@ -529,6 +537,10 @@ var _ = Describe("node copy", Ordered, func() {
 			})
 
 			AfterEach(func(ctx context.Context) {
+				if skipWinNodeTests {
+					Skip("Windows node tests are skipped")
+				}
+
 				GinkgoWriter.Println("Removing remote temp dir <", remoteTempDir, ">")
 
 				sshExec.exec(ctx, "rd /s /q "+remoteTempDir)
@@ -962,6 +974,10 @@ var _ = Describe("node copy", Ordered, func() {
 			var ipAddress string
 
 			BeforeEach(func() {
+				if skipWinNodeTests {
+					Skip("Windows node tests are skipped")
+				}
+
 				ipAddress = k2s.GetWindowsNode(suite.SetupInfo().Config.Nodes).IpAddress
 
 				GinkgoWriter.Println("Using Windows node IP address <", ipAddress, ">")
