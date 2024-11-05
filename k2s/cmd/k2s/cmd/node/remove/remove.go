@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2024 Siemens Healthcare GmbH
+// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package remove
@@ -7,25 +7,25 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var NodeRemoveCmd = &cobra.Command{
-	Use:   "remove",
-	Short: "Remove a node from the cluster",
-	Long:  "Removes machine or VM from K2s cluster",
-	RunE:  removeNode,
-}
-
 const (
 	MachineName          = "name"
 	MachineNameFlagUsage = "Hostname of the machine"
 )
 
-func init() {
-	NodeRemoveCmd.Flags().String(MachineName, "", MachineNameFlagUsage)
-	NodeRemoveCmd.MarkFlagsOneRequired(MachineName)
+func NewCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "remove",
+		Short: "[EXPERIMENTAL] Remove a node from the cluster",
+		Long:  "Removes machine or VM from K2s cluster",
+		RunE:  removeNode,
+	}
+	cmd.Flags().String(MachineName, "", MachineNameFlagUsage)
+	cmd.MarkFlagsOneRequired(MachineName)
 
-	NodeRemoveCmd.Flags().SortFlags = false
-	NodeRemoveCmd.Flags().PrintDefaults()
+	cmd.Flags().SortFlags = false
+	cmd.Flags().PrintDefaults()
 
+	return cmd
 }
 
 func removeNode(cmd *cobra.Command, args []string) error {

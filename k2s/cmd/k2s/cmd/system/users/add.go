@@ -83,7 +83,7 @@ func run(cmd *cobra.Command, args []string) error {
 		return common.CreateSystemNotRunningCmdFailure()
 	}
 
-	err = addUserFunc(setupConfig.ControlPlaneNodeHostname, userName, userId, config)()
+	err = addUserFunc(userName, userId, config)()
 	if err != nil {
 		var userNotFoundErr users.UserNotFoundErr
 		if errors.As(err, &userNotFoundErr) {
@@ -111,10 +111,10 @@ func loadSetupConfig(configDir string) (*setupinfo.Config, error) {
 	return nil, fmt.Errorf("could not load setup info to add the Windows user: %w", err)
 }
 
-func addUserFunc(controlPlaneName, userName, userId string, cfg *config.Config) func() error {
+func addUserFunc(userName, userId string, cfg *config.Config) func() error {
 	cmdExecutor := os.NewCmdExecutor(common.NewSlogWriter())
 	userProvider := users.DefaultUserProvider()
-	usersManagement, err := users.NewUsersManagement(controlPlaneName, cfg, cmdExecutor, userProvider)
+	usersManagement, err := users.NewUsersManagement(cfg, cmdExecutor, userProvider)
 	if err != nil {
 		return func() error { return err }
 	}
