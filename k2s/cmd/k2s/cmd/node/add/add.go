@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2024 Siemens Healthcare GmbH
+// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package add
@@ -20,13 +20,6 @@ import (
 	"github.com/spf13/pflag"
 )
 
-var NodeAddCmd = &cobra.Command{
-	Use:   "add",
-	Short: "Add a node to the cluster",
-	Long:  "Adds an machine or VM to an existing K2s cluster",
-	RunE:  addNode,
-}
-
 const (
 	MachineName               = "name"
 	MachineNameFlagUsage      = "Hostname of the machine"
@@ -38,18 +31,26 @@ const (
 	MachineRoleFlagUsage      = "Role of the machine as a node"
 )
 
-func init() {
-	NodeAddCmd.Flags().String(MachineIPAddress, "", MachineIPAddressFlagUsage)
-	NodeAddCmd.Flags().String(MachineUsername, "", MachineUsernameFlagUsage)
-	NodeAddCmd.Flags().String(MachineName, "", MachineNameFlagUsage)
-	NodeAddCmd.Flags().String(MachineRole, "worker", MachineRoleFlagUsage)
+func NewCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "add",
+		Short: "[EXPERIMENTAL] Add a node to the cluster",
+		Long:  "Adds an machine or VM to an existing K2s cluster",
+		RunE:  addNode,
+	}
+	cmd.Flags().String(MachineIPAddress, "", MachineIPAddressFlagUsage)
+	cmd.Flags().String(MachineUsername, "", MachineUsernameFlagUsage)
+	cmd.Flags().String(MachineName, "", MachineNameFlagUsage)
+	cmd.Flags().String(MachineRole, "worker", MachineRoleFlagUsage)
 
-	NodeAddCmd.MarkFlagRequired(MachineIPAddress)
-	NodeAddCmd.MarkFlagRequired(MachineUsername)
-	NodeAddCmd.MarkFlagsRequiredTogether(MachineIPAddress, MachineUsername)
+	cmd.MarkFlagRequired(MachineIPAddress)
+	cmd.MarkFlagRequired(MachineUsername)
+	cmd.MarkFlagsRequiredTogether(MachineIPAddress, MachineUsername)
 
-	NodeAddCmd.Flags().SortFlags = false
-	NodeAddCmd.Flags().PrintDefaults()
+	cmd.Flags().SortFlags = false
+	cmd.Flags().PrintDefaults()
+
+	return cmd
 }
 
 func addNode(ccmd *cobra.Command, args []string) error {

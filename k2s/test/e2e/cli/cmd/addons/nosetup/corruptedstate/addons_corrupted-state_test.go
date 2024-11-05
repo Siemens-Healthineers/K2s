@@ -46,12 +46,11 @@ var _ = Describe("addons commands", Ordered, func() {
 
 	BeforeEach(func() {
 		inputConfig := &setupinfo.Config{
-			SetupName:        "k2s",
-			Registries:       []string{"r1", "r2"},
-			LoggedInRegistry: "r2",
-			LinuxOnly:        true,
-			Version:          "test-version",
-			Corrupted:        true,
+			SetupName:  "k2s",
+			Registries: []string{"r1", "r2"},
+			LinuxOnly:  true,
+			Version:    "test-version",
+			Corrupted:  true,
 		}
 		inputData, err := json.Marshal(inputConfig)
 		Expect(err).ToNot(HaveOccurred())
