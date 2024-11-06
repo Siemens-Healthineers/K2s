@@ -35,8 +35,8 @@ The copy command behaves similar to the 'cp' command on Linux:
 Beware of the different path formats based on the operating system of the host/node,
 e.g. Windows paths (C:\\path\\to\\file) vs. Linux paths (/path/to/file).
 
-Linux paths do not need to contain a tilde (~) since the working directory will always be the home directory of the node user, e.g.
-'~/my-file' equals to 'my-file'.
+Linux remote paths can but do not need to contain a tilde (~) since the working directory will always be the home directory of the node user, e.g.
+'~/my-file' equals to 'my-file' equals to '/home/<user>/my-file'. Locally (on the host), the working directory is the current working directory of the command execution.
 
 Windows paths can also contain a tilde (~).
 `
