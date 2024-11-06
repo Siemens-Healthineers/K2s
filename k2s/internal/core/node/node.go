@@ -34,13 +34,16 @@ type pathInfo struct {
 	isWindows  bool
 }
 
-type sourceInfo struct {
-	path  string
-	name  string
-	isDir bool
+type localInfo struct {
+	pathInfo
+	name   string
+	isDir  bool
+	parent string
 }
 
-type targetInfo struct {
+// TODO: consolidate structs for loca/remote info
+type remoteInfo struct {
+	name string
 	pathInfo
 	isDir  bool
 	parent string
@@ -105,15 +108,26 @@ func determineCopyFunc(copyOptions copy.CopyOptions) (func(*sftp.Client) error, 
 			return copyToNode(*source, *target, sftpClient)
 		}, nil
 	case copy.CopyToHost:
+		target, err := analyzeLocalTarget(copyOptions.Target)
+		if err != nil {
+			return nil, fmt.Errorf("failed to analyze local target '%s': %w", copyOptions.Target, err)
+		}
+
 		return func(sftpClient *sftp.Client) error {
-			return copyToHost("", "", sftpClient)
+			source, err := analyzeRemoteSource(copyOptions.Source, sftpClient)
+			if err != nil {
+				return fmt.Errorf("failed to analyze remote source '%s': %w", copyOptions.Source, err)
+			}
+			return copyToHost(*source, *target, sftpClient)
 		}, nil
 	default:
 		return nil, fmt.Errorf("invalid copy direction: %d", copyOptions.Direction)
 	}
 }
 
-func analyzeLocalSource(path string) (*sourceInfo, error) {
+func analyzeLocalSource(path string) (*localInfo, error) {
+	slog.Debug("Analyzing local source", "path", path)
+
 	localPath, err := cleanLocalPath(path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to clean local path '%s': %w", path, err)
@@ -126,20 +140,59 @@ func analyzeLocalSource(path string) (*sourceInfo, error) {
 		}
 		return nil, fmt.Errorf("failed to retreive information about source '%s': %w", localPath, err)
 	}
-	return &sourceInfo{
-		path:  localPath,
-		name:  info.Name(),
-		isDir: info.IsDir(),
+	return &localInfo{
+		pathInfo: pathInfo{path: localPath, isExisting: true, isWindows: true},
+		name:     info.Name(),
+		isDir:    info.IsDir(),
 	}, nil
 }
 
-func analyzeRemoteTarget(remotePath string, sftpClient *sftp.Client) (*targetInfo, error) {
+func analyzeLocalTarget(path string) (*localInfo, error) {
+	slog.Debug("Analyzing local target", "path", path)
+
+	localPath, err := cleanLocalPath(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to clean local path '%s': %w", path, err)
+	}
+
+	target := &localInfo{pathInfo: pathInfo{path: localPath, isWindows: true}, parent: filepath.Dir(localPath)}
+
+	info, err := bos.Stat(localPath)
+	if err == nil {
+		target.isExisting = true
+		target.isDir = info.IsDir()
+
+		slog.Debug("Local target existing", "path", localPath, "is-dir", target.isDir)
+
+		return target, nil
+	}
+
+	if !errors.Is(err, fs.ErrNotExist) {
+		return nil, fmt.Errorf("failed to check for local target '%s': %w", target.path, err)
+	}
+
+	slog.Debug("Local target not existing, checking for parent", "target", target.path, "parent", target.parent)
+
+	_, err = bos.Stat(target.parent)
+	if err == nil {
+		slog.Debug("Local parent existing", "parent", target.parent)
+		return target, nil
+	}
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil, fmt.Errorf("local parent not existing '%s' of target '%s' not existing", target.parent, target.path)
+	}
+	return nil, fmt.Errorf("failed to check for local parent dir '%s': %w", target.parent, err)
+}
+
+func analyzeRemoteTarget(remotePath string, sftpClient *sftp.Client) (*remoteInfo, error) {
+	slog.Debug("Analyzing remote target", "path", remotePath)
+
 	remoteHomeDir, err := sftpClient.Getwd()
 	if err != nil {
 		return nil, fmt.Errorf("failed to determine remote home dir: %w", err)
 	}
 
-	target := &targetInfo{}
+	target := &remoteInfo{}
 
 	remotePath = strings.Replace(remotePath, "~", remoteHomeDir, 1)
 
@@ -161,8 +214,6 @@ func analyzeRemoteTarget(remotePath string, sftpClient *sftp.Client) (*targetInf
 		target.path = remotePath
 		target.parent = filepath.Dir(remotePath)
 	}
-
-	slog.Debug("Analyzing remote target", "value", target.path, "is-windows", target.isWindows)
 
 	info, err := sftpClient.Stat(target.path)
 	if err == nil {
@@ -191,6 +242,52 @@ func analyzeRemoteTarget(remotePath string, sftpClient *sftp.Client) (*targetInf
 	return nil, fmt.Errorf("failed to check for remote parent dir '%s': %w", target.parent, err)
 }
 
+func analyzeRemoteSource(remotePath string, sftpClient *sftp.Client) (*remoteInfo, error) {
+	slog.Debug("Analyzing remote source", "path", remotePath)
+
+	remoteHomeDir, err := sftpClient.Getwd()
+	if err != nil {
+		return nil, fmt.Errorf("failed to determine remote home dir: %w", err)
+	}
+
+	source := &remoteInfo{}
+
+	remotePath = strings.Replace(remotePath, "~", remoteHomeDir, 1)
+
+	if strings.HasPrefix(remoteHomeDir, "/home/") {
+		slog.Debug("Linux remote home dir detected", "path", remoteHomeDir)
+
+		source.path = path.Clean(remotePath)
+		// source.parent = path.Dir(remotePath)
+	} else {
+		slog.Debug("Windows remote home dir detected", "path", remoteHomeDir)
+
+		source.isWindows = true
+
+		remotePath = filepath.Clean(remotePath)
+		if strings.HasPrefix(remotePath, string(filepath.Separator)) {
+			remotePath = remotePath[1:]
+		}
+
+		source.path = remotePath
+		// source.parent = filepath.Dir(remotePath)
+	}
+
+	info, err := sftpClient.Stat(source.path)
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil, fmt.Errorf("source '%s' does not exist", source.path)
+		}
+		return nil, fmt.Errorf("failed to retreive information about source '%s': %w", source.path, err)
+	}
+
+	source.isDir = info.IsDir()
+	source.isExisting = true
+	source.name = info.Name()
+
+	return source, nil
+}
+
 func cleanLocalPath(path string) (string, error) {
 	if strings.HasPrefix(path, "~") {
 		resolvedPath, err := host.ReplaceTildeWithHomeDir(path)
@@ -202,14 +299,14 @@ func cleanLocalPath(path string) (string, error) {
 	return filepath.Clean(path), nil
 }
 
-func copyToNode(source sourceInfo, target targetInfo, sftpClient *sftp.Client) error {
+func copyToNode(source localInfo, target remoteInfo, sftpClient *sftp.Client) error {
 	if source.isDir {
 		return copyDirToNode(source, target, sftpClient)
 	}
 	return copyFileToNode(source, target, sftpClient)
 }
 
-func copyFileToNode(source sourceInfo, target targetInfo, sftpClient *sftp.Client) error {
+func copyFileToNode(source localInfo, target remoteInfo, sftpClient *sftp.Client) error {
 	targetPath := target.path
 	if target.isExisting && target.isDir {
 		targetPath = target.joinWith(source.name)
@@ -217,7 +314,15 @@ func copyFileToNode(source sourceInfo, target targetInfo, sftpClient *sftp.Clien
 	return copy.CopyFileToRemote(source.path, targetPath, sftpClient)
 }
 
-func copyDirToNode(source sourceInfo, target targetInfo, sftpClient *sftp.Client) error {
+func copyFileToHost(source remoteInfo, target localInfo, sftpClient *sftp.Client) error {
+	targetPath := target.path
+	if target.isExisting && target.isDir {
+		targetPath = target.joinWith(source.name)
+	}
+	return copy.CopyFileToLocal(source.path, targetPath, sftpClient)
+}
+
+func copyDirToNode(source localInfo, target remoteInfo, sftpClient *sftp.Client) error {
 	targetPath := target.path
 
 	if target.isExisting {
@@ -234,15 +339,23 @@ func copyDirToNode(source sourceInfo, target targetInfo, sftpClient *sftp.Client
 	return copy.CopyDirToRemote(source.path, targetDir, sftpClient)
 }
 
-func (t targetInfo) joinWith(elemenToJoin string) string {
-	if t.isWindows {
-		return filepath.Join(t.path, elemenToJoin)
+func copyDirToHost(source remoteInfo, target localInfo, sftpClient *sftp.Client) error {
+	targetPath := target.path
+
+	if target.isExisting {
+		if !target.isDir {
+			return fmt.Errorf("target '%s' is a file", target.path)
+		}
+		targetPath = target.joinWith(source.name)
 	}
-	return path.Join(t.path, elemenToJoin)
+	return copy.CopyDirToLocal(source.path, targetPath, sftpClient)
 }
 
-func copyToHost(_, _ string, _ *sftp.Client) error {
-	return errors.New("reverse copy not implemented yet")
+func copyToHost(source remoteInfo, target localInfo, sftpClient *sftp.Client) error {
+	if source.isDir {
+		return copyDirToHost(source, target, sftpClient)
+	}
+	return copyFileToHost(source, target, sftpClient)
 }
 
 func connectSsh(options ConnectionOptions) (*ssh.Client, error) {
@@ -275,4 +388,11 @@ func connectSsh(options ConnectionOptions) (*ssh.Client, error) {
 
 	slog.Debug("Connected via SSH", "ip", options.IpAddress)
 	return sshClient, nil
+}
+
+func (info pathInfo) joinWith(elemenToJoin string) string {
+	if info.isWindows {
+		return filepath.Join(info.path, elemenToJoin)
+	}
+	return path.Join(info.path, elemenToJoin)
 }
