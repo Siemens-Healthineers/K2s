@@ -417,6 +417,13 @@ function Remove-ControlPlaneNodeOnNewVM {
 
     Clear-ProvisioningArtifacts
 
+    $linuxnodePath = "$(Get-KubeBinPath)\linuxnode"
+    Write-Log "Delete folder '$linuxnodePath' if existing"
+    if (Test-Path $linuxnodePath) {
+        Write-Log "Deleting folder '$linuxnodePath'"
+        Remove-Item -Path $linuxnodePath -Recurse -Force
+    }
+    
     if ($DeleteFilesForOfflineInstallation) {
         $kubemasterBaseFilePath = Get-KubemasterBaseFilePath
         $kubemasterRootfsPath = Get-ControlPlaneOnWslRootfsFilePath
