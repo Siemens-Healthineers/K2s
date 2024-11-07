@@ -109,7 +109,7 @@ var _ = Describe("build container image", Ordered, func() {
 						images := suite.K2sCli().GetImages(ctx)
 						Expect(images.IsImageAvailableInLocalRegistry(weatherImageName, randomImageTag)).To(BeTrue(), fmt.Sprintf("Image found in Registry Name:%v, Tag:%v", weatherImageName, randomImageTag))
 
-						suite.K2sCli().Run(ctx, "image", "push", getImageNameWithTag(weatherImageName, randomImageTag))
+						suite.K2sCli().Run(ctx, "image", "push", "-n", getImageNameWithTag(weatherImageName, randomImageTag))
 
 						images = suite.K2sCli().GetImages(ctx)
 						Expect(images.IsImageAvailableInLocalRegistry(weatherImageName, randomImageTag)).To(BeTrue(), fmt.Sprintf("Image Not found in Registry Name:%v, Tag:%v", weatherImageName, randomImageTag))
@@ -117,7 +117,7 @@ var _ = Describe("build container image", Ordered, func() {
 
 					It("Built image can be tagged", func(ctx context.Context) {
 						newTag := "retagged"
-						suite.K2sCli().Run(ctx, "image", "tag", getImageNameWithTag(weatherImageName, randomImageTag), getImageNameWithTag(weatherImageName, newTag))
+						suite.K2sCli().Run(ctx, "image", "tag", "-n", getImageNameWithTag(weatherImageName, randomImageTag), "-t", getImageNameWithTag(weatherImageName, newTag))
 
 						images := suite.K2sCli().GetImages(ctx)
 						Expect(images.IsImageAvailableOnNode(weatherImageName, newTag)).To(BeTrue(), fmt.Sprintf("Image Not found on node Name:%v, Tag:%v", weatherImageName, newTag))
@@ -243,7 +243,7 @@ var _ = Describe("build container image", Ordered, func() {
 						images := suite.K2sCli().GetImages(ctx)
 						Expect(images.IsImageAvailableInLocalRegistry(weatherImageName, randomImageTag)).To(BeTrue(), fmt.Sprintf("Image found in Registry Name:%v, Tag:%v", weatherImageName, randomImageTag))
 
-						suite.K2sCli().Run(ctx, "image", "push", getImageNameWithTag(weatherImageName, randomImageTag))
+						suite.K2sCli().Run(ctx, "image", "push", "-n", getImageNameWithTag(weatherImageName, randomImageTag))
 
 						images = suite.K2sCli().GetImages(ctx)
 						Expect(images.IsImageAvailableInLocalRegistry(weatherImageName, randomImageTag)).To(BeTrue(), fmt.Sprintf("Image Not found in Registry Name:%v, Tag:%v", weatherImageName, randomImageTag))
@@ -251,7 +251,7 @@ var _ = Describe("build container image", Ordered, func() {
 
 					It("Built image can be tagged", func(ctx context.Context) {
 						newTag := "retagged"
-						suite.K2sCli().Run(ctx, "image", "tag", getImageNameWithTag(weatherImageName, randomImageTag), getImageNameWithTag(weatherImageName, newTag))
+						suite.K2sCli().Run(ctx, "image", "tag", "-n", getImageNameWithTag(weatherImageName, randomImageTag), "-t", getImageNameWithTag(weatherImageName, newTag))
 
 						images := suite.K2sCli().GetImages(ctx)
 						Expect(images.IsImageAvailableOnNode(weatherImageName, newTag)).To(BeTrue(), fmt.Sprintf("Image Not found on node Name:%v, Tag:%v", weatherImageName, newTag))
