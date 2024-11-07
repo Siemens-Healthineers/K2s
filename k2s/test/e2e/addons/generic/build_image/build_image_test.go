@@ -55,6 +55,7 @@ var _ = Describe("build container image", Ordered, func() {
 	When("Default Ingress", func() {
 		Context("registry addon is enabled {nginx}", func() {
 			BeforeAll(func(ctx context.Context) {
+				suite.K2sCli().Run(ctx, "addons", "enable", "ingress", "nginx", "-o")
 				suite.K2sCli().Run(ctx, "addons", "enable", "registry", "-o")
 			})
 
