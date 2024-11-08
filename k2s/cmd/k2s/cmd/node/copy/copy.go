@@ -25,51 +25,35 @@ const (
 	targetFlag      = "target"
 	usernameFlag    = "username"
 	timeoutFlag     = "timeout"
-	longDescription = `Copies files/folders between host and nodes (default: host -> node).
+	portFlag        = "port"
+	longDescription = `Copies files/folders to/from nodes (default: to node).
 
 The copy command behaves similar to the 'cp' command on Linux:
 - If the target file exists, it will be overwritten without prompting.
 - If the target folder does not exist, it gets created when the target's parent folder exists.
 - If the target contains a folder with the same name as the source folder, all files will be copied into it, overwriting existing files that match the source files.
 	
-Beware of the different path formats based on the operating system of the host/node,
-e.g. Windows paths (C:\\path\\to\\file) vs. Linux paths (/path/to/file).
-
-Linux remote paths can but do not need to contain a tilde (~) since the working directory will always be the home directory of the node user, e.g.
-'~/my-file' equals to 'my-file' equals to '/home/<user>/my-file'. Locally (on the host), the working directory is the current working directory of the command execution.
-
-Windows paths can also contain a tilde (~).
+Remote node paths can but do not need to contain a tilde (~) since the working directory will always be the home directory of the node user, e.g.
+'~/my-file' equals to 'my-file' equals to '/home/<user>/my-file' (Linux) or 'c:\users\<user>\my-file' (Windows). Locally (on the host), the working directory is the current working directory of the command execution.
 `
-	example = `# Copy a file from host to Linux node, e.g. to home dir
-	k2s node copy -i 192.168.1.2 -s C:\path\to\my-file -t my-file
+	example = `# Copy a file from host to node, e.g. to home dir
+	k2s node copy -i 192.168.1.2 -u remote -s C:\path\to\my-file -t ~/
 
 	- or -
 
-	k2s node copy -i 192.168.1.2 -s C:\path\to\my-file -t ~/
-
-	- or -
-
-	k2s node copy -i 192.168.1.2 -s C:\path\to\my-file -t ~/my-file	
-
-	- or -
-
-	k2s node copy -i 192.168.1.2 -s C:\path\to\my-file -t /home/<user>/my-file
+	k2s node copy -i 192.168.1.2 -u remote -s C:\path\to\my-file -t ~/my-file	
 
 
-# Copy a file from host to Windows node, e.g. to home dir
-	k2s node copy -i 192.168.1.2 -s C:\path\to\my-folder\ -t ~\
+# Copy a folder from host to node, e.g. to home dir
+	k2s node copy -i 192.168.1.2 -u remote -s C:\path\to\my-folder\ -t ~/
 
 
-# Copy a folder from host to Linux node, e.g. to home dir
-	k2s node copy -i 192.168.1.2 -s C:\path\to\my-folder\ -t my-folder/
+# Copy a file from node to host, e.g. from home dir on node
+	k2s node copy -r -i 192.168.1.2 -u remote -s my-file -t C:\temp\my-file
 
 
-# Copy a file from Linux node to host, e.g. from home dir
-	k2s node copy -r -i 192.168.1.2 -s my-file -t C:\temp\my-file
-
-
-# Copy a folder from Linux node to host, e.g. from home dir
-	k2s node copy -r -i 192.168.1.2 -s my-folder/ -t C:\temp\
+# Copy a folder from node to host, e.g. from home dir on node
+	k2s node copy -r -i 192.168.1.2 -u remote -s my-folder/ -t C:\temp\
 `
 )
 
@@ -82,17 +66,19 @@ func NewCmd() *cobra.Command {
 		RunE:    copy,
 	}
 
-	cmd.Flags().StringP(ipAddressFlag, "i", "", "Node IP address")
-	cmd.Flags().StringP(sourceFlag, "s", "", "Source files/folders to copy")
-	cmd.Flags().StringP(targetFlag, "t", "", "Target files/folders")
+	cmd.Flags().StringP(ipAddressFlag, "i", "", "[required] Node IP address")
+	cmd.Flags().StringP(usernameFlag, "u", "", "[required] Username for remote connection")
+	cmd.Flags().StringP(sourceFlag, "s", "", "[required] Source file or folder to copy")
+	cmd.Flags().StringP(targetFlag, "t", "", "[required] Target file or folder")
+
+	cmd.MarkFlagRequired(ipAddressFlag)
+	cmd.MarkFlagRequired(usernameFlag)
+	cmd.MarkFlagRequired(sourceFlag)
+	cmd.MarkFlagRequired(targetFlag)
 
 	cmd.Flags().BoolP(reverseFlag, "r", false, "Copy from node to host (i.e. reverse direction)")
-	cmd.Flags().StringP(usernameFlag, "u", "remote", "Username for remote connection")
+	cmd.Flags().Uint16P(portFlag, "p", ssh.DefaultPort, "Port for remote connection")
 	cmd.Flags().String(timeoutFlag, "30s", "Connection timeout, e.g. '1m20s', allowed time units are 'ns', 'us' (or 'µs'), 'ms', 's', 'm', 'h'")
-
-	cmd.MarkFlagsOneRequired(ipAddressFlag)
-	cmd.MarkFlagsOneRequired(sourceFlag)
-	cmd.MarkFlagsOneRequired(targetFlag)
 
 	cmd.Flags().SortFlags = false
 	cmd.Flags().PrintDefaults()
@@ -130,7 +116,7 @@ func copy(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func extractOptions(flags *pflag.FlagSet) (*nodecopy.CopyOptions, *node.ConnectionOptions, error) {
+func extractOptions(flags *pflag.FlagSet) (*nodecopy.CopyOptions, *ssh.ConnectionOptions, error) {
 	ipAddress, err := flags.GetString(ipAddressFlag)
 	if err != nil {
 		return nil, nil, err
@@ -153,10 +139,15 @@ func extractOptions(flags *pflag.FlagSet) (*nodecopy.CopyOptions, *node.Connecti
 
 	direction := nodecopy.CopyToNode
 	if reverse {
-		direction = nodecopy.CopyToHost
+		direction = nodecopy.CopyFromNode
 	}
 
 	username, err := flags.GetString(usernameFlag)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	port, err := flags.GetUint16(portFlag)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -175,9 +166,10 @@ func extractOptions(flags *pflag.FlagSet) (*nodecopy.CopyOptions, *node.Connecti
 			Source:    source,
 			Target:    target,
 			Direction: direction,
-		}, &node.ConnectionOptions{
+		}, &ssh.ConnectionOptions{
 			IpAddress:  ipAddress,
 			RemoteUser: username,
 			Timeout:    timeout,
+			Port:       port,
 		}, nil
 }

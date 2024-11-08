@@ -32,26 +32,49 @@ var _ = Describe("host pkg", Ordered, func() {
 	})
 
 	Describe("ReplaceTildeWithHomeDir", Label("integration"), func() {
-		When("path contains tilde", func() {
-			It("replaces tilde with user's home directory", func() {
-				const input = "~\\dir\\file.md"
-
-				actual, err := host.ReplaceTildeWithHomeDir(input)
+		When("path contains tilde as prefix", func() {
+			DescribeTable("resolves tilde with current user's home dir", func(input string) {
+				actual, err := host.ResolveTildePrefix(input)
 
 				Expect(err).ToNot(HaveOccurred())
-				Expect(actual).To(MatchRegexp(`^C:\\Users\\[^\\]+\\dir\\file\.md$`))
-			})
+				Expect(actual).To(MatchRegexp(`^C:\\Users\\[^\\]+\\dir\\test-file$`))
+			},
+				Entry("win path backslash", "~\\dir\\test-file"),
+				Entry("win path slash", "~/dir/test-file"),
+				Entry("weird mix", "~/dir\\test-file"),
+			)
 		})
 
-		When("path does not contain tilde", func() {
-			It("returns same path", func() {
-				const input = "c:\\dir\\file.md"
-
-				actual, err := host.ReplaceTildeWithHomeDir(input)
+		When("path contains tilde without prefix", Label("unit"), func() {
+			DescribeTable("returns unmodified path", func(input string) {
+				actual, err := host.ResolveTildePrefix(input)
 
 				Expect(err).ToNot(HaveOccurred())
 				Expect(actual).To(Equal(input))
-			})
+			},
+				Entry("abs win path backslash", "c:\\dir\\~"),
+				Entry("abs win path slash", "c:/~/test-file"),
+				Entry("abs unix path", "/dir/test/~"),
+				Entry("rel win path", "dir\\test-file\\~"),
+				Entry("rel unix path", "dir/test-file/~"),
+				Entry("weird mix", "oh\\my/~/gosh-file"),
+			)
+		})
+
+		When("path does not contain tilde", Label("unit"), func() {
+			DescribeTable("returns unmodified path", func(input string) {
+				actual, err := host.ResolveTildePrefix(input)
+
+				Expect(err).ToNot(HaveOccurred())
+				Expect(actual).To(Equal(input))
+			},
+				Entry("abs win path backslash", "c:\\dir\\test-file"),
+				Entry("abs win path slash", "c:/dir/test-file"),
+				Entry("abs unix path", "/dir/test-file"),
+				Entry("rel win path", "dir\\test-file"),
+				Entry("rel unix path", "dir/test-file"),
+				Entry("weird mix", "oh\\my/gosh-file"),
+			)
 		})
 	})
 })

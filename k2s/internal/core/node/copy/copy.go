@@ -9,6 +9,7 @@ import (
 	"io/fs"
 	"log/slog"
 	"os"
+	"path"
 	"path/filepath"
 
 	"github.com/pkg/sftp"
@@ -22,20 +23,31 @@ type CopyOptions struct {
 	Direction CopyDirection
 }
 
-type RemoteDir struct {
-	Path string
-	Join func(remoteDir, relativePath string) string
+type ToRemoteCopier struct {
+	client *sftp.Client
+}
+
+type FromRemoteCopier struct {
+	client *sftp.Client
 }
 
 const (
-	CopyToNode CopyDirection = iota
-	CopyToHost CopyDirection = iota
+	CopyToNode   CopyDirection = iota
+	CopyFromNode CopyDirection = iota
 )
 
-func CopyFileToRemote(localPath, remotePath string, sftpClient *sftp.Client) error {
+func NewToRemoteCopier(client *sftp.Client) *ToRemoteCopier {
+	return &ToRemoteCopier{client: client}
+}
+
+func NewFromRemoteCopier(client *sftp.Client) *FromRemoteCopier {
+	return &FromRemoteCopier{client: client}
+}
+
+func (c *ToRemoteCopier) CopyFileToRemote(localPath, remotePath string) error {
 	slog.Debug("Copying file to remote", "local", localPath, "remote", remotePath)
 
-	remoteFile, err := sftpClient.Create(remotePath)
+	remoteFile, err := c.client.Create(remotePath)
 	if err != nil {
 		return fmt.Errorf("failed to create/open remote file '%s': %w", remotePath, err)
 	}
@@ -63,10 +75,10 @@ func CopyFileToRemote(localPath, remotePath string, sftpClient *sftp.Client) err
 	return nil
 }
 
-func CopyFileToLocal(remotePath, localPath string, sftpClient *sftp.Client) error {
+func (c *FromRemoteCopier) CopyFileFromRemote(remotePath, localPath string) error {
 	slog.Debug("Copying file to local", "local", localPath, "remote", remotePath)
 
-	remoteFile, err := sftpClient.Open(remotePath)
+	remoteFile, err := c.client.Open(remotePath)
 	if err != nil {
 		return fmt.Errorf("failed to open remote file '%s': %w", remotePath, err)
 	}
@@ -94,41 +106,43 @@ func CopyFileToLocal(remotePath, localPath string, sftpClient *sftp.Client) erro
 	return nil
 }
 
-func CopyDirToRemote(localDir string, remoteDir RemoteDir, sftpClient *sftp.Client) error {
-	slog.Debug("Copying dir to remote", "local", localDir, "remote", remoteDir.Path)
+func (c *ToRemoteCopier) CopyDirToRemote(localDir, remoteDir string) error {
+	slog.Debug("Copying dir to remote", "local", localDir, "remote", remoteDir)
 
 	err := filepath.WalkDir(localDir, func(localPath string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return fmt.Errorf("failed to walk local dir '%s': %w", localDir, err)
 		}
 
+		localPath = filepath.ToSlash(localPath)
+
 		relativePath, err := filepath.Rel(localDir, localPath)
 		if err != nil {
 			return fmt.Errorf("failed to determine relative path of '%s': %w", localPath, err)
 		}
 
-		remotePath := remoteDir.Join(remoteDir.Path, relativePath)
+		remotePath := path.Join(remoteDir, filepath.ToSlash(relativePath))
 
 		if d.IsDir() {
 			slog.Debug("Creating remote dir", "path", remotePath)
 
-			if err := sftpClient.MkdirAll(remotePath); err != nil {
+			if err := c.client.MkdirAll(remotePath); err != nil {
 				return fmt.Errorf("failed to create remote dir '%s': %w", remotePath, err)
 			}
 			return nil
 		}
-		return CopyFileToRemote(localPath, remotePath, sftpClient)
+		return c.CopyFileToRemote(localPath, remotePath)
 	})
 	if err != nil {
-		return fmt.Errorf("failed to copy dir '%s' to '%s': %w", localDir, remoteDir.Path, err)
+		return fmt.Errorf("failed to copy dir '%s' to '%s': %w", localDir, remoteDir, err)
 	}
 	return nil
 }
 
-func CopyDirToLocal(remoteDir, localDir string, sftpClient *sftp.Client) error {
+func (c *FromRemoteCopier) CopyDirFromRemote(remoteDir, localDir string) error {
 	slog.Debug("Copying dir to local", "local", localDir, "remote", remoteDir)
 
-	walker := sftpClient.Walk(remoteDir)
+	walker := c.client.Walk(remoteDir)
 
 	for walker.Step() {
 		if err := walker.Err(); err != nil {
@@ -140,7 +154,7 @@ func CopyDirToLocal(remoteDir, localDir string, sftpClient *sftp.Client) error {
 			return fmt.Errorf("failed to determine relative path of '%s': %w", walker.Path(), err)
 		}
 
-		localPath := filepath.Join(localDir, relativePath)
+		localPath := path.Join(localDir, filepath.ToSlash(relativePath))
 
 		if walker.Stat().IsDir() {
 			slog.Debug("Creating local dir", "path", localPath)
@@ -150,7 +164,7 @@ func CopyDirToLocal(remoteDir, localDir string, sftpClient *sftp.Client) error {
 			}
 			continue
 		}
-		if err := CopyFileToLocal(walker.Path(), localPath, sftpClient); err != nil {
+		if err := c.CopyFileFromRemote(walker.Path(), localPath); err != nil {
 			return err
 		}
 	}
