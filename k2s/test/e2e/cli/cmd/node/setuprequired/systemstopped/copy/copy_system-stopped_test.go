@@ -43,7 +43,7 @@ var _ = Describe("node copy", func() {
 		})
 
 		It("runs into a defined timeout", func(ctx context.Context) {
-			output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "node", "copy", "--ip-addr", ipAddress, "-s", source, "-t", "", "-o", "--timeout", "5s")
+			output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "node", "copy", "--ip-addr", ipAddress, "-s", source, "-t", "", "-o", "--timeout", "5s", "-u", "")
 
 			Expect(output).To(SatisfyAll(
 				MatchRegexp("ERROR"),
