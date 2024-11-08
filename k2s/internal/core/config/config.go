@@ -72,12 +72,12 @@ func LoadConfig(installDir string) (*Config, error) {
 		return nil, fmt.Errorf("error occurred while loading config file: %w", err)
 	}
 
-	kubeConfigDir, err := host.ReplaceTildeWithHomeDir(config.ConfigDir.Kube)
+	kubeConfigDir, err := host.ResolveTildePrefix(config.ConfigDir.Kube)
 	if err != nil {
 		return nil, fmt.Errorf("error occurred while resolving tilde in file path '%s': %w", config.ConfigDir.Kube, err)
 	}
 
-	sshDir, err := host.ReplaceTildeWithHomeDir(config.ConfigDir.Ssh)
+	sshDir, err := host.ResolveTildePrefix(config.ConfigDir.Ssh)
 	if err != nil {
 		return nil, fmt.Errorf("error occurred while resolving tilde in file path '%s': %w", config.ConfigDir.Ssh, err)
 	}
