@@ -18,11 +18,15 @@ func SystemDrive() string {
 	return "C:\\"
 }
 
-// ReplaceTildeWithHomeDir replaces the tilde ('~') in the given path with the current user's home directory path.
-func ReplaceTildeWithHomeDir(path string) (string, error) {
+// ResolveTildePrefix replaces the leading tilde ('~') in the given path with the current user's home directory.
+func ResolveTildePrefix(path string) (string, error) {
+	if !strings.HasPrefix(path, "~") {
+		return path, nil
+	}
+
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		return "", fmt.Errorf("failed to determine user home dir: %w", err)
 	}
-	return strings.Replace(filepath.Clean(path), "~", homeDir, 1), nil
+	return filepath.Clean(strings.Replace(path, "~", homeDir, 1)), nil
 }
