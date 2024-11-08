@@ -158,6 +158,7 @@ function Add-LinuxWorkerNodeOnExistingUbuntuVM {
     )
 
     Copy-KubernetesArtifactsFromControlPlaneToRemoteComputer -UserName $UserName -IpAddress $IpAddress
+    Confirm-KubernetesAptRepositoryIsUpToDate -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy
     Install-KubernetesArtifacts -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy
 
     Copy-KubernetesImagesFromWindowsHostToRemoteComputer -UserName $UserName -IpAddress $IpAddress
@@ -274,6 +275,7 @@ function Add-LinuxWorkerNodeOnUbuntuBareMetal {
     )
 
     Copy-KubernetesArtifactsFromControlPlaneToRemoteComputer -UserName $UserName -IpAddress $IpAddress
+    Confirm-KubernetesAptRepositoryIsUpToDate -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy
     Install-KubernetesArtifacts -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy
 
     Copy-KubernetesImagesFromWindowsHostToRemoteComputer -UserName $UserName -IpAddress $IpAddress

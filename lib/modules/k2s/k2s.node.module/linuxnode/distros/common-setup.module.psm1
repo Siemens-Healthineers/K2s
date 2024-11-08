@@ -15,7 +15,6 @@ $controlPlaneUserName = Get-DefaultUserNameControlPlane
 $wslConfigurationFilePath = '/etc/wsl.conf'
 $k8sDebPackagesDirectory = 'apt-k8s-offline-installation'
 
-$aptCacheBackupPath = "/tmp/apt-cache-backup"
 $aptCachePath = '/var/cache/apt/archives'
 
 $binPath = Get-KubeBinPath
@@ -99,11 +98,11 @@ Function Set-UpComputerAfterProvisioning {
     (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute 'touch ~/.hushlogin' -RemoteUser $remoteUser -RemoteUserPwd $remoteUserPwd).Output | Write-Log
 }
 
-Function Get-KubernetesArtifactsFromInternet {
+Function Set-KubernetesAptRepository {
     param (
         [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
         [string] $UserName = $(throw 'Argument missing: UserName'),
-        [string] $UserPwd = $(throw 'Argument missing: UserPwd'),
+        [string] $UserPwd = '',
         [ValidateScript({ Get-IsValidIPv4Address($_) })]
         [string] $IpAddress = $(throw 'Argument missing: IpAddress'),
         [string] $Proxy = '',
@@ -117,7 +116,11 @@ Function Get-KubernetesArtifactsFromInternet {
             $command = $(throw 'Argument missing: Command'), 
             [switch]$IgnoreErrors = $false, [string]$RepairCmd = $null, [uint16]$Retries = 0
         )
-        (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $command -RemoteUser "$remoteUser" -RemoteUserPwd "$UserPwd" -Retries $Retries -RepairCmd $RepairCmd -IgnoreErrors:$IgnoreErrors).Output | Write-Log
+        if ([string]::IsNullOrWhiteSpace($UserPwd)) {
+            (Invoke-CmdOnVmViaSSHKey -CmdToExecute $command -UserName $UserName -IpAddress $IpAddress -Retries $Retries -RepairCmd $RepairCmd -IgnoreErrors:$IgnoreErrors).Output | Write-Log
+        } else {
+            (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $command -RemoteUser "$remoteUser" -RemoteUserPwd "$UserPwd" -Retries $Retries -RepairCmd $RepairCmd -IgnoreErrors:$IgnoreErrors).Output | Write-Log
+        }
     }
     &$executeRemoteCommand 'echo "APT::Sandbox::User \\"root\\";" | sudo tee /etc/apt/apt.conf.d/10sandbox-for-k2s'
 
@@ -129,8 +132,6 @@ Function Get-KubernetesArtifactsFromInternet {
     &$executeRemoteCommand 'sudo apt-get update' -Retries 2 -RepairCmd 'sudo apt --fix-broken install'
     &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get install -qq --yes curl' -Retries 2 -RepairCmd 'sudo apt --fix-broken install'
 
-    &$executeRemoteCommand "[ -d $aptCacheBackupPath ] && rm -rf $aptCacheBackupPath; mkdir -p $aptCacheBackupPath" -Retries 2 
-    &$executeRemoteCommand "cd $aptCachePath; sudo find -name \`"*.deb\`" -exec sudo mv {} $aptCacheBackupPath ';'" 
 
     # we need major and minor for apt keys
     $proxyToAdd = ''
@@ -159,24 +160,69 @@ Function Get-KubernetesArtifactsFromInternet {
 
     # update apt information
     &$executeRemoteCommand 'sudo apt-get update' -Retries 2 -RepairCmd 'sudo apt --fix-broken install'
+}
+
+Function Confirm-KubernetesAptRepositoryIsUpToDate {
+    param (
+        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
+        [string] $UserName = $(throw 'Argument missing: UserName'),
+        [ValidateScript({ Get-IsValidIPv4Address($_) })]
+        [string] $IpAddress = $(throw 'Argument missing: IpAddress'),
+        [string] $Proxy = ''
+    )
+    Set-KubernetesAptRepository -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy -K8sVersion $kubernetesVersion
+}
+
+Function Get-KubernetesArtifactsFromInternet {
+    param (
+        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
+        [string] $UserName = $(throw 'Argument missing: UserName'),
+        [string] $UserPwd = $(throw 'Argument missing: UserPwd'),
+        [ValidateScript({ Get-IsValidIPv4Address($_) })]
+        [string] $IpAddress = $(throw 'Argument missing: IpAddress'),
+        [string] $Proxy = '',
+        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
+        [string] $K8sVersion = $(throw 'Argument missing: K8sVersion')
+    )
+    $remoteUser = "$UserName@$IpAddress"
+    
+    $executeRemoteCommand = { 
+        param(
+            $Command = $(throw 'Argument missing: Command'), 
+            [switch]$IgnoreErrors = $false, [string]$RepairCmd = $null, [uint16]$Retries = 0
+        )
+        (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $Command -RemoteUser "$remoteUser" -RemoteUserPwd "$UserPwd" -Retries $Retries -RepairCmd $RepairCmd -IgnoreErrors:$IgnoreErrors).Output | Write-Log
+    }
+
+    Set-KubernetesAptRepository -IpAddress $IpAddress -UserName $userName -UserPwd $userPwd -Proxy $Proxy -K8sVersion $K8sVersion 
+
+    $controlPlaneK8sDebPackagesPath = Get-KubernetesDebPackagesPath -UserName $controlPlaneUserName
+    &$executeRemoteCommand "[ -d $controlPlaneK8sDebPackagesPath ] && rm -rf $controlPlaneK8sDebPackagesPath; mkdir -p $controlPlaneK8sDebPackagesPath" -Retries 2
+
+    $downloadPackagesCommand = { 
+        param(
+            $PackageName = $(throw 'Argument missing: PackageName'), 
+            $DebFileNamePattern = $(throw 'Argument missing: DebFileNamePattern')
+        )
+        &$executeRemoteCommand -Retries 2 -Command "cd $controlPlaneK8sDebPackagesPath && sudo apt-get download $PackageName" -RepairCmd 'sudo apt --fix-broken install'
+        &$executeRemoteCommand `
+            -Retries 2 `
+            -Command "cd $controlPlaneK8sDebPackagesPath && sudo DEBIAN_FRONTEND=noninteractive apt-get --reinstall install -y --no-install-recommends --no-install-suggests --simulate ./$DebFileNamePattern | grep 'Inst ' | cut -d ' ' -f 2 | sort -u | xargs sudo apt-get download" `
+            -RepairCmd 'sudo apt --fix-broken install'
+    }
 
     Write-Log 'Download other depended-on tools'
-    &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get --download-only reinstall -y apt-transport-https ca-certificates' -Retries 2
+    &$downloadPackagesCommand -PackageName 'apt-transport-https' -DebFileNamePattern 'apt*.deb'
+    &$downloadPackagesCommand -PackageName 'ca-certificates' -DebFileNamePattern 'ca-*.deb'
 
     Write-Log 'Download cri-o'
-    &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get --download-only reinstall -y cri-o' -Retries 2
+    &$downloadPackagesCommand -PackageName 'cri-o' -DebFileNamePattern 'cri-o*.deb'
 
     Write-Log 'Download kubetools (kubelet, kubeadm, kubectl)'
     $shortKubeVers = ($K8sVersion -replace 'v', '') + '-1.1'
-    &$executeRemoteCommand "sudo DEBIAN_FRONTEND=noninteractive apt-get --download-only reinstall -y kubelet=$shortKubeVers kubeadm=$shortKubeVers kubectl=$shortKubeVers" -Retries 2
-
-    $controlPlaneK8sDebPackagesPath = Get-KubernetesDebPackagesPath -UserName $controlPlaneUserName
-    &$executeRemoteCommand "[ -d $controlPlaneK8sDebPackagesPath ] && rm -rf $controlPlaneK8sDebPackagesPath; mkdir -p $controlPlaneK8sDebPackagesPath" -Retries 2 
-    &$executeRemoteCommand "cd $aptCachePath; sudo find -name \`"*.deb\`" -exec sudo cp {} $controlPlaneK8sDebPackagesPath ';'" 
-    
-    &$executeRemoteCommand "cd $aptCacheBackupPath; sudo find -name \`"*.deb\`" -exec sudo mv {} $aptCachePath ';'" 
-
-    &$executeRemoteCommand "cd $aptCachePath; sudo rm -rf $aptCacheBackupPath" -Retries 2
+    &$downloadPackagesCommand -PackageName "kubectl=$shortKubeVers" -DebFileNamePattern 'kubectl*.deb'
+    &$downloadPackagesCommand -PackageName "kubelet=$shortKubeVers" -DebFileNamePattern 'kubelet*.deb'
+    &$downloadPackagesCommand -PackageName "kubeadm=$shortKubeVers" -DebFileNamePattern 'kubeadm*.deb'
 }
 
 Function Get-KubernetesDebPackagesPath {
@@ -250,12 +296,7 @@ Function Install-KubernetesArtifacts {
     if ($availableDebPackages.Contains("No such file or directory")) {
         throw "The directory '$k8sDebPackagesPath' does not exist in the computer with IP '$IpAddress'. The kubernetes artifacts cannot be installed"
     }
-    
-    &$executeRemoteCommand "cd $k8sDebPackagesPath; sudo DEBIAN_FRONTEND=noninteractive dpkg -i $k8sDebPackagesPath/kubectl*.deb"
-    &$executeRemoteCommand "cd $k8sDebPackagesPath; sudo DEBIAN_FRONTEND=noninteractive dpkg -i $k8sDebPackagesPath/kubelet*.deb"
-    &$executeRemoteCommand "cd $k8sDebPackagesPath; sudo DEBIAN_FRONTEND=noninteractive dpkg -i $k8sDebPackagesPath/kubeadm*.deb"
-    &$executeRemoteCommand "cd $k8sDebPackagesPath; sudo DEBIAN_FRONTEND=noninteractive dpkg -i $k8sDebPackagesPath/cri*.deb"
-    &$executeRemoteCommand "cd $k8sDebPackagesPath; sudo DEBIAN_FRONTEND=noninteractive dpkg -i $k8sDebPackagesPath/buildah*.deb"
+    &$executeRemoteCommand "sudo DEBIAN_FRONTEND=noninteractive dpkg -i $k8sDebPackagesPath/*.deb"
     &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get --fix-broken install -y'
 
     Write-Log "Copying ZScaler Root CA certificate to computer with IP '$IpAddress'"
@@ -531,13 +572,15 @@ Function Install-Tools {
     $remoteUser = "$UserName@$IpAddress"
     $remoteUserPwd = $UserPwd
 
-    $executeRemoteCommand = { param($Command = $(throw 'Argument missing: Command')) 
+    $executeRemoteCommand = { 
+        param(
+            $Command = $(throw 'Argument missing: Command'), 
+            [switch]$IgnoreErrors = $false, [string]$RepairCmd = $null, [uint16]$Retries = 0
+        )
     (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $Command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output | Write-Log
     }
 
     Write-Log 'Start installing tools in the Linux VM'
-
-    Move-CachedAptPackagesToBackupLocation -UserName $UserName -UserPwd $UserPwd -IpAddress $IpAddress
 
     # INSTALL buildah FROM TESTING REPO IN ORDER TO GET A NEWER VERSION
     #################################################################################################################################################################
@@ -545,7 +588,12 @@ Function Install-Tools {
     #First install buildah from latest debian bullseye                                                                                                              #
     &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Options::="--force-confnew" install buildah --yes'                                   #
 
-    Copy-CachedAptPackagesAndRestoreAptPackagesFromBackupLocation -UserName $UserName -UserPwd $UserPwd -IpAddress $IpAddress
+    $controlPlaneK8sDebPackagesPath = Get-KubernetesDebPackagesPath -UserName $controlPlaneUserName
+    &$executeRemoteCommand "sudo cp $aptCachePath/buildah*.deb $controlPlaneK8sDebPackagesPath"
+    &$executeRemoteCommand `
+        -Retries 2 `
+        -Command "cd $controlPlaneK8sDebPackagesPath && sudo DEBIAN_FRONTEND=noninteractive apt-get --reinstall install -y --no-install-recommends --no-install-suggests --simulate ./buildah*.deb | grep 'Inst ' | cut -d ' ' -f 2 | sort -u | xargs sudo apt-get download" `
+        -RepairCmd 'sudo apt --fix-broken install'
 
     #Remove chrony as it is unstable with latest version of buildah                                                                                                 #
     #&$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get remove chrony --yes'                                                                          #
@@ -624,46 +672,6 @@ Function Install-Tools {
 
     Write-Log 'Finished installing tools in Linux'
 
-}
-
-Function Move-CachedAptPackagesToBackupLocation {
-    param (
-        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
-        [string]$UserName = $(throw 'Argument missing: UserName'),
-        [string]$UserPwd = $(throw 'Argument missing: UserPwd'),
-        [ValidateScript({ Get-IsValidIPv4Address($_) })]
-        [string]$IpAddress = $(throw 'Argument missing: IpAddress')
-    )
-    $remoteUser = "$UserName@$IpAddress"
-    $remoteUserPwd = $UserPwd
-
-    $executeRemoteCommand = { param($Command = $(throw 'Argument missing: Command')) 
-        (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $Command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output | Write-Log
-    }
-
-    &$executeRemoteCommand "[ -d $aptCacheBackupPath ] && rm -rf $aptCacheBackupPath; mkdir -p $aptCacheBackupPath" -Retries 2 
-    &$executeRemoteCommand "cd $aptCachePath; sudo find -name \`"*.deb\`" -exec sudo mv {} $aptCacheBackupPath ';'" 
-}
-
-Function Copy-CachedAptPackagesAndRestoreAptPackagesFromBackupLocation {
-    param (
-        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
-        [string]$UserName = $(throw 'Argument missing: UserName'),
-        [string]$UserPwd = $(throw 'Argument missing: UserPwd'),
-        [ValidateScript({ Get-IsValidIPv4Address($_) })]
-        [string]$IpAddress = $(throw 'Argument missing: IpAddress')
-    )
-    $remoteUser = "$UserName@$IpAddress"
-    $remoteUserPwd = $UserPwd
-
-    $executeRemoteCommand = { param($Command = $(throw 'Argument missing: Command')) 
-        (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $Command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output | Write-Log
-    }
-
-    $controlPlaneK8sDebPackagesPath = Get-KubernetesDebPackagesPath -UserName $controlPlaneUserName
-    &$executeRemoteCommand "cd $aptCachePath; sudo find -name \`"*.deb\`" -exec sudo cp {} $controlPlaneK8sDebPackagesPath ';'" 
-    &$executeRemoteCommand "cd $aptCacheBackupPath; sudo find -name \`"*.deb\`" -exec sudo mv {} $aptCachePath ';'" 
-    &$executeRemoteCommand "cd $aptCachePath; sudo rm -rf $aptCacheBackupPath" -Retries 2
 }
 
 function Install-DnsServer {
@@ -1656,4 +1664,5 @@ Get-KubenodeBaseFileName,
 Install-KubernetesArtifacts,
 Remove-KubernetesArtifacts,
 Copy-KubernetesArtifactsFromControlPlaneToRemoteComputer,
-Copy-KubernetesImagesFromWindowsHostToRemoteComputer
+Copy-KubernetesImagesFromWindowsHostToRemoteComputer,
+Confirm-KubernetesAptRepositoryIsUpToDate
