@@ -87,6 +87,8 @@ function New-ControlPlaneNodeOnNewVM {
     Copy-LocalPublicSshKeyToRemoteComputer -UserName $(Get-DefaultUserNameControlPlane) -UserPwd $(Get-DefaultUserPwdControlPlane) -IpAddress $($controlPlaneParams.IpAddress)
     Wait-ForSSHConnectionToLinuxVMViaSshKey
 
+    Remove-ControlPlaneAccessViaUserAndPwd
+    
     # add kubectl to Windows host
     Install-KubectlTool
     # copy kubectl config file into Windows host
