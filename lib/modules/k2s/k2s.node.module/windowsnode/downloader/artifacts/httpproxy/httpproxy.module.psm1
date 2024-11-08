@@ -81,7 +81,7 @@ function Set-ProxyConfigInHttpProxy {
         $noProxyValue = $ProxyOverrides -join ','
         &$kubeBinPath\nssm set httpproxy AppEnvironmentExtra "NO_PROXY=$noProxyValue" | Out-Null
     } else {
-        &$kubeBinPath\nssm set httpproxy AppEnvironmentExtra "NO_PROXY=" | Out-Null
+        &$kubeBinPath\nssm set httpproxy AppEnvironmentExtra "NO_PROXY=.local" | Out-Null
     }
         
     &$kubeBinPath\nssm set httpproxy AppParameters $appParameters | Out-Null
