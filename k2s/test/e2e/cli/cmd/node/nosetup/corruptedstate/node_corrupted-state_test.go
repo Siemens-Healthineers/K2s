@@ -79,7 +79,7 @@ var _ = Describe("node", Ordered, func() {
 
 	Describe("copy", func() {
 		It("prints system-in-corrupted-state message and exits with non-zero", func(ctx context.Context) {
-			output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "node", "copy", "--ip-addr", "", "-s", "", "-t", "")
+			output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "node", "copy", "--ip-addr", "", "-s", "", "-t", "", "-u", "")
 
 			Expect(output).To(ContainSubstring("corrupted state"))
 		})
