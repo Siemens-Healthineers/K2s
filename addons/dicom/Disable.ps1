@@ -55,13 +55,13 @@ if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'dicom', '--ignore-not
     exit 1
 }
 
-$manifestsPath = "$PSScriptRoot\manifests\orthanc"
+$manifestsPath = "$PSScriptRoot\manifests"
 
 Write-Log 'Uninstalling dicom server' -Console
 Remove-IngressForTraefik -Addon ([pscustomobject] @{Name = 'dicom' })
 Remove-IngressForNginx -Addon ([pscustomobject] @{Name = 'dicom' })
 (Invoke-Kubectl -Params 'delete', '-k', $manifestsPath).Output | Write-Log
-(Invoke-Kubectl -Params 'delete', '-f', "$manifestsPath\orthanc-namespace.yaml").Output | Write-Log
+(Invoke-Kubectl -Params 'delete', '-f', "$manifestsPath\dicom-namespace.yaml").Output | Write-Log
 
 Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'dicom' })
 
