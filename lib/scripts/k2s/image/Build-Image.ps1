@@ -61,12 +61,12 @@ Build Arguments for building container image
 Show all logs in terminal
 
 .EXAMPLE
-# Build a linux image 'k2s-registry.local/testserver:v1' and push to registry 'k2s-registry.local'
-PS> .\Build-Image.ps1 -ImageName k2s-registry.local/testserver -ImageTag v1 -Push
+# Build a linux image 'k2s.registry.local/testserver:v1' and push to registry 'k2s.registry.local'
+PS> .\Build-Image.ps1 -ImageName k2s.registry.local/testserver -ImageTag v1 -Push
 
 .EXAMPLE
-# Build a linux image 'k2s-registry.local/testserver:v1' with several options e.g. pre-compile outside of container and optimize size
-PS> .\Build-Image.ps1 -ImageName k2s-registry.local/testserver -Tag v1 -PreCompile -Optimize -Distroless -NoCGO
+# Build a linux image 'k2s.registry.local/testserver:v1' with several options e.g. pre-compile outside of container and optimize size
+PS> .\Build-Image.ps1 -ImageName k2s.registry.local/testserver -Tag v1 -PreCompile -Optimize -Distroless -NoCGO
 #>
 
 Param(
@@ -442,10 +442,7 @@ if (Test-Path '.\.npmrc') {
 # Push image to registry
 if ($Push) {
     $registry = Get-ConfiguredRegistryFromImageName -ImageName $ImageName
-    if ($null -ne $registry) {
-        &"$PSScriptRoot\registry\Switch-Registry.ps1" -RegistryName $registry
-    }
-    else {    
+    if ($null -eq $registry) {
         $errMsg = 'Unable to push the built container image, Registry is not configured in k2s! You can add it: k2s image registry add <registry_name>'
         if ($EncodeStructuredOutput -eq $true) {
             $err = New-Error -Code 'build-image-failed' -Message $errMsg

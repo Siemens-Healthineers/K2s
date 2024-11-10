@@ -28,12 +28,3 @@ The following command shows how to display all configured registries:
 ```console
 k2s image registry ls
 ```
-
-## Switching Between Configured Registries
-Once you have added a registry to *K2s*, the container runtimes are always configured to pull images when deploying a pod with an image from a configured registry in the *K2s* cluster. 
-
-In order to push images you have to be logged in into the registry you want to push to. Since it is only possible to be logged in into one registry at the same time you have to switch the login to the configured registry you want to push to:
-
-```console
-k2s image registry switch k2s-registry.local
-```

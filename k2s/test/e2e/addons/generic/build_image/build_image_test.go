@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	registryName        = "k2s-registry.local"
+	registryName        = "k2s.registry.local"
 	clusterIp           = "172.19.1.100"
 	weatherLinuxSrcPath = "weather"
 	weatherWinSrcPath   = "weather-win"
@@ -55,7 +55,8 @@ var _ = Describe("build container image", Ordered, func() {
 	When("Default Ingress", func() {
 		Context("registry addon is enabled {nginx}", func() {
 			BeforeAll(func(ctx context.Context) {
-				suite.K2sCli().Run(ctx, "addons", "enable", "registry", "-d", "-o")
+				suite.K2sCli().Run(ctx, "addons", "enable", "ingress", "nginx", "-o")
+				suite.K2sCli().Run(ctx, "addons", "enable", "registry", "-o")
 			})
 
 			AfterAll(func(ctx context.Context) {
@@ -68,7 +69,7 @@ var _ = Describe("build container image", Ordered, func() {
 
 			It("local container registry is configured", func(ctx context.Context) {
 				output := suite.K2sCli().Run(ctx, "image", "registry", "ls")
-				Expect(output).Should(ContainSubstring("k2s-registry.local"), "Local Registry was not enabled")
+				Expect(output).Should(ContainSubstring("k2s.registry.local"), "Local Registry was not enabled")
 			})
 
 			Context("build linux based container image", func() {
@@ -108,7 +109,7 @@ var _ = Describe("build container image", Ordered, func() {
 						images := suite.K2sCli().GetImages(ctx)
 						Expect(images.IsImageAvailableInLocalRegistry(weatherImageName, randomImageTag)).To(BeTrue(), fmt.Sprintf("Image found in Registry Name:%v, Tag:%v", weatherImageName, randomImageTag))
 
-						suite.K2sCli().Run(ctx, "image", "push", getImageNameWithTag(weatherImageName, randomImageTag))
+						suite.K2sCli().Run(ctx, "image", "push", "-n", getImageNameWithTag(weatherImageName, randomImageTag))
 
 						images = suite.K2sCli().GetImages(ctx)
 						Expect(images.IsImageAvailableInLocalRegistry(weatherImageName, randomImageTag)).To(BeTrue(), fmt.Sprintf("Image Not found in Registry Name:%v, Tag:%v", weatherImageName, randomImageTag))
@@ -116,7 +117,7 @@ var _ = Describe("build container image", Ordered, func() {
 
 					It("Built image can be tagged", func(ctx context.Context) {
 						newTag := "retagged"
-						suite.K2sCli().Run(ctx, "image", "tag", getImageNameWithTag(weatherImageName, randomImageTag), getImageNameWithTag(weatherImageName, newTag))
+						suite.K2sCli().Run(ctx, "image", "tag", "-n", getImageNameWithTag(weatherImageName, randomImageTag), "-t", getImageNameWithTag(weatherImageName, newTag))
 
 						images := suite.K2sCli().GetImages(ctx)
 						Expect(images.IsImageAvailableOnNode(weatherImageName, newTag)).To(BeTrue(), fmt.Sprintf("Image Not found on node Name:%v, Tag:%v", weatherImageName, newTag))
@@ -242,7 +243,7 @@ var _ = Describe("build container image", Ordered, func() {
 						images := suite.K2sCli().GetImages(ctx)
 						Expect(images.IsImageAvailableInLocalRegistry(weatherImageName, randomImageTag)).To(BeTrue(), fmt.Sprintf("Image found in Registry Name:%v, Tag:%v", weatherImageName, randomImageTag))
 
-						suite.K2sCli().Run(ctx, "image", "push", getImageNameWithTag(weatherImageName, randomImageTag))
+						suite.K2sCli().Run(ctx, "image", "push", "-n", getImageNameWithTag(weatherImageName, randomImageTag))
 
 						images = suite.K2sCli().GetImages(ctx)
 						Expect(images.IsImageAvailableInLocalRegistry(weatherImageName, randomImageTag)).To(BeTrue(), fmt.Sprintf("Image Not found in Registry Name:%v, Tag:%v", weatherImageName, randomImageTag))
@@ -250,7 +251,7 @@ var _ = Describe("build container image", Ordered, func() {
 
 					It("Built image can be tagged", func(ctx context.Context) {
 						newTag := "retagged"
-						suite.K2sCli().Run(ctx, "image", "tag", getImageNameWithTag(weatherImageName, randomImageTag), getImageNameWithTag(weatherImageName, newTag))
+						suite.K2sCli().Run(ctx, "image", "tag", "-n", getImageNameWithTag(weatherImageName, randomImageTag), "-t", getImageNameWithTag(weatherImageName, newTag))
 
 						images := suite.K2sCli().GetImages(ctx)
 						Expect(images.IsImageAvailableOnNode(weatherImageName, newTag)).To(BeTrue(), fmt.Sprintf("Image Not found on node Name:%v, Tag:%v", weatherImageName, newTag))

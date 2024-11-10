@@ -27,7 +27,7 @@ The following addons will be deployed with **K2s**:
 | [logging](./logging/README.md) | Dashboard for Kubernetes container logs | 
 | [metrics](./metrics/README.md) | Kubernetes metrics server for API Access to service metrics | 
 | [monitoring](./monitoring/README.md) | Dashboard for cluster resource monitoring and logging | 
-| [registry](./registry/README.md) | Private image registry running in the Kubernetes cluster exposed on k2s-registry.local | 
+| [registry](./registry/README.md) | Private image registry running in the Kubernetes cluster exposed on k2s.registry.local | 
 | [rollout](./rollout/README.md) | Automating the deployment/updating of applications | 
 | [security](./security/README.md) | EXPERIMENTAL: Enables secure communication into and inside the cluster | 
 | [storage smb](./storage/smb/README.md) | StorageClass provisioning based on SMB share between K8s nodes (Windows/Linux) | 
