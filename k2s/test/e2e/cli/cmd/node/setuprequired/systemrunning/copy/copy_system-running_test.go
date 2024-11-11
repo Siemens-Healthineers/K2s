@@ -16,7 +16,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
 	"github.com/siemens-healthineers/k2s/test/framework"
 	"github.com/siemens-healthineers/k2s/test/framework/k2s"
 )
@@ -39,7 +38,8 @@ func TestCopy(t *testing.T) {
 var _ = BeforeSuite(func(ctx context.Context) {
 	suite = framework.Setup(ctx, framework.SystemMustBeRunning, framework.ClusterTestStepPollInterval(100*time.Millisecond))
 
-	skipWinNodeTests = suite.SetupInfo().SetupConfig.SetupName != setupinfo.SetupNameMultiVMK8s || suite.SetupInfo().SetupConfig.LinuxOnly
+	// TODO: remove when multivm connects with same SSH key to win node as to control-plane
+	skipWinNodeTests = true //suite.SetupInfo().SetupConfig.SetupName != setupinfo.SetupNameMultiVMK8s || suite.SetupInfo().SetupConfig.LinuxOnly
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
