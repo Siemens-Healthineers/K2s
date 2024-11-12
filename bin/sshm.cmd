@@ -1,5 +1,5 @@
 @echo off
-REM SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+REM SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 REM SPDX-License-Identifier: MIT
 REM wrapper for powershell script with same name
 SET installationDirectory=%~dp0..
