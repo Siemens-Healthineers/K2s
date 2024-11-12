@@ -43,7 +43,7 @@ func init() {
 
 func removeRegistry(cmd *cobra.Command, args []string) error {
 	if len(args) == 0 || args[0] == "" {
-		return errors.New("no registry passed in CLI, use e.g. 'k2s image registry remove <registry-name>'")
+		return errors.New("no registry passed in CLI, use e.g. 'k2s image registry rm <registry-name>'")
 	}
 
 	registryName := args[0]
