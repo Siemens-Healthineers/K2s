@@ -15,10 +15,10 @@ Add access to a registry
 The name of the registry to be added
 
 .PARAMETER Username
-The image name of the image to be exported
+The username for the registry
 
 .PARAMETER Password
-The path where the image sould be exported
+The password for the registry
 
 .PARAMETER ShowLogs
 Show all logs in terminal
