@@ -652,6 +652,9 @@ Function Set-UpMasterNode {
     &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get install dnsutils --yes' 
     &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get install dnsmasq --yes' 
 
+    Write-Log 'Scale down coredns to 1 replicas'
+    &$executeRemoteCommand 'kubectl scale deployment coredns -n kube-system --replicas=1'
+
     Write-Log 'Configure custom DNS server'
     # add more interfaces to listen on
     &$executeRemoteCommand "echo server=/cluster.local/$KubeDnsServiceIP | sudo tee -a /etc/dnsmasq.conf" 
