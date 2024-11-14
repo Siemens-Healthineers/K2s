@@ -460,8 +460,8 @@ function Get-FlannelImages {
     }
 
     Write-Log 'Get images used by flannel'
-    &$executeRemoteCommand 'sudo crictl pull rancher/mirrored-flannelcni-flannel-cni-plugin:v1.1.0' 
-    &$executeRemoteCommand 'sudo crictl pull rancher/mirrored-flannelcni-flannel:v0.18.1' 
+    &$executeRemoteCommand 'sudo crictl pull docker.io/flannel/flannel-cni-plugin:v1.5.1-flannel2' 
+    &$executeRemoteCommand 'sudo crictl pull docker.io/flannel/flannel:v0.26.1' 
 }
 
 function Set-Nameserver {
