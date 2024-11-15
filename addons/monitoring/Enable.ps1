@@ -91,7 +91,7 @@ if (!$kubectlCmd.Success) {
     Write-Log $errMsg -Error
     exit 1
 }
-$kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'statefulsets', '-n', 'monitoring', '--timeout=180s')
+$kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'daemonsets', '-n', 'monitoring', '--timeout=180s')
 Write-Log $kubectlCmd.Output
 if (!$kubectlCmd.Success) {
     $errMsg = 'Kube Prometheus Stack could not be deployed!'
@@ -104,7 +104,7 @@ if (!$kubectlCmd.Success) {
     Write-Log $errMsg -Error
     exit 1
 }
-$kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'daemonsets', '-n', 'monitoring', '--timeout=180s')
+$kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'statefulsets', '-n', 'monitoring', '--timeout=180s')
 Write-Log $kubectlCmd.Output
 if (!$kubectlCmd.Success) {
     $errMsg = 'Kube Prometheus Stack could not be deployed!'
