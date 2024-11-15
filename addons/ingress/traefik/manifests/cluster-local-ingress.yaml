@@ -20,7 +20,6 @@ metadata:
     cert-manager.io/cluster-issuer: k2s-ca-issuer
     cert-manager.io/common-name: k2s.cluster.local
   name: traefik-cluster-local
-  namespace: ingress-traefik
 spec:
   ingressClassName: traefik
   rules:
