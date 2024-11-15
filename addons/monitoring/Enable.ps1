@@ -104,6 +104,17 @@ if (!$kubectlCmd.Success) {
     Write-Log $errMsg -Error
     exit 1
 }
+
+while (!(Invoke-Kubectl -Params 'get', 'alertmanager', 'kube-prometheus-stack-alertmanager', '-n', 'monitoring').Success) {
+    Write-Log "Alertmanager resource not existing yet..."
+    Start-Sleep 2
+}
+
+while (!(Invoke-Kubectl -Params 'get', 'prometheus', 'kube-prometheus-stack-prometheus', '-n', 'monitoring').Success) {
+    Write-Log "Prometheus resource not existing yet..."
+    Start-Sleep 2
+}
+
 $kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'statefulsets', '-n', 'monitoring', '--timeout=180s')
 Write-Log $kubectlCmd.Output
 if (!$kubectlCmd.Success) {
