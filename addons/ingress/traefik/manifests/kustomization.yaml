@@ -8,20 +8,16 @@ kind: Kustomization
 generatorOptions:
   disableNameSuffixHash: true
 
+namespace: ingress-traefik
+
 resources:
+  - namespace.yaml
   - clusterrole.yaml
   - clusterrolebinding.yaml
   - serviceaccount.yaml
   - deployment.yaml
   - ingressclass.yaml
   - service.yaml
-  - crds/ingressroutetcp.yaml
-  - crds/ingressrouteudp.yaml
-  - crds/ingressroute.yaml
-  - crds/middlewarestcp.yaml
-  - crds/middlewares.yaml
-  - crds/serverstransports.yaml
-  - crds/tlsoptions.yaml
-  - crds/tlsstores.yaml
-  - crds/traefikservices.yaml
+  # - ingressroute.yaml
+  - crds/crds.yaml
 
