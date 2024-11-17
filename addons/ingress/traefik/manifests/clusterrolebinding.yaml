@@ -1,8 +1,6 @@
-# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
-
----
 
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
@@ -11,7 +9,7 @@ metadata:
   labels:
     app.kubernetes.io/name: traefik
     app.kubernetes.io/instance: traefik-traefik
-    helm.sh/chart: traefik-20.8.0
+    helm.sh/chart: traefik-27.0.2
     app.kubernetes.io/managed-by: Helm
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -21,4 +19,5 @@ subjects:
   - kind: ServiceAccount
     name: traefik
     namespace: ingress-traefik
+---
 
