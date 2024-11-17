@@ -105,14 +105,30 @@ if (!$kubectlCmd.Success) {
     exit 1
 }
 
-while (!(Invoke-Kubectl -Params 'get', 'alertmanager', 'kube-prometheus-stack-alertmanager', '-n', 'monitoring').Success) {
-    Write-Log "Alertmanager resource not existing yet..."
-    Start-Sleep 2
+$allPodsAreUp = (Wait-ForPodCondition -Condition Ready -Label 'app=kube-prometheus-stack-alertmanager' -Namespace 'monitoring' -TimeoutSeconds 120)
+if ($allPodsAreUp -ne $true) {
+    $errMsg = "Alertmanager could not be deployed!"
+    if ($EncodeStructuredOutput -eq $true) {
+        $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+        return
+    }
+
+    Write-Log $errMsg -Error
+    exit 1  
 }
 
-while (!(Invoke-Kubectl -Params 'get', 'prometheus', 'kube-prometheus-stack-prometheus', '-n', 'monitoring').Success) {
-    Write-Log "Prometheus resource not existing yet..."
-    Start-Sleep 2
+$allPodsAreUp = (Wait-ForPodCondition -Condition Ready -Label 'app=kube-prometheus-stack-prometheus' -Namespace 'monitoring' -TimeoutSeconds 120)
+if ($allPodsAreUp -ne $true) {
+    $errMsg = "Prometheus could not be deployed!"
+    if ($EncodeStructuredOutput -eq $true) {
+        $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+        return
+    }
+
+    Write-Log $errMsg -Error
+    exit 1  
 }
 
 $kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'statefulsets', '-n', 'monitoring', '--timeout=180s')
