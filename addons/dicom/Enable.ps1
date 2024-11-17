@@ -73,7 +73,6 @@ if ($Ingress -ne 'none') {
 $manifestsPath = "$PSScriptRoot\manifests"
 Write-Log $manifestsPath -Console
 Write-Log 'Installing dicom server' -Console
-# (Invoke-Kubectl -Params 'apply', '-f', "$manifestsPath\dicom-namespace.yaml.yaml").Output | Write-Log
 (Invoke-Kubectl -Params 'create', '-k', $manifestsPath).Output | Write-Log
 
 Update-IngressForAddon -Addon ([pscustomobject] @{Name = 'dicom' })

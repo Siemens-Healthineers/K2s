@@ -3,15 +3,15 @@ kind: Kustomization
 namespace: dicom
 resources:
 - dicom-namespace.yaml
+- mysql-pv.yaml
+- mysql-pvc.yaml
+- mysql-deployment.yaml
+- mysql-service.yaml
 - dicom-pv.yaml
 - dicom-pvc.yaml
 - dicom-deployment.yaml
 - dicom-service.yaml
 - dicom-ingress.yaml
-- mysql-deployment.yaml
-- mysql-service.yaml
-- mysql-pv.yaml
-- mysql-pvc.yaml
 
 generatorOptions:
   disableNameSuffixHash: true

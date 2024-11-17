@@ -1,7 +1,9 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: orthanc
+  name: dicom
+  labels:
+    app: dicom
 spec:
   replicas: 1
   selector:
