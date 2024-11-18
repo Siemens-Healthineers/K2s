@@ -8,19 +8,10 @@ $fileModule = "$PSScriptRoot\..\..\k2s.infra.module\config\file.module.psm1"
 Import-Module $pathModule, $configModule, $fileModule
 
 $k2sConfigDir = Get-K2sConfigDir
-
-#CONSTANTS
-New-Variable -Name 'ClusterDescriptorFile' -Value "$k2sConfigDir\cluster.json" -Option Constant
+$clusterDescriptorFile = "$k2sConfigDir\cluster.json"
 
 function Get-ClusterDescriptorFilePath {
-    return $ClusterDescriptorFile
-}
-
-function Set-ConfigInstalledK2sType {
-    param (
-        [object] $Value = $(throw 'Please provide the config value.')
-    )
-    Set-ConfigValue -Path $ClusterDescriptorFile -Key 'Name' -Value $Value
+    return $clusterDescriptorFile
 }
 
 function Add-NodeConfig {
@@ -37,8 +28,7 @@ function Add-NodeConfig {
 
     $existingNode = $json.nodes | Where-Object { $_.Name -eq $Name }
     if ($existingNode) {
-        Write-Error "A node configuration with the name '$Name' already exists."
-        return
+        throw "A node configuration with the name '$Name' already exists."
     }
 
     $newNode = @{
@@ -49,8 +39,8 @@ function Add-NodeConfig {
         OS        = $OS
     }
     $json.nodes += $newNode
-    Save-JsonContent -JsonObject $json -FilePath $FilePath
-    Write-Log "Node '$Name' configuration added successfully." -
+    Save-JsonContent -JsonObject $json -FilePath $clusterFilePath
+    Write-Log "Node '$Name' configuration added successfully."
 }
 
 function Remove-NodeConfig {
@@ -68,7 +58,7 @@ function Remove-NodeConfig {
     }
 
     $json.nodes = $json.nodes | Where-Object { $_.Name -ne $Name }
-    Save-JsonContent -JsonObject $json -FilePath $FilePath
+    Save-JsonContent -JsonObject $json -FilePath $clusterFilePath
     Write-Log "Node '$Name' configuration removed successfully."
 }
 
@@ -76,7 +66,8 @@ function Get-NodeConfig {
     param (
         [string]$NodeName
     )
-    $json = Get-JsonContent -FilePath $FilePath
+    $clusterFilePath = Get-ClusterDescriptorFilePath
+    $json = Get-JsonContent -FilePath $clusterFilePath
     if (-Not $json) { return $null }
 
     $node = $json.nodes | Where-Object { $_.Name -eq $NodeName }
@@ -119,7 +110,7 @@ function Update-NodeConfig {
         }
     }
 
-    Save-JsonContent -JsonObject $json -FilePath $FilePath
+    Save-JsonContent -JsonObject $json -FilePath $clusterFilePath
     Write-Log "Node '$Name' configuration updated successfully."
 }
 
