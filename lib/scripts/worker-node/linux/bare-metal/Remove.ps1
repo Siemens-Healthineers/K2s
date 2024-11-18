@@ -6,8 +6,8 @@
 
 Param(
     [string] $NodeName = $(throw 'Argument missing: NodeName'),
-    [string] $UserName = $(throw 'Argument missing: UserName'),
-    [string] $IpAddress = $(throw 'Argument missing: IpAddress'),
+    [string] $UserName = '',
+    [string] $IpAddress = '',
     [switch] $ShowLogs = $false,
     [string] $AdditionalHooksDir = '',
     [switch] $SkipHeaderDisplay = $false
@@ -27,6 +27,23 @@ $ErrorActionPreference = 'Stop'
 # make sure we are at the right place for install
 $installationPath = Get-KubePath
 Set-Location $installationPath
+
+$node = Get-NodeConfig -NodeName $NodeName
+
+if ($null -ne $node) {
+    if ($UserName -eq '') {
+        $UserName = $node.UserName
+    }
+
+    if ($IpAddress -eq '') {
+        $IpAddress = $node.IpAddress
+    }
+}
+
+if ($UserName -eq '' -or $IpAddress -eq '') {
+   Write-Log "[WARN] Cannot remove the node without Username and IpAddress."
+   return
+}
 
 # check if the computer is already part of the cluster
 $k8sFormattedNodeName = $NodeName.ToLower()
