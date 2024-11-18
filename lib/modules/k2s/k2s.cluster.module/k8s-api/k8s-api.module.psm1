@@ -765,7 +765,7 @@ function Wait-ForPodCondition {
 
     if ($Condition -eq 'Ready') {
         $conditionParam = '--for=condition=ready'
-        $params = 'wait', 'pod', '-l', $Label, '-n', $Namespace, '--for=create', "--timeout=10s"
+        $params = 'wait', 'pod', '-l', $Label, '-n', $Namespace, '--for=create', "--timeout=30s"
         Write-Information "Invoking kubectl with '$params'.."
     
         $result = Invoke-Kubectl -Params $params
