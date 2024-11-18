@@ -765,24 +765,24 @@ function Wait-ForPodCondition {
 
     if ($Condition -eq 'Ready') {
         $conditionParam = '--for=condition=ready'
-        $params = 'wait', 'pod', '-l', $Label, '-n', $Namespace, '--for=create', "--timeout=30s"
-        Write-Information "Invoking kubectl with '$params'.."
-    
-        $result = Invoke-Kubectl -Params $params
-        if ($result.Success -ne $true) {
-            throw $result.Output
-        }
     }
 
     if ($Condition -eq 'Deleted') {
         $conditionParam = '--for=delete'
     }
 
-    $params = 'wait', 'pod', '-l', $Label, '-n', $Namespace, $conditionParam, "--timeout=$($TimeoutSeconds)s"
-
     Write-Information "Invoking kubectl with '$params'.."
 
-    $result = Invoke-Kubectl -Params $params
+    do {
+        Start-Sleep 1
+        $TimeoutSeconds = $TimeoutSeconds - 1
+        $params = 'wait', 'pod', '-l', $Label, '-n', $Namespace, $conditionParam, "--timeout=$($TimeoutSeconds)s"
+        $result = Invoke-Kubectl -Params $params
+        if ($result.Output -match "timed out") {
+            $TimeoutSeconds = 0
+        }
+    } while ($result.Success -ne $true -and $TimeoutSeconds -gt 0)
+
     if ($result.Success -ne $true) {
         throw $result.Output
     }
