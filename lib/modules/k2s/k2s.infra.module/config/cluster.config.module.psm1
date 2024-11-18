@@ -72,6 +72,22 @@ function Remove-NodeConfig {
     Write-Log "Node '$Name' configuration removed successfully."
 }
 
+function Get-NodeConfig {
+    param (
+        [string]$NodeName
+    )
+    $json = Get-JsonContent -FilePath $FilePath
+    if (-Not $json) { return $null }
+
+    $node = $json.nodes | Where-Object { $_.Name -eq $NodeName }
+    if (-Not $node) {
+        Write-Log "No node configuration found with the name '$NodeName'."
+        return $null
+    }
+
+    return $node
+}
+
 <#
 Update-NodeConfig -Name "gtry22c" -Updates @{
     Role = "master"
@@ -107,4 +123,5 @@ function Update-NodeConfig {
     Write-Log "Node '$Name' configuration updated successfully."
 }
 
-Export-ModuleMember -Function Add-NodeConfig, Remove-NodeConfig, Update-NodeConfig
+Export-ModuleMember -Function Add-NodeConfig, Remove-NodeConfig,
+Get-NodeConfig, Update-NodeConfig
