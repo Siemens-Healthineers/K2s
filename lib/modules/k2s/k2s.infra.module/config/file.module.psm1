@@ -6,7 +6,7 @@ function Get-JsonContent {
         [string]$FilePath
     )
     if (-Not (Test-Path $FilePath)) {
-        Write-Error "The file '$FilePath' does not exist."
+        Write-Log "The file '$FilePath' does not exist."
         return $null
     }
     return Get-Content -Path $FilePath | ConvertFrom-Json
