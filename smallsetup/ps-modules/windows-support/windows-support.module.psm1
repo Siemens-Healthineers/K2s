@@ -56,6 +56,12 @@ $WindowsImageVersions = [pscustomobject]@{
     BaseVersion = 'ltsc2022';
     TagSuffix   = 'win11-21H2';
     OSVersion   = '10.0.20348.2113'
+}, [pscustomobject]@{
+    OS          = 'windows';
+    Arch        = 'amd64';
+    BaseVersion = 'ltsc2025';
+    TagSuffix   = 'win11-24H2';
+    OSVersion   = '10.0.26100.2314'
 }
 
 function Get-WindowsImageVersions {
