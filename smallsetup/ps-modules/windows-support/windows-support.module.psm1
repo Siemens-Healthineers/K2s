@@ -11,12 +11,6 @@ $WindowsImageVersions = [pscustomobject]@{
 }, [pscustomobject]@{
     OS          = 'windows';
     Arch        = 'amd64';
-    BaseVersion = '2004';
-    TagSuffix   = 'win10-2004';
-    OSVersion   = '10.0.19041.1348'
-} , [pscustomobject]@{
-    OS          = 'windows';
-    Arch        = 'amd64';
     BaseVersion = '20H2';
     TagSuffix   = 'win10-20H2';
     OSVersion   = '10.0.19042.2251' # Win 10 / Win Server
@@ -37,6 +31,12 @@ $WindowsImageVersions = [pscustomobject]@{
     Arch        = 'amd64';
     BaseVersion = 'ltsc2022';
     TagSuffix   = 'win11-21H2';
+    OSVersion   = '10.0.20348.2113'
+}, [pscustomobject]@{
+    OS          = 'windows';
+    Arch        = 'amd64';
+    BaseVersion = 'ltsc2022';
+    TagSuffix   = 'win11-21H2';
     OSVersion   = '10.0.22000.121'
 }, [pscustomobject]@{
     OS          = 'windows';
@@ -50,12 +50,6 @@ $WindowsImageVersions = [pscustomobject]@{
     BaseVersion = 'ltsc2022';
     TagSuffix   = 'win11-23H2';
     OSVersion   = '10.0.22631.2861'
-}, [pscustomobject]@{
-    OS          = 'windows';
-    Arch        = 'amd64';
-    BaseVersion = 'ltsc2022';
-    TagSuffix   = 'win11-21H2';
-    OSVersion   = '10.0.20348.2113'
 }, [pscustomobject]@{
     OS          = 'windows';
     Arch        = 'amd64';
