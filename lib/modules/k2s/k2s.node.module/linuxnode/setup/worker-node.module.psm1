@@ -270,7 +270,15 @@ function Add-LinuxWorkerNodeOnUbuntuBareMetal {
         [string] $AdditionalHooksDir = ''
     )
 
-    Add-NodeConfig -Name $NodeName -Role 'worker' -IpAddress $IpAddress -UserName $UserName -OS 'linux'
+    $nodeParams = @{
+        Name = $NodeName
+        IpAddress = $IpAddress
+        UserName = $UserName
+        NodeType = 'HOST'
+        Role = 'worker'
+        OS = 'linux'
+    }
+    Add-NodeConfig @nodeParams
 
     Write-Log "Installing node essentials" -Console
     $k8sVersion = Get-DefaultK8sVersion
@@ -308,7 +316,6 @@ function Remove-LinuxWorkerNodeOnUbuntuBareMetal {
     Write-Log "Removing K2s worker node '$NodeName'"
 
     $doAfterRemoving = {
-        Write-Log "Reconfiguring networking after removal" -Console
         # delete routes
         $controlPlaneCIDR = Get-ConfiguredControlPlaneCIDR
         (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo ip route delete $controlPlaneCIDR" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
@@ -318,6 +325,8 @@ function Remove-LinuxWorkerNodeOnUbuntuBareMetal {
 
         # delete network interface 'cni0' that was created by flannel
         (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo ip link delete cni0" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
+
+        Write-Log "Reconfigured networking for node removal" -Console
     }
 
     $k8sFormattedNodeName = $NodeName.ToLower()
