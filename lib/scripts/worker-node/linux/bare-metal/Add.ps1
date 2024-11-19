@@ -28,6 +28,8 @@ $ErrorActionPreference = 'Stop'
 $installationPath = Get-KubePath
 Set-Location $installationPath
 
+Write-Log "Performing pre-requisites check" -Console
+
 # check if the computer is already part of the cluster
 $k8sFormattedNodeName = $NodeName.ToLower()
 $clusterState = (Invoke-Kubectl -Params @('get', 'nodes', '-o', 'wide')).Output
@@ -91,7 +93,7 @@ $workerNodeParams = @{
 Add-LinuxWorkerNodeOnUbuntuBareMetal @workerNodeParams
 
 if (! $SkipStart) {
-    Write-Log 'Starting worker node'
+    Write-Log 'Starting worker node' -Console
     & "$PSScriptRoot\Start.ps1" -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs -SkipHeaderDisplay -IpAddress $IpAddress -NodeName $NodeName
 
     if ($RestartAfterInstallCount -gt 0) {
@@ -115,10 +117,10 @@ if (! $SkipStart) {
     }
 }
 
-Write-Log "Current state of kubernetes nodes:`n"
+Write-Log "Current state of cluster nodes:" -Console
 Start-Sleep 2
 $kubeToolsPath = Get-KubeToolsPath
-&"$kubeToolsPath\kubectl.exe" get nodes -o wide 2>&1 | ForEach-Object { "$_" } | Write-Log
+&"$kubeToolsPath\kubectl.exe" get nodes -o wide 2>&1 | ForEach-Object { "$_" } | Write-Log -Console
 
 Write-Log '---------------------------------------------------------------'
 Write-Log "Linux computer with IP '$IpAddress' and hostname '$NodeName' added to the cluster.   Total duration: $('{0:hh\:mm\:ss}' -f $durationStopwatch.Elapsed )"

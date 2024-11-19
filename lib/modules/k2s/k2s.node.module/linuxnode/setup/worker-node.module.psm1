@@ -272,10 +272,12 @@ function Add-LinuxWorkerNodeOnUbuntuBareMetal {
 
     Add-NodeConfig -Name $NodeName -Role 'worker' -IpAddress $IpAddress -UserName $UserName -OS 'linux'
 
+    Write-Log "Installing node essentials" -Console
     $k8sVersion = Get-DefaultK8sVersion
     Install-KubernetesArtifacts -UserName $UserName -IpAddress $IpAddress -K8sVersion $k8sVersion -Proxy $Proxy
 
     $doBeforeJoining = {
+        Write-Log "Configuring networking for adding the node" -Console
         # add a route to the cluster network over the Windows host IP address
         $controlPlaneCIDR = Get-ConfiguredControlPlaneCIDR
         (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo ip route add $controlPlaneCIDR via $WindowsHostIpAddress" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
@@ -291,6 +293,7 @@ function Add-LinuxWorkerNodeOnUbuntuBareMetal {
         netsh int ipv4 set int $networkInterfaceName forwarding=enabled | Out-Null
     }
 
+    Write-Log "Joining new node to the cluster" -Console
     $k8sFormattedNodeName = $NodeName.ToLower()
     Join-LinuxNode -NodeName $k8sFormattedNodeName.ToLower() -NodeUserName $UserName -NodeIpAddress $IpAddress -PreStepHook $doBeforeJoining
 }
@@ -300,15 +303,12 @@ function Remove-LinuxWorkerNodeOnUbuntuBareMetal {
         [string] $NodeName = $(throw 'Argument missing: NodeName'),
         [string] $UserName = $(throw 'Argument missing: UserName'),
         [string] $IpAddress = $(throw 'Argument missing: IpAddress'),
-        [string] $AdditionalHooksDir = '',
-        [switch] $SkipHeaderDisplay = $false
+        [string] $AdditionalHooksDir = ''
     )
-
-    if ($SkipHeaderDisplay -eq $false) {
-        Write-Log "Removing K2s worker node '$NodeName'"
-    }
+    Write-Log "Removing K2s worker node '$NodeName'"
 
     $doAfterRemoving = {
+        Write-Log "Reconfiguring networking after removal" -Console
         # delete routes
         $controlPlaneCIDR = Get-ConfiguredControlPlaneCIDR
         (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo ip route delete $controlPlaneCIDR" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
@@ -324,15 +324,15 @@ function Remove-LinuxWorkerNodeOnUbuntuBareMetal {
     $clusterState = (Invoke-Kubectl -Params @('get', 'nodes', '-o', 'wide')).Output
     if ($clusterState -match $k8sFormattedNodeName) {
         Remove-LinuxNode -NodeName $k8sFormattedNodeName -NodeUserName $UserName -NodeIpAddress $IpAddress -PostStepHook $doAfterRemoving
+        Write-Log "Removed node from the cluster" -Console
     }
 
     Remove-KubernetesArtifacts -UserName $UserName -IpAddress $IpAddress
+    Write-Log "Removed node essentials from the remote machine" -Console
 
     Remove-NodeConfig -Name $NodeName
 
-    if ($SkipHeaderDisplay -eq $false) {
-        Write-Log "Removing K2s worker node '$NodeName' done."
-    }
+    Write-Log "Removing K2s worker node '$NodeName' complete."
 }
 
 function Start-LinuxWorkerNodeOnUbuntuBareMetal {
