@@ -138,7 +138,7 @@ function Remove-Cmctl {
 Waits for the keycloak pods to be available.
 #>
 function Wait-ForKeyCloakAvailable {
-    return (Wait-ForPodCondition -Condition Ready -Label 'app=keycloak' -Namespace 'security' -TimeoutSeconds 120)
+    return (Wait-ForPodCondition -Condition Ready -Label 'app=keycloak' -Namespace 'security' -TimeoutSeconds 300)
 }
 
 <#
@@ -146,7 +146,7 @@ function Wait-ForKeyCloakAvailable {
 Waits for the oauth2-proxy pods to be available.
 #>
 function Wait-ForOauth2ProxyAvailable {
-    return (Wait-ForPodCondition -Condition Ready -Label 'k8s-app=oauth2-proxy' -Namespace 'security' -TimeoutSeconds 120)
+    return (Wait-ForPodCondition -Condition Ready -Label 'k8s-app=oauth2-proxy' -Namespace 'security' -TimeoutSeconds 300)
 }
 
 function Deploy-IngressForSecurity([string]$Ingress) {
