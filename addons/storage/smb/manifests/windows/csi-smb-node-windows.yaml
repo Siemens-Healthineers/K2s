@@ -54,7 +54,7 @@ spec:
               cpu: 10m
               memory: 40Mi
         - name: node-driver-registrar
-          image: shsk2s.azurecr.io/sig-storage/csi-node-driver-registrar:v2.8.0 #windows_image
+          image: shsk2s.azurecr.io/sig-storage/csi-node-driver-registrar:v2.11.1 #windows_image
           args:
             - --v=2
             - --csi-address=$(CSI_ENDPOINT)
