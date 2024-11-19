@@ -33,4 +33,4 @@ spec:
       hostNetwork: true
       containers:
         - name: csi-proxy
-          image: shsk2s.azurecr.io/kubernetes-sigs/sig-windows/csi-proxy:v1.1.2 #windows_image
+          image: shsk2s.azurecr.io/kubernetes-sigs/sig-windows/csi-proxy:v1.1.3 #windows_image
