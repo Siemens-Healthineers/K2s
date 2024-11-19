@@ -1,0 +1,67 @@
+// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
+// SPDX-License-Identifier:   MIT
+
+package clusterconfig
+
+import (
+	"errors"
+	"fmt"
+	"log/slog"
+	"os"
+	"path/filepath"
+
+	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
+	"github.com/siemens-healthineers/k2s/internal/json"
+)
+
+type NodeType string
+type Role string
+type OS string
+
+type Node struct {
+	Name      string   `json:"Name"`
+	IpAddress string   `json:"IpAddress"`
+	Username  string   `json:"Username"`
+	NodeType  NodeType `json:"NodeType"`
+	Role      Role     `json:"Role"`
+	OS        OS       `json:"OS"`
+}
+
+// Cluster represents the JSON structure.
+type Cluster struct {
+	Nodes []Node `json:"nodes"`
+}
+
+const (
+	NodeTypeHost       NodeType = "HOST"
+	NodeTypeVMNew      NodeType = "VM-NEW"
+	NodeTypeVMExisting NodeType = "VM-EXISTING"
+
+	RoleWorker       Role = "worker"
+	RoleControlPlane Role = "control-plane"
+
+	OsTypeWindows = "windows"
+	OsTypeLinux   = "linux"
+
+	ConfigFileName = "cluster.json"
+)
+
+func ConfigPath(configDir string) string {
+	return filepath.Join(configDir, ConfigFileName)
+}
+
+func Read(configDir string) (*Cluster, error) {
+	configPath := ConfigPath(configDir)
+
+	config, err := json.FromFile[Cluster](configPath)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			slog.Info("Setup config file not found, assuming setup is not installed", "err-msg", err, "path", configPath)
+
+			return nil, setupinfo.ErrSystemNotInstalled
+		}
+		return nil, fmt.Errorf("error occurred while loading cluster config file: %w", err)
+	}
+
+	return config, nil
+}
