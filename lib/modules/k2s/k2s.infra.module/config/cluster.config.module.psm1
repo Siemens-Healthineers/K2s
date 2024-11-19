@@ -14,13 +14,31 @@ function Get-ClusterDescriptorFilePath {
     return $clusterDescriptorFile
 }
 
+
+<#
+$nodeParams = @{
+    Name = 'minatoav"
+    IpAddress = '172.19.1.104'
+    UserName = 'remote'
+    NodeType = 'HOST'
+    Role = 'worker'
+    OS = 'linux'
+}
+Add-NodeConfig @nodeParams
+
+Supported NodeTypes:
+- HOST          -> Baremetal machine
+- VM-NEW        -> New Provisioned VM from k2s
+- VM-EXISTING   -> Existing VM from the consumer of k2s
+#>
 function Add-NodeConfig {
-    param (
-        [string]$Name,
-        [string]$Role,
-        [string]$IpAddress,
-        [string]$Username,
-        [string]$OS
+    Param (
+        [string] $Name,
+        [string] $IpAddress,
+        [string] $Username,
+        [string] $NodeType,
+        [string] $Role,
+        [string] $OS
     )
     $clusterFilePath = Get-ClusterDescriptorFilePath
     $json = Get-JsonContent -FilePath $clusterFilePath
@@ -33,9 +51,10 @@ function Add-NodeConfig {
 
     $newNode = @{
         Name      = $Name
-        Role      = $Role
         IpAddress = $IpAddress
         Username  = $Username
+        NodeType  = $NodeType
+        Role      = $Role
         OS        = $OS
     }
     $json.nodes += $newNode
