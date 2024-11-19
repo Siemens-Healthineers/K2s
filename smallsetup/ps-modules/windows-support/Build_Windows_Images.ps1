@@ -59,6 +59,7 @@ Write-Output " - Dockerfile: $Dockerfile"
 Write-Output " - allow insecure registries: $AllowInsecureRegistries"
 
 Import-Module "$PSScriptRoot\..\docker\docker.module.psm1", "$PSScriptRoot\windows-support.module.psm1"
+Import-Module "$PSScriptRoot\..\..\..\lib\modules\k2s\k2s.node.module\windowsnode\downloader\artifacts\docker\docker.module.psm1"
 
 Install-WinDocker
 
