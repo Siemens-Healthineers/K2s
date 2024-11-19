@@ -38,7 +38,7 @@ spec:
           volumeMounts:
             - mountPath: C:\csi
               name: plugin-dir
-          image: shsk2s.azurecr.io/sig-storage/livenessprobe:v2.10.0 #windows_image
+          image: shsk2s.azurecr.io/sig-storage/livenessprobe:v2.13.1 #windows_image
           args:
             - --csi-address=$(CSI_ENDPOINT)
             - --probe-timeout=3s
