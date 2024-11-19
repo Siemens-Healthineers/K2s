@@ -49,6 +49,7 @@ function Start-BuildDockerImage {
         $WindowsBaseVersion = $(throw 'WindowsBaseVersion not specified')
     )
     docker image build -f "$Dockerfile" -t $Tag --build-arg TOOL_VERSION=$ToolVersion --build-arg WINDOWS_VERSION=$WindowsBaseVersion "$WorkDir"
+    Write-Output "  -> CMD: docker image build -f "$Dockerfile" -t $Tag --build-arg TOOL_VERSION=$ToolVersion --build-arg WINDOWS_VERSION=$WindowsBaseVersion '$WorkDir'"
      
     if ($LASTEXITCODE -ne 0) {
         throw 'error while building image'
@@ -62,6 +63,7 @@ function Push-DockerImage {
         $Tag = $(throw 'Tag not specified')
     )
     docker push $Tag
+    Write-Output "  -> CMD: docker push $Tag"
 
     if ($LASTEXITCODE -ne 0) {
         throw 'error while pushing image'
@@ -80,10 +82,12 @@ function New-DockerManifest {
         [switch] $AllowInsecureRegistries     
     )
     if ($AllowInsecureRegistries -eq $true) {
-        docker manifest create --insecure $Tag --amend $AmmendTag    
+        docker manifest create --insecure $Tag --amend $AmmendTag  
+        Write-Output "  -> CMD: docker manifest create --insecure $Tag --amend $AmmendTag"  
     }
     else {
         docker manifest create $Tag --amend $AmmendTag
+        Write-Output "  -> CMD: docker manifest create $Tag --amend $AmmendTag" 
     }            
 
     if ($LASTEXITCODE -ne 0) {
@@ -109,6 +113,7 @@ function New-DockerManifestAnnotation {
         $OSVersion = $(throw 'OSVersion not specified')    
     )
     docker manifest annotate --os $OS --arch $Arch --os-version $OSVersion $Tag $AmmendTag
+    Write-Output "  -> CMD: docker manifest annotate --os $OS --arch $Arch --os-version $OSVersion $Tag $AmmendTag"
 
     if ($LASTEXITCODE -ne 0) {
         throw 'error while annotating manifest'
@@ -125,9 +130,11 @@ function Push-DockerManifest {
     )
     if ($AllowInsecureRegistries -eq $true) {
         docker manifest push --insecure $Tag
+        Write-Output "  -> CMD: docker manifest push --insecure $Tag"
     }
     else {
         docker manifest push $Tag
+        Write-Output "  -> CMD: docker manifest push --insecure $Tag"
     }          
 
     if ($LASTEXITCODE -ne 0) {
