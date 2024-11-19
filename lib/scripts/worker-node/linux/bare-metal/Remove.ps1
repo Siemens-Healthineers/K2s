@@ -9,8 +9,7 @@ Param(
     [string] $UserName = '',
     [string] $IpAddress = '',
     [switch] $ShowLogs = $false,
-    [string] $AdditionalHooksDir = '',
-    [switch] $SkipHeaderDisplay = $false
+    [string] $AdditionalHooksDir = ''
 )
 
 $preparationStopwatch = [system.diagnostics.stopwatch]::StartNew()
@@ -70,7 +69,6 @@ $workerNodeParams = @{
     NodeName = $NodeName
     UserName = $UserName
     IpAddress = $IpAddress
-    SkipHeaderDisplay = $SkipHeaderDisplay
     AdditionalHooksDir = $AdditionalHooksDir
 }
 Remove-LinuxWorkerNodeOnUbuntuBareMetal @workerNodeParams
