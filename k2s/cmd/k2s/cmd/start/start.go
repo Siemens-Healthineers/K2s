@@ -19,6 +19,7 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 
+	"github.com/siemens-healthineers/k2s/internal/core/clusterconfig"
 	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
 	"github.com/siemens-healthineers/k2s/internal/powershell"
 )
@@ -71,10 +72,70 @@ func startk8s(ccmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	err = startAdditionalNodes(context, ccmd.Flags(), config)
+	if err != nil {
+		// Start of additional nodes shall not impact the k2s cluster, any errors during startup should be treated as warnings.
+		slog.Warn("Failures during starting of additional nodes", "err", err)
+	}
+
 	duration := time.Since(start)
 	common.PrintCompletedMessage(duration, "Start")
 
 	return nil
+}
+
+func startAdditionalNodes(context *common.CmdContext, flags *pflag.FlagSet, config *setupinfo.Config) error {
+	clusterConfig, err := clusterconfig.Read(context.Config().Host.K2sConfigDir)
+	if err != nil {
+		return err
+	}
+
+	if clusterConfig == nil {
+		return nil
+	}
+
+	for _, node := range clusterConfig.Nodes {
+		startNodeCmd := buildNodeStartCmd(flags, node)
+
+		slog.Debug("PS command created", "command", startNodeCmd)
+
+		err = powershell.ExecutePs(startNodeCmd, common.DeterminePsVersion(config), common.NewPtermWriter())
+		if err != nil {
+			slog.Warn("Failure during start of node", "node", node.Name, "err", err)
+		}
+	}
+
+	return nil
+}
+
+func buildNodeStartCmd(flags *pflag.FlagSet, nodeConfig clusterconfig.Node) string {
+	outputFlag, _ := strconv.ParseBool(flags.Lookup(common.OutputFlagName).Value.String())
+
+	additionalHooksDir := flags.Lookup(common.AdditionalHooksDirFlagName).Value.String()
+
+	roleType := string(nodeConfig.Role)
+	OsType := string(nodeConfig.OS)
+	nodeType := clusterconfig.GetNodeDirectory(string(nodeConfig.NodeType))
+
+	cmd := utils.FormatScriptFilePath(utils.InstallDir() + "\\lib\\scripts\\" + roleType + "\\" + OsType + "\\" + nodeType + "\\start.ps1")
+
+	if outputFlag {
+		cmd += " -ShowLogs"
+	}
+
+	if additionalHooksDir != "" {
+		cmd += " -AdditionalHooksDir " + utils.EscapeWithSingleQuotes(additionalHooksDir)
+	}
+
+	if nodeConfig.IpAddress != "" {
+		cmd += " -IpAddress " + nodeConfig.IpAddress
+	}
+
+	if nodeConfig.Name != "" {
+		cmd += " -NodeName " + nodeConfig.Name
+	}
+
+	return cmd
 }
 
 func buildStartCmd(flags *pflag.FlagSet, setupName setupinfo.SetupName) (string, error) {

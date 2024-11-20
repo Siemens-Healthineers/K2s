@@ -84,7 +84,7 @@ func buildRemoveNodeCmd(flags *pflag.FlagSet, setupName setupinfo.SetupName) (st
 		return "", errors.New("removing node is not supported for this setup type. Aborting")
 	}
 
-	cmd := utils.FormatScriptFilePath(utils.InstallDir() + "\\lib\\scripts\\worker-node\\linux\\bare-metal\\Remove.ps1")
+	cmd := utils.FormatScriptFilePath(utils.InstallDir() + "\\lib\\scripts\\worker\\linux\\bare-metal\\Remove.ps1")
 
 	if outputFlag {
 		cmd += " -ShowLogs"

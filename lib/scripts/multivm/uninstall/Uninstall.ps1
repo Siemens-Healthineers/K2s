@@ -71,7 +71,7 @@ if ($(Get-ConfigLinuxOnly) -eq $false) {
         AdditionalHooksDir = $AdditionalHooksDir
         DeleteFilesForOfflineInstallation = $DeleteFilesForOfflineInstallation
     }
-    & "$PSScriptRoot\..\..\worker-node\windows\hyper-v-vm\Uninstall.ps1" @workerNodeParams
+    & "$PSScriptRoot\..\..\worker\windows\hyper-v-vm\Uninstall.ps1" @workerNodeParams
 }
 
 $controlPlaneParams = " -AdditionalHooksDir '$AdditionalHooksDir'"

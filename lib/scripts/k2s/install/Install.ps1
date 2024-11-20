@@ -103,7 +103,7 @@ $workerNodeParams = @{
     DnsAddresses = $dnsServers
     K8sBinsPath = $K8sBinsPath
 }
-& "$PSScriptRoot\..\..\worker-node\windows\windows-host\Install.ps1" @workerNodeParams
+& "$PSScriptRoot\..\..\worker\windows\windows-host\Install.ps1" @workerNodeParams
 
 # show results
 Write-Log "Current state of kubernetes nodes:`n"

@@ -10,7 +10,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
 	"github.com/siemens-healthineers/k2s/internal/json"
 )
 
@@ -56,12 +55,25 @@ func Read(configDir string) (*Cluster, error) {
 	config, err := json.FromFile[Cluster](configPath)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			slog.Info("Setup config file not found, assuming setup is not installed", "err-msg", err, "path", configPath)
+			slog.Info("Cluster config file not found, assuming no additional nodes present", "path", configPath)
 
-			return nil, setupinfo.ErrSystemNotInstalled
+			return nil, nil
 		}
 		return nil, fmt.Errorf("error occurred while loading cluster config file: %w", err)
 	}
 
 	return config, nil
+}
+
+func GetNodeDirectory(nodeType string) string {
+	switch NodeType(nodeType) {
+	case NodeTypeHost:
+		return "bare-metal"
+	case NodeTypeVMNew:
+		return "hyper-v-vm\\new-vm"
+	case NodeTypeVMExisting:
+		return "hyper-v-vm\\existing-vm"
+	default:
+		return "unknown-node-type"
+	}
 }
