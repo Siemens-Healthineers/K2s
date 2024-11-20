@@ -68,7 +68,7 @@ if ($(Get-ConfigLinuxOnly) -eq $false) {
         ShowLogs = $ShowLogs
         AdditionalHooksDir = $AdditionalHooksDir
     }
-    & "$PSScriptRoot\..\..\worker-node\windows\hyper-v-vm\Stop.ps1" @workerNodeParams
+    & "$PSScriptRoot\..\..\worker\windows\hyper-v-vm\Stop.ps1" @workerNodeParams
 }
 
 Invoke-Hook -HookName 'AfterStopK8sNetwork' -AdditionalHooksDir $AdditionalHooksDir
