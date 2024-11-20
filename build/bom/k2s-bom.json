@@ -250,9 +250,9 @@
     },
     {
       "type": "application",
-      "group": "https://download.docker.com/win/static/stable/x86_64/docker-24.0.7.zip",
+      "group": "https://download.docker.com/win/static/stable/x86_64/docker-27.3.1.zip",
       "name": "dockerd",
-      "version": "v24.0.7",
+      "version": "v27.3.1",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -263,7 +263,7 @@
           }
         }
       ],
-      "purl": "pkg:github/moby/moby@24.0.7",
+      "purl": "pkg:github/moby/moby@27.3.1",
       "properties": [
         {
           "name": "sw360:projectName",
@@ -273,9 +273,9 @@
     },
     {
       "type": "application",
-      "group": "https://download.docker.com/win/static/stable/x86_64/docker-24.0.7.zip",
+      "group": "https://download.docker.com/win/static/stable/x86_64/docker-27.3.1.zip",
       "name": "docker",
-      "version": "v24.0.7",
+      "version": "v27.3.1",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -286,7 +286,7 @@
           }
         }
       ],
-      "purl": "pkg:github/moby/moby@24.0.7",
+      "purl": "pkg:github/moby/moby@27.3.1",
       "properties": [
         {
           "name": "sw360:projectName",
@@ -296,9 +296,9 @@
     },
     {
       "type": "application",
-      "group": "https://download.docker.com/win/static/stable/x86_64/docker-24.0.7.zip",
+      "group": "https://download.docker.com/win/static/stable/x86_64/docker-27.3.1.zip",
       "name": "docker-proxy",
-      "version": "v24.0.7",
+      "version": "v27.3.1",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -309,7 +309,7 @@
           }
         }
       ],
-      "purl": "pkg:github/moby/moby@24.0.7",
+      "purl": "pkg:github/moby/moby@27.3.1",
       "properties": [
         {
           "name": "sw360:projectName",
@@ -457,7 +457,7 @@
     },
     {
       "type": "application",
-      "group": "https://github.com/containerd/containerd/releases/download/v1.7.17/cri-containerd-cni-1.7.17-windows-amd64.tar.gz",
+      "group": "https://github.com/containerd/containerd/releases/download/v1.7.23/cri-containerd-cni-1.7.23-windows-amd64.tar.gz",
       "name": "containerd-shim-runhcs-v1",
       "version": "v1.0.2",
       "description": "",
@@ -470,7 +470,7 @@
           }
         }
       ],
-      "purl": "pkg:github/containerd/containerd@v1.7.17",
+      "purl": "pkg:github/containerd/containerd@v1.7.23",
       "properties": [
         {
           "name": "sw360:projectName",
@@ -480,9 +480,9 @@
     },
     {
       "type": "application",
-      "group": "https://github.com/containerd/containerd/releases/download/v1.7.17/cri-containerd-cni-1.7.17-windows-amd64.tar.gz",
+      "group": "https://github.com/containerd/containerd/releases/download/v1.7.23/cri-containerd-cni-1.7.23-windows-amd64.tar.gz",
       "name": "containerd-stress",
-      "version": "v1.7.17",
+      "version": "v1.7.23",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -493,7 +493,7 @@
           }
         }
       ],
-      "purl": "pkg:github/containerd/containerd@v1.7.17",
+      "purl": "pkg:github/containerd/containerd@v1.7.23",
       "properties": [
         {
           "name": "sw360:projectName",
@@ -503,9 +503,9 @@
     },
     {
       "type": "application",
-      "group": "https://github.com/containerd/containerd/releases/download/v1.7.17/cri-containerd-cni-1.7.17-windows-amd64.tar.gz",
+      "group": "https://github.com/containerd/containerd/releases/download/v1.7.23/cri-containerd-cni-1.7.23-windows-amd64.tar.gz",
       "name": "containerd",
-      "version": "v1.7.17",
+      "version": "v1.7.23",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -516,7 +516,7 @@
           }
         }
       ],
-      "purl": "pkg:github/containerd/containerd@v1.7.17",
+      "purl": "pkg:github/containerd/containerd@v1.7.23",
       "properties": [
         {
           "name": "sw360:projectName",
@@ -526,9 +526,9 @@
     },
     {
       "type": "application",
-      "group": "https://github.com/containerd/containerd/releases/download/v1.7.17/cri-containerd-cni-1.7.17-windows-amd64.tar.gz",
+      "group": "https://github.com/containerd/containerd/releases/download/v1.7.23/cri-containerd-cni-1.7.23-windows-amd64.tar.gz",
       "name": "ctr",
-      "version": "v1.7.17",
+      "version": "v1.7.23",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -539,7 +539,7 @@
           }
         }
       ],
-      "purl": "pkg:github/containerd/containerd@v1.7.17",
+      "purl": "pkg:github/containerd/containerd@v1.7.23",
       "properties": [
         {
           "name": "sw360:projectName",
@@ -296776,9 +296776,9 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/containerd/containerd@v1.7.17",
+      "bom-ref": "pkg:golang/github.com/containerd/containerd@v1.7.23",
       "name": "github.com/containerd/containerd",
-      "purl": "pkg:golang/github.com/containerd/containerd@v1.7.17",
+      "purl": "pkg:golang/github.com/containerd/containerd@v1.7.23",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -419373,7 +419373,7 @@
         "pkg:golang/github.com/chai2010/gettext-go@v1.0.2",
         "pkg:golang/github.com/cheggaaa/pb/v3@v3.1.5",
         "pkg:golang/github.com/cloudflare/circl@v1.3.7",
-        "pkg:golang/github.com/containerd/containerd@v1.7.17",
+        "pkg:golang/github.com/containerd/containerd@v1.7.23",
         "pkg:golang/github.com/containerd/continuity@v0.4.3",
         "pkg:golang/github.com/containerd/fifo@v1.1.0",
         "pkg:golang/github.com/containerd/log@v0.1.0",
@@ -419839,7 +419839,7 @@
       "dependsOn": []
     },
     {
-      "ref": "pkg:golang/github.com/containerd/containerd@v1.7.17",
+      "ref": "pkg:golang/github.com/containerd/containerd@v1.7.23",
       "dependsOn": []
     },
     {
