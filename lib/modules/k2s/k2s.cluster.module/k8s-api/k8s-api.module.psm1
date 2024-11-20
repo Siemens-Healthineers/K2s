@@ -777,7 +777,6 @@ function Wait-ForPodCondition {
         $result = Invoke-Kubectl -Params $params
         
         if ($result.Success -or $result.Output -match "timed out") {
-            Write-Information $($result.Output)
             break
         }
 
@@ -789,8 +788,6 @@ function Wait-ForPodCondition {
     if ($result.Success -ne $true) {
         throw $result.Output
     }
-
-    Write-Information $result.Output
 
     return $true
 }
@@ -822,7 +819,6 @@ function Wait-ForJobCondition {
         $result = Invoke-Kubectl -Params $params
 
         if ($result.Success -or $result.Output -match "timed out") {
-            Write-Information $($result.Output)
             break
         }
 
@@ -834,8 +830,6 @@ function Wait-ForJobCondition {
     if ($result.Success -ne $true) {
         throw $result.Output
     }
-
-    Write-Information ($result.Output | Out-String)
 
     return $true
 }
