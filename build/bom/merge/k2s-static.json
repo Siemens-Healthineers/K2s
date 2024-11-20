@@ -258,9 +258,9 @@
       "type": "application"
     },
     {
-      "group": "https://download.docker.com/win/static/stable/x86_64/docker-24.0.7.zip",
+      "group": "https://download.docker.com/win/static/stable/x86_64/docker-27.3.1.zip",
       "name": "dockerd",
-      "version": "v24.0.7",
+      "version": "v27.3.1",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -277,13 +277,13 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/moby/moby@24.0.7",
+      "purl": "pkg:github/moby/moby@27.3.1",
       "type": "application"
     },
     {
-      "group": "https://download.docker.com/win/static/stable/x86_64/docker-24.0.7.zip",
+      "group": "https://download.docker.com/win/static/stable/x86_64/docker-27.3.1.zip",
       "name": "docker",
-      "version": "v24.0.7",
+      "version": "v27.3.1",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -300,13 +300,13 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/moby/moby@24.0.7",
+      "purl": "pkg:github/moby/moby@27.3.1",
       "type": "application"
     },
     {
-      "group": "https://download.docker.com/win/static/stable/x86_64/docker-24.0.7.zip",
+      "group": "https://download.docker.com/win/static/stable/x86_64/docker-27.3.1.zip",
       "name": "docker-proxy",
-      "version": "v24.0.7",
+      "version": "v27.3.1",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -323,7 +323,7 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/moby/moby@24.0.7",
+      "purl": "pkg:github/moby/moby@27.3.1",
       "type": "application"
     },
     {
@@ -465,7 +465,7 @@
       "type": "application"
     },
     {
-      "group": "https://github.com/containerd/containerd/releases/download/v1.7.17/cri-containerd-cni-1.7.17-windows-amd64.tar.gz",
+      "group": "https://github.com/containerd/containerd/releases/download/v1.7.23/cri-containerd-cni-1.7.23-windows-amd64.tar.gz",
       "name": "containerd-shim-runhcs-v1",
       "version": "v1.0.2",
       "description": "",
@@ -484,13 +484,13 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/containerd/containerd@v1.7.17",
+      "purl": "pkg:github/containerd/containerd@v1.7.23",
       "type": "application"
     },
     {
-      "group": "https://github.com/containerd/containerd/releases/download/v1.7.17/cri-containerd-cni-1.7.17-windows-amd64.tar.gz",
+      "group": "https://github.com/containerd/containerd/releases/download/v1.7.23/cri-containerd-cni-1.7.23-windows-amd64.tar.gz",
       "name": "containerd-stress",
-      "version": "v1.7.17",
+      "version": "v1.7.23",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -507,13 +507,13 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/containerd/containerd@v1.7.17",
+      "purl": "pkg:github/containerd/containerd@v1.7.23",
       "type": "application"
     },
     {
-      "group": "https://github.com/containerd/containerd/releases/download/v1.7.17/cri-containerd-cni-1.7.17-windows-amd64.tar.gz",
+      "group": "https://github.com/containerd/containerd/releases/download/v1.7.23/cri-containerd-cni-1.7.23-windows-amd64.tar.gz",
       "name": "containerd",
-      "version": "v1.7.17",
+      "version": "v1.7.23",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -530,13 +530,13 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/containerd/containerd@v1.7.17",
+      "purl": "pkg:github/containerd/containerd@v1.7.23",
       "type": "application"
     },
     {
-      "group": "https://github.com/containerd/containerd/releases/download/v1.7.17/cri-containerd-cni-1.7.17-windows-amd64.tar.gz",
+      "group": "https://github.com/containerd/containerd/releases/download/v1.7.23/cri-containerd-cni-1.7.23-windows-amd64.tar.gz",
       "name": "ctr",
-      "version": "v1.7.17",
+      "version": "v1.7.23",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -553,7 +553,7 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/containerd/containerd@v1.7.17",
+      "purl": "pkg:github/containerd/containerd@v1.7.23",
       "type": "application"
     },
     {
