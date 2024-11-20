@@ -107,7 +107,7 @@ func buildAddNodeCmd(flags *pflag.FlagSet, setupName setupinfo.SetupName) (strin
 		return "", errors.New("adding node is not supported for this setup type. Aborting")
 	}
 
-	cmd := utils.FormatScriptFilePath(utils.InstallDir() + "\\lib\\scripts\\worker-node\\linux\\bare-metal\\Add.ps1")
+	cmd := utils.FormatScriptFilePath(utils.InstallDir() + "\\lib\\scripts\\worker\\linux\\bare-metal\\Add.ps1")
 
 	if outputFlag {
 		cmd += " -ShowLogs"

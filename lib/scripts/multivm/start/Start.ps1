@@ -62,7 +62,7 @@ if ($(Get-ConfigLinuxOnly) -eq $false) {
         AdditionalHooksDir = $AdditionalHooksDir
         DnsAddresses = $dnsServersForWorkerNode
     }
-    & "$PSScriptRoot\..\..\worker-node\windows\hyper-v-vm\Start.ps1" @workerNodeParams
+    & "$PSScriptRoot\..\..\worker\windows\hyper-v-vm\Start.ps1" @workerNodeParams
 }
 
 Invoke-AddonsHooks -HookType 'AfterStart'
