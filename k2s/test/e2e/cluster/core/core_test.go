@@ -78,6 +78,12 @@ var _ = BeforeSuite(func(ctx context.Context) {
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
+
+	GinkgoWriter.Println("Status of cluster after test runs...")
+	status := suite.K2sCli().GetStatus(ctx)
+	isRunning := status.IsClusterRunning()
+	GinkgoWriter.Println("Cluster is running:", isRunning)
+
 	GinkgoWriter.Println("Deleting workloads..")
 
 	if testFailed {
