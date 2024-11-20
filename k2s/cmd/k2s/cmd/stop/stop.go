@@ -17,6 +17,7 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 
+	cc "github.com/siemens-healthineers/k2s/internal/core/clusterconfig"
 	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
 	"github.com/siemens-healthineers/k2s/internal/powershell"
 )
@@ -61,6 +62,12 @@ func stopk8s(cmd *cobra.Command, args []string) error {
 	err = powershell.ExecutePs(stopCmd, common.DeterminePsVersion(config), common.NewPtermWriter())
 	if err != nil {
 		return err
+	}
+
+	err = stopAdditionalNodes(context, cmd.Flags(), config)
+	if err != nil {
+		// Stop of additional nodes shall not impact the k2s cluster stop, any errors during stop should be treated as warnings.
+		slog.Warn("Failures during stopping of additional nodes", "err", err)
 	}
 
 	duration := time.Since(start)
@@ -109,4 +116,54 @@ func buildStopCmd(flags *pflag.FlagSet, setupName setupinfo.SetupName) (string, 
 	}
 
 	return cmd, nil
+}
+
+func stopAdditionalNodes(context *common.CmdContext, flags *pflag.FlagSet, config *setupinfo.Config) error {
+	clusterConfig, err := cc.Read(context.Config().Host.K2sConfigDir)
+	if err != nil {
+		return err
+	}
+
+	if clusterConfig == nil {
+		return nil
+	}
+
+	for _, node := range clusterConfig.Nodes {
+		startNodeCmd := buildNodeStopCmd(flags, node)
+
+		slog.Debug("PS command created", "command", startNodeCmd)
+
+		err = powershell.ExecutePs(startNodeCmd, common.DeterminePsVersion(config), common.NewPtermWriter())
+		if err != nil {
+			slog.Warn("Failure during stop of node", "node", node.Name, "err", err)
+		}
+	}
+
+	return nil
+}
+
+func buildNodeStopCmd(flags *pflag.FlagSet, nodeConfig cc.Node) string {
+	outputFlag, _ := strconv.ParseBool(flags.Lookup(common.OutputFlagName).Value.String())
+
+	additionalHooksDir := flags.Lookup(common.AdditionalHooksDirFlagName).Value.String()
+
+	roleType := string(nodeConfig.Role)
+	OsType := string(nodeConfig.OS)
+	nodeType := cc.GetNodeDirectory(string(nodeConfig.NodeType))
+
+	cmd := utils.FormatScriptFilePath(utils.InstallDir() + "\\lib\\scripts\\" + roleType + "\\" + OsType + "\\" + nodeType + "\\Stop.ps1")
+
+	if outputFlag {
+		cmd += " -ShowLogs"
+	}
+
+	if additionalHooksDir != "" {
+		cmd += " -AdditionalHooksDir " + utils.EscapeWithSingleQuotes(additionalHooksDir)
+	}
+
+	if nodeConfig.Name != "" {
+		cmd += " -NodeName " + nodeConfig.Name
+	}
+
+	return cmd
 }

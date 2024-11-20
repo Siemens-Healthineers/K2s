@@ -19,7 +19,7 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 
-	"github.com/siemens-healthineers/k2s/internal/core/clusterconfig"
+	cc "github.com/siemens-healthineers/k2s/internal/core/clusterconfig"
 	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
 	"github.com/siemens-healthineers/k2s/internal/powershell"
 )
@@ -85,7 +85,7 @@ func startk8s(ccmd *cobra.Command, args []string) error {
 }
 
 func startAdditionalNodes(context *common.CmdContext, flags *pflag.FlagSet, config *setupinfo.Config) error {
-	clusterConfig, err := clusterconfig.Read(context.Config().Host.K2sConfigDir)
+	clusterConfig, err := cc.Read(context.Config().Host.K2sConfigDir)
 	if err != nil {
 		return err
 	}
@@ -108,16 +108,16 @@ func startAdditionalNodes(context *common.CmdContext, flags *pflag.FlagSet, conf
 	return nil
 }
 
-func buildNodeStartCmd(flags *pflag.FlagSet, nodeConfig clusterconfig.Node) string {
+func buildNodeStartCmd(flags *pflag.FlagSet, nodeConfig cc.Node) string {
 	outputFlag, _ := strconv.ParseBool(flags.Lookup(common.OutputFlagName).Value.String())
 
 	additionalHooksDir := flags.Lookup(common.AdditionalHooksDirFlagName).Value.String()
 
 	roleType := string(nodeConfig.Role)
 	OsType := string(nodeConfig.OS)
-	nodeType := clusterconfig.GetNodeDirectory(string(nodeConfig.NodeType))
+	nodeType := cc.GetNodeDirectory(string(nodeConfig.NodeType))
 
-	cmd := utils.FormatScriptFilePath(utils.InstallDir() + "\\lib\\scripts\\" + roleType + "\\" + OsType + "\\" + nodeType + "\\start.ps1")
+	cmd := utils.FormatScriptFilePath(utils.InstallDir() + "\\lib\\scripts\\" + roleType + "\\" + OsType + "\\" + nodeType + "\\Start.ps1")
 
 	if outputFlag {
 		cmd += " -ShowLogs"
