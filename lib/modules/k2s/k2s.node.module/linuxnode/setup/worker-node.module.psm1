@@ -351,9 +351,22 @@ function Start-LinuxWorkerNodeOnUbuntuBareMetal {
         [string] $AdditionalHooksDir = ''
     )
 
-    Add-RouteToLinuxWorkerNode -NodeName $NodeName -IpAddress $IpAddress
+    $clusterCIDRWorker = Get-ClusterCIDRWorker -NodeName $NodeName
+    Add-RouteToLinuxWorkerNode -NodeName $NodeName -IpAddress $IpAddress -ClusterCIDRWorker $clusterCIDRWorker
+    Add-WorkerVFPRoute -NodeName $NodeName -ClusterCIDRWorker $clusterCIDRWorker
 
     Write-Log "K2s worker node '$NodeName' started" -Console
+}
+
+function Add-WorkerVFPRoute {
+    Param(
+        [string] $NodeName = $(throw 'Argument missing: Hostname'),
+        [string] $ClusterCIDRWorker = $(throw 'Argument missing: Hostname')
+    )
+
+    $setupConfigRoot = Get-RootConfigk2s
+    $defaultGateway = $setupConfigRoot.psobject.properties['cbr0'].value
+    Add-VfpRoute -Name $NodeName -Subnet $ClusterCIDRWorker -Gateway $defaultGateway
 }
 
 function Stop-LinuxWorkerNodeOnUbuntuBareMetal {
@@ -364,19 +377,40 @@ function Stop-LinuxWorkerNodeOnUbuntuBareMetal {
 
     )
 
-    Remove-RouteToLinuxWorkerNode -NodeName $NodeName
+    $clusterCIDRWorker = Get-ClusterCIDRWorker -NodeName $NodeName
+    Remove-RouteToLinuxWorkerNode -NodeName $NodeName -ClusterCIDRWorker $clusterCIDRWorker
+    Remove-VfpRoute -Name $NodeName
 
     Write-Log "K2s worker node '$NodeName' stopped" -Console
 }
 
-function Add-RouteToLinuxWorkerNode {
-    Param(
-        [string] $IpAddress = $(throw 'Argument missing: IpAddress'),
+function Get-ClusterCIDRWorker {
+    Param (
         [string] $NodeName = $(throw 'Argument missing: Hostname')
     )
 
     $setupConfigRoot = Get-RootConfigk2s
     $clusterCIDRWorkerTemplate = $setupConfigRoot.psobject.properties['podNetworkWorkerCIDR_2'].value
+
+    $output = Get-AssignedPodSubnetworkNumber -NodeName $NodeName
+    if ($output.Success) {
+        $assignedPodSubnetworkNumber = $output.PodSubnetworkNumber
+        $clusterCIDRWorker = $clusterCIDRWorkerTemplate.Replace('X', $assignedPodSubnetworkNumber)
+    } else {
+        throw "Cannot obtain pod network information from node '$NodeName'"
+    }
+
+    return $clusterCIDRWorker
+}
+
+function Add-RouteToLinuxWorkerNode {
+    Param(
+        [string] $IpAddress = $(throw 'Argument missing: IpAddress'),
+        [string] $NodeName = $(throw 'Argument missing: Hostname'),
+        [string] $ClusterCIDRWorker = $(throw 'Argument missing: Hostname')
+    )
+
+    $clusterCIDRWorker = Get-ClusterCIDRWorker -NodeName $NodeName
 
     $output = Get-AssignedPodSubnetworkNumber -NodeName $NodeName
     if ($output.Success) {
@@ -395,24 +429,13 @@ function Add-RouteToLinuxWorkerNode {
 
 function Remove-RouteToLinuxWorkerNode {
     Param(
-        [string] $NodeName = $(throw 'Argument missing: Hostname')
+        [string] $NodeName = $(throw 'Argument missing: Hostname'),
+        [string] $ClusterCIDRWorker = $(throw 'Argument missing: Hostname')
     )
 
-    $setupConfigRoot = Get-RootConfigk2s
-    $clusterCIDRWorkerTemplate = $setupConfigRoot.psobject.properties['podNetworkWorkerCIDR_2'].value
-
-    $output = Get-AssignedPodSubnetworkNumber -NodeName $NodeName
-    if ($output.Success) {
-        $assignedPodSubnetworkNumber = $output.PodSubnetworkNumber
-
-        $clusterCIDRWorker = $clusterCIDRWorkerTemplate.Replace('X', $assignedPodSubnetworkNumber)
-
-        # routes for Linux pods
-        Write-Log "Remove obsolete route to $clusterCIDRWorker"
-        route delete $clusterCIDRWorker >$null 2>&1
-    } else {
-        Write-Log "Cannot obtain pod network information from node '$NodeName'. The eventually existing routes belonging to this node will not be deleted."
-    }
+    # routes for Linux pods
+    Write-Log "Remove obsolete route to $ClusterCIDRWorker"
+    route delete $ClusterCIDRWorker >$null 2>&1
 }
 
 Export-ModuleMember -Function Add-LinuxWorkerNodeOnNewVM,

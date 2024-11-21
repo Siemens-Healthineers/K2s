@@ -341,6 +341,7 @@ function Add-VfpRulesToWindowsNode {
     Write-Log "Added file '$file' with vfp rules"
 }
 
+# TODO: Move to infra module
 function Add-VfpRoute {
     param (
         [Parameter()]
