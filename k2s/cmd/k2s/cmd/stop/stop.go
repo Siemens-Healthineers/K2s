@@ -50,6 +50,12 @@ func stopk8s(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	err = stopAdditionalNodes(context, cmd.Flags(), config)
+	if err != nil {
+		// Stop of additional nodes shall not impact the k2s cluster stop, any errors during stop should be treated as warnings.
+		slog.Warn("Failures during stopping of additional nodes", "err", err)
+	}
+
 	stopCmd, err := buildStopCmd(cmd.Flags(), config.SetupName)
 	if err != nil {
 		return err
@@ -62,12 +68,6 @@ func stopk8s(cmd *cobra.Command, args []string) error {
 	err = powershell.ExecutePs(stopCmd, common.DeterminePsVersion(config), common.NewPtermWriter())
 	if err != nil {
 		return err
-	}
-
-	err = stopAdditionalNodes(context, cmd.Flags(), config)
-	if err != nil {
-		// Stop of additional nodes shall not impact the k2s cluster stop, any errors during stop should be treated as warnings.
-		slog.Warn("Failures during stopping of additional nodes", "err", err)
 	}
 
 	duration := time.Since(start)
