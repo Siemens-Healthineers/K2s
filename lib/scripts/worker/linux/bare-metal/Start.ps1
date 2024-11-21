@@ -9,8 +9,7 @@ Param(
     [string] $IpAddress = $(throw 'Argument missing: IpAddress'),
     [string] $NodeName = $(throw 'Argument missing: NodeName'),
     [switch] $ShowLogs = $false,
-    [string] $AdditionalHooksDir = '',
-    [switch] $SkipHeaderDisplay = $false
+    [string] $AdditionalHooksDir = ''
 )
 
 $infraModule = "$PSScriptRoot\..\..\..\..\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
@@ -31,7 +30,6 @@ $workerNodeName = $NodeName.ToLower()
 
 $workerNodeStartParams = @{
     AdditionalHooksDir = $AdditionalHooksDir
-    SkipHeaderDisplay = $SkipHeaderDisplay
     IpAddress = $IpAddress
     NodeName = $workerNodeName
 }
