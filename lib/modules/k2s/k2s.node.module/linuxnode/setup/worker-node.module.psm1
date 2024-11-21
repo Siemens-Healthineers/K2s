@@ -410,21 +410,11 @@ function Add-RouteToLinuxWorkerNode {
         [string] $ClusterCIDRWorker = $(throw 'Argument missing: Hostname')
     )
 
-    $clusterCIDRWorker = Get-ClusterCIDRWorker -NodeName $NodeName
-
-    $output = Get-AssignedPodSubnetworkNumber -NodeName $NodeName
-    if ($output.Success) {
-        $assignedPodSubnetworkNumber = $output.PodSubnetworkNumber
-        $clusterCIDRWorker = $clusterCIDRWorkerTemplate.Replace('X', $assignedPodSubnetworkNumber)
-
-        # routes for Linux pods
-        Write-Log "Remove obsolete route to $clusterCIDRWorker"
-        route delete $clusterCIDRWorker >$null 2>&1
-        Write-Log "Add route to Pods for node:$NodeName CIDR:$clusterCIDRWorker"
-        route -p add $clusterCIDRWorker $IpAddress METRIC 4 | Out-Null
-    } else {
-        throw "Cannot obtain pod network information from node '$NodeName'"
-    }
+    # routes for Linux pods
+    Write-Log "Remove obsolete route to $ClusterCIDRWorker"
+    route delete $ClusterCIDRWorker >$null 2>&1
+    Write-Log "Add route to Pods for node:$NodeName CIDR:$ClusterCIDRWorker"
+    route -p add $ClusterCIDRWorker $IpAddress METRIC 4 | Out-Null
 }
 
 function Remove-RouteToLinuxWorkerNode {
