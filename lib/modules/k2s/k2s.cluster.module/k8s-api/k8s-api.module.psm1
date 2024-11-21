@@ -762,16 +762,71 @@ function Wait-ForPodCondition {
         [int]
         $TimeoutSeconds = 30
     )
-    $conditionParam = '--for=condition=ready'
+
+    if ($Condition -eq 'Ready') {
+        $conditionParam = '--for=condition=ready'
+    }
+
     if ($Condition -eq 'Deleted') {
         $conditionParam = '--for=delete'
     }
 
-    $params = 'wait', 'pod', '-l', $Label, '-n', $Namespace, $conditionParam, "--timeout=$($TimeoutSeconds)s"
+    do {
+        $params = 'wait', 'pod', '-l', $Label, '-n', $Namespace, $conditionParam, "--timeout=$($TimeoutSeconds)s"
+        Write-Information "Invoking kubectl with '$params'.."
+        $result = Invoke-Kubectl -Params $params
+        
+        if ($result.Success -or $result.Output -match "timed out") {
+            break
+        }
 
-    Write-Information "Invoking kubectl with '$params'.."
+        Write-Information "Resource not existing yet, waiting 2s..."
+        Start-Sleep 2
+        $TimeoutSeconds = $TimeoutSeconds - 2
+    } while ($result.Success -ne $true -and $TimeoutSeconds -gt 0)
 
-    $result = Invoke-Kubectl -Params $params
+    if ($result.Success -ne $true) {
+        throw $result.Output
+    }
+
+    return $true
+}
+
+function Wait-ForJobCondition {
+    param (
+        [Parameter(Mandatory = $false)]
+        [string]
+        $Label = $(throw 'Label not specified'),
+        [Parameter(Mandatory = $false)]
+        [string]
+        $Namespace = 'default',
+        [Parameter(Mandatory = $false)]
+        [ValidateSet('Complete')]
+        [string]
+        $Condition = 'Complete',
+        [Parameter(Mandatory = $false)]
+        [int]
+        $TimeoutSeconds = 30
+    )
+
+    if ($Condition -eq 'Complete') {
+        $conditionParam = '--for=condition=complete'
+    }
+
+    do {
+        $params = 'wait', 'job', '-l', $Label, '-n', $Namespace, $conditionParam, "--timeout=$($TimeoutSeconds)s"
+        Write-Information "Invoking kubectl with '$params'.."
+        $result = Invoke-Kubectl -Params $params
+
+        if ($result.Success -or $result.Output -match "timed out") {
+            break
+        }
+
+        Write-Information "Resource not existing yet, waiting 2s..."
+        Start-Sleep 2
+        $TimeoutSeconds = $TimeoutSeconds - 2
+    } while ($TimeoutSeconds -gt 0)
+
     if ($result.Success -ne $true) {
         throw $result.Output
     }
@@ -780,4 +835,4 @@ function Wait-ForPodCondition {
 }
 
 Export-ModuleMember -Function Get-Nodes, Get-SystemPods, Write-Nodes, Write-Pods, Get-K8sVersionInfo, Add-Secret,
-Remove-Secret, Remove-PersistentVolumeClaimsForStorageClass, Invoke-Kubectl, Wait-ForPodCondition
+Remove-Secret, Remove-PersistentVolumeClaimsForStorageClass, Invoke-Kubectl, Wait-ForPodCondition, Wait-ForJobCondition
