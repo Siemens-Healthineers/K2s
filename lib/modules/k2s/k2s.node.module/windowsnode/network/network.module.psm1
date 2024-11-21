@@ -383,7 +383,7 @@ function Add-VfpRoute {
         name = $Name
         subnet = $Subnet
         gateway = $Gateway
-        priority = $newPriority
+        priority = "$Priority"
     }
     $json.routes += $newRoute
     Save-JsonContent -JsonObject $json -FilePath $vfpFilePath
