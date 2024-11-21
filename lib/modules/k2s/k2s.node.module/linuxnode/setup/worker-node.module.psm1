@@ -386,7 +386,7 @@ function Add-RouteToLinuxWorkerNode {
         # routes for Linux pods
         Write-Log "Remove obsolete route to $clusterCIDRWorker"
         route delete $clusterCIDRWorker >$null 2>&1
-        Write-Log "Add route to $clusterCIDRWorker"
+        Write-Log "Add route to Pods for node:$NodeName CIDR:$clusterCIDRWorker"
         route -p add $clusterCIDRWorker $IpAddress METRIC 4 | Out-Null
     } else {
         throw "Cannot obtain pod network information from node '$NodeName'"
