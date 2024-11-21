@@ -7,8 +7,7 @@
 Param(
     [string] $NodeName = $(throw 'Argument missing: NodeName'),
     [switch] $ShowLogs = $false,
-    [string] $AdditionalHooksDir = '',
-    [switch] $SkipHeaderDisplay = $false
+    [string] $AdditionalHooksDir = ''
 )
 
 $infraModule = "$PSScriptRoot\..\..\..\..\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
@@ -28,8 +27,7 @@ $workerNodeName = $NodeName.ToLower()
 
 $workerNodeStopParams = @{
     AdditionalHooksDir = $AdditionalHooksDir
-    SkipHeaderDisplay  = $SkipHeaderDisplay
-    NodeName           = $workerNodeName 
+    NodeName           = $workerNodeName
 }
 Stop-LinuxWorkerNodeOnUbuntuBareMetal @workerNodeStopParams
 

@@ -348,15 +348,12 @@ function Start-LinuxWorkerNodeOnUbuntuBareMetal {
     Param(
         [string] $IpAddress = $(throw 'Argument missing: IpAddress'),
         [string] $NodeName = $(throw 'Argument missing: NodeName'),
-        [string] $AdditionalHooksDir = '',
-        [switch] $SkipHeaderDisplay = $false
+        [string] $AdditionalHooksDir = ''
     )
 
     Add-RouteToLinuxWorkerNode -NodeName $NodeName -IpAddress $IpAddress
 
-    if ($SkipHeaderDisplay -eq $false) {
-        Write-Log "K2s worker node '$NodeName' started"
-    }
+    Write-Log "K2s worker node '$NodeName' started" -Console
 }
 
 function Stop-LinuxWorkerNodeOnUbuntuBareMetal {
@@ -369,9 +366,7 @@ function Stop-LinuxWorkerNodeOnUbuntuBareMetal {
 
     Remove-RouteToLinuxWorkerNode -NodeName $NodeName
 
-    if ($SkipHeaderDisplay -eq $false) {
-        Write-Log "K2s worker node '$NodeName' stopped"
-    }
+    Write-Log "K2s worker node '$NodeName' stopped" -Console
 }
 
 function Add-RouteToLinuxWorkerNode {
