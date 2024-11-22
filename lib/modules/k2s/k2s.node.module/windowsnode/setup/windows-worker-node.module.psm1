@@ -300,10 +300,10 @@ function Start-WindowsWorkerNode {
             # remove routes to non existent gateways
             $cbr0Gateway = $setupConfigRoot.psobject.properties['cbr0Gateway'].value
             Write-Log "Remove obsolete route to $cbr0Gateway"
-            Remove-NetRoute  -DestinationPrefix 0.0.0.0/0 -NextHop $cbr0Gateway -Confirm:$false
+            Remove-NetRoute  -DestinationPrefix 0.0.0.0/0 -NextHop $cbr0Gateway -Confirm:$false -ErrorAction SilentlyContinue
             $loopbackGateway = $setupConfigRoot.psobject.properties['loopbackGateway'].value
             Write-Log "Remove obsolete route to $loopbackGateway"
-            Remove-NetRoute  -DestinationPrefix 0.0.0.0/0 -NextHop $loopbackGateway -Confirm:$false
+            Remove-NetRoute  -DestinationPrefix 0.0.0.0/0 -NextHop $loopbackGateway -Confirm:$false -ErrorAction SilentlyContinue
 
             Write-Output "Networking setup done.`n"
             break;
