@@ -65,6 +65,8 @@ if ($clusterState -match $k8sFormattedNodeName) {
     throw "Precondition not met: the node '$k8sFormattedNodeName' is already part of the cluster."
 }
 
+Write-Log "Adding node with hostname '$k8sFormattedNodeName'"
+
 Write-Log "Disable swap"
 (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo swapon --show' -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
 (Invoke-CmdOnVmViaSSHKey -CmdToExecute "swapFiles=`$(cat /proc/swaps | awk 'NR>1 {print `$1}')" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
@@ -85,7 +87,7 @@ if ($Proxy -eq '') {
 }
 
 $workerNodeParams = @{
-    NodeName = $NodeName
+    NodeName = $actualHostname
     UserName = $UserName
     IpAddress = $IpAddress
     WindowsHostIpAddress = $WindowsHostIpAddress
