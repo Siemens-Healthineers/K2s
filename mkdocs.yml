@@ -106,6 +106,7 @@ nav:
       - Upgrading K2s: op-manual/upgrading-k2s.md
       - Configuring HTTPProxy Service: op-manual/configuring-httpproxy-service.md
       - External DNS: op-manual/external-dns.md
+      - Extending K2s cluster: op-manual/extending-k2s-cluster.md
       - Secure Host Access: op-manual/secure-host-access.md
       - Uninstalling K2s: op-manual/uninstalling-k2s.md
   - Developer Guide:
