@@ -341,6 +341,7 @@ function Add-VfpRulesToWindowsNode {
     Write-Log "Added file '$file' with vfp rules"
 }
 
+# TODO: Move to infra module
 function Add-VfpRoute {
     param (
         [Parameter()]
@@ -382,7 +383,7 @@ function Add-VfpRoute {
         name = $Name
         subnet = $Subnet
         gateway = $Gateway
-        priority = $newPriority
+        priority = "$Priority"
     }
     $json.routes += $newRoute
     Save-JsonContent -JsonObject $json -FilePath $vfpFilePath

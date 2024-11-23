@@ -8,28 +8,37 @@ $fileModule = "$PSScriptRoot\..\..\k2s.infra.module\config\file.module.psm1"
 Import-Module $pathModule, $configModule, $fileModule
 
 $k2sConfigDir = Get-K2sConfigDir
-
-#CONSTANTS
-New-Variable -Name 'ClusterDescriptorFile' -Value "$k2sConfigDir\cluster.json" -Option Constant
+$clusterDescriptorFile = "$k2sConfigDir\cluster.json"
 
 function Get-ClusterDescriptorFilePath {
-    return $ClusterDescriptorFile
+    return $clusterDescriptorFile
 }
 
-function Set-ConfigInstalledK2sType {
-    param (
-        [object] $Value = $(throw 'Please provide the config value.')
-    )
-    Set-ConfigValue -Path $ClusterDescriptorFile -Key 'Name' -Value $Value
-}
 
+<#
+$nodeParams = @{
+    Name = 'minatoav"
+    IpAddress = '172.19.1.104'
+    UserName = 'remote'
+    NodeType = 'HOST'
+    Role = 'worker'
+    OS = 'linux'
+}
+Add-NodeConfig @nodeParams
+
+Supported NodeTypes:
+- HOST          -> Baremetal machine
+- VM-NEW        -> New Provisioned VM from k2s
+- VM-EXISTING   -> Existing VM from the consumer of k2s
+#>
 function Add-NodeConfig {
-    param (
-        [string]$Name,
-        [string]$Role,
-        [string]$IpAddress,
-        [string]$Username,
-        [string]$OS
+    Param (
+        [string] $Name,
+        [string] $IpAddress,
+        [string] $Username,
+        [string] $NodeType,
+        [string] $Role,
+        [string] $OS
     )
     $clusterFilePath = Get-ClusterDescriptorFilePath
     $json = Get-JsonContent -FilePath $clusterFilePath
@@ -37,20 +46,20 @@ function Add-NodeConfig {
 
     $existingNode = $json.nodes | Where-Object { $_.Name -eq $Name }
     if ($existingNode) {
-        Write-Error "A node configuration with the name '$Name' already exists."
-        return
+        throw "A node configuration with the name '$Name' already exists."
     }
 
     $newNode = @{
         Name      = $Name
-        Role      = $Role
         IpAddress = $IpAddress
         Username  = $Username
+        NodeType  = $NodeType
+        Role      = $Role
         OS        = $OS
     }
     $json.nodes += $newNode
-    Save-JsonContent -JsonObject $json -FilePath $FilePath
-    Write-Log "Node '$Name' configuration added successfully." -
+    Save-JsonContent -JsonObject $json -FilePath $clusterFilePath
+    Write-Log "Node '$Name' configuration added successfully."
 }
 
 function Remove-NodeConfig {
@@ -68,8 +77,25 @@ function Remove-NodeConfig {
     }
 
     $json.nodes = $json.nodes | Where-Object { $_.Name -ne $Name }
-    Save-JsonContent -JsonObject $json -FilePath $FilePath
+    Save-JsonContent -JsonObject $json -FilePath $clusterFilePath
     Write-Log "Node '$Name' configuration removed successfully."
+}
+
+function Get-NodeConfig {
+    param (
+        [string]$NodeName
+    )
+    $clusterFilePath = Get-ClusterDescriptorFilePath
+    $json = Get-JsonContent -FilePath $clusterFilePath
+    if (-Not $json) { return $null }
+
+    $node = $json.nodes | Where-Object { $_.Name -eq $NodeName }
+    if (-Not $node) {
+        Write-Log "No node configuration found with the name '$NodeName'."
+        return $null
+    }
+
+    return $node
 }
 
 <#
@@ -103,8 +129,9 @@ function Update-NodeConfig {
         }
     }
 
-    Save-JsonContent -JsonObject $json -FilePath $FilePath
+    Save-JsonContent -JsonObject $json -FilePath $clusterFilePath
     Write-Log "Node '$Name' configuration updated successfully."
 }
 
-Export-ModuleMember -Function Add-NodeConfig, Remove-NodeConfig, Update-NodeConfig
+Export-ModuleMember -Function Add-NodeConfig, Remove-NodeConfig,
+Get-NodeConfig, Update-NodeConfig
