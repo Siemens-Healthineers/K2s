@@ -167,7 +167,7 @@ function Get-AssignedPodSubnetworkNumber {
 
         # Run the kubectl command
         $podCIDR = &"$kubeToolsPath\kubectl.exe" get nodes $NodeName -o jsonpath="'{.spec.podCIDR}'"
-        $success = ($LASTEXITCODE -eq 0 -and $null -ne $podCIDR -and $podCIDR -ne "")
+        $success = ($LASTEXITCODE -eq 0 -and $podCIDR -ne "" -and $podCIDR -ne "''")
 
         if ($success) {
             Write-Log "Found podCIDR $podCIDR"
