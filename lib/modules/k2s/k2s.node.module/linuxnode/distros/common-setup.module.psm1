@@ -629,12 +629,13 @@ Function Set-UpMasterNode {
     $executeRemoteCommand = {
         param(
             $command = $(throw 'Argument missing: Command'),
+            [uint16]$Retries = 0,
             [switch]$IgnoreErrors = $false
         )
         if ([string]::IsNullOrWhiteSpace($remoteUserPwd)) {
-            (Invoke-CmdOnVmViaSSHKey -CmdToExecute $command -UserName $UserName -IpAddress $IpAddress -IgnoreErrors:$IgnoreErrors).Output | Write-Log
+            (Invoke-CmdOnVmViaSSHKey -CmdToExecute $command -UserName $UserName -IpAddress $IpAddress -Retries $Retries -IgnoreErrors:$IgnoreErrors).Output | Write-Log
         } else {
-            (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd" -IgnoreErrors:$IgnoreErrors).Output | Write-Log
+            (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd" -Retries $Retries -IgnoreErrors:$IgnoreErrors).Output | Write-Log
         }
     }
 
