@@ -59,6 +59,8 @@ if (![string]::IsNullOrWhiteSpace($NodeName) -and ($NodeName.ToLower() -ne $k8sF
     throw "Precondition not met: the passed NodeName '$NodeName' is the hostname of the computer with IP '$IpAddress' ($actualHostname)"
 }
 
+$NodeName = $actualHostname
+
 # check if the computer is already part of the cluster
 $clusterState = (Invoke-Kubectl -Params @('get', 'nodes', '-o', 'wide')).Output
 if ($clusterState -match $k8sFormattedNodeName) {
@@ -87,7 +89,7 @@ if ($Proxy -eq '') {
 }
 
 $workerNodeParams = @{
-    NodeName = $actualHostname
+    NodeName = $NodeName
     UserName = $UserName
     IpAddress = $IpAddress
     WindowsHostIpAddress = $WindowsHostIpAddress
