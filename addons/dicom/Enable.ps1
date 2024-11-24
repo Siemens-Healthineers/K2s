@@ -70,13 +70,11 @@ if ($Ingress -ne 'none') {
     Enable-IngressAddon -Ingress:$Ingress
 }
 
-$manifestsPath = "$PSScriptRoot\manifests"
-Write-Log $manifestsPath -Console
 Write-Log 'Installing dicom server' -Console
-(Invoke-Kubectl -Params 'create', '-k', $manifestsPath).Output | Write-Log
+$dicomConfig = Get-DicomConfig
+(Invoke-Kubectl -Params 'apply' , '-k', $dicomConfig).Output | Write-Log
 
-Update-IngressForAddon -Addon ([pscustomobject] @{Name = 'dicom' })
-
+Write-Log 'Checking dicom status' -Console
 Write-Log 'Waiting for Pods..'
 $kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'deployments', '-n', 'dicom', '--timeout=180s')
 Write-Log $kubectlCmd.Output
@@ -117,6 +115,8 @@ if (!$kubectlCmd.Success) {
     Write-Log $errMsg -Error
     exit 1
 }
+
+&"$PSScriptRoot\Update.ps1"
 
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'dicom' })
 

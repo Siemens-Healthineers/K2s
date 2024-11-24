@@ -21,9 +21,6 @@
     // value of StorageDirectory is used). This index could be stored on
     // a RAM-drive or a SSD device for performance reasons.
     "IndexDirectory" : "/var/lib/orthanc/db",
-
-    // Disable the Stone Viewer
-    "StoneWebViewerEnabled" : false
   
     // Path to the directory where Orthanc stores its large temporary
     // files. The content of this folder can be safely deleted once
@@ -87,13 +84,35 @@
     // folders, in which case they will be scanned non-recursively to
     // find shared libraries. Backslashes must be either escaped by
     // doubling them, or replaced by forward slashes "/".
-    "Plugins" : [ 
-      "/usr/share/orthanc/plugins", "/usr/local/share/orthanc/plugins",
-      {
-        "Name" : "StoneWebViewer",
-        "Enabled" : false
-     }
-    ],
+"Plugins": [
+    "/usr/local/share/orthanc/plugins/libHousekeeper.so",
+    "/usr/local/share/orthanc/plugins/libModalityWorklists.so",
+    "/usr/local/share/orthanc/plugins/libMultitenantDicom.so",
+    "/usr/local/share/orthanc/plugins/libOrthancAuthorization.so",
+    "/usr/local/share/orthanc/plugins/libOrthancAwsS3Storage.so",
+    "/usr/local/share/orthanc/plugins/libOrthancDicomWeb.so",
+    "/usr/local/share/orthanc/plugins/libOrthancExplorer2.so",
+    "/usr/local/share/orthanc/plugins/libOrthancGdcm.so",
+    "/usr/local/share/orthanc/plugins/libOrthancIndexer.so",
+    "/usr/local/share/orthanc/plugins/libOrthancMySQLIndex.so",
+    "/usr/local/share/orthanc/plugins/libOrthancMySQLStorage.so",
+    "/usr/local/share/orthanc/plugins/libOrthancNeuro.so",
+    "/usr/local/share/orthanc/plugins/libOrthancOdbcIndex.so",
+    "/usr/local/share/orthanc/plugins/libOrthancOdbcStorage.so",
+    "/usr/local/share/orthanc/plugins/libOrthancPostgreSQLIndex.so",
+    "/usr/local/share/orthanc/plugins/libOrthancPostgreSQLStorage.so",
+    "/usr/local/share/orthanc/plugins/libOrthancSTL.so",
+    "/usr/local/share/orthanc/plugins/libOrthancTcia.so",
+    "/usr/local/share/orthanc/plugins/libOrthancTransfers.so",
+    "/usr/local/share/orthanc/plugins/libOrthancWSI.so",
+    "/usr/local/share/orthanc/plugins/libRtViewerPlugin.so",
+    "/usr/local/share/orthanc/plugins/libServeFolders.so",
+    "/usr/local/share/orthanc/plugins/libOrthancWebViewer.so"
+    // "/usr/local/share/orthanc/plugins/libOrthancOHIF.so",
+    //"/usr/local/share/orthanc/plugins/libOrthancVolView.so",
+    //"/usr/local/share/orthanc/plugins/libStoneWebViewer.so",
+  ],
+
   
     // Maximum number of processing jobs that are simultaneously running
     // at any given time. A value of "0" indicates to use all the

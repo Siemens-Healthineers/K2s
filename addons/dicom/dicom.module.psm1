@@ -11,6 +11,14 @@ Import-Module $logModule, $k8sApiModule
 
 <#
 .DESCRIPTION
+Gets the location of manifests to deploy dicom server.
+#>
+function Get-DicomConfig {
+    return "$PSScriptRoot\manifests\dicom"
+}
+
+<#
+.DESCRIPTION
 Writes the usage notes for dicom server user interface for the user.
 #>
 function Write-UsageForUser {
@@ -32,4 +40,12 @@ function Write-UsageForUser {
  
  In this case, the orthanc dicom web will be accessible on the following URL: http://localhost:8042/dicomweb
 '@ -split "`r`n" | ForEach-Object { Write-Log $_ -Console }
+}
+
+<#
+.DESCRIPTION
+Waits for the dicom pods to be available.
+#>
+function Wait-ForDicomAvailable {
+    return (Wait-ForPodCondition -Condition Ready -Label 'app=dicom' -Namespace 'dicom' -TimeoutSeconds 120)
 }

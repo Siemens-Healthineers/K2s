@@ -1,0 +1,23 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: dicom-nginx-cluster-local
+  namespace: dicom
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+spec:
+  rules:
+    - host: k2s.cluster.local
+      http:
+        paths:
+        - path: /dicomweb(/|$)(.*)
+          pathType: ImplementationSpecific
+          backend:
+            service:
+              name: dicom
+              port:
+                number: 8042
+  ingressClassName: nginx

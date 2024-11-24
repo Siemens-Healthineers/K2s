@@ -1,0 +1,50 @@
+# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+
+# The kubernetes-dashboard service exposes an angular application on port 443
+# The angular application is design in such a way that it constructs the
+# relative paths based on the value stored in the x-forwarded-prefix header
+# of the request. So if the application is exposed on another path than root,
+# this header must have as value that path.
+---
+# this MiddleWare will strip the prefix /dashboard from the request path
+# and set the x-forwarded-prefix header of the request to /dashboard/
+# see https://doc.traefik.io/traefik/middlewares/http/stripprefix/
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: strip-prefix
+  namespace: dicom
+spec:
+  stripPrefix:
+    prefixes:
+      - /dicomweb
+---
+# this ingress will be merged with ingress provided in:
+# addons/ingress/traefik/manifests/cluster-local-ingress.yaml
+# and exposes the kubernetes-dashboard angular application on:
+# https://k2s.cluster.local/dashboard/
+# The certificate is taken from k8s secret 'k2s.cluster.local-tls'
+# (see addons/ingress/traefik/manifests/cluster-local-ingress.yaml)
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: dicom-traefik-cluster-local
+  namespace: dicom
+  annotations:
+    traefik.ingress.kubernetes.io/router.middlewares: dicom-strip-prefix@kubernetescrd
+    traefik.ingress.kubernetes.io/router.tls: "true"
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: k2s.cluster.local
+      http:
+        paths:
+          - path: /dicomweb/
+            pathType: Prefix
+            backend:
+              service:
+                name: dicom
+                port:
+                  number: 8042
