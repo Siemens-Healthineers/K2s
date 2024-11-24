@@ -13,7 +13,7 @@ spec:
     - host: k2s.cluster.local
       http:
         paths:
-        - path: /dicomweb(/|$)(.*)
+        - path: /dicom(/|$)(.*)
           pathType: ImplementationSpecific
           backend:
             service:

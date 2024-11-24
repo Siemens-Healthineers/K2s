@@ -19,7 +19,7 @@ metadata:
 spec:
   stripPrefix:
     prefixes:
-      - /dicomweb
+      - /dicom
 ---
 # this ingress will be merged with ingress provided in:
 # addons/ingress/traefik/manifests/cluster-local-ingress.yaml
@@ -41,7 +41,7 @@ spec:
     - host: k2s.cluster.local
       http:
         paths:
-          - path: /dicomweb/
+          - path: /dicom/
             pathType: Prefix
             backend:
               service:

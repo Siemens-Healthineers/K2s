@@ -37,7 +37,7 @@ The dicom UI can be accessed via the following methods.
 ### Access using ingress
 
 To access dicom UI via ingress, the ingress nginx or the ingress traefik addon has to enabled.
-Once the addons are enabled, then the dicom UI can be accessed at the following URL: <https://k2s.cluster.local/dicomweb>
+Once the addons are enabled, then the dicom UI can be accessed at the following URL: <https://k2s.cluster.local/dicom>
 
 ### Access using port-forwarding
 
@@ -47,7 +47,7 @@ To access dicom server UI via port-forwarding, the following command can be exec
 kubectl -n dicom port-forward svc/orthanc 8042:80
 ```
 
-In this case, the dicom UI can be accessed at the following URL: <http://localhost:8042/dicomweb>
+In this case, the dicom UI can be accessed at the following URL: <http://localhost:8042/dicom>
 
 ## Disable dicom
 

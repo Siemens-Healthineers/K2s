@@ -161,7 +161,7 @@ var _ = Describe("'dicom' addon", Ordered, func() {
 			})
 
 			It("is reachable through k2s.cluster.local", func(ctx context.Context) {
-				url := "https://k2s.cluster.local/dicomweb/ui/app"
+				url := "https://k2s.cluster.local/dicom/ui/app"
 				httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", "-o", "/dev/null", "-w", "%{http_code}", "-L", url, "-k", "-m", "5", "--retry", "10", "--fail", "--retry-all-errors")
 				Expect(httpStatus).To(ContainSubstring("200"))
 			})
@@ -208,7 +208,7 @@ var _ = Describe("'dicom' addon", Ordered, func() {
 			})
 
 			It("is reachable through k2s.cluster.local", func(ctx context.Context) {
-				url := "http://k2s.cluster.local/dicomweb/ui/app"
+				url := "http://k2s.cluster.local/dicom/ui/app"
 				httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", "-o", "/dev/null", "-w", "%{http_code}", "-L", url, "-k", "-m", "5", "--retry", "10", "--fail", "--retry-all-errors")
 				Expect(httpStatus).To(ContainSubstring("200"))
 			})
