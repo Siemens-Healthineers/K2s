@@ -461,8 +461,8 @@ function Get-FlannelImages {
 
     Write-Log 'Get images used by flannel'
 
-    &$executeRemoteCommand 'sudo crictl pull docker.io/flannel/flannel-cni-plugin:v1.5.1-flannel2' 
-    &$executeRemoteCommand 'sudo crictl pull docker.io/flannel/flannel:v0.26.1' 
+    &$executeRemoteCommand 'sudo crictl pull docker.io/flannel/flannel-cni-plugin:v1.5.1-flannel2'
+    &$executeRemoteCommand 'sudo crictl pull docker.io/flannel/flannel:v0.26.1'
 }
 
 function Set-Nameserver {
@@ -629,12 +629,13 @@ Function Set-UpMasterNode {
     $executeRemoteCommand = {
         param(
             $command = $(throw 'Argument missing: Command'),
+            [uint16]$Retries = 0,
             [switch]$IgnoreErrors = $false
         )
         if ([string]::IsNullOrWhiteSpace($remoteUserPwd)) {
-            (Invoke-CmdOnVmViaSSHKey -CmdToExecute $command -UserName $UserName -IpAddress $IpAddress -IgnoreErrors:$IgnoreErrors).Output | Write-Log
+            (Invoke-CmdOnVmViaSSHKey -CmdToExecute $command -UserName $UserName -IpAddress $IpAddress -Retries $Retries -IgnoreErrors:$IgnoreErrors).Output | Write-Log
         } else {
-            (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd" -IgnoreErrors:$IgnoreErrors).Output | Write-Log
+            (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd" -Retries $Retries -IgnoreErrors:$IgnoreErrors).Output | Write-Log
         }
     }
 
@@ -684,7 +685,7 @@ Function Set-UpMasterNode {
     # mount the certificate secrets in coredns, so it can read them
     &$executeRemoteCommand "kubectl get deployment coredns -n kube-system -o yaml | sed '/^\s*\- configMap:/i\      - name: etcd-ca-cert\n        secret:\n          secretName: etcd-ca\n      - name: etcd-client-cert\n        secret:\n          secretName: etcd-client-for-core-dns' | kubectl apply -f -" -IgnoreErrors
     &$executeRemoteCommand "kubectl wait --for=condition=available deployment/coredns -n kube-system --timeout=30s" -IgnoreErrors
-    &$executeRemoteCommand "kubectl get deployment coredns -n kube-system -o yaml | sed '/^\s*\- mountPath: \/etc\/coredns/i\        - mountPath: /etc/kubernetes/pki/etcd-ca\n          name: etcd-ca-cert\n        - mountPath: /etc/kubernetes/pki/etcd-client\n          name: etcd-client-cert' | kubectl apply -f -" -IgnoreErrors
+    &$executeRemoteCommand "kubectl get deployment coredns -n kube-system -o yaml | sed '/^\s*\- mountPath: \/etc\/coredns/i\        - mountPath: /etc/kubernetes/pki/etcd-ca\n          name: etcd-ca-cert\n        - mountPath: /etc/kubernetes/pki/etcd-client\n          name: etcd-client-cert' | kubectl apply -f -" -Retries 3
 
     # change core-dns to have predefined host mapping for DNS resolution
     &$executeRemoteCommand "kubectl get configmap coredns -n kube-system -o yaml | sed '/^\s*cache 30/i\        hosts {\n         $IpAddress k2s.cluster.local\n         fallthrough\n        }' | kubectl apply -f -" -IgnoreErrors
