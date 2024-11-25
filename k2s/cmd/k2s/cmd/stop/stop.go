@@ -14,6 +14,7 @@ import (
 	"github.com/spf13/pflag"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
+	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/status"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 
@@ -119,6 +120,13 @@ func buildStopCmd(flags *pflag.FlagSet, setupName setupinfo.SetupName) (string, 
 }
 
 func stopAdditionalNodes(context *common.CmdContext, flags *pflag.FlagSet, config *setupinfo.Config) error {
+
+	systemStatus, err := status.LoadStatus(common.DeterminePsVersion(config))
+	if err != nil || !systemStatus.RunningState.IsRunning {
+		// Nothing to do if system is not running
+		return nil
+	}
+
 	clusterConfig, err := cc.Read(context.Config().Host.K2sConfigDir)
 	if err != nil {
 		return err
