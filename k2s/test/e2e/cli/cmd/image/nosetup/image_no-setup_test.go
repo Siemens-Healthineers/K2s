@@ -52,7 +52,7 @@ var _ = Describe("image", func() {
 		Entry("tag", "image", "tag", "-n", "non-existent", "-t", "non-existent"),
 		Entry("registry add", "image", "registry", "add", "non-existent"),
 		Entry("registry ls", "image", "registry", "ls"),
-		Entry("rm", "image", "rm", "non-existent"),
+		Entry("rm", "image", "rm", "--id", "non-existent"),
 	)
 
 	Describe("ls JSON output", Ordered, func() {

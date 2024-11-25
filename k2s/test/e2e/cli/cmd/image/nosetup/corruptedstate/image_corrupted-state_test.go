@@ -93,7 +93,7 @@ var _ = Describe("image", Ordered, func() {
 		Entry("pull", "image", "pull", "non-existent"),
 		Entry("push", "image", "push", "-n", "non-existent"),
 		Entry("tag", "image", "tag", "-n", "non-existent", "-t", "non-existent"),
-		Entry("rm", "image", "rm", "non-existent"),
+		Entry("rm", "image", "rm", "--id", "non-existent"),
 		Entry("registry add", "image", "registry", "add", "non-existent"),
 		Entry("registry rm", "image", "registry", "rm", "non-existent"),
 		Entry("registry update", "image", "registry", "update", "non-existent"),
