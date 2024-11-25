@@ -96,11 +96,8 @@ else {
 ### 3. Add new node with K2s CLI
 
 ```cmd
-k2s node add --ip-addr <IPAddressOfNewNode> --username <UserNameForRemoteConnection> --name <HostnameOfNode>
+k2s node add --ip-addr <IPAddressOfNewNode> --username <UserNameForRemoteConnection>
 ```
-
-!!! hint "name" flag
-    `name` flag will be optional in the upcoming versions.
 
 ### 4. Check new node status
 
