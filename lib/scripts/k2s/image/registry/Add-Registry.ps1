@@ -124,7 +124,7 @@ if (!$?) {
     exit 1
 }
 
-$authJson = (Invoke-CmdOnControlPlaneViaSSHKey 'sudo cat /root/.config/containers/auth.json').Output | Out-String
+$authJson = (Invoke-CmdOnControlPlaneViaSSHKey 'sudo cat /root/.config/containers/auth.json' -NoLog).Output | Out-String
 
 Connect-Nerdctl -username $username -password $password -registry $RegistryName
 
