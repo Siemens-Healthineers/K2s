@@ -14,17 +14,40 @@ function Get-ClusterDescriptorFilePath {
     return $clusterDescriptorFile
 }
 
+
+<#
+$nodeParams = @{
+    Name = 'minatoav"
+    IpAddress = '172.19.1.104'
+    UserName = 'remote'
+    NodeType = 'HOST'
+    Role = 'worker'
+    OS = 'linux'
+}
+Add-NodeConfig @nodeParams
+
+Supported NodeTypes:
+- HOST          -> Baremetal machine
+- VM-NEW        -> New Provisioned VM from k2s
+- VM-EXISTING   -> Existing VM from the consumer of k2s
+#>
 function Add-NodeConfig {
-    param (
-        [string]$Name,
-        [string]$Role,
-        [string]$IpAddress,
-        [string]$Username,
-        [string]$OS
+    Param (
+        [string] $Name,
+        [string] $IpAddress,
+        [string] $Username,
+        [string] $NodeType,
+        [string] $Role,
+        [string] $OS
     )
     $clusterFilePath = Get-ClusterDescriptorFilePath
     $json = Get-JsonContent -FilePath $clusterFilePath
-    if (-Not $json) { $json = @{ nodes = @() } }
+
+    if (-Not $json) {
+        $json = @{ nodes = @() }
+    } elseif (-Not $json.nodes) {
+        $json.nodes = @()
+    }
 
     $existingNode = $json.nodes | Where-Object { $_.Name -eq $Name }
     if ($existingNode) {
@@ -33,9 +56,10 @@ function Add-NodeConfig {
 
     $newNode = @{
         Name      = $Name
-        Role      = $Role
         IpAddress = $IpAddress
         Username  = $Username
+        NodeType  = $NodeType
+        Role      = $Role
         OS        = $OS
     }
     $json.nodes += $newNode
@@ -58,6 +82,11 @@ function Remove-NodeConfig {
     }
 
     $json.nodes = $json.nodes | Where-Object { $_.Name -ne $Name }
+
+    if (-Not $json.nodes) {
+        $json.nodes = @()
+    }
+
     Save-JsonContent -JsonObject $json -FilePath $clusterFilePath
     Write-Log "Node '$Name' configuration removed successfully."
 }
