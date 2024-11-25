@@ -154,15 +154,39 @@ function Get-AssignedPodSubnetworkNumber {
     param (
         [string] $NodeName = $(throw 'Argument missing: NodeName')
     )
-    $podCIDR = &"$kubeToolsPath\kubectl.exe" get nodes $NodeName -o jsonpath="'{.spec.podCIDR}'"
-    $success = ($LASTEXITCODE -eq 0)
+
+    $maxRetries = 3
+    $retryDelay = 5  # seconds
+    $attempt = 0
+    $podCIDR = $null
+    $success = $false
+
+    while ($attempt -lt $maxRetries) {
+        $attempt++
+        Write-Log "Attempt $attempt Trying to get podCIDR for node $NodeName..."
+
+        # Run the kubectl command
+        $podCIDR = &"$kubeToolsPath\kubectl.exe" get nodes $NodeName -o jsonpath="'{.spec.podCIDR}'"
+        $success = ($LASTEXITCODE -eq 0 -and $podCIDR -ne "" -and $podCIDR -ne "''")
+
+        if ($success) {
+            Write-Log "Found podCIDR $podCIDR"
+            break
+        } else {
+            Write-Log "Attempt $attempt failed or podCIDR is empty. Retrying in $retryDelay seconds..."
+            Start-Sleep -Seconds $retryDelay
+        }
+    }
+
     $subnetNumber = ''
-    
+
     if ($success) {
         $searchPattern = "^'\d{1,3}\.\d{1,3}\.(?<subnet>\d{1,3})\.\d{1,3}\/24'$"
         $m = [regex]::Matches($podCIDR, $searchPattern)
         if (-not $m[0]) { throw "Cannot get subnet number from '$podCIDR'." }
         $subnetNumber = $m[0].Groups['subnet'].Value
+    } else {
+        Write-Log "[ERR] Failed to get podCIDR for node $NodeName" -Console
     }
     return [pscustomobject]@{ Success = $success; PodSubnetworkNumber = $subnetNumber }
 }
@@ -192,9 +216,9 @@ function Get-AssignedPodNetworkCIDR {
     return [pscustomobject]@{ Success = $cmdExecutionResult.Success; PodNetworkCIDR = $cmdExecutionResult.Output }
 }
 
-Export-ModuleMember Invoke-TimeSync, 
-Wait-ForAPIServer, 
-Update-NodeLabelsAndTaints, 
+Export-ModuleMember Invoke-TimeSync,
+Wait-ForAPIServer,
+Update-NodeLabelsAndTaints,
 Get-Cni0IpAddressInControlPlaneUsingSshWithRetries,
 Get-AssignedPodSubnetworkNumber,
 Get-AssignedPodNetworkCIDR

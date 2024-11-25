@@ -5,9 +5,9 @@
 #Requires -RunAsAdministrator
 
 Param(
-    [string] $NodeName = $(throw 'Argument missing: NodeName'),
     [string] $UserName = $(throw 'Argument missing: UserName'),
     [string] $IpAddress = $(throw 'Argument missing: IpAddress'),
+    [string] $NodeName,
     [string] $WindowsHostIpAddress = '',
     [string] $Proxy = '',
     [switch] $ShowLogs = $false
@@ -30,13 +30,6 @@ Set-Location $installationPath
 
 Write-Log "Performing pre-requisites check" -Console
 
-# check if the computer is already part of the cluster
-$k8sFormattedNodeName = $NodeName.ToLower()
-$clusterState = (Invoke-Kubectl -Params @('get', 'nodes', '-o', 'wide')).Output
-if ($clusterState -match $k8sFormattedNodeName) {
-    throw "Precondition not met: the node '$k8sFormattedNodeName' is not part of the cluster."
-}
-
 $connectionCheck = (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'which ls' -UserName $UserName -IpAddress $IpAddress)
 if (!$connectionCheck.Success) {
     throw "Cannot connect to node with IP '$IpAddress'. Error message: $($connectionCheck.Output)"
@@ -57,11 +50,24 @@ if (!($authorizedKeys.Contains($localPublicKey))) {
     throw "Precondition not met: the local public key from the file '$localPublicKeyFilePath' is present in the file '$authorizedKeysFilePath' of the computer with IP '$IpAddress'."
 }
 
-# check if the intended node name to add to the cluster is the same as the hostname of the computer behind the passed IP address
 $actualHostname = (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'echo $(hostname)' -UserName $UserName -IpAddress $IpAddress).Output
-if ($k8sFormattedNodeName -ne $actualHostname.ToLower()) {
+
+$k8sFormattedNodeName = $actualHostname.ToLower()
+
+# check if the intended node name to add to the cluster is the same as the hostname of the computer behind the passed IP address
+if (![string]::IsNullOrWhiteSpace($NodeName) -and ($NodeName.ToLower() -ne $k8sFormattedNodeName)) {
     throw "Precondition not met: the passed NodeName '$NodeName' is the hostname of the computer with IP '$IpAddress' ($actualHostname)"
 }
+
+$NodeName = $actualHostname
+
+# check if the computer is already part of the cluster
+$clusterState = (Invoke-Kubectl -Params @('get', 'nodes', '-o', 'wide')).Output
+if ($clusterState -match $k8sFormattedNodeName) {
+    throw "Precondition not met: the node '$k8sFormattedNodeName' is already part of the cluster."
+}
+
+Write-Log "Adding node with hostname '$k8sFormattedNodeName'"
 
 Write-Log "Disable swap"
 (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo swapon --show' -UserName $UserName -IpAddress $IpAddress).Output | Write-Log

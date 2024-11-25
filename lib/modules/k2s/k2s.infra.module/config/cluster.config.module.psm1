@@ -42,7 +42,12 @@ function Add-NodeConfig {
     )
     $clusterFilePath = Get-ClusterDescriptorFilePath
     $json = Get-JsonContent -FilePath $clusterFilePath
-    if (-Not $json) { $json = @{ nodes = @() } }
+
+    if (-Not $json) {
+        $json = @{ nodes = @() }
+    } elseif (-Not $json.nodes) {
+        $json.nodes = @()
+    }
 
     $existingNode = $json.nodes | Where-Object { $_.Name -eq $Name }
     if ($existingNode) {
@@ -77,6 +82,11 @@ function Remove-NodeConfig {
     }
 
     $json.nodes = $json.nodes | Where-Object { $_.Name -ne $Name }
+
+    if (-Not $json.nodes) {
+        $json.nodes = @()
+    }
+
     Save-JsonContent -JsonObject $json -FilePath $clusterFilePath
     Write-Log "Node '$Name' configuration removed successfully."
 }
