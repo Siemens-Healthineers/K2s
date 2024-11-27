@@ -1,0 +1,9 @@
+# SPDX-FileCopyrightText: © 2024 Siemens Healthcare GmbH
+#
+# SPDX-License-Identifier: MIT
+
+namespace: viewer
+resources:
+  - namespace.yaml
+  - webapp.yaml
+  - configmap.yaml

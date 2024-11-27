@@ -1,0 +1,80 @@
+# SPDX-FileCopyrightText: © 2024 Siemens Healthcare GmbH
+#
+# SPDX-License-Identifier: MIT
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config-json
+data:
+  config.json: |
+    {
+      "routerBasename": "/viewer/",
+      "extensions": [],
+      "modes": [],
+      "customizationService": {},
+      "showStudyList": true,
+      "maxNumberOfWebWorkers": 3,
+      "showWarningMessageForCrossOrigin": false,
+      "showCPUFallbackMessage": true,
+      "showLoadingIndicator": true,
+      "useSharedArrayBuffer": "FALSE",
+      "strictZSpacingForVolumeViewport": true,
+      "groupEnabledModesFirst": true,
+      "maxNumRequests": {
+      "interaction": 100,
+      "thumbnail": 75,
+      "prefetch": 25
+      },
+      "dataSources": [
+      {
+        "namespace": "@ohif/extension-default.dataSourcesModule.dicomweb",
+        "sourceName": "dicomweb",
+        "configuration": {
+        "friendlyName": "AWS S3 Static wado server",
+        "name": "aws",
+        "wadoUriRoot": "https://d33do7qe4w26qo.cloudfront.net/dicomweb",
+        "qidoRoot": "https://d33do7qe4w26qo.cloudfront.net/dicomweb",
+        "wadoRoot": "https://d33do7qe4w26qo.cloudfront.net/dicomweb",
+        "qidoSupportsIncludeField": false,
+        "imageRendering": "wadors",
+        "thumbnailRendering": "wadors",
+        "enableStudyLazyLoad": true,
+        "supportsFuzzyMatching": false,
+        "supportsWildcard": true,
+        "staticWado": true,
+        "singlepart": "bulkdata,video",
+        "bulkDataURI": {
+          "enabled": true,
+          "relativeResolution": "studies"
+        },
+        "omitQuotationForMultipartRequest": true
+        }
+      },
+      {
+        "namespace": "@ohif/extension-default.dataSourcesModule.dicomweb",
+        "sourceName": "dicomweb2",
+        "configuration": {
+        "friendlyName": "AWS S3 Static wado server",
+        "name": "aws",
+        "wadoUriRoot": "http://k2s.cluster.local/dicomweb/dicom-web",
+        "qidoRoot": "http://k2s.cluster.local/dicomweb/dicom-web",
+        "wadoRoot": "http://k2s.cluster.local/dicomweb/dicom-web",
+        "qidoSupportsIncludeField": false,
+        "imageRendering": "wadors",
+        "thumbnailRendering": "wadors",
+        "enableStudyLazyLoad": true,
+        "supportsFuzzyMatching": false,
+        "supportsWildcard": true,
+        "staticWado": true,
+        "singlepart": "bulkdata,video",
+        "bulkDataURI": {
+          "enabled": true,
+          "relativeResolution": "studies"
+        },
+        "omitQuotationForMultipartRequest": true
+        }
+      }
+      ],
+      "defaultDataSourceName": "dicomweb"
+    }

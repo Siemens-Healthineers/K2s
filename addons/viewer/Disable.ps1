@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+# SPDX-FileCopyrightText: © 2024 Siemens Healthcare GmbH
 #
 # SPDX-License-Identifier: MIT
 
@@ -6,20 +6,16 @@
 
 <#
 .SYNOPSIS
-Disables k2s-registry in the cluster
+Uninstalls Kubernetes viewer UI
 
 .DESCRIPTION
-The local regsitry allows to push/pull images to/from the local volume of KubeMaster.
-Each node inside the cluster can connect to the registry.
 
 .EXAMPLE
-# For k2sSetup
-powershell <installation folder>\addons\registry\Disable.ps1
+Disable viewer
+powershell <installation folder>\addons\viewer\Disable.ps1
 #>
 
-Param(
-    [parameter(Mandatory = $false, HelpMessage = 'Delete local image storage')]
-    [switch] $DeleteImages = $false,
+Param (
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
     [switch] $ShowLogs = $false,
     [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
@@ -27,12 +23,12 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
     [string] $MessageType
 )
-$infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
-$nodeModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.node.module/k2s.node.module.psm1"
+$infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
+$viewerModule = "$PSScriptRoot\viewer.module.psm1"
 
-Import-Module $infraModule, $clusterModule, $nodeModule, $addonsModule
+Import-Module $clusterModule, $infraModule, $addonsModule, $viewerModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -49,10 +45,8 @@ if ($systemError) {
     exit 1
 }
 
-Write-Log 'Check whether registry addon is already disabled'
-
-if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'registry', '--ignore-not-found').Output -and (Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'registry' })) -ne $true) {
-    $errMsg = "Addon 'registry' is already disabled, nothing to do."
+if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'viewer', '--ignore-not-found').Output -and (Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'viewer' })) -ne $true) {
+    $errMsg = "Addon 'viewer' is already disabled, nothing to do."
 
     if ($EncodeStructuredOutput -eq $true) {
         $err = New-Error -Severity Warning -Code (Get-ErrCodeAddonAlreadyDisabled) -Message $errMsg
@@ -64,24 +58,14 @@ if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'registry', '--ignore-
     exit 1
 }
 
-Write-Log 'Uninstalling Kubernetes registry' -Console
+Write-Log 'Uninstalling Kubernetes viewer' -Console
+Remove-IngressForTraefik -Addon ([pscustomobject] @{Name = 'viewer' })
+Remove-IngressForNginx -Addon ([pscustomobject] @{Name = 'viewer' })
+$viewerConfig = Get-ViewerConfig
+(Invoke-Kubectl -Params 'delete', '-k', $viewerConfig).Output | Write-Log
 
-(Invoke-Kubectl -Params 'delete', '-f', "$PSScriptRoot\manifests\k2s-registry.yaml").Output | Write-Log
-(Invoke-Kubectl -Params 'delete', 'secret', 'k2s-registry').Output | Write-Log
-(Invoke-Kubectl -Params 'delete', 'namespace', 'registry').Output | Write-Log
-
-if ($DeleteImages) {
-    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo rm -rf /registry').Output | Write-Log
-}
-
-Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'registry' })
-Remove-RegistryFromSetupJson -Name 'k2s.*' -IsRegex $true
-
-if ((Get-ConfigLoggedInRegistry) -match 'k2s-registry.*') {
-    Set-ConfigLoggedInRegistry -Value ''
-}
-
-Write-Log 'Uninstallation of Kubernetes registry finished' -Console
+Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'viewer' })
+Write-Log 'Uninstallation of Kubernetes viewer finished' -Console
 
 if ($EncodeStructuredOutput -eq $true) {
     Send-ToCli -MessageType $MessageType -Message @{Error = $null }
