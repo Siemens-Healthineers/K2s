@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 # SPDX-License-Identifier: MIT
 
 $pathModule = "$PSScriptRoot\..\..\k2s.infra.module\path\path.module.psm1"
@@ -442,7 +442,7 @@ function Get-DefaultProvisioningBaseImageDiskSize {
 }
 
 function Get-DefaultK8sVersion {
-    return 'v1.29.5'
+    return 'v1.31.3'
 }
 
 <#

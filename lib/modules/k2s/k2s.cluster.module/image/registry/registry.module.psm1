@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 # SPDX-License-Identifier: MIT
 
 $configModule = "$PSScriptRoot\..\..\..\k2s.infra.module\config\config.module.psm1"
@@ -174,7 +174,8 @@ function Connect-Buildah {
             $success = (Invoke-CmdOnControlPlaneViaSSHKey "sudo buildah login --authfile /root/.config/containers/auth.json '$registry' > /dev/null 2>&1").Success
         }
         else {
-            $success = (Invoke-CmdOnControlPlaneViaSSHKey "sudo buildah login --authfile /root/.config/containers/auth.json -u '$username' -p '$password' '$registry' > /dev/null 2>&1").Success
+            $success = (Invoke-CmdOnControlPlaneViaSSHKey "sudo buildah login --authfile /root/.config/containers/auth.json -u '$username' -p '$password' '$registry' > /dev/null 2>&1" -NoLog).Success
+            Write-Log("cmd: sudo buildah login --authfile /root/.config/containers/auth.json -u 'user' -p '<redacted>' '$registry' > /dev/null 2>&1 (redacted ouput)")
         }
 
         if ($success) {

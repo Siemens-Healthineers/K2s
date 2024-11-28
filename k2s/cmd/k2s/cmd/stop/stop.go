@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2023 Siemens Healthcare GmbH
+// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package stop
@@ -14,9 +14,11 @@ import (
 	"github.com/spf13/pflag"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
+	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/status"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 
+	cc "github.com/siemens-healthineers/k2s/internal/core/clusterconfig"
 	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
 	"github.com/siemens-healthineers/k2s/internal/powershell"
 )
@@ -47,6 +49,12 @@ func stopk8s(cmd *cobra.Command, args []string) error {
 			return common.CreateSystemNotInstalledCmdFailure()
 		}
 		return err
+	}
+
+	err = stopAdditionalNodes(context, cmd.Flags(), config)
+	if err != nil {
+		// Stop of additional nodes shall not impact the k2s cluster stop, any errors during stop should be treated as warnings.
+		slog.Warn("Failures during stopping of additional nodes", "err", err)
 	}
 
 	stopCmd, err := buildStopCmd(cmd.Flags(), config.SetupName)
@@ -109,4 +117,61 @@ func buildStopCmd(flags *pflag.FlagSet, setupName setupinfo.SetupName) (string, 
 	}
 
 	return cmd, nil
+}
+
+func stopAdditionalNodes(context *common.CmdContext, flags *pflag.FlagSet, config *setupinfo.Config) error {
+
+	systemStatus, err := status.LoadStatus(common.DeterminePsVersion(config))
+	if err != nil || !systemStatus.RunningState.IsRunning {
+		// Nothing to do if system is not running
+		return nil
+	}
+
+	clusterConfig, err := cc.Read(context.Config().Host.K2sConfigDir)
+	if err != nil {
+		return err
+	}
+
+	if clusterConfig == nil {
+		return nil
+	}
+
+	for _, node := range clusterConfig.Nodes {
+		startNodeCmd := buildNodeStopCmd(flags, node)
+
+		slog.Debug("PS command created", "command", startNodeCmd)
+
+		err = powershell.ExecutePs(startNodeCmd, common.DeterminePsVersion(config), common.NewPtermWriter())
+		if err != nil {
+			slog.Warn("Failure during stop of node", "node", node.Name, "err", err)
+		}
+	}
+
+	return nil
+}
+
+func buildNodeStopCmd(flags *pflag.FlagSet, nodeConfig cc.Node) string {
+	outputFlag, _ := strconv.ParseBool(flags.Lookup(common.OutputFlagName).Value.String())
+
+	additionalHooksDir := flags.Lookup(common.AdditionalHooksDirFlagName).Value.String()
+
+	roleType := string(nodeConfig.Role)
+	OsType := string(nodeConfig.OS)
+	nodeType := cc.GetNodeDirectory(string(nodeConfig.NodeType))
+
+	cmd := utils.FormatScriptFilePath(utils.InstallDir() + "\\lib\\scripts\\" + roleType + "\\" + OsType + "\\" + nodeType + "\\Stop.ps1")
+
+	if outputFlag {
+		cmd += " -ShowLogs"
+	}
+
+	if additionalHooksDir != "" {
+		cmd += " -AdditionalHooksDir " + utils.EscapeWithSingleQuotes(additionalHooksDir)
+	}
+
+	if nodeConfig.Name != "" {
+		cmd += " -NodeName " + nodeConfig.Name
+	}
+
+	return cmd
 }

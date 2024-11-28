@@ -1,5 +1,5 @@
 
-# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -89,7 +89,7 @@ Function Set-UpComputerAfterProvisioning {
     CopyDotFile -SourcePath "$PSScriptRoot\..\common\dotfiles\" -DotFile '.bash_kubectl' -RemoteUser $remoteUser -RemoteUserPwd $remoteUserPwd
     CopyDotFile -SourcePath "$PSScriptRoot\..\common\dotfiles\" -DotFile '.bash_docker' -RemoteUser $remoteUser -RemoteUserPwd $remoteUserPwd
     CopyDotFile -SourcePath "$PSScriptRoot\..\common\dotfiles\" -DotFile '.bash_aliases' -RemoteUser $remoteUser -RemoteUserPwd $remoteUserPwd
-    
+
     Write-Log 'Set local time zone in VM...'
     $timezoneForVm = 'Europe/Berlin'
     (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "sudo timedatectl set-timezone $timezoneForVm" -RemoteUser $remoteUser -RemoteUserPwd $remoteUserPwd).Output | Write-Log
@@ -111,9 +111,9 @@ Function Set-KubernetesAptRepository {
     )
     $remoteUser = "$UserName@$IpAddress"
     
-    $executeRemoteCommand = { 
+    $executeRemoteCommand = {
         param(
-            $command = $(throw 'Argument missing: Command'), 
+            $command = $(throw 'Argument missing: Command'),
             [switch]$IgnoreErrors = $false, [string]$RepairCmd = $null, [uint16]$Retries = 0
         )
         if ([string]::IsNullOrWhiteSpace($UserPwd)) {
@@ -147,7 +147,7 @@ Function Set-KubernetesAptRepository {
     &$executeRemoteCommand "sudo gpg --dearmor -o $kubernetesAptKeyFilePath $kubernetesPublicKeyFilePath" -IgnoreErrors
     &$executeRemoteCommand "echo 'deb [signed-by=$kubernetesAptKeyFilePath] https://pkgs.k8s.io/core:/stable:/$pkgShortK8sVersion/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.list" 
     &$executeRemoteCommand "sudo rm -f $kubernetesPublicKeyFilePath" -IgnoreErrors
-    
+
     # package location for cri-o
     $crioPublicKeyFilePath = '/tmp/crio.key'
     $crioAptKeyFilePath = '/usr/share/keyrings/cri-o-apt-keyring.gpg'
@@ -307,23 +307,23 @@ Function Install-KubernetesArtifacts {
     } else {
         Copy-ToRemoteComputerViaUserAndPwd -Source $zScalerCertificateSourcePath -Target $zScalerCertificateTargetPath -UserName $UserName -UserPwd $UserPwd -IpAddress $IpAddress
     }
-    
+
     &$executeRemoteCommand "sudo mv /tmp/ZScalerRootCA.crt /usr/local/share/ca-certificates/"
-    &$executeRemoteCommand "sudo update-ca-certificates"       
-    Write-Log "Zscaler certificate added to CA certificates of computer with IP '$IpAddress'" 
+    &$executeRemoteCommand "sudo update-ca-certificates"
+    Write-Log "Zscaler certificate added to CA certificates of computer with IP '$IpAddress'"
 
     Write-Log 'Configure bridged traffic'
-    &$executeRemoteCommand 'echo overlay | sudo tee /etc/modules-load.d/k8s.conf' 
-    &$executeRemoteCommand 'echo br_netfilter | sudo tee /etc/modules-load.d/k8s.conf' 
-    &$executeRemoteCommand 'sudo modprobe overlay' 
-    &$executeRemoteCommand 'sudo modprobe br_netfilter' 
+    &$executeRemoteCommand 'echo overlay | sudo tee /etc/modules-load.d/k8s.conf'
+    &$executeRemoteCommand 'echo br_netfilter | sudo tee /etc/modules-load.d/k8s.conf'
+    &$executeRemoteCommand 'sudo modprobe overlay'
+    &$executeRemoteCommand 'sudo modprobe br_netfilter'
 
-    &$executeRemoteCommand 'echo net.bridge.bridge-nf-call-ip6tables = 1 | sudo tee -a /etc/sysctl.d/k8s.conf' 
-    &$executeRemoteCommand 'echo net.bridge.bridge-nf-call-iptables = 1 | sudo tee -a /etc/sysctl.d/k8s.conf' 
-    &$executeRemoteCommand 'echo net.ipv4.ip_forward = 1 | sudo tee -a /etc/sysctl.d/k8s.conf' 
-    &$executeRemoteCommand 'sudo sysctl --system' 
+    &$executeRemoteCommand 'echo net.bridge.bridge-nf-call-ip6tables = 1 | sudo tee -a /etc/sysctl.d/k8s.conf'
+    &$executeRemoteCommand 'echo net.bridge.bridge-nf-call-iptables = 1 | sudo tee -a /etc/sysctl.d/k8s.conf'
+    &$executeRemoteCommand 'echo net.ipv4.ip_forward = 1 | sudo tee -a /etc/sysctl.d/k8s.conf'
+    &$executeRemoteCommand 'sudo sysctl --system'
 
-    &$executeRemoteCommand 'echo @reboot root mount --make-rshared / | sudo tee /etc/cron.d/sharedmount' 
+    &$executeRemoteCommand 'echo @reboot root mount --make-rshared / | sudo tee /etc/cron.d/sharedmount'
 
     &$executeRemoteCommand 'sudo apt-mark hold cri-o'
 
@@ -331,16 +331,16 @@ Function Install-KubernetesArtifacts {
     &$executeRemoteCommand 'sudo touch /etc/crictl.yaml'
     &$executeRemoteCommand "grep timeout.* /etc/crictl.yaml | sudo sed -i 's/timeout.*/timeout: 30/g' /etc/crictl.yaml"
     &$executeRemoteCommand 'grep timeout.* /etc/crictl.yaml || echo timeout: 30 | sudo tee -a /etc/crictl.yaml'
-    
+
     if ( $Proxy -ne '' ) {
         Write-Log 'Set proxy to CRI-O'
-        &$executeRemoteCommand 'sudo mkdir -p /etc/systemd/system/crio.service.d' 
-        &$executeRemoteCommand 'sudo touch /etc/systemd/system/crio.service.d/http-proxy.conf' 
-        &$executeRemoteCommand 'echo [Service] | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf' 
-        &$executeRemoteCommand "echo Environment=\'HTTP_PROXY=$Proxy\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf" 
-        &$executeRemoteCommand "echo Environment=\'HTTPS_PROXY=$Proxy\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf" 
-        &$executeRemoteCommand "echo Environment=\'http_proxy=$Proxy\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf" 
-        &$executeRemoteCommand "echo Environment=\'https_proxy=$Proxy\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf" 
+        &$executeRemoteCommand 'sudo mkdir -p /etc/systemd/system/crio.service.d'
+        &$executeRemoteCommand 'sudo touch /etc/systemd/system/crio.service.d/http-proxy.conf'
+        &$executeRemoteCommand 'echo [Service] | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf'
+        &$executeRemoteCommand "echo Environment=\'HTTP_PROXY=$Proxy\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf"
+        &$executeRemoteCommand "echo Environment=\'HTTPS_PROXY=$Proxy\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf"
+        &$executeRemoteCommand "echo Environment=\'http_proxy=$Proxy\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf"
+        &$executeRemoteCommand "echo Environment=\'https_proxy=$Proxy\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf"
         &$executeRemoteCommand "echo Environment=\'no_proxy=.local\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf"
     }
 
@@ -363,7 +363,7 @@ Function Install-KubernetesArtifacts {
             }
         }
     }
-    
+
     $jsonString = ConvertTo-Json -InputObject $jsonConfig
     &$executeRemoteCommand "echo -e '$jsonString' | sudo tee /tmp/auth.json" | Out-Null
     &$executeRemoteCommand 'sudo mkdir -p /root/.config/containers'
@@ -372,7 +372,7 @@ Function Install-KubernetesArtifacts {
     Write-Log 'Configure CRI-O'
     # cri-o default cni bridge should have least priority
     $CRIO_CNI_FILE = '/etc/cni/net.d/10-crio-bridge.conf'
-    &$executeRemoteCommand "[ -f $CRIO_CNI_FILE ] && sudo mv $CRIO_CNI_FILE /etc/cni/net.d/100-crio-bridge.conf || echo File does not exist, no renaming of cni file $CRIO_CNI_FILE.." 
+    &$executeRemoteCommand "[ -f $CRIO_CNI_FILE ] && sudo mv $CRIO_CNI_FILE /etc/cni/net.d/100-crio-bridge.conf || echo File does not exist, no renaming of cni file $CRIO_CNI_FILE.."
     if ($PSVersionTable.PSVersion.Major -gt 5) {
         &$executeRemoteCommand 'sudo echo unqualified-search-registries = [\"docker.io\"] | sudo tee -a /etc/containers/registries.conf'
     }
@@ -380,12 +380,12 @@ Function Install-KubernetesArtifacts {
         &$executeRemoteCommand 'sudo echo unqualified-search-registries = [\\\"docker.io\\\"] | sudo tee -a /etc/containers/registries.conf'
     }
 
-    &$executeRemoteCommand 'sudo apt-mark hold kubelet kubeadm kubectl' 
+    &$executeRemoteCommand 'sudo apt-mark hold kubelet kubeadm kubectl'
 
     Write-Log 'Start CRI-O'
-    &$executeRemoteCommand 'sudo systemctl daemon-reload' 
-    &$executeRemoteCommand 'sudo systemctl enable crio' -IgnoreErrors 
-    &$executeRemoteCommand 'sudo systemctl start crio' 
+    &$executeRemoteCommand 'sudo systemctl daemon-reload'
+    &$executeRemoteCommand 'sudo systemctl enable crio' -IgnoreErrors
+    &$executeRemoteCommand 'sudo systemctl start crio'
 
     $isWsl = Get-ConfigWslFlag
     Write-Log "Add WSL support?: $isWsl"
@@ -396,7 +396,7 @@ Function Install-KubernetesArtifacts {
         &$executeRemoteCommand "echo add_inheritable_capabilities=true | sudo tee -a $configWSL > /dev/null"
         &$executeRemoteCommand "echo default_sysctls='[\`"net.ipv4.ip_unprivileged_port_start=0\`"]' | sudo tee -a $configWSL > /dev/null"
         &$executeRemoteCommand 'sudo systemctl restart crio'
-    }   
+    }
 }
 
 Function Copy-KubernetesImagesFromKubenodeToWindowsHost {
@@ -498,27 +498,27 @@ Function Remove-KubernetesArtifacts {
         [string] $IpAddress = $(throw 'Argument missing: IpAddress')
     )
 
-    $executeRemoteCommand = { 
+    $executeRemoteCommand = {
         param(
-            $command = $(throw 'Argument missing: Command'), 
+            $command = $(throw 'Argument missing: Command'),
             [switch]$IgnoreErrors = $false, [string]$RepairCmd = $null, [uint16]$Retries = 0
         )
         (Invoke-CmdOnVmViaSSHKey -CmdToExecute $command -UserName $UserName -IpAddress $IpAddress -Retries $Retries -RepairCmd $RepairCmd -IgnoreErrors:$IgnoreErrors).Output | Write-Log
     }
 
-    &$executeRemoteCommand 'sudo systemctl stop kubelet' 
-    &$executeRemoteCommand 'sudo systemctl disable kubelet' 
+    &$executeRemoteCommand 'sudo systemctl stop kubelet'
+    &$executeRemoteCommand 'sudo systemctl disable kubelet'
 
-    &$executeRemoteCommand 'sudo systemctl stop crio' 
-    &$executeRemoteCommand 'sudo systemctl disable crio' 
+    &$executeRemoteCommand 'sudo systemctl stop crio'
+    &$executeRemoteCommand 'sudo systemctl disable crio'
 
-    &$executeRemoteCommand 'sudo systemctl daemon-reload' 
+    &$executeRemoteCommand 'sudo systemctl daemon-reload'
 
     &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive dpkg -P kubeadm' 
     &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive dpkg -P kubectl' 
     &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive dpkg -P kubelet' 
 
-    &$executeRemoteCommand 'sudo rm -f /etc/containers/registries.conf' 
+    &$executeRemoteCommand 'sudo rm -f /etc/containers/registries.conf'
     &$executeRemoteCommand 'sudo rm -f /etc/cni/net.d/100-crio-bridge.conf'
     &$executeRemoteCommand 'sudo rm -drf /root/.config/containers'
     &$executeRemoteCommand 'sudo rm -drf /etc/systemd/system/crio.service.d'
@@ -529,7 +529,7 @@ Function Remove-KubernetesArtifacts {
 
     &$executeRemoteCommand "sudo rm -f $kubernetesAptKeyFilePath"
     &$executeRemoteCommand 'sudo rm -f /etc/apt/sources.list.d/kubernetes.list'
-    
+
     &$executeRemoteCommand 'sudo rm -drf /etc/kubernetes'
     &$executeRemoteCommand 'sudo rm -drf /etc/crio'
 
@@ -652,7 +652,7 @@ Function Install-Tools {
             }
         }
     }
-    
+
     $jsonString = ConvertTo-Json -InputObject $jsonConfig
     &$executeRemoteCommand "echo -e '$jsonString' | sudo tee /tmp/auth.json" | Out-Null
     &$executeRemoteCommand 'sudo mkdir -p /root/.config/containers'
@@ -685,16 +685,16 @@ function Install-DnsServer {
     $remoteUser = "$UserName@$IpAddress"
     $remoteUserPwd = $UserPwd
 
-    $executeRemoteCommand = { param($Command = $(throw 'Argument missing: Command')) 
+    $executeRemoteCommand = { param($Command = $(throw 'Argument missing: Command'))
     (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $Command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output | Write-Log
     }
 
     Write-Log 'Install custom DNS server'
-    &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get install dnsutils --yes' 
-    &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get install dnsmasq --yes' 
+    &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get install dnsutils --yes'
+    &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get install dnsmasq --yes'
 
     Write-Log 'Stop custom DNS server'
-    &$executeRemoteCommand 'sudo systemctl stop dnsmasq' 
+    &$executeRemoteCommand 'sudo systemctl stop dnsmasq'
 }
 
 function Get-FlannelImages {
@@ -708,13 +708,14 @@ function Get-FlannelImages {
     $remoteUser = "$UserName@$IpAddress"
     $remoteUserPwd = $UserPwd
 
-    $executeRemoteCommand = { param($Command = $(throw 'Argument missing: Command')) 
+    $executeRemoteCommand = { param($Command = $(throw 'Argument missing: Command'))
     (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $Command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output | Write-Log
     }
 
     Write-Log 'Get images used by flannel'
-    &$executeRemoteCommand 'sudo crictl pull rancher/mirrored-flannelcni-flannel-cni-plugin:v1.1.0' 
-    &$executeRemoteCommand 'sudo crictl pull rancher/mirrored-flannelcni-flannel:v0.18.1' 
+
+    &$executeRemoteCommand 'sudo crictl pull docker.io/flannel/flannel-cni-plugin:v1.5.1-flannel2'
+    &$executeRemoteCommand 'sudo crictl pull docker.io/flannel/flannel:v0.26.1'
 }
 
 function Get-KubernetesImages {
@@ -749,7 +750,7 @@ function Set-Nameserver {
     $remoteUser = "$UserName@$IpAddress"
     $remoteUserPwd = $UserPwd
 
-    $executeRemoteCommand = { param($Command = $(throw 'Argument missing: Command')) 
+    $executeRemoteCommand = { param($Command = $(throw 'Argument missing: Command'))
     (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $Command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output | Write-Log
     }
 
@@ -789,27 +790,27 @@ Function Add-SupportForWSL {
 
     # WSL2 config
     Write-Log 'Configure WSL2'
-    &$executeRemoteCommand 'sudo touch /etc/wsl.conf' 
-    &$executeRemoteCommand 'echo [automount] | sudo tee -a /etc/wsl.conf' 
-    &$executeRemoteCommand 'echo enabled = false | sudo tee -a /etc/wsl.conf' 
-    &$executeRemoteCommand "echo -e 'mountFsTab = false\n' | sudo tee -a /etc/wsl.conf" 
+    &$executeRemoteCommand 'sudo touch /etc/wsl.conf'
+    &$executeRemoteCommand 'echo [automount] | sudo tee -a /etc/wsl.conf'
+    &$executeRemoteCommand 'echo enabled = false | sudo tee -a /etc/wsl.conf'
+    &$executeRemoteCommand "echo -e 'mountFsTab = false\n' | sudo tee -a /etc/wsl.conf"
 
-    &$executeRemoteCommand 'echo [interop] | sudo tee -a /etc/wsl.conf' 
-    &$executeRemoteCommand 'echo enabled = false | sudo tee -a /etc/wsl.conf' 
-    &$executeRemoteCommand "echo -e 'appendWindowsPath = false\n' | sudo tee -a /etc/wsl.conf" 
+    &$executeRemoteCommand 'echo [interop] | sudo tee -a /etc/wsl.conf'
+    &$executeRemoteCommand 'echo enabled = false | sudo tee -a /etc/wsl.conf'
+    &$executeRemoteCommand "echo -e 'appendWindowsPath = false\n' | sudo tee -a /etc/wsl.conf"
 
-    &$executeRemoteCommand 'echo [user] | sudo tee -a /etc/wsl.conf' 
-    &$executeRemoteCommand "echo -e 'default = __USERNAME__\n' | sudo tee -a /etc/wsl.conf" 
+    &$executeRemoteCommand 'echo [user] | sudo tee -a /etc/wsl.conf'
+    &$executeRemoteCommand "echo -e 'default = __USERNAME__\n' | sudo tee -a /etc/wsl.conf"
 
-    &$executeRemoteCommand 'echo [network] | sudo tee -a /etc/wsl.conf' 
-    &$executeRemoteCommand 'echo generateHosts = false | sudo tee -a /etc/wsl.conf' 
-    &$executeRemoteCommand 'echo generateResolvConf = false | sudo tee -a /etc/wsl.conf' 
+    &$executeRemoteCommand 'echo [network] | sudo tee -a /etc/wsl.conf'
+    &$executeRemoteCommand 'echo generateHosts = false | sudo tee -a /etc/wsl.conf'
+    &$executeRemoteCommand 'echo generateResolvConf = false | sudo tee -a /etc/wsl.conf'
     &$executeRemoteCommand 'echo hostname = __HOSTNAME__ | sudo tee -a /etc/wsl.conf'
     &$executeRemoteCommand 'echo | sudo tee -a /etc/wsl.conf'
 
-    &$executeRemoteCommand 'echo [boot] | sudo tee -a /etc/wsl.conf' 
-    &$executeRemoteCommand 'echo systemd = true | sudo tee -a /etc/wsl.conf' 
-    &$executeRemoteCommand "echo 'command = ""sudo ifconfig __INTERFACE_NAME__ __IP_ADDRESS__ && sudo ifconfig __INTERFACE_NAME__ netmask __NETWORK_MASK__"" && sudo route add default gw __GATEWAY_IP_ADDRESS__' | sudo tee -a /etc/wsl.conf" 
+    &$executeRemoteCommand 'echo [boot] | sudo tee -a /etc/wsl.conf'
+    &$executeRemoteCommand 'echo systemd = true | sudo tee -a /etc/wsl.conf'
+    &$executeRemoteCommand "echo 'command = ""sudo ifconfig __INTERFACE_NAME__ __IP_ADDRESS__ && sudo ifconfig __INTERFACE_NAME__ netmask __NETWORK_MASK__"" && sudo route add default gw __GATEWAY_IP_ADDRESS__' | sudo tee -a /etc/wsl.conf"
 }
 
 function Edit-SupportForWSL {
@@ -899,43 +900,47 @@ Function Set-UpMasterNode {
     $remoteUser = "$UserName@$IpAddress"
     $remoteUserPwd = $UserPwd
 
-    $executeRemoteCommand = { 
+    $executeRemoteCommand = {
         param(
-            $command = $(throw 'Argument missing: Command'), 
+            $command = $(throw 'Argument missing: Command'),
+            [uint16]$Retries = 0,
             [switch]$IgnoreErrors = $false
-        ) 
+        )
         if ([string]::IsNullOrWhiteSpace($remoteUserPwd)) {
-            (Invoke-CmdOnVmViaSSHKey -CmdToExecute $command -UserName $UserName -IpAddress $IpAddress -IgnoreErrors:$IgnoreErrors).Output | Write-Log
+            (Invoke-CmdOnVmViaSSHKey -CmdToExecute $command -UserName $UserName -IpAddress $IpAddress -Retries $Retries -IgnoreErrors:$IgnoreErrors).Output | Write-Log
         } else {
-            (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd" -IgnoreErrors:$IgnoreErrors).Output | Write-Log
+            (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd" -Retries $Retries -IgnoreErrors:$IgnoreErrors).Output | Write-Log
         }
     }
 
     Write-Log "Start setting up computer '$IpAddress' as master node"
 
-    &$executeRemoteCommand "sudo kubeadm init --kubernetes-version $K8sVersion --apiserver-advertise-address $IpAddress --pod-network-cidr=$ClusterCIDR --service-cidr=$ClusterCIDR_Services" -IgnoreErrors 
+    &$executeRemoteCommand "sudo kubeadm init --kubernetes-version $K8sVersion --apiserver-advertise-address $IpAddress --pod-network-cidr=$ClusterCIDR --service-cidr=$ClusterCIDR_Services" -IgnoreErrors
 
     Write-Log 'Copy K8s config file to user profile'
-    &$executeRemoteCommand 'mkdir -p ~/.kube' 
-    &$executeRemoteCommand 'chmod 755 ~/.kube' 
-    &$executeRemoteCommand 'sudo cp /etc/kubernetes/admin.conf ~/.kube/config' 
-    &$executeRemoteCommand "sudo chown $UserName ~/.kube/config" 
-    &$executeRemoteCommand 'kubectl get nodes' 
+    &$executeRemoteCommand 'mkdir -p ~/.kube'
+    &$executeRemoteCommand 'chmod 755 ~/.kube'
+    &$executeRemoteCommand 'sudo cp /etc/kubernetes/admin.conf ~/.kube/config'
+    &$executeRemoteCommand "sudo chown $UserName ~/.kube/config"
+    &$executeRemoteCommand 'kubectl get nodes'
 
     Write-Log 'Install custom DNS server'
-    &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get install dnsutils --yes' 
-    &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get install dnsmasq --yes' 
+    &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get install dnsutils --yes'
+    &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get install dnsmasq --yes'
+
+    Write-Log 'Scale down coredns to 1 replicas'
+    &$executeRemoteCommand 'kubectl scale deployment coredns -n kube-system --replicas=1'
 
     Write-Log 'Configure custom DNS server'
     # add more interfaces to listen on
-    &$executeRemoteCommand "echo server=/cluster.local/$KubeDnsServiceIP | sudo tee -a /etc/dnsmasq.conf" 
-    &$executeRemoteCommand "echo server=$IP_NextHop@$NetworkInterfaceName | sudo tee -a /etc/dnsmasq.conf" 
-    &$executeRemoteCommand "echo interface=$NetworkInterfaceName | sudo tee -a /etc/dnsmasq.conf" 
-    &$executeRemoteCommand 'echo interface=cni0 | sudo tee -a /etc/dnsmasq.conf' 
-    &$executeRemoteCommand 'echo interface=lo | sudo tee -a /etc/dnsmasq.conf' 
+    &$executeRemoteCommand "echo server=/cluster.local/$KubeDnsServiceIP | sudo tee -a /etc/dnsmasq.conf"
+    &$executeRemoteCommand "echo server=$IP_NextHop@$NetworkInterfaceName | sudo tee -a /etc/dnsmasq.conf"
+    &$executeRemoteCommand "echo interface=$NetworkInterfaceName | sudo tee -a /etc/dnsmasq.conf"
+    &$executeRemoteCommand 'echo interface=cni0 | sudo tee -a /etc/dnsmasq.conf'
+    &$executeRemoteCommand 'echo interface=lo | sudo tee -a /etc/dnsmasq.conf'
 
     Write-Log 'Restart custom DNS server'
-    &$executeRemoteCommand 'sudo systemctl restart dnsmasq' 
+    &$executeRemoteCommand 'sudo systemctl restart dnsmasq'
 
     # import etcd certificates as k8s secrets, so that coredns can access etcd
     &$executeRemoteCommand 'sudo mkdir etcd'
@@ -947,16 +952,17 @@ Function Set-UpMasterNode {
 
     # update coredns configmap kubernetes plugin to fallthrough for all zones
     &$executeRemoteCommand "kubectl get configmap coredns -n kube-system -o yaml | sed 's/fallthrough\ in-addr.arpa\ ip6.arpa/fallthrough/1' | kubectl apply -f -" -IgnoreErrors
-    
+
     # change core-dns to serve the cluster.local zone from the etcd plugin as fallback
     &$executeRemoteCommand "kubectl get configmap coredns -n kube-system -o yaml | sed '/^\s*prometheus :9153/i\        etcd cluster.local {\n            path /skydns\n            endpoint https://${IpAddress}:2379\n            tls /etc/kubernetes/pki/etcd-client/tls.crt /etc/kubernetes/pki/etcd-client/tls.key /etc/kubernetes/pki/etcd-ca/tls.crt\n        }' | kubectl apply -f -" -IgnoreErrors
 
     # mount the certificate secrets in coredns, so it can read them
     &$executeRemoteCommand "kubectl get deployment coredns -n kube-system -o yaml | sed '/^\s*\- configMap:/i\      - name: etcd-ca-cert\n        secret:\n          secretName: etcd-ca\n      - name: etcd-client-cert\n        secret:\n          secretName: etcd-client-for-core-dns' | kubectl apply -f -" -IgnoreErrors
-    &$executeRemoteCommand "kubectl get deployment coredns -n kube-system -o yaml | sed '/^\s*\- mountPath: \/etc\/coredns/i\        - mountPath: /etc/kubernetes/pki/etcd-ca\n          name: etcd-ca-cert\n        - mountPath: /etc/kubernetes/pki/etcd-client\n          name: etcd-client-cert' | kubectl apply -f -" -IgnoreErrors
+    &$executeRemoteCommand "kubectl wait --for=condition=available deployment/coredns -n kube-system --timeout=30s" -IgnoreErrors
+    &$executeRemoteCommand "kubectl get deployment coredns -n kube-system -o yaml | sed '/^\s*\- mountPath: \/etc\/coredns/i\        - mountPath: /etc/kubernetes/pki/etcd-ca\n          name: etcd-ca-cert\n        - mountPath: /etc/kubernetes/pki/etcd-client\n          name: etcd-client-cert' | kubectl apply -f -" -Retries 3
 
     # change core-dns to have predefined host mapping for DNS resolution
-    &$executeRemoteCommand "kubectl get configmap coredns -n kube-system -o yaml | sed '/^\s*cache 30/i\        hosts {\n         $IpAddress k2s.cluster.local\n         fallthrough\n        }' | kubectl apply -f -" -IgnoreErrors     
+    &$executeRemoteCommand "kubectl get configmap coredns -n kube-system -o yaml | sed '/^\s*cache 30/i\        hosts {\n         $IpAddress k2s.cluster.local\n         fallthrough\n        }' | kubectl apply -f -" -IgnoreErrors
 
     Write-Log 'Initialize Flannel'
     Add-FlannelPluginToMasterNode -IpAddress $IpAddress -UserName $UserName -UserPwd $UserPwd -PodNetworkCIDR $ClusterCIDR
@@ -979,8 +985,8 @@ Function Set-UpMasterNode {
     Write-Log 'Setup hook finished'
 
     Write-Log 'Redirect to localhost IP address for DNS resolution'
-    &$executeRemoteCommand 'sudo chattr -i /etc/resolv.conf' 
-    &$executeRemoteCommand "echo 'nameserver 127.0.0.1' | sudo tee /etc/resolv.conf" 
+    &$executeRemoteCommand 'sudo chattr -i /etc/resolv.conf'
+    &$executeRemoteCommand "echo 'nameserver 127.0.0.1' | sudo tee /etc/resolv.conf"
 
     Write-Log 'Finished setting up Linux computer as master'
 }
@@ -1020,7 +1026,7 @@ Function Add-FlannelPluginToMasterNode {
 
     $fileName = 'flannel.yml'
 
-    $executeRemoteCommand = { param($command = $(throw 'Argument missing: Command')) 
+    $executeRemoteCommand = { param($command = $(throw 'Argument missing: Command'))
         if ([string]::IsNullOrWhiteSpace($remoteUserPwd)) {
             (Invoke-CmdOnVmViaSSHKey -CmdToExecute $command -UserName $UserName -IpAddress $IpAddress -IgnoreErrors:$IgnoreErrors).Output | Write-Log
         } else {
@@ -1028,7 +1034,7 @@ Function Add-FlannelPluginToMasterNode {
         }
     }
 
-    $waitUntilContainerNetworkPluginIsRunning = { 
+    $waitUntilContainerNetworkPluginIsRunning = {
         $iteration = 0
         while ($true) {
             $iteration++
@@ -1041,7 +1047,7 @@ Function Add-FlannelPluginToMasterNode {
             }
             if ($result -match 'successfully') {
                 break;
-            } 
+            }
             if ($iteration -eq 25) {
                 Write-Log 'Flannel CNI could not be set up, aborting...'
                 throw 'Unable to get the CNI plugin Flannel running !'
@@ -1050,9 +1056,9 @@ Function Add-FlannelPluginToMasterNode {
                 Write-Log 'Flannel CNI not yet available, waiting for it...'
                 $x3 = $iteration % 3 -eq 0
                 if ( $x3 ) {
-                    &$executeRemoteCommand 'sudo systemctl restart kubelet' 
+                    &$executeRemoteCommand 'sudo systemctl restart kubelet'
                 }
-                &$executeRemoteCommand "sudo kubectl apply -f ~/$fileName" 
+                &$executeRemoteCommand "sudo kubectl apply -f ~/$fileName"
             }
             Start-Sleep 2
         }
@@ -1065,12 +1071,12 @@ Function Add-FlannelPluginToMasterNode {
     }
 
     Write-Log 'Change default forward policy'
-    &$executeRemoteCommand 'sudo iptables --policy FORWARD ACCEPT' 
+    &$executeRemoteCommand 'sudo iptables --policy FORWARD ACCEPT'
 
     Write-Log 'Prepare Flannel configuration file'
     $NetworkAddress = "      ""Network"": ""$PodNetworkCIDR"","
     $NetworkName = '      "name": "cbr0",'
-    $NetworkType = '        "Type": "host-gw"' 
+    $NetworkType = '        "Type": "host-gw"'
 
     $configurationFile = "$PSScriptRoot\containernetwork\masternode\$fileName"
     Copy-Item "$PSScriptRoot\containernetwork\masternode\flannel.template.yml" "$configurationFile" -Force
@@ -1098,7 +1104,7 @@ Function Add-FlannelPluginToMasterNode {
     }
 
     Write-Log 'Apply flannel configuration file on computer'
-    &$executeRemoteCommand "kubectl apply -f ~/$fileName" 
+    &$executeRemoteCommand "kubectl apply -f ~/$fileName"
 
     &$waitUntilContainerNetworkPluginIsRunning
 
@@ -1129,7 +1135,7 @@ Function New-KubernetesNode {
         [string]$IpAddress = $(throw 'Argument missing: IpAddress'),
         [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
         [string] $K8sVersion = $(throw 'Argument missing: K8sVersion'),
-        [string]$Proxy = '' 
+        [string]$Proxy = ''
     )
 
     Assert-GeneralComputerPrequisites -IpAddress $IpAddress -UserName $userName -UserPwd $userPwd
@@ -1194,7 +1200,7 @@ function New-VmImageForKubernetesNode {
         }
 
         New-KubernetesNode @kubeNodeParameters
-    
+
         &$addToKubeNode
     }
 
@@ -1231,9 +1237,9 @@ function New-VmImageForControlPlaneNode {
         [parameter(Mandatory = $false, HelpMessage = 'Forces the installation online')]
         [Boolean] $ForceOnlineInstallation = $false
     )
-      
+
     $kubenodeBaseImagePath = "$(Split-Path $VmImageOutputPath)\$(Get-KubenodeBaseFileName)"
-    
+
     $isKubenodeBaseImageAlreadyAvailable = (Test-Path $kubenodeBaseImagePath)
     $isOnlineInstallation = (!$isKubenodeBaseImageAlreadyAvailable -or $ForceOnlineInstallation)
 
@@ -1284,9 +1290,9 @@ function New-VmImageForControlPlaneNode {
             NetworkInterfaceName          = $vmNetworkInterfaceName
             Hook                          = $addToControlPlane
         }
-        Set-UpMasterNode @masterNodeParams 
+        Set-UpMasterNode @masterNodeParams
     }
-    
+
     $kubemasterCreationParams = @{
         VMMemoryStartupBytes = $VMMemoryStartupBytes
         VMProcessorCount     = $VMProcessorCount
@@ -1329,7 +1335,7 @@ function New-LinuxVmImageForWorkerNode {
     )
 
     $kubenodeBaseImagePath = "$(Split-Path $VmImageOutputPath)\$(Get-KubenodeBaseFileName)"
-    
+
     $isKubenodeBaseImageAlreadyAvailable = (Test-Path $kubenodeBaseImagePath)
     $isOnlineInstallation = (!$isKubenodeBaseImageAlreadyAvailable -or $ForceOnlineInstallation)
 
@@ -1369,7 +1375,7 @@ function New-LinuxVmImageForWorkerNode {
             UserPwd                       = $vmUserPwd
             Hook                          = $executeInWorkerNode
         }
-        Set-UpWorkerNode @workerNodeParams 
+        Set-UpWorkerNode @workerNodeParams
     }
 
     $kubeworkerCreationParams = @{
@@ -1512,7 +1518,7 @@ function New-WslRootfsForControlPlaneNode {
     )
 
     $kubenodeBaseImagePath = "$(Split-Path $VmImageInputPath)\$(Get-KubenodeBaseFileName)"
-    
+
     if (!(Test-Path -Path $kubenodeBaseImagePath)) {
         $vmImageForKubernetesNodeCreationParams = @{
             VmImageOutputPath    = $kubenodeBaseImagePath
@@ -1654,10 +1660,10 @@ function Set-ProxySettingsForContainers {
     }
 }
 
-Export-ModuleMember -Function New-VmImageForControlPlaneNode, 
-New-LinuxVmImageForWorkerNode, 
-Remove-VmImageForControlPlaneNode, 
-Import-SpecificDistroSettingsModule, 
+Export-ModuleMember -Function New-VmImageForControlPlaneNode,
+New-LinuxVmImageForWorkerNode,
+Remove-VmImageForControlPlaneNode,
+Import-SpecificDistroSettingsModule,
 New-WslRootfsForControlPlaneNode,
 Set-ProxySettingsOnKubenode,
 Get-KubenodeBaseFileName,

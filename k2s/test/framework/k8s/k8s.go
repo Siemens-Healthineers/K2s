@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+// SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 //
 // SPDX-License-Identifier: MIT
 
@@ -127,7 +127,10 @@ func (c *Cluster) ExpectDeploymentToBeReachableFromHost(name string, namespace s
 
 	GinkgoWriter.Println("Calling <", url, "> over HTTP..")
 
-	res, err := http.Get(url)
+	ctx, cncl := context.WithTimeout(context.Background(), time.Second*60)
+	defer cncl()
+	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	res, err := http.DefaultClient.Do(req)
 
 	Expect(err).ShouldNot(HaveOccurred())
 	Expect(res).To(SatisfyAll(
@@ -532,11 +535,11 @@ func (c *Cluster) ExpectInternetToBeReachableFromPodOfDeployment(deploymentName 
 
 	Expect(err).ShouldNot(HaveOccurred())
 
-	command := []string{"curl", "-i", "-m", "4", "--insecure", "www.google.de"}
+	command := []string{"curl", "-i", "-m", "4", "--insecure", "NeverSSL.com"}
 	if proxy != "" {
 		GinkgoWriter.Println("Using proxy for curl")
 
-		command = []string{"curl", "-i", "-m", "4", "--insecure", "-x", proxy, "www.google.de"}
+		command = []string{"curl", "-i", "-m", "4", "--insecure", "-x", proxy, "NeverSSL.com"}
 	}
 
 	var stdout, stderr bytes.Buffer
