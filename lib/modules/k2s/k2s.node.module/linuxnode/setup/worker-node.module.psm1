@@ -279,8 +279,10 @@ function Add-LinuxWorkerNodeOnUbuntuBareMetal {
         NodeType = 'HOST'
         Role = 'worker'
         OS = 'linux'
-    }
+    
     Add-NodeConfig @nodeParams
+    Copy-KubernetesArtifactsFromControlPlaneToRemoteComputer -UserName $UserName -IpAddress $IpAddress
+    Confirm-KubernetesAptRepositoryIsUpToDate -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy
     Install-KubernetesArtifacts -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy
     Write-Log "Installing node essentials" -Console
 
@@ -409,7 +411,7 @@ function Add-RouteToLinuxWorkerNode {
     Param(
         [string] $IpAddress = $(throw 'Argument missing: IpAddress'),
         [string] $NodeName = $(throw 'Argument missing: Hostname'),
-        [string] $ClusterCIDRWorker = $(throw 'Argument missing: Hostname')
+        [string] $ClusterCIDRWorker = $(throw 'Argument missing: ClusterCIDRWorker')
     )
 
     # routes for Linux pods
@@ -422,7 +424,7 @@ function Add-RouteToLinuxWorkerNode {
 function Remove-RouteToLinuxWorkerNode {
     Param(
         [string] $NodeName = $(throw 'Argument missing: Hostname'),
-        [string] $ClusterCIDRWorker = $(throw 'Argument missing: Hostname')
+        [string] $ClusterCIDRWorker = $(throw 'Argument missing: ClusterCIDRWorker')
     )
 
     # routes for Linux pods
