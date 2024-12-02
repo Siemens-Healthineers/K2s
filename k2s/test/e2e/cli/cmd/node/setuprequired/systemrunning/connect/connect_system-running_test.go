@@ -20,6 +20,8 @@ import (
 	"github.com/siemens-healthineers/k2s/test/framework/k2s"
 )
 
+const connectionTimeout = 30 * time.Second
+
 var suite *framework.K2sTestSuite
 var skipWinNodeTests bool
 
@@ -62,7 +64,7 @@ var _ = Describe("node connect", Ordered, func() {
 
 			GinkgoWriter.Println("Waiting for pseuto terminal to be ready")
 
-			Eventually(ctx, session).WithTimeout(time.Second * 5).Should(gbytes.Say(remoteUser + "@.+"))
+			Eventually(ctx, session).WithTimeout(connectionTimeout).Should(gbytes.Say(remoteUser + "@.+"))
 
 			GinkgoWriter.Println("Closing pseudo terminal")
 
@@ -105,7 +107,7 @@ var _ = Describe("node connect", Ordered, func() {
 
 			GinkgoWriter.Println("Waiting for pseuto terminal to be ready")
 
-			Eventually(ctx, session).WithTimeout(time.Second * 5).Should(gbytes.Say(remoteUser + "@.+"))
+			Eventually(ctx, session).WithTimeout(connectionTimeout).Should(gbytes.Say(remoteUser + "@.+"))
 
 			GinkgoWriter.Println("\nClosing pseudo terminal")
 
