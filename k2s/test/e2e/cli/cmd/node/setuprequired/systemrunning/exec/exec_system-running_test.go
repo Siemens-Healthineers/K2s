@@ -18,7 +18,7 @@ import (
 var suite *framework.K2sTestSuite
 var skipWinNodeTests bool
 
-func TestCopy(t *testing.T) {
+func TestExec(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "node exec Acceptance Tests", Label("cli", "node", "exec", "acceptance", "setup-required", "system-running"))
 }
