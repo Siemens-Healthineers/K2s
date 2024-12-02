@@ -92,4 +92,12 @@ var _ = Describe("node", Ordered, func() {
 			Expect(output).To(ContainSubstring("corrupted state"))
 		})
 	})
+
+	Describe("connect", Label("connect"), func() {
+		It("prints system-in-corrupted-state message and exits with non-zero", func(ctx context.Context) {
+			output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "node", "connect", "-i", "", "-u", "")
+
+			Expect(output).To(ContainSubstring("corrupted state"))
+		})
+	})
 })

@@ -1,5 +1,6 @@
 // SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
+
 package systemstopped
 
 import (
@@ -46,23 +47,34 @@ var _ = Describe("node", func() {
 		})
 
 		It("runs into a defined timeout", func(ctx context.Context) {
-			output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "node", "copy", "--ip-addr", ipAddress, "-s", source, "-t", "", "-o", "--timeout", "5s", "-u", "")
+			output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "node", "copy", "--ip-addr", ipAddress, "-s", source, "-t", "", "-o", "--timeout", "1s", "-u", "")
 
 			Expect(output).To(SatisfyAll(
 				MatchRegexp("ERROR"),
 				MatchRegexp("timeout"),
 			))
-		}, SpecTimeout(time.Second*6)) // 1s grace period for k2s.exe
+		}, SpecTimeout(time.Second*2)) // 1s grace period for k2s.exe
 	})
 
 	Describe("exec", Label("exec"), func() {
 		It("runs into a defined timeout", func(ctx context.Context) {
-			output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "node", "exec", "-i", ipAddress, "-o", "--timeout", "5s", "-u", "", "-c", "")
+			output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "node", "exec", "-i", ipAddress, "-o", "--timeout", "1s", "-u", "", "-c", "")
 
 			Expect(output).To(SatisfyAll(
 				MatchRegexp("ERROR"),
 				MatchRegexp("timeout"),
 			))
-		}, SpecTimeout(time.Second*6)) // 1s grace period for k2s.exe
+		}, SpecTimeout(time.Second*2))
+	})
+
+	Describe("connect", Label("connect"), func() {
+		It("runs into a defined timeout", func(ctx context.Context) {
+			output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "node", "connect", "-i", ipAddress, "-o", "--timeout", "1s", "-u", "test")
+
+			Expect(output).To(SatisfyAll(
+				MatchRegexp("ERROR"),
+				MatchRegexp("exit status 255"),
+			))
+		}, SpecTimeout(time.Second*2))
 	})
 })

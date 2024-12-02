@@ -46,4 +46,12 @@ var _ = Describe("node", func() {
 			Expect(output).To(ContainSubstring("not installed"))
 		})
 	})
+
+	Describe("connect", Label("connect"), func() {
+		It("prints system-not-installed message and exits with non-zero", func(ctx context.Context) {
+			output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "node", "connect", "-i", "", "-u", "")
+
+			Expect(output).To(ContainSubstring("not installed"))
+		})
+	})
 })
