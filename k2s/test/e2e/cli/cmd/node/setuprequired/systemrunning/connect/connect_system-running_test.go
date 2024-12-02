@@ -5,8 +5,10 @@ package connect
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os/exec"
+	"strings"
 	"testing"
 	"time"
 
@@ -20,14 +22,30 @@ import (
 	"github.com/siemens-healthineers/k2s/test/framework/k2s"
 )
 
-const connectionTimeout = 30 * time.Second
+const (
+	connectionTimeout = 10 * time.Second
+	manualTag         = "manual"
+)
 
-var suite *framework.K2sTestSuite
-var skipWinNodeTests bool
+var (
+	suite                         *framework.K2sTestSuite
+	skipWinNodeTests              bool
+	isManualExecution             = false
+	automatedExecutionSkipMessage = fmt.Sprintf("can only be run using the filter value '%s'", manualTag)
+)
 
 func TestConnect(t *testing.T) {
+	labels := []string{"cli", "node", "connect", "acceptance", "setup-required", "system-running"}
+	userSuppliedLabels := GinkgoLabelFilter()
+	if strings.Compare(userSuppliedLabels, "") != 0 {
+		if Label(manualTag).MatchesLabelFilter(userSuppliedLabels) {
+			isManualExecution = true
+			labels = append(labels, manualTag)
+		}
+	}
+
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "node connect Acceptance Tests", Label("cli", "node", "connect", "acceptance", "setup-required", "system-running"))
+	RunSpecs(t, "node connect Acceptance Tests", Label(labels...))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
@@ -48,6 +66,10 @@ var _ = Describe("node connect", Ordered, func() {
 		var nodeIpAddress string
 
 		BeforeEach(func(ctx context.Context) {
+			if !isManualExecution {
+				Skip(automatedExecutionSkipMessage)
+			}
+
 			nodeIpAddress = k2s.GetControlPlane(suite.SetupInfo().Config.Nodes).IpAddress
 
 			GinkgoWriter.Println("Using control-plane node IP address <", nodeIpAddress, ">")
@@ -87,6 +109,9 @@ var _ = Describe("node connect", Ordered, func() {
 		var nodeIpAddress string
 
 		BeforeEach(func(ctx context.Context) {
+			if !isManualExecution {
+				Skip(automatedExecutionSkipMessage)
+			}
 			if skipWinNodeTests {
 				Skip("Windows node tests are skipped")
 			}
