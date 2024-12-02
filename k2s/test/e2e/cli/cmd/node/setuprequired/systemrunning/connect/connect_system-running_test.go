@@ -53,7 +53,7 @@ var _ = Describe("node connect", Ordered, func() {
 		It("connects via SSH successfully", func(ctx context.Context) {
 			inputReader, inputWriter := io.Pipe()
 
-			cmd := exec.CommandContext(ctx, "k2s.exe", "node", "connect", "-i", nodeIpAddress, "-u", remoteUser, "-o")
+			cmd := exec.CommandContext(ctx, suite.K2sCli().Path(), "node", "connect", "-i", nodeIpAddress, "-u", remoteUser, "-o")
 			cmd.Stdin = inputReader
 
 			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
