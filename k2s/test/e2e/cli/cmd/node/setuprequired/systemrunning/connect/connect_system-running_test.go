@@ -15,9 +15,12 @@ import (
 	"github.com/onsi/gomega/gbytes"
 	"github.com/onsi/gomega/gexec"
 
+	"github.com/shirou/gopsutil/v3/process"
 	"github.com/siemens-healthineers/k2s/test/framework"
 	"github.com/siemens-healthineers/k2s/test/framework/k2s"
 )
+
+const connectionTimeout = 30 * time.Second
 
 var suite *framework.K2sTestSuite
 var skipWinNodeTests bool
@@ -61,7 +64,7 @@ var _ = Describe("node connect", Ordered, func() {
 
 			GinkgoWriter.Println("Waiting for pseuto terminal to be ready")
 
-			Eventually(ctx, session).WithTimeout(time.Second * 5).Should(gbytes.Say(remoteUser + "@.+"))
+			Eventually(ctx, session).WithTimeout(connectionTimeout).Should(gbytes.Say(remoteUser + "@.+"))
 
 			GinkgoWriter.Println("Closing pseudo terminal")
 
@@ -79,7 +82,7 @@ var _ = Describe("node connect", Ordered, func() {
 	})
 
 	When("node is Windows node", Label("windows-node"), func() {
-		// const remoteUser = "administrator"
+		const remoteUser = "administrator"
 
 		var nodeIpAddress string
 
@@ -88,11 +91,56 @@ var _ = Describe("node connect", Ordered, func() {
 				Skip("Windows node tests are skipped")
 			}
 
-			Skip("not implemented yet")
-
 			nodeIpAddress = k2s.GetWindowsNode(suite.SetupInfo().Config.Nodes).IpAddress
 
 			GinkgoWriter.Println("Using windows node IP address <", nodeIpAddress, ">")
+		})
+
+		It("connects via SSH successfully", func(ctx context.Context) {
+			inputReader, inputWriter := io.Pipe()
+
+			cmd := exec.CommandContext(ctx, suite.K2sCli().Path(), "node", "connect", "-i", nodeIpAddress, "-u", remoteUser, "-o")
+			cmd.Stdin = inputReader
+
+			session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
+			Expect(err).NotTo(HaveOccurred())
+
+			GinkgoWriter.Println("Waiting for pseuto terminal to be ready")
+
+			Eventually(ctx, session).WithTimeout(connectionTimeout).Should(gbytes.Say(remoteUser + "@.+"))
+
+			GinkgoWriter.Println("\nClosing pseudo terminal")
+
+			_, err = inputWriter.Write([]byte("exit\n"))
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(inputWriter.Close()).To(Succeed())
+
+			GinkgoWriter.Println("Killing ssh.exe child process") // otherwise, process remains active in automated tests on Windows terminal
+
+			k2sProcess, err := process.NewProcess(int32(cmd.Process.Pid))
+			Expect(err).NotTo(HaveOccurred())
+
+			GinkgoWriter.Println("K2s process ID =", k2sProcess.Pid)
+
+			k2sChildProcesses, err := k2sProcess.Children()
+			Expect(err).NotTo(HaveOccurred())
+
+			for _, childProcess := range k2sChildProcesses {
+				name, err := childProcess.Name()
+				Expect(err).NotTo(HaveOccurred())
+
+				if name != "ssh.exe" {
+					continue
+				}
+
+				GinkgoWriter.Println("Killing process ID =", childProcess.Pid)
+
+				Expect(childProcess.KillWithContext(ctx)).To(Succeed())
+			}
+
+			Eventually(ctx, session).WithTimeout(time.Second * 5).Should(gbytes.Say(`Command 'connect' done.`))
+			Eventually(ctx, session).WithTimeout(time.Second * 5).Should(gexec.Exit(0))
 		})
 	})
 })

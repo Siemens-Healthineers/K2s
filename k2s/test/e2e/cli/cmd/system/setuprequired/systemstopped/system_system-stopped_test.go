@@ -41,7 +41,7 @@ var _ = Describe("system", func() {
 			))
 		},
 		Entry("scp m", "system", "scp", "m", "a1", "a2"),
-		Entry("scp w", "system", "scp", "w", "a1", "a2"),
+		// Entry("scp w", "system", "scp", "w", "a1", "a2"), // superseded by deprecation message
 		Entry("ssh m", "system", "ssh", "m", "--", "echo yes"),
 		Entry("ssh w", "system", "ssh", "w", "--", "echo yes"),
 		Entry("ssh m", "system", "ssh", "m"),
