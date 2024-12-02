@@ -33,10 +33,11 @@ var (
 `
 
 	sshWorkerCmd = &cobra.Command{
-		Use:     "w",
-		Short:   "Connect to WinNode worker VM",
-		Example: sshWorkerCmdExample,
-		RunE:    sshWorker,
+		Use:        "w",
+		Short:      "Connect to WinNode worker VM",
+		Example:    sshWorkerCmdExample,
+		RunE:       sshWorker,
+		Deprecated: "This command is deprecated and will be removed in the future. Use 'k2s node connect' or 'k2s node exec' instead.", // TODO: fulfill promise
 	}
 
 	commandHandlerCreatorFuncForWorker func() commandHandler

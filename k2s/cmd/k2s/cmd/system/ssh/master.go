@@ -32,10 +32,11 @@ var (
 	k2s system ssh m -- echo yes
 `
 	sshMasterCmd = &cobra.Command{
-		Use:     "m",
-		Short:   "Connect to KubeMaster node",
-		Example: sshMasterCmdExample,
-		RunE:    sshMaster,
+		Use:        "m",
+		Short:      "Connect to KubeMaster node",
+		Example:    sshMasterCmdExample,
+		RunE:       sshMaster,
+		Deprecated: "This command is deprecated and will be removed in the future. Use 'k2s node connect' or 'k2s node exec' instead.", // TODO: fulfill promise
 	}
 
 	commandHandlerCreatorFuncForMaster func() commandHandler

@@ -22,8 +22,15 @@ const (
 	usernameFlag    = "username"
 	timeoutFlag     = "timeout"
 	portFlag        = "port"
-	longDescription = "Connects to a remote node."
-	example         = `# Connect to a remote node
+	longDescription = `Connects to a remote node.
+
+This command uses the pre-installed Windows OpenSSH client to connect to a remote node.
+
+Since K2s does not maintain this ssh.exe, make sure it is up-to-date.
+Check the client version with 'ssh -V'.
+See also the OpenSSH release notes at https://www.openssh.com/releasenotes.html.
+`
+	example = `# Connect to a remote node
 k2s node connect -i 192.168.1.2 -u remote
 `
 )

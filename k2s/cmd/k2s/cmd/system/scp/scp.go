@@ -68,6 +68,7 @@ func buildScpSubCmd(useShort, short, example, scriptPath, reverseShort string) *
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runScpCmd(cmd, args, scriptPath)
 		},
+		Deprecated: "This command is deprecated and will be removed in the future. Use 'k2s node copy' instead.", // TODO: fulfill promise
 	}
 
 	cmd.Flags().BoolP(reverseFlag, "r", false, fmt.Sprintf("Reverse direction: %s", reverseShort))
