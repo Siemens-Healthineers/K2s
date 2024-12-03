@@ -86,7 +86,8 @@ function Start-LinuxWorkerNodeOnNewVM {
         [string] $NodeName = $(throw 'Argument missing: Hostname')
     )
 
-    Add-RouteToLinuxWorkerNode -NodeName $NodeName -IpAddress $IpAddress
+    $clusterCIDRWorker = Get-ClusterCIDRWorker -NodeName $NodeName
+    Add-RouteToLinuxWorkerNode -NodeName $NodeName -IpAddress $IpAddress -ClusterCIDRWorker $clusterCIDRWorker
 
     if ($SkipHeaderDisplay -eq $false) {
         Write-Log "K2s worker node '$NodeName' started"
@@ -102,7 +103,8 @@ function Stop-LinuxWorkerNodeOnNewVM {
         [string] $NodeName = $(throw 'Argument missing: Hostname')
     )
 
-    Remove-RouteToLinuxWorkerNode -NodeName $NodeName
+    $clusterCIDRWorker = Get-ClusterCIDRWorker -NodeName $NodeName
+    Remove-RouteToLinuxWorkerNode -NodeName $NodeName -ClusterCIDRWorker $clusterCIDRWorker
 
     if ($SkipHeaderDisplay -eq $false) {
         Write-Log "K2s worker node '$NodeName' stopped"
@@ -157,12 +159,18 @@ function Add-LinuxWorkerNodeOnExistingUbuntuVM {
         [string] $AdditionalHooksDir = ''
     )
 
-    Copy-KubernetesArtifactsFromControlPlaneToRemoteComputer -UserName $UserName -IpAddress $IpAddress
-    Confirm-KubernetesAptRepositoryIsUpToDate -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy
-    Install-KubernetesArtifacts -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy
+    Write-Log "Prepare the computer $IpAddress for provisioning"
+    Set-UpComputerBeforeProvisioning -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy
+
+    $kubernetesDebPackagesTargetPath = Get-KubernetesDebPackagesPath -UserName $UserName
+    Add-KubernetesArtifactsToRemoteComputer -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy -TargetPath $kubernetesDebPackagesTargetPath
+    Install-KubernetesArtifacts -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy -SourcePath $kubernetesDebPackagesTargetPath
+
+    $buildahDebPackagesPath = Get-BuildahDebPackagesPath -UserName $UserName
+    Add-BuildahArtifactsToRemoteComputer -UserName $UserName -IpAddress $IpAddress -TargetPath $buildahDebPackagesPath
+    Install-BuildahDebPackages -UserName $UserName -IpAddress $IpAddress -SourcePath $buildahDebPackagesPath
 
     Copy-KubernetesImagesFromWindowsHostToRemoteComputer -UserName $UserName -IpAddress $IpAddress
-    
 
     (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo mkdir -p /etc/netplan/backup' -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
     (Invoke-CmdOnVmViaSSHKey -CmdToExecute "find /etc/netplan -maxdepth 1 -type f -exec sudo mv {} /etc/netplan/backup ';'" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
@@ -199,6 +207,8 @@ function Remove-LinuxWorkerNodeOnExistingUbuntuVM {
     if ($SkipHeaderDisplay -eq $false) {
         Write-Log "Removing K2s worker node '$NodeName'"
     }
+
+    Remove-ProxySettingsOnKubenode -UserName $UserName -IpAddress $IpAddress
 
     $k8sFormattedNodeName = $NodeName.ToLower()
     $clusterState = (Invoke-Kubectl -Params @('get', 'nodes', '-o', 'wide')).Output
@@ -241,7 +251,8 @@ function Start-LinuxWorkerNodeOnExistingVM {
         [switch] $SkipHeaderDisplay = $false
     )
 
-    Add-RouteToLinuxWorkerNode -NodeName $NodeName -IpAddress $IpAddress
+    $clusterCIDRWorker = Get-ClusterCIDRWorker -NodeName $NodeName
+    Add-RouteToLinuxWorkerNode -NodeName $NodeName -IpAddress $IpAddress -ClusterCIDRWorker $clusterCIDRWorker
 
     if ($SkipHeaderDisplay -eq $false) {
         Write-Log "K2s worker node '$NodeName' started"
@@ -257,7 +268,8 @@ function Stop-LinuxWorkerNodeOnExistingVM {
         [string] $NodeName = $(throw 'Argument missing: Hostname')
     )
 
-    Remove-RouteToLinuxWorkerNode -NodeName $NodeName
+    $clusterCIDRWorker = Get-ClusterCIDRWorker -NodeName $NodeName
+    Remove-RouteToLinuxWorkerNode -NodeName $NodeName -ClusterCIDRWorker $clusterCIDRWorker
 
     if ($SkipHeaderDisplay -eq $false) {
         Write-Log "K2s worker node '$NodeName' stopped"
@@ -274,17 +286,28 @@ function Add-LinuxWorkerNodeOnUbuntuBareMetal {
         [string] $AdditionalHooksDir = ''
     )
 
+    $nodeParams = @{
+        Name = $NodeName
         IpAddress = $IpAddress
         UserName = $UserName
         NodeType = 'HOST'
         Role = 'worker'
         OS = 'linux'
-    
+    }
     Add-NodeConfig @nodeParams
-    Copy-KubernetesArtifactsFromControlPlaneToRemoteComputer -UserName $UserName -IpAddress $IpAddress
-    Confirm-KubernetesAptRepositoryIsUpToDate -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy
-    Install-KubernetesArtifacts -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy
+
     Write-Log "Installing node essentials" -Console
+
+    Write-Log "Prepare the computer $IpAddress for provisioning"
+    Set-UpComputerBeforeProvisioning -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy
+
+    $kubernetesDebPackagesTargetPath = Get-KubernetesDebPackagesPath -UserName $UserName
+    Add-KubernetesArtifactsToRemoteComputer -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy -TargetPath $kubernetesDebPackagesTargetPath
+    Install-KubernetesArtifacts -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy -SourcePath $kubernetesDebPackagesTargetPath
+
+    $buildahDebPackagesPath = Get-BuildahDebPackagesPath -UserName $UserName
+    Add-BuildahArtifactsToRemoteComputer -UserName $UserName -IpAddress $IpAddress -TargetPath $buildahDebPackagesPath
+    Install-BuildahDebPackages -UserName $UserName -IpAddress $IpAddress -SourcePath $buildahDebPackagesPath
 
     Copy-KubernetesImagesFromWindowsHostToRemoteComputer -UserName $UserName -IpAddress $IpAddress
 

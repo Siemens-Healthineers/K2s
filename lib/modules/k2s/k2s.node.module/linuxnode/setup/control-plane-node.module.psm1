@@ -82,9 +82,19 @@ function New-ControlPlaneNodeOnNewVM {
         Connect-KubeSwitch
     }
 
+    $controlPlaneUserName = $(Get-DefaultUserNameControlPlane) 
+    $controlPlaneUserPwd = $(Get-DefaultUserPwdControlPlane)
+    $controlPlaneIpAddress = $($controlPlaneParams.IpAddress)
+
+    Write-Log "Copy deb packages from control plane to Windows host"
+    Copy-DebPackagesFromControlPlaneToWindowsHost -IpAddress $controlPlaneIpAddress  -UserName $controlPlaneUserName -UserPwd $controlPlaneUserPwd
+    Write-Log "Copy container images from control plane to Windows host"
+    Copy-KubernetesImagesFromControlPlaneNodeToWindowsHost -IpAddress $controlPlaneIpAddress  -UserName $controlPlaneUserName -UserPwd $controlPlaneUserPwd
+    
+
     Wait-ForSSHConnectionToLinuxVMViaPwd
-    New-SshKey -IpAddress $($controlPlaneParams.IpAddress)
-    Copy-LocalPublicSshKeyToRemoteComputer -UserName $(Get-DefaultUserNameControlPlane) -UserPwd $(Get-DefaultUserPwdControlPlane) -IpAddress $($controlPlaneParams.IpAddress)
+    New-SshKey -IpAddress $controlPlaneIpAddress
+    Copy-LocalPublicSshKeyToRemoteComputer -UserName $controlPlaneUserName -UserPwd $controlPlaneUserPwd -IpAddress $controlPlaneIpAddress
     Wait-ForSSHConnectionToLinuxVMViaSshKey
 
     Remove-ControlPlaneAccessViaUserAndPwd
