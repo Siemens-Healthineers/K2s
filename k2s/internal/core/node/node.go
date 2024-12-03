@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io/fs"
 	"log/slog"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"strings"
@@ -73,6 +74,65 @@ func Copy(copyOptions copy.CopyOptions, connectionOptions ssh.ConnectionOptions)
 	}()
 
 	return copyFunc(sftpClient)
+}
+
+func Exec(command string, connectionOptions ssh.ConnectionOptions) error {
+	sshClient, err := ssh.Connect(connectionOptions)
+	if err != nil {
+		return fmt.Errorf("failed to dial SSH: %w", err)
+	}
+	defer func() {
+		slog.Debug("Closing SSH client")
+		if err := sshClient.Close(); err != nil {
+			slog.Error("failed to close SSH client", "error", err)
+		}
+	}()
+
+	session, err := sshClient.NewSession()
+	if err != nil {
+		return fmt.Errorf("failed to create SSH session: %w", err)
+	}
+
+	session.Stdout = bos.Stdout
+	session.Stderr = bos.Stdout
+
+	// Session.Run() implicitly closes the session afterwards
+	if err := session.Run(command); err != nil {
+		return fmt.Errorf("failed to run command: %w", err)
+	}
+	return nil
+}
+
+func Connect(options ssh.ConnectionOptions) error {
+	timeoutOption := fmt.Sprintf("ConnectTimeout=%d", int(options.Timeout.Seconds()))
+	port := fmt.Sprintf("%d", options.Port)
+	remote := fmt.Sprintf("%s@%s", options.RemoteUser, options.IpAddress)
+
+	cmd := exec.Command("ssh.exe", "-tt", "-o", "StrictHostKeyChecking=no", "-o", timeoutOption, "-i", options.SshKeyPath, "-p", port, remote)
+
+	slog.Debug("Executing ssh.exe", "command", cmd.String())
+
+	cmd.Stdin = bos.Stdin
+	cmd.Stdout = bos.Stdout
+	cmd.Stderr = bos.Stderr
+
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("failed to start ssh.exe: %w", err)
+	}
+
+	if err := cmd.Wait(); err != nil {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
+			exitCode := exitErr.ExitCode()
+			if exitCode == 255 {
+				return fmt.Errorf("failed to execute ssh.exe: %w", err)
+			}
+			slog.Debug("failed to execute ssh.exe", "exit-code", exitErr.ExitCode())
+			return nil
+		}
+		return fmt.Errorf("failed to wait for ssh.exe execution: %w", err)
+	}
+	return nil
 }
 
 func (c toNodeCopier) CopyFile(source, target string) error {
