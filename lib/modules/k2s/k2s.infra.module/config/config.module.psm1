@@ -442,7 +442,7 @@ function Get-DefaultProvisioningBaseImageDiskSize {
 }
 
 function Get-DefaultK8sVersion {
-    return 'v1.31.2'
+    return 'v1.31.3'
 }
 
 <#

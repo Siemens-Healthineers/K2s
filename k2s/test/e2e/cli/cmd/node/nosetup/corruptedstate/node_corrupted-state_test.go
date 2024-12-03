@@ -25,7 +25,7 @@ var suite *framework.K2sTestSuite
 
 func TestNode(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "node CLI Commands Acceptance Tests", Label("cli", "node", "copy", "acceptance", "no-setup", "corrupted-state"))
+	RunSpecs(t, "node CLI Commands Acceptance Tests", Label("cli", "node", "acceptance", "no-setup", "corrupted-state"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
@@ -77,9 +77,25 @@ var _ = Describe("node", Ordered, func() {
 		})
 	})
 
-	Describe("copy", func() {
+	Describe("copy", Label("copy"), func() {
 		It("prints system-in-corrupted-state message and exits with non-zero", func(ctx context.Context) {
 			output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "node", "copy", "--ip-addr", "", "-s", "", "-t", "", "-u", "")
+
+			Expect(output).To(ContainSubstring("corrupted state"))
+		})
+	})
+
+	Describe("exec", Label("exec"), func() {
+		It("prints system-in-corrupted-state message and exits with non-zero", func(ctx context.Context) {
+			output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "node", "exec", "-i", "", "-u", "", "-c", "")
+
+			Expect(output).To(ContainSubstring("corrupted state"))
+		})
+	})
+
+	Describe("connect", Label("connect"), func() {
+		It("prints system-in-corrupted-state message and exits with non-zero", func(ctx context.Context) {
+			output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "node", "connect", "-i", "", "-u", "")
 
 			Expect(output).To(ContainSubstring("corrupted state"))
 		})
