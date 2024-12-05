@@ -160,3 +160,4 @@ bin/cni/vfprules.lib
 bin/cni/vfprules.json.origin
 bin/cni/vfprules.exp
 bin/cni/vfprules.pdb
+build/bom/container-images-used.json
