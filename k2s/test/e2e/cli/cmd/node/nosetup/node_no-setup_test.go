@@ -19,7 +19,7 @@ var suite *framework.K2sTestSuite
 
 func TestNode(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "node CLI Commands Acceptance Tests", Label("cli", "ci", "node", "copy", "acceptance", "no-setup"))
+	RunSpecs(t, "node CLI Commands Acceptance Tests", Label("cli", "ci", "node", "acceptance", "no-setup"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
@@ -31,9 +31,25 @@ var _ = AfterSuite(func(ctx context.Context) {
 })
 
 var _ = Describe("node", func() {
-	Describe("copy", func() {
+	Describe("copy", Label("copy"), func() {
 		It("prints system-not-installed message and exits with non-zero", func(ctx context.Context) {
 			output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "node", "copy", "--ip-addr", "", "-s", "", "-t", "", "-u", "")
+
+			Expect(output).To(ContainSubstring("not installed"))
+		})
+	})
+
+	Describe("exec", Label("exec"), func() {
+		It("prints system-not-installed message and exits with non-zero", func(ctx context.Context) {
+			output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "node", "exec", "-i", "", "-u", "", "-c", "")
+
+			Expect(output).To(ContainSubstring("not installed"))
+		})
+	})
+
+	Describe("connect", Label("connect"), func() {
+		It("prints system-not-installed message and exits with non-zero", func(ctx context.Context) {
+			output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "node", "connect", "-i", "", "-u", "")
 
 			Expect(output).To(ContainSubstring("not installed"))
 		})
