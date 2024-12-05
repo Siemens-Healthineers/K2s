@@ -144,6 +144,9 @@ foreach ($manifest in $addonManifests) {
 
 $totalCountMapping = 0
 
+# uniques list of images
+$uniqueSingleImages = New-Object System.Collections.Generic.List[System.String]
+
 foreach ($addonName in $addonNameImagesMapping.Keys) {
     $uniqueImages = $addonNameImagesMapping[$addonName] | Sort-Object -Unique
     $finalImages = @()
@@ -153,8 +156,22 @@ foreach ($addonName in $addonNameImagesMapping.Keys) {
     Write-Output "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] Addon Images Count: $($finalImages.Count)"
     Write-Output "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] Images: $([string]::Join(', ', $uniqueImages))"
     Write-Output "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] -----------------------------------------------------------------------------"
+
+    # check if images are all in the addons image list
+    foreach ($image in $finalImages) {
+        if ($uniqueSingleImages.Contains($image)) {
+            Write-Output "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] Info: Image $image is already in the addon images list, it's a duplicate"
+        }
+        else {
+            $uniqueSingleImages.Add($image)
+        }
+        if (-not $addonImages.Contains($image)) {
+            Write-Output "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] ERROR: Image $image is not in the addon images list"
+        }
+    }
 }
 
+Write-Output "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] Number of addons: $($addonNameImagesMapping.Keys.Count)"
 Write-Output "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] Number of addon images: $($addonImages.Count)"
 Write-Output "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] Number of images in mapping: $totalCountMapping"
 
