@@ -351,11 +351,18 @@ Function Copy-DebPackagesFromControlPlaneToWindowsHost {
     if (Test-Path -Path $windowsHostTargetPath) {
         Write-Log "The path '$windowsHostTargetPath' with deb packages from the control plane already exists --> its content will not be overwritten"
     } else {
-        New-Item -Path $windowsHostTargetPath -ItemType Directory -Force -ErrorAction Stop | Out-Null
-
         $kubenodeSourcePath = Get-OfflineK2sDebPackagesPath -UserName $controlPlaneUserName
+        Write-Log "Checking existence of path '$kubenodeSourcePath' in the control plane node"
+        $sourcePathExistenceCheckOutput = (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "ls $kubenodeSourcePath" -RemoteUser "$UserName@$IpAddress" -RemoteUserPwd $UserPwd -IgnoreErrors).Output
         
-        Copy-FromRemoteComputerViaUserAndPwd -Source "$kubenodeSourcePath/*" -Target $windowsHostTargetPath -UserName $UserName -UserPwd $UserPwd -IpAddress $IpAddress
+        if ($sourcePathExistenceCheckOutput.Contains("No such file or directory")) {
+            Write-Log "The path '$kubenodeSourcePath' does not exist in control plane node --> no deb packages will be copied to the Windows host."
+        } else {
+            Write-Log "Deb packages will be copied from the control plane node ('$kubenodeSourcePath') to the Windows host ('$windowsHostTargetPath')"
+            New-Item -Path $windowsHostTargetPath -ItemType Directory -Force -ErrorAction Stop | Out-Null
+
+            Copy-FromRemoteComputerViaUserAndPwd -Source "$kubenodeSourcePath/*" -Target $windowsHostTargetPath -UserName $UserName -UserPwd $UserPwd -IpAddress $IpAddress
+        }
     }
 }
 
