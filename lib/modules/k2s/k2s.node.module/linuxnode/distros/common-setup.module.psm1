@@ -134,10 +134,7 @@ Function Set-KubernetesAptRepository {
             (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $command -RemoteUser "$remoteUser" -RemoteUserPwd "$UserPwd" -Retries $Retries -RepairCmd $RepairCmd -IgnoreErrors:$IgnoreErrors).Output | Write-Log
         }
     }
-    &$executeRemoteCommand 'echo "APT::Sandbox::User \\"root\\";" | sudo tee /etc/apt/apt.conf.d/10sandbox-for-k2s'
-
     Write-Log 'Prepare for Kubernetes installation'
-    &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get update -qq --yes --allow-releaseinfo-change' -Retries 2 -RepairCmd 'sudo apt --fix-broken install'
     &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get install -y gpg' -Retries 2 -RepairCmd 'sudo apt --fix-broken install'
 
     Write-Log 'Install curl'
@@ -199,8 +196,6 @@ Function Get-KubernetesArtifactsFromInternet {
         }
     }
 
-    Set-KubernetesAptRepository -IpAddress $IpAddress -UserName $userName -UserPwd $userPwd -Proxy $Proxy -K8sVersion $K8sVersion 
-
     $kubenodeDebPackagesPath = $TargetPath
     &$executeRemoteCommand "[ -d $kubenodeDebPackagesPath ] && rm -rf $kubenodeDebPackagesPath; mkdir -p $kubenodeDebPackagesPath" -Retries 2
 
@@ -216,10 +211,20 @@ Function Get-KubernetesArtifactsFromInternet {
             -RepairCmd 'sudo apt --fix-broken install'
     }
 
+    &$executeRemoteCommand 'echo "APT::Sandbox::User \\"root\\";" | sudo tee /etc/apt/apt.conf.d/10sandbox-for-k2s'
+
+    Write-Log "Ensure that the system's package list is up-to-date"
+    &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get update -qq --yes --allow-releaseinfo-change' -Retries 2 -RepairCmd 'sudo apt --fix-broken install'
+
+    Write-Log 'Download gpg'
+    &$downloadPackagesCommand -PackageName 'gpg' -DebFileNamePattern 'gpg*.deb'
+
     Write-Log 'Download other depended-on tools'
     &$downloadPackagesCommand -PackageName 'apt-transport-https' -DebFileNamePattern 'apt*.deb'
     &$downloadPackagesCommand -PackageName 'ca-certificates' -DebFileNamePattern 'ca-*.deb'
 
+    Set-KubernetesAptRepository -IpAddress $IpAddress -UserName $userName -UserPwd $userPwd -Proxy $Proxy -K8sVersion $K8sVersion 
+    
     Write-Log 'Download cri-o'
     &$downloadPackagesCommand -PackageName 'cri-o' -DebFileNamePattern 'cri-o*.deb'
 
