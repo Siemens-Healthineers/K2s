@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2024 Siemens Healthcare AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -6,30 +6,30 @@
 
 <#
 .SYNOPSIS
-Add access to a registry
+Update access to a registry
 
 .DESCRIPTION
-Add access to a registry
+Update access to a registry
 
 .PARAMETER RegistryName
-The name of the registry to be added
+The name of the registry to be updated
 
 .PARAMETER Username
-The username for the registry
+The username of the registry the will be updated
 
 .PARAMETER Password
-The password for the registry
+The password of the registry the will be updated
 
 .PARAMETER ShowLogs
 Show all logs in terminal
 
 .EXAMPLE
-# Add registry
-PS> .\Add-Registry.ps1 -RegistryName "myregistry"
+# Update registry
+PS> .\Update-Registry.ps1 -RegistryName "myregistry"
 
 .EXAMPLE
-# Add registry with username and password
-PS> .\Add-Registry.ps1 -RegistryName "myregistry" -Username "user" -Password "passwd"
+# Update registry with username and password
+PS> .\Update-Registry.ps1 -RegistryName "myregistry" -Username "user" -Password "passwd"
 #>
 
 Param (
@@ -71,11 +71,11 @@ if ($systemError) {
 
 $registries = $(Get-RegistriesFromSetupJson)
 if ($registries) {
-    $registryAlreadyExists = $registries | Where-Object { $_ -eq $RegistryName }
-    if ($registryAlreadyExists) {
-        $errMsg = "Registry '$RegistryName' is already configured."
+    $registryExists = $registries | Where-Object { $_ -eq $RegistryName }
+    if ($registryExists.Count -eq 0) {
+        $errMsg = "Registry '$RegistryName' is not configured."
         if ($EncodeStructuredOutput -eq $true) {
-            $err = New-Error -Severity Warning -Code 'registry-already-configured' -Message $errMsg
+            $err = New-Error -Severity Warning -Code 'registry-not-configured' -Message $errMsg
             Send-ToCli -MessageType $MessageType -Message @{Error = $err }
             return
         }
@@ -83,16 +83,24 @@ if ($registries) {
         Write-Log $errMsg -Error
         exit 1
     }
+
+} else {
+        $errMsg = "Registry '$RegistryName' is not configured."
+        if ($EncodeStructuredOutput -eq $true) {
+            $err = New-Error -Severity Warning -Code 'registry-not-configured' -Message $errMsg
+            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+            return
+        }
 }
 
-Write-Log "Adding registry '$RegistryName'" -Console
+Write-Log "Updateing registry '$RegistryName'" -Console
 
 if ($Username -and $Password) {
     $username = $Username
     $password = $password
 }
 else {
-    Write-Log 'Please enter credentials for registry access:' -Console
+    Write-Log 'Please enter the new credentials for registry access:' -Console
     $username = Read-Host 'Enter username'
     $passwordSecured = Read-Host 'Enter password' -AsSecureString
     $cred = New-Object System.Management.Automation.PSCredential ($username, $passwordSecured)
@@ -124,7 +132,7 @@ if (!$?) {
     exit 1
 }
 
-$authJson = (Invoke-CmdOnControlPlaneViaSSHKey 'sudo cat /root/.config/containers/auth.json' -NoLog).Output | Out-String
+$authJson = (Invoke-CmdOnControlPlaneViaSSHKey 'sudo cat /root/.config/containers/auth.json').Output | Out-String
 
 Connect-Nerdctl -username $username -password $password -registry $RegistryName
 
@@ -139,7 +147,7 @@ Start-NssmService('kubelet')
 Start-NssmService('kubeproxy')
 
 Add-RegistryToSetupJson -Name $RegistryName
-Write-Log "Registry '$RegistryName' added successfully.'" -Console
+Write-Log "Registry '$RegistryName' updated successfully.'" -Console
 
 if ($EncodeStructuredOutput -eq $true) {
     Send-ToCli -MessageType $MessageType -Message @{Error = $null }
