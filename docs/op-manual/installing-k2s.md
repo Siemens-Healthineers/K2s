@@ -33,7 +33,7 @@ SPDX-License-Identifier: MIT
     ```powershell 
     Enable-WindowsOptionalFeature -Online -FeatureName $('Microsoft-Hyper-V', 'Microsoft-Hyper-V-Management-PowerShell', 'Containers', 'VirtualMachinePlatform') -All -NoRestart
     ``` 
-- *Htper-V configuration*: after the enabling of Hyper-V on your host using [Set-VMHost](https://learn.microsoft.com/en-us/powershell/module/hyper-v/set-vmhost) different settings can be configured for Hyper-V, for example in some cases it makes sense to have new default locations for virtual hard disks on that host. Please checkout all possibilities and configure Hyper-V on your host as wanted before doing an install of k2s !
+- *Hyper-V configuration*: after the enabling of Hyper-V on your host using [Set-VMHost](https://learn.microsoft.com/en-us/powershell/module/hyper-v/set-vmhost) different settings can be configured for Hyper-V, for example in some cases it makes sense to have new default locations for virtual hard disks on that host. Please checkout all possibilities and configure Hyper-V on your host as wanted before doing an install of k2s !
 
 !!! tip
     For installing in *WSL* mode, add the `Microsoft-Windows-Subsystem-Linux` feature to the prior command.
