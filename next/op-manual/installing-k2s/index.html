@@ -1794,7 +1794,7 @@ SPDX-License-Identifier: MIT
 <li><em>Windows Server</em> OSs
     <div class="highlight"><span class="filename">PowerShell</span><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nb">Enable-WindowsOptionalFeature</span> <span class="n">-Online</span> <span class="n">-FeatureName</span> <span class="p">$(</span><span class="s1">&#39;Microsoft-Hyper-V&#39;</span><span class="p">,</span> <span class="s1">&#39;Microsoft-Hyper-V-Management-PowerShell&#39;</span><span class="p">,</span> <span class="s1">&#39;Containers&#39;</span><span class="p">,</span> <span class="s1">&#39;VirtualMachinePlatform&#39;</span><span class="p">)</span> <span class="n">-All</span> <span class="n">-NoRestart</span>
 </code></pre></div></li>
-<li><em>Htper-V configuration</em>: after the enabling of Hyper-V on your host using <a href="https://learn.microsoft.com/en-us/powershell/module/hyper-v/set-vmhost">Set-VMHost</a> different settings can be configured for Hyper-V, for example in some cases it makes sense to have new default locations for virtual hard disks on that host. Please checkout all possibilities and configure Hyper-V on your host as wanted before doing an install of k2s !</li>
+<li><em>Hyper-V configuration</em>: after the enabling of Hyper-V on your host using <a href="https://learn.microsoft.com/en-us/powershell/module/hyper-v/set-vmhost">Set-VMHost</a> different settings can be configured for Hyper-V, for example in some cases it makes sense to have new default locations for virtual hard disks on that host. Please checkout all possibilities and configure Hyper-V on your host as wanted before doing an install of k2s !</li>
 </ul>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
