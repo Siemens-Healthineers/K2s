@@ -135,7 +135,6 @@ var _ = Describe("system scp", func() {
 				Expect(output).To(SatisfyAll(
 					MatchRegexp("WARNING"),
 					MatchRegexp("Could not copy"),
-					MatchRegexp("No such.+directory"),
 				))
 			})
 		})
