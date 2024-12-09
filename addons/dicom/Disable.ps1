@@ -22,8 +22,9 @@ Param(
 $clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
+$dicomModule = "$PSScriptRoot\dicom.module.psm1"
 
-Import-Module $clusterModule, $infraModule, $addonsModule
+Import-Module $clusterModule, $infraModule, $addonsModule, $dicomModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -55,13 +56,13 @@ if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'dicom', '--ignore-not
     exit 1
 }
 
-$manifestsPath = "$PSScriptRoot\manifests"
+$dicomConfig = Get-DicomConfig
 
 Write-Log 'Uninstalling dicom server' -Console
 Remove-IngressForTraefik -Addon ([pscustomobject] @{Name = 'dicom' })
 Remove-IngressForNginx -Addon ([pscustomobject] @{Name = 'dicom' })
-(Invoke-Kubectl -Params 'delete', '-k', $manifestsPath).Output | Write-Log
-(Invoke-Kubectl -Params 'delete', '-f', "$manifestsPath\dicom-namespace.yaml").Output | Write-Log
+(Invoke-Kubectl -Params 'delete', '-k', $dicomConfig).Output | Write-Log
+(Invoke-Kubectl -Params 'delete', '-f', "$dicomConfig\dicom-namespace.yaml").Output | Write-Log
 
 Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'dicom' })
 

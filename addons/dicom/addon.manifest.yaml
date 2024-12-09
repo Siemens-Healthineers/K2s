@@ -29,6 +29,8 @@ spec:
             examples:
               - cmd: smallk8s addons enable dicom
                 comment: Enable dicom in smallk8s
+              - cmd: smallk8s addons enable dicom --ingress nginx
+                comment: Enable dicom in smallk8s with nginx ingres
               - cmd: smallk8s addons enable dicom --ingress traefik
                 comment: Enable dicom in smallk8s with traefik ingres
           script:
