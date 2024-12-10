@@ -12,6 +12,7 @@ Import-Module $infraModule, $provisioningModule, $vmModule
 $kubernetesVersion = Get-DefaultK8sVersion
 
 $controlPlaneUserName = Get-DefaultUserNameControlPlane
+$controlPlaneIpAddress = Get-ConfiguredIPControlPlane
 $wslConfigurationFilePath = '/etc/wsl.conf'
 $offlineK2sDebPackagesDirectory = 'apt-offline-k2s'
 $kubernetesDebPackagesDirectory = 'kubernetes'
@@ -240,17 +241,16 @@ Function Add-KubernetesArtifactsToRemoteComputer {
         [string] $UserName = $(throw 'Argument missing: UserName'),
         [string] $IpAddress = $(throw 'Argument missing: IpAddress'),
         [string] $Proxy = '',
+        [string] $SourcePath = $(throw 'Argument missing: SourcePath'),
         [string] $TargetPath = $(throw 'Argument missing: TargetPath')
     )
 
-    $installedDistributionOnRemoteComputer = Get-InstalledDistribution -UserName $UserName -IpAddress $IpAddress
-
-    $distributionSpecificDebPackagesPath = "$windowsHostKubenodeDebPackagesPath\$installedDistributionOnRemoteComputer\$kubernetesDebPackagesDirectory"
+    $debPackagesSourcePath = "$SourcePath\$kubernetesDebPackagesDirectory"
     
-    if (Test-Path -Path $distributionSpecificDebPackagesPath) {
-        Copy-DebPackagesFromWindowsHostToRemoteComputer -UserName $UserName -IpAddress $IpAddress -SourcePath $distributionSpecificDebPackagesPath -TargetPath $TargetPath
+    if (Test-Path -Path $debPackagesSourcePath) {
+        Copy-DebPackagesFromWindowsHostToRemoteComputer -UserName $UserName -IpAddress $IpAddress -SourcePath $debPackagesSourcePath -TargetPath $TargetPath
     } else {
-        Get-KubernetesArtifactsFromInternet -UserName $userName -IpAddress $IpAddress -Proxy $Proxy -K8sVersion $kubernetesVersion -TargetPath $TargetPath
+        Get-KubernetesArtifactsFromInternet -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy -K8sVersion $kubernetesVersion -TargetPath $TargetPath
     }
 }
 
@@ -258,14 +258,14 @@ Function Add-BuildahArtifactsToRemoteComputer {
     Param(
         [string] $UserName = $(throw 'Argument missing: UserName'),
         [string] $IpAddress = $(throw 'Argument missing: IpAddress'),
+        [string] $SourcePath = $(throw 'Argument missing: SourcePath'),
         [string] $TargetPath = $(throw 'Argument missing: TargetPath')
     )
 
-    $installedDistributionOnRemoteComputer = Get-InstalledDistribution -UserName $UserName -IpAddress $IpAddress
-
-    $distributionSpecificDebPackagesPath = "$windowsHostKubenodeDebPackagesPath\$installedDistributionOnRemoteComputer\$buildahDebPackagesDirectory"
-    if (Test-Path -Path $distributionSpecificDebPackagesPath) {
-        Copy-DebPackagesFromWindowsHostToRemoteComputer -UserName $UserName -IpAddress $IpAddress -SourcePath $distributionSpecificDebPackagesPath -TargetPath $TargetPath
+    $debPackagesSourcePath = "$SourcePath\$buildahDebPackagesDirectory"
+    
+    if (Test-Path -Path $debPackagesSourcePath) {
+        Copy-DebPackagesFromWindowsHostToRemoteComputer -UserName $UserName -IpAddress $IpAddress -SourcePath $debPackagesSourcePath -TargetPath $TargetPath
     } else {
         Get-BuildahDebPackagesFromInternet -UserName $userName -IpAddress $IpAddress -TargetPath $TargetPath
     }
@@ -324,11 +324,11 @@ Function Get-InstalledDistribution {
 
     $distributionName = &$executeRemoteCommand -Command "lsb_release -i | cut -d ':' -f 2 | tr -d '[:blank:]'"
     if ([string]::IsNullOrWhiteSpace($distributionName)) {
-        throw 'Cannot get the distribution name from the kubenode'
+        throw "Cannot get the distribution name from the computer with IP '$IpAddress'"
     }
     $distributionReleaseNumber = &$executeRemoteCommand -Command "lsb_release -r | cut -d ':' -f 2 | tr -d '[:blank:]'"
     if ([string]::IsNullOrWhiteSpace($distributionReleaseNumber)) {
-        throw 'Cannot get the distribution release number from the kubenode'
+        throw "Cannot get the distribution release number from the computer with IP '$IpAddress'"
     }
     
     $installedDistribution = "$distributionName$distributionReleaseNumber".ToLower()
@@ -336,24 +336,20 @@ Function Get-InstalledDistribution {
     return $installedDistribution
 }
 
+
+
 Function Copy-DebPackagesFromControlPlaneToWindowsHost {
     param (
-        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
-        [string]$UserName = $(throw 'Argument missing: UserName'),
-        [string]$UserPwd = $(throw 'Argument missing: UserPwd'),
-        [ValidateScript({ Get-IsValidIPv4Address($_) })]
-        [string]$IpAddress = $(throw 'Argument missing: IpAddress')
+        [string] $TargetPath = $(throw 'Argument missing: TargetPath')
     )
-
-    $installedDistribution = Get-InstalledDistribution -UserName $UserName -UserPwd $UserPwd -IpAddress $IpAddress
-    $windowsHostTargetPath = "$windowsHostKubenodeDebPackagesPath\$installedDistribution"
+    $windowsHostTargetPath = $TargetPath
 
     if (Test-Path -Path $windowsHostTargetPath) {
         Write-Log "The path '$windowsHostTargetPath' with deb packages from the control plane already exists --> its content will not be overwritten"
     } else {
         $kubenodeSourcePath = Get-OfflineK2sDebPackagesPath -UserName $controlPlaneUserName
         Write-Log "Checking existence of path '$kubenodeSourcePath' in the control plane node"
-        $sourcePathExistenceCheckOutput = (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "ls $kubenodeSourcePath" -RemoteUser "$UserName@$IpAddress" -RemoteUserPwd $UserPwd -IgnoreErrors).Output
+        $sourcePathExistenceCheckOutput = (Invoke-CmdOnVmViaSSHKey -CmdToExecute "ls $kubenodeSourcePath" -UserName $controlPlaneUserName -IpAddress $controlPlaneIpAddress -IgnoreErrors).Output
         
         if ($sourcePathExistenceCheckOutput.Contains("No such file or directory")) {
             Write-Log "The path '$kubenodeSourcePath' does not exist in control plane node --> no deb packages will be copied to the Windows host."
@@ -361,7 +357,7 @@ Function Copy-DebPackagesFromControlPlaneToWindowsHost {
             Write-Log "Deb packages will be copied from the control plane node ('$kubenodeSourcePath') to the Windows host ('$windowsHostTargetPath')"
             New-Item -Path $windowsHostTargetPath -ItemType Directory -Force -ErrorAction Stop | Out-Null
 
-            Copy-FromRemoteComputerViaUserAndPwd -Source "$kubenodeSourcePath/*" -Target $windowsHostTargetPath -UserName $UserName -UserPwd $UserPwd -IpAddress $IpAddress
+            Copy-FromRemoteComputerViaSSHKey -Source "$kubenodeSourcePath/*" -Target $windowsHostTargetPath -UserName $controlPlaneUserName -IpAddress $controlPlaneIpAddress
         }
     }
 }
@@ -532,14 +528,8 @@ Function Install-KubernetesArtifacts {
 
 Function Copy-KubernetesImagesFromControlPlaneNodeToWindowsHost {
     param (
-        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
-        [string]$UserName = $(throw 'Argument missing: UserName'),
-        [string]$UserPwd = $(throw 'Argument missing: UserPwd'),
-        [ValidateScript({ Get-IsValidIPv4Address($_) })]
-        [string]$IpAddress = $(throw 'Argument missing: IpAddress')
+        [string] $TargetPath = $(throw 'Argument missing: TargetPath')
     )
-    $remoteUser = "$UserName@$IpAddress"
-    $remoteUserPwd = $UserPwd
 
     $executeRemoteCommand = { 
         param(
@@ -549,7 +539,7 @@ Function Copy-KubernetesImagesFromControlPlaneNodeToWindowsHost {
             [string] $RepairCmd = $null, 
             [uint16] $Retries = 0
         )
-        $commandOutput = (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $Command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd" -RepairCmd $RepairCmd -Retries $Retries -IgnoreErrors:$IgnoreErrors)
+        $commandOutput = (Invoke-CmdOnVmViaSSHKey -CmdToExecute $Command -UserName $controlPlaneUserName -IpAddress $controlPlaneIpAddress -RepairCmd $RepairCmd -Retries $Retries -IgnoreErrors:$IgnoreErrors)
 
         if ($ReturnCommandOutput) {
             return $commandOutput
@@ -558,7 +548,7 @@ Function Copy-KubernetesImagesFromControlPlaneNodeToWindowsHost {
         }
     }
   
-    $imagesPath = $windowsHostKubenodeImagesPath
+    $imagesPath = $TargetPath
 
     if (Test-Path -Path $imagesPath) {
         Write-Log "The path '$imagesPath' with container images already exists --> its content will not be overwritten"
@@ -587,14 +577,14 @@ Function Copy-KubernetesImagesFromControlPlaneNodeToWindowsHost {
 
             $targetFilePath = "/tmp/${imageId}.tar"
             &$executeRemoteCommand "sudo buildah push ${imageId} oci-archive:${targetFilePath}:${imageFullName} 2>&1"
-            Copy-FromRemoteComputerViaUserAndPwd -Source $targetFilePath -Target $finalExportPath -UserName $UserName -UserPwd $UserPwd -IpAddress $IpAddress
+            Copy-FromRemoteComputerViaSSHKey -Source $targetFilePath -Target $finalExportPath -UserName $controlPlaneUserName -IpAddress $controlPlaneIpAddress
             
             &$executeRemoteCommand "cd /tmp && sudo rm -rf ${imageId}.tar"
         } 
     }
 }
 
-Function Copy-KubernetesImagesFromWindowsHostToRemoteComputer {
+Function Copy-KubernetesImagesFromControlPlaneToRemoteComputer {
     param (
         [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
         [string] $UserName = $(throw 'Argument missing: UserName'),
@@ -612,7 +602,11 @@ Function Copy-KubernetesImagesFromWindowsHostToRemoteComputer {
 
     $imagesPath = $windowsHostKubenodeImagesPath
 
+    Write-Log "Copy container images from the control plane node to the Windows host"
+    Copy-KubernetesImagesFromControlPlaneNodeToWindowsHost -TargetPath $imagesPath
+
     if (Test-Path -Path $imagesPath) {
+        Write-Log "Copy container images from Windows host to the computer with IP address '$IpAddress'"
         Get-Item -path "$imagesPath\*.tar" | Select-Object -ExpandProperty 'FullName' | ForEach-Object {
             Copy-ToRemoteComputerViaSshKey -Source $_ -Target '/tmp/import.tar' -UserName $UserName -IpAddress $IpAddress
             &$executeRemoteCommandOnRemoteComputer 'sudo buildah pull oci-archive:/tmp/import.tar 2>&1'
@@ -1878,6 +1872,10 @@ function Set-ProxySettingsForContainers {
     }
 }
 
+function Get-WindowsHostKubenodeDebPackagesPath {
+    return $windowsHostKubenodeDebPackagesPath
+}
+
 Export-ModuleMember -Function New-VmImageForControlPlaneNode,
 New-LinuxVmImageForWorkerNode,
 Remove-VmImageForControlPlaneNode,
@@ -1888,7 +1886,7 @@ Remove-ProxySettingsOnKubenode,
 Get-KubenodeBaseFileName,
 Install-KubernetesArtifacts,
 Remove-KubernetesArtifacts,
-Copy-KubernetesImagesFromWindowsHostToRemoteComputer,
+Copy-KubernetesImagesFromControlPlaneToRemoteComputer,
 Add-KubernetesArtifactsToRemoteComputer,
 Get-KubernetesDebPackagesPath,
 Get-BuildahDebPackagesPath,
@@ -1896,4 +1894,5 @@ Add-BuildahArtifactsToRemoteComputer,
 Install-BuildahDebPackages,
 Set-UpComputerBeforeProvisioning,
 Copy-DebPackagesFromControlPlaneToWindowsHost,
-Copy-KubernetesImagesFromControlPlaneNodeToWindowsHost
+Get-InstalledDistribution,
+Get-WindowsHostKubenodeDebPackagesPath

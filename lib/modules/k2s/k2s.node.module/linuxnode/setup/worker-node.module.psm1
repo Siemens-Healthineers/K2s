@@ -162,15 +162,7 @@ function Add-LinuxWorkerNodeOnExistingUbuntuVM {
     Write-Log "Prepare the computer $IpAddress for provisioning"
     Set-UpComputerBeforeProvisioning -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy
 
-    $kubernetesDebPackagesTargetPath = Get-KubernetesDebPackagesPath -UserName $UserName
-    Add-KubernetesArtifactsToRemoteComputer -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy -TargetPath $kubernetesDebPackagesTargetPath
-    Install-KubernetesArtifacts -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy -SourcePath $kubernetesDebPackagesTargetPath
-
-    $buildahDebPackagesPath = Get-BuildahDebPackagesPath -UserName $UserName
-    Add-BuildahArtifactsToRemoteComputer -UserName $UserName -IpAddress $IpAddress -TargetPath $buildahDebPackagesPath
-    Install-BuildahDebPackages -UserName $UserName -IpAddress $IpAddress -SourcePath $buildahDebPackagesPath
-
-    Copy-KubernetesImagesFromWindowsHostToRemoteComputer -UserName $UserName -IpAddress $IpAddress
+    Install-DebPackagesAndAddContainerImagesIntoRemoteComputer -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy
 
     (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo mkdir -p /etc/netplan/backup' -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
     (Invoke-CmdOnVmViaSSHKey -CmdToExecute "find /etc/netplan -maxdepth 1 -type f -exec sudo mv {} /etc/netplan/backup ';'" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
@@ -301,15 +293,7 @@ function Add-LinuxWorkerNodeOnUbuntuBareMetal {
     Write-Log "Prepare the computer $IpAddress for provisioning"
     Set-UpComputerBeforeProvisioning -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy
 
-    $kubernetesDebPackagesTargetPath = Get-KubernetesDebPackagesPath -UserName $UserName
-    Add-KubernetesArtifactsToRemoteComputer -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy -TargetPath $kubernetesDebPackagesTargetPath
-    Install-KubernetesArtifacts -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy -SourcePath $kubernetesDebPackagesTargetPath
-
-    $buildahDebPackagesPath = Get-BuildahDebPackagesPath -UserName $UserName
-    Add-BuildahArtifactsToRemoteComputer -UserName $UserName -IpAddress $IpAddress -TargetPath $buildahDebPackagesPath
-    Install-BuildahDebPackages -UserName $UserName -IpAddress $IpAddress -SourcePath $buildahDebPackagesPath
-
-    Copy-KubernetesImagesFromWindowsHostToRemoteComputer -UserName $UserName -IpAddress $IpAddress
+    Install-DebPackagesAndAddContainerImagesIntoRemoteComputer -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy
 
     $doBeforeJoining = {
         Write-Log "Configuring networking for adding the node" -Console
@@ -453,6 +437,37 @@ function Remove-RouteToLinuxWorkerNode {
     # routes for Linux pods
     Write-Log "Remove obsolete route to $ClusterCIDRWorker"
     route delete $ClusterCIDRWorker >$null 2>&1
+}
+
+function Install-DebPackagesAndAddContainerImagesIntoRemoteComputer {
+    Param(
+        [string] $UserName = $(throw 'Argument missing: UserName'),
+        [string] $IpAddress = $(throw 'Argument missing: IpAddress'),
+        [string] $Proxy = ''
+    )
+    $controlPlaneUserName = Get-DefaultUserNameControlPlane
+    $controlPlaneIpAddress = Get-ConfiguredIPControlPlane
+    $installedDistributionOnControlPlane = Get-InstalledDistribution -UserName $controlPlaneUserName -IpAddress $controlPlaneIpAddress
+    $installedDistributionOnRemoteComputer = Get-InstalledDistribution -UserName $UserName -IpAddress $IpAddress
+    $windowsHostKubenodeDebPackagesPath = Get-WindowsHostKubenodeDebPackagesPath
+    $windowsHostDebPackagesSourcePath = "$windowsHostKubenodeDebPackagesPath\$installedDistributionOnRemoteComputer"
+
+    if ($installedDistributionOnRemoteComputer -eq $installedDistributionOnControlPlane) {
+        Write-Log "The installed distribution ('$installedDistributionOnRemoteComputer') is equal to the control plane's distribution"
+        Copy-DebPackagesFromControlPlaneToWindowsHost -TargetPath "$windowsHostDebPackagesSourcePath"
+    } else {
+        Write-Log "The installed distribution ('$installedDistributionOnRemoteComputer') is different from the control plane's distribution ('$installedDistributionOnControlPlane') --> no deb packages will be copied from the control plane."
+    }
+    
+    $kubernetesDebPackagesTargetPath = Get-KubernetesDebPackagesPath -UserName $UserName
+    Add-KubernetesArtifactsToRemoteComputer -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy -SourcePath $windowsHostDebPackagesSourcePath -TargetPath $kubernetesDebPackagesTargetPath
+    Install-KubernetesArtifacts -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy -SourcePath $kubernetesDebPackagesTargetPath
+
+    $buildahDebPackagesTargetPath = Get-BuildahDebPackagesPath -UserName $UserName
+    Add-BuildahArtifactsToRemoteComputer -UserName $UserName -IpAddress $IpAddress -SourcePath $windowsHostDebPackagesSourcePath -TargetPath $buildahDebPackagesTargetPath
+    Install-BuildahDebPackages -UserName $UserName -IpAddress $IpAddress -SourcePath $buildahDebPackagesTargetPath
+
+    Copy-KubernetesImagesFromControlPlaneToRemoteComputer -UserName $UserName -IpAddress $IpAddress
 }
 
 Export-ModuleMember -Function Add-LinuxWorkerNodeOnNewVM,
