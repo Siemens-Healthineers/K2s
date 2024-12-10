@@ -92,6 +92,7 @@ containerd/nerdctl.exe
 /bin/Windows-Kubeworker-Base.vhdx
 /bin/windowsnode
 /bin/WindowsNodeArtifacts.zip
+/bin/linuxnode
 
 bin/msiinstall.log
 bin/msiuninstall.log

@@ -37,7 +37,8 @@ $ipAddressToUse = $ClusterIpAddress
 # check if the VM is already part of the cluster
 $k8sFormattedNodeName = $NodeName.ToLower()
 $clusterState = (Invoke-Kubectl -Params @('get', 'nodes', '-o', 'wide')).Output
-if ($clusterState -notmatch $k8sFormattedNodeName) {
+$searchedNode = ($clusterState -match $k8sFormattedNodeName)
+if ([string]::IsNullOrWhiteSpace($searchedNode)) {
     Write-Log "The node '$k8sFormattedNodeName' is not part of the cluster."
 }
 
