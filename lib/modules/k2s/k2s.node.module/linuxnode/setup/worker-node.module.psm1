@@ -86,7 +86,8 @@ function Start-LinuxWorkerNodeOnNewVM {
         [string] $NodeName = $(throw 'Argument missing: Hostname')
     )
 
-    Add-RouteToLinuxWorkerNode -NodeName $NodeName -IpAddress $IpAddress
+    $clusterCIDRWorker = Get-ClusterCIDRWorker -NodeName $NodeName
+    Add-RouteToLinuxWorkerNode -NodeName $NodeName -IpAddress $IpAddress -ClusterCIDRWorker $clusterCIDRWorker
 
     if ($SkipHeaderDisplay -eq $false) {
         Write-Log "K2s worker node '$NodeName' started"
@@ -102,7 +103,8 @@ function Stop-LinuxWorkerNodeOnNewVM {
         [string] $NodeName = $(throw 'Argument missing: Hostname')
     )
 
-    Remove-RouteToLinuxWorkerNode -NodeName $NodeName
+    $clusterCIDRWorker = Get-ClusterCIDRWorker -NodeName $NodeName
+    Remove-RouteToLinuxWorkerNode -NodeName $NodeName -ClusterCIDRWorker $clusterCIDRWorker
 
     if ($SkipHeaderDisplay -eq $false) {
         Write-Log "K2s worker node '$NodeName' stopped"
@@ -157,8 +159,10 @@ function Add-LinuxWorkerNodeOnExistingUbuntuVM {
         [string] $AdditionalHooksDir = ''
     )
 
-    $k8sVersion = Get-DefaultK8sVersion
-    Install-KubernetesArtifacts -UserName $UserName -IpAddress $IpAddress -K8sVersion $k8sVersion -Proxy $Proxy
+    Write-Log "Prepare the computer $IpAddress for provisioning"
+    Set-UpComputerBeforeProvisioning -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy
+
+    Install-DebPackagesAndAddContainerImagesIntoRemoteComputer -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy
 
     (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo mkdir -p /etc/netplan/backup' -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
     (Invoke-CmdOnVmViaSSHKey -CmdToExecute "find /etc/netplan -maxdepth 1 -type f -exec sudo mv {} /etc/netplan/backup ';'" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
@@ -195,6 +199,8 @@ function Remove-LinuxWorkerNodeOnExistingUbuntuVM {
     if ($SkipHeaderDisplay -eq $false) {
         Write-Log "Removing K2s worker node '$NodeName'"
     }
+
+    Remove-ProxySettingsOnKubenode -UserName $UserName -IpAddress $IpAddress
 
     $k8sFormattedNodeName = $NodeName.ToLower()
     $clusterState = (Invoke-Kubectl -Params @('get', 'nodes', '-o', 'wide')).Output
@@ -237,7 +243,8 @@ function Start-LinuxWorkerNodeOnExistingVM {
         [switch] $SkipHeaderDisplay = $false
     )
 
-    Add-RouteToLinuxWorkerNode -NodeName $NodeName -IpAddress $IpAddress
+    $clusterCIDRWorker = Get-ClusterCIDRWorker -NodeName $NodeName
+    Add-RouteToLinuxWorkerNode -NodeName $NodeName -IpAddress $IpAddress -ClusterCIDRWorker $clusterCIDRWorker
 
     if ($SkipHeaderDisplay -eq $false) {
         Write-Log "K2s worker node '$NodeName' started"
@@ -253,7 +260,8 @@ function Stop-LinuxWorkerNodeOnExistingVM {
         [string] $NodeName = $(throw 'Argument missing: Hostname')
     )
 
-    Remove-RouteToLinuxWorkerNode -NodeName $NodeName
+    $clusterCIDRWorker = Get-ClusterCIDRWorker -NodeName $NodeName
+    Remove-RouteToLinuxWorkerNode -NodeName $NodeName -ClusterCIDRWorker $clusterCIDRWorker
 
     if ($SkipHeaderDisplay -eq $false) {
         Write-Log "K2s worker node '$NodeName' stopped"
@@ -274,6 +282,7 @@ function Add-LinuxWorkerNodeOnUbuntuBareMetal {
         Name = $NodeName
         IpAddress = $IpAddress
         UserName = $UserName
+        Proxy = $Proxy
         NodeType = 'HOST'
         Role = 'worker'
         OS = 'linux'
@@ -281,8 +290,11 @@ function Add-LinuxWorkerNodeOnUbuntuBareMetal {
     Add-NodeConfig @nodeParams
 
     Write-Log "Installing node essentials" -Console
-    $k8sVersion = Get-DefaultK8sVersion
-    Install-KubernetesArtifacts -UserName $UserName -IpAddress $IpAddress -K8sVersion $k8sVersion -Proxy $Proxy
+
+    Write-Log "Prepare the computer $IpAddress for provisioning"
+    Set-UpComputerBeforeProvisioning -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy
+
+    Install-DebPackagesAndAddContainerImagesIntoRemoteComputer -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy
 
     $doBeforeJoining = {
         Write-Log "Configuring networking for adding the node" -Console
@@ -407,7 +419,7 @@ function Add-RouteToLinuxWorkerNode {
     Param(
         [string] $IpAddress = $(throw 'Argument missing: IpAddress'),
         [string] $NodeName = $(throw 'Argument missing: Hostname'),
-        [string] $ClusterCIDRWorker = $(throw 'Argument missing: Hostname')
+        [string] $ClusterCIDRWorker = $(throw 'Argument missing: ClusterCIDRWorker')
     )
 
     # routes for Linux pods
@@ -420,12 +432,43 @@ function Add-RouteToLinuxWorkerNode {
 function Remove-RouteToLinuxWorkerNode {
     Param(
         [string] $NodeName = $(throw 'Argument missing: Hostname'),
-        [string] $ClusterCIDRWorker = $(throw 'Argument missing: Hostname')
+        [string] $ClusterCIDRWorker = $(throw 'Argument missing: ClusterCIDRWorker')
     )
 
     # routes for Linux pods
     Write-Log "Remove obsolete route to $ClusterCIDRWorker"
     route delete $ClusterCIDRWorker >$null 2>&1
+}
+
+function Install-DebPackagesAndAddContainerImagesIntoRemoteComputer {
+    Param(
+        [string] $UserName = $(throw 'Argument missing: UserName'),
+        [string] $IpAddress = $(throw 'Argument missing: IpAddress'),
+        [string] $Proxy = ''
+    )
+    $controlPlaneUserName = Get-DefaultUserNameControlPlane
+    $controlPlaneIpAddress = Get-ConfiguredIPControlPlane
+    $installedDistributionOnControlPlane = Get-InstalledDistribution -UserName $controlPlaneUserName -IpAddress $controlPlaneIpAddress
+    $installedDistributionOnRemoteComputer = Get-InstalledDistribution -UserName $UserName -IpAddress $IpAddress
+    $windowsHostKubenodeDebPackagesPath = Get-WindowsHostKubenodeDebPackagesPath
+    $windowsHostDebPackagesSourcePath = "$windowsHostKubenodeDebPackagesPath\$installedDistributionOnRemoteComputer"
+
+    if ($installedDistributionOnRemoteComputer -eq $installedDistributionOnControlPlane) {
+        Write-Log "The installed distribution ('$installedDistributionOnRemoteComputer') is equal to the control plane's distribution"
+        Copy-DebPackagesFromControlPlaneToWindowsHost -TargetPath "$windowsHostDebPackagesSourcePath"
+    } else {
+        Write-Log "The installed distribution ('$installedDistributionOnRemoteComputer') is different from the control plane's distribution ('$installedDistributionOnControlPlane') --> no deb packages will be copied from the control plane."
+    }
+
+    $kubernetesDebPackagesTargetPath = Get-KubernetesDebPackagesPath -UserName $UserName
+    Add-KubernetesArtifactsToRemoteComputer -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy -SourcePath $windowsHostDebPackagesSourcePath -TargetPath $kubernetesDebPackagesTargetPath
+    Install-KubernetesArtifacts -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy -SourcePath $kubernetesDebPackagesTargetPath
+
+    $buildahDebPackagesTargetPath = Get-BuildahDebPackagesPath -UserName $UserName
+    Add-BuildahArtifactsToRemoteComputer -UserName $UserName -IpAddress $IpAddress -SourcePath $windowsHostDebPackagesSourcePath -TargetPath $buildahDebPackagesTargetPath
+    Install-BuildahDebPackages -UserName $UserName -IpAddress $IpAddress -SourcePath $buildahDebPackagesTargetPath
+
+    Copy-KubernetesImagesFromControlPlaneToRemoteComputer -UserName $UserName -IpAddress $IpAddress
 }
 
 Export-ModuleMember -Function Add-LinuxWorkerNodeOnNewVM,
