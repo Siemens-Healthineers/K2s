@@ -20,6 +20,7 @@ type OS string
 type Node struct {
 	Name      string   `json:"Name"`
 	IpAddress string   `json:"IpAddress"`
+	Proxy     string   `json:"Proxy"`
 	Username  string   `json:"Username"`
 	NodeType  NodeType `json:"NodeType"`
 	Role      Role     `json:"Role"`
