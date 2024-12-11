@@ -96,7 +96,6 @@ var _ = Describe("image", Ordered, func() {
 		Entry("rm", "image", "rm", "--id", "non-existent"),
 		Entry("registry add", "image", "registry", "add", "non-existent"),
 		Entry("registry rm", "image", "registry", "rm", "non-existent"),
-		Entry("registry update", "image", "registry", "update", "non-existent"),
 		Entry("registry ls", "image", "registry", "ls"),
 	)
 

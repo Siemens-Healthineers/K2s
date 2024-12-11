@@ -25,7 +25,7 @@ import (
 var (
 	removeExample = `
 	# Remove registry in K2s
-	k2s image registry rm myregistry
+	k2s image registry rm ghcr.io
 `
 
 	rmCmd = &cobra.Command{

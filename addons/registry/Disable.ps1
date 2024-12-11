@@ -76,7 +76,7 @@ if ($DeleteImages) {
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo rm -rf /registry').Output | Write-Log
 }
 
-Remove-InsecureRegistry
+Remove-Registry -Name "k2s.registry.local*"
 
 Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'registry' })
 Remove-RegistryFromSetupJson -Name 'k2s.registry.local*' -IsRegex $true

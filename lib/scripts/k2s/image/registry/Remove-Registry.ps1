@@ -16,7 +16,7 @@ The name of the registry to be removed
 
 .EXAMPLE
 # Add registry
-PS> .\Remove-Registry.ps1 -RegistryName "myregistry"
+PS> .\Remove-Registry.ps1 -RegistryName "ghcr.io"
 #>
 
 Param (
@@ -50,7 +50,6 @@ if ($systemError) {
 
 $registries = $(Get-RegistriesFromSetupJson)
 
-#TODO: Refactor?
 if ($registries) {
     $registryExists = $registries | Where-Object { $_ -eq $RegistryName }
     if ($registryExists.Count -eq 0) {
@@ -76,7 +75,21 @@ if ($registries) {
 
 Write-Log "Removing registry '$RegistryName'" -Console
 
-Remove-InsecureRegistry
+$authJson = (Invoke-CmdOnControlPlaneViaSSHKey 'sudo cat /root/.config/containers/auth.json' -NoLog).Output | Out-String
+Remove-RegistryAuthToContainerdConfigToml -RegistryName $RegistryName -authJson $authJson
+
+Disconnect-Nerdctl -registry $RegistryName
+Disconnect-Buildah -registry $RegistryName
+
+Remove-Registry -Name $RegistryName
+
+Write-Log 'Restarting Windows container runtime' -Console
+Stop-NssmService('kubeproxy')
+Stop-NssmService('kubelet')
+Restart-NssmService('containerd')
+Start-NssmService('kubelet')
+Start-NssmService('kubeproxy')
+
 Remove-RegistryFromSetupJson -Name $RegistryName
 
 if ($EncodeStructuredOutput -eq $true) {
