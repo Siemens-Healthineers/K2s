@@ -83,8 +83,13 @@ function New-ControlPlaneNodeOnNewVM {
     }
 
     Wait-ForSSHConnectionToLinuxVMViaPwd
-    New-SshKey -IpAddress $($controlPlaneParams.IpAddress)
-    Copy-LocalPublicSshKeyToRemoteComputer -UserName $(Get-DefaultUserNameControlPlane) -UserPwd $(Get-DefaultUserPwdControlPlane) -IpAddress $($controlPlaneParams.IpAddress)
+
+    $controlPlaneUserName = Get-DefaultUserNameControlPlane
+    $controlPlaneUserPwd = Get-DefaultUserPwdControlPlane
+    $controlPlaneIpAddress = $($controlPlaneParams.IpAddress)
+
+    New-SshKey -IpAddress $controlPlaneIpAddress
+    Copy-LocalPublicSshKeyToRemoteComputer -UserName $controlPlaneUserName -UserPwd $controlPlaneUserPwd -IpAddress $controlPlaneIpAddress
     Wait-ForSSHConnectionToLinuxVMViaSshKey
 
     Remove-ControlPlaneAccessViaUserAndPwd
@@ -419,6 +424,13 @@ function Remove-ControlPlaneNodeOnNewVM {
 
     Clear-ProvisioningArtifacts
 
+    $linuxnodePath = "$(Get-KubeBinPath)\linuxnode"
+    Write-Log "Delete folder '$linuxnodePath' if existing"
+    if (Test-Path $linuxnodePath) {
+        Write-Log "Deleting folder '$linuxnodePath'"
+        Remove-Item -Path $linuxnodePath -Recurse -Force
+    }
+    
     if ($DeleteFilesForOfflineInstallation) {
         $kubemasterBaseFilePath = Get-KubemasterBaseFilePath
         $kubemasterRootfsPath = Get-ControlPlaneOnWslRootfsFilePath

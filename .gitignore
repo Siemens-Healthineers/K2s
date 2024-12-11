@@ -93,6 +93,7 @@ containerd/nerdctl.exe
 /bin/Windows-Kubeworker-Base.vhdx
 /bin/windowsnode
 /bin/WindowsNodeArtifacts.zip
+/bin/linuxnode
 
 bin/msiinstall.log
 bin/msiuninstall.log
@@ -141,6 +142,7 @@ bin/pscp.exe
 # test run artifacts
 test/*Test*.xml
 **/*.test
+k2s/test/e2e/cluster/node/overlays/**/*.yaml
 
 build/bom/merge/k2s-bom.json
 bin/cdxgen.exe
@@ -153,7 +155,7 @@ k2s/cmd/vfprules/vfprules/vfprules.obj
 k2s/cmd/vfprules/vfprules/vfprules.dll
 k2s/cmd/vfprules/vfprules/vfprules.exp
 k2s/cmd/vfprules/vfprules/vfprules.lib
-k2s/cmd/vfprules/vfprules/.vs/** 
+k2s/cmd/vfprules/vfprules/.vs/**
 k2s/cmd/vfprules/vfprules/x64/**
 k2s/cmd/vfprules/vfprules/vfprules.sln
 k2s/cmd/vfprules/vfprules/vfprules.vcxproj.filters
@@ -162,5 +164,4 @@ bin/cni/vfprules.lib
 bin/cni/vfprules.json.origin
 bin/cni/vfprules.exp
 bin/cni/vfprules.pdb
-
 

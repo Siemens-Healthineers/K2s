@@ -585,6 +585,32 @@ func determineFirstPodOfDeployment(deploymentName string, namespace string, clie
 	return nil, fmt.Errorf("no matching Pod found for Deployment '%s' in namespace '%s'", namespace, deploymentName)
 }
 
+func contains(slice []string, item string) bool {
+	for _, v := range slice {
+		if v == item {
+			return true
+		}
+	}
+	return false
+}
+
+func (c *Cluster) GetPodsGroupedByNode(ctx context.Context, namespace string, nodes []string) map[string][]corev1.Pod {
+	client := c.Client()
+	clientSet, err := kubernetes.NewForConfig(client.Resources().GetConfig())
+	Expect(err).To(BeNil())
+
+	pods, err := clientSet.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{})
+	Expect(err).NotTo(HaveOccurred(), "Failed to fetch pods")
+
+	podsByNode := make(map[string][]corev1.Pod)
+	for _, pod := range pods.Items {
+		if contains(nodes, pod.Spec.NodeName) {
+			podsByNode[pod.Spec.NodeName] = append(podsByNode[pod.Spec.NodeName], pod)
+		}
+	}
+	return podsByNode
+}
+
 func expectCmdExecInPodToSucceed(param podExecParam) {
 	Expect(executeCommandInPod(param)).To(Succeed())
 
