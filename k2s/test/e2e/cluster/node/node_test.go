@@ -29,13 +29,10 @@ const (
 var suite *framework.K2sTestSuite
 
 var baseDeployDir string
-var proxy string
 
 var linuxNodes []string
 var windowsNodes []string
 var deployments []DeploymentData
-
-var testFailed = false
 
 type DeploymentData struct {
 	DeploymentName string
@@ -53,12 +50,10 @@ func TestClusterCore(t *testing.T) {
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
+
 	baseDeployDir = "overlays"
-	proxy = "http://172.19.1.1:8181"
-
 	suite = framework.Setup(ctx, framework.ClusterTestStepPollInterval(time.Millisecond*200))
-
-	GinkgoWriter.Println("Using proxy <", proxy, "> for internet access")
+	suite.SetupInfo().LoadClusterConfig()
 	GinkgoWriter.Println("Getting available nodes on cluster..")
 
 	linuxNodes = getNodes(ctx, "linux")
@@ -172,6 +167,10 @@ var _ = Describe("Node Communication Core", func() {
 		Describe("Internet Access from Linux/Windows Pods from all Nodes", func() {
 
 			It("Internet Communication from Nodes", func(ctx SpecContext) {
+
+				if suite.IsOfflineMode() {
+					Skip("Offline-Mode")
+				}
 
 				linuxPods := suite.Cluster().GetPodsGroupedByNode(ctx, namespace, linuxNodes)
 				windowsPods := suite.Cluster().GetPodsGroupedByNode(ctx, namespace, windowsNodes)
@@ -447,19 +446,21 @@ func checkCommunication(ctx context.Context, sourcePod, targetPod v1.Pod, sideca
 	Expect(strings.TrimSpace(output)).To(ContainSubstring("200"), "Unexpected response")
 }
 
-func checkInternetCommunication(ctx context.Context, sourcePod v1.Pod, sidecarName string) {
-	By(fmt.Sprintf("Checking Internet communication from pod %s (node: %s)", sourcePod.Name, sourcePod.Spec.NodeName))
-
+func checkInternetCommunication(ctx context.Context, pod v1.Pod, sidecarName string) {
 	// get app label of target pod
 	cliPath := filepath.Join(suite.RootDir(), "bin", "kube", "kubectl.exe")
+
+	proxy := suite.SetupInfo().GetProxyForNode(pod.Spec.NodeName)
+
+	By(fmt.Sprintf("Checking Internet communication from pod %s (node: %s) (proxy: %s)", pod.Name, pod.Spec.NodeName, proxy))
 
 	command := ""
 	if sidecarName != "" {
 		// For Linux, use curl-sidecar
-		command = fmt.Sprintf("%s exec %s -n %s -c %s -- curl -si --insecure -x %s NeverSSL.com", cliPath, sourcePod.Name, namespace, sidecarName, proxy)
+		command = fmt.Sprintf("%s exec %s -n %s -c %s -- curl -si --insecure -x %s NeverSSL.com", cliPath, pod.Name, namespace, sidecarName, proxy)
 	} else {
 		// For Windows, use the main container
-		command = fmt.Sprintf("%s exec %s -n %s -- curl -si --insecure -x %s NeverSSL.com", cliPath, sourcePod.Name, namespace, proxy)
+		command = fmt.Sprintf("%s exec %s -n %s -- curl -si --insecure -x %s NeverSSL.com", cliPath, pod.Name, namespace, proxy)
 	}
 
 	output := suite.Cli().ExecOrFail(ctx, "cmd.exe", "/c", command)
