@@ -282,6 +282,7 @@ function Add-LinuxWorkerNodeOnUbuntuBareMetal {
         Name = $NodeName
         IpAddress = $IpAddress
         UserName = $UserName
+        Proxy = $Proxy
         NodeType = 'HOST'
         Role = 'worker'
         OS = 'linux'
@@ -458,7 +459,7 @@ function Install-DebPackagesAndAddContainerImagesIntoRemoteComputer {
     } else {
         Write-Log "The installed distribution ('$installedDistributionOnRemoteComputer') is different from the control plane's distribution ('$installedDistributionOnControlPlane') --> no deb packages will be copied from the control plane."
     }
-    
+
     $kubernetesDebPackagesTargetPath = Get-KubernetesDebPackagesPath -UserName $UserName
     Add-KubernetesArtifactsToRemoteComputer -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy -SourcePath $windowsHostDebPackagesSourcePath -TargetPath $kubernetesDebPackagesTargetPath
     Install-KubernetesArtifacts -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy -SourcePath $kubernetesDebPackagesTargetPath
