@@ -32,13 +32,13 @@ const (
 var (
 	addExample = `
 	# Add registry in K2s (enter credentials afterwards)
-	k2s image registry add myregistry
+	k2s image registry add ghcr.io
 
 	# Add registry in K2s (enter credentials afterwards) and configure as insecure registry (skips verifying HTTPS certs, and allows falling back to plain HTTP)
-	k2s image registry add myregistry --skip-verify --plain-http
+	k2s image registry add ghcr.io --skip-verify --plain-http
 
 	# Add registry with username and password in K2s 
-	k2s image registry add myregistry -u testuser -p testpassword
+	k2s image registry add ghcr.io -u testuser -p testpassword
 `
 
 	addCmd = &cobra.Command{

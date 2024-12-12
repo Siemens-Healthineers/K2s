@@ -60,7 +60,7 @@ function Get-RegistriesFromSetupJson() {
     return $null
 }
 
-function Add-RegistryToContainerdConf {
+function Add-RegistryAuthToContainerdConfigToml {
     param(
         [Parameter()]
         [String]
@@ -87,6 +87,27 @@ function Add-RegistryToContainerdConf {
         $content = Get-Content $containerdConfig
         $content | ForEach-Object { $_.replace($authPlaceHolder, "        [plugins.""io.containerd.grpc.v1.cri"".registry.configs.""$registryName"".auth]`r`n          auth = ""$auth""`r`n`r`n        #add_new_registry_auth") } | Set-Content $containerdConfig
     }
+}
+
+function Remove-RegistryAuthToContainerdConfigToml {
+    param(
+        [Parameter()]
+        [String]
+        $registryName,
+        [Parameter()]
+        [String]
+        $authJson
+    )
+    $containerdConfig = "$kubePath\cfg\containerd\config.toml"
+    Write-Log "Changing $containerdConfig"
+
+    $dockerConfig = $authJson | ConvertFrom-Json
+    $dockerAuth = $dockerConfig.psobject.properties['auths'].value
+    $authk2s = $dockerAuth.psobject.properties["$registryName"].value
+    $auth = $authk2s.psobject.properties['auth'].value
+
+    (Get-Content $containerdConfig | Select-String "$registryName"".auth]" -notmatch) | Set-Content $containerdConfig
+    (Get-Content $containerdConfig | Select-String "auth = ""$auth""" -notmatch) | Set-Content $containerdConfig
 }
 
 
@@ -156,6 +177,15 @@ function Connect-Nerdctl {
     }
 }
 
+function Disconnect-Nerdctl {
+    param (
+        [Parameter(Mandatory = $false)]
+        [string]$registry
+    )
+
+    &$nerdctlExe -n="k8s.io" logout $registry
+}
+
 function Connect-Buildah {
     param (
         [Parameter(Mandatory = $false)]
@@ -174,7 +204,7 @@ function Connect-Buildah {
             $success = (Invoke-CmdOnControlPlaneViaSSHKey "sudo buildah login --authfile /root/.config/containers/auth.json '$registry' > /dev/null 2>&1").Success
         }
         else {
-            $success = (Invoke-CmdOnControlPlaneViaSSHKey "sudo buildah login --authfile /root/.config/containers/auth.json -u '$username' -p '$password' '$registry' > /dev/null 2>&1" -NoLog).Success
+            $success = (Invoke-CmdOnControlPlaneViaSSHKey "sudo buildah login --authfile /root/.config/containers/auth.json -u '$username' -p '$password' '$registry' > /dev/null 2>&1" -NoLog -IgnoreErrors).Success
             Write-Log("cmd: sudo buildah login --authfile /root/.config/containers/auth.json -u 'user' -p '<redacted>' '$registry' > /dev/null 2>&1 (redacted ouput)")
         }
 
@@ -188,6 +218,15 @@ function Connect-Buildah {
     if (!$success) {
         throw "Login to registry $registry not possible! Please check credentials!"
     }
+}
+
+function Disconnect-Buildah {
+    param (
+        [Parameter(Mandatory = $false)]
+        [string]$registry
+    )
+
+    (Invoke-CmdOnControlPlaneViaSSHKey "sudo buildah logout --authfile /root/.config/containers/auth.json '$registry'").Output | Write-Log
 }
 
 function Get-ConfiguredRegistryFromImageName {
@@ -216,21 +255,36 @@ function Get-ConfiguredRegistryFromImageName {
     }
 }
 
-function Set-InsecureRegistry {
+function Set-Registry {
     param(
         [Parameter()]
         [String]
         $Name,
         [Parameter()]
         [switch]
-        $Https
+        $Https,
+        [Parameter()]
+        [switch] $SkipVerify,
+        [Parameter()]
+        [switch] $LocalRegistry
     )
+
+    if ($Https) {
+        $protocol = "https"
+    } else {
+        $protocol = "http"
+        $SkipVerify = $true
+    }
 
     # Linux (cri-o)
     $fileName = $Name -replace ':',''
 
+    if ($LocalRegistry) {
+        $SkipVerify = $true
+    }
+
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'mkdir -p /etc/containers/registries.conf.d').Output | Write-Log
-    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "echo -e `'[[registry]]\nlocation=\""$Name\""\ninsecure=true`' | sudo tee /etc/containers/registries.conf.d/$fileName.conf").Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "echo -e `'[[registry]]\nlocation=\""$Name\""\ninsecure=$($SkipVerify.ToString().ToLower())`' | sudo tee /etc/containers/registries.conf.d/$fileName.conf").Output | Write-Log
 
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo systemctl daemon-reload').Output | Write-Log
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo systemctl restart crio').Output | Write-Log
@@ -240,27 +294,26 @@ function Set-InsecureRegistry {
 
     New-Item -Path "$(Get-SystemDriveLetter):\etc\containerd\certs.d\$folderName" -ItemType Directory -Force | Out-Null
 
-    if ($Https) {
-@"
-server = "https://$Name"
+    $content = ""
 
-[host."https://$Name"]
-  capabilities = ["pull", "resolve", "push"]
-  skip_verify = true
-"@ | Set-Content -Path "$(Get-SystemDriveLetter):\etc\containerd\certs.d\$folderName\hosts.toml"
-} else {
-@"
-server = "http://$Name"
-
-[host."http://$Name"]
-  capabilities = ["pull", "resolve", "push"]
-  skip_verify = true
-  plain_http = true
-"@ | Set-Content -Path "$(Get-SystemDriveLetter):\etc\containerd\certs.d\$folderName\hosts.toml"
+    if ($LocalRegistry) {
+        $content += @"
+server = "${protocol}://$Name"
+"@
     }
+
+    $content += @"
+
+[host."${protocol}://$Name"]
+  capabilities = ["pull", "resolve", "push"]
+  skip_verify = $($SkipVerify.ToString().ToLower())
+  plain_http = $($(!$Https).ToString().ToLower())
+"@
+    
+    $content | Set-Content -Path "$(Get-SystemDriveLetter):\etc\containerd\certs.d\$folderName\hosts.toml"
 }
 
-function Remove-InsecureRegistry {
+function Remove-Registry {
     param(
         [Parameter()]
         [String]
@@ -282,10 +335,13 @@ function Remove-InsecureRegistry {
 Export-ModuleMember -Function Add-RegistryToSetupJson,
 Remove-RegistryFromSetupJson,
 Get-RegistriesFromSetupJson,
-Add-RegistryToContainerdConf,
+Add-RegistryAuthToContainerdConfigToml,
+Remove-RegistryAuthToContainerdConfigToml,
 Connect-Docker,
 Connect-Buildah,
+Disconnect-Buildah,
 Connect-Nerdctl,
+Disconnect-Nerdctl,
 Get-ConfiguredRegistryFromImageName,
-Set-InsecureRegistry,
-Remove-InsecureRegistry
+Set-Registry,
+Remove-Registry
