@@ -101,11 +101,7 @@ else {
 
 Set-Registry -Name $RegistryName -Https:$(!$PlainHttp) -SkipVerify:$SkipVerify
 
-Write-Log 'Restarting Linux container runtime' -Console
-(Invoke-CmdOnControlPlaneViaSSHKey 'sudo systemctl daemon-reload').Output | Write-Log
-(Invoke-CmdOnControlPlaneViaSSHKey 'sudo systemctl restart crio').Output | Write-Log
-
-Start-Sleep 2
+Write-Log 'Trying to login to container registry' -Console
 
 Connect-Buildah -username $username -password $password -registry $RegistryName
 
@@ -120,6 +116,12 @@ if (!$?) {
     Write-Log $errMsg -Error
     exit 1
 }
+
+Write-Log 'Restarting Linux container runtime' -Console
+(Invoke-CmdOnControlPlaneViaSSHKey 'sudo systemctl daemon-reload').Output | Write-Log
+(Invoke-CmdOnControlPlaneViaSSHKey 'sudo systemctl restart crio').Output | Write-Log
+
+Start-Sleep 2
 
 Connect-Nerdctl -username $username -password $password -registry $RegistryName
 
