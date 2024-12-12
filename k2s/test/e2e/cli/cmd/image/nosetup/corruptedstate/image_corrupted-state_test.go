@@ -93,9 +93,10 @@ var _ = Describe("image", Ordered, func() {
 		Entry("pull", "image", "pull", "non-existent"),
 		Entry("push", "image", "push", "-n", "non-existent"),
 		Entry("tag", "image", "tag", "-n", "non-existent", "-t", "non-existent"),
-		Entry("registry add", "image", "registry", "add", "non-existent"),
-		Entry("registry ls", "image", "registry", "ls"),
 		Entry("rm", "image", "rm", "--id", "non-existent"),
+		Entry("registry add", "image", "registry", "add", "non-existent"),
+		Entry("registry rm", "image", "registry", "rm", "non-existent"),
+		Entry("registry ls", "image", "registry", "ls"),
 	)
 
 	Describe("ls JSON output", Ordered, func() {
