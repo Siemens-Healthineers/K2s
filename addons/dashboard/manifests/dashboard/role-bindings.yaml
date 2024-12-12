@@ -18,7 +18,7 @@ subjects:
     name: kubernetes-dashboard
     namespace: dashboard
   - kind: User
-    name: admin-user
+    name: "https://k2s.cluster.local/keycloak/realms/demo-app#50b2379f-f236-4e93-b779-234943cd30fe"
     apiGroup: rbac.authorization.k8s.io
 
 ---
@@ -36,7 +36,7 @@ subjects:
     name: kubernetes-dashboard
     namespace: dashboard
   - kind: User
-    name: admin-user
+    name: "https://k2s.cluster.local/keycloak/realms/demo-app#50b2379f-f236-4e93-b779-234943cd30fe"
     apiGroup: rbac.authorization.k8s.io
 
 ---
@@ -53,5 +53,5 @@ subjects:
   name: dashboard-admin
   namespace: dashboard
 - kind: User
-  name: admin-user
+  name: "https://k2s.cluster.local/keycloak/realms/demo-app#50b2379f-f236-4e93-b779-234943cd30fe"
   apiGroup: rbac.authorization.k8s.io
