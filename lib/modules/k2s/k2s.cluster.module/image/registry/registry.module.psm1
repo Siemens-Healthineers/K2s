@@ -279,13 +279,12 @@ function Set-Registry {
     # Linux (cri-o)
     $fileName = $Name -replace ':',''
 
-    $insecure = "false"
-    if ($LocalRegistry -or $SkipVerify) {
-        $insecure = "true"
+    if ($LocalRegistry) {
+        $SkipVerify = $true
     }
 
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'mkdir -p /etc/containers/registries.conf.d').Output | Write-Log
-    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "echo -e `'[[registry]]\nlocation=\""$Name\""\ninsecure=$insecure`' | sudo tee /etc/containers/registries.conf.d/$fileName.conf").Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "echo -e `'[[registry]]\nlocation=\""$Name\""\ninsecure=$($SkipVerify.ToString().ToLower())`' | sudo tee /etc/containers/registries.conf.d/$fileName.conf").Output | Write-Log
 
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo systemctl daemon-reload').Output | Write-Log
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo systemctl restart crio').Output | Write-Log
