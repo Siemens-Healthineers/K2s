@@ -1,10 +1,14 @@
+# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: mysql-pvc
 spec:
   accessModes:
-  - ReadWriteOnce
+    - ReadWriteOnce
   resources:
     requests:
       storage: 2Gi

@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -15,23 +19,23 @@ spec:
         app: mysql
     spec:
       containers:
-      - name: mysql
-        image: mysql:5.7
-        ports:
-        - containerPort: 3306
-        env:
-        - name: MYSQL_ROOT_PASSWORD
-          value: "your-root-password"
-        - name: MYSQL_DATABASE
-          value: "orthanc"
-        - name: MYSQL_USER
-          value: "orthanc"
-        - name: MYSQL_PASSWORD
-          value: "orthanc"
-        volumeMounts:
-        - name: mysql-storage
-          mountPath: /var/lib/mysql
+        - name: mysql
+          image: mysql:5.7
+          ports:
+            - containerPort: 3306
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              value: "your-root-password"
+            - name: MYSQL_DATABASE
+              value: "orthanc"
+            - name: MYSQL_USER
+              value: "orthanc"
+            - name: MYSQL_PASSWORD
+              value: "orthanc"
+          volumeMounts:
+            - name: mysql-storage
+              mountPath: /var/lib/mysql
       volumes:
-      - name: mysql-storage
-        persistentVolumeClaim:
-          claimName: mysql-pvc
+        - name: mysql-storage
+          persistentVolumeClaim:
+            claimName: mysql-pvc
