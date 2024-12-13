@@ -29,6 +29,7 @@ LocalHooks/*.ps1
 cni/cni-conf.json
 *.code-workspace
 .vscode/*
+.vs/*
 .idea/*
 vfprules.json
 bin/dnsproxy.yaml
