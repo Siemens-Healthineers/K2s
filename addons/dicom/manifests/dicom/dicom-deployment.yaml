@@ -1,0 +1,40 @@
+# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dicom
+  labels:
+    app: dicom
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: orthanc
+  template:
+    metadata:
+      labels:
+        app: orthanc
+    spec:
+      containers:
+        - name: orthanc
+          image: jodogne/orthanc-plugins:latest
+          ports:
+            - containerPort: 8042
+            - containerPort: 4242
+          volumeMounts:
+            - name: orthanc-storage
+              mountPath: /var/lib/orthanc/db
+            - mountPath: /etc/orthanc
+              name: json-configmap-volume
+      volumes:
+        - name: orthanc-storage
+          persistentVolumeClaim:
+            claimName: orthanc-pvc
+        - name: json-configmap-volume
+          configMap:
+            name: json-configmap
+      nodeSelector:
+        kubernetes.io/os: linux
