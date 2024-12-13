@@ -43,7 +43,7 @@ var _ = Describe("ssh pkg", func() {
 		It("constructs SSH key path correctly", func() {
 			actual := ssh.SshKeyPath("my-dir")
 
-			Expect(actual).To(Equal("my-dir\\kubemaster\\id_rsa"))
+			Expect(actual).To(Equal("my-dir\\k2s\\id_rsa"))
 		})
 	})
 

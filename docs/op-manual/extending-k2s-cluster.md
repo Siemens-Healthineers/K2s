@@ -33,25 +33,25 @@ This guide explains how to extend a K2s cluster by adding physical hosts or virt
 
 ### 1. Copy the public SSH Key to the new node
 
-When K2s is installed, an SSH public key is available under the directory `%USERPROFILE%\.ssh\kubemaster\id_rsa.pub`.
+When K2s is installed, an SSH public key is available under the directory `%USERPROFILE%\.ssh\k2s\id_rsa.pub`.
 This key must be copied to the physical host or VM to establish communication and initiate the installation.
 
 #### Manually
 
-Copy the file from `%USERPROFILE%\.ssh\kubemaster\id_rsa.pub` to any location on the machine `e.g. /tmp/ on Linux host` .
+Copy the file from `%USERPROFILE%\.ssh\k2s\id_rsa.pub` to any location on the machine `e.g. /tmp/ on Linux host` .
 
 #### Using `scp` and password
 
 ##### Linux New Node
 
 ```cmd
-scp -o StrictHostKeyChecking=no %USERPROFILE%\.ssh\kubemaster\id_rsa.pub  <usernameOfNode>@<IpAddressOfNode>:/tmp/temp_k2s.pub
+scp -o StrictHostKeyChecking=no %USERPROFILE%\.ssh\k2s\id_rsa.pub  <usernameOfNode>@<IpAddressOfNode>:/tmp/temp_k2s.pub
 ```
 
 ##### Windows New Node
 
 ```cmd
-scp -o StrictHostKeyChecking=no %USERPROFILE%\.ssh\kubemaster\id_rsa.pub  <usernameOfNode>@<IpAddressOfNode>:c:\\temp\\temp_k2s.pub
+scp -o StrictHostKeyChecking=no %USERPROFILE%\.ssh\k2s\id_rsa.pub  <usernameOfNode>@<IpAddressOfNode>:c:\\temp\\temp_k2s.pub
 ```
 
 !!! hint "scp"
