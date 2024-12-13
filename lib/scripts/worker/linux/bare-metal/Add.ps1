@@ -100,7 +100,7 @@ Add-LinuxWorkerNodeOnUbuntuBareMetal @workerNodeParams
 
 if (! $SkipStart) {
     Write-Log 'Starting worker node' -Console
-    & "$PSScriptRoot\Start.ps1" -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs -SkipHeaderDisplay -IpAddress $IpAddress -NodeName $NodeName
+    & "$PSScriptRoot\Start.ps1" -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs -SkipHeaderDisplay -IpAddress $IpAddress -NodeName $NodeName -ObtainCIDR:$true
 
     if ($RestartAfterInstallCount -gt 0) {
         $restartCount = 0;

@@ -22,6 +22,7 @@ type Node struct {
 	IpAddress string   `json:"IpAddress"`
 	Proxy     string   `json:"Proxy"`
 	Username  string   `json:"Username"`
+	PodCIDR   string   `json:"PodCIDR"`
 	NodeType  NodeType `json:"NodeType"`
 	Role      Role     `json:"Role"`
 	OS        OS       `json:"OS"`
