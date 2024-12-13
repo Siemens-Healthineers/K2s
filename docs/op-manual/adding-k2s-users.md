@@ -48,7 +48,7 @@ See `k2s system users add -h` for more options.
 ??? example "Full Example With Detailed Steps"
     Given that the *Windows* user `desktop1234\john` exists on the host and has a local profile/home directory, the *K2s* admin runs `k2s system users add -u john` which triggers the following steps:
     
-    - Creating an SSH key pair for *John* in `c:\users\john\.ssh\kubemaster\` on the host. The admin must confirm overwriting existing key pairs. Since the SSH key pair was initially created by the admin's *Windows* account, the file security inheritance must be disabled, the *Administrators* group granted full file access (so that the *K2s* admin can revoke/delete *John's* access later) and the admin user must be removed from the ACL, otherwise SSH would complain about too open access permissions when *John* tries to use his SSH key. *John's* public SSH key contains the *K2s*-specific username as comment, i.e. `k2s-desktop1234-john`, so that removing entries only targets SSH fingerprints that have been created by *K2s*. As of now, none of the SSH keys being created by *K2s* are password-protected.
+    - Creating an SSH key pair for *John* in `c:\users\john\.ssh\k2s\` on the host. The admin must confirm overwriting existing key pairs. Since the SSH key pair was initially created by the admin's *Windows* account, the file security inheritance must be disabled, the *Administrators* group granted full file access (so that the *K2s* admin can revoke/delete *John's* access later) and the admin user must be removed from the ACL, otherwise SSH would complain about too open access permissions when *John* tries to use his SSH key. *John's* public SSH key contains the *K2s*-specific username as comment, i.e. `k2s-desktop1234-john`, so that removing entries only targets SSH fingerprints that have been created by *K2s*. As of now, none of the SSH keys being created by *K2s* are password-protected.
     - Adding control-plane's SSH fingerprint to `c:\users\john\.ssh\known_hosts` file on the host. It removes previous control-plane fingerprint if existing.
     - Adding *John's* SSH fingerprint to `~/.ssh/authorized_keys` on the control-plane. It removes *John's* previous fingerprint if existing.
     - Creating `c:\users\john\.kube\config` if not existing, copying the *K2s* cluster configuration from admin's `kubeconfig`.
@@ -64,7 +64,7 @@ See `k2s system users add -h` for more options.
 The new user can verify the SSH access to the control-plane by running:
 
 ```console
-ssh -o StrictHostKeyChecking=no -i "~/.ssh\kubemaster\id_rsa" "remote@172.19.1.100"
+ssh -o StrictHostKeyChecking=no -i "~/.ssh\k2s\id_rsa" "remote@172.19.1.100"
 ```
 
 where `172.19.1.100` is the IP address of the control-plane and `remote` the *Linux* user with admin privileges.
@@ -134,7 +134,7 @@ There is no automated or bullet-proof way to revoke access to *K2s* (or removing
 
 ### Control-plane
 - \[Essential\] On control-plane, remove SSH key fingerprint from `~/.ssh/authorized_keys` for the specific user (entry should contain username with `k2s-` prefix).
-- \[Cleanup\] Remove SSH key pair folder `<home-dir>\.ssh\kubemaster\`.
+- \[Cleanup\] Remove SSH key pair folder `<home-dir>\.ssh\k2s\`.
 - \[Cleanup\] Remove control-plane fingerprint from `<home-dir>\.ssh\known_hosts`, normally starting with the control-plane's IP address `172.19.1.100`.
 
 ### *K8s* API

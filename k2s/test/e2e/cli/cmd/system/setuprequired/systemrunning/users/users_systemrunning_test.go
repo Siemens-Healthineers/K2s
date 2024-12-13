@@ -90,7 +90,7 @@ var _ = Describe("system users add", Ordered, func() {
 			})
 			Expect(found).To(BeTrue())
 			expectedRemoteUser = "remote@" + controlPlaneConfig.IpAddress
-			expectedKeyPath = filepath.Join(fakeHomeDir, `.ssh\kubemaster\id_rsa`)
+			expectedKeyPath = filepath.Join(fakeHomeDir, `.ssh\k2s\id_rsa`)
 
 			systemUserWithFakeHomeDir := winusers.NewUser(systemUserId, systemUserName, fakeHomeDir)
 
