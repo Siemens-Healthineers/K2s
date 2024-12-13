@@ -39,7 +39,8 @@ function Add-NodeConfig {
         [string] $NodeType,
         [string] $Role,
         [string] $OS,
-        [string] $Proxy
+        [string] $Proxy,
+        [string] $PodCIDR
     )
     $clusterFilePath = Get-ClusterDescriptorFilePath
     $json = Get-JsonContent -FilePath $clusterFilePath
@@ -63,6 +64,7 @@ function Add-NodeConfig {
         Role      = $Role
         OS        = $OS
         Proxy     = $Proxy
+        PodCIDR   = $PodCIDR
     }
     $json.nodes += $newNode
     Save-JsonContent -JsonObject $json -FilePath $clusterFilePath
