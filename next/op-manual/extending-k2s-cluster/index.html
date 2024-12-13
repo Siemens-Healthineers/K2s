@@ -1910,16 +1910,16 @@ SPDX-License-Identifier: MIT
 <hr />
 <h2 id="steps-to-add-a-physical-host-or-vm">Steps to Add a Physical Host or <abbr title="Virtual Machine">VM</abbr></h2>
 <h3 id="1-copy-the-public-ssh-key-to-the-new-node">1. Copy the public <abbr title="Secure Shell">SSH</abbr> Key to the new node</h3>
-<p>When K2s is installed, an <abbr title="Secure Shell">SSH</abbr> public key is available under the directory <code>%USERPROFILE%\.ssh\kubemaster\id_rsa.pub</code>.
+<p>When K2s is installed, an <abbr title="Secure Shell">SSH</abbr> public key is available under the directory <code>%USERPROFILE%\.ssh\k2s\id_rsa.pub</code>.
 This key must be copied to the physical host or <abbr title="Virtual Machine">VM</abbr> to establish communication and initiate the installation.</p>
 <h4 id="manually">Manually</h4>
-<p>Copy the file from <code>%USERPROFILE%\.ssh\kubemaster\id_rsa.pub</code> to any location on the machine <code>e.g. /tmp/ on Linux host</code> .</p>
+<p>Copy the file from <code>%USERPROFILE%\.ssh\k2s\id_rsa.pub</code> to any location on the machine <code>e.g. /tmp/ on Linux host</code> .</p>
 <h4 id="using-scp-and-password">Using <code>scp</code> and password</h4>
 <h5 id="linux-new-node">Linux New Node</h5>
-<div class="highlight"><span class="filename">Text Only</span><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>scp -o StrictHostKeyChecking=no %USERPROFILE%\.ssh\kubemaster\id_rsa.pub  &lt;usernameOfNode&gt;@&lt;IpAddressOfNode&gt;:/tmp/temp_k2s.pub
+<div class="highlight"><span class="filename">Text Only</span><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>scp -o StrictHostKeyChecking=no %USERPROFILE%\.ssh\k2s\id_rsa.pub  &lt;usernameOfNode&gt;@&lt;IpAddressOfNode&gt;:/tmp/temp_k2s.pub
 </code></pre></div>
 <h5 id="windows-new-node">Windows New Node</h5>
-<div class="highlight"><span class="filename">Text Only</span><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>scp -o StrictHostKeyChecking=no %USERPROFILE%\.ssh\kubemaster\id_rsa.pub  &lt;usernameOfNode&gt;@&lt;IpAddressOfNode&gt;:c:\\temp\\temp_k2s.pub
+<div class="highlight"><span class="filename">Text Only</span><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>scp -o StrictHostKeyChecking=no %USERPROFILE%\.ssh\k2s\id_rsa.pub  &lt;usernameOfNode&gt;@&lt;IpAddressOfNode&gt;:c:\\temp\\temp_k2s.pub
 </code></pre></div>
 <div class="admonition hint">
 <p class="admonition-title">scp</p>
