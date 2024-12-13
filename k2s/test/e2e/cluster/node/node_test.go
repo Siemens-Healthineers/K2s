@@ -23,19 +23,19 @@ import (
 )
 
 const (
-	namespace = "k2s"
+	namespace     = "k2s"
+	linux         = "linux"
+	windows       = "windows"
+	baseDeployDir = "overlays"
 )
 
 var suite *framework.K2sTestSuite
 
-var baseDeployDir string
-var proxy string
+var kubectlPath string
 
 var linuxNodes []string
 var windowsNodes []string
 var deployments []DeploymentData
-
-var testFailed = false
 
 type DeploymentData struct {
 	DeploymentName string
@@ -49,32 +49,30 @@ type DeploymentData struct {
 
 func TestClusterCore(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Cluster Core Acceptance Tests", Label("core", "acceptance", "internet-required", "setup-required", "system-running", "node-communication"))
+	RunSpecs(t, "Cluster Nodes Core Acceptance Tests", Label("core", "acceptance", "internet-required", "setup-required", "system-running", "node-sanity"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
-	baseDeployDir = "overlays"
-	proxy = "http://172.19.1.1:8181"
-
 	suite = framework.Setup(ctx, framework.ClusterTestStepPollInterval(time.Millisecond*200))
 
-	GinkgoWriter.Println("Using proxy <", proxy, "> for internet access")
+	suite.SetupInfo().LoadClusterConfig()
+	kubectlPath = filepath.Join(suite.RootDir(), "bin", "kube", "kubectl.exe")
 	GinkgoWriter.Println("Getting available nodes on cluster..")
 
-	linuxNodes = getNodes(ctx, "linux")
-	windowsNodes = getNodes(ctx, "windows")
+	linuxNodes = getNodes(ctx, linux)
+	windowsNodes = getNodes(ctx, windows)
 
 	linuxImage := "shsk2s.azurecr.io/example.albums-golang-linux:v1.0.0"
 	windowsImage := "shsk2s.azurecr.io/example.albums-golang-win:v1.0.0"
 
 	clusterIPStart := map[string]string{
-		"linux":   "172.21.0.",
-		"windows": "172.21.1.",
+		linux:   "172.21.0.",
+		windows: "172.21.1.",
 	}
 
 	// Generate and apply deployments for Linux and Windows
-	generateDeployments("overlays/linux", linuxNodes, linuxImage, clusterIPStart["linux"], "linux")
-	generateDeployments("overlays/windows", windowsNodes, windowsImage, clusterIPStart["windows"], "windows")
+	generateDeployments("overlays/linux", linuxNodes, linuxImage, clusterIPStart[linux], linux)
+	generateDeployments("overlays/windows", windowsNodes, windowsImage, clusterIPStart[windows], windows)
 
 	applyDeployments(ctx)
 
@@ -173,6 +171,10 @@ var _ = Describe("Node Communication Core", func() {
 
 			It("Internet Communication from Nodes", func(ctx SpecContext) {
 
+				if suite.IsOfflineMode() {
+					Skip("Offline-Mode")
+				}
+
 				linuxPods := suite.Cluster().GetPodsGroupedByNode(ctx, namespace, linuxNodes)
 				windowsPods := suite.Cluster().GetPodsGroupedByNode(ctx, namespace, windowsNodes)
 
@@ -189,7 +191,8 @@ var _ = Describe("Node Communication Core", func() {
 
 func applyDeployments(ctx context.Context) {
 
-	suite.Kubectl().Run(ctx, "create", "ns", namespace)
+	command := fmt.Sprintf("%s create ns %s --dry-run=client -o yaml | kubectl apply -f -", kubectlPath, namespace)
+	suite.Cli().ExecOrFail(ctx, "cmd.exe", "/c", command)
 
 	overlayLinuxDir, overlayWinDir, linuxDirs, winDirs := getDeploymentDirs()
 
@@ -226,7 +229,8 @@ func generateDeployments(outputDir string, nodes []string, image, clusterIPBase 
 		return
 	}
 
-	tmpl := `apiVersion: apps/v1
+	tmpl := `
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ .DeploymentName }}
@@ -301,8 +305,8 @@ spec:
 		var resourcePaths []string
 		for i := 1; i <= 2; i++ {
 			data := DeploymentData{
-				DeploymentName: fmt.Sprintf("%s-app-%d", node, i),
-				AppName:        fmt.Sprintf("%s-app-%d", node, i),
+				DeploymentName: fmt.Sprintf("%s%d", node, i),
+				AppName:        fmt.Sprintf("%s%d", node, i),
 				ContainerName:  fmt.Sprintf("%s-ctr-%d", node, i),
 				Image:          image,
 				NodeName:       node,
@@ -447,19 +451,18 @@ func checkCommunication(ctx context.Context, sourcePod, targetPod v1.Pod, sideca
 	Expect(strings.TrimSpace(output)).To(ContainSubstring("200"), "Unexpected response")
 }
 
-func checkInternetCommunication(ctx context.Context, sourcePod v1.Pod, sidecarName string) {
-	By(fmt.Sprintf("Checking Internet communication from pod %s (node: %s)", sourcePod.Name, sourcePod.Spec.NodeName))
+func checkInternetCommunication(ctx context.Context, pod v1.Pod, sidecarName string) {
+	proxy := suite.SetupInfo().GetProxyForNode(pod.Spec.NodeName)
 
-	// get app label of target pod
-	cliPath := filepath.Join(suite.RootDir(), "bin", "kube", "kubectl.exe")
+	By(fmt.Sprintf("Checking Internet communication from pod %s (node: %s) (proxy: %s)", pod.Name, pod.Spec.NodeName, proxy))
 
 	command := ""
 	if sidecarName != "" {
 		// For Linux, use curl-sidecar
-		command = fmt.Sprintf("%s exec %s -n %s -c %s -- curl -si --insecure -x %s NeverSSL.com", cliPath, sourcePod.Name, namespace, sidecarName, proxy)
+		command = fmt.Sprintf("%s exec %s -n %s -c %s -- curl -si --insecure -x %s NeverSSL.com", kubectlPath, pod.Name, namespace, sidecarName, proxy)
 	} else {
 		// For Windows, use the main container
-		command = fmt.Sprintf("%s exec %s -n %s -- curl -si --insecure -x %s NeverSSL.com", cliPath, sourcePod.Name, namespace, proxy)
+		command = fmt.Sprintf("%s exec %s -n %s -- curl -si --insecure -x %s NeverSSL.com", kubectlPath, pod.Name, namespace, proxy)
 	}
 
 	output := suite.Cli().ExecOrFail(ctx, "cmd.exe", "/c", command)
