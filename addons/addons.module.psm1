@@ -916,7 +916,7 @@ function Update-IngressForNginx {
         $kustomizationDir = Get-IngressNginxSecureConfig -Directory $props.Directory
     }
     else {
-        Write-Log "  Applying nginx ingress manifest for $($props.Name)..." -Console
+        Write-Log "  Applying nginx ingress manifest for $($props.Name) $($props.Directory)..." -Console
         $kustomizationDir = Get-IngressNginxConfig -Directory $props.Directory
         
     }
