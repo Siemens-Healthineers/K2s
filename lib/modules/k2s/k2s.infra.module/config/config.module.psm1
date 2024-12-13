@@ -38,7 +38,7 @@ $k2sConfigDir = Expand-Path $configDir.psobject.properties['k2s'].value
 
 $sshKeyFileName = 'id_rsa'
 $kubernetesImagesJsonFile = "$k2sConfigDir\kubernetes_images.json"
-$sshKeyControlPlane = "$sshConfigDir\kubemaster\$sshKeyFileName"
+$sshKeyControlPlane = "$sshConfigDir\k2s\$sshKeyFileName"
 
 #NETWORKING
 $ipControlPlane = $smallsetup.psobject.properties['masterIP'].value
