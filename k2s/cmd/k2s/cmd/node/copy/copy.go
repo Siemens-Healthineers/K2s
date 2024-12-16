@@ -10,7 +10,6 @@ import (
 
 	"github.com/pterm/pterm"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
-	"github.com/siemens-healthineers/k2s/internal/core/node"
 	nodecopy "github.com/siemens-healthineers/k2s/internal/core/node/copy"
 	"github.com/siemens-healthineers/k2s/internal/core/node/ssh"
 	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
@@ -78,7 +77,7 @@ func NewCmd() *cobra.Command {
 
 	cmd.Flags().BoolP(reverseFlag, "r", false, "Copy from node to host (i.e. reverse direction)")
 	cmd.Flags().Uint16P(portFlag, "p", ssh.DefaultPort, "Port for remote connection")
-	cmd.Flags().String(timeoutFlag, "30s", "Connection timeout, e.g. '1m20s', allowed time units are 'ns', 'us' (or 'µs'), 'ms', 's', 'm', 'h'")
+	cmd.Flags().String(timeoutFlag, ssh.DefaultTimeout.String(), "Connection timeout, e.g. '1m20s', allowed time units are 'ns', 'us' (or 'µs'), 'ms', 's', 'm', 'h'")
 
 	cmd.Flags().SortFlags = false
 	cmd.Flags().PrintDefaults()
@@ -106,7 +105,7 @@ func copy(cmd *cobra.Command, args []string) error {
 
 	connectionOptions.SshKeyPath = ssh.SshKeyPath(config.Host.SshDir)
 
-	err = node.Copy(*copyOptions, *connectionOptions)
+	err = nodecopy.Copy(*copyOptions, *connectionOptions)
 	if err != nil {
 		return fmt.Errorf("failed to copy: %w", err)
 	}
