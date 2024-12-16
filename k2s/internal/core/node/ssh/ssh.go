@@ -26,7 +26,7 @@ const (
 	DefaultPort   uint16 = 22
 
 	sshKeyName    = "id_rsa"
-	sshSubDirName = "kubemaster" // TODO: this will change to a more generic sub dir name in the near future
+	sshSubDirName = "k2s"
 )
 
 func SshKeyPath(sshDir string) string {

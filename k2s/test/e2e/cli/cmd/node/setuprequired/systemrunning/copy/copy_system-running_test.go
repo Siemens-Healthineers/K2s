@@ -89,7 +89,7 @@ var _ = Describe("node copy", Ordered, func() {
 				sshExec = &sshExecutor{
 					ipAddress:  nodeIpAddress,
 					remoteUser: "remote",
-					keyPath:    "~/.ssh\\kubemaster\\id_rsa",
+					keyPath:    "~/.ssh\\k2s\\id_rsa",
 					execFunc:   suite.Cli().ExecOrFail,
 				}
 
@@ -532,7 +532,7 @@ var _ = Describe("node copy", Ordered, func() {
 				sshExec = &sshExecutor{
 					ipAddress:  nodeIpAddress,
 					remoteUser: remoteUser,
-					keyPath:    "~/.ssh\\kubemaster\\id_rsa",
+					keyPath:    "~/.ssh\\k2s\\id_rsa",
 					execFunc:   suite.Cli().ExecOrFail,
 				}
 
@@ -996,7 +996,7 @@ var _ = Describe("node copy", Ordered, func() {
 					sshExec = &sshExecutor{
 						ipAddress:  nodeIpAddress,
 						remoteUser: "remote",
-						keyPath:    "~/.ssh\\kubemaster\\id_rsa",
+						keyPath:    "~/.ssh\\k2s\\id_rsa",
 						execFunc:   suite.Cli().ExecOrFail,
 					}
 
@@ -1421,7 +1421,7 @@ var _ = Describe("node copy", Ordered, func() {
 					sshExec = &sshExecutor{
 						ipAddress:  nodeIpAddress,
 						remoteUser: remoteUser,
-						keyPath:    "~/.ssh\\kubemaster\\id_rsa",
+						keyPath:    "~/.ssh\\k2s\\id_rsa",
 						execFunc:   suite.Cli().ExecOrFail,
 					}
 

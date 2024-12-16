@@ -286,6 +286,7 @@ function Add-LinuxWorkerNodeOnUbuntuBareMetal {
         NodeType = 'HOST'
         Role = 'worker'
         OS = 'linux'
+        PodCIDR = '' # will be filled during start of node
     }
     Add-NodeConfig @nodeParams
 
@@ -360,10 +361,11 @@ function Start-LinuxWorkerNodeOnUbuntuBareMetal {
     Param(
         [string] $IpAddress = $(throw 'Argument missing: IpAddress'),
         [string] $NodeName = $(throw 'Argument missing: NodeName'),
-        [string] $AdditionalHooksDir = ''
+        [string] $AdditionalHooksDir = '',
+        [switch] $ObtainCIDR = $false
     )
 
-    $clusterCIDRWorker = Get-ClusterCIDRWorker -NodeName $NodeName
+    $clusterCIDRWorker = Get-ClusterCIDRWorker -NodeName $NodeName -ObtainCIDR:$ObtainCIDR
     Add-RouteToLinuxWorkerNode -NodeName $NodeName -IpAddress $IpAddress -ClusterCIDRWorker $clusterCIDRWorker
     Add-WorkerVFPRoute -NodeName $NodeName -ClusterCIDRWorker $clusterCIDRWorker
 
@@ -398,18 +400,34 @@ function Stop-LinuxWorkerNodeOnUbuntuBareMetal {
 
 function Get-ClusterCIDRWorker {
     Param (
-        [string] $NodeName = $(throw 'Argument missing: Hostname')
+        [string] $NodeName = $(throw 'Argument missing: Hostname'),
+        [switch] $ObtainCIDR = $false
     )
 
     $setupConfigRoot = Get-RootConfigk2s
     $clusterCIDRWorkerTemplate = $setupConfigRoot.psobject.properties['podNetworkWorkerCIDR_2'].value
 
-    $output = Get-AssignedPodSubnetworkNumber -NodeName $NodeName
-    if ($output.Success) {
-        $assignedPodSubnetworkNumber = $output.PodSubnetworkNumber
-        $clusterCIDRWorker = $clusterCIDRWorkerTemplate.Replace('X', $assignedPodSubnetworkNumber)
-    } else {
-        throw "Cannot obtain pod network information from node '$NodeName'"
+    $clusterCIDRWorker = ''
+    if (!$ObtainCIDR) {
+        Write-Log 'Getting Node CIDR from config'
+        $node = Get-NodeConfig -NodeName $NodeName
+        if ($null -ne $node) {
+            $clusterCIDRWorker = $node.PodCIDR
+        }
+    }
+
+    if ($clusterCIDRWorker -eq '' -or $ObtainCIDR) {
+        $output = Get-AssignedPodSubnetworkNumber -NodeName $NodeName
+        if ($output.Success) {
+            $assignedPodSubnetworkNumber = $output.PodSubnetworkNumber
+            $clusterCIDRWorker = $clusterCIDRWorkerTemplate.Replace('X', $assignedPodSubnetworkNumber)
+
+            Update-NodeConfig -Name $NodeName -Updates @{
+                PodCIDR = $clusterCIDRWorker
+            }
+        } else {
+            throw "Cannot obtain pod network information from node '$NodeName'"
+        }
     }
 
     return $clusterCIDRWorker
@@ -450,14 +468,37 @@ function Install-DebPackagesAndAddContainerImagesIntoRemoteComputer {
     $controlPlaneIpAddress = Get-ConfiguredIPControlPlane
     $installedDistributionOnControlPlane = Get-InstalledDistribution -UserName $controlPlaneUserName -IpAddress $controlPlaneIpAddress
     $installedDistributionOnRemoteComputer = Get-InstalledDistribution -UserName $UserName -IpAddress $IpAddress
-    $windowsHostKubenodeDebPackagesPath = Get-WindowsHostKubenodeDebPackagesPath
-    $windowsHostDebPackagesSourcePath = "$windowsHostKubenodeDebPackagesPath\$installedDistributionOnRemoteComputer"
+    Write-Log "Installed distribution in the control plane: $installedDistributionOnControlPlane"
+    Write-Log "Installed distribution in the machine with IP '$IpAddress': $installedDistributionOnRemoteComputer"
+    $baseDirectoryOfKubenodeDebPackagesOnWindowsHost = Get-BaseDirectoryOfKubenodeDebPackagesOnWindowsHost
+    $windowsHostDebPackagesSourcePath = "$baseDirectoryOfKubenodeDebPackagesOnWindowsHost\$installedDistributionOnRemoteComputer"
 
-    if ($installedDistributionOnRemoteComputer -eq $installedDistributionOnControlPlane) {
-        Write-Log "The installed distribution ('$installedDistributionOnRemoteComputer') is equal to the control plane's distribution"
-        Copy-DebPackagesFromControlPlaneToWindowsHost -TargetPath "$windowsHostDebPackagesSourcePath"
+    $linuxNodeArtifactsPackagePath = Get-PathOfLinuxNodeArtifactsPackageOnWindowsHost
+    $linuxNodeArtifactsPath = Get-DirectoryOfLinuxNodeArtifactsOnWindowsHost
+
+    $packagePathExists = $(Test-Path -Path $linuxNodeArtifactsPackagePath)
+    $linuxNodeArtifactsPathExists = $(Test-Path -Path $linuxNodeArtifactsPath)
+    Write-Log "Zip file '$linuxNodeArtifactsPackagePath' with Linux node artifacts exists?: $packagePathExists"
+    Write-Log "Folder '$linuxNodeArtifactsPath' with Linux node artifacts exists?: $linuxNodeArtifactsPathExists"
+
+    if (!($linuxNodeArtifactsPathExists) -and ($packagePathExists)) {
+        Write-Log "Create folder '$linuxNodeArtifactsPath'"
+        New-Item -Path $linuxNodeArtifactsPath -ItemType Directory -Force | Out-Null
+        Write-Log "Extracting content of file '$linuxNodeArtifactsPackagePath' into '$linuxNodeArtifactsPath'"
+        Expand-Archive -LiteralPath $linuxNodeArtifactsPackagePath -DestinationPath $linuxNodeArtifactsPath
+    } 
+
+    $distributionDebPackagesSourcePathExists = $(Test-Path -Path $windowsHostDebPackagesSourcePath)
+    Write-Log "Folder with deb packages '$windowsHostDebPackagesSourcePath' exists?: $distributionDebPackagesSourcePathExists"
+    if ($distributionDebPackagesSourcePathExists) {
+        Write-Log "The content of the folder '$windowsHostDebPackagesSourcePath' will be used"
     } else {
-        Write-Log "The installed distribution ('$installedDistributionOnRemoteComputer') is different from the control plane's distribution ('$installedDistributionOnControlPlane') --> no deb packages will be copied from the control plane."
+        if ($installedDistributionOnRemoteComputer -eq $installedDistributionOnControlPlane) {
+            Write-Log "The installed distribution in the machine with IP '$IpAddress' ('$installedDistributionOnRemoteComputer') is equal to the control plane's distribution --> its deb packages will be copied into '$windowsHostDebPackagesSourcePath'"
+            Copy-DebPackagesFromControlPlaneToWindowsHost -TargetPath "$windowsHostDebPackagesSourcePath"
+        } else {
+            Write-Log "The installed distribution in the machine with IP '$IpAddress' ('$installedDistributionOnRemoteComputer') is different from the control plane's distribution ('$installedDistributionOnControlPlane') --> no deb packages will be copied from the control plane"
+        }        
     }
 
     $kubernetesDebPackagesTargetPath = Get-KubernetesDebPackagesPath -UserName $UserName

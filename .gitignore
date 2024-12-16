@@ -29,6 +29,7 @@ LocalHooks/*.ps1
 cni/cni-conf.json
 *.code-workspace
 .vscode/*
+.vs/*
 .idea/*
 vfprules.json
 bin/dnsproxy.yaml
@@ -93,6 +94,7 @@ containerd/nerdctl.exe
 /bin/windowsnode
 /bin/WindowsNodeArtifacts.zip
 /bin/linuxnode
+/bin/LinuxNodeArtifacts.zip
 
 bin/msiinstall.log
 bin/msiuninstall.log
