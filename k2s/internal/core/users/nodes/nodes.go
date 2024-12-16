@@ -12,6 +12,7 @@ import (
 
 	"path/filepath"
 
+	"github.com/siemens-healthineers/k2s/internal/core/node/copy"
 	"github.com/siemens-healthineers/k2s/internal/core/node/ssh"
 	"github.com/siemens-healthineers/k2s/internal/core/users/common"
 )
@@ -36,20 +37,15 @@ type fileAccessControl interface {
 	RevokeAccess(path string, username string) error
 }
 
-type sshExec interface {
-	Exec(cmd string) error
-}
-
-type scp interface {
-	CopyToRemote(source string, target string) error
-	CopyFromRemote(source string, target string) error
-}
+type copyFunc func(copyOptions copy.CopyOptions, connectionOptions ssh.ConnectionOptions) error
+type execFunc func(command string, connectionOptions ssh.ConnectionOptions) error
 
 type controlPlaneAccess struct {
 	fs          fileSystem
 	keygen      sshKeyGen
-	ssh         sshExec
-	scp         scp
+	exec        execFunc
+	copy        copyFunc
+	sshOptions  ssh.ConnectionOptions
 	acl         fileAccessControl
 	adminSshDir string
 	ipAddress   string
@@ -57,19 +53,15 @@ type controlPlaneAccess struct {
 
 const (
 	authorizedKeysPath = "~/.ssh/authorized_keys"
-	remoteUserName     = "remote"
 )
 
-func DetermineSshRemoteUser(controlPlaneIpAddress string) string {
-	return fmt.Sprintf("%s@%s", remoteUserName, controlPlaneIpAddress)
-}
-
-func NewControlPlaneAccess(fs fileSystem, keygen sshKeyGen, ssh sshExec, scp scp, acl fileAccessControl, adminSshDir string, ipAddress string) *controlPlaneAccess {
+func NewControlPlaneAccess(fs fileSystem, keygen sshKeyGen, exec execFunc, copy copyFunc, sshOptions ssh.ConnectionOptions, acl fileAccessControl, adminSshDir string, ipAddress string) *controlPlaneAccess {
 	return &controlPlaneAccess{
 		fs:          fs,
 		keygen:      keygen,
-		ssh:         ssh,
-		scp:         scp,
+		exec:        exec,
+		copy:        copy,
+		sshOptions:  sshOptions,
 		acl:         acl,
 		adminSshDir: adminSshDir,
 		ipAddress:   ipAddress,
@@ -175,12 +167,18 @@ func (g *controlPlaneAccess) authorizePubKeyOnControlPlane(keyDir string, k2sUse
 	removeRemotePubKeyCmd := fmt.Sprintf("rm -f %s", remotePubKeyPath)
 
 	slog.Debug("Removing existing pub SSH key from control-plane temp dir")
-	if err := g.ssh.Exec(removeRemotePubKeyCmd); err != nil {
+	if err := g.exec(removeRemotePubKeyCmd, g.sshOptions); err != nil {
 		return fmt.Errorf("could not remove existing SSH public key from control-plane temp dir: %w", err)
 	}
 
 	slog.Debug("Copying pub SSH key to control-plane temp dir")
-	if err := g.scp.CopyToRemote(localPubKeyPath, remotePubKeyPath); err != nil {
+	copyOptions := copy.CopyOptions{
+		Source:    localPubKeyPath,
+		Target:    remotePubKeyPath,
+		Direction: copy.CopyToNode,
+	}
+
+	if err := g.copy(copyOptions, g.sshOptions); err != nil {
 		return fmt.Errorf("could not copy SSH public key to control-plane temp dir: %w", err)
 	}
 
@@ -193,7 +191,7 @@ func (g *controlPlaneAccess) authorizePubKeyOnControlPlane(keyDir string, k2sUse
 		removePubKeyFile
 
 	slog.Debug("Adding SSH public key to authorized keys file")
-	if err := g.ssh.Exec(authorizeRemotePubKeyCmd); err != nil {
+	if err := g.exec(authorizeRemotePubKeyCmd, g.sshOptions); err != nil {
 		return fmt.Errorf("could not add SSH public key to authorized keys file: %w", err)
 	}
 	return nil
