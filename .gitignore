@@ -94,6 +94,7 @@ containerd/nerdctl.exe
 /bin/windowsnode
 /bin/WindowsNodeArtifacts.zip
 /bin/linuxnode
+/bin/LinuxNodeArtifacts.zip
 
 bin/msiinstall.log
 bin/msiuninstall.log
