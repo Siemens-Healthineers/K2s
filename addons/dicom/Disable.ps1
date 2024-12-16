@@ -23,8 +23,9 @@ $clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.clu
 $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
 $dicomModule = "$PSScriptRoot\dicom.module.psm1"
+$viewerModule = "$PSScriptRoot\..\viewer\viewer.module.psm1"
 
-Import-Module $clusterModule, $infraModule, $addonsModule, $dicomModule
+Import-Module $clusterModule, $infraModule, $addonsModule, $dicomModule, $viewerModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -65,7 +66,7 @@ Remove-IngressForNginx -Addon ([pscustomobject] @{Name = 'dicom' })
 (Invoke-Kubectl -Params 'delete', '-f', "$dicomConfig\dicom-namespace.yaml").Output | Write-Log
 
 Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'dicom' })
-
+Update-ViewerConfigMap
 Write-Log 'dicom server uninstalled successfully' -Console
 
 if ($EncodeStructuredOutput -eq $true) {

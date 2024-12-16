@@ -28,8 +28,9 @@ $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.m
 $clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
 $dicomModule = "$PSScriptRoot\dicom.module.psm1"
+$viewerModule = "$PSScriptRoot\..\viewer\viewer.module.psm1"
 
-Import-Module $infraModule, $clusterModule, $addonsModule, $dicomModule
+Import-Module $infraModule, $clusterModule, $addonsModule, $dicomModule, $viewerModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -119,7 +120,7 @@ if (!$kubectlCmd.Success) {
 &"$PSScriptRoot\Update.ps1"
 
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'dicom' })
-
+Update-ViewerConfigMap
 Write-Log 'dicom server installed successfully'
 
 Write-UsageForUser

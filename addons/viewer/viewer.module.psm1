@@ -59,3 +59,67 @@ Waits for the viewer pods to be available.
 function Wait-ForViewerAvailable {
     return (Wait-ForPodCondition -Condition Ready -Label 'app=viewerwebapp' -Namespace 'viewer' -TimeoutSeconds 120)
 }
+
+<#
+.DESCRIPTION
+Determines if the dicom addon is deployed in the cluster
+#>
+function Test-DicomAddonAvailability {
+    $existingServices = (Invoke-Kubectl -Params 'get', 'service', '-n', 'dicom', '-o', 'yaml').Output 
+    if ("$existingServices" -match '.*dicom.*') {
+        return $true
+    }
+    return $false
+}
+
+<#
+.DESCRIPTION
+Updates the defaultDataSourceName in the viewer configmap.
+#>
+function Update-ConfigMap {
+    param (
+        [string]$FilePath,
+        [string]$NewDefaultDataSourceName
+    )
+
+    # Read the content of the configmap.yaml file
+    $configMapContent = Get-Content -Path $FilePath -Raw
+
+    # Replace the defaultDataSourceName value in memory
+    # Construct the replacement string
+    $replacementString = '"defaultDataSourceName": "' + $NewDefaultDataSourceName + '"'
+
+    # Replace the defaultDataSourceName value in memory
+    $updatedConfigMapContent = $configMapContent -replace '"defaultDataSourceName": "dicomweb"', $replacementString
+    # Create a temporary file to store the updated content
+    $tempFilePath = [System.IO.Path]::GetTempFileName()
+    Set-Content -Path $tempFilePath -Value $updatedConfigMapContent
+
+    # Apply the updated configmap to the Kubernetes cluster
+    Invoke-Kubectl -Params 'apply', '-f', $tempFilePath, '-n', 'viewer'
+    # Restart the viewerwebapp deployment to apply the changes
+    Invoke-Kubectl -Params 'rollout', 'restart', 'deployment/viewerwebapp', '-n', 'viewer'
+
+    # Remove the temporary file
+    Remove-Item -Path $tempFilePath
+
+    Write-Output "ConfigMap has been updated and reapplied with defaultDataSourceName set to $NewDefaultDataSourceName."
+}
+
+<#
+.DESCRIPTION
+Updates the viewer configmap based on the availability of the DICOM addon.
+#>
+function Update-ViewerConfigMap {
+    # Define the file path
+    $filePath = "$PSScriptRoot\manifests\viewer\configmap.yaml"
+
+    # Check the availability of the DICOM addon
+    if (Test-DicomAddonAvailability) {
+        # Call Update-ConfigMap with defaultDataSourceName set to dicomweb2
+        Update-ConfigMap -FilePath $filePath -NewDefaultDataSourceName "dicomweb2"
+    } else {
+        # Call Update-ConfigMap with defaultDataSourceName set to dicomweb
+        Update-ConfigMap -FilePath $filePath -NewDefaultDataSourceName "dicomweb"
+    }
+}

@@ -10,3 +10,4 @@ $viewerModule = "$PSScriptRoot\viewer.module.psm1"
 Import-Module $addonsModule, $viewerModule
 
 Update-IngressForAddon -Addon ([pscustomobject] @{Name = 'viewer' })
+Update-ViewerConfigMap
