@@ -205,4 +205,4 @@ navigate to it in private mode and try out these things:
   chrome://net-internals/#hsts
   ```
 
-  and deleting the settings for your site.
+  and deleting the settings for your site (i.e. in our case: `k2s.cluster.local`)

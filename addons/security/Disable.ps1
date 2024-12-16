@@ -60,7 +60,7 @@ if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'cert-manager', '--ign
     exit 1
 }
 
-Write-Log 'Updating API Server' -Console
+Write-Log 'Updating Kube API Server configuration. This might take minutes, be patient!' -Console
 $apiServerFile = '/etc/kubernetes/manifests/kube-apiserver.yaml'
 $sedCommand = "sudo sed '/^.*\-\-oidc\-/d' $apiServerFile > /tmp/kube-apiserver.yaml"
 (Invoke-CmdOnControlPlaneViaSSHKey $sedCommand).Output | Write-Log
