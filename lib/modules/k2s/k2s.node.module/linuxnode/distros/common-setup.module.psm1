@@ -19,9 +19,12 @@ $kubernetesDebPackagesDirectory = 'kubernetes'
 $buildahDebPackagesDirectory = 'buildah'
 
 $binPath = Get-KubeBinPath
-$linuxNodePath = "$binPath\linuxnode"
-$windowsHostKubenodeDebPackagesPath = "$linuxNodePath\packages"
-$windowsHostKubenodeImagesPath = "$linuxNodePath\images"
+$directoryOfLinuxNodeArtifactsOnWindowsHost = "$binPath\linuxnode"
+$baseDirectoryOfKubenodeDebPackagesOnWindowsHost = "$directoryOfLinuxNodeArtifactsOnWindowsHost\packages"
+$directoryOfKubenodeImagesOnWindowsHost = "$directoryOfLinuxNodeArtifactsOnWindowsHost\images"
+
+$linuxNodeArtifactsZipFileName = 'LinuxNodeArtifacts.zip'
+$pathOfLinuxNodeArtifactsPackageOnWindowsHost = "$binPath\$linuxNodeArtifactsZipFileName"
 
 Function Assert-GeneralComputerPrequisites {
     Param(
@@ -348,7 +351,7 @@ Function Copy-DebPackagesFromControlPlaneToWindowsHost {
         Write-Log "The path '$windowsHostTargetPath' with deb packages from the control plane already exists --> its content will not be overwritten"
     } else {
         $kubenodeSourcePath = Get-OfflineK2sDebPackagesPath -UserName $controlPlaneUserName
-        Write-Log "Checking existence of path '$kubenodeSourcePath' in the control plane node"
+        Write-Log "Checking the existence of path '$kubenodeSourcePath' in the control plane node"
         $sourcePathExistenceCheckOutput = (Invoke-CmdOnVmViaSSHKey -CmdToExecute "ls $kubenodeSourcePath" -UserName $controlPlaneUserName -IpAddress $controlPlaneIpAddress -IgnoreErrors).Output
         
         if ($sourcePathExistenceCheckOutput.Contains("No such file or directory")) {
@@ -600,7 +603,7 @@ Function Copy-KubernetesImagesFromControlPlaneToRemoteComputer {
         (Invoke-CmdOnVmViaSSHKey -CmdToExecute $command -UserName $UserName -IpAddress $IpAddress -Retries $Retries -RepairCmd $RepairCmd -IgnoreErrors:$IgnoreErrors).Output | Write-Log
     }
 
-    $imagesPath = $windowsHostKubenodeImagesPath
+    $imagesPath = $directoryOfKubenodeImagesOnWindowsHost
 
     Write-Log "Copy container images from the control plane node to the Windows host"
     Copy-KubernetesImagesFromControlPlaneNodeToWindowsHost -TargetPath $imagesPath
@@ -1872,8 +1875,20 @@ function Set-ProxySettingsForContainers {
     }
 }
 
-function Get-WindowsHostKubenodeDebPackagesPath {
-    return $windowsHostKubenodeDebPackagesPath
+function Get-BaseDirectoryOfKubenodeDebPackagesOnWindowsHost {
+    return $baseDirectoryOfKubenodeDebPackagesOnWindowsHost
+}
+
+function Get-DirectoryOfKubenodeImagesOnWindowsHost {
+    return $directoryOfKubenodeImagesOnWindowsHost
+}
+
+function Get-DirectoryOfLinuxNodeArtifactsOnWindowsHost {
+    return $directoryOfLinuxNodeArtifactsOnWindowsHost
+}
+
+function Get-PathOfLinuxNodeArtifactsPackageOnWindowsHost {
+    return $pathOfLinuxNodeArtifactsPackageOnWindowsHost
 }
 
 Export-ModuleMember -Function New-VmImageForControlPlaneNode,
@@ -1895,4 +1910,8 @@ Install-BuildahDebPackages,
 Set-UpComputerBeforeProvisioning,
 Copy-DebPackagesFromControlPlaneToWindowsHost,
 Get-InstalledDistribution,
-Get-WindowsHostKubenodeDebPackagesPath
+Get-BaseDirectoryOfKubenodeDebPackagesOnWindowsHost,
+Get-DirectoryOfKubenodeImagesOnWindowsHost,
+Get-DirectoryOfLinuxNodeArtifactsOnWindowsHost,
+Get-PathOfLinuxNodeArtifactsPackageOnWindowsHost,
+Copy-KubernetesImagesFromControlPlaneNodeToWindowsHost
