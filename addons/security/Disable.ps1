@@ -25,10 +25,11 @@ Param (
 )
 $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
+$nodeModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.node.module\k2s.node.module.psm1"
 $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
 $securityModule = "$PSScriptRoot\security.module.psm1"
 
-Import-Module $infraModule, $clusterModule, $addonsModule, $securityModule
+Import-Module $infraModule, $clusterModule, $nodeModule, $addonsModule, $securityModule
 Import-Module PKI;
 
 Initialize-Logging -ShowLogs:$ShowLogs
@@ -55,6 +56,28 @@ if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'cert-manager', '--ign
         return
     }
     
+    Write-Log $errMsg -Error
+    exit 1
+}
+
+Write-Log 'Updating API Server' -Console
+$apiServerFile = '/etc/kubernetes/manifests/kube-apiserver.yaml'
+$sedCommand = "sudo sed '/^.*\-\-oidc\-/d' $apiServerFile > /tmp/kube-apiserver.yaml"
+(Invoke-CmdOnControlPlaneViaSSHKey $sedCommand).Output | Write-Log
+(Invoke-CmdOnControlPlaneViaSSHKey "sudo mv /tmp/kube-apiserver.yaml $apiServerFile").Output | Write-Log
+(Invoke-CmdOnControlPlaneViaSSHKey 'sudo rm /etc/kubernetes/pki/certmgr-ca.crt').Output | Write-Log
+
+Start-Sleep -Seconds 1
+
+$keycloakPodStatus = Wait-ForKeyCloakAvailable
+if ($keycloakPodStatus -ne $true) {
+    $errMsg = 'Could not restart after reconfiguration of kube api server. System is in inconsistent state.'
+    if ($EncodeStructuredOutput -eq $true) {
+        $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+        return
+    }
+
     Write-Log $errMsg -Error
     exit 1
 }

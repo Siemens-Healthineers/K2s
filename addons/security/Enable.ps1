@@ -138,13 +138,16 @@ Write-Log 'Importing CA root certificate to trusted authorities of your computer
 $b64secret = (Invoke-Kubectl -Params '-n', 'cert-manager', 'get', 'secrets', 'ca-issuer-root-secret', '-o', 'jsonpath', '--template', '{.data.ca\.crt}').Output
 $tempFile = New-TemporaryFile
 $certLocationStore = Get-TrustedRootStoreLocation
-[Text.Encoding]::Utf8.GetString([Convert]::FromBase64String($b64secret)) | Out-File -Encoding utf8 -FilePath $tempFile.FullName -Force
+[Text.Encoding]::Utf8.GetString([Convert]::FromBase64String($b64secret)) | Out-File -Encoding ASCII -FilePath $tempFile.FullName -Force
 $params = @{
     FilePath          = $tempFile.FullName
     CertStoreLocation = $certLocationStore
 }
 
 Import-Certificate @params
+
+Copy-ToControlPlaneViaSSHKey $tempFile.FullName '/tmp/certmgr-ca.crt'
+(Invoke-CmdOnControlPlaneViaSSHKey 'sudo mv /tmp/certmgr-ca.crt /etc/kubernetes/pki').Output | Write-Log
 Remove-Item -Path $tempFile.FullName -Force
 
 Write-Log 'Checking for availability of Ingress Controller' -Console
@@ -174,7 +177,31 @@ Write-Log 'Waiting for oauth2-proxy pods to be available' -Console
 $oauth2ProxyPodStatus = Wait-ForOauth2ProxyAvailable
 
 if ($keycloakPodStatus -ne $true -or $oauth2ProxyPodStatus -ne $true) {
-    $errMsg = "All security pods could not become ready. Please use kubectl describe for more details.`nInstallation of secuirty addon failed."
+    $errMsg = "All security pods could not become ready. Please use kubectl describe for more details.`nInstallation of security addon failed."
+    if ($EncodeStructuredOutput -eq $true) {
+        $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+        return
+    }
+
+    Write-Log $errMsg -Error
+    exit 1
+}
+
+Write-Log 'Updating kube API server configuration. This might take minutes, be patient!' -Console
+$oidcIssuerLine = '    - --oidc-issuer-url=https://k2s.cluster.local/keycloak/realms/demo-app'
+$oidcClientLine = '    - --oidc-client-id=demo-client'
+$oidcCaFileLine = '    - --oidc-ca-file=/etc/kubernetes/pki/certmgr-ca.crt'
+$apiServerFile = '/etc/kubernetes/manifests/kube-apiserver.yaml'
+$insertionPoint = '^\s*image:'
+
+$sedCommand = "sudo sed '/$insertionPoint/i\$oidcIssuerLine\n$oidcClientLine\n$oidcCaFileLine' $apiServerFile > /tmp/kube-apiserver.yaml"
+(Invoke-CmdOnControlPlaneViaSSHKey $sedCommand).Output | Write-Log
+(Invoke-CmdOnControlPlaneViaSSHKey "sudo mv /tmp/kube-apiserver.yaml $apiServerFile").Output | Write-Log
+
+$keycloakPodStatus = Wait-ForKeyCloakAvailable
+if ($keycloakPodStatus -ne $true) {
+    $errMsg = 'Could not restart after reconfiguration of kube api server. System is in inconsistent state.'
     if ($EncodeStructuredOutput -eq $true) {
         $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
         Send-ToCli -MessageType $MessageType -Message @{Error = $err }
