@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthcare GmbH
+# SPDX-FileCopyrightText: © 2024 Siemens Healthcare AG
 # SPDX-License-Identifier: MIT
 
 #Requires -RunAsAdministrator
@@ -83,10 +83,17 @@ function New-ControlPlaneNodeOnNewVM {
     }
 
     Wait-ForSSHConnectionToLinuxVMViaPwd
-    New-SshKey -IpAddress $($controlPlaneParams.IpAddress)
-    Copy-LocalPublicSshKeyToRemoteComputer -UserName $(Get-DefaultUserNameControlPlane) -UserPwd $(Get-DefaultUserPwdControlPlane) -IpAddress $($controlPlaneParams.IpAddress)
+
+    $controlPlaneUserName = Get-DefaultUserNameControlPlane
+    $controlPlaneUserPwd = Get-DefaultUserPwdControlPlane
+    $controlPlaneIpAddress = $($controlPlaneParams.IpAddress)
+
+    New-SshKey -IpAddress $controlPlaneIpAddress
+    Copy-LocalPublicSshKeyToRemoteComputer -UserName $controlPlaneUserName -UserPwd $controlPlaneUserPwd -IpAddress $controlPlaneIpAddress
     Wait-ForSSHConnectionToLinuxVMViaSshKey
 
+    Remove-ControlPlaneAccessViaUserAndPwd
+    
     # add kubectl to Windows host
     Install-KubectlTool
     # copy kubectl config file into Windows host
@@ -261,7 +268,7 @@ function Start-ControlPlaneNodeOnNewVM {
     # route for VM
     Write-Log "Remove obsolete route to $ipControlPlaneCIDR"
     route delete $ipControlPlaneCIDR >$null 2>&1
-    Write-Log "Add route to $ipControlPlaneCIDR"
+    Write-Log "Add route to host network for master CIDR:$ipControlPlaneCIDR with metric 3"
     route -p add $ipControlPlaneCIDR $windowsHostIpAddress METRIC 3 | Out-Null
 
     Wait-ForSSHConnectionToLinuxVMViaSshKey
@@ -288,14 +295,14 @@ function Start-ControlPlaneNodeOnNewVM {
     # routes for Linux pods
     Write-Log "Remove obsolete route to $clusterCIDRMaster"
     route delete $clusterCIDRMaster >$null 2>&1
-    Write-Log "Add route to $clusterCIDRMaster"
+    Write-Log "Add route to Linux master pods CIDR:$clusterCIDRMaster with metric 4"
     route -p add $clusterCIDRMaster $ipControlPlane METRIC 4 | Out-Null
 
     # routes for services
     route delete $clusterCIDRServices >$null 2>&1
     Write-Log "Remove obsolete route to $clusterCIDRServicesLinux"
     route delete $clusterCIDRServicesLinux >$null 2>&1
-    Write-Log "Add route to $clusterCIDRServicesLinux"
+    Write-Log "Add route to Linux Services CIDR:$clusterCIDRServicesLinux with metric 6"
     route -p add $clusterCIDRServicesLinux $ipControlPlane METRIC 6 | Out-Null
 
 
@@ -417,6 +424,13 @@ function Remove-ControlPlaneNodeOnNewVM {
 
     Clear-ProvisioningArtifacts
 
+    $linuxnodePath = "$(Get-KubeBinPath)\linuxnode"
+    Write-Log "Delete folder '$linuxnodePath' if existing"
+    if (Test-Path $linuxnodePath) {
+        Write-Log "Deleting folder '$linuxnodePath'"
+        Remove-Item -Path $linuxnodePath -Recurse -Force
+    }
+    
     if ($DeleteFilesForOfflineInstallation) {
         $kubemasterBaseFilePath = Get-KubemasterBaseFilePath
         $kubemasterRootfsPath = Get-ControlPlaneOnWslRootfsFilePath

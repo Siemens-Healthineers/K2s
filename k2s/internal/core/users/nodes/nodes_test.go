@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2023 Siemens Healthcare GmbH
+// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package nodes_test
@@ -147,13 +147,6 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = Describe("nodes pkg", func() {
-	Describe("DetermineSshKeyPath", func() {
-		It("constructs SSH key path correctly", func() {
-			actual := nodes.DetermineSshKeyPath("my-dir", "my-control-plane")
-
-			Expect(actual).To(Equal("my-dir\\my-control-plane\\id_rsa"))
-		})
-	})
 
 	Describe("DetermineSshRemoteUser", func() {
 		It("constructs SSH remote user correctly", func() {
@@ -171,7 +164,6 @@ var _ = Describe("nodes pkg", func() {
 					const currentUserName = ""
 					const k2sUserName = ""
 					expectedError := errors.New("oops")
-					host := nodes.ControlPlaneHost{}
 
 					fsMock := &fsMock{}
 					fsMock.On(reflection.GetFunctionName(fsMock.PathExists), mock.Anything).Return(true)
@@ -180,7 +172,7 @@ var _ = Describe("nodes pkg", func() {
 					userMock := &userMock{}
 					userMock.On(reflection.GetFunctionName(userMock.HomeDir)).Return("")
 
-					sut := nodes.NewControlPlaneAccess(fsMock, nil, nil, nil, nil, adminSshDir, host)
+					sut := nodes.NewControlPlaneAccess(fsMock, nil, nil, nil, nil, adminSshDir, "")
 
 					err := sut.GrantAccessTo(userMock, currentUserName, k2sUserName)
 
@@ -194,7 +186,6 @@ var _ = Describe("nodes pkg", func() {
 					const currentUserName = ""
 					const k2sUserName = ""
 					expectedError := errors.New("oops")
-					host := nodes.ControlPlaneHost{}
 
 					fsMock := &fsMock{}
 					fsMock.On(reflection.GetFunctionName(fsMock.PathExists), mock.Anything).Return(true)
@@ -204,7 +195,7 @@ var _ = Describe("nodes pkg", func() {
 					userMock := &userMock{}
 					userMock.On(reflection.GetFunctionName(userMock.HomeDir)).Return("")
 
-					sut := nodes.NewControlPlaneAccess(fsMock, nil, nil, nil, nil, adminSshDir, host)
+					sut := nodes.NewControlPlaneAccess(fsMock, nil, nil, nil, nil, adminSshDir, "")
 
 					err := sut.GrantAccessTo(userMock, currentUserName, k2sUserName)
 
@@ -218,7 +209,6 @@ var _ = Describe("nodes pkg", func() {
 					const currentUserName = ""
 					const k2sUserName = ""
 					expectedError := errors.New("oops")
-					host := nodes.ControlPlaneHost{}
 
 					fsMock := &fsMock{}
 					fsMock.On(reflection.GetFunctionName(fsMock.PathExists), mock.Anything).Return(false)
@@ -227,7 +217,7 @@ var _ = Describe("nodes pkg", func() {
 					userMock := &userMock{}
 					userMock.On(reflection.GetFunctionName(userMock.HomeDir)).Return("")
 
-					sut := nodes.NewControlPlaneAccess(fsMock, nil, nil, nil, nil, adminSshDir, host)
+					sut := nodes.NewControlPlaneAccess(fsMock, nil, nil, nil, nil, adminSshDir, "")
 
 					err := sut.GrantAccessTo(userMock, currentUserName, k2sUserName)
 
@@ -241,7 +231,6 @@ var _ = Describe("nodes pkg", func() {
 					const currentUserName = ""
 					const k2sUserName = ""
 					expectedError := errors.New("oops")
-					host := nodes.ControlPlaneHost{}
 
 					fsMock := &fsMock{}
 					fsMock.On(reflection.GetFunctionName(fsMock.PathExists), mock.Anything).Return(false)
@@ -253,7 +242,7 @@ var _ = Describe("nodes pkg", func() {
 					keygenMock := &keygenMock{}
 					keygenMock.On(reflection.GetFunctionName(keygenMock.CreateKey), mock.Anything, mock.Anything).Return(expectedError)
 
-					sut := nodes.NewControlPlaneAccess(fsMock, keygenMock, nil, nil, nil, adminSshDir, host)
+					sut := nodes.NewControlPlaneAccess(fsMock, keygenMock, nil, nil, nil, adminSshDir, "")
 
 					err := sut.GrantAccessTo(userMock, currentUserName, k2sUserName)
 
@@ -267,7 +256,6 @@ var _ = Describe("nodes pkg", func() {
 					const currentUserName = ""
 					const k2sUserName = ""
 					expectedError := errors.New("oops")
-					host := nodes.ControlPlaneHost{}
 
 					fsMock := &fsMock{}
 					fsMock.On(reflection.GetFunctionName(fsMock.PathExists), mock.Anything).Return(false)
@@ -283,7 +271,7 @@ var _ = Describe("nodes pkg", func() {
 					aclMock := &aclMock{}
 					aclMock.On(reflection.GetFunctionName(aclMock.SetOwner), mock.Anything, mock.Anything).Return(expectedError)
 
-					sut := nodes.NewControlPlaneAccess(fsMock, keygenMock, nil, nil, aclMock, adminSshDir, host)
+					sut := nodes.NewControlPlaneAccess(fsMock, keygenMock, nil, nil, aclMock, adminSshDir, "")
 
 					err := sut.GrantAccessTo(userMock, currentUserName, k2sUserName)
 
@@ -297,7 +285,6 @@ var _ = Describe("nodes pkg", func() {
 					const currentUserName = ""
 					const k2sUserName = ""
 					expectedError := errors.New("oops")
-					host := nodes.ControlPlaneHost{}
 
 					fsMock := &fsMock{}
 					fsMock.On(reflection.GetFunctionName(fsMock.PathExists), mock.Anything).Return(false)
@@ -314,7 +301,7 @@ var _ = Describe("nodes pkg", func() {
 					aclMock.On(reflection.GetFunctionName(aclMock.SetOwner), mock.Anything, mock.Anything).Return(nil)
 					aclMock.On(reflection.GetFunctionName(aclMock.RemoveInheritance), mock.Anything, mock.Anything).Return(expectedError)
 
-					sut := nodes.NewControlPlaneAccess(fsMock, keygenMock, nil, nil, aclMock, adminSshDir, host)
+					sut := nodes.NewControlPlaneAccess(fsMock, keygenMock, nil, nil, aclMock, adminSshDir, "")
 
 					err := sut.GrantAccessTo(userMock, currentUserName, k2sUserName)
 
@@ -328,7 +315,6 @@ var _ = Describe("nodes pkg", func() {
 					const currentUserName = ""
 					const k2sUserName = ""
 					expectedError := errors.New("oops")
-					host := nodes.ControlPlaneHost{}
 
 					fsMock := &fsMock{}
 					fsMock.On(reflection.GetFunctionName(fsMock.PathExists), mock.Anything).Return(false)
@@ -346,7 +332,7 @@ var _ = Describe("nodes pkg", func() {
 					aclMock.On(reflection.GetFunctionName(aclMock.RemoveInheritance), mock.Anything, mock.Anything).Return(nil)
 					aclMock.On(reflection.GetFunctionName(aclMock.GrantFullAccess), mock.Anything, mock.Anything).Return(expectedError)
 
-					sut := nodes.NewControlPlaneAccess(fsMock, keygenMock, nil, nil, aclMock, adminSshDir, host)
+					sut := nodes.NewControlPlaneAccess(fsMock, keygenMock, nil, nil, aclMock, adminSshDir, "")
 
 					err := sut.GrantAccessTo(userMock, currentUserName, k2sUserName)
 
@@ -360,7 +346,6 @@ var _ = Describe("nodes pkg", func() {
 					const currentUserName = ""
 					const k2sUserName = ""
 					expectedError := errors.New("oops")
-					host := nodes.ControlPlaneHost{}
 
 					fsMock := &fsMock{}
 					fsMock.On(reflection.GetFunctionName(fsMock.PathExists), mock.Anything).Return(false)
@@ -379,7 +364,7 @@ var _ = Describe("nodes pkg", func() {
 					aclMock.On(reflection.GetFunctionName(aclMock.GrantFullAccess), mock.Anything, mock.Anything).Return(nil)
 					aclMock.On(reflection.GetFunctionName(aclMock.RevokeAccess), mock.Anything, mock.Anything).Return(expectedError)
 
-					sut := nodes.NewControlPlaneAccess(fsMock, keygenMock, nil, nil, aclMock, adminSshDir, host)
+					sut := nodes.NewControlPlaneAccess(fsMock, keygenMock, nil, nil, aclMock, adminSshDir, "")
 
 					err := sut.GrantAccessTo(userMock, currentUserName, k2sUserName)
 
@@ -393,7 +378,6 @@ var _ = Describe("nodes pkg", func() {
 					const currentUserName = ""
 					const k2sUserName = ""
 					expectedError := errors.New("oops")
-					host := nodes.ControlPlaneHost{}
 
 					fsMock := &fsMock{}
 					fsMock.On(reflection.GetFunctionName(fsMock.PathExists), mock.Anything).Return(false)
@@ -417,7 +401,7 @@ var _ = Describe("nodes pkg", func() {
 					sshMock := &sshMock{}
 					sshMock.On(reflection.GetFunctionName(sshMock.Exec), mock.Anything).Return(expectedError)
 
-					sut := nodes.NewControlPlaneAccess(fsMock, keygenMock, sshMock, nil, aclMock, adminSshDir, host)
+					sut := nodes.NewControlPlaneAccess(fsMock, keygenMock, sshMock, nil, aclMock, adminSshDir, "")
 
 					err := sut.GrantAccessTo(userMock, currentUserName, k2sUserName)
 
@@ -431,7 +415,6 @@ var _ = Describe("nodes pkg", func() {
 					const currentUserName = ""
 					const k2sUserName = ""
 					expectedError := errors.New("oops")
-					host := nodes.ControlPlaneHost{}
 
 					fsMock := &fsMock{}
 					fsMock.On(reflection.GetFunctionName(fsMock.PathExists), mock.Anything).Return(false)
@@ -458,7 +441,7 @@ var _ = Describe("nodes pkg", func() {
 					scpMock := &scpMock{}
 					scpMock.On(reflection.GetFunctionName(scpMock.CopyToRemote), mock.Anything, mock.Anything).Return(expectedError)
 
-					sut := nodes.NewControlPlaneAccess(fsMock, keygenMock, sshMock, scpMock, aclMock, adminSshDir, host)
+					sut := nodes.NewControlPlaneAccess(fsMock, keygenMock, sshMock, scpMock, aclMock, adminSshDir, "")
 
 					err := sut.GrantAccessTo(userMock, currentUserName, k2sUserName)
 
@@ -472,7 +455,6 @@ var _ = Describe("nodes pkg", func() {
 					const currentUserName = ""
 					const k2sUserName = ""
 					expectedError := errors.New("oops")
-					host := nodes.ControlPlaneHost{}
 
 					fsMock := &fsMock{}
 					fsMock.On(reflection.GetFunctionName(fsMock.PathExists), mock.Anything).Return(false)
@@ -502,7 +484,7 @@ var _ = Describe("nodes pkg", func() {
 					scpMock := &scpMock{}
 					scpMock.On(reflection.GetFunctionName(scpMock.CopyToRemote), mock.Anything, mock.Anything).Return(nil)
 
-					sut := nodes.NewControlPlaneAccess(fsMock, keygenMock, sshMock, scpMock, aclMock, adminSshDir, host)
+					sut := nodes.NewControlPlaneAccess(fsMock, keygenMock, sshMock, scpMock, aclMock, adminSshDir, "")
 
 					err := sut.GrantAccessTo(userMock, currentUserName, k2sUserName)
 
@@ -515,7 +497,6 @@ var _ = Describe("nodes pkg", func() {
 					const adminSshDir = ""
 					const currentUserName = ""
 					const k2sUserName = ""
-					host := nodes.ControlPlaneHost{}
 
 					fsMock := &fsMock{}
 					fsMock.On(reflection.GetFunctionName(fsMock.PathExists), mock.Anything).Return(false)
@@ -542,7 +523,7 @@ var _ = Describe("nodes pkg", func() {
 					scpMock := &scpMock{}
 					scpMock.On(reflection.GetFunctionName(scpMock.CopyToRemote), mock.Anything, mock.Anything).Return(nil)
 
-					sut := nodes.NewControlPlaneAccess(fsMock, keygenMock, sshMock, scpMock, aclMock, adminSshDir, host)
+					sut := nodes.NewControlPlaneAccess(fsMock, keygenMock, sshMock, scpMock, aclMock, adminSshDir, "")
 
 					err := sut.GrantAccessTo(userMock, currentUserName, k2sUserName)
 
@@ -559,7 +540,6 @@ var _ = Describe("nodes pkg", func() {
 					const currentUserName = ""
 					const k2sUserName = ""
 					expectedError := errors.New("oops")
-					host := nodes.ControlPlaneHost{}
 
 					fsMock := &fsMock{}
 					fsMock.On(reflection.GetFunctionName(fsMock.PathExists), mock.Anything).Return(false)
@@ -586,7 +566,7 @@ var _ = Describe("nodes pkg", func() {
 					scpMock := &scpMock{}
 					scpMock.On(reflection.GetFunctionName(scpMock.CopyToRemote), mock.Anything, mock.Anything).Return(nil)
 
-					sut := nodes.NewControlPlaneAccess(fsMock, keygenMock, sshMock, scpMock, aclMock, adminSshDir, host)
+					sut := nodes.NewControlPlaneAccess(fsMock, keygenMock, sshMock, scpMock, aclMock, adminSshDir, "")
 
 					err := sut.GrantAccessTo(userMock, currentUserName, k2sUserName)
 
@@ -599,7 +579,6 @@ var _ = Describe("nodes pkg", func() {
 					const adminSshDir = ""
 					const currentUserName = ""
 					const k2sUserName = ""
-					host := nodes.ControlPlaneHost{}
 
 					fsMock := &fsMock{}
 					fsMock.On(reflection.GetFunctionName(fsMock.PathExists), mock.Anything).Return(false)
@@ -626,7 +605,7 @@ var _ = Describe("nodes pkg", func() {
 					scpMock := &scpMock{}
 					scpMock.On(reflection.GetFunctionName(scpMock.CopyToRemote), mock.Anything, mock.Anything).Return(nil)
 
-					sut := nodes.NewControlPlaneAccess(fsMock, keygenMock, sshMock, scpMock, aclMock, adminSshDir, host)
+					sut := nodes.NewControlPlaneAccess(fsMock, keygenMock, sshMock, scpMock, aclMock, adminSshDir, "")
 
 					err := sut.GrantAccessTo(userMock, currentUserName, k2sUserName)
 

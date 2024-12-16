@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 
 SPDX-License-Identifier: MIT
 -->
@@ -31,6 +31,7 @@ The following addons will be deployed with **K2s**:
 | [rollout](./rollout/README.md) | Automating the deployment/updating of applications | 
 | [security](./security/README.md) | EXPERIMENTAL: Enables secure communication into and inside the cluster | 
 | [storage smb](./storage/smb/README.md) | StorageClass provisioning based on SMB share between K8s nodes (Windows/Linux) | 
+| [dicom](./dicom/README.md) | Dicom server based on Orthanc | 
 <!-- addons-list-end -->
 
 ## Command line options

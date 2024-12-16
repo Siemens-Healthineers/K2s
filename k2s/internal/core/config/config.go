@@ -1,14 +1,13 @@
-// SPDX-FileCopyrightText:  © 2023 Siemens Healthcare GmbH
+// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package config
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
-	"strings"
 
+	"github.com/siemens-healthineers/k2s/internal/host"
 	"github.com/siemens-healthineers/k2s/internal/json"
 )
 
@@ -42,6 +41,7 @@ type config struct {
 type smallSetup struct {
 	ShareDir             shareDir `json:"shareDir"`
 	ControlPlanIpAddress string   `json:"masterIP"`
+	Multivm              multivm  `json:"multivm"`
 }
 
 type configDir struct {
@@ -53,6 +53,10 @@ type configDir struct {
 type shareDir struct {
 	WindowsWorker string `json:"windowsWorker"`
 	Master        string `json:"master"`
+}
+
+type multivm struct {
+	IpAddress string `json:"multiVMK8sWindowsVMIP"`
 }
 
 const (
@@ -68,12 +72,12 @@ func LoadConfig(installDir string) (*Config, error) {
 		return nil, fmt.Errorf("error occurred while loading config file: %w", err)
 	}
 
-	kubeConfigDir, err := resolveTildeInPath(config.ConfigDir.Kube)
+	kubeConfigDir, err := host.ResolveTildePrefix(config.ConfigDir.Kube)
 	if err != nil {
 		return nil, fmt.Errorf("error occurred while resolving tilde in file path '%s': %w", config.ConfigDir.Kube, err)
 	}
 
-	sshDir, err := resolveTildeInPath(config.ConfigDir.Ssh)
+	sshDir, err := host.ResolveTildePrefix(config.ConfigDir.Ssh)
 	if err != nil {
 		return nil, fmt.Errorf("error occurred while resolving tilde in file path '%s': %w", config.ConfigDir.Ssh, err)
 	}
@@ -86,8 +90,9 @@ func LoadConfig(installDir string) (*Config, error) {
 		},
 		Nodes: []NodeConfig{
 			{
-				ShareDir: config.SmallSetup.ShareDir.WindowsWorker,
-				OsType:   OsTypeWindows,
+				ShareDir:  config.SmallSetup.ShareDir.WindowsWorker,
+				OsType:    OsTypeWindows,
+				IpAddress: config.SmallSetup.Multivm.IpAddress,
 			},
 			{
 				ShareDir:       config.SmallSetup.ShareDir.Master,
@@ -97,15 +102,4 @@ func LoadConfig(installDir string) (*Config, error) {
 			},
 		},
 	}, nil
-}
-
-func resolveTildeInPath(inputPath string) (string, error) {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return "", fmt.Errorf("error occurred while determining user home dir: %w", err)
-	}
-
-	resolvedPath := strings.ReplaceAll(inputPath, "~", homeDir)
-
-	return filepath.Clean(resolvedPath), nil
 }

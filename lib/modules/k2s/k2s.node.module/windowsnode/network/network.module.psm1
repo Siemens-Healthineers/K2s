@@ -1,16 +1,15 @@
-# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 # SPDX-License-Identifier: MIT
 
 $configModule = "$PSScriptRoot\..\..\..\k2s.infra.module\config\config.module.psm1"
+$fileModule = "$PSScriptRoot\..\..\..\k2s.infra.module\config\file.module.psm1"
 $pathModule = "$PSScriptRoot\..\..\..\k2s.infra.module\path\path.module.psm1"
 $logModule = "$PSScriptRoot\..\..\..\k2s.infra.module\log\log.module.psm1"
 $hnsModule = "$PSScriptRoot\hns.module.psm1"
-Import-Module $logModule, $pathModule, $configModule, $hnsModule
+Import-Module $logModule, $pathModule, $configModule, $hnsModule, $fileModule
 
 $l2BridgeSwitchName = 'cbr0'
-$netNatName = 'VMsNAT'
 $setupConfigRoot = Get-RootConfigk2s
-$ipControlPlaneCIDR = Get-ConfiguredControlPlaneCIDR
 $clusterCIDRNextHop = $setupConfigRoot.psobject.properties['cbr0'].value
 $clusterCIDRGateway = $setupConfigRoot.psobject.properties['cbr0Gateway'].value
 $clusterCIDRHost = $setupConfigRoot.psobject.properties['podNetworkWorkerCIDR'].value
@@ -263,14 +262,14 @@ function Set-WSLSwitch() {
 }
 
 <# .DESCRIPTION
-	This function restarts the Network Location Awareness Service in Windows 10. 
+	This function restarts the Network Location Awareness Service in Windows 10.
 	After 128 cluster start and stop operations, a buffer overflow happens in this service
-	This causes the Loopback Adapter detection failures in SmallK8s. 
+	This causes the Loopback Adapter detection failures in SmallK8s.
 	Restarting this service resets the buffer.
 
 	For now the hook will suffice. An official solution for this shall come as part of K2s 1.1 or beyond.
 
-	The NlaSvc has to be killed explicitly since it has dependents. 
+	The NlaSvc has to be killed explicitly since it has dependents.
 #>
 function Restart-NlaSvc {
     $networkLocationAwarenessServiceName = 'NlaSvc'
@@ -280,7 +279,7 @@ function Restart-NlaSvc {
         $nlaSvcStartMode = $nlaSvcProcess.StartMode
         $nlaSvcPid = $nlaSvcProcess.ProcessId
         $nlaSvcState = $nlaSvcProcess.State
-    
+
         # if service is in Manual mode and in Stopped state, the service should not be started by K2s.
         if (($nlaSvcStartMode -eq 'Manual') -and (($nlaSvcState -eq 'Stopped') -or ($nlaSvcPid -eq 0))) {
             Write-Log 'Network Location Awareness service found in Manual mode and Stopped state. Service will not be restarted...'
@@ -342,9 +341,81 @@ function Add-VfpRulesToWindowsNode {
     Write-Log "Added file '$file' with vfp rules"
 }
 
+# TODO: Move to infra module
+function Add-VfpRoute {
+    param (
+        [Parameter()]
+        [ValidateNotNullOrEmpty()]
+        [string] $Name = $(throw 'Please specify the name of the route.'),
+        [Parameter()]
+        [ValidateNotNullOrEmpty()]
+        [string] $Subnet = $(throw 'Please specify the subnet for the route.'),
+        [Parameter()]
+        [ValidateNotNullOrEmpty()]
+        [string] $Gateway = $(throw 'Please specify the gateway for the route.'),
+        [Parameter(Mandatory = $False)]
+        [UInt32]$Priority = 0
+    )
+
+    $vfpFilePath = Get-VfpRulesFilePath
+    $json = Get-JsonContent -FilePath $vfpFilePath
+    if (-Not $json) { return }
+
+    $existingRoute = $json.routes | Where-Object { $_.name -eq $Name }
+    if ($existingRoute) {
+        Write-Log "[WARN] A VFP route with the name '$Name' already exists."
+        return
+    }
+
+    # Get the highest existing priority
+    $maxPriority = ($json.routes | Measure-Object -Property priority -Maximum).Maximum
+    if (-Not $Priority -or $Priority -le $maxPriority) {
+        $Priority = $maxPriority + 1
+    }
+
+    Write-Log "Adding new VFP route:"
+    Write-Log "  Name: $Name"
+    Write-Log "  Subnet: $Subnet"
+    Write-Log "  Gateway: $Gateway"
+    Write-Log "  Priority: $Priority"
+
+    $newRoute = @{
+        name = $Name
+        subnet = $Subnet
+        gateway = $Gateway
+        priority = "$Priority"
+    }
+    $json.routes += $newRoute
+    Save-JsonContent -JsonObject $json -FilePath $vfpFilePath
+    Write-Log "VFP Route '$Name' added successfully."
+}
+
+function Remove-VfpRoute {
+    param (
+        [string]$Name
+    )
+    $vfpFilePath = Get-VfpRulesFilePath
+    $json = Get-JsonContent -FilePath $vfpFilePath
+    if (-Not $json) { return }
+
+    $routeToRemove = $json.routes | Where-Object { $_.name -eq $Name }
+    if (-Not $routeToRemove) {
+        Write-Log "No VFP route found with the name '$Name'."
+        return
+    }
+
+    $json.routes = $json.routes | Where-Object { $_.name -ne $Name }
+    Save-JsonContent -JsonObject $json -FilePath $vfpFilePath
+    Write-Log "VFP Route '$Name' removed successfully."
+}
+
+Export-ModuleMember -Function Add-Route, Remove-Route, Update-RoutePriority
+
+
 Export-ModuleMember Set-IndexForDefaultSwitch, Get-ConfiguredClusterCIDRHost,
 New-ExternalSwitch, Remove-ExternalSwitch,
 Set-InterfacePrivate,
 Get-L2BridgeSwitchName,
 Set-IPAdressAndDnsClientServerAddress, Set-WSLSwitch,
-Add-VfpRulesToWindowsNode, Remove-VfpRulesFromWindowsNode, Get-ConfiguredClusterCIDRNextHop
+Add-VfpRulesToWindowsNode, Remove-VfpRulesFromWindowsNode, Get-ConfiguredClusterCIDRNextHop,
+Add-VfpRoute, Remove-VfpRoute

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2023 Siemens Healthcare GmbH
+// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package registry
@@ -9,8 +9,8 @@ import (
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 
 	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
+	"github.com/siemens-healthineers/k2s/internal/terminal"
 
-	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
 )
 
@@ -48,14 +48,16 @@ func listRegistries(cmd *cobra.Command, args []string) error {
 
 	registries := config.Registries
 
+	terminalPrinter := terminal.NewTerminalPrinter()
+
 	if len(registries) == 0 {
-		pterm.Println("No registries configured!")
+		terminalPrinter.PrintInfoln("No registries configured!")
 		return nil
 	}
 
-	pterm.Printfln("Configured registries:")
+	terminalPrinter.PrintHeader("Configured registries:")
 	for _, v := range registries {
-		pterm.Printfln("- %s", v)
+		terminalPrinter.Printfln(" - %s", v)
 	}
 
 	return nil

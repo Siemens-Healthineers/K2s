@@ -1,6 +1,7 @@
-// SPDX-FileCopyrightText:  © 2024 Siemens Healthcare GmbH
+// SPDX-FileCopyrightText:  © 2024 Siemens Healthcare AG
 // SPDX-License-Identifier:   MIT
 
+// TODO: consolidate with k2s/internal/core/node/ssh package
 package ssh
 
 import (

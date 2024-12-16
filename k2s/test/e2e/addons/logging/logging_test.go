@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+// SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 //
 // SPDX-License-Identifier: MIT
 
@@ -108,6 +108,7 @@ var _ = Describe("'logging' addon", Ordered, func() {
 
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "opensearch", "logging")
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "fluent-bit", "logging")
+			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "fluent-bit-win", "logging")
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "opensearch-dashboards", "logging")
 
 			addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
@@ -172,6 +173,7 @@ var _ = Describe("'logging' addon", Ordered, func() {
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "opensearch-dashboards", "logging")
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "opensearch", "logging")
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "fluent-bit", "logging")
+			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "fluent-bit-win", "logging")
 
 			addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
 			Expect(addonsStatus.IsAddonEnabled("logging", "")).To(BeTrue())
@@ -232,6 +234,7 @@ var _ = Describe("'logging' addon", Ordered, func() {
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "opensearch-dashboards", "logging")
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "opensearch", "logging")
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "fluent-bit", "logging")
+			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "fluent-bit-win", "logging")
 
 			addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
 			Expect(addonsStatus.IsAddonEnabled("logging", "")).To(BeTrue())

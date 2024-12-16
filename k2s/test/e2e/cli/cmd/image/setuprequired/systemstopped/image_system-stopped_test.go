@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2023 Siemens Healthcare GmbH
+// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 package systemstopped
 
@@ -43,13 +43,15 @@ var _ = Describe("image", func() {
 		Entry("ls default output", "image", "ls"),
 		Entry("build", "image", "build"),
 		Entry("pull", "image", "pull", "non-existent"),
-		Entry("push", "image", "push", "non-existent"),
-		Entry("tag", "image", "tag", "non-existent", "non-existent"),
+		Entry("push", "image", "push", "-n", "non-existent"),
+		Entry("tag", "image", "tag", "-n", "non-existent", "-t", "non-existent"),
 		Entry("rm", "image", "rm", "--id", "non-existent"),
 		Entry("clean", "image", "clean"),
 		Entry("export", "image", "export", "-n", "non-existent", "-t", "non-existent"),
 		Entry("import", "image", "import", "-t", "non-existent"),
 		Entry("registry add", "image", "registry", "add", "non-existent"),
+		Entry("registry ls", "image", "registry", "ls"),
+		Entry("registry rm", "image", "registry", "rm", "non-existent"),
 	)
 
 	Describe("ls JSON output", Ordered, func() {

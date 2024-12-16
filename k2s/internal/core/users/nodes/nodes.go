@@ -1,6 +1,7 @@
-// SPDX-FileCopyrightText:  © 2024 Siemens Healthcare GmbH
+// SPDX-FileCopyrightText:  © 2024 Siemens Healthcare AG
 // SPDX-License-Identifier:   MIT
 
+// TODO: consolidate with k2s/internal/core/node package
 package nodes
 
 import (
@@ -11,6 +12,7 @@ import (
 
 	"path/filepath"
 
+	"github.com/siemens-healthineers/k2s/internal/core/node/ssh"
 	"github.com/siemens-healthineers/k2s/internal/core/users/common"
 )
 
@@ -34,7 +36,7 @@ type fileAccessControl interface {
 	RevokeAccess(path string, username string) error
 }
 
-type ssh interface {
+type sshExec interface {
 	Exec(cmd string) error
 }
 
@@ -43,53 +45,42 @@ type scp interface {
 	CopyFromRemote(source string, target string) error
 }
 
-type ControlPlaneHost struct {
-	Name      string
-	IpAddress string
-}
-
 type controlPlaneAccess struct {
-	fs               fileSystem
-	keygen           sshKeyGen
-	ssh              ssh
-	scp              scp
-	acl              fileAccessControl
-	adminSshDir      string
-	controlPlaneHost ControlPlaneHost
+	fs          fileSystem
+	keygen      sshKeyGen
+	ssh         sshExec
+	scp         scp
+	acl         fileAccessControl
+	adminSshDir string
+	ipAddress   string
 }
 
 const (
-	controlPlaneUserName = "remote"
-	sshKeyName           = "id_rsa"
-	sshPubKeyName        = sshKeyName + ".pub"
-	authorizedKeysPath   = "~/.ssh/authorized_keys"
+	authorizedKeysPath = "~/.ssh/authorized_keys"
+	remoteUserName     = "remote"
 )
 
-func DetermineSshKeyPath(sshDir, controlPlaneName string) string {
-	return filepath.Join(sshDir, controlPlaneName, sshKeyName)
-}
-
 func DetermineSshRemoteUser(controlPlaneIpAddress string) string {
-	return fmt.Sprintf("%s@%s", controlPlaneUserName, controlPlaneIpAddress)
+	return fmt.Sprintf("%s@%s", remoteUserName, controlPlaneIpAddress)
 }
 
-func NewControlPlaneAccess(fs fileSystem, keygen sshKeyGen, ssh ssh, scp scp, acl fileAccessControl, adminSshDir string, controlPlaneHost ControlPlaneHost) *controlPlaneAccess {
+func NewControlPlaneAccess(fs fileSystem, keygen sshKeyGen, ssh sshExec, scp scp, acl fileAccessControl, adminSshDir string, ipAddress string) *controlPlaneAccess {
 	return &controlPlaneAccess{
-		fs:               fs,
-		keygen:           keygen,
-		ssh:              ssh,
-		scp:              scp,
-		acl:              acl,
-		adminSshDir:      adminSshDir,
-		controlPlaneHost: controlPlaneHost,
+		fs:          fs,
+		keygen:      keygen,
+		ssh:         ssh,
+		scp:         scp,
+		acl:         acl,
+		adminSshDir: adminSshDir,
+		ipAddress:   ipAddress,
 	}
 }
 
 func (g *controlPlaneAccess) GrantAccessTo(user common.User, currentUserName, k2sUserName string) (err error) {
 	sshDirName := filepath.Base(g.adminSshDir)
 	newUserSshDir := filepath.Join(user.HomeDir(), sshDirName)
-	newUserSshControlPlaneDir := filepath.Join(newUserSshDir, g.controlPlaneHost.Name)
-	newUserSshKeyPath := filepath.Join(newUserSshControlPlaneDir, sshKeyName)
+	newUserSshKeyPath := ssh.SshKeyPath(newUserSshDir)
+	newUserSshControlPlaneDir := filepath.Dir(newUserSshKeyPath)
 
 	if err = g.createSshKey(newUserSshKeyPath, k2sUserName); err != nil {
 		return fmt.Errorf("could not create SSH key '%s' for user '%s': %w", newUserSshKeyPath, k2sUserName, err)
@@ -179,8 +170,8 @@ func (g *controlPlaneAccess) transferKeyOwnership(keyPath, currentUserName, newO
 }
 
 func (g *controlPlaneAccess) authorizePubKeyOnControlPlane(keyDir string, k2sUserName string) error {
-	localPubKeyPath := filepath.Join(keyDir, sshPubKeyName)
-	remotePubKeyPath := fmt.Sprintf("/tmp/%s", sshPubKeyName)
+	localPubKeyPath := filepath.Join(keyDir, ssh.SshPubKeyName)
+	remotePubKeyPath := fmt.Sprintf("/tmp/%s", ssh.SshPubKeyName)
 	removeRemotePubKeyCmd := fmt.Sprintf("rm -f %s", remotePubKeyPath)
 
 	slog.Debug("Removing existing pub SSH key from control-plane temp dir")
@@ -209,9 +200,9 @@ func (g *controlPlaneAccess) authorizePubKeyOnControlPlane(keyDir string, k2sUse
 }
 
 func (g *controlPlaneAccess) addControlPlaneToKnownHosts(newUserSshDir string) error {
-	controlPlaneEntry, found := g.keygen.FindHostInKnownHosts(g.controlPlaneHost.IpAddress, g.adminSshDir)
+	controlPlaneEntry, found := g.keygen.FindHostInKnownHosts(g.ipAddress, g.adminSshDir)
 	if !found {
-		return fmt.Errorf("could not find any control-plane entry for host '%s' in '%s'", g.controlPlaneHost.IpAddress, g.adminSshDir)
+		return fmt.Errorf("could not find any control-plane entry for host '%s' in '%s'", g.ipAddress, g.adminSshDir)
 	}
 
 	if err := g.keygen.SetHostInKnownHosts(controlPlaneEntry, newUserSshDir); err != nil {

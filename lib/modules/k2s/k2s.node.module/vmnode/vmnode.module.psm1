@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 # SPDX-License-Identifier: MIT
 
 $pathModule = "$PSScriptRoot\..\..\k2s.infra.module\path\path.module.psm1"
@@ -1608,7 +1608,7 @@ function Initialize-WinVM {
         # route for VM
         Write-Log "Remove obsolete route to $virtualizedNetworkCIDR"
         route delete $virtualizedNetworkCIDR >$null 2>&1
-        Write-Log "Add route to $virtualizedNetworkCIDR"
+        Write-Log "Add route to virtualized network CIDR:$virtualizedNetworkCIDR"
         route -p add $virtualizedNetworkCIDR $SwitchIP METRIC 8 | Out-Null
     }
 

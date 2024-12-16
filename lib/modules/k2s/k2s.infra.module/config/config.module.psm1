@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 # SPDX-License-Identifier: MIT
 
 $pathModule = "$PSScriptRoot\..\..\k2s.infra.module\path\path.module.psm1"
@@ -7,7 +7,6 @@ Import-Module $pathModule
 # Read cluster configuration json
 $kubePath = Get-KubePath
 $controlPlaneSwitchName = 'KubeSwitch'
-$wslControlPlaneSwitchName = 'WSL'
 $configFile = "$kubePath\cfg\config.json"
 $rootConfig = Get-Content $configFile | Out-String | ConvertFrom-Json
 $smallsetup = $rootConfig.psobject.properties['smallsetup'].value
@@ -39,7 +38,7 @@ $k2sConfigDir = Expand-Path $configDir.psobject.properties['k2s'].value
 
 $sshKeyFileName = 'id_rsa'
 $kubernetesImagesJsonFile = "$k2sConfigDir\kubernetes_images.json"
-$sshKeyControlPlane = "$sshConfigDir\kubemaster\$sshKeyFileName"
+$sshKeyControlPlane = "$sshConfigDir\k2s\$sshKeyFileName"
 
 #NETWORKING
 $ipControlPlane = $smallsetup.psobject.properties['masterIP'].value
@@ -149,10 +148,6 @@ function Get-ConfiguredControlPlaneCIDR {
 
 function Get-ControlPlaneNodeDefaultSwitchName {
     return $controlPlaneSwitchName
-}
-
-function Get-ControlPlaneNodeWslSwitchName {
-    return $wslControlPlaneSwitchName
 }
 
 function Get-DefaultTempPwd {
@@ -352,10 +347,6 @@ function Get-ConfigWslFlag {
     return $wslValue
 }
 
-function Get-ReuseExistingLinuxComputerForMasterNodeFlag {
-    return Get-ConfigValue -Path $SetupJsonFile -Key 'ReuseExistingLinuxComputerForMasterNode'
-}
-
 function Set-ConfigWslFlag {
     param (
         [object] $Value = $(throw 'Please provide the config value.')
@@ -376,17 +367,6 @@ function Set-ConfigWinBuildEnabledFlag {
     Set-ConfigValue -Path $SetupJsonFile -Key 'WinBuildEnabled' -Value $Value
 }
 
-
-function Get-ConfigLinuxOsType {
-    return Get-ConfigValue -Path $SetupJsonFile -Key 'LinuxOs'
-}
-
-function Set-ConfigLinuxOsType {
-    param (
-        [object] $Value = $(throw 'Please provide the config value.')
-    )
-    Set-ConfigValue -Path $SetupJsonFile -Key 'LinuxOs' -Value $Value
-}
 
 function Get-ConfigLinuxOnly {
     return Get-ConfigValue -Path $SetupJsonFile -Key 'LinuxOnly'
@@ -462,7 +442,7 @@ function Get-DefaultProvisioningBaseImageDiskSize {
 }
 
 function Get-DefaultK8sVersion {
-    return 'v1.29.5'
+    return 'v1.31.3'
 }
 
 <#
@@ -516,12 +496,10 @@ Get-ConfiguredClusterCIDRServices,
 Get-ConfiguredKubeDnsServiceIP,
 Get-ConfiguredMasterNetworkInterfaceCni0IP,
 Get-ConfigControlPlaneNodeHostname,
-Get-ConfigLinuxOsType,
 Get-SSHKeyFileName,
 Set-ConfigSetupType,
 Get-ConfigWslFlag,
 Set-ConfigWslFlag,
-Set-ConfigLinuxOsType,
 Get-ConfigLinuxOnly,
 Set-ConfigLinuxOnly,
 Get-RootConfigk2s,
@@ -546,8 +524,6 @@ Get-DefaultTempPwd,
 Get-DefaultK8sVersion,
 Get-LinuxLocalSharePath,
 Get-WindowsLocalSharePath,
-Get-ReuseExistingLinuxComputerForMasterNodeFlag,
-Get-ControlPlaneNodeWslSwitchName,
 Get-WindowsVmIpAddress,
 Get-ConfigWinBuildEnabledFlag,
 Set-ConfigWinBuildEnabledFlag,

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2024 Siemens Healthcare GmbH
+// SPDX-FileCopyrightText:  © 2024 Siemens Healthcare AG
 // SPDX-License-Identifier:   MIT
 
 package users
@@ -10,6 +10,7 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/siemens-healthineers/k2s/internal/core/config"
+	kssh "github.com/siemens-healthineers/k2s/internal/core/node/ssh"
 	"github.com/siemens-healthineers/k2s/internal/core/users/acl"
 	"github.com/siemens-healthineers/k2s/internal/core/users/common"
 	"github.com/siemens-healthineers/k2s/internal/core/users/fs"
@@ -49,7 +50,7 @@ func DefaultUserProvider() UserProvider {
 	return winusers.NewWinUserProvider()
 }
 
-func NewUsersManagement(controlPlaneName string, cfg *config.Config, cmdExecutor common.CmdExecutor, userProvider UserProvider) (*usersManagement, error) {
+func NewUsersManagement(cfg *config.Config, cmdExecutor common.CmdExecutor, userProvider UserProvider) (*usersManagement, error) {
 	controlePlaneCfg, found := lo.Find(cfg.Nodes, func(node config.NodeConfig) bool {
 		return node.IsControlPlane
 	})
@@ -57,16 +58,11 @@ func NewUsersManagement(controlPlaneName string, cfg *config.Config, cmdExecutor
 		return nil, errors.New("could not find control-plane node config")
 	}
 
-	controlPlaneHost := nodes.ControlPlaneHost{
-		Name:      controlPlaneName,
-		IpAddress: controlePlaneCfg.IpAddress,
-	}
-
 	kubeconfigWriterFactory := &kubeconfWriterFactory{
 		exec: cmdExecutor,
 	}
 
-	sshKeyPath := nodes.DetermineSshKeyPath(cfg.Host.SshDir, controlPlaneName)
+	sshKeyPath := kssh.SshKeyPath(cfg.Host.SshDir)
 	remoteUser := nodes.DetermineSshRemoteUser(controlePlaneCfg.IpAddress)
 	sshExec := ssh.NewSsh(cmdExecutor, sshKeyPath, remoteUser)
 	scpExec := scp.NewScp(cmdExecutor, sshKeyPath, remoteUser)
@@ -75,7 +71,7 @@ func NewUsersManagement(controlPlaneName string, cfg *config.Config, cmdExecutor
 	aclExec := acl.NewAcl(cmdExecutor)
 	restClient := http.NewRestClient()
 	kubeconfigReader := kubeconfig.NewKubeconfigReader()
-	controlPlaneAccess := nodes.NewControlPlaneAccess(fileSystem, keygenExec, sshExec, scpExec, aclExec, cfg.Host.SshDir, controlPlaneHost)
+	controlPlaneAccess := nodes.NewControlPlaneAccess(fileSystem, keygenExec, sshExec, scpExec, aclExec, cfg.Host.SshDir, controlePlaneCfg.IpAddress)
 	clusterAccess := cluster.NewClusterAccess(restClient)
 	k8sAccess := k8s.NewK8sAccess(sshExec, scpExec, fileSystem, clusterAccess, kubeconfigWriterFactory, kubeconfigReader, cfg.Host.KubeConfigDir)
 	userAdder := NewWinUserAdder(controlPlaneAccess, k8sAccess, CreateK2sUserName)

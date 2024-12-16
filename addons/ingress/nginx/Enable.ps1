@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -135,9 +135,10 @@ $ingressNginxSvc = 'ingress-nginx-controller'
 
 (Invoke-Kubectl -Params 'patch', 'svc', $ingressNginxSvc, '-p', "$patchJson", '-n', $ingressNginxNamespace).Output | Write-Log
 
-$allPodsAreUp = (Wait-ForPodCondition -Condition Ready -Label 'app.kubernetes.io/component=controller' -Namespace 'ingress-nginx' -TimeoutSeconds 120)
+$allPodsAreUp = (Wait-ForPodCondition -Condition Ready -Label 'app.kubernetes.io/component=controller' -Namespace 'ingress-nginx' -TimeoutSeconds 300)
+$allJobsAreCompleted = (Wait-ForJobCondition -Condition Complete -Label 'app.kubernetes.io/component=admission-webhook' -Namespace 'ingress-nginx' -TimeoutSeconds 300)
 
-if ($allPodsAreUp -ne $true) {
+if ($allPodsAreUp -ne $true -or $allJobsAreCompleted -ne $true) {
     $errMsg = "All ingress nginx pods could not become ready. Please use kubectl describe for more details.`nInstallation of ingress nginx failed."
     if ($EncodeStructuredOutput -eq $true) {
         $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg

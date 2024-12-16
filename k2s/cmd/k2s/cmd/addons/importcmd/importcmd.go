@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2023 Siemens Healthcare GmbH
+// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package importcmd
@@ -26,8 +26,8 @@ import (
 )
 
 var importCommandExample = `
-  # Import addon 'ingress-nginx' and 'traefik' from an exported tar archive
-  k2s addons import ingress-nginx traefik -z C:\tmp\addons.zip
+  # Import addon "registry" and "ingress nginx"  from an exported tar archive
+  k2s addons import registry "ingress nginx" -z C:\tmp\addons.zip
 
   # Import all addons from an exported tar archive
   k2s addons import -z C:\tmp\addons.zip

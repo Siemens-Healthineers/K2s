@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2024 Siemens Healthcare GmbH
+// SPDX-FileCopyrightText:  © 2024 Siemens Healthcare AG
 // SPDX-License-Identifier:   MIT
 
 package users_test
@@ -77,7 +77,6 @@ var _ = AfterSuite(func(ctx context.Context) {
 
 var _ = Describe("system users add", Ordered, func() {
 	When("user is SYSTEM user", func() {
-		var controlPlaneName string
 		var userProvider *winUserProvider
 		var expectedKeyPath string
 		var expectedRemoteUser string
@@ -91,8 +90,7 @@ var _ = Describe("system users add", Ordered, func() {
 			})
 			Expect(found).To(BeTrue())
 			expectedRemoteUser = "remote@" + controlPlaneConfig.IpAddress
-			controlPlaneName = suite.SetupInfo().SetupConfig.ControlPlaneNodeHostname
-			expectedKeyPath = filepath.Join(fakeHomeDir, ".ssh", controlPlaneName, "id_rsa")
+			expectedKeyPath = filepath.Join(fakeHomeDir, `.ssh\k2s\id_rsa`)
 
 			systemUserWithFakeHomeDir := winusers.NewUser(systemUserId, systemUserName, fakeHomeDir)
 
@@ -103,7 +101,7 @@ var _ = Describe("system users add", Ordered, func() {
 		})
 
 		It("grants Windows SYSTEM user access to K2s", MustPassRepeatedly(2), func(ctx context.Context) {
-			sut, err := users.NewUsersManagement(controlPlaneName, &suite.SetupInfo().Config, os.NewCmdExecutor(&ginkgoWriter{}), userProvider)
+			sut, err := users.NewUsersManagement(&suite.SetupInfo().Config, os.NewCmdExecutor(&ginkgoWriter{}), userProvider)
 
 			Expect(err).ToNot(HaveOccurred())
 			Expect(sut).ToNot(BeNil())

@@ -1,32 +1,30 @@
-# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
-
----
 
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: traefik
-  namespace: ingress-traefik
   labels:
     app.kubernetes.io/name: traefik
     app.kubernetes.io/instance: traefik-traefik
-    helm.sh/chart: traefik-20.8.0
+    helm.sh/chart: traefik-27.0.2
     app.kubernetes.io/managed-by: Helm
+  annotations:
 spec:
   replicas: 1
   selector:
     matchLabels:
       app.kubernetes.io/name: traefik
       app.kubernetes.io/instance: traefik-traefik
-  strategy:
+  strategy: 
     rollingUpdate:
       maxSurge: 1
       maxUnavailable: 0
     type: RollingUpdate
   minReadySeconds: 0
-  template:
+  template: 
     metadata:
       annotations:
         prometheus.io/scrape: "true"
@@ -35,14 +33,14 @@ spec:
       labels:
         app.kubernetes.io/name: traefik
         app.kubernetes.io/instance: traefik-traefik
-        helm.sh/chart: traefik-20.8.0
+        helm.sh/chart: traefik-27.0.2
         app.kubernetes.io/managed-by: Helm
     spec:
       serviceAccountName: traefik
       terminationGracePeriodSeconds: 60
       hostNetwork: false
       containers:
-      - image: public.ecr.aws/docker/library/traefik:v2.9.6
+      - image: public.ecr.aws/docker/library/traefik:v2.11.13
         imagePullPolicy: IfNotPresent
         name: traefik
         resources:
@@ -81,13 +79,11 @@ spec:
           containerPort: 8443
           protocol: "TCP"
         securityContext:
+          allowPrivilegeEscalation: false
           capabilities:
             drop:
             - ALL
           readOnlyRootFilesystem: true
-          runAsGroup: 65532
-          runAsNonRoot: true
-          runAsUser: 65532
         volumeMounts:
           - name: data
             mountPath: /data
@@ -113,13 +109,24 @@ spec:
           - "--entrypoints.websecure.http.tls=true"
           - "--serverstransport.insecureskipverify=true"
           - "--log.level=DEBUG"
+        env:
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
       volumes:
         - name: data
           emptyDir: {}
         - name: tmp
           emptyDir: {}
-      nodeSelector:
-        kubernetes.io/os: linux
       securityContext:
-        fsGroup: 65532
+        fsGroupChangePolicy: OnRootMismatch
+        runAsGroup: 65532
+        runAsNonRoot: true
+        runAsUser: 65532
+---
 

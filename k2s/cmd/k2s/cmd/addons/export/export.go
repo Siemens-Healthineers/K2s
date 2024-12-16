@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2023 Siemens Healthcare GmbH
+// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package export
@@ -26,8 +26,8 @@ import (
 )
 
 var exportCommandExample = `
-  # Export addon 'registry' and 'traefik' to specified folder
-  k2s addons export registry traefik -d C:\tmp
+  # Export addon "registry" and "ingress nginx" to specified folder
+  k2s addons export registry "ingress nginx" -d C:\tmp
 
   # Export all addons to specified folder
   k2s addons export -d C:\tmp

@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -20,8 +20,8 @@ if (Test-NginxIngressControllerAvailability) {
     Remove-IngressForTraefik -Addon $Addon
     Remove-NodePort
 
-    Remove-InsecureRegistry -Name "k2s.registry.local*"
-    Set-InsecureRegistry -Name $registryName -Https
+    Remove-Registry -Name "k2s.registry.local*"
+    Set-Registry -Name $registryName -Https -LocalRegistry
 
     $props = Get-AddonProperties -Addon $Addon
 
@@ -36,8 +36,8 @@ elseif (Test-TraefikIngressControllerAvailability) {
     Remove-IngressForNginx -Addon $Addon
     Remove-NodePort
 
-    Remove-InsecureRegistry -Name "k2s.registry.local*"
-    Set-InsecureRegistry -Name $registryName -Https
+    Remove-Registry -Name "k2s.registry.local*"
+    Set-Registry -Name $registryName -Https -LocalRegistry
 
     Update-IngressForTraefik -Addon $Addon
 }
@@ -49,8 +49,8 @@ else {
 
     Update-NodePort
 
-    Remove-InsecureRegistry -Name "k2s.registry.local*"
-    Set-InsecureRegistry -Name $registryName
+    Remove-Registry -Name "k2s.registry.local*"
+    Set-Registry -Name $registryName -LocalRegistry
 }
 
 Add-RegistryToSetupJson -Name $registryName
