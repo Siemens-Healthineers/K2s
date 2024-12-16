@@ -10,7 +10,6 @@ import (
 
 	"github.com/pterm/pterm"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
-	"github.com/siemens-healthineers/k2s/internal/core/node"
 	"github.com/siemens-healthineers/k2s/internal/core/node/ssh"
 	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
 	"github.com/spf13/cobra"
@@ -51,7 +50,7 @@ func NewCmd() *cobra.Command {
 	cmd.MarkFlagRequired(usernameFlag)
 
 	cmd.Flags().Uint16P(portFlag, "p", ssh.DefaultPort, "Port for remote connection")
-	cmd.Flags().String(timeoutFlag, "30s", "Connection timeout, e.g. '1m20s', allowed time units are 'ns', 'us' (or 'µs'), 'ms', 's', 'm', 'h'")
+	cmd.Flags().String(timeoutFlag, ssh.DefaultTimeout.String(), "Connection timeout, e.g. '1m20s', allowed time units are 'ns', 'us' (or 'µs'), 'ms', 's', 'm', 'h'")
 
 	cmd.Flags().SortFlags = false
 	cmd.Flags().PrintDefaults()
@@ -79,7 +78,7 @@ func connect(cmd *cobra.Command, args []string) error {
 
 	connectionOptions.SshKeyPath = ssh.SshKeyPath(config.Host.SshDir)
 
-	err = node.Connect(*connectionOptions)
+	err = ssh.ConnectInteractively(*connectionOptions)
 	if err != nil {
 		return fmt.Errorf("failed to connect: %w", err)
 	}
