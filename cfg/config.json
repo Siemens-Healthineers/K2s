@@ -24,6 +24,13 @@
         ],
         "storageLocalDriveLetter": "",
         "defaultRegistry": "shsk2s.azurecr.io",
+        "mirrorRegistries": [
+            {
+                "registry": "docker.io",
+                "server": "registry-1.docker.io",
+                "mirror": "shsk2s.azurecr.io"
+            }
+        ],
         "multivm": {
             "multiVMK8sWindowsVMIP": "172.19.1.101"
         },
