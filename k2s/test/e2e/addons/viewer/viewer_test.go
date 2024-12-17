@@ -208,6 +208,132 @@ var _ = Describe("'viewer' addon", Ordered, func() {
 				expectStatusToBePrinted(ctx)
 			})
 		})
+
+		When("Dicom addon is active before viewer activation", func() {
+			BeforeAll(func(ctx context.Context) {
+				suite.K2sCli().Run(ctx, "addons", "enable", "dicom", "-o")
+				suite.Cluster().ExpectDeploymentToBeAvailable("dicom", "dicom")
+				suite.Cluster().ExpectDeploymentToBeAvailable("mysql", "dicom")
+
+				suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "orthanc", "dicom")
+				suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "mysql", "dicom")
+
+				addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
+				Expect(addonsStatus.IsAddonEnabled("dicom", "")).To(BeTrue())
+			})
+
+			AfterAll(func(ctx context.Context) {
+				portForwardingSession.Kill()
+				suite.K2sCli().Run(ctx, "addons", "disable", "viewer", "-o")
+				suite.K2sCli().Run(ctx, "addons", "disable", "dicom", "-o")
+
+				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "viewerwebapp", "viewer")								
+				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "dicom", "dicom")
+				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "mysql", "dicom")
+
+				addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
+				Expect(addonsStatus.IsAddonEnabled("viewer", "")).To(BeFalse())				
+				Expect(addonsStatus.IsAddonEnabled("dicom", "")).To(BeFalse())
+			})
+
+			It("is in enabled state and pods are in running state", func(ctx context.Context) {
+				suite.K2sCli().Run(ctx, "addons", "enable", "viewer", "-o")
+
+				suite.Cluster().ExpectDeploymentToBeAvailable("viewerwebapp", "viewer")			
+				suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "viewerwebapp", "viewer")				
+
+				addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
+				Expect(addonsStatus.IsAddonEnabled("viewer", "")).To(BeTrue())
+			})
+
+			It("retrieves patient data from the Dicom addon", func(ctx context.Context) {
+				kubectl := path.Join(suite.RootDir(), "bin", "kube", "kubectl.exe")
+				portForwarding := exec.Command(kubectl, "-n", "viewer", "port-forward", "svc/viewerwebapp", "8443:80")
+				portForwardingSession, _ = gexec.Start(portForwarding, GinkgoWriter, GinkgoWriter)
+
+				url := "http://localhost:8443/viewer/datasources/config.json"
+				output := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-m", "5", "--retry", "10", "--fail")
+				// checking that the default datasource is dicomweb2 means that the patient data is coming from the dicom addon 
+				Expect(output).To(ContainSubstring( `"defaultDataSourceName": "dicomweb2"`))
+			})
+
+			It("prints already-enabled message when enabling the addon again and exits with non-zero", func(ctx context.Context) {
+				expectAddonToBeAlreadyEnabled(ctx)
+			})
+
+			It("prints the status", func(ctx context.Context) {
+				expectStatusToBePrinted(ctx)
+			})
+		})
+
+		 When("Dicom addon is not active before viewer activation", func() {
+			
+			AfterAll(func(ctx context.Context) {
+				portForwardingSession.Kill()
+				suite.K2sCli().Run(ctx, "addons", "disable", "viewer", "-o")
+				suite.K2sCli().Run(ctx, "addons", "disable", "dicom", "-o")
+
+				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "viewerwebapp", "viewer")								
+				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "dicom", "dicom")
+				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "mysql", "dicom")
+
+
+				addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
+				Expect(addonsStatus.IsAddonEnabled("viewer", "")).To(BeFalse())				
+				Expect(addonsStatus.IsAddonEnabled("dicom", "")).To(BeFalse())
+			})
+
+			It("is in enabled state and pods are in running state", func(ctx context.Context) {
+				suite.K2sCli().Run(ctx, "addons", "enable", "viewer", "-o")
+
+				suite.Cluster().ExpectDeploymentToBeAvailable("viewerwebapp", "viewer")			
+				suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "viewerwebapp", "viewer")				
+
+				addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
+				Expect(addonsStatus.IsAddonEnabled("viewer", "")).To(BeTrue())
+			})
+			It("does NOT retrieve patient data from the Dicom addon", func(ctx context.Context) {
+				kubectl := path.Join(suite.RootDir(), "bin", "kube", "kubectl.exe")
+				portForwarding := exec.Command(kubectl, "-n", "viewer", "port-forward", "svc/viewerwebapp", "8443:80")
+				portForwardingSession, _ = gexec.Start(portForwarding, GinkgoWriter, GinkgoWriter)
+
+				url := "http://localhost:8443/viewer/datasources/config.json"
+				output := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-m", "5", "--retry", "10", "--fail")
+				// checking that the default datasource is dicomweb means that the patient data is NOT coming from the dicom addon 
+				Expect(output).To(ContainSubstring( `"defaultDataSourceName": "dicomweb"`))
+			})
+			It("Dicom addon is enabled", func(ctx context.Context) {
+				suite.K2sCli().Run(ctx, "addons", "enable", "dicom", "-o")
+				suite.Cluster().ExpectDeploymentToBeAvailable("dicom", "dicom")
+				suite.Cluster().ExpectDeploymentToBeAvailable("mysql", "dicom")
+
+				suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "orthanc", "dicom")
+				suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "mysql", "dicom")
+
+				addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
+				Expect(addonsStatus.IsAddonEnabled("dicom", "")).To(BeTrue())
+			})
+
+			It("retrieves patient data from the Dicom addon", func(ctx context.Context) {
+				portForwardingSession.Kill()
+				kubectl := path.Join(suite.RootDir(), "bin", "kube", "kubectl.exe")
+				portForwarding := exec.Command(kubectl, "-n", "viewer", "port-forward", "svc/viewerwebapp", "8443:80")
+				portForwardingSession, _ = gexec.Start(portForwarding, GinkgoWriter, GinkgoWriter)
+
+				url := "http://localhost:8443/viewer/datasources/config.json"
+				output := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-m", "5", "--retry", "10", "--fail")
+				// checking that the default datasource is dicomweb2 means that the patient date is coming from the dicom addon 
+				Expect(output).To(ContainSubstring( `"defaultDataSourceName": "dicomweb2"`))
+			})
+			It("prints already-enabled message when enabling the addon again and exits with non-zero", func(ctx context.Context) {
+				expectAddonToBeAlreadyEnabled(ctx)
+			})
+
+			It("prints the status", func(ctx context.Context) {
+				expectStatusToBePrinted(ctx)
+			})
+		})
+		
 	})
 })
 
