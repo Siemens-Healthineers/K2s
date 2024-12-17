@@ -25,8 +25,8 @@ Param(
 
 $installStopwatch = [system.diagnostics.stopwatch]::StartNew()
 
-$infraModule =   "$PSScriptRoot\..\..\..\..\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
-$nodeModule =    "$PSScriptRoot\..\..\..\..\modules\k2s\k2s.node.module\k2s.node.module.psm1"
+$infraModule = "$PSScriptRoot\..\..\..\..\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
+$nodeModule = "$PSScriptRoot\..\..\..\..\modules\k2s\k2s.node.module\k2s.node.module.psm1"
 $clusterModule = "$PSScriptRoot\..\..\..\..\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1"
 
 Import-Module $infraModule, $nodeModule, $clusterModule
@@ -46,15 +46,21 @@ $transparentProxy = "http://$($windowsHostIpAddress):8181"
 $joinCommand = New-JoinCommand
 
 $workerNodeParams = @{
-    Proxy = $transparentProxy
-    AdditionalHooksDir = $AdditionalHooksDir
+    Proxy                             = $transparentProxy
+    AdditionalHooksDir                = $AdditionalHooksDir
     DeleteFilesForOfflineInstallation = $DeleteFilesForOfflineInstallation
-    ForceOnlineInstallation = $ForceOnlineInstallation
-    PodSubnetworkNumber = '1'
-    JoinCommand = $JoinCommand
-    K8sBinsPath = $K8sBinsPath
+    ForceOnlineInstallation           = $ForceOnlineInstallation
+    PodSubnetworkNumber               = '1'
+    JoinCommand                       = $JoinCommand
+    K8sBinsPath                       = $K8sBinsPath
 }
 Add-WindowsWorkerNodeOnWindowsHost @workerNodeParams
+
+Write-Log 'Adding mirror registries'
+$mirrorRegistries = Get-MirrorRegistries
+foreach ($registry in $mirrorRegistries) {
+    Set-Registry -Name $registry.registry -Https -SkipVerify -Mirror $registry.mirror -Server $registry.server 
+}
 
 if (! $SkipStart) {
     Write-Log 'Starting Windows worker node on Windows host'
@@ -79,7 +85,8 @@ if (! $SkipStart) {
             }
         }
     }
-} else {
+}
+else {
     & "$PSScriptRoot\Stop.ps1" -AdditionalHooksDir:$AdditionalHooksDir -ShowLogs:$ShowLogs -HideHeaders:$true
 }
 

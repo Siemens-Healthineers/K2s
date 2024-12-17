@@ -266,18 +266,27 @@ function Set-Registry {
         [Parameter()]
         [switch] $SkipVerify,
         [Parameter()]
-        [switch] $LocalRegistry
+        [switch] $LocalRegistry,
+        [Parameter(Mandatory = $false)]
+        [String]
+        $Mirror,
+        [Parameter(Mandatory = $false)]
+        [String]
+        $Server
     )
 
     if ($Https) {
-        $protocol = "https"
-    } else {
-        $protocol = "http"
+        $protocol = 'https'
+    }
+    else {
+        $protocol = 'http'
         $SkipVerify = $true
     }
 
-    # Linux (cri-o)
-    $fileName = $Name -replace ':',''
+    #################
+    # Linux (cri-o) #
+    #################
+    $fileName = $Name -replace ':', ''
 
     if ($LocalRegistry) {
         $SkipVerify = $true
@@ -286,15 +295,21 @@ function Set-Registry {
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'mkdir -p /etc/containers/registries.conf.d').Output | Write-Log
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "echo -e `'[[registry]]\nlocation=\""$Name\""\ninsecure=$($SkipVerify.ToString().ToLower())`' | sudo tee /etc/containers/registries.conf.d/$fileName.conf").Output | Write-Log
 
+    if ($Mirror -and $Server) {
+        (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "echo -e `'[[registry.mirror]]\nlocation=\""$Mirror\""\ninsecure=$($SkipVerify.ToString().ToLower())`' | sudo tee -a /etc/containers/registries.conf.d/$fileName.conf").Output | Write-Log
+    }
+
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo systemctl daemon-reload').Output | Write-Log
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo systemctl restart crio').Output | Write-Log
 
-    # Windows (containerd)
-    $folderName = $Name -replace ':',''
+    ########################
+    # Windows (containerd) #
+    ########################
+    $folderName = $Name -replace ':', ''
 
     New-Item -Path "$(Get-SystemDriveLetter):\etc\containerd\certs.d\$folderName" -ItemType Directory -Force | Out-Null
 
-    $content = ""
+    $content = ''
 
     if ($LocalRegistry) {
         $content += @"
@@ -302,13 +317,23 @@ server = "${protocol}://$Name"
 "@
     }
 
-    $content += @"
+    if ($Mirror -and $Server) {
+        $content += @"
+
+server = "${protocol}://$Server"  # default after trying hosts
+host."${protocol}://$Mirror".capabilities = ["pull", "resolve"]
+"@
+    } 
+    else {    
+
+        $content += @"
 
 [host."${protocol}://$Name"]
   capabilities = ["pull", "resolve", "push"]
   skip_verify = $($SkipVerify.ToString().ToLower())
   plain_http = $($(!$Https).ToString().ToLower())
 "@
+    }
     
     $content | Set-Content -Path "$(Get-SystemDriveLetter):\etc\containerd\certs.d\$folderName\hosts.toml"
 }
@@ -321,14 +346,14 @@ function Remove-Registry {
     )
 
     # Linux (cri-o)
-    $fileName = $Name -replace ':',''
+    $fileName = $Name -replace ':', ''
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo rm -rf /etc/containers/registries.conf.d/$fileName.conf").Output | Write-Log
 
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo systemctl daemon-reload').Output | Write-Log
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo systemctl restart crio').Output | Write-Log
 
     # Windows (containerd)
-    $folderName = $Name -replace ':',''
+    $folderName = $Name -replace ':', ''
     Remove-Item -Force "$(Get-SystemDriveLetter):\etc\containerd\certs.d\$folderName" -Recurse -Confirm:$False -ErrorAction SilentlyContinue
 }
 
