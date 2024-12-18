@@ -155,7 +155,7 @@ function Get-DefaultTempPwd {
 }
 
 function Get-ConfiguredClusterNetworkPrefix {
-    return $ipControlPlaneCIDR.Substring($ipControlPlaneCIDR.IndexOf('/')+1)
+    return $ipControlPlaneCIDR.Substring($ipControlPlaneCIDR.IndexOf('/') + 1)
 }
 
 <#
@@ -341,7 +341,7 @@ function Set-ConfigSetupType {
 
 function Get-ConfigWslFlag {
     $wslValue = Get-ConfigValue -Path $SetupJsonFile -Key 'WSL'
-    if ($null -eq $wslValue){
+    if ($null -eq $wslValue) {
         return $false
     }
     return $wslValue
@@ -474,6 +474,12 @@ function Get-WindowsVmIpAddress {
     return $multiVMWinNodeIP
 }
 
+function Get-MirrorRegistries {
+    $rootConfig = Get-RootConfigk2s
+    $mirrorRegistries = $rootConfig.psobject.properties['mirrorRegistries'].value
+    return $mirrorRegistries
+}
+
 Export-ModuleMember -Function Get-ConfigValue,
 Set-ConfigValue,
 Get-ConfiguredKubeConfigDir,
@@ -527,4 +533,5 @@ Get-WindowsLocalSharePath,
 Get-WindowsVmIpAddress,
 Get-ConfigWinBuildEnabledFlag,
 Set-ConfigWinBuildEnabledFlag,
-Get-ConfiguredClusterNetworkPrefix
+Get-ConfiguredClusterNetworkPrefix,
+Get-MirrorRegistries

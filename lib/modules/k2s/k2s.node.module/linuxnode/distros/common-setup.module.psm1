@@ -19,9 +19,12 @@ $kubernetesDebPackagesDirectory = 'kubernetes'
 $buildahDebPackagesDirectory = 'buildah'
 
 $binPath = Get-KubeBinPath
-$linuxNodePath = "$binPath\linuxnode"
-$windowsHostKubenodeDebPackagesPath = "$linuxNodePath\packages"
-$windowsHostKubenodeImagesPath = "$linuxNodePath\images"
+$directoryOfLinuxNodeArtifactsOnWindowsHost = "$binPath\linuxnode"
+$baseDirectoryOfKubenodeDebPackagesOnWindowsHost = "$directoryOfLinuxNodeArtifactsOnWindowsHost\packages"
+$directoryOfKubenodeImagesOnWindowsHost = "$directoryOfLinuxNodeArtifactsOnWindowsHost\images"
+
+$linuxNodeArtifactsZipFileName = 'LinuxNodeArtifacts.zip'
+$pathOfLinuxNodeArtifactsPackageOnWindowsHost = "$binPath\$linuxNodeArtifactsZipFileName"
 
 Function Assert-GeneralComputerPrequisites {
     Param(
@@ -69,7 +72,8 @@ Function Set-UpComputerBeforeProvisioning {
         )
         if ([string]::IsNullOrWhiteSpace($UserPwd)) {
             (Invoke-CmdOnVmViaSSHKey -CmdToExecute $Command -UserName $UserName -IpAddress $IpAddress -Retries $Retries -RepairCmd $RepairCmd -IgnoreErrors:$IgnoreErrors).Output | Write-Log
-        } else {
+        }
+        else {
             (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $Command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd" -Retries $Retries -RepairCmd $RepairCmd -IgnoreErrors:$IgnoreErrors).Output | Write-Log
         }
     }
@@ -131,7 +135,8 @@ Function Set-KubernetesAptRepository {
         )
         if ([string]::IsNullOrWhiteSpace($UserPwd)) {
             (Invoke-CmdOnVmViaSSHKey -CmdToExecute $command -UserName $UserName -IpAddress $IpAddress -Retries $Retries -RepairCmd $RepairCmd -IgnoreErrors:$IgnoreErrors).Output | Write-Log
-        } else {
+        }
+        else {
             (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $command -RemoteUser "$remoteUser" -RemoteUserPwd "$UserPwd" -Retries $Retries -RepairCmd $RepairCmd -IgnoreErrors:$IgnoreErrors).Output | Write-Log
         }
     }
@@ -192,7 +197,8 @@ Function Get-KubernetesArtifactsFromInternet {
         )
         if ([string]::IsNullOrWhiteSpace($UserPwd)) {
             (Invoke-CmdOnVmViaSSHKey -CmdToExecute $command -UserName $UserName -IpAddress $IpAddress -Retries $Retries -RepairCmd $RepairCmd -IgnoreErrors:$IgnoreErrors).Output | Write-Log
-        } else {
+        }
+        else {
             (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $Command -RemoteUser "$remoteUser" -RemoteUserPwd "$UserPwd" -Retries $Retries -RepairCmd $RepairCmd -IgnoreErrors:$IgnoreErrors).Output | Write-Log
         }
     }
@@ -249,7 +255,8 @@ Function Add-KubernetesArtifactsToRemoteComputer {
     
     if (Test-Path -Path $debPackagesSourcePath) {
         Copy-DebPackagesFromWindowsHostToRemoteComputer -UserName $UserName -IpAddress $IpAddress -SourcePath $debPackagesSourcePath -TargetPath $TargetPath
-    } else {
+    }
+    else {
         Get-KubernetesArtifactsFromInternet -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy -K8sVersion $kubernetesVersion -TargetPath $TargetPath
     }
 }
@@ -266,7 +273,8 @@ Function Add-BuildahArtifactsToRemoteComputer {
     
     if (Test-Path -Path $debPackagesSourcePath) {
         Copy-DebPackagesFromWindowsHostToRemoteComputer -UserName $UserName -IpAddress $IpAddress -SourcePath $debPackagesSourcePath -TargetPath $TargetPath
-    } else {
+    }
+    else {
         Get-BuildahDebPackagesFromInternet -UserName $userName -IpAddress $IpAddress -TargetPath $TargetPath
     }
 }
@@ -315,7 +323,8 @@ Function Get-InstalledDistribution {
         )
         if ([string]::IsNullOrWhiteSpace($UserPwd)) {
             $commandOutput = (Invoke-CmdOnVmViaSSHKey -CmdToExecute $Command -UserName $UserName -IpAddress $IpAddress -Retries $Retries -RepairCmd $RepairCmd -IgnoreErrors:$IgnoreErrors).Output
-        } else {
+        }
+        else {
             $commandOutput = (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $Command -RemoteUser "$remoteUser" -RemoteUserPwd "$UserPwd" -Retries $Retries -RepairCmd $RepairCmd -IgnoreErrors:$IgnoreErrors).Output
         }
 
@@ -346,14 +355,16 @@ Function Copy-DebPackagesFromControlPlaneToWindowsHost {
 
     if (Test-Path -Path $windowsHostTargetPath) {
         Write-Log "The path '$windowsHostTargetPath' with deb packages from the control plane already exists --> its content will not be overwritten"
-    } else {
+    }
+    else {
         $kubenodeSourcePath = Get-OfflineK2sDebPackagesPath -UserName $controlPlaneUserName
-        Write-Log "Checking existence of path '$kubenodeSourcePath' in the control plane node"
+        Write-Log "Checking the existence of path '$kubenodeSourcePath' in the control plane node"
         $sourcePathExistenceCheckOutput = (Invoke-CmdOnVmViaSSHKey -CmdToExecute "ls $kubenodeSourcePath" -UserName $controlPlaneUserName -IpAddress $controlPlaneIpAddress -IgnoreErrors).Output
         
-        if ($sourcePathExistenceCheckOutput.Contains("No such file or directory")) {
+        if ($sourcePathExistenceCheckOutput.Contains('No such file or directory')) {
             Write-Log "The path '$kubenodeSourcePath' does not exist in control plane node --> no deb packages will be copied to the Windows host."
-        } else {
+        }
+        else {
             Write-Log "Deb packages will be copied from the control plane node ('$kubenodeSourcePath') to the Windows host ('$windowsHostTargetPath')"
             New-Item -Path $windowsHostTargetPath -ItemType Directory -Force -ErrorAction Stop | Out-Null
 
@@ -377,7 +388,7 @@ Function Copy-DebPackagesFromWindowsHostToRemoteComputer {
         throw "The path '$SourcePath' does not exist."
     } 
 
-    (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo rm -f /tmp/*.deb" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
+    (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo rm -f /tmp/*.deb' -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
     (Invoke-CmdOnVmViaSSHKey -CmdToExecute "[ -d $TargetPath ] && rm -rf $TargetPath; mkdir -p $TargetPath" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
 
     $allPackageFiles = $(Get-Item -Path "$SourcePath\*.deb" | Select-Object -ExpandProperty 'FullName')
@@ -405,13 +416,15 @@ Function Install-KubernetesArtifacts {
         )
         if ([string]::IsNullOrWhiteSpace($UserPwd)) {
             $commandOutput = (Invoke-CmdOnVmViaSSHKey -CmdToExecute $command -UserName $UserName -IpAddress $IpAddress -Retries $Retries -RepairCmd $RepairCmd -IgnoreErrors:$IgnoreErrors).Output
-        } else {
+        }
+        else {
             $commandOutput = (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $command -RemoteUser "$remoteUser" -RemoteUserPwd "$UserPwd" -Retries $Retries -RepairCmd $RepairCmd -IgnoreErrors:$IgnoreErrors).Output
         }
 
         if ($ReturnCommandOutput) {
             return $commandOutput
-        } else {
+        }
+        else {
             $commandOutput | Write-Log
         }
     }
@@ -420,7 +433,7 @@ Function Install-KubernetesArtifacts {
 
     $availableDebPackages = $(&$executeRemoteCommand "ls $k8sDebPackagesPath" -ReturnCommandOutput)
 
-    if ($availableDebPackages.Contains("No such file or directory")) {
+    if ($availableDebPackages.Contains('No such file or directory')) {
         throw "The directory '$k8sDebPackagesPath' does not exist in the computer with IP '$IpAddress'. The kubernetes artifacts cannot be installed"
     }
     &$executeRemoteCommand "sudo DEBIAN_FRONTEND=noninteractive dpkg -i $k8sDebPackagesPath/*.deb"
@@ -428,15 +441,16 @@ Function Install-KubernetesArtifacts {
 
     Write-Log "Copying ZScaler Root CA certificate to computer with IP '$IpAddress'"
     $zScalerCertificateSourcePath = "$(Get-KubePath)\lib\modules\k2s\k2s.node.module\linuxnode\setup\certificate\ZScalerRootCA.crt"
-    $zScalerCertificateTargetPath = "/tmp/ZScalerRootCA.crt"
+    $zScalerCertificateTargetPath = '/tmp/ZScalerRootCA.crt'
     if ([string]::IsNullOrWhiteSpace($UserPwd)) {
         Copy-ToRemoteComputerViaSshKey -Source $zScalerCertificateSourcePath -Target $zScalerCertificateTargetPath -UserName $UserName -IpAddress $IpAddress
-    } else {
+    }
+    else {
         Copy-ToRemoteComputerViaUserAndPwd -Source $zScalerCertificateSourcePath -Target $zScalerCertificateTargetPath -UserName $UserName -UserPwd $UserPwd -IpAddress $IpAddress
     }
 
-    &$executeRemoteCommand "sudo mv /tmp/ZScalerRootCA.crt /usr/local/share/ca-certificates/"
-    &$executeRemoteCommand "sudo update-ca-certificates"
+    &$executeRemoteCommand 'sudo mv /tmp/ZScalerRootCA.crt /usr/local/share/ca-certificates/'
+    &$executeRemoteCommand 'sudo update-ca-certificates'
     Write-Log "Zscaler certificate added to CA certificates of computer with IP '$IpAddress'"
 
     Write-Log 'Configure bridged traffic'
@@ -543,7 +557,8 @@ Function Copy-KubernetesImagesFromControlPlaneNodeToWindowsHost {
 
         if ($ReturnCommandOutput) {
             return $commandOutput
-        } else {
+        }
+        else {
             $commandOutput.Output | Write-Log
         }
     }
@@ -552,7 +567,8 @@ Function Copy-KubernetesImagesFromControlPlaneNodeToWindowsHost {
 
     if (Test-Path -Path $imagesPath) {
         Write-Log "The path '$imagesPath' with container images already exists --> its content will not be overwritten"
-    } else {
+    }
+    else {
         New-Item -Path $imagesPath -ItemType Directory -Force -ErrorAction Stop | Out-Null
         
         $retrieveImagesCmd = 'sudo crictl images | grep -e "registry.k8s.io" -e "docker.io/flannel" | grep -v "\<none\>" | awk ''{ print $1\":\"$2\" \"$3 }'''
@@ -600,9 +616,9 @@ Function Copy-KubernetesImagesFromControlPlaneToRemoteComputer {
         (Invoke-CmdOnVmViaSSHKey -CmdToExecute $command -UserName $UserName -IpAddress $IpAddress -Retries $Retries -RepairCmd $RepairCmd -IgnoreErrors:$IgnoreErrors).Output | Write-Log
     }
 
-    $imagesPath = $windowsHostKubenodeImagesPath
+    $imagesPath = $directoryOfKubenodeImagesOnWindowsHost
 
-    Write-Log "Copy container images from the control plane node to the Windows host"
+    Write-Log 'Copy container images from the control plane node to the Windows host'
     Copy-KubernetesImagesFromControlPlaneNodeToWindowsHost -TargetPath $imagesPath
 
     if (Test-Path -Path $imagesPath) {
@@ -612,7 +628,8 @@ Function Copy-KubernetesImagesFromControlPlaneToRemoteComputer {
             &$executeRemoteCommandOnRemoteComputer 'sudo buildah pull oci-archive:/tmp/import.tar 2>&1'
             &$executeRemoteCommandOnRemoteComputer 'cd /tmp && sudo rm -rf import.tar'
         }
-    } else {
+    }
+    else {
         Write-Log "The path '$imagesPath' with container images from the control plane does not exist --> no offline installation possible."
     }
 }
@@ -689,7 +706,8 @@ Function Get-BuildahDebPackagesFromInternet {
         )
         if ([string]::IsNullOrWhiteSpace($UserPwd)) {
             (Invoke-CmdOnVmViaSSHKey -CmdToExecute $Command -UserName $UserName -IpAddress $IpAddress -Retries $Retries -RepairCmd $RepairCmd -IgnoreErrors:$IgnoreErrors).Output | Write-Log
-        } else {
+        }
+        else {
             (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $Command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output | Write-Log
         }
     }
@@ -736,14 +754,15 @@ Function Install-BuildahDebPackages {
         )
         if ([string]::IsNullOrWhiteSpace($UserPwd)) {
             (Invoke-CmdOnVmViaSSHKey -CmdToExecute $Command -UserName $UserName -IpAddress $IpAddress -Retries $Retries -RepairCmd $RepairCmd -IgnoreErrors:$IgnoreErrors).Output | Write-Log
-        } else {
+        }
+        else {
             (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $Command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output | Write-Log
         }
     }
 
     $buildahDebPackagesPath = $SourcePath
  
-    if ($buildahDebPackagesPath.Contains("No such file or directory")) {
+    if ($buildahDebPackagesPath.Contains('No such file or directory')) {
         throw "The directory '$buildahDebPackagesPath' does not exist in the computer with IP '$IpAddress'. The buildah artifacts cannot be installed"
     }
 
@@ -916,6 +935,36 @@ function Get-FlannelImages {
 
     &$executeRemoteCommand 'sudo crictl pull docker.io/flannel/flannel-cni-plugin:v1.5.1-flannel2'
     &$executeRemoteCommand 'sudo crictl pull docker.io/flannel/flannel:v0.26.1'
+}
+
+function AddRegistryMirrors {
+    param (
+        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
+        [string]$UserName = $(throw 'Argument missing: UserName'),
+        [string]$UserPwd = $(throw 'Argument missing: UserPwd'),
+        [ValidateScript({ Get-IsValidIPv4Address($_) })]
+        [string]$IpAddress = $(throw 'Argument missing: IpAddress')
+    )
+    Write-Log 'Add mirrors for registry from config.json'
+    $remoteUser = "$UserName@$IpAddress"
+    $remoteUserPwd = $UserPwd
+
+    $executeRemoteCommand = { param($Command = $(throw 'Argument missing: Command')) 
+        (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $Command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output | Write-Log
+    }
+
+    Write-Log "Add mirrors to registry for VM with ip address: $IpAddress"
+    $mirrorRegistries = Get-MirrorRegistries
+    foreach ($registry in $mirrorRegistries) {
+        $Name = $registry.registry
+        $Mirror = $registry.mirror
+        $fileName = $Name -replace ':', ''
+        &$executeRemoteCommand 'mkdir -p /etc/containers/registries.conf.d'
+        &$executeRemoteCommand "echo -e `'[[registry]]\nlocation=\""$Name\""\ninsecure=true`' | sudo tee /etc/containers/registries.conf.d/$fileName.conf"
+        &$executeRemoteCommand "echo -e `'[[registry.mirror]]\nlocation=\""$Mirror\""\ninsecure=true`' | sudo tee -a /etc/containers/registries.conf.d/$fileName.conf" 
+        &$executeRemoteCommand 'sudo systemctl daemon-reload'
+        &$executeRemoteCommand 'sudo systemctl restart crio'
+    } 
 }
 
 function Get-KubernetesImages {
@@ -1108,7 +1157,8 @@ Function Set-UpMasterNode {
         )
         if ([string]::IsNullOrWhiteSpace($remoteUserPwd)) {
             (Invoke-CmdOnVmViaSSHKey -CmdToExecute $command -UserName $UserName -IpAddress $IpAddress -Retries $Retries -IgnoreErrors:$IgnoreErrors).Output | Write-Log
-        } else {
+        }
+        else {
             (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd" -Retries $Retries -IgnoreErrors:$IgnoreErrors).Output | Write-Log
         }
     }
@@ -1158,7 +1208,7 @@ Function Set-UpMasterNode {
 
     # mount the certificate secrets in coredns, so it can read them
     &$executeRemoteCommand "kubectl get deployment coredns -n kube-system -o yaml | sed '/^\s*\- configMap:/i\      - name: etcd-ca-cert\n        secret:\n          secretName: etcd-ca\n      - name: etcd-client-cert\n        secret:\n          secretName: etcd-client-for-core-dns' | kubectl apply -f -" -IgnoreErrors
-    &$executeRemoteCommand "kubectl wait --for=condition=available deployment/coredns -n kube-system --timeout=30s" -IgnoreErrors
+    &$executeRemoteCommand 'kubectl wait --for=condition=available deployment/coredns -n kube-system --timeout=30s' -IgnoreErrors
     &$executeRemoteCommand "kubectl get deployment coredns -n kube-system -o yaml | sed '/^\s*\- mountPath: \/etc\/coredns/i\        - mountPath: /etc/kubernetes/pki/etcd-ca\n          name: etcd-ca-cert\n        - mountPath: /etc/kubernetes/pki/etcd-client\n          name: etcd-client-cert' | kubectl apply -f -" -Retries 3
 
     # change core-dns to have predefined host mapping for DNS resolution
@@ -1170,7 +1220,8 @@ Function Set-UpMasterNode {
     $getPodCidrOutput = Get-AssignedPodNetworkCIDR -NodeName $NodeName -UserName $UserName -UserPwd $UserPwd -IpAddress $IpAddress
     if ($getPodCidrOutput.Success) {
         $assignedPodNetworkCIDR = $($getPodCidrOutput.PodNetworkCIDR).Substring(0, $($getPodCidrOutput.PodNetworkCIDR).IndexOf('/'))
-    } else {
+    }
+    else {
         throw "Cannot obtain pod network information from node '$NodeName'"
     }
     $networkInterfaceCni0IP = "$($assignedPodNetworkCIDR.Substring(0, $assignedPodNetworkCIDR.lastIndexOf('.'))).1"
@@ -1229,7 +1280,8 @@ Function Add-FlannelPluginToMasterNode {
     $executeRemoteCommand = { param($command = $(throw 'Argument missing: Command'))
         if ([string]::IsNullOrWhiteSpace($remoteUserPwd)) {
             (Invoke-CmdOnVmViaSSHKey -CmdToExecute $command -UserName $UserName -IpAddress $IpAddress -IgnoreErrors:$IgnoreErrors).Output | Write-Log
-        } else {
+        }
+        else {
             (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output | Write-Log
         }
     }
@@ -1242,7 +1294,8 @@ Function Add-FlannelPluginToMasterNode {
             $command = 'kubectl rollout status daemonset -n kube-flannel kube-flannel-ds --timeout 60s'
             if ([string]::IsNullOrWhiteSpace($remoteUserPwd)) {
                 $result = (Invoke-CmdOnVmViaSSHKey -CmdToExecute $command -UserName $UserName -IpAddress $IpAddress -IgnoreErrors:$IgnoreErrors).Output
-            } else {
+            }
+            else {
                 $result = (Invoke-CmdOnControlPlaneViaUserAndPwd $command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output
             }
             if ($result -match 'successfully') {
@@ -1299,7 +1352,8 @@ Function Add-FlannelPluginToMasterNode {
     $target = "/home/$UserName"
     if ([string]::IsNullOrWhiteSpace($remoteUserPwd)) {
         Copy-ToRemoteComputerViaSshKey -Source "$configurationFile" -Target $target -UserName $UserName -IpAddress $IpAddress
-    } else {
+    }
+    else {
         Copy-ToRemoteComputerViaUserAndPwd -Source "$configurationFile" -Target $target -UserName $UserName -UserPwd $remoteUserPwd -IpAddress $IpAddress
     }
 
@@ -1384,6 +1438,7 @@ function New-VmImageForKubernetesNode {
 
     $setUpKubenode = {
         $addToKubeNode = {
+            AddRegistryMirrors -IpAddress $vmIpAddress -UserName $vmUserName -UserPwd $vmUserPwd
             Get-KubernetesImages -IpAddress $vmIpAddress -UserName $vmUserName -UserPwd $vmUserPwd -K8sVersion $kubernetesVersion
             Install-DnsServer -IpAddress $vmIpAddress -UserName $vmUserName -UserPwd $vmUserPwd
             Install-Tools -IpAddress $vmIpAddress -UserName $vmUserName -UserPwd $vmUserPwd -Proxy $Proxy
@@ -1478,17 +1533,17 @@ function New-VmImageForControlPlaneNode {
         }
 
         $masterNodeParams = @{
-            NodeName                      = $Hostname
-            IpAddress                     = $IpAddress
-            UserName                      = $vmUserName
-            UserPwd                       = $vmUserPwd
-            K8sVersion                    = $kubernetesVersion
-            ClusterCIDR                   = $(Get-ConfiguredClusterCIDR)
-            ClusterCIDR_Services          = $(Get-ConfiguredClusterCIDRServices)
-            KubeDnsServiceIP              = $(Get-ConfiguredKubeDnsServiceIP)
-            IP_NextHop                    = $GatewayIpAddress
-            NetworkInterfaceName          = $vmNetworkInterfaceName
-            Hook                          = $addToControlPlane
+            NodeName             = $Hostname
+            IpAddress            = $IpAddress
+            UserName             = $vmUserName
+            UserPwd              = $vmUserPwd
+            K8sVersion           = $kubernetesVersion
+            ClusterCIDR          = $(Get-ConfiguredClusterCIDR)
+            ClusterCIDR_Services = $(Get-ConfiguredClusterCIDRServices)
+            KubeDnsServiceIP     = $(Get-ConfiguredKubeDnsServiceIP)
+            IP_NextHop           = $GatewayIpAddress
+            NetworkInterfaceName = $vmNetworkInterfaceName
+            Hook                 = $addToControlPlane
         }
         Set-UpMasterNode @masterNodeParams
     }
@@ -1570,10 +1625,10 @@ function New-LinuxVmImageForWorkerNode {
         }
 
         $workerNodeParams = @{
-            IpAddress                     = $IpAddress
-            UserName                      = $vmUserName
-            UserPwd                       = $vmUserPwd
-            Hook                          = $executeInWorkerNode
+            IpAddress = $IpAddress
+            UserName  = $vmUserName
+            UserPwd   = $vmUserPwd
+            Hook      = $executeInWorkerNode
         }
         Set-UpWorkerNode @workerNodeParams
     }
@@ -1644,7 +1699,8 @@ function InstallAptPackages {
     $repairCmd = 'sudo apt --fix-broken install'
     if ([string]::IsNullOrWhiteSpace($UserPwd)) {
         (Invoke-CmdOnVmViaSSHKey $installCmd -Retries 2 -Timeout 2 -UserName $UserName -IpAddress $IpAddress -RepairCmd $repairCmd).Output | Write-Log
-    } else {
+    }
+    else {
         (Invoke-CmdOnControlPlaneViaUserAndPwd $installCmd -Retries 2 -Timeout 2 -RemoteUser "$remoteUser" -RemoteUserPwd "$UserPwd" -RepairCmd $repairCmd).Output | Write-Log
     }
 
@@ -1652,7 +1708,8 @@ function InstallAptPackages {
         $testCmd = "which $TestExecutable"
         if ([string]::IsNullOrWhiteSpace($UserPwd)) {
             $exeInstalled = (Invoke-CmdOnVmViaSSHKey $testCmd -UserName $UserName -IpAddress $IpAddress).Output
-        } else {
+        }
+        else {
             $exeInstalled = (Invoke-CmdOnControlPlaneViaUserAndPwd $testCmd -RemoteUser "$remoteUser" -RemoteUserPwd "$UserPwd").Output
         }
         if (!($exeInstalled -match "/bin/$TestExecutable")) {
@@ -1830,7 +1887,7 @@ function Set-ProxySettingsForContainerRuntime {
         Write-Log 'Set proxy settings for container runtime'
         (Invoke-CmdOnVmViaSSHKey 'sudo mkdir -p /etc/systemd/system/crio.service.d' -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
         (Invoke-CmdOnVmViaSSHKey 'sudo touch /etc/systemd/system/crio.service.d/http-proxy.conf' -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
-        (Invoke-CmdOnVmViaSSHKey "echo [Service] | sudo tee /etc/systemd/system/crio.service.d/http-proxy.conf" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
+        (Invoke-CmdOnVmViaSSHKey 'echo [Service] | sudo tee /etc/systemd/system/crio.service.d/http-proxy.conf' -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
         (Invoke-CmdOnVmViaSSHKey "echo Environment=\'HTTP_PROXY=$ProxySettings\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
         (Invoke-CmdOnVmViaSSHKey "echo Environment=\'HTTPS_PROXY=$ProxySettings\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
         (Invoke-CmdOnVmViaSSHKey "echo Environment=\'http_proxy=$ProxySettings\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
@@ -1872,8 +1929,20 @@ function Set-ProxySettingsForContainers {
     }
 }
 
-function Get-WindowsHostKubenodeDebPackagesPath {
-    return $windowsHostKubenodeDebPackagesPath
+function Get-BaseDirectoryOfKubenodeDebPackagesOnWindowsHost {
+    return $baseDirectoryOfKubenodeDebPackagesOnWindowsHost
+}
+
+function Get-DirectoryOfKubenodeImagesOnWindowsHost {
+    return $directoryOfKubenodeImagesOnWindowsHost
+}
+
+function Get-DirectoryOfLinuxNodeArtifactsOnWindowsHost {
+    return $directoryOfLinuxNodeArtifactsOnWindowsHost
+}
+
+function Get-PathOfLinuxNodeArtifactsPackageOnWindowsHost {
+    return $pathOfLinuxNodeArtifactsPackageOnWindowsHost
 }
 
 Export-ModuleMember -Function New-VmImageForControlPlaneNode,
@@ -1895,4 +1964,8 @@ Install-BuildahDebPackages,
 Set-UpComputerBeforeProvisioning,
 Copy-DebPackagesFromControlPlaneToWindowsHost,
 Get-InstalledDistribution,
-Get-WindowsHostKubenodeDebPackagesPath
+Get-BaseDirectoryOfKubenodeDebPackagesOnWindowsHost,
+Get-DirectoryOfKubenodeImagesOnWindowsHost,
+Get-DirectoryOfLinuxNodeArtifactsOnWindowsHost,
+Get-PathOfLinuxNodeArtifactsPackageOnWindowsHost,
+Copy-KubernetesImagesFromControlPlaneNodeToWindowsHost
