@@ -34,29 +34,30 @@ func NewWinUserAdder(controlPlaneAccess controlPlaneAccess, k8sAccess k8sAccess,
 	}
 }
 
-func (a *winUserAdder) Add(user common.User, currentUserName string) (err error) {
+func (a *winUserAdder) Add(user common.User, currentUserName string) error {
 	slog.Debug("Adding user", "name", user.Name(), "home-dir", user.HomeDir())
 
 	k2sUserName := a.createK2sUserName(user.Name())
 
+	var controlPlaneErr, k8sErr error
 	tasks := sync.WaitGroup{}
 	tasks.Add(2)
 
 	go func() {
 		defer tasks.Done()
-		if innerErr := a.controlPlaneAccess.GrantAccessTo(user, currentUserName, k2sUserName); innerErr != nil {
-			err = errors.Join(err, fmt.Errorf("cannot grant user SSH access to control-plane: %w", innerErr))
+		if err := a.controlPlaneAccess.GrantAccessTo(user, currentUserName, k2sUserName); err != nil {
+			controlPlaneErr = fmt.Errorf("cannot grant user SSH access to control-plane: %w", err)
 		}
 	}()
 
 	go func() {
 		defer tasks.Done()
-		if innerErr := a.k8sAccess.GrantAccessTo(user, k2sUserName); innerErr != nil {
-			err = errors.Join(err, fmt.Errorf("cannot grant user K8s access: %w", innerErr))
+		if err := a.k8sAccess.GrantAccessTo(user, k2sUserName); err != nil {
+			k8sErr = fmt.Errorf("cannot grant user K8s access: %w", err)
 		}
 	}()
 
 	tasks.Wait()
 
-	return err
+	return errors.Join(controlPlaneErr, k8sErr)
 }
