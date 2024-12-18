@@ -60,7 +60,13 @@ In this case, the dicom UI can be accessed at the following URL: <http://localho
 ### Access using ingress
 
 To access the dicom app UI via ingress, the ingress nginx or the ingress traefik addon has to enabled.
-Once the addons are enabled, then the dicom UI can be accessed at the following URL: <http://k2s.cluster.local/dicom/ui/app/>
+Once the addons are enabled, then the dicom UI can be accessed at the following URL: <https://k2s.cluster.local/dicom/ui/app/>
+
+DICOM Web APIS are available under the URL: <https://k2s.cluster.local/dicom/dicomweb>
+Example call which returns all studies:
+```
+curl -sS --insecure https://k2s.cluster.local/dicom/dicomweb/studies
+```
 
 ## Disable dicom
 
