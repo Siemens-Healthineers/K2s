@@ -9,7 +9,6 @@ import (
 	"log/slog"
 	"path/filepath"
 	"strconv"
-	"time"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
@@ -80,6 +79,7 @@ func init() {
 }
 
 func systemPackage(cmd *cobra.Command, args []string) error {
+	cmdSession := common.StartCmdSession(cmd.CommandPath())
 	systemPackageCommand, params, err := buildSystemPackageCmd(cmd.Flags())
 	if err != nil {
 		return err
@@ -102,8 +102,6 @@ func systemPackage(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	start := time.Now()
-
 	cmdResult, err := powershell.ExecutePsWithStructuredResult[*common.CmdResult](systemPackageCommand, "CmdResult", powershell.DefaultPsVersions, common.NewPtermWriter(), params...)
 	if err != nil {
 		return err
@@ -113,8 +111,7 @@ func systemPackage(cmd *cobra.Command, args []string) error {
 		return cmdResult.Failure
 	}
 
-	duration := time.Since(start)
-	common.PrintCompletedMessage(duration, "system package")
+	cmdSession.Finish()
 
 	return nil
 }

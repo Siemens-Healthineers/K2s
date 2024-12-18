@@ -7,7 +7,6 @@ import (
 	"errors"
 	"log/slog"
 	"strconv"
-	"time"
 
 	"github.com/pterm/pterm"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
@@ -40,6 +39,7 @@ func NewCmd() *cobra.Command {
 }
 
 func removeNode(ccmd *cobra.Command, args []string) error {
+	cmdSession := common.StartCmdSession(ccmd.CommandPath())
 	context := ccmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
 	config, err := setupinfo.ReadConfig(context.Config().Host.K2sConfigDir)
 	if err != nil {
@@ -61,15 +61,12 @@ func removeNode(ccmd *cobra.Command, args []string) error {
 	pterm.Printfln("🤖 Removing node from K2s cluster")
 	slog.Debug("PS command created", "command", addNodeCmd)
 
-	start := time.Now()
-
 	err = powershell.ExecutePs(addNodeCmd, psVersion, common.NewPtermWriter())
 	if err != nil {
 		return err
 	}
 
-	duration := time.Since(start)
-	common.PrintCompletedMessage(duration, "Remove Node")
+	cmdSession.Finish()
 
 	return nil
 }

@@ -9,7 +9,6 @@ import (
 	"log/slog"
 	"path/filepath"
 	"strconv"
-	"time"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 
@@ -54,6 +53,7 @@ func init() {
 }
 
 func pullImage(cmd *cobra.Command, args []string) error {
+	cmdSession := common.StartCmdSession(cmd.CommandPath())
 	pterm.Println("🤖 Pulling container image..")
 
 	err := validatePullArgs(args)
@@ -76,8 +76,6 @@ func pullImage(cmd *cobra.Command, args []string) error {
 	psCmd, params := buildPullPsCmd(imageToPull, pullForWindows, showOutput)
 
 	slog.Debug("PS command created", "command", psCmd, "params", params)
-
-	start := time.Now()
 
 	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
 	config, err := setupinfo.ReadConfig(context.Config().Host.K2sConfigDir)
@@ -104,9 +102,7 @@ func pullImage(cmd *cobra.Command, args []string) error {
 		return cmdResult.Failure
 	}
 
-	duration := time.Since(start)
-
-	common.PrintCompletedMessage(duration, "image pull")
+	cmdSession.Finish()
 
 	return nil
 }

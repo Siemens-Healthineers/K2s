@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
@@ -127,6 +126,7 @@ func addInitFlagsForBuildCommand(cmd *cobra.Command) {
 }
 
 func buildImage(cmd *cobra.Command, args []string) error {
+	cmdSession := common.StartCmdSession(cmd.CommandPath())
 	pterm.Println("🤖 Building container image..")
 	buildOptions, err := extractBuildOptions(cmd)
 	if err != nil {
@@ -135,8 +135,6 @@ func buildImage(cmd *cobra.Command, args []string) error {
 
 	psCmd, params := buildPsCmd(buildOptions)
 	slog.Debug("PS command created", "command", psCmd, "params", params)
-
-	start := time.Now()
 
 	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
 	config, err := setupinfo.ReadConfig(context.Config().Host.K2sConfigDir)
@@ -163,9 +161,7 @@ func buildImage(cmd *cobra.Command, args []string) error {
 		return cmdResult.Failure
 	}
 
-	duration := time.Since(start)
-
-	common.PrintCompletedMessage(duration, "image build")
+	cmdSession.Finish()
 
 	return nil
 }

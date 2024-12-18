@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/pterm/pterm"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 	"github.com/siemens-healthineers/k2s/internal/core/node"
 	"github.com/siemens-healthineers/k2s/internal/core/node/ssh"
@@ -86,6 +85,7 @@ func NewCmd() *cobra.Command {
 }
 
 func copy(cmd *cobra.Command, args []string) error {
+	cmdSession := common.StartCmdSession(cmd.CommandPath())
 	copyOptions, connectionOptions, err := extractOptions(cmd.Flags())
 	if err != nil {
 		return fmt.Errorf("failed to extract copy options: %w", err)
@@ -110,7 +110,7 @@ func copy(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to copy: %w", err)
 	}
 
-	pterm.Printfln("Command '%s' done.", cmd.Use) // TODO: align with other cmds
+	cmdSession.Finish()
 
 	return nil
 }

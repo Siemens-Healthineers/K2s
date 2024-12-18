@@ -91,6 +91,7 @@ func AddInitFlags(cmd *cobra.Command) {
 }
 
 func upgradeCluster(cmd *cobra.Command, args []string) error {
+	cmdSession := common.StartCmdSession(cmd.CommandPath())
 	pterm.Println("🤖 Analyze current cluster and check prerequisites ...")
 
 	showLog, err := cmd.Flags().GetBool(common.OutputFlagName)
@@ -121,8 +122,6 @@ func upgradeCluster(cmd *cobra.Command, args []string) error {
 
 	outputWriter := common.NewPtermWriter()
 
-	start := time.Now()
-
 	switchToUpgradeLogFile(showLog, context.Logger())
 
 	psErr := powershell.ExecutePs(psCmd, common.DeterminePsVersion(config), outputWriter)
@@ -137,8 +136,7 @@ func upgradeCluster(cmd *cobra.Command, args []string) error {
 		return common.CreateSystemUnableToUpgradeCmdFailure()
 	}
 
-	duration := time.Since(start)
-	common.PrintCompletedMessage(duration, "Upgrade")
+	cmdSession.Finish()
 
 	return nil
 }
