@@ -25,7 +25,7 @@ var suite *framework.K2sTestSuite
 
 func TestTraefik(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "autoscaling Addon Acceptance Tests", Label("addon", "acceptance", "setup-required", "invasive", "autoscaling", "system-running"))
+	RunSpecs(t, "autoscaling Addon Acceptance Tests", Label("addon", "addon-ilities", "acceptance", "setup-required", "invasive", "autoscaling", "system-running"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {

@@ -32,7 +32,7 @@ var (
 
 func TestLogging(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "logging Addon Acceptance Tests", Label("addon", "acceptance", "setup-required", "invasive", "logging", "system-running"))
+	RunSpecs(t, "logging Addon Acceptance Tests", Label("addon", "addon-ilities", "acceptance", "setup-required", "invasive", "logging", "system-running"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {

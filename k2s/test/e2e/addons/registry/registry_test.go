@@ -28,7 +28,7 @@ var suite *framework.K2sTestSuite
 
 func TestRegistry(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "registry Addon Acceptance Tests", Label("addon", "acceptance", "internet-required", "setup-required", "registry", "system-running"))
+	RunSpecs(t, "registry Addon Acceptance Tests", Label("addon", "addon-diverse", "acceptance", "internet-required", "setup-required", "registry", "system-running"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {

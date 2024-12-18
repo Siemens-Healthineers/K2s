@@ -37,7 +37,7 @@ var (
 )
 
 func TestAddon(t *testing.T) {
-	executionLabels := []string{"addon", "acceptance", "setup-required", "invasive", "kubevirt", "system-running"}
+	executionLabels := []string{"addon", "addon-diverse", "acceptance", "setup-required", "invasive", "kubevirt", "system-running"}
 	userAppliedLabels := GinkgoLabelFilter()
 	if strings.Compare(userAppliedLabels, "") != 0 {
 		if Label(manualExecutionFilterTag).MatchesLabelFilter(userAppliedLabels) {

@@ -27,7 +27,7 @@ var suite *framework.K2sTestSuite
 
 func TestSecurity(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "security Addon Acceptance Tests", Label("addon", "acceptance", "setup-required", "invasive", "security", "system-running"))
+	RunSpecs(t, "security Addon Acceptance Tests", Label("addon", "addon-ilities", "acceptance", "setup-required", "invasive", "security", "system-running"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {

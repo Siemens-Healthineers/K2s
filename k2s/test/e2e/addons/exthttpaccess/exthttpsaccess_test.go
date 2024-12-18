@@ -27,7 +27,7 @@ var suite *framework.K2sTestSuite
 
 func TestAddon(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "exthttpaccess Addon Acceptance Tests", Label("addon", "acceptance", "setup-required", "invasive", "exthttpaccess", "system-running"))
+	RunSpecs(t, "exthttpaccess Addon Acceptance Tests", Label("addon", "addon-communication", "acceptance", "setup-required", "invasive", "exthttpaccess", "system-running"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
