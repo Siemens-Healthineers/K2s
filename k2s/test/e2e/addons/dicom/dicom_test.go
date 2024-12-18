@@ -32,7 +32,7 @@ var (
 
 func TestDicom(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "dicom Addon Acceptance Tests", Label("addon", "acceptance", "setup-required", "invasive", "dicom", "system-running"))
+	RunSpecs(t, "dicom Addon Acceptance Tests", Label("addon", "addon-medical", "acceptance", "setup-required", "invasive", "dicom", "system-running"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
