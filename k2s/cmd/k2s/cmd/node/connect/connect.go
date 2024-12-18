@@ -10,6 +10,7 @@ import (
 
 	"github.com/pterm/pterm"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
+	"github.com/siemens-healthineers/k2s/internal/core/node"
 	"github.com/siemens-healthineers/k2s/internal/core/node/ssh"
 	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
 	"github.com/spf13/cobra"
@@ -78,7 +79,7 @@ func connect(cmd *cobra.Command, args []string) error {
 
 	connectionOptions.SshKeyPath = ssh.SshKeyPath(config.Host.SshDir)
 
-	err = ssh.ConnectInteractively(*connectionOptions)
+	err = node.Connect(*connectionOptions)
 	if err != nil {
 		return fmt.Errorf("failed to connect: %w", err)
 	}

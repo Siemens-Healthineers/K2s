@@ -12,7 +12,7 @@ import (
 
 	"path/filepath"
 
-	"github.com/siemens-healthineers/k2s/internal/core/node/copy"
+	"github.com/siemens-healthineers/k2s/internal/core/node"
 	"github.com/siemens-healthineers/k2s/internal/core/node/ssh"
 	"github.com/siemens-healthineers/k2s/internal/core/users/common"
 )
@@ -37,7 +37,7 @@ type fileAccessControl interface {
 	RevokeAccess(path string, username string) error
 }
 
-type copyFunc func(copyOptions copy.CopyOptions, connectionOptions ssh.ConnectionOptions) error
+type copyFunc func(copyOptions node.CopyOptions, connectionOptions ssh.ConnectionOptions) error
 type execFunc func(command string, connectionOptions ssh.ConnectionOptions) error
 
 type controlPlaneAccess struct {
@@ -68,40 +68,41 @@ func NewControlPlaneAccess(fs fileSystem, keygen sshKeyGen, exec execFunc, copy 
 	}
 }
 
-func (g *controlPlaneAccess) GrantAccessTo(user common.User, currentUserName, k2sUserName string) (err error) {
+func (g *controlPlaneAccess) GrantAccessTo(user common.User, currentUserName, k2sUserName string) error {
 	sshDirName := filepath.Base(g.adminSshDir)
 	newUserSshDir := filepath.Join(user.HomeDir(), sshDirName)
 	newUserSshKeyPath := ssh.SshKeyPath(newUserSshDir)
 	newUserSshControlPlaneDir := filepath.Dir(newUserSshKeyPath)
 
-	if err = g.createSshKey(newUserSshKeyPath, k2sUserName); err != nil {
+	if err := g.createSshKey(newUserSshKeyPath, k2sUserName); err != nil {
 		return fmt.Errorf("could not create SSH key '%s' for user '%s': %w", newUserSshKeyPath, k2sUserName, err)
 	}
 
-	if err = g.transferKeyOwnership(newUserSshKeyPath, currentUserName, user.Name()); err != nil {
+	if err := g.transferKeyOwnership(newUserSshKeyPath, currentUserName, user.Name()); err != nil {
 		return fmt.Errorf("could not transfer ownership of key file '%s' to '%s': %w", newUserSshKeyPath, user.Name(), err)
 	}
 
+	var authErr, addKnownHostsErr error
 	tasks := sync.WaitGroup{}
 	tasks.Add(2)
 
 	go func() {
 		defer tasks.Done()
-		if innerErr := g.authorizePubKeyOnControlPlane(newUserSshControlPlaneDir, k2sUserName); innerErr != nil {
-			err = errors.Join(err, fmt.Errorf("could not authorize public key on control-plane: %w", innerErr))
+		if err := g.authorizePubKeyOnControlPlane(newUserSshControlPlaneDir, k2sUserName); err != nil {
+			authErr = fmt.Errorf("could not authorize public key on control-plane: %w", err)
 		}
 	}()
 
 	go func() {
 		defer tasks.Done()
-		if innerErr := g.addControlPlaneToKnownHosts(newUserSshDir); innerErr != nil {
-			err = errors.Join(err, fmt.Errorf("could not add control-plane fingerprint to known_hosts: %w", innerErr))
+		if err := g.addControlPlaneToKnownHosts(newUserSshDir); err != nil {
+			addKnownHostsErr = fmt.Errorf("could not add control-plane fingerprint to known_hosts: %w", err)
 		}
 	}()
 
 	tasks.Wait()
 
-	return err
+	return errors.Join(authErr, addKnownHostsErr)
 }
 
 func (g *controlPlaneAccess) createSshKey(keyPath string, keyComment string) error {
@@ -172,10 +173,10 @@ func (g *controlPlaneAccess) authorizePubKeyOnControlPlane(keyDir string, k2sUse
 	}
 
 	slog.Debug("Copying pub SSH key to control-plane temp dir")
-	copyOptions := copy.CopyOptions{
+	copyOptions := node.CopyOptions{
 		Source:    localPubKeyPath,
 		Target:    remotePubKeyPath,
-		Direction: copy.CopyToNode,
+		Direction: node.CopyToNode,
 	}
 
 	if err := g.copy(copyOptions, g.sshOptions); err != nil {

@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 
-	bos "os"
+	"os"
 
 	"github.com/siemens-healthineers/k2s/internal/core/node/ssh"
 )
@@ -29,8 +29,8 @@ func Exec(command string, connectionOptions ssh.ConnectionOptions) error {
 		return fmt.Errorf("failed to create SSH session: %w", err)
 	}
 
-	session.Stdout = bos.Stdout
-	session.Stderr = bos.Stdout
+	session.Stdout = os.Stdout
+	session.Stderr = os.Stdout
 
 	// Session.Run() implicitly closes the session afterwards
 	if err := session.Run(command); err != nil {

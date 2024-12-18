@@ -11,7 +11,7 @@ import (
 	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/siemens-healthineers/k2s/internal/core/users/nodes/keygen"
+	"github.com/siemens-healthineers/k2s/internal/core/node/ssh/keygen"
 	"github.com/siemens-healthineers/k2s/internal/reflection"
 	"github.com/stretchr/testify/mock"
 )
@@ -56,7 +56,7 @@ func (m *fsMock) WriteFile(path string, data []byte) error {
 
 func TestKeygenPkg(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "keygen pkg Tests", Label("ci", "unit", "internal", "core", "users", "nodes", "keygen"))
+	RunSpecs(t, "keygen pkg Tests", Label("ci", "unit", "internal", "core", "node", "keygen"))
 }
 
 var _ = BeforeSuite(func() {

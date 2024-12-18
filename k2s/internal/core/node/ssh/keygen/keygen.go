@@ -8,9 +8,11 @@ import (
 	"log/slog"
 	"path/filepath"
 	"strings"
-
-	"github.com/siemens-healthineers/k2s/internal/core/users/common"
 )
+
+type cmdExecutor interface {
+	ExecuteCmd(name string, arg ...string) error
+}
 
 type fileSystem interface {
 	PathExists(path string) bool
@@ -20,7 +22,7 @@ type fileSystem interface {
 }
 
 type sshKeyGen struct {
-	exec common.CmdExecutor
+	exec cmdExecutor
 	fs   fileSystem
 }
 
@@ -33,7 +35,7 @@ const (
 	lineSeparator  = "\n"
 )
 
-func NewSshKeyGen(cmdExecutor common.CmdExecutor, fileSystem fileSystem) *sshKeyGen {
+func NewSshKeyGen(cmdExecutor cmdExecutor, fileSystem fileSystem) *sshKeyGen {
 	return &sshKeyGen{
 		exec: cmdExecutor,
 		fs:   fileSystem,

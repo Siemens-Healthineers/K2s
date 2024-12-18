@@ -11,8 +11,8 @@ import (
 	"github.com/samber/lo"
 	"github.com/siemens-healthineers/k2s/internal/core/config"
 	"github.com/siemens-healthineers/k2s/internal/core/node"
-	"github.com/siemens-healthineers/k2s/internal/core/node/copy"
 	"github.com/siemens-healthineers/k2s/internal/core/node/ssh"
+	"github.com/siemens-healthineers/k2s/internal/core/node/ssh/keygen"
 	"github.com/siemens-healthineers/k2s/internal/core/users/acl"
 	"github.com/siemens-healthineers/k2s/internal/core/users/common"
 	"github.com/siemens-healthineers/k2s/internal/core/users/fs"
@@ -21,7 +21,6 @@ import (
 	"github.com/siemens-healthineers/k2s/internal/core/users/k8s/cluster"
 	"github.com/siemens-healthineers/k2s/internal/core/users/k8s/kubeconfig"
 	"github.com/siemens-healthineers/k2s/internal/core/users/nodes"
-	"github.com/siemens-healthineers/k2s/internal/core/users/nodes/keygen"
 	"github.com/siemens-healthineers/k2s/internal/core/users/winusers"
 )
 
@@ -75,9 +74,9 @@ func NewUsersManagement(cfg *config.Config, cmdExecutor common.CmdExecutor, user
 	aclExec := acl.NewAcl(cmdExecutor)
 	restClient := http.NewRestClient()
 	kubeconfigReader := kubeconfig.NewKubeconfigReader()
-	controlPlaneAccess := nodes.NewControlPlaneAccess(fileSystem, keygenExec, node.Exec, copy.Copy, sshOptions, aclExec, cfg.Host.SshDir, controlePlaneCfg.IpAddress)
+	controlPlaneAccess := nodes.NewControlPlaneAccess(fileSystem, keygenExec, node.Exec, node.Copy, sshOptions, aclExec, cfg.Host.SshDir, controlePlaneCfg.IpAddress)
 	clusterAccess := cluster.NewClusterAccess(restClient)
-	k8sAccess := k8s.NewK8sAccess(node.Exec, copy.Copy, sshOptions, fileSystem, clusterAccess, kubeconfigWriterFactory, kubeconfigReader, cfg.Host.KubeConfigDir)
+	k8sAccess := k8s.NewK8sAccess(node.Exec, node.Copy, sshOptions, fileSystem, clusterAccess, kubeconfigWriterFactory, kubeconfigReader, cfg.Host.KubeConfigDir)
 	userAdder := NewWinUserAdder(controlPlaneAccess, k8sAccess, CreateK2sUserName)
 
 	return &usersManagement{
