@@ -14,6 +14,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/install/buildonly"
+	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/install/common"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/install/core"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/install/multivm"
 
@@ -23,14 +24,10 @@ import (
 
 	"github.com/siemens-healthineers/k2s/internal/terminal"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
+	cc "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 )
-
-type Installer interface {
-	Install(kind ic.Kind, cmd *cobra.Command, buildCmdFunc func(config *ic.InstallConfig) (cmd string, err error)) error
-}
 
 const (
 	kind ic.Kind = "k2s"
@@ -71,7 +68,7 @@ var (
 		Example: example,
 	}
 
-	installer          Installer
+	installer          common.Installer
 	installMultiVmFunc func(cmd *cobra.Command, args []string) error
 	createTzHandleFunc func() (tz.ConfigWorkspaceHandle, error)
 )
@@ -81,16 +78,15 @@ func init() {
 	InstallCmd.AddCommand(buildonly.InstallCmd)
 
 	installer = &core.Installer{
-		InstallConfigAccess:       ic.NewInstallConfigAccess(),
-		Printer:                   terminal.NewTerminalPrinter(),
-		ExecutePsScript:           powershell.ExecutePs,
-		GetVersionFunc:            version.GetVersion,
-		GetPlatformFunc:           utils.Platform,
-		GetInstallDirFunc:         utils.InstallDir,
-		PrintCompletedMessageFunc: common.PrintCompletedMessage,
-		LoadConfigFunc:            setupinfo.ReadConfig,
-		SetConfigFunc:             setupinfo.WriteConfig,
-		DeleteConfigFunc:          setupinfo.DeleteConfig,
+		InstallConfigAccess: ic.NewInstallConfigAccess(),
+		Printer:             terminal.NewTerminalPrinter(),
+		ExecutePsScript:     powershell.ExecutePs,
+		GetVersionFunc:      version.GetVersion,
+		GetPlatformFunc:     utils.Platform,
+		GetInstallDirFunc:   utils.InstallDir,
+		LoadConfigFunc:      setupinfo.ReadConfig,
+		SetConfigFunc:       setupinfo.WriteConfig,
+		DeleteConfigFunc:    setupinfo.DeleteConfig,
 	}
 
 	multivm.Installer = installer
@@ -102,9 +98,9 @@ func init() {
 }
 
 func bindFlags(cmd *cobra.Command) {
-	cmd.Flags().String(common.AdditionalHooksDirFlagName, "", common.AdditionalHooksDirFlagUsage)
-	cmd.Flags().BoolP(common.DeleteFilesFlagName, common.DeleteFilesFlagShorthand, false, common.DeleteFilesFlagUsage)
-	cmd.Flags().BoolP(common.ForceOnlineInstallFlagName, common.ForceOnlineInstallFlagShorthand, false, common.ForceOnlineInstallFlagUsage)
+	cmd.Flags().String(cc.AdditionalHooksDirFlagName, "", cc.AdditionalHooksDirFlagUsage)
+	cmd.Flags().BoolP(cc.DeleteFilesFlagName, cc.DeleteFilesFlagShorthand, false, cc.DeleteFilesFlagUsage)
+	cmd.Flags().BoolP(cc.ForceOnlineInstallFlagName, cc.ForceOnlineInstallFlagShorthand, false, cc.ForceOnlineInstallFlagUsage)
 
 	cmd.Flags().String(ic.ControlPlaneCPUsFlagName, "", ic.ControlPlaneCPUsFlagUsage)
 	cmd.Flags().String(ic.ControlPlaneMemoryFlagName, "", ic.ControlPlaneMemoryFlagUsage)
@@ -138,6 +134,7 @@ func createTimezoneConfigHandle() (tz.ConfigWorkspaceHandle, error) {
 }
 
 func install(cmd *cobra.Command, args []string) error {
+	cmdSession := cc.StartCmdSession(cmd.CommandPath())
 	linuxOnly, err := cmd.Flags().GetBool(ic.LinuxOnlyFlagName)
 	if err != nil {
 		return err
@@ -158,7 +155,7 @@ func install(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	return installer.Install(kind, cmd, buildInstallCmd)
+	return installer.Install(kind, cmd, buildInstallCmd, cmdSession)
 }
 
 func buildInstallCmd(c *ic.InstallConfig) (cmd string, err error) {

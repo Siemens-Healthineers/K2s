@@ -6,6 +6,7 @@ package multivm
 import (
 	"testing"
 
+	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 	ic "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/install/config"
 
 	r "github.com/siemens-healthineers/k2s/internal/reflection"
@@ -22,8 +23,8 @@ type mockObject struct {
 	mock.Mock
 }
 
-func (m *mockObject) Install(kind ic.Kind, cmd *cobra.Command, buildCmdFunc func(config *ic.InstallConfig) (cmd string, err error)) error {
-	args := m.Called(kind, cmd, buildCmdFunc)
+func (m *mockObject) Install(kind ic.Kind, cmd *cobra.Command, buildCmdFunc func(config *ic.InstallConfig) (cmd string, err error), cmdSession common.CmdSession) error {
+	args := m.Called(kind, cmd, buildCmdFunc, cmdSession)
 
 	return args.Error(0)
 }
@@ -39,7 +40,7 @@ var _ = Describe("multivm", func() {
 			cmd := &cobra.Command{}
 
 			installerMock := &mockObject{}
-			installerMock.On(r.GetFunctionName(installerMock.Install), ic.Kind(kind), cmd, mock.AnythingOfType("func(*config.InstallConfig) (string, error)")).Return(nil).Once()
+			installerMock.On(r.GetFunctionName(installerMock.Install), ic.Kind(kind), cmd, mock.AnythingOfType("func(*config.InstallConfig) (string, error)"), mock.Anything).Return(nil).Once()
 
 			Installer = installerMock
 

@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"log/slog"
 	"strconv"
-	"time"
 
 	"github.com/pterm/pterm"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
@@ -54,6 +53,7 @@ func NewCmd() *cobra.Command {
 }
 
 func addNode(ccmd *cobra.Command, args []string) error {
+	cmdSession := common.StartCmdSession(ccmd.CommandPath())
 	context := ccmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
 	config, err := setupinfo.ReadConfig(context.Config().Host.K2sConfigDir)
 	if err != nil {
@@ -84,15 +84,12 @@ func addNode(ccmd *cobra.Command, args []string) error {
 	pterm.Printfln("🤖 Adding node to K2s cluster")
 	slog.Debug("PS command created", "command", addNodeCmd)
 
-	start := time.Now()
-
 	err = powershell.ExecutePs(addNodeCmd, psVersion, common.NewPtermWriter())
 	if err != nil {
 		return err
 	}
 
-	duration := time.Since(start)
-	common.PrintCompletedMessage(duration, "Add Node")
+	cmdSession.Finish()
 
 	return nil
 }

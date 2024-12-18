@@ -58,6 +58,11 @@ type CmdContext struct {
 	logger *logging.Slogger
 }
 
+type CmdSession struct {
+	start          time.Time
+	cmdDisplayName string
+}
+
 const (
 	ErrSystemNotInstalledMsg     = "You have not installed K2s setup yet, please start the installation with command 'k2s.exe install' first"
 	ErrSystemInCorruptedStateMsg = "Errors occurred during K2s setup. K2s cluster is in corrupted state. Please uninstall and reinstall K2s cluster."
@@ -108,12 +113,13 @@ func NewCmdContext(config *config.Config, logger *logging.Slogger) *CmdContext {
 	}
 }
 
-func PrintCompletedMessage(duration time.Duration, command string) {
-	pterm.Success.Printfln("'%s' completed in %v", command, duration)
+func StartCmdSession(cmdDisplayName string) CmdSession {
+	slog.Debug("Command started", "command", cmdDisplayName)
 
-	logHint := pterm.LightCyan(fmt.Sprintf("Please see '%s' for more information", bl.GlobalLogFilePath()))
-
-	pterm.Println(logHint)
+	return CmdSession{
+		start:          time.Now(),
+		cmdDisplayName: cmdDisplayName,
+	}
 }
 
 func CreateSystemNotInstalledCmdResult() CmdResult {
@@ -208,6 +214,15 @@ func GetInstallPreRequisiteError(errorLines []string) (line string, found bool) 
 }
 
 func (c *CmdFailure) Error() string { return fmt.Sprintf("%s: %s", c.Code, c.Message) }
+
+func (s CmdSession) Finish() {
+	slog.Debug("Command finished", "command", s.cmdDisplayName)
+	pterm.Success.Printfln("'%s' completed in %v", s.cmdDisplayName, time.Since(s.start))
+
+	logHint := pterm.LightCyan(fmt.Sprintf("Please see '%s' for more information", bl.GlobalLogFilePath()))
+
+	pterm.Println(logHint)
+}
 
 func (s FailureSeverity) String() string {
 	switch s {
