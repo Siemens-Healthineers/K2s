@@ -29,7 +29,7 @@ var suite *framework.K2sTestSuite
 
 func TestIngressNginx(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "ingress nginx Addon Acceptance Tests", Label("addon", "acceptance", "setup-required", "invasive", "ingress nginx", "system-running"))
+	RunSpecs(t, "ingress nginx Addon Acceptance Tests", Label("addon", "addon-communication", "acceptance", "setup-required", "invasive", "ingress nginx", "system-running"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
