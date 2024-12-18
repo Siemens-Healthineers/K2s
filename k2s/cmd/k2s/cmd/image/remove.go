@@ -9,7 +9,6 @@ import (
 	"log/slog"
 	"path/filepath"
 	"strconv"
-	"time"
 
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
@@ -63,6 +62,7 @@ func addInitFlagsForRemoveCommand(cmd *cobra.Command) {
 }
 
 func removeImage(cmd *cobra.Command, args []string) error {
+	cmdSession := common.StartCmdSession(cmd.CommandPath())
 	pterm.Println("🤖 Removing container image..")
 
 	options, err := extractRemoveOptions(cmd)
@@ -73,8 +73,6 @@ func removeImage(cmd *cobra.Command, args []string) error {
 	psCmd, params := buildRemovePsCmd(options)
 
 	slog.Debug("PS command created", "command", psCmd, "params", params)
-
-	start := time.Now()
 
 	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
 	config, err := setupinfo.ReadConfig(context.Config().Host.K2sConfigDir)
@@ -101,9 +99,7 @@ func removeImage(cmd *cobra.Command, args []string) error {
 		return cmdResult.Failure
 	}
 
-	duration := time.Since(start)
-
-	common.PrintCompletedMessage(duration, "image rm")
+	cmdSession.Finish()
 
 	return nil
 }

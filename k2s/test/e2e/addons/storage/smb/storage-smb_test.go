@@ -327,7 +327,7 @@ func disableAddon(ctx context.Context) {
 	Expect(output).To(SatisfyAll(
 		ContainSubstring("disable"),
 		ContainSubstring(addonName),
-		MatchRegexp("'addons disable %s %s' completed", addonName, implementationName),
+		MatchRegexp("'k2s addons disable %s %s' completed", addonName, implementationName),
 	))
 }
 
@@ -374,6 +374,6 @@ func expectStatusToBePrinted(smbHostType string, ctx context.Context) {
 func expectEnableMessage(output string, smbHostType string) {
 	Expect(output).To(SatisfyAll(
 		MatchRegexp("Enabling addon \\'%s\\' with SMB host type \\'%s\\'", addonName, smbHostType),
-		MatchRegexp("'addons enable %s %s' completed", addonName, implementationName),
+		MatchRegexp("'k2s addons enable %s %s' completed", addonName, implementationName),
 	))
 }

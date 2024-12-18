@@ -7,7 +7,6 @@ import (
 	"errors"
 	"path/filepath"
 	"strconv"
-	"time"
 
 	"github.com/spf13/cobra"
 
@@ -37,6 +36,7 @@ func init() {
 }
 
 func resetNetwork(cmd *cobra.Command, args []string) error {
+	cmdSession := common.StartCmdSession(cmd.CommandPath())
 	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
 	config, err := setupinfo.ReadConfig(context.Config().Host.K2sConfigDir)
 	if err != nil {
@@ -73,11 +73,7 @@ func resetNetwork(cmd *cobra.Command, args []string) error {
 		params = append(params, " -ShowLogs")
 	}
 
-	start := time.Now()
-
 	cmdResult, err := powershell.ExecutePsWithStructuredResult[*common.CmdResult](resetNetworkCommand, "CmdResult", powershell.PowerShellV5, common.NewPtermWriter(), params...)
-
-	duration := time.Since(start)
 
 	if err != nil {
 		return err
@@ -87,7 +83,7 @@ func resetNetwork(cmd *cobra.Command, args []string) error {
 		return cmdResult.Failure
 	}
 
-	common.PrintCompletedMessage(duration, "system reset network")
+	cmdSession.Finish()
 
 	return nil
 }

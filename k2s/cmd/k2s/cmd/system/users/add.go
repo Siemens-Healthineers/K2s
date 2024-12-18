@@ -6,8 +6,6 @@ package users
 import (
 	"errors"
 	"fmt"
-	"log/slog"
-	"time"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/status"
@@ -44,9 +42,7 @@ func newAddCommand() *cobra.Command {
 }
 
 func run(cmd *cobra.Command, args []string) error {
-	slog.Info("Granting Windows user access to K2s..")
-
-	start := time.Now()
+	cmdSession := common.StartCmdSession(cmd.CommandPath())
 
 	userName, err := cmd.Flags().GetString(userNameFlag)
 	if err != nil {
@@ -92,7 +88,8 @@ func run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	common.PrintCompletedMessage(time.Since(start), cmd.CommandPath())
+	cmdSession.Finish()
+
 	return nil
 }
 
