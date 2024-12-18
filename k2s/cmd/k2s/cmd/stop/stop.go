@@ -7,7 +7,6 @@ import (
 	"errors"
 	"log/slog"
 	"strconv"
-	"time"
 
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
@@ -37,6 +36,7 @@ func init() {
 }
 
 func stopk8s(cmd *cobra.Command, args []string) error {
+	cmdSession := common.StartCmdSession(cmd.CommandPath())
 	pterm.Printfln("🛑 Stopping K2s cluster")
 
 	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
@@ -64,15 +64,12 @@ func stopk8s(cmd *cobra.Command, args []string) error {
 
 	slog.Debug("PS command created", "command", stopCmd)
 
-	start := time.Now()
-
 	err = powershell.ExecutePs(stopCmd, common.DeterminePsVersion(config), common.NewPtermWriter())
 	if err != nil {
 		return err
 	}
 
-	duration := time.Since(start)
-	common.PrintCompletedMessage(duration, "Stop")
+	cmdSession.Finish()
 
 	return nil
 }

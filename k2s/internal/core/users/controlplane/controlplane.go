@@ -1,8 +1,7 @@
 // SPDX-FileCopyrightText:  © 2024 Siemens Healthcare AG
 // SPDX-License-Identifier:   MIT
 
-// TODO: consolidate with k2s/internal/core/node package
-package nodes
+package controlplane
 
 import (
 	"errors"

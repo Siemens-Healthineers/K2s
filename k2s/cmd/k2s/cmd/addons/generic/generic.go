@@ -9,7 +9,6 @@ import (
 	"log/slog"
 	"path/filepath"
 	"sort"
-	"time"
 
 	"github.com/pterm/pterm"
 	"github.com/samber/lo"
@@ -165,11 +164,10 @@ func addFlag(flag addons.CliFlag, flagSet *pflag.FlagSet) error {
 }
 
 func runCmd(cmd *cobra.Command, addon addons.Addon, cmdName string, implementation addons.Implementation) error {
+	cmdSession := common.StartCmdSession(cmd.CommandPath())
 	if addon.Metadata.Name != implementation.Name {
-		slog.Info("Running addon command", "command", cmdName, "addon", addon.Metadata.Name, "implementation", implementation.Name)
 		pterm.Printfln("🤖 Running '%s' for implementation '%s' of '%s' addon", cmdName, implementation.Name, addon.Metadata.Name)
 	} else {
-		slog.Info("Running addon command", "command", cmdName, "addon", addon.Metadata.Name)
 		pterm.Printfln("🤖 Running '%s' for '%s' addon", cmdName, addon.Metadata.Name)
 	}
 
@@ -179,8 +177,6 @@ func runCmd(cmd *cobra.Command, addon addons.Addon, cmdName string, implementati
 	}
 
 	slog.Debug("PS command created", "command", psCmd, "params", params)
-
-	start := time.Now()
 
 	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
 	config, err := setupinfo.ReadConfig(context.Config().Host.K2sConfigDir)
@@ -203,12 +199,7 @@ func runCmd(cmd *cobra.Command, addon addons.Addon, cmdName string, implementati
 		return cmdResult.Failure
 	}
 
-	duration := time.Since(start)
-	if addon.Metadata.Name != implementation.Name {
-		common.PrintCompletedMessage(duration, fmt.Sprintf("addons %s %s %s", cmdName, addon.Metadata.Name, implementation.Name))
-	} else {
-		common.PrintCompletedMessage(duration, fmt.Sprintf("addons %s %s", cmdName, addon.Metadata.Name))
-	}
+	cmdSession.Finish()
 
 	return nil
 }

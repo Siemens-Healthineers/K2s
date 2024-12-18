@@ -135,7 +135,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 							output := suite.K2sCli().Run(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFile, "-o", "-u", remoteUser)
 
-							Expect(output).To(MatchRegexp("'copy' done"))
+							Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
 							content := sshExec.exec(ctx, "cat "+targetFile)
 
@@ -162,7 +162,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 								output := suite.K2sCli().Run(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFile, "-o", "-u", remoteUser)
 
-								Expect(output).To(MatchRegexp("'copy' done"))
+								Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
 								content := sshExec.exec(ctx, "cat "+targetFile)
 
@@ -188,7 +188,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 								output := suite.K2sCli().Run(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFolder, "-o", "-u", remoteUser)
 
-								Expect(output).To(MatchRegexp("'copy' done"))
+								Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
 								content := sshExec.exec(ctx, "cat "+existingRemoteFile)
 
@@ -215,7 +215,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 									output := suite.K2sCli().Run(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFolder, "-o", "-u", remoteUser)
 
-									Expect(output).To(MatchRegexp("'copy' done"))
+									Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
 									content := sshExec.exec(ctx, "cat "+existingRemoteFile)
 
@@ -231,7 +231,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 								output := suite.K2sCli().Run(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFolder, "-o", "-u", remoteUser)
 
-								Expect(output).To(MatchRegexp("'copy' done"))
+								Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
 								content := sshExec.exec(ctx, "cat "+expectedTargetFile)
 
@@ -256,7 +256,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 									output := suite.K2sCli().Run(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFolder, "-o", "-u", remoteUser)
 
-									Expect(output).To(MatchRegexp("'copy' done"))
+									Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
 									content := sshExec.exec(ctx, "cat "+expectedRemoteFile)
 
@@ -274,7 +274,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 							output := suite.K2sCli().Run(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFile, "-o", "-u", remoteUser)
 
-							Expect(output).To(MatchRegexp("'copy' done"))
+							Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
 							content := sshExec.exec(ctx, "cat "+targetFile)
 
@@ -314,7 +314,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 							output := suite.K2sCli().Run(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFile, "-o", "-u", remoteUser)
 
-							Expect(output).To(MatchRegexp("'copy' done"))
+							Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
 							content := sshExec.exec(ctx, "cat "+expectedRemoteFile)
 
@@ -405,7 +405,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 								output := suite.K2sCli().Run(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFolder, "-t", targetFolder, "-o", "-u", remoteUser)
 
-								Expect(output).To(MatchRegexp("'copy' done"))
+								Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
 								for _, fileInfo := range sourceFileInfos {
 									remotePath := path.Join(existingRemoteFolder, fileInfo.subFolder, fileInfo.name)
@@ -439,7 +439,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 									output := suite.K2sCli().Run(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFolder, "-t", targetFolder, "-o", "-u", remoteUser)
 
-									Expect(output).To(MatchRegexp("'copy' done"))
+									Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
 									for _, fileInfo := range sourceFileInfos {
 										remotePath := path.Join(existingRemoteFolder, fileInfo.subFolder, fileInfo.name)
@@ -457,7 +457,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 								output := suite.K2sCli().Run(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFolder, "-t", targetFolder, "-o", "-u", remoteUser)
 
-								Expect(output).To(MatchRegexp("'copy' done"))
+								Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
 								for _, fileInfo := range sourceFileInfos {
 									remotePath := path.Join(remoteTempDir, sourceFolderName, fileInfo.subFolder, fileInfo.name)
@@ -477,7 +477,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 							output := suite.K2sCli().Run(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFolder, "-t", targetFolder, "-o", "-u", remoteUser)
 
-							Expect(output).To(MatchRegexp("'copy' done"))
+							Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
 							for _, fileInfo := range sourceFileInfos {
 								remotePath := path.Join(targetFolder, fileInfo.subFolder, fileInfo.name)
@@ -582,7 +582,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 							output := suite.K2sCli().Run(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFile, "-o", "-u", remoteUser)
 
-							Expect(output).To(MatchRegexp("'copy' done"))
+							Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
 							content := sshExec.exec(ctx, "more "+targetFile)
 
@@ -609,7 +609,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 								output := suite.K2sCli().Run(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFile, "-o", "-u", remoteUser)
 
-								Expect(output).To(MatchRegexp("'copy' done"))
+								Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
 								content := sshExec.exec(ctx, "more "+targetFile)
 
@@ -635,7 +635,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 								output := suite.K2sCli().Run(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFolder, "-o", "-u", remoteUser)
 
-								Expect(output).To(MatchRegexp("'copy' done"))
+								Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
 								content := sshExec.exec(ctx, "more "+existingRemoteFile)
 
@@ -662,7 +662,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 									output := suite.K2sCli().Run(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFolder, "-o", "-u", remoteUser)
 
-									Expect(output).To(MatchRegexp("'copy' done"))
+									Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
 									content := sshExec.exec(ctx, "more "+existingRemoteFile)
 
@@ -678,7 +678,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 								output := suite.K2sCli().Run(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFolder, "-o", "-u", remoteUser)
 
-								Expect(output).To(MatchRegexp("'copy' done"))
+								Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
 								content := sshExec.exec(ctx, "more "+expectedTargetFile)
 
@@ -703,7 +703,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 									output := suite.K2sCli().Run(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFolder, "-o", "-u", remoteUser)
 
-									Expect(output).To(MatchRegexp("'copy' done"))
+									Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
 									content := sshExec.exec(ctx, "more "+expectedRemoteFile)
 
@@ -721,7 +721,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 							output := suite.K2sCli().Run(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFile, "-o", "-u", remoteUser)
 
-							Expect(output).To(MatchRegexp("'copy' done"))
+							Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
 							content := sshExec.exec(ctx, "more "+targetFile)
 
@@ -761,7 +761,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 							output := suite.K2sCli().Run(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFile, "-o", "-u", remoteUser)
 
-							Expect(output).To(MatchRegexp("'copy' done"))
+							Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
 							content := sshExec.exec(ctx, "more "+expectedRemoteFile)
 
@@ -852,7 +852,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 								output := suite.K2sCli().Run(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFolder, "-t", targetFolder, "-o", "-u", remoteUser)
 
-								Expect(output).To(MatchRegexp("'copy' done"))
+								Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
 								for _, fileInfo := range sourceFileInfos {
 									remotePath := filepath.Join(existingRemoteFolder, fileInfo.subFolder, fileInfo.name)
@@ -886,7 +886,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 									output := suite.K2sCli().Run(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFolder, "-t", targetFolder, "-o", "-u", remoteUser)
 
-									Expect(output).To(MatchRegexp("'copy' done"))
+									Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
 									for _, fileInfo := range sourceFileInfos {
 										remotePath := filepath.Join(existingRemoteFolder, fileInfo.subFolder, fileInfo.name)
@@ -904,7 +904,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 								output := suite.K2sCli().Run(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFolder, "-t", targetFolder, "-o", "-u", remoteUser)
 
-								Expect(output).To(MatchRegexp("'copy' done"))
+								Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
 								for _, fileInfo := range sourceFileInfos {
 									remotePath := filepath.Join(remoteTempDir, sourceFolderName, fileInfo.subFolder, fileInfo.name)
@@ -924,7 +924,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 							output := suite.K2sCli().Run(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFolder, "-t", targetFolder, "-o", "-u", remoteUser)
 
-							Expect(output).To(MatchRegexp("'copy' done"))
+							Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
 							for _, fileInfo := range sourceFileInfos {
 								remotePath := filepath.Join(targetFolder, fileInfo.subFolder, fileInfo.name)
@@ -1042,7 +1042,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 								output := suite.K2sCli().Run(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFile, "-o", "-r", "-u", remoteUser)
 
-								Expect(output).To(MatchRegexp("'copy' done"))
+								Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
 								content, err := os.ReadFile(targetFile)
 
@@ -1068,7 +1068,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 									output := suite.K2sCli().Run(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFolder, "-o", "-r", "-u", remoteUser)
 
-									Expect(output).To(MatchRegexp("'copy' done"))
+									Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
 									content, err := os.ReadFile(existingLocalFile)
 
@@ -1099,7 +1099,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 										output := suite.K2sCli().Run(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFolder, "-o", "-r", "-u", remoteUser)
 
-										Expect(output).To(MatchRegexp("'copy' done"))
+										Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
 										content, err := os.ReadFile(existingLocalFile)
 
@@ -1116,7 +1116,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 									output := suite.K2sCli().Run(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFolder, "-o", "-r", "-u", remoteUser)
 
-									Expect(output).To(MatchRegexp("'copy' done"))
+									Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
 									content, err := os.ReadFile(expectedTargetFile)
 
@@ -1145,7 +1145,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 										output := suite.K2sCli().Run(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFolder, "-o", "-r", "-u", remoteUser)
 
-										Expect(output).To(MatchRegexp("'copy' done"))
+										Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
 										content, err := os.ReadFile(expectedTargetFile)
 
@@ -1164,7 +1164,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 								output := suite.K2sCli().Run(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFile, "-o", "-r", "-u", remoteUser)
 
-								Expect(output).To(MatchRegexp("'copy' done"))
+								Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
 								content, err := os.ReadFile(targetFile)
 
@@ -1270,7 +1270,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 									output := suite.K2sCli().Run(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFolder, "-t", targetFolder, "-o", "-r", "-u", remoteUser)
 
-									Expect(output).To(MatchRegexp("'copy' done"))
+									Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
 									for _, fileInfo := range sourceFileInfos {
 										localPath := filepath.Join(existingLocalFolder, fileInfo.subFolder, fileInfo.name)
@@ -1305,7 +1305,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 										output := suite.K2sCli().Run(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFolder, "-t", targetFolder, "-o", "-r", "-u", remoteUser)
 
-										Expect(output).To(MatchRegexp("'copy' done"))
+										Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
 										for _, fileInfo := range sourceFileInfos {
 											localPath := filepath.Join(existingLocalFolder, fileInfo.subFolder, fileInfo.name)
@@ -1324,7 +1324,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 									output := suite.K2sCli().Run(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFolder, "-t", targetFolder, "-o", "-r", "-u", remoteUser)
 
-									Expect(output).To(MatchRegexp("'copy' done"))
+									Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
 									for _, fileInfo := range sourceFileInfos {
 										localPath := filepath.Join(localTempDir, sourceFolderName, fileInfo.subFolder, fileInfo.name)
@@ -1345,7 +1345,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 								output := suite.K2sCli().Run(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFolder, "-t", targetFolder, "-o", "-r", "-u", remoteUser)
 
-								Expect(output).To(MatchRegexp("'copy' done"))
+								Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
 								for _, fileInfo := range sourceFileInfos {
 									localPath := filepath.Join(targetFolder, fileInfo.subFolder, fileInfo.name)
@@ -1467,7 +1467,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 								output := suite.K2sCli().Run(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFile, "-o", "-u", remoteUser, "-r")
 
-								Expect(output).To(MatchRegexp("'copy' done"))
+								Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
 								content, err := os.ReadFile(targetFile)
 
@@ -1493,7 +1493,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 									output := suite.K2sCli().Run(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFolder, "-o", "-u", remoteUser, "-r")
 
-									Expect(output).To(MatchRegexp("'copy' done"))
+									Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
 									content, err := os.ReadFile(existingLocalFile)
 
@@ -1524,7 +1524,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 										output := suite.K2sCli().Run(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFolder, "-o", "-u", remoteUser, "-r")
 
-										Expect(output).To(MatchRegexp("'copy' done"))
+										Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
 										content, err := os.ReadFile(existingLocalFile)
 
@@ -1541,7 +1541,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 									output := suite.K2sCli().Run(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFolder, "-o", "-u", remoteUser, "-r")
 
-									Expect(output).To(MatchRegexp("'copy' done"))
+									Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
 									content, err := os.ReadFile(expectedTargetFile)
 
@@ -1570,7 +1570,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 										output := suite.K2sCli().Run(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFolder, "-o", "-u", remoteUser, "-r")
 
-										Expect(output).To(MatchRegexp("'copy' done"))
+										Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
 										content, err := os.ReadFile(expectedLocalFile)
 
@@ -1589,7 +1589,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 								output := suite.K2sCli().Run(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFile, "-t", targetFile, "-o", "-u", remoteUser, "-r")
 
-								Expect(output).To(MatchRegexp("'copy' done"))
+								Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
 								content, err := os.ReadFile(targetFile)
 
@@ -1695,7 +1695,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 									output := suite.K2sCli().Run(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFolder, "-t", targetFolder, "-o", "-u", remoteUser, "-r")
 
-									Expect(output).To(MatchRegexp("'copy' done"))
+									Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
 									for _, fileInfo := range sourceFileInfos {
 										localPath := filepath.Join(existingLocalFolder, fileInfo.subFolder, fileInfo.name)
@@ -1730,7 +1730,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 										output := suite.K2sCli().Run(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFolder, "-t", targetFolder, "-o", "-u", remoteUser, "-r")
 
-										Expect(output).To(MatchRegexp("'copy' done"))
+										Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
 										for _, fileInfo := range sourceFileInfos {
 											localPath := filepath.Join(existingLocalFolder, fileInfo.subFolder, fileInfo.name)
@@ -1749,7 +1749,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 									output := suite.K2sCli().Run(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFolder, "-t", targetFolder, "-o", "-u", remoteUser, "-r")
 
-									Expect(output).To(MatchRegexp("'copy' done"))
+									Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
 									for _, fileInfo := range sourceFileInfos {
 										localPath := filepath.Join(localTempDir, sourceFolderName, fileInfo.subFolder, fileInfo.name)
@@ -1770,7 +1770,7 @@ var _ = Describe("node copy", Ordered, func() {
 
 								output := suite.K2sCli().Run(ctx, "node", "copy", "--ip-addr", nodeIpAddress, "-s", sourceFolder, "-t", targetFolder, "-o", "-u", remoteUser, "-r")
 
-								Expect(output).To(MatchRegexp("'copy' done"))
+								Expect(output).To(MatchRegexp("'k2s node copy' completed"))
 
 								for _, fileInfo := range sourceFileInfos {
 									localPath := filepath.Join(targetFolder, fileInfo.subFolder, fileInfo.name)

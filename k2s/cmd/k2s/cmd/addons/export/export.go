@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"log/slog"
 	"strconv"
-	"time"
 
 	"github.com/siemens-healthineers/k2s/internal/powershell"
 	"github.com/siemens-healthineers/k2s/internal/terminal"
@@ -58,6 +57,7 @@ func NewCommand() *cobra.Command {
 }
 
 func runExport(cmd *cobra.Command, args []string) error {
+	cmdSession := common.StartCmdSession(cmd.CommandPath())
 	terminalPrinter := terminal.NewTerminalPrinter()
 	allAddons, err := addons.LoadAddons(utils.InstallDir())
 	if err != nil {
@@ -76,8 +76,6 @@ func runExport(cmd *cobra.Command, args []string) error {
 	}
 
 	slog.Debug("PS command created", "command", psCmd, "params", params)
-
-	start := time.Now()
 
 	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
 	config, err := setupinfo.ReadConfig(context.Config().Host.K2sConfigDir)
@@ -104,8 +102,7 @@ func runExport(cmd *cobra.Command, args []string) error {
 		return cmdResult.Failure
 	}
 
-	duration := time.Since(start)
-	common.PrintCompletedMessage(duration, "addons export")
+	cmdSession.Finish()
 
 	return nil
 }

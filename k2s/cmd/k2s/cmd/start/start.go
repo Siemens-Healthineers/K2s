@@ -7,7 +7,6 @@ import (
 	"errors"
 	"log/slog"
 	"strconv"
-	"time"
 
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
@@ -38,6 +37,7 @@ func init() {
 }
 
 func startk8s(ccmd *cobra.Command, args []string) error {
+	cmdSession := common.StartCmdSession(ccmd.CommandPath())
 	pterm.Printfln("🤖 Starting K2s on %s", utils.Platform())
 
 	context := ccmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
@@ -65,8 +65,6 @@ func startk8s(ccmd *cobra.Command, args []string) error {
 
 	slog.Debug("PS command created", "command", startCmd)
 
-	start := time.Now()
-
 	err = powershell.ExecutePs(startCmd, common.DeterminePsVersion(config), common.NewPtermWriter())
 	if err != nil {
 		return err
@@ -78,8 +76,7 @@ func startk8s(ccmd *cobra.Command, args []string) error {
 		slog.Warn("Failures during starting of additional nodes", "err", err)
 	}
 
-	duration := time.Since(start)
-	common.PrintCompletedMessage(duration, "Start")
+	cmdSession.Finish()
 
 	return nil
 }

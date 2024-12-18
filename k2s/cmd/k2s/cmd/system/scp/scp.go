@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"log/slog"
 	"strconv"
-	"time"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 
@@ -87,14 +86,13 @@ func runScpCmd(cmd *cobra.Command, args []string, scriptPath string) error {
 		return errors.New("no target path specified")
 	}
 
+	cmdSession := common.StartCmdSession(cmd.CommandPath())
 	psCmd, params, err := buildScpPsCmd(cmd, args, scriptPath)
 	if err != nil {
 		return err
 	}
 
 	slog.Debug("PS command created", "command", psCmd, "params", params)
-
-	start := time.Now()
 
 	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
 	config, err := setupinfo.ReadConfig(context.Config().Host.K2sConfigDir)
@@ -122,9 +120,7 @@ func runScpCmd(cmd *cobra.Command, args []string, scriptPath string) error {
 		return cmdResult.Failure
 	}
 
-	duration := time.Since(start)
-
-	common.PrintCompletedMessage(duration, fmt.Sprintf("%s %s", ScpCmd.Use, cmd.Use))
+	cmdSession.Finish()
 
 	return nil
 }
