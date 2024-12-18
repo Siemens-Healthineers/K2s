@@ -8,7 +8,7 @@ import (
 	"log/slog"
 	"path/filepath"
 
-	"github.com/siemens-healthineers/k2s/internal/core/node/copy"
+	"github.com/siemens-healthineers/k2s/internal/core/node"
 	"github.com/siemens-healthineers/k2s/internal/core/node/ssh"
 	"github.com/siemens-healthineers/k2s/internal/core/users/common"
 	"github.com/siemens-healthineers/k2s/internal/core/users/k8s/cluster"
@@ -41,7 +41,7 @@ type kubeconfigWriterFactory interface {
 }
 
 // TODO: redundant -> see nodes pkg
-type copyFunc func(copyOptions copy.CopyOptions, connectionOptions ssh.ConnectionOptions) error
+type copyFunc func(copyOptions node.CopyOptions, connectionOptions ssh.ConnectionOptions) error
 type execFunc func(command string, connectionOptions ssh.ConnectionOptions) error
 
 type k8sAccess struct {
@@ -252,10 +252,10 @@ func (g *k8sAccess) initKubeconfigDir(userHomeDir string) (kubeconfigDir string,
 
 func (g *k8sAccess) fetchUserCertFromControlPlane(targetDir string) error {
 	slog.Debug("Copying user cert and key from control-plane")
-	copyOptions := copy.CopyOptions{
+	copyOptions := node.CopyOptions{
 		Source:    remoteCertDir,
 		Target:    targetDir,
-		Direction: copy.CopyFromNode,
+		Direction: node.CopyFromNode,
 	}
 
 	if err := g.copy(copyOptions, g.sshOptions); err != nil {

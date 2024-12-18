@@ -12,7 +12,7 @@ import (
 	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/siemens-healthineers/k2s/internal/core/node/copy"
+	"github.com/siemens-healthineers/k2s/internal/core/node"
 	"github.com/siemens-healthineers/k2s/internal/core/node/ssh"
 	"github.com/siemens-healthineers/k2s/internal/core/users/nodes"
 	"github.com/siemens-healthineers/k2s/internal/reflection"
@@ -49,7 +49,7 @@ func (m *sshExecMock) Exec(command string, connectionOptions ssh.ConnectionOptio
 	return args.Error(0)
 }
 
-func (m *sshCopyMock) Copy(copyOptions copy.CopyOptions, connectionOptions ssh.ConnectionOptions) error {
+func (m *sshCopyMock) Copy(copyOptions node.CopyOptions, connectionOptions ssh.ConnectionOptions) error {
 	args := m.Called(copyOptions, connectionOptions)
 
 	return args.Error(0)
