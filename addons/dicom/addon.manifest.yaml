@@ -6,7 +6,7 @@ apiVersion: v1
 kind: AddonManifest
 metadata:
   name: dicom
-  description: DICOM server for medical imaging data running in Kubernetes
+  description: DICOM client/server for medical imaging data running in Kubernetes
   annotations:
     k2s.cluster.local/update-ingress-configuration: "true"
 spec:

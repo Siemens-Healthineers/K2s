@@ -29,7 +29,7 @@ var suite *framework.K2sTestSuite
 func TestAddon(t *testing.T) {
 	RegisterFailHandler(Fail)
 
-	hiddenLabels := []string{"addon", "acceptance", "setup-required", "invasive", "gpu-node", "system-running", "nvidia"}
+	hiddenLabels := []string{"addon", "addon-diverse", "acceptance", "setup-required", "invasive", "gpu-node", "system-running", "nvidia"}
 
 	RunSpecs(t, "gpu-node Addon Acceptance Tests", Label(hiddenLabels...))
 }

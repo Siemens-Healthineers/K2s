@@ -32,7 +32,7 @@ var (
 
 func TestRollout(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "rollout Addon Acceptance Tests", Label("addon", "acceptance", "setup-required", "invasive", "rollout", "system-running"))
+	RunSpecs(t, "rollout Addon Acceptance Tests", Label("addon", "addon-ilities", "acceptance", "setup-required", "invasive", "rollout", "system-running"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {

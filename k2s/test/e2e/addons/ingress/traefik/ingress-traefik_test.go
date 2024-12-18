@@ -29,7 +29,7 @@ var suite *framework.K2sTestSuite
 
 func TestIngressTraefik(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "ingress traefik Addon Acceptance Tests", Label("addon", "acceptance", "setup-required", "invasive", "ingress traefik", "system-running"))
+	RunSpecs(t, "ingress traefik Addon Acceptance Tests", Label("addon", "addon-communication", "acceptance", "setup-required", "invasive", "ingress traefik", "system-running"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
