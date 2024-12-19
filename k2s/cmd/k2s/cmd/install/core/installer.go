@@ -48,7 +48,7 @@ func (i *Installer) Install(
 	buildCmdFunc func(config *ic.InstallConfig) (cmd string, err error),
 	cmdSession cc.CmdSession) error {
 	context := ccmd.Context().Value(cc.ContextKeyCmdContext).(*cc.CmdContext)
-	configDir := context.Config().Host.K2sConfigDir
+	configDir := context.Config().Host().K2sConfigDir()
 	setupConfig, err := i.LoadConfigFunc(configDir)
 	if errors.Is(err, setupinfo.ErrSystemInCorruptedState) {
 		return cc.CreateSystemInCorruptedStateCmdFailure()

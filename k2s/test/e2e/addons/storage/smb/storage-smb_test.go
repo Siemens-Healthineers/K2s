@@ -299,7 +299,7 @@ func expectLinuxWorkloadToRun(ctx context.Context) {
 	suite.Cluster().ExpectStatefulSetToBeReady(linuxWorkloadName, namespace, 1, ctx)
 
 	Eventually(os.IsFileYoungerThan).
-		WithArguments(testFileCheckInterval, k2s.GetWindowsNode(suite.SetupInfo().Config.Nodes).ShareDir, linuxTestfileName).
+		WithArguments(testFileCheckInterval, k2s.GetWindowsNode(suite.SetupInfo().Config.Nodes()).ShareDir(), linuxTestfileName).
 		WithTimeout(testFileCheckTimeout).
 		WithPolling(suite.TestStepPollInterval()).
 		WithContext(ctx).
@@ -314,7 +314,7 @@ func expectWindowsWorkloadToRun(ctx context.Context) {
 	suite.Cluster().ExpectStatefulSetToBeReady(windowsWorkloadName, namespace, 1, ctx)
 
 	Eventually(os.IsFileYoungerThan).
-		WithArguments(testFileCheckInterval, k2s.GetWindowsNode(suite.SetupInfo().Config.Nodes).ShareDir, windowsTestfileName).
+		WithArguments(testFileCheckInterval, k2s.GetWindowsNode(suite.SetupInfo().Config.Nodes()).ShareDir(), windowsTestfileName).
 		WithTimeout(testFileCheckTimeout).
 		WithPolling(suite.TestStepPollInterval()).
 		WithContext(ctx).

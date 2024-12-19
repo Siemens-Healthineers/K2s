@@ -70,7 +70,7 @@ var _ = Describe("node connect", Ordered, func() {
 				Skip(automatedExecutionSkipMessage)
 			}
 
-			nodeIpAddress = k2s.GetControlPlane(suite.SetupInfo().Config.Nodes).IpAddress
+			nodeIpAddress = k2s.GetControlPlane(suite.SetupInfo().Config.Nodes()).IpAddress()
 
 			GinkgoWriter.Println("Using control-plane node IP address <", nodeIpAddress, ">")
 		})
@@ -116,7 +116,7 @@ var _ = Describe("node connect", Ordered, func() {
 				Skip("Windows node tests are skipped")
 			}
 
-			nodeIpAddress = k2s.GetWindowsNode(suite.SetupInfo().Config.Nodes).IpAddress
+			nodeIpAddress = k2s.GetWindowsNode(suite.SetupInfo().Config.Nodes()).IpAddress()
 
 			GinkgoWriter.Println("Using windows node IP address <", nodeIpAddress, ">")
 		})

@@ -61,7 +61,7 @@ func listAddons(cmd *cobra.Command, allAddons addons.Addons) error {
 	}
 
 	context := cmd.Context().Value(cc.ContextKeyCmdContext).(*cc.CmdContext)
-	config, err := setupinfo.ReadConfig(context.Config().Host.K2sConfigDir)
+	config, err := setupinfo.ReadConfig(context.Config().Host().K2sConfigDir())
 	psVersion := powershell.DefaultPsVersions
 	if err != nil {
 		if errors.Is(err, setupinfo.ErrSystemInCorruptedState) {

@@ -40,7 +40,7 @@ func stopk8s(cmd *cobra.Command, args []string) error {
 	pterm.Printfln("🛑 Stopping K2s cluster")
 
 	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
-	config, err := setupinfo.ReadConfig(context.Config().Host.K2sConfigDir)
+	config, err := setupinfo.ReadConfig(context.Config().Host().K2sConfigDir())
 	if err != nil {
 		if errors.Is(err, setupinfo.ErrSystemInCorruptedState) {
 			return common.CreateSystemInCorruptedStateCmdFailure()
@@ -124,7 +124,7 @@ func stopAdditionalNodes(context *common.CmdContext, flags *pflag.FlagSet, confi
 		return nil
 	}
 
-	clusterConfig, err := cc.Read(context.Config().Host.K2sConfigDir)
+	clusterConfig, err := cc.Read(context.Config().Host().K2sConfigDir())
 	if err != nil {
 		return err
 	}
