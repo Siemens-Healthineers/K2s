@@ -64,7 +64,7 @@ func run(cmd *cobra.Command, args []string) error {
 
 	config := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext).Config()
 
-	setupConfig, err := loadSetupConfig(config.Host.K2sConfigDir)
+	setupConfig, err := loadSetupConfig(config.Host().K2sConfigDir())
 	if err != nil {
 		return err
 	}
@@ -108,7 +108,7 @@ func loadSetupConfig(configDir string) (*setupinfo.Config, error) {
 	return nil, fmt.Errorf("could not load setup info to add the Windows user: %w", err)
 }
 
-func addUserFunc(userName, userId string, cfg *config.Config) func() error {
+func addUserFunc(userName, userId string, cfg config.ConfigReader) func() error {
 	cmdExecutor := os.NewCmdExecutor(common.NewSlogWriter())
 	userProvider := users.DefaultUserProvider()
 	usersManagement, err := users.NewUsersManagement(cfg, cmdExecutor, userProvider)

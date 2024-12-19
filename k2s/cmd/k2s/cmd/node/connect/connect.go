@@ -67,7 +67,7 @@ func connect(cmd *cobra.Command, args []string) error {
 	}
 
 	config := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext).Config()
-	_, err = setupinfo.ReadConfig(config.Host.K2sConfigDir)
+	_, err = setupinfo.ReadConfig(config.Host().K2sConfigDir())
 	if err != nil {
 		if errors.Is(err, setupinfo.ErrSystemNotInstalled) {
 			return common.CreateSystemNotInstalledCmdFailure()
@@ -78,7 +78,7 @@ func connect(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to read setup config: %w", err)
 	}
 
-	connectionOptions.SshKeyPath = ssh.SshKeyPath(config.Host.SshDir)
+	connectionOptions.SshKeyPath = ssh.SshKeyPath(config.Host().SshDir())
 
 	err = node.Connect(*connectionOptions)
 	if err != nil {
