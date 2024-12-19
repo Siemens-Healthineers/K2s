@@ -6,8 +6,6 @@ package setupinfo_test
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
-	"io/fs"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -29,16 +27,6 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = Describe("setupinfo pkg", func() {
-	Describe("ConfigPath", func() {
-		It("returns full config file path", func() {
-			const dir = "my-dir"
-
-			actual := setupinfo.ConfigPath(dir)
-
-			Expect(actual).To(Equal("my-dir\\setup.json"))
-		})
-	})
-
 	Describe("ReadConfig", func() {
 		When("config file does not exist", func() {
 			It("returns system-not-installed error", func() {
@@ -89,7 +77,9 @@ var _ = Describe("setupinfo pkg", func() {
 					Version:    "test-version",
 				}
 
-				Expect(setupinfo.WriteConfig(dir, inputConfig)).ToNot(HaveOccurred())
+				blob, err := json.Marshal(inputConfig)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(os.WriteFile(filepath.Join(dir, setupinfo.ConfigFileName), blob, os.ModePerm)).To(Succeed())
 			})
 
 			It("returns config data", func() {
@@ -117,7 +107,9 @@ var _ = Describe("setupinfo pkg", func() {
 					Corrupted:  true,
 				}
 
-				Expect(setupinfo.WriteConfig(dir, inputConfig)).ToNot(HaveOccurred())
+				blob, err := json.Marshal(inputConfig)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(os.WriteFile(filepath.Join(dir, setupinfo.ConfigFileName), blob, os.ModePerm)).To(Succeed())
 			})
 
 			It("returns config data and system-in-corrupted-state error", func() {
@@ -133,81 +125,58 @@ var _ = Describe("setupinfo pkg", func() {
 		})
 	})
 
-	Describe("WriteConfig", func() {
+	Describe("MarkSetupAsCorrupted", func() {
 		When("config file does not exist", func() {
 			var dir string
-			var randomName setupinfo.SetupName
 
 			BeforeEach(func() {
 				dir = GinkgoT().TempDir()
-				randomName = setupinfo.SetupName(fmt.Sprintf("%v", GinkgoT().RandomSeed()))
 			})
 
-			It("new config file gets created", func() {
-				config := &setupinfo.Config{SetupName: randomName}
+			It("creates new config file with corrupted state marker", func() {
+				Expect(setupinfo.MarkSetupAsCorrupted(dir)).ToNot(HaveOccurred())
 
-				err := setupinfo.WriteConfig(dir, config)
+				configBlob, err := os.ReadFile(filepath.Join(dir, setupinfo.ConfigFileName))
 				Expect(err).ToNot(HaveOccurred())
 
-				readConfig, err := setupinfo.ReadConfig(dir)
-				Expect(err).ToNot(HaveOccurred())
+				var config map[string]any
+				Expect(json.Unmarshal(configBlob, &config)).ToNot(HaveOccurred())
 
-				Expect(readConfig.SetupName).To(Equal(randomName))
+				Expect(config).To(HaveLen(1))
+				Expect(config["Corrupted"]).To(BeTrue())
 			})
 		})
 
 		When("config file exists", func() {
 			var dir string
+			var configPath string
 
 			BeforeEach(func() {
 				dir = GinkgoT().TempDir()
+				config := map[string]any{"prop1": "val1", "prop2": "val2", "prop3": 123.45}
 
-				config := &setupinfo.Config{SetupName: "initial-name"}
-
-				Expect(setupinfo.WriteConfig(dir, config)).ToNot(HaveOccurred())
-			})
-
-			It("config file gets overwritten", func() {
-				config := &setupinfo.Config{SetupName: "new-name"}
-
-				err := setupinfo.WriteConfig(dir, config)
+				configBlob, err := json.Marshal(config)
 				Expect(err).ToNot(HaveOccurred())
 
-				readConfig, err := setupinfo.ReadConfig(dir)
+				configPath = filepath.Join(dir, setupinfo.ConfigFileName)
+
+				Expect(os.WriteFile(configPath, configBlob, os.ModePerm)).To(Succeed())
+			})
+
+			It("marks existing config as corrupted without modifying the other values", func() {
+				Expect(setupinfo.MarkSetupAsCorrupted(dir)).ToNot(HaveOccurred())
+
+				configBlob, err := os.ReadFile(configPath)
 				Expect(err).ToNot(HaveOccurred())
 
-				Expect(string(readConfig.SetupName)).To(Equal("new-name"))
-			})
-		})
-	})
+				var config map[string]any
+				Expect(json.Unmarshal(configBlob, &config)).ToNot(HaveOccurred())
 
-	Describe("DeleteConfig", func() {
-		When("config file does not exist", func() {
-			It("returns file-non-existent error", func() {
-				err := setupinfo.DeleteConfig(GinkgoT().TempDir())
-
-				Expect(err).To(MatchError(fs.ErrNotExist))
-			})
-		})
-
-		When("config file exists", func() {
-			var dir string
-
-			BeforeEach(func() {
-				dir = GinkgoT().TempDir()
-				config := &setupinfo.Config{SetupName: "to-be-deleted"}
-
-				Expect(setupinfo.WriteConfig(dir, config)).ToNot(HaveOccurred())
-			})
-
-			It("deletes the file", func() {
-				err := setupinfo.DeleteConfig(dir)
-
-				Expect(err).ToNot(HaveOccurred())
-
-				_, err = os.Stat(filepath.Join(dir, setupinfo.ConfigFileName))
-
-				Expect(err).To(MatchError(fs.ErrNotExist))
+				Expect(config).To(HaveLen(4))
+				Expect(config["Corrupted"]).To(BeTrue())
+				Expect(config["prop1"]).To(Equal("val1"))
+				Expect(config["prop2"]).To(Equal("val2"))
+				Expect(config["prop3"]).To(Equal(123.45))
 			})
 		})
 	})

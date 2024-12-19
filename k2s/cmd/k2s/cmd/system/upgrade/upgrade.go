@@ -173,10 +173,11 @@ func copyLegacyConfigFile(legacyDir string, targetDir string) error {
 	if err := os.CreateDirIfNotExisting(targetDir); err != nil {
 		return err
 	}
-	if err := os.CopyFile(setupinfo.ConfigPath(legacyDir), setupinfo.ConfigPath(targetDir)); err != nil {
-		return err
-	}
-	return nil
+
+	source := filepath.Join(legacyDir, setupinfo.ConfigFileName)
+	target := filepath.Join(targetDir, setupinfo.ConfigFileName)
+
+	return os.CopyFile(source, target)
 }
 
 func createUpgradeCommand(cmd *cobra.Command) string {
