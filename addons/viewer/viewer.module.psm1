@@ -74,6 +74,18 @@ function Test-DicomAddonAvailability {
 
 <#
 .DESCRIPTION
+Determines if the viewer addon is deployed in the cluster
+#>
+function Test-DicomViewerAvailability {
+    $existingServices = (Invoke-Kubectl -Params 'get', 'service', '-n', 'viewer', '-o', 'yaml').Output 
+    if ("$existingServices" -match '.*viewer.*') {
+        return $true
+    }
+    return $false
+}
+
+<#
+.DESCRIPTION
 Updates the defaultDataSourceName in the viewer configmap.
 #>
 function Update-ConfigMap {
@@ -90,7 +102,7 @@ function Update-ConfigMap {
     $replacementString = '"defaultDataSourceName": "' + $NewDefaultDataSourceName + '"'
 
     # Replace the defaultDataSourceName value in memory
-    $updatedConfigMapContent = $configMapContent -replace '"defaultDataSourceName": "dicomweb"', $replacementString
+    $updatedConfigMapContent = $configMapContent -replace '"defaultDataSourceName": "DataFromAWS"', $replacementString
     # Create a temporary file to store the updated content
     $tempFilePath = [System.IO.Path]::GetTempFileName()
     Set-Content -Path $tempFilePath -Value $updatedConfigMapContent
@@ -114,12 +126,26 @@ function Update-ViewerConfigMap {
     # Define the file path
     $filePath = "$PSScriptRoot\manifests\viewer\configmap.yaml"
 
-    # Check the availability of the DICOM addon
-    if (Test-DicomAddonAvailability) {
-        # Call Update-ConfigMap with defaultDataSourceName set to dicomweb2
-        Update-ConfigMap -FilePath $filePath -NewDefaultDataSourceName "dicomweb2"
-    } else {
-        # Call Update-ConfigMap with defaultDataSourceName set to dicomweb
-        Update-ConfigMap -FilePath $filePath -NewDefaultDataSourceName "dicomweb"
+    if (-not (Test-DicomViewerAvailability)) {
+        Write-Output "Viewer addon is not available in the cluster. No viewer configmap will be updated."
+        return
     }
-}
+
+    if (-not (Test-DicomAddonAvailability)) {
+        # Call Update-ConfigMap with defaultDataSourceName set to DataFromAWS
+        Update-ConfigMap -FilePath $filePath -NewDefaultDataSourceName "DataFromAWS"
+        return
+    }
+
+    $isNginxEnabled = Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'ingress'; Implementation = 'nginx' })
+    $isTraefikEnabled = Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'ingress'; Implementation = 'traefik' })
+
+    if (-not $isNginxEnabled -and -not $isTraefikEnabled) {
+         # If no ingress is enabled the viewer cannot access the dicom data due to CORS policy
+        # Call Update-ConfigMap with defaultDataSourceName set to DataFromAWS
+        Update-ConfigMap -FilePath $filePath -NewDefaultDataSourceName "DataFromAWS"
+    } else {
+        # Call Update-ConfigMap with defaultDataSourceName set to dataFromDicomAddon
+        Update-ConfigMap -FilePath $filePath -NewDefaultDataSourceName "dataFromDicomAddon"
+    }
+}     

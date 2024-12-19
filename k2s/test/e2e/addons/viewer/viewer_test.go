@@ -83,7 +83,7 @@ var _ = Describe("'viewer' addon", Ordered, func() {
 		})
 	})
 
-	Describe("enable command", func() {
+	 Describe("enable command", func() {
 		When("no ingress controller is configured", func() {
 			AfterAll(func(ctx context.Context) {
 				portForwardingSession.Kill()
@@ -209,31 +209,39 @@ var _ = Describe("'viewer' addon", Ordered, func() {
 			})
 		})
 
-		When("Dicom addon is active before viewer activation", func() {
+		When("Dicom addon and nginx ingress controller are active before viewer activation", func() {
 			BeforeAll(func(ctx context.Context) {
+				// enable dicom addon
 				suite.K2sCli().Run(ctx, "addons", "enable", "dicom", "-o")
 				suite.Cluster().ExpectDeploymentToBeAvailable("dicom", "dicom")
 				suite.Cluster().ExpectDeploymentToBeAvailable("mysql", "dicom")
 
 				suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "orthanc", "dicom")
 				suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "mysql", "dicom")
+				
+				//enable nginx ingress
+				suite.K2sCli().Run(ctx, "addons", "enable", "ingress", "nginx", "-o")
+				suite.Cluster().ExpectDeploymentToBeAvailable("ingress-nginx-controller", "ingress-nginx")	
 
-				addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
+				addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)			
 				Expect(addonsStatus.IsAddonEnabled("dicom", "")).To(BeTrue())
+				Expect(addonsStatus.IsAddonEnabled("ingress", "nginx")).To(BeTrue())							
 			})
 
-			AfterAll(func(ctx context.Context) {
-				portForwardingSession.Kill()
+			AfterAll(func(ctx context.Context) {				
 				suite.K2sCli().Run(ctx, "addons", "disable", "viewer", "-o")
 				suite.K2sCli().Run(ctx, "addons", "disable", "dicom", "-o")
+				suite.K2sCli().Run(ctx, "addons", "disable", "ingress", "nginx", "-o")
 
 				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "viewerwebapp", "viewer")								
 				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "dicom", "dicom")
 				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "mysql", "dicom")
+				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "ingress-nginx", "ingress-nginx")
 
 				addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
 				Expect(addonsStatus.IsAddonEnabled("viewer", "")).To(BeFalse())				
 				Expect(addonsStatus.IsAddonEnabled("dicom", "")).To(BeFalse())
+				Expect(addonsStatus.IsAddonEnabled("ingress", "nginx")).To(BeFalse())
 			})
 
 			It("is in enabled state and pods are in running state", func(ctx context.Context) {
@@ -246,15 +254,11 @@ var _ = Describe("'viewer' addon", Ordered, func() {
 				Expect(addonsStatus.IsAddonEnabled("viewer", "")).To(BeTrue())
 			})
 
-			It("retrieves patient data from the Dicom addon", func(ctx context.Context) {
-				kubectl := path.Join(suite.RootDir(), "bin", "kube", "kubectl.exe")
-				portForwarding := exec.Command(kubectl, "-n", "viewer", "port-forward", "svc/viewerwebapp", "8443:80")
-				portForwardingSession, _ = gexec.Start(portForwarding, GinkgoWriter, GinkgoWriter)
-
-				url := "http://localhost:8443/viewer/datasources/config.json"
+			It("retrieves patient data from the Dicom addon", func(ctx context.Context) {				
+				url := "https://k2s.cluster.local/viewer/datasources/config.json"
 				output := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-m", "5", "--retry", "10", "--fail")
-				// checking that the default datasource is dicomweb2 means that the patient data is coming from the dicom addon 
-				Expect(output).To(ContainSubstring( `"defaultDataSourceName": "dicomweb2"`))
+				// checking that the default datasource is dataFromDicomAddon means that the patient data is coming from the dicom addon 
+				Expect(output).To(ContainSubstring( `"defaultDataSourceName": "dataFromDicomAddon"`))
 			})
 
 			It("prints already-enabled message when enabling the addon again and exits with non-zero", func(ctx context.Context) {
@@ -266,21 +270,27 @@ var _ = Describe("'viewer' addon", Ordered, func() {
 			})
 		})
 
-		 When("Dicom addon is not active before viewer activation", func() {
+		When("Dicom addon is not active before viewer activation only nginx ingress controller is, Dicom addon gets activated later", func() {		
+			BeforeAll(func(ctx context.Context) {
+				suite.K2sCli().Run(ctx, "addons", "enable", "ingress", "nginx", "-o")
+				suite.Cluster().ExpectDeploymentToBeAvailable("ingress-nginx-controller", "ingress-nginx")
+			})	
 			
 			AfterAll(func(ctx context.Context) {
-				portForwardingSession.Kill()
 				suite.K2sCli().Run(ctx, "addons", "disable", "viewer", "-o")
 				suite.K2sCli().Run(ctx, "addons", "disable", "dicom", "-o")
+				suite.K2sCli().Run(ctx, "addons", "disable", "ingress", "nginx", "-o")
 
 				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "viewerwebapp", "viewer")								
 				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "dicom", "dicom")
 				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "mysql", "dicom")
+				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "ingress-nginx", "ingress-nginx")
 
 
 				addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
 				Expect(addonsStatus.IsAddonEnabled("viewer", "")).To(BeFalse())				
 				Expect(addonsStatus.IsAddonEnabled("dicom", "")).To(BeFalse())
+				Expect(addonsStatus.IsAddonEnabled("ingress", "nginx")).To(BeFalse())
 			})
 
 			It("is in enabled state and pods are in running state", func(ctx context.Context) {
@@ -293,14 +303,10 @@ var _ = Describe("'viewer' addon", Ordered, func() {
 				Expect(addonsStatus.IsAddonEnabled("viewer", "")).To(BeTrue())
 			})
 			It("does NOT retrieve patient data from the Dicom addon", func(ctx context.Context) {
-				kubectl := path.Join(suite.RootDir(), "bin", "kube", "kubectl.exe")
-				portForwarding := exec.Command(kubectl, "-n", "viewer", "port-forward", "svc/viewerwebapp", "8443:80")
-				portForwardingSession, _ = gexec.Start(portForwarding, GinkgoWriter, GinkgoWriter)
-
-				url := "http://localhost:8443/viewer/datasources/config.json"
+				url := "https://k2s.cluster.local/viewer/datasources/config.json"
 				output := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-m", "5", "--retry", "10", "--fail")
-				// checking that the default datasource is dicomweb means that the patient data is NOT coming from the dicom addon 
-				Expect(output).To(ContainSubstring( `"defaultDataSourceName": "dicomweb"`))
+				// checking that the default datasource is DataFromAWS means that the patient data is NOT coming from the dicom addon				
+				Expect(output).To(ContainSubstring( `"defaultDataSourceName": "DataFromAWS"`))
 			})
 			It("Dicom addon is enabled", func(ctx context.Context) {
 				suite.K2sCli().Run(ctx, "addons", "enable", "dicom", "-o")
@@ -315,15 +321,10 @@ var _ = Describe("'viewer' addon", Ordered, func() {
 			})
 
 			It("retrieves patient data from the Dicom addon", func(ctx context.Context) {
-				portForwardingSession.Kill()
-				kubectl := path.Join(suite.RootDir(), "bin", "kube", "kubectl.exe")
-				portForwarding := exec.Command(kubectl, "-n", "viewer", "port-forward", "svc/viewerwebapp", "8443:80")
-				portForwardingSession, _ = gexec.Start(portForwarding, GinkgoWriter, GinkgoWriter)
-
-				url := "http://localhost:8443/viewer/datasources/config.json"
+				url := "https://k2s.cluster.local/viewer/datasources/config.json"
 				output := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-m", "5", "--retry", "10", "--fail")
-				// checking that the default datasource is dicomweb2 means that the patient date is coming from the dicom addon 
-				Expect(output).To(ContainSubstring( `"defaultDataSourceName": "dicomweb2"`))
+				// checking that the default datasource is dataFromDicomAddon
+				Expect(output).To(ContainSubstring( `"defaultDataSourceName": "dataFromDicomAddon"`))
 			})
 			It("prints already-enabled message when enabling the addon again and exits with non-zero", func(ctx context.Context) {
 				expectAddonToBeAlreadyEnabled(ctx)
@@ -332,8 +333,131 @@ var _ = Describe("'viewer' addon", Ordered, func() {
 			It("prints the status", func(ctx context.Context) {
 				expectStatusToBePrinted(ctx)
 			})
-		})
+		})		
 		
+		When("Dicom addon is active but no ingress controller is configured", func() {
+			BeforeAll(func(ctx context.Context) {
+				// enable dicom addon
+				suite.K2sCli().Run(ctx, "addons", "enable", "dicom", "-o")
+				suite.Cluster().ExpectDeploymentToBeAvailable("dicom", "dicom")
+				suite.Cluster().ExpectDeploymentToBeAvailable("mysql", "dicom")
+
+				suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "orthanc", "dicom")
+				suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "mysql", "dicom")
+
+				addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
+				Expect(addonsStatus.IsAddonEnabled("dicom", "")).To(BeTrue())
+			})
+			AfterAll(func(ctx context.Context) {
+				portForwardingSession.Kill()
+				
+				suite.K2sCli().Run(ctx, "addons", "disable", "viewer", "-o")
+				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "viewerwebapp", "viewer")
+												
+				suite.K2sCli().Run(ctx, "addons", "disable", "dicom", "-o")														
+				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "dicom", "dicom")
+				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "mysql", "dicom")				
+				
+				addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
+				Expect(addonsStatus.IsAddonEnabled("viewer", "")).To(BeFalse())
+				Expect(addonsStatus.IsAddonEnabled("dicom", "")).To(BeFalse())		
+			})
+
+			It("is in enabled state and pods are in running state", func(ctx context.Context) {
+				suite.K2sCli().Run(ctx, "addons", "enable", "viewer", "-o")
+				suite.Cluster().ExpectDeploymentToBeAvailable("viewerwebapp", "viewer")				
+				suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "viewerwebapp", "viewer")				
+
+				addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
+				Expect(addonsStatus.IsAddonEnabled("viewer", "")).To(BeTrue())
+			})
+
+			It("retrieves patient data from AWS", func(ctx context.Context) {
+				kubectl := path.Join(suite.RootDir(), "bin", "kube", "kubectl.exe")
+				portForwarding := exec.Command(kubectl, "-n", "viewer", "port-forward", "svc/viewerwebapp", "8443:80")
+				portForwardingSession, _ = gexec.Start(portForwarding, GinkgoWriter, GinkgoWriter)
+
+				url := "http://localhost:8443/viewer/datasources/config.json"
+				output := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-m", "5", "--retry", "10", "--fail")
+				// checking that the default datasource is DataFromAWS
+				Expect(output).To(ContainSubstring( `"defaultDataSourceName": "DataFromAWS"`))
+			})
+
+			It("prints already-enabled message when enabling the addon again and exits with non-zero", func(ctx context.Context) {
+				expectAddonToBeAlreadyEnabled(ctx)
+			})
+
+			It("prints the status", func(ctx context.Context) {
+				expectStatusToBePrinted(ctx)
+			})
+		})
+
+		When("Neither Dicom addon nor any ingress controller is active before, Dicom addon gets activated later", func() {			
+			AfterAll(func(ctx context.Context) {
+				portForwardingSession.Kill()
+				suite.K2sCli().Run(ctx, "addons", "disable", "viewer", "-o")
+				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "viewerwebapp", "viewer")				
+				
+				suite.K2sCli().Run(ctx, "addons", "disable", "dicom", "-o")														
+				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "dicom", "dicom")
+				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "mysql", "dicom")
+				
+				addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
+				Expect(addonsStatus.IsAddonEnabled("viewer", "")).To(BeFalse())
+				Expect(addonsStatus.IsAddonEnabled("dicom", "")).To(BeFalse())				
+			})
+
+			It("is in enabled state and pods are in running state", func(ctx context.Context) {
+				suite.K2sCli().Run(ctx, "addons", "enable", "viewer", "-o")
+
+				suite.Cluster().ExpectDeploymentToBeAvailable("viewerwebapp", "viewer")				
+				suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "viewerwebapp", "viewer")				
+
+				addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
+				Expect(addonsStatus.IsAddonEnabled("viewer", "")).To(BeTrue())
+			})
+			It("does NOT retrieve patient data from the Dicom addon", func(ctx context.Context) {
+				kubectl := path.Join(suite.RootDir(), "bin", "kube", "kubectl.exe")
+				portForwarding := exec.Command(kubectl, "-n", "viewer", "port-forward", "svc/viewerwebapp", "8443:80")
+				portForwardingSession, _ = gexec.Start(portForwarding, GinkgoWriter, GinkgoWriter)
+
+				url := "http://localhost:8443/viewer/datasources/config.json"
+				output := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-m", "5", "--retry", "10", "--fail")
+				// checking that the default datasource is DataFromAWS means that the patient data is NOT coming from the dicom addon				
+				Expect(output).To(ContainSubstring( `"defaultDataSourceName": "DataFromAWS"`))
+				portForwardingSession.Kill()
+			})
+			It("Dicom addon is enabled", func(ctx context.Context) {
+				suite.K2sCli().Run(ctx, "addons", "enable", "dicom", "-o")
+				suite.Cluster().ExpectDeploymentToBeAvailable("dicom", "dicom")
+				suite.Cluster().ExpectDeploymentToBeAvailable("mysql", "dicom")
+
+				suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "orthanc", "dicom")
+				suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "mysql", "dicom")
+
+				addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
+				Expect(addonsStatus.IsAddonEnabled("dicom", "")).To(BeTrue())
+			})
+			
+			It("still retrieves patient data from AWS", func(ctx context.Context) {				
+				kubectl := path.Join(suite.RootDir(), "bin", "kube", "kubectl.exe")
+				portForwarding := exec.Command(kubectl, "-n", "viewer", "port-forward", "svc/viewerwebapp", "8443:80")
+				portForwardingSession, _ = gexec.Start(portForwarding, GinkgoWriter, GinkgoWriter)
+
+				url := "http://localhost:8443/viewer/datasources/config.json"
+				output := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-m", "5", "--retry", "10", "--fail")
+				// checking that the default datasource is still DataFromAWS
+				Expect(output).To(ContainSubstring( `"defaultDataSourceName": "DataFromAWS"`))
+			})
+
+			It("prints already-enabled message when enabling the addon again and exits with non-zero", func(ctx context.Context) {
+				expectAddonToBeAlreadyEnabled(ctx)
+			})
+
+			It("prints the status", func(ctx context.Context) {
+				expectStatusToBePrinted(ctx)
+			})
+		})
 	})
 })
 

@@ -39,7 +39,7 @@ function Write-UsageForUser {
  kubectl -n dicom port-forward svc/dicom 8042:8042
  
  In this case, the orthanc dicom web will be accessible on the following URL: http://localhost:8042/ui/app/
-'@ -split "`r`n" | ForEach-Object { Write-Log $_ -Console }
+'@ -split "`n" | ForEach-Object { Write-Log $_ -Console }
 }
 
 <#

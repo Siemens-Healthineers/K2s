@@ -29,7 +29,7 @@ data:
       "dataSources": [
       {
         "namespace": "@ohif/extension-default.dataSourcesModule.dicomweb",
-        "sourceName": "dicomweb",
+        "sourceName": "DataFromAWS",
         "configuration": {
         "friendlyName": "AWS S3 Static wado server",
         "name": "aws",
@@ -53,10 +53,10 @@ data:
       },
       {
         "namespace": "@ohif/extension-default.dataSourcesModule.dicomweb",
-        "sourceName": "dicomweb2",
+        "sourceName": "dataFromDicomAddon",
         "configuration": {
         "friendlyName": "Dicom addon static wado server",
-        "name": "aws",
+        "name": "Dicom addon",
         "wadoUriRoot": "http://k2s.cluster.local/dicom/dicomweb",
         "qidoRoot": "http://k2s.cluster.local/dicom/dicomweb",
         "wadoRoot": "http://k2s.cluster.local/dicom/dicomweb",
@@ -76,5 +76,5 @@ data:
         }
       }
       ],
-      "defaultDataSourceName": "dicomweb"
+      "defaultDataSourceName": "DataFromAWS"
     }
