@@ -54,7 +54,7 @@ type SlogWriter struct {
 }
 
 type CmdContext struct {
-	config *config.Config
+	config config.ConfigReader
 	logger *logging.Slogger
 }
 
@@ -106,7 +106,7 @@ func NewPtermWriter() *PtermWriter {
 
 func NewSlogWriter() os.StdWriter { return &SlogWriter{} }
 
-func NewCmdContext(config *config.Config, logger *logging.Slogger) *CmdContext {
+func NewCmdContext(config config.ConfigReader, logger *logging.Slogger) *CmdContext {
 	return &CmdContext{
 		config: config,
 		logger: logger,
@@ -259,7 +259,7 @@ func (*SlogWriter) WriteStdErr(message string) { slog.Error(message) }
 
 func (*SlogWriter) Flush() { /*empty*/ }
 
-func (c *CmdContext) Config() *config.Config { return c.config }
+func (c *CmdContext) Config() config.ConfigReader { return c.config }
 
 func (c *CmdContext) Logger() *logging.Slogger { return c.logger }
 

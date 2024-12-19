@@ -19,7 +19,7 @@ import (
 )
 
 type SetupInfo struct {
-	Config        config.Config
+	Config        config.ConfigReader
 	SetupConfig   setupinfo.Config
 	ClusterConfig *clusterconfig.Cluster
 	WinNodeName   string
@@ -30,12 +30,12 @@ func CreateSetupInfo(installDir string) *SetupInfo {
 	Expect(err).ToNot(HaveOccurred())
 
 	return &SetupInfo{
-		Config: *config,
+		Config: config,
 	}
 }
 
 func (si *SetupInfo) LoadSetupConfig() {
-	setupConfig, err := setupinfo.ReadConfig(si.Config.Host.K2sConfigDir)
+	setupConfig, err := setupinfo.ReadConfig(si.Config.Host().K2sConfigDir())
 	Expect(err).ToNot(HaveOccurred())
 
 	winNodeName, err := getWinNodeName(setupConfig.SetupName)
@@ -46,7 +46,7 @@ func (si *SetupInfo) LoadSetupConfig() {
 }
 
 func (si *SetupInfo) LoadClusterConfig() {
-	clusterConfig, err := clusterconfig.Read(si.Config.Host.K2sConfigDir)
+	clusterConfig, err := clusterconfig.Read(si.Config.Host().K2sConfigDir())
 	Expect(err).ToNot(HaveOccurred())
 
 	if clusterConfig != nil {
@@ -69,9 +69,9 @@ func (si *SetupInfo) GetProxyForNode(nodeName string) string {
 	return proxy
 }
 
-func GetWindowsNode(nodes config.Nodes) config.NodeConfig {
+func GetWindowsNode(nodes config.NodesConfigReader) config.NodeConfigReader {
 	for _, node := range nodes {
-		if node.OsType == config.OsTypeWindows {
+		if node.OsType() == config.OsTypeWindows {
 			GinkgoWriter.Println("Returning first Windows node found in config")
 
 			return node
@@ -83,9 +83,9 @@ func GetWindowsNode(nodes config.Nodes) config.NodeConfig {
 	return config.NodeConfig{}
 }
 
-func GetControlPlane(nodes config.Nodes) config.NodeConfig {
+func GetControlPlane(nodes config.NodesConfigReader) config.NodeConfigReader {
 	for _, node := range nodes {
-		if node.IsControlPlane {
+		if node.IsControlPlane() {
 			return node
 		}
 	}

@@ -82,7 +82,7 @@ var _ = Describe("node copy", Ordered, func() {
 				remoteTempDirName = fmt.Sprintf("test_%d/", GinkgoRandomSeed())
 				remoteTempDir = "~/" + remoteTempDirName
 
-				nodeIpAddress = k2s.GetControlPlane(suite.SetupInfo().Config.Nodes).IpAddress
+				nodeIpAddress = k2s.GetControlPlane(suite.SetupInfo().Config.Nodes()).IpAddress()
 
 				GinkgoWriter.Println("Using control-plane node IP address <", nodeIpAddress, ">")
 
@@ -525,7 +525,7 @@ var _ = Describe("node copy", Ordered, func() {
 				remoteTempDirName = fmt.Sprintf("test_%d/", GinkgoRandomSeed())
 				remoteTempDir = filepath.Join("C:\\Users", remoteUser, remoteTempDirName)
 
-				nodeIpAddress = k2s.GetWindowsNode(suite.SetupInfo().Config.Nodes).IpAddress
+				nodeIpAddress = k2s.GetWindowsNode(suite.SetupInfo().Config.Nodes()).IpAddress()
 
 				GinkgoWriter.Println("Using windows node IP address <", nodeIpAddress, ">")
 
@@ -960,7 +960,7 @@ var _ = Describe("node copy", Ordered, func() {
 			var nodeIpAddress string
 
 			BeforeEach(func(ctx context.Context) {
-				nodeIpAddress = k2s.GetControlPlane(suite.SetupInfo().Config.Nodes).IpAddress
+				nodeIpAddress = k2s.GetControlPlane(suite.SetupInfo().Config.Nodes()).IpAddress()
 
 				GinkgoWriter.Println("Using control-plane node IP address <", nodeIpAddress, ">")
 			})
@@ -1385,7 +1385,7 @@ var _ = Describe("node copy", Ordered, func() {
 					Skip("Windows node tests are skipped")
 				}
 
-				nodeIpAddress = k2s.GetWindowsNode(suite.SetupInfo().Config.Nodes).IpAddress
+				nodeIpAddress = k2s.GetWindowsNode(suite.SetupInfo().Config.Nodes()).IpAddress()
 
 				GinkgoWriter.Println("Using win worker node IP address <", nodeIpAddress, ">")
 			})

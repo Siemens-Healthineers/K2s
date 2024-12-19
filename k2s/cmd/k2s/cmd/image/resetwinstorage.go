@@ -121,7 +121,7 @@ func resetWinStorage(cmd *cobra.Command, args []string) error {
 
 	setupConfigProvider := getSetupConfigProvider()
 	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
-	config, err := setupConfigProvider.ReadConfig(context.Config().Host.K2sConfigDir)
+	config, err := setupConfigProvider.ReadConfig(context.Config().Host().K2sConfigDir())
 	if err != nil {
 		if !(errors.Is(err, setupinfo.ErrSystemNotInstalled) || errors.Is(err, setupinfo.ErrSystemInCorruptedState)) {
 			return err

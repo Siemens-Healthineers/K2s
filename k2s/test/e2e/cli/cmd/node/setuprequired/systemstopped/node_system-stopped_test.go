@@ -34,7 +34,7 @@ var _ = Describe("node", func() {
 	var ipAddress string
 
 	BeforeEach(func(ctx context.Context) {
-		ipAddress = k2s.GetControlPlane(suite.SetupInfo().Config.Nodes).IpAddress
+		ipAddress = k2s.GetControlPlane(suite.SetupInfo().Config.Nodes()).IpAddress()
 
 		GinkgoWriter.Println("Using control-plane IP address <", ipAddress, ">")
 	})

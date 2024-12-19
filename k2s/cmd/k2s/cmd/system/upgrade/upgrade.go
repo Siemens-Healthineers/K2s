@@ -141,23 +141,23 @@ func upgradeCluster(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func readConfigLegacyAware(cfg *config.Config) (*setupinfo.Config, error) {
-	slog.Info("Trying to read the config file", "config-dir", cfg.Host.K2sConfigDir)
+func readConfigLegacyAware(cfg config.ConfigReader) (*setupinfo.Config, error) {
+	slog.Info("Trying to read the config file", "config-dir", cfg.Host().K2sConfigDir())
 
-	config, err := setupinfo.ReadConfig(cfg.Host.K2sConfigDir)
+	config, err := setupinfo.ReadConfig(cfg.Host().K2sConfigDir())
 	if err != nil {
 		if !errors.Is(err, setupinfo.ErrSystemNotInstalled) {
 			return nil, err
 		}
 
-		slog.Info("Config file not found, trying to read the config file from legacy dir", "legacy-dir", cfg.Host.KubeConfigDir)
+		slog.Info("Config file not found, trying to read the config file from legacy dir", "legacy-dir", cfg.Host().KubeConfigDir())
 
-		config, err = setupinfo.ReadConfig(cfg.Host.KubeConfigDir)
+		config, err = setupinfo.ReadConfig(cfg.Host().KubeConfigDir())
 		if err != nil {
 			return nil, err
 		}
 
-		if err := copyLegacyConfigFile(cfg.Host.KubeConfigDir, cfg.Host.K2sConfigDir); err != nil {
+		if err := copyLegacyConfigFile(cfg.Host().KubeConfigDir(), cfg.Host().K2sConfigDir()); err != nil {
 			return nil, err
 		}
 	}
