@@ -78,7 +78,7 @@ var _ = Describe("system", func() {
 			})
 
 			It("removes setup config folder", func() {
-				_, err := os.Stat(suite.SetupInfo().Config.Host.K2sConfigDir)
+				_, err := os.Stat(suite.SetupInfo().Config.Host().K2sConfigDir())
 
 				Expect(err).To(MatchError(fs.ErrNotExist))
 			})

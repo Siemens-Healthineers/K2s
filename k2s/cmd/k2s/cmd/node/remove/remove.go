@@ -41,7 +41,7 @@ func NewCmd() *cobra.Command {
 func removeNode(ccmd *cobra.Command, args []string) error {
 	cmdSession := common.StartCmdSession(ccmd.CommandPath())
 	context := ccmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
-	config, err := setupinfo.ReadConfig(context.Config().Host.K2sConfigDir)
+	config, err := setupinfo.ReadConfig(context.Config().Host().K2sConfigDir())
 	if err != nil {
 		if errors.Is(err, setupinfo.ErrSystemInCorruptedState) {
 			return common.CreateSystemInCorruptedStateCmdFailure()

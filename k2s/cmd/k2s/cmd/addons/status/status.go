@@ -98,7 +98,7 @@ func runStatusCmd(cmd *cobra.Command, addon addons.Addon, implementation string,
 	printer := determinePrinterFunc(outputOption)
 
 	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
-	config, err := setupinfo.ReadConfig(context.Config().Host.K2sConfigDir)
+	config, err := setupinfo.ReadConfig(context.Config().Host().K2sConfigDir())
 	if err != nil {
 		if errors.Is(err, setupinfo.ErrSystemInCorruptedState) {
 			return printer.PrintSystemError(addon.Metadata.Name, setupinfo.ErrSystemInCorruptedState, common.CreateSystemInCorruptedStateCmdFailure)

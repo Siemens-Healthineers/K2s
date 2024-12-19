@@ -41,7 +41,7 @@ func startk8s(ccmd *cobra.Command, args []string) error {
 	pterm.Printfln("🤖 Starting K2s on %s", utils.Platform())
 
 	context := ccmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
-	config, err := setupinfo.ReadConfig(context.Config().Host.K2sConfigDir)
+	config, err := setupinfo.ReadConfig(context.Config().Host().K2sConfigDir())
 	if err != nil {
 		if errors.Is(err, setupinfo.ErrSystemInCorruptedState) {
 			return common.CreateSystemInCorruptedStateCmdFailure()
@@ -82,7 +82,7 @@ func startk8s(ccmd *cobra.Command, args []string) error {
 }
 
 func startAdditionalNodes(context *common.CmdContext, flags *pflag.FlagSet, config *setupinfo.Config) error {
-	clusterConfig, err := cc.Read(context.Config().Host.K2sConfigDir)
+	clusterConfig, err := cc.Read(context.Config().Host().K2sConfigDir())
 	if err != nil {
 		return err
 	}

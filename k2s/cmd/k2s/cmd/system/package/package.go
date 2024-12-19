@@ -88,7 +88,7 @@ func systemPackage(cmd *cobra.Command, args []string) error {
 	slog.Debug("PS command created", "command", systemPackageCommand, "params", params)
 
 	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
-	setupConfig, err := setupinfo.ReadConfig(context.Config().Host.K2sConfigDir)
+	setupConfig, err := setupinfo.ReadConfig(context.Config().Host().K2sConfigDir())
 	if err != nil {
 		if errors.Is(err, setupinfo.ErrSystemInCorruptedState) {
 			return common.CreateSystemInCorruptedStateCmdFailure()

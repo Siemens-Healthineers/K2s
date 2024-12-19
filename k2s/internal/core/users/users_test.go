@@ -227,7 +227,7 @@ var _ = Describe("users pkg", func() {
 		Describe("NewUsersManagement", func() {
 			When("control-plane config not found", func() {
 				It("returns error", func() {
-					cfg := &config.Config{Nodes: []config.NodeConfig{}}
+					cfg := &config.Config{NodesConfig: []config.NodeConfig{}}
 
 					sut, err := users.NewUsersManagement(cfg, nil, nil)
 
@@ -242,7 +242,7 @@ var _ = Describe("users pkg", func() {
 				It("returns user-not-found error", func() {
 					const userName = "test-user"
 					findError := errors.New("oops")
-					cfg := &config.Config{Nodes: []config.NodeConfig{{IsControlPlane: true}}}
+					cfg := &config.Config{NodesConfig: []config.NodeConfig{{ControlPlane: true}}}
 
 					userProviderMock := &userProviderMock{}
 					userProviderMock.On(reflection.GetFunctionName(userProviderMock.FindByName), userName).Return(&winusers.User{}, findError)
@@ -262,7 +262,7 @@ var _ = Describe("users pkg", func() {
 					It("returns error", func() {
 						const userName = "test-user"
 						expectedError := errors.New("oops")
-						cfg := &config.Config{Nodes: []config.NodeConfig{{IsControlPlane: true}}}
+						cfg := &config.Config{NodesConfig: []config.NodeConfig{{ControlPlane: true}}}
 
 						userProviderMock := &userProviderMock{}
 						userProviderMock.On(reflection.GetFunctionName(userProviderMock.FindByName), userName).Return(&winusers.User{}, nil)
@@ -281,7 +281,7 @@ var _ = Describe("users pkg", func() {
 				When("user-to-grant-access-to is Windows user", func() {
 					It("returns error", func() {
 						user := winusers.NewUser("123", "test-user", "")
-						cfg := &config.Config{Nodes: []config.NodeConfig{{IsControlPlane: true}}}
+						cfg := &config.Config{NodesConfig: []config.NodeConfig{{ControlPlane: true}}}
 
 						userProviderMock := &userProviderMock{}
 						userProviderMock.On(reflection.GetFunctionName(userProviderMock.FindByName), user.Name()).Return(user, nil)
@@ -308,7 +308,7 @@ var _ = Describe("users pkg", func() {
 				It("returns user-not-found error", func() {
 					const userId = "123"
 					findError := errors.New("oops")
-					cfg := &config.Config{Nodes: []config.NodeConfig{{IsControlPlane: true}}}
+					cfg := &config.Config{NodesConfig: []config.NodeConfig{{ControlPlane: true}}}
 
 					userProviderMock := &userProviderMock{}
 					userProviderMock.On(reflection.GetFunctionName(userProviderMock.FindById), userId).Return(&winusers.User{}, findError)
@@ -328,7 +328,7 @@ var _ = Describe("users pkg", func() {
 					It("returns error", func() {
 						const userId = "test-user"
 						expectedError := errors.New("oops")
-						cfg := &config.Config{Nodes: []config.NodeConfig{{IsControlPlane: true}}}
+						cfg := &config.Config{NodesConfig: []config.NodeConfig{{ControlPlane: true}}}
 
 						userProviderMock := &userProviderMock{}
 						userProviderMock.On(reflection.GetFunctionName(userProviderMock.FindById), userId).Return(&winusers.User{}, nil)
@@ -347,7 +347,7 @@ var _ = Describe("users pkg", func() {
 				When("user-to-grant-access-to is Windows user", func() {
 					It("returns error", func() {
 						user := winusers.NewUser("123", "test-user", "")
-						cfg := &config.Config{Nodes: []config.NodeConfig{{IsControlPlane: true}}}
+						cfg := &config.Config{NodesConfig: []config.NodeConfig{{ControlPlane: true}}}
 
 						userProviderMock := &userProviderMock{}
 						userProviderMock.On(reflection.GetFunctionName(userProviderMock.FindById), user.Id()).Return(user, nil)

@@ -49,9 +49,9 @@ func DefaultUserProvider() UserProvider {
 	return winusers.NewWinUserProvider()
 }
 
-func NewUsersManagement(cfg *config.Config, cmdExecutor common.CmdExecutor, userProvider UserProvider) (*usersManagement, error) {
-	controlePlaneCfg, found := lo.Find(cfg.Nodes, func(node config.NodeConfig) bool {
-		return node.IsControlPlane
+func NewUsersManagement(cfg config.ConfigReader, cmdExecutor common.CmdExecutor, userProvider UserProvider) (*usersManagement, error) {
+	controlePlaneCfg, found := lo.Find(cfg.Nodes(), func(node config.NodeConfigReader) bool {
+		return node.IsControlPlane()
 	})
 	if !found {
 		return nil, errors.New("could not find control-plane node config")
@@ -63,9 +63,9 @@ func NewUsersManagement(cfg *config.Config, cmdExecutor common.CmdExecutor, user
 
 	sshOptions := ssh.ConnectionOptions{
 		RemoteUser: "remote",
-		IpAddress:  controlePlaneCfg.IpAddress,
+		IpAddress:  controlePlaneCfg.IpAddress(),
 		Port:       ssh.DefaultPort,
-		SshKeyPath: ssh.SshKeyPath(cfg.Host.SshDir),
+		SshKeyPath: ssh.SshKeyPath(cfg.Host().SshDir()),
 		Timeout:    ssh.DefaultTimeout,
 	}
 
@@ -74,9 +74,9 @@ func NewUsersManagement(cfg *config.Config, cmdExecutor common.CmdExecutor, user
 	aclExec := acl.NewAcl(cmdExecutor)
 	restClient := http.NewRestClient()
 	kubeconfigReader := kubeconfig.NewKubeconfigReader()
-	controlPlaneAccess := controlplane.NewControlPlaneAccess(fileSystem, keygenExec, node.Exec, node.Copy, sshOptions, aclExec, cfg.Host.SshDir, controlePlaneCfg.IpAddress)
+	controlPlaneAccess := controlplane.NewControlPlaneAccess(fileSystem, keygenExec, node.Exec, node.Copy, sshOptions, aclExec, cfg.Host().SshDir(), controlePlaneCfg.IpAddress())
 	clusterAccess := cluster.NewClusterAccess(restClient)
-	k8sAccess := k8s.NewK8sAccess(node.Exec, node.Copy, sshOptions, fileSystem, clusterAccess, kubeconfigWriterFactory, kubeconfigReader, cfg.Host.KubeConfigDir)
+	k8sAccess := k8s.NewK8sAccess(node.Exec, node.Copy, sshOptions, fileSystem, clusterAccess, kubeconfigWriterFactory, kubeconfigReader, cfg.Host().KubeConfigDir())
 	userAdder := NewWinUserAdder(controlPlaneAccess, k8sAccess, CreateK2sUserName)
 
 	return &usersManagement{

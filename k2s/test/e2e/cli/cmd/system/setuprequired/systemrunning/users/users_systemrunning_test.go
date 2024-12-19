@@ -85,11 +85,11 @@ var _ = Describe("system users add", Ordered, func() {
 			fakeHomeDir := filepath.Join(GinkgoT().TempDir(), systemUserId)
 			GinkgoWriter.Println("Using temp home dir <", fakeHomeDir, ">")
 
-			controlPlaneConfig, found := lo.Find(suite.SetupInfo().Config.Nodes, func(node config.NodeConfig) bool {
-				return node.IsControlPlane
+			controlPlaneConfig, found := lo.Find(suite.SetupInfo().Config.Nodes(), func(node config.NodeConfigReader) bool {
+				return node.IsControlPlane()
 			})
 			Expect(found).To(BeTrue())
-			expectedRemoteUser = "remote@" + controlPlaneConfig.IpAddress
+			expectedRemoteUser = "remote@" + controlPlaneConfig.IpAddress()
 			expectedKeyPath = filepath.Join(fakeHomeDir, `.ssh\k2s\id_rsa`)
 
 			systemUserWithFakeHomeDir := winusers.NewUser(systemUserId, systemUserName, fakeHomeDir)
@@ -101,7 +101,7 @@ var _ = Describe("system users add", Ordered, func() {
 		})
 
 		It("grants Windows SYSTEM user access to K2s", MustPassRepeatedly(2), func(ctx context.Context) {
-			sut, err := users.NewUsersManagement(&suite.SetupInfo().Config, os.NewCmdExecutor(&ginkgoWriter{}), userProvider)
+			sut, err := users.NewUsersManagement(suite.SetupInfo().Config, os.NewCmdExecutor(&ginkgoWriter{}), userProvider)
 
 			Expect(err).ToNot(HaveOccurred())
 			Expect(sut).ToNot(BeNil())
