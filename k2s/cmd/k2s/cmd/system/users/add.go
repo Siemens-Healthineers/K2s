@@ -79,7 +79,7 @@ func run(cmd *cobra.Command, args []string) error {
 		return common.CreateSystemNotRunningCmdFailure()
 	}
 
-	err = addUserFunc(userName, userId, config)()
+	err = addUser(userName, userId, config)
 	if err != nil {
 		var userNotFoundErr users.UserNotFoundErr
 		if errors.As(err, &userNotFoundErr) {
@@ -108,19 +108,19 @@ func loadSetupConfig(configDir string) (*setupinfo.Config, error) {
 	return nil, fmt.Errorf("could not load setup info to add the Windows user: %w", err)
 }
 
-func addUserFunc(userName, userId string, cfg config.ConfigReader) func() error {
+func addUser(userName, userId string, cfg config.ConfigReader) error {
 	cmdExecutor := os.NewCmdExecutor(common.NewSlogWriter())
 	userProvider := users.DefaultUserProvider()
 	usersManagement, err := users.NewUsersManagement(cfg, cmdExecutor, userProvider)
 	if err != nil {
-		return func() error { return err }
+		return err
 	}
 
 	if userName != "" {
-		return func() error { return usersManagement.AddUserByName(userName) }
+		return usersManagement.AddUserByName(userName)
 
 	}
-	return func() error { return usersManagement.AddUserById(userId) }
+	return usersManagement.AddUserById(userId)
 }
 
 func newUserNotFoundFailure(err error) *common.CmdFailure {
