@@ -31,15 +31,15 @@ type Printer interface {
 }
 
 type Installer struct {
-	InstallConfigAccess InstallConfigAccess
-	Printer             Printer
-	ExecutePsScript     func(script string, psVersion powershell.PowerShellVersion, writer os.StdWriter) error
-	GetVersionFunc      func() version.Version
-	GetPlatformFunc     func() string
-	GetInstallDirFunc   func() string
-	LoadConfigFunc      func(configDir string) (*setupinfo.Config, error)
-	SetConfigFunc       func(configDir string, config *setupinfo.Config) error
-	DeleteConfigFunc    func(configDir string) error
+	InstallConfigAccess      InstallConfigAccess
+	Printer                  Printer
+	ExecutePsScript          func(script string, psVersion powershell.PowerShellVersion, writer os.StdWriter) error
+	GetVersionFunc           func() version.Version
+	GetPlatformFunc          func() string
+	GetInstallDirFunc        func() string
+	LoadConfigFunc           func(configDir string) (*setupinfo.Config, error)
+	MarkSetupAsCorruptedFunc func(configDir string) error
+	DeleteConfigFunc         func(configDir string) error
 }
 
 func (i *Installer) Install(
@@ -99,23 +99,11 @@ func (i *Installer) Install(
 		}
 
 		if outputWriter.ErrorOccurred {
-			// corrupted state
-			setupConfig, err := i.LoadConfigFunc(configDir)
-			if err != nil {
-				if setupConfig == nil {
-					setupConfig = &setupinfo.Config{
-						Corrupted: true,
-					}
-					i.SetConfigFunc(configDir, setupConfig)
-				}
-			} else {
-				setupConfig.Corrupted = true
-				i.SetConfigFunc(configDir, setupConfig)
+			if err := i.MarkSetupAsCorruptedFunc(configDir); err != nil {
+				return fmt.Errorf("error while marking setup as corrupted: %w", err)
 			}
-
 			return cc.CreateSystemInCorruptedStateCmdFailure()
 		}
-
 		return err
 	}
 

@@ -30,6 +30,8 @@ const (
 	SetupNameBuildOnlyEnv SetupName = "BuildOnlyEnv"
 
 	ConfigFileName = "setup.json"
+
+	corruptedKey = "Corrupted"
 )
 
 var (
@@ -37,13 +39,8 @@ var (
 	ErrSystemInCorruptedState = errors.New("system-in-corrupted-state")
 )
 
-// TODO: basically not necessary since dir and file name are known to caller
-func ConfigPath(configDir string) string {
-	return filepath.Join(configDir, ConfigFileName)
-}
-
 func ReadConfig(configDir string) (*Config, error) {
-	configPath := ConfigPath(configDir)
+	configPath := filepath.Join(configDir, ConfigFileName)
 
 	config, err := json.FromFile[Config](configPath)
 	if err != nil {
@@ -62,14 +59,20 @@ func ReadConfig(configDir string) (*Config, error) {
 	return config, nil
 }
 
-func WriteConfig(configDir string, config *Config) error {
-	configPath := ConfigPath(configDir)
+func MarkSetupAsCorrupted(configDir string) error {
+	configPath := filepath.Join(configDir, ConfigFileName)
+
+	config, err := json.FromFile[map[string]any](configPath)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			newConfig := map[string]any{corruptedKey: true}
+
+			return json.ToFile(configPath, &newConfig)
+		}
+		return fmt.Errorf("error occurred while loading setup config file: %w", err)
+	}
+
+	(*config)[corruptedKey] = true
 
 	return json.ToFile(configPath, config)
-}
-
-func DeleteConfig(configDir string) error {
-	configPath := ConfigPath(configDir)
-
-	return os.Remove(configPath)
 }
