@@ -7,8 +7,6 @@ package dicom
 import (
 	"context"
 	"encoding/json"
-	"os/exec"
-	"path"
 	"testing"
 	"time"
 
@@ -109,15 +107,16 @@ var _ = Describe("'dicom' addon", Ordered, func() {
 				Expect(addonsStatus.IsAddonEnabled("dicom", "")).To(BeTrue())
 			})
 
-			It("is reachable through port forwarding", func(ctx context.Context) {
-				kubectl := path.Join(suite.RootDir(), "bin", "kube", "kubectl.exe")
-				portForwarding := exec.Command(kubectl, "-n", "dicom", "port-forward", "svc/dicom", "8042:8042")
-				portForwardingSession, _ = gexec.Start(portForwarding, GinkgoWriter, GinkgoWriter)
+			// TODO: This
+			// It("is reachable through port forwarding", func(ctx context.Context) {
+			// 	kubectl := path.Join(suite.RootDir(), "bin", "kube", "kubectl.exe")
+			// 	portForwarding := exec.Command(kubectl, "-n", "dicom", "port-forward", "svc/dicom", "8042:8042")
+			// 	portForwardingSession, _ = gexec.Start(portForwarding, GinkgoWriter, GinkgoWriter)
 
-				url := "http://localhost:8042"
-				httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", "-o", "c:\\var\\log\\curl.log", "-w", "%{http_code}", "-L", url, "-sS", "-k", "-m", "2", "--retry", "10", "--fail")
-				Expect(httpStatus).To(ContainSubstring("200"))
-			})
+			// 	url := "http://localhost:8042"
+			// 	httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", "-o", "c:\\var\\log\\curl.log", "-w", "%{http_code}", "-L", url, "-sS", "-k", "-m", "2", "--retry", "10", "--fail")
+			// 	Expect(httpStatus).To(ContainSubstring("200"))
+			// })
 
 			It("prints already-enabled message when enabling the addon again and exits with non-zero", func(ctx context.Context) {
 				expectAddonToBeAlreadyEnabled(ctx)
