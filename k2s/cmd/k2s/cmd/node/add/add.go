@@ -37,10 +37,10 @@ func NewCmd() *cobra.Command {
 		Long:  "Adds an machine or VM to an existing K2s cluster",
 		RunE:  addNode,
 	}
-	cmd.Flags().String(MachineIPAddress, "", MachineIPAddressFlagUsage)
-	cmd.Flags().String(MachineUsername, "", MachineUsernameFlagUsage)
-	cmd.Flags().String(MachineName, "", MachineNameFlagUsage)
-	cmd.Flags().String(MachineRole, "worker", MachineRoleFlagUsage)
+	cmd.Flags().StringP(MachineIPAddress, "i", "", MachineIPAddressFlagUsage)
+	cmd.Flags().StringP(MachineUsername, "u", "", MachineUsernameFlagUsage)
+	cmd.Flags().StringP(MachineName, "m", "", MachineNameFlagUsage)
+	cmd.Flags().StringP(MachineRole, "r", "worker", MachineRoleFlagUsage)
 
 	cmd.MarkFlagRequired(MachineIPAddress)
 	cmd.MarkFlagRequired(MachineUsername)
