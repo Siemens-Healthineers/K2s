@@ -13,17 +13,12 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/siemens-healthineers/k2s/internal/core/node"
-	"github.com/siemens-healthineers/k2s/internal/core/node/ssh"
 	"github.com/siemens-healthineers/k2s/internal/core/users/controlplane"
 	"github.com/siemens-healthineers/k2s/internal/reflection"
 	"github.com/stretchr/testify/mock"
 )
 
-type sshCopyMock struct {
-	mock.Mock
-}
-
-type sshExecMock struct {
+type nodeAccessMock struct {
 	mock.Mock
 }
 
@@ -43,16 +38,22 @@ type aclMock struct {
 	mock.Mock
 }
 
-func (m *sshExecMock) Exec(command string, connectionOptions ssh.ConnectionOptions) error {
-	args := m.Called(command, connectionOptions)
+func (m *nodeAccessMock) Exec(command string) error {
+	args := m.Called(command)
 
 	return args.Error(0)
 }
 
-func (m *sshCopyMock) Copy(copyOptions node.CopyOptions, connectionOptions ssh.ConnectionOptions) error {
-	args := m.Called(copyOptions, connectionOptions)
+func (m *nodeAccessMock) Copy(copyOptions node.CopyOptions) error {
+	args := m.Called(copyOptions)
 
 	return args.Error(0)
+}
+
+func (m *nodeAccessMock) HostSshDir() string {
+	args := m.Called()
+
+	return args.String(0)
 }
 
 func (m *fsMock) PathExists(path string) bool {
@@ -147,7 +148,6 @@ var _ = Describe("controlplane pkg", func() {
 		Describe("GrantAccessTo", func() {
 			When("searching existing SSH keys failes", func() {
 				It("returns error", func() {
-					const adminSshDir = ""
 					const currentUserName = ""
 					const k2sUserName = ""
 					expectedError := errors.New("oops")
@@ -159,7 +159,10 @@ var _ = Describe("controlplane pkg", func() {
 					userMock := &userMock{}
 					userMock.On(reflection.GetFunctionName(userMock.HomeDir)).Return("")
 
-					sut := controlplane.NewControlPlaneAccess(fsMock, nil, nil, nil, ssh.ConnectionOptions{}, nil, adminSshDir, "")
+					nodeAccessMock := &nodeAccessMock{}
+					nodeAccessMock.On(reflection.GetFunctionName(nodeAccessMock.HostSshDir)).Return("")
+
+					sut := controlplane.NewControlPlaneAccess(fsMock, nil, nodeAccessMock, nil, "")
 
 					err := sut.GrantAccessTo(userMock, currentUserName, k2sUserName)
 
@@ -169,7 +172,6 @@ var _ = Describe("controlplane pkg", func() {
 
 			When("removing existing SSH keys failes", func() {
 				It("returns error", func() {
-					const adminSshDir = ""
 					const currentUserName = ""
 					const k2sUserName = ""
 					expectedError := errors.New("oops")
@@ -182,7 +184,10 @@ var _ = Describe("controlplane pkg", func() {
 					userMock := &userMock{}
 					userMock.On(reflection.GetFunctionName(userMock.HomeDir)).Return("")
 
-					sut := controlplane.NewControlPlaneAccess(fsMock, nil, nil, nil, ssh.ConnectionOptions{}, nil, adminSshDir, "")
+					nodeAccessMock := &nodeAccessMock{}
+					nodeAccessMock.On(reflection.GetFunctionName(nodeAccessMock.HostSshDir)).Return("")
+
+					sut := controlplane.NewControlPlaneAccess(fsMock, nil, nodeAccessMock, nil, "")
 
 					err := sut.GrantAccessTo(userMock, currentUserName, k2sUserName)
 
@@ -192,7 +197,6 @@ var _ = Describe("controlplane pkg", func() {
 
 			When("creating SSH dir failes", func() {
 				It("returns error", func() {
-					const adminSshDir = ""
 					const currentUserName = ""
 					const k2sUserName = ""
 					expectedError := errors.New("oops")
@@ -204,7 +208,10 @@ var _ = Describe("controlplane pkg", func() {
 					userMock := &userMock{}
 					userMock.On(reflection.GetFunctionName(userMock.HomeDir)).Return("")
 
-					sut := controlplane.NewControlPlaneAccess(fsMock, nil, nil, nil, ssh.ConnectionOptions{}, nil, adminSshDir, "")
+					nodeAccessMock := &nodeAccessMock{}
+					nodeAccessMock.On(reflection.GetFunctionName(nodeAccessMock.HostSshDir)).Return("")
+
+					sut := controlplane.NewControlPlaneAccess(fsMock, nil, nodeAccessMock, nil, "")
 
 					err := sut.GrantAccessTo(userMock, currentUserName, k2sUserName)
 
@@ -214,7 +221,6 @@ var _ = Describe("controlplane pkg", func() {
 
 			When("generating SSH key failes", func() {
 				It("returns error", func() {
-					const adminSshDir = ""
 					const currentUserName = ""
 					const k2sUserName = ""
 					expectedError := errors.New("oops")
@@ -229,7 +235,10 @@ var _ = Describe("controlplane pkg", func() {
 					keygenMock := &keygenMock{}
 					keygenMock.On(reflection.GetFunctionName(keygenMock.CreateKey), mock.Anything, mock.Anything).Return(expectedError)
 
-					sut := controlplane.NewControlPlaneAccess(fsMock, keygenMock, nil, nil, ssh.ConnectionOptions{}, nil, adminSshDir, "")
+					nodeAccessMock := &nodeAccessMock{}
+					nodeAccessMock.On(reflection.GetFunctionName(nodeAccessMock.HostSshDir)).Return("")
+
+					sut := controlplane.NewControlPlaneAccess(fsMock, keygenMock, nodeAccessMock, nil, "")
 
 					err := sut.GrantAccessTo(userMock, currentUserName, k2sUserName)
 
@@ -239,7 +248,6 @@ var _ = Describe("controlplane pkg", func() {
 
 			When("setting admin group as file owner failes", func() {
 				It("returns error", func() {
-					const adminSshDir = ""
 					const currentUserName = ""
 					const k2sUserName = ""
 					expectedError := errors.New("oops")
@@ -258,7 +266,10 @@ var _ = Describe("controlplane pkg", func() {
 					aclMock := &aclMock{}
 					aclMock.On(reflection.GetFunctionName(aclMock.SetOwner), mock.Anything, mock.Anything).Return(expectedError)
 
-					sut := controlplane.NewControlPlaneAccess(fsMock, keygenMock, nil, nil, ssh.ConnectionOptions{}, aclMock, adminSshDir, "")
+					nodeAccessMock := &nodeAccessMock{}
+					nodeAccessMock.On(reflection.GetFunctionName(nodeAccessMock.HostSshDir)).Return("")
+
+					sut := controlplane.NewControlPlaneAccess(fsMock, keygenMock, nodeAccessMock, aclMock, "")
 
 					err := sut.GrantAccessTo(userMock, currentUserName, k2sUserName)
 
@@ -268,7 +279,6 @@ var _ = Describe("controlplane pkg", func() {
 
 			When("removing security attribute inheritance failes", func() {
 				It("returns error", func() {
-					const adminSshDir = ""
 					const currentUserName = ""
 					const k2sUserName = ""
 					expectedError := errors.New("oops")
@@ -288,7 +298,10 @@ var _ = Describe("controlplane pkg", func() {
 					aclMock.On(reflection.GetFunctionName(aclMock.SetOwner), mock.Anything, mock.Anything).Return(nil)
 					aclMock.On(reflection.GetFunctionName(aclMock.RemoveInheritance), mock.Anything, mock.Anything).Return(expectedError)
 
-					sut := controlplane.NewControlPlaneAccess(fsMock, keygenMock, nil, nil, ssh.ConnectionOptions{}, aclMock, adminSshDir, "")
+					nodeAccessMock := &nodeAccessMock{}
+					nodeAccessMock.On(reflection.GetFunctionName(nodeAccessMock.HostSshDir)).Return("")
+
+					sut := controlplane.NewControlPlaneAccess(fsMock, keygenMock, nodeAccessMock, aclMock, "")
 
 					err := sut.GrantAccessTo(userMock, currentUserName, k2sUserName)
 
@@ -298,7 +311,6 @@ var _ = Describe("controlplane pkg", func() {
 
 			When("granting full access to new user failes", func() {
 				It("returns error", func() {
-					const adminSshDir = ""
 					const currentUserName = ""
 					const k2sUserName = ""
 					expectedError := errors.New("oops")
@@ -319,7 +331,10 @@ var _ = Describe("controlplane pkg", func() {
 					aclMock.On(reflection.GetFunctionName(aclMock.RemoveInheritance), mock.Anything, mock.Anything).Return(nil)
 					aclMock.On(reflection.GetFunctionName(aclMock.GrantFullAccess), mock.Anything, mock.Anything).Return(expectedError)
 
-					sut := controlplane.NewControlPlaneAccess(fsMock, keygenMock, nil, nil, ssh.ConnectionOptions{}, aclMock, adminSshDir, "")
+					nodeAccessMock := &nodeAccessMock{}
+					nodeAccessMock.On(reflection.GetFunctionName(nodeAccessMock.HostSshDir)).Return("")
+
+					sut := controlplane.NewControlPlaneAccess(fsMock, keygenMock, nodeAccessMock, aclMock, "")
 
 					err := sut.GrantAccessTo(userMock, currentUserName, k2sUserName)
 
@@ -329,7 +344,6 @@ var _ = Describe("controlplane pkg", func() {
 
 			When("revoking access for admin user failes", func() {
 				It("returns error", func() {
-					const adminSshDir = ""
 					const currentUserName = ""
 					const k2sUserName = ""
 					expectedError := errors.New("oops")
@@ -351,7 +365,10 @@ var _ = Describe("controlplane pkg", func() {
 					aclMock.On(reflection.GetFunctionName(aclMock.GrantFullAccess), mock.Anything, mock.Anything).Return(nil)
 					aclMock.On(reflection.GetFunctionName(aclMock.RevokeAccess), mock.Anything, mock.Anything).Return(expectedError)
 
-					sut := controlplane.NewControlPlaneAccess(fsMock, keygenMock, nil, nil, ssh.ConnectionOptions{}, aclMock, adminSshDir, "")
+					nodeAccessMock := &nodeAccessMock{}
+					nodeAccessMock.On(reflection.GetFunctionName(nodeAccessMock.HostSshDir)).Return("")
+
+					sut := controlplane.NewControlPlaneAccess(fsMock, keygenMock, nodeAccessMock, aclMock, "")
 
 					err := sut.GrantAccessTo(userMock, currentUserName, k2sUserName)
 
@@ -361,7 +378,6 @@ var _ = Describe("controlplane pkg", func() {
 
 			When("removing of existing pub key on control-plane failes", func() {
 				It("returns error", func() {
-					const adminSshDir = ""
 					const currentUserName = ""
 					const k2sUserName = ""
 					expectedError := errors.New("oops")
@@ -385,10 +401,11 @@ var _ = Describe("controlplane pkg", func() {
 					aclMock.On(reflection.GetFunctionName(aclMock.GrantFullAccess), mock.Anything, mock.Anything).Return(nil)
 					aclMock.On(reflection.GetFunctionName(aclMock.RevokeAccess), mock.Anything, mock.Anything).Return(nil)
 
-					sshExecMock := &sshExecMock{}
-					sshExecMock.On(reflection.GetFunctionName(sshExecMock.Exec), mock.Anything, mock.Anything).Return(expectedError)
+					nodeAccessMock := &nodeAccessMock{}
+					nodeAccessMock.On(reflection.GetFunctionName(nodeAccessMock.Exec), mock.Anything, mock.Anything).Return(expectedError)
+					nodeAccessMock.On(reflection.GetFunctionName(nodeAccessMock.HostSshDir)).Return("")
 
-					sut := controlplane.NewControlPlaneAccess(fsMock, keygenMock, sshExecMock.Exec, nil, ssh.ConnectionOptions{}, aclMock, adminSshDir, "")
+					sut := controlplane.NewControlPlaneAccess(fsMock, keygenMock, nodeAccessMock, aclMock, "")
 
 					err := sut.GrantAccessTo(userMock, currentUserName, k2sUserName)
 
@@ -398,7 +415,6 @@ var _ = Describe("controlplane pkg", func() {
 
 			When("copying pub key to control-plane failes", func() {
 				It("returns error", func() {
-					const adminSshDir = ""
 					const currentUserName = ""
 					const k2sUserName = ""
 					expectedError := errors.New("oops")
@@ -422,13 +438,12 @@ var _ = Describe("controlplane pkg", func() {
 					aclMock.On(reflection.GetFunctionName(aclMock.GrantFullAccess), mock.Anything, mock.Anything).Return(nil)
 					aclMock.On(reflection.GetFunctionName(aclMock.RevokeAccess), mock.Anything, mock.Anything).Return(nil)
 
-					sshExecMock := &sshExecMock{}
-					sshExecMock.On(reflection.GetFunctionName(sshExecMock.Exec), mock.Anything, mock.Anything).Return(nil)
+					nodeAccessMock := &nodeAccessMock{}
+					nodeAccessMock.On(reflection.GetFunctionName(nodeAccessMock.Exec), mock.Anything, mock.Anything).Return(nil)
+					nodeAccessMock.On(reflection.GetFunctionName(nodeAccessMock.Copy), mock.Anything, mock.Anything).Return(expectedError)
+					nodeAccessMock.On(reflection.GetFunctionName(nodeAccessMock.HostSshDir)).Return("")
 
-					sshCopyMock := &sshCopyMock{}
-					sshCopyMock.On(reflection.GetFunctionName(sshCopyMock.Copy), mock.Anything, mock.Anything).Return(expectedError)
-
-					sut := controlplane.NewControlPlaneAccess(fsMock, keygenMock, sshExecMock.Exec, sshCopyMock.Copy, ssh.ConnectionOptions{}, aclMock, adminSshDir, "")
+					sut := controlplane.NewControlPlaneAccess(fsMock, keygenMock, nodeAccessMock, aclMock, "")
 
 					err := sut.GrantAccessTo(userMock, currentUserName, k2sUserName)
 
@@ -438,7 +453,6 @@ var _ = Describe("controlplane pkg", func() {
 
 			When("adding SSH pub key to authorized keys file on control-plane failes", func() {
 				It("returns error", func() {
-					const adminSshDir = ""
 					const currentUserName = ""
 					const k2sUserName = ""
 					expectedError := errors.New("oops")
@@ -462,16 +476,15 @@ var _ = Describe("controlplane pkg", func() {
 					aclMock.On(reflection.GetFunctionName(aclMock.GrantFullAccess), mock.Anything, mock.Anything).Return(nil)
 					aclMock.On(reflection.GetFunctionName(aclMock.RevokeAccess), mock.Anything, mock.Anything).Return(nil)
 
-					sshExecMock := &sshExecMock{}
-					sshExecMock.On(reflection.GetFunctionName(sshExecMock.Exec), mock.MatchedBy(func(cmd string) bool {
+					nodeAccessMock := &nodeAccessMock{}
+					nodeAccessMock.On(reflection.GetFunctionName(nodeAccessMock.Exec), mock.MatchedBy(func(cmd string) bool {
 						return strings.Contains(cmd, "sudo sed")
 					}), mock.Anything).Return(expectedError)
-					sshExecMock.On(reflection.GetFunctionName(sshExecMock.Exec), mock.Anything, mock.Anything).Return(nil)
+					nodeAccessMock.On(reflection.GetFunctionName(nodeAccessMock.Exec), mock.Anything, mock.Anything).Return(nil)
+					nodeAccessMock.On(reflection.GetFunctionName(nodeAccessMock.Copy), mock.Anything, mock.Anything).Return(nil)
+					nodeAccessMock.On(reflection.GetFunctionName(nodeAccessMock.HostSshDir)).Return("")
 
-					sshCopyMock := &sshCopyMock{}
-					sshCopyMock.On(reflection.GetFunctionName(sshCopyMock.Copy), mock.Anything, mock.Anything).Return(nil)
-
-					sut := controlplane.NewControlPlaneAccess(fsMock, keygenMock, sshExecMock.Exec, sshCopyMock.Copy, ssh.ConnectionOptions{}, aclMock, adminSshDir, "")
+					sut := controlplane.NewControlPlaneAccess(fsMock, keygenMock, nodeAccessMock, aclMock, "")
 
 					err := sut.GrantAccessTo(userMock, currentUserName, k2sUserName)
 
@@ -481,7 +494,6 @@ var _ = Describe("controlplane pkg", func() {
 
 			When("host not found in known_hosts file", func() {
 				It("returns error", func() {
-					const adminSshDir = ""
 					const currentUserName = ""
 					const k2sUserName = ""
 
@@ -504,13 +516,12 @@ var _ = Describe("controlplane pkg", func() {
 					aclMock.On(reflection.GetFunctionName(aclMock.GrantFullAccess), mock.Anything, mock.Anything).Return(nil)
 					aclMock.On(reflection.GetFunctionName(aclMock.RevokeAccess), mock.Anything, mock.Anything).Return(nil)
 
-					sshExecMock := &sshExecMock{}
-					sshExecMock.On(reflection.GetFunctionName(sshExecMock.Exec), mock.Anything, mock.Anything).Return(nil)
+					nodeAccessMock := &nodeAccessMock{}
+					nodeAccessMock.On(reflection.GetFunctionName(nodeAccessMock.Exec), mock.Anything, mock.Anything).Return(nil)
+					nodeAccessMock.On(reflection.GetFunctionName(nodeAccessMock.Copy), mock.Anything, mock.Anything).Return(nil)
+					nodeAccessMock.On(reflection.GetFunctionName(nodeAccessMock.HostSshDir)).Return("")
 
-					sshCopyMock := &sshCopyMock{}
-					sshCopyMock.On(reflection.GetFunctionName(sshCopyMock.Copy), mock.Anything, mock.Anything).Return(nil)
-
-					sut := controlplane.NewControlPlaneAccess(fsMock, keygenMock, sshExecMock.Exec, sshCopyMock.Copy, ssh.ConnectionOptions{}, aclMock, adminSshDir, "")
+					sut := controlplane.NewControlPlaneAccess(fsMock, keygenMock, nodeAccessMock, aclMock, "")
 
 					err := sut.GrantAccessTo(userMock, currentUserName, k2sUserName)
 
@@ -523,7 +534,6 @@ var _ = Describe("controlplane pkg", func() {
 
 			When("setting host in known_hosts file failes", func() {
 				It("returns error", func() {
-					const adminSshDir = ""
 					const currentUserName = ""
 					const k2sUserName = ""
 					expectedError := errors.New("oops")
@@ -547,13 +557,12 @@ var _ = Describe("controlplane pkg", func() {
 					aclMock.On(reflection.GetFunctionName(aclMock.GrantFullAccess), mock.Anything, mock.Anything).Return(nil)
 					aclMock.On(reflection.GetFunctionName(aclMock.RevokeAccess), mock.Anything, mock.Anything).Return(nil)
 
-					sshExecMock := &sshExecMock{}
-					sshExecMock.On(reflection.GetFunctionName(sshExecMock.Exec), mock.Anything, mock.Anything).Return(nil)
+					nodeAccessMock := &nodeAccessMock{}
+					nodeAccessMock.On(reflection.GetFunctionName(nodeAccessMock.Exec), mock.Anything, mock.Anything).Return(nil)
+					nodeAccessMock.On(reflection.GetFunctionName(nodeAccessMock.Copy), mock.Anything, mock.Anything).Return(nil)
+					nodeAccessMock.On(reflection.GetFunctionName(nodeAccessMock.HostSshDir)).Return("")
 
-					sshCopyMock := &sshCopyMock{}
-					sshCopyMock.On(reflection.GetFunctionName(sshCopyMock.Copy), mock.Anything, mock.Anything).Return(nil)
-
-					sut := controlplane.NewControlPlaneAccess(fsMock, keygenMock, sshExecMock.Exec, sshCopyMock.Copy, ssh.ConnectionOptions{}, aclMock, adminSshDir, "")
+					sut := controlplane.NewControlPlaneAccess(fsMock, keygenMock, nodeAccessMock, aclMock, "")
 
 					err := sut.GrantAccessTo(userMock, currentUserName, k2sUserName)
 
@@ -563,7 +572,6 @@ var _ = Describe("controlplane pkg", func() {
 
 			When("all succeeded", func() {
 				It("returns nil", func() {
-					const adminSshDir = ""
 					const currentUserName = ""
 					const k2sUserName = ""
 
@@ -586,13 +594,12 @@ var _ = Describe("controlplane pkg", func() {
 					aclMock.On(reflection.GetFunctionName(aclMock.GrantFullAccess), mock.Anything, mock.Anything).Return(nil)
 					aclMock.On(reflection.GetFunctionName(aclMock.RevokeAccess), mock.Anything, mock.Anything).Return(nil)
 
-					sshExecMock := &sshExecMock{}
-					sshExecMock.On(reflection.GetFunctionName(sshExecMock.Exec), mock.Anything, mock.Anything).Return(nil)
+					nodeAccessMock := &nodeAccessMock{}
+					nodeAccessMock.On(reflection.GetFunctionName(nodeAccessMock.Exec), mock.Anything, mock.Anything).Return(nil)
+					nodeAccessMock.On(reflection.GetFunctionName(nodeAccessMock.Copy), mock.Anything, mock.Anything).Return(nil)
+					nodeAccessMock.On(reflection.GetFunctionName(nodeAccessMock.HostSshDir)).Return("")
 
-					sshCopyMock := &sshCopyMock{}
-					sshCopyMock.On(reflection.GetFunctionName(sshCopyMock.Copy), mock.Anything, mock.Anything).Return(nil)
-
-					sut := controlplane.NewControlPlaneAccess(fsMock, keygenMock, sshExecMock.Exec, sshCopyMock.Copy, ssh.ConnectionOptions{}, aclMock, adminSshDir, "")
+					sut := controlplane.NewControlPlaneAccess(fsMock, keygenMock, nodeAccessMock, aclMock, "")
 
 					err := sut.GrantAccessTo(userMock, currentUserName, k2sUserName)
 
