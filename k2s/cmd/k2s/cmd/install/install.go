@@ -6,6 +6,8 @@ package install
 import (
 	"fmt"
 	"log/slog"
+	"os"
+	"path/filepath"
 
 	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
 	"github.com/siemens-healthineers/k2s/internal/powershell"
@@ -78,15 +80,15 @@ func init() {
 	InstallCmd.AddCommand(buildonly.InstallCmd)
 
 	installer = &core.Installer{
-		InstallConfigAccess: ic.NewInstallConfigAccess(),
-		Printer:             terminal.NewTerminalPrinter(),
-		ExecutePsScript:     powershell.ExecutePs,
-		GetVersionFunc:      version.GetVersion,
-		GetPlatformFunc:     utils.Platform,
-		GetInstallDirFunc:   utils.InstallDir,
-		LoadConfigFunc:      setupinfo.ReadConfig,
-		SetConfigFunc:       setupinfo.WriteConfig,
-		DeleteConfigFunc:    setupinfo.DeleteConfig,
+		InstallConfigAccess:      ic.NewInstallConfigAccess(),
+		Printer:                  terminal.NewTerminalPrinter(),
+		ExecutePsScript:          powershell.ExecutePs,
+		GetVersionFunc:           version.GetVersion,
+		GetPlatformFunc:          utils.Platform,
+		GetInstallDirFunc:        utils.InstallDir,
+		LoadConfigFunc:           setupinfo.ReadConfig,
+		MarkSetupAsCorruptedFunc: setupinfo.MarkSetupAsCorrupted,
+		DeleteConfigFunc:         func(configDir string) error { return os.Remove(filepath.Join(configDir, setupinfo.ConfigFileName)) },
 	}
 
 	multivm.Installer = installer
