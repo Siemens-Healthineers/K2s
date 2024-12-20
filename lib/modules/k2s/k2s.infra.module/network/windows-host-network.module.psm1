@@ -58,7 +58,8 @@ function Reset-DnsForActivePhysicalInterfacesOnWindowsHost {
         [string]$ExcludeNetworkInterfaceName = ''
     )
 
-    $physicalInterfaceIndexes = Get-NetAdapter -Physical | Where-Object Status -Eq 'Up' | Where-Object Name -ne $ExcludeNetworkInterfaceName | Select-Object -expand 'ifIndex'
+    $k2sDnsProxyIpAddress = Get-ConfiguredKubeSwitchIP
+    $physicalInterfaceIndexes = Get-DNSClientServerAddress -AddressFamily IPv4 | Where-Object Name -ne $ExcludeNetworkInterfaceName | Where-Object ServerAddresses -contains $k2sDnsProxyIpAddress | Select-Object -expand 'InterfaceIndex'
 
     foreach ($networkInterfaceIndex in $physicalInterfaceIndexes) {
         $interfaceName = (Get-NetIPAddress -InterfaceIndex $networkInterfaceIndex -ErrorAction SilentlyContinue).InterfaceAlias
