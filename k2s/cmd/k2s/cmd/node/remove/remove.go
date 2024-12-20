@@ -29,7 +29,7 @@ func NewCmd() *cobra.Command {
 		Long:  "Removes machine or VM from K2s cluster",
 		RunE:  removeNode,
 	}
-	cmd.Flags().String(MachineName, "", MachineNameFlagUsage)
+	cmd.Flags().StringP(MachineName, "m", "", MachineNameFlagUsage)
 	cmd.MarkFlagsOneRequired(MachineName)
 
 	cmd.Flags().SortFlags = false
