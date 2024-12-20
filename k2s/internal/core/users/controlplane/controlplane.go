@@ -36,39 +36,36 @@ type fileAccessControl interface {
 	RevokeAccess(path string, username string) error
 }
 
-type copyFunc func(copyOptions node.CopyOptions, connectionOptions ssh.ConnectionOptions) error
-type execFunc func(command string, connectionOptions ssh.ConnectionOptions) error
+type nodeAccess interface {
+	Copy(copyOptions node.CopyOptions) error
+	Exec(command string) error
+	HostSshDir() string
+}
 
 type controlPlaneAccess struct {
-	fs          fileSystem
-	keygen      sshKeyGen
-	exec        execFunc
-	copy        copyFunc
-	sshOptions  ssh.ConnectionOptions
-	acl         fileAccessControl
-	adminSshDir string
-	ipAddress   string
+	fs         fileSystem
+	keygen     sshKeyGen
+	nodeAccess nodeAccess
+	acl        fileAccessControl
+	ipAddress  string
 }
 
 const (
 	authorizedKeysPath = "~/.ssh/authorized_keys"
 )
 
-func NewControlPlaneAccess(fs fileSystem, keygen sshKeyGen, exec execFunc, copy copyFunc, sshOptions ssh.ConnectionOptions, acl fileAccessControl, adminSshDir string, ipAddress string) *controlPlaneAccess {
+func NewControlPlaneAccess(fs fileSystem, keygen sshKeyGen, nodeAccess nodeAccess, acl fileAccessControl, ipAddress string) *controlPlaneAccess {
 	return &controlPlaneAccess{
-		fs:          fs,
-		keygen:      keygen,
-		exec:        exec,
-		copy:        copy,
-		sshOptions:  sshOptions,
-		acl:         acl,
-		adminSshDir: adminSshDir,
-		ipAddress:   ipAddress,
+		fs:         fs,
+		keygen:     keygen,
+		nodeAccess: nodeAccess,
+		acl:        acl,
+		ipAddress:  ipAddress,
 	}
 }
 
 func (g *controlPlaneAccess) GrantAccessTo(user common.User, currentUserName, k2sUserName string) error {
-	sshDirName := filepath.Base(g.adminSshDir)
+	sshDirName := filepath.Base(g.nodeAccess.HostSshDir())
 	newUserSshDir := filepath.Join(user.HomeDir(), sshDirName)
 	newUserSshKeyPath := ssh.SshKeyPath(newUserSshDir)
 	newUserSshControlPlaneDir := filepath.Dir(newUserSshKeyPath)
@@ -167,7 +164,7 @@ func (g *controlPlaneAccess) authorizePubKeyOnControlPlane(keyDir string, k2sUse
 	removeRemotePubKeyCmd := fmt.Sprintf("rm -f %s", remotePubKeyPath)
 
 	slog.Debug("Removing existing pub SSH key from control-plane temp dir")
-	if err := g.exec(removeRemotePubKeyCmd, g.sshOptions); err != nil {
+	if err := g.nodeAccess.Exec(removeRemotePubKeyCmd); err != nil {
 		return fmt.Errorf("could not remove existing SSH public key from control-plane temp dir: %w", err)
 	}
 
@@ -178,7 +175,7 @@ func (g *controlPlaneAccess) authorizePubKeyOnControlPlane(keyDir string, k2sUse
 		Direction: node.CopyToNode,
 	}
 
-	if err := g.copy(copyOptions, g.sshOptions); err != nil {
+	if err := g.nodeAccess.Copy(copyOptions); err != nil {
 		return fmt.Errorf("could not copy SSH public key to control-plane temp dir: %w", err)
 	}
 
@@ -191,16 +188,16 @@ func (g *controlPlaneAccess) authorizePubKeyOnControlPlane(keyDir string, k2sUse
 		removePubKeyFile
 
 	slog.Debug("Adding SSH public key to authorized keys file")
-	if err := g.exec(authorizeRemotePubKeyCmd, g.sshOptions); err != nil {
+	if err := g.nodeAccess.Exec(authorizeRemotePubKeyCmd); err != nil {
 		return fmt.Errorf("could not add SSH public key to authorized keys file: %w", err)
 	}
 	return nil
 }
 
 func (g *controlPlaneAccess) addControlPlaneToKnownHosts(newUserSshDir string) error {
-	controlPlaneEntry, found := g.keygen.FindHostInKnownHosts(g.ipAddress, g.adminSshDir)
+	controlPlaneEntry, found := g.keygen.FindHostInKnownHosts(g.ipAddress, g.nodeAccess.HostSshDir())
 	if !found {
-		return fmt.Errorf("could not find any control-plane entry for host '%s' in '%s'", g.ipAddress, g.adminSshDir)
+		return fmt.Errorf("could not find any control-plane entry for host '%s' in '%s'", g.ipAddress, g.nodeAccess.HostSshDir())
 	}
 
 	if err := g.keygen.SetHostInKnownHosts(controlPlaneEntry, newUserSshDir); err != nil {

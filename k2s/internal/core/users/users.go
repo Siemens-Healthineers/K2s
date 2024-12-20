@@ -45,6 +45,11 @@ type kubeconfWriterFactory struct {
 	exec common.CmdExecutor
 }
 
+type nodeAccess struct {
+	sshOptions ssh.ConnectionOptions
+	sshDir     string
+}
+
 func DefaultUserProvider() UserProvider {
 	return winusers.NewWinUserProvider()
 }
@@ -74,9 +79,10 @@ func NewUsersManagement(cfg config.ConfigReader, cmdExecutor common.CmdExecutor,
 	aclExec := acl.NewAcl(cmdExecutor)
 	restClient := http.NewRestClient()
 	kubeconfigReader := kubeconfig.NewKubeconfigReader()
-	controlPlaneAccess := controlplane.NewControlPlaneAccess(fileSystem, keygenExec, node.Exec, node.Copy, sshOptions, aclExec, cfg.Host().SshDir(), controlePlaneCfg.IpAddress())
+	nodeAccess := &nodeAccess{sshOptions: sshOptions, sshDir: cfg.Host().SshDir()}
+	controlPlaneAccess := controlplane.NewControlPlaneAccess(fileSystem, keygenExec, nodeAccess, aclExec, controlePlaneCfg.IpAddress())
 	clusterAccess := cluster.NewClusterAccess(restClient)
-	k8sAccess := k8s.NewK8sAccess(node.Exec, node.Copy, sshOptions, fileSystem, clusterAccess, kubeconfigWriterFactory, kubeconfigReader, cfg.Host().KubeConfigDir())
+	k8sAccess := k8s.NewK8sAccess(nodeAccess, fileSystem, clusterAccess, kubeconfigWriterFactory, kubeconfigReader, cfg.Host().KubeConfigDir())
 	userAdder := NewWinUserAdder(controlPlaneAccess, k8sAccess, CreateK2sUserName)
 
 	return &usersManagement{
@@ -124,4 +130,16 @@ func (m *usersManagement) add(winUser *winusers.User) error {
 	}
 
 	return m.userAdder.Add(winUser, current.Name())
+}
+
+func (a *nodeAccess) Copy(copyOptions node.CopyOptions) error {
+	return node.Copy(copyOptions, a.sshOptions)
+}
+
+func (a *nodeAccess) Exec(command string) error {
+	return node.Exec(command, a.sshOptions)
+}
+
+func (a *nodeAccess) HostSshDir() string {
+	return a.sshDir
 }

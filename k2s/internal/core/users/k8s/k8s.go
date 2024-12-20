@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 
 	"github.com/siemens-healthineers/k2s/internal/core/node"
-	"github.com/siemens-healthineers/k2s/internal/core/node/ssh"
 	"github.com/siemens-healthineers/k2s/internal/core/users/common"
 	"github.com/siemens-healthineers/k2s/internal/core/users/k8s/cluster"
 	"github.com/siemens-healthineers/k2s/internal/core/users/k8s/kubeconfig"
@@ -40,14 +39,13 @@ type kubeconfigWriterFactory interface {
 	NewKubeconfigWriter(filePath string) KubeconfigWriter
 }
 
-// TODO: redundant -> see nodes pkg
-type copyFunc func(copyOptions node.CopyOptions, connectionOptions ssh.ConnectionOptions) error
-type execFunc func(command string, connectionOptions ssh.ConnectionOptions) error
+type nodeAccess interface {
+	Copy(copyOptions node.CopyOptions) error
+	Exec(command string) error
+}
 
 type k8sAccess struct {
-	exec                    execFunc
-	copy                    copyFunc
-	sshOptions              ssh.ConnectionOptions
+	nodeAccess              nodeAccess
 	fs                      fileSystem
 	kubeconfigDir           string
 	clusterAccess           clusterAccess
@@ -68,11 +66,9 @@ const (
 	k8sCaKey        = "/etc/kubernetes/pki/ca.key"
 )
 
-func NewK8sAccess(exec execFunc, copy copyFunc, sshOptions ssh.ConnectionOptions, fs fileSystem, clusterAccess clusterAccess, kubeconfigWriterFactory kubeconfigWriterFactory, kubeconfigReader kubeconfigReader, kubeconfigDir string) *k8sAccess {
+func NewK8sAccess(nodeAccess nodeAccess, fs fileSystem, clusterAccess clusterAccess, kubeconfigWriterFactory kubeconfigWriterFactory, kubeconfigReader kubeconfigReader, kubeconfigDir string) *k8sAccess {
 	return &k8sAccess{
-		exec:                    exec,
-		copy:                    copy,
-		sshOptions:              sshOptions,
+		nodeAccess:              nodeAccess,
 		fs:                      fs,
 		clusterAccess:           clusterAccess,
 		kubeconfigWriterFactory: kubeconfigWriterFactory,
@@ -232,7 +228,7 @@ func (g *k8sAccess) createUserCertOnControlPlane(k2sUserName string) (certName, 
 		signCert + " && " +
 		removeSignRequest
 
-	if err := g.exec(createUserCertCmd, g.sshOptions); err != nil {
+	if err := g.nodeAccess.Exec(createUserCertCmd); err != nil {
 		return "", "", fmt.Errorf("could not generate user cert signed by K8s CA: %w", err)
 	}
 	return
@@ -258,7 +254,7 @@ func (g *k8sAccess) fetchUserCertFromControlPlane(targetDir string) error {
 		Direction: node.CopyFromNode,
 	}
 
-	if err := g.copy(copyOptions, g.sshOptions); err != nil {
+	if err := g.nodeAccess.Copy(copyOptions); err != nil {
 		return fmt.Errorf("could not copy user cert and key from control-plane: %w", err)
 	}
 
@@ -266,7 +262,7 @@ func (g *k8sAccess) fetchUserCertFromControlPlane(targetDir string) error {
 
 	removeTempCertDirCmd := "rm -rf " + remoteCertDir
 
-	if err := g.exec(removeTempCertDirCmd, g.sshOptions); err != nil {
+	if err := g.nodeAccess.Exec(removeTempCertDirCmd); err != nil {
 		return fmt.Errorf("could not remove temp cert dir on control-plane: %w", err)
 	}
 	return nil
