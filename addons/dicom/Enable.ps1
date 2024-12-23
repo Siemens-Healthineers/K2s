@@ -120,7 +120,9 @@ if (!$kubectlCmd.Success) {
 &"$PSScriptRoot\Update.ps1"
 
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'dicom' })
-Update-ViewerConfigMap
+# adapt other addons
+Update-Addons
+
 Write-Log 'dicom server installed successfully'
 
 Write-UsageForUser

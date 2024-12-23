@@ -66,7 +66,9 @@ Remove-IngressForNginx -Addon ([pscustomobject] @{Name = 'dicom' })
 (Invoke-Kubectl -Params 'delete', '-f', "$dicomConfig\dicom-namespace.yaml").Output | Write-Log
 
 Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'dicom' })
-Update-ViewerConfigMap
+# adapt other addons
+Update-Addons
+
 Write-Log 'dicom server uninstalled successfully' -Console
 
 if ($EncodeStructuredOutput -eq $true) {
