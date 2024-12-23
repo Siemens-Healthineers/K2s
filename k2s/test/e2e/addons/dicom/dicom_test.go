@@ -17,15 +17,14 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/gexec"
 	"github.com/onsi/gomega/gstruct"
 )
 
 const testClusterTimeout = time.Minute * 10
 
 var (
-	suite                 *framework.K2sTestSuite
-	portForwardingSession *gexec.Session
+	suite *framework.K2sTestSuite
+	//portForwardingSession *gexec.Session
 )
 
 func TestDicom(t *testing.T) {
@@ -84,7 +83,7 @@ var _ = Describe("'dicom' addon", Ordered, func() {
 	Describe("enable command", func() {
 		When("no ingress controller is configured", func() {
 			AfterAll(func(ctx context.Context) {
-				portForwardingSession.Kill()
+				// portForwardingSession.Kill()
 				suite.K2sCli().Run(ctx, "addons", "disable", "dicom", "-o")
 
 				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "dicom", "dicom")
