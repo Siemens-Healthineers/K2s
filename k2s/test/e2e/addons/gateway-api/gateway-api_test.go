@@ -32,7 +32,7 @@ var suite *framework.K2sTestSuite
 
 func TestGatewayNginx(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "gateway-api Addon Acceptance Tests", Label("addon", "acceptance", "setup-required", "invasive", "gateway-api", "system-running"))
+	RunSpecs(t, "gateway-api Addon Acceptance Tests", Label("addon", "addon-communication", "acceptance", "setup-required", "invasive", "gateway-api", "system-running"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {

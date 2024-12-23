@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/pterm/pterm"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 	"github.com/siemens-healthineers/k2s/internal/core/node"
 	"github.com/siemens-healthineers/k2s/internal/core/node/ssh"
@@ -51,7 +50,7 @@ func NewCmd() *cobra.Command {
 	cmd.MarkFlagRequired(usernameFlag)
 
 	cmd.Flags().Uint16P(portFlag, "p", ssh.DefaultPort, "Port for remote connection")
-	cmd.Flags().String(timeoutFlag, "30s", "Connection timeout, e.g. '1m20s', allowed time units are 'ns', 'us' (or 'µs'), 'ms', 's', 'm', 'h'")
+	cmd.Flags().String(timeoutFlag, ssh.DefaultTimeout.String(), "Connection timeout, e.g. '1m20s', allowed time units are 'ns', 'us' (or 'µs'), 'ms', 's', 'm', 'h'")
 
 	cmd.Flags().SortFlags = false
 	cmd.Flags().PrintDefaults()
@@ -60,13 +59,15 @@ func NewCmd() *cobra.Command {
 }
 
 func connect(cmd *cobra.Command, args []string) error {
+	cmdSession := common.StartCmdSession(cmd.CommandPath())
+
 	connectionOptions, err := extractOptions(cmd.Flags())
 	if err != nil {
 		return fmt.Errorf("failed to extract connection options: %w", err)
 	}
 
 	config := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext).Config()
-	_, err = setupinfo.ReadConfig(config.Host.K2sConfigDir)
+	_, err = setupinfo.ReadConfig(config.Host().K2sConfigDir())
 	if err != nil {
 		if errors.Is(err, setupinfo.ErrSystemNotInstalled) {
 			return common.CreateSystemNotInstalledCmdFailure()
@@ -77,14 +78,14 @@ func connect(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to read setup config: %w", err)
 	}
 
-	connectionOptions.SshKeyPath = ssh.SshKeyPath(config.Host.SshDir)
+	connectionOptions.SshKeyPath = ssh.SshKeyPath(config.Host().SshDir())
 
 	err = node.Connect(*connectionOptions)
 	if err != nil {
 		return fmt.Errorf("failed to connect: %w", err)
 	}
 
-	pterm.Printfln("Command '%s' done.", cmd.Use) // TODO: align with other cmds
+	cmdSession.Finish()
 
 	return nil
 }

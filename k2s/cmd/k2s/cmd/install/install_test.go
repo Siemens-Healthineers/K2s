@@ -8,6 +8,7 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils/tz"
 
+	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 	ic "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/install/config"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
@@ -24,8 +25,8 @@ type mockObject struct {
 	mock.Mock
 }
 
-func (m *mockObject) Install(kind ic.Kind, cmd *cobra.Command, buildCmdFunc func(config *ic.InstallConfig) (cmd string, err error)) error {
-	args := m.Called(kind, cmd, buildCmdFunc)
+func (m *mockObject) Install(kind ic.Kind, cmd *cobra.Command, buildCmdFunc func(config *ic.InstallConfig) (cmd string, err error), cmdSession common.CmdSession) error {
+	args := m.Called(kind, cmd, buildCmdFunc, cmdSession)
 
 	return args.Error(0)
 }
@@ -71,7 +72,7 @@ var _ = Describe("install", func() {
 				flags.Bool(ic.LinuxOnlyFlagName, false, "")
 
 				installerMock := &mockObject{}
-				installerMock.On(r.GetFunctionName(installerMock.Install), kind, cmd, mock.AnythingOfType("func(*config.InstallConfig) (string, error)")).Return(nil).Once()
+				installerMock.On(r.GetFunctionName(installerMock.Install), kind, cmd, mock.AnythingOfType("func(*config.InstallConfig) (string, error)"), mock.Anything).Return(nil).Once()
 
 				installer = installerMock
 

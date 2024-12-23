@@ -7,7 +7,6 @@ import (
 	"errors"
 	"log/slog"
 	"strconv"
-	"time"
 
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
@@ -38,10 +37,11 @@ func init() {
 }
 
 func startk8s(ccmd *cobra.Command, args []string) error {
+	cmdSession := common.StartCmdSession(ccmd.CommandPath())
 	pterm.Printfln("🤖 Starting K2s on %s", utils.Platform())
 
 	context := ccmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
-	config, err := setupinfo.ReadConfig(context.Config().Host.K2sConfigDir)
+	config, err := setupinfo.ReadConfig(context.Config().Host().K2sConfigDir())
 	if err != nil {
 		if errors.Is(err, setupinfo.ErrSystemInCorruptedState) {
 			return common.CreateSystemInCorruptedStateCmdFailure()
@@ -65,8 +65,6 @@ func startk8s(ccmd *cobra.Command, args []string) error {
 
 	slog.Debug("PS command created", "command", startCmd)
 
-	start := time.Now()
-
 	err = powershell.ExecutePs(startCmd, common.DeterminePsVersion(config), common.NewPtermWriter())
 	if err != nil {
 		return err
@@ -78,14 +76,13 @@ func startk8s(ccmd *cobra.Command, args []string) error {
 		slog.Warn("Failures during starting of additional nodes", "err", err)
 	}
 
-	duration := time.Since(start)
-	common.PrintCompletedMessage(duration, "Start")
+	cmdSession.Finish()
 
 	return nil
 }
 
 func startAdditionalNodes(context *common.CmdContext, flags *pflag.FlagSet, config *setupinfo.Config) error {
-	clusterConfig, err := cc.Read(context.Config().Host.K2sConfigDir)
+	clusterConfig, err := cc.Read(context.Config().Host().K2sConfigDir())
 	if err != nil {
 		return err
 	}

@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"path/filepath"
 
+	"github.com/siemens-healthineers/k2s/internal/core/node"
 	"github.com/siemens-healthineers/k2s/internal/core/users/common"
 	"github.com/siemens-healthineers/k2s/internal/core/users/k8s/cluster"
 	"github.com/siemens-healthineers/k2s/internal/core/users/k8s/kubeconfig"
@@ -19,14 +20,6 @@ type KubeconfigWriter interface {
 	SetCredentials(username, certPath, keyPath string) error
 	SetContext(context, username, clusterName string) error
 	UseContext(context string) error
-}
-
-type ssh interface {
-	Exec(cmd string) error
-}
-
-type scp interface {
-	CopyFromRemote(source string, target string) error
 }
 
 type fileSystem interface {
@@ -46,9 +39,13 @@ type kubeconfigWriterFactory interface {
 	NewKubeconfigWriter(filePath string) KubeconfigWriter
 }
 
+type nodeAccess interface {
+	Copy(copyOptions node.CopyOptions) error
+	Exec(command string) error
+}
+
 type k8sAccess struct {
-	ssh                     ssh
-	scp                     scp
+	nodeAccess              nodeAccess
 	fs                      fileSystem
 	kubeconfigDir           string
 	clusterAccess           clusterAccess
@@ -69,10 +66,9 @@ const (
 	k8sCaKey        = "/etc/kubernetes/pki/ca.key"
 )
 
-func NewK8sAccess(ssh ssh, scp scp, fs fileSystem, clusterAccess clusterAccess, kubeconfigWriterFactory kubeconfigWriterFactory, kubeconfigReader kubeconfigReader, kubeconfigDir string) *k8sAccess {
+func NewK8sAccess(nodeAccess nodeAccess, fs fileSystem, clusterAccess clusterAccess, kubeconfigWriterFactory kubeconfigWriterFactory, kubeconfigReader kubeconfigReader, kubeconfigDir string) *k8sAccess {
 	return &k8sAccess{
-		ssh:                     ssh,
-		scp:                     scp,
+		nodeAccess:              nodeAccess,
 		fs:                      fs,
 		clusterAccess:           clusterAccess,
 		kubeconfigWriterFactory: kubeconfigWriterFactory,
@@ -232,7 +228,7 @@ func (g *k8sAccess) createUserCertOnControlPlane(k2sUserName string) (certName, 
 		signCert + " && " +
 		removeSignRequest
 
-	if err := g.ssh.Exec(createUserCertCmd); err != nil {
+	if err := g.nodeAccess.Exec(createUserCertCmd); err != nil {
 		return "", "", fmt.Errorf("could not generate user cert signed by K8s CA: %w", err)
 	}
 	return
@@ -252,8 +248,13 @@ func (g *k8sAccess) initKubeconfigDir(userHomeDir string) (kubeconfigDir string,
 
 func (g *k8sAccess) fetchUserCertFromControlPlane(targetDir string) error {
 	slog.Debug("Copying user cert and key from control-plane")
+	copyOptions := node.CopyOptions{
+		Source:    remoteCertDir,
+		Target:    targetDir,
+		Direction: node.CopyFromNode,
+	}
 
-	if err := g.scp.CopyFromRemote(remoteCertDir, targetDir); err != nil {
+	if err := g.nodeAccess.Copy(copyOptions); err != nil {
 		return fmt.Errorf("could not copy user cert and key from control-plane: %w", err)
 	}
 
@@ -261,7 +262,7 @@ func (g *k8sAccess) fetchUserCertFromControlPlane(targetDir string) error {
 
 	removeTempCertDirCmd := "rm -rf " + remoteCertDir
 
-	if err := g.ssh.Exec(removeTempCertDirCmd); err != nil {
+	if err := g.nodeAccess.Exec(removeTempCertDirCmd); err != nil {
 		return fmt.Errorf("could not remove temp cert dir on control-plane: %w", err)
 	}
 	return nil
