@@ -299,7 +299,7 @@ func expectLinuxWorkloadToRun(ctx context.Context) {
 	suite.Cluster().ExpectStatefulSetToBeReady(linuxWorkloadName, namespace, 1, ctx)
 
 	Eventually(os.IsFileYoungerThan).
-		WithArguments(testFileCheckInterval, k2s.GetWindowsNode(suite.SetupInfo().Config.Nodes).ShareDir, linuxTestfileName).
+		WithArguments(testFileCheckInterval, k2s.GetWindowsNode(suite.SetupInfo().Config.Nodes()).ShareDir(), linuxTestfileName).
 		WithTimeout(testFileCheckTimeout).
 		WithPolling(suite.TestStepPollInterval()).
 		WithContext(ctx).
@@ -314,7 +314,7 @@ func expectWindowsWorkloadToRun(ctx context.Context) {
 	suite.Cluster().ExpectStatefulSetToBeReady(windowsWorkloadName, namespace, 1, ctx)
 
 	Eventually(os.IsFileYoungerThan).
-		WithArguments(testFileCheckInterval, k2s.GetWindowsNode(suite.SetupInfo().Config.Nodes).ShareDir, windowsTestfileName).
+		WithArguments(testFileCheckInterval, k2s.GetWindowsNode(suite.SetupInfo().Config.Nodes()).ShareDir(), windowsTestfileName).
 		WithTimeout(testFileCheckTimeout).
 		WithPolling(suite.TestStepPollInterval()).
 		WithContext(ctx).
@@ -327,7 +327,7 @@ func disableAddon(ctx context.Context) {
 	Expect(output).To(SatisfyAll(
 		ContainSubstring("disable"),
 		ContainSubstring(addonName),
-		MatchRegexp("'addons disable %s %s' completed", addonName, implementationName),
+		MatchRegexp("'k2s addons disable %s %s' completed", addonName, implementationName),
 	))
 }
 
@@ -374,6 +374,6 @@ func expectStatusToBePrinted(smbHostType string, ctx context.Context) {
 func expectEnableMessage(output string, smbHostType string) {
 	Expect(output).To(SatisfyAll(
 		MatchRegexp("Enabling addon \\'%s\\' with SMB host type \\'%s\\'", addonName, smbHostType),
-		MatchRegexp("'addons enable %s %s' completed", addonName, implementationName),
+		MatchRegexp("'k2s addons enable %s %s' completed", addonName, implementationName),
 	))
 }

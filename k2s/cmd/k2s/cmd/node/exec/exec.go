@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/pterm/pterm"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 	"github.com/siemens-healthineers/k2s/internal/core/node"
 	"github.com/siemens-healthineers/k2s/internal/core/node/ssh"
@@ -56,13 +55,14 @@ func NewCmd() *cobra.Command {
 }
 
 func exec(cmd *cobra.Command, args []string) error {
+	cmdSession := common.StartCmdSession(cmd.CommandPath())
 	command, connectionOptions, err := extractOptions(cmd.Flags())
 	if err != nil {
 		return fmt.Errorf("failed to extract exec options: %w", err)
 	}
 
 	config := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext).Config()
-	_, err = setupinfo.ReadConfig(config.Host.K2sConfigDir)
+	_, err = setupinfo.ReadConfig(config.Host().K2sConfigDir())
 	if err != nil {
 		if errors.Is(err, setupinfo.ErrSystemNotInstalled) {
 			return common.CreateSystemNotInstalledCmdFailure()
@@ -73,14 +73,14 @@ func exec(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to read setup config: %w", err)
 	}
 
-	connectionOptions.SshKeyPath = ssh.SshKeyPath(config.Host.SshDir)
+	connectionOptions.SshKeyPath = ssh.SshKeyPath(config.Host().SshDir())
 
 	err = node.Exec(command, *connectionOptions)
 	if err != nil {
 		return fmt.Errorf("failed to exec: %w", err)
 	}
 
-	pterm.Printfln("Command '%s' done.", cmd.Use) // TODO: align with other cmds
+	cmdSession.Finish()
 
 	return nil
 }

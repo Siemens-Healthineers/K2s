@@ -9,7 +9,6 @@ import (
 	"log/slog"
 	"path/filepath"
 	"strconv"
-	"time"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 
@@ -63,6 +62,7 @@ func addRegistry(cmd *cobra.Command, args []string) error {
 		return errors.New("no registry passed in CLI, use e.g. 'k2s image registry add <registry-name>'")
 	}
 
+	cmdSession := common.StartCmdSession(cmd.CommandPath())
 	registryName := args[0]
 
 	slog.Info("Adding registry", "registry", registryName)
@@ -76,10 +76,8 @@ func addRegistry(cmd *cobra.Command, args []string) error {
 
 	slog.Debug("PS command created", "command", psCmd, "params", params)
 
-	start := time.Now()
-
 	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
-	config, err := setupinfo.ReadConfig(context.Config().Host.K2sConfigDir)
+	config, err := setupinfo.ReadConfig(context.Config().Host().K2sConfigDir())
 	if err != nil {
 		if errors.Is(err, setupinfo.ErrSystemInCorruptedState) {
 			return common.CreateSystemInCorruptedStateCmdFailure()
@@ -103,9 +101,7 @@ func addRegistry(cmd *cobra.Command, args []string) error {
 		return cmdResult.Failure
 	}
 
-	duration := time.Since(start)
-
-	common.PrintCompletedMessage(duration, "image registry add")
+	cmdSession.Finish()
 
 	return nil
 }

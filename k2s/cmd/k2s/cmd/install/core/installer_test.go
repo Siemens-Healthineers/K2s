@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"log/slog"
-	"strings"
 	"testing"
 	"time"
 
@@ -88,7 +87,7 @@ var _ = Describe("core", func() {
 			It("returns silent error", func() {
 				config := &setupinfo.Config{SetupName: "existent"}
 				cmd := &cobra.Command{}
-				cmdContext := common.NewCmdContext(&cfg.Config{Host: cfg.HostConfig{K2sConfigDir: "some-dir"}}, nil)
+				cmdContext := common.NewCmdContext(&cfg.Config{HostConfig: cfg.HostConfig{K2sConfigDirectory: "some-dir"}}, nil)
 				cmd.SetContext(context.WithValue(context.TODO(), common.ContextKeyCmdContext, cmdContext))
 
 				printerMock := &myMock{}
@@ -101,7 +100,7 @@ var _ = Describe("core", func() {
 					LoadConfigFunc: configMock.loadConfig,
 				}
 
-				err := sut.Install("", cmd, nil)
+				err := sut.Install("", cmd, nil, common.CmdSession{})
 
 				var cmdFailure *common.CmdFailure
 				Expect(errors.As(err, &cmdFailure)).To(BeTrue())
@@ -119,7 +118,7 @@ var _ = Describe("core", func() {
 				It("returns error", func() {
 					kind := ic.Kind("test-kind")
 					cmd := &cobra.Command{}
-					cmdContext := common.NewCmdContext(&cfg.Config{Host: cfg.HostConfig{K2sConfigDir: "some-dir"}}, nil)
+					cmdContext := common.NewCmdContext(&cfg.Config{HostConfig: cfg.HostConfig{K2sConfigDirectory: "some-dir"}}, nil)
 					cmd.SetContext(context.WithValue(context.TODO(), common.ContextKeyCmdContext, cmdContext))
 
 					expectedError := errors.New("oops")
@@ -137,7 +136,7 @@ var _ = Describe("core", func() {
 						LoadConfigFunc:      configMock.loadConfig,
 					}
 
-					err := sut.Install(kind, cmd, nil)
+					err := sut.Install(kind, cmd, nil, common.CmdSession{})
 
 					Expect(err).To(MatchError(expectedError))
 				})
@@ -147,7 +146,7 @@ var _ = Describe("core", func() {
 				It("returns error", func() {
 					kind := ic.Kind("test-kind")
 					cmd := &cobra.Command{}
-					cmdContext := common.NewCmdContext(&cfg.Config{Host: cfg.HostConfig{K2sConfigDir: "some-dir"}}, nil)
+					cmdContext := common.NewCmdContext(&cfg.Config{HostConfig: cfg.HostConfig{K2sConfigDirectory: "some-dir"}}, nil)
 					cmd.SetContext(context.WithValue(context.TODO(), common.ContextKeyCmdContext, cmdContext))
 
 					expectedError := common.CreateSystemInCorruptedStateCmdFailure()
@@ -160,7 +159,7 @@ var _ = Describe("core", func() {
 						LoadConfigFunc: configMock.loadConfig,
 					}
 
-					err := sut.Install(kind, cmd, nil)
+					err := sut.Install(kind, cmd, nil, common.CmdSession{})
 
 					Expect(err).To(MatchError(expectedError))
 				})
@@ -171,7 +170,7 @@ var _ = Describe("core", func() {
 			It("returns error", func() {
 				kind := ic.Kind("test-kind")
 				cmd := &cobra.Command{}
-				cmdContext := common.NewCmdContext(&cfg.Config{Host: cfg.HostConfig{K2sConfigDir: "some-dir"}}, nil)
+				cmdContext := common.NewCmdContext(&cfg.Config{HostConfig: cfg.HostConfig{K2sConfigDirectory: "some-dir"}}, nil)
 				cmd.SetContext(context.WithValue(context.TODO(), common.ContextKeyCmdContext, cmdContext))
 
 				config := &ic.InstallConfig{}
@@ -191,7 +190,7 @@ var _ = Describe("core", func() {
 					LoadConfigFunc:      configMock.loadConfig,
 				}
 
-				err := sut.Install(kind, cmd, buildCmdFunc)
+				err := sut.Install(kind, cmd, buildCmdFunc, common.CmdSession{})
 
 				Expect(err).To(MatchError(expectedError))
 			})
@@ -201,7 +200,7 @@ var _ = Describe("core", func() {
 			It("returns error", func() {
 				kind := ic.Kind("test-kind")
 				cmd := &cobra.Command{}
-				cmdContext := common.NewCmdContext(&cfg.Config{Host: cfg.HostConfig{K2sConfigDir: "some-dir"}}, nil)
+				cmdContext := common.NewCmdContext(&cfg.Config{HostConfig: cfg.HostConfig{K2sConfigDirectory: "some-dir"}}, nil)
 				cmd.SetContext(context.WithValue(context.TODO(), common.ContextKeyCmdContext, cmdContext))
 
 				config := &ic.InstallConfig{}
@@ -239,7 +238,7 @@ var _ = Describe("core", func() {
 					LoadConfigFunc:      configMock.loadConfig,
 				}
 
-				err := sut.Install(kind, cmd, buildCmdFunc)
+				err := sut.Install(kind, cmd, buildCmdFunc, common.CmdSession{})
 
 				Expect(err).To(MatchError(expectedError))
 			})
@@ -249,7 +248,7 @@ var _ = Describe("core", func() {
 			It("returns prints warning", func() {
 				kind := ic.Kind("test-kind")
 				cmd := &cobra.Command{}
-				cmdContext := common.NewCmdContext(&cfg.Config{Host: cfg.HostConfig{K2sConfigDir: "some-dir"}}, nil)
+				cmdContext := common.NewCmdContext(&cfg.Config{HostConfig: cfg.HostConfig{K2sConfigDirectory: "some-dir"}}, nil)
 				cmd.SetContext(context.WithValue(context.TODO(), common.ContextKeyCmdContext, cmdContext))
 
 				config := &ic.InstallConfig{}
@@ -291,113 +290,9 @@ var _ = Describe("core", func() {
 					DeleteConfigFunc:    configMock.deleteConfig,
 				}
 
-				err := sut.Install(kind, cmd, buildCmdFunc)
+				err := sut.Install(kind, cmd, buildCmdFunc, common.CmdSession{})
 
 				Expect(err).To(BeNil())
-			})
-		})
-
-		When("PowerShell 5 without errors", func() {
-			It("calls printing and command execution correctly", func() {
-				kind := ic.Kind("test-kind")
-				cmd := &cobra.Command{}
-				cmdContext := common.NewCmdContext(&cfg.Config{Host: cfg.HostConfig{K2sConfigDir: "some-dir"}}, nil)
-				cmd.SetContext(context.WithValue(context.TODO(), common.ContextKeyCmdContext, cmdContext))
-
-				config := &ic.InstallConfig{}
-				testCmd := "test-cmd"
-				var nilConfig *setupinfo.Config
-
-				buildCmdFunc := func(c *ic.InstallConfig) (cmd string, err error) {
-					Expect(c).To(Equal(config))
-					return testCmd, nil
-				}
-
-				configMock := &myMock{}
-				configMock.On(reflection.GetFunctionName(configMock.loadConfig), "some-dir").Return(nilConfig, setupinfo.ErrSystemNotInstalled)
-
-				printerMock := &myMock{}
-				printerMock.On(reflection.GetFunctionName(printerMock.Printfln), mock.Anything, mock.MatchedBy(func(a any) bool {
-					return a.([]any)[0] == kind
-				})).Times(1)
-
-				installConfigMock := &myMock{}
-				installConfigMock.On(reflection.GetFunctionName(installConfigMock.Load), kind, cmd.Flags()).Return(config, nil)
-
-				executorMock := &myMock{}
-				executorMock.On(reflection.GetFunctionName(executorMock.ExecutePs), testCmd, powershell.PowerShellV5, mock.AnythingOfType("*common.PtermWriter")).Return(nil)
-
-				completedMsgPrinterMock := &myMock{}
-				completedMsgPrinterMock.On(reflection.GetFunctionName(completedMsgPrinterMock.PrintCompletedMessage), mock.AnythingOfType("time.Duration"), mock.MatchedBy(func(m string) bool { return strings.Contains(m, string(kind)) }))
-
-				sut := &core.Installer{
-					Printer:                   printerMock,
-					InstallConfigAccess:       installConfigMock,
-					ExecutePsScript:           executorMock.ExecutePs,
-					GetVersionFunc:            func() version.Version { return version.Version{} },
-					GetPlatformFunc:           func() string { return "test-os" },
-					GetInstallDirFunc:         func() string { return "test-dir" },
-					PrintCompletedMessageFunc: completedMsgPrinterMock.PrintCompletedMessage,
-					LoadConfigFunc:            configMock.loadConfig,
-				}
-
-				Expect(sut.Install(kind, cmd, buildCmdFunc)).To(Succeed())
-
-				printerMock.AssertExpectations(GinkgoT())
-				executorMock.AssertExpectations(GinkgoT())
-				completedMsgPrinterMock.AssertExpectations(GinkgoT())
-			})
-		})
-
-		When("PowerShell 7 without errors", func() {
-			It("calls printing and command execution correctly", func() {
-				kind := ic.MultivmConfigType
-				cmd := &cobra.Command{}
-				cmdContext := common.NewCmdContext(&cfg.Config{Host: cfg.HostConfig{K2sConfigDir: "some-dir"}}, nil)
-				cmd.SetContext(context.WithValue(context.TODO(), common.ContextKeyCmdContext, cmdContext))
-
-				config := &ic.InstallConfig{}
-				testCmd := "test-cmd"
-				var nilConfig *setupinfo.Config
-
-				buildCmdFunc := func(c *ic.InstallConfig) (cmd string, err error) {
-					Expect(c).To(Equal(config))
-					return testCmd, nil
-				}
-
-				configMock := &myMock{}
-				configMock.On(reflection.GetFunctionName(configMock.loadConfig), "some-dir").Return(nilConfig, setupinfo.ErrSystemNotInstalled)
-
-				printerMock := &myMock{}
-				printerMock.On(reflection.GetFunctionName(printerMock.Printfln), mock.Anything, mock.MatchedBy(func(a any) bool {
-					return a.([]any)[0] == kind
-				})).Times(1)
-
-				installConfigMock := &myMock{}
-				installConfigMock.On(reflection.GetFunctionName(installConfigMock.Load), kind, cmd.Flags()).Return(config, nil)
-
-				executorMock := &myMock{}
-				executorMock.On(reflection.GetFunctionName(executorMock.ExecutePs), testCmd, powershell.PowerShellV7, mock.AnythingOfType("*common.PtermWriter")).Return(nil)
-
-				completedMsgPrinterMock := &myMock{}
-				completedMsgPrinterMock.On(reflection.GetFunctionName(completedMsgPrinterMock.PrintCompletedMessage), mock.AnythingOfType("time.Duration"), mock.MatchedBy(func(m string) bool { return strings.Contains(m, string(kind)) }))
-
-				sut := &core.Installer{
-					Printer:                   printerMock,
-					InstallConfigAccess:       installConfigMock,
-					ExecutePsScript:           executorMock.ExecutePs,
-					GetVersionFunc:            func() version.Version { return version.Version{} },
-					GetPlatformFunc:           func() string { return "test-os" },
-					GetInstallDirFunc:         func() string { return "test-dir" },
-					PrintCompletedMessageFunc: completedMsgPrinterMock.PrintCompletedMessage,
-					LoadConfigFunc:            configMock.loadConfig,
-				}
-
-				Expect(sut.Install(kind, cmd, buildCmdFunc)).To(Succeed())
-
-				printerMock.AssertExpectations(GinkgoT())
-				executorMock.AssertExpectations(GinkgoT())
-				completedMsgPrinterMock.AssertExpectations(GinkgoT())
 			})
 		})
 	})

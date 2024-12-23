@@ -11,15 +11,12 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils/tz"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
+	cc "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
+	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/install/common"
 	ic "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/install/config"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 )
-
-type installer interface {
-	Install(kind ic.Kind, cmd *cobra.Command, buildCmdFunc func(config *ic.InstallConfig) (cmd string, err error)) error
-}
 
 const (
 	kind = "multivm"
@@ -46,7 +43,7 @@ var (
 		Example: example,
 	}
 
-	Installer installer
+	Installer common.Installer
 )
 
 func init() {
@@ -56,9 +53,9 @@ func init() {
 func bindFlags(cmd *cobra.Command) {
 	cmd.Flags().StringP(ic.ImageFlagName, ic.ImageFlagShorthand, "", ic.ImageFlagUsage)
 
-	cmd.Flags().String(common.AdditionalHooksDirFlagName, "", common.AdditionalHooksDirFlagUsage)
-	cmd.Flags().BoolP(common.DeleteFilesFlagName, common.DeleteFilesFlagShorthand, false, common.DeleteFilesFlagUsage)
-	cmd.Flags().BoolP(common.ForceOnlineInstallFlagName, common.ForceOnlineInstallFlagShorthand, false, common.ForceOnlineInstallFlagUsage)
+	cmd.Flags().String(cc.AdditionalHooksDirFlagName, "", cc.AdditionalHooksDirFlagUsage)
+	cmd.Flags().BoolP(cc.DeleteFilesFlagName, cc.DeleteFilesFlagShorthand, false, cc.DeleteFilesFlagUsage)
+	cmd.Flags().BoolP(cc.ForceOnlineInstallFlagName, cc.ForceOnlineInstallFlagShorthand, false, cc.ForceOnlineInstallFlagUsage)
 
 	cmd.Flags().String(ic.ControlPlaneCPUsFlagName, "", ic.ControlPlaneCPUsFlagUsage)
 	cmd.Flags().String(ic.ControlPlaneMemoryFlagName, "", ic.ControlPlaneMemoryFlagUsage)
@@ -91,13 +88,14 @@ func createTimezoneConfigHandle() (tz.ConfigWorkspaceHandle, error) {
 }
 
 func Install(cmd *cobra.Command, args []string) error {
+	cmdSession := cc.StartCmdSession(cmd.CommandPath())
 	tzConfigHandle, err := createTimezoneConfigHandle()
 	if err != nil {
 		return err
 	}
 	defer tzConfigHandle.Release()
 
-	return Installer.Install(kind, cmd, buildInstallCmd)
+	return Installer.Install(kind, cmd, buildInstallCmd, cmdSession)
 }
 
 func buildInstallCmd(c *ic.InstallConfig) (cmd string, err error) {

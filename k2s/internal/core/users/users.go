@@ -15,12 +15,12 @@ import (
 	"github.com/siemens-healthineers/k2s/internal/core/node/ssh/keygen"
 	"github.com/siemens-healthineers/k2s/internal/core/users/acl"
 	"github.com/siemens-healthineers/k2s/internal/core/users/common"
+	"github.com/siemens-healthineers/k2s/internal/core/users/controlplane"
 	"github.com/siemens-healthineers/k2s/internal/core/users/fs"
 	"github.com/siemens-healthineers/k2s/internal/core/users/http"
 	"github.com/siemens-healthineers/k2s/internal/core/users/k8s"
 	"github.com/siemens-healthineers/k2s/internal/core/users/k8s/cluster"
 	"github.com/siemens-healthineers/k2s/internal/core/users/k8s/kubeconfig"
-	"github.com/siemens-healthineers/k2s/internal/core/users/nodes"
 	"github.com/siemens-healthineers/k2s/internal/core/users/winusers"
 )
 
@@ -45,13 +45,18 @@ type kubeconfWriterFactory struct {
 	exec common.CmdExecutor
 }
 
+type nodeAccess struct {
+	sshOptions ssh.ConnectionOptions
+	sshDir     string
+}
+
 func DefaultUserProvider() UserProvider {
 	return winusers.NewWinUserProvider()
 }
 
-func NewUsersManagement(cfg *config.Config, cmdExecutor common.CmdExecutor, userProvider UserProvider) (*usersManagement, error) {
-	controlePlaneCfg, found := lo.Find(cfg.Nodes, func(node config.NodeConfig) bool {
-		return node.IsControlPlane
+func NewUsersManagement(cfg config.ConfigReader, cmdExecutor common.CmdExecutor, userProvider UserProvider) (*usersManagement, error) {
+	controlePlaneCfg, found := lo.Find(cfg.Nodes(), func(node config.NodeConfigReader) bool {
+		return node.IsControlPlane()
 	})
 	if !found {
 		return nil, errors.New("could not find control-plane node config")
@@ -63,9 +68,9 @@ func NewUsersManagement(cfg *config.Config, cmdExecutor common.CmdExecutor, user
 
 	sshOptions := ssh.ConnectionOptions{
 		RemoteUser: "remote",
-		IpAddress:  controlePlaneCfg.IpAddress,
+		IpAddress:  controlePlaneCfg.IpAddress(),
 		Port:       ssh.DefaultPort,
-		SshKeyPath: ssh.SshKeyPath(cfg.Host.SshDir),
+		SshKeyPath: ssh.SshKeyPath(cfg.Host().SshDir()),
 		Timeout:    ssh.DefaultTimeout,
 	}
 
@@ -74,9 +79,10 @@ func NewUsersManagement(cfg *config.Config, cmdExecutor common.CmdExecutor, user
 	aclExec := acl.NewAcl(cmdExecutor)
 	restClient := http.NewRestClient()
 	kubeconfigReader := kubeconfig.NewKubeconfigReader()
-	controlPlaneAccess := nodes.NewControlPlaneAccess(fileSystem, keygenExec, node.Exec, node.Copy, sshOptions, aclExec, cfg.Host.SshDir, controlePlaneCfg.IpAddress)
+	nodeAccess := &nodeAccess{sshOptions: sshOptions, sshDir: cfg.Host().SshDir()}
+	controlPlaneAccess := controlplane.NewControlPlaneAccess(fileSystem, keygenExec, nodeAccess, aclExec, controlePlaneCfg.IpAddress())
 	clusterAccess := cluster.NewClusterAccess(restClient)
-	k8sAccess := k8s.NewK8sAccess(node.Exec, node.Copy, sshOptions, fileSystem, clusterAccess, kubeconfigWriterFactory, kubeconfigReader, cfg.Host.KubeConfigDir)
+	k8sAccess := k8s.NewK8sAccess(nodeAccess, fileSystem, clusterAccess, kubeconfigWriterFactory, kubeconfigReader, cfg.Host().KubeConfigDir())
 	userAdder := NewWinUserAdder(controlPlaneAccess, k8sAccess, CreateK2sUserName)
 
 	return &usersManagement{
@@ -124,4 +130,16 @@ func (m *usersManagement) add(winUser *winusers.User) error {
 	}
 
 	return m.userAdder.Add(winUser, current.Name())
+}
+
+func (a *nodeAccess) Copy(copyOptions node.CopyOptions) error {
+	return node.Copy(copyOptions, a.sshOptions)
+}
+
+func (a *nodeAccess) Exec(command string) error {
+	return node.Exec(command, a.sshOptions)
+}
+
+func (a *nodeAccess) HostSshDir() string {
+	return a.sshDir
 }
