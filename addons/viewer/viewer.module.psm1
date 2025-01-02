@@ -74,6 +74,18 @@ function Test-DicomAddonAvailability {
 
 <#
 .DESCRIPTION
+Determines if the security service is deployed in the cluster
+#>
+function Test-SecurityAddonAvailability {
+    $existingServices = (Invoke-Kubectl -Params 'get', 'service', '-n', 'security', '-o', 'yaml').Output 
+    if ("$existingServices" -match '.* keycloak .*') {
+        return $true
+    }
+    return $false
+}
+
+<#
+.DESCRIPTION
 Determines if the viewer addon is deployed in the cluster
 #>
 function Test-DicomViewerAvailability {
@@ -91,7 +103,8 @@ Updates the defaultDataSourceName in the viewer configmap.
 function Update-ConfigMap {
     param (
         [string]$FilePath,
-        [string]$NewDefaultDataSourceName
+        [string]$NewDefaultDataSourceName,
+        [bool]$UseSharedArrayBuffer = $false
     )
 
     # Read the content of the configmap.yaml file
@@ -99,10 +112,15 @@ function Update-ConfigMap {
 
     # Replace the defaultDataSourceName value in memory
     # Construct the replacement string
-    $replacementString = '"defaultDataSourceName": "' + $NewDefaultDataSourceName + '"'
+    $replacementString = '"defaultDataSourceName": "' + $NewDefaultDataSourceName + '"'    
+    $replacementString2 = '"useSharedArrayBuffer": "' + ($(if ($UseSharedArrayBuffer) { 'TRUE' } else { 'FALSE' })) + '"'
 
     # Replace the defaultDataSourceName value in memory
     $updatedConfigMapContent = $configMapContent -replace '"defaultDataSourceName": "DataFromAWS"', $replacementString
+    # Replace the useSharedArrayBuffer value in memory
+    $updatedConfigMapContent = $updatedConfigMapContent -replace '"useSharedArrayBuffer": "FALSE"', $replacementString2
+    $updatedConfigMapContent = $updatedConfigMapContent -replace '"useSharedArrayBuffer": "TRUE"', $replacementString2
+
     # Create a temporary file to store the updated content
     $tempFilePath = [System.IO.Path]::GetTempFileName()
     Set-Content -Path $tempFilePath -Value $updatedConfigMapContent
@@ -141,11 +159,16 @@ function Update-ViewerConfigMap {
     $isTraefikEnabled = Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'ingress'; Implementation = 'traefik' })
 
     if (-not $isNginxEnabled -and -not $isTraefikEnabled) {
-         # If no ingress is enabled the viewer cannot access the dicom data due to CORS policy
+        # If no ingress is enabled the viewer cannot access the dicom data due to CORS policy
         # Call Update-ConfigMap with defaultDataSourceName set to DataFromAWS
         Update-ConfigMap -FilePath $filePath -NewDefaultDataSourceName "DataFromAWS"
     } else {
-        # Call Update-ConfigMap with defaultDataSourceName set to dataFromDicomAddon
-        Update-ConfigMap -FilePath $filePath -NewDefaultDataSourceName "dataFromDicomAddon"
-    }
-}     
+        if (Test-SecurityAddonAvailability) {        
+            # Call Update-ConfigMap with defaultDataSourceName set to dataFromDicomAddon and useSharedArrayBuffer set to true
+            Update-ConfigMap -FilePath $filePath -NewDefaultDataSourceName "dataFromDicomAddonTls" -UseSharedArrayBuffer $true
+        } else {
+            # Call Update-ConfigMap with defaultDataSourceName set to dataFromDicomAddon
+            Update-ConfigMap -FilePath $filePath -NewDefaultDataSourceName "dataFromDicomAddon"
+       }
+    }    
+}    

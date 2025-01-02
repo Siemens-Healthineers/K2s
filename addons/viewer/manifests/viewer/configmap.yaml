@@ -74,6 +74,30 @@ data:
         },
         "omitQuotationForMultipartRequest": true
         }
+      },
+      {
+        "namespace": "@ohif/extension-default.dataSourcesModule.dicomweb",
+        "sourceName": "dataFromDicomAddonTls",
+        "configuration": {
+        "friendlyName": "Dicom addon static wado server",
+        "name": "Dicom addon",
+        "wadoUriRoot": "https://k2s.cluster.local/dicom/dicomweb",
+        "qidoRoot": "https://k2s.cluster.local/dicom/dicomweb",
+        "wadoRoot": "https://k2s.cluster.local/dicom/dicomweb",
+        "qidoSupportsIncludeField": false,
+        "imageRendering": "wadors",
+        "thumbnailRendering": "wadors",
+        "enableStudyLazyLoad": true,
+        "supportsFuzzyMatching": false,
+        "supportsWildcard": true,
+        "staticWado": true,
+        "singlepart": "bulkdata,video",
+        "bulkDataURI": {
+          "enabled": true,
+          "relativeResolution": "studies"
+        },
+        "omitQuotationForMultipartRequest": true
+        }
       }
       ],
       "defaultDataSourceName": "DataFromAWS"
