@@ -270,6 +270,77 @@ var _ = Describe("'viewer' addon", Ordered, func() {
 			})
 		})
 
+		When("Dicom addon, security and nginx ingress controller are active before viewer activation", func() {
+			BeforeAll(func(ctx context.Context) {
+				// enable dicom addon
+				suite.K2sCli().Run(ctx, "addons", "enable", "dicom", "-o")
+				suite.Cluster().ExpectDeploymentToBeAvailable("dicom", "dicom")
+				suite.Cluster().ExpectDeploymentToBeAvailable("mysql", "dicom")
+
+				suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "orthanc", "dicom")
+				suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "mysql", "dicom")
+				
+				//enable nginx ingress
+				suite.K2sCli().Run(ctx, "addons", "enable", "ingress", "nginx", "-o")
+				suite.Cluster().ExpectDeploymentToBeAvailable("ingress-nginx-controller", "ingress-nginx")	
+
+				//enable security
+				suite.K2sCli().Run(ctx, "addons", "enable", "security", "-o")
+				suite.Cluster().ExpectDeploymentToBeAvailable("keycloak", "security")	
+
+				addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)			
+				Expect(addonsStatus.IsAddonEnabled("dicom", "")).To(BeTrue())
+				Expect(addonsStatus.IsAddonEnabled("ingress", "nginx")).To(BeTrue())							
+				Expect(addonsStatus.IsAddonEnabled("security", "")).To(BeTrue())
+			})
+
+			AfterAll(func(ctx context.Context) {				
+				suite.K2sCli().Run(ctx, "addons", "disable", "viewer", "-o")
+				suite.K2sCli().Run(ctx, "addons", "disable", "dicom", "-o")
+				suite.K2sCli().Run(ctx, "addons", "disable", "ingress", "nginx", "-o")
+				suite.K2sCli().Run(ctx, "addons", "disable", "security", "-o")
+
+				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "viewerwebapp", "viewer")								
+				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "dicom", "dicom")
+				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "mysql", "dicom")
+				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "ingress-nginx", "ingress-nginx")
+				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app","keycloak", "security")	
+
+				addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
+				Expect(addonsStatus.IsAddonEnabled("viewer", "")).To(BeFalse())				
+				Expect(addonsStatus.IsAddonEnabled("dicom", "")).To(BeFalse())
+				Expect(addonsStatus.IsAddonEnabled("ingress", "nginx")).To(BeFalse())
+				Expect(addonsStatus.IsAddonEnabled("security", "")).To(BeFalse())
+			})
+
+			It("is in enabled state and pods are in running state", func(ctx context.Context) {
+				suite.K2sCli().Run(ctx, "addons", "enable", "viewer", "-o")
+
+				suite.Cluster().ExpectDeploymentToBeAvailable("viewerwebapp", "viewer")			
+				suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "viewerwebapp", "viewer")				
+
+				addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
+				Expect(addonsStatus.IsAddonEnabled("viewer", "")).To(BeTrue())
+			})
+
+			It("retrieves patient data from the Dicom addon", func(ctx context.Context) {				
+				url := "https://k2s.cluster.local/viewer/datasources/config.json"
+				output := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-m", "5", "--retry", "10", "--fail")
+				// checking that the default datasource is dataFromDicomAddonTls means that the patient data is coming from the dicom addon, is secured
+				// and shared array buffer is enabled
+				Expect(output).To(ContainSubstring( `"defaultDataSourceName": "dataFromDicomAddonTls"`))
+				Expect(output).To(ContainSubstring( `"useSharedArrayBuffer": "TRUE"`))
+			})
+
+			It("prints already-enabled message when enabling the addon again and exits with non-zero", func(ctx context.Context) {
+				expectAddonToBeAlreadyEnabled(ctx)
+			})
+
+			It("prints the status", func(ctx context.Context) {
+				expectStatusToBePrinted(ctx)
+			})
+		})
+
 		When("Dicom addon is not active before viewer activation only nginx ingress controller is, Dicom addon gets activated later", func() {		
 			BeforeAll(func(ctx context.Context) {
 				suite.K2sCli().Run(ctx, "addons", "enable", "ingress", "nginx", "-o")
