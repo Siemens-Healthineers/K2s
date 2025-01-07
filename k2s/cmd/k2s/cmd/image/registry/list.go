@@ -9,8 +9,8 @@ import (
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 
 	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
+	"github.com/siemens-healthineers/k2s/internal/terminal"
 
-	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
 )
 
@@ -35,7 +35,7 @@ func init() {
 
 func listRegistries(cmd *cobra.Command, args []string) error {
 	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
-	config, err := setupinfo.ReadConfig(context.Config().Host.K2sConfigDir)
+	config, err := setupinfo.ReadConfig(context.Config().Host().K2sConfigDir())
 	if err != nil {
 		if errors.Is(err, setupinfo.ErrSystemInCorruptedState) {
 			return common.CreateSystemInCorruptedStateCmdFailure()
@@ -48,14 +48,16 @@ func listRegistries(cmd *cobra.Command, args []string) error {
 
 	registries := config.Registries
 
+	terminalPrinter := terminal.NewTerminalPrinter()
+
 	if len(registries) == 0 {
-		pterm.Println("No registries configured!")
+		terminalPrinter.PrintInfoln("No registries configured!")
 		return nil
 	}
 
-	pterm.Printfln("Configured registries:")
+	terminalPrinter.PrintHeader("Configured registries:")
 	for _, v := range registries {
-		pterm.Printfln("- %s", v)
+		terminalPrinter.Printfln(" - %s", v)
 	}
 
 	return nil

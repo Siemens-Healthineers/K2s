@@ -6,17 +6,15 @@ package node
 import (
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"log/slog"
-	"os/exec"
+	"os"
 	"path"
 	"path/filepath"
 	"strings"
 
-	bos "os"
-
 	"github.com/pkg/sftp"
-	"github.com/siemens-healthineers/k2s/internal/core/node/copy"
 	"github.com/siemens-healthineers/k2s/internal/core/node/ssh"
 	"github.com/siemens-healthineers/k2s/internal/host"
 )
@@ -24,6 +22,22 @@ import (
 type copier interface {
 	CopyFile(source, target string) error
 	CopyDir(source, target string) error
+}
+
+type CopyDirection int
+
+type CopyOptions struct {
+	Source    string
+	Target    string
+	Direction CopyDirection
+}
+
+type toRemoteCopier struct {
+	client *sftp.Client
+}
+
+type fromRemoteCopier struct {
+	client *sftp.Client
 }
 
 type pathInfo struct {
@@ -36,15 +50,12 @@ type targetInfo struct {
 	isExisting bool
 }
 
-type toNodeCopier struct {
-	copier *copy.ToRemoteCopier
-}
+const (
+	CopyToNode   CopyDirection = iota
+	CopyFromNode CopyDirection = iota
+)
 
-type fromNodeCopier struct {
-	copier *copy.FromRemoteCopier
-}
-
-func Copy(copyOptions copy.CopyOptions, connectionOptions ssh.ConnectionOptions) error {
+func Copy(copyOptions CopyOptions, connectionOptions ssh.ConnectionOptions) error {
 	copyFunc, err := determineCopyFunc(copyOptions)
 	if err != nil {
 		return fmt.Errorf("failed to determine copy function: %w", err)
@@ -76,86 +87,154 @@ func Copy(copyOptions copy.CopyOptions, connectionOptions ssh.ConnectionOptions)
 	return copyFunc(sftpClient)
 }
 
-func Exec(command string, connectionOptions ssh.ConnectionOptions) error {
-	sshClient, err := ssh.Connect(connectionOptions)
+func (c toRemoteCopier) CopyFile(source, target string) error {
+	return c.copyFileToRemote(source, target)
+}
+
+func (c toRemoteCopier) CopyDir(source, target string) error {
+	return c.copyDirToRemote(source, target)
+}
+
+func (c fromRemoteCopier) CopyFile(source, target string) error {
+	return c.copyFileFromRemote(source, target)
+}
+
+func (c fromRemoteCopier) CopyDir(source, target string) error {
+	return c.copyDirFromRemote(source, target)
+}
+
+func (c *toRemoteCopier) copyFileToRemote(localPath, remotePath string) error {
+	slog.Debug("Copying file to remote", "local", localPath, "remote", remotePath)
+
+	remoteFile, err := c.client.Create(remotePath)
 	if err != nil {
-		return fmt.Errorf("failed to dial SSH: %w", err)
+		return fmt.Errorf("failed to create/open remote file '%s': %w", remotePath, err)
 	}
 	defer func() {
-		slog.Debug("Closing SSH client")
-		if err := sshClient.Close(); err != nil {
-			slog.Error("failed to close SSH client", "error", err)
+		if err := remoteFile.Close(); err != nil {
+			slog.Error("failed to close remote file", "error", err, "path", remotePath)
 		}
 	}()
 
-	session, err := sshClient.NewSession()
+	localFile, err := os.Open(localPath)
 	if err != nil {
-		return fmt.Errorf("failed to create SSH session: %w", err)
+		return fmt.Errorf("failed to open local file '%s': %w", localPath, err)
 	}
+	defer func() {
+		if err := localFile.Close(); err != nil {
+			slog.Error("failed to close local file", "error", err, "path", localPath)
+		}
+	}()
 
-	session.Stdout = bos.Stdout
-	session.Stderr = bos.Stdout
-
-	// Session.Run() implicitly closes the session afterwards
-	if err := session.Run(command); err != nil {
-		return fmt.Errorf("failed to run command: %w", err)
+	bytesCopied, err := io.Copy(remoteFile, localFile)
+	if err != nil {
+		return fmt.Errorf("failed to copy '%s' to '%s': %w", localPath, remotePath, err)
 	}
+	slog.Debug("Copied file to remote", "local", localPath, "remote", remotePath, "bytes", bytesCopied)
 	return nil
 }
 
-func Connect(options ssh.ConnectionOptions) error {
-	timeoutOption := fmt.Sprintf("ConnectTimeout=%d", int(options.Timeout.Seconds()))
-	port := fmt.Sprintf("%d", options.Port)
-	remote := fmt.Sprintf("%s@%s", options.RemoteUser, options.IpAddress)
+func (c *fromRemoteCopier) copyFileFromRemote(remotePath, localPath string) error {
+	slog.Debug("Copying file to local", "local", localPath, "remote", remotePath)
 
-	cmd := exec.Command("ssh.exe", "-tt", "-o", "StrictHostKeyChecking=no", "-o", timeoutOption, "-i", options.SshKeyPath, "-p", port, remote)
-
-	slog.Debug("Executing ssh.exe", "command", cmd.String())
-
-	cmd.Stdin = bos.Stdin
-	cmd.Stdout = bos.Stdout
-	cmd.Stderr = bos.Stderr
-
-	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("failed to start ssh.exe: %w", err)
+	remoteFile, err := c.client.Open(remotePath)
+	if err != nil {
+		return fmt.Errorf("failed to open remote file '%s': %w", remotePath, err)
 	}
+	defer func() {
+		if err := remoteFile.Close(); err != nil {
+			slog.Error("failed to close remote file", "error", err, "path", remotePath)
+		}
+	}()
 
-	if err := cmd.Wait(); err != nil {
-		var exitErr *exec.ExitError
-		if errors.As(err, &exitErr) {
-			exitCode := exitErr.ExitCode()
-			if exitCode == 255 {
-				return fmt.Errorf("failed to execute ssh.exe: %w", err)
+	localFile, err := os.Create(localPath)
+	if err != nil {
+		return fmt.Errorf("failed to create/open local file '%s': %w", localPath, err)
+	}
+	defer func() {
+		if err := localFile.Close(); err != nil {
+			slog.Error("failed to close local file", "error", err, "path", localPath)
+		}
+	}()
+
+	bytesCopied, err := io.Copy(localFile, remoteFile)
+	if err != nil {
+		return fmt.Errorf("failed to copy '%s' to '%s': %w", remotePath, localPath, err)
+	}
+	slog.Debug("Copied file to local", "local", localPath, "remote", remotePath, "bytes", bytesCopied)
+	return nil
+}
+
+func (c *toRemoteCopier) copyDirToRemote(localDir, remoteDir string) error {
+	slog.Debug("Copying dir to remote", "local", localDir, "remote", remoteDir)
+
+	err := filepath.WalkDir(localDir, func(localPath string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return fmt.Errorf("failed to walk local dir '%s': %w", localDir, err)
+		}
+
+		localPath = filepath.ToSlash(localPath)
+
+		relativePath, err := filepath.Rel(localDir, localPath)
+		if err != nil {
+			return fmt.Errorf("failed to determine relative path of '%s': %w", localPath, err)
+		}
+
+		remotePath := path.Join(remoteDir, filepath.ToSlash(relativePath))
+
+		if d.IsDir() {
+			slog.Debug("Creating remote dir", "path", remotePath)
+
+			if err := c.client.MkdirAll(remotePath); err != nil {
+				return fmt.Errorf("failed to create remote dir '%s': %w", remotePath, err)
 			}
-			slog.Debug("failed to execute ssh.exe", "exit-code", exitErr.ExitCode())
 			return nil
 		}
-		return fmt.Errorf("failed to wait for ssh.exe execution: %w", err)
+		return c.copyFileToRemote(localPath, remotePath)
+	})
+	if err != nil {
+		return fmt.Errorf("failed to copy dir '%s' to '%s': %w", localDir, remoteDir, err)
 	}
 	return nil
 }
 
-func (c toNodeCopier) CopyFile(source, target string) error {
-	return c.copier.CopyFileToRemote(source, target)
+func (c *fromRemoteCopier) copyDirFromRemote(remoteDir, localDir string) error {
+	slog.Debug("Copying dir to local", "local", localDir, "remote", remoteDir)
+
+	walker := c.client.Walk(remoteDir)
+
+	for walker.Step() {
+		if err := walker.Err(); err != nil {
+			return fmt.Errorf("failed to walk remote dir '%s': %w", remoteDir, err)
+		}
+
+		relativePath, err := filepath.Rel(remoteDir, walker.Path())
+		if err != nil {
+			return fmt.Errorf("failed to determine relative path of '%s': %w", walker.Path(), err)
+		}
+
+		localPath := path.Join(localDir, filepath.ToSlash(relativePath))
+
+		if walker.Stat().IsDir() {
+			slog.Debug("Creating local dir", "path", localPath)
+
+			if err := os.MkdirAll(localPath, os.ModePerm); err != nil {
+				return fmt.Errorf("failed to create local dir '%s': %w", localPath, err)
+			}
+			continue
+		}
+		if err := c.copyFileFromRemote(walker.Path(), localPath); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
-func (c toNodeCopier) CopyDir(source, target string) error {
-	return c.copier.CopyDirToRemote(source, target)
-}
-
-func (c fromNodeCopier) CopyFile(source, target string) error {
-	return c.copier.CopyFileFromRemote(source, target)
-}
-
-func (c fromNodeCopier) CopyDir(source, target string) error {
-	return c.copier.CopyDirFromRemote(source, target)
-}
-
-func determineCopyFunc(copyOptions copy.CopyOptions) (func(*sftp.Client) error, error) {
+func determineCopyFunc(copyOptions CopyOptions) (func(*sftp.Client) error, error) {
 	slog.Debug("Determining copy function", "copy-direction", copyOptions.Direction)
 
 	switch copyOptions.Direction {
-	case copy.CopyToNode:
+	case CopyToNode:
 		source, err := analyzeLocalSource(copyOptions.Source)
 		if err != nil {
 			return nil, fmt.Errorf("failed to analyze local source '%s': %w", copyOptions.Source, err)
@@ -166,11 +245,11 @@ func determineCopyFunc(copyOptions copy.CopyOptions) (func(*sftp.Client) error, 
 			if err != nil {
 				return fmt.Errorf("failed to analyze remote target '%s': %w", copyOptions.Target, err)
 			}
-			copier := &toNodeCopier{copier: copy.NewToRemoteCopier(sftpClient)}
+			copier := &toRemoteCopier{client: sftpClient}
 
 			return copySourceToTarget(*source, *target, copier)
 		}, nil
-	case copy.CopyFromNode:
+	case CopyFromNode:
 		target, err := analyzeLocalTarget(copyOptions.Target)
 		if err != nil {
 			return nil, fmt.Errorf("failed to analyze local target '%s': %w", copyOptions.Target, err)
@@ -181,7 +260,7 @@ func determineCopyFunc(copyOptions copy.CopyOptions) (func(*sftp.Client) error, 
 			if err != nil {
 				return fmt.Errorf("failed to analyze remote source '%s': %w", copyOptions.Source, err)
 			}
-			copier := &fromNodeCopier{copier: copy.NewFromRemoteCopier(sftpClient)}
+			copier := &fromRemoteCopier{client: sftpClient}
 
 			return copySourceToTarget(*source, *target, copier)
 		}, nil
@@ -200,7 +279,7 @@ func analyzeLocalSource(path string) (*pathInfo, error) {
 
 	slog.Debug("Local path cleaned", "path", localPath)
 
-	info, err := bos.Stat(localPath)
+	info, err := os.Stat(localPath)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
 			return nil, fmt.Errorf("source '%s' does not exist", localPath)
@@ -223,7 +302,7 @@ func analyzeLocalTarget(targetPath string) (*targetInfo, error) {
 
 	slog.Debug("Local path cleaned", "path", localPath)
 
-	info, err := bos.Stat(localPath)
+	info, err := os.Stat(localPath)
 	if err == nil {
 		target := &targetInfo{
 			pathInfo: pathInfo{
@@ -248,7 +327,7 @@ func analyzeLocalTarget(targetPath string) (*targetInfo, error) {
 func analyzeLocalParent(targetPath string) (*targetInfo, error) {
 	parent := path.Dir(targetPath)
 
-	_, err := bos.Stat(parent)
+	_, err := os.Stat(parent)
 	if err == nil {
 		slog.Debug("Local parent existing", "parent", parent)
 		return &targetInfo{pathInfo: pathInfo{path: targetPath}}, nil

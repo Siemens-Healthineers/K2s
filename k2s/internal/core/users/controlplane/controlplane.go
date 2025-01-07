@@ -1,8 +1,7 @@
 // SPDX-FileCopyrightText:  © 2024 Siemens Healthcare AG
 // SPDX-License-Identifier:   MIT
 
-// TODO: consolidate with k2s/internal/core/node package
-package nodes
+package controlplane
 
 import (
 	"errors"
@@ -12,6 +11,7 @@ import (
 
 	"path/filepath"
 
+	"github.com/siemens-healthineers/k2s/internal/core/node"
 	"github.com/siemens-healthineers/k2s/internal/core/node/ssh"
 	"github.com/siemens-healthineers/k2s/internal/core/users/common"
 )
@@ -36,80 +36,69 @@ type fileAccessControl interface {
 	RevokeAccess(path string, username string) error
 }
 
-type sshExec interface {
-	Exec(cmd string) error
-}
-
-type scp interface {
-	CopyToRemote(source string, target string) error
-	CopyFromRemote(source string, target string) error
+type nodeAccess interface {
+	Copy(copyOptions node.CopyOptions) error
+	Exec(command string) error
+	HostSshDir() string
 }
 
 type controlPlaneAccess struct {
-	fs          fileSystem
-	keygen      sshKeyGen
-	ssh         sshExec
-	scp         scp
-	acl         fileAccessControl
-	adminSshDir string
-	ipAddress   string
+	fs         fileSystem
+	keygen     sshKeyGen
+	nodeAccess nodeAccess
+	acl        fileAccessControl
+	ipAddress  string
 }
 
 const (
 	authorizedKeysPath = "~/.ssh/authorized_keys"
-	remoteUserName     = "remote"
 )
 
-func DetermineSshRemoteUser(controlPlaneIpAddress string) string {
-	return fmt.Sprintf("%s@%s", remoteUserName, controlPlaneIpAddress)
-}
-
-func NewControlPlaneAccess(fs fileSystem, keygen sshKeyGen, ssh sshExec, scp scp, acl fileAccessControl, adminSshDir string, ipAddress string) *controlPlaneAccess {
+func NewControlPlaneAccess(fs fileSystem, keygen sshKeyGen, nodeAccess nodeAccess, acl fileAccessControl, ipAddress string) *controlPlaneAccess {
 	return &controlPlaneAccess{
-		fs:          fs,
-		keygen:      keygen,
-		ssh:         ssh,
-		scp:         scp,
-		acl:         acl,
-		adminSshDir: adminSshDir,
-		ipAddress:   ipAddress,
+		fs:         fs,
+		keygen:     keygen,
+		nodeAccess: nodeAccess,
+		acl:        acl,
+		ipAddress:  ipAddress,
 	}
 }
 
-func (g *controlPlaneAccess) GrantAccessTo(user common.User, currentUserName, k2sUserName string) (err error) {
-	sshDirName := filepath.Base(g.adminSshDir)
+func (g *controlPlaneAccess) GrantAccessTo(user common.User, currentUserName, k2sUserName string) error {
+	sshDirName := filepath.Base(g.nodeAccess.HostSshDir())
 	newUserSshDir := filepath.Join(user.HomeDir(), sshDirName)
 	newUserSshKeyPath := ssh.SshKeyPath(newUserSshDir)
 	newUserSshControlPlaneDir := filepath.Dir(newUserSshKeyPath)
 
-	if err = g.createSshKey(newUserSshKeyPath, k2sUserName); err != nil {
+	if err := g.createSshKey(newUserSshKeyPath, k2sUserName); err != nil {
 		return fmt.Errorf("could not create SSH key '%s' for user '%s': %w", newUserSshKeyPath, k2sUserName, err)
 	}
 
-	if err = g.transferKeyOwnership(newUserSshKeyPath, currentUserName, user.Name()); err != nil {
+	if err := g.transferKeyOwnership(newUserSshKeyPath, currentUserName, user.Name()); err != nil {
 		return fmt.Errorf("could not transfer ownership of key file '%s' to '%s': %w", newUserSshKeyPath, user.Name(), err)
 	}
 
+	var authErr, addKnownHostsErr error
 	tasks := sync.WaitGroup{}
 	tasks.Add(2)
 
 	go func() {
 		defer tasks.Done()
-		if innerErr := g.authorizePubKeyOnControlPlane(newUserSshControlPlaneDir, k2sUserName); innerErr != nil {
-			err = errors.Join(err, fmt.Errorf("could not authorize public key on control-plane: %w", innerErr))
+		if err := g.authorizePubKeyOnControlPlane(newUserSshControlPlaneDir, k2sUserName); err != nil {
+			authErr = fmt.Errorf("could not authorize public key on control-plane: %w", err)
 		}
 	}()
 
 	go func() {
 		defer tasks.Done()
-		if innerErr := g.addControlPlaneToKnownHosts(newUserSshDir); innerErr != nil {
-			err = errors.Join(err, fmt.Errorf("could not add control-plane fingerprint to known_hosts: %w", innerErr))
+		if err := g.addControlPlaneToKnownHosts(newUserSshDir); err != nil {
+			addKnownHostsErr = fmt.Errorf("could not add control-plane fingerprint to known_hosts: %w", err)
 		}
 	}()
 
 	tasks.Wait()
 
-	return err
+	return errors.Join(authErr, addKnownHostsErr)
 }
 
 func (g *controlPlaneAccess) createSshKey(keyPath string, keyComment string) error {
@@ -175,12 +164,18 @@ func (g *controlPlaneAccess) authorizePubKeyOnControlPlane(keyDir string, k2sUse
 	removeRemotePubKeyCmd := fmt.Sprintf("rm -f %s", remotePubKeyPath)
 
 	slog.Debug("Removing existing pub SSH key from control-plane temp dir")
-	if err := g.ssh.Exec(removeRemotePubKeyCmd); err != nil {
+	if err := g.nodeAccess.Exec(removeRemotePubKeyCmd); err != nil {
 		return fmt.Errorf("could not remove existing SSH public key from control-plane temp dir: %w", err)
 	}
 
 	slog.Debug("Copying pub SSH key to control-plane temp dir")
-	if err := g.scp.CopyToRemote(localPubKeyPath, remotePubKeyPath); err != nil {
+	copyOptions := node.CopyOptions{
+		Source:    localPubKeyPath,
+		Target:    remotePubKeyPath,
+		Direction: node.CopyToNode,
+	}
+
+	if err := g.nodeAccess.Copy(copyOptions); err != nil {
 		return fmt.Errorf("could not copy SSH public key to control-plane temp dir: %w", err)
 	}
 
@@ -193,16 +188,16 @@ func (g *controlPlaneAccess) authorizePubKeyOnControlPlane(keyDir string, k2sUse
 		removePubKeyFile
 
 	slog.Debug("Adding SSH public key to authorized keys file")
-	if err := g.ssh.Exec(authorizeRemotePubKeyCmd); err != nil {
+	if err := g.nodeAccess.Exec(authorizeRemotePubKeyCmd); err != nil {
 		return fmt.Errorf("could not add SSH public key to authorized keys file: %w", err)
 	}
 	return nil
 }
 
 func (g *controlPlaneAccess) addControlPlaneToKnownHosts(newUserSshDir string) error {
-	controlPlaneEntry, found := g.keygen.FindHostInKnownHosts(g.ipAddress, g.adminSshDir)
+	controlPlaneEntry, found := g.keygen.FindHostInKnownHosts(g.ipAddress, g.nodeAccess.HostSshDir())
 	if !found {
-		return fmt.Errorf("could not find any control-plane entry for host '%s' in '%s'", g.ipAddress, g.adminSshDir)
+		return fmt.Errorf("could not find any control-plane entry for host '%s' in '%s'", g.ipAddress, g.nodeAccess.HostSshDir())
 	}
 
 	if err := g.keygen.SetHostInKnownHosts(controlPlaneEntry, newUserSshDir); err != nil {

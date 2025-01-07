@@ -8,6 +8,7 @@
 Param(
     [string] $IpAddress = $(throw 'Argument missing: IpAddress'),
     [string] $NodeName = $(throw 'Argument missing: NodeName'),
+    [switch] $ObtainCIDR = $false,
     [switch] $ShowLogs = $false,
     [string] $AdditionalHooksDir = ''
 )
@@ -32,5 +33,6 @@ $workerNodeStartParams = @{
     AdditionalHooksDir = $AdditionalHooksDir
     IpAddress = $IpAddress
     NodeName = $workerNodeName
+    ObtainCIDR = $ObtainCIDR
 }
 Start-LinuxWorkerNodeOnUbuntuBareMetal @workerNodeStartParams

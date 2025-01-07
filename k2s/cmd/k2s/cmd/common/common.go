@@ -54,8 +54,13 @@ type SlogWriter struct {
 }
 
 type CmdContext struct {
-	config *config.Config
+	config config.ConfigReader
 	logger *logging.Slogger
+}
+
+type CmdSession struct {
+	start          time.Time
+	cmdDisplayName string
 }
 
 const (
@@ -101,19 +106,20 @@ func NewPtermWriter() *PtermWriter {
 
 func NewSlogWriter() os.StdWriter { return &SlogWriter{} }
 
-func NewCmdContext(config *config.Config, logger *logging.Slogger) *CmdContext {
+func NewCmdContext(config config.ConfigReader, logger *logging.Slogger) *CmdContext {
 	return &CmdContext{
 		config: config,
 		logger: logger,
 	}
 }
 
-func PrintCompletedMessage(duration time.Duration, command string) {
-	pterm.Success.Printfln("'%s' completed in %v", command, duration)
+func StartCmdSession(cmdDisplayName string) CmdSession {
+	slog.Debug("Command started", "command", cmdDisplayName)
 
-	logHint := pterm.LightCyan(fmt.Sprintf("Please see '%s' for more information", bl.GlobalLogFilePath()))
-
-	pterm.Println(logHint)
+	return CmdSession{
+		start:          time.Now(),
+		cmdDisplayName: cmdDisplayName,
+	}
 }
 
 func CreateSystemNotInstalledCmdResult() CmdResult {
@@ -209,6 +215,15 @@ func GetInstallPreRequisiteError(errorLines []string) (line string, found bool) 
 
 func (c *CmdFailure) Error() string { return fmt.Sprintf("%s: %s", c.Code, c.Message) }
 
+func (s CmdSession) Finish() {
+	slog.Debug("Command finished", "command", s.cmdDisplayName)
+	pterm.Success.Printfln("'%s' completed in %v", s.cmdDisplayName, time.Since(s.start))
+
+	logHint := pterm.LightCyan(fmt.Sprintf("Please see '%s' for more information", bl.GlobalLogFilePath()))
+
+	pterm.Println(logHint)
+}
+
 func (s FailureSeverity) String() string {
 	switch s {
 	case SeverityWarning:
@@ -244,7 +259,7 @@ func (*SlogWriter) WriteStdErr(message string) { slog.Error(message) }
 
 func (*SlogWriter) Flush() { /*empty*/ }
 
-func (c *CmdContext) Config() *config.Config { return c.config }
+func (c *CmdContext) Config() config.ConfigReader { return c.config }
 
 func (c *CmdContext) Logger() *logging.Slogger { return c.logger }
 

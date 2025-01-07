@@ -8,10 +8,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/pterm/pterm"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 	"github.com/siemens-healthineers/k2s/internal/core/node"
-	nodecopy "github.com/siemens-healthineers/k2s/internal/core/node/copy"
 	"github.com/siemens-healthineers/k2s/internal/core/node/ssh"
 	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
 	"github.com/spf13/cobra"
@@ -78,7 +76,7 @@ func NewCmd() *cobra.Command {
 
 	cmd.Flags().BoolP(reverseFlag, "r", false, "Copy from node to host (i.e. reverse direction)")
 	cmd.Flags().Uint16P(portFlag, "p", ssh.DefaultPort, "Port for remote connection")
-	cmd.Flags().String(timeoutFlag, "30s", "Connection timeout, e.g. '1m20s', allowed time units are 'ns', 'us' (or 'µs'), 'ms', 's', 'm', 'h'")
+	cmd.Flags().String(timeoutFlag, ssh.DefaultTimeout.String(), "Connection timeout, e.g. '1m20s', allowed time units are 'ns', 'us' (or 'µs'), 'ms', 's', 'm', 'h'")
 
 	cmd.Flags().SortFlags = false
 	cmd.Flags().PrintDefaults()
@@ -87,13 +85,14 @@ func NewCmd() *cobra.Command {
 }
 
 func copy(cmd *cobra.Command, args []string) error {
+	cmdSession := common.StartCmdSession(cmd.CommandPath())
 	copyOptions, connectionOptions, err := extractOptions(cmd.Flags())
 	if err != nil {
 		return fmt.Errorf("failed to extract copy options: %w", err)
 	}
 
 	config := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext).Config()
-	_, err = setupinfo.ReadConfig(config.Host.K2sConfigDir)
+	_, err = setupinfo.ReadConfig(config.Host().K2sConfigDir())
 	if err != nil {
 		if errors.Is(err, setupinfo.ErrSystemNotInstalled) {
 			return common.CreateSystemNotInstalledCmdFailure()
@@ -104,19 +103,19 @@ func copy(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to read setup config: %w", err)
 	}
 
-	connectionOptions.SshKeyPath = ssh.SshKeyPath(config.Host.SshDir)
+	connectionOptions.SshKeyPath = ssh.SshKeyPath(config.Host().SshDir())
 
 	err = node.Copy(*copyOptions, *connectionOptions)
 	if err != nil {
 		return fmt.Errorf("failed to copy: %w", err)
 	}
 
-	pterm.Printfln("Command '%s' done.", cmd.Use) // TODO: align with other cmds
+	cmdSession.Finish()
 
 	return nil
 }
 
-func extractOptions(flags *pflag.FlagSet) (*nodecopy.CopyOptions, *ssh.ConnectionOptions, error) {
+func extractOptions(flags *pflag.FlagSet) (*node.CopyOptions, *ssh.ConnectionOptions, error) {
 	ipAddress, err := flags.GetString(ipAddressFlag)
 	if err != nil {
 		return nil, nil, err
@@ -137,9 +136,9 @@ func extractOptions(flags *pflag.FlagSet) (*nodecopy.CopyOptions, *ssh.Connectio
 		return nil, nil, err
 	}
 
-	direction := nodecopy.CopyToNode
+	direction := node.CopyToNode
 	if reverse {
-		direction = nodecopy.CopyFromNode
+		direction = node.CopyFromNode
 	}
 
 	username, err := flags.GetString(usernameFlag)
@@ -162,7 +161,7 @@ func extractOptions(flags *pflag.FlagSet) (*nodecopy.CopyOptions, *ssh.Connectio
 		return nil, nil, err
 	}
 
-	return &nodecopy.CopyOptions{
+	return &node.CopyOptions{
 			Source:    source,
 			Target:    target,
 			Direction: direction,

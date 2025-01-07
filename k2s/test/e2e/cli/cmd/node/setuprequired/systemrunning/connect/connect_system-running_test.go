@@ -70,7 +70,7 @@ var _ = Describe("node connect", Ordered, func() {
 				Skip(automatedExecutionSkipMessage)
 			}
 
-			nodeIpAddress = k2s.GetControlPlane(suite.SetupInfo().Config.Nodes).IpAddress
+			nodeIpAddress = k2s.GetControlPlane(suite.SetupInfo().Config.Nodes()).IpAddress()
 
 			GinkgoWriter.Println("Using control-plane node IP address <", nodeIpAddress, ">")
 		})
@@ -98,7 +98,7 @@ var _ = Describe("node connect", Ordered, func() {
 			GinkgoWriter.Println("Waiting for pseudo terminal to be closed")
 
 			Eventually(ctx, session).WithTimeout(time.Second * 5).Should(gbytes.Say(`logout`))
-			Eventually(ctx, session).WithTimeout(time.Second * 5).Should(gbytes.Say(`Command 'connect' done.`))
+			Eventually(ctx, session).WithTimeout(time.Second * 5).Should(gbytes.Say(`'k2s node connect' completed`))
 			Eventually(ctx, session).WithTimeout(time.Second * 5).Should(gexec.Exit(0))
 		})
 	})
@@ -116,7 +116,7 @@ var _ = Describe("node connect", Ordered, func() {
 				Skip("Windows node tests are skipped")
 			}
 
-			nodeIpAddress = k2s.GetWindowsNode(suite.SetupInfo().Config.Nodes).IpAddress
+			nodeIpAddress = k2s.GetWindowsNode(suite.SetupInfo().Config.Nodes()).IpAddress()
 
 			GinkgoWriter.Println("Using windows node IP address <", nodeIpAddress, ">")
 		})
@@ -164,7 +164,7 @@ var _ = Describe("node connect", Ordered, func() {
 				Expect(childProcess.KillWithContext(ctx)).To(Succeed())
 			}
 
-			Eventually(ctx, session).WithTimeout(time.Second * 5).Should(gbytes.Say(`Command 'connect' done.`))
+			Eventually(ctx, session).WithTimeout(time.Second * 5).Should(gbytes.Say(`'k2s node connect' completed`))
 			Eventually(ctx, session).WithTimeout(time.Second * 5).Should(gexec.Exit(0))
 		})
 	})

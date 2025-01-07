@@ -6,8 +6,6 @@ package users
 import (
 	"errors"
 	"fmt"
-	"log/slog"
-	"time"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/status"
@@ -44,9 +42,7 @@ func newAddCommand() *cobra.Command {
 }
 
 func run(cmd *cobra.Command, args []string) error {
-	slog.Info("Granting Windows user access to K2s..")
-
-	start := time.Now()
+	cmdSession := common.StartCmdSession(cmd.CommandPath())
 
 	userName, err := cmd.Flags().GetString(userNameFlag)
 	if err != nil {
@@ -68,7 +64,7 @@ func run(cmd *cobra.Command, args []string) error {
 
 	config := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext).Config()
 
-	setupConfig, err := loadSetupConfig(config.Host.K2sConfigDir)
+	setupConfig, err := loadSetupConfig(config.Host().K2sConfigDir())
 	if err != nil {
 		return err
 	}
@@ -83,7 +79,7 @@ func run(cmd *cobra.Command, args []string) error {
 		return common.CreateSystemNotRunningCmdFailure()
 	}
 
-	err = addUserFunc(userName, userId, config)()
+	err = addUser(userName, userId, config)
 	if err != nil {
 		var userNotFoundErr users.UserNotFoundErr
 		if errors.As(err, &userNotFoundErr) {
@@ -92,7 +88,8 @@ func run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	common.PrintCompletedMessage(time.Since(start), cmd.CommandPath())
+	cmdSession.Finish()
+
 	return nil
 }
 
@@ -111,19 +108,19 @@ func loadSetupConfig(configDir string) (*setupinfo.Config, error) {
 	return nil, fmt.Errorf("could not load setup info to add the Windows user: %w", err)
 }
 
-func addUserFunc(userName, userId string, cfg *config.Config) func() error {
+func addUser(userName, userId string, cfg config.ConfigReader) error {
 	cmdExecutor := os.NewCmdExecutor(common.NewSlogWriter())
 	userProvider := users.DefaultUserProvider()
 	usersManagement, err := users.NewUsersManagement(cfg, cmdExecutor, userProvider)
 	if err != nil {
-		return func() error { return err }
+		return err
 	}
 
 	if userName != "" {
-		return func() error { return usersManagement.AddUserByName(userName) }
+		return usersManagement.AddUserByName(userName)
 
 	}
-	return func() error { return usersManagement.AddUserById(userId) }
+	return usersManagement.AddUserById(userId)
 }
 
 func newUserNotFoundFailure(err error) *common.CmdFailure {

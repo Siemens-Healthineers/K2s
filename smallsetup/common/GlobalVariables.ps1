@@ -74,7 +74,7 @@ $configDir = $clusterConfig.psobject.properties['configDir'].value
 
 $global:SshConfigDir = Force-Resolve-Path $configDir.psobject.properties['ssh'].value
 $global:keyFileName = 'id_rsa'
-$global:LinuxVMKey = $global:SshConfigDir + "\kubemaster\$global:keyFileName"
+$global:LinuxVMKey = $global:SshConfigDir + "\k2s\$global:keyFileName"
 $global:WindowsVMKey = $global:SshConfigDir + "\windowsvm\$global:keyFileName"
 
 $global:K2sConfigDir = Force-Resolve-Path $configDir.psobject.properties['k2s'].value

@@ -59,20 +59,20 @@ var _ = Describe("system", Ordered, func() {
 		config, err := config.LoadConfig(installDir)
 		Expect(err).ToNot(HaveOccurred())
 
-		GinkgoWriter.Println("Creating <", config.Host.K2sConfigDir, ">..")
+		GinkgoWriter.Println("Creating <", config.Host().K2sConfigDir(), ">..")
 
-		Expect(os.MkdirAll(config.Host.K2sConfigDir, os.ModePerm)).To(Succeed())
+		Expect(os.MkdirAll(config.Host().K2sConfigDir(), os.ModePerm)).To(Succeed())
 
-		configPath = filepath.Join(config.Host.K2sConfigDir, "setup.json")
+		configPath = filepath.Join(config.Host().K2sConfigDir(), "setup.json")
 
 		GinkgoWriter.Println("Writing test data to <", configPath, ">..")
 
 		Expect(os.WriteFile(configPath, inputData, os.ModePerm)).To(Succeed())
 
 		DeferCleanup(func() {
-			GinkgoWriter.Println("Deleting <", config.Host.K2sConfigDir, ">..")
+			GinkgoWriter.Println("Deleting <", config.Host().K2sConfigDir(), ">..")
 
-			Expect(os.RemoveAll(config.Host.K2sConfigDir)).To(Succeed())
+			Expect(os.RemoveAll(config.Host().K2sConfigDir())).To(Succeed())
 		})
 	})
 

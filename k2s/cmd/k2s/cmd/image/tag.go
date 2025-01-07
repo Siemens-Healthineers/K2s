@@ -9,7 +9,6 @@ import (
 	"log/slog"
 	"path/filepath"
 	"strconv"
-	"time"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 
@@ -46,6 +45,8 @@ func init() {
 }
 
 func tagImage(cmd *cobra.Command, args []string) error {
+	cmdSession := common.StartCmdSession(cmd.CommandPath())
+
 	pterm.Println("🤖 Tagging container image..")
 
 	psCmd, params, err := buildTagPsCmd(cmd)
@@ -55,10 +56,8 @@ func tagImage(cmd *cobra.Command, args []string) error {
 
 	slog.Debug("PS command created", "command", psCmd, "params", params)
 
-	start := time.Now()
-
 	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
-	config, err := setupinfo.ReadConfig(context.Config().Host.K2sConfigDir)
+	config, err := setupinfo.ReadConfig(context.Config().Host().K2sConfigDir())
 	if err != nil {
 		if errors.Is(err, setupinfo.ErrSystemInCorruptedState) {
 			return common.CreateSystemInCorruptedStateCmdFailure()
@@ -82,15 +81,12 @@ func tagImage(cmd *cobra.Command, args []string) error {
 		return cmdResult.Failure
 	}
 
-	duration := time.Since(start)
-
-	common.PrintCompletedMessage(duration, "image tag")
+	cmdSession.Finish()
 
 	return nil
 }
 
 func buildTagPsCmd(cmd *cobra.Command) (psCmd string, params []string, err error) {
-
 	imageId, err := cmd.Flags().GetString(imageIdFlagName)
 	if err != nil {
 		return "", nil, fmt.Errorf("unable to parse flag '%s': %w", imageIdFlagName, err)

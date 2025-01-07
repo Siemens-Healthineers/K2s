@@ -15,21 +15,21 @@ Add access to a registry
 The name of the registry to be added
 
 .PARAMETER Username
-The image name of the image to be exported
+The username for the registry
 
 .PARAMETER Password
-The path where the image sould be exported
+The password for the registry
 
 .PARAMETER ShowLogs
 Show all logs in terminal
 
 .EXAMPLE
 # Add registry
-PS> .\Add-Registry.ps1 -RegistryName "myregistry"
+PS> .\Add-Registry.ps1 -RegistryName "ghcr.io"
 
 .EXAMPLE
 # Add registry with username and password
-PS> .\Add-Registry.ps1 -RegistryName "myregistry" -Username "user" -Password "passwd"
+PS> .\Add-Registry.ps1 -RegistryName "ghcr.io" -Username "user" -Password "passwd"
 #>
 
 Param (
@@ -99,21 +99,14 @@ else {
     $password = $cred.GetNetworkCredential().Password
 }
 
-if ($SkipVerify) {
-    $https = !$PlainHttp
-    Set-InsecureRegistry -Name $RegistryName -Https:$https
-}
+Set-Registry -Name $RegistryName -Https:$(!$PlainHttp) -SkipVerify:$SkipVerify
 
-Write-Log 'Restarting Linux container runtime' -Console
-(Invoke-CmdOnControlPlaneViaSSHKey 'sudo systemctl daemon-reload').Output | Write-Log
-(Invoke-CmdOnControlPlaneViaSSHKey 'sudo systemctl restart crio').Output | Write-Log
-
-Start-Sleep 2
+Write-Log 'Trying to login to container registry' -Console
 
 Connect-Buildah -username $username -password $password -registry $RegistryName
 
 if (!$?) {
-    Remove-InsecureRegistry -Name $RegistryName
+    Remove-Registry -Name $RegistryName
     $errMsg = 'Login to private registry not possible, please check credentials.'
     if ($EncodeStructuredOutput -eq $true) {
         $err = New-Error -Code 'registry-login-impossible' -Message $errMsg
@@ -124,12 +117,17 @@ if (!$?) {
     exit 1
 }
 
-$authJson = (Invoke-CmdOnControlPlaneViaSSHKey 'sudo cat /root/.config/containers/auth.json' -NoLog).Output | Out-String
+Write-Log 'Restarting Linux container runtime' -Console
+(Invoke-CmdOnControlPlaneViaSSHKey 'sudo systemctl daemon-reload').Output | Write-Log
+(Invoke-CmdOnControlPlaneViaSSHKey 'sudo systemctl restart crio').Output | Write-Log
+
+Start-Sleep 2
 
 Connect-Nerdctl -username $username -password $password -registry $RegistryName
 
 # set authentification for containerd
-Add-RegistryToContainerdConf -RegistryName $RegistryName -authJson $authJson
+$authJson = (Invoke-CmdOnControlPlaneViaSSHKey 'sudo cat /root/.config/containers/auth.json' -NoLog).Output | Out-String
+Add-RegistryAuthToContainerdConfigToml -RegistryName $RegistryName -authJson $authJson
 
 Write-Log 'Restarting Windows container runtime' -Console
 Stop-NssmService('kubeproxy')
