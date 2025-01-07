@@ -1210,7 +1210,7 @@ Function Set-UpMasterNode {
     &$executeRemoteCommand "kubectl get deployment coredns -n kube-system -o yaml | sed '/^\s*\- configMap:/i\      - name: etcd-ca-cert\n        secret:\n          secretName: etcd-ca\n      - name: etcd-client-cert\n        secret:\n          secretName: etcd-client-for-core-dns' | kubectl apply -f -" -IgnoreErrors
     &$executeRemoteCommand 'kubectl scale deployment coredns -n kube-system --replicas=1'
     &$executeRemoteCommand 'kubectl wait --for=condition=available deployment/coredns -n kube-system --timeout=60s' -IgnoreErrors
-    &$executeRemoteCommand "kubectl get deployment coredns -n kube-system -o yaml | sed '/^\s*\- mountPath: \/etc\/coredns/i\        - mountPath: /etc/kubernetes/pki/etcd-ca\n          name: etcd-ca-cert\n        - mountPath: /etc/kubernetes/pki/etcd-client\n          name: etcd-client-cert' | kubectl apply -f -"
+    &$executeRemoteCommand "kubectl get deployment coredns -n kube-system -o yaml | sed '/^\s*\- mountPath: \/etc\/coredns/i\        - mountPath: /etc/kubernetes/pki/etcd-ca\n          name: etcd-ca-cert\n        - mountPath: /etc/kubernetes/pki/etcd-client\n          name: etcd-client-cert' | kubectl apply -f -" -Retries 3
 
     # change core-dns to have predefined host mapping for DNS resolution
     &$executeRemoteCommand "kubectl get configmap coredns -n kube-system -o yaml | sed '/^\s*cache 30/i\        hosts {\n         $IpAddress k2s.cluster.local\n         fallthrough\n        }' | kubectl apply -f -" -IgnoreErrors
