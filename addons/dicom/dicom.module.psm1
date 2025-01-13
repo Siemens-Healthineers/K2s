@@ -43,7 +43,7 @@ function Write-UsageForUser {
  DICOM Web APIs are avalaible on the following URL: https://k2s.cluster.local/dicom/dicom-web/
  Example: curl -sS --insecure https://k2s.cluster.local/dicom/dicomweb/studies will return alls studies in the dicom server.
  
-'@ -split "`r`n" | ForEach-Object { Write-Log $_ -Console }
+'@ -split "`n" | ForEach-Object { Write-Log $_ -Console }
 }
 
 <#
