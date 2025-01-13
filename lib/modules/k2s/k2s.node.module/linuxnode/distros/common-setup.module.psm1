@@ -728,6 +728,8 @@ Function Get-BuildahDebPackagesFromInternet {
             -Retries 2 `
             -Command "cd $buildahDebPackagesPath && sudo DEBIAN_FRONTEND=noninteractive apt-get --reinstall install -y -o DPkg::Options::=`"--force-confnew`" --no-install-recommends --no-install-suggests --simulate ./$DebFileNamePattern | grep 'Inst ' | cut -d ' ' -f 2 | sort -u | xargs sudo apt-get download" `
             -RepairCmd 'sudo apt --fix-broken install'
+        # Explicitly download the recommended package crun
+        &$executeRemoteCommand -Retries 2 -Command "cd $buildahDebPackagesPath && sudo apt-get download crun" -RepairCmd 'sudo apt --fix-broken install'    
     }
 
     &$downloadPackagesCommand -PackageName 'buildah' -DebFileNamePattern 'buildah*.deb'
