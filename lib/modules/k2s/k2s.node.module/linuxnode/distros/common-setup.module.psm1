@@ -1210,7 +1210,8 @@ Function Set-UpMasterNode {
 
     # mount the certificate secrets in coredns, so it can read them
     &$executeRemoteCommand "kubectl get deployment coredns -n kube-system -o yaml | sed '/^\s*\- configMap:/i\      - name: etcd-ca-cert\n        secret:\n          secretName: etcd-ca\n      - name: etcd-client-cert\n        secret:\n          secretName: etcd-client-for-core-dns' | kubectl apply -f -" -IgnoreErrors
-    &$executeRemoteCommand 'kubectl wait --for=condition=available deployment/coredns -n kube-system --timeout=30s' -IgnoreErrors
+    &$executeRemoteCommand 'kubectl scale deployment coredns -n kube-system --replicas=1'
+    &$executeRemoteCommand 'kubectl wait --for=condition=available deployment/coredns -n kube-system --timeout=60s' -IgnoreErrors
     &$executeRemoteCommand "kubectl get deployment coredns -n kube-system -o yaml | sed '/^\s*\- mountPath: \/etc\/coredns/i\        - mountPath: /etc/kubernetes/pki/etcd-ca\n          name: etcd-ca-cert\n        - mountPath: /etc/kubernetes/pki/etcd-client\n          name: etcd-client-cert' | kubectl apply -f -" -Retries 3
 
     # change core-dns to have predefined host mapping for DNS resolution

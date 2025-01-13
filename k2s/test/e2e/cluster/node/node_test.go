@@ -459,10 +459,10 @@ func checkInternetCommunication(ctx context.Context, pod v1.Pod, sidecarName str
 	command := ""
 	if sidecarName != "" {
 		// For Linux, use curl-sidecar
-		command = fmt.Sprintf("%s exec %s -n %s -c %s -- curl -si --insecure -x %s NeverSSL.com", kubectlPath, pod.Name, namespace, sidecarName, proxy)
+		command = fmt.Sprintf("%s exec %s -n %s -c %s -- curl -si --insecure -x %s www.msftconnecttest.com/connecttest.txt", kubectlPath, pod.Name, namespace, sidecarName, proxy)
 	} else {
 		// For Windows, use the main container
-		command = fmt.Sprintf("%s exec %s -n %s -- curl -si --insecure -x %s NeverSSL.com", kubectlPath, pod.Name, namespace, proxy)
+		command = fmt.Sprintf("%s exec %s -n %s -- curl -si --insecure -x %s www.msftconnecttest.com/connecttest.txt", kubectlPath, pod.Name, namespace, proxy)
 	}
 
 	output := suite.Cli().ExecOrFail(ctx, "cmd.exe", "/c", command)
