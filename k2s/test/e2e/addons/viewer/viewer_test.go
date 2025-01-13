@@ -32,7 +32,7 @@ var (
 
 func TestViewer(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "viewer Addon Acceptance Tests", Label("addon", "acceptance", "setup-required", "invasive", "viewer", "system-running"))
+	RunSpecs(t, "viewer Addon Acceptance Tests", Label("addon", "addon-medical", "acceptance", "setup-required", "invasive", "viewer", "system-running"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
