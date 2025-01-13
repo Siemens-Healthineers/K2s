@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+# SPDX-FileCopyrightText: © 2024 Siemens Healthcare GmbH
 #
 # SPDX-License-Identifier: MIT
 
@@ -6,12 +6,16 @@
 
 <#
 .SYNOPSIS
-Disables Prometheus/Grafana monitoring features for the k2s cluster.
+Uninstalls Kubernetes viewer UI
 
 .DESCRIPTION
-The "monitoring" addons enables Prometheus/Grafana monitoring features for the k2s cluster.
+
+.EXAMPLE
+Disable viewer
+powershell <installation folder>\addons\viewer\Disable.ps1
 #>
-Param(
+
+Param (
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
     [switch] $ShowLogs = $false,
     [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
@@ -22,10 +26,9 @@ Param(
 $clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
-$dicomModule = "$PSScriptRoot\dicom.module.psm1"
-$viewerModule = "$PSScriptRoot\..\viewer\viewer.module.psm1"
+$viewerModule = "$PSScriptRoot\viewer.module.psm1"
 
-Import-Module $clusterModule, $infraModule, $addonsModule, $dicomModule, $viewerModule
+Import-Module $clusterModule, $infraModule, $addonsModule, $viewerModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -42,10 +45,8 @@ if ($systemError) {
     exit 1
 }
 
-Write-Log 'Check whether dicom addon is already disabled'
-
-if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'dicom', '--ignore-not-found').Output -and (Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'dicom' })) -ne $true) {
-    $errMsg = "Addon 'dicom' is already disabled, nothing to do."
+if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'viewer', '--ignore-not-found').Output -and (Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'viewer' })) -ne $true) {
+    $errMsg = "Addon 'viewer' is already disabled, nothing to do."
 
     if ($EncodeStructuredOutput -eq $true) {
         $err = New-Error -Severity Warning -Code (Get-ErrCodeAddonAlreadyDisabled) -Message $errMsg
@@ -57,19 +58,14 @@ if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'dicom', '--ignore-not
     exit 1
 }
 
-$dicomConfig = Get-DicomConfig
+Write-Log 'Uninstalling Kubernetes viewer' -Console
+Remove-IngressForTraefik -Addon ([pscustomobject] @{Name = 'viewer' })
+Remove-IngressForNginx -Addon ([pscustomobject] @{Name = 'viewer' })
+$viewerConfig = Get-ViewerConfig
+(Invoke-Kubectl -Params 'delete', '-k', $viewerConfig).Output | Write-Log
 
-Write-Log 'Uninstalling dicom server' -Console
-Remove-IngressForTraefik -Addon ([pscustomobject] @{Name = 'dicom' })
-Remove-IngressForNginx -Addon ([pscustomobject] @{Name = 'dicom' })
-(Invoke-Kubectl -Params 'delete', '-k', $dicomConfig).Output | Write-Log
-(Invoke-Kubectl -Params 'delete', '-f', "$dicomConfig\dicom-namespace.yaml").Output | Write-Log
-
-Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'dicom' })
-# adapt other addons
-Update-Addons
-
-Write-Log 'dicom server uninstalled successfully' -Console
+Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'viewer' })
+Write-Log 'Uninstallation of Kubernetes viewer finished' -Console
 
 if ($EncodeStructuredOutput -eq $true) {
     Send-ToCli -MessageType $MessageType -Message @{Error = $null }
