@@ -505,7 +505,7 @@ data:
               "type": "password",
               "userLabel": "My password",
               "createdDate": 1713238673346,
-              "secretData": "{\"value\":\"EhUI00ZBj6v9Cnv+P4BprKhOwJB+XA5nby2EHoAiybwqUY8KjZGlew9zSQhaJ96zYlEMtyd9afcKox8hBho1oQ==\",\"salt\":\"gfK6+aLqQyukIt8RDKZSZA==\",\"additionalParameters\":{}}",
+              "secretData": "{\"value\":\"25jOpnlnL+PeSuRxKvojs6fl/zBTvjM12YaNSeJQ4Jsv9O3hiYL7I2Q/n+a0WgieVPbH6l0iZ8MYtx8D8KPVzw==\",\"salt\":\"bo4HBOMFy45xpoT02YJe4w==\",\"additionalParameters\":{}}",
               "credentialData": "{\"hashIterations\":210000,\"algorithm\":\"pbkdf2-sha512\",\"additionalParameters\":{}}"
             }
           ],
