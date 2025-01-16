@@ -256,7 +256,7 @@ var _ = Describe("'viewer' addon", Ordered, func() {
 
 			It("retrieves patient data from the Dicom addon", func(ctx context.Context) {
 				url := "https://k2s.cluster.local/viewer/datasources/config.json"
-				output := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-m", "5", "--retry", "10", "--fail")
+				output := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-m", "5", "--retry", "10", "--retry-all-errors", "--retry-delay", "10", "--fail")
 				// checking that the default datasource is dataFromDicomAddon means that the patient data is coming from the dicom addon
 				Expect(output).To(ContainSubstring(`"defaultDataSourceName": "dataFromDicomAddon"`))
 			})
@@ -329,7 +329,7 @@ var _ = Describe("'viewer' addon", Ordered, func() {
 
 			It("retrieves patient data from the Dicom addon", func(ctx context.Context) {
 				url := "https://k2s.cluster.local/viewer/datasources/config.json"
-				output := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-m", "5", "--retry", "10", "--fail")
+				output := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-m", "5", "--retry", "10", "--retry-all-errors", "--retry-delay", "10", "--fail")
 				// checking that the default datasource is dataFromDicomAddonTls means that the patient data is coming from the dicom addon, is secured
 				// and shared array buffer is enabled
 				Expect(output).To(ContainSubstring(`"defaultDataSourceName": "dataFromDicomAddonTls"`))
@@ -378,7 +378,7 @@ var _ = Describe("'viewer' addon", Ordered, func() {
 			})
 			It("does NOT retrieve patient data from the Dicom addon", func(ctx context.Context) {
 				url := "https://k2s.cluster.local/viewer/datasources/config.json"
-				output := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-m", "5", "--retry", "10", "--fail")
+				output := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-m", "5", "--retry", "10", "--retry-all-errors", "--retry-delay", "10", "--fail")
 				// checking that the default datasource is DataFromAWS means that the patient data is NOT coming from the dicom addon
 				Expect(output).To(ContainSubstring(`"defaultDataSourceName": "DataFromAWS"`))
 			})
@@ -396,7 +396,7 @@ var _ = Describe("'viewer' addon", Ordered, func() {
 
 			It("retrieves patient data from the Dicom addon", func(ctx context.Context) {
 				url := "https://k2s.cluster.local/viewer/datasources/config.json"
-				output := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-m", "5", "--retry", "10", "--fail")
+				output := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-m", "5", "--retry", "10", "--retry-all-errors", "--retry-delay", "10", "--fail")
 				// checking that the default datasource is dataFromDicomAddon
 				Expect(output).To(ContainSubstring(`"defaultDataSourceName": "dataFromDicomAddon"`))
 			})
@@ -452,7 +452,7 @@ var _ = Describe("'viewer' addon", Ordered, func() {
 				portForwardingSession, _ = gexec.Start(portForwarding, GinkgoWriter, GinkgoWriter)
 
 				url := "http://localhost:8443/viewer/datasources/config.json"
-				output := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-m", "5", "--retry", "10", "--fail")
+				output := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-m", "5", "--retry", "10", "--retry-all-errors", "--retry-delay", "10", "--fail")
 				// checking that the default datasource is DataFromAWS
 				Expect(output).To(ContainSubstring(`"defaultDataSourceName": "DataFromAWS"`))
 			})
@@ -496,7 +496,7 @@ var _ = Describe("'viewer' addon", Ordered, func() {
 				portForwardingSession, _ = gexec.Start(portForwarding, GinkgoWriter, GinkgoWriter)
 
 				url := "http://localhost:8443/viewer/datasources/config.json"
-				output := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-m", "5", "--retry", "10", "--fail")
+				output := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-m", "5", "--retry", "10", "--retry-all-errors", "--retry-delay", "10", "--fail")
 				// checking that the default datasource is DataFromAWS means that the patient data is NOT coming from the dicom addon
 				Expect(output).To(ContainSubstring(`"defaultDataSourceName": "DataFromAWS"`))
 				portForwardingSession.Kill()
@@ -519,7 +519,7 @@ var _ = Describe("'viewer' addon", Ordered, func() {
 				portForwardingSession, _ = gexec.Start(portForwarding, GinkgoWriter, GinkgoWriter)
 
 				url := "http://localhost:8443/viewer/datasources/config.json"
-				output := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-m", "5", "--retry", "10", "--fail")
+				output := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-m", "5", "--retry", "10", "--retry-all-errors", "--retry-delay", "10", "--fail")
 				// checking that the default datasource is still DataFromAWS
 				Expect(output).To(ContainSubstring(`"defaultDataSourceName": "DataFromAWS"`))
 			})
