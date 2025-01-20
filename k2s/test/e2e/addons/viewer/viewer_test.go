@@ -157,8 +157,8 @@ var _ = Describe("'viewer' addon", Ordered, func() {
 			})
 
 			It("is reachable through k2s.cluster.local", func(ctx context.Context) {
-				url := "http://k2s.cluster.local/viewer/#/pod?namespace=_all"
-				httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-I", "-m", "5", "--retry", "10", "--fail")
+				url := "https://k2s.cluster.local/viewer/#/pod?namespace=_all"
+				httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-I", "-m", "5", "--retry", "10", "--fail", "--retry-all-errors")
 				Expect(httpStatus).To(ContainSubstring("200"))
 			})
 
@@ -199,7 +199,7 @@ var _ = Describe("'viewer' addon", Ordered, func() {
 			})
 
 			It("is reachable through k2s.cluster.local", func(ctx context.Context) {
-				url := "http://k2s.cluster.local/viewer/#/pod?namespace=_all"
+				url := "https://k2s.cluster.local/viewer/#/pod?namespace=_all"
 				httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-I", "-m", "5", "--retry", "10", "--fail", "--retry-all-errors")
 				Expect(httpStatus).To(ContainSubstring("200"))
 			})
