@@ -94,6 +94,7 @@ var _ = Describe("'viewer' addon", Ordered, func() {
 
 				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "viewerwebapp", "viewer")
 
+
 				addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
 				Expect(addonsStatus.IsAddonEnabled("viewer", "")).To(BeFalse())
 			})
@@ -520,6 +521,7 @@ var _ = Describe("'viewer' addon", Ordered, func() {
 				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "dicom", "dicom")
 				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "mysql", "dicom")
 
+
 				addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
 				Expect(addonsStatus.IsAddonEnabled("viewer", "")).To(BeFalse())
 				Expect(addonsStatus.IsAddonEnabled("dicom", "")).To(BeFalse())
@@ -613,3 +615,4 @@ func expectStatusToBePrinted(ctx context.Context) {
 			HaveField("Message", gstruct.PointTo(ContainSubstring("The viewer is working")))),
 	))
 }
+
