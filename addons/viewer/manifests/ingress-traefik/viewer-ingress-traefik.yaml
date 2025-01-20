@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthcare GmbH
+# SPDX-FileCopyrightText: © 2025 Siemens Healthcare GmbH
 #
 # SPDX-License-Identifier: MIT
 
@@ -11,7 +11,7 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: viewer
+  name: viewer-traefik-cluster-local
   namespace: viewer
 
 spec:
