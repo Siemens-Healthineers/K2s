@@ -93,8 +93,6 @@ var _ = Describe("'viewer' addon", Ordered, func() {
 				suite.K2sCli().Run(ctx, "addons", "disable", "viewer", "-o")
 
 				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "viewerwebapp", "viewer")
-
-
 				addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
 				Expect(addonsStatus.IsAddonEnabled("viewer", "")).To(BeFalse())
 			})
