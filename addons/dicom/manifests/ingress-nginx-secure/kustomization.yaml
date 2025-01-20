@@ -31,5 +31,5 @@ patches:
           proxy_set_header X-Email $email;
     target:
       kind: Ingress
-      name: viewer-nginx-cluster-local
-      namespace: viewer
+      name: dicom-nginx-cluster-local
+      namespace: dicom

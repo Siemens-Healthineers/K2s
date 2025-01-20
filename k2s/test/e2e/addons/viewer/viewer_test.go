@@ -7,6 +7,9 @@ package viewer
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"net/http"
+	"net/url"
 	"os/exec"
 	"path"
 	"testing"
@@ -153,7 +156,7 @@ var _ = Describe("'viewer' addon", Ordered, func() {
 			})
 
 			It("is reachable through k2s.cluster.local", func(ctx context.Context) {
-				url := "https://k2s.cluster.local/viewer/#/pod?namespace=_all"
+				url := "http://k2s.cluster.local/viewer/#/pod?namespace=_all"
 				httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-I", "-m", "5", "--retry", "10", "--fail")
 				Expect(httpStatus).To(ContainSubstring("200"))
 			})
@@ -195,7 +198,7 @@ var _ = Describe("'viewer' addon", Ordered, func() {
 			})
 
 			It("is reachable through k2s.cluster.local", func(ctx context.Context) {
-				url := "https://k2s.cluster.local/viewer/#/pod?namespace=_all"
+				url := "http://k2s.cluster.local/viewer/#/pod?namespace=_all"
 				httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-I", "-m", "5", "--retry", "10", "--fail", "--retry-all-errors")
 				Expect(httpStatus).To(ContainSubstring("200"))
 			})
@@ -255,7 +258,7 @@ var _ = Describe("'viewer' addon", Ordered, func() {
 			})
 
 			It("retrieves patient data from the Dicom addon", func(ctx context.Context) {
-				url := "https://k2s.cluster.local/viewer/datasources/config.json"
+				url := "http://k2s.cluster.local/viewer/datasources/config.json"
 				output := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-m", "5", "--retry", "10", "--retry-all-errors", "--retry-delay", "10", "--fail")
 				// checking that the default datasource is dataFromDicomAddon means that the patient data is coming from the dicom addon
 				Expect(output).To(ContainSubstring(`"defaultDataSourceName": "dataFromDicomAddon"`))
@@ -328,12 +331,53 @@ var _ = Describe("'viewer' addon", Ordered, func() {
 			})
 
 			It("retrieves patient data from the Dicom addon", func(ctx context.Context) {
-				url := "https://k2s.cluster.local/viewer/datasources/config.json"
-				output := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-m", "5", "--retry", "10", "--retry-all-errors", "--retry-delay", "10", "--fail")
-				// checking that the default datasource is dataFromDicomAddonTls means that the patient data is coming from the dicom addon, is secured
-				// and shared array buffer is enabled
+				clusterUrl := "https://k2s.cluster.local/viewer/datasources/config.json"
+				keycloakServer := "https://k2s.cluster.local"
+				realm := "demo-app"
+				clientId := "demo-client"
+				clientSecret := "1f3QCCQoDQXEwU7ngw9X8kaSe1uX8EIl"
+				username := "demo-user"
+				password := "password"
+			
+				// Function to get access token from Keycloak
+				getKeycloakToken := func() (string, error) {
+					tokenUrl := fmt.Sprintf("%s/keycloak/realms/%s/protocol/openid-connect/token", keycloakServer, realm)						
+					data := url.Values{}
+					data.Set("client_id", clientId)
+					data.Set("client_secret", clientSecret)
+					data.Set("username", username)
+					data.Set("password", password)
+					data.Set("grant_type", "password")
+			
+					resp, err := http.PostForm(tokenUrl, data)
+					if err != nil {
+						return "", err
+					}
+					defer resp.Body.Close()
+			
+					if resp.StatusCode != http.StatusOK {
+						return "", fmt.Errorf("failed to get token: %s", resp.Status)
+					}
+			
+					var result map[string]interface{}
+					json.NewDecoder(resp.Body).Decode(&result)
+					accessToken, ok := result["access_token"].(string)
+					if !ok {
+						return "", fmt.Errorf("failed to parse access token")
+					}
+			
+					return accessToken, nil
+				}
+			
+				// Get the access token
+				accessToken, err := getKeycloakToken()
+				Expect(err).NotTo(HaveOccurred())
+			
+				// Make the curl request with the access token																							
+				output := suite.Cli().ExecOrFail(ctx, "curl.exe", clusterUrl, "-H", fmt.Sprintf("Authorization: Bearer %s", accessToken), "-k", "-m", "5", "--retry", "10", "--retry-all-errors", "--retry-delay", "10", "--fail")															
+				// Check the output
 				Expect(output).To(ContainSubstring(`"defaultDataSourceName": "dataFromDicomAddonTls"`))
-				Expect(output).To(ContainSubstring(`"useSharedArrayBuffer": "TRUE"`))
+				Expect(output).To(ContainSubstring(`"useSharedArrayBuffer": "TRUE"`))		
 			})
 
 			It("prints already-enabled message when enabling the addon again and exits with non-zero", func(ctx context.Context) {
@@ -377,7 +421,7 @@ var _ = Describe("'viewer' addon", Ordered, func() {
 				Expect(addonsStatus.IsAddonEnabled("viewer", "")).To(BeTrue())
 			})
 			It("does NOT retrieve patient data from the Dicom addon", func(ctx context.Context) {
-				url := "https://k2s.cluster.local/viewer/datasources/config.json"
+				url := "http://k2s.cluster.local/viewer/datasources/config.json"
 				output := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-m", "5", "--retry", "10", "--retry-all-errors", "--retry-delay", "10", "--fail")
 				// checking that the default datasource is DataFromAWS means that the patient data is NOT coming from the dicom addon
 				Expect(output).To(ContainSubstring(`"defaultDataSourceName": "DataFromAWS"`))
@@ -395,7 +439,7 @@ var _ = Describe("'viewer' addon", Ordered, func() {
 			})
 
 			It("retrieves patient data from the Dicom addon", func(ctx context.Context) {
-				url := "https://k2s.cluster.local/viewer/datasources/config.json"
+				url := "http://k2s.cluster.local/viewer/datasources/config.json"
 				output := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-m", "5", "--retry", "10", "--retry-all-errors", "--retry-delay", "10", "--fail")
 				// checking that the default datasource is dataFromDicomAddon
 				Expect(output).To(ContainSubstring(`"defaultDataSourceName": "dataFromDicomAddon"`))
