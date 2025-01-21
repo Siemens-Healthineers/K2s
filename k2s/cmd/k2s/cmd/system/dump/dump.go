@@ -7,7 +7,6 @@ import (
 	"log/slog"
 	"path/filepath"
 	"strconv"
-	"time"
 
 	"github.com/spf13/cobra"
 
@@ -36,6 +35,7 @@ func init() {
 }
 
 func dumpSystemStatus(cmd *cobra.Command, args []string) error {
+	cmdSession := common.StartCmdSession(cmd.CommandPath())
 	skipOpenDumpFlag, err := strconv.ParseBool(cmd.Flags().Lookup(skipOpenDumpFlagName).Value.String())
 	if err != nil {
 		return err
@@ -58,16 +58,12 @@ func dumpSystemStatus(cmd *cobra.Command, args []string) error {
 
 	slog.Debug("PS command created", "command", dumpStatusCommand)
 
-	start := time.Now()
-
 	err = powershell.ExecutePs(dumpStatusCommand, powershell.PowerShellV5, common.NewPtermWriter())
 	if err != nil {
 		return err
 	}
 
-	duration := time.Since(start)
-
-	common.PrintCompletedMessage(duration, "system dump")
+	cmdSession.Finish()
 
 	return nil
 }

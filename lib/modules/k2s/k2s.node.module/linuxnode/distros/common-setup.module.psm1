@@ -11,7 +11,20 @@ Import-Module $infraModule, $provisioningModule, $vmModule
 
 $kubernetesVersion = Get-DefaultK8sVersion
 
+$controlPlaneUserName = Get-DefaultUserNameControlPlane
+$controlPlaneIpAddress = Get-ConfiguredIPControlPlane
 $wslConfigurationFilePath = '/etc/wsl.conf'
+$offlineK2sDebPackagesDirectory = 'apt-offline-k2s'
+$kubernetesDebPackagesDirectory = 'kubernetes'
+$buildahDebPackagesDirectory = 'buildah'
+
+$binPath = Get-KubeBinPath
+$directoryOfLinuxNodeArtifactsOnWindowsHost = "$binPath\linuxnode"
+$baseDirectoryOfKubenodeDebPackagesOnWindowsHost = "$directoryOfLinuxNodeArtifactsOnWindowsHost\packages"
+$directoryOfKubenodeImagesOnWindowsHost = "$directoryOfLinuxNodeArtifactsOnWindowsHost\images"
+
+$linuxNodeArtifactsZipFileName = 'LinuxNodeArtifacts.zip'
+$pathOfLinuxNodeArtifactsPackageOnWindowsHost = "$binPath\$linuxNodeArtifactsZipFileName"
 
 Function Assert-GeneralComputerPrequisites {
     Param(
@@ -43,7 +56,7 @@ Function Set-UpComputerBeforeProvisioning {
     param (
         [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
         [string]$UserName = $(throw 'Argument missing: UserName'),
-        [string]$UserPwd = $(throw 'Argument missing: UserPwd'),
+        [string]$UserPwd = '',
         [ValidateScript({ Get-IsValidIPv4Address($_) })]
         [string]$IpAddress = $(throw 'Argument missing: IpAddress'),
         [parameter(Mandatory = $false)]
@@ -52,14 +65,27 @@ Function Set-UpComputerBeforeProvisioning {
     $remoteUser = "$UserName@$IpAddress"
     $remoteUserPwd = $UserPwd
 
-    if ( $Proxy -ne '' ) {
-        Write-Log "Setting proxy '$Proxy' for apt"
-        (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute 'sudo touch /etc/apt/apt.conf.d/proxy.conf' -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output | Write-Log
-        if ($PSVersionTable.PSVersion.Major -gt 5) {
-            (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "echo Acquire::http::Proxy \""$Proxy\""\; | sudo tee -a /etc/apt/apt.conf.d/proxy.conf" -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output | Write-Log
+    $executeRemoteCommand = {
+        param(
+            $Command = $(throw 'Argument missing: Command'),
+            [switch]$IgnoreErrors = $false, [string]$RepairCmd = $null, [uint16]$Retries = 0
+        )
+        if ([string]::IsNullOrWhiteSpace($UserPwd)) {
+            (Invoke-CmdOnVmViaSSHKey -CmdToExecute $Command -UserName $UserName -IpAddress $IpAddress -Retries $Retries -RepairCmd $RepairCmd -IgnoreErrors:$IgnoreErrors).Output | Write-Log
         }
         else {
-            (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "echo Acquire::http::Proxy \\\""$Proxy\\\""\; | sudo tee -a /etc/apt/apt.conf.d/proxy.conf" -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output | Write-Log
+            (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $Command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd" -Retries $Retries -RepairCmd $RepairCmd -IgnoreErrors:$IgnoreErrors).Output | Write-Log
+        }
+    }
+
+    if ( $Proxy -ne '' ) {
+        Write-Log "Setting proxy '$Proxy' for apt"
+        &$executeRemoteCommand -Command 'sudo touch /etc/apt/apt.conf.d/proxy.conf'
+        if ($PSVersionTable.PSVersion.Major -gt 5) {
+            &$executeRemoteCommand -Command "echo Acquire::http::Proxy \""$Proxy\""\; | sudo tee -a /etc/apt/apt.conf.d/proxy.conf"
+        }
+        else {
+            &$executeRemoteCommand -Command "echo Acquire::http::Proxy \\\""$Proxy\\\""\; | sudo tee -a /etc/apt/apt.conf.d/proxy.conf"
         }
     }
 }
@@ -89,7 +115,7 @@ Function Set-UpComputerAfterProvisioning {
     (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute 'touch ~/.hushlogin' -RemoteUser $remoteUser -RemoteUserPwd $remoteUserPwd).Output | Write-Log
 }
 
-Function Install-KubernetesArtifacts {
+Function Set-KubernetesAptRepository {
     param (
         [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
         [string] $UserName = $(throw 'Argument missing: UserName'),
@@ -101,7 +127,7 @@ Function Install-KubernetesArtifacts {
         [string] $K8sVersion = $(throw 'Argument missing: K8sVersion')
     )
     $remoteUser = "$UserName@$IpAddress"
-
+    
     $executeRemoteCommand = {
         param(
             $command = $(throw 'Argument missing: Command'),
@@ -109,22 +135,322 @@ Function Install-KubernetesArtifacts {
         )
         if ([string]::IsNullOrWhiteSpace($UserPwd)) {
             (Invoke-CmdOnVmViaSSHKey -CmdToExecute $command -UserName $UserName -IpAddress $IpAddress -Retries $Retries -RepairCmd $RepairCmd -IgnoreErrors:$IgnoreErrors).Output | Write-Log
-        } else {
+        }
+        else {
             (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $command -RemoteUser "$remoteUser" -RemoteUserPwd "$UserPwd" -Retries $Retries -RepairCmd $RepairCmd -IgnoreErrors:$IgnoreErrors).Output | Write-Log
         }
     }
+    Write-Log 'Prepare for Kubernetes installation'
+    &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get install -y gpg' -Retries 2 -RepairCmd 'sudo apt --fix-broken install'
+
+    Write-Log 'Install curl'
+    &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get install -qq --yes curl' -Retries 2 -RepairCmd 'sudo apt --fix-broken install'
+
+
+    # we need major and minor for apt keys
+    $proxyToAdd = ''
+    if ($Proxy -ne '') {
+        $proxyToAdd = " --Proxy $Proxy"
+    }
+    $pkgShortK8sVersion = $K8sVersion.Substring(0, $K8sVersion.lastIndexOf('.'))
+    $kubernetesPublicKeyFilePath = '/tmp/kubernetes.key'
+    $kubernetesAptKeyFilePath = '/usr/share/keyrings/kubernetes-apt-keyring.gpg'
+    &$executeRemoteCommand "sudo rm -f $kubernetesPublicKeyFilePath" -Retries 2 
+    &$executeRemoteCommand "sudo rm -f $kubernetesAptKeyFilePath" -Retries 2 
+    &$executeRemoteCommand "sudo curl --retry 3 --retry-all-errors -fsSL https://pkgs.k8s.io/core:/stable:/$pkgShortK8sVersion/deb/Release.key$proxyToAdd -o $kubernetesPublicKeyFilePath" -IgnoreErrors 
+    &$executeRemoteCommand "sudo gpg --dearmor -o $kubernetesAptKeyFilePath $kubernetesPublicKeyFilePath" -IgnoreErrors
+    &$executeRemoteCommand "echo 'deb [signed-by=$kubernetesAptKeyFilePath] https://pkgs.k8s.io/core:/stable:/$pkgShortK8sVersion/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.list" 
+    &$executeRemoteCommand "sudo rm -f $kubernetesPublicKeyFilePath" -IgnoreErrors
+
+    # package location for cri-o
+    $crioPublicKeyFilePath = '/tmp/crio.key'
+    $crioAptKeyFilePath = '/usr/share/keyrings/cri-o-apt-keyring.gpg'
+    &$executeRemoteCommand "sudo rm -f $crioPublicKeyFilePath" -Retries 2 
+    &$executeRemoteCommand "sudo rm -f $crioAptKeyFilePath" -Retries 2 
+    &$executeRemoteCommand "sudo curl --retry 3 --retry-all-errors -fsSL https://pkgs.k8s.io/addons:/cri-o:/stable:/$pkgShortK8sVersion/deb/Release.key$proxyToAdd -o $crioPublicKeyFilePath" -IgnoreErrors
+    &$executeRemoteCommand "sudo gpg --dearmor -o $crioAptKeyFilePath $crioPublicKeyFilePath" -IgnoreErrors
+    &$executeRemoteCommand "echo 'deb [signed-by=$crioAptKeyFilePath] https://pkgs.k8s.io/addons:/cri-o:/stable:/$pkgShortK8sVersion/deb/ /' | sudo tee /etc/apt/sources.list.d/cri-o.list" 
+    &$executeRemoteCommand "sudo rm -f $crioPublicKeyFilePath" -IgnoreErrors 
+
+    # update apt information
+    &$executeRemoteCommand 'sudo apt-get update' -Retries 2 -RepairCmd 'sudo apt --fix-broken install'
+}
+
+Function Get-KubernetesArtifactsFromInternet {
+    param (
+        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
+        [string] $UserName = $(throw 'Argument missing: UserName'),
+        [string] $UserPwd = '',
+        [ValidateScript({ Get-IsValidIPv4Address($_) })]
+        [string] $IpAddress = $(throw 'Argument missing: IpAddress'),
+        [string] $Proxy = '',
+        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
+        [string] $K8sVersion = $(throw 'Argument missing: K8sVersion'),
+        [string] $TargetPath = $(throw 'Argument missing: TargetPath')
+    )
+    $remoteUser = "$UserName@$IpAddress"
+    
+    $executeRemoteCommand = { 
+        param(
+            $Command = $(throw 'Argument missing: Command'), 
+            [switch]$IgnoreErrors = $false, [string]$RepairCmd = $null, [uint16]$Retries = 0
+        )
+        if ([string]::IsNullOrWhiteSpace($UserPwd)) {
+            (Invoke-CmdOnVmViaSSHKey -CmdToExecute $command -UserName $UserName -IpAddress $IpAddress -Retries $Retries -RepairCmd $RepairCmd -IgnoreErrors:$IgnoreErrors).Output | Write-Log
+        }
+        else {
+            (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $Command -RemoteUser "$remoteUser" -RemoteUserPwd "$UserPwd" -Retries $Retries -RepairCmd $RepairCmd -IgnoreErrors:$IgnoreErrors).Output | Write-Log
+        }
+    }
+
+    $kubenodeDebPackagesPath = $TargetPath
+    &$executeRemoteCommand "[ -d $kubenodeDebPackagesPath ] && rm -rf $kubenodeDebPackagesPath; mkdir -p $kubenodeDebPackagesPath" -Retries 2
+
+    $downloadPackagesCommand = { 
+        param(
+            $PackageName = $(throw 'Argument missing: PackageName'), 
+            $DebFileNamePattern = $(throw 'Argument missing: DebFileNamePattern')
+        )
+        &$executeRemoteCommand -Retries 2 -Command "cd $kubenodeDebPackagesPath && sudo apt-get download $PackageName" -RepairCmd 'sudo apt --fix-broken install'
+        &$executeRemoteCommand `
+            -Retries 2 `
+            -Command "cd $kubenodeDebPackagesPath && sudo DEBIAN_FRONTEND=noninteractive apt-get --reinstall install -y --no-install-recommends --no-install-suggests --simulate ./$DebFileNamePattern | grep 'Inst ' | cut -d ' ' -f 2 | sort -u | xargs sudo apt-get download" `
+            -RepairCmd 'sudo apt --fix-broken install'
+    }
+
+    &$executeRemoteCommand 'echo "APT::Sandbox::User \\"root\\";" | sudo tee /etc/apt/apt.conf.d/10sandbox-for-k2s'
+
+    Write-Log "Ensure that the system's package list is up-to-date"
+    &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get update -qq --yes --allow-releaseinfo-change' -Retries 2 -RepairCmd 'sudo apt --fix-broken install'
+
+    Write-Log 'Download gpg'
+    &$downloadPackagesCommand -PackageName 'gpg' -DebFileNamePattern 'gpg*.deb'
+
+    Write-Log 'Download other depended-on tools'
+    &$downloadPackagesCommand -PackageName 'apt-transport-https' -DebFileNamePattern 'apt*.deb'
+    &$downloadPackagesCommand -PackageName 'ca-certificates' -DebFileNamePattern 'ca-*.deb'
+
+    Set-KubernetesAptRepository -IpAddress $IpAddress -UserName $userName -UserPwd $userPwd -Proxy $Proxy -K8sVersion $K8sVersion 
+    
+    Write-Log 'Download cri-o'
+    &$downloadPackagesCommand -PackageName 'cri-o' -DebFileNamePattern 'cri-o*.deb'
+
+    Write-Log 'Download kubetools (kubelet, kubeadm, kubectl)'
+    $shortKubeVers = ($K8sVersion -replace 'v', '') + '-1.1'
+    &$downloadPackagesCommand -PackageName "kubectl=$shortKubeVers" -DebFileNamePattern 'kubectl*.deb'
+    &$downloadPackagesCommand -PackageName "kubelet=$shortKubeVers" -DebFileNamePattern 'kubelet*.deb'
+    &$downloadPackagesCommand -PackageName "kubeadm=$shortKubeVers" -DebFileNamePattern 'kubeadm*.deb'
+}
+
+Function Add-KubernetesArtifactsToRemoteComputer {
+    Param(
+        [string] $UserName = $(throw 'Argument missing: UserName'),
+        [string] $IpAddress = $(throw 'Argument missing: IpAddress'),
+        [string] $Proxy = '',
+        [string] $SourcePath = $(throw 'Argument missing: SourcePath'),
+        [string] $TargetPath = $(throw 'Argument missing: TargetPath')
+    )
+
+    $debPackagesSourcePath = "$SourcePath\$kubernetesDebPackagesDirectory"
+    
+    if (Test-Path -Path $debPackagesSourcePath) {
+        Copy-DebPackagesFromWindowsHostToRemoteComputer -UserName $UserName -IpAddress $IpAddress -SourcePath $debPackagesSourcePath -TargetPath $TargetPath
+    }
+    else {
+        Get-KubernetesArtifactsFromInternet -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy -K8sVersion $kubernetesVersion -TargetPath $TargetPath
+    }
+}
+
+Function Add-BuildahArtifactsToRemoteComputer {
+    Param(
+        [string] $UserName = $(throw 'Argument missing: UserName'),
+        [string] $IpAddress = $(throw 'Argument missing: IpAddress'),
+        [string] $SourcePath = $(throw 'Argument missing: SourcePath'),
+        [string] $TargetPath = $(throw 'Argument missing: TargetPath')
+    )
+
+    $debPackagesSourcePath = "$SourcePath\$buildahDebPackagesDirectory"
+    
+    if (Test-Path -Path $debPackagesSourcePath) {
+        Copy-DebPackagesFromWindowsHostToRemoteComputer -UserName $UserName -IpAddress $IpAddress -SourcePath $debPackagesSourcePath -TargetPath $TargetPath
+    }
+    else {
+        Get-BuildahDebPackagesFromInternet -UserName $userName -IpAddress $IpAddress -TargetPath $TargetPath
+    }
+}
+
+Function Get-OfflineK2sDebPackagesPath {
+    param (
+        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
+        [string] $UserName = $(throw 'Argument missing: UserName')
+    )
+    return "/home/$UserName/$offlineK2sDebPackagesDirectory"
+}
+
+Function Get-KubernetesDebPackagesPath {
+    param (
+        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
+        [string] $UserName = $(throw 'Argument missing: UserName')
+    )
+    $basePath = Get-OfflineK2sDebPackagesPath -UserName $UserName
+    return "$basePath/$kubernetesDebPackagesDirectory"
+}
+
+Function Get-BuildahDebPackagesPath {
+    param (
+        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
+        [string] $UserName = $(throw 'Argument missing: UserName')
+    )
+    $basePath = Get-OfflineK2sDebPackagesPath -UserName $UserName
+    return "$basePath/$buildahDebPackagesDirectory"
+}
+
+Function Get-InstalledDistribution {
+    param (
+        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
+        [string]$UserName = $(throw 'Argument missing: UserName'),
+        [string]$UserPwd = '',
+        [ValidateScript({ Get-IsValidIPv4Address($_) })]
+        [string]$IpAddress = $(throw 'Argument missing: IpAddress')
+    )
+
+    $remoteUser = "$UserName@$IpAddress"
+
+    $executeRemoteCommand = { 
+        param(
+            $Command = $(throw 'Argument missing: Command'), 
+            [switch]$IgnoreErrors = $false, [string]$RepairCmd = $null, [uint16]$Retries = 0
+        )
+        if ([string]::IsNullOrWhiteSpace($UserPwd)) {
+            $commandOutput = (Invoke-CmdOnVmViaSSHKey -CmdToExecute $Command -UserName $UserName -IpAddress $IpAddress -Retries $Retries -RepairCmd $RepairCmd -IgnoreErrors:$IgnoreErrors).Output
+        }
+        else {
+            $commandOutput = (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $Command -RemoteUser "$remoteUser" -RemoteUserPwd "$UserPwd" -Retries $Retries -RepairCmd $RepairCmd -IgnoreErrors:$IgnoreErrors).Output
+        }
+
+        return $commandOutput
+    }
+
+    $distributionName = &$executeRemoteCommand -Command "lsb_release -i | cut -d ':' -f 2 | tr -d '[:blank:]'"
+    if ([string]::IsNullOrWhiteSpace($distributionName)) {
+        throw "Cannot get the distribution name from the computer with IP '$IpAddress'"
+    }
+    $distributionReleaseNumber = &$executeRemoteCommand -Command "lsb_release -r | cut -d ':' -f 2 | tr -d '[:blank:]'"
+    if ([string]::IsNullOrWhiteSpace($distributionReleaseNumber)) {
+        throw "Cannot get the distribution release number from the computer with IP '$IpAddress'"
+    }
+    
+    $installedDistribution = "$distributionName$distributionReleaseNumber".ToLower()
+    
+    return $installedDistribution
+}
+
+
+
+Function Copy-DebPackagesFromControlPlaneToWindowsHost {
+    param (
+        [string] $TargetPath = $(throw 'Argument missing: TargetPath')
+    )
+    $windowsHostTargetPath = $TargetPath
+
+    if (Test-Path -Path $windowsHostTargetPath) {
+        Write-Log "The path '$windowsHostTargetPath' with deb packages from the control plane already exists --> its content will not be overwritten"
+    }
+    else {
+        $kubenodeSourcePath = Get-OfflineK2sDebPackagesPath -UserName $controlPlaneUserName
+        Write-Log "Checking the existence of path '$kubenodeSourcePath' in the control plane node"
+        $sourcePathExistenceCheckOutput = (Invoke-CmdOnVmViaSSHKey -CmdToExecute "ls $kubenodeSourcePath" -UserName $controlPlaneUserName -IpAddress $controlPlaneIpAddress -IgnoreErrors).Output
+        
+        if ($sourcePathExistenceCheckOutput.Contains('No such file or directory')) {
+            Write-Log "The path '$kubenodeSourcePath' does not exist in control plane node --> no deb packages will be copied to the Windows host."
+        }
+        else {
+            Write-Log "Deb packages will be copied from the control plane node ('$kubenodeSourcePath') to the Windows host ('$windowsHostTargetPath')"
+            New-Item -Path $windowsHostTargetPath -ItemType Directory -Force -ErrorAction Stop | Out-Null
+
+            Copy-FromRemoteComputerViaSSHKey -Source "$kubenodeSourcePath/*" -Target $windowsHostTargetPath -UserName $controlPlaneUserName -IpAddress $controlPlaneIpAddress
+        }
+    }
+}
+
+
+Function Copy-DebPackagesFromWindowsHostToRemoteComputer {
+    param (
+        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
+        [string] $UserName = $(throw 'Argument missing: UserName'),
+        [ValidateScript({ Get-IsValidIPv4Address($_) })]
+        [string] $IpAddress = $(throw 'Argument missing: IpAddress'),
+        [string] $SourcePath = $(throw 'Argument missing: SourcePath'), 
+        [string] $TargetPath = $(throw 'Argument missing: TargetPath')
+    )
+
+    if (!(Test-Path -Path $SourcePath)) {
+        throw "The path '$SourcePath' does not exist."
+    } 
+
+    (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo rm -f /tmp/*.deb' -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
+    (Invoke-CmdOnVmViaSSHKey -CmdToExecute "[ -d $TargetPath ] && rm -rf $TargetPath; mkdir -p $TargetPath" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
+
+    $allPackageFiles = $(Get-Item -Path "$SourcePath\*.deb" | Select-Object -ExpandProperty 'FullName')
+    $allPackageFiles | ForEach-Object { Copy-ToRemoteComputerViaSshKey -Source "$_" -Target '/tmp' -UserName $UserName -IpAddress $IpAddress }
+    
+    (Invoke-CmdOnVmViaSSHKey -CmdToExecute "cd /tmp; sudo find -name \`"*.deb\`" -exec sudo mv {} $TargetPath ';'" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
+}
+
+Function Install-KubernetesArtifacts {
+    param (
+        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
+        [string] $UserName = $(throw 'Argument missing: UserName'),
+        [string] $UserPwd = '',
+        [ValidateScript({ Get-IsValidIPv4Address($_) })]
+        [string] $IpAddress = $(throw 'Argument missing: IpAddress'),
+        [string] $Proxy = '',
+        [string] $SourcePath = $(throw 'Argument missing: SourcePath')
+    )
+    $remoteUser = "$UserName@$IpAddress"
+
+    $executeRemoteCommand = { 
+        param(
+            $command = $(throw 'Argument missing: Command'), 
+            [switch]$IgnoreErrors = $false, [string]$RepairCmd = $null, [uint16]$Retries = 0, [switch]$ReturnCommandOutput = $false
+        )
+        if ([string]::IsNullOrWhiteSpace($UserPwd)) {
+            $commandOutput = (Invoke-CmdOnVmViaSSHKey -CmdToExecute $command -UserName $UserName -IpAddress $IpAddress -Retries $Retries -RepairCmd $RepairCmd -IgnoreErrors:$IgnoreErrors).Output
+        }
+        else {
+            $commandOutput = (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $command -RemoteUser "$remoteUser" -RemoteUserPwd "$UserPwd" -Retries $Retries -RepairCmd $RepairCmd -IgnoreErrors:$IgnoreErrors).Output
+        }
+
+        if ($ReturnCommandOutput) {
+            return $commandOutput
+        }
+        else {
+            $commandOutput | Write-Log
+        }
+    }
+   
+    $k8sDebPackagesPath = $SourcePath
+
+    $availableDebPackages = $(&$executeRemoteCommand "ls $k8sDebPackagesPath" -ReturnCommandOutput)
+
+    if ($availableDebPackages.Contains('No such file or directory')) {
+        throw "The directory '$k8sDebPackagesPath' does not exist in the computer with IP '$IpAddress'. The kubernetes artifacts cannot be installed"
+    }
+    &$executeRemoteCommand "sudo DEBIAN_FRONTEND=noninteractive dpkg -i $k8sDebPackagesPath/*.deb"
+    &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get --fix-broken install -y'
 
     Write-Log "Copying ZScaler Root CA certificate to computer with IP '$IpAddress'"
     $zScalerCertificateSourcePath = "$(Get-KubePath)\lib\modules\k2s\k2s.node.module\linuxnode\setup\certificate\ZScalerRootCA.crt"
-    $zScalerCertificateTargetPath = "/tmp/ZScalerRootCA.crt"
+    $zScalerCertificateTargetPath = '/tmp/ZScalerRootCA.crt'
     if ([string]::IsNullOrWhiteSpace($UserPwd)) {
         Copy-ToRemoteComputerViaSshKey -Source $zScalerCertificateSourcePath -Target $zScalerCertificateTargetPath -UserName $UserName -IpAddress $IpAddress
-    } else {
+    }
+    else {
         Copy-ToRemoteComputerViaUserAndPwd -Source $zScalerCertificateSourcePath -Target $zScalerCertificateTargetPath -UserName $UserName -UserPwd $UserPwd -IpAddress $IpAddress
     }
 
-    &$executeRemoteCommand "sudo mv /tmp/ZScalerRootCA.crt /usr/local/share/ca-certificates/"
-    &$executeRemoteCommand "sudo update-ca-certificates"
+    &$executeRemoteCommand 'sudo mv /tmp/ZScalerRootCA.crt /usr/local/share/ca-certificates/'
+    &$executeRemoteCommand 'sudo update-ca-certificates'
     Write-Log "Zscaler certificate added to CA certificates of computer with IP '$IpAddress'"
 
     Write-Log 'Configure bridged traffic'
@@ -140,39 +466,6 @@ Function Install-KubernetesArtifacts {
 
     &$executeRemoteCommand 'echo @reboot root mount --make-rshared / | sudo tee /etc/cron.d/sharedmount'
 
-    Write-Log 'Prepare for Kubernetes installation'
-    &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get update -qq --yes --allow-releaseinfo-change' -Retries 2 -RepairCmd 'sudo apt --fix-broken install'
-    &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get install -y gpg' -Retries 2 -RepairCmd 'sudo apt --fix-broken install'
-
-    Write-Log 'Install curl'
-    &$executeRemoteCommand 'sudo apt-get update' -Retries 2 -RepairCmd 'sudo apt --fix-broken install'
-    &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get install -qq --yes curl' -Retries 2 -RepairCmd 'sudo apt --fix-broken install'
-
-    # we need major and minor for apt keys
-    $proxyToAdd = ''
-    if ($Proxy -ne '') {
-        $proxyToAdd = " --Proxy $Proxy"
-    }
-    $pkgShortK8sVersion = $K8sVersion.Substring(0, $K8sVersion.lastIndexOf('.'))
-    $kubernetesPublicKeyFilePath = '/tmp/kubernetes.key'
-    &$executeRemoteCommand "sudo curl --retry 3 --retry-all-errors -fsSL https://pkgs.k8s.io/core:/stable:/$pkgShortK8sVersion/deb/Release.key$proxyToAdd -o $kubernetesPublicKeyFilePath" -IgnoreErrors
-    &$executeRemoteCommand "sudo gpg --dearmor -o /usr/share/keyrings/kubernetes-apt-keyring.gpg $kubernetesPublicKeyFilePath" -IgnoreErrors
-    &$executeRemoteCommand "echo 'deb [signed-by=/usr/share/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/$pkgShortK8sVersion/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.list"
-    &$executeRemoteCommand "sudo rm -f $kubernetesPublicKeyFilePath" -IgnoreErrors
-
-    # package locations for cri-o
-    $crioPublicKeyFilePath = '/tmp/crio.key'
-    &$executeRemoteCommand "sudo curl --retry 3 --retry-all-errors -fsSL https://pkgs.k8s.io/addons:/cri-o:/stable:/$pkgShortK8sVersion/deb/Release.key$proxyToAdd -o $crioPublicKeyFilePath" -IgnoreErrors
-    &$executeRemoteCommand "sudo gpg --dearmor -o /usr/share/keyrings/cri-o-apt-keyring.gpg $crioPublicKeyFilePath" -IgnoreErrors
-    &$executeRemoteCommand "echo 'deb [signed-by=/usr/share/keyrings/cri-o-apt-keyring.gpg] https://pkgs.k8s.io/addons:/cri-o:/stable:/$pkgShortK8sVersion/deb/ /' | sudo tee /etc/apt/sources.list.d/cri-o.list"
-    &$executeRemoteCommand "sudo rm -f $crioPublicKeyFilePath" -IgnoreErrors
-
-    Write-Log 'Install other depended-on tools'
-    &$executeRemoteCommand 'sudo apt-get update' -Retries 2 -RepairCmd 'sudo apt --fix-broken install'
-    &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get install -qq --yes apt-transport-https ca-certificates' -Retries 2 -RepairCmd 'sudo apt --fix-broken install'
-
-    Write-Log 'Install cri-o'
-    InstallAptPackages -FriendlyName 'cri-o' -Packages 'cri-o' -UserName $UserName -UserPwd $UserPwd -IpAddress $IpAddress
     &$executeRemoteCommand 'sudo apt-mark hold cri-o'
 
     # increase timeout for crictl to connect to crio.sock
@@ -228,11 +521,6 @@ Function Install-KubernetesArtifacts {
         &$executeRemoteCommand 'sudo echo unqualified-search-registries = [\\\"docker.io\\\"] | sudo tee -a /etc/containers/registries.conf'
     }
 
-    $shortKubeVers = ($K8sVersion -replace 'v', '') + '-1.1'
-
-    Write-Log 'Install kubetools (kubelet, kubeadm, kubectl)'
-    &$executeRemoteCommand 'sudo apt-get update'
-    InstallAptPackages -FriendlyName 'kubernetes' -Packages "kubelet=$shortKubeVers kubeadm=$shortKubeVers kubectl=$shortKubeVers" -TestExecutable 'kubectl' -UserName $UserName -UserPwd $UserPwd -IpAddress $IpAddress
     &$executeRemoteCommand 'sudo apt-mark hold kubelet kubeadm kubectl'
 
     Write-Log 'Start CRI-O'
@@ -250,9 +538,100 @@ Function Install-KubernetesArtifacts {
         &$executeRemoteCommand "echo default_sysctls='[\`"net.ipv4.ip_unprivileged_port_start=0\`"]' | sudo tee -a $configWSL > /dev/null"
         &$executeRemoteCommand 'sudo systemctl restart crio'
     }
+}
 
-    Write-Log 'Pull images used by K8s'
-    &$executeRemoteCommand "sudo kubeadm config images pull --kubernetes-version $K8sVersion"
+Function Copy-KubernetesImagesFromControlPlaneNodeToWindowsHost {
+    param (
+        [string] $TargetPath = $(throw 'Argument missing: TargetPath')
+    )
+
+    $executeRemoteCommand = { 
+        param(
+            [string] $Command = $(throw 'Argument missing: Command'), 
+            [switch] $ReturnCommandOutput = $false,
+            [switch] $IgnoreErrors = $false, 
+            [string] $RepairCmd = $null, 
+            [uint16] $Retries = 0
+        )
+        $commandOutput = (Invoke-CmdOnVmViaSSHKey -CmdToExecute $Command -UserName $controlPlaneUserName -IpAddress $controlPlaneIpAddress -RepairCmd $RepairCmd -Retries $Retries -IgnoreErrors:$IgnoreErrors)
+
+        if ($ReturnCommandOutput) {
+            return $commandOutput
+        }
+        else {
+            $commandOutput.Output | Write-Log
+        }
+    }
+  
+    $imagesPath = $TargetPath
+
+    if (Test-Path -Path $imagesPath) {
+        Write-Log "The path '$imagesPath' with container images already exists --> its content will not be overwritten"
+    }
+    else {
+        New-Item -Path $imagesPath -ItemType Directory -Force -ErrorAction Stop | Out-Null
+        
+        $retrieveImagesCmd = 'sudo crictl images | grep -e "registry.k8s.io" -e "docker.io/flannel" | grep -v "\<none\>" | awk ''{ print $1\":\"$2\" \"$3 }'''
+        $cmdExecutionResult = $(&$executeRemoteCommand -Command $retrieveImagesCmd -ReturnCommandOutput)
+
+        if (!$cmdExecutionResult.Success) {
+            throw 'Could not retrieve images from control plane'
+        }
+        $imagesFound = $cmdExecutionResult.Output
+
+        Write-Host $imagesFound
+        
+        if ([string]::IsNullOrWhiteSpace($imagesFound)) {
+            throw "No image matching 'registry.k8s.io or docker.io/flannel' could be found in the control plane."
+        }
+
+        foreach ($imageFound in $imagesFound) {
+            $splittedImageFoundInfo = $imageFound.Split(' ')
+            $imageFullName = $splittedImageFoundInfo[0]
+            $imageId = $splittedImageFoundInfo[1]
+            $finalExportPath = "$imagesPath/$($imageFullName.Replace('/','_').Replace(':', '__')).tar"
+
+            $targetFilePath = "/tmp/${imageId}.tar"
+            &$executeRemoteCommand "sudo buildah push ${imageId} oci-archive:${targetFilePath}:${imageFullName} 2>&1"
+            Copy-FromRemoteComputerViaSSHKey -Source $targetFilePath -Target $finalExportPath -UserName $controlPlaneUserName -IpAddress $controlPlaneIpAddress
+            
+            &$executeRemoteCommand "cd /tmp && sudo rm -rf ${imageId}.tar"
+        } 
+    }
+}
+
+Function Copy-KubernetesImagesFromControlPlaneToRemoteComputer {
+    param (
+        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
+        [string] $UserName = $(throw 'Argument missing: UserName'),
+        [ValidateScript({ Get-IsValidIPv4Address($_) })]
+        [string] $IpAddress = $(throw 'Argument missing: IpAddress')
+    )
+
+    $executeRemoteCommandOnRemoteComputer = { 
+        param(
+            $command = $(throw 'Argument missing: Command'), 
+            [switch]$IgnoreErrors = $false, [string]$RepairCmd = $null, [uint16]$Retries = 0
+        )
+        (Invoke-CmdOnVmViaSSHKey -CmdToExecute $command -UserName $UserName -IpAddress $IpAddress -Retries $Retries -RepairCmd $RepairCmd -IgnoreErrors:$IgnoreErrors).Output | Write-Log
+    }
+
+    $imagesPath = $directoryOfKubenodeImagesOnWindowsHost
+
+    Write-Log 'Copy container images from the control plane node to the Windows host'
+    Copy-KubernetesImagesFromControlPlaneNodeToWindowsHost -TargetPath $imagesPath
+
+    if (Test-Path -Path $imagesPath) {
+        Write-Log "Copy container images from Windows host to the computer with IP address '$IpAddress'"
+        Get-Item -path "$imagesPath\*.tar" | Select-Object -ExpandProperty 'FullName' | ForEach-Object {
+            Copy-ToRemoteComputerViaSshKey -Source $_ -Target '/tmp/import.tar' -UserName $UserName -IpAddress $IpAddress
+            &$executeRemoteCommandOnRemoteComputer 'sudo buildah pull oci-archive:/tmp/import.tar 2>&1'
+            &$executeRemoteCommandOnRemoteComputer 'cd /tmp && sudo rm -rf import.tar'
+        }
+    }
+    else {
+        Write-Log "The path '$imagesPath' with container images from the control plane does not exist --> no offline installation possible."
+    }
 }
 
 Function Remove-KubernetesArtifacts {
@@ -277,7 +656,9 @@ Function Remove-KubernetesArtifacts {
 
     &$executeRemoteCommand 'sudo systemctl daemon-reload'
 
-    &$executeRemoteCommand 'sudo apt-get purge --yes --allow-change-held-packages kubelet kubeadm kubectl'
+    &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive dpkg -P kubeadm' 
+    &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive dpkg -P kubectl' 
+    &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive dpkg -P kubelet' 
 
     &$executeRemoteCommand 'sudo rm -f /etc/containers/registries.conf'
     &$executeRemoteCommand 'sudo rm -f /etc/cni/net.d/100-crio-bridge.conf'
@@ -285,23 +666,113 @@ Function Remove-KubernetesArtifacts {
     &$executeRemoteCommand 'sudo rm -drf /etc/systemd/system/crio.service.d'
     &$executeRemoteCommand 'sudo rm -f /etc/crictl.yaml'
 
-    &$executeRemoteCommand 'sudo apt-get remove --yes --allow-change-held-packages cri-o'
-
-    &$executeRemoteCommand 'sudo rm -f /usr/share/keyrings/cri-o-apt-keyring.gpg'
+    &$executeRemoteCommand "sudo rm -f $crioAptKeyFilePath"
     &$executeRemoteCommand 'sudo rm -f /etc/apt/sources.list.d/cri-o.list'
 
-    &$executeRemoteCommand 'sudo rm -f /usr/share/keyrings/kubernetes-apt-keyring.gpg'
+    &$executeRemoteCommand "sudo rm -f $kubernetesAptKeyFilePath"
     &$executeRemoteCommand 'sudo rm -f /etc/apt/sources.list.d/kubernetes.list'
 
     &$executeRemoteCommand 'sudo rm -drf /etc/kubernetes'
     &$executeRemoteCommand 'sudo rm -drf /etc/crio'
 
+    &$executeRemoteCommand 'sudo rm -fr /var/lib/crio/*'
+
     &$executeRemoteCommand 'sudo rm -f /etc/sysctl.d/k8s.conf'
     &$executeRemoteCommand 'sudo rm -f /etc/modules-load.d/k8s.conf'
     &$executeRemoteCommand 'sudo sysctl --system'
 
-    &$executeRemoteCommand 'sudo apt-get purge --yes dnsmasq'
-    &$executeRemoteCommand 'sudo apt-get purge --yes cri-o'
+    &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive dpkg -P cri-o' 
+    &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive dpkg -P buildah' 
+
+    &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get --fix-broken install -y'
+}
+
+Function Get-BuildahDebPackagesFromInternet {
+    param (
+        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
+        [string]$UserName = $(throw 'Argument missing: UserName'),
+        [string]$UserPwd = '',
+        [ValidateScript({ Get-IsValidIPv4Address($_) })]
+        [string]$IpAddress = $(throw 'Argument missing: IpAddress'),
+        [string]$TargetPath = $(throw 'Argument missing: TargetPath')
+    )
+    $remoteUser = "$UserName@$IpAddress"
+    $remoteUserPwd = $UserPwd
+
+    $executeRemoteCommand = { 
+        param(
+            $Command = $(throw 'Argument missing: Command'), 
+            [switch]$IgnoreErrors = $false, [string]$RepairCmd = $null, [uint16]$Retries = 0
+        )
+        if ([string]::IsNullOrWhiteSpace($UserPwd)) {
+            (Invoke-CmdOnVmViaSSHKey -CmdToExecute $Command -UserName $UserName -IpAddress $IpAddress -Retries $Retries -RepairCmd $RepairCmd -IgnoreErrors:$IgnoreErrors).Output | Write-Log
+        }
+        else {
+            (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $Command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output | Write-Log
+        }
+    }
+
+    # Download buildah FROM TESTING REPO IN ORDER TO GET A NEWER VERSION
+    #################################################################################################################################################################
+    Write-Log 'Download packages of container image creation tool: buildah'   
+    $buildahDebPackagesPath = $TargetPath
+    &$executeRemoteCommand "[ -d $buildahDebPackagesPath ] && rm -rf $buildahDebPackagesPath; mkdir -p $buildahDebPackagesPath" -Retries 2
+
+    $downloadPackagesCommand = { 
+        param(
+            $PackageName = $(throw 'Argument missing: PackageName'), 
+            $DebFileNamePattern = $(throw 'Argument missing: DebFileNamePattern')
+        )
+        &$executeRemoteCommand -Retries 2 -Command "cd $buildahDebPackagesPath && sudo apt-get download $PackageName" -RepairCmd 'sudo apt --fix-broken install'
+        &$executeRemoteCommand `
+            -Retries 2 `
+            -Command "cd $buildahDebPackagesPath && sudo DEBIAN_FRONTEND=noninteractive apt-get --reinstall install -y -o DPkg::Options::=`"--force-confnew`" --no-install-recommends --no-install-suggests --simulate ./$DebFileNamePattern | grep 'Inst ' | cut -d ' ' -f 2 | sort -u | xargs sudo apt-get download" `
+            -RepairCmd 'sudo apt --fix-broken install'
+        # Explicitly download the recommended package crun
+        &$executeRemoteCommand -Retries 2 -Command "cd $buildahDebPackagesPath && sudo apt-get download crun" -RepairCmd 'sudo apt --fix-broken install'    
+    }
+
+    &$downloadPackagesCommand -PackageName 'buildah' -DebFileNamePattern 'buildah*.deb'
+
+    Write-Log 'Finished downloading buildah'
+}
+
+Function Install-BuildahDebPackages {
+    param (
+        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
+        [string]$UserName = $(throw 'Argument missing: UserName'),
+        [string]$UserPwd = '',
+        [ValidateScript({ Get-IsValidIPv4Address($_) })]
+        [string]$IpAddress = $(throw 'Argument missing: IpAddress'),
+        [string]$SourcePath = $(throw 'Argument missing: SourcePath')
+    )
+    $remoteUser = "$UserName@$IpAddress"
+    $remoteUserPwd = $UserPwd
+
+    $executeRemoteCommand = { 
+        param(
+            $Command = $(throw 'Argument missing: Command'), 
+            [switch]$IgnoreErrors = $false, [string]$RepairCmd = $null, [uint16]$Retries = 0
+        )
+        if ([string]::IsNullOrWhiteSpace($UserPwd)) {
+            (Invoke-CmdOnVmViaSSHKey -CmdToExecute $Command -UserName $UserName -IpAddress $IpAddress -Retries $Retries -RepairCmd $RepairCmd -IgnoreErrors:$IgnoreErrors).Output | Write-Log
+        }
+        else {
+            (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $Command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output | Write-Log
+        }
+    }
+
+    $buildahDebPackagesPath = $SourcePath
+ 
+    if ($buildahDebPackagesPath.Contains('No such file or directory')) {
+        throw "The directory '$buildahDebPackagesPath' does not exist in the computer with IP '$IpAddress'. The buildah artifacts cannot be installed"
+    }
+
+    Write-Log 'Install buildah and its dependencies'
+    &$executeRemoteCommand "sudo DEBIAN_FRONTEND=noninteractive dpkg --force-confnew -i $buildahDebPackagesPath/*.deb"
+    &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get --fix-broken install -y'
+
+    Write-Log 'Finished installing buildah'
 }
 
 <#
@@ -331,17 +802,20 @@ Function Install-Tools {
     $remoteUser = "$UserName@$IpAddress"
     $remoteUserPwd = $UserPwd
 
-    $executeRemoteCommand = { param($Command = $(throw 'Argument missing: Command'))
+    $executeRemoteCommand = { 
+        param(
+            $Command = $(throw 'Argument missing: Command'), 
+            [switch]$IgnoreErrors = $false, [string]$RepairCmd = $null, [uint16]$Retries = 0
+        )
     (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $Command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output | Write-Log
     }
 
     Write-Log 'Start installing tools in the Linux VM'
 
-    # INSTALL buildah FROM TESTING REPO IN ORDER TO GET A NEWER VERSION
-    #################################################################################################################################################################
-    Write-Log 'Install container image creation tool: buildah'                                                                                                   #
-    #First install buildah from latest debian bullseye                                                                                                              #
-    &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Options::="--force-confnew" install buildah --yes'                                   #
+    $buildahDebPackagesPath = Get-BuildahDebPackagesPath -UserName $controlPlaneUserName
+    Get-BuildahDebPackagesFromInternet -UserName $UserName -UserPwd $UserPwd -IpAddress $IpAddress -TargetPath $buildahDebPackagesPath
+    Install-BuildahDebPackages -UserName $UserName -UserPwd $UserPwd -IpAddress $IpAddress -SourcePath $buildahDebPackagesPath
+
     #Remove chrony as it is unstable with latest version of buildah                                                                                                 #
     #&$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get remove chrony --yes'                                                                          #
     #
@@ -463,6 +937,57 @@ function Get-FlannelImages {
 
     &$executeRemoteCommand 'sudo crictl pull docker.io/flannel/flannel-cni-plugin:v1.5.1-flannel2'
     &$executeRemoteCommand 'sudo crictl pull docker.io/flannel/flannel:v0.26.1'
+}
+
+function AddRegistryMirrors {
+    param (
+        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
+        [string]$UserName = $(throw 'Argument missing: UserName'),
+        [string]$UserPwd = $(throw 'Argument missing: UserPwd'),
+        [ValidateScript({ Get-IsValidIPv4Address($_) })]
+        [string]$IpAddress = $(throw 'Argument missing: IpAddress')
+    )
+    Write-Log 'Add mirrors for registry from config.json'
+    $remoteUser = "$UserName@$IpAddress"
+    $remoteUserPwd = $UserPwd
+
+    $executeRemoteCommand = { param($Command = $(throw 'Argument missing: Command')) 
+        (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $Command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output | Write-Log
+    }
+
+    Write-Log "Add mirrors to registry for VM with ip address: $IpAddress"
+    $mirrorRegistries = Get-MirrorRegistries
+    foreach ($registry in $mirrorRegistries) {
+        $Name = $registry.registry
+        $Mirror = $registry.mirror
+        $fileName = $Name -replace ':', ''
+        &$executeRemoteCommand 'mkdir -p /etc/containers/registries.conf.d'
+        &$executeRemoteCommand "echo -e `'[[registry]]\nlocation=\""$Name\""\ninsecure=true`' | sudo tee /etc/containers/registries.conf.d/$fileName.conf"
+        &$executeRemoteCommand "echo -e `'[[registry.mirror]]\nlocation=\""$Mirror\""\ninsecure=true`' | sudo tee -a /etc/containers/registries.conf.d/$fileName.conf" 
+        &$executeRemoteCommand 'sudo systemctl daemon-reload'
+        &$executeRemoteCommand 'sudo systemctl restart crio'
+    } 
+}
+
+function Get-KubernetesImages {
+    param (
+        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
+        [string]$UserName = $(throw 'Argument missing: UserName'),
+        [string]$UserPwd = $(throw 'Argument missing: UserPwd'),
+        [ValidateScript({ Get-IsValidIPv4Address($_) })]
+        [string]$IpAddress = $(throw 'Argument missing: IpAddress'),
+        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
+        [string] $K8sVersion = $(throw 'Argument missing: K8sVersion')
+    )
+    $remoteUser = "$UserName@$IpAddress"
+    $remoteUserPwd = $UserPwd
+
+    $executeRemoteCommand = { param($Command = $(throw 'Argument missing: Command')) 
+        (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $Command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output | Write-Log
+    }
+
+    Write-Log 'Pull images used by K8s'
+    &$executeRemoteCommand "sudo kubeadm config images pull --kubernetes-version $K8sVersion" 
 }
 
 function Set-Nameserver {
@@ -634,7 +1159,8 @@ Function Set-UpMasterNode {
         )
         if ([string]::IsNullOrWhiteSpace($remoteUserPwd)) {
             (Invoke-CmdOnVmViaSSHKey -CmdToExecute $command -UserName $UserName -IpAddress $IpAddress -Retries $Retries -IgnoreErrors:$IgnoreErrors).Output | Write-Log
-        } else {
+        }
+        else {
             (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd" -Retries $Retries -IgnoreErrors:$IgnoreErrors).Output | Write-Log
         }
     }
@@ -684,7 +1210,8 @@ Function Set-UpMasterNode {
 
     # mount the certificate secrets in coredns, so it can read them
     &$executeRemoteCommand "kubectl get deployment coredns -n kube-system -o yaml | sed '/^\s*\- configMap:/i\      - name: etcd-ca-cert\n        secret:\n          secretName: etcd-ca\n      - name: etcd-client-cert\n        secret:\n          secretName: etcd-client-for-core-dns' | kubectl apply -f -" -IgnoreErrors
-    &$executeRemoteCommand "kubectl wait --for=condition=available deployment/coredns -n kube-system --timeout=30s" -IgnoreErrors
+    &$executeRemoteCommand 'kubectl scale deployment coredns -n kube-system --replicas=1'
+    &$executeRemoteCommand 'kubectl wait --for=condition=available deployment/coredns -n kube-system --timeout=60s' -IgnoreErrors
     &$executeRemoteCommand "kubectl get deployment coredns -n kube-system -o yaml | sed '/^\s*\- mountPath: \/etc\/coredns/i\        - mountPath: /etc/kubernetes/pki/etcd-ca\n          name: etcd-ca-cert\n        - mountPath: /etc/kubernetes/pki/etcd-client\n          name: etcd-client-cert' | kubectl apply -f -" -Retries 3
 
     # change core-dns to have predefined host mapping for DNS resolution
@@ -696,7 +1223,8 @@ Function Set-UpMasterNode {
     $getPodCidrOutput = Get-AssignedPodNetworkCIDR -NodeName $NodeName -UserName $UserName -UserPwd $UserPwd -IpAddress $IpAddress
     if ($getPodCidrOutput.Success) {
         $assignedPodNetworkCIDR = $($getPodCidrOutput.PodNetworkCIDR).Substring(0, $($getPodCidrOutput.PodNetworkCIDR).IndexOf('/'))
-    } else {
+    }
+    else {
         throw "Cannot obtain pod network information from node '$NodeName'"
     }
     $networkInterfaceCni0IP = "$($assignedPodNetworkCIDR.Substring(0, $assignedPodNetworkCIDR.lastIndexOf('.'))).1"
@@ -727,22 +1255,6 @@ Function Set-UpWorkerNode {
         [ScriptBlock] $Hook = $(throw 'Argument missing: Hook')
     )
 
-    $remoteUser = "$UserName@$IpAddress"
-    $remoteUserPwd = $UserPwd
-
-    $executeRemoteCommand = {
-        param(
-            $command = $(throw 'Argument missing: Command'),
-            [switch]$IgnoreErrors = $false
-        )
-        if ($IgnoreErrors) {
-            (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd" -IgnoreErrors).Output | Write-Log
-        }
-        else {
-            (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output | Write-Log
-        }
-    }
-
     Write-Log "Start setting up computer '$IpAddress' as worker node"
 
     Write-Log 'Run setup hook'
@@ -771,7 +1283,8 @@ Function Add-FlannelPluginToMasterNode {
     $executeRemoteCommand = { param($command = $(throw 'Argument missing: Command'))
         if ([string]::IsNullOrWhiteSpace($remoteUserPwd)) {
             (Invoke-CmdOnVmViaSSHKey -CmdToExecute $command -UserName $UserName -IpAddress $IpAddress -IgnoreErrors:$IgnoreErrors).Output | Write-Log
-        } else {
+        }
+        else {
             (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output | Write-Log
         }
     }
@@ -784,7 +1297,8 @@ Function Add-FlannelPluginToMasterNode {
             $command = 'kubectl rollout status daemonset -n kube-flannel kube-flannel-ds --timeout 60s'
             if ([string]::IsNullOrWhiteSpace($remoteUserPwd)) {
                 $result = (Invoke-CmdOnVmViaSSHKey -CmdToExecute $command -UserName $UserName -IpAddress $IpAddress -IgnoreErrors:$IgnoreErrors).Output
-            } else {
+            }
+            else {
                 $result = (Invoke-CmdOnControlPlaneViaUserAndPwd $command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output
             }
             if ($result -match 'successfully') {
@@ -841,7 +1355,8 @@ Function Add-FlannelPluginToMasterNode {
     $target = "/home/$UserName"
     if ([string]::IsNullOrWhiteSpace($remoteUserPwd)) {
         Copy-ToRemoteComputerViaSshKey -Source "$configurationFile" -Target $target -UserName $UserName -IpAddress $IpAddress
-    } else {
+    }
+    else {
         Copy-ToRemoteComputerViaUserAndPwd -Source "$configurationFile" -Target $target -UserName $UserName -UserPwd $remoteUserPwd -IpAddress $IpAddress
     }
 
@@ -889,7 +1404,9 @@ Function New-KubernetesNode {
     Write-Log "Finished preparation of computer $IpAddress for provisioning"
 
     Write-Log "Start provisioning the computer $IpAddress"
-    Install-KubernetesArtifacts -IpAddress $IpAddress -UserName $userName -UserPwd $userPwd -Proxy $Proxy -K8sVersion $K8sVersion
+    $debPackagesPath = Get-KubernetesDebPackagesPath -UserName $controlPlaneUserName
+    Get-KubernetesArtifactsFromInternet -IpAddress $IpAddress -UserName $userName -UserPwd $userPwd -Proxy $Proxy -K8sVersion $K8sVersion -TargetPath $debPackagesPath
+    Install-KubernetesArtifacts -IpAddress $IpAddress -UserName $userName -UserPwd $userPwd -Proxy $Proxy -SourcePath $debPackagesPath
 
     Write-Log "Finalize preparation of the computer $IpAddress after provisioning"
     Set-UpComputerWithSpecificOsAfterProvisioning -IpAddress $IpAddress -UserName $userName -UserPwd $userPwd
@@ -924,6 +1441,8 @@ function New-VmImageForKubernetesNode {
 
     $setUpKubenode = {
         $addToKubeNode = {
+            AddRegistryMirrors -IpAddress $vmIpAddress -UserName $vmUserName -UserPwd $vmUserPwd
+            Get-KubernetesImages -IpAddress $vmIpAddress -UserName $vmUserName -UserPwd $vmUserPwd -K8sVersion $kubernetesVersion
             Install-DnsServer -IpAddress $vmIpAddress -UserName $vmUserName -UserPwd $vmUserPwd
             Install-Tools -IpAddress $vmIpAddress -UserName $vmUserName -UserPwd $vmUserPwd -Proxy $Proxy
             Get-FlannelImages -IpAddress $vmIpAddress -UserName $vmUserName -UserPwd $vmUserPwd
@@ -1017,17 +1536,17 @@ function New-VmImageForControlPlaneNode {
         }
 
         $masterNodeParams = @{
-            NodeName                      = $Hostname
-            IpAddress                     = $IpAddress
-            UserName                      = $vmUserName
-            UserPwd                       = $vmUserPwd
-            K8sVersion                    = $kubernetesVersion
-            ClusterCIDR                   = $(Get-ConfiguredClusterCIDR)
-            ClusterCIDR_Services          = $(Get-ConfiguredClusterCIDRServices)
-            KubeDnsServiceIP              = $(Get-ConfiguredKubeDnsServiceIP)
-            IP_NextHop                    = $GatewayIpAddress
-            NetworkInterfaceName          = $vmNetworkInterfaceName
-            Hook                          = $addToControlPlane
+            NodeName             = $Hostname
+            IpAddress            = $IpAddress
+            UserName             = $vmUserName
+            UserPwd              = $vmUserPwd
+            K8sVersion           = $kubernetesVersion
+            ClusterCIDR          = $(Get-ConfiguredClusterCIDR)
+            ClusterCIDR_Services = $(Get-ConfiguredClusterCIDRServices)
+            KubeDnsServiceIP     = $(Get-ConfiguredKubeDnsServiceIP)
+            IP_NextHop           = $GatewayIpAddress
+            NetworkInterfaceName = $vmNetworkInterfaceName
+            Hook                 = $addToControlPlane
         }
         Set-UpMasterNode @masterNodeParams
     }
@@ -1109,10 +1628,10 @@ function New-LinuxVmImageForWorkerNode {
         }
 
         $workerNodeParams = @{
-            IpAddress                     = $IpAddress
-            UserName                      = $vmUserName
-            UserPwd                       = $vmUserPwd
-            Hook                          = $executeInWorkerNode
+            IpAddress = $IpAddress
+            UserName  = $vmUserName
+            UserPwd   = $vmUserPwd
+            Hook      = $executeInWorkerNode
         }
         Set-UpWorkerNode @workerNodeParams
     }
@@ -1183,7 +1702,8 @@ function InstallAptPackages {
     $repairCmd = 'sudo apt --fix-broken install'
     if ([string]::IsNullOrWhiteSpace($UserPwd)) {
         (Invoke-CmdOnVmViaSSHKey $installCmd -Retries 2 -Timeout 2 -UserName $UserName -IpAddress $IpAddress -RepairCmd $repairCmd).Output | Write-Log
-    } else {
+    }
+    else {
         (Invoke-CmdOnControlPlaneViaUserAndPwd $installCmd -Retries 2 -Timeout 2 -RemoteUser "$remoteUser" -RemoteUserPwd "$UserPwd" -RepairCmd $repairCmd).Output | Write-Log
     }
 
@@ -1191,7 +1711,8 @@ function InstallAptPackages {
         $testCmd = "which $TestExecutable"
         if ([string]::IsNullOrWhiteSpace($UserPwd)) {
             $exeInstalled = (Invoke-CmdOnVmViaSSHKey $testCmd -UserName $UserName -IpAddress $IpAddress).Output
-        } else {
+        }
+        else {
             $exeInstalled = (Invoke-CmdOnControlPlaneViaUserAndPwd $testCmd -RemoteUser "$remoteUser" -RemoteUserPwd "$UserPwd").Output
         }
         if (!($exeInstalled -match "/bin/$TestExecutable")) {
@@ -1299,6 +1820,18 @@ function Set-ProxySettingsOnKubenode {
     (Invoke-CmdOnVmViaSSHKey 'sudo systemctl restart crio' -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
 }
 
+function Remove-ProxySettingsOnKubenode {
+    param (
+        [string] $IpAddress = $(throw 'Argument missing: IpAddress'),
+        [string] $UserName = $(throw 'Argument missing: UserName')
+    )
+
+    $proxySettings = ''
+    Set-ProxySettingsForApt -ProxySettings $proxySettings -IpAddress $IpAddress -UserName $UserName
+    Set-ProxySettingsForContainerRuntime -ProxySettings $proxySettings -IpAddress $IpAddress -UserName $UserName
+    Set-ProxySettingsForContainers -ProxySettings $proxySettings -IpAddress $IpAddress -UserName $UserName
+}
+
 function Set-ProxySettingsForApt {
     param (
         [parameter(Mandatory = $true, HelpMessage = 'The HTTP proxy')]
@@ -1357,7 +1890,7 @@ function Set-ProxySettingsForContainerRuntime {
         Write-Log 'Set proxy settings for container runtime'
         (Invoke-CmdOnVmViaSSHKey 'sudo mkdir -p /etc/systemd/system/crio.service.d' -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
         (Invoke-CmdOnVmViaSSHKey 'sudo touch /etc/systemd/system/crio.service.d/http-proxy.conf' -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
-        (Invoke-CmdOnVmViaSSHKey "echo [Service] | sudo tee /etc/systemd/system/crio.service.d/http-proxy.conf" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
+        (Invoke-CmdOnVmViaSSHKey 'echo [Service] | sudo tee /etc/systemd/system/crio.service.d/http-proxy.conf' -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
         (Invoke-CmdOnVmViaSSHKey "echo Environment=\'HTTP_PROXY=$ProxySettings\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
         (Invoke-CmdOnVmViaSSHKey "echo Environment=\'HTTPS_PROXY=$ProxySettings\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
         (Invoke-CmdOnVmViaSSHKey "echo Environment=\'http_proxy=$ProxySettings\' | sudo tee -a /etc/systemd/system/crio.service.d/http-proxy.conf" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
@@ -1399,12 +1932,43 @@ function Set-ProxySettingsForContainers {
     }
 }
 
+function Get-BaseDirectoryOfKubenodeDebPackagesOnWindowsHost {
+    return $baseDirectoryOfKubenodeDebPackagesOnWindowsHost
+}
+
+function Get-DirectoryOfKubenodeImagesOnWindowsHost {
+    return $directoryOfKubenodeImagesOnWindowsHost
+}
+
+function Get-DirectoryOfLinuxNodeArtifactsOnWindowsHost {
+    return $directoryOfLinuxNodeArtifactsOnWindowsHost
+}
+
+function Get-PathOfLinuxNodeArtifactsPackageOnWindowsHost {
+    return $pathOfLinuxNodeArtifactsPackageOnWindowsHost
+}
+
 Export-ModuleMember -Function New-VmImageForControlPlaneNode,
 New-LinuxVmImageForWorkerNode,
 Remove-VmImageForControlPlaneNode,
 Import-SpecificDistroSettingsModule,
 New-WslRootfsForControlPlaneNode,
 Set-ProxySettingsOnKubenode,
+Remove-ProxySettingsOnKubenode,
 Get-KubenodeBaseFileName,
 Install-KubernetesArtifacts,
-Remove-KubernetesArtifacts
+Remove-KubernetesArtifacts,
+Copy-KubernetesImagesFromControlPlaneToRemoteComputer,
+Add-KubernetesArtifactsToRemoteComputer,
+Get-KubernetesDebPackagesPath,
+Get-BuildahDebPackagesPath,
+Add-BuildahArtifactsToRemoteComputer,
+Install-BuildahDebPackages,
+Set-UpComputerBeforeProvisioning,
+Copy-DebPackagesFromControlPlaneToWindowsHost,
+Get-InstalledDistribution,
+Get-BaseDirectoryOfKubenodeDebPackagesOnWindowsHost,
+Get-DirectoryOfKubenodeImagesOnWindowsHost,
+Get-DirectoryOfLinuxNodeArtifactsOnWindowsHost,
+Get-PathOfLinuxNodeArtifactsPackageOnWindowsHost,
+Copy-KubernetesImagesFromControlPlaneNodeToWindowsHost

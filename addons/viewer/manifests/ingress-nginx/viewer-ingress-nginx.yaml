@@ -1,0 +1,31 @@
+# SPDX-FileCopyrightText: © 2025 Siemens Healthcare GmbH
+#
+# SPDX-License-Identifier: MIT
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: viewer-nginx-cluster-local
+  namespace: viewer
+  labels:
+    commonappsaccess: syngo
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: 'false'
+    nginx.ingress.kubernetes.io/affinity: 'cookie'
+    nginx.ingress.kubernetes.io/session-cookie-name: 'viewerweb'
+    nginx.ingress.kubernetes.io/session-cookie-expires: '7200'
+    nginx.ingress.kubernetes.io/session-cookie-max-age: '7200'
+    nginx.ingress.kubernetes.io/proxy-body-size: 100m
+spec:
+  rules:
+    - host: k2s.cluster.local
+      http:
+        paths:
+          - path: /viewer
+            pathType: Prefix
+            backend:
+              service:
+                name: viewerwebapp
+                port:
+                  number: 80
+  ingressClassName: nginx

@@ -32,7 +32,7 @@ var (
 
 func TestDashboard(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "dashboard Addon Acceptance Tests", Label("addon", "acceptance", "setup-required", "invasive", "dashboard", "system-running"))
+	RunSpecs(t, "dashboard Addon Acceptance Tests", Label("addon", "addon-diverse", "acceptance", "setup-required", "invasive", "dashboard", "system-running"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {

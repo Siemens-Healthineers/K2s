@@ -50,6 +50,7 @@ var _ = Describe("image", func() {
 		Entry("export", "image", "export", "-n", "non-existent", "-t", "non-existent"),
 		Entry("import", "image", "import", "-t", "non-existent"),
 		Entry("registry add", "image", "registry", "add", "non-existent"),
+		Entry("registry rm", "image", "registry", "rm", "non-existent"),
 	)
 
 	Describe("ls JSON output", Ordered, func() {

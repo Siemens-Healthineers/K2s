@@ -31,6 +31,8 @@ The following addons will be deployed with **K2s**:
 | [rollout](./rollout/README.md) | Automating the deployment/updating of applications | 
 | [security](./security/README.md) | EXPERIMENTAL: Enables secure communication into and inside the cluster | 
 | [storage smb](./storage/smb/README.md) | StorageClass provisioning based on SMB share between K8s nodes (Windows/Linux) | 
+| [dicom](./dicom/README.md) | Dicom server based on Orthanc |
+| [viewer](./viewer/README.md)                   | Private clinical image viewer running in the Kubernetes 
 <!-- addons-list-end -->
 
 ## Command line options

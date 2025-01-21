@@ -12,6 +12,7 @@ import (
 	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/siemens-healthineers/k2s/internal/core/node"
 	"github.com/siemens-healthineers/k2s/internal/core/users/k8s"
 	"github.com/siemens-healthineers/k2s/internal/core/users/k8s/cluster"
 	"github.com/siemens-healthineers/k2s/internal/core/users/k8s/kubeconfig"
@@ -19,11 +20,7 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-type scpMock struct {
-	mock.Mock
-}
-
-type sshMock struct {
+type nodeAccessMock struct {
 	mock.Mock
 }
 
@@ -51,14 +48,14 @@ type writerMock struct {
 	mock.Mock
 }
 
-func (m *sshMock) Exec(cmd string) error {
-	args := m.Called(cmd)
+func (m *nodeAccessMock) Exec(command string) error {
+	args := m.Called(command)
 
 	return args.Error(0)
 }
 
-func (m *scpMock) CopyFromRemote(source string, target string) error {
-	args := m.Called(source, target)
+func (m *nodeAccessMock) Copy(copyOptions node.CopyOptions) error {
+	args := m.Called(copyOptions)
 
 	return args.Error(0)
 }
@@ -158,7 +155,7 @@ var _ = Describe("k8s pkg", func() {
 					userMock.On(reflection.GetFunctionName(userMock.Name)).Return("")
 					userMock.On(reflection.GetFunctionName(userMock.HomeDir)).Return("")
 
-					sut := k8s.NewK8sAccess(nil, nil, fsMock, nil, nil, nil, "")
+					sut := k8s.NewK8sAccess(nil, fsMock, nil, nil, nil, "")
 
 					err := sut.GrantAccessTo(userMock, "")
 
@@ -180,7 +177,7 @@ var _ = Describe("k8s pkg", func() {
 					readerMock := &readerMock{}
 					readerMock.On(reflection.GetFunctionName(readerMock.ReadFile), mock.Anything).Return(&kubeconfig.KubeconfigRoot{}, expectedError)
 
-					sut := k8s.NewK8sAccess(nil, nil, fsMock, nil, nil, readerMock, "")
+					sut := k8s.NewK8sAccess(nil, fsMock, nil, nil, readerMock, "")
 
 					err := sut.GrantAccessTo(userMock, "")
 
@@ -202,7 +199,7 @@ var _ = Describe("k8s pkg", func() {
 					readerMock := &readerMock{}
 					readerMock.On(reflection.GetFunctionName(readerMock.ReadFile), mock.Anything).Return(adminConfig, nil)
 
-					sut := k8s.NewK8sAccess(nil, nil, fsMock, nil, nil, readerMock, "")
+					sut := k8s.NewK8sAccess(nil, fsMock, nil, nil, readerMock, "")
 
 					err := sut.GrantAccessTo(userMock, "")
 
@@ -234,7 +231,7 @@ var _ = Describe("k8s pkg", func() {
 					factoryMock := &factoryMock{}
 					factoryMock.On(reflection.GetFunctionName(factoryMock.NewKubeconfigWriter), mock.Anything).Return(writerMock)
 
-					sut := k8s.NewK8sAccess(nil, nil, fsMock, nil, factoryMock, readerMock, "")
+					sut := k8s.NewK8sAccess(nil, fsMock, nil, factoryMock, readerMock, "")
 
 					err := sut.GrantAccessTo(userMock, "")
 
@@ -267,10 +264,10 @@ var _ = Describe("k8s pkg", func() {
 					factoryMock := &factoryMock{}
 					factoryMock.On(reflection.GetFunctionName(factoryMock.NewKubeconfigWriter), mock.Anything).Return(writerMock)
 
-					sshMock := &sshMock{}
-					sshMock.On(reflection.GetFunctionName(sshMock.Exec), mock.Anything).Return(expectedError)
+					nodeAccessMock := &nodeAccessMock{}
+					nodeAccessMock.On(reflection.GetFunctionName(nodeAccessMock.Exec), mock.Anything, mock.Anything).Return(expectedError)
 
-					sut := k8s.NewK8sAccess(sshMock, nil, fsMock, nil, factoryMock, readerMock, "")
+					sut := k8s.NewK8sAccess(nodeAccessMock, fsMock, nil, factoryMock, readerMock, "")
 
 					err := sut.GrantAccessTo(userMock, "")
 
@@ -303,13 +300,11 @@ var _ = Describe("k8s pkg", func() {
 					factoryMock := &factoryMock{}
 					factoryMock.On(reflection.GetFunctionName(factoryMock.NewKubeconfigWriter), mock.Anything).Return(writerMock)
 
-					sshMock := &sshMock{}
-					sshMock.On(reflection.GetFunctionName(sshMock.Exec), mock.Anything).Return(nil)
+					nodeAccessMock := &nodeAccessMock{}
+					nodeAccessMock.On(reflection.GetFunctionName(nodeAccessMock.Exec), mock.Anything, mock.Anything).Return(nil)
+					nodeAccessMock.On(reflection.GetFunctionName(nodeAccessMock.Copy), mock.Anything, mock.Anything).Return(expectedError)
 
-					scpMock := &scpMock{}
-					scpMock.On(reflection.GetFunctionName(scpMock.CopyFromRemote), mock.Anything, mock.Anything).Return(expectedError)
-
-					sut := k8s.NewK8sAccess(sshMock, scpMock, fsMock, nil, factoryMock, readerMock, "")
+					sut := k8s.NewK8sAccess(nodeAccessMock, fsMock, nil, factoryMock, readerMock, "")
 
 					err := sut.GrantAccessTo(userMock, "")
 
@@ -342,18 +337,16 @@ var _ = Describe("k8s pkg", func() {
 					factoryMock := &factoryMock{}
 					factoryMock.On(reflection.GetFunctionName(factoryMock.NewKubeconfigWriter), mock.Anything).Return(writerMock)
 
-					sshMock := &sshMock{}
-					sshMock.On(reflection.GetFunctionName(sshMock.Exec), mock.MatchedBy(func(cmd string) bool {
+					nodeAccessMock := &nodeAccessMock{}
+					nodeAccessMock.On(reflection.GetFunctionName(nodeAccessMock.Exec), mock.MatchedBy(func(cmd string) bool {
 						return strings.Contains(cmd, "sudo openssl")
-					})).Return(nil)
-					sshMock.On(reflection.GetFunctionName(sshMock.Exec), mock.MatchedBy(func(cmd string) bool {
+					}), mock.Anything).Return(nil)
+					nodeAccessMock.On(reflection.GetFunctionName(nodeAccessMock.Exec), mock.MatchedBy(func(cmd string) bool {
 						return !strings.Contains(cmd, "sudo openssl") && strings.Contains(cmd, "rm -rf")
-					})).Return(expectedError)
+					}), mock.Anything).Return(expectedError)
+					nodeAccessMock.On(reflection.GetFunctionName(nodeAccessMock.Copy), mock.Anything, mock.Anything).Return(nil)
 
-					scpMock := &scpMock{}
-					scpMock.On(reflection.GetFunctionName(scpMock.CopyFromRemote), mock.Anything, mock.Anything).Return(nil)
-
-					sut := k8s.NewK8sAccess(sshMock, scpMock, fsMock, nil, factoryMock, readerMock, "")
+					sut := k8s.NewK8sAccess(nodeAccessMock, fsMock, nil, factoryMock, readerMock, "")
 
 					err := sut.GrantAccessTo(userMock, "")
 
@@ -387,13 +380,11 @@ var _ = Describe("k8s pkg", func() {
 					factoryMock := &factoryMock{}
 					factoryMock.On(reflection.GetFunctionName(factoryMock.NewKubeconfigWriter), mock.Anything).Return(writerMock)
 
-					sshMock := &sshMock{}
-					sshMock.On(reflection.GetFunctionName(sshMock.Exec), mock.Anything).Return(nil)
+					nodeAccessMock := &nodeAccessMock{}
+					nodeAccessMock.On(reflection.GetFunctionName(nodeAccessMock.Exec), mock.Anything, mock.Anything).Return(nil)
+					nodeAccessMock.On(reflection.GetFunctionName(nodeAccessMock.Copy), mock.Anything, mock.Anything).Return(nil)
 
-					scpMock := &scpMock{}
-					scpMock.On(reflection.GetFunctionName(scpMock.CopyFromRemote), mock.Anything, mock.Anything).Return(nil)
-
-					sut := k8s.NewK8sAccess(sshMock, scpMock, fsMock, nil, factoryMock, readerMock, "")
+					sut := k8s.NewK8sAccess(nodeAccessMock, fsMock, nil, factoryMock, readerMock, "")
 
 					err := sut.GrantAccessTo(userMock, "")
 
@@ -428,13 +419,11 @@ var _ = Describe("k8s pkg", func() {
 					factoryMock := &factoryMock{}
 					factoryMock.On(reflection.GetFunctionName(factoryMock.NewKubeconfigWriter), mock.Anything).Return(writerMock)
 
-					sshMock := &sshMock{}
-					sshMock.On(reflection.GetFunctionName(sshMock.Exec), mock.Anything).Return(nil)
+					nodeAccessMock := &nodeAccessMock{}
+					nodeAccessMock.On(reflection.GetFunctionName(nodeAccessMock.Exec), mock.Anything, mock.Anything).Return(nil)
+					nodeAccessMock.On(reflection.GetFunctionName(nodeAccessMock.Copy), mock.Anything, mock.Anything).Return(nil)
 
-					scpMock := &scpMock{}
-					scpMock.On(reflection.GetFunctionName(scpMock.CopyFromRemote), mock.Anything, mock.Anything).Return(nil)
-
-					sut := k8s.NewK8sAccess(sshMock, scpMock, fsMock, nil, factoryMock, readerMock, "")
+					sut := k8s.NewK8sAccess(nodeAccessMock, fsMock, nil, factoryMock, readerMock, "")
 
 					err := sut.GrantAccessTo(userMock, "")
 
@@ -470,13 +459,11 @@ var _ = Describe("k8s pkg", func() {
 					factoryMock := &factoryMock{}
 					factoryMock.On(reflection.GetFunctionName(factoryMock.NewKubeconfigWriter), mock.Anything).Return(writerMock)
 
-					sshMock := &sshMock{}
-					sshMock.On(reflection.GetFunctionName(sshMock.Exec), mock.Anything).Return(nil)
+					nodeAccessMock := &nodeAccessMock{}
+					nodeAccessMock.On(reflection.GetFunctionName(nodeAccessMock.Exec), mock.Anything, mock.Anything).Return(nil)
+					nodeAccessMock.On(reflection.GetFunctionName(nodeAccessMock.Copy), mock.Anything, mock.Anything).Return(nil)
 
-					scpMock := &scpMock{}
-					scpMock.On(reflection.GetFunctionName(scpMock.CopyFromRemote), mock.Anything, mock.Anything).Return(nil)
-
-					sut := k8s.NewK8sAccess(sshMock, scpMock, fsMock, nil, factoryMock, readerMock, "")
+					sut := k8s.NewK8sAccess(nodeAccessMock, fsMock, nil, factoryMock, readerMock, "")
 
 					err := sut.GrantAccessTo(userMock, "")
 
@@ -517,13 +504,11 @@ var _ = Describe("k8s pkg", func() {
 					factoryMock := &factoryMock{}
 					factoryMock.On(reflection.GetFunctionName(factoryMock.NewKubeconfigWriter), mock.Anything).Return(writerMock)
 
-					sshMock := &sshMock{}
-					sshMock.On(reflection.GetFunctionName(sshMock.Exec), mock.Anything).Return(nil)
+					nodeAccessMock := &nodeAccessMock{}
+					nodeAccessMock.On(reflection.GetFunctionName(nodeAccessMock.Exec), mock.Anything, mock.Anything).Return(nil)
+					nodeAccessMock.On(reflection.GetFunctionName(nodeAccessMock.Copy), mock.Anything, mock.Anything).Return(nil)
 
-					scpMock := &scpMock{}
-					scpMock.On(reflection.GetFunctionName(scpMock.CopyFromRemote), mock.Anything, mock.Anything).Return(nil)
-
-					sut := k8s.NewK8sAccess(sshMock, scpMock, fsMock, nil, factoryMock, readerMock, adminDir)
+					sut := k8s.NewK8sAccess(nodeAccessMock, fsMock, nil, factoryMock, readerMock, adminDir)
 
 					err := sut.GrantAccessTo(userMock, "")
 
@@ -566,13 +551,11 @@ var _ = Describe("k8s pkg", func() {
 					factoryMock := &factoryMock{}
 					factoryMock.On(reflection.GetFunctionName(factoryMock.NewKubeconfigWriter), mock.Anything).Return(writerMock)
 
-					sshMock := &sshMock{}
-					sshMock.On(reflection.GetFunctionName(sshMock.Exec), mock.Anything).Return(nil)
+					nodeAccessMock := &nodeAccessMock{}
+					nodeAccessMock.On(reflection.GetFunctionName(nodeAccessMock.Exec), mock.Anything, mock.Anything).Return(nil)
+					nodeAccessMock.On(reflection.GetFunctionName(nodeAccessMock.Copy), mock.Anything, mock.Anything).Return(nil)
 
-					scpMock := &scpMock{}
-					scpMock.On(reflection.GetFunctionName(scpMock.CopyFromRemote), mock.Anything, mock.Anything).Return(nil)
-
-					sut := k8s.NewK8sAccess(sshMock, scpMock, fsMock, nil, factoryMock, readerMock, adminDir)
+					sut := k8s.NewK8sAccess(nodeAccessMock, fsMock, nil, factoryMock, readerMock, adminDir)
 
 					err := sut.GrantAccessTo(userMock, "")
 
@@ -621,13 +604,11 @@ var _ = Describe("k8s pkg", func() {
 					factoryMock := &factoryMock{}
 					factoryMock.On(reflection.GetFunctionName(factoryMock.NewKubeconfigWriter), mock.Anything).Return(writerMock)
 
-					sshMock := &sshMock{}
-					sshMock.On(reflection.GetFunctionName(sshMock.Exec), mock.Anything).Return(nil)
+					nodeAccessMock := &nodeAccessMock{}
+					nodeAccessMock.On(reflection.GetFunctionName(nodeAccessMock.Exec), mock.Anything, mock.Anything).Return(nil)
+					nodeAccessMock.On(reflection.GetFunctionName(nodeAccessMock.Copy), mock.Anything, mock.Anything).Return(nil)
 
-					scpMock := &scpMock{}
-					scpMock.On(reflection.GetFunctionName(scpMock.CopyFromRemote), mock.Anything, mock.Anything).Return(nil)
-
-					sut := k8s.NewK8sAccess(sshMock, scpMock, fsMock, nil, factoryMock, readerMock, adminDir)
+					sut := k8s.NewK8sAccess(nodeAccessMock, fsMock, nil, factoryMock, readerMock, adminDir)
 
 					err := sut.GrantAccessTo(userMock, userName)
 
@@ -681,13 +662,11 @@ var _ = Describe("k8s pkg", func() {
 					factoryMock := &factoryMock{}
 					factoryMock.On(reflection.GetFunctionName(factoryMock.NewKubeconfigWriter), mock.Anything).Return(writerMock)
 
-					sshMock := &sshMock{}
-					sshMock.On(reflection.GetFunctionName(sshMock.Exec), mock.Anything).Return(nil)
+					nodeAccessMock := &nodeAccessMock{}
+					nodeAccessMock.On(reflection.GetFunctionName(nodeAccessMock.Exec), mock.Anything, mock.Anything).Return(nil)
+					nodeAccessMock.On(reflection.GetFunctionName(nodeAccessMock.Copy), mock.Anything, mock.Anything).Return(nil)
 
-					scpMock := &scpMock{}
-					scpMock.On(reflection.GetFunctionName(scpMock.CopyFromRemote), mock.Anything, mock.Anything).Return(nil)
-
-					sut := k8s.NewK8sAccess(sshMock, scpMock, fsMock, nil, factoryMock, readerMock, adminDir)
+					sut := k8s.NewK8sAccess(nodeAccessMock, fsMock, nil, factoryMock, readerMock, adminDir)
 
 					err := sut.GrantAccessTo(userMock, userName)
 
@@ -742,16 +721,14 @@ var _ = Describe("k8s pkg", func() {
 					factoryMock := &factoryMock{}
 					factoryMock.On(reflection.GetFunctionName(factoryMock.NewKubeconfigWriter), mock.Anything).Return(writerMock)
 
-					sshMock := &sshMock{}
-					sshMock.On(reflection.GetFunctionName(sshMock.Exec), mock.Anything).Return(nil)
-
-					scpMock := &scpMock{}
-					scpMock.On(reflection.GetFunctionName(scpMock.CopyFromRemote), mock.Anything, mock.Anything).Return(nil)
+					nodeAccessMock := &nodeAccessMock{}
+					nodeAccessMock.On(reflection.GetFunctionName(nodeAccessMock.Exec), mock.Anything, mock.Anything).Return(nil)
+					nodeAccessMock.On(reflection.GetFunctionName(nodeAccessMock.Copy), mock.Anything, mock.Anything).Return(nil)
 
 					clusterMock := &clusterMock{}
 					clusterMock.On(reflection.GetFunctionName(clusterMock.VerifyAccess), mock.Anything, mock.Anything).Return(expectedError)
 
-					sut := k8s.NewK8sAccess(sshMock, scpMock, fsMock, clusterMock, factoryMock, readerMock, adminDir)
+					sut := k8s.NewK8sAccess(nodeAccessMock, fsMock, clusterMock, factoryMock, readerMock, adminDir)
 
 					err := sut.GrantAccessTo(userMock, userName)
 
@@ -805,16 +782,14 @@ var _ = Describe("k8s pkg", func() {
 					factoryMock := &factoryMock{}
 					factoryMock.On(reflection.GetFunctionName(factoryMock.NewKubeconfigWriter), mock.Anything).Return(writerMock)
 
-					sshMock := &sshMock{}
-					sshMock.On(reflection.GetFunctionName(sshMock.Exec), mock.Anything).Return(nil)
-
-					scpMock := &scpMock{}
-					scpMock.On(reflection.GetFunctionName(scpMock.CopyFromRemote), mock.Anything, mock.Anything).Return(nil)
+					nodeAccessMock := &nodeAccessMock{}
+					nodeAccessMock.On(reflection.GetFunctionName(nodeAccessMock.Exec), mock.Anything, mock.Anything).Return(nil)
+					nodeAccessMock.On(reflection.GetFunctionName(nodeAccessMock.Copy), mock.Anything, mock.Anything).Return(nil)
 
 					clusterMock := &clusterMock{}
 					clusterMock.On(reflection.GetFunctionName(clusterMock.VerifyAccess), mock.Anything, mock.Anything).Return(nil)
 
-					sut := k8s.NewK8sAccess(sshMock, scpMock, fsMock, clusterMock, factoryMock, readerMock, adminDir)
+					sut := k8s.NewK8sAccess(nodeAccessMock, fsMock, clusterMock, factoryMock, readerMock, adminDir)
 
 					err := sut.GrantAccessTo(userMock, userName)
 
@@ -875,16 +850,14 @@ var _ = Describe("k8s pkg", func() {
 					factoryMock := &factoryMock{}
 					factoryMock.On(reflection.GetFunctionName(factoryMock.NewKubeconfigWriter), mock.Anything).Return(writerMock)
 
-					sshMock := &sshMock{}
-					sshMock.On(reflection.GetFunctionName(sshMock.Exec), mock.Anything).Return(nil)
-
-					scpMock := &scpMock{}
-					scpMock.On(reflection.GetFunctionName(scpMock.CopyFromRemote), mock.Anything, mock.Anything).Return(nil)
+					nodeAccessMock := &nodeAccessMock{}
+					nodeAccessMock.On(reflection.GetFunctionName(nodeAccessMock.Exec), mock.Anything, mock.Anything).Return(nil)
+					nodeAccessMock.On(reflection.GetFunctionName(nodeAccessMock.Copy), mock.Anything, mock.Anything).Return(nil)
 
 					clusterMock := &clusterMock{}
 					clusterMock.On(reflection.GetFunctionName(clusterMock.VerifyAccess), mock.Anything, mock.Anything).Return(nil)
 
-					sut := k8s.NewK8sAccess(sshMock, scpMock, fsMock, clusterMock, factoryMock, readerMock, adminDir)
+					sut := k8s.NewK8sAccess(nodeAccessMock, fsMock, clusterMock, factoryMock, readerMock, adminDir)
 
 					err := sut.GrantAccessTo(userMock, userName)
 
@@ -943,16 +916,14 @@ var _ = Describe("k8s pkg", func() {
 					factoryMock := &factoryMock{}
 					factoryMock.On(reflection.GetFunctionName(factoryMock.NewKubeconfigWriter), mock.Anything).Return(writerMock)
 
-					sshMock := &sshMock{}
-					sshMock.On(reflection.GetFunctionName(sshMock.Exec), mock.Anything).Return(nil)
-
-					scpMock := &scpMock{}
-					scpMock.On(reflection.GetFunctionName(scpMock.CopyFromRemote), mock.Anything, mock.Anything).Return(nil)
+					nodeAccessMock := &nodeAccessMock{}
+					nodeAccessMock.On(reflection.GetFunctionName(nodeAccessMock.Exec), mock.Anything, mock.Anything).Return(nil)
+					nodeAccessMock.On(reflection.GetFunctionName(nodeAccessMock.Copy), mock.Anything, mock.Anything).Return(nil)
 
 					clusterMock := &clusterMock{}
 					clusterMock.On(reflection.GetFunctionName(clusterMock.VerifyAccess), mock.Anything, mock.Anything).Return(nil)
 
-					sut := k8s.NewK8sAccess(sshMock, scpMock, fsMock, clusterMock, factoryMock, readerMock, adminDir)
+					sut := k8s.NewK8sAccess(nodeAccessMock, fsMock, clusterMock, factoryMock, readerMock, adminDir)
 
 					err := sut.GrantAccessTo(userMock, userName)
 

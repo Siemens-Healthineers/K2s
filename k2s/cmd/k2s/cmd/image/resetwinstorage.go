@@ -9,7 +9,6 @@ import (
 	"log/slog"
 	"path/filepath"
 	"strconv"
-	"time"
 
 	"github.com/siemens-healthineers/k2s/internal/host"
 	"github.com/siemens-healthineers/k2s/internal/powershell"
@@ -112,6 +111,7 @@ func init() {
 }
 
 func resetWinStorage(cmd *cobra.Command, args []string) error {
+	cmdSession := common.StartCmdSession(cmd.CommandPath())
 	psCmd, params, err := buildResetPsCmd(cmd)
 	if err != nil {
 		return err
@@ -119,11 +119,9 @@ func resetWinStorage(cmd *cobra.Command, args []string) error {
 
 	slog.Debug("PS command created", "command", psCmd, "params", params)
 
-	start := time.Now()
-
 	setupConfigProvider := getSetupConfigProvider()
 	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
-	config, err := setupConfigProvider.ReadConfig(context.Config().Host.K2sConfigDir)
+	config, err := setupConfigProvider.ReadConfig(context.Config().Host().K2sConfigDir())
 	if err != nil {
 		if !(errors.Is(err, setupinfo.ErrSystemNotInstalled) || errors.Is(err, setupinfo.ErrSystemInCorruptedState)) {
 			return err
@@ -146,9 +144,7 @@ func resetWinStorage(cmd *cobra.Command, args []string) error {
 		return cmdResult.Failure
 	}
 
-	duration := time.Since(start)
-
-	common.PrintCompletedMessage(duration, "image reset-win-storage")
+	cmdSession.Finish()
 
 	return nil
 }
