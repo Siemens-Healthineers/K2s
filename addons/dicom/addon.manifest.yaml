@@ -52,3 +52,6 @@ spec:
                 comment: Removes dicom addon without prompting for confirmation
           script:
             subPath: Disable.ps1
+            parameterMappings:
+              - cliFlagName: force
+                scriptParameterName: Force
