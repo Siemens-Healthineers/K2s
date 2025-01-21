@@ -14,6 +14,8 @@ The "monitoring" addons enables Prometheus/Grafana monitoring features for the k
 Param(
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
     [switch] $ShowLogs = $false,
+    [parameter(Mandatory = $false, HelpMessage = 'Skips user confirmation if set to true')]
+    [switch] $Force = $false,
     [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
     [switch] $EncodeStructuredOutput,
     [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
@@ -59,6 +61,20 @@ if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', $dicomAddonName, '--ig
     exit 1
 }
 
+if ($Force -ne $true) {
+    $answer = Read-Host 'WARNING: This DELETES ALL DATA of the stored DICOM data. Continue? (y/N)'
+    if ($answer -ne 'y') {
+        $errMsg = 'Disable storage smb cancelled.'
+        if ($EncodeStructuredOutput -eq $true) {
+            $err = New-Error -Severity Warning -Code (Get-ErrCodeUserCancellation) -Message $errMsg
+            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+            return
+        }
+        Write-Log $errMsg -Error
+        exit 1
+    }    
+}
+
 $dicomPathManifests = Get-DicomConfig
 
 Write-Log 'Uninstalling ingress rules' -Console
@@ -78,10 +94,9 @@ if ($dicomAttributes.StorageUsage -eq 'default') {
     (Invoke-Kubectl -Params 'delete', '--ignore-not-found=true', '-k', $pvConfig).Output | Write-Log
     # remove from master node folder /mnt/dicom with all the subdirectories
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo rm -rf /mnt/dicom').Output | Write-Log
-    #(Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo rmdir /mnt/dicom').Output | Write-Log
 }
 else {
-    $StorageUsage = 'custom'
+    $StorageUsage = 'storage addon'
     Write-Log "Storage usage is:$StorageUsage" -Console
     $pvConfig = Get-PVConfigStorage
     (Invoke-Kubectl -Params 'delete', '--ignore-not-found=true', '-k', $pvConfig).Output | Write-Log
