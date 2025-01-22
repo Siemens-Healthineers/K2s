@@ -87,7 +87,7 @@ var _ = AfterSuite(func(ctx context.Context) {
 	GinkgoWriter.Println("Deleting workloads..")
 
 	if testFailed {
-		suite.K2sCli().Run(ctx, "system", "dump", "-S", "-o")
+		suite.K2sCli().RunOrFail(ctx, "system", "dump", "-S", "-o")
 	}
 
 	suite.Kubectl().Run(ctx, "delete", "-k", manifestDir)

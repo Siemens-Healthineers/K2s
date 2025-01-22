@@ -22,6 +22,7 @@ import (
 	"github.com/siemens-healthineers/k2s/internal/core/users/k8s/cluster"
 	"github.com/siemens-healthineers/k2s/internal/core/users/k8s/kubeconfig"
 	"github.com/siemens-healthineers/k2s/internal/core/users/winusers"
+	bkc "github.com/siemens-healthineers/k2s/internal/k8s/kubeconfig"
 )
 
 type UserProvider interface {
@@ -49,6 +50,8 @@ type nodeAccess struct {
 	sshOptions ssh.ConnectionOptions
 	sshDir     string
 }
+
+type kubeconfigReader struct{}
 
 func DefaultUserProvider() UserProvider {
 	return winusers.NewWinUserProvider()
@@ -78,11 +81,10 @@ func NewUsersManagement(cfg config.ConfigReader, cmdExecutor common.CmdExecutor,
 	keygenExec := keygen.NewSshKeyGen(cmdExecutor, fileSystem)
 	aclExec := acl.NewAcl(cmdExecutor)
 	restClient := http.NewRestClient()
-	kubeconfigReader := kubeconfig.NewKubeconfigReader()
 	nodeAccess := &nodeAccess{sshOptions: sshOptions, sshDir: cfg.Host().SshDir()}
 	controlPlaneAccess := controlplane.NewControlPlaneAccess(fileSystem, keygenExec, nodeAccess, aclExec, controlePlaneCfg.IpAddress())
 	clusterAccess := cluster.NewClusterAccess(restClient)
-	k8sAccess := k8s.NewK8sAccess(nodeAccess, fileSystem, clusterAccess, kubeconfigWriterFactory, kubeconfigReader, cfg.Host().KubeConfigDir())
+	k8sAccess := k8s.NewK8sAccess(nodeAccess, fileSystem, clusterAccess, kubeconfigWriterFactory, &kubeconfigReader{}, cfg.Host().KubeConfigDir())
 	userAdder := NewWinUserAdder(controlPlaneAccess, k8sAccess, CreateK2sUserName)
 
 	return &usersManagement{
@@ -142,4 +144,8 @@ func (a *nodeAccess) Exec(command string) error {
 
 func (a *nodeAccess) HostSshDir() string {
 	return a.sshDir
+}
+
+func (*kubeconfigReader) ReadFile(path string) (*bkc.KubeconfigRoot, error) {
+	return bkc.ReadFile(path)
 }

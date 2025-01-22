@@ -12,6 +12,7 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils/logging"
 	"github.com/siemens-healthineers/k2s/internal/core/config"
+	"github.com/siemens-healthineers/k2s/internal/k8s"
 	bl "github.com/siemens-healthineers/k2s/internal/logging"
 	"github.com/siemens-healthineers/k2s/internal/os"
 	"github.com/siemens-healthineers/k2s/internal/powershell"
@@ -262,6 +263,29 @@ func (*SlogWriter) Flush() { /*empty*/ }
 func (c *CmdContext) Config() config.ConfigReader { return c.config }
 
 func (c *CmdContext) Logger() *logging.Slogger { return c.logger }
+
+func (c *CmdContext) EnsureK2sK8sContext() error {
+	slog.Debug("Ensuring correct K8s context")
+
+	k8sContext, err := k8s.ReadContext(c.config.Host().KubeConfigDir())
+	if err != nil {
+		return fmt.Errorf("could not read K8s context: %w", err)
+	}
+
+	if k8sContext.IsK2sContext() {
+		return nil
+	}
+
+	k2sContextName := k8sContext.K2sContextName()
+
+	message := fmt.Sprintf("This operation requires the K8s context '%s' to be set as current context.\nTo set the required context, run 'kubectl config use-context %s' and try again.", k2sContextName, k2sContextName)
+
+	return &CmdFailure{
+		Severity: SeverityWarning,
+		Code:     "not-k2s-context",
+		Message:  message,
+	}
+}
 
 func createErrorLineBuffer() *bl.LogBuffer {
 	return bl.NewLogBuffer(bl.BufferConfig{

@@ -52,6 +52,10 @@ func startk8s(ccmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	if err := context.EnsureK2sK8sContext(); err != nil {
+		return err
+	}
+
 	startCmd, err := buildStartCmd(ccmd.Flags(), config.SetupName)
 	if err != nil {
 		return err

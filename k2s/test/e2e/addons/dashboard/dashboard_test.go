@@ -47,7 +47,7 @@ var _ = Describe("'dashboard' addon", Ordered, func() {
 	Describe("status command", func() {
 		Context("default output", func() {
 			It("displays disabled message", func(ctx context.Context) {
-				output := suite.K2sCli().Run(ctx, "addons", "status", "dashboard")
+				output := suite.K2sCli().RunOrFail(ctx, "addons", "status", "dashboard")
 
 				Expect(output).To(SatisfyAll(
 					MatchRegexp(`ADDON STATUS`),
@@ -58,7 +58,7 @@ var _ = Describe("'dashboard' addon", Ordered, func() {
 
 		Context("JSON output", func() {
 			It("displays JSON", func(ctx context.Context) {
-				output := suite.K2sCli().Run(ctx, "addons", "status", "dashboard", "-o", "json")
+				output := suite.K2sCli().RunOrFail(ctx, "addons", "status", "dashboard", "-o", "json")
 
 				var status status.AddonPrintStatus
 
@@ -87,7 +87,7 @@ var _ = Describe("'dashboard' addon", Ordered, func() {
 		When("no ingress controller is configured", func() {
 			AfterAll(func(ctx context.Context) {
 				portForwardingSession.Kill()
-				suite.K2sCli().Run(ctx, "addons", "disable", "dashboard", "-o")
+				suite.K2sCli().RunOrFail(ctx, "addons", "disable", "dashboard", "-o")
 
 				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "k8s-app", "kubernetes-dashboard", "dashboard")
 				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "k8s-app", "dashboard-metrics-scraper", "dashboard")
@@ -97,7 +97,7 @@ var _ = Describe("'dashboard' addon", Ordered, func() {
 			})
 
 			It("is in enabled state and pods are in running state", func(ctx context.Context) {
-				suite.K2sCli().Run(ctx, "addons", "enable", "dashboard", "-o")
+				suite.K2sCli().RunOrFail(ctx, "addons", "enable", "dashboard", "-o")
 
 				suite.Cluster().ExpectDeploymentToBeAvailable("kubernetes-dashboard", "dashboard")
 				suite.Cluster().ExpectDeploymentToBeAvailable("dashboard-metrics-scraper", "dashboard")
@@ -130,13 +130,13 @@ var _ = Describe("'dashboard' addon", Ordered, func() {
 
 		When("traefik as ingress controller", func() {
 			BeforeAll(func(ctx context.Context) {
-				suite.K2sCli().Run(ctx, "addons", "enable", "ingress", "traefik", "-o")
+				suite.K2sCli().RunOrFail(ctx, "addons", "enable", "ingress", "traefik", "-o")
 				suite.Cluster().ExpectDeploymentToBeAvailable("traefik", "ingress-traefik")
 			})
 
 			AfterAll(func(ctx context.Context) {
-				suite.K2sCli().Run(ctx, "addons", "disable", "dashboard", "-o")
-				suite.K2sCli().Run(ctx, "addons", "disable", "ingress", "traefik", "-o")
+				suite.K2sCli().RunOrFail(ctx, "addons", "disable", "dashboard", "-o")
+				suite.K2sCli().RunOrFail(ctx, "addons", "disable", "ingress", "traefik", "-o")
 
 				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "k8s-app", "kubernetes-dashboard", "dashboard")
 				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "k8s-app", "dashboard-metrics-scraper", "dashboard")
@@ -148,7 +148,7 @@ var _ = Describe("'dashboard' addon", Ordered, func() {
 			})
 
 			It("is in enabled state and pods are in running state", func(ctx context.Context) {
-				suite.K2sCli().Run(ctx, "addons", "enable", "dashboard", "-o")
+				suite.K2sCli().RunOrFail(ctx, "addons", "enable", "dashboard", "-o")
 
 				suite.Cluster().ExpectDeploymentToBeAvailable("kubernetes-dashboard", "dashboard")
 				suite.Cluster().ExpectDeploymentToBeAvailable("dashboard-metrics-scraper", "dashboard")
@@ -177,13 +177,13 @@ var _ = Describe("'dashboard' addon", Ordered, func() {
 
 		When("nginx as ingress controller", func() {
 			BeforeAll(func(ctx context.Context) {
-				suite.K2sCli().Run(ctx, "addons", "enable", "ingress", "nginx", "-o")
+				suite.K2sCli().RunOrFail(ctx, "addons", "enable", "ingress", "nginx", "-o")
 				suite.Cluster().ExpectDeploymentToBeAvailable("ingress-nginx-controller", "ingress-nginx")
 			})
 
 			AfterAll(func(ctx context.Context) {
-				suite.K2sCli().Run(ctx, "addons", "disable", "dashboard", "-o")
-				suite.K2sCli().Run(ctx, "addons", "disable", "ingress", "nginx", "-o")
+				suite.K2sCli().RunOrFail(ctx, "addons", "disable", "dashboard", "-o")
+				suite.K2sCli().RunOrFail(ctx, "addons", "disable", "ingress", "nginx", "-o")
 
 				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "k8s-app", "kubernetes-dashboard", "dashboard")
 				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "k8s-app", "dashboard-metrics-scraper", "dashboard")
@@ -195,7 +195,7 @@ var _ = Describe("'dashboard' addon", Ordered, func() {
 			})
 
 			It("is in enabled state and pods are in running state", func(ctx context.Context) {
-				suite.K2sCli().Run(ctx, "addons", "enable", "dashboard", "-o")
+				suite.K2sCli().RunOrFail(ctx, "addons", "enable", "dashboard", "-o")
 
 				suite.Cluster().ExpectDeploymentToBeAvailable("kubernetes-dashboard", "dashboard")
 				suite.Cluster().ExpectDeploymentToBeAvailable("dashboard-metrics-scraper", "dashboard")
@@ -231,7 +231,7 @@ func expectAddonToBeAlreadyEnabled(ctx context.Context) {
 }
 
 func expectStatusToBePrinted(ctx context.Context) {
-	output := suite.K2sCli().Run(ctx, "addons", "status", "dashboard")
+	output := suite.K2sCli().RunOrFail(ctx, "addons", "status", "dashboard")
 
 	Expect(output).To(SatisfyAll(
 		MatchRegexp("ADDON STATUS"),
@@ -240,7 +240,7 @@ func expectStatusToBePrinted(ctx context.Context) {
 		MatchRegexp("The dashboard is working"),
 	))
 
-	output = suite.K2sCli().Run(ctx, "addons", "status", "dashboard", "-o", "json")
+	output = suite.K2sCli().RunOrFail(ctx, "addons", "status", "dashboard", "-o", "json")
 
 	var status status.AddonPrintStatus
 

@@ -39,7 +39,7 @@ var _ = Describe("system ssh", func() {
 
 	Describe("m command", func() {
 		It("runs a command on Linux node", func(ctx context.Context) {
-			output := suite.K2sCli().Run(ctx, "system", "ssh", "m", "--", "echo ssh-m-test")
+			output := suite.K2sCli().RunOrFail(ctx, "system", "ssh", "m", "--", "echo ssh-m-test")
 
 			Expect(output).To(Equal("ssh-m-test\n"))
 		})

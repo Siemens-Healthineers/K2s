@@ -44,7 +44,7 @@ var _ = Describe("addons commands", func() {
 		var output string
 
 		BeforeAll(func(ctx context.Context) {
-			output = suite.K2sCli().Run(ctx, "addons", "ls")
+			output = suite.K2sCli().RunOrFail(ctx, "addons", "ls")
 		})
 
 		It("prints the header", func() {
