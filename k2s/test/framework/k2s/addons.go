@@ -44,7 +44,7 @@ const manifestFileName = "addon.manifest.yaml"
 
 // wrapper around k2s.exe to retrieve and parse the addons status
 func (r *K2sCliRunner) GetAddonsStatus(ctx context.Context) *AddonsStatus {
-	output := r.Run(ctx, "addons", "ls", "-o", "json")
+	output := r.RunOrFail(ctx, "addons", "ls", "-o", "json")
 
 	return unmarshalStatus[AddonsStatus](output)
 }

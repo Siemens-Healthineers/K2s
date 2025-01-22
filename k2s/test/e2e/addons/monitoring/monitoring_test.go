@@ -47,7 +47,7 @@ var _ = Describe("'monitoring' addon", Ordered, func() {
 	When("no ingress controller is configured", func() {
 		AfterAll(func(ctx context.Context) {
 			portForwardingSession.Kill()
-			suite.K2sCli().Run(ctx, "addons", "disable", "monitoring", "-o")
+			suite.K2sCli().RunOrFail(ctx, "addons", "disable", "monitoring", "-o")
 
 			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "kube-prometheus-stack-kube-state-metrics", "monitoring")
 			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "kube-prometheus-stack-operator", "monitoring")
@@ -64,7 +64,7 @@ var _ = Describe("'monitoring' addon", Ordered, func() {
 		})
 
 		It("is in enabled state and pods are in running state", func(ctx context.Context) {
-			suite.K2sCli().Run(ctx, "addons", "enable", "monitoring", "-o")
+			suite.K2sCli().RunOrFail(ctx, "addons", "enable", "monitoring", "-o")
 
 			suite.Cluster().ExpectDeploymentToBeAvailable("kube-prometheus-stack-kube-state-metrics", "monitoring")
 			suite.Cluster().ExpectDeploymentToBeAvailable("kube-prometheus-stack-operator", "monitoring")
@@ -101,13 +101,13 @@ var _ = Describe("'monitoring' addon", Ordered, func() {
 
 	When("traefik as ingress controller", func() {
 		BeforeAll(func(ctx context.Context) {
-			suite.K2sCli().Run(ctx, "addons", "enable", "ingress", "traefik", "-o")
+			suite.K2sCli().RunOrFail(ctx, "addons", "enable", "ingress", "traefik", "-o")
 			suite.Cluster().ExpectDeploymentToBeAvailable("traefik", "ingress-traefik")
 		})
 
 		AfterAll(func(ctx context.Context) {
-			suite.K2sCli().Run(ctx, "addons", "disable", "monitoring", "-o")
-			suite.K2sCli().Run(ctx, "addons", "disable", "ingress", "traefik", "-o")
+			suite.K2sCli().RunOrFail(ctx, "addons", "disable", "monitoring", "-o")
+			suite.K2sCli().RunOrFail(ctx, "addons", "disable", "ingress", "traefik", "-o")
 
 			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "kube-prometheus-stack-kube-state-metrics", "monitoring")
 			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "kube-prometheus-stack-operator", "monitoring")
@@ -120,7 +120,7 @@ var _ = Describe("'monitoring' addon", Ordered, func() {
 		})
 
 		It("is in enabled state and pods are in running state", func(ctx context.Context) {
-			suite.K2sCli().Run(ctx, "addons", "enable", "monitoring", "-o")
+			suite.K2sCli().RunOrFail(ctx, "addons", "enable", "monitoring", "-o")
 
 			suite.Cluster().ExpectDeploymentToBeAvailable("kube-prometheus-stack-kube-state-metrics", "monitoring")
 			suite.Cluster().ExpectDeploymentToBeAvailable("kube-prometheus-stack-operator", "monitoring")
@@ -153,13 +153,13 @@ var _ = Describe("'monitoring' addon", Ordered, func() {
 
 	Describe("nginx as ingress controller", func() {
 		BeforeAll(func(ctx context.Context) {
-			suite.K2sCli().Run(ctx, "addons", "enable", "ingress", "nginx", "-o")
+			suite.K2sCli().RunOrFail(ctx, "addons", "enable", "ingress", "nginx", "-o")
 			suite.Cluster().ExpectDeploymentToBeAvailable("ingress-nginx-controller", "ingress-nginx")
 		})
 
 		AfterAll(func(ctx context.Context) {
-			suite.K2sCli().Run(ctx, "addons", "disable", "monitoring", "-o")
-			suite.K2sCli().Run(ctx, "addons", "disable", "ingress", "nginx", "-o")
+			suite.K2sCli().RunOrFail(ctx, "addons", "disable", "monitoring", "-o")
+			suite.K2sCli().RunOrFail(ctx, "addons", "disable", "ingress", "nginx", "-o")
 
 			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "kube-prometheus-stack-kube-state-metrics", "monitoring")
 			suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "kube-prometheus-stack-operator", "monitoring")
@@ -172,7 +172,7 @@ var _ = Describe("'monitoring' addon", Ordered, func() {
 		})
 
 		It("is in enabled state and pods are in running state", func(ctx context.Context) {
-			suite.K2sCli().Run(ctx, "addons", "enable", "monitoring", "-o")
+			suite.K2sCli().RunOrFail(ctx, "addons", "enable", "monitoring", "-o")
 
 			suite.Cluster().ExpectDeploymentToBeAvailable("kube-prometheus-stack-kube-state-metrics", "monitoring")
 			suite.Cluster().ExpectDeploymentToBeAvailable("kube-prometheus-stack-operator", "monitoring")
@@ -205,7 +205,7 @@ var _ = Describe("'monitoring' addon", Ordered, func() {
 })
 
 func expectStatusToBePrinted(ctx context.Context) {
-	output := suite.K2sCli().Run(ctx, "addons", "status", "monitoring")
+	output := suite.K2sCli().RunOrFail(ctx, "addons", "status", "monitoring")
 
 	Expect(output).To(SatisfyAll(
 		MatchRegexp("ADDON STATUS"),
@@ -217,7 +217,7 @@ func expectStatusToBePrinted(ctx context.Context) {
 		MatchRegexp("Node Exporter is working"),
 	))
 
-	output = suite.K2sCli().Run(ctx, "addons", "status", "monitoring", "-o", "json")
+	output = suite.K2sCli().RunOrFail(ctx, "addons", "status", "monitoring", "-o", "json")
 
 	var status status.AddonPrintStatus
 

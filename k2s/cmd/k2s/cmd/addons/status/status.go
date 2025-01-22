@@ -110,6 +110,10 @@ func runStatusCmd(cmd *cobra.Command, addon addons.Addon, implementation string,
 		return err
 	}
 
+	if err := context.EnsureK2sK8sContext(); err != nil {
+		return err
+	}
+
 	loadFunc := func(addonName string, implementation string) (*LoadedAddonStatus, error) {
 		slog.Info("Loading status", "addon", addonName, "directory", addon.Directory)
 
