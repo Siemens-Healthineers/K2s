@@ -63,7 +63,7 @@ var _ = Describe("system", func() {
 				tempDir := GinkgoT().TempDir()
 				zipFilePath = filepath.Join(tempDir, zipFileName)
 
-				output = suite.K2sCli().Run(ctx, "system", "package", "--target-dir", tempDir, "--name", zipFileName, "--for-offline-installation", "-o")
+				output = suite.K2sCli().RunOrFail(ctx, "system", "package", "--target-dir", tempDir, "--name", zipFileName, "--for-offline-installation", "-o")
 			})
 
 			It("generates zip package", func() {

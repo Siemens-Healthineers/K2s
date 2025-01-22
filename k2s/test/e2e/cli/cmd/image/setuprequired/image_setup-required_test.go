@@ -30,7 +30,7 @@ var _ = AfterSuite(func(ctx context.Context) {
 
 var _ = Describe("image registry ls", func() {
 	It("runs without error", func(ctx context.Context) {
-		output := suite.K2sCli().Run(ctx, "image", "registry", "ls")
+		output := suite.K2sCli().RunOrFail(ctx, "image", "registry", "ls")
 
 		Expect(output).To(SatisfyAny(
 			ContainSubstring("No registries configured"),

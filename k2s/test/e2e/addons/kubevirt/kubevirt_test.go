@@ -72,7 +72,7 @@ var _ = Describe("'kubevirt' addon", Ordered, func() {
 		Describe("status", func() {
 			Context("default output", func() {
 				It("displays disabled message", func(ctx context.Context) {
-					output := suite.K2sCli().Run(ctx, "addons", "status", "kubevirt")
+					output := suite.K2sCli().RunOrFail(ctx, "addons", "status", "kubevirt")
 
 					Expect(output).To(SatisfyAll(
 						MatchRegexp(`ADDON STATUS`),
@@ -83,7 +83,7 @@ var _ = Describe("'kubevirt' addon", Ordered, func() {
 
 			Context("JSON output", func() {
 				It("displays JSON", func(ctx context.Context) {
-					output := suite.K2sCli().Run(ctx, "addons", "status", "kubevirt", "-o", "json")
+					output := suite.K2sCli().RunOrFail(ctx, "addons", "status", "kubevirt", "-o", "json")
 
 					var status status.AddonPrintStatus
 
@@ -107,7 +107,7 @@ var _ = Describe("'kubevirt' addon", Ordered, func() {
 				if suite.Proxy() != "" {
 					args = append(args, "-p", suite.Proxy())
 				}
-				suite.K2sCli().Run(ctx, args...)
+				suite.K2sCli().RunOrFail(ctx, args...)
 			})
 
 			It("enables the addon", func(ctx context.Context) {
@@ -131,7 +131,7 @@ var _ = Describe("'kubevirt' addon", Ordered, func() {
 		})
 
 		It("prints the status", func(ctx context.Context) {
-			output := suite.K2sCli().Run(ctx, "addons", "status", "kubevirt")
+			output := suite.K2sCli().RunOrFail(ctx, "addons", "status", "kubevirt")
 
 			Expect(output).To(SatisfyAll(
 				MatchRegexp("ADDON STATUS"),
@@ -142,7 +142,7 @@ var _ = Describe("'kubevirt' addon", Ordered, func() {
 				MatchRegexp("The virt-handler is working"),
 			))
 
-			output = suite.K2sCli().Run(ctx, "addons", "status", "kubevirt", "-o", "json")
+			output = suite.K2sCli().RunOrFail(ctx, "addons", "status", "kubevirt", "-o", "json")
 
 			var status status.AddonPrintStatus
 
@@ -211,7 +211,7 @@ var _ = Describe("'kubevirt' addon", Ordered, func() {
 
 		Describe("disable", func() {
 			BeforeAll(func(ctx context.Context) {
-				suite.K2sCli().Run(ctx, "addons", "disable", "kubevirt", "-o")
+				suite.K2sCli().RunOrFail(ctx, "addons", "disable", "kubevirt", "-o")
 
 				Eventually(isKubectlAvailable).WithTimeout(3 * time.Minute).WithPolling(30 * time.Second).Should(BeTrue())
 			})

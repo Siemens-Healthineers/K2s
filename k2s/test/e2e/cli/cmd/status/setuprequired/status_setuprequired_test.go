@@ -1,5 +1,6 @@
 // SPDX-FileCopyrightText:  © 2025 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
+
 package setuprequired
 
 import (
@@ -12,10 +13,11 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/siemens-healthineers/k2s/test/framework"
-	"github.com/siemens-healthineers/k2s/test/framework/k2s"
+	"github.com/siemens-healthineers/k2s/test/framework/dsl"
 )
 
 var suite *framework.K2sTestSuite
+var k2s *dsl.K2s
 
 func TestStatus(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -24,19 +26,23 @@ func TestStatus(t *testing.T) {
 
 var _ = BeforeSuite(func(ctx context.Context) {
 	suite = framework.Setup(ctx, framework.SystemStateIrrelevant, framework.ClusterTestStepPollInterval(200*time.Millisecond))
-})
+	k2s = dsl.NewK2s(suite)
 
-var _ = AfterSuite(func(ctx context.Context) {
-	suite.TearDown(ctx)
+	DeferCleanup(suite.TearDown)
 })
 
 var _ = Describe("status", Ordered, func() {
-	It("prints warning and exits with non-zero code", func(ctx context.Context) {
-		output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "status")
+	When("wrong K8s context is in use", func() {
+		BeforeEach(func(ctx context.Context) {
+			k2s.SetWrongK8sContext(ctx)
 
-		Expect(output).To(SatisfyAll(
-			ContainSubstring("WARNING"),
-			ContainSubstring("operation requires the K8s context"),
-		))
+			DeferCleanup(k2s.ResetK8sContext)
+		})
+
+		It("fails", func(ctx context.Context) {
+			result := k2s.RunStatusCmd(ctx)
+
+			result.VerifyFailureDueToWrongK8sContext()
+		})
 	})
 })
