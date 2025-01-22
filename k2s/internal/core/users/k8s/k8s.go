@@ -11,7 +11,8 @@ import (
 	"github.com/siemens-healthineers/k2s/internal/core/node"
 	"github.com/siemens-healthineers/k2s/internal/core/users/common"
 	"github.com/siemens-healthineers/k2s/internal/core/users/k8s/cluster"
-	"github.com/siemens-healthineers/k2s/internal/core/users/k8s/kubeconfig"
+	bk8s "github.com/siemens-healthineers/k2s/internal/k8s"
+	"github.com/siemens-healthineers/k2s/internal/k8s/kubeconfig"
 )
 
 type KubeconfigWriter interface {
@@ -55,8 +56,6 @@ type k8sAccess struct {
 }
 
 const (
-	kubeconfigName  = "config"
-	k2sClusterName  = "kubernetes"
 	k2sGroupSuffix  = "users"
 	tempCertDirName = "k2s-user-certs"
 	remoteCertDir   = "/tmp/" + tempCertDirName
@@ -106,7 +105,7 @@ func (g *k8sAccess) deriveKubeconfigFromAdmin(user common.User) (KubeconfigWrite
 		return nil, fmt.Errorf("could not read K2s cluster config from admin's kubeconfig: %w", err)
 	}
 
-	kubeconfigPath := filepath.Join(kubeconfigDir, kubeconfigName)
+	kubeconfigPath := filepath.Join(kubeconfigDir, bk8s.KubeconfigName)
 
 	kubeconfigWriter := g.kubeconfigWriterFactory.NewKubeconfigWriter(kubeconfigPath)
 
@@ -141,13 +140,13 @@ func (g *k8sAccess) addUserAccessToKubeconfig(k2sUserName, certPath, keyPath str
 		return fmt.Errorf("could not remove cert dir: %w", err)
 	}
 
-	k2sContext := k2sUserName + "@" + k2sClusterName
+	k2sContext := k2sUserName + "@" + bk8s.K2sClusterName
 
-	if err := kubeconfigWriter.SetContext(k2sContext, k2sUserName, k2sClusterName); err != nil {
+	if err := kubeconfigWriter.SetContext(k2sContext, k2sUserName, bk8s.K2sClusterName); err != nil {
 		return fmt.Errorf("could not add K8s context for new user in kubeconfig: %w", err)
 	}
 
-	kubeconfig, err := g.kubeconfigReader.ReadFile(kubeconfigWriter.FilePath())
+	kubeConfig, err := g.kubeconfigReader.ReadFile(kubeconfigWriter.FilePath())
 	if err != nil {
 		return fmt.Errorf("could not read kubeconfig: %w", err)
 	}
@@ -155,12 +154,12 @@ func (g *k8sAccess) addUserAccessToKubeconfig(k2sUserName, certPath, keyPath str
 	targetContext := k2sContext
 	resetActiveContext := false
 
-	if kubeconfig.CurrentContext != "" {
-		if kubeconfig.CurrentContext == k2sContext {
+	if kubeConfig.CurrentContext != "" {
+		if kubeConfig.CurrentContext == k2sContext {
 			slog.Info("New user has already active K2s cluster context, will overwrite it")
 		} else {
-			slog.Info("New user has already active cluster context, restore needed after verification of K2s access", "context", kubeconfig.CurrentContext)
-			targetContext = kubeconfig.CurrentContext
+			slog.Info("New user has already active cluster context, restore needed after verification of K2s access", "context", kubeConfig.CurrentContext)
+			targetContext = kubeConfig.CurrentContext
 			resetActiveContext = true
 		}
 	}
@@ -169,7 +168,7 @@ func (g *k8sAccess) addUserAccessToKubeconfig(k2sUserName, certPath, keyPath str
 		return fmt.Errorf("could not set K2s context to active for new user in kubeconfig: %w", err)
 	}
 
-	if err := g.verifyClusterAccess(kubeconfig, k2sUserName); err != nil {
+	if err := g.verifyClusterAccess(kubeConfig, k2sUserName); err != nil {
 		return fmt.Errorf("could not verify K8s cluster access: %w", err)
 	}
 
@@ -181,12 +180,12 @@ func (g *k8sAccess) addUserAccessToKubeconfig(k2sUserName, certPath, keyPath str
 	return nil
 }
 
-func (g *k8sAccess) verifyClusterAccess(kubeconfig *kubeconfig.KubeconfigRoot, k2sUserName string) error {
-	userConf, err := kubeconfig.FindUser(k2sUserName)
+func (g *k8sAccess) verifyClusterAccess(kubeConfig *kubeconfig.KubeconfigRoot, k2sUserName string) error {
+	userConf, err := kubeConfig.FindUser(k2sUserName)
 	if err != nil {
 		return err
 	}
-	clusterConf, err := kubeconfig.FindCluster(k2sClusterName)
+	clusterConf, err := kubeConfig.FindCluster(bk8s.K2sClusterName)
 	if err != nil {
 		return err
 	}
@@ -269,14 +268,14 @@ func (g *k8sAccess) fetchUserCertFromControlPlane(targetDir string) error {
 }
 
 func (g *k8sAccess) readAdminsK2sClusterConfig() (*kubeconfig.ClusterEntry, error) {
-	adminKubeconfigPath := filepath.Join(g.kubeconfigDir, kubeconfigName)
+	adminKubeconfigPath := filepath.Join(g.kubeconfigDir, bk8s.KubeconfigName)
 
 	adminConfig, err := g.kubeconfigReader.ReadFile(adminKubeconfigPath)
 	if err != nil {
 		return nil, fmt.Errorf("could not read admin's kubeconfig '%s': %w", adminKubeconfigPath, err)
 	}
 
-	return adminConfig.FindCluster(k2sClusterName)
+	return adminConfig.FindCluster(bk8s.K2sClusterName)
 }
 
 func (g *k8sAccess) removeCertDir(certPath string) error {

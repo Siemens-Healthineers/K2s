@@ -55,8 +55,11 @@ const (
 	EnsureAddonsAreDisabled = ensureAddonsAreDisabledType(true)
 	NoSetupInstalled        = noSetupInstalledType(true)
 
-	SystemMustBeStopped   initialSystemStateType = "stopped"
-	SystemMustBeRunning   initialSystemStateType = "running"
+	// System is installed and stopped
+	SystemMustBeStopped initialSystemStateType = "stopped"
+	// System is installed and running
+	SystemMustBeRunning initialSystemStateType = "running"
+	// System is installed, but the state (started/stopped) does not matter
 	SystemStateIrrelevant initialSystemStateType = "irrelevant"
 )
 
