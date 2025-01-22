@@ -46,7 +46,7 @@ var _ = AfterSuite(func(ctx context.Context) {
 var _ = Describe("'gateway-api' addon", Ordered, func() {
 	AfterAll(func(ctx context.Context) {
 		suite.Kubectl().Run(ctx, "delete", "-k", "workloads")
-		suite.K2sCli().Run(ctx, "addons", "disable", "gateway-api", "-o")
+		suite.K2sCli().RunOrFail(ctx, "addons", "disable", "gateway-api", "-o")
 
 		suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "albums-linux1", "gateway-api-test")
 		suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "nginx-gateway", "gateway-api")
@@ -62,7 +62,7 @@ var _ = Describe("'gateway-api' addon", Ordered, func() {
 	})
 
 	It("is in enabled state and pods are in running state", func(ctx context.Context) {
-		suite.K2sCli().Run(ctx, "addons", "enable", "gateway-api", "-o")
+		suite.K2sCli().RunOrFail(ctx, "addons", "enable", "gateway-api", "-o")
 
 		suite.Cluster().ExpectDeploymentToBeAvailable("nginx-gateway", "gateway-api")
 
@@ -100,7 +100,7 @@ var _ = Describe("'gateway-api' addon", Ordered, func() {
 	})
 
 	It("prints the status", func(ctx context.Context) {
-		output := suite.K2sCli().Run(ctx, "addons", "status", "gateway-api")
+		output := suite.K2sCli().RunOrFail(ctx, "addons", "status", "gateway-api")
 
 		Expect(output).To(SatisfyAll(
 			MatchRegexp("ADDON STATUS"),
@@ -109,7 +109,7 @@ var _ = Describe("'gateway-api' addon", Ordered, func() {
 			MatchRegexp("The external IP for gateway API service is set to %s", regex.IpAddressRegex),
 		))
 
-		output = suite.K2sCli().Run(ctx, "addons", "status", "gateway-api", "-o", "json")
+		output = suite.K2sCli().RunOrFail(ctx, "addons", "status", "gateway-api", "-o", "json")
 
 		var status status.AddonPrintStatus
 

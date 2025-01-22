@@ -66,6 +66,10 @@ func addNode(ccmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	if err := context.EnsureK2sK8sContext(); err != nil {
+		return err
+	}
+
 	psVersion := common.DeterminePsVersion(config)
 	systemStatus, err := status.LoadStatus(psVersion)
 	if err != nil {

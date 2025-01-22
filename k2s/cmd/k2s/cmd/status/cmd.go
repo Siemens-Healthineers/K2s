@@ -81,6 +81,10 @@ func printStatus(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	if err := context.EnsureK2sK8sContext(); err != nil {
+		return err
+	}
+
 	printer := determinePrinter(outputOption, config, terminalPrinter)
 
 	return printer.Print()

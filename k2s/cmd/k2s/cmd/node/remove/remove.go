@@ -52,6 +52,10 @@ func removeNode(ccmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	if err := context.EnsureK2sK8sContext(); err != nil {
+		return err
+	}
+
 	psVersion := common.DeterminePsVersion(config)
 	addNodeCmd, err := buildRemoveNodeCmd(ccmd.Flags(), config.SetupName)
 	if err != nil {

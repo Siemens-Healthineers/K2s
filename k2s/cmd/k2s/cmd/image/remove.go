@@ -65,15 +65,6 @@ func removeImage(cmd *cobra.Command, args []string) error {
 	cmdSession := common.StartCmdSession(cmd.CommandPath())
 	pterm.Println("🤖 Removing container image..")
 
-	options, err := extractRemoveOptions(cmd)
-	if err != nil {
-		return err
-	}
-
-	psCmd, params := buildRemovePsCmd(options)
-
-	slog.Debug("PS command created", "command", psCmd, "params", params)
-
 	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
 	config, err := setupinfo.ReadConfig(context.Config().Host().K2sConfigDir())
 	if err != nil {
@@ -89,6 +80,18 @@ func removeImage(cmd *cobra.Command, args []string) error {
 	if config.SetupName == setupinfo.SetupNameMultiVMK8s {
 		return common.CreateFunctionalityNotAvailableCmdFailure(config.SetupName)
 	}
+	if err := context.EnsureK2sK8sContext(); err != nil {
+		return err
+	}
+
+	options, err := extractRemoveOptions(cmd)
+	if err != nil {
+		return err
+	}
+
+	psCmd, params := buildRemovePsCmd(options)
+
+	slog.Debug("PS command created", "command", psCmd, "params", params)
 
 	cmdResult, err := powershell.ExecutePsWithStructuredResult[*common.CmdResult](psCmd, "CmdResult", common.DeterminePsVersion(config), common.NewPtermWriter(), params...)
 	if err != nil {

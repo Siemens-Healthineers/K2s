@@ -48,7 +48,7 @@ var _ = Describe("node exec", Ordered, func() {
 
 		When("command execution succeeds", func() {
 			It("prints the output and exits with exit code zero", func(ctx context.Context) {
-				output := suite.K2sCli().Run(ctx, "node", "exec", "-i", nodeIpAddress, "-u", remoteUser, "-c", "echo 'Hello, world!'", "-o")
+				output := suite.K2sCli().RunOrFail(ctx, "node", "exec", "-i", nodeIpAddress, "-u", remoteUser, "-c", "echo 'Hello, world!'", "-o")
 
 				Expect(output).To(MatchRegexp("Hello, world!"))
 			})
@@ -80,7 +80,7 @@ var _ = Describe("node exec", Ordered, func() {
 
 		When("command execution succeeds", func() {
 			It("prints the output and exits with exit code zero", func(ctx context.Context) {
-				output := suite.K2sCli().Run(ctx, "node", "exec", "-i", nodeIpAddress, "-u", remoteUser, "-c", "echo 'Hello, world!'", "-o")
+				output := suite.K2sCli().RunOrFail(ctx, "node", "exec", "-i", nodeIpAddress, "-u", remoteUser, "-c", "echo 'Hello, world!'", "-o")
 
 				Expect(output).To(MatchRegexp("Hello, world!"))
 			})

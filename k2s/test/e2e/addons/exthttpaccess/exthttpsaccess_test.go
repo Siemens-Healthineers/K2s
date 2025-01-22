@@ -41,7 +41,7 @@ var _ = AfterSuite(func(ctx context.Context) {
 
 var _ = Describe("'exthttpaccess' addon", Ordered, func() {
 	AfterAll(func(ctx context.Context) {
-		output := suite.K2sCli().Run(ctx, "addons", "status", "exthttpaccess", "-o", "json")
+		output := suite.K2sCli().RunOrFail(ctx, "addons", "status", "exthttpaccess", "-o", "json")
 
 		var status status.AddonPrintStatus
 
@@ -50,7 +50,7 @@ var _ = Describe("'exthttpaccess' addon", Ordered, func() {
 		if *status.Enabled {
 			GinkgoWriter.Println("exthttpaccess seems not to be disabled, disabling now..")
 
-			suite.K2sCli().Run(ctx, "addons", "disable", "exthttpaccess")
+			suite.K2sCli().RunOrFail(ctx, "addons", "disable", "exthttpaccess")
 
 			expectNoNginxProcessesAreRunning()
 		}
@@ -73,7 +73,7 @@ var _ = Describe("'exthttpaccess' addon", Ordered, func() {
 				if suite.Proxy() != "" {
 					args = append(args, "-p", suite.Proxy())
 				}
-				output = suite.K2sCli().Run(ctx, args...)
+				output = suite.K2sCli().RunOrFail(ctx, args...)
 			})
 
 			It("enables the addon", func() {
@@ -114,7 +114,7 @@ var _ = Describe("'exthttpaccess' addon", Ordered, func() {
 	When("addon is enabled", func() {
 		Describe("status", func() {
 			It("displays status correctly", func(ctx context.Context) {
-				output := suite.K2sCli().Run(ctx, "addons", "status", "exthttpaccess")
+				output := suite.K2sCli().RunOrFail(ctx, "addons", "status", "exthttpaccess")
 
 				Expect(output).To(SatisfyAll(
 					MatchRegexp("ADDON STATUS"),
@@ -122,7 +122,7 @@ var _ = Describe("'exthttpaccess' addon", Ordered, func() {
 					MatchRegexp("The nginx reverse proxy is working"),
 				))
 
-				output = suite.K2sCli().Run(ctx, "addons", "status", "exthttpaccess", "-o", "json")
+				output = suite.K2sCli().RunOrFail(ctx, "addons", "status", "exthttpaccess", "-o", "json")
 
 				var status status.AddonPrintStatus
 
@@ -155,7 +155,7 @@ var _ = Describe("'exthttpaccess' addon", Ordered, func() {
 			var output string
 
 			BeforeAll(func(ctx context.Context) {
-				output = suite.K2sCli().Run(ctx, "addons", "disable", "exthttpaccess")
+				output = suite.K2sCli().RunOrFail(ctx, "addons", "disable", "exthttpaccess")
 			})
 
 			It("disables the addon", func() {
@@ -205,7 +205,7 @@ var _ = Describe("'exthttpaccess' addon", Ordered, func() {
 				if suite.Proxy() != "" {
 					args = append(args, "-p", suite.Proxy())
 				}
-				output = suite.K2sCli().Run(ctx, args...)
+				output = suite.K2sCli().RunOrFail(ctx, args...)
 			})
 
 			It("enables the addon", func() {

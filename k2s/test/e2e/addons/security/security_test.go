@@ -43,7 +43,7 @@ var _ = AfterSuite(func(ctx context.Context) {
 	if enabled {
 		GinkgoWriter.Println("Addon is still enabled, disabling it..")
 
-		output := suite.K2sCli().Run(ctx, "addons", "disable", addonName, "-o")
+		output := suite.K2sCli().RunOrFail(ctx, "addons", "disable", addonName, "-o")
 
 		GinkgoWriter.Println(output)
 	} else {
@@ -65,7 +65,7 @@ var _ = Describe("'security' addon", Ordered, func() {
 		if suite.Proxy() != "" {
 			args = append(args, "-p", suite.Proxy())
 		}
-		suite.K2sCli().Run(ctx, args...)
+		suite.K2sCli().RunOrFail(ctx, args...)
 	})
 
 	It("prints already-enabled message on enable command and exits with non-zero", func(ctx context.Context) {
@@ -75,7 +75,7 @@ var _ = Describe("'security' addon", Ordered, func() {
 	})
 
 	It("prints the status user-friendly", func(ctx context.Context) {
-		output := suite.K2sCli().Run(ctx, "addons", "status", addonName)
+		output := suite.K2sCli().RunOrFail(ctx, "addons", "status", addonName)
 
 		Expect(output).To(SatisfyAll(
 			MatchRegexp("ADDON STATUS"),
@@ -86,7 +86,7 @@ var _ = Describe("'security' addon", Ordered, func() {
 	})
 
 	It("prints the status as JSON", func(ctx context.Context) {
-		output := suite.K2sCli().Run(ctx, "addons", "status", addonName, "-o", "json")
+		output := suite.K2sCli().RunOrFail(ctx, "addons", "status", addonName, "-o", "json")
 
 		var status status.AddonPrintStatus
 
@@ -124,11 +124,11 @@ var _ = Describe("'security' addon", Ordered, func() {
 	})
 
 	It("disables the addon", func(ctx context.Context) {
-		suite.K2sCli().Run(ctx, "addons", "disable", addonName, "-o")
+		suite.K2sCli().RunOrFail(ctx, "addons", "disable", addonName, "-o")
 	})
 
 	It("disables default ingress addon", func(ctx context.Context) {
-		suite.K2sCli().Run(ctx, "addons", "disable", "ingress", "nginx", "-o")
+		suite.K2sCli().RunOrFail(ctx, "addons", "disable", "ingress", "nginx", "-o")
 	})
 
 	It("uninstalls cmctl.exe, the cert-manager CLI", func(ctx context.Context) {

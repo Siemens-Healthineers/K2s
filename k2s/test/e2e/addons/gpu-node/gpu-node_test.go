@@ -49,7 +49,7 @@ var _ = AfterSuite(func(ctx context.Context) {
 	if enabled {
 		GinkgoWriter.Println("Addon is still enabled, disabling it..")
 
-		output := suite.K2sCli().Run(ctx, "addons", "disable", "gpu-node", "-o")
+		output := suite.K2sCli().RunOrFail(ctx, "addons", "disable", "gpu-node", "-o")
 
 		GinkgoWriter.Println(output)
 	} else {
@@ -63,7 +63,7 @@ var _ = Describe("'gpu-node' addon", Ordered, func() {
 	Describe("status", func() {
 		Context("default output", func() {
 			It("displays disabled message", func(ctx context.Context) {
-				output := suite.K2sCli().Run(ctx, "addons", "status", "gpu-node")
+				output := suite.K2sCli().RunOrFail(ctx, "addons", "status", "gpu-node")
 
 				Expect(output).To(SatisfyAll(
 					MatchRegexp(`ADDON STATUS`),
@@ -74,7 +74,7 @@ var _ = Describe("'gpu-node' addon", Ordered, func() {
 
 		Context("JSON output", func() {
 			It("displays JSON", func(ctx context.Context) {
-				output := suite.K2sCli().Run(ctx, "addons", "status", "gpu-node", "-o", "json")
+				output := suite.K2sCli().RunOrFail(ctx, "addons", "status", "gpu-node", "-o", "json")
 
 				var status status.AddonPrintStatus
 
@@ -99,7 +99,7 @@ var _ = Describe("'gpu-node' addon", Ordered, func() {
 
 	Describe("enable", func() {
 		It("enables the addon", func(ctx context.Context) {
-			output := suite.K2sCli().Run(ctx, "addons", "enable", "gpu-node", "-o")
+			output := suite.K2sCli().RunOrFail(ctx, "addons", "enable", "gpu-node", "-o")
 
 			Expect(output).To(SatisfyAll(
 				MatchRegexp("Running 'enable' for 'gpu-node' addon"),
@@ -114,7 +114,7 @@ var _ = Describe("'gpu-node' addon", Ordered, func() {
 		})
 
 		It("prints the status", func(ctx context.Context) {
-			output := suite.K2sCli().Run(ctx, "addons", "status", "gpu-node")
+			output := suite.K2sCli().RunOrFail(ctx, "addons", "status", "gpu-node")
 
 			Expect(output).To(SatisfyAll(
 				MatchRegexp("ADDON STATUS"),
@@ -123,7 +123,7 @@ var _ = Describe("'gpu-node' addon", Ordered, func() {
 				MatchRegexp("The DCGM exporter is working"),
 			))
 
-			output = suite.K2sCli().Run(ctx, "addons", "status", "gpu-node", "-o", "json")
+			output = suite.K2sCli().RunOrFail(ctx, "addons", "status", "gpu-node", "-o", "json")
 
 			var status status.AddonPrintStatus
 
@@ -164,7 +164,7 @@ var _ = Describe("'gpu-node' addon", Ordered, func() {
 		})
 
 		It("disables the addon", func(ctx context.Context) {
-			output := suite.K2sCli().Run(ctx, "addons", "disable", "gpu-node", "-o")
+			output := suite.K2sCli().RunOrFail(ctx, "addons", "disable", "gpu-node", "-o")
 
 			Expect(output).To(ContainSubstring("'addons disable gpu-node' completed"))
 		})

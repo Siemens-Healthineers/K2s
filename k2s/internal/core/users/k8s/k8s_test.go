@@ -15,7 +15,7 @@ import (
 	"github.com/siemens-healthineers/k2s/internal/core/node"
 	"github.com/siemens-healthineers/k2s/internal/core/users/k8s"
 	"github.com/siemens-healthineers/k2s/internal/core/users/k8s/cluster"
-	"github.com/siemens-healthineers/k2s/internal/core/users/k8s/kubeconfig"
+	"github.com/siemens-healthineers/k2s/internal/k8s/kubeconfig"
 	"github.com/siemens-healthineers/k2s/internal/reflection"
 	"github.com/stretchr/testify/mock"
 )
