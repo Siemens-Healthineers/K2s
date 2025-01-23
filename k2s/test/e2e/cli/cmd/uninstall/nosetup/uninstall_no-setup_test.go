@@ -12,8 +12,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/siemens-healthineers/k2s/test/framework"
-
-	"github.com/siemens-healthineers/k2s/test/framework/k2s"
+	"github.com/siemens-healthineers/k2s/test/framework/k2s/cli"
 )
 
 var suite *framework.K2sTestSuite
@@ -33,7 +32,7 @@ var _ = AfterSuite(func(ctx context.Context) {
 
 var _ = Describe("uninstall", Ordered, func() {
 	It("prints system-not-installed message and exits with non-zero", func(ctx context.Context) {
-		output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "uninstall")
+		output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "uninstall")
 
 		Expect(output).To(ContainSubstring("not installed"))
 	})

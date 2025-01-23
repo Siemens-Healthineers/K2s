@@ -11,8 +11,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/siemens-healthineers/k2s/test/framework"
-
-	"github.com/siemens-healthineers/k2s/test/framework/k2s"
+	"github.com/siemens-healthineers/k2s/test/framework/k2s/cli"
 )
 
 var suite *framework.K2sTestSuite
@@ -33,7 +32,7 @@ var _ = AfterSuite(func(ctx context.Context) {
 var _ = Describe("system users", func() {
 	When("system stopped", func() {
 		It("prints system-stopped message and exits with non-zero", func(ctx context.Context) {
-			output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "system", "users", "add", "-u", "non-existent")
+			output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "system", "users", "add", "-u", "non-existent")
 
 			Expect(output).To(SatisfyAll(
 				ContainSubstring("WARNING"),

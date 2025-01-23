@@ -16,8 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/siemens-healthineers/k2s/test/framework"
-
-	"github.com/siemens-healthineers/k2s/test/framework/k2s"
+	"github.com/siemens-healthineers/k2s/test/framework/k2s/cli"
 )
 
 var suite *framework.K2sTestSuite
@@ -38,7 +37,7 @@ var _ = AfterSuite(func(ctx context.Context) {
 var _ = Describe("image", func() {
 	DescribeTable("print system-not-installed message and exits with non-zero",
 		func(ctx context.Context, args ...string) {
-			output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, args...)
+			output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, args...)
 
 			Expect(output).To(ContainSubstring("not installed"))
 		},
@@ -59,7 +58,7 @@ var _ = Describe("image", func() {
 		var images image.PrintImages
 
 		BeforeAll(func(ctx context.Context) {
-			output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "image", "ls", "-o", "json")
+			output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "image", "ls", "-o", "json")
 
 			Expect(json.Unmarshal([]byte(output), &images)).To(Succeed())
 		})
