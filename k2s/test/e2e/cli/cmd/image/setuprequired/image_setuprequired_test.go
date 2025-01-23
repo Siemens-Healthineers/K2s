@@ -53,9 +53,9 @@ var _ = Describe("image", func() {
 			})
 
 			It("fails", func(ctx context.Context) {
-				result := k2s.RunImageRmCmd(ctx)
+				result := k2s.RemoveImage(ctx)
 
-				result.VerifyFailureDueToWrongK8sContext()
+				result.VerifyWrongK8sContextFailure()
 			})
 		})
 	})

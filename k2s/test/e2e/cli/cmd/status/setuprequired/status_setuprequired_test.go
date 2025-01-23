@@ -40,9 +40,9 @@ var _ = Describe("status", Ordered, func() {
 		})
 
 		It("fails", func(ctx context.Context) {
-			result := k2s.RunStatusCmd(ctx)
+			result := k2s.ShowStatus(ctx)
 
-			result.VerifyFailureDueToWrongK8sContext()
+			result.VerifyWrongK8sContextFailure()
 		})
 	})
 })

@@ -41,9 +41,9 @@ var _ = Describe("node", Ordered, func() {
 			})
 
 			It("fails", func(ctx context.Context) {
-				result := k2s.RunNodeAddCmd(ctx)
+				result := k2s.AddNode(ctx)
 
-				result.VerifyFailureDueToWrongK8sContext()
+				result.VerifyWrongK8sContextFailure()
 			})
 		})
 	})
@@ -57,9 +57,9 @@ var _ = Describe("node", Ordered, func() {
 			})
 
 			It("fails", func(ctx context.Context) {
-				result := k2s.RunNodeRemoveCmd(ctx)
+				result := k2s.RemoveNode(ctx)
 
-				result.VerifyFailureDueToWrongK8sContext()
+				result.VerifyWrongK8sContextFailure()
 			})
 		})
 	})
