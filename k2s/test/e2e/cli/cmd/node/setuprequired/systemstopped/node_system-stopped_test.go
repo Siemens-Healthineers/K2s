@@ -17,7 +17,7 @@ import (
 
 var suite *framework.K2sTestSuite
 
-func TestCopy(t *testing.T) {
+func TestNode(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "node Acceptance Tests", Label("cli", "node", "acceptance", "setup-required", "system-stopped"))
 }
