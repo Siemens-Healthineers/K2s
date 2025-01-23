@@ -138,3 +138,18 @@ func (info *AddonsAdditionalInfo) GetImagesForAddonImplementation(implementation
 
 	return lo.Union(images), nil
 }
+
+func Foreach(addons addons.Addons, iteratee func(addonName, implementationName string)) {
+	for _, addon := range addons {
+		for _, implementation := range addon.Spec.Implementations {
+			implementationName := ""
+			if addon.Metadata.Name != implementation.Name {
+				implementationName = implementation.Name
+			}
+
+			GinkgoWriter.Println("Looping at", implementation.AddonsCmdName)
+
+			iteratee(addon.Metadata.Name, implementationName)
+		}
+	}
+}
