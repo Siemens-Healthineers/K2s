@@ -16,7 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/siemens-healthineers/k2s/test/framework"
-	"github.com/siemens-healthineers/k2s/test/framework/k2s"
+	"github.com/siemens-healthineers/k2s/test/framework/k2s/cli"
 )
 
 var suite *framework.K2sTestSuite
@@ -38,7 +38,7 @@ var _ = Describe("system scp", func() {
 	Describe("m", func() {
 		Context("source file not existing", func() {
 			It("returns a warning after failure", func(ctx context.Context) {
-				output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "system", "scp", "m", "non-existing.file", "/tmp")
+				output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "system", "scp", "m", "non-existing.file", "/tmp")
 
 				Expect(output).To(SatisfyAll(
 					MatchRegexp("WARNING"),
@@ -100,7 +100,7 @@ var _ = Describe("system scp", func() {
 	Describe("m reverse", func() {
 		Context("source file not existing", func() {
 			It("returns a warning after failure", func(ctx context.Context) {
-				output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "system", "scp", "m", "/tmp/non-existing.file", "C:\\", "-r")
+				output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "system", "scp", "m", "/tmp/non-existing.file", "C:\\", "-r")
 
 				Expect(output).To(SatisfyAll(
 					MatchRegexp("WARNING"),
@@ -130,7 +130,7 @@ var _ = Describe("system scp", func() {
 			})
 
 			It("returns a warning after failure", func(ctx context.Context) {
-				output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "system", "scp", "m", remoteTempFilePath, "C:\\temp\\most-likely-not-existent\\", "-r")
+				output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "system", "scp", "m", remoteTempFilePath, "C:\\temp\\most-likely-not-existent\\", "-r")
 
 				Expect(output).To(SatisfyAll(
 					MatchRegexp("WARNING"),

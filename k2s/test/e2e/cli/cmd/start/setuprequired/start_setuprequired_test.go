@@ -40,9 +40,9 @@ var _ = Describe("start", Ordered, func() {
 		})
 
 		It("fails", func(ctx context.Context) {
-			result := k2s.RunStartCmd(ctx)
+			result := k2s.Start(ctx)
 
-			result.VerifyFailureDueToWrongK8sContext()
+			result.VerifyWrongK8sContextFailure()
 		})
 	})
 })

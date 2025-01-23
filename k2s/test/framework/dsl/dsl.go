@@ -5,7 +5,7 @@ package dsl
 
 import (
 	"github.com/siemens-healthineers/k2s/test/framework"
-	"github.com/siemens-healthineers/k2s/test/framework/k2s"
+	"github.com/siemens-healthineers/k2s/test/framework/k2s/cli"
 )
 
 type K2s struct {
@@ -14,7 +14,7 @@ type K2s struct {
 
 type K2sCmdResult struct {
 	output   string
-	exitCode k2s.ExitCode
+	exitCode cli.ExitCode
 }
 
 func NewK2s(suite *framework.K2sTestSuite) *K2s {
