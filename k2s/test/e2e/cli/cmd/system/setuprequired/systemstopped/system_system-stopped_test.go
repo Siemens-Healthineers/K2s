@@ -11,8 +11,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/siemens-healthineers/k2s/test/framework"
-
-	"github.com/siemens-healthineers/k2s/test/framework/k2s"
+	"github.com/siemens-healthineers/k2s/test/framework/k2s/cli"
 )
 
 var suite *framework.K2sTestSuite
@@ -33,7 +32,7 @@ var _ = AfterSuite(func(ctx context.Context) {
 var _ = Describe("system", func() {
 	DescribeTable("print system-not-running message and exits with non-zero",
 		func(ctx context.Context, args ...string) {
-			output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, args...)
+			output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, args...)
 
 			Expect(output).To(SatisfyAll(
 				ContainSubstring("not running"),

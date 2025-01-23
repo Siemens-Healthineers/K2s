@@ -20,8 +20,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/siemens-healthineers/k2s/test/framework"
-
-	"github.com/siemens-healthineers/k2s/test/framework/k2s"
+	"github.com/siemens-healthineers/k2s/test/framework/k2s/cli"
 )
 
 var suite *framework.K2sTestSuite
@@ -85,7 +84,7 @@ var _ = Describe("addons commands", Ordered, func() {
 		var output string
 
 		BeforeAll(func(ctx context.Context) {
-			output = suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "ls")
+			output = suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "ls")
 		})
 
 		It("prints system-in-corrupted-state message", func() {
@@ -102,9 +101,9 @@ var _ = Describe("addons commands", Ordered, func() {
 
 						var output string
 						if addon.Metadata.Name == impl.Name {
-							output = suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "status", addon.Metadata.Name)
+							output = suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "status", addon.Metadata.Name)
 						} else {
-							output = suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "status", addon.Metadata.Name, impl.Name)
+							output = suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "status", addon.Metadata.Name, impl.Name)
 						}
 
 						Expect(output).To(ContainSubstring("corrupted state"))
@@ -121,9 +120,9 @@ var _ = Describe("addons commands", Ordered, func() {
 
 						var output string
 						if addon.Metadata.Name == impl.Name {
-							output = suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "status", addon.Metadata.Name, "-o", "json")
+							output = suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "status", addon.Metadata.Name, "-o", "json")
 						} else {
-							output = suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "status", addon.Metadata.Name, impl.Name, "-o", "json")
+							output = suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "status", addon.Metadata.Name, impl.Name, "-o", "json")
 						}
 
 						var status status.AddonPrintStatus
@@ -148,9 +147,9 @@ var _ = Describe("addons commands", Ordered, func() {
 
 					var output string
 					if addon.Metadata.Name == impl.Name {
-						output = suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "disable", addon.Metadata.Name)
+						output = suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "disable", addon.Metadata.Name)
 					} else {
-						output = suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "disable", addon.Metadata.Name, impl.Name)
+						output = suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "disable", addon.Metadata.Name, impl.Name)
 					}
 
 					Expect(output).To(ContainSubstring("corrupted state"))
@@ -167,9 +166,9 @@ var _ = Describe("addons commands", Ordered, func() {
 
 					var output string
 					if addon.Metadata.Name == impl.Name {
-						output = suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "enable", addon.Metadata.Name)
+						output = suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "enable", addon.Metadata.Name)
 					} else {
-						output = suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "enable", addon.Metadata.Name, impl.Name)
+						output = suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "enable", addon.Metadata.Name, impl.Name)
 					}
 
 					Expect(output).To(ContainSubstring("corrupted state"))
@@ -184,7 +183,7 @@ var _ = Describe("addons commands", Ordered, func() {
 				for _, impl := range addon.Spec.Implementations {
 					GinkgoWriter.Println("Calling addons export for", impl.AddonsCmdName)
 
-					output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "export", impl.AddonsCmdName, "-d", "test-dir")
+					output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "export", impl.AddonsCmdName, "-d", "test-dir")
 
 					Expect(output).To(ContainSubstring("corrupted state"))
 				}
@@ -192,7 +191,7 @@ var _ = Describe("addons commands", Ordered, func() {
 		})
 
 		It("prints system-in-corrupted-state message for all addons and exits with non-zero", func(ctx context.Context) {
-			output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "export", "-d", "test-dir")
+			output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "export", "-d", "test-dir")
 
 			Expect(output).To(ContainSubstring("corrupted state"))
 		})
@@ -204,7 +203,7 @@ var _ = Describe("addons commands", Ordered, func() {
 				for _, impl := range addon.Spec.Implementations {
 					GinkgoWriter.Println("Calling addons import for", impl.AddonsCmdName)
 
-					output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "import", impl.AddonsCmdName, "-z", "test-dir")
+					output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "import", impl.AddonsCmdName, "-z", "test-dir")
 
 					Expect(output).To(ContainSubstring("corrupted state"))
 				}
@@ -212,7 +211,7 @@ var _ = Describe("addons commands", Ordered, func() {
 		})
 
 		It("prints system-in-corrupted-state message for all addons and exits with non-zero", func(ctx context.Context) {
-			output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "import", "-z", "test-dir")
+			output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "import", "-z", "test-dir")
 
 			Expect(output).To(ContainSubstring("corrupted state"))
 		})

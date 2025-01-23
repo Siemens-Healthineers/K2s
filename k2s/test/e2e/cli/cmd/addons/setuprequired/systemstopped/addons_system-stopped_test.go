@@ -1,5 +1,6 @@
-// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2025 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
+
 package systemstopped
 
 import (
@@ -9,18 +10,21 @@ import (
 	"time"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/addons/status"
-	"github.com/siemens-healthineers/k2s/internal/core/addons"
+	ka "github.com/siemens-healthineers/k2s/internal/core/addons"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	"github.com/siemens-healthineers/k2s/test/framework"
 
-	"github.com/siemens-healthineers/k2s/test/framework/k2s"
+	"github.com/siemens-healthineers/k2s/test/framework/dsl"
+	"github.com/siemens-healthineers/k2s/test/framework/k2s/addons"
+	"github.com/siemens-healthineers/k2s/test/framework/k2s/cli"
 )
 
 var suite *framework.K2sTestSuite
-var allAddons addons.Addons
+var allAddons ka.Addons
+var k2s dsl.K2s
 
 func TestLs(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -29,120 +33,73 @@ func TestLs(t *testing.T) {
 
 var _ = BeforeSuite(func(ctx context.Context) {
 	suite = framework.Setup(ctx, framework.SystemMustBeStopped, framework.ClusterTestStepPollInterval(500*time.Millisecond))
+	k2s = *dsl.NewK2s(suite)
 	allAddons = suite.AddonsAdditionalInfo().AllAddons()
-})
 
-var _ = AfterSuite(func(ctx context.Context) {
-	suite.TearDown(ctx)
+	DeferCleanup(suite.TearDown)
 })
 
 var _ = Describe("addons commands", Ordered, func() {
 	Describe("status", func() {
 		Context("standard output", func() {
 			It("prints system-not-running message for all addons and exits with non-zero", func(ctx context.Context) {
-				for _, addon := range allAddons {
-					for _, impl := range addon.Spec.Implementations {
-						GinkgoWriter.Println("Calling addons status for", impl.AddonsCmdName)
+				addons.Foreach(allAddons, func(addonName, implementationName, _ string) {
+					result := k2s.ShowAddonStatus(ctx, addonName, implementationName)
 
-						var output string
-						if addon.Metadata.Name == impl.Name {
-							output = suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "status", addon.Metadata.Name)
-						} else {
-							output = suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "status", addon.Metadata.Name, impl.Name)
-						}
-
-						Expect(output).To(ContainSubstring("not running"))
-					}
-				}
+					result.VerifySystemNotRunningFailure()
+				})
 			})
 		})
 
 		Context("JSON output", func() {
 			It("contains only system-not-running info and name and exits with non-zero", func(ctx context.Context) {
-				for _, addon := range allAddons {
-					for _, impl := range addon.Spec.Implementations {
-						GinkgoWriter.Println("Calling addons status for", impl.AddonsCmdName)
+				addons.Foreach(allAddons, func(addonName, implementationName, _ string) {
+					output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "status", addonName, implementationName, "-o", "json")
 
-						var output string
-						if addon.Metadata.Name == impl.Name {
-							output = suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "status", addon.Metadata.Name, "-o", "json")
-						} else {
-							output = suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "status", addon.Metadata.Name, impl.Name, "-o", "json")
-						}
+					var status status.AddonPrintStatus
 
-						var status status.AddonPrintStatus
+					Expect(json.Unmarshal([]byte(output), &status)).To(Succeed())
 
-						Expect(json.Unmarshal([]byte(output), &status)).To(Succeed())
-
-						Expect(status.Enabled).To(BeNil())
-						Expect(status.Name).To(Equal(addon.Metadata.Name))
-						Expect(*status.Error).To(Equal("system-not-running"))
-						Expect(status.Props).To(BeEmpty())
-					}
-				}
+					Expect(status.Enabled).To(BeNil())
+					Expect(status.Name).To(Equal(addonName))
+					Expect(*status.Error).To(Equal("system-not-running"))
+					Expect(status.Props).To(BeEmpty())
+				})
 			})
 		})
 	})
 
 	Describe("enable", func() {
 		It("prints system-not-running message for all addons and exits with non-zero", func(ctx context.Context) {
-			for _, addon := range allAddons {
-				for _, impl := range addon.Spec.Implementations {
-					GinkgoWriter.Println("Calling addons enable for", impl.AddonsCmdName)
+			addons.Foreach(allAddons, func(addonName, implementationName, _ string) {
+				result := k2s.EnableAddon(ctx, addonName, implementationName)
 
-					var output string
-					if addon.Metadata.Name == impl.Name {
-						output = suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "enable", addon.Metadata.Name)
-					} else {
-						output = suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "enable", addon.Metadata.Name, impl.Name)
-					}
-
-					Expect(output).To(ContainSubstring("not running"))
-				}
-			}
+				result.VerifySystemNotRunningFailure()
+			})
 		})
 	})
 
 	Describe("disable", func() {
 		It("prints system-not-running message for all addons and exits with non-zero", func(ctx context.Context) {
-			for _, addon := range allAddons {
-				for _, impl := range addon.Spec.Implementations {
-					GinkgoWriter.Println("Calling addons disable for", impl.AddonsCmdName)
+			addons.Foreach(allAddons, func(addonName, implementationName, _ string) {
+				result := k2s.DisableAddon(ctx, addonName, implementationName)
 
-					var params []string
-					if addon.Metadata.Name == impl.Name {
-						params = []string{"addons", "disable", addon.Metadata.Name}
-					} else {
-						params = []string{"addons", "disable", addon.Metadata.Name, impl.Name}
-					}
-
-					if impl.AddonsCmdName == "storage smb" {
-						params = append(params, "-f") // skip confirmation
-					}
-
-					output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, params...)
-
-					Expect(output).To(ContainSubstring("not running"))
-				}
-			}
+				result.VerifySystemNotRunningFailure()
+			})
 		})
 	})
 
 	Describe("export", func() {
 		It("prints system-not-running message for each addon and exits with non-zero", func(ctx context.Context) {
-			for _, addon := range allAddons {
-				for _, impl := range addon.Spec.Implementations {
-					GinkgoWriter.Println("Calling addons export for", impl.AddonsCmdName)
+			addons.Foreach(allAddons, func(_, _, cmdName string) {
+				output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "export", cmdName, "-d", "test-dir")
 
-					output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "export", impl.AddonsCmdName, "-d", "test-dir")
-
-					Expect(output).To(ContainSubstring("not running"))
-				}
-			}
+				Expect(output).To(ContainSubstring("not running"))
+			})
 		})
 
 		It("prints system-not-running message for all addons", func(ctx context.Context) {
-			output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "export", "-d", "test-dir")
+			output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "export", "-d", "test-dir")
 
 			Expect(output).To(ContainSubstring("not running"))
 		})
@@ -150,19 +107,16 @@ var _ = Describe("addons commands", Ordered, func() {
 
 	Describe("import", func() {
 		It("prints system-not-running message for each addon and exits with non-zero", func(ctx context.Context) {
-			for _, addon := range allAddons {
-				for _, impl := range addon.Spec.Implementations {
-					GinkgoWriter.Println("Calling addons import for", impl.AddonsCmdName)
+			addons.Foreach(allAddons, func(_, _, cmdName string) {
+				output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "import", cmdName, "-z", "test-dir")
 
-					output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "import", impl.AddonsCmdName, "-z", "test-dir")
+				Expect(output).To(ContainSubstring("not running"))
 
-					Expect(output).To(ContainSubstring("not running"))
-				}
-			}
+			})
 		})
 
 		It("prints system-not-running message for all addons", func(ctx context.Context) {
-			output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "import", "-z", "test-dir")
+			output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "import", "-z", "test-dir")
 
 			Expect(output).To(ContainSubstring("not running"))
 		})

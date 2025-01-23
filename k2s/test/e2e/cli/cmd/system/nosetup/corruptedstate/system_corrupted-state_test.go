@@ -17,8 +17,7 @@ import (
 	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
 	kos "github.com/siemens-healthineers/k2s/internal/os"
 	"github.com/siemens-healthineers/k2s/test/framework"
-
-	"github.com/siemens-healthineers/k2s/test/framework/k2s"
+	"github.com/siemens-healthineers/k2s/test/framework/k2s/cli"
 )
 
 var suite *framework.K2sTestSuite
@@ -78,7 +77,7 @@ var _ = Describe("system", Ordered, func() {
 
 	DescribeTable("print system-in-corrupted-state message and exits with non-zero",
 		func(ctx context.Context, args ...string) {
-			output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, args...)
+			output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, args...)
 
 			Expect(output).To(ContainSubstring("corrupted state"))
 		},

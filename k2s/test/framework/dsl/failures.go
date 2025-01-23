@@ -4,16 +4,24 @@
 package dsl
 
 import (
-	"github.com/siemens-healthineers/k2s/test/framework/k2s"
+	"github.com/siemens-healthineers/k2s/test/framework/k2s/cli"
 
 	//lint:ignore ST1001 test framework code
 	. "github.com/onsi/gomega"
 )
 
-func (cmdResult *K2sCmdResult) VerifyFailureDueToWrongK8sContext() {
-	Expect(cmdResult.exitCode).To(Equal(k2s.ExitCodeFailure))
+func (cmdResult *K2sCmdResult) VerifyWrongK8sContextFailure() {
+	Expect(cmdResult.exitCode).To(Equal(cli.ExitCodeFailure))
 	Expect(cmdResult.output).To(SatisfyAll(
 		ContainSubstring("WARNING"),
 		ContainSubstring("operation requires the K8s context"),
+	))
+}
+
+func (cmdResult *K2sCmdResult) VerifySystemNotRunningFailure() {
+	Expect(cmdResult.exitCode).To(Equal(cli.ExitCodeFailure))
+	Expect(cmdResult.output).To(SatisfyAll(
+		ContainSubstring("WARNING"),
+		ContainSubstring("not running"),
 	))
 }

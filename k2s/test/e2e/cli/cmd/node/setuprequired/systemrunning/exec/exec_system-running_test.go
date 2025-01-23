@@ -13,6 +13,7 @@ import (
 
 	"github.com/siemens-healthineers/k2s/test/framework"
 	"github.com/siemens-healthineers/k2s/test/framework/k2s"
+	"github.com/siemens-healthineers/k2s/test/framework/k2s/cli"
 )
 
 var suite *framework.K2sTestSuite
@@ -56,7 +57,7 @@ var _ = Describe("node exec", Ordered, func() {
 
 		When("command execution failes", func() {
 			It("prints the output and exits with non-zero exit code", func(ctx context.Context) {
-				output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "node", "exec", "-i", nodeIpAddress, "-u", remoteUser, "-c", "mkdir /this/should/not/exist", "-o")
+				output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "node", "exec", "-i", nodeIpAddress, "-u", remoteUser, "-c", "mkdir /this/should/not/exist", "-o")
 
 				Expect(output).To(MatchRegexp("cannot create directory"))
 			})
@@ -88,7 +89,7 @@ var _ = Describe("node exec", Ordered, func() {
 
 		When("command execution failes", func() {
 			It("prints the output and exits with non-zero exit code", func(ctx context.Context) {
-				output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "node", "exec", "-i", nodeIpAddress, "-u", remoteUser, "-c", "non-existing-cmd", "-o")
+				output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "node", "exec", "-i", nodeIpAddress, "-u", remoteUser, "-c", "non-existing-cmd", "-o")
 
 				Expect(output).To(MatchRegexp("not recognized"))
 			})

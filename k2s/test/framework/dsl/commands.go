@@ -6,46 +6,52 @@ package dsl
 import (
 	"context"
 
-	"github.com/siemens-healthineers/k2s/test/framework/k2s"
+	"github.com/siemens-healthineers/k2s/test/framework/k2s/cli"
 )
 
-func (k *K2s) RunStatusCmd(ctx context.Context) *K2sCmdResult {
-	return k.runCmd(ctx, "status")
+func (k2s *K2s) ShowStatus(ctx context.Context) *K2sCmdResult {
+	return k2s.runCmd(ctx, "status")
 }
 
-func (k *K2s) RunStartCmd(ctx context.Context) *K2sCmdResult {
-	return k.runCmd(ctx, "start")
+func (k2s *K2s) Start(ctx context.Context) *K2sCmdResult {
+	return k2s.runCmd(ctx, "start")
 }
 
-func (k *K2s) RunNodeAddCmd(ctx context.Context) *K2sCmdResult {
-	return k.runCmd(ctx, "node", "add", "-i", "ip", "-u", "user")
+func (k2s *K2s) AddNode(ctx context.Context) *K2sCmdResult {
+	return k2s.runCmd(ctx, "node", "add", "-i", "ip", "-u", "user")
 }
 
-func (k *K2s) RunNodeRemoveCmd(ctx context.Context) *K2sCmdResult {
-	return k.runCmd(ctx, "node", "remove", "-m", "machine")
+func (k2s *K2s) RemoveNode(ctx context.Context) *K2sCmdResult {
+	return k2s.runCmd(ctx, "node", "remove", "-m", "machine")
 }
 
-func (k *K2s) RunImageRmCmd(ctx context.Context) *K2sCmdResult {
-	return k.runCmd(ctx, "image", "rm")
+func (k2s *K2s) RemoveImage(ctx context.Context) *K2sCmdResult {
+	return k2s.runCmd(ctx, "image", "rm")
 }
 
-func (k *K2s) RunAddonsStatusCmd(ctx context.Context, addon, implementation string) *K2sCmdResult {
-	return k.runCmd(ctx, "addons", "status", addon, implementation)
+func (k2s *K2s) ShowAddonStatus(ctx context.Context, addon, implementation string) *K2sCmdResult {
+	return k2s.runCmd(ctx, "addons", "status", addon, implementation)
 }
 
-func (k *K2s) RunAddonsEnableCmd(ctx context.Context, addon, implementation string) *K2sCmdResult {
-	return k.runCmd(ctx, "addons", "enable", addon, implementation)
+func (k2s *K2s) EnableAddon(ctx context.Context, addon, implementation string) *K2sCmdResult {
+	return k2s.runCmd(ctx, "addons", "enable", addon, implementation)
 }
 
-func (k *K2s) RunAddonsDisableCmd(ctx context.Context, addon, implementation string) *K2sCmdResult {
-	return k.runCmd(ctx, "addons", "disable", addon, implementation)
+func (k2s *K2s) DisableAddon(ctx context.Context, addon, implementation string) *K2sCmdResult {
+	cliArgs := []string{"addons", "disable", addon, implementation}
+
+	if addon == "storage" {
+		cliArgs = append(cliArgs, "-f")
+	}
+
+	return k2s.runCmd(ctx, cliArgs...)
 }
 
-func (k *K2s) runCmd(ctx context.Context, cliArgs ...string) *K2sCmdResult {
-	output, exitCode := k.suite.K2sCli().Run(ctx, cliArgs...)
+func (k2s *K2s) runCmd(ctx context.Context, cliArgs ...string) *K2sCmdResult {
+	output, exitCode := k2s.suite.K2sCli().Run(ctx, cliArgs...)
 
 	return &K2sCmdResult{
 		output:   output,
-		exitCode: k2s.ExitCode(exitCode),
+		exitCode: cli.ExitCode(exitCode),
 	}
 }
