@@ -322,13 +322,14 @@ function Assert-UpgradeVersionIsValid {
     return $nextVersion.Major - $currentVersion.Major -eq 0 -and $nextVersion.Minor - $currentVersion.Minor -le 1
 }
 
-function Get-TempPath {
-    # create temp path
-    $temp = [System.IO.Path]::GetTempPath()
-    [string] $name = [System.Guid]::NewGuid()
-    $joined = (Join-Path $temp $name)
-    $path = New-Item -ItemType Directory -Path $joined
-    $path.FullName
+function Get-UpgradeBackupDir {
+    # returns hardcoded path %ProgramData%\k2sUpgradeBackup
+    $backupDirLocal = "$($systemDriveLetter):\ProgramData\k2sUpgradeBackup"
+    if (-not (Test-Path -Path $backupDirLocal)) {
+        $backupDir = New-Item -Path $backupDirLocal -ItemType Directory       
+        return $backupDir
+    }    
+    return $backupDirLocal
 }
 
 function Export-ClusterResources {
@@ -369,12 +370,12 @@ function Remove-ExportedClusterResources {
         [switch]
         $DeleteFiles = $false
     )
-    # delete temp path
+    # delete resources
     if ( $DeleteFiles ) {
         if ( $PathResources -and (Test-Path $PathResources) ) {
             Remove-Item $PathResources -Recurse
         }
-    }
+    }   
 }
 
 function Enable-ClusterIsRunning {
@@ -561,13 +562,11 @@ function Backup-LogFile {
     param (
         [parameter(Mandatory = $false, HelpMessage = 'Name of the backup file')]
         [string] $LogFile
-    )
-    $installFolder = Get-ClusterInstalledFolder
-    $driveLetter = $installFolder[0]
+    )  
 
     Write-Log "Backup log file to $LogFile" -Console
-
-    $oldLogFile = "$driveLetter$(Get-LogFilePathPart)"
+    
+    $oldLogFile = "$($systemDriveLetter)$(Get-LogFilePathPart)"
     if (Test-Path -Path $oldLogFile) {
         Copy-Item $oldLogFile -Destination $LogFile
     }
@@ -590,8 +589,21 @@ function Restore-LogFile {
 function Restore-MergeLogFiles {
     Write-Log "Merge all logs to $logFilePath" -Console
     $merge = "$($systemDriveLetter):\var\log\k2supgrade.log"
-    $intermediate = "$($systemDriveLetter):\var\log\k2s-*.log"
-    Get-Content -Path $intermediate, $logFilePath -Encoding utf8 | Set-Content -Path $merge -Encoding utf8
+    $intermediate = "$($systemDriveLetter):\var\log\k2s*.log"
+
+    try {
+        # Ensure UTF-8 even for legacy encodings
+        $intermediateContent = Get-Content -Path $intermediate
+        $logFileContent = Get-Content -Path $logFilePath
+        $mergedContent = $intermediateContent + $logFileContent
+        $mergedContent | Set-Content -Path $merge -Encoding utf8
+    }
+    catch {
+        Write-Log 'An ERROR occurred in Restore-MergeLogFiles:' -Console
+        Write-Log $_.ScriptStackTrace -Console
+        Write-Log $_ -Console
+        throw $_
+    }
 }
 
 function Invoke-UpgradeBackupRestoreHooks {
@@ -643,5 +655,5 @@ function Remove-SetupConfigIfExisting {
 
 Export-ModuleMember -Function Assert-UpgradeOperation, Enable-ClusterIsRunning, Assert-YamlTools, Export-ClusterResources,
 Invoke-ClusterUninstall, Invoke-ClusterInstall, Import-NotNamespacedResources, Import-NamespacedResources, Remove-ExportedClusterResources,
-Get-TempPath, Get-LinuxVMCores, Get-LinuxVMMemory, Get-LinuxVMStorageSize, Get-ClusterInstalledFolder, Backup-LogFile, Restore-LogFile, Restore-MergeLogFiles,
-Invoke-UpgradeBackupRestoreHooks, Remove-SetupConfigIfExisting
+Get-LinuxVMCores, Get-LinuxVMMemory, Get-LinuxVMStorageSize, Get-ClusterInstalledFolder, Backup-LogFile, Restore-LogFile, Restore-MergeLogFiles,
+Invoke-UpgradeBackupRestoreHooks, Remove-SetupConfigIfExisting, Get-UpgradeBackupDir

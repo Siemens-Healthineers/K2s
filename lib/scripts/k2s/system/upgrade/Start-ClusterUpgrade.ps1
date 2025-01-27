@@ -64,36 +64,21 @@ Initialize-Logging -ShowLogs:$ShowLogs
  .OUTPUTS
   Status object
 #>
-function Start-ClusterUpgrade {
+function PrepareClusterUpgrade {
     param(
-        [Parameter(Mandatory = $false, HelpMessage = 'Show progress bar')]
-        [switch] $ShowProgress = $false,
-        [Parameter(Mandatory = $false, HelpMessage = 'Skip move of resources during upgrade')]
-        [switch] $SkipResources = $false,
-        [Parameter(Mandatory = $false, HelpMessage = 'Delete resource files after upgrade')]
-        [switch] $DeleteFiles = $false,
-        [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
-        [switch] $ShowLogs = $false,
-        [parameter(Mandatory = $false, HelpMessage = 'Config file for setting up new cluster')]
-        [string] $Config,
-        [parameter(Mandatory = $false, HelpMessage = 'HTTP proxy if available')]
+        [switch] $ShowProgress,
+        [switch] $SkipResources,
+        [switch] $ShowLogs,
         [string] $Proxy,
-        [Parameter(Mandatory = $false, HelpMessage = 'Skip takeover of container images')]
-        [switch] $SkipImages = $false,
-        [parameter(Mandatory = $false, HelpMessage = 'Directory for resource backup')]
-        [string] $BackupDir = ''
+        [string] $BackupDir,
+        [string] $AdditionalHooksDir,
+        [ref] $coresVM,
+        [ref] $memoryVM,
+        [ref] $storageVM,
+        [ref] $addonsBackupPath,
+        [ref] $hooksBackupPath,
+        [ref] $logFilePathBeforeUninstall
     )
-    $errUpgrade = $null
-    $addonsBackupPath = $null
-    $logFilePathBeforeUninstall = $null
-    $coresVM = $null
-    $memoryVM = $null
-    $storageVM = $null
-
-    if ($BackupDir -eq '') {
-        $BackupDir = Get-TempPath
-    }
-
     try {
         # start progress
         if ($ShowProgress -eq $true) {
@@ -127,10 +112,10 @@ function Start-ClusterUpgrade {
         Enable-ClusterIsRunning -ShowLogs:$ShowLogs
 
         # keep current settings from cluster
-        $coresVM = Get-LinuxVMCores
-        $memoryVM = Get-LinuxVMMemory
-        $storageVM = Get-LinuxVMStorageSize
-        Write-Log "Current settings for the Linux VM, Cores: $coresVM, Memory: $memoryVM GB, Storage: $storageVM GB" -Console
+        $coresVM.Value = Get-LinuxVMCores
+        $memoryVM.Value = Get-LinuxVMMemory
+        $storageVM.Value = Get-LinuxVMStorageSize
+        Write-Log "Current settings for the Linux VM, Cores: $($coresVM.Value), Memory: $($memoryVM.Value) GB, Storage: $($storageVM.Value) GB" -Console
 
         # check for yaml tools
         Assert-YamlTools -Proxy $Proxy
@@ -148,29 +133,45 @@ function Start-ClusterUpgrade {
         Export-ClusterResources -SkipResources:$SkipResources -PathResources $BackupDir -ExePath $currentKubeToolsFolder
 
         # Invoke backup hooks
-        $hooksBackupPath = Join-Path $BackupDir 'hooks'
-        Invoke-UpgradeBackupRestoreHooks -HookType Backup -BackupDir $hooksBackupPath -ShowLogs:$ShowLogs -AdditionalHooksDir $AdditionalHooksDir
+        $hooksBackupPath.Value = Join-Path $BackupDir 'hooks'
+        Invoke-UpgradeBackupRestoreHooks -HookType Backup -BackupDir $hooksBackupPath.Value -ShowLogs:$ShowLogs -AdditionalHooksDir $AdditionalHooksDir
 
         if ($ShowProgress -eq $true) {
             Write-Progress -Activity 'Backing up addons..' -Id 1 -Status '4/10' -PercentComplete 40 -CurrentOperation 'Backing up addons, please wait..'
         }
 
         # backup all addons
-        $addonsBackupPath = Join-Path $BackupDir 'addons'
-        Backup-Addons -BackupDir $addonsBackupPath
+        $addonsBackupPath.Value = Join-Path $BackupDir 'addons'
+        Backup-Addons -BackupDir $addonsBackupPath.Value
 
         # backup log file
-        $logFilePathBeforeUninstall = Join-Path $BackupDir 'k2s-before-uninstall.log'
-        Backup-LogFile -LogFile $logFilePathBeforeUninstall
+        $logFilePathBeforeUninstall.Value = Join-Path $BackupDir 'k2s-before-uninstall.log'
+        Backup-LogFile -LogFile $logFilePathBeforeUninstall.Value
+        return $true
     }
     catch {
         Write-Log 'An ERROR occurred:' -Console
         Write-Log $_.ScriptStackTrace -Console
         Write-Log $_ -Console
-        $errUpgrade = $_
-        Write-Error 'Unfortunately preliminary steps to export resources of current cluster failed, please check the logs for more information !'
-        return $false
+        throw $_
     }
+}
+function PerformClusterUpgrade {
+    param(
+        [switch] $ShowProgress,
+        [switch] $DeleteFiles,
+        [switch] $ShowLogs,
+        [string] $Config,
+        [string] $Proxy,
+        [string] $BackupDir,
+        [string] $AdditionalHooksDir,
+        [string] $memoryVM,
+        [string] $coresVM,
+        [string] $storageVM,
+        [string] $addonsBackupPath,
+        [string] $hooksBackupPath,
+        [string] $logFilePathBeforeUninstall
+    )
     try {
         # uninstall of old cluster
         if ($ShowProgress -eq $true) {
@@ -233,6 +234,76 @@ function Start-ClusterUpgrade {
         Write-Log 'An ERROR occurred:' -Console
         Write-Log $_.ScriptStackTrace -Console
         Write-Log $_ -Console
+        throw $_
+    }
+}
+
+function Start-ClusterUpgrade {
+    param(
+        [Parameter(Mandatory = $false, HelpMessage = 'Show progress bar')]
+        [switch] $ShowProgress = $false,
+        [Parameter(Mandatory = $false, HelpMessage = 'Skip move of resources during upgrade')]
+        [switch] $SkipResources = $false,
+        [Parameter(Mandatory = $false, HelpMessage = 'Delete resource files after upgrade')]
+        [switch] $DeleteFiles = $false,
+        [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
+        [switch] $ShowLogs = $false,
+        [parameter(Mandatory = $false, HelpMessage = 'Config file for setting up new cluster')]
+        [string] $Config,
+        [parameter(Mandatory = $false, HelpMessage = 'HTTP proxy if available')]
+        [string] $Proxy,
+        [Parameter(Mandatory = $false, HelpMessage = 'Skip takeover of container images')]
+        [switch] $SkipImages = $false,
+        [parameter(Mandatory = $false, HelpMessage = 'Directory for resource backup')]
+        [string] $BackupDir = ''
+    )
+    $errUpgrade = $null
+        
+    $coresVM = [ref]''
+    $memoryVM = [ref]''
+    $storageVM = [ref]''
+
+    $addonsBackupPath = [ref]''
+    $hooksBackupPath = [ref]''
+    $logFilePathBeforeUninstall = [ref]''
+
+    if ($BackupDir -eq '') {
+        $BackupDir = Get-UpgradeBackupDir
+    }
+    Write-Log "The backup directory is '$BackupDir'"
+    $backupExists = Test-Path -Path (Join-Path $BackupDir 'k2s-before-uninstall.log')
+
+    if (-not $backupExists) {
+        try {
+            $prepareSuccess = PrepareClusterUpgrade -ShowProgress:$ShowProgress -SkipResources:$SkipResources -ShowLogs:$ShowLogs -Proxy $Proxy -BackupDir $BackupDir -AdditionalHooksDir $AdditionalHooksDir -coresVM $coresVM -memoryVM $memoryVM -storageVM $storageVM -addonsBackupPath $addonsBackupPath -hooksBackupPath $hooksBackupPath -logFilePathBeforeUninstall $logFilePathBeforeUninstall
+            if (-not $prepareSuccess) {
+                return $false
+            }
+        }
+        catch {
+            Write-Log 'An ERROR occurred:' -Console
+            Write-Log $_.ScriptStackTrace -Console
+            Write-Log $_ -Console
+            $errUpgrade = $_
+            Write-Error 'Unfortunately preliminary steps to export resources of current cluster failed, please check the logs for more information !'
+            return $false
+        }
+    } else {
+        $addonsBackupPath.Value = Join-Path $BackupDir 'addons'
+        $hooksBackupPath.Value = Join-Path $BackupDir 'hooks'
+        $logFilePathBeforeUninstall.Value = Join-Path $BackupDir 'k2s-before-uninstall.log'
+        $coresVM.Value = Get-LinuxVMCores
+        $memoryVM.Value = Get-LinuxVMMemory
+        $storageVM.Value = Get-LinuxVMStorageSize
+    }
+
+    try {
+        PerformClusterUpgrade -ShowProgress:$ShowProgress -DeleteFiles:$DeleteFiles -ShowLogs:$ShowLogs -Config $Config -Proxy $Proxy -BackupDir $BackupDir -AdditionalHooksDir $AdditionalHooksDir -memoryVM $memoryVM.Value -coresVM $coresVM.Value -storageVM $storageVM.Value -addonsBackupPath $addonsBackupPath.Value -hooksBackupPath $hooksBackupPath.Value -logFilePathBeforeUninstall $logFilePathBeforeUninstall.Value
+    }
+    catch {
+        Write-Log 'An ERROR occurred:' -Console
+        Write-Log $_.ScriptStackTrace -Console
+        Write-Log $_ -Console
         $errUpgrade = $_
         Write-Error 'System upgrade failed, please check the logs for more information !'
     }
@@ -240,8 +311,10 @@ function Start-ClusterUpgrade {
         if ($ShowProgress -eq $true) {
             Write-Progress -Activity 'Remove exported resources..' -Id 1 -Status '5/8' -PercentComplete 50 -CurrentOperation 'Remove exported resources, please wait..'
         }
-        # remove temp cluster resources
-        Remove-ExportedClusterResources -PathResources $BackupDir
+        if (-not $errUpgrade) {
+            # remove temp cluster resources
+            Remove-ExportedClusterResources -PathResources $BackupDir -DeleteFiles:$true
+        }
     }
     if ( $errUpgrade ) {
         return $false
