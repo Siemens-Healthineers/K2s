@@ -25,3 +25,11 @@ func (cmdResult *K2sCmdResult) VerifySystemNotRunningFailure() {
 		ContainSubstring("not running"),
 	))
 }
+
+func (cmdResult *K2sCmdResult) VerifyFunctionalityNotAvailableFailure() {
+	Expect(cmdResult.exitCode).To(Equal(cli.ExitCodeFailure))
+	Expect(cmdResult.output).To(SatisfyAll(
+		ContainSubstring("WARNING"),
+		ContainSubstring("functionality is not available"),
+	))
+}
