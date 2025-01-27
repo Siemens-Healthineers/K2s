@@ -79,15 +79,15 @@ $StorageUsage = 'default'
 if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'storage' })) -eq $true) {
     $answer = Read-Host 'Addon storage is enabled. Would you like to reuse the storage provided by that addon for the DICOM data ? (y/N)'
     if ($answer -ne 'y') {
+        $pvConfig = Get-PVConfigDefault
+        (Invoke-Kubectl -Params 'apply' , '-k', $pvConfig).Output | Write-Log
+        Write-Log 'Use default storage for DICOM data' -Consoleonsole
+    }
+    else {
         $pvConfig = Get-PVConfigStorage
         (Invoke-Kubectl -Params 'apply' , '-k', $pvConfig).Output | Write-Log
         $StorageUsage = 'storage'
-        Write-Log 'Use storage addon for storing DICOM data' -Console
-    }
-    else {
-        $pvConfig = Get-PVConfigDefault
-        (Invoke-Kubectl -Params 'apply' , '-k', $pvConfig).Output | Write-Log
-        Write-Log 'Use default storage for DICOM data' -Console
+        Write-Log 'Use storage addon for storing DICOM data' -C
     }
 }
 else {
