@@ -1215,7 +1215,7 @@ Function Set-UpMasterNode {
     &$executeRemoteCommand "kubectl get deployment coredns -n kube-system -o yaml | sed '/^\s*\- mountPath: \/etc\/coredns/i\        - mountPath: /etc/kubernetes/pki/etcd-ca\n          name: etcd-ca-cert\n        - mountPath: /etc/kubernetes/pki/etcd-client\n          name: etcd-client-cert' | kubectl apply -f -" -Retries 3
 
     # exchange securitycontext for coredns to allow it to run on port 53
-    &$executeRemoteCommand "kubectl get deployment coredns -n kube-system -o yaml | sed '/^\s*securityContext: {}/c\      securityContext:\n        sysctls:\n        - name: net.ipv4.ip_unprivileged_port_start:\n           value: 53' | kubectl apply -f -" -IgnoreErrors
+    &$executeRemoteCommand "kubectl get deployment coredns -n kube-system -o yaml | sed '/^\s*securityContext: {}/c\      securityContext:\n        sysctls:\n        - name: net.ipv4.ip_unprivileged_port_start\n          value: `"53`"' | kubectl apply -f -" 
 
     # change core-dns to have predefined host mapping for DNS resolution
     &$executeRemoteCommand "kubectl get configmap coredns -n kube-system -o yaml | sed '/^\s*cache 30/i\        hosts {\n         $IpAddress k2s.cluster.local\n         fallthrough\n        }' | kubectl apply -f -" -IgnoreErrors
