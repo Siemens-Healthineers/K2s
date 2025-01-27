@@ -231,7 +231,7 @@ var _ = Describe("'viewer' addon", Ordered, func() {
 
 			AfterAll(func(ctx context.Context) {
 				suite.K2sCli().RunOrFail(ctx, "addons", "disable", "viewer", "-o")
-				suite.K2sCli().RunOrFail(ctx, "addons", "disable", "dicom", "-o")
+				suite.K2sCli().RunOrFail(ctx, "addons", "disable", "dicom", "-o", "-f")
 				suite.K2sCli().RunOrFail(ctx, "addons", "disable", "ingress", "nginx", "-o")
 
 				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "viewerwebapp", "viewer")
@@ -301,7 +301,7 @@ var _ = Describe("'viewer' addon", Ordered, func() {
 
 			AfterAll(func(ctx context.Context) {
 				suite.K2sCli().RunOrFail(ctx, "addons", "disable", "viewer", "-o")
-				suite.K2sCli().RunOrFail(ctx, "addons", "disable", "dicom", "-o")
+				suite.K2sCli().RunOrFail(ctx, "addons", "disable", "dicom", "-o", "-f")
 				suite.K2sCli().RunOrFail(ctx, "addons", "disable", "ingress", "nginx", "-o")
 				suite.K2sCli().RunOrFail(ctx, "addons", "disable", "security", "-o")
 
@@ -395,7 +395,7 @@ var _ = Describe("'viewer' addon", Ordered, func() {
 
 			AfterAll(func(ctx context.Context) {
 				suite.K2sCli().RunOrFail(ctx, "addons", "disable", "viewer", "-o")
-				suite.K2sCli().RunOrFail(ctx, "addons", "disable", "dicom", "-o")
+				suite.K2sCli().RunOrFail(ctx, "addons", "disable", "dicom", "-o", "-f")
 				suite.K2sCli().RunOrFail(ctx, "addons", "disable", "ingress", "nginx", "-o")
 
 				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "viewerwebapp", "viewer")
@@ -470,7 +470,7 @@ var _ = Describe("'viewer' addon", Ordered, func() {
 				suite.K2sCli().RunOrFail(ctx, "addons", "disable", "viewer", "-o")
 				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "viewerwebapp", "viewer")
 
-				suite.K2sCli().RunOrFail(ctx, "addons", "disable", "dicom", "-o")
+				suite.K2sCli().RunOrFail(ctx, "addons", "disable", "dicom", "-o", "-f")
 				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "dicom", "dicom")
 				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "mysql", "dicom")
 
@@ -514,7 +514,7 @@ var _ = Describe("'viewer' addon", Ordered, func() {
 				suite.K2sCli().RunOrFail(ctx, "addons", "disable", "viewer", "-o")
 				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "viewerwebapp", "viewer")
 
-				suite.K2sCli().RunOrFail(ctx, "addons", "disable", "dicom", "-o")
+				suite.K2sCli().RunOrFail(ctx, "addons", "disable", "dicom", "-o", "-f")
 				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "dicom", "dicom")
 				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "mysql", "dicom")
 
