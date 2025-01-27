@@ -3,7 +3,7 @@
 
 #Requires -RunAsAdministrator
 
-$infraModule =   "$PSScriptRoot\..\..\..\k2s.infra.module\k2s.infra.module.psm1"
+$infraModule = "$PSScriptRoot\..\..\..\k2s.infra.module\k2s.infra.module.psm1"
 $clusterModule = "$PSScriptRoot\..\..\..\k2s.cluster.module\k2s.cluster.module.psm1"
 
 Import-Module $infraModule, $clusterModule
@@ -53,17 +53,17 @@ function New-ControlPlaneNodeOnNewVM {
     Set-ConfigWslFlag -Value $([bool]$WSL)
 
     $controlPlaneParams = @{
-        Hostname = Get-ConfigControlPlaneNodeHostname
-        IpAddress = Get-ConfiguredIPControlPlane
-        GatewayIpAddress = Get-ConfiguredKubeSwitchIP
-        DnsServers= $DnsServers
-        VmName = 'KubeMaster'
-        VMMemoryStartupBytes = $MasterVMMemory
-        VMProcessorCount = $MasterVMProcessorCount
-        VMDiskSize = $MasterDiskSize
-        Proxy = $Proxy
+        Hostname                          = Get-ConfigControlPlaneNodeHostname
+        IpAddress                         = Get-ConfiguredIPControlPlane
+        GatewayIpAddress                  = Get-ConfiguredKubeSwitchIP
+        DnsServers                        = $DnsServers
+        VmName                            = 'KubeMaster'
+        VMMemoryStartupBytes              = $MasterVMMemory
+        VMProcessorCount                  = $MasterVMProcessorCount
+        VMDiskSize                        = $MasterDiskSize
+        Proxy                             = $Proxy
         DeleteFilesForOfflineInstallation = $DeleteFilesForOfflineInstallation
-        ForceOnlineInstallation = $ForceOnlineInstallation
+        ForceOnlineInstallation           = $ForceOnlineInstallation
     }
 
     if ($WSL) {
@@ -150,10 +150,10 @@ function Start-ControlPlaneNodeOnNewVM {
     function EnsureCni0InterfaceIsCreated {
         param (
             [string] $VmName = $(throw 'Argument missing: VmName'),
-            [bool] $WSL  = $(throw 'Argument missing: WSL')
+            [bool] $WSL = $(throw 'Argument missing: WSL')
         )
         $i = 0
-        while($true) {
+        while ($true) {
             $controlPlaneCni0IpAddr = Get-Cni0IpAddressInControlPlaneUsingSshWithRetries -Retries 30 -RetryTimeoutInSeconds 5
             $expectedControlPlaneCni0IpAddr = Get-ConfiguredMasterNetworkInterfaceCni0IP
 
@@ -165,14 +165,16 @@ function Start-ControlPlaneNodeOnNewVM {
                 if ($i -eq 3) {
                     throw "cni0 interface in $controlPlaneVMHostName is not correctly initialized after $i retries."
                 }
-            } else {
+            }
+            else {
                 Write-Log "cni0 interface in $controlPlaneVMHostName correctly initialized."
                 break
             }
             if (!$WSL) {
                 Stop-VirtualMachine -VmName $VmName -Wait
                 Start-VirtualMachine -VmName $VmName -Wait
-            } else {
+            }
+            else {
                 wsl --shutdown
                 Start-WSL
             }
@@ -237,7 +239,7 @@ function Start-ControlPlaneNodeOnNewVM {
         }
 
         $kubeSwitchInExpectedState = CheckKubeSwitchInExpectedState
-        if(!$UseCachedK2sVSwitches -or !$kubeSwitchInExpectedState) {
+        if (!$UseCachedK2sVSwitches -or !$kubeSwitchInExpectedState) {
             # Remove old switch
             Write-Log 'Updating VM networking...'
             Remove-KubeSwitch
@@ -251,15 +253,16 @@ function Start-ControlPlaneNodeOnNewVM {
         }
 
         Start-VirtualMachine -VmName $controlPlaneVMHostName -Wait
-    } else {
+    }
+    else {
         Write-Log 'Configuring KubeMaster Distro' -Console
         wsl --shutdown
         Start-WSL
         Set-WSLSwitch -IpAddress $windowsHostIpAddress
 
-        $interfaceAlias = Get-NetAdapter -Name "vEthernet (WSL*)" -ErrorAction SilentlyContinue -IncludeHidden | Select-Object -expandproperty name
-        New-NetFirewallRule -DisplayName 'WSL Inbound' -Group "k2s" -Direction Inbound -InterfaceAlias $interfaceAlias -Action Allow
-        New-NetFirewallRule -DisplayName 'WSL Outbound'-Group "k2s" -Direction Outbound -InterfaceAlias $interfaceAlias -Action Allow
+        $interfaceAlias = Get-NetAdapter -Name 'vEthernet (WSL*)' -ErrorAction SilentlyContinue -IncludeHidden | Select-Object -expandproperty name
+        New-NetFirewallRule -DisplayName 'WSL Inbound' -Group 'k2s' -Direction Inbound -InterfaceAlias $interfaceAlias -Action Allow
+        New-NetFirewallRule -DisplayName 'WSL Outbound'-Group 'k2s' -Direction Outbound -InterfaceAlias $interfaceAlias -Action Allow
     }
 
     # add DNS proxy for cluster searches
@@ -305,13 +308,15 @@ function Start-ControlPlaneNodeOnNewVM {
     Write-Log "Add route to Linux Services CIDR:$clusterCIDRServicesLinux with metric 6"
     route -p add $clusterCIDRServicesLinux $ipControlPlane METRIC 6 | Out-Null
 
+    # get the real switch name
+    $switchRealName = Get-VirtualSwitchName($switchname)
 
     # enable ip forwarding
-    netsh int ipv4 set int "vEthernet ($switchname)" forwarding=enabled | Out-Null
+    netsh int ipv4 set int $switchRealName forwarding=enabled | Out-Null
     netsh int ipv4 set int 'vEthernet (Ethernet)' forwarding=enabled | Out-Null
 
     # Double check for KubeSwitch is in expected Private state
-    Set-InterfacePrivate -InterfaceAlias "vEthernet ($switchname)"
+    Set-InterfacePrivate -InterfaceAlias $switchRealName
 
     if ($SkipHeaderDisplay -eq $false) {
         Write-Log 'K2s control plane started'
@@ -415,7 +420,8 @@ function Remove-ControlPlaneNodeOnNewVM {
     if ($WSL) {
         wsl --shutdown | Out-Null
         wsl --unregister $VmName | Out-Null
-    } else {
+    }
+    else {
         Stop-VirtualMachine -VmName $VmName -Wait
         Remove-VirtualMachine $VmName
     }
