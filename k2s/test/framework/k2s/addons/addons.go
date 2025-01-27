@@ -1,9 +1,9 @@
-// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2025 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
-package k2s
+
+package addons
 
 import (
-	"context"
 	"log"
 	"os"
 	"path/filepath"
@@ -41,13 +41,6 @@ type AddonsAdditionalInfo struct {
 }
 
 const manifestFileName = "addon.manifest.yaml"
-
-// wrapper around k2s.exe to retrieve and parse the addons status
-func (r *K2sCliRunner) GetAddonsStatus(ctx context.Context) *AddonsStatus {
-	output := r.Run(ctx, "addons", "ls", "-o", "json")
-
-	return unmarshalStatus[AddonsStatus](output)
-}
 
 func (addonsStatus *AddonsStatus) IsAddonEnabled(addonName string, implementationName string) bool {
 	isAddonEnabled := lo.SomeBy(addonsStatus.EnabledAddons, func(addon Addon) bool {
@@ -137,4 +130,19 @@ func (info *AddonsAdditionalInfo) GetImagesForAddonImplementation(implementation
 	}
 
 	return lo.Union(images), nil
+}
+
+func Foreach(addons addons.Addons, iteratee func(addonName, implementationName, cmdName string)) {
+	for _, addon := range addons {
+		for _, implementation := range addon.Spec.Implementations {
+			implementationName := ""
+			if addon.Metadata.Name != implementation.Name {
+				implementationName = implementation.Name
+			}
+
+			GinkgoWriter.Println("Looping at", implementation.AddonsCmdName)
+
+			iteratee(addon.Metadata.Name, implementationName, implementation.AddonsCmdName)
+		}
+	}
 }

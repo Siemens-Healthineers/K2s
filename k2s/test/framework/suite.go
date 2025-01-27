@@ -11,6 +11,7 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/siemens-healthineers/k2s/test/framework/k2s/addons"
 	sos "github.com/siemens-healthineers/k2s/test/framework/os"
 
 	"github.com/siemens-healthineers/k2s/test/framework/k8s"
@@ -40,7 +41,7 @@ type K2sTestSuite struct {
 	kubeProxyRestarter   *k2s.KubeProxyRestarter
 	kubectl              *k8s.Kubectl
 	cluster              *k8s.Cluster
-	addonsAdditionalInfo *k2s.AddonsAdditionalInfo
+	addonsAdditionalInfo *addons.AddonsAdditionalInfo
 }
 type ClusterTestStepTimeout time.Duration
 type ClusterTestStepPollInterval time.Duration
@@ -55,8 +56,11 @@ const (
 	EnsureAddonsAreDisabled = ensureAddonsAreDisabledType(true)
 	NoSetupInstalled        = noSetupInstalledType(true)
 
-	SystemMustBeStopped   initialSystemStateType = "stopped"
-	SystemMustBeRunning   initialSystemStateType = "running"
+	// System is installed and stopped
+	SystemMustBeStopped initialSystemStateType = "stopped"
+	// System is installed and running
+	SystemMustBeRunning initialSystemStateType = "running"
+	// System is installed, but the state (started/stopped) does not matter
 	SystemStateIrrelevant initialSystemStateType = "irrelevant"
 )
 
@@ -96,7 +100,7 @@ func Setup(ctx context.Context, args ...any) *K2sTestSuite {
 
 	k2sCli := k2s.NewCli(cliPath, cli)
 
-	addonsAdditionalInfo := k2s.NewAddonsAdditionalInfo()
+	addonsAdditionalInfo := addons.NewAddonsAdditionalInfo()
 
 	testSuite := &K2sTestSuite{
 		proxy:                proxy,
@@ -203,7 +207,7 @@ func (s *K2sTestSuite) SetupInfo() *k2s.SetupInfo {
 	return s.setupInfo
 }
 
-func (s *K2sTestSuite) AddonsAdditionalInfo() *k2s.AddonsAdditionalInfo {
+func (s *K2sTestSuite) AddonsAdditionalInfo() *addons.AddonsAdditionalInfo {
 	Expect(s.addonsAdditionalInfo).ToNot(BeNil())
 	return s.addonsAdditionalInfo
 }
@@ -241,7 +245,7 @@ func expectSystemState(ctx context.Context, initialSystemState initialSystemStat
 	}
 }
 
-func expectAddonsToBeDisabled(addonsStatus *k2s.AddonsStatus) {
+func expectAddonsToBeDisabled(addonsStatus *addons.AddonsStatus) {
 	Expect(addonsStatus.GetEnabledAddons()).To(BeEmpty(), "All addons should be disabled to execute the tests")
 
 	GinkgoWriter.Println("All addons are disabled")

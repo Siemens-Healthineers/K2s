@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2024 Siemens Healthcare AG
+// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package users_test
@@ -22,7 +22,7 @@ import (
 	"github.com/siemens-healthineers/k2s/internal/core/users/winusers"
 	"github.com/siemens-healthineers/k2s/internal/os"
 	"github.com/siemens-healthineers/k2s/test/framework"
-	"github.com/siemens-healthineers/k2s/test/framework/k2s"
+	"github.com/siemens-healthineers/k2s/test/framework/k2s/cli"
 )
 
 type ginkgoWriter struct{}
@@ -116,7 +116,7 @@ var _ = Describe("system users add", Ordered, func() {
 
 	When("user not found by name", func() {
 		It("prints not-found warning", func(ctx context.Context) {
-			output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "system", "users", "add", "-u", "non-existent-name")
+			output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "system", "users", "add", "-u", "non-existent-name")
 
 			Expect(output).To(SatisfyAll(
 				ContainSubstring("WARNING"),
@@ -128,7 +128,7 @@ var _ = Describe("system users add", Ordered, func() {
 
 	When("user not found by id", func() {
 		It("prints not-found warning", func(ctx context.Context) {
-			output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "system", "users", "add", "-i", "non-existent-id")
+			output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "system", "users", "add", "-i", "non-existent-id")
 
 			Expect(output).To(SatisfyAll(
 				ContainSubstring("WARNING"),
@@ -143,7 +143,7 @@ var _ = Describe("system users add", Ordered, func() {
 			currentUser, err := user.Current()
 			Expect(err).ToNot(HaveOccurred())
 
-			output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "system", "users", "add", "-i", currentUser.Uid)
+			output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "system", "users", "add", "-i", currentUser.Uid)
 
 			Expect(output).To(SatisfyAll(
 				ContainSubstring("ERROR"),

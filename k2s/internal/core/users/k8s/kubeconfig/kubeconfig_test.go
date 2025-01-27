@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2024 Siemens Healthcare AG
+// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package kubeconfig_test
@@ -6,17 +6,15 @@ package kubeconfig_test
 import (
 	"errors"
 	"log/slog"
-	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/siemens-healthineers/k2s/internal/core/users/k8s/kubeconfig"
+	bkc "github.com/siemens-healthineers/k2s/internal/k8s/kubeconfig"
 	"github.com/siemens-healthineers/k2s/internal/reflection"
 	"github.com/stretchr/testify/mock"
-	"gopkg.in/yaml.v3"
 )
 
 type cmdExecutorMock struct {
@@ -31,7 +29,7 @@ func (m *cmdExecutorMock) ExecuteCmd(name string, arg ...string) error {
 
 func TestKubeconfigPkg(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "kubeconfig pkg Tests", Label("ci", "internal", "core", "users", "k8s", "kubeconfig"))
+	RunSpecs(t, "kubeconfig pkg Tests", Label("unit", "ci", "internal", "core", "users", "k8s", "kubeconfig"))
 }
 
 var _ = BeforeSuite(func() {
@@ -39,350 +37,248 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = Describe("kubeconfig pkg", func() {
-	Describe("kubeconfigWriter", Label("unit"), func() {
-		Describe("FilePath", func() {
-			It("returns path", func() {
+	Describe("FilePath", func() {
+		It("returns path", func() {
+			const path = "path"
+
+			sut := kubeconfig.NewKubeconfigWriter(path, nil)
+
+			Expect(sut.FilePath()).To(Equal(path))
+		})
+	})
+
+	Describe("SetCluster", func() {
+		When("kubectl set-cluster failed", func() {
+			It("returns error", func() {
 				const path = "path"
+				execErr := errors.New("oops")
+				clusterConfig := &bkc.ClusterEntry{}
 
-				sut := kubeconfig.NewKubeconfigWriter(path, nil)
+				execMock := &cmdExecutorMock{}
+				execMock.On(reflection.GetFunctionName(execMock.ExecuteCmd), mock.Anything, mock.MatchedBy(func(args []string) bool {
+					return args[1] == "set-cluster"
+				})).Return(execErr)
 
-				Expect(sut.FilePath()).To(Equal(path))
+				sut := kubeconfig.NewKubeconfigWriter(path, execMock)
+
+				err := sut.SetCluster(clusterConfig)
+
+				Expect(err).To(MatchError(execErr))
 			})
 		})
 
-		Describe("SetCluster", func() {
-			When("kubectl set-cluster failed", func() {
-				It("returns error", func() {
-					const path = "path"
-					execErr := errors.New("oops")
-					clusterConfig := &kubeconfig.ClusterEntry{}
+		When("kubectl set failed", func() {
+			It("returns error", func() {
+				const path = "path"
+				execErr := errors.New("oops")
+				clusterConfig := &bkc.ClusterEntry{}
 
-					execMock := &cmdExecutorMock{}
-					execMock.On(reflection.GetFunctionName(execMock.ExecuteCmd), mock.Anything, mock.MatchedBy(func(args []string) bool {
-						return args[1] == "set-cluster"
-					})).Return(execErr)
+				execMock := &cmdExecutorMock{}
+				execMock.On(reflection.GetFunctionName(execMock.ExecuteCmd), mock.Anything, mock.MatchedBy(func(args []string) bool {
+					return args[1] == "set-cluster"
+				})).Return(nil)
+				execMock.On(reflection.GetFunctionName(execMock.ExecuteCmd), mock.Anything, mock.MatchedBy(func(args []string) bool {
+					return args[1] == "set"
+				})).Return(execErr)
 
-					sut := kubeconfig.NewKubeconfigWriter(path, execMock)
+				sut := kubeconfig.NewKubeconfigWriter(path, execMock)
 
-					err := sut.SetCluster(clusterConfig)
+				err := sut.SetCluster(clusterConfig)
 
-					Expect(err).To(MatchError(execErr))
-				})
-			})
-
-			When("kubectl set failed", func() {
-				It("returns error", func() {
-					const path = "path"
-					execErr := errors.New("oops")
-					clusterConfig := &kubeconfig.ClusterEntry{}
-
-					execMock := &cmdExecutorMock{}
-					execMock.On(reflection.GetFunctionName(execMock.ExecuteCmd), mock.Anything, mock.MatchedBy(func(args []string) bool {
-						return args[1] == "set-cluster"
-					})).Return(nil)
-					execMock.On(reflection.GetFunctionName(execMock.ExecuteCmd), mock.Anything, mock.MatchedBy(func(args []string) bool {
-						return args[1] == "set"
-					})).Return(execErr)
-
-					sut := kubeconfig.NewKubeconfigWriter(path, execMock)
-
-					err := sut.SetCluster(clusterConfig)
-
-					Expect(err).To(MatchError(execErr))
-				})
-			})
-
-			When("successful", func() {
-				It("calls kubectl correctly", func() {
-					const path = "path"
-					const cmdName = "kubectl"
-					const configParam = "config"
-					clusterConfig := &kubeconfig.ClusterEntry{
-						Name: "my-cluster",
-						Details: kubeconfig.ClusterDetails{
-							Server: "my-server",
-							Cert:   "my-cert",
-						},
-					}
-
-					execMock := &cmdExecutorMock{}
-					execMock.On(reflection.GetFunctionName(execMock.ExecuteCmd), cmdName, mock.MatchedBy(func(args []string) bool {
-						return args[0] == configParam &&
-							args[1] == "set-cluster" &&
-							args[2] == clusterConfig.Name &&
-							args[3] == "--server" &&
-							args[4] == clusterConfig.Details.Server &&
-							args[5] == "--kubeconfig" &&
-							args[6] == path
-
-					})).Return(nil)
-					execMock.On(reflection.GetFunctionName(execMock.ExecuteCmd), cmdName, mock.MatchedBy(func(args []string) bool {
-						return args[0] == configParam &&
-							args[1] == "set" &&
-							args[2] == "clusters.my-cluster.certificate-authority-data" &&
-							args[3] == clusterConfig.Details.Cert &&
-							args[4] == "--kubeconfig" &&
-							args[5] == path
-					})).Return(nil)
-
-					sut := kubeconfig.NewKubeconfigWriter(path, execMock)
-
-					err := sut.SetCluster(clusterConfig)
-
-					Expect(err).ToNot(HaveOccurred())
-				})
+				Expect(err).To(MatchError(execErr))
 			})
 		})
 
-		Describe("SetCredentials", func() {
-			When("kubectl exec failed", func() {
-				It("returns error", func() {
-					const path = "path"
-					const username = "username"
-					const certPath = "cert-path"
-					const keyPath = "key-path"
-					execErr := errors.New("oops")
+		When("successful", func() {
+			It("calls kubectl correctly", func() {
+				const path = "path"
+				const cmdName = "kubectl"
+				const configParam = "config"
+				clusterConfig := &bkc.ClusterEntry{
+					Name: "my-cluster",
+					Details: bkc.ClusterDetails{
+						Server: "my-server",
+						Cert:   "my-cert",
+					},
+				}
 
-					execMock := &cmdExecutorMock{}
-					execMock.On(reflection.GetFunctionName(execMock.ExecuteCmd), mock.Anything, mock.MatchedBy(func(args []string) bool {
-						return args[1] == "set-credentials"
-					})).Return(execErr)
+				execMock := &cmdExecutorMock{}
+				execMock.On(reflection.GetFunctionName(execMock.ExecuteCmd), cmdName, mock.MatchedBy(func(args []string) bool {
+					return args[0] == configParam &&
+						args[1] == "set-cluster" &&
+						args[2] == clusterConfig.Name &&
+						args[3] == "--server" &&
+						args[4] == clusterConfig.Details.Server &&
+						args[5] == "--kubeconfig" &&
+						args[6] == path
 
-					sut := kubeconfig.NewKubeconfigWriter(path, execMock)
+				})).Return(nil)
+				execMock.On(reflection.GetFunctionName(execMock.ExecuteCmd), cmdName, mock.MatchedBy(func(args []string) bool {
+					return args[0] == configParam &&
+						args[1] == "set" &&
+						args[2] == "clusters.my-cluster.certificate-authority-data" &&
+						args[3] == clusterConfig.Details.Cert &&
+						args[4] == "--kubeconfig" &&
+						args[5] == path
+				})).Return(nil)
 
-					err := sut.SetCredentials(username, certPath, keyPath)
+				sut := kubeconfig.NewKubeconfigWriter(path, execMock)
 
-					Expect(err).To(MatchError(execErr))
-				})
-			})
+				err := sut.SetCluster(clusterConfig)
 
-			When("successful", func() {
-				It("calls kubectl correctly", func() {
-					const path = "path"
-					const cmdName = "kubectl"
-					const configParam = "config"
-					const username = "username"
-					const certPath = "cert-path"
-					const keyPath = "key-path"
-
-					execMock := &cmdExecutorMock{}
-					execMock.On(reflection.GetFunctionName(execMock.ExecuteCmd), cmdName, mock.MatchedBy(func(args []string) bool {
-						return args[0] == configParam &&
-							args[1] == "set-credentials" &&
-							args[2] == username &&
-							args[3] == "--client-certificate" &&
-							args[4] == certPath &&
-							args[5] == "--client-key" &&
-							args[6] == keyPath &&
-							args[7] == "--embed-certs=true" &&
-							args[8] == "--kubeconfig" &&
-							args[9] == path
-					})).Return(nil)
-
-					sut := kubeconfig.NewKubeconfigWriter(path, execMock)
-
-					err := sut.SetCredentials(username, certPath, keyPath)
-
-					Expect(err).ToNot(HaveOccurred())
-				})
-			})
-		})
-
-		Describe("SetContext", func() {
-			When("kubectl exec failed", func() {
-				It("returns error", func() {
-					const path = "path"
-					const username = "username"
-					const context = "context"
-					const clusterName = "my-cluster"
-					execErr := errors.New("oops")
-
-					execMock := &cmdExecutorMock{}
-					execMock.On(reflection.GetFunctionName(execMock.ExecuteCmd), mock.Anything, mock.MatchedBy(func(args []string) bool {
-						return args[1] == "set-context"
-					})).Return(execErr)
-
-					sut := kubeconfig.NewKubeconfigWriter(path, execMock)
-
-					err := sut.SetContext(username, context, clusterName)
-
-					Expect(err).To(MatchError(execErr))
-				})
-			})
-
-			When("successful", func() {
-				It("calls kubectl correctly", func() {
-					const path = "path"
-					const cmdName = "kubectl"
-					const configParam = "config"
-					const username = "john"
-					const context = "context"
-					const clusterName = "my-cluster"
-
-					execMock := &cmdExecutorMock{}
-					execMock.On(reflection.GetFunctionName(execMock.ExecuteCmd), cmdName, mock.MatchedBy(func(args []string) bool {
-						return args[0] == configParam &&
-							args[1] == "set-context" &&
-							args[2] == context &&
-							args[3] == "--cluster=my-cluster" &&
-							args[4] == "--user=john" &&
-							args[5] == "--kubeconfig" &&
-							args[6] == path
-
-					})).Return(nil)
-
-					sut := kubeconfig.NewKubeconfigWriter(path, execMock)
-
-					err := sut.SetContext(context, username, clusterName)
-
-					Expect(err).ToNot(HaveOccurred())
-				})
-			})
-		})
-
-		Describe("UseContext", func() {
-			When("kubectl exec failed", func() {
-				It("returns error", func() {
-					const path = "path"
-					const context = "context"
-					execErr := errors.New("oops")
-
-					execMock := &cmdExecutorMock{}
-					execMock.On(reflection.GetFunctionName(execMock.ExecuteCmd), mock.Anything, mock.MatchedBy(func(args []string) bool {
-						return args[1] == "use-context"
-					})).Return(execErr)
-
-					sut := kubeconfig.NewKubeconfigWriter(path, execMock)
-
-					err := sut.UseContext(context)
-
-					Expect(err).To(MatchError(execErr))
-				})
-			})
-
-			When("successful", func() {
-				It("calls kubectl correctly", func() {
-					const path = "path"
-					const cmdName = "kubectl"
-					const configParam = "config"
-					const context = "context"
-
-					execMock := &cmdExecutorMock{}
-					execMock.On(reflection.GetFunctionName(execMock.ExecuteCmd), cmdName, mock.MatchedBy(func(args []string) bool {
-						return args[0] == configParam &&
-							args[1] == "use-context" &&
-							args[2] == context &&
-							args[3] == "--kubeconfig" &&
-							args[4] == path
-
-					})).Return(nil)
-
-					sut := kubeconfig.NewKubeconfigWriter(path, execMock)
-
-					err := sut.UseContext(context)
-
-					Expect(err).ToNot(HaveOccurred())
-				})
+				Expect(err).ToNot(HaveOccurred())
 			})
 		})
 	})
 
-	Describe("kubeconfigReader", Label("integration"), func() {
-		Describe("ReadFile", func() {
-			When("file read failed", func() {
-				It("returns error", func() {
-					sut := kubeconfig.NewKubeconfigReader()
+	Describe("SetCredentials", func() {
+		When("kubectl exec failed", func() {
+			It("returns error", func() {
+				const path = "path"
+				const username = "username"
+				const certPath = "cert-path"
+				const keyPath = "key-path"
+				execErr := errors.New("oops")
 
-					actual, err := sut.ReadFile("non-existent")
+				execMock := &cmdExecutorMock{}
+				execMock.On(reflection.GetFunctionName(execMock.ExecuteCmd), mock.Anything, mock.MatchedBy(func(args []string) bool {
+					return args[1] == "set-credentials"
+				})).Return(execErr)
 
-					Expect(actual).To(BeNil())
-					Expect(err).To(MatchError(os.ErrNotExist))
-				})
+				sut := kubeconfig.NewKubeconfigWriter(path, execMock)
+
+				err := sut.SetCredentials(username, certPath, keyPath)
+
+				Expect(err).To(MatchError(execErr))
 			})
+		})
 
-			When("file read successful", func() {
-				var path string
-				var writtenConfig *kubeconfig.KubeconfigRoot
+		When("successful", func() {
+			It("calls kubectl correctly", func() {
+				const path = "path"
+				const cmdName = "kubectl"
+				const configParam = "config"
+				const username = "username"
+				const certPath = "cert-path"
+				const keyPath = "key-path"
 
-				BeforeEach(func() {
-					path = filepath.Join(GinkgoT().TempDir(), "test.yaml")
+				execMock := &cmdExecutorMock{}
+				execMock.On(reflection.GetFunctionName(execMock.ExecuteCmd), cmdName, mock.MatchedBy(func(args []string) bool {
+					return args[0] == configParam &&
+						args[1] == "set-credentials" &&
+						args[2] == username &&
+						args[3] == "--client-certificate" &&
+						args[4] == certPath &&
+						args[5] == "--client-key" &&
+						args[6] == keyPath &&
+						args[7] == "--embed-certs=true" &&
+						args[8] == "--kubeconfig" &&
+						args[9] == path
+				})).Return(nil)
 
-					writtenConfig = &kubeconfig.KubeconfigRoot{
-						CurrentContext: "my-context",
-					}
+				sut := kubeconfig.NewKubeconfigWriter(path, execMock)
 
-					bytes, err := yaml.Marshal(writtenConfig)
-					Expect(err).ToNot(HaveOccurred())
+				err := sut.SetCredentials(username, certPath, keyPath)
 
-					Expect(os.WriteFile(path, bytes, os.ModePerm)).To(Succeed())
-				})
-
-				It("reads kubeconfig file correctly", func() {
-					sut := kubeconfig.NewKubeconfigReader()
-
-					actual, err := sut.ReadFile(path)
-
-					Expect(err).ToNot(HaveOccurred())
-					Expect(actual.CurrentContext).To(Equal(writtenConfig.CurrentContext))
-				})
+				Expect(err).ToNot(HaveOccurred())
 			})
 		})
 	})
 
-	Describe("KubeconfigRoot", Label("unit"), func() {
-		Describe("FindCluster", func() {
-			When("not found", func() {
-				It("returns error", func() {
-					const name = "non-existent"
-					sut := kubeconfig.KubeconfigRoot{}
+	Describe("SetContext", func() {
+		When("kubectl exec failed", func() {
+			It("returns error", func() {
+				const path = "path"
+				const username = "username"
+				const context = "context"
+				const clusterName = "my-cluster"
+				execErr := errors.New("oops")
 
-					actual, err := sut.FindCluster(name)
+				execMock := &cmdExecutorMock{}
+				execMock.On(reflection.GetFunctionName(execMock.ExecuteCmd), mock.Anything, mock.MatchedBy(func(args []string) bool {
+					return args[1] == "set-context"
+				})).Return(execErr)
 
-					Expect(actual).To(BeNil())
-					Expect(err).To(MatchError(ContainSubstring("cluster 'non-existent' not found")))
-				})
-			})
+				sut := kubeconfig.NewKubeconfigWriter(path, execMock)
 
-			When("found", func() {
-				It("returns finding", func() {
-					const name = "existent"
-					sut := kubeconfig.KubeconfigRoot{
-						Clusters: []kubeconfig.ClusterEntry{{Name: name}},
-					}
+				err := sut.SetContext(username, context, clusterName)
 
-					actual, err := sut.FindCluster(name)
-
-					Expect(err).ToNot(HaveOccurred())
-					Expect(actual.Name).To(Equal(name))
-				})
+				Expect(err).To(MatchError(execErr))
 			})
 		})
 
-		Describe("FindUser", func() {
-			When("not found", func() {
-				It("returns error", func() {
-					const name = "non-existent"
-					sut := kubeconfig.KubeconfigRoot{}
+		When("successful", func() {
+			It("calls kubectl correctly", func() {
+				const path = "path"
+				const cmdName = "kubectl"
+				const configParam = "config"
+				const username = "john"
+				const context = "context"
+				const clusterName = "my-cluster"
 
-					actual, err := sut.FindUser(name)
+				execMock := &cmdExecutorMock{}
+				execMock.On(reflection.GetFunctionName(execMock.ExecuteCmd), cmdName, mock.MatchedBy(func(args []string) bool {
+					return args[0] == configParam &&
+						args[1] == "set-context" &&
+						args[2] == context &&
+						args[3] == "--cluster=my-cluster" &&
+						args[4] == "--user=john" &&
+						args[5] == "--kubeconfig" &&
+						args[6] == path
 
-					Expect(actual).To(BeNil())
-					Expect(err).To(MatchError(ContainSubstring("user 'non-existent' not found")))
-				})
+				})).Return(nil)
+
+				sut := kubeconfig.NewKubeconfigWriter(path, execMock)
+
+				err := sut.SetContext(context, username, clusterName)
+
+				Expect(err).ToNot(HaveOccurred())
 			})
+		})
+	})
 
-			When("found", func() {
-				It("returns finding", func() {
-					const name = "existent"
-					sut := kubeconfig.KubeconfigRoot{
-						Users: []kubeconfig.UserEntry{{Name: name}},
-					}
+	Describe("UseContext", func() {
+		When("kubectl exec failed", func() {
+			It("returns error", func() {
+				const path = "path"
+				const context = "context"
+				execErr := errors.New("oops")
 
-					actual, err := sut.FindUser(name)
+				execMock := &cmdExecutorMock{}
+				execMock.On(reflection.GetFunctionName(execMock.ExecuteCmd), mock.Anything, mock.MatchedBy(func(args []string) bool {
+					return args[1] == "use-context"
+				})).Return(execErr)
 
-					Expect(err).ToNot(HaveOccurred())
-					Expect(actual.Name).To(Equal(name))
-				})
+				sut := kubeconfig.NewKubeconfigWriter(path, execMock)
+
+				err := sut.UseContext(context)
+
+				Expect(err).To(MatchError(execErr))
+			})
+		})
+
+		When("successful", func() {
+			It("calls kubectl correctly", func() {
+				const path = "path"
+				const cmdName = "kubectl"
+				const configParam = "config"
+				const context = "context"
+
+				execMock := &cmdExecutorMock{}
+				execMock.On(reflection.GetFunctionName(execMock.ExecuteCmd), cmdName, mock.MatchedBy(func(args []string) bool {
+					return args[0] == configParam &&
+						args[1] == "use-context" &&
+						args[2] == context &&
+						args[3] == "--kubeconfig" &&
+						args[4] == path
+
+				})).Return(nil)
+
+				sut := kubeconfig.NewKubeconfigWriter(path, execMock)
+
+				err := sut.UseContext(context)
+
+				Expect(err).ToNot(HaveOccurred())
 			})
 		})
 	})
