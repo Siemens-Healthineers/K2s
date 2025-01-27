@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2024 Siemens Healthcare AG
+// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package kubeconfig
@@ -8,6 +8,7 @@ import (
 	"log/slog"
 
 	"github.com/siemens-healthineers/k2s/internal/core/users/common"
+	bkc "github.com/siemens-healthineers/k2s/internal/k8s/kubeconfig"
 	"github.com/siemens-healthineers/k2s/internal/primitives/arrays"
 )
 
@@ -27,7 +28,7 @@ func (k *kubeconfigWriter) FilePath() string {
 	return k.path
 }
 
-func (k *kubeconfigWriter) SetCluster(clusterConfig *ClusterEntry) error {
+func (k *kubeconfigWriter) SetCluster(clusterConfig *bkc.ClusterEntry) error {
 	slog.Debug("Setting cluster in kubeconfig", "path", k.path)
 
 	// implicitly creates kubeconfig when not existing

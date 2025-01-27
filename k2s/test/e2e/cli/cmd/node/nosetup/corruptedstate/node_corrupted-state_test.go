@@ -17,8 +17,7 @@ import (
 	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
 	kos "github.com/siemens-healthineers/k2s/internal/os"
 	"github.com/siemens-healthineers/k2s/test/framework"
-
-	"github.com/siemens-healthineers/k2s/test/framework/k2s"
+	"github.com/siemens-healthineers/k2s/test/framework/k2s/cli"
 )
 
 var suite *framework.K2sTestSuite
@@ -79,7 +78,7 @@ var _ = Describe("node", Ordered, func() {
 
 	Describe("copy", Label("copy"), func() {
 		It("prints system-in-corrupted-state message and exits with non-zero", func(ctx context.Context) {
-			output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "node", "copy", "--ip-addr", "", "-s", "", "-t", "", "-u", "")
+			output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "node", "copy", "--ip-addr", "", "-s", "", "-t", "", "-u", "")
 
 			Expect(output).To(ContainSubstring("corrupted state"))
 		})
@@ -87,7 +86,7 @@ var _ = Describe("node", Ordered, func() {
 
 	Describe("exec", Label("exec"), func() {
 		It("prints system-in-corrupted-state message and exits with non-zero", func(ctx context.Context) {
-			output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "node", "exec", "-i", "", "-u", "", "-c", "")
+			output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "node", "exec", "-i", "", "-u", "", "-c", "")
 
 			Expect(output).To(ContainSubstring("corrupted state"))
 		})
@@ -95,7 +94,7 @@ var _ = Describe("node", Ordered, func() {
 
 	Describe("connect", Label("connect"), func() {
 		It("prints system-in-corrupted-state message and exits with non-zero", func(ctx context.Context) {
-			output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "node", "connect", "-i", "", "-u", "")
+			output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "node", "connect", "-i", "", "-u", "")
 
 			Expect(output).To(ContainSubstring("corrupted state"))
 		})

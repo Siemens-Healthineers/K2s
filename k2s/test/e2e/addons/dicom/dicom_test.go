@@ -12,8 +12,7 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/addons/status"
 	"github.com/siemens-healthineers/k2s/test/framework"
-
-	"github.com/siemens-healthineers/k2s/test/framework/k2s"
+	"github.com/siemens-healthineers/k2s/test/framework/k2s/cli"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -44,7 +43,7 @@ var _ = Describe("'dicom' addon", Ordered, func() {
 	Describe("status command", func() {
 		Context("default output", func() {
 			It("displays disabled message", func(ctx context.Context) {
-				output := suite.K2sCli().Run(ctx, "addons", "status", "dicom")
+				output := suite.K2sCli().RunOrFail(ctx, "addons", "status", "dicom")
 
 				Expect(output).To(SatisfyAll(
 					MatchRegexp(`ADDON STATUS`),
@@ -55,7 +54,7 @@ var _ = Describe("'dicom' addon", Ordered, func() {
 
 		Context("JSON output", func() {
 			It("displays JSON", func(ctx context.Context) {
-				output := suite.K2sCli().Run(ctx, "addons", "status", "dicom", "-o", "json")
+				output := suite.K2sCli().RunOrFail(ctx, "addons", "status", "dicom", "-o", "json")
 
 				var status status.AddonPrintStatus
 
@@ -73,7 +72,7 @@ var _ = Describe("'dicom' addon", Ordered, func() {
 	Describe("disable command", func() {
 		When("addon is already disabled", func() {
 			It("prints already-disabled message and exits with non-zero", func(ctx context.Context) {
-				output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "disable", "dicom")
+				output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "disable", "dicom")
 
 				Expect(output).To(ContainSubstring("already disabled"))
 			})
@@ -84,7 +83,7 @@ var _ = Describe("'dicom' addon", Ordered, func() {
 		When("no ingress controller is configured", func() {
 			AfterAll(func(ctx context.Context) {
 				// portForwardingSession.Kill()
-				suite.K2sCli().Run(ctx, "addons", "disable", "dicom", "-o")
+				suite.K2sCli().RunOrFail(ctx, "addons", "disable", "dicom", "-o")
 
 				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "dicom", "dicom")
 				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "mysql", "dicom")
@@ -94,7 +93,7 @@ var _ = Describe("'dicom' addon", Ordered, func() {
 			})
 
 			It("is in enabled state and pods are in running state", func(ctx context.Context) {
-				suite.K2sCli().Run(ctx, "addons", "enable", "dicom", "-o")
+				suite.K2sCli().RunOrFail(ctx, "addons", "enable", "dicom", "-o")
 
 				suite.Cluster().ExpectDeploymentToBeAvailable("dicom", "dicom")
 				suite.Cluster().ExpectDeploymentToBeAvailable("mysql", "dicom")
@@ -128,13 +127,13 @@ var _ = Describe("'dicom' addon", Ordered, func() {
 
 		When("traefik as ingress controller", func() {
 			BeforeAll(func(ctx context.Context) {
-				suite.K2sCli().Run(ctx, "addons", "enable", "ingress", "traefik", "-o")
+				suite.K2sCli().RunOrFail(ctx, "addons", "enable", "ingress", "traefik", "-o")
 				suite.Cluster().ExpectDeploymentToBeAvailable("traefik", "ingress-traefik")
 			})
 
 			AfterAll(func(ctx context.Context) {
-				suite.K2sCli().Run(ctx, "addons", "disable", "dicom", "-o")
-				suite.K2sCli().Run(ctx, "addons", "disable", "ingress", "traefik", "-o")
+				suite.K2sCli().RunOrFail(ctx, "addons", "disable", "dicom", "-o")
+				suite.K2sCli().RunOrFail(ctx, "addons", "disable", "ingress", "traefik", "-o")
 
 				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "orthanc", "dicom")
 				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "mysql", "dicom")
@@ -146,7 +145,7 @@ var _ = Describe("'dicom' addon", Ordered, func() {
 			})
 
 			It("is in enabled state and pods are in running state", func(ctx context.Context) {
-				suite.K2sCli().Run(ctx, "addons", "enable", "dicom", "-o")
+				suite.K2sCli().RunOrFail(ctx, "addons", "enable", "dicom", "-o")
 
 				suite.Cluster().ExpectDeploymentToBeAvailable("dicom", "dicom")
 				suite.Cluster().ExpectDeploymentToBeAvailable("mysql", "dicom")
@@ -181,13 +180,13 @@ var _ = Describe("'dicom' addon", Ordered, func() {
 
 		When("nginx as ingress controller", func() {
 			BeforeAll(func(ctx context.Context) {
-				suite.K2sCli().Run(ctx, "addons", "enable", "ingress", "nginx", "-o")
+				suite.K2sCli().RunOrFail(ctx, "addons", "enable", "ingress", "nginx", "-o")
 				suite.Cluster().ExpectDeploymentToBeAvailable("ingress-nginx-controller", "ingress-nginx")
 			})
 
 			AfterAll(func(ctx context.Context) {
-				suite.K2sCli().Run(ctx, "addons", "disable", "dicom", "-o")
-				suite.K2sCli().Run(ctx, "addons", "disable", "ingress", "nginx", "-o")
+				suite.K2sCli().RunOrFail(ctx, "addons", "disable", "dicom", "-o")
+				suite.K2sCli().RunOrFail(ctx, "addons", "disable", "ingress", "nginx", "-o")
 
 				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "orthanc", "dicom")
 				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "mysql", "dicom")
@@ -199,7 +198,7 @@ var _ = Describe("'dicom' addon", Ordered, func() {
 			})
 
 			It("is in enabled state and pods are in running state", func(ctx context.Context) {
-				suite.K2sCli().Run(ctx, "addons", "enable", "dicom", "-o")
+				suite.K2sCli().RunOrFail(ctx, "addons", "enable", "dicom", "-o")
 
 				suite.Cluster().ExpectDeploymentToBeAvailable("dicom", "dicom")
 				suite.Cluster().ExpectDeploymentToBeAvailable("mysql", "dicom")
@@ -235,13 +234,13 @@ var _ = Describe("'dicom' addon", Ordered, func() {
 })
 
 func expectAddonToBeAlreadyEnabled(ctx context.Context) {
-	output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "enable", "dicom")
+	output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "enable", "dicom")
 
 	Expect(output).To(ContainSubstring("already enabled"))
 }
 
 func expectStatusToBePrinted(ctx context.Context) {
-	output := suite.K2sCli().Run(ctx, "addons", "status", "dicom")
+	output := suite.K2sCli().RunOrFail(ctx, "addons", "status", "dicom")
 
 	Expect(output).To(SatisfyAll(
 		MatchRegexp("ADDON STATUS"),
@@ -250,7 +249,7 @@ func expectStatusToBePrinted(ctx context.Context) {
 		MatchRegexp("The mysql Deployment is working"),
 	))
 
-	output = suite.K2sCli().Run(ctx, "addons", "status", "dicom", "-o", "json")
+	output = suite.K2sCli().RunOrFail(ctx, "addons", "status", "dicom", "-o", "json")
 
 	var status status.AddonPrintStatus
 

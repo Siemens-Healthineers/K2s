@@ -12,6 +12,7 @@ import (
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/addons/status"
 	"github.com/siemens-healthineers/k2s/test/framework"
 
+	"github.com/siemens-healthineers/k2s/test/framework/k2s/cli"
 	"github.com/siemens-healthineers/k2s/test/framework/os"
 
 	"github.com/siemens-healthineers/k2s/test/framework/k2s"
@@ -81,7 +82,7 @@ var _ = AfterSuite(func(ctx context.Context) {
 	if enabled {
 		GinkgoWriter.Println("Addon is still enabled, disabling it..")
 
-		output := suite.K2sCli().Run(ctx, "addons", "disable", addonName, implementationName, "-f", "-o")
+		output := suite.K2sCli().RunOrFail(ctx, "addons", "disable", addonName, implementationName, "-f", "-o")
 
 		GinkgoWriter.Println(output)
 	} else {
@@ -95,7 +96,7 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 	Describe("status command", func() {
 		Context("default output", func() {
 			It("displays disabled message", func(ctx context.Context) {
-				output := suite.K2sCli().Run(ctx, "addons", "status", addonName, implementationName)
+				output := suite.K2sCli().RunOrFail(ctx, "addons", "status", addonName, implementationName)
 
 				Expect(output).To(SatisfyAll(
 					MatchRegexp(`ADDON STATUS`),
@@ -106,7 +107,7 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 
 		Context("JSON output", func() {
 			It("displays JSON", func(ctx context.Context) {
-				output := suite.K2sCli().Run(ctx, "addons", "status", addonName, implementationName, "-o", "json")
+				output := suite.K2sCli().RunOrFail(ctx, "addons", "status", addonName, implementationName, "-o", "json")
 
 				var status status.AddonPrintStatus
 
@@ -124,7 +125,7 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 
 	Describe("disable command", func() {
 		It("displays already-disabled message and exits with non-zero", func(ctx context.Context) {
-			output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "disable", addonName, implementationName, "-f", "-o")
+			output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "disable", addonName, implementationName, "-f", "-o")
 
 			Expect(output).To(SatisfyAll(
 				ContainSubstring("disable"),
@@ -137,13 +138,13 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 	Describe("enable command", func() {
 		When("SMB host type is Windows", Ordered, func() {
 			It("enables the addon", func(ctx context.Context) {
-				output := suite.K2sCli().Run(ctx, "addons", "enable", addonName, implementationName, "-o")
+				output := suite.K2sCli().RunOrFail(ctx, "addons", "enable", addonName, implementationName, "-o")
 
 				expectEnableMessage(output, "windows")
 			})
 
 			It("prints already-enabled message on enable command and exits with non-zero", func(ctx context.Context) {
-				output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "enable", addonName, implementationName)
+				output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "enable", addonName, implementationName)
 
 				Expect(output).To(ContainSubstring("already enabled"))
 			})
@@ -173,7 +174,7 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 			})
 
 			It("restarts the cluster", func(ctx context.Context) {
-				suite.K2sCli().Run(ctx, "start")
+				suite.K2sCli().RunOrFail(ctx, "start")
 			})
 
 			It("still runs Linux-based workloads after cluster restart", func(ctx context.Context) {
@@ -217,13 +218,13 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 	Describe("enable command", func() {
 		When("SMB host type is linux", Ordered, func() {
 			It("enables the addon", func(ctx context.Context) {
-				output := suite.K2sCli().Run(ctx, "addons", "enable", addonName, implementationName, "-o", "-t", "linux")
+				output := suite.K2sCli().RunOrFail(ctx, "addons", "enable", addonName, implementationName, "-o", "-t", "linux")
 
 				expectEnableMessage(output, "linux")
 			})
 
 			It("prints already-enabled message on enable command and exits with non-zero", func(ctx context.Context) {
-				output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "enable", addonName, implementationName)
+				output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "enable", addonName, implementationName)
 
 				Expect(output).To(ContainSubstring("already enabled"))
 			})
@@ -253,7 +254,7 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 			})
 
 			It("restarts the cluster", func(ctx context.Context) {
-				suite.K2sCli().Run(ctx, "start")
+				suite.K2sCli().RunOrFail(ctx, "start")
 			})
 
 			It("still runs Linux-based workloads after cluster restart", func(ctx context.Context) {
@@ -322,7 +323,7 @@ func expectWindowsWorkloadToRun(ctx context.Context) {
 }
 
 func disableAddon(ctx context.Context) {
-	output := suite.K2sCli().Run(ctx, "addons", "disable", addonName, implementationName, "-f", "-o")
+	output := suite.K2sCli().RunOrFail(ctx, "addons", "disable", addonName, implementationName, "-f", "-o")
 
 	Expect(output).To(SatisfyAll(
 		ContainSubstring("disable"),
@@ -332,7 +333,7 @@ func disableAddon(ctx context.Context) {
 }
 
 func expectStatusToBePrinted(smbHostType string, ctx context.Context) {
-	output := suite.K2sCli().Run(ctx, "addons", "status", addonName, implementationName)
+	output := suite.K2sCli().RunOrFail(ctx, "addons", "status", addonName, implementationName)
 
 	Expect(output).To(SatisfyAll(
 		MatchRegexp("ADDON STATUS"),
@@ -342,7 +343,7 @@ func expectStatusToBePrinted(smbHostType string, ctx context.Context) {
 		MatchRegexp("CSI Pods are running"),
 	))
 
-	output = suite.K2sCli().Run(ctx, "addons", "status", addonName, implementationName, "-o", "json")
+	output = suite.K2sCli().RunOrFail(ctx, "addons", "status", addonName, implementationName, "-o", "json")
 
 	var status status.AddonPrintStatus
 

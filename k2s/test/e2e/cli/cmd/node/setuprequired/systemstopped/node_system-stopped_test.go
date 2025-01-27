@@ -13,11 +13,12 @@ import (
 
 	"github.com/siemens-healthineers/k2s/test/framework"
 	"github.com/siemens-healthineers/k2s/test/framework/k2s"
+	"github.com/siemens-healthineers/k2s/test/framework/k2s/cli"
 )
 
 var suite *framework.K2sTestSuite
 
-func TestCopy(t *testing.T) {
+func TestNode(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "node Acceptance Tests", Label("cli", "node", "acceptance", "setup-required", "system-stopped"))
 }
@@ -47,7 +48,7 @@ var _ = Describe("node", func() {
 		})
 
 		It("runs into a defined timeout", func(ctx context.Context) {
-			output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "node", "copy", "--ip-addr", ipAddress, "-s", source, "-t", "", "-o", "--timeout", "1s", "-u", "")
+			output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "node", "copy", "--ip-addr", ipAddress, "-s", source, "-t", "", "-o", "--timeout", "1s", "-u", "")
 
 			Expect(output).To(SatisfyAll(
 				MatchRegexp("ERROR"),
@@ -58,7 +59,7 @@ var _ = Describe("node", func() {
 
 	Describe("exec", Label("exec"), func() {
 		It("runs into a defined timeout", func(ctx context.Context) {
-			output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "node", "exec", "-i", ipAddress, "-o", "--timeout", "1s", "-u", "", "-c", "")
+			output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "node", "exec", "-i", ipAddress, "-o", "--timeout", "1s", "-u", "", "-c", "")
 
 			Expect(output).To(SatisfyAll(
 				MatchRegexp("ERROR"),
@@ -69,7 +70,7 @@ var _ = Describe("node", func() {
 
 	Describe("connect", Label("connect"), func() {
 		It("runs into a defined timeout", func(ctx context.Context) {
-			output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "node", "connect", "-i", ipAddress, "-o", "--timeout", "1s", "-u", "test")
+			output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "node", "connect", "-i", ipAddress, "-o", "--timeout", "1s", "-u", "test")
 
 			Expect(output).To(SatisfyAll(
 				MatchRegexp("ERROR"),
