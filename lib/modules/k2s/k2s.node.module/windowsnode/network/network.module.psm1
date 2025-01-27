@@ -141,6 +141,22 @@ function Set-InterfacePrivate {
         [string] $InterfaceAlias
     )
 
+    # check if the interface is already available as a connection profile
+    $connectionProfile = Get-NetConnectionProfile -InterfaceAlias $InterfaceAlias -ErrorAction SilentlyContinue
+    # check if the connection profile is available
+    if (-not $connectionProfile) {
+        Write-Log "$InterfaceAlias has no connection profile !"
+        return
+    }
+
+    # check if the interface is already set to private
+    if ($connectionProfile) {
+        if ($connectionProfile.NetworkCategory -eq 'Private') {
+            Write-Log "$InterfaceAlias is already set to private"
+            return
+        }
+    }    
+
     $iteration = 60
     while ($iteration -gt 0) {
         $iteration--
@@ -155,7 +171,7 @@ function Set-InterfacePrivate {
 
         Write-Log "$InterfaceAlias not set to private yet..."
 
-        if($iteration -eq 30) {
+        if ($iteration -eq 30) {
             Write-Log "Exhausted 30 attempts to set $InterfaceAlias to private. This could be due to issues in NlaSvc. Triggering its restart...."
             Restart-NlaSvc
         }
@@ -373,16 +389,16 @@ function Add-VfpRoute {
         $Priority = $maxPriority + 1
     }
 
-    Write-Log "Adding new VFP route:"
+    Write-Log 'Adding new VFP route:'
     Write-Log "  Name: $Name"
     Write-Log "  Subnet: $Subnet"
     Write-Log "  Gateway: $Gateway"
     Write-Log "  Priority: $Priority"
 
     $newRoute = @{
-        name = $Name
-        subnet = $Subnet
-        gateway = $Gateway
+        name     = $Name
+        subnet   = $Subnet
+        gateway  = $Gateway
         priority = "$Priority"
     }
     $json.routes += $newRoute
@@ -409,13 +425,26 @@ function Remove-VfpRoute {
     Write-Log "VFP Route '$Name' removed successfully."
 }
 
+function Get-VirtualSwitchName {
+    param (
+        [string]$Name
+    )
+
+    $interfaces = Get-NetIPInterface | Where-Object { $_.InterfaceAlias -like "vEthernet ($Name*" }
+    if ($interfaces.Count -eq 0) {
+        throw "No interface found with name '$Name'"
+    }
+    # if there are multiple interfaces with the same name, we need to find the one with the highest index
+    $interface = $interfaces | Sort-Object -Property InterfaceIndex | Select-Object -First 1
+    Write-Log "Found interface '$($interface.InterfaceAlias)' with index $($interface.InterfaceIndex)"
+    return $interface.InterfaceAlias
+}
+
 Export-ModuleMember -Function Add-Route, Remove-Route, Update-RoutePriority
-
-
 Export-ModuleMember Set-IndexForDefaultSwitch, Get-ConfiguredClusterCIDRHost,
 New-ExternalSwitch, Remove-ExternalSwitch,
 Set-InterfacePrivate,
 Get-L2BridgeSwitchName,
 Set-IPAdressAndDnsClientServerAddress, Set-WSLSwitch,
 Add-VfpRulesToWindowsNode, Remove-VfpRulesFromWindowsNode, Get-ConfiguredClusterCIDRNextHop,
-Add-VfpRoute, Remove-VfpRoute
+Add-VfpRoute, Remove-VfpRoute, Get-VirtualSwitchName
