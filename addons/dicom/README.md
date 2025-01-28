@@ -78,6 +78,10 @@ k2s addons disable dicom
 
 _Note:_ The above command will only disable dicom addon. If other addons were enabled while enabling the dicom addon, they will not be disabled.
 
+## License Info
+
+By activating this dicom addon you will download at runtime some Orthanc components. Even if all is open source, please consider the following license terms for Orthanc components: [Orthanc License Terms](https://orthanc.uclouvain.be/book/faq/licensing.html) 
+ 
 ## Further Reading
 
 Internally used open source component:

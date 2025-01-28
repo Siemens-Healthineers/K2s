@@ -75,6 +75,8 @@ data:
     redis_connection_url="redis://redis-service:6379"
     pass_authorization_header=true
     set_authorization_header=true
+    # The next property is needed to authenticate the bearer token 
+    # see https://medium.com/in-the-weeds/service-to-service-authentication-on-kubernetes-94dcb8216cdc
     skip_jwt_bearer_tokens=true
 ---
 apiVersion: apps/v1
