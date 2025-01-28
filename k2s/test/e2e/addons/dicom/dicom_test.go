@@ -72,7 +72,7 @@ var _ = Describe("'dicom' addon", Ordered, func() {
 	Describe("disable command", func() {
 		When("addon is already disabled", func() {
 			It("prints already-disabled message and exits with non-zero", func(ctx context.Context) {
-				output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "disable", "dicom")
+				output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "disable", "dicom", "-f")
 
 				Expect(output).To(ContainSubstring("already disabled"))
 			})
@@ -83,7 +83,7 @@ var _ = Describe("'dicom' addon", Ordered, func() {
 		When("no ingress controller is configured", func() {
 			AfterAll(func(ctx context.Context) {
 				// portForwardingSession.Kill()
-				suite.K2sCli().RunOrFail(ctx, "addons", "disable", "dicom", "-o")
+				suite.K2sCli().RunOrFail(ctx, "addons", "disable", "dicom", "-o", "-f")
 
 				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "dicom", "dicom")
 				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "mysql", "dicom")
@@ -132,7 +132,7 @@ var _ = Describe("'dicom' addon", Ordered, func() {
 			})
 
 			AfterAll(func(ctx context.Context) {
-				suite.K2sCli().RunOrFail(ctx, "addons", "disable", "dicom", "-o")
+				suite.K2sCli().RunOrFail(ctx, "addons", "disable", "dicom", "-o", "-f")
 				suite.K2sCli().RunOrFail(ctx, "addons", "disable", "ingress", "traefik", "-o")
 
 				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "orthanc", "dicom")
@@ -185,7 +185,7 @@ var _ = Describe("'dicom' addon", Ordered, func() {
 			})
 
 			AfterAll(func(ctx context.Context) {
-				suite.K2sCli().RunOrFail(ctx, "addons", "disable", "dicom", "-o")
+				suite.K2sCli().RunOrFail(ctx, "addons", "disable", "dicom", "-o", "-f")
 				suite.K2sCli().RunOrFail(ctx, "addons", "disable", "ingress", "nginx", "-o")
 
 				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "orthanc", "dicom")

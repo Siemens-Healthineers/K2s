@@ -12,7 +12,7 @@ metadata:
 spec:
   implementations:
     - name: dicom
-      description: DICOM server for medical imaging data running in Kubernetes
+      description: DICOM client/server for medical imaging data running in Kubernetes
       commands:
         enable:
           cli:
@@ -27,12 +27,12 @@ spec:
                     - ingress-nginx
                     - traefik
             examples:
-              - cmd: smallk8s addons enable dicom
-                comment: Enable dicom in smallk8s
-              - cmd: smallk8s addons enable dicom --ingress nginx
-                comment: Enable dicom in smallk8s with nginx ingres
-              - cmd: smallk8s addons enable dicom --ingress traefik
-                comment: Enable dicom in smallk8s with traefik ingres
+              - cmd: k2s addons enable dicom
+                comment: Enable dicom in k2s
+              - cmd: k2s addons enable dicom --ingress nginx
+                comment: Enable dicom in k2s with nginx ingres
+              - cmd: k2s addons enable dicom --ingress traefik
+                comment: Enable dicom in k2s with traefik ingres
           script:
             subPath: Enable.ps1
             parameterMappings:
@@ -40,8 +40,18 @@ spec:
                 scriptParameterName: Ingress
         disable:
           cli:
+            flags:
+              - name: force
+                shorthand: f
+                default: false
+                description: Disable the addon and DELETE ALL DATA without user confirmation
             examples:
-              - cmd: smallk8s addons disable dicom
-                comment: Disable addon dicom in smallk8s
+              - cmd: k2s addons disable dicom
+                comment: Disable addon dicom in k2s
+              - cmd: k2s addons disable dicom -f
+                comment: Removes dicom addon without prompting for confirmation
           script:
             subPath: Disable.ps1
+            parameterMappings:
+              - cliFlagName: force
+                scriptParameterName: Force
