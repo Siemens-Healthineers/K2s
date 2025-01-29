@@ -260,6 +260,8 @@ function Join-LinuxNode {
         $joinCommand = "sudo kubeadm join $apiServerEndpoint" + ' --node-name ' + $NodeName + ' --ignore-preflight-errors IsPrivilegedUser' + " --config `"$target`""
         Write-Log "Created join command: $joinCommand"
 
+        (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo systemctl start crio" -UserName $NodeUserName -IpAddress $NodeIpAddress).Output | Write-Log
+        
         $job = Invoke-Expression "Start-Job -ScriptBlock `${Function:Wait-ForNodesReady} -ArgumentList $NodeName"
         Write-Log "Invoke join command in node '$NodeName'"
         (Invoke-CmdOnVmViaSSHKey -CmdToExecute $joinCommand -UserName $NodeUserName -IpAddress $NodeIpAddress).Output | Write-Log

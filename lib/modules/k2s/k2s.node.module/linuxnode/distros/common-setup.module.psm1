@@ -88,6 +88,14 @@ Function Set-UpComputerBeforeProvisioning {
             &$executeRemoteCommand -Command "echo Acquire::http::Proxy \\\""$Proxy\\\""\; | sudo tee -a /etc/apt/apt.conf.d/proxy.conf"
         }
     }
+    Write-Log "Retrieve hostname"
+    [string]$hostname = (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute 'hostname' -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output
+    if ([string]::IsNullOrWhiteSpace($hostname) -eq $true) {
+        throw "The hostname of the computer with IP '$IpAddress' could not be retrieved."
+    }
+    
+    Write-Log "Add hostname '$hostname' to /etc/hosts"
+    (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "sudo sed -i 's/\tlocalhost/\tlocalhost $hostname/g' /etc/hosts" -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output
 }
 
 Function Set-UpComputerAfterProvisioning {
@@ -910,6 +918,10 @@ function Install-DnsServer {
     (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $Command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output | Write-Log
     }
 
+    Write-Log 'Remove existing DNS server'
+    &$executeRemoteCommand 'sudo systemctl disable systemd-resolved' 
+    &$executeRemoteCommand 'sudo systemctl stop systemd-resolved' 
+
     Write-Log 'Install custom DNS server'
     &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get install dnsutils --yes'
     &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get install dnsmasq --yes'
@@ -1167,6 +1179,8 @@ Function Set-UpMasterNode {
 
     Write-Log "Start setting up computer '$IpAddress' as master node"
 
+    &$executeRemoteCommand "sudo systemctl start crio" -IgnoreErrors
+    
     &$executeRemoteCommand "sudo kubeadm init --kubernetes-version $K8sVersion --apiserver-advertise-address $IpAddress --pod-network-cidr=$ClusterCIDR --service-cidr=$ClusterCIDR_Services" -IgnoreErrors
 
     Write-Log 'Copy K8s config file to user profile'
