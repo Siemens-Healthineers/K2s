@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2025 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package setupinfo
@@ -45,7 +45,7 @@ func ReadConfig(configDir string) (*Config, error) {
 	config, err := json.FromFile[Config](configPath)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			slog.Info("Setup config file not found, assuming setup is not installed", "err-msg", err, "path", configPath)
+			slog.Debug("Setup config file not found, assuming setup is not installed", "err-msg", err, "path", configPath)
 
 			return nil, ErrSystemNotInstalled
 		}
@@ -53,6 +53,7 @@ func ReadConfig(configDir string) (*Config, error) {
 	}
 
 	if config.Corrupted {
+		// <config> instead of <nil> so that e.g. 'k2s uninstall' cmd can use it's content
 		return config, ErrSystemInCorruptedState
 	}
 

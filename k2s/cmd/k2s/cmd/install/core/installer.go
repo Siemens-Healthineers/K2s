@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2025 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package core
@@ -49,9 +49,14 @@ func (i *Installer) Install(
 	cmdSession cc.CmdSession) error {
 	context := ccmd.Context().Value(cc.ContextKeyCmdContext).(*cc.CmdContext)
 	configDir := context.Config().Host().K2sConfigDir()
+
 	setupConfig, err := i.LoadConfigFunc(configDir)
+
 	if errors.Is(err, setupinfo.ErrSystemInCorruptedState) {
 		return cc.CreateSystemInCorruptedStateCmdFailure()
+	}
+	if err != nil && !errors.Is(err, setupinfo.ErrSystemNotInstalled) {
+		return err
 	}
 	if err == nil && setupConfig.SetupName != "" {
 		return &cc.CmdFailure{
