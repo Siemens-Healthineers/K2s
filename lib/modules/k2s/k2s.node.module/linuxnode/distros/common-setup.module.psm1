@@ -1041,27 +1041,27 @@ Function Add-SupportForWSL {
 
     # WSL2 config
     Write-Log 'Configure WSL2'
-    &$executeRemoteCommand 'sudo touch /etc/wsl.conf'
-    &$executeRemoteCommand 'echo [automount] | sudo tee -a /etc/wsl.conf'
-    &$executeRemoteCommand 'echo enabled = false | sudo tee -a /etc/wsl.conf'
-    &$executeRemoteCommand "echo -e 'mountFsTab = false\n' | sudo tee -a /etc/wsl.conf"
+    &$executeRemoteCommand "sudo touch $wslConfigurationFilePath"
+    &$executeRemoteCommand "echo [automount] | sudo tee -a $wslConfigurationFilePath"
+    &$executeRemoteCommand "echo enabled = false | sudo tee -a $wslConfigurationFilePath"
+    &$executeRemoteCommand "echo -e 'mountFsTab = false\n' | sudo tee -a $wslConfigurationFilePath"
 
-    &$executeRemoteCommand 'echo [interop] | sudo tee -a /etc/wsl.conf'
-    &$executeRemoteCommand 'echo enabled = false | sudo tee -a /etc/wsl.conf'
-    &$executeRemoteCommand "echo -e 'appendWindowsPath = false\n' | sudo tee -a /etc/wsl.conf"
+    &$executeRemoteCommand "echo [interop] | sudo tee -a $wslConfigurationFilePath"
+    &$executeRemoteCommand "echo enabled = false | sudo tee -a $wslConfigurationFilePath"
+    &$executeRemoteCommand "echo -e 'appendWindowsPath = false\n' | sudo tee -a $wslConfigurationFilePath"
 
-    &$executeRemoteCommand 'echo [user] | sudo tee -a /etc/wsl.conf'
-    &$executeRemoteCommand "echo -e 'default = __USERNAME__\n' | sudo tee -a /etc/wsl.conf"
+    &$executeRemoteCommand "echo [user] | sudo tee -a $wslConfigurationFilePath"
+    &$executeRemoteCommand "echo -e 'default = __USERNAME__\n' | sudo tee -a $wslConfigurationFilePath"
 
-    &$executeRemoteCommand 'echo [network] | sudo tee -a /etc/wsl.conf'
-    &$executeRemoteCommand 'echo generateHosts = false | sudo tee -a /etc/wsl.conf'
-    &$executeRemoteCommand 'echo generateResolvConf = false | sudo tee -a /etc/wsl.conf'
-    &$executeRemoteCommand 'echo hostname = __HOSTNAME__ | sudo tee -a /etc/wsl.conf'
-    &$executeRemoteCommand 'echo | sudo tee -a /etc/wsl.conf'
+    &$executeRemoteCommand "echo [network] | sudo tee -a $wslConfigurationFilePath"
+    &$executeRemoteCommand "echo generateHosts = false | sudo tee -a $wslConfigurationFilePath"
+    &$executeRemoteCommand "echo generateResolvConf = false | sudo tee -a $wslConfigurationFilePath"
+    &$executeRemoteCommand "echo hostname = __HOSTNAME__ | sudo tee -a $wslConfigurationFilePath"
+    &$executeRemoteCommand "echo | sudo tee -a $wslConfigurationFilePath"
 
-    &$executeRemoteCommand 'echo [boot] | sudo tee -a /etc/wsl.conf'
-    &$executeRemoteCommand 'echo systemd = true | sudo tee -a /etc/wsl.conf'
-    &$executeRemoteCommand "echo 'command = ""sudo ifconfig __INTERFACE_NAME__ __IP_ADDRESS__ && sudo ifconfig __INTERFACE_NAME__ netmask __NETWORK_MASK__"" && sudo route add default gw __GATEWAY_IP_ADDRESS__' | sudo tee -a /etc/wsl.conf"
+    &$executeRemoteCommand "echo [boot] | sudo tee -a $wslConfigurationFilePath"
+    &$executeRemoteCommand "echo systemd = true | sudo tee -a $wslConfigurationFilePath"
+    &$executeRemoteCommand "echo 'command = ""sudo ifconfig __INTERFACE_NAME__ __IP_ADDRESS__ && sudo ifconfig __INTERFACE_NAME__ netmask __NETWORK_MASK__"" && sudo route add default gw __GATEWAY_IP_ADDRESS__' | sudo tee -a $wslConfigurationFilePath"
 }
 
 function Edit-SupportForWSL {
