@@ -56,7 +56,7 @@ function Enable-MissingFeature {
 function Enable-MissingWindowsFeatures($wsl) {
     $restartRequired = $false
 
-    $isServerOS = (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion').ProductName.Contains("Server")
+    $isServerOS = (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion').ProductName.Contains('Server')
 
     $features = @('Microsoft-Hyper-V', 'Microsoft-Hyper-V-Management-PowerShell', 'Containers', 'VirtualMachinePlatform')
 
@@ -116,6 +116,9 @@ function Set-WSL {
 swap=0
 memory=$MasterVMMemory
 processors=$MasterVMProcessorCount
+localhostForwarding=false
+dnsProxy=false
+dnsTunneling=false
 "@
     $wslConfig | Out-File -FilePath $wslConfigPath
 }
@@ -123,8 +126,7 @@ processors=$MasterVMProcessorCount
 
 function Test-WindowsPrerequisites(
     [parameter(Mandatory = $false, HelpMessage = 'Use WSL2 for hosting control plane VM (Linux)')]
-    [switch] $WSL = $false)
-{
+    [switch] $WSL = $false) {
     Add-K2sToDefenderExclusion
     Stop-InstallIfDockerDesktopIsRunning
 
@@ -250,14 +252,14 @@ function Stop-InstallationIfRequiredCurlVersionNotInstalled {
         throw $errorMessage
     }
 
-    $minimumRequiredVersion = [Version]"7.71.0"
+    $minimumRequiredVersion = [Version]'7.71.0'
 
     if ($actualVersion -lt $minimumRequiredVersion) {
         $errorMessage = ("[PREREQ-FAILED] The installed version of 'curl' ($actualVersionAsString) is not at least the required one ($($minimumRequiredVersion.ToString())).",
-        "`n",
-        "Call 'curl.exe --version' to check the installed version.",
-        "`n",
-        "Update 'curl' and add its installation location to the 'PATH' environment variable.")
+            "`n",
+            "Call 'curl.exe --version' to check the installed version.",
+            "`n",
+            "Update 'curl' and add its installation location to the 'PATH' environment variable.")
         Write-Log $errorMessage
         throw $errorMessage
     }
@@ -265,7 +267,7 @@ function Stop-InstallationIfRequiredCurlVersionNotInstalled {
 
 function Write-WarningIfRequiredSshVersionNotInstalled {
     try {
-        $sshPath = (Get-Command "ssh.exe").Path
+        $sshPath = (Get-Command 'ssh.exe').Path
         $majorVersion = (Get-Item $sshPath).VersionInfo.FileVersionRaw.Major
         $fileVersion = (Get-Item $sshPath).VersionInfo.FileVersion
     }
@@ -277,8 +279,8 @@ function Write-WarningIfRequiredSshVersionNotInstalled {
 
     if ($majorVersion -lt 8) {
         $warnMessage = "[PREREQ-WARNING] The installed version of 'ssh' ($fileVersion) is not at least the required one (major version 8). " `
-        + "Call 'ssh.exe -V' to check the installed version. " `
-        + "Update 'ssh' and add its installation location to the 'PATH' environment variable to ensure successful cluster installation."
+            + "Call 'ssh.exe -V' to check the installed version. " `
+            + "Update 'ssh' and add its installation location to the 'PATH' environment variable to ensure successful cluster installation."
 
         Write-Log $warnMessage
     }
