@@ -5,12 +5,14 @@ package setuprequired
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
 	"github.com/siemens-healthineers/k2s/test/framework"
 	"github.com/siemens-healthineers/k2s/test/framework/dsl"
 )
@@ -45,17 +47,35 @@ var _ = Describe("image", func() {
 	})
 
 	Describe("rm", Label("rm", "invasive"), func() {
-		When("wrong K8s context is in use", func() {
-			BeforeEach(func(ctx context.Context) {
-				k2s.SetWrongK8sContext(ctx)
-
-				DeferCleanup(k2s.ResetK8sContext)
-			})
-
+		When("functionality is not supported in setup type", func() {
 			It("fails", func(ctx context.Context) {
+				if suite.SetupInfo().SetupConfig.SetupName != setupinfo.SetupNameMultiVMK8s {
+					Skip(fmt.Sprintf("setup type not %s", setupinfo.SetupNameMultiVMK8s))
+				}
+
 				result := k2s.RemoveImage(ctx)
 
-				result.VerifyWrongK8sContextFailure()
+				result.VerifyFunctionalityNotAvailableFailure()
+			})
+		})
+
+		When("functionality is supported in setup type", func() {
+			When("wrong K8s context is in use", func() {
+				BeforeEach(func(ctx context.Context) {
+					if suite.SetupInfo().SetupConfig.SetupName == setupinfo.SetupNameMultiVMK8s {
+						Skip(fmt.Sprintf("setup type %s", setupinfo.SetupNameMultiVMK8s))
+					}
+
+					k2s.SetWrongK8sContext(ctx)
+
+					DeferCleanup(k2s.ResetK8sContext)
+				})
+
+				It("fails", func(ctx context.Context) {
+					result := k2s.RemoveImage(ctx)
+
+					result.VerifyWrongK8sContextFailure()
+				})
 			})
 		})
 	})

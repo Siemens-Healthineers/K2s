@@ -1041,27 +1041,27 @@ Function Add-SupportForWSL {
 
     # WSL2 config
     Write-Log 'Configure WSL2'
-    &$executeRemoteCommand 'sudo touch /etc/wsl.conf'
-    &$executeRemoteCommand 'echo [automount] | sudo tee -a /etc/wsl.conf'
-    &$executeRemoteCommand 'echo enabled = false | sudo tee -a /etc/wsl.conf'
-    &$executeRemoteCommand "echo -e 'mountFsTab = false\n' | sudo tee -a /etc/wsl.conf"
+    &$executeRemoteCommand "sudo touch $wslConfigurationFilePath"
+    &$executeRemoteCommand "echo [automount] | sudo tee -a $wslConfigurationFilePath"
+    &$executeRemoteCommand "echo enabled = false | sudo tee -a $wslConfigurationFilePath"
+    &$executeRemoteCommand "echo -e 'mountFsTab = false\n' | sudo tee -a $wslConfigurationFilePath"
 
-    &$executeRemoteCommand 'echo [interop] | sudo tee -a /etc/wsl.conf'
-    &$executeRemoteCommand 'echo enabled = false | sudo tee -a /etc/wsl.conf'
-    &$executeRemoteCommand "echo -e 'appendWindowsPath = false\n' | sudo tee -a /etc/wsl.conf"
+    &$executeRemoteCommand "echo [interop] | sudo tee -a $wslConfigurationFilePath"
+    &$executeRemoteCommand "echo enabled = false | sudo tee -a $wslConfigurationFilePath"
+    &$executeRemoteCommand "echo -e 'appendWindowsPath = false\n' | sudo tee -a $wslConfigurationFilePath"
 
-    &$executeRemoteCommand 'echo [user] | sudo tee -a /etc/wsl.conf'
-    &$executeRemoteCommand "echo -e 'default = __USERNAME__\n' | sudo tee -a /etc/wsl.conf"
+    &$executeRemoteCommand "echo [user] | sudo tee -a $wslConfigurationFilePath"
+    &$executeRemoteCommand "echo -e 'default = __USERNAME__\n' | sudo tee -a $wslConfigurationFilePath"
 
-    &$executeRemoteCommand 'echo [network] | sudo tee -a /etc/wsl.conf'
-    &$executeRemoteCommand 'echo generateHosts = false | sudo tee -a /etc/wsl.conf'
-    &$executeRemoteCommand 'echo generateResolvConf = false | sudo tee -a /etc/wsl.conf'
-    &$executeRemoteCommand 'echo hostname = __HOSTNAME__ | sudo tee -a /etc/wsl.conf'
-    &$executeRemoteCommand 'echo | sudo tee -a /etc/wsl.conf'
+    &$executeRemoteCommand "echo [network] | sudo tee -a $wslConfigurationFilePath"
+    &$executeRemoteCommand "echo generateHosts = false | sudo tee -a $wslConfigurationFilePath"
+    &$executeRemoteCommand "echo generateResolvConf = false | sudo tee -a $wslConfigurationFilePath"
+    &$executeRemoteCommand "echo hostname = __HOSTNAME__ | sudo tee -a $wslConfigurationFilePath"
+    &$executeRemoteCommand "echo | sudo tee -a $wslConfigurationFilePath"
 
-    &$executeRemoteCommand 'echo [boot] | sudo tee -a /etc/wsl.conf'
-    &$executeRemoteCommand 'echo systemd = true | sudo tee -a /etc/wsl.conf'
-    &$executeRemoteCommand "echo 'command = ""sudo ifconfig __INTERFACE_NAME__ __IP_ADDRESS__ && sudo ifconfig __INTERFACE_NAME__ netmask __NETWORK_MASK__"" && sudo route add default gw __GATEWAY_IP_ADDRESS__' | sudo tee -a /etc/wsl.conf"
+    &$executeRemoteCommand "echo [boot] | sudo tee -a $wslConfigurationFilePath"
+    &$executeRemoteCommand "echo systemd = true | sudo tee -a $wslConfigurationFilePath"
+    &$executeRemoteCommand "echo 'command = ""sudo ifconfig __INTERFACE_NAME__ __IP_ADDRESS__ && sudo ifconfig __INTERFACE_NAME__ netmask __NETWORK_MASK__"" && sudo route add default gw __GATEWAY_IP_ADDRESS__' | sudo tee -a $wslConfigurationFilePath"
 }
 
 function Edit-SupportForWSL {
@@ -1215,7 +1215,7 @@ Function Set-UpMasterNode {
     &$executeRemoteCommand "kubectl get deployment coredns -n kube-system -o yaml | sed '/^\s*\- mountPath: \/etc\/coredns/i\        - mountPath: /etc/kubernetes/pki/etcd-ca\n          name: etcd-ca-cert\n        - mountPath: /etc/kubernetes/pki/etcd-client\n          name: etcd-client-cert' | kubectl apply -f -" -Retries 3
 
     # exchange securitycontext for coredns to allow it to run on port 53
-    &$executeRemoteCommand "kubectl get deployment coredns -n kube-system -o yaml | sed '/^\s*securityContext: {}/c\      securityContext:\n        sysctls:\n        - name: net.ipv4.ip_unprivileged_port_start:\n           value: 53' | kubectl apply -f -" -IgnoreErrors
+    &$executeRemoteCommand "kubectl get deployment coredns -n kube-system -o yaml | sed '/^\s*securityContext: {}/c\      securityContext:\n        sysctls:\n        - name: net.ipv4.ip_unprivileged_port_start\n          value: `"`"53`"`"' | kubectl apply -f -" 
 
     # change core-dns to have predefined host mapping for DNS resolution
     &$executeRemoteCommand "kubectl get configmap coredns -n kube-system -o yaml | sed '/^\s*cache 30/i\        hosts {\n         $IpAddress k2s.cluster.local\n         fallthrough\n        }' | kubectl apply -f -" -IgnoreErrors
