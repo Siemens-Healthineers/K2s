@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2025 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package powershell
@@ -148,7 +148,7 @@ func buildCmdString(psScriptPath string, targetType string, additionalParams ...
 
 func buildCmd(psVersion PowerShellVersion, cmdString string) (string, []string, error) {
 	if psVersion == PowerShellV7 {
-		slog.Info("Switching to PowerShell 7 command syntax")
+		slog.Debug("Switching to PowerShell 7 command syntax")
 
 		if err := AssertPowerShellV7Installed(); err != nil {
 			return "", nil, err
@@ -157,7 +157,7 @@ func buildCmd(psVersion PowerShellVersion, cmdString string) (string, []string, 
 		return string(Ps7CmdName), []string{"-Command", cmdString}, nil
 	}
 
-	slog.Info("Using PowerShell 5 command syntax")
+	slog.Debug("Using PowerShell 5 command syntax")
 
 	return string(Ps5CmdName), []string{cmdString}, nil
 }
@@ -178,7 +178,7 @@ func convertToResult[T any](messages []message) (v T, err error) {
 		return v, fmt.Errorf("could not unmarshal message: %w", err)
 	}
 
-	slog.Info("Message unmarshalled")
+	slog.Debug("Message unmarshalled")
 
 	return
 }
