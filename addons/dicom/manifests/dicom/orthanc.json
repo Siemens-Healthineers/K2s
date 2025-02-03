@@ -711,7 +711,7 @@
   // answers, but not to filter the DICOM resources (balance between
   // the two modes). By default, the mode is "Always", which
   // corresponds to the behavior of Orthanc <= 1.5.0.
-  "StorageAccessOnFind": "Always",
+  "StorageAccessOnFind": "Never",
   // Whether Orthanc monitors its metrics (new in Orthanc 1.5.4). If
   // set to "true", the metrics can be retrieved at
   // "/tools/metrics-prometheus" formetted using the Prometheus
@@ -723,7 +723,7 @@
   // Whether the REST API can write to the filesystem (e.g. in 
   // /instances/../export route). Starting with Orthanc 1.12.0, 
   // this URI is disabled by default for security.
-  "RestApiWriteToFileSystemEnabled": false,
+  "RestApiWriteToFileSystemEnabled": true,
   // Set the timeout while serving HTTP requests by the embedded Web
   // server, in seconds. This corresponds to option
   // "request_timeout_ms" of Mongoose/Civetweb. It will set the socket
@@ -861,7 +861,7 @@
     */
   "MySQL": {
     "EnableIndex": true,
-    "EnableStorage": true,
+    "EnableStorage": false,
     "Host": "mysql",
     "Port": 3306,
     "Database": "orthanc",

@@ -231,7 +231,7 @@ var _ = Describe("'viewer' addon", Ordered, func() {
 
 			AfterAll(func(ctx context.Context) {
 				suite.K2sCli().RunOrFail(ctx, "addons", "disable", "viewer", "-o")
-				suite.K2sCli().RunOrFail(ctx, "addons", "disable", "dicom", "-o")
+				suite.K2sCli().RunOrFail(ctx, "addons", "disable", "dicom", "-o", "-f")
 				suite.K2sCli().RunOrFail(ctx, "addons", "disable", "ingress", "nginx", "-o")
 
 				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "viewerwebapp", "viewer")
@@ -257,7 +257,7 @@ var _ = Describe("'viewer' addon", Ordered, func() {
 
 			It("retrieves patient data from the Dicom addon", func(ctx context.Context) {
 				url := "http://k2s.cluster.local/viewer/datasources/config.json"
-				output := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-m", "5", "--retry", "10", "--retry-all-errors", "--retry-delay", "10", "--fail")
+				output := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-L", "-m", "5", "--retry", "10", "--retry-all-errors", "--retry-delay", "10", "--fail")
 				// checking that the default datasource is dataFromDicomAddon means that the patient data is coming from the dicom addon
 				Expect(output).To(ContainSubstring(`"defaultDataSourceName": "dataFromDicomAddon"`))
 			})
@@ -301,7 +301,7 @@ var _ = Describe("'viewer' addon", Ordered, func() {
 
 			AfterAll(func(ctx context.Context) {
 				suite.K2sCli().RunOrFail(ctx, "addons", "disable", "viewer", "-o")
-				suite.K2sCli().RunOrFail(ctx, "addons", "disable", "dicom", "-o")
+				suite.K2sCli().RunOrFail(ctx, "addons", "disable", "dicom", "-o", "-f")
 				suite.K2sCli().RunOrFail(ctx, "addons", "disable", "ingress", "nginx", "-o")
 				suite.K2sCli().RunOrFail(ctx, "addons", "disable", "security", "-o")
 
@@ -395,7 +395,7 @@ var _ = Describe("'viewer' addon", Ordered, func() {
 
 			AfterAll(func(ctx context.Context) {
 				suite.K2sCli().RunOrFail(ctx, "addons", "disable", "viewer", "-o")
-				suite.K2sCli().RunOrFail(ctx, "addons", "disable", "dicom", "-o")
+				suite.K2sCli().RunOrFail(ctx, "addons", "disable", "dicom", "-o", "-f")
 				suite.K2sCli().RunOrFail(ctx, "addons", "disable", "ingress", "nginx", "-o")
 
 				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "viewerwebapp", "viewer")
@@ -420,7 +420,7 @@ var _ = Describe("'viewer' addon", Ordered, func() {
 			})
 			It("does NOT retrieve patient data from the Dicom addon", func(ctx context.Context) {
 				url := "http://k2s.cluster.local/viewer/datasources/config.json"
-				output := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-m", "5", "--retry", "10", "--retry-all-errors", "--retry-delay", "10", "--fail")
+				output := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-L", "-m", "5", "--retry", "10", "--retry-all-errors", "--retry-delay", "10", "--fail")
 				// checking that the default datasource is DataFromAWS means that the patient data is NOT coming from the dicom addon
 				Expect(output).To(ContainSubstring(`"defaultDataSourceName": "DataFromAWS"`))
 			})
@@ -438,7 +438,7 @@ var _ = Describe("'viewer' addon", Ordered, func() {
 
 			It("retrieves patient data from the Dicom addon", func(ctx context.Context) {
 				url := "http://k2s.cluster.local/viewer/datasources/config.json"
-				output := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-m", "5", "--retry", "10", "--retry-all-errors", "--retry-delay", "10", "--fail")
+				output := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-L", "-m", "5", "--retry", "10", "--retry-all-errors", "--retry-delay", "10", "--fail")
 				// checking that the default datasource is dataFromDicomAddon
 				Expect(output).To(ContainSubstring(`"defaultDataSourceName": "dataFromDicomAddon"`))
 			})
@@ -470,7 +470,7 @@ var _ = Describe("'viewer' addon", Ordered, func() {
 				suite.K2sCli().RunOrFail(ctx, "addons", "disable", "viewer", "-o")
 				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "viewerwebapp", "viewer")
 
-				suite.K2sCli().RunOrFail(ctx, "addons", "disable", "dicom", "-o")
+				suite.K2sCli().RunOrFail(ctx, "addons", "disable", "dicom", "-o", "-f")
 				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "dicom", "dicom")
 				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "mysql", "dicom")
 
@@ -494,7 +494,7 @@ var _ = Describe("'viewer' addon", Ordered, func() {
 				portForwardingSession, _ = gexec.Start(portForwarding, GinkgoWriter, GinkgoWriter)
 
 				url := "http://localhost:8443/viewer/datasources/config.json"
-				output := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-m", "5", "--retry", "10", "--retry-all-errors", "--retry-delay", "10", "--fail")
+				output := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-L", "-m", "5", "--retry", "10", "--retry-all-errors", "--retry-delay", "10", "--fail")
 				// checking that the default datasource is DataFromAWS
 				Expect(output).To(ContainSubstring(`"defaultDataSourceName": "DataFromAWS"`))
 			})
@@ -514,7 +514,7 @@ var _ = Describe("'viewer' addon", Ordered, func() {
 				suite.K2sCli().RunOrFail(ctx, "addons", "disable", "viewer", "-o")
 				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "viewerwebapp", "viewer")
 
-				suite.K2sCli().RunOrFail(ctx, "addons", "disable", "dicom", "-o")
+				suite.K2sCli().RunOrFail(ctx, "addons", "disable", "dicom", "-o", "-f")
 				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "dicom", "dicom")
 				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "mysql", "dicom")
 
@@ -538,7 +538,7 @@ var _ = Describe("'viewer' addon", Ordered, func() {
 				portForwardingSession, _ = gexec.Start(portForwarding, GinkgoWriter, GinkgoWriter)
 
 				url := "http://localhost:8443/viewer/datasources/config.json"
-				output := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-m", "5", "--retry", "10", "--retry-all-errors", "--retry-delay", "10", "--fail")
+				output := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-L", "-m", "5", "--retry", "10", "--retry-all-errors", "--retry-delay", "10", "--fail")
 				// checking that the default datasource is DataFromAWS means that the patient data is NOT coming from the dicom addon
 				Expect(output).To(ContainSubstring(`"defaultDataSourceName": "DataFromAWS"`))
 				portForwardingSession.Kill()
@@ -561,7 +561,7 @@ var _ = Describe("'viewer' addon", Ordered, func() {
 				portForwardingSession, _ = gexec.Start(portForwarding, GinkgoWriter, GinkgoWriter)
 
 				url := "http://localhost:8443/viewer/datasources/config.json"
-				output := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-m", "5", "--retry", "10", "--retry-all-errors", "--retry-delay", "10", "--fail")
+				output := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-L", "-m", "5", "--retry", "10", "--retry-all-errors", "--retry-delay", "10", "--fail")
 				// checking that the default datasource is still DataFromAWS
 				Expect(output).To(ContainSubstring(`"defaultDataSourceName": "DataFromAWS"`))
 			})
