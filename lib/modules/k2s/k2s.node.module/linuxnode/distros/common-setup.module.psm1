@@ -1951,6 +1951,25 @@ function Get-PathOfLinuxNodeArtifactsPackageOnWindowsHost {
     return $pathOfLinuxNodeArtifactsPackageOnWindowsHost
 }
 
+function Update-CoreDNSConfigurationviaSSH {
+    Write-Log "Correct CoreDNS configuration on cluster"
+    $UserName = Get-DefaultUserNameKubeNode
+    $IpAddress = Get-VmIpForProvisioningKubeNode
+    $executeRemoteCommand = {
+        param(
+            $command = $(throw 'Argument missing: Command'),
+            [uint16]$Retries = 0,
+            [switch]$IgnoreErrors = $false
+        )
+            (Invoke-CmdOnVmViaSSHKey -CmdToExecute $command -UserName $UserName -IpAddress $IpAddress -Retries $Retries -IgnoreErrors:$IgnoreErrors).Output | Write-Log
+    }
+
+    # exchange securitycontext for coredns to allow it to run on port 53
+    &$executeRemoteCommand "kubectl get deployment coredns -n kube-system -o yaml | sed '/^\s*securityContext: {}/c\      securityContext:\n        sysctls:\n        - name: net.ipv4.ip_unprivileged_port_start\n          value: `"`"53`"`"' | kubectl apply -f -" 
+    
+}
+
+
 Export-ModuleMember -Function New-VmImageForControlPlaneNode,
 New-LinuxVmImageForWorkerNode,
 Remove-VmImageForControlPlaneNode,
@@ -1974,4 +1993,5 @@ Get-BaseDirectoryOfKubenodeDebPackagesOnWindowsHost,
 Get-DirectoryOfKubenodeImagesOnWindowsHost,
 Get-DirectoryOfLinuxNodeArtifactsOnWindowsHost,
 Get-PathOfLinuxNodeArtifactsPackageOnWindowsHost,
-Copy-KubernetesImagesFromControlPlaneNodeToWindowsHost
+Copy-KubernetesImagesFromControlPlaneNodeToWindowsHost,
+Update-CoreDNSConfigurationviaSSH
