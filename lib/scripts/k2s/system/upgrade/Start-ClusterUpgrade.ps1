@@ -310,6 +310,9 @@ function Start-ClusterUpgrade {
     catch {       
         Write-Log 'System upgrade failed, will rollback to previous state !'
         try {
+             # backup log file since it will be deleted during uninstall
+            $logFilePathBeforeUninstall.Value = Join-Path $BackupDir 'k2s-before-uninstall.log'
+            Backup-LogFile -LogFile $logFilePathBeforeUninstall.Value
             #Execute the upgrade without executing the upgrade hooks and from the installed folder (folder used before upgrade)
             PerformClusterUpgrade -ExecuteHooks:$false -K2sPathToInstallFrom $installedFolder -ShowProgress:$ShowProgress -DeleteFiles:$DeleteFiles -ShowLogs:$ShowLogs -Config $Config -Proxy $Proxy -BackupDir $BackupDir -AdditionalHooksDir $AdditionalHooksDir -memoryVM $memoryVM.Value -coresVM $coresVM.Value -storageVM $storageVM.Value -addonsBackupPath $addonsBackupPath.Value -hooksBackupPath $hooksBackupPath.Value -logFilePathBeforeUninstall $logFilePathBeforeUninstall.Value
         }
