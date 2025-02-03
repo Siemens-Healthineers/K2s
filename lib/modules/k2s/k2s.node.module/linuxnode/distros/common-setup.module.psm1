@@ -1951,7 +1951,7 @@ function Get-PathOfLinuxNodeArtifactsPackageOnWindowsHost {
 function Update-CoreDNSConfigurationviaSSH {
     Write-Log "Correct CoreDNS configuration on cluster"
     $UserName = Get-DefaultUserNameKubeNode
-    $IpAddress = Get-VmIpForProvisioningKubeNode
+    $IpAddress = Get-ConfiguredIPControlPlane
     $executeRemoteCommand = {
         param(
             $command = $(throw 'Argument missing: Command'),
