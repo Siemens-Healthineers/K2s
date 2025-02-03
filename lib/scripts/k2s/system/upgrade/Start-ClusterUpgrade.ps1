@@ -208,11 +208,14 @@ function PerformClusterUpgrade {
             Write-Progress -Activity 'Apply not namespaced resources on cluster..' -Id 1 -Status '7/10' -PercentComplete 70 -CurrentOperation 'Apply not namespaced resources, please wait..'
         }
                
-        if ($ExecuteHooks -eq $true) {            
+        if ($ExecuteHooks -eq $true) {
+            
             Restore-Addons -BackupDir $addonsBackupPath
             # Invoke restore hooks
+            Write-Log "Restore with executing hooks"            
             Invoke-UpgradeBackupRestoreHooks -HookType Restore -BackupDir $hooksBackupPath -ShowLogs:$ShowLogs -AdditionalHooksDir $AdditionalHooksDir
         } else {
+            Write-Log "Restore without executing hooks"         
             Restore-Addons -BackupDir $addonsBackupPath -AvoidRestore
         }
 
@@ -244,9 +247,9 @@ function PerformClusterUpgrade {
         Write-RefreshEnvVariablesGivenKubePath -KubePath $K2sPathToInstallFrom
     }
     catch {
-        Write-Log 'An ERROR occurred:' -Console
-        Write-Log $_.ScriptStackTrace -Console
-        Write-Log $_ -Console
+        Write-Log 'An ERROR occurred:' 
+        Write-Log $_.ScriptStackTrace 
+        Write-Log $_ 
         throw $_
     }
 }
@@ -304,12 +307,8 @@ function Start-ClusterUpgrade {
     try {
         PerformClusterUpgrade -ExecuteHooks:$true -ShowProgress:$ShowProgress -DeleteFiles:$DeleteFiles -ShowLogs:$ShowLogs -Config $Config -Proxy $Proxy -BackupDir $BackupDir -AdditionalHooksDir $AdditionalHooksDir -memoryVM $memoryVM.Value -coresVM $coresVM.Value -storageVM $storageVM.Value -addonsBackupPath $addonsBackupPath.Value -hooksBackupPath $hooksBackupPath.Value -logFilePathBeforeUninstall $logFilePathBeforeUninstall.Value
     }
-    catch {
-        Write-Log 'An ERROR occurred:' -Console
-        Write-Log $_.ScriptStackTrace -Console
-        Write-Log $_ -Console
-        $errUpgrade = $_
-        Write-Error 'System upgrade failed, will rollback to previous state !'
+    catch {       
+        Write-Log 'System upgrade failed, will rollback to previous state !'
         try {
             #Execute the upgrade without executing the upgrade hooks and from the installed folder (folder used before upgrade)
             PerformClusterUpgrade -ExecuteHooks:$false -K2sPathToInstallFrom $installedFolder -ShowProgress:$ShowProgress -DeleteFiles:$DeleteFiles -ShowLogs:$ShowLogs -Config $Config -Proxy $Proxy -BackupDir $BackupDir -AdditionalHooksDir $AdditionalHooksDir -memoryVM $memoryVM.Value -coresVM $coresVM.Value -storageVM $storageVM.Value -addonsBackupPath $addonsBackupPath.Value -hooksBackupPath $hooksBackupPath.Value -logFilePathBeforeUninstall $logFilePathBeforeUninstall.Value
