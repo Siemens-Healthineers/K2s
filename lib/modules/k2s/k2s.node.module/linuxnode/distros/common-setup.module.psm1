@@ -1214,9 +1214,6 @@ Function Set-UpMasterNode {
     &$executeRemoteCommand 'kubectl wait --for=condition=available deployment/coredns -n kube-system --timeout=60s' -IgnoreErrors
     &$executeRemoteCommand "kubectl get deployment coredns -n kube-system -o yaml | sed '/^\s*\- mountPath: \/etc\/coredns/i\        - mountPath: /etc/kubernetes/pki/etcd-ca\n          name: etcd-ca-cert\n        - mountPath: /etc/kubernetes/pki/etcd-client\n          name: etcd-client-cert' | kubectl apply -f -" -Retries 3
 
-    # exchange securitycontext for coredns to allow it to run on port 53
-    &$executeRemoteCommand "kubectl get deployment coredns -n kube-system -o yaml | sed '/^\s*securityContext: {}/c\      securityContext:\n        sysctls:\n        - name: net.ipv4.ip_unprivileged_port_start\n          value: `"`"53`"`"' | kubectl apply -f -" 
-
     # change core-dns to have predefined host mapping for DNS resolution
     &$executeRemoteCommand "kubectl get configmap coredns -n kube-system -o yaml | sed '/^\s*cache 30/i\        hosts {\n         $IpAddress k2s.cluster.local\n         fallthrough\n        }' | kubectl apply -f -" -IgnoreErrors
 
@@ -1951,6 +1948,25 @@ function Get-PathOfLinuxNodeArtifactsPackageOnWindowsHost {
     return $pathOfLinuxNodeArtifactsPackageOnWindowsHost
 }
 
+function Update-CoreDNSConfigurationviaSSH {
+    Write-Log "Correct CoreDNS configuration on cluster"
+    $UserName = Get-DefaultUserNameKubeNode
+    $IpAddress = Get-ConfiguredIPControlPlane
+    $executeRemoteCommand = {
+        param(
+            $command = $(throw 'Argument missing: Command'),
+            [uint16]$Retries = 0,
+            [switch]$IgnoreErrors = $false
+        )
+            (Invoke-CmdOnVmViaSSHKey -CmdToExecute $command -UserName $UserName -IpAddress $IpAddress -Retries $Retries -IgnoreErrors:$IgnoreErrors).Output | Write-Log
+    }
+
+    # exchange securitycontext for coredns to allow it to run on port 53
+    &$executeRemoteCommand "kubectl get deployment coredns -n kube-system -o yaml | sed '/^\s*securityContext: {}/c\      securityContext:\n        sysctls:\n        - name: net.ipv4.ip_unprivileged_port_start\n          value: `"`"53`"`"' | kubectl apply -f -" 
+    
+}
+
+
 Export-ModuleMember -Function New-VmImageForControlPlaneNode,
 New-LinuxVmImageForWorkerNode,
 Remove-VmImageForControlPlaneNode,
@@ -1974,4 +1990,5 @@ Get-BaseDirectoryOfKubenodeDebPackagesOnWindowsHost,
 Get-DirectoryOfKubenodeImagesOnWindowsHost,
 Get-DirectoryOfLinuxNodeArtifactsOnWindowsHost,
 Get-PathOfLinuxNodeArtifactsPackageOnWindowsHost,
-Copy-KubernetesImagesFromControlPlaneNodeToWindowsHost
+Copy-KubernetesImagesFromControlPlaneNodeToWindowsHost,
+Update-CoreDNSConfigurationviaSSH
