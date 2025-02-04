@@ -219,7 +219,7 @@ function PerformClusterUpgrade {
             Restore-Addons -BackupDir $addonsBackupPath -AvoidRestore
         }
 
-        $kubeExeFolder = Get-KubeBinPathGivenKubePath -KubePath $K2sPathToInstallFrom     
+        $kubeExeFolder = Get-KubeBinPathGivenKubePath -KubePathLocal $K2sPathToInstallFrom     
         # import of resources
         Import-NotNamespacedResources -FolderIn $BackupDir -ExePath $kubeExeFolder
         if ($ShowProgress -eq $true) {
@@ -241,10 +241,12 @@ function PerformClusterUpgrade {
         if ($ExecuteHooks -eq $true) { 
             # final message
             Write-Log "Upgraded successfully to K2s version: $(Get-ProductVersion) ($(Get-KubePath))" -Console
+        } else {
+            Write-Log "Rolled back to K2s version: $(Get-ProductVersionGivenKubePath -KubePathLocal $K2sPathToInstallFrom) ($K2sPathToInstallFrom)" -Console
         }
 
         # info on env variables
-        Write-RefreshEnvVariablesGivenKubePath -KubePath $K2sPathToInstallFrom
+        Write-RefreshEnvVariablesGivenKubePath -KubePathLocal $K2sPathToInstallFrom
     }
     catch {
         Write-Log 'An ERROR occurred:' 

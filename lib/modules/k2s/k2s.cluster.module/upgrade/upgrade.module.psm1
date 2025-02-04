@@ -474,24 +474,24 @@ function Invoke-ClusterUninstall {
 
 function Get-KubeBinPathGivenKubePath {
     param(
-        [string] $KubePath
+        [string] $KubePathLocal
     )    
-    if (Test-Path "$KubePath\bin\kube") {
-        return "$KubePath\bin\kube"
+    if (Test-Path "$KubePathLocal\bin\kube") {
+        return "$KubePathLocal\bin\kube"
     }
-    if (Test-Path "$KubePath\bin\exe") {
-        return "$KubePath\bin\exe"
+    if (Test-Path "$KubePathLocal\bin\exe") {
+        return "$KubePathLocal\bin\exe"
     }
-    throw "Kube bin path not found in $KubePath"
+    throw "Kube bin path not found in $KubePathLocal"
 }
 
 function Wait-ForAPIServerInGivenKubePath {
     param(
-        [string] $KubePath
+        [string] $KubePathLocal
     )
     $controlPlaneVMHostName = Get-ConfigControlPlaneNodeHostname
     $iteration = 0
-    $kubeToolsPath = Get-KubeBinPathGivenKubePath -KubePath $KubePath
+    $kubeToolsPath = Get-KubeBinPathGivenKubePath -KubePathLocal $KubePathLocal
     while ($true) {
         $iteration++
         # try to apply the flannel resources
@@ -636,6 +636,15 @@ function Restore-LogFile {
     }
 }
 
+function Get-ProductVersionGivenKubePath {
+    param (
+        [Parameter(Mandatory = $false)]
+        [string]$KubePathLocal = $(throw 'KubePath not specified')        
+    )
+    return "$(Get-Content -Raw -Path "$KubePathLocal\VERSION")"
+}
+
+
 function Restore-MergeLogFiles {
     Write-Log "Merge all logs to $logFilePath" -Console
     $merge = "$($systemDriveLetter):\var\log\k2supgrade.log"
@@ -659,13 +668,13 @@ function Restore-MergeLogFiles {
 function Write-RefreshEnvVariablesGivenKubePath {
     param (
         [Parameter(Mandatory = $false)]
-        [string]$kubePath = $(throw 'KubePath not specified')        
+        [string]$KubePathLocal = $(throw 'KubePath not specified')        
     )
     Write-Log ' ' -Console
     Write-Log '   Update and or check PATH environment variable for proper usage:' -Console
     Write-Log ' ' -Console
-    Write-Log "   Powershell: '$kubePath\smallsetup\helpers\RefreshEnv.ps1'" -Console
-    Write-Log "   Command Prompt: '$kubePath\smallsetup\helpers\RefreshEnv.cmd'" -Console
+    Write-Log "   Powershell: '$KubePathLocal\smallsetup\helpers\RefreshEnv.ps1'" -Console
+    Write-Log "   Command Prompt: '$KubePathLocal\smallsetup\helpers\RefreshEnv.cmd'" -Console
     Write-Log '   Or open new shell' -Console
     Write-Log ' ' -Console
 }
@@ -721,4 +730,4 @@ Export-ModuleMember -Function Assert-UpgradeOperation, Enable-ClusterIsRunning, 
 Invoke-ClusterUninstall, Invoke-ClusterInstall, Import-NotNamespacedResources, Import-NamespacedResources, Remove-ExportedClusterResources,
 Get-LinuxVMCores, Get-LinuxVMMemory, Get-LinuxVMStorageSize, Get-ClusterInstalledFolder, Backup-LogFile, Restore-LogFile, Restore-MergeLogFiles,
 Invoke-UpgradeBackupRestoreHooks, Remove-SetupConfigIfExisting, Get-TempPath, Wait-ForAPIServerInGivenKubePath, Get-KubeBinPathGivenKubePath,
-Write-RefreshEnvVariablesGivenKubePath
+Write-RefreshEnvVariablesGivenKubePath, Get-ProductVersionGivenKubePath 
