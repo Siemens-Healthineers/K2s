@@ -638,7 +638,9 @@ Directory where the addons backup is located
 function Restore-Addons {
     param (
         [Parameter(Mandatory = $false, HelpMessage = 'Back-up directory to restore data from.')]
-        [string]$BackupDir = $(throw 'Please specify the back-up directory.')
+        [string]$BackupDir = $(throw 'Please specify the back-up directory.'),
+        [Parameter(Mandatory = $false, HelpMessage = 'Specifies whether to restore the addons or avoid it.')]
+        [switch] $AvoidRestore
     )
     Write-Log 'Restoring addons..'
 
@@ -654,10 +656,14 @@ function Restore-Addons {
     foreach ($addonConfig in $backupContentRoot.Config) {
         Enable-AddonFromConfig -Config $addonConfig
     }
-
-    Write-Log 'Restoring addons data..'
-
-    Invoke-BackupRestoreHooks -HookType Restore -BackupDir $BackupDir
+     
+    # Conditionally invoke Invoke-BackupRestoreHooks based on the AvoidRestore parameter
+    if ($AvoidRestore -eq $false) {
+        Write-Log 'Restoring addons data..'
+        Invoke-BackupRestoreHooks -HookType Restore -BackupDir $BackupDir
+    } else {
+        Write-Log "Skipping restoring addons data."
+    }
 
     Write-Log 'Addons fully restored.'
 }
