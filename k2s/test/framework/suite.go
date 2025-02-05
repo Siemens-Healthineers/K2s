@@ -19,6 +19,7 @@ import (
 	"github.com/siemens-healthineers/k2s/test/framework/k2s"
 
 	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
+	"github.com/siemens-healthineers/k2s/test/framework/http"
 
 	//lint:ignore ST1001 test framework code
 	. "github.com/onsi/ginkgo/v2"
@@ -42,6 +43,7 @@ type K2sTestSuite struct {
 	kubectl              *k8s.Kubectl
 	cluster              *k8s.Cluster
 	addonsAdditionalInfo *addons.AddonsAdditionalInfo
+	httpClient           *http.ResilientHttpClient
 }
 type ClusterTestStepTimeout time.Duration
 type ClusterTestStepPollInterval time.Duration
@@ -114,6 +116,7 @@ func Setup(ctx context.Context, args ...any) *K2sTestSuite {
 		k2sCli:               k2sCli,
 		addonsAdditionalInfo: addonsAdditionalInfo,
 		setupInfo:            k2s.CreateSetupInfo(rootDir),
+		httpClient:           http.NewResilientHttpClient(),
 	}
 
 	if noSetupInstalled {
@@ -220,6 +223,10 @@ func (s *K2sTestSuite) Kubectl() *k8s.Kubectl {
 func (s *K2sTestSuite) Cluster() *k8s.Cluster {
 	Expect(s.cluster).ToNot(BeNil())
 	return s.cluster
+}
+
+func (s *K2sTestSuite) HttpClient() *http.ResilientHttpClient {
+	return s.httpClient
 }
 
 func expectSystemState(ctx context.Context, initialSystemState initialSystemStateType, k2sCli *k2s.K2sCliRunner, ensureAddonsAreDisabled bool) {
