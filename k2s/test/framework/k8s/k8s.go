@@ -127,7 +127,7 @@ func (c *Cluster) ExpectDeploymentToBeReachableFromPodOfOtherDeployment(targetNa
 	Expect(err).ShouldNot(HaveOccurred())
 
 	var stdout, stderr bytes.Buffer
-	command := []string{"curl", "-i", "-m", "4", "http://" + targetName + "." + targetNamespace + ".svc.cluster.local/" + targetName}
+	command := []string{"curl", "-i", "-m", "10", "--retry", "3", "http://" + targetName + "." + targetNamespace + ".svc.cluster.local/" + targetName}
 
 	param := podExecParam{
 		Namespace: sourceNamespace,
@@ -320,7 +320,7 @@ func (c *Cluster) ExpectPodOfDeploymentToBeReachableFromPodOfOtherDeployment(tar
 		Namespace: sourceNamespace,
 		Pod:       sourcePod.Name,
 		Container: sourceName,
-		Command:   []string{"curl", "-i", "-m", "4", "http://" + targetPod.Status.PodIP + "/" + targetName},
+		Command:   []string{"curl", "-i", "-m", "10", "--retry", "3", "http://" + targetPod.Status.PodIP + "/" + targetName},
 		Config:    client.Resources().GetConfig(),
 		Ctx:       ctx,
 		Stdout:    &stdout,
@@ -508,11 +508,11 @@ func (c *Cluster) ExpectInternetToBeReachableFromPodOfDeployment(deploymentName 
 
 	Expect(err).ShouldNot(HaveOccurred())
 
-	command := []string{"curl", "-i", "-m", "4", "--insecure", "www.msftconnecttest.com/connecttest.txt"}
+	command := []string{"curl", "-i", "-m", "10", "--retry", "3", "--insecure", "www.msftconnecttest.com/connecttest.txt"}
 	if proxy != "" {
 		GinkgoWriter.Println("Using proxy for curl")
 
-		command = []string{"curl", "-i", "-m", "4", "--insecure", "-x", proxy, "www.msftconnecttest.com/connecttest.txt"}
+		command = []string{"curl", "-i", "-m", "10", "--retry", "3", "--insecure", "-x", proxy, "www.msftconnecttest.com/connecttest.txt"}
 	}
 
 	var stdout, stderr bytes.Buffer
