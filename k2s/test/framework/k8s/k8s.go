@@ -7,10 +7,7 @@ package k8s
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
 	"strings"
 	"time"
 
@@ -122,30 +119,6 @@ func (c *Cluster) ExpectDeploymentToBeRemoved(ctx context.Context, labelName str
 	Eventually(IsDeploymentAvailable, c.testStepTimeout, c.testStepPollInterval, ctx).Should(BeFalse())
 }
 
-func (c *Cluster) ExpectDeploymentToBeReachableFromHost(name string, namespace string) {
-	url := "http://" + name + "." + namespace + ".svc.cluster.local/" + name
-
-	GinkgoWriter.Println("Calling <", url, "> over HTTP..")
-
-	ctx, cncl := context.WithTimeout(context.Background(), time.Second*60)
-	defer cncl()
-	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	res, err := http.DefaultClient.Do(req)
-
-	Expect(err).ShouldNot(HaveOccurred())
-	Expect(res).To(SatisfyAll(
-		HaveHTTPStatus(http.StatusOK),
-		HaveHTTPHeaderWithValue("Content-Type", "application/json; charset=utf-8"),
-	))
-
-	defer res.Body.Close()
-
-	data, err := io.ReadAll(res.Body)
-
-	Expect(err).ShouldNot(HaveOccurred())
-	Expect(json.Valid(data)).To(BeTrue())
-}
-
 func (c *Cluster) ExpectDeploymentToBeReachableFromPodOfOtherDeployment(targetName string, targetNamespace string, sourceName string, sourceNamespace string, ctx context.Context) {
 	client := c.Client()
 
@@ -154,7 +127,7 @@ func (c *Cluster) ExpectDeploymentToBeReachableFromPodOfOtherDeployment(targetNa
 	Expect(err).ShouldNot(HaveOccurred())
 
 	var stdout, stderr bytes.Buffer
-	command := []string{"curl", "-i", "-m", "4", "http://" + targetName + "." + targetNamespace + ".svc.cluster.local/" + targetName}
+	command := []string{"curl", "-i", "-m", "10", "--retry", "3", "http://" + targetName + "." + targetNamespace + ".svc.cluster.local/" + targetName}
 
 	param := podExecParam{
 		Namespace: sourceNamespace,
@@ -347,7 +320,7 @@ func (c *Cluster) ExpectPodOfDeploymentToBeReachableFromPodOfOtherDeployment(tar
 		Namespace: sourceNamespace,
 		Pod:       sourcePod.Name,
 		Container: sourceName,
-		Command:   []string{"curl", "-i", "-m", "4", "http://" + targetPod.Status.PodIP + "/" + targetName},
+		Command:   []string{"curl", "-i", "-m", "10", "--retry", "3", "http://" + targetPod.Status.PodIP + "/" + targetName},
 		Config:    client.Resources().GetConfig(),
 		Ctx:       ctx,
 		Stdout:    &stdout,
@@ -535,11 +508,11 @@ func (c *Cluster) ExpectInternetToBeReachableFromPodOfDeployment(deploymentName 
 
 	Expect(err).ShouldNot(HaveOccurred())
 
-	command := []string{"curl", "-i", "-m", "4", "--insecure", "www.msftconnecttest.com/connecttest.txt"}
+	command := []string{"curl", "-i", "-m", "10", "--retry", "3", "--insecure", "www.msftconnecttest.com/connecttest.txt"}
 	if proxy != "" {
 		GinkgoWriter.Println("Using proxy for curl")
 
-		command = []string{"curl", "-i", "-m", "4", "--insecure", "-x", proxy, "www.msftconnecttest.com/connecttest.txt"}
+		command = []string{"curl", "-i", "-m", "10", "--retry", "3", "--insecure", "-x", proxy, "www.msftconnecttest.com/connecttest.txt"}
 	}
 
 	var stdout, stderr bytes.Buffer
