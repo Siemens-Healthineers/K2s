@@ -369,12 +369,12 @@ function Remove-ExportedClusterResources {
         [switch]
         $DeleteFiles = $false
     )
-    # delete temp path
+    # delete resources
     if ( $DeleteFiles ) {
         if ( $PathResources -and (Test-Path $PathResources) ) {
             Remove-Item $PathResources -Recurse
         }
-    }
+    }   
 }
 
 function Enable-ClusterIsRunning {
@@ -451,12 +451,17 @@ function Invoke-ClusterUninstall {
         [switch] $DeleteFiles = $false
     )
     Write-Log 'Uninstall existing cluster' -Console
-    $installFolder = Get-ClusterInstalledFolder
+    $installFolder = Get-ClusterInstalledFolder  
     $argsCall = 'uninstall'
     if ( $ShowLogs ) { $argsCall += ' -o' }
     if ( $DeleteFiles ) { $argsCall += ' -d' }
     Write-Log "Uninstall with arguments: $installFolder\k2s.exe $argsCall"
     $texe = "$installFolder\k2s.exe"
+    # Check if the k2s exe exists
+    if (-not (Test-Path -Path $texe)) {
+        Write-Log "K2s exe: '$texe' does not exist. Skipping uninstallation." -Console
+        return
+    }
     $rt = Invoke-Cmd -Executable $texe -Arguments $argsCall
     if ( $rt -eq 0 ) {
         Write-Log 'Uninstall of cluster successfully called'
@@ -467,6 +472,48 @@ function Invoke-ClusterUninstall {
     }
 }
 
+function Get-KubeBinPathGivenKubePath {
+    param(
+        [string] $KubePathLocal
+    )    
+    if (Test-Path "$KubePathLocal\bin\kube") {
+        return "$KubePathLocal\bin\kube"
+    }
+    if (Test-Path "$KubePathLocal\bin\exe") {
+        return "$KubePathLocal\bin\exe"
+    }
+    throw "Kube bin path not found in $KubePathLocal"
+}
+
+function Wait-ForAPIServerInGivenKubePath {
+    param(
+        [string] $KubePathLocal
+    )
+    $controlPlaneVMHostName = Get-ConfigControlPlaneNodeHostname
+    $iteration = 0
+    $kubeToolsPath = Get-KubeBinPathGivenKubePath -KubePathLocal $KubePathLocal
+    while ($true) {
+        $iteration++
+        # try to apply the flannel resources
+        $ErrorActionPreference = 'Continue'
+        $result = $(echo yes | &"$kubeToolsPath\kubectl.exe" wait --timeout=60s --for=condition=Ready -n kube-system "pod/kube-apiserver-$($controlPlaneVMHostName.ToLower())" 2>&1)
+        $ErrorActionPreference = 'Stop'
+        if ($result -match 'condition met') {
+            break;
+        }
+        if ($iteration -eq 10) {
+            Write-Log $result -Error
+            throw $result
+        }
+        Start-Sleep 2
+    }
+    if ($iteration -eq 1) {
+        Write-Log 'API Server running, no waiting needed'
+    }
+    else {
+        Write-Log 'API Server now running'
+    }
+}
 function Invoke-ClusterInstall {
     param (
         [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
@@ -482,13 +529,17 @@ function Invoke-ClusterInstall {
         [parameter(Mandatory = $false, HelpMessage = 'Number of Virtual Processors for master VM (Linux)')]
         [string] $MasterVMProcessorCount,
         [parameter(Mandatory = $false, HelpMessage = 'Virtual hard disk size of master VM (Linux)')]
-        [string] $MasterDiskSize
+        [string] $MasterDiskSize,
+        [parameter(Mandatory = $false, HelpMessage = 'Path to install k2s from')]
+        [string] $K2sPathToInstallFrom
     )
+   
     Write-Log 'Install cluster with the new version' -Console
-
+   
+    Write-Log "Using k2sPath: $K2sPathToInstallFrom" -Console
     # copy executable since else we get ACCESS DENIED
-    $texe = "$kubePath\k2sx.exe"
-    Copy-Item "$kubePath\k2s.exe" -Destination $texe -Force -PassThru
+    $texe = "$K2sPathToInstallFrom\k2sx.exe"
+    Copy-Item "$K2sPathToInstallFrom\k2s.exe" -Destination $texe -Force -PassThru
 
     # start new executable and do an install
     $argsCall = 'install'
@@ -500,7 +551,7 @@ function Invoke-ClusterInstall {
     if ( -not [string]::IsNullOrEmpty($MasterVMProcessorCount) ) { $argsCall += " --master-cpus $MasterVMProcessorCount" }
     if ( -not [string]::IsNullOrEmpty($MasterVMMemory) ) { $argsCall += " --master-memory $MasterVMMemory" }
     if ( -not [string]::IsNullOrEmpty($MasterDiskSize) ) { $argsCall += " --master-disk $MasterDiskSize" }
-    Write-Log "Install with arguments: $kubePath\k2s $argsCall"
+    Write-Log "Install with arguments: $K2sPathToInstallFrom\k2s $argsCall"
     $rt = Invoke-Cmd -Executable $texe -Arguments $argsCall
     if ( $rt -eq 0 ) {
         Write-Log 'Install of cluster successfully called'
@@ -561,13 +612,11 @@ function Backup-LogFile {
     param (
         [parameter(Mandatory = $false, HelpMessage = 'Name of the backup file')]
         [string] $LogFile
-    )
-    $installFolder = Get-ClusterInstalledFolder
-    $driveLetter = $installFolder[0]
+    )  
 
     Write-Log "Backup log file to $LogFile" -Console
-
-    $oldLogFile = "$driveLetter$(Get-LogFilePathPart)"
+    
+    $oldLogFile = "$($systemDriveLetter)$(Get-LogFilePathPart)"
     if (Test-Path -Path $oldLogFile) {
         Copy-Item $oldLogFile -Destination $LogFile
     }
@@ -587,11 +636,47 @@ function Restore-LogFile {
     }
 }
 
+function Get-ProductVersionGivenKubePath {
+    param (
+        [Parameter(Mandatory = $false)]
+        [string]$KubePathLocal = $(throw 'KubePath not specified')        
+    )
+    return "$(Get-Content -Raw -Path "$KubePathLocal\VERSION")"
+}
+
+
 function Restore-MergeLogFiles {
     Write-Log "Merge all logs to $logFilePath" -Console
     $merge = "$($systemDriveLetter):\var\log\k2supgrade.log"
-    $intermediate = "$($systemDriveLetter):\var\log\k2s-*.log"
-    Get-Content -Path $intermediate, $logFilePath -Encoding utf8 | Set-Content -Path $merge -Encoding utf8
+    $intermediate = "$($systemDriveLetter):\var\log\k2s*.log"
+
+    try {
+        # Ensure UTF-8 even for legacy encodings
+        $intermediateContent = Get-Content -Path $intermediate
+        $logFileContent = Get-Content -Path $logFilePath
+        $mergedContent = $intermediateContent + $logFileContent
+        $mergedContent | Set-Content -Path $merge -Encoding utf8
+    }
+    catch {
+        Write-Log 'An ERROR occurred in Restore-MergeLogFiles:' -Console
+        Write-Log $_.ScriptStackTrace -Console
+        Write-Log $_ -Console
+        throw $_
+    }
+}
+
+function Write-RefreshEnvVariablesGivenKubePath {
+    param (
+        [Parameter(Mandatory = $false)]
+        [string]$KubePathLocal = $(throw 'KubePath not specified')        
+    )
+    Write-Log ' ' -Console
+    Write-Log '   Update and or check PATH environment variable for proper usage:' -Console
+    Write-Log ' ' -Console
+    Write-Log "   Powershell: '$KubePathLocal\smallsetup\helpers\RefreshEnv.ps1'" -Console
+    Write-Log "   Command Prompt: '$KubePathLocal\smallsetup\helpers\RefreshEnv.cmd'" -Console
+    Write-Log '   Or open new shell' -Console
+    Write-Log ' ' -Console
 }
 
 function Invoke-UpgradeBackupRestoreHooks {
@@ -643,5 +728,6 @@ function Remove-SetupConfigIfExisting {
 
 Export-ModuleMember -Function Assert-UpgradeOperation, Enable-ClusterIsRunning, Assert-YamlTools, Export-ClusterResources,
 Invoke-ClusterUninstall, Invoke-ClusterInstall, Import-NotNamespacedResources, Import-NamespacedResources, Remove-ExportedClusterResources,
-Get-TempPath, Get-LinuxVMCores, Get-LinuxVMMemory, Get-LinuxVMStorageSize, Get-ClusterInstalledFolder, Backup-LogFile, Restore-LogFile, Restore-MergeLogFiles,
-Invoke-UpgradeBackupRestoreHooks, Remove-SetupConfigIfExisting
+Get-LinuxVMCores, Get-LinuxVMMemory, Get-LinuxVMStorageSize, Get-ClusterInstalledFolder, Backup-LogFile, Restore-LogFile, Restore-MergeLogFiles,
+Invoke-UpgradeBackupRestoreHooks, Remove-SetupConfigIfExisting, Get-TempPath, Wait-ForAPIServerInGivenKubePath, Get-KubeBinPathGivenKubePath,
+Write-RefreshEnvVariablesGivenKubePath, Get-ProductVersionGivenKubePath 
