@@ -20,15 +20,16 @@ import (
 )
 
 type ResilientHttpClient struct {
-	httpClient  *http.Client
-	retryPolicy retrypolicy.RetryPolicy[*http.Response]
+	httpClient *http.Client
+	executor   failsafe.Executor[*http.Response]
 }
 
-func NewResilientHttpClient() *ResilientHttpClient {
+func NewResilientHttpClient(requestTimeout time.Duration) *ResilientHttpClient {
 	retryPolicy := retrypolicy.Builder[*http.Response]().
 		WithBackoff(time.Second, time.Minute).
 		WithJitterFactor(.25).
 		WithMaxRetries(5).
+		WithMaxDuration(requestTimeout).
 		OnRetry(func(e failsafe.ExecutionEvent[*http.Response]) {
 			GinkgoWriter.Println("Last attempt failed with error: ", e.LastError())
 			GinkgoWriter.Printf("This is retry no. %d, elapsed time so far: %v,  retrying\n", e.Retries(), e.ElapsedTime())
@@ -36,8 +37,8 @@ func NewResilientHttpClient() *ResilientHttpClient {
 		Build()
 
 	return &ResilientHttpClient{
-		httpClient:  &http.Client{},
-		retryPolicy: retryPolicy,
+		httpClient: &http.Client{},
+		executor:   failsafe.NewExecutor(retryPolicy),
 	}
 }
 
@@ -46,7 +47,7 @@ func NewResilientHttpClient() *ResilientHttpClient {
 func (c *ResilientHttpClient) GetJson(ctx context.Context, url string) ([]byte, error) {
 	GinkgoWriter.Println("Calling http GET on <", url, ">")
 
-	executor := failsafe.NewExecutor(c.retryPolicy).WithContext(ctx)
+	executor := c.executor.WithContext(ctx)
 
 	request, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {

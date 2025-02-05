@@ -116,7 +116,7 @@ func Setup(ctx context.Context, args ...any) *K2sTestSuite {
 		k2sCli:               k2sCli,
 		addonsAdditionalInfo: addonsAdditionalInfo,
 		setupInfo:            k2s.CreateSetupInfo(rootDir),
-		httpClient:           http.NewResilientHttpClient(),
+		httpClient:           http.NewResilientHttpClient(clusterTestStepTimeout),
 	}
 
 	if noSetupInstalled {
