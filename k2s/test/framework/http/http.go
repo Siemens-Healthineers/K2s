@@ -13,7 +13,6 @@ import (
 
 	"github.com/failsafe-go/failsafe-go"
 	"github.com/failsafe-go/failsafe-go/failsafehttp"
-	"github.com/failsafe-go/failsafe-go/retrypolicy"
 
 	//lint:ignore ST1001 test framework code
 	. "github.com/onsi/ginkgo/v2"
@@ -25,7 +24,7 @@ type ResilientHttpClient struct {
 }
 
 func NewResilientHttpClient(requestTimeout time.Duration) *ResilientHttpClient {
-	retryPolicy := retrypolicy.Builder[*http.Response]().
+	retryPolicy := failsafehttp.RetryPolicyBuilder().
 		WithBackoff(time.Second, time.Minute).
 		WithJitterFactor(.25).
 		WithMaxRetries(5).
@@ -33,6 +32,16 @@ func NewResilientHttpClient(requestTimeout time.Duration) *ResilientHttpClient {
 		OnRetry(func(e failsafe.ExecutionEvent[*http.Response]) {
 			GinkgoWriter.Println("Last attempt failed with error: ", e.LastError())
 			GinkgoWriter.Printf("This is retry no. %d, elapsed time so far: %v,  retrying\n", e.Retries(), e.ElapsedTime())
+		}).
+		HandleIf(func(response *http.Response, err error) bool {
+			if err != nil {
+				return true
+			}
+			if response != nil && response.StatusCode >= 400 {
+				GinkgoWriter.Println("Failed due to status code: ", response.StatusCode)
+				return true
+			}
+			return false
 		}).
 		Build()
 
