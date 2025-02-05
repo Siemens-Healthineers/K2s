@@ -7,10 +7,7 @@ package k8s
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
 	"strings"
 	"time"
 
@@ -120,30 +117,6 @@ func (c *Cluster) ExpectDeploymentToBeRemoved(ctx context.Context, labelName str
 
 	Eventually(areAllContainersExited, c.testStepTimeout, c.testStepPollInterval, ctx).Should(BeTrue())
 	Eventually(IsDeploymentAvailable, c.testStepTimeout, c.testStepPollInterval, ctx).Should(BeFalse())
-}
-
-func (c *Cluster) ExpectDeploymentToBeReachableFromHost(name string, namespace string) {
-	url := "http://" + name + "." + namespace + ".svc.cluster.local/" + name
-
-	GinkgoWriter.Println("Calling <", url, "> over HTTP..")
-
-	ctx, cncl := context.WithTimeout(context.Background(), time.Second*60)
-	defer cncl()
-	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	res, err := http.DefaultClient.Do(req)
-
-	Expect(err).ShouldNot(HaveOccurred())
-	Expect(res).To(SatisfyAll(
-		HaveHTTPStatus(http.StatusOK),
-		HaveHTTPHeaderWithValue("Content-Type", "application/json; charset=utf-8"),
-	))
-
-	defer res.Body.Close()
-
-	data, err := io.ReadAll(res.Body)
-
-	Expect(err).ShouldNot(HaveOccurred())
-	Expect(json.Valid(data)).To(BeTrue())
 }
 
 func (c *Cluster) ExpectDeploymentToBeReachableFromPodOfOtherDeployment(targetName string, targetNamespace string, sourceName string, sourceNamespace string, ctx context.Context) {
