@@ -14,7 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/siemens-healthineers/k2s/internal/k8s"
 	"github.com/siemens-healthineers/k2s/internal/k8s/kubeconfig"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 )
 
 func TestK8sPkg(t *testing.T) {

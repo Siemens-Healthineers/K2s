@@ -7,8 +7,6 @@ package gatewaynginx
 import (
 	"context"
 	"encoding/json"
-	"io"
-	"net/http"
 	"testing"
 	"time"
 
@@ -82,21 +80,9 @@ var _ = Describe("'gateway-api' addon", Ordered, func() {
 		suite.Kubectl().Run(ctx, "apply", "-k", "workloads")
 		suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "albums-linux1", "gateway-api-test")
 
-		url := "http://172.19.1.100/albums-linux1"
-		res, err := httpGet(url, 5)
+		_, err := suite.HttpClient().GetJson(ctx, "http://172.19.1.100/albums-linux1")
 
-		Expect(err).ShouldNot(HaveOccurred())
-		Expect(res).To(SatisfyAll(
-			HaveHTTPStatus(http.StatusOK),
-			HaveHTTPHeaderWithValue("Content-Type", "application/json; charset=utf-8"),
-		))
-
-		defer res.Body.Close()
-
-		data, err := io.ReadAll(res.Body)
-
-		Expect(err).ShouldNot(HaveOccurred())
-		Expect(json.Valid(data)).To(BeTrue())
+		Expect(err).ToNot(HaveOccurred())
 	})
 
 	It("prints the status", func(ctx context.Context) {
@@ -134,20 +120,3 @@ var _ = Describe("'gateway-api' addon", Ordered, func() {
 		))
 	})
 })
-
-func httpGet(url string, retryCount int) (*http.Response, error) {
-	var res *http.Response
-	var err error
-	for i := 0; i < retryCount; i++ {
-		GinkgoWriter.Println("retry count: ", i+1)
-		res, err = http.Get(url)
-
-		if err == nil && res.StatusCode == 200 {
-			return res, err
-		}
-
-		time.Sleep(time.Second * 1)
-	}
-
-	return res, err
-}
