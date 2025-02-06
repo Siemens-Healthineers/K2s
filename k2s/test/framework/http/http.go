@@ -5,6 +5,7 @@ package http
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -19,8 +20,7 @@ import (
 )
 
 type ResilientHttpClient struct {
-	httpClient *http.Client
-	executor   failsafe.Executor[*http.Response]
+	executor failsafe.Executor[*http.Response]
 }
 
 func NewResilientHttpClient(requestTimeout time.Duration) *ResilientHttpClient {
@@ -46,8 +46,7 @@ func NewResilientHttpClient(requestTimeout time.Duration) *ResilientHttpClient {
 		Build()
 
 	return &ResilientHttpClient{
-		httpClient: &http.Client{},
-		executor:   failsafe.NewExecutor(retryPolicy),
+		executor: failsafe.NewExecutor(retryPolicy),
 	}
 }
 
@@ -63,14 +62,11 @@ func (c *ResilientHttpClient) GetJson(ctx context.Context, url string) ([]byte, 
 		return nil, err
 	}
 
-	failsafeRequest := failsafehttp.NewRequestWithExecutor(request, c.httpClient, executor)
+	failsafeRequest := failsafehttp.NewRequestWithExecutor(request, http.DefaultClient, executor)
 
 	response, err := failsafeRequest.Do()
 	if err != nil {
 		return nil, err
-	}
-	if response.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected http status code <%d>", response.StatusCode)
 	}
 	if response.Header.Get("Content-Type") != "application/json; charset=utf-8" {
 		return nil, fmt.Errorf("unexpected content type <%s>", response.Header.Get("Content-Type"))
@@ -86,4 +82,36 @@ func (c *ResilientHttpClient) GetJson(ctx context.Context, url string) ([]byte, 
 		return nil, fmt.Errorf("invalid JSON payload")
 	}
 	return payload, nil
+}
+
+// Get performs a GET request to the given URL and returns the payload as a byte array.
+// It retries failed requests according to the retry policy.
+func (c *ResilientHttpClient) Get(ctx context.Context, url string, tlsConfig ...*tls.Config) ([]byte, error) {
+	GinkgoWriter.Println("Calling http GET on <", url, ">")
+
+	executor := c.executor.WithContext(ctx)
+
+	request, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	if len(tlsConfig) > 0 && tlsConfig[0] != nil {
+		GinkgoWriter.Println("Using custom TLS config")
+		transport.TLSClientConfig = tlsConfig[0]
+	}
+
+	httpClient := &http.Client{Transport: transport}
+
+	failsafeRequest := failsafehttp.NewRequestWithExecutor(request, httpClient, executor)
+
+	response, err := failsafeRequest.Do()
+	if err != nil {
+		return nil, err
+	}
+
+	defer response.Body.Close()
+
+	return io.ReadAll(response.Body)
 }
