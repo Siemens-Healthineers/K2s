@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/siemens-healthineers/k2s/test/framework"
+	"github.com/siemens-healthineers/k2s/test/framework/dsl"
 	v1 "k8s.io/api/core/v1"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -30,6 +31,7 @@ const (
 )
 
 var suite *framework.K2sTestSuite
+var k2s *dsl.K2s
 
 var kubectlPath string
 
@@ -54,6 +56,7 @@ func TestClusterCore(t *testing.T) {
 
 var _ = BeforeSuite(func(ctx context.Context) {
 	suite = framework.Setup(ctx, framework.ClusterTestStepPollInterval(time.Millisecond*200))
+	k2s = dsl.NewK2s(suite)
 
 	suite.SetupInfo().LoadClusterConfig()
 	kubectlPath = filepath.Join(suite.RootDir(), "bin", "kube", "kubectl.exe")
@@ -133,10 +136,10 @@ var _ = Describe("Node Communication Core", func() {
 			}
 		})
 
-		It("Deployment Reachable from Host", func() {
+		It("Deployment Reachable from Host", func(ctx context.Context) {
 			deploymentNames := getDeploymentNames()
-			for _, v := range deploymentNames {
-				suite.Cluster().ExpectDeploymentToBeReachableFromHost(v, namespace)
+			for _, name := range deploymentNames {
+				k2s.VerifyDeploymentToBeReachableFromHost(ctx, name, namespace)
 			}
 		})
 
