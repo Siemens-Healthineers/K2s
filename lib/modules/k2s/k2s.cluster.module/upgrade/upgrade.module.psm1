@@ -422,13 +422,14 @@ function Get-ClusterCurrentVersion {
 function Assert-UpgradeOperation {
     $installFolder = Get-ClusterInstalledFolder
     $currentVersion = Get-ClusterCurrentVersion
+    $nextVersion = $productVersion
 
-    Write-Log "Preparing steps to upgrade from K2s version: $currentVersion ($installFolder) to K2s version: $productVersion ($kubePath)" -Console
+    Write-Log "Preparing steps to upgrade from K2s version: $currentVersion ($installFolder) to K2s version: $nextVersion ($kubePath)" -Console
 
-    # check of version (only lower minor version is supported)
-    $validUpgrade = Assert-UpgradeVersionIsValid -VersionInstalled $currentVersion -VersionToBeUsed $productVersion
+    # check of version (only lower minor version is supported and only between consecutive versions)
+    $validUpgrade = Assert-UpgradeVersionIsValid -VersionInstalled $currentVersion -VersionToBeUsed $nextVersion
     if ( -not $validUpgrade) {
-        throw "Upgrade not supported from $currentVersion to $productVersion!"
+        throw "Upgrade not supported from $currentVersion to $nextVersion. Major version must be the same and minor version increase must be consecutive!"
     }
 
     # check if install folder is the same as the current one
@@ -440,6 +441,61 @@ function Assert-UpgradeOperation {
     $K8sSetup = Get-ConfigSetupType
     if ($K8sSetup -ne 'k2s') {
         throw 'Upgrade only supported in the default variant!'
+    }
+
+    # Parse the version strings into major, minor, and patch components
+    $currentVersionParsed = [System.Version]::Parse($currentVersion)
+    $nextVersionParsed = [System.Version]::Parse($nextVersion)
+    
+    # Minor version is the same or increased by one
+    if ($currentVersionParsed.Minor -eq $nextVersionParsed.Minor) {
+        # If the patch version are different stop restart the cluster
+        if ($currentVersionParsed.Build -ne $nextVersionParsed.Build) {
+            Write-Log "Only build version mismatch: Current version is $currentVersion and next version is $nextVersion. Therefore only cluster restart is necessary." -Console
+            RestartCluster -CurrentKubePath $installFolder -NextVersionKubePath $kubePath
+            return $false
+        }
+        return $false
+    }
+    #  Upgrade to the next minor version
+    Write-Log "Upgrade to the next minor version: $nextVersion"
+    return $true
+}
+
+function RestartCluster {
+    param (
+        [string] $CurrentKubePath,
+        [string] $NextVersionKubePath
+    )
+    $setupInfo = Get-SetupInfo
+    $clusterState = Get-RunningState -SetupName $setupInfo.Name
+
+    if ($clusterState.IsRunning -ne $true) {
+        Write-Log 'Cluster is not running, no need to restart' -Console
+        return
+    }
+
+    Write-Log 'Restarting the cluster..' -Console
+    $currentExe = "$CurrentKubePath\k2s.exe"
+    if (-not (Test-Path -Path $currentExe)) {
+        Write-Log "K2s exe: '$currentExe' does not exist. Skipping stop." -Console
+    }
+       
+    $stopArgsCall = 'stop'
+    $rt = Invoke-Cmd -Executable $currentExe -Arguments $stopArgsCall
+    if ( $rt -eq 0 ) {
+        Write-Log 'Stop of cluster successfully called'  -Console
+    }
+
+    $nextVersionExe = "$NextVersionKubePath\k2s.exe"
+    if (-not (Test-Path -Path $nextVersionExe)) {
+        Write-Log "K2s exe: '$nextVersionExe' does not exist. Skipping start." -Console
+    }
+       
+    $startArgsCall = 'start'
+    $rt = Invoke-Cmd -Executable $nextVersionExe -Arguments $startArgsCall
+    if ( $rt -eq 0 ) {
+        Write-Log 'Start of cluster successfully called'
     }
 }
 
