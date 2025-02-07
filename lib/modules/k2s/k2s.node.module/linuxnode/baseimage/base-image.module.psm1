@@ -603,12 +603,30 @@ function New-NetworkForProvisioning {
 
     $timeout = New-TimeSpan -Minutes 1
 	$stpwatch = [System.Diagnostics.Stopwatch]::StartNew()
-	do {
-	    New-VMSwitch -Name $SwitchName -SwitchType Internal | Write-Log
-        Write-Log "Try to find switch: $SwitchName"
-    	$sw = Get-VMSwitch -Name $SwitchName -ErrorAction SilentlyContinue | Write-Log
-	} until ( ($sw) -or ($stpwatch.elapsed -lt $timeout))
-	Write-Log "Created VMSwitch '$SwitchName'"
+
+    $retryCount = 0
+    $maxRetries = 5
+    $retryDelay = 10
+
+    do {
+        try {
+            New-VMSwitch -Name $SwitchName -SwitchType Internal | Write-Log
+            Write-Log "Try to find switch: $SwitchName"
+            $sw = Get-VMSwitch -Name $SwitchName -ErrorAction SilentlyContinue | Write-Log
+            if ($sw) {
+                Write-Log "Created VMSwitch '$SwitchName'"
+                break
+            }
+        } catch {
+            Write-Log "Failed to create VMSwitch '$SwitchName'. Retrying in $retryDelay seconds..."
+            Start-Sleep -Seconds $retryDelay
+            $retryCount++
+        }
+    } until ( ($sw) -or ($stpwatch.elapsed -gt $timeout) -or ($retryCount -ge $maxRetries))
+
+    if (-not $sw) {
+        throw "Failed to create VMSwitch '$SwitchName' after $maxRetries attempts."
+    }
 
 	New-NetIPAddress -IPAddress $HostIpAddress -PrefixLength $HostIpPrefixLength -InterfaceAlias "vEthernet ($SwitchName)" | Write-Log
 	Write-Log "Added IP address '$HostIpAddress' to network interface named 'vEthernet ($SwitchName)'"
