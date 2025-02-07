@@ -610,7 +610,7 @@ function New-NetworkForProvisioning {
 
     do {
         try {
-            New-VMSwitch -Name $SwitchName -SwitchType Internal
+            New-VMSwitch -Name $SwitchName -SwitchType Internal -ErrorAction SilentlyContinue
             Write-Log "Try to find switch: $SwitchName"
             $sw = Get-VMSwitch -Name $SwitchName -ErrorAction SilentlyContinue
             if ($sw) {
