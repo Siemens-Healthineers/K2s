@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2025 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package addons
@@ -7,7 +7,6 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
-	"net/http"
 	"time"
 
 	"testing"
@@ -89,9 +88,9 @@ var _ = Describe("'registry' addon", Ordered, func() {
 				Expect(output).Should(ContainSubstring("k2s.registry.local:30500"), "Local Registry was not enabled")
 			})
 
-			It("registry is reachable", func() {
+			It("registry is reachable", func(ctx context.Context) {
 				url := "http://k2s.registry.local:30500"
-				expectHttpGetStatusOk(url)
+				expectHttpGetStatusOk(ctx, url)
 			})
 		})
 
@@ -147,9 +146,9 @@ var _ = Describe("'registry' addon", Ordered, func() {
 				Expect(output).Should(ContainSubstring("k2s.registry.local"), "Local Registry was not enabled")
 			})
 
-			It("registry is reachable", func() {
+			It("registry is reachable", func(ctx context.Context) {
 				url := "https://k2s.registry.local"
-				expectHttpGetStatusOk(url)
+				expectHttpGetStatusOk(ctx, url)
 			})
 		})
 
@@ -205,9 +204,9 @@ var _ = Describe("'registry' addon", Ordered, func() {
 				Expect(output).Should(ContainSubstring("k2s.registry.local"), "Local Registry was not enabled")
 			})
 
-			It("registry is reachable", func() {
+			It("registry is reachable", func(ctx context.Context) {
 				url := "https://k2s.registry.local"
-				expectHttpGetStatusOk(url)
+				expectHttpGetStatusOk(ctx, url)
 			})
 		})
 
@@ -237,11 +236,10 @@ var _ = Describe("'registry' addon", Ordered, func() {
 	})
 })
 
-func expectHttpGetStatusOk(url string) {
-	res, err := httpGet(url, 5)
+func expectHttpGetStatusOk(ctx context.Context, url string) {
+	_, err := suite.HttpClient().Get(ctx, url, &tls.Config{InsecureSkipVerify: true})
 
-	Expect(err).ShouldNot(HaveOccurred())
-	Expect(res).To(HaveHTTPStatus(http.StatusOK))
+	Expect(err).ToNot(HaveOccurred())
 }
 
 // TODO: code clone all over the addons tests
@@ -278,22 +276,4 @@ func expectStatusToBePrinted(ctx context.Context) {
 			HaveField("Okay", gstruct.PointTo(BeTrue())),
 			HaveField("Message", gstruct.PointTo(MatchRegexp("The registry '.+' is reachable")))),
 	))
-}
-
-func httpGet(url string, retryCount int) (*http.Response, error) {
-	var res *http.Response
-	var err error
-	http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
-	for i := 0; i < retryCount; i++ {
-		GinkgoWriter.Println("retry count: ", retryCount)
-		res, err = http.Get(url)
-
-		if err == nil && res.StatusCode == 200 {
-			return res, err
-		}
-
-		time.Sleep(time.Second * 1)
-	}
-
-	return res, err
 }
