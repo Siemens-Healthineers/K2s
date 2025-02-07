@@ -610,17 +610,22 @@ function New-NetworkForProvisioning {
 
     do {
         try {
-            New-VMSwitch -Name $SwitchName -SwitchType Internal | Write-Log
+            New-VMSwitch -Name $SwitchName -SwitchType Internal
             Write-Log "Try to find switch: $SwitchName"
-            $sw = Get-VMSwitch -Name $SwitchName -ErrorAction SilentlyContinue | Write-Log
+            $sw = Get-VMSwitch -Name $SwitchName -ErrorAction SilentlyContinue
             if ($sw) {
-                Write-Log "Created VMSwitch '$SwitchName'"
+                Write-Log "Created VMSwitch '$SwitchName': $sw"
                 break
             }
         } catch {
             Write-Log "Failed to create VMSwitch '$SwitchName'. Retrying in $retryDelay seconds..."
             Start-Sleep -Seconds $retryDelay
             $retryCount++
+        }
+        if ($sw) {
+            $retryCount = $maxRetries + 1
+            Write-Log "Created VMSwitch '$SwitchName': $sw"
+            break
         }
     } until ( ($sw) -or ($stpwatch.elapsed -gt $timeout) -or ($retryCount -ge $maxRetries))
 
