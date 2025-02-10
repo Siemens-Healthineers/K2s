@@ -593,6 +593,9 @@ function Invoke-ClusterInstall {
     Write-Log 'Install cluster with the new version' -Console
    
     Write-Log "Using k2sPath: $K2sPathToInstallFrom" -Console
+    if ([string]::IsNullOrEmpty($K2sPathToInstallFrom)) {
+        $K2sPathToInstallFrom =  Get-KubePath
+    }
     # copy executable since else we get ACCESS DENIED
     $texe = "$K2sPathToInstallFrom\k2sx.exe"
     Copy-Item "$K2sPathToInstallFrom\k2s.exe" -Destination $texe -Force -PassThru
