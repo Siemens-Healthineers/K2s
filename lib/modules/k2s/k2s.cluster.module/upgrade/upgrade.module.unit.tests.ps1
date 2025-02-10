@@ -62,7 +62,7 @@ Describe 'Invoke-ClusterInstall' -Tag 'unit', 'ci', 'upgrade' {
         InModuleScope -ModuleName $moduleName -Parameters @{log = $log } {
             Invoke-ClusterInstall
             $log.Count | Should -BeGreaterOrEqual 3
-            $log[2] | Should -Be 'Install of cluster successfully called'
+            $log[3] | Should -Be 'Install of cluster successfully called'
         }
     }
 
