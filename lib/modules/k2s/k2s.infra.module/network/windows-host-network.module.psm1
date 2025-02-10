@@ -33,46 +33,46 @@ function Get-DnsIpAddressesFromActivePhysicalNetworkInterfacesOnWindowsHost {
     return $allCommaSeparatedDnsIpAddressesWithoutDuplicates
 }
 
-function Set-K2sDnsProxyForActivePhysicalInterfacesOnWindowsHost {
-    param (
-        [string]$ExcludeNetworkInterfaceName = ''
-    )
+# function Set-K2sDnsProxyForActivePhysicalInterfacesOnWindowsHost {
+#     param (
+#         [string]$ExcludeNetworkInterfaceName = ''
+#     )
 
-    $k2sDnsProxyIpAddress = Get-ConfiguredKubeSwitchIP
-    $physicalInterfaceIndexes = Get-NetAdapter -Physical | Where-Object Status -Eq 'Up' | Where-Object Name -ne $ExcludeNetworkInterfaceName | Select-Object -expand 'ifIndex'
+#     $k2sDnsProxyIpAddress = Get-ConfiguredKubeSwitchIP
+#     $physicalInterfaceIndexes = Get-NetAdapter -Physical | Where-Object Status -Eq 'Up' | Where-Object Name -ne $ExcludeNetworkInterfaceName | Select-Object -expand 'ifIndex'
 
-    foreach ($networkInterfaceIndex in $physicalInterfaceIndexes) {
-        $interfaceName = (Get-NetIPAddress -InterfaceIndex $networkInterfaceIndex -ErrorAction SilentlyContinue).InterfaceAlias
-        if ($null -eq $interfaceName) {
-            Write-Warning "Cannot get information from network interface index $networkInterfaceIndex)"
-        }
-        else {
-            Write-Log "Setting DNS proxy IP address '$k2sDnsProxyIpAddress' as main DNS server for network interface '$interfaceName'"
-            Set-DnsClientServerAddress -InterfaceIndex $networkInterfaceIndex -ServerAddresses $k2sDnsProxyIpAddress
-        }
-    }
-}
+#     foreach ($networkInterfaceIndex in $physicalInterfaceIndexes) {
+#         $interfaceName = (Get-NetIPAddress -InterfaceIndex $networkInterfaceIndex -ErrorAction SilentlyContinue).InterfaceAlias
+#         if ($null -eq $interfaceName) {
+#             Write-Warning "Cannot get information from network interface index $networkInterfaceIndex)"
+#         }
+#         else {
+#             Write-Log "Setting DNSProxy(1) IP address '$k2sDnsProxyIpAddress' as main DNS server for network interface '$interfaceName'"
+#             Set-DnsClientServerAddress -InterfaceIndex $networkInterfaceIndex -ServerAddresses $k2sDnsProxyIpAddress
+#         }
+#     }
+# }
 
-function Reset-DnsForActivePhysicalInterfacesOnWindowsHost {
-    param (
-        [string]$ExcludeNetworkInterfaceName = ''
-    )
+# function Reset-DnsForActivePhysicalInterfacesOnWindowsHost {
+#     param (
+#         [string]$ExcludeNetworkInterfaceName = ''
+#     )
 
-    $k2sDnsProxyIpAddress = Get-ConfiguredKubeSwitchIP
-    $physicalInterfaceIndexes = Get-DNSClientServerAddress -AddressFamily IPv4 | Where-Object Name -ne $ExcludeNetworkInterfaceName | Where-Object ServerAddresses -contains $k2sDnsProxyIpAddress | Select-Object -expand 'InterfaceIndex'
+#     $k2sDnsProxyIpAddress = Get-ConfiguredKubeSwitchIP
+#     $physicalInterfaceIndexes = Get-DNSClientServerAddress -AddressFamily IPv4 | Where-Object Name -ne $ExcludeNetworkInterfaceName | Where-Object ServerAddresses -contains $k2sDnsProxyIpAddress | Select-Object -expand 'InterfaceIndex'
 
-    foreach ($networkInterfaceIndex in $physicalInterfaceIndexes) {
-        $interfaceName = (Get-NetIPAddress -InterfaceIndex $networkInterfaceIndex -ErrorAction SilentlyContinue).InterfaceAlias
-        if ($null -eq $interfaceName) {
-            Write-Warning "Cannot get information from network interface index $networkInterfaceIndex)"
-        }
-        else {
-            Write-Log "Resetting DNS server settings for network interface '$interfaceName'"
-            Set-DnsClientServerAddress -InterfaceIndex $networkInterfaceIndex -ResetServerAddresses
-        }
-    }
+#     foreach ($networkInterfaceIndex in $physicalInterfaceIndexes) {
+#         $interfaceName = (Get-NetIPAddress -InterfaceIndex $networkInterfaceIndex -ErrorAction SilentlyContinue).InterfaceAlias
+#         if ($null -eq $interfaceName) {
+#             Write-Warning "Cannot get information from network interface index $networkInterfaceIndex)"
+#         }
+#         else {
+#             Write-Log "Setting DNSProxy(2) server settings for network interface '$interfaceName' with reset"
+#             Set-DnsClientServerAddress -InterfaceIndex $networkInterfaceIndex -ResetServerAddresses
+#         }
+#     }
 
-}
+# }
 
 function Get-HostPhysicalIp {
     param (
@@ -84,6 +84,5 @@ function Get-HostPhysicalIp {
 }
 
 
-Export-ModuleMember -Function Get-DnsIpAddressesFromActivePhysicalNetworkInterfacesOnWindowsHost,
-Set-K2sDnsProxyForActivePhysicalInterfacesOnWindowsHost, Reset-DnsForActivePhysicalInterfacesOnWindowsHost,
-Get-HostPhysicalIp
+Export-ModuleMember -Function Get-DnsIpAddressesFromActivePhysicalNetworkInterfacesOnWindowsHost, Get-HostPhysicalIp
+# Set-K2sDnsProxyForActivePhysicalInterfacesOnWindowsHost, Reset-DnsForActivePhysicalInterfacesOnWindowsHost

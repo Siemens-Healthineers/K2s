@@ -230,7 +230,8 @@ function Start-WindowsWorkerNode {
     Set-InterfacePrivate -InterfaceAlias "$loopbackAdapterAlias"
     Set-DnsClient -InterfaceIndex $loopbackAdapterIfIndex -RegisterThisConnectionsAddress $false | Out-Null
     netsh int ipv4 set int "$loopbackAdapterAlias" forwarding=enabled | Out-Null
-
+    Set-NetIPInterface -InterfaceIndex $loopbackAdapterIfIndex -InterfaceMetric 102
+    
     Write-Log 'Ensuring service log directories exists'
     EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\containerd"
     EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\dnsproxy"
@@ -282,8 +283,8 @@ function Start-WindowsWorkerNode {
 
             $l2BridgeSwitchName = Get-L2BridgeSwitchName
             $l2BridgeInterfaceIndex = Get-NetIPInterface | Where-Object InterfaceAlias -Like "*$l2BridgeSwitchName*" | Where-Object AddressFamily -Eq IPv4 | Select-Object -expand 'ifIndex'
-            Set-NetIPInterface -InterfaceIndex $l2BridgeInterfaceIndex -InterfaceMetric 5
-            Write-Output "Index for interface $l2BridgeSwitchName : ($l2BridgeInterfaceIndex) -> metric 5"
+            Set-NetIPInterface -InterfaceIndex $l2BridgeInterfaceIndex -InterfaceMetric 101
+            Write-Output "Index for interface $l2BridgeSwitchName : ($l2BridgeInterfaceIndex) -> metric 101"
 
             # $setupConfigRoot = Get-RootConfigk2s
             $clusterCIDRWorker = Get-ConfiguredClusterCIDRHost -PodSubnetworkNumber $PodSubnetworkNumber #$setupConfigRoot.psobject.properties['podNetworkWorkerCIDR'].value
