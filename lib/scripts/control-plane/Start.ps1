@@ -53,4 +53,4 @@ Write-Log 'Reconfiguring volatile settings in VM...'
 
 $loopbackAdapter = Get-L2BridgeName
 # Set DNS proxy for all physical network interfaces on Windows host to the DNS proxy
-Set-K2sDnsProxyForActivePhysicalInterfacesOnWindowsHost -ExcludeNetworkInterfaceName $loopbackAdapter
+# Set-K2sDnsProxyForActivePhysicalInterfacesOnWindowsHost -ExcludeNetworkInterfaceName $loopbackAdapter

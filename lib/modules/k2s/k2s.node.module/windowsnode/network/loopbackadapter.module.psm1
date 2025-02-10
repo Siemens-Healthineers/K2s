@@ -200,9 +200,11 @@ function Set-LoopbackAdapterProperties {
     if( $if ) {
         Set-NetIPInterface -InterfaceAlias "$Name" -Dhcp Disabled
         netsh interface ipv4 set address name="$Name" static $IPAddress $mask.IPAddressToString $Gateway
-        Write-Log "$Name configured with IP: $IPAddress, mask: $($mask.IPAddressToString), gateway: $Gateway"
+        Write-Log "Loopback Adapter $Name configured with IP: $IPAddress, mask: $($mask.IPAddressToString), gateway: $Gateway"
         # enable forwarding
         netsh int ipv4 set int "$Name" forwarding=enabled | Out-Null
+        # reset DNS settings
+        Set-DnsClient -InterfaceAlias "$Name" -ResetConnectionSpecificSuffix -RegisterThisConnectionsAddress $false
     }
     else {
         Write-Log "No loopback adapter '$Name' found to configure."

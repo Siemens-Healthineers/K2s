@@ -17,7 +17,7 @@
     <component type="application">
       <group>https://github.com/AdguardTeam/dnsproxy</group>
       <name>dnsproxy</name>
-      <version>v0.43.1</version>
+      <version>v0.75.0</version>
       <description />
       <scope>required</scope>
       <licenses>
@@ -26,7 +26,7 @@
           <url>https://github.com/AdguardTeam/dnsproxy/blob/master/LICENSE</url>
         </license>
       </licenses>
-      <purl>pkg:github/AdguardTeam/dnsproxy@v0.43.1</purl>
+      <purl>pkg:github/AdguardTeam/dnsproxy@v0.75.0</purl>
       <properties>
         <property name="sw360:projectName">k2s:core:pkg:executables</property>
       </properties>

@@ -20,8 +20,10 @@ function Get-WslSwitchName {
 function Add-DnsServer($switchname) {
     # add DNS proxy for cluster searches
     $ipindex = Get-NetIPInterface | ? InterfaceAlias -Like "*$switchname*" | ? AddressFamily -Eq IPv4 | select -expand 'ifIndex'
+
+    Write-Log "Setting DNSProxy(3) IP address '$ipControlPlane' as main DNS server for network interface '$switchname'"
     Set-DnsClientServerAddress -InterfaceIndex $ipindex -ServerAddresses $ipControlPlane | Out-Null
-    Set-DnsClient -InterfaceIndex $ipindex -ConnectionSpecificSuffix 'cluster.local' -RegisterThisConnectionsAddress $false | Out-Null
+    Set-DnsClient -InterfaceIndex $ipindex -ResetConnectionSpecificSuffix -RegisterThisConnectionsAddress $true | Out-Null
 }
 
 <#
@@ -41,8 +43,8 @@ function New-KubeSwitch() {
     netsh int ipv4 set int "vEthernet ($controlPlaneSwitchName)" forwarding=enabled | Out-Null
     # change index in order to have the Ethernet card as first card (also for much better DNS queries)
     $ipindex1 = Get-NetIPInterface | Where-Object InterfaceAlias -Like "*$controlPlaneSwitchName*" | Where-Object AddressFamily -Eq IPv4 | Select-Object -expand 'ifIndex'
-    Write-Log "Index for interface $controlPlaneSwitchName : ($ipindex1) -> metric 25"
-    Set-NetIPInterface -InterfaceIndex $ipindex1 -InterfaceMetric 25
+    Write-Log "Index for interface $controlPlaneSwitchName : ($ipindex1) -> metric 100"
+    Set-NetIPInterface -InterfaceIndex $ipindex1 -InterfaceMetric 100
 }
 
 <#
@@ -111,6 +113,7 @@ function Disconnect-NetworkAdapterFromVm {
 function Reset-DnsServer($switchname) {
     $ipindex = Get-NetIPInterface | ? InterfaceAlias -Like "*$switchname*" | ? AddressFamily -Eq IPv4 | select -expand 'ifIndex'
     if ($ipindex) {
+        Write-Log "Setting DNSProxy(4) for network interface '$switchname' with reset"
         Set-DnsClientServerAddress -InterfaceIndex $ipindex -ResetServerAddresses | Out-Null
         Set-DnsClient -InterfaceIndex $ipindex -ResetConnectionSpecificSuffix | Out-Null
     }

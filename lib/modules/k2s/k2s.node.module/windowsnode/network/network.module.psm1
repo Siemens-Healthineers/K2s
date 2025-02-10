@@ -20,8 +20,8 @@ function Set-IndexForDefaultSwitch {
     # Change index for default switch (on some computers the index is lower as for the main interface Ethernet)
     $ipindexDefault = Get-NetIPInterface | Where-Object InterfaceAlias -Like '*Default*' | Where-Object AddressFamily -Eq IPv4 | Select-Object -expand 'ifIndex'
     if ( $ipindexDefault ) {
-        Write-Log "Index for interface Default : ($ipindexDefault) -> metric 35"
-        Set-NetIPInterface -InterfaceIndex $ipindexDefault -InterfaceMetric 35
+        Write-Log "Index for interface Default : ($ipindexDefault) -> metric 103"
+        Set-NetIPInterface -InterfaceIndex $ipindexDefault -InterfaceMetric 103
     }
 }
 
@@ -117,7 +117,13 @@ function New-ExternalSwitch {
     Invoke-AttachHnsHostEndpoint -EndpointID $hnsEndpoint.Id -CompartmentID 1
     $iname = "vEthernet ($endpointname)"
     netsh int ipv4 set int $iname for=en | Out-Null
-    #netsh int ipv4 add neighbors $iname $gatewayIpAddress '00-01-e8-8b-2e-4b' | Out-Null
+
+    # disable DNS
+    $cbr0AdapterIfIndex = Get-NetIPInterface | Where-Object InterfaceAlias -Like "vEthernet ($endpointname)*" | Where-Object AddressFamily -Eq IPv4 | Select-Object -expand 'ifIndex' -First 1
+    if( $cbr0AdapterIfIndex ) {
+        Write-Log "Disable DNS for interface $endpointname : ($cbr0AdapterIfIndex)"
+        Set-DnsClient -InterfaceIndex $cbr0AdapterIfIndex -ResetConnectionSpecificSuffix -RegisterThisConnectionsAddress $false
+    }
 }
 
 function Remove-ExternalSwitch () {
@@ -205,7 +211,10 @@ function Set-IPAdressAndDnsClientServerAddress {
     if ($DnsAddresses.Count -eq 0) {
         $DnsAddresses = $('8.8.8.8', '8.8.4.4')
     }
-    Set-DnsClientServerAddress -InterfaceIndex $Index -Addresses $DnsAddresses
+
+    Write-Log "Setting DNSProxy(6) server to empty addresses and no DNS partition on interface index $Index"
+    # Set-DnsClientServerAddress -InterfaceIndex $Index -Addresses $DnsAddresses
+    Set-DnsClient -InterfaceIndex $Index -ResetConnectionSpecificSuffix -RegisterThisConnectionsAddress $false
 
     $kubePath = Get-KubePath
     if ( !(Test-Path "$kubePath\bin\dnsproxy.yaml")) {
@@ -273,8 +282,8 @@ function Set-WSLSwitch() {
     netsh int ipv4 set int $interfaceAlias forwarding=enabled | Out-Null
     # change index in order to have the Ethernet card as first card (also for much better DNS queries)
     $ipindex1 = Get-NetIPInterface | Where-Object InterfaceAlias -Like $interfaceAlias | Where-Object AddressFamily -Eq IPv4 | Select-Object -expand 'ifIndex'
-    Write-Log "Index for interface $interfaceAlias : ($ipindex1) -> metric 25"
-    Set-NetIPInterface -InterfaceIndex $ipindex1 -InterfaceMetric 25
+    Write-Log "Index for interface $interfaceAlias : ($ipindex1) -> metric 100"
+    Set-NetIPInterface -InterfaceIndex $ipindex1 -InterfaceMetric 100
 }
 
 <# .DESCRIPTION
