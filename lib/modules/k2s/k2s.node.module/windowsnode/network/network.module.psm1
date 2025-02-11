@@ -8,6 +8,7 @@ $logModule = "$PSScriptRoot\..\..\..\k2s.infra.module\log\log.module.psm1"
 $hnsModule = "$PSScriptRoot\hns.module.psm1"
 Import-Module $logModule, $pathModule, $configModule, $hnsModule, $fileModule
 
+$hnsService = 'hns'
 $l2BridgeSwitchName = 'cbr0'
 $setupConfigRoot = Get-RootConfigk2s
 $clusterCIDRNextHop = $setupConfigRoot.psobject.properties['cbr0'].value
@@ -15,6 +16,7 @@ $clusterCIDRGateway = $setupConfigRoot.psobject.properties['cbr0Gateway'].value
 $clusterCIDRHost = $setupConfigRoot.psobject.properties['podNetworkWorkerCIDR'].value
 $clusterCIDRNatExceptions = $setupConfigRoot.psobject.properties['clusterCIDRNatExceptions'].value
 
+$global:HNSRestarted = $false
 
 function Set-IndexForDefaultSwitch {
     # Change index for default switch (on some computers the index is lower as for the main interface Ethernet)
@@ -65,8 +67,11 @@ function New-ExternalSwitch {
 
     # if the L2 bridge is already found we don't need to create it again
     $l2BridgeSwitchName = Get-L2BridgeSwitchName
-    $found = Get-HNSNetwork | ? Name -Like "$l2BridgeSwitchName"
-    if ( $found ) {
+    $found = Invoke-HNSCommand -Command { 
+        param($l2BridgeSwitchName)
+        Get-HNSNetwork | Where-Object Name -Like $l2BridgeSwitchName 
+    } -ArgumentList $l2BridgeSwitchName
+    if ($found) {
         Write-Log "L2 bridge network switch name: $l2BridgeSwitchName already exists"
         return
     }
@@ -98,26 +103,52 @@ function New-ExternalSwitch {
     $gatewayIpAddress = Get-ConfiguredClusterCIDRGateway -PodSubnetworkNumber $PodSubnetworkNumber
     $podNetworkCIDR = Get-ConfiguredClusterCIDRHost -PodSubnetworkNumber $PodSubnetworkNumber
     Write-Log "Create l2 bridge network with subnet: $podNetworkCIDR, switch name: $l2BridgeSwitchName, DNS server: $dnsserver, gateway: $gatewayIpAddress, NAT exceptions: $clusterCIDRNatExceptions, adapter name: $adapterName"
-    $netResult = New-HnsNetwork -Type 'L2Bridge' -Name "$l2BridgeSwitchName" -AdapterName "$adapterName" -AddressPrefix "$podNetworkCIDR" -Gateway "$gatewayIpAddress" -DNSServer "$dnserver"
+    $netResult = Invoke-HNSCommand -Command {
+        param(
+            $l2BridgeSwitchName,
+            $podNetworkCIDR,
+            $dnsserver,
+            $gatewayIpAddress,
+            $adapterName
+        )
+        New-HnsNetwork -Type 'L2Bridge' -Name "$l2BridgeSwitchName" -AdapterName "$adapterName" -AddressPrefix "$podNetworkCIDR" -Gateway "$gatewayIpAddress" -DNSServer "$dnsserver" 
+    } -ArgumentList @($l2BridgeSwitchName, $podNetworkCIDR, $dnsserver, $gatewayIpAddress, $adapterName)
     Write-Log $netResult
 
     # create endpoint
-    $cbr0 = Get-HnsNetwork | Where-Object -FilterScript { $_.Name -EQ "$l2BridgeSwitchName" }
+    $cbr0 = Invoke-HNSCommand -Command {
+        param(
+            $l2BridgeSwitchName
+        ) 
+        Get-HnsNetwork | Where-Object -FilterScript { $_.Name -EQ "$l2BridgeSwitchName" } 
+    } -ArgumentList $l2BridgeSwitchName
     if ( $null -Eq $cbr0 ) {
         throw 'No l2 bridge found. Please do a stopk8s ans start from scratch !'
     }
 
     $endpointname = $l2BridgeSwitchName + '_ep'
     $podNetworkNextHop = Get-ConfiguredClusterCIDRNextHop -PodSubnetworkNumber $PodSubnetworkNumber
-    $hnsEndpoint = New-HnsEndpoint -NetworkId $cbr0.ID -Name $endpointname -IPAddress $podNetworkNextHop -Verbose -EnableOutboundNat -OutboundNatExceptions $clusterCIDRNatExceptions
+    $hnsEndpoint = Invoke-HNSCommand -Command {
+        param(
+            $cbr0,
+            $endpointname,
+            $podNetworkNextHop,
+            $clusterCIDRNatExceptions
+        )
+        New-HnsEndpoint -NetworkId $cbr0.ID -Name $endpointname -IPAddress $podNetworkNextHop -Verbose -EnableOutboundNat -OutboundNatExceptions $clusterCIDRNatExceptions 
+    } -ArgumentList @($cbr0, $endpointname, $podNetworkNextHop, $clusterCIDRNatExceptions)
+
     if ($null -Eq $hnsEndpoint) {
         throw 'Not able to create a endpoint. Please do a stopk8s and restart again. Aborting.'
     }
 
-    Invoke-AttachHnsHostEndpoint -EndpointID $hnsEndpoint.Id -CompartmentID 1
+    Invoke-HNSCommand -Command {
+        param($hnsEndpointId)
+        Invoke-AttachHnsHostEndpoint -EndpointID $hnsEndpointId -CompartmentID 1 
+    } -ArgumentList @($hnsEndpoint.Id)
+
     $iname = "vEthernet ($endpointname)"
     netsh int ipv4 set int $iname for=en | Out-Null
-    #netsh int ipv4 add neighbors $iname $gatewayIpAddress '00-01-e8-8b-2e-4b' | Out-Null
 }
 
 function Remove-ExternalSwitch () {
@@ -126,12 +157,15 @@ function Remove-ExternalSwitch () {
 
     $controlPlaneSwitchName = Get-ControlPlaneNodeDefaultSwitchName
 
-    $hns = $(Get-HNSNetwork)
+    $hns = Invoke-HNSCommand -Command { Get-HNSNetwork }
     # there's always at least the Default Switch network available, so we check for >= 2
     if ($($hns | Measure-Object).Count -ge 2) {
         Write-Log 'Delete bridge, clear HNSNetwork (short disconnect expected)'
-        $hns | Where-Object Name -Like '*cbr0*' | Remove-HNSNetwork -ErrorAction SilentlyContinue
-        $hns | Where-Object Name -Like ('*' + $controlPlaneSwitchName + '*') | Remove-HNSNetwork -ErrorAction SilentlyContinue
+        Invoke-HNSCommand -Command { 
+            param($hns, $controlPlaneSwitchName)
+            $hns | Where-Object Name -Like '*cbr0*' | Remove-HNSNetwork -ErrorAction SilentlyContinue 
+            $hns | Where-Object Name -Like ('*' + $controlPlaneSwitchName + '*') | Remove-HNSNetwork -ErrorAction SilentlyContinue
+        } -ArgumentList @($hns, $controlPlaneSwitchName)
     }
 }
 
@@ -305,31 +339,17 @@ function Restart-NlaSvc {
         Write-Log "Network Location Awareness service found on host runnig with pid $nlaSvcPid. Initiating service restart..."
         Invoke-Expression "taskkill /f /pid $nlaSvcPid"
         Start-Sleep -seconds 10
-        $networkLocationAwarenessService = Get-Service $networkLocationAwarenessServiceName
         $serviceRestarted = $false
-        if ($networkLocationAwarenessService.Status -ne 'Running') {
+        if ((Get-Service -Name $networkLocationAwarenessServiceName).Status -ne 'Running') {
             Write-Log "'$networkLocationAwarenessServiceName' Service is not restarted. Starting it explicitly..."
             Start-Service $networkLocationAwarenessServiceName
-            while ($true) {
-                $iteration++
-                $svcstatus = $(Get-Service -Name $networkLocationAwarenessServiceName -ErrorAction SilentlyContinue).Status
-                if ($svcstatus -eq 'Running') {
-                    $serviceRestarted = $true
-                    break
-                }
-                if ($iteration -ge 5) {
-                    Write-Log "'$networkLocationAwarenessServiceName' Service is not running !!"
-                    break
-                }
-                Write-Log "'$networkLocationAwarenessServiceName' Waiting for service status to be started."
-                Start-Sleep -s 2
-            }
+            $serviceRestarted = Wait-ForServiceRunning -ServiceName $networkLocationAwarenessServiceName
         }
+        
         if ($serviceRestarted -eq $false) {
             Write-Log "[WARNING] '$networkLocationAwarenessServiceName' Service could not be successfully restarted !!" -Console
-        }
-        else {
-            Write-Log "Service re-started '$networkLocationAwarenessServiceName' "
+        } else {
+            Write-Log "Service re-started '$networkLocationAwarenessServiceName'"
         }
     }
 }
@@ -438,6 +458,79 @@ function Get-VirtualSwitchName {
     $interface = $interfaces | Sort-Object -Property InterfaceIndex | Select-Object -First 1
     Write-Log "Found interface '$($interface.InterfaceAlias)' with index $($interface.InterfaceIndex)"
     return $interface.InterfaceAlias
+}
+
+function Wait-ForServiceRunning {
+    param (
+        [string] $ServiceName,
+        [int] $MaxRetries = 5,
+        [int] $SleepSeconds = 2
+    )
+
+    $iteration = 0
+    while ($true) {
+        $iteration++
+        $svcstatus = $(Get-Service -Name $ServiceName -ErrorAction SilentlyContinue).Status
+        if ($svcstatus -eq 'Running') {
+            return $true
+        }
+        if ($iteration -ge $MaxRetries) {
+            Write-Log "'$ServiceName' Service is not running !!"
+            return $false
+        }
+        Write-Log "'$ServiceName' Waiting for service status to be started."
+        Start-Sleep -Seconds $SleepSeconds
+    }
+}
+
+function Restart-HNSService {
+    Restart-Service $hnsService
+    $serviceRestarted = Wait-ForServiceRunning -ServiceName $hnsService
+    
+    if ($serviceRestarted -eq $false) {
+        Write-Log "[WARNING] '$hnsService' Service could not be successfully restarted !!" -Console
+    } else {
+        Write-Log "Service re-started '$hnsService'"
+    }
+}
+
+function Invoke-HNSCommand {
+    param (
+        [scriptblock] $Command,
+        [object[]] $ArgumentList,
+        [int] $BaseDelayInSeconds = 2,
+        [int] $MaxDelayInSeconds = 60,
+        [int] $TimeoutMinutes = 10
+    )
+
+    $startTime = Get-Date
+    $delay = $BaseDelayInSeconds
+
+    while ($true) {
+        try {
+            if ($ArgumentList) {
+                return & $Command @ArgumentList
+            } else {
+                return & $Command
+            }
+        } catch {
+            Write-Log "Error encountered: $_"
+
+            if (-not $global:HNSRestarted) {
+                Restart-HNSService
+                $global:HNSRestarted = $true
+            } else {
+                $elapsedMinutes = (New-TimeSpan -Start $startTime -End (Get-Date)).TotalMinutes
+                if ($elapsedMinutes -ge $TimeoutMinutes) {
+                    throw "HNS API failed after $TimeoutMinutes minutes of retries."
+                }
+                $delay = [math]::Min($delay * 2, $MaxDelayInSeconds)
+            }
+
+            Write-Log "Retrying in $delay seconds..."
+            Start-Sleep -Seconds $delay
+        }
+    }
 }
 
 Export-ModuleMember -Function Add-Route, Remove-Route, Update-RoutePriority
