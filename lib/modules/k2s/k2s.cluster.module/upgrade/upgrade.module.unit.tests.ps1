@@ -95,10 +95,9 @@ Describe 'Invoke-ClusterUninstall' -Tag 'unit', 'ci', 'upgrade' {
         InModuleScope -ModuleName $moduleName -Parameters @{log = $log } {
             Invoke-ClusterUninstall
             $log.Count | Should -BeGreaterOrEqual 3
-            #In a uTest k2s is not really installed, so the message is correct
             $log[2] | Should -Be 'Uninstall of cluster successfully called'
         }
-    }
+    }   
 
     It 'calls Invoke-Cmd with correct command' {
         InModuleScope -ModuleName $moduleName {
@@ -219,6 +218,8 @@ Describe "Restart-ClusterIfBuildVersionMismatch" {
         }
     }
 }
+
+Import-Module "$PSScriptRoot\..\..\..\k2s\k2s.cluster.module"
 
 Describe "RestartCluster" {
     BeforeAll {
