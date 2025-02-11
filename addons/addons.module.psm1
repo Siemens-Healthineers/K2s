@@ -744,7 +744,7 @@ function Add-HostEntries {
 }
 
 function Update-Addons {
-    Write-Log "Adapting addons" -Console
+    Write-Log 'Adapting addons' -Console
 
     $addons = Get-AddonsConfig
     $addons | ForEach-Object {
@@ -879,7 +879,7 @@ function Get-IngressTraefikConfig {
 .DESCRIPTION
 Gets the location of nginx ingress yaml
 #>
-function Get-IngressNginxConfig {
+function Get-IngressNginxConfigDirectory {
     param (
         [Parameter(Mandatory = $false)]
         [string]$Directory = $(throw 'Directory of the ingress nginx config')
@@ -908,19 +908,18 @@ function Update-IngressForNginx {
         [Parameter(Mandatory = $false)]
         [pscustomobject]$Addon = $(throw 'Please specify the addon.')
     )
-
     $props = Get-AddonProperties -Addon $Addon
-
+    $kustomizationDir = ''
     if (Test-KeyCloakServiceAvailability) {
         Write-Log "  Applying secure nginx ingress manifest for $($props.Name)..." -Console
         $kustomizationDir = Get-IngressNginxSecureConfig -Directory $props.Directory
     }
     else {
         Write-Log "  Applying nginx ingress manifest for $($props.Name) $($props.Directory)..." -Console
-        $kustomizationDir = Get-IngressNginxConfig -Directory $props.Directory
-        
+        $kustomizationDir = Get-IngressNginxConfigDirectory -Directory $props.Directory
     }
-    Invoke-Kubectl -Params 'apply', '-k', $kustomizationDir | Out-Null
+    Write-Log "   Apply in cluster folder: $($kustomizationDir)" -Console
+    Invoke-Kubectl -Params 'apply', '-k', $kustomizationDir 
 }
 
 <#
@@ -977,10 +976,23 @@ function Remove-IngressForTraefik {
     Invoke-Kubectl -Params 'delete', '-k', $ingressTraefikConfig | Out-Null
 }
 
+<#
+.DESCRIPTION
+Enables a storage addon based on the input
+#>
+function Enable-StorageAddon([string]$Storage) {
+    switch ($Storage) {
+        'smb' {
+            &"$PSScriptRoot\storage\smb\Enable.ps1"
+            break
+        }
+    }
+}
+
 Export-ModuleMember -Function Get-EnabledAddons, Add-AddonToSetupJson, Remove-AddonFromSetupJson,
 Install-DebianPackages, Get-DebianPackageAvailableOffline, Test-IsAddonEnabled, Invoke-AddonsHooks, Copy-ScriptsToHooksDir,
 Remove-ScriptsFromHooksDir, Get-AddonConfig, Backup-Addons, Restore-Addons, Get-AddonStatus, Find-AddonManifests,
 Get-ErrCodeAddonAlreadyDisabled, Get-ErrCodeAddonAlreadyEnabled, Get-ErrCodeAddonEnableFailed, Get-ErrCodeAddonNotFound,
 Add-HostEntries, Get-AddonsConfig, Update-Addons, Update-IngressForAddon, Test-NginxIngressControllerAvailability, Test-TraefikIngressControllerAvailability,
-Test-KeyCloakServiceAvailability, Enable-IngressAddon, Remove-IngressForTraefik, Remove-IngressForNginx, Get-AddonProperties, Get-IngressNginxConfig, 
-Update-IngressForTraefik, Update-IngressForNginx, Get-IngressNginxSecureConfig, Get-IngressTraefikConfig
+Test-KeyCloakServiceAvailability, Enable-IngressAddon, Remove-IngressForTraefik, Remove-IngressForNginx, Get-AddonProperties, Get-IngressNginxConfigDirectory, 
+Update-IngressForTraefik, Update-IngressForNginx, Get-IngressNginxSecureConfig, Get-IngressTraefikConfig, Enable-StorageAddon

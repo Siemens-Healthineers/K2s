@@ -17,6 +17,8 @@ Param(
     [switch] $ShowLogs = $false,
     [ValidateSet('nginx', 'traefik', 'none')]
     [string] $Ingress = 'none',
+    [ValidateSet('smb', 'none')]
+    [string] $Storage = 'none',    
     [parameter(Mandatory = $false, HelpMessage = 'JSON config object to override preceeding parameters')]
     [pscustomobject] $Config,
     [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
@@ -71,23 +73,35 @@ if ($Ingress -ne 'none') {
     Enable-IngressAddon -Ingress:$Ingress
 }
 
+if ($Storage -ne 'none') {
+    Enable-StorageAddon -Storage:$Storage
+}
+
 $dicomConfig = Get-DicomConfig
 (Invoke-Kubectl -Params 'apply', '-f', "$dicomConfig\dicom-namespace.yaml").Output | Write-Log
 
 Write-Log 'Determine storage setup' -Console
 $StorageUsage = 'default'
 if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'storage' })) -eq $true) {
-    $answer = Read-Host 'Addon storage is enabled. Would you like to reuse the storage provided by that addon for the DICOM data ? (y/N)'
-    if ($answer -ne 'y') {
-        $pvConfig = Get-PVConfigDefault
-        (Invoke-Kubectl -Params 'apply' , '-k', $pvConfig).Output | Write-Log
-        Write-Log 'Use default storage for DICOM data' -Consoleonsole
-    }
-    else {
+    if ($Storage -ne 'none') {
         $pvConfig = Get-PVConfigStorage
         (Invoke-Kubectl -Params 'apply' , '-k', $pvConfig).Output | Write-Log
         $StorageUsage = 'storage'
         Write-Log 'Use storage addon for storing DICOM data' -C
+    }
+    else {
+        $answer = Read-Host 'Addon storage is enabled. Would you like to reuse the storage provided by that addon for the DICOM data ? (y/N)'
+        if ($answer -ne 'y') {
+            $pvConfig = Get-PVConfigDefault
+            (Invoke-Kubectl -Params 'apply' , '-k', $pvConfig).Output | Write-Log
+            Write-Log 'Use default storage for DICOM data' -Consoleonsole
+        }
+        else {
+            $pvConfig = Get-PVConfigStorage
+            (Invoke-Kubectl -Params 'apply' , '-k', $pvConfig).Output | Write-Log
+            $StorageUsage = 'storage'
+            Write-Log 'Use storage addon for storing DICOM data' -C
+        }
     }
 }
 else {
@@ -143,7 +157,6 @@ if (!$kubectlCmd.Success) {
 
 &"$PSScriptRoot\Update.ps1"
 
-#Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'dicom' })
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'dicom'; StorageUsage = $StorageUsage })
 
 # adapt other addons
