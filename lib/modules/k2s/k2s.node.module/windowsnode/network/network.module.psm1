@@ -213,7 +213,6 @@ function Set-IPAdressAndDnsClientServerAddress {
     }
 
     Write-Log "Setting DNSProxy(6) server to empty addresses and no DNS partition on interface index $Index"
-    # Set-DnsClientServerAddress -InterfaceIndex $Index -Addresses $DnsAddresses
     Set-DnsClient -InterfaceIndex $Index -ResetConnectionSpecificSuffix -RegisterThisConnectionsAddress $false
 
     $kubePath = Get-KubePath
