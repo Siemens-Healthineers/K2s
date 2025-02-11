@@ -5,8 +5,9 @@
 
 $infraModule = "$PSScriptRoot\..\..\..\k2s.infra.module\k2s.infra.module.psm1"
 $clusterModule = "$PSScriptRoot\..\..\..\k2s.cluster.module\k2s.cluster.module.psm1"
+$commonDistroModule = "$PSScriptRoot\..\distros\common-setup.module.psm1"
 
-Import-Module $infraModule, $clusterModule
+Import-Module $infraModule, $clusterModule, $commonDistroModule
 
 function New-ControlPlaneNodeOnNewVM {
     Param(
@@ -107,6 +108,9 @@ function New-ControlPlaneNodeOnNewVM {
     Set-EnvVars
 
     Update-NodeLabelsAndTaints
+
+    # correct coredns config
+    Update-CoreDNSConfigurationviaSSH 
 }
 
 function Start-ControlPlaneNodeOnNewVM {
@@ -279,8 +283,8 @@ function Start-ControlPlaneNodeOnNewVM {
     EnsureCni0InterfaceIsCreated -VmName $controlPlaneVMHostName -WSL:$WSL
 
     $ipindex = Get-NetIPInterface | Where-Object InterfaceAlias -Like "*$switchname*" | Where-Object AddressFamily -Eq IPv4 | Select-Object -expand 'ifIndex'
-    Write-Log "Index for interface $switchname : ($ipindex) -> metric 25"
-    Set-NetIPInterface -InterfaceIndex $ipindex -InterfaceMetric 25
+    Write-Log "Index for interface $switchname : ($ipindex) -> metric 100"
+    Set-NetIPInterface -InterfaceIndex $ipindex -InterfaceMetric 100
 
     Invoke-TimeSync
 
