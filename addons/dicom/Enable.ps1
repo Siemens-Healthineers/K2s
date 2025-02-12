@@ -38,6 +38,9 @@ Initialize-Logging -ShowLogs:$ShowLogs
 
 Write-Log 'Checking cluster status' -Console
 
+# get addon name from folder path
+$addonName = Get-AddonNameFromFolderPath -BaseFolderPath $PSScriptRoot
+
 $systemError = Test-SystemAvailability -Structured
 if ($systemError) {
     if ($EncodeStructuredOutput -eq $true) {
@@ -51,13 +54,13 @@ if ($systemError) {
 
 $setupInfo = Get-SetupInfo
 if ($setupInfo.Name -ne 'k2s') {
-    $err = New-Error -Severity Warning -Code (Get-ErrCodeWrongSetupType) -Message "Addon 'dicom' can only be enabled for 'k2s' setup type."  
+    $err = New-Error -Severity Warning -Code (Get-ErrCodeWrongSetupType) -Message "Addon $addonName can only be enabled for 'k2s' setup type."  
     Send-ToCli -MessageType $MessageType -Message @{Error = $err }
     return
 }
 
-if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'dicom' })) -eq $true) {
-    $errMsg = "Addon 'dicom' is already enabled, nothing to do."
+if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = $addonName })) -eq $true) {
+    $errMsg = "Addon $addonName is already enabled, nothing to do."
 
     if ($EncodeStructuredOutput -eq $true) {
         $err = New-Error -Severity Warning -Code (Get-ErrCodeAddonAlreadyEnabled) -Message $errMsg
@@ -94,7 +97,7 @@ if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'storage' })) -eq $tr
         if ($answer -ne 'y') {
             $pvConfig = Get-PVConfigDefault
             (Invoke-Kubectl -Params 'apply' , '-k', $pvConfig).Output | Write-Log
-            Write-Log 'Use default storage for DICOM data' -Consoleonsole
+            Write-Log 'Use default storage for DICOM data' -Console
         }
         else {
             $pvConfig = Get-PVConfigStorage
@@ -155,12 +158,12 @@ if (!$kubectlCmd.Success) {
     exit 1
 }
 
+Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = $addonName; StorageUsage = $StorageUsage })
+
 &"$PSScriptRoot\Update.ps1"
 
-Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'dicom'; StorageUsage = $StorageUsage })
-
 # adapt other addons
-Update-Addons
+Update-Addons -AddonName $addonName
 
 Write-Log 'dicom server installed successfully'
 

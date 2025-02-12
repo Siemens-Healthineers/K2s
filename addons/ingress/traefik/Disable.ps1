@@ -35,6 +35,9 @@ Initialize-Logging -ShowLogs:$ShowLogs
 
 Write-Log 'Checking cluster status' -Console
 
+# get addon name from folder path
+$addonName = Get-AddonNameFromFolderPath -BaseFolderPath $PSScriptRoot
+
 $systemError = Test-SystemAvailability -Structured
 if ($systemError) {
     if ($EncodeStructuredOutput -eq $true) {
@@ -74,7 +77,7 @@ $externalDnsConfigDir = Get-ExternalDnsConfigDir
 Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'ingress'; Implementation = 'traefik' })
 
 # adapt other addons
-Update-Addons
+Update-Addons -AddonName $addonName
 
 Write-Log 'Uninstallation of ingress traefik addon finished' -Console
 

@@ -661,8 +661,9 @@ function Restore-Addons {
     if ($AvoidRestore -eq $false) {
         Write-Log 'Restoring addons data..'
         Invoke-BackupRestoreHooks -HookType Restore -BackupDir $BackupDir
-    } else {
-        Write-Log "Skipping restoring addons data."
+    }
+    else {
+        Write-Log 'Skipping restoring addons data.'
     }
 
     Write-Log 'Addons fully restored.'
@@ -750,21 +751,29 @@ function Add-HostEntries {
 }
 
 function Update-Addons {
-    Write-Log 'Adapting addons' -Console
+    param (
+        [Parameter(Mandatory = $false)]
+        [string]
+        $AddonName = $(throw 'Addon name not specified')
+    )
+    Write-Log "Adapting addons called from addon: $AddonName" -Console
 
     $addons = Get-AddonsConfig
     $addons | ForEach-Object {
-        $addon = $_.Name
-        $addonConfig = Get-AddonConfig -Name $addon
-        if ($null -eq $addonConfig) {
-            Write-Log "Addon '$($addon.Name)' not found in config, skipping.." -Console
-            return
-        }
+        # Not for addons with the name from input
+        if ($_.Name -ne $AddonName) {
+            $addon = $_.Name
+            $addonConfig = Get-AddonConfig -Name $addon
+            if ($null -eq $addonConfig) {
+                Write-Log "Addon '$($addon.Name)' not found in config, skipping.." -Console
+                return
+            }
 
-        $props = Get-AddonProperties -Addon ([pscustomobject] @{ Name = $addonConfig.Name; Implementation = $addonConfig.Implementation })
+            $props = Get-AddonProperties -Addon ([pscustomobject] @{ Name = $addonConfig.Name; Implementation = $addonConfig.Implementation })
 
-        if (Test-Path -Path "$PSScriptRoot\$($props.Directory)\Update.ps1") {
-            &"$PSScriptRoot\$($props.Directory)\Update.ps1"
+            if (Test-Path -Path "$PSScriptRoot\$($props.Directory)\Update.ps1") {
+                &"$PSScriptRoot\$($props.Directory)\Update.ps1"
+            }
         }
     }
     Write-Log 'Addons have been adapted' -Console
@@ -995,10 +1004,32 @@ function Enable-StorageAddon([string]$Storage) {
     }
 }
 
+function Get-AddonNameFromFolderPath {
+    param (
+        [string]$BaseFolderPath
+    )
+
+    # Split the path into an array of folder names
+    $pathParts = $BaseFolderPath -split '\\'
+
+    # Find the index of the 'addons' folder
+    $addonsIndex = $pathParts.IndexOf('addons')
+
+    # Check if 'addons' is found and there is a next folder
+    if ($addonsIndex -ne -1 -and $addonsIndex -lt ($pathParts.Length - 1)) {
+        # Return the next folder name after 'addons'
+        return $pathParts[$addonsIndex + 1]
+    }
+    else {
+        Write-Error "'addons' folder not found or no folder after 'addons'."
+        return $null
+    }
+}
+
 Export-ModuleMember -Function Get-EnabledAddons, Add-AddonToSetupJson, Remove-AddonFromSetupJson,
 Install-DebianPackages, Get-DebianPackageAvailableOffline, Test-IsAddonEnabled, Invoke-AddonsHooks, Copy-ScriptsToHooksDir,
 Remove-ScriptsFromHooksDir, Get-AddonConfig, Backup-Addons, Restore-Addons, Get-AddonStatus, Find-AddonManifests,
 Get-ErrCodeAddonAlreadyDisabled, Get-ErrCodeAddonAlreadyEnabled, Get-ErrCodeAddonEnableFailed, Get-ErrCodeAddonNotFound,
 Add-HostEntries, Get-AddonsConfig, Update-Addons, Update-IngressForAddon, Test-NginxIngressControllerAvailability, Test-TraefikIngressControllerAvailability,
 Test-KeyCloakServiceAvailability, Enable-IngressAddon, Remove-IngressForTraefik, Remove-IngressForNginx, Get-AddonProperties, Get-IngressNginxConfigDirectory, 
-Update-IngressForTraefik, Update-IngressForNginx, Get-IngressNginxSecureConfig, Get-IngressTraefikConfig, Enable-StorageAddon
+Update-IngressForTraefik, Update-IngressForNginx, Get-IngressNginxSecureConfig, Get-IngressTraefikConfig, Enable-StorageAddon, Get-AddonNameFromFolderPath

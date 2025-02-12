@@ -35,6 +35,9 @@ Initialize-Logging -ShowLogs:$ShowLogs
 
 Write-Log 'Checking cluster status' -Console
 
+# get addon name from folder path
+$addonName = Get-AddonNameFromFolderPath -BaseFolderPath $PSScriptRoot
+
 $systemError = Test-SystemAvailability -Structured
 if ($systemError) {
     if ($EncodeStructuredOutput -eq $true) {
@@ -79,10 +82,12 @@ $oauth2ProxyYaml = Get-OAuth2ProxyConfig
 $keyCloakYaml = Get-KeyCloakConfig
 (Invoke-Kubectl -Params 'delete', '-f', $keyCloakYaml).Output | Write-Log
 
-# if security addon is enabled, than adapt other addons
-Update-Addons
-
 Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'security' })
+
+# if security addon is enabled, than adapt other addons
+# Important is that update is called at the end because addons check state of security addon
+Update-Addons -AddonName $addonName
+
 Write-Log 'Uninstallation of security finished' -Console
 
 Write-SecurityWarningForUser

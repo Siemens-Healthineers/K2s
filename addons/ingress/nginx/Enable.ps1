@@ -37,6 +37,9 @@ Initialize-Logging -ShowLogs:$ShowLogs
 
 Write-Log 'Checking cluster status' -Console
 
+# get addon name from folder path
+$addonName = Get-AddonNameFromFolderPath -BaseFolderPath $PSScriptRoot
+
 $systemError = Test-SystemAvailability -Structured
 if ($systemError) {
     if ($EncodeStructuredOutput -eq $true) {
@@ -158,7 +161,7 @@ Write-Log 'All ingress nginx pods are up and ready.'
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'ingress'; Implementation = 'nginx' })
 
 # adapt other addons
-Update-Addons
+Update-Addons -AddonName $addonName
 
 Write-Log 'ingress nginx installed successfully' -Console
 
