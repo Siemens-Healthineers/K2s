@@ -1476,7 +1476,7 @@ function Set-VmIPAddress {
         Write-Output 'Disable DHCP'
         $neta | Set-NetIPInterface -Dhcp Disabled
 
-        Write-Output 'Set DNS servers'
+        Write-Output "Setting DNSProxy(5) servers: $($using:DnsAddr)"
         $neta | Set-DnsClientServerAddress -Addresses $($DnsAddr -split ',')
     }
 

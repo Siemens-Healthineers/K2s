@@ -442,6 +442,24 @@ function Assert-UpgradeOperation {
     if ($K8sSetup -ne 'k2s') {
         throw 'Upgrade only supported in the default variant!'
     }
+       
+    # Minor version is the same or increased by one
+    if(!(Restart-ClusterIfBuildVersionMismatch -CurrentVersion $currentVersion -NextVersion $nextVersion -InstallFolder $installFolder -KubePath $kubePath))
+    {
+        return $false
+    }
+    #  Upgrade to the next minor version
+    Write-Log "Upgrade to the next minor version: $nextVersion"
+    return $true
+}
+
+function Restart-ClusterIfBuildVersionMismatch {
+    param (
+        [string] $currentVersion,
+        [string] $nextVersion,
+        [string] $installFolder,
+        [string] $kubePath
+    )
 
     # Parse the version strings into major, minor, and patch components
     $currentVersionParsed = [System.Version]::Parse($currentVersion)
@@ -457,8 +475,6 @@ function Assert-UpgradeOperation {
         }
         return $false
     }
-    #  Upgrade to the next minor version
-    Write-Log "Upgrade to the next minor version: $nextVersion"
     return $true
 }
 
@@ -479,23 +495,29 @@ function RestartCluster {
     $currentExe = "$CurrentKubePath\k2s.exe"
     if (-not (Test-Path -Path $currentExe)) {
         Write-Log "K2s exe: '$currentExe' does not exist. Skipping stop." -Console
+        return
     }
        
     $stopArgsCall = 'stop'
     $rt = Invoke-Cmd -Executable $currentExe -Arguments $stopArgsCall
     if ( $rt -eq 0 ) {
         Write-Log 'Stop of cluster successfully called'  -Console
+    } else {
+         throw 'Error: Not possible to stop existing cluster!'
     }
 
     $nextVersionExe = "$NextVersionKubePath\k2s.exe"
     if (-not (Test-Path -Path $nextVersionExe)) {
         Write-Log "K2s exe: '$nextVersionExe' does not exist. Skipping start." -Console
+        return
     }
        
     $startArgsCall = 'start'
     $rt = Invoke-Cmd -Executable $nextVersionExe -Arguments $startArgsCall
     if ( $rt -eq 0 ) {
         Write-Log 'Start of cluster successfully called'
+    } else {
+        throw 'Error: Not possible to start cluster!'
     }
 }
 
@@ -593,6 +615,9 @@ function Invoke-ClusterInstall {
     Write-Log 'Install cluster with the new version' -Console
    
     Write-Log "Using k2sPath: $K2sPathToInstallFrom" -Console
+    if ([string]::IsNullOrEmpty($K2sPathToInstallFrom)) {
+        $K2sPathToInstallFrom =  Get-KubePath
+    }
     # copy executable since else we get ACCESS DENIED
     $texe = "$K2sPathToInstallFrom\k2sx.exe"
     Copy-Item "$K2sPathToInstallFrom\k2s.exe" -Destination $texe -Force -PassThru
@@ -786,4 +811,4 @@ Export-ModuleMember -Function Assert-UpgradeOperation, Enable-ClusterIsRunning, 
 Invoke-ClusterUninstall, Invoke-ClusterInstall, Import-NotNamespacedResources, Import-NamespacedResources, Remove-ExportedClusterResources,
 Get-LinuxVMCores, Get-LinuxVMMemory, Get-LinuxVMStorageSize, Get-ClusterInstalledFolder, Backup-LogFile, Restore-LogFile, Restore-MergeLogFiles,
 Invoke-UpgradeBackupRestoreHooks, Remove-SetupConfigIfExisting, Get-TempPath, Wait-ForAPIServerInGivenKubePath, Get-KubeBinPathGivenKubePath,
-Write-RefreshEnvVariablesGivenKubePath, Get-ProductVersionGivenKubePath 
+Write-RefreshEnvVariablesGivenKubePath, Get-ProductVersionGivenKubePath
