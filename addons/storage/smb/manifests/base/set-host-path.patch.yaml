@@ -1,7 +1,0 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
-#
-# SPDX-License-Identifier: MIT
-
-- op: replace
-  path: /parameters/source
-  value: "//172.19.1.1/k8s-smb-share"
