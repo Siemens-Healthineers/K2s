@@ -27,13 +27,14 @@ $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
 $dicomModule = "$PSScriptRoot\dicom.module.psm1"
 $linuxNodeModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.node.module/linuxnode/vm/vm.module.psm1"
 
-$dicomAddonName = 'dicom'
-
 Import-Module $clusterModule, $infraModule, $addonsModule, $dicomModule, $linuxNodeModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
 Write-Log 'Checking cluster status' -Console
+
+# get addon name from folder path
+$addonName = Get-AddonNameFromFolderPath -BaseFolderPath $PSScriptRoot
 
 $systemError = Test-SystemAvailability -Structured
 if ($systemError) {
@@ -46,10 +47,10 @@ if ($systemError) {
     exit 1
 }
 
-Write-Log 'Check whether dicom addon is already disabled'
+Write-Log "Check whether $addonName addon is already disabled"
 
-if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', $dicomAddonName, '--ignore-not-found').Output -and (Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = $dicomAddonName })) -ne $true) {
-    $errMsg = "Addon $dicomAddonName is already disabled, nothing to do."
+if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', $addonName, '--ignore-not-found').Output -and (Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = $addonName })) -ne $true) {
+    $errMsg = "Addon $addonName is already disabled, nothing to do."
 
     if ($EncodeStructuredOutput -eq $true) {
         $err = New-Error -Severity Warning -Code (Get-ErrCodeAddonAlreadyDisabled) -Message $errMsg
@@ -78,14 +79,14 @@ if ($Force -ne $true) {
 $dicomPathManifests = Get-DicomConfig
 
 Write-Log 'Uninstalling ingress rules' -Console
-Remove-IngressForTraefik -Addon ([pscustomobject] @{Name = $dicomAddonName })
-Remove-IngressForNginx -Addon ([pscustomobject] @{Name = $dicomAddonName })
+Remove-IngressForTraefik -Addon ([pscustomobject] @{Name = $addonName })
+Remove-IngressForNginx -Addon ([pscustomobject] @{Name = $addonName })
 
 Write-Log 'Deleting main dicom addon resources ..' -Console
 (Invoke-Kubectl -Params 'delete', '-k', $dicomPathManifests).Output | Write-Log
 
 Write-Log 'Deleting persistent volumes' -Console
-$dicomAttributes = Get-AddonConfig -Name $dicomAddonName
+$dicomAttributes = Get-AddonConfig -Name $addonName
 # retrieve storage usage from config
 if ($dicomAttributes.StorageUsage -eq 'default') {
     $StorageUsage = 'default'
@@ -107,12 +108,12 @@ else {
 (Invoke-Kubectl -Params 'delete', '--ignore-not-found=true', '-f', "$dicomPathManifests\dicom-namespace.yaml").Output | Write-Log
 
 # remove addon from setup.json
-Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = $dicomAddonName })
+Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = $addonName })
 
 # adapt other addons
-Update-Addons
+Update-Addons -AddonName $addonName
 
-Write-Log 'dicom server uninstalled successfully' -Console
+Write-Log 'dicom addon disabled successfully' -Console
 
 if ($EncodeStructuredOutput -eq $true) {
     Send-ToCli -MessageType $MessageType -Message @{Error = $null }

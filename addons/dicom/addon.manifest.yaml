@@ -24,8 +24,16 @@ spec:
                   kind: validation-set
                   validationSet:
                     - none
-                    - ingress-nginx
+                    - nginx
                     - traefik
+              - name: storage
+                default: none
+                description: Storage addons for storing DICOM data
+                constraints:
+                  kind: validation-set
+                  validationSet:
+                    - none
+                    - smb
             examples:
               - cmd: k2s addons enable dicom
                 comment: Enable dicom in k2s
@@ -33,11 +41,15 @@ spec:
                 comment: Enable dicom in k2s with nginx ingres
               - cmd: k2s addons enable dicom --ingress traefik
                 comment: Enable dicom in k2s with traefik ingres
+              - cmd: k2s addons enable dicom --storage smb
+                comment: Enable dicom in k2s with storage addon smb
           script:
             subPath: Enable.ps1
             parameterMappings:
               - cliFlagName: ingress
                 scriptParameterName: Ingress
+              - cliFlagName: storage
+                scriptParameterName: Storage
         disable:
           cli:
             flags:
