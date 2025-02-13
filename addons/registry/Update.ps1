@@ -20,13 +20,13 @@ if (Test-NginxIngressControllerAvailability) {
     Remove-IngressForTraefik -Addon $Addon
     Remove-NodePort
 
-    Remove-Registry -Name "k2s.registry.local*"
+    Remove-Registry -Name 'k2s.registry.local*'
     Set-Registry -Name $registryName -Https -LocalRegistry
 
     $props = Get-AddonProperties -Addon $Addon
 
     Write-Log "  Applying nginx ingress manifest for $($props.Name)..." -Console
-    $kustomizationDir = Get-IngressNginxConfig -Directory $props.Directory
+    $kustomizationDir = Get-IngressNginxConfigDirectory -Directory $props.Directory
 
     Invoke-Kubectl -Params 'apply', '-k', $kustomizationDir | Out-Null
 }
@@ -36,7 +36,7 @@ elseif (Test-TraefikIngressControllerAvailability) {
     Remove-IngressForNginx -Addon $Addon
     Remove-NodePort
 
-    Remove-Registry -Name "k2s.registry.local*"
+    Remove-Registry -Name 'k2s.registry.local*'
     Set-Registry -Name $registryName -Https -LocalRegistry
 
     Update-IngressForTraefik -Addon $Addon
@@ -49,7 +49,7 @@ else {
 
     Update-NodePort
 
-    Remove-Registry -Name "k2s.registry.local*"
+    Remove-Registry -Name 'k2s.registry.local*'
     Set-Registry -Name $registryName -LocalRegistry
 }
 
