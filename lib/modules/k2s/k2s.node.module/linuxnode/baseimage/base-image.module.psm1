@@ -45,9 +45,9 @@ function Invoke-DownloadDebianImage {
         [string]$Proxy = ''
     )
 
-    $urlRoot = 'https://cloud.debian.org/images/cloud/bullseye/latest'
+    $urlRoot = 'https://cloud.debian.org/images/cloud/bookworm/latest/'
 
-    $urlFile = 'debian-11-genericcloud-amd64.qcow2'
+    $urlFile = 'debian-12-genericcloud-amd64.qcow2'
 
     $url = "$urlRoot/$urlFile"
 
@@ -212,7 +212,7 @@ Function New-IsoFile {
     $networkConfigFileContent = Get-Content -Path $networkConfigTemplateFilePath -Raw -ErrorAction Stop
     $networkConfigConversionTable = @{
         "__NETWORK_INTERFACE_NAME__"=$IsoContentParameterValue.NetworkInterfaceName
-        "__IP_ADDRESS_VM__"=$IsoContentParameterValue.IPAddressVM
+        "__IP_ADDRESS_VM__"="$($IsoContentParameterValue.IPAddressVM)/24"
         "__IP_ADDRESS_GATEWAY__"=$IsoContentParameterValue.IPAddressGateway
         "__IP_ADDRESSES_DNS_SERVERS__"=$IsoContentParameterValue.IPAddressDnsServers
     }

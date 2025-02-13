@@ -13,8 +13,7 @@ users:
     no_user_group: true
     primary_group: users
     sudo: ALL=(ALL) NOPASSWD:ALL
-    groups: users, admin, docker, sudo, debian, adm, netdev
-    ssh_import_id: None
+    groups: users, admin, docker, sudo, adm, netdev    
     lock_passwd: false 
     plain_text_passwd: __VM_USER_PWD__
     ssh_authorized_keys:
@@ -26,5 +25,5 @@ apt:
 
 runcmd:
 - rm /etc/resolv.conf && echo "nameserver __IP_ADDRESSES_DNS_SERVERS__" > /etc/resolv.conf && chattr +i /etc/resolv.conf
-- /etc/init.d/networking restart
+- netplan apply
 
