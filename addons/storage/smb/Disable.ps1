@@ -24,10 +24,16 @@ Param(
 )
 $infraModule = "$PSScriptRoot/../../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $smbShareModule = "$PSScriptRoot\module\Smb-share.module.psm1"
+$addonsModule = "$PSScriptRoot\..\..\addons.module.psm1"
 
-Import-Module $infraModule, $smbShareModule
+$addonName = 'storage'
+
+Import-Module $infraModule, $smbShareModule, $addonsModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
+
+# get addon name from folder path
+$addonName = Get-AddonNameFromFolderPath -BaseFolderPath $PSScriptRoot
 
 if ($Force -ne $true) {
     $answer = Read-Host 'WARNING: This DELETES ALL DATA of the shared SMB folder. Continue? (y/N)'
@@ -60,3 +66,6 @@ if ($err) {
 if ($EncodeStructuredOutput -eq $true) {
     Send-ToCli -MessageType $MessageType -Message @{Error = $null }
 }
+
+# adapt other addons when storage addon is called
+Update-Addons -AddonName $addonName
