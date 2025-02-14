@@ -228,6 +228,20 @@ Function Get-KubernetesArtifactsFromInternet {
 
     &$executeRemoteCommand 'echo "APT::Sandbox::User \\"root\\";" | sudo tee /etc/apt/apt.conf.d/10sandbox-for-k2s'
 
+    Write-Log "Copying ZScaler Root CA certificate to computer with IP '$IpAddress'"
+    $zScalerCertificateSourcePath = "$(Get-KubePath)\lib\modules\k2s\k2s.node.module\linuxnode\setup\certificate\ZScalerRootCA.crt"
+    $zScalerCertificateTargetPath = '/tmp/ZScalerRootCA.crt'
+    if ([string]::IsNullOrWhiteSpace($UserPwd)) {
+        Copy-ToRemoteComputerViaSshKey -Source $zScalerCertificateSourcePath -Target $zScalerCertificateTargetPath -UserName $UserName -IpAddress $IpAddress
+    }
+    else {
+        Copy-ToRemoteComputerViaUserAndPwd -Source $zScalerCertificateSourcePath -Target $zScalerCertificateTargetPath -UserName $UserName -UserPwd $UserPwd -IpAddress $IpAddress
+    }
+
+    &$executeRemoteCommand 'sudo mv /tmp/ZScalerRootCA.crt /usr/local/share/ca-certificates/'
+    &$executeRemoteCommand 'sudo update-ca-certificates'
+    Write-Log "Zscaler certificate added to CA certificates of computer with IP '$IpAddress'"
+
     Write-Log "Ensure that the system's package list is up-to-date"
     &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get update -qq --yes --allow-releaseinfo-change' -Retries 2 -RepairCmd 'sudo apt --fix-broken install'
 
@@ -446,20 +460,6 @@ Function Install-KubernetesArtifacts {
     }
     &$executeRemoteCommand "sudo DEBIAN_FRONTEND=noninteractive dpkg -i $k8sDebPackagesPath/*.deb"
     &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get --fix-broken install -y'
-
-    Write-Log "Copying ZScaler Root CA certificate to computer with IP '$IpAddress'"
-    $zScalerCertificateSourcePath = "$(Get-KubePath)\lib\modules\k2s\k2s.node.module\linuxnode\setup\certificate\ZScalerRootCA.crt"
-    $zScalerCertificateTargetPath = '/tmp/ZScalerRootCA.crt'
-    if ([string]::IsNullOrWhiteSpace($UserPwd)) {
-        Copy-ToRemoteComputerViaSshKey -Source $zScalerCertificateSourcePath -Target $zScalerCertificateTargetPath -UserName $UserName -IpAddress $IpAddress
-    }
-    else {
-        Copy-ToRemoteComputerViaUserAndPwd -Source $zScalerCertificateSourcePath -Target $zScalerCertificateTargetPath -UserName $UserName -UserPwd $UserPwd -IpAddress $IpAddress
-    }
-
-    &$executeRemoteCommand 'sudo mv /tmp/ZScalerRootCA.crt /usr/local/share/ca-certificates/'
-    &$executeRemoteCommand 'sudo update-ca-certificates'
-    Write-Log "Zscaler certificate added to CA certificates of computer with IP '$IpAddress'"
 
     Write-Log 'Configure bridged traffic'
     &$executeRemoteCommand 'echo overlay | sudo tee /etc/modules-load.d/k8s.conf'
