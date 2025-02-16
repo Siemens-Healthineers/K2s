@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2023 Siemens Healthcare GmbH
+// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package core
@@ -11,6 +11,7 @@ import (
 	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
 
 	"github.com/siemens-healthineers/k2s/test/framework"
+	"github.com/siemens-healthineers/k2s/test/framework/dsl"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -24,6 +25,7 @@ var linuxDeploymentNames = []string{"albums-linux1", "albums-linux2"}
 var winDeploymentNames = []string{"albums-win1", "albums-win2"}
 
 var suite *framework.K2sTestSuite
+var k2s *dsl.K2s
 
 var manifestDir string
 var proxy string
@@ -32,7 +34,7 @@ var testFailed = false
 
 func TestClusterCore(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Cluster Core Acceptance Tests", Label("core", "acceptance", "internet-required", "setup-required", "system-running"))
+	RunSpecs(t, "Cluster Core Acceptance Tests", Label("core", "acceptance", "internet-required", "setup-required", "system-running", "sanity"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
@@ -40,6 +42,7 @@ var _ = BeforeSuite(func(ctx context.Context) {
 	proxy = "http://172.19.1.1:8181"
 
 	suite = framework.Setup(ctx, framework.SystemMustBeRunning, framework.ClusterTestStepPollInterval(time.Millisecond*200))
+	k2s = dsl.NewK2s(suite)
 
 	if suite.SetupInfo().SetupConfig.LinuxOnly {
 		GinkgoWriter.Println("Found Linux-only setup, skipping Windows-based workloads")
@@ -78,10 +81,16 @@ var _ = BeforeSuite(func(ctx context.Context) {
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
+
+	GinkgoWriter.Println("Status of cluster after test runs...")
+	status := suite.K2sCli().GetStatus(ctx)
+	isRunning := status.IsClusterRunning()
+	GinkgoWriter.Println("Cluster is running:", isRunning)
+
 	GinkgoWriter.Println("Deleting workloads..")
 
 	if testFailed {
-		suite.K2sCli().Run(ctx, "system", "dump", "-S", "-o")
+		suite.K2sCli().RunOrFail(ctx, "system", "dump", "-S", "-o")
 	}
 
 	suite.Kubectl().Run(ctx, "delete", "-k", manifestDir)
@@ -144,12 +153,12 @@ var _ = Describe("Cluster Core", func() {
 			Entry("albums-win2 is available", "albums-win2", true),
 			Entry("curl is available", "curl", false))
 
-		DescribeTable("Deployment Reachable from Host", func(name string, skipOnLinuxOnly bool) {
+		DescribeTable("Deployment Reachable from Host", func(ctx context.Context, name string, skipOnLinuxOnly bool) {
 			if skipOnLinuxOnly && suite.SetupInfo().SetupConfig.LinuxOnly {
 				Skip("Linux-only")
 			}
 
-			suite.Cluster().ExpectDeploymentToBeReachableFromHost(name, namespace)
+			k2s.VerifyDeploymentToBeReachableFromHost(ctx, name, namespace)
 		},
 			Entry("albums-linux1 is reachable from host", "albums-linux1", false),
 			Entry("albums-win1 is reachable from host", "albums-win1", true),

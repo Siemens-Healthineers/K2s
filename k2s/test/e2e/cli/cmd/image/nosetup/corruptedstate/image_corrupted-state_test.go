@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2023 Siemens Healthcare GmbH
+// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 package corruptedstate
 
@@ -20,8 +20,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/siemens-healthineers/k2s/test/framework"
-
-	"github.com/siemens-healthineers/k2s/test/framework/k2s"
+	"github.com/siemens-healthineers/k2s/test/framework/k2s/cli"
 )
 
 var suite *framework.K2sTestSuite
@@ -44,12 +43,11 @@ var _ = Describe("image", Ordered, func() {
 
 	BeforeEach(func() {
 		inputConfig := &setupinfo.Config{
-			SetupName:        "k2s",
-			Registries:       []string{"r1", "r2"},
-			LoggedInRegistry: "r2",
-			LinuxOnly:        true,
-			Version:          "test-version",
-			Corrupted:        true,
+			SetupName:  "k2s",
+			Registries: []string{"r1", "r2"},
+			LinuxOnly:  true,
+			Version:    "test-version",
+			Corrupted:  true,
 		}
 		inputData, err := json.Marshal(inputConfig)
 		Expect(err).ToNot(HaveOccurred())
@@ -63,26 +61,26 @@ var _ = Describe("image", Ordered, func() {
 		config, err := config.LoadConfig(installDir)
 		Expect(err).ToNot(HaveOccurred())
 
-		GinkgoWriter.Println("Creating <", config.Host.K2sConfigDir, ">..")
+		GinkgoWriter.Println("Creating <", config.Host().K2sConfigDir(), ">..")
 
-		Expect(os.MkdirAll(config.Host.K2sConfigDir, os.ModePerm)).To(Succeed())
+		Expect(os.MkdirAll(config.Host().K2sConfigDir(), os.ModePerm)).To(Succeed())
 
-		configPath = filepath.Join(config.Host.K2sConfigDir, "setup.json")
+		configPath = filepath.Join(config.Host().K2sConfigDir(), "setup.json")
 
 		GinkgoWriter.Println("Writing test data to <", configPath, ">..")
 
 		Expect(os.WriteFile(configPath, inputData, os.ModePerm)).To(Succeed())
 
 		DeferCleanup(func() {
-			GinkgoWriter.Println("Deleting <", config.Host.K2sConfigDir, ">..")
+			GinkgoWriter.Println("Deleting <", config.Host().K2sConfigDir(), ">..")
 
-			Expect(os.RemoveAll(config.Host.K2sConfigDir)).To(Succeed())
+			Expect(os.RemoveAll(config.Host().K2sConfigDir())).To(Succeed())
 		})
 	})
 
 	DescribeTable("print system-in-corrupted-state message and exits with non-zero",
 		func(ctx context.Context, args ...string) {
-			output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, args...)
+			output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, args...)
 
 			Expect(output).To(ContainSubstring("corrupted state"))
 		},
@@ -92,19 +90,19 @@ var _ = Describe("image", Ordered, func() {
 		Entry("import", "image", "import", "-t", "non-existent"),
 		Entry("ls default output", "image", "ls"),
 		Entry("pull", "image", "pull", "non-existent"),
-		Entry("push", "image", "push", "non-existent"),
-		Entry("tag", "image", "tag", "non-existent", "non-existent"),
-		Entry("registry add", "image", "registry", "add", "non-existent"),
-		Entry("registry ls", "image", "registry", "ls"),
-		Entry("registry switch", "image", "registry", "switch", "non-existent"),
+		Entry("push", "image", "push", "-n", "non-existent"),
+		Entry("tag", "image", "tag", "-n", "non-existent", "-t", "non-existent"),
 		Entry("rm", "image", "rm", "--id", "non-existent"),
+		Entry("registry add", "image", "registry", "add", "non-existent"),
+		Entry("registry rm", "image", "registry", "rm", "non-existent"),
+		Entry("registry ls", "image", "registry", "ls"),
 	)
 
 	Describe("ls JSON output", Ordered, func() {
 		var images image.PrintImages
 
 		BeforeAll(func(ctx context.Context) {
-			output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "image", "ls", "-o", "json")
+			output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "image", "ls", "-o", "json")
 
 			Expect(json.Unmarshal([]byte(output), &images)).To(Succeed())
 		})

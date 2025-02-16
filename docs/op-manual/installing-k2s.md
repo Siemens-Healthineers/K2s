@@ -9,7 +9,7 @@ SPDX-License-Identifier: MIT
 - The *Windows* host must match one of the [Supported OS Versions](os-support.md)
 - Local admin permissions are currently needed in order to be able to create virtual switches, VMs, etc.
 - Please try to install from an folder which is available on `C:\` drive, since most open-source components assume this. We are testing the solution also on other drives, but cannot guarantee that the cluster will work fully.
-- Hardware: The system should offer at least 4G RAM free, as well as 50GB disk space free. Recommended are at least 6 CPU cores, but less are possible.
+- Hardware: The system should offer at least 3GB RAM free, as well as 10GB disk space free. Recommended are at least 6 CPU cores, but less are possible.
 - CPU virtualization must be enabled in the BIOS. To verify, open the *Task Manager* and check the *Virtualization* property on the *Performance* tab:<br/>
  ![Check Virtualization](assets/check_virtualization.png)
  <br/>If you run the setup inside a VM, enable nested virtualization (e.g. when using *Hyper-V*:<br/>
@@ -33,6 +33,7 @@ SPDX-License-Identifier: MIT
     ```powershell 
     Enable-WindowsOptionalFeature -Online -FeatureName $('Microsoft-Hyper-V', 'Microsoft-Hyper-V-Management-PowerShell', 'Containers', 'VirtualMachinePlatform') -All -NoRestart
     ``` 
+- *Hyper-V configuration*: after the enabling of Hyper-V on your host using [Set-VMHost](https://learn.microsoft.com/en-us/powershell/module/hyper-v/set-vmhost) different settings can be configured for Hyper-V, for example in some cases it makes sense to have new default locations for virtual hard disks on that host. Please checkout all possibilities and configure Hyper-V on your host as wanted before doing an install of k2s !
 
 !!! tip
     For installing in *WSL* mode, add the `Microsoft-Windows-Subsystem-Linux` feature to the prior command.

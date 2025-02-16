@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -36,6 +36,9 @@ Import-Module $infraModule, $clusterModule, $addonsModule, $traefikModule
 Initialize-Logging -ShowLogs:$ShowLogs
 
 Write-Log 'Checking cluster status' -Console
+
+# get addon name from folder path
+$addonName = Get-AddonNameFromFolderPath -BaseFolderPath $PSScriptRoot
 
 $systemError = Test-SystemAvailability -Structured
 if ($systemError) {
@@ -168,7 +171,7 @@ $clusterIngressConfig = "$PSScriptRoot\manifests\cluster-local-ingress.yaml"
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'ingress'; Implementation = 'traefik' })
 
 # adapt other addons
-Update-Addons
+Update-Addons -AddonName $addonName
 
 Write-Log 'Installation of Traefik addon finished.' -Console
 

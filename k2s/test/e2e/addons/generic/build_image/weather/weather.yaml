@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 ---
@@ -20,7 +20,7 @@ spec:
         - name: regcred
       containers:
         - name: weather-linux
-          image: k2s-registry.local/weather:99
+          image: k2s.registry.local/weather:99
           ports:
             - containerPort: 80
           env:

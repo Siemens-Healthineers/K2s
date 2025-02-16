@@ -1,4 +1,4 @@
-//// SPDX-FileCopyrightText:  © 2023 Siemens Healthcare GmbH
+//// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
 //// SPDX-License-Identifier:   MIT
 
 package image
@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
@@ -74,7 +73,7 @@ Registry Options:
 - Supports pushing to local or remote registries.
 - Enable local registry: 'k2s addons enable registry --default-credentials'.
 - Add remote registry: 'k2s image registry add'.
-- Specify the registry with '--image-name' (e.g., '--image-name k2s-registry.local/<myimage>').
+- Specify the registry with '--image-name' (e.g., '--image-name k2s.registry.local/<myimage>').
 
 `
 
@@ -98,7 +97,7 @@ Registry Options:
   k2s image build --input-folder C:\myFolder --image-name myimage --image-tag tag1
 
   # Build a linux container image using a directory with the dockerfile, image name, image tag and push to private registry
-  k2s image build --input-folder C:\myFolder --image-name k2s-registry.local/<myimage> --image-tag tag1 --push
+  k2s image build --input-folder C:\myFolder --image-name k2s.registry.local/<myimage> --image-tag tag1 --push
 `
 
 	buildCmd = &cobra.Command{
@@ -118,7 +117,7 @@ func addInitFlagsForBuildCommand(cmd *cobra.Command) {
 	cmd.Flags().StringP(inputFolderFlagName, inputFolderShortHand, defaultInputFolder, "Directory with the build context")
 	cmd.Flags().StringP(dockerfileFlagName, dockerfileShortHand, defaultDockerfile, "Location of the dockerfile. ")
 	cmd.Flags().BoolP(windowsFlagName, "w", defaultWindowsFlag, "Build a Windows container image")
-	cmd.Flags().BoolP(pushFlagName, pushShortHand, defaultPushFlag, "Push to private registry (--image-name must be named accordingly! e.g k2s-registry.local/<myimage>, shsk2s.azurecr.io/<myimage>)")
+	cmd.Flags().BoolP(pushFlagName, pushShortHand, defaultPushFlag, "Push to private registry (--image-name must be named accordingly! e.g k2s.registry.local/<myimage>, shsk2s.azurecr.io/<myimage>)")
 	cmd.Flags().StringP(imageNameFlagName, imageNameShortHand, defaultImageNameToBeBuilt, "Name of the image")
 	cmd.Flags().StringP(imageTagFlagName, imageTagShortHand, defaultImageNameToBeBuilt, "Tag of the image")
 	cmd.Flags().StringSlice(buildArgsFlagName, defaultBuildArgs, "Build arguments needed to build the container image.")
@@ -127,6 +126,7 @@ func addInitFlagsForBuildCommand(cmd *cobra.Command) {
 }
 
 func buildImage(cmd *cobra.Command, args []string) error {
+	cmdSession := common.StartCmdSession(cmd.CommandPath())
 	pterm.Println("🤖 Building container image..")
 	buildOptions, err := extractBuildOptions(cmd)
 	if err != nil {
@@ -136,10 +136,8 @@ func buildImage(cmd *cobra.Command, args []string) error {
 	psCmd, params := buildPsCmd(buildOptions)
 	slog.Debug("PS command created", "command", psCmd, "params", params)
 
-	start := time.Now()
-
 	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
-	config, err := setupinfo.ReadConfig(context.Config().Host.K2sConfigDir)
+	config, err := setupinfo.ReadConfig(context.Config().Host().K2sConfigDir())
 	if err != nil {
 		if errors.Is(err, setupinfo.ErrSystemInCorruptedState) {
 			return common.CreateSystemInCorruptedStateCmdFailure()
@@ -163,9 +161,7 @@ func buildImage(cmd *cobra.Command, args []string) error {
 		return cmdResult.Failure
 	}
 
-	duration := time.Since(start)
-
-	common.PrintCompletedMessage(duration, "image build")
+	cmdSession.Finish()
 
 	return nil
 }

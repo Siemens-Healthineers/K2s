@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -64,7 +64,7 @@ try {
 
     $images = @{Error = $null }
     $images.ContainerImages = @(Get-ContainerImagesInk2s -IncludeK8sImages $IncludeK8sImages -WorkerVM $WorkerVM)
-    $images.ContainerRegistry = $(Get-RegistriesFromSetupJson) | Where-Object { $_ -match 'k2s-registry.*' }
+    $images.ContainerRegistry = $(Get-RegistriesFromSetupJson) | Where-Object { $_ -match 'k2s.registry.*' }
     $images.PushedImages = @(Get-PushedContainerImages)
 
     if ($EncodeStructuredOutput) {

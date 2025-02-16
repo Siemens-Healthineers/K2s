@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -6,7 +6,7 @@
 
 <#
 .SYNOPSIS
-Disables k2s-registry in the cluster
+Disables k2s.registry in the cluster
 
 .DESCRIPTION
 The local regsitry allows to push/pull images to/from the local volume of KubeMaster.
@@ -31,8 +31,9 @@ $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.m
 $clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $nodeModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.node.module/k2s.node.module.psm1"
 $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
+$registryModule = "$PSScriptRoot\registry.module.psm1"
 
-Import-Module $infraModule, $clusterModule, $nodeModule, $addonsModule
+Import-Module $infraModule, $clusterModule, $nodeModule, $addonsModule, $registryModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -66,20 +67,19 @@ if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'registry', '--ignore-
 
 Write-Log 'Uninstalling Kubernetes registry' -Console
 
-(Invoke-Kubectl -Params 'delete', '-f', "$PSScriptRoot\manifests\k2s-registry.yaml").Output | Write-Log
-(Invoke-Kubectl -Params 'delete', 'secret', 'k2s-registry').Output | Write-Log
+Remove-IngressForTraefik -Addon ([pscustomobject] @{Name = 'registry' })
+Remove-IngressForNginx -Addon ([pscustomobject] @{Name = 'registry' })
+(Invoke-Kubectl -Params 'delete', '-k', "$PSScriptRoot\manifests\registry").Output | Write-Log
 (Invoke-Kubectl -Params 'delete', 'namespace', 'registry').Output | Write-Log
 
 if ($DeleteImages) {
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo rm -rf /registry').Output | Write-Log
 }
 
-Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'registry' })
-Remove-RegistryFromSetupJson -Name 'k2s.*' -IsRegex $true
+Remove-Registry -Name "k2s.registry.local*"
 
-if ((Get-ConfigLoggedInRegistry) -match 'k2s-registry.*') {
-    Set-ConfigLoggedInRegistry -Value ''
-}
+Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'registry' })
+Remove-RegistryFromSetupJson -Name 'k2s.registry.local*' -IsRegex $true
 
 Write-Log 'Uninstallation of Kubernetes registry finished' -Console
 

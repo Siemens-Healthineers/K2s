@@ -1,40 +1,57 @@
-// SPDX-FileCopyrightText:  © 2023 Siemens Healthcare GmbH
+// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package config
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
-	"strings"
 
+	"github.com/siemens-healthineers/k2s/internal/host"
 	"github.com/siemens-healthineers/k2s/internal/json"
 )
 
 type OsType string
-type Nodes []NodeConfig
 
-// TODO: immutable read objects
+type NodesConfigReader []NodeConfigReader
+
+type ConfigReader interface {
+	Host() HostConfigReader
+	Nodes() NodesConfigReader
+}
+
+type HostConfigReader interface {
+	KubeConfigDir() string
+	K2sConfigDir() string
+	SshDir() string
+}
+
+type NodeConfigReader interface {
+	ShareDir() string
+	OsType() OsType
+	IpAddress() string
+	IsControlPlane() bool
+}
+
 type Config struct {
-	Host  HostConfig
-	Nodes Nodes
+	HostConfig  HostConfig
+	NodesConfig []NodeConfig
 }
 
 type HostConfig struct {
-	KubeConfigDir string
-	K2sConfigDir  string
-	SshDir        string
+	KubeConfigDirectory string
+	K2sConfigDirectory  string
+	SshDirectory        string
 }
 
 type NodeConfig struct {
-	ShareDir       string
-	OsType         OsType
-	IpAddress      string
-	IsControlPlane bool
+	ShareDirectory      string
+	OperatingSystemType OsType
+	IpAddr              string
+	ControlPlane        bool
 }
 
-type config struct {
+type configJson struct {
 	SmallSetup smallSetup `json:"smallsetup"`
 	ConfigDir  configDir  `json:"configDir"`
 }
@@ -42,6 +59,7 @@ type config struct {
 type smallSetup struct {
 	ShareDir             shareDir `json:"shareDir"`
 	ControlPlanIpAddress string   `json:"masterIP"`
+	Multivm              multivm  `json:"multivm"`
 }
 
 type configDir struct {
@@ -55,57 +73,91 @@ type shareDir struct {
 	Master        string `json:"master"`
 }
 
+type multivm struct {
+	IpAddress string `json:"multiVMK8sWindowsVMIP"`
+}
+
 const (
 	OsTypeLinux   OsType = "linux"
 	OsTypeWindows OsType = "windows"
 )
 
-func LoadConfig(installDir string) (*Config, error) {
+func LoadConfig(installDir string) (ConfigReader, error) {
 	configFilePath := filepath.Join(installDir, "cfg\\config.json")
 
-	config, err := json.FromFile[config](configFilePath)
+	configJson, err := json.FromFile[configJson](configFilePath)
 	if err != nil {
 		return nil, fmt.Errorf("error occurred while loading config file: %w", err)
 	}
 
-	kubeConfigDir, err := resolveTildeInPath(config.ConfigDir.Kube)
+	kubeConfigDir, err := host.ResolveTildePrefix(configJson.ConfigDir.Kube)
 	if err != nil {
-		return nil, fmt.Errorf("error occurred while resolving tilde in file path '%s': %w", config.ConfigDir.Kube, err)
+		return nil, fmt.Errorf("error occurred while resolving tilde in file path '%s': %w", configJson.ConfigDir.Kube, err)
 	}
 
-	sshDir, err := resolveTildeInPath(config.ConfigDir.Ssh)
+	sshDir, err := host.ResolveTildePrefix(configJson.ConfigDir.Ssh)
 	if err != nil {
-		return nil, fmt.Errorf("error occurred while resolving tilde in file path '%s': %w", config.ConfigDir.Ssh, err)
+		return nil, fmt.Errorf("error occurred while resolving tilde in file path '%s': %w", configJson.ConfigDir.Ssh, err)
 	}
 
 	return &Config{
-		Host: HostConfig{
-			KubeConfigDir: kubeConfigDir,
-			K2sConfigDir:  config.ConfigDir.K2s,
-			SshDir:        sshDir,
+		HostConfig: HostConfig{
+			KubeConfigDirectory: kubeConfigDir,
+			K2sConfigDirectory:  configJson.ConfigDir.K2s,
+			SshDirectory:        sshDir,
 		},
-		Nodes: []NodeConfig{
+		NodesConfig: []NodeConfig{
 			{
-				ShareDir: config.SmallSetup.ShareDir.WindowsWorker,
-				OsType:   OsTypeWindows,
+				ShareDirectory:      configJson.SmallSetup.ShareDir.WindowsWorker,
+				OperatingSystemType: OsTypeWindows,
+				IpAddr:              configJson.SmallSetup.Multivm.IpAddress,
 			},
 			{
-				ShareDir:       config.SmallSetup.ShareDir.Master,
-				OsType:         OsTypeLinux,
-				IpAddress:      config.SmallSetup.ControlPlanIpAddress,
-				IsControlPlane: true,
+				ShareDirectory:      configJson.SmallSetup.ShareDir.Master,
+				OperatingSystemType: OsTypeLinux,
+				IpAddr:              configJson.SmallSetup.ControlPlanIpAddress,
+				ControlPlane:        true,
 			},
 		},
 	}, nil
 }
 
-func resolveTildeInPath(inputPath string) (string, error) {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return "", fmt.Errorf("error occurred while determining user home dir: %w", err)
+func (c *Config) Host() HostConfigReader {
+	return c.HostConfig
+}
+
+func (c *Config) Nodes() NodesConfigReader {
+	nodes := make([]NodeConfigReader, len(c.NodesConfig))
+	for i, node := range c.NodesConfig {
+		nodes[i] = node
 	}
+	return nodes
+}
 
-	resolvedPath := strings.ReplaceAll(inputPath, "~", homeDir)
+func (c HostConfig) KubeConfigDir() string {
+	return c.KubeConfigDirectory
+}
 
-	return filepath.Clean(resolvedPath), nil
+func (c HostConfig) K2sConfigDir() string {
+	return c.K2sConfigDirectory
+}
+
+func (c HostConfig) SshDir() string {
+	return c.SshDirectory
+}
+
+func (c NodeConfig) ShareDir() string {
+	return c.ShareDirectory
+}
+
+func (c NodeConfig) OsType() OsType {
+	return c.OperatingSystemType
+}
+
+func (c NodeConfig) IpAddress() string {
+	return c.IpAddr
+}
+
+func (c NodeConfig) IsControlPlane() bool {
+	return c.ControlPlane
 }

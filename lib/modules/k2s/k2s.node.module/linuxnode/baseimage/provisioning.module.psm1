@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 # SPDX-License-Identifier: MIT
 
 #Requires -RunAsAdministrator
@@ -217,16 +217,16 @@ function New-KubemasterBaseImage {
         (Invoke-CmdOnControlPlaneViaUserAndPwd "sudo sed -i `"s/$(Get-HostnameForProvisioningKubeNode)/$hostnameKubemaster/g`" /etc/hosts" -RemoteUser $remoteUser1).Output | Write-Log
 
         # IP
-        $interfaceConfigurationPath = '/etc/network/interfaces.d/10-k2s'
-        (Invoke-CmdOnControlPlaneViaUserAndPwd "echo auto lo | sudo tee $interfaceConfigurationPath" -RemoteUser $remoteUser1).Output | Write-Log
-        (Invoke-CmdOnControlPlaneViaUserAndPwd "echo iface lo inet loopback | sudo tee -a $interfaceConfigurationPath" -RemoteUser $remoteUser1).Output | Write-Log
-        (Invoke-CmdOnControlPlaneViaUserAndPwd "echo auto $InterfaceName | sudo tee -a $interfaceConfigurationPath" -RemoteUser $remoteUser1).Output | Write-Log
-        (Invoke-CmdOnControlPlaneViaUserAndPwd "echo iface $InterfaceName inet static | sudo tee -a $interfaceConfigurationPath" -RemoteUser $remoteUser1).Output | Write-Log
-        (Invoke-CmdOnControlPlaneViaUserAndPwd "echo address $IpAddress/24 | sudo tee -a $interfaceConfigurationPath" -RemoteUser $remoteUser1).Output | Write-Log
-        (Invoke-CmdOnControlPlaneViaUserAndPwd "echo dns-nameservers $($DnsServers.Replace(',', ' ')) | sudo tee -a $interfaceConfigurationPath" -RemoteUser $remoteUser1).Output | Write-Log
-        (Invoke-CmdOnControlPlaneViaUserAndPwd "echo gateway $GatewayIpAddress | sudo tee -a $interfaceConfigurationPath" -RemoteUser $remoteUser1).Output | Write-Log
-        (Invoke-CmdOnControlPlaneViaUserAndPwd "echo mtu 1400 | sudo tee -a $interfaceConfigurationPath" -RemoteUser $remoteUser1).Output | Write-Log
-        (Invoke-CmdOnControlPlaneViaUserAndPwd "sudo rm -f /etc/network/interfaces.d/50-cloud-init" -RemoteUser $remoteUser1).Output | Write-Log
+        $interfaceConfigurationPath = '/etc/netplan/10-k2s.yaml'
+        $configPath = "$PSScriptRoot\NetplanK2s.yaml"
+        $netplanConfigurationTemplate = Get-Content $configPath
+        $netplanConfiguration = $netplanConfigurationTemplate.Replace("__NETWORK_INTERFACE_NAME__",$InterfaceName).Replace("__NETWORK_ADDRESSES__","$IpAddress/24").Replace("__IP_GATEWAY__", $GatewayIpAddress).Replace("__DNS_IP_ADDRESSES__",$DnsServers)
+        (Invoke-CmdOnControlPlaneViaUserAndPwd "echo '' | sudo tee $interfaceConfigurationPath" -RemoteUser $remoteUser1).Output | Write-Log
+        foreach ($line in $netplanConfiguration) {
+            (Invoke-CmdOnControlPlaneViaUserAndPwd "echo '$line' | sudo tee -a $interfaceConfigurationPath" -RemoteUser $remoteUser1).Output | Write-Log
+        }
+        (Invoke-CmdOnControlPlaneViaUserAndPwd "sudo chmod 600 $interfaceConfigurationPath" -RemoteUser $remoteUser1).Output | Write-Log
+        (Invoke-CmdOnControlPlaneViaUserAndPwd "sudo rm -f /etc/netplan/50-cloud-init.yaml" -RemoteUser $remoteUser1).Output | Write-Log
 
         # ssh keys
         (Invoke-CmdOnControlPlaneViaUserAndPwd "sudo rm -f /etc/ssh/ssh_host_*; sudo ssh-keygen -A; sudo systemctl restart ssh" -RemoteUser $remoteUser1).Output | Write-Log
@@ -360,16 +360,16 @@ function New-KubeworkerBaseImage {
     (Invoke-CmdOnControlPlaneViaUserAndPwd "sudo sed -i `"s/$(Get-HostnameForProvisioningKubeNode)/$Hostname/g`" /etc/hosts" -RemoteUser $remoteUser1).Output | Write-Log
 
     # IP
-    $interfaceConfigurationPath = '/etc/network/interfaces.d/10-k2s'
-    (Invoke-CmdOnControlPlaneViaUserAndPwd "echo auto lo | sudo tee $interfaceConfigurationPath" -RemoteUser $remoteUser1).Output | Write-Log
-    (Invoke-CmdOnControlPlaneViaUserAndPwd "echo iface lo inet loopback | sudo tee -a $interfaceConfigurationPath" -RemoteUser $remoteUser1).Output | Write-Log
-    (Invoke-CmdOnControlPlaneViaUserAndPwd "echo auto $InterfaceName | sudo tee -a $interfaceConfigurationPath" -RemoteUser $remoteUser1).Output | Write-Log
-    (Invoke-CmdOnControlPlaneViaUserAndPwd "echo iface $InterfaceName inet static | sudo tee -a $interfaceConfigurationPath" -RemoteUser $remoteUser1).Output | Write-Log
-    (Invoke-CmdOnControlPlaneViaUserAndPwd "echo address $IpAddress/24 | sudo tee -a $interfaceConfigurationPath" -RemoteUser $remoteUser1).Output | Write-Log
-    (Invoke-CmdOnControlPlaneViaUserAndPwd "echo dns-nameservers $($DnsServers.Replace(',', ' ')) | sudo tee -a $interfaceConfigurationPath" -RemoteUser $remoteUser1).Output | Write-Log
-    (Invoke-CmdOnControlPlaneViaUserAndPwd "echo gateway $GatewayIpAddress | sudo tee -a $interfaceConfigurationPath" -RemoteUser $remoteUser1).Output | Write-Log
-    (Invoke-CmdOnControlPlaneViaUserAndPwd "echo mtu 1400 | sudo tee -a $interfaceConfigurationPath" -RemoteUser $remoteUser1).Output | Write-Log
-    (Invoke-CmdOnControlPlaneViaUserAndPwd "sudo rm -f /etc/network/interfaces.d/50-cloud-init" -RemoteUser $remoteUser1).Output | Write-Log
+    $interfaceConfigurationPath = '/etc/netplan/10-k2s.yaml'
+    $configPath = "$PSScriptRoot\NetplanK2s.yaml"
+    $netplanConfigurationTemplate = Get-Content $configPath
+    $netplanConfiguration = $netplanConfigurationTemplate.Replace("__NETWORK_INTERFACE_NAME__",$InterfaceName).Replace("__NETWORK_ADDRESSES__","$IpAddress/24").Replace("__IP_GATEWAY__", $GatewayIpAddress).Replace("__DNS_IP_ADDRESSES__",$DnsServers)
+    (Invoke-CmdOnControlPlaneViaUserAndPwd "echo '' | sudo tee $interfaceConfigurationPath" -RemoteUser $remoteUser1).Output | Write-Log
+    foreach ($line in $netplanConfiguration) {
+        (Invoke-CmdOnControlPlaneViaUserAndPwd "echo '$line' | sudo tee -a $interfaceConfigurationPath" -RemoteUser $remoteUser1).Output | Write-Log
+    }
+    (Invoke-CmdOnControlPlaneViaUserAndPwd "sudo chmod 600 $interfaceConfigurationPath" -RemoteUser $remoteUser1).Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaUserAndPwd "sudo rm -f /etc/netplan/50-cloud-init.yaml" -RemoteUser $remoteUser1).Output | Write-Log
 
     # ssh keys
     (Invoke-CmdOnControlPlaneViaUserAndPwd "sudo rm -f /etc/ssh/ssh_host_*; sudo ssh-keygen -A; sudo systemctl restart ssh" -RemoteUser $remoteUser1).Output | Write-Log

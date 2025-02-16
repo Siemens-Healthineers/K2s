@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+// SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 //
 // SPDX-License-Identifier: MIT
 
@@ -11,6 +11,7 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/siemens-healthineers/k2s/test/framework/k2s/addons"
 	sos "github.com/siemens-healthineers/k2s/test/framework/os"
 
 	"github.com/siemens-healthineers/k2s/test/framework/k8s"
@@ -18,6 +19,7 @@ import (
 	"github.com/siemens-healthineers/k2s/test/framework/k2s"
 
 	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
+	"github.com/siemens-healthineers/k2s/test/framework/http"
 
 	//lint:ignore ST1001 test framework code
 	. "github.com/onsi/ginkgo/v2"
@@ -40,7 +42,8 @@ type K2sTestSuite struct {
 	kubeProxyRestarter   *k2s.KubeProxyRestarter
 	kubectl              *k8s.Kubectl
 	cluster              *k8s.Cluster
-	addonsAdditionalInfo *k2s.AddonsAdditionalInfo
+	addonsAdditionalInfo *addons.AddonsAdditionalInfo
+	httpClient           *http.ResilientHttpClient
 }
 type ClusterTestStepTimeout time.Duration
 type ClusterTestStepPollInterval time.Duration
@@ -55,8 +58,11 @@ const (
 	EnsureAddonsAreDisabled = ensureAddonsAreDisabledType(true)
 	NoSetupInstalled        = noSetupInstalledType(true)
 
-	SystemMustBeStopped   initialSystemStateType = "stopped"
-	SystemMustBeRunning   initialSystemStateType = "running"
+	// System is installed and stopped
+	SystemMustBeStopped initialSystemStateType = "stopped"
+	// System is installed and running
+	SystemMustBeRunning initialSystemStateType = "running"
+	// System is installed, but the state (started/stopped) does not matter
 	SystemStateIrrelevant initialSystemStateType = "irrelevant"
 )
 
@@ -96,7 +102,7 @@ func Setup(ctx context.Context, args ...any) *K2sTestSuite {
 
 	k2sCli := k2s.NewCli(cliPath, cli)
 
-	addonsAdditionalInfo := k2s.NewAddonsAdditionalInfo()
+	addonsAdditionalInfo := addons.NewAddonsAdditionalInfo()
 
 	testSuite := &K2sTestSuite{
 		proxy:                proxy,
@@ -110,6 +116,7 @@ func Setup(ctx context.Context, args ...any) *K2sTestSuite {
 		k2sCli:               k2sCli,
 		addonsAdditionalInfo: addonsAdditionalInfo,
 		setupInfo:            k2s.CreateSetupInfo(rootDir),
+		httpClient:           http.NewResilientHttpClient(clusterTestStepTimeout),
 	}
 
 	if noSetupInstalled {
@@ -203,7 +210,7 @@ func (s *K2sTestSuite) SetupInfo() *k2s.SetupInfo {
 	return s.setupInfo
 }
 
-func (s *K2sTestSuite) AddonsAdditionalInfo() *k2s.AddonsAdditionalInfo {
+func (s *K2sTestSuite) AddonsAdditionalInfo() *addons.AddonsAdditionalInfo {
 	Expect(s.addonsAdditionalInfo).ToNot(BeNil())
 	return s.addonsAdditionalInfo
 }
@@ -216,6 +223,10 @@ func (s *K2sTestSuite) Kubectl() *k8s.Kubectl {
 func (s *K2sTestSuite) Cluster() *k8s.Cluster {
 	Expect(s.cluster).ToNot(BeNil())
 	return s.cluster
+}
+
+func (s *K2sTestSuite) HttpClient() *http.ResilientHttpClient {
+	return s.httpClient
 }
 
 func expectSystemState(ctx context.Context, initialSystemState initialSystemStateType, k2sCli *k2s.K2sCliRunner, ensureAddonsAreDisabled bool) {
@@ -241,7 +252,7 @@ func expectSystemState(ctx context.Context, initialSystemState initialSystemStat
 	}
 }
 
-func expectAddonsToBeDisabled(addonsStatus *k2s.AddonsStatus) {
+func expectAddonsToBeDisabled(addonsStatus *addons.AddonsStatus) {
 	Expect(addonsStatus.GetEnabledAddons()).To(BeEmpty(), "All addons should be disabled to execute the tests")
 
 	GinkgoWriter.Println("All addons are disabled")

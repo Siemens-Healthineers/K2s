@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -11,6 +11,14 @@ class ProxyConfig {
     [string] $HttpProxy
     [string] $HttpsProxy
     [string[]] $NoProxy
+}
+
+function Get-K2sHosts() {
+    $clusterServicesCidr = Get-ConfiguredClusterCIDRServices
+    $clusterCidr = Get-ConfiguredClusterCIDR
+    $ipControlPlaneCidr = Get-ConfiguredControlPlaneCIDR
+
+    return @($clusterServicesCidr, $clusterCidr, $ipControlPlaneCidr, "local", "svc.cluster.local")
 }
 
 <#
@@ -343,10 +351,58 @@ function Reset-ProxyConfig {
     $newContent | Set-Content -Path $proxyConfigFp
 }
 
+<#
+.SYNOPSIS
+Set K2s specific hosts and subnets in NO_PROXY environment variable
+
+.DESCRIPTION
+Set K2s specific hosts and subnets in NO_PROXY environment variable. This allows all executables using
+NO_PROXY environment variable to communicate with K2s parts.
+
+.NOTES
+The function checks if the NO_PROXY environment variable is defined. In that case, the K2s hosts and subnets are added
+#>
+function Add-K2sHostsToNoProxyEnvVar() {
+    $noProxyEnvVar = [Environment]::GetEnvironmentVariable("NO_PROXY", "Machine")
+    $k2sHosts = Get-K2sHosts
+
+    if (![string]::IsNullOrWhiteSpace($noProxyEnvVar)) {
+        $noProxyList = $noProxyEnvVar -split ","
+
+        $noProxyList += $k2sHosts
+        $noProxyList = $noProxyList | Sort-Object -Unique
+        $updatedNoProxyEnvVar = $noProxyList -join ","
+        [Environment]::SetEnvironmentVariable("NO_PROXY", $updatedNoProxyEnvVar, "Process")
+        [Environment]::SetEnvironmentVariable("NO_PROXY", $updatedNoProxyEnvVar, "Machine")
+    }    
+}
+
+<#
+.SYNOPSIS
+Removes K2s specific hosts and subnets from NO_PROXY environment variable.
+
+.DESCRIPTION
+Removes K2s specific hosts and subnets from NO_PROXY environment variable.
+#>
+function Remove-K2sHostsFromNoProxyEnvVar() {
+    $noProxyEnvVar = [Environment]::GetEnvironmentVariable("NO_PROXY", "Machine")
+    $k2sHosts = Get-K2sHosts
+
+    if (![string]::IsNullOrWhiteSpace($noProxyEnvVar)) {
+        $noProxyList = $noProxyEnvVar -split ","
+        $noProxyList = $noProxyList | Where-Object { $_ -notin $k2sHosts }
+        $updatedNoProxyEnvVar = $noProxyList -join ","
+        [Environment]::SetEnvironmentVariable("NO_PROXY", $updatedNoProxyEnvVar, "Process")
+        [Environment]::SetEnvironmentVariable("NO_PROXY", $updatedNoProxyEnvVar, "Machine")
+    }
+}
+
 Export-ModuleMember -Function Get-OrUpdateProxyServer,
                               New-ProxyConfig, 
                               Get-ProxyConfig,
                               Set-ProxyServer, 
                               Add-NoProxyEntry, 
                               Remove-NoProxyEntry, 
-                              Reset-ProxyConfig
+                              Reset-ProxyConfig,
+                              Add-K2sHostsToNoProxyEnvVar,
+                              Remove-K2sHostsFromNoProxyEnvVar

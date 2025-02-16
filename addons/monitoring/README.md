@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 
 SPDX-License-Identifier: MIT
 -->
@@ -38,6 +38,8 @@ The monitoring dashboard UI can be accessed via the following methods.
 
 To access monitoring dashboard via ingress, the ingress nginx or the ingress traefik addon has to enabled.
 Once the addons are enabled, then the monitoring dashboard UI can be accessed at the following URL: <https://k2s.cluster.local/monitoring>
+
+_Note:_ If a proxy server is configured in the Windows Proxy settings, please add the hosts **k2s.cluster.local** as a proxy override.
 
 ### Access using port-forwarding
 

@@ -1,28 +1,29 @@
-# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 # SPDX-License-Identifier: MIT
 
 $configModule = "$PSScriptRoot\..\..\..\k2s.infra.module\config\config.module.psm1"
+$fileModule = "$PSScriptRoot\..\..\..\k2s.infra.module\config\file.module.psm1"
 $pathModule = "$PSScriptRoot\..\..\..\k2s.infra.module\path\path.module.psm1"
 $logModule = "$PSScriptRoot\..\..\..\k2s.infra.module\log\log.module.psm1"
 $hnsModule = "$PSScriptRoot\hns.module.psm1"
-Import-Module $logModule, $pathModule, $configModule, $hnsModule
+Import-Module $logModule, $pathModule, $configModule, $hnsModule, $fileModule
 
+$hnsService = 'hns'
 $l2BridgeSwitchName = 'cbr0'
-$netNatName = 'VMsNAT'
 $setupConfigRoot = Get-RootConfigk2s
-$ipControlPlaneCIDR = Get-ConfiguredControlPlaneCIDR
 $clusterCIDRNextHop = $setupConfigRoot.psobject.properties['cbr0'].value
 $clusterCIDRGateway = $setupConfigRoot.psobject.properties['cbr0Gateway'].value
 $clusterCIDRHost = $setupConfigRoot.psobject.properties['podNetworkWorkerCIDR'].value
 $clusterCIDRNatExceptions = $setupConfigRoot.psobject.properties['clusterCIDRNatExceptions'].value
 
+$global:HNSRestarted = $false
 
 function Set-IndexForDefaultSwitch {
     # Change index for default switch (on some computers the index is lower as for the main interface Ethernet)
     $ipindexDefault = Get-NetIPInterface | Where-Object InterfaceAlias -Like '*Default*' | Where-Object AddressFamily -Eq IPv4 | Select-Object -expand 'ifIndex'
     if ( $ipindexDefault ) {
-        Write-Log "Index for interface Default : ($ipindexDefault) -> metric 35"
-        Set-NetIPInterface -InterfaceIndex $ipindexDefault -InterfaceMetric 35
+        Write-Log "Index for interface Default : ($ipindexDefault) -> metric 103"
+        Set-NetIPInterface -InterfaceIndex $ipindexDefault -InterfaceMetric 103
     }
 }
 
@@ -66,8 +67,11 @@ function New-ExternalSwitch {
 
     # if the L2 bridge is already found we don't need to create it again
     $l2BridgeSwitchName = Get-L2BridgeSwitchName
-    $found = Get-HNSNetwork | ? Name -Like "$l2BridgeSwitchName"
-    if ( $found ) {
+    $found = Invoke-HNSCommand -Command { 
+        param($l2BridgeSwitchName)
+        Get-HNSNetwork | Where-Object Name -Like $l2BridgeSwitchName 
+    } -ArgumentList $l2BridgeSwitchName
+    if ($found) {
         Write-Log "L2 bridge network switch name: $l2BridgeSwitchName already exists"
         return
     }
@@ -99,26 +103,59 @@ function New-ExternalSwitch {
     $gatewayIpAddress = Get-ConfiguredClusterCIDRGateway -PodSubnetworkNumber $PodSubnetworkNumber
     $podNetworkCIDR = Get-ConfiguredClusterCIDRHost -PodSubnetworkNumber $PodSubnetworkNumber
     Write-Log "Create l2 bridge network with subnet: $podNetworkCIDR, switch name: $l2BridgeSwitchName, DNS server: $dnsserver, gateway: $gatewayIpAddress, NAT exceptions: $clusterCIDRNatExceptions, adapter name: $adapterName"
-    $netResult = New-HnsNetwork -Type 'L2Bridge' -Name "$l2BridgeSwitchName" -AdapterName "$adapterName" -AddressPrefix "$podNetworkCIDR" -Gateway "$gatewayIpAddress" -DNSServer "$dnserver"
+    $netResult = Invoke-HNSCommand -Command {
+        param(
+            $l2BridgeSwitchName,
+            $podNetworkCIDR,
+            $dnsserver,
+            $gatewayIpAddress,
+            $adapterName
+        )
+        New-HnsNetwork -Type 'L2Bridge' -Name "$l2BridgeSwitchName" -AdapterName "$adapterName" -AddressPrefix "$podNetworkCIDR" -Gateway "$gatewayIpAddress" -DNSServer "$dnsserver" 
+    } -ArgumentList @($l2BridgeSwitchName, $podNetworkCIDR, $dnsserver, $gatewayIpAddress, $adapterName)
     Write-Log $netResult
 
     # create endpoint
-    $cbr0 = Get-HnsNetwork | Where-Object -FilterScript { $_.Name -EQ "$l2BridgeSwitchName" }
+    $cbr0 = Invoke-HNSCommand -Command {
+        param(
+            $l2BridgeSwitchName
+        ) 
+        Get-HnsNetwork | Where-Object -FilterScript { $_.Name -EQ "$l2BridgeSwitchName" } 
+    } -ArgumentList $l2BridgeSwitchName
     if ( $null -Eq $cbr0 ) {
         throw 'No l2 bridge found. Please do a stopk8s ans start from scratch !'
     }
 
     $endpointname = $l2BridgeSwitchName + '_ep'
     $podNetworkNextHop = Get-ConfiguredClusterCIDRNextHop -PodSubnetworkNumber $PodSubnetworkNumber
-    $hnsEndpoint = New-HnsEndpoint -NetworkId $cbr0.ID -Name $endpointname -IPAddress $podNetworkNextHop -Verbose -EnableOutboundNat -OutboundNatExceptions $clusterCIDRNatExceptions
+    $hnsEndpoint = Invoke-HNSCommand -Command {
+        param(
+            $cbr0,
+            $endpointname,
+            $podNetworkNextHop,
+            $clusterCIDRNatExceptions
+        )
+        New-HnsEndpoint -NetworkId $cbr0.ID -Name $endpointname -IPAddress $podNetworkNextHop -Verbose -EnableOutboundNat -OutboundNatExceptions $clusterCIDRNatExceptions 
+    } -ArgumentList @($cbr0, $endpointname, $podNetworkNextHop, $clusterCIDRNatExceptions)
+
     if ($null -Eq $hnsEndpoint) {
         throw 'Not able to create a endpoint. Please do a stopk8s and restart again. Aborting.'
     }
 
-    Invoke-AttachHnsHostEndpoint -EndpointID $hnsEndpoint.Id -CompartmentID 1
+    Invoke-HNSCommand -Command {
+        param($hnsEndpointId)
+        Invoke-AttachHnsHostEndpoint -EndpointID $hnsEndpointId -CompartmentID 1 
+    } -ArgumentList @($hnsEndpoint.Id)
+
     $iname = "vEthernet ($endpointname)"
     netsh int ipv4 set int $iname for=en | Out-Null
-    #netsh int ipv4 add neighbors $iname $gatewayIpAddress '00-01-e8-8b-2e-4b' | Out-Null
+
+    # disable DNS
+    $cbr0AdapterIfIndex = Get-NetIPInterface | Where-Object InterfaceAlias -Like "vEthernet ($endpointname)*" | Where-Object AddressFamily -Eq IPv4 | Select-Object -expand 'ifIndex' -First 1
+    if( $cbr0AdapterIfIndex ) {
+        Write-Log "Disable DNS for interface $endpointname : ($cbr0AdapterIfIndex)"
+        Set-DnsClient -InterfaceIndex $cbr0AdapterIfIndex -ResetConnectionSpecificSuffix -RegisterThisConnectionsAddress $false
+    }
 }
 
 function Remove-ExternalSwitch () {
@@ -127,12 +164,15 @@ function Remove-ExternalSwitch () {
 
     $controlPlaneSwitchName = Get-ControlPlaneNodeDefaultSwitchName
 
-    $hns = $(Get-HNSNetwork)
+    $hns = Invoke-HNSCommand -Command { Get-HNSNetwork }
     # there's always at least the Default Switch network available, so we check for >= 2
     if ($($hns | Measure-Object).Count -ge 2) {
         Write-Log 'Delete bridge, clear HNSNetwork (short disconnect expected)'
-        $hns | Where-Object Name -Like '*cbr0*' | Remove-HNSNetwork -ErrorAction SilentlyContinue
-        $hns | Where-Object Name -Like ('*' + $controlPlaneSwitchName + '*') | Remove-HNSNetwork -ErrorAction SilentlyContinue
+        Invoke-HNSCommand -Command { 
+            param($hns, $controlPlaneSwitchName)
+            $hns | Where-Object Name -Like '*cbr0*' | Remove-HNSNetwork -ErrorAction SilentlyContinue 
+            $hns | Where-Object Name -Like ('*' + $controlPlaneSwitchName + '*') | Remove-HNSNetwork -ErrorAction SilentlyContinue
+        } -ArgumentList @($hns, $controlPlaneSwitchName)
     }
 }
 
@@ -141,6 +181,22 @@ function Set-InterfacePrivate {
         [Parameter()]
         [string] $InterfaceAlias
     )
+
+    # check if the interface is already available as a connection profile
+    $connectionProfile = Get-NetConnectionProfile -InterfaceAlias $InterfaceAlias -ErrorAction SilentlyContinue
+    # check if the connection profile is available
+    if (-not $connectionProfile) {
+        Write-Log "$InterfaceAlias has no connection profile !"
+        return
+    }
+
+    # check if the interface is already set to private
+    if ($connectionProfile) {
+        if ($connectionProfile.NetworkCategory -eq 'Private') {
+            Write-Log "$InterfaceAlias is already set to private"
+            return
+        }
+    }    
 
     $iteration = 60
     while ($iteration -gt 0) {
@@ -156,7 +212,7 @@ function Set-InterfacePrivate {
 
         Write-Log "$InterfaceAlias not set to private yet..."
 
-        if($iteration -eq 30) {
+        if ($iteration -eq 30) {
             Write-Log "Exhausted 30 attempts to set $InterfaceAlias to private. This could be due to issues in NlaSvc. Triggering its restart...."
             Restart-NlaSvc
         }
@@ -190,7 +246,10 @@ function Set-IPAdressAndDnsClientServerAddress {
     if ($DnsAddresses.Count -eq 0) {
         $DnsAddresses = $('8.8.8.8', '8.8.4.4')
     }
-    Set-DnsClientServerAddress -InterfaceIndex $Index -Addresses $DnsAddresses
+
+    Write-Log "Setting DNSProxy(6) server to empty addresses and no DNS partition on interface index $Index"
+    # Set-DnsClientServerAddress -InterfaceIndex $Index -Addresses $DnsAddresses
+    Set-DnsClient -InterfaceIndex $Index -ResetConnectionSpecificSuffix -RegisterThisConnectionsAddress $false
 
     $kubePath = Get-KubePath
     if ( !(Test-Path "$kubePath\bin\dnsproxy.yaml")) {
@@ -258,19 +317,19 @@ function Set-WSLSwitch() {
     netsh int ipv4 set int $interfaceAlias forwarding=enabled | Out-Null
     # change index in order to have the Ethernet card as first card (also for much better DNS queries)
     $ipindex1 = Get-NetIPInterface | Where-Object InterfaceAlias -Like $interfaceAlias | Where-Object AddressFamily -Eq IPv4 | Select-Object -expand 'ifIndex'
-    Write-Log "Index for interface $interfaceAlias : ($ipindex1) -> metric 25"
-    Set-NetIPInterface -InterfaceIndex $ipindex1 -InterfaceMetric 25
+    Write-Log "Index for interface $interfaceAlias : ($ipindex1) -> metric 100"
+    Set-NetIPInterface -InterfaceIndex $ipindex1 -InterfaceMetric 100
 }
 
 <# .DESCRIPTION
-	This function restarts the Network Location Awareness Service in Windows 10. 
+	This function restarts the Network Location Awareness Service in Windows 10.
 	After 128 cluster start and stop operations, a buffer overflow happens in this service
-	This causes the Loopback Adapter detection failures in SmallK8s. 
+	This causes the Loopback Adapter detection failures in SmallK8s.
 	Restarting this service resets the buffer.
 
 	For now the hook will suffice. An official solution for this shall come as part of K2s 1.1 or beyond.
 
-	The NlaSvc has to be killed explicitly since it has dependents. 
+	The NlaSvc has to be killed explicitly since it has dependents.
 #>
 function Restart-NlaSvc {
     $networkLocationAwarenessServiceName = 'NlaSvc'
@@ -280,7 +339,7 @@ function Restart-NlaSvc {
         $nlaSvcStartMode = $nlaSvcProcess.StartMode
         $nlaSvcPid = $nlaSvcProcess.ProcessId
         $nlaSvcState = $nlaSvcProcess.State
-    
+
         # if service is in Manual mode and in Stopped state, the service should not be started by K2s.
         if (($nlaSvcStartMode -eq 'Manual') -and (($nlaSvcState -eq 'Stopped') -or ($nlaSvcPid -eq 0))) {
             Write-Log 'Network Location Awareness service found in Manual mode and Stopped state. Service will not be restarted...'
@@ -290,31 +349,17 @@ function Restart-NlaSvc {
         Write-Log "Network Location Awareness service found on host runnig with pid $nlaSvcPid. Initiating service restart..."
         Invoke-Expression "taskkill /f /pid $nlaSvcPid"
         Start-Sleep -seconds 10
-        $networkLocationAwarenessService = Get-Service $networkLocationAwarenessServiceName
         $serviceRestarted = $false
-        if ($networkLocationAwarenessService.Status -ne 'Running') {
+        if ((Get-Service -Name $networkLocationAwarenessServiceName).Status -ne 'Running') {
             Write-Log "'$networkLocationAwarenessServiceName' Service is not restarted. Starting it explicitly..."
             Start-Service $networkLocationAwarenessServiceName
-            while ($true) {
-                $iteration++
-                $svcstatus = $(Get-Service -Name $networkLocationAwarenessServiceName -ErrorAction SilentlyContinue).Status
-                if ($svcstatus -eq 'Running') {
-                    $serviceRestarted = $true
-                    break
-                }
-                if ($iteration -ge 5) {
-                    Write-Log "'$networkLocationAwarenessServiceName' Service is not running !!"
-                    break
-                }
-                Write-Log "'$networkLocationAwarenessServiceName' Waiting for service status to be started."
-                Start-Sleep -s 2
-            }
+            $serviceRestarted = Wait-ForServiceRunning -ServiceName $networkLocationAwarenessServiceName
         }
+        
         if ($serviceRestarted -eq $false) {
             Write-Log "[WARNING] '$networkLocationAwarenessServiceName' Service could not be successfully restarted !!" -Console
-        }
-        else {
-            Write-Log "Service re-started '$networkLocationAwarenessServiceName' "
+        } else {
+            Write-Log "Service re-started '$networkLocationAwarenessServiceName'"
         }
     }
 }
@@ -342,9 +387,167 @@ function Add-VfpRulesToWindowsNode {
     Write-Log "Added file '$file' with vfp rules"
 }
 
+# TODO: Move to infra module
+function Add-VfpRoute {
+    param (
+        [Parameter()]
+        [ValidateNotNullOrEmpty()]
+        [string] $Name = $(throw 'Please specify the name of the route.'),
+        [Parameter()]
+        [ValidateNotNullOrEmpty()]
+        [string] $Subnet = $(throw 'Please specify the subnet for the route.'),
+        [Parameter()]
+        [ValidateNotNullOrEmpty()]
+        [string] $Gateway = $(throw 'Please specify the gateway for the route.'),
+        [Parameter(Mandatory = $False)]
+        [UInt32]$Priority = 0
+    )
+
+    $vfpFilePath = Get-VfpRulesFilePath
+    $json = Get-JsonContent -FilePath $vfpFilePath
+    if (-Not $json) { return }
+
+    $existingRoute = $json.routes | Where-Object { $_.name -eq $Name }
+    if ($existingRoute) {
+        Write-Log "[WARN] A VFP route with the name '$Name' already exists."
+        return
+    }
+
+    # Get the highest existing priority
+    $maxPriority = ($json.routes | Measure-Object -Property priority -Maximum).Maximum
+    if (-Not $Priority -or $Priority -le $maxPriority) {
+        $Priority = $maxPriority + 1
+    }
+
+    Write-Log 'Adding new VFP route:'
+    Write-Log "  Name: $Name"
+    Write-Log "  Subnet: $Subnet"
+    Write-Log "  Gateway: $Gateway"
+    Write-Log "  Priority: $Priority"
+
+    $newRoute = @{
+        name     = $Name
+        subnet   = $Subnet
+        gateway  = $Gateway
+        priority = "$Priority"
+    }
+    $json.routes += $newRoute
+    Save-JsonContent -JsonObject $json -FilePath $vfpFilePath
+    Write-Log "VFP Route '$Name' added successfully."
+}
+
+function Remove-VfpRoute {
+    param (
+        [string]$Name
+    )
+    $vfpFilePath = Get-VfpRulesFilePath
+    $json = Get-JsonContent -FilePath $vfpFilePath
+    if (-Not $json) { return }
+
+    $routeToRemove = $json.routes | Where-Object { $_.name -eq $Name }
+    if (-Not $routeToRemove) {
+        Write-Log "No VFP route found with the name '$Name'."
+        return
+    }
+
+    $json.routes = $json.routes | Where-Object { $_.name -ne $Name }
+    Save-JsonContent -JsonObject $json -FilePath $vfpFilePath
+    Write-Log "VFP Route '$Name' removed successfully."
+}
+
+function Get-VirtualSwitchName {
+    param (
+        [string]$Name
+    )
+
+    $interfaces = Get-NetIPInterface | Where-Object { $_.InterfaceAlias -like "vEthernet ($Name*" }
+    if ($interfaces.Count -eq 0) {
+        throw "No interface found with name '$Name'"
+    }
+    # if there are multiple interfaces with the same name, we need to find the one with the highest index
+    $interface = $interfaces | Sort-Object -Property InterfaceIndex | Select-Object -First 1
+    Write-Log "Found interface '$($interface.InterfaceAlias)' with index $($interface.InterfaceIndex)"
+    return $interface.InterfaceAlias
+}
+
+function Wait-ForServiceRunning {
+    param (
+        [string] $ServiceName,
+        [int] $MaxRetries = 5,
+        [int] $SleepSeconds = 2
+    )
+
+    $iteration = 0
+    while ($true) {
+        $iteration++
+        $svcstatus = $(Get-Service -Name $ServiceName -ErrorAction SilentlyContinue).Status
+        if ($svcstatus -eq 'Running') {
+            return $true
+        }
+        if ($iteration -ge $MaxRetries) {
+            Write-Log "'$ServiceName' Service is not running !!"
+            return $false
+        }
+        Write-Log "'$ServiceName' Waiting for service status to be started."
+        Start-Sleep -Seconds $SleepSeconds
+    }
+}
+
+function Restart-HNSService {
+    Restart-Service $hnsService
+    $serviceRestarted = Wait-ForServiceRunning -ServiceName $hnsService
+    
+    if ($serviceRestarted -eq $false) {
+        Write-Log "[WARNING] '$hnsService' Service could not be successfully restarted !!" -Console
+    } else {
+        Write-Log "Service re-started '$hnsService'"
+    }
+}
+
+function Invoke-HNSCommand {
+    param (
+        [scriptblock] $Command,
+        [object[]] $ArgumentList,
+        [int] $BaseDelayInSeconds = 2,
+        [int] $MaxDelayInSeconds = 60,
+        [int] $TimeoutMinutes = 10
+    )
+
+    $startTime = Get-Date
+    $delay = $BaseDelayInSeconds
+
+    while ($true) {
+        try {
+            if ($ArgumentList) {
+                return & $Command @ArgumentList
+            } else {
+                return & $Command
+            }
+        } catch {
+            Write-Log "Error encountered: $_"
+
+            if (-not $global:HNSRestarted) {
+                Restart-HNSService
+                $global:HNSRestarted = $true
+            } else {
+                $elapsedMinutes = (New-TimeSpan -Start $startTime -End (Get-Date)).TotalMinutes
+                if ($elapsedMinutes -ge $TimeoutMinutes) {
+                    throw "HNS API failed after $TimeoutMinutes minutes of retries."
+                }
+                $delay = [math]::Min($delay * 2, $MaxDelayInSeconds)
+            }
+
+            Write-Log "Retrying in $delay seconds..."
+            Start-Sleep -Seconds $delay
+        }
+    }
+}
+
+Export-ModuleMember -Function Add-Route, Remove-Route, Update-RoutePriority
 Export-ModuleMember Set-IndexForDefaultSwitch, Get-ConfiguredClusterCIDRHost,
 New-ExternalSwitch, Remove-ExternalSwitch,
 Set-InterfacePrivate,
 Get-L2BridgeSwitchName,
 Set-IPAdressAndDnsClientServerAddress, Set-WSLSwitch,
-Add-VfpRulesToWindowsNode, Remove-VfpRulesFromWindowsNode, Get-ConfiguredClusterCIDRNextHop
+Add-VfpRulesToWindowsNode, Remove-VfpRulesFromWindowsNode, Get-ConfiguredClusterCIDRNextHop,
+Add-VfpRoute, Remove-VfpRoute, Get-VirtualSwitchName

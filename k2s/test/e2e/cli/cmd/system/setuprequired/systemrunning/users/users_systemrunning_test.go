@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2024 Siemens Healthcare GmbH
+// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package users_test
@@ -22,7 +22,7 @@ import (
 	"github.com/siemens-healthineers/k2s/internal/core/users/winusers"
 	"github.com/siemens-healthineers/k2s/internal/os"
 	"github.com/siemens-healthineers/k2s/test/framework"
-	"github.com/siemens-healthineers/k2s/test/framework/k2s"
+	"github.com/siemens-healthineers/k2s/test/framework/k2s/cli"
 )
 
 type ginkgoWriter struct{}
@@ -77,7 +77,6 @@ var _ = AfterSuite(func(ctx context.Context) {
 
 var _ = Describe("system users add", Ordered, func() {
 	When("user is SYSTEM user", func() {
-		var controlPlaneName string
 		var userProvider *winUserProvider
 		var expectedKeyPath string
 		var expectedRemoteUser string
@@ -86,13 +85,12 @@ var _ = Describe("system users add", Ordered, func() {
 			fakeHomeDir := filepath.Join(GinkgoT().TempDir(), systemUserId)
 			GinkgoWriter.Println("Using temp home dir <", fakeHomeDir, ">")
 
-			controlPlaneConfig, found := lo.Find(suite.SetupInfo().Config.Nodes, func(node config.NodeConfig) bool {
-				return node.IsControlPlane
+			controlPlaneConfig, found := lo.Find(suite.SetupInfo().Config.Nodes(), func(node config.NodeConfigReader) bool {
+				return node.IsControlPlane()
 			})
 			Expect(found).To(BeTrue())
-			expectedRemoteUser = "remote@" + controlPlaneConfig.IpAddress
-			controlPlaneName = suite.SetupInfo().SetupConfig.ControlPlaneNodeHostname
-			expectedKeyPath = filepath.Join(fakeHomeDir, ".ssh", controlPlaneName, "id_rsa")
+			expectedRemoteUser = "remote@" + controlPlaneConfig.IpAddress()
+			expectedKeyPath = filepath.Join(fakeHomeDir, `.ssh\k2s\id_rsa`)
 
 			systemUserWithFakeHomeDir := winusers.NewUser(systemUserId, systemUserName, fakeHomeDir)
 
@@ -103,7 +101,7 @@ var _ = Describe("system users add", Ordered, func() {
 		})
 
 		It("grants Windows SYSTEM user access to K2s", MustPassRepeatedly(2), func(ctx context.Context) {
-			sut, err := users.NewUsersManagement(controlPlaneName, &suite.SetupInfo().Config, os.NewCmdExecutor(&ginkgoWriter{}), userProvider)
+			sut, err := users.NewUsersManagement(suite.SetupInfo().Config, os.NewCmdExecutor(&ginkgoWriter{}), userProvider)
 
 			Expect(err).ToNot(HaveOccurred())
 			Expect(sut).ToNot(BeNil())
@@ -118,7 +116,7 @@ var _ = Describe("system users add", Ordered, func() {
 
 	When("user not found by name", func() {
 		It("prints not-found warning", func(ctx context.Context) {
-			output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "system", "users", "add", "-u", "non-existent-name")
+			output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "system", "users", "add", "-u", "non-existent-name")
 
 			Expect(output).To(SatisfyAll(
 				ContainSubstring("WARNING"),
@@ -130,7 +128,7 @@ var _ = Describe("system users add", Ordered, func() {
 
 	When("user not found by id", func() {
 		It("prints not-found warning", func(ctx context.Context) {
-			output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "system", "users", "add", "-i", "non-existent-id")
+			output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "system", "users", "add", "-i", "non-existent-id")
 
 			Expect(output).To(SatisfyAll(
 				ContainSubstring("WARNING"),
@@ -145,7 +143,7 @@ var _ = Describe("system users add", Ordered, func() {
 			currentUser, err := user.Current()
 			Expect(err).ToNot(HaveOccurred())
 
-			output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "system", "users", "add", "-i", currentUser.Uid)
+			output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "system", "users", "add", "-i", currentUser.Uid)
 
 			Expect(output).To(SatisfyAll(
 				ContainSubstring("ERROR"),

@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -45,9 +45,9 @@ function Invoke-DownloadDebianImage {
         [string]$Proxy = ''
     )
 
-    $urlRoot = 'https://cloud.debian.org/images/cloud/bullseye/latest'
+    $urlRoot = 'https://cloud.debian.org/images/cloud/bookworm/latest/'
 
-    $urlFile = 'debian-11-genericcloud-amd64.qcow2'
+    $urlFile = 'debian-12-genericcloud-amd64.qcow2'
 
     $url = "$urlRoot/$urlFile"
 
@@ -212,7 +212,7 @@ Function New-IsoFile {
     $networkConfigFileContent = Get-Content -Path $networkConfigTemplateFilePath -Raw -ErrorAction Stop
     $networkConfigConversionTable = @{
         "__NETWORK_INTERFACE_NAME__"=$IsoContentParameterValue.NetworkInterfaceName
-        "__IP_ADDRESS_VM__"=$IsoContentParameterValue.IPAddressVM
+        "__IP_ADDRESS_VM__"="$($IsoContentParameterValue.IPAddressVM)/24"
         "__IP_ADDRESS_GATEWAY__"=$IsoContentParameterValue.IPAddressGateway
         "__IP_ADDRESSES_DNS_SERVERS__"=$IsoContentParameterValue.IPAddressDnsServers
     }
@@ -603,12 +603,35 @@ function New-NetworkForProvisioning {
 
     $timeout = New-TimeSpan -Minutes 1
 	$stpwatch = [System.Diagnostics.Stopwatch]::StartNew()
-	do {
-	    New-VMSwitch -Name $SwitchName -SwitchType Internal | Write-Log
-        Write-Log "Try to find switch: $SwitchName"
-    	$sw = Get-VMSwitch -Name $SwitchName -ErrorAction SilentlyContinue | Write-Log
-	} until ( ($sw) -or ($stpwatch.elapsed -lt $timeout))
-	Write-Log "Created VMSwitch '$SwitchName'"
+
+    $retryCount = 0
+    $maxRetries = 5
+    $retryDelay = 10
+
+    do {
+        try {
+            New-VMSwitch -Name $SwitchName -SwitchType Internal -ErrorAction SilentlyContinue
+            Write-Log "Try to find switch: $SwitchName"
+            $sw = Get-VMSwitch -Name $SwitchName -ErrorAction SilentlyContinue
+            if ($sw) {
+                Write-Log "Created VMSwitch '$SwitchName': $sw"
+                break
+            }
+        } catch {
+            Write-Log "Failed to create VMSwitch '$SwitchName'. Retrying in $retryDelay seconds..."
+            Start-Sleep -Seconds $retryDelay
+            $retryCount++
+        }
+        if ($sw) {
+            $retryCount = $maxRetries + 1
+            Write-Log "Created VMSwitch '$SwitchName': $sw"
+            break
+        }
+    } until ( ($sw) -or ($stpwatch.elapsed -gt $timeout) -or ($retryCount -ge $maxRetries))
+
+    if (-not $sw) {
+        throw "Failed to create VMSwitch '$SwitchName' after $maxRetries attempts."
+    }
 
 	New-NetIPAddress -IPAddress $HostIpAddress -PrefixLength $HostIpPrefixLength -InterfaceAlias "vEthernet ($SwitchName)" | Write-Log
 	Write-Log "Added IP address '$HostIpAddress' to network interface named 'vEthernet ($SwitchName)'"

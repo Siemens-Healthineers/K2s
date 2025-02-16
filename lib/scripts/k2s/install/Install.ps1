@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -65,6 +65,7 @@ Set-ConfigSetupType -Value $script:SetupType
 New-ProxyConfig -Proxy:$Proxy -NoProxy:$NoProxy
 
 $Proxy = Get-OrUpdateProxyServer -Proxy:$Proxy
+Add-K2sHostsToNoProxyEnvVar
 
 $dnsServers = $DnsAddresses -join ','
 if ([string]::IsNullOrWhiteSpace($dnsServers)) {
@@ -102,7 +103,7 @@ $workerNodeParams = @{
     DnsAddresses = $dnsServers
     K8sBinsPath = $K8sBinsPath
 }
-& "$PSScriptRoot\..\..\worker-node\windows\windows-host\Install.ps1" @workerNodeParams
+& "$PSScriptRoot\..\..\worker\windows\windows-host\Install.ps1" @workerNodeParams
 
 # show results
 Write-Log "Current state of kubernetes nodes:`n"

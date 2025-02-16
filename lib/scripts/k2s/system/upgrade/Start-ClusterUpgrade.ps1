@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -64,36 +64,21 @@ Initialize-Logging -ShowLogs:$ShowLogs
  .OUTPUTS
   Status object
 #>
-function Start-ClusterUpgrade {
+function PrepareClusterUpgrade {
     param(
-        [Parameter(Mandatory = $false, HelpMessage = 'Show progress bar')]
-        [switch] $ShowProgress = $false,
-        [Parameter(Mandatory = $false, HelpMessage = 'Skip move of resources during upgrade')]
-        [switch] $SkipResources = $false,
-        [Parameter(Mandatory = $false, HelpMessage = 'Delete resource files after upgrade')]
-        [switch] $DeleteFiles = $false,
-        [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
-        [switch] $ShowLogs = $false,
-        [parameter(Mandatory = $false, HelpMessage = 'Config file for setting up new cluster')]
-        [string] $Config,
-        [parameter(Mandatory = $false, HelpMessage = 'HTTP proxy if available')]
+        [switch] $ShowProgress,
+        [switch] $SkipResources,
+        [switch] $ShowLogs,
         [string] $Proxy,
-        [Parameter(Mandatory = $false, HelpMessage = 'Skip takeover of container images')]
-        [switch] $SkipImages = $false,
-        [parameter(Mandatory = $false, HelpMessage = 'Directory for resource backup')]
-        [string] $BackupDir = ''
+        [string] $BackupDir,
+        [string] $AdditionalHooksDir,
+        [ref] $coresVM,
+        [ref] $memoryVM,
+        [ref] $storageVM,
+        [ref] $addonsBackupPath,
+        [ref] $hooksBackupPath,
+        [ref] $logFilePathBeforeUninstall
     )
-    $errUpgrade = $null
-    $addonsBackupPath = $null
-    $logFilePathBeforeUninstall = $null
-    $coresVM = $null
-    $memoryVM = $null
-    $storageVM = $null
-
-    if ($BackupDir -eq '') {
-        $BackupDir = Get-TempPath
-    }
-
     try {
         # start progress
         if ($ShowProgress -eq $true) {
@@ -116,8 +101,11 @@ function Start-ClusterUpgrade {
         if ($ShowProgress -eq $true) {
             Write-Progress -Activity 'Checking if cluster is installed..' -Id 1 -Status '1/10' -PercentComplete 10 -CurrentOperation 'Cluster availability'
         }
-
-        Assert-UpgradeOperation
+        
+        if(!(Assert-UpgradeOperation))
+        {
+            return $false
+        }
 
         # check cluster is running
         if ($ShowProgress -eq $true) {
@@ -127,10 +115,10 @@ function Start-ClusterUpgrade {
         Enable-ClusterIsRunning -ShowLogs:$ShowLogs
 
         # keep current settings from cluster
-        $coresVM = Get-LinuxVMCores
-        $memoryVM = Get-LinuxVMMemory
-        $storageVM = Get-LinuxVMStorageSize
-        Write-Log "Current settings for the Linux VM, Cores: $coresVM, Memory: $memoryVM GB, Storage: $storageVM GB" -Console
+        $coresVM.Value = Get-LinuxVMCores
+        $memoryVM.Value = Get-LinuxVMMemory
+        $storageVM.Value = Get-LinuxVMStorageSize
+        Write-Log "Current settings for the Linux VM, Cores: $($coresVM.Value), Memory: $($memoryVM.Value) GB, Storage: $($storageVM.Value) GB" -Console
 
         # check for yaml tools
         Assert-YamlTools -Proxy $Proxy
@@ -148,34 +136,53 @@ function Start-ClusterUpgrade {
         Export-ClusterResources -SkipResources:$SkipResources -PathResources $BackupDir -ExePath $currentKubeToolsFolder
 
         # Invoke backup hooks
-        $hooksBackupPath = Join-Path $BackupDir 'hooks'
-        Invoke-UpgradeBackupRestoreHooks -HookType Backup -BackupDir $hooksBackupPath -ShowLogs:$ShowLogs -AdditionalHooksDir $AdditionalHooksDir
+        $hooksBackupPath.Value = Join-Path $BackupDir 'hooks'
+        Invoke-UpgradeBackupRestoreHooks -HookType Backup -BackupDir $hooksBackupPath.Value -ShowLogs:$ShowLogs -AdditionalHooksDir $AdditionalHooksDir
 
         if ($ShowProgress -eq $true) {
             Write-Progress -Activity 'Backing up addons..' -Id 1 -Status '4/10' -PercentComplete 40 -CurrentOperation 'Backing up addons, please wait..'
         }
 
         # backup all addons
-        $addonsBackupPath = Join-Path $BackupDir 'addons'
-        Backup-Addons -BackupDir $addonsBackupPath
+        $addonsBackupPath.Value = Join-Path $BackupDir 'addons'
+        Backup-Addons -BackupDir $addonsBackupPath.Value
 
         # backup log file
-        $logFilePathBeforeUninstall = Join-Path $BackupDir 'k2s-before-uninstall.log'
-        Backup-LogFile -LogFile $logFilePathBeforeUninstall
+        $logFilePathBeforeUninstall.Value = Join-Path $BackupDir 'k2s-before-uninstall.log'
+        Backup-LogFile -LogFile $logFilePathBeforeUninstall.Value
+        return $true
     }
     catch {
         Write-Log 'An ERROR occurred:' -Console
         Write-Log $_.ScriptStackTrace -Console
         Write-Log $_ -Console
-        $errUpgrade = $_
-        Write-Error 'Unfortunately preliminary steps to export resources of current cluster failed, please check the logs for more information !'
-        return $false
+        throw $_
     }
+}
+
+function PerformClusterUpgrade {
+    param(
+        [switch] $ShowProgress,
+        [switch] $DeleteFiles,
+        [switch] $ShowLogs,
+        [switch] $ExecuteHooks,
+        [string] $K2sPathToInstallFrom,
+        [string] $Config,
+        [string] $Proxy,
+        [string] $BackupDir,
+        [string] $AdditionalHooksDir,
+        [string] $memoryVM,
+        [string] $coresVM,
+        [string] $storageVM,
+        [string] $addonsBackupPath,
+        [string] $hooksBackupPath,
+        [string] $logFilePathBeforeUninstall
+    )
     try {
         # uninstall of old cluster
         if ($ShowProgress -eq $true) {
             Write-Progress -Activity 'Uninstall cluster..' -Id 1 -Status '5/10' -PercentComplete 40 -CurrentOperation 'Uninstalling cluster, please wait..'
-        }
+        }        
         Invoke-ClusterUninstall -ShowLogs:$ShowLogs -DeleteFiles:$DeleteFiles
 
         $logFilePath = Get-LogFilePath
@@ -192,19 +199,30 @@ function Start-ClusterUpgrade {
         if ($ShowProgress -eq $true) {
             Write-Progress -Activity 'Install cluster..' -Id 1 -Status '6/10' -PercentComplete 50 -CurrentOperation 'Installing cluster, please wait..'
         }
-        Invoke-ClusterInstall -ShowLogs:$ShowLogs -Config $Config -Proxy $Proxy -DeleteFiles:$DeleteFiles -MasterVMMemory $memoryVM -MasterVMProcessorCount $coresVM -MasterDiskSize $storageVM
-        Wait-ForAPIServer
+          # Check if K2sPathToInstallFrom is null or empty and assign kubePath if so.
+        if ([string]::IsNullOrEmpty($K2sPathToInstallFrom)) {
+            $K2sPathToInstallFrom =  Get-KubePath
+        }
+        Invoke-ClusterInstall -K2sPathToInstallFrom $K2sPathToInstallFrom -ShowLogs:$ShowLogs -Config $Config -Proxy $Proxy -DeleteFiles:$DeleteFiles -MasterVMMemory $memoryVM -MasterVMProcessorCount $coresVM -MasterDiskSize $storageVM
+        Wait-ForAPIServerInGivenKubePath -KubePath $K2sPathToInstallFrom
 
         # restore addons
         if ($ShowProgress -eq $true) {
             Write-Progress -Activity 'Apply not namespaced resources on cluster..' -Id 1 -Status '7/10' -PercentComplete 70 -CurrentOperation 'Apply not namespaced resources, please wait..'
         }
-        Restore-Addons -BackupDir $addonsBackupPath
+               
+        if ($ExecuteHooks -eq $true) {
+            
+            Restore-Addons -BackupDir $addonsBackupPath
+            # Invoke restore hooks
+            Write-Log "Restore with executing hooks"            
+            Invoke-UpgradeBackupRestoreHooks -HookType Restore -BackupDir $hooksBackupPath -ShowLogs:$ShowLogs -AdditionalHooksDir $AdditionalHooksDir
+        } else {
+            Write-Log "Restore without executing hooks"         
+            Restore-Addons -BackupDir $addonsBackupPath -AvoidRestore
+        }
 
-        # Invoke restore hooks
-        Invoke-UpgradeBackupRestoreHooks -HookType Restore -BackupDir $hooksBackupPath -ShowLogs:$ShowLogs -AdditionalHooksDir $AdditionalHooksDir
-
-        $kubeExeFolder = Get-KubeToolsPath
+        $kubeExeFolder = Get-KubeBinPathGivenKubePath -KubePathLocal $K2sPathToInstallFrom     
         # import of resources
         Import-NotNamespacedResources -FolderIn $BackupDir -ExePath $kubeExeFolder
         if ($ShowProgress -eq $true) {
@@ -223,25 +241,102 @@ function Start-ClusterUpgrade {
         # restore log files
         Restore-LogFile -LogFile $logFilePathBeforeUninstall
 
-        # final message
-        Write-Log "Upgraded successfully to K2s version: $(Get-ProductVersion) ($(Get-KubePath))" -Console
+        if ($ExecuteHooks -eq $true) { 
+            # final message
+            Write-Log "Upgraded successfully to K2s version: $(Get-ProductVersion) ($(Get-KubePath))" -Console
+        } else {
+            Write-Log "Rolled back to K2s version: $(Get-ProductVersionGivenKubePath -KubePathLocal $K2sPathToInstallFrom) ($K2sPathToInstallFrom)" -Console
+        }
 
         # info on env variables
-        Write-RefreshEnvVariables
+        Write-RefreshEnvVariablesGivenKubePath -KubePathLocal $K2sPathToInstallFrom
+    }
+    catch {
+        Write-Log 'An ERROR occurred:' 
+        Write-Log $_.ScriptStackTrace 
+        Write-Log $_ 
+        throw $_
+    }
+}
+function Start-ClusterUpgrade {
+    param(
+        [Parameter(Mandatory = $false, HelpMessage = 'Show progress bar')]
+        [switch] $ShowProgress = $false,
+        [Parameter(Mandatory = $false, HelpMessage = 'Skip move of resources during upgrade')]
+        [switch] $SkipResources = $false,
+        [Parameter(Mandatory = $false, HelpMessage = 'Delete resource files after upgrade')]
+        [switch] $DeleteFiles = $false,
+        [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
+        [switch] $ShowLogs = $false,
+        [parameter(Mandatory = $false, HelpMessage = 'Config file for setting up new cluster')]
+        [string] $Config,
+        [parameter(Mandatory = $false, HelpMessage = 'HTTP proxy if available')]
+        [string] $Proxy,
+        [Parameter(Mandatory = $false, HelpMessage = 'Skip takeover of container images')]
+        [switch] $SkipImages = $false,
+        [parameter(Mandatory = $false, HelpMessage = 'Directory for resource backup')]
+        [string] $BackupDir = ''
+    )
+    $errUpgrade = $null
+        
+    $coresVM = [ref]''
+    $memoryVM = [ref]''
+    $storageVM = [ref]''
+
+    $addonsBackupPath = [ref]''
+    $hooksBackupPath = [ref]''
+    $logFilePathBeforeUninstall = [ref]''
+
+    if ($BackupDir -eq '') {
+        $BackupDir = Get-TempPath
+    }
+
+    Write-Log "The backup directory is '$BackupDir'"
+   
+    try {
+        $prepareSuccess = PrepareClusterUpgrade -ShowProgress:$ShowProgress -SkipResources:$SkipResources -ShowLogs:$ShowLogs -Proxy $Proxy -BackupDir $BackupDir -AdditionalHooksDir $AdditionalHooksDir -coresVM $coresVM -memoryVM $memoryVM -storageVM $storageVM -addonsBackupPath $addonsBackupPath -hooksBackupPath $hooksBackupPath -logFilePathBeforeUninstall $logFilePathBeforeUninstall
+        if (-not $prepareSuccess) {
+            return $false
+        }
     }
     catch {
         Write-Log 'An ERROR occurred:' -Console
         Write-Log $_.ScriptStackTrace -Console
         Write-Log $_ -Console
         $errUpgrade = $_
-        Write-Error 'System upgrade failed, please check the logs for more information !'
+        Write-Error 'Unfortunately preliminary steps to export resources of current cluster failed, please check the logs for more information !'
+        return $false
+    }
+    
+    $installedFolder = Get-ClusterInstalledFolder
+    try {
+        PerformClusterUpgrade -ExecuteHooks:$true -ShowProgress:$ShowProgress -DeleteFiles:$DeleteFiles -ShowLogs:$ShowLogs -Config $Config -Proxy $Proxy -BackupDir $BackupDir -AdditionalHooksDir $AdditionalHooksDir -memoryVM $memoryVM.Value -coresVM $coresVM.Value -storageVM $storageVM.Value -addonsBackupPath $addonsBackupPath.Value -hooksBackupPath $hooksBackupPath.Value -logFilePathBeforeUninstall $logFilePathBeforeUninstall.Value
+    }
+    catch {       
+        Write-Log 'System upgrade failed, will rollback to previous state !'
+        try {
+             # backup log file since it will be deleted during uninstall
+            $logFilePathBeforeUninstall.Value = Join-Path $BackupDir 'k2s-before-uninstall.log'
+            Backup-LogFile -LogFile $logFilePathBeforeUninstall.Value
+            #Execute the upgrade without executing the upgrade hooks and from the installed folder (folder used before upgrade)
+            PerformClusterUpgrade -ExecuteHooks:$false -K2sPathToInstallFrom $installedFolder -ShowProgress:$ShowProgress -DeleteFiles:$DeleteFiles -ShowLogs:$ShowLogs -Config $Config -Proxy $Proxy -BackupDir $BackupDir -AdditionalHooksDir $AdditionalHooksDir -memoryVM $memoryVM.Value -coresVM $coresVM.Value -storageVM $storageVM.Value -addonsBackupPath $addonsBackupPath.Value -hooksBackupPath $hooksBackupPath.Value -logFilePathBeforeUninstall $logFilePathBeforeUninstall.Value
+        }
+        catch {
+            Write-Log 'An ERROR occurred:' -Console
+            Write-Log $_.ScriptStackTrace -Console
+            Write-Log $_ -Console
+            Write-Error 'System upgrade failed, please check the logs for more information !'
+            return $false
+        }
     }
     finally {
         if ($ShowProgress -eq $true) {
             Write-Progress -Activity 'Remove exported resources..' -Id 1 -Status '5/8' -PercentComplete 50 -CurrentOperation 'Remove exported resources, please wait..'
         }
-        # remove temp cluster resources
-        Remove-ExportedClusterResources -PathResources $BackupDir
+        if (-not $errUpgrade) {
+            # remove temp cluster resources
+            Remove-ExportedClusterResources -PathResources $BackupDir -DeleteFiles:$true
+        }
     }
     if ( $errUpgrade ) {
         return $false

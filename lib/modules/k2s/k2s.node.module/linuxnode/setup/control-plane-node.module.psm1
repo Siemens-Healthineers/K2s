@@ -1,12 +1,13 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthcare GmbH
+# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 # SPDX-License-Identifier: MIT
 
 #Requires -RunAsAdministrator
 
-$infraModule =   "$PSScriptRoot\..\..\..\k2s.infra.module\k2s.infra.module.psm1"
+$infraModule = "$PSScriptRoot\..\..\..\k2s.infra.module\k2s.infra.module.psm1"
 $clusterModule = "$PSScriptRoot\..\..\..\k2s.cluster.module\k2s.cluster.module.psm1"
+$commonDistroModule = "$PSScriptRoot\..\distros\common-setup.module.psm1"
 
-Import-Module $infraModule, $clusterModule
+Import-Module $infraModule, $clusterModule, $commonDistroModule
 
 function New-ControlPlaneNodeOnNewVM {
     Param(
@@ -53,17 +54,17 @@ function New-ControlPlaneNodeOnNewVM {
     Set-ConfigWslFlag -Value $([bool]$WSL)
 
     $controlPlaneParams = @{
-        Hostname = Get-ConfigControlPlaneNodeHostname
-        IpAddress = Get-ConfiguredIPControlPlane
-        GatewayIpAddress = Get-ConfiguredKubeSwitchIP
-        DnsServers= $DnsServers
-        VmName = 'KubeMaster'
-        VMMemoryStartupBytes = $MasterVMMemory
-        VMProcessorCount = $MasterVMProcessorCount
-        VMDiskSize = $MasterDiskSize
-        Proxy = $Proxy
+        Hostname                          = Get-ConfigControlPlaneNodeHostname
+        IpAddress                         = Get-ConfiguredIPControlPlane
+        GatewayIpAddress                  = Get-ConfiguredKubeSwitchIP
+        DnsServers                        = $DnsServers
+        VmName                            = 'KubeMaster'
+        VMMemoryStartupBytes              = $MasterVMMemory
+        VMProcessorCount                  = $MasterVMProcessorCount
+        VMDiskSize                        = $MasterDiskSize
+        Proxy                             = $Proxy
         DeleteFilesForOfflineInstallation = $DeleteFilesForOfflineInstallation
-        ForceOnlineInstallation = $ForceOnlineInstallation
+        ForceOnlineInstallation           = $ForceOnlineInstallation
     }
 
     if ($WSL) {
@@ -83,10 +84,17 @@ function New-ControlPlaneNodeOnNewVM {
     }
 
     Wait-ForSSHConnectionToLinuxVMViaPwd
-    New-SshKey -IpAddress $($controlPlaneParams.IpAddress)
-    Copy-LocalPublicSshKeyToRemoteComputer -UserName $(Get-DefaultUserNameControlPlane) -UserPwd $(Get-DefaultUserPwdControlPlane) -IpAddress $($controlPlaneParams.IpAddress)
+
+    $controlPlaneUserName = Get-DefaultUserNameControlPlane
+    $controlPlaneUserPwd = Get-DefaultUserPwdControlPlane
+    $controlPlaneIpAddress = $($controlPlaneParams.IpAddress)
+
+    New-SshKey -IpAddress $controlPlaneIpAddress
+    Copy-LocalPublicSshKeyToRemoteComputer -UserName $controlPlaneUserName -UserPwd $controlPlaneUserPwd -IpAddress $controlPlaneIpAddress
     Wait-ForSSHConnectionToLinuxVMViaSshKey
 
+    Remove-ControlPlaneAccessViaUserAndPwd
+    
     # add kubectl to Windows host
     Install-KubectlTool
     # copy kubectl config file into Windows host
@@ -100,6 +108,9 @@ function New-ControlPlaneNodeOnNewVM {
     Set-EnvVars
 
     Update-NodeLabelsAndTaints
+
+    # correct coredns config
+    Update-CoreDNSConfigurationviaSSH 
 }
 
 function Start-ControlPlaneNodeOnNewVM {
@@ -143,10 +154,10 @@ function Start-ControlPlaneNodeOnNewVM {
     function EnsureCni0InterfaceIsCreated {
         param (
             [string] $VmName = $(throw 'Argument missing: VmName'),
-            [bool] $WSL  = $(throw 'Argument missing: WSL')
+            [bool] $WSL = $(throw 'Argument missing: WSL')
         )
         $i = 0
-        while($true) {
+        while ($true) {
             $controlPlaneCni0IpAddr = Get-Cni0IpAddressInControlPlaneUsingSshWithRetries -Retries 30 -RetryTimeoutInSeconds 5
             $expectedControlPlaneCni0IpAddr = Get-ConfiguredMasterNetworkInterfaceCni0IP
 
@@ -158,14 +169,16 @@ function Start-ControlPlaneNodeOnNewVM {
                 if ($i -eq 3) {
                     throw "cni0 interface in $controlPlaneVMHostName is not correctly initialized after $i retries."
                 }
-            } else {
+            }
+            else {
                 Write-Log "cni0 interface in $controlPlaneVMHostName correctly initialized."
                 break
             }
             if (!$WSL) {
                 Stop-VirtualMachine -VmName $VmName -Wait
                 Start-VirtualMachine -VmName $VmName -Wait
-            } else {
+            }
+            else {
                 wsl --shutdown
                 Start-WSL
             }
@@ -230,7 +243,7 @@ function Start-ControlPlaneNodeOnNewVM {
         }
 
         $kubeSwitchInExpectedState = CheckKubeSwitchInExpectedState
-        if(!$UseCachedK2sVSwitches -or !$kubeSwitchInExpectedState) {
+        if (!$UseCachedK2sVSwitches -or !$kubeSwitchInExpectedState) {
             # Remove old switch
             Write-Log 'Updating VM networking...'
             Remove-KubeSwitch
@@ -244,15 +257,16 @@ function Start-ControlPlaneNodeOnNewVM {
         }
 
         Start-VirtualMachine -VmName $controlPlaneVMHostName -Wait
-    } else {
+    }
+    else {
         Write-Log 'Configuring KubeMaster Distro' -Console
         wsl --shutdown
         Start-WSL
         Set-WSLSwitch -IpAddress $windowsHostIpAddress
 
-        $interfaceAlias = Get-NetAdapter -Name "vEthernet (WSL*)" -ErrorAction SilentlyContinue -IncludeHidden | Select-Object -expandproperty name
-        New-NetFirewallRule -DisplayName 'WSL Inbound' -Group "k2s" -Direction Inbound -InterfaceAlias $interfaceAlias -Action Allow
-        New-NetFirewallRule -DisplayName 'WSL Outbound'-Group "k2s" -Direction Outbound -InterfaceAlias $interfaceAlias -Action Allow
+        $interfaceAlias = Get-NetAdapter -Name 'vEthernet (WSL*)' -ErrorAction SilentlyContinue -IncludeHidden | Select-Object -expandproperty name
+        New-NetFirewallRule -DisplayName 'WSL Inbound' -Group 'k2s' -Direction Inbound -InterfaceAlias $interfaceAlias -Action Allow
+        New-NetFirewallRule -DisplayName 'WSL Outbound'-Group 'k2s' -Direction Outbound -InterfaceAlias $interfaceAlias -Action Allow
     }
 
     # add DNS proxy for cluster searches
@@ -261,7 +275,7 @@ function Start-ControlPlaneNodeOnNewVM {
     # route for VM
     Write-Log "Remove obsolete route to $ipControlPlaneCIDR"
     route delete $ipControlPlaneCIDR >$null 2>&1
-    Write-Log "Add route to $ipControlPlaneCIDR"
+    Write-Log "Add route to host network for master CIDR:$ipControlPlaneCIDR with metric 3"
     route -p add $ipControlPlaneCIDR $windowsHostIpAddress METRIC 3 | Out-Null
 
     Wait-ForSSHConnectionToLinuxVMViaSshKey
@@ -269,14 +283,14 @@ function Start-ControlPlaneNodeOnNewVM {
     EnsureCni0InterfaceIsCreated -VmName $controlPlaneVMHostName -WSL:$WSL
 
     $ipindex = Get-NetIPInterface | Where-Object InterfaceAlias -Like "*$switchname*" | Where-Object AddressFamily -Eq IPv4 | Select-Object -expand 'ifIndex'
-    Write-Log "Index for interface $switchname : ($ipindex) -> metric 25"
-    Set-NetIPInterface -InterfaceIndex $ipindex -InterfaceMetric 25
+    Write-Log "Index for interface $switchname : ($ipindex) -> metric 100"
+    Set-NetIPInterface -InterfaceIndex $ipindex -InterfaceMetric 100
 
     Invoke-TimeSync
 
-    Write-Log 'Set the DNS server(s) used by the Windows Host as the default DNS server(s) of the VM'
-    (Invoke-CmdOnControlPlaneViaSSHKey "sudo sed -i 's/dns-nameservers.*/dns-nameservers $DnsServers/' /etc/network/interfaces.d/10-k2s").Output | Write-Log
-    (Invoke-CmdOnControlPlaneViaSSHKey 'sudo systemctl restart networking').Output | Write-Log
+    Write-Log 'Set the DNS server(s) used by the Windows Host as the default DNS server(s) of the VM'    
+    (Invoke-CmdOnControlPlaneViaSSHKey "sudo sed -i '/nameservers:/!b;n;s/addresses: \[.*\]/addresses: [$DnsServers]/' /etc/netplan/10-k2s.yaml").Output | Write-Log    
+    (Invoke-CmdOnControlPlaneViaSSHKey 'sudo systemctl restart systemd-networkd').Output | Write-Log
     (Invoke-CmdOnControlPlaneViaSSHKey 'sudo systemctl restart dnsmasq').Output | Write-Log
 
     $ipControlPlane = Get-ConfiguredIPControlPlane
@@ -288,23 +302,25 @@ function Start-ControlPlaneNodeOnNewVM {
     # routes for Linux pods
     Write-Log "Remove obsolete route to $clusterCIDRMaster"
     route delete $clusterCIDRMaster >$null 2>&1
-    Write-Log "Add route to $clusterCIDRMaster"
+    Write-Log "Add route to Linux master pods CIDR:$clusterCIDRMaster with metric 4"
     route -p add $clusterCIDRMaster $ipControlPlane METRIC 4 | Out-Null
 
     # routes for services
     route delete $clusterCIDRServices >$null 2>&1
     Write-Log "Remove obsolete route to $clusterCIDRServicesLinux"
     route delete $clusterCIDRServicesLinux >$null 2>&1
-    Write-Log "Add route to $clusterCIDRServicesLinux"
+    Write-Log "Add route to Linux Services CIDR:$clusterCIDRServicesLinux with metric 6"
     route -p add $clusterCIDRServicesLinux $ipControlPlane METRIC 6 | Out-Null
 
+    # get the real switch name
+    $switchRealName = Get-VirtualSwitchName($switchname)
 
     # enable ip forwarding
-    netsh int ipv4 set int "vEthernet ($switchname)" forwarding=enabled | Out-Null
+    netsh int ipv4 set int $switchRealName forwarding=enabled | Out-Null
     netsh int ipv4 set int 'vEthernet (Ethernet)' forwarding=enabled | Out-Null
 
     # Double check for KubeSwitch is in expected Private state
-    Set-InterfacePrivate -InterfaceAlias "vEthernet ($switchname)"
+    Set-InterfacePrivate -InterfaceAlias $switchRealName
 
     if ($SkipHeaderDisplay -eq $false) {
         Write-Log 'K2s control plane started'
@@ -408,7 +424,8 @@ function Remove-ControlPlaneNodeOnNewVM {
     if ($WSL) {
         wsl --shutdown | Out-Null
         wsl --unregister $VmName | Out-Null
-    } else {
+    }
+    else {
         Stop-VirtualMachine -VmName $VmName -Wait
         Remove-VirtualMachine $VmName
     }
@@ -417,6 +434,13 @@ function Remove-ControlPlaneNodeOnNewVM {
 
     Clear-ProvisioningArtifacts
 
+    $linuxnodePath = "$(Get-KubeBinPath)\linuxnode"
+    Write-Log "Delete folder '$linuxnodePath' if existing"
+    if (Test-Path $linuxnodePath) {
+        Write-Log "Deleting folder '$linuxnodePath'"
+        Remove-Item -Path $linuxnodePath -Recurse -Force
+    }
+    
     if ($DeleteFilesForOfflineInstallation) {
         $kubemasterBaseFilePath = Get-KubemasterBaseFilePath
         $kubemasterRootfsPath = Get-ControlPlaneOnWslRootfsFilePath

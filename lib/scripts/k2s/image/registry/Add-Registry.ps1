@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -15,21 +15,21 @@ Add access to a registry
 The name of the registry to be added
 
 .PARAMETER Username
-The image name of the image to be exported
+The username for the registry
 
 .PARAMETER Password
-The path where the image sould be exported
+The password for the registry
 
 .PARAMETER ShowLogs
 Show all logs in terminal
 
 .EXAMPLE
 # Add registry
-PS> .\Add-Registry.ps1 -RegistryName "myregistry"
+PS> .\Add-Registry.ps1 -RegistryName "ghcr.io"
 
 .EXAMPLE
 # Add registry with username and password
-PS> .\Add-Registry.ps1 -RegistryName "myregistry" -Username "user" -Password "passwd"
+PS> .\Add-Registry.ps1 -RegistryName "ghcr.io" -Username "user" -Password "passwd"
 #>
 
 Param (
@@ -44,7 +44,11 @@ Param (
     [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
     [switch] $EncodeStructuredOutput,
     [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
-    [string] $MessageType
+    [string] $MessageType,
+    [parameter(Mandatory = $false, HelpMessage = 'Skips verifying HTTPS certs')]
+    [switch] $SkipVerify = $false,
+    [parameter(Mandatory = $false, HelpMessage = 'Plain http')]
+    [switch] $PlainHttp = $false
 )
 
 $clusterModule = "$PSScriptRoot/../../../../modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
@@ -95,17 +99,14 @@ else {
     $password = $cred.GetNetworkCredential().Password
 }
 
-(Invoke-CmdOnControlPlaneViaSSHKey "grep location=\\\""$RegistryName\\\"" /etc/containers/registries.conf || echo -e `'\n[[registry]]\nlocation=\""$RegistryName\""\ninsecure=true`' | sudo tee -a /etc/containers/registries.conf").Output | Write-Log
+Set-Registry -Name $RegistryName -Https:$(!$PlainHttp) -SkipVerify:$SkipVerify
 
-(Invoke-CmdOnControlPlaneViaSSHKey 'sudo systemctl daemon-reload').Output | Write-Log
-(Invoke-CmdOnControlPlaneViaSSHKey 'sudo systemctl restart crio').Output | Write-Log
-
-Start-Sleep 2
+Write-Log 'Trying to login to container registry' -Console
 
 Connect-Buildah -username $username -password $password -registry $RegistryName
 
 if (!$?) {
-    (Invoke-CmdOnControlPlaneViaSSHKey "grep location=\\\""$RegistryName\\\"" /etc/containers/registries.conf | sudo sed -i -z 's/\[\[registry]]\nlocation=\\\""$RegistryName\\\""\ninsecure=true//g' /etc/containers/registries.conf").Output | Write-Log
+    Remove-Registry -Name $RegistryName
     $errMsg = 'Login to private registry not possible, please check credentials.'
     if ($EncodeStructuredOutput -eq $true) {
         $err = New-Error -Code 'registry-login-impossible' -Message $errMsg
@@ -116,21 +117,25 @@ if (!$?) {
     exit 1
 }
 
-$authJson = (Invoke-CmdOnControlPlaneViaSSHKey 'sudo cat /root/.config/containers/auth.json').Output | Out-String
+Write-Log 'Restarting Linux container runtime' -Console
+(Invoke-CmdOnControlPlaneViaSSHKey 'sudo systemctl daemon-reload').Output | Write-Log
+(Invoke-CmdOnControlPlaneViaSSHKey 'sudo systemctl restart crio').Output | Write-Log
+
+Start-Sleep 2
 
 Connect-Nerdctl -username $username -password $password -registry $RegistryName
 
 # set authentification for containerd
-Add-RegistryToContainerdConf -RegistryName $RegistryName -authJson $authJson
+$authJson = (Invoke-CmdOnControlPlaneViaSSHKey 'sudo cat /root/.config/containers/auth.json' -NoLog).Output | Out-String
+Add-RegistryAuthToContainerdConfigToml -RegistryName $RegistryName -authJson $authJson
 
-Write-Log 'Restarting kubernetes services' -Console
+Write-Log 'Restarting Windows container runtime' -Console
 Stop-NssmService('kubeproxy')
 Stop-NssmService('kubelet')
 Restart-NssmService('containerd')
 Start-NssmService('kubelet')
 Start-NssmService('kubeproxy')
 
-Set-ConfigLoggedInRegistry -Value $RegistryName
 Add-RegistryToSetupJson -Name $RegistryName
 Write-Log "Registry '$RegistryName' added successfully.'" -Console
 

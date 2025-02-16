@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 # SPDX-License-Identifier: MIT
 
 #Requires -RunAsAdministrator
@@ -78,7 +78,7 @@ function Start-WindowsWorkerNodeOnWindowsHost {
     # routes for services
     Write-Log "Remove obsolete route to $clusterCIDRServicesWindows"
     route delete $clusterCIDRServicesWindows >$null 2>&1
-    Write-Log "Add route to $clusterCIDRServicesWindows"
+    Write-Log "Add route 1 to Windows Services CIDR:$clusterCIDRServicesWindows with metric 7"
     route -p add $clusterCIDRServicesWindows $ipControlPlane METRIC 7 | Out-Null
 
     Start-WindowsWorkerNode -DnsServers $DnsServers -ResetHns:$ResetHns -AdditionalHooksDir $AdditionalHooksDir -UseCachedK2sVSwitches:$UseCachedK2sVSwitches -SkipHeaderDisplay:$SkipHeaderDisplay -PodSubnetworkNumber $PodSubnetworkNumber
@@ -230,7 +230,8 @@ function Start-WindowsWorkerNode {
     Set-InterfacePrivate -InterfaceAlias "$loopbackAdapterAlias"
     Set-DnsClient -InterfaceIndex $loopbackAdapterIfIndex -RegisterThisConnectionsAddress $false | Out-Null
     netsh int ipv4 set int "$loopbackAdapterAlias" forwarding=enabled | Out-Null
-
+    Set-NetIPInterface -InterfaceIndex $loopbackAdapterIfIndex -InterfaceMetric 102
+    
     Write-Log 'Ensuring service log directories exists'
     EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\containerd"
     EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\dnsproxy"
@@ -282,8 +283,8 @@ function Start-WindowsWorkerNode {
 
             $l2BridgeSwitchName = Get-L2BridgeSwitchName
             $l2BridgeInterfaceIndex = Get-NetIPInterface | Where-Object InterfaceAlias -Like "*$l2BridgeSwitchName*" | Where-Object AddressFamily -Eq IPv4 | Select-Object -expand 'ifIndex'
-            Set-NetIPInterface -InterfaceIndex $l2BridgeInterfaceIndex -InterfaceMetric 5
-            Write-Output "Index for interface $l2BridgeSwitchName : ($l2BridgeInterfaceIndex) -> metric 5"
+            Set-NetIPInterface -InterfaceIndex $l2BridgeInterfaceIndex -InterfaceMetric 101
+            Write-Output "Index for interface $l2BridgeSwitchName : ($l2BridgeInterfaceIndex) -> metric 101"
 
             # $setupConfigRoot = Get-RootConfigk2s
             $clusterCIDRWorker = Get-ConfiguredClusterCIDRHost -PodSubnetworkNumber $PodSubnetworkNumber #$setupConfigRoot.psobject.properties['podNetworkWorkerCIDR'].value
@@ -292,8 +293,18 @@ function Start-WindowsWorkerNode {
             # routes for Windows pods
             Write-Output "Remove obsolete route to $clusterCIDRWorker"
             route delete $clusterCIDRWorker >$null 2>&1
-            Write-Output "Add route to $clusterCIDRWorker"
+            Write-Output "Add route to Windows Pods on host CIDR:$clusterCIDRWorker with metric 5"
             route -p add $clusterCIDRWorker $clusterCIDRNextHop METRIC 5 | Out-Null
+
+            Write-Output "Routing entries added.`n"
+
+            # remove routes to non existent gateways
+            $cbr0Gateway = $setupConfigRoot.psobject.properties['cbr0Gateway'].value
+            Write-Log "Remove obsolete route to $cbr0Gateway"
+            Remove-NetRoute  -DestinationPrefix 0.0.0.0/0 -NextHop $cbr0Gateway -Confirm:$false -ErrorAction SilentlyContinue
+            $loopbackGateway = $setupConfigRoot.psobject.properties['loopbackGateway'].value
+            Write-Log "Remove obsolete route to $loopbackGateway"
+            Remove-NetRoute  -DestinationPrefix 0.0.0.0/0 -NextHop $loopbackGateway -Confirm:$false -ErrorAction SilentlyContinue
 
             Write-Output "Networking setup done.`n"
             break;
@@ -640,13 +651,13 @@ function Start-WindowsWorkerNodeOnNewVM {
     # routes for Windows pods
     Write-Output "Remove obsolete route to $clusterCIDRWorker"
     route delete $clusterCIDRWorker >$null 2>&1
-    Write-Output "Add route to $clusterCIDRWorker"
+    Write-Output "Add route 2 to PODS CIDR:$clusterCIDRWorker with metric 5"
     route -p add $clusterCIDRWorker $VmIpAddress METRIC 5 | Out-Null
 
-    # routes for services
+    # routes for Windows services
     Write-Log "Remove obsolete route to $clusterCIDRServicesWindows"
     route delete $clusterCIDRServicesWindows >$null 2>&1
-    Write-Log "Add route to $clusterCIDRServicesWindows"
+    Write-Log "Add route 2 to Windows Services CIDR:$clusterCIDRServicesWindows with metric 7"
     route -p add $clusterCIDRServicesWindows $ipControlPlane METRIC 7 | Out-Null
 }
 

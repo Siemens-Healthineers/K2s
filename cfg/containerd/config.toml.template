@@ -53,7 +53,7 @@ version = 2
     max_container_log_line_size = 16384
     netns_mounts_under_state_dir = false
     restrict_oom_score_adj = false
-    sandbox_image = "shsk2s.azurecr.io/pause-win:v1.0.0"
+    sandbox_image = "shsk2s.azurecr.io/pause-win:v1.2.0"
     [plugins."io.containerd.grpc.v1.cri".registry.configs."shsk2s.azurecr.io".auth]
     auth = "%CONTAINERD_TOKEN%"
     selinux_category_range = 0
@@ -117,25 +117,13 @@ version = 2
       key_model = "node"
 
     [plugins."io.containerd.grpc.v1.cri".registry]
-      config_path = ""
+      config_path = "C:\\etc\\containerd\\certs.d"
 
       [plugins."io.containerd.grpc.v1.cri".registry.auths]
-        [plugins."io.containerd.grpc.v1.cri".registry.configs."k2s-registry.local".auth] #auth_k2s_registry
-          #auth_value_k2s_registry
 
         #add_new_registry_auth
 
-      [plugins."io.containerd.grpc.v1.cri".registry.configs]
-        [plugins."io.containerd.grpc.v1.cri".registry.configs."k2s-registry.local".tls] #tls_k2s_registry
-          insecure_skip_verify = true
-
-        #add_new_insecure_verify_skip
-
       [plugins."io.containerd.grpc.v1.cri".registry.headers]
-
-      [plugins."io.containerd.grpc.v1.cri".registry.mirrors]
-        [plugins."io.containerd.grpc.v1.cri".registry.mirrors."k2s-registry.local"] #mirror_k2s_registry
-          endpoint = ["http://k2s-registry.local"] #mirror_value_k2s_registry
 
     [plugins."io.containerd.grpc.v1.cri".x509_key_pair_streaming]
       tls_cert_file = ""

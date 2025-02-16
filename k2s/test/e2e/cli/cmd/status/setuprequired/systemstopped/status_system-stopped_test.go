@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2023 Siemens Healthcare GmbH
+// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 package systemstopped
 
@@ -40,7 +40,7 @@ var _ = Describe("status", Ordered, func() {
 		var output string
 
 		BeforeAll(func(ctx context.Context) {
-			output = suite.K2sCli().Run(ctx, "status")
+			output = suite.K2sCli().RunOrFail(ctx, "status")
 		})
 
 		It("prints a header", func(ctx context.Context) {
@@ -79,7 +79,7 @@ var _ = Describe("status", Ordered, func() {
 		var output string
 
 		BeforeAll(func(ctx context.Context) {
-			output = suite.K2sCli().Run(ctx, "status", "-o", "wide")
+			output = suite.K2sCli().RunOrFail(ctx, "status", "-o", "wide")
 		})
 
 		It("prints a header", func(ctx context.Context) {
@@ -118,7 +118,7 @@ var _ = Describe("status", Ordered, func() {
 		var status status.PrintStatus
 
 		BeforeAll(func(ctx context.Context) {
-			output := suite.K2sCli().Run(ctx, "status", "-o", "json")
+			output := suite.K2sCli().RunOrFail(ctx, "status", "-o", "json")
 
 			Expect(json.Unmarshal([]byte(output), &status)).To(Succeed())
 		})

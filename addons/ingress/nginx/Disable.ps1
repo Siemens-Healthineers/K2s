@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -34,6 +34,9 @@ Import-Module $clusterModule, $infraModule, $addonsModule, $nginxModule
 Initialize-Logging -ShowLogs:$ShowLogs
 
 Write-Log 'Checking cluster status' -Console
+
+# get addon name from folder path
+$addonName = Get-AddonNameFromFolderPath -BaseFolderPath $PSScriptRoot
 
 $systemError = Test-SystemAvailability -Structured
 if ($systemError) {
@@ -74,7 +77,7 @@ $externalDnsConfigDir = Get-ExternalDnsConfigDir
 Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'ingress'; Implementation = 'nginx' })
 
 # adapt other addons
-Update-Addons
+Update-Addons -AddonName $addonName
 
 
 if ($EncodeStructuredOutput -eq $true) {

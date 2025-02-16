@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2023 Siemens Healthcare GmbH
+// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package config_test
@@ -64,7 +64,7 @@ var _ = Describe("config pkg", func() {
 		})
 
 		When("config file exists", func() {
-			var actual *config.Config
+			var actual config.ConfigReader
 
 			BeforeAll(func() {
 				currentDir, err := kos.ExecutableDir()
@@ -80,29 +80,29 @@ var _ = Describe("config pkg", func() {
 			})
 
 			It("kube config path is cleaned and absolute", func() {
-				GinkgoWriter.Println("kube config dir: <", actual.Host.KubeConfigDir, ">")
+				GinkgoWriter.Println("kube config dir: <", actual.Host().KubeConfigDir(), ">")
 
-				Expect(filepath.IsAbs(actual.Host.KubeConfigDir)).To(BeTrue())
-				Expect(actual.Host.KubeConfigDir).ToNot(ContainSubstring("/"))
+				Expect(filepath.IsAbs(actual.Host().KubeConfigDir())).To(BeTrue())
+				Expect(actual.Host().KubeConfigDir()).ToNot(ContainSubstring("/"))
 			})
 
 			It("K2s config path is absolute", func() {
-				GinkgoWriter.Println("K2s config dir: <", actual.Host.K2sConfigDir, ">")
+				GinkgoWriter.Println("K2s config dir: <", actual.Host().K2sConfigDir(), ">")
 
-				Expect(filepath.IsAbs(actual.Host.K2sConfigDir)).To(BeTrue())
+				Expect(filepath.IsAbs(actual.Host().K2sConfigDir())).To(BeTrue())
 			})
 
 			It("SSH path is cleaned and absolute", func() {
-				GinkgoWriter.Println("ssh dir: <", actual.Host.SshDir, ">")
+				GinkgoWriter.Println("ssh dir: <", actual.Host().SshDir(), ">")
 
-				Expect(filepath.IsAbs(actual.Host.SshDir)).To(BeTrue())
-				Expect(actual.Host.SshDir).ToNot(ContainSubstring("/"))
+				Expect(filepath.IsAbs(actual.Host().SshDir())).To(BeTrue())
+				Expect(actual.Host().SshDir()).ToNot(ContainSubstring("/"))
 			})
 
 			It("nodes config contains Windows and Linux nodes", func() {
-				Expect(actual.Nodes).To(ConsistOf(
-					HaveField("OsType", config.OsTypeLinux),
-					HaveField("OsType", config.OsTypeWindows),
+				Expect(actual.Nodes()).To(ConsistOf(
+					HaveField("OperatingSystemType", config.OsTypeLinux),
+					HaveField("OperatingSystemType", config.OsTypeWindows),
 				))
 			})
 		})

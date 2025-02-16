@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2023 Siemens Healthcare GmbH
+// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package ssh
@@ -33,10 +33,11 @@ var (
 `
 
 	sshWorkerCmd = &cobra.Command{
-		Use:     "w",
-		Short:   "Connect to WinNode worker VM",
-		Example: sshWorkerCmdExample,
-		RunE:    sshWorker,
+		Use:        "w",
+		Short:      "Connect to WinNode worker VM",
+		Example:    sshWorkerCmdExample,
+		RunE:       sshWorker,
+		Deprecated: "This command is deprecated and will be removed in the future. Use 'k2s node connect' or 'k2s node exec' instead.", // TODO: fulfill promise
 	}
 
 	commandHandlerCreatorFuncForWorker func() commandHandler
@@ -67,7 +68,7 @@ func (m *workerBaseCommandProvider) getShellExecutorCommand() string {
 
 func sshWorker(cmd *cobra.Command, args []string) error {
 	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
-	config, err := setupinfo.ReadConfig(context.Config().Host.K2sConfigDir)
+	config, err := setupinfo.ReadConfig(context.Config().Host().K2sConfigDir())
 	if err != nil {
 		if errors.Is(err, setupinfo.ErrSystemInCorruptedState) {
 			return common.CreateSystemInCorruptedStateCmdFailure()

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2024 Siemens Healthcare GmbH
+// SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 //
 // SPDX-License-Identifier: MIT
 
@@ -12,7 +12,7 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/addons/status"
 	"github.com/siemens-healthineers/k2s/test/framework"
-	"github.com/siemens-healthineers/k2s/test/framework/k2s"
+	"github.com/siemens-healthineers/k2s/test/framework/k2s/cli"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -25,7 +25,7 @@ var suite *framework.K2sTestSuite
 
 func TestTraefik(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "autoscaling Addon Acceptance Tests", Label("addon", "acceptance", "setup-required", "invasive", "autoscaling", "system-running"))
+	RunSpecs(t, "autoscaling Addon Acceptance Tests", Label("addon", "addon-ilities", "acceptance", "setup-required", "invasive", "autoscaling", "system-running"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
@@ -38,14 +38,14 @@ var _ = AfterSuite(func(ctx context.Context) {
 
 var _ = Describe("'autoscaling' addon", Ordered, func() {
 	AfterAll(func(ctx context.Context) {
-		suite.K2sCli().Run(ctx, "addons", "disable", "autoscaling", "-o")
+		suite.K2sCli().RunOrFail(ctx, "addons", "disable", "autoscaling", "-o")
 
 		addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
 		Expect(addonsStatus.IsAddonEnabled("autoscaling", "")).To(BeFalse())
 	})
 
 	It("prints already-disabled message on disable command and exits with non-zero", func(ctx context.Context) {
-		output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "disable", "autoscaling")
+		output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "disable", "autoscaling")
 
 		Expect(output).To(ContainSubstring("already disabled"))
 	})
@@ -53,7 +53,7 @@ var _ = Describe("'autoscaling' addon", Ordered, func() {
 	Describe("status", func() {
 		Context("default output", func() {
 			It("displays disabled message", func(ctx context.Context) {
-				output := suite.K2sCli().Run(ctx, "addons", "status", "autoscaling")
+				output := suite.K2sCli().RunOrFail(ctx, "addons", "status", "autoscaling")
 
 				Expect(output).To(SatisfyAll(
 					MatchRegexp(`ADDON STATUS`),
@@ -64,7 +64,7 @@ var _ = Describe("'autoscaling' addon", Ordered, func() {
 
 		Context("JSON output", func() {
 			It("displays JSON", func(ctx context.Context) {
-				output := suite.K2sCli().Run(ctx, "addons", "status", "autoscaling", "-o", "json")
+				output := suite.K2sCli().RunOrFail(ctx, "addons", "status", "autoscaling", "-o", "json")
 
 				var status status.AddonPrintStatus
 
@@ -80,7 +80,7 @@ var _ = Describe("'autoscaling' addon", Ordered, func() {
 	})
 
 	It("is in enabled state and pods are in running state", func(ctx context.Context) {
-		suite.K2sCli().Run(ctx, "addons", "enable", "autoscaling", "-o")
+		suite.K2sCli().RunOrFail(ctx, "addons", "enable", "autoscaling", "-o")
 
 		suite.Cluster().ExpectDeploymentToBeAvailable("keda-admission", "autoscaling")
 
@@ -91,13 +91,13 @@ var _ = Describe("'autoscaling' addon", Ordered, func() {
 	})
 
 	It("prints already-enabled message on enable command and exits with non-zero", func(ctx context.Context) {
-		output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "enable", "autoscaling")
+		output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "enable", "autoscaling")
 
 		Expect(output).To(ContainSubstring("already enabled"))
 	})
 
 	It("prints the status", func(ctx context.Context) {
-		output := suite.K2sCli().Run(ctx, "addons", "status", "autoscaling")
+		output := suite.K2sCli().RunOrFail(ctx, "addons", "status", "autoscaling")
 
 		Expect(output).To(SatisfyAll(
 			MatchRegexp("ADDON STATUS"),
@@ -105,7 +105,7 @@ var _ = Describe("'autoscaling' addon", Ordered, func() {
 			MatchRegexp("KEDA is working"),
 		))
 
-		output = suite.K2sCli().Run(ctx, "addons", "status", "autoscaling", "-o", "json")
+		output = suite.K2sCli().RunOrFail(ctx, "addons", "status", "autoscaling", "-o", "json")
 
 		var status status.AddonPrintStatus
 

@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -10,13 +10,13 @@ metadata:
 spec:
   selector:
     matchLabels:
-      app.kubernetes.io/name: fluent-bit
-      app.kubernetes.io/instance: fluent-bit
+      app.kubernetes.io/name: fluent-bit-win
+      app.kubernetes.io/instance: fluent-bit-win
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: fluent-bit
-        app.kubernetes.io/instance: fluent-bit
+        app.kubernetes.io/name: fluent-bit-win
+        app.kubernetes.io/instance: fluent-bit-win
     spec:
       securityContext:
         windowsOptions:

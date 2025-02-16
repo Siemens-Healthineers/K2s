@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -64,6 +64,7 @@ Set-ConfigSetupType -Value $script:SetupType
 Set-ConfigLinuxOnly -Value ($LinuxOnly -eq $true)
 
 $Proxy = Get-OrUpdateProxyServer -Proxy:$Proxy
+Add-K2sHostsToNoProxyEnvVar
 
 $dnsServers = $DnsAddresses -join ','
 if ([string]::IsNullOrWhiteSpace($dnsServers)) {
@@ -111,7 +112,7 @@ if ($WSL.IsPresent) {
     $controlPlaneParams += " -WSL"
 }
 & powershell.exe "$PSScriptRoot\..\..\control-plane\Install.ps1" $controlPlaneParams
-        
+
 $installationType = 'Linux-only'
 
 if ($(Get-ConfigLinuxOnly) -eq $false) {
@@ -135,7 +136,7 @@ if ($(Get-ConfigLinuxOnly) -eq $false) {
         DeleteFilesForOfflineInstallation = $DeleteFilesForOfflineInstallation
         ForceOnlineInstallation = $ForceOnlineInstallation
     }
-    & "$PSScriptRoot\..\..\worker-node\windows\hyper-v-vm\Install.ps1" @workerNodeParams
+    & "$PSScriptRoot\..\..\worker\windows\hyper-v-vm\Install.ps1" @workerNodeParams
 }
 
 # show results

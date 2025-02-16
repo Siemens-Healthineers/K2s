@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2023 Siemens Healthcare GmbH
+// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package ssh
@@ -32,10 +32,11 @@ var (
 	k2s system ssh m -- echo yes
 `
 	sshMasterCmd = &cobra.Command{
-		Use:     "m",
-		Short:   "Connect to KubeMaster node",
-		Example: sshMasterCmdExample,
-		RunE:    sshMaster,
+		Use:        "m",
+		Short:      "Connect to KubeMaster node",
+		Example:    sshMasterCmdExample,
+		RunE:       sshMaster,
+		Deprecated: "This command is deprecated and will be removed in the future. Use 'k2s node connect' or 'k2s node exec' instead.", // TODO: fulfill promise
 	}
 
 	commandHandlerCreatorFuncForMaster func() commandHandler
@@ -66,7 +67,7 @@ func (m *masterBaseCommandProvider) getShellExecutorCommand() string {
 
 func sshMaster(cmd *cobra.Command, args []string) error {
 	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
-	config, err := setupinfo.ReadConfig(context.Config().Host.K2sConfigDir)
+	config, err := setupinfo.ReadConfig(context.Config().Host().K2sConfigDir())
 	if err != nil {
 		if errors.Is(err, setupinfo.ErrSystemInCorruptedState) {
 			return common.CreateSystemInCorruptedStateCmdFailure()

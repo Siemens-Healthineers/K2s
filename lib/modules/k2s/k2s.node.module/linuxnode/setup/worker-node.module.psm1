@@ -66,8 +66,8 @@ function Add-LinuxWorkerNodeOnNewVM {
     Copy-LocalPublicSshKeyToRemoteComputer -UserName $remoteUsername -UserPwd $remoteUserPwd -IpAddress $IpAddress
     Wait-ForSSHConnectionToLinuxVMViaSshKey -User $remoteUser
 
-    (Invoke-CmdOnVmViaSSHKey "sudo sed -i 's/dns-nameservers.*/dns-nameservers $(Get-ConfiguredIPControlPlane)/' /etc/network/interfaces.d/10-k2s" -IpAddress $IpAddress).Output | Write-Log
-    (Invoke-CmdOnVmViaSSHKey 'sudo systemctl restart networking' -IpAddress $IpAddress).Output | Write-Log
+    (Invoke-CmdOnVmViaSSHKey "sudo sed -i '/nameservers:/!b;n;s/addresses: \[.*\]/addresses: [$(Get-ConfiguredIPControlPlane)]/' /etc/netplan/10-k2s.yaml" -IpAddress $IpAddress).Output | Write-Log
+    (Invoke-CmdOnVmViaSSHKey 'sudo systemctl restart systemd-networkd' -IpAddress $IpAddress).Output | Write-Log
 
     Join-LinuxNode -NodeName $WorkerNodeName -NodeUserName $remoteUsername -NodeIpAddress $IpAddress
 
@@ -86,7 +86,8 @@ function Start-LinuxWorkerNodeOnNewVM {
         [string] $NodeName = $(throw 'Argument missing: Hostname')
     )
 
-    Add-RouteToLinuxWorkerNode -NodeName $NodeName -IpAddress $IpAddress
+    $clusterCIDRWorker = Get-ClusterCIDRWorker -NodeName $NodeName
+    Add-RouteToLinuxWorkerNode -NodeName $NodeName -IpAddress $IpAddress -ClusterCIDRWorker $clusterCIDRWorker
 
     if ($SkipHeaderDisplay -eq $false) {
         Write-Log "K2s worker node '$NodeName' started"
@@ -102,8 +103,9 @@ function Stop-LinuxWorkerNodeOnNewVM {
         [string] $NodeName = $(throw 'Argument missing: Hostname')
     )
 
-    Remove-RouteToLinuxWorkerNode -NodeName $NodeName
-    
+    $clusterCIDRWorker = Get-ClusterCIDRWorker -NodeName $NodeName
+    Remove-RouteToLinuxWorkerNode -NodeName $NodeName -ClusterCIDRWorker $clusterCIDRWorker
+
     if ($SkipHeaderDisplay -eq $false) {
         Write-Log "K2s worker node '$NodeName' stopped"
     }
@@ -129,7 +131,7 @@ function Remove-LinuxWorkerNodeOnNewVM {
     if ([string]::IsNullOrWhiteSpace($ipAddress)) {
         throw "Cannot obtain IP address of node '$NodeName'"
     }
-    
+
     &"$kubeToolsPath\kubectl.exe" drain $NodeName --ignore-daemonsets --delete-emptydir-data 2>&1 | ForEach-Object { "$_" } | Write-Log
     &"$kubeToolsPath\kubectl.exe" delete node $NodeName 2>&1 | ForEach-Object { "$_" } | Write-Log
 
@@ -157,20 +159,14 @@ function Add-LinuxWorkerNodeOnExistingUbuntuVM {
         [string] $AdditionalHooksDir = ''
     )
 
-    $k8sVersion = Get-DefaultK8sVersion
-    Install-KubernetesArtifacts -UserName $UserName -IpAddress $IpAddress -K8sVersion $k8sVersion -Proxy $Proxy
-    
-    Write-Log " Add firewall rules for Kubernetes"
-    (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo ufw allow 6443/tcp' -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
-    (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo ufw allow 2379:2380/tcp' -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
-    (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo ufw allow 10250/tcp' -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
-    (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo ufw allow 10259/tcp' -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
-    (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo ufw allow 10257/tcp' -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
-    (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo ufw allow 9153/tcp' -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
-    
+    Write-Log "Prepare the computer $IpAddress for provisioning"
+    Set-UpComputerBeforeProvisioning -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy
+
+    Install-DebPackagesAndAddContainerImagesIntoRemoteComputer -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy
+
     (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo mkdir -p /etc/netplan/backup' -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
     (Invoke-CmdOnVmViaSSHKey -CmdToExecute "find /etc/netplan -maxdepth 1 -type f -exec sudo mv {} /etc/netplan/backup ';'" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
-    
+
     $windowsHostIpAddress = Get-ConfiguredKubeSwitchIP
     $controlPlaneIpAddress = Get-ConfiguredIPControlPlane
     $networkPrefix = Get-ConfiguredClusterNetworkPrefix
@@ -178,13 +174,13 @@ function Add-LinuxWorkerNodeOnExistingUbuntuVM {
     Add-RemoteIPAddress -UserName $UserName -IPAddress $IpAddress -RemoteIpAddress $ClusterIpAddress -PrefixLength $networkPrefix -RemoteIpAddressGateway $windowsHostIpAddress -DnsEntries $controlPlaneIpAddress -NetworkInterfaceName $networkInterfaceName
     Disconnect-VMNetworkAdapter -VmName $VmName -ErrorAction Stop
     $switchName = Get-ControlPlaneNodeDefaultSwitchName
-    Connect-VMNetworkAdapter -VmName $VmName -SwitchName $switchName -ErrorAction Stop 
+    Connect-VMNetworkAdapter -VmName $VmName -SwitchName $switchName -ErrorAction Stop
     Wait-ForSSHConnectionToLinuxVMViaSshKey -User "$UserName@$ClusterIpAddress"
-    
+
     $windowsHostIpAddress = Get-ConfiguredKubeSwitchIP
     $transparentProxy = "http://$($windowsHostIpAddress):8181"
     Set-ProxySettingsOnKubenode -ProxySettings $transparentProxy -UserName $UserName -IpAddress $ClusterIpAddress
-    
+
     $k8sFormattedNodeName = $NodeName.ToLower()
     Join-LinuxNode -NodeName $k8sFormattedNodeName.ToLower() -NodeUserName $UserName -NodeIpAddress $ClusterIpAddress
 }
@@ -203,6 +199,8 @@ function Remove-LinuxWorkerNodeOnExistingUbuntuVM {
     if ($SkipHeaderDisplay -eq $false) {
         Write-Log "Removing K2s worker node '$NodeName'"
     }
+
+    Remove-ProxySettingsOnKubenode -UserName $UserName -IpAddress $IpAddress
 
     $k8sFormattedNodeName = $NodeName.ToLower()
     $clusterState = (Invoke-Kubectl -Params @('get', 'nodes', '-o', 'wide')).Output
@@ -245,7 +243,8 @@ function Start-LinuxWorkerNodeOnExistingVM {
         [switch] $SkipHeaderDisplay = $false
     )
 
-    Add-RouteToLinuxWorkerNode -NodeName $NodeName -IpAddress $IpAddress
+    $clusterCIDRWorker = Get-ClusterCIDRWorker -NodeName $NodeName
+    Add-RouteToLinuxWorkerNode -NodeName $NodeName -IpAddress $IpAddress -ClusterCIDRWorker $clusterCIDRWorker
 
     if ($SkipHeaderDisplay -eq $false) {
         Write-Log "K2s worker node '$NodeName' started"
@@ -261,64 +260,267 @@ function Stop-LinuxWorkerNodeOnExistingVM {
         [string] $NodeName = $(throw 'Argument missing: Hostname')
     )
 
-    Remove-RouteToLinuxWorkerNode -NodeName $NodeName
-    
+    $clusterCIDRWorker = Get-ClusterCIDRWorker -NodeName $NodeName
+    Remove-RouteToLinuxWorkerNode -NodeName $NodeName -ClusterCIDRWorker $clusterCIDRWorker
+
     if ($SkipHeaderDisplay -eq $false) {
         Write-Log "K2s worker node '$NodeName' stopped"
     }
 }
 
-function Add-RouteToLinuxWorkerNode {
+function Add-LinuxWorkerNodeOnUbuntuBareMetal {
+    Param(
+        [string] $NodeName = $(throw 'Argument missing: NodeName'),
+        [string] $UserName = $(throw 'Argument missing: UserName'),
+        [string] $IpAddress = $(throw 'Argument missing: IpAddress'),
+        [string] $WindowsHostIpAddress = $(throw 'Argument missing: WindowsHostIpAddress'),
+        [string] $Proxy = '',
+        [string] $AdditionalHooksDir = ''
+    )
+
+    $nodeParams = @{
+        Name = $NodeName
+        IpAddress = $IpAddress
+        UserName = $UserName
+        Proxy = $Proxy
+        NodeType = 'HOST'
+        Role = 'worker'
+        OS = 'linux'
+        PodCIDR = '' # will be filled during start of node
+    }
+    Add-NodeConfig @nodeParams
+
+    Write-Log "Installing node essentials" -Console
+
+    Write-Log "Prepare the computer $IpAddress for provisioning"
+    Set-UpComputerBeforeProvisioning -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy
+
+    Install-DebPackagesAndAddContainerImagesIntoRemoteComputer -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy
+
+    $doBeforeJoining = {
+        Write-Log "Configuring networking for adding the node" -Console
+        # add a route to the cluster network over the Windows host IP address
+        $controlPlaneCIDR = Get-ConfiguredControlPlaneCIDR
+        (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo ip route add $controlPlaneCIDR via $WindowsHostIpAddress" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
+
+        $podNetworkCIDR = Get-ConfiguredClusterCIDR
+        (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo ip route add $podNetworkCIDR via $WindowsHostIpAddress" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
+
+        $networkInterfaceName = (Get-NetIPAddress | Where-Object { $_.AddressFamily -eq "IPv4" -and ($_.IPAddress -match $WindowsHostIpAddress)} | Select-Object -ExpandProperty InterfaceAlias)
+        if ([string]::IsNullOrWhiteSpace($networkInterfaceName)) {
+            throw "Cannot find the network interface belonging to the IP address '$WindowsHostIpAddress'"
+        }
+
+        netsh int ipv4 set int $networkInterfaceName forwarding=enabled | Out-Null
+    }
+
+    Write-Log "Joining new node to the cluster" -Console
+    $k8sFormattedNodeName = $NodeName.ToLower()
+    Join-LinuxNode -NodeName $k8sFormattedNodeName.ToLower() -NodeUserName $UserName -NodeIpAddress $IpAddress -PreStepHook $doBeforeJoining
+}
+
+function Remove-LinuxWorkerNodeOnUbuntuBareMetal {
+    Param(
+        [string] $NodeName = $(throw 'Argument missing: NodeName'),
+        [string] $UserName = $(throw 'Argument missing: UserName'),
+        [string] $IpAddress = $(throw 'Argument missing: IpAddress'),
+        [string] $AdditionalHooksDir = ''
+    )
+    Write-Log "Removing K2s worker node '$NodeName'"
+
+    $doAfterRemoving = {
+        # delete routes
+        $controlPlaneCIDR = Get-ConfiguredControlPlaneCIDR
+        (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo ip route delete $controlPlaneCIDR" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
+
+        $podNetworkCIDR = Get-ConfiguredClusterCIDR
+        (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo ip route delete $podNetworkCIDR" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
+
+        # delete network interface 'cni0' that was created by flannel
+        (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo ip link delete cni0" -UserName $UserName -IpAddress $IpAddress).Output | Write-Log
+
+        Write-Log "Reconfigured networking for node removal" -Console
+    }
+
+    $k8sFormattedNodeName = $NodeName.ToLower()
+    $clusterState = (Invoke-Kubectl -Params @('get', 'nodes', '-o', 'wide')).Output
+    if ($clusterState -match $k8sFormattedNodeName) {
+        Remove-LinuxNode -NodeName $k8sFormattedNodeName -NodeUserName $UserName -NodeIpAddress $IpAddress -PostStepHook $doAfterRemoving
+        Write-Log "Removed node from the cluster" -Console
+    }
+
+    Remove-KubernetesArtifacts -UserName $UserName -IpAddress $IpAddress
+    Write-Log "Removed node essentials from the remote machine" -Console
+
+    Remove-NodeConfig -Name $NodeName
+
+    Write-Log "Removing K2s worker node '$NodeName' complete."
+}
+
+function Start-LinuxWorkerNodeOnUbuntuBareMetal {
     Param(
         [string] $IpAddress = $(throw 'Argument missing: IpAddress'),
-        [string] $NodeName = $(throw 'Argument missing: Hostname')
+        [string] $NodeName = $(throw 'Argument missing: NodeName'),
+        [string] $AdditionalHooksDir = '',
+        [switch] $ObtainCIDR = $false
+    )
+
+    $clusterCIDRWorker = Get-ClusterCIDRWorker -NodeName $NodeName -ObtainCIDR:$ObtainCIDR
+    Add-RouteToLinuxWorkerNode -NodeName $NodeName -IpAddress $IpAddress -ClusterCIDRWorker $clusterCIDRWorker
+    Add-WorkerVFPRoute -NodeName $NodeName -ClusterCIDRWorker $clusterCIDRWorker
+
+    Write-Log "K2s worker node '$NodeName' started" -Console
+}
+
+function Add-WorkerVFPRoute {
+    Param(
+        [string] $NodeName = $(throw 'Argument missing: Hostname'),
+        [string] $ClusterCIDRWorker = $(throw 'Argument missing: Hostname')
+    )
+
+    $setupConfigRoot = Get-RootConfigk2s
+    $defaultGateway = $setupConfigRoot.psobject.properties['cbr0'].value
+    Add-VfpRoute -Name $NodeName -Subnet $ClusterCIDRWorker -Gateway $defaultGateway
+}
+
+function Stop-LinuxWorkerNodeOnUbuntuBareMetal {
+    Param(
+        [string] $NodeName = $(throw 'Argument missing: NodeName'),
+        [string] $AdditionalHooksDir = '',
+        [switch] $SkipHeaderDisplay = $false
+
+    )
+
+    $clusterCIDRWorker = Get-ClusterCIDRWorker -NodeName $NodeName
+    Remove-RouteToLinuxWorkerNode -NodeName $NodeName -ClusterCIDRWorker $clusterCIDRWorker
+    Remove-VfpRoute -Name $NodeName
+
+    Write-Log "K2s worker node '$NodeName' stopped" -Console
+}
+
+function Get-ClusterCIDRWorker {
+    Param (
+        [string] $NodeName = $(throw 'Argument missing: Hostname'),
+        [switch] $ObtainCIDR = $false
     )
 
     $setupConfigRoot = Get-RootConfigk2s
     $clusterCIDRWorkerTemplate = $setupConfigRoot.psobject.properties['podNetworkWorkerCIDR_2'].value
 
-    $output = Get-AssignedPodSubnetworkNumber -NodeName $NodeName
-    if ($output.Success) {
-        $assignedPodSubnetworkNumber = $output.PodSubnetworkNumber
-        $clusterCIDRWorker = $clusterCIDRWorkerTemplate.Replace('X', $assignedPodSubnetworkNumber)
-
-        # routes for Linux pods
-        Write-Log "Remove obsolete route to $clusterCIDRWorker"
-        route delete $clusterCIDRWorker >$null 2>&1
-        Write-Log "Add route to $clusterCIDRWorker"
-        route -p add $clusterCIDRWorker $IpAddress METRIC 4 | Out-Null
-    } else {
-        throw "Cannot obtain container network information from node '$NodeName'"
+    $clusterCIDRWorker = ''
+    if (!$ObtainCIDR) {
+        Write-Log 'Getting Node CIDR from config'
+        $node = Get-NodeConfig -NodeName $NodeName
+        if ($null -ne $node) {
+            $clusterCIDRWorker = $node.PodCIDR
+        }
     }
+
+    if ($clusterCIDRWorker -eq '' -or $ObtainCIDR) {
+        $output = Get-AssignedPodSubnetworkNumber -NodeName $NodeName
+        if ($output.Success) {
+            $assignedPodSubnetworkNumber = $output.PodSubnetworkNumber
+            $clusterCIDRWorker = $clusterCIDRWorkerTemplate.Replace('X', $assignedPodSubnetworkNumber)
+
+            Update-NodeConfig -Name $NodeName -Updates @{
+                PodCIDR = $clusterCIDRWorker
+            }
+        } else {
+            throw "Cannot obtain pod network information from node '$NodeName'"
+        }
+    }
+
+    return $clusterCIDRWorker
+}
+
+function Add-RouteToLinuxWorkerNode {
+    Param(
+        [string] $IpAddress = $(throw 'Argument missing: IpAddress'),
+        [string] $NodeName = $(throw 'Argument missing: Hostname'),
+        [string] $ClusterCIDRWorker = $(throw 'Argument missing: ClusterCIDRWorker')
+    )
+
+    # routes for Linux pods
+    Write-Log "Remove obsolete route to $ClusterCIDRWorker"
+    route delete $ClusterCIDRWorker >$null 2>&1
+    Write-Log "Add route to Pods for node:$NodeName CIDR:$ClusterCIDRWorker"
+    route -p add $ClusterCIDRWorker $IpAddress METRIC 4 | Out-Null
 }
 
 function Remove-RouteToLinuxWorkerNode {
     Param(
-        [string] $NodeName = $(throw 'Argument missing: Hostname')
+        [string] $NodeName = $(throw 'Argument missing: Hostname'),
+        [string] $ClusterCIDRWorker = $(throw 'Argument missing: ClusterCIDRWorker')
     )
 
-    $setupConfigRoot = Get-RootConfigk2s
-    $clusterCIDRWorkerTemplate = $setupConfigRoot.psobject.properties['podNetworkWorkerCIDR_2'].value
-
-    $output = Get-AssignedPodSubnetworkNumber -NodeName $NodeName
-    if ($output.Success) {
-        $assignedPodSubnetworkNumber = $output.PodSubnetworkNumber
-    
-        $clusterCIDRWorker = $clusterCIDRWorkerTemplate.Replace('X', $assignedPodSubnetworkNumber)
-
-        # routes for Linux pods
-        Write-Log "Remove obsolete route to $clusterCIDRWorker"
-        route delete $clusterCIDRWorker >$null 2>&1
-    } else {
-        Write-Log "Cannot obtain container network information from node '$NodeName'. The eventually existing routes belonging to this node will not be deleted."
-    }
+    # routes for Linux pods
+    Write-Log "Remove obsolete route to $ClusterCIDRWorker"
+    route delete $ClusterCIDRWorker >$null 2>&1
 }
 
-Export-ModuleMember -Function Add-LinuxWorkerNodeOnNewVM, 
-Start-LinuxWorkerNodeOnNewVM, 
-Stop-LinuxWorkerNodeOnNewVM, 
+function Install-DebPackagesAndAddContainerImagesIntoRemoteComputer {
+    Param(
+        [string] $UserName = $(throw 'Argument missing: UserName'),
+        [string] $IpAddress = $(throw 'Argument missing: IpAddress'),
+        [string] $Proxy = ''
+    )
+    $controlPlaneUserName = Get-DefaultUserNameControlPlane
+    $controlPlaneIpAddress = Get-ConfiguredIPControlPlane
+    $installedDistributionOnControlPlane = Get-InstalledDistribution -UserName $controlPlaneUserName -IpAddress $controlPlaneIpAddress
+    $installedDistributionOnRemoteComputer = Get-InstalledDistribution -UserName $UserName -IpAddress $IpAddress
+    Write-Log "Installed distribution in the control plane: $installedDistributionOnControlPlane"
+    Write-Log "Installed distribution in the machine with IP '$IpAddress': $installedDistributionOnRemoteComputer"
+    $baseDirectoryOfKubenodeDebPackagesOnWindowsHost = Get-BaseDirectoryOfKubenodeDebPackagesOnWindowsHost
+    $windowsHostDebPackagesSourcePath = "$baseDirectoryOfKubenodeDebPackagesOnWindowsHost\$installedDistributionOnRemoteComputer"
+
+    $linuxNodeArtifactsPackagePath = Get-PathOfLinuxNodeArtifactsPackageOnWindowsHost
+    $linuxNodeArtifactsPath = Get-DirectoryOfLinuxNodeArtifactsOnWindowsHost
+
+    $packagePathExists = $(Test-Path -Path $linuxNodeArtifactsPackagePath)
+    $linuxNodeArtifactsPathExists = $(Test-Path -Path $linuxNodeArtifactsPath)
+    Write-Log "Zip file '$linuxNodeArtifactsPackagePath' with Linux node artifacts exists?: $packagePathExists"
+    Write-Log "Folder '$linuxNodeArtifactsPath' with Linux node artifacts exists?: $linuxNodeArtifactsPathExists"
+
+    if (!($linuxNodeArtifactsPathExists) -and ($packagePathExists)) {
+        Write-Log "Create folder '$linuxNodeArtifactsPath'"
+        New-Item -Path $linuxNodeArtifactsPath -ItemType Directory -Force | Out-Null
+        Write-Log "Extracting content of file '$linuxNodeArtifactsPackagePath' into '$linuxNodeArtifactsPath'"
+        Expand-Archive -LiteralPath $linuxNodeArtifactsPackagePath -DestinationPath $linuxNodeArtifactsPath
+    } 
+
+    $distributionDebPackagesSourcePathExists = $(Test-Path -Path $windowsHostDebPackagesSourcePath)
+    Write-Log "Folder with deb packages '$windowsHostDebPackagesSourcePath' exists?: $distributionDebPackagesSourcePathExists"
+    if ($distributionDebPackagesSourcePathExists) {
+        Write-Log "The content of the folder '$windowsHostDebPackagesSourcePath' will be used"
+    } else {
+        if ($installedDistributionOnRemoteComputer -eq $installedDistributionOnControlPlane) {
+            Write-Log "The installed distribution in the machine with IP '$IpAddress' ('$installedDistributionOnRemoteComputer') is equal to the control plane's distribution --> its deb packages will be copied into '$windowsHostDebPackagesSourcePath'"
+            Copy-DebPackagesFromControlPlaneToWindowsHost -TargetPath "$windowsHostDebPackagesSourcePath"
+        } else {
+            Write-Log "The installed distribution in the machine with IP '$IpAddress' ('$installedDistributionOnRemoteComputer') is different from the control plane's distribution ('$installedDistributionOnControlPlane') --> no deb packages will be copied from the control plane"
+        }        
+    }
+
+    $kubernetesDebPackagesTargetPath = Get-KubernetesDebPackagesPath -UserName $UserName
+    Add-KubernetesArtifactsToRemoteComputer -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy -SourcePath $windowsHostDebPackagesSourcePath -TargetPath $kubernetesDebPackagesTargetPath
+    Install-KubernetesArtifacts -UserName $UserName -IpAddress $IpAddress -Proxy $Proxy -SourcePath $kubernetesDebPackagesTargetPath
+
+    $buildahDebPackagesTargetPath = Get-BuildahDebPackagesPath -UserName $UserName
+    Add-BuildahArtifactsToRemoteComputer -UserName $UserName -IpAddress $IpAddress -SourcePath $windowsHostDebPackagesSourcePath -TargetPath $buildahDebPackagesTargetPath
+    Install-BuildahDebPackages -UserName $UserName -IpAddress $IpAddress -SourcePath $buildahDebPackagesTargetPath
+
+    Copy-KubernetesImagesFromControlPlaneToRemoteComputer -UserName $UserName -IpAddress $IpAddress
+}
+
+Export-ModuleMember -Function Add-LinuxWorkerNodeOnNewVM,
+Start-LinuxWorkerNodeOnNewVM,
+Stop-LinuxWorkerNodeOnNewVM,
 Remove-LinuxWorkerNodeOnNewVM,
 Start-LinuxWorkerNodeOnExistingVM,
 Stop-LinuxWorkerNodeOnExistingVM,
 Add-LinuxWorkerNodeOnExistingUbuntuVM,
-Remove-LinuxWorkerNodeOnExistingUbuntuVM
+Remove-LinuxWorkerNodeOnExistingUbuntuVM,
+Add-LinuxWorkerNodeOnUbuntuBareMetal,
+Remove-LinuxWorkerNodeOnUbuntuBareMetal,
+Start-LinuxWorkerNodeOnUbuntuBareMetal,
+Stop-LinuxWorkerNodeOnUbuntuBareMetal
