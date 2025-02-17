@@ -22,7 +22,7 @@
     "component": {
       "group": "",
       "name": "k2s",
-      "version": "v1.2.1",
+      "version": "v1.3.0",
       "type": "application"
     }
   },
