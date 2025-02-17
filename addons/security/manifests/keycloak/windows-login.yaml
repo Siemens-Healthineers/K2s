@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: windows-login
+  namespace: security
+  labels:
+    app: windows-login
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: windows-login
+  template:
+    metadata:
+      labels:
+        app: windows-login
+    spec:
+      containers:
+        - name: windows-login
+          image: mcr.microsoft.com/windows/nanoserver:ltsc2022
+          workingDir: "%CONTAINER_SANDBOX_MOUNT_POINT%\\bin"            
+          command:
+            - "%CONTAINER_SANDBOX_MOUNT_POINT%\\bin\\login.exe"
+          volumeMounts:
+            - name: bindir
+              mountPath: 'C:\bin'
+      volumes:
+        - name: bindir
+          hostPath:
+            path: C:\WS\k\addons\security\bin
+            type: Directory
+      securityContext:
+        windowsOptions:
+          hostProcess: true
+          runAsUserName: "NT AUTHORITY\\SYSTEM"
+      hostNetwork: true
+      tolerations:
+        - key: "OS"
+          operator: "Equal"
+          value: "Windows"
+          effect: "NoSchedule"
+      nodeSelector:
+        kubernetes.io/os: windows
