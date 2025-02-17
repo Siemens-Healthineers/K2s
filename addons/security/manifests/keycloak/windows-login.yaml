@@ -27,7 +27,7 @@ spec:
       volumes:
         - name: bindir
           hostPath:
-            path: C:\WS\k\addons\security\bin
+            path: <%K2S-SECURITY-BIN%>
             type: Directory
       securityContext:
         windowsOptions:

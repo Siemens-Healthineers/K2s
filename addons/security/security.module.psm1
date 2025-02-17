@@ -35,6 +35,51 @@ function Get-OAuth2ProxyConfig {
     return "$PSScriptRoot\manifests\keycloak\oauth2-proxy.yaml"
 }
 
+function Get-SecurityBin {
+    return "$PSScriptRoot\bin"
+}
+
+function Apply-WindowsSecuirtyYaml {
+    param (
+        [string]$yamlPath,
+        [string]$updatedYamlPath
+    )
+
+    $securityBin = Get-SecurityBin
+
+    if (Test-Path $updatedYamlPath) {
+        Remove-Item -Path $updatedYamlPath -Force
+    }
+
+    $yamlContent = Get-Content -Path $yamlPath -Raw
+    $updatedYamlContent = $yamlContent -replace "<%K2S-SECURITY-BIN%>", $securityBin
+    $updatedYamlContent | Set-Content -Path $updatedYamlPath -Force
+
+    (Invoke-Kubectl -Params 'apply', '-f', $updatedYamlPath).Output | Write-Log
+    Remove-Item -Path $updatedYamlPath -Force
+}
+
+function Apply-WindowsSecuirtyDeployments {
+    $securityBin = Get-SecurityBin
+    $sqlitePath = "$securityBin\db.sqlite"
+    if (Test-Path $sqlitePath) {
+        Remove-Item -Path $sqlitePath -Force
+    }
+
+    $hydraYamlPath = "$PSScriptRoot\manifests\keycloak\hydra.yaml"
+    $updatedHydraYamlPath = "$PSScriptRoot\manifests\keycloak\hydra-updated.yaml"
+    Apply-WindowsSecuirtyYaml -yamlPath $hydraYamlPath -updatedYamlPath $updatedHydraYamlPath
+
+    $winLoginYamlPath = "$PSScriptRoot\manifests\keycloak\windows-login.yaml"
+    $updatedWinLoginYamlPath = "$PSScriptRoot\manifests\keycloak\windows-login-updated.yaml"
+    Apply-WindowsSecuirtyYaml -yamlPath $winLoginYamlPath -updatedYamlPath $updatedWinLoginYamlPath
+
+    $hydraStatus = (Wait-ForPodCondition -Condition Ready -Label 'app=hydra' -Namespace 'security' -TimeoutSeconds 120)
+    $winLoginStatus = (Wait-ForPodCondition -Condition Ready -Label 'app=windows-login' -Namespace 'security' -TimeoutSeconds 120)
+
+    return ($hydraStatus -eq $true -and $winLoginStatus -eq $true)
+}
+
 <#
 .DESCRIPTION
 Writes the usage notes for security for the user.
