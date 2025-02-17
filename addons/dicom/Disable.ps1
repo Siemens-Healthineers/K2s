@@ -14,6 +14,8 @@ The "monitoring" addons enables Prometheus/Grafana monitoring features for the k
 Param(
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
     [switch] $ShowLogs = $false,
+    [parameter(Mandatory = $false, HelpMessage = 'Skips user confirmation if set to true')]
+    [switch] $Force = $false,
     [parameter(Mandatory = $false, HelpMessage = 'If set to true, will encode and send result as structured data to the CLI.')]
     [switch] $EncodeStructuredOutput,
     [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
@@ -23,9 +25,11 @@ $clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.clu
 $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
 $dicomModule = "$PSScriptRoot\dicom.module.psm1"
-$viewerModule = "$PSScriptRoot\..\viewer\viewer.module.psm1"
+$linuxNodeModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.node.module/linuxnode/vm/vm.module.psm1"
 
-Import-Module $clusterModule, $infraModule, $addonsModule, $dicomModule, $viewerModule
+$dicomAddonName = 'dicom'
+
+Import-Module $clusterModule, $infraModule, $addonsModule, $dicomModule, $linuxNodeModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -44,8 +48,8 @@ if ($systemError) {
 
 Write-Log 'Check whether dicom addon is already disabled'
 
-if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'dicom', '--ignore-not-found').Output -and (Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'dicom' })) -ne $true) {
-    $errMsg = "Addon 'dicom' is already disabled, nothing to do."
+if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', $dicomAddonName, '--ignore-not-found').Output -and (Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = $dicomAddonName })) -ne $true) {
+    $errMsg = "Addon $dicomAddonName is already disabled, nothing to do."
 
     if ($EncodeStructuredOutput -eq $true) {
         $err = New-Error -Severity Warning -Code (Get-ErrCodeAddonAlreadyDisabled) -Message $errMsg
@@ -57,15 +61,54 @@ if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'dicom', '--ignore-not
     exit 1
 }
 
-$dicomConfig = Get-DicomConfig
+if ($Force -ne $true) {
+    $answer = Read-Host 'WARNING: This DELETES ALL DATA of the stored DICOM data. Continue? (y/N)'
+    if ($answer -ne 'y') {
+        $errMsg = 'Disable storage smb cancelled.'
+        if ($EncodeStructuredOutput -eq $true) {
+            $err = New-Error -Severity Warning -Code (Get-ErrCodeUserCancellation) -Message $errMsg
+            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+            return
+        }
+        Write-Log $errMsg -Error
+        exit 1
+    }    
+}
 
-Write-Log 'Uninstalling dicom server' -Console
-Remove-IngressForTraefik -Addon ([pscustomobject] @{Name = 'dicom' })
-Remove-IngressForNginx -Addon ([pscustomobject] @{Name = 'dicom' })
-(Invoke-Kubectl -Params 'delete', '-k', $dicomConfig).Output | Write-Log
-(Invoke-Kubectl -Params 'delete', '-f', "$dicomConfig\dicom-namespace.yaml").Output | Write-Log
+$dicomPathManifests = Get-DicomConfig
 
-Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'dicom' })
+Write-Log 'Uninstalling ingress rules' -Console
+Remove-IngressForTraefik -Addon ([pscustomobject] @{Name = $dicomAddonName })
+Remove-IngressForNginx -Addon ([pscustomobject] @{Name = $dicomAddonName })
+
+Write-Log 'Deleting main dicom addon resources ..' -Console
+(Invoke-Kubectl -Params 'delete', '-k', $dicomPathManifests).Output | Write-Log
+
+Write-Log 'Deleting persistent volumes' -Console
+$dicomAttributes = Get-AddonConfig -Name $dicomAddonName
+# retrieve storage usage from config
+if ($dicomAttributes.StorageUsage -eq 'default') {
+    $StorageUsage = 'default'
+    Write-Log "Storage usage is:$StorageUsage" -Console
+    $pvConfig = Get-PVConfigDefault
+    (Invoke-Kubectl -Params 'delete', '--ignore-not-found=true', '-k', $pvConfig).Output | Write-Log
+    # remove from master node folder /mnt/dicom with all the subdirectories
+    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo rm -rf /mnt/dicom').Output | Write-Log
+}
+else {
+    $StorageUsage = 'storage addon'
+    Write-Log "Storage usage is:$StorageUsage" -Console
+    $pvConfig = Get-PVConfigStorage
+    (Invoke-Kubectl -Params 'delete', '--ignore-not-found=true', '-k', $pvConfig).Output | Write-Log
+
+}
+
+# delete namespace
+(Invoke-Kubectl -Params 'delete', '--ignore-not-found=true', '-f', "$dicomPathManifests\dicom-namespace.yaml").Output | Write-Log
+
+# remove addon from setup.json
+Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = $dicomAddonName })
+
 # adapt other addons
 Update-Addons
 

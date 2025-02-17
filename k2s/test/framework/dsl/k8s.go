@@ -5,11 +5,15 @@ package dsl
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"sync"
 
 	//lint:ignore ST1001 test framework code
 	. "github.com/onsi/ginkgo/v2"
+
+	//lint:ignore ST1001 test framework code
+	. "github.com/onsi/gomega"
 )
 
 const testContextName = "k2s-test-context"
@@ -49,4 +53,12 @@ func (k *K2s) ResetK8sContext(ctx context.Context) {
 	kubectl.Run(ctx, "config", "delete-context", testContextName)
 
 	GinkgoWriter.Println("K8s context reset to <", originalContext, ">")
+}
+
+func (k *K2s) VerifyDeploymentToBeReachableFromHost(ctx context.Context, name string, namespace string) {
+	url := fmt.Sprintf("http://%s.%s.svc.cluster.local/%s", name, namespace, name)
+
+	_, err := k.suite.HttpClient().GetJson(ctx, url)
+
+	Expect(err).ToNot(HaveOccurred())
 }
