@@ -1,14 +1,16 @@
 # SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 #
-# SPDX-License-Identifier: MIT# Source: traefik/templates/rbac/clusterrole.yaml
+# SPDX-License-Identifier: MIT
+
+---
 
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: traefik-traefik
+  name: traefik-ingress-traefik
   labels:
     app.kubernetes.io/name: traefik
-    app.kubernetes.io/instance: traefik-traefik
+    app.kubernetes.io/instance: traefik-ingress-traefik
     helm.sh/chart: traefik-34.3.0
     app.kubernetes.io/managed-by: Helm
 rules:
@@ -77,3 +79,42 @@ rules:
       - get
       - list
       - watch
+  - apiGroups:
+      - ""
+    resources:
+      - namespaces
+      - secrets
+      - services
+      - configmaps
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - gateway.networking.k8s.io
+    resources:
+      - backendtlspolicies
+      - gatewayclasses
+      - gateways
+      - grpcroutes
+      - httproutes
+      - referencegrants
+      - tcproutes
+      - tlsroutes
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - gateway.networking.k8s.io
+    resources:
+      - backendtlspolicies/status
+      - gatewayclasses/status
+      - gateways/status
+      - grpcroutes/status
+      - httproutes/status
+      - tcproutes/status
+      - tlsroutes/status
+    verbs:
+      - update
+
