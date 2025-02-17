@@ -16,7 +16,7 @@ data:
 
     secrets:
       system:
-        - youReallyNeedToChangeThis
+        - iIdqsVUynn1SVR9MA7QjT9Yc4
 
     oidc:
       subject_identifiers:
@@ -24,7 +24,7 @@ data:
           - pairwise
           - public
         pairwise:
-          salt: youReallyNeedToChangeThis
+          salt: iIdqsVUynn1SVR9MA7QjT9Yc4
           
     dsn: "sqlite://db.sqlite?_fk=true&mode=rwc"
 
