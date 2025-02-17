@@ -10,9 +10,8 @@ metadata:
   labels:
     app.kubernetes.io/name: traefik
     app.kubernetes.io/instance: traefik-traefik
-    helm.sh/chart: traefik-27.0.2
+    helm.sh/chart: traefik-34.3.0
     app.kubernetes.io/managed-by: Helm
   name: traefik
 spec:
   controller: traefik.io/ingress-controller
----

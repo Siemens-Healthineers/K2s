@@ -6,10 +6,11 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: traefik
+  namespace: traefik
   labels:
     app.kubernetes.io/name: traefik
     app.kubernetes.io/instance: traefik-traefik
-    helm.sh/chart: traefik-27.0.2
+    helm.sh/chart: traefik-34.3.0
     app.kubernetes.io/managed-by: Helm
   annotations:
 spec:
@@ -18,11 +19,11 @@ spec:
     matchLabels:
       app.kubernetes.io/name: traefik
       app.kubernetes.io/instance: traefik-traefik
-  strategy: 
-    rollingUpdate:
-      maxSurge: 1
-      maxUnavailable: 0
+  strategy:
     type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
   minReadySeconds: 0
   template: 
     metadata:
@@ -33,14 +34,15 @@ spec:
       labels:
         app.kubernetes.io/name: traefik
         app.kubernetes.io/instance: traefik-traefik
-        helm.sh/chart: traefik-27.0.2
+        helm.sh/chart: traefik-34.3.0
         app.kubernetes.io/managed-by: Helm
     spec:
       serviceAccountName: traefik
+      automountServiceAccountToken: true
       terminationGracePeriodSeconds: 60
       hostNetwork: false
       containers:
-      - image: public.ecr.aws/docker/library/traefik:v2.11.13
+      - image: docker.io/traefik:v3.3.3
         imagePullPolicy: IfNotPresent
         name: traefik
         resources:
@@ -92,10 +94,10 @@ spec:
         args:
           - "--global.checknewversion"
           - "--global.sendanonymoususage"
-          - "--entrypoints.metrics.address=:9100/tcp"
-          - "--entrypoints.traefik.address=:9000/tcp"
-          - "--entrypoints.web.address=:8000/tcp"
-          - "--entrypoints.websecure.address=:8443/tcp"
+          - "--entryPoints.metrics.address=:9100/tcp"
+          - "--entryPoints.traefik.address=:9000/tcp"
+          - "--entryPoints.web.address=:8000/tcp"
+          - "--entryPoints.websecure.address=:8443/tcp"
           - "--api.dashboard=true"
           - "--api.insecure=true"
           - "--accesslog=true"
@@ -104,9 +106,12 @@ spec:
           - "--metrics.prometheus.entrypoint=metrics"
           - "--providers.kubernetescrd"
           - "--providers.kubernetescrd.ingressclass=traefik"
+          - "--providers.kubernetescrd.allowEmptyServices=true"
           - "--providers.kubernetesingress"
           - "--providers.kubernetesingress.ingressclass=traefik"
-          - "--entrypoints.websecure.http.tls=true"
+          - "--providers.kubernetesingress.allowEmptyServices=true"
+          - "--providers.kubernetesingress.ingressendpoint.publishedservice=traefik/traefik"
+          - "--entryPoints.websecure.http.tls=true"
           - "--serverstransport.insecureskipverify=true"
           - "--log.level=DEBUG"
         env:
@@ -124,9 +129,6 @@ spec:
         - name: tmp
           emptyDir: {}
       securityContext:
-        fsGroupChangePolicy: OnRootMismatch
         runAsGroup: 65532
         runAsNonRoot: true
         runAsUser: 65532
----
-
