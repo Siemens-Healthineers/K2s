@@ -66,8 +66,8 @@ function Add-LinuxWorkerNodeOnNewVM {
     Copy-LocalPublicSshKeyToRemoteComputer -UserName $remoteUsername -UserPwd $remoteUserPwd -IpAddress $IpAddress
     Wait-ForSSHConnectionToLinuxVMViaSshKey -User $remoteUser
 
-    (Invoke-CmdOnVmViaSSHKey "sudo sed -i 's/dns-nameservers.*/dns-nameservers $(Get-ConfiguredIPControlPlane)/' /etc/network/interfaces.d/10-k2s" -IpAddress $IpAddress).Output | Write-Log
-    (Invoke-CmdOnVmViaSSHKey 'sudo systemctl restart networking' -IpAddress $IpAddress).Output | Write-Log
+    (Invoke-CmdOnVmViaSSHKey "sudo sed -i '/nameservers:/!b;n;s/addresses: \[.*\]/addresses: [$(Get-ConfiguredIPControlPlane)]/' /etc/netplan/10-k2s.yaml" -IpAddress $IpAddress).Output | Write-Log
+    (Invoke-CmdOnVmViaSSHKey 'sudo systemctl restart systemd-networkd' -IpAddress $IpAddress).Output | Write-Log
 
     Join-LinuxNode -NodeName $WorkerNodeName -NodeUserName $remoteUsername -NodeIpAddress $IpAddress
 

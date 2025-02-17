@@ -283,14 +283,14 @@ function Start-ControlPlaneNodeOnNewVM {
     EnsureCni0InterfaceIsCreated -VmName $controlPlaneVMHostName -WSL:$WSL
 
     $ipindex = Get-NetIPInterface | Where-Object InterfaceAlias -Like "*$switchname*" | Where-Object AddressFamily -Eq IPv4 | Select-Object -expand 'ifIndex'
-    Write-Log "Index for interface $switchname : ($ipindex) -> metric 25"
-    Set-NetIPInterface -InterfaceIndex $ipindex -InterfaceMetric 25
+    Write-Log "Index for interface $switchname : ($ipindex) -> metric 100"
+    Set-NetIPInterface -InterfaceIndex $ipindex -InterfaceMetric 100
 
     Invoke-TimeSync
 
-    Write-Log 'Set the DNS server(s) used by the Windows Host as the default DNS server(s) of the VM'
-    (Invoke-CmdOnControlPlaneViaSSHKey "sudo sed -i 's/dns-nameservers.*/dns-nameservers $DnsServers/' /etc/network/interfaces.d/10-k2s").Output | Write-Log
-    (Invoke-CmdOnControlPlaneViaSSHKey 'sudo systemctl restart networking').Output | Write-Log
+    Write-Log 'Set the DNS server(s) used by the Windows Host as the default DNS server(s) of the VM'    
+    (Invoke-CmdOnControlPlaneViaSSHKey "sudo sed -i '/nameservers:/!b;n;s/addresses: \[.*\]/addresses: [$DnsServers]/' /etc/netplan/10-k2s.yaml").Output | Write-Log    
+    (Invoke-CmdOnControlPlaneViaSSHKey 'sudo systemctl restart systemd-networkd').Output | Write-Log
     (Invoke-CmdOnControlPlaneViaSSHKey 'sudo systemctl restart dnsmasq').Output | Write-Log
 
     $ipControlPlane = Get-ConfiguredIPControlPlane

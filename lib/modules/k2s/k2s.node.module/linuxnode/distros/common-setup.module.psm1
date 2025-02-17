@@ -88,6 +88,14 @@ Function Set-UpComputerBeforeProvisioning {
             &$executeRemoteCommand -Command "echo Acquire::http::Proxy \\\""$Proxy\\\""\; | sudo tee -a /etc/apt/apt.conf.d/proxy.conf"
         }
     }
+    Write-Log "Retrieve hostname"
+    [string]$hostname = (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute 'hostname' -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output
+    if ([string]::IsNullOrWhiteSpace($hostname) -eq $true) {
+        throw "The hostname of the computer with IP '$IpAddress' could not be retrieved."
+    }
+    
+    Write-Log "Add hostname '$hostname' to /etc/hosts"
+    (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute "sudo sed -i 's/\tlocalhost/\tlocalhost $hostname/g' /etc/hosts" -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output
 }
 
 Function Set-UpComputerAfterProvisioning {
@@ -219,6 +227,20 @@ Function Get-KubernetesArtifactsFromInternet {
     }
 
     &$executeRemoteCommand 'echo "APT::Sandbox::User \\"root\\";" | sudo tee /etc/apt/apt.conf.d/10sandbox-for-k2s'
+
+    Write-Log "Copying ZScaler Root CA certificate to computer with IP '$IpAddress'"
+    $zScalerCertificateSourcePath = "$(Get-KubePath)\lib\modules\k2s\k2s.node.module\linuxnode\setup\certificate\ZScalerRootCA.crt"
+    $zScalerCertificateTargetPath = '/tmp/ZScalerRootCA.crt'
+    if ([string]::IsNullOrWhiteSpace($UserPwd)) {
+        Copy-ToRemoteComputerViaSshKey -Source $zScalerCertificateSourcePath -Target $zScalerCertificateTargetPath -UserName $UserName -IpAddress $IpAddress
+    }
+    else {
+        Copy-ToRemoteComputerViaUserAndPwd -Source $zScalerCertificateSourcePath -Target $zScalerCertificateTargetPath -UserName $UserName -UserPwd $UserPwd -IpAddress $IpAddress
+    }
+
+    &$executeRemoteCommand 'sudo mv /tmp/ZScalerRootCA.crt /usr/local/share/ca-certificates/'
+    &$executeRemoteCommand 'sudo update-ca-certificates'
+    Write-Log "Zscaler certificate added to CA certificates of computer with IP '$IpAddress'"
 
     Write-Log "Ensure that the system's package list is up-to-date"
     &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get update -qq --yes --allow-releaseinfo-change' -Retries 2 -RepairCmd 'sudo apt --fix-broken install'
@@ -438,20 +460,6 @@ Function Install-KubernetesArtifacts {
     }
     &$executeRemoteCommand "sudo DEBIAN_FRONTEND=noninteractive dpkg -i $k8sDebPackagesPath/*.deb"
     &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get --fix-broken install -y'
-
-    Write-Log "Copying ZScaler Root CA certificate to computer with IP '$IpAddress'"
-    $zScalerCertificateSourcePath = "$(Get-KubePath)\lib\modules\k2s\k2s.node.module\linuxnode\setup\certificate\ZScalerRootCA.crt"
-    $zScalerCertificateTargetPath = '/tmp/ZScalerRootCA.crt'
-    if ([string]::IsNullOrWhiteSpace($UserPwd)) {
-        Copy-ToRemoteComputerViaSshKey -Source $zScalerCertificateSourcePath -Target $zScalerCertificateTargetPath -UserName $UserName -IpAddress $IpAddress
-    }
-    else {
-        Copy-ToRemoteComputerViaUserAndPwd -Source $zScalerCertificateSourcePath -Target $zScalerCertificateTargetPath -UserName $UserName -UserPwd $UserPwd -IpAddress $IpAddress
-    }
-
-    &$executeRemoteCommand 'sudo mv /tmp/ZScalerRootCA.crt /usr/local/share/ca-certificates/'
-    &$executeRemoteCommand 'sudo update-ca-certificates'
-    Write-Log "Zscaler certificate added to CA certificates of computer with IP '$IpAddress'"
 
     Write-Log 'Configure bridged traffic'
     &$executeRemoteCommand 'echo overlay | sudo tee /etc/modules-load.d/k8s.conf'
@@ -910,6 +918,10 @@ function Install-DnsServer {
     (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $Command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output | Write-Log
     }
 
+    Write-Log 'Remove existing DNS server'
+    &$executeRemoteCommand 'sudo systemctl disable systemd-resolved' 
+    &$executeRemoteCommand 'sudo systemctl stop systemd-resolved' 
+
     Write-Log 'Install custom DNS server'
     &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get install dnsutils --yes'
     &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get install dnsmasq --yes'
@@ -1167,6 +1179,8 @@ Function Set-UpMasterNode {
 
     Write-Log "Start setting up computer '$IpAddress' as master node"
 
+    &$executeRemoteCommand "sudo systemctl start crio" -IgnoreErrors
+    
     &$executeRemoteCommand "sudo kubeadm init --kubernetes-version $K8sVersion --apiserver-advertise-address $IpAddress --pod-network-cidr=$ClusterCIDR --service-cidr=$ClusterCIDR_Services" -IgnoreErrors
 
     Write-Log 'Copy K8s config file to user profile'
