@@ -43,7 +43,7 @@ spec:
       terminationGracePeriodSeconds: 60
       hostNetwork: false
       containers:
-      - image: docker.io/traefik:v3.3.3
+      - image: public.ecr.aws/docker/library/traefik:v3.3.3
         imagePullPolicy: IfNotPresent
         name: traefik
         resources:
