@@ -26,7 +26,7 @@ data:
         pairwise:
           salt: iIdqsVUynn1SVR9MA7QjT9Yc4
           
-    dsn: "sqlite://db.sqlite?_fk=true&mode=rwc"
+    dsn: "sqlite://c:\\data\\db.sqlite?_fk=true&mode=rwc"
 
     strategies:
       access_token: jwt
@@ -74,32 +74,34 @@ spec:
       labels:
         app: hydra
     spec:
+      imagePullSecrets:
+        - name: regcred
       initContainers:
         - name: init-hydra-db
-          image: mcr.microsoft.com/windows/nanoserver:ltsc2022
+          image: ovwebpoc.azurecr.io/windows-login:0.0.2
           workingDir: "%CONTAINER_SANDBOX_MOUNT_POINT%\\bin"
           command:
             - "%CONTAINER_SANDBOX_MOUNT_POINT%\\bin\\hydra.exe migrate -c %CONTAINER_SANDBOX_MOUNT_POINT%\\config\\hydra.yml sql -e --yes"
           volumeMounts:
             - name: bindir
-              mountPath: 'C:\bin'
+              mountPath: 'C:\data'
             - name: hydra-config-volume
               mountPath: 'C:\config'
       containers:
         - name: hydra
-          image: mcr.microsoft.com/windows/nanoserver:ltsc2022
+          image: ovwebpoc.azurecr.io/windows-login:0.0.2
           workingDir: "%CONTAINER_SANDBOX_MOUNT_POINT%\\bin"
           command:
             - "%CONTAINER_SANDBOX_MOUNT_POINT%\\bin\\hydra.exe serve all -c %CONTAINER_SANDBOX_MOUNT_POINT%\\config\\hydra.yml --dev"
           volumeMounts:
             - name: bindir
-              mountPath: 'C:\bin'
+              mountPath: 'C:\data'
             - name: hydra-config-volume
               mountPath: 'C:\config'
       volumes:
         - name: bindir
           hostPath:
-            path: <%K2S-SECURITY-BIN%>
+            path: <%K2S-SECURITY-DATA%>
             type: Directory
         - name: hydra-config-volume
           configMap:

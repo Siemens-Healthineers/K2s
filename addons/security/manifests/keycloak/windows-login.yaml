@@ -15,20 +15,14 @@ spec:
       labels:
         app: windows-login
     spec:
+      imagePullSecrets:
+        - name: regcred
       containers:
         - name: windows-login
-          image: mcr.microsoft.com/windows/nanoserver:ltsc2022
+          image: ovwebpoc.azurecr.io/windows-login:0.0.2
           workingDir: "%CONTAINER_SANDBOX_MOUNT_POINT%\\bin"            
           command:
             - "%CONTAINER_SANDBOX_MOUNT_POINT%\\bin\\login.exe"
-          volumeMounts:
-            - name: bindir
-              mountPath: 'C:\bin'
-      volumes:
-        - name: bindir
-          hostPath:
-            path: <%K2S-SECURITY-BIN%>
-            type: Directory
       securityContext:
         windowsOptions:
           hostProcess: true

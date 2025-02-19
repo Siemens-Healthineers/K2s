@@ -35,8 +35,8 @@ function Get-OAuth2ProxyConfig {
     return "$PSScriptRoot\manifests\keycloak\oauth2-proxy.yaml"
 }
 
-function Get-SecurityBin {
-    return "$PSScriptRoot\bin"
+function Get-SecurityData {
+    return "$PSScriptRoot\data"
 }
 
 function Apply-WindowsSecuirtyYaml {
@@ -45,14 +45,14 @@ function Apply-WindowsSecuirtyYaml {
         [string]$updatedYamlPath
     )
 
-    $securityBin = Get-SecurityBin
+    $securityData = Get-SecurityData
 
     if (Test-Path $updatedYamlPath) {
         Remove-Item -Path $updatedYamlPath -Force
     }
 
     $yamlContent = Get-Content -Path $yamlPath -Raw
-    $updatedYamlContent = $yamlContent -replace "<%K2S-SECURITY-BIN%>", $securityBin
+    $updatedYamlContent = $yamlContent -replace "<%K2S-SECURITY-DATA%>", $securityData
     $updatedYamlContent | Set-Content -Path $updatedYamlPath -Force
 
     (Invoke-Kubectl -Params 'apply', '-f', $updatedYamlPath).Output | Write-Log
@@ -107,11 +107,16 @@ function Invoke-HydraClient {
 }
 
 function Apply-WindowsSecuirtyDeployments {
-    $securityBin = Get-SecurityBin
-    $sqlitePath = "$securityBin\db.sqlite"
+    $securityData = Get-SecurityData
+    if (-Not (Test-Path $securityData)) {
+        New-Item -ItemType Directory -Path $securityData -Force | Out-Null
+    }
+
+    $sqlitePath = "$securityData\db.sqlite"
     if (Test-Path $sqlitePath) {
         Remove-Item -Path $sqlitePath -Force
     }
+
 
     Write-Log "Applying windows security deployments.." -Console
     $hydraYamlPath = "$PSScriptRoot\manifests\keycloak\hydra.yaml"
