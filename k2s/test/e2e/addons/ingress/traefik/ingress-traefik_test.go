@@ -25,6 +25,8 @@ const testClusterTimeout = time.Minute * 10
 
 var suite *framework.K2sTestSuite
 
+const ingressTraefikTest = "ingress-traefik-test"
+
 func TestIngressTraefik(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "ingress traefik Addon Acceptance Tests", Label("addon", "addon-communication", "acceptance", "setup-required", "invasive", "ingress-traefik", "system-running"))
@@ -42,9 +44,8 @@ var _ = Describe("'ingress traefik' addon", Ordered, func() {
 	AfterAll(func(ctx context.Context) {
 		suite.Kubectl().Run(ctx, "delete", "-k", "workloads")
 		suite.K2sCli().RunOrFail(ctx, "addons", "disable", "ingress", "traefik", "-o")
-
-		suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "traefik", "ingress-traefik")
-		suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "albums-linux1", "ingress-traefik-test")
+		suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "albums-linux1", ingressTraefikTest)
+		suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "albums-linux2", ingressTraefikTest)
 
 		addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
 		Expect(addonsStatus.IsAddonEnabled("ingress", "traefik")).To(BeFalse())
@@ -109,11 +110,20 @@ var _ = Describe("'ingress traefik' addon", Ordered, func() {
 		Expect(httpStatus).To(ContainSubstring("404"))
 	})
 
-	It("sample app is reachable through traefik ingress controller", func(ctx context.Context) {
+	It("sample app is reachable through traefik ingress controller via ingress", func(ctx context.Context) {
 		suite.Kubectl().Run(ctx, "apply", "-k", "workloads")
 		suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "albums-linux1", "ingress-traefik-test")
 
-		_, err := suite.HttpClient().GetJson(ctx, "http://172.19.1.100/albums-linux1")
+		_, err := suite.HttpClient().GetJson(ctx, "http://k2s.cluster.local/albums-linux1")
+
+		Expect(err).ToNot(HaveOccurred())
+	})
+
+	It("sample app is reachable through traefik ingress controller via gateway", func(ctx context.Context) {
+		suite.Kubectl().Run(ctx, "apply", "-k", "workloads")
+		suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "albums-linux2", "ingress-traefik-test")
+
+		_, err := suite.HttpClient().GetJson(ctx, "http://k2s.cluster.local/albums-linux2")
 
 		Expect(err).ToNot(HaveOccurred())
 	})

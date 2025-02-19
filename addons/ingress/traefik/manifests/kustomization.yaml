@@ -17,6 +17,7 @@ resources:
   - serviceaccount.yaml
   - deployment.yaml
   - ingressclass.yaml
+  - gatewayclass.yaml
   - service.yaml
   # - ingressroute.yaml
   - crds/crds.yaml

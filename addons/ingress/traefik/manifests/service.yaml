@@ -2,21 +2,23 @@
 #
 # SPDX-License-Identifier: MIT
 
+---
+
 apiVersion: v1
 kind: Service
 metadata:
   name: traefik
+  namespace: ingress-traefik
   labels:
     app.kubernetes.io/name: traefik
-    app.kubernetes.io/instance: traefik-traefik
-    helm.sh/chart: traefik-27.0.2
+    app.kubernetes.io/instance: traefik-ingress-traefik
+    helm.sh/chart: traefik-34.3.0
     app.kubernetes.io/managed-by: Helm
-  annotations:
 spec:
   type: LoadBalancer
   selector:
     app.kubernetes.io/name: traefik
-    app.kubernetes.io/instance: traefik-traefik
+    app.kubernetes.io/instance: traefik-ingress-traefik
   ports:
   - port: 80
     name: "web"
@@ -26,4 +28,3 @@ spec:
     name: "websecure"
     targetPort: websecure
     protocol: TCP
----
