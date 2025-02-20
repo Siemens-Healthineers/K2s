@@ -858,7 +858,6 @@
       "Study": [],
       "Patient": []
     },
-    */
   "MySQL": {
     "EnableIndex": true,
     "EnableStorage": false,
@@ -867,6 +866,22 @@
     "Database": "orthanc",
     "Username": "orthanc",
     "Password": "orthanc"
+  }, */
+  "PostgreSQL": {
+    "EnableIndex": true,
+    "EnableStorage": true,
+    "Host": "postgres",
+    "Port": 5432,
+    "Database": "orthanc",
+    "Username": "orthanc",
+    "Password": "orthanc",
+    "EnableSsl": false, // New in release 3.0
+    "MaximumConnectionRetries": 10, // New in release 3.0
+    "ConnectionRetryInterval": 5, // New in release 3.0
+    "IndexConnectionsCount": 50, // New in release 4.0 - new default value in 7.0
+    "TransactionMode": "ReadCommitted", // New in release 6.0 - new default value in 7.0
+    "EnableVerboseLogs": false, // New in release 6.0
+    "HousekeepingInterval": 1 // New in release 7.0
   },
   // Enables/disables warnings in the logs.
   // "true" enables a warning.  All warnings are enabled by default

@@ -86,7 +86,7 @@ func (c *ResilientHttpClient) GetJson(ctx context.Context, url string) ([]byte, 
 
 // Get performs a GET request to the given URL and returns the payload as a byte array.
 // It retries failed requests according to the retry policy.
-func (c *ResilientHttpClient) Get(ctx context.Context, url string, tlsConfig ...*tls.Config) ([]byte, error) {
+func (c *ResilientHttpClient) Get(ctx context.Context, url string, tlsConfig *tls.Config, headers ...map[string]string) ([]byte, error) {
 	GinkgoWriter.Println("Calling http GET on <", url, ">")
 
 	executor := c.executor.WithContext(ctx)
@@ -96,10 +96,17 @@ func (c *ResilientHttpClient) Get(ctx context.Context, url string, tlsConfig ...
 		return nil, err
 	}
 
+	// Add headers if provided
+	if len(headers) > 0 {
+		for key, value := range headers[0] {
+			request.Header.Add(key, value)
+		}
+	}
+
 	transport := http.DefaultTransport.(*http.Transport).Clone()
-	if len(tlsConfig) > 0 && tlsConfig[0] != nil {
+	if tlsConfig != nil {
 		GinkgoWriter.Println("Using custom TLS config")
-		transport.TLSClientConfig = tlsConfig[0]
+		transport.TLSClientConfig = tlsConfig
 	}
 
 	httpClient := &http.Client{Transport: transport}
