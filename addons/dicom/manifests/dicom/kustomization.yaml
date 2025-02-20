@@ -7,10 +7,12 @@ kind: Kustomization
 namespace: dicom
 resources:
   - dicom-namespace.yaml
-  - mysql-pv.yaml
-  - mysql-pvc.yaml
-  - mysql-deployment.yaml
-  - mysql-service.yaml
+  - dicom-pv.yaml
+  - dicom-pvc.yaml
+  # - mysql-deployment.yaml
+  # - mysql-service.yaml
+  - postgres-deployment.yaml
+  - postgres-service.yaml
   - dicom-deployment.yaml
   - dicom-service.yaml
 

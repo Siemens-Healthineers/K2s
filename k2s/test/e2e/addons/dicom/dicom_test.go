@@ -86,7 +86,7 @@ var _ = Describe("'dicom' addon", Ordered, func() {
 				suite.K2sCli().RunOrFail(ctx, "addons", "disable", "dicom", "-o", "-f")
 
 				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "dicom", "dicom")
-				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "mysql", "dicom")
+				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "postgres", "dicom")
 
 				addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
 				Expect(addonsStatus.IsAddonEnabled("dicom", "")).To(BeFalse())
@@ -96,10 +96,10 @@ var _ = Describe("'dicom' addon", Ordered, func() {
 				suite.K2sCli().RunOrFail(ctx, "addons", "enable", "dicom", "-o")
 
 				suite.Cluster().ExpectDeploymentToBeAvailable("dicom", "dicom")
-				suite.Cluster().ExpectDeploymentToBeAvailable("mysql", "dicom")
+				suite.Cluster().ExpectDeploymentToBeAvailable("postgres", "dicom")
 
 				suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "orthanc", "dicom")
-				suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "mysql", "dicom")
+				suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "postgres", "dicom")
 
 				addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
 				Expect(addonsStatus.IsAddonEnabled("dicom", "")).To(BeTrue())
@@ -136,7 +136,7 @@ var _ = Describe("'dicom' addon", Ordered, func() {
 				suite.K2sCli().RunOrFail(ctx, "addons", "disable", "ingress", "traefik", "-o")
 
 				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "orthanc", "dicom")
-				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "mysql", "dicom")
+				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "postgres", "dicom")
 
 				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "traefik", "ingress-traefik")
 
@@ -148,10 +148,10 @@ var _ = Describe("'dicom' addon", Ordered, func() {
 				suite.K2sCli().RunOrFail(ctx, "addons", "enable", "dicom", "-o")
 
 				suite.Cluster().ExpectDeploymentToBeAvailable("dicom", "dicom")
-				suite.Cluster().ExpectDeploymentToBeAvailable("mysql", "dicom")
+				suite.Cluster().ExpectDeploymentToBeAvailable("postgres", "dicom")
 
 				suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "orthanc", "dicom")
-				suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "mysql", "dicom")
+				suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "postgres", "dicom")
 
 				addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
 				Expect(addonsStatus.IsAddonEnabled("dicom", "")).To(BeTrue())
@@ -189,7 +189,7 @@ var _ = Describe("'dicom' addon", Ordered, func() {
 				suite.K2sCli().RunOrFail(ctx, "addons", "disable", "ingress", "nginx", "-o")
 
 				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "orthanc", "dicom")
-				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "mysql", "dicom")
+				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "postgres", "dicom")
 
 				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "ingress-nginx", "ingress-nginx")
 
@@ -201,10 +201,10 @@ var _ = Describe("'dicom' addon", Ordered, func() {
 				suite.K2sCli().RunOrFail(ctx, "addons", "enable", "dicom", "-o")
 
 				suite.Cluster().ExpectDeploymentToBeAvailable("dicom", "dicom")
-				suite.Cluster().ExpectDeploymentToBeAvailable("mysql", "dicom")
+				suite.Cluster().ExpectDeploymentToBeAvailable("postgres", "dicom")
 
 				suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "orthanc", "dicom")
-				suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "mysql", "dicom")
+				suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "postgres", "dicom")
 
 				addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
 				Expect(addonsStatus.IsAddonEnabled("dicom", "")).To(BeTrue())
@@ -246,7 +246,7 @@ func expectStatusToBePrinted(ctx context.Context) {
 		MatchRegexp("ADDON STATUS"),
 		MatchRegexp(`Addon .+dicom.+ is .+enabled.+`),
 		MatchRegexp("The dicom Deployment is working"),
-		MatchRegexp("The mysql Deployment is working"),
+		MatchRegexp("The postgres Deployment is working"),
 	))
 
 	output = suite.K2sCli().RunOrFail(ctx, "addons", "status", "dicom", "-o", "json")
@@ -268,10 +268,10 @@ func expectStatusToBePrinted(ctx context.Context) {
 			HaveField("Message", gstruct.PointTo(ContainSubstring("The dicom Deployment is working"))),
 		),
 		SatisfyAll(
-			HaveField("Name", "mysql"),
+			HaveField("Name", "postgres"),
 			HaveField("Value", true),
 			HaveField("Okay", gstruct.PointTo(BeTrue())),
-			HaveField("Message", gstruct.PointTo(ContainSubstring("The mysql Deployment is working"))),
+			HaveField("Message", gstruct.PointTo(ContainSubstring("The postgres Deployment is working"))),
 		),
 	))
 }

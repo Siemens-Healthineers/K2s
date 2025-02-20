@@ -52,13 +52,14 @@ function Write-UsageForUser {
  Once the ingress controller is running in the cluster, run the command to enable dicom
  k2s addons enable dicom
  The orthanc dicom web ui will be accessible on the following URL: http://k2s.cluster.local/dicom/ui/app/
+ Please use https://k2s.cluster.local/dicom/ui/app/ if you have enabled the traefik ingress.
                                         
  Option 2: Port-forwading
  Use port-forwarding to the orthanc dicom web ui using the command below:
  kubectl -n dicom port-forward svc/dicom 8042:8042
  In this case, the orthanc dicom web will be accessible on the following URL: http://localhost:8042/ui/app/
                                         
- DICOM Web APIs are avalaible on the following URL: http://k2s.cluster.local/dicom/dicom-web/
+ DICOM Web APIs are avalaible on the following URL: http(s)://k2s.cluster.local/dicom/dicom-web/
  Example: curl -sS --insecure http://k2s.cluster.local/dicom/dicomweb/studies will return alls studies in the dicom server.
                                         
  By activating this dicom addon you have downloaded at runtime some Orthanc components. 
