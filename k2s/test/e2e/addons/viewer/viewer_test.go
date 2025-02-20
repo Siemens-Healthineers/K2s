@@ -216,10 +216,10 @@ var _ = Describe("'viewer' addon", Ordered, func() {
                 // enable dicom addon
                 suite.K2sCli().RunOrFail(ctx, "addons", "enable", "dicom", "-o")
                 suite.Cluster().ExpectDeploymentToBeAvailable("dicom", "dicom")
-                suite.Cluster().ExpectDeploymentToBeAvailable("mysql", "dicom")
+                suite.Cluster().ExpectDeploymentToBeAvailable("postgres", "dicom")
 
                 suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "orthanc", "dicom")
-                suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "mysql", "dicom")
+                suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "postgres", "dicom")
 
                 //enable nginx ingress
                 suite.K2sCli().RunOrFail(ctx, "addons", "enable", "ingress", "nginx", "-o")
@@ -237,7 +237,7 @@ var _ = Describe("'viewer' addon", Ordered, func() {
 
                 suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "viewerwebapp", "viewer")
                 suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "dicom", "dicom")
-                suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "mysql", "dicom")
+                suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "postgres", "dicom")
                 suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "ingress-nginx", "ingress-nginx")
 
                 addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
@@ -278,10 +278,10 @@ var _ = Describe("'viewer' addon", Ordered, func() {
                 // enable dicom addon
                 suite.K2sCli().RunOrFail(ctx, "addons", "enable", "dicom", "-o")
                 suite.Cluster().ExpectDeploymentToBeAvailable("dicom", "dicom")
-                suite.Cluster().ExpectDeploymentToBeAvailable("mysql", "dicom")
+                suite.Cluster().ExpectDeploymentToBeAvailable("postgres", "dicom")
 
                 suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "orthanc", "dicom")
-                suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "mysql", "dicom")
+                suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "postgres", "dicom")
 
                 //enable nginx ingress
                 suite.K2sCli().RunOrFail(ctx, "addons", "enable", "ingress", "nginx", "-o")
@@ -309,7 +309,7 @@ var _ = Describe("'viewer' addon", Ordered, func() {
 
                 suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "viewerwebapp", "viewer")
                 suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "dicom", "dicom")
-                suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "mysql", "dicom")
+                suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "postgres", "dicom")
                 suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "ingress-nginx", "ingress-nginx")
                 suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "keycloak", "security")
 
@@ -406,7 +406,7 @@ var _ = Describe("'viewer' addon", Ordered, func() {
 
                 suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "viewerwebapp", "viewer")
                 suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "dicom", "dicom")
-                suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "mysql", "dicom")
+                suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "postgres", "dicom")
                 suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "ingress-nginx", "ingress-nginx")
 
                 addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
@@ -436,10 +436,10 @@ var _ = Describe("'viewer' addon", Ordered, func() {
             It("Dicom addon is enabled", func(ctx context.Context) {
                 suite.K2sCli().RunOrFail(ctx, "addons", "enable", "dicom", "-o")
                 suite.Cluster().ExpectDeploymentToBeAvailable("dicom", "dicom")
-                suite.Cluster().ExpectDeploymentToBeAvailable("mysql", "dicom")
+                suite.Cluster().ExpectDeploymentToBeAvailable("postgres", "dicom")
 
                 suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "orthanc", "dicom")
-                suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "mysql", "dicom")
+                suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "postgres", "dicom")
 
                 addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
                 Expect(addonsStatus.IsAddonEnabled("dicom", "")).To(BeTrue())
@@ -467,10 +467,10 @@ var _ = Describe("'viewer' addon", Ordered, func() {
                 // enable dicom addon
                 suite.K2sCli().RunOrFail(ctx, "addons", "enable", "dicom", "-o")
                 suite.Cluster().ExpectDeploymentToBeAvailable("dicom", "dicom")
-                suite.Cluster().ExpectDeploymentToBeAvailable("mysql", "dicom")
+                suite.Cluster().ExpectDeploymentToBeAvailable("postgres", "dicom")
 
                 suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "orthanc", "dicom")
-                suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "mysql", "dicom")
+                suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "postgres", "dicom")
 
                 addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
                 Expect(addonsStatus.IsAddonEnabled("dicom", "")).To(BeTrue())
@@ -483,7 +483,7 @@ var _ = Describe("'viewer' addon", Ordered, func() {
 
                 suite.K2sCli().RunOrFail(ctx, "addons", "disable", "dicom", "-o", "-f")
                 suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "dicom", "dicom")
-                suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "mysql", "dicom")
+                suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "postgres", "dicom")
 
                 addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
                 Expect(addonsStatus.IsAddonEnabled("viewer", "")).To(BeFalse())
@@ -529,7 +529,7 @@ var _ = Describe("'viewer' addon", Ordered, func() {
 
                 suite.K2sCli().RunOrFail(ctx, "addons", "disable", "dicom", "-o", "-f")
                 suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "dicom", "dicom")
-                suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "mysql", "dicom")
+                suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "postgres", "dicom")
 
                 addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
                 Expect(addonsStatus.IsAddonEnabled("viewer", "")).To(BeFalse())
@@ -563,10 +563,10 @@ var _ = Describe("'viewer' addon", Ordered, func() {
             It("Dicom addon is enabled", func(ctx context.Context) {
                 suite.K2sCli().RunOrFail(ctx, "addons", "enable", "dicom", "-o")
                 suite.Cluster().ExpectDeploymentToBeAvailable("dicom", "dicom")
-                suite.Cluster().ExpectDeploymentToBeAvailable("mysql", "dicom")
+                suite.Cluster().ExpectDeploymentToBeAvailable("postgres", "dicom")
 
                 suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "orthanc", "dicom")
-                suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "mysql", "dicom")
+                suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "postgres", "dicom")
 
                 addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
                 Expect(addonsStatus.IsAddonEnabled("dicom", "")).To(BeTrue())
