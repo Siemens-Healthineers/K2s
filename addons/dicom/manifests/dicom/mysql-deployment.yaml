@@ -20,18 +20,18 @@ spec:
     spec:
       containers:
         - name: mysql
-          image: mysql:5.7
+          image: mysql:5.6
           ports:
             - containerPort: 3306
           env:
             - name: MYSQL_ROOT_PASSWORD
-              value: "your-root-password"
+              value: 'your-root-password'
             - name: MYSQL_DATABASE
-              value: "orthanc"
+              value: 'orthanc'
             - name: MYSQL_USER
-              value: "orthanc"
+              value: 'orthanc'
             - name: MYSQL_PASSWORD
-              value: "orthanc"
+              value: 'orthanc'
           volumeMounts:
             - name: mysql-storage
               mountPath: /var/lib/mysql
