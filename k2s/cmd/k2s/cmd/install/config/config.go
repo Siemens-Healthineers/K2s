@@ -107,7 +107,7 @@ const (
 	ControlPlaneMemoryFlagUsage = "Amount of RAM to allocate to master VM (minimum 2GB, format: <number>[<unit>], where unit = KB, MB or GB)"
 
 	ControlPlaneDiskSizeFlagName  = "master-disk"
-	ControlPlaneDiskSizeFlagUsage = "Disk size allocated to the master VM (minimum 50GB, format: <number>[<unit>], where unit = KB, MB or GB)"
+	ControlPlaneDiskSizeFlagUsage = "Disk size allocated to the master VM (minimum 10GB, format: <number>[<unit>], where unit = KB, MB or GB)"
 
 	WorkerCPUsFlagName  = "worker-cpus"
 	WorkerCPUsFlagUsage = "Number of CPUs allocated to worker VM."

@@ -384,20 +384,21 @@ function Test-ControlPlanePrerequisites(
     [uint64] $MasterDiskSize) {
 
     Write-Log "Using Control Plane VM ProcessorCount: $MasterVMProcessorCount"
-    Write-Log "Using Control Plane VM Memory: $([math]::round($MasterVMMemory/1GB, 2))GB"
-    Write-Log "Using Control Plane VM Diskspace: $([math]::round($MasterDiskSize/1GB, 2))GB"
+    Write-Log "Using Control Plane VM Memory: $(Convert-BytesToGB -SizeInBytes $MasterVMMemory)GB"
+    Write-Log "Using Control Plane VM Diskspace: $(Convert-BytesToGB -SizeInBytes $MasterDiskSize)GB"
 
     # check memory
-    if ( $MasterVMMemory -lt 2GB ) {
-        Write-Log 'k2s needs minimal 2GB main memory, you have passed a lower value!' -Error
-        throw '[PREREQ-FAILED] Master node memory passed too low'
+    $minimalProvisioningBaseImageSize = Get-MinimalProvisioningBaseMemorySize
+    if ( $MasterVMMemory -lt $minimalProvisioningBaseImageSize ) {
+        Write-Log "k2s needs minimal $(Convert-BytesToGB -SizeInBytes $minimalProvisioningBaseImageSize)GB main memory, you have passed a lower value!" -Error
+        throw "[PREREQ-FAILED] Master node memory passed too low: $(Convert-BytesToGB -SizeInBytes $MasterVMMemory)GB"
     }
 
     # check disk
-    $defaultProvisioningBaseImageSize = Get-DefaultProvisioningBaseImageDiskSize
-    if ( $MasterDiskSize -lt $defaultProvisioningBaseImageSize ) {
-        Write-Log "k2s needs minimal $defaultProvisioningBaseImageSize disk space, you have passed a lower value!" -Error
-        throw '[PREREQ-FAILED] Master VM Disk size passed too low'
+    $minimalProvisioningBaseImageSize = Get-MinimalProvisioningBaseImageDiskSize
+    if ( $MasterDiskSize -lt $minimalProvisioningBaseImageSize ) {
+        Write-Log "k2s needs minimal $(Convert-BytesToGB -SizeInBytes $minimalProvisioningBaseImageSize)GB disk space, you have passed a lower value!" -Error
+        throw "[PREREQ-FAILED] Master VM Disk size passed too low: $(Convert-BytesToGB -SizeInBytes $MasterDiskSize)GB"
     }
 
     #Check for running VMs and minikube
@@ -416,6 +417,14 @@ function Test-ControlPlanePrerequisites(
     if (Get-VM -ErrorAction SilentlyContinue -Name $nameControlPlane) {
         throw "[PREREQ-FAILED] $nameControlPlane VM must not exist before installation, please perform k2s uninstall"
     }
+}
+
+function Convert-BytesToGB {
+    param (
+        [parameter(Mandatory = $true)]
+        [long] $SizeInBytes
+    )
+    return [math]::round($SizeInBytes / 1GB, 2)
 }
 
 function Test-ExistingExternalSwitch {
