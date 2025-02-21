@@ -1,4 +1,5 @@
-# FILE: lib/modules/k2s/k2s.infra.module/config/config.module.unit.tests.Tests.ps1
+# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-License-Identifier: MIT
 
 # Load the module to be tested
 Import-Module "$PSScriptRoot\config.module.psm1"
