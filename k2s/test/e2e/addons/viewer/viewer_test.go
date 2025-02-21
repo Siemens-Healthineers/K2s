@@ -16,6 +16,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/onsi/gomega/format"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/addons/status"
 	"github.com/siemens-healthineers/k2s/test/framework"
 	"github.com/siemens-healthineers/k2s/test/framework/k2s/cli"
@@ -367,7 +368,7 @@ var _ = Describe("'viewer' addon", Ordered, func() {
                     }
                     return accessToken, nil
                 }
-
+                format.MaxLength = 40000
                 // Get the access token
                 accessToken, err := getKeycloakToken()
                 Expect(err).NotTo(HaveOccurred())
