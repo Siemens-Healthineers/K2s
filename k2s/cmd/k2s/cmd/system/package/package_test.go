@@ -44,4 +44,16 @@ var _ = Describe("package", func() {
 			})
 		})
 	})
+
+	Describe("ControlPlaneMemoryFlagUsage", func() {
+		It("should contain 'minimum 2GB'", func() {
+			Expect(ControlPlaneMemoryFlagUsage).To(ContainSubstring("minimum 2GB"))
+		})
+	})
+
+	Describe("ControlPlaneDiskSizeFlagUsage", func() {
+		It("should contain 'minimum 10GB'", func() {
+			Expect(ControlPlaneDiskSizeFlagUsage).To(ContainSubstring("minimum 10GB"))
+		})
+	})
 })
