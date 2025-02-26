@@ -436,7 +436,6 @@ func AddVfpRulesWithVfpCtrlExe(portid string, port string, vfpRoutes *VfpRoutes,
 			logrus.Debugf("[cni-net] Adding extra VFP rules. Output: %s\n", output)
 			cmd.Wait()
 			execution = true
-			break
 		}
 
 		// check if rules are applied
