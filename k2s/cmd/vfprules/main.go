@@ -432,10 +432,10 @@ func AddVfpRulesWithVfpCtrlExe(portid string, port string, vfpRoutes *VfpRoutes,
 			logrus.Warning("[cni-net] Adding extra VFP rules. Warning:", err)
 			cmd.Wait()
 			logrus.Warning("[cni-net] Adding extra VFP rules, will retry ...")
+			execution = false
 		} else {
 			logrus.Debugf("[cni-net] Adding extra VFP rules. Output: %s\n", output)
 			cmd.Wait()
-			execution = true
 		}
 
 		// check if rules are applied
@@ -444,6 +444,12 @@ func AddVfpRulesWithVfpCtrlExe(portid string, port string, vfpRoutes *VfpRoutes,
 		if err != nil {
 			logrus.Warning("[cni-net] Warning: Checking if rules are applied failed:", err)
 			execution = false
+		} else if !bRules {
+			logrus.Warning("[cni-net] Warning: Rules are not applied, will retry ...")
+			execution = false
+		} else if bRules {
+			logrus.Debugf("[cni-net] Rules are applied")
+			execution = true
 		}
 
 		time.Sleep(1000 * time.Millisecond)
