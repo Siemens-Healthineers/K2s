@@ -438,6 +438,15 @@ func AddVfpRulesWithVfpCtrlExe(portid string, port string, vfpRoutes *VfpRoutes,
 			execution = true
 			break
 		}
+
+		// check if rules are applied
+		bRules, err := AreVfpRulesApplied(portid, vfpRoutes)
+		logrus.Debug("[cni-net] Vfp rules are all applied:", bRules)
+		if err != nil {
+			logrus.Warning("[cni-net] Warning: Checking if rules are applied failed:", err)
+			execution = false
+		}
+
 		time.Sleep(1000 * time.Millisecond)
 	}
 	// check if port was found
@@ -452,4 +461,27 @@ func AddVfpRulesWithVfpCtrlExe(portid string, port string, vfpRoutes *VfpRoutes,
 	// remove old vfp rules cmd file
 	// os.Remove(filename)
 	return nil
+}
+
+func AreVfpRulesApplied(portid string, vfpRoutes *VfpRoutes) (bool, error) {
+	// loop through all the rules and check if they are applied
+	for _, vfpRoute := range vfpRoutes.Routes {
+		// check if the rule is applied
+		cmd := exec.Command("vfpctrl", "/port", portid, "/layer", "VNET_PA_ROUTE_LAYER", "/group", "VNET_GROUP_PA_ROUTE_IPV4_OUT", "/list-rule")
+		output, err := cmd.Output()
+		if err != nil {
+			logrus.Error("[cni-net] Error: Getting rules failed:", err)
+			return false, err
+		}
+		// logrus.Debugf("[cni-net] Rules list output: %s", output)
+
+		// check if the rule is in the output
+		if strings.Contains(string(output), vfpRoute.Name) {
+			logrus.Info("[cni-net] Rule was applied: ", vfpRoute.Name)
+		} else {
+			logrus.Info("[cni-net] Rule was not applied: ", vfpRoute.Name)
+			return false, nil
+		}
+	}
+	return true, nil
 }
