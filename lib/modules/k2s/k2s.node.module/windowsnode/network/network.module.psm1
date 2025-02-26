@@ -152,7 +152,7 @@ function New-ExternalSwitch {
 
     # disable DNS
     $cbr0AdapterIfIndex = Get-NetIPInterface | Where-Object InterfaceAlias -Like "vEthernet ($endpointname)*" | Where-Object AddressFamily -Eq IPv4 | Select-Object -expand 'ifIndex' -First 1
-    if( $cbr0AdapterIfIndex ) {
+    if ( $cbr0AdapterIfIndex ) {
         Write-Log "Disable DNS for interface $endpointname : ($cbr0AdapterIfIndex)"
         Set-DnsClient -InterfaceIndex $cbr0AdapterIfIndex -ResetConnectionSpecificSuffix -RegisterThisConnectionsAddress $false
     }
@@ -181,6 +181,8 @@ function Set-InterfacePrivate {
         [Parameter()]
         [string] $InterfaceAlias
     )
+
+    Write-Log "OK: $InterfaceAlias trying to set to private..."
 
     # check if the interface is already available as a connection profile
     $connectionProfile = Get-NetConnectionProfile -InterfaceAlias $InterfaceAlias -ErrorAction SilentlyContinue
@@ -357,7 +359,8 @@ function Restart-NlaSvc {
         
         if ($serviceRestarted -eq $false) {
             Write-Log "[WARNING] '$networkLocationAwarenessServiceName' Service could not be successfully restarted !!" -Console
-        } else {
+        }
+        else {
             Write-Log "Service re-started '$networkLocationAwarenessServiceName'"
         }
     }
@@ -498,7 +501,8 @@ function Restart-HNSService {
     
     if ($serviceRestarted -eq $false) {
         Write-Log "[WARNING] '$hnsService' Service could not be successfully restarted !!" -Console
-    } else {
+    }
+    else {
         Write-Log "Service re-started '$hnsService'"
     }
 }
@@ -519,16 +523,19 @@ function Invoke-HNSCommand {
         try {
             if ($ArgumentList) {
                 return & $Command @ArgumentList
-            } else {
+            }
+            else {
                 return & $Command
             }
-        } catch {
+        }
+        catch {
             Write-Log "Error encountered: $_"
 
             if (-not $global:HNSRestarted) {
                 Restart-HNSService
                 $global:HNSRestarted = $true
-            } else {
+            }
+            else {
                 $elapsedMinutes = (New-TimeSpan -Start $startTime -End (Get-Date)).TotalMinutes
                 if ($elapsedMinutes -ge $TimeoutMinutes) {
                     throw "HNS API failed after $TimeoutMinutes minutes of retries."
@@ -542,6 +549,29 @@ function Invoke-HNSCommand {
     }
 }
 
+function Set-KubeSwitchToPrivate {
+    
+    Write-Log 'Trying to check the KubeSwitch, set to private if not set yet...'
+
+    # get the switch name
+    $WSL = Get-ConfigWslFlag
+    $switchname = ''
+    if ($WSL) {
+        $switchname = Get-WslSwitchName
+    }
+    else {
+        $switchname = Get-ControlPlaneNodeDefaultSwitchName
+    }
+
+    # get the real switch name
+    $switchRealName = Get-VirtualSwitchName($switchname)
+
+    # set the switch to private
+    Set-InterfacePrivate -InterfaceAlias $switchRealName
+
+    Write-Log 'Kubeswitch check finished.'
+}
+
 Export-ModuleMember -Function Add-Route, Remove-Route, Update-RoutePriority
 Export-ModuleMember Set-IndexForDefaultSwitch, Get-ConfiguredClusterCIDRHost,
 New-ExternalSwitch, Remove-ExternalSwitch,
@@ -549,4 +579,4 @@ Set-InterfacePrivate,
 Get-L2BridgeSwitchName,
 Set-IPAdressAndDnsClientServerAddress, Set-WSLSwitch,
 Add-VfpRulesToWindowsNode, Remove-VfpRulesFromWindowsNode, Get-ConfiguredClusterCIDRNextHop,
-Add-VfpRoute, Remove-VfpRoute, Get-VirtualSwitchName
+Add-VfpRoute, Remove-VfpRoute, Get-VirtualSwitchName, Set-KubeSwitchToPrivate
