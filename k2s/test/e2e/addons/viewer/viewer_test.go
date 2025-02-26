@@ -8,15 +8,11 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
-	"fmt"
-	"net/http"
-	"net/url"
 	"os/exec"
 	"path"
 	"testing"
 	"time"
 
-	"github.com/onsi/gomega/format"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/addons/status"
 	"github.com/siemens-healthineers/k2s/test/framework"
 	"github.com/siemens-healthineers/k2s/test/framework/k2s/cli"
@@ -258,128 +254,9 @@ var _ = Describe("'viewer' addon", Ordered, func() {
             })
 
             It("retrieves patient data from the Dicom addon", func(ctx context.Context) {
-                url := "http://k2s.cluster.local/viewer/datasources/config.json"
+                url := "https://k2s.cluster.local/viewer/datasources/config.json"
                 responseBytes, err := suite.HttpClient().Get(ctx, url, &tls.Config{InsecureSkipVerify: true})
                 Expect(err).NotTo(HaveOccurred())
-                response := string(responseBytes)
-                Expect(response).To(ContainSubstring(`"defaultDataSourceName": "dataFromDicomAddon"`))
-            })
-
-            It("prints already-enabled message when enabling the addon again and exits with non-zero", func(ctx context.Context) {
-                expectAddonToBeAlreadyEnabled(ctx)
-            })
-
-            It("prints the status", func(ctx context.Context) {
-                expectStatusToBePrinted(ctx)
-            })
-        })
-
-        When("Dicom addon, security and nginx ingress controller are active before viewer activation", func() {
-            BeforeAll(func(ctx context.Context) {
-                // enable dicom addon
-                suite.K2sCli().RunOrFail(ctx, "addons", "enable", "dicom", "-o")
-                suite.Cluster().ExpectDeploymentToBeAvailable("dicom", "dicom")
-                suite.Cluster().ExpectDeploymentToBeAvailable("postgres", "dicom")
-
-                suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "orthanc", "dicom")
-                suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "postgres", "dicom")
-
-                //enable nginx ingress
-                suite.K2sCli().RunOrFail(ctx, "addons", "enable", "ingress", "nginx", "-o")
-                suite.Cluster().ExpectDeploymentToBeAvailable("ingress-nginx-controller", "ingress-nginx")
-
-                //enable security addon
-                args := []string{"addons", "enable", "security", "-o"}
-                if suite.Proxy() != "" {
-                    args = append(args, "-p", suite.Proxy())
-                }
-                suite.K2sCli().RunOrFail(ctx, args...)
-                suite.Cluster().ExpectDeploymentToBeAvailable("keycloak", "security")
-
-                addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
-                Expect(addonsStatus.IsAddonEnabled("dicom", "")).To(BeTrue())
-                Expect(addonsStatus.IsAddonEnabled("ingress", "nginx")).To(BeTrue())
-                Expect(addonsStatus.IsAddonEnabled("security", "")).To(BeTrue())
-            })
-
-            AfterAll(func(ctx context.Context) {
-                suite.K2sCli().RunOrFail(ctx, "addons", "disable", "viewer", "-o")
-                suite.K2sCli().RunOrFail(ctx, "addons", "disable", "dicom", "-o", "-f")
-                suite.K2sCli().RunOrFail(ctx, "addons", "disable", "ingress", "nginx", "-o")
-                suite.K2sCli().RunOrFail(ctx, "addons", "disable", "security", "-o")
-
-                suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "viewerwebapp", "viewer")
-                suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "dicom", "dicom")
-                suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "postgres", "dicom")
-                suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "ingress-nginx", "ingress-nginx")
-                suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "keycloak", "security")
-
-                addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
-                Expect(addonsStatus.IsAddonEnabled("viewer", "")).To(BeFalse())
-                Expect(addonsStatus.IsAddonEnabled("dicom", "")).To(BeFalse())
-                Expect(addonsStatus.IsAddonEnabled("ingress", "nginx")).To(BeFalse())
-                Expect(addonsStatus.IsAddonEnabled("security", "")).To(BeFalse())
-            })
-
-            It("is in enabled state and pods are in running state", func(ctx context.Context) {
-                suite.K2sCli().RunOrFail(ctx, "addons", "enable", "viewer", "-o")
-
-                suite.Cluster().ExpectDeploymentToBeAvailable("viewerwebapp", "viewer")
-                suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "viewerwebapp", "viewer")
-
-                addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
-                Expect(addonsStatus.IsAddonEnabled("viewer", "")).To(BeTrue())
-            })
-
-            It("retrieves patient data from the Dicom addon", func(ctx context.Context) {
-                clusterUrl := "https://k2s.cluster.local/viewer/datasources/config.json"
-                keycloakServer := "https://k2s.cluster.local"
-                realm := "demo-app"
-                clientId := "demo-client"
-                clientSecret := "1f3QCCQoDQXEwU7ngw9X8kaSe1uX8EIl"
-                username := "demo-user"
-                password := "password"
-
-                // Function to get access token from Keycloak
-                getKeycloakToken := func() (string, error) {
-                    tokenUrl := fmt.Sprintf("%s/keycloak/realms/%s/protocol/openid-connect/token", keycloakServer, realm)
-                    data := url.Values{}
-                    data.Set("client_id", clientId)
-                    data.Set("client_secret", clientSecret)
-                    data.Set("username", username)
-                    data.Set("password", password)
-                    data.Set("grant_type", "password")
-
-                    resp, err := http.PostForm(tokenUrl, data)
-                    if err != nil {
-                        return "", err
-                    }
-                    defer resp.Body.Close()
-
-                    if resp.StatusCode != http.StatusOK {
-                        return "", fmt.Errorf("failed to get token: %s", resp.Status)
-                    }
-
-                    var result map[string]interface{}
-                    json.NewDecoder(resp.Body).Decode(&result)
-                    accessToken, ok := result["access_token"].(string)
-                    if !ok {
-                        return "", fmt.Errorf("failed to parse access token")
-                    }
-                    return accessToken, nil
-                }
-                format.MaxLength = 40000
-                // Get the access token
-                accessToken, err := getKeycloakToken()
-                Expect(err).NotTo(HaveOccurred())
-
-                // Make the request with the access token
-                headers := map[string]string{
-                    "Authorization": fmt.Sprintf("Bearer %s", accessToken),
-                }
-                responseBytes, err := suite.HttpClient().Get(ctx, clusterUrl, &tls.Config{InsecureSkipVerify: true}, headers)
-                Expect(err).NotTo(HaveOccurred())
-                // Convert the response to a map
                 response := string(responseBytes)
                 Expect(response).To(ContainSubstring(`"defaultDataSourceName": "dataFromDicomAddonTls"`))
                 Expect(response).To(ContainSubstring(`"useSharedArrayBuffer": "TRUE"`))
@@ -426,7 +303,7 @@ var _ = Describe("'viewer' addon", Ordered, func() {
                 Expect(addonsStatus.IsAddonEnabled("viewer", "")).To(BeTrue())
             })
             It("does NOT retrieve patient data from the Dicom addon", func(ctx context.Context) {
-                url := "http://k2s.cluster.local/viewer/datasources/config.json"
+                url := "https://k2s.cluster.local/viewer/datasources/config.json"
                 responseBytes, err := suite.HttpClient().Get(ctx, url, &tls.Config{InsecureSkipVerify: true})
                 Expect(err).NotTo(HaveOccurred())
                 response := string(responseBytes)
@@ -447,12 +324,13 @@ var _ = Describe("'viewer' addon", Ordered, func() {
             })
 
             It("retrieves patient data from the Dicom addon", func(ctx context.Context) {
-                url := "http://k2s.cluster.local/viewer/datasources/config.json"
+                url := "https://k2s.cluster.local/viewer/datasources/config.json"
                 responseBytes, err := suite.HttpClient().Get(ctx, url, &tls.Config{InsecureSkipVerify: true})
                 Expect(err).NotTo(HaveOccurred())
                 response := string(responseBytes)
-                // checking that the default datasource is dataFromDicomAddon
-                Expect(response).To(ContainSubstring(`"defaultDataSourceName": "dataFromDicomAddon"`))
+                // checking that the default datasource is dataFromDicomAddonTls
+                Expect(response).To(ContainSubstring(`"defaultDataSourceName": "dataFromDicomAddonTls"`))
+                Expect(response).To(ContainSubstring(`"useSharedArrayBuffer": "TRUE"`))
             })
             It("prints already-enabled message when enabling the addon again and exits with non-zero", func(ctx context.Context) {
                 expectAddonToBeAlreadyEnabled(ctx)

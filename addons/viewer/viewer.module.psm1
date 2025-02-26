@@ -164,15 +164,7 @@ function Update-ViewerConfigMap {
         Update-ConfigMap -FilePath $filePath -NewDefaultDataSourceName 'DataFromAWS'
     }
     else {
-        #for security addon or traefik enabled use dataFromDicomAddonTls
-        $isSecurityAddonAvailable = Test-SecurityAddonAvailability
-        if ($isSecurityAddonAvailable -or $isTraefikEnabled ) {
-            # Call Update-ConfigMap with defaultDataSourceName set to dataFromDicomAddon and useSharedArrayBuffer set to true
-            Update-ConfigMap -FilePath $filePath -NewDefaultDataSourceName 'dataFromDicomAddonTls' -UseSharedArrayBuffer $true
-        }
-        else {
-            # Call Update-ConfigMap with defaultDataSourceName set to dataFromDicomAddon
-            Update-ConfigMap -FilePath $filePath -NewDefaultDataSourceName 'dataFromDicomAddon'
-        }
+        # Call Update-ConfigMap with defaultDataSourceName set to dataFromDicomAddon and useSharedArrayBuffer set to true
+        Update-ConfigMap -FilePath $filePath -NewDefaultDataSourceName 'dataFromDicomAddonTls' -UseSharedArrayBuffer $true
     }
 }
