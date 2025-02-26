@@ -93,11 +93,14 @@ var _ = AfterSuite(func(ctx context.Context) {
 		suite.K2sCli().RunOrFail(ctx, "system", "dump", "-S", "-o")
 	}
 
-	suite.Kubectl().Run(ctx, "delete", "-k", manifestDir)
+	// for finding out the sporadically failed test runs
+	if !testFailed {
+		suite.Kubectl().Run(ctx, "delete", "-k", manifestDir)
 
-	GinkgoWriter.Println("Workloads deleted")
+		GinkgoWriter.Println("Workloads deleted")
 
-	suite.TearDown(ctx, framework.RestartKubeProxy)
+		suite.TearDown(ctx, framework.RestartKubeProxy)
+	}
 })
 
 var _ = Describe("Cluster Core", func() {

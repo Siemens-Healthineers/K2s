@@ -288,10 +288,10 @@ function Start-ControlPlaneNodeOnNewVM {
 
     Invoke-TimeSync
 
-    Write-Log 'Set the DNS server(s) used by the Windows Host as the default DNS server(s) of the VM'    
-    (Invoke-CmdOnControlPlaneViaSSHKey "sudo sed -i '/nameservers:/!b;n;s/addresses: \[.*\]/addresses: [$DnsServers]/' /etc/netplan/10-k2s.yaml").Output | Write-Log    
-    (Invoke-CmdOnControlPlaneViaSSHKey 'sudo systemctl restart systemd-networkd').Output | Write-Log
-    (Invoke-CmdOnControlPlaneViaSSHKey 'sudo systemctl restart dnsmasq').Output | Write-Log
+    # Write-Log 'Set the DNS server(s) used by the Windows Host as the default DNS server(s) of the VM'    
+    # (Invoke-CmdOnControlPlaneViaSSHKey "sudo sed -i '/nameservers:/!b;n;s/addresses: \[.*\]/addresses: [$DnsServers]/' /etc/netplan/10-k2s.yaml").Output | Write-Log    
+    # (Invoke-CmdOnControlPlaneViaSSHKey 'sudo systemctl restart systemd-networkd').Output | Write-Log
+    # (Invoke-CmdOnControlPlaneViaSSHKey 'sudo systemctl restart dnsmasq').Output | Write-Log
 
     $ipControlPlane = Get-ConfiguredIPControlPlane
     $setupConfigRoot = Get-RootConfigk2s
