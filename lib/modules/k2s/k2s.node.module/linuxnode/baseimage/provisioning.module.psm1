@@ -200,7 +200,8 @@ function New-KubemasterBaseImage {
 
         Connect-VMNetworkAdapter -VmName $vmName -SwitchName $switchName -ErrorAction Stop
 
-        Start-VM -Name $vmName
+        Start-VirtualMachine -VmName $vmName
+
         Write-Log "Waiting for VM to send heartbeat..."
         Wait-VM -Name $vmName -For Heartbeat
         Write-Log "   heartbeat received. Waiting for VM to send heartbeat again..."
@@ -247,7 +248,7 @@ function New-KubemasterBaseImage {
         Write-Log "Attach the VM to a network switch"
         Connect-VMNetworkAdapter -VmName $vmName -SwitchName $networkParams2.SwitchName -ErrorAction Stop
 
-        Start-VM -Name $vmName
+        Start-VirtualMachine -VmName $vmName
         Write-Log "Waiting for VM to send heartbeat..."
         Wait-VM -Name $vmName -For Heartbeat
         Write-Log "   heartbeat received. Waiting for VM to send heartbeat again..."
@@ -344,7 +345,7 @@ function New-KubeworkerBaseImage {
 
     Connect-VMNetworkAdapter -VmName $vmName -SwitchName $switchName -ErrorAction Stop
 
-    Start-VM -Name $vmName
+    Start-VirtualMachine -VmName $vmName
     Write-Log "Waiting for VM to send heartbeat..."
     Wait-VM -Name $vmName -For Heartbeat
     Write-Log "   heartbeat received. Waiting for VM to send heartbeat again..."
@@ -382,7 +383,7 @@ function New-KubeworkerBaseImage {
     $switchName = Get-ControlPlaneNodeDefaultSwitchName
     Connect-VMNetworkAdapter -VmName $vmName -SwitchName $switchName -ErrorAction Stop
 
-    Start-VM -Name $vmName
+    Start-VirtualMachine -VmName $vmName
     Write-Log "Waiting for VM to send heartbeat..."
     Wait-VM -Name $vmName -For Heartbeat
     Write-Log "   heartbeat received. Waiting for VM to send heartbeat again..."
@@ -454,7 +455,7 @@ function Start-VmBasedOnKubenodeBaseImage {
 
     Connect-VMNetworkAdapter -VmName $VmName -SwitchName $switchName -ErrorAction Stop
 
-    Start-VM -Name $VmName
+    Start-VirtualMachine -VmName $VmName
     Write-Log "Waiting for VM to send heartbeat..."
     Wait-VM -Name $VmName -For Heartbeat
     Write-Log "   heartbeat received. Waiting for VM to send heartbeat again..."

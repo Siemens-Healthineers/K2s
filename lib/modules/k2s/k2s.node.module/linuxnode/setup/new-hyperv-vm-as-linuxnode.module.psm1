@@ -213,21 +213,7 @@ function New-VmFromIso {
     }
 
     Write-Log "Starting VM $VMName"
-    $i = 0;
-    $RetryCount = 3;
-    while ($true) {
-        $i++
-        if ($i -gt $RetryCount) {
-            throw "           Failure starting $VMName VM"
-        }
-        Write-Log "VM Start Handling loop (iteration #$i):"
-        Start-VM -Name $VMName -ErrorAction Continue
-        if ($?) {
-            Write-Log "           Start success $VMName VM"
-            break;
-        }
-        Start-Sleep -s 5
-    }
+    Start-VirtualMachine -VMName $VMName
 
     # Wait for VM
     Write-Log 'Waiting for VM to send heartbeat...'
