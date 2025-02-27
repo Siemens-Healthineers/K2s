@@ -71,7 +71,25 @@ function Start-VirtualMachine {
 
     Write-Log "Starting VM '$VmName' ..."
 
-    Start-VM -Name $VmName -WarningAction SilentlyContinue
+    $maxRetries = 3
+    $retryDelay = 6
+    
+    for ($i = 0; $i -lt $maxRetries; $i++) {
+        try {
+            Start-VM -Name $VmName -ErrorAction Stop
+            Write-Log "VM started successfully"
+            break
+        } catch {
+            $Error.Clear()
+            Write-Log "Error starting VM: $($Error[0].Message)"
+            Start-Sleep -Seconds $retryDelay
+        }
+    }
+    
+    if ($i -eq $maxRetries) {
+        Write-Log "Failed to start VM after $maxRetries retries"
+        throw "Failed to start VM $VmName after $maxRetries retries"
+    }
 
     if ($Wait -eq $true) {
         Wait-ForDesiredVMState -VmName $VmName -State 'running'
