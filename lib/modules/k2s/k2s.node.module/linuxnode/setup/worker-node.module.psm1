@@ -278,18 +278,6 @@ function Add-LinuxWorkerNodeOnUbuntuBareMetal {
         [string] $AdditionalHooksDir = ''
     )
 
-    $nodeParams = @{
-        Name = $NodeName
-        IpAddress = $IpAddress
-        UserName = $UserName
-        Proxy = $Proxy
-        NodeType = 'HOST'
-        Role = 'worker'
-        OS = 'linux'
-        PodCIDR = '' # will be filled during start of node
-    }
-    Add-NodeConfig @nodeParams
-
     Write-Log "Installing node essentials" -Console
 
     Write-Log "Prepare the computer $IpAddress for provisioning"
@@ -317,6 +305,17 @@ function Add-LinuxWorkerNodeOnUbuntuBareMetal {
     Write-Log "Joining new node to the cluster" -Console
     $k8sFormattedNodeName = $NodeName.ToLower()
     Join-LinuxNode -NodeName $k8sFormattedNodeName.ToLower() -NodeUserName $UserName -NodeIpAddress $IpAddress -PreStepHook $doBeforeJoining
+    $nodeParams = @{
+        Name = $NodeName
+        IpAddress = $IpAddress
+        UserName = $UserName
+        Proxy = $Proxy
+        NodeType = 'HOST'
+        Role = 'worker'
+        OS = 'linux'
+        PodCIDR = '' # will be filled during start of node
+    }
+    Add-NodeConfig @nodeParams
 }
 
 function Remove-LinuxWorkerNodeOnUbuntuBareMetal {

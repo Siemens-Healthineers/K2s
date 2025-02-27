@@ -62,8 +62,9 @@ if (![string]::IsNullOrWhiteSpace($NodeName) -and ($NodeName.ToLower() -ne $k8sF
 $NodeName = $actualHostname
 
 # check if the computer is already part of the cluster
-$clusterState = (Invoke-Kubectl -Params @('get', 'nodes', '-o', 'wide')).Output
-if ($clusterState -match $k8sFormattedNodeName) {
+
+$nodefound = (Invoke-Kubectl -Params @('get', 'nodes')).Output | Select-String -Pattern $k8sFormattedNodeName -SimpleMatch
+if ($nodefound) {
     throw "Precondition not met: the node '$k8sFormattedNodeName' is already part of the cluster."
 }
 
