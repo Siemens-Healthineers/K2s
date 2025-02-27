@@ -200,7 +200,8 @@ function New-KubemasterBaseImage {
 
         Connect-VMNetworkAdapter -VmName $vmName -SwitchName $switchName -ErrorAction Stop
 
-        Start-VM -Name $vmName
+        Start-VirtualMachine -VmName $vmName
+
         Write-Log "Waiting for VM to send heartbeat..."
         Wait-VM -Name $vmName -For Heartbeat
         Write-Log "   heartbeat received. Waiting for VM to send heartbeat again..."
