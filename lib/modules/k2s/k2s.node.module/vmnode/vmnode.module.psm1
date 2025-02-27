@@ -71,8 +71,8 @@ function Start-VirtualMachine {
 
     Write-Log "Starting VM '$VmName' ..."
 
-    $maxRetries = 3
-    $retryDelay = 6
+    $maxRetries = 4
+    $retryDelay = 20
     
     for ($i = 0; $i -lt $maxRetries; $i++) {
         try {
@@ -82,6 +82,10 @@ function Start-VirtualMachine {
         } catch {
             $Error.Clear()
             Write-Log "Error starting VM: $($Error[0].Message)"
+            # write to log free RAM memory
+            Write-Log "Free RAM memory: $((Get-WmiObject -Class Win32_OperatingSystem).FreePhysicalMemory)"
+            # write to log standby memory
+            Write-Log "Standby memory: $((Get-WmiObject -Class Win32_OperatingSystem).FreeVirtualMemory)"
             Start-Sleep -Seconds $retryDelay
         }
     }

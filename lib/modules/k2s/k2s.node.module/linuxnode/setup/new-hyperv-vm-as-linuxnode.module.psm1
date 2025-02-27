@@ -213,27 +213,7 @@ function New-VmFromIso {
     }
 
     Write-Log "Starting VM $VMName"
-    $i = 0;
-    $RetryCount = 5;
-    while ($true) {
-        $i++
-        if ($i -gt $RetryCount) {
-            throw "           Failure starting $VMName VM"
-        }
-        Write-Log "VM Start Handling loop (iteration #$i):"
-
-        try {
-            Start-VM -Name $VMName -ErrorAction Stop
-            Write-Log "VM started successfully $VMName VM"
-            break;
-        } catch {
-            $Error.Clear()
-            Write-Log "           failed to start VM, retrying again, Hyper-V not yet ready ..."
-            Write-Log $_
-        }
-
-        Start-Sleep -s 5
-    }
+    Start-VirtualMachine -VMName $VMName
 
     # Wait for VM
     Write-Log 'Waiting for VM to send heartbeat...'
