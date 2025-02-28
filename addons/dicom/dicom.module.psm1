@@ -51,8 +51,7 @@ function Write-UsageForUser {
  eg. k2s addons enable ingress nginx
  Once the ingress controller is running in the cluster, run the command to enable dicom
  k2s addons enable dicom
- The orthanc dicom web ui will be accessible on the following URL: http://k2s.cluster.local/dicom/ui/app/
- Please use https://k2s.cluster.local/dicom/ui/app/ if you have enabled the traefik ingress.
+ The orthanc dicom web ui will be accessible on the following URL: https://k2s.cluster.local/dicom/ui/app/
                                         
  Option 2: Port-forwading
  Use port-forwarding to the orthanc dicom web ui using the command below:
