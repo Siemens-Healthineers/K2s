@@ -17,7 +17,7 @@ data:
     {
       "id": "b48611c1-0108-47be-b4a6-a46384c3e6cc",
       "realm": "demo-app",
-      "displayName": "K2S Demo App",
+      "displayName": "K2s Users",
       "displayNameHtml": "",
       "notBefore": 0,
       "defaultSignatureAlgorithm": "RS256",
@@ -3011,10 +3011,10 @@ spec:
           image: quay.io/keycloak/keycloak:24.0.2
           args:
             - start-dev
-            - '--hostname-strict=false'
-            - '--import-realm'
-            - '--proxy=edge'
-            - '--http-relative-path=keycloak'
+            - "--hostname-strict=false"
+            - "--import-realm"
+            - "--proxy=edge"
+            - "--http-relative-path=keycloak"
           env:
             - name: KEYCLOAK_ADMIN
               value: "admin"

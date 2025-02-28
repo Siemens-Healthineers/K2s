@@ -46,3 +46,12 @@ k2s addons disable viewer
 ```
 
 _Note:_ The above command will only disable viewer addon. If other addons were enabled while enabling the viewer addon, they will not be disabled.
+
+## License Info
+
+By activating this viewer addon you will download at runtime some OHIF components. Even if all is open source, please consider the following license terms for OHIF components: [OHIF License Terms](https://github.com/OHIF/Viewers/blob/master/LICENSE) 
+
+## Further Reading
+
+Internally used open source component:
+- [OHIF](https://ohif.org/)
