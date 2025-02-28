@@ -70,13 +70,15 @@ function Write-KubernetesImagesIntoJson {
         [Parameter(Mandatory = $false)]
         [bool] $WorkerVM = $false
     )
-
+    Write-Log "Writing kubernetes images into json file"
     New-KubernetesImageJsonFileIfNotExists
     $kubernetesImages = @()
     $linuxKubernetesImages = Get-ContainerImagesOnLinuxNode
     $windowsKubernetesImages = $(Get-ContainerImagesOnWindowsNode -IncludeK8sImages $false -WorkerVM $WorkerVM) | Where-Object { $_.Repository -match $windowsPauseImageRepository }
+    Write-Log "Windows kubernetes images retrieved, now sum with linux kubernetes images"
     $kubernetesImages = @($linuxKubernetesImages) + @($windowsKubernetesImages)
     $kubernetesImagesJsonString = $kubernetesImages | ConvertTo-Json -Depth 100
+    Write-Log "Writing kubernetes images into json file"
     $kubernetesImagesJsonString | Set-Content -Path $kubernetesImagesJson
 }
 
@@ -92,10 +94,12 @@ function Get-FilteredImages([ContainerImage[]]$ContainerImages, [ContainerImage[
 }
 
 function Get-ContainerImagesOnLinuxNode([bool]$IncludeK8sImages = $false) {
+    Write-Log "Getting container images on linux node"
     $setupFilePath = Get-SetupConfigFilePath
     $hostname = Get-ConfigValue -Path $setupFilePath -Key 'ControlPlaneNodeHostname'
     $KubernetesImages = Get-KubernetesImagesFromJson
     $linuxContainerImages = @()
+    Write-Log "Invoking command: sudo buildah images"
     $output = (Invoke-CmdOnControlPlaneViaSSHKey 'sudo buildah images').Output
     foreach ($line in $output[1..($output.Count - 1)]) {
         $words = $($line -replace '\s+', ' ').split()
@@ -116,9 +120,11 @@ function Get-ContainerImagesOnLinuxNode([bool]$IncludeK8sImages = $false) {
 }
 
 function Get-ContainerImagesOnWindowsNode([bool]$IncludeK8sImages = $false, [bool]$WorkerVM = $false) {
+    Write-Log "Getting container images on windows node"
     $output = ''
     $node = ''
     if ($WorkerVM) {
+        Write-Log "Invoking command: crictl images"
         $output = Invoke-CmdOnVMWorkerNodeViaSSH -CmdToExecute "crictl images" 2> $null
         $node = Get-ConfigVMNodeHostname
     } else {

@@ -572,7 +572,7 @@ function Add-WindowsWorkerNodeOnNewVM {
 
     Disable-PasswordAuthenticationToWinNode
 
-    Write-Log "Collecting kubernetes images and storing them to $(Get-KubernetesImagesFilePath)."
+    Write-Log "Collecting kubernetes (3) images and storing them to $(Get-KubernetesImagesFilePath)."
     Write-KubernetesImagesIntoJson -WorkerVM $true
 }
 

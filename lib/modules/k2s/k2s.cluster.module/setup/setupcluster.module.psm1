@@ -374,7 +374,7 @@ function Initialize-KubernetesCluster {
     Start-Sleep 2
     &"$kubeToolsPath\kubectl.exe" get nodes -o wide
 
-    Write-Log "Collecting kubernetes images and storing them to $kubernetesImagesJson."
+    Write-Log "Collecting kubernetes (1) images and storing them to $kubernetesImagesJson."
     Write-KubernetesImagesIntoJson
 }
 
@@ -442,7 +442,7 @@ function Initialize-VMKubernetesCluster {
 
     Disable-PasswordAuthenticationToWinNode
 
-    Write-Log "Collecting kubernetes images and storing them to $(Get-KubernetesImagesFilePath)."
+    Write-Log "Collecting kubernetes (2) images and storing them to $(Get-KubernetesImagesFilePath)."
     Write-KubernetesImagesIntoJson -WorkerVM $true
 }
 
