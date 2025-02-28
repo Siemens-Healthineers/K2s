@@ -36,7 +36,7 @@ function Write-ViewerUsageForUser {
  k2s addons enable viewer
  the viewer will be accessible on the following URL: https://k2s.cluster.local/viewer/
 
- Option 2: Port-forwarding (because of the CORS policy, it works only with the default nodes from AWS, not with the DICOM addon)
+ Option 2: Port-forwarding
  Use port-forwarding to the viewer using the command below:
  kubectl -n viewer port-forward svc/viewerwebapp 8443:80
 
