@@ -65,7 +65,7 @@ This function is used to collect the kubernetes images present on the nodes.
 !!! CAUTION !!! This function must be called only during installation. Otherwise, user's images will also be written into the json file.
 User will see an incorrect output on listing images.
 #>
-function Write-KubernetesImagesIntoJson {
+function Write-KubernetesImagesIntoJsonFile {
     param (
         [Parameter(Mandatory = $false)]
         [bool] $WorkerVM = $false
@@ -73,7 +73,9 @@ function Write-KubernetesImagesIntoJson {
     Write-Log "Writing kubernetes images into json file"
     New-KubernetesImageJsonFileIfNotExists
     $kubernetesImages = @()
+    Write-Log "Getting linux kubernetes images"
     $linuxKubernetesImages = Get-ContainerImagesOnLinuxNode
+    Write-Log "Getting windows kubernetes images"
     $windowsKubernetesImages = $(Get-ContainerImagesOnWindowsNode -IncludeK8sImages $false -WorkerVM $WorkerVM) | Where-Object { $_.Repository -match $windowsPauseImageRepository }
     Write-Log "Windows kubernetes images retrieved, now sum with linux kubernetes images"
     $kubernetesImages = @($linuxKubernetesImages) + @($windowsKubernetesImages)
@@ -585,7 +587,7 @@ Remove-PushedImage,
 Show-ImageDeletionStatus,
 Get-ContainerImagesOnLinuxNode,
 Get-ContainerImagesOnWindowsNode,
-Write-KubernetesImagesIntoJson,
+Write-KubernetesImagesIntoJsonFile,
 Get-BuildArgs,
 Get-DockerfileAbsolutePathAndPreCompileFlag,
 New-WindowsImage,

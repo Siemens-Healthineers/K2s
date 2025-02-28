@@ -375,7 +375,7 @@ function Initialize-KubernetesCluster {
     &"$kubeToolsPath\kubectl.exe" get nodes -o wide
 
     Write-Log "Collecting kubernetes (1) images and storing them to $kubernetesImagesJson."
-    Write-KubernetesImagesIntoJson
+    Write-KubernetesImagesIntoJsonFile
 }
 
 function Uninstall-Cluster {
@@ -443,7 +443,7 @@ function Initialize-VMKubernetesCluster {
     Disable-PasswordAuthenticationToWinNode
 
     Write-Log "Collecting kubernetes (2) images and storing them to $(Get-KubernetesImagesFilePath)."
-    Write-KubernetesImagesIntoJson -WorkerVM $true
+    Write-KubernetesImagesIntoJsonFile -WorkerVM $true
 }
 
 function Install-KubectlOnHost($KubernetesVersion, $Proxy) {
