@@ -36,7 +36,7 @@ if ($systemError) {
     exit 1
 }
 
-$allContainerImages = Get-ContainerImagesInk2s -IncludeK8sImages $false
+$allContainerImages = Get-ContainerImagesInk2sHelper -IncludeK8sImages $false
 $deletedImages = @()
 
 if ($allContainerImages.Count -eq 0) {
@@ -53,11 +53,11 @@ if ($allContainerImages.Count -eq 0) {
 foreach ($containerImage in $allContainerImages) {
     $alreadyDeleted = $deletedImages | Where-Object { $containerImage.ImageId -eq $_ }
     if ($alreadyDeleted.Count -eq 0) {
-        $errorString = Remove-Image -ContainerImage $containerImage
+        $errorString = Remove-ImageHelper -ContainerImage $containerImage
         if ($null -eq $errorString) {
             $deletedImages += $imageToBeDeleted.ImageId
         }
-        Show-ImageDeletionStatus -ContainerImage $containerImage -ErrorMessage $errorString
+        Show-ImageDeletionStatusHelper -ContainerImage $containerImage -ErrorMessage $errorString
     }
     else {
         $image = $containerImage.Repository + ':' + $containerImage.Tag

@@ -48,7 +48,7 @@ if ($systemError) {
     exit 1
 }
 
-$linuxContainerImages = Get-ContainerImagesOnLinuxNode -IncludeK8sImages $true
+$linuxContainerImages = Get-ContainerImagesOnLinuxNodeHelper -IncludeK8sImages $true
 $foundLinuxImages = @()
 if ($Id -ne '') {
     $foundLinuxImages = @($linuxContainerImages | Where-Object { $_.ImageId -eq $Id })
@@ -65,7 +65,7 @@ else {
     }
 }
 
-$windowsContainerImages = Get-ContainerImagesOnWindowsNode -IncludeK8sImages $true
+$windowsContainerImages = Get-ContainerImagesOnWindowsNodeHelper -IncludeK8sImages $true
 $foundWindowsImages = @()
 if ($Id -ne '') {
     $foundWindowsImages = @($windowsContainerImages | Where-Object { $_.ImageId -eq $Id })

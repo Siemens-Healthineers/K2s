@@ -49,7 +49,7 @@ function Create-KubernetesImageJsonFileIfNotExists() {
     }
 }
 
-function Get-KubernetesImagesFromJson() {
+function Get-KubernetesImagesFromJsonHelper() {
     Create-KubernetesImageJsonFileIfNotExists
     $kubernetesImages = @(Get-Content -Path $global:KubernetesImagesJson -Raw | ConvertFrom-Json)
     return $kubernetesImages
@@ -61,11 +61,11 @@ This function is used to collect the kubernetes images present on the nodes.
 !!! CAUTION !!! This function must be called only during installation. Otherwise, user's images will also be written into the json file.
 User will see an incorrect output on listing images.
 #>
-function Write-KubernetesImagesIntoJson() {
+function Write-KubernetesImagesIntoJsonHelper() {
     Create-KubernetesImageJsonFileIfNotExists
     $kubernetesImages = @()
-    $linuxKubernetesImages = Get-ContainerImagesOnLinuxNode
-    $windowsKubernetesImages = $(Get-ContainerImagesOnWindowsNode) | Where-Object { $_.Repository -match $windowsPauseImageRepository }
+    $linuxKubernetesImages = Get-ContainerImagesOnLinuxNodeHelper
+    $windowsKubernetesImages = $(Get-ContainerImagesOnWindowsNodeHelper) | Where-Object { $_.Repository -match $windowsPauseImageRepository }
     $kubernetesImages = @($linuxKubernetesImages) + @($windowsKubernetesImages)
     $kubernetesImagesJsonString = $kubernetesImages | ConvertTo-Json -Depth 100
     $kubernetesImagesJsonString | Set-Content -Path $global:KubernetesImagesJson
@@ -83,9 +83,9 @@ function Filter-Images([ContainerImage[]]$ContainerImages, [ContainerImage[]]$Co
     return $filteredImages
 }
 
-function Get-ContainerImagesOnLinuxNode([bool]$IncludeK8sImages = $false) {
+function Get-ContainerImagesOnLinuxNodeHelper([bool]$IncludeK8sImages = $false) {
     $hostname = Get-ControlPlaneNodeHostname
-    $KubernetesImages = Get-KubernetesImagesFromJson
+    $KubernetesImages = Get-KubernetesImagesFromJsonHelper
     $linuxContainerImages = @()
     $output = ExecCmdMaster 'sudo buildah images' -NoLog
     foreach ($line in $output[1..($output.Count - 1)]) {
@@ -106,9 +106,9 @@ function Get-ContainerImagesOnLinuxNode([bool]$IncludeK8sImages = $false) {
     return $linuxContainerImages
 }
 
-function Get-ContainerImagesOnWindowsNode([bool]$IncludeK8sImages = $false) {
+function Get-ContainerImagesOnWindowsNodeHelper([bool]$IncludeK8sImages = $false) {
     $setupInfo = Get-SetupInfo
-    $KubernetesImages = Get-KubernetesImagesFromJson
+    $KubernetesImages = Get-KubernetesImagesFromJsonHelper
     if ($setupInfo.Name -ne "$global:SetupType_MultiVMK8s") {
         $output = &$global:BinPath\crictl images 2> $null
         $node = $env:ComputerName.ToLower()
@@ -139,7 +139,7 @@ function Get-ContainerImagesOnWindowsNode([bool]$IncludeK8sImages = $false) {
     return $windowsContainerImages
 }
 
-function Get-PushedContainerImages() {
+function Get-PushedContainerImagesHelper() {
     if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'registry' })) -eq $false) {
         return
     }
@@ -172,7 +172,7 @@ function Get-PushedContainerImages() {
     return $pushedContainerImages
 }
 
-function Remove-Image([ContainerImage]$ContainerImage) {
+function Remove-ImageHelper([ContainerImage]$ContainerImage) {
     $output = ''
     if ($containerImage.Node -eq $env:ComputerName.ToLower()) {
         $output = $(&$global:BinPath\crictl rmi $containerImage.ImageId 2>&1)
@@ -190,7 +190,7 @@ function Remove-Image([ContainerImage]$ContainerImage) {
     return $errorString
 }
 
-function Remove-PushedImage($name, $tag) {
+function Remove-PushedImageHelper($name, $tag) {
     $registryName = $(Get-RegistriesFromSetupJson) | Where-Object { $_ -match 'k2s-registry.*' }
     $auth = Get-RegistryAuthToken $registryName
     if (!$auth) {
@@ -259,9 +259,9 @@ function Get-RegistryAuthToken($registryName) {
     return $auth
 }
 
-function Get-ContainerImagesInk2s([bool]$IncludeK8sImages = $false) {
-    $linuxContainerImages = Get-ContainerImagesOnLinuxNode -IncludeK8sImages $IncludeK8sImages
-    $windowsContainerImages = Get-ContainerImagesOnWindowsNode -IncludeK8sImages $IncludeK8sImages
+function Get-ContainerImagesInk2sHelper([bool]$IncludeK8sImages = $false) {
+    $linuxContainerImages = Get-ContainerImagesOnLinuxNodeHelper -IncludeK8sImages $IncludeK8sImages
+    $windowsContainerImages = Get-ContainerImagesOnWindowsNodeHelper -IncludeK8sImages $IncludeK8sImages
     $allContainerImages = @($linuxContainerImages) + @($windowsContainerImages)
     return $allContainerImages
 }
@@ -281,7 +281,7 @@ function Get-ErrorMessageIfImageDeletionFailed([string]$Output) {
     }
 }
 
-function Show-ImageDeletionStatus([ContainerImage]$ContainerImage, [string]$ErrorMessage) {
+function Show-ImageDeletionStatusHelper([ContainerImage]$ContainerImage, [string]$ErrorMessage) {
     $imageName = $ContainerImage.Repository + ':' + $ContainerImage.Tag
     $node = $ContainerImage.Node
     if ([string]::IsNullOrWhiteSpace($ErrorMessage)) {
@@ -292,11 +292,11 @@ function Show-ImageDeletionStatus([ContainerImage]$ContainerImage, [string]$Erro
     }
 }
 
-Export-ModuleMember -Function Get-ContainerImagesInk2s,
-Remove-Image,
-Get-PushedContainerImages,
-Remove-PushedImage,
-Show-ImageDeletionStatus,
-Get-ContainerImagesOnLinuxNode,
-Get-ContainerImagesOnWindowsNode,
-Write-KubernetesImagesIntoJson
+Export-ModuleMember -Function Get-ContainerImagesInk2sHelper,
+Remove-ImageHelper,
+Get-PushedContainerImagesHelper,
+Remove-PushedImageHelper,
+Show-ImageDeletionStatusHelper,
+Get-ContainerImagesOnLinuxNodeHelper,
+Get-ContainerImagesOnWindowsNodeHelper,
+Write-KubernetesImagesIntoJsonHelper

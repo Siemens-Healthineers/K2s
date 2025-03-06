@@ -55,7 +55,7 @@ if ($FromRegistry) {
         exit 1
     }
 
-    $pushedimages = Get-PushedContainerImages
+    $pushedimages = Get-PushedContainerImagesHelper
     if ($ImageName -eq '') {
         $errMsg = 'ImageName incl. Tag is needed to remove image from registry. Cannot remove image.'
         if ($EncodeStructuredOutput -eq $true) {
@@ -69,7 +69,7 @@ if ($FromRegistry) {
 
     foreach ($image in $pushedimages ) {
         if ($($image.Name + ':' + $image.Tag) -eq $ImageName) {
-            Remove-PushedImage $image.Name $image.Tag
+            Remove-PushedImageHelper $image.Name $image.Tag
 
             if ($EncodeStructuredOutput -eq $true) {
                 Send-ToCli -MessageType $MessageType -Message @{Error = $null }
@@ -88,7 +88,7 @@ if ($FromRegistry) {
     exit 1
 }
 
-$allContainerImages = Get-ContainerImagesInk2s -IncludeK8sImages $false
+$allContainerImages = Get-ContainerImagesInk2sHelper -IncludeK8sImages $false
 $foundImages = @()
 if ($ImageId -ne '') {
     $foundImages = @($allContainerImages | Where-Object { $_.ImageId -eq $ImageId })
@@ -126,11 +126,11 @@ $deletedImages = @()
 foreach ($imageToBeDeleted in $foundImages) {
     $alreadyDeleted = $deletedImages | Where-Object { $imageToBeDeleted.ImageId -eq $_ }
     if ($alreadyDeleted.Count -eq 0) {
-        $errorString = Remove-Image -ContainerImage $imageToBeDeleted
+        $errorString = Remove-ImageHelper -ContainerImage $imageToBeDeleted
         if ($null -eq $errorString) {
             $deletedImages += $imageToBeDeleted.ImageId
         }
-        Show-ImageDeletionStatus -ContainerImage $imageToBeDeleted -ErrorMessage $errorString
+        Show-ImageDeletionStatusHelper -ContainerImage $imageToBeDeleted -ErrorMessage $errorString
     }
     else {
         $image = $imageToBeDeleted.Repository + ':' + $imageToBeDeleted.Tag
