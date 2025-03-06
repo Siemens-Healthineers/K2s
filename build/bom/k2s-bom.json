@@ -66,9 +66,9 @@
     },
     {
       "type": "application",
-      "group": "https://dl.k8s.io/v1.31.3/bin/windows/amd64/kubelet.exe",
+      "group": "https://dl.k8s.io/v1.32.2/bin/windows/amd64/kubelet.exe",
       "name": "kubelet",
-      "version": "v1.31.3",
+      "version": "v1.32.2",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -79,7 +79,7 @@
           }
         }
       ],
-      "purl": "pkg:github/kubernetes/kubelet@v1.31.3",
+      "purl": "pkg:github/kubernetes/kubelet@v1.32.2",
       "properties": [
         {
           "name": "sw360:projectName",
@@ -89,9 +89,9 @@
     },
     {
       "type": "application",
-      "group": "https://dl.k8s.io/v1.31.3/bin/windows/amd64/kubeadm.exe",
+      "group": "https://dl.k8s.io/v1.32.2/bin/windows/amd64/kubeadm.exe",
       "name": "kubeadm",
-      "version": "v1.31.3",
+      "version": "v1.32.2",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -102,7 +102,7 @@
           }
         }
       ],
-      "purl": "pkg:github/kubernetes/kubeadm@v1.31.3",
+      "purl": "pkg:github/kubernetes/kubeadm@v1.32.2",
       "properties": [
         {
           "name": "sw360:projectName",
@@ -112,9 +112,9 @@
     },
     {
       "type": "application",
-      "group": "https://dl.k8s.io/v1.31.3/bin/windows/amd64/kube-proxy.exe",
+      "group": "https://dl.k8s.io/v1.32.2/bin/windows/amd64/kube-proxy.exe",
       "name": "kube-proxy",
-      "version": "v1.31.3",
+      "version": "v1.32.2",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -125,7 +125,7 @@
           }
         }
       ],
-      "purl": "pkg:github/kubernetes/kube-proxy@v1.31.3",
+      "purl": "pkg:github/kubernetes/kube-proxy@v1.32.2",
       "properties": [
         {
           "name": "sw360:projectName",
@@ -135,9 +135,9 @@
     },
     {
       "type": "application",
-      "group": "https://dl.k8s.io/v1.31.3/bin/windows/amd64/kubectl.exe",
+      "group": "https://dl.k8s.io/v1.32.2/bin/windows/amd64/kubectl.exe",
       "name": "kubectl",
-      "version": "v1.31.3",
+      "version": "v1.32.2",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -148,7 +148,7 @@
           }
         }
       ],
-      "purl": "pkg:github/kubernetes/kubectl@v1.31.3",
+      "purl": "pkg:github/kubernetes/kubectl@v1.32.2",
       "properties": [
         {
           "name": "sw360:projectName",
@@ -29397,7 +29397,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -29433,7 +29433,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -29497,7 +29497,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -29529,7 +29529,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -29565,7 +29565,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -29585,7 +29585,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -29605,7 +29605,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -29625,7 +29625,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -29645,7 +29645,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -29665,7 +29665,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -29685,7 +29685,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -29705,7 +29705,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -29725,7 +29725,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -29745,7 +29745,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -29765,7 +29765,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -29785,7 +29785,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -29805,7 +29805,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -29825,7 +29825,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -29845,7 +29845,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -29865,7 +29865,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -29885,7 +29885,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -29905,7 +29905,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -29925,7 +29925,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -29945,7 +29945,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -29965,7 +29965,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -29985,7 +29985,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -30005,7 +30005,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -30025,7 +30025,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -30045,7 +30045,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -30065,7 +30065,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -30085,7 +30085,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -30105,7 +30105,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -30125,7 +30125,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -30145,7 +30145,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -30165,7 +30165,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -30185,7 +30185,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -30205,7 +30205,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -30225,7 +30225,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -30245,7 +30245,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -30265,7 +30265,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -30285,7 +30285,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -30305,7 +30305,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -30325,7 +30325,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -30345,7 +30345,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -30365,7 +30365,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -30385,7 +30385,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -30405,7 +30405,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -30425,7 +30425,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -30445,7 +30445,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -30465,7 +30465,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -30485,7 +30485,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -30505,7 +30505,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -30525,7 +30525,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -30545,7 +30545,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -30565,7 +30565,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -30585,7 +30585,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -30605,7 +30605,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -30625,7 +30625,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -30645,7 +30645,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -30665,7 +30665,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -30685,7 +30685,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -30705,7 +30705,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -30725,7 +30725,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -30745,7 +30745,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -30765,7 +30765,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -30785,7 +30785,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -30805,7 +30805,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -30825,7 +30825,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -30845,7 +30845,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -30865,7 +30865,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -30885,7 +30885,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -30905,7 +30905,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -30925,7 +30925,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -30945,7 +30945,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -30965,7 +30965,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -30985,7 +30985,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -31005,7 +31005,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -31025,7 +31025,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -31045,7 +31045,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -31065,7 +31065,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -31085,7 +31085,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -31105,7 +31105,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -31125,7 +31125,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -31145,7 +31145,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -31165,7 +31165,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -31185,7 +31185,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -31205,7 +31205,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -31225,7 +31225,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -31245,7 +31245,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -31265,7 +31265,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -31285,7 +31285,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -31305,7 +31305,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -31325,7 +31325,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -31345,7 +31345,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -31365,7 +31365,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -31385,7 +31385,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -31405,7 +31405,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -31425,7 +31425,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -31445,7 +31445,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -31465,7 +31465,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -31485,7 +31485,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -31505,7 +31505,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -31525,7 +31525,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -31545,7 +31545,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -31565,7 +31565,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -31585,7 +31585,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -31605,7 +31605,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -31625,7 +31625,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -31645,7 +31645,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -31665,7 +31665,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -31685,7 +31685,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -31705,7 +31705,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -31725,7 +31725,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -31745,7 +31745,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -31765,7 +31765,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -31785,7 +31785,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -31805,7 +31805,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -31825,7 +31825,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -31845,7 +31845,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -31865,7 +31865,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -31885,7 +31885,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -31905,7 +31905,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -31925,7 +31925,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -31945,7 +31945,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -31965,7 +31965,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -31985,7 +31985,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -32005,7 +32005,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -32025,7 +32025,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -32045,7 +32045,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -32065,7 +32065,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -32085,7 +32085,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -32105,7 +32105,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -32125,7 +32125,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -32145,7 +32145,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -32165,7 +32165,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -32185,7 +32185,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -32205,7 +32205,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -32225,7 +32225,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -32245,7 +32245,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -32265,7 +32265,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -32285,7 +32285,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -32305,7 +32305,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -32325,7 +32325,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -32345,7 +32345,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -32365,7 +32365,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -32385,7 +32385,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -32405,7 +32405,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -32425,7 +32425,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -32445,7 +32445,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -32465,7 +32465,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-controller-manager:v1.32.2"
         }
       ]
     },
@@ -140070,7 +140070,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -140106,7 +140106,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -140170,7 +140170,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -140202,7 +140202,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -140238,7 +140238,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -140258,7 +140258,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -140278,7 +140278,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -140298,7 +140298,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -140318,7 +140318,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -140338,7 +140338,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -140358,7 +140358,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -140378,7 +140378,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -140398,7 +140398,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -140418,7 +140418,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -140438,7 +140438,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -140458,7 +140458,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -140478,7 +140478,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -140498,7 +140498,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -140518,7 +140518,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -140538,7 +140538,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -140558,7 +140558,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -140578,7 +140578,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -140598,7 +140598,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -140618,7 +140618,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -140638,7 +140638,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -140658,7 +140658,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -140678,7 +140678,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -140698,7 +140698,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -140718,7 +140718,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -140738,7 +140738,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -140758,7 +140758,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -140778,7 +140778,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -140798,7 +140798,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -140818,7 +140818,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -140838,7 +140838,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -140858,7 +140858,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -140878,7 +140878,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -140898,7 +140898,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -140918,7 +140918,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -140938,7 +140938,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -140958,7 +140958,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -140978,7 +140978,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -140998,7 +140998,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -141018,7 +141018,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -141038,7 +141038,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -141058,7 +141058,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -141078,7 +141078,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -141098,7 +141098,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -141118,7 +141118,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -141138,7 +141138,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -141158,7 +141158,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -141178,7 +141178,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -141198,7 +141198,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -141218,7 +141218,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -141238,7 +141238,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -141258,7 +141258,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -141278,7 +141278,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -141298,7 +141298,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -141318,7 +141318,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -141338,7 +141338,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -141358,7 +141358,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -141378,7 +141378,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -141398,7 +141398,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -141418,7 +141418,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -141438,7 +141438,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -141458,7 +141458,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -141478,7 +141478,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -141498,7 +141498,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -141518,7 +141518,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -141538,7 +141538,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -141558,7 +141558,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -141578,7 +141578,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -141598,7 +141598,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -141618,7 +141618,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -141638,7 +141638,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -141658,7 +141658,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -141678,7 +141678,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -141698,7 +141698,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -141718,7 +141718,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -141738,7 +141738,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -141758,7 +141758,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -141778,7 +141778,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -141798,7 +141798,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -141818,7 +141818,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -141838,7 +141838,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -141858,7 +141858,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -141878,7 +141878,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -141898,7 +141898,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -141918,7 +141918,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -141938,7 +141938,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -141958,7 +141958,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -141978,7 +141978,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -141998,7 +141998,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -142018,7 +142018,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -142038,7 +142038,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -142058,7 +142058,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -142078,7 +142078,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -142098,7 +142098,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -142118,7 +142118,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -142138,7 +142138,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -142158,7 +142158,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -142178,7 +142178,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -142198,7 +142198,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -142218,7 +142218,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -142238,7 +142238,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -142258,7 +142258,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -142278,7 +142278,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -142298,7 +142298,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -142318,7 +142318,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -142338,7 +142338,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -142358,7 +142358,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -142378,7 +142378,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -142398,7 +142398,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -142418,7 +142418,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -142438,7 +142438,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -142458,7 +142458,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -142478,7 +142478,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -142498,7 +142498,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -142518,7 +142518,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -142538,7 +142538,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -142558,7 +142558,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -142578,7 +142578,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-apiserver:v1.32.2"
         }
       ]
     },
@@ -142864,7 +142864,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -142884,7 +142884,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -142932,7 +142932,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -142964,7 +142964,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -143000,7 +143000,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -143020,7 +143020,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -143040,7 +143040,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -143060,7 +143060,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -143080,7 +143080,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -143100,7 +143100,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -143120,7 +143120,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -143140,7 +143140,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -143160,7 +143160,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -143180,7 +143180,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -143200,7 +143200,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -143220,7 +143220,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -143240,7 +143240,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -143260,7 +143260,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -143280,7 +143280,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -143300,7 +143300,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -143320,7 +143320,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -143340,7 +143340,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -143360,7 +143360,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -143380,7 +143380,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -143400,7 +143400,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -143420,7 +143420,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -143440,7 +143440,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -143460,7 +143460,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -143480,7 +143480,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -143500,7 +143500,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -143520,7 +143520,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -143540,7 +143540,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -143560,7 +143560,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -143580,7 +143580,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -143600,7 +143600,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -143620,7 +143620,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -143640,7 +143640,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -143660,7 +143660,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -143680,7 +143680,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -143700,7 +143700,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -143720,7 +143720,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -143740,7 +143740,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -143760,7 +143760,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -143780,7 +143780,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -143800,7 +143800,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -143820,7 +143820,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -143840,7 +143840,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -143860,7 +143860,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -143880,7 +143880,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -143900,7 +143900,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -143920,7 +143920,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -143940,7 +143940,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -143960,7 +143960,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -143980,7 +143980,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -144000,7 +144000,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -144020,7 +144020,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -144040,7 +144040,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -144060,7 +144060,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -144080,7 +144080,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -144100,7 +144100,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -144120,7 +144120,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -144140,7 +144140,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -144160,7 +144160,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -144180,7 +144180,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -144200,7 +144200,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -144220,7 +144220,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -144240,7 +144240,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -144260,7 +144260,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -144280,7 +144280,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -144300,7 +144300,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -144320,7 +144320,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -144340,7 +144340,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -144360,7 +144360,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -144380,7 +144380,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -144400,7 +144400,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -144420,7 +144420,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -144440,7 +144440,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -144460,7 +144460,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -144480,7 +144480,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -144500,7 +144500,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -144520,7 +144520,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -144540,7 +144540,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -144560,7 +144560,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -144580,7 +144580,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -144600,7 +144600,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -144620,7 +144620,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -144640,7 +144640,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -144660,7 +144660,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -144680,7 +144680,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -144700,7 +144700,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -144720,7 +144720,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -144740,7 +144740,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -144760,7 +144760,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -144780,7 +144780,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -144800,7 +144800,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -144820,7 +144820,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -144840,7 +144840,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -144860,7 +144860,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -144880,7 +144880,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -144900,7 +144900,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -144920,7 +144920,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -144940,7 +144940,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -144960,7 +144960,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -144980,7 +144980,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -145000,7 +145000,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -145020,7 +145020,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -145040,7 +145040,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -145060,7 +145060,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -145080,7 +145080,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -145100,7 +145100,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -145120,7 +145120,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -145140,7 +145140,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -145160,7 +145160,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-scheduler:v1.32.2"
         }
       ]
     },
@@ -174809,7 +174809,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -174829,7 +174829,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -174893,7 +174893,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -174933,7 +174933,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -174969,7 +174969,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -175005,7 +175005,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -175041,7 +175041,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -175077,7 +175077,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -175113,7 +175113,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -175149,7 +175149,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -175185,7 +175185,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -175221,7 +175221,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -175261,7 +175261,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -175297,7 +175297,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -175333,7 +175333,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -175369,7 +175369,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -175405,7 +175405,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -175441,7 +175441,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -175477,7 +175477,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -175513,7 +175513,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -175549,7 +175549,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -175585,7 +175585,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -175621,7 +175621,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -175657,7 +175657,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -175693,7 +175693,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -175729,7 +175729,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -175765,7 +175765,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -175801,7 +175801,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -175833,7 +175833,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -175869,7 +175869,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -175905,7 +175905,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -175925,7 +175925,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -175945,7 +175945,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -175965,7 +175965,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -175985,7 +175985,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -176005,7 +176005,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -176025,7 +176025,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -176045,7 +176045,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -176065,7 +176065,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -176085,7 +176085,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -176105,7 +176105,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -176125,7 +176125,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -176145,7 +176145,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -176165,7 +176165,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -176185,7 +176185,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -176205,7 +176205,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -176225,7 +176225,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -176245,7 +176245,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -176265,7 +176265,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -176285,7 +176285,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -176305,7 +176305,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -176325,7 +176325,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -176345,7 +176345,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -176365,7 +176365,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -176385,7 +176385,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -176405,7 +176405,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -176425,7 +176425,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -176445,7 +176445,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -176465,7 +176465,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -176485,7 +176485,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -176505,7 +176505,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -176525,7 +176525,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -176545,7 +176545,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -176565,7 +176565,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -176585,7 +176585,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -176605,7 +176605,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -176625,7 +176625,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -176645,7 +176645,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -176665,7 +176665,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -176685,7 +176685,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -176705,7 +176705,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -176725,7 +176725,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -176745,7 +176745,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -176765,7 +176765,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -176785,7 +176785,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -176805,7 +176805,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -176825,7 +176825,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -176845,7 +176845,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -176865,7 +176865,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -176885,7 +176885,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -176905,7 +176905,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -176925,7 +176925,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -176945,7 +176945,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -176965,7 +176965,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -176985,7 +176985,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -177005,7 +177005,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -177025,7 +177025,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -177045,7 +177045,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -177065,7 +177065,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -177085,7 +177085,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -177105,7 +177105,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -177125,7 +177125,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -177145,7 +177145,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -177165,7 +177165,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -177185,7 +177185,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -177205,7 +177205,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -177225,7 +177225,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -177245,7 +177245,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -177265,7 +177265,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -177285,7 +177285,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -177305,7 +177305,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -177325,7 +177325,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -177345,7 +177345,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -177365,7 +177365,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -177385,7 +177385,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -177405,7 +177405,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -177425,7 +177425,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -177445,7 +177445,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -177465,7 +177465,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -177485,7 +177485,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -177505,7 +177505,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -177525,7 +177525,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -177545,7 +177545,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -177565,7 +177565,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -177585,7 +177585,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -177605,7 +177605,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -177625,7 +177625,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -177645,7 +177645,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -177665,7 +177665,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -177685,7 +177685,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -177705,7 +177705,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -177725,7 +177725,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -177745,7 +177745,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -177765,7 +177765,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -177785,7 +177785,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -177805,7 +177805,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -177825,7 +177825,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -177845,7 +177845,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -177865,7 +177865,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -177885,7 +177885,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -177905,7 +177905,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -177925,7 +177925,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -177945,7 +177945,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -177965,7 +177965,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -177985,7 +177985,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -178005,7 +178005,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -178025,7 +178025,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -178045,7 +178045,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -178065,7 +178065,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -178085,7 +178085,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -178105,7 +178105,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -178125,7 +178125,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -178145,7 +178145,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -178165,7 +178165,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -178185,7 +178185,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -178205,7 +178205,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -178225,7 +178225,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -178245,7 +178245,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.31.3"
+          "value": "k2s:core:pkg:container:registry.k8s.io-kube-proxy:v1.32.2"
         }
       ]
     },
@@ -259964,13 +259964,13 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:deb/debian/cri-o@1.31.3-1.1?arch=amd64\u0026distro=debian-11.11",
+      "bom-ref": "pkg:deb/debian/cri-o@1.32.2-1.1?arch=amd64\u0026distro=debian-11.11",
       "name": "cri-o",
-      "purl": "pkg:deb/debian/cri-o@1.31.3-1.1?arch=amd64\u0026distro=debian-11.11",
+      "purl": "pkg:deb/debian/cri-o@1.32.2-1.1?arch=amd64\u0026distro=debian-11.11",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgID",
-          "value": "cri-o@1.31.3-1.1"
+          "value": "cri-o@1.32.2-1.1"
         },
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -259986,7 +259986,7 @@
         },
         {
           "name": "aquasecurity:trivy:SrcVersion",
-          "value": "1.31.3"
+          "value": "1.32.2"
         },
         {
           "name": "sw360:projectName",
@@ -262108,13 +262108,13 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:deb/debian/kubeadm@1.31.3-1.1?arch=amd64\u0026distro=debian-11.11",
+      "bom-ref": "pkg:deb/debian/kubeadm@1.32.2-1.1?arch=amd64\u0026distro=debian-11.11",
       "name": "kubeadm",
-      "purl": "pkg:deb/debian/kubeadm@1.31.3-1.1?arch=amd64\u0026distro=debian-11.11",
+      "purl": "pkg:deb/debian/kubeadm@1.32.2-1.1?arch=amd64\u0026distro=debian-11.11",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgID",
-          "value": "kubeadm@1.31.3-1.1"
+          "value": "kubeadm@1.32.2-1.1"
         },
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -262130,7 +262130,7 @@
         },
         {
           "name": "aquasecurity:trivy:SrcVersion",
-          "value": "1.31.3"
+          "value": "1.32.2"
         },
         {
           "name": "sw360:projectName",
@@ -262140,13 +262140,13 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:deb/debian/kubectl@1.31.3-1.1?arch=amd64\u0026distro=debian-11.11",
+      "bom-ref": "pkg:deb/debian/kubectl@1.32.2-1.1?arch=amd64\u0026distro=debian-11.11",
       "name": "kubectl",
-      "purl": "pkg:deb/debian/kubectl@1.31.3-1.1?arch=amd64\u0026distro=debian-11.11",
+      "purl": "pkg:deb/debian/kubectl@1.32.2-1.1?arch=amd64\u0026distro=debian-11.11",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgID",
-          "value": "kubectl@1.31.3-1.1"
+          "value": "kubectl@1.32.2-1.1"
         },
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -262162,7 +262162,7 @@
         },
         {
           "name": "aquasecurity:trivy:SrcVersion",
-          "value": "1.31.3"
+          "value": "1.32.2"
         },
         {
           "name": "sw360:projectName",
@@ -262172,13 +262172,13 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:deb/debian/kubelet@1.31.3-1.1?arch=amd64\u0026distro=debian-11.11",
+      "bom-ref": "pkg:deb/debian/kubelet@1.32.2-1.1?arch=amd64\u0026distro=debian-11.11",
       "name": "kubelet",
-      "purl": "pkg:deb/debian/kubelet@1.31.3-1.1?arch=amd64\u0026distro=debian-11.11",
+      "purl": "pkg:deb/debian/kubelet@1.32.2-1.1?arch=amd64\u0026distro=debian-11.11",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgID",
-          "value": "kubelet@1.31.3-1.1"
+          "value": "kubelet@1.32.2-1.1"
         },
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -262194,7 +262194,7 @@
         },
         {
           "name": "aquasecurity:trivy:SrcVersion",
-          "value": "1.31.3"
+          "value": "1.32.2"
         },
         {
           "name": "sw360:projectName",
@@ -340560,7 +340560,7 @@
         "pkg:deb/debian/conntrack@1.4.6-2?arch=amd64\u0026distro=debian-11.11\u0026epoch=1",
         "pkg:deb/debian/coreutils@8.32-4%2Bb1?arch=amd64\u0026distro=debian-11.11",
         "pkg:deb/debian/cpio@2.13%2Bdfsg-7.1~deb11u1?arch=amd64\u0026distro=debian-11.11",
-        "pkg:deb/debian/cri-o@1.31.3-1.1?arch=amd64\u0026distro=debian-11.11",
+        "pkg:deb/debian/cri-o@1.32.2-1.1?arch=amd64\u0026distro=debian-11.11",
         "pkg:deb/debian/cri-tools@1.31.1-1.1?arch=amd64\u0026distro=debian-11.11",
         "pkg:deb/debian/cron@3.0pl1-137?arch=amd64\u0026distro=debian-11.11",
         "pkg:deb/debian/crun@0.17%2Bdfsg-1%2Bdeb11u2?arch=amd64\u0026distro=debian-11.11",
@@ -340628,9 +340628,9 @@
         "pkg:deb/debian/iso-codes@4.6.0-1?arch=all\u0026distro=debian-11.11",
         "pkg:deb/debian/klibc-utils@2.0.8-6.1?arch=amd64\u0026distro=debian-11.11",
         "pkg:deb/debian/kmod@28-1?arch=amd64\u0026distro=debian-11.11",
-        "pkg:deb/debian/kubeadm@1.31.3-1.1?arch=amd64\u0026distro=debian-11.11",
-        "pkg:deb/debian/kubectl@1.31.3-1.1?arch=amd64\u0026distro=debian-11.11",
-        "pkg:deb/debian/kubelet@1.31.3-1.1?arch=amd64\u0026distro=debian-11.11",
+        "pkg:deb/debian/kubeadm@1.32.2-1.1?arch=amd64\u0026distro=debian-11.11",
+        "pkg:deb/debian/kubectl@1.32.2-1.1?arch=amd64\u0026distro=debian-11.11",
+        "pkg:deb/debian/kubelet@1.32.2-1.1?arch=amd64\u0026distro=debian-11.11",
         "pkg:deb/debian/kubernetes-cni@1.5.1-1.1?arch=amd64\u0026distro=debian-11.11",
         "pkg:deb/debian/less@551-2%2Bdeb11u2?arch=amd64\u0026distro=debian-11.11",
         "pkg:deb/debian/libacl1@2.2.53-10?arch=amd64\u0026distro=debian-11.11",
@@ -343254,7 +343254,7 @@
       ]
     },
     {
-      "ref": "pkg:deb/debian/cri-o@1.31.3-1.1?arch=amd64\u0026distro=debian-11.11",
+      "ref": "pkg:deb/debian/cri-o@1.32.2-1.1?arch=amd64\u0026distro=debian-11.11",
       "dependsOn": [
         "pkg:deb/debian/iptables@1.8.7-1?arch=amd64\u0026distro=debian-11.11",
         "pkg:deb/debian/systemd-sysv@247.3-7%2Bdeb11u6?arch=amd64\u0026distro=debian-11.11",
@@ -343824,17 +343824,17 @@
       ]
     },
     {
-      "ref": "pkg:deb/debian/kubeadm@1.31.3-1.1?arch=amd64\u0026distro=debian-11.11",
+      "ref": "pkg:deb/debian/kubeadm@1.32.2-1.1?arch=amd64\u0026distro=debian-11.11",
       "dependsOn": [
         "pkg:deb/debian/cri-tools@1.31.1-1.1?arch=amd64\u0026distro=debian-11.11"
       ]
     },
     {
-      "ref": "pkg:deb/debian/kubectl@1.31.3-1.1?arch=amd64\u0026distro=debian-11.11",
+      "ref": "pkg:deb/debian/kubectl@1.32.2-1.1?arch=amd64\u0026distro=debian-11.11",
       "dependsOn": []
     },
     {
-      "ref": "pkg:deb/debian/kubelet@1.31.3-1.1?arch=amd64\u0026distro=debian-11.11",
+      "ref": "pkg:deb/debian/kubelet@1.32.2-1.1?arch=amd64\u0026distro=debian-11.11",
       "dependsOn": [
         "pkg:deb/debian/conntrack@1.4.6-2?arch=amd64\u0026distro=debian-11.11\u0026epoch=1",
         "pkg:deb/debian/ethtool@5.9-1?arch=amd64\u0026distro=debian-11.11\u0026epoch=1",
