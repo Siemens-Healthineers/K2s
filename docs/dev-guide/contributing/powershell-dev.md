@@ -51,7 +51,7 @@ next developer that is confronted with the code (many times just ourselves...)
 
 ## Escaping
 
-Escaping has been changed in *PowerShell Core* (*PS* version > 5) which is required for *multivm* setup. The following example shows how quotes needs to be escaped when executing a *Linux* remote command:
+Escaping has been changed in *PowerShell Core* (*PS* version > 5) which is required for newer *PowerShell Core* versions. The following example shows how quotes needs to be escaped when executing a *Linux* remote command:
 
 ```Powershell
 if ($PSVersionTable.PSVersion.Major -gt 5) {
