@@ -17,7 +17,7 @@ function New-ControlPlaneNodeOnNewVM {
         [parameter(Mandatory = $false, HelpMessage = 'Number of Virtual Processors for master VM (Linux)')]
         [long] $MasterVMProcessorCount = 6,
         [parameter(Mandatory = $false, HelpMessage = 'Virtual hard disk size of master VM (Linux)')]
-        [uint64] $MasterDiskSize = 50GB,
+        [uint64] $MasterDiskSize = 10GB,
         [parameter(Mandatory = $false, HelpMessage = 'HTTP proxy if available')]
         [string] $Proxy,
         [parameter(Mandatory = $false, HelpMessage = 'DNS Addresses if available')]
