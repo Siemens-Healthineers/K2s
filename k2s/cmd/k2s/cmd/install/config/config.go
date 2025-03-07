@@ -133,7 +133,7 @@ const (
 	K8sBinFlagUsage = "Path to directory of locally built Kubernetes binaries (kubelet.exe, kube-proxy.exe, kubeadm.exe, kubectl.exe)"
 
 	LinuxOnlyFlagName  = "linux-only"
-	LinuxOnlyFlagUsage = "No Windows worker node will be set up (creates a 'multivm' setup without Windows VM)"
+	LinuxOnlyFlagUsage = "No Windows worker node will be set up"
 
 	AppendLogFlagName  = "append-log"
 	AppendLogFlagUsage = "Append logs to existing log file"
