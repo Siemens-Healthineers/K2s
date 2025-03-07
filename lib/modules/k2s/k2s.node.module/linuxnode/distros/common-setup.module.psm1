@@ -220,12 +220,49 @@ Function Get-KubernetesArtifactsFromInternet {
             $DebFileNamePattern = $(throw 'Argument missing: DebFileNamePattern')
         )
         &$executeRemoteCommand -Retries 2 -Command "cd $kubenodeDebPackagesPath && sudo apt-get download $PackageName" -RepairCmd 'sudo apt --fix-broken install'
+        Write-Log 'STARTAAA'
         &$executeRemoteCommand `
             -Retries 2 `
             -Command "cd $kubenodeDebPackagesPath && sudo DEBIAN_FRONTEND=noninteractive apt-get --reinstall install -y --no-install-recommends --no-install-suggests --simulate ./$DebFileNamePattern | grep 'Inst ' | cut -d ' ' -f 2 | sort -u | xargs sudo apt-get download" `
             -RepairCmd 'sudo apt --fix-broken install'
+        Write-Log 'ENDAAA'
     }
 
+    $downloadPackagesCommand1 = { 
+        param(
+            $PackageName = $(throw 'Argument missing: PackageName'), 
+            $PackageVersion = $(throw 'Argument missing: PackageVersion'), 
+            $DebFileNamePattern = $(throw 'Argument missing: DebFileNamePattern')
+        )
+    
+        Write-Host "Unholding $PackageName if necessary..."
+        &$executeRemoteCommand -Retries 2 -Command "sudo apt-mark unhold $PackageName"
+    
+        Write-Host "Downloading package: $PackageName version $PackageVersion"
+    
+        # Download the specific version of the package
+        &$executeRemoteCommand `
+         -Retries 2 `
+         -Command "cd $kubenodeDebPackagesPath && sudo apt-get update && sudo apt-get download $PackageName=$PackageVersion" `
+         -RepairCmd 'sudo apt --fix-broken install'
+             
+        # Ensure dependencies are also downloaded correctly
+         &$executeRemoteCommand `
+         -Retries 2 `
+         -Command "cd $kubenodeDebPackagesPath && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --allow-downgrades --allow-change-held-packages $PackageName=$PackageVersion --print-uris | grep 'https:' | awk '{print \"\$1\"}' | xargs -r sudo wget -P $kubenodeDebPackagesPath" `
+         -RepairCmd 'sudo apt --fix-broken install'
+    
+        # Write-Host "Installing $PackageName version $PackageVersion..."
+        # &$executeRemoteCommand `
+        #  -Retries 2 `
+        #  -Command "sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --allow-downgrades --allow-change-held-packages $PackageName=$PackageVersion" `
+        #  -RepairCmd 'sudo apt --fix-broken install'
+    
+        # # Hold the package to prevent future upgrades
+        # Write-Host "Holding $PackageName at version $PackageVersion..."
+        # &$executeRemoteCommand -Retries 2 -Command "sudo apt-mark hold $PackageName"
+    }
+        
     &$executeRemoteCommand 'echo "APT::Sandbox::User \\"root\\";" | sudo tee /etc/apt/apt.conf.d/10sandbox-for-k2s'
 
     Write-Log "Copying ZScaler Root CA certificate to computer with IP '$IpAddress'"
@@ -259,9 +296,24 @@ Function Get-KubernetesArtifactsFromInternet {
 
     Write-Log 'Download kubetools (kubelet, kubeadm, kubectl)'
     $shortKubeVers = ($K8sVersion -replace 'v', '') + '-1.1'
-    &$downloadPackagesCommand -PackageName "kubectl=$shortKubeVers" -DebFileNamePattern 'kubectl*.deb'
+    Write-Log 'Praveen'
+    Write-Log $shortKubeVers
+    Write-Log $K8sVersion
+    Write-Log 'Praveen'
+     
+    &$downloadPackagesCommand1 -PackageName "kubectl" -PackageVersion "1.31.3-1.1" -DebFileNamePattern "kubectl_*.deb"
+    #&$downloadPackagesCommand -PackageName "kubectl=$shortKubeVers" -DebFileNamePattern 'kubectl*.deb'
     &$downloadPackagesCommand -PackageName "kubelet=$shortKubeVers" -DebFileNamePattern 'kubelet*.deb'
     &$downloadPackagesCommand -PackageName "kubeadm=$shortKubeVers" -DebFileNamePattern 'kubeadm*.deb'
+
+    # &$downloadPackagesCommand1 -PackageName "kubectl" -PackageVersion "1.31.3-1.1" -DebFileNamePattern "kubectl_*.deb"
+    # &$downloadPackagesCommand1 -PackageName "kubelet" -PackageVersion "1.31.3-1.1" -DebFileNamePattern "kubectl_*.deb"
+    # &$downloadPackagesCommand1 -PackageName "kubeadm" -PackageVersion "1.31.3-1.1" -DebFileNamePattern "kubectl_*.deb"
+
+
+    #&$downloadPackagesCommand -PackageName "kubectl=$shortKubeVers" -DebFileNamePattern 'kubectl*.deb'
+    #&$downloadPackagesCommand -PackageName "kubelet=$shortKubeVers" -DebFileNamePattern 'kubelet*.deb'
+    #&$downloadPackagesCommand -PackageName "kubeadm=$shortKubeVers" -DebFileNamePattern 'kubeadm*.deb'
 }
 
 Function Add-KubernetesArtifactsToRemoteComputer {
@@ -457,7 +509,7 @@ Function Install-KubernetesArtifacts {
 
     if ($availableDebPackages.Contains('No such file or directory')) {
         throw "The directory '$k8sDebPackagesPath' does not exist in the computer with IP '$IpAddress'. The kubernetes artifacts cannot be installed"
-    }
+    }        
     &$executeRemoteCommand "sudo DEBIAN_FRONTEND=noninteractive dpkg -i $k8sDebPackagesPath/*.deb"
     &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get --fix-broken install -y'
 

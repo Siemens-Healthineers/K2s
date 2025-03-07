@@ -519,9 +519,17 @@ function Wait-ForSshPossible {
         if ($SshKey -ne '') {
             if ($Nested) {
                 $result = ssh.exe -o StrictHostKeyChecking=no -i $SshKey $User "$($SshTestCommand)" 2>&1
+                Write-Log "user"
+                Write-Log $user
+                Write-Log "sshkey"
+                Write-Log $SshKey
             }
             else {
                 $result = ssh.exe -n -o StrictHostKeyChecking=no -i $SshKey $User "$($SshTestCommand)" 2>&1
+                Write-Log "user"
+                Write-Log $user
+                Write-Log "sshkey"
+                Write-Log $SshKey
             }
         }
         else {
