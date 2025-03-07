@@ -10,7 +10,7 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'Number of Virtual Processors for Linux VM')]
     [long]$VMProcessorCount = 6,
     [parameter(Mandatory = $false, HelpMessage = 'Virtual hard disk size of Linux VM')]
-    [uint64]$VMDiskSize = 50GB,
+    [uint64]$VMDiskSize = 10GB,
     [parameter(Mandatory = $false, HelpMessage = 'HTTP proxy if available to be used during installation')]
     [string] $Proxy = '',
     [parameter(Mandatory = $false, HelpMessage = 'Target directory')]
