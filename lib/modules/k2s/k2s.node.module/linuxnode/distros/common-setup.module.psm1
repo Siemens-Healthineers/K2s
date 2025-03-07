@@ -247,10 +247,10 @@ Function Get-KubernetesArtifactsFromInternet {
          -RepairCmd 'sudo apt --fix-broken install'
              
         # Ensure dependencies are also downloaded correctly
-         &$executeRemoteCommand `
-         -Retries 2 `
-         -Command "cd $kubenodeDebPackagesPath && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --allow-downgrades --allow-change-held-packages $PackageName=$PackageVersion --print-uris | grep 'https:' | awk '{print \"\$1\"}' | xargs -r sudo wget -P $kubenodeDebPackagesPath" `
-         -RepairCmd 'sudo apt --fix-broken install'
+        #  &$executeRemoteCommand `
+        #  -Retries 2 `
+        #  -Command "cd $kubenodeDebPackagesPath && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --allow-downgrades --allow-change-held-packages $PackageName=$PackageVersion --print-uris | grep 'https:' | awk '{print \"\$1\"}' | xargs -r sudo wget -P $kubenodeDebPackagesPath" `
+        #  -RepairCmd 'sudo apt --fix-broken install'
     
         # Write-Host "Installing $PackageName version $PackageVersion..."
         # &$executeRemoteCommand `
@@ -301,14 +301,14 @@ Function Get-KubernetesArtifactsFromInternet {
     Write-Log $K8sVersion
     Write-Log 'Praveen'
      
-    &$downloadPackagesCommand1 -PackageName "kubectl" -PackageVersion "1.31.3-1.1" -DebFileNamePattern "kubectl_*.deb"
+    #&$downloadPackagesCommand1 -PackageName "kubectl" -PackageVersion "1.31.3-1.1" -DebFileNamePattern "kubectl_*.deb"
     #&$downloadPackagesCommand -PackageName "kubectl=$shortKubeVers" -DebFileNamePattern 'kubectl*.deb'
-    &$downloadPackagesCommand -PackageName "kubelet=$shortKubeVers" -DebFileNamePattern 'kubelet*.deb'
-    &$downloadPackagesCommand -PackageName "kubeadm=$shortKubeVers" -DebFileNamePattern 'kubeadm*.deb'
+    #&$downloadPackagesCommand -PackageName "kubelet=$shortKubeVers" -DebFileNamePattern 'kubelet*.deb'
+    #&$downloadPackagesCommand -PackageName "kubeadm=$shortKubeVers" -DebFileNamePattern 'kubeadm*.deb'
 
-    # &$downloadPackagesCommand1 -PackageName "kubectl" -PackageVersion "1.31.3-1.1" -DebFileNamePattern "kubectl_*.deb"
-    # &$downloadPackagesCommand1 -PackageName "kubelet" -PackageVersion "1.31.3-1.1" -DebFileNamePattern "kubectl_*.deb"
-    # &$downloadPackagesCommand1 -PackageName "kubeadm" -PackageVersion "1.31.3-1.1" -DebFileNamePattern "kubectl_*.deb"
+     &$downloadPackagesCommand1 -PackageName "kubectl" -PackageVersion "1.31.3-1.1" -DebFileNamePattern "kubectl_*.deb"
+     &$downloadPackagesCommand1 -PackageName "kubelet" -PackageVersion "1.31.3-1.1" -DebFileNamePattern "kubectl_*.deb"
+     &$downloadPackagesCommand1 -PackageName "kubeadm" -PackageVersion "1.31.3-1.1" -DebFileNamePattern "kubectl_*.deb"
 
 
     #&$downloadPackagesCommand -PackageName "kubectl=$shortKubeVers" -DebFileNamePattern 'kubectl*.deb'
