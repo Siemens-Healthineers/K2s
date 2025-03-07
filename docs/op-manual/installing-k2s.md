@@ -117,7 +117,7 @@ To force the download of all binaries and the re-creation of the control-plane i
 ??? info "Offline vs. Online Installation Diagram"
    ```mermaid
    graph TD
-       CallScript["Installation scripts\n (Default, MultiVM, BuildOnlySetup)\n\n with\n [-DeleteFilesForOfflineInstallation]\n [-ForceOnlineInstallation]"] --> if_force_online_installation{"Switch\n ForceOnlineInstallation\n used ?"}
+       CallScript["Installation scripts\n (Default, BuildOnlySetup)\n\n with\n [-DeleteFilesForOfflineInstallation]\n [-ForceOnlineInstallation]"] --> if_force_online_installation{"Switch\n ForceOnlineInstallation\n used ?"}
        if_force_online_installation --> |yes| BuildAndProvisionKubemasterBaseImage
        if_force_online_installation --> |no| if_base_image_available{"c\k\bin\Kubemaster-Base.vhdx\n available?"}
        if_base_image_available --> |yes| CopyBaseImage
@@ -145,13 +145,7 @@ To install the control-plane in WSL 2 instead of a dedicated *Linux* VM, run:
 <repo>\k2s.exe install --wsl
 ```
 
-### \[Option 2\] Multi VM
-To create a new *Windows* worker VM on-the-fly based on an existing *Windows* image, run:
-```console
-<repo>\k2s.exe install multivm -i '<path-to-my-windows-image>.iso'
-```
-
-### \[Option 3\] Development-Only
+### \[Option 2\] Development-Only
 To build and test containers without a *K8s* cluster, run:
 ```console
 <repo>\k2s.exe install buildonly
