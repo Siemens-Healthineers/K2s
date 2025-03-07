@@ -43,9 +43,8 @@ var (
 	# install K2s setup overwriting control-plane memory
 	k2s install --master-memory 8GB
 
-	# install multi-vm setup without Windows worker node (effectively without Windows VM)
+	# install without Windows worker node (effectively without Windows VM)
 	k2s install --linux-only
-	Note: same effect as running 'k2s install multivm --linux-only'
 
 	# install K2s setup setting a proxy
 	k2s install --proxy http://10.11.12.13:5000
@@ -76,7 +75,7 @@ var (
 )
 
 func init() {
-	InstallCmd.AddCommand(multivm.InstallCmd)
+	// InstallCmd.AddCommand(multivm.InstallCmd)
 	InstallCmd.AddCommand(buildonly.InstallCmd)
 
 	installer = &core.Installer{

@@ -53,6 +53,6 @@ ginkgo --label-filter="unit" <dir-with-test-suites>
 | **read-only**            | test does not change state of the host system or *K2s* installation; optional, since read-only tests should be the default |
 | **setup-required**       | test requires *K2s* to be installed; currently, the tests determine the setup type in the test runs                        |
 | **no-setup**             | *K2s* must not be installed on the system to test pre-installation behavior                                                |
-| **setup=\<setup name\>** | *K2s* setup type must match, e.g. *setup=k2s* or *setup=MultiVMK8s*                                                        |
+| **setup=\<setup name\>** | *K2s* setup type must match, e.g. *setup=k2s*                                                                              |
 | **system-running**       | test requires *K2s* to be started/running                                                                                  |
 | **system-stopped**       | test requires *K2s* to be stopped                                                                                          |
