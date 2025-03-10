@@ -246,12 +246,21 @@ Function Get-KubernetesArtifactsFromInternet {
          -Command "cd $kubenodeDebPackagesPath && sudo apt-get update && sudo apt-get download $PackageName=$PackageVersion" `
          -RepairCmd 'sudo apt --fix-broken install'
              
-        # Ensure dependencies are also downloaded correctly
+        #Ensure dependencies are also downloaded correctly
         #  &$executeRemoteCommand `
         #  -Retries 2 `
         #  -Command "cd $kubenodeDebPackagesPath && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --allow-downgrades --allow-change-held-packages $PackageName=$PackageVersion --print-uris | grep 'https:' | awk '{print \"\$1\"}' | xargs -r sudo wget -P $kubenodeDebPackagesPath" `
         #  -RepairCmd 'sudo apt --fix-broken install'
     
+        &$executeRemoteCommand `
+        -Retries 2 `
+        -Command (
+            "echo 'Fetching package URLs...'; " +
+            "cd $kubenodeDebPackagesPath && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --allow-downgrades --allow-change-held-packages $PackageName=$PackageVersion --print-uris | " +
+            "grep -oP '(?<=\x27)https://[^\x27]+' | cut -d ' ' -f1 | sort -u | xargs -r sudo wget -P `"$kubenodeDebPackagesPath`""
+        ) `
+        -RepairCmd "sudo apt --fix-broken install"     
+
         # Write-Host "Installing $PackageName version $PackageVersion..."
         # &$executeRemoteCommand `
         #  -Retries 2 `
