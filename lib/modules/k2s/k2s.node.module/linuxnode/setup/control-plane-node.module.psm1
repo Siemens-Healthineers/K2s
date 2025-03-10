@@ -458,7 +458,7 @@ function Remove-ControlPlaneNodeOnNewVM {
             Remove-Item $kubenodeBaseFilePath -Force
         }
     }
-
+]
     Write-Log 'Remove previous VM key from known_hosts file'
     $ipControlPlane = Get-ConfiguredIPControlPlane
     ssh-keygen.exe -R $ipControlPlane 2>&1 | % { "$_" } | Out-Null
