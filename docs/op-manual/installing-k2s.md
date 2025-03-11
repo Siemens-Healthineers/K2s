@@ -47,8 +47,7 @@ SPDX-License-Identifier: MIT
 The *K2s* setup provides a variety of installation options. Based on the [Hosting Variants](../user-guide/hosting-variants.md), select one of the following setup variants:
 
  - [Option 1: Host](#option-1-host-default) (Default, *Windows* host acts as a worker node).
- - [Option 2: Multi VM](#option-2-multi-vm) (*Windows* worker node is a dedicated VM)
- - [Option 3: Development-Only](#option-3-development-only) (no *K8s* cluster, for building and testing containers only)
+ - [Option 2: Development-Only](#option-2-development-only) (no *K8s* cluster, for building and testing containers only)
 
 To inspect the different install options, run:
 ```console
