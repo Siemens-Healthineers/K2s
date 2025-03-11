@@ -23,7 +23,7 @@ SPDX-License-Identifier: MIT
       
       
       <link rel="icon" href="../../../assets/logo.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.5">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.7">
     
     
       
@@ -48,7 +48,7 @@ SPDX-License-Identifier: MIT
         
         
         
-        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&amp;display=fallback">
+        <link rel="stylesheet" href="../../../assets/external/fonts.googleapis.com/css.49ea35f2.css">
         <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
       
     
@@ -1767,7 +1767,7 @@ And if our string must contain double quotes, then</p>
 <p>For some tools this is not strictly necessary, but doing so we are on the safe side, it proves that we have reflected on this and also helps the
 next developer that is confronted with the code (many times just ourselves...)</p>
 <h2 id="escaping">Escaping</h2>
-<p>Escaping has been changed in <em>PowerShell Core</em> (<em>PS</em> version &gt; 5) which is required for <em>multivm</em> setup. The following example shows how quotes needs to be escaped when executing a <em>Linux</em> remote command:</p>
+<p>Escaping has been changed in <em>PowerShell Core</em> (<em>PS</em> version &gt; 5) which is required for newer <em>PowerShell Core</em> versions. The following example shows how quotes needs to be escaped when executing a <em>Linux</em> remote command:</p>
 <div class="highlight"><span class="filename">PowerShell</span><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">if</span> <span class="p">(</span><span class="nv">$PSVersionTable</span><span class="p">.</span><span class="n">PSVersion</span><span class="p">.</span><span class="n">Major</span> <span class="o">-gt</span> <span class="n">5</span><span class="p">)</span> <span class="p">{</span>
 <a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>    <span class="n">ExecCmdMaster</span> <span class="s2">&quot;echo Acquire::http::Proxy \&quot;&quot;$Proxy\&quot;&quot;\; | sudo tee -a /etc/apt/apt.conf.d/proxy.conf&quot;</span> <span class="n">-UsePwd</span>
 <a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
@@ -1892,7 +1892,7 @@ SPDX-License-Identifier: MIT
     <script id="__config" type="application/json">{"base": "../../..", "features": ["navigation.top", "navigation.tabs", "navigation.tabs.sticky", "navigation.instant", "navigation.instant.progress", "navigation.tracking", "navigation.footer", "navigation.indexes", "search.suggest", "search.highlight", "search.share", "announce.dismiss", "content.action.edit", "content.code.copy", "content.code.annotate"], "search": "../../../assets/javascripts/workers/search.f8cc74c7.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"alias": true, "default": "latest", "provider": "mike"}}</script>
     
     
-      <script src="../../../assets/javascripts/bundle.f1b6f286.min.js"></script>
+      <script src="../../../assets/javascripts/bundle.c8b220af.min.js"></script>
       
     
   </body>

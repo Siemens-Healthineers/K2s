@@ -23,7 +23,7 @@ SPDX-License-Identifier: MIT
       
       
       <link rel="icon" href="../../assets/logo.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.5">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.7">
     
     
       
@@ -48,7 +48,7 @@ SPDX-License-Identifier: MIT
         
         
         
-        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&amp;display=fallback">
+        <link rel="stylesheet" href="../../assets/external/fonts.googleapis.com/css.49ea35f2.css">
         <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
       
     
@@ -607,15 +607,6 @@ You're not viewing the latest release version.
   <a href="#host-default" class="md-nav__link">
     <span class="md-ellipsis">
       Host (Default)
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#multi-vm" class="md-nav__link">
-    <span class="md-ellipsis">
-      Multi VM
     </span>
   </a>
   
@@ -1649,15 +1640,6 @@ You're not viewing the latest release version.
 </li>
       
         <li class="md-nav__item">
-  <a href="#multi-vm" class="md-nav__link">
-    <span class="md-ellipsis">
-      Multi VM
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#development-only" class="md-nav__link">
     <span class="md-ellipsis">
       Development-Only
@@ -1700,9 +1682,6 @@ SPDX-License-Identifier: MIT
 <p>On the <em>Windows</em> host, a single <abbr title="Virtual Machine">VM</abbr> is exclusively utilized as the <em>Linux</em> control-plane node while the <em>Windows</em> host itself functions as the worker node.</p>
 <p>This variant is also the default, offering efficient and very low memory consumption. The <abbr title="Virtual Machine">VM</abbr>'s memory usage starts at 2GB.<br/><br/>
 <img alt="Host Variant" src="../assets/VariantHost400.jpg" /></p>
-<h2 id="multi-vm">Multi <abbr title="Virtual Machine">VM</abbr></h2>
-<p>For each node, a <abbr title="Virtual Machine">VM</abbr> is created, with a minimum configuration of one <em>Windows</em> node and one <em>Linux</em> node. The memory usage for each node starts at 5GB.<br/><br/>
-<img alt="Multi VM" src="../assets/VariantMultiVM400.jpg" /></p>
 <h2 id="development-only">Development-Only</h2>
 <p>In this variant, the focus is on setting up an environment solely for building and testing <em>Windows</em> and <em>Linux</em> containers without creating a <em><abbr title="Kubernetes">K8s</abbr></em> cluster.<br/><br/>
 <img alt="Development-Only" src="../assets/VariantDevOnly400.jpg" /></p>
@@ -1811,7 +1790,7 @@ SPDX-License-Identifier: MIT
     <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.top", "navigation.tabs", "navigation.tabs.sticky", "navigation.instant", "navigation.instant.progress", "navigation.tracking", "navigation.footer", "navigation.indexes", "search.suggest", "search.highlight", "search.share", "announce.dismiss", "content.action.edit", "content.code.copy", "content.code.annotate"], "search": "../../assets/javascripts/workers/search.f8cc74c7.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"alias": true, "default": "latest", "provider": "mike"}}</script>
     
     
-      <script src="../../assets/javascripts/bundle.f1b6f286.min.js"></script>
+      <script src="../../assets/javascripts/bundle.c8b220af.min.js"></script>
       
     
   </body>
