@@ -29,12 +29,12 @@ function Write-ViewerUsageForUser {
 
  Option 1: Access via ingress
  Please install either ingress nginx or ingress traefik addon from k2s
- or you can install them on your own. 
+ or you can install them on your own.
  Enable ingress controller via k2s cli
  eg. k2s addons enable ingress nginx
- Once the ingress controller is running in the cluster, run the command to enable viewer 
+ Once the ingress controller is running in the cluster, run the command to enable viewer
  k2s addons enable viewer
- the viewer will be accessible on the following URL: http://k2s.cluster.local/viewer
+ the viewer will be accessible on the following URL: https://k2s.cluster.local/viewer/
 
  Option 2: Port-forwarding
  Use port-forwarding to the viewer using the command below:
@@ -48,7 +48,7 @@ function Write-ViewerUsageForUser {
  Please select `"Skip`".
 
  The viewer is opened in the browser.
- 
+
 "@ -split "`n" | ForEach-Object { Write-Log $_ -Console }
 }
 
@@ -65,7 +65,7 @@ function Wait-ForViewerAvailable {
 Determines if the dicom addon is deployed in the cluster
 #>
 function Test-DicomAddonAvailability {
-    $existingServices = (Invoke-Kubectl -Params 'get', 'service', '-n', 'dicom', '-o', 'yaml').Output 
+    $existingServices = (Invoke-Kubectl -Params 'get', 'service', '-n', 'dicom', '-o', 'yaml').Output
     if ("$existingServices" -match '.*dicom.*') {
         return $true
     }
@@ -77,7 +77,7 @@ function Test-DicomAddonAvailability {
 Determines if the security service is deployed in the cluster
 #>
 function Test-SecurityAddonAvailability {
-    $existingServices = (Invoke-Kubectl -Params 'get', 'service', '-n', 'security', '-o', 'yaml').Output 
+    $existingServices = (Invoke-Kubectl -Params 'get', 'service', '-n', 'security', '-o', 'yaml').Output
     if ("$existingServices" -match '.* keycloak .*') {
         return $true
     }
@@ -89,7 +89,7 @@ function Test-SecurityAddonAvailability {
 Determines if the viewer addon is deployed in the cluster
 #>
 function Test-DicomViewerAvailability {
-    $existingServices = (Invoke-Kubectl -Params 'get', 'service', '-n', 'viewer', '-o', 'yaml').Output 
+    $existingServices = (Invoke-Kubectl -Params 'get', 'service', '-n', 'viewer', '-o', 'yaml').Output
     if ("$existingServices" -match '.*viewer.*') {
         return $true
     }
@@ -112,7 +112,7 @@ function Update-ConfigMap {
 
     # Replace the defaultDataSourceName value in memory
     # Construct the replacement string
-    $replacementString = '"defaultDataSourceName": "' + $NewDefaultDataSourceName + '"'    
+    $replacementString = '"defaultDataSourceName": "' + $NewDefaultDataSourceName + '"'
     $replacementString2 = '"useSharedArrayBuffer": "' + ($(if ($UseSharedArrayBuffer) { 'TRUE' } else { 'FALSE' })) + '"'
 
     # Replace the defaultDataSourceName value in memory
@@ -145,13 +145,13 @@ function Update-ViewerConfigMap {
     $filePath = "$PSScriptRoot\manifests\viewer\configmap.yaml"
 
     if (-not (Test-DicomViewerAvailability)) {
-        Write-Output "Viewer addon is not available in the cluster. No viewer configmap will be updated."
+        Write-Output 'Viewer addon is not available in the cluster. No viewer configmap will be updated.'
         return
     }
 
     if (-not (Test-DicomAddonAvailability)) {
         # Call Update-ConfigMap with defaultDataSourceName set to DataFromAWS
-        Update-ConfigMap -FilePath $filePath -NewDefaultDataSourceName "DataFromAWS"
+        Update-ConfigMap -FilePath $filePath -NewDefaultDataSourceName 'DataFromAWS'
         return
     }
 
@@ -161,14 +161,10 @@ function Update-ViewerConfigMap {
     if (-not $isNginxEnabled -and -not $isTraefikEnabled) {
         # If no ingress is enabled the viewer cannot access the dicom data due to CORS policy
         # Call Update-ConfigMap with defaultDataSourceName set to DataFromAWS
-        Update-ConfigMap -FilePath $filePath -NewDefaultDataSourceName "DataFromAWS"
-    } else {
-        if (Test-SecurityAddonAvailability) {        
-            # Call Update-ConfigMap with defaultDataSourceName set to dataFromDicomAddon and useSharedArrayBuffer set to true
-            Update-ConfigMap -FilePath $filePath -NewDefaultDataSourceName "dataFromDicomAddonTls" -UseSharedArrayBuffer $true
-        } else {
-            # Call Update-ConfigMap with defaultDataSourceName set to dataFromDicomAddon
-            Update-ConfigMap -FilePath $filePath -NewDefaultDataSourceName "dataFromDicomAddon"
-       }
-    }    
-}    
+        Update-ConfigMap -FilePath $filePath -NewDefaultDataSourceName 'DataFromAWS'
+    }
+    else {
+        # Call Update-ConfigMap with defaultDataSourceName set to dataFromDicomAddon and useSharedArrayBuffer set to true
+        Update-ConfigMap -FilePath $filePath -NewDefaultDataSourceName 'dataFromDicomAddonTls' -UseSharedArrayBuffer $true
+    }
+}

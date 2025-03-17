@@ -388,7 +388,9 @@ function Start-VirtualMachineAndWaitForHeartbeat {
         [ValidateScript({ !([string]::IsNullOrWhiteSpace($_))})]
         [string] $Name = $(throw "Argument missing: Name")
         )
-    Start-VM -Name $Name
+
+    Start-VirtualMachine -VmName $Name
+
     Write-Log "Waiting for VM to send heartbeat..."
     Wait-VM -Name $Name -For Heartbeat
     Write-Log "   heartbeat received. Waiting for VM to send heartbeat again..."

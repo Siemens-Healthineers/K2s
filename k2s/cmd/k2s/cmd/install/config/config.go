@@ -107,7 +107,7 @@ const (
 	ControlPlaneMemoryFlagUsage = "Amount of RAM to allocate to master VM (minimum 2GB, format: <number>[<unit>], where unit = KB, MB or GB)"
 
 	ControlPlaneDiskSizeFlagName  = "master-disk"
-	ControlPlaneDiskSizeFlagUsage = "Disk size allocated to the master VM (minimum 50GB, format: <number>[<unit>], where unit = KB, MB or GB)"
+	ControlPlaneDiskSizeFlagUsage = "Disk size allocated to the master VM (minimum 10GB, format: <number>[<unit>], where unit = KB, MB or GB)"
 
 	WorkerCPUsFlagName  = "worker-cpus"
 	WorkerCPUsFlagUsage = "Number of CPUs allocated to worker VM."
@@ -133,7 +133,7 @@ const (
 	K8sBinFlagUsage = "Path to directory of locally built Kubernetes binaries (kubelet.exe, kube-proxy.exe, kubeadm.exe, kubectl.exe)"
 
 	LinuxOnlyFlagName  = "linux-only"
-	LinuxOnlyFlagUsage = "No Windows worker node will be set up (creates a 'multivm' setup without Windows VM)"
+	LinuxOnlyFlagUsage = "No Windows worker node will be set up"
 
 	AppendLogFlagName  = "append-log"
 	AppendLogFlagUsage = "Append logs to existing log file"

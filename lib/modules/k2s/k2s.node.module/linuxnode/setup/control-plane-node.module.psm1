@@ -17,7 +17,7 @@ function New-ControlPlaneNodeOnNewVM {
         [parameter(Mandatory = $false, HelpMessage = 'Number of Virtual Processors for master VM (Linux)')]
         [long] $MasterVMProcessorCount = 6,
         [parameter(Mandatory = $false, HelpMessage = 'Virtual hard disk size of master VM (Linux)')]
-        [uint64] $MasterDiskSize = 50GB,
+        [uint64] $MasterDiskSize = 10GB,
         [parameter(Mandatory = $false, HelpMessage = 'HTTP proxy if available')]
         [string] $Proxy,
         [parameter(Mandatory = $false, HelpMessage = 'DNS Addresses if available')]
@@ -288,10 +288,10 @@ function Start-ControlPlaneNodeOnNewVM {
 
     Invoke-TimeSync
 
-    Write-Log 'Set the DNS server(s) used by the Windows Host as the default DNS server(s) of the VM'    
-    (Invoke-CmdOnControlPlaneViaSSHKey "sudo sed -i '/nameservers:/!b;n;s/addresses: \[.*\]/addresses: [$DnsServers]/' /etc/netplan/10-k2s.yaml").Output | Write-Log    
-    (Invoke-CmdOnControlPlaneViaSSHKey 'sudo systemctl restart systemd-networkd').Output | Write-Log
-    (Invoke-CmdOnControlPlaneViaSSHKey 'sudo systemctl restart dnsmasq').Output | Write-Log
+    # Write-Log 'Set the DNS server(s) used by the Windows Host as the default DNS server(s) of the VM'    
+    # (Invoke-CmdOnControlPlaneViaSSHKey "sudo sed -i '/nameservers:/!b;n;s/addresses: \[.*\]/addresses: [$DnsServers]/' /etc/netplan/10-k2s.yaml").Output | Write-Log    
+    # (Invoke-CmdOnControlPlaneViaSSHKey 'sudo systemctl restart systemd-networkd').Output | Write-Log
+    # (Invoke-CmdOnControlPlaneViaSSHKey 'sudo systemctl restart dnsmasq').Output | Write-Log
 
     $ipControlPlane = Get-ConfiguredIPControlPlane
     $setupConfigRoot = Get-RootConfigk2s

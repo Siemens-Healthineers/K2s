@@ -437,12 +437,14 @@ function Get-RegistryToken() {
     return [string]$token
 }
 
-function Get-DefaultProvisioningBaseImageDiskSize {
-    return 50GB
+function Get-MinimalProvisioningBaseMemorySize {
+    return 2GB
 }
-
+function Get-MinimalProvisioningBaseImageDiskSize {
+    return 10GB
+}
 function Get-DefaultK8sVersion {
-    return 'v1.31.3'
+    return 'v1.32.2'
 }
 
 <#
@@ -524,7 +526,8 @@ Set-ConfigVMNodeHostname,
 Get-DefaultRegistry,
 Get-RegistryToken,
 Get-SshConfigDir,
-Get-DefaultProvisioningBaseImageDiskSize,
+Get-MinimalProvisioningBaseImageDiskSize,
+Get-MinimalProvisioningBaseMemorySize,
 Get-RootConfig,
 Get-DefaultTempPwd,
 Get-DefaultK8sVersion,

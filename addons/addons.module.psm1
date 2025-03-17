@@ -44,11 +44,17 @@ function Get-ScriptRoot {
 function Enable-AddonFromConfig {
     param (
         [Parameter(Mandatory = $false)]
-        [pscustomobject]$Config = $(throw 'Config object not specified')
+        [pscustomobject]$Config = $(throw 'Config object not specified'),
+        [Parameter(Mandatory = $false)]
+        [string] $Root = $null
     )
     if ($null -eq $Config.Name) {
         Write-Warning "Invalid addon config '$Config' found, skipping it."
         return
+    }
+    # Check if root is null or empty and assign Get-ScriptRoot if so
+    if ([string]::IsNullOrEmpty($Root)) {
+        $Root = Get-ScriptRoot
     }
 
     $dirName = $Config.Name
@@ -58,8 +64,7 @@ function Enable-AddonFromConfig {
         $addonName += " $($Config.Implementation)"
     }
 
-    $root = Get-ScriptRoot
-    $enableCmdPath = "$root\$dirName\Enable.ps1"
+    $enableCmdPath = "$Root\$dirName\Enable.ps1"
 
     if ((Test-Path $enableCmdPath) -ne $true) {
         Write-Warning "Addon '$($Config.Name)' seems to be deprecated, skipping it."
@@ -640,7 +645,9 @@ function Restore-Addons {
         [Parameter(Mandatory = $false, HelpMessage = 'Back-up directory to restore data from.')]
         [string]$BackupDir = $(throw 'Please specify the back-up directory.'),
         [Parameter(Mandatory = $false, HelpMessage = 'Specifies whether to restore the addons or avoid it.')]
-        [switch] $AvoidRestore
+        [switch] $AvoidRestore,
+        [Parameter(Mandatory = $false)]
+        [string] $Root = $null
     )
     Write-Log 'Restoring addons..'
 
@@ -652,18 +659,19 @@ function Restore-Addons {
     }
 
     $backupContentRoot = Get-Content $backupFilePath -Raw | ConvertFrom-Json
-
-    foreach ($addonConfig in $backupContentRoot.Config) {
-        Enable-AddonFromConfig -Config $addonConfig
-    }
-     
+       
     # Conditionally invoke Invoke-BackupRestoreHooks based on the AvoidRestore parameter
     if ($AvoidRestore -eq $false) {
+        foreach ($addonConfig in $backupContentRoot.Config) {
+            Enable-AddonFromConfig -Config $addonConfig
+        }
         Write-Log 'Restoring addons data..'
         Invoke-BackupRestoreHooks -HookType Restore -BackupDir $BackupDir
-    }
-    else {
-        Write-Log 'Skipping restoring addons data.'
+    } else {
+        foreach ($addonConfig in $backupContentRoot.Config) {
+            Enable-AddonFromConfig -Config $addonConfig -Root $Root
+        }
+        Write-Log "Skipping restoring addons data."
     }
 
     Write-Log 'Addons fully restored.'
