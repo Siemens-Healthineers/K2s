@@ -83,6 +83,8 @@ func main() {
 }
 
 func windowsUserLogin(username, password, domain string) bool {
+	// log on console user
+	fmt.Printf("Attempting login with Username: %s, Domain: %s\n", username, domain)
 	pUsername, _ := windows.UTF16PtrFromString(username)
 	pDomain, _ := windows.UTF16PtrFromString(domain)
 	pPassword, _ := windows.UTF16PtrFromString(password)
@@ -101,11 +103,12 @@ func windowsUserLogin(username, password, domain string) bool {
 	if res != 0 {
 		windows.CloseHandle(windows.Handle(hToken))
 	}
-
+	fmt.Printf("Login successfull\n")
 	return res != 0
 }
 
 func loginHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Printf("Login handler called: %s\n", r.Method)
 	adminClient := hydra.NewAPIClient(&hydra.Configuration{
 		Servers: []hydra.ServerConfiguration{{URL: hydraAdminURL}},
 	})
@@ -192,6 +195,7 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func consentHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Printf("Consent handler called\n")
 	adminClient := hydra.NewAPIClient(&hydra.Configuration{
 		Servers: []hydra.ServerConfiguration{{URL: hydraAdminURL}},
 	})
@@ -256,6 +260,7 @@ func consentHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func logoutHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Printf("Logout handler called\n")
 	adminClient := hydra.NewAPIClient(&hydra.Configuration{
 		Servers: []hydra.ServerConfiguration{{URL: hydraAdminURL}},
 	})
