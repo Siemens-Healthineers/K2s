@@ -19,10 +19,10 @@ spec:
         - name: regcred
       containers:
         - name: windows-login
-          image: ovwebpoc.azurecr.io/windows-login:0.0.2
-          workingDir: "%CONTAINER_SANDBOX_MOUNT_POINT%\\bin"            
+          image: shsk2s.azurecr.io/login:0.1.0
+          workingDir: "%CONTAINER_SANDBOX_MOUNT_POINT%"
           command:
-            - "%CONTAINER_SANDBOX_MOUNT_POINT%\\bin\\login.exe"
+            - "%CONTAINER_SANDBOX_MOUNT_POINT%\\login.exe"
       securityContext:
         windowsOptions:
           hostProcess: true

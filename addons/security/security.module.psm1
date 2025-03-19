@@ -39,7 +39,7 @@ function Get-SecurityData {
     return "$PSScriptRoot\data"
 }
 
-function Apply-WindowsSecuirtyYaml {
+function Apply-WindowsSecurityYaml {
     param (
         [string]$yamlPath,
         [string]$updatedYamlPath
@@ -52,7 +52,7 @@ function Apply-WindowsSecuirtyYaml {
     }
 
     $yamlContent = Get-Content -Path $yamlPath -Raw
-    $updatedYamlContent = $yamlContent -replace "<%K2S-SECURITY-DATA%>", $securityData
+    $updatedYamlContent = $yamlContent -replace '<%K2S-SECURITY-DATA%>', $securityData
     $updatedYamlContent | Set-Content -Path $updatedYamlPath -Force
 
     (Invoke-Kubectl -Params 'apply', '-f', $updatedYamlPath).Output | Write-Log
@@ -70,12 +70,13 @@ function Wait-ForHydraAvailable {
     while ((Get-Date) -lt $endTime) {
         try {
             Write-Log "Checking Hydra availability at $url" -Console
-            $response = & curl.exe -s -o /dev/null -w "%{http_code}" $url
+            $response = & curl.exe -s -o /dev/null -w '%{http_code}' $url
             if ($response -eq 200) {
                 Write-Log "Hydra is available at $url" -Console
                 return $true
             }
-        } catch {
+        }
+        catch {
             Write-Log "Hydra is not available yet. Retrying in $retryIntervalSeconds seconds..." -Console
         }
         Start-Sleep -Seconds $retryIntervalSeconds
@@ -97,10 +98,11 @@ function Invoke-HydraClient {
 
     $jsonContent = Get-Content -Path $jsonFilePath -Raw
     try {
-        $response = Invoke-RestMethod -Uri $url -Method Post -ContentType "application/json" -Body $jsonContent
+        $response = Invoke-RestMethod -Uri $url -Method Post -ContentType 'application/json' -Body $jsonContent
         Write-Log "POST request to $url was successful." -Console
         return $response
-    } catch {
+    }
+    catch {
         Write-Log "POST request to $url failed: $_" -Console
         return $false
     }
@@ -118,25 +120,25 @@ function Apply-WindowsSecuirtyDeployments {
     }
 
 
-    Write-Log "Applying windows security deployments.." -Console
+    Write-Log 'Applying windows security deployments..' -Console
     $hydraYamlPath = "$PSScriptRoot\manifests\keycloak\hydra.yaml"
     $updatedHydraYamlPath = "$PSScriptRoot\manifests\keycloak\hydra-updated.yaml"
-    Apply-WindowsSecuirtyYaml -yamlPath $hydraYamlPath -updatedYamlPath $updatedHydraYamlPath
+    Apply-WindowsSecurityYaml -yamlPath $hydraYamlPath -updatedYamlPath $updatedHydraYamlPath
 
     $winLoginYamlPath = "$PSScriptRoot\manifests\keycloak\windows-login.yaml"
     $updatedWinLoginYamlPath = "$PSScriptRoot\manifests\keycloak\windows-login-updated.yaml"
-    Apply-WindowsSecuirtyYaml -yamlPath $winLoginYamlPath -updatedYamlPath $updatedWinLoginYamlPath
+    Apply-WindowsSecurityYaml -yamlPath $winLoginYamlPath -updatedYamlPath $updatedWinLoginYamlPath
 
-    Write-Log "Waiting for windows security deployments.." -Console
+    Write-Log 'Waiting for windows security deployments..' -Console
     $hydraStatus = (Wait-ForPodCondition -Condition Ready -Label 'app=hydra' -Namespace 'security' -TimeoutSeconds 120)
     $winLoginStatus = (Wait-ForPodCondition -Condition Ready -Label 'app=windows-login' -Namespace 'security' -TimeoutSeconds 120)
 
-    Write-Log "Waiting for windows security api to be available.." -Console
-    $hydraUrl = "http://172.19.1.1:4445/admin/clients"
+    Write-Log 'Waiting for windows security api to be available..' -Console
+    $hydraUrl = 'http://172.19.1.1:4445/admin/clients'
     $hydraApiStatus = Wait-ForHydraAvailable -url $hydraUrl
 
     if ($hydraApiStatus -eq $true) {
-        Write-Log "Creating client in windows security" -Console
+        Write-Log 'Creating client in windows security' -Console
         $response = Invoke-HydraClient -url $hydraUrl -jsonFilePath "$PSScriptRoot\manifests\keycloak\client.json"
     }    
 

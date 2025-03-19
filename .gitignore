@@ -167,3 +167,5 @@ bin/cni/vfprules.json.origin
 bin/cni/vfprules.exp
 bin/cni/vfprules.pdb
 
+addons/security/login
+addons/security/login.exe

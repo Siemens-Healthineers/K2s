@@ -1,3 +1,0 @@
-FROM mcr.microsoft.com/oss/kubernetes/windows-host-process-containers-base-image:v1.0.0
-
-ADD bin c:/bin
