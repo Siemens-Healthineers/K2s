@@ -178,7 +178,12 @@ $oauth2ProxyYaml = Get-OAuth2ProxyConfig
 Write-Log 'Waiting for oauth2-proxy pods to be available' -Console
 $oauth2ProxyPodStatus = Wait-ForOauth2ProxyAvailable
 
-if ($keycloakPodStatus -ne $true -or $oauth2ProxyPodStatus -ne $true) {
+$winSecurityStatus = $true
+if ($keycloakPodStatus -eq $true -and $oauth2ProxyPodStatus -eq $true) {
+    $winSecurityStatus = Apply-WindowsSecuirtyDeployments
+}
+
+if ($keycloakPodStatus -ne $true -or $oauth2ProxyPodStatus -ne $true -or $winSecurityStatus -ne $true) {
     $errMsg = "All security pods could not become ready. Please use kubectl describe for more details.`nInstallation of secuirty addon failed."
     if ($EncodeStructuredOutput -eq $true) {
         $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg

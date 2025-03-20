@@ -35,6 +35,124 @@ function Get-OAuth2ProxyConfig {
     return "$PSScriptRoot\manifests\keycloak\oauth2-proxy.yaml"
 }
 
+function Get-SecurityData {
+    return "$PSScriptRoot\data"
+}
+
+function Apply-WindowsSecurityYaml {
+    param (
+        [string]$yamlPath,
+        [string]$updatedYamlPath
+    )
+
+    $securityData = Get-SecurityData
+
+    if (Test-Path $updatedYamlPath) {
+        Remove-Item -Path $updatedYamlPath -Force
+    }
+
+    $yamlContent = Get-Content -Path $yamlPath -Raw
+    $updatedYamlContent = $yamlContent -replace '<%K2S-SECURITY-DATA%>', $securityData
+    $updatedYamlContent | Set-Content -Path $updatedYamlPath -Force
+
+    (Invoke-Kubectl -Params 'apply', '-f', $updatedYamlPath).Output | Write-Log
+    Remove-Item -Path $updatedYamlPath -Force
+}
+
+function Wait-ForHydraAvailable {
+    param (
+        [string]$url,
+        [int]$timeoutSeconds = 120,
+        [int]$retryIntervalSeconds = 10
+    )
+
+    $endTime = (Get-Date).AddSeconds($timeoutSeconds)
+    while ((Get-Date) -lt $endTime) {
+        try {
+            Write-Log "Checking Hydra availability at $url" -Console
+            $response = & curl.exe -s -o /dev/null -w '%{http_code}' $url
+            if ($response -eq 200) {
+                Write-Log "Hydra is available at $url" -Console
+                return $true
+            }
+        }
+        catch {
+            Write-Log "Hydra is not available yet. Retrying in $retryIntervalSeconds seconds..." -Console
+        }
+        Start-Sleep -Seconds $retryIntervalSeconds
+    }
+    Write-Log "Hydra did not become available within the timeout period of $timeoutSeconds seconds." -Console
+    return $false
+}
+
+function Invoke-HydraClient {
+    param (
+        [string]$url,
+        [string]$jsonFilePath
+    )
+
+    if (-Not (Test-Path $jsonFilePath)) {
+        Write-Log "JSON file not found at $jsonFilePath" -Console
+        return $false
+    }
+
+    $jsonContent = Get-Content -Path $jsonFilePath -Raw
+    try {
+        $response = Invoke-RestMethod -Uri $url -Method Post -ContentType 'application/json' -Body $jsonContent
+        Write-Log "POST request to $url was successful." -Console
+        return $response
+    }
+    catch {
+        Write-Log "POST request to $url failed: $_" -Console
+        return $false
+    }
+}
+
+function Apply-WindowsSecuirtyDeployments {
+    $securityData = Get-SecurityData
+    if (-Not (Test-Path $securityData)) {
+        New-Item -ItemType Directory -Path $securityData -Force | Out-Null
+    }
+
+    $sqlitePath = "$securityData\db.sqlite"
+    if (Test-Path $sqlitePath) {
+        Remove-Item -Path $sqlitePath -Force
+    }
+
+
+    Write-Log 'Applying windows security deployments..' -Console
+    $hydraYamlPath = "$PSScriptRoot\manifests\keycloak\hydra.yaml"
+    $updatedHydraYamlPath = "$PSScriptRoot\manifests\keycloak\hydra-updated.yaml"
+    Apply-WindowsSecurityYaml -yamlPath $hydraYamlPath -updatedYamlPath $updatedHydraYamlPath
+
+    $winLoginYamlPath = "$PSScriptRoot\manifests\keycloak\windows-login.yaml"
+    $updatedWinLoginYamlPath = "$PSScriptRoot\manifests\keycloak\windows-login-updated.yaml"
+    Apply-WindowsSecurityYaml -yamlPath $winLoginYamlPath -updatedYamlPath $updatedWinLoginYamlPath
+
+    Write-Log 'Waiting for windows security deployments..' -Console
+    $hydraStatus = (Wait-ForPodCondition -Condition Ready -Label 'app=hydra' -Namespace 'security' -TimeoutSeconds 120)
+    $winLoginStatus = (Wait-ForPodCondition -Condition Ready -Label 'app=windows-login' -Namespace 'security' -TimeoutSeconds 120)
+
+    Write-Log 'Waiting for windows security api to be available..' -Console
+    $hydraUrl = 'http://172.19.1.1:4445/admin/clients'
+    $hydraApiStatus = Wait-ForHydraAvailable -url $hydraUrl
+
+    if ($hydraApiStatus -eq $true) {
+        Write-Log 'Creating client in windows security' -Console
+        $response = Invoke-HydraClient -url $hydraUrl -jsonFilePath "$PSScriptRoot\manifests\keycloak\client.json"
+    }    
+
+    return ($hydraStatus -eq $true -and $winLoginStatus -eq $true -and $hydraApiStatus -eq $true)
+}
+
+function Remove-WindowsSecuirtyDeployments {
+    $hydraYamlPath = "$PSScriptRoot\manifests\keycloak\hydra.yaml"
+    (Invoke-Kubectl -Params 'delete', '-f', $hydraYamlPath).Output | Write-Log
+
+    $winLoginYamlPath = "$PSScriptRoot\manifests\keycloak\windows-login.yaml"
+    (Invoke-Kubectl -Params 'delete', '-f', $winLoginYamlPath).Output | Write-Log
+}
+
 <#
 .DESCRIPTION
 Writes the usage notes for security for the user.

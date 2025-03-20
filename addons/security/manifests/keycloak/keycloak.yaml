@@ -2161,8 +2161,96 @@ data:
       "enabledEventTypes": [],
       "adminEventsEnabled": false,
       "adminEventsDetailsEnabled": false,
-      "identityProviders": [],
-      "identityProviderMappers": [],
+      "identityProviders": [
+        {
+          "alias" : "oidc",
+          "displayName" : "Windows Login",
+          "internalId" : "567ec843-0b63-422f-9568-b684f2e3c563",
+          "providerId" : "oidc",
+          "enabled" : true,
+          "updateProfileFirstLoginMode" : "on",
+          "trustEmail" : true,
+          "storeToken" : false,
+          "addReadTokenRoleOnCreate" : false,
+          "authenticateByDefault" : false,
+          "linkOnly" : false,
+          "config" : {
+            "tokenUrl" : "http://172.19.1.1:4444/oauth2/token",
+            "acceptsPromptNoneForwardFromClient" : "false",
+            "jwksUrl" : "http://172.19.1.1:4444/.well-known/jwks.json",
+            "isAccessTokenJWT" : "false",
+            "filteredByClaim" : "false",
+            "backchannelSupported" : "false",
+            "issuer" : "http://172.19.1.1:4444",
+            "loginHint" : "false",
+            "clientAuthMethod" : "client_secret_post",
+            "syncMode" : "IMPORT",
+            "clientSecret" : "b7BeasywdjztKeTCytdtNAiPk",
+            "allowedClockSkew" : "30",
+            "userInfoUrl" : "http://172.19.1.1:4444/userinfo",
+            "validateSignature" : "true",
+            "hideOnLoginPage" : "false",
+            "clientId" : "k2s-winuser-support-client-id",
+            "uiLocales" : "false",
+            "disableNonce" : "false",
+            "useJwksUrl" : "true",
+            "sendClientIdOnLogout" : "false",
+            "pkceEnabled" : "false",
+            "metadataDescriptorUrl" : "http://172.19.1.1:4444/.well-known/openid-configuration",
+            "authorizationUrl" : "http://172.19.1.1:4444/oauth2/auth",
+            "disableUserInfo" : "false",
+            "logoutUrl" : "http://172.19.1.1:4444/oauth2/sessions/logout",
+            "sendIdTokenOnLogout" : "true",
+            "passMaxAge" : "false"
+          }
+        }
+      ],
+      "identityProviderMappers": [
+        {
+          "id" : "54188bcd-8ef8-4c37-9ecf-e1bbba5f523a",
+          "name" : "username-mapper",
+          "identityProviderAlias" : "oidc",
+          "identityProviderMapper" : "oidc-user-attribute-idp-mapper",
+          "config" : {
+            "syncMode" : "INHERIT",
+            "claim" : "sub",
+            "user.attribute" : "username"
+          }
+        }, 
+        {
+          "id" : "8998b189-bc3f-429e-8e43-f1bb27ba73e7",
+          "name" : "email-mapper",
+          "identityProviderAlias" : "oidc",
+          "identityProviderMapper" : "oidc-user-attribute-idp-mapper",
+          "config" : {
+            "syncMode" : "INHERIT",
+            "claim" : "sub",
+            "user.attribute" : "email"
+          }
+        }, 
+        {
+          "id" : "57b7cecf-b53d-4af4-97c6-bfc0f430300f",
+          "name" : "lastName-mapper",
+          "identityProviderAlias" : "oidc",
+          "identityProviderMapper" : "hardcoded-attribute-idp-mapper",
+          "config" : {
+            "syncMode" : "INHERIT",
+            "attribute.value" : "WindowsUser",
+            "attribute" : "lastName"
+          }
+        }, 
+        {
+          "id" : "ec32a900-575a-438b-9af7-8691ba18882b",
+          "name" : "firstName-mapper",
+          "identityProviderAlias" : "oidc",
+          "identityProviderMapper" : "hardcoded-attribute-idp-mapper",
+          "config" : {
+            "syncMode" : "INHERIT",
+            "attribute.value" : "WindowsUser",
+            "attribute" : "firstName"
+          }
+        }
+      ],
       "components": {
         "org.keycloak.services.clientregistration.policy.ClientRegistrationPolicy": [
           {

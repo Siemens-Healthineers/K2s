@@ -106,6 +106,7 @@ require (
 	github.com/opencontainers/runtime-spec v1.0.3-0.20210326190908-1c3f411f0417 // indirect
 	github.com/opencontainers/runtime-tools v0.0.0-20190313075039-7125f1d443b0 // indirect
 	github.com/opencontainers/selinux v1.8.2 // indirect
+	github.com/ory/hydra-client-go v1.11.8 // indirect
 	github.com/pelletier/go-toml/v2 v2.1.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect

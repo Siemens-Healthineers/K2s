@@ -25,11 +25,11 @@ Message type of the encoded structure; applies only if EncodeStructuredOutput wa
 
 .EXAMPLE
 # Outputs the addon status to default output stream as is
-PS> .\Get-Status.ps1 -Name dashboard -Directory c:\k\addons\dashboard
+PS> .\Get-Status.ps1 -Name dashboard -Directory c:\ws\k2s\addons\dashboard
 
 .EXAMPLE
 # Sends the addon status as structured, compressed data with a message type label to default output stream
-PS> .\Get-Status.ps1 -Name dashboard -Directory c:\k\addons\dashboard -EncodeStructuredOutput -MessageType my-status
+PS> .\Get-Status.ps1 -Name dashboard -Directory c:\ws\k2s\addons\dashboard -EncodeStructuredOutput -MessageType my-status
 #>
 Param(
     [parameter(Mandatory = $false, HelpMessage = 'Name of the addon')]
