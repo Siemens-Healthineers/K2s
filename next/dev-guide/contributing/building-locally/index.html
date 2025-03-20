@@ -23,7 +23,7 @@ SPDX-License-Identifier: MIT
       
       
       <link rel="icon" href="../../../assets/logo.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.7">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.9">
     
     
       
@@ -31,7 +31,7 @@ SPDX-License-Identifier: MIT
       
     
     
-      <link rel="stylesheet" href="../../../assets/stylesheets/main.8608ea7d.min.css">
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.4af4bdda.min.css">
       
         
         <link rel="stylesheet" href="../../../assets/stylesheets/palette.06af60db.min.css">
@@ -1694,24 +1694,24 @@ SPDX-License-Identifier: MIT
 <p><code>bgo.cmd</code> is a shortcut command to invoke the script <code>BuildGoExe.ps1</code>.<br/>
 If you have not installed <em>K2s</em> yet, then your <code>PATH</code> is not updated with the required locations. In this case, look for bgo.cmd and invoke the build command.</p>
 </div>
-<p>In the below example, <code>c:\k</code> is the root of the <em>Git</em> repo:
+<p>In the below example, <code>c:\ws\k2s</code> is the root of the <em>Git</em> repo:
 <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="go">where bgo</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="go">C:\k\bin\bgo.cmd</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="go">C:\ws\k2s\bin\bgo.cmd</span>
 </code></pre></div></p>
 <p>Building <code>httpproxy</code> <em>Go</em> project:
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="go">C:\k\bin\bgo -ProjectDir &quot;C:\k\k2s\cmd\httpproxy\&quot; -ExeOutDir &quot;c:\k\bin&quot;</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="go">C:\ws\k2s\bin\bgo -ProjectDir &quot;C:\ws\k2s\k2s\cmd\httpproxy\&quot; -ExeOutDir &quot;c:\ws\k2s\bin&quot;</span>
 </code></pre></div></p>
 <div class="admonition info">
 <p class="admonition-title">Info</p>
 <p>The <code>k2s</code> <abbr title="Command-Line Interface">CLI</abbr> can be built without any parameters:</p>
 </div>
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="go">C:\k\bin\bgo</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="go">C:\ws\k2s\bin\bgo</span>
 </code></pre></div>
 <p>To build all <em>Go</em> executables:
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="go">C:\k\bin\bgo -BuildAll</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="go">C:\ws\k2s\bin\bgo -BuildAll</span>
 </code></pre></div></p>
 <p>If <em>K2s</em> is installed then just simply execute the command without the full path:
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="go">bgo -ProjectDir &quot;C:\k\k2s\cmd\httpproxy\&quot; -ExeOutDir &quot;c:\k\bin&quot;</span>
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="go">bgo -ProjectDir &quot;C:\ws\k2s\k2s\cmd\httpproxy\&quot; -ExeOutDir &quot;c:\ws\k2s\bin&quot;</span>
 <a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="go">bgo -BuildAll</span>
 </code></pre></div></p>
 <!--
