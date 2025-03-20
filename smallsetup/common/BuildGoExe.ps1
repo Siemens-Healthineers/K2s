@@ -14,9 +14,9 @@ Provides options to inject flags for an executable.
 .EXAMPLE
 PS> .\common\BuildGoExe.ps1
 
-PS> .\common\BuildGoExe.ps1 -ProjectDir "c:\k\k2s\cmd\httproxy"
+PS> .\common\BuildGoExe.ps1 -ProjectDir "c:\ws\k2s\k2s\cmd\httproxy"
 
-PS> .\common\BuildGoExe.ps1 -ProjectDir "c:\k\k2s\cmd\devgon" -ExeOutDir "c:\k\bin"
+PS> .\common\BuildGoExe.ps1 -ProjectDir "c:\ws\k2s\k2s\cmd\devgon" -ExeOutDir "c:\ws\k2s\bin"
 
 #>
 

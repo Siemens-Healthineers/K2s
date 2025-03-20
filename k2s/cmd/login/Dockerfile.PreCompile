@@ -1,0 +1,20 @@
+# SPDX-FileCopyrightText:  © 2025 Siemens Healthineers AG
+# SPDX-License-Identifier:   MIT
+
+# Build the contextfolder server container, after precompilation was done in Linux VM
+#
+# __BEGIN_BuildImage_Variables__
+# ImageName:      shsk2s.azurecr.io/login
+# ExeName:        login.exe
+# __END_BuildImage_Variables__
+#
+
+FROM mcr.microsoft.com/windows/nanoserver:20H2
+COPY login.exe .
+# download from https://github.com/ory/hydra/releases/download/v2.3.0/hydra_2.3.0-windows_sqlite_64bit.zip 
+# and unzip to get hydra.exe
+COPY hydra.exe .
+
+# copy templates folder
+COPY templates templates
+ENTRYPOINT ["login.exe"]

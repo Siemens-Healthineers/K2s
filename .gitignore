@@ -109,6 +109,7 @@ tmp/**/*
 
 # temp files in /k2s
 /k2s/**/*.tmp
+db.sqlite
 
 # sbom
 build/bom/merge/bridge.json
@@ -166,3 +167,5 @@ bin/cni/vfprules.json.origin
 bin/cni/vfprules.exp
 bin/cni/vfprules.pdb
 
+addons/security/login
+addons/security/login.exe
