@@ -82,6 +82,8 @@ $oauth2ProxyYaml = Get-OAuth2ProxyConfig
 $keyCloakYaml = Get-KeyCloakConfig
 (Invoke-Kubectl -Params 'delete', '-f', $keyCloakYaml).Output | Write-Log
 
+Remove-WindowsSecuirtyDeployments
+
 Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'security' })
 
 # if security addon is enabled, than adapt other addons
