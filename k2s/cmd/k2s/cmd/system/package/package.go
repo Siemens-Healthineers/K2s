@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2023 Siemens Healthcare GmbH
+// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package systempackage
@@ -9,7 +9,6 @@ import (
 	"log/slog"
 	"path/filepath"
 	"strconv"
-	"time"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
@@ -48,7 +47,7 @@ const (
 	ControlPlaneMemoryFlagUsage = "Amount of RAM to allocate to master VM (minimum 2GB, format: <number>[<unit>], where unit = KB, MB or GB)"
 
 	ControlPlaneDiskSizeFlagName  = "master-disk"
-	ControlPlaneDiskSizeFlagUsage = "Disk size allocated to the master VM (minimum 50GB, format: <number>[<unit>], where unit = KB, MB or GB)"
+	ControlPlaneDiskSizeFlagUsage = "Disk size allocated to the master VM (minimum 10GB, format: <number>[<unit>], where unit = KB, MB or GB)"
 
 	ProxyFlagName  = "proxy"
 	ProxyFlagUsage = "HTTP proxy if available to be used"
@@ -80,6 +79,7 @@ func init() {
 }
 
 func systemPackage(cmd *cobra.Command, args []string) error {
+	cmdSession := common.StartCmdSession(cmd.CommandPath())
 	systemPackageCommand, params, err := buildSystemPackageCmd(cmd.Flags())
 	if err != nil {
 		return err
@@ -88,7 +88,7 @@ func systemPackage(cmd *cobra.Command, args []string) error {
 	slog.Debug("PS command created", "command", systemPackageCommand, "params", params)
 
 	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
-	setupConfig, err := setupinfo.ReadConfig(context.Config().Host.K2sConfigDir)
+	setupConfig, err := setupinfo.ReadConfig(context.Config().Host().K2sConfigDir())
 	if err != nil {
 		if errors.Is(err, setupinfo.ErrSystemInCorruptedState) {
 			return common.CreateSystemInCorruptedStateCmdFailure()
@@ -102,8 +102,6 @@ func systemPackage(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	start := time.Now()
-
 	cmdResult, err := powershell.ExecutePsWithStructuredResult[*common.CmdResult](systemPackageCommand, "CmdResult", powershell.DefaultPsVersions, common.NewPtermWriter(), params...)
 	if err != nil {
 		return err
@@ -113,8 +111,7 @@ func systemPackage(cmd *cobra.Command, args []string) error {
 		return cmdResult.Failure
 	}
 
-	duration := time.Since(start)
-	common.PrintCompletedMessage(duration, "system package")
+	cmdSession.Finish()
 
 	return nil
 }

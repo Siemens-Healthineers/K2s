@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2023 Siemens Healthcare GmbH
+// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package image
@@ -9,7 +9,6 @@ import (
 	"log/slog"
 	"path/filepath"
 	"strconv"
-	"time"
 
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
@@ -38,8 +37,8 @@ var (
   # Delete image by id
   k2s image rm --id 042a816809aa
 
-  # Delete pushed image from registry
-  k2s image rm --name k2s-registry.local/alpine:v1 --from-registry
+  # Delete pushed image from local registry
+  k2s image rm --name k2s.registry.local/alpine:v1 --from-registry
 `
 
 	removeCmd = &cobra.Command{
@@ -57,27 +56,17 @@ func init() {
 func addInitFlagsForRemoveCommand(cmd *cobra.Command) {
 	cmd.Flags().String(imageIdFlagName, "", "Image ID of the container image")
 	cmd.Flags().String(removeImgNameFlagName, "", "Name of the container image")
-	cmd.Flags().Bool(fromRegistryFlagName, false, "Remove image from registry")
+	cmd.Flags().Bool(fromRegistryFlagName, false, "Remove image from local registry (when registry addon is enabled)")
 	cmd.Flags().SortFlags = false
 	cmd.Flags().PrintDefaults()
 }
 
 func removeImage(cmd *cobra.Command, args []string) error {
+	cmdSession := common.StartCmdSession(cmd.CommandPath())
 	pterm.Println("🤖 Removing container image..")
 
-	options, err := extractRemoveOptions(cmd)
-	if err != nil {
-		return err
-	}
-
-	psCmd, params := buildRemovePsCmd(options)
-
-	slog.Debug("PS command created", "command", psCmd, "params", params)
-
-	start := time.Now()
-
 	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
-	config, err := setupinfo.ReadConfig(context.Config().Host.K2sConfigDir)
+	config, err := setupinfo.ReadConfig(context.Config().Host().K2sConfigDir())
 	if err != nil {
 		if errors.Is(err, setupinfo.ErrSystemInCorruptedState) {
 			return common.CreateSystemInCorruptedStateCmdFailure()
@@ -91,6 +80,18 @@ func removeImage(cmd *cobra.Command, args []string) error {
 	if config.SetupName == setupinfo.SetupNameMultiVMK8s {
 		return common.CreateFunctionalityNotAvailableCmdFailure(config.SetupName)
 	}
+	if err := context.EnsureK2sK8sContext(); err != nil {
+		return err
+	}
+
+	options, err := extractRemoveOptions(cmd)
+	if err != nil {
+		return err
+	}
+
+	psCmd, params := buildRemovePsCmd(options)
+
+	slog.Debug("PS command created", "command", psCmd, "params", params)
 
 	cmdResult, err := powershell.ExecutePsWithStructuredResult[*common.CmdResult](psCmd, "CmdResult", common.DeterminePsVersion(config), common.NewPtermWriter(), params...)
 	if err != nil {
@@ -101,9 +102,7 @@ func removeImage(cmd *cobra.Command, args []string) error {
 		return cmdResult.Failure
 	}
 
-	duration := time.Since(start)
-
-	common.PrintCompletedMessage(duration, "image rm")
+	cmdSession.Finish()
 
 	return nil
 }

@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -91,7 +91,7 @@ if (!$kubectlCmd.Success) {
     Write-Log $errMsg -Error
     exit 1
 }
-$kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'statefulsets', '-n', 'monitoring', '--timeout=180s')
+$kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'daemonsets', '-n', 'monitoring', '--timeout=180s')
 Write-Log $kubectlCmd.Output
 if (!$kubectlCmd.Success) {
     $errMsg = 'Kube Prometheus Stack could not be deployed!'
@@ -104,7 +104,34 @@ if (!$kubectlCmd.Success) {
     Write-Log $errMsg -Error
     exit 1
 }
-$kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'daemonsets', '-n', 'monitoring', '--timeout=180s')
+
+$allPodsAreUp = (Wait-ForPodCondition -Condition Ready -Label 'app.kubernetes.io/name=alertmanager' -Namespace 'monitoring' -TimeoutSeconds 120)
+if ($allPodsAreUp -ne $true) {
+    $errMsg = "Alertmanager could not be deployed!"
+    if ($EncodeStructuredOutput -eq $true) {
+        $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+        return
+    }
+
+    Write-Log $errMsg -Error
+    exit 1  
+}
+
+$allPodsAreUp = (Wait-ForPodCondition -Condition Ready -Label 'app.kubernetes.io/name=prometheus' -Namespace 'monitoring' -TimeoutSeconds 120)
+if ($allPodsAreUp -ne $true) {
+    $errMsg = "Prometheus could not be deployed!"
+    if ($EncodeStructuredOutput -eq $true) {
+        $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+        return
+    }
+
+    Write-Log $errMsg -Error
+    exit 1  
+}
+
+$kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'statefulsets', '-n', 'monitoring', '--timeout=180s')
 Write-Log $kubectlCmd.Output
 if (!$kubectlCmd.Success) {
     $errMsg = 'Kube Prometheus Stack could not be deployed!'

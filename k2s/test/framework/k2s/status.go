@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2023 Siemens Healthcare GmbH
+// SPDX-FileCopyrightText:  © 2025 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package k2s
@@ -19,7 +19,7 @@ type K2sStatus struct {
 
 // wrapper around k2s.exe to retrieve and parse the cluster status
 func (r *K2sCliRunner) GetStatus(ctx context.Context) *K2sStatus {
-	output := r.Run(ctx, "status", "-o", "json")
+	output := r.RunOrFail(ctx, "status", "-o", "json")
 
 	status := unmarshalStatus[status.PrintStatus](output)
 

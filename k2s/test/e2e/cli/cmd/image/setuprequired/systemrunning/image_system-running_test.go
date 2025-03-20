@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2023 Siemens Healthcare GmbH
+// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 package systemrunning
 
@@ -13,8 +13,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/siemens-healthineers/k2s/test/framework"
-
-	"github.com/siemens-healthineers/k2s/test/framework/k2s"
+	"github.com/siemens-healthineers/k2s/test/framework/k2s/cli"
 )
 
 var suite *framework.K2sTestSuite
@@ -42,7 +41,7 @@ var _ = Describe("image reset-win-storage", func() {
 			Skip("Multi-vm")
 		}
 
-		output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "image", "reset-win-storage")
+		output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "image", "reset-win-storage")
 
 		Expect(output).To(ContainSubstring("still running"))
 	})
@@ -56,7 +55,7 @@ var _ = Describe("image reset-win-storage", func() {
 			Skip("Linux-only")
 		}
 
-		output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "image", "reset-win-storage")
+		output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "image", "reset-win-storage")
 
 		Expect(output).To(ContainSubstring("In order to clean up Win container storage for multivm setup, please re-install multivm cluster."))
 	})

@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -7,9 +7,6 @@ kind: Gateway
 metadata:
   name: shared-gateway
   namespace: gateway-api
-  annotations:
-    cert-manager.io/cluster-issuer: k2s-ca-issuer
-    cert-manager.io/common-name: k2s-gateway.local
 spec:
   gatewayClassName: nginx
   listeners:
@@ -20,7 +17,6 @@ spec:
       namespaces:
         from: All
   - name: https
-    hostname: k2s-gateway.local
     protocol: HTTPS
     port: 443
     allowedRoutes:

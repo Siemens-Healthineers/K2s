@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2023 Siemens Healthcare GmbH
+// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package export
@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"log/slog"
 	"strconv"
-	"time"
 
 	"github.com/siemens-healthineers/k2s/internal/powershell"
 	"github.com/siemens-healthineers/k2s/internal/terminal"
@@ -26,8 +25,8 @@ import (
 )
 
 var exportCommandExample = `
-  # Export addon 'registry' and 'traefik' to specified folder
-  k2s addons export registry traefik -d C:\tmp
+  # Export addon "registry" and "ingress nginx" to specified folder
+  k2s addons export registry "ingress nginx" -d C:\tmp
 
   # Export all addons to specified folder
   k2s addons export -d C:\tmp
@@ -58,6 +57,7 @@ func NewCommand() *cobra.Command {
 }
 
 func runExport(cmd *cobra.Command, args []string) error {
+	cmdSession := common.StartCmdSession(cmd.CommandPath())
 	terminalPrinter := terminal.NewTerminalPrinter()
 	allAddons, err := addons.LoadAddons(utils.InstallDir())
 	if err != nil {
@@ -77,10 +77,8 @@ func runExport(cmd *cobra.Command, args []string) error {
 
 	slog.Debug("PS command created", "command", psCmd, "params", params)
 
-	start := time.Now()
-
 	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
-	config, err := setupinfo.ReadConfig(context.Config().Host.K2sConfigDir)
+	config, err := setupinfo.ReadConfig(context.Config().Host().K2sConfigDir())
 	if err != nil {
 		if errors.Is(err, setupinfo.ErrSystemInCorruptedState) {
 			return common.CreateSystemInCorruptedStateCmdFailure()
@@ -104,8 +102,7 @@ func runExport(cmd *cobra.Command, args []string) error {
 		return cmdResult.Failure
 	}
 
-	duration := time.Since(start)
-	common.PrintCompletedMessage(duration, "addons export")
+	cmdSession.Finish()
 
 	return nil
 }

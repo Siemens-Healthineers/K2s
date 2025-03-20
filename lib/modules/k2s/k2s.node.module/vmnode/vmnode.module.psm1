@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 # SPDX-License-Identifier: MIT
 
 $pathModule = "$PSScriptRoot\..\..\k2s.infra.module\path\path.module.psm1"
@@ -71,7 +71,29 @@ function Start-VirtualMachine {
 
     Write-Log "Starting VM '$VmName' ..."
 
-    Start-VM -Name $VmName -WarningAction SilentlyContinue
+    $maxRetries = 4
+    $retryDelay = 20
+    
+    for ($i = 0; $i -lt $maxRetries; $i++) {
+        try {
+            Start-VM -Name $VmName -ErrorAction Stop
+            Write-Log "VM started successfully"
+            break
+        } catch {
+            $Error.Clear()
+            Write-Log "Error starting VM: $($Error[0].Message)"
+            # write to log free RAM memory
+            Write-Log "Free RAM memory: $((Get-WmiObject -Class Win32_OperatingSystem).FreePhysicalMemory)"
+            # write to log standby memory
+            Write-Log "Standby memory: $((Get-WmiObject -Class Win32_OperatingSystem).FreeVirtualMemory)"
+            Start-Sleep -Seconds $retryDelay
+        }
+    }
+    
+    if ($i -eq $maxRetries) {
+        Write-Log "Failed to start VM after $maxRetries retries"
+        throw "Failed to start VM $VmName after $maxRetries retries"
+    }
 
     if ($Wait -eq $true) {
         Wait-ForDesiredVMState -VmName $VmName -State 'running'
@@ -1476,7 +1498,7 @@ function Set-VmIPAddress {
         Write-Output 'Disable DHCP'
         $neta | Set-NetIPInterface -Dhcp Disabled
 
-        Write-Output 'Set DNS servers'
+        Write-Output "Setting DNSProxy(5) servers: $($using:DnsAddr)"
         $neta | Set-DnsClientServerAddress -Addresses $($DnsAddr -split ',')
     }
 
@@ -1608,7 +1630,7 @@ function Initialize-WinVM {
         # route for VM
         Write-Log "Remove obsolete route to $virtualizedNetworkCIDR"
         route delete $virtualizedNetworkCIDR >$null 2>&1
-        Write-Log "Add route to $virtualizedNetworkCIDR"
+        Write-Log "Add route to virtualized network CIDR:$virtualizedNetworkCIDR"
         route -p add $virtualizedNetworkCIDR $SwitchIP METRIC 8 | Out-Null
     }
 

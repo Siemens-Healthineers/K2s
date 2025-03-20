@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2024 Siemens Healthcare GmbH
+// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package users_test
@@ -7,6 +7,7 @@ import (
 	"errors"
 	"log/slog"
 	"testing"
+	"time"
 
 	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
@@ -165,10 +166,10 @@ var _ = Describe("users pkg", func() {
 					userNameMock.On(reflection.GetFunctionName(userNameMock.createK2sUserName), mock.Anything).Return("")
 
 					cpAccessMock := &controlPlaneAccessMock{}
-					cpAccessMock.On(reflection.GetFunctionName(cpAccessMock.GrantAccessTo), userMock, currentUser, mock.Anything).Return(cpError)
+					cpAccessMock.On(reflection.GetFunctionName(cpAccessMock.GrantAccessTo), userMock, currentUser, mock.Anything).After(1 * time.Second).Return(cpError)
 
 					k8sMock := &k8sAccessMock{}
-					k8sMock.On(reflection.GetFunctionName(k8sMock.GrantAccessTo), userMock, mock.Anything).Return(k8sError)
+					k8sMock.On(reflection.GetFunctionName(k8sMock.GrantAccessTo), userMock, mock.Anything).After(1 * time.Second).Return(k8sError)
 
 					sut := users.NewWinUserAdder(cpAccessMock, k8sMock, userNameMock.createK2sUserName)
 
@@ -226,9 +227,9 @@ var _ = Describe("users pkg", func() {
 		Describe("NewUsersManagement", func() {
 			When("control-plane config not found", func() {
 				It("returns error", func() {
-					cfg := &config.Config{Nodes: []config.NodeConfig{}}
+					cfg := &config.Config{NodesConfig: []config.NodeConfig{}}
 
-					sut, err := users.NewUsersManagement("", cfg, nil, nil)
+					sut, err := users.NewUsersManagement(cfg, nil, nil)
 
 					Expect(sut).To(BeNil())
 					Expect(err).To(MatchError("could not find control-plane node config"))
@@ -241,12 +242,12 @@ var _ = Describe("users pkg", func() {
 				It("returns user-not-found error", func() {
 					const userName = "test-user"
 					findError := errors.New("oops")
-					cfg := &config.Config{Nodes: []config.NodeConfig{{IsControlPlane: true}}}
+					cfg := &config.Config{NodesConfig: []config.NodeConfig{{ControlPlane: true}}}
 
 					userProviderMock := &userProviderMock{}
 					userProviderMock.On(reflection.GetFunctionName(userProviderMock.FindByName), userName).Return(&winusers.User{}, findError)
 
-					sut, err := users.NewUsersManagement("", cfg, nil, userProviderMock)
+					sut, err := users.NewUsersManagement(cfg, nil, userProviderMock)
 
 					Expect(err).ToNot(HaveOccurred())
 
@@ -261,13 +262,13 @@ var _ = Describe("users pkg", func() {
 					It("returns error", func() {
 						const userName = "test-user"
 						expectedError := errors.New("oops")
-						cfg := &config.Config{Nodes: []config.NodeConfig{{IsControlPlane: true}}}
+						cfg := &config.Config{NodesConfig: []config.NodeConfig{{ControlPlane: true}}}
 
 						userProviderMock := &userProviderMock{}
 						userProviderMock.On(reflection.GetFunctionName(userProviderMock.FindByName), userName).Return(&winusers.User{}, nil)
 						userProviderMock.On(reflection.GetFunctionName(userProviderMock.Current)).Return(&winusers.User{}, expectedError)
 
-						sut, err := users.NewUsersManagement("", cfg, nil, userProviderMock)
+						sut, err := users.NewUsersManagement(cfg, nil, userProviderMock)
 
 						Expect(err).ToNot(HaveOccurred())
 
@@ -280,13 +281,13 @@ var _ = Describe("users pkg", func() {
 				When("user-to-grant-access-to is Windows user", func() {
 					It("returns error", func() {
 						user := winusers.NewUser("123", "test-user", "")
-						cfg := &config.Config{Nodes: []config.NodeConfig{{IsControlPlane: true}}}
+						cfg := &config.Config{NodesConfig: []config.NodeConfig{{ControlPlane: true}}}
 
 						userProviderMock := &userProviderMock{}
 						userProviderMock.On(reflection.GetFunctionName(userProviderMock.FindByName), user.Name()).Return(user, nil)
 						userProviderMock.On(reflection.GetFunctionName(userProviderMock.Current)).Return(user, nil)
 
-						sut, err := users.NewUsersManagement("", cfg, nil, userProviderMock)
+						sut, err := users.NewUsersManagement(cfg, nil, userProviderMock)
 
 						Expect(err).ToNot(HaveOccurred())
 
@@ -307,12 +308,12 @@ var _ = Describe("users pkg", func() {
 				It("returns user-not-found error", func() {
 					const userId = "123"
 					findError := errors.New("oops")
-					cfg := &config.Config{Nodes: []config.NodeConfig{{IsControlPlane: true}}}
+					cfg := &config.Config{NodesConfig: []config.NodeConfig{{ControlPlane: true}}}
 
 					userProviderMock := &userProviderMock{}
 					userProviderMock.On(reflection.GetFunctionName(userProviderMock.FindById), userId).Return(&winusers.User{}, findError)
 
-					sut, err := users.NewUsersManagement("", cfg, nil, userProviderMock)
+					sut, err := users.NewUsersManagement(cfg, nil, userProviderMock)
 
 					Expect(err).ToNot(HaveOccurred())
 
@@ -327,13 +328,13 @@ var _ = Describe("users pkg", func() {
 					It("returns error", func() {
 						const userId = "test-user"
 						expectedError := errors.New("oops")
-						cfg := &config.Config{Nodes: []config.NodeConfig{{IsControlPlane: true}}}
+						cfg := &config.Config{NodesConfig: []config.NodeConfig{{ControlPlane: true}}}
 
 						userProviderMock := &userProviderMock{}
 						userProviderMock.On(reflection.GetFunctionName(userProviderMock.FindById), userId).Return(&winusers.User{}, nil)
 						userProviderMock.On(reflection.GetFunctionName(userProviderMock.Current)).Return(&winusers.User{}, expectedError)
 
-						sut, err := users.NewUsersManagement("", cfg, nil, userProviderMock)
+						sut, err := users.NewUsersManagement(cfg, nil, userProviderMock)
 
 						Expect(err).ToNot(HaveOccurred())
 
@@ -346,13 +347,13 @@ var _ = Describe("users pkg", func() {
 				When("user-to-grant-access-to is Windows user", func() {
 					It("returns error", func() {
 						user := winusers.NewUser("123", "test-user", "")
-						cfg := &config.Config{Nodes: []config.NodeConfig{{IsControlPlane: true}}}
+						cfg := &config.Config{NodesConfig: []config.NodeConfig{{ControlPlane: true}}}
 
 						userProviderMock := &userProviderMock{}
 						userProviderMock.On(reflection.GetFunctionName(userProviderMock.FindById), user.Id()).Return(user, nil)
 						userProviderMock.On(reflection.GetFunctionName(userProviderMock.Current)).Return(user, nil)
 
-						sut, err := users.NewUsersManagement("", cfg, nil, userProviderMock)
+						sut, err := users.NewUsersManagement(cfg, nil, userProviderMock)
 
 						Expect(err).ToNot(HaveOccurred())
 

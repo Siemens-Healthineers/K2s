@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -35,9 +35,6 @@ if ($SkipHeaderDisplay -eq $false) {
     Write-Log 'Starting K2s'
 }
 
-# set ConfigKey_LoggedInRegistry empty, since not logged in into registry after restart anymore
-Set-ConfigLoggedInRegistry -Value ''
-    
 $ProgressPreference = 'SilentlyContinue'
 
 Write-Log 'Starting Kubernetes System'
@@ -66,7 +63,7 @@ $workerNodeParams = @{
     ResetHns = $ResetHns
     DnsAddresses = $dnsServers
 }
-& "$PSScriptRoot\..\..\worker-node\windows\windows-host\Start.ps1" @workerNodeParams
+& "$PSScriptRoot\..\..\worker\windows\windows-host\Start.ps1" @workerNodeParams
 
 Invoke-AddonsHooks -HookType 'AfterStart'
 

@@ -9,7 +9,7 @@ SPDX-License-Identifier: MIT
 - The *Windows* host must match one of the [Supported OS Versions](os-support.md)
 - Local admin permissions are currently needed in order to be able to create virtual switches, VMs, etc.
 - Please try to install from an folder which is available on `C:\` drive, since most open-source components assume this. We are testing the solution also on other drives, but cannot guarantee that the cluster will work fully.
-- Hardware: The system should offer at least 4G RAM free, as well as 50GB disk space free. Recommended are at least 6 CPU cores, but less are possible.
+- Hardware: The system should offer at least 2GB RAM free, as well as 10GB disk space free. Recommended are at least 6 CPU cores, but less are possible.
 - CPU virtualization must be enabled in the BIOS. To verify, open the *Task Manager* and check the *Virtualization* property on the *Performance* tab:<br/>
  ![Check Virtualization](assets/check_virtualization.png)
  <br/>If you run the setup inside a VM, enable nested virtualization (e.g. when using *Hyper-V*:<br/>
@@ -33,6 +33,7 @@ SPDX-License-Identifier: MIT
     ```powershell 
     Enable-WindowsOptionalFeature -Online -FeatureName $('Microsoft-Hyper-V', 'Microsoft-Hyper-V-Management-PowerShell', 'Containers', 'VirtualMachinePlatform') -All -NoRestart
     ``` 
+- *Hyper-V configuration*: after the enabling of Hyper-V on your host using [Set-VMHost](https://learn.microsoft.com/en-us/powershell/module/hyper-v/set-vmhost) different settings can be configured for Hyper-V, for example in some cases it makes sense to have new default locations for virtual hard disks on that host. Please checkout all possibilities and configure Hyper-V on your host as wanted before doing an install of k2s !
 
 !!! tip
     For installing in *WSL* mode, add the `Microsoft-Windows-Subsystem-Linux` feature to the prior command.
@@ -46,8 +47,7 @@ SPDX-License-Identifier: MIT
 The *K2s* setup provides a variety of installation options. Based on the [Hosting Variants](../user-guide/hosting-variants.md), select one of the following setup variants:
 
  - [Option 1: Host](#option-1-host-default) (Default, *Windows* host acts as a worker node).
- - [Option 2: Multi VM](#option-2-multi-vm) (*Windows* worker node is a dedicated VM)
- - [Option 3: Development-Only](#option-3-development-only) (no *K8s* cluster, for building and testing containers only)
+ - [Option 2: Development-Only](#option-2-development-only) (no *K8s* cluster, for building and testing containers only)
 
 To inspect the different install options, run:
 ```console
@@ -116,7 +116,7 @@ To force the download of all binaries and the re-creation of the control-plane i
 ??? info "Offline vs. Online Installation Diagram"
    ```mermaid
    graph TD
-       CallScript["Installation scripts\n (Default, MultiVM, BuildOnlySetup)\n\n with\n [-DeleteFilesForOfflineInstallation]\n [-ForceOnlineInstallation]"] --> if_force_online_installation{"Switch\n ForceOnlineInstallation\n used ?"}
+       CallScript["Installation scripts\n (Default, BuildOnlySetup)\n\n with\n [-DeleteFilesForOfflineInstallation]\n [-ForceOnlineInstallation]"] --> if_force_online_installation{"Switch\n ForceOnlineInstallation\n used ?"}
        if_force_online_installation --> |yes| BuildAndProvisionKubemasterBaseImage
        if_force_online_installation --> |no| if_base_image_available{"c\k\bin\Kubemaster-Base.vhdx\n available?"}
        if_base_image_available --> |yes| CopyBaseImage
@@ -144,13 +144,7 @@ To install the control-plane in WSL 2 instead of a dedicated *Linux* VM, run:
 <repo>\k2s.exe install --wsl
 ```
 
-### \[Option 2\] Multi VM
-To create a new *Windows* worker VM on-the-fly based on an existing *Windows* image, run:
-```console
-<repo>\k2s.exe install multivm -i '<path-to-my-windows-image>.iso'
-```
-
-### \[Option 3\] Development-Only
+### \[Option 2\] Development-Only
 To build and test containers without a *K8s* cluster, run:
 ```console
 <repo>\k2s.exe install buildonly

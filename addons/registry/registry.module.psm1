@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -6,70 +6,9 @@
 
 $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $k8sApiModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k8s-api/k8s-api.module.psm1"
-$serviceModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.node.module\windowsnode\services\services.module.psm1"
+$nodeModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.node.module\k2s.node.module.psm1"
 
-Import-Module $infraModule, $k8sApiModule, $serviceModule
-
-function Deploy-IngressForRegistry([string]$Ingress) {
-    switch ($Ingress) {
-        'nginx' {
-            (Invoke-Kubectl -Params 'apply', '-f', "$PSScriptRoot\manifests\k2s-registry-nginx-ingress.yaml").Output | Write-Log
-            break
-        }
-        'traefik' {
-            (Invoke-Kubectl -Params 'apply', '-f', "$PSScriptRoot\manifests\k2s-registry-traefik-ingress.yaml").Output | Write-Log
-            break
-        }
-    }
-}
-
-function Set-Containerd-Config() {
-    param(
-        [Parameter()]
-        [String]
-        $registryName,
-        [Parameter()]
-        [String]
-        $authJson
-    )
-    $containerdConfig = "$(Get-KubePath)\cfg\containerd\config.toml"
-    Write-Log "Changing $containerdConfig"
-
-    $dockerConfig = $authJson | ConvertFrom-Json
-    $dockerAuth = $dockerConfig.psobject.properties['auths'].value
-    $authk2s = $dockerAuth.psobject.properties["$registryName"].value
-    $auth = $authk2s.psobject.properties['auth'].value
-
-    $authPlaceHolder = Get-Content $containerdConfig | Select-String '#auth_k2s_registry' | Select-Object -ExpandProperty Line
-    if ( $authPlaceHolder ) {
-        $content = Get-Content $containerdConfig
-        $content | ForEach-Object { $_.replace($authPlaceHolder, "        [plugins.""io.containerd.grpc.v1.cri"".registry.configs.""$registryName"".auth] #auth_k2s_registry") } | Set-Content $containerdConfig
-    }
-
-    $authValuePlaceHolder = Get-Content $containerdConfig | Select-String '#auth_value_k2s_registry' | Select-Object -ExpandProperty Line
-    if ( $authValuePlaceHolder ) {
-        $content = Get-Content $containerdConfig
-        $content | ForEach-Object { $_ -replace $authValuePlaceHolder, "          auth = ""$auth"" #auth_value_k2s_registry" } | Set-Content $containerdConfig
-    }
-
-    $tlsPlaceHolder = Get-Content $containerdConfig | Select-String '#tls_k2s_registry' | Select-Object -ExpandProperty Line
-    if ( $tlsPlaceHolder ) {
-        $content = Get-Content $containerdConfig
-        $content | ForEach-Object { $_.replace($tlsPlaceHolder, "        [plugins.""io.containerd.grpc.v1.cri"".registry.configs.""$registryName"".tls] #tls_k2s_registry") } | Set-Content $containerdConfig
-    }
-
-    $mirrorPlaceHolder = Get-Content $containerdConfig | Select-String '#mirror_k2s_registry' | Select-Object -ExpandProperty Line
-    if ( $mirrorPlaceHolder ) {
-        $content = Get-Content $containerdConfig
-        $content | ForEach-Object { $_.replace($mirrorPlaceHolder, "        [plugins.""io.containerd.grpc.v1.cri"".registry.mirrors.""$registryName""] #mirror_k2s_registry") } | Set-Content $containerdConfig
-    }
-
-    $mirrorValuePlaceHolder = Get-Content $containerdConfig | Select-String '#mirror_value_k2s_registry' | Select-Object -ExpandProperty Line
-    if ( $mirrorValuePlaceHolder ) {
-        $content = Get-Content $containerdConfig
-        $content | ForEach-Object { $_.replace($mirrorValuePlaceHolder, "          endpoint = [""http://$registryName""] #mirror_value_k2s_registry") } | Set-Content $containerdConfig
-    }
-}
+Import-Module $infraModule, $k8sApiModule, $nodeModule
 
 function Restart-Services() {
     Write-Log 'Restarting services' -Console
@@ -78,4 +17,44 @@ function Restart-Services() {
     Restart-NssmService('containerd')
     Start-NssmService('kubelet')
     Start-NssmService('kubeproxy')
+}
+
+
+<#
+.DESCRIPTION
+Writes the usage notes for registry for the user.
+#>
+function Write-RegistryUsageForUser {
+    @"
+                        REGISTRY ADDON - USAGE NOTES
+To access the local registry, please use one of the options:
+
+Option 1: Access via ingress
+Please install either ingress nginx or ingress traefik addon from k2s.
+or you can install them on your own. 
+Enable ingress controller via k2s cli
+eg. k2s addons enable ingress nginx
+Once the ingress controller is running in the cluster, run the command to enable registry 
+k2s addons enable registry
+The local registry will be accessible on the following URL: k2s.registry.local
+In order to push your images to the private registry you have to tag your images as in the following example:
+k2s.registry.local/<yourImageName>:<yourImageTag>
+
+Option 2: Access via Nodeport
+If no ingress controller is enabled the local registry is exposed via Nodeport (30500).
+
+In this case, the local registry will be accessible on the following URL: k2s.registry.local:30500
+In order to push your images to the private registry you have to tag your images as in the following example:
+k2s.registry.local:30500/<yourImageName>:<yourImageTag>
+"@ -split "`r`n" | ForEach-Object { Write-Log $_ }
+}
+
+function Update-NodePort {
+    Write-Log "  Applying nodeport service manifest for registry..." -Console
+    (Invoke-Kubectl -Params 'apply', '-f', "$PSScriptRoot\manifests\registry\service-nodeport.yaml").Output | Write-Log
+}
+
+function Remove-NodePort {
+    Write-Log "  Removing nodeport service manifest for registry..." -Console
+    (Invoke-Kubectl -Params 'delete', '-f', "$PSScriptRoot\manifests\registry\service-nodeport.yaml", "--ignore-not-found").Output | Write-Log
 }

@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 
 SPDX-License-Identifier: MIT
 -->
@@ -37,4 +37,4 @@ C:\k8s-smb-share
 ```
   
 ## Examples
-- [Example Workloads](../../k2s/test/e2e/addons/storage/workloads/)
+- [Example Workloads](../../../k2s/test/e2e/addons/storage/workloads/)

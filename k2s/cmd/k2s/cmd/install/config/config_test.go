@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2023 Siemens Healthcare GmbH
+// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package config
@@ -569,6 +569,18 @@ var _ = Describe("config", func() {
 			Entry(WorkerDiskSizeFlagName, WorkerDiskSizeFlagName, "test-worker-disk", func() any { return iConfig.Nodes[0].Resources.Disk }),
 			Entry(WslFlagName, WslFlagName, false, func() any { return iConfig.Behavior.Wsl }),
 		)
+	})
+
+	Describe("ControlPlaneMemoryFlagUsage", func() {
+		It("should contain 'minimum 2GB'", func() {
+			Expect(ControlPlaneMemoryFlagUsage).To(ContainSubstring("minimum 2GB"))
+		})
+	})
+
+	Describe("ControlPlaneDiskSizeFlagUsage", func() {
+		It("should contain 'minimum 10GB'", func() {
+			Expect(ControlPlaneDiskSizeFlagUsage).To(ContainSubstring("minimum 10GB"))
+		})
 	})
 })
 

@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -39,6 +39,8 @@ $nodeModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.node.module\k2s.node.modu
 $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
 $securityModule = "$PSScriptRoot\security.module.psm1"
 
+
+
 # TODO: Remove cross referencing once the code clones are removed and use the central module for these functions.
 $loggingModule = "$PSScriptRoot\..\logging\logging.module.psm1"
 
@@ -50,6 +52,9 @@ Initialize-Logging -ShowLogs:$ShowLogs
 $Proxy = Get-OrUpdateProxyServer -Proxy:$Proxy
 
 Write-Log 'Checking cluster status' -Console
+
+# get addon name from folder path
+$addonName = Get-AddonNameFromFolderPath -BaseFolderPath $PSScriptRoot
 
 $systemError = Test-SystemAvailability -Structured
 if ($systemError) {
@@ -173,7 +178,12 @@ $oauth2ProxyYaml = Get-OAuth2ProxyConfig
 Write-Log 'Waiting for oauth2-proxy pods to be available' -Console
 $oauth2ProxyPodStatus = Wait-ForOauth2ProxyAvailable
 
-if ($keycloakPodStatus -ne $true -or $oauth2ProxyPodStatus -ne $true) {
+$winSecurityStatus = $true
+if ($keycloakPodStatus -eq $true -and $oauth2ProxyPodStatus -eq $true) {
+    $winSecurityStatus = Apply-WindowsSecuirtyDeployments
+}
+
+if ($keycloakPodStatus -ne $true -or $oauth2ProxyPodStatus -ne $true -or $winSecurityStatus -ne $true) {
     $errMsg = "All security pods could not become ready. Please use kubectl describe for more details.`nInstallation of secuirty addon failed."
     if ($EncodeStructuredOutput -eq $true) {
         $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
@@ -185,10 +195,11 @@ if ($keycloakPodStatus -ne $true -or $oauth2ProxyPodStatus -ne $true) {
     exit 1
 }
 
-# if security addon is enabled, than adapt other addons
-Update-Addons
-
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'security' })
+
+# if security addon is enabled, than adapt other addons
+# Important is that update is called at the end because addons check state of security addon
+Update-Addons -AddonName $addonName
 
 Write-Log 'Installation of security finished.' -Console
 

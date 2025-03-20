@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 # SPDX-License-Identifier: MIT
 
 #Requires -RunAsAdministrator
@@ -18,7 +18,7 @@ $windowsNode_DockerDirectory = 'docker'
 
 function Invoke-DownloadDockerArtifacts($downloadsBaseDirectory, $Proxy, $windowsNodeArtifactsDirectory) {
     $dockerDownloadsDirectory = "$downloadsBaseDirectory\$windowsNode_DockerDirectory"
-    $DockerVersion = '24.0.7'
+    $DockerVersion = '27.3.1'
     $compressedDockerFile = 'docker-' + $DockerVersion + '.zip'
     $compressedFile = "$dockerDownloadsDirectory\$compressedDockerFile"
 

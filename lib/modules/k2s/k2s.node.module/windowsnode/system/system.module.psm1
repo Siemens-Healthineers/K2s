@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 # SPDX-License-Identifier: MIT
 
 $pathModule = "$PSScriptRoot\..\..\..\k2s.infra.module\path\path.module.psm1"
@@ -56,7 +56,7 @@ function Enable-MissingFeature {
 function Enable-MissingWindowsFeatures($wsl) {
     $restartRequired = $false
 
-    $isServerOS = (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion').ProductName.Contains("Server")
+    $isServerOS = (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion').ProductName.Contains('Server')
 
     $features = @('Microsoft-Hyper-V', 'Microsoft-Hyper-V-Management-PowerShell', 'Containers', 'VirtualMachinePlatform')
 
@@ -88,45 +88,6 @@ function Enable-MissingWindowsFeatures($wsl) {
     }
 }
 
-<#
-.SYNOPSIS
-    Checks the local proxy configuration.
-.DESCRIPTION
-    Checks the local proxy configuration.
-.EXAMPLE
-    Test-ProxyConfiguratio
-.NOTES
-    Throws an error if the configuration is invalid.
-    In order to display the correct IP to be configured in the proxy settings, the GlobalVariables.ps1 file must be included in the calling script first.
-#>
-function Test-ProxyConfiguration() {
-    $ipControlPlane = Get-ConfiguredIPControlPlane
-    if (($env:HTTP_Proxy).Length -eq 0 -and ($env:HTTPS_Proxy).Length -eq 0 ) {
-        return
-    }
-
-    if (!$ipControlPlane) {
-        throw "The calling script must include the file 'GlobalVariables.ps1' first!"
-    }
-
-    if (($env:NO_Proxy).Length -eq 0) {
-        Write-Log 'You have configured proxies with environment variable HTTP_Proxy, but the NO_Proxy'
-        Write-Log 'is not set. You have to configure NO_Proxy in the system environment variables.'
-        Write-Log "NO_Proxy must be set to $ipControlPlane"
-        Write-Log "Don't change the variable in the current shell only, that will not work!"
-        Write-Log "After configuring the system environment variable, log out and log in!`n"
-        throw "NO_Proxy must contain $ipControlPlane"
-    }
-
-    if (! ($env:NO_Proxy | Select-String -Pattern "\b$ipControlPlane\b")) {
-        Write-Log 'You have configured proxies with environment variable HTTP_Proxy, but the NO_Proxy'
-        Write-Log "doesn't contain $ipControlPlane. You have to configure NO_Proxy in the system environment variables."
-        Write-Log "Don't change the variable in the current shell only, that will not work!"
-        Write-Log "After configuring the system environment variable, log out and log in!`n"
-        throw "NO_Proxy must contain $ipControlPlane"
-    }
-}
-
 function Set-WSL {
     param (
         [Parameter()]
@@ -155,6 +116,9 @@ function Set-WSL {
 swap=0
 memory=$MasterVMMemory
 processors=$MasterVMProcessorCount
+localhostForwarding=false
+dnsProxy=false
+dnsTunneling=false
 "@
     $wslConfig | Out-File -FilePath $wslConfigPath
 }
@@ -162,8 +126,7 @@ processors=$MasterVMProcessorCount
 
 function Test-WindowsPrerequisites(
     [parameter(Mandatory = $false, HelpMessage = 'Use WSL2 for hosting control plane VM (Linux)')]
-    [switch] $WSL = $false)
-{
+    [switch] $WSL = $false) {
     Add-K2sToDefenderExclusion
     Stop-InstallIfDockerDesktopIsRunning
 
@@ -174,8 +137,6 @@ function Test-WindowsPrerequisites(
     }
 
     Enable-MissingWindowsFeatures $([bool]$WSL)
-
-    Test-ProxyConfiguration
 }
 
 function Get-StorageLocalDrive {
@@ -291,14 +252,14 @@ function Stop-InstallationIfRequiredCurlVersionNotInstalled {
         throw $errorMessage
     }
 
-    $minimumRequiredVersion = [Version]"7.71.0"
+    $minimumRequiredVersion = [Version]'7.71.0'
 
     if ($actualVersion -lt $minimumRequiredVersion) {
         $errorMessage = ("[PREREQ-FAILED] The installed version of 'curl' ($actualVersionAsString) is not at least the required one ($($minimumRequiredVersion.ToString())).",
-        "`n",
-        "Call 'curl.exe --version' to check the installed version.",
-        "`n",
-        "Update 'curl' and add its installation location to the 'PATH' environment variable.")
+            "`n",
+            "Call 'curl.exe --version' to check the installed version.",
+            "`n",
+            "Update 'curl' and add its installation location to the 'PATH' environment variable.")
         Write-Log $errorMessage
         throw $errorMessage
     }
@@ -306,7 +267,7 @@ function Stop-InstallationIfRequiredCurlVersionNotInstalled {
 
 function Write-WarningIfRequiredSshVersionNotInstalled {
     try {
-        $sshPath = (Get-Command "ssh.exe").Path
+        $sshPath = (Get-Command 'ssh.exe').Path
         $majorVersion = (Get-Item $sshPath).VersionInfo.FileVersionRaw.Major
         $fileVersion = (Get-Item $sshPath).VersionInfo.FileVersion
     }
@@ -318,8 +279,8 @@ function Write-WarningIfRequiredSshVersionNotInstalled {
 
     if ($majorVersion -lt 8) {
         $warnMessage = "[PREREQ-WARNING] The installed version of 'ssh' ($fileVersion) is not at least the required one (major version 8). " `
-        + "Call 'ssh.exe -V' to check the installed version. " `
-        + "Update 'ssh' and add its installation location to the 'PATH' environment variable to ensure successful cluster installation."
+            + "Call 'ssh.exe -V' to check the installed version. " `
+            + "Update 'ssh' and add its installation location to the 'PATH' environment variable to ensure successful cluster installation."
 
         Write-Log $warnMessage
     }

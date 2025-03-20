@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2023 Siemens Healthcare GmbH
+// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package scp
@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"log/slog"
 	"strconv"
-	"time"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 
@@ -68,6 +67,7 @@ func buildScpSubCmd(useShort, short, example, scriptPath, reverseShort string) *
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runScpCmd(cmd, args, scriptPath)
 		},
+		Deprecated: "This command is deprecated and will be removed in the future. Use 'k2s node copy' instead.", // TODO: fulfill promise
 	}
 
 	cmd.Flags().BoolP(reverseFlag, "r", false, fmt.Sprintf("Reverse direction: %s", reverseShort))
@@ -86,6 +86,7 @@ func runScpCmd(cmd *cobra.Command, args []string, scriptPath string) error {
 		return errors.New("no target path specified")
 	}
 
+	cmdSession := common.StartCmdSession(cmd.CommandPath())
 	psCmd, params, err := buildScpPsCmd(cmd, args, scriptPath)
 	if err != nil {
 		return err
@@ -93,10 +94,8 @@ func runScpCmd(cmd *cobra.Command, args []string, scriptPath string) error {
 
 	slog.Debug("PS command created", "command", psCmd, "params", params)
 
-	start := time.Now()
-
 	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
-	config, err := setupinfo.ReadConfig(context.Config().Host.K2sConfigDir)
+	config, err := setupinfo.ReadConfig(context.Config().Host().K2sConfigDir())
 	if err != nil {
 		if errors.Is(err, setupinfo.ErrSystemInCorruptedState) {
 			return common.CreateSystemInCorruptedStateCmdFailure()
@@ -121,9 +120,7 @@ func runScpCmd(cmd *cobra.Command, args []string, scriptPath string) error {
 		return cmdResult.Failure
 	}
 
-	duration := time.Since(start)
-
-	common.PrintCompletedMessage(duration, fmt.Sprintf("%s %s", ScpCmd.Use, cmd.Use))
+	cmdSession.Finish()
 
 	return nil
 }

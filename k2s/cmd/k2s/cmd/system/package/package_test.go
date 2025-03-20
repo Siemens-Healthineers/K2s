@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2023 Siemens Healthcare GmbH
+// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package systempackage
@@ -42,6 +42,18 @@ var _ = Describe("package", func() {
 				Expect(cmd).To(ContainSubstring(filepath.Join("lib", "scripts", "k2s", "system", "package", "New-K2sPackage.ps1")))
 				Expect(params).To(ConsistOf(" -ShowLogs", " -Proxy http://myproxy:81", " -VMProcessorCount 6", " -VMMemoryStartupBytes 4GB", " -VMDiskSize 50GB", " -TargetDirectory 'dir'", " -ZipPackageFileName 'file.zip'", " -ForOfflineInstallation", " -K8sBinsPath 'k8sbins'"))
 			})
+		})
+	})
+
+	Describe("ControlPlaneMemoryFlagUsage", func() {
+		It("should contain 'minimum 2GB'", func() {
+			Expect(ControlPlaneMemoryFlagUsage).To(ContainSubstring("minimum 2GB"))
+		})
+	})
+
+	Describe("ControlPlaneDiskSizeFlagUsage", func() {
+		It("should contain 'minimum 10GB'", func() {
+			Expect(ControlPlaneDiskSizeFlagUsage).To(ContainSubstring("minimum 10GB"))
 		})
 	})
 })

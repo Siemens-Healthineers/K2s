@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2023 Siemens Healthcare GmbH
+// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 package corruptedstate
 
@@ -12,8 +12,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/siemens-healthineers/k2s/test/framework"
-
-	"github.com/siemens-healthineers/k2s/test/framework/k2s"
+	"github.com/siemens-healthineers/k2s/test/framework/k2s/cli"
 )
 
 var suite *framework.K2sTestSuite
@@ -33,7 +32,7 @@ var _ = AfterSuite(func(ctx context.Context) {
 
 var _ = Describe("stop", Ordered, func() {
 	It("prints system-not-installed message and exits with non-zero", func(ctx context.Context) {
-		output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "stop")
+		output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "stop")
 
 		Expect(output).To(ContainSubstring("not installed"))
 	})

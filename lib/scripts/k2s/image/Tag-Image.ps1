@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -10,6 +10,9 @@ Tag container images in K2s
 
 .DESCRIPTION
 Tag container images in K2s
+
+.PARAMETER Id
+The image id of the image to be exported
 
 .PARAMETER ImageName
 The image name of the image to be tagged
@@ -23,7 +26,9 @@ PS> .\Tag-Image.ps1 -ImageName "image:v1" -TargetImageName "image:v2"
 #>
 
 Param (
-    [parameter(Mandatory = $true, HelpMessage = 'Name of the image to be tagged with a new name.')]
+    [parameter(Mandatory = $false, HelpMessage = 'Id of the image to be tagged with a new name')]
+    [string] $Id,
+    [parameter(Mandatory = $false, HelpMessage = 'Name of the image to be tagged with a new name.')]
     [string] $ImageName,
     [parameter(Mandatory = $true, HelpMessage = 'New image name')]
     [string] $TargetImageName,
@@ -57,26 +62,71 @@ $WorkerVM = Get-IsWorkerVM
 $linuxContainerImages = Get-ContainerImagesOnLinuxNode -IncludeK8sImages $true
 $windowsContainerImages = Get-ContainerImagesOnWindowsNode -IncludeK8sImages $true -WorkerVM $WorkerVM
 
-$foundLinuxImages = @($linuxContainerImages | Where-Object {
-    $calculatedName = $_.Repository + ':' + $_.Tag
-    return ($calculatedName -eq $ImageName)
-})
+$foundLinuxImages = @()
+if ($Id -ne '') {
+    $foundLinuxImages = @($linuxContainerImages | Where-Object { $_.ImageId -eq $Id })
+}
+else {
+    if ($ImageName -eq '') {
+        Write-Error 'Image Name or ImageId is not provided. Cannot tag image.'
+    }
+    else {
+        $foundLinuxImages = @($linuxContainerImages | Where-Object {
+                $retrievedName = $_.Repository + ':' + $_.Tag
+                return ($retrievedName -eq $ImageName)
+            })
+    }
+}
 
-$foundWindowsImages = @($windowsContainerImages | Where-Object {
-    $calculatedName = $_.Repository + ':' + $_.Tag
-    return ($calculatedName -eq $ImageName)
-})
+$foundWindowsImages = @()
+if ($Id -ne '') {
+    $foundWindowsImages = @($windowsContainerImages | Where-Object { $_.ImageId -eq $Id })
+}
+else {
+    if ($ImageName -eq '') {
+        Write-Error 'Image Name or ImageId is not provided. Cannot tag image.'
+    }
+    else {
+        $foundWindowsImages = @($windowsContainerImages | Where-Object {
+                $retrievedName = $_.Repository + ':' + $_.Tag
+                return ($retrievedName -eq $ImageName)
+            })
+
+    }
+}
+
 
 if ($foundLinuxImages.Count -eq 0 -and $foundWindowsImages.Count -eq 0) {
-    $errMsg = "Image '$ImageName' not found"
-    if ($EncodeStructuredOutput -eq $true) {
-        $err = New-Error -Code 'image-tag-failed' -Message $errMsg
-        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
-        return
+    If ($Id -ne ''){
+        $errMsg = "Image with Id ${Id} not found!"
+        if ($EncodeStructuredOutput -eq $true) {
+            $err = New-Error -Severity Warning -Code 'image-not-found' -Message $errMsg
+            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+            return
+        }
+        Write-Log $errMsg -Error
+        exit 1
     }
 
-    Write-Log $errMsg -Error
-    exit 1
+    If ($ImageName -ne '') {
+        $errMsg = "Image '$ImageName' not found"
+        if ($EncodeStructuredOutput -eq $true) {
+            $err = New-Error -Code 'image-tag-failed' -Message $errMsg
+            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+            return
+        }
+        Write-Log $errMsg -Error
+        exit 1
+    }
+}
+
+if($foundLinuxImages.Count -gt 1 -or $foundWindowsImages.Count -gt 1) {
+        $errMsg = "More than one image has the id: $Id. Please use --name to identify the image instead or delete the other image/s"
+        if ($EncodeStructuredOutput -eq $true) {
+            $err = New-Error -Severity Warning -Code 'two-images-found' -Message $errMsg
+            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+            return
+        }
 }
 
 $tagLinuxImage = $false
@@ -108,6 +158,10 @@ if ($foundLinuxImages.Count -eq 1 -and $foundWindowsImages.Count -eq 1) {
 }
 
 if ((($foundLinuxImages.Count -eq 1) -and !$linuxAndWindowsImageFound) -or $tagLinuxImage) {
+    $image = $foundLinuxImages[0]
+    $imageTag = $image.Tag
+    $imageName = $image.Repository
+    $ImageName = "${imageName}:${imageTag}"
     Write-Log "Tagging Linux image '$ImageName' as '$TargetImageName'" -Console
     $success = (Invoke-CmdOnControlPlaneViaSSHKey "sudo buildah tag $ImageName $TargetImageName 2>&1" -Retries 5).Success
     if (!$success) {
@@ -130,6 +184,10 @@ if ((($foundLinuxImages.Count -eq 1) -and !$linuxAndWindowsImageFound) -or $tagL
 }
 
 if ((($foundWindowsImages.Count -eq 1) -and !$linuxAndWindowsImageFound) -or $tagWindowsImage) {
+    $image = $foundWindowsImages[0]
+    $imageTag = $image.Tag
+    $imageName = $image.Repository
+    $ImageName = "${imageName}:${imageTag}"
     Write-Log "Tagging Windows image '$ImageName' as '$TargetImageName'" -Console
     $kubeBinPath = Get-KubeBinPath
     $nerdctlExe = "$kubeBinPath\nerdctl.exe"

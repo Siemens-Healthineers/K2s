@@ -1,0 +1,15 @@
+# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+#
+# SPDX-License-Identifier: MIT
+network:
+  ethernets:
+    __NETWORK_INTERFACE_NAME__:
+      addresses: [__NETWORK_ADDRESSES__]
+      dhcp4: false
+      mtu: 1400
+      routes:
+      - to: default
+        via: __IP_GATEWAY__
+      nameservers:
+        addresses: [__DNS_IP_ADDRESSES__]
+  version: 2

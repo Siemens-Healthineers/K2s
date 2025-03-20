@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2023 Siemens Healthcare GmbH
+// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package start
@@ -7,7 +7,6 @@ import (
 	"errors"
 	"log/slog"
 	"strconv"
-	"time"
 
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
@@ -19,6 +18,7 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 
+	cc "github.com/siemens-healthineers/k2s/internal/core/clusterconfig"
 	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
 	"github.com/siemens-healthineers/k2s/internal/powershell"
 )
@@ -37,10 +37,11 @@ func init() {
 }
 
 func startk8s(ccmd *cobra.Command, args []string) error {
+	cmdSession := common.StartCmdSession(ccmd.CommandPath())
 	pterm.Printfln("🤖 Starting K2s on %s", utils.Platform())
 
 	context := ccmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
-	config, err := setupinfo.ReadConfig(context.Config().Host.K2sConfigDir)
+	config, err := setupinfo.ReadConfig(context.Config().Host().K2sConfigDir())
 	if err != nil {
 		if errors.Is(err, setupinfo.ErrSystemInCorruptedState) {
 			return common.CreateSystemInCorruptedStateCmdFailure()
@@ -48,6 +49,10 @@ func startk8s(ccmd *cobra.Command, args []string) error {
 		if errors.Is(err, setupinfo.ErrSystemNotInstalled) {
 			return common.CreateSystemNotInstalledCmdFailure()
 		}
+		return err
+	}
+
+	if err := context.EnsureK2sK8sContext(); err != nil {
 		return err
 	}
 
@@ -64,17 +69,74 @@ func startk8s(ccmd *cobra.Command, args []string) error {
 
 	slog.Debug("PS command created", "command", startCmd)
 
-	start := time.Now()
-
 	err = powershell.ExecutePs(startCmd, common.DeterminePsVersion(config), common.NewPtermWriter())
 	if err != nil {
 		return err
 	}
 
-	duration := time.Since(start)
-	common.PrintCompletedMessage(duration, "Start")
+	err = startAdditionalNodes(context, ccmd.Flags(), config)
+	if err != nil {
+		// Start of additional nodes shall not impact the k2s cluster, any errors during startup should be treated as warnings.
+		slog.Warn("Failures during starting of additional nodes", "err", err)
+	}
+
+	cmdSession.Finish()
 
 	return nil
+}
+
+func startAdditionalNodes(context *common.CmdContext, flags *pflag.FlagSet, config *setupinfo.Config) error {
+	clusterConfig, err := cc.Read(context.Config().Host().K2sConfigDir())
+	if err != nil {
+		return err
+	}
+
+	if clusterConfig == nil {
+		return nil
+	}
+
+	for _, node := range clusterConfig.Nodes {
+		startNodeCmd := buildNodeStartCmd(flags, node)
+
+		slog.Debug("PS command created", "command", startNodeCmd)
+
+		err = powershell.ExecutePs(startNodeCmd, common.DeterminePsVersion(config), common.NewPtermWriter())
+		if err != nil {
+			slog.Warn("Failure during start of node", "node", node.Name, "err", err)
+		}
+	}
+
+	return nil
+}
+
+func buildNodeStartCmd(flags *pflag.FlagSet, nodeConfig cc.Node) string {
+	outputFlag, _ := strconv.ParseBool(flags.Lookup(common.OutputFlagName).Value.String())
+
+	additionalHooksDir := flags.Lookup(common.AdditionalHooksDirFlagName).Value.String()
+
+	roleType := string(nodeConfig.Role)
+	OsType := string(nodeConfig.OS)
+	nodeType := cc.GetNodeDirectory(string(nodeConfig.NodeType))
+
+	cmd := utils.FormatScriptFilePath(utils.InstallDir() + "\\lib\\scripts\\" + roleType + "\\" + OsType + "\\" + nodeType + "\\Start.ps1")
+
+	if outputFlag {
+		cmd += " -ShowLogs"
+	}
+
+	if additionalHooksDir != "" {
+		cmd += " -AdditionalHooksDir " + utils.EscapeWithSingleQuotes(additionalHooksDir)
+	}
+
+	if nodeConfig.IpAddress != "" {
+		cmd += " -IpAddress " + nodeConfig.IpAddress
+	}
+
+	if nodeConfig.Name != "" {
+		cmd += " -NodeName " + nodeConfig.Name
+	}
+
+	return cmd
 }
 
 func buildStartCmd(flags *pflag.FlagSet, setupName setupinfo.SetupName) (string, error) {

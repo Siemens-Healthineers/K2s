@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -71,7 +71,7 @@ if ($(Get-ConfigLinuxOnly) -eq $false) {
         AdditionalHooksDir = $AdditionalHooksDir
         DeleteFilesForOfflineInstallation = $DeleteFilesForOfflineInstallation
     }
-    & "$PSScriptRoot\..\..\worker-node\windows\hyper-v-vm\Uninstall.ps1" @workerNodeParams
+    & "$PSScriptRoot\..\..\worker\windows\hyper-v-vm\Uninstall.ps1" @workerNodeParams
 }
 
 $controlPlaneParams = " -AdditionalHooksDir '$AdditionalHooksDir'"
@@ -86,6 +86,7 @@ if ($SkipPurge.IsPresent) {
 }
 & powershell.exe "$PSScriptRoot\..\..\control-plane\Uninstall.ps1" $controlPlaneParams
 
+Remove-K2sHostsFromNoProxyEnvVar
 
 Invoke-AddonsHooks -HookType 'AfterUninstall'
 

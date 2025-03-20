@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthcare GmbH
+# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -24,10 +24,10 @@ spec:
             - containerPort: 6379
           resources:
             limits:
-              cpu: "0.5"
-              memory: "512Mi"
-          command: ["redis-server"]
-          args: ["--save", "", "--appendonly", "no"]
+              cpu: '0.5'
+              memory: '512Mi'
+          command: ['redis-server']
+          args: ['--save', '', '--appendonly', 'no']
 ---
 apiVersion: v1
 kind: Service
@@ -75,6 +75,9 @@ data:
     redis_connection_url="redis://redis-service:6379"
     pass_authorization_header=true
     set_authorization_header=true
+    # The next property is needed to authenticate the bearer token 
+    # see https://medium.com/in-the-weeds/service-to-service-authentication-on-kubernetes-94dcb8216cdc
+    skip_jwt_bearer_tokens=true
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -98,9 +101,9 @@ spec:
           configMap:
             name: oauth2-proxy-config
       hostAliases:
-        - ip: "172.19.1.100"
+        - ip: '172.19.1.100'
           hostnames:
-            - "k2s.cluster.local"
+            - 'k2s.cluster.local'
       containers:
         - name: oauth-proxy
           image: quay.io/oauth2-proxy/oauth2-proxy:v7.6.0

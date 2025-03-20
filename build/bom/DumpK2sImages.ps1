@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -47,8 +47,8 @@ else {
     foreach ($name in $Addons) {
         Write-Output "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] Filter Container Images for addon: $name"
         $foundManifest = $null
-        $addonName = ($name -split " ")[0]
-        $implementationName = ($name -split " ")[1]
+        $addonName = ($name -split ' ')[0]
+        $implementationName = ($name -split ' ')[1]
 
         foreach ($manifest in $allAddonManifests) {
             if ($manifest.metadata.name -eq $addonName) {
@@ -56,7 +56,7 @@ else {
 
                 # specific implementation specified
                 if ($null -ne $implementationName) {
-                    $foundManifest.spec.implementations = $foundManifest.spec.implementations | Where-Object { $_.name -eq $implementationName}
+                    $foundManifest.spec.implementations = $foundManifest.spec.implementations | Where-Object { $_.name -eq $implementationName }
                 }
                 break
             }
@@ -64,7 +64,8 @@ else {
 
         if ($null -eq $foundManifest) {
             Write-Output "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] No addon manifest for addon: $name"
-        } else {
+        }
+        else {
             $addonManifests += $foundManifest
         }
     }
@@ -78,8 +79,8 @@ if (Test-Path -Path $finalJsonFile) {
 
 # Read the static images
 $staticImages = Get-Content -Path "$global:KubernetesPath\build\bom\images\static-images.txt"
-$images = @()
-$addonImages = @()
+$images = New-Object System.Collections.Generic.List[System.Object]
+$addonImages = New-Object System.Collections.Generic.List[System.Object]
 $addonNameImagesMapping = @{}
 
 
@@ -105,7 +106,7 @@ foreach ($manifest in $addonManifests) {
                     continue
                 }
 
-                $images += "$fullImageName"
+                $images.Add("$fullImageName")
 
                 # Initialize the image list if not already present
                 if (-not $addonNameImagesMapping.ContainsKey($addonName)) {
@@ -132,7 +133,7 @@ foreach ($manifest in $addonManifests) {
                 if (-not ($addonNameImagesMapping[$addonName] -contains $additionImages)) {
                     $addonNameImagesMapping[$addonName] += $additionImages
                 }
-                $images += $additionImages
+                $images.Add($additionImages)
             }
         }
 
@@ -143,6 +144,9 @@ foreach ($manifest in $addonManifests) {
 
 $totalCountMapping = 0
 
+# uniques list of images
+$uniqueSingleImages = New-Object System.Collections.Generic.List[System.String]
+
 foreach ($addonName in $addonNameImagesMapping.Keys) {
     $uniqueImages = $addonNameImagesMapping[$addonName] | Sort-Object -Unique
     $finalImages = @()
@@ -152,8 +156,22 @@ foreach ($addonName in $addonNameImagesMapping.Keys) {
     Write-Output "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] Addon Images Count: $($finalImages.Count)"
     Write-Output "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] Images: $([string]::Join(', ', $uniqueImages))"
     Write-Output "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] -----------------------------------------------------------------------------"
+
+    # check if images are all in the addons image list
+    foreach ($image in $finalImages) {
+        if ($uniqueSingleImages.Contains($image)) {
+            Write-Output "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] Info: Image $image is already in the addon images list, it's a duplicate"
+        }
+        else {
+            $uniqueSingleImages.Add($image)
+        }
+        if (-not $addonImages.Contains($image)) {
+            Write-Output "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] ERROR: Image $image is not in the addon images list"
+        }
+    }
 }
 
+Write-Output "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] Number of addons: $($addonNameImagesMapping.Keys.Count)"
 Write-Output "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] Number of addon images: $($addonImages.Count)"
 Write-Output "[$(Get-Date -Format 'dd-MM-yyyy HH:mm:ss')] Number of images in mapping: $totalCountMapping"
 
@@ -167,7 +185,7 @@ $imageDetailsArray = New-Object System.Collections.ArrayList
 foreach ($image in $finalImages) {
     $imageName, $imageVersion = $image -split ':'
 
-    if ($image -eq "") {
+    if ($image -eq '') {
         continue
     }
 

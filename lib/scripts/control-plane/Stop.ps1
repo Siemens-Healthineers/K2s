@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -28,8 +28,8 @@ Set-Location $kubePath
 
 $ProgressPreference = 'SilentlyContinue'
 
-$loopbackAdapter = Get-L2BridgeName
-Reset-DnsForActivePhysicalInterfacesOnWindowsHost -ExcludeNetworkInterfaceName $loopbackAdapter
+# $loopbackAdapter = Get-L2BridgeName
+# Reset-DnsForActivePhysicalInterfacesOnWindowsHost -ExcludeNetworkInterfaceName $loopbackAdapter
 
 Stop-WinHttpProxy
 Stop-WinDnsProxy

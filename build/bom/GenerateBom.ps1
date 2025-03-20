@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -107,7 +107,7 @@ function MergeBomFilesFromDirectory() {
 
     # merge all files to one bom file
     $bomfiles = (Get-ChildItem -Path "$bomRootDir\merge" -Filter *.json -Recurse).FullName | Sort-Object length -Descending
-    $CMD = 'cyclonedx-win-x64'
+    $CMD = "$global:BinPath\cyclonedx-win-x64"
     $MERGE = @('merge', '--input-files')
     # adding at the beginning just to have the right naming for the component
     $MERGE += "`"$bomRootDir\merge\k2s-static.json`""
@@ -130,7 +130,7 @@ function ValidateResultBom() {
     Write-Output "Validate bom file: '$bomRootDir\k2s-bom.json'"
 
     # build and execute validate command
-    $CMD = 'cyclonedx-win-x64'
+    $CMD = "$global:BinPath\cyclonedx-win-x64"
     $VALIDATE = @('validate', '--input-file', "`"$bomRootDir\k2s-bom.json`"", '--fail-on-errors')
     & $CMD $VALIDATE
 }
@@ -163,7 +163,7 @@ function GenerateBomDebian() {
     }
 
     Write-Output 'Generate bom for debian'
-    ExecCmdMaster 'sudo HTTPS_PROXY=http://172.19.1.1:8181 trivy rootfs / --scanners license --license-full --format cyclonedx -o kubemaster.json 2>&1'
+    ExecCmdMaster -CmdToExecute 'sudo HTTPS_PROXY=http://172.19.1.1:8181 trivy rootfs / --scanners license --license-full --format cyclonedx -o kubemaster.json 2>&1' -Retries 6 -Timeout 10
 
     Write-Output 'Copy bom file to local folder'
     $source = "$global:Remote_Master" + ':/home/remote/kubemaster.json'
@@ -187,7 +187,15 @@ function LoadK2sImages() {
     # export all addons to have all images pull
     Write-Output "Exporting addons to trigger pulling of containers under $tempDir"
 
-    &k2s.exe addons export $Addons -d $tempDir -o
+    # check if addons are specified
+    if ($null -eq $Addons -or $Addons.Length -eq 0) {
+        &"$global:KubernetesPath\k2s.exe" addons export -d $tempDir -o
+    }
+    else {
+        &"$global:KubernetesPath\k2s.exe" addons export $Addons -d $tempDir -o
+    }
+
+    # cleanup temp directory
     if ( Test-Path -Path $tempDir\addons.zip) {
         Remove-Item -Path $tempDir\addons.zip -Force
     }
@@ -217,9 +225,9 @@ function GenerateBomContainers() {
 
         # find image id in kubemaster VM
         $imageId = ExecCmdMaster "sudo buildah images -f reference=${fullname} --format '{{.ID}}'"
-        Write-Output "  -> Image Id: $imageId"
+        Write-Output "  -> Image $name Id: $imageId"
 
-        #check if image id is not empty
+        # check if image id is not empty
         if (![string]::IsNullOrEmpty($imageId)) {
             # create bom file entry for linux image
             Write-Output "  -> Image ${fullname} is linux image, creating bom file"
@@ -251,7 +259,7 @@ function GenerateBomContainers() {
             ExecCmdMaster "sudo rm -f $imageName.json"
         }
         else {
-            Write-Output '  -> Image is windows image, skipping'
+            Write-Output "  -> Image $name is windows image, skipping"
             $imageObject = [PSCustomObject]@{
                 ImageName    = $name
                 ImageType    = $type
@@ -262,7 +270,7 @@ function GenerateBomContainers() {
     }
 
     # iterate through windows images
-    $ims = (&k2s.exe image ls -o json | ConvertFrom-Json).containerimages
+    $ims = (&"$global:KubernetesPath\k2s.exe" image ls -o json | ConvertFrom-Json).containerimages
 
     for ($j = 0; $j -lt $imagesWindows.Count; $j++) {
         $image = $imagesWindows[$j].ImageName
@@ -284,11 +292,11 @@ function GenerateBomContainers() {
 
         # copy to master
         Write-Output "  -> Exporting windows image: $imageName with id: $img.imageid to $tempDir\$imageName.tar"
-        &k2s.exe image export --id $img.imageid -t "$tempDir\\$imageName.tar" --docker-archive
+        &"$global:KubernetesPath\k2s.exe" image export --id $img.imageid -t "$tempDir\\$imageName.tar" --docker-archive
 
         # copy to master since cdxgen is not available on windows
         Write-Output "  -> Copied to kubemaster: $imageName.tar"
-        &k2s.exe system scp m "$tempDir\\$imageName.tar" '/home/remote'
+        &"$global:KubernetesPath\k2s.exe" system scp m "$tempDir\\$imageName.tar" '/home/remote'
 
         Write-Output "  -> Creating bom for windows image: $imageName"
         # TODO: with license it does not work yet from cdxgen point of view
@@ -352,8 +360,9 @@ if ($Annotate) {
 
 if ($Addons) {
     Write-Output "Generating SBOM for addons '$Addons'"
-} else {
-    Write-Output "Generating SBOM for all the available addons"
+}
+else {
+    Write-Output 'Generating SBOM for all the available addons'
 }
 
 $generationStopwatch = [system.diagnostics.stopwatch]::StartNew()

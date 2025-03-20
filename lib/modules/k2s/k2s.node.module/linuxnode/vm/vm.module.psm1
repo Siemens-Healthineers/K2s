@@ -202,13 +202,26 @@ function Get-IsControlPlaneRunning {
 function Copy-FromControlPlaneViaSSHKey($Source, $Target,
     [Parameter(Mandatory = $false)]
     [switch]$IgnoreErrors = $false) {
+    
+    Copy-FromRemoteComputerViaSSHKey -Source $Source -Target $Target -IpAddress $ipControlPlane -UserName $defaultUserName -IgnoreErrors:$IgnoreErrors
+}
+
+function Copy-FromRemoteComputerViaSSHKey($Source, $Target,
+    [Parameter(Mandatory = $false)]
+    [string]$IpAddress = $(throw 'Argument missing: IpAddress'),
+    [Parameter(Mandatory = $false)]
+    [string]$UserName = $(throw 'Argument missing: UserName'),
+    [Parameter(Mandatory = $false)]
+    [switch]$IgnoreErrors = $false) {
     Write-Log "Copying '$Source' to '$Target', ignoring errors: '$IgnoreErrors'"
 
-    $linuxSourceDirectory = $Source -replace "${remoteUser}:", ''
+    $userOnRemoteMachine = "$UserName@$IpAddress"
+
+    $linuxSourceDirectory = $Source -replace "${userOnRemoteMachine}:", ''
     $leaf = Split-Path $linuxSourceDirectory -Leaf
     $filter = $leaf
 
-    ssh.exe -n -o StrictHostKeyChecking=no -i $key $remoteUser "[ -d '$linuxSourceDirectory' ]"
+    ssh.exe -n -o StrictHostKeyChecking=no -i $key $userOnRemoteMachine "[ -d '$linuxSourceDirectory' ]"
     $isDir = $?
 
     if ($leaf.Contains("*")) {
@@ -223,7 +236,7 @@ function Copy-FromControlPlaneViaSSHKey($Source, $Target,
         $tarFolder = $linuxSourceDirectory
         $targetDirectory = "$Target\$leaf"
     } else {
-        $output = scp.exe -o StrictHostKeyChecking=no -r -i $key "${remoteUser}:$Source" "$Target" 2>&1
+        $output = scp.exe -o StrictHostKeyChecking=no -r -i $key "${userOnRemoteMachine}:$Source" "$Target" 2>&1
         if ($LASTEXITCODE -ne 0 -and !$IgnoreErrors) {
             throw "Could not copy '$Source' to '$Target': $output"
         }
@@ -234,7 +247,7 @@ function Copy-FromControlPlaneViaSSHKey($Source, $Target,
     (Invoke-CmdOnControlPlaneViaSSHKey 'sudo rm -rf /tmp/copy.tar').Output | Write-Log
     (Invoke-CmdOnControlPlaneViaSSHKey "sudo tar -cf /tmp/copy.tar -C $tarFolder .").Output | Write-Log
 
-    $output = scp.exe -o StrictHostKeyChecking=no -i $key "${remoteUser}:/tmp/copy.tar" "$env:temp\copy.tar" 2>&1
+    $output = scp.exe -o StrictHostKeyChecking=no -i $key "${userOnRemoteMachine}:/tmp/copy.tar" "$env:temp\copy.tar" 2>&1
     if ($LASTEXITCODE -ne 0 -and !$IgnoreErrors) {
         throw "Could not copy '$Source' to '$Target': $output"
     }
@@ -255,10 +268,14 @@ function Copy-FromControlPlaneViaSSHKey($Source, $Target,
 
 function Copy-FromRemoteComputerViaUserAndPwd($Source, $Target, $IpAddress,
     [Parameter(Mandatory = $false)]
+    [string]$UserName = $defaultUserName,
+    [Parameter(Mandatory = $false)]
+    [string]$UserPwd = $remotePwd,
+    [Parameter(Mandatory = $false)]
     [switch]$IgnoreErrors = $false) {
     Write-Log "Copying '$Source' to '$Target' at '$IpAddress', ignoring errors: '$IgnoreErrors'"
 
-    $output = Write-Output yes | &"$scpExe" -ssh -4 -q -r -pw $remotePwd "${defaultUserName}@${IpAddress}:$Source" "$Target" 2>&1
+    $output = Write-Output yes | &"$scpExe" -ssh -4 -q -r -pw $UserPwd "${UserName}@${IpAddress}:$Source" "$Target" 2>&1
 
     if ($LASTEXITCODE -ne 0 -and !$IgnoreErrors) {
         throw "Could not copy '$Source' to '$Target': $output"
@@ -343,10 +360,14 @@ function Copy-ToControlPlaneViaUserAndPwd($Source, $Target,
 
 function Copy-ToRemoteComputerViaUserAndPwd($Source, $Target, $IpAddress,
     [Parameter(Mandatory = $false)]
+    [string]$UserName = $defaultUserName,
+    [Parameter(Mandatory = $false)]
+    [string]$UserPwd = $remotePwd,
+    [Parameter(Mandatory = $false)]
     [switch]$IgnoreErrors = $false) {
     Write-Log "Copying '$Source' to '$Target', ignoring errors: '$IgnoreErrors'"
 
-    $output = Write-Output yes | &"$scpExe" -ssh -4 -q -r -pw $remotePwd "$Source" "${defaultUserName}@${IpAddress}:$Target" 2>&1
+    $output = Write-Output yes | &"$scpExe" -ssh -4 -q -r -pw $UserPwd "$Source" "${UserName}@${IpAddress}:$Target" 2>&1
 
     if ($LASTEXITCODE -ne 0 -and !$IgnoreErrors) {
         throw "Could not copy '$Source' to '$Target': $output"
@@ -363,20 +384,21 @@ function Test-ControlPlanePrerequisites(
     [uint64] $MasterDiskSize) {
 
     Write-Log "Using Control Plane VM ProcessorCount: $MasterVMProcessorCount"
-    Write-Log "Using Control Plane VM Memory: $([math]::round($MasterVMMemory/1GB, 2))GB"
-    Write-Log "Using Control Plane VM Diskspace: $([math]::round($MasterDiskSize/1GB, 2))GB"
+    Write-Log "Using Control Plane VM Memory: $(Convert-BytesToGB -SizeInBytes $MasterVMMemory)GB"
+    Write-Log "Using Control Plane VM Diskspace: $(Convert-BytesToGB -SizeInBytes $MasterDiskSize)GB"
 
     # check memory
-    if ( $MasterVMMemory -lt 2GB ) {
-        Write-Log 'k2s needs minimal 2GB main memory, you have passed a lower value!' -Error
-        throw '[PREREQ-FAILED] Master node memory passed too low'
+    $minimalProvisioningBaseImageSize = Get-MinimalProvisioningBaseMemorySize
+    if ( $MasterVMMemory -lt $minimalProvisioningBaseImageSize ) {
+        Write-Log "k2s needs minimal $(Convert-BytesToGB -SizeInBytes $minimalProvisioningBaseImageSize)GB main memory, you have passed a lower value!" -Error
+        throw "[PREREQ-FAILED] Master node memory passed too low: $(Convert-BytesToGB -SizeInBytes $MasterVMMemory)GB"
     }
 
     # check disk
-    $defaultProvisioningBaseImageSize = Get-DefaultProvisioningBaseImageDiskSize
-    if ( $MasterDiskSize -lt $defaultProvisioningBaseImageSize ) {
-        Write-Log "k2s needs minimal $defaultProvisioningBaseImageSize disk space, you have passed a lower value!" -Error
-        throw '[PREREQ-FAILED] Master VM Disk size passed too low'
+    $minimalProvisioningBaseImageSize = Get-MinimalProvisioningBaseImageDiskSize
+    if ( $MasterDiskSize -lt $minimalProvisioningBaseImageSize ) {
+        Write-Log "k2s needs minimal $(Convert-BytesToGB -SizeInBytes $minimalProvisioningBaseImageSize)GB disk space, you have passed a lower value!" -Error
+        throw "[PREREQ-FAILED] Master VM Disk size passed too low: $(Convert-BytesToGB -SizeInBytes $MasterDiskSize)GB"
     }
 
     #Check for running VMs and minikube
@@ -397,6 +419,14 @@ function Test-ControlPlanePrerequisites(
     }
 }
 
+function Convert-BytesToGB {
+    param (
+        [parameter(Mandatory = $true)]
+        [long] $SizeInBytes
+    )
+    return [math]::round($SizeInBytes / 1GB, 2)
+}
+
 function Test-ExistingExternalSwitch {
     $l2BridgeSwitchName = Get-L2BridgeSwitchName
     $externalSwitches = Get-VMSwitch | Where-Object { $_.SwitchType -eq 'External' -and $_.Name -ne $l2BridgeSwitchName}
@@ -409,10 +439,6 @@ function Test-ExistingExternalSwitch {
         throw '[PREREQ-FAILED] Remove all the existing External Network Switches and retry the k2s command again'
     }
 
-}
-
-function Get-IsLinuxOsDebian {
-    return ((Get-ConfigLinuxOsType) -eq $LinuxOsTypeDebianCloud)
 }
 
 function Get-LinuxOsType($LinuxVhdxPath) {
@@ -508,7 +534,7 @@ function Wait-ForSshPossible {
             }
         }
         else {
-            $result = $(Write-Output yes | &"$plinkExe" -ssh -4 $User -pw $UserPwd -no-antispoof "$($SshTestCommand)" 2>&1)
+            $result = $(Write-Output y | &"$plinkExe" -ssh -4 $User -pw $UserPwd -no-antispoof "$($SshTestCommand)" 2>&1)
         }
 
         if ($StrictEqualityCheck -eq $true) {
@@ -659,4 +685,5 @@ Get-DefaultUserPwdControlPlane,
 Get-DefaultUserNameWorkerNode,
 Get-DefaultUserPwdWorkerNode,
 Copy-KubeConfigFromControlPlaneNode,
-Get-ControlPlaneRemoteUser
+Get-ControlPlaneRemoteUser,
+Copy-FromRemoteComputerViaSSHKey

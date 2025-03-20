@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2023 Siemens Healthcare GmbH
+// SPDX-FileCopyrightText:  © 2025 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package core
@@ -7,11 +7,10 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"time"
 
 	ic "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/install/config"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
+	cc "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 
 	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
 	"github.com/siemens-healthineers/k2s/internal/os"
@@ -32,31 +31,36 @@ type Printer interface {
 }
 
 type Installer struct {
-	InstallConfigAccess       InstallConfigAccess
-	Printer                   Printer
-	ExecutePsScript           func(script string, psVersion powershell.PowerShellVersion, writer os.StdWriter) error
-	GetVersionFunc            func() version.Version
-	GetPlatformFunc           func() string
-	GetInstallDirFunc         func() string
-	PrintCompletedMessageFunc func(duration time.Duration, command string)
-	LoadConfigFunc            func(configDir string) (*setupinfo.Config, error)
-	SetConfigFunc             func(configDir string, config *setupinfo.Config) error
-	DeleteConfigFunc          func(configDir string) error
+	InstallConfigAccess      InstallConfigAccess
+	Printer                  Printer
+	ExecutePsScript          func(script string, psVersion powershell.PowerShellVersion, writer os.StdWriter) error
+	GetVersionFunc           func() version.Version
+	GetPlatformFunc          func() string
+	GetInstallDirFunc        func() string
+	LoadConfigFunc           func(configDir string) (*setupinfo.Config, error)
+	MarkSetupAsCorruptedFunc func(configDir string) error
+	DeleteConfigFunc         func(configDir string) error
 }
 
 func (i *Installer) Install(
 	kind ic.Kind,
 	ccmd *cobra.Command,
-	buildCmdFunc func(config *ic.InstallConfig) (cmd string, err error)) error {
-	context := ccmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
-	configDir := context.Config().Host.K2sConfigDir
+	buildCmdFunc func(config *ic.InstallConfig) (cmd string, err error),
+	cmdSession cc.CmdSession) error {
+	context := ccmd.Context().Value(cc.ContextKeyCmdContext).(*cc.CmdContext)
+	configDir := context.Config().Host().K2sConfigDir()
+
 	setupConfig, err := i.LoadConfigFunc(configDir)
+
 	if errors.Is(err, setupinfo.ErrSystemInCorruptedState) {
-		return common.CreateSystemInCorruptedStateCmdFailure()
+		return cc.CreateSystemInCorruptedStateCmdFailure()
+	}
+	if err != nil && !errors.Is(err, setupinfo.ErrSystemNotInstalled) {
+		return err
 	}
 	if err == nil && setupConfig.SetupName != "" {
-		return &common.CmdFailure{
-			Severity: common.SeverityWarning,
+		return &cc.CmdFailure{
+			Severity: cc.SeverityWarning,
 			Code:     "system-already-installed",
 			Message:  fmt.Sprintf("'%s' setup already installed, please uninstall with 'k2s uninstall' first and re-run the install command afterwards", setupConfig.SetupName),
 		}
@@ -83,14 +87,12 @@ func (i *Installer) Install(
 
 	i.Printer.Printfln("🤖 Installing K2s '%s' %s in '%s' on %s using PowerShell %s", kind, i.GetVersionFunc(), i.GetInstallDirFunc(), i.GetPlatformFunc(), psVersion)
 
-	outputWriter := common.NewPtermWriter()
-
-	start := time.Now()
+	outputWriter := cc.NewPtermWriter()
 
 	err = i.ExecutePsScript(cmd, psVersion, outputWriter)
 	if err != nil {
 		// Check for pre-requisites first
-		errorLine, found := common.GetInstallPreRequisiteError(outputWriter.ErrorLines)
+		errorLine, found := cc.GetInstallPreRequisiteError(outputWriter.ErrorLines)
 		if found {
 			i.Printer.PrintWarning("Prerequisite check failed,", errorLine)
 			i.Printer.PrintWarning("Have a look at the pre-requisites 'https://github.com/Siemens-Healthineers/K2s/blob/main/docs/op-manual/installing-k2s.md#prerequisites' and re-issue 'k2s install'")
@@ -102,28 +104,15 @@ func (i *Installer) Install(
 		}
 
 		if outputWriter.ErrorOccurred {
-			// corrupted state
-			setupConfig, err := i.LoadConfigFunc(configDir)
-			if err != nil {
-				if setupConfig == nil {
-					setupConfig = &setupinfo.Config{
-						Corrupted: true,
-					}
-					i.SetConfigFunc(configDir, setupConfig)
-				}
-			} else {
-				setupConfig.Corrupted = true
-				i.SetConfigFunc(configDir, setupConfig)
+			if err := i.MarkSetupAsCorruptedFunc(configDir); err != nil {
+				return fmt.Errorf("error while marking setup as corrupted: %w", err)
 			}
-
-			return common.CreateSystemInCorruptedStateCmdFailure()
+			return cc.CreateSystemInCorruptedStateCmdFailure()
 		}
-
 		return err
 	}
 
-	duration := time.Since(start)
-	i.PrintCompletedMessageFunc(duration, fmt.Sprintf("%s installation", kind))
+	cmdSession.Finish()
 
 	return nil
 }

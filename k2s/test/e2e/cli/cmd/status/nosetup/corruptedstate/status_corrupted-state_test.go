@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2023 Siemens Healthcare GmbH
+// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 package corruptedstate
 
@@ -21,8 +21,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/siemens-healthineers/k2s/test/framework"
-
-	"github.com/siemens-healthineers/k2s/test/framework/k2s"
+	"github.com/siemens-healthineers/k2s/test/framework/k2s/cli"
 )
 
 var suite *framework.K2sTestSuite
@@ -45,12 +44,11 @@ var _ = Describe("status", Ordered, func() {
 
 	BeforeEach(func() {
 		inputConfig := &setupinfo.Config{
-			SetupName:        "k2s",
-			Registries:       []string{"r1", "r2"},
-			LoggedInRegistry: "r2",
-			LinuxOnly:        true,
-			Version:          "test-version",
-			Corrupted:        true,
+			SetupName:  "k2s",
+			Registries: []string{"r1", "r2"},
+			LinuxOnly:  true,
+			Version:    "test-version",
+			Corrupted:  true,
 		}
 		inputData, err := json.Marshal(inputConfig)
 		Expect(err).ToNot(HaveOccurred())
@@ -64,26 +62,26 @@ var _ = Describe("status", Ordered, func() {
 		config, err := config.LoadConfig(installDir)
 		Expect(err).ToNot(HaveOccurred())
 
-		GinkgoWriter.Println("Creating <", config.Host.K2sConfigDir, ">..")
+		GinkgoWriter.Println("Creating <", config.Host().K2sConfigDir(), ">..")
 
-		Expect(os.MkdirAll(config.Host.K2sConfigDir, os.ModePerm)).To(Succeed())
+		Expect(os.MkdirAll(config.Host().K2sConfigDir(), os.ModePerm)).To(Succeed())
 
-		configPath = filepath.Join(config.Host.K2sConfigDir, "setup.json")
+		configPath = filepath.Join(config.Host().K2sConfigDir(), "setup.json")
 
 		GinkgoWriter.Println("Writing test data to <", configPath, ">..")
 
 		Expect(os.WriteFile(configPath, inputData, os.ModePerm)).To(Succeed())
 
 		DeferCleanup(func() {
-			GinkgoWriter.Println("Deleting <", config.Host.K2sConfigDir, ">..")
+			GinkgoWriter.Println("Deleting <", config.Host().K2sConfigDir(), ">..")
 
-			Expect(os.RemoveAll(config.Host.K2sConfigDir)).To(Succeed())
+			Expect(os.RemoveAll(config.Host().K2sConfigDir())).To(Succeed())
 		})
 	})
 
 	Context("default output", func() {
 		It("prints system-in-corrupted-state message and exits with non-zero", func(ctx context.Context) {
-			output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "status")
+			output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "status")
 
 			Expect(output).To(ContainSubstring("corrupted state"))
 		})
@@ -91,7 +89,7 @@ var _ = Describe("status", Ordered, func() {
 
 	Context("extended output", func() {
 		It("prints system-in-corrupted-state message and exits with non-zero", func(ctx context.Context) {
-			output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "status", "-o", "wide")
+			output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "status", "-o", "wide")
 
 			Expect(output).To(ContainSubstring("corrupted state"))
 		})
@@ -101,7 +99,7 @@ var _ = Describe("status", Ordered, func() {
 		var status status.PrintStatus
 
 		BeforeAll(func(ctx context.Context) {
-			output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "status", "-o", "json")
+			output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "status", "-o", "json")
 
 			Expect(json.Unmarshal([]byte(output), &status)).To(Succeed())
 		})

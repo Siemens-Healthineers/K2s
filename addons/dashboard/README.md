@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 
 SPDX-License-Identifier: MIT
 -->
@@ -56,12 +56,14 @@ The dashboard UI can be accessed via the following methods.
 To access dashboard via ingress, the ingress nginx or the ingress traefik addon has to be enabled.
 Once the addons are enabled, the dashboard UI can be accessed at the following link: https://k2s.cluster.local/dashboard/
 
+_Note:_ If a proxy server is configured in the Windows Proxy settings, please add the hosts **k2s.cluster.local** as a proxy override.
+
 ### Access using port-forwarding
 
 To access dashboard via port-forwarding, the following command can be executed:
 
 ```
-kubectl -n kubernetes-dashboard port-forward svc/kubernetes-dashboard 8443:443
+kubectl -n dashboard port-forward svc/kubernetes-dashboard 8443:443
 ```
 
 In this case, the dashboard UI can be accessed at the following link: <https://localhost:8443>

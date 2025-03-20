@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -131,7 +131,6 @@ if (!$kubectlCmd.Success) {
 
 Write-Log 'gateway-api addon installed successfully' -Console
 if ($SharedGateway) {
-  Add-HostEntries -Url 'k2s-gateway.local'
   (Invoke-Kubectl -Params 'apply', '-f', "$manifestsPath\shared-gateway.yaml").Output | Write-Log
 
   @'

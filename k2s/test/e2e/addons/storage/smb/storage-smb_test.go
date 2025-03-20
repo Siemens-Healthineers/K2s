@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2023 Siemens Healthcare GmbH
+// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package smb_share
@@ -12,6 +12,7 @@ import (
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/addons/status"
 	"github.com/siemens-healthineers/k2s/test/framework"
 
+	"github.com/siemens-healthineers/k2s/test/framework/k2s/cli"
 	"github.com/siemens-healthineers/k2s/test/framework/os"
 
 	"github.com/siemens-healthineers/k2s/test/framework/k2s"
@@ -52,7 +53,7 @@ var (
 
 func TestSmbshare(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "storage Addon Acceptance Tests", Label("addon", "acceptance", "internet-required", "setup-required", "invasive", "storage", "system-running"))
+	RunSpecs(t, "storage Addon Acceptance Tests", Label("addon", "addon-ilities", "acceptance", "internet-required", "setup-required", "invasive", "storage", "system-running"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
@@ -81,7 +82,7 @@ var _ = AfterSuite(func(ctx context.Context) {
 	if enabled {
 		GinkgoWriter.Println("Addon is still enabled, disabling it..")
 
-		output := suite.K2sCli().Run(ctx, "addons", "disable", addonName, implementationName, "-f", "-o")
+		output := suite.K2sCli().RunOrFail(ctx, "addons", "disable", addonName, implementationName, "-f", "-o")
 
 		GinkgoWriter.Println(output)
 	} else {
@@ -95,7 +96,7 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 	Describe("status command", func() {
 		Context("default output", func() {
 			It("displays disabled message", func(ctx context.Context) {
-				output := suite.K2sCli().Run(ctx, "addons", "status", addonName, implementationName)
+				output := suite.K2sCli().RunOrFail(ctx, "addons", "status", addonName, implementationName)
 
 				Expect(output).To(SatisfyAll(
 					MatchRegexp(`ADDON STATUS`),
@@ -106,7 +107,7 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 
 		Context("JSON output", func() {
 			It("displays JSON", func(ctx context.Context) {
-				output := suite.K2sCli().Run(ctx, "addons", "status", addonName, implementationName, "-o", "json")
+				output := suite.K2sCli().RunOrFail(ctx, "addons", "status", addonName, implementationName, "-o", "json")
 
 				var status status.AddonPrintStatus
 
@@ -124,7 +125,7 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 
 	Describe("disable command", func() {
 		It("displays already-disabled message and exits with non-zero", func(ctx context.Context) {
-			output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "disable", addonName, implementationName, "-f", "-o")
+			output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "disable", addonName, implementationName, "-f", "-o")
 
 			Expect(output).To(SatisfyAll(
 				ContainSubstring("disable"),
@@ -137,13 +138,13 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 	Describe("enable command", func() {
 		When("SMB host type is Windows", Ordered, func() {
 			It("enables the addon", func(ctx context.Context) {
-				output := suite.K2sCli().Run(ctx, "addons", "enable", addonName, implementationName, "-o")
+				output := suite.K2sCli().RunOrFail(ctx, "addons", "enable", addonName, implementationName, "-o")
 
 				expectEnableMessage(output, "windows")
 			})
 
 			It("prints already-enabled message on enable command and exits with non-zero", func(ctx context.Context) {
-				output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "enable", addonName, implementationName)
+				output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "enable", addonName, implementationName)
 
 				Expect(output).To(ContainSubstring("already enabled"))
 			})
@@ -173,7 +174,7 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 			})
 
 			It("restarts the cluster", func(ctx context.Context) {
-				suite.K2sCli().Run(ctx, "start")
+				suite.K2sCli().RunOrFail(ctx, "start")
 			})
 
 			It("still runs Linux-based workloads after cluster restart", func(ctx context.Context) {
@@ -217,13 +218,13 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 	Describe("enable command", func() {
 		When("SMB host type is linux", Ordered, func() {
 			It("enables the addon", func(ctx context.Context) {
-				output := suite.K2sCli().Run(ctx, "addons", "enable", addonName, implementationName, "-o", "-t", "linux")
+				output := suite.K2sCli().RunOrFail(ctx, "addons", "enable", addonName, implementationName, "-o", "-t", "linux")
 
 				expectEnableMessage(output, "linux")
 			})
 
 			It("prints already-enabled message on enable command and exits with non-zero", func(ctx context.Context) {
-				output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "enable", addonName, implementationName)
+				output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "enable", addonName, implementationName)
 
 				Expect(output).To(ContainSubstring("already enabled"))
 			})
@@ -253,7 +254,7 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 			})
 
 			It("restarts the cluster", func(ctx context.Context) {
-				suite.K2sCli().Run(ctx, "start")
+				suite.K2sCli().RunOrFail(ctx, "start")
 			})
 
 			It("still runs Linux-based workloads after cluster restart", func(ctx context.Context) {
@@ -299,7 +300,7 @@ func expectLinuxWorkloadToRun(ctx context.Context) {
 	suite.Cluster().ExpectStatefulSetToBeReady(linuxWorkloadName, namespace, 1, ctx)
 
 	Eventually(os.IsFileYoungerThan).
-		WithArguments(testFileCheckInterval, k2s.GetWindowsNode(suite.SetupInfo().Config.Nodes).ShareDir, linuxTestfileName).
+		WithArguments(testFileCheckInterval, k2s.GetWindowsNode(suite.SetupInfo().Config.Nodes()).ShareDir(), linuxTestfileName).
 		WithTimeout(testFileCheckTimeout).
 		WithPolling(suite.TestStepPollInterval()).
 		WithContext(ctx).
@@ -314,7 +315,7 @@ func expectWindowsWorkloadToRun(ctx context.Context) {
 	suite.Cluster().ExpectStatefulSetToBeReady(windowsWorkloadName, namespace, 1, ctx)
 
 	Eventually(os.IsFileYoungerThan).
-		WithArguments(testFileCheckInterval, k2s.GetWindowsNode(suite.SetupInfo().Config.Nodes).ShareDir, windowsTestfileName).
+		WithArguments(testFileCheckInterval, k2s.GetWindowsNode(suite.SetupInfo().Config.Nodes()).ShareDir(), windowsTestfileName).
 		WithTimeout(testFileCheckTimeout).
 		WithPolling(suite.TestStepPollInterval()).
 		WithContext(ctx).
@@ -322,17 +323,17 @@ func expectWindowsWorkloadToRun(ctx context.Context) {
 }
 
 func disableAddon(ctx context.Context) {
-	output := suite.K2sCli().Run(ctx, "addons", "disable", addonName, implementationName, "-f", "-o")
+	output := suite.K2sCli().RunOrFail(ctx, "addons", "disable", addonName, implementationName, "-f", "-o")
 
 	Expect(output).To(SatisfyAll(
 		ContainSubstring("disable"),
 		ContainSubstring(addonName),
-		MatchRegexp("'addons disable %s %s' completed", addonName, implementationName),
+		MatchRegexp("'k2s addons disable %s %s' completed", addonName, implementationName),
 	))
 }
 
 func expectStatusToBePrinted(smbHostType string, ctx context.Context) {
-	output := suite.K2sCli().Run(ctx, "addons", "status", addonName, implementationName)
+	output := suite.K2sCli().RunOrFail(ctx, "addons", "status", addonName, implementationName)
 
 	Expect(output).To(SatisfyAll(
 		MatchRegexp("ADDON STATUS"),
@@ -342,7 +343,7 @@ func expectStatusToBePrinted(smbHostType string, ctx context.Context) {
 		MatchRegexp("CSI Pods are running"),
 	))
 
-	output = suite.K2sCli().Run(ctx, "addons", "status", addonName, implementationName, "-o", "json")
+	output = suite.K2sCli().RunOrFail(ctx, "addons", "status", addonName, implementationName, "-o", "json")
 
 	var status status.AddonPrintStatus
 
@@ -374,6 +375,6 @@ func expectStatusToBePrinted(smbHostType string, ctx context.Context) {
 func expectEnableMessage(output string, smbHostType string) {
 	Expect(output).To(SatisfyAll(
 		MatchRegexp("Enabling addon \\'%s\\' with SMB host type \\'%s\\'", addonName, smbHostType),
-		MatchRegexp("'addons enable %s %s' completed", addonName, implementationName),
+		MatchRegexp("'k2s addons enable %s %s' completed", addonName, implementationName),
 	))
 }

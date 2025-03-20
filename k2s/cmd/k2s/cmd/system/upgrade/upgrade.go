@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2023 Siemens Healthcare GmbH
+// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package upgrade
@@ -91,6 +91,7 @@ func AddInitFlags(cmd *cobra.Command) {
 }
 
 func upgradeCluster(cmd *cobra.Command, args []string) error {
+	cmdSession := common.StartCmdSession(cmd.CommandPath())
 	pterm.Println("🤖 Analyze current cluster and check prerequisites ...")
 
 	showLog, err := cmd.Flags().GetBool(common.OutputFlagName)
@@ -114,14 +115,15 @@ func upgradeCluster(cmd *cobra.Command, args []string) error {
 	if config.SetupName == setupinfo.SetupNameMultiVMK8s {
 		return common.CreateFunctionalityNotAvailableCmdFailure(config.SetupName)
 	}
+	if err := context.EnsureK2sK8sContext(); err != nil {
+		return err
+	}
 
 	psCmd := createUpgradeCommand(cmd)
 
 	slog.Debug("PS command created", "command", psCmd)
 
 	outputWriter := common.NewPtermWriter()
-
-	start := time.Now()
 
 	switchToUpgradeLogFile(showLog, context.Logger())
 
@@ -137,29 +139,28 @@ func upgradeCluster(cmd *cobra.Command, args []string) error {
 		return common.CreateSystemUnableToUpgradeCmdFailure()
 	}
 
-	duration := time.Since(start)
-	common.PrintCompletedMessage(duration, "Upgrade")
+	cmdSession.Finish()
 
 	return nil
 }
 
-func readConfigLegacyAware(cfg *config.Config) (*setupinfo.Config, error) {
-	slog.Info("Trying to read the config file", "config-dir", cfg.Host.K2sConfigDir)
+func readConfigLegacyAware(cfg config.ConfigReader) (*setupinfo.Config, error) {
+	slog.Info("Trying to read the config file", "config-dir", cfg.Host().K2sConfigDir())
 
-	config, err := setupinfo.ReadConfig(cfg.Host.K2sConfigDir)
+	config, err := setupinfo.ReadConfig(cfg.Host().K2sConfigDir())
 	if err != nil {
 		if !errors.Is(err, setupinfo.ErrSystemNotInstalled) {
 			return nil, err
 		}
 
-		slog.Info("Config file not found, trying to read the config file from legacy dir", "legacy-dir", cfg.Host.KubeConfigDir)
+		slog.Info("Config file not found, trying to read the config file from legacy dir", "legacy-dir", cfg.Host().KubeConfigDir())
 
-		config, err = setupinfo.ReadConfig(cfg.Host.KubeConfigDir)
+		config, err = setupinfo.ReadConfig(cfg.Host().KubeConfigDir())
 		if err != nil {
 			return nil, err
 		}
 
-		if err := copyLegacyConfigFile(cfg.Host.KubeConfigDir, cfg.Host.K2sConfigDir); err != nil {
+		if err := copyLegacyConfigFile(cfg.Host().KubeConfigDir(), cfg.Host().K2sConfigDir()); err != nil {
 			return nil, err
 		}
 	}
@@ -175,10 +176,11 @@ func copyLegacyConfigFile(legacyDir string, targetDir string) error {
 	if err := os.CreateDirIfNotExisting(targetDir); err != nil {
 		return err
 	}
-	if err := os.CopyFile(setupinfo.ConfigPath(legacyDir), setupinfo.ConfigPath(targetDir)); err != nil {
-		return err
-	}
-	return nil
+
+	source := filepath.Join(legacyDir, setupinfo.ConfigFileName)
+	target := filepath.Join(targetDir, setupinfo.ConfigFileName)
+
+	return os.CopyFile(source, target)
 }
 
 func createUpgradeCommand(cmd *cobra.Command) string {

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+// SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 //
 // SPDX-License-Identifier: MIT
 
@@ -13,8 +13,7 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/addons/status"
 	"github.com/siemens-healthineers/k2s/test/framework"
-
-	"github.com/siemens-healthineers/k2s/test/framework/k2s"
+	"github.com/siemens-healthineers/k2s/test/framework/k2s/cli"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -27,7 +26,7 @@ var suite *framework.K2sTestSuite
 
 func TestSecurity(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "security Addon Acceptance Tests", Label("addon", "acceptance", "setup-required", "invasive", "security", "system-running"))
+	RunSpecs(t, "security Addon Acceptance Tests", Label("addon", "addon-ilities", "acceptance", "setup-required", "invasive", "security", "system-running"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
@@ -43,7 +42,7 @@ var _ = AfterSuite(func(ctx context.Context) {
 	if enabled {
 		GinkgoWriter.Println("Addon is still enabled, disabling it..")
 
-		output := suite.K2sCli().Run(ctx, "addons", "disable", addonName, "-o")
+		output := suite.K2sCli().RunOrFail(ctx, "addons", "disable", addonName, "-o")
 
 		GinkgoWriter.Println(output)
 	} else {
@@ -55,7 +54,7 @@ var _ = AfterSuite(func(ctx context.Context) {
 
 var _ = Describe("'security' addon", Ordered, func() {
 	It("prints already-disabled message on disable command and exits with non-zero", func(ctx context.Context) {
-		output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "disable", addonName)
+		output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "disable", addonName)
 
 		Expect(output).To(ContainSubstring("already disabled"))
 	})
@@ -65,17 +64,17 @@ var _ = Describe("'security' addon", Ordered, func() {
 		if suite.Proxy() != "" {
 			args = append(args, "-p", suite.Proxy())
 		}
-		suite.K2sCli().Run(ctx, args...)
+		suite.K2sCli().RunOrFail(ctx, args...)
 	})
 
 	It("prints already-enabled message on enable command and exits with non-zero", func(ctx context.Context) {
-		output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "addons", "enable", addonName)
+		output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "enable", addonName)
 
 		Expect(output).To(ContainSubstring("already enabled"))
 	})
 
 	It("prints the status user-friendly", func(ctx context.Context) {
-		output := suite.K2sCli().Run(ctx, "addons", "status", addonName)
+		output := suite.K2sCli().RunOrFail(ctx, "addons", "status", addonName)
 
 		Expect(output).To(SatisfyAll(
 			MatchRegexp("ADDON STATUS"),
@@ -86,7 +85,7 @@ var _ = Describe("'security' addon", Ordered, func() {
 	})
 
 	It("prints the status as JSON", func(ctx context.Context) {
-		output := suite.K2sCli().Run(ctx, "addons", "status", addonName, "-o", "json")
+		output := suite.K2sCli().RunOrFail(ctx, "addons", "status", addonName, "-o", "json")
 
 		var status status.AddonPrintStatus
 
@@ -124,11 +123,11 @@ var _ = Describe("'security' addon", Ordered, func() {
 	})
 
 	It("disables the addon", func(ctx context.Context) {
-		suite.K2sCli().Run(ctx, "addons", "disable", addonName, "-o")
+		suite.K2sCli().RunOrFail(ctx, "addons", "disable", addonName, "-o")
 	})
 
 	It("disables default ingress addon", func(ctx context.Context) {
-		suite.K2sCli().Run(ctx, "addons", "disable", "ingress", "nginx", "-o")
+		suite.K2sCli().RunOrFail(ctx, "addons", "disable", "ingress", "nginx", "-o")
 	})
 
 	It("uninstalls cmctl.exe, the cert-manager CLI", func(ctx context.Context) {

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2023 Siemens Healthcare GmbH
+// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package reset
@@ -7,7 +7,6 @@ import (
 	"errors"
 	"log/slog"
 	"path/filepath"
-	"time"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
@@ -31,6 +30,7 @@ func init() {
 }
 
 func resetSystem(cmd *cobra.Command, args []string) error {
+	cmdSession := common.StartCmdSession(cmd.CommandPath())
 	resetSystemCommand, err := buildResetSystemCmd()
 	if err != nil {
 		return err
@@ -39,7 +39,7 @@ func resetSystem(cmd *cobra.Command, args []string) error {
 	slog.Debug("PS command created", "command", resetSystemCommand)
 
 	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
-	config, err := setupinfo.ReadConfig(context.Config().Host.K2sConfigDir)
+	config, err := setupinfo.ReadConfig(context.Config().Host().K2sConfigDir())
 	if err != nil {
 		if !errors.Is(err, setupinfo.ErrSystemInCorruptedState) && !errors.Is(err, setupinfo.ErrSystemNotInstalled) {
 			return err
@@ -50,16 +50,12 @@ func resetSystem(cmd *cobra.Command, args []string) error {
 		return common.CreateFunctionalityNotAvailableCmdFailure(config.SetupName)
 	}
 
-	start := time.Now()
-
 	err = powershell.ExecutePs(resetSystemCommand, common.DeterminePsVersion(config), common.NewPtermWriter())
 	if err != nil {
 		return err
 	}
 
-	duration := time.Since(start)
-
-	common.PrintCompletedMessage(duration, "system reset")
+	cmdSession.Finish()
 
 	return nil
 }

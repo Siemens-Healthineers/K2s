@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2023 Siemens Healthcare GmbH
+// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 package k2s
 
@@ -40,7 +40,7 @@ func (r *KubeProxyRestarter) restart(ctx context.Context) {
 	GinkgoWriter.Println("Restarting kubeproxy to clean all caches..")
 
 	if r.setupInfo.SetupName == setupinfo.SetupNameMultiVMK8s {
-		r.K2sCliRunner.Run(ctx, "system", "ssh", "w", "--", "nssm", "restart", "kubeproxy")
+		r.K2sCliRunner.RunOrFail(ctx, "system", "ssh", "w", "--", "nssm", "restart", "kubeproxy")
 	} else {
 		r.cliExecutor.ExecOrFail(ctx, r.nssmPath, "restart", "kubeproxy")
 	}

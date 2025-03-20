@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2023 Siemens Healthcare GmbH
+// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 package systemstopped
 
@@ -14,8 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/siemens-healthineers/k2s/test/framework"
-
-	"github.com/siemens-healthineers/k2s/test/framework/k2s"
+	"github.com/siemens-healthineers/k2s/test/framework/k2s/cli"
 )
 
 var suite *framework.K2sTestSuite
@@ -36,28 +35,28 @@ var _ = AfterSuite(func(ctx context.Context) {
 var _ = Describe("image", func() {
 	DescribeTable("print system-not-running message and exits with non-zero",
 		func(ctx context.Context, args ...string) {
-			output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, args...)
+			output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, args...)
 
 			Expect(output).To(ContainSubstring("not running"))
 		},
 		Entry("ls default output", "image", "ls"),
 		Entry("build", "image", "build"),
 		Entry("pull", "image", "pull", "non-existent"),
-		Entry("push", "image", "push", "non-existent"),
-		Entry("tag", "image", "tag", "non-existent", "non-existent"),
+		Entry("push", "image", "push", "-n", "non-existent"),
+		Entry("tag", "image", "tag", "-n", "non-existent", "-t", "non-existent"),
 		Entry("rm", "image", "rm", "--id", "non-existent"),
 		Entry("clean", "image", "clean"),
 		Entry("export", "image", "export", "-n", "non-existent", "-t", "non-existent"),
 		Entry("import", "image", "import", "-t", "non-existent"),
 		Entry("registry add", "image", "registry", "add", "non-existent"),
-		Entry("registry switch", "image", "registry", "switch", "non-existent"),
+		Entry("registry rm", "image", "registry", "rm", "non-existent"),
 	)
 
 	Describe("ls JSON output", Ordered, func() {
 		var images image.PrintImages
 
 		BeforeAll(func(ctx context.Context) {
-			output := suite.K2sCli().RunWithExitCode(ctx, k2s.ExitCodeFailure, "image", "ls", "-o", "json")
+			output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "image", "ls", "-o", "json")
 
 			Expect(json.Unmarshal([]byte(output), &images)).To(Succeed())
 		})

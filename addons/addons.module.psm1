@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -44,11 +44,17 @@ function Get-ScriptRoot {
 function Enable-AddonFromConfig {
     param (
         [Parameter(Mandatory = $false)]
-        [pscustomobject]$Config = $(throw 'Config object not specified')
+        [pscustomobject]$Config = $(throw 'Config object not specified'),
+        [Parameter(Mandatory = $false)]
+        [string] $Root = $null
     )
     if ($null -eq $Config.Name) {
         Write-Warning "Invalid addon config '$Config' found, skipping it."
         return
+    }
+    # Check if root is null or empty and assign Get-ScriptRoot if so
+    if ([string]::IsNullOrEmpty($Root)) {
+        $Root = Get-ScriptRoot
     }
 
     $dirName = $Config.Name
@@ -58,8 +64,7 @@ function Enable-AddonFromConfig {
         $addonName += " $($Config.Implementation)"
     }
 
-    $root = Get-ScriptRoot
-    $enableCmdPath = "$root\$dirName\Enable.ps1"
+    $enableCmdPath = "$Root\$dirName\Enable.ps1"
 
     if ((Test-Path $enableCmdPath) -ne $true) {
         Write-Warning "Addon '$($Config.Name)' seems to be deprecated, skipping it."
@@ -254,8 +259,6 @@ function Add-AddonToSetupJson() {
         $parsedSetupJson.EnabledAddons += $Addon
         $parsedSetupJson | ConvertTo-Json -Depth 100 | Set-Content -Force $filePath -Confirm:$false
     }
-    
-    
 }
 
 <#
@@ -640,7 +643,11 @@ Directory where the addons backup is located
 function Restore-Addons {
     param (
         [Parameter(Mandatory = $false, HelpMessage = 'Back-up directory to restore data from.')]
-        [string]$BackupDir = $(throw 'Please specify the back-up directory.')
+        [string]$BackupDir = $(throw 'Please specify the back-up directory.'),
+        [Parameter(Mandatory = $false, HelpMessage = 'Specifies whether to restore the addons or avoid it.')]
+        [switch] $AvoidRestore,
+        [Parameter(Mandatory = $false)]
+        [string] $Root = $null
     )
     Write-Log 'Restoring addons..'
 
@@ -652,14 +659,20 @@ function Restore-Addons {
     }
 
     $backupContentRoot = Get-Content $backupFilePath -Raw | ConvertFrom-Json
-
-    foreach ($addonConfig in $backupContentRoot.Config) {
-        Enable-AddonFromConfig -Config $addonConfig
+       
+    # Conditionally invoke Invoke-BackupRestoreHooks based on the AvoidRestore parameter
+    if ($AvoidRestore -eq $false) {
+        foreach ($addonConfig in $backupContentRoot.Config) {
+            Enable-AddonFromConfig -Config $addonConfig
+        }
+        Write-Log 'Restoring addons data..'
+        Invoke-BackupRestoreHooks -HookType Restore -BackupDir $BackupDir
+    } else {
+        foreach ($addonConfig in $backupContentRoot.Config) {
+            Enable-AddonFromConfig -Config $addonConfig -Root $Root
+        }
+        Write-Log "Skipping restoring addons data."
     }
-
-    Write-Log 'Restoring addons data..'
-
-    Invoke-BackupRestoreHooks -HookType Restore -BackupDir $BackupDir
 
     Write-Log 'Addons fully restored.'
 }
@@ -746,21 +759,29 @@ function Add-HostEntries {
 }
 
 function Update-Addons {
-    Write-Log "Adapting addons" -Console
+    param (
+        [Parameter(Mandatory = $false)]
+        [string]
+        $AddonName = $(throw 'Addon name not specified')
+    )
+    Write-Log "Adapting addons called from addon: $AddonName" -Console
 
     $addons = Get-AddonsConfig
     $addons | ForEach-Object {
-        $addon = $_.Name
-        $addonConfig = Get-AddonConfig -Name $addon
-        if ($null -eq $addonConfig) {
-            Write-Log "Addon '$($addon.Name)' not found in config, skipping.." -Console
-            return
-        }
+        # Not for addons with the name from input
+        if ($_.Name -ne $AddonName) {
+            $addon = $_.Name
+            $addonConfig = Get-AddonConfig -Name $addon
+            if ($null -eq $addonConfig) {
+                Write-Log "Addon '$($addon.Name)' not found in config, skipping.." -Console
+                return
+            }
 
-        $props = Get-AddonProperties -Addon ([pscustomobject] @{ Name = $addonConfig.Name; Implementation = $addonConfig.Implementation })
+            $props = Get-AddonProperties -Addon ([pscustomobject] @{ Name = $addonConfig.Name; Implementation = $addonConfig.Implementation })
 
-        if (Test-Path -Path "$PSScriptRoot\$($props.Directory)\Update.ps1") {
-            &"$PSScriptRoot\$($props.Directory)\Update.ps1"
+            if (Test-Path -Path "$PSScriptRoot\$($props.Directory)\Update.ps1") {
+                &"$PSScriptRoot\$($props.Directory)\Update.ps1"
+            }
         }
     }
     Write-Log 'Addons have been adapted' -Console
@@ -881,7 +902,7 @@ function Get-IngressTraefikConfig {
 .DESCRIPTION
 Gets the location of nginx ingress yaml
 #>
-function Get-IngressNginxConfig {
+function Get-IngressNginxConfigDirectory {
     param (
         [Parameter(Mandatory = $false)]
         [string]$Directory = $(throw 'Directory of the ingress nginx config')
@@ -910,19 +931,18 @@ function Update-IngressForNginx {
         [Parameter(Mandatory = $false)]
         [pscustomobject]$Addon = $(throw 'Please specify the addon.')
     )
-
     $props = Get-AddonProperties -Addon $Addon
-
+    $kustomizationDir = ''
     if (Test-KeyCloakServiceAvailability) {
         Write-Log "  Applying secure nginx ingress manifest for $($props.Name)..." -Console
         $kustomizationDir = Get-IngressNginxSecureConfig -Directory $props.Directory
     }
     else {
-        Write-Log "  Applying nginx ingress manifest for $($props.Name)..." -Console
-        $kustomizationDir = Get-IngressNginxConfig -Directory $props.Directory
-        
+        Write-Log "  Applying nginx ingress manifest for $($props.Name) $($props.Directory)..." -Console
+        $kustomizationDir = Get-IngressNginxConfigDirectory -Directory $props.Directory
     }
-    Invoke-Kubectl -Params 'apply', '-k', $kustomizationDir | Out-Null
+    Write-Log "   Apply in cluster folder: $($kustomizationDir)" -Console
+    Invoke-Kubectl -Params 'apply', '-k', $kustomizationDir 
 }
 
 <#
@@ -979,9 +999,45 @@ function Remove-IngressForTraefik {
     Invoke-Kubectl -Params 'delete', '-k', $ingressTraefikConfig | Out-Null
 }
 
+<#
+.DESCRIPTION
+Enables a storage addon based on the input
+#>
+function Enable-StorageAddon([string]$Storage) {
+    switch ($Storage) {
+        'smb' {
+            &"$PSScriptRoot\storage\smb\Enable.ps1"
+            break
+        }
+    }
+}
+
+function Get-AddonNameFromFolderPath {
+    param (
+        [string]$BaseFolderPath
+    )
+
+    # Split the path into an array of folder names
+    $pathParts = $BaseFolderPath -split '\\'
+
+    # Find the index of the 'addons' folder
+    $addonsIndex = $pathParts.IndexOf('addons')
+
+    # Check if 'addons' is found and there is a next folder
+    if ($addonsIndex -ne -1 -and $addonsIndex -lt ($pathParts.Length - 1)) {
+        # Return the next folder name after 'addons'
+        return $pathParts[$addonsIndex + 1]
+    }
+    else {
+        Write-Error "'addons' folder not found or no folder after 'addons'."
+        return $null
+    }
+}
+
 Export-ModuleMember -Function Get-EnabledAddons, Add-AddonToSetupJson, Remove-AddonFromSetupJson,
 Install-DebianPackages, Get-DebianPackageAvailableOffline, Test-IsAddonEnabled, Invoke-AddonsHooks, Copy-ScriptsToHooksDir,
 Remove-ScriptsFromHooksDir, Get-AddonConfig, Backup-Addons, Restore-Addons, Get-AddonStatus, Find-AddonManifests,
 Get-ErrCodeAddonAlreadyDisabled, Get-ErrCodeAddonAlreadyEnabled, Get-ErrCodeAddonEnableFailed, Get-ErrCodeAddonNotFound,
 Add-HostEntries, Get-AddonsConfig, Update-Addons, Update-IngressForAddon, Test-NginxIngressControllerAvailability, Test-TraefikIngressControllerAvailability,
-Test-KeyCloakServiceAvailability, Enable-IngressAddon, Remove-IngressForTraefik, Remove-IngressForNginx
+Test-KeyCloakServiceAvailability, Enable-IngressAddon, Remove-IngressForTraefik, Remove-IngressForNginx, Get-AddonProperties, Get-IngressNginxConfigDirectory, 
+Update-IngressForTraefik, Update-IngressForNginx, Get-IngressNginxSecureConfig, Get-IngressTraefikConfig, Enable-StorageAddon, Get-AddonNameFromFolderPath

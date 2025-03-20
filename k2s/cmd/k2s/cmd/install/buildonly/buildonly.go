@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2023 Siemens Healthcare GmbH
+// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package buildonly
@@ -6,18 +6,15 @@ package buildonly
 import (
 	"fmt"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
+	cc "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 
+	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/install/common"
 	ic "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/install/config"
 
 	"github.com/spf13/cobra"
 )
-
-type installer interface {
-	Install(kind ic.Kind, cmd *cobra.Command, buildCmdFunc func(config *ic.InstallConfig) (cmd string, err error)) error
-}
 
 const (
 	kind = "buildonly"
@@ -38,7 +35,7 @@ var (
 		Example: example,
 	}
 
-	Installer installer
+	Installer common.Installer
 )
 
 func init() {
@@ -46,8 +43,8 @@ func init() {
 }
 
 func bindFlags(cmd *cobra.Command) {
-	cmd.Flags().BoolP(common.DeleteFilesFlagName, common.DeleteFilesFlagShorthand, false, common.DeleteFilesFlagUsage)
-	cmd.Flags().BoolP(common.ForceOnlineInstallFlagName, common.ForceOnlineInstallFlagShorthand, false, common.ForceOnlineInstallFlagUsage)
+	cmd.Flags().BoolP(cc.DeleteFilesFlagName, cc.DeleteFilesFlagShorthand, false, cc.DeleteFilesFlagUsage)
+	cmd.Flags().BoolP(cc.ForceOnlineInstallFlagName, cc.ForceOnlineInstallFlagShorthand, false, cc.ForceOnlineInstallFlagUsage)
 
 	cmd.Flags().String(ic.ControlPlaneCPUsFlagName, "", ic.ControlPlaneCPUsFlagUsage)
 	cmd.Flags().String(ic.ControlPlaneMemoryFlagName, "", ic.ControlPlaneMemoryFlagUsage)
@@ -62,7 +59,9 @@ func bindFlags(cmd *cobra.Command) {
 }
 
 func install(cmd *cobra.Command, args []string) error {
-	return Installer.Install(kind, cmd, buildInstallCmd)
+	cmdSession := cc.StartCmdSession(cmd.CommandPath())
+
+	return Installer.Install(kind, cmd, buildInstallCmd, cmdSession)
 }
 
 func buildInstallCmd(c *ic.InstallConfig) (cmd string, err error) {

@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2023 Siemens Healthcare GmbH
+# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -69,6 +69,7 @@ Remove-IngressForNginx -Addon ([pscustomobject] @{Name = 'logging' })
 (Invoke-Kubectl -Params 'delete', 'pod', '-l', 'app.kubernetes.io/name=opensearch-dashboards', '-n', 'logging', '--grace-period=0', '--force', '--ignore-not-found').Output | Write-Log
 (Invoke-Kubectl -Params 'delete', 'pod', '-l', 'app.kubernetes.io/name=opensearch', '-n', 'logging', '--grace-period=0', '--force', '--ignore-not-found').Output | Write-Log
 (Invoke-Kubectl -Params 'delete', 'pod', '-l', 'app.kubernetes.io/name=fluent-bit', '-n', 'logging', '--grace-period=0', '--force', '--ignore-not-found').Output | Write-Log
+(Invoke-Kubectl -Params 'delete', 'pod', '-l', 'app.kubernetes.io/name=fluent-bit-win', '-n', 'logging', '--grace-period=0', '--force', '--ignore-not-found').Output | Write-Log
 
 if ($PSVersionTable.PSVersion.Major -gt 5) {
     (Invoke-Kubectl -Params 'patch', 'pv', 'opensearch-cluster-master-pv', '-n', 'logging', '-p', '{"metadata":{"finalizers":null}}').Output | Write-Log
