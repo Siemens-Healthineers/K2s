@@ -23,7 +23,7 @@ spec:
         - name: regcred
       containers:
         - name: windows-login
-          image: shsk2s.azurecr.io/login:1.0.0
+          image: shsk2s.azurecr.io/login:v1.1.0
           workingDir: "%CONTAINER_SANDBOX_MOUNT_POINT%"
           command:
             - "%CONTAINER_SANDBOX_MOUNT_POINT%\\login.exe"
