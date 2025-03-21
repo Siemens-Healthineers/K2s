@@ -51,7 +51,6 @@ var _ = BeforeSuite(func(ctx context.Context) {
 
 	windowsTestContainers = []string{
 		"shsk2s.azurecr.io/diskwriter:v1.2.0",
-		"shsk2s.azurecr.io/login:v1.1.0",
 	}
 	linuxTestContainers = []string{
 		"shsk2s.azurecr.io/example.albums-golang-linux:v1.0.0",
