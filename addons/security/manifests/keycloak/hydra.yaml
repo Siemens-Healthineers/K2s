@@ -82,7 +82,7 @@ spec:
         - name: regcred
       initContainers:
         - name: init-hydra-db
-          image: shsk2s.azurecr.io/login:1.0.0
+          image: shsk2s.azurecr.io/login:v1.1.0
           workingDir: "%CONTAINER_SANDBOX_MOUNT_POINT%"
           command:
             - "%CONTAINER_SANDBOX_MOUNT_POINT%\\hydra.exe migrate -c %CONTAINER_SANDBOX_MOUNT_POINT%\\config\\hydra.yml sql -e --yes"
@@ -93,7 +93,7 @@ spec:
               mountPath: 'C:\config'
       containers:
         - name: hydra
-          image: shsk2s.azurecr.io/login:1.0.0
+          image: shsk2s.azurecr.io/login:v1.1.0
           workingDir: "%CONTAINER_SANDBOX_MOUNT_POINT%"
           command:
             - "%CONTAINER_SANDBOX_MOUNT_POINT%\\hydra.exe serve all -c %CONTAINER_SANDBOX_MOUNT_POINT%\\config\\hydra.yml --dev"
