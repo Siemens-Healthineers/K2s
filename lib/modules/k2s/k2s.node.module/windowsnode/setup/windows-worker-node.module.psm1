@@ -8,6 +8,55 @@ $clusterModule = "$PSScriptRoot\..\..\..\k2s.cluster.module\k2s.cluster.module.p
 
 Import-Module $infraModule, $clusterModule
 
+function Add-WindowsWorkerNodeOnWindowsHostRemote {
+    Param(
+        [parameter(Mandatory = $false, HelpMessage = 'HTTP proxy if available')]
+        [string] $Proxy,
+        [parameter(Mandatory = $false, HelpMessage = 'Directory containing additional hooks to be executed after local hooks are executed')]
+        [string] $AdditionalHooksDir = '',
+        [parameter(Mandatory = $false, HelpMessage = 'Deletes the needed files to perform an offline installation')]
+        [switch] $DeleteFilesForOfflineInstallation = $false,
+        [parameter(Mandatory = $false, HelpMessage = 'Force the installation online. This option is needed if the files for an offline installation are available but you want to recreate them.')]
+        [switch] $ForceOnlineInstallation = $false,
+        [string] $PodSubnetworkNumber = $(throw 'Argument missing: PodSubnetworkNumber'),
+        [string] $JoinCommand = $(throw 'Argument missing: JoinCommand'),
+        [parameter(Mandatory = $false, HelpMessage = 'The path to local builds of Kubernetes binaries')]
+        [string] $K8sBinsPath = '',
+        [parameter(Mandatory = $true, HelpMessage = 'IP address of the remote machine')]
+        [string] $IpAddress,
+        [parameter(Mandatory = $true, HelpMessage = 'Username for the remote machine')]
+        [string] $UserName
+    )
+
+    Stop-InstallIfNoMandatoryServiceIsRunningRemote -UserName $UserName -IpAddress $IpAddress
+
+    Write-Log 'Starting installation of K2s worker node on Windows remote.'
+
+    # Install loopback adapter for l2bridge
+    New-DefaultLoopbackAdaterRemote -UserName $UserName -IpAddress $IpAddress
+    #Ronak: Not clear when vfproute.json is used will check later
+    Write-Log 'Add vfp rules'
+    $rootConfiguration = Get-RootConfigk2s
+    $vfpRoutingRules = $rootConfiguration.psobject.properties['vfprules-k2s'].value | ConvertTo-Json
+    $kubeBinPath = Get-KubeBinPath
+    Add-VfpRulesToWindowsNodeRemote -VfpRulesInJsonFormat $vfpRoutingRules -KubeBinPath $kubeBinPath -IpAddress $remoteIp -UserName $remoteUser
+
+    $kubernetesVersion = Get-DefaultK8sVersion
+
+    Initialize-WinNode -KubernetesVersion $kubernetesVersion `
+        -HostGW:$true `
+        -Proxy:"$Proxy" `
+        -DeleteFilesForOfflineInstallation $DeleteFilesForOfflineInstallation `
+        -ForceOnlineInstallation $ForceOnlineInstallation `
+        -PodSubnetworkNumber $PodSubnetworkNumber `
+        -K8sBinsPath $K8sBinsPath
+
+
+    # join the cluster
+    Write-Log "Preparing Kubernetes $KubernetesVersion by joining nodes" -Console
+
+    Initialize-KubernetesCluster -AdditionalHooksDir $AdditionalHooksDir -PodSubnetworkNumber $PodSubnetworkNumber -JoinCommand $JoinCommand
+}
 
 function Add-WindowsWorkerNodeOnWindowsHost {
     Param(

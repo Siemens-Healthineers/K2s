@@ -28,6 +28,8 @@ const (
 	MachineUsernameFlagUsage  = "Username of the machine for remote connection"
 	MachineRole               = "role"
 	MachineRoleFlagUsage      = "Role of the machine as a node"
+	MachineWindows            = "windows"
+	MachineWindowsFlagUsage   = "Specify if the node is a Windows machine"
 )
 
 func NewCmd() *cobra.Command {
@@ -41,7 +43,7 @@ func NewCmd() *cobra.Command {
 	cmd.Flags().StringP(MachineUsername, "u", "", MachineUsernameFlagUsage)
 	cmd.Flags().StringP(MachineName, "m", "", MachineNameFlagUsage)
 	cmd.Flags().StringP(MachineRole, "r", "worker", MachineRoleFlagUsage)
-
+	cmd.Flags().BoolP(MachineWindows, "w", false, MachineWindowsFlagUsage)
 	cmd.MarkFlagRequired(MachineIPAddress)
 	cmd.MarkFlagRequired(MachineUsername)
 	cmd.MarkFlagsRequiredTogether(MachineIPAddress, MachineUsername)
@@ -107,8 +109,13 @@ func buildAddNodeCmd(flags *pflag.FlagSet, setupName setupinfo.SetupName) (strin
 	if setupName != setupinfo.SetupNamek2s {
 		return "", errors.New("adding node is not supported for this setup type. Aborting")
 	}
-
-	cmd := utils.FormatScriptFilePath(utils.InstallDir() + "\\lib\\scripts\\worker\\linux\\bare-metal\\Add.ps1")
+	isWindows := flags.Lookup(MachineWindows).Value.String() == "true"
+	cmd := ""
+	if isWindows {
+		cmd = utils.FormatScriptFilePath(utils.InstallDir() + "\\lib\\scripts\\worker\\windows\\windows-host\\Add.ps1")
+	} else {
+		cmd = utils.FormatScriptFilePath(utils.InstallDir() + "\\lib\\scripts\\worker\\linux\\bare-metal\\Add.ps1")
+	}
 
 	if outputFlag {
 		cmd += " -ShowLogs"

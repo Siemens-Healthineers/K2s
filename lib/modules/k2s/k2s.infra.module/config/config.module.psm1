@@ -299,6 +299,7 @@ function Set-ConfigInstalledKubernetesVersion {
     param (
         [object] $Value = $(throw 'Please provide the config value.')
     )
+    Write-Log "Set-ConfigInstalledKubernetesVersion: $SetupJsonFile"
     Set-ConfigValue -Path $SetupJsonFile -Key 'KubernetesVersion' -Value $Value
 }
 

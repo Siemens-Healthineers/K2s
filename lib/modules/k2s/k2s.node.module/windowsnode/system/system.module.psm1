@@ -232,6 +232,30 @@ function Stop-InstallIfNoMandatoryServiceIsRunning {
     }
 }
 
+function Stop-InstallIfNoMandatoryServiceIsRunningRemote {
+    param (
+        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
+        [string]$UserName = $(throw 'Argument missing: UserName'),
+        [string]$UserPwd = '',
+        [ValidateScript({ Get-IsValidIPv4Address($_) })]
+        [string]$IpAddress = $(throw 'Argument missing: IpAddress'),
+        [parameter(Mandatory = $false)]
+        [string] $Proxy = ''
+    )
+    
+    # Check Host Network Service (hns)
+    $hnsCheck = Invoke-CmdOnVmViaSSHKey -CmdToExecute "powershell.exe -Command { Get-Service 'hns' -ErrorAction SilentlyContinue }" -UserName $UserName -IpAddress $IpAddress
+    if (!$hnsCheck.Success -or $hnsCheck.Output -match 'Cannot find any service with service name') {
+        throw '[PREREQ-FAILED] Host Network Service is not running. This is required for Windows containers. Please enable prerequisites for K2s - https://github.com/Siemens-Healthineers/K2s !'
+    }
+
+    # Check Host Compute Service (vmcompute)
+    $hcsCheck = Invoke-CmdOnVmViaSSHKey -CmdToExecute "powershell.exe -Command { Get-Service 'vmcompute' -ErrorAction SilentlyContinue }" -UserName $UserName -IpAddress $IpAddress
+    if (!$hcsCheck.Success -or $hcsCheck.Output -match 'Cannot find any service with service name') {
+        throw '[PREREQ-FAILED] Host Compute Service is not running. This is needed for containers. Please enable prerequisites for K2s - https://github.com/Siemens-Healthineers/K2s !'
+    }
+}
+
 function Stop-InstallationIfRequiredCurlVersionNotInstalled {
     try {
         $versionOutput = curl.exe --version
