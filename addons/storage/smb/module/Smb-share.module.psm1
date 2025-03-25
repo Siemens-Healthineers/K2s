@@ -425,7 +425,7 @@ function Wait-ForSharedFolderOnLinuxHost () {
     Write-Log 'Waiting for shared folder (Samba Share) hosted on Linux node..'
     $script:Success = $false
 
-    $fstabOut = (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'cat /etc/fstab | grep -o k8sshare').Output
+    $fstabOut = (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "cat /etc/fstab | grep -o $linuxShareName").Output
     if (! $fstabOut) {
         Write-Log '           no shared folder in fstab yet'
         # no entry in fstab, so no need to wait for mount
@@ -1082,6 +1082,7 @@ function Enable-SmbShare {
         $err = New-Error -Severity Warning -Code (Get-ErrCodeAddonAlreadyEnabled) -Message "Addon '$AddonName' is already enabled, nothing to do." 
         return @{Error = $err }
     }
+    # Remove-SmbShareNamespace
 
     $setupInfo = Get-SetupInfo
 
@@ -1094,15 +1095,14 @@ function Enable-SmbShare {
     
     
     Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = $AddonName; Implementation = $ImplementationName; SmbHostType = $SmbHostType })
-    # Remove-SmbShareNamespace
    
     New-SmbShareNamespace
-   
+
     foreach($pathValue in $pathValues.PSObject.Properties){
         <# $global:SmbStoragePath = $pathValues.psobject.properties['ShareDir'].value#>
          $global:linuxLocalPath = $pathValue.Value.master
          $global:windowsLocalPath = Expand-PathSMb $pathValue.Value.windowsWorker
-         $global:linuxShareName = 'k8sshare' # exposed by Linux VM
+         $global:linuxShareName = "k8sshare$($pathValues.PSObject.Properties.Name.IndexOf($pathValue.Name) + 1)" # exposed by Linux VM
          $global:windowsShareName = (Split-Path -Path $windowsLocalPath -NoQualifier).TrimStart('\') # visible from VMs
          $global:windowsSharePath = Split-Path -Path $windowsLocalPath -Qualifier
          $global:linuxHostRemotePath = "\\$(Get-ConfiguredIPControlPlane)\$linuxShareName"
@@ -1110,6 +1110,7 @@ function Enable-SmbShare {
          $global:newClassName=$pathValue.Value.StorageClassName
          Restore-SmbShareAndFolder -SmbHostType $SmbHostType -SkipTest -SetupInfo $setupInfo
          Restore-StorageClass -SmbHostType $SmbHostType -LinuxOnly $setupInfo.LinuxOnly
+         
      }
 
     Write-Log -Console '********************************************************************************************'
@@ -1162,7 +1163,7 @@ function Disable-SmbShare {
         <# $global:SmbStoragePath = $pathValues.psobject.properties['ShareDir'].value#>
          $global:linuxLocalPath = $pathValue.Value.master
          $global:windowsLocalPath = Expand-PathSMb $pathValue.Value.windowsWorker
-         $global:linuxShareName = 'k8sshare' # exposed by Linux VM
+         $global:linuxShareName = "k8sshare$($pathValues.PSObject.Properties.Name.IndexOf($pathValue.Name) + 1)" # exposed by Linux VM
          $global:windowsShareName = (Split-Path -Path $windowsLocalPath -NoQualifier).TrimStart('\') # visible from VMs
          $global:windowsSharePath = Split-Path -Path $windowsLocalPath -Qualifier
          $global:linuxHostRemotePath = "\\$(Get-ConfiguredIPControlPlane)\$linuxShareName"
