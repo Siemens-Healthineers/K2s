@@ -24,6 +24,9 @@ Param (
     [string] $Ingress = 'nginx',
     [parameter(Mandatory = $false, HelpMessage = 'HTTP proxy if available')]
     [string] $Proxy,
+    [parameter(Mandatory = $false, HelpMessage = 'Security type setting')]
+    [ValidateSet('basic', 'enhanced')]
+    [string] $Type = 'basic',    
     [parameter(Mandatory = $false, HelpMessage = 'Show all logs in terminal')]
     [switch] $ShowLogs = $false,
     [parameter(Mandatory = $false, HelpMessage = 'JSON config object to override preceeding parameters')]
@@ -38,8 +41,6 @@ $clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.clu
 $nodeModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.node.module\k2s.node.module.psm1"
 $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
 $securityModule = "$PSScriptRoot\security.module.psm1"
-
-
 
 # TODO: Remove cross referencing once the code clones are removed and use the central module for these functions.
 $loggingModule = "$PSScriptRoot\..\logging\logging.module.psm1"
