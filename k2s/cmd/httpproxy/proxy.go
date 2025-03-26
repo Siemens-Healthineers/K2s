@@ -32,10 +32,10 @@ func configureForwardProxyInProxyHttpServer(proxy *goproxy.ProxyHttpServer, forw
 	// for SSL conection forwarding is needed
 	proxy.ConnectDialWithReq = func(req *http.Request, network string, addr string) (net.Conn, error) {
 		if !useProxy(canonicalAddr(req.URL), getenvEitherCase) {
-			log.Printf("For request " + req.URL.String() + " don't use proxy")
+			log.Printf("For request %s don't use proxy", req.URL.String())
 			return net.Dial(network, addr)
 		}
-		log.Printf("For request " + req.URL.String() + " use proxy")
+		log.Printf("For request %s use proxy", req.URL.String())
 		return proxy.NewConnectDialToProxy(forwardProxy)(network, addr)
 	}
 }
@@ -53,10 +53,10 @@ func newProxyHttpHandler(proxyConfig *proxyConfig) http.Handler {
 
 	//if forward proxy is configured, use it
 	if proxyConfig.ForwardProxy != nil && strings.TrimSpace(*proxyConfig.ForwardProxy) != "" {
-		log.Printf("Starting httpproxy on " + *proxyConfig.ListenAddress + " with forward proxy: " + *proxyConfig.ForwardProxy)
+		log.Printf("Starting httpproxy on %s with forward proxy: %s", *proxyConfig.ListenAddress, *proxyConfig.ForwardProxy)
 		configureForwardProxyInProxyHttpServer(proxy, *proxyConfig.ForwardProxy)
 	} else {
-		log.Printf("Starting httpproxy on " + *proxyConfig.ListenAddress)
+		log.Printf("Starting httpproxy on %s", *proxyConfig.ListenAddress)
 	}
 
 	proxy.Verbose = *proxyConfig.VerboseLogging
