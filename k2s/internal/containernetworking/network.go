@@ -305,6 +305,15 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) (resultError error) {
 
 		// check if enhanced security is on
 		if IsEnhancedSecurityEnabled() {
+
+			// check annotation
+			// k8sNamespace := string(podConfig.K8S_POD_NAMESPACE)
+			// k8sName := string(podConfig.K8S_POD_NAME)
+			// err := IsAnnotationSet("", k8sNamespace, k8sName)
+			// if err != nil {
+			// 	logrus.Debugf("[cni-net] XXXX IsAnnotationSet failed. Error:", err)
+			// }
+
 			// start additing configured rules to HNS
 			err := HnsProxyAddPoliciesFromConfig(hnsEndpointEp.ID)
 			if err != nil {
@@ -582,3 +591,30 @@ func IsEnhancedSecurityEnabled() bool {
 		}
 	}
 }
+
+// func IsAnnotationSet(annotation string, podnamespace string, podname string) error {
+// 	// Create Kubernetes client
+// 	config, err := rest.InClusterConfig()
+// 	if err != nil {
+// 		fmt.Println("[cni-net] IsAnnotationSet: Error creating K8s client:", err)
+// 		return err
+// 	}
+
+// 	clientset, err := kubernetes.NewForConfig(config)
+// 	if err != nil {
+// 		fmt.Println("[cni-net] IsAnnotationSet: Error creating K8s clientset:", err)
+// 		return err
+// 	}
+
+// 	// Fetch the pod
+// 	pod, err := clientset.CoreV1().Pods(podnamespace).Get(context.TODO(), podname, metav1.GetOptions{})
+// 	if err != nil {
+// 		fmt.Println("[cni-net] IsAnnotationSet: Error getting pod:", err)
+// 		return err
+// 	}
+
+// 	// Print annotations
+// 	logrus.Debugf("IsAnnotationSet: Pod Annotations:", pod.ObjectMeta.Annotations)
+
+// 	return nil
+// }

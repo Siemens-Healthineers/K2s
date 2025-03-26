@@ -68,7 +68,7 @@
                 "inboundproxyport": "4143",
                 "outboundproxyport": "4140",
                 "inboundportexceptions": "4190,4191,4567,4568",
-                "inboundaddressexceptions": "127.0.0.1",
+                "inboundaddressexceptions": "",
                 "outboundportexceptions": "4567,4568",
                 "outboundaddressexceptions": ""
             }
