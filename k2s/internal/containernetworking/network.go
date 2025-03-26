@@ -12,18 +12,23 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 
+	"github.com/Microsoft/go-winio"
 	"github.com/Microsoft/windows-container-networking/cni"
 	"github.com/Microsoft/windows-container-networking/common"
 	"github.com/Microsoft/windows-container-networking/network"
 	kos "github.com/siemens-healthineers/k2s/internal/os"
 	"github.com/sirupsen/logrus"
+	"google.golang.org/grpc"
 
 	"github.com/Microsoft/hcsshim/hcn"
 	"github.com/containernetworking/cni/pkg/invoke"
 	cniSkel "github.com/containernetworking/cni/pkg/skel"
 	cniTypes "github.com/containernetworking/cni/pkg/types"
 	cniTypesImpl "github.com/containernetworking/cni/pkg/types/020"
+
+	runtimeapi "k8s.io/cri-api/pkg/apis/runtime/v1"
 )
 
 // NetPlugin represents the CNI network plugin.
@@ -306,16 +311,17 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) (resultError error) {
 		// check if enhanced security is on
 		if IsEnhancedSecurityEnabled() {
 
+			// TODO: code needs start another exe like for VFPRules !
 			// check annotation
 			// k8sNamespace := string(podConfig.K8S_POD_NAMESPACE)
 			// k8sName := string(podConfig.K8S_POD_NAME)
-			// err := IsAnnotationSet("", k8sNamespace, k8sName)
+			// _, err := IsSideCarContainerRunningWithRetry("", k8sNamespace, k8sName)
 			// if err != nil {
 			// 	logrus.Debugf("[cni-net] XXXX IsAnnotationSet failed. Error:", err)
 			// }
 
 			// start additing configured rules to HNS
-			err := HnsProxyAddPoliciesFromConfig(hnsEndpointEp.ID)
+			err = HnsProxyAddPoliciesFromConfig(hnsEndpointEp.ID)
 			if err != nil {
 				logrus.Debugf("[cni-net] XXXX Apply of proxy policy failed. Error:", err)
 			}
@@ -592,29 +598,101 @@ func IsEnhancedSecurityEnabled() bool {
 	}
 }
 
-// func IsAnnotationSet(annotation string, podnamespace string, podname string) error {
-// 	// Create Kubernetes client
-// 	config, err := rest.InClusterConfig()
-// 	if err != nil {
-// 		fmt.Println("[cni-net] IsAnnotationSet: Error creating K8s client:", err)
-// 		return err
-// 	}
+// getCRIClient connects to the CRI socket
+func getCRIClient() (runtimeapi.RuntimeServiceClient, *grpc.ClientConn, error) {
+	// Use the Windows named pipe for ContainerD
+	const pipePath = `\\.\pipe\containerd-containerd`
 
-// 	clientset, err := kubernetes.NewForConfig(config)
-// 	if err != nil {
-// 		fmt.Println("[cni-net] IsAnnotationSet: Error creating K8s clientset:", err)
-// 		return err
-// 	}
+	dialOpts := []grpc.DialOption{
+		grpc.WithInsecure(),
+		grpc.WithContextDialer(func(ctx context.Context, s string) (net.Conn, error) {
+			return winio.DialPipe(s, nil)
+		}),
+	}
 
-// 	// Fetch the pod
-// 	pod, err := clientset.CoreV1().Pods(podnamespace).Get(context.TODO(), podname, metav1.GetOptions{})
-// 	if err != nil {
-// 		fmt.Println("[cni-net] IsAnnotationSet: Error getting pod:", err)
-// 		return err
-// 	}
+	conn, err := grpc.Dial(pipePath, dialOpts...)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to connect to CRI runtime: %v", err)
+	}
 
-// 	// Print annotations
-// 	logrus.Debugf("IsAnnotationSet: Pod Annotations:", pod.ObjectMeta.Annotations)
+	return runtimeapi.NewRuntimeServiceClient(conn), conn, nil
+}
 
-// 	return nil
-// }
+func getPodSandboxID(client runtimeapi.RuntimeServiceClient, podName string, namespace string) (string, error) {
+	// List Pod Sandboxes
+	resp, err := client.ListPodSandbox(context.TODO(), &runtimeapi.ListPodSandboxRequest{})
+	if err != nil {
+		return "", fmt.Errorf("failed to list pod sandboxes: %v", err)
+	}
+
+	// Search for the target pod
+	for _, sandbox := range resp.Items {
+		logrus.Debug("IsSideCarContainerRunning: Containername:", sandbox.Metadata.Name)
+		if sandbox.Metadata.Name == podName && sandbox.Metadata.Namespace == namespace {
+			return sandbox.Id, nil
+		}
+	}
+
+	return "", fmt.Errorf("pod %s not found in namespace %s", podName, namespace)
+}
+
+// getContainersInPod finds container names in the Pod Sandbox
+func getContainersInPod(client runtimeapi.RuntimeServiceClient, sandboxID string) ([]string, error) {
+	resp, err := client.ListContainers(context.TODO(), &runtimeapi.ListContainersRequest{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list containers: %v", err)
+	}
+
+	var containerNames []string
+	for _, container := range resp.Containers {
+		if container.PodSandboxId == sandboxID {
+			containerNames = append(containerNames, container.Metadata.Name)
+		}
+	}
+
+	return containerNames, nil
+}
+
+func IsSideCarContainerRunning(name string, podnamespace string, podname string) (string, error) {
+	logrus.Debugf("IsSideCarContainerRunning: Trying to connect")
+	// Connect to CRI runtime
+	client, conn, err := getCRIClient()
+	if err != nil {
+		logrus.Error("IsSideCarContainerRunning getCRIClient Error:", err)
+		return "", err
+	}
+	defer conn.Close()
+
+	// Get Pod Sandbox ID
+	sandboxID, err := getPodSandboxID(client, podname, podnamespace)
+	if err != nil {
+		logrus.Error("IsSideCarContainerRunning getPodSandboxID Error:", err)
+		return "", err
+	}
+
+	// Get containers inside the Pod
+	containers, err := getContainersInPod(client, sandboxID)
+	if err != nil {
+		logrus.Error("IsSideCarContainerRunning getContainersInPod Error:", err)
+		return "", err
+	}
+
+	logrus.Debug("IsSideCarContainerRunning: Containers:", containers)
+
+	return podname, nil
+}
+
+func IsSideCarContainerRunningWithRetry(name string, podnamespace string, podname string) (string, error) {
+	var containername string
+	var err error
+	const retries = 10
+	for i := 1; i <= retries; i++ {
+		containername, err = IsSideCarContainerRunning(name, podnamespace, podname)
+		if err == nil {
+			return containername, nil // Success
+		}
+		logrus.Debug("IsSideCarContainerRunningWithRetry: Did not find container yet:", err)
+		time.Sleep(1000 * time.Millisecond) // Wait before retrying
+	}
+	return "", fmt.Errorf("failed to get sandbox ID after %d retries: %v", retries, err)
+}
