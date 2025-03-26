@@ -302,6 +302,15 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) (resultError error) {
 				}
 			}
 		}
+
+		// check if enhanced security is on
+		if IsEnhancedSecurityEnabled() {
+			// start additing configured rules to HNS
+			err := HnsProxyAddPoliciesFromConfig(hnsEndpointEp.ID)
+			if err != nil {
+				logrus.Debugf("[cni-net] XXXX Apply of proxy policy failed. Error:", err)
+			}
+		}
 	}
 
 	result.Print()
@@ -556,4 +565,20 @@ func (plugin *netPlugin) Delete(args *cniSkel.CmdArgs) error {
 	}
 	logrus.Debugf("[cni-net] DEL succeeded.")
 	return nil
+}
+
+func IsEnhancedSecurityEnabled() bool {
+	val, ok := os.LookupEnv("BRIDGE_ENHANCED_SECURITY")
+	if !ok {
+		logrus.Debugf("[cni-net] Enhanced security off, variable not found")
+		return false
+	} else {
+		if val == "true" {
+			logrus.Debugf("[cni-net] Enhanced security on")
+			return true
+		} else {
+			logrus.Debugf("[cni-net] Enhanced security off, value is not true")
+			return false
+		}
+	}
 }
