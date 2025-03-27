@@ -81,119 +81,164 @@ if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'security' })) -eq $t
     exit 1
 }
 
-Write-Log 'Downloading cert-manager files' -Console
-$manifest = Get-FromYamlFile -Path "$PSScriptRoot\addon.manifest.yaml"
-$k2sRoot = "$PSScriptRoot\..\.."
-$windowsCurlPackages = $manifest.spec.implementations[0].offline_usage.windows.curl
-if ($windowsCurlPackages) {
-    foreach ($package in $windowsCurlPackages) {
-        $destination = $package.destination
-        $destination = "$k2sRoot\$destination"
-        if (!(Test-Path $destination)) {
-            $url = $package.url
-            Invoke-DownloadFile $destination $url $true -ProxyToUse $Proxy
+try {
+    Write-Log 'Downloading cert-manager files' -Console
+    $manifest = Get-FromYamlFile -Path "$PSScriptRoot\addon.manifest.yaml"
+    $k2sRoot = "$PSScriptRoot\..\.."
+    $windowsCurlPackages = $manifest.spec.implementations[0].offline_usage.windows.curl
+    if ($windowsCurlPackages) {
+        foreach ($package in $windowsCurlPackages) {
+            $destination = $package.destination
+            $destination = "$k2sRoot\$destination"
+            if (!(Test-Path $destination)) {
+                $url = $package.url
+                Invoke-DownloadFile $destination $url $true -ProxyToUse $Proxy
+            }
+            else {
+                Write-Log "File $destination already exists. Skipping download."
+            }
         }
-        else {
-            Write-Log "File $destination already exists. Skipping download."
+    }
+
+    Write-Log 'Installing cert-manager' -Console
+    $certManagerConfig = Get-CertManagerConfig
+    (Invoke-Kubectl -Params 'apply', '-f', $certManagerConfig).Output | Write-Log
+
+    Write-Log 'Waiting for cert-manager APIs to be ready, be patient!' -Console
+    $certManagerStatus = Wait-ForCertManagerAvailable
+
+    if ($certManagerStatus -ne $true) {
+        $errMsg = "cert-manager is not ready. Please use cmctl.exe to investigate.`nInstallation of 'security' addon failed."
+        if ($EncodeStructuredOutput -eq $true) {
+            $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+            return
+        }
+
+        Write-Log $errMsg -Error
+        throw $errMsg
+    }
+
+    Write-Log 'Configuring CA ClusterIssuer' -Console
+    $caIssuerConfig = Get-CAIssuerConfig
+    (Invoke-Kubectl -Params 'apply', '-f', $caIssuerConfig).Output | Write-Log
+
+    Write-Log 'Waiting for CA root certificate to be created' -Console
+    $caCreated = Wait-ForCARootCertificate
+
+    if ($caCreated -ne $true) {
+        $errMsg = "CA root certificate 'ca-issuer-root-secret' not found.`nInstallation of 'security' addon failed."
+        if ($EncodeStructuredOutput -eq $true) {
+            $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+            return
+        }
+
+        Write-Log $errMsg -Error
+        throw $errMsg
+    }
+
+    Write-Log 'Renewing old Certificates using the new CA Issuer' -Console
+    Update-CertificateResources
+
+    Write-Log 'Importing CA root certificate to trusted authorities of your computer' -Console
+    $b64secret = (Invoke-Kubectl -Params '-n', 'cert-manager', 'get', 'secrets', 'ca-issuer-root-secret', '-o', 'jsonpath', '--template', '{.data.ca\.crt}').Output
+    $tempFile = New-TemporaryFile
+    $certLocationStore = Get-TrustedRootStoreLocation
+    [Text.Encoding]::Utf8.GetString([Convert]::FromBase64String($b64secret)) | Out-File -Encoding utf8 -FilePath $tempFile.FullName -Force
+    $params = @{
+        FilePath          = $tempFile.FullName
+        CertStoreLocation = $certLocationStore
+    }
+
+    Import-Certificate @params
+    Remove-Item -Path $tempFile.FullName -Force
+
+    Write-Log 'Checking for availability of Ingress Controller' -Console
+    if (Test-NginxIngressControllerAvailability) {
+        $activeIngress = 'nginx'
+    }
+    elseif (Test-TraefikIngressControllerAvailability) {
+        $activeIngress = 'traefik'
+    }
+    else {
+        #Enable required ingress addon
+        Write-Log "No Ingress controller found in the cluster, enabling $Ingress controller" -Console
+        Enable-IngressAddon -Ingress:$Ingress
+        $activeIngress = $Ingress
+    }
+
+    Write-Log 'Installing keycloak' -Console
+    $keyCloakYaml = Get-KeyCloakConfig
+    (Invoke-Kubectl -Params 'apply', '-f', $keyCloakYaml).Output | Write-Log
+    Deploy-IngressForSecurity -Ingress:$activeIngress
+    Write-Log 'Waiting for keycloak pods to be available' -Console
+    $keycloakPodStatus = Wait-ForKeyCloakAvailable
+
+    $oauth2ProxyYaml = Get-OAuth2ProxyConfig
+    (Invoke-Kubectl -Params 'apply', '-f', $oauth2ProxyYaml).Output | Write-Log
+    Write-Log 'Waiting for oauth2-proxy pods to be available' -Console
+    $oauth2ProxyPodStatus = Wait-ForOauth2ProxyAvailable
+
+    $winSecurityStatus = $true
+    if ($keycloakPodStatus -eq $true -and $oauth2ProxyPodStatus -eq $true) {
+        $winSecurityStatus = Apply-WindowsSecurityDeployments
+    }
+
+    if ($keycloakPodStatus -ne $true -or $oauth2ProxyPodStatus -ne $true -or $winSecurityStatus -ne $true) {
+        $errMsg = "All security pods could not become ready. Please use kubectl describe for more details.`nInstallation of security addon failed."
+        if ($EncodeStructuredOutput -eq $true) {
+            $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+            return
+        }
+
+        Write-Log $errMsg -Error
+        throw $errMsg
+    }
+
+    # Enhanced Security is on
+    if (Confirm-EnhancedSecurityOn($Type)) {
+        $linkerdYaml = Get-LinkerdConfig
+        (Invoke-Kubectl -Params 'apply', '-k', $linkerdYaml).Output | Write-Log
+        Write-Log 'Waiting for linkerd pods to be available' -Console
+        $linkerdPodStatus = Wait-ForLinkerdAvailable
+        Write-Log 'Waiting for linkerd viz pods to be available' -Console
+        $linkerdVizPodStatus = Wait-ForLinkerdVizAvailable
+        if ($linkerdPodStatus -ne $true -or $linkerdVizPodStatus -ne $true) {
+            $errMsg = "All linkerd pods could not become ready. Please use kubectl describe for more details.`nInstallation of security addon failed."
+            if ($EncodeStructuredOutput -eq $true) {
+                $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+                Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+                return
+            }
+    
+            Write-Log $errMsg -Error
+            throw $errMsg
+        }
+
+        Write-Log 'Downloading linkerd executable' -Console
+        if (!(Test-Path "$binPath\linkerd.exe")) {
+            $binPath = Get-KubeBinPath
+            Invoke-DownloadFile "$binPath\linkerd.exe" 'https://github.com/linkerd/linkerd2/releases/download/edge-25.3.3/linkerd2-cli-edge-25.3.3-windows.exe' $true -ProxyToUse $Proxy
         }
     }
 }
-
-Write-Log 'Installing cert-manager' -Console
-$certManagerConfig = Get-CertManagerConfig
-(Invoke-Kubectl -Params 'apply', '-f', $certManagerConfig).Output | Write-Log
-
-Write-Log 'Waiting for cert-manager APIs to be ready, be patient!' -Console
-$certManagerStatus = Wait-ForCertManagerAvailable
-
-if ($certManagerStatus -ne $true) {
-    $errMsg = "cert-manager is not ready. Please use cmctl.exe to investigate.`nInstallation of 'security' addon failed."
+catch {
+    Write-Log 'Exception happened during enable of addon' -Console
+    $errMsg = $_.Exception.Message
     if ($EncodeStructuredOutput -eq $true) {
         $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
         Send-ToCli -MessageType $MessageType -Message @{Error = $err }
-        return
     }
-
-    Write-Log $errMsg -Error
+    Write-Log 'Please run the k2s addons disable ... cmd and start again' -Console
     exit 1
 }
-
-Write-Log 'Configuring CA ClusterIssuer' -Console
-$caIssuerConfig = Get-CAIssuerConfig
-(Invoke-Kubectl -Params 'apply', '-f', $caIssuerConfig).Output | Write-Log
-
-Write-Log 'Waiting for CA root certificate to be created' -Console
-$caCreated = Wait-ForCARootCertificate
-
-if ($caCreated -ne $true) {
-    $errMsg = "CA root certificate 'ca-issuer-root-secret' not found.`nInstallation of 'security' addon failed."
-    if ($EncodeStructuredOutput -eq $true) {
-        $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
-        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
-        return
+finally {
+    # write marker for enhanced security
+    if (Confirm-EnhancedSecurityOn($Type)) {
+        Save-LinkerdMarkerConfig 
     }
-
-    Write-Log $errMsg -Error
-    exit 1
-}
-
-Write-Log 'Renewing old Certificates using the new CA Issuer' -Console
-Update-CertificateResources
-
-Write-Log 'Importing CA root certificate to trusted authorities of your computer' -Console
-$b64secret = (Invoke-Kubectl -Params '-n', 'cert-manager', 'get', 'secrets', 'ca-issuer-root-secret', '-o', 'jsonpath', '--template', '{.data.ca\.crt}').Output
-$tempFile = New-TemporaryFile
-$certLocationStore = Get-TrustedRootStoreLocation
-[Text.Encoding]::Utf8.GetString([Convert]::FromBase64String($b64secret)) | Out-File -Encoding utf8 -FilePath $tempFile.FullName -Force
-$params = @{
-    FilePath          = $tempFile.FullName
-    CertStoreLocation = $certLocationStore
-}
-
-Import-Certificate @params
-Remove-Item -Path $tempFile.FullName -Force
-
-Write-Log 'Checking for availability of Ingress Controller' -Console
-if (Test-NginxIngressControllerAvailability) {
-    $activeIngress = 'nginx'
-}
-elseif (Test-TraefikIngressControllerAvailability) {
-    $activeIngress = 'traefik'
-}
-else {
-    #Enable required ingress addon
-    Write-Log "No Ingress controller found in the cluster, enabling $Ingress controller" -Console
-    Enable-IngressAddon -Ingress:$Ingress
-    $activeIngress = $Ingress
-}
-
-Write-Log 'Installing keycloak' -Console
-$keyCloakYaml = Get-KeyCloakConfig
-(Invoke-Kubectl -Params 'apply', '-f', $keyCloakYaml).Output | Write-Log
-Deploy-IngressForSecurity -Ingress:$activeIngress
-Write-Log 'Waiting for keycloak pods to be available' -Console
-$keycloakPodStatus = Wait-ForKeyCloakAvailable
-
-$oauth2ProxyYaml = Get-OAuth2ProxyConfig
-(Invoke-Kubectl -Params 'apply', '-f', $oauth2ProxyYaml).Output | Write-Log
-Write-Log 'Waiting for oauth2-proxy pods to be available' -Console
-$oauth2ProxyPodStatus = Wait-ForOauth2ProxyAvailable
-
-$winSecurityStatus = $true
-if ($keycloakPodStatus -eq $true -and $oauth2ProxyPodStatus -eq $true) {
-    $winSecurityStatus = Apply-WindowsSecuirtyDeployments
-}
-
-if ($keycloakPodStatus -ne $true -or $oauth2ProxyPodStatus -ne $true -or $winSecurityStatus -ne $true) {
-    $errMsg = "All security pods could not become ready. Please use kubectl describe for more details.`nInstallation of secuirty addon failed."
-    if ($EncodeStructuredOutput -eq $true) {
-        $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
-        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
-        return
-    }
-
-    Write-Log $errMsg -Error
-    exit 1
 }
 
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'security' })

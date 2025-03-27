@@ -108,7 +108,7 @@ function Invoke-HydraClient {
     }
 }
 
-function Apply-WindowsSecuirtyDeployments {
+function Apply-WindowsSecurityDeployments {
     $securityData = Get-SecurityData
     if (-Not (Test-Path $securityData)) {
         New-Item -ItemType Directory -Path $securityData -Force | Out-Null
@@ -145,12 +145,12 @@ function Apply-WindowsSecuirtyDeployments {
     return ($hydraStatus -eq $true -and $winLoginStatus -eq $true -and $hydraApiStatus -eq $true)
 }
 
-function Remove-WindowsSecuirtyDeployments {
+function Remove-WindowsSecurityDeployments {
     $hydraYamlPath = "$PSScriptRoot\manifests\keycloak\hydra.yaml"
-    (Invoke-Kubectl -Params 'delete', '-f', $hydraYamlPath).Output | Write-Log
+    (Invoke-Kubectl -Params 'delete','--ignore-not-found','-f', $hydraYamlPath).Output | Write-Log
 
     $winLoginYamlPath = "$PSScriptRoot\manifests\keycloak\windows-login.yaml"
-    (Invoke-Kubectl -Params 'delete', '-f', $winLoginYamlPath).Output | Write-Log
+    (Invoke-Kubectl -Params 'delete','--ignore-not-found','-f', $winLoginYamlPath).Output | Write-Log
 }
 
 <#
@@ -277,5 +277,59 @@ function Deploy-IngressForSecurity([string]$Ingress) {
             (Invoke-Kubectl -Params 'apply', '-f', "$PSScriptRoot\manifests\keycloak\traefik-ingress.yaml").Output | Write-Log
             break
         }
+    }
+}
+
+function Confirm-EnhancedSecurityOn([string]$Type) {
+    # check content of string
+    if ($Type -eq 'enhanced') {
+        return $true
+    }
+    return $false
+}
+
+function Get-EnhancedSecurityFileLocation {
+    return "$env:ProgramData\\K2s\\enhancedsecurity.json"
+}
+
+function Get-LinkerdConfig {
+    return "$PSScriptRoot\manifests\linkerd"
+}
+
+<#
+.DESCRIPTION
+Waits for the linkerd pods to be available.
+#>
+function Wait-ForLinkerdAvailable {
+    return (Wait-ForPodCondition -Condition Ready -Label 'linkerd.io/workload-ns=linkerd' -Namespace 'linkerd' -TimeoutSeconds 120)
+}
+
+<#
+.DESCRIPTION
+Waits for the linkerd viz pods to be available.
+#>
+function Wait-ForLinkerdVizAvailable {
+    return (Wait-ForPodCondition -Condition Ready -Label 'linkerd.io/extension=viz' -Namespace 'linkerd-viz' -TimeoutSeconds 120)
+}
+
+function Save-LinkerdMarkerConfig {
+    # write info file for enhanced security
+    $jsonFile = Get-EnhancedSecurityFileLocation
+    $json = "{`"SecurityType`":`"$Type`"}"
+    $json | Out-File -FilePath $jsonFile     
+}
+
+function Remove-LinkerdMarkerConfig {
+    # write info file for enhanced security
+    $jsonFile = Get-EnhancedSecurityFileLocation
+    if (Test-Path $jsonFile) {
+        Remove-Item -Path $jsonFile -Force
+    } 
+}
+
+function Remove-LinkerdExecutable {
+    $binPath = Get-KubeBinPath
+    if (!(Test-Path "$binPath\linkerd.exe")) {
+        Remove-Item -Path "$binPath\linkerd.exe" -Force
     }
 }

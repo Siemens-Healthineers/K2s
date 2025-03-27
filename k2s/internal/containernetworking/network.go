@@ -583,19 +583,20 @@ func (plugin *netPlugin) Delete(args *cniSkel.CmdArgs) error {
 }
 
 func IsEnhancedSecurityEnabled() bool {
-	val, ok := os.LookupEnv("BRIDGE_ENHANCED_SECURITY")
+	logrus.Debugf("[cni-net] Checking if enhanced security is enabled")
+	// check if a file enhancedsecurity.json is available under programmdata folder
+	val, ok := os.LookupEnv("ProgramData")
 	if !ok {
 		logrus.Debugf("[cni-net] Enhanced security off, variable not found")
 		return false
-	} else {
-		if val == "true" {
-			logrus.Debugf("[cni-net] Enhanced security on")
-			return true
-		} else {
-			logrus.Debugf("[cni-net] Enhanced security off, value is not true")
-			return false
-		}
 	}
+	// check if marker file is there
+	if _, err := os.Stat(val + "\\k2s\\enhancedsecurity.json"); err == nil {
+		logrus.Debugf("[cni-net] Enhanced security on")
+		return true
+	}
+	logrus.Debugf("[cni-net] Enhanced security off, marker file is not set under programdata folder")
+	return false
 }
 
 // getCRIClient connects to the CRI socket

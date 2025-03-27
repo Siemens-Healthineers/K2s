@@ -49,25 +49,12 @@ if ($systemError) {
     exit 1
 }
 
-if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'cert-manager', '--ignore-not-found').Output -and (Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'security' })) -ne $true) {
-    $errMsg = "Addon 'security' is already disabled, nothing to do."
-
-    if ($EncodeStructuredOutput -eq $true) {
-        $err = New-Error -Severity Warning -Code (Get-ErrCodeAddonAlreadyDisabled) -Message $errMsg
-        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
-        return
-    }
-    
-    Write-Log $errMsg -Error
-    exit 1
-}
-
 Write-Log 'Uninstalling security' -Console
 $certManagerConfig = Get-CertManagerConfig
 $caIssuerConfig = Get-CAIssuerConfig
 
-(Invoke-Kubectl -Params 'delete', '-f', $caIssuerConfig).Output | Write-Log
-(Invoke-Kubectl -Params 'delete', '-f', $certManagerConfig).Output | Write-Log
+(Invoke-Kubectl -Params 'delete', '--ignore-not-found', '-f', $caIssuerConfig).Output | Write-Log
+(Invoke-Kubectl -Params 'delete', '--ignore-not-found', '-f', $certManagerConfig).Output | Write-Log
 
 Remove-Cmctl
 
@@ -77,12 +64,19 @@ $trustedRootStoreLocation = Get-TrustedRootStoreLocation
 Get-ChildItem -Path $trustedRootStoreLocation | Where-Object { $_.Subject -match $caIssuerName } | Remove-Item
 
 $oauth2ProxyYaml = Get-OAuth2ProxyConfig
-(Invoke-Kubectl -Params 'delete', '-f', $oauth2ProxyYaml).Output | Write-Log
+(Invoke-Kubectl -Params 'delete', '--ignore-not-found', '-f', $oauth2ProxyYaml).Output | Write-Log
 
 $keyCloakYaml = Get-KeyCloakConfig
-(Invoke-Kubectl -Params 'delete', '-f', $keyCloakYaml).Output | Write-Log
+(Invoke-Kubectl -Params 'delete', '--ignore-not-found', '-f',$keyCloakYaml).Output | Write-Log
 
-Remove-WindowsSecuirtyDeployments
+Remove-WindowsSecurityDeployments
+
+$linkerdYaml = Get-LinkerdConfig
+(Invoke-Kubectl -Params 'delete', '--ignore-not-found', '-k',$linkerdYaml).Output | Write-Log
+
+Remove-LinkerdMarkerConfig
+
+Remove-LinkerdExecutable
 
 Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'security' })
 

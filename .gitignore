@@ -169,3 +169,4 @@ bin/cni/vfprules.pdb
 
 addons/security/login
 addons/security/login.exe
+bin/linkerd.exe
