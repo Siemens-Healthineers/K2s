@@ -1399,6 +1399,7 @@ spec:
         linkerd.io/inject: enabled
         config.alpha.linkerd.io/proxy-wait-before-exit-seconds: "0"
         cluster-autoscaler.kubernetes.io/safe-to-evict: "true"
+        config.linkerd.io/default-inbound-policy: "all-unauthenticated"
       labels:
         linkerd.io/extension: viz
         component: web
@@ -1413,9 +1414,9 @@ spec:
         - -linkerd-metrics-api-addr=metrics-api.linkerd-viz.svc.cluster.local:8085
         - -cluster-domain=cluster.local
         - -controller-namespace=linkerd
-        - -log-level=info
+        - -log-level=debug
         - -log-format=plain
-        - -enforced-host=^(localhost|127\.0\.0\.1|web\.linkerd-viz\.svc\.cluster\.local|web\.linkerd-viz\.svc|\[::1\])(:\d+)?$
+        - -enforced-host=^(localhost|k2s.cluster.local|127\.0\.0\.1|web\.linkerd-viz\.svc\.cluster\.local|web\.linkerd-viz\.svc|\[::1\])(:\d+)?$
         - -enable-pprof=false
         image: cr.l5d.io/linkerd/web:edge-25.3.3
         imagePullPolicy: IfNotPresent
