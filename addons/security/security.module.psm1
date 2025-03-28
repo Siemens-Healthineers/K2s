@@ -329,7 +329,7 @@ function Remove-LinkerdMarkerConfig {
 
 function Remove-LinkerdExecutable {
     $binPath = Get-KubeBinPath
-    if (!(Test-Path "$binPath\linkerd.exe")) {
+    if (Test-Path "$binPath\linkerd.exe") {
         Remove-Item -Path "$binPath\linkerd.exe" -Force
     }
 }
