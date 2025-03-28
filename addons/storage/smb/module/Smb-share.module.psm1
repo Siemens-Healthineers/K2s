@@ -659,22 +659,26 @@ function New-StorageClassManifest {
     )
     $kustmizationPath="kustomization.yaml"
     $KustomizationFullPath = "$manifestBaseDir\$kustmizationPath"
-
-    # $newClassName="smb1"
-
     $tempKustomizationContent = Get-Content -path $KustomizationFullPath
     for ($i = 0; $i -lt $tempKustomizationContent.Count; $i++) {
         if ($tempKustomizationContent[$i] -like '*name:*') {
             $tempKustomizationContent[$i] = "      name: $newClassName"
+            break
         }
     }
     Set-Content -Path $KustomizationFullPath -Value $tempKustomizationContent
 
-
-
-
-
-
+    $smbScPath="smb-sc.yaml"
+    $smbScFullPath = "$manifestBaseDir\$smbScPath"
+    $smbScContent = Get-Content -path $smbScFullPath
+    for ($i = 0; $i -lt $smbScContent.Count; $i++) {
+        if ($smbScContent[$i] -like '*name:*') {
+            $smbScContent[$i] = "  name: $newClassName"
+            break
+        }
+    }
+    set-content -path $smbScFullPath -value $smbScContent
+    
     $templateContent = Get-Content -Path $patchTemplateFilePath
 
     Write-Log "Template file <$patchTemplateFilePath> loaded."
