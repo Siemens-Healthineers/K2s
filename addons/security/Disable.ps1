@@ -49,6 +49,19 @@ if ($systemError) {
     exit 1
 }
 
+if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'cert-manager', '--ignore-not-found').Output -and (Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'security' })) -ne $true) {
+    $errMsg = "Addon 'security' is already disabled, nothing to do."
+
+    if ($EncodeStructuredOutput -eq $true) {
+        $err = New-Error -Severity Warning -Code (Get-ErrCodeAddonAlreadyDisabled) -Message $errMsg
+        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+        return
+    }
+    
+    Write-Log $errMsg -Error
+    exit 1
+}
+
 Write-Log 'Uninstalling security' -Console
 $certManagerConfig = Get-CertManagerConfig
 $caIssuerConfig = Get-CAIssuerConfig
