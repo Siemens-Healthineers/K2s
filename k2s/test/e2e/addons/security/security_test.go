@@ -60,7 +60,7 @@ var _ = Describe("'security' addon", Ordered, func() {
 	})
 
 	It("enables the addon", func(ctx context.Context) {
-		args := []string{"addons", "enable", addonName, "-o"}
+		args := []string{"addons", "enable", addonName, "-t", "enhanced", "-o"}
 		if suite.Proxy() != "" {
 			args = append(args, "-p", suite.Proxy())
 		}
@@ -116,7 +116,12 @@ var _ = Describe("'security' addon", Ordered, func() {
 		_, err := os.Stat(cmCtlPath)
 		Expect(err).To(BeNil())
 	})
-
+	It("installs linkerd", func(ctx context.Context) {
+		cmCtlPath := path.Join(suite.RootDir(), "bin", "linkerd.exe")
+		_, err := os.Stat(cmCtlPath)
+		Expect(err).To(BeNil())
+	})
+	
 	It("creates the ca-issuer-root-secret", func(ctx context.Context) {
 		output := suite.Kubectl().Run(ctx, "get", "secrets", "-n", "cert-manager", "ca-issuer-root-secret")
 		Expect(output).To(ContainSubstring("ca-issuer-root-secret"))
@@ -132,6 +137,12 @@ var _ = Describe("'security' addon", Ordered, func() {
 
 	It("uninstalls cmctl.exe, the cert-manager CLI", func(ctx context.Context) {
 		cmCtlPath := path.Join(suite.RootDir(), "bin", "cmctl.exe")
+		_, err := os.Stat(cmCtlPath)
+		Expect(os.IsNotExist(err)).To(BeTrue())
+	})
+	
+	It("uninstalls linkerd", func(ctx context.Context) {
+		cmCtlPath := path.Join(suite.RootDir(), "bin", "linkerd.exe")
 		_, err := os.Stat(cmCtlPath)
 		Expect(os.IsNotExist(err)).To(BeTrue())
 	})
