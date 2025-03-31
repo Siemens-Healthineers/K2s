@@ -222,6 +222,9 @@ try {
             $binPath = Get-KubeBinPath
             Invoke-DownloadFile "$binPath\linkerd.exe" 'https://github.com/linkerd/linkerd2/releases/download/edge-25.3.3/linkerd2-cli-edge-25.3.3-windows.exe' $true -ProxyToUse $Proxy
         }
+
+        Write-Log 'Generate kubeconfig for CNI plugin based on service account' -Console
+        
     }
 }
 catch {
