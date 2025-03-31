@@ -106,6 +106,18 @@ Local users on the host where K2s was setup can than be used for identity and ac
 
 ### Service mesh
 
+In order to secure your workload please use the following annotation:
+ ```cmd
+      annotations:
+        linkerd.io/inject: enabled
+ ```
+This is the only mandatory annotation to use, please check other annotations from the linkerd documenetation.
+
+For using the linkerd dashboard please first install the dashboard resources:
+ ```cmd
+linkerd viz install | kubectl apply -f -
+ ```
+
 Documentation related to `linkerd` you will find here: [linkerd docs](https://www.keycloak.org/guides).
 
 ## Further Reading

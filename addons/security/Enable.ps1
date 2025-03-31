@@ -203,9 +203,9 @@ try {
         (Invoke-Kubectl -Params 'apply', '-k', $linkerdYaml).Output | Write-Log
         Write-Log 'Waiting for linkerd pods to be available' -Console
         $linkerdPodStatus = Wait-ForLinkerdAvailable
-        Write-Log 'Waiting for linkerd viz pods to be available' -Console
-        $linkerdVizPodStatus = Wait-ForLinkerdVizAvailable
-        if ($linkerdPodStatus -ne $true -or $linkerdVizPodStatus -ne $true) {
+        # Write-Log 'Waiting for linkerd viz pods to be available' -Console
+        # $linkerdVizPodStatus = Wait-ForLinkerdVizAvailable
+        if ($linkerdPodStatus -ne $true) {
             $errMsg = "All linkerd pods could not become ready. Please use kubectl describe for more details.`nInstallation of security addon failed."
             if ($EncodeStructuredOutput -eq $true) {
                 $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
