@@ -52,7 +52,7 @@ var _ = BeforeSuite(func(ctx context.Context) {
     proxy = "http://172.19.1.1:8181"
    
     k2s = dsl.NewK2s(suite)
-	//suite.SetupInfo().SetupConfig.LinuxOnly = true
+	suite.SetupInfo().SetupConfig.LinuxOnly = true
 
 	if suite.SetupInfo().SetupConfig.LinuxOnly {
 		GinkgoWriter.Println("Found Linux-only setup, skipping Windows-based workloads")
