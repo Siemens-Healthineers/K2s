@@ -1,0 +1,11 @@
+# SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: k2s
+  annotations:
+    # Enables automatic proxy injection by Linkerd
+    linkerd.io/inject: enabled
