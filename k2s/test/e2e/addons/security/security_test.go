@@ -9,9 +9,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"path"
 	"testing"
+	"time"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/addons/status"
 	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
@@ -38,7 +40,7 @@ var k2s *dsl.K2s
 
 var proxy string
 var testFailed = false
-
+var workloadCreated = false
 var suite *framework.K2sTestSuite
 
 func TestSecurity(t *testing.T) {
@@ -73,19 +75,13 @@ var _ = AfterSuite(func(ctx context.Context) {
     isRunning := status.IsClusterRunning()
     GinkgoWriter.Println("Cluster is running:", isRunning)
 
-    GinkgoWriter.Println("Deleting workloads..")
+    GinkgoWriter.Println("Deleting workloads if necessasry..")
+	DeleteWorkloads(ctx)
 
     if testFailed {
         suite.K2sCli().RunOrFail(ctx, "system", "dump", "-S", "-o")
     }
-
-    // for finding out the sporadically failed test runs
-	if !testFailed && manifestDir != "" {
-        suite.Kubectl().Run(ctx, "delete", "-k", manifestDir)
-
-        GinkgoWriter.Println("Workloads deleted")
-    }
-
+  
 	GinkgoWriter.Println("Checking if addon is disabled..")
 
 	addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
@@ -127,8 +123,61 @@ func DeployWorkloads(ctx context.Context) {
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", deploymentName, namespace)
 		}
 	}
-
+	workloadCreated = true
 	GinkgoWriter.Println("Deployments ready for testing")
+}
+
+func DeleteWorkloads(ctx context.Context) {
+	  // for finding out the sporadically failed test runs
+	  if !testFailed && manifestDir != "" && workloadCreated {
+        suite.Kubectl().Run(ctx, "delete", "-k", manifestDir)
+		workloadCreated = false
+        GinkgoWriter.Println("Workloads deleted")
+    }
+}
+
+func VerifyDeploymentReachableFromHostWithStatusCode(ctx context.Context, name string, namespace string, expectedStatusCode int, url string, headers ...map[string]string) {    
+    // Create a standard HTTP client
+    client := &http.Client{}
+
+    // Retry mechanism
+    maxRetries := 5
+    for attempt := 1; attempt <= maxRetries; attempt++ {
+        // Create a new HTTP request
+        req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+        Expect(err).ToNot(HaveOccurred(), "Failed to create HTTP request")
+
+        // Add headers if provided
+        if len(headers) > 0 {
+            for key, value := range headers[0] {
+                req.Header.Add(key, value)
+            }
+        }
+
+        // Perform the HTTP request
+        resp, err := client.Do(req)
+        if err != nil {
+            GinkgoWriter.Printf("Attempt %d/%d: Failed to perform HTTP request: %v\n", attempt, maxRetries, err)
+        } else {
+            defer resp.Body.Close()
+
+            // Check the status code
+            if resp.StatusCode == expectedStatusCode {
+                GinkgoWriter.Printf("Attempt %d/%d: Received expected status code %d\n", attempt, maxRetries, expectedStatusCode)
+                return
+            }
+
+            GinkgoWriter.Printf("Attempt %d/%d: Unexpected status code %d (expected %d)\n", attempt, maxRetries, resp.StatusCode, expectedStatusCode)
+        }
+
+        // Pause before the next attempt
+        if attempt < maxRetries {
+            time.Sleep(10 * time.Second)
+        }
+    }
+
+    // Fail the test if all retries are exhausted
+    Fail(fmt.Sprintf("Failed to receive expected status code %d after %d attempts", expectedStatusCode, maxRetries))
 }
 
 var _ = Describe("'security' addon", Ordered, func() {
@@ -200,6 +249,77 @@ var _ = Describe("'security' addon", Ordered, func() {
 		output := suite.Kubectl().Run(ctx, "get", "secrets", "-n", "cert-manager", "ca-issuer-root-secret")
 		Expect(output).To(ContainSubstring("ca-issuer-root-secret"))
 	})
+	It("Deploy the workloads after enabling the security addon", func(ctx context.Context) {
+		DeployWorkloads(ctx)
+	})
+	headers := make(map[string]string)
+	It("gets bearer token from keycloak", func(ctx context.Context) {
+		keycloakServer := "https://k2s.cluster.local"
+		realm := "demo-app"
+		clientId := "demo-client"
+		clientSecret := "1f3QCCQoDQXEwU7ngw9X8kaSe1uX8EIl"
+		username := "demo-user"
+		password := "password"
+
+		// Function to get access token from Keycloak
+		getKeycloakToken := func() (string, error) {
+			tokenUrl := fmt.Sprintf("%s/keycloak/realms/%s/protocol/openid-connect/token", keycloakServer, realm)
+			data := url.Values{}
+			data.Set("client_id", clientId)
+			data.Set("client_secret", clientSecret)
+			data.Set("username", username)
+			data.Set("password", password)
+			data.Set("grant_type", "password")
+
+			resp, err := http.PostForm(tokenUrl, data)
+			if err != nil {
+				return "", err
+			}
+			defer resp.Body.Close()
+
+			if resp.StatusCode != http.StatusOK {
+				return "", fmt.Errorf("failed to get token: %s", resp.Status)
+			}
+
+			var result map[string]interface{}
+			json.NewDecoder(resp.Body).Decode(&result)
+			accessToken, ok := result["access_token"].(string)
+			if !ok {
+				return "", fmt.Errorf("failed to parse access token")
+			}
+			return accessToken, nil
+		}
+
+		// Get the access token
+		accessToken, err := getKeycloakToken()
+		Expect(err).NotTo(HaveOccurred())
+
+		// Make the request with the access token
+		headers = map[string]string{
+			"Authorization": fmt.Sprintf("Bearer %s", accessToken),
+		}
+	})
+
+	DescribeTable("Deployment is reachable from host using bearer token ", func(ctx context.Context, name string, skipOnLinuxOnly bool) {
+		if skipOnLinuxOnly && suite.SetupInfo().SetupConfig.LinuxOnly {
+			Skip("Linux-only")
+		}
+
+		if (len(headers) == 0) {
+			Fail("Headers for authentication are not set")
+		}
+		{	
+			url := fmt.Sprintf("https://k2s.cluster.local/%s", name)
+			VerifyDeploymentReachableFromHostWithStatusCode(ctx, name, namespace, http.StatusOK, url, headers)
+		}},
+		Entry("albums-linux1 is reachable from host", "albums-linux1", false),
+		Entry("albums-win1 is reachable from host", "albums-win1", true),
+		Entry("albums-linux2 is reachable from host", "albums-linux2", false),
+		Entry("albums-win2 is reachable from host", "albums-win2", true))
+
+	It("Delete the workloads", func(ctx context.Context) {
+		DeleteWorkloads(ctx)
+	})
 
 	It("disables the addon", func(ctx context.Context) {
 		suite.K2sCli().RunOrFail(ctx, "addons", "disable", addonName, "-o")
@@ -220,25 +340,6 @@ var _ = Describe("'security' addon", Ordered, func() {
 		Expect(output).NotTo(ContainSubstring("ca-issuer-root-secret"))
 	})
 })
-
-func VerifyDeploymentNotReachableFromHostDueToStatusCode(ctx context.Context, name string, namespace string, expectedStatusCode int) {
-    url1 := fmt.Sprintf("http://%s.%s.svc.cluster.local/%s", name, namespace, name)
-
-    // Create a standard HTTP client
-    client := &http.Client{}
-
-    // Create a new HTTP request
-    req, err := http.NewRequestWithContext(ctx, http.MethodGet, url1, nil)
-    Expect(err).ToNot(HaveOccurred(), "Failed to create HTTP request")
-
-    // Perform the HTTP request
-    resp, err := client.Do(req)
-    Expect(err).ToNot(HaveOccurred(), "Failed to perform HTTP request")
-    defer resp.Body.Close()
-
-    // Verify the status code
-    Expect(resp.StatusCode).To(Equal(expectedStatusCode), fmt.Sprintf("Expected status code %d but got %d", expectedStatusCode, resp.StatusCode))
-}
 
 var _ = Describe("'security' addon with enhanced mode", Ordered, func() {
 	It("prints already-disabled message on disable command and exits with non-zero", func(ctx context.Context) {
@@ -315,9 +416,11 @@ var _ = Describe("'security' addon with enhanced mode", Ordered, func() {
 		output := suite.Kubectl().Run(ctx, "get", "secrets", "-n", "cert-manager", "ca-issuer-root-secret")
 		Expect(output).To(ContainSubstring("ca-issuer-root-secret"))
 	})
+
 	It("Deploy the workloads after enabling the security addon", func(ctx context.Context) {
 		DeployWorkloads(ctx)
 	})
+
 	Describe("Communication", func() {
         DescribeTable("Deployments Availability", func(name string, skipOnLinuxOnly bool) {
             if skipOnLinuxOnly && suite.SetupInfo().SetupConfig.LinuxOnly {
@@ -336,13 +439,13 @@ var _ = Describe("'security' addon with enhanced mode", Ordered, func() {
             if skipOnLinuxOnly && suite.SetupInfo().SetupConfig.LinuxOnly {
                 Skip("Linux-only")
             }
-
-            VerifyDeploymentNotReachableFromHostDueToStatusCode(ctx, name, namespace, http.StatusForbidden)
+			url := fmt.Sprintf("http://%s.%s.svc.cluster.local/%s", name, namespace, name)
+            VerifyDeploymentReachableFromHostWithStatusCode(ctx, name, namespace, http.StatusForbidden, url)
         },
-            Entry("albums-linux1 is reachable from host", "albums-linux1", false),
-            Entry("albums-win1 is reachable from host", "albums-win1", true),
-            Entry("albums-linux2 is reachable from host", "albums-linux2", false),
-            Entry("albums-win2 is reachable from host", "albums-win2", true))
+            Entry("albums-linux1 is NOT reachable from host", "albums-linux1", false),
+            Entry("albums-win1 is NOT reachable from host", "albums-win1", true),
+            Entry("albums-linux2 is NOT reachable from host", "albums-linux2", false),
+            Entry("albums-win2 is NOT reachable from host", "albums-win2", true))
 
         Describe("Linux/Windows Deployments Are Reachable from Linux Pods", func() {
             It("Deployment albums-linux1 is reachable from Pod of Deployment curl", func(ctx SpecContext) {
@@ -369,6 +472,10 @@ var _ = Describe("'security' addon with enhanced mode", Ordered, func() {
                 suite.Cluster().ExpectDeploymentToBeReachableFromPodOfOtherDeployment("albums-win2", namespace, "curl", namespace, ctx)
             })
         })
+	})
+
+	It("Delete the workloads", func(ctx context.Context) {
+		DeleteWorkloads(ctx)
 	})
 
 	It("disables the addon", func(ctx context.Context) {

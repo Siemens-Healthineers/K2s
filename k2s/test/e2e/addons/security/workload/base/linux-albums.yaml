@@ -83,4 +83,38 @@ spec:
       targetPort: 80
   clusterIP: 172.21.0.201
 ---
-
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: albums-linux1
+spec:
+  rules:
+    - host: k2s.cluster.local
+      http:
+        paths:
+          - path: /albums-linux1
+            pathType: Prefix
+            backend:
+              service:
+                name: albums-linux1
+                port:
+                  number: 80
+  ingressClassName: nginx
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: albums-linux2
+spec:
+  rules:
+    - host: k2s.cluster.local
+      http:
+        paths:
+          - path: /albums-linux2
+            pathType: Prefix
+            backend:
+              service:
+                name: albums-linux2
+                port:
+                  number: 80
+  ingressClassName: nginx
