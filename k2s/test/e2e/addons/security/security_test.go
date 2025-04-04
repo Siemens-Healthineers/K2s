@@ -51,8 +51,7 @@ var _ = BeforeSuite(func(ctx context.Context) {
 	manifestDir = "workload/windows"
     proxy = "http://172.19.1.1:8181"
    
-    k2s = dsl.NewK2s(suite)
-	suite.SetupInfo().SetupConfig.LinuxOnly = true
+    k2s = dsl.NewK2s(suite)	
 
 	if suite.SetupInfo().SetupConfig.LinuxOnly {
 		GinkgoWriter.Println("Found Linux-only setup, skipping Windows-based workloads")
@@ -333,7 +332,7 @@ var _ = Describe("'security' addon with enhanced mode", Ordered, func() {
             Entry("albums-win2 is available", "albums-win2", true),
             Entry("curl is available", "curl", false))
 
-        DescribeTable("Deployment Reachable from Host", func(ctx context.Context, name string, skipOnLinuxOnly bool) {
+        DescribeTable("Deployment is not reachable from Host due to StatusForbidden", func(ctx context.Context, name string, skipOnLinuxOnly bool) {
             if skipOnLinuxOnly && suite.SetupInfo().SetupConfig.LinuxOnly {
                 Skip("Linux-only")
             }

@@ -21,10 +21,10 @@ spec:
         - name: albums-win1
           image: shsk2s.azurecr.io/example.albums-golang-win:v1.0.0 #windows_image
           ports:
-            - containerPort: 80
+            - containerPort: 8081
           env:
             - name: PORT
-              value: '80'
+              value: '8081'
             - name: RESOURCE
               value: 'albums-win1'
       nodeSelector:
@@ -45,7 +45,7 @@ spec:
   ports:
     - protocol: TCP
       port: 80
-      targetPort: 80
+      targetPort: 8081
   clusterIP: 172.21.1.210
 ---
 apiVersion: apps/v1
@@ -66,10 +66,10 @@ spec:
         - name: albums-win2
           image: shsk2s.azurecr.io/example.albums-golang-win:v1.0.0 #windows_image
           ports:
-            - containerPort: 80
+            - containerPort: 8082
           env:
             - name: PORT
-              value: '80'
+              value: '8082'
             - name: RESOURCE
               value: 'albums-win2'
       nodeSelector:
@@ -90,7 +90,7 @@ spec:
   ports:
     - protocol: TCP
       port: 80
-      targetPort: 80
+      targetPort: 8082
   clusterIP: 172.21.1.211
 ---
 
