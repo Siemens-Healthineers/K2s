@@ -14,7 +14,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/types"
 
 	"github.com/siemens-healthineers/k2s/test/framework"
 	"github.com/siemens-healthineers/k2s/test/framework/regex"
@@ -56,22 +55,12 @@ var _ = Describe("status", Ordered, func() {
 		})
 
 		It("states that system is not running with details about what is not running", func(ctx context.Context) {
-			matchers := []types.GomegaMatcher{
-				ContainSubstring("The system is stopped."),
+			// TODO: cater to multiple nodes
+			Expect(output).To(SatisfyAll(ContainSubstring("The system is stopped."),
 				ContainSubstring("control-plane 'kubemaster' not running, state is 'Off' (VM)"),
-			}
-
-			if suite.SetupInfo().SetupConfig.SetupName == setupinfo.SetupNamek2s {
-				matchers = append(matchers,
-					ContainSubstring("'flanneld' not running (service)"),
-					ContainSubstring("'kubelet' not running (service)"),
-					ContainSubstring("'kubeproxy' not running (service)"))
-			} else if suite.SetupInfo().SetupConfig.SetupName == setupinfo.SetupNameMultiVMK8s && !suite.SetupInfo().SetupConfig.LinuxOnly {
-				matchers = append(matchers,
-					ContainSubstring("'WinNode' not running, state is 'Off' (VM)"))
-			}
-
-			Expect(output).To(SatisfyAll(matchers...))
+				ContainSubstring("'flanneld' not running (service)"),
+				ContainSubstring("'kubelet' not running (service)"),
+				ContainSubstring("'kubeproxy' not running (service)")))
 		})
 	})
 
@@ -95,22 +84,12 @@ var _ = Describe("status", Ordered, func() {
 		})
 
 		It("states that system is not running with details about what is not running", func(ctx context.Context) {
-			matchers := []types.GomegaMatcher{
-				ContainSubstring("The system is stopped."),
+			// TODO: cater to multiple nodes
+			Expect(output).To(SatisfyAll(ContainSubstring("The system is stopped."),
 				ContainSubstring("control-plane 'kubemaster' not running, state is 'Off' (VM)"),
-			}
-
-			if suite.SetupInfo().SetupConfig.SetupName == setupinfo.SetupNamek2s {
-				matchers = append(matchers,
-					ContainSubstring("'flanneld' not running (service)"),
-					ContainSubstring("'kubelet' not running (service)"),
-					ContainSubstring("'kubeproxy' not running (service)"))
-			} else if suite.SetupInfo().SetupConfig.SetupName == setupinfo.SetupNameMultiVMK8s && !suite.SetupInfo().SetupConfig.LinuxOnly {
-				matchers = append(matchers,
-					ContainSubstring("'WinNode' not running, state is 'Off' (VM)"))
-			}
-
-			Expect(output).To(SatisfyAll(matchers...))
+				ContainSubstring("'flanneld' not running (service)"),
+				ContainSubstring("'kubelet' not running (service)"),
+				ContainSubstring("'kubeproxy' not running (service)")))
 		})
 	})
 

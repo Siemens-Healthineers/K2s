@@ -31,9 +31,6 @@
                 "mirror": "shsk2s.azurecr.io"
             }
         ],
-        "multivm": {
-            "multiVMK8sWindowsVMIP": "172.19.1.101"
-        },
         "vfprules-k2s": {
             "routes": [
                 {
@@ -63,34 +60,6 @@
             ],
             "vfpapi": [
                 "10.0.20348"
-            ]
-        },
-        "vfprules-multivm": {
-            "routes": [
-                {
-                    "name": "PA_ROUTE_k2s_1",
-                    "subnet": "172.19.1.0/24",
-                    "gateway": "172.20.1.2",
-                    "priority": "200"
-                },
-                {
-                    "name": "PA_ROUTE_k2s_2",
-                    "subnet": "172.20.0.0/24",
-                    "gateway": "172.20.1.2",
-                    "priority": "201"
-                },
-                {
-                    "name": "PA_ROUTE_k2s_3",
-                    "subnet": "172.21.0.0/24",
-                    "gateway": "172.20.1.2",
-                    "priority": "202"
-                },
-                {
-                    "name": "PA_ROUTE_k2s_4",
-                    "subnet": "172.21.1.0/24",
-                    "gateway": "172.22.1.2",
-                    "priority": "203"
-                }
             ]
         },
         "shareDir": {

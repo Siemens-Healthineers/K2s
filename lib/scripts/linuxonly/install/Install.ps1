@@ -1,18 +1,10 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
 #Requires -RunAsAdministrator
 
 Param(
-    [parameter(Mandatory = $false, HelpMessage = 'Windows ISO image path (mandatory if not Linux-only)')]
-    [string] $WindowsImage,
-    [parameter(Mandatory = $false, HelpMessage = 'Startup Memory Size of Windows VM')]
-    [long] $WinVMStartUpMemory = 4GB,
-    [parameter(Mandatory = $false, HelpMessage = 'Virtual hard disk size of Windows VM')]
-    [long] $WinVMDiskSize = 50GB,
-    [parameter(Mandatory = $false, HelpMessage = 'Number of Virtual Processors of Windows VM')]
-    [long] $WinVMProcessorCount = 4,
     [parameter(Mandatory = $false, HelpMessage = 'Startup Memory Size of master VM (Linux)')]
     [long] $MasterVMMemory = 6GB,
     [parameter(Mandatory = $false, HelpMessage = 'Virtual hard disk size of master VM (Linux)')]
@@ -33,18 +25,14 @@ Param(
     [switch] $DeleteFilesForOfflineInstallation = $false,
     [parameter(Mandatory = $false, HelpMessage = 'Force the installation online. This option is needed if the files for an offline installation are available but you want to recreate them.')]
     [switch] $ForceOnlineInstallation = $false,
-    [parameter(Mandatory = $false, HelpMessage = 'Use WSL2 for hosting KubeMaster VM')]
-    [switch] $WSL = $false,
-    [parameter(Mandatory = $false, HelpMessage = 'No Windows worker node will be set up')]
-    [switch] $LinuxOnly = $false,
     [parameter(Mandatory = $false, HelpMessage = 'Append to log file (do not start from scratch)')]
     [switch] $AppendLogFile = $false
 )
 
 $installStopwatch = [system.diagnostics.stopwatch]::StartNew()
 
-$infraModule =   "$PSScriptRoot\..\..\..\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
-$nodeModule =    "$PSScriptRoot\..\..\..\modules\k2s\k2s.node.module\k2s.node.module.psm1"
+$infraModule = "$PSScriptRoot\..\..\..\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
+$nodeModule = "$PSScriptRoot\..\..\..\modules\k2s\k2s.node.module\k2s.node.module.psm1"
 $clusterModule = "$PSScriptRoot\..\..\..\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1"
 
 Import-Module $infraModule, $nodeModule, $clusterModule
@@ -54,14 +42,9 @@ Reset-LogFile -AppendLogFile:$AppendLogFile
 
 $ErrorActionPreference = 'Continue'
 
-if (!$LinuxOnly -and !(Test-Path -Path $WindowsImage)) {
-    throw "Windows image ISO file '$WindowsImage' not found."
-}
-
-# set defaults for unset arguments
-$script:SetupType = 'MultiVMK8s'
+$script:SetupType = 'k2s'
 Set-ConfigSetupType -Value $script:SetupType
-Set-ConfigLinuxOnly -Value ($LinuxOnly -eq $true)
+Set-ConfigLinuxOnly -Value $true
 
 $Proxy = Get-OrUpdateProxyServer -Proxy:$Proxy
 Add-K2sHostsToNoProxyEnvVar
@@ -76,18 +59,18 @@ if ([string]::IsNullOrWhiteSpace($dnsServers)) {
 }
 
 $controlPlaneParams = @{
-    MasterVMMemory = $MasterVMMemory
-    MasterVMProcessorCount = $MasterVMProcessorCount
-    MasterDiskSize = $MasterDiskSize
-    Proxy = $Proxy
-    DnsAddresses = $dnsServers
-    AdditionalHooksDir = $AdditionalHooksDir
+    MasterVMMemory                    = $MasterVMMemory
+    MasterVMProcessorCount            = $MasterVMProcessorCount
+    MasterDiskSize                    = $MasterDiskSize
+    Proxy                             = $Proxy
+    DnsAddresses                      = $dnsServers
+    AdditionalHooksDir                = $AdditionalHooksDir
     DeleteFilesForOfflineInstallation = $DeleteFilesForOfflineInstallation
-    ForceOnlineInstallation = $ForceOnlineInstallation
-    CheckOnly = $false
-    SkipStart = $SkipStart
-    ShowLogs = $ShowLogs
-    WSL = $WSL
+    ForceOnlineInstallation           = $ForceOnlineInstallation
+    CheckOnly                         = $false
+    SkipStart                         = $SkipStart
+    ShowLogs                          = $ShowLogs
+    WSL                               = $false
 }
 
 $controlPlaneParams = " -MasterVMMemory '$MasterVMMemory'"
@@ -97,47 +80,18 @@ $controlPlaneParams += " -Proxy '$Proxy'"
 $controlPlaneParams += " -DnsAddresses '$dnsServers'"
 $controlPlaneParams += " -AdditionalHooksDir '$AdditionalHooksDir'"
 if ($DeleteFilesForOfflineInstallation.IsPresent) {
-    $controlPlaneParams += " -DeleteFilesForOfflineInstallation"
+    $controlPlaneParams += ' -DeleteFilesForOfflineInstallation'
 }
 if ($ForceOnlineInstallation.IsPresent) {
-    $controlPlaneParams += " -ForceOnlineInstallation"
+    $controlPlaneParams += ' -ForceOnlineInstallation'
 }
 if ($SkipStart.IsPresent) {
-    $controlPlaneParams += " -SkipStart"
+    $controlPlaneParams += ' -SkipStart'
 }
 if ($ShowLogs.IsPresent) {
-    $controlPlaneParams += " -ShowLogs"
-}
-if ($WSL.IsPresent) {
-    $controlPlaneParams += " -WSL"
+    $controlPlaneParams += ' -ShowLogs'
 }
 & powershell.exe "$PSScriptRoot\..\..\control-plane\Install.ps1" $controlPlaneParams
-
-$installationType = 'Linux-only'
-
-if ($(Get-ConfigLinuxOnly) -eq $false) {
-
-    $installationType = 'Multi-VM'
-
-    $windowsHostIpAddress = Get-ConfiguredKubeSwitchIP
-    $transparentProxy = "http://$($windowsHostIpAddress):8181"
-    $dnsServersForWorkerNode = $windowsHostIpAddress
-
-    $workerNodeParams = @{
-        WindowsImage = $WindowsImage
-        WinVMStartUpMemory = $WinVMStartUpMemory
-        WinVMDiskSize = $WinVMDiskSize
-        WinVMProcessorCount = $WinVMProcessorCount
-        Proxy = $transparentProxy
-        DnsAddresses = $dnsServersForWorkerNode
-        SkipStart = $SkipStart
-        ShowLogs = $ShowLogs
-        AdditionalHooksDir = $AdditionalHooksDir
-        DeleteFilesForOfflineInstallation = $DeleteFilesForOfflineInstallation
-        ForceOnlineInstallation = $ForceOnlineInstallation
-    }
-    & "$PSScriptRoot\..\..\worker\windows\hyper-v-vm\Install.ps1" @workerNodeParams
-}
 
 # show results
 Write-Log "Current state of kubernetes nodes:`n"
@@ -147,10 +101,6 @@ $kubeToolsPath = Get-KubeToolsPath
 
 Invoke-Hook -HookName 'AfterBaseInstall' -AdditionalHooksDir $AdditionalHooksDir
 
-
-
 Write-Log '---------------------------------------------------------------'
-Write-Log "$installationType setup finished.  Total duration: $('{0:hh\:mm\:ss}' -f $installStopwatch.Elapsed )"
+Write-Log "Linux-only setup finished.  Total duration: $('{0:hh\:mm\:ss}' -f $installStopwatch.Elapsed )"
 Write-Log '---------------------------------------------------------------'
-
-

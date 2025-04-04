@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2025 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package config
@@ -11,12 +11,9 @@ import (
 	"github.com/siemens-healthineers/k2s/internal/json"
 )
 
-type OsType string
-
-type NodesConfigReader []NodeConfigReader
-
 type ConfigReader interface {
 	Host() HostConfigReader
+	ControlPlane() ControlPlaneConfigReader
 	Nodes() NodesConfigReader
 }
 
@@ -26,16 +23,23 @@ type HostConfigReader interface {
 	SshDir() string
 }
 
-type NodeConfigReader interface {
-	ShareDir() string
-	OsType() OsType
+type ControlPlaneConfigReader interface {
 	IpAddress() string
-	IsControlPlane() bool
+}
+
+type NodesConfigReader interface {
+	ShareDir() ShareDirReader
+}
+
+type ShareDirReader interface {
+	LinuxDir() string
+	WindowsDir() string
 }
 
 type Config struct {
-	HostConfig  HostConfig
-	NodesConfig []NodeConfig
+	HostConfig         HostConfig
+	ControlPlaneConfig ControlPlaneConfig
+	NodesConfig
 }
 
 type HostConfig struct {
@@ -44,11 +48,17 @@ type HostConfig struct {
 	SshDirectory        string
 }
 
-type NodeConfig struct {
-	ShareDirectory      string
-	OperatingSystemType OsType
-	IpAddr              string
-	ControlPlane        bool
+type ControlPlaneConfig struct {
+	IpAddr string
+}
+
+type NodesConfig struct {
+	ShareDirectory ShareDir
+}
+
+type ShareDir struct {
+	Windows string
+	Linux   string
 }
 
 type configJson struct {
@@ -59,7 +69,6 @@ type configJson struct {
 type smallSetup struct {
 	ShareDir             shareDir `json:"shareDir"`
 	ControlPlanIpAddress string   `json:"masterIP"`
-	Multivm              multivm  `json:"multivm"`
 }
 
 type configDir struct {
@@ -69,18 +78,9 @@ type configDir struct {
 }
 
 type shareDir struct {
-	WindowsWorker string `json:"windowsWorker"`
-	Master        string `json:"master"`
+	Linux   string `json:"master"`
+	Windows string `json:"windowsWorker"`
 }
-
-type multivm struct {
-	IpAddress string `json:"multiVMK8sWindowsVMIP"`
-}
-
-const (
-	OsTypeLinux   OsType = "linux"
-	OsTypeWindows OsType = "windows"
-)
 
 func LoadConfig(installDir string) (ConfigReader, error) {
 	configFilePath := filepath.Join(installDir, "cfg\\config.json")
@@ -106,19 +106,14 @@ func LoadConfig(installDir string) (ConfigReader, error) {
 			K2sConfigDirectory:  configJson.ConfigDir.K2s,
 			SshDirectory:        sshDir,
 		},
-		NodesConfig: []NodeConfig{
-			{
-				ShareDirectory:      configJson.SmallSetup.ShareDir.WindowsWorker,
-				OperatingSystemType: OsTypeWindows,
-				IpAddr:              configJson.SmallSetup.Multivm.IpAddress,
-			},
-			{
-				ShareDirectory:      configJson.SmallSetup.ShareDir.Master,
-				OperatingSystemType: OsTypeLinux,
-				IpAddr:              configJson.SmallSetup.ControlPlanIpAddress,
-				ControlPlane:        true,
-			},
+		ControlPlaneConfig: ControlPlaneConfig{
+			IpAddr: configJson.SmallSetup.ControlPlanIpAddress,
 		},
+		NodesConfig: NodesConfig{
+			ShareDirectory: ShareDir{
+				Linux:   configJson.SmallSetup.ShareDir.Linux,
+				Windows: configJson.SmallSetup.ShareDir.Windows,
+			}},
 	}, nil
 }
 
@@ -126,12 +121,12 @@ func (c *Config) Host() HostConfigReader {
 	return c.HostConfig
 }
 
+func (c *Config) ControlPlane() ControlPlaneConfigReader {
+	return c.ControlPlaneConfig
+}
+
 func (c *Config) Nodes() NodesConfigReader {
-	nodes := make([]NodeConfigReader, len(c.NodesConfig))
-	for i, node := range c.NodesConfig {
-		nodes[i] = node
-	}
-	return nodes
+	return c.NodesConfig
 }
 
 func (c HostConfig) KubeConfigDir() string {
@@ -146,18 +141,18 @@ func (c HostConfig) SshDir() string {
 	return c.SshDirectory
 }
 
-func (c NodeConfig) ShareDir() string {
+func (c NodesConfig) ShareDir() ShareDirReader {
 	return c.ShareDirectory
 }
 
-func (c NodeConfig) OsType() OsType {
-	return c.OperatingSystemType
-}
-
-func (c NodeConfig) IpAddress() string {
+func (c ControlPlaneConfig) IpAddress() string {
 	return c.IpAddr
 }
 
-func (c NodeConfig) IsControlPlane() bool {
-	return c.ControlPlane
+func (s ShareDir) LinuxDir() string {
+	return s.Linux
+}
+
+func (s ShareDir) WindowsDir() string {
+	return s.Windows
 }

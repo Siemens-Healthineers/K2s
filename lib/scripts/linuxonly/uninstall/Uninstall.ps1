@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -6,7 +6,7 @@
 
 <#
 .SYNOPSIS
-Removes the Multi-VM K8s setup.
+Removes the Linux-only K2s setup.
 
 .DESCRIPTION
 This script assists in the following actions for K2s:
@@ -20,18 +20,6 @@ This script assists in the following actions for K2s:
 
 .PARAMETER SkipPurge
 Specifies whether to skipt the deletion of binaries, config files etc.
-
-.EXAMPLE
-PS> .\lib\scripts\multivm\uninstall\Uninstall.ps1
-Files will be purged.
-
-.EXAMPLE
-PS> .\lib\scripts\multivm\uninstall\Uninstall.ps1 -SkipPurge
-Purge is skipped.
-
-.EXAMPLE
-PS> .\lib\scripts\multivm\uninstall\Uninstall.ps1 -AdditonalHooks 'C:\AdditionalHooks'
-For specifying additional hooks to be executed.
 #>
 Param(
     [parameter(Mandatory = $false, HelpMessage = 'Do not purge all files')]
@@ -55,34 +43,19 @@ Initialize-Logging -ShowLogs:$ShowLogs
 
 $ErrorActionPreference = 'Continue'
 
-if ($(Get-ConfigLinuxOnly) -eq $true) {
-    $installationType = 'Linux-only'
-} else {
-    $installationType = 'Multi-VM'
-}
-
 if ($HideHeaders -eq $false) {
-    Write-Log "Uninstalling $installationType K2s"
-}
-
-if ($(Get-ConfigLinuxOnly) -eq $false) {
-    $workerNodeParams = @{
-        ShowLogs = $ShowLogs
-        AdditionalHooksDir = $AdditionalHooksDir
-        DeleteFilesForOfflineInstallation = $DeleteFilesForOfflineInstallation
-    }
-    & "$PSScriptRoot\..\..\worker\windows\hyper-v-vm\Uninstall.ps1" @workerNodeParams
+    Write-Log 'Uninstalling Linux-only K2s'
 }
 
 $controlPlaneParams = " -AdditionalHooksDir '$AdditionalHooksDir'"
 if ($DeleteFilesForOfflineInstallation.IsPresent) {
-    $controlPlaneParams += " -DeleteFilesForOfflineInstallation"
+    $controlPlaneParams += ' -DeleteFilesForOfflineInstallation'
 }
 if ($ShowLogs.IsPresent) {
-    $controlPlaneParams += " -ShowLogs"
+    $controlPlaneParams += ' -ShowLogs'
 }
 if ($SkipPurge.IsPresent) {
-    $controlPlaneParams += " -SkipPurge"
+    $controlPlaneParams += ' -SkipPurge'
 }
 & powershell.exe "$PSScriptRoot\..\..\control-plane\Uninstall.ps1" $controlPlaneParams
 
@@ -91,7 +64,7 @@ Remove-K2sHostsFromNoProxyEnvVar
 Invoke-AddonsHooks -HookType 'AfterUninstall'
 
 if ($HideHeaders -eq $false) {
-    Write-Log "K2s $installationType uninstalled."
+    Write-Log 'K2s Linux-only uninstalled.'
 }
 
 Save-k2sLogDirectory -RemoveVar

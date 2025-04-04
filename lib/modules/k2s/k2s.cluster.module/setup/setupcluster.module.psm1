@@ -260,7 +260,7 @@ function Join-LinuxNode {
         $joinCommand = "sudo kubeadm join $apiServerEndpoint" + ' --node-name ' + $NodeName + ' --ignore-preflight-errors IsPrivilegedUser' + " --config `"$target`""
         Write-Log "Created join command: $joinCommand"
 
-        (Invoke-CmdOnVmViaSSHKey -CmdToExecute "sudo systemctl start crio" -UserName $NodeUserName -IpAddress $NodeIpAddress).Output | Write-Log
+        (Invoke-CmdOnVmViaSSHKey -CmdToExecute 'sudo systemctl start crio' -UserName $NodeUserName -IpAddress $NodeIpAddress).Output | Write-Log
         
         $job = Invoke-Expression "Start-Job -ScriptBlock `${Function:Wait-ForNodesReady} -ArgumentList $NodeName"
         Write-Log "Invoke join command in node '$NodeName'"
@@ -313,34 +313,6 @@ function Remove-LinuxNode {
 
 }
 
-function Add-ClusterDnsNameToHost {
-    param([string]$DesiredIP = ''
-        , [string]$Hostname = 'k2s.cluster.local'
-        , [bool]$CheckHostnameOnly = $false)
-
-    # check ip
-    if ($DesiredIP -eq '') {
-        $DesiredIP = Get-ConfiguredIPControlPlane
-    }
-
-    # Adds entry to the hosts file.
-    $hostsFilePath = "$($Env:WinDir)\system32\Drivers\etc\hosts"
-    $hostsFile = Get-Content $hostsFilePath
-
-    Write-Log "Add $desiredIP for $Hostname to hosts file"
-
-    $escapedHostname = [Regex]::Escape($Hostname)
-    $patternToMatch = If ($CheckHostnameOnly) { ".*\s+$escapedHostname.*" } Else { ".*$DesiredIP\s+$escapedHostname.*" }
-    If (($hostsFile) -match $patternToMatch) {
-        Write-Log $desiredIP.PadRight(20, ' '), "$Hostname - not adding; already in hosts file"
-    }
-    Else {
-        Write-Log $desiredIP.PadRight(20, ' '), "$Hostname - adding to hosts file... "
-        Add-Content -Encoding UTF8 $hostsFilePath ("$DesiredIP".PadRight(20, ' ') + "$Hostname")
-        Write-Log ' done'
-    }
-}
-
 function Set-KubeletDiskPressure {
     # set new limits for the windows node for disk pressure
     # kubelet is running now (caused by joining the windows host to the cluster), so we stop it. Will be restarted in start-up sequence.
@@ -383,199 +355,13 @@ function Uninstall-Cluster {
     Remove-Item -Path "$kubernetesImagesJson" -Force -ErrorAction SilentlyContinue
 }
 
-function Initialize-VMKubernetesCluster {
-    Param(
-        [parameter(Mandatory = $true, HelpMessage = 'Windows VM Name to use')]
-        [string] $VMName,
-        [parameter(Mandatory = $false, HelpMessage = 'IP address of the VM')]
-        [string] $IpAddress,
-        [parameter(Mandatory = $false, HelpMessage = 'HTTP proxy if available')]
-        [string] $Proxy,
-        [parameter(Mandatory = $false, HelpMessage = 'Kubernetes version to use')]
-        [string] $KubernetesVersion,
-        [parameter(Mandatory = $false, HelpMessage = 'Directory containing additional hooks to be executed after local hooks are executed')]
-        [string] $AdditionalHooksDir = ''
-    )
-
-    # TODO accept from user or use default
-    $vmPwd = Get-DefaultTempPwd
-    $vmSession = Open-RemoteSession -VmName $VMName -VmPwd $vmPwd
-
-    # Establish communication and copy kubeconfig from control plane
-    Invoke-Command -Session $vmSession {
-        Set-Location "$env:SystemDrive\k"
-        Set-ExecutionPolicy Bypass -Force -ErrorAction Stop
-
-        Import-Module $env:SystemDrive\k\lib\modules\k2s\k2s.infra.module\k2s.infra.module.psm1
-        Import-Module $env:SystemDrive\k\lib\modules\k2s\k2s.node.module\k2s.node.module.psm1
-        Initialize-Logging -Nested:$true
-        Wait-ForSSHConnectionToLinuxVMViaSshKey -Nested:$true
-        Copy-KubeConfigFromControlPlaneNode -Nested:$true
-    }
-
-    Save-ControlPlaneNodeHostnameIntoWinVM $vmSession
-
-    Copy-KubeConfigFromControlPlaneNode
-
-    Install-KubectlOnHost $KubernetesVersion $Proxy
-
-    Add-K8sContext
-
-    Invoke-Hook -HookName 'AfterVmInitialized' -AdditionalHooksDir $AdditionalHooksDir
-
-    Write-Log 'Joining Nodes' -Console
-
-    Join-VMWindowsNode $vmSession
-
-    Set-DiskPressureLimitsOnWindowsNode $vmSession # TODO: check if this is necessary
-
-    Add-IPsToHostsFiles $vmSession $VMName $IpAddress
-
-    Write-K8sNodesStatus
-
-    Enable-SSHRemotingViaSSHKeyToWinNode $vmSession $Proxy
-
-    $adminWinNode = Get-DefaultWinVMName
-    $windowsVMKey = Get-DefaultWinVMKey
-    # Initiate first time ssh to establish connection over key for subsequent operations
-    ssh.exe -n -o StrictHostKeyChecking=no -i $windowsVMKey $adminWinNode hostname 2> $null
-
-    Disable-PasswordAuthenticationToWinNode
-
-    Write-Log "Collecting kubernetes images and storing them to $(Get-KubernetesImagesFilePath)."
-    Write-KubernetesImagesIntoJson -WorkerVM $true
-}
-
-function Install-KubectlOnHost($KubernetesVersion, $Proxy) {
-    $previousKubernetesVersion = Get-ConfigInstalledKubernetesVersion
-
-    $kubeBinExePath = Get-KubeToolsPath
-
-    if (!(Test-Path "$kubeBinExePath")) {
-        New-Item -Path $kubeBinExePath -ItemType Directory | Out-Null
-    }
-
-    if (!(Test-Path "$kubeBinExePath\kubectl.exe") -or ($previousKubernetesVersion -ne $KubernetesVersion)) {
-        Invoke-DownloadKubectl -Destination "$kubeBinExePath\kubectl.exe" -KubernetesVersion $KubernetesVersion -Proxy "$Proxy"
-    }
-}
-
-function Save-ControlPlaneNodeHostnameIntoWinVM($vmSession) {
-    $hostname = Get-ConfigControlPlaneNodeHostname
-    Write-Log "Saving VM hostname '$hostname' into Windows node ..."
-    Invoke-Command -Session $vmSession {
-        Set-Location "$env:SystemDrive\k"
-        Set-ExecutionPolicy Bypass -Force -ErrorAction Stop
-
-        Import-Module $env:SystemDrive\k\lib\modules\k2s\k2s.infra.module\k2s.infra.module.psm1
-        Initialize-Logging -Nested:$true
-
-        Set-ConfigControlPlaneNodeHostname $($using:hostname)
-    }
-    Write-Log '  done.'
-}
-
-function Join-VMWindowsNode($vmSession, $podSubnetworkNumber) {
-    Write-Log 'Joining Windows node ...'
-
-    $ErrorActionPreference = 'Continue'
-
-    $joinCommand = New-JoinCommand
-
-    Invoke-Command -Session $vmSession {
-        Set-Location "$env:SystemDrive\k"
-        Set-ExecutionPolicy Bypass -Force -ErrorAction Stop
-
-        # disable IPv6 completely
-        Get-NetAdapterBinding -ComponentID ms_tcpip6 | ForEach-Object {
-            Disable-NetAdapterBinding -Name $_.Name -ComponentID ms_tcpip6
-        }
-
-        Import-Module $env:SystemDrive\k\lib\modules\k2s\k2s.infra.module\k2s.infra.module.psm1
-        Import-Module $env:SystemDrive\k\lib\modules\k2s\k2s.node.module\k2s.node.module.psm1
-        Import-Module $env:SystemDrive\k\lib\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1
-        Initialize-Logging -Nested:$true
-
-        Join-WindowsNode -CommandForJoining $using:joinCommand -PodSubnetworkNumber $using:podSubnetworkNumber
-    }
-
-    $ErrorActionPreference = 'Stop'
-
-    Write-Log 'Windows node joined.'
-}
-
 function New-JoinCommand {
     $tokenCreationCommand = 'sudo kubeadm token create --print-join-command'
     $joinCommand = (Invoke-CmdOnControlPlaneViaSSHKey "$tokenCreationCommand").Output 2>&1
     return $joinCommand
 }
 
-function Set-DiskPressureLimitsOnWindowsNode($vmSession) {
-    Write-Log 'Setting disk pressure limits on Windows node ...'
-
-    Invoke-Command -Session $vmSession {
-        Set-Location "$env:SystemDrive\k"
-        Set-ExecutionPolicy Bypass -Force -ErrorAction Stop
-
-        Import-Module $env:SystemDrive\k\lib\modules\k2s\k2s.infra.module\k2s.infra.module.psm1
-        Import-Module $env:SystemDrive\k\lib\modules\k2s\k2s.node.module\k2s.node.module.psm1
-        Import-Module $env:SystemDrive\k\lib\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1
-        Initialize-Logging -Nested:$true
-
-        Set-KubeletDiskPressure
-    }
-
-    Write-Log 'Disk pressure limits on Windows node set.'
-}
-
-function Add-IPsToHostsFiles($vmSession, $VMName, $IpAddress) {
-    Write-Log 'Adding IPs to hosts files ...'
-
-    Add-ClusterDnsNameToHost -DesiredIP $IpAddress -Hostname $VMName
-
-    Invoke-Command -Session $vmSession {
-        Set-Location "$env:SystemDrive\k"
-        Set-ExecutionPolicy Bypass -Force -ErrorAction Stop
-
-        Import-Module $env:SystemDrive\k\lib\modules\k2s\k2s.infra.module\k2s.infra.module.psm1
-        Import-Module $env:SystemDrive\k\lib\modules\k2s\k2s.node.module\k2s.node.module.psm1
-        Import-Module $env:SystemDrive\k\lib\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1
-        Initialize-Logging -Nested:$true
-
-        Add-ClusterDnsNameToHost -Hostname 'k2s.cluster.local'
-    }
-
-    Write-Log 'IPs added to hosts files.'
-}
-
-function Write-K8sNodesStatus {
-    $retryIteration = 0
-    $ErrorActionPreference = 'Continue'
-    while ($true) {
-        $kubeToolsPath = Get-KubeToolsPath
-        #Check whether node information is available from the cluster
-        &"$kubeToolsPath\kubectl.exe" get nodes 2>$null | Out-Null
-        if ($?) {
-            Write-Log 'Current state of kubernetes nodes:'
-            &"$kubeToolsPath\kubectl.exe" get nodes -o wide
-            break
-        }
-        else {
-            Write-Log "Iteration: $retryIteration Node status not available yet, retrying in a moment..."
-            Start-Sleep -Seconds 5
-        }
-
-        if ($retryIteration -eq 10) {
-            throw 'Unable to get cluster node status information'
-        }
-        $retryIteration++
-    }
-    $ErrorActionPreference = 'Stop'
-}
-
 Export-ModuleMember Initialize-KubernetesCluster,
 Uninstall-Cluster, Set-KubeletDiskPressure,
-Join-WindowsNode, Join-LinuxNode, Join-VMWindowsNode, Add-K8sContext,
-Add-ClusterDnsNameToHost, Initialize-VMKubernetesCluster,
-Set-DiskPressureLimitsOnWindowsNode, Add-IPsToHostsFiles,
-Write-K8sNodesStatus, New-JoinCommand, Remove-LinuxNode
+Join-WindowsNode, Join-LinuxNode, Add-K8sContext,
+New-JoinCommand, Remove-LinuxNode

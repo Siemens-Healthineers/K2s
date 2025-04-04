@@ -12,7 +12,6 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/siemens-healthineers/k2s/test/framework"
-	"github.com/siemens-healthineers/k2s/test/framework/k2s"
 	"github.com/siemens-healthineers/k2s/test/framework/k2s/cli"
 )
 
@@ -35,7 +34,7 @@ var _ = Describe("node", func() {
 	var ipAddress string
 
 	BeforeEach(func(ctx context.Context) {
-		ipAddress = k2s.GetControlPlane(suite.SetupInfo().Config.Nodes()).IpAddress()
+		ipAddress = suite.SetupInfo().Config.ControlPlane().IpAddress()
 
 		GinkgoWriter.Println("Using control-plane IP address <", ipAddress, ">")
 	})

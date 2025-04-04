@@ -61,8 +61,8 @@ type Capacity struct {
 	Memory  string `json:"memory"`
 }
 
-func LoadStatus(psVersion powershell.PowerShellVersion) (*LoadedStatus, error) {
+func LoadStatus() (*LoadedStatus, error) {
 	scriptPath := utils.FormatScriptFilePath(utils.InstallDir() + `\lib\scripts\k2s\status\Get-Status.ps1`)
 
-	return powershell.ExecutePsWithStructuredResult[*LoadedStatus](scriptPath, "CmdResult", psVersion, common.NewPtermWriter())
+	return powershell.ExecutePsWithStructuredResult[*LoadedStatus](scriptPath, "CmdResult", common.NewPtermWriter())
 }
