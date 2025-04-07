@@ -31,8 +31,8 @@ const (
 	namespace = "k2s"
 )
 
-var linuxDeploymentNames = []string{"albums-linux1", "albums-linux2"}
-var winDeploymentNames = []string{"albums-win1", "albums-win2"}
+var linuxDeploymentNames = []string{"albums-linux1", "albums-linux2", "albums-linux3"}
+var winDeploymentNames = []string{"albums-win1", "albums-win2", "albums-win3"}
 
 
 var manifestDir string
@@ -433,9 +433,12 @@ var _ = Describe("'security' addon with enhanced mode", Ordered, func() {
             Entry("albums-win1 is available", "albums-win1", true),
             Entry("albums-linux2 is available", "albums-linux2", false),
             Entry("albums-win2 is available", "albums-win2", true),
-            Entry("curl is available", "curl", false))
+            Entry("curl is available", "curl", false),
+            Entry("albums-linux3 is available", "albums-linux3", false),
+            Entry("albums-win3 is available", "albums-win3", true),
+            Entry("curl1 is available", "curl1", false))
 
-        DescribeTable("Deployment is not reachable from Host due to StatusForbidden", func(ctx context.Context, name string, skipOnLinuxOnly bool) {
+        DescribeTable("Deployment is not reachable from Host due to StatusForbidden for pods with linkerd.io/inject: enabled", func(ctx context.Context, name string, skipOnLinuxOnly bool) {
             if skipOnLinuxOnly && suite.SetupInfo().SetupConfig.LinuxOnly {
                 Skip("Linux-only")
             }
@@ -446,8 +449,18 @@ var _ = Describe("'security' addon with enhanced mode", Ordered, func() {
             Entry("albums-win1 is NOT reachable from host", "albums-win1", true),
             Entry("albums-linux2 is NOT reachable from host", "albums-linux2", false),
             Entry("albums-win2 is NOT reachable from host", "albums-win2", true))
+		
+		DescribeTable("Deployment is reachable from Host due to StatusOK for pods without linkerd.io/inject: enabled", func(ctx context.Context, name string, skipOnLinuxOnly bool) {
+				if skipOnLinuxOnly && suite.SetupInfo().SetupConfig.LinuxOnly {
+					Skip("Linux-only")
+				}
+				url := fmt.Sprintf("http://%s.%s.svc.cluster.local/%s", name, namespace, name)
+				VerifyDeploymentReachableFromHostWithStatusCode(ctx, name, namespace, http.StatusOK, url)
+			},
+				Entry("albums-linux3 is reachable from host", "albums-linux3", false),
+				Entry("albums-win3 is reachable from host", "albums-win3", true))
 
-        Describe("Linux/Windows Deployments Are Reachable from Linux Pods", func() {
+        Describe("Linux/Windows Deployments with linkerd.io/inject: enabled are reachable from Linux Pods with linkerd.io/inject: enabled", func() {
             It("Deployment albums-linux1 is reachable from Pod of Deployment curl", func(ctx SpecContext) {
                 suite.Cluster().ExpectDeploymentToBeReachableFromPodOfOtherDeployment("albums-linux1", namespace, "curl", namespace, ctx)
             })
@@ -471,6 +484,58 @@ var _ = Describe("'security' addon with enhanced mode", Ordered, func() {
 
                 suite.Cluster().ExpectDeploymentToBeReachableFromPodOfOtherDeployment("albums-win2", namespace, "curl", namespace, ctx)
             })
+        })
+
+		Describe("Linux/Windows Deployments without linkerd.io/inject: enabled are reachable from Linux Pods with linkerd.io/inject: enabled", func() {
+            It("Deployment albums-linux3 is reachable from Pod of Deployment curl", func(ctx SpecContext) {
+                suite.Cluster().ExpectDeploymentToBeReachableFromPodOfOtherDeployment("albums-linux3", namespace, "curl", namespace, ctx)
+            })
+
+            It("Deployment albums-win3 is reachable from Pod of Deployment curl", func(ctx SpecContext) {
+                if suite.SetupInfo().SetupConfig.LinuxOnly {
+                    Skip("Linux-only")
+                }
+                suite.Cluster().ExpectDeploymentToBeReachableFromPodOfOtherDeployment("albums-win3", namespace, "curl", namespace, ctx)
+            })        
+        })
+
+        Describe("Linux/Windows Deployments with linkerd.io/inject: enabled are NOT reachable from Linux Pods without linkerd.io/inject: enabled", func() {
+            It("Deployment albums-linux1 is NOT reachable from Pod of Deployment curl1", func(ctx SpecContext) {
+                suite.Cluster().ExpectDeploymentNotToBeReachableFromPodOfOtherDeployment("albums-linux1", namespace, "curl1", namespace, ctx)
+            })
+
+            It("Deployment albums-win1 is NOT reachable from Pod of Deployment curl", func(ctx SpecContext) {
+                if suite.SetupInfo().SetupConfig.LinuxOnly {
+                    Skip("Linux-only")
+                }
+
+                suite.Cluster().ExpectDeploymentNotToBeReachableFromPodOfOtherDeployment("albums-win1", namespace, "curl1", namespace, ctx)
+            })
+
+            It("Deployment albums-linux2 is NOT reachable from Pod of Deployment curl", func(ctx SpecContext) {
+                suite.Cluster().ExpectDeploymentNotToBeReachableFromPodOfOtherDeployment("albums-linux2", namespace, "curl1", namespace, ctx)
+            })
+
+            It("Deployment albums-win2 is NOT reachable from Pod of Deployment curl1", func(ctx SpecContext) {
+                if suite.SetupInfo().SetupConfig.LinuxOnly {
+                    Skip("Linux-only")
+                }
+
+                suite.Cluster().ExpectDeploymentNotToBeReachableFromPodOfOtherDeployment("albums-win2", namespace, "curl1", namespace, ctx)
+            })
+        })
+
+		Describe("Linux/Windows Deployments without linkerd.io/inject: enabled are reachable from Linux Pods without linkerd.io/inject: enabled", func() {
+            It("Deployment albums-linux3 is reachable from Pod of Deployment curl1", func(ctx SpecContext) {
+                suite.Cluster().ExpectDeploymentToBeReachableFromPodOfOtherDeployment("albums-linux3", namespace, "curl1", namespace, ctx)
+            })
+
+            It("Deployment albums-win3 is reachable from Pod of Deployment curl1", func(ctx SpecContext) {
+                if suite.SetupInfo().SetupConfig.LinuxOnly {
+                    Skip("Linux-only")
+                }
+                suite.Cluster().ExpectDeploymentToBeReachableFromPodOfOtherDeployment("albums-win3", namespace, "curl1", namespace, ctx)
+            })        
         })
 	})
 

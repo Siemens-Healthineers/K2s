@@ -6,6 +6,3 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: k2s
-  annotations:
-    # Enables automatic proxy injection by Linkerd
-    linkerd.io/inject: enabled

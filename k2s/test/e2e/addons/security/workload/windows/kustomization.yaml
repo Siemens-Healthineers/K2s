@@ -9,3 +9,4 @@ namespace: k2s
 resources:
   - ../base
   - windows-albums.yaml
+  - windows-non-sec-albums.yaml

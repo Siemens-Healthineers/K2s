@@ -16,6 +16,8 @@ spec:
     metadata:
       labels:
         app: albums-win1
+      annotations:
+        linkerd.io/inject: enabled
     spec:
       containers:
         - name: albums-win1
@@ -61,6 +63,8 @@ spec:
     metadata:
       labels:
         app: albums-win2
+      annotations:
+        linkerd.io/inject: enabled
     spec:
       containers:
         - name: albums-win2

@@ -6,21 +6,19 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: curl
+  name: curl1
 spec:
   selector:
     matchLabels:
-      app: curl
+      app: curl1
   replicas: 1
   template:
     metadata:
       labels:
-        app: curl
-      annotations:
-        linkerd.io/inject: enabled
+        app: curl1
     spec:
       containers:
-        - name: curl
+        - name: curl1
           image: curlimages/curl:8.5.0
           command: [sh]
           args: ['-c', 'echo +++ curl is now available +++; tail -f /dev/null']

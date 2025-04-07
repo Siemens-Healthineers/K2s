@@ -16,6 +16,8 @@ spec:
     metadata:
       labels:
         app: albums-linux1
+      annotations:
+        linkerd.io/inject: enabled
     spec:
       containers:
         - name: albums-linux1
@@ -56,6 +58,8 @@ spec:
     metadata:
       labels:
         app: albums-linux2
+      annotations:
+        linkerd.io/inject: enabled
     spec:
       containers:
         - name: albums-linux2

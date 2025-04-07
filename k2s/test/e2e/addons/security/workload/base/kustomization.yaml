@@ -9,3 +9,5 @@ resources:
   - namespace.yaml
   - linux-albums.yaml
   - linux-curl.yaml
+  - linux-non-sec-albums.yaml
+  - linux-non-sec-curl.yaml
