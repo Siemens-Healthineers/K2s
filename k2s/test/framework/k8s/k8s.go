@@ -164,7 +164,7 @@ func (c *Cluster) ExpectDeploymentNotToBeReachableFromPodOfOtherDeployment(targe
 		Stderr:    &stderr,
 	}
 
-	expectCmdExecInPodNotToSucceed(param)
+	expectCmdExecInPodToBeForbidden(param)
 }
 
 func (c *Cluster) ExpectStatefulSetToBeReady(name string, namespace string, expectedReplicas int32, ctx context.Context) {
@@ -618,14 +618,15 @@ func expectCmdExecInPodToSucceed(param podExecParam) {
 	Expect(httpStatus).To(ContainSubstring("200"))
 }
 
-func expectCmdExecInPodNotToSucceed(param podExecParam) {
+func expectCmdExecInPodToBeForbidden(param podExecParam) {
 	Expect(executeCommandInPod(param)).To(Succeed())
 
 	httpStatus := strings.Split(param.Stdout.String(), "\n")[0]
 
 	GinkgoWriter.Println("Command <", param.Command, "> executed with http status <", httpStatus, ">")
 
-	Expect(httpStatus).NotTo(ContainSubstring("200"))
+	//403 is http status forbidden
+	Expect(httpStatus).To(ContainSubstring("403"))
 }
 
 func executeCommandInPod(param podExecParam) error {
