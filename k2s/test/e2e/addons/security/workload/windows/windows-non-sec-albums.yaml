@@ -46,7 +46,7 @@ spec:
     - protocol: TCP
       port: 80
       targetPort: 8083
-  clusterIP: 172.21.1.212
+  clusterIP: 172.21.1.222
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
