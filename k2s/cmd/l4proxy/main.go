@@ -102,7 +102,7 @@ func main() {
 	logrus.Debug("l4proxy logs in:", logFilePath)
 
 	// Path to the kubeconfig file
-	kubeconfig := "C:\\Users\\Dieter\\.kube\\config"
+	kubeconfig := "C:\\Windows\\System32\\config\\systemprofile\\config"
 
 	// Build config from the kubeconfig file
 	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
@@ -131,6 +131,7 @@ func main() {
 		// log the entry
 		logrus.Debug("l4proxy annotation 'linkerd.io/inject' is not set for podname:", podname, "namespace:", namespace)
 		log.Println("l4proxy annotation 'linkerd.io/inject' is not set for podname:", podname, "namespace:", namespace)
+		logrus.Debug("Deleting L4 policies")
 		cn.HnsProxyClearPolicies(endpointid)
 	}
 

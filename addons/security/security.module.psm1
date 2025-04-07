@@ -333,83 +333,95 @@ function Remove-LinkerdExecutable {
     }
 }
 
-function Remove-Access-ToCNIPluginFile {
-    # Specify the path of the file
-    $k2sConfigDir = Get-K2sConfigDir
-    $filePath = $k2sConfigDir +"\cniconfig"  
-    # Get the current ACL for the file
-    $acl = Get-Acl $filePath
-    # Define the Local System account (SYSTEM)
-    $systemAccount = New-Object System.Security.Principal.NTAccount("SYSTEM")
-    $currentAccount = [System.Security.Principal.WindowsIdentity]::GetCurrent()
+# function Remove-Access-ToCNIPluginFile {
+#     # Specify the path of the file
+#     $k2sConfigDir = Get-K2sConfigDir
+#     $filePath = $k2sConfigDir +"\cniconfig"  
+#     # Get the current ACL for the file
+#     $acl = Get-Acl $filePath
+#     # Define the Local System account (SYSTEM)
+#     $systemAccount = New-Object System.Security.Principal.NTAccount("SYSTEM")
+#     $currentAccount = [System.Security.Principal.WindowsIdentity]::GetCurrent()
 
-    # Define the access rule: Full control for SYSTEM only
-    $accessRuleSystem = New-Object System.Security.AccessControl.FileSystemAccessRule(
-        $systemAccount, 
-        "FullControl", 
-        "Allow"
-    )
-    # Define the access rule: Full control for current user only
-    $accessRuleCurrent = New-Object System.Security.AccessControl.FileSystemAccessRule(
-        $currentAccount, 
-        "FullControl", 
-        "Allow"
-    )
-    # Deny access to everyone else
-    $everyoneAccount = New-Object System.Security.Principal.NTAccount("Everyone")
-    $denyRule = New-Object System.Security.AccessControl.FileSystemAccessRule(
-        $everyoneAccount, 
-        "FullControl", 
-        "Deny"
-    )
+#     # Define the access rule: Full control for SYSTEM only
+#     $accessRuleSystem = New-Object System.Security.AccessControl.FileSystemAccessRule(
+#         $systemAccount, 
+#         "FullControl", 
+#         "Allow"
+#     )
+#     # Define the access rule: Full control for current user only
+#     $accessRuleCurrent = New-Object System.Security.AccessControl.FileSystemAccessRule(
+#         $currentAccount, 
+#         "FullControl", 
+#         "Allow"
+#     )
+#     # Deny access to everyone else
+#     $everyoneAccount = New-Object System.Security.Principal.NTAccount("Everyone")
+#     $denyRule = New-Object System.Security.AccessControl.FileSystemAccessRule(
+#         $everyoneAccount, 
+#         "FullControl", 
+#         "Deny"
+#     )
 
-    # Set access rule protection (to prevent inheritance from parent)
-    $acl.SetAccessRuleProtection($true, $false)
+#     # Set access rule protection (to prevent inheritance from parent)
+#     $acl.SetAccessRuleProtection($true, $false)
 
-    # Add the access rules to the ACL
-    $acl.AddAccessRule($accessRuleSystem)  # Allow SYSTEM full control
-    $acl.AddAccessRule($accessRuleCurrent)  # Allow SYSTEM full control
-    $acl.AddAccessRule($denyRule)    # Deny Everyone access
+#     # Add the access rules to the ACL
+#     $acl.AddAccessRule($accessRuleSystem)  # Allow SYSTEM full control
+#     $acl.AddAccessRule($accessRuleCurrent)  # Allow SYSTEM full control
+#     $acl.AddAccessRule($denyRule)    # Deny Everyone access
 
-    # Apply the updated ACL to the file
-    Set-Acl -Path $filePath -AclObject $acl
-} 
+#     # Apply the updated ACL to the file
+#     Set-Acl -Path $filePath -AclObject $acl
+# } 
 
 function Initialize-ConfigFile-For-CNI {
-    # Specify the path of the file
-    $k2sConfigDir = Get-K2sConfigDir
-    $kubeconfigPath = $k2sConfigDir +"\cniconfig"
+    # Variables
+    $secretName = "cni-plugin-token"
+    $kubeconfigPath = "C:\Windows\System32\config\systemprofile\config"
 
     # API URL
     $apiServerUrl = (Invoke-Kubectl -Params 'config', 'view', '--minify', '-o', 'jsonpath={.clusters[0].cluster.server}').Output
 
-    # Token
-    $token = (Invoke-Kubectl -Params 'create', 'token', 'cni-plugin-sa', '--namespace', 'security').Output
+    # Fetch the secret
+    $secret = (Invoke-Kubectl -Params 'get', 'secret', $secretName, '--namespace', 'security', '-o', 'json').Output | ConvertFrom-Json
+
+    # Decode base64 token and CA cert
+    $token = [System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($secret.data.token))
+    $caCert = $secret.data."ca.crt"
 
     # Create the kubeconfig YAML content
     $kubeconfigContent = @"
-    apiVersion: v1
-    kind: Config
-    clusters:
-    - cluster:
-        server: $apiServerUrl
-        certificate-authority-data: $caCert
-    name: kubernetes
+apiVersion: v1
+kind: Config
+clusters:
+- cluster:
+    server: $apiServerUrl
+    certificate-authority-data: $caCert
+  name: kubernetes
 
-    contexts:
-    - context:
-        cluster: kubernetes
-        user: service-account-user
-    name: service-account-context
+contexts:
+- context:
+    cluster: kubernetes
+    user: cni-plugin-sa
+    namespace: security
+  name: service-account-context
 
-    current-context: service-account-context
+current-context: service-account-context
 
-    users:
-    - name: service-account-user
-    user:
-        token: $token
+users:
+- name: cni-plugin-sa
+  user:
+      token: $token
 "@
 
     # Write the kubeconfig content to the specified file
     $kubeconfigContent | Set-Content -Path $kubeconfigPath
+}
+
+function Remove-ConfigFile-For-CNI {
+    $kubeconfigPath = "C:\Windows\System32\config\systemprofile\config"
+    if (Test-Path $kubeconfigPath) {
+        Remove-Item -Path $kubeconfigPath -Force
+    }
 }

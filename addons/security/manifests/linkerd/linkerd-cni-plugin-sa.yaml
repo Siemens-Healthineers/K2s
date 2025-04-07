@@ -29,4 +29,12 @@ roleRef:
   name: cni-plugin-role
   apiGroup: rbac.authorization.k8s.io
 ---
-
+apiVersion: v1
+kind: Secret
+metadata:
+  name: cni-plugin-token
+  namespace: security
+  annotations:
+    kubernetes.io/service-account.name: cni-plugin-sa
+type: kubernetes.io/service-account-token
+---
