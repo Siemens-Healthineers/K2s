@@ -91,6 +91,11 @@ Remove-LinkerdMarkerConfig
 
 Remove-LinkerdExecutable
 
+$linkerdYamlCNI = Get-LinkerdConfigCNI
+(Invoke-Kubectl -Params 'delete', '--ignore-not-found', '-f',$linkerdYamlCNI).Output | Write-Log
+
+Remove-ConfigFile-For-CNI
+
 Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'security' })
 
 # if security addon is enabled, than adapt other addons

@@ -199,6 +199,14 @@ try {
 
     # Enhanced Security is on
     if (Confirm-EnhancedSecurityOn($Type)) {
+        
+        # create cni config for access
+        Write-Log 'Creating client config file for CNI access' -Console
+        $linkerdYamlCNI = Get-LinkerdConfigCNI
+        (Invoke-Kubectl -Params 'apply', '-f', $linkerdYamlCNI).Output | Write-Log
+        Initialize-ConfigFile-For-CNI
+        
+        # install linkerd
         $linkerdYaml = Get-LinkerdConfig
         (Invoke-Kubectl -Params 'apply', '-k', $linkerdYaml).Output | Write-Log
         Write-Log 'Waiting for linkerd pods to be available' -Console

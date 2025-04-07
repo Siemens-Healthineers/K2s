@@ -296,6 +296,10 @@ function Get-LinkerdConfig {
     return "$PSScriptRoot\manifests\linkerd"
 }
 
+function Get-LinkerdConfigCNI {
+    return "$PSScriptRoot\manifests\linkerd\linkerd-cni-plugin-sa.yaml"
+}
+
 <#
 .DESCRIPTION
 Waits for the linkerd pods to be available.
