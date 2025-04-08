@@ -20,11 +20,11 @@ function Get-TrustedRootStoreLocation {
 }
 
 function Get-CertManagerConfig {
-    return "$PSScriptRoot\manifests\cert-manager.yaml"
+    return "$PSScriptRoot\manifests\certmanager\cert-manager.yaml"
 }
 
 function Get-CAIssuerConfig {
-    return "$PSScriptRoot\manifests\ca-issuer.yaml"
+    return "$PSScriptRoot\manifests\certmanager\ca-issuer.yaml"
 }
 
 function Get-KeyCloakConfig {
