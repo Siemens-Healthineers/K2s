@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"os/user"
 	"path/filepath"
 	"time"
 
@@ -100,6 +101,12 @@ func main() {
 	// first log entry
 	logrus.Debug("l4proxy started for podname:", podname, "namespace:", namespace)
 	logrus.Debug("l4proxy logs in:", logFilePath)
+
+	// dump current account under which process is running
+	currentUser, err := user.Current()
+	if err != nil {
+		logrus.Debug("current user:", currentUser.Username) // log the entry
+	}
 
 	// Path to the kubeconfig file
 	kubeconfig := "C:\\Windows\\System32\\config\\systemprofile\\config"
