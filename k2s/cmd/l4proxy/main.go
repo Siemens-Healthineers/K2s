@@ -109,7 +109,12 @@ func main() {
 		logrus.Debug("current user:", currentUser.Username) // log the entry
 	}
 
-	fmt.Println("Environment Variables (Windows):")
+	// Unset the proxies environment variable
+	os.Unsetenv("HTTP_PROXY")
+	os.Unsetenv("HTTPS_PROXY")
+	os.Unsetenv("http_proxy")
+	os.Unsetenv("https_proxy")
+	logrus.Debug("Environment Variables (Windows):")
 	for _, env := range os.Environ() {
 		logrus.Debug(env)
 	}
