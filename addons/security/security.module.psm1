@@ -180,7 +180,7 @@ The following features are available:
        - your-ingress-host.domain
        secretName: your-secret-name
    ---
-2. security: Basic authentication support is enabled. Dummy users are also created for development.
+2. keycloak: Authentication support is enabled. Dummy users are also created for development.
    user: demo-user
    password: password
    Add below annotations in ingress to enable authentication support.
@@ -191,6 +191,11 @@ The following features are available:
         user: admin
         password: admin
    Refer https://www.keycloak.org/guides for more information about keycloak
+3. linkerd: Linkerd is a service mesh implementation. It adds security, observability, and reliability to any Kubernetes cluster.
+   If you have choosen the enhanced security mode, the linkerd is enabled.
+   Add below annotations in ingress to enable linkerd support.
+    linkerd.io/inject: "enabled"
+   To start the linkerd dashboard please run 'linkerd viz install | kubectl apply -f -' and the afterwards pods are running run 'linkerd viz dashboard --port 60888 &'
 This addon is documented in <installation folder>\addons\security\README.md
 '@ -split "`r`n" | ForEach-Object { Write-Log $_ -Console }
 }
@@ -292,8 +297,20 @@ function Get-EnhancedSecurityFileLocation {
     return "$env:ProgramData\\K2s\\enhancedsecurity.json"
 }
 
-function Get-LinkerdConfig {
+function Get-LinkerdConfigDirectory {
     return "$PSScriptRoot\manifests\linkerd"
+}
+
+function Get-LinkerdConfigCRDs {
+    return "$PSScriptRoot\manifests\linkerd\linkerd-crds.yaml"
+}
+
+function Get-LinkerdConfigTrustManager {
+    return "$PSScriptRoot\manifests\linkerd\trust-manager.yaml"
+}
+
+function Get-LinkerdConfigCertManager {
+    return "$PSScriptRoot\manifests\linkerd\linkerd-cert-manager.yaml"
 }
 
 function Get-LinkerdConfigCNI {
@@ -316,6 +333,10 @@ function Wait-ForLinkerdVizAvailable {
     return (Wait-ForPodCondition -Condition Ready -Label 'linkerd.io/extension=viz' -Namespace 'linkerd-viz' -TimeoutSeconds 120)
 }
 
+function Wait-ForTrustManagerAvailable {
+    return (Wait-ForPodCondition -Condition Ready -Label 'app.kubernetes.io/name=trust-manager' -Namespace 'cert-manager' -TimeoutSeconds 120)
+}
+
 function Save-LinkerdMarkerConfig {
     # write info file for enhanced security
     $jsonFile = Get-EnhancedSecurityFileLocation
@@ -334,6 +355,17 @@ function Remove-LinkerdExecutable {
     $binPath = Get-KubeBinPath
     if (Test-Path "$binPath\linkerd.exe") {
         Remove-Item -Path "$binPath\linkerd.exe" -Force
+    }
+}
+
+function Remove-LinkerdManifests {
+    $fileToRemove="$PSScriptRoot\manifests\linkerd\linkerd.yaml"
+    if (Test-Path $fileToRemove) {
+        Remove-Item -Path $fileToRemove -Force
+    }
+    $fileToRemove="$PSScriptRoot\manifests\linkerd\linkerd-crds.yaml"
+    if (Test-Path $fileToRemove) {
+        Remove-Item -Path $fileToRemove -Force
     }
 }
 
@@ -428,4 +460,35 @@ function Remove-ConfigFile-For-CNI {
     if (Test-Path $kubeconfigPath) {
         Remove-Item -Path $kubeconfigPath -Force
     }
+}
+
+function Wait-ForK8sSecret {
+    param (
+        [Parameter(Mandatory=$true)]
+        [string]$SecretName,
+        [Parameter(Mandatory=$true)]
+        [string]$Namespace,
+        [int]$TimeoutSeconds = 60,
+        [int]$CheckIntervalSeconds = 4
+    )
+
+    $startTime = Get-Date
+    $endTime = $startTime.AddSeconds($TimeoutSeconds)
+
+    while ((Get-Date) -lt $endTime) {
+        try {
+            $secret = kubectl get secret $SecretName -n $Namespace --ignore-not-found
+            if ($secret) {
+                Write-Log "Secret '$SecretName' is available." -Console
+                return $true
+            }
+        } catch {
+            Write-Log "Error checking for secret: $_" -Console
+        }
+
+        Start-Sleep -Seconds $CheckIntervalSeconds
+    }
+
+    Write-Log "Timed out waiting for secret '$SecretName' in namespace '$Namespace'." -Console
+    return $false
 }

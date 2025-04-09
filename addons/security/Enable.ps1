@@ -199,22 +199,69 @@ try {
 
     # Enhanced Security is on
     if (Confirm-EnhancedSecurityOn($Type)) {
-        
-        # create cni config for access
+
+        # Download linkerd
+        Write-Log 'Downloading linkerd executable' -Console
+        $manifest = Get-FromYamlFile -Path "$PSScriptRoot\addon.manifest.yaml"
+        $k2sRoot = "$PSScriptRoot\..\.."
+        $windowsLinkerdPackages = $manifest.spec.implementations[0].offline_usage.windows.linkerd
+        if ($windowsLinkerdPackages) {
+            foreach ($package in $windowsLinkerdPackages) {
+                $destination = $package.destination
+                $destination = "$k2sRoot\$destination"
+                if (!(Test-Path $destination)) {
+                    $url = $package.url
+                    Invoke-DownloadFile $destination $url $true -ProxyToUse $Proxy
+                }
+                else {
+                    Write-Log "File $destination already exists. Skipping download."
+                }
+            }
+        }
+
+        # generate linkerd config
+        Write-Log 'Creating linkerd config files' -Console
+        $clinkerdExe = "$(Get-KubeBinPath)\linkerd.exe"
+        $linkerdYaml = Get-LinkerdConfigDirectory
+        # generate the CRDs
+        & $clinkerdExe install --ignore-cluster --crds 2> $null | Out-File -FilePath $linkerdYaml\linkerd-crds-gen.yaml -Encoding utf8 
+        # generate the other resources
+        & $clinkerdExe install  `
+--ignore-cluster --disable-heartbeat --proxy-log-level "debug,linkerd=debug,hickory=error"  `
+--proxy-memory-limit 100Mi  `
+--default-inbound-policy "all-authenticated"  `
+--set "identity.externalCA=true"  `
+--set "identity.issuer.scheme=kubernetes.io/tls"  `
+--set "proxy.await=false"  `
+--set "proxy.image.name=shsk2s.azurecr.io/linkerd/proxy"  `
+--set "proxyInit.image.name=shsk2s.azurecr.io/linkerd/proxy-init" 2> $null | Out-File -FilePath $linkerdYaml\linkerd-gen.yaml -Encoding utf8 
+
+        # cleanup linkerd resources
+        (Get-Content $linkerdYaml\linkerd-crds-gen.yaml) -replace '[^\x20-\x7E\r\n]', '' | Set-Content $linkerdYaml\linkerd-crds.yaml
+        (Get-Content $linkerdYaml\linkerd-gen.yaml) -replace '[^\x20-\x7E\r\n]', '' | Set-Content $linkerdYaml\linkerd.yaml
+        # remove downloaded files
+        Remove-Item -Path $linkerdYaml\linkerd-crds-gen.yaml -Force
+        Remove-Item -Path $linkerdYaml\linkerd-gen.yaml -Force
+
+        # create linkerd namespace
+        Write-Log 'Creating linkerd namespace' -Console
+        (Invoke-Kubectl -Params 'create', 'namespace', 'linkerd').Output | Write-Log
+
+        # create cni config for access, these needs to be created before installing linkerd
         Write-Log 'Creating client config file for CNI access' -Console
         $linkerdYamlCNI = Get-LinkerdConfigCNI
         (Invoke-Kubectl -Params 'apply', '-f', $linkerdYamlCNI).Output | Write-Log
+        Write-Log 'Generate kubeconfig for CNI plugin based on service account' -Console
         Initialize-ConfigFile-For-CNI
-        
-        # install linkerd
-        $linkerdYaml = Get-LinkerdConfig
-        (Invoke-Kubectl -Params 'apply', '-k', $linkerdYaml).Output | Write-Log
-        Write-Log 'Waiting for linkerd pods to be available' -Console
-        $linkerdPodStatus = Wait-ForLinkerdAvailable
-        # Write-Log 'Waiting for linkerd viz pods to be available' -Console
-        # $linkerdVizPodStatus = Wait-ForLinkerdVizAvailable
-        if ($linkerdPodStatus -ne $true) {
-            $errMsg = "All linkerd pods could not become ready. Please use kubectl describe for more details.`nInstallation of security addon failed."
+
+        # install trust manager
+        Write-Log 'Install trust manager' -Console
+        $linkerdYamlTrustManager = Get-LinkerdConfigTrustManager
+        (Invoke-Kubectl -Params 'apply', '-f', $linkerdYamlTrustManager).Output | Write-Log
+        Write-Log 'Waiting for trust manager pods to be available' -Console
+        $trustManagerPodStatus = Wait-ForTrustManagerAvailable
+        if ($trustManagerPodStatus -ne $true) {
+            $errMsg = "All trust manager pods could not become ready. Please use kubectl describe for more details.`nInstallation of security addon failed."
             if ($EncodeStructuredOutput -eq $true) {
                 $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
                 Send-ToCli -MessageType $MessageType -Message @{Error = $err }
@@ -225,14 +272,51 @@ try {
             throw $errMsg
         }
 
-        Write-Log 'Downloading linkerd executable' -Console
-        if (!(Test-Path "$binPath\linkerd.exe")) {
-            $binPath = Get-KubeBinPath
-            Invoke-DownloadFile "$binPath\linkerd.exe" 'https://github.com/linkerd/linkerd2/releases/download/edge-25.3.3/linkerd2-cli-edge-25.3.3-windows.exe' $true -ProxyToUse $Proxy
-        }
+        # install cert-manager addons
+        Write-Log 'Install trust manager and cert-manager resources, creating bundle' -Console
+        $linkerdYamlCertManager = Get-LinkerdConfigCertManager
+        (Invoke-Kubectl -Params 'apply', '-f', $linkerdYamlCertManager).Output | Write-Log
 
-        Write-Log 'Generate kubeconfig for CNI plugin based on service account' -Console
+        # wait for secret linkerd-trust-anchor to be available
+        Write-Log 'Waiting for secret linkerd-trust-anchor to be available' -Console
+        $secretStatus = Wait-ForK8sSecret -SecretName 'linkerd-trust-anchor' -Namespace 'cert-manager' 
+        if ($secretStatus -ne $true) {
+            $errMsg = "Secret linkerd-trust-anchor not available. Please use kubectl describe for more details.`nInstallation of security addon failed."
+            if ($EncodeStructuredOutput -eq $true) {
+                $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+                Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+                return
+            }
+    
+            Write-Log $errMsg -Error
+            throw $errMsg
+        }
+        # create previous ancher secret
+        Write-Log 'Create previous anchor secret' -Console
+        $secretYaml = kubectl get secret -n cert-manager linkerd-trust-anchor -o yaml | Out-String
+        $modifiedYaml = $secretYaml -replace 'linkerd-trust-anchor', 'linkerd-previous-anchor'
+        $filteredYamlLines = $modifiedYaml.Split("`n") | Where-Object {
+            $_ -notmatch '^\s*(resourceVersion|uid):'
+        }
+        $filteredYaml = $filteredYamlLines -join "`n"
+        $filteredYaml | kubectl apply -f -
         
+        # install linkerd
+        $linkerdYamlCRDs = Get-LinkerdConfigDirectory
+        (Invoke-Kubectl -Params 'apply', '-k', $linkerdYamlCRDs).Output | Write-Log
+        Write-Log 'Waiting for linkerd pods to be available' -Console
+        $linkerdPodStatus = Wait-ForLinkerdAvailable
+        if ($linkerdPodStatus -ne $true) {
+            $errMsg = "All linkerd pods could not become ready. Please use kubectl describe for more details.`nInstallation of security addon failed."
+            if ($EncodeStructuredOutput -eq $true) {
+                $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
+                Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+                return
+            }
+    
+            Write-Log $errMsg -Error
+            throw $errMsg
+        }        
     }
 }
 catch {

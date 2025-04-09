@@ -84,7 +84,7 @@ $keyCloakYaml = Get-KeyCloakConfig
 
 Remove-WindowsSecurityDeployments
 
-$linkerdYaml = Get-LinkerdConfig
+$linkerdYaml = Get-LinkerdConfigDirectory
 (Invoke-Kubectl -Params 'delete', '--ignore-not-found', '-k',$linkerdYaml).Output | Write-Log
 
 Remove-LinkerdMarkerConfig
@@ -94,7 +94,15 @@ Remove-LinkerdExecutable
 $linkerdYamlCNI = Get-LinkerdConfigCNI
 (Invoke-Kubectl -Params 'delete', '--ignore-not-found', '-f',$linkerdYamlCNI).Output | Write-Log
 
+$linkerdYamlCertManager = Get-LinkerdConfigCertManager
+(Invoke-Kubectl -Params 'delete', '--ignore-not-found', '-f', $linkerdYamlCertManager).Output | Write-Log
+
+$linkerdYamlTrustManager = Get-LinkerdConfigTrustManager
+(Invoke-Kubectl -Params 'delete', '--ignore-not-found', '-f', $linkerdYamlTrustManager).Output | Write-Log
+
 Remove-ConfigFile-For-CNI
+
+Remove-LinkerdManifests 
 
 Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'security' })
 
