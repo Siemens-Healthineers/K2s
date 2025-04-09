@@ -79,7 +79,7 @@ func main() {
 		os.Exit(0)
 	}
 
-	fmt.Printf("l4proxy started, checking if hnsproxy is set for pod '%s' in namespace '%s'\n", podname, namespace)
+	fmt.Printf("l4proxy started, checking if linkerd annotation is set for pod '%s' in namespace '%s'\n", podname, namespace)
 
 	// set logging
 	logrus.SetFormatter(&logrus.TextFormatter{
@@ -104,8 +104,8 @@ func main() {
 
 	// dump current account under which process is running
 	currentUser, err := user.Current()
-	if err != nil {
-		logrus.Debug("current user:", currentUser.Username) // log the entry
+	if err == nil {
+		fmt.Printf("current user: %s\n", currentUser.Username) // log the entry
 	}
 
 	// Path to the kubeconfig file
