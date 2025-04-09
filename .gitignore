@@ -170,3 +170,5 @@ bin/cni/vfprules.pdb
 addons/security/login
 addons/security/login.exe
 bin/linkerd.exe
+addons/security/manifests/linkerd/linkerd.yaml
+addons/security/manifests/linkerd/linkerd-crds.yaml
