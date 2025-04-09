@@ -114,10 +114,10 @@ func main() {
 	os.Unsetenv("HTTPS_PROXY")
 	os.Unsetenv("http_proxy")
 	os.Unsetenv("https_proxy")
-	logrus.Debug("Environment Variables (Windows):")
-	for _, env := range os.Environ() {
-		logrus.Debug(env)
-	}
+	// logrus.Debug("Environment Variables (Windows):")
+	// for _, env := range os.Environ() {
+	// 	logrus.Debug(env)
+	// }
 
 	// Path to the kubeconfig file
 	kubeconfig := "C:\\Windows\\System32\\config\\systemprofile\\config"
