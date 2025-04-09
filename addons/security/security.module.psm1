@@ -192,9 +192,10 @@ The following features are available:
         password: admin
    Refer https://www.keycloak.org/guides for more information about keycloak
 3. linkerd: Linkerd is a service mesh implementation. It adds security, observability, and reliability to any Kubernetes cluster.
-   If you have choosen the enhanced security mode, the linkerd is enabled.
-   Add below annotations in ingress to enable linkerd support.
+   If you have choosen the enhanced security mode, than linkerd is enabled.
+   Add below annotations in your workload to enable linkerd support.
     linkerd.io/inject: "enabled"
+   For more information on how to use linkerd please check: https://linkerd.io/2-edge/overview/
    To start the linkerd dashboard please run 'linkerd viz install | kubectl apply -f -' and the afterwards pods are running run 'linkerd viz dashboard --port 60888 &'
 This addon is documented in <installation folder>\addons\security\README.md
 '@ -split "`r`n" | ForEach-Object { Write-Log $_ -Console }
