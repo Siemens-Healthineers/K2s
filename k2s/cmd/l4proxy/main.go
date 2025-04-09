@@ -106,7 +106,12 @@ func main() {
 	// dump current account under which process is running
 	currentUser, err := user.Current()
 	if err == nil {
-		fmt.Printf("current user: %s\n", currentUser.Username) // log the entry
+		logrus.Debug("current user:", currentUser.Username) // log the entry
+	}
+
+	fmt.Println("Environment Variables (Windows):")
+	for _, env := range os.Environ() {
+		logrus.Debug(env)
 	}
 
 	// Path to the kubeconfig file
