@@ -16,6 +16,7 @@ import (
 	kos "github.com/siemens-healthineers/k2s/internal/os"
 	ve "github.com/siemens-healthineers/k2s/internal/version"
 	"github.com/sirupsen/logrus"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
@@ -123,14 +124,14 @@ func main() {
 		log.Fatalf("Failed to create Kubernetes clientset: %v", err)
 	}
 
-	// Check if an annotation exists on the pod
-	annotation, err := clientset.CoreV1().Pods(namespace).Get(context.Background(), podname, metav1.GetOptions{})
+	// Check if an annotation exists on the pod in a retry loop
+	pod, err := getPodWithRetries(clientset, namespace, podname)
 	if err != nil {
 		log.Fatalf("Failed to retrieve pod: %v", err)
 	}
 
 	// Check if the annotation value is "enabled"
-	if annotation.Annotations["linkerd.io/inject"] == "enabled" {
+	if pod.Annotations["linkerd.io/inject"] == "enabled" {
 		// log the entry
 		logrus.Debug("l4proxy annotation 'linkerd.io/inject' is set for podname:", podname, "namespace:", namespace)
 		log.Println("l4proxy annotation 'linkerd.io/inject' is set for podname:", podname, "namespace:", namespace)
@@ -152,4 +153,32 @@ func main() {
 	}
 
 	fmt.Printf("l4proxy finished, please checks logs in %s\n", logFilePath)
+}
+
+const (
+	maxRetries    = 5
+	retryInterval = 2 * time.Second
+)
+
+func getPodWithRetries(clientset *kubernetes.Clientset, namespace, podname string) (*v1.Pod, error) {
+	var pod *v1.Pod
+	var err error
+
+	for i := 0; i < maxRetries; i++ {
+		internalPod, internalErr := clientset.CoreV1().Pods(namespace).Get(context.Background(), podname, metav1.GetOptions{})
+		if internalErr == nil {
+			pod = internalPod // Assign to the outer 'pod' variable
+			return pod, nil   // Success, return the pod
+		}
+
+		log.Printf("Failed to retrieve pod '%s' in namespace '%s' (attempt %d/%d): %v", podname, namespace, i+1, maxRetries, internalErr)
+		if i < maxRetries-1 {
+			log.Printf("Retrying in %v...", retryInterval)
+			time.Sleep(retryInterval)
+		}
+		err = internalErr // Store the last error
+	}
+
+	log.Fatalf("Failed to retrieve pod '%s' in namespace '%s' after %d retries: %v", podname, namespace, maxRetries, err)
+	return nil, err // Return the last error if all retries fail
 }
