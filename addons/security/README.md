@@ -117,6 +117,10 @@ For using the linkerd dashboard please first install the dashboard resources:
  ```cmd
 linkerd viz install | kubectl apply -f -
  ```
+After all pods are ready please start dashoboard with (you can use also another port if there is some conflict):
+ ```cmd
+linkerd viz dashboard --port 60888 &
+ ```
 
 Documentation related to `linkerd` you will find here: [linkerd docs](https://www.keycloak.org/guides).
 
