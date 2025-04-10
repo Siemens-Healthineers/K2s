@@ -302,6 +302,52 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) (resultError error) {
 				}
 			}
 		}
+
+		// check if enhanced security is on
+		if IsEnhancedSecurityEnabled() {
+
+			// check annotation
+			k8sNamespace := string(podConfig.K8S_POD_NAMESPACE)
+			k8sName := string(podConfig.K8S_POD_NAME)
+
+			// start additing configured rules to HNS
+			err = HnsProxyAddPoliciesFromConfig(hnsEndpointEp.ID)
+			if err != nil {
+				logrus.Debugf("[cni-net] XXXX Apply of proxy policy failed. Error:", err)
+			}
+
+			// start for L4 proxy handling
+			// check if executable exists
+			path, errWD := os.Getwd()
+			if errWD == nil {
+				logrus.Debugf("[cni-net] XXXX Current working directory: %s", path)
+			}
+
+			pathExe, errPath := kos.ExecutableDir()
+			if errPath != nil {
+				logrus.Debugf("[cni-net] XXXX Current directory Error:", errPath)
+				return
+			}
+
+			pathCorrected := strings.ReplaceAll(pathExe, "\\\\", "\\")
+			// start exe in path where current cni plugin is available
+			var executable = pathCorrected + "\\" + "l4proxy.exe"
+			logrus.Debugf("[cni-net] XXXX Current exe directory: %s", executable)
+			fExec, err := os.Open(executable)
+			if err == nil {
+				fExec.Close()
+				// call tool to add additional VFP rules
+				command := executable + " -endpointid " + string(hnsEndpointEp.ID) + " -namespace " + k8sNamespace + " -podname " + k8sName
+				logrus.Debugf("[cni-net] XXXX Executing command: %s", command)
+				cmd := exec.Command(executable, "-endpointid", string(hnsEndpointEp.ID), "-namespace", k8sNamespace, "-podname", k8sName)
+				// run command
+				if output, err := cmd.CombinedOutput(); err != nil {
+					logrus.Debugf("[cni-net] XXXX Starting l4proxy executable. Error:", err, string(output))
+				} else {
+					logrus.Debugf("[cni-net] XXXX Starting l4proxy executable. Successfull: \n", string(output))
+				}
+			}
+		}
 	}
 
 	result.Print()
@@ -557,3 +603,119 @@ func (plugin *netPlugin) Delete(args *cniSkel.CmdArgs) error {
 	logrus.Debugf("[cni-net] DEL succeeded.")
 	return nil
 }
+
+func IsEnhancedSecurityEnabled() bool {
+	logrus.Debugf("[cni-net] Checking if enhanced security is enabled")
+	// check if a file enhancedsecurity.json is available under programmdata folder
+	val, ok := os.LookupEnv("ProgramData")
+	if !ok {
+		logrus.Debugf("[cni-net] Enhanced security off, variable not found")
+		return false
+	}
+	// check if marker file is there
+	if _, err := os.Stat(val + "\\k2s\\enhancedsecurity.json"); err == nil {
+		logrus.Debugf("[cni-net] Enhanced security on")
+		return true
+	}
+	logrus.Debugf("[cni-net] Enhanced security off, marker file is not set under programdata folder")
+	return false
+}
+
+// // getCRIClient connects to the CRI socket
+// func getCRIClient() (runtimeapi.RuntimeServiceClient, *grpc.ClientConn, error) {
+// 	// Use the Windows named pipe for ContainerD
+// 	const pipePath = `\\.\pipe\containerd-containerd`
+
+// 	dialOpts := []grpc.DialOption{
+// 		grpc.WithInsecure(),
+// 		grpc.WithContextDialer(func(ctx context.Context, s string) (net.Conn, error) {
+// 			return winio.DialPipe(s, nil)
+// 		}),
+// 	}
+
+// 	conn, err := grpc.Dial(pipePath, dialOpts...)
+// 	if err != nil {
+// 		return nil, nil, fmt.Errorf("failed to connect to CRI runtime: %v", err)
+// 	}
+
+// 	return runtimeapi.NewRuntimeServiceClient(conn), conn, nil
+// }
+
+// func getPodSandboxID(client runtimeapi.RuntimeServiceClient, podName string, namespace string) (string, error) {
+// 	// List Pod Sandboxes
+// 	resp, err := client.ListPodSandbox(context.TODO(), &runtimeapi.ListPodSandboxRequest{})
+// 	if err != nil {
+// 		return "", fmt.Errorf("failed to list pod sandboxes: %v", err)
+// 	}
+
+// 	// Search for the target pod
+// 	for _, sandbox := range resp.Items {
+// 		logrus.Debug("IsSideCarContainerRunning: Containername:", sandbox.Metadata.Name)
+// 		if sandbox.Metadata.Name == podName && sandbox.Metadata.Namespace == namespace {
+// 			return sandbox.Id, nil
+// 		}
+// 	}
+
+// 	return "", fmt.Errorf("pod %s not found in namespace %s", podName, namespace)
+// }
+
+// // getContainersInPod finds container names in the Pod Sandbox
+// func getContainersInPod(client runtimeapi.RuntimeServiceClient, sandboxID string) ([]string, error) {
+// 	resp, err := client.ListContainers(context.TODO(), &runtimeapi.ListContainersRequest{})
+// 	if err != nil {
+// 		return nil, fmt.Errorf("failed to list containers: %v", err)
+// 	}
+
+// 	var containerNames []string
+// 	for _, container := range resp.Containers {
+// 		if container.PodSandboxId == sandboxID {
+// 			containerNames = append(containerNames, container.Metadata.Name)
+// 		}
+// 	}
+
+// 	return containerNames, nil
+// }
+
+// func IsSideCarContainerRunning(name string, podnamespace string, podname string) (string, error) {
+// 	logrus.Debugf("IsSideCarContainerRunning: Trying to connect")
+// 	// Connect to CRI runtime
+// 	client, conn, err := getCRIClient()
+// 	if err != nil {
+// 		logrus.Error("IsSideCarContainerRunning getCRIClient Error:", err)
+// 		return "", err
+// 	}
+// 	defer conn.Close()
+
+// 	// Get Pod Sandbox ID
+// 	sandboxID, err := getPodSandboxID(client, podname, podnamespace)
+// 	if err != nil {
+// 		logrus.Error("IsSideCarContainerRunning getPodSandboxID Error:", err)
+// 		return "", err
+// 	}
+
+// 	// Get containers inside the Pod
+// 	containers, err := getContainersInPod(client, sandboxID)
+// 	if err != nil {
+// 		logrus.Error("IsSideCarContainerRunning getContainersInPod Error:", err)
+// 		return "", err
+// 	}
+
+// 	logrus.Debug("IsSideCarContainerRunning: Containers:", containers)
+
+// 	return podname, nil
+// }
+
+// func IsSideCarContainerRunningWithRetry(name string, podnamespace string, podname string) (string, error) {
+// 	var containername string
+// 	var err error
+// 	const retries = 10
+// 	for i := 1; i <= retries; i++ {
+// 		containername, err = IsSideCarContainerRunning(name, podnamespace, podname)
+// 		if err == nil {
+// 			return containername, nil // Success
+// 		}
+// 		logrus.Debug("IsSideCarContainerRunningWithRetry: Did not find container yet:", err)
+// 		time.Sleep(1000 * time.Millisecond) // Wait before retrying
+// 	}
+// 	return "", fmt.Errorf("failed to get sandbox ID after %d retries: %v", retries, err)
+// }

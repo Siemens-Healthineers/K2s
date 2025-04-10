@@ -20,11 +20,11 @@ function Get-TrustedRootStoreLocation {
 }
 
 function Get-CertManagerConfig {
-    return "$PSScriptRoot\manifests\cert-manager.yaml"
+    return "$PSScriptRoot\manifests\certmanager\cert-manager.yaml"
 }
 
 function Get-CAIssuerConfig {
-    return "$PSScriptRoot\manifests\ca-issuer.yaml"
+    return "$PSScriptRoot\manifests\certmanager\ca-issuer.yaml"
 }
 
 function Get-KeyCloakConfig {
@@ -108,7 +108,7 @@ function Invoke-HydraClient {
     }
 }
 
-function Apply-WindowsSecuirtyDeployments {
+function Apply-WindowsSecurityDeployments {
     $securityData = Get-SecurityData
     if (-Not (Test-Path $securityData)) {
         New-Item -ItemType Directory -Path $securityData -Force | Out-Null
@@ -145,12 +145,12 @@ function Apply-WindowsSecuirtyDeployments {
     return ($hydraStatus -eq $true -and $winLoginStatus -eq $true -and $hydraApiStatus -eq $true)
 }
 
-function Remove-WindowsSecuirtyDeployments {
+function Remove-WindowsSecurityDeployments {
     $hydraYamlPath = "$PSScriptRoot\manifests\keycloak\hydra.yaml"
-    (Invoke-Kubectl -Params 'delete', '-f', $hydraYamlPath).Output | Write-Log
+    (Invoke-Kubectl -Params 'delete','--ignore-not-found','-f', $hydraYamlPath).Output | Write-Log
 
     $winLoginYamlPath = "$PSScriptRoot\manifests\keycloak\windows-login.yaml"
-    (Invoke-Kubectl -Params 'delete', '-f', $winLoginYamlPath).Output | Write-Log
+    (Invoke-Kubectl -Params 'delete','--ignore-not-found','-f', $winLoginYamlPath).Output | Write-Log
 }
 
 <#
@@ -180,7 +180,7 @@ The following features are available:
        - your-ingress-host.domain
        secretName: your-secret-name
    ---
-2. security: Basic authentication support is enabled. Dummy users are also created for development.
+2. keycloak: Authentication support is enabled. Dummy users are also created for development.
    user: demo-user
    password: password
    Add below annotations in ingress to enable authentication support.
@@ -191,6 +191,12 @@ The following features are available:
         user: admin
         password: admin
    Refer https://www.keycloak.org/guides for more information about keycloak
+3. linkerd: Linkerd is a service mesh implementation. It adds security, observability, and reliability to any Kubernetes cluster.
+   If you have choosen the enhanced security mode, than linkerd is enabled.
+   Add below annotations in your workload to enable linkerd support.
+    linkerd.io/inject: "enabled"
+   For more information on how to use linkerd please check: https://linkerd.io/2-edge/overview/
+   To start the linkerd dashboard please run 'linkerd viz install | kubectl apply -f -' and the afterwards pods are running run 'linkerd viz dashboard --port 60888 &'
 This addon is documented in <installation folder>\addons\security\README.md
 '@ -split "`r`n" | ForEach-Object { Write-Log $_ -Console }
 }
@@ -278,4 +284,212 @@ function Deploy-IngressForSecurity([string]$Ingress) {
             break
         }
     }
+}
+
+function Confirm-EnhancedSecurityOn([string]$Type) {
+    # check content of string
+    if ($Type -eq 'enhanced') {
+        return $true
+    }
+    return $false
+}
+
+function Get-EnhancedSecurityFileLocation {
+    return "$env:ProgramData\\K2s\\enhancedsecurity.json"
+}
+
+function Get-LinkerdConfigDirectory {
+    return "$PSScriptRoot\manifests\linkerd"
+}
+
+function Get-LinkerdConfigCRDs {
+    return "$PSScriptRoot\manifests\linkerd\linkerd-crds.yaml"
+}
+
+function Get-LinkerdConfigTrustManager {
+    return "$PSScriptRoot\manifests\linkerd\trust-manager.yaml"
+}
+
+function Get-LinkerdConfigCertManager {
+    return "$PSScriptRoot\manifests\linkerd\linkerd-cert-manager.yaml"
+}
+
+function Get-LinkerdConfigCNI {
+    return "$PSScriptRoot\manifests\linkerd\linkerd-cni-plugin-sa.yaml"
+}
+
+<#
+.DESCRIPTION
+Waits for the linkerd pods to be available.
+#>
+function Wait-ForLinkerdAvailable {
+    return (Wait-ForPodCondition -Condition Ready -Label 'linkerd.io/workload-ns=linkerd' -Namespace 'linkerd' -TimeoutSeconds 180)
+}
+
+<#
+.DESCRIPTION
+Waits for the linkerd viz pods to be available.
+#>
+function Wait-ForLinkerdVizAvailable {
+    return (Wait-ForPodCondition -Condition Ready -Label 'linkerd.io/extension=viz' -Namespace 'linkerd-viz' -TimeoutSeconds 120)
+}
+
+function Wait-ForTrustManagerAvailable {
+    return (Wait-ForPodCondition -Condition Ready -Label 'app.kubernetes.io/name=trust-manager' -Namespace 'cert-manager' -TimeoutSeconds 120)
+}
+
+function Save-LinkerdMarkerConfig {
+    # write info file for enhanced security
+    $jsonFile = Get-EnhancedSecurityFileLocation
+    $json = "{`"SecurityType`":`"$Type`"}"
+    $json | Out-File -FilePath $jsonFile     
+}
+
+function Remove-LinkerdMarkerConfig {
+    # write info file for enhanced security
+    $jsonFile = Get-EnhancedSecurityFileLocation
+    if (Test-Path $jsonFile) {
+        Remove-Item -Path $jsonFile -Force
+    } 
+}
+function Remove-LinkerdExecutable {
+    $binPath = Get-KubeBinPath
+    if (Test-Path "$binPath\linkerd.exe") {
+        Remove-Item -Path "$binPath\linkerd.exe" -Force
+    }
+}
+
+function Remove-LinkerdManifests {
+    $fileToRemove="$PSScriptRoot\manifests\linkerd\linkerd.yaml"
+    if (Test-Path $fileToRemove) {
+        Remove-Item -Path $fileToRemove -Force
+    }
+    $fileToRemove="$PSScriptRoot\manifests\linkerd\linkerd-crds.yaml"
+    if (Test-Path $fileToRemove) {
+        Remove-Item -Path $fileToRemove -Force
+    }
+}
+
+# function Remove-Access-ToCNIPluginFile {
+#     # Specify the path of the file
+#     $k2sConfigDir = Get-K2sConfigDir
+#     $filePath = $k2sConfigDir +"\cniconfig"  
+#     # Get the current ACL for the file
+#     $acl = Get-Acl $filePath
+#     # Define the Local System account (SYSTEM)
+#     $systemAccount = New-Object System.Security.Principal.NTAccount("SYSTEM")
+#     $currentAccount = [System.Security.Principal.WindowsIdentity]::GetCurrent()
+
+#     # Define the access rule: Full control for SYSTEM only
+#     $accessRuleSystem = New-Object System.Security.AccessControl.FileSystemAccessRule(
+#         $systemAccount, 
+#         "FullControl", 
+#         "Allow"
+#     )
+#     # Define the access rule: Full control for current user only
+#     $accessRuleCurrent = New-Object System.Security.AccessControl.FileSystemAccessRule(
+#         $currentAccount, 
+#         "FullControl", 
+#         "Allow"
+#     )
+#     # Deny access to everyone else
+#     $everyoneAccount = New-Object System.Security.Principal.NTAccount("Everyone")
+#     $denyRule = New-Object System.Security.AccessControl.FileSystemAccessRule(
+#         $everyoneAccount, 
+#         "FullControl", 
+#         "Deny"
+#     )
+
+#     # Set access rule protection (to prevent inheritance from parent)
+#     $acl.SetAccessRuleProtection($true, $false)
+
+#     # Add the access rules to the ACL
+#     $acl.AddAccessRule($accessRuleSystem)  # Allow SYSTEM full control
+#     $acl.AddAccessRule($accessRuleCurrent)  # Allow SYSTEM full control
+#     $acl.AddAccessRule($denyRule)    # Deny Everyone access
+
+#     # Apply the updated ACL to the file
+#     Set-Acl -Path $filePath -AclObject $acl
+# } 
+
+function Initialize-ConfigFile-For-CNI {
+    # Variables
+    $secretName = "cni-plugin-token"
+    $kubeconfigPath = "C:\Windows\System32\config\systemprofile\config"
+
+    # API URL
+    $apiServerUrl = (Invoke-Kubectl -Params 'config', 'view', '--minify', '-o', 'jsonpath={.clusters[0].cluster.server}').Output
+
+    # Fetch the secret
+    $secret = (Invoke-Kubectl -Params 'get', 'secret', $secretName, '--namespace', 'security', '-o', 'json').Output | ConvertFrom-Json
+
+    # Decode base64 token and CA cert
+    $token = [System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($secret.data.token))
+    $caCert = $secret.data."ca.crt"
+
+    # Create the kubeconfig YAML content
+    $kubeconfigContent = @"
+apiVersion: v1
+kind: Config
+clusters:
+- cluster:
+    server: $apiServerUrl
+    certificate-authority-data: $caCert
+  name: kubernetes
+
+contexts:
+- context:
+    cluster: kubernetes
+    user: cni-plugin-sa
+    namespace: security
+  name: service-account-context
+
+current-context: service-account-context
+
+users:
+- name: cni-plugin-sa
+  user:
+      token: $token
+"@
+
+    # Write the kubeconfig content to the specified file
+    $kubeconfigContent | Set-Content -Path $kubeconfigPath
+}
+
+function Remove-ConfigFile-For-CNI {
+    $kubeconfigPath = "C:\Windows\System32\config\systemprofile\config"
+    if (Test-Path $kubeconfigPath) {
+        Remove-Item -Path $kubeconfigPath -Force
+    }
+}
+
+function Wait-ForK8sSecret {
+    param (
+        [Parameter(Mandatory=$true)]
+        [string]$SecretName,
+        [Parameter(Mandatory=$true)]
+        [string]$Namespace,
+        [int]$TimeoutSeconds = 60,
+        [int]$CheckIntervalSeconds = 4
+    )
+
+    $startTime = Get-Date
+    $endTime = $startTime.AddSeconds($TimeoutSeconds)
+
+    while ((Get-Date) -lt $endTime) {
+        try {
+            $secret = kubectl get secret $SecretName -n $Namespace --ignore-not-found
+            if ($secret) {
+                Write-Log "Secret '$SecretName' is available." -Console
+                return $true
+            }
+        } catch {
+            Write-Log "Error checking for secret: $_" -Console
+        }
+
+        Start-Sleep -Seconds $CheckIntervalSeconds
+    }
+
+    Write-Log "Timed out waiting for secret '$SecretName' in namespace '$Namespace'." -Console
+    return $false
 }
