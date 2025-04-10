@@ -48,6 +48,7 @@ $binDir = [IO.Path]::Combine($global:KubernetesPath, 'bin')
 $cniBinDir = [IO.Path]::Combine($binDir, 'cni')
 $appsOutputMapping = @{
     'bridge'              = $cniBinDir;
+    'l4proxy'             = $cniBinDir;
     'cloudinitisobuilder' = $binDir;
     'devgon'              = $binDir;
     'httpproxy'           = $binDir;
