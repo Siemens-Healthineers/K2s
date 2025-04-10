@@ -871,6 +871,18 @@ function Test-KeyCloakServiceAvailability {
 
 <#
 .DESCRIPTION
+Determines if linkerd is deployed in the cluster
+#>
+function Test-LinkerdServiceAvailability {
+    $existingServices = (Invoke-Kubectl -Params 'get', 'service', '-n', 'linkerd', '-o', 'yaml').Output
+    if ("$existingServices" -match '.*linkerd.*') {
+        return $true
+    }
+    return $false
+}
+
+<#
+.DESCRIPTION
 Enables a ingress addon based on the input
 #>
 function Enable-IngressAddon([string]$Ingress) {

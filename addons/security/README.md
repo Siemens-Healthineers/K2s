@@ -6,11 +6,7 @@ SPDX-License-Identifier: MIT
 
 # security addon - EXPERIMENTAL
 
-Enables secure communication into / out of the cluster (basic) and inside the cluster (advanced).
-
-In this version only basic security is provided on an experimental level.
-
-Basic and Advanced security options for the addon will be added and improved in the next versions.
+Enables secure communication into / out of the cluster (basic) and inside the cluster (enhanced).
 
 ![Upstream - downstream](doc/downstream-upstream.drawio.png)
 
@@ -22,9 +18,13 @@ The `security` addon can be enabled using the `k2s` CLI:
 k2s addons enable security
 ```
 
-These addons have currently also web applications included: **dashboard**, **logging** and **monitoring**.
-In this version in order to test the basic security model on these addons they have to be enabled **before** the security addon is enabled!
-In addition also the security settings were tested only with the **ingress nginx** addon.
+For enabling basic or enhanced security please use the parameter:
+```cmd
+ -t, --type string (basic or enhanced)
+```
+
+K2s also has many addons like **dashboard**, **logging**, **monitoring**... which are bringing in also web apps. 
+By enabling the security addon they will be automatically also secured.
 
 ## Disable security
 
@@ -47,6 +47,8 @@ This addon installs services needed to secure the network communication by confi
 - [cert-manager](https://cert-manager.io/) - services for certificate provisioning and renewing, based on annotations. `cert-manager` observes these annotations and automates obtaining and renewing certificates.
 
 - [keycloak](https://www.keycloak.org/) - services for identity and access management. `keycloak` provides user federation, strong authentication, user management, fine-grained authorization, and more.
+
+- [linkerd](https://linkerd.io/) - service mesh implementation. `linkerd` adds security, observability, and reliability to any Kubernetes cluster.
 
 ## How to use it
 
@@ -83,13 +85,6 @@ server certificate by visiting the dashboard URL in your browser and clicking on
 
 You can also use the command line interface `cmctl.exe` to interact with cert-manager, it is installed in the `bin` path of your K2s install directory.
 
-## Further Reading
-
-- Docs: <https://cert-manager.io/docs/>
-- Code: <https://github.com/cert-manager/cert-manager>
-- Docs: <https://www.keycloak.org/documentation>
-- Code: <https://github.com/keycloak/keycloak>
-
 ## Knowledge Base
 
 - **HSTS:** Browsers keep track on several security-related properties of web sites. If they encounter weaker security settings that they encountered last time, they assume it is an attack and will not allow the navigation to that site. This is the case when you enable the security addon, browse a secure site of your cluster, and then disable the security addon. The browser will not trust the site you used before anymore.
@@ -101,3 +96,35 @@ You can also use the command line interface `cmctl.exe` to interact with cert-ma
   ```
 
   and deleting the settings for your site.
+
+### Identity and access management
+
+Documentation related to `keycloak` you will find here: [keycloak docs](https://www.keycloak.org/guides).
+
+The security addon adds in addition to the already many available identity providers also one for the local windows users.
+Local users on the host where K2s was setup can than be used for identity and access management.
+
+### Service mesh
+
+In order to secure your workload please use the following annotation:
+ ```cmd
+      annotations:
+        linkerd.io/inject: enabled
+ ```
+This is the only mandatory annotation to use, please check other annotations from the linkerd documenetation.
+
+For using the linkerd dashboard please first install the dashboard resources:
+ ```cmd
+linkerd viz install | kubectl apply -f -
+ ```
+
+Documentation related to `linkerd` you will find here: [linkerd docs](https://www.keycloak.org/guides).
+
+## Further Reading
+
+- Docs: <https://cert-manager.io/docs/>
+- Code: <https://github.com/cert-manager/cert-manager>
+- Docs: <https://www.keycloak.org/documentation>
+- Code: <https://github.com/keycloak/keycloak>
+- Docs: <https://linkerd.io/2-edge/overview/>
+- Code: <https://github.com/linkerd/linkerd2>
