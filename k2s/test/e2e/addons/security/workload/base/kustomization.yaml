@@ -1,0 +1,13 @@
+# SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: k2s
+resources:
+  - namespace.yaml
+  - linux-albums.yaml
+  - linux-curl.yaml
+  - linux-non-sec-albums.yaml
+  - linux-non-sec-curl.yaml
