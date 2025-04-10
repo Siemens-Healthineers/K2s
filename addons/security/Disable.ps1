@@ -100,7 +100,7 @@ $linkerdYamlCertManager = Get-LinkerdConfigCertManager
 $linkerdYamlTrustManager = Get-LinkerdConfigTrustManager
 (Invoke-Kubectl -Params 'delete', '--ignore-not-found', '-f', $linkerdYamlTrustManager).Output | Write-Log
 
-Remove-ConfigFile-For-CNI
+Remove-ConfigFileForCNI
 
 Remove-LinkerdManifests 
 
