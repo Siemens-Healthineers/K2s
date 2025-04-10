@@ -17,7 +17,7 @@ if ($EnancedSecurityEnabled) {
     $annotations = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"config.linkerd.io/skip-inbound-ports\":\"8443,9000,9001\",\"config.linkerd.io/skip-outbound-ports\":\"443\",\"linkerd.io/inject\":\"enabled\"}}}}}'
     (Invoke-Kubectl -Params 'patch', 'deployment', 'traefik', '-n', 'ingress-traefik', '-p', $annotations).Output | Write-Log
 } else {
-    Write-Log "Updating nginx ingress addon to not be part of service mesh"
+    Write-Log "Updating traefik ingress addon to not be part of service mesh"
     $annotations = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"config.linkerd.io/skip-inbound-ports\":null,\"config.linkerd.io/skip-outbound-ports\":null,\"linkerd.io/inject\":null}}}}}'
     (Invoke-Kubectl -Params 'patch', 'deployment', 'traefik', '-n', 'ingress-traefik', '-p', $annotations).Output | Write-Log
 }
