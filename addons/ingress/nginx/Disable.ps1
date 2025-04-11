@@ -65,8 +65,9 @@ if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'ingress-nginx', '--ig
 }
 
 Write-Log 'Uninstalling ingress nginx' -Console
+$clusterIngressConfig = "$PSScriptRoot\manifests\cluster-local-ingress.yaml"
+(Invoke-Kubectl -Params 'delete' , '-f', $clusterIngressConfig).Output | Write-Log
 $ingressNginxConfig = Get-IngressNginxConfig
-
 (Invoke-Kubectl -Params 'delete' , '-f', $ingressNginxConfig).Output | Write-Log
 (Invoke-Kubectl -Params 'delete', 'ns', 'ingress-nginx').Output | Write-Log
 

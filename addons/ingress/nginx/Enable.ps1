@@ -160,6 +160,8 @@ Write-Log 'All ingress nginx pods are up and ready.'
 
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'ingress'; Implementation = 'nginx' })
 
+&"$PSScriptRoot\Update.ps1"
+
 # adapt other addons
 Update-Addons -AddonName $addonName
 

@@ -78,6 +78,8 @@ if ($allPodsAreUp -ne $true) {
     exit 1  
 }
 
+&"$PSScriptRoot\Update.ps1"
+
 Write-Log 'All metric server pods are up and ready.' -Console
 
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'metrics' })
