@@ -40,13 +40,15 @@ After disabled security also please reset the policies (navigate to [chrome://ne
 k2s.cluster.local
 ```
 
-## Services used
+## Components used
 
-This addon installs services needed to secure the network communication by configuration. This includes:
+This addon installs workloads needed to secure the network communication by configuration. This includes:
 
 - [cert-manager](https://cert-manager.io/) - services for certificate provisioning and renewing, based on annotations. `cert-manager` observes these annotations and automates obtaining and renewing certificates.
 
 - [keycloak](https://www.keycloak.org/) - services for identity and access management. `keycloak` provides user federation, strong authentication, user management, fine-grained authorization, and more.
+
+- [trust-manager](https://cert-manager.io/docs/trust/trust-manager/) - trust-manager is a small Kubernetes operator which reduces the overhead of managing TLS trust bundles in your clusters, providing a much quicker way to update trust stores when they need to change.
 
 - [linkerd](https://linkerd.io/) - service mesh implementation. `linkerd` adds security, observability, and reliability to any Kubernetes cluster.
 
@@ -130,5 +132,7 @@ Documentation related to `linkerd` you will find here: [linkerd docs](https://ww
 - Code: <https://github.com/cert-manager/cert-manager>
 - Docs: <https://www.keycloak.org/documentation>
 - Code: <https://github.com/keycloak/keycloak>
+- Docs: <https://cert-manager.io/docs/trust/trust-manager/>
+- Code: <https://github.com/cert-manager/trust-manager>
 - Docs: <https://linkerd.io/2-edge/overview/>
 - Code: <https://github.com/linkerd/linkerd2>
