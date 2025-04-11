@@ -171,7 +171,6 @@ try {
     Write-Log 'Installing keycloak' -Console
     $keyCloakYaml = Get-KeyCloakConfig
     (Invoke-Kubectl -Params 'apply', '-f', $keyCloakYaml).Output | Write-Log
-    Deploy-IngressForSecurity -Ingress:$activeIngress
     Write-Log 'Waiting for keycloak pods to be available' -Console
     $keycloakPodStatus = Wait-ForKeyCloakAvailable
 
@@ -182,7 +181,7 @@ try {
 
     $winSecurityStatus = $true
     if ($keycloakPodStatus -eq $true -and $oauth2ProxyPodStatus -eq $true) {
-        $winSecurityStatus = Apply-WindowsSecurityDeployments
+        $winSecurityStatus = Enable-WindowsSecurityDeployments
     }
 
     if ($keycloakPodStatus -ne $true -or $oauth2ProxyPodStatus -ne $true -or $winSecurityStatus -ne $true) {
@@ -252,7 +251,7 @@ try {
         $linkerdYamlCNI = Get-LinkerdConfigCNI
         (Invoke-Kubectl -Params 'apply', '-f', $linkerdYamlCNI).Output | Write-Log
         Write-Log 'Generate kubeconfig for CNI plugin based on service account' -Console
-        Initialize-ConfigFile-For-CNI
+        Initialize-ConfigFileForCNI
 
         # install trust manager
         Write-Log 'Install trust manager' -Console
@@ -335,6 +334,8 @@ finally {
         Save-LinkerdMarkerConfig 
     }
 }
+
+&"$PSScriptRoot\Update.ps1"
 
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'security' })
 

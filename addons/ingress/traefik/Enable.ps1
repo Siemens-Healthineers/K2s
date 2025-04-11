@@ -170,6 +170,8 @@ $clusterIngressConfig = "$PSScriptRoot\manifests\cluster-local-ingress.yaml"
 
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'ingress'; Implementation = 'traefik' })
 
+&"$PSScriptRoot\Update.ps1"
+
 # adapt other addons
 Update-Addons -AddonName $addonName
 
