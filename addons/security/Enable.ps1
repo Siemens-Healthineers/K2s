@@ -225,8 +225,10 @@ try {
         # generate the CRDs
         & $clinkerdExe install --ignore-cluster --crds 2> $null | Out-File -FilePath $linkerdYaml\linkerd-crds-gen.yaml -Encoding utf8 
         # generate the other resources
+        # add this line for debug infos
+        # --ignore-cluster --disable-heartbeat --proxy-log-level "debug,linkerd=debug,hickory=error"  `
         & $clinkerdExe install  `
---ignore-cluster --disable-heartbeat --proxy-log-level "debug,linkerd=debug,hickory=error"  `
+--ignore-cluster --disable-heartbeat  `
 --proxy-memory-limit 100Mi  `
 --default-inbound-policy "all-authenticated"  `
 --set "identity.externalCA=true"  `
