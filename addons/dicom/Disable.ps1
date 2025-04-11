@@ -82,9 +82,6 @@ Write-Log 'Uninstalling ingress rules' -Console
 Remove-IngressForTraefik -Addon ([pscustomobject] @{Name = $addonName })
 Remove-IngressForNginx -Addon ([pscustomobject] @{Name = $addonName })
 
-Write-Log 'Deleting main dicom addon resources ..' -Console
-(Invoke-Kubectl -Params 'delete', '-k', $dicomPathManifests).Output | Write-Log
-
 Write-Log 'Deleting persistent volumes' -Console
 $dicomAttributes = Get-AddonConfig -Name $addonName
 # retrieve storage usage from config
@@ -103,6 +100,9 @@ else {
     (Invoke-Kubectl -Params 'delete', '--ignore-not-found=true', '-k', $pvConfig).Output | Write-Log
 
 }
+
+Write-Log 'Deleting main dicom addon resources ..' -Console
+(Invoke-Kubectl -Params 'delete', '-k', $dicomPathManifests).Output | Write-Log
 
 # delete namespace
 (Invoke-Kubectl -Params 'delete', '--ignore-not-found=true', '-f', "$dicomPathManifests\dicom-namespace.yaml").Output | Write-Log

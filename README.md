@@ -32,6 +32,11 @@ The problems that *K2s* solves are the following:
 
 See also the [Features List](docs/index.md#features).
 
+<div align="center">
+
+![Overview](docs/assets/overview.png)
+</div>
+
 ## Quick Start
 1. [Get *K2s*](docs/op-manual/getting-k2s.md)
 3. Verify that the [Prerequisites](docs/op-manual/installing-k2s.md#prerequisites) are fulfilled
