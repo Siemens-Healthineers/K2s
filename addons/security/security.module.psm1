@@ -39,7 +39,7 @@ function Get-SecurityData {
     return "$PSScriptRoot\data"
 }
 
-function Apply-WindowsSecurityYaml {
+function Invoke-WindowsSecurityYaml {
     param (
         [string]$yamlPath,
         [string]$updatedYamlPath
@@ -108,7 +108,7 @@ function Invoke-HydraClient {
     }
 }
 
-function Apply-WindowsSecurityDeployments {
+function Enable-WindowsSecurityDeployments {
     $securityData = Get-SecurityData
     if (-Not (Test-Path $securityData)) {
         New-Item -ItemType Directory -Path $securityData -Force | Out-Null
@@ -123,11 +123,11 @@ function Apply-WindowsSecurityDeployments {
     Write-Log 'Applying windows security deployments..' -Console
     $hydraYamlPath = "$PSScriptRoot\manifests\keycloak\hydra.yaml"
     $updatedHydraYamlPath = "$PSScriptRoot\manifests\keycloak\hydra-updated.yaml"
-    Apply-WindowsSecurityYaml -yamlPath $hydraYamlPath -updatedYamlPath $updatedHydraYamlPath
+    Invoke-WindowsSecurityYaml -yamlPath $hydraYamlPath -updatedYamlPath $updatedHydraYamlPath
 
     $winLoginYamlPath = "$PSScriptRoot\manifests\keycloak\windows-login.yaml"
     $updatedWinLoginYamlPath = "$PSScriptRoot\manifests\keycloak\windows-login-updated.yaml"
-    Apply-WindowsSecurityYaml -yamlPath $winLoginYamlPath -updatedYamlPath $updatedWinLoginYamlPath
+    Invoke-WindowsSecurityYaml -yamlPath $winLoginYamlPath -updatedYamlPath $updatedWinLoginYamlPath
 
     Write-Log 'Waiting for windows security deployments..' -Console
     $hydraStatus = (Wait-ForPodCondition -Condition Ready -Label 'app=hydra' -Namespace 'security' -TimeoutSeconds 120)
@@ -273,7 +273,7 @@ function Wait-ForOauth2ProxyAvailable {
     return (Wait-ForPodCondition -Condition Ready -Label 'k8s-app=oauth2-proxy' -Namespace 'security' -TimeoutSeconds 120)
 }
 
-function Deploy-IngressForSecurity([string]$Ingress) {
+function Enable-IngressForSecurity([string]$Ingress) {
     switch ($Ingress) {
         'nginx' {
             (Invoke-Kubectl -Params 'apply', '-f', "$PSScriptRoot\manifests\keycloak\nginx-ingress.yaml").Output | Write-Log
@@ -284,6 +284,11 @@ function Deploy-IngressForSecurity([string]$Ingress) {
             break
         }
     }
+}
+
+function Remove-IngressForSecurity {
+    (Invoke-Kubectl -Params 'delete', '-f', "$PSScriptRoot\manifests\keycloak\nginx-ingress.yaml", '--ignore-not-found').Output | Write-Log
+    (Invoke-Kubectl -Params 'delete', '-f', "$PSScriptRoot\manifests\keycloak\traefik-ingress.yaml", '--ignore-not-found').Output | Write-Log
 }
 
 function Confirm-EnhancedSecurityOn([string]$Type) {
@@ -412,7 +417,7 @@ function Remove-LinkerdManifests {
 #     Set-Acl -Path $filePath -AclObject $acl
 # } 
 
-function Initialize-ConfigFile-For-CNI {
+function Initialize-ConfigFileForCNI {
     # Variables
     $secretName = "cni-plugin-token"
     $kubeconfigPath = "C:\Windows\System32\config\systemprofile\config"
@@ -456,7 +461,7 @@ users:
     $kubeconfigContent | Set-Content -Path $kubeconfigPath
 }
 
-function Remove-ConfigFile-For-CNI {
+function Remove-ConfigFileForCNI {
     $kubeconfigPath = "C:\Windows\System32\config\systemprofile\config"
     if (Test-Path $kubeconfigPath) {
         Remove-Item -Path $kubeconfigPath -Force
