@@ -176,9 +176,53 @@ try {
 
     $oauth2ProxyYaml = Get-OAuth2ProxyConfig
     (Invoke-Kubectl -Params 'apply', '-f', $oauth2ProxyYaml).Output | Write-Log
-    Write-Log 'Waiting for oauth2-proxy pods to be available' -Console
-    $oauth2ProxyPodStatus = Wait-ForOauth2ProxyAvailable
+    # Define the maximum number of retries
+    $maxRetries = 3
+    $retryInterval = 20 # in seconds
 
+    $oauth2ProxyPodStatus = $false
+    # Retry mechanism for Wait-ForOauth2ProxyAvailable
+    for ($attempt = 1; $attempt -le $maxRetries; $attempt++) {
+        # Attempt to wait for Oauth2 Proxy to be available
+        Write-Log "Attempt ${attempt}/${maxRetries}: Checking if Oauth2 Proxy is available..." -Console
+        $oauth2ProxyPodStatus = Wait-ForOauth2ProxyAvailable
+
+        if ($oauth2ProxyPodStatus -eq $true) {
+            # If successful, exit the loop
+            Write-Log "Oauth2 Proxy is available." -Console
+            break
+        } else {
+            # Log the failure
+            Write-Log "Attempt $($attempt)/$($maxRetries): Oauth2 Proxy is not ready." -Console
+
+            # Write logs of the Oauth2 Proxy pod before deleting
+            Write-Log "Fetching logs of the Oauth2 Proxy pod before deletion..." -Console
+            $podName = (Invoke-Kubectl -Params 'get pods -l app=oauth2-proxy -o jsonpath="{.items[0].metadata.name}"').Output
+            if ($podName) {
+                (Invoke-Kubectl -Params "logs $podName").Output | Write-Log
+            } else {
+                Write-Log "No Oauth2 Proxy pod found to fetch logs." -Console
+            }
+
+            # Delete the resource before retrying
+            Write-Log "Deleting the existing Oauth2 Proxy resource..."  -Console
+            (Invoke-Kubectl -Params 'delete', '-f', $oauth2ProxyYaml).Output | Write-Log
+
+            # If this was the last attempt, throw an error
+            if ($attempt -eq $maxRetries) {
+                Write-Error "Failed to wait for Oauth2 Proxy to be available after $maxRetries attempts."
+                throw "Oauth2 Proxy did not become ready after $maxRetries attempts."
+            }
+
+            # Retry applying the configuration
+            Write-Log "Retrying apply configuration..."  -Console
+            (Invoke-Kubectl -Params 'apply', '-f', $oauth2ProxyYaml).Output | Write-Log
+
+            # Wait before retrying
+            Write-Log "Waiting for $retryInterval seconds before retrying..."  -Console
+            Start-Sleep -Seconds $retryInterval
+        }
+    }
     $winSecurityStatus = $true
     if ($keycloakPodStatus -eq $true -and $oauth2ProxyPodStatus -eq $true) {
         $winSecurityStatus = Enable-WindowsSecurityDeployments
