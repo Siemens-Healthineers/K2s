@@ -174,7 +174,11 @@ try {
     Write-Log 'Waiting for keycloak pods to be available' -Console
     $keycloakPodStatus = Wait-ForKeyCloakAvailable
 
+    Write-Log 'Waiting after keycloak pod is available' -Console
+
     $oauth2ProxyYaml = Get-OAuth2ProxyConfig
+    # Update must be invoked to enable ingress for security before applying the oauth2-proxy
+    &"$PSScriptRoot\Update.ps1"
     (Invoke-Kubectl -Params 'apply', '-f', $oauth2ProxyYaml).Output | Write-Log
     Write-Log 'Waiting for oauth2-proxy pods to be available' -Console
     $oauth2ProxyPodStatus = Wait-ForOauth2ProxyAvailable
@@ -336,8 +340,6 @@ finally {
         Save-LinkerdMarkerConfig 
     }
 }
-
-&"$PSScriptRoot\Update.ps1"
 
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'security' })
 
