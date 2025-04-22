@@ -4,7 +4,7 @@ SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 SPDX-License-Identifier: MIT
 -->
 
-# security addon - EXPERIMENTAL
+# security addon
 
 Enables secure communication into / out of the cluster (basic) and inside the cluster (enhanced).
 
