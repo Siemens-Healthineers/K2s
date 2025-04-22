@@ -159,7 +159,7 @@ Writes the usage notes for security for the user.
 #>
 function Write-SecurityUsageForUser {
     @'
-                SECURITY ADDON - EXPERIMENTAL
+                SECURITY ADDON
 
 The following features are available:
 1. cert-manager: The CA Issuer named 'k2s-ca-issuer' has beed created and can 
