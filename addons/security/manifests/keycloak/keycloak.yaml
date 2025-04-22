@@ -7,6 +7,24 @@ kind: Namespace
 metadata:
   name: security
 ---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: keycloak-admin-user
+  namespace: security
+type: Opaque
+data:
+  USER: YWRtaW4=  # base64 of 'admin'
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: keycloak-admin-password
+  namespace: security
+type: Opaque
+data:
+  PASSWORD: YWRtaW4=  # base64 of 'admin'
+---
 kind: ConfigMap
 apiVersion: v1
 metadata:
@@ -3105,9 +3123,15 @@ spec:
             - "--http-relative-path=keycloak"
           env:
             - name: KEYCLOAK_ADMIN
-              value: "admin"
+              valueFrom:
+                secretKeyRef:
+                  name: keycloak-admin-user
+                  key: USER
             - name: KEYCLOAK_ADMIN_PASSWORD
-              value: "admin"
+              valueFrom:
+                secretKeyRef:
+                  name: keycloak-admin-password
+                  key: PASSWORD
             - name: KC_PROXY
               value: "edge"
           ports:
