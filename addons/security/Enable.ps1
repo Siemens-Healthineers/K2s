@@ -331,7 +331,7 @@ try {
         Write-Log "Updating redis to be part of service mesh" -Console 
         $annotations1 = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"linkerd.io/inject\":\"enabled\",\"config.linkerd.io/opaque-ports\":\"6379\"}}}}}'
         (Invoke-Kubectl -Params 'patch', 'deployment', 'redis', '-n', 'security', '-p', $annotations1).Output | Write-Log
-        $annotations2 = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"linkerd.io/inject\":\"enabled\"}}}}}'
+        $annotations2 = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"linkerd.io/inject\":\"enabled\",\"config.linkerd.io/opaque-ports\":\"6379\"}}}}}'
         (Invoke-Kubectl -Params 'patch', 'deployment', 'oauth2-proxy', '-n', 'security', '-p', $annotations2).Output | Write-Log
         $annotations3 = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"linkerd.io/inject\":\"enabled\",\"config.linkerd.io/skip-outbound-ports\":\"4444\"}}}}}'
         (Invoke-Kubectl -Params 'patch', 'deployment', 'keycloak', '-n', 'security', '-p', $annotations3).Output | Write-Log
