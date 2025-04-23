@@ -121,12 +121,12 @@ function Enable-WindowsSecurityDeployments {
 
 
     Write-Log 'Applying windows security deployments..' -Console
-    $hydraYamlPath = "$PSScriptRoot\manifests\keycloak\hydra.yaml"
-    $updatedHydraYamlPath = "$PSScriptRoot\manifests\keycloak\hydra-updated.yaml"
+    $hydraYamlPath = "$PSScriptRoot\manifests\keycloak\windowsprovider\hydra.yaml"
+    $updatedHydraYamlPath = "$PSScriptRoot\manifests\keycloak\windowsprovider\hydra-updated.yaml"
     Invoke-WindowsSecurityYaml -yamlPath $hydraYamlPath -updatedYamlPath $updatedHydraYamlPath
 
-    $winLoginYamlPath = "$PSScriptRoot\manifests\keycloak\windows-login.yaml"
-    $updatedWinLoginYamlPath = "$PSScriptRoot\manifests\keycloak\windows-login-updated.yaml"
+    $winLoginYamlPath = "$PSScriptRoot\manifests\keycloak\windowsprovider\windows-login.yaml"
+    $updatedWinLoginYamlPath = "$PSScriptRoot\manifests\keycloak\windowsprovider\windows-login-updated.yaml"
     Invoke-WindowsSecurityYaml -yamlPath $winLoginYamlPath -updatedYamlPath $updatedWinLoginYamlPath
 
     Write-Log 'Waiting for windows security deployments..' -Console
@@ -139,17 +139,17 @@ function Enable-WindowsSecurityDeployments {
 
     if ($hydraApiStatus -eq $true) {
         Write-Log 'Creating client in windows security' -Console
-        $response = Invoke-HydraClient -url $hydraUrl -jsonFilePath "$PSScriptRoot\manifests\keycloak\client.json"
+        $response = Invoke-HydraClient -url $hydraUrl -jsonFilePath "$PSScriptRoot\manifests\keycloak\windowsprovider\client.json"
     }    
 
     return ($hydraStatus -eq $true -and $winLoginStatus -eq $true -and $hydraApiStatus -eq $true)
 }
 
 function Remove-WindowsSecurityDeployments {
-    $hydraYamlPath = "$PSScriptRoot\manifests\keycloak\hydra.yaml"
+    $hydraYamlPath = "$PSScriptRoot\manifests\keycloak\windowsprovider\hydra.yaml"
     (Invoke-Kubectl -Params 'delete','--ignore-not-found','-f', $hydraYamlPath).Output | Write-Log
 
-    $winLoginYamlPath = "$PSScriptRoot\manifests\keycloak\windows-login.yaml"
+    $winLoginYamlPath = "$PSScriptRoot\manifests\keycloak\windowsprovider\windows-login.yaml"
     (Invoke-Kubectl -Params 'delete','--ignore-not-found','-f', $winLoginYamlPath).Output | Write-Log
 }
 
