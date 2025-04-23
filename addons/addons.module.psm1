@@ -857,11 +857,35 @@ function Test-KeyCloakServiceAvailability {
 
 <#
 .DESCRIPTION
-Determines if linkerd is deployed in the cluster
+Determines if linkerd service is deployed in the cluster
 #>
 function Test-LinkerdServiceAvailability {
     $existingServices = (Invoke-Kubectl -Params 'get', 'service', '-n', 'linkerd', '-o', 'yaml').Output
     if ("$existingServices" -match '.*linkerd.*') {
+        return $true
+    }
+    return $false
+}
+
+<#
+.DESCRIPTION
+Determines if trust manager service is deployed in the cluster
+#>
+function Test-TrustManagerServiceAvailability {
+    $existingServices = (Invoke-Kubectl -Params 'get', 'service', '-n', 'cert-manager', '-o', 'yaml').Output
+    if ("$existingServices" -match '.*trust-manager*') {
+        return $true
+    }
+    return $false
+}
+
+<#
+.DESCRIPTION
+Determines if keycloak service is deployed in the cluster
+#>
+function Test-KeyCloakServiceAvailability {
+    $existingServices = (Invoke-Kubectl -Params 'get', 'service', '-n', 'security', '-o', 'yaml').Output
+    if ("$existingServices" -match '.*keycloak*') {
         return $true
     }
     return $false
@@ -1038,4 +1062,5 @@ Remove-ScriptsFromHooksDir, Get-AddonConfig, Backup-Addons, Restore-Addons, Get-
 Get-ErrCodeAddonAlreadyDisabled, Get-ErrCodeAddonAlreadyEnabled, Get-ErrCodeAddonEnableFailed, Get-ErrCodeAddonNotFound,
 Add-HostEntries, Get-AddonsConfig, Update-Addons, Update-IngressForAddon, Test-NginxIngressControllerAvailability, Test-TraefikIngressControllerAvailability,
 Test-KeyCloakServiceAvailability, Enable-IngressAddon, Remove-IngressForTraefik, Remove-IngressForNginx, Get-AddonProperties, Get-IngressNginxConfigDirectory, 
-Update-IngressForTraefik, Update-IngressForNginx, Get-IngressNginxSecureConfig, Get-IngressTraefikConfig, Enable-StorageAddon, Get-AddonNameFromFolderPath, Test-LinkerdServiceAvailability
+Update-IngressForTraefik, Update-IngressForNginx, Get-IngressNginxSecureConfig, Get-IngressTraefikConfig, Enable-StorageAddon, Get-AddonNameFromFolderPath, 
+Test-LinkerdServiceAvailability, Test-TrustManagerServiceAvailability, Test-KeyCloakServiceAvailability

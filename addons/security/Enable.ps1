@@ -174,7 +174,11 @@ try {
     Write-Log 'Waiting for keycloak pods to be available' -Console
     $keycloakPodStatus = Wait-ForKeyCloakAvailable
 
+    Write-Log 'Waiting after keycloak pod is available' -Console
+
     $oauth2ProxyYaml = Get-OAuth2ProxyConfig
+    # Update must be invoked to enable ingress for security before applying the oauth2-proxy
+    &"$PSScriptRoot\Update.ps1"
     (Invoke-Kubectl -Params 'apply', '-f', $oauth2ProxyYaml).Output | Write-Log
     Write-Log 'Waiting for oauth2-proxy pods to be available' -Console
     $oauth2ProxyPodStatus = Wait-ForOauth2ProxyAvailable
@@ -225,8 +229,10 @@ try {
         # generate the CRDs
         & $clinkerdExe install --ignore-cluster --crds 2> $null | Out-File -FilePath $linkerdYaml\linkerd-crds-gen.yaml -Encoding utf8 
         # generate the other resources
+        # add this line for debug infos
+        # --ignore-cluster --disable-heartbeat --proxy-log-level "debug,linkerd=debug,hickory=error"  `
         & $clinkerdExe install  `
---ignore-cluster --disable-heartbeat --proxy-log-level "debug,linkerd=debug,hickory=error"  `
+--ignore-cluster --disable-heartbeat  `
 --proxy-memory-limit 100Mi  `
 --default-inbound-policy "all-authenticated"  `
 --set "identity.externalCA=true"  `
@@ -334,8 +340,6 @@ finally {
         Save-LinkerdMarkerConfig 
     }
 }
-
-&"$PSScriptRoot\Update.ps1"
 
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'security' })
 

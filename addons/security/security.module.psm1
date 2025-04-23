@@ -159,7 +159,7 @@ Writes the usage notes for security for the user.
 #>
 function Write-SecurityUsageForUser {
     @'
-                SECURITY ADDON - EXPERIMENTAL
+                SECURITY ADDON
 
 The following features are available:
 1. cert-manager: The CA Issuer named 'k2s-ca-issuer' has beed created and can 
@@ -261,8 +261,8 @@ function Remove-Cmctl {
 .DESCRIPTION
 Waits for the keycloak pods to be available.
 #>
-function Wait-ForKeyCloakAvailable {
-    return (Wait-ForPodCondition -Condition Ready -Label 'app=keycloak' -Namespace 'security' -TimeoutSeconds 120)
+function Wait-ForKeyCloakAvailable($waiTime=120) {
+    return (Wait-ForPodCondition -Condition Ready -Label 'app=keycloak' -Namespace 'security' -TimeoutSeconds $waiTime)
 }
 
 <#
@@ -339,8 +339,8 @@ function Wait-ForLinkerdVizAvailable {
     return (Wait-ForPodCondition -Condition Ready -Label 'linkerd.io/extension=viz' -Namespace 'linkerd-viz' -TimeoutSeconds 120)
 }
 
-function Wait-ForTrustManagerAvailable {
-    return (Wait-ForPodCondition -Condition Ready -Label 'app.kubernetes.io/name=trust-manager' -Namespace 'cert-manager' -TimeoutSeconds 120)
+function Wait-ForTrustManagerAvailable($waiTime=120) {
+    return (Wait-ForPodCondition -Condition Ready -Label 'app.kubernetes.io/name=trust-manager' -Namespace 'cert-manager' -TimeoutSeconds $waiTime)
 }
 
 function Save-LinkerdMarkerConfig {
