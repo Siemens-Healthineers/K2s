@@ -19,7 +19,7 @@ if ($EnancedSecurityEnabled) {
     $annotations2 = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"linkerd.io/inject\":\"enabled\",\"config.linkerd.io/skip-inbound-ports\":\"8000\"}}}}}'
     (Invoke-Kubectl -Params 'patch', 'deployment', 'dashboard-metrics-scraper', '-n', 'dashboard', '-p', $annotations2).Output | Write-Log
 } else {
-    Write-Log "Updating nginx ingress addon to not be part of service mesh"
+    Write-Log "Updating dashboard addon to not be part of service mesh"
     $annotations = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"config.linkerd.io/skip-inbound-ports\":null,\"linkerd.io/inject\":null}}}}}'
     (Invoke-Kubectl -Params 'patch', 'deployment', 'kubernetes-dashboard', '-n', 'dashboard', '-p', $annotations).Output | Write-Log
     (Invoke-Kubectl -Params 'patch', 'deployment', 'dashboard-metrics-scraper', '-n', 'dashboard', '-p', $annotations).Output | Write-Log

@@ -125,7 +125,6 @@ try {
 
     Write-Log 'Waiting for CA root certificate to be created' -Console
     $caCreated = Wait-ForCARootCertificate
-
     if ($caCreated -ne $true) {
         $errMsg = "CA root certificate 'ca-issuer-root-secret' not found.`nInstallation of 'security' addon failed."
         if ($EncodeStructuredOutput -eq $true) {
@@ -150,16 +149,20 @@ try {
         FilePath          = $tempFile.FullName
         CertStoreLocation = $certLocationStore
     }
-
     Import-Certificate @params
     Remove-Item -Path $tempFile.FullName -Force
 
     Write-Log 'Checking for availability of Ingress Controller' -Console
+    $cmctlExe = "$(Get-KubeBinPath)\cmctl.exe"
     if (Test-NginxIngressControllerAvailability) {
         $activeIngress = 'nginx'
+        Write-Log 'Update TLS certificate for k2s.cluster.local' -Console
+        &$cmctlExe renew k2s-cluster-local-tls -n ingress-nginx
     }
     elseif (Test-TraefikIngressControllerAvailability) {
         $activeIngress = 'traefik'
+        Write-Log 'Update TLS certificate for k2s.cluster.local' -Console
+        &$cmctlExe renew k2s-cluster-local-tls -n ingress-traefik
     }
     else {
         #Enable required ingress addon
@@ -173,7 +176,6 @@ try {
     (Invoke-Kubectl -Params 'apply', '-f', $keyCloakYaml).Output | Write-Log
     Write-Log 'Waiting for keycloak pods to be available' -Console
     $keycloakPodStatus = Wait-ForKeyCloakAvailable
-
     Write-Log 'Waiting after keycloak pod is available' -Console
 
     $oauth2ProxyYaml = Get-OAuth2ProxyConfig
@@ -183,11 +185,13 @@ try {
     Write-Log 'Waiting for oauth2-proxy pods to be available' -Console
     $oauth2ProxyPodStatus = Wait-ForOauth2ProxyAvailable
 
+    # Enable Windows Users for Keycloak
     $winSecurityStatus = $true
     if ($keycloakPodStatus -eq $true -and $oauth2ProxyPodStatus -eq $true) {
         $winSecurityStatus = Enable-WindowsSecurityDeployments
     }
 
+    # Check if all security pods are available
     if ($keycloakPodStatus -ne $true -or $oauth2ProxyPodStatus -ne $true -or $winSecurityStatus -ne $true) {
         $errMsg = "All security pods could not become ready. Please use kubectl describe for more details.`nInstallation of security addon failed."
         if ($EncodeStructuredOutput -eq $true) {
@@ -321,7 +325,16 @@ try {
     
             Write-Log $errMsg -Error
             throw $errMsg
-        }        
+        }    
+        
+        # update basic security pods: redis, oauth2-proxy, keycloak to be part of the service mesh
+        Write-Log "Updating redis to be part of service mesh" -Console 
+        $annotations1 = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"linkerd.io/inject\":\"enabled\",\"config.linkerd.io/opaque-ports\":\"6379\"}}}}}'
+        (Invoke-Kubectl -Params 'patch', 'deployment', 'redis', '-n', 'security', '-p', $annotations1).Output | Write-Log
+        $annotations2 = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"linkerd.io/inject\":\"enabled\",\"config.linkerd.io/opaque-ports\":\"6379\"}}}}}'
+        (Invoke-Kubectl -Params 'patch', 'deployment', 'oauth2-proxy', '-n', 'security', '-p', $annotations2).Output | Write-Log
+        $annotations3 = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"linkerd.io/inject\":\"enabled\",\"config.linkerd.io/skip-outbound-ports\":\"4444\"}}}}}'
+        (Invoke-Kubectl -Params 'patch', 'deployment', 'keycloak', '-n', 'security', '-p', $annotations3).Output | Write-Log
     }
 }
 catch {
