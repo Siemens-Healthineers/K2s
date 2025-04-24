@@ -19,8 +19,6 @@ spec:
       labels:
         app: windows-login
     spec:
-      imagePullSecrets:
-        - name: regcred
       containers:
         - name: windows-login
           image: shsk2s.azurecr.io/login:v1.1.0 #windows_image

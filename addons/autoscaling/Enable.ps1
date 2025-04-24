@@ -86,6 +86,8 @@ if ($allPodsAreUp -ne $true) {
     exit 1  
 }
 
+&"$PSScriptRoot\Update.ps1"
+
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'autoscaling' })
 
 Write-Log 'Installation of autoscaling addon finished.' -Console

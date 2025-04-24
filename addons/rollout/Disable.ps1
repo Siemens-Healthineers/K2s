@@ -67,9 +67,16 @@ $rolloutConfig = Get-RolloutConfig
 Remove-IngressForTraefik -Addon ([pscustomobject] @{Name = 'rollout' })
 Remove-IngressForNginx -Addon ([pscustomobject] @{Name = 'rollout' })
 
-(Invoke-Kubectl -Params 'delete', '-n', 'rollout', '-k', $rolloutConfig).Output | Write-Log
-
-(Invoke-Kubectl -Params 'delete', 'namespace', 'rollout').Output | Write-Log
+Write-Log 'Uninstalling rollout addon resources, please wait it can take longer ...' -Console
+(Invoke-Kubectl -Params 'delete', '-n', 'rollout', '-k', $rolloutConfig, '--timeout', '120s').Output | Write-Log
+Write-Log 'Deleting rollout namespace, please wait it can take longer ...' -Console
+# Avoid errors if people have forgotten to delete the applications
+# $resourceExists = (Invoke-Kubectl -Params 'get', 'crd/applications.argoproj.io', '--ignore-not-found=true', '-o', 'name', '2>$null').Output
+# Write-Log $resourceExists
+# if ($resourceExists) {
+#     (Invoke-Kubectl -Params 'patch', 'crd/applications.argoproj.io', '-p', '{\"metadata\":{\"finalizers\":null}}').Output | Write-Log
+# }
+(Invoke-Kubectl -Params 'delete', 'namespace', 'rollout','--timeout', '60s').Output | Write-Log
 
 Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'rollout' })
 Write-Log 'Uninstallation of rollout addon finished' -Console

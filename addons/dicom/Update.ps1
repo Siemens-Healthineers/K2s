@@ -21,3 +21,19 @@ if ($dicomAttributes.StorageUsage -ne 'storage' -and $bStorageAddonEnabled) {
     Write-Log ' ' -Console
 }
 
+$EnancedSecurityEnabled = Test-LinkerdServiceAvailability
+if ($EnancedSecurityEnabled) {
+    Write-Log "Updating dicom addon to be part of service mesh"  
+    $annotations1 = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"linkerd.io/inject\":\"enabled\",\"config.linkerd.io/opaque-ports\":\"5432\"}}}}}'
+    (Invoke-Kubectl -Params 'patch', 'deployment', 'dicom', '-n', 'dicom', '-p', $annotations1).Output | Write-Log
+    $annotations2 = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"linkerd.io/inject\":\"enabled\"}}}}}'
+    (Invoke-Kubectl -Params 'patch', 'deployment', 'postgres', '-n', 'dicom', '-p', $annotations2).Output | Write-Log
+} else {
+    Write-Log "Updating dicom addon to not be part of service mesh"
+    $annotations = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"config.linkerd.io/opaque-ports\":null,\"linkerd.io/inject\":null}}}}}'
+    (Invoke-Kubectl -Params 'patch', 'deployment', 'dicom', '-n', 'dicom', '-p', $annotations).Output | Write-Log
+    (Invoke-Kubectl -Params 'patch', 'deployment', 'postgres', '-n', 'dicom', '-p', $annotations).Output | Write-Log
+}
+(Invoke-Kubectl -Params 'rollout', 'status', 'deployment', '-n', 'dicom', '--timeout', '60s').Output | Write-Log
+
+
