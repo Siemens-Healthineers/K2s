@@ -78,8 +78,6 @@ spec:
       labels:
         app: hydra
     spec:
-      imagePullSecrets:
-        - name: regcred
       initContainers:
         - name: init-hydra-db
           image: shsk2s.azurecr.io/login:v1.1.0 #windows_image
