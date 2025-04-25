@@ -81,6 +81,13 @@ if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = 'security' })) -eq $t
     exit 1
 }
 
+$setupInfo = Get-SetupInfo
+if ($setupInfo.Name -ne 'k2s') {
+    $err = New-Error -Severity Warning -Code (Get-ErrCodeWrongSetupType) -Message "Addon 'security' can only be enabled for 'k2s' setup type."  
+    Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+    return
+}
+
 try {
     Write-Log 'Downloading cert-manager files' -Console
     $manifest = Get-FromYamlFile -Path "$PSScriptRoot\addon.manifest.yaml"
@@ -188,7 +195,11 @@ try {
     # Enable Windows Users for Keycloak
     $winSecurityStatus = $true
     if ($keycloakPodStatus -eq $true -and $oauth2ProxyPodStatus -eq $true) {
-        $winSecurityStatus = Enable-WindowsSecurityDeployments
+        if ($setupInfo.LinuxOnly -eq $false) {
+            $winSecurityStatus = Enable-WindowsSecurityDeployments
+        } else {
+            Write-Log 'Skipping Windows security deployment because of Linux only setup'
+        }
     }
 
     # Check if all security pods are available
