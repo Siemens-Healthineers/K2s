@@ -6,6 +6,7 @@ package smb_share
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -15,14 +16,29 @@ import (
 	"github.com/siemens-healthineers/k2s/test/framework/k2s/cli"
 	"github.com/siemens-healthineers/k2s/test/framework/os"
 
-	"github.com/siemens-healthineers/k2s/test/framework/k2s"
-
 	"encoding/json"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gstruct"
+	internaljson "github.com/siemens-healthineers/k2s/internal/json"
 )
+
+type ShareConfig struct {
+	WindowsWorker    string `json:"windowsWorker"`
+	Master           string `json:"master"`
+	StorageClassName string `json:"storageClassName"`
+}
+
+func LoadConfig() ([]ShareConfig, error) {
+	path := filepath.Join(suite.RootDir(), "addons\\storage\\smb\\config\\SmbStorage.json")
+
+	config, err := internaljson.FromFile[[]ShareConfig](path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load config: %w", err)
+	}
+	return *config, nil
+}
 
 const (
 	addonName          = "storage"
@@ -298,9 +314,12 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 
 func expectLinuxWorkloadToRun(ctx context.Context) {
 	suite.Cluster().ExpectStatefulSetToBeReady(linuxWorkloadName, namespace, 1, ctx)
-
+	config, err := LoadConfig()
+	if err != nil {
+		Fail(fmt.Sprintf("Failed to load config: %v", err))
+	}
 	Eventually(os.IsFileYoungerThan).
-		WithArguments(testFileCheckInterval, k2s.GetWindowsNode(suite.SetupInfo().Config.Nodes()).ShareDir(), linuxTestfileName).
+		WithArguments(testFileCheckInterval, config[0].WindowsWorker, linuxTestfileName).
 		WithTimeout(testFileCheckTimeout).
 		WithPolling(suite.TestStepPollInterval()).
 		WithContext(ctx).
@@ -311,11 +330,14 @@ func expectWindowsWorkloadToRun(ctx context.Context) {
 	if skipWindowsWorkloads {
 		Skip("Linux-only setup")
 	}
-
+	config, err := LoadConfig()
+	if err != nil {
+		Fail(fmt.Sprintf("Failed to load config: %v", err))
+	}
 	suite.Cluster().ExpectStatefulSetToBeReady(windowsWorkloadName, namespace, 1, ctx)
 
 	Eventually(os.IsFileYoungerThan).
-		WithArguments(testFileCheckInterval, k2s.GetWindowsNode(suite.SetupInfo().Config.Nodes()).ShareDir(), windowsTestfileName).
+		WithArguments(testFileCheckInterval, config[0].WindowsWorker, windowsTestfileName).
 		WithTimeout(testFileCheckTimeout).
 		WithPolling(suite.TestStepPollInterval()).
 		WithContext(ctx).

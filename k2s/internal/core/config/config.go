@@ -27,7 +27,6 @@ type HostConfigReader interface {
 }
 
 type NodeConfigReader interface {
-	ShareDir() string
 	OsType() OsType
 	IpAddress() string
 	IsControlPlane() bool
@@ -45,7 +44,6 @@ type HostConfig struct {
 }
 
 type NodeConfig struct {
-	ShareDirectory      string
 	OperatingSystemType OsType
 	IpAddr              string
 	ControlPlane        bool
@@ -57,20 +55,14 @@ type configJson struct {
 }
 
 type smallSetup struct {
-	ShareDir             shareDir `json:"shareDir"`
-	ControlPlanIpAddress string   `json:"masterIP"`
-	Multivm              multivm  `json:"multivm"`
+	ControlPlanIpAddress string  `json:"masterIP"`
+	Multivm              multivm `json:"multivm"`
 }
 
 type configDir struct {
 	Kube string `json:"kube"`
 	K2s  string `json:"k2s"`
 	Ssh  string `json:"ssh"`
-}
-
-type shareDir struct {
-	WindowsWorker string `json:"windowsWorker"`
-	Master        string `json:"master"`
 }
 
 type multivm struct {
@@ -108,12 +100,10 @@ func LoadConfig(installDir string) (ConfigReader, error) {
 		},
 		NodesConfig: []NodeConfig{
 			{
-				ShareDirectory:      configJson.SmallSetup.ShareDir.WindowsWorker,
 				OperatingSystemType: OsTypeWindows,
 				IpAddr:              configJson.SmallSetup.Multivm.IpAddress,
 			},
 			{
-				ShareDirectory:      configJson.SmallSetup.ShareDir.Master,
 				OperatingSystemType: OsTypeLinux,
 				IpAddr:              configJson.SmallSetup.ControlPlanIpAddress,
 				ControlPlane:        true,
@@ -144,10 +134,6 @@ func (c HostConfig) K2sConfigDir() string {
 
 func (c HostConfig) SshDir() string {
 	return c.SshDirectory
-}
-
-func (c NodeConfig) ShareDir() string {
-	return c.ShareDirectory
 }
 
 func (c NodeConfig) OsType() OsType {
