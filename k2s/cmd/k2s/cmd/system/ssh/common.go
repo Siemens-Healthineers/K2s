@@ -19,7 +19,7 @@ import (
 )
 
 type commandHandler interface {
-	Handle(cmd string, psVersion powershell.PowerShellVersion) error
+	Handle(cmd string) error
 }
 
 type baseCommandProvider interface {
@@ -30,7 +30,7 @@ type baseCommandProvider interface {
 type remoteCommandHandler struct {
 	baseCommandProvider baseCommandProvider
 	processExecFunc     func(proc string) error
-	commandExecFunc     func(baseCmd, cmd string, psVersion powershell.PowerShellVersion) error
+	commandExecFunc     func(baseCmd, cmd string) error
 }
 
 var (
@@ -42,14 +42,13 @@ var (
 		return sshCmd.Run()
 	}
 
-	cmdOverSshExecFunc func(baseCmd, cmd string, psVersion powershell.PowerShellVersion) error = func(baseCmd, cmd string, psVersion powershell.PowerShellVersion) error {
+	cmdOverSshExecFunc func(baseCmd, cmd string) error = func(baseCmd, cmd string) error {
 		outputWriter := common.NewPtermWriter()
 		outputWriter.ShowProgress = false
 
 		cmdResult, err := powershell.ExecutePsWithStructuredResult[*common.CmdResult](
 			baseCmd,
 			"CmdResult",
-			psVersion,
 			outputWriter,
 			"-Command",
 			utils.EscapeWithDoubleQuotes(utils.EscapeWithDoubleQuotes(utils.EscapeDollar(cmd)))) //must be escaped doubled to be invoked properly from central Invoke-ExecScript.ps1
@@ -68,17 +67,17 @@ var (
 	}
 )
 
-func (r *remoteCommandHandler) Handle(cmd string, psVersion powershell.PowerShellVersion) error {
+func (r *remoteCommandHandler) Handle(cmd string) error {
 	if cmd == "" {
-		return r.startShell(psVersion)
+		return r.startShell()
 	}
-	return r.executeCommand(cmd, psVersion)
+	return r.executeCommand(cmd)
 }
 
-func (r *remoteCommandHandler) startShell(psVersion powershell.PowerShellVersion) error {
+func (r *remoteCommandHandler) startShell() error {
 	baseCommand := r.baseCommandProvider.getShellExecutorCommand()
 
-	err := r.commandExecFunc(baseCommand, "echo Connecting...", psVersion)
+	err := r.commandExecFunc(baseCommand, "echo Connecting...")
 	if err != nil {
 		return err
 	}
@@ -87,10 +86,10 @@ func (r *remoteCommandHandler) startShell(psVersion powershell.PowerShellVersion
 	return r.processExecFunc(shell)
 }
 
-func (r *remoteCommandHandler) executeCommand(cmd string, psVersion powershell.PowerShellVersion) error {
+func (r *remoteCommandHandler) executeCommand(cmd string) error {
 	baseCommand := r.baseCommandProvider.getShellExecutorCommand()
 
-	return r.commandExecFunc(baseCommand, cmd, psVersion)
+	return r.commandExecFunc(baseCommand, cmd)
 }
 
 func getRemoteCommandToExecute(argsLenAtDash int, args []string) (string, error) {

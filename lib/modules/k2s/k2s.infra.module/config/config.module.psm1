@@ -469,13 +469,6 @@ function Get-WindowsLocalSharePath {
     return $windowsLocalSharePath
 }
 
-function Get-WindowsVmIpAddress {
-    $rootConfig = Get-RootConfigk2s
-    $multivmRootConfig = $rootConfig.psobject.properties['multivm'].value
-    $multiVMWinNodeIP = $multivmRootConfig.psobject.properties['multiVMK8sWindowsVMIP'].value
-    return $multiVMWinNodeIP
-}
-
 function Get-MirrorRegistries {
     $rootConfig = Get-RootConfigk2s
     $mirrorRegistries = $rootConfig.psobject.properties['mirrorRegistries'].value
@@ -533,7 +526,6 @@ Get-DefaultTempPwd,
 Get-DefaultK8sVersion,
 Get-LinuxLocalSharePath,
 Get-WindowsLocalSharePath,
-Get-WindowsVmIpAddress,
 Get-ConfigWinBuildEnabledFlag,
 Set-ConfigWinBuildEnabledFlag,
 Get-ConfiguredClusterNetworkPrefix,

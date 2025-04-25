@@ -80,22 +80,14 @@ function Test-IsSmbShareWorking {
     }
 
     # validate setup type for SMB share as well
-    if ($setupInfo.Name -ne 'k2s' -and $setupInfo.Name -ne 'MultiVMK8s') {
+    if ($setupInfo.Name -ne 'k2s') {
         throw "Cannot determine if SMB share is working for invalid setup type '$($setupInfo.Name)'"
     }
 
     Test-SharedFolderMountOnWinNode
 
-    if ($setupInfo.Name -ne 'MultiVMK8s' -or $setupInfo.LinuxOnly -eq $true) {
-        $script:SmbShareWorking = $script:Success -eq $true
-        return
-    }
-
-    $session = Open-DefaultWinVMRemoteSessionViaSSHKey
-
-    $isWinVmSmbShareWorking = (Get-IsWinVmSmbShareWorking -Session $session)
-
-    $script:SmbShareWorking = $script:Success -eq $true -and $isWinVmSmbShareWorking -eq $true
+    $script:SmbShareWorking = $script:Success -eq $true
+    return
 }
 
 function Get-IsWinVmSmbShareWorking {
@@ -843,74 +835,6 @@ function Remove-SmbShareAndFolderLinuxHost {
     }
 }
 
-function Add-SharedFolderToWinVM {
-    param (
-        [parameter(Mandatory = $false)]
-        [ValidateSet('windows', 'linux')]
-        [string]$SmbHostType
-    )
-    Write-Log "Setting up shared folder (SMB client) on Win VM with host type '$SmbHostType'.."
-
-    $session = Open-DefaultWinVMRemoteSessionViaSSHKey
-
-    $isWinVmSmbShareWorking = (Get-IsWinVmSmbShareWorking -Session $session)
-
-    if ($isWinVmSmbShareWorking -eq $true) {
-        Write-Log 'Shared folder on Win VM already working, nothing to do.'
-        return
-    }
-
-    Write-Log 'Shared folder not set up on Win VM yet, setting it up now..'
-
-    Invoke-Command -Session $session {
-        Set-ExecutionPolicy Bypass -Force -ErrorAction Continue
-
-        $logModule = "$env:SystemDrive/k/lib/modules/k2s/k2s.infra.module/log/log.module.psm1"
-        $smbShareModule = "$env:SystemDrive\k\addons\storage\module\Smb-share.module.psm1"
-
-        Import-Module $logModule, $smbShareModule
-        
-        Initialize-Logging -Nested:$true
-
-        Connect-WinVMClientToSmbHost -SmbHostType:$using:SmbHostType
-
-        $isWorking = Test-SharedFolderMountOnWinNodeSilently
-
-        if ($isWorking -ne $true) {
-            throw 'Shared folder on Windows WM not working.'
-        }
-    }
-
-    Write-Log 'Shared folder on Win VM set up.'
-}
-
-function Remove-SharedFolderFromWinVM {
-    param (
-        [Parameter(Mandatory = $false)]
-        [string]
-        $RemotePath = $(throw 'RemotePath not specified')
-    )
-    Write-Log 'Removing shared folder (SMB client) mapping to '$RemotePath' on Win VM..'
-
-    $session = Open-DefaultWinVMRemoteSessionViaSSHKey
-
-    Invoke-Command -Session $session {
-        Set-ExecutionPolicy Bypass -Force -ErrorAction Continue
-
-        $logModule = "$env:SystemDrive/k/lib/modules/k2s/k2s.infra.module/log/log.module.psm1"
-        $smbShareModule = "$env:SystemDrive\k\addons\storage\module\Smb-share.module.psm1"
-
-        Import-Module $logModule, $smbShareModule
-
-        Initialize-Logging -Nested:$true
-
-        Remove-SmbGlobalMappingIfExisting -RemotePath $using:RemotePath
-        Remove-LocalWinMountIfExisting
-    }
-
-    Write-Log 'Shared folder on Win VM removed.'
-}
-
 function Remove-SmbShareAndFolder() {
     param (
         [parameter(Mandatory = $false)]
@@ -941,11 +865,6 @@ function Remove-SmbShareAndFolder() {
 
     if ($SkipNodesCleanup -eq $true) {
         return
-    }
-
-    if ($setupInfo.Name -eq 'MultiVMK8s' -and $setupInfo.LinuxOnly -ne $true) {
-        Write-Log 'Removing shared folder from Win VM..'
-        Remove-SharedFolderFromWinVM -RemotePath $remotePath
     }
 }
 
@@ -1120,10 +1039,6 @@ function Restore-SmbShareAndFolder {
         Default {
             throw "invalid SMB host type '$SmbHostType'"
         }
-    }
-
-    if ($SetupInfo.Name -eq 'MultiVMK8s' -and $SetupInfo.LinuxOnly -ne $true) {
-        Add-SharedFolderToWinVM -SmbHostType $SmbHostType
     }
 }
 

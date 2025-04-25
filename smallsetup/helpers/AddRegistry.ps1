@@ -183,46 +183,6 @@ if ($setupInfo.Name -eq $global:SetupType_k2s -or $setupInfo.Name -eq $global:Se
 
     Restart-Services -setupType $setupInfo.Name
 }
-elseif ($setupInfo.Name -eq $global:SetupType_MultiVMK8s -and !$($setupInfo.LinuxOnly)) {
-    $session = Open-RemoteSessionViaSSHKey $global:Admin_WinNode $global:WindowsVMKey
-
-    Invoke-Command -Session $session {
-        Set-Location "$env:SystemDrive\k"
-        Set-ExecutionPolicy Bypass -Force -ErrorAction Stop
-
-        &$env:SystemDrive\k\smallsetup\common\GlobalVariables.ps1
-        . $env:SystemDrive\k\smallsetup\common\GlobalFunctions.ps1
-
-        $registryFunctionsModule = "$env:SystemDrive\k\smallsetup\helpers\RegistryFunctions.module.psm1"
-        $logModule = "$env:SystemDrive\k\smallsetup\ps-modules\log\log.module.psm1"
-        Import-Module $registryFunctionsModule, $logModule -DisableNameChecking
-        Initialize-Logging -Nested:$true
-
-        &"$global:NssmInstallDirectory\nssm" set docker AppParameters --exec-opt isolation=process --data-root 'C:\docker' --log-level debug --allow-nondistributable-artifacts "$using:RegistryName" --insecure-registry "$using:RegistryName" | Out-Null
-        if ($(Get-Service -Name 'docker' -ErrorAction SilentlyContinue).Status -eq 'Running') {
-            &"$global:NssmInstallDirectory\nssm" restart docker
-        }
-        else {
-            &"$global:NssmInstallDirectory\nssm" start docker
-        }
-
-        Login-Docker -username $using:username -password $using:password -registry $using:RegistryName
-    }
-
-    Invoke-Command -Session $session -ScriptBlock ${Function:Set-Containerd-Config} -ArgumentList $RegistryName, $authJson
-    Invoke-Command -Session $session -ScriptBlock ${Function:Restart-Services} -ArgumentList $setupInfo.Name
-
-    if (!$?) {
-        $errMsg = "Login to registry $RegistryName not possible, please check credentials."
-        if ($EncodeStructuredOutput -eq $true) {
-            $err = New-Error -Code 'registry-login-impossible' -Message $errMsg
-            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
-            return
-        }
-        Write-Log $errMsg -Error
-        exit 1
-    }
-}
 
 Set-ConfigValue -Path $global:SetupJsonFile -Key $global:ConfigKey_LoggedInRegistry -Value $RegistryName
 Add-RegistryToSetupJson -Name $RegistryName

@@ -56,14 +56,14 @@ func uninstallk8s(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	uninstallCmd, err := buildUninstallCmd(cmd.Flags(), config.SetupName)
+	uninstallCmd, err := buildUninstallCmd(cmd.Flags(), config)
 	if err != nil {
 		return err
 	}
 
 	slog.Debug("PS command created", "command", uninstallCmd)
 
-	err = powershell.ExecutePs(uninstallCmd, common.DeterminePsVersion(config), common.NewPtermWriter())
+	err = powershell.ExecutePs(uninstallCmd, common.NewPtermWriter())
 	if err != nil {
 		return err
 	}
@@ -73,7 +73,7 @@ func uninstallk8s(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func buildUninstallCmd(flags *pflag.FlagSet, setupName setupinfo.SetupName) (string, error) {
+func buildUninstallCmd(flags *pflag.FlagSet, config *setupinfo.Config) (string, error) {
 	skipPurgeFlag, err := strconv.ParseBool(flags.Lookup(skipPurge).Value.String())
 	if err != nil {
 		return "", err
@@ -93,15 +93,18 @@ func buildUninstallCmd(flags *pflag.FlagSet, setupName setupinfo.SetupName) (str
 
 	var cmd string
 
-	switch setupName {
+	switch config.SetupName {
 	case setupinfo.SetupNamek2s:
-		cmd = buildk2sUninstallCmd(skipPurgeFlag, outputFlag, additionalHooksDir, deleteFilesForOfflineInstallation)
+		if config.LinuxOnly {
+			cmd = buildLinuxOnlyUninstallCmd(skipPurgeFlag, outputFlag, additionalHooksDir, deleteFilesForOfflineInstallation)
+		} else {
+			cmd = buildk2sUninstallCmd(skipPurgeFlag, outputFlag, additionalHooksDir, deleteFilesForOfflineInstallation)
+		}
 	case setupinfo.SetupNameBuildOnlyEnv:
 		cmd = buildBuildOnlyUninstallCmd(outputFlag, deleteFilesForOfflineInstallation)
-	case setupinfo.SetupNameMultiVMK8s:
-		cmd = buildMultiVMUninstallCmd(skipPurgeFlag, outputFlag, additionalHooksDir, deleteFilesForOfflineInstallation)
+
 	default:
-		slog.Warn("Uninstall", "Found invalid setup type", string(setupName))
+		slog.Warn("Uninstall", "Found invalid setup type", string(config.SetupName))
 		pterm.Warning.Printfln("could not determine the setup type, proceeding uninstall with default variant 'k2s'")
 		cmd = buildk2sUninstallCmd(skipPurgeFlag, outputFlag, additionalHooksDir, deleteFilesForOfflineInstallation)
 	}
@@ -145,8 +148,8 @@ func buildBuildOnlyUninstallCmd(showLogs bool, deleteFilesForOfflineInstallation
 	return cmd
 }
 
-func buildMultiVMUninstallCmd(skipPurge bool, showLogs bool, additionalHooksDir string, deleteFilesForOfflineInstallation bool) string {
-	cmd := utils.FormatScriptFilePath(utils.InstallDir() + "\\lib\\scripts\\multivm\\uninstall\\uninstall.ps1")
+func buildLinuxOnlyUninstallCmd(skipPurge bool, showLogs bool, additionalHooksDir string, deleteFilesForOfflineInstallation bool) string {
+	cmd := utils.FormatScriptFilePath(utils.InstallDir() + "\\lib\\scripts\\linuxonly\\uninstall\\uninstall.ps1")
 
 	if skipPurge {
 		cmd += " -SkipPurge"

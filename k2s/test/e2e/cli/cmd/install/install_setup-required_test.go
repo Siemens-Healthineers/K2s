@@ -38,7 +38,6 @@ var _ = Describe("install commands", func() {
 		},
 		Entry(nil, "install"),
 		Entry(nil, "install", "--linux-only"),
-		Entry(nil, "install", "multivm"),
 		Entry(nil, "install", "buildonly"),
 	)
 })

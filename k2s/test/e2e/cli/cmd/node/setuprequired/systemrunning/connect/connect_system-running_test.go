@@ -19,7 +19,6 @@ import (
 
 	"github.com/shirou/gopsutil/v3/process"
 	"github.com/siemens-healthineers/k2s/test/framework"
-	"github.com/siemens-healthineers/k2s/test/framework/k2s"
 )
 
 const (
@@ -51,8 +50,8 @@ func TestConnect(t *testing.T) {
 var _ = BeforeSuite(func(ctx context.Context) {
 	suite = framework.Setup(ctx, framework.SystemMustBeRunning, framework.ClusterTestStepPollInterval(100*time.Millisecond))
 
-	// TODO: remove when multivm connects with same SSH key to win node as to control-plane
-	skipWinNodeTests = true //suite.SetupInfo().SetupConfig.SetupName != setupinfo.SetupNameMultiVMK8s || suite.SetupInfo().SetupConfig.LinuxOnly
+	// TODO: remove when adding Win nodes is supported
+	skipWinNodeTests = true //suite.SetupInfo().SetupConfig.LinuxOnly
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
@@ -70,7 +69,7 @@ var _ = Describe("node connect", Ordered, func() {
 				Skip(automatedExecutionSkipMessage)
 			}
 
-			nodeIpAddress = k2s.GetControlPlane(suite.SetupInfo().Config.Nodes()).IpAddress()
+			nodeIpAddress = suite.SetupInfo().Config.ControlPlane().IpAddress()
 
 			GinkgoWriter.Println("Using control-plane node IP address <", nodeIpAddress, ">")
 		})
@@ -113,10 +112,11 @@ var _ = Describe("node connect", Ordered, func() {
 				Skip(automatedExecutionSkipMessage)
 			}
 			if skipWinNodeTests {
-				Skip("Windows node tests are skipped")
+				Skip("Windows node tests are disabled")
 			}
 
-			nodeIpAddress = k2s.GetWindowsNode(suite.SetupInfo().Config.Nodes()).IpAddress()
+			// TODO: remove when adding Win nodes is supported
+			nodeIpAddress = "" //k2s.GetWindowsNode(suite.SetupInfo().Config.Nodes()).IpAddress()
 
 			GinkgoWriter.Println("Using windows node IP address <", nodeIpAddress, ">")
 		})

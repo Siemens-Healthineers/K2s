@@ -89,11 +89,11 @@ func pullImage(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if config.SetupName == setupinfo.SetupNameMultiVMK8s && pullForWindows {
-		return common.CreateFunctionalityNotAvailableCmdFailure(config.SetupName)
+	if config.LinuxOnly && pullForWindows {
+		return common.CreateFuncUnavailableForLinuxOnlyCmdFailure()
 	}
 
-	cmdResult, err := powershell.ExecutePsWithStructuredResult[*common.CmdResult](psCmd, "CmdResult", common.DeterminePsVersion(config), common.NewPtermWriter(), params...)
+	cmdResult, err := powershell.ExecutePsWithStructuredResult[*common.CmdResult](psCmd, "CmdResult", common.NewPtermWriter(), params...)
 	if err != nil {
 		return err
 	}

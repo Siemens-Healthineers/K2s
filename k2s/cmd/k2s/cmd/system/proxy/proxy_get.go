@@ -28,14 +28,14 @@ var proxyGetCmd = &cobra.Command{
 
 func getProxyServer(cmd *cobra.Command, args []string) error {
 	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
-	config, err := setupinfo.ReadConfig(context.Config().Host().K2sConfigDir())
+	_, err := setupinfo.ReadConfig(context.Config().Host().K2sConfigDir())
 	if err != nil {
 		return err
 	}
 
 	psCmd := utils.FormatScriptFilePath(path.Join(utils.InstallDir(), "lib", "scripts", "k2s", "system", "proxy", "GetProxy.ps1"))
 	var params []string
-	proxy, err := powershell.ExecutePsWithStructuredResult[*ProxyServer](psCmd, "ProxyServer", common.DeterminePsVersion(config), common.NewPtermWriter(), params...)
+	proxy, err := powershell.ExecutePsWithStructuredResult[*ProxyServer](psCmd, "ProxyServer", common.NewPtermWriter(), params...)
 	if err != nil {
 		return err
 	}
