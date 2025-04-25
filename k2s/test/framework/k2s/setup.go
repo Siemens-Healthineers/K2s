@@ -10,8 +10,6 @@ import (
 	"strings"
 
 	//lint:ignore ST1001 test framework code
-	. "github.com/onsi/ginkgo/v2"
-	//lint:ignore ST1001 test framework code
 	. "github.com/onsi/gomega"
 	"github.com/siemens-healthineers/k2s/internal/core/clusterconfig"
 	"github.com/siemens-healthineers/k2s/internal/core/config"
@@ -69,32 +67,6 @@ func (si *SetupInfo) GetProxyForNode(nodeName string) string {
 	return proxy
 }
 
-func GetWindowsNode(nodes config.NodesConfigReader) config.NodeConfigReader {
-	for _, node := range nodes {
-		if node.OsType() == config.OsTypeWindows {
-			GinkgoWriter.Println("Returning first Windows node found in config")
-
-			return node
-		}
-	}
-
-	Fail("No Windows node config found")
-
-	return config.NodeConfig{}
-}
-
-func GetControlPlane(nodes config.NodesConfigReader) config.NodeConfigReader {
-	for _, node := range nodes {
-		if node.IsControlPlane() {
-			return node
-		}
-	}
-
-	Fail("No control-plane config found")
-
-	return config.NodeConfig{}
-}
-
 func getWinNodeName(setupName setupinfo.SetupName) (string, error) {
 	switch setupName {
 	case setupinfo.SetupNamek2s:
@@ -103,8 +75,6 @@ func getWinNodeName(setupName setupinfo.SetupName) (string, error) {
 			return "", err
 		}
 		return strings.ToLower(name), nil
-	case setupinfo.SetupNameMultiVMK8s:
-		return "winnode", nil
 	default:
 		return "", errors.New("no setup type defined")
 	}

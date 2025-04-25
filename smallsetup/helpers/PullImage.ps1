@@ -49,50 +49,6 @@ if (!$Windows) {
     return
 }
 
-$setupInfo = Get-SetupInfo
-
-if ($setupInfo.Name -eq "$global:SetupType_MultiVMK8s") {
-    if ($setupInfo.LinuxOnly -eq $true) {
-        $errMsg = 'Windows image pull option is not possible for a Linux-only setup.'
-        if ($EncodeStructuredOutput -eq $true) {
-            $err = New-Error -Severity Warning -Code (Get-ErrCodeWrongSetupType) -Message $errMsg
-            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
-            return
-        }
-        Write-Log $errMsg -Error
-        exit 1
-    }
-
-    $retries = 5
-    $success = $false
-    while ($retries -gt 0) {
-        $retries--
-        ssh.exe -o StrictHostKeyChecking=no -i $global:WindowsVMKey $global:Admin_WinNode crictl pull $ImageName
-
-        if ($?) {
-            $success = $true
-            break
-        }
-        Start-Sleep 1
-    }
-
-    if (!$success) {
-        $errMsg = "Error pulling image '$ImageName'"
-        if ($EncodeStructuredOutput -eq $true) {
-            $err = New-Error -Code 'image-pull-failed' -Message $errMsg
-            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
-            return
-        }
-
-        Write-Log $errMsg -Error
-        exit 1
-    }
-    if ($EncodeStructuredOutput -eq $true) {
-        Send-ToCli -MessageType $MessageType -Message @{Error = $null }
-    }
-    return
-}
-
 $retries = 5
 $success = $false
 

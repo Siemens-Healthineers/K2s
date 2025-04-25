@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -19,17 +19,6 @@ Show all logs in terminal
 
 .PARAMETER AdditionalHooksDir
 Directory containing additional hooks to be executed after local hooks are executed.
-
-.EXAMPLE
-PS> .\lib\scripts\multivm\stop\Stop.ps1
-
-.EXAMPLE
-PS> .\lib\scripts\multivm\stop\Stop.ps1 -HideHeaders $true
-Header log entries will not be written/logged to the console.
-
-.EXAMPLE
-PS> .\lib\scripts\multivm\stop\Stop.ps1 -AdditonalHooks 'C:\AdditionalHooks'
-For specifying additional hooks to be executed.
 #>
 
 param(
@@ -50,38 +39,23 @@ Initialize-Logging -ShowLogs:$ShowLogs
 
 $ErrorActionPreference = 'Continue'
 
-if ($(Get-ConfigLinuxOnly) -eq $true) {
-    $installationType = 'Linux-only'
-} else {
-    $installationType = 'Multi-VM'
-}
-
 if ($HideHeaders -eq $false) {
-    Write-Log "Stopping $installationType K2s"
+    Write-Log 'Stopping Linux-only K2s'
 }
 
 Invoke-Hook -HookName 'BeforeStopK8sNetwork' -AdditionalHooksDir $AdditionalHooksDir
-
-if ($(Get-ConfigLinuxOnly) -eq $false) {
-    $workerNodeParams = @{
-        HideHeaders = $HideHeaders
-        ShowLogs = $ShowLogs
-        AdditionalHooksDir = $AdditionalHooksDir
-    }
-    & "$PSScriptRoot\..\..\worker\windows\hyper-v-vm\Stop.ps1" @workerNodeParams
-}
 
 Invoke-Hook -HookName 'AfterStopK8sNetwork' -AdditionalHooksDir $AdditionalHooksDir
 
 $controlPlaneParams = " -AdditionalHooksDir '$AdditionalHooksDir'"
 if ($HideHeaders.IsPresent) {
-    $controlPlaneParams += " -SkipHeaderDisplay"
+    $controlPlaneParams += ' -SkipHeaderDisplay'
 }
 if ($ShowLogs.IsPresent) {
-    $controlPlaneParams += " -ShowLogs"
+    $controlPlaneParams += ' -ShowLogs'
 }
 & powershell.exe "$PSScriptRoot\..\..\control-plane\Stop.ps1" $controlPlaneParams
 
 if ($HideHeaders -eq $false) {
-    Write-Log "K2s $installationType stopped."
+    Write-Log 'K2s Linux-only stopped.'
 }

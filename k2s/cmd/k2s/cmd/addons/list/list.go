@@ -61,8 +61,7 @@ func listAddons(cmd *cobra.Command, allAddons addons.Addons) error {
 	}
 
 	context := cmd.Context().Value(cc.ContextKeyCmdContext).(*cc.CmdContext)
-	config, err := setupinfo.ReadConfig(context.Config().Host().K2sConfigDir())
-	psVersion := powershell.DefaultPsVersions
+	_, err = setupinfo.ReadConfig(context.Config().Host().K2sConfigDir())
 	if err != nil {
 		if errors.Is(err, setupinfo.ErrSystemInCorruptedState) {
 			return cc.CreateSystemInCorruptedStateCmdFailure()
@@ -70,23 +69,21 @@ func listAddons(cmd *cobra.Command, allAddons addons.Addons) error {
 		if !errors.Is(err, setupinfo.ErrSystemNotInstalled) {
 			return err
 		}
-		slog.Info("Setup not installed, falling back to default PowerShell version", "error", err, "version", psVersion)
-	} else {
-		psVersion = cc.DeterminePsVersion(config)
+		slog.Info("Setup not installed, falling back to default PowerShell version", "error", err)
 	}
 
 	if outputOption == jsonOption {
-		return printAddonsAsJson(allAddons, psVersion)
+		return printAddonsAsJson(allAddons)
 	}
 
-	return printAddonsUserFriendly(allAddons, psVersion)
+	return printAddonsUserFriendly(allAddons)
 }
 
-func printAddonsAsJson(allAddons addons.Addons, psVersion powershell.PowerShellVersion) error {
+func printAddonsAsJson(allAddons addons.Addons) error {
 	terminalPrinter := terminal.NewTerminalPrinter()
 	addonsPrinter := print.NewAddonsPrinter(terminalPrinter)
 
-	enabledAddons, err := loadEnabledAddons(psVersion)
+	enabledAddons, err := loadEnabledAddons()
 	if err != nil {
 		return err
 	}
@@ -98,7 +95,7 @@ func printAddonsAsJson(allAddons addons.Addons, psVersion powershell.PowerShellV
 	return nil
 }
 
-func printAddonsUserFriendly(allAddons addons.Addons, psVersion powershell.PowerShellVersion) error {
+func printAddonsUserFriendly(allAddons addons.Addons) error {
 	terminalPrinter := terminal.NewTerminalPrinter()
 	addonsPrinter := print.NewAddonsPrinter(terminalPrinter)
 
@@ -107,7 +104,7 @@ func printAddonsUserFriendly(allAddons addons.Addons, psVersion powershell.Power
 		return err
 	}
 
-	enabledAddons, err := loadEnabledAddons(psVersion)
+	enabledAddons, err := loadEnabledAddons()
 
 	cc.StopSpinner(spinner)
 
@@ -126,11 +123,11 @@ func printAddonsUserFriendly(allAddons addons.Addons, psVersion powershell.Power
 	return nil
 }
 
-func loadEnabledAddons(psVersion powershell.PowerShellVersion) ([]print.EnabledAddon, error) {
+func loadEnabledAddons() ([]print.EnabledAddon, error) {
 	scriptPath := filepath.Join(utils.InstallDir(), addons.AddonsDirName, "Get-EnabledAddons.ps1")
 	formattedPath := utils.FormatScriptFilePath(scriptPath)
 
-	enabledAddons, err := powershell.ExecutePsWithStructuredResult[[]print.EnabledAddon](formattedPath, "EnabledAddons", psVersion, cc.NewPtermWriter())
+	enabledAddons, err := powershell.ExecutePsWithStructuredResult[[]print.EnabledAddon](formattedPath, "EnabledAddons", cc.NewPtermWriter())
 	if err != nil {
 		return nil, fmt.Errorf("could not load enabled addons: %s", err)
 	}

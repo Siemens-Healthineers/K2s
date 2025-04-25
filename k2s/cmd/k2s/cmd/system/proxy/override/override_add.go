@@ -23,7 +23,7 @@ var overrideAddCmd = &cobra.Command{
 
 func overrideAdd(cmd *cobra.Command, args []string) error {
 	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
-	config, err := setupinfo.ReadConfig(context.Config().Host().K2sConfigDir())
+	_, err := setupinfo.ReadConfig(context.Config().Host().K2sConfigDir())
 	if err != nil {
 		return err
 	}
@@ -39,14 +39,9 @@ func overrideAdd(cmd *cobra.Command, args []string) error {
 
 	var params []string
 
-	result, err := powershell.ExecutePsWithStructuredResult[*common.CmdResult](psCmd, "ProxyOverrides", common.DeterminePsVersion(config), common.NewPtermWriter(), params...)
+	result, err := powershell.ExecutePsWithStructuredResult[*common.CmdResult](psCmd, "ProxyOverrides", common.NewPtermWriter(), params...)
 	if err != nil {
 		return err
 	}
-
-	if result.Failure != nil {
-		return fmt.Errorf(result.Failure.Error())
-	}
-
-	return nil
+	return result.Failure
 }

@@ -11,7 +11,6 @@ function Confirm-SetupNameIsValid {
     )
     $validationError = switch ( $SetupName ) {
         'k2s' { $null }
-        'MultiVMK8s' { $null }
         'BuildOnlyEnv' { $null }
         $null { Get-ErrCodeSystemNotInstalled }
         '' { Get-ErrCodeSystemNotInstalled }

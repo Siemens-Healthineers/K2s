@@ -5,6 +5,7 @@ package stop
 
 import (
 	"errors"
+	"fmt"
 	"log/slog"
 	"strconv"
 
@@ -51,20 +52,20 @@ func stopk8s(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	err = stopAdditionalNodes(context, cmd.Flags(), config)
+	err = stopAdditionalNodes(context, cmd.Flags())
 	if err != nil {
 		// Stop of additional nodes shall not impact the k2s cluster stop, any errors during stop should be treated as warnings.
 		slog.Warn("Failures during stopping of additional nodes", "err", err)
 	}
 
-	stopCmd, err := buildStopCmd(cmd.Flags(), config.SetupName)
+	stopCmd, err := buildStopCmd(cmd.Flags(), config)
 	if err != nil {
 		return err
 	}
 
 	slog.Debug("PS command created", "command", stopCmd)
 
-	err = powershell.ExecutePs(stopCmd, common.DeterminePsVersion(config), common.NewPtermWriter())
+	err = powershell.ExecutePs(stopCmd, common.NewPtermWriter())
 	if err != nil {
 		return err
 	}
@@ -74,7 +75,7 @@ func stopk8s(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func buildStopCmd(flags *pflag.FlagSet, setupName setupinfo.SetupName) (string, error) {
+func buildStopCmd(flags *pflag.FlagSet, config *setupinfo.Config) (string, error) {
 	outputFlag, err := strconv.ParseBool(flags.Lookup(common.OutputFlagName).Value.String())
 	if err != nil {
 		return "", err
@@ -89,19 +90,18 @@ func buildStopCmd(flags *pflag.FlagSet, setupName setupinfo.SetupName) (string, 
 
 	var cmd string
 
-	switch setupName {
+	switch config.SetupName {
 	case setupinfo.SetupNamek2s:
-		cmd = utils.FormatScriptFilePath(utils.InstallDir() + "\\lib\\scripts\\k2s\\stop\\stop.ps1")
+		setup := "k2s"
+		if config.LinuxOnly {
+			setup = "linuxonly"
+		}
+		cmd = utils.FormatScriptFilePath(fmt.Sprintf("%s\\lib\\scripts\\%s\\stop\\stop.ps1", utils.InstallDir(), setup))
 		if additionalHooksdir != "" {
 			cmd += " -AdditionalHooksDir " + utils.EscapeWithSingleQuotes(additionalHooksdir)
 		}
-		if cacheVSwitches {
+		if cacheVSwitches && !config.LinuxOnly {
 			cmd += " -CacheK2sVSwitches"
-		}
-	case setupinfo.SetupNameMultiVMK8s:
-		cmd = utils.FormatScriptFilePath(utils.InstallDir() + "\\lib\\scripts\\multivm\\stop\\stop.ps1")
-		if additionalHooksdir != "" {
-			cmd += " -AdditionalHooksDir " + utils.EscapeWithSingleQuotes(additionalHooksdir)
 		}
 	case setupinfo.SetupNameBuildOnlyEnv:
 		return "", errors.New("there is no cluster to stop in build-only setup mode ;-). Aborting")
@@ -116,9 +116,8 @@ func buildStopCmd(flags *pflag.FlagSet, setupName setupinfo.SetupName) (string, 
 	return cmd, nil
 }
 
-func stopAdditionalNodes(context *common.CmdContext, flags *pflag.FlagSet, config *setupinfo.Config) error {
-
-	systemStatus, err := status.LoadStatus(common.DeterminePsVersion(config))
+func stopAdditionalNodes(context *common.CmdContext, flags *pflag.FlagSet) error {
+	systemStatus, err := status.LoadStatus()
 	if err != nil || !systemStatus.RunningState.IsRunning {
 		// Nothing to do if system is not running
 		return nil
@@ -138,7 +137,7 @@ func stopAdditionalNodes(context *common.CmdContext, flags *pflag.FlagSet, confi
 
 		slog.Debug("PS command created", "command", startNodeCmd)
 
-		err = powershell.ExecutePs(startNodeCmd, common.DeterminePsVersion(config), common.NewPtermWriter())
+		err = powershell.ExecutePs(startNodeCmd, common.NewPtermWriter())
 		if err != nil {
 			slog.Warn("Failure during stop of node", "node", node.Name, "err", err)
 		}

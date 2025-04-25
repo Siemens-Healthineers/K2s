@@ -56,7 +56,6 @@ func removeNode(ccmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	psVersion := common.DeterminePsVersion(config)
 	addNodeCmd, err := buildRemoveNodeCmd(ccmd.Flags(), config.SetupName)
 	if err != nil {
 		return err
@@ -65,7 +64,7 @@ func removeNode(ccmd *cobra.Command, args []string) error {
 	pterm.Printfln("🤖 Removing node from K2s cluster")
 	slog.Debug("PS command created", "command", addNodeCmd)
 
-	err = powershell.ExecutePs(addNodeCmd, psVersion, common.NewPtermWriter())
+	err = powershell.ExecutePs(addNodeCmd, common.NewPtermWriter())
 	if err != nil {
 		return err
 	}

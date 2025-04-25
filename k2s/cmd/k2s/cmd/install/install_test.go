@@ -65,7 +65,7 @@ var _ = Describe("install", func() {
 			})
 		})
 
-		When("not Linux-only", func() {
+		When("successful", func() {
 			It("calls installer", func() {
 				cmd := &cobra.Command{}
 				flags := cmd.Flags()
@@ -79,25 +79,6 @@ var _ = Describe("install", func() {
 				Expect(install(cmd, nil)).To(Succeed())
 
 				installerMock.AssertExpectations(GinkgoT())
-			})
-		})
-
-		When("Linux-only", func() {
-			It("calls multivm installer", func() {
-				cmd := &cobra.Command{}
-				flags := cmd.Flags()
-				flags.Bool(ic.LinuxOnlyFlagName, true, "")
-				args := []string{"test"}
-				installMultiVmCalled := false
-
-				installMultiVmFunc = func(c *cobra.Command, a []string) error {
-					installMultiVmCalled = cmd == c && a[0] == "test"
-					return nil
-				}
-
-				Expect(install(cmd, args)).To(Succeed())
-
-				Expect(installMultiVmCalled).To(BeTrue())
 			})
 		})
 	})

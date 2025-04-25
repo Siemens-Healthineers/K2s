@@ -15,8 +15,6 @@ import (
 	"github.com/siemens-healthineers/k2s/test/framework/k2s/cli"
 	"github.com/siemens-healthineers/k2s/test/framework/os"
 
-	"github.com/siemens-healthineers/k2s/test/framework/k2s"
-
 	"encoding/json"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -300,7 +298,7 @@ func expectLinuxWorkloadToRun(ctx context.Context) {
 	suite.Cluster().ExpectStatefulSetToBeReady(linuxWorkloadName, namespace, 1, ctx)
 
 	Eventually(os.IsFileYoungerThan).
-		WithArguments(testFileCheckInterval, k2s.GetWindowsNode(suite.SetupInfo().Config.Nodes()).ShareDir(), linuxTestfileName).
+		WithArguments(testFileCheckInterval, suite.SetupInfo().Config.Nodes().ShareDir().WindowsDir(), linuxTestfileName).
 		WithTimeout(testFileCheckTimeout).
 		WithPolling(suite.TestStepPollInterval()).
 		WithContext(ctx).
@@ -315,7 +313,7 @@ func expectWindowsWorkloadToRun(ctx context.Context) {
 	suite.Cluster().ExpectStatefulSetToBeReady(windowsWorkloadName, namespace, 1, ctx)
 
 	Eventually(os.IsFileYoungerThan).
-		WithArguments(testFileCheckInterval, k2s.GetWindowsNode(suite.SetupInfo().Config.Nodes()).ShareDir(), windowsTestfileName).
+		WithArguments(testFileCheckInterval, suite.SetupInfo().Config.Nodes().ShareDir().WindowsDir(), windowsTestfileName).
 		WithTimeout(testFileCheckTimeout).
 		WithPolling(suite.TestStepPollInterval()).
 		WithContext(ctx).

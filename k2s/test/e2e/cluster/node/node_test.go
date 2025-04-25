@@ -15,6 +15,8 @@ import (
 	"testing"
 	"time"
 
+	kos "github.com/siemens-healthineers/k2s/internal/os"
+
 	"github.com/siemens-healthineers/k2s/test/framework"
 	"github.com/siemens-healthineers/k2s/test/framework/dsl"
 	v1 "k8s.io/api/core/v1"
@@ -32,8 +34,6 @@ const (
 
 var suite *framework.K2sTestSuite
 var k2s *dsl.K2s
-
-var kubectlPath string
 
 var linuxNodes []string
 var windowsNodes []string
@@ -59,11 +59,13 @@ var _ = BeforeSuite(func(ctx context.Context) {
 	k2s = dsl.NewK2s(suite)
 
 	suite.SetupInfo().LoadClusterConfig()
-	kubectlPath = filepath.Join(suite.RootDir(), "bin", "kube", "kubectl.exe")
 	GinkgoWriter.Println("Getting available nodes on cluster..")
 
 	linuxNodes = getNodes(ctx, linux)
 	windowsNodes = getNodes(ctx, windows)
+
+	GinkgoWriter.Println("Found Linux nodes:", linuxNodes, len(linuxNodes))
+	GinkgoWriter.Println("Found Windows nodes:", windowsNodes, len(windowsNodes))
 
 	linuxImage := "shsk2s.azurecr.io/example.albums-golang-linux:v1.0.0"
 	windowsImage := "shsk2s.azurecr.io/example.albums-golang-win:v1.0.0"
@@ -193,8 +195,7 @@ var _ = Describe("Node Communication Core", func() {
 })
 
 func applyDeployments(ctx context.Context) {
-
-	command := fmt.Sprintf("%s create ns %s --dry-run=client -o yaml | kubectl apply -f -", kubectlPath, namespace)
+	command := fmt.Sprintf("%s create ns %s --dry-run=client -o yaml | kubectl apply -f -", suite.Kubectl().Path(), namespace)
 	suite.Cli().ExecOrFail(ctx, "cmd.exe", "/c", command)
 
 	overlayLinuxDir, overlayWinDir, linuxDirs, winDirs := getDeploymentDirs()
@@ -223,7 +224,12 @@ func deleteDeployments(ctx context.Context) {
 
 func getNodes(ctx context.Context, osType string) []string {
 	output := suite.Kubectl().Run(ctx, "get", "nodes", "-l", fmt.Sprintf("kubernetes.io/os=%s", osType), "-o", "jsonpath={range .items[*]}{.metadata.name}{'\\n'}{end}")
-	return strings.Split(strings.TrimSpace(string(output)), "\n")
+	output = strings.TrimSpace(output)
+
+	if output == "" {
+		return []string{}
+	}
+	return strings.Split(output, "\n")
 }
 
 func generateDeployments(outputDir string, nodes []string, image, clusterIPBase string, osType string) {
@@ -348,17 +354,24 @@ func getDeploymentDirs() (string, string, []fs.DirEntry, []fs.DirEntry) {
 	overlayLinuxDir := filepath.Join(baseDeployDir, "linux")
 	overlayWinDir := filepath.Join(baseDeployDir, "windows")
 
-	linuxDirs, err := os.ReadDir(overlayLinuxDir)
-	if err != nil {
-		GinkgoWriter.Println("Error", err)
-		Fail("Unable to read linux base deployment directory")
+	var err error
+	linuxDirs := []fs.DirEntry{}
+	winDirs := []fs.DirEntry{}
+
+	if kos.PathExists(overlayLinuxDir) {
+		linuxDirs, err = os.ReadDir(overlayLinuxDir)
+		if err != nil {
+			Fail(fmt.Sprintf("Unable to read linux base deployment directory: %s", err))
+		}
 	}
 
-	winDirs, err := os.ReadDir(overlayWinDir)
-	if err != nil {
-		GinkgoWriter.Println("Error", err)
-		Fail("Unable to read windows base deployment directory")
+	if kos.PathExists(overlayWinDir) {
+		winDirs, err = os.ReadDir(overlayWinDir)
+		if err != nil {
+			Fail(fmt.Sprintf("Unable to read windows base deployment directory: %s", err))
+		}
 	}
+
 	return overlayLinuxDir, overlayWinDir, linuxDirs, winDirs
 }
 
@@ -462,10 +475,10 @@ func checkInternetCommunication(ctx context.Context, pod v1.Pod, sidecarName str
 	command := ""
 	if sidecarName != "" {
 		// For Linux, use curl-sidecar
-		command = fmt.Sprintf("%s exec %s -n %s -c %s -- curl -si --insecure -x %s www.msftconnecttest.com/connecttest.txt", kubectlPath, pod.Name, namespace, sidecarName, proxy)
+		command = fmt.Sprintf("%s exec %s -n %s -c %s -- curl -si --insecure -x %s www.msftconnecttest.com/connecttest.txt", suite.Kubectl().Path(), pod.Name, namespace, sidecarName, proxy)
 	} else {
 		// For Windows, use the main container
-		command = fmt.Sprintf("%s exec %s -n %s -- curl -si --insecure -x %s www.msftconnecttest.com/connecttest.txt", kubectlPath, pod.Name, namespace, proxy)
+		command = fmt.Sprintf("%s exec %s -n %s -- curl -si --insecure -x %s www.msftconnecttest.com/connecttest.txt", suite.Kubectl().Path(), pod.Name, namespace, proxy)
 	}
 
 	output := suite.Cli().ExecOrFail(ctx, "cmd.exe", "/c", command)

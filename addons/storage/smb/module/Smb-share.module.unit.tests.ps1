@@ -250,7 +250,7 @@ Describe 'Test-IsSmbShareWorking' -Tag 'unit', 'ci', 'addon', 'storage smb' {
         }
     }
 
-    Context "Setup type is neither 'k2s' nor 'MultiVMK8s'" {
+    Context "Setup type is not 'k2s'" {
         BeforeAll {
             Mock -ModuleName $moduleName Get-SetupInfo { return [pscustomobject]@{Name = 'TrippleK8s' } }
         }
@@ -306,115 +306,45 @@ Describe 'Test-IsSmbShareWorking' -Tag 'unit', 'ci', 'addon', 'storage smb' {
         }
     }
 
-    Context 'Setup type is MultiVM' {
-        Context 'is Linux-only' {
-            Context 'SMB share is not working' {
-                BeforeAll {
-                    Mock -ModuleName $moduleName Get-SetupInfo { return [pscustomobject]@{Name = 'MultiVMK8s'; LinuxOnly = $true } }
-                    Mock -ModuleName $moduleName Test-SharedFolderMountOnWinNode {
-                        InModuleScope -ModuleName $moduleName {
-                            $script:Success = $false
-                        }
-                    }
-                    Mock -ModuleName $moduleName Open-RemoteSessionViaSSHKey { throw 'unexpected' }
-                    Mock -ModuleName $moduleName Invoke-Command { throw 'unexpected' }
-                }
-
-                It 'returns false' {
-                    InModuleScope $moduleName {
-                        Test-IsSmbShareWorking
-
-                        $script:SmbShareWorking | Should -BeFalse
+    Context 'is Linux-only' {
+        Context 'SMB share is not working' {
+            BeforeAll {
+                Mock -ModuleName $moduleName Get-SetupInfo { return [pscustomobject]@{Name = 'k2s'; LinuxOnly = $true } }
+                Mock -ModuleName $moduleName Test-SharedFolderMountOnWinNode {
+                    InModuleScope -ModuleName $moduleName {
+                        $script:Success = $false
                     }
                 }
+                Mock -ModuleName $moduleName Open-RemoteSessionViaSSHKey { throw 'unexpected' }
+                Mock -ModuleName $moduleName Invoke-Command { throw 'unexpected' }
             }
 
-            Context 'SMB share is working' {
-                BeforeAll {
-                    Mock -ModuleName $moduleName Get-SetupInfo { return [pscustomobject]@{Name = 'MultiVMK8s'; LinuxOnly = $true } }
-                    Mock -ModuleName $moduleName Test-SharedFolderMountOnWinNode {
-                        InModuleScope -ModuleName $moduleName {
-                            $script:Success = $true
-                        }
-                    }
-                    Mock -ModuleName $moduleName Open-RemoteSessionViaSSHKey { throw 'unexpected' }
-                    Mock -ModuleName $moduleName Invoke-Command { throw 'unexpected' }
-                }
+            It 'returns false' {
+                InModuleScope $moduleName {
+                    Test-IsSmbShareWorking
 
-                It 'returns true' {
-                    InModuleScope $moduleName {
-                        Test-IsSmbShareWorking
-
-                        $script:SmbShareWorking | Should -BeTrue
-                    }
+                    $script:SmbShareWorking | Should -BeFalse
                 }
             }
         }
 
-        Context 'is not Linux-only' {
-            Context 'SMB share is not working on Win VM' {
-                BeforeAll {
-                    Mock -ModuleName $moduleName Get-SetupInfo { return [pscustomobject]@{Name = 'MultiVMK8s'; LinuxOnly = $false } }
-                    Mock -ModuleName $moduleName Test-SharedFolderMountOnWinNode {
-                        InModuleScope -ModuleName $moduleName {
-                            $script:Success = $true
-                        }
-                    }
-
-                    Mock -ModuleName $moduleName Open-DefaultWinVMRemoteSessionViaSSHKey { } 
-                    Mock -ModuleName $moduleName Invoke-Command { return $false } -RemoveParameterValidation 'Session'
-                }
-
-                It 'returns false' {
-                    InModuleScope $moduleName {
-                        Test-IsSmbShareWorking
-
-                        $script:SmbShareWorking | Should -BeFalse
+        Context 'SMB share is working' {
+            BeforeAll {
+                Mock -ModuleName $moduleName Get-SetupInfo { return [pscustomobject]@{Name = 'k2s'; LinuxOnly = $true } }
+                Mock -ModuleName $moduleName Test-SharedFolderMountOnWinNode {
+                    InModuleScope -ModuleName $moduleName {
+                        $script:Success = $true
                     }
                 }
+                Mock -ModuleName $moduleName Open-RemoteSessionViaSSHKey { throw 'unexpected' }
+                Mock -ModuleName $moduleName Invoke-Command { throw 'unexpected' }
             }
 
-            Context 'SMB share is not working on Win host' {
-                BeforeAll {
-                    Mock -ModuleName $moduleName Get-SetupInfo { return [pscustomobject]@{Name = 'MultiVMK8s'; LinuxOnly = $false } }
-                    Mock -ModuleName $moduleName Test-SharedFolderMountOnWinNode {
-                        InModuleScope -ModuleName $moduleName {
-                            $script:Success = $false
-                        }
-                    }
+            It 'returns true' {
+                InModuleScope $moduleName {
+                    Test-IsSmbShareWorking
 
-                    Mock -ModuleName $moduleName Open-DefaultWinVMRemoteSessionViaSSHKey { } 
-                    Mock -ModuleName $moduleName Invoke-Command { return $true } -RemoveParameterValidation 'Session'
-                }
-
-                It 'returns false' {
-                    InModuleScope $moduleName {
-                        Test-IsSmbShareWorking
-
-                        $script:SmbShareWorking | Should -BeFalse
-                    }
-                }
-            }
-
-            Context 'SMB share is working' {
-                BeforeAll {
-                    Mock -ModuleName $moduleName Get-SetupInfo { return [pscustomobject]@{Name = 'MultiVMK8s'; LinuxOnly = $false } }
-                    Mock -ModuleName $moduleName Test-SharedFolderMountOnWinNode {
-                        InModuleScope -ModuleName $moduleName {
-                            $script:Success = $true
-                        }
-                    }
-
-                    Mock -ModuleName $moduleName Open-DefaultWinVMRemoteSessionViaSSHKey { }
-                    Mock -ModuleName $moduleName Invoke-Command { return $true } -RemoveParameterValidation 'Session'
-                }
-
-                It 'returns true' {
-                    InModuleScope $moduleName {
-                        Test-IsSmbShareWorking
-
-                        $script:SmbShareWorking | Should -BeTrue
-                    }
+                    $script:SmbShareWorking | Should -BeTrue
                 }
             }
         }
@@ -1245,7 +1175,6 @@ Describe 'Remove-SmbShareAndFolder' -Tag 'unit', 'ci', 'addon', 'storage smb' {
             Mock -ModuleName $moduleName Remove-StorageClass {}
             Mock -ModuleName $moduleName Remove-SmbShareAndFolderWindowsHost {}
             Mock -ModuleName $moduleName Remove-SmbShareAndFolderLinuxHost {}
-            Mock -ModuleName $moduleName Remove-SharedFolderFromWinVM {}
 
             InModuleScope -ModuleName $moduleName {
                 Remove-SmbShareAndFolder -SkipNodesCleanup
@@ -1255,12 +1184,6 @@ Describe 'Remove-SmbShareAndFolder' -Tag 'unit', 'ci', 'addon', 'storage smb' {
         It 'does not remove the StorageClass' {
             InModuleScope -ModuleName $moduleName {
                 Should -Invoke Remove-StorageClass -Times 0 -Scope Context
-            }
-        }
-
-        It 'skips the Windows VM cleanup' {
-            InModuleScope -ModuleName $moduleName {
-                Should -Invoke Remove-SharedFolderFromWinVM -Times 0 -Scope Context
             }
         }
 
@@ -1311,7 +1234,6 @@ Describe 'Remove-SmbShareAndFolder' -Tag 'unit', 'ci', 'addon', 'storage smb' {
             Mock -ModuleName $moduleName Remove-StorageClass {}
             Mock -ModuleName $moduleName Remove-SmbShareAndFolderWindowsHost {}
             Mock -ModuleName $moduleName Remove-SmbShareAndFolderLinuxHost {}
-            Mock -ModuleName $moduleName Remove-SharedFolderFromWinVM {}
 
             InModuleScope -ModuleName $moduleName {
                 Remove-SmbShareAndFolder
@@ -1333,69 +1255,9 @@ Describe 'Remove-SmbShareAndFolder' -Tag 'unit', 'ci', 'addon', 'storage smb' {
                 }
             }
 
-            It 'does not cleanup Windows VM' {
-                InModuleScope -ModuleName $moduleName {
-                    Should -Invoke Remove-SharedFolderFromWinVM -Times 0 -Scope Context
-                }
-            }
-
             It 'does remove StorageClass with Linux-only param set to $true' {
                 InModuleScope -ModuleName $moduleName {
                     Should -Invoke Remove-StorageClass -Times 1 -Scope Context -ParameterFilter { $LinuxOnly -eq $true }
-                }
-            }
-        }
-
-        Context 'not Multivm, not Linux-only' {
-            BeforeAll {
-                Mock -ModuleName $moduleName Get-SetupInfo { return [pscustomobject]@{LinuxOnly = $false; Name = 'not-multivm' } }
-
-                InModuleScope -ModuleName $moduleName {
-                    Remove-SmbShareAndFolder
-                }
-            }
-
-            It 'does not cleanup Windows VM' {
-                InModuleScope -ModuleName $moduleName {
-                    Should -Invoke Remove-SharedFolderFromWinVM -Times 0 -Scope Context
-                }
-            }
-        }
-
-        Context 'Multivm, not Linux-only' {
-            BeforeAll {
-                Mock -ModuleName $moduleName Get-SetupInfo { return [pscustomobject]@{LinuxOnly = $false; Name = 'MultiVMK8s' } }
-            }
-
-            Context 'Windows host' {
-                BeforeAll {
-                    Mock -ModuleName $moduleName Get-SmbHostType { return 'Windows' }
-
-                    InModuleScope -ModuleName $moduleName {
-                        Remove-SmbShareAndFolder
-                    }
-                }
-
-                It 'performs cleanup Windows VM with Windows remote path' {
-                    InModuleScope -ModuleName $moduleName {
-                        Should -Invoke Remove-SharedFolderFromWinVM -Times 1 -Scope Context -ParameterFilter { $RemotePath -eq $windowsHostRemotePath }
-                    }
-                }
-            }
-
-            Context 'Linux host' {
-                BeforeAll {
-                    Mock -ModuleName $moduleName Get-SmbHostType { return 'Linux' }
-
-                    InModuleScope -ModuleName $moduleName {
-                        Remove-SmbShareAndFolder
-                    }
-                }
-
-                It 'performs cleanup Windows VM with Linux remote path' {
-                    InModuleScope -ModuleName $moduleName {
-                        Should -Invoke Remove-SharedFolderFromWinVM -Times 1 -Scope Context -ParameterFilter { $RemotePath -eq $linuxHostRemotePath }
-                    }
                 }
             }
         }
@@ -1652,34 +1514,6 @@ Describe 'Restore-SmbShareAndFolder' -Tag 'unit', 'ci', 'addon', 'storage smb' {
                 Should -Invoke Restore-SmbShareAndFolderWindowsHost -Times 1 -Scope Context -ParameterFilter { $SkipTest -eq $false }
             }
         }
-
-        Context 'setup type is not multi-vm' {
-            BeforeAll {
-                Mock -ModuleName $moduleName Add-SharedFolderToWinVM { }
-            }
-
-            It 'does not mount SMB share on Windows VM' {
-                InModuleScope -ModuleName $moduleName {
-                    Restore-SmbShareAndFolder -SmbHostType 'Windows'
-
-                    Should -Invoke Add-SharedFolderToWinVM -Times 0 -Scope Context
-                }
-            }
-        }
-
-        Context 'setup type is multi-vm and not Linux-only' {
-            BeforeAll {
-                Mock -ModuleName $moduleName Add-SharedFolderToWinVM { }
-            }
-
-            It 'mounts SMB share on Windows VM' {
-                InModuleScope -ModuleName $moduleName {
-                    Restore-SmbShareAndFolder -SmbHostType 'Windows' -SetupInfo ([pscustomobject]@{Name = 'MultiVMK8s' })
-
-                    Should -Invoke Add-SharedFolderToWinVM -Times 1 -Scope Context -ParameterFilter { $SmbHostType -eq 'Windows' }
-                }
-            }
-        }
     }
 
     Context 'Linux host' {
@@ -1700,34 +1534,6 @@ Describe 'Restore-SmbShareAndFolder' -Tag 'unit', 'ci', 'addon', 'storage smb' {
                 Restore-SmbShareAndFolder -SmbHostType 'Linux'
 
                 Should -Invoke Restore-SmbShareAndFolderLinuxHost -Times 1 -Scope Context -ParameterFilter { $SkipTest -eq $false }
-            }
-        }
-
-        Context 'setup type is not multi-vm' {
-            BeforeAll {
-                Mock -ModuleName $moduleName Add-SharedFolderToWinVM { }
-            }
-
-            It 'does not mount SMB share on Windows VM' {
-                InModuleScope -ModuleName $moduleName {
-                    Restore-SmbShareAndFolder -SmbHostType 'Linux'
-
-                    Should -Invoke Add-SharedFolderToWinVM -Times 0 -Scope Context
-                }
-            }
-        }
-
-        Context 'setup type is multi-vm and not Linux-only' {
-            BeforeAll {
-                Mock -ModuleName $moduleName Add-SharedFolderToWinVM { }
-            }
-
-            It 'mounts SMB share on Windows VM' {
-                InModuleScope -ModuleName $moduleName {
-                    Restore-SmbShareAndFolder -SmbHostType 'Linux' -SetupInfo ([pscustomobject]@{Name = 'MultiVMK8s' })
-
-                    Should -Invoke Add-SharedFolderToWinVM -Times 1 -Scope Context -ParameterFilter { $SmbHostType -eq 'Linux' }
-                }
             }
         }
     }

@@ -106,7 +106,7 @@ func listImages(cmd *cobra.Command, args []string) error {
 	terminalPrinter := terminal.NewTerminalPrinter()
 
 	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
-	config, err := setupinfo.ReadConfig(context.Config().Host().K2sConfigDir())
+	_, err = setupinfo.ReadConfig(context.Config().Host().K2sConfigDir())
 	if err != nil {
 		if errors.Is(err, setupinfo.ErrSystemInCorruptedState) {
 			if outputOption == jsonOption {
@@ -125,7 +125,7 @@ func listImages(cmd *cobra.Command, args []string) error {
 	}
 
 	getImagesFunc := func() (*LoadedImages, error) {
-		return getImages(includeK8sImages, common.DeterminePsVersion(config))
+		return getImages(includeK8sImages)
 	}
 
 	if outputOption == jsonOption {
@@ -217,7 +217,7 @@ func printImagesToUser(getImagesFunc func() (*LoadedImages, error), printer term
 	return nil
 }
 
-func getImages(includeK8sImages bool, psVersion powershell.PowerShellVersion) (*LoadedImages, error) {
+func getImages(includeK8sImages bool) (*LoadedImages, error) {
 	cmd := utils.FormatScriptFilePath(utils.InstallDir() + "\\lib\\scripts\\k2s\\image\\Get-Images.ps1")
 
 	var params []string
@@ -225,7 +225,7 @@ func getImages(includeK8sImages bool, psVersion powershell.PowerShellVersion) (*
 		params = []string{"-IncludeK8sImages"}
 	}
 
-	return powershell.ExecutePsWithStructuredResult[*LoadedImages](cmd, "StoredImages", psVersion, common.NewPtermWriter(), params...)
+	return powershell.ExecutePsWithStructuredResult[*LoadedImages](cmd, "StoredImages", common.NewPtermWriter(), params...)
 }
 
 func printAvailableImages(terminalPrinter terminal.TerminalPrinter, containerImages []containerImage) {

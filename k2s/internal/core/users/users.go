@@ -4,11 +4,9 @@
 package users
 
 import (
-	"errors"
 	"fmt"
 	"log/slog"
 
-	"github.com/samber/lo"
 	"github.com/siemens-healthineers/k2s/internal/core/config"
 	"github.com/siemens-healthineers/k2s/internal/core/node"
 	"github.com/siemens-healthineers/k2s/internal/core/node/ssh"
@@ -58,20 +56,13 @@ func DefaultUserProvider() UserProvider {
 }
 
 func NewUsersManagement(cfg config.ConfigReader, cmdExecutor common.CmdExecutor, userProvider UserProvider) (*usersManagement, error) {
-	controlePlaneCfg, found := lo.Find(cfg.Nodes(), func(node config.NodeConfigReader) bool {
-		return node.IsControlPlane()
-	})
-	if !found {
-		return nil, errors.New("could not find control-plane node config")
-	}
-
 	kubeconfigWriterFactory := &kubeconfWriterFactory{
 		exec: cmdExecutor,
 	}
 
 	sshOptions := ssh.ConnectionOptions{
 		RemoteUser: "remote",
-		IpAddress:  controlePlaneCfg.IpAddress(),
+		IpAddress:  cfg.ControlPlane().IpAddress(),
 		Port:       ssh.DefaultPort,
 		SshKeyPath: ssh.SshKeyPath(cfg.Host().SshDir()),
 		Timeout:    ssh.DefaultTimeout,
@@ -82,7 +73,7 @@ func NewUsersManagement(cfg config.ConfigReader, cmdExecutor common.CmdExecutor,
 	aclExec := acl.NewAcl(cmdExecutor)
 	restClient := http.NewRestClient()
 	nodeAccess := &nodeAccess{sshOptions: sshOptions, sshDir: cfg.Host().SshDir()}
-	controlPlaneAccess := controlplane.NewControlPlaneAccess(fileSystem, keygenExec, nodeAccess, aclExec, controlePlaneCfg.IpAddress())
+	controlPlaneAccess := controlplane.NewControlPlaneAccess(fileSystem, keygenExec, nodeAccess, aclExec, cfg.ControlPlane().IpAddress())
 	clusterAccess := cluster.NewClusterAccess(restClient)
 	k8sAccess := k8s.NewK8sAccess(nodeAccess, fileSystem, clusterAccess, kubeconfigWriterFactory, &kubeconfigReader{}, cfg.Host().KubeConfigDir())
 	userAdder := NewWinUserAdder(controlPlaneAccess, k8sAccess, CreateK2sUserName)

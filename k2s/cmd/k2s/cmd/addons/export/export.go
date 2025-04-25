@@ -89,11 +89,11 @@ func runExport(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if config.SetupName == setupinfo.SetupNameMultiVMK8s {
-		return common.CreateFunctionalityNotAvailableCmdFailure(config.SetupName)
+	if config.LinuxOnly {
+		return common.CreateFuncUnavailableForLinuxOnlyCmdFailure()
 	}
 
-	cmdResult, err := powershell.ExecutePsWithStructuredResult[*common.CmdResult](psCmd, "CmdResult", common.DeterminePsVersion(config), common.NewPtermWriter(), params...)
+	cmdResult, err := powershell.ExecutePsWithStructuredResult[*common.CmdResult](psCmd, "CmdResult", common.NewPtermWriter(), params...)
 	if err != nil {
 		return err
 	}

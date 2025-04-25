@@ -423,22 +423,6 @@ var _ = Describe("config", func() {
 			})
 		})
 
-		When("nodes have worker role", func() {
-			It("returns nil", func() {
-				kind := "test-kind"
-				nodes := []any{map[string]any{"role": WorkerRoleName}}
-
-				config := viper.New()
-				config.Set("kind", kind)
-				config.Set("apiVersion", SupportedApiVersion)
-				config.Set("nodes", nodes)
-
-				sut := &userConfigValidator{}
-
-				Expect(sut.validate(Kind(kind), config)).To(Succeed())
-			})
-		})
-
 		When("nodes have control-plane role", func() {
 			It("returns nil", func() {
 				kind := "test-kind"
@@ -513,16 +497,18 @@ var _ = Describe("config", func() {
 		When("certain flags are set", func() {
 			It("sets properties only for that flags", func() {
 				iConfig := &InstallConfig{Nodes: []NodeConfig{
-					{Image: "initial-image", Role: WorkerRoleName},
-					{Resources: ResourceConfig{Disk: "initial-size"}},
+					{
+						Resources: ResourceConfig{Disk: "initial-size", Memory: "initial-mem"},
+						Role:      ControlPlaneRoleName,
+					},
 				}}
 				vConfig := viper.New()
 
 				flags := &pflag.FlagSet{}
-				flags.String(ImageFlagName, "", ImageFlagUsage)
 				flags.String(ControlPlaneDiskSizeFlagName, "", ControlPlaneDiskSizeFlagUsage)
+				flags.String(ControlPlaneMemoryFlagName, "", ControlPlaneMemoryFlagUsage)
 
-				flags.Set(ImageFlagName, "modified-image")
+				flags.Set(ControlPlaneMemoryFlagName, "modified-mem")
 
 				vConfig.BindPFlags(flags)
 
@@ -530,8 +516,8 @@ var _ = Describe("config", func() {
 
 				sut.overwrite(iConfig, vConfig, flags)
 
-				Expect(iConfig.Nodes[0].Image).To(Equal("modified-image"))
-				Expect(iConfig.Nodes[1].Resources.Disk).To(Equal("initial-size"))
+				Expect(iConfig.Nodes[0].Resources.Memory).To(Equal("modified-mem"))
+				Expect(iConfig.Nodes[0].Resources.Disk).To(Equal("initial-size"))
 			})
 		})
 	})
@@ -556,17 +542,13 @@ var _ = Describe("config", func() {
 			Entry(common.DeleteFilesFlagName, common.DeleteFilesFlagName, false, func() any { return iConfig.Behavior.DeleteFilesForOfflineInstallation }),
 			Entry(common.OutputFlagName, common.OutputFlagName, false, func() any { return iConfig.Behavior.ShowOutput }),
 			Entry(AppendLogFlagName, AppendLogFlagName, false, func() any { return iConfig.Behavior.AppendLog }),
-			Entry(ImageFlagName, ImageFlagName, "test-img", func() any { return iConfig.Nodes[0].Image }),
 			Entry(LinuxOnlyFlagName, LinuxOnlyFlagName, false, func() any { return iConfig.LinuxOnly }),
-			Entry(ControlPlaneCPUsFlagName, ControlPlaneCPUsFlagName, "test-cp-cpu", func() any { return iConfig.Nodes[1].Resources.Cpu }),
-			Entry(ControlPlaneMemoryFlagName, ControlPlaneMemoryFlagName, "test-cp-memory", func() any { return iConfig.Nodes[1].Resources.Memory }),
-			Entry(ControlPlaneDiskSizeFlagName, ControlPlaneDiskSizeFlagName, "test-cp-disk", func() any { return iConfig.Nodes[1].Resources.Disk }),
+			Entry(ControlPlaneCPUsFlagName, ControlPlaneCPUsFlagName, "test-cp-cpu", func() any { return iConfig.Nodes[0].Resources.Cpu }),
+			Entry(ControlPlaneMemoryFlagName, ControlPlaneMemoryFlagName, "test-cp-memory", func() any { return iConfig.Nodes[0].Resources.Memory }),
+			Entry(ControlPlaneDiskSizeFlagName, ControlPlaneDiskSizeFlagName, "test-cp-disk", func() any { return iConfig.Nodes[0].Resources.Disk }),
 			Entry(ProxyFlagName, ProxyFlagName, "test-proxy", func() any { return iConfig.Env.Proxy }),
 			Entry(RestartFlagName, RestartFlagName, "test-restart", func() any { return iConfig.Env.RestartPostInstall }),
 			Entry(SkipStartFlagName, SkipStartFlagName, false, func() any { return iConfig.Behavior.SkipStart }),
-			Entry(WorkerCPUsFlagName, WorkerCPUsFlagName, "test-worker-cpu", func() any { return iConfig.Nodes[0].Resources.Cpu }),
-			Entry(WorkerMemoryFlagName, WorkerMemoryFlagName, "test-worker-memory", func() any { return iConfig.Nodes[0].Resources.Memory }),
-			Entry(WorkerDiskSizeFlagName, WorkerDiskSizeFlagName, "test-worker-disk", func() any { return iConfig.Nodes[0].Resources.Disk }),
 			Entry(WslFlagName, WslFlagName, false, func() any { return iConfig.Behavior.Wsl }),
 		)
 	})
@@ -601,15 +583,6 @@ func createInitialInstallConfig() *InstallConfig {
 			AppendLog:                         true,
 			SkipStart:                         true},
 		Nodes: []NodeConfig{
-			{
-				Image: "init-img",
-				Role:  WorkerRoleName,
-				Resources: ResourceConfig{
-					Cpu:    "init-worker-cpu",
-					Memory: "init-worker-memory",
-					Disk:   "init-worker-disk",
-				},
-			},
 			{
 				Role: ControlPlaneRoleName,
 				Resources: ResourceConfig{

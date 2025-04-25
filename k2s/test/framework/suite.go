@@ -137,7 +137,7 @@ func Setup(ctx context.Context, args ...any) *K2sTestSuite {
 
 	GinkgoWriter.Println("Found setup type <", testSuite.setupInfo.SetupConfig.SetupName, "( Linux-only:", testSuite.setupInfo.SetupConfig.LinuxOnly, ") > in dir <", rootDir, ">")
 
-	if testSuite.setupInfo.SetupConfig.SetupName != setupinfo.SetupNamek2s && testSuite.setupInfo.SetupConfig.SetupName != setupinfo.SetupNameMultiVMK8s {
+	if testSuite.setupInfo.SetupConfig.SetupName != setupinfo.SetupNamek2s {
 		Fail(fmt.Sprintf("Unsupported setup type detected: '%s'", testSuite.setupInfo.SetupConfig.SetupName))
 	}
 

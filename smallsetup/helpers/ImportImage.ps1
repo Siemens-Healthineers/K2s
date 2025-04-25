@@ -73,28 +73,10 @@ if ($Windows) {
         exit 1
     }
 
-    if ($setupInfo.Name -eq $global:SetupType_MultiVMK8s) {
-        $tmpPath = 'C:\temp\tmp.tar'
-        $session = Open-RemoteSessionViaSSHKey $global:Admin_WinNode $global:WindowsVMKey
-        foreach ($image in $images) {
-            Copy-Item "$image" -Destination "$tmpPath" -ToSession $session -Force
-
-            Invoke-Command -Session $session {
-                Set-Location "$env:SystemDrive\k"
-                Set-ExecutionPolicy Bypass -Force -ErrorAction Stop
-
-                &$env:SystemDrive\k\smallsetup\common\GlobalVariables.ps1
-
-                &$global:NerdctlExe -n k8s.io load -i $using:tmpPath
-            }
-        }
-    }
-    else {
-        foreach ($image in $images) {
-            &$global:NerdctlExe -n k8s.io load -i $image
-            if ($?) {
-                Write-Log "$image imported successfully" -Console
-            }
+    foreach ($image in $images) {
+        &$global:NerdctlExe -n k8s.io load -i $image
+        if ($?) {
+            Write-Log "$image imported successfully" -Console
         }
     }
 }

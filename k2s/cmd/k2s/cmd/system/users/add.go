@@ -64,13 +64,12 @@ func run(cmd *cobra.Command, args []string) error {
 
 	config := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext).Config()
 
-	setupConfig, err := loadSetupConfig(config.Host().K2sConfigDir())
+	_, err = loadSetupConfig(config.Host().K2sConfigDir())
 	if err != nil {
 		return err
 	}
 
-	psVersion := common.DeterminePsVersion(setupConfig)
-	systemStatus, err := status.LoadStatus(psVersion)
+	systemStatus, err := status.LoadStatus()
 	if err != nil {
 		return fmt.Errorf("could not determine system status: %w", err)
 	}

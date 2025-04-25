@@ -91,9 +91,8 @@ func printStatus(cmd *cobra.Command, args []string) error {
 }
 
 func determinePrinter(outputOption string, config *setupinfo.Config, terminalPrinter TerminalPrinter) StatusPrinter {
-	psVersion := common.DeterminePsVersion(config)
 	loadFunc := func() (*LoadedStatus, error) {
-		return LoadStatus(psVersion)
+		return LoadStatus()
 	}
 
 	if outputOption == jsonOption {

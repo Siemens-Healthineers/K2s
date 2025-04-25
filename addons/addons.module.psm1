@@ -667,11 +667,12 @@ function Restore-Addons {
         }
         Write-Log 'Restoring addons data..'
         Invoke-BackupRestoreHooks -HookType Restore -BackupDir $BackupDir
-    } else {
+    }
+    else {
         foreach ($addonConfig in $backupContentRoot.Config) {
             Enable-AddonFromConfig -Config $addonConfig -Root $Root
         }
-        Write-Log "Skipping restoring addons data."
+        Write-Log 'Skipping restoring addons data.'
     }
 
     Write-Log 'Addons fully restored.'
@@ -736,21 +737,6 @@ function Add-HostEntries {
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "grep -qxF `'$hostEntry`' /etc/hosts || echo $hostEntry | sudo tee -a /etc/hosts").Output | Write-Log
 
     $hostFile = 'C:\Windows\System32\drivers\etc\hosts'
-
-    # add in additional worker nodes
-    $setupInfo = Get-SetupInfo
-    if ($setupInfo.Name -eq 'MultiVMK8s' -and $setupInfo.LinuxOnly -ne $true) {
-        $session = Open-RemoteSessionViaSSHKey (Get-DefaultWinVMName) (Get-DefaultWinVMKey)
-
-        Invoke-Command -Session $session {
-            Set-Location "$env:SystemDrive\k"
-            Set-ExecutionPolicy Bypass -Force -ErrorAction Stop
-
-            if (!$(Get-Content $using:hostFile | ForEach-Object { $_ -match $using:hostEntry }).Contains($true)) {
-                Add-Content $using:hostFile $using:hostEntry
-            }
-        }
-    }
 
     # add in host
     if (!$(Get-Content $hostFile | ForEach-Object { $_ -match $hostEntry }).Contains($true)) {
