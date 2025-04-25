@@ -24,6 +24,6 @@ Param(
 
 Write-Output 'Reset system'
 &"$global:KubernetesPath\lib\scripts\k2s\uninstall\uninstall.ps1" | Out-Null
-&"$global:KubernetesPath\lib\scripts\multivm\uninstall\uninstall.ps1" | Out-Null
+&"$global:KubernetesPath\lib\scripts\linuxonly\uninstall\uninstall.ps1" | Out-Null
 &"$global:KubernetesPath\lib\scripts\buildonly\uninstall\uninstall.ps1" | Out-Null
 Write-Output 'System reset successful!'

@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -23,14 +23,8 @@ Initialize-Logging -ShowLogs:$ShowLogs
 
 $ErrorActionPreference = 'Continue'
 
-if ($(Get-ConfigLinuxOnly) -eq $true) {
-    $installationType = 'Linux-only'
-} else {
-    $installationType = 'Multi-VM'
-}
-
 if ($HideHeaders -eq $false) {
-    Write-Log "Starting $installationType K2s"
+    Write-Log 'Starting Linux-only K2s'
 }
 
 $loopbackAdapter = Get-L2BridgeName
@@ -42,33 +36,19 @@ if ([string]::IsNullOrWhiteSpace($dnsServersForControlPlane)) {
 $controlPlaneParams = " -AdditionalHooksDir '$AdditionalHooksDir'"
 $controlPlaneParams += " -DnsAddresses '$dnsServersForControlPlane'"
 if ($HideHeaders.IsPresent) {
-    $controlPlaneParams += " -SkipHeaderDisplay"
+    $controlPlaneParams += ' -SkipHeaderDisplay'
 }
 if ($ShowLogs.IsPresent) {
-    $controlPlaneParams += " -ShowLogs"
+    $controlPlaneParams += ' -ShowLogs'
 }
 & powershell.exe "$PSScriptRoot\..\..\control-plane\Start.ps1" $controlPlaneParams
 
 Invoke-Hook -HookName 'BeforeStartK8sNetwork' -AdditionalHooksDir $AdditionalHooksDir
-
-if ($(Get-ConfigLinuxOnly) -eq $false) {
-
-    $windowsHostIpAddress = Get-ConfiguredKubeSwitchIP
-    $dnsServersForWorkerNode = $windowsHostIpAddress
-
-    $workerNodeParams = @{
-        HideHeaders = $HideHeaders
-        ShowLogs = $ShowLogs
-        AdditionalHooksDir = $AdditionalHooksDir
-        DnsAddresses = $dnsServersForWorkerNode
-    }
-    & "$PSScriptRoot\..\..\worker\windows\hyper-v-vm\Start.ps1" @workerNodeParams
-}
 
 Invoke-AddonsHooks -HookType 'AfterStart'
 
 Invoke-Hook -HookName 'AfterStartK8sNetwork' -AdditionalHooksDir $AdditionalHooksDir
 
 if ($HideHeaders -eq $false) {
-    Write-Log "K2s $installationType started."
+    Write-Log 'K2s Linux-only started.'
 }

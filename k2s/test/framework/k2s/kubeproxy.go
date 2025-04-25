@@ -39,11 +39,7 @@ func (r *KubeProxyRestarter) Restart(ctx context.Context) {
 func (r *KubeProxyRestarter) restart(ctx context.Context) {
 	GinkgoWriter.Println("Restarting kubeproxy to clean all caches..")
 
-	if r.setupInfo.SetupName == setupinfo.SetupNameMultiVMK8s {
-		r.K2sCliRunner.RunOrFail(ctx, "system", "ssh", "w", "--", "nssm", "restart", "kubeproxy")
-	} else {
-		r.cliExecutor.ExecOrFail(ctx, r.nssmPath, "restart", "kubeproxy")
-	}
+	r.cliExecutor.ExecOrFail(ctx, r.nssmPath, "restart", "kubeproxy")
 
 	GinkgoWriter.Println("kubeproxy restarted")
 }

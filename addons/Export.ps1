@@ -75,8 +75,8 @@ if ($All) {
 else {    
     foreach ($name in $Names) {
         $foundManifest = $null
-        $addonName = ($name -split " ")[0]
-        $implementationName = ($name -split " ")[1]
+        $addonName = ($name -split ' ')[0]
+        $implementationName = ($name -split ' ')[1]
 
         foreach ($manifest in $allManifests) {
             if ($manifest.metadata.name -eq $addonName) {
@@ -84,7 +84,7 @@ else {
 
                 # specific implementation specified
                 if ($null -ne $implementationName) {
-                    $foundManifest.spec.implementations = $foundManifest.spec.implementations | Where-Object { $_.name -eq $implementationName}
+                    $foundManifest.spec.implementations = $foundManifest.spec.implementations | Where-Object { $_.name -eq $implementationName }
                 }
                 break
             }
@@ -183,32 +183,18 @@ try {
 
             foreach ($image in $windowsImages) {
                 Write-Log "Pulling windows image $image"
-                if ($setupInfo.Name -eq 'MultiVMK8s') {
-                    $session = Open-DefaultWinVMRemoteSessionViaSSHKey
-                    Invoke-Command -Session $session {
-                        Set-Location "$env:SystemDrive\k"
-                        Set-ExecutionPolicy Bypass -Force -ErrorAction Stop
-
-                        Import-Module "$env:SystemDrive\k\addons\export.module.psm1"
-
-                        &$(Get-NerdctlExe) -n 'k8s.io' pull $using:image --all-platforms 2>&1 | Out-Null
-                        &$(Get-CrictlExe) pull $using:image
+                &$(Get-NerdctlExe) -n 'k8s.io' pull $image --all-platforms 2>&1 | Out-Null
+                &$(Get-CrictlExe) pull $image
+                if (!$?) {
+                    $errMsg = "Pulling linux image $image failed"
+                    if ($EncodeStructuredOutput -eq $true) {
+                        $err = New-Error -Severity Warning -Code ErrCodeAddonNotFound -Message $errMsg
+                        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+                        return
                     }
-                }
-                else {
-                    &$(Get-NerdctlExe) -n 'k8s.io' pull $image --all-platforms 2>&1 | Out-Null
-                    &$(Get-CrictlExe) pull $image
-                    if (!$?) {
-                        $errMsg = "Pulling linux image $image failed"
-                        if ($EncodeStructuredOutput -eq $true) {
-                            $err = New-Error -Severity Warning -Code ErrCodeAddonNotFound -Message $errMsg
-                            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
-                            return
-                        }
                     
-                        Write-Log $errMsg -Error
-                        exit 1
-                    }
+                    Write-Log $errMsg -Error
+                    exit 1
                 }
             }
 
@@ -284,12 +270,7 @@ try {
                 if ($repos) {
                     Write-Log 'Adding repos for debian packages download'
                     foreach ($repo in $repos) {
-                        if ($setupInfo.Name -ne 'MultiVMK8s') {
-                            $repoWithReplacedHttpProxyPlaceHolder = $repo.Replace('__LOCAL_HTTP_PROXY__', "$(Get-ConfiguredKubeSwitchIP):8181")
-                        }
-                        else {
-                            $repoWithReplacedHttpProxyPlaceHolder = $repo.Replace('__LOCAL_HTTP_PROXY__', "''")
-                        }
+                        $repoWithReplacedHttpProxyPlaceHolder = $repo.Replace('__LOCAL_HTTP_PROXY__', "$(Get-ConfiguredKubeSwitchIP):8181")
                         (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "$repoWithReplacedHttpProxyPlaceHolder").Output | Write-Log
                     }
 

@@ -23,7 +23,7 @@ var suite *framework.K2sTestSuite
 
 func TestScp(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "system scp CLI Commands Acceptance Tests", Label("cli", "system", "scp", "m", "w", "acceptance", "setup-required", "system-running"))
+	RunSpecs(t, "system scp CLI Commands Acceptance Tests", Label("cli", "system", "scp", "m", "acceptance", "setup-required", "system-running"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
@@ -186,18 +186,6 @@ var _ = Describe("system scp", func() {
 
 				Expect(string(data)).To(Equal(fmt.Sprintf("%s\n", tempFileContent)))
 			})
-		})
-	})
-
-	Describe("w", func() {
-		It("copies a file from host to Windows node", func() {
-			Skip("test to be implemented")
-		})
-	})
-
-	Describe("w reverse", func() {
-		It("copies a file from Windows node to host", func() {
-			Skip("test to be implemented")
 		})
 	})
 })

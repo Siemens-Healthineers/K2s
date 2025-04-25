@@ -5,14 +5,12 @@ package setuprequired
 
 import (
 	"context"
-	"fmt"
 	"testing"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
 	"github.com/siemens-healthineers/k2s/test/framework"
 	"github.com/siemens-healthineers/k2s/test/framework/dsl"
 )
@@ -49,8 +47,8 @@ var _ = Describe("image", func() {
 	Describe("rm", Label("rm", "invasive"), func() {
 		When("functionality is not supported in setup type", func() {
 			It("fails", func(ctx context.Context) {
-				if suite.SetupInfo().SetupConfig.SetupName != setupinfo.SetupNameMultiVMK8s {
-					Skip(fmt.Sprintf("setup type not %s", setupinfo.SetupNameMultiVMK8s))
+				if !suite.SetupInfo().SetupConfig.LinuxOnly {
+					Skip("setup type must be Linux-only")
 				}
 
 				result := k2s.RemoveImage(ctx)
@@ -62,8 +60,8 @@ var _ = Describe("image", func() {
 		When("functionality is supported in setup type", func() {
 			When("wrong K8s context is in use", func() {
 				BeforeEach(func(ctx context.Context) {
-					if suite.SetupInfo().SetupConfig.SetupName == setupinfo.SetupNameMultiVMK8s {
-						Skip(fmt.Sprintf("setup type %s", setupinfo.SetupNameMultiVMK8s))
+					if suite.SetupInfo().SetupConfig.LinuxOnly {
+						Skip("setup type must not be Linux-only")
 					}
 
 					k2s.SetWrongK8sContext(ctx)

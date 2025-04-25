@@ -33,16 +33,16 @@ class PushedImage {
 }
 
 $headers = @(
-    "application/vnd.oci.image.manifest.v1+json",
-    "application/vnd.oci.image.index.v1+json",
-    "application/vnd.oci.artifact.manifest.v1+json",
-    "application/vnd.docker.distribution.manifest.v2+json",
-    "application/vnd.docker.distribution.manifest.list.v2+json",
-    "application/vnd.docker.distribution.manifest.v1+prettyjws",
-    "application/vnd.docker.distribution.manifest.v1+json"
+    'application/vnd.oci.image.manifest.v1+json',
+    'application/vnd.oci.image.index.v1+json',
+    'application/vnd.oci.artifact.manifest.v1+json',
+    'application/vnd.docker.distribution.manifest.v2+json',
+    'application/vnd.docker.distribution.manifest.list.v2+json',
+    'application/vnd.docker.distribution.manifest.v1+prettyjws',
+    'application/vnd.docker.distribution.manifest.v1+json'
 )
-$concatinatedHeadersString = ""
-$headers | ForEach-Object { $concatinatedHeadersString += " -H `"Accept: $_`""  }
+$concatinatedHeadersString = ''
+$headers | ForEach-Object { $concatinatedHeadersString += " -H `"Accept: $_`"" }
 
 function New-KubernetesImageJsonFileIfNotExists() {
     $fileExists = Test-Path -Path $kubernetesImagesJson
@@ -66,15 +66,10 @@ This function is used to collect the kubernetes images present on the nodes.
 User will see an incorrect output on listing images.
 #>
 function Write-KubernetesImagesIntoJson {
-    param (
-        [Parameter(Mandatory = $false)]
-        [bool] $WorkerVM = $false
-    )
-
     New-KubernetesImageJsonFileIfNotExists
     $kubernetesImages = @()
     $linuxKubernetesImages = Get-ContainerImagesOnLinuxNode
-    $windowsKubernetesImages = $(Get-ContainerImagesOnWindowsNode -IncludeK8sImages $false -WorkerVM $WorkerVM) | Where-Object { $_.Repository -match $windowsPauseImageRepository }
+    $windowsKubernetesImages = $(Get-ContainerImagesOnWindowsNode -IncludeK8sImages $false) | Where-Object { $_.Repository -match $windowsPauseImageRepository }
     $kubernetesImages = @($linuxKubernetesImages) + @($windowsKubernetesImages)
     $kubernetesImagesJsonString = $kubernetesImages | ConvertTo-Json -Depth 100
     $kubernetesImagesJsonString | Set-Content -Path $kubernetesImagesJson
@@ -115,16 +110,9 @@ function Get-ContainerImagesOnLinuxNode([bool]$IncludeK8sImages = $false) {
     return $linuxContainerImages
 }
 
-function Get-ContainerImagesOnWindowsNode([bool]$IncludeK8sImages = $false, [bool]$WorkerVM = $false) {
-    $output = ''
-    $node = ''
-    if ($WorkerVM) {
-        $output = Invoke-CmdOnVMWorkerNodeViaSSH -CmdToExecute "crictl images" 2> $null
-        $node = Get-ConfigVMNodeHostname
-    } else {
-        $output = &$crictlExe images 2> $null
-        $node = $env:ComputerName.ToLower()
-    }
+function Get-ContainerImagesOnWindowsNode([bool]$IncludeK8sImages = $false) {
+    $output = &$crictlExe images 2> $null
+    $node = $env:ComputerName.ToLower()
 
     $KubernetesImages = Get-KubernetesImagesFromJson
 
@@ -152,7 +140,7 @@ function Get-ContainerImagesOnWindowsNode([bool]$IncludeK8sImages = $false, [boo
 function Get-PushedContainerImages() {
     $setupFilePath = Get-SetupConfigFilePath
     $enableAddons = Get-ConfigValue -Path $setupFilePath -Key 'EnabledAddons'
-    $isRegistryAddonEnabled = $enableAddons | Select-Object -ExpandProperty Name | Where-Object { $_ -eq "registry" }
+    $isRegistryAddonEnabled = $enableAddons | Select-Object -ExpandProperty Name | Where-Object { $_ -eq 'registry' }
     if (!$isRegistryAddonEnabled) {
         return
     }
@@ -168,7 +156,8 @@ function Get-PushedContainerImages() {
 
     if (!$isNodePort) {
         $catalog = $(curl.exe --noproxy $registryName --retry 3 --retry-all-errors -k -X GET https://$registryName/v2/_catalog) 2> $null | Out-String | ConvertFrom-Json
-    } else {
+    }
+    else {
         $catalog = $(curl.exe --noproxy $registryName --retry 3 --retry-all-errors -X GET http://$registryName/v2/_catalog) 2> $null | Out-String | ConvertFrom-Json
     }
     $images = $catalog.psobject.properties['repositories'].value
@@ -177,7 +166,8 @@ function Get-PushedContainerImages() {
     foreach ($image in $images) {
         if (!$isNodePort) {
             $imageWithTags = curl.exe --noproxy $registryName --retry 3 --retry-all-errors -k -X GET https://$registryName/v2/$image/tags/list 2> $null | Out-String | ConvertFrom-Json
-        } else {
+        }
+        else {
             $imageWithTags = curl.exe --noproxy $registryName --retry 3 --retry-all-errors -X GET http://$registryName/v2/$image/tags/list 2> $null | Out-String | ConvertFrom-Json
         }
         $tags = $imageWithTags.psobject.properties['tags'].value
@@ -227,7 +217,8 @@ function Remove-PushedImage($name, $tag) {
     $isNodePort = $registryName -match ':'
     if (!$isNodePort) {
         $headRequest = "curl.exe -m 10 --noproxy $registryName --retry 3 --retry-connrefused -k -I https://$registryName/v2/$name/manifests/$tag $concatinatedHeadersString -v 2>&1"
-    } else {
+    }
+    else {
         $headRequest = "curl.exe -m 10 --noproxy $registryName --retry 3 --retry-connrefused -I http://$registryName/v2/$name/manifests/$tag $concatinatedHeadersString -v 2>&1"
     }
 
@@ -255,7 +246,8 @@ function Remove-PushedImage($name, $tag) {
 
     if (!$isNodePort) {
         $deleteRequest = "curl.exe -m 10 -k -I --noproxy $registryName --retry 3 --retry-connrefused -X DELETE https://$registryName/v2/$name/manifests/$digest $concatinatedHeadersString -v 2>&1"
-    } else {
+    }
+    else {
         $deleteRequest = "curl.exe -m 10 -I --noproxy $registryName --retry 3 --retry-connrefused -X DELETE http://$registryName/v2/$name/manifests/$digest $concatinatedHeadersString -v 2>&1"
     }
     $deleteResponse = Invoke-Expression $deleteRequest
@@ -288,9 +280,9 @@ function Get-RegistryAuthToken($registryName) {
     return $auth
 }
 
-function Get-ContainerImagesInk2s([bool]$IncludeK8sImages = $false, [bool]$WorkerVM = $false) {
+function Get-ContainerImagesInk2s([bool]$IncludeK8sImages = $false) {
     $linuxContainerImages = Get-ContainerImagesOnLinuxNode -IncludeK8sImages $IncludeK8sImages
-    $windowsContainerImages = Get-ContainerImagesOnWindowsNode -IncludeK8sImages $IncludeK8sImages -WorkerVM $WorkerVM
+    $windowsContainerImages = Get-ContainerImagesOnWindowsNode -IncludeK8sImages $IncludeK8sImages
     $allContainerImages = @($linuxContainerImages) + @($windowsContainerImages)
     return $allContainerImages
 }
@@ -361,7 +353,7 @@ function Get-DockerfileAbsolutePathAndPreCompileFlag {
             $filePath = "$InputFolder\$Dockerfile"
         }
         # If the Dockerfile ends with PreCompile, we set the PreCompile flag to true
-        if ($Dockerfile -like "*PreCompile") {
+        if ($Dockerfile -like '*PreCompile') {
             $PreCompile = $True
         }
 

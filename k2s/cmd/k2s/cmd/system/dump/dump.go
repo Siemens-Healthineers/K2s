@@ -58,7 +58,7 @@ func dumpSystemStatus(cmd *cobra.Command, args []string) error {
 
 	slog.Debug("PS command created", "command", dumpStatusCommand)
 
-	err = powershell.ExecutePs(dumpStatusCommand, powershell.PowerShellV5, common.NewPtermWriter())
+	err = powershell.ExecutePs(dumpStatusCommand, common.NewPtermWriter())
 	if err != nil {
 		return err
 	}

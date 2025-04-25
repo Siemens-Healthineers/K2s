@@ -80,30 +80,6 @@ if ($setupInfo.Name -eq $global:SetupType_k2s -or $setupInfo.Name -eq $global:Se
 
     Login-Docker -registry $RegistryName
 }
-elseif ($setupInfo.Name -eq $global:SetupType_MultiVMK8s -and !$($setupInfo.LinuxOnly)) {
-    $session = Open-RemoteSessionViaSSHKey $global:Admin_WinNode $global:WindowsVMKey
-
-    Invoke-Command -Session $session {
-        Set-Location "$env:SystemDrive\k"
-        Set-ExecutionPolicy Bypass -Force -ErrorAction Stop
-
-        &$env:SystemDrive\k\smallsetup\common\GlobalVariables.ps1
-        . $env:SystemDrive\k\smallsetup\common\GlobalFunctions.ps1
-
-        $registryFunctionsModule = "$env:SystemDrive\k\smallsetup\helpers\RegistryFunctions.module.psm1"
-        Import-Module $registryFunctionsModule -DisableNameChecking
-
-        &"$global:NssmInstallDirectory\nssm" set docker AppParameters --exec-opt isolation=process --data-root 'C:\docker' --log-level debug --allow-nondistributable-artifacts "$using:RegistryName" --insecure-registry "$using:RegistryName" | Out-Null
-        if ($(Get-Service -Name 'docker' -ErrorAction SilentlyContinue).Status -eq 'Running') {
-            &"$global:NssmInstallDirectory\nssm" restart docker
-        }
-        else {
-            &"$global:NssmInstallDirectory\nssm" start docker
-        }
-
-        Login-Docker -registry $using:RegistryName
-    }
-}
 
 Set-ConfigValue -Path $global:SetupJsonFile -Key $global:ConfigKey_LoggedInRegistry -Value $RegistryName
 

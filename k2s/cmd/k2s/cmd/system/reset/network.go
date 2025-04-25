@@ -73,7 +73,7 @@ func resetNetwork(cmd *cobra.Command, args []string) error {
 		params = append(params, " -ShowLogs")
 	}
 
-	cmdResult, err := powershell.ExecutePsWithStructuredResult[*common.CmdResult](resetNetworkCommand, "CmdResult", powershell.PowerShellV5, common.NewPtermWriter(), params...)
+	cmdResult, err := powershell.ExecutePsWithStructuredResult[*common.CmdResult](resetNetworkCommand, "CmdResult", common.NewPtermWriter(), params...)
 
 	if err != nil {
 		return err

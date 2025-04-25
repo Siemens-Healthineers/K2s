@@ -17,7 +17,6 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/siemens-healthineers/k2s/test/framework"
-	"github.com/siemens-healthineers/k2s/test/framework/k2s"
 	"github.com/siemens-healthineers/k2s/test/framework/k2s/cli"
 )
 
@@ -39,8 +38,8 @@ func TestCopy(t *testing.T) {
 var _ = BeforeSuite(func(ctx context.Context) {
 	suite = framework.Setup(ctx, framework.SystemMustBeRunning, framework.ClusterTestStepPollInterval(100*time.Millisecond))
 
-	// TODO: remove when multivm connects with same SSH key to win node as to control-plane
-	skipWinNodeTests = true //suite.SetupInfo().SetupConfig.SetupName != setupinfo.SetupNameMultiVMK8s || suite.SetupInfo().SetupConfig.LinuxOnly
+	// TODO: remove when adding Win nodes is supported
+	skipWinNodeTests = true // suite.SetupInfo().SetupConfig.LinuxOnly
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
@@ -83,7 +82,7 @@ var _ = Describe("node copy", Ordered, func() {
 				remoteTempDirName = fmt.Sprintf("test_%d/", GinkgoRandomSeed())
 				remoteTempDir = "~/" + remoteTempDirName
 
-				nodeIpAddress = k2s.GetControlPlane(suite.SetupInfo().Config.Nodes()).IpAddress()
+				nodeIpAddress = suite.SetupInfo().Config.ControlPlane().IpAddress()
 
 				GinkgoWriter.Println("Using control-plane node IP address <", nodeIpAddress, ">")
 
@@ -526,7 +525,8 @@ var _ = Describe("node copy", Ordered, func() {
 				remoteTempDirName = fmt.Sprintf("test_%d/", GinkgoRandomSeed())
 				remoteTempDir = filepath.Join("C:\\Users", remoteUser, remoteTempDirName)
 
-				nodeIpAddress = k2s.GetWindowsNode(suite.SetupInfo().Config.Nodes()).IpAddress()
+				// TODO: set when adding Win nodes is supported
+				nodeIpAddress = ""
 
 				GinkgoWriter.Println("Using windows node IP address <", nodeIpAddress, ">")
 
@@ -961,7 +961,7 @@ var _ = Describe("node copy", Ordered, func() {
 			var nodeIpAddress string
 
 			BeforeEach(func(ctx context.Context) {
-				nodeIpAddress = k2s.GetControlPlane(suite.SetupInfo().Config.Nodes()).IpAddress()
+				nodeIpAddress = suite.SetupInfo().Config.ControlPlane().IpAddress()
 
 				GinkgoWriter.Println("Using control-plane node IP address <", nodeIpAddress, ">")
 			})
@@ -1386,7 +1386,8 @@ var _ = Describe("node copy", Ordered, func() {
 					Skip("Windows node tests are skipped")
 				}
 
-				nodeIpAddress = k2s.GetWindowsNode(suite.SetupInfo().Config.Nodes()).IpAddress()
+				// TODO: set when adding Win nodes is supported
+				nodeIpAddress = ""
 
 				GinkgoWriter.Println("Using win worker node IP address <", nodeIpAddress, ">")
 			})

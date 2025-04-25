@@ -16,7 +16,6 @@ import (
 	"time"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/addons/status"
-	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
 	"github.com/siemens-healthineers/k2s/test/framework"
 	"github.com/siemens-healthineers/k2s/test/framework/dsl"
 	"github.com/siemens-healthineers/k2s/test/framework/k2s/cli"
@@ -57,12 +56,6 @@ var _ = BeforeSuite(func(ctx context.Context) {
 	if suite.SetupInfo().SetupConfig.LinuxOnly {
 		GinkgoWriter.Println("Found Linux-only setup, skipping Windows-based workloads")
 		manifestDir = "workload/base"
-	}
-
-	if suite.SetupInfo().SetupConfig.SetupName == setupinfo.SetupNameMultiVMK8s {
-		if !suite.SetupInfo().SetupConfig.LinuxOnly {
-			proxy = "http://172.19.1.101:8181"
-		}
 	}
 
 	GinkgoWriter.Println("Using proxy <", proxy, "> for internet access")

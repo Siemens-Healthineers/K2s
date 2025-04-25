@@ -18,11 +18,6 @@ $kubeToolsPath = Get-KubeToolsPath
 Performs time synchronization across all nodes of the clusters.
 #>
 function Invoke-TimeSync {
-    param (
-        [Parameter(Mandatory = $false)]
-        [bool] $WorkerVM
-    )
-
     $timezoneStandardNameOnHost = (Get-TimeZone).StandardName
     $kubeConfigDir = Get-ConfiguredKubeConfigDir
     $windowsTimezoneConfig = "$kubeConfigDir\windowsZones.xml"
@@ -43,13 +38,6 @@ function Invoke-TimeSync {
 
         #Set timezone in kubemaster
         (Invoke-CmdOnControlPlaneViaSSHKey "sudo timedatectl set-timezone $timezoneLinux 2>&1").Output | Write-Log
-
-        if ($WorkerVM) {
-            $session = Open-DefaultWinVMRemoteSessionViaSSHKey
-            Invoke-Command -Session $session {
-                Set-TimeZone -Name $using:timezoneStandardNameOnHost
-            }
-        }
     }
 }
 
@@ -167,12 +155,13 @@ function Get-AssignedPodSubnetworkNumber {
 
         # Run the kubectl command
         $podCIDR = &"$kubeToolsPath\kubectl.exe" get nodes $NodeName -o jsonpath="'{.spec.podCIDR}'"
-        $success = ($LASTEXITCODE -eq 0 -and $podCIDR -ne "" -and $podCIDR -ne "''")
+        $success = ($LASTEXITCODE -eq 0 -and $podCIDR -ne '' -and $podCIDR -ne "''")
 
         if ($success) {
             Write-Log "Found podCIDR $podCIDR"
             break
-        } else {
+        }
+        else {
             Write-Log "Attempt $attempt failed or podCIDR is empty. Retrying in $retryDelay seconds..."
             Start-Sleep -Seconds $retryDelay
         }
@@ -185,7 +174,8 @@ function Get-AssignedPodSubnetworkNumber {
         $m = [regex]::Matches($podCIDR, $searchPattern)
         if (-not $m[0]) { throw "Cannot get subnet number from '$podCIDR'." }
         $subnetNumber = $m[0].Groups['subnet'].Value
-    } else {
+    }
+    else {
         Write-Log "[ERR] Failed to get podCIDR for node $NodeName" -Console
     }
     return [pscustomobject]@{ Success = $success; PodSubnetworkNumber = $subnetNumber }
@@ -202,7 +192,8 @@ function Get-AssignedPodNetworkCIDR {
     $getPodCidrCommand = "kubectl get nodes $NodeName -o jsonpath=`"{.spec.podCIDR}`""
     if ([string]::IsNullOrWhiteSpace($UserPwd)) {
         $cmdExecutionResult = (Invoke-CmdOnVmViaSSHKey -CmdToExecute $getPodCidrCommand -UserName $UserName -IpAddress $IpAddress)
-    } else {
+    }
+    else {
         $remoteUser = "$UserName@$IpAddress"
         $cmdExecutionResult = (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $getPodCidrCommand -RemoteUser "$remoteUser" -RemoteUserPwd "$UserPwd")
     }

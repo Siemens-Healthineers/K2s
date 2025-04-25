@@ -199,13 +199,7 @@ if ( $K8sSetup -eq 'SmallSetup' ) {
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "export IMPLICITPROXY=$IMPLICITPROXY").Output | Write-Log
     $success = (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute '[ -f /usr/local/bin/virtctl ]').Success
     if (!$success) {
-        $setupInfo = Get-SetupInfo
-        if ($setupInfo.Name -ne 'MultiVMK8s') {
             (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo curl --retry 3 --retry-all-errors --proxy $IMPLICITPROXY -sL -o /usr/local/bin/virtctl https://github.com/kubevirt/kubevirt/releases/download/$VERSION_VCTRL/virtctl-$VERSION_VCTRL-linux-amd64 2>&1").Output | Write-Log
-        }
-        else {
-            (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo curl --retry 3 --retry-all-errors -sL -o /usr/local/bin/virtctl https://github.com/kubevirt/kubevirt/releases/download/$VERSION_VCTRL/virtctl-$VERSION_VCTRL-linux-amd64 2>&1").Output | Write-Log
-        }
     }
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo chmod +x /usr/local/bin/virtctl').Output | Write-Log
 }

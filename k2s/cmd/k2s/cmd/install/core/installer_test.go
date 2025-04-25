@@ -19,7 +19,6 @@ import (
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 
 	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
-	"github.com/siemens-healthineers/k2s/internal/powershell"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/install/core"
 	cfg "github.com/siemens-healthineers/k2s/internal/core/config"
@@ -62,8 +61,8 @@ func (m *myMock) Load(kind ic.Kind, cmdFlags *pflag.FlagSet) (*ic.InstallConfig,
 	return args.Get(0).(*ic.InstallConfig), args.Error(1)
 }
 
-func (m *myMock) ExecutePs(script string, psVersion powershell.PowerShellVersion, writer os.StdWriter) error {
-	args := m.Called(script, psVersion, writer)
+func (m *myMock) ExecutePs(script string, writer os.StdWriter) error {
+	args := m.Called(script, writer)
 
 	return args.Error(0)
 }
@@ -224,9 +223,9 @@ var _ = Describe("core", func() {
 				installConfigMock.On(reflection.GetFunctionName(installConfigMock.Load), kind, cmd.Flags()).Return(config, nil)
 
 				executorMock := &myMock{}
-				executorMock.On(reflection.GetFunctionName(executorMock.ExecutePs), testCmd, powershell.PowerShellV5, mock.AnythingOfType("*common.PtermWriter")).Return(expectedError)
-				executorMock.On(reflection.GetFunctionName(executorMock.ExecutePs), testCmd, powershell.PowerShellV5, mock.AnythingOfType("*common.PtermWriter.ErrorLines")).Return("[PREREQ-FAILED] pre-requisite failed")
-				executorMock.On(reflection.GetFunctionName(executorMock.ExecutePs), testCmd, powershell.PowerShellV5, mock.AnythingOfType("*common.GetInstallPreRequisiteError")).Return("[PREREQ-FAILED] pre-requisite failed", true)
+				executorMock.On(reflection.GetFunctionName(executorMock.ExecutePs), testCmd, mock.AnythingOfType("*common.PtermWriter")).Return(expectedError)
+				executorMock.On(reflection.GetFunctionName(executorMock.ExecutePs), testCmd, mock.AnythingOfType("*common.PtermWriter.ErrorLines")).Return("[PREREQ-FAILED] pre-requisite failed")
+				executorMock.On(reflection.GetFunctionName(executorMock.ExecutePs), testCmd, mock.AnythingOfType("*common.GetInstallPreRequisiteError")).Return("[PREREQ-FAILED] pre-requisite failed", true)
 
 				sut := &core.Installer{
 					Printer:             printerMock,
@@ -274,8 +273,8 @@ var _ = Describe("core", func() {
 
 				prereqErrorLine := "[PREREQ-FAILED] random check fails"
 				executorMock := &myMock{}
-				executorMock.On(reflection.GetFunctionName(executorMock.ExecutePs), testCmd, powershell.PowerShellV5, mock.AnythingOfType("*common.PtermWriter")).Return(expectedError).Run(func(args mock.Arguments) {
-					ow := args.Get(2).(*common.PtermWriter)
+				executorMock.On(reflection.GetFunctionName(executorMock.ExecutePs), testCmd, mock.AnythingOfType("*common.PtermWriter")).Return(expectedError).Run(func(args mock.Arguments) {
+					ow := args.Get(1).(*common.PtermWriter)
 					ow.WriteStdErr(prereqErrorLine)
 				})
 

@@ -14,7 +14,6 @@ import (
 
 	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
 	"github.com/siemens-healthineers/k2s/internal/os"
-	"github.com/siemens-healthineers/k2s/internal/powershell"
 	"github.com/siemens-healthineers/k2s/internal/version"
 
 	"github.com/spf13/cobra"
@@ -33,7 +32,7 @@ type Printer interface {
 type Installer struct {
 	InstallConfigAccess      InstallConfigAccess
 	Printer                  Printer
-	ExecutePsScript          func(script string, psVersion powershell.PowerShellVersion, writer os.StdWriter) error
+	ExecutePsScript          func(script string, writer os.StdWriter) error
 	GetVersionFunc           func() version.Version
 	GetPlatformFunc          func() string
 	GetInstallDirFunc        func() string
@@ -80,16 +79,11 @@ func (i *Installer) Install(
 
 	slog.Debug("PS command created", "command", cmd)
 
-	psVersion := powershell.DefaultPsVersions
-	if kind == ic.MultivmConfigType && !config.LinuxOnly {
-		psVersion = powershell.PowerShellV7
-	}
-
-	i.Printer.Printfln("🤖 Installing K2s '%s' %s in '%s' on %s using PowerShell %s", kind, i.GetVersionFunc(), i.GetInstallDirFunc(), i.GetPlatformFunc(), psVersion)
+	i.Printer.Printfln("🤖 Installing K2s '%s' %s in '%s' on %s", kind, i.GetVersionFunc(), i.GetInstallDirFunc(), i.GetPlatformFunc())
 
 	outputWriter := cc.NewPtermWriter()
 
-	err = i.ExecutePsScript(cmd, psVersion, outputWriter)
+	err = i.ExecutePsScript(cmd, outputWriter)
 	if err != nil {
 		// Check for pre-requisites first
 		errorLine, found := cc.GetInstallPreRequisiteError(outputWriter.ErrorLines)

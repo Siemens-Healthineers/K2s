@@ -15,9 +15,7 @@ import (
 	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/samber/lo"
 
-	"github.com/siemens-healthineers/k2s/internal/core/config"
 	"github.com/siemens-healthineers/k2s/internal/core/users"
 	"github.com/siemens-healthineers/k2s/internal/core/users/winusers"
 	"github.com/siemens-healthineers/k2s/internal/os"
@@ -85,11 +83,7 @@ var _ = Describe("system users add", Ordered, func() {
 			fakeHomeDir := filepath.Join(GinkgoT().TempDir(), systemUserId)
 			GinkgoWriter.Println("Using temp home dir <", fakeHomeDir, ">")
 
-			controlPlaneConfig, found := lo.Find(suite.SetupInfo().Config.Nodes(), func(node config.NodeConfigReader) bool {
-				return node.IsControlPlane()
-			})
-			Expect(found).To(BeTrue())
-			expectedRemoteUser = "remote@" + controlPlaneConfig.IpAddress()
+			expectedRemoteUser = "remote@" + suite.SetupInfo().Config.ControlPlane().IpAddress()
 			expectedKeyPath = filepath.Join(fakeHomeDir, `.ssh\k2s\id_rsa`)
 
 			systemUserWithFakeHomeDir := winusers.NewUser(systemUserId, systemUserName, fakeHomeDir)

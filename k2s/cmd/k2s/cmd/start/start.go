@@ -56,7 +56,7 @@ func startk8s(ccmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	startCmd, err := buildStartCmd(ccmd.Flags(), config.SetupName)
+	startCmd, err := buildStartCmd(ccmd.Flags(), config)
 	if err != nil {
 		return err
 	}
@@ -69,7 +69,7 @@ func startk8s(ccmd *cobra.Command, args []string) error {
 
 	slog.Debug("PS command created", "command", startCmd)
 
-	err = powershell.ExecutePs(startCmd, common.DeterminePsVersion(config), common.NewPtermWriter())
+	err = powershell.ExecutePs(startCmd, common.NewPtermWriter())
 	if err != nil {
 		return err
 	}
@@ -100,7 +100,7 @@ func startAdditionalNodes(context *common.CmdContext, flags *pflag.FlagSet, conf
 
 		slog.Debug("PS command created", "command", startNodeCmd)
 
-		err = powershell.ExecutePs(startNodeCmd, common.DeterminePsVersion(config), common.NewPtermWriter())
+		err = powershell.ExecutePs(startNodeCmd, common.NewPtermWriter())
 		if err != nil {
 			slog.Warn("Failure during start of node", "node", node.Name, "err", err)
 		}
@@ -139,7 +139,7 @@ func buildNodeStartCmd(flags *pflag.FlagSet, nodeConfig cc.Node) string {
 	return cmd
 }
 
-func buildStartCmd(flags *pflag.FlagSet, setupName setupinfo.SetupName) (string, error) {
+func buildStartCmd(flags *pflag.FlagSet, config *setupinfo.Config) (string, error) {
 	outputFlag, err := strconv.ParseBool(flags.Lookup(common.OutputFlagName).Value.String())
 	if err != nil {
 		return "", err
@@ -154,11 +154,13 @@ func buildStartCmd(flags *pflag.FlagSet, setupName setupinfo.SetupName) (string,
 
 	var cmd string
 
-	switch setupName {
+	switch config.SetupName {
 	case setupinfo.SetupNamek2s:
-		cmd = buildk2sStartCmd(outputFlag, additionalHooksDir, autouseCachedVSwitch)
-	case setupinfo.SetupNameMultiVMK8s:
-		cmd = buildMultiVMStartCmd(outputFlag, additionalHooksDir)
+		if config.LinuxOnly {
+			cmd = buildLinuxOnlyStartCmd(outputFlag, additionalHooksDir)
+		} else {
+			cmd = buildk2sStartCmd(outputFlag, additionalHooksDir, autouseCachedVSwitch)
+		}
 	case setupinfo.SetupNameBuildOnlyEnv:
 		return "", errors.New("there is no cluster to start in build-only setup mode ;-). Aborting")
 	default:
@@ -186,8 +188,8 @@ func buildk2sStartCmd(showLogs bool, additionalHooksDir string, autouseCachedVSw
 	return cmd
 }
 
-func buildMultiVMStartCmd(showLogs bool, additionalHooksDir string) string {
-	cmd := utils.FormatScriptFilePath(utils.InstallDir() + "\\lib\\scripts\\multivm\\start\\start.ps1")
+func buildLinuxOnlyStartCmd(showLogs bool, additionalHooksDir string) string {
+	cmd := utils.FormatScriptFilePath(utils.InstallDir() + "\\lib\\scripts\\linuxonly\\start\\start.ps1")
 
 	if showLogs {
 		cmd += " -ShowLogs"

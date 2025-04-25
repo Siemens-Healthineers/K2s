@@ -98,7 +98,7 @@ func runStatusCmd(cmd *cobra.Command, addon addons.Addon, implementation string,
 	printer := determinePrinterFunc(outputOption)
 
 	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
-	config, err := setupinfo.ReadConfig(context.Config().Host().K2sConfigDir())
+	_, err = setupinfo.ReadConfig(context.Config().Host().K2sConfigDir())
 	if err != nil {
 		if errors.Is(err, setupinfo.ErrSystemInCorruptedState) {
 			return printer.PrintSystemError(addon.Metadata.Name, setupinfo.ErrSystemInCorruptedState, common.CreateSystemInCorruptedStateCmdFailure)
@@ -118,10 +118,10 @@ func runStatusCmd(cmd *cobra.Command, addon addons.Addon, implementation string,
 		slog.Info("Loading status", "addon", addonName, "directory", addon.Directory)
 
 		if implementation != "" {
-			return LoadAddonStatus(addonName, filepath.Join(addon.Directory, implementation), common.DeterminePsVersion(config))
+			return LoadAddonStatus(addonName, filepath.Join(addon.Directory, implementation))
 		}
 
-		return LoadAddonStatus(addonName, addon.Directory, common.DeterminePsVersion(config))
+		return LoadAddonStatus(addonName, addon.Directory)
 	}
 
 	return printer.PrintStatus(addon.Metadata.Name, implementation, loadFunc)
