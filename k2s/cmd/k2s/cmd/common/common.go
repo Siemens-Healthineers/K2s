@@ -15,7 +15,6 @@ import (
 	"github.com/siemens-healthineers/k2s/internal/k8s"
 	bl "github.com/siemens-healthineers/k2s/internal/logging"
 	"github.com/siemens-healthineers/k2s/internal/os"
-	"github.com/siemens-healthineers/k2s/internal/powershell"
 
 	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
 
@@ -155,11 +154,11 @@ func CreateSystemUnableToUpgradeCmdFailure() *CmdFailure {
 	}
 }
 
-func CreateFunctionalityNotAvailableCmdFailure(setupName setupinfo.SetupName) *CmdFailure {
+func CreateFuncUnavailableForLinuxOnlyCmdFailure() *CmdFailure {
 	return &CmdFailure{
 		Severity: SeverityWarning,
-		Code:     "functionality-not-available",
-		Message:  fmt.Sprintf("This functionality is not available because '%s' setup is deprecated.", setupName),
+		Code:     "functionality-not-available-for-linux-only",
+		Message:  "This functionality is not available in Linux-only setup.",
 	}
 }
 
@@ -190,16 +189,6 @@ func StopSpinner(spinner Spinner) {
 		slog.Error("spinner stop", "error", err)
 	}
 }
-
-func DeterminePsVersion(config *setupinfo.Config) powershell.PowerShellVersion {
-	if config.SetupName == setupinfo.SetupNameMultiVMK8s && !config.LinuxOnly {
-		return powershell.PowerShellV7
-	}
-
-	return powershell.PowerShellV5
-}
-
-func GetDefaultPsVersion() powershell.PowerShellVersion { return powershell.PowerShellV5 }
 
 func GetInstallPreRequisiteError(errorLines []string) (line string, found bool) {
 	for _, line := range errorLines {

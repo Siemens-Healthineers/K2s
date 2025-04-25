@@ -70,8 +70,7 @@ func addNode(ccmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	psVersion := common.DeterminePsVersion(config)
-	systemStatus, err := status.LoadStatus(psVersion)
+	systemStatus, err := status.LoadStatus()
 	if err != nil {
 		return fmt.Errorf("could not determine system status: %w", err)
 	}
@@ -88,7 +87,7 @@ func addNode(ccmd *cobra.Command, args []string) error {
 	pterm.Printfln("🤖 Adding node to K2s cluster")
 	slog.Debug("PS command created", "command", addNodeCmd)
 
-	err = powershell.ExecutePs(addNodeCmd, psVersion, common.NewPtermWriter())
+	err = powershell.ExecutePs(addNodeCmd, common.NewPtermWriter())
 	if err != nil {
 		return err
 	}

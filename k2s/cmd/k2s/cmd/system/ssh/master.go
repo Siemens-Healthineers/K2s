@@ -67,7 +67,7 @@ func (m *masterBaseCommandProvider) getShellExecutorCommand() string {
 
 func sshMaster(cmd *cobra.Command, args []string) error {
 	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
-	config, err := setupinfo.ReadConfig(context.Config().Host().K2sConfigDir())
+	_, err := setupinfo.ReadConfig(context.Config().Host().K2sConfigDir())
 	if err != nil {
 		if errors.Is(err, setupinfo.ErrSystemInCorruptedState) {
 			return common.CreateSystemInCorruptedStateCmdFailure()
@@ -87,5 +87,5 @@ func sshMaster(cmd *cobra.Command, args []string) error {
 
 	handler := commandHandlerCreatorFuncForMaster()
 
-	return handler.Handle(remoteCmd, common.DeterminePsVersion(config))
+	return handler.Handle(remoteCmd)
 }

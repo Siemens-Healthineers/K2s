@@ -112,8 +112,8 @@ func upgradeCluster(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if config.SetupName == setupinfo.SetupNameMultiVMK8s {
-		return common.CreateFunctionalityNotAvailableCmdFailure(config.SetupName)
+	if config.LinuxOnly {
+		return common.CreateFuncUnavailableForLinuxOnlyCmdFailure()
 	}
 	if err := context.EnsureK2sK8sContext(); err != nil {
 		return err
@@ -127,7 +127,7 @@ func upgradeCluster(cmd *cobra.Command, args []string) error {
 
 	switchToUpgradeLogFile(showLog, context.Logger())
 
-	psErr := powershell.ExecutePs(psCmd, common.DeterminePsVersion(config), outputWriter)
+	psErr := powershell.ExecutePs(psCmd, outputWriter)
 
 	switchToDefaultLogFile(showLog, context.Logger())
 

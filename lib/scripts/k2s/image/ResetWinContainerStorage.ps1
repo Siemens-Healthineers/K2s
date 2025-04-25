@@ -156,18 +156,6 @@ if ($setupInfo.LinuxOnly) {
     exit 1
 }
 
-if ($setupInfo.Name -eq 'MultiVMK8s' -and !$setupInfo.LinuxOnly) {
-    $errMsg = 'In order to clean up Win container storage for multivm setup, please re-install multivm cluster.'
-    if ($EncodeStructuredOutput -eq $true) {
-        $err = New-Error -Severity Warning -Code (Get-ErrCodeWrongSetupType) -Message $errMsg
-        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
-        return
-    }
-
-    Write-Log $errMsg -Error
-    exit 1
-}
-
 if ($setupInfo.Name -eq 'k2s') {
     $clusterState = Get-RunningState -SetupName $setupInfo.Name
 

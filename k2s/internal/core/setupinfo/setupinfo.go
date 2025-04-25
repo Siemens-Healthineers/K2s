@@ -26,7 +26,6 @@ type Config struct {
 
 const (
 	SetupNamek2s          SetupName = "k2s"
-	SetupNameMultiVMK8s   SetupName = "MultiVMK8s"
 	SetupNameBuildOnlyEnv SetupName = "BuildOnlyEnv"
 
 	ConfigFileName = "setup.json"

@@ -14,7 +14,6 @@ import (
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 	cfg "github.com/siemens-healthineers/k2s/internal/core/config"
 	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
-	"github.com/siemens-healthineers/k2s/internal/powershell"
 	"github.com/siemens-healthineers/k2s/internal/reflection"
 	"github.com/stretchr/testify/mock"
 
@@ -35,8 +34,8 @@ type mockPowershellExecutor struct {
 	mock.Mock
 }
 
-func (m *mockPowershellExecutor) ExecutePsWithStructuredResult(psVersion powershell.PowerShellVersion, psCmd string, params ...string) (*common.CmdResult, error) {
-	args := m.Called(psVersion, psCmd, params)
+func (m *mockPowershellExecutor) ExecutePsWithStructuredResult(psCmd string, params ...string) (*common.CmdResult, error) {
+	args := m.Called(psCmd, params)
 	return args.Get(0).(*common.CmdResult), args.Error(1)
 }
 
@@ -137,25 +136,6 @@ var _ = Describe("reset-win-storage", Ordered, func() {
 					mockPowershellExecutor := &mockPowershellExecutor{}
 					config := &setupinfo.Config{
 						Corrupted: true,
-					}
-					mockSetupConfigProvider.On(reflection.GetFunctionName(mockSetupConfigProvider.ReadConfig), mock.AnythingOfType("string")).Return(config, setupinfo.ErrSystemInCorruptedState)
-					mockPowershellExecutor.On(reflection.GetFunctionName(mockPowershellExecutor.ExecutePsWithStructuredResult), mock.Anything, mock.Anything, mock.Anything).Return(&common.CmdResult{}, nil)
-					getSetupConfigProvider = func() setupConfigProvider { return mockSetupConfigProvider }
-					getPowershellExecutor = func() powershellExecutor { return mockPowershellExecutor }
-					resetWinStorageCmd.Flags().Set(containerdDirFlag, "containerdDir")
-
-					resetWinStorage(resetWinStorageCmd, nil)
-
-					mockPowershellExecutor.AssertCalled(GinkgoT(), reflection.GetFunctionName(mockPowershellExecutor.ExecutePsWithStructuredResult), mock.Anything, mock.Anything, mock.Anything)
-				})
-			})
-			Context("when MultiVMK8s variant", func() {
-				It("command is executed", func() {
-					mockSetupConfigProvider := &mockSetupConfigProvider{}
-					mockPowershellExecutor := &mockPowershellExecutor{}
-					config := &setupinfo.Config{
-						Corrupted: true,
-						SetupName: setupinfo.SetupNameMultiVMK8s,
 					}
 					mockSetupConfigProvider.On(reflection.GetFunctionName(mockSetupConfigProvider.ReadConfig), mock.AnythingOfType("string")).Return(config, setupinfo.ErrSystemInCorruptedState)
 					mockPowershellExecutor.On(reflection.GetFunctionName(mockPowershellExecutor.ExecutePsWithStructuredResult), mock.Anything, mock.Anything, mock.Anything).Return(&common.CmdResult{}, nil)

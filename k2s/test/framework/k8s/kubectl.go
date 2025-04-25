@@ -30,3 +30,7 @@ func NewCli(cliExecutor CliExecutor, rootDir string) *Kubectl {
 func (k *Kubectl) Run(ctx context.Context, args ...string) string {
 	return k.cliExecutor.ExecOrFail(ctx, k.cliPath, args...)
 }
+
+func (k *Kubectl) Path() string {
+	return k.cliPath
+}
