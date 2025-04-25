@@ -191,7 +191,7 @@ The following features are available:
         user: admin
         password: admin
    Refer https://www.keycloak.org/guides for more information about keycloak
-3. linkerd: Linkerd is a service mesh implementation. It adds security, observability, and reliability to any Kubernetes cluster.
+3. linkerd (only for enhanced security type): Linkerd is a service mesh implementation. It adds security, observability, and reliability to any Kubernetes cluster.
    If you have choosen the enhanced security mode, than linkerd is enabled.
    Add below annotations in your workload to enable linkerd support.
     linkerd.io/inject: "enabled"
