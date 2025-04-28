@@ -27,7 +27,7 @@ type setupConfigProvider interface {
 }
 
 type powershellExecutor interface {
-	ExecutePsWithStructuredResult(psVersion powershell.PowerShellVersion, psCmd string, params ...string) (*common.CmdResult, error)
+	ExecutePsWithStructuredResult(psCmd string, params ...string) (*common.CmdResult, error)
 }
 
 type setupConfigProviderImpl struct{}
@@ -38,8 +38,8 @@ func (s *setupConfigProviderImpl) ReadConfig(configDir string) (*setupinfo.Confi
 	return setupinfo.ReadConfig(configDir)
 }
 
-func (p *powershellExecutorImpl) ExecutePsWithStructuredResult(psVersion powershell.PowerShellVersion, psCmd string, params ...string) (*common.CmdResult, error) {
-	return powershell.ExecutePsWithStructuredResult[*common.CmdResult](psCmd, "CmdResult", psVersion, common.NewPtermWriter(), params...)
+func (p *powershellExecutorImpl) ExecutePsWithStructuredResult(psCmd string, params ...string) (*common.CmdResult, error) {
+	return powershell.ExecutePsWithStructuredResult[*common.CmdResult](psCmd, "CmdResult", common.NewPtermWriter(), params...)
 }
 
 func newSetupConfigProvider() setupConfigProvider {
@@ -121,20 +121,15 @@ func resetWinStorage(cmd *cobra.Command, args []string) error {
 
 	setupConfigProvider := getSetupConfigProvider()
 	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
-	config, err := setupConfigProvider.ReadConfig(context.Config().Host().K2sConfigDir())
+	_, err = setupConfigProvider.ReadConfig(context.Config().Host().K2sConfigDir())
 	if err != nil {
 		if !(errors.Is(err, setupinfo.ErrSystemNotInstalled) || errors.Is(err, setupinfo.ErrSystemInCorruptedState)) {
 			return err
 		}
 	}
 
-	psVersion := common.GetDefaultPsVersion()
-	if config != nil {
-		psVersion = common.DeterminePsVersion(config)
-	}
-
 	powershellExecutor := getPowershellExecutor()
-	cmdResult, err := powershellExecutor.ExecutePsWithStructuredResult(psVersion, psCmd, params...)
+	cmdResult, err := powershellExecutor.ExecutePsWithStructuredResult(psCmd, params...)
 
 	if err != nil {
 		return err

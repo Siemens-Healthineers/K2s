@@ -6,11 +6,11 @@ apiVersion: v1
 kind: AddonManifest
 metadata:
   name: security
-  description: "EXPERIMENTAL: Enables secure communication into and inside the cluster"
+  description: "Enables secure communication into and inside the cluster"
 spec:
   implementations:
     - name: security
-      description: "EXPERIMENTAL: Enables secure communication into and inside the cluster"
+      description: "Enables secure communication into and inside the cluster"
       offline_usage:
         linux:
           repos: []
@@ -21,6 +21,9 @@ spec:
           curl:
             - url: https://github.com/cert-manager/cmctl/releases/download/v2.0.0/cmctl_windows_amd64.exe
               destination: bin\cmctl.exe
+          linkerd:
+            - url: https://github.com/linkerd/linkerd2/releases/download/edge-25.3.3/linkerd2-cli-edge-25.3.3-windows.exe
+              destination: bin\linkerd.exe
       commands:
         enable:
           cli:
@@ -38,18 +41,31 @@ spec:
                 shorthand: p
                 default: ""
                 description: HTTP Proxy
+              - name: type
+                shorthand: t
+                default: basic
+                description: Type of security (basic->trust level cluster, enhanced->zero trust)
+                constraints:
+                  kind: validation-set
+                  validationSet:
+                    - basic
+                    - enhanced
             examples:
               - cmd: k2s addons enable security
                 comment: Enable security addon with CA issuer configured
               - cmd: k2s addons enable security --proxy http://10.11.12.13:5000
                 comment: Enable security addon with CA issuer configured using an HTTP proxy
+              - cmd: k2s addons enable security --type enhanced
+                comment: Enable security addon with zero trust settings
           script:
             subPath: Enable.ps1
             parameterMappings:
               - cliFlagName: proxy
                 scriptParameterName: Proxy
               - cliFlagName: ingress
-                scriptParameterName: Ingress            
+                scriptParameterName: Ingress 
+              - cliFlagName: type
+                scriptParameterName: Type           
         disable:
           cli:
             examples:

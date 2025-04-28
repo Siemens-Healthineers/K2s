@@ -24,7 +24,7 @@ var suite *framework.K2sTestSuite
 
 func TestSystem(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "system CLI Commands Acceptance Tests", Label("cli", "system", "scp", "ssh", "m", "w", "upgrade", "package", "users", "acceptance", "no-setup", "corrupted-state"))
+	RunSpecs(t, "system CLI Commands Acceptance Tests", Label("cli", "system", "scp", "ssh", "m", "upgrade", "package", "users", "acceptance", "no-setup", "corrupted-state"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
@@ -83,11 +83,8 @@ var _ = Describe("system", Ordered, func() {
 		},
 
 		Entry("scp m", "system", "scp", "m", "a1", "a2"),
-		Entry("scp w", "system", "scp", "w", "a1", "a2"),
 		Entry("ssh m connect", "system", "ssh", "m"),
 		Entry("ssh m cmd", "system", "ssh", "m", "--", "echo yes"),
-		Entry("ssh w connect", "system", "ssh", "w"),
-		Entry("ssh w cmd", "system", "ssh", "w", "--", "echo yes"),
 		Entry("upgrade", "system", "upgrade"),
 		Entry("upgrade", "system", "reset", "network"),
 		Entry("package", "system", "package", "--target-dir", "tempDir", "--name", "package.zip", "--for-offline-installation"),

@@ -66,8 +66,8 @@ Write-Log 'Uninstalling security' -Console
 $certManagerConfig = Get-CertManagerConfig
 $caIssuerConfig = Get-CAIssuerConfig
 
-(Invoke-Kubectl -Params 'delete', '-f', $caIssuerConfig).Output | Write-Log
-(Invoke-Kubectl -Params 'delete', '-f', $certManagerConfig).Output | Write-Log
+(Invoke-Kubectl -Params 'delete', '--ignore-not-found', '-f', $caIssuerConfig).Output | Write-Log
+(Invoke-Kubectl -Params 'delete', '--ignore-not-found', '-f', $certManagerConfig).Output | Write-Log
 
 Remove-Cmctl
 
@@ -77,12 +77,32 @@ $trustedRootStoreLocation = Get-TrustedRootStoreLocation
 Get-ChildItem -Path $trustedRootStoreLocation | Where-Object { $_.Subject -match $caIssuerName } | Remove-Item
 
 $oauth2ProxyYaml = Get-OAuth2ProxyConfig
-(Invoke-Kubectl -Params 'delete', '-f', $oauth2ProxyYaml).Output | Write-Log
+(Invoke-Kubectl -Params 'delete', '--ignore-not-found', '-f', $oauth2ProxyYaml).Output | Write-Log
 
 $keyCloakYaml = Get-KeyCloakConfig
-(Invoke-Kubectl -Params 'delete', '-f', $keyCloakYaml).Output | Write-Log
+(Invoke-Kubectl -Params 'delete', '--ignore-not-found', '-f',$keyCloakYaml).Output | Write-Log
 
-Remove-WindowsSecuirtyDeployments
+Remove-WindowsSecurityDeployments
+
+$linkerdYaml = Get-LinkerdConfigDirectory
+(Invoke-Kubectl -Params 'delete', '--ignore-not-found', '-k',$linkerdYaml).Output | Write-Log
+
+Remove-LinkerdMarkerConfig
+
+Remove-LinkerdExecutable
+
+$linkerdYamlCNI = Get-LinkerdConfigCNI
+(Invoke-Kubectl -Params 'delete', '--ignore-not-found', '-f',$linkerdYamlCNI).Output | Write-Log
+
+$linkerdYamlCertManager = Get-LinkerdConfigCertManager
+(Invoke-Kubectl -Params 'delete', '--ignore-not-found', '-f', $linkerdYamlCertManager).Output | Write-Log
+
+$linkerdYamlTrustManager = Get-LinkerdConfigTrustManager
+(Invoke-Kubectl -Params 'delete', '--ignore-not-found', '-f', $linkerdYamlTrustManager).Output | Write-Log
+
+Remove-ConfigFileForCNI
+
+Remove-LinkerdManifests 
 
 Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'security' })
 

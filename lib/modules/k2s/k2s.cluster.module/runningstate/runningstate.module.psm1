@@ -64,7 +64,7 @@ function Get-RunningState {
         [Parameter(Mandatory = $false)]
         [string]$SetupName = $(throw 'SetupName not specified')
     )
-    if ($SetupName -ne 'k2s' -and $SetupName -ne 'MultiVMK8s' -and $SetupName -ne 'BuildOnlyEnv') {
+    if ($SetupName -ne 'k2s' -and $SetupName -ne 'BuildOnlyEnv') {
         throw "cannot get running state for invalid setup type '$SetupName'"
     }
 
@@ -111,6 +111,12 @@ function Get-RunningState {
 
     switch ($SetupName) {
         'k2s' {
+            $linuxOnly = Get-ConfigLinuxOnly
+            if ($linuxOnly) {
+                Write-Log "[$script::$function] Linux-only, no more checks needed"
+                break
+            }
+            
             $servicesToCheck = 'flanneld', 'kubelet', 'kubeproxy'
             foreach ($service in $servicesToCheck) {
                 Write-Log "[$script::$function] checking '$service' service state.."
@@ -126,27 +132,6 @@ function Get-RunningState {
                 else {
                     Write-Log "[$script::$function] '$service' running"
                 }
-            }
-        }
-        'MultiVMK8s' {
-            $linuxOnly = Get-ConfigLinuxOnly
-            if ($linuxOnly) {
-                Write-Log "[$script::$function] is Linux-only, no more checks needed"
-                break
-            }
-
-            $winWorkerNodeName = Get-ConfigVMNodeHostname
-            $winVmState = Get-VmState -Name $winWorkerNodeName
-            if ($winVmState -ne 'Running') {
-                $msg = "worker node '$winWorkerNodeName' not running, state is '$winVmState' (VM)"
-
-                Write-Log "[$script::$function] $msg"
-
-                $allRunning = $false
-                $issues.Add($msg) | Out-Null
-            }
-            else {
-                Write-Log "[$script::$function] worker node '$winWorkerNodeName' running"
             }
         }
         Default { 

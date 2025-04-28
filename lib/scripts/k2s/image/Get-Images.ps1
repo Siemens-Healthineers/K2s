@@ -44,11 +44,9 @@ Import-Module $infraModule, $clusterModule
 
 Initialize-Logging
 
-$WorkerVM = Get-IsWorkerVM
-
 $script = $MyInvocation.MyCommand.Name
 
-Write-Log "[$script] started with EncodeStructuredOutput='$EncodeStructuredOutput' and MessageType='$MessageType' and IncludeK8sImages='$IncludeK8sImages' and WorkerVM='$WorkerVM'"
+Write-Log "[$script] started with EncodeStructuredOutput='$EncodeStructuredOutput' and MessageType='$MessageType' and IncludeK8sImages='$IncludeK8sImages'"
 
 try {
     $systemError = Test-SystemAvailability -Structured
@@ -63,7 +61,7 @@ try {
     }
 
     $images = @{Error = $null }
-    $images.ContainerImages = @(Get-ContainerImagesInk2s -IncludeK8sImages $IncludeK8sImages -WorkerVM $WorkerVM)
+    $images.ContainerImages = @(Get-ContainerImagesInk2s -IncludeK8sImages $IncludeK8sImages)
     $images.ContainerRegistry = $(Get-RegistriesFromSetupJson) | Where-Object { $_ -match 'k2s.registry.*' }
     $images.PushedImages = @(Get-PushedContainerImages)
 

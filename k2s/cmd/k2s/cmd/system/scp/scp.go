@@ -25,13 +25,10 @@ const (
 	reverseFlag = "reverse"
 
 	mReverseShort = "Copy from KubeMaster to local machine"
-	wReverseShort = "Copy from WinNode VM to local machine"
 
 	mShort = "Copy from local machine to KubeMaster"
-	wShort = "Copy from local machine to WinNode VM in multi-vm setup"
 
 	scriptRelPathToScpMaster = "\\lib\\scripts\\k2s\\system\\scp\\scpm.ps1"
-	scriptRelPathToScpWorker = "\\lib\\scripts\\multivm\\system\\scp\\scpw.ps1"
 
 	mExample = `
   # Copy a yaml manifest from local machine to KubeMaster
@@ -39,13 +36,6 @@ const (
 
   # Copy a yaml manifest from KubeMaster to local machine
   k2s system scp m /tmp/manifest.yaml C:\tmp\ -r
-`
-	wExample = `
-  # Copy a yaml manifest from local machine to WinNode VM in multi-vm setup
-  k2s system scp w C:\tmp\manifest.yaml C:\tmp\worker\manifest.yaml
-
-  # Copy a yaml manifest from WinNode VM to local machine in multi-vm setup
-  k2s system scp w C:\tmp\worker\manifest.yaml C:\tmp\manifest.yaml -r
 `
 )
 
@@ -56,7 +46,6 @@ var ScpCmd = &cobra.Command{
 
 func init() {
 	ScpCmd.AddCommand(buildScpSubCmd("m", mShort, mExample, scriptRelPathToScpMaster, mReverseShort))
-	ScpCmd.AddCommand(buildScpSubCmd("w", wShort, wExample, scriptRelPathToScpWorker, wReverseShort))
 }
 
 func buildScpSubCmd(useShort, short, example, scriptPath, reverseShort string) *cobra.Command {
@@ -95,7 +84,7 @@ func runScpCmd(cmd *cobra.Command, args []string, scriptPath string) error {
 	slog.Debug("PS command created", "command", psCmd, "params", params)
 
 	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
-	config, err := setupinfo.ReadConfig(context.Config().Host().K2sConfigDir())
+	_, err = setupinfo.ReadConfig(context.Config().Host().K2sConfigDir())
 	if err != nil {
 		if errors.Is(err, setupinfo.ErrSystemInCorruptedState) {
 			return common.CreateSystemInCorruptedStateCmdFailure()
@@ -106,12 +95,7 @@ func runScpCmd(cmd *cobra.Command, args []string, scriptPath string) error {
 		return err
 	}
 
-	// TODO: disable copying to/from worker node for multivm
-	if config.SetupName == setupinfo.SetupNameMultiVMK8s && scriptPath == scriptRelPathToScpWorker {
-		return common.CreateFunctionalityNotAvailableCmdFailure(config.SetupName)
-	}
-
-	cmdResult, err := powershell.ExecutePsWithStructuredResult[*common.CmdResult](psCmd, "CmdResult", common.DeterminePsVersion(config), common.NewPtermWriter(), params...)
+	cmdResult, err := powershell.ExecutePsWithStructuredResult[*common.CmdResult](psCmd, "CmdResult", common.NewPtermWriter(), params...)
 	if err != nil {
 		return err
 	}

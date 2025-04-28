@@ -46,11 +46,11 @@ func resetSystem(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	if config.SetupName == setupinfo.SetupNameMultiVMK8s {
-		return common.CreateFunctionalityNotAvailableCmdFailure(config.SetupName)
+	if config.LinuxOnly {
+		return common.CreateFuncUnavailableForLinuxOnlyCmdFailure()
 	}
 
-	err = powershell.ExecutePs(resetSystemCommand, common.DeterminePsVersion(config), common.NewPtermWriter())
+	err = powershell.ExecutePs(resetSystemCommand, common.NewPtermWriter())
 	if err != nil {
 		return err
 	}

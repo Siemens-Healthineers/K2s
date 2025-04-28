@@ -10,7 +10,6 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
-	"github.com/siemens-healthineers/k2s/internal/powershell"
 	r "github.com/siemens-healthineers/k2s/internal/reflection"
 
 	"github.com/go-logr/logr"
@@ -29,12 +28,6 @@ type nullableOkay struct {
 
 type nullableMessage struct {
 	value string
-}
-
-func (m *mockObject) mockDeterminePrinter(outputOption string, psVersion powershell.PowerShellVersion) StatusPrinter {
-	args := m.Called(outputOption)
-
-	return args.Get(0).(StatusPrinter)
 }
 
 func (m *mockObject) PrintStatus(addonName string, addonDirectory string) error {

@@ -107,16 +107,9 @@ function Get-ContainerImagesOnLinuxNode([bool]$IncludeK8sImages = $false) {
 }
 
 function Get-ContainerImagesOnWindowsNode([bool]$IncludeK8sImages = $false) {
-    $setupInfo = Get-SetupInfo
     $KubernetesImages = Get-KubernetesImagesFromJson
-    if ($setupInfo.Name -ne "$global:SetupType_MultiVMK8s") {
-        $output = &$global:BinPath\crictl images 2> $null
-        $node = $env:ComputerName.ToLower()
-    }
-    elseif ($setupInfo.Name -eq "$global:SetupType_MultiVMK8s" -and !$($setupInfo.LinuxOnly)) {
-        $output = ssh.exe -n -o StrictHostKeyChecking=no -i $global:WindowsVMKey $global:Admin_WinNode crictl images 2> $null
-        $node = 'winnode'
-    }
+    $output = &$global:BinPath\crictl images 2> $null
+    $node = $env:ComputerName.ToLower()
 
     $windowsContainerImages = @()
     if ($output.Count -gt 1) {
@@ -176,9 +169,6 @@ function Remove-Image([ContainerImage]$ContainerImage) {
     $output = ''
     if ($containerImage.Node -eq $env:ComputerName.ToLower()) {
         $output = $(&$global:BinPath\crictl rmi $containerImage.ImageId 2>&1)
-    }
-    elseif ($containerImage.Node -eq 'winnode') {
-        $output = ssh.exe -n -o StrictHostKeyChecking=no -i $global:WindowsVMKey $global:Admin_WinNode crictl rmi $containerImage.ImageId 2> $null
     }
     else {
         $imageId = $containerImage.ImageId

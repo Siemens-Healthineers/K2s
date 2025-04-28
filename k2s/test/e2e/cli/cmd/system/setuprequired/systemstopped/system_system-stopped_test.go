@@ -18,7 +18,7 @@ var suite *framework.K2sTestSuite
 
 func TestSystem(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "system CLI Commands Acceptance Tests", Label("cli", "system", "scp", "m", "w", "acceptance", "setup-required", "system-stopped"))
+	RunSpecs(t, "system CLI Commands Acceptance Tests", Label("cli", "system", "scp", "m", "acceptance", "setup-required", "system-stopped"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
@@ -40,11 +40,8 @@ var _ = Describe("system", func() {
 			))
 		},
 		Entry("scp m", "system", "scp", "m", "a1", "a2"),
-		// Entry("scp w", "system", "scp", "w", "a1", "a2"), // superseded by deprecation message
 		Entry("ssh m", "system", "ssh", "m", "--", "echo yes"),
-		Entry("ssh w", "system", "ssh", "w", "--", "echo yes"),
 		Entry("ssh m", "system", "ssh", "m"),
-		Entry("ssh w", "system", "ssh", "w"),
 	)
 
 	Describe("dump", func() {

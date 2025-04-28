@@ -24,13 +24,12 @@ type AddonStatusProp struct {
 	Name    string  `json:"name"`
 }
 
-func LoadAddonStatus(addonName string, addonDirectory string, psVersion powershell.PowerShellVersion) (*LoadedAddonStatus, error) {
+func LoadAddonStatus(addonName string, addonDirectory string) (*LoadedAddonStatus, error) {
 	scriptPath := utils.FormatScriptFilePath(utils.InstallDir() + "\\addons\\Get-Status.ps1")
 
 	return powershell.ExecutePsWithStructuredResult[*LoadedAddonStatus](
 		scriptPath,
 		"Status",
-		psVersion,
 		common.NewPtermWriter(),
 		"-Name",
 		addonName,

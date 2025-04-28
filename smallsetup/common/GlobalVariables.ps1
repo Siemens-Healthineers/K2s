@@ -100,16 +100,10 @@ $global:ConfiguredStorageLocalDriveLetter = $smallsetup.psobject.properties['sto
 
 $global:L2BridgeSwitchName = 'cbr0'
 
-# global settings for multi-VM K8s setup
-$multivm = $smallsetup.psobject.properties['multivm'].value
-$global:MultiVMWinNodeIP = $multivm.psobject.properties['multiVMK8sWindowsVMIP'].value
-$global:Admin_WinNode = "administrator@$global:MultiVMWinNodeIP"
-
 # setup config file
 $global:SetupJsonFile = "$global:K2sConfigDir\setup.json"
 $global:KubernetesImagesJson = "$global:K2sConfigDir\kubernetes_images.json"
 $global:SetupType_k2s = 'k2s'
-$global:SetupType_MultiVMK8s = 'MultiVMK8s'
 $global:SetupType_BuildOnlyEnv = 'BuildOnlyEnv'
 $global:ConfigKey_LoggedInRegistry = 'LoggedInRegistry'
 $global:ConfigKey_UsedStorageLocalDriveLetter = 'UsedStorageLocalDriveLetter'
