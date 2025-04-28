@@ -799,6 +799,28 @@ function Remove-StorageClass {
     Remove-PersistentVolumeClaimsForStorageClass -StorageClass $global:newClassName | Write-Log
 
     if ((Test-Path -Path $patchFilePath) -eq $true) {
+        $kustmizationPath="kustomization.yaml"
+        $KustomizationFullPath = "$manifestBaseDir\$kustmizationPath"
+        $tempKustomizationContent = Get-Content -path $KustomizationFullPath
+        for ($i = 0; $i -lt $tempKustomizationContent.Count; $i++) {
+            if ($tempKustomizationContent[$i] -like '*name:*') {
+                $tempKustomizationContent[$i] = "      name: $global:newClassName"
+                break
+            }
+        }
+        Set-Content -Path $KustomizationFullPath -Value $tempKustomizationContent
+    
+        $smbScPath="smb-sc.yaml"
+        $smbScFullPath = "$manifestBaseDir\$smbScPath"
+        $smbScContent = Get-Content -path $smbScFullPath
+        for ($i = 0; $i -lt $smbScContent.Count; $i++) {
+            if ($smbScContent[$i] -like '*name:*') {
+                $smbScContent[$i] = "  name: $global:newClassName"
+                break
+            }
+        }
+        set-content -path $smbScFullPath -value $smbScContent
+
         $params = 'delete', '-k', $manifestDir
 
         Write-Log "Invoking kubectl with '$params'.."
@@ -809,7 +831,6 @@ function Remove-StorageClass {
             return
         }
 
-        Remove-Item -Path $patchFilePath -Force
 
         Wait-ForStorageClassToBeDeleted -TimeoutSeconds $storageClassTimeoutSeconds
     }
@@ -1133,7 +1154,7 @@ function Enable-SmbShare {
 
     Write-Log -Console '********************************************************************************************'
     Write-Log -Console '** IMPORTANT:                                                                             **' 
-    Write-Log -Console "**       - use the StorageClass name '$smbStorageClassName' to provide storage.                            **"
+    Write-Log -Console "**       - use the StorageClass name $pathValue.StorageClassName to provide storage.                            **"
     Write-Log -Console "**         See '<root>\k2s\test\e2e\addons\storage\workloads\' for example deployments. **"
     Write-Log -Console '********************************************************************************************'
     Get-Status
@@ -1181,14 +1202,14 @@ function Disable-SmbShare {
          $global:linuxLocalPath = $pathValue.master
          $global:windowsLocalPath = Expand-PathSMb $pathValue.windowsWorker
          $global:linuxShareName = "k8sshare$(($global:pathValues.master).IndexOf($global:linuxLocalPath) + 1)" # exposed by Linux VM
-         $global:windowsShareName = (Split-Path -Path $windowsLocalPath -NoQualifier).TrimStart('\') # visible from VMs
-         $global:windowsSharePath = Split-Path -Path $windowsLocalPath -Qualifier
-         $global:linuxHostRemotePath = "\\$(Get-ConfiguredIPControlPlane)\$linuxShareName"
-         $global:windowsHostRemotePath = "\\$(Get-ConfiguredKubeSwitchIP)\$windowsShareName"
-         $global:newClassName=$pathValue.Value.StorageClassName
+         $global:windowsShareName = (Split-Path -Path $global:windowsLocalPath -NoQualifier).TrimStart('\') # visible from VMs
+         $global:windowsSharePath = Split-Path -Path $global:windowsLocalPath -Qualifier
+         $global:linuxHostRemotePath = "\\$(Get-ConfiguredIPControlPlane)\$global:linuxShareName"
+         $global:windowsHostRemotePath = "\\$(Get-ConfiguredKubeSwitchIP)\$global:windowsShareName"
+         $global:newClassName=$pathValue.StorageClassName
          Remove-SmbShareAndFolder -SkipNodesCleanup:$SkipNodesCleanup
      }
-
+    Remove-Item -Path $patchFilePath -Force
     Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = $AddonName; Implementation = $ImplementationName })
     Remove-ScriptsFromHooksDir -ScriptNames @(Get-ChildItem -Path $localHooksDir | ForEach-Object { $_.Name })
     Remove-SmbShareNamespace
