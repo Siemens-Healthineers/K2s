@@ -47,10 +47,23 @@ var _ = Describe("node exec", Ordered, func() {
 		})
 
 		When("command execution succeeds", func() {
-			It("prints the output and exits with exit code zero", func(ctx context.Context) {
-				output := suite.K2sCli().RunOrFail(ctx, "node", "exec", "-i", nodeIpAddress, "-u", remoteUser, "-c", "echo 'Hello, world!'", "-o")
+			When("output is standard", func() {
+				It("prints standard output and exits with exit code zero", func(ctx context.Context) {
+					output := suite.K2sCli().RunOrFail(ctx, "node", "exec", "-i", nodeIpAddress, "-u", remoteUser, "-c", "echo 'Hello, world!'", "-o")
 
-				Expect(output).To(MatchRegexp("Hello, world!"))
+					Expect(output).To(SatisfyAll(
+						MatchRegexp("Hello, world!"),
+						MatchRegexp("SUCCESS"),
+					))
+				})
+			})
+
+			When("output is raw", func() {
+				It("prints raw output only and exits with exit code zero", func(ctx context.Context) {
+					output := suite.K2sCli().RunOrFail(ctx, "node", "exec", "-i", nodeIpAddress, "-u", remoteUser, "-c", "echo 'Hello, world!'", "-r", "-o")
+
+					Expect(output).To(Equal("Hello, world!\n"))
+				})
 			})
 		})
 
@@ -80,10 +93,23 @@ var _ = Describe("node exec", Ordered, func() {
 		})
 
 		When("command execution succeeds", func() {
-			It("prints the output and exits with exit code zero", func(ctx context.Context) {
-				output := suite.K2sCli().RunOrFail(ctx, "node", "exec", "-i", nodeIpAddress, "-u", remoteUser, "-c", "echo 'Hello, world!'", "-o")
+			When("output is standard", func() {
+				It("prints standard output and exits with exit code zero", func(ctx context.Context) {
+					output := suite.K2sCli().RunOrFail(ctx, "node", "exec", "-i", nodeIpAddress, "-u", remoteUser, "-c", "echo 'Hello, world!'", "-o")
 
-				Expect(output).To(MatchRegexp("Hello, world!"))
+					Expect(output).To(SatisfyAll(
+						MatchRegexp("Hello, world!"),
+						MatchRegexp("SUCCESS"),
+					))
+				})
+			})
+
+			When("output is raw", func() {
+				It("prints raw output only and exits with exit code zero", func(ctx context.Context) {
+					output := suite.K2sCli().RunOrFail(ctx, "node", "exec", "-i", nodeIpAddress, "-u", remoteUser, "-c", "echo 'Hello, world!'", "-r", "-o")
+
+					Expect(output).To(Equal("Hello, world!\n"))
+				})
 			})
 		})
 

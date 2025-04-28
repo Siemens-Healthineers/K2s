@@ -205,8 +205,13 @@ func GetInstallPreRequisiteError(errorLines []string) (line string, found bool) 
 
 func (c *CmdFailure) Error() string { return fmt.Sprintf("%s: %s", c.Code, c.Message) }
 
-func (s CmdSession) Finish() {
+func (s CmdSession) Finish(suppressOutput ...bool) {
 	slog.Debug("Command finished", "command", s.cmdDisplayName)
+
+	if len(suppressOutput) > 0 && suppressOutput[0] {
+		return
+	}
+
 	pterm.Success.Printfln("'%s' completed in %v", s.cmdDisplayName, time.Since(s.start))
 
 	logHint := pterm.LightCyan(fmt.Sprintf("Please see '%s' for more information", bl.GlobalLogFilePath()))
