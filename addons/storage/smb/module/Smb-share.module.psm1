@@ -1157,7 +1157,6 @@ function Enable-SmbShare {
     Write-Log -Console "**       - use the StorageClass name $pathValue.StorageClassName to provide storage.                            **"
     Write-Log -Console "**         See '<root>\k2s\test\e2e\addons\storage\workloads\' for example deployments. **"
     Write-Log -Console '********************************************************************************************'
-    Get-Status
     return @{Error = $null }
 }
 
