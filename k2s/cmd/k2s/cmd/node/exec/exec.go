@@ -16,15 +16,25 @@ import (
 	"github.com/spf13/pflag"
 )
 
+type cmdOptions struct {
+	cmd               string
+	connectionOptions ssh.ConnectionOptions
+	rawOutput         bool
+}
+
 const (
 	ipAddressFlag   = "ip-addr"
 	usernameFlag    = "username"
 	commandFlag     = "command"
 	timeoutFlag     = "timeout"
 	portFlag        = "port"
+	rawFlag         = "raw"
 	longDescription = "Executes a command on a remote node."
 	example         = `# Execute a command on Linux node
 k2s node exec -i 192.168.1.2 -u remote -c "echo 'Hello, World!'"
+
+# Execute a command on Linux node only printing the remote output
+k2s node exec -i 192.168.1.2 -u remote -c "echo 'Hello, World!'" -r
 `
 )
 
@@ -47,6 +57,7 @@ func NewCmd() *cobra.Command {
 
 	cmd.Flags().Uint16P(portFlag, "p", ssh.DefaultPort, "Port for remote connection")
 	cmd.Flags().String(timeoutFlag, ssh.DefaultTimeout.String(), "Connection timeout, e.g. '1m20s', allowed time units are 'ns', 'us' (or 'µs'), 'ms', 's', 'm', 'h'")
+	cmd.Flags().BoolP(rawFlag, "r", false, "Print only the remote output, no other information")
 
 	cmd.Flags().SortFlags = false
 	cmd.Flags().PrintDefaults()
@@ -56,7 +67,7 @@ func NewCmd() *cobra.Command {
 
 func exec(cmd *cobra.Command, args []string) error {
 	cmdSession := common.StartCmdSession(cmd.CommandPath())
-	command, connectionOptions, err := extractOptions(cmd.Flags())
+	cmdOptions, err := extractOptions(cmd.Flags())
 	if err != nil {
 		return fmt.Errorf("failed to extract exec options: %w", err)
 	}
@@ -73,53 +84,62 @@ func exec(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to read setup config: %w", err)
 	}
 
-	connectionOptions.SshKeyPath = ssh.SshKeyPath(config.Host().SshDir())
+	cmdOptions.connectionOptions.SshKeyPath = ssh.SshKeyPath(config.Host().SshDir())
 
-	err = node.Exec(command, *connectionOptions)
+	err = node.Exec(cmdOptions.cmd, cmdOptions.connectionOptions)
 	if err != nil {
 		return fmt.Errorf("failed to exec: %w", err)
 	}
 
-	cmdSession.Finish()
+	cmdSession.Finish(cmdOptions.rawOutput)
 
 	return nil
 }
 
-func extractOptions(flags *pflag.FlagSet) (string, *ssh.ConnectionOptions, error) {
+func extractOptions(flags *pflag.FlagSet) (*cmdOptions, error) {
 	ipAddress, err := flags.GetString(ipAddressFlag)
 	if err != nil {
-		return "", nil, err
+		return nil, err
 	}
 
 	command, err := flags.GetString(commandFlag)
 	if err != nil {
-		return "", nil, err
+		return nil, err
 	}
 
 	username, err := flags.GetString(usernameFlag)
 	if err != nil {
-		return "", nil, err
+		return nil, err
 	}
 
 	port, err := flags.GetUint16(portFlag)
 	if err != nil {
-		return "", nil, err
+		return nil, err
 	}
 
 	timeoutValue, err := flags.GetString(timeoutFlag)
 	if err != nil {
-		return "", nil, err
+		return nil, err
 	}
 
 	timeout, err := time.ParseDuration(timeoutValue)
 	if err != nil {
-		return "", nil, err
+		return nil, err
 	}
 
-	return command, &ssh.ConnectionOptions{
-		IpAddress:  ipAddress,
-		RemoteUser: username,
-		Timeout:    timeout,
-		Port:       port,
+	rawOutput, err := flags.GetBool(rawFlag)
+	if err != nil {
+		return nil, err
+	}
+
+	return &cmdOptions{
+		cmd: command,
+		connectionOptions: ssh.ConnectionOptions{
+			IpAddress:  ipAddress,
+			RemoteUser: username,
+			Timeout:    timeout,
+			Port:       port,
+		},
+		rawOutput: rawOutput,
 	}, nil
 }
