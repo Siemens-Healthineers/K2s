@@ -996,11 +996,23 @@ function Update-IngressForTraefik {
     )
 
     $props = Get-AddonProperties -Addon $Addon
+    $kustomizationDir = ''
+    if (Test-KeyCloakServiceAvailability) {
+        Write-Log "  Applying secure nginx ingress manifest for $($props.Name)..." -Console
+        $kustomizationDir = Get-IngressTraefikSecureConfig -Directory $props.Directory
+        # check if $kustomizationDir does not exist
+        if (!(Test-Path -Path $kustomizationDir)) {
+            Write-Log "  Applying nginx ingress manifest for $($props.Name) $($props.Directory)..." -Console
+            $kustomizationDir = Get-IngressTraefikConfig -Directory $props.Directory
+        }
+    }
+    else {
+        Write-Log "  Applying nginx ingress manifest for $($props.Name) $($props.Directory)..." -Console
+        $kustomizationDir = Get-IngressTraefikConfig -Directory $props.Directory
+    }
 
-    Write-Log "  Applying traefik ingress manifest for $($props.Name)..." -Console
-    $ingressTraefikConfig = Get-IngressTraefikConfig -Directory $props.Directory
-    
-    Invoke-Kubectl -Params 'apply', '-k', $ingressTraefikConfig | Out-Null
+    Write-Log "   Apply in cluster folder: $($kustomizationDir)" -Console
+    Invoke-Kubectl -Params 'apply', '-k', $kustomizationDir  | Out-Null
 }
 
 <#
@@ -1019,6 +1031,13 @@ function Remove-IngressForTraefik {
     $ingressTraefikConfig = Get-IngressTraefikConfig -Directory $props.Directory
     
     Invoke-Kubectl -Params 'delete', '-k', $ingressTraefikConfig | Out-Null
+
+    $kustomizationDir = Get-IngressTraefikSecureConfig -Directory $props.Directory
+    if (!(Test-Path -Path $kustomizationDir)) {
+        Write-Log "  Applying nginx ingress manifest for $($props.Name) $($props.Directory)..." -Console
+        $kustomizationDir = Get-IngressTraefikConfig -Directory $props.Directory
+    }
+    Invoke-Kubectl -Params 'delete', '-k', $kustomizationDir | Out-Null
 }
 
 <#
@@ -1056,6 +1075,18 @@ function Get-AddonNameFromFolderPath {
     }
 }
 
+<#
+.DESCRIPTION
+Gets the location of traefik secure ingress yaml
+#>
+function Get-IngressTraefikSecureConfig {
+    param (
+        [Parameter(Mandatory = $false)]
+        [string]$Directory = $(throw 'Directory of the ingress traefik secure config')
+    )
+    return "$PSScriptRoot\$Directory\manifests\ingress-traefik-secure"
+}
+
 Export-ModuleMember -Function Get-EnabledAddons, Add-AddonToSetupJson, Remove-AddonFromSetupJson,
 Install-DebianPackages, Get-DebianPackageAvailableOffline, Test-IsAddonEnabled, Invoke-AddonsHooks, Copy-ScriptsToHooksDir,
 Remove-ScriptsFromHooksDir, Get-AddonConfig, Backup-Addons, Restore-Addons, Get-AddonStatus, Find-AddonManifests,
@@ -1063,4 +1094,4 @@ Get-ErrCodeAddonAlreadyDisabled, Get-ErrCodeAddonAlreadyEnabled, Get-ErrCodeAddo
 Add-HostEntries, Get-AddonsConfig, Update-Addons, Update-IngressForAddon, Test-NginxIngressControllerAvailability, Test-TraefikIngressControllerAvailability,
 Test-KeyCloakServiceAvailability, Enable-IngressAddon, Remove-IngressForTraefik, Remove-IngressForNginx, Get-AddonProperties, Get-IngressNginxConfigDirectory, 
 Update-IngressForTraefik, Update-IngressForNginx, Get-IngressNginxSecureConfig, Get-IngressTraefikConfig, Enable-StorageAddon, Get-AddonNameFromFolderPath, 
-Test-LinkerdServiceAvailability, Test-TrustManagerServiceAvailability, Test-KeyCloakServiceAvailability
+Test-LinkerdServiceAvailability, Test-TrustManagerServiceAvailability, Test-KeyCloakServiceAvailability, Get-IngressTraefikSecureConfig
