@@ -136,11 +136,23 @@ function Invoke-DeployNerdctlArtifacts($windowsNodeArtifactsDirectory) {
 }
 
 function Set-RootPathForImagesInConfig($tomlPath) {
+    Write-Log 'Praveen'
     $template = $tomlPath + '.template'
+    Write-Log 'Template is '
+    Write-Log $template
+    Write-Log 'TomlPath is '
+    Write-Log $tomlPath
     if (Test-Path $template) {
+        $temp = Get-StorageLocalFolderName
+        Write-Log 'StorageLocalFolderName is '
+        write-Log $temp
         $storageLocalDrive = Get-StorageLocalDrive
-        (Get-Content -path $template -Raw) -replace '%BEST-DRIVE%', $storageLocalDrive | Set-Content -Path $tomlPath
+        Write-Log 'StorageLocalDrive is '
+        Write-Log $storageLocalDrive
+        $storageLocalDriveWithFolderName = $storageLocalDrive + $temp
+        (Get-Content -path $template -Raw) -replace '%BEST-DRIVE%', $storageLocalDriveWithFolderName | Set-Content -Path $tomlPath
     }
+    Write-Log 'Temporary call'
 }
 
 function Set-InstallationDirectory($tomlPath) {
