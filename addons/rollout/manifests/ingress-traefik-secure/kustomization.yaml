@@ -14,9 +14,9 @@ patches:
 - patch: |-
     - op: replace
       path: "/metadata/annotations/traefik.ingress.kubernetes.io~1router.middlewares"
-      value: "security-oauth2-proxy-forwarder-signin@kubernetescrd,viewer-oauth2-proxy-auth@kubernetescrd"
+      value: "security-oauth2-proxy-forwarder-signin@kubernetescrd,rollout-oauth2-proxy-auth@kubernetescrd"
   target:
     kind: Ingress
-    name: viewer-traefik-cluster-local
-    namespace: viewer
+    name: rollout-traefik-cluster-local
+    namespace: rollout
 

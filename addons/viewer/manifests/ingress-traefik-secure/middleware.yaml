@@ -25,22 +25,6 @@ spec:
     #     name: k2s.cluster.local-tls
     #     namespace: ingress-traefik
 ---
-apiVersion: traefik.io/v1alpha1
-kind: Middleware
-metadata:
-  name: oauth2-proxy-forwarder-signin
-  namespace: security
-spec:
-  errors:
-    status:
-      - "401"  # Triggers on 401 Unauthorized errors
-    service: 
-      name: oauth2-proxy  # Service that will handle the error and initiate the redirect
-      namespace: security
-      port: 4180  
-    query: "/oauth2/start?rd={url}"  # The URL for the OAuth2 sign-in page with the redirect URL
-    statusRewrites: 
-      "401": 302
----
+
 
 
