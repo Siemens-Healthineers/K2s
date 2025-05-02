@@ -1,0 +1,12 @@
+[
+    {
+        "windowsWorker": "C:/k8s-smb-share1",
+        "master": "/mnt/k8s-smb-share1",
+        "storageClassName": "smb"
+    },
+    {
+        "windowsWorker": "C:/k8s-smb-share2",
+        "master": "/mnt/k8s-smb-share2",
+        "storageClassName": "smb1"
+    }
+]
