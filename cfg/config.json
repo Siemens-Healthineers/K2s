@@ -23,7 +23,7 @@
             "172.21.0.0/16"
         ],
         "storageLocalDriveLetter": "",
-        "storageLocalDriveFolder": "ws",
+        "storageLocalDriveFolder": "",
         "defaultRegistry": "shsk2s.azurecr.io",
         "mirrorRegistries": [
             {
