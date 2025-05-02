@@ -40,15 +40,7 @@ if (Test-Path $global:configFile) {
 }
 
 foreach($pathValue in $global:pathValues){
-    <# $global:SmbStoragePath = $pathValues.psobject.properties['ShareDir'].value#>
-     $global:linuxLocalPath = $pathValue.master
-     $global:windowsLocalPath = Expand-PathSMb $pathValue.windowsWorker
-     $global:linuxShareName = "k8sshare$(($global:pathValues.master).IndexOf($global:linuxLocalPath) + 1)" # exposed by Linux VM
-     $global:windowsShareName = (Split-Path -Path $global:windowsLocalPath -NoQualifier).TrimStart('\') # visible from VMs
-     $global:windowsSharePath = Split-Path -Path $global:windowsLocalPath -Qualifier
-     $global:linuxHostRemotePath = "\\$(Get-ConfiguredIPControlPlane)\$global:linuxShareName"
-     $global:windowsHostRemotePath = "\\$(Get-ConfiguredKubeSwitchIP)\$global:windowsShareName"
-     $global:newClassName=$pathValue.StorageClassName
+     Set-PathValue -PathValue $pathValue
      Restore-SmbShareAndFolder -SmbHostType $smbHostType -SetupInfo $setupInfo 
     }
 

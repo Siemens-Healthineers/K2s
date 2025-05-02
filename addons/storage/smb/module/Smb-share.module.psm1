@@ -1039,18 +1039,10 @@ function Enable-SmbShare {
     New-SmbShareNamespace
 
     foreach($pathValue in $global:pathValues){
-        <# $global:SmbStoragePath = $pathValues.psobject.properties['ShareDir'].value#>
-         $global:linuxLocalPath = $pathValue.master
-         $global:windowsLocalPath = Expand-PathSMb $pathValue.windowsWorker
-         $global:linuxShareName = "k8sshare$(($global:pathValues.master).IndexOf($global:linuxLocalPath) + 1)" # exposed by Linux VM
-         $global:windowsShareName = (Split-Path -Path $global:windowsLocalPath -NoQualifier).TrimStart('\') # visible from VMs
-         $global:windowsSharePath = Split-Path -Path $global:windowsLocalPath -Qualifier
-         $global:linuxHostRemotePath = "\\$(Get-ConfiguredIPControlPlane)\$global:linuxShareName"
-         $global:windowsHostRemotePath = "\\$(Get-ConfiguredKubeSwitchIP)\$global:windowsShareName"
-         $global:newClassName=$pathValue.StorageClassName
-         Restore-SmbShareAndFolder -SmbHostType $SmbHostType -SkipTest -SetupInfo $setupInfo
-         Restore-StorageClass -SmbHostType $SmbHostType -LinuxOnly $setupInfo.LinuxOnly 
-     }
+        Set-PathValue -PathValue $pathValue
+        Restore-SmbShareAndFolder -SmbHostType $SmbHostType -SkipTest -SetupInfo $setupInfo
+        Restore-StorageClass -SmbHostType $SmbHostType -LinuxOnly $setupInfo.LinuxOnly 
+    }
 
     Write-Log -Console '********************************************************************************************'
     Write-Log -Console '** IMPORTANT:                                                                             **' 
@@ -1098,17 +1090,9 @@ function Disable-SmbShare {
     Write-Log "Disabling '$AddonName'.."
 
     foreach($pathValue in $global:pathValues){
-        <# $global:SmbStoragePath = $pathValues.psobject.properties['ShareDir'].value#>
-         $global:linuxLocalPath = $pathValue.master
-         $global:windowsLocalPath = Expand-PathSMb $pathValue.windowsWorker
-         $global:linuxShareName = "k8sshare$(($global:pathValues.master).IndexOf($global:linuxLocalPath) + 1)" # exposed by Linux VM
-         $global:windowsShareName = (Split-Path -Path $global:windowsLocalPath -NoQualifier).TrimStart('\') # visible from VMs
-         $global:windowsSharePath = Split-Path -Path $global:windowsLocalPath -Qualifier
-         $global:linuxHostRemotePath = "\\$(Get-ConfiguredIPControlPlane)\$global:linuxShareName"
-         $global:windowsHostRemotePath = "\\$(Get-ConfiguredKubeSwitchIP)\$global:windowsShareName"
-         $global:newClassName=$pathValue.StorageClassName
-         Remove-SmbShareAndFolder -SkipNodesCleanup:$SkipNodesCleanup
-     }
+        Set-PathValue -PathValue $pathValue
+        Remove-SmbShareAndFolder -SkipNodesCleanup:$SkipNodesCleanup
+    }
     Remove-Item -Path $patchFilePath -Force
     Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = $AddonName; Implementation = $ImplementationName })
     Remove-ScriptsFromHooksDir -ScriptNames @(Get-ChildItem -Path $localHooksDir | ForEach-Object { $_.Name })
@@ -1381,7 +1365,23 @@ function Remove-SmbShareNamespace {
     }
 }
 
+function Set-PathValue {
+    param (
+        [Parameter(Mandatory = $true)]
+        [pscustomobject]$PathValue
+    )
+    $global:linuxLocalPath = $PathValue.master
+    $global:windowsLocalPath = Expand-PathSMb $PathValue.windowsWorker
+    $global:linuxShareName = "k8sshare$(($global:pathValues.master).IndexOf($global:linuxLocalPath) + 1)" # exposed by Linux VM
+    $global:windowsShareName = (Split-Path -Path $global:windowsLocalPath -NoQualifier).TrimStart('\') # visible from VMs
+    $global:windowsSharePath = Split-Path -Path $global:windowsLocalPath -Qualifier
+    $global:linuxHostRemotePath = "\\$(Get-ConfiguredIPControlPlane)\$global:linuxShareName"
+    $global:windowsHostRemotePath = "\\$(Get-ConfiguredKubeSwitchIP)\$global:windowsShareName"
+    $global:newClassName = $PathValue.StorageClassName
+}
 
-Export-ModuleMember -Function Enable-SmbShare, Disable-SmbShare, Restore-SmbShareAndFolder, Get-SmbHostType,Expand-PathSMb,
+
+Export-ModuleMember -Function Enable-SmbShare, Disable-SmbShare, Restore-SmbShareAndFolder, Get-SmbHostType, Expand-PathSMb, Set-PathValue,
 Connect-WinVMClientToSmbHost, Test-SharedFolderMountOnWinNodeSilently, Get-Status, Backup-AddonData,
 Restore-AddonData, Remove-SmbGlobalMappingIfExisting, Remove-LocalWinMountIfExisting -Variable AddonName
+
