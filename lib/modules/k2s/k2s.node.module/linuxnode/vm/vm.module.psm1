@@ -44,7 +44,7 @@ function Invoke-SSHWithKey {
         # omit the "-n" param
         $params = $params[1..($params.Length - 1)]
     }
-
+    Write-Log "Executing command '$Command' on remote machine '$userOnRemoteMachine' with params: $params" -Console
     &ssh.exe $params 2>&1 | ForEach-Object { Write-Log $_ -Console -Raw }
 }
 
