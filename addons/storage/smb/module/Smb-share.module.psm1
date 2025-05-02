@@ -811,8 +811,6 @@ function Remove-StorageClass {
             return
         }
 
-        Remove-Item -Path $patchFilePath -Force
-
         Wait-ForStorageClassToBeDeleted -TimeoutSeconds $storageClassTimeoutSeconds
     }
     else {
@@ -821,7 +819,6 @@ function Remove-StorageClass {
 
     Remove-Secret -Name $smbCredsName -Namespace $namespace | Write-Log
 
-    Remove-SmbShareNamespace
 }
 
 function Expand-PathSMb {
