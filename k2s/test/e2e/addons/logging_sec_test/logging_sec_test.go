@@ -22,7 +22,7 @@ var (
 
 func TestLoggingSecurity(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "logging Addon Acceptance Tests", Label("addon", "addon-security", "acceptance", "setup-required", "invasive", "logging", "system-running"))
+	RunSpecs(t, "logging Addon Acceptance Tests", Label("addon", "addon-security-enhanced-2", "acceptance", "setup-required", "invasive", "logging", "system-running"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
@@ -64,20 +64,20 @@ var _ = Describe("'logging and security enhanced' addons", Ordered, func() {
 			url := "https://k2s.cluster.local/logging"
 			addons.VerifyDeploymentReachableFromHostWithStatusCode(ctx, http.StatusOK, url, headers)
 		})
-		
+
 		It("Deactivates all the addons", func(ctx context.Context) {
 			suite.K2sCli().RunOrFail(ctx, "addons", "disable", "logging", "-o")
 			suite.K2sCli().RunOrFail(ctx, "addons", "disable", "ingress", "nginx", "-o")
 			suite.K2sCli().RunOrFail(ctx, "addons", "disable", "security", "-o")
 		})
 	})
-	
+
 	Describe("Logging addon activated first then security addon", func() {
 		It("activates the logging addon", func(ctx context.Context) {
 			suite.K2sCli().RunOrFail(ctx, "addons", "enable", "logging", "-o")
 			// Verify deployments from the logging addon are available.
 			suite.Cluster().ExpectDeploymentToBeAvailable("opensearch-dashboards", "logging")
-			// Additional expectations can be added here if needed.            
+			// Additional expectations can be added here if needed.
 		})
 
 		It("activates the security addon in enhanced mode", func(ctx context.Context) {
@@ -97,7 +97,6 @@ var _ = Describe("'logging and security enhanced' addons", Ordered, func() {
 				"Authorization": fmt.Sprintf("Bearer %s", token),
 			}
 			url := "https://k2s.cluster.local/logging"
-			// In our case we expect a redirect (HTTP 302) to the logging UI.
 			addons.VerifyDeploymentReachableFromHostWithStatusCode(ctx, http.StatusOK, url, headers)
 		})
 	})

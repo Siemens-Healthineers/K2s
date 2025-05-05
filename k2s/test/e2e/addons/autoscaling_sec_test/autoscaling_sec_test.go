@@ -19,7 +19,7 @@ var (
 
 func TestAutoscalingSecurity(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Autoscaling and Security (Enhanced) Addon Acceptance Tests", Label("addon", "addon-security", "acceptance", "setup-required", "invasive", "autoscaling", "system-running"))
+	RunSpecs(t, "Autoscaling and Security (Enhanced) Addon Acceptance Tests", Label("addon", "addon-security-enhanced-1", "acceptance", "setup-required", "invasive", "autoscaling", "system-running"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {

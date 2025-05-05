@@ -22,7 +22,7 @@ var (
 
 func TestIngressNginxSecurity(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "ingress-nginx Addon Acceptance Tests", Label("addon", "addon-security", "acceptance", "setup-required", "invasive", "ingress-nginx", "system-running"))
+	RunSpecs(t, "ingress-nginx Addon Acceptance Tests", Label("addon", "addon-security-enhanced-1", "acceptance", "setup-required", "invasive", "ingress-nginx", "system-running"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
