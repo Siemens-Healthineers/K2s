@@ -20,22 +20,50 @@ spec:
     tls:
       insecureSkipVerify: true
 ---
-apiVersion: traefik.io/v1alpha1
-kind: Middleware
-metadata:
-  name: oauth2-proxy-forwarder-signin-dicom
-  namespace: security
-spec:
-  errors:
-    status:
-      - "401"  # Triggers on 401 Unauthorized errors
-    service: 
-      name: oauth2-proxy  # Service that will handle the error and initiate the redirect
-      namespace: security
-      port: 4180  
-    query: "/oauth2/start?rd=https://k2s.cluster.local/dicom/dicom"  # The URL for the OAuth2 sign-in page with the redirect URL
-    statusRewrites: 
-      "401": 302
+# The next two ingress resources are for solving the redirect route issue in traefik
 ---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: dicom-traefik-cluster-local-correct1
+  namespace: dicom
+  annotations:
+    traefik.ingress.kubernetes.io/router.middlewares: dicom-cors-header@kubernetescrd,security-oauth2-proxy-forwarder-signin-dicom@kubernetescrd,dicom-oauth2-proxy-auth@kubernetescrd
+    traefik.ingress.kubernetes.io/router.tls: 'true'
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: k2s.cluster.local
+      http:
+        paths:
+          - path: /ui/app
+            pathType: Prefix
+            backend:
+              service:
+                name: dicom
+                port:
+                  number: 8042
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: dicom-traefik-cluster-local-correct2
+  namespace: dicom
+  annotations:
+    traefik.ingress.kubernetes.io/router.middlewares: dicom-cors-header@kubernetescrd,security-oauth2-proxy-forwarder-signin-dicom@kubernetescrd,dicom-oauth2-proxy-auth@kubernetescrd
+    traefik.ingress.kubernetes.io/router.tls: 'true'
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: k2s.cluster.local
+      http:
+        paths:
+          - path: /ui/api
+            pathType: Prefix
+            backend:
+              service:
+                name: dicom
+                port:
+                  number: 8042
 
 

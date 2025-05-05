@@ -14,7 +14,7 @@ patches:
 - patch: |-
     - op: replace
       path: "/metadata/annotations/traefik.ingress.kubernetes.io~1router.middlewares"
-      value: "dicom-cors-header@kubernetescrd,dicom-strip-prefix@kubernetescrd,security-oauth2-proxy-forwarder-signin-dicom@kubernetescrd,dicom-oauth2-proxy-auth@kubernetescrd"
+      value: "dicom-cors-header@kubernetescrd,dicom-strip-prefix@kubernetescrd,security-oauth2-proxy-forwarder-signin@kubernetescrd,dicom-oauth2-proxy-auth@kubernetescrd"
   target:
     kind: Ingress
     name: dicom-traefik-cluster-local
