@@ -1380,6 +1380,7 @@ Describe 'Enable-SmbShare' -Tag 'unit', 'ci', 'addon', 'storage smb' {
                 Mock -ModuleName $moduleName Restore-SmbShareAndFolder { }
                 Mock -ModuleName $moduleName Restore-StorageClass { }
                 Mock -ModuleName $moduleName Write-Log { }
+                Mock -ModuleName $moduleName New-SmbShareNamespace { }               
             }
 
             It 'enables the addon passing the correct params' {
@@ -1479,6 +1480,7 @@ Describe 'Disable-SmbShare' -Tag 'unit', 'ci', 'addon', 'storage smb' {
             Mock -ModuleName $moduleName Remove-AddonFromSetupJson { }
             Mock -ModuleName $moduleName Remove-ScriptsFromHooksDir { }
             Mock -ModuleName $moduleName Write-Log { }
+            Mock -ModuleName $moduleName Remove-SmbShareNamespace { }
         }
 
         It 'disables the addon with skip flag set correctly' {
