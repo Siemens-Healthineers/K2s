@@ -134,34 +134,34 @@ function Remove-FirewallExceptions {
 }
 
 function New-SmbHostOnWindowsIfNotExisting {
-    $smb = Get-SmbShare -Name $windowsShareName -ErrorAction SilentlyContinue
+    $smb = Get-SmbShare -Name $global:windowsShareName -ErrorAction SilentlyContinue
     if ($smb) {
-        Write-Log "SMB host '$windowsShareName' on Windows already existing, nothing to create."
+        Write-Log "SMB host '$global:windowsShareName' on Windows already existing, nothing to create."
         return
     }
 
-    Write-Log "Setting up '$windowsShareName' SMB host on Windows.."
+    Write-Log "Setting up '$global:windowsShareName' SMB host on Windows.."
 
     if (Get-LocalUser -Name $smbUserName -ErrorAction SilentlyContinue) {
         Write-Host "User '$smbUserName' already exists."
     } else{
     New-LocalUser -Name $smbUserName -Password $smbPw -Description 'A K2s user account for SMB access' -ErrorAction Stop | Out-Null # Description max. length seems to be 48 chars ?!
     }
-    New-Item -Path "$windowsSharePath\" -Name $windowsShareName -ItemType 'directory' -ErrorAction SilentlyContinue | Out-Null
-    New-SmbShare -Name $windowsShareName -Path $windowsLocalPath -FullAccess $smbFullUserNameWin -ErrorAction Stop | Out-Null
+    New-Item -Path "$global:windowsSharePath\" -Name $global:windowsShareName -ItemType 'directory' -ErrorAction SilentlyContinue | Out-Null
+    New-SmbShare -Name $global:windowsShareName -Path $global:windowsLocalPath -FullAccess $smbFullUserNameWin -ErrorAction Stop | Out-Null
     Add-FirewallExceptions
 
-    Write-Log "'$windowsShareName' SMB host set up Windows."
+    Write-Log "'$global:windowsShareName' SMB host set up Windows."
 }
 
 function Remove-SmbHostOnWindowsIfExisting {
-    $smb = Get-SmbShare -Name $windowsShareName -ErrorAction SilentlyContinue
+    $smb = Get-SmbShare -Name $global:windowsShareName -ErrorAction SilentlyContinue
     if ($null -eq $smb) {
-        Write-Log "SMB host '$windowsShareName' on Windows not existing, nothing to remove."
+        Write-Log "SMB host '$global:windowsShareName' on Windows not existing, nothing to remove."
         return
     }
 
-    Write-Log "Removing '$windowsShareName' SMB host from Windows.."
+    Write-Log "Removing '$global:windowsShareName' SMB host from Windows.."
 
     Remove-FirewallExceptions
     Remove-SmbShare -Name $global:windowsShareName -Confirm:$False -ErrorAction SilentlyContinue
@@ -1093,7 +1093,9 @@ function Disable-SmbShare {
         Set-PathValue -PathValue $pathValue
         Remove-SmbShareAndFolder -SkipNodesCleanup:$SkipNodesCleanup
     }
-    Remove-Item -Path $patchFilePath -Force
+    if (Test-Path -Path $patchFilePath) {
+        Remove-Item -Path $patchFilePath -Force
+    }
     Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = $AddonName; Implementation = $ImplementationName })
     Remove-ScriptsFromHooksDir -ScriptNames @(Get-ChildItem -Path $localHooksDir | ForEach-Object { $_.Name })
     Remove-SmbShareNamespace

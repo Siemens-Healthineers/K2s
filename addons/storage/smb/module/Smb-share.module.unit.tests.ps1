@@ -360,7 +360,11 @@ Describe 'New-SmbHostOnWindowsIfNotExisting' -Tag 'unit', 'ci', 'addon', 'storag
 
         It 'does nothing' {
             InModuleScope $moduleName {
+                foreach($pathValue in $global:pathValues){
+                    Set-PathValue -PathValue $pathValue
                 New-SmbHostOnWindowsIfNotExisting
+                break
+                }
                 Should -Invoke Write-Log -Times 1 -Scope Context -ParameterFilter { $Messages -match 'nothing to create' }
             }
         }
@@ -376,7 +380,11 @@ Describe 'New-SmbHostOnWindowsIfNotExisting' -Tag 'unit', 'ci', 'addon', 'storag
             Mock -ModuleName $moduleName Add-FirewallExceptions { }
 
             InModuleScope $moduleName {
-                New-SmbHostOnWindowsIfNotExisting
+                foreach($pathValue in $global:pathValues){
+                    Set-PathValue -PathValue $pathValue
+                    New-SmbHostOnWindowsIfNotExisting
+                    break
+                }
             }
         }
 
@@ -415,8 +423,11 @@ Describe 'Remove-SmbHostOnWindowsIfExisting' -Tag 'unit', 'ci', 'addon', 'storag
 
         It 'does nothing' {
             InModuleScope $moduleName {
-                Remove-SmbHostOnWindowsIfExisting
-
+                foreach($pathValue in $global:pathValues){
+                    Set-PathValue -PathValue $pathValue
+                    Remove-SmbHostOnWindowsIfExisting
+                    break
+                }
                 Should -Invoke Write-Log -Times 1 -Scope Context -ParameterFilter { $Messages[0] -match 'nothing to remove' }
             }
         }
@@ -432,7 +443,11 @@ Describe 'Remove-SmbHostOnWindowsIfExisting' -Tag 'unit', 'ci', 'addon', 'storag
             Mock -ModuleName $moduleName Remove-FirewallExceptions { }
 
             InModuleScope $moduleName {
-                Remove-SmbHostOnWindowsIfExisting
+                foreach($pathValue in $global:pathValues){
+                    Set-PathValue -PathValue $pathValue
+                    Remove-SmbHostOnWindowsIfExisting
+                    break
+                }
             }
         }
 
@@ -684,7 +699,12 @@ Describe 'Restore-StorageClass' -Tag 'unit', 'ci', 'addon', 'storage smb' {
     Context 'Windows host type' {
         BeforeAll {
             InModuleScope -ModuleName $moduleName {
-                Restore-StorageClass -SmbHostType 'Windows'
+                {
+                    foreach($pathValue in $global:pathValues){
+                        Set-PathValue -PathValue $pathValue
+                        Restore-StorageClass -SmbHostType 'Windows'
+                        break
+                    }
             }
         }
 
@@ -698,7 +718,11 @@ Describe 'Restore-StorageClass' -Tag 'unit', 'ci', 'addon', 'storage smb' {
     Context 'Linux host type' {
         BeforeAll {
             InModuleScope -ModuleName $moduleName {
-                Restore-StorageClass -SmbHostType 'Linux'
+                foreach($pathValue in $global:pathValues){
+                    Set-PathValue -PathValue $pathValue
+                    Restore-StorageClass -SmbHostType 'linux'
+                    break
+                }
             }
         }
 
