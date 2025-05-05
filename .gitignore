@@ -137,6 +137,7 @@ bin/cdxgen.exe
 bin/trivy.exe
 bin/jq.exe
 bin/yq.exe
+bin/helm.exe
 
 bin/plink.exe
 bin/pscp.exe
