@@ -699,7 +699,6 @@ Describe 'Restore-StorageClass' -Tag 'unit', 'ci', 'addon', 'storage smb' {
     Context 'Windows host type' {
         BeforeAll {
             InModuleScope -ModuleName $moduleName {
-                {
                     foreach($pathValue in $global:pathValues){
                         Set-PathValue -PathValue $pathValue
                         Restore-StorageClass -SmbHostType 'Windows'
@@ -765,9 +764,9 @@ Describe 'Restore-StorageClass' -Tag 'unit', 'ci', 'addon', 'storage smb' {
         It 'throws' {
             InModuleScope -ModuleName $moduleName {
                 { Restore-StorageClass -SmbHostType 'Windows' } | Should -Throw -ExpectedMessage 'oops'
-            }
         }
     }
+}
 }
 
 Describe 'Remove-StorageClass' -Tag 'unit', 'ci', 'addon', 'storage smb' {
