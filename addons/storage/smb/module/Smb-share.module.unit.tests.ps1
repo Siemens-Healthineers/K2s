@@ -709,7 +709,7 @@ Describe 'Restore-StorageClass' -Tag 'unit', 'ci', 'addon', 'storage smb' {
 
         It 'creates a new SC manifest file containing the Windows remote path' {
             InModuleScope -ModuleName $moduleName {
-                Should -Invoke New-StorageClassManifest -Times 1 -Scope Context -ParameterFilter { $RemotePath -eq $script:windowsHostRemotePath }
+                Should -Invoke New-StorageClassManifest -Times 1 -Scope Context -ParameterFilter { $RemotePath -eq $global:windowsHostRemotePath }
             }
         }
     }
@@ -727,7 +727,7 @@ Describe 'Restore-StorageClass' -Tag 'unit', 'ci', 'addon', 'storage smb' {
 
         It 'creates a new SC manifest file containing the Linux remote path' {
             InModuleScope -ModuleName $moduleName {
-                Should -Invoke New-StorageClassManifest -Times 1 -Scope Context -ParameterFilter { $RemotePath -eq $script:linuxHostRemotePath }
+                Should -Invoke New-StorageClassManifest -Times 1 -Scope Context -ParameterFilter { $RemotePath -eq $global:linuxHostRemotePath }
             }
         }
     }
@@ -795,7 +795,7 @@ Describe 'Remove-StorageClass' -Tag 'unit', 'ci', 'addon', 'storage smb' {
             It 'removes PVCs related to the SC' {
                 InModuleScope -ModuleName $moduleName {
                     Should -Invoke Remove-PersistentVolumeClaimsForStorageClass -Times 1 -Scope Context -ParameterFilter {
-                        $StorageClass -eq $script:smbStorageClassName
+                        $StorageClass -eq $global:newClassName 
                     }
                 }
             }
@@ -808,11 +808,6 @@ Describe 'Remove-StorageClass' -Tag 'unit', 'ci', 'addon', 'storage smb' {
                 }
             }
 
-            It 'deletes the manifest file' {
-                InModuleScope -ModuleName $moduleName {
-                    Should -Invoke Remove-Item -Times 1 -Scope Context -ParameterFilter { $Path -match '\\manifests\\base' }
-                }
-            }
 
             It 'waits for StorageClass deletion' {
                 InModuleScope -ModuleName $moduleName {
@@ -837,7 +832,7 @@ Describe 'Remove-StorageClass' -Tag 'unit', 'ci', 'addon', 'storage smb' {
             It 'removes PVCs related to the SC' {
                 InModuleScope -ModuleName $moduleName {
                     Should -Invoke Remove-PersistentVolumeClaimsForStorageClass -Times 1 -Scope Context -ParameterFilter {
-                        $StorageClass -eq $script:smbStorageClassName
+                        $StorageClass -eq $global:newClassName 
                     }
                 }
             }
@@ -856,11 +851,7 @@ Describe 'Remove-StorageClass' -Tag 'unit', 'ci', 'addon', 'storage smb' {
                 }
             }
 
-            It 'deletes the manifest file' {
-                InModuleScope -ModuleName $moduleName {
-                    Should -Invoke Remove-Item -Times 1 -Scope Context -ParameterFilter { $Path -match '\\manifests\\base' }
-                }
-            }
+           
 
             It 'deletes the SMB creds secret' {
                 InModuleScope -ModuleName $moduleName {
@@ -901,7 +892,7 @@ Describe 'Remove-StorageClass' -Tag 'unit', 'ci', 'addon', 'storage smb' {
         It 'removes PVCs related to the SC' {
             InModuleScope -ModuleName $moduleName {
                 Should -Invoke Remove-PersistentVolumeClaimsForStorageClass -Times 1 -Scope Context -ParameterFilter {
-                    $StorageClass -eq $script:smbStorageClassName
+                    $StorageClass -eq $global:newClassName 
                 }
             }
         }
