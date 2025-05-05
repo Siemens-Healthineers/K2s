@@ -488,6 +488,7 @@ function New-SharedFolderMountOnLinuxHost {
         (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo chmod +x /home/remote/tmp_fstabCmd.sh').Output | Write-Log
 
         Write-Log '           Executing script inside VM as remote user...'
+        Start-Sleep 2
         ssh.exe -n '-vv' -E $logFile -o StrictHostKeyChecking=no -i $(Get-SSHKeyControlPlane) $(Get-ControlPlaneRemoteUser) "sudo su -s /bin/bash -c '~/tmp_fstabCmd.sh' remote"
         if ($LASTEXITCODE -eq 0) {
             # all ok
@@ -497,7 +498,6 @@ function New-SharedFolderMountOnLinuxHost {
             Test-ForKnownSmbProblems
             throw 'unable to mount shared CF in Linux machine, giving up'
         }
-        Start-Sleep 2
         Write-Log '           Retry after failure...'
     }
 }
