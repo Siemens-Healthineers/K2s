@@ -223,9 +223,15 @@ function Invoke-DownloadWindowsNodeArtifacts {
     #PUTTY TOOLS
     Invoke-DownloadPuttyArtifacts $downloadsBaseDirectory $Proxy
 
+    #HELM TOOLS
+    Invoke-DownloadHelmArtifacts $downloadsBaseDirectory $Proxy $windowsNodeArtifactsDirectory
+
     #START OF DEPLOYMENT OF DOWNLOADED ARTIFACTS
     # NSSM
     Invoke-DeployNssmArtifacts $windowsNodeArtifactsDirectory
+
+    # HELM
+    Invoke-DeployHelmArtifacts $windowsNodeArtifactsDirectory
 
     # CONTAINERD
     Invoke-DeployContainerdArtifacts $windowsNodeArtifactsDirectory
@@ -323,6 +329,8 @@ function Invoke-DeployWinArtifacts {
     if(!$downloadArtifacts) {
         # Deploy NSSM when the artifacts are already present
         Invoke-DeployNssmArtifacts $windowsNodeArtifactsDirectory
+        # Deploy Helm when the artifacts are already present
+        Invoke-DeployHelmArtifacts $windowsNodeArtifactsDirectory
     }
 }
 
