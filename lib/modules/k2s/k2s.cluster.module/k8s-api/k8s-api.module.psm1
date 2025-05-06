@@ -834,5 +834,31 @@ function Wait-ForJobCondition {
     return $true
 }
 
+<#
+.SYNOPSIS
+Invokes helm
+
+.DESCRIPTION
+Invokes helm with optional parameters and returns a result object with properties "Success"and "Output" also containing the error stream
+
+.PARAMETER Params
+Arbitrary parameter array (1...*)
+
+.EXAMPLE
+# To display the helm version info:
+PS> Invoke-Helm -Params "version","--short"
+#>
+function Invoke-Helm {
+    param (
+        [Parameter(Mandatory = $false)]
+        [array]
+        $Params
+    )
+    $kubeBinPath = Get-KubeBinPath
+    $output = &"$kubeBinPath\helm.exe" $params 2>&1
+
+    return [pscustomobject]@{ Success = ($LASTEXITCODE -eq 0); Output = $output }
+}
+
 Export-ModuleMember -Function Get-Nodes, Get-SystemPods, Write-Nodes, Write-Pods, Get-K8sVersionInfo, Add-Secret,
-Remove-Secret, Remove-PersistentVolumeClaimsForStorageClass, Invoke-Kubectl, Wait-ForPodCondition, Wait-ForJobCondition
+Remove-Secret, Remove-PersistentVolumeClaimsForStorageClass, Invoke-Kubectl, Wait-ForPodCondition, Wait-ForJobCondition, Invoke-Helm
