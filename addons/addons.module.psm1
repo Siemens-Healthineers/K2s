@@ -958,6 +958,11 @@ function Update-IngressForNginx {
     if (Test-KeyCloakServiceAvailability) {
         Write-Log "  Applying secure nginx ingress manifest for $($props.Name)..." -Console
         $kustomizationDir = Get-IngressNginxSecureConfig -Directory $props.Directory
+        # check if $kustomizationDir does not exist
+        if (!(Test-Path -Path $kustomizationDir)) {
+            Write-Log "  Applying nginx ingress manifest for $($props.Name) $($props.Directory)..." -Console
+            $kustomizationDir = Get-IngressNginxConfigDirectory -Directory $props.Directory
+        }
     }
     else {
         Write-Log "  Applying nginx ingress manifest for $($props.Name) $($props.Directory)..." -Console
