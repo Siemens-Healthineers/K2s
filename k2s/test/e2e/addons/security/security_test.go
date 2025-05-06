@@ -9,15 +9,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"net/url"
 	"os"
 	"path"
 	"testing"
-	"time"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/addons/status"
 	"github.com/siemens-healthineers/k2s/test/framework"
 	"github.com/siemens-healthineers/k2s/test/framework/dsl"
+	"github.com/siemens-healthineers/k2s/test/framework/k2s/addons"
 	"github.com/siemens-healthineers/k2s/test/framework/k2s/cli"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -128,50 +127,6 @@ func DeleteWorkloads(ctx context.Context) {
 	}
 }
 
-func VerifyDeploymentReachableFromHostWithStatusCode(ctx context.Context, name string, namespace string, expectedStatusCode int, url string, headers ...map[string]string) {
-	// Create a standard HTTP client
-	client := &http.Client{}
-
-	// Retry mechanism
-	maxRetries := 5
-	for attempt := 1; attempt <= maxRetries; attempt++ {
-		// Create a new HTTP request
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-		Expect(err).ToNot(HaveOccurred(), "Failed to create HTTP request")
-
-		// Add headers if provided
-		if len(headers) > 0 {
-			for key, value := range headers[0] {
-				req.Header.Add(key, value)
-			}
-		}
-
-		// Perform the HTTP request
-		resp, err := client.Do(req)
-		if err != nil {
-			GinkgoWriter.Printf("Attempt %d/%d: Failed to perform HTTP request: %v\n", attempt, maxRetries, err)
-		} else {
-			defer resp.Body.Close()
-
-			// Check the status code
-			if resp.StatusCode == expectedStatusCode {
-				GinkgoWriter.Printf("Attempt %d/%d: Received expected status code %d\n", attempt, maxRetries, expectedStatusCode)
-				return
-			}
-
-			GinkgoWriter.Printf("Attempt %d/%d: Unexpected status code %d (expected %d)\n", attempt, maxRetries, resp.StatusCode, expectedStatusCode)
-		}
-
-		// Pause before the next attempt
-		if attempt < maxRetries {
-			time.Sleep(10 * time.Second)
-		}
-	}
-
-	// Fail the test if all retries are exhausted
-	Fail(fmt.Sprintf("Failed to receive expected status code %d after %d attempts", expectedStatusCode, maxRetries))
-}
-
 var _ = Describe("'security' addon", Ordered, func() {
 	It("prints already-disabled message on disable command and exits with non-zero", func(ctx context.Context) {
 		output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "disable", addonName)
@@ -246,44 +201,8 @@ var _ = Describe("'security' addon", Ordered, func() {
 	})
 	headers := make(map[string]string)
 	It("gets bearer token from keycloak", func(ctx context.Context) {
-		keycloakServer := "https://k2s.cluster.local"
-		realm := "demo-app"
-		clientId := "demo-client"
-		clientSecret := "1f3QCCQoDQXEwU7ngw9X8kaSe1uX8EIl"
-		username := "demo-user"
-		password := "password"
-
-		// Function to get access token from Keycloak
-		getKeycloakToken := func() (string, error) {
-			tokenUrl := fmt.Sprintf("%s/keycloak/realms/%s/protocol/openid-connect/token", keycloakServer, realm)
-			data := url.Values{}
-			data.Set("client_id", clientId)
-			data.Set("client_secret", clientSecret)
-			data.Set("username", username)
-			data.Set("password", password)
-			data.Set("grant_type", "password")
-
-			resp, err := http.PostForm(tokenUrl, data)
-			if err != nil {
-				return "", err
-			}
-			defer resp.Body.Close()
-
-			if resp.StatusCode != http.StatusOK {
-				return "", fmt.Errorf("failed to get token: %s", resp.Status)
-			}
-
-			var result map[string]interface{}
-			json.NewDecoder(resp.Body).Decode(&result)
-			accessToken, ok := result["access_token"].(string)
-			if !ok {
-				return "", fmt.Errorf("failed to parse access token")
-			}
-			return accessToken, nil
-		}
-
 		// Get the access token
-		accessToken, err := getKeycloakToken()
+		accessToken, err := addons.GetKeycloakToken()
 		Expect(err).NotTo(HaveOccurred())
 
 		// Make the request with the access token
@@ -302,7 +221,7 @@ var _ = Describe("'security' addon", Ordered, func() {
 		}
 		{
 			url := fmt.Sprintf("https://k2s.cluster.local/%s", name)
-			VerifyDeploymentReachableFromHostWithStatusCode(ctx, name, namespace, http.StatusOK, url, headers)
+			addons.VerifyDeploymentReachableFromHostWithStatusCode(ctx, http.StatusOK, url, headers)
 		}
 	},
 		Entry("albums-linux1 is reachable from host", "albums-linux1", false),
@@ -436,7 +355,7 @@ var _ = Describe("'security' addon with enhanced mode", Ordered, func() {
 				Skip("Linux-only")
 			}
 			url := fmt.Sprintf("http://%s.%s.svc.cluster.local/%s", name, namespace, name)
-			VerifyDeploymentReachableFromHostWithStatusCode(ctx, name, namespace, http.StatusForbidden, url)
+			addons.VerifyDeploymentReachableFromHostWithStatusCode(ctx, http.StatusForbidden, url)
 		},
 			Entry("albums-linux1 is NOT reachable from host", "albums-linux1", false),
 			Entry("albums-win1 is NOT reachable from host", "albums-win1", true),
@@ -448,7 +367,7 @@ var _ = Describe("'security' addon with enhanced mode", Ordered, func() {
 				Skip("Linux-only")
 			}
 			url := fmt.Sprintf("http://%s.%s.svc.cluster.local/%s", name, namespace, name)
-			VerifyDeploymentReachableFromHostWithStatusCode(ctx, name, namespace, http.StatusOK, url)
+			addons.VerifyDeploymentReachableFromHostWithStatusCode(ctx, http.StatusOK, url)
 		},
 			Entry("albums-linux3 is reachable from host", "albums-linux3", false),
 			Entry("albums-win3 is reachable from host", "albums-win3", true))
