@@ -51,11 +51,9 @@ function Write-DashboardUsageForUser {
  In this case, the Kubernetes Dashboard will be accessible on the following URL: https://localhost:8443
  It is not necessary to use port 8443. Please feel free to use a port number of your choice.
 
-
- On opening the URL in the browser, the login page appears.
- Please select `"Skip`".
-
  The dashboard is opened in the browser.
+
+ In case of the security addon enabled you need to provide a Bearer token for authentication.
 
  Read more: https://github.com/kubernetes/dashboard/blob/master/README.md
 "@ -split "`r`n" | ForEach-Object { Write-Log $_ -Console }
