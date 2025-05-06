@@ -27,13 +27,14 @@ spec:
 # https://k2s.cluster.local/dashboard/
 # The certificate is taken from k8s secret 'k2s.cluster.local-tls'
 # (see addons/ingress/traefik/manifests/cluster-local-ingress.yaml)
+# The dashboard-add-bearer-token is created only is security is off.
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: dashboard-traefik-cluster-local
   namespace: dashboard
   annotations:
-    traefik.ingress.kubernetes.io/router.middlewares: dashboard-strip-prefix@kubernetescrd
+    traefik.ingress.kubernetes.io/router.middlewares: dashboard-strip-prefix@kubernetescrd,dashboard-add-bearer-token@kubernetescrd
     traefik.ingress.kubernetes.io/router.tls: "true"
 spec:
   ingressClassName: traefik
@@ -45,6 +46,6 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: kubernetes-dashboard
+                name: kubernetes-dashboard-kong-proxy
                 port:
                   number: 443
