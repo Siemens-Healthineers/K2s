@@ -36,6 +36,8 @@ var (
 
 	linuxTestContainers   []string
 	windowsTestContainers []string
+
+	controlPlaneIpAddress string
 )
 
 func TestExportImportAddons(t *testing.T) {
@@ -56,6 +58,10 @@ var _ = BeforeSuite(func(ctx context.Context) {
 		"shsk2s.azurecr.io/example.albums-golang-linux:v1.0.0",
 		"docker.io/curlimages/curl:8.5.0",
 	}
+
+	controlPlaneIpAddress = suite.SetupInfo().Config.ControlPlane().IpAddress()
+
+	GinkgoWriter.Println("Using control-plane node IP address <", controlPlaneIpAddress, ">")
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
@@ -179,7 +185,7 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 			GinkgoWriter.Println("remove all download debian packages")
 			for _, a := range allAddons {
 				for _, i := range a.Spec.Implementations {
-					suite.K2sCli().RunOrFail(ctx, "system", "ssh", "m", "--", "sudo rm -rf", fmt.Sprintf(".%s", i.ExportDirectoryName))
+					suite.K2sCli().RunOrFail(ctx, "node", "exec", "-i", controlPlaneIpAddress, "-u", "remote", "-c", fmt.Sprintf("sudo rm -rf .%s", i.ExportDirectoryName))
 				}
 			}
 		})
@@ -187,7 +193,7 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 		It("no debian packages available before import", func(ctx context.Context) {
 			for _, a := range allAddons {
 				for _, i := range a.Spec.Implementations {
-					exists := suite.K2sCli().RunOrFail(ctx, "system", "ssh", "m", "--", fmt.Sprintf("[ -d .%s ] && echo .%s exists", i.ExportDirectoryName, i.ExportDirectoryName))
+					exists := suite.K2sCli().RunOrFail(ctx, "node", "exec", "-i", controlPlaneIpAddress, "-u", "remote", "-c", fmt.Sprintf("[ -d .%s ] && echo .%s exists", i.ExportDirectoryName, i.ExportDirectoryName))
 					Expect(exists).To(BeEmpty())
 				}
 			}
@@ -216,7 +222,7 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 			for _, a := range allAddons {
 				for _, i := range a.Spec.Implementations {
 					for _, v := range i.OfflineUsage.LinuxResources.DebPackages {
-						exists := suite.K2sCli().RunOrFail(ctx, "system", "ssh", "m", "--", fmt.Sprintf("[ -d .%s/%s ] && echo .%s/%s exists", i.ExportDirectoryName, v, i.ExportDirectoryName, v))
+						exists := suite.K2sCli().RunOrFail(ctx, "node", "exec", "-i", controlPlaneIpAddress, "-u", "remote", "-c", fmt.Sprintf("[ -d .%s/%s ] && echo .%s/%s exists", i.ExportDirectoryName, v, i.ExportDirectoryName, v))
 						Expect(exists).ToNot(BeEmpty())
 					}
 				}
@@ -244,7 +250,7 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 			for _, a := range allAddons {
 				for _, i := range a.Spec.Implementations {
 					for _, p := range i.OfflineUsage.LinuxResources.CurlPackages {
-						exists := suite.K2sCli().RunOrFail(ctx, "system", "ssh", "m", "--", fmt.Sprintf("[ -f %s ] && echo %s exists", p.Destination, p.Destination))
+						exists := suite.K2sCli().RunOrFail(ctx, "node", "exec", "-i", controlPlaneIpAddress, "-u", "remote", "-c", fmt.Sprintf("[ -f %s ] && echo %s exists", p.Destination, p.Destination))
 						Expect(exists).ToNot(BeEmpty())
 					}
 				}
