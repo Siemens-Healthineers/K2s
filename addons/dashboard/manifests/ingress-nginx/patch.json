@@ -1,0 +1,7 @@
+{
+  "metadata": {
+    "annotations": {
+      "nginx.ingress.kubernetes.io/configuration-snippet": "proxy_set_header Authorization \"Bearer BEARER-TOKEN\";"
+    }
+  }
+}

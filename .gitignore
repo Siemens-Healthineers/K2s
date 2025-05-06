@@ -24,7 +24,6 @@ smallsetup/common/StartKubelet.ps1
 LocalHooks/*.ps1
 
 #Configs
-*.tgz
 /config
 cni/cni-conf.json
 *.code-workspace
