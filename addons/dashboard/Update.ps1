@@ -66,7 +66,7 @@ if ($EnancedSecurityEnabled) {
     (Invoke-Kubectl -Params 'patch', 'deployment', 'kubernetes-dashboard-api', '-n', 'dashboard', '-p', $annotations2).Output | Write-Log
     $annotations3 = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"linkerd.io/inject\":\"enabled\"}}}}}'
     (Invoke-Kubectl -Params 'patch', 'deployment', 'kubernetes-dashboard-auth', '-n', 'dashboard', '-p', $annotations3).Output | Write-Log
-    $annotations4 = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"linkerd.io/inject\":\"enabled\"}}}}}'
+    $annotations4 = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"linkerd.io/inject\":\"enabled\",\"config.linkerd.io/skip-inbound-ports\":\"8000\"}}}}}'
     (Invoke-Kubectl -Params 'patch', 'deployment', 'kubernetes-dashboard-metrics-scraper', '-n', 'dashboard', '-p', $annotations4).Output | Write-Log
     $annotations5 = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"linkerd.io/inject\":\"enabled\"}}}}}'
     (Invoke-Kubectl -Params 'patch', 'deployment', 'kubernetes-dashboard-web', '-n', 'dashboard', '-p', $annotations5).Output | Write-Log
