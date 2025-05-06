@@ -1232,6 +1232,13 @@ spec:
                     items:
                       type: string
                     type: array
+                  statusRewrites:
+                    additionalProperties:
+                      type: integer
+                    description: |-
+                       StatusRewrites defines a mapping of status codes that should be returned instead of the original error status codes.
+                       For example: "418": 404 or "410-418": 404
+                    type: object
                 type: object
               forwardAuth:
                 description: |-
