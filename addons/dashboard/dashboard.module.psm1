@@ -51,11 +51,9 @@ function Write-DashboardUsageForUser {
  In this case, the Kubernetes Dashboard will be accessible on the following URL: https://localhost:8443
  It is not necessary to use port 8443. Please feel free to use a port number of your choice.
 
-
- On opening the URL in the browser, the login page appears.
- Please select `"Skip`".
-
  The dashboard is opened in the browser.
+
+ In case of the security addon enabled you need to provide a Bearer token for authentication.
 
  Read more: https://github.com/kubernetes/dashboard/blob/master/README.md
 "@ -split "`r`n" | ForEach-Object { Write-Log $_ -Console }
@@ -66,5 +64,35 @@ function Write-DashboardUsageForUser {
 Waits for the dashboard pods to be available.
 #>
 function Wait-ForDashboardAvailable {
-    return (Wait-ForPodCondition -Condition Ready -Label 'k8s-app=kubernetes-dashboard' -Namespace 'dashboard' -TimeoutSeconds 120)
+    return (Wait-ForPodCondition -Condition Ready -Label 'app.kubernetes.io/instance=kubernetes-dashboard' -Namespace 'dashboard' -TimeoutSeconds 120)
+}
+
+<#
+.DESCRIPTION
+Gets the location of manifests to deploy dashboard chart
+#>
+function Get-DashboardChartDirectory {
+    return "$PSScriptRoot\manifests\chart"
+}
+
+<#
+.DESCRIPTION
+Determines if the security service is deployed in the cluster
+#>
+function Test-SecurityAddonAvailability {
+    $existingServices = (Invoke-Kubectl -Params 'get', 'service', '-n', 'security', '-o', 'yaml').Output
+    if ("$existingServices" -match '.* keycloak .*') {
+        return $true
+    }
+    return $false
+}
+
+<#
+.DESCRIPTION
+Create a bearer token
+#>
+function Get-BearerToken {
+    # create Bearer token for next 24h
+    $token = (Invoke-Kubectl -Params '-n', 'dashboard', 'create', 'token', 'admin-user', '--duration', '24h').Output 
+    return $token
 }
