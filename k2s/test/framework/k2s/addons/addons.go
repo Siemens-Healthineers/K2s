@@ -4,11 +4,17 @@
 package addons
 
 import (
+	"context"
+	"encoding/json"
+	"fmt"
 	"log"
+	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/siemens-healthineers/k2s/internal/core/addons"
 	sos "github.com/siemens-healthineers/k2s/test/framework/os"
@@ -146,3 +152,85 @@ func Foreach(addons addons.Addons, iteratee func(addonName, implementationName, 
 		}
 	}
 }
+
+func GetKeycloakToken() (string, error) {
+
+	keycloakServer := "https://k2s.cluster.local"
+	realm := "demo-app"
+	clientId := "demo-client"
+	clientSecret := "1f3QCCQoDQXEwU7ngw9X8kaSe1uX8EIl"
+	username := "demo-user"
+	password := "password"
+	tokenUrl := fmt.Sprintf("%s/keycloak/realms/%s/protocol/openid-connect/token", keycloakServer, realm)
+	data := url.Values{}
+	data.Set("client_id", clientId)
+	data.Set("client_secret", clientSecret)
+	data.Set("username", username)
+	data.Set("password", password)
+	data.Set("grant_type", "password")
+
+	resp, err := http.PostForm(tokenUrl, data)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("failed to get token: %s", resp.Status)
+	}
+
+	var result map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return "", err
+	}
+	accessToken, ok := result["access_token"].(string)
+	if !ok {
+		return "", fmt.Errorf("failed to parse access token")
+	}
+	return accessToken, nil
+}
+
+func VerifyDeploymentReachableFromHostWithStatusCode(ctx context.Context, expectedStatusCode int, url string, headers ...map[string]string) {
+	// Create a standard HTTP client
+	client := &http.Client{}
+
+	// Retry mechanism
+	maxRetries := 5
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		// Create a new HTTP request
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+		Expect(err).ToNot(HaveOccurred(), "Failed to create HTTP request")
+
+		// Add headers if provided
+		if len(headers) > 0 {
+			for key, value := range headers[0] {
+				req.Header.Add(key, value)
+			}
+		}
+
+		// Perform the HTTP request
+		resp, err := client.Do(req)
+		if err != nil {
+			GinkgoWriter.Printf("Attempt %d/%d: Failed to perform HTTP request: %v\n", attempt, maxRetries, err)
+		} else {
+			defer resp.Body.Close()
+
+			// Check the status code
+			if resp.StatusCode == expectedStatusCode {
+				GinkgoWriter.Printf("Attempt %d/%d: Received expected status code %d\n", attempt, maxRetries, expectedStatusCode)
+				return
+			}
+
+			GinkgoWriter.Printf("Attempt %d/%d: Unexpected status code %d (expected %d)\n", attempt, maxRetries, resp.StatusCode, expectedStatusCode)
+		}
+
+		// Pause before the next attempt
+		if attempt < maxRetries {
+			time.Sleep(10 * time.Second)
+		}
+	}
+
+	// Fail the test if all retries are exhausted
+	Fail(fmt.Sprintf("Failed to receive expected status code %d after %d attempts", expectedStatusCode, maxRetries))
+}
+
