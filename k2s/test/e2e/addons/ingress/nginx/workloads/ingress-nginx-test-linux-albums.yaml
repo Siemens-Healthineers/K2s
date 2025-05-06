@@ -25,9 +25,9 @@ spec:
             - containerPort: 80
           env:
             - name: PORT
-              value: "80"
+              value: '80'
             - name: RESOURCE
-              value: "albums-linux1" 
+              value: 'albums-linux1'
       nodeSelector:
         kubernetes.io/os: linux
 ---
@@ -53,12 +53,13 @@ metadata:
   namespace: ingress-nginx-test
 spec:
   rules:
-    - http:
+    - host: k2s.cluster.local
+      http:
         paths:
-        - backend:
-            service:
-              name: albums-linux1
-              port: 
-                number: 80
-          pathType: Prefix
-          path: /albums-linux1
+          - backend:
+              service:
+                name: albums-linux1
+                port:
+                  number: 80
+            pathType: Prefix
+            path: /albums-linux1

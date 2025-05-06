@@ -115,6 +115,7 @@ spec:
               subPath: oauth2-proxy.cfg
           args:
             - --config=/etc/oauth2-proxy.cfg
+            - --provider=keycloak
             - --set-xauthrequest
             - --pass-access-token
             - --show-debug-on-error
