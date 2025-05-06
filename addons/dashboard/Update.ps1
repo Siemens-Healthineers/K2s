@@ -60,16 +60,24 @@ spec:
 $EnancedSecurityEnabled = Test-LinkerdServiceAvailability
 if ($EnancedSecurityEnabled) {
     Write-Log "Updating dashboard addon to be part of service mesh"  
-#     $annotations1 = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"linkerd.io/inject\":\"enabled\",\"config.linkerd.io/skip-inbound-ports\":\"8443\"}}}}}'
-#     (Invoke-Kubectl -Params 'patch', 'deployment', 'kubernetes-dashboard', '-n', 'dashboard', '-p', $annotations1).Output | Write-Log
-#     $annotations2 = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"linkerd.io/inject\":\"enabled\",\"config.linkerd.io/skip-inbound-ports\":\"8000\"}}}}}'
-#     (Invoke-Kubectl -Params 'patch', 'deployment', 'dashboard-metrics-scraper', '-n', 'dashboard', '-p', $annotations2).Output | Write-Log
-
+    $annotations1 = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"linkerd.io/inject\":\"enabled\",\"config.linkerd.io/skip-inbound-ports\":\"443\"}}}}}'
+    (Invoke-Kubectl -Params 'patch', 'deployment', 'kubernetes-dashboard-kong', '-n', 'dashboard', '-p', $annotations1).Output | Write-Log
+    $annotations2 = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"linkerd.io/inject\":\"enabled\"}}}}}'
+    (Invoke-Kubectl -Params 'patch', 'deployment', 'kubernetes-dashboard-api', '-n', 'dashboard', '-p', $annotations2).Output | Write-Log
+    $annotations3 = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"linkerd.io/inject\":\"enabled\"}}}}}'
+    (Invoke-Kubectl -Params 'patch', 'deployment', 'kubernetes-dashboard-auth', '-n', 'dashboard', '-p', $annotations3).Output | Write-Log
+    $annotations4 = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"linkerd.io/inject\":\"enabled\"}}}}}'
+    (Invoke-Kubectl -Params 'patch', 'deployment', 'kubernetes-dashboard-metrics-scraper', '-n', 'dashboard', '-p', $annotations4).Output | Write-Log
+    $annotations5 = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"linkerd.io/inject\":\"enabled\"}}}}}'
+    (Invoke-Kubectl -Params 'patch', 'deployment', 'kubernetes-dashboard-web', '-n', 'dashboard', '-p', $annotations5).Output | Write-Log
 } else {
     Write-Log "Updating dashboard addon to not be part of service mesh"
-#     $annotations = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"config.linkerd.io/skip-inbound-ports\":null,\"linkerd.io/inject\":null}}}}}'
-#     (Invoke-Kubectl -Params 'patch', 'deployment', 'kubernetes-dashboard', '-n', 'dashboard', '-p', $annotations).Output | Write-Log
-#     (Invoke-Kubectl -Params 'patch', 'deployment', 'dashboard-metrics-scraper', '-n', 'dashboard', '-p', $annotations).Output | Write-Log
+    $annotations = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"config.linkerd.io/skip-inbound-ports\":null,\"linkerd.io/inject\":null}}}}}'
+    (Invoke-Kubectl -Params 'patch', 'deployment', 'kubernetes-dashboard-kong', '-n', 'dashboard', '-p', $annotations).Output | Write-Log
+    (Invoke-Kubectl -Params 'patch', 'deployment', 'kubernetes-dashboard-api', '-n', 'dashboard', '-p', $annotations).Output | Write-Log
+    (Invoke-Kubectl -Params 'patch', 'deployment', 'kubernetes-dashboard-auth', '-n', 'dashboard', '-p', $annotations).Output | Write-Log
+    (Invoke-Kubectl -Params 'patch', 'deployment', 'kubernetes-dashboard-metrics-scraper', '-n', 'dashboard', '-p', $annotations).Output | Write-Log
+    (Invoke-Kubectl -Params 'patch', 'deployment', 'kubernetes-dashboard-web', '-n', 'dashboard', '-p', $annotations).Output | Write-Log
 }
 (Invoke-Kubectl -Params 'rollout', 'status', 'deployment', '-n', 'dashboard', '--timeout', '60s').Output | Write-Log
 
