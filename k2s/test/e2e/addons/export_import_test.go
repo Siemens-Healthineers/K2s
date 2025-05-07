@@ -144,7 +144,7 @@ var _ = Describe("export and import all addons and make sure all artifacts are a
 		It("all resources have been exported", func(ctx context.Context) {
 			for _, a := range allAddons {
 				for _, i := range a.Spec.Implementations {
-					GinkgoWriter.Println("Addon:", a.Metadata.Name, ", Implementation:", i.Name, ", Directory name:", i.ExportDirectoryName)
+					GinkgoWriter.Println("-> Addon:", a.Metadata.Name, ", Implementation:", i.Name, ", Directory name:", i.ExportDirectoryName)
 					addonExportDir := filepath.Join(exportPath, "addons", i.ExportDirectoryName)
 
 					images, err := suite.AddonsAdditionalInfo().GetImagesForAddonImplementation(i)
