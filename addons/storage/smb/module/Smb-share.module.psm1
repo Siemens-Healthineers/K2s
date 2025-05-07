@@ -1215,10 +1215,10 @@ function Get-Status {
 
     $isSmbShareWorkingProp = @{Name = 'IsSmbShareWorking'; Value = $script:SmbShareWorking; Okay = $script:SmbShareWorking }
     if ($isSmbShareWorkingProp.Value -eq $true) {
-        $isSmbShareWorkingProp.Message = "The SMB share '$global:linuxLocalPath' is working"
+        $isSmbShareWorkingProp.Message = "The SMB share is working"
     }
     else {
-        $isSmbShareWorkingProp.Message = "The SMB share '$global:linuxLocalPath' is not working. Try restarting the cluster with 'k2s start' or disable and re-enable the addon with 'k2s addons disable $AddonName $ImplementationName' and 'k2s addons enable $AddonName $ImplementationName'"
+        $isSmbShareWorkingProp.Message = "The SMB share is not working. Try restarting the cluster with 'k2s start' or disable and re-enable the addon with 'k2s addons disable $AddonName $ImplementationName' and 'k2s addons enable $AddonName $ImplementationName'"
     }
 
     $areCsiPodsRunning = Test-CsiPodsCondition -Condition 'Ready'

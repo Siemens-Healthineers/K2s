@@ -26,8 +26,8 @@ import (
 )
 
 type shareConfig struct {
-	winMountPath   string `json:"winMountPath"`
-	linuxMountPath string `json:"linuxMountPath"`
+	WinMountPath   string `json:"winMountPath"`
+	LinuxMountPath string `json:"linuxMountPath"`
 }
 
 const (
@@ -316,7 +316,7 @@ func expectLinuxWorkloadToRun(ctx context.Context) {
 	suite.Cluster().ExpectStatefulSetToBeReady(linuxWorkloadName, namespace, 1, ctx)
 
 	Eventually(os.IsFileYoungerThan).
-		WithArguments(testFileCheckInterval, shareConfigs[0].winMountPath, linuxTestfileName).
+		WithArguments(testFileCheckInterval, shareConfigs[0].WinMountPath, linuxTestfileName).
 		WithTimeout(testFileCheckTimeout).
 		WithPolling(suite.TestStepPollInterval()).
 		WithContext(ctx).
@@ -331,7 +331,7 @@ func expectWindowsWorkloadToRun(ctx context.Context) {
 	suite.Cluster().ExpectStatefulSetToBeReady(windowsWorkloadName, namespace, 1, ctx)
 
 	Eventually(os.IsFileYoungerThan).
-		WithArguments(testFileCheckInterval, shareConfigs[0].winMountPath, windowsTestfileName).
+		WithArguments(testFileCheckInterval, shareConfigs[0].WinMountPath, windowsTestfileName).
 		WithTimeout(testFileCheckTimeout).
 		WithPolling(suite.TestStepPollInterval()).
 		WithContext(ctx).
