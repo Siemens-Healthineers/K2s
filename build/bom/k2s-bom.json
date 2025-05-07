@@ -321,7 +321,7 @@
       "type": "application",
       "group": "https://github.com/flannel-io/flannel/releases/download/0.26.1/flanneld.exe",
       "name": "flanneld",
-      "version": "v0.26.1",
+      "version": "v0.26.7",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -332,7 +332,7 @@
           }
         }
       ],
-      "purl": "pkg:github/flannel-io/flannel@v0.26.1",
+      "purl": "pkg:github/flannel-io/flannel@v0.26.7",
       "properties": [
         {
           "name": "sw360:projectName",
@@ -190091,7 +190091,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -190143,7 +190143,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -190191,7 +190191,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -190223,7 +190223,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -190255,7 +190255,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -190287,7 +190287,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -190319,7 +190319,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -190351,7 +190351,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -190383,7 +190383,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -190415,7 +190415,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -190447,7 +190447,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -190479,7 +190479,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -190511,7 +190511,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -190543,7 +190543,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -190575,7 +190575,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -190607,7 +190607,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -190639,7 +190639,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -190671,7 +190671,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -190703,7 +190703,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -190735,7 +190735,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -190767,7 +190767,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -190799,7 +190799,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -190831,7 +190831,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -190863,7 +190863,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -190895,7 +190895,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -190927,7 +190927,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -190959,7 +190959,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -190991,7 +190991,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -191023,7 +191023,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -191055,7 +191055,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -191087,7 +191087,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -191119,7 +191119,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -191151,7 +191151,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -191183,7 +191183,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -191215,7 +191215,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -191247,7 +191247,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -191279,7 +191279,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -191311,7 +191311,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -191343,7 +191343,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -191375,7 +191375,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -191407,7 +191407,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -191439,7 +191439,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -191471,7 +191471,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -191503,7 +191503,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -191535,7 +191535,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -191567,7 +191567,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -191599,7 +191599,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -191631,7 +191631,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -191663,7 +191663,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -191695,7 +191695,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -191727,7 +191727,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -191747,7 +191747,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -191767,7 +191767,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -191787,7 +191787,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -191807,7 +191807,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -191827,7 +191827,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -191847,7 +191847,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -191867,7 +191867,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -191887,7 +191887,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -191907,15 +191907,15 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/flannel-io/flannel@v0.26.1",
+      "bom-ref": "pkg:golang/github.com/flannel-io/flannel@v0.26.7",
       "name": "github.com/flannel-io/flannel",
-      "purl": "pkg:golang/github.com/flannel-io/flannel@v0.26.1",
+      "purl": "pkg:golang/github.com/flannel-io/flannel@v0.26.7",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -191927,7 +191927,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -191947,7 +191947,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -191967,7 +191967,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -191987,7 +191987,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -192007,7 +192007,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -192027,7 +192027,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -192047,7 +192047,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -192067,7 +192067,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -192087,7 +192087,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -192107,7 +192107,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -192127,7 +192127,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -192147,7 +192147,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -192167,7 +192167,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -192187,7 +192187,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -192207,7 +192207,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -192227,7 +192227,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -192247,7 +192247,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -192267,7 +192267,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -192287,7 +192287,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -192307,7 +192307,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -192327,7 +192327,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -192347,7 +192347,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -192367,7 +192367,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -192387,7 +192387,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -192407,7 +192407,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -192427,7 +192427,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -192447,7 +192447,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -192467,7 +192467,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -192487,7 +192487,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -192507,7 +192507,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -192527,7 +192527,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -192547,7 +192547,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -192567,7 +192567,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -192587,7 +192587,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -192607,7 +192607,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -192627,7 +192627,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -192647,7 +192647,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -192667,7 +192667,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -192687,7 +192687,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -192707,7 +192707,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -192727,7 +192727,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -192747,7 +192747,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -192767,7 +192767,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -192787,7 +192787,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -192807,7 +192807,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -192827,7 +192827,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -192847,7 +192847,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -192867,7 +192867,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -192887,7 +192887,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -192907,7 +192907,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -192927,7 +192927,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -192947,7 +192947,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -192967,7 +192967,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -192987,7 +192987,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -193007,7 +193007,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -193027,7 +193027,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -193047,7 +193047,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -193067,7 +193067,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -193087,7 +193087,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -193107,7 +193107,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -193127,7 +193127,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -193147,7 +193147,7 @@
         },
         {
           "name": "sw360:projectName",
-          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1"
+          "value": "k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7"
         }
       ]
     },
@@ -275092,9 +275092,9 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/flannel-io/flannel@v0.26.1",
+      "bom-ref": "pkg:golang/github.com/flannel-io/flannel@v0.26.7",
       "name": "github.com/flannel-io/flannel",
-      "purl": "pkg:golang/github.com/flannel-io/flannel@v0.26.1",
+      "purl": "pkg:golang/github.com/flannel-io/flannel@v0.26.7",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -325802,7 +325802,7 @@
     {
       "ref": "7742b93f-8f2e-4c63-88a4-0157c7c96cc2",
       "dependsOn": [
-        "pkg:golang/github.com/flannel-io/flannel@v0.26.1"
+        "pkg:golang/github.com/flannel-io/flannel@v0.26.7"
       ]
     },
     {
@@ -326246,7 +326246,7 @@
       "dependsOn": []
     },
     {
-      "ref": "pkg:golang/github.com/flannel-io/flannel@v0.26.1",
+      "ref": "pkg:golang/github.com/flannel-io/flannel@v0.26.7",
       "dependsOn": [
         "42c07ab8-2ecc-4cd1-abac-aa3a846aa9c4",
         "pkg:golang/github.com/avast/retry-go/v4@v4.6.0",
@@ -334031,7 +334031,7 @@
     {
       "ref": "1c5d388a-260e-4680-8888-1b4520b4f34b",
       "dependsOn": [
-        "pkg:golang/github.com/flannel-io/flannel@v0.26.1"
+        "pkg:golang/github.com/flannel-io/flannel@v0.26.7"
       ]
     },
     {
@@ -346794,7 +346794,7 @@
       "dependsOn": []
     },
     {
-      "ref": "pkg:golang/github.com/flannel-io/flannel@v0.26.1",
+      "ref": "pkg:golang/github.com/flannel-io/flannel@v0.26.7",
       "dependsOn": [
         "0123fd44-b247-4115-b342-65fabebf293d",
         "0d2215ef-4511-489c-9bf0-631252a70fa1",

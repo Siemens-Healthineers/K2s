@@ -238,7 +238,7 @@
     <component type="application">
       <group>https://github.com/flannel-io/flannel/releases/download/0.26.1/flanneld.exe</group>
       <name>flanneld</name>
-      <version>v0.26.1</version>
+      <version>v0.26.7</version>
       <description />
       <scope>required</scope>
       <licenses>
@@ -247,7 +247,7 @@
           <url>https://github.com/flannel-io/flannel/blob/master/LICENSE</url>
         </license>
       </licenses>
-      <purl>pkg:github/flannel-io/flannel@v0.26.1</purl>
+      <purl>pkg:github/flannel-io/flannel@v0.26.7</purl>
       <properties>
         <property name="sw360:projectName">k2s:core:pkg:executables</property>
       </properties>
@@ -78252,7 +78252,7 @@
       <properties>
         <property name="aquasecurity:trivy:LayerDiffID">sha256:9b125d6943fa9a1390fefc7404495fe07778e00edcb122250e212be7c8fb2717</property>
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="application" bom-ref="7742b93f-8f2e-4c63-88a4-0157c7c96cc2">
@@ -78277,7 +78277,7 @@
       <properties>
         <property name="aquasecurity:trivy:LayerDiffID">sha256:0d3c893d4786c413ce65078deb2c68ab7db7b551b44da541f8e7ad51c79f8427</property>
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="application" bom-ref="e7e5ce66-5033-42f4-aada-121aabd56bd2">
@@ -78297,7 +78297,7 @@
         <property name="aquasecurity:trivy:PkgType">alpine</property>
         <property name="aquasecurity:trivy:SrcName">alpine-baselayout</property>
         <property name="aquasecurity:trivy:SrcVersion">3.6.8-r0</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:apk/alpine/alpine-baselayout@3.6.8-r0?arch=x86_64&amp;distro=3.21.0_alpha20240807">
@@ -78309,7 +78309,7 @@
         <property name="aquasecurity:trivy:PkgType">alpine</property>
         <property name="aquasecurity:trivy:SrcName">alpine-baselayout</property>
         <property name="aquasecurity:trivy:SrcVersion">3.6.8-r0</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:apk/alpine/alpine-keys@2.5-r0?arch=x86_64&amp;distro=3.21.0_alpha20240807">
@@ -78321,7 +78321,7 @@
         <property name="aquasecurity:trivy:PkgType">alpine</property>
         <property name="aquasecurity:trivy:SrcName">alpine-keys</property>
         <property name="aquasecurity:trivy:SrcVersion">2.5-r0</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:apk/alpine/apk-tools@2.14.4-r4?arch=x86_64&amp;distro=3.21.0_alpha20240807">
@@ -78333,7 +78333,7 @@
         <property name="aquasecurity:trivy:PkgType">alpine</property>
         <property name="aquasecurity:trivy:SrcName">apk-tools</property>
         <property name="aquasecurity:trivy:SrcVersion">2.14.4-r4</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:apk/alpine/bash@5.2.37-r0?arch=x86_64&amp;distro=3.21.0_alpha20240807">
@@ -78345,7 +78345,7 @@
         <property name="aquasecurity:trivy:PkgType">alpine</property>
         <property name="aquasecurity:trivy:SrcName">bash</property>
         <property name="aquasecurity:trivy:SrcVersion">5.2.37-r0</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:apk/alpine/brotli-libs@1.1.0-r2?arch=x86_64&amp;distro=3.21.0_alpha20240807">
@@ -78357,7 +78357,7 @@
         <property name="aquasecurity:trivy:PkgType">alpine</property>
         <property name="aquasecurity:trivy:SrcName">brotli</property>
         <property name="aquasecurity:trivy:SrcVersion">1.1.0-r2</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:apk/alpine/busybox-binsh@1.37.0-r6?arch=x86_64&amp;distro=3.21.0_alpha20240807">
@@ -78369,7 +78369,7 @@
         <property name="aquasecurity:trivy:PkgType">alpine</property>
         <property name="aquasecurity:trivy:SrcName">busybox</property>
         <property name="aquasecurity:trivy:SrcVersion">1.37.0-r6</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:apk/alpine/busybox@1.37.0-r6?arch=x86_64&amp;distro=3.21.0_alpha20240807">
@@ -78381,7 +78381,7 @@
         <property name="aquasecurity:trivy:PkgType">alpine</property>
         <property name="aquasecurity:trivy:SrcName">busybox</property>
         <property name="aquasecurity:trivy:SrcVersion">1.37.0-r6</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:apk/alpine/c-ares@1.34.2-r1?arch=x86_64&amp;distro=3.21.0_alpha20240807">
@@ -78393,7 +78393,7 @@
         <property name="aquasecurity:trivy:PkgType">alpine</property>
         <property name="aquasecurity:trivy:SrcName">c-ares</property>
         <property name="aquasecurity:trivy:SrcVersion">1.34.2-r1</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:apk/alpine/ca-certificates-bundle@20240705-r0?arch=x86_64&amp;distro=3.21.0_alpha20240807">
@@ -78405,7 +78405,7 @@
         <property name="aquasecurity:trivy:PkgType">alpine</property>
         <property name="aquasecurity:trivy:SrcName">ca-certificates</property>
         <property name="aquasecurity:trivy:SrcVersion">20240705-r0</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:apk/alpine/ca-certificates@20240705-r0?arch=x86_64&amp;distro=3.21.0_alpha20240807">
@@ -78417,7 +78417,7 @@
         <property name="aquasecurity:trivy:PkgType">alpine</property>
         <property name="aquasecurity:trivy:SrcName">ca-certificates</property>
         <property name="aquasecurity:trivy:SrcVersion">20240705-r0</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:apk/alpine/gmp@6.3.0-r2?arch=x86_64&amp;distro=3.21.0_alpha20240807">
@@ -78429,7 +78429,7 @@
         <property name="aquasecurity:trivy:PkgType">alpine</property>
         <property name="aquasecurity:trivy:SrcName">gmp</property>
         <property name="aquasecurity:trivy:SrcVersion">6.3.0-r2</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:apk/alpine/iproute2-minimal@6.11.0-r0?arch=x86_64&amp;distro=3.21.0_alpha20240807">
@@ -78441,7 +78441,7 @@
         <property name="aquasecurity:trivy:PkgType">alpine</property>
         <property name="aquasecurity:trivy:SrcName">iproute2</property>
         <property name="aquasecurity:trivy:SrcVersion">6.11.0-r0</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:apk/alpine/iproute2-ss@6.11.0-r0?arch=x86_64&amp;distro=3.21.0_alpha20240807">
@@ -78453,7 +78453,7 @@
         <property name="aquasecurity:trivy:PkgType">alpine</property>
         <property name="aquasecurity:trivy:SrcName">iproute2</property>
         <property name="aquasecurity:trivy:SrcVersion">6.11.0-r0</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:apk/alpine/iproute2-tc@6.11.0-r0?arch=x86_64&amp;distro=3.21.0_alpha20240807">
@@ -78465,7 +78465,7 @@
         <property name="aquasecurity:trivy:PkgType">alpine</property>
         <property name="aquasecurity:trivy:SrcName">iproute2</property>
         <property name="aquasecurity:trivy:SrcVersion">6.11.0-r0</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:apk/alpine/iproute2@6.11.0-r0?arch=x86_64&amp;distro=3.21.0_alpha20240807">
@@ -78477,7 +78477,7 @@
         <property name="aquasecurity:trivy:PkgType">alpine</property>
         <property name="aquasecurity:trivy:SrcName">iproute2</property>
         <property name="aquasecurity:trivy:SrcVersion">6.11.0-r0</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:apk/alpine/iptables-legacy@1.8.10-r5?arch=x86_64&amp;distro=3.21.0_alpha20240807">
@@ -78489,7 +78489,7 @@
         <property name="aquasecurity:trivy:PkgType">alpine</property>
         <property name="aquasecurity:trivy:SrcName">iptables</property>
         <property name="aquasecurity:trivy:SrcVersion">1.8.10-r5</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:apk/alpine/iptables@1.8.10-r5?arch=x86_64&amp;distro=3.21.0_alpha20240807">
@@ -78501,7 +78501,7 @@
         <property name="aquasecurity:trivy:PkgType">alpine</property>
         <property name="aquasecurity:trivy:SrcName">iptables</property>
         <property name="aquasecurity:trivy:SrcVersion">1.8.10-r5</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:apk/alpine/jansson@2.14-r4?arch=x86_64&amp;distro=3.21.0_alpha20240807">
@@ -78513,7 +78513,7 @@
         <property name="aquasecurity:trivy:PkgType">alpine</property>
         <property name="aquasecurity:trivy:SrcName">jansson</property>
         <property name="aquasecurity:trivy:SrcVersion">2.14-r4</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:apk/alpine/libcap2@2.70-r0?arch=x86_64&amp;distro=3.21.0_alpha20240807">
@@ -78525,7 +78525,7 @@
         <property name="aquasecurity:trivy:PkgType">alpine</property>
         <property name="aquasecurity:trivy:SrcName">libcap</property>
         <property name="aquasecurity:trivy:SrcVersion">2.70-r0</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:apk/alpine/libcrypto3@3.3.2-r3?arch=x86_64&amp;distro=3.21.0_alpha20240807">
@@ -78537,7 +78537,7 @@
         <property name="aquasecurity:trivy:PkgType">alpine</property>
         <property name="aquasecurity:trivy:SrcName">openssl</property>
         <property name="aquasecurity:trivy:SrcVersion">3.3.2-r3</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:apk/alpine/libcurl@8.11.0-r1?arch=x86_64&amp;distro=3.21.0_alpha20240807">
@@ -78549,7 +78549,7 @@
         <property name="aquasecurity:trivy:PkgType">alpine</property>
         <property name="aquasecurity:trivy:SrcName">curl</property>
         <property name="aquasecurity:trivy:SrcVersion">8.11.0-r1</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:apk/alpine/libelf@0.191-r0?arch=x86_64&amp;distro=3.21.0_alpha20240807">
@@ -78561,7 +78561,7 @@
         <property name="aquasecurity:trivy:PkgType">alpine</property>
         <property name="aquasecurity:trivy:SrcName">elfutils</property>
         <property name="aquasecurity:trivy:SrcVersion">0.191-r0</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:apk/alpine/libidn2@2.3.7-r0?arch=x86_64&amp;distro=3.21.0_alpha20240807">
@@ -78573,7 +78573,7 @@
         <property name="aquasecurity:trivy:PkgType">alpine</property>
         <property name="aquasecurity:trivy:SrcName">libidn2</property>
         <property name="aquasecurity:trivy:SrcVersion">2.3.7-r0</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:apk/alpine/libip4tc@1.8.10-r5?arch=x86_64&amp;distro=3.21.0_alpha20240807">
@@ -78585,7 +78585,7 @@
         <property name="aquasecurity:trivy:PkgType">alpine</property>
         <property name="aquasecurity:trivy:SrcName">iptables</property>
         <property name="aquasecurity:trivy:SrcVersion">1.8.10-r5</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:apk/alpine/libip6tc@1.8.10-r5?arch=x86_64&amp;distro=3.21.0_alpha20240807">
@@ -78597,7 +78597,7 @@
         <property name="aquasecurity:trivy:PkgType">alpine</property>
         <property name="aquasecurity:trivy:SrcName">iptables</property>
         <property name="aquasecurity:trivy:SrcVersion">1.8.10-r5</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:apk/alpine/libmnl@1.0.5-r2?arch=x86_64&amp;distro=3.21.0_alpha20240807">
@@ -78609,7 +78609,7 @@
         <property name="aquasecurity:trivy:PkgType">alpine</property>
         <property name="aquasecurity:trivy:SrcName">libmnl</property>
         <property name="aquasecurity:trivy:SrcVersion">1.0.5-r2</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:apk/alpine/libncursesw@6.5_p20241006-r2?arch=x86_64&amp;distro=3.21.0_alpha20240807">
@@ -78621,7 +78621,7 @@
         <property name="aquasecurity:trivy:PkgType">alpine</property>
         <property name="aquasecurity:trivy:SrcName">ncurses</property>
         <property name="aquasecurity:trivy:SrcVersion">6.5_p20241006-r2</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:apk/alpine/libnftnl@1.2.8-r0?arch=x86_64&amp;distro=3.21.0_alpha20240807">
@@ -78633,7 +78633,7 @@
         <property name="aquasecurity:trivy:PkgType">alpine</property>
         <property name="aquasecurity:trivy:SrcName">libnftnl</property>
         <property name="aquasecurity:trivy:SrcVersion">1.2.8-r0</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:apk/alpine/libpsl@0.21.5-r3?arch=x86_64&amp;distro=3.21.0_alpha20240807">
@@ -78645,7 +78645,7 @@
         <property name="aquasecurity:trivy:PkgType">alpine</property>
         <property name="aquasecurity:trivy:SrcName">libpsl</property>
         <property name="aquasecurity:trivy:SrcVersion">0.21.5-r3</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:apk/alpine/libssl3@3.3.2-r3?arch=x86_64&amp;distro=3.21.0_alpha20240807">
@@ -78657,7 +78657,7 @@
         <property name="aquasecurity:trivy:PkgType">alpine</property>
         <property name="aquasecurity:trivy:SrcName">openssl</property>
         <property name="aquasecurity:trivy:SrcVersion">3.3.2-r3</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:apk/alpine/libunistring@1.2-r0?arch=x86_64&amp;distro=3.21.0_alpha20240807">
@@ -78669,7 +78669,7 @@
         <property name="aquasecurity:trivy:PkgType">alpine</property>
         <property name="aquasecurity:trivy:SrcName">libunistring</property>
         <property name="aquasecurity:trivy:SrcVersion">1.2-r0</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:apk/alpine/libxtables@1.8.10-r5?arch=x86_64&amp;distro=3.21.0_alpha20240807">
@@ -78681,7 +78681,7 @@
         <property name="aquasecurity:trivy:PkgType">alpine</property>
         <property name="aquasecurity:trivy:SrcName">iptables</property>
         <property name="aquasecurity:trivy:SrcVersion">1.8.10-r5</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:apk/alpine/musl-utils@1.2.5-r5?arch=x86_64&amp;distro=3.21.0_alpha20240807">
@@ -78693,7 +78693,7 @@
         <property name="aquasecurity:trivy:PkgType">alpine</property>
         <property name="aquasecurity:trivy:SrcName">musl</property>
         <property name="aquasecurity:trivy:SrcVersion">1.2.5-r5</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:apk/alpine/musl@1.2.5-r5?arch=x86_64&amp;distro=3.21.0_alpha20240807">
@@ -78705,7 +78705,7 @@
         <property name="aquasecurity:trivy:PkgType">alpine</property>
         <property name="aquasecurity:trivy:SrcName">musl</property>
         <property name="aquasecurity:trivy:SrcVersion">1.2.5-r5</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:apk/alpine/ncurses-terminfo-base@6.5_p20241006-r2?arch=x86_64&amp;distro=3.21.0_alpha20240807">
@@ -78717,7 +78717,7 @@
         <property name="aquasecurity:trivy:PkgType">alpine</property>
         <property name="aquasecurity:trivy:SrcName">ncurses</property>
         <property name="aquasecurity:trivy:SrcVersion">6.5_p20241006-r2</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:apk/alpine/nftables@1.1.1-r0?arch=x86_64&amp;distro=3.21.0_alpha20240807">
@@ -78729,7 +78729,7 @@
         <property name="aquasecurity:trivy:PkgType">alpine</property>
         <property name="aquasecurity:trivy:SrcName">nftables</property>
         <property name="aquasecurity:trivy:SrcVersion">1.1.1-r0</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:apk/alpine/nghttp2-libs@1.64.0-r0?arch=x86_64&amp;distro=3.21.0_alpha20240807">
@@ -78741,7 +78741,7 @@
         <property name="aquasecurity:trivy:PkgType">alpine</property>
         <property name="aquasecurity:trivy:SrcName">nghttp2</property>
         <property name="aquasecurity:trivy:SrcVersion">1.64.0-r0</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:apk/alpine/openresolv@3.13.2-r1?arch=x86_64&amp;distro=3.21.0_alpha20240807">
@@ -78753,7 +78753,7 @@
         <property name="aquasecurity:trivy:PkgType">alpine</property>
         <property name="aquasecurity:trivy:SrcName">openresolv</property>
         <property name="aquasecurity:trivy:SrcVersion">3.13.2-r1</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:apk/alpine/readline@8.2.13-r0?arch=x86_64&amp;distro=3.21.0_alpha20240807">
@@ -78765,7 +78765,7 @@
         <property name="aquasecurity:trivy:PkgType">alpine</property>
         <property name="aquasecurity:trivy:SrcName">readline</property>
         <property name="aquasecurity:trivy:SrcVersion">8.2.13-r0</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:apk/alpine/scanelf@1.3.8-r1?arch=x86_64&amp;distro=3.21.0_alpha20240807">
@@ -78777,7 +78777,7 @@
         <property name="aquasecurity:trivy:PkgType">alpine</property>
         <property name="aquasecurity:trivy:SrcName">pax-utils</property>
         <property name="aquasecurity:trivy:SrcVersion">1.3.8-r1</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:apk/alpine/sqlite-libs@3.47.0-r0?arch=x86_64&amp;distro=3.21.0_alpha20240807">
@@ -78789,7 +78789,7 @@
         <property name="aquasecurity:trivy:PkgType">alpine</property>
         <property name="aquasecurity:trivy:SrcName">sqlite</property>
         <property name="aquasecurity:trivy:SrcVersion">3.47.0-r0</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:apk/alpine/ssl_client@1.37.0-r6?arch=x86_64&amp;distro=3.21.0_alpha20240807">
@@ -78801,7 +78801,7 @@
         <property name="aquasecurity:trivy:PkgType">alpine</property>
         <property name="aquasecurity:trivy:SrcName">busybox</property>
         <property name="aquasecurity:trivy:SrcVersion">1.37.0-r6</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:apk/alpine/strongswan@5.9.13-r1?arch=x86_64&amp;distro=3.21.0_alpha20240807">
@@ -78813,7 +78813,7 @@
         <property name="aquasecurity:trivy:PkgType">alpine</property>
         <property name="aquasecurity:trivy:SrcName">strongswan</property>
         <property name="aquasecurity:trivy:SrcVersion">5.9.13-r1</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:apk/alpine/wireguard-tools-wg-quick@1.0.20210914-r4?arch=x86_64&amp;distro=3.21.0_alpha20240807">
@@ -78825,7 +78825,7 @@
         <property name="aquasecurity:trivy:PkgType">alpine</property>
         <property name="aquasecurity:trivy:SrcName">wireguard-tools</property>
         <property name="aquasecurity:trivy:SrcVersion">1.0.20210914-r4</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:apk/alpine/wireguard-tools-wg@1.0.20210914-r4?arch=x86_64&amp;distro=3.21.0_alpha20240807">
@@ -78837,7 +78837,7 @@
         <property name="aquasecurity:trivy:PkgType">alpine</property>
         <property name="aquasecurity:trivy:SrcName">wireguard-tools</property>
         <property name="aquasecurity:trivy:SrcVersion">1.0.20210914-r4</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:apk/alpine/wireguard-tools@1.0.20210914-r4?arch=x86_64&amp;distro=3.21.0_alpha20240807">
@@ -78849,7 +78849,7 @@
         <property name="aquasecurity:trivy:PkgType">alpine</property>
         <property name="aquasecurity:trivy:SrcName">wireguard-tools</property>
         <property name="aquasecurity:trivy:SrcVersion">1.0.20210914-r4</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:apk/alpine/zlib@1.3.1-r2?arch=x86_64&amp;distro=3.21.0_alpha20240807">
@@ -78861,7 +78861,7 @@
         <property name="aquasecurity:trivy:PkgType">alpine</property>
         <property name="aquasecurity:trivy:SrcName">zlib</property>
         <property name="aquasecurity:trivy:SrcVersion">1.3.1-r2</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:apk/alpine/zstd-libs@1.5.6-r1?arch=x86_64&amp;distro=3.21.0_alpha20240807">
@@ -78873,7 +78873,7 @@
         <property name="aquasecurity:trivy:PkgType">alpine</property>
         <property name="aquasecurity:trivy:SrcName">zstd</property>
         <property name="aquasecurity:trivy:SrcVersion">1.5.6-r1</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:golang/github.com/avast/retry-go/v4@v4.6.0">
@@ -78882,7 +78882,7 @@
       <properties>
         <property name="aquasecurity:trivy:LayerDiffID">sha256:9b125d6943fa9a1390fefc7404495fe07778e00edcb122250e212be7c8fb2717</property>
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:golang/github.com/bronze1man/gostrongswanvici@v0.0.0-20231128135937-211cef3b0b20">
@@ -78891,7 +78891,7 @@
       <properties>
         <property name="aquasecurity:trivy:LayerDiffID">sha256:9b125d6943fa9a1390fefc7404495fe07778e00edcb122250e212be7c8fb2717</property>
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:golang/github.com/containernetworking/plugins@v1.6.0">
@@ -78900,7 +78900,7 @@
       <properties>
         <property name="aquasecurity:trivy:LayerDiffID">sha256:9b125d6943fa9a1390fefc7404495fe07778e00edcb122250e212be7c8fb2717</property>
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:golang/github.com/coreos/go-iptables@v0.8.0">
@@ -78909,7 +78909,7 @@
       <properties>
         <property name="aquasecurity:trivy:LayerDiffID">sha256:9b125d6943fa9a1390fefc7404495fe07778e00edcb122250e212be7c8fb2717</property>
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:golang/github.com/coreos/go-semver@v0.3.1">
@@ -78918,7 +78918,7 @@
       <properties>
         <property name="aquasecurity:trivy:LayerDiffID">sha256:9b125d6943fa9a1390fefc7404495fe07778e00edcb122250e212be7c8fb2717</property>
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:golang/github.com/coreos/go-systemd/v22@v22.5.0">
@@ -78927,7 +78927,7 @@
       <properties>
         <property name="aquasecurity:trivy:LayerDiffID">sha256:9b125d6943fa9a1390fefc7404495fe07778e00edcb122250e212be7c8fb2717</property>
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:golang/github.com/coreos/pkg@v0.0.0-20240122114842-bbd7aa9bf6fb">
@@ -78936,7 +78936,7 @@
       <properties>
         <property name="aquasecurity:trivy:LayerDiffID">sha256:9b125d6943fa9a1390fefc7404495fe07778e00edcb122250e212be7c8fb2717</property>
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:golang/github.com/davecgh/go-spew@v1.1.1">
@@ -78945,7 +78945,7 @@
       <properties>
         <property name="aquasecurity:trivy:LayerDiffID">sha256:9b125d6943fa9a1390fefc7404495fe07778e00edcb122250e212be7c8fb2717</property>
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:golang/github.com/emicklei/go-restful/v3@v3.11.0">
@@ -78954,16 +78954,16 @@
       <properties>
         <property name="aquasecurity:trivy:LayerDiffID">sha256:9b125d6943fa9a1390fefc7404495fe07778e00edcb122250e212be7c8fb2717</property>
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
-    <component type="library" bom-ref="pkg:golang/github.com/flannel-io/flannel@v0.26.1">
+    <component type="library" bom-ref="pkg:golang/github.com/flannel-io/flannel@v0.26.7">
       <name>github.com/flannel-io/flannel</name>
-      <purl>pkg:golang/github.com/flannel-io/flannel@v0.26.1</purl>
+      <purl>pkg:golang/github.com/flannel-io/flannel@v0.26.7</purl>
       <properties>
         <property name="aquasecurity:trivy:LayerDiffID">sha256:9b125d6943fa9a1390fefc7404495fe07778e00edcb122250e212be7c8fb2717</property>
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:golang/github.com/go-logr/logr@v1.4.2">
@@ -78972,7 +78972,7 @@
       <properties>
         <property name="aquasecurity:trivy:LayerDiffID">sha256:9b125d6943fa9a1390fefc7404495fe07778e00edcb122250e212be7c8fb2717</property>
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:golang/github.com/go-openapi/jsonpointer@v0.21.0">
@@ -78981,7 +78981,7 @@
       <properties>
         <property name="aquasecurity:trivy:LayerDiffID">sha256:9b125d6943fa9a1390fefc7404495fe07778e00edcb122250e212be7c8fb2717</property>
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:golang/github.com/go-openapi/jsonreference@v0.20.2">
@@ -78990,7 +78990,7 @@
       <properties>
         <property name="aquasecurity:trivy:LayerDiffID">sha256:9b125d6943fa9a1390fefc7404495fe07778e00edcb122250e212be7c8fb2717</property>
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:golang/github.com/go-openapi/swag@v0.23.0">
@@ -78999,7 +78999,7 @@
       <properties>
         <property name="aquasecurity:trivy:LayerDiffID">sha256:9b125d6943fa9a1390fefc7404495fe07778e00edcb122250e212be7c8fb2717</property>
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:golang/github.com/gogo/protobuf@v1.3.2">
@@ -79008,7 +79008,7 @@
       <properties>
         <property name="aquasecurity:trivy:LayerDiffID">sha256:9b125d6943fa9a1390fefc7404495fe07778e00edcb122250e212be7c8fb2717</property>
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:golang/github.com/golang/protobuf@v1.5.4">
@@ -79017,7 +79017,7 @@
       <properties>
         <property name="aquasecurity:trivy:LayerDiffID">sha256:9b125d6943fa9a1390fefc7404495fe07778e00edcb122250e212be7c8fb2717</property>
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:golang/github.com/google/gnostic-models@v0.6.8">
@@ -79026,7 +79026,7 @@
       <properties>
         <property name="aquasecurity:trivy:LayerDiffID">sha256:9b125d6943fa9a1390fefc7404495fe07778e00edcb122250e212be7c8fb2717</property>
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:golang/github.com/google/go-cmp@v0.6.0">
@@ -79035,7 +79035,7 @@
       <properties>
         <property name="aquasecurity:trivy:LayerDiffID">sha256:9b125d6943fa9a1390fefc7404495fe07778e00edcb122250e212be7c8fb2717</property>
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:golang/github.com/google/gofuzz@v1.2.0">
@@ -79044,7 +79044,7 @@
       <properties>
         <property name="aquasecurity:trivy:LayerDiffID">sha256:9b125d6943fa9a1390fefc7404495fe07778e00edcb122250e212be7c8fb2717</property>
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:golang/github.com/google/uuid@v1.6.0">
@@ -79053,7 +79053,7 @@
       <properties>
         <property name="aquasecurity:trivy:LayerDiffID">sha256:9b125d6943fa9a1390fefc7404495fe07778e00edcb122250e212be7c8fb2717</property>
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:golang/github.com/imdario/mergo@v0.3.13">
@@ -79062,7 +79062,7 @@
       <properties>
         <property name="aquasecurity:trivy:LayerDiffID">sha256:9b125d6943fa9a1390fefc7404495fe07778e00edcb122250e212be7c8fb2717</property>
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:golang/github.com/joho/godotenv@v1.5.1">
@@ -79071,7 +79071,7 @@
       <properties>
         <property name="aquasecurity:trivy:LayerDiffID">sha256:9b125d6943fa9a1390fefc7404495fe07778e00edcb122250e212be7c8fb2717</property>
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:golang/github.com/jonboulle/clockwork@v0.4.0">
@@ -79080,7 +79080,7 @@
       <properties>
         <property name="aquasecurity:trivy:LayerDiffID">sha256:9b125d6943fa9a1390fefc7404495fe07778e00edcb122250e212be7c8fb2717</property>
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:golang/github.com/josharian/intern@v1.0.0">
@@ -79089,7 +79089,7 @@
       <properties>
         <property name="aquasecurity:trivy:LayerDiffID">sha256:9b125d6943fa9a1390fefc7404495fe07778e00edcb122250e212be7c8fb2717</property>
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:golang/github.com/josharian/native@v1.1.0">
@@ -79098,7 +79098,7 @@
       <properties>
         <property name="aquasecurity:trivy:LayerDiffID">sha256:9b125d6943fa9a1390fefc7404495fe07778e00edcb122250e212be7c8fb2717</property>
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:golang/github.com/json-iterator/go@v1.1.12">
@@ -79107,7 +79107,7 @@
       <properties>
         <property name="aquasecurity:trivy:LayerDiffID">sha256:9b125d6943fa9a1390fefc7404495fe07778e00edcb122250e212be7c8fb2717</property>
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:golang/github.com/kubernetes-sigs/iptables-wrappers">
@@ -79116,7 +79116,7 @@
       <properties>
         <property name="aquasecurity:trivy:LayerDiffID">sha256:0d3c893d4786c413ce65078deb2c68ab7db7b551b44da541f8e7ad51c79f8427</property>
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:golang/github.com/mailru/easyjson@v0.7.7">
@@ -79125,7 +79125,7 @@
       <properties>
         <property name="aquasecurity:trivy:LayerDiffID">sha256:9b125d6943fa9a1390fefc7404495fe07778e00edcb122250e212be7c8fb2717</property>
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:golang/github.com/mdlayher/genetlink@v1.3.2">
@@ -79134,7 +79134,7 @@
       <properties>
         <property name="aquasecurity:trivy:LayerDiffID">sha256:9b125d6943fa9a1390fefc7404495fe07778e00edcb122250e212be7c8fb2717</property>
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:golang/github.com/mdlayher/netlink@v1.7.2">
@@ -79143,7 +79143,7 @@
       <properties>
         <property name="aquasecurity:trivy:LayerDiffID">sha256:9b125d6943fa9a1390fefc7404495fe07778e00edcb122250e212be7c8fb2717</property>
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:golang/github.com/mdlayher/socket@v0.5.1">
@@ -79152,7 +79152,7 @@
       <properties>
         <property name="aquasecurity:trivy:LayerDiffID">sha256:9b125d6943fa9a1390fefc7404495fe07778e00edcb122250e212be7c8fb2717</property>
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:golang/github.com/modern-go/concurrent@v0.0.0-20180306012644-bacd9c7ef1dd">
@@ -79161,7 +79161,7 @@
       <properties>
         <property name="aquasecurity:trivy:LayerDiffID">sha256:9b125d6943fa9a1390fefc7404495fe07778e00edcb122250e212be7c8fb2717</property>
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:golang/github.com/modern-go/reflect2@v1.0.2">
@@ -79170,7 +79170,7 @@
       <properties>
         <property name="aquasecurity:trivy:LayerDiffID">sha256:9b125d6943fa9a1390fefc7404495fe07778e00edcb122250e212be7c8fb2717</property>
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:golang/github.com/munnerz/goautoneg@v0.0.0-20191010083416-a7dc8b61c822">
@@ -79179,7 +79179,7 @@
       <properties>
         <property name="aquasecurity:trivy:LayerDiffID">sha256:9b125d6943fa9a1390fefc7404495fe07778e00edcb122250e212be7c8fb2717</property>
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:golang/github.com/spf13/pflag@v1.0.5">
@@ -79188,7 +79188,7 @@
       <properties>
         <property name="aquasecurity:trivy:LayerDiffID">sha256:9b125d6943fa9a1390fefc7404495fe07778e00edcb122250e212be7c8fb2717</property>
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:golang/github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common@v1.0.1030">
@@ -79197,7 +79197,7 @@
       <properties>
         <property name="aquasecurity:trivy:LayerDiffID">sha256:9b125d6943fa9a1390fefc7404495fe07778e00edcb122250e212be7c8fb2717</property>
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:golang/github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc@v1.0.1030">
@@ -79206,7 +79206,7 @@
       <properties>
         <property name="aquasecurity:trivy:LayerDiffID">sha256:9b125d6943fa9a1390fefc7404495fe07778e00edcb122250e212be7c8fb2717</property>
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:golang/github.com/vishvananda/netlink@v1.3.0">
@@ -79215,7 +79215,7 @@
       <properties>
         <property name="aquasecurity:trivy:LayerDiffID">sha256:9b125d6943fa9a1390fefc7404495fe07778e00edcb122250e212be7c8fb2717</property>
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:golang/github.com/vishvananda/netns@v0.0.4">
@@ -79224,7 +79224,7 @@
       <properties>
         <property name="aquasecurity:trivy:LayerDiffID">sha256:9b125d6943fa9a1390fefc7404495fe07778e00edcb122250e212be7c8fb2717</property>
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:golang/go.etcd.io/etcd/api/v3@v3.5.16">
@@ -79233,7 +79233,7 @@
       <properties>
         <property name="aquasecurity:trivy:LayerDiffID">sha256:9b125d6943fa9a1390fefc7404495fe07778e00edcb122250e212be7c8fb2717</property>
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:golang/go.etcd.io/etcd/client/pkg/v3@v3.5.16">
@@ -79242,7 +79242,7 @@
       <properties>
         <property name="aquasecurity:trivy:LayerDiffID">sha256:9b125d6943fa9a1390fefc7404495fe07778e00edcb122250e212be7c8fb2717</property>
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:golang/go.etcd.io/etcd/client/v3@v3.5.16">
@@ -79251,7 +79251,7 @@
       <properties>
         <property name="aquasecurity:trivy:LayerDiffID">sha256:9b125d6943fa9a1390fefc7404495fe07778e00edcb122250e212be7c8fb2717</property>
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:golang/go.uber.org/atomic@v1.7.0">
@@ -79260,7 +79260,7 @@
       <properties>
         <property name="aquasecurity:trivy:LayerDiffID">sha256:9b125d6943fa9a1390fefc7404495fe07778e00edcb122250e212be7c8fb2717</property>
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:golang/go.uber.org/multierr@v1.6.0">
@@ -79269,7 +79269,7 @@
       <properties>
         <property name="aquasecurity:trivy:LayerDiffID">sha256:9b125d6943fa9a1390fefc7404495fe07778e00edcb122250e212be7c8fb2717</property>
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:golang/go.uber.org/zap@v1.17.0">
@@ -79278,7 +79278,7 @@
       <properties>
         <property name="aquasecurity:trivy:LayerDiffID">sha256:9b125d6943fa9a1390fefc7404495fe07778e00edcb122250e212be7c8fb2717</property>
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:golang/golang.org/x/crypto@v0.28.0">
@@ -79287,7 +79287,7 @@
       <properties>
         <property name="aquasecurity:trivy:LayerDiffID">sha256:9b125d6943fa9a1390fefc7404495fe07778e00edcb122250e212be7c8fb2717</property>
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:golang/golang.org/x/net@v0.30.0">
@@ -79296,7 +79296,7 @@
       <properties>
         <property name="aquasecurity:trivy:LayerDiffID">sha256:9b125d6943fa9a1390fefc7404495fe07778e00edcb122250e212be7c8fb2717</property>
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:golang/golang.org/x/oauth2@v0.22.0">
@@ -79305,7 +79305,7 @@
       <properties>
         <property name="aquasecurity:trivy:LayerDiffID">sha256:9b125d6943fa9a1390fefc7404495fe07778e00edcb122250e212be7c8fb2717</property>
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:golang/golang.org/x/sync@v0.8.0">
@@ -79314,7 +79314,7 @@
       <properties>
         <property name="aquasecurity:trivy:LayerDiffID">sha256:9b125d6943fa9a1390fefc7404495fe07778e00edcb122250e212be7c8fb2717</property>
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:golang/golang.org/x/sys@v0.26.0">
@@ -79323,7 +79323,7 @@
       <properties>
         <property name="aquasecurity:trivy:LayerDiffID">sha256:9b125d6943fa9a1390fefc7404495fe07778e00edcb122250e212be7c8fb2717</property>
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:golang/golang.org/x/term@v0.25.0">
@@ -79332,7 +79332,7 @@
       <properties>
         <property name="aquasecurity:trivy:LayerDiffID">sha256:9b125d6943fa9a1390fefc7404495fe07778e00edcb122250e212be7c8fb2717</property>
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:golang/golang.org/x/text@v0.19.0">
@@ -79341,7 +79341,7 @@
       <properties>
         <property name="aquasecurity:trivy:LayerDiffID">sha256:9b125d6943fa9a1390fefc7404495fe07778e00edcb122250e212be7c8fb2717</property>
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:golang/golang.org/x/time@v0.6.0">
@@ -79350,7 +79350,7 @@
       <properties>
         <property name="aquasecurity:trivy:LayerDiffID">sha256:9b125d6943fa9a1390fefc7404495fe07778e00edcb122250e212be7c8fb2717</property>
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:golang/golang.zx2c4.com/wireguard/wgctrl@v0.0.0-20230429144221-925a1e7659e6">
@@ -79359,7 +79359,7 @@
       <properties>
         <property name="aquasecurity:trivy:LayerDiffID">sha256:9b125d6943fa9a1390fefc7404495fe07778e00edcb122250e212be7c8fb2717</property>
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:golang/google.golang.org/genproto/googleapis/api@v0.0.0-20240827150818-7e3bb234dfed">
@@ -79368,7 +79368,7 @@
       <properties>
         <property name="aquasecurity:trivy:LayerDiffID">sha256:9b125d6943fa9a1390fefc7404495fe07778e00edcb122250e212be7c8fb2717</property>
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:golang/google.golang.org/genproto/googleapis/rpc@v0.0.0-20240903143218-8af14fe29dc1">
@@ -79377,7 +79377,7 @@
       <properties>
         <property name="aquasecurity:trivy:LayerDiffID">sha256:9b125d6943fa9a1390fefc7404495fe07778e00edcb122250e212be7c8fb2717</property>
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:golang/google.golang.org/grpc@v1.67.0">
@@ -79386,7 +79386,7 @@
       <properties>
         <property name="aquasecurity:trivy:LayerDiffID">sha256:9b125d6943fa9a1390fefc7404495fe07778e00edcb122250e212be7c8fb2717</property>
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:golang/google.golang.org/protobuf@v1.34.2">
@@ -79395,7 +79395,7 @@
       <properties>
         <property name="aquasecurity:trivy:LayerDiffID">sha256:9b125d6943fa9a1390fefc7404495fe07778e00edcb122250e212be7c8fb2717</property>
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:golang/gopkg.in/inf.v0@v0.9.1">
@@ -79404,7 +79404,7 @@
       <properties>
         <property name="aquasecurity:trivy:LayerDiffID">sha256:9b125d6943fa9a1390fefc7404495fe07778e00edcb122250e212be7c8fb2717</property>
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:golang/gopkg.in/yaml.v2@v2.4.0">
@@ -79413,7 +79413,7 @@
       <properties>
         <property name="aquasecurity:trivy:LayerDiffID">sha256:9b125d6943fa9a1390fefc7404495fe07778e00edcb122250e212be7c8fb2717</property>
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:golang/gopkg.in/yaml.v3@v3.0.1">
@@ -79422,7 +79422,7 @@
       <properties>
         <property name="aquasecurity:trivy:LayerDiffID">sha256:9b125d6943fa9a1390fefc7404495fe07778e00edcb122250e212be7c8fb2717</property>
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:golang/k8s.io/api@v0.28.13">
@@ -79431,7 +79431,7 @@
       <properties>
         <property name="aquasecurity:trivy:LayerDiffID">sha256:9b125d6943fa9a1390fefc7404495fe07778e00edcb122250e212be7c8fb2717</property>
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:golang/k8s.io/apimachinery@v0.28.13">
@@ -79440,7 +79440,7 @@
       <properties>
         <property name="aquasecurity:trivy:LayerDiffID">sha256:9b125d6943fa9a1390fefc7404495fe07778e00edcb122250e212be7c8fb2717</property>
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:golang/k8s.io/client-go@v0.28.13">
@@ -79449,7 +79449,7 @@
       <properties>
         <property name="aquasecurity:trivy:LayerDiffID">sha256:9b125d6943fa9a1390fefc7404495fe07778e00edcb122250e212be7c8fb2717</property>
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:golang/k8s.io/klog/v2@v2.130.1">
@@ -79458,7 +79458,7 @@
       <properties>
         <property name="aquasecurity:trivy:LayerDiffID">sha256:9b125d6943fa9a1390fefc7404495fe07778e00edcb122250e212be7c8fb2717</property>
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:golang/k8s.io/kube-openapi@v0.0.0-20240903163716-9e1beecbcb38">
@@ -79467,7 +79467,7 @@
       <properties>
         <property name="aquasecurity:trivy:LayerDiffID">sha256:9b125d6943fa9a1390fefc7404495fe07778e00edcb122250e212be7c8fb2717</property>
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:golang/k8s.io/utils@v0.0.0-20240902221715-702e33fdd3c3">
@@ -79476,7 +79476,7 @@
       <properties>
         <property name="aquasecurity:trivy:LayerDiffID">sha256:9b125d6943fa9a1390fefc7404495fe07778e00edcb122250e212be7c8fb2717</property>
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:golang/sigs.k8s.io/json@v0.0.0-20221116044647-bc3834ca7abd">
@@ -79485,7 +79485,7 @@
       <properties>
         <property name="aquasecurity:trivy:LayerDiffID">sha256:9b125d6943fa9a1390fefc7404495fe07778e00edcb122250e212be7c8fb2717</property>
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:golang/sigs.k8s.io/knftables@v0.0.17">
@@ -79494,7 +79494,7 @@
       <properties>
         <property name="aquasecurity:trivy:LayerDiffID">sha256:9b125d6943fa9a1390fefc7404495fe07778e00edcb122250e212be7c8fb2717</property>
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:golang/sigs.k8s.io/structured-merge-diff/v4@v4.4.1">
@@ -79503,7 +79503,7 @@
       <properties>
         <property name="aquasecurity:trivy:LayerDiffID">sha256:9b125d6943fa9a1390fefc7404495fe07778e00edcb122250e212be7c8fb2717</property>
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="library" bom-ref="pkg:golang/sigs.k8s.io/yaml@v1.4.0">
@@ -79512,7 +79512,7 @@
       <properties>
         <property name="aquasecurity:trivy:LayerDiffID">sha256:9b125d6943fa9a1390fefc7404495fe07778e00edcb122250e212be7c8fb2717</property>
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
-        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.1</property>
+        <property name="sw360:projectName">k2s:core:pkg:container:docker.io-flannel-flannel:v0.26.7</property>
       </properties>
     </component>
     <component type="container" bom-ref="85a04848-1ffb-470d-963e-69dd90f6e21f">
@@ -116361,9 +116361,9 @@
         <property name="sw360:projectName">k2s:core:pkg:golang:kubemaster</property>
       </properties>
     </component>
-    <component type="library" bom-ref="pkg:golang/github.com/flannel-io/flannel@v0.26.1">
+    <component type="library" bom-ref="pkg:golang/github.com/flannel-io/flannel@v0.26.7">
       <name>github.com/flannel-io/flannel</name>
-      <purl>pkg:golang/github.com/flannel-io/flannel@v0.26.1</purl>
+      <purl>pkg:golang/github.com/flannel-io/flannel@v0.26.7</purl>
       <properties>
         <property name="aquasecurity:trivy:PkgType">gobinary</property>
         <property name="sw360:projectName">k2s:core:pkg:golang:kubemaster</property>
@@ -140639,7 +140639,7 @@
     </dependency>
     <dependency ref="42c07ab8-2ecc-4cd1-abac-aa3a846aa9c4" />
     <dependency ref="7742b93f-8f2e-4c63-88a4-0157c7c96cc2">
-      <dependency ref="pkg:golang/github.com/flannel-io/flannel@v0.26.1" />
+      <dependency ref="pkg:golang/github.com/flannel-io/flannel@v0.26.7" />
     </dependency>
     <dependency ref="85a04848-1ffb-470d-963e-69dd90f6e21f">
       <dependency ref="7742b93f-8f2e-4c63-88a4-0157c7c96cc2" />
@@ -140910,7 +140910,7 @@
     <dependency ref="pkg:golang/github.com/containernetworking/plugins@v1.6.0" />
     <dependency ref="pkg:golang/github.com/coreos/go-iptables@v0.8.0" />
     <dependency ref="pkg:golang/github.com/coreos/pkg@v0.0.0-20240122114842-bbd7aa9bf6fb" />
-    <dependency ref="pkg:golang/github.com/flannel-io/flannel@v0.26.1">
+    <dependency ref="pkg:golang/github.com/flannel-io/flannel@v0.26.7">
       <dependency ref="42c07ab8-2ecc-4cd1-abac-aa3a846aa9c4" />
       <dependency ref="pkg:golang/github.com/avast/retry-go/v4@v4.6.0" />
       <dependency ref="pkg:golang/github.com/bronze1man/gostrongswanvici@v0.0.0-20231128135937-211cef3b0b20" />
@@ -144593,7 +144593,7 @@
     <dependency ref="1c33ba6d-c02f-4031-9297-c2097d89821a" />
     <dependency ref="1c4f9d33-3783-4050-bf23-c2db41ab269b" />
     <dependency ref="1c5d388a-260e-4680-8888-1b4520b4f34b">
-      <dependency ref="pkg:golang/github.com/flannel-io/flannel@v0.26.1" />
+      <dependency ref="pkg:golang/github.com/flannel-io/flannel@v0.26.7" />
     </dependency>
     <dependency ref="1c7ea334-3dbc-4183-abe6-0e320d018585" />
     <dependency ref="1c9200bd-b84f-4e12-a4b8-87bcd3ae777a" />
@@ -151090,7 +151090,7 @@
     <dependency ref="pkg:golang/github.com/docker/go-events@v0.0.0-20190806004212-e31b211e4f1c" />
     <dependency ref="pkg:golang/github.com/exponent-io/jsonpath@v0.0.0-20151013193312-d6023ce2651d" />
     <dependency ref="pkg:golang/github.com/fatih/color@v1.17.0" />
-    <dependency ref="pkg:golang/github.com/flannel-io/flannel@v0.26.1">
+    <dependency ref="pkg:golang/github.com/flannel-io/flannel@v0.26.7">
       <dependency ref="0123fd44-b247-4115-b342-65fabebf293d" />
       <dependency ref="0d2215ef-4511-489c-9bf0-631252a70fa1" />
       <dependency ref="16ba523b-3195-4403-9b02-69402cd5467b" />
