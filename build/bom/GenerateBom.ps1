@@ -243,7 +243,7 @@ function GenerateBomContainers() {
             # create bom file entry for linux image
             # TODO: with license it does not work yet from cdxgen point of view
             #ExecCmdMaster "sudo GLOBAL_AGENT_HTTP_PROXY=http://172.19.1.1:8181 SCAN_DEBUG_MODE=debug FETCH_LICENSE=true DEBIAN_FRONTEND=noninteractive cdxgen --required-only -t containerfile $imageId.tar -o $imageName.json"
-            k2s system ssh m -- "sudo HTTPS_PROXY=http://172.19.1.1:8181 trivy image --input $imageName.tar --scanners license --license-full --format cyclonedx -o $imageName.json 2>&1"
+            k2s node exec -i 172.19.1.100 -u remote -c "sudo HTTPS_PROXY=http://172.19.1.1:8181 trivy image --input $imageName.tar --scanners license --license-full --format cyclonedx -o $imageName.json 2>&1"
             # copy bom file to local folder
             $source = "$global:Remote_Master" + ":/home/remote/$imageName.json"
             Copy-FromToMaster -Source $source -Target "$bomRootDir\merge"
@@ -296,12 +296,12 @@ function GenerateBomContainers() {
 
         # copy to master since cdxgen is not available on windows
         Write-Output "  -> Copied to kubemaster: $imageName.tar"
-        &"$global:KubernetesPath\k2s.exe" system scp m "$tempDir\\$imageName.tar" '/home/remote'
+        &"$global:KubernetesPath\k2s.exe" node copy -i 172.19.1.100 -u remote -s "$tempDir\\$imageName.tar" -t '/home/remote'
 
         Write-Output "  -> Creating bom for windows image: $imageName"
         # TODO: with license it does not work yet from cdxgen point of view
         #ExecCmdMaster "sudo GLOBAL_AGENT_HTTP_PROXY=http://172.19.1.1:8181 SCAN_DEBUG_MODE=debug FETCH_LICENSE=true DEBIAN_FRONTEND=noninteractive cdxgen --required-only -t containerfile /home/remote/$imageName.tar -o $imageName.json" -IgnoreErrors -NoLog | Out-Null
-        k2s system ssh m -- "sudo HTTPS_PROXY=http://172.19.1.1:8181 trivy image --input $imageName.tar --scanners license --license-full --format cyclonedx -o $imageName.json 2>&1"
+        k2s node exec -i 172.19.1.100 -u remote -c "sudo HTTPS_PROXY=http://172.19.1.1:8181 trivy image --input $imageName.tar --scanners license --license-full --format cyclonedx -o $imageName.json 2>&1"
 
         # copy bom file to local folder
         $source = "$global:Remote_Master" + ":/home/remote/$imageName.json"
