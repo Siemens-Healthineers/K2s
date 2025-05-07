@@ -13,6 +13,8 @@ import (
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/addons/status"
 	"github.com/siemens-healthineers/k2s/test/framework"
 
+	"io/ioutil"
+
 	"github.com/siemens-healthineers/k2s/test/framework/k2s/cli"
 	"github.com/siemens-healthineers/k2s/test/framework/os"
 
@@ -21,23 +23,11 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gstruct"
-	internaljson "github.com/siemens-healthineers/k2s/internal/json"
 )
 
-type ShareConfig struct {
-	WindowsWorker    string `json:"windowsWorker"`
-	Master           string `json:"master"`
-	StorageClassName string `json:"storageClassName"`
-}
-
-func LoadConfig() ([]ShareConfig, error) {
-	path := filepath.Join(suite.RootDir(), "addons\\storage\\smb\\config\\SmbStorage.json")
-
-	config, err := internaljson.FromFile[[]ShareConfig](path)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load config: %w", err)
-	}
-	return *config, nil
+type shareConfig struct {
+	winMountPath   string `json:"winMountPath"`
+	linuxMountPath string `json:"linuxMountPath"`
 }
 
 const (
@@ -65,6 +55,7 @@ var (
 	suite *framework.K2sTestSuite
 
 	skipWindowsWorkloads = false
+	shareConfigs         []shareConfig
 )
 
 func TestSmbshare(t *testing.T) {
@@ -82,6 +73,15 @@ var _ = BeforeSuite(func(ctx context.Context) {
 	suite.Kubectl().Run(ctx, "apply", "-f", namespaceManifestPath)
 
 	GinkgoWriter.Println("Namespace <", namespace, "> and secret <", secretName, "> created on cluster")
+
+	configPath := filepath.Join(suite.RootDir(), "addons\\storage\\smb\\config\\SmbStorage.json")
+
+	data, err := ioutil.ReadFile(configPath) // assumes file is in the root of the test project
+	Expect(err).ToNot(HaveOccurred())
+
+	err = json.Unmarshal(data, &shareConfigs)
+	Expect(err).ToNot(HaveOccurred())
+
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
@@ -314,12 +314,9 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 
 func expectLinuxWorkloadToRun(ctx context.Context) {
 	suite.Cluster().ExpectStatefulSetToBeReady(linuxWorkloadName, namespace, 1, ctx)
-	config, err := LoadConfig()
-	if err != nil {
-		Fail(fmt.Sprintf("Failed to load config: %v", err))
-	}
+
 	Eventually(os.IsFileYoungerThan).
-		WithArguments(testFileCheckInterval, config[0].WindowsWorker, linuxTestfileName).
+		WithArguments(testFileCheckInterval, shareConfigs[0].winMountPath, linuxTestfileName).
 		WithTimeout(testFileCheckTimeout).
 		WithPolling(suite.TestStepPollInterval()).
 		WithContext(ctx).
@@ -330,14 +327,11 @@ func expectWindowsWorkloadToRun(ctx context.Context) {
 	if skipWindowsWorkloads {
 		Skip("Linux-only setup")
 	}
-	config, err := LoadConfig()
-	if err != nil {
-		Fail(fmt.Sprintf("Failed to load config: %v", err))
-	}
+
 	suite.Cluster().ExpectStatefulSetToBeReady(windowsWorkloadName, namespace, 1, ctx)
 
 	Eventually(os.IsFileYoungerThan).
-		WithArguments(testFileCheckInterval, config[0].WindowsWorker, windowsTestfileName).
+		WithArguments(testFileCheckInterval, shareConfigs[0].winMountPath, windowsTestfileName).
 		WithTimeout(testFileCheckTimeout).
 		WithPolling(suite.TestStepPollInterval()).
 		WithContext(ctx).

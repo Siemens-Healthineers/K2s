@@ -28,20 +28,24 @@ $patchTemplateFilePath = "$manifestBaseDir\$hostPathPatchTemplateFileName"
 $patchFilePath = "$manifestBaseDir\$hostPathPatchFileName"
 $storageClassTimeoutSeconds = 600
 $namespace = 'storage-smb'
-
-$global:configFile = "$PSScriptRoot\..\Config\SmbStorage.json"
-if (Test-Path $global:configFile) {
-    if (Test-Path $global:configFile) {
-        $global:pathValues = Get-Content $global:configFile -Raw | ConvertFrom-Json
-        if (-not $global:pathValues) {
-            throw "The configuration file '$global:configFile' is empty or invalid."
+function Get-SmbStorageConfig {
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]$ConfigFile
+    )
+    if (Test-Path $ConfigFile) {
+        $values = Get-Content $ConfigFile -Raw | ConvertFrom-Json
+        if (-not $values) {
+            throw "The configuration file '$ConfigFile' is empty or invalid."
         }
+        return $values
     } else {
-        throw "Configuration file '$global:configFile' not found."
+        throw "Configuration file '$ConfigFile' not found."
     }
-} else {
-    throw "Configuration file '$global:configFile' not found."
 }
+$configFile = "$PSScriptRoot\..\Config\SmbStorage.json"
+$shareDir = Get-SmbStorageConfig -ConfigFile $configFile
+$shareDirIterationValue = 0;
 
 
 $global:linuxLocalPath
@@ -52,6 +56,7 @@ $global:windowsSharePath
 $global:linuxHostRemotePath
 $global:windowsHostRemotePath
 $global:newClassName
+
 
 function Test-CsiPodsCondition {
     param (
@@ -821,21 +826,21 @@ function Remove-StorageClass {
 
 }
 
-function Expand-PathSMb {
-    <#
+<#
     .SYNOPSIS
         Calls Resolve-Path but works for files that don't exist.
-    #>
+#>
+function Expand-PathSMB {
     param (
         [string] $FileName
     )
 
-    $FileName = Resolve-Path $FileName -ErrorAction SilentlyContinue -ErrorVariable _frperror
-    if (-not($FileName)) {
-        $FileName = $_frperror[0].TargetObject
+    $verifiedFileName = Resolve-Path $FileName -ErrorAction SilentlyContinue -ErrorVariable _frperror
+    if (-not($verifiedFileName)) {
+        $verifiedFileName = $_frperror[0].TargetObject
     }
 
-    return $FileName
+    return $verifiedFileName
 }
 
 function Remove-SmbShareAndFolderWindowsHost {
@@ -955,16 +960,12 @@ function Test-SharedFolderMountOnWinNode {
     Write-Log 'Checking shared folder on Windows node..'
     $script:Success = $false
 
-    $global:configFile = "$PSScriptRoot\..\Config\SmbStorage.json"
-    $global:pathValues = Get-Content $global:configFile -Raw | ConvertFrom-Json
-
     if (-not $global:windowsLocalPath) {
-        $global:windowsLocalPath = Expand-PathSMb $pathValues[0].windowsWorker
+        $global:windowsLocalPath = Expand-PathSMB $shareDir[$shareDirIterationValue].winMountPath
     }
     if (-not $global:linuxLocalPath) {
-        $global:linuxLocalPath = $pathValues[0].master
+        $global:linuxLocalPath = $shareDir[$shareDirIterationValue].linuxMountPath
     }
-
 
     if (!(Test-Path -path "$global:windowsLocalPath" -PathType Container)) {
         return
@@ -1038,8 +1039,8 @@ function Enable-SmbShare {
     Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = $AddonName; Implementation = $ImplementationName; SmbHostType = $SmbHostType })
     New-SmbShareNamespace
 
-    foreach($pathValue in $global:pathValues){
-        Set-PathValue -PathValue $pathValue
+    foreach($pathValue in $shareDir){
+        Set-ShareDirValue -PathValue $pathValue
         Restore-SmbShareAndFolder -SmbHostType $SmbHostType -SkipTest -SetupInfo $setupInfo
         Restore-StorageClass -SmbHostType $SmbHostType -LinuxOnly $setupInfo.LinuxOnly 
     }
@@ -1089,8 +1090,8 @@ function Disable-SmbShare {
 
     Write-Log "Disabling '$AddonName'.."
 
-    foreach($pathValue in $global:pathValues){
-        Set-PathValue -PathValue $pathValue
+    foreach($pathValue in $shareDir){
+        Set-ShareDirValue -PathValue $pathValue
         Remove-SmbShareAndFolder -SkipNodesCleanup:$SkipNodesCleanup
     }
     if (Test-Path -Path $patchFilePath) {
@@ -1214,10 +1215,10 @@ function Get-Status {
 
     $isSmbShareWorkingProp = @{Name = 'IsSmbShareWorking'; Value = $script:SmbShareWorking; Okay = $script:SmbShareWorking }
     if ($isSmbShareWorkingProp.Value -eq $true) {
-        $isSmbShareWorkingProp.Message = 'The SMB share is working'
+        $isSmbShareWorkingProp.Message = "The SMB share '$global:linuxLocalPath' is working"
     }
     else {
-        $isSmbShareWorkingProp.Message = "The SMB share is not working. Try restarting the cluster with 'k2s start' or disable and re-enable the addon with 'k2s addons disable $AddonName $ImplementationName' and 'k2s addons enable $AddonName $ImplementationName'"
+        $isSmbShareWorkingProp.Message = "The SMB share '$global:linuxLocalPath' is not working. Try restarting the cluster with 'k2s start' or disable and re-enable the addon with 'k2s addons disable $AddonName $ImplementationName' and 'k2s addons enable $AddonName $ImplementationName'"
     }
 
     $areCsiPodsRunning = Test-CsiPodsCondition -Condition 'Ready'
@@ -1367,14 +1368,15 @@ function Remove-SmbShareNamespace {
     }
 }
 
-function Set-PathValue {
+function Set-ShareDirValue {
     param (
         [Parameter(Mandatory = $true)]
         [pscustomobject]$PathValue
     )
-    $global:linuxLocalPath = $PathValue.master
-    $global:windowsLocalPath = Expand-PathSMb $PathValue.windowsWorker
-    $global:linuxShareName = "k8sshare$(($global:pathValues.master).IndexOf($global:linuxLocalPath) + 1)" # exposed by Linux VM
+    $global:linuxLocalPath = $PathValue.linuxMountPath
+    $global:windowsLocalPath = Expand-PathSMB $PathValue.winMountPath
+    $shareDirIterationValue=($shareDir.linuxMountPath).IndexOf($global:linuxLocalPath)
+    $global:linuxShareName = "k8sshare$($shareDirIterationValue + 1)" # exposed by Linux VM
     $global:windowsShareName = (Split-Path -Path $global:windowsLocalPath -NoQualifier).TrimStart('\') # visible from VMs
     $global:windowsSharePath = Split-Path -Path $global:windowsLocalPath -Qualifier
     $global:linuxHostRemotePath = "\\$(Get-ConfiguredIPControlPlane)\$global:linuxShareName"
@@ -1383,7 +1385,8 @@ function Set-PathValue {
 }
 
 
-Export-ModuleMember -Function Enable-SmbShare, Disable-SmbShare, Restore-SmbShareAndFolder, Get-SmbHostType, Expand-PathSMb, Set-PathValue,
+
+Export-ModuleMember -Function Enable-SmbShare, Disable-SmbShare, Restore-SmbShareAndFolder, Get-SmbHostType, Expand-PathSMB, Set-ShareDirValue, Get-SmbStorageConfig,
 Connect-WinVMClientToSmbHost, Test-SharedFolderMountOnWinNodeSilently, Get-Status, Backup-AddonData,
 Restore-AddonData, Remove-SmbGlobalMappingIfExisting, Remove-LocalWinMountIfExisting -Variable AddonName
 

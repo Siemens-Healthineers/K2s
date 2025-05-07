@@ -360,8 +360,8 @@ Describe 'New-SmbHostOnWindowsIfNotExisting' -Tag 'unit', 'ci', 'addon', 'storag
 
         It 'does nothing' {
             InModuleScope $moduleName {
-                foreach($pathValue in $global:pathValues){
-                    Set-PathValue -PathValue $pathValue
+                foreach($pathValue in $shareDir){
+                    Set-ShareDirValue -PathValue $pathValue
                 New-SmbHostOnWindowsIfNotExisting
                 break
                 }
@@ -380,8 +380,8 @@ Describe 'New-SmbHostOnWindowsIfNotExisting' -Tag 'unit', 'ci', 'addon', 'storag
             Mock -ModuleName $moduleName Add-FirewallExceptions { }
 
             InModuleScope $moduleName {
-                foreach($pathValue in $global:pathValues){
-                    Set-PathValue -PathValue $pathValue
+                foreach($pathValue in $shareDir){
+                    Set-ShareDirValue -PathValue $pathValue
                     New-SmbHostOnWindowsIfNotExisting
                     break
                 }
@@ -423,8 +423,8 @@ Describe 'Remove-SmbHostOnWindowsIfExisting' -Tag 'unit', 'ci', 'addon', 'storag
 
         It 'does nothing' {
             InModuleScope $moduleName {
-                foreach($pathValue in $global:pathValues){
-                    Set-PathValue -PathValue $pathValue
+                foreach($pathValue in $shareDir){
+                    Set-ShareDirValue -PathValue $pathValue
                     Remove-SmbHostOnWindowsIfExisting
                     break
                 }
@@ -443,8 +443,8 @@ Describe 'Remove-SmbHostOnWindowsIfExisting' -Tag 'unit', 'ci', 'addon', 'storag
             Mock -ModuleName $moduleName Remove-FirewallExceptions { }
 
             InModuleScope $moduleName {
-                foreach($pathValue in $global:pathValues){
-                    Set-PathValue -PathValue $pathValue
+                foreach($pathValue in $shareDir){
+                    Set-ShareDirValue -PathValue $pathValue
                     Remove-SmbHostOnWindowsIfExisting
                     break
                 }
@@ -699,8 +699,8 @@ Describe 'Restore-StorageClass' -Tag 'unit', 'ci', 'addon', 'storage smb' {
     Context 'Windows host type' {
         BeforeAll {
             InModuleScope -ModuleName $moduleName {
-                    foreach($pathValue in $global:pathValues){
-                        Set-PathValue -PathValue $pathValue
+                    foreach($pathValue in $shareDir){
+                        Set-ShareDirValue -PathValue $pathValue
                         Restore-StorageClass -SmbHostType 'Windows'
                         break
                     }
@@ -717,8 +717,8 @@ Describe 'Restore-StorageClass' -Tag 'unit', 'ci', 'addon', 'storage smb' {
     Context 'Linux host type' {
         BeforeAll {
             InModuleScope -ModuleName $moduleName {
-                foreach($pathValue in $global:pathValues){
-                    Set-PathValue -PathValue $pathValue
+                foreach($pathValue in $shareDir){
+                    Set-ShareDirValue -PathValue $pathValue
                     Restore-StorageClass -SmbHostType 'linux'
                     break
                 }

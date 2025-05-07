@@ -25,22 +25,11 @@ Write-Log 'Re-establishing SMB share after cluster start..' -Console
 $smbHostType = Get-SmbHostType
 $setupInfo = Get-SetupInfo
 
-$global:configFile = "$PSScriptRoot\..\storage\smb\Config\SmbStorage.json"
-if (Test-Path $global:configFile) {
-    if (Test-Path $global:configFile) {
-        $global:pathValues = Get-Content $global:configFile -Raw | ConvertFrom-Json
-        if (-not $global:pathValues) {
-            throw "The configuration file '$global:configFile' is empty or invalid."
-        }
-    } else {
-        throw "Configuration file '$global:configFile' not found."
-    }
-} else {
-    throw "Configuration file '$global:configFile' not found."
-}
+$configFile = "$PSScriptRoot\..\storage\smb\Config\SmbStorage.json"
+$shareDir = Get-SmbStorageConfig -ConfigFile $configFile
 
-foreach($pathValue in $global:pathValues){
-     Set-PathValue -PathValue $pathValue
+foreach($pathValue in $shareDir){
+     Set-ShareDirValue -PathValue $pathValue
      Restore-SmbShareAndFolder -SmbHostType $smbHostType -SetupInfo $setupInfo 
     }
 
