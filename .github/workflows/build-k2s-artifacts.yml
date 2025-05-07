@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
 
 env:
-  GOVERSION: "1.24.1"
+  GOVERSION: "1.24.2"
 
 
 jobs:
