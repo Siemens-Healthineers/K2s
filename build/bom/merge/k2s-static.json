@@ -329,7 +329,7 @@
     {
       "group": "https://github.com/flannel-io/flannel/releases/download/0.26.1/flanneld.exe",
       "name": "flanneld",
-      "version": "v0.26.1",
+      "version": "v0.26.7",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -346,7 +346,7 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/flannel-io/flannel@v0.26.1",
+      "purl": "pkg:github/flannel-io/flannel@v0.26.7",
       "type": "application"
     },
     {
