@@ -127,12 +127,31 @@ try {
                 $dirPath = Join-Path -Path $($manifest.dir.path) -ChildPath $($implementation.name)
             }
 
-            Write-Log "Pulling images for addon $addonName" -Console
+            Write-Log "Pulling images for addon $addonName from $dirPath" -Console
+
             Write-Log '---'
             $images = @()
             $linuxImages = @()
             $windowsImages = @()
             $files = Get-Childitem -recurse $dirPath | Where-Object { $_.Name -match '.*.yaml$' } | ForEach-Object { $_.Fullname }
+
+            # check if there is a subfolder called chart for helm charts
+            if (Test-Path -Path "$dirPath\manifests\chart") {
+                $charts = Get-Childitem -recurse "$dirPath\manifests\chart" | Where-Object { $_.Name -match '.*.tgz$' } | ForEach-Object { $_.Fullname }
+                if ($null -eq $charts -or $charts.Count -eq 0) {
+                    Write-Log "No images found for addon $addonName in form of an chart"
+                } else {
+                    foreach ($chart in $charts) {
+                        # extracting yaml files from the helm chart
+                        $chartFolder = "${tmpExportDir}\helm\$dirName"
+                        mkdir -Force $chartFolder | Out-Null
+                        # extracting yaml files from the helm chart
+                        $valuesFile = "$dirPath\manifests\chart\values.yaml"
+                        (Invoke-Helm -Params 'template', 'kubernetes-dashboard', $chart, '-f', $valuesFile, '--output-dir', $chartFolder).Output | Write-Log 
+                        $files += Get-Childitem -recurse $chartFolder | Where-Object { $_.Name -match '.*.yaml$' } | ForEach-Object { $_.Fullname }
+                    }
+                }
+            }
 
             foreach ($file in $files) {
                 if ($null -ne (Select-String -Path $file -Pattern '## exclude-from-export')) {
