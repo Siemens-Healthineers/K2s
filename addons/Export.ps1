@@ -141,13 +141,21 @@ try {
                 if ($null -eq $charts -or $charts.Count -eq 0) {
                     Write-Log "No images found for addon $addonName in form of an chart"
                 } else {
+                    Write-Log "Found images for addon $addonName in form of an chart, count: $($charts.Count)"
+                    # ensure only one entry in the list
+                    $charts = $charts | Select-Object -Unique
                     foreach ($chart in $charts) {
                         # extracting yaml files from the helm chart
                         $chartFolder = "${tmpExportDir}\helm\$dirName"
                         mkdir -Force $chartFolder | Out-Null
                         # extracting yaml files from the helm chart
                         $valuesFile = "$dirPath\manifests\chart\values.yaml"
-                        (Invoke-Helm -Params 'template', 'kubernetes-dashboard', $chart, '-f', $valuesFile, '--output-dir', $chartFolder).Output | Write-Log 
+                        # check if value file exists
+                        if ((Test-Path -Path $valuesFile)) {
+                            (Invoke-Helm -Params 'template', 'kubernetes-dashboard', $chart, '-f', $valuesFile, '--output-dir', $chartFolder).Output | Write-Log 
+                        } else {
+                            (Invoke-Helm -Params 'template', 'kubernetes-dashboard', $chart, '--output-dir', $chartFolder).Output | Write-Log 
+                        }
                         $files += Get-Childitem -recurse $chartFolder | Where-Object { $_.Name -match '.*.yaml$' } | ForEach-Object { $_.Fullname }
                     }
                 }
