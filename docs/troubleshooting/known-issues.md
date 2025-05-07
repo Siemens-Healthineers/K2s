@@ -34,7 +34,7 @@ You need a least 10 GB free on both disks.
 
 If the problem is on your *Linux* VM, you need following commands to find and fix the problem (get an overview of the disk space consumption):
 
-- `sshm` to open a shell on the *Linux* machine
+- `k2s node connect -i 172.19.1.100 -u remote` to open a shell on the *Linux* machine
 - `df` and look at /dev/sda1 percentage
 
 Then go to the very top directory with `cd ../..` and with `sudo du -d1 -x -h` you can look in each directory and subdirectory to localize the high space consumption.

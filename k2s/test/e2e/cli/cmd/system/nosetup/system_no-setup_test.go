@@ -37,15 +37,12 @@ var _ = AfterSuite(func(ctx context.Context) {
 })
 
 var _ = Describe("system", func() {
-	DescribeTable("print system-not-installed message and exits with non-zero", Label("cli", "ci", "system", "scp", "ssh", "m", "users", "acceptance", "no-setup"),
+	DescribeTable("print system-not-installed message and exits with non-zero", Label("cli", "ci", "system", "users", "acceptance", "no-setup"),
 		func(ctx context.Context, args ...string) {
 			output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, args...)
 
 			Expect(output).To(ContainSubstring("not installed"))
 		},
-		Entry("scp m", "system", "scp", "m", "a1", "a2"),
-		Entry("ssh m connect", "system", "ssh", "m"),
-		Entry("ssh m cmd", "system", "ssh", "m", "--", "echo yes"),
 		Entry("upgrade", "system", "upgrade"),
 		Entry("users add", "system", "users", "add", "-u", "non-existent"),
 	)

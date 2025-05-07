@@ -52,13 +52,13 @@ docker buildx create --name img-builder --use --platform windows/amd64 --driver-
 # In case of using go mod download in Dockerfile, set http_proxy in Dockerfile
 # ENV https_proxy (see point 3)
 
-k2s system scp m "fluent-bit" "/home/remote/"
+k2s node copy -i 172.19.1.100 -u remote -s "fluent-bit" -t "/home/remote/"
 
 # Build Dockerfile and export image to tar ball
 docker buildx build -t shsk2s.azurecr.io/fluent/fluent-bit:3.0.4 --platform=windows/amd64 -o type=docker,dest=- . > out.tar
 
 # use k2s to export to windows host
-k2s system scp m fluent-bit/out.tar out.tar -r
+k2s node copy -i 172.19.1.100 -u remote -s fluent-bit/out.tar -t out.tar -r
 
 # Import windows image to K2s
 k2s image import -t out.tar -w
