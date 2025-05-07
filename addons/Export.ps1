@@ -150,11 +150,15 @@ try {
                         mkdir -Force $chartFolder | Out-Null
                         # extracting yaml files from the helm chart
                         $valuesFile = "$dirPath\manifests\chart\values.yaml"
+                        # extract release from chart file name by removing the .tgz extension and the version
+                        # from kubernetes-dashboard-7.12.0.tgz -> kubernetes-dashboard
+                        $chartNameParts = [System.IO.Path]::GetFileNameWithoutExtension($chart).Split('-')
+                        $release = $chartNameParts[0..($chartNameParts.Length - 2)] -join '-'
                         # check if value file exists
                         if ((Test-Path -Path $valuesFile)) {
-                            (Invoke-Helm -Params 'template', 'kubernetes-dashboard', $chart, '-f', $valuesFile, '--output-dir', $chartFolder).Output | Write-Log 
+                            (Invoke-Helm -Params 'template', $release, $chart, '-f', $valuesFile, '--output-dir', $chartFolder).Output | Write-Log 
                         } else {
-                            (Invoke-Helm -Params 'template', 'kubernetes-dashboard', $chart, '--output-dir', $chartFolder).Output | Write-Log 
+                            (Invoke-Helm -Params 'template', $release, $chart, '--output-dir', $chartFolder).Output | Write-Log 
                         }
                         $files += Get-Childitem -recurse $chartFolder | Where-Object { $_.Name -match '.*.yaml$' } | ForEach-Object { $_.Fullname }
                     }
