@@ -134,8 +134,10 @@ func (info *AddonsAdditionalInfo) GetImagesForAddonImplementation(implementation
 			chartNameParts := strings.Split(chartName, "-")
 			chartNameParts = chartNameParts[:len(chartNameParts)-1]
 			release := strings.Join(chartNameParts, "-")
+			// get the path relative to the directory where this file is located
+			executable := implementation.Directory + "\\..\\..\\bin\\" + "helm.exe"
 			// call helm to template chart
-			cmd := []string{"helm.exe", "template", release}
+			cmd := []string{executable, "template", release}
 			cmd = append(cmd, chartFile)
 			cmd = append(cmd, "-f", filepath.Join(chartDir, "values.yaml"))
 			cmd = append(cmd, "--output-dir", tmpChartDir)
