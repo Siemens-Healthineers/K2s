@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -87,11 +88,76 @@ func (info *AddonsAdditionalInfo) AllAddons() addons.Addons {
 }
 
 func (info *AddonsAdditionalInfo) GetImagesForAddonImplementation(implementation addons.Implementation) ([]string, error) {
+	GinkgoWriter.Println("Collecting images for addon implementation", implementation.Name)
+	// collect all yaml files
 	yamlFiles, err := sos.GetFilesMatch(implementation.Directory, "*.yaml")
 	if err != nil {
+		log.Fatal(err)
 		return nil, err
 	}
+	GinkgoWriter.Println("Collected", len(yamlFiles), "yaml files from directory", implementation.Directory)
 
+	// Helm charts part
+	tmpChartDir := ""
+	// check if directory implementation.Directory/manifests/chart exists
+	chartDir := filepath.Join(implementation.Directory, "manifests", "chart")
+	if _, err := os.Stat(chartDir); os.IsNotExist(err) {
+		GinkgoWriter.Println("Directory %s does not exist, will continue without a helm chart", chartDir)
+	} else if err == nil {
+		// convert chart to yaml
+		GinkgoWriter.Println("Converting chart to yaml")
+		chartFiles, err := sos.GetFilesMatch(chartDir, "*.tgz")
+		if err != nil {
+			// go through all chart files
+			log.Fatal(err)
+			return nil, err
+		}
+		// ensure we have only one chart file
+		if len(chartFiles) != 1 {
+			log.Fatal("Expected only one chart file in the folder", chartDir)
+			return nil, fmt.Errorf("Expected only one chart file in the folder %s", chartDir)
+		}
+		// get a temp directory
+		tmpChartDir, err = os.MkdirTemp("", implementation.Name)
+		GinkgoWriter.Println("Created temp directory", tmpChartDir)
+		if err != nil {
+			log.Fatal(err)
+			return nil, err
+		}
+		// convert chart to yaml
+		for _, chartFile := range chartFiles {
+			// print chart name
+			chartName := filepath.Base(chartFile)
+			GinkgoWriter.Println("Converting chart", chartName)
+			// get the release name from the chart file name
+			// kubernetes-dashboard-7.12.0.tgz -> kubernetes-dashboard
+			chartNameParts := strings.Split(chartName, "-")
+			chartNameParts = chartNameParts[:len(chartNameParts)-1]
+			release := strings.Join(chartNameParts, "-")
+			// call helm to template chart
+			cmd := []string{"helm.exe", "template", release}
+			cmd = append(cmd, chartFile)
+			cmd = append(cmd, "-f", filepath.Join(chartDir, "values.yaml"))
+			cmd = append(cmd, "--output-dir", tmpChartDir)
+			// run cmd in order to create yaml files from the helm chart
+			GinkgoWriter.Println("Running command", cmd)
+			out, err := exec.Command(cmd[0], cmd[1:]...).CombinedOutput()
+			if err != nil {
+				GinkgoWriter.Println("Command failed with error", err)
+				GinkgoWriter.Println("Command output", string(out))
+				return nil, err
+			}
+			// collect all yaml files
+			yFiles, err := sos.GetFilesMatch(tmpChartDir, "*.yaml")
+			if err != nil {
+				return nil, err
+			}
+			// add yaml files to files
+			yamlFiles = append(yamlFiles, yFiles...)
+		}
+	}
+
+	// exclude files with ## exclude-from-export and manifest
 	yamlFiles = lo.Filter(yamlFiles, func(path string, index int) bool {
 		if filepath.Base(path) == manifestFileName {
 			return false
@@ -107,6 +173,7 @@ func (info *AddonsAdditionalInfo) GetImagesForAddonImplementation(implementation
 		return !strings.Contains(yamlContent, "## exclude-from-export")
 	})
 
+	// get images from yaml
 	images := lo.FlatMap(yamlFiles, func(path string, index int) []string {
 		content, err := os.ReadFile(path)
 		if err != nil {
@@ -131,10 +198,21 @@ func (info *AddonsAdditionalInfo) GetImagesForAddonImplementation(implementation
 		return trimedFindings
 	})
 
+	// add additional images
 	if len(implementation.OfflineUsage.LinuxResources.AdditionalImages) > 0 {
 		images = append(images, implementation.OfflineUsage.LinuxResources.AdditionalImages...)
 	}
 
+	// delete folder if it was created
+	if tmpChartDir != "" {
+		GinkgoWriter.Println("Deleting temp directory", tmpChartDir)
+		err := os.RemoveAll(tmpChartDir)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+
+	// return unique images
 	return lo.Union(images), nil
 }
 
@@ -233,4 +311,3 @@ func VerifyDeploymentReachableFromHostWithStatusCode(ctx context.Context, expect
 	// Fail the test if all retries are exhausted
 	Fail(fmt.Sprintf("Failed to receive expected status code %d after %d attempts", expectedStatusCode, maxRetries))
 }
-
