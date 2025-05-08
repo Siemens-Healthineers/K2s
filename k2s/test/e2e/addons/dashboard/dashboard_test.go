@@ -88,11 +88,11 @@ var _ = Describe("'dashboard' addon", Ordered, func() {
 				portForwardingSession.Kill()
 				suite.K2sCli().RunOrFail(ctx, "addons", "disable", "dashboard", "-o")
 
-				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/component", "kubernetes-dashboard-api", "dashboard")
-				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/component", "kubernetes-dashboard-auth", "dashboard")
-				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/component", "kubernetes-dashboard-kong", "dashboard")
-				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/component", "kubernetes-dashboard-metrics-scraper", "dashboard")
-				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/component", "kubernetes-dashboard-web", "dashboard")
+				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "kubernetes-dashboard-api", "dashboard")
+				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "kubernetes-dashboard-auth", "dashboard")
+				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "kubernetes-dashboard-kong", "dashboard")
+				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "kubernetes-dashboard-metrics-scraper", "dashboard")
+				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "kubernetes-dashboard-web", "dashboard")
 				addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
 				Expect(addonsStatus.IsAddonEnabled("dashboard", "")).To(BeFalse())
 			})
@@ -107,11 +107,11 @@ var _ = Describe("'dashboard' addon", Ordered, func() {
 				suite.Cluster().ExpectDeploymentToBeAvailable("kubernetes-dashboard-web", "dashboard")
 
 
-				suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/component", "kubernetes-dashboard-api", "dashboard")
-				suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/component", "kubernetes-dashboard-auth", "dashboard")
-				suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/component", "kubernetes-dashboard-kong", "dashboard")
-				suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/component", "kubernetes-dashboard-metrics-scraper", "dashboard")
-				suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/component", "kubernetes-dashboard-web", "dashboard")
+				suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "kubernetes-dashboard-api", "dashboard")
+				suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "kubernetes-dashboard-auth", "dashboard")
+				suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "kubernetes-dashboard-kong", "dashboard")
+				suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "kubernetes-dashboard-metrics-scraper", "dashboard")
+				suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "kubernetes-dashboard-web", "dashboard")
 
 				addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
 				Expect(addonsStatus.IsAddonEnabled("dashboard", "")).To(BeTrue())
@@ -119,10 +119,10 @@ var _ = Describe("'dashboard' addon", Ordered, func() {
 
 			It("is reachable through port forwarding", func(ctx context.Context) {
 				kubectl := path.Join(suite.RootDir(), "bin", "kube", "kubectl.exe")
-				portForwarding := exec.Command(kubectl, "-n", "dashboard", "port-forward", "svc/kubernetes-dashboard", "8443:443")
+				portForwarding := exec.Command(kubectl, "-n", "dashboard", "port-forward", "svc/kubernetes-dashboard-web", "8000:8000")
 				portForwardingSession, _ = gexec.Start(portForwarding, GinkgoWriter, GinkgoWriter)
 
-				url := "https://localhost:8443/#/pod?namespace=_all"
+				url := "http://localhost:8000/#/pod?namespace=_all"
 				httpStatus := suite.Cli().ExecOrFail(ctx, "curl.exe", url, "-k", "-I", "-m", "5", "--retry", "10", "--fail")
 				Expect(httpStatus).To(ContainSubstring("200"))
 			})
@@ -146,11 +146,11 @@ var _ = Describe("'dashboard' addon", Ordered, func() {
 				suite.K2sCli().RunOrFail(ctx, "addons", "disable", "dashboard", "-o")
 				suite.K2sCli().RunOrFail(ctx, "addons", "disable", "ingress", "traefik", "-o")
 
-				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/component", "kubernetes-dashboard-api", "dashboard")
-				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/component", "kubernetes-dashboard-auth", "dashboard")
-				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/component", "kubernetes-dashboard-kong", "dashboard")
-				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/component", "kubernetes-dashboard-metrics-scraper", "dashboard")
-				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/component", "kubernetes-dashboard-web", "dashboard")
+				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "kubernetes-dashboard-api", "dashboard")
+				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "kubernetes-dashboard-auth", "dashboard")
+				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "kubernetes-dashboard-kong", "dashboard")
+				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "kubernetes-dashboard-metrics-scraper", "dashboard")
+				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "kubernetes-dashboard-web", "dashboard")
 
 				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "traefik", "ingress-traefik")
 
@@ -167,11 +167,11 @@ var _ = Describe("'dashboard' addon", Ordered, func() {
 				suite.Cluster().ExpectDeploymentToBeAvailable("kubernetes-dashboard-metrics-scraper", "dashboard")
 				suite.Cluster().ExpectDeploymentToBeAvailable("kubernetes-dashboard-web", "dashboard")
 
-				suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/component", "kubernetes-dashboard-api", "dashboard")
-				suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/component", "kubernetes-dashboard-auth", "dashboard")
-				suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/component", "kubernetes-dashboard-kong", "dashboard")
-				suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/component", "kubernetes-dashboard-metrics-scraper", "dashboard")
-				suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/component", "kubernetes-dashboard-web", "dashboard")
+				suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "kubernetes-dashboard-api", "dashboard")
+				suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "kubernetes-dashboard-auth", "dashboard")
+				suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "kubernetes-dashboard-kong", "dashboard")
+				suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "kubernetes-dashboard-metrics-scraper", "dashboard")
+				suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "kubernetes-dashboard-web", "dashboard")
 
 				addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
 				Expect(addonsStatus.IsAddonEnabled("dashboard", "")).To(BeTrue())
@@ -202,11 +202,11 @@ var _ = Describe("'dashboard' addon", Ordered, func() {
 				suite.K2sCli().RunOrFail(ctx, "addons", "disable", "dashboard", "-o")
 				suite.K2sCli().RunOrFail(ctx, "addons", "disable", "ingress", "nginx", "-o")
 
-				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/component", "kubernetes-dashboard-api", "dashboard")
-				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/component", "kubernetes-dashboard-auth", "dashboard")
-				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/component", "kubernetes-dashboard-kong", "dashboard")
-				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/component", "kubernetes-dashboard-metrics-scraper", "dashboard")
-				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/component", "kubernetes-dashboard-web", "dashboard")
+				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "kubernetes-dashboard-api", "dashboard")
+				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "kubernetes-dashboard-auth", "dashboard")
+				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app", "kubernetes-dashboard-kong", "dashboard")
+				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "kubernetes-dashboard-metrics-scraper", "dashboard")
+				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "kubernetes-dashboard-web", "dashboard")
 
 				suite.Cluster().ExpectDeploymentToBeRemoved(ctx, "app.kubernetes.io/name", "ingress-nginx", "ingress-nginx")
 
@@ -223,8 +223,11 @@ var _ = Describe("'dashboard' addon", Ordered, func() {
 				suite.Cluster().ExpectDeploymentToBeAvailable("kubernetes-dashboard-metrics-scraper", "dashboard")
 				suite.Cluster().ExpectDeploymentToBeAvailable("kubernetes-dashboard-web", "dashboard")
 
-				suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "k8s-app", "kubernetes-dashboard", "dashboard")
-				suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "k8s-app", "dashboard-metrics-scraper", "dashboard")
+				suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "kubernetes-dashboard-api", "dashboard")
+				suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "kubernetes-dashboard-auth", "dashboard")
+				suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "kubernetes-dashboard-kong", "dashboard")
+				suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "kubernetes-dashboard-metrics-scraper", "dashboard")
+				suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "kubernetes-dashboard-web", "dashboard")
 
 				addonsStatus := suite.K2sCli().GetAddonsStatus(ctx)
 				Expect(addonsStatus.IsAddonEnabled("dashboard", "")).To(BeTrue())

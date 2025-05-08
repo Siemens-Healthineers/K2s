@@ -60,11 +60,11 @@ var _ = Describe("'dashboard and security enhanced' addons", Ordered, func() {
 			suite.Cluster().ExpectDeploymentToBeAvailable("kubernetes-dashboard-metrics-scraper", "dashboard")
 			suite.Cluster().ExpectDeploymentToBeAvailable("kubernetes-dashboard-web", "dashboard")
 	
-			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/component", "kubernetes-dashboard-api", "dashboard")
-			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/component", "kubernetes-dashboard-auth", "dashboard")
-			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/component", "kubernetes-dashboard-kong", "dashboard")
-			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/component", "kubernetes-dashboard-metrics-scraper", "dashboard")
-			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/component", "kubernetes-dashboard-web", "dashboard")
+			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "kubernetes-dashboard-api", "dashboard")
+			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "kubernetes-dashboard-auth", "dashboard")
+			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "kubernetes-dashboard-kong", "dashboard")
+			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "kubernetes-dashboard-metrics-scraper", "dashboard")
+			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "kubernetes-dashboard-web", "dashboard")
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "linkerd.io/control-plane-ns", "linkerd", "dashboard")
 		})
 
@@ -94,11 +94,11 @@ var _ = Describe("'dashboard and security enhanced' addons", Ordered, func() {
 			suite.Cluster().ExpectDeploymentToBeAvailable("kubernetes-dashboard-metrics-scraper", "dashboard")
 			suite.Cluster().ExpectDeploymentToBeAvailable("kubernetes-dashboard-web", "dashboard")
 
-			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/component", "kubernetes-dashboard-api", "dashboard")
-			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/component", "kubernetes-dashboard-auth", "dashboard")
-			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/component", "kubernetes-dashboard-kong", "dashboard")
-			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/component", "kubernetes-dashboard-metrics-scraper", "dashboard")
-			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/component", "kubernetes-dashboard-web", "dashboard")
+			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "kubernetes-dashboard-api", "dashboard")
+			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "kubernetes-dashboard-auth", "dashboard")
+			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "kubernetes-dashboard-kong", "dashboard")
+			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "kubernetes-dashboard-metrics-scraper", "dashboard")
+			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app.kubernetes.io/name", "kubernetes-dashboard-web", "dashboard")
 	})
 
 		It("activates the security addon in enhanced mode", func(ctx context.Context) {
