@@ -17,16 +17,18 @@ import (
 
 	hydra "github.com/ory/hydra-client-go"
 	"github.com/pkg/errors"
+	"github.com/siemens-healthineers/k2s/internal/cli"
 	ve "github.com/siemens-healthineers/k2s/internal/version"
 	"golang.org/x/sys/windows"
 )
 
-var logonUserW = windows.NewLazySystemDLL("advapi32.dll").NewProc("LogonUserW")
+const cliName = "login.exe"
 
 var (
 	hydraAdminURL string
 	port          string
 	templates     *template.Template
+	logonUserW    = windows.NewLazySystemDLL("advapi32.dll").NewProc("LogonUserW")
 )
 
 func init() {
@@ -52,30 +54,13 @@ func init() {
 	}
 }
 
-const cliName = "login.exe"
-
-func printCLIVersion() {
-	version := ve.GetVersion()
-	fmt.Printf("%s: %s\n", cliName, version)
-
-	fmt.Printf("  BuildDate: %s\n", version.BuildDate)
-	fmt.Printf("  GitCommit: %s\n", version.GitCommit)
-	fmt.Printf("  GitTreeState: %s\n", version.GitTreeState)
-	if version.GitTag != "" {
-		fmt.Printf("  GitTag: %s\n", version.GitTag)
-	}
-	fmt.Printf("  GoVersion: %s\n", version.GoVersion)
-	fmt.Printf("  Compiler: %s\n", version.Compiler)
-	fmt.Printf("  Platform: %s\n", version.Platform)
-}
-
 func main() {
-	// parse the flags
-	version := flag.Bool("version", false, "show the current version of the CLI")
+	versionFlag := cli.NewVersionFlag(cliName)
 	flag.Parse()
-	if *version {
-		printCLIVersion()
-		os.Exit(0)
+
+	if *versionFlag {
+		ve.GetVersion().Print(cliName)
+		return
 	}
 
 	http.HandleFunc("/login", loginHandler)
