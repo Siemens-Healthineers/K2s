@@ -51,7 +51,7 @@ if ($EnancedSecurityEnabled) {
 	}
 } else {
 	Write-Log "Updating monitoring addon to not be part of service mesh"
-	$annotations1 = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"config.linkerd.io/skip-inbound-ports\":null,\"linkerd.io/inject\":null}}}}}'
+	$annotations1 = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"config.linkerd.io/skip-inbound-ports\":null,\"config.linkerd.io/skip-outbound-ports\":null,\"linkerd.io/inject\":null}}}}}'
 	(Invoke-Kubectl -Params 'patch', 'deployment', 'kube-prometheus-stack-operator', '-n', 'monitoring', '-p', $annotations1).Output | Write-Log
 	(Invoke-Kubectl -Params 'patch', 'deployment', 'kube-prometheus-stack-plutono', '-n', 'monitoring', '-p', $annotations1).Output | Write-Log
 	(Invoke-Kubectl -Params 'patch', 'deployment', 'kube-prometheus-stack-kube-state-metrics', '-n', 'monitoring', '-p', $annotations1).Output | Write-Log
