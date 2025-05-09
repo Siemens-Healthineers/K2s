@@ -62,7 +62,7 @@ var (
 	skipWindowsWorkloads = false
 	shareConfigs         []shareConfig
 	orignalShareConfigs  []shareConfig
-	configPath           string = filepath.Join(suite.RootDir(), "addons", "storage", "smb", "config", "SmbStorage.json")
+	configPath           string
 )
 
 func TestSmbshare(t *testing.T) {
@@ -80,6 +80,7 @@ var _ = BeforeSuite(func(ctx context.Context) {
 	suite.Kubectl().Run(ctx, "apply", "-f", namespaceManifestPath)
 
 	GinkgoWriter.Println("Namespace <", namespace, "> and secret <", secretName, "> created on cluster")
+	configPath = filepath.Join(suite.RootDir(), "addons", "storage", "smb", "config", "SmbStorage.json")
 
 	data, err := ioutil.ReadFile(configPath) // assumes file is in the root of the test project
 	Expect(err).ToNot(HaveOccurred())
@@ -135,6 +136,7 @@ var _ = AfterSuite(func(ctx context.Context) {
 
 	revertData, err := json.MarshalIndent(orignalShareConfigs, "", "  ")
 	Expect(err).ToNot(HaveOccurred(), "Failed to marshal original config for restore")
+	configPath = filepath.Join(suite.RootDir(), "addons", "storage", "smb", "config", "SmbStorage.json")
 
 	err = ioutil.WriteFile(configPath, revertData, 0644)
 	Expect(err).ToNot(HaveOccurred(), "Failed to revert config")
