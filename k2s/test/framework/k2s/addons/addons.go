@@ -234,7 +234,6 @@ func Foreach(addons addons.Addons, iteratee func(addonName, implementationName, 
 }
 
 func GetKeycloakToken() (string, error) {
-
 	keycloakServer := "https://k2s.cluster.local"
 	realm := "demo-app"
 	clientId := "demo-client"
@@ -249,25 +248,41 @@ func GetKeycloakToken() (string, error) {
 	data.Set("password", password)
 	data.Set("grant_type", "password")
 
-	resp, err := http.PostForm(tokenUrl, data)
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
+	maxRetries := 5
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		resp, err := http.PostForm(tokenUrl, data)
+		if err != nil {
+			if attempt == maxRetries {
+				return "", err
+			}
+			GinkgoWriter.Printf("Attempt %d/%d: Failed to get token: %v\n", attempt, maxRetries, err)
+			time.Sleep(10 * time.Second)
+			continue
+		}
+		defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("failed to get token: %s", resp.Status)
+		if resp.StatusCode != http.StatusOK {
+			if attempt == maxRetries {
+				return "", fmt.Errorf("failed to get token after %d attempts: %s", maxRetries, resp.Status)
+			}
+			GinkgoWriter.Printf("Attempt %d/%d: Unexpected status code: %s\n", attempt, maxRetries, resp.Status)
+			time.Sleep(10 * time.Second)
+			continue
+		}
+
+		var result map[string]interface{}
+		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+			return "", err
+		}
+		accessToken, ok := result["access_token"].(string)
+		if !ok {
+			return "", fmt.Errorf("failed to parse access token")
+		}
+		GinkgoWriter.Printf("Successfully got token on attempt %d/%d\n", attempt, maxRetries)
+		return accessToken, nil
 	}
 
-	var result map[string]interface{}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return "", err
-	}
-	accessToken, ok := result["access_token"].(string)
-	if !ok {
-		return "", fmt.Errorf("failed to parse access token")
-	}
-	return accessToken, nil
+	return "", fmt.Errorf("failed to get token after %d attempts", maxRetries)
 }
 
 func VerifyDeploymentReachableFromHostWithStatusCode(ctx context.Context, expectedStatusCode int, url string, headers ...map[string]string) {
