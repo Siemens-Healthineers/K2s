@@ -6,23 +6,23 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: smb-share-test-linux1
+  name: smb-share-test-linux2
   namespace: smb-share-test
   labels:
-    app: smb-share-test-linux1
+    app: smb-share-test-linux2
 spec:
-  serviceName: smb-share-test-linux1
+  serviceName: smb-share-test-linux2
   replicas: 1
   template:
     metadata:
       labels:
-        app: smb-share-test-linux1
+        app: smb-share-test-linux2
     spec:
       nodeSelector:
         "kubernetes.io/os": linux
       terminationGracePeriodSeconds: 10
       containers:
-        - name: smb-share-test-linux
+        - name: smb-share-test-linux2
           image: curlimages/curl:8.5.0
           command:
             - "/bin/sh"
@@ -35,12 +35,12 @@ spec:
     type: RollingUpdate
   selector:
     matchLabels:
-      app: smb-share-test-linux1
+      app: smb-share-test-linux2
   volumeClaimTemplates:
     - metadata:
         name: persistent-storage
         labels:
-          app: smb-share-test-linux1
+          app: smb-share-test-linux2
       spec:
         storageClassName: smb1
         accessModes: ["ReadWriteOnce"]

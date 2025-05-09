@@ -599,7 +599,7 @@ Describe 'New-StorageClassManifest' -Tag 'unit', 'ci', 'addon', 'storage smb' {
     }
 }
 
-Describe 'Wait-ForStorageClassToBeReady' -Tag 'unit', 'ci', 'addon', 'storage smb' {
+Describe 'Wait-ForPodToBeReady' -Tag 'unit', 'ci', 'addon', 'storage smb' {
     Context 'success' {
         BeforeAll {
             Mock -ModuleName $moduleName Write-Log {}
@@ -608,7 +608,7 @@ Describe 'Wait-ForStorageClassToBeReady' -Tag 'unit', 'ci', 'addon', 'storage sm
 
         It 'does not throw' {
             InModuleScope -ModuleName $moduleName {
-                { Wait-ForStorageClassToBeReady -TimeoutSeconds 123 } | Should -Not -Throw
+                { Wait-ForPodToBeReady -TimeoutSeconds 123 } | Should -Not -Throw
             }
         }
     }
@@ -621,13 +621,13 @@ Describe 'Wait-ForStorageClassToBeReady' -Tag 'unit', 'ci', 'addon', 'storage sm
 
         It 'throws' {
             InModuleScope -ModuleName $moduleName {
-                { Wait-ForStorageClassToBeReady -TimeoutSeconds 123 } | Should -Throw -ExpectedMessage 'StorageClass not ready within 123s'
+                { Wait-ForPodToBeReady -TimeoutSeconds 123 } | Should -Throw -ExpectedMessage 'StorageClass not ready within 123s'
             }
         }
     }
 }
 
-Describe 'Wait-ForStorageClassToBeDeleted' -Tag 'unit', 'ci', 'addon', 'storage smb' {
+Describe 'Wait-ForPodToBeDeleted' -Tag 'unit', 'ci', 'addon', 'storage smb' {
     Context 'success' {
         BeforeAll {
             Mock -ModuleName $moduleName Write-Log {}
@@ -636,7 +636,7 @@ Describe 'Wait-ForStorageClassToBeDeleted' -Tag 'unit', 'ci', 'addon', 'storage 
 
         It 'does not throw' {
             InModuleScope -ModuleName $moduleName {
-                { Wait-ForStorageClassToBeDeleted -TimeoutSeconds 123 } | Should -Not -Throw
+                { Wait-ForPodToBeDeleted -TimeoutSeconds 123 } | Should -Not -Throw
             }
         }
     }
@@ -649,7 +649,7 @@ Describe 'Wait-ForStorageClassToBeDeleted' -Tag 'unit', 'ci', 'addon', 'storage 
 
         It 'logs that it failed' {
             InModuleScope -ModuleName $moduleName {
-                Wait-ForStorageClassToBeDeleted -TimeoutSeconds 123 
+                Wait-ForPodToBeDeleted -TimeoutSeconds 123 
                 
                 Should -Invoke Write-Log -Times 1 -Scope Context -ParameterFilter { $Messages -match 'StorageClass not deleted within 123s' }                
             }
@@ -662,7 +662,7 @@ Describe 'Restore-StorageClass' -Tag 'unit', 'ci', 'addon', 'storage smb' {
         Mock -ModuleName $moduleName Add-Secret {}
         Mock -ModuleName $moduleName New-StorageClassManifest {}
         Mock -ModuleName $moduleName Invoke-Kubectl { return [pscustomobject]@{Success = $true } }
-        Mock -ModuleName $moduleName Wait-ForStorageClassToBeReady {}
+        Mock -ModuleName $moduleName Wait-ForPodToBeReady {}
         Mock -ModuleName $moduleName Write-Log {}
     }
 
@@ -691,7 +691,7 @@ Describe 'Restore-StorageClass' -Tag 'unit', 'ci', 'addon', 'storage smb' {
 
         It 'waits for the StorageClass creation' {
             InModuleScope -ModuleName $moduleName {
-                Should -Invoke Wait-ForStorageClassToBeReady -Times 1 -Scope Context -ParameterFilter { $TimeoutSeconds -eq $script:storageClassTimeoutSeconds }
+                Should -Invoke Wait-ForPodToBeReady -Times 1 -Scope Context -ParameterFilter { $TimeoutSeconds -eq $script:storageClassTimeoutSeconds }
             }
         }
     }
@@ -776,7 +776,7 @@ Describe 'Remove-StorageClass' -Tag 'unit', 'ci', 'addon', 'storage smb' {
             Mock -ModuleName $moduleName Test-Path { return $true } -ParameterFilter { $Path -match $script:patchFilePath }
             Mock -ModuleName $moduleName Invoke-Kubectl { return [pscustomobject]@{Success = $true } }
             Mock -ModuleName $moduleName Remove-Item {}
-            Mock -ModuleName $moduleName Wait-ForStorageClassToBeDeleted {}
+            Mock -ModuleName $moduleName Wait-ForPodToBeDeleted {}
             Mock -ModuleName $moduleName Remove-Secret {}
             Mock -ModuleName $moduleName Write-Log {}
 
@@ -811,7 +811,7 @@ Describe 'Remove-StorageClass' -Tag 'unit', 'ci', 'addon', 'storage smb' {
 
             It 'waits for StorageClass deletion' {
                 InModuleScope -ModuleName $moduleName {
-                    Should -Invoke Wait-ForStorageClassToBeDeleted -Times 1 -Scope Context -ParameterFilter { $TimeoutSeconds -eq $script:storageClassTimeoutSeconds }
+                    Should -Invoke Wait-ForPodToBeDeleted -Times 1 -Scope Context -ParameterFilter { $TimeoutSeconds -eq $script:storageClassTimeoutSeconds }
                 }
             }
 
@@ -847,7 +847,7 @@ Describe 'Remove-StorageClass' -Tag 'unit', 'ci', 'addon', 'storage smb' {
 
             It 'waits for StorageClass deletion' {
                 InModuleScope -ModuleName $moduleName {
-                    Should -Invoke Wait-ForStorageClassToBeDeleted -Times 1 -Scope Context -ParameterFilter { { $TimeoutSeconds -eq $script:storageClassTimeoutSeconds } }
+                    Should -Invoke Wait-ForPodToBeDeleted -Times 1 -Scope Context -ParameterFilter { { $TimeoutSeconds -eq $script:storageClassTimeoutSeconds } }
                 }
             }
 

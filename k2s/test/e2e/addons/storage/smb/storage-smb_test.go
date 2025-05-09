@@ -62,7 +62,7 @@ var (
 	skipWindowsWorkloads = false
 	shareConfigs         []shareConfig
 	orignalShareConfigs  []shareConfig
-	configPath           string
+	configPath           string = filepath.Join(suite.RootDir(), "addons", "storage", "smb", "config", "SmbStorage.json")
 )
 
 func TestSmbshare(t *testing.T) {
@@ -80,8 +80,6 @@ var _ = BeforeSuite(func(ctx context.Context) {
 	suite.Kubectl().Run(ctx, "apply", "-f", namespaceManifestPath)
 
 	GinkgoWriter.Println("Namespace <", namespace, "> and secret <", secretName, "> created on cluster")
-
-	configPath := filepath.Join(suite.RootDir(), "addons\\storage\\smb\\config\\SmbStorage.json")
 
 	data, err := ioutil.ReadFile(configPath) // assumes file is in the root of the test project
 	Expect(err).ToNot(HaveOccurred())
@@ -362,7 +360,8 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 
 func expectLinuxWorkloadToRun(ctx context.Context) {
 	for i, cfg := range shareConfigs {
-		linuxWorkloadName := fmt.Sprintf("smb-share-test-linux%d", i+1) // e.g., smb-share-test-linux-1, -2, etc.
+		i++
+		linuxWorkloadName := fmt.Sprintf("smb-share-test-linux%d", i) // e.g., smb-share-test-linux-1, -2, etc.
 
 		suite.Cluster().ExpectStatefulSetToBeReady(linuxWorkloadName, namespace, 1, ctx)
 
@@ -380,7 +379,8 @@ func expectWindowsWorkloadToRun(ctx context.Context) {
 		Skip("Linux-only setup")
 	}
 	for i, cfg := range shareConfigs {
-		windowsWorkloadName := fmt.Sprintf("smb-share-test-windows%d", i+1) // e.g., smb-share-test-linux-1, -2, etc.
+		i++
+		windowsWorkloadName := fmt.Sprintf("smb-share-test-windows%d", i) // e.g., smb-share-test-linux-1, -2, etc.
 
 		suite.Cluster().ExpectStatefulSetToBeReady(windowsWorkloadName, namespace, 1, ctx)
 

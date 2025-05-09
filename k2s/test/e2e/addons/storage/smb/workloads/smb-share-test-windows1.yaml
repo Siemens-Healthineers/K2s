@@ -6,17 +6,17 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: smb-share-test-windows
+  name: smb-share-test-windows1
   namespace: smb-share-test
   labels:
-    app: smb-share-test-windows
+    app: smb-share-test-windows1
 spec:
-  serviceName: smb-share-test-windows
+  serviceName: smb-share-test-windows1
   replicas: 1
   template:
     metadata:
       labels:
-        app: smb-share-test-windows
+        app: smb-share-test-windows1
     spec:
       nodeSelector:
         "kubernetes.io/os": windows
@@ -27,7 +27,7 @@ spec:
           effect: "NoSchedule"
       terminationGracePeriodSeconds: 10
       containers:
-        - name: smb-share-test-windows
+        - name: smb-share-test-windows1
           image: shsk2s.azurecr.io/diskwriter:v1.2.0
           command:
             - "diskwriter.exe"
@@ -42,7 +42,7 @@ spec:
     type: RollingUpdate
   selector:
     matchLabels:
-      app: smb-share-test-windows
+      app: smb-share-test-windows1
   volumeClaimTemplates:
     - metadata:
         name: persistent-storage

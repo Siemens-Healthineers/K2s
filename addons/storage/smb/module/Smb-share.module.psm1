@@ -699,13 +699,13 @@ function New-StorageClassManifest {
     Write-Log "StorageClass manifest written to '$patchFilePath'."
 }
 
-function Wait-ForStorageClassToBeReady {
+function Wait-ForPodToBeReady {
     param (
         [Parameter(Mandatory = $false)]
         [int]
         $TimeoutSeconds = 30
     )
-    Write-Log "Waiting for StorageClass to be ready (timeout: $($TimeoutSeconds)s).." -Console
+    Write-Log "Waiting for Pod to be ready (timeout: $($TimeoutSeconds)s).." -Console
 
     $ready = Test-CsiPodsCondition -Condition 'Ready' -TimeoutSeconds $TimeoutSeconds
 
@@ -716,13 +716,13 @@ function Wait-ForStorageClassToBeReady {
     Write-Log 'StorageClass is ready' -Console
 }
 
-function Wait-ForStorageClassToBeDeleted {
+function Wait-ForPodToBeDeleted {
     param (
         [Parameter(Mandatory = $false)]
         [int]
         $TimeoutSeconds = 30
     )
-    Write-Log "Waiting for StorageClass to be deleted (timeout: $($TimeoutSeconds)s).." -Console
+    Write-Log "Waiting for Pod to be deleted (timeout: $($TimeoutSeconds)s).." -Console
 
     $deleted = Test-CsiPodsCondition -Condition 'Deleted' -TimeoutSeconds $TimeoutSeconds
 
@@ -767,7 +767,7 @@ function Restore-StorageClass {
         throw $result.Output
     }
 
-    Wait-ForStorageClassToBeReady -TimeoutSeconds $storageClassTimeoutSeconds
+    Wait-ForPodToBeReady -TimeoutSeconds $storageClassTimeoutSeconds
 }
 
 function Remove-StorageClass {
@@ -816,7 +816,7 @@ function Remove-StorageClass {
             return
         }
 
-        Wait-ForStorageClassToBeDeleted -TimeoutSeconds $storageClassTimeoutSeconds
+        Wait-ForPodToBeDeleted -TimeoutSeconds $storageClassTimeoutSeconds
     }
     else {
         Write-Log 'StorageClass manifest already deleted, skipping.'
