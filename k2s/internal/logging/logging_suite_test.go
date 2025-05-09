@@ -4,12 +4,14 @@
 package logging_test
 
 import (
+	"io/fs"
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+	"time"
 
-	"github.com/go-logr/logr"
 	"github.com/siemens-healthineers/k2s/internal/logging"
 	"github.com/siemens-healthineers/k2s/internal/reflection"
 	"github.com/stretchr/testify/mock"
@@ -18,11 +20,11 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-type mockObject struct {
+type flushMock struct {
 	mock.Mock
 }
 
-func (m *mockObject) Flush(buffer []string) {
+func (m *flushMock) Flush(buffer []string) {
 	m.Called(buffer)
 }
 
@@ -32,7 +34,9 @@ func TestLogging(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
-	slog.SetDefault(slog.New(logr.ToSlogHandler(GinkgoLogr)))
+	slog.SetDefault(slog.New(slog.NewTextHandler(GinkgoWriter, &slog.HandlerOptions{
+		Level: slog.LevelDebug,
+	})))
 })
 
 var _ = Describe("logging", func() {
@@ -174,6 +178,234 @@ var _ = Describe("logging", func() {
 		})
 	})
 
+	Describe("CleanLogDir", Label("integration", "ci"), func() {
+		When("error occurs while reading dir", func() {
+			It("returns error", func() {
+				var maxAge time.Duration = 0
+
+				err := logging.CleanLogDir("", maxAge)
+
+				Expect(err).To(MatchError(ContainSubstring("failed to list files")))
+			})
+		})
+
+		When("error occurs while deleting files", func() {
+			var tempDir string
+
+			BeforeEach(func() {
+				tempDir = GinkgoT().TempDir()
+				filePath := filepath.Join(tempDir, "test.log")
+				Expect(os.WriteFile(filePath, []byte("test"), os.ModePerm)).To(Succeed())
+
+				var err error
+				fileHandle, err := os.OpenFile(filePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, fs.ModeExclusive)
+				Expect(err).NotTo(HaveOccurred())
+
+				GinkgoWriter.Println("Test log file <", filePath, "> opened")
+
+				DeferCleanup(func() {
+					if fileHandle == nil {
+						return
+					}
+
+					GinkgoWriter.Println("Closing test log file <", filePath, ">..")
+					Expect(fileHandle.Close()).To(Succeed())
+				})
+			})
+
+			It("returns error", func() {
+				var maxAge time.Duration = 0
+
+				err := logging.CleanLogDir(tempDir, maxAge)
+
+				Expect(err).To(MatchError(ContainSubstring("failed to delete outdated files")))
+			})
+		})
+
+		When("file is younger than max age", func() {
+			var tempDir string
+			var filePath string
+
+			BeforeEach(func() {
+				tempDir = GinkgoT().TempDir()
+				filePath = filepath.Join(tempDir, "test.log")
+				Expect(os.WriteFile(filePath, []byte("test"), os.ModePerm)).To(Succeed())
+
+				GinkgoWriter.Println("Test log file <", filePath, "> written")
+			})
+
+			It("it does not delete it", func() {
+				maxAge := time.Second
+
+				err := logging.CleanLogDir(tempDir, maxAge)
+
+				Expect(err).NotTo(HaveOccurred())
+
+				_, err = os.Stat(filePath)
+				Expect(err).NotTo(HaveOccurred())
+			})
+		})
+
+		When("file is older than max age", func() {
+			var tempDir string
+			var filePath string
+
+			BeforeEach(func() {
+				tempDir = GinkgoT().TempDir()
+				filePath = filepath.Join(tempDir, "test.log")
+				Expect(os.WriteFile(filePath, []byte("test"), os.ModePerm)).To(Succeed())
+
+				GinkgoWriter.Println("Test log file <", filePath, "> written")
+
+				waitTime := time.Millisecond
+
+				GinkgoWriter.Printf("Waiting for %s to pass so that the test file becomes outdated..\n", waitTime)
+
+				time.Sleep(waitTime)
+			})
+
+			It("it deletes it", func() {
+				var maxAge time.Duration = 0
+
+				err := logging.CleanLogDir(tempDir, maxAge)
+
+				Expect(err).NotTo(HaveOccurred())
+
+				_, err = os.Stat(filePath)
+				Expect(err).To(MatchError(os.ErrNotExist))
+			})
+		})
+	})
+
+	Describe("SetupDefaultFileLogger", Label("integration", "ci"), func() {
+		When("log file already exists", func() {
+			When("error occurs while removing log file", func() {
+				var tempDir string
+				var fileName string
+
+				BeforeEach(func() {
+					tempDir = GinkgoT().TempDir()
+					fileName = "test.log"
+					filePath := filepath.Join(tempDir, fileName)
+					Expect(os.WriteFile(filePath, []byte("test"), os.ModePerm)).To(Succeed())
+
+					var err error
+					fileHandle, err := os.OpenFile(filePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, fs.ModeExclusive)
+					Expect(err).NotTo(HaveOccurred())
+
+					GinkgoWriter.Println("Test log file <", filePath, "> opened")
+
+					DeferCleanup(func() {
+						if fileHandle == nil {
+							return
+						}
+
+						GinkgoWriter.Println("Closing test log file <", filePath, ">..")
+						Expect(fileHandle.Close()).To(Succeed())
+					})
+				})
+
+				It("returns error", func() {
+					expectedLevel := slog.LevelDebug
+
+					file, err := logging.SetupDefaultFileLogger(tempDir, fileName, expectedLevel)
+
+					Expect(file).To(BeNil())
+					Expect(err).To(MatchError(ContainSubstring("cannot remove log file")))
+				})
+			})
+
+			When("successful", Serial, func() {
+				var tempDir string
+				var fileName string
+				var filePath string
+
+				BeforeEach(func() {
+					defaultLogger := slog.Default()
+
+					tempDir = GinkgoT().TempDir()
+					fileName = "test.log"
+					filePath = filepath.Join(tempDir, fileName)
+					Expect(os.WriteFile(filePath, []byte("test"), os.ModePerm)).To(Succeed())
+
+					GinkgoWriter.Println("Test log file <", filePath, "> written")
+
+					DeferCleanup(func() {
+						GinkgoWriter.Println("resetting default logger")
+
+						slog.SetDefault(defaultLogger)
+					})
+				})
+
+				It("removes existing log file", func() {
+					expectedLevel := slog.LevelDebug
+
+					logFile, err := logging.SetupDefaultFileLogger(tempDir, fileName, expectedLevel)
+
+					Expect(logFile.Close()).To(Succeed())
+					Expect(err).ToNot(HaveOccurred())
+
+					logFileContent, err := os.ReadFile(filePath)
+
+					Expect(err).ToNot(HaveOccurred())
+					Expect(logFileContent).To(HaveLen(0))
+				})
+			})
+		})
+		When("successful", Serial, func() {
+			var tempDir string
+			var fileName string
+			var filePath string
+
+			BeforeEach(func() {
+				defaultLogger := slog.Default()
+
+				tempDir = GinkgoT().TempDir()
+				fileName = "test.log"
+				filePath = filepath.Join(tempDir, fileName)
+				Expect(os.WriteFile(filePath, []byte("test"), os.ModePerm)).To(Succeed())
+
+				GinkgoWriter.Println("Test log file <", filePath, "> written")
+
+				DeferCleanup(func() {
+					GinkgoWriter.Println("resetting default logger")
+
+					slog.SetDefault(defaultLogger)
+				})
+			})
+
+			It("creates a working file logger", func() {
+				expectedLevel := slog.LevelDebug
+				expectedArgs := []any{"prop1", "val1", "prop2", "val2"}
+
+				logFile, err := logging.SetupDefaultFileLogger(tempDir, fileName, expectedLevel, expectedArgs...)
+
+				Expect(err).ToNot(HaveOccurred())
+
+				slog.Debug("test-msg", "prop3", "val3")
+
+				Expect(logFile.Close()).To(Succeed())
+
+				logFileContent, err := os.ReadFile(filePath)
+
+				Expect(err).ToNot(HaveOccurred())
+
+				logs := strings.Split(string(logFileContent), " ")
+
+				Expect(logs).To(HaveLen(6))
+
+				_, err = time.Parse(time.RFC3339, logs[0][len("time="):])
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(logs).To(ContainElement(ContainSubstring("level=DEBUG")))
+				Expect(logs).To(ContainElement(ContainSubstring("msg=test-msg")))
+				Expect(logs).To(ContainElement(ContainSubstring("prop1=val1")))
+				Expect(logs).To(ContainElement(ContainSubstring("prop2=val2")))
+				Expect(logs).To(ContainElement(ContainSubstring("prop3=val3")))
+			})
+		})
+	})
+
 	Describe("LogBuffer", Label("unit", "ci"), func() {
 		Describe("NewLogBuffer", func() {
 			When("buffer limit is 0", func() {
@@ -181,7 +413,7 @@ var _ = Describe("logging", func() {
 					const arbitraryOffset = 10
 					called := false
 
-					flushMock := &mockObject{}
+					flushMock := &flushMock{}
 					flushMock.On(reflection.GetFunctionName(flushMock.Flush), mock.Anything).Once().Run(func(args mock.Arguments) {
 						called = true
 
@@ -227,7 +459,7 @@ var _ = Describe("logging", func() {
 					const invocations = 15
 					expectedFlushTimes := invocations / limit
 
-					flushMock := &mockObject{}
+					flushMock := &flushMock{}
 					flushMock.On(reflection.GetFunctionName(flushMock.Flush), mock.Anything).Times(expectedFlushTimes).Run(func(args mock.Arguments) {
 						buffer := args.Get(0).([]string)
 						Expect(buffer).To(HaveLen(limit))
@@ -252,7 +484,7 @@ var _ = Describe("logging", func() {
 		Describe("Log", func() {
 			When("buffer limit is not reached", func() {
 				It("log line is written to buffer only", func() {
-					flushMock := &mockObject{}
+					flushMock := &flushMock{}
 					flushMock.On(reflection.GetFunctionName(flushMock.Flush), mock.Anything)
 
 					config := logging.BufferConfig{
@@ -276,7 +508,7 @@ var _ = Describe("logging", func() {
 
 			When("buffer limit is reached", func() {
 				It("log line is written to buffer and buffer is flushed", func() {
-					flushMock := &mockObject{}
+					flushMock := &flushMock{}
 					flushMock.On(reflection.GetFunctionName(flushMock.Flush), mock.Anything)
 
 					config := logging.BufferConfig{
@@ -306,7 +538,7 @@ var _ = Describe("logging", func() {
 
 		Describe("Flush", func() {
 			It("flushes the content in correct format and emties the buffer", func() {
-				flushMock := &mockObject{}
+				flushMock := &flushMock{}
 				flushMock.On(reflection.GetFunctionName(flushMock.Flush), mock.Anything)
 
 				config := logging.BufferConfig{

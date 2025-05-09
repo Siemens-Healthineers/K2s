@@ -14,7 +14,11 @@ import (
 	bos "os"
 	"os/exec"
 	"path/filepath"
+	"time"
 )
+
+type Files []fs.FileInfo
+type Paths []string
 
 type StdWriter interface {
 	WriteStdOut(message string)
@@ -103,6 +107,28 @@ func CopyFile(source string, target string) error {
 	return nil
 }
 
+// FilesInDir returns a list of files in the given directory.
+// It does not check sub-directories (no recursion).
+func FilesInDir(dir string) (files Files, err error) {
+	paths, err := bos.ReadDir(dir)
+	if err != nil {
+		return nil, fmt.Errorf("could not read directory '%s': %w", dir, err)
+	}
+
+	for _, path := range paths {
+		if path.IsDir() {
+			continue
+		}
+
+		file, err := path.Info()
+		if err != nil {
+			return nil, fmt.Errorf("could not get file info '%s': %w", path.Name(), err)
+		}
+		files = append(files, file)
+	}
+	return files, nil
+}
+
 func NewCmdExecutor(stdWriter StdWriter) *CmdExecutor {
 	return &CmdExecutor{stdWriter: stdWriter}
 }
@@ -175,6 +201,26 @@ func (exe *CmdExecutor) ExecuteCmd(name string, arg ...string) error {
 	slog.Debug("Command finished")
 
 	return nil
+}
+
+func (files Files) OlderThan(duration time.Duration) (olderFiles Files) {
+	for _, file := range files {
+		if time.Since(file.ModTime()) > duration {
+			olderFiles = append(olderFiles, file)
+		}
+	}
+	return
+}
+
+func (files Files) JoinPathsWith(path string) (paths Paths) {
+	for _, file := range files {
+		paths = append(paths, filepath.Join(path, file.Name()))
+	}
+	return
+}
+
+func (paths Paths) Remove() error {
+	return RemovePaths(paths...)
 }
 
 func readStream(stream io.ReadCloser, dataReceived chan string) {

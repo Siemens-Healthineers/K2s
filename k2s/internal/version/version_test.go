@@ -3,20 +3,35 @@
 package version
 
 import (
+	"log/slog"
 	"testing"
 
+	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/siemens-healthineers/k2s/internal/reflection"
+	"github.com/stretchr/testify/mock"
 )
+
+type printerMock struct {
+	mock.Mock
+}
+
+func (m *printerMock) print(format string, a ...any) {
+	m.Called(format, a)
+}
 
 func TestVersion(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "version Unit Tests", Label("unit", "ci"))
 }
 
-var _ = Describe("GetVersion", func() {
-	Context("When getting the version", func() {
+var _ = BeforeSuite(func() {
+	slog.SetDefault(slog.New(logr.ToSlogHandler(GinkgoLogr)))
+})
 
+var _ = Describe("version pkg", func() {
+	Describe("GetVersion", func() {
 		BeforeEach(func() {
 			gitCommit = ""
 			gitTreeState = ""
@@ -79,6 +94,19 @@ var _ = Describe("GetVersion", func() {
 				v := GetVersion()
 				GinkgoWriter.Println(v.Version)
 				Expect(v.Version).To(Equal(gitTag))
+			})
+		})
+	})
+
+	Describe("Print", func() {
+		When("print function is provided", func() {
+			It("prints the version information using this print function", func() {
+				printerMock := &printerMock{}
+				printerMock.On(reflection.GetFunctionName(printerMock.print), mock.Anything, mock.Anything)
+
+				Version{}.Print("", printerMock.print)
+
+				printerMock.AssertExpectations(GinkgoT())
 			})
 		})
 	})

@@ -10,8 +10,9 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
+	"log/slog"
 	"net"
 	"os"
 	"os/exec"
@@ -19,56 +20,115 @@ import (
 	"strings"
 	"time"
 
+	"github.com/siemens-healthineers/k2s/internal/cli"
 	"github.com/siemens-healthineers/k2s/internal/logging"
 	kos "github.com/siemens-healthineers/k2s/internal/os"
 	ve "github.com/siemens-healthineers/k2s/internal/version"
 
 	"github.com/google/uuid"
-	"github.com/sirupsen/logrus"
 )
 
 type VfpRoute struct {
-	Name     string `json:name`
-	Subnet   string `json:subnet`
-	Gateway  string `json:gateway`
-	Priority string `json:priority`
+	Name     string `json:"name"`
+	Subnet   string `json:"subnet"`
+	Gateway  string `json:"gateway"`
+	Priority string `json:"priority"`
 }
 
 type VfpRoutes struct {
-	Routes []VfpRoute `json:routes`
-	VfpApi []string   `json:vfpapi`
+	Routes []VfpRoute `json:"routes"`
+	VfpApi []string   `json:"vfpapi"`
 }
 
-func logDuration(startTime time.Time, methodName string) {
-	duration := time.Since(startTime)
-	msg := fmt.Sprintf("[cni-net] %s took %s", methodName, duration)
-	logrus.Info(msg)
+const cliName = "vfprules"
+
+var (
+	portid                = ""
+	directoryOfExecutable string
+)
+
+func init() {
+	var err error
+	directoryOfExecutable, err = kos.ExecutableDir()
+	if err != nil {
+		panic(err)
+	}
 }
 
-func GetPort(name string, logDir string) (string, error) {
-	logrus.Debug("[cni-net] GetPort for port with name: ", name)
+func main() {
+	versionFlag := cli.NewVersionFlag(cliName)
+	flag.StringVar(&portid, "portid", portid, "portid of the new port created (GUID). Please use lowercase !")
+	flag.Parse()
+
+	if *versionFlag {
+		ve.GetVersion().Print(cliName)
+		return
+	}
+
+	if isValidUUID(portid) {
+		fmt.Println("VFPRules starting with portid:", portid)
+	} else {
+		fmt.Fprintf(flag.CommandLine.Output(), "Usage of %s:\n", os.Args[0])
+		flag.PrintDefaults()
+		return
+	}
+
+	logDir := filepath.Join(logging.RootLogDir(), cliName)
+	logFileName := cliName + "-" + portid + ".log"
+
+	logFile, err := logging.SetupDefaultFileLogger(logDir, logFileName, slog.LevelDebug, "component", cliName, "scope", "[cni-net]")
+	if err != nil {
+		slog.Error("failed to setup file logger", "error", err)
+		os.Exit(1)
+	}
+	defer logFile.Close()
+
+	slog.Debug("Started", "portid", portid)
+
+	vfpRoutes, err := getVfpRoutes()
+	if err != nil {
+		log.Fatalf("Fatal error in applying the vfp rules: %s", err)
+	}
+
+	errAdd := addVfpRules(portid, vfpRoutes, logDir)
+	if errAdd != nil {
+		log.Fatalf("Fatal error in applying the vfp rules: %s", errAdd)
+	}
+
+	err = logging.CleanLogDir(logDir, 24*time.Hour)
+	if err != nil {
+		slog.Error("failed to clean up log dir", "error", err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("%s finished, please checks logs in %s\n", cliName, logFile.Name())
+}
+
+func getPort(name string, logDir string) (string, error) {
+	slog.Debug("GetPort for port", "name", name)
+
 	// open file for writing ports
 	filename := filepath.Join(logDir, "vfp-ports-"+name+".log")
 	file, err := os.OpenFile(filename, os.O_CREATE|os.O_WRONLY, os.FileMode(0777))
 	if err != nil {
 		log.Fatalf("failed opening file: %s", err)
 	}
-	// construct `vfpctrl` command
+
 	cmd := exec.Command("vfpctrl", "/list-vmswitch-port")
 	cmd.Stdout = file
-	// run command
+
 	if err := cmd.Run(); err != nil {
-		logrus.Error("[cni-net] Get port name. Error:", err)
+		slog.Error("get port name", "error", err)
 		file.Close()
 		return "", err
 	} else {
-		logrus.Debug("[cni-net] Get port name. Successfull\n")
+		slog.Debug("Get port name successful")
 	}
 	file.Close()
 	// read file line by line and parse
 	readFile, err := os.Open(filename)
 	if err != nil {
-		logrus.Error("[cni-net] Get port name. Open file rrror:", err)
+		slog.Error("get port name: failed to open file", "error", err)
 		return "", err
 	}
 	// scan the whole file
@@ -91,7 +151,7 @@ func GetPort(name string, logDir string) (string, error) {
 				value := strings.TrimSpace(s[1])
 				valuelower := strings.ToLower(value)
 				namelower := strings.ToLower(name)
-				logrus.Debugf("[cni-net] Compare '%s' with '%s'", valuelower, namelower)
+				slog.Debug("Comparing", "compare-value", valuelower, "compare-name", namelower)
 				if valuelower == namelower {
 					found = true
 					break
@@ -100,19 +160,15 @@ func GetPort(name string, logDir string) (string, error) {
 		}
 	}
 	readFile.Close()
-	// err = os.Remove(filename)
-	// if err != nil {
-	// 	logrus.Error("[cni-net] Get port name. Deleting file error:", err)
-	// }
-	if !found {
-		logrus.Error("[cni-net] GetPort No entry yet found for portid:", portid)
-		return "", errors.New("No entry found")
+
+	if found {
+		return strings.TrimSpace(lastportname), nil
 	}
-	return strings.TrimSpace(lastportname), nil
+	slog.Error("get port: no entry found yet", "portid", portid)
+	return "", errors.New("no entry found")
 }
 
-func WriteVFPRule(datawriter *bufio.Writer, name string, port string, macgateway string, subnet string, priority string) error {
-	// build args
+func writeVFPRule(datawriter *bufio.Writer, name, port, macgateway, subnet, priority string) error {
 	command := "C:\\Windows\\System32\\vfpctrl.exe /port " + port + " /layer VNET_PA_ROUTE_LAYER /group VNET_GROUP_PA_ROUTE_IPV4_OUT /add-rule-ex "
 	rulex := "\"" + name + " " + name + " * * * " + subnet + " * 128 * " + priority + " transpose *,0/*,0 modify 00-00-00-00-00-00 " + macgateway + "\""
 	// use echo to format correctly
@@ -124,20 +180,19 @@ func WriteVFPRule(datawriter *bufio.Writer, name string, port string, macgateway
 	return errWrite
 }
 
-func GetMacOfGateway(ipgateway string) (string, error) {
-	logrus.Debug("[cni-net] GetMacOfGateway: ", ipgateway)
+func getMacOfGateway(ipgateway string) (string, error) {
+	slog.Debug("GetMacOfGateway", "ipgateway", ipgateway)
 	// get all the system's or local machine's network interfaces
 	var currentNetworkHardwareName string
 	currentNetworkHardwareName = ""
 	interfaces, _ := net.Interfaces()
 	for _, interf := range interfaces {
-
 		if addrs, err := interf.Addrs(); err == nil {
 			for index, addr := range addrs {
-				logrus.Debug("[cni-net] GetMacOfGateway [", index, "]", interf.Name, ">", addr)
+				slog.Debug("GetMacOfGateway", "index", index, "interface", interf.Name, "address", addr.String())
 				// only interested in the name with current IP address
 				if strings.Contains(addr.String(), ipgateway) {
-					logrus.Debug("[cni-net]   Use name : ", interf.Name)
+					slog.Debug("Using interface", "name", interf.Name)
 					currentNetworkHardwareName = interf.Name
 				}
 			}
@@ -145,11 +200,11 @@ func GetMacOfGateway(ipgateway string) (string, error) {
 	}
 
 	if len(currentNetworkHardwareName) == 0 {
-		logrus.Debug("[cni-net] GetMacOfGateway No gateway found with this ip: ", ipgateway)
+		slog.Debug("GetMacOfGateway: No gateway found with this ip", "ip-address", ipgateway)
 		return "", errors.New("No gateway found as configured: " + ipgateway)
 	}
 
-	logrus.Debug("[cni-net] GetMacOfGateway -----------------------------> ", currentNetworkHardwareName)
+	slog.Debug("GetMacOfGateway", "current-hw-name", currentNetworkHardwareName)
 
 	// extract the hardware information base on the interface name
 	// capture above
@@ -160,54 +215,52 @@ func GetMacOfGateway(ipgateway string) (string, error) {
 	}
 	name := netInterface.Name
 	macAddress := netInterface.HardwareAddr
-	logrus.Debug("[cni-net] GetMacOfGateway Hardware name : ", name)
-	logrus.Debug("[cni-net] GetMacOfGateway MAC address : ", macAddress)
 
-	// verify if the MAC address can be parsed properly
+	slog.Debug("GetMacOfGateway", "hw-name", name, "mac-address", macAddress.String())
+
 	hwAddr, err := net.ParseMAC(macAddress.String())
 	if err != nil {
-		logrus.Debug("[cni-net] GetMacOfGateway No able to parse MAC address: ", err)
+		slog.Debug("GetMacOfGateway: unable to parse MAC address", "error", err)
 		return "", err
 	}
 	macUpper := strings.ToUpper(hwAddr.String())
 	returnMac := strings.Replace(macUpper, ":", "-", 5)
-	logrus.Debugf("[cni-net] GetMacOfGateway Physical hardware address: %s \n", returnMac)
+	slog.Debug("GetMacOfGateway: physical HW address", "mac-address", returnMac)
 	return returnMac, err
 }
 
-func AddVfpRules(portid string, vfpRoutes *VfpRoutes, logDir string) error {
+func addVfpRules(portid string, vfpRoutes *VfpRoutes, logDir string) error {
 	// get the port related to id
 	fmt.Println("Searching for port: ", portid, " ...")
 	found, port := false, ""
 	for i := 1; i < 30 && !found; i++ {
 		var errPort error
-		port, errPort = GetPort(portid, logDir)
+		port, errPort = getPort(portid, logDir)
 		if errPort == nil {
-			logrus.Debugf("[cni-net] Result of port name:'%s'", port)
+			slog.Debug("Result of get port", "port", port)
 			found = true
 			break
 		}
 		time.Sleep(1000 * time.Millisecond)
 	}
 
-	// check if port was found
 	if !found {
-		logrus.Error("[cni-net] Error: Port with id:'%s' was not found", port)
-		return errors.New("Port was not found")
+		slog.Error("Port not found", "port-id", port)
+		return errors.New("port was not found")
 	}
 
 	// get version of windows OS
 	cmd := exec.Command("cmd", "/c", "ver")
 	output, err := cmd.Output()
 	if err != nil {
-		logrus.Error("[cni-net] Error: Getting windows version failed:", err)
+		slog.Error("failed to determine Windows version", "error", err)
 		return err
 	}
-	logrus.Debugf("[cni-net] Windows version: %s", output)
+	slog.Debug("Windows version determined", "version", string(output))
 
 	// check if version is matching version from vfpRoutes.VfpApi
 	vfpapi := false
-	if vfpRoutes.VfpApi != nil && len(vfpRoutes.VfpApi) > 0 {
+	if len(vfpRoutes.VfpApi) > 0 {
 		// check if version is matching
 		version := strings.TrimSpace(string(output))
 		for _, v := range vfpRoutes.VfpApi {
@@ -221,20 +274,20 @@ func AddVfpRules(portid string, vfpRoutes *VfpRoutes, logDir string) error {
 	// add the rules with the vfp ctrl exe
 	if vfpapi {
 		// adding vfp rules works with vfpapi.dll
-		logrus.Debugf("[cni-net] Using vfpapi for adding rules because this was configured in the vfprules.json")
+		slog.Debug("Using vfpapi for adding rules because this was configured in the vfprules.json")
 		fmt.Println("VfpAPi is configured for this version of windows: ", string(output))
-		err := AddVfpRulesWithVfpApi(portid, port, vfpRoutes, logDir)
+		err := addVfpRulesWithVfpApi(portid, port, vfpRoutes, logDir)
 		if err != nil {
-			logrus.Error("[cni-net] Error: Adding VFP rules with vfpapi.dll failed:", err)
+			slog.Error("failed to add VFP rules with vfpapi.dll", "error", err)
 			return err
 		}
 	} else {
 		// adding vfp rules works with vfpctrl.exe
-		logrus.Debugf("[cni-net] Using vfpctrl for adding rules, no version matches in vfprules.json")
+		slog.Debug("Using vfpctrl for adding rules, no version matches in vfprules.json")
 		fmt.Println("VfpCtrl will be used for this version of windows: ", string(output))
-		err := AddVfpRulesWithVfpCtrlExe(portid, port, vfpRoutes, logDir)
+		err := addVfpRulesWithVfpCtrlExe(portid, port, vfpRoutes, logDir)
 		if err != nil {
-			logrus.Error("[cni-net] Error: Adding VFP rules with vfpctrl.exe failed:", err)
+			slog.Error("failed to add VFP rules with vfpctrl.exe", "error", err)
 			return err
 		}
 	}
@@ -242,160 +295,39 @@ func AddVfpRules(portid string, vfpRoutes *VfpRoutes, logDir string) error {
 	return nil
 }
 
-func IsValidUUID(u string) bool {
+func isValidUUID(u string) bool {
 	_, err := uuid.Parse(u)
 	return err == nil
 }
 
-func isOlderThanOneDay(t time.Time) bool {
-	return time.Now().Sub(t) > 24*time.Hour
-}
-
-func findFilesOlderThanOneDay(dir string) (files []os.FileInfo, err error) {
-	tmpfiles, err := ioutil.ReadDir(dir)
-	if err != nil {
-		return
-	}
-	for _, file := range tmpfiles {
-		if file.Mode().IsRegular() {
-			if isOlderThanOneDay(file.ModTime()) {
-				files = append(files, file)
-			}
-		}
-	}
-	return
-}
-
 func getVfpRoutes() (*VfpRoutes, error) {
-	defer logDuration(time.Now(), "getVfpRoutes")
-	routeConfJsonFp := directoryOfExecutable + "\\vfprules.json"
-	routeConfJsonFile, err := os.Open(routeConfJsonFp)
-	// if we os.Open returns an error then handle it
+	defer logging.LogExecutionTime(time.Now(), "getVfpRoutes")
+	configPath := directoryOfExecutable + "\\vfprules.json"
+	configFile, err := os.Open(configPath)
 	if err != nil {
-		errortext := fmt.Sprintf("[cni-net] Error: Unable to open file: %s. Reason: %s", routeConfJsonFp, err.Error())
-		logrus.Error(errortext)
-		return nil, errors.New(errortext)
+		slog.Error("unable to open file", "file", configPath, "error", err)
+		return nil, fmt.Errorf("[cni-net] unable to open file: %s, error: %w", configPath, err)
 	}
-	defer routeConfJsonFile.Close()
+	defer configFile.Close()
 
-	routesConfJsonBytes, err := ioutil.ReadAll(routeConfJsonFile)
+	routesConfJsonBytes, err := io.ReadAll(configFile)
 	if err != nil {
-		errortext := fmt.Sprintf("[cni-net] Error: Unable to read file: %s. Reason: %s", routeConfJsonFp, err.Error())
-		logrus.Error(errortext)
-		return nil, errors.New(errortext)
+		slog.Error("unable to read file", "file", configPath, "error", err)
+		return nil, fmt.Errorf("[cni-net] unable to read file: %s, error: %w", configPath, err)
 	}
 
 	var vfpRoutes VfpRoutes
 
 	err = json.Unmarshal(routesConfJsonBytes, &vfpRoutes)
 	if err != nil {
-		errortext := fmt.Sprintf("[cni-net] Error: Unable to unmarshall json file: %s. Reason: %s", routeConfJsonFp, err.Error())
-		logrus.Error(errortext)
-		return nil, errors.New(errortext)
+		slog.Error("unable to unmarshal file", "file", configPath, "error", err)
+		return nil, fmt.Errorf("[cni-net] unable to unmarshal file: %s, error: %w", configPath, err)
 	}
 
 	return &vfpRoutes, nil
 }
 
-var portid = ""
-
-const cliName = "vfprules"
-
-func printCLIVersion() {
-	version := ve.GetVersion()
-	fmt.Printf("%s: %s\n", cliName, version)
-
-	fmt.Printf("  BuildDate: %s\n", version.BuildDate)
-	fmt.Printf("  GitCommit: %s\n", version.GitCommit)
-	fmt.Printf("  GitTreeState: %s\n", version.GitTreeState)
-	if version.GitTag != "" {
-		fmt.Printf("  GitTag: %s\n", version.GitTag)
-	}
-	fmt.Printf("  GoVersion: %s\n", version.GoVersion)
-	fmt.Printf("  Compiler: %s\n", version.Compiler)
-	fmt.Printf("  Platform: %s\n", version.Platform)
-}
-
-func main() {
-
-	// parse the flags
-	version := flag.Bool("version", false, "show the current version of the CLI")
-	flag.StringVar(&portid, "portid", portid, "portid of the new port created (GUID). Please use lowercase !")
-	flag.Parse()
-	if *version {
-		printCLIVersion()
-		os.Exit(0)
-	}
-
-	// fmt.Println("VFPRules started with portid:", portid)
-
-	// check portid
-	if IsValidUUID(portid) {
-		fmt.Println("VFPRules starting with portid:", portid)
-	} else {
-		fmt.Fprintf(flag.CommandLine.Output(), "Usage of %s:\n", os.Args[0])
-		flag.PrintDefaults()
-		return
-	}
-
-	logrus.SetFormatter(&logrus.TextFormatter{
-		DisableColors: true,
-		FullTimestamp: true,
-	})
-	logrus.SetLevel(logrus.DebugLevel)
-
-	logDir := filepath.Join(logging.RootLogDir(), "vfprules")
-	logFilePath := filepath.Join(logDir, "vfprules-"+portid+".log")
-
-	if kos.PathExists(logFilePath) {
-		if err := os.Remove(logFilePath); err != nil {
-			log.Fatalf("cannot remove log file '%s': %s", logFilePath, err)
-		}
-	}
-
-	logFile := logging.InitializeLogFile(logFilePath)
-	defer logFile.Close()
-	logrus.SetOutput(logFile)
-
-	// first log entry
-	logrus.Debug("VFPRules started with portid:", portid)
-	logrus.Debug("VFPRules logs in:", logFilePath)
-
-	vfpRoutes, err := getVfpRoutes()
-	if err != nil {
-		log.Fatalf("Fatal error in applying the vfp rules: %s", err)
-	}
-
-	// call to add the vfp rules
-	errAdd := AddVfpRules(portid, vfpRoutes, logDir)
-	if errAdd != nil {
-		log.Fatalf("Fatal error in applying the vfp rules: %s", errAdd)
-	}
-
-	// remove older files
-	oldfiles, erroldfiles := findFilesOlderThanOneDay(logDir)
-	if erroldfiles == nil {
-		for _, filetodelete := range oldfiles {
-			logrus.Debug("Delete file:", filetodelete.Name())
-			os.Remove(filepath.Join(logDir, filetodelete.Name()))
-		}
-	}
-
-	// print final message
-	fmt.Printf("VFPRules finished, please checks logs in %s\n", logFilePath)
-}
-
-func init() {
-	var err error
-	directoryOfExecutable, err = kos.ExecutableDir()
-	if err != nil {
-		panic(err)
-	}
-}
-
-var directoryOfExecutable string
-
-func AddVfpRulesWithVfpCtrlExe(portid string, port string, vfpRoutes *VfpRoutes, logDir string) error {
+func addVfpRulesWithVfpCtrlExe(portid string, port string, vfpRoutes *VfpRoutes, logDir string) error {
 	// open file for adding commands
 	filename := filepath.Join(logDir, "vfp-rules-"+portid+".cmd")
 	fileCmds, errCmds := os.OpenFile(filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
@@ -406,49 +338,49 @@ func AddVfpRulesWithVfpCtrlExe(portid string, port string, vfpRoutes *VfpRoutes,
 
 	datawriter := bufio.NewWriter(fileCmds)
 	for _, vfpRoute := range vfpRoutes.Routes {
-		debugLog := fmt.Sprintf("[cni-net] Name: %s, Subnet: %s, Gateway: %s, Priority: %s", vfpRoute.Name, vfpRoute.Subnet, vfpRoute.Gateway, vfpRoute.Priority)
-		logrus.Info(debugLog)
+		slog.Info("addVfpRulesWithVfpCtrlExe", "name", vfpRoute.Name, "subnet", vfpRoute.Subnet, "gateway", vfpRoute.Gateway, "priority", vfpRoute.Priority)
 		// get mac address of gateway
-		mac, errmac := GetMacOfGateway(vfpRoute.Gateway)
+		mac, errmac := getMacOfGateway(vfpRoute.Gateway)
 		if errmac != nil {
-			logrus.Info("AddVfpRulesWithVfpCtrlExe: Getting MAC not found error, will continue with the other rules, err:", errmac)
+			slog.Info("AddVfpRulesWithVfpCtrlExe: Getting MAC not found error, will continue with the other rules", "error", errmac)
 		} else {
 			// write the rules to be added
-			WriteVFPRule(datawriter, vfpRoute.Name, port, mac, vfpRoute.Subnet, vfpRoute.Priority)
+			writeVFPRule(datawriter, vfpRoute.Name, port, mac, vfpRoute.Subnet, vfpRoute.Priority)
 		}
 	}
 	datawriter.Flush()
 	fileCmds.Close()
 
-	logrus.Debug("[cni-net] Command file should be available:", filename)
+	slog.Debug("Command file should be available", "file-name", filename)
 
 	// try more times if needed
 	execution := false
 	for j := 1; j < 4 && !execution; j++ {
-		// construct command for execution
 		cmd := exec.Command("cmd", "/c", filename)
-		// run command
+
 		if output, err := cmd.Output(); err != nil {
-			logrus.Warning("[cni-net] Adding extra VFP rules. Warning:", err)
+			slog.Warn("Adding extra VFP rules", "error", err)
 			cmd.Wait()
-			logrus.Warning("[cni-net] Adding extra VFP rules, will retry ...")
+			slog.Warn("Adding extra VFP rules, will retry")
 			execution = false
 		} else {
-			logrus.Debugf("[cni-net] Adding extra VFP rules. Output: %s\n", output)
+			slog.Debug("Adding extra VFP rules", "output", string(output))
 			cmd.Wait()
 		}
 
 		// check if rules are applied
-		bRules, err := AreVfpRulesApplied(portid, vfpRoutes)
-		logrus.Debug("[cni-net] Vfp rules are all applied:", bRules)
+		bRules, err := areVfpRulesApplied(portid, vfpRoutes)
+
+		slog.Debug("Vfp rules are all applied", "result", bRules)
+
 		if err != nil {
-			logrus.Warning("[cni-net] Warning: Checking if rules are applied failed:", err)
+			slog.Warn("Checking if rules are applied", "error", err)
 			execution = false
 		} else if !bRules {
-			logrus.Warning("[cni-net] Warning: Rules are not applied, will retry ...")
+			slog.Warn("Rules are not applied, will retry")
 			execution = false
 		} else if bRules {
-			logrus.Debugf("[cni-net] Rules are applied")
+			slog.Debug("Rules are applied")
 			execution = true
 		}
 
@@ -456,35 +388,32 @@ func AddVfpRulesWithVfpCtrlExe(portid string, port string, vfpRoutes *VfpRoutes,
 	}
 	// check if port was found
 	if !execution {
-		errortext := "[cni-net] Error: Was unable to execute file:" + filename
-		logrus.Error(errortext)
-		return errors.New(errortext)
+		slog.Error("failed to execute file", "file-name", filename)
+
+		return fmt.Errorf("[cni-net] failed to execute file: %s", filename)
 	}
 
-	logrus.Debugf("[cni-net] Command file was executed successfully: %s\n", filename)
+	slog.Debug("Command file was executed successfully", "file-name", filename)
 
-	// remove old vfp rules cmd file
-	// os.Remove(filename)
 	return nil
 }
 
-func AreVfpRulesApplied(portid string, vfpRoutes *VfpRoutes) (bool, error) {
+func areVfpRulesApplied(portid string, vfpRoutes *VfpRoutes) (bool, error) {
 	// loop through all the rules and check if they are applied
 	for _, vfpRoute := range vfpRoutes.Routes {
 		// check if the rule is applied
 		cmd := exec.Command("vfpctrl", "/port", portid, "/layer", "VNET_PA_ROUTE_LAYER", "/group", "VNET_GROUP_PA_ROUTE_IPV4_OUT", "/list-rule")
 		output, err := cmd.Output()
 		if err != nil {
-			logrus.Error("[cni-net] Error: Getting rules failed:", err)
+			slog.Error("failed to get rules", "error", err)
 			return false, err
 		}
-		// logrus.Debugf("[cni-net] Rules list output: %s", output)
 
 		// check if the rule is in the output
 		if strings.Contains(string(output), vfpRoute.Name) {
-			logrus.Info("[cni-net] Rule was applied: ", vfpRoute.Name)
+			slog.Info("Rule was applied", "name", vfpRoute.Name)
 		} else {
-			logrus.Info("[cni-net] Rule was not applied: ", vfpRoute.Name)
+			slog.Info("Rule was not applied", "name", vfpRoute.Name)
 			return false, nil
 		}
 	}

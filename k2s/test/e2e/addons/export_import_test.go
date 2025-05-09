@@ -17,7 +17,7 @@ import (
 	"github.com/siemens-healthineers/k2s/internal/core/addons"
 	"github.com/siemens-healthineers/k2s/test/framework"
 
-	"github.com/siemens-healthineers/k2s/test/framework/k2s/cli"
+	"github.com/siemens-healthineers/k2s/internal/cli"
 	sos "github.com/siemens-healthineers/k2s/test/framework/os"
 
 	"slices"

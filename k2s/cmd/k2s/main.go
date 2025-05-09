@@ -12,29 +12,30 @@ import (
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils/logging"
+	"github.com/siemens-healthineers/k2s/internal/cli"
 
 	"github.com/pterm/pterm"
 )
 
 func main() {
-	exitCode := 0
+	exitCode := cli.ExitCodeSuccess
 
 	logger := logging.NewSlogger()
 
 	defer func() {
 		if err := recover(); err != nil {
-			exitCode = 1
+			exitCode = cli.ExitCodeFailure
 			handleUnexpectedError(err)
 		}
 
 		logger.Flush()
 		logger.Close()
-		os.Exit(exitCode)
+		os.Exit(int(exitCode))
 	}()
 
 	rootCmd, err := cmd.CreateRootCmd(logger)
 	if err != nil {
-		exitCode = 1
+		exitCode = cli.ExitCodeFailure
 		slog.Error("error occurred during root command creation", "error", err)
 		return
 	}
@@ -44,7 +45,7 @@ func main() {
 		return
 	}
 
-	exitCode = 1
+	exitCode = cli.ExitCodeFailure
 
 	var cmdFailure *common.CmdFailure
 	if !errors.As(err, &cmdFailure) {
