@@ -7,7 +7,6 @@ module github.com/siemens-healthineers/k2s
 go 1.24
 
 require (
-	github.com/Microsoft/go-winio v0.6.1
 	github.com/Microsoft/hcsshim v0.9.8
 	github.com/Microsoft/windows-container-networking v0.3.0
 	github.com/alecthomas/units v0.0.0-20231202071711-9a357b53e9c9
@@ -30,7 +29,6 @@ require (
 	github.com/samber/slog-multi v1.0.2
 	github.com/santhosh-tekuri/jsonschema/v5 v5.3.1
 	github.com/shirou/gopsutil/v3 v3.24.2
-	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.8.0
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.18.2
@@ -50,6 +48,7 @@ require (
 	atomicgo.dev/cursor v0.2.0 // indirect
 	atomicgo.dev/keyboard v0.2.9 // indirect
 	atomicgo.dev/schedule v0.1.0 // indirect
+	github.com/Microsoft/go-winio v0.6.1 // indirect
 	github.com/Microsoft/hcsshim/test v0.0.0-20210227013316-43a75bb4edd3 // indirect
 	github.com/bits-and-blooms/bitset v1.14.3 // indirect
 	github.com/blang/semver v3.5.1+incompatible // indirect
@@ -119,6 +118,7 @@ require (
 	github.com/sagikazarmark/locafero v0.4.0 // indirect
 	github.com/sagikazarmark/slog-shim v0.1.0 // indirect
 	github.com/shoenig/go-m1cpu v0.1.6 // indirect
+	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/sourcegraph/conc v0.3.0 // indirect
 	github.com/spf13/afero v1.11.0 // indirect
 	github.com/spf13/cast v1.6.0 // indirect

@@ -5,12 +5,14 @@ package os_test
 
 import (
 	"context"
+	"io/fs"
 	"log/slog"
 	bos "os"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
@@ -21,6 +23,10 @@ import (
 )
 
 type stdWriterMock struct {
+	mock.Mock
+}
+
+type fileInfoMock struct {
 	mock.Mock
 }
 
@@ -36,9 +42,33 @@ func (m *stdWriterMock) Flush() {
 	m.Called()
 }
 
+func (m *fileInfoMock) Name() string {
+	return m.Called().String(0)
+}
+
+func (m *fileInfoMock) Size() int64 {
+	return int64(m.Called().Int(0))
+}
+
+func (m *fileInfoMock) Mode() fs.FileMode {
+	return m.Called().Get(0).(fs.FileMode)
+}
+
+func (m *fileInfoMock) ModTime() time.Time {
+	return m.Called().Get(0).(time.Time)
+}
+
+func (m *fileInfoMock) IsDir() bool {
+	return m.Called().Bool(0)
+}
+
+func (m *fileInfoMock) Sys() any {
+	return m.Called().Get(0)
+}
+
 func TestOsPkg(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "os pkg Integration Tests", Label("integration", "ci", "internal", "os"))
+	RunSpecs(t, "os pkg Integration Tests", Label("ci", "internal", "os"))
 }
 
 var _ = BeforeSuite(func() {
@@ -46,7 +76,7 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = Describe("os pkg", Ordered, func() {
-	Describe("CreateDirIfNotExisting", func() {
+	Describe("CreateDirIfNotExisting", Label("integration"), func() {
 		var dirToCreate string
 
 		BeforeEach(func() {
@@ -75,7 +105,7 @@ var _ = Describe("os pkg", Ordered, func() {
 		})
 	})
 
-	Describe("ExecutableDir", func() {
+	Describe("ExecutableDir", Label("integration"), func() {
 		It("returns an existing directory", func() {
 			dir, err := os.ExecutableDir()
 
@@ -89,7 +119,7 @@ var _ = Describe("os pkg", Ordered, func() {
 		})
 	})
 
-	Describe("PathExists", func() {
+	Describe("PathExists", Label("integration"), func() {
 		When("path exists", func() {
 			It("returns true", func() {
 				input, err := bos.Executable()
@@ -112,7 +142,7 @@ var _ = Describe("os pkg", Ordered, func() {
 		})
 	})
 
-	Describe("RemovePaths", func() {
+	Describe("RemovePaths", Label("integration"), func() {
 		When("no paths passed", func() {
 			It("does nothing", func() {
 				Expect(os.RemovePaths()).To(Succeed())
@@ -144,7 +174,7 @@ var _ = Describe("os pkg", Ordered, func() {
 		})
 	})
 
-	Describe("AppendToFile", func() {
+	Describe("AppendToFile", Label("integration"), func() {
 		When("non-existent path passed", func() {
 			It("returns error", func() {
 				Expect(os.AppendToFile("non-existent", "")).ToNot(Succeed())
@@ -175,7 +205,7 @@ var _ = Describe("os pkg", Ordered, func() {
 		})
 	})
 
-	Describe("CopyFile", func() {
+	Describe("CopyFile", Label("integration"), func() {
 		When("source file non-existent", func() {
 			It("returns error", func() {
 				const source = "non-existent"
@@ -228,7 +258,71 @@ var _ = Describe("os pkg", Ordered, func() {
 		})
 	})
 
-	Describe("ExecuteCmd", func() {
+	Describe("FilesInDir", Label("integration"), func() {
+		When("error occurs during reading dir", func() {
+			It("returns error", func() {
+				actual, err := os.FilesInDir("non-existent")
+
+				Expect(actual).To(BeNil())
+				Expect(err).To(MatchError(ContainSubstring("could not read directory")))
+			})
+		})
+
+		When("dir only contains sub-dirs", func() {
+			var dir string
+
+			BeforeEach(func() {
+				dir = GinkgoT().TempDir()
+
+				Expect(bos.MkdirAll(filepath.Join(dir, "sub-dir-1"), bos.ModePerm)).To(Succeed())
+				Expect(bos.MkdirAll(filepath.Join(dir, "sub-dir-2"), bos.ModePerm)).To(Succeed())
+			})
+
+			It("returns empty list", func() {
+				actual, err := os.FilesInDir(dir)
+
+				Expect(err).ToNot(HaveOccurred())
+				Expect(actual).To(BeEmpty())
+			})
+		})
+
+		When("dir tree contains files and sub-dirs with files", func() {
+			var dir string
+
+			BeforeEach(func() {
+				dir = GinkgoT().TempDir()
+				subDir1 := filepath.Join(dir, "sub-dir-1")
+				subDir2 := filepath.Join(dir, "sub-dir-2")
+
+				Expect(bos.MkdirAll(subDir1, bos.ModePerm)).To(Succeed())
+				Expect(bos.MkdirAll(subDir2, bos.ModePerm)).To(Succeed())
+
+				filePath1 := filepath.Join(dir, "file-1")
+				filePath2 := filepath.Join(dir, "file-2")
+				filePath3 := filepath.Join(subDir1, "file-3")
+				filePath4 := filepath.Join(subDir2, "file-4")
+
+				Expect(bos.WriteFile(filePath1, []byte(""), bos.ModePerm)).To(Succeed())
+				Expect(bos.WriteFile(filePath2, []byte(""), bos.ModePerm)).To(Succeed())
+				Expect(bos.WriteFile(filePath3, []byte(""), bos.ModePerm)).To(Succeed())
+				Expect(bos.WriteFile(filePath4, []byte(""), bos.ModePerm)).To(Succeed())
+
+				GinkgoWriter.Println("Test files written:", filePath1, filePath2, filePath3, filePath4)
+			})
+
+			It("returns only files being direct children of dir", func() {
+				actual, err := os.FilesInDir(dir)
+
+				Expect(err).ToNot(HaveOccurred())
+				Expect(actual).To(ConsistOf(
+					HaveField("Name()", "file-1"),
+					HaveField("Name()", "file-2"),
+				))
+			})
+		})
+	})
+
+	Describe("ExecuteCmd", Label("integration"), func() {
 		When("command cannot be started", func() {
 			It("returns error", func(ctx context.Context) {
 				writerMock := &stdWriterMock{}
@@ -335,6 +429,117 @@ var _ = Describe("os pkg", Ordered, func() {
 				)))
 
 				writerMock.AssertExpectations(GinkgoT())
+			})
+		})
+	})
+
+	Describe("Files", Label("unit"), func() {
+		Describe("OlderThan", func() {
+			When("no files are older", func() {
+				It("returns empty list", func() {
+					now := time.Now()
+					maxAge := time.Hour
+
+					fileMock := &fileInfoMock{}
+					fileMock.On(reflection.GetFunctionName(fileMock.ModTime)).Return(now)
+
+					files := os.Files{
+						fileMock,
+					}
+
+					actual := files.OlderThan(maxAge)
+
+					Expect(actual).To(BeEmpty())
+				})
+			})
+
+			When("files are older than the given duration", func() {
+				It("returns older files", func() {
+					now := time.Now()
+					maxAge := time.Hour
+
+					oldFileMock := &fileInfoMock{}
+					oldFileMock.On(reflection.GetFunctionName(oldFileMock.ModTime)).Return(now.Add(-2 * maxAge))
+
+					newFileMock := &fileInfoMock{}
+					newFileMock.On(reflection.GetFunctionName(newFileMock.ModTime)).Return(now)
+
+					files := os.Files{
+						oldFileMock,
+						newFileMock,
+					}
+
+					actual := files.OlderThan(maxAge)
+
+					Expect(actual).To(ConsistOf(oldFileMock))
+				})
+			})
+
+		})
+
+		Describe("JoinPathsWith", func() {
+			When("list is empty", func() {
+				It("returns empty list", func() {
+					path := ""
+					files := os.Files{}
+
+					actual := files.JoinPathsWith(path)
+
+					Expect(actual).To(BeEmpty())
+				})
+			})
+
+			When("list contains files", func() {
+				It("returns list of joint file paths", func() {
+					path := "parent-dir"
+					fileMock1 := &fileInfoMock{}
+					fileMock1.On(reflection.GetFunctionName(fileMock1.Name)).Return("file-1")
+
+					fileMock2 := &fileInfoMock{}
+					fileMock2.On(reflection.GetFunctionName(fileMock2.Name)).Return("file-2")
+
+					files := os.Files{
+						fileMock1,
+						fileMock2,
+					}
+
+					actual := files.JoinPathsWith(path)
+
+					Expect(actual).To(ConsistOf(
+						"parent-dir\\file-1",
+						"parent-dir\\file-2",
+					))
+				})
+			})
+		})
+	})
+
+	Describe("Paths", Label("integration"), func() {
+		Describe("Remove", func() {
+			var dir string
+			paths := make(os.Paths, 2)
+
+			BeforeEach(func() {
+				dir = GinkgoT().TempDir()
+
+				paths[0] = filepath.Join(dir, "file-1")
+				paths[1] = filepath.Join(dir, "file-2")
+
+				Expect(bos.WriteFile(paths[0], []byte(""), bos.ModePerm)).To(Succeed())
+				Expect(bos.WriteFile(paths[1], []byte(""), bos.ModePerm)).To(Succeed())
+
+				GinkgoWriter.Println("Test files written:", paths)
+			})
+
+			It("removes the paths", func() {
+				err := paths.Remove()
+
+				Expect(err).ToNot(HaveOccurred())
+
+				for _, path := range paths {
+					_, err := bos.Stat(path)
+					Expect(err).To(MatchError(fs.ErrNotExist))
+				}
 			})
 		})
 	})

@@ -66,3 +66,25 @@ func GetVersion() Version {
 		Platform:     fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH),
 	}
 }
+
+// Print prints the version for the given CLI. If no print function is provided, it defaults to fmt.Printf.
+func (v Version) Print(cliName string, printFuncs ...func(format string, a ...any)) {
+	printFunc := func(format string, a ...any) {
+		fmt.Printf(format, a...)
+	}
+	if len(printFuncs) > 0 {
+		printFunc = printFuncs[0]
+	}
+
+	printFunc("%s: %s\n", cliName, v)
+
+	printFunc("  BuildDate: %s\n", v.BuildDate)
+	printFunc("  GitCommit: %s\n", v.GitCommit)
+	printFunc("  GitTreeState: %s\n", v.GitTreeState)
+	if v.GitTag != "" {
+		printFunc("  GitTag: %s\n", v.GitTag)
+	}
+	printFunc("  GoVersion: %s\n", v.GoVersion)
+	printFunc("  Compiler: %s\n", v.Compiler)
+	printFunc("  Platform: %s\n", v.Platform)
+}

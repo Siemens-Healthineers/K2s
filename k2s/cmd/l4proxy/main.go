@@ -8,122 +8,76 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"log"
+	"log/slog"
 	"os"
 	"os/user"
 	"path/filepath"
 	"time"
 
+	"github.com/siemens-healthineers/k2s/internal/cli"
 	cn "github.com/siemens-healthineers/k2s/internal/containernetworking"
 	"github.com/siemens-healthineers/k2s/internal/logging"
-	kos "github.com/siemens-healthineers/k2s/internal/os"
 	ve "github.com/siemens-healthineers/k2s/internal/version"
-	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-const cliName = "l4proxy"
-
-func printCLIVersion() {
-	version := ve.GetVersion()
-	fmt.Printf("%s: %s\n", cliName, version)
-
-	fmt.Printf("  BuildDate: %s\n", version.BuildDate)
-	fmt.Printf("  GitCommit: %s\n", version.GitCommit)
-	fmt.Printf("  GitTreeState: %s\n", version.GitTreeState)
-	if version.GitTag != "" {
-		fmt.Printf("  GitTag: %s\n", version.GitTag)
-	}
-	fmt.Printf("  GoVersion: %s\n", version.GoVersion)
-	fmt.Printf("  Compiler: %s\n", version.Compiler)
-	fmt.Printf("  Platform: %s\n", version.Platform)
-}
-
-func isOlderThanOneDay(t time.Time) bool {
-	return time.Now().Sub(t) > 24*time.Hour
-}
-
-func findFilesOlderThanOneDay(dir string) (files []os.FileInfo, err error) {
-	tmpfiles, err := ioutil.ReadDir(dir)
-	if err != nil {
-		return
-	}
-	for _, file := range tmpfiles {
-		if file.Mode().IsRegular() {
-			if isOlderThanOneDay(file.ModTime()) {
-				files = append(files, file)
-			}
-		}
-	}
-	return
-}
+const (
+	maxRetries    = 5
+	retryInterval = 2 * time.Second
+	cliName       = "l4proxy"
+)
 
 func main() {
-	// parse the flags
-	var podname string = ""
+	var podName string = ""
 	var namespace string = ""
 	var endpointid string = ""
-	version := flag.Bool("version", false, "show the current version of the CLI")
-	flag.StringVar(&podname, "podname", podname, "podname of the running pod")
+
+	versionFlag := cli.NewVersionFlag(cliName)
+	flag.StringVar(&podName, "podname", podName, "podname of the running pod")
 	flag.StringVar(&namespace, "namespace", namespace, "namespace of the running pod")
 	flag.StringVar(&endpointid, "endpointid", endpointid, "endpointid of the running pod")
 	flag.Parse()
-	if *version {
-		// print help
-		printCLIVersion()
-		os.Exit(0)
+
+	if *versionFlag {
+		ve.GetVersion().Print(cliName)
+		return
 	}
 
-	// check podname and namespace
-	if podname == "" || namespace == "" || endpointid == "" {
+	if podName == "" || namespace == "" || endpointid == "" {
 		flag.PrintDefaults()
-		os.Exit(0)
+		return
 	}
 
-	fmt.Printf("l4proxy started, checking if linkerd annotation is set for pod '%s' in namespace '%s'\n", podname, namespace)
+	fmt.Printf("%s started, checking if linkerd annotation is set for pod '%s' in namespace '%s'\n", cliName, podName, namespace)
 
-	// set logging
-	logrus.SetFormatter(&logrus.TextFormatter{
-		DisableColors: true,
-		FullTimestamp: true,
-	})
-	logrus.SetLevel(logrus.DebugLevel)
-	logDir := filepath.Join(logging.RootLogDir(), "l4proxy")
-	logFilePath := filepath.Join(logDir, "l4proxy-"+podname+"-"+namespace+".log")
-	if kos.PathExists(logFilePath) {
-		if err := os.Remove(logFilePath); err != nil {
-			log.Fatalf("cannot remove log file '%s': %s", logFilePath, err)
-		}
+	logDir := filepath.Join(logging.RootLogDir(), cliName)
+	logFileName := cliName + "-" + podName + "-" + namespace + ".log"
+
+	logFile, err := logging.SetupDefaultFileLogger(logDir, logFileName, slog.LevelDebug, "component", cliName)
+	if err != nil {
+		slog.Error("failed to setup file logger", "error", err)
+		os.Exit(1)
 	}
-	logFile := logging.InitializeLogFile(logFilePath)
 	defer logFile.Close()
-	logrus.SetOutput(logFile)
 
-	// first log entry
-	logrus.Debug("l4proxy started for podname:", podname, "namespace:", namespace)
-	logrus.Debug("l4proxy logs in:", logFilePath)
+	slog.Debug("Started", "podname", podName, "namespace", namespace)
 
-	// dump current account under which process is running
 	currentUser, err := user.Current()
 	if err == nil {
-		logrus.Debug("current user:", currentUser.Username) // log the entry
+		slog.Debug("Current user", "user", currentUser.Username)
+	} else {
+		slog.Error("failed to determine current user", "error", err)
 	}
 
-	// Unset the proxies environment variable
 	os.Unsetenv("HTTP_PROXY")
 	os.Unsetenv("HTTPS_PROXY")
 	os.Unsetenv("http_proxy")
 	os.Unsetenv("https_proxy")
-	// logrus.Debug("Environment Variables (Windows):")
-	// for _, env := range os.Environ() {
-	// 	logrus.Debug(env)
-	// }
 
-	// Path to the kubeconfig file
 	kubeconfig := "C:\\Windows\\System32\\config\\systemprofile\\config"
 
 	// Build config from the kubeconfig file
@@ -139,40 +93,31 @@ func main() {
 	}
 
 	// Check if an annotation exists on the pod in a retry loop
-	pod, err := getPodWithRetries(clientset, namespace, podname)
+	pod, err := getPodWithRetries(clientset, namespace, podName)
 	if err != nil {
 		log.Fatalf("Failed to retrieve pod: %v", err)
 	}
 
 	// Check if the annotation value is "enabled"
 	if pod.Annotations["linkerd.io/inject"] == "enabled" {
-		// log the entry
-		logrus.Debug("l4proxy annotation 'linkerd.io/inject' is set for podname:", podname, "namespace:", namespace)
-		log.Println("l4proxy annotation 'linkerd.io/inject' is set for podname:", podname, "namespace:", namespace)
+		slog.Debug("Annotation 'linkerd.io/inject' is set", "podname", podName, "namespace", namespace)
+		log.Println(cliName, "annotation 'linkerd.io/inject' is set for podname:", podName, "namespace:", namespace)
 	} else {
-		// log the entry
-		logrus.Debug("l4proxy annotation 'linkerd.io/inject' is not set for podname:", podname, "namespace:", namespace)
-		log.Println("l4proxy annotation 'linkerd.io/inject' is not set for podname:", podname, "namespace:", namespace)
-		logrus.Debug("Deleting L4 policies")
+		slog.Debug("Annotation 'linkerd.io/inject' is not set", "podname", podName, "namespace", namespace)
+		log.Println(cliName, "annotation 'linkerd.io/inject' is not set for podname:", podName, "namespace:", namespace)
+		slog.Debug("Deleting L4 policies")
+
 		cn.HnsProxyClearPolicies(endpointid)
 	}
 
-	// remove older files
-	oldfiles, erroldfiles := findFilesOlderThanOneDay(logDir)
-	if erroldfiles == nil {
-		for _, filetodelete := range oldfiles {
-			logrus.Debug("Delete file:", filetodelete.Name())
-			os.Remove(filepath.Join(logDir, filetodelete.Name()))
-		}
+	err = logging.CleanLogDir(logDir, 24*time.Hour)
+	if err != nil {
+		slog.Error("failed to clean up log dir", "error", err)
+		os.Exit(1)
 	}
 
-	fmt.Printf("l4proxy finished, please checks logs in %s\n", logFilePath)
+	fmt.Printf("%s finished, please checks logs in %s\n", cliName, logFile.Name())
 }
-
-const (
-	maxRetries    = 5
-	retryInterval = 2 * time.Second
-)
 
 func getPodWithRetries(clientset *kubernetes.Clientset, namespace, podname string) (*v1.Pod, error) {
 	var pod *v1.Pod

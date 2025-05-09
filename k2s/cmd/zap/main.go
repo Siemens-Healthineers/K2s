@@ -15,27 +15,13 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/siemens-healthineers/k2s/internal/cli"
 	ve "github.com/siemens-healthineers/k2s/internal/version"
 
 	"github.com/Microsoft/hcsshim"
 )
 
 const cliName = "zap"
-
-func printCLIVersion() {
-	version := ve.GetVersion()
-	fmt.Printf("%s: %s\n", cliName, version)
-
-	fmt.Printf("  BuildDate: %s\n", version.BuildDate)
-	fmt.Printf("  GitCommit: %s\n", version.GitCommit)
-	fmt.Printf("  GitTreeState: %s\n", version.GitTreeState)
-	if version.GitTag != "" {
-		fmt.Printf("  GitTag: %s\n", version.GitTag)
-	}
-	fmt.Printf("  GoVersion: %s\n", version.GoVersion)
-	fmt.Printf("  Compiler: %s\n", version.Compiler)
-	fmt.Printf("  Platform: %s\n", version.Platform)
-}
 
 func folderExists(path string) bool {
 	_, err := os.Stat(path)
@@ -51,18 +37,19 @@ func folderExists(path string) bool {
 func main() {
 	var folder string
 	flag.StringVar(&folder, "folder", "", "Folder to zap.")
-	version := flag.Bool("version", false, "show the current version of the CLI")
+
+	versionFlag := cli.NewVersionFlag(cliName)
 	flag.Parse()
 
-	if *version {
-		printCLIVersion()
-		os.Exit(0)
+	if *versionFlag {
+		ve.GetVersion().Print(cliName)
+		return
 	}
-
 	if folder == "" {
 		fmt.Println("Error: folder must be supplied")
 		return
 	}
+
 	if folderExists(folder) {
 		location, foldername := filepath.Split(folder)
 		info := hcsshim.DriverInfo{

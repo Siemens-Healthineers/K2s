@@ -4,8 +4,8 @@
 package dsl
 
 import (
+	"github.com/siemens-healthineers/k2s/internal/cli"
 	"github.com/siemens-healthineers/k2s/test/framework"
-	"github.com/siemens-healthineers/k2s/test/framework/k2s/cli"
 )
 
 type K2s struct {
