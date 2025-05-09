@@ -169,6 +169,8 @@ function Uninstall-WinNode {
     Write-Log 'Uninstall containerd service if existent'
     Uninstall-WinContainerd -ShallowUninstallation $ShallowUninstallation
     Uninstall-WinDocker -ShallowUninstallation $ShallowUninstallation
+
+    Remove-K2sAppLockerRules
 }
 
 
