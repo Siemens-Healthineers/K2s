@@ -47,7 +47,7 @@ spec:
     - metadata:
         name: persistent-storage
       spec:
-        storageClassName: smb2
+        storageClassName: smb1
         accessModes: ["ReadWriteMany"]
         resources:
           requests:
