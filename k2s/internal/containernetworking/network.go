@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"os"
 	"os/exec"
@@ -17,7 +18,6 @@ import (
 	"github.com/Microsoft/windows-container-networking/common"
 	"github.com/Microsoft/windows-container-networking/network"
 	kos "github.com/siemens-healthineers/k2s/internal/os"
-	"github.com/sirupsen/logrus"
 
 	"github.com/Microsoft/hcsshim/hcn"
 	"github.com/containernetworking/cni/pkg/invoke"
@@ -32,7 +32,6 @@ type netPlugin struct {
 	nm network.Manager
 }
 
-// NewPlugin creates a new netPlugin object.
 func NewPlugin(config *common.PluginConfig) (*netPlugin, error) {
 	// Setup base plugin.
 	plugin, err := cni.NewPlugin("wcn-net", config.Version)
@@ -54,49 +53,49 @@ func NewPlugin(config *common.PluginConfig) (*netPlugin, error) {
 	}, nil
 }
 
-// Starts the plugin.
+// Start starts the plugin
 func (plugin *netPlugin) Start(config *common.PluginConfig) error {
 	// Initialize base plugin.
 	err := plugin.Initialize(config)
 	if err != nil {
-		logrus.Errorf("[cni-net] Failed to initialize base plugin, err:%v.", err)
+		slog.Error("failed to initialize base plugin", "error", err)
 		return err
 	}
 
-	// Log platform information.
-	logrus.Debugf("[cni-net] Plugin %v version %v.", plugin.Name, plugin.Version)
+	slog.Debug("Start plugin", "name", plugin.Name, "version", plugin.Version)
+
 	common.LogNetworkInterfaces()
 
 	// Initialize network manager.
 	err = plugin.nm.Initialize(config)
 	if err != nil {
-		logrus.Errorf("[cni-net] Failed to initialize network manager, err:%v.", err)
+		slog.Error("failed to initialize network manager", "error", err)
 		return err
 	}
 
-	logrus.Debugf("[cni-net] Plugin started.")
+	slog.Debug("Plugin started")
 
 	return nil
 }
 
-// Stops the plugin.
+// Stop stops the plugin.
 func (plugin *netPlugin) Stop() {
 	plugin.nm.Uninitialize()
 	plugin.Uninitialize()
-	logrus.Debugf("[cni-net] Plugin stopped.")
+	slog.Debug("Plugin stopped")
 }
 
-func AreVfpRulesEnabled() bool {
+func areVfpRulesEnabled() bool {
 	val, ok := os.LookupEnv("BRIDGE_NO_VFPRULES")
 	if !ok {
-		logrus.Debugf("[cni-net] VFPRules on")
+		slog.Debug("VFPRules on")
 		return true
 	} else {
 		if val == "true" {
-			logrus.Debugf("[cni-net] VFPRules false")
+			slog.Debug("VFPRules false")
 			return false
 		} else {
-			logrus.Debugf("[cni-net] VFPRules on")
+			slog.Debug("VFPRules on")
 			return true
 		}
 	}
@@ -113,8 +112,7 @@ func AreVfpRulesEnabled() bool {
 // args.IfName - Interface Name specifies the interface the network should bind to (ex: Ethernet).
 // args.Path - Location of the config file.
 func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) (resultError error) {
-	logrus.Debugf("############### [cni-net] ADD command with args {ContainerID:%v Netns:%v IfName:%v Args:%v Path:%v}.",
-		args.ContainerID, args.Netns, args.IfName, args.Args, args.Path)
+	slog.Debug("ADD command with args", "container-id", args.ContainerID, "net-ns", args.Netns, "if-name", args.IfName, "args", args.Args, "path", args.Path)
 
 	var err error
 	var nwConfig *network.NetworkInfo
@@ -124,32 +122,32 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) (resultError error) {
 	if err == nil {
 		k8sNamespace = string(podConfig.K8S_POD_NAMESPACE)
 	}
-	logrus.Errorf("[cni-net] K8sNamespace: %v", k8sNamespace)
+	slog.Error("ADD", "k8s-namespace", k8sNamespace)
 
 	// Parse network configuration from stdin.
 	cniConfig, err := cni.ParseNetworkConfig(args.StdinData)
 	if err != nil {
-		logrus.Errorf("[cni-net] Failed to parse network configuration, err:%v.", err)
+		slog.Error("failed to parse network configuration", "error", err)
 		return err
 	}
 
-	logrus.Debugf("[cni-net] Read network configuration %+v.", cniConfig)
+	slog.Debug("Read network configuration", "config", cniConfig)
 
-	if cniConfig.OptionalFlags.EnableDualStack == false {
-		logrus.Infof("[cni-net] Dual stack is disabled")
+	if cniConfig.OptionalFlags.EnableDualStack {
+		slog.Info("Dual stack is enabled")
 	} else {
-		logrus.Infof("[cni-net] Dual stack is enabled")
+		slog.Info("Dual stack is disabled")
 	}
 
 	// Convert cniConfig to NetworkInfo
 	// We don't set namespace, setting namespace is not valid for EP creation
 	networkInfo, err := cniConfig.GetNetworkInfo(k8sNamespace)
 	if err != nil {
-		logrus.Errorf("[cni-net] Failed to get network information from network configuration, err:%v.", err)
+		slog.Error("failed to get network information from network configuration", "error", err)
 		return err
 	}
-	epInfo, err := cniConfig.GetEndpointInfo(networkInfo, args.ContainerID, "")
 
+	epInfo, err := cniConfig.GetEndpointInfo(networkInfo, args.ContainerID, "")
 	if err != nil {
 		return err
 	}
@@ -158,20 +156,20 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) (resultError error) {
 
 	// Check for missing namespace
 	if args.Netns == "" {
-		logrus.Errorf("[cni-net] Missing Namespace, cannot add, endpoint : [%v].", epInfo)
-		return errors.New("cannot create endpoint without a namespace")
+		slog.Error("missing Namespace, cannot add", "endpoint", epInfo)
+		return errors.New("cannot create endpoint without a Namespace")
 	}
-	logrus.Errorf("[cni-net] Namespace %v found", args.Netns)
+	slog.Error("Namespace found", "net-ns", args.Netns)
 
-	if cniConfig.OptionalFlags.EnableDualStack == false {
+	if !cniConfig.OptionalFlags.EnableDualStack {
 		nwConfig, err = getOrCreateNetwork(plugin, networkInfo, cniConfig)
 	} else {
 		// The network must be created beforehand
 		nwConfig, err = plugin.nm.GetNetworkByName(cniConfig.Name)
 
 		if nwConfig.Type != network.L2Bridge {
-			logrus.Errorf("[cni-net] Dual stack can only be specified with l2bridge network: [%v].", nwConfig.Type)
-			return errors.New("Dual stack specified with non l2bridge network")
+			slog.Error("dual stack specified with non l2bridge network", "network-type", nwConfig.Type)
+			return errors.New("dual stack specified with non l2bridge network")
 		}
 	}
 	if err != nil {
@@ -180,13 +178,14 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) (resultError error) {
 
 	hnsEndpoint, err := plugin.nm.GetEndpointByName(epInfo.Name, cniConfig.OptionalFlags.EnableDualStack)
 	if hnsEndpoint != nil {
-		logrus.Infof("[cni-net] Endpoint %+v already exists for network %v.", hnsEndpoint, nwConfig.ID)
+		slog.Info("Endpoint already exists", "endpoint", hnsEndpoint, "network-id", nwConfig.ID)
+
 		// Endpoint exists
 		// Validate for duplication
 		if hnsEndpoint.NetworkID == nwConfig.ID {
 			// An endpoint already exists in the same network.
 			// Do not allow creation of more endpoints on same network
-			logrus.Debugf("[cni-net] Endpoint exists on same network, ignoring add : [%v].", epInfo)
+			slog.Debug("Endpoint exists on same network, ignoring add", "endpoint", epInfo)
 			// Convert result to the requested CNI version.
 			res := cni.GetCurrResult(nwConfig, hnsEndpoint, args.IfName, cniConfig)
 			result, err := res.GetAsVersion(cniConfig.CniVersion)
@@ -198,7 +197,7 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) (resultError error) {
 			return nil
 		}
 	} else {
-		logrus.Debugf("[cni-net] Creating a new Endpoint")
+		slog.Debug("Creating a new Endpoint")
 	}
 
 	// If Ipam was provided, allocate a pool and obtain address
@@ -210,25 +209,24 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) (resultError error) {
 			cniConfig.OptionalFlags.ForceBridgeGateway,
 			args.StdinData)
 		if err != nil {
-			// Error was logged by allocateIpam.
 			return err
 		}
 		defer func() {
 			if resultError != nil {
-				logrus.Debugf("[cni-net] failure during ADD cleaning-up ipam, %v", err)
+				slog.Debug("failure during ADD cleaning-up ipam", "error", err)
 				os.Setenv("CNI_COMMAND", "DEL")
 				err := deallocateIpam(cniConfig, args.StdinData)
 
 				os.Setenv("CNI_COMMAND", "ADD")
 				if err != nil {
-					logrus.Debugf("[cni-net] failed during ADD command for clean-up delegate delete call, %v", err)
+					slog.Debug("failed during ADD command for clean-up delegate delete call", "error", err)
 				}
 			}
 		}()
 	}
 
 	if cniConfig.OptionalFlags.GatewayFromAdditionalRoutes {
-		logrus.Debugf("[cni-net] GatewayFromAdditionalRoutes set")
+		slog.Debug("GatewayFromAdditionalRoutes set")
 		addEndpointGatewaysFromConfig(epInfo, cniConfig)
 	}
 
@@ -244,15 +242,15 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) (resultError error) {
 	// dump routes
 	if epInfo.Routes != nil {
 		for _, route := range epInfo.Routes {
-			logrus.Debugf("[cni-net] XXXX Route Destination: %s, Gateway: %s", string(route.Destination.IP), string(route.Gateway))
+			slog.Debug("XXXX Route", "destination", string(route.Destination.IP), "gateway", string(route.Gateway))
 		}
 	} else {
-		logrus.Debugf("[cni-net] XXXX No routes yet available")
+		slog.Debug("XXXX No routes available yet")
 	}
 
 	epInfo, err = plugin.nm.CreateEndpoint(nwConfig.ID, epInfo, args.Netns)
 	if err != nil {
-		logrus.Errorf("[cni-net] Failed to create endpoint, error : %v.", err)
+		slog.Error("failed to create endpoint", "error", err)
 		return err
 	}
 
@@ -266,92 +264,167 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) (resultError error) {
 	// Add the extended rules for communication with the host
 	hnsEndpointEp, err := plugin.nm.GetEndpointByName(epInfo.Name, cniConfig.OptionalFlags.EnableDualStack)
 	if hnsEndpointEp != nil {
-		logrus.Debugf("[cni-net] XXXX Endpoint IP: %s, MAC: %s, ID: %s", string(hnsEndpointEp.IPAddress), string(hnsEndpointEp.MacAddress), string(hnsEndpointEp.ID))
+		slog.Debug("[cni-net] XXXX Endpoint", "ip-address", string(hnsEndpointEp.IPAddress), "mac-address", string(hnsEndpointEp.MacAddress), "id", string(hnsEndpointEp.ID))
 
 		// check if VFPRules are on
-		areVFPRulesOn := AreVfpRulesEnabled()
+		areVFPRulesOn := areVfpRulesEnabled()
 		if areVFPRulesOn {
 			// check if executable exists
 			path, errWD := os.Getwd()
 			if errWD == nil {
-				logrus.Debugf("[cni-net] XXXX Current working directory: %s", path)
+				slog.Debug("XXXX Current working directory", "path", path)
 			}
 
 			pathExe, errPath := kos.ExecutableDir()
 			if errPath != nil {
-				logrus.Debugf("[cni-net] XXXX Current directory Error:", errPath)
+				slog.Debug("XXXX Current directory", "error", errPath)
 				return
 			}
 
 			pathCorrected := strings.ReplaceAll(pathExe, "\\\\", "\\")
 			// start exe in path where current cni plugin is available
 			var executable = pathCorrected + "\\" + "vfprules.exe"
-			logrus.Debugf("[cni-net] XXXX Current exe directory: %s", executable)
+
+			slog.Debug("XXXX Current exe directory", "path", executable)
+
 			fExec, err := os.Open(executable)
 			if err == nil {
 				fExec.Close()
 				// call tool to add additional VFP rules
 				command := executable + " -portid " + string(hnsEndpointEp.ID)
-				logrus.Debugf("[cni-net] XXXX Executing command: %s", command)
+
+				slog.Debug("XXXX Executing command", "command", command)
+
 				cmd := exec.Command(executable, "-portid", string(hnsEndpointEp.ID))
 				// run command
 				if err := cmd.Start(); err != nil {
-					logrus.Debugf("[cni-net] XXXX Starting VFP rules executable. Error:", err)
+					slog.Debug("XXXX Starting VFP rules executable", "error", err)
 				} else {
-					logrus.Debugf("[cni-net] XXXX Starting VFP rules executable. Successfull\n")
+					slog.Debug("XXXX Starting VFP rules executable successfully")
 				}
 			}
 		}
 
 		// check if enhanced security is on
-		if IsEnhancedSecurityEnabled() {
-
+		if isEnhancedSecurityEnabled() {
 			// check annotation
 			k8sNamespace := string(podConfig.K8S_POD_NAMESPACE)
 			k8sName := string(podConfig.K8S_POD_NAME)
 
 			// start additing configured rules to HNS
-			err = HnsProxyAddPoliciesFromConfig(hnsEndpointEp.ID)
+			err = hnsProxyAddPoliciesFromConfig(hnsEndpointEp.ID)
 			if err != nil {
-				logrus.Debugf("[cni-net] XXXX Apply of proxy policy failed. Error:", err)
+				slog.Debug("XXXX Apply of proxy policy failed", "error", err)
 			}
 
 			// start for L4 proxy handling
 			// check if executable exists
 			path, errWD := os.Getwd()
 			if errWD == nil {
-				logrus.Debugf("[cni-net] XXXX Current working directory: %s", path)
+				slog.Debug("XXXX Current working directory", "path", path)
 			}
 
 			pathExe, errPath := kos.ExecutableDir()
 			if errPath != nil {
-				logrus.Debugf("[cni-net] XXXX Current directory Error:", errPath)
+				slog.Debug("XXXX Current directory", "error", errPath)
 				return
 			}
 
 			pathCorrected := strings.ReplaceAll(pathExe, "\\\\", "\\")
 			// start exe in path where current cni plugin is available
 			var executable = pathCorrected + "\\" + "l4proxy.exe"
-			logrus.Debugf("[cni-net] XXXX Current exe directory: %s", executable)
+
+			slog.Debug("XXXX Current exe directory", "path", executable)
+
 			fExec, err := os.Open(executable)
 			if err == nil {
 				fExec.Close()
 				// call tool to add additional VFP rules
 				command := executable + " -endpointid " + string(hnsEndpointEp.ID) + " -namespace " + k8sNamespace + " -podname " + k8sName
-				logrus.Debugf("[cni-net] XXXX Executing command: %s", command)
+
+				slog.Debug("XXXX Executing command", "command", command)
+
 				cmd := exec.Command(executable, "-endpointid", string(hnsEndpointEp.ID), "-namespace", k8sNamespace, "-podname", k8sName)
 				// run command
 				if output, err := cmd.CombinedOutput(); err != nil {
-					logrus.Debugf("[cni-net] XXXX Starting l4proxy executable. Error:", err, string(output))
+					slog.Debug("XXXX Starting l4proxy executable", "error", err, "output", string(output))
 				} else {
-					logrus.Debugf("[cni-net] XXXX Starting l4proxy executable. Successfull: \n", string(output))
+					slog.Debug("XXXX Starting l4proxy executable successfully", "output", string(output))
 				}
 			}
 		}
 	}
 
 	result.Print()
-	logrus.Debugf("############### [cni-net] ADD command result: %+v", result)
+
+	slog.Debug("ADD command", "result", result)
+
+	return nil
+}
+
+// Delete handles CNI delete commands.
+// args.Path - Location of the config file.
+func (plugin *netPlugin) Delete(args *cniSkel.CmdArgs) error {
+	slog.Debug("Processing DEL command with args", "container-id", args.ContainerID, "net-ns", args.Netns, "if-name", args.IfName, "args", args.Args, "path", args.Path)
+
+	podConfig, err := cni.ParseCniArgs(args.Args)
+	k8sNamespace := ""
+	if err == nil {
+		k8sNamespace = string(podConfig.K8S_POD_NAMESPACE)
+	}
+	// Parse network configuration from stdin.
+	cniConfig, err := cni.ParseNetworkConfig(args.StdinData)
+	if err != nil {
+		slog.Error("failed to parse network configuration", "error", err)
+		return err
+	}
+
+	slog.Debug("Read network configuration", "config", cniConfig)
+
+	if cniConfig.Ipam.Type != "" {
+		slog.Debug("Ipam detected, executing delegate call to delete ipam", "ipam", cniConfig.Ipam)
+		err := deallocateIpam(cniConfig, args.StdinData)
+
+		if err != nil {
+			slog.Error("failed during delete call for ipam", "error", err)
+			return fmt.Errorf("ipam deletion failed, %v", err)
+		}
+	}
+
+	// Convert cniConfig to NetworkInfo
+	networkInfo, err := cniConfig.GetNetworkInfo(k8sNamespace)
+	if err != nil {
+		slog.Error("failed to get network information from network configuration", "error", err)
+		return err
+	}
+	epInfo, err := cniConfig.GetEndpointInfo(networkInfo, args.ContainerID, args.Netns)
+	if err != nil {
+		return err
+	}
+	endpointInfo, err := plugin.nm.GetEndpointByName(epInfo.Name, cniConfig.OptionalFlags.EnableDualStack)
+	if err != nil {
+		if hcn.IsNotFoundError(err) {
+			slog.Debug("endpoint was not found", "error", err)
+			return nil
+		}
+		slog.Error("failed while getting endpoint", "error", err)
+		return err
+	}
+
+	// Delete the endpoint.
+	err = plugin.nm.DeleteEndpoint(endpointInfo.ID)
+	if err != nil {
+		if hcn.IsNotFoundError(err) {
+			slog.Debug("endpoint was not found", "error", err)
+			return nil
+		} else {
+			slog.Error("failed to delete endpoint", "error", err)
+			return err
+		}
+	}
+
+	slog.Debug("DEL succeeded")
+
 	return nil
 }
 
@@ -369,12 +442,11 @@ func addEndpointGatewaysFromConfig(
 			isv4 = true
 		}
 
-		logrus.Debugf("[cni-net] Entry dst:%v, gw:%v", addr.Dst.String(), addr.GW.String())
+		slog.Debug("Entry", "destination", addr.Dst.String(), "gateway", addr.GW.String())
 
 		if isv4 {
 			if endpointInfo.Gateway == nil {
-
-				logrus.Debugf("[cni-net] Found no ipv4 gateway")
+				slog.Debug("Found no ipv4 gateway")
 
 				m1, _ := addr.Dst.Mask.Size()
 				m2, _ := defaultDestipv4Network.Mask.Size()
@@ -382,13 +454,13 @@ func addEndpointGatewaysFromConfig(
 				if m1 == m2 &&
 					addr.Dst.IP.Equal(defaultDestipv4) {
 					endpointInfo.Gateway = addr.GW
-					logrus.Debugf("[cni-net] Assigned % as ipv4 gateway", endpointInfo.Gateway.String())
+
+					slog.Debug("Assigned ipv4", "gateway", endpointInfo.Gateway.String())
 				}
 			}
 		} else {
 			if endpointInfo.Gateway6 == nil {
-
-				logrus.Debugf("[cni-net] Found no ipv6 gateway")
+				slog.Debug("Found no ipv6 gateway")
 
 				m1, _ := addr.Dst.Mask.Size()
 				m2, _ := defaultDestipv6Network.Mask.Size()
@@ -396,7 +468,8 @@ func addEndpointGatewaysFromConfig(
 				if m1 == m2 &&
 					addr.Dst.IP.Equal(defaultDestipv6) {
 					endpointInfo.Gateway6 = addr.GW
-					logrus.Debugf("[cni-net] Assigned % as ipv6 gateway", endpointInfo.Gateway6.String())
+
+					slog.Debug("Assigned ipv6", "gateway", endpointInfo.Gateway6.String())
 				}
 			}
 		}
@@ -418,28 +491,29 @@ func allocateIpam(
 	var resultImpl *cniTypesImpl.Result
 	var err error
 
-	if cniConfig.OptionalFlags.EnableDualStack == false {
+	if cniConfig.OptionalFlags.EnableDualStack {
+		result, err = invoke.DelegateAdd(context.TODO(), cniConfig.Ipam.Type, networkConfByteStream, nil)
+	} else {
 		// It seems the right thing would be to pass the original byte stream instead of the one
 		// which cni parsed into NetworkConfig. However to preserve compatibility continue
 		// the current behavior when dual stack is not enabled
 		result, err = invoke.DelegateAdd(context.TODO(), cniConfig.Ipam.Type, cniConfig.Serialize(), nil)
-	} else {
-		result, err = invoke.DelegateAdd(context.TODO(), cniConfig.Ipam.Type, networkConfByteStream, nil)
 	}
 
 	if err != nil {
-		logrus.Infof("[cni-net] Failed to allocate pool, err:%v.", err)
+		slog.Info("failed to allocate pool", "error", err)
 		return err
 	}
 
 	resultImpl, err = cniTypesImpl.GetResult(result)
 	if err != nil {
-		logrus.Debugf("[cni-net] Failed to allocate pool, err:%v.", err)
+		slog.Debug("failed to allocate pool", "error", err)
 		return err
 	}
 
-	logrus.Debugf("[cni-net] IPAM plugin returned result %v.", resultImpl)
-	if cniConfig.OptionalFlags.EnableDualStack == false {
+	slog.Debug("IPAM plugin returned", "result", resultImpl)
+
+	if !cniConfig.OptionalFlags.EnableDualStack {
 		// Derive the subnet from allocated IP address.
 		if resultImpl.IP4 != nil {
 			var subnetInfo = network.SubnetInfo{
@@ -451,7 +525,7 @@ func allocateIpam(
 			endpointInfo.IPAddress = resultImpl.IP4.IP.IP
 			endpointInfo.Gateway = resultImpl.IP4.Gateway
 
-			if forceBridgeGateway == true {
+			if forceBridgeGateway {
 				endpointInfo.Gateway = resultImpl.IP4.IP.IP.Mask(resultImpl.IP4.IP.Mask)
 				endpointInfo.Gateway[3] = 2
 			}
@@ -460,7 +534,7 @@ func allocateIpam(
 
 			for _, route := range resultImpl.IP4.Routes {
 				// Only default route is populated when calling HNS, and the below information is not passed
-				logrus.Debugf("[cni-net] XXXX adding routes from ipam")
+				slog.Debug("XXXX adding routes from ipam")
 				endpointInfo.Routes = append(endpointInfo.Routes, network.RouteInfo{Destination: route.Dst, Gateway: route.GW})
 			}
 		}
@@ -471,26 +545,25 @@ func allocateIpam(
 			endpointInfo.IP4Mask = resultImpl.IP4.IP.Mask
 			endpointInfo.Gateway = resultImpl.IP4.Gateway
 
-			if forceBridgeGateway == true {
+			if forceBridgeGateway {
 				endpointInfo.Gateway = resultImpl.IP4.IP.IP.Mask(resultImpl.IP4.IP.Mask)
 				endpointInfo.Gateway[3] = 2
 			}
 
 			for _, route := range resultImpl.IP4.Routes {
 				// Only default route is populated when calling HNS, and the below information is not being passed right now
-				logrus.Debugf("[cni-net] XXXX adding routes from ipam")
+				slog.Debug("XXXX adding routes from ipam")
 				endpointInfo.Routes = append(endpointInfo.Routes, network.RouteInfo{Destination: route.Dst, Gateway: route.GW})
 			}
 		}
 
 		if resultImpl.IP6 != nil {
-
 			endpointInfo.IPAddress6 = resultImpl.IP6.IP
 			endpointInfo.Gateway6 = resultImpl.IP6.Gateway
 
 			for _, route := range resultImpl.IP6.Routes {
 				// Only default route is populated when calling HNS, and the below information is not being passed right now
-				logrus.Debugf("[cni-net] XXXX adding routes from ipam")
+				slog.Debug("XXXX adding routes from ipam")
 				endpointInfo.Routes = append(endpointInfo.Routes, network.RouteInfo{Destination: route.Dst, Gateway: route.GW})
 			}
 		}
@@ -501,15 +574,13 @@ func allocateIpam(
 
 // deallocateIpam performs the cleanup necessary for removing an ipam
 func deallocateIpam(cniConfig *cni.NetworkConfig, networkConfByteStream []byte) error {
-
-	if cniConfig.OptionalFlags.EnableDualStack == false {
-		logrus.Infof("[cni-net] Delete from ipam when dual stack is disabled")
+	if !cniConfig.OptionalFlags.EnableDualStack {
+		slog.Info("Delete from ipam when dual stack is disabled")
 		return invoke.DelegateDel(context.TODO(), cniConfig.Ipam.Type, cniConfig.Serialize(), nil)
-	} else {
-		logrus.Infof("[cni-net] Delete from ipam when dual stack is enabled")
-		return invoke.DelegateDel(context.TODO(), cniConfig.Ipam.Type, networkConfByteStream, nil)
 	}
 
+	slog.Info("Delete from ipam when dual stack is enabled")
+	return invoke.DelegateDel(context.TODO(), cniConfig.Ipam.Type, networkConfByteStream, nil)
 }
 
 // getOrCreateNetwork
@@ -523,199 +594,37 @@ func getOrCreateNetwork(
 	nwConfig, err := plugin.nm.GetNetworkByName(cniConfig.Name)
 	if err != nil {
 		// Network does not exist.
-		logrus.Infof("[cni-net] Creating network.")
+		slog.Info("Creating network")
 
 		nwConfig, err = plugin.nm.CreateNetwork(networkInfo)
 		if err != nil {
-			logrus.Errorf("[cni-net] Failed to create network, err:%v.", err)
+			slog.Error("failed to create network", "error", err)
 			return nil, err
 		}
 
-		logrus.Debugf("[cni-net] Created network %v with subnet %v.", nwConfig.ID, cniConfig.Ipam.Subnet)
+		slog.Debug("Created network", "network-id", nwConfig.ID, "subnet", cniConfig.Ipam.Subnet)
 	} else {
 		// Network already exists.
-		logrus.Debugf("[cni-net] Found network %v with subnet %v.", nwConfig.ID, nwConfig.Subnets)
+		slog.Debug("Found network", "network-id", nwConfig.ID, "subnet", cniConfig.Ipam.Subnet)
 	}
 	return nwConfig, nil
 }
 
-// Delete handles CNI delete commands.
-// args.Path - Location of the config file.
-func (plugin *netPlugin) Delete(args *cniSkel.CmdArgs) error {
-	logrus.Debugf("[cni-net] Processing DEL command with args {ContainerID:%v Netns:%v IfName:%v Args:%v Path:%v}",
-		args.ContainerID, args.Netns, args.IfName, args.Args, args.Path)
-
-	podConfig, err := cni.ParseCniArgs(args.Args)
-	k8sNamespace := ""
-	if err == nil {
-		k8sNamespace = string(podConfig.K8S_POD_NAMESPACE)
-	}
-	// Parse network configuration from stdin.
-	cniConfig, err := cni.ParseNetworkConfig(args.StdinData)
-	if err != nil {
-		logrus.Errorf("[cni-net] Failed to parse network configuration, err:%v", err)
-		return err
-	}
-
-	logrus.Debugf("[cni-net] Read network configuration %+v.", cniConfig)
-
-	if cniConfig.Ipam.Type != "" {
-		logrus.Debugf("[cni-net] Ipam detected, executing delegate call to delete ipam, %v", cniConfig.Ipam)
-		err := deallocateIpam(cniConfig, args.StdinData)
-
-		if err != nil {
-			logrus.Debugf("[cni-net] Failed during delete call for ipam, %v", err)
-			return fmt.Errorf("ipam deletion failed, %v", err)
-		}
-	}
-
-	// Convert cniConfig to NetworkInfo
-	networkInfo, err := cniConfig.GetNetworkInfo(k8sNamespace)
-	if err != nil {
-		logrus.Errorf("[cni-net] Failed to get network information from network configuration, err:%v.", err)
-		return err
-	}
-	epInfo, err := cniConfig.GetEndpointInfo(networkInfo, args.ContainerID, args.Netns)
-	if err != nil {
-		return err
-	}
-	endpointInfo, err := plugin.nm.GetEndpointByName(epInfo.Name, cniConfig.OptionalFlags.EnableDualStack)
-	if err != nil {
-		if hcn.IsNotFoundError(err) {
-			logrus.Debugf("[cni-net] Endpoint was not found error, err:%v", err)
-			return nil
-		}
-		logrus.Errorf("[cni-net] Failed while getting endpoint, err:%v", err)
-		return err
-	}
-
-	// Delete the endpoint.
-	err = plugin.nm.DeleteEndpoint(endpointInfo.ID)
-	if err != nil {
-		if hcn.IsNotFoundError(err) {
-			logrus.Debugf("[cni-net] Endpoint was not found error, err:%v", err)
-			return nil
-		} else {
-			logrus.Errorf("[cni-net] Failed to delete endpoint, err:%v", err)
-			return err
-		}
-	}
-	logrus.Debugf("[cni-net] DEL succeeded.")
-	return nil
-}
-
-func IsEnhancedSecurityEnabled() bool {
-	logrus.Debugf("[cni-net] Checking if enhanced security is enabled")
+func isEnhancedSecurityEnabled() bool {
+	slog.Debug("Checking if enhanced security is enabled")
 	// check if a file enhancedsecurity.json is available under programmdata folder
 	val, ok := os.LookupEnv("ProgramData")
 	if !ok {
-		logrus.Debugf("[cni-net] Enhanced security off, variable not found")
+		slog.Debug("Enhanced security off, variable not found")
 		return false
 	}
 	// check if marker file is there
 	if _, err := os.Stat(val + "\\k2s\\enhancedsecurity.json"); err == nil {
-		logrus.Debugf("[cni-net] Enhanced security on")
+		slog.Debug("Enhanced security on")
 		return true
 	}
-	logrus.Debugf("[cni-net] Enhanced security off, marker file is not set under programdata folder")
+
+	slog.Debug("Enhanced security off, marker file is not set under programdata folder")
+
 	return false
 }
-
-// // getCRIClient connects to the CRI socket
-// func getCRIClient() (runtimeapi.RuntimeServiceClient, *grpc.ClientConn, error) {
-// 	// Use the Windows named pipe for ContainerD
-// 	const pipePath = `\\.\pipe\containerd-containerd`
-
-// 	dialOpts := []grpc.DialOption{
-// 		grpc.WithInsecure(),
-// 		grpc.WithContextDialer(func(ctx context.Context, s string) (net.Conn, error) {
-// 			return winio.DialPipe(s, nil)
-// 		}),
-// 	}
-
-// 	conn, err := grpc.Dial(pipePath, dialOpts...)
-// 	if err != nil {
-// 		return nil, nil, fmt.Errorf("failed to connect to CRI runtime: %v", err)
-// 	}
-
-// 	return runtimeapi.NewRuntimeServiceClient(conn), conn, nil
-// }
-
-// func getPodSandboxID(client runtimeapi.RuntimeServiceClient, podName string, namespace string) (string, error) {
-// 	// List Pod Sandboxes
-// 	resp, err := client.ListPodSandbox(context.TODO(), &runtimeapi.ListPodSandboxRequest{})
-// 	if err != nil {
-// 		return "", fmt.Errorf("failed to list pod sandboxes: %v", err)
-// 	}
-
-// 	// Search for the target pod
-// 	for _, sandbox := range resp.Items {
-// 		logrus.Debug("IsSideCarContainerRunning: Containername:", sandbox.Metadata.Name)
-// 		if sandbox.Metadata.Name == podName && sandbox.Metadata.Namespace == namespace {
-// 			return sandbox.Id, nil
-// 		}
-// 	}
-
-// 	return "", fmt.Errorf("pod %s not found in namespace %s", podName, namespace)
-// }
-
-// // getContainersInPod finds container names in the Pod Sandbox
-// func getContainersInPod(client runtimeapi.RuntimeServiceClient, sandboxID string) ([]string, error) {
-// 	resp, err := client.ListContainers(context.TODO(), &runtimeapi.ListContainersRequest{})
-// 	if err != nil {
-// 		return nil, fmt.Errorf("failed to list containers: %v", err)
-// 	}
-
-// 	var containerNames []string
-// 	for _, container := range resp.Containers {
-// 		if container.PodSandboxId == sandboxID {
-// 			containerNames = append(containerNames, container.Metadata.Name)
-// 		}
-// 	}
-
-// 	return containerNames, nil
-// }
-
-// func IsSideCarContainerRunning(name string, podnamespace string, podname string) (string, error) {
-// 	logrus.Debugf("IsSideCarContainerRunning: Trying to connect")
-// 	// Connect to CRI runtime
-// 	client, conn, err := getCRIClient()
-// 	if err != nil {
-// 		logrus.Error("IsSideCarContainerRunning getCRIClient Error:", err)
-// 		return "", err
-// 	}
-// 	defer conn.Close()
-
-// 	// Get Pod Sandbox ID
-// 	sandboxID, err := getPodSandboxID(client, podname, podnamespace)
-// 	if err != nil {
-// 		logrus.Error("IsSideCarContainerRunning getPodSandboxID Error:", err)
-// 		return "", err
-// 	}
-
-// 	// Get containers inside the Pod
-// 	containers, err := getContainersInPod(client, sandboxID)
-// 	if err != nil {
-// 		logrus.Error("IsSideCarContainerRunning getContainersInPod Error:", err)
-// 		return "", err
-// 	}
-
-// 	logrus.Debug("IsSideCarContainerRunning: Containers:", containers)
-
-// 	return podname, nil
-// }
-
-// func IsSideCarContainerRunningWithRetry(name string, podnamespace string, podname string) (string, error) {
-// 	var containername string
-// 	var err error
-// 	const retries = 10
-// 	for i := 1; i <= retries; i++ {
-// 		containername, err = IsSideCarContainerRunning(name, podnamespace, podname)
-// 		if err == nil {
-// 			return containername, nil // Success
-// 		}
-// 		logrus.Debug("IsSideCarContainerRunningWithRetry: Did not find container yet:", err)
-// 		time.Sleep(1000 * time.Millisecond) // Wait before retrying
-// 	}
-// 	return "", fmt.Errorf("failed to get sandbox ID after %d retries: %v", retries, err)
-// }

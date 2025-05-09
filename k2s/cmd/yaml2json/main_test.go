@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
+	"github.com/siemens-healthineers/k2s/internal/cli"
 )
 
 type TestContent struct {
@@ -86,7 +87,7 @@ var _ = Describe("yaml2json", func() {
 				BeforeAll(func(ctx context.Context) {
 					cmd := exec.Command(exePath, "-input", yamlPath, "-output", jsonPath)
 
-					executeCmd(cmd, ctx, 0)
+					executeCmd(cmd, ctx, cli.ExitCodeSuccess)
 
 					var err error
 					rawJson, err = os.ReadFile(jsonPath)
@@ -110,7 +111,7 @@ var _ = Describe("yaml2json", func() {
 				BeforeAll(func(ctx context.Context) {
 					cmd := exec.Command(exePath, "-input", yamlPath, "-output", jsonPath, "-indent")
 
-					executeCmd(cmd, ctx, 0)
+					executeCmd(cmd, ctx, cli.ExitCodeSuccess)
 
 					var err error
 					rawJson, err = os.ReadFile(jsonPath)
@@ -135,7 +136,7 @@ var _ = Describe("yaml2json", func() {
 			It("exits with non-zero code", func(ctx context.Context) {
 				cmd := exec.Command(exePath, "-input", invalidYamlPath, "-output", jsonPath)
 
-				executeCmd(cmd, ctx, 1)
+				executeCmd(cmd, ctx, cli.ExitCodeFailure)
 			})
 		})
 	})
@@ -144,7 +145,7 @@ var _ = Describe("yaml2json", func() {
 		It("exits with non-zero code", func(ctx context.Context) {
 			cmd := exec.Command(exePath, "-input", "non-existent", "-output", jsonPath)
 
-			executeCmd(cmd, ctx, 1)
+			executeCmd(cmd, ctx, cli.ExitCodeFailure)
 		})
 	})
 
@@ -152,7 +153,7 @@ var _ = Describe("yaml2json", func() {
 		It("exits with non-zero code", func(ctx context.Context) {
 			cmd := exec.Command(exePath, "-output", jsonPath)
 
-			executeCmd(cmd, ctx, 1)
+			executeCmd(cmd, ctx, cli.ExitCodeFailure)
 		})
 	})
 
@@ -160,7 +161,7 @@ var _ = Describe("yaml2json", func() {
 		It("exits with non-zero code", func(ctx context.Context) {
 			cmd := exec.Command(exePath, "-input", "some value")
 
-			executeCmd(cmd, ctx, 1)
+			executeCmd(cmd, ctx, cli.ExitCodeFailure)
 		})
 	})
 
@@ -168,7 +169,7 @@ var _ = Describe("yaml2json", func() {
 		It("logs nothing on success", func(ctx context.Context) {
 			cmd := exec.Command(exePath, "-input", yamlPath, "-output", jsonPath, "-verbosity", "error")
 
-			output := executeCmd(cmd, ctx, 0)
+			output := executeCmd(cmd, ctx, cli.ExitCodeSuccess)
 
 			Expect(output).To(BeEmpty())
 		})
@@ -178,21 +179,21 @@ var _ = Describe("yaml2json", func() {
 		It("logs basics on success", func(ctx context.Context) {
 			cmd := exec.Command(exePath, "-input", yamlPath, "-output", jsonPath, "-verbosity", "info")
 
-			output := executeCmd(cmd, ctx, 0)
+			output := executeCmd(cmd, ctx, cli.ExitCodeSuccess)
 
 			Expect(output).ToNot(BeEmpty())
 		})
 	})
 })
 
-func executeCmd(cmd *exec.Cmd, ctx context.Context, expectedExitCode int) string {
+func executeCmd(cmd *exec.Cmd, ctx context.Context, expectedExitCode cli.ExitCode) string {
 	session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 	Expect(err).ToNot(HaveOccurred())
 
 	Eventually(session,
 		1*time.Second,
 		50*time.Millisecond,
-		ctx).Should(gexec.Exit(expectedExitCode), "Command '%v' exited with exit code '%v' instead of %d", session.Command, session.ExitCode(), expectedExitCode)
+		ctx).Should(gexec.Exit(int(expectedExitCode)), "Command '%v' exited with exit code '%v' instead of %d", session.Command, session.ExitCode(), expectedExitCode)
 
 	return string(session.Out.Contents())
 }

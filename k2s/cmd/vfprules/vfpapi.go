@@ -5,30 +5,29 @@
 package main
 
 import (
-	"fmt"
+	"log/slog"
 	"net"
 	"os"
 	"path/filepath"
 	"syscall"
 	"unsafe"
-
-	"github.com/sirupsen/logrus"
 )
 
 // Get the directory of the module
-func GetModuleDirectory() string {
+func getModuleDirectory() string {
 	exePath, err := os.Executable()
 	if err != nil {
-		logrus.Fatal("GetModuleDirectory: Error getting executable path, err:", err)
+		slog.Error("GetModuleDirectory: failed to get executable path", "error", err)
+		os.Exit(1)
 	}
 	dir := filepath.Dir(exePath)
-	logrus.Debug("Module directory where vfprules.dll is searched: ", dir)
+	slog.Debug("Module directory where vfprules.dll is searched", "dir", dir)
 	return dir
 }
 
 // VfpRoutes struct to hold the routes to be added
-func VfpAddRule(name string, portid string, startip string, stopip string, priority string, gateway string) (uint32, error) {
-	vfrulesDLL := syscall.NewLazyDLL(GetModuleDirectory() + "\\vfprules.dll")
+func vfpAddRule(name string, portid string, startip string, stopip string, priority string, gateway string) (uint32, error) {
+	vfrulesDLL := syscall.NewLazyDLL(getModuleDirectory() + "\\vfprules.dll")
 	procVfpAddRule := vfrulesDLL.NewProc("VfpAddRule")
 	ret, _, err := procVfpAddRule.Call(
 		uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(name))),
@@ -44,8 +43,8 @@ func VfpAddRule(name string, portid string, startip string, stopip string, prior
 	return 0, err
 }
 
-// GetStartStopIp converts a subnet definition into start and stop IP addresses.
-func GetStartStopIp(subnet string) (string, string, error) {
+// getStartStopIp converts a subnet definition into start and stop IP addresses.
+func getStartStopIp(subnet string) (string, string, error) {
 	// Parse the subnet definition
 	ip, ipNet, err := net.ParseCIDR(subnet)
 	if err != nil {
@@ -65,29 +64,28 @@ func GetStartStopIp(subnet string) (string, string, error) {
 }
 
 // Function which adds the rules to the vfprules.dll using the VfpAddRule function
-func AddVfpRulesWithVfpApi(portid string, port string, vfpRoutes *VfpRoutes, logDir string) error {
-	logrus.Debug("[cni-net] AddVfpRulesWithVfpApi: ", portid, port, vfpRoutes, logDir)
+func addVfpRulesWithVfpApi(portid string, port string, vfpRoutes *VfpRoutes, logDir string) error {
+	slog.Debug("addVfpRulesWithVfpApi", "port-id", portid, "port", port, "vfp-routes", vfpRoutes, "log-dir", logDir)
 
 	// go through rules and add them
 	for _, vfpRoute := range vfpRoutes.Routes {
-		debugLog := fmt.Sprintf("[cni-net] Name: %s, Subnet: %s, Gateway: %s, Priority: %s", vfpRoute.Name, vfpRoute.Subnet, vfpRoute.Gateway, vfpRoute.Priority)
-		logrus.Info(debugLog)
+		slog.Info("addVfpRulesWithVfpApi: vfp route", "name", vfpRoute.Name, "subnet", vfpRoute.Subnet, "gateway", vfpRoute.Gateway, "priority", vfpRoute.Priority)
 		// get mac address of gateway
-		mac, errmac := GetMacOfGateway(vfpRoute.Gateway)
+		mac, errmac := getMacOfGateway(vfpRoute.Gateway)
 		if errmac != nil {
-			logrus.Info("AddVfpRules: Getting MAC not found error, will continue with the other rules, err:", errmac)
+			slog.Info("AddVfpRules: MAC not found, will continue with the other rules", "error", errmac)
 		} else {
 			// build from subnet definition start and stop ip
-			startip, stopip, err := GetStartStopIp(vfpRoute.Subnet)
+			startip, stopip, err := getStartStopIp(vfpRoute.Subnet)
 			if err != nil {
-				logrus.Info("AddVfpRules: Getting StartStopIp error, will continue with the other rules, err:", err)
+				slog.Info("AddVfpRules: StartStopIp error, will continue with the other rules", "error", err)
 				continue
 			}
 
 			// write the rules to be added using the vfprules.dll
-			int32, error := VfpAddRule(vfpRoute.Name, portid, startip, stopip, vfpRoute.Priority, mac)
+			int32, error := vfpAddRule(vfpRoute.Name, portid, startip, stopip, vfpRoute.Priority, mac)
 			if error != nil {
-				logrus.Info("AddVfpRules: Adding rule error, will continue with the other rules, err:", error, " int32:", int32)
+				slog.Info("AddVfpRules: Adding rule error, will continue with the other rules", "error", error, "int32", int32)
 				continue
 			}
 		}
