@@ -360,7 +360,11 @@ Describe 'New-SmbHostOnWindowsIfNotExisting' -Tag 'unit', 'ci', 'addon', 'storag
 
         It 'does nothing' {
             InModuleScope $moduleName {
+                foreach($pathValue in $shareDir){
+                    Set-ShareDirValue -PathValue $pathValue
                 New-SmbHostOnWindowsIfNotExisting
+                break
+                }
                 Should -Invoke Write-Log -Times 1 -Scope Context -ParameterFilter { $Messages -match 'nothing to create' }
             }
         }
@@ -376,7 +380,11 @@ Describe 'New-SmbHostOnWindowsIfNotExisting' -Tag 'unit', 'ci', 'addon', 'storag
             Mock -ModuleName $moduleName Add-FirewallExceptions { }
 
             InModuleScope $moduleName {
-                New-SmbHostOnWindowsIfNotExisting
+                foreach($pathValue in $shareDir){
+                    Set-ShareDirValue -PathValue $pathValue
+                    New-SmbHostOnWindowsIfNotExisting
+                    break
+                }
             }
         }
 
@@ -415,8 +423,11 @@ Describe 'Remove-SmbHostOnWindowsIfExisting' -Tag 'unit', 'ci', 'addon', 'storag
 
         It 'does nothing' {
             InModuleScope $moduleName {
-                Remove-SmbHostOnWindowsIfExisting
-
+                foreach($pathValue in $shareDir){
+                    Set-ShareDirValue -PathValue $pathValue
+                    Remove-SmbHostOnWindowsIfExisting
+                    break
+                }
                 Should -Invoke Write-Log -Times 1 -Scope Context -ParameterFilter { $Messages[0] -match 'nothing to remove' }
             }
         }
@@ -432,7 +443,11 @@ Describe 'Remove-SmbHostOnWindowsIfExisting' -Tag 'unit', 'ci', 'addon', 'storag
             Mock -ModuleName $moduleName Remove-FirewallExceptions { }
 
             InModuleScope $moduleName {
-                Remove-SmbHostOnWindowsIfExisting
+                foreach($pathValue in $shareDir){
+                    Set-ShareDirValue -PathValue $pathValue
+                    Remove-SmbHostOnWindowsIfExisting
+                    break
+                }
             }
         }
 
@@ -584,7 +599,7 @@ Describe 'New-StorageClassManifest' -Tag 'unit', 'ci', 'addon', 'storage smb' {
     }
 }
 
-Describe 'Wait-ForStorageClassToBeReady' -Tag 'unit', 'ci', 'addon', 'storage smb' {
+Describe 'Wait-ForPodToBeReady' -Tag 'unit', 'ci', 'addon', 'storage smb' {
     Context 'success' {
         BeforeAll {
             Mock -ModuleName $moduleName Write-Log {}
@@ -593,7 +608,7 @@ Describe 'Wait-ForStorageClassToBeReady' -Tag 'unit', 'ci', 'addon', 'storage sm
 
         It 'does not throw' {
             InModuleScope -ModuleName $moduleName {
-                { Wait-ForStorageClassToBeReady -TimeoutSeconds 123 } | Should -Not -Throw
+                { Wait-ForPodToBeReady -TimeoutSeconds 123 } | Should -Not -Throw
             }
         }
     }
@@ -606,13 +621,13 @@ Describe 'Wait-ForStorageClassToBeReady' -Tag 'unit', 'ci', 'addon', 'storage sm
 
         It 'throws' {
             InModuleScope -ModuleName $moduleName {
-                { Wait-ForStorageClassToBeReady -TimeoutSeconds 123 } | Should -Throw -ExpectedMessage 'StorageClass not ready within 123s'
+                { Wait-ForPodToBeReady -TimeoutSeconds 123 } | Should -Throw -ExpectedMessage 'StorageClass not ready within 123s'
             }
         }
     }
 }
 
-Describe 'Wait-ForStorageClassToBeDeleted' -Tag 'unit', 'ci', 'addon', 'storage smb' {
+Describe 'Wait-ForPodToBeDeleted' -Tag 'unit', 'ci', 'addon', 'storage smb' {
     Context 'success' {
         BeforeAll {
             Mock -ModuleName $moduleName Write-Log {}
@@ -621,7 +636,7 @@ Describe 'Wait-ForStorageClassToBeDeleted' -Tag 'unit', 'ci', 'addon', 'storage 
 
         It 'does not throw' {
             InModuleScope -ModuleName $moduleName {
-                { Wait-ForStorageClassToBeDeleted -TimeoutSeconds 123 } | Should -Not -Throw
+                { Wait-ForPodToBeDeleted -TimeoutSeconds 123 } | Should -Not -Throw
             }
         }
     }
@@ -634,7 +649,7 @@ Describe 'Wait-ForStorageClassToBeDeleted' -Tag 'unit', 'ci', 'addon', 'storage 
 
         It 'logs that it failed' {
             InModuleScope -ModuleName $moduleName {
-                Wait-ForStorageClassToBeDeleted -TimeoutSeconds 123 
+                Wait-ForPodToBeDeleted -TimeoutSeconds 123 
                 
                 Should -Invoke Write-Log -Times 1 -Scope Context -ParameterFilter { $Messages -match 'StorageClass not deleted within 123s' }                
             }
@@ -647,7 +662,7 @@ Describe 'Restore-StorageClass' -Tag 'unit', 'ci', 'addon', 'storage smb' {
         Mock -ModuleName $moduleName Add-Secret {}
         Mock -ModuleName $moduleName New-StorageClassManifest {}
         Mock -ModuleName $moduleName Invoke-Kubectl { return [pscustomobject]@{Success = $true } }
-        Mock -ModuleName $moduleName Wait-ForStorageClassToBeReady {}
+        Mock -ModuleName $moduleName Wait-ForPodToBeReady {}
         Mock -ModuleName $moduleName Write-Log {}
     }
 
@@ -676,7 +691,7 @@ Describe 'Restore-StorageClass' -Tag 'unit', 'ci', 'addon', 'storage smb' {
 
         It 'waits for the StorageClass creation' {
             InModuleScope -ModuleName $moduleName {
-                Should -Invoke Wait-ForStorageClassToBeReady -Times 1 -Scope Context -ParameterFilter { $TimeoutSeconds -eq $script:storageClassTimeoutSeconds }
+                Should -Invoke Wait-ForPodToBeReady -Times 1 -Scope Context -ParameterFilter { $TimeoutSeconds -eq $script:storageClassTimeoutSeconds }
             }
         }
     }
@@ -684,13 +699,17 @@ Describe 'Restore-StorageClass' -Tag 'unit', 'ci', 'addon', 'storage smb' {
     Context 'Windows host type' {
         BeforeAll {
             InModuleScope -ModuleName $moduleName {
-                Restore-StorageClass -SmbHostType 'Windows'
+                    foreach($pathValue in $shareDir){
+                        Set-ShareDirValue -PathValue $pathValue
+                        Restore-StorageClass -SmbHostType 'Windows'
+                        break
+                    }
             }
         }
 
         It 'creates a new SC manifest file containing the Windows remote path' {
             InModuleScope -ModuleName $moduleName {
-                Should -Invoke New-StorageClassManifest -Times 1 -Scope Context -ParameterFilter { $RemotePath -eq $script:windowsHostRemotePath }
+                Should -Invoke New-StorageClassManifest -Times 1 -Scope Context -ParameterFilter { $RemotePath -eq $global:windowsHostRemotePath }
             }
         }
     }
@@ -698,13 +717,17 @@ Describe 'Restore-StorageClass' -Tag 'unit', 'ci', 'addon', 'storage smb' {
     Context 'Linux host type' {
         BeforeAll {
             InModuleScope -ModuleName $moduleName {
-                Restore-StorageClass -SmbHostType 'Linux'
+                foreach($pathValue in $shareDir){
+                    Set-ShareDirValue -PathValue $pathValue
+                    Restore-StorageClass -SmbHostType 'linux'
+                    break
+                }
             }
         }
 
         It 'creates a new SC manifest file containing the Linux remote path' {
             InModuleScope -ModuleName $moduleName {
-                Should -Invoke New-StorageClassManifest -Times 1 -Scope Context -ParameterFilter { $RemotePath -eq $script:linuxHostRemotePath }
+                Should -Invoke New-StorageClassManifest -Times 1 -Scope Context -ParameterFilter { $RemotePath -eq $global:linuxHostRemotePath }
             }
         }
     }
@@ -741,9 +764,9 @@ Describe 'Restore-StorageClass' -Tag 'unit', 'ci', 'addon', 'storage smb' {
         It 'throws' {
             InModuleScope -ModuleName $moduleName {
                 { Restore-StorageClass -SmbHostType 'Windows' } | Should -Throw -ExpectedMessage 'oops'
-            }
         }
     }
+}
 }
 
 Describe 'Remove-StorageClass' -Tag 'unit', 'ci', 'addon', 'storage smb' {
@@ -753,7 +776,7 @@ Describe 'Remove-StorageClass' -Tag 'unit', 'ci', 'addon', 'storage smb' {
             Mock -ModuleName $moduleName Test-Path { return $true } -ParameterFilter { $Path -match $script:patchFilePath }
             Mock -ModuleName $moduleName Invoke-Kubectl { return [pscustomobject]@{Success = $true } }
             Mock -ModuleName $moduleName Remove-Item {}
-            Mock -ModuleName $moduleName Wait-ForStorageClassToBeDeleted {}
+            Mock -ModuleName $moduleName Wait-ForPodToBeDeleted {}
             Mock -ModuleName $moduleName Remove-Secret {}
             Mock -ModuleName $moduleName Write-Log {}
 
@@ -772,7 +795,7 @@ Describe 'Remove-StorageClass' -Tag 'unit', 'ci', 'addon', 'storage smb' {
             It 'removes PVCs related to the SC' {
                 InModuleScope -ModuleName $moduleName {
                     Should -Invoke Remove-PersistentVolumeClaimsForStorageClass -Times 1 -Scope Context -ParameterFilter {
-                        $StorageClass -eq $script:smbStorageClassName
+                        $StorageClass -eq $global:newClassName 
                     }
                 }
             }
@@ -785,15 +808,10 @@ Describe 'Remove-StorageClass' -Tag 'unit', 'ci', 'addon', 'storage smb' {
                 }
             }
 
-            It 'deletes the manifest file' {
-                InModuleScope -ModuleName $moduleName {
-                    Should -Invoke Remove-Item -Times 1 -Scope Context -ParameterFilter { $Path -match '\\manifests\\base' }
-                }
-            }
 
             It 'waits for StorageClass deletion' {
                 InModuleScope -ModuleName $moduleName {
-                    Should -Invoke Wait-ForStorageClassToBeDeleted -Times 1 -Scope Context -ParameterFilter { $TimeoutSeconds -eq $script:storageClassTimeoutSeconds }
+                    Should -Invoke Wait-ForPodToBeDeleted -Times 1 -Scope Context -ParameterFilter { $TimeoutSeconds -eq $script:storageClassTimeoutSeconds }
                 }
             }
 
@@ -814,7 +832,7 @@ Describe 'Remove-StorageClass' -Tag 'unit', 'ci', 'addon', 'storage smb' {
             It 'removes PVCs related to the SC' {
                 InModuleScope -ModuleName $moduleName {
                     Should -Invoke Remove-PersistentVolumeClaimsForStorageClass -Times 1 -Scope Context -ParameterFilter {
-                        $StorageClass -eq $script:smbStorageClassName
+                        $StorageClass -eq $global:newClassName 
                     }
                 }
             }
@@ -829,15 +847,11 @@ Describe 'Remove-StorageClass' -Tag 'unit', 'ci', 'addon', 'storage smb' {
 
             It 'waits for StorageClass deletion' {
                 InModuleScope -ModuleName $moduleName {
-                    Should -Invoke Wait-ForStorageClassToBeDeleted -Times 1 -Scope Context -ParameterFilter { { $TimeoutSeconds -eq $script:storageClassTimeoutSeconds } }
+                    Should -Invoke Wait-ForPodToBeDeleted -Times 1 -Scope Context -ParameterFilter { { $TimeoutSeconds -eq $script:storageClassTimeoutSeconds } }
                 }
             }
 
-            It 'deletes the manifest file' {
-                InModuleScope -ModuleName $moduleName {
-                    Should -Invoke Remove-Item -Times 1 -Scope Context -ParameterFilter { $Path -match '\\manifests\\base' }
-                }
-            }
+           
 
             It 'deletes the SMB creds secret' {
                 InModuleScope -ModuleName $moduleName {
@@ -878,7 +892,7 @@ Describe 'Remove-StorageClass' -Tag 'unit', 'ci', 'addon', 'storage smb' {
         It 'removes PVCs related to the SC' {
             InModuleScope -ModuleName $moduleName {
                 Should -Invoke Remove-PersistentVolumeClaimsForStorageClass -Times 1 -Scope Context -ParameterFilter {
-                    $StorageClass -eq $script:smbStorageClassName
+                    $StorageClass -eq $global:newClassName 
                 }
             }
         }
@@ -1366,6 +1380,7 @@ Describe 'Enable-SmbShare' -Tag 'unit', 'ci', 'addon', 'storage smb' {
                 Mock -ModuleName $moduleName Restore-SmbShareAndFolder { }
                 Mock -ModuleName $moduleName Restore-StorageClass { }
                 Mock -ModuleName $moduleName Write-Log { }
+                Mock -ModuleName $moduleName New-SmbShareNamespace { }               
             }
 
             It 'enables the addon passing the correct params' {
@@ -1465,6 +1480,7 @@ Describe 'Disable-SmbShare' -Tag 'unit', 'ci', 'addon', 'storage smb' {
             Mock -ModuleName $moduleName Remove-AddonFromSetupJson { }
             Mock -ModuleName $moduleName Remove-ScriptsFromHooksDir { }
             Mock -ModuleName $moduleName Write-Log { }
+            Mock -ModuleName $moduleName Remove-SmbShareNamespace { }
         }
 
         It 'disables the addon with skip flag set correctly' {

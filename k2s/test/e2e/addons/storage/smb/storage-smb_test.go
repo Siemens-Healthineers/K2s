@@ -6,11 +6,14 @@ package smb_share
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/addons/status"
 	"github.com/siemens-healthineers/k2s/test/framework"
+
+	"io/ioutil"
 
 	"github.com/siemens-healthineers/k2s/test/framework/k2s/cli"
 	"github.com/siemens-healthineers/k2s/test/framework/os"
@@ -22,14 +25,22 @@ import (
 	"github.com/onsi/gomega/gstruct"
 )
 
+type shareConfig struct {
+	WinMountPath     string `json:"winMountPath"`
+	LinuxMountPath   string `json:"linuxMountPath"`
+	StorageClassName string `json:"storageClassName"`
+}
+
 const (
 	addonName          = "storage"
 	implementationName = "smb"
 	namespace          = "smb-share-test"
 	secretName         = "regcred"
 
-	linuxWorkloadName   = "smb-share-test-linux"
-	windowsWorkloadName = "smb-share-test-windows"
+	linuxWorkloadName1   = "smb-share-test-linux1"
+	linuxWorkloadName2   = "smb-share-test-linux2"
+	windowsWorkloadName1 = "smb-share-test-windows1"
+	windowsWorkloadName2 = "smb-share-test-windows2"
 
 	linuxTestfileName   = "smb-share-test-linux.file"
 	windowsTestfileName = "smb-share-test-windows.txt"
@@ -41,12 +52,17 @@ const (
 
 var (
 	namespaceManifestPath = fmt.Sprintf("workloads/%s-namespace.yaml", namespace)
-	linuxManifestPath     = fmt.Sprintf("workloads/%s.yaml", linuxWorkloadName)
-	windowsManifestPath   = fmt.Sprintf("workloads/%s.yaml", windowsWorkloadName)
+	linuxManifestPath1    = fmt.Sprintf("workloads/%s.yaml", linuxWorkloadName1)
+	linuxManifestPath2    = fmt.Sprintf("workloads/%s.yaml", linuxWorkloadName2)
+	windowsManifestPath1  = fmt.Sprintf("workloads/%s.yaml", windowsWorkloadName1)
+	windowsManifestPath2  = fmt.Sprintf("workloads/%s.yaml", windowsWorkloadName2)
 
 	suite *framework.K2sTestSuite
 
 	skipWindowsWorkloads = false
+	shareConfigs         []shareConfig
+	orignalShareConfigs  []shareConfig
+	configPath           string = filepath.Join(suite.RootDir(), "addons", "storage", "smb", "config", "SmbStorage.json")
 )
 
 func TestSmbshare(t *testing.T) {
@@ -64,6 +80,36 @@ var _ = BeforeSuite(func(ctx context.Context) {
 	suite.Kubectl().Run(ctx, "apply", "-f", namespaceManifestPath)
 
 	GinkgoWriter.Println("Namespace <", namespace, "> and secret <", secretName, "> created on cluster")
+
+	data, err := ioutil.ReadFile(configPath) // assumes file is in the root of the test project
+	Expect(err).ToNot(HaveOccurred())
+
+	err = json.Unmarshal(data, &shareConfigs)
+	Expect(err).ToNot(HaveOccurred())
+
+	// shareConfig represents the configuration for an SMB share used in the test.
+	// WinMountPath specifies the path where the SMB share is mounted on Windows.
+	// LinuxMountPath specifies the path where the SMB share is mounted on Linux.
+	// StorageClassName defines the name of the storage class associated with the SMB share.
+	// *****************************************************************
+	//  adding one more values in shareConfig  for testing
+	// the ability to create multiple shares with different configurations.
+	newConfig := shareConfig{
+		WinMountPath:     "C:/k8s-smb-share2",
+		LinuxMountPath:   "/mnt/k8s-smb-share2",
+		StorageClassName: "smb1",
+	}
+	orignalShareConfigs = shareConfigs
+	shareConfigs = append(shareConfigs, newConfig)
+	updatedData, err := json.MarshalIndent(shareConfigs, "", "  ")
+	if err != nil {
+		panic(fmt.Errorf("failed to marshal JSON: %w", err))
+	}
+
+	if err := ioutil.WriteFile(configPath, updatedData, 0644); err != nil {
+		panic(fmt.Errorf("failed to write JSON: %w", err))
+	}
+
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
@@ -86,6 +132,12 @@ var _ = AfterSuite(func(ctx context.Context) {
 	} else {
 		GinkgoWriter.Println("Addon is disabled.")
 	}
+
+	revertData, err := json.MarshalIndent(orignalShareConfigs, "", "  ")
+	Expect(err).ToNot(HaveOccurred(), "Failed to marshal original config for restore")
+
+	err = ioutil.WriteFile(configPath, revertData, 0644)
+	Expect(err).ToNot(HaveOccurred(), "Failed to revert config")
 
 	suite.TearDown(ctx)
 })
@@ -152,7 +204,8 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 			})
 
 			It("deploys Linux-based workloads", func(ctx context.Context) {
-				suite.Kubectl().Run(ctx, "apply", "-f", linuxManifestPath)
+				suite.Kubectl().Run(ctx, "apply", "-f", linuxManifestPath1)
+				suite.Kubectl().Run(ctx, "apply", "-f", linuxManifestPath2)
 			})
 
 			It("deploys Windows-based workloads", func(ctx context.Context) {
@@ -160,7 +213,8 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 					Skip("Linux-only setup")
 				}
 
-				suite.Kubectl().Run(ctx, "apply", "-f", windowsManifestPath)
+				suite.Kubectl().Run(ctx, "apply", "-f", windowsManifestPath1)
+				suite.Kubectl().Run(ctx, "apply", "-f", windowsManifestPath2)
 			})
 
 			It("runs Linux-based workloads", func(ctx context.Context) {
@@ -184,7 +238,8 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 			})
 
 			It("deletes Linux-based workloads", func(ctx context.Context) {
-				suite.Kubectl().Run(ctx, "delete", "-f", linuxManifestPath)
+				suite.Kubectl().Run(ctx, "delete", "-f", linuxManifestPath1)
+				suite.Kubectl().Run(ctx, "delete", "-f", linuxManifestPath2)
 			})
 
 			It("deletes Windows-based workloads", func(ctx context.Context) {
@@ -192,11 +247,13 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 					Skip("Linux-only setup")
 				}
 
-				suite.Kubectl().Run(ctx, "delete", "-f", windowsManifestPath)
+				suite.Kubectl().Run(ctx, "delete", "-f", windowsManifestPath1)
+				suite.Kubectl().Run(ctx, "delete", "-f", windowsManifestPath2)
 			})
 
 			It("disposes Linux-based workloads", func(ctx context.Context) {
-				suite.Cluster().ExpectStatefulSetToBeDeleted(linuxWorkloadName, namespace, ctx)
+				suite.Cluster().ExpectStatefulSetToBeDeleted(linuxWorkloadName1, namespace, ctx)
+				suite.Cluster().ExpectStatefulSetToBeDeleted(linuxWorkloadName2, namespace, ctx)
 			})
 
 			It("disposes Windows-based workloads", func(ctx context.Context) {
@@ -204,7 +261,8 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 					Skip("Linux-only setup")
 				}
 
-				suite.Cluster().ExpectStatefulSetToBeDeleted(windowsWorkloadName, namespace, ctx)
+				suite.Cluster().ExpectStatefulSetToBeDeleted(windowsWorkloadName1, namespace, ctx)
+				suite.Cluster().ExpectStatefulSetToBeDeleted(windowsWorkloadName2, namespace, ctx)
 			})
 
 			It("disables the addon", func(ctx context.Context) {
@@ -232,7 +290,8 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 			})
 
 			It("deploys Linux-based workloads", func(ctx context.Context) {
-				suite.Kubectl().Run(ctx, "apply", "-f", linuxManifestPath)
+				suite.Kubectl().Run(ctx, "apply", "-f", linuxManifestPath1)
+				suite.Kubectl().Run(ctx, "apply", "-f", linuxManifestPath2)
 			})
 
 			It("deploys Windows-based workloads", func(ctx context.Context) {
@@ -240,7 +299,8 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 					Skip("Linux-only setup")
 				}
 
-				suite.Kubectl().Run(ctx, "apply", "-f", windowsManifestPath)
+				suite.Kubectl().Run(ctx, "apply", "-f", windowsManifestPath1)
+				suite.Kubectl().Run(ctx, "apply", "-f", windowsManifestPath2)
 			})
 
 			It("runs Linux-based workloads", func(ctx context.Context) {
@@ -264,7 +324,8 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 			})
 
 			It("deletes Linux-based workloads", func(ctx context.Context) {
-				suite.Kubectl().Run(ctx, "delete", "-f", linuxManifestPath)
+				suite.Kubectl().Run(ctx, "delete", "-f", linuxManifestPath1)
+				suite.Kubectl().Run(ctx, "delete", "-f", linuxManifestPath2)
 			})
 
 			It("deletes Windows-based workloads", func(ctx context.Context) {
@@ -272,11 +333,13 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 					Skip("Linux-only setup")
 				}
 
-				suite.Kubectl().Run(ctx, "delete", "-f", windowsManifestPath)
+				suite.Kubectl().Run(ctx, "delete", "-f", windowsManifestPath1)
+				suite.Kubectl().Run(ctx, "delete", "-f", windowsManifestPath2)
 			})
 
 			It("disposes Linux-based workloads", func(ctx context.Context) {
-				suite.Cluster().ExpectStatefulSetToBeDeleted(linuxWorkloadName, namespace, ctx)
+				suite.Cluster().ExpectStatefulSetToBeDeleted(linuxWorkloadName1, namespace, ctx)
+				suite.Cluster().ExpectStatefulSetToBeDeleted(linuxWorkloadName2, namespace, ctx)
 			})
 
 			It("disposes Windows-based workloads", func(ctx context.Context) {
@@ -284,7 +347,8 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 					Skip("Linux-only setup")
 				}
 
-				suite.Cluster().ExpectStatefulSetToBeDeleted(windowsWorkloadName, namespace, ctx)
+				suite.Cluster().ExpectStatefulSetToBeDeleted(windowsWorkloadName1, namespace, ctx)
+				suite.Cluster().ExpectStatefulSetToBeDeleted(windowsWorkloadName2, namespace, ctx)
 			})
 
 			It("disables the addon", func(ctx context.Context) {
@@ -295,29 +359,38 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 })
 
 func expectLinuxWorkloadToRun(ctx context.Context) {
-	suite.Cluster().ExpectStatefulSetToBeReady(linuxWorkloadName, namespace, 1, ctx)
+	for i, cfg := range shareConfigs {
+		i++
+		linuxWorkloadName := fmt.Sprintf("smb-share-test-linux%d", i) // e.g., smb-share-test-linux-1, -2, etc.
 
-	Eventually(os.IsFileYoungerThan).
-		WithArguments(testFileCheckInterval, suite.SetupInfo().Config.Nodes().ShareDir().WindowsDir(), linuxTestfileName).
-		WithTimeout(testFileCheckTimeout).
-		WithPolling(suite.TestStepPollInterval()).
-		WithContext(ctx).
-		Should(BeTrue())
+		suite.Cluster().ExpectStatefulSetToBeReady(linuxWorkloadName, namespace, 1, ctx)
+
+		Eventually(os.IsFileYoungerThan).
+			WithArguments(testFileCheckInterval, cfg.WinMountPath, linuxTestfileName).
+			WithTimeout(testFileCheckTimeout).
+			WithPolling(suite.TestStepPollInterval()).
+			WithContext(ctx).
+			Should(BeTrue(), fmt.Sprintf("Expected file check to pass for %s", linuxWorkloadName))
+	}
 }
 
 func expectWindowsWorkloadToRun(ctx context.Context) {
 	if skipWindowsWorkloads {
 		Skip("Linux-only setup")
 	}
+	for i, cfg := range shareConfigs {
+		i++
+		windowsWorkloadName := fmt.Sprintf("smb-share-test-windows%d", i) // e.g., smb-share-test-linux-1, -2, etc.
 
-	suite.Cluster().ExpectStatefulSetToBeReady(windowsWorkloadName, namespace, 1, ctx)
+		suite.Cluster().ExpectStatefulSetToBeReady(windowsWorkloadName, namespace, 1, ctx)
 
-	Eventually(os.IsFileYoungerThan).
-		WithArguments(testFileCheckInterval, suite.SetupInfo().Config.Nodes().ShareDir().WindowsDir(), windowsTestfileName).
-		WithTimeout(testFileCheckTimeout).
-		WithPolling(suite.TestStepPollInterval()).
-		WithContext(ctx).
-		Should(BeTrue())
+		Eventually(os.IsFileYoungerThan).
+			WithArguments(testFileCheckInterval, cfg.WinMountPath, windowsTestfileName).
+			WithTimeout(testFileCheckTimeout).
+			WithPolling(suite.TestStepPollInterval()).
+			WithContext(ctx).
+			Should(BeTrue(), fmt.Sprintf("Expected file check to pass for %s", windowsWorkloadName))
+	}
 }
 
 func disableAddon(ctx context.Context) {

@@ -25,6 +25,12 @@ Write-Log 'Re-establishing SMB share after cluster start..' -Console
 $smbHostType = Get-SmbHostType
 $setupInfo = Get-SetupInfo
 
-Restore-SmbShareAndFolder -SmbHostType $smbHostType -SetupInfo $setupInfo
+$configFile = "$PSScriptRoot\..\storage\smb\Config\SmbStorage.json"
+$shareDir = Get-SmbStorageConfig -ConfigFile $configFile
+
+foreach($pathValue in $shareDir){
+     Set-ShareDirValue -PathValue $pathValue
+     Restore-SmbShareAndFolder -SmbHostType $smbHostType -SetupInfo $setupInfo 
+    }
 
 Write-Log 'SMB share re-established after cluster start.' -Console

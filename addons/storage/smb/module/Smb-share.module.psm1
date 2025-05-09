@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
 
@@ -14,20 +14,12 @@ $AddonName = 'storage'
 $ImplementationName = 'smb'
 $localHooksDir = "$PSScriptRoot\..\hooks"
 $logFile = "$(Get-SystemDriveLetter):\var\log\ssh_smbSetup.log"
-$linuxLocalPath = Get-LinuxLocalSharePath
-$windowsLocalPath = Get-WindowsLocalSharePath
-$linuxShareName = 'k8sshare' # exposed by Linux VM
-$windowsShareName = (Split-Path -Path $windowsLocalPath -NoQualifier).TrimStart('\') # visible from VMs
-$windowsSharePath = Split-Path -Path $windowsLocalPath -Qualifier
-$linuxHostRemotePath = "\\$(Get-ConfiguredIPControlPlane)\$linuxShareName"
-$windowsHostRemotePath = "\\$(Get-ConfiguredKubeSwitchIP)\$windowsShareName"
 $smbUserName = 'remotesmb'
 $smbFullUserNameWin = "$env:computername\$smbUserName"
 $smbFullUserNameLinux = "$(Get-ConfigControlPlaneNodeHostname)\$smbUserName"
 $smbPw = ConvertTo-SecureString $(Get-RandomPassword 25) -AsPlainText -Force
 $creds = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $smbFullUserNameLinux, $smbPw
 $smbCredsName = 'smbcreds'
-$smbStorageClassName = 'smb'
 $hostPathPatchTemplateFileName = 'template_set-host-path.patch.yaml'
 $hostPathPatchFileName = 'set-host-path.patch.yaml'
 $manifestBaseDir = "$PSScriptRoot\..\manifests\base"
@@ -36,6 +28,35 @@ $patchTemplateFilePath = "$manifestBaseDir\$hostPathPatchTemplateFileName"
 $patchFilePath = "$manifestBaseDir\$hostPathPatchFileName"
 $storageClassTimeoutSeconds = 600
 $namespace = 'storage-smb'
+function Get-SmbStorageConfig {
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]$ConfigFile
+    )
+    if (Test-Path $ConfigFile) {
+        $values = Get-Content $ConfigFile -Raw | ConvertFrom-Json
+        if (-not $values) {
+            throw "The configuration file '$ConfigFile' is empty or invalid."
+        }
+        return $values
+    } else {
+        throw "Configuration file '$ConfigFile' not found."
+    }
+}
+$configFile = "$PSScriptRoot\..\Config\SmbStorage.json"
+$shareDir = Get-SmbStorageConfig -ConfigFile $configFile
+$shareDirIterationValue = 0;
+
+
+$global:linuxLocalPath
+$global:windowsLocalPath
+$global:linuxShareName
+$global:windowsShareName
+$global:windowsSharePath
+$global:linuxHostRemotePath
+$global:windowsHostRemotePath
+$global:newClassName
+
 
 function Test-CsiPodsCondition {
     param (
@@ -118,46 +139,50 @@ function Remove-FirewallExceptions {
 }
 
 function New-SmbHostOnWindowsIfNotExisting {
-    $smb = Get-SmbShare -Name $windowsShareName -ErrorAction SilentlyContinue
+    $smb = Get-SmbShare -Name $global:windowsShareName -ErrorAction SilentlyContinue
     if ($smb) {
-        Write-Log "SMB host '$windowsShareName' on Windows already existing, nothing to create."
+        Write-Log "SMB host '$global:windowsShareName' on Windows already existing, nothing to create."
         return
     }
 
-    Write-Log "Setting up '$windowsShareName' SMB host on Windows.."
+    Write-Log "Setting up '$global:windowsShareName' SMB host on Windows.."
 
+    if (Get-LocalUser -Name $smbUserName -ErrorAction SilentlyContinue) {
+        Write-Host "User '$smbUserName' already exists."
+    } else{
     New-LocalUser -Name $smbUserName -Password $smbPw -Description 'A K2s user account for SMB access' -ErrorAction Stop | Out-Null # Description max. length seems to be 48 chars ?!
-    New-Item -Path "$windowsSharePath\" -Name $windowsShareName -ItemType 'directory' -ErrorAction SilentlyContinue | Out-Null
-    New-SmbShare -Name $windowsShareName -Path $windowsLocalPath -FullAccess $smbFullUserNameWin -ErrorAction Stop | Out-Null
+    }
+    New-Item -Path "$global:windowsSharePath\" -Name $global:windowsShareName -ItemType 'directory' -ErrorAction SilentlyContinue | Out-Null
+    New-SmbShare -Name $global:windowsShareName -Path $global:windowsLocalPath -FullAccess $smbFullUserNameWin -ErrorAction Stop | Out-Null
     Add-FirewallExceptions
 
-    Write-Log "'$windowsShareName' SMB host set up Windows."
+    Write-Log "'$global:windowsShareName' SMB host set up Windows."
 }
 
 function Remove-SmbHostOnWindowsIfExisting {
-    $smb = Get-SmbShare -Name $windowsShareName -ErrorAction SilentlyContinue
+    $smb = Get-SmbShare -Name $global:windowsShareName -ErrorAction SilentlyContinue
     if ($null -eq $smb) {
-        Write-Log "SMB host '$windowsShareName' on Windows not existing, nothing to remove."
+        Write-Log "SMB host '$global:windowsShareName' on Windows not existing, nothing to remove."
         return
     }
 
-    Write-Log "Removing '$windowsShareName' SMB host from Windows.."
+    Write-Log "Removing '$global:windowsShareName' SMB host from Windows.."
 
     Remove-FirewallExceptions
-    Remove-SmbShare -Name $windowsShareName -Confirm:$False -ErrorAction SilentlyContinue
-    Remove-Item -Force $windowsLocalPath -Recurse -Confirm:$False -ErrorAction SilentlyContinue
+    Remove-SmbShare -Name $global:windowsShareName -Confirm:$False -ErrorAction SilentlyContinue
+    Remove-Item -Force $global:windowsLocalPath -Recurse -Confirm:$False -ErrorAction SilentlyContinue
     Remove-LocalUser -Name $smbUserName -ErrorAction SilentlyContinue
 
-    Write-Log "'$windowsShareName' SMB host removed from Windows."
+    Write-Log "'$global:windowsShareName' SMB host removed from Windows."
 }
 
 function New-SmbHostOnLinuxIfNotExisting {
     # We try to access the samba share on windows side.
     # If this is not possible, we set up Samba on linux and create the shared CF - NOT the mount points yet!
     # The Samba Shared CF will be \srv\samba\k8sshare
-    New-SmbGlobalMapping -RemotePath $linuxHostRemotePath -Credential $creds -UseWriteThrough $true -Persistent $true -ErrorAction SilentlyContinue
+    New-SmbGlobalMapping -RemotePath $global:linuxHostRemotePath -Credential $creds -UseWriteThrough $true -Persistent $true -ErrorAction SilentlyContinue
 
-    if ((Test-Path $linuxHostRemotePath)) {
+    if ((Test-Path $global:linuxHostRemotePath)) {
         Write-Log 'SMB host on Linux already existing, nothing to create.'
         return
     }
@@ -175,12 +200,12 @@ function New-SmbHostOnLinuxIfNotExisting {
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo adduser --no-create-home --disabled-password --disabled-login --gecos '' $smbUserName").Output | Write-Log
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "(echo '$($creds.GetNetworkCredential().Password)'; echo '$($creds.GetNetworkCredential().Password)') | sudo smbpasswd -s -a $smbUserName" -NoLog).Output | Write-Log
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo smbpasswd -e $smbUserName").Output | Write-Log
-    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo mkdir -p /srv/samba/$linuxShareName").Output | Write-Log
-    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo chown nobody:nogroup /srv/samba/$linuxShareName/").Output | Write-Log
-    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo chmod 0777 /srv/samba/$linuxShareName/").Output | Write-Log
-    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo sh -c 'echo [$linuxShareName] >> /etc/samba/smb.conf'").Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo mkdir -p /srv/samba/$global:linuxShareName").Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo chown nobody:nogroup /srv/samba/$global:linuxShareName/").Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo chmod 0777 /srv/samba/$global:linuxShareName/").Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo sh -c 'echo [$global:linuxShareName] >> /etc/samba/smb.conf'").Output | Write-Log
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo sh -c 'echo comment = K8s share for k8s-smb-share >> /etc/samba/smb.conf'").Output | Write-Log
-    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo sh -c 'echo path = /srv/samba/$linuxShareName >> /etc/samba/smb.conf'").Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo sh -c 'echo path = /srv/samba/$global:linuxShareName >> /etc/samba/smb.conf'").Output | Write-Log
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo sh -c 'echo browsable = yes >> /etc/samba/smb.conf'").Output | Write-Log
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo sh -c 'echo guest ok = yes >> /etc/samba/smb.conf'").Output | Write-Log
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo sh -c 'echo read only = no >> /etc/samba/smb.conf'").Output | Write-Log
@@ -194,7 +219,7 @@ function New-SmbHostOnLinuxIfNotExisting {
 function Remove-SmbHostOnLinux {
     Write-Log 'Removing SMB host on Linux (Samba Share)..'
 
-    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo rm -rf /srv/samba/$linuxShareName").Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo rm -rf /srv/samba/$global:linuxShareName").Output | Write-Log
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo smbpasswd -x $smbUserName").Output | Write-Log
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo DEBIAN_FRONTEND=noninteractive apt-get purge cifs-utils samba samba-* -qq -y').Output | Write-Log
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo DEBIAN_FRONTEND=noninteractive apt-get autoremove -qq -y').Output | Write-Log
@@ -239,7 +264,7 @@ function Test-ForKnownSmbProblems {
 }
 
 function New-SharedFolderMountOnLinuxClient {
-    Write-Log "Mounting '$linuxLocalPath -> $windowsHostRemotePath' on Linux.."
+    Write-Log "Mounting '$global:linuxLocalPath -> $global:windowsHostRemotePath' on Linux.."
     Remove-Item -Force -ErrorAction SilentlyContinue $logFile
 
     Write-Log '           Creating temporary mount script..'
@@ -247,23 +272,23 @@ function New-SharedFolderMountOnLinuxClient {
     $tempMountOnLinuxClientScript = 'tmp_mountOnLinuxClientCmd.sh'
     $mountOnLinuxClientScript = 'mountOnLinuxClientCmd.sh'
     $mountOnLinuxClientCmd = @"
-        findmnt $linuxLocalPath -D >/dev/null && sudo umount $linuxLocalPath
-        sudo rm -rf $linuxLocalPath
-        sudo mkdir -p $linuxLocalPath
+        findmnt $global:linuxLocalPath -D >/dev/null && sudo umount $global:linuxLocalPath
+        sudo rm -rf $global:linuxLocalPath
+        sudo mkdir -p $global:linuxLocalPath
         mkdir -p ~/tmp
         cd ~/tmp
         # remove all old lines with $windowsShareName from fstab
         sed -e /k8s-smb-share/d < /etc/fstab > $tempFstabFile
         # add the new line to fstab
-        echo '             Adding line for $linuxLocalPath to /etc/fstab'
-        echo '//$(Get-ConfiguredKubeSwitchIP)/$windowsShareName $linuxLocalPath cifs username=$smbUserName,password=$($creds.GetNetworkCredential().Password),rw,nobrl,soft,x-systemd.automount,file_mode=0666,dir_mode=0777,vers=3.0' | tee -a $tempFstabFile >/dev/null
+        echo '             Adding line for $global:linuxLocalPath to /etc/fstab'
+        echo '//$(Get-ConfiguredKubeSwitchIP)/$global:windowsShareName $global:linuxLocalPath cifs username=$smbUserName,password=$($creds.GetNetworkCredential().Password),rw,nobrl,soft,x-systemd.automount,file_mode=0666,dir_mode=0777,vers=3.0' | tee -a $tempFstabFile >/dev/null
         sudo sh -c "cat $tempFstabFile > /etc/fstab"
         sudo rm -f $tempFstabFile
         # immediately perform the mount
-        echo '             Mount $linuxLocalPath from /etc/fstab entry'
-        findmnt $linuxLocalPath -D >/dev/null || sudo mount $linuxLocalPath || exit 1
-        echo '             Touch $linuxLocalPath/mountedInVm.txt'
-        date > $linuxLocalPath/mountedInVm.txt || exit 1
+        echo '             Mount $global:linuxLocalPath from /etc/fstab entry'
+        findmnt $global:linuxLocalPath -D >/dev/null || sudo mount $global:linuxLocalPath || exit 1
+        echo '             Touch $global:linuxLocalPath/mountedInVm.txt'
+        date > $global:linuxLocalPath/mountedInVm.txt || exit 1
         rm ~/$mountOnLinuxClientScript
 "@
 
@@ -309,7 +334,7 @@ function New-SharedFolderMountOnLinuxClient {
 }
 
 function Remove-SharedFolderMountOnLinuxClient {
-    Write-Log "Unmounting '$linuxLocalPath -> $windowsHostRemotePath' on Linux.."
+    Write-Log "Unmounting '$global:linuxLocalPath -> $global:windowsHostRemotePath' on Linux.."
     Remove-Item -Force -ErrorAction SilentlyContinue $logFile
 
     Write-Log 'Creating temporary unmount script..'
@@ -317,15 +342,15 @@ function Remove-SharedFolderMountOnLinuxClient {
     $tempUnmountOnLinuxClientScript = 'tmp_unmountOnLinuxClientCmd.sh'
     $unmountOnLinuxClientScript = 'unmountOnLinuxClientCmd.sh'
     $unmountOnLinuxClientCmd = @"
-        findmnt $linuxLocalPath -D >/dev/null && sudo umount $linuxLocalPath
+        findmnt $global:linuxLocalPath -D >/dev/null && sudo umount $global:linuxLocalPath
         mkdir -p ~/tmp
         cd ~/tmp
-        # remove all lines with $windowsShareName from fstab
+        # remove all lines with $global:windowsShareName from fstab
         sed -e /k8s-smb-share/d < /etc/fstab > $tempFstabFile
         sudo sh -c "cat $tempFstabFile > /etc/fstab"
         sudo rm -f $tempFstabFile
         sudo systemctl daemon-reload
-        sudo rm -rf $linuxLocalPath
+        sudo rm -rf $global:linuxLocalPath
         rm ~/$unmountOnLinuxClientScript
 "@
 
@@ -346,7 +371,7 @@ function Remove-SharedFolderMountOnLinuxClient {
     $sshLog = (ssh.exe -n '-vv' -E $logFile -o StrictHostKeyChecking=no -i $(Get-SSHKeyControlPlane) $(Get-ControlPlaneRemoteUser) "sudo su -s /bin/bash -c '~/$unmountOnLinuxClientScript' remote") *>&1
     Write-Log $sshLog
 
-    $resultMsg = Write-Log "Unmounting '$linuxLocalPath -> $windowsHostRemotePath' on Linux "
+    $resultMsg = Write-Log "Unmounting '$global:linuxLocalPath -> $global:windowsHostRemotePath' on Linux "
     if ($LASTEXITCODE -eq 0) {
         $resultMsg += 'succeeded.'
     }
@@ -358,7 +383,7 @@ function Remove-SharedFolderMountOnLinuxClient {
 
 function Wait-ForSharedFolderMountOnLinuxClient () {
     Write-Log 'Waiting for shared folder mount on Linux node..'
-    $fstabOut = (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'cat /etc/fstab | grep -o /k8s-smb-share').Output
+    $fstabOut = (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "cat /etc/fstab | grep -o /$global:linuxShareName").Output
     if (! $fstabOut) {
         Write-Log 'no shared folder in fstab yet'
         # no entry in fstab, so no need to wait for mount
@@ -410,19 +435,19 @@ function Wait-ForSharedFolderOnLinuxHost () {
     while (! $mountOut) {
         $iteration++
         if ($iteration -ge 15) {
-            Write-Log "           $linuxLocalPath still not mounted, aborting."
+            Write-Log "           $global:linuxLocalPath still not mounted, aborting."
             return
         }
 
         if ($iteration -ge 2 ) {
-            Write-Log "           $linuxLocalPath not yet mounted, waiting for it..."
+            Write-Log "           $global:linuxLocalPath not yet mounted, waiting for it..."
         }
 
         Start-Sleep 2
         (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo mount -a').Output | Write-Log
         $mountOut = (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo su -s /bin/bash -c 'sudo mount | grep /k8s-smb-share' remote").Output
     }
-    Write-Log "           $linuxLocalPath mounted"
+    Write-Log "           $global:linuxLocalPath mounted"
     $script:Success = $true
 }
 
@@ -432,22 +457,22 @@ function New-SharedFolderMountOnLinuxHost {
     Write-Log '           Creating temporary mount script...'
 
     $fstabCmd = @"
-        findmnt $linuxLocalPath -D >/dev/null && sudo umount $linuxLocalPath
-        sudo rm -rf $linuxLocalPath
-        sudo mkdir -p $linuxLocalPath
+        findmnt $global:linuxLocalPath -D >/dev/null && sudo umount $global:linuxLocalPath
+        sudo rm -rf $global:linuxLocalPath
+        sudo mkdir -p $global:linuxLocalPath
         mkdir -p ~/tmp
         cd ~/tmp
-        # remove all old lines with $linuxLocalPath from fstab
+        # remove all old lines with $global:linuxLocalPath from fstab
         sed -e /k8s-smb-share/d < /etc/fstab > fstab.tmp
         # add the new line to fstab
-        echo '             Adding line for $linuxLocalPath to /etc/fstab'
-        echo '//$(Get-ConfiguredIPControlPlane)/$linuxShareName $linuxLocalPath cifs username=$smbUserName,password=$($creds.GetNetworkCredential().Password),rw,nobrl,x-systemd.after=smbd.service,x-systemd.before=kubelet.service,file_mode=0666,dir_mode=0777,vers=3' | tee -a fstab.tmp >/dev/null
+        echo '             Adding line for $global:linuxLocalPath to /etc/fstab'
+        echo '//$(Get-ConfiguredIPControlPlane)/$global:linuxShareName $global:linuxLocalPath cifs username=$smbUserName,password=$($creds.GetNetworkCredential().Password),rw,nobrl,x-systemd.after=smbd.service,x-systemd.before=kubelet.service,file_mode=0666,dir_mode=0777,vers=3' | tee -a fstab.tmp >/dev/null
         sudo sh -c "cat fstab.tmp > /etc/fstab"
         # immediately perform the mount
-        echo '             Mount $linuxLocalPath from /etc/fstab entry'
-        findmnt $linuxLocalPath -D >/dev/null || sudo mount $linuxLocalPath || exit 1
-        echo '             Touch $linuxLocalPath/mountedInVm.txt'
-        date > $linuxLocalPath/mountedInVm.txt || exit 1
+        echo '             Mount $global:linuxLocalPath from /etc/fstab entry'
+        findmnt $global:linuxLocalPath -D >/dev/null || sudo mount $global:linuxLocalPath || exit 1
+        echo '             Touch $global:linuxLocalPath/mountedInVm.txt'
+        date > $global:linuxLocalPath/mountedInVm.txt || exit 1
         rm ~/tmp_fstabCmd.sh
 "@
 
@@ -468,6 +493,7 @@ function New-SharedFolderMountOnLinuxHost {
         (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo chmod +x /home/remote/tmp_fstabCmd.sh').Output | Write-Log
 
         Write-Log '           Executing script inside VM as remote user...'
+        Start-Sleep 2
         ssh.exe -n '-vv' -E $logFile -o StrictHostKeyChecking=no -i $(Get-SSHKeyControlPlane) $(Get-ControlPlaneRemoteUser) "sudo su -s /bin/bash -c '~/tmp_fstabCmd.sh' remote"
         if ($LASTEXITCODE -eq 0) {
             # all ok
@@ -477,13 +503,12 @@ function New-SharedFolderMountOnLinuxHost {
             Test-ForKnownSmbProblems
             throw 'unable to mount shared CF in Linux machine, giving up'
         }
-        Start-Sleep 2
         Write-Log '           Retry after failure...'
     }
 }
 
 function Remove-SharedFolderMountOnLinuxHost {
-    Write-Log "Unmounting '$linuxLocalPath' on Linux.."
+    Write-Log "Unmounting '$global:linuxLocalPath' on Linux.."
     Remove-Item -Force -ErrorAction SilentlyContinue $logFile
 
     Write-Log 'Creating temporary unmount script..'
@@ -491,15 +516,15 @@ function Remove-SharedFolderMountOnLinuxHost {
     $tempUnmountOnLinuxHostScript = 'tmp_unmountOnLinuxHostCmd.sh'
     $unmountOnLinuxHostScript = 'unmountOnLinuxHostCmd.sh'
     $unmountOnLinuxHostCmd = @"
-        findmnt $linuxLocalPath -D >/dev/null && sudo umount $linuxLocalPath
+        findmnt $global:linuxLocalPath -D >/dev/null && sudo umount $global:linuxLocalPath
         mkdir -p ~/tmp
         cd ~/tmp
-        # remove all lines with $linuxLocalPath from fstab
+        # remove all lines with $global:linuxLocalPath from fstab
         sed -e /k8s-smb-share/d < /etc/fstab > $tempFstabFile
         sudo sh -c "cat $tempFstabFile > /etc/fstab"
         sudo rm -f $tempFstabFile
         sudo systemctl daemon-reload
-        sudo rm -rf $linuxLocalPath
+        sudo rm -rf $global:linuxLocalPath
         rm ~/$unmountOnLinuxHostScript
 "@
 
@@ -519,10 +544,10 @@ function Remove-SharedFolderMountOnLinuxHost {
     Write-Log '           Executing on host unmount script inside VM as remote user...'
     ssh.exe -n '-vv' -E $logFile -o StrictHostKeyChecking=no -i $(Get-SSHKeyControlPlane) $(Get-ControlPlaneRemoteUser) "sudo su -s /bin/bash -l -c '~/$unmountOnLinuxHostScript' remote"
     if ($LASTEXITCODE -eq 0) {
-        Write-Log "Unmounting '$linuxLocalPath' on Linux succeeded."
+        Write-Log "Unmounting '$global:linuxLocalPath' on Linux succeeded."
     }
     else {
-        Write-Log "Unmounting '$linuxLocalPath' on Linux failed with code '$LASTEXITCODE'."
+        Write-Log "Unmounting '$global:linuxLocalPath' on Linux failed with code '$LASTEXITCODE'."
     }
 }
 
@@ -539,7 +564,7 @@ function New-SharedFolderMountOnWindows {
         $SmbPasswd = $(throw 'SmbPasswd not specified')
     )
     Remove-LocalWinMountIfExisting
-    Add-SmbGlobalMappingIfNotExisting -RemotePath $RemotePath -LocalPath $windowsLocalPath -SmbUser $SmbUser -SmbPasswd $SmbPasswd
+    Add-SmbGlobalMappingIfNotExisting -RemotePath $RemotePath -LocalPath $global:windowsLocalPath -SmbUser $SmbUser -SmbPasswd $SmbPasswd
     Add-SymLinkOnWindows -RemotePath $RemotePath
 }
 
@@ -549,8 +574,8 @@ function Add-SymLinkOnWindows {
         [string]
         $RemotePath = $(throw 'RemotePath not specified')
     )
-    New-Item -ItemType SymbolicLink -Path $windowsLocalPath -Target $RemotePath | Write-Log
-    Write-Log "Symbolic Link '$windowsLocalPath --> $RemotePath' created."
+    New-Item -ItemType SymbolicLink -Path $global:windowsLocalPath -Target $RemotePath | Write-Log
+    Write-Log "Symbolic Link '$global:windowsLocalPath --> $RemotePath' created."
 }
 
 function Add-SmbGlobalMappingIfNotExisting {
@@ -630,6 +655,28 @@ function New-StorageClassManifest {
         [parameter(Mandatory = $false)]
         [string]$RemotePath = $(throw 'RemotePath not specified')
     )
+    $kustmizationPath="kustomization.yaml"
+    $KustomizationFullPath = "$manifestBaseDir\$kustmizationPath"
+    $tempKustomizationContent = Get-Content -path $KustomizationFullPath
+    for ($i = 0; $i -lt $tempKustomizationContent.Count; $i++) {
+        if ($tempKustomizationContent[$i] -like '*name:*') {
+            $tempKustomizationContent[$i] = "      name: $global:newClassName"
+            break
+        }
+    }
+    Set-Content -Path $KustomizationFullPath -Value $tempKustomizationContent
+
+    $smbScPath="smb-sc.yaml"
+    $smbScFullPath = "$manifestBaseDir\$smbScPath"
+    $smbScContent = Get-Content -path $smbScFullPath
+    for ($i = 0; $i -lt $smbScContent.Count; $i++) {
+        if ($smbScContent[$i] -like '*name:*') {
+            $smbScContent[$i] = "  name: $global:newClassName"
+            break
+        }
+    }
+    set-content -path $smbScFullPath -value $smbScContent
+
     $templateContent = Get-Content -Path $patchTemplateFilePath
 
     Write-Log "Template file <$patchTemplateFilePath> loaded."
@@ -652,13 +699,13 @@ function New-StorageClassManifest {
     Write-Log "StorageClass manifest written to '$patchFilePath'."
 }
 
-function Wait-ForStorageClassToBeReady {
+function Wait-ForPodToBeReady {
     param (
         [Parameter(Mandatory = $false)]
         [int]
         $TimeoutSeconds = 30
     )
-    Write-Log "Waiting for StorageClass to be ready (timeout: $($TimeoutSeconds)s).." -Console
+    Write-Log "Waiting for Pod to be ready (timeout: $($TimeoutSeconds)s).." -Console
 
     $ready = Test-CsiPodsCondition -Condition 'Ready' -TimeoutSeconds $TimeoutSeconds
 
@@ -669,13 +716,13 @@ function Wait-ForStorageClassToBeReady {
     Write-Log 'StorageClass is ready' -Console
 }
 
-function Wait-ForStorageClassToBeDeleted {
+function Wait-ForPodToBeDeleted {
     param (
         [Parameter(Mandatory = $false)]
         [int]
         $TimeoutSeconds = 30
     )
-    Write-Log "Waiting for StorageClass to be deleted (timeout: $($TimeoutSeconds)s).." -Console
+    Write-Log "Waiting for Pod to be deleted (timeout: $($TimeoutSeconds)s).." -Console
 
     $deleted = Test-CsiPodsCondition -Condition 'Deleted' -TimeoutSeconds $TimeoutSeconds
 
@@ -695,18 +742,17 @@ function Restore-StorageClass {
         [parameter(Mandatory = $false)]
         [bool]$LinuxOnly
     )
-    $remotePath = $windowsHostRemotePath
+    $remotePath = $global:windowsHostRemotePath
     $manifestDir = $manifestWinDir
 
     if ($SmbHostType -eq 'linux') {
-        $remotePath = $linuxHostRemotePath
+        $remotePath = $global:linuxHostRemotePath
     }
 
     if ($LinuxOnly -eq $true) {
         $manifestDir = $manifestBaseDir
     }
 
-    New-SmbShareNamespace
 
     Add-Secret -Name $smbCredsName -Namespace $namespace -Literals "username=$smbUserName", "password=$($creds.GetNetworkCredential().Password)" | Write-Log
 
@@ -721,7 +767,7 @@ function Restore-StorageClass {
         throw $result.Output
     }
 
-    Wait-ForStorageClassToBeReady -TimeoutSeconds $storageClassTimeoutSeconds
+    Wait-ForPodToBeReady -TimeoutSeconds $storageClassTimeoutSeconds
 }
 
 function Remove-StorageClass {
@@ -735,9 +781,31 @@ function Remove-StorageClass {
         $manifestDir = $manifestBaseDir
     }
 
-    Remove-PersistentVolumeClaimsForStorageClass -StorageClass $smbStorageClassName | Write-Log
+    Remove-PersistentVolumeClaimsForStorageClass -StorageClass $global:newClassName | Write-Log
 
     if ((Test-Path -Path $patchFilePath) -eq $true) {
+        $kustmizationPath="kustomization.yaml"
+        $KustomizationFullPath = "$manifestBaseDir\$kustmizationPath"
+        $tempKustomizationContent = Get-Content -path $KustomizationFullPath
+        for ($i = 0; $i -lt $tempKustomizationContent.Count; $i++) {
+            if ($tempKustomizationContent[$i] -like '*name:*') {
+                $tempKustomizationContent[$i] = "      name: $global:newClassName"
+                break
+            }
+        }
+        Set-Content -Path $KustomizationFullPath -Value $tempKustomizationContent
+
+        $smbScPath="smb-sc.yaml"
+        $smbScFullPath = "$manifestBaseDir\$smbScPath"
+        $smbScContent = Get-Content -path $smbScFullPath
+        for ($i = 0; $i -lt $smbScContent.Count; $i++) {
+            if ($smbScContent[$i] -like '*name:*') {
+                $smbScContent[$i] = "  name: $global:newClassName"
+                break
+            }
+        }
+        set-content -path $smbScFullPath -value $smbScContent
+        
         $params = 'delete', '-k', $manifestDir
 
         Write-Log "Invoking kubectl with '$params'.."
@@ -748,9 +816,7 @@ function Remove-StorageClass {
             return
         }
 
-        Remove-Item -Path $patchFilePath -Force
-
-        Wait-ForStorageClassToBeDeleted -TimeoutSeconds $storageClassTimeoutSeconds
+        Wait-ForPodToBeDeleted -TimeoutSeconds $storageClassTimeoutSeconds
     }
     else {
         Write-Log 'StorageClass manifest already deleted, skipping.'
@@ -758,7 +824,23 @@ function Remove-StorageClass {
 
     Remove-Secret -Name $smbCredsName -Namespace $namespace | Write-Log
 
-    Remove-SmbShareNamespace
+}
+
+<#
+    .SYNOPSIS
+        Calls Resolve-Path but works for files that don't exist.
+#>
+function Expand-PathSMB {
+    param (
+        [string] $FileName
+    )
+
+    $verifiedFileName = Resolve-Path $FileName -ErrorAction SilentlyContinue -ErrorVariable _frperror
+    if (-not($verifiedFileName)) {
+        $verifiedFileName = $_frperror[0].TargetObject
+    }
+
+    return $verifiedFileName
 }
 
 function Remove-SmbShareAndFolderWindowsHost {
@@ -808,7 +890,7 @@ function Restore-SmbShareAndFolderLinuxHost {
 
     Write-Log 'SMB share hosted and mounted on Linux, creating mount on Windows node..' -Console
 
-    New-SharedFolderMountOnWindows -RemotePath $linuxHostRemotePath -SmbUser $smbFullUserNameLinux -SmbPasswd $smbPw
+    New-SharedFolderMountOnWindows -RemotePath $global:linuxHostRemotePath -SmbUser $smbFullUserNameLinux -SmbPasswd $smbPw
 
     Test-SharedFolderMountOnWinNode
 
@@ -826,7 +908,7 @@ function Remove-SmbShareAndFolderLinuxHost {
     )
     Write-Log 'Removing SMB shares and folders hosted on Linux..'
 
-    Remove-SmbGlobalMappingIfExisting -RemotePath $linuxHostRemotePath
+    Remove-SmbGlobalMappingIfExisting -RemotePath $global:linuxHostRemotePath
     Remove-LocalWinMountIfExisting
 
     if ($SkipNodesCleanup -ne $true) {
@@ -852,11 +934,11 @@ function Remove-SmbShareAndFolder() {
     switch ($SmbHostType) {
         'windows' {
             Remove-SmbShareAndFolderWindowsHost -SkipNodesCleanup:$SkipNodesCleanup
-            $remotePath = $windowsHostRemotePath
+            $remotePath = $global:windowsHostRemotePath
         }
         'linux' {
             Remove-SmbShareAndFolderLinuxHost -SkipNodesCleanup:$SkipNodesCleanup
-            $remotePath = $linuxHostRemotePath
+            $remotePath = $global:linuxHostRemotePath
         }
         Default {
             throw "invalid SMB host type '$SmbHostType'"
@@ -878,20 +960,27 @@ function Test-SharedFolderMountOnWinNode {
     Write-Log 'Checking shared folder on Windows node..'
     $script:Success = $false
 
-    if (!(Test-Path -path "$windowsLocalPath" -PathType Container)) {
+    if (-not $global:windowsLocalPath) {
+        $global:windowsLocalPath = Expand-PathSMB $shareDir[$shareDirIterationValue].winMountPath
+    }
+    if (-not $global:linuxLocalPath) {
+        $global:linuxLocalPath = $shareDir[$shareDirIterationValue].linuxMountPath
+    }
+
+    if (!(Test-Path -path "$global:windowsLocalPath" -PathType Container)) {
         return
     }
 
     $testFileName = 'accessTest.flag'
-    $winTestFile = "$windowsLocalPath\$testFileName"
-    $linuxTestFile = "$linuxLocalPath/$testFileName"
+    $winTestFile = "$global:windowsLocalPath\$testFileName"
+    $linuxTestFile = "$global:linuxLocalPath/$testFileName"
 
     if (Test-Path $winTestFile) {
         Remove-Item -Force $winTestFile -ErrorAction Stop
     }
 
     Write-Log "           Create test file on linux side: $linuxTestFile"
-    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "test -d $linuxLocalPath && sudo touch $linuxTestFile" -Nested:$Nested -Retries 10).Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "test -d $global:linuxLocalPath && sudo touch $linuxTestFile" -Nested:$Nested -Retries 10).Output | Write-Log
 
     $iteration = 15
     while ($iteration -gt 0) {
@@ -906,7 +995,7 @@ function Test-SharedFolderMountOnWinNode {
         Start-Sleep 2
     }
     Write-Log "           Not accessable through windows, removing test file on linux side: $linuxTestFile ..."
-    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "test -d $linuxLocalPath && sudo rm -f $linuxTestFile" -NoLog -Nested:$Nested).Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "test -d $global:linuxLocalPath && sudo rm -f $linuxTestFile" -NoLog -Nested:$Nested).Output | Write-Log
 }
 
 <#
@@ -948,12 +1037,17 @@ function Enable-SmbShare {
 
     Copy-ScriptsToHooksDir -ScriptPaths @(Get-ChildItem -Path $localHooksDir | ForEach-Object { $_.FullName })
     Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = $AddonName; Implementation = $ImplementationName; SmbHostType = $SmbHostType })
-    Restore-SmbShareAndFolder -SmbHostType $SmbHostType -SkipTest -SetupInfo $setupInfo
-    Restore-StorageClass -SmbHostType $SmbHostType -LinuxOnly $setupInfo.LinuxOnly
+    New-SmbShareNamespace
+
+    foreach($pathValue in $shareDir){
+        Set-ShareDirValue -PathValue $pathValue
+        Restore-SmbShareAndFolder -SmbHostType $SmbHostType -SkipTest -SetupInfo $setupInfo
+        Restore-StorageClass -SmbHostType $SmbHostType -LinuxOnly $setupInfo.LinuxOnly 
+    }
 
     Write-Log -Console '********************************************************************************************'
     Write-Log -Console '** IMPORTANT:                                                                             **' 
-    Write-Log -Console "**       - use the StorageClass name '$smbStorageClassName' to provide storage.                            **"
+    Write-Log -Console "**       - use the StorageClass name $pathValue.StorageClassName to provide storage.                            **"
     Write-Log -Console "**         See '<root>\k2s\test\e2e\addons\storage\workloads\' for example deployments. **"
     Write-Log -Console '********************************************************************************************'
 
@@ -996,10 +1090,16 @@ function Disable-SmbShare {
 
     Write-Log "Disabling '$AddonName'.."
 
-    Remove-SmbShareAndFolder -SkipNodesCleanup:$SkipNodesCleanup
+    foreach($pathValue in $shareDir){
+        Set-ShareDirValue -PathValue $pathValue
+        Remove-SmbShareAndFolder -SkipNodesCleanup:$SkipNodesCleanup
+    }
+    if (Test-Path -Path $patchFilePath) {
+        Remove-Item -Path $patchFilePath -Force
+    }
     Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = $AddonName; Implementation = $ImplementationName })
     Remove-ScriptsFromHooksDir -ScriptNames @(Get-ChildItem -Path $localHooksDir | ForEach-Object { $_.Name })
-
+    Remove-SmbShareNamespace
     return @{Error = $null }
 }
 
@@ -1115,10 +1215,10 @@ function Get-Status {
 
     $isSmbShareWorkingProp = @{Name = 'IsSmbShareWorking'; Value = $script:SmbShareWorking; Okay = $script:SmbShareWorking }
     if ($isSmbShareWorkingProp.Value -eq $true) {
-        $isSmbShareWorkingProp.Message = 'The SMB share is working'
+        $isSmbShareWorkingProp.Message = "The SMB share is working, path : ($global:windowsLocalPath--$global:linuxLocalPath)"
     }
     else {
-        $isSmbShareWorkingProp.Message = "The SMB share is not working. Try restarting the cluster with 'k2s start' or disable and re-enable the addon with 'k2s addons disable $AddonName $ImplementationName' and 'k2s addons enable $AddonName $ImplementationName'"
+        $isSmbShareWorkingProp.Message = "The SMB share is not working ($global:windowsLocalPath--$global:linuxLocalPath). Try restarting the cluster with 'k2s start' or disable and re-enable the addon with 'k2s addons disable $AddonName $ImplementationName' and 'k2s addons enable $AddonName $ImplementationName'"
     }
 
     $areCsiPodsRunning = Test-CsiPodsCondition -Condition 'Ready'
@@ -1157,7 +1257,7 @@ function Backup-AddonData {
     }
 
     Write-Log "  Copying data from '$windowsLocalPath' to '$BackupDir'.."
-    Copy-Item "$windowsLocalPath\*" -Destination $BackupDir -Force -Recurse
+    Copy-Item "$global:windowsLocalPath\*" -Destination $BackupDir -Force -Recurse
     Write-Log "  Data copied to '$BackupDir'."
 }
 
@@ -1184,7 +1284,7 @@ function Restore-AddonData {
     }
 
     Write-Log "  Copying data from '$BackupDir' to '$windowsLocalPath'.."
-    Copy-Item "$BackupDir\*" -Destination $windowsLocalPath -Force -Recurse
+    Copy-Item "$BackupDir\*" -Destination $global:windowsLocalPath -Force -Recurse
     Write-Log "  Data copied to '$windowsLocalPath'."
 }
 
@@ -1232,21 +1332,21 @@ Removes the local SMB mount from a Windows client if existing
 This function can be imported and executed on a Win VM node
 #>
 function Remove-LocalWinMountIfExisting {
-    if ((Test-Path -Path $windowsLocalPath) -ne $true) {
+    if ((Test-Path -Path $global:windowsLocalPath) -ne $true) {
         Write-Log 'Local Win mount not existing, nothing to remove.'
         return
     }
 
-    $winMount = Get-Item $windowsLocalPath
+    $winMount = Get-Item $global:windowsLocalPath
     if ( ($winMount | Select-Object -Property LinkType).LinkType -eq 'SymbolicLink') {
         $winMount.Delete()
 
-        Write-Log "SymbolicLink '$windowsLocalPath' deleted."
+        Write-Log "SymbolicLink '$global:windowsLocalPath' deleted."
     }
     else {
-        Remove-Item $windowsLocalPath -Recurse -Force
+        Remove-Item $global:windowsLocalPath -Recurse -Force
 
-        Write-Log "Directory '$windowsLocalPath' deleted."
+        Write-Log "Directory '$global:windowsLocalPath' deleted."
     }
 }
 
@@ -1268,7 +1368,25 @@ function Remove-SmbShareNamespace {
     }
 }
 
+function Set-ShareDirValue {
+    param (
+        [Parameter(Mandatory = $true)]
+        [pscustomobject]$PathValue
+    )
+    $global:linuxLocalPath = $PathValue.linuxMountPath
+    $global:windowsLocalPath = Expand-PathSMB $PathValue.winMountPath
+    $shareDirIterationValue=($shareDir.linuxMountPath).IndexOf($global:linuxLocalPath)
+    $global:linuxShareName = "k8sshare$($shareDirIterationValue + 1)" # exposed by Linux VM
+    $global:windowsShareName = (Split-Path -Path $global:windowsLocalPath -NoQualifier).TrimStart('\') # visible from VMs
+    $global:windowsSharePath = Split-Path -Path $global:windowsLocalPath -Qualifier
+    $global:linuxHostRemotePath = "\\$(Get-ConfiguredIPControlPlane)\$global:linuxShareName"
+    $global:windowsHostRemotePath = "\\$(Get-ConfiguredKubeSwitchIP)\$global:windowsShareName"
+    $global:newClassName = $PathValue.StorageClassName
+}
 
-Export-ModuleMember -Function Enable-SmbShare, Disable-SmbShare, Restore-SmbShareAndFolder, Get-SmbHostType,
+
+
+Export-ModuleMember -Function Enable-SmbShare, Disable-SmbShare, Restore-SmbShareAndFolder, Get-SmbHostType, Expand-PathSMB, Set-ShareDirValue, Get-SmbStorageConfig,
 Connect-WinVMClientToSmbHost, Test-SharedFolderMountOnWinNodeSilently, Get-Status, Backup-AddonData,
 Restore-AddonData, Remove-SmbGlobalMappingIfExisting, Remove-LocalWinMountIfExisting -Variable AddonName
+

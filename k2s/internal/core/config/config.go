@@ -14,7 +14,6 @@ import (
 type ConfigReader interface {
 	Host() HostConfigReader
 	ControlPlane() ControlPlaneConfigReader
-	Nodes() NodesConfigReader
 }
 
 type HostConfigReader interface {
@@ -27,19 +26,9 @@ type ControlPlaneConfigReader interface {
 	IpAddress() string
 }
 
-type NodesConfigReader interface {
-	ShareDir() ShareDirReader
-}
-
-type ShareDirReader interface {
-	LinuxDir() string
-	WindowsDir() string
-}
-
 type Config struct {
 	HostConfig         HostConfig
 	ControlPlaneConfig ControlPlaneConfig
-	NodesConfig
 }
 
 type HostConfig struct {
@@ -52,34 +41,19 @@ type ControlPlaneConfig struct {
 	IpAddr string
 }
 
-type NodesConfig struct {
-	ShareDirectory ShareDir
-}
-
-type ShareDir struct {
-	Windows string
-	Linux   string
-}
-
 type configJson struct {
 	SmallSetup smallSetup `json:"smallsetup"`
 	ConfigDir  configDir  `json:"configDir"`
 }
 
 type smallSetup struct {
-	ShareDir             shareDir `json:"shareDir"`
-	ControlPlanIpAddress string   `json:"masterIP"`
+	ControlPlanIpAddress string `json:"masterIP"`
 }
 
 type configDir struct {
 	Kube string `json:"kube"`
 	K2s  string `json:"k2s"`
 	Ssh  string `json:"ssh"`
-}
-
-type shareDir struct {
-	Linux   string `json:"master"`
-	Windows string `json:"windowsWorker"`
 }
 
 func LoadConfig(installDir string) (ConfigReader, error) {
@@ -109,11 +83,6 @@ func LoadConfig(installDir string) (ConfigReader, error) {
 		ControlPlaneConfig: ControlPlaneConfig{
 			IpAddr: configJson.SmallSetup.ControlPlanIpAddress,
 		},
-		NodesConfig: NodesConfig{
-			ShareDirectory: ShareDir{
-				Linux:   configJson.SmallSetup.ShareDir.Linux,
-				Windows: configJson.SmallSetup.ShareDir.Windows,
-			}},
 	}, nil
 }
 
@@ -123,10 +92,6 @@ func (c *Config) Host() HostConfigReader {
 
 func (c *Config) ControlPlane() ControlPlaneConfigReader {
 	return c.ControlPlaneConfig
-}
-
-func (c *Config) Nodes() NodesConfigReader {
-	return c.NodesConfig
 }
 
 func (c HostConfig) KubeConfigDir() string {
@@ -141,18 +106,6 @@ func (c HostConfig) SshDir() string {
 	return c.SshDirectory
 }
 
-func (c NodesConfig) ShareDir() ShareDirReader {
-	return c.ShareDirectory
-}
-
 func (c ControlPlaneConfig) IpAddress() string {
 	return c.IpAddr
-}
-
-func (s ShareDir) LinuxDir() string {
-	return s.Linux
-}
-
-func (s ShareDir) WindowsDir() string {
-	return s.Windows
 }
