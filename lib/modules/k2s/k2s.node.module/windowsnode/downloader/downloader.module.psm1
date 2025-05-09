@@ -371,6 +371,7 @@ function Install-WinNodeArtifacts {
         Invoke-DeployWindowsExporterArtifacts $windowsNodeArtifactsDirectory
         Install-WindowsExporter
 
+        Add-K2sAppLockerRules
     }
 
 }

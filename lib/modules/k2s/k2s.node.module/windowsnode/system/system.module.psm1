@@ -286,6 +286,27 @@ function Write-WarningIfRequiredSshVersionNotInstalled {
     }
 }
 
+function Add-K2sAppLockerRules {
+    $kubePath = Get-KubePath
+    $appLockerRules = $kubePath + '\cfg\applocker\applockerrules.xml'
+    Write-Log "Adding AppLocker rules from $appLockerRules"
+    Set-AppLockerPolicy -XmlPolicy $appLockerRules -Merge
+}
+
+function Remove-K2sAppLockerRules {
+    $AppLockerPolicyFile = "$Env:Temp\CurrentAppLockerRules.xml"
+    [xml]$AppLockerPolicy = Get-AppLockerPolicy -Xml -Local
+    $node = $AppLockerPolicy.SelectSingleNode("//AppLockerPolicy/RuleCollection/FilePathRule[@Id='0bf9e8e6-42cf-41cc-8737-68c788984e0d']")
+    if($null -ne $node)
+    {
+       Write-Log "Removing AppLocker rule"
+       [void]$node.ParentNode.RemoveChild($node)
+       $AppLockerPolicy.Save($AppLockerPolicyFile)
+       Set-AppLockerPolicy -XmlPolicy $AppLockerPolicyFile
+       Remove-Item $AppLockerPolicyFile -Force
+    }
+}
+
 Export-ModuleMember -Function Add-K2sToDefenderExclusion,
 Test-WindowsPrerequisites,
 Set-WSL,
@@ -293,4 +314,6 @@ Get-StorageLocalDrive,
 Invoke-DownloadFile,
 Stop-InstallIfNoMandatoryServiceIsRunning,
 Stop-InstallationIfRequiredCurlVersionNotInstalled,
-Write-WarningIfRequiredSshVersionNotInstalled
+Write-WarningIfRequiredSshVersionNotInstalled,
+Add-K2sAppLockerRules,
+Remove-K2sAppLockerRules
