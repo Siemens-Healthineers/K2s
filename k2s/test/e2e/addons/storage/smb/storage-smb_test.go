@@ -103,6 +103,14 @@ var _ = BeforeSuite(func(ctx context.Context) {
 	}
 	orignalShareConfigs = shareConfigs
 	shareConfigs = append(shareConfigs, newConfig)
+	updatedData, err := json.MarshalIndent(shareConfigs, "", "  ")
+	if err != nil {
+		panic(fmt.Errorf("failed to marshal JSON: %w", err))
+	}
+
+	if err := ioutil.WriteFile(configPath, updatedData, 0644); err != nil {
+		panic(fmt.Errorf("failed to write JSON: %w", err))
+	}
 
 })
 
