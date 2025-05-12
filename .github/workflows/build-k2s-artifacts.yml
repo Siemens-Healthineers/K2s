@@ -61,9 +61,7 @@ jobs:
         .\test\execute_all_tests.ps1 -Tags ci -ExcludeTags unit, integration -V -ThrowOnFailure
 
     - name: Create catalog file
-      shell: powershell
-      run: |
-      PackageInspector.exe scan . -out cat -cdfPath .\build\catalog\k2s.cdf -name .\build\catalog\k2s.cat -ca1 "K2s-Catalog"
+      run: PackageInspector scan . -out cat -cdfPath .\build\catalog\k2s.cdf -name .\build\catalog\k2s.cat -ca1 "K2s-Catalog"
 
     - name: Commit k2s executables
       run: |
