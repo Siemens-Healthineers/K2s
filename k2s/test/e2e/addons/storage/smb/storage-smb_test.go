@@ -15,7 +15,7 @@ import (
 
 	"io/ioutil"
 
-	"github.com/siemens-healthineers/k2s/test/framework/k2s/cli"
+	"github.com/siemens-healthineers/k2s/internal/cli"
 	"github.com/siemens-healthineers/k2s/test/framework/os"
 
 	"encoding/json"
