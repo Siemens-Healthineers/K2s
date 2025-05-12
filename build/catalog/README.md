@@ -2,5 +2,7 @@
 
 Build all executables
 ``` 
-PackageInspector.exe scan C:\ws\k2s -out cat -cdfPath c:\ws\k2s\build\catalog\k2s.cdf -name c:\ws\k2s\build\catalog\k2s.cat -ca1 "K2s-v1.4.0"
+del /Q c:\ws\k2s\build\catalog\k2s.cdf
+del /Q c:\ws\k2s\build\catalog\k2s.cat
+PackageInspector.exe scan C:\ws\k2s -out cat -cdfPath c:\ws\k2s\build\catalog\k2s.cdf -name c:\ws\k2s\build\catalog\k2s.cat -ca1 "K2s-Catalog"
 ```
