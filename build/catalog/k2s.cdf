@@ -3,7 +3,7 @@ Name=c:\ws\k2s\build\catalog\k2s.cat
 CatalogVersion=2
 HashAlgorithms=SHA256
 NonConformantFilesFallbackFlat=true
-CATATTR1=K2s-v1.4.0
+CATATTR1=K2s-Catalog
 
 [CatalogFiles]
 <HASH>C:\ws\k2s\test\test.module.psm1=C:\ws\k2s\test\test.module.psm1
