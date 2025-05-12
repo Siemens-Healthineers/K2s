@@ -73,6 +73,7 @@ See also [*Windows*-based Images](./smallsetup/ps-modules/windows-support/README
 - [CLI Shortcuts](docs/user-guide/cli-shortcuts.md)
 - [Upgrading *K2s*](docs/op-manual/upgrading-k2s.md)
 - [Creating Offline Package](docs/op-manual/creating-offline-package.md)
+- [Sign the *K2s* Package](docs/op-manual/signcatalog-k2s.md)
 
 ## Addons
 K2s provides a [rich set of addons](./addons/README.md) which are containing specific functionality, checkout the ```k2s addons``` command for all options.
