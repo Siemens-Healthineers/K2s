@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/siemens-healthineers/k2s/internal/host"
 	kos "github.com/siemens-healthineers/k2s/internal/os"
@@ -75,6 +76,48 @@ func ShortenSourceAttribute(_ []string, attribute slog.Attr) slog.Attr {
 		source.Function = ""
 	}
 	return attribute
+}
+
+// CleanLogDir removes all files in the given directory that are older than the given age
+// It considers only files in the given directory, not in sub-directories
+func CleanLogDir(dir string, maxFileAge time.Duration) error {
+	files, err := kos.FilesInDir(dir)
+	if err != nil {
+		return fmt.Errorf("failed to list files in log dir '%s': %w", dir, err)
+	}
+
+	slog.Debug("Found file in dir", "count", len(files), "dir", dir)
+
+	err = files.OlderThan(maxFileAge).JoinPathsWith(dir).Remove()
+	if err != nil {
+		return fmt.Errorf("failed to delete outdated files in log dir '%s': %w", dir, err)
+	}
+	return nil
+}
+
+// SetupDefaultFileLogger sets up the default slog logger to log to the given file, removing it first if it exists
+func SetupDefaultFileLogger(logDir, logFileName string, level slog.Level, args ...any) (*os.File, error) {
+	logFilePath := filepath.Join(logDir, logFileName)
+	if kos.PathExists(logFilePath) {
+		if err := kos.RemovePaths(logFilePath); err != nil {
+			return nil, fmt.Errorf("cannot remove log file '%s': %s", logFilePath, err)
+		}
+	}
+
+	logFile := InitializeLogFile(logFilePath)
+	loggerOptions := &slog.HandlerOptions{Level: level}
+	textHandler := slog.NewTextHandler(logFile, loggerOptions)
+	logger := slog.New(textHandler).With(args...)
+
+	slog.SetDefault(logger)
+
+	return logFile, nil
+}
+
+func LogExecutionTime(start time.Time, functionName string) {
+	duration := time.Since(start)
+
+	slog.Info("Execution finished", "function", functionName, "duration", duration)
 }
 
 func parseLevel(input string) (slog.Level, error) {

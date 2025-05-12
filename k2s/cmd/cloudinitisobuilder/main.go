@@ -27,21 +27,6 @@ type config struct {
 
 const cliName = "cloudinitisobuilder"
 
-func printCLIVersion() {
-	version := ve.GetVersion()
-	fmt.Printf("%s: %s\n", cliName, version)
-
-	fmt.Printf("  BuildDate: %s\n", version.BuildDate)
-	fmt.Printf("  GitCommit: %s\n", version.GitCommit)
-	fmt.Printf("  GitTreeState: %s\n", version.GitTreeState)
-	if version.GitTag != "" {
-		fmt.Printf("  GitTag: %s\n", version.GitTag)
-	}
-	fmt.Printf("  GoVersion: %s\n", version.GoVersion)
-	fmt.Printf("  Compiler: %s\n", version.Compiler)
-	fmt.Printf("  Platform: %s\n", version.Platform)
-}
-
 func main() {
 	c, err := parseArgs(os.Stderr, os.Args[1:])
 	if err != nil {
@@ -50,8 +35,8 @@ func main() {
 	}
 
 	if c.version {
-		printCLIVersion()
-		os.Exit(0)
+		ve.GetVersion().Print(cliName)
+		return
 	}
 
 	err = validateArgs(c)
