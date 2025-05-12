@@ -151,7 +151,7 @@ If the `k2s.exe` is missing in the install folder, most likely the *Windows Viru
 
 ## Unable to Run *Windows* Container on a Hardened Machine (*AppLocker* Rules)
 ### Problem
-If the *K2s* cluster is installed on a machine where security hardening is applied using *AppLocker* rules, then running *Windows* containers will be blocked. If you describe the *Windows* container *Pod* then you might see the following error, where the application is blocked by group policy:
+If the *K2s* cluster is installed on a machine where security hardening is applied using *AppLocker* rules, then running *Windows* containers normally will be blocked. If you describe the *Windows* container *Pod* then you might see the following error, where the application is blocked by group policy:
 ```title=""
 Warning  FailedCreatePodSandBox  0s    kubelet            Failed to create pod sandbox: rpc error: code = Unknown desc = failed to start sandbox container task "459fe28ca0da5a154964c80e1b5d74de3abefc83cf7ad77418a5d6cd9a7e5605": hcs::System::CreateProcess 459fe28ca0da5a154964c80e1b5d74de3abefc83cf7ad77418a5d6cd9a7e5605: This program is blocked by group policy. For more information, contact your system administrator.: unknown
 ```
@@ -159,6 +159,16 @@ Warning  FailedCreatePodSandBox  0s    kubelet            Failed to create pod s
 You can check the existing *AppLocker* rules by opening `Local Group Policy Editor` by running `gpedit.msc`. You can find the rules as shown below:
 
 ![AppLocker Rules](assets/WindowsAppLockerRules.png)
+
+If Applocker is active before installing *K2s", install of K2s will activate a rule which allows the execution of windows containers.
+If Applocker is activated after *K2s* actvation, the the rule need to be added manually:
+
+```
+        $appLockerRules = '.\cfg\applocker\applockerrules.xml'
+        Set-AppLockerPolicy -XmlPolicy $appLockerRules -Merge
+```
+
+By this, windows containers will not be blocked by Applocker.
 
 ### Solution
 !!! warning
