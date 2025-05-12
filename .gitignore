@@ -102,7 +102,7 @@ bin/msiuninstall.log
 addons/hooks
 
 # apps in /k2s exclude 
-# /k2s/**/*.exe
+/k2s/**/*.exe
 
 tmp/**/*
 
