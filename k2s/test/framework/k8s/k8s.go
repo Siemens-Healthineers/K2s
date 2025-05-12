@@ -485,7 +485,8 @@ func (c *Cluster) ExpectPodsUnderDeploymentReady(ctx context.Context, labelName 
 			}
 		}
 
-		GinkgoWriter.Println("Waiting for a pod to become ready...")
+		GinkgoWriter.Println("Waiting for a pod with label name:", labelName, "label value:", 
+		deploymentName, "namespace", namespace, "to become ready...")
 		return false
 	}, c.testStepTimeout, c.testStepPollInterval, ctx).Should(BeTrue())
 }
@@ -510,7 +511,8 @@ func (c *Cluster) ExpectPodsInReadyState(ctx context.Context, labelName string, 
 			}
 		}
 
-		GinkgoWriter.Println("Waiting for a pod to become ready...")
+		GinkgoWriter.Println("Waiting for a pod with label name:", labelName, "label value:",
+		namespace, "to become ready...")
 		return false
 	}, c.testStepTimeout, c.testStepPollInterval, ctx).Should(BeTrue())
 }
