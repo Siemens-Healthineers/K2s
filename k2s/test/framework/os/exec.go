@@ -12,6 +12,8 @@ import (
 
 	//lint:ignore ST1001 test framework code
 	. "github.com/onsi/ginkgo/v2"
+	"github.com/siemens-healthineers/k2s/internal/cli"
+
 	//lint:ignore ST1001 test framework code
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
@@ -33,7 +35,7 @@ func NewCli(proxy string, testStepTimeout time.Duration, testStepPollInterval ti
 
 // Execute Command and verify it exits with exit code zero
 func (c *CliExecutor) ExecOrFail(ctx context.Context, cliPath string, cliArgs ...string) string {
-	return c.ExecOrFailWithExitCode(ctx, cliPath, 0, cliArgs...)
+	return c.ExecOrFailWithExitCode(ctx, cliPath, int(cli.ExitCodeSuccess), cliArgs...)
 }
 
 func (c *CliExecutor) ExecOrFailWithExitCode(ctx context.Context, cliPath string, expectedExitCode int, cliArgs ...string) string {
@@ -53,7 +55,7 @@ func (c *CliExecutor) ExecPathWithProxyOrFail(ctx context.Context, cliPath strin
 		cmd.Env = append(cmd.Env, "http_proxy="+c.proxy)
 	}
 
-	return c.execWithExitCode(ctx, cmd, 0)
+	return c.execWithExitCode(ctx, cmd, int(cli.ExitCodeSuccess))
 }
 
 func (c *CliExecutor) Exec(ctx context.Context, cliPath string, cliArgs ...string) (string, int) {

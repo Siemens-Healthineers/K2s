@@ -90,13 +90,18 @@ if ($EnableMetricsServer) {
     Enable-MetricsServer
 }
 
-Write-Log 'Installing Kubernetes dashboard' -Console
-$dashboardConfig = Get-DashboardConfig
-(Invoke-Kubectl -Params 'apply' , '-k', $dashboardConfig).Output | Write-Log     
+Write-Log 'Installing dashboard from helm chart' -Console
+$dashboardChartDirectory = Get-DashboardChartDirectory
+# create the namespace dashboard
+(Invoke-Kubectl -Params 'create', 'namespace', 'dashboard').Output | Write-Log
+
+# apply the chart
+$dashboardChart = "$dashboardChartDirectory/kubernetes-dashboard-7.12.0.tgz"
+$dashboardValues = "$dashboardChartDirectory/values.yaml"
+(Invoke-Helm -Params 'install', 'kubernetes-dashboard', $dashboardChart, '--namespace', 'dashboard', '-f', $dashboardValues).Output | Write-Log 
 
 Write-Log 'Checking Dashboard status' -Console
 $dashboardStatus = Wait-ForDashboardAvailable
-
 if ($dashboardStatus -ne $true) {
     $errMsg = "All dashboard pods could not become ready. Please use kubectl describe for more details.`nInstallation of Kubernetes dashboard failed."
     if ($EncodeStructuredOutput -eq $true) {
@@ -108,6 +113,10 @@ if ($dashboardStatus -ne $true) {
     Write-Log $errMsg -Error
     exit 1
 }
+
+# create the service account
+$dashboardServiceAccount = "$dashboardChartDirectory/dashboard-service-account.yaml"
+(Invoke-Kubectl -Params 'apply' , '-f', $dashboardServiceAccount).Output | Write-Log
 
 &"$PSScriptRoot\Update.ps1"
 
