@@ -13,7 +13,7 @@ import (
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/addons/status"
 	"github.com/siemens-healthineers/k2s/test/framework"
 
-	"github.com/siemens-healthineers/k2s/test/framework/k2s/cli"
+	"github.com/siemens-healthineers/k2s/internal/cli"
 	"github.com/siemens-healthineers/k2s/test/framework/regex"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -119,11 +119,11 @@ var _ = Describe("'ingress traefik' addon", Ordered, func() {
 		Expect(err).ToNot(HaveOccurred())
 	})
 
-	It("sample app is reachable through traefik ingress controller via gateway", func(ctx context.Context) {
+	It("sample app is reachable through traefik ingress controller via svc", func(ctx context.Context) {
 		suite.Kubectl().Run(ctx, "apply", "-k", "workloads")
 		suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "albums-linux2", "ingress-traefik-test")
 
-		_, err := suite.HttpClient().GetJson(ctx, "http://k2s.cluster.local/albums-linux2")
+		_, err := suite.HttpClient().GetJson(ctx, "http://albums-linux2.ingress-traefik-test.svc.cluster.local/albums-linux2")
 
 		Expect(err).ToNot(HaveOccurred())
 	})

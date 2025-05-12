@@ -24,7 +24,6 @@ smallsetup/common/StartKubelet.ps1
 LocalHooks/*.ps1
 
 #Configs
-*.tgz
 /config
 cni/cni-conf.json
 *.code-workspace
@@ -137,6 +136,7 @@ bin/cdxgen.exe
 bin/trivy.exe
 bin/jq.exe
 bin/yq.exe
+bin/helm.exe
 
 bin/plink.exe
 bin/pscp.exe

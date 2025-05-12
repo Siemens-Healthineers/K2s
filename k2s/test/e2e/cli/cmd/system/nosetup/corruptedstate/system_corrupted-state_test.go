@@ -13,18 +13,18 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/siemens-healthineers/k2s/internal/cli"
 	"github.com/siemens-healthineers/k2s/internal/core/config"
 	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
 	kos "github.com/siemens-healthineers/k2s/internal/os"
 	"github.com/siemens-healthineers/k2s/test/framework"
-	"github.com/siemens-healthineers/k2s/test/framework/k2s/cli"
 )
 
 var suite *framework.K2sTestSuite
 
 func TestSystem(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "system CLI Commands Acceptance Tests", Label("cli", "system", "scp", "ssh", "m", "upgrade", "package", "users", "acceptance", "no-setup", "corrupted-state"))
+	RunSpecs(t, "system CLI Commands Acceptance Tests", Label("cli", "system", "upgrade", "package", "users", "acceptance", "no-setup", "corrupted-state"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
@@ -82,9 +82,6 @@ var _ = Describe("system", Ordered, func() {
 			Expect(output).To(ContainSubstring("corrupted state"))
 		},
 
-		Entry("scp m", "system", "scp", "m", "a1", "a2"),
-		Entry("ssh m connect", "system", "ssh", "m"),
-		Entry("ssh m cmd", "system", "ssh", "m", "--", "echo yes"),
 		Entry("upgrade", "system", "upgrade"),
 		Entry("upgrade", "system", "reset", "network"),
 		Entry("package", "system", "package", "--target-dir", "tempDir", "--name", "package.zip", "--for-offline-installation"),
