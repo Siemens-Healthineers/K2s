@@ -480,12 +480,13 @@ func (c *Cluster) ExpectPodsUnderDeploymentReady(ctx context.Context, labelName 
 		for _, pod := range pods.Items {
 			GinkgoWriter.Println("Pod name:", pod.Name, "| Pod Status:", pod.Status.Phase)
 			if pod.Status.Phase == corev1.PodRunning || pod.Status.Phase == corev1.PodSucceeded {
-				GinkgoWriter.Println("At least one pod is available in the deployment:", deploymentName)
+				GinkgoWriter.Println("At least one pod is running in the deployment:", deploymentName)
 				return true
 			}
 		}
 
-		GinkgoWriter.Println("Waiting for a pod to become available...")
+		GinkgoWriter.Println("Waiting for a pod with label name:", labelName, "label value:", 
+		deploymentName, "namespace", namespace, "to become ready...")
 		return false
 	}, c.testStepTimeout, c.testStepPollInterval, ctx).Should(BeTrue())
 }
@@ -510,7 +511,8 @@ func (c *Cluster) ExpectPodsInReadyState(ctx context.Context, labelName string, 
 			}
 		}
 
-		GinkgoWriter.Println("Waiting for a pod to become available...")
+		GinkgoWriter.Println("Waiting for a pod with label name:", labelName, "label value:",
+		namespace, "to become ready...")
 		return false
 	}, c.testStepTimeout, c.testStepPollInterval, ctx).Should(BeTrue())
 }
