@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+SPDX-License-Identifier: MIT
+-->
+
 ## How to update the catalog file for *K2s*
 
 Build all executables
