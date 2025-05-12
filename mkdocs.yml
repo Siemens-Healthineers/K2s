@@ -109,6 +109,7 @@ nav:
       - Extending K2s cluster: op-manual/extending-k2s-cluster.md
       - Secure Host Access: op-manual/secure-host-access.md
       - Uninstalling K2s: op-manual/uninstalling-k2s.md
+      - Sign K2s package: op-manual/signcatalog-k2s.md
   - Developer Guide:
       - Contributing:
           - dev-guide/contributing/index.md
