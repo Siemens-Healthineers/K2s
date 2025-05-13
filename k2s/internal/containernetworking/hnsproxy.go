@@ -74,7 +74,7 @@ type HnsProxyConfig struct {
 }
 
 type VfpRoutes struct {
-	HnsProxyConfig HnsProxyConfig `json:"hnsproxy"`
+	HnsProxyConfig HnsProxyConfig `json:"hnsproxyconfig"`
 }
 
 func hnsProxyAddPolicy(hnsEndpointID string, policy Policy) error {
