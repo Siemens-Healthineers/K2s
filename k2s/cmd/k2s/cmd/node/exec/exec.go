@@ -31,10 +31,10 @@ const (
 	rawFlag         = "raw"
 	longDescription = "Executes a command on a remote node."
 	example         = `# Execute a command on Linux node
-k2s node exec -i 192.168.1.2 -u remote -c "echo 'Hello, World!'"
+k2s node exec -i 172.19.1.100 -u remote -c "echo 'Hello, World!'"
 
 # Execute a command on Linux node only printing the remote output
-k2s node exec -i 192.168.1.2 -u remote -c "echo 'Hello, World!'" -r
+k2s node exec -i 172.19.1.100 -u remote -c "echo 'Hello, World!'" -r
 `
 )
 
