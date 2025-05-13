@@ -30,7 +30,7 @@ Check the client version with 'ssh -V'.
 See also the OpenSSH release notes at https://www.openssh.com/releasenotes.html.
 `
 	example = `# Connect to a remote node
-k2s node connect -i 192.168.1.2 -u remote
+k2s node connect -i 172.19.1.100 -u remote
 `
 )
 
