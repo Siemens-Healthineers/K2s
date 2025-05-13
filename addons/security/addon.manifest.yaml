@@ -22,7 +22,7 @@ spec:
             - url: https://github.com/cert-manager/cmctl/releases/download/v2.0.0/cmctl_windows_amd64.exe
               destination: bin\cmctl.exe
           linkerd:
-            - url: https://github.com/linkerd/linkerd2/releases/download/edge-25.3.3/linkerd2-cli-edge-25.3.3-windows.exe
+            - url: https://github.com/linkerd/linkerd2/releases/download/edge-25.4.4/linkerd2-cli-edge-25.4.4-windows.exe
               destination: bin\linkerd.exe
       commands:
         enable:

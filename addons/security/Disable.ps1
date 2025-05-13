@@ -62,12 +62,12 @@ if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'cert-manager', '--ign
     exit 1
 }
 
-Write-Log 'Uninstalling security' -Console
+Write-Log 'Uninstalling security cert manager parts' -Console
 $certManagerConfig = Get-CertManagerConfig
 $caIssuerConfig = Get-CAIssuerConfig
 
-(Invoke-Kubectl -Params 'delete', '--ignore-not-found', '-f', $caIssuerConfig).Output | Write-Log
-(Invoke-Kubectl -Params 'delete', '--ignore-not-found', '-f', $certManagerConfig).Output | Write-Log
+(Invoke-Kubectl -Params 'delete', '--ignore-not-found', '--timeout=30s', '-f', $caIssuerConfig).Output | Write-Log
+(Invoke-Kubectl -Params 'delete', '--ignore-not-found', '--timeout=30s', '-f', $certManagerConfig).Output | Write-Log
 
 Remove-Cmctl
 
