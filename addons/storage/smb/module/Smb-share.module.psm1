@@ -204,7 +204,7 @@ function New-SmbHostOnLinuxIfNotExisting {
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo chown nobody:nogroup /srv/samba/$global:linuxShareName/").Output | Write-Log
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo chmod 0777 /srv/samba/$global:linuxShareName/").Output | Write-Log
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo sh -c 'echo [$global:linuxShareName] >> /etc/samba/smb.conf'").Output | Write-Log
-    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo sh -c 'echo comment = K8s share for k8s-smb-share >> /etc/samba/smb.conf'").Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo sh -c 'echo comment = K8s share for $global:linuxSharePath >> /etc/samba/smb.conf'").Output | Write-Log
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo sh -c 'echo path = /srv/samba/$global:linuxShareName >> /etc/samba/smb.conf'").Output | Write-Log
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo sh -c 'echo browsable = yes >> /etc/samba/smb.conf'").Output | Write-Log
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo sh -c 'echo guest ok = yes >> /etc/samba/smb.conf'").Output | Write-Log
@@ -278,7 +278,7 @@ function New-SharedFolderMountOnLinuxClient {
         mkdir -p ~/tmp
         cd ~/tmp
         # remove all old lines with $windowsShareName from fstab
-        sed -e /k8s-smb-share/d < /etc/fstab > $tempFstabFile
+        sed -e /$global:linuxSharePath/d < /etc/fstab > $tempFstabFile
         # add the new line to fstab
         echo '             Adding line for $global:linuxLocalPath to /etc/fstab'
         echo '//$(Get-ConfiguredKubeSwitchIP)/$global:windowsShareName $global:linuxLocalPath cifs username=$smbUserName,password=$($creds.GetNetworkCredential().Password),rw,nobrl,soft,x-systemd.automount,file_mode=0666,dir_mode=0777,vers=3.0' | tee -a $tempFstabFile >/dev/null
@@ -346,7 +346,7 @@ function Remove-SharedFolderMountOnLinuxClient {
         mkdir -p ~/tmp
         cd ~/tmp
         # remove all lines with $global:windowsShareName from fstab
-        sed -e /k8s-smb-share/d < /etc/fstab > $tempFstabFile
+        sed -e /$global:linuxSharePath/d < /etc/fstab > $tempFstabFile
         sudo sh -c "cat $tempFstabFile > /etc/fstab"
         sudo rm -f $tempFstabFile
         sudo systemctl daemon-reload
@@ -390,7 +390,7 @@ function Wait-ForSharedFolderMountOnLinuxClient () {
         return
     }
 
-    $mountOut = (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo su -s /bin/bash -c 'sudo mount | grep /k8s-smb-share' remote").Output
+    $mountOut = (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo su -s /bin/bash -c 'sudo mount | grep /$global:linuxSharePath' remote").Output
 
     $iteration = 0
     while (! $mountOut) {
@@ -414,7 +414,7 @@ function Wait-ForSharedFolderMountOnLinuxClient () {
         }
         Start-Sleep 2
         (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo mount -a').Output | Write-Log
-        $mountOut = (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo su -s /bin/bash -c 'sudo mount | grep /k8s-smb-share' remote").Output
+        $mountOut = (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo su -s /bin/bash -c 'sudo mount | grep /$global:linuxSharePath' remote").Output
     }
     Write-Log 'Shared folder mounted on Linux.'
 }
@@ -430,7 +430,7 @@ function Wait-ForSharedFolderOnLinuxHost () {
         return
     }
 
-    $mountOut = (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo su -s /bin/bash -c 'sudo mount | grep /k8s-smb-share' remote").Output
+    $mountOut = (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo su -s /bin/bash -c 'sudo mount | grep /$global:linuxSharePath' remote").Output
     $iteration = 0
     while (! $mountOut) {
         $iteration++
@@ -445,7 +445,7 @@ function Wait-ForSharedFolderOnLinuxHost () {
 
         Start-Sleep 2
         (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo mount -a').Output | Write-Log
-        $mountOut = (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo su -s /bin/bash -c 'sudo mount | grep /k8s-smb-share' remote").Output
+        $mountOut = (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo su -s /bin/bash -c 'sudo mount | grep /$global:linuxSharePath' remote").Output
     }
     Write-Log "           $global:linuxLocalPath mounted"
     $script:Success = $true
@@ -463,7 +463,7 @@ function New-SharedFolderMountOnLinuxHost {
         mkdir -p ~/tmp
         cd ~/tmp
         # remove all old lines with $global:linuxLocalPath from fstab
-        sed -e /k8s-smb-share/d < /etc/fstab > fstab.tmp
+        sed -e /$global:linuxSharePath/d < /etc/fstab > fstab.tmp
         # add the new line to fstab
         echo '             Adding line for $global:linuxLocalPath to /etc/fstab'
         echo '//$(Get-ConfiguredIPControlPlane)/$global:linuxShareName $global:linuxLocalPath cifs username=$smbUserName,password=$($creds.GetNetworkCredential().Password),rw,nobrl,x-systemd.after=smbd.service,x-systemd.before=kubelet.service,file_mode=0666,dir_mode=0777,vers=3' | tee -a fstab.tmp >/dev/null
@@ -520,7 +520,7 @@ function Remove-SharedFolderMountOnLinuxHost {
         mkdir -p ~/tmp
         cd ~/tmp
         # remove all lines with $global:linuxLocalPath from fstab
-        sed -e /k8s-smb-share/d < /etc/fstab > $tempFstabFile
+        sed -e /$global:linuxSharePath/d < /etc/fstab > $tempFstabFile
         sudo sh -c "cat $tempFstabFile > /etc/fstab"
         sudo rm -f $tempFstabFile
         sudo systemctl daemon-reload
@@ -1038,16 +1038,17 @@ function Enable-SmbShare {
     Copy-ScriptsToHooksDir -ScriptPaths @(Get-ChildItem -Path $localHooksDir | ForEach-Object { $_.FullName })
     Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = $AddonName; Implementation = $ImplementationName; SmbHostType = $SmbHostType })
     New-SmbShareNamespace
-
+  $storageClassNames= ""
     foreach($pathValue in $shareDir){
         Set-ShareDirValue -PathValue $pathValue
+        $storageClassNames += "$($PathValue.StorageClassName)," 
         Restore-SmbShareAndFolder -SmbHostType $SmbHostType -SkipTest -SetupInfo $setupInfo
         Restore-StorageClass -SmbHostType $SmbHostType -LinuxOnly $setupInfo.LinuxOnly 
     }
-
+    $storageClassNames = $storageClassNames.TrimEnd(',')
     Write-Log -Console '********************************************************************************************'
     Write-Log -Console '** IMPORTANT:                                                                             **' 
-    Write-Log -Console "**       - use the StorageClass name $pathValue.StorageClassName to provide storage.                            **"
+    Write-Log -Console "**       - use the StorageClass name '$storageClassNames' to provide storage.                            **"
     Write-Log -Console "**         See '<root>\k2s\test\e2e\addons\storage\workloads\' for example deployments. **"
     Write-Log -Console '********************************************************************************************'
 
@@ -1377,6 +1378,7 @@ function Set-ShareDirValue {
     $global:windowsLocalPath = Expand-PathSMB $PathValue.winMountPath
     $shareDirIterationValue=($shareDir.linuxMountPath).IndexOf($global:linuxLocalPath)
     $global:linuxShareName = "k8sshare$($shareDirIterationValue + 1)" # exposed by Linux VM
+    $global:linuxSharePath = $PathValue.linuxMountPath -replace '^/mnt/', ''
     $global:windowsShareName = (Split-Path -Path $global:windowsLocalPath -NoQualifier).TrimStart('\') # visible from VMs
     $global:windowsSharePath = Split-Path -Path $global:windowsLocalPath -Qualifier
     $global:linuxHostRemotePath = "\\$(Get-ConfiguredIPControlPlane)\$global:linuxShareName"
