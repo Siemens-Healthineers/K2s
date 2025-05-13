@@ -35,23 +35,23 @@ Remote node paths can but do not need to contain a tilde (~) since the working d
 '~/my-file' equals to 'my-file' equals to '/home/<user>/my-file' (Linux) or 'c:\users\<user>\my-file' (Windows). Locally (on the host), the working directory is the current working directory of the command execution.
 `
 	example = `# Copy a file from host to node, e.g. to home dir
-	k2s node copy -i 192.168.1.2 -u remote -s C:\path\to\my-file -t ~/
+	k2s node copy -i 172.19.1.100 -u remote -s C:\path\to\my-file -t ~/
 
 	- or -
 
-	k2s node copy -i 192.168.1.2 -u remote -s C:\path\to\my-file -t ~/my-file	
+	k2s node copy -i 172.19.1.100 -u remote -s C:\path\to\my-file -t ~/my-file	
 
 
 # Copy a folder from host to node, e.g. to home dir
-	k2s node copy -i 192.168.1.2 -u remote -s C:\path\to\my-folder\ -t ~/
+	k2s node copy -i 172.19.1.100 -u remote -s C:\path\to\my-folder\ -t ~/
 
 
 # Copy a file from node to host, e.g. from home dir on node
-	k2s node copy -r -i 192.168.1.2 -u remote -s my-file -t C:\temp\my-file
+	k2s node copy -r -i 172.19.1.100 -u remote -s my-file -t C:\temp\my-file
 
 
 # Copy a folder from node to host, e.g. from home dir on node
-	k2s node copy -r -i 192.168.1.2 -u remote -s my-folder/ -t C:\temp\
+	k2s node copy -r -i 172.19.1.100 -u remote -s my-folder/ -t C:\temp\
 `
 )
 
