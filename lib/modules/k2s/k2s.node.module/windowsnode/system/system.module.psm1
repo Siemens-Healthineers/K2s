@@ -287,10 +287,16 @@ function Write-WarningIfRequiredSshVersionNotInstalled {
 }
 
 function Add-K2sAppLockerRules {
-    $kubePath = Get-KubePath
-    $appLockerRules = $kubePath + '\cfg\applocker\applockerrules.xml'
-    Write-Log "Adding AppLocker rules from $appLockerRules"
-    Set-AppLockerPolicy -XmlPolicy $appLockerRules -Merge
+    # apply rules only if applocker is active
+    # if applocker will be activated in future, then the policy from \cfg\applocker\applockerrules.xml needs to be applied manually
+    $ServiceName = 'appidsvc'
+    $svcstatus = $(Get-Service -Name $ServiceName -ErrorAction SilentlyContinue).Status
+    if ($svcstatus -eq 'Running') {
+        $kubePath = Get-KubePath
+        $appLockerRules = $kubePath + '\cfg\applocker\applockerrules.xml'
+        Write-Log "Adding AppLocker rules from $appLockerRules"
+        Set-AppLockerPolicy -XmlPolicy $appLockerRules -Merge
+    }
 }
 
 function Remove-K2sAppLockerRules {
