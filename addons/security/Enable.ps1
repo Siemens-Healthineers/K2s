@@ -88,6 +88,14 @@ if ($setupInfo.Name -ne 'k2s') {
     return
 }
 
+if (Confirm-EnhancedSecurityOn($Type)) {
+    $ReleaseId = (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion').CurrentBuild
+    if ($ReleaseId -lt 20348 ) {
+        Write-Log "enhanced security needs at the moment minimal Windows Version 20348, you have $ReleaseId"
+        throw "[PREREQ-FAILED] Windows release $ReleaseId is not usable for enhanced for now, please use basic security instead."
+    }
+}
+
 try {
     Write-Log 'Downloading cert-manager files' -Console
     $manifest = Get-FromYamlFile -Path "$PSScriptRoot\addon.manifest.yaml"
