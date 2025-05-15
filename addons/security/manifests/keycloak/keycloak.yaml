@@ -3,11 +3,6 @@
 # SPDX-License-Identifier: MIT
 
 apiVersion: v1
-kind: Namespace
-metadata:
-  name: security
----
-apiVersion: v1
 kind: Secret
 metadata:
   name: keycloak-admin-user
@@ -2297,11 +2292,18 @@ spec:
         - name: keycloak
           image: quay.io/keycloak/keycloak:24.0.2
           args:
-            - start-dev
+            # Use 'start' command for production
+            - start
+            # Keep production-relevant flags
             - "--hostname-strict=false"
+            # Only include --import-realm if you are using a realm import file for initial setup
+            # For ongoing realm management, you might use the admin console or Keycloak CRs/Operator
             - "--import-realm"
             - "--proxy=edge"
             - "--http-relative-path=keycloak"
+            # Add health check arguments for 'start' mode
+            - "--health-enabled=true"
+            # - "--metrics-enabled=true"           
           env:
             - name: KEYCLOAK_ADMIN
               valueFrom:
@@ -2319,6 +2321,26 @@ spec:
               value: http://172.19.1.1:8181
             - name: HTTPS_PROXY
               value: http://172.19.1.1:8181
+            # Configure database connection for production
+            # Replace with your actual database details and Secret references
+            - name: KC_DB
+              # Example: postgres, mysql, mariadb, mssql, oracle
+              value: "postgres"
+            - name: KC_DB_URL
+              # Use the name of the PostgreSQL Service created above
+              value: "jdbc:postgresql://postgresql.security.svc.cluster.local:5432/keycloak"
+            - name: KC_DB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  # Create a Kubernetes Secret containing your database username
+                  name: keycloak-db-credentials
+                  key: username
+            - name: KC_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  # Create a Kubernetes Secret containing your database password
+                  name: keycloak-db-credentials
+                  key: password              
           ports:
             - name: http
               containerPort: 8080
@@ -2326,6 +2348,33 @@ spec:
             httpGet:
               path: /keycloak/realms/master
               port: 8080
+            initialDelaySeconds: 30 # Increase delay for production
+            periodSeconds: 10
+            timeoutSeconds: 5
+            successThreshold: 1
+            failureThreshold: 5 # Increase failure threshold
+
+          # livenessProbe:
+          #   # Add a liveness probe for production
+          #   httpGet:
+          #     path: /keycloak/realms/master/online
+          #     port: 8080 
+          #   initialDelaySeconds: 60 # Increase delay
+          #   periodSeconds: 15
+          #   timeoutSeconds: 5
+          #   successThreshold: 1
+          #   failureThreshold: 5 # Increase failure threshold
+
+          # Define resource requests and limits for production
+          # These values should be tuned based on your expected load
+          resources:
+            requests:
+              # cpu: "1000m"
+              memory: "300Mi"
+            limits:
+              # cpu: "4000m"
+              memory: "2Gi"
+
           volumeMounts:
             - name: keycloak-config-volume
               mountPath: /opt/keycloak/data/import
