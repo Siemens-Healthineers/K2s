@@ -94,7 +94,7 @@ function Assert-KubeApiServerHealth {
     return $false
 }
 
-function Send-ErrorToCliAndExit {
+function Send-ErrorToCli {
     Param(
         [string]$ErrorMessage
     )
@@ -105,35 +105,67 @@ function Send-ErrorToCliAndExit {
     }
 
     Write-Log $ErrorMessage -Error
-    exit 1
 }
 
+function Restart-ControlPlaneServicesSoftly {
+    (Invoke-CmdOnControlPlaneViaSSHKey 'sudo touch /etc/kubernetes/manifests/etcd.yaml').Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaSSHKey 'sudo touch /etc/kubernetes/manifests/kube-apiserver.yaml').Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaSSHKey 'sudo touch /etc/kubernetes/manifests/kube-controller-manager.yaml').Output | Write-Log
+    (Invoke-CmdOnControlPlaneViaSSHKey 'sudo touch /etc/kubernetes/manifests/kubec-scheduler.yaml').Output | Write-Log
+}
 
-function Restart-ControlPlaneNode {
-    Write-Log "Restarting Control Plane Node" -Console
-    $controlPlaneVMHostName = Get-ConfigControlPlaneNodeHostname
-    if ($(Get-VM | Where-Object Name -eq $controlPlaneVMHostName | Measure-Object).Count -eq 1 ) {
-        Write-Log ('Stopping ' + $controlPlaneVMHostName + ' VM')
-        Stop-VM -Name $controlPlaneVMHostName -Force -WarningAction SilentlyContinue
+function Invoke-CertificateRenewalForControlPlanePods {
+    (Invoke-CmdOnControlPlaneViaSSHKey 'sudo kubeadm certs renew all').Output | Write-Log
+    Restart-ControlPlaneServicesSoftly
+}
 
-        Write-Log ('Starting ' + $controlPlaneVMHostName + ' VM')
-        Start-VM -Name $controlPlaneVMHostName
+function Invoke-CertificateRenewalForKubeletInControlPlane {
+    # Define backup directory
+    $backupDir = "/etc/kubernetes/backup"
+    $createBackupDirCmd = "sudo mkdir -p $backupDir"
+    $controlPlaneVMHostName = (Get-ConfigControlPlaneNodeHostname).ToLower()
+    (Invoke-CmdOnControlPlaneViaSSHKey $createBackupDirCmd).Output | Write-Log
 
-        Wait-ForSSHConnectionToLinuxVMViaSshKey
-    } else {
-        $errMsg = "Unable to find control plane VM with name $controlPlaneVMHostName"
-        Send-ErrorToCliAndExit -ErrorMessage $errMsg
-    }
+    $deleteExistingKubeletConfBackupCmd = "if [ -f $backupDir/kubelet.conf.bak ]; then sudo rm -f $backupDir/kubelet.conf.bak; fi"
+    (Invoke-CmdOnControlPlaneViaSSHKey $deleteExistingKubeletConfBackupCmd).Output | Write-Log
+
+    $backupKubeletConfCmd = "sudo cp /etc/kubernetes/kubelet.conf $backupDir/kubelet.conf.bak"
+    (Invoke-CmdOnControlPlaneViaSSHKey $backupKubeletConfCmd).Output | Write-Log
+
+    $deleteKubeletConfCmd = "sudo rm -f /etc/kubernetes/kubelet.conf"
+    (Invoke-CmdOnControlPlaneViaSSHKey $deleteKubeletConfCmd).Output | Write-Log
+
+    $deleteExistingKubeletClientBackupCmd = "if ls $backupDir/kubelet-client* 1> /dev/null 2>&1; then sudo rm -f $backupDir/kubelet-client*; fi"
+    (Invoke-CmdOnControlPlaneViaSSHKey $deleteExistingKubeletClientBackupCmd).Output | Write-Log
+
+    $backupKubeletClientCmd = "sudo cp /var/lib/kubelet/pki/kubelet-client* $backupDir/"
+    (Invoke-CmdOnControlPlaneViaSSHKey $backupKubeletClientCmd).Output | Write-Log
+
+    $deleteKubeletClientCmd = "sudo rm -f /var/lib/kubelet/pki/kubelet-client*"
+    (Invoke-CmdOnControlPlaneViaSSHKey $deleteKubeletClientCmd).Output | Write-Log
+
+    $generateKubeletConfCmd = "sudo kubeadm kubeconfig user --org system:nodes --client-name system:node:$controlPlaneVMHostName > /tmp/kubelet.conf"
+    (Invoke-CmdOnControlPlaneViaSSHKey $generateKubeletConfCmd).Output | Write-Log
+
+    $copyKubeletConfCmd = "sudo cp /tmp/kubelet.conf /etc/kubernetes/kubelet.conf"
+    (Invoke-CmdOnControlPlaneViaSSHKey $copyKubeletConfCmd).Output | Write-Log
+
+    $setPermissionsCmd = "sudo chmod 600 /etc/kubernetes/kubelet.conf"
+    (Invoke-CmdOnControlPlaneViaSSHKey $setPermissionsCmd).Output | Write-Log
+
+    Write-Log "Kubelet certificates renewed and kubelet configuration updated successfully." -Console
 }
 
 function Invoke-CertificateRenewalInControlPlane {
-    (Invoke-CmdOnControlPlaneViaSSHKey 'sudo kubeadm certs renew all').Output | Write-Log
-    Restart-ControlPlaneNode
+    Invoke-CertificateRenewalForKubeletInControlPlane
+    Invoke-CertificateRenewalForControlPlanePods
     $healthStatus = Assert-KubeApiServerHealth
     if ($healthStatus -eq $false) {
         $errMsg = "kube-apiserver is not healthy after certificate renewal in time"
-        Send-ErrorToCliAndExit -ErrorMessage $errMsg
+        Send-ErrorToCli -ErrorMessage $errMsg
+        return $false
     }
+    return $true
 }
 
 function Invoke-KubeConfigRefreshOnHost {
@@ -142,17 +174,20 @@ function Invoke-KubeConfigRefreshOnHost {
     Add-K8sContext
 }
 
-$expired = Assert-CertificateExpiry
+$noErrorsOccured = $true
+$certificatesValid = Assert-CertificateExpiry
 
-if (($expired -eq $false) -or ($Force -eq $true)) {
+if (($certificatesValid -eq $false) -or ($Force -eq $true)) {
     if ($Force -eq $true) {
         Write-Log "Triggering forced certificate renewal." -Console
     }
-    Invoke-CertificateRenewalInControlPlane
-    Invoke-KubeConfigRefreshOnHost
+    $noErrorsOccured = Invoke-CertificateRenewalInControlPlane
+    if ($noErrorsOccured -eq $true) {
+        Invoke-KubeConfigRefreshOnHost
+    }
 }
 
-if ($EncodeStructuredOutput) {
+if ($EncodeStructuredOutput -and $noErrorsOccured) {
     Send-ToCli -MessageType $MessageType -Message @{Error = $null}
 }
 
