@@ -23,7 +23,7 @@ function Add-DnsServer($switchname) {
 
     Write-Log "Setting DNSProxy(3) IP address '$ipControlPlane' as main DNS server for network interface '$switchname'"
     Set-DnsClientServerAddress -InterfaceIndex $ipindex -ServerAddresses $ipControlPlane | Out-Null
-    Set-DnsClient -InterfaceIndex $ipindex -ResetConnectionSpecificSuffix -RegisterThisConnectionsAddress $true | Out-Null
+    Set-DnsClient -InterfaceIndex $ipindex -ResetConnectionSpecificSuffix -RegisterThisConnectionsAddress $false | Out-Null
 }
 
 <#
