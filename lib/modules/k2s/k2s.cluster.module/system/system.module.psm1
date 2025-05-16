@@ -18,7 +18,7 @@ $kubeToolsPath = Get-KubeToolsPath
 Performs time synchronization across all nodes of the clusters.
 #>
 function Invoke-TimeSync {
-    $timezoneStandardNameOnHost = (Get-TimeZone).StandardName
+    $timezoneStandardNameOnHost = (Get-TimeZone).Id
     $kubeConfigDir = Get-ConfiguredKubeConfigDir
     $windowsTimezoneConfig = "$kubeConfigDir\windowsZones.xml"
     [XML]$timezoneConfigXml = (Get-Content -Path $windowsTimezoneConfig)
