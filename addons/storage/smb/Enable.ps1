@@ -41,8 +41,15 @@ Initialize-Logging -ShowLogs:$ShowLogs
 $addonName = Get-AddonNameFromFolderPath -BaseFolderPath $PSScriptRoot
 
 if ($Config -ne $null -and $null -ne $Config.SmbHostType) {
-    Write-Log "  Using SMB host type '$($Config.SmbHostType)' from addon config." -Console
+    Write-Log "  Using SMB host type '$($Config.SmbHostType)' from addon config" -Console
     $SmbHostType = $Config.SmbHostType
+}
+if ($Config -ne $null -and $null -ne $Config.Storage) {
+    $configPath = Get-StorageConfigPath
+
+    Write-Log "  Applying storage configuration from global addon config and overwriting default storage config '$configPath'" -Console
+    $json = ConvertTo-Json $Config.Storage -Depth 100 # no pipe to keep the array even for single storage config entry
+    $json | Set-Content -Force $configPath -Confirm:$false
 }
 
 Write-Log "Enabling addon '$addonName' with SMB host type '$SmbHostType'.." -Console

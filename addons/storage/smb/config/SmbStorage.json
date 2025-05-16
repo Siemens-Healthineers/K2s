@@ -1,6 +1,6 @@
 [
     {
-        "winMountPath": "C:/k8s-smb-share",
+        "winMountPath": "C:\\k8s-smb-share",
         "linuxMountPath": "/mnt/k8s-smb-share",
         "storageClassName": "smb"
     }

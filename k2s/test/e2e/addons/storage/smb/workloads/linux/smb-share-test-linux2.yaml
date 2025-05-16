@@ -42,7 +42,7 @@ spec:
         labels:
           app: smb-share-test-linux2
       spec:
-        storageClassName: smb1
+        storageClassName: smb2
         accessModes: ["ReadWriteOnce"]
         resources:
           requests:

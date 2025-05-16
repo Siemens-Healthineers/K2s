@@ -13,7 +13,6 @@ Post-start hook to re-establish SMB share.
 #>
 
 $logModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/log/log.module.psm1"
-$setupInfoModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/setupinfo/setupinfo.module.psm1"
 $smbShareModule = "$PSScriptRoot\..\storage\smb\module\Smb-share.module.psm1"
 
 Import-Module $logModule, $setupInfoModule, $smbShareModule
@@ -23,14 +22,10 @@ Initialize-Logging -ShowLogs:$ShowLogs
 Write-Log 'Re-establishing SMB share after cluster start..' -Console
 
 $smbHostType = Get-SmbHostType
-$setupInfo = Get-SetupInfo
-
-$configFile = "$PSScriptRoot\..\storage\smb\Config\SmbStorage.json"
-$shareDir = Get-SmbStorageConfig -ConfigFile $configFile
-
-foreach($pathValue in $shareDir){
-     Set-ShareDirValue -PathValue $pathValue
-     Restore-SmbShareAndFolder -SmbHostType $smbHostType -SetupInfo $setupInfo 
-    }
+$storageConfig = Get-StorageConfig
+    
+foreach ($storageEntry in $storageConfig) {
+    Restore-SmbShareAndFolder -SmbHostType $smbHostType -Config $storageEntry
+}
 
 Write-Log 'SMB share re-established after cluster start.' -Console

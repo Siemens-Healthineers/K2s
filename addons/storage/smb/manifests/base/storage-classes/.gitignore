@@ -1,0 +1,6 @@
+# SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: CC0-1.0
+
+generated_*
+kustomization.yaml

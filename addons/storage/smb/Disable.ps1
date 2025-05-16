@@ -51,6 +51,13 @@ if ($Force -ne $true) {
 
 Write-Log "Disabling addon '$addonName'.."
 
+$configPath = Get-StorageConfigPath
+$config = Get-AddonConfig -Name $addonName
+
+Write-Log "  Applying storage configuration from global addon config and overwriting default storage config '$configPath'" -Console
+$json = ConvertTo-Json $config.Storage -Depth 100 # no pipe to keep the array even for single storage config entry
+$json | Set-Content -Force $configPath -Confirm:$false
+
 $err = (Disable-SmbShare).Error
 
 if ($err) {
