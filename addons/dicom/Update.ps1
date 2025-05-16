@@ -26,7 +26,7 @@ if ($EnancedSecurityEnabled) {
 	Write-Log "Updating dicom addon to be part of service mesh"  
 	$annotations1 = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"linkerd.io/inject\":\"enabled\",\"config.linkerd.io/opaque-ports\":\"5432\"}}}}}'
 	(Invoke-Kubectl -Params 'patch', 'deployment', 'dicom', '-n', 'dicom', '-p', $annotations1).Output | Write-Log
-	$annotations2 = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"linkerd.io/inject\":\"enabled\"}}}}}'
+	$annotations2 = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"linkerd.io/inject\":\"enabled\",\"config.linkerd.io/opaque-ports\":\"5432\"}}}}}'
 	(Invoke-Kubectl -Params 'patch', 'deployment', 'postgres', '-n', 'dicom', '-p', $annotations2).Output | Write-Log
 
 	$maxAttempts = 30
