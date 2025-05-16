@@ -31,6 +31,10 @@ function Get-KeyCloakConfig {
     return "$PSScriptRoot\manifests\keycloak\keycloak.yaml"
 }
 
+function Get-KeyCloakPostgresConfig {
+    return "$PSScriptRoot\manifests\keycloak\keycloak-postgres.yaml"
+}
+
 function Get-OAuth2ProxyConfig {
     return "$PSScriptRoot\manifests\keycloak\oauth2-proxy.yaml"
 }
@@ -263,6 +267,14 @@ Waits for the keycloak pods to be available.
 #>
 function Wait-ForKeyCloakAvailable($waiTime=120) {
     return (Wait-ForPodCondition -Condition Ready -Label 'app=keycloak' -Namespace 'security' -TimeoutSeconds $waiTime)
+}
+
+<#
+.DESCRIPTION
+Waits for the keycloak postgresqlpods to be available.
+#>
+function Wait-ForKeyCloakPostgresqlAvailable($waiTime=120) {
+    return (Wait-ForPodCondition -Condition Ready -Label 'app=postgresql' -Namespace 'security' -TimeoutSeconds $waiTime)
 }
 
 <#

@@ -101,7 +101,6 @@ Write-Log 'Installing external-dns' -Console
 $externalDnsConfig = Get-ExternalDnsConfigDir
 (Invoke-Kubectl -Params 'apply' , '-k', $externalDnsConfig).Output | Write-Log
 
-
 # we prepare all patches and apply them in a single kustomization,
 # instead of applying the unpatched manifests and then applying patches one by one
 $controlPlaneIp = Get-ConfiguredIPControlPlane
@@ -164,9 +163,6 @@ if ($allPodsAreUp -ne $true) {
 }
 
 Write-Log 'All ingress traefik pods are up and ready.' -Console
-
-$clusterIngressConfig = "$PSScriptRoot\manifests\cluster-local-ingress.yaml"
-(Invoke-Kubectl -Params 'apply' , '-f', $clusterIngressConfig).Output | Write-Log
 
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'ingress'; Implementation = 'traefik' })
 

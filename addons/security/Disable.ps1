@@ -27,8 +27,9 @@ $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.m
 $clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
 $securityModule = "$PSScriptRoot\security.module.psm1"
+$linuxNodeModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.node.module/linuxnode/vm/vm.module.psm1"
 
-Import-Module $infraModule, $clusterModule, $addonsModule, $securityModule
+Import-Module $infraModule, $clusterModule, $addonsModule, $securityModule, $linuxNodeModule
 Import-Module PKI;
 
 Initialize-Logging -ShowLogs:$ShowLogs
@@ -82,6 +83,9 @@ $oauth2ProxyYaml = Get-OAuth2ProxyConfig
 $keyCloakYaml = Get-KeyCloakConfig
 (Invoke-Kubectl -Params 'delete', '--ignore-not-found', '-f',$keyCloakYaml).Output | Write-Log
 
+$keyCloakPostgresYaml = Get-KeyCloakPostgresConfig
+(Invoke-Kubectl -Params 'delete', '--ignore-not-found', '-f', $keyCloakPostgresYaml).Output | Write-Log
+
 Remove-WindowsSecurityDeployments
 
 $linkerdYaml = Get-LinkerdConfigDirectory
@@ -103,6 +107,9 @@ $linkerdYamlTrustManager = Get-LinkerdConfigTrustManager
 Remove-ConfigFileForCNI
 
 Remove-LinkerdManifests 
+
+Write-Log 'Deleting old storage files for postgres' -Console
+(Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo rm -rf /mnt/keycloak').Output | Write-Log
 
 Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'security' })
 

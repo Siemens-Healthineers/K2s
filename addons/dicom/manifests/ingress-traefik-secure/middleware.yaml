@@ -28,7 +28,7 @@ metadata:
   name: dicom-traefik-cluster-local-correct1
   namespace: dicom
   annotations:
-    traefik.ingress.kubernetes.io/router.middlewares: dicom-cors-header@kubernetescrd,security-oauth2-proxy-forwarder-signin-dicom@kubernetescrd,dicom-oauth2-proxy-auth@kubernetescrd
+    traefik.ingress.kubernetes.io/router.middlewares: dicom-cors-header@kubernetescrd,security-oauth2-proxy-forwarder-signin@kubernetescrd,dicom-oauth2-proxy-auth@kubernetescrd
     traefik.ingress.kubernetes.io/router.tls: 'true'
 spec:
   ingressClassName: traefik
@@ -50,7 +50,7 @@ metadata:
   name: dicom-traefik-cluster-local-correct2
   namespace: dicom
   annotations:
-    traefik.ingress.kubernetes.io/router.middlewares: dicom-cors-header@kubernetescrd,security-oauth2-proxy-forwarder-signin-dicom@kubernetescrd,dicom-oauth2-proxy-auth@kubernetescrd
+    traefik.ingress.kubernetes.io/router.middlewares: dicom-cors-header@kubernetescrd,security-oauth2-proxy-forwarder-signin@kubernetescrd,dicom-oauth2-proxy-auth@kubernetescrd
     traefik.ingress.kubernetes.io/router.tls: 'true'
 spec:
   ingressClassName: traefik
