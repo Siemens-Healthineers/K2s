@@ -405,7 +405,7 @@ function Wait-ForSharedFolderOnLinuxHost () {
     Write-Log 'Waiting for shared folder (Samba Share) hosted on Linux node..'
     $script:Success = $false
 
-    $fstabOut = (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "cat /etc/fstab | grep -o $($Config.LinuxShareName))").Output
+    $fstabOut = (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "cat /etc/fstab | grep -o $($Config.LinuxShareName)").Output
     if (! $fstabOut) {
         Write-Log '           no shared folder in fstab yet'
         # no entry in fstab, so no need to wait for mount
