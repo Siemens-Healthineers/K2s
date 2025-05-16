@@ -112,10 +112,12 @@ function Restart-ControlPlaneServicesSoftly {
     (Invoke-CmdOnControlPlaneViaSSHKey 'sudo touch /etc/kubernetes/manifests/kube-apiserver.yaml').Output | Write-Log
     (Invoke-CmdOnControlPlaneViaSSHKey 'sudo touch /etc/kubernetes/manifests/kube-controller-manager.yaml').Output | Write-Log
     (Invoke-CmdOnControlPlaneViaSSHKey 'sudo touch /etc/kubernetes/manifests/kubec-scheduler.yaml').Output | Write-Log
+    Write-Log 'Control plane pods restarted...' -Console
 }
 
 function Invoke-CertificateRenewalForControlPlanePods {
     (Invoke-CmdOnControlPlaneViaSSHKey 'sudo kubeadm certs renew all').Output | Write-Log
+    Write-Log 'Certificates of control plane pods renewed...' -Console
     Restart-ControlPlaneServicesSoftly
 }
 
