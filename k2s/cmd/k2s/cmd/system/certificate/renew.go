@@ -15,15 +15,27 @@ import (
 	"github.com/siemens-healthineers/k2s/internal/powershell"
 )
 
-var renewCmd = &cobra.Command{
-	Use:   "renew",
-	Short: "Renews Kubernetes certificates",
-	Long: `
+var (
+	example = `
+# Trigger certificate renewal only when certificates are expired
+k2s system certificate renew
+
+# Trigger certificate renewal always
+k2s system certificate renew --force
+k2s system certificate renew -f
+	`
+
+	renewCmd = &cobra.Command{
+		Use:   "renew",
+		Short: "Renews Kubernetes certificates",
+		Long: `
 Determines if Kubernetes certificates have expired and renews them.
 With the --force option, the certificate renewal is performed irrespective of their expiration status.
-`,
-	RunE: renewCertificates,
-}
+		`,
+		Example: example,
+		RunE:    renewCertificates,
+	}
+)
 
 func init() {
 	renewCmd.Flags().BoolP("force", "f", false, "force renewal of certificates")
