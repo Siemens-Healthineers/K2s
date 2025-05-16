@@ -1,7 +1,0 @@
-# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
-#
-# SPDX-License-Identifier: MIT
-
-- op: replace
-  path: /parameters/source
-  value: # e.g. "//172.19.1.100/k8sshare"; set by setup script

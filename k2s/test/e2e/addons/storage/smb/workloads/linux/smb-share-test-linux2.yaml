@@ -6,35 +6,28 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: smb-share-test-windows
+  name: smb-share-test-linux2
   namespace: smb-share-test
   labels:
-    app: smb-share-test-windows
+    app: smb-share-test-linux2
 spec:
-  serviceName: smb-share-test-windows
+  serviceName: smb-share-test-linux2
   replicas: 1
   template:
     metadata:
       labels:
-        app: smb-share-test-windows
+        app: smb-share-test-linux2
     spec:
       nodeSelector:
-        "kubernetes.io/os": windows
-      tolerations:
-        - key: "OS"
-          operator: "Equal"
-          value: "Windows"
-          effect: "NoSchedule"
+        "kubernetes.io/os": linux
       terminationGracePeriodSeconds: 10
       containers:
-        - name: smb-share-test-windows
-          image: shsk2s.azurecr.io/diskwriter:v1.2.0
+        - name: smb-share-test-linux2
+          image: curlimages/curl:8.5.0
           command:
-            - "diskwriter.exe"
-            - "-outfile"
-            - "C:\\mnt\\smb\\smb-share-test-windows.txt"
-            - "-interval"
-            - "1000"
+            - "/bin/sh"
+            - "-c"
+            - set -euo pipefail; while true; do echo $(date) >> /mnt/smb/smb-share-test-linux.file; sleep 1; done
           volumeMounts:
             - name: persistent-storage
               mountPath: /mnt/smb
@@ -42,13 +35,15 @@ spec:
     type: RollingUpdate
   selector:
     matchLabels:
-      app: smb-share-test-windows
+      app: smb-share-test-linux2
   volumeClaimTemplates:
     - metadata:
         name: persistent-storage
+        labels:
+          app: smb-share-test-linux2
       spec:
-        storageClassName: smb
-        accessModes: ["ReadWriteMany"]
+        storageClassName: smb2
+        accessModes: ["ReadWriteOnce"]
         resources:
           requests:
             storage: 1Gi
