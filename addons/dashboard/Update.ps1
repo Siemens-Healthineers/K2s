@@ -36,18 +36,19 @@ if ($SecurityAddonEnabled) {
 		# create Bearer token for next 24h
 		Write-Log "Creating Bearer token for next 24h"
 		$token = Get-BearerToken
-		# create middleware
+		# create middleware, be aware of special characters !
 		$middleware = "apiVersion: traefik.io/v1alpha1
 kind: Middleware
 metadata:
-	name: add-bearer-token
-	namespace: dashboard
+ name: add-bearer-token
+ namespace: dashboard
 spec:
-	headers: 
-		customRequestHeaders: 
-			Authorization: Bearer $token"
+ headers:
+  customRequestHeaders: 
+   Authorization: Bearer $token"
+
 		$tempPath = [System.IO.Path]::GetTempPath()
-		$middleware | Out-File -FilePath "$tempPath\middleware.yaml"
+		$middleware | Out-File -FilePath "$tempPath\middleware.yaml" -Encoding ascii
 		(Invoke-Kubectl -Params 'apply', '-f', "$tempPath\middleware.yaml", '-n', 'dashboard').Output | Write-Log
 		# delete middleware file
 		Remove-Item -Path "$tempPath\middleware.yaml"

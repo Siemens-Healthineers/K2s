@@ -88,6 +88,14 @@ if ($setupInfo.Name -ne 'k2s') {
     return
 }
 
+if (Confirm-EnhancedSecurityOn($Type)) {
+    $ReleaseId = (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion').CurrentBuild
+    if ($ReleaseId -lt 20348 ) {
+        Write-Log "enhanced security needs at the moment minimal Windows Version 20348, you have $ReleaseId"
+        throw "[PREREQ-FAILED] Windows release $ReleaseId is not usable for enhanced for now, please use basic security instead."
+    }
+}
+
 try {
     Write-Log 'Downloading cert-manager files' -Console
     $manifest = Get-FromYamlFile -Path "$PSScriptRoot\addon.manifest.yaml"
@@ -178,9 +186,13 @@ try {
         $activeIngress = $Ingress
     }
 
-    Write-Log 'Installing keycloak' -Console
+    Write-Log 'Installing keycloak and db' -Console
+    $keyCloakPostgresYaml = Get-KeyCloakPostgresConfig
+    (Invoke-Kubectl -Params 'apply', '-f', $keyCloakPostgresYaml).Output | Write-Log
     $keyCloakYaml = Get-KeyCloakConfig
     (Invoke-Kubectl -Params 'apply', '-f', $keyCloakYaml).Output | Write-Log
+    Write-Log 'Waiting for postgresql pods to be available' -Console
+    Wait-ForKeyCloakPostgresqlAvailable
     Write-Log 'Waiting for keycloak pods to be available' -Console
     $keycloakPodStatus = Wait-ForKeyCloakAvailable
     Write-Log 'Waiting after keycloak pod is available' -Console
@@ -346,6 +358,12 @@ try {
         (Invoke-Kubectl -Params 'patch', 'deployment', 'oauth2-proxy', '-n', 'security', '-p', $annotations2).Output | Write-Log
         $annotations3 = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"linkerd.io/inject\":\"enabled\",\"config.linkerd.io/skip-outbound-ports\":\"4444\"}}}}}'
         (Invoke-Kubectl -Params 'patch', 'deployment', 'keycloak', '-n', 'security', '-p', $annotations3).Output | Write-Log
+        $annotations4 = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"linkerd.io/inject\":\"enabled\",\"config.linkerd.io/opaque-ports\":\"5432\"}}}}}'
+        (Invoke-Kubectl -Params 'patch', 'deployment', 'postgresql', '-n', 'security', '-p', $annotations4).Output | Write-Log
+
+        # wait for pods to be ready
+        Write-Log 'Waiting for security pods to be ready' -Console
+        (Invoke-Kubectl -Params 'rollout', 'status', 'deployment', '-n', 'security', '--timeout', '60s').Output | Write-Log
     }
 }
 catch {

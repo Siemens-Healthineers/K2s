@@ -11,6 +11,16 @@ Import-Module $addonsModule, $traefikModule
 $addonName = Get-AddonNameFromFolderPath -BaseFolderPath $PSScriptRoot
 Write-Log "Updating addon with name: $addonName"
 
+$SecurityEnabled = Test-SecurityAddonAvailability
+(Invoke-Kubectl -Params 'delete', 'ingress', 'traefik-cluster-local', '-n', 'ingress-traefik', '--ignore-not-found').Output | Write-Log
+if ($SecurityEnabled) {
+	$clusterIngressConfig = "$PSScriptRoot\manifests\cluster-local-ingress-secure.yaml"
+	(Invoke-Kubectl -Params 'apply' , '-f', $clusterIngressConfig).Output | Write-Log
+} else {	
+	$clusterIngressConfig = "$PSScriptRoot\manifests\cluster-local-ingress.yaml"
+	(Invoke-Kubectl -Params 'apply' , '-f', $clusterIngressConfig).Output | Write-Log
+}
+
 $EnancedSecurityEnabled = Test-LinkerdServiceAvailability
 if ($EnancedSecurityEnabled) {
 	Write-Log "Updating traefik ingress addon to be part of service mesh"  
