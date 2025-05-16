@@ -226,6 +226,8 @@ function Clear-WinNode {
     Remove-Nssm
 
     Invoke-DownloadsCleanup -DeleteFilesForOfflineInstallation $DeleteFilesForOfflineInstallation
+
+    Remove-Item -Path "~/.kube/cache" -Force -Recurse -ErrorAction SilentlyContinue
 }
 
 Export-ModuleMember Initialize-WinNode, Uninstall-WinNode, Clear-WinNode
