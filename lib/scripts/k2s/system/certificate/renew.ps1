@@ -40,6 +40,65 @@ Import-Module $infraModule, $nodeModule, $clusterModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
+$global:isControlPlaneStartedByMe = $false
+$global:isControlPlaneSwitchCreatedByMe = $false
+$global:isWsl = Get-ConfigWslFlag
+$global:controlPlaneVMHostName = Get-ConfigControlPlaneNodeHostname
+$global:controlPlaneVMHostNameLower = $global:controlPlaneVMHostName.ToLower()
+$global:controlPlaneSwitchName = Get-ControlPlaneNodeDefaultSwitchName
+
+function Start-ControlPlaneIfNotRunning {
+    if ($global:isWsl) {
+        if ((Get-IsWslRunning -Name $controlPlaneNodeName) -ne $true) {
+            Write-Log "Starting control plane WSL instance '$global:controlPlaneVMHostName'..."
+            Start-WSL
+            Wait-ForSSHConnectionToLinuxVMViaSshKey
+            $global:isControlPlaneStartedByMe = $true
+        }
+    } else {
+        if ((Get-IsVmRunning -Name $global:controlPlaneVMHostName) -ne $true) {
+            Write-Log "Starting control plane VM '$global:controlPlaneVMHostName'..."
+            $switchExists = Get-VMSwitch -Name "vEthernet($global:controlPlaneSwitchName)" -ErrorAction SilentlyContinue
+            if (-not $switchExists) {
+                Write-Log "vEthernet switch '$global:controlPlaneSwitchName' does not exist. Creating it..."
+                New-KubeSwitch -Name $global:controlPlaneSwitchName
+                Connect-KubeSwitch
+                Write-Log "vEthernet switch '$global:controlPlaneSwitchName' created successfully."
+                $global:isControlPlaneSwitchCreatedByMe = $true
+            } else {
+                Write-Log "vEthernet switch '$global:controlPlaneSwitchName' already exists."
+            }
+            Start-VM -Name $global:controlPlaneVMHostName
+            Wait-ForSSHConnectionToLinuxVMViaSshKey
+            $global:isControlPlaneStartedByMe = $true
+    
+        } else {
+            Write-Log "Control plane VM '$global:controlPlaneVMHostName' is already running."
+        }
+    }
+}
+
+function Stop-ControlPlaneIfStartedByThisScript {
+    if ($global:isWsl -and $global:isControlPlaneStartedByMe) {
+        Write-Log "Stopping control Plane WSL instance '$global:controlPlaneVMHostName' as it was started by the command ..."
+        wsl --shutdown
+    }
+
+    if($global:isControlPlaneStartedByMe) {
+        Write-Log "Stopping control Plane VM instance '$global:controlPlaneVMHostName' as it was started by the command ..."
+        Stop-VM -Name $global:controlPlaneVMHostName
+    } else {
+        Write-Log "Control Plane VM instance '$global:controlPlaneVMHostName' was not started by the command. Not stopping it."
+    }
+
+    if($global:isControlPlaneSwitchCreatedByMe) {
+        Write-Log "Removing vEthernet switch '$global:controlPlaneSwitchName' as it was created by the command ..."
+        Remove-KubeSwitch
+    } else {
+        Write-Log "vEthernet switch '$global:controlPlaneSwitchName' was not created by the command. Not removing it."
+    }
+}
+
 function Assert-CertificateExpiry() {
     Write-Log "Checking certificate expiration on the control plane..."
     $command = "sudo kubeadm certificates check-expiration -o json"
@@ -76,7 +135,7 @@ function Assert-KubeApiServerHealth {
 
     $elapsedTime = 0
     while ($elapsedTime -lt $MaxWaitSeconds) {
-        $command = "curl -k -s -o /dev/null -w '%{http_code}' https://localhost:6443/healthz"
+        $command = "curl -k -s -o /dev/null -w '%{http_code}' https://localhost:6443/readyz"
 
         $responseCode = (Invoke-CmdOnControlPlaneViaSSHKey $command).Output
 
@@ -107,6 +166,18 @@ function Send-ErrorToCli {
     Write-Log $ErrorMessage -Error
 }
 
+function Restart-ControlPlaneNode {
+    Write-Log "Restarting Control Plane Node" -Console
+    if ($global:isWsl) {
+        wsl --shutdown
+        Start-WSL
+    } else {
+        Stop-VM -Name $global:controlPlaneVMHostName -Force -WarningAction SilentlyContinue
+        Start-VM -Name $global:controlPlaneVMHostName    
+    }
+    Wait-ForSSHConnectionToLinuxVMViaSshKey
+}
+
 function Restart-ControlPlaneServicesSoftly {
     (Invoke-CmdOnControlPlaneViaSSHKey 'sudo touch /etc/kubernetes/manifests/etcd.yaml').Output | Write-Log
     (Invoke-CmdOnControlPlaneViaSSHKey 'sudo touch /etc/kubernetes/manifests/kube-apiserver.yaml').Output | Write-Log
@@ -118,14 +189,13 @@ function Restart-ControlPlaneServicesSoftly {
 function Invoke-CertificateRenewalForControlPlanePods {
     (Invoke-CmdOnControlPlaneViaSSHKey 'sudo kubeadm certs renew all').Output | Write-Log
     Write-Log 'Certificates of control plane pods renewed...' -Console
-    Restart-ControlPlaneServicesSoftly
+    Restart-ControlPlaneNode
 }
 
 function Invoke-CertificateRenewalForKubeletInControlPlane {
-    # Define backup directory
     $backupDir = "/etc/kubernetes/backup"
     $createBackupDirCmd = "sudo mkdir -p $backupDir"
-    $controlPlaneVMHostName = (Get-ConfigControlPlaneNodeHostname).ToLower()
+
     (Invoke-CmdOnControlPlaneViaSSHKey $createBackupDirCmd).Output | Write-Log
 
     $deleteExistingKubeletConfBackupCmd = "if [ -f $backupDir/kubelet.conf.bak ]; then sudo rm -f $backupDir/kubelet.conf.bak; fi"
@@ -146,7 +216,7 @@ function Invoke-CertificateRenewalForKubeletInControlPlane {
     $deleteKubeletClientCmd = "sudo rm -f /var/lib/kubelet/pki/kubelet-client*"
     (Invoke-CmdOnControlPlaneViaSSHKey $deleteKubeletClientCmd).Output | Write-Log
 
-    $generateKubeletConfCmd = "sudo kubeadm kubeconfig user --org system:nodes --client-name system:node:$controlPlaneVMHostName > /tmp/kubelet.conf"
+    $generateKubeletConfCmd = "sudo kubeadm kubeconfig user --org system:nodes --client-name system:node:$global:controlPlaneVMHostNameLower > /tmp/kubelet.conf"
     (Invoke-CmdOnControlPlaneViaSSHKey $generateKubeletConfCmd).Output | Write-Log
 
     $copyKubeletConfCmd = "sudo cp /tmp/kubelet.conf /etc/kubernetes/kubelet.conf"
@@ -176,20 +246,29 @@ function Invoke-KubeConfigRefreshOnHost {
     Add-K8sContext
 }
 
-$noErrorsOccured = $true
-$certificatesValid = Assert-CertificateExpiry
 
-if (($certificatesValid -eq $false) -or ($Force -eq $true)) {
-    if ($Force -eq $true) {
-        Write-Log "Triggering forced certificate renewal." -Console
+try {
+    Start-ControlPlaneIfNotRunning
+
+    $noErrorsOccured = $true
+    $certificatesValid = Assert-CertificateExpiry
+
+    if (($certificatesValid -eq $false) -or ($Force -eq $true)) {
+        if ($Force -eq $true) {
+            Write-Log "Triggering forced certificate renewal." -Console
+        }
+        $noErrorsOccured = Invoke-CertificateRenewalInControlPlane
+        if ($noErrorsOccured -eq $true) {
+            Invoke-KubeConfigRefreshOnHost
+        }
     }
-    $noErrorsOccured = Invoke-CertificateRenewalInControlPlane
-    if ($noErrorsOccured -eq $true) {
-        Invoke-KubeConfigRefreshOnHost
+
+    if ($EncodeStructuredOutput -and $noErrorsOccured) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = $null}
     }
+    
 }
-
-if ($EncodeStructuredOutput -and $noErrorsOccured) {
-    Send-ToCli -MessageType $MessageType -Message @{Error = $null}
+finally {
+    Stop-ControlPlaneIfStartedByThisScript
 }
 
