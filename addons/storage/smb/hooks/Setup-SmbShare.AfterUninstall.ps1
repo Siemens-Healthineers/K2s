@@ -17,9 +17,11 @@ $smbShareModule = "$PSScriptRoot\..\storage\smb\module\Smb-share.module.psm1"
 
 Import-Module $logModule, $smbShareModule
 
+$script = $MyInvocation.MyCommand.Name
+
 Initialize-Logging -ShowLogs:$ShowLogs
 
-Write-Log 'Removing SMB share after cluster deinstallation..' -Console
+Write-Log "[$script] Removing SMB share after cluster deinstallation.." -Console
 
 # no need to cleanup the node VMs, they get deleted anyways
 $err = (Disable-SmbShare -SkipNodesCleanup).Error
@@ -28,4 +30,4 @@ if ($err) {
     exit 1
 }
 
-Write-Log 'SMB share removed after cluster deinstallation.' -Console
+Write-Log "[$script] SMB share removed after cluster deinstallation." -Console

@@ -49,11 +49,6 @@ $ipControlPlaneCIDR = $smallsetup.psobject.properties['masterNetworkCIDR'].value
 $clusterCIDR = $smallsetup.psobject.properties['podNetworkCIDR'].value
 $clusterCIDRServices = $smallsetup.psobject.properties['servicesCIDR'].value
 
-# SMB share
-$shareConfig = $smallsetup.psobject.properties['shareDir'].value
-$linuxLocalSharePath = $shareConfig.psobject.properties['master'].value
-$windowsLocalSharePath = Expand-Path $shareConfig.psobject.properties['windowsWorker'].value
-
 # DNS service IP address
 $kubeDnsServiceIP = $smallsetup.psobject.properties['kubeDnsServiceIP'].value
 

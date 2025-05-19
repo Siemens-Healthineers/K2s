@@ -1,0 +1,12 @@
+[
+    {
+        "winMountPath": "C:\\k8s-smb-share1",
+        "linuxMountPath": "/mnt/k8s-smb-share1",
+        "storageClassName": "smb1"
+    },
+    {
+        "winMountPath": "C:\\k8s-smb-share2",
+        "linuxMountPath": "/mnt/k8s-smb-share2",
+        "storageClassName": "smb2"
+    }
+]
