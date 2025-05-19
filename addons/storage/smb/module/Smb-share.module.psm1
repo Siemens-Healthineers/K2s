@@ -557,7 +557,7 @@ function Remove-SharedFolderMountOnLinuxHost {
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo chown -R remote /home/remote/$unmountOnLinuxHostScript").Output | Write-Log
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo chmod +x /home/remote/$unmountOnLinuxHostScript").Output | Write-Log
 
-    Write-Log "[$script::$function] xecuting on host unmount script inside VM as remote user..."
+    Write-Log "[$script::$function] Executing on host unmount script inside VM as remote user..."
     ssh.exe -n '-vv' -E $logFile -o StrictHostKeyChecking=no -i $(Get-SSHKeyControlPlane) $(Get-ControlPlaneRemoteUser) "sudo su -s /bin/bash -l -c '~/$unmountOnLinuxHostScript' remote"
     if ($LASTEXITCODE -eq 0) {
         Write-Log "[$script::$function] Unmounting '$($Config.LinuxMountPath)' on Linux succeeded."
