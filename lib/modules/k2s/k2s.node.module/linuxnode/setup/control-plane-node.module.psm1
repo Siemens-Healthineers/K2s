@@ -94,7 +94,26 @@ function New-ControlPlaneNodeOnNewVM {
     Wait-ForSSHConnectionToLinuxVMViaSshKey
 
     Remove-ControlPlaneAccessViaUserAndPwd
-    
+
+    $addToControlPlane = {
+        Write-Host ""
+    }
+
+    $masterNodeParams = @{
+        NodeName             = $(Get-ConfigControlPlaneNodeHostname)
+        IpAddress            = $controlPlaneIpAddress
+        UserName             = $controlPlaneUserName
+        K8sVersion           = $(Get-DefaultK8sVersion)
+        ClusterCIDR          = $(Get-ConfiguredClusterCIDR)
+        ClusterCIDR_Services = $(Get-ConfiguredClusterCIDRServices)
+        KubeDnsServiceIP     = $(Get-ConfiguredKubeDnsServiceIP)
+        IP_NextHop           = $(Get-ConfiguredKubeSwitchIP)
+        NetworkInterfaceName = $(Get-ControlPlaneNodeDefaultSwitchName)
+        Hook                 = $addToControlPlane
+    }
+    Set-UpMasterNode @masterNodeParams
+
+
     # add kubectl to Windows host
     Install-KubectlTool
     # copy kubectl config file into Windows host
