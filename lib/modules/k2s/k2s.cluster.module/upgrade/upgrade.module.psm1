@@ -296,7 +296,9 @@ function Assert-UpgradeVersionIsValid {
         [parameter(Mandatory = $true, HelpMessage = 'Version installed')]
         [string] $VersionInstalled,
         [parameter(Mandatory = $true, HelpMessage = 'Version to be used')]
-        [string] $VersionToBeUsed
+        [string] $VersionToBeUsed,
+		[parameter(Mandatory = $false, HelpMessage = 'Force upgrade')]
+        [switch] $Force = $false
     )
     Write-Log 'Asserting upgrade version is valid..'
 
@@ -319,6 +321,10 @@ function Assert-UpgradeVersionIsValid {
         return $false
     }
 
+	if ($Force) {
+        Write-Log "Force flag set - allowing upgrade from $VersionInstalled to $VersionToBeUsed" -Console
+        return $true
+    }
     return $nextVersion.Major - $currentVersion.Major -eq 0 -and $nextVersion.Minor - $currentVersion.Minor -le 1
 }
 
@@ -420,6 +426,11 @@ function Get-ClusterCurrentVersion {
 }
 
 function Assert-UpgradeOperation {
+	param(
+        [parameter(Mandatory = $false)]
+        [switch] $Force = $false
+    )
+
     $installFolder = Get-ClusterInstalledFolder
     $currentVersion = Get-ClusterCurrentVersion
     $nextVersion = $productVersion
@@ -427,7 +438,7 @@ function Assert-UpgradeOperation {
     Write-Log "Preparing steps to upgrade from K2s version: $currentVersion ($installFolder) to K2s version: $nextVersion ($kubePath)" -Console
 
     # check of version (only lower minor version is supported and only between consecutive versions)
-    $validUpgrade = Assert-UpgradeVersionIsValid -VersionInstalled $currentVersion -VersionToBeUsed $nextVersion
+    $validUpgrade = Assert-UpgradeVersionIsValid -VersionInstalled $currentVersion -VersionToBeUsed $nextVersion -Force:$Force
     if ( -not $validUpgrade) {
         throw "Upgrade not supported from $currentVersion to $nextVersion. Major version must be the same and minor version increase must be consecutive!"
     }
@@ -812,7 +823,8 @@ function PrepareClusterUpgrade {
         [switch] $SkipResources,
         [switch] $ShowLogs,
         [string] $Proxy,
-        [string] $BackupDir,
+        [string] $BackupDir,		
+        [switch] $Force,
         [string] $AdditionalHooksDir,
         [ref] $coresVM,
         [ref] $memoryVM,
@@ -844,7 +856,7 @@ function PrepareClusterUpgrade {
             Write-Progress -Activity 'Checking if cluster is installed..' -Id 1 -Status '1/10' -PercentComplete 10 -CurrentOperation 'Cluster availability'
         }
 
-        if(!(Assert-UpgradeOperation))
+        if(!(Assert-UpgradeOperation -Force:$Force))
         {
             return $false
         }

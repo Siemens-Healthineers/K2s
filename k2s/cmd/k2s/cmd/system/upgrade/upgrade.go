@@ -63,6 +63,7 @@ const (
 	defaultProxy       = ""
 	skipImages         = "skip-images"
 	backupDir          = "backup-dir"
+	force          	   = "force"
 	defaultBackupDir   = ""
 )
 
@@ -85,6 +86,7 @@ func AddInitFlags(cmd *cobra.Command) {
 	cmd.Flags().StringP(proxy, "p", defaultProxy, "HTTP Proxy")
 	cmd.Flags().StringP(backupDir, "b", defaultBackupDir, "Backup directory")
 	cmd.Flags().BoolP(skipImages, "i", false, "Skip takeover of container images from old cluster to new cluster")
+	cmd.Flags().BoolP(force, "f", false, "Forces the upgrade, even if the previous and current versions are not consecutive")
 	cmd.Flags().String(common.AdditionalHooksDirFlagName, "", common.AdditionalHooksDirFlagUsage)
 	cmd.Flags().SortFlags = false
 	cmd.Flags().PrintDefaults()
@@ -219,6 +221,10 @@ func createUpgradeCommand(cmd *cobra.Command) string {
 	backupDir := cmd.Flags().Lookup(backupDir).Value.String()
 	if backupDir != "" {
 		psCmd += " -BackupDir " + utils.EscapeWithSingleQuotes(backupDir)
+	}
+	force, _ := strconv.ParseBool(cmd.Flags().Lookup(force).Value.String())
+	if force {
+		psCmd += " -force "
 	}
 	return psCmd
 }

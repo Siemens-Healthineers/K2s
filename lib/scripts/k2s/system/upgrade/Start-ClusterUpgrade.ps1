@@ -81,7 +81,9 @@ function Start-ClusterUpgrade {
         [Parameter(Mandatory = $false, HelpMessage = 'Skip takeover of container images')]
         [switch] $SkipImages = $false,
         [parameter(Mandatory = $false, HelpMessage = 'Directory for resource backup')]
-        [string] $BackupDir = ''
+        [string] $BackupDir = '',
+		[parameter(Mandatory = $false, HelpMessage = 'Force upgrade even if versions are not consecutive')]
+        [switch] $Force = $false
     )
     $errUpgrade = $null
 
@@ -100,7 +102,7 @@ function Start-ClusterUpgrade {
     Write-Log "The backup directory is '$BackupDir'"
 
     try {
-        $prepareSuccess = PrepareClusterUpgrade -ShowProgress:$ShowProgress -SkipResources:$SkipResources -ShowLogs:$ShowLogs -Proxy $Proxy -BackupDir $BackupDir -AdditionalHooksDir $AdditionalHooksDir -coresVM $coresVM -memoryVM $memoryVM -storageVM $storageVM -addonsBackupPath $addonsBackupPath -hooksBackupPath $hooksBackupPath -logFilePathBeforeUninstall $logFilePathBeforeUninstall
+        $prepareSuccess = PrepareClusterUpgrade -ShowProgress:$ShowProgress -SkipResources:$SkipResources -ShowLogs:$ShowLogs -Proxy $Proxy -BackupDir $BackupDir -Force:$Force -AdditionalHooksDir $AdditionalHooksDir -coresVM $coresVM -memoryVM $memoryVM -storageVM $storageVM -addonsBackupPath $addonsBackupPath -hooksBackupPath $hooksBackupPath -logFilePathBeforeUninstall $logFilePathBeforeUninstall
         if (-not $prepareSuccess) {
             return $false
         }
