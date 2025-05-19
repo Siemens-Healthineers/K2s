@@ -27,6 +27,7 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
     [string] $MessageType
 )
+$script = $MyInvocation.MyCommand.Name
 $infraModule = "$PSScriptRoot/../../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $smbShareModule = "$PSScriptRoot\module\Smb-share.module.psm1"
 $addonsModule = "$PSScriptRoot\..\..\addons.module.psm1"
@@ -41,18 +42,18 @@ Initialize-Logging -ShowLogs:$ShowLogs
 $addonName = Get-AddonNameFromFolderPath -BaseFolderPath $PSScriptRoot
 
 if ($Config -ne $null -and $null -ne $Config.SmbHostType) {
-    Write-Log "  Using SMB host type '$($Config.SmbHostType)' from addon config" -Console
+    Write-Log "[$script] Using SMB host type '$($Config.SmbHostType)' from addon config" -Console
     $SmbHostType = $Config.SmbHostType
 }
 if ($Config -ne $null -and $null -ne $Config.Storage) {
     $configPath = Get-StorageConfigPath
 
-    Write-Log "  Applying storage configuration from global addon config and overwriting default storage config '$configPath'" -Console
+    Write-Log "[$script] Applying storage configuration from global addon config and overwriting default storage config '$configPath'" -Console
     $json = ConvertTo-Json $Config.Storage -Depth 100 # no pipe to keep the array even for single storage config entry
     $json | Set-Content -Force $configPath -Confirm:$false
 }
 
-Write-Log "Enabling addon '$addonName' with SMB host type '$SmbHostType'.." -Console
+Write-Log "[$script] Enabling addon '$addonName' with SMB host type '$SmbHostType'.." -Console
 
 $err = (Enable-SmbShare -SmbHostType $SmbHostType).Error
 
