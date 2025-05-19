@@ -451,7 +451,7 @@ function Wait-ForSharedFolderOnLinuxHost () {
         (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo mount -a').Output | Write-Log
         $mountOut = (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo su -s /bin/bash -c 'sudo mount | grep /$($Config.LinuxShareName)' remote").Output
     }
-    Write-Log "[$script::$function] $($Config.LinuxMountPath) mounted"
+    Write-Log "[$script::$function] '$($Config.LinuxMountPath)' mounted"
     $script:Success = $true
 }
 
@@ -506,7 +506,7 @@ function New-SharedFolderMountOnLinuxHost {
         Start-Sleep 2
         ssh.exe -n '-vv' -E $logFile -o StrictHostKeyChecking=no -i $(Get-SSHKeyControlPlane) $(Get-ControlPlaneRemoteUser) "sudo su -s /bin/bash -c '~/tmp_fstabCmd.sh' remote"
         if ($LASTEXITCODE -eq 0) {
-            # all ok
+            Write-Log "[$script::$function] Successfully mounted '$($Config.LinuxMountPath)' on Linux."
             break
         }
         if ($i -ge 30) {
@@ -573,7 +573,7 @@ function New-SharedFolderMountOnWindows {
         [pscustomobject]$Config = $(throw 'Config not specified')
     )
     Remove-LocalWinMountIfExisting -Path $Config.WinMountPath
-    Add-SmbGlobalMappingIfNotExisting -RemotePath $Config.LinuxHostRemotePath -LocalPath $Config.WinMountPath -SmbUser $SmbUser-SmbPasswd $smbPw
+    Add-SmbGlobalMappingIfNotExisting -RemotePath $Config.LinuxHostRemotePath -LocalPath $Config.WinMountPath -SmbUser $smbFullUserNameLinux -SmbPasswd $smbPw
     Add-SymLinkOnWindows -RemotePath $Config.LinuxHostRemotePath -LocalPath $Config.WinMountPath
 }
 
