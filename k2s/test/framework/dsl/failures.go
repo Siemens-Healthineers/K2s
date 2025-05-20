@@ -4,7 +4,7 @@
 package dsl
 
 import (
-	"github.com/siemens-healthineers/k2s/test/framework/k2s/cli"
+	"github.com/siemens-healthineers/k2s/internal/cli"
 
 	//lint:ignore ST1001 test framework code
 	. "github.com/onsi/gomega"

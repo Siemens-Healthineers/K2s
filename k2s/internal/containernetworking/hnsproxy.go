@@ -7,19 +7,18 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
+	"log/slog"
 	"os"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/Microsoft/hcsshim/hcn"
+	"github.com/siemens-healthineers/k2s/internal/logging"
 	kos "github.com/siemens-healthineers/k2s/internal/os"
-	"github.com/sirupsen/logrus"
 )
-
-const LocalSystemSID = "S-1-5-18"
 
 type Policy struct {
 	// Inbound proxy port. (Required)
@@ -66,20 +65,20 @@ type Policy struct {
 }
 
 type HnsProxyConfig struct {
-	InboundProxyPort          string `json:inboundproxyport`
-	OutboundProxyPort         string `json:outboundproxyport`
-	InboundPortExceptions     string `json:inboundportexceptions`
-	InboundAddressExceptions  string `json:inboundaddressexceptions`
-	OutboundPortExceptions    string `json:outboundportexceptions`
-	OutboundAddressExceptions string `json:outboundaddressexceptions`
+	InboundProxyPort          string `json:"inboundproxyport"`
+	OutboundProxyPort         string `json:"outboundproxyport"`
+	InboundPortExceptions     string `json:"inboundportexceptions"`
+	InboundAddressExceptions  string `json:"inboundaddressexceptions"`
+	OutboundPortExceptions    string `json:"outboundportexceptions"`
+	OutboundAddressExceptions string `json:"outboundaddressexceptions"`
 }
 
 type VfpRoutes struct {
-	HnsProxyConfig HnsProxyConfig `json:hnsproxy`
+	HnsProxyConfig HnsProxyConfig `json:"hnsproxyconfig"`
 }
 
-func HnsProxyAddPolicy(hnsEndpointID string, policy Policy) error {
-	if err := HnsProxyValidatePolicy(policy); err != nil {
+func hnsProxyAddPolicy(hnsEndpointID string, policy Policy) error {
+	if err := hnsProxyValidatePolicy(policy); err != nil {
 		return err
 	}
 
@@ -135,26 +134,12 @@ func HnsProxyAddPolicy(hnsEndpointID string, policy Policy) error {
 	return nil
 }
 
-func HnsProxyHnsListPolicies(hnsEndpointID string) ([]Policy, error) {
-	hcnPolicies, err := HnsProxyListPolicies(hnsEndpointID)
-	if err != nil {
-		return nil, err
-	}
-
-	var policies []Policy
-	for _, hcnPolicy := range hcnPolicies {
-		policies = append(policies, HnsProxyPolicyToAPIPolicy(hcnPolicy))
-	}
-
-	return policies, nil
-}
-
 // ClearPolicies removes all the proxy policies from the specified endpoint.
 // It returns the number of policies that were removed, which will be zero
 // if an error occurred or if the endpoint did not have any active proxy policies.
 func HnsProxyClearPolicies(hnsEndpointID string) (numRemoved int, err error) {
 	fmt.Println("Clear the policies for endpoint: ", hnsEndpointID)
-	policies, err := HnsProxyListPolicies(hnsEndpointID)
+	policies, err := hnsProxyListPolicies(hnsEndpointID)
 	if err != nil {
 		return 0, err
 	}
@@ -177,7 +162,7 @@ func HnsProxyClearPolicies(hnsEndpointID string) (numRemoved int, err error) {
 	return len(policies), hcn.ModifyEndpointSettings(hnsEndpointID, modifyReq)
 }
 
-func HnsProxyListPolicies(hnsEndpointID string) ([]hcn.EndpointPolicy, error) {
+func hnsProxyListPolicies(hnsEndpointID string) ([]hcn.EndpointPolicy, error) {
 	endpoint, err := hcn.GetEndpointByID(hnsEndpointID)
 	if err != nil {
 		return nil, err
@@ -193,33 +178,7 @@ func HnsProxyListPolicies(hnsEndpointID string) ([]hcn.EndpointPolicy, error) {
 	return policies, nil
 }
 
-func HnsProxyPolicyToAPIPolicy(hcnPolicy hcn.EndpointPolicy) Policy {
-	if hcnPolicy.Type != hcn.L4WFPPROXY {
-		panic("not an L4 proxy policy")
-	}
-
-	// Assuming HNS will never return invalid values from here.
-	var hcnPolicySetting hcn.L4WfpProxyPolicySetting
-	_ = json.Unmarshal(hcnPolicy.Settings, &hcnPolicySetting)
-
-	return Policy{
-		InboundProxyPort:          hcnPolicySetting.InboundProxyPort,
-		OutboundProxyPort:         hcnPolicySetting.OutboundProxyPort,
-		UserSID:                   hcnPolicySetting.UserSID,
-		LocalAddresses:            hcnPolicySetting.FilterTuple.LocalAddresses,
-		RemoteAddresses:           hcnPolicySetting.FilterTuple.RemoteAddresses,
-		LocalPorts:                hcnPolicySetting.FilterTuple.LocalPorts,
-		RemotePorts:               hcnPolicySetting.FilterTuple.RemotePorts,
-		Priority:                  hcnPolicySetting.FilterTuple.Priority,
-		Protocol:                  hcnPolicySetting.FilterTuple.Protocols,
-		InboundPortExceptions:     hcnPolicySetting.InboundExceptions.PortExceptions,
-		InboundAddressExceptions:  hcnPolicySetting.InboundExceptions.IpAddressExceptions,
-		OutboundPortExceptions:    hcnPolicySetting.OutboundExceptions.PortExceptions,
-		OutboundAddressExceptions: hcnPolicySetting.OutboundExceptions.IpAddressExceptions,
-	}
-}
-
-func HnsProxyValidatePolicy(policy Policy) error {
+func hnsProxyValidatePolicy(policy Policy) error {
 	if len(policy.InboundProxyPort) == 0 {
 		return errors.New("policy missing proxy port")
 	}
@@ -230,14 +189,8 @@ func HnsProxyValidatePolicy(policy Policy) error {
 	return nil
 }
 
-func logDuration(startTime time.Time, methodName string) {
-	duration := time.Since(startTime)
-	msg := fmt.Sprintf("[cni-net] %s took %s", methodName, duration)
-	logrus.Info(msg)
-}
-
-func HnsProxyGetConfig() (*VfpRoutes, error) {
-	defer logDuration(time.Now(), "getVfpRoutes")
+func hnsProxyGetConfig() (*VfpRoutes, error) {
+	defer logging.LogExecutionTime(time.Now(), "getVfpRoutes")
 
 	directoryOfExecutable, err := kos.ExecutableDir()
 	if err != nil {
@@ -246,38 +199,34 @@ func HnsProxyGetConfig() (*VfpRoutes, error) {
 
 	routeConfJsonFp := directoryOfExecutable + "\\vfprules.json"
 	routeConfJsonFile, err := os.Open(routeConfJsonFp)
-	// if we os.Open returns an error then handle it
 	if err != nil {
-		errortext := fmt.Sprintf("[cni-net] Error: Unable to open file: %s. Reason: %s", routeConfJsonFp, err.Error())
-		logrus.Error(errortext)
-		return nil, errors.New(errortext)
+		slog.Error("unable to open file", "path", routeConfJsonFp, "error", err)
+		return nil, fmt.Errorf("unable to open file %s: %w", routeConfJsonFp, err)
 	}
 	defer routeConfJsonFile.Close()
 
-	routesConfJsonBytes, err := ioutil.ReadAll(routeConfJsonFile)
+	routesConfJsonBytes, err := io.ReadAll(routeConfJsonFile)
 	if err != nil {
-		errortext := fmt.Sprintf("[cni-net] Error: Unable to read file: %s. Reason: %s", routeConfJsonFp, err.Error())
-		logrus.Error(errortext)
-		return nil, errors.New(errortext)
+		slog.Error("unable to read file", "path", routeConfJsonFp, "error", err)
+		return nil, fmt.Errorf("unable to read file %s: %w", routeConfJsonFp, err)
 	}
 
 	var vfpRoutes VfpRoutes
 
 	err = json.Unmarshal(routesConfJsonBytes, &vfpRoutes)
 	if err != nil {
-		errortext := fmt.Sprintf("[cni-net] Error: Unable to unmarshall json file: %s. Reason: %s", routeConfJsonFp, err.Error())
-		logrus.Error(errortext)
-		return nil, errors.New(errortext)
+		slog.Error("unable to unmarshal json", "path", routeConfJsonFp, "error", err)
+		return nil, fmt.Errorf("unable to unmarshal json %s: %w", routeConfJsonFp, err)
 	}
 
 	return &vfpRoutes, nil
 }
 
-func HnsProxyAddPoliciesFromConfig(hnsEndpointID string) (err error) {
-	logrus.Debugf("Add the policies from config for endpoint: " + hnsEndpointID)
+func hnsProxyAddPoliciesFromConfig(hnsEndpointID string) (err error) {
+	slog.Debug("Add the policies from config", "endpoint", hnsEndpointID)
 
 	// retrieve configuration
-	vfpRoutes, err1 := HnsProxyGetConfig()
+	vfpRoutes, err1 := hnsProxyGetConfig()
 	if err1 != nil {
 		log.Fatalf("Fatal error in applying the vfp rules: %s", err1)
 		return err1
@@ -302,11 +251,11 @@ func HnsProxyAddPoliciesFromConfig(hnsEndpointID string) (err error) {
 	}
 
 	// creaty an policy object and copy from vfpRoutes
-	Userid := "S-1-5-32-556"
+	userid := "S-1-5-32-556"
 	policy := Policy{
 		InboundProxyPort:          vfpRoutes.HnsProxyConfig.InboundProxyPort,
 		OutboundProxyPort:         vfpRoutes.HnsProxyConfig.OutboundProxyPort,
-		UserSID:                   Userid,
+		UserSID:                   userid,
 		LocalAddresses:            "",
 		RemoteAddresses:           "",
 		LocalPorts:                "",
@@ -318,28 +267,26 @@ func HnsProxyAddPoliciesFromConfig(hnsEndpointID string) (err error) {
 		OutboundAddressExceptions: outboundaddressexceptionsArray,
 	}
 
-	// write content of policy to console
-	logrus.Debugf(fmt.Sprintf(" EndpointID:  %s\n", hnsEndpointID))
-	logrus.Debugf(fmt.Sprintf(" policy.InboundProxyPort:  %s\n", policy.InboundProxyPort))
-	logrus.Debugf(fmt.Sprintf(" policy.OutboundProxyPort: %s\n", policy.OutboundProxyPort))
-	logrus.Debugf(fmt.Sprintf(" policy.UserSID:           %s\n", policy.UserSID))
-	logrus.Debugf(fmt.Sprintf(" policy.LocalAddresses:    %s\n", policy.LocalAddresses))
-	logrus.Debugf(fmt.Sprintf(" policy.RemoteAddresses:   %s\n", policy.RemoteAddresses))
-	logrus.Debugf(fmt.Sprintf(" policy.LocalPorts:        %s\n", policy.LocalPorts))
-	logrus.Debugf(fmt.Sprintf(" policy.RemotePorts:       %s\n", policy.RemotePorts))
-	logrus.Debugf(fmt.Sprintf(" policy.Priority:          %d\n", policy.Priority))
-	logrus.Debugf(fmt.Sprintf(" policy.Protocol:          %s\n", policy.Protocol))
-	logrus.Debugf(fmt.Sprintf(" policy.InboundPortExceptions:     %v\n", policy.InboundPortExceptions))
-	logrus.Debugf(fmt.Sprintf(" policy.InboundAddressExceptions:  %v\n", policy.InboundAddressExceptions))
-	logrus.Debugf(fmt.Sprintf(" policy.OutboundPortExceptions:    %v\n", policy.OutboundPortExceptions))
-	logrus.Debugf(fmt.Sprintf(" policy.OutboundAddressExceptions: %v\n", policy.OutboundAddressExceptions))
+	slog.Default().WithGroup("policy").Debug("Policy",
+		"endpoint-id", hnsEndpointID,
+		"inbound-proxy-port", policy.InboundProxyPort,
+		"outbound-proxy-port", policy.OutboundProxyPort,
+		"user-sid", policy.UserSID,
+		"local-addresses", policy.LocalAddresses,
+		"remote-addresses", policy.RemoteAddresses,
+		"local-ports", policy.LocalPorts,
+		"remote-ports", policy.RemotePorts,
+		"priority", policy.Priority,
+		"protocol", policy.Protocol,
+		"inbound-port-exceptions", policy.InboundPortExceptions,
+		"inbound-address-exceptions", policy.InboundAddressExceptions,
+		"outbound-port-exceptions", policy.OutboundPortExceptions,
+		"outbound-address-exceptions", policy.OutboundAddressExceptions)
 
-	// try to add the policy
-	err2 := HnsProxyAddPolicy(hnsEndpointID, policy)
+	err2 := hnsProxyAddPolicy(hnsEndpointID, policy)
 	if err2 != nil {
 		log.Fatalf("Fatal error in adding the policy: %s", err2)
 		return err2
 	}
-
 	return nil
 }

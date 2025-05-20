@@ -13,7 +13,7 @@ metadata:
     helm.sh/chart: grafana-6.57.4
     app.kubernetes.io/name: kube-prometheus-stack-plutono
     app.kubernetes.io/instance: kube-prometheus-stack
-    app.kubernetes.io/version: "9.5.5"
+    app.kubernetes.io/version: '9.5.5'
     app.kubernetes.io/managed-by: Helm
 data:
   plutono.ini: |
@@ -36,17 +36,17 @@ data:
     serve_from_sub_path = true
     domain = k2s.cluster.local
     [auth]
-    oauth_auto_login: true
-    signout_redirect_url: "https://k2s.cluster.local/oauth2/sign_out"
+    oauth_auto_login = true
+    signout_redirect_url = "https://k2s.cluster.local/oauth2/sign_out"
     [auth.proxy]
     enabled: true
-    header_name: X-Email
-    header_property: email
+    header_name = X-Email
+    header_property = email
     auto_sign_up: true
     [users]
-    allow_sign_up: false
-    auto_assign_org: true
-    auto_assign_org_role: Viewer
+    allow_sign_up = false
+    auto_assign_org = true
+    auto_assign_org_role = Viewer
     [auth.anonymous]
     enabled = true
     org_role = Viewer

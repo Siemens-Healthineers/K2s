@@ -71,10 +71,6 @@
                 "outboundaddressexceptions": ""
             }
         },
-        "shareDir": {
-            "windowsWorker": "C:/k8s-smb-share",
-            "master": "/mnt/k8s-smb-share"
-        },
         "upgrade": {
             "excludednamespaces": "kube-flannel,kube-node-lease,kube-public,kube-system,kubernetes-dashboard,nginx-gateway,gpu-node,ingress-nginx,kubevirt,monitoring,registry",
             "excludednamespacedresources": "",
