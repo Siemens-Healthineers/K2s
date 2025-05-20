@@ -94,6 +94,10 @@ const (
 	CacheVSwitchFlagName  = "cache-vswitch"
 	CacheVSwitchFlagUsage = "Cache vswitches 'cbr0' and 'KubeSwitch' for cluster connectivity through the host machine."
 
+	IgnoreIfRunningFlagName  = "ignore-if-running"
+	IgnoreIfRunningFlagShort = "i"
+	IgnoreIfRunningFlagUsage = "Skip starting the K2s cluster if it is already running"
+
 	PreReqMarker = "[PREREQ-FAILED]"
 )
 

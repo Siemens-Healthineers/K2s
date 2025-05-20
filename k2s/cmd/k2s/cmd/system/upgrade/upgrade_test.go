@@ -22,6 +22,20 @@ var _ = BeforeSuite(func() {
 	UpgradeCmd.Flags().BoolP(common.OutputFlagName, common.OutputFlagShorthand, false, common.OutputFlagUsage)
 })
 
+// Helper function to reset all flags to their default values
+func resetAllFlags() {
+	flags := UpgradeCmd.Flags()
+	flags.Set(common.OutputFlagName, "false")
+	flags.Set(skipK8sResources, "false")
+	flags.Set(deleteFiles, "false")
+	flags.Set(configFileFlagName, "")
+	flags.Set(proxy, "")
+	flags.Set(skipImages, "false")
+	flags.Set(common.AdditionalHooksDirFlagName, "")
+	flags.Set(backupDir, "")
+	flags.Set(force, "false")
+}
+
 var _ = Describe("upgrade", func() {
 	Describe("createUpgradeCommand", func() {
 		When("no flags set", func() {
@@ -50,6 +64,23 @@ var _ = Describe("upgrade", func() {
 				flags.Set(skipImages, "true")
 				flags.Set(common.AdditionalHooksDirFlagName, "hookDir")
 				flags.Set(backupDir, "backupDir")
+
+				actual := createUpgradeCommand(UpgradeCmd)
+
+				Expect(actual).To(Equal(expected))
+			})
+			})
+		
+		When("force flag is set", func() {
+			It("creates the command with force flag", func() {
+				const staticPartOfExpectedCmd = `\lib\scripts\k2s\system\upgrade\Start-ClusterUpgrade.ps1`
+				const args = ` -Force`
+				expected := utils.FormatScriptFilePath(utils.InstallDir()+staticPartOfExpectedCmd) + args
+
+				// Reset all flags to default values
+				resetAllFlags()
+				// Set only the flag under test
+				UpgradeCmd.Flags().Set(force, "true")
 
 				actual := createUpgradeCommand(UpgradeCmd)
 
