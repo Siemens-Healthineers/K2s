@@ -136,11 +136,17 @@ function Invoke-DeployNerdctlArtifacts($windowsNodeArtifactsDirectory) {
 }
 
 function Set-RootPathForImagesInConfig($tomlPath) {
+   
     $template = $tomlPath + '.template'
     if (Test-Path $template) {
+        $storageLocalFolder = Get-StorageLocalFolderName                
         $storageLocalDrive = Get-StorageLocalDrive
-        (Get-Content -path $template -Raw) -replace '%BEST-DRIVE%', $storageLocalDrive | Set-Content -Path $tomlPath
-    }
+        Write-Log 'StorageLocalDrive is '
+        Write-Log $storageLocalDrive
+        $storageLocalDriveWithFolderName = $storageLocalDrive + $storageLocalFolder        
+        Write-Log "StorageLocalDriveWithFolderName is'$storageLocalDriveWithFolderName'"
+        (Get-Content -path $template -Raw) -replace '%BEST-DRIVE%', $storageLocalDriveWithFolderName | Set-Content -Path $tomlPath
+    }    
 }
 
 function Set-InstallationDirectory($tomlPath) {

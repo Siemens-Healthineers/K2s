@@ -30,6 +30,7 @@ function Expand-Path {
 
 $configDir = $rootConfig.psobject.properties['configDir'].value
 $configuredStorageLocalDriveLetter = $smallsetup.psobject.properties['storageLocalDriveLetter'].value
+$configuredstorageLocalDriveFolder= $smallsetup.psobject.properties['storageLocalDriveFolder'].value
 
 $kubeConfigDir = Expand-Path $configDir.psobject.properties['kube'].value
 $sshConfigDir = Expand-Path $configDir.psobject.properties['ssh'].value
@@ -111,6 +112,10 @@ function Get-RootConfigk2s {
 
 function Get-ConfiguredStorageLocalDriveLetter {
     return $configuredStorageLocalDriveLetter
+}
+
+function Get-ConfiguredstorageLocalDriveFolder {
+    return $configuredstorageLocalDriveFolder
 }
 
 function Get-ConfiguredDockerConfigDir {
@@ -483,6 +488,7 @@ Get-ConfiguredIPControlPlane,
 Get-ConfigSetupType,
 Get-ConfigUsedStorageLocalDriveLetter,
 Get-ConfiguredStorageLocalDriveLetter,
+Get-ConfiguredstorageLocalDriveFolder,
 Get-ConfigInstalledKubernetesVersion,
 Get-ConfiguredDockerConfigDir,
 Get-ConfiguredClusterCIDR,
