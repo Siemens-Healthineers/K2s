@@ -103,7 +103,7 @@ function Install-WinFlannel {
 
     $ipaddress = $ipaddresses[0] | Select-Object -ExpandProperty IPAddress
     if (!($ipaddress)) {
-        $ipaddress = Get-NetIPAddress -AddressFamily IPv4 -InterfaceAlias $adapterName | Select-Object -ExpandProperty IPAddress
+        $ipaddress = Get-NetIPAddress -AddressFamily IPv4 -InterfaceAlias "*$adapterName*" | Select-Object -ExpandProperty IPAddress
     }
 
     Write-Log "Using local IP $ipaddress for AppParameters of flanneld"
