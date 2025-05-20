@@ -211,9 +211,44 @@ function Set-LoopbackAdapterProperties {
     }
 }
 
+function Set-LoopbackAdapterExtendedProperties {
+    param (
+        [Parameter()]
+        [string] $AdapterName,
+        [Parameter()]
+        [string] $DnsServers
+    )
+    $adapterName = $AdapterName
+    Write-Log 'Figuring out IPv4DefaultGateway'
+    $if = Get-NetIPConfiguration -InterfaceAlias "$adapterName" -ErrorAction SilentlyContinue 2>&1 | Out-Null
+    $gw = Get-LoopbackAdapterGateway
+    if ( $if ) {
+        $gw = $if.IPv4DefaultGateway.NextHop
+        Write-Log "Gateway found (from interface '$adapterName'): $gw"
+    }
+    Write-Log "The following gateway IP address will be used: $gw"
+    $loopbackAdapterIfIndex = Get-NetIPInterface | Where-Object InterfaceAlias -Like "vEthernet ($adapterName)*" | Where-Object AddressFamily -Eq IPv4 | Select-Object -expand 'ifIndex' -First 1
+    $loopbackAdapterAlias = Get-NetIPInterface | Where-Object InterfaceAlias -Like "vEthernet ($adapterName)*" | Where-Object AddressFamily -Eq IPv4 | Select-Object -expand 'InterfaceAlias' -First 1
+    if ($null -eq $loopbackAdapterIfIndex -or $null -eq $loopbackAdapterAlias) {
+        Write-Log 'Unable to find the loopback adapter' -Error
+        Write-Log 'Found following interfaces:'
+        Get-NetIPInterface | Write-Log
+        throw 'Unable to find the loopback adapter'
+    }    
+    Write-Log "Found Loopback adapter with Alias: '$loopbackAdapterAlias' and ifIndex: '$loopbackAdapterIfIndex'"
+    $ipAddressForLoopbackAdapter = Get-LoopbackAdapterIP
+    Set-NetIPInterface -InterfaceIndex $loopbackAdapterIfIndex -Dhcp Disabled
+    $dnsServersAsArray = $DnsServers -split ','
+    Set-IPAdressAndDnsClientServerAddress -IPAddress $ipAddressForLoopbackAdapter -DefaultGateway $gw -Index $loopbackAdapterIfIndex -DnsAddresses $dnsServersAsArray
+    Set-InterfacePrivate -InterfaceAlias "$loopbackAdapterAlias"
+    Set-DnsClient -InterfaceIndex $loopbackAdapterIfIndex -RegisterThisConnectionsAddress $false | Out-Null
+    netsh int ipv4 set int "$loopbackAdapterAlias" forwarding=enabled | Out-Null
+    Set-NetIPInterface -InterfaceIndex $loopbackAdapterIfIndex -InterfaceMetric 102
+}
+
 Export-ModuleMember New-LoopbackAdapter
 Export-ModuleMember Get-LoopbackAdapter
 Export-ModuleMember Remove-LoopbackAdapter
 Export-ModuleMember Set-LoopbackAdapterProperties, Get-LoopbackAdapterIP,
 Get-LoopbackAdapterGateway, Get-LoopbackAdapterCIDR, New-DefaultLoopbackAdapter, Get-L2BridgeName,
-Enable-LoopbackAdapter, Disable-LoopbackAdapter, Uninstall-LoopbackAdapter, Get-DevgonExePath
+Enable-LoopbackAdapter, Disable-LoopbackAdapter, Uninstall-LoopbackAdapter, Get-DevgonExePath, Set-LoopbackAdapterExtendedProperties

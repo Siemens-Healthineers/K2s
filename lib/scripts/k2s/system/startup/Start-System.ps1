@@ -23,7 +23,7 @@ Initialize-Logging
 
 $logUseCase = "Start-System"
 
-function Wait-NetAdapterUp {
+function Wait-NetInterfaceAdapterUp {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true)]
@@ -43,7 +43,13 @@ function Wait-NetAdapterUp {
             $adapterStatus = $adapter.Status
             if ($adapterStatus -eq "Up") {
                 Write-Log  "[$logUseCase] Network adapter '$AdapterName' is up."
-                return $true
+                $if = Get-NetIPInterface -InterfaceAlias $AdapterName -ErrorAction SilentlyContinue
+                if( $if ) {
+                     Write-Log  "[$logUseCase] Network adapter '$AdapterName' is up and interfaces are available: $if"
+                    return $true
+                } else {
+                    Write-Log  "[$logUseCase] Could not get IP interface for adapter '$AdapterName'. Retrying..."
+                }
             }
         }
         catch {
@@ -80,26 +86,30 @@ try {
         if( $nic.Status -eq "Disabled" ) {
             # Adapter is disabled, must be after a stop
             Write-Log "[$logUseCase] Also Loopback Adapter is disabled, must be a normal startup"
-            # Wait-NetAdapterUp -AdapterName $adapterName
-            # Write-Log "[$logUseCase] All NICs Ips: $((Get-NetIPAddress).InterfaceAlias)"
-            # Write-Log "[$logUseCase] All NICs 2: $((Get-NetAdapter).Name)"
         } else {
-            # Adapter is enable, must be after a reboot where no stop was done
+            # Adapter is enabled, must be after a reboot where no stop was done before
             Write-Log "[$logUseCase] Also Loopback Adapter is not disabled, must be a start of windows after no stop was done"
-            # Write-Log "[$logUseCase] All NICs Ips: $((Get-NetIPAddress).InterfaceAlias)"
-            # Write-Log "[$logUseCase] All NICs 2: $((Get-NetAdapter).Name)"
-            # $kubePath = Get-KubePath
-            # Import-Module "$kubePath\smallsetup\hns.v2.psm1" -WarningAction:SilentlyContinue -Force
-            # # enable adapter
-            # Enable-NetAdapter -Name $adapterName -Confirm:$false -ErrorAction SilentlyContinue
-            # # wait to be ready
-            # Wait-NetAdapterUp -AdapterName $adapterName
-            # Enable-LoopbackAdapter
-            # New-ExternalSwitch -adapterName $adapterName -PodSubnetworkNumber $PodSubnetworkNumber
+            $adapterName = Get-L2BridgeName
+            $PodSubnetworkNumber = '1'
+            Stop-Service -Name 'flanneld'
+            Enable-NetAdapter -Name $adapterName -Confirm:$false -ErrorAction SilentlyContinue
+            $return = Wait-NetInterfaceAdapterUp -AdapterName $adapterName
+            if ($return -eq $true) {
+                $DnsServers = Get-DnsIpAddressesFromActivePhysicalNetworkInterfacesOnWindowsHost -ExcludeNetworkInterfaceName $adapterName
+                Enable-LoopbackAdapter
+                New-ExternalSwitch -adapterName $adapterName -PodSubnetworkNumber $PodSubnetworkNumber
+                Set-LoopbackAdapterExtendedProperties -AdapterName $adapterName -DnsServers $DnsServers
+                Start-Service -Name 'flanneld'
+                Wait-NetworkL2BridgeReady -PodSubnetworkNumber $PodSubnetworkNumber
+            } else {
+                Write-Log "[$logUseCase] ERROR: Could not repair k8s network !"
+                Disable-NetAdapter -Name $adapterName -Confirm:$false -ErrorAction SilentlyContinue
+            }
         }
     }
     Write-Log "[$logUseCase] finished"
 } catch {
+    Start-Service -Name 'flanneld'
     Write-Log "[$logUseCase] $($_.Exception.Message) - $($_.ScriptStackTrace)" -Error
 
     throw $_
