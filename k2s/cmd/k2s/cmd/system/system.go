@@ -4,7 +4,6 @@
 package system
 
 import (
-	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/system/certificate"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/system/dump"
 	systempackage "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/system/package"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/system/reset"
@@ -25,5 +24,4 @@ func init() {
 	SystemCmd.AddCommand(reset.ResetCmd)
 	SystemCmd.AddCommand(systempackage.PackageCmd)
 	SystemCmd.AddCommand(users.NewCommand())
-	SystemCmd.AddCommand(certificate.CertificateCmd)
 }
