@@ -224,7 +224,7 @@ func createUpgradeCommand(cmd *cobra.Command) string {
 	}
 	force, _ := strconv.ParseBool(cmd.Flags().Lookup(force).Value.String())
 	if force {
-		psCmd += " -force "
+		psCmd += " -Force"
 	}
 	return psCmd
 }
