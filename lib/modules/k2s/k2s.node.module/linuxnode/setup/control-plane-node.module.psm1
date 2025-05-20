@@ -108,7 +108,7 @@ function New-ControlPlaneNodeOnNewVM {
         ClusterCIDR_Services = $(Get-ConfiguredClusterCIDRServices)
         KubeDnsServiceIP     = $(Get-ConfiguredKubeDnsServiceIP)
         IP_NextHop           = $(Get-ConfiguredKubeSwitchIP)
-        NetworkInterfaceName = $(Get-ControlPlaneNodeDefaultSwitchName)
+        NetworkInterfaceName = $(Get-NetworkInterfaceName)
         Hook                 = $addToControlPlane
     }
     Set-UpMasterNode @masterNodeParams
