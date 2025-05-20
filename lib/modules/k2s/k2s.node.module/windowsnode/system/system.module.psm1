@@ -139,6 +139,12 @@ function Test-WindowsPrerequisites(
     Enable-MissingWindowsFeatures $([bool]$WSL)
 }
 
+function Get-StorageLocalFolderName{
+    $storageLocalDriveFolder= ''
+    $storageLocalDriveFolder = Get-ConfiguredstorageLocalDriveFolder;
+    return "\\" + $storageLocalDriveFolder ;
+}
+
 function Get-StorageLocalDrive {
     $storageLocalDriveLetter = ''
 
@@ -317,6 +323,7 @@ Export-ModuleMember -Function Add-K2sToDefenderExclusion,
 Test-WindowsPrerequisites,
 Set-WSL,
 Get-StorageLocalDrive,
+Get-StorageLocalFolderName,
 Invoke-DownloadFile,
 Stop-InstallIfNoMandatoryServiceIsRunning,
 Stop-InstallationIfRequiredCurlVersionNotInstalled,
