@@ -15,6 +15,7 @@ import (
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils/tz"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
+	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/status"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 
@@ -32,6 +33,7 @@ var Startk8sCmd = &cobra.Command{
 func init() {
 	Startk8sCmd.Flags().String(common.AdditionalHooksDirFlagName, "", common.AdditionalHooksDirFlagUsage)
 	Startk8sCmd.Flags().BoolP(common.AutouseCachedVSwitchFlagName, "", false, common.AutouseCachedVSwitchFlagUsage)
+	Startk8sCmd.Flags().BoolP(common.IgnoreIfRunningFlagName, common.IgnoreIfRunningFlagShort, false, common.IgnoreIfRunningFlagUsage)
 	Startk8sCmd.Flags().SortFlags = false
 	Startk8sCmd.Flags().PrintDefaults()
 }
@@ -39,6 +41,15 @@ func init() {
 func startk8s(ccmd *cobra.Command, args []string) error {
 	cmdSession := common.StartCmdSession(ccmd.CommandPath())
 	pterm.Printfln("🤖 Starting K2s on %s", utils.Platform())
+
+	skipStartIfRunning, err := HandleIgnoreIfRunning(ccmd, isClusterRunning)
+	if err != nil {
+		return err
+	}
+	if skipStartIfRunning {
+		cmdSession.Finish()
+		return nil
+	}
 
 	context := ccmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
 	config, err := setupinfo.ReadConfig(context.Config().Host().K2sConfigDir())
@@ -107,6 +118,41 @@ func startAdditionalNodes(context *common.CmdContext, flags *pflag.FlagSet, conf
 	}
 
 	return nil
+}
+
+func isClusterRunning() (bool, error) {
+
+	clusterStatus, err := status.LoadStatus()
+	if err != nil {
+		slog.Error("Failed to load cluster status", "error", err)
+		return false, err
+	}
+
+	if clusterStatus != nil && clusterStatus.RunningState.IsRunning {
+		return clusterStatus.RunningState != nil && clusterStatus.RunningState.IsRunning, nil
+	}
+
+	return false, nil
+}
+
+func HandleIgnoreIfRunning(ccmd *cobra.Command, clusterIsRunning func() (bool, error)) (bool, error) {
+	ignoreIfRunning, err := strconv.ParseBool(ccmd.Flags().Lookup(common.IgnoreIfRunningFlagName).Value.String())
+	if err != nil {
+		return false, err
+	}
+
+	if ignoreIfRunning {
+		isRunning, err := clusterIsRunning()
+		if err != nil {
+			return false, err
+		}
+		if isRunning {
+			pterm.Printfln("🚀 K2s cluster is already running. Skipping start.")
+			return true, nil
+		}
+	}
+
+	return false, nil
 }
 
 func buildNodeStartCmd(flags *pflag.FlagSet, nodeConfig cc.Node) string {
