@@ -83,27 +83,31 @@ try {
         # $PodSubnetworkNumber = '1'
         Write-Log "[$logUseCase] All NICs 1: $((Get-NetAdapter).Name)"
         $nic = Get-NetAdapter -Name $adapterName -ErrorAction SilentlyContinue
-        if( $nic.Status -eq "Disabled" ) {
-            # Adapter is disabled, must be after a stop
-            Write-Log "[$logUseCase] Also Loopback Adapter is disabled, must be a normal startup"
+        if( $null -eq $nic ) {
+            Write-Log "[$logUseCase] Loopback Adapter is not there, must be during install"
         } else {
-            # Adapter is enabled, must be after a reboot where no stop was done before
-            Write-Log "[$logUseCase] Also Loopback Adapter is not disabled, must be a start of windows after no stop was done"
-            $adapterName = Get-L2BridgeName
-            $PodSubnetworkNumber = '1'
-            Stop-Service -Name 'flanneld'
-            Enable-NetAdapter -Name $adapterName -Confirm:$false -ErrorAction SilentlyContinue
-            $return = Wait-NetInterfaceAdapterUp -AdapterName $adapterName
-            if ($return -eq $true) {
-                $DnsServers = Get-DnsIpAddressesFromActivePhysicalNetworkInterfacesOnWindowsHost -ExcludeNetworkInterfaceName $adapterName
-                Enable-LoopbackAdapter
-                New-ExternalSwitch -adapterName $adapterName -PodSubnetworkNumber $PodSubnetworkNumber
-                Set-LoopbackAdapterExtendedProperties -AdapterName $adapterName -DnsServers $DnsServers
-                Start-Service -Name 'flanneld'
-                Wait-NetworkL2BridgeReady -PodSubnetworkNumber $PodSubnetworkNumber
+            if( $nic.Status -eq "Disabled" ) {
+                # Adapter is disabled, must be after a stop
+                Write-Log "[$logUseCase] Loopback Adapter is disabled, must be a normal startup"
             } else {
-                Write-Log "[$logUseCase] ERROR: Could not repair k8s network !"
-                Disable-NetAdapter -Name $adapterName -Confirm:$false -ErrorAction SilentlyContinue
+                # Adapter is enabled, must be after a reboot where no stop was done before
+                Write-Log "[$logUseCase] Loopback Adapter is not disabled, must be a start of windows after no stop was done"
+                $adapterName = Get-L2BridgeName
+                $PodSubnetworkNumber = '1'
+                Stop-Service -Name 'flanneld'
+                Enable-NetAdapter -Name $adapterName -Confirm:$false -ErrorAction SilentlyContinue
+                $return = Wait-NetInterfaceAdapterUp -AdapterName $adapterName
+                if ($return -eq $true) {
+                    $DnsServers = Get-DnsIpAddressesFromActivePhysicalNetworkInterfacesOnWindowsHost -ExcludeNetworkInterfaceName $adapterName
+                    Enable-LoopbackAdapter
+                    New-ExternalSwitch -adapterName $adapterName -PodSubnetworkNumber $PodSubnetworkNumber
+                    Set-LoopbackAdapterExtendedProperties -AdapterName $adapterName -DnsServers $DnsServers
+                    Start-Service -Name 'flanneld'
+                    Wait-NetworkL2BridgeReady -PodSubnetworkNumber $PodSubnetworkNumber
+                } else {
+                    Write-Log "[$logUseCase] ERROR: Could not repair k8s network !"
+                    Disable-NetAdapter -Name $adapterName -Confirm:$false -ErrorAction SilentlyContinue
+                }
             }
         }
     }

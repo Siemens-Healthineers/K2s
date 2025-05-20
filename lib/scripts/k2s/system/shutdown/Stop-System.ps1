@@ -21,15 +21,16 @@ $nodeModule = "$PSScriptRoot/../../../../modules/k2s/k2s.node.module/k2s.node.mo
 Import-Module $infraModule, $nodeModule
 Initialize-Logging
 
+$logUseCase = "Stop-System"
 try {
-    Write-Log "[$script] started"
-    Write-Log "[$script] removing external switch with l2 bridge network"
+    Write-Log "[$logUseCase] started"
+    Write-Log "[$logUseCase] removing external switch with l2 bridge network"
     # remove L2 bridge switch
     $hns = Get-HNSNetwork
     $hns | Where-Object Name -Like '*cbr0*' | Remove-HNSNetwork -ErrorAction SilentlyContinue
-    Write-Log "[$script] finished"
+    Write-Log "[$logUseCase] finished"
 } catch {
-    Write-Log "[$script] $($_.Exception.Message) - $($_.ScriptStackTrace)" -Error
+    Write-Log "[$logUseCase] $($_.Exception.Message) - $($_.ScriptStackTrace)" -Error
 
     throw $_
 }
