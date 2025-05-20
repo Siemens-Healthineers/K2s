@@ -623,7 +623,7 @@ function Get-DefaultUserPwdWorkerNode {
 .DESCRIPTION
     Copies the Kube config file from master node to local machine.
 .EXAMPLE
-    Copy-KubeConfigFromControlPlaneNode
+    Copy-KubeConfigFromMasterNode
 #>
 function Copy-KubeConfigFromControlPlaneNode {
     Param(

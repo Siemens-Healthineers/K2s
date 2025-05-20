@@ -145,4 +145,4 @@ function Get-RunningState {
     return @{IsRunning = $allRunning; Issues = $issues }
 }
 
-Export-ModuleMember -Function Get-RunningState, Get-IsVmRunning, Get-IsWslRunning
+Export-ModuleMember -Function Get-RunningState
