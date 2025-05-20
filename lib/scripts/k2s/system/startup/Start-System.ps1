@@ -80,8 +80,6 @@ try {
         Start-Service -Name 'vmcompute'
         Start-Service -Name 'hns'
         $adapterName = Get-L2BridgeName
-        # $PodSubnetworkNumber = '1'
-        Write-Log "[$logUseCase] All NICs 1: $((Get-NetAdapter).Name)"
         $nic = Get-NetAdapter -Name $adapterName -ErrorAction SilentlyContinue
         if( $null -eq $nic ) {
             Write-Log "[$logUseCase] Loopback Adapter is not there, must be during install"
