@@ -16,7 +16,7 @@ $loopbackAdapterIp = $setupConfigRoot.psobject.properties['loopback'].value
 $loopbackAdapterGateway = $setupConfigRoot.psobject.properties['loopbackGateway'].value
 $loopbackAdapterCIDR = $setupConfigRoot.psobject.properties['loopbackAdapterCIDR'].value
 
-function New-DefaultLoopbackAdater {
+function New-DefaultLoopbackAdapter {
     New-LoopbackAdapter -Name $defaultLoopbackAdapterName -DevConExe $devgonPath | Out-Null
     Set-LoopbackAdapterProperties -Name $defaultLoopbackAdapterName -IPAddress $loopbackAdapterIp -Gateway $loopbackAdapterGateway
 }
@@ -215,5 +215,5 @@ Export-ModuleMember New-LoopbackAdapter
 Export-ModuleMember Get-LoopbackAdapter
 Export-ModuleMember Remove-LoopbackAdapter
 Export-ModuleMember Set-LoopbackAdapterProperties, Get-LoopbackAdapterIP,
-Get-LoopbackAdapterGateway, Get-LoopbackAdapterCIDR, New-DefaultLoopbackAdater, Get-L2BridgeName,
+Get-LoopbackAdapterGateway, Get-LoopbackAdapterCIDR, New-DefaultLoopbackAdapter, Get-L2BridgeName,
 Enable-LoopbackAdapter, Disable-LoopbackAdapter, Uninstall-LoopbackAdapter, Get-DevgonExePath

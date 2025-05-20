@@ -29,7 +29,7 @@ function Add-WindowsWorkerNodeOnWindowsHost {
     Write-Log 'Starting installation of K2s worker node on Windows host.'
 
     # Install loopback adapter for l2bridge
-    New-DefaultLoopbackAdater
+    New-DefaultLoopbackAdapter
 
     Write-Log 'Add vfp rules'
     $rootConfiguration = Get-RootConfigk2s
@@ -249,6 +249,7 @@ function Start-WindowsWorkerNode {
 
     Write-Log 'Starting Kubernetes services on the Windows node' -Console
     Start-ServiceAndSetToAutoStart -Name 'containerd'
+    Start-ServiceAndSetToAutoStart -Name 'httpproxy'
     Start-ServiceAndSetToAutoStart -Name 'flanneld' -IgnoreErrors
     Start-ServiceAndSetToAutoStart -Name 'kubelet'
     Start-ServiceAndSetToAutoStart -Name 'kubeproxy'
@@ -343,6 +344,7 @@ function Stop-WindowsWorkerNode {
     Stop-ServiceAndSetToManualStart 'kubeproxy'
     Stop-ServiceAndSetToManualStart 'kubelet'
     Stop-ServiceAndSetToManualStart 'flanneld'
+    Stop-ServiceAndSetToManualStart 'httpproxy'
     Stop-ServiceAndSetToManualStart 'windows_exporter'
     Stop-ServiceAndSetToManualStart 'containerd'
 

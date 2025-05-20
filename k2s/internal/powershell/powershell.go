@@ -155,8 +155,15 @@ func prepareExecScript(script string) (string, error) {
 		return "", err
 	}
 
-	wrapperScript = ("&'" + installDir + "\\lib\\scripts\\k2s\\base\\" + "Invoke-ExecScript.ps1' -Script ")
-	wrapperScript += "\"" + script + "\""
+	// check if there is an directory lib folder
+	if os.PathExists(installDir + "\\lib") {
+		wrapperScript = ("&'" + installDir + "\\lib\\scripts\\k2s\\base\\" + "Invoke-ExecScript.ps1' -Script ")
+		wrapperScript += "\"" + script + "\""
+	} else {
+		// we assume we have a binary under bin path and not in the root
+		wrapperScript = ("&'" + installDir + "\\..\\lib\\scripts\\k2s\\base\\" + "Invoke-ExecScript.ps1' -Script ")
+		wrapperScript += "\"" + script + "\""
+	}
 
 	slog.Debug("Final execution script", "script", wrapperScript)
 
