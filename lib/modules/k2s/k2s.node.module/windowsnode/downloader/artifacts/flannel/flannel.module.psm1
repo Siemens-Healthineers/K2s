@@ -96,7 +96,7 @@ function Install-WinFlannel {
     &$kubeBinPath\nssm install flanneld "$kubeBinPath\cni\flanneld.exe"
     $adapterName = Get-L2BridgeName
     Write-Log "Using network adapter '$adapterName'"
-    $ipaddresses = @(Get-NetIPAddress -AddressFamily IPv4 -InterfaceAlias $adapterName)
+    $ipaddresses = @(Get-NetIPAddress -AddressFamily IPv4 -InterfaceAlias "*$adapterName*")
     if (!$ipaddresses) {
         throw 'No IP address found which can be used for setting up K2s Setup !'
     }
