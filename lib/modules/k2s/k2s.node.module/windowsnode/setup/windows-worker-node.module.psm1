@@ -71,15 +71,7 @@ function Start-WindowsWorkerNodeOnWindowsHost {
     $vfpRoutingRules = $smallsetup.psobject.properties['vfprules-k2s'].value | ConvertTo-Json
     Add-VfpRulesToWindowsNode -VfpRulesInJsonFormat $vfpRoutingRules
 
-    $ipControlPlane = Get-ConfiguredIPControlPlane
-    $setupConfigRoot = Get-RootConfigk2s
-    $clusterCIDRServicesWindows = $setupConfigRoot.psobject.properties['servicesCIDRWindows'].value
-
-    # routes for services
-    Write-Log "Remove obsolete route to $clusterCIDRServicesWindows"
-    route delete $clusterCIDRServicesWindows >$null 2>&1
-    Write-Log "Add route 1 to Windows Services CIDR:$clusterCIDRServicesWindows with metric 7"
-    route -p add $clusterCIDRServicesWindows $ipControlPlane METRIC 7 | Out-Null
+    Set-RoutesToWindowsWorkloads
 
     Start-WindowsWorkerNode -DnsServers $DnsServers -ResetHns:$ResetHns -AdditionalHooksDir $AdditionalHooksDir -UseCachedK2sVSwitches:$UseCachedK2sVSwitches -SkipHeaderDisplay:$SkipHeaderDisplay -PodSubnetworkNumber $PodSubnetworkNumber
 
@@ -88,7 +80,6 @@ function Start-WindowsWorkerNodeOnWindowsHost {
 
     Update-NodeLabelsAndTaints -WorkerMachineName $env:computername
 
-    # check again for setting kubeswitch to private
     Set-KubeSwitchToPrivate
 }
 
@@ -276,15 +267,7 @@ function Wait-NetworkL2BridgeReady {
             Set-NetIPInterface -InterfaceIndex $l2BridgeInterfaceIndex -InterfaceMetric 101
             Write-Output "Index for interface $l2BridgeSwitchName : ($l2BridgeInterfaceIndex) -> metric 101"
 
-            # $setupConfigRoot = Get-RootConfigk2s
-            $clusterCIDRWorker = Get-ConfiguredClusterCIDRHost -PodSubnetworkNumber $PodSubnetworkNumber #$setupConfigRoot.psobject.properties['podNetworkWorkerCIDR'].value
-            $clusterCIDRNextHop = Get-ConfiguredClusterCIDRNextHop -PodSubnetworkNumber $PodSubnetworkNumber #$setupConfigRoot.psobject.properties['cbr0'].value
-
-            # routes for Windows pods
-            Write-Output "Remove obsolete route to $clusterCIDRWorker"
-            route delete $clusterCIDRWorker >$null 2>&1
-            Write-Output "Add route to Windows Pods on host CIDR:$clusterCIDRWorker with metric 5"
-            route -p add $clusterCIDRWorker $clusterCIDRNextHop METRIC 5 | Out-Null
+            Set-RoutesToWindowsWorkloads
 
             Write-Output "Routing entries added.`n"
 
@@ -412,15 +395,17 @@ function EnsureDirectoryPathExists(
     }
 }
 
-function Repair-K2sRoutes {
+function Set-RoutesToKubemaster {
     # route for VM
     $ipControlPlaneCIDR = Get-ConfiguredControlPlaneCIDR
     $windowsHostIpAddress = Get-ConfiguredKubeSwitchIP
     Write-Log "Remove obsolete route to $ipControlPlaneCIDR"
     route delete $ipControlPlaneCIDR >$null 2>&1
     Write-Log "Add route to host network for master CIDR:$ipControlPlaneCIDR with metric 3"
-    route -p add $ipControlPlaneCIDR $windowsHostIpAddress METRIC 3 IF $windowsHostIpAddress 
+    route -p add $ipControlPlaneCIDR $windowsHostIpAddress METRIC 3 | Out-Null 
+}
 
+function Set-RoutesToLinuxWorkloads {
     # routes for Linux pods
     $ipControlPlane = Get-ConfiguredIPControlPlane
     $setupConfigRoot = Get-RootConfigk2s
@@ -437,8 +422,11 @@ function Repair-K2sRoutes {
     route delete $clusterCIDRServicesLinux >$null 2>&1
     Write-Log "Add route to Linux Services CIDR:$clusterCIDRServicesLinux with metric 6"
     route -p add $clusterCIDRServicesLinux $ipControlPlane METRIC 6 | Out-Null
+}
 
-    # routes for Windows on host
+function Set-RoutesToWindowsWorkloads {
+    $ipControlPlane = Get-ConfiguredIPControlPlane
+    $setupConfigRoot = Get-RootConfigk2s
     $PodSubnetworkNumber = '1'
     $clusterCIDRWorker = Get-ConfiguredClusterCIDRHost -PodSubnetworkNumber $PodSubnetworkNumber 
     $clusterCIDRNextHop = Get-ConfiguredClusterCIDRNextHop -PodSubnetworkNumber $PodSubnetworkNumber 
@@ -453,7 +441,12 @@ function Repair-K2sRoutes {
     route delete $clusterCIDRServicesWindows >$null 2>&1
     Write-Log "Add route 1 to Windows Services CIDR:$clusterCIDRServicesWindows with metric 7"
     route -p add $clusterCIDRServicesWindows $ipControlPlane METRIC 7 | Out-Null
+}
 
+function Repair-K2sRoutes {
+    Set-RoutesToKubemaster 
+    Set-RoutesToLinuxWorkloads
+    Set-RoutesToWindowsWorkloads
     # TODO: add routes for additional nodes
 }
 
@@ -462,4 +455,7 @@ Remove-WindowsWorkerNodeOnWindowsHost,
 Start-WindowsWorkerNodeOnWindowsHost,
 Stop-WindowsWorkerNodeOnWindowsHost,
 Wait-NetworkL2BridgeReady,
-Repair-K2sRoutes
+Repair-K2sRoutes,
+Set-RoutesToKubemaster,
+Set-RoutesToLinuxWorkloads,
+Set-RoutesToWindowsWorkloads

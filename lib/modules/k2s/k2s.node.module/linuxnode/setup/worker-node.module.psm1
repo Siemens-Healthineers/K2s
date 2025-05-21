@@ -440,7 +440,7 @@ function Add-RouteToLinuxWorkerNode {
         [string] $ClusterCIDRWorker = $(throw 'Argument missing: ClusterCIDRWorker')
     )
 
-    # routes for Linux pods
+    # routes for Linux pods to external nodes
     Write-Log "Remove obsolete route to $ClusterCIDRWorker"
     route delete $ClusterCIDRWorker >$null 2>&1
     Write-Log "Add route to Pods for node:$NodeName CIDR:$ClusterCIDRWorker"
