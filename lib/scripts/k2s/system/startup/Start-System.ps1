@@ -79,6 +79,9 @@ try {
         # need to start the services to see the NIC
         Start-Service -Name 'vmcompute'
         Start-Service -Name 'hns'
+        $hns = Get-HNSNetwork
+        $hnsNames = $hns | Select-Object Name
+        Write-Log "[$logUseCase] HNS networks available: $hnsNames"
         $adapterName = Get-L2BridgeName
         $nic = Get-NetAdapter -Name $adapterName -ErrorAction SilentlyContinue
         if( $null -eq $nic ) {

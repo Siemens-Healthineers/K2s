@@ -26,12 +26,15 @@ try {
     Write-Log "[$logUseCase] started"
     Write-Log "[$logUseCase] removing external switch with l2 bridge network"
     # remove L2 bridge switch
+    Start-Service -Name "hns" -ErrorAction SilentlyContinue
     $hns = Get-HNSNetwork
-    Write-Log "[$logUseCase] HNS networks before delete: $hns"
+    $hnsNames = $hns | Select-Object Name
+    Write-Log "[$logUseCase] HNS networks before delete: $hnsNames"
     $hns | Where-Object Name -Like '*cbr0*' | Remove-HNSNetwork -ErrorAction SilentlyContinue
     # show the still existing HNS networks
     $hns = Get-HNSNetwork
-    Write-Log "[$logUseCase] HNS networks after delete: $hns"
+    $hnsNames = $hns | Select-Object Name
+    Write-Log "[$logUseCase] HNS networks after delete: $hnsNames"
     Write-Log "[$logUseCase] finished"
 } catch {
     Write-Log "[$logUseCase] $($_.Exception.Message) - $($_.ScriptStackTrace)" -Error
