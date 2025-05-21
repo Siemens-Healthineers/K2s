@@ -119,6 +119,26 @@ function Reset-DnsServer($switchname) {
     }
 }
 
+function Repair-KubeSwitch {
+    $WSL = Get-ConfigWslFlag
+    if ($WSL) {
+        Write-Log 'Repair-KubeSwitch: Using WSL2 as hosting environment for the control plane node'
+        Write-Log 'Repair-KubeSwitch: No repair for WSl setup yet !'
+    }
+    else {
+        Write-Log 'Repair-KubeSwitch: Using Hyper-V as hosting environment for the control plane node'
+        # check if switch exists
+        $sw = Get-VMSwitch -Name $controlPlaneSwitchName -ErrorAction SilentlyContinue
+        if ( $sw ) {
+            Write-Log "Repair-KubeSwitch: KubeSwitch '$controlPlaneSwitchName' already exists, nothing to repair"
+        } else {
+            Write-Log "Repair-KubeSwitch: KubeSwitch '$controlPlaneSwitchName' does not exist, creating it"
+            New-KubeSwitch
+            Connect-KubeSwitch
+        }
+    }
+}
+
 Export-ModuleMember Get-ControlPlaneNodeDefaultSwitchName,
 Add-DnsServer, 
 New-KubeSwitch, 
@@ -127,4 +147,5 @@ Remove-KubeSwitch,
 Get-WslSwitchName, 
 Reset-DnsServer, 
 Disconnect-NetworkAdapterFromVm, 
-Connect-NetworkAdapterToVm
+Connect-NetworkAdapterToVm, 
+Repair-KubeSwitch

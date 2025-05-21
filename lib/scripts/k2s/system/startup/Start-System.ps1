@@ -102,6 +102,7 @@ try {
                     Set-LoopbackAdapterExtendedProperties -AdapterName $adapterName -DnsServers $DnsServers
                     Start-Service -Name 'flanneld'
                     Wait-NetworkL2BridgeReady -PodSubnetworkNumber $PodSubnetworkNumber
+                    Repair-KubeSwitch
                 } else {
                     Write-Log "[$logUseCase] ERROR: Could not repair k8s network !"
                     Disable-NetAdapter -Name $adapterName -Confirm:$false -ErrorAction SilentlyContinue
