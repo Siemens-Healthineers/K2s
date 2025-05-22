@@ -1192,10 +1192,6 @@ Function Set-UpMasterNode {
     &$executeRemoteCommand "sudo chown $UserName ~/.kube/config"
     &$executeRemoteCommand 'kubectl get nodes'
 
-    Write-Log 'Install custom DNS server'
-    &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get install dnsutils --yes'
-    &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get install dnsmasq --yes'
-
     Write-Log 'Scale down coredns to 1 replicas'
     &$executeRemoteCommand 'kubectl scale deployment coredns -n kube-system --replicas=1'
 
@@ -2007,4 +2003,5 @@ Get-DirectoryOfKubenodeImagesOnWindowsHost,
 Get-DirectoryOfLinuxNodeArtifactsOnWindowsHost,
 Get-PathOfLinuxNodeArtifactsPackageOnWindowsHost,
 Copy-KubernetesImagesFromControlPlaneNodeToWindowsHost,
-Update-CoreDNSConfigurationviaSSH
+Update-CoreDNSConfigurationviaSSH,
+Set-UpMasterNode
