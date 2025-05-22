@@ -45,10 +45,17 @@ function Install-WinHttpProxy {
 }
 
 function Start-WinHttpProxy {
+    param (
+    [Parameter(Mandatory = $false)]
+    [switch]$OnlyProxy = $false
+    )
     Start-ServiceAndSetToAutoStart -Name 'httpproxy'
+    if ($OnlyProxy) { return }
+    Start-ServiceAndSetToAutoStart -Name 'flanneld'
 }
 
 function Stop-WinHttpProxy {
+    Stop-ServiceAndSetToManualStart 'flanneld'
     Stop-ServiceAndSetToManualStart 'httpproxy'
 }
 

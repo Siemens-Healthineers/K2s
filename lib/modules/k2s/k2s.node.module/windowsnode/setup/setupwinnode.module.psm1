@@ -98,6 +98,7 @@ function Initialize-Networking {
 function Reset-WinServices {
     &"$kubeBinPath\nssm" set kubeproxy Start SERVICE_DEMAND_START | Out-Null
     &"$kubeBinPath\nssm" set kubelet Start SERVICE_DEMAND_START | Out-Null
+    &"$kubeBinPath\nssm" set httpproxy Start SERVICE_DEMAND_START | Out-Null
     &"$kubeBinPath\nssm" set flanneld Start SERVICE_DEMAND_START | Out-Null
 }
 
@@ -159,6 +160,7 @@ function Uninstall-WinNode {
         $ShallowUninstallation = $false
     )
     Remove-ServiceIfExists 'flanneld'
+    Remove-ServiceIfExists 'httpproxy'
     Remove-ServiceIfExists 'kubelet'
     Remove-ServiceIfExists 'kubeproxy'
     Remove-ServiceIfExists 'windows_exporter'
