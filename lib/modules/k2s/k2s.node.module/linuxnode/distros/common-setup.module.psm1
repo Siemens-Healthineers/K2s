@@ -1534,33 +1534,16 @@ function New-VmImageForControlPlaneNode {
     $vmNetworkInterfaceName = Get-NetworkInterfaceName
 
     $setUpAsMasterNode = {
-        $addToControlPlane = {
-            $supportForWSLParams = @{
-                UserName             = $vmUserName
-                UserPwd              = $vmUserPwd
-                Hostname             = $Hostname
-                IpAddress            = $IpAddress
-                NetworkInterfaceName = $(Get-NetworkInterfaceName)
-                NetworkMask          = '255.255.255.0'
-                GatewayIpAddress     = $GatewayIpAddress
-            }
-            Edit-SupportForWSL @supportForWSLParams
-        }
-
-        $masterNodeParams = @{
-            NodeName             = $Hostname
-            IpAddress            = $IpAddress
+        $supportForWSLParams = @{
             UserName             = $vmUserName
             UserPwd              = $vmUserPwd
-            K8sVersion           = $kubernetesVersion
-            ClusterCIDR          = $(Get-ConfiguredClusterCIDR)
-            ClusterCIDR_Services = $(Get-ConfiguredClusterCIDRServices)
-            KubeDnsServiceIP     = $(Get-ConfiguredKubeDnsServiceIP)
-            IP_NextHop           = $GatewayIpAddress
-            NetworkInterfaceName = $vmNetworkInterfaceName
-            Hook                 = $addToControlPlane
+            Hostname             = $Hostname
+            IpAddress            = $IpAddress
+            NetworkInterfaceName = $(Get-NetworkInterfaceName)
+            NetworkMask          = '255.255.255.0'
+            GatewayIpAddress     = $GatewayIpAddress
         }
-        Set-UpMasterNode @masterNodeParams
+        Edit-SupportForWSL @supportForWSLParams
     }
 
     $kubemasterCreationParams = @{
