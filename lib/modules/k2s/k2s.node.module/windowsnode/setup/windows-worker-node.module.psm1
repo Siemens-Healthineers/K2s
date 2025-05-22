@@ -29,7 +29,7 @@ function Add-WindowsWorkerNodeOnWindowsHost {
     Write-Log 'Starting installation of K2s worker node on Windows host.'
 
     # Install loopback adapter for l2bridge
-    New-DefaultLoopbackAdater
+    New-DefaultLoopbackAdapter
 
     Write-Log 'Add vfp rules'
     $rootConfiguration = Get-RootConfigk2s
@@ -71,15 +71,7 @@ function Start-WindowsWorkerNodeOnWindowsHost {
     $vfpRoutingRules = $smallsetup.psobject.properties['vfprules-k2s'].value | ConvertTo-Json
     Add-VfpRulesToWindowsNode -VfpRulesInJsonFormat $vfpRoutingRules
 
-    $ipControlPlane = Get-ConfiguredIPControlPlane
-    $setupConfigRoot = Get-RootConfigk2s
-    $clusterCIDRServicesWindows = $setupConfigRoot.psobject.properties['servicesCIDRWindows'].value
-
-    # routes for services
-    Write-Log "Remove obsolete route to $clusterCIDRServicesWindows"
-    route delete $clusterCIDRServicesWindows >$null 2>&1
-    Write-Log "Add route 1 to Windows Services CIDR:$clusterCIDRServicesWindows with metric 7"
-    route -p add $clusterCIDRServicesWindows $ipControlPlane METRIC 7 | Out-Null
+    Set-RoutesToWindowsWorkloads
 
     Start-WindowsWorkerNode -DnsServers $DnsServers -ResetHns:$ResetHns -AdditionalHooksDir $AdditionalHooksDir -UseCachedK2sVSwitches:$UseCachedK2sVSwitches -SkipHeaderDisplay:$SkipHeaderDisplay -PodSubnetworkNumber $PodSubnetworkNumber
 
@@ -88,7 +80,6 @@ function Start-WindowsWorkerNodeOnWindowsHost {
 
     Update-NodeLabelsAndTaints -WorkerMachineName $env:computername
 
-    # check again for setting kubeswitch to private
     Set-KubeSwitchToPrivate
 }
 
@@ -177,6 +168,19 @@ function Start-WindowsWorkerNode {
         return $false
     }
 
+    Write-Log 'Ensuring service log directories exists'
+    EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\containerd"
+    EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\dnsproxy"
+    EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\dockerd"
+    EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\flanneld"
+    EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\httpproxy"
+    EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\kubelet"
+    EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\windows_exporter"
+    EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\containers"
+    EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\pods"
+    EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\bridge"
+    EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\vfprules"
+
     $kubePath = Get-KubePath
     Import-Module "$kubePath\smallsetup\hns.v2.psm1" -WarningAction:SilentlyContinue -Force
 
@@ -201,59 +205,32 @@ function Start-WindowsWorkerNode {
     Start-Service -Name 'vmcompute'
     Start-Service -Name 'hns'
 
-    Write-Log 'Figuring out IPv4DefaultGateway'
-    $if = Get-NetIPConfiguration -InterfaceAlias "$adapterName" -ErrorAction SilentlyContinue 2>&1 | Out-Null
-    $gw = Get-LoopbackAdapterGateway
-    if ( $if ) {
-        $gw = $if.IPv4DefaultGateway.NextHop
-        Write-Log "Gateway found (from interface '$adapterName'): $gw"
-    }
-    Write-Log "The following gateway IP address will be used: $gw"
-
     New-ExternalSwitch -adapterName $adapterName -PodSubnetworkNumber $PodSubnetworkNumber
 
     Invoke-Hook -HookName 'BeforeStartK8sNetwork' -AdditionalHooksDir $AdditionalHooksDir
 
-    $loopbackAdapterIfIndex = Get-NetIPInterface | Where-Object InterfaceAlias -Like "vEthernet ($adapterName)*" | Where-Object AddressFamily -Eq IPv4 | Select-Object -expand 'ifIndex' -First 1
-    $loopbackAdapterAlias = Get-NetIPInterface | Where-Object InterfaceAlias -Like "vEthernet ($adapterName)*" | Where-Object AddressFamily -Eq IPv4 | Select-Object -expand 'InterfaceAlias' -First 1
-
-    if ($null -eq $loopbackAdapterIfIndex -or $null -eq $loopbackAdapterAlias) {
-        Write-Log 'Unable to find the loopback adapter' -Error
-        Write-Log 'Found following interfaces:'
-        Get-NetIPInterface | Write-Log
-        throw 'Unable to find the loopback adapter'
-    }
-
-    Write-Log "Found Loopback adapter with Alias: '$loopbackAdapterAlias' and ifIndex: '$loopbackAdapterIfIndex'"
-    $ipAddressForLoopbackAdapter = Get-LoopbackAdapterIP
-    Set-NetIPInterface -InterfaceIndex $loopbackAdapterIfIndex -Dhcp Disabled
-    $dnsServersAsArray = $DnsServers -split ','
-    Set-IPAdressAndDnsClientServerAddress -IPAddress $ipAddressForLoopbackAdapter -DefaultGateway $gw -Index $loopbackAdapterIfIndex -DnsAddresses $dnsServersAsArray
-    Set-InterfacePrivate -InterfaceAlias "$loopbackAdapterAlias"
-    Set-DnsClient -InterfaceIndex $loopbackAdapterIfIndex -RegisterThisConnectionsAddress $false | Out-Null
-    netsh int ipv4 set int "$loopbackAdapterAlias" forwarding=enabled | Out-Null
-    Set-NetIPInterface -InterfaceIndex $loopbackAdapterIfIndex -InterfaceMetric 102
+    Set-LoopbackAdapterExtendedProperties -AdapterName $adapterName -DnsServers $DnsServers
     
-    Write-Log 'Ensuring service log directories exists'
-    EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\containerd"
-    EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\dnsproxy"
-    EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\dockerd"
-    EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\flanneld"
-    EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\httpproxy"
-    EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\kubelet"
-    EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\windows_exporter"
-    EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\containers"
-    EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\pods"
-    EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\bridge"
-    EnsureDirectoryPathExists -DirPath "$(Get-SystemDriveLetter):\var\log\vfprules"
-
     Write-Log 'Starting Kubernetes services on the Windows node' -Console
     Start-ServiceAndSetToAutoStart -Name 'containerd'
+    Start-ServiceAndSetToAutoStart -Name 'httpproxy'
     Start-ServiceAndSetToAutoStart -Name 'flanneld' -IgnoreErrors
     Start-ServiceAndSetToAutoStart -Name 'kubelet'
     Start-ServiceAndSetToAutoStart -Name 'kubeproxy'
     Start-ServiceAndSetToAutoStart -Name 'windows_exporter'
 
+    Wait-NetworkL2BridgeReady -PodSubnetworkNumber $PodSubnetworkNumber
+
+    CheckFlannelConfig
+
+    Invoke-Hook -HookName 'AfterStartK8sNetwork' -AdditionalHooksDir $AdditionalHooksDir
+}
+
+function Wait-NetworkL2BridgeReady {
+    Param(
+    [string] $PodSubnetworkNumber = $(throw 'Argument missing: PodSubnetworkNumber')
+    )
+    $setupConfigRoot = Get-RootConfigk2s
     # loop to check the state of the services for Kubernetes
     $i = 0;
     $cbr0Stopwatch = [system.diagnostics.stopwatch]::StartNew()
@@ -264,10 +241,11 @@ function Start-WindowsWorkerNode {
 
     while ($true) {
         $i++
+
+        # check flanneld
         $currentFlannelPid = (Get-Process flanneld -ErrorAction SilentlyContinue).Id
         Write-NodeServiceStatus -Iteration $i
-
-        if ($currentFlannelPid -ne $null -and $currentFlannelPid -ne $lastShownFlannelPid) {
+        if ($null -ne $currentFlannelPid -and $currentFlannelPid -ne $lastShownFlannelPid) {
             $FlannelStartDetected++
             if ($FlannelStartDetected -gt 1) {
                 Write-Output "           PID for flanneld service: $currentFlannelPid  (restarted after failure)"
@@ -277,8 +255,9 @@ function Start-WindowsWorkerNode {
             }
             $lastShownFlannelPid = $currentFlannelPid
         }
-        $cbr0 = Get-NetIpInterface | Where-Object InterfaceAlias -Like '*cbr0*' | Where-Object AddressFamily -Eq IPv4
 
+        # check cbr0
+        $cbr0 = Get-NetIpInterface | Where-Object InterfaceAlias -Like '*cbr0*' | Where-Object AddressFamily -Eq IPv4
         if ( $cbr0 ) {
             Write-Output '           OK: cbr0 switch is now found'
             Write-Output "`nOK: cbr0 switch is now found"
@@ -288,15 +267,7 @@ function Start-WindowsWorkerNode {
             Set-NetIPInterface -InterfaceIndex $l2BridgeInterfaceIndex -InterfaceMetric 101
             Write-Output "Index for interface $l2BridgeSwitchName : ($l2BridgeInterfaceIndex) -> metric 101"
 
-            # $setupConfigRoot = Get-RootConfigk2s
-            $clusterCIDRWorker = Get-ConfiguredClusterCIDRHost -PodSubnetworkNumber $PodSubnetworkNumber #$setupConfigRoot.psobject.properties['podNetworkWorkerCIDR'].value
-            $clusterCIDRNextHop = Get-ConfiguredClusterCIDRNextHop -PodSubnetworkNumber $PodSubnetworkNumber #$setupConfigRoot.psobject.properties['cbr0'].value
-
-            # routes for Windows pods
-            Write-Output "Remove obsolete route to $clusterCIDRWorker"
-            route delete $clusterCIDRWorker >$null 2>&1
-            Write-Output "Add route to Windows Pods on host CIDR:$clusterCIDRWorker with metric 5"
-            route -p add $clusterCIDRWorker $clusterCIDRNextHop METRIC 5 | Out-Null
+            Set-RoutesToWindowsWorkloads
 
             Write-Output "Routing entries added.`n"
 
@@ -321,11 +292,8 @@ function Start-WindowsWorkerNode {
 
         Start-Sleep -s $SleepInLoop
     }
-
-    CheckFlannelConfig
-
-    Invoke-Hook -HookName 'AfterStartK8sNetwork' -AdditionalHooksDir $AdditionalHooksDir
 }
+
 
 function Stop-WindowsWorkerNode {
     Param(
@@ -343,6 +311,7 @@ function Stop-WindowsWorkerNode {
     Stop-ServiceAndSetToManualStart 'kubeproxy'
     Stop-ServiceAndSetToManualStart 'kubelet'
     Stop-ServiceAndSetToManualStart 'flanneld'
+    Stop-ServiceAndSetToManualStart 'httpproxy'
     Stop-ServiceAndSetToManualStart 'windows_exporter'
     Stop-ServiceAndSetToManualStart 'containerd'
 
@@ -426,7 +395,67 @@ function EnsureDirectoryPathExists(
     }
 }
 
+function Set-RoutesToKubemaster {
+    # route for VM
+    $ipControlPlaneCIDR = Get-ConfiguredControlPlaneCIDR
+    $windowsHostIpAddress = Get-ConfiguredKubeSwitchIP
+    Write-Log "Remove obsolete route to $ipControlPlaneCIDR"
+    route delete $ipControlPlaneCIDR >$null 2>&1
+    Write-Log "Add route to host network for master CIDR:$ipControlPlaneCIDR with metric 3"
+    route -p add $ipControlPlaneCIDR $windowsHostIpAddress METRIC 3 | Out-Null 
+}
+
+function Set-RoutesToLinuxWorkloads {
+    # routes for Linux pods
+    $ipControlPlane = Get-ConfiguredIPControlPlane
+    $setupConfigRoot = Get-RootConfigk2s
+    $clusterCIDRMaster = $setupConfigRoot.psobject.properties['podNetworkMasterCIDR'].value
+    $clusterCIDRServices = $setupConfigRoot.psobject.properties['servicesCIDR'].value
+    $clusterCIDRServicesLinux = $setupConfigRoot.psobject.properties['servicesCIDRLinux'].value
+    Write-Log "Remove obsolete route to $clusterCIDRMaster"
+    route delete $clusterCIDRMaster >$null 2>&1
+    Write-Log "Add route to Linux master pods CIDR:$clusterCIDRMaster with metric 4"
+    route -p add $clusterCIDRMaster $ipControlPlane METRIC 4 | Out-Null
+    # routes for Linux services
+    route delete $clusterCIDRServices >$null 2>&1
+    Write-Log "Remove obsolete route to $clusterCIDRServicesLinux"
+    route delete $clusterCIDRServicesLinux >$null 2>&1
+    Write-Log "Add route to Linux Services CIDR:$clusterCIDRServicesLinux with metric 6"
+    route -p add $clusterCIDRServicesLinux $ipControlPlane METRIC 6 | Out-Null
+}
+
+function Set-RoutesToWindowsWorkloads {
+    $ipControlPlane = Get-ConfiguredIPControlPlane
+    $setupConfigRoot = Get-RootConfigk2s
+    $PodSubnetworkNumber = '1'
+    $clusterCIDRWorker = Get-ConfiguredClusterCIDRHost -PodSubnetworkNumber $PodSubnetworkNumber 
+    $clusterCIDRNextHop = Get-ConfiguredClusterCIDRNextHop -PodSubnetworkNumber $PodSubnetworkNumber 
+    # routes for Windows pods
+    Write-Log "Remove obsolete route to $clusterCIDRWorker"
+    route delete $clusterCIDRWorker >$null 2>&1
+    Write-Log "Add route to Windows Pods on host CIDR:$clusterCIDRWorker with metric 5"
+    route -p add $clusterCIDRWorker $clusterCIDRNextHop METRIC 5 | Out-Null
+    $clusterCIDRServicesWindows = $setupConfigRoot.psobject.properties['servicesCIDRWindows'].value
+    # routes for services
+    Write-Log "Remove obsolete route to $clusterCIDRServicesWindows"
+    route delete $clusterCIDRServicesWindows >$null 2>&1
+    Write-Log "Add route 1 to Windows Services CIDR:$clusterCIDRServicesWindows with metric 7"
+    route -p add $clusterCIDRServicesWindows $ipControlPlane METRIC 7 | Out-Null
+}
+
+function Repair-K2sRoutes {
+    Set-RoutesToKubemaster 
+    Set-RoutesToLinuxWorkloads
+    Set-RoutesToWindowsWorkloads
+    # TODO: add routes for additional nodes
+}
+
 Export-ModuleMember -Function Add-WindowsWorkerNodeOnWindowsHost,
 Remove-WindowsWorkerNodeOnWindowsHost,
 Start-WindowsWorkerNodeOnWindowsHost,
-Stop-WindowsWorkerNodeOnWindowsHost
+Stop-WindowsWorkerNodeOnWindowsHost,
+Wait-NetworkL2BridgeReady,
+Repair-K2sRoutes,
+Set-RoutesToKubemaster,
+Set-RoutesToLinuxWorkloads,
+Set-RoutesToWindowsWorkloads

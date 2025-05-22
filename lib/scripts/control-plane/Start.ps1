@@ -42,7 +42,8 @@ $controlPlaneStartParams = @{
 }
 Start-ControlPlaneNodeOnNewVM @controlPlaneStartParams
 
-Start-WinHttpProxy
+# proxy and dns needs to be started first
+Start-WinHttpProxy -OnlyProxy
 Start-WinDnsProxy
 
 # change default policy in VM (after restart of VM always policy is changed automatically)
