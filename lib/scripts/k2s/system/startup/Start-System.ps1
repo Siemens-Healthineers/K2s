@@ -21,51 +21,100 @@ $nodeModule = "$PSScriptRoot/../../../../modules/k2s/k2s.node.module/k2s.node.mo
 Import-Module $infraModule, $nodeModule
 Initialize-Logging
 
-$logUseCase = "Start-System"
+$logUseCase = 'Start-System'
 
 function Wait-NetInterfaceAdapterUp {
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [string]$AdapterName,
         [int]$TimeoutSeconds = 60,
         [int]$DelaySeconds = 2
     )
 
     $endTime = [DateTime]::Now.AddSeconds($TimeoutSeconds)
-    $adapterStatus = ""
+    $adapterStatus = ''
 
-    Write-Log  "[$logUseCase] Waiting for network adapter '$AdapterName' to come up..."
+    Write-Log "[$logUseCase] Waiting for network adapter '$AdapterName' to come up..."
 
     while ([DateTime]::Now -lt $endTime) {
         try {
             $adapter = Get-NetAdapter -Name $AdapterName -ErrorAction Stop
             $adapterStatus = $adapter.Status
-            if ($adapterStatus -eq "Up") {
-                Write-Log  "[$logUseCase] Network adapter '$AdapterName' is up."
+            if ($adapterStatus -eq 'Up') {
+                Write-Log "[$logUseCase] Network adapter '$AdapterName' is up."
                 $if = Get-NetIPInterface -InterfaceAlias $AdapterName -ErrorAction SilentlyContinue
-                if( $if ) {
-                     Write-Log  "[$logUseCase] Network adapter '$AdapterName' is up and interfaces are available: $if"
+                if ( $if ) {
+                    Write-Log "[$logUseCase] Network adapter '$AdapterName' is up and interfaces are available: $if"
                     return $true
-                } else {
-                    Write-Log  "[$logUseCase] Could not get IP interface for adapter '$AdapterName'. Retrying..."
+                }
+                else {
+                    Write-Log "[$logUseCase] Could not get IP interface for adapter '$AdapterName'. Retrying..."
                 }
             }
         }
         catch {
-            Write-Log  "[$logUseCase] Could not get status for adapter '$AdapterName'. Retrying..."
+            Write-Log "[$logUseCase] Could not get status for adapter '$AdapterName'. Retrying..."
         }
 
-        Write-Log  "[$logUseCase] Adapter status is '$adapterStatus'. Waiting $DelaySeconds seconds..."
+        Write-Log "[$logUseCase] Adapter status is '$adapterStatus'. Waiting $DelaySeconds seconds..."
         Start-Sleep -Seconds $DelaySeconds
     }
 
-    Write-Log  "Timeout reached. Network adapter '$AdapterName' did not come up within $TimeoutSeconds seconds. Current status: '$adapterStatus'"
+    Write-Log "Timeout reached. Network adapter '$AdapterName' did not come up within $TimeoutSeconds seconds. Current status: '$adapterStatus'"
     return $false
+}
+
+function Select-K2sIsRunning {
+    $processName = 'k2s.exe'
+    $requiredArgs = @('install', 'start') # Create an array of required arguments
+
+    # Get the process information using Get-CimInstance (recommended over Get-WmiObject for modern PowerShell)
+    # This allows access to the CommandLine property.
+    $k2sProcess = Get-CimInstance Win32_Process | Where-Object {
+        $_.Name -eq $processName
+    }
+
+    if ($k2sProcess) {
+        Write-Log "[$logUseCase] Process '$processName' is running."
+
+        $found = $false
+        foreach ($process in $k2sProcess) {
+            $commandLine = $process.CommandLine
+
+            # Check if the command line contains any of the required arguments
+            # We use -clike for case-insensitive contains, and wildcard for flexibility
+            if ($requiredArgs | ForEach-Object { $commandLine -clike "*$_*" }) {
+                $found = $true
+                break # Exit the loop once a matching argument is found for this process
+            }
+        }
+
+        if ($found) {
+            Write-Log "[$logUseCase] K2s is OK with the right parameters."
+            return $true
+        }
+        else {
+            Write-Log "[$logUseCase] K2s is not doing an install or start."
+            return $false
+        }
+    }
+    else {
+        Write-Log "[$logUseCase] Process '$processName' is NOT running."
+        return $false
+    }
 }
 
 try {
     Write-Log "[$logUseCase] started"
+
+    # check if k2s is running
+    $k2sRunning = Select-K2sIsRunning
+    if ($k2sRunning) {
+        Write-Log "[$logUseCase] k2s is running, no need todo anything"
+        Write-Log "[$logUseCase] finished"
+        return
+    }
     # check if there is an HNS network with l2 bridge
     $l2BridgeSwitchName = Get-L2BridgeSwitchName
     $found = Invoke-HNSCommand -Command { 
@@ -74,28 +123,32 @@ try {
     } -ArgumentList $l2BridgeSwitchName
     if ($found) {
         Write-Log "[$logUseCase] External switch with l2 bridge network already exists"
-    } else {
+    }
+    else {
         Write-Log "[$logUseCase] Switch cbr0 with l2 bridge network does not exist, check for Loopback Adapter"
         # need to start the services to see the NIC
         Start-Service -Name 'vmcompute'
         Start-Service -Name 'hns'
         $hns = Get-HNSNetwork
-        $hnsNames = $hns | Select-Object Name
-        Write-Log "[$logUseCase] HNS networks available: $hnsNames"
+        $hnsNames = $hns | Select-Object -ExpandProperty Name
+        $logText = "[$logUseCase] HNS networks available: " + $hnsNames
+        Write-Log $logText
         $adapterName = Get-L2BridgeName
         $nic = Get-NetAdapter -Name $adapterName -ErrorAction SilentlyContinue
-        if( $null -eq $nic ) {
+        if ( $null -eq $nic ) {
             Write-Log "[$logUseCase] Loopback Adapter is not there, must be during install"
-        } else {
-            if( $nic.Status -eq "Disabled" ) {
+        }
+        else {
+            if ( $nic.Status -eq 'Disabled' ) {
                 # Adapter is disabled, must be after a stop
                 Write-Log "[$logUseCase] Loopback Adapter is disabled, must be a normal startup"
-            } else {
+            }
+            else {
                 # Adapter is enabled, must be after a reboot where no stop was done before
                 Write-Log "[$logUseCase] Loopback Adapter is not disabled, must be a start of windows after no stop was done"
                 $adapterName = Get-L2BridgeName
                 $PodSubnetworkNumber = '1'
-                Stop-Service -Name 'flanneld'
+                Stop-Service -Name 'flanneld' -ErrorAction SilentlyContinue
                 Enable-NetAdapter -Name $adapterName -Confirm:$false -ErrorAction SilentlyContinue
                 $return = Wait-NetInterfaceAdapterUp -AdapterName $adapterName
                 if ($return -eq $true) {
@@ -103,10 +156,11 @@ try {
                     Enable-LoopbackAdapter
                     New-ExternalSwitch -adapterName $adapterName -PodSubnetworkNumber $PodSubnetworkNumber
                     Set-LoopbackAdapterExtendedProperties -AdapterName $adapterName -DnsServers $DnsServers
-                    Start-Service -Name 'flanneld'
+                    Start-Service -Name 'flanneld' -ErrorAction SilentlyContinue
                     Wait-NetworkL2BridgeReady -PodSubnetworkNumber $PodSubnetworkNumber
                     Repair-KubeSwitch
-                } else {
+                }
+                else {
                     Write-Log "[$logUseCase] ERROR: Could not repair k8s network !"
                     Disable-NetAdapter -Name $adapterName -Confirm:$false -ErrorAction SilentlyContinue
                 }
@@ -114,8 +168,9 @@ try {
         }
     }
     Write-Log "[$logUseCase] finished"
-} catch {
-    Start-Service -Name 'flanneld'
+}
+catch {
+    Start-Service -Name 'flanneld' -ErrorAction SilentlyContinue
     Write-Log "[$logUseCase] $($_.Exception.Message) - $($_.ScriptStackTrace)" -Error
 
     throw $_
