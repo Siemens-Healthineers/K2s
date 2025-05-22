@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"path/filepath"
+	"sync"
 	"syscall"
 
 	"github.com/siemens-healthineers/k2s/internal/cli"
@@ -20,6 +21,8 @@ import (
 )
 
 const cliName = "httpproxy"
+
+var cleanupWg sync.WaitGroup // WaitGroup to synchronize cleanup tasks
 
 var kernel32 = syscall.NewLazyDLL("kernel32.dll")
 var setConsoleCtrlHandler = kernel32.NewProc("SetConsoleCtrlHandler")
@@ -89,11 +92,14 @@ func consoleCtrlHandler(ctrlType uint32) uintptr {
 		log.Println("Cleanup finished.")
 		return 1 // Indicate that the event was handled
 	case CTRL_SHUTDOWN_EVENT:
-		log.Println("Shutdown event received. Attempting cleanup.")
-		// Perform cleanup tasks here
-		systemShutdownCmd()
-		log.Println("Cleanup finished.")
-		return 1 // Indicate that the event was handled
+		cleanupWg.Add(1)
+		go func() {
+			defer cleanupWg.Done()
+			log.Println("Shutdown event received. Attempting cleanup.")
+			systemShutdownCmd()
+			log.Println("Cleanup finished.")
+		}()
+		return 1
 	case CTRL_C_EVENT:
 		log.Println("Ctrl+C received. Attempting cleanup.")
 		// Perform cleanup tasks here
@@ -140,4 +146,7 @@ func main() {
 	proxyHandler := newProxyHttpHandler(proxyConfig)
 
 	log.Fatal(http.ListenAndServe(*proxyConfig.ListenAddress, proxyHandler))
+
+	// Wait for cleanup tasks before exiting
+	cleanupWg.Wait()
 }

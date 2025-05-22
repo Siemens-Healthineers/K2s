@@ -21,22 +21,28 @@ $nodeModule = "$PSScriptRoot/../../../../modules/k2s/k2s.node.module/k2s.node.mo
 Import-Module $infraModule, $nodeModule
 Initialize-Logging
 
-$logUseCase = "Stop-System"
+$logUseCase = 'Stop-System'
 try {
     Write-Log "[$logUseCase] started"
     Write-Log "[$logUseCase] removing external switch with l2 bridge network"
     # remove L2 bridge switch
-    Start-Service -Name "hns" -ErrorAction SilentlyContinue
+    Write-Log "[$logUseCase] start hns in case it is not running"
+    Start-Service -Name 'hns' -ErrorAction SilentlyContinue
+    Write-Log "[$logUseCase] retrieving HNS networks"
     $hns = Get-HNSNetwork
-    $hnsNames = $hns | Select-Object Name
-    Write-Log "[$logUseCase] HNS networks before delete: $hnsNames"
+    $hnsNames = $hns | Select-Object -ExpandProperty Name
+    $logText = "[$logUseCase] HNS networks available: " + $hnsNames
+    Write-Log $logText
     $hns | Where-Object Name -Like '*cbr0*' | Remove-HNSNetwork -ErrorAction SilentlyContinue
+    Write-Log "[$logUseCase] cbr0 network removed"
     # show the still existing HNS networks
     $hns = Get-HNSNetwork
-    $hnsNames = $hns | Select-Object Name
-    Write-Log "[$logUseCase] HNS networks after delete: $hnsNames"
+    $hnsNames = $hns | Select-Object -ExpandProperty Name
+    $logText = "[$logUseCase] HNS networks available: " + $hnsNames
+    Write-Log $logText
     Write-Log "[$logUseCase] finished"
-} catch {
+}
+catch {
     Write-Log "[$logUseCase] $($_.Exception.Message) - $($_.ScriptStackTrace)" -Error
 
     throw $_
