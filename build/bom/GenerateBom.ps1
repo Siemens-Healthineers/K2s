@@ -269,9 +269,6 @@ function GenerateBomContainers() {
         }
     }
 
-    # iterate through windows images
-    $ims = (&"$global:KubernetesPath\k2s.exe" image ls -o json | ConvertFrom-Json).containerimages
-
     for ($j = 0; $j -lt $imagesWindows.Count; $j++) {
         $image = $imagesWindows[$j].ImageName
         $type = $imagesWindows[$j].ImageType
@@ -284,10 +281,15 @@ function GenerateBomContainers() {
         }
         $imageName = 'c-' + $image -replace '/', '-'
 
-        # filter from $ims objects with propeerty repository equal to $image
-        $img = $ims | Where-Object { $_.repository -eq $image }
-        if ( $null -eq $img) {
-            throw "Image $image not found in k2s, please correct static image list with real used containers !"
+        # pull the image with k2s
+        $imagefullname = $image + ':' + $version
+        Write-Output "  -> Pulling image: $imagefullname"
+        &"$global:KubernetesPath\k2s.exe" image pull $imagefullname -w
+
+        # get image id
+        $img = (&"$global:KubernetesPath\k2s.exe" image ls -A -o json | ConvertFrom-Json).containerimages | Where-Object { $_.repository -eq $image }
+        if ($null -eq $img) {
+            throw "Image $image not found in k2s, please use for containerd a drive with more space !"
         }
 
         # copy to master
