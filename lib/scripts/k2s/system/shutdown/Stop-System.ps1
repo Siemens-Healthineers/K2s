@@ -33,7 +33,16 @@ try {
     $hnsNames = $hns | Select-Object -ExpandProperty Name
     $logText = "[$logUseCase] HNS networks available: " + $hnsNames
     Write-Log $logText
-    $hns | Where-Object Name -Like '*cbr0*' | Remove-HNSNetwork -ErrorAction SilentlyContinue
+    try {
+        $hnsToRemove = $hns | Where-Object Name -Like '*cbr0*'
+        if ($hnsToRemove) {
+            Write-Log "[$logUseCase] removing *cbr0* networks"
+            $hnsToRemove | Remove-HNSNetwork -ErrorAction SilentlyContinue
+        }
+    }
+    catch {
+        Write-Log "[$logUseCase] removing *cbr0* networks failed: $($_.Exception.Message) - $($_.ScriptStackTrace)"
+    }
     Write-Log "[$logUseCase] cbr0 network removed"
     # show the still existing HNS networks
     $hns = Get-HNSNetwork
@@ -41,6 +50,9 @@ try {
     $logText = "[$logUseCase] HNS networks available: " + $hnsNames
     Write-Log $logText
     Write-Log "[$logUseCase] finished"
+    if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = $null }
+    }
 }
 catch {
     Write-Log "[$logUseCase] $($_.Exception.Message) - $($_.ScriptStackTrace)" -Error
