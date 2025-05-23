@@ -155,7 +155,7 @@ func main() {
 	// Keep a reference to the listener
 	listener, err = net.Listen("tcp", *proxyConfig.ListenAddress)
 	if err != nil {
-		slog.Error("Error starting proxy: %v\n", err)
+		slog.Error("Failed to listen", "error", err)
 		return
 	}
 	http.Serve(listener, proxyHandler)
