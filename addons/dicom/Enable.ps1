@@ -168,6 +168,7 @@ Update-Addons -AddonName $addonName
 Write-Log 'dicom server installed successfully'
 
 Write-UsageForUser
+Write-BrowserWarningForUser
 
 if ($EncodeStructuredOutput -eq $true) {
     Send-ToCli -MessageType $MessageType -Message @{Error = $null }

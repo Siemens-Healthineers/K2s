@@ -123,6 +123,7 @@ $dashboardServiceAccount = "$dashboardChartDirectory/dashboard-service-account.y
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'dashboard' })
 
 Write-DashboardUsageForUser
+Write-BrowserWarningForUser
 
 Write-Log 'Installation of Kubernetes dashboard finished.' -Console
 

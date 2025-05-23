@@ -131,7 +131,7 @@ function Repair-KubeSwitch {
         $sw = Get-VMSwitch -Name $controlPlaneSwitchName -ErrorAction SilentlyContinue
         if ( $sw ) {
             Write-Log "Repair-KubeSwitch: KubeSwitch '$controlPlaneSwitchName' already exists, check ip to repair"
-            $ipindex = Get-NetIPAddress -InterfaceAlias '*$controlPlaneSwitchName*' -AddressFamily IPv4
+            $ipindex = Get-NetIPAddress -InterfaceAlias '*$controlPlaneSwitchName*' -AddressFamily IPv4  -ErrorAction SilentlyContinue
             if ($ipindex) {
                 Write-Log "Repair-KubeSwitch: KubeSwitch '$controlPlaneSwitchName' with IP '$($ipindex.IPAddress)' already exists, nothing to repair"
             } else {

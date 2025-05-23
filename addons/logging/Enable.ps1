@@ -150,6 +150,7 @@ Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'logging' })
 Write-Log 'Logging Stack installed successfully'
 
 Write-UsageForUser
+Write-BrowserWarningForUser
 
 if ($EncodeStructuredOutput -eq $true) {
     Send-ToCli -MessageType $MessageType -Message @{Error = $null }
