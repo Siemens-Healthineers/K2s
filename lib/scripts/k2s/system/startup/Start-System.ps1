@@ -107,7 +107,6 @@ function Select-K2sIsRunning {
 
 try {
     Write-Log "[$logUseCase] started"
-
     # check if k2s is running
     $k2sRunning = Select-K2sIsRunning
     if ($k2sRunning) {
@@ -154,6 +153,7 @@ try {
                 if ($return -eq $true) {
                     $DnsServers = Get-DnsIpAddressesFromActivePhysicalNetworkInterfacesOnWindowsHost -ExcludeNetworkInterfaceName $adapterName
                     Enable-LoopbackAdapter
+                    Remove-ExternalSwitch
                     New-ExternalSwitch -adapterName $adapterName -PodSubnetworkNumber $PodSubnetworkNumber
                     Set-LoopbackAdapterExtendedProperties -AdapterName $adapterName -DnsServers $DnsServers
                     Start-Service -Name 'flanneld' -ErrorAction SilentlyContinue
@@ -168,6 +168,9 @@ try {
         }
     }
     Write-Log "[$logUseCase] finished"
+    if ($EncodeStructuredOutput -eq $true) {
+        Send-ToCli -MessageType $MessageType -Message @{Error = $null }
+    }
 }
 catch {
     Start-Service -Name 'flanneld' -ErrorAction SilentlyContinue

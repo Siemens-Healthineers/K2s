@@ -152,6 +152,7 @@ Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'monitoring' })
 Write-Log 'Kube Prometheus Stack installed successfully'
 
 Write-UsageForUser
+Write-BrowserWarningForUser
 
 if ($EncodeStructuredOutput -eq $true) {
     Send-ToCli -MessageType $MessageType -Message @{Error = $null }
