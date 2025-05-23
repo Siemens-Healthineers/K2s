@@ -30,6 +30,7 @@ function Expand-Path {
 
 $configDir = $rootConfig.psobject.properties['configDir'].value
 $configuredStorageLocalDriveLetter = $smallsetup.psobject.properties['storageLocalDriveLetter'].value
+$configuredstorageLocalDriveFolder= $smallsetup.psobject.properties['storageLocalDriveFolder'].value
 
 $kubeConfigDir = Expand-Path $configDir.psobject.properties['kube'].value
 $sshConfigDir = Expand-Path $configDir.psobject.properties['ssh'].value
@@ -48,11 +49,6 @@ $ipControlPlaneCIDR = $smallsetup.psobject.properties['masterNetworkCIDR'].value
 # Cluster CIDR
 $clusterCIDR = $smallsetup.psobject.properties['podNetworkCIDR'].value
 $clusterCIDRServices = $smallsetup.psobject.properties['servicesCIDR'].value
-
-# SMB share
-$shareConfig = $smallsetup.psobject.properties['shareDir'].value
-$linuxLocalSharePath = $shareConfig.psobject.properties['master'].value
-$windowsLocalSharePath = Expand-Path $shareConfig.psobject.properties['windowsWorker'].value
 
 # DNS service IP address
 $kubeDnsServiceIP = $smallsetup.psobject.properties['kubeDnsServiceIP'].value
@@ -116,6 +112,10 @@ function Get-RootConfigk2s {
 
 function Get-ConfiguredStorageLocalDriveLetter {
     return $configuredStorageLocalDriveLetter
+}
+
+function Get-ConfiguredstorageLocalDriveFolder {
+    return $configuredstorageLocalDriveFolder
 }
 
 function Get-ConfiguredDockerConfigDir {
@@ -445,7 +445,7 @@ function Get-MinimalProvisioningBaseImageDiskSize {
     return 10GB
 }
 function Get-DefaultK8sVersion {
-    return 'v1.32.2'
+    return 'v1.32.5'
 }
 
 <#
@@ -470,13 +470,6 @@ function Get-WindowsLocalSharePath {
     return $windowsLocalSharePath
 }
 
-function Get-WindowsVmIpAddress {
-    $rootConfig = Get-RootConfigk2s
-    $multivmRootConfig = $rootConfig.psobject.properties['multivm'].value
-    $multiVMWinNodeIP = $multivmRootConfig.psobject.properties['multiVMK8sWindowsVMIP'].value
-    return $multiVMWinNodeIP
-}
-
 function Get-MirrorRegistries {
     $rootConfig = Get-RootConfigk2s
     $mirrorRegistries = $rootConfig.psobject.properties['mirrorRegistries'].value
@@ -496,6 +489,7 @@ Get-ConfiguredIPControlPlane,
 Get-ConfigSetupType,
 Get-ConfigUsedStorageLocalDriveLetter,
 Get-ConfiguredStorageLocalDriveLetter,
+Get-ConfiguredstorageLocalDriveFolder,
 Get-ConfigInstalledKubernetesVersion,
 Get-ConfiguredDockerConfigDir,
 Get-ConfiguredClusterCIDR,
@@ -534,7 +528,6 @@ Get-DefaultTempPwd,
 Get-DefaultK8sVersion,
 Get-LinuxLocalSharePath,
 Get-WindowsLocalSharePath,
-Get-WindowsVmIpAddress,
 Get-ConfigWinBuildEnabledFlag,
 Set-ConfigWinBuildEnabledFlag,
 Get-ConfiguredClusterNetworkPrefix,

@@ -159,14 +159,4 @@ function Test-SystemAvailability {
     return $null
 }
 
-function Get-IsWorkerVM {
-    $setupInfo = Get-SetupInfo
-    if ($setupInfo.Name -eq 'MultiVMK8s') {
-        return $true
-    }
-    else {
-        return $false
-    }
-}
-
-Export-ModuleMember -Function Get-Status, Get-KubernetesServiceAreRunning, Test-ClusterAvailability, Test-SystemAvailability, Get-IsWorkerVM
+Export-ModuleMember -Function Get-Status, Get-KubernetesServiceAreRunning, Test-ClusterAvailability, Test-SystemAvailability

@@ -65,8 +65,9 @@ if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'ingress-traefik', '--
 }
 
 Write-Log 'Uninstalling ingress traefik addon' -Console
+$clusterIngressConfig = "$PSScriptRoot\manifests\cluster-local-ingress.yaml"
+(Invoke-Kubectl -Params 'delete' , '-f', $clusterIngressConfig).Output | Write-Log
 $traefikYamlDir = Get-TraefikYamlDir
-
 (Invoke-Kubectl -Params 'delete', '-k', $traefikYamlDir).Output | Write-Log
 (Invoke-Kubectl -Params 'delete', 'namespace', 'ingress-traefik').Output | Write-Log
 

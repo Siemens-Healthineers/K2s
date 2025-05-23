@@ -8,7 +8,6 @@ Cli
 cmd
 Vars
 logr
-multivm
 smallsetup
 yaml
 Gpg

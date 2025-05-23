@@ -8,6 +8,6 @@ SPDX-License-Identifier: MIT
 ### Check latest common parts from: https://github.com/kdomanski/iso9660
 
 #### build executable for windows 
-### copy it to bin [Hardcoded c:\k as an example]
-bgo.cmd -ProjectDir "C:\k\k2s\cmd\cloudinitisobuilder" -ExeOutDir "c:\k\bin"
+### copy it to bin [Hardcoded c:\ws\k2s as an example]
+bgo.cmd -ProjectDir "C:\ws\k2s\k2s\cmd\cloudinitisobuilder" -ExeOutDir "c:\ws\k2s\bin"
 

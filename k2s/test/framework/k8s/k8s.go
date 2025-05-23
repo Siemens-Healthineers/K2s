@@ -143,6 +143,30 @@ func (c *Cluster) ExpectDeploymentToBeReachableFromPodOfOtherDeployment(targetNa
 	expectCmdExecInPodToSucceed(param)
 }
 
+func (c *Cluster) ExpectDeploymentNotToBeReachableFromPodOfOtherDeployment(targetName string, targetNamespace string, sourceName string, sourceNamespace string, ctx context.Context) {
+	client := c.Client()
+
+	pod, err := determineFirstPodOfDeployment(sourceName, sourceNamespace, client, ctx)
+
+	Expect(err).ShouldNot(HaveOccurred())
+
+	var stdout, stderr bytes.Buffer
+	command := []string{"curl", "-i", "-m", "10", "--retry", "3", "http://" + targetName + "." + targetNamespace + ".svc.cluster.local/" + targetName}
+
+	param := podExecParam{
+		Namespace: sourceNamespace,
+		Pod:       pod.Name,
+		Container: sourceName,
+		Command:   command,
+		Config:    client.Resources().GetConfig(),
+		Ctx:       ctx,
+		Stdout:    &stdout,
+		Stderr:    &stderr,
+	}
+
+	expectCmdExecInPodToBeForbidden(param)
+}
+
 func (c *Cluster) ExpectStatefulSetToBeReady(name string, namespace string, expectedReplicas int32, ctx context.Context) {
 	statefulSet := appsv1.StatefulSet{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace}}
 
@@ -456,12 +480,13 @@ func (c *Cluster) ExpectPodsUnderDeploymentReady(ctx context.Context, labelName 
 		for _, pod := range pods.Items {
 			GinkgoWriter.Println("Pod name:", pod.Name, "| Pod Status:", pod.Status.Phase)
 			if pod.Status.Phase == corev1.PodRunning || pod.Status.Phase == corev1.PodSucceeded {
-				GinkgoWriter.Println("At least one pod is available in the deployment:", deploymentName)
+				GinkgoWriter.Println("At least one pod is running in the deployment:", deploymentName)
 				return true
 			}
 		}
 
-		GinkgoWriter.Println("Waiting for a pod to become available...")
+		GinkgoWriter.Println("Waiting for a pod with label name:", labelName, "label value:", 
+		deploymentName, "namespace", namespace, "to become ready...")
 		return false
 	}, c.testStepTimeout, c.testStepPollInterval, ctx).Should(BeTrue())
 }
@@ -486,7 +511,8 @@ func (c *Cluster) ExpectPodsInReadyState(ctx context.Context, labelName string, 
 			}
 		}
 
-		GinkgoWriter.Println("Waiting for a pod to become available...")
+		GinkgoWriter.Println("Waiting for a pod with label name:", labelName, "label value:",
+		namespace, "to become ready...")
 		return false
 	}, c.testStepTimeout, c.testStepPollInterval, ctx).Should(BeTrue())
 }
@@ -592,6 +618,17 @@ func expectCmdExecInPodToSucceed(param podExecParam) {
 	GinkgoWriter.Println("Command <", param.Command, "> executed with http status <", httpStatus, ">")
 
 	Expect(httpStatus).To(ContainSubstring("200"))
+}
+
+func expectCmdExecInPodToBeForbidden(param podExecParam) {
+	Expect(executeCommandInPod(param)).To(Succeed())
+
+	httpStatus := strings.Split(param.Stdout.String(), "\n")[0]
+
+	GinkgoWriter.Println("Command <", param.Command, "> executed with http status <", httpStatus, ">")
+
+	//403 is http status forbidden
+	Expect(httpStatus).To(ContainSubstring("403"))
 }
 
 func executeCommandInPod(param podExecParam) error {

@@ -25,14 +25,13 @@ spec:
             - containerPort: 80
           env:
             - name: PORT
-              value: "80"
+              value: '80'
             - name: RESOURCE
-              value: "albums-linux1" 
+              value: 'albums-linux1'
       nodeSelector:
         kubernetes.io/os: linux
 
 ---
-
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -55,14 +54,13 @@ spec:
             - containerPort: 80
           env:
             - name: PORT
-              value: "80"
+              value: '80'
             - name: RESOURCE
-              value: "albums-linux2" 
+              value: 'albums-linux2'
       nodeSelector:
         kubernetes.io/os: linux
 
 ---
-
 apiVersion: v1
 kind: Service
 metadata:
@@ -75,9 +73,8 @@ spec:
     - protocol: TCP
       port: 80
       targetPort: 80
-
+  clusterIP: 172.21.0.220
 ---
-
 apiVersion: v1
 kind: Service
 metadata:
@@ -90,9 +87,8 @@ spec:
     - protocol: TCP
       port: 80
       targetPort: 80
-
+  clusterIP: 172.21.0.221
 ---
-
 apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
 metadata:
@@ -103,8 +99,9 @@ metadata:
 spec:
   entryPoints:
     - web
+    - websecure
   routes:
-    - match:  Host(`k2s.cluster.local`) && PathPrefix(`/albums-linux1`) 
+    - match: Host(`k2s.cluster.local`) && PathPrefix(`/albums-linux1`)
       kind: Rule
       services:
         - name: albums-linux1
@@ -112,7 +109,6 @@ spec:
           port: 80
 
 ---
-
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
@@ -130,7 +126,6 @@ spec:
           from: All
 
 ---
-
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
@@ -138,14 +133,14 @@ metadata:
   namespace: ingress-traefik-test
 spec:
   parentRefs:
-  - name: ingress-traefik-test-gateway
-    namespace: ingress-traefik-test
-  rules:
-  - matches:
-    - path:
-        type: PathPrefix
-        value: /albums-linux2
-    backendRefs:
-    - name: albums-linux2
+    - name: ingress-traefik-test-gateway
       namespace: ingress-traefik-test
-      port: 80
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /albums-linux2
+      backendRefs:
+        - name: albums-linux2
+          namespace: ingress-traefik-test
+          port: 80

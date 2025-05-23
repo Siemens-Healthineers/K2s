@@ -27,8 +27,9 @@ $infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.m
 $clusterModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
 $addonsModule = "$PSScriptRoot\..\addons.module.psm1"
 $securityModule = "$PSScriptRoot\security.module.psm1"
+$linuxNodeModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.node.module/linuxnode/vm/vm.module.psm1"
 
-Import-Module $infraModule, $clusterModule, $addonsModule, $securityModule
+Import-Module $infraModule, $clusterModule, $addonsModule, $securityModule, $linuxNodeModule
 Import-Module PKI;
 
 Initialize-Logging -ShowLogs:$ShowLogs
@@ -62,12 +63,12 @@ if ($null -eq (Invoke-Kubectl -Params 'get', 'namespace', 'cert-manager', '--ign
     exit 1
 }
 
-Write-Log 'Uninstalling security' -Console
+Write-Log 'Uninstalling security cert manager parts' -Console
 $certManagerConfig = Get-CertManagerConfig
 $caIssuerConfig = Get-CAIssuerConfig
 
-(Invoke-Kubectl -Params 'delete', '-f', $caIssuerConfig).Output | Write-Log
-(Invoke-Kubectl -Params 'delete', '-f', $certManagerConfig).Output | Write-Log
+(Invoke-Kubectl -Params 'delete', '--ignore-not-found', '--timeout=30s', '-f', $caIssuerConfig).Output | Write-Log
+(Invoke-Kubectl -Params 'delete', '--ignore-not-found', '--timeout=30s', '-f', $certManagerConfig).Output | Write-Log
 
 Remove-Cmctl
 
@@ -77,10 +78,38 @@ $trustedRootStoreLocation = Get-TrustedRootStoreLocation
 Get-ChildItem -Path $trustedRootStoreLocation | Where-Object { $_.Subject -match $caIssuerName } | Remove-Item
 
 $oauth2ProxyYaml = Get-OAuth2ProxyConfig
-(Invoke-Kubectl -Params 'delete', '-f', $oauth2ProxyYaml).Output | Write-Log
+(Invoke-Kubectl -Params 'delete', '--ignore-not-found', '-f', $oauth2ProxyYaml).Output | Write-Log
 
 $keyCloakYaml = Get-KeyCloakConfig
-(Invoke-Kubectl -Params 'delete', '-f', $keyCloakYaml).Output | Write-Log
+(Invoke-Kubectl -Params 'delete', '--ignore-not-found', '-f',$keyCloakYaml).Output | Write-Log
+
+$keyCloakPostgresYaml = Get-KeyCloakPostgresConfig
+(Invoke-Kubectl -Params 'delete', '--ignore-not-found', '-f', $keyCloakPostgresYaml).Output | Write-Log
+
+Remove-WindowsSecurityDeployments
+
+$linkerdYaml = Get-LinkerdConfigDirectory
+(Invoke-Kubectl -Params 'delete', '--ignore-not-found', '-k',$linkerdYaml).Output | Write-Log
+
+Remove-LinkerdMarkerConfig
+
+Remove-LinkerdExecutable
+
+$linkerdYamlCNI = Get-LinkerdConfigCNI
+(Invoke-Kubectl -Params 'delete', '--ignore-not-found', '-f',$linkerdYamlCNI).Output | Write-Log
+
+$linkerdYamlCertManager = Get-LinkerdConfigCertManager
+(Invoke-Kubectl -Params 'delete', '--ignore-not-found', '-f', $linkerdYamlCertManager).Output | Write-Log
+
+$linkerdYamlTrustManager = Get-LinkerdConfigTrustManager
+(Invoke-Kubectl -Params 'delete', '--ignore-not-found', '-f', $linkerdYamlTrustManager).Output | Write-Log
+
+Remove-ConfigFileForCNI
+
+Remove-LinkerdManifests 
+
+Write-Log 'Deleting old storage files for postgres' -Console
+(Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo rm -rf /mnt/keycloak').Output | Write-Log
 
 Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = 'security' })
 

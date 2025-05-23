@@ -17,7 +17,7 @@ function New-WindowsKubenodeBaseImage {
         [parameter(Mandatory = $false, HelpMessage = 'Windows Image to use')]
         [string] $Image,
         [parameter(Mandatory = $false, HelpMessage = 'Virtual hard disk size of VM')]
-        [long] $VMDiskSize = 50GB,
+        [long] $VMDiskSize = 10GB,
         [parameter(Mandatory = $false, HelpMessage = 'HTTP proxy if available')]
         [string] $Proxy,
         [parameter(Mandatory = $false, HelpMessage = 'Enable if virtio drivers should be added')]

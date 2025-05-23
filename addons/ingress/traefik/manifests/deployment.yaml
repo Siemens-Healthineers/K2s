@@ -43,7 +43,7 @@ spec:
       terminationGracePeriodSeconds: 60
       hostNetwork: false
       containers:
-      - image: public.ecr.aws/docker/library/traefik:v3.3.3
+      - image: public.ecr.aws/docker/library/traefik:v3.4.0
         imagePullPolicy: IfNotPresent
         name: traefik
         resources:
@@ -117,7 +117,7 @@ spec:
           - "--providers.kubernetesgateway.statusaddress.service.namespace=ingress-traefik"
           - "--entryPoints.websecure.http.tls=true"
           - "--serverstransport.insecureskipverify=true"
-          - "--log.level=DEBUG"         
+          - "--log.level=INFO"         
         env:
           - name: POD_NAME
             valueFrom:

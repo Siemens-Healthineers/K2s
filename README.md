@@ -32,6 +32,11 @@ The problems that *K2s* solves are the following:
 
 See also the [Features List](docs/index.md#features).
 
+<div align="center">
+
+![Overview](docs/assets/overview.png)
+</div>
+
 ## Quick Start
 1. [Get *K2s*](docs/op-manual/getting-k2s.md)
 3. Verify that the [Prerequisites](docs/op-manual/installing-k2s.md#prerequisites) are fulfilled
@@ -68,6 +73,7 @@ See also [*Windows*-based Images](./smallsetup/ps-modules/windows-support/README
 - [CLI Shortcuts](docs/user-guide/cli-shortcuts.md)
 - [Upgrading *K2s*](docs/op-manual/upgrading-k2s.md)
 - [Creating Offline Package](docs/op-manual/creating-offline-package.md)
+- [Sign the *K2s* Package](docs/op-manual/signcatalog-k2s.md)
 
 ## Addons
 K2s provides a [rich set of addons](./addons/README.md) which are containing specific functionality, checkout the ```k2s addons``` command for all options.

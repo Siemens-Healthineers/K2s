@@ -185,46 +185,16 @@ if ($foundWindowsImages.Count -eq 1) {
         $finalExportPath = $path + '\' + $newFileName
     }
 
-    $setupInfo = Get-SetupInfo
-    if ($setupInfo.Name -eq $global:SetupType_MultiVMK8s) {
-        $session = Open-RemoteSessionViaSSHKey $global:Admin_WinNode $global:WindowsVMKey
-        $tmpPath = 'C:\temp\tmp.tar'
-        Invoke-Command -Session $session {
-            Set-Location "$env:SystemDrive\k"
-            Set-ExecutionPolicy Bypass -Force -ErrorAction Stop
-
-            # load global settings
-            &$env:SystemDrive\k\smallsetup\common\GlobalVariables.ps1
-
-            Import-Module $env:SystemDrive\k\lib\modules\k2s\k2s.infra.module\k2s.infra.module.psm1
-            Initialize-Logging -Nested:$true
-
-            New-Item -Path $(Split-path $using:tmpPath) -ItemType Directory -ErrorAction SilentlyContinue
-            Write-Log "Trying to pull all platform layers for image '$imageFullName'" -Console
-            $pullOutput = &$global:NerdctlExe -n="k8s.io" pull $using:imageFullName --all-platforms 2>&1 | Out-String
-            if ($pullOutput.Contains("failed to do request")) {
-                Write-Log "Not able to pull all platform layers for image '$imageFullName'" -Console
-                Write-Log "Exporting image '$imageFullName' only for current platform" -Console
-                &$global:NerdctlExe -n k8s.io save -o $using:tmpPath $using:imageFullName
-            } else {
-                Write-Log "Exporting image '$imageFullName' for all platforms" -Console
-                &$global:NerdctlExe -n k8s.io save -o $using:tmpPath $using:imageFullName --all-platforms
-            }
-        }
-
-        Copy-Item "$tmpPath" -Destination "$finalExportPath" -Recurse -FromSession $session -Force
+    Write-Log "Trying to pull all platform layers for image '$imageFullName'" -Console
+    $pullOutput = &$global:NerdctlExe -n 'k8s.io' pull $imageFullName --all-platforms 2>&1 | Out-String
+    if ($pullOutput.Contains('failed to do request')) {
+        Write-Log "Not able to pull all platform layers for image '$imageFullName'" -Console
+        Write-Log "Exporting image '$imageFullName' only for current platform" -Console
+        &$global:NerdctlExe -n 'k8s.io' save -o "$finalExportPath" $imageFullName
     }
     else {
-        Write-Log "Trying to pull all platform layers for image '$imageFullName'" -Console
-        $pullOutput = &$global:NerdctlExe -n "k8s.io" pull $imageFullName --all-platforms 2>&1 | Out-String
-        if ($pullOutput.Contains("failed to do request")) {
-            Write-Log "Not able to pull all platform layers for image '$imageFullName'" -Console
-            Write-Log "Exporting image '$imageFullName' only for current platform" -Console
-            &$global:NerdctlExe -n "k8s.io" save -o "$finalExportPath" $imageFullName
-        } else {
-            Write-Log "Exporting image '$imageFullName' for all platforms" -Console
-            &$global:NerdctlExe -n "k8s.io" save -o "$finalExportPath" $imageFullName --all-platforms
-        }
+        Write-Log "Exporting image '$imageFullName' for all platforms" -Console
+        &$global:NerdctlExe -n 'k8s.io' save -o "$finalExportPath" $imageFullName --all-platforms
     }
 
     if ($?) {

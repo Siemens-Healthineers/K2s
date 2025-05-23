@@ -25,7 +25,7 @@ $windowsNode_Flannel64exe = 'flannel-amd64.exe'
 
 function Invoke-DownloadFlannelArtifacts($downloadsBaseDirectory, $Proxy) {
     $flannelDownloadsDirectory = "$downloadsBaseDirectory\$windowsNode_FlannelDirectory"
-    $flannelVersion = 'v0.26.1'
+    $flannelVersion = 'v0.26.7'
     $file = "$flannelDownloadsDirectory\$windowsNode_FlanneldExe"
 
     Write-Log "Create folder '$flannelDownloadsDirectory'"
@@ -96,14 +96,14 @@ function Install-WinFlannel {
     &$kubeBinPath\nssm install flanneld "$kubeBinPath\cni\flanneld.exe"
     $adapterName = Get-L2BridgeName
     Write-Log "Using network adapter '$adapterName'"
-    $ipaddresses = @(Get-NetIPAddress -AddressFamily IPv4 -InterfaceAlias $adapterName)
+    $ipaddresses = @(Get-NetIPAddress -AddressFamily IPv4 -InterfaceAlias "*$adapterName*")
     if (!$ipaddresses) {
         throw 'No IP address found which can be used for setting up K2s Setup !'
     }
 
     $ipaddress = $ipaddresses[0] | Select-Object -ExpandProperty IPAddress
     if (!($ipaddress)) {
-        $ipaddress = Get-NetIPAddress -AddressFamily IPv4 -InterfaceAlias $adapterName | Select-Object -ExpandProperty IPAddress
+        $ipaddress = Get-NetIPAddress -AddressFamily IPv4 -InterfaceAlias "*$adapterName*" | Select-Object -ExpandProperty IPAddress
     }
 
     Write-Log "Using local IP $ipaddress for AppParameters of flanneld"
@@ -120,6 +120,7 @@ function Install-WinFlannel {
     &$kubeBinPath\nssm set flanneld AppRotateSeconds 0 | Out-Null
     &$kubeBinPath\nssm set flanneld AppRotateBytes 500000 | Out-Null
     &$kubeBinPath\nssm set flanneld Start SERVICE_AUTO_START | Out-Null
+    &$kubeBinPath\nssm set flanneld DependOnService httpproxy | Out-Null
 }
 
 

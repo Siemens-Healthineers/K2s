@@ -13,7 +13,7 @@ import (
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/addons/status"
 	"github.com/siemens-healthineers/k2s/test/framework"
 
-	"github.com/siemens-healthineers/k2s/test/framework/k2s/cli"
+	"github.com/siemens-healthineers/k2s/internal/cli"
 	"github.com/siemens-healthineers/k2s/test/framework/regex"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -83,7 +83,7 @@ var _ = Describe("'ingress-nginx' addon", Ordered, func() {
 		suite.Kubectl().Run(ctx, "apply", "-k", "workloads")
 		suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", "albums-linux1", "ingress-nginx-test")
 
-		_, err := suite.HttpClient().GetJson(ctx, "http://172.19.1.100/albums-linux1")
+		_, err := suite.HttpClient().GetJson(ctx, "http://albums-linux1.ingress-nginx-test.svc.cluster.local/albums-linux1")
 
 		Expect(err).ToNot(HaveOccurred())
 	})

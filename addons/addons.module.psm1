@@ -667,11 +667,12 @@ function Restore-Addons {
         }
         Write-Log 'Restoring addons data..'
         Invoke-BackupRestoreHooks -HookType Restore -BackupDir $BackupDir
-    } else {
+    }
+    else {
         foreach ($addonConfig in $backupContentRoot.Config) {
             Enable-AddonFromConfig -Config $addonConfig -Root $Root
         }
-        Write-Log "Skipping restoring addons data."
+        Write-Log 'Skipping restoring addons data.'
     }
 
     Write-Log 'Addons fully restored.'
@@ -736,21 +737,6 @@ function Add-HostEntries {
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "grep -qxF `'$hostEntry`' /etc/hosts || echo $hostEntry | sudo tee -a /etc/hosts").Output | Write-Log
 
     $hostFile = 'C:\Windows\System32\drivers\etc\hosts'
-
-    # add in additional worker nodes
-    $setupInfo = Get-SetupInfo
-    if ($setupInfo.Name -eq 'MultiVMK8s' -and $setupInfo.LinuxOnly -ne $true) {
-        $session = Open-RemoteSessionViaSSHKey (Get-DefaultWinVMName) (Get-DefaultWinVMKey)
-
-        Invoke-Command -Session $session {
-            Set-Location "$env:SystemDrive\k"
-            Set-ExecutionPolicy Bypass -Force -ErrorAction Stop
-
-            if (!$(Get-Content $using:hostFile | ForEach-Object { $_ -match $using:hostEntry }).Contains($true)) {
-                Add-Content $using:hostFile $using:hostEntry
-            }
-        }
-    }
 
     # add in host
     if (!$(Get-Content $hostFile | ForEach-Object { $_ -match $hostEntry }).Contains($true)) {
@@ -871,6 +857,42 @@ function Test-KeyCloakServiceAvailability {
 
 <#
 .DESCRIPTION
+Determines if linkerd service is deployed in the cluster
+#>
+function Test-LinkerdServiceAvailability {
+    $existingServices = (Invoke-Kubectl -Params 'get', 'service', '-n', 'linkerd', '-o', 'yaml').Output
+    if ("$existingServices" -match '.*linkerd.*') {
+        return $true
+    }
+    return $false
+}
+
+<#
+.DESCRIPTION
+Determines if trust manager service is deployed in the cluster
+#>
+function Test-TrustManagerServiceAvailability {
+    $existingServices = (Invoke-Kubectl -Params 'get', 'service', '-n', 'cert-manager', '-o', 'yaml').Output
+    if ("$existingServices" -match '.*trust-manager*') {
+        return $true
+    }
+    return $false
+}
+
+<#
+.DESCRIPTION
+Determines if keycloak service is deployed in the cluster
+#>
+function Test-KeyCloakServiceAvailability {
+    $existingServices = (Invoke-Kubectl -Params 'get', 'service', '-n', 'security', '-o', 'yaml').Output
+    if ("$existingServices" -match '.*keycloak*') {
+        return $true
+    }
+    return $false
+}
+
+<#
+.DESCRIPTION
 Enables a ingress addon based on the input
 #>
 function Enable-IngressAddon([string]$Ingress) {
@@ -936,6 +958,11 @@ function Update-IngressForNginx {
     if (Test-KeyCloakServiceAvailability) {
         Write-Log "  Applying secure nginx ingress manifest for $($props.Name)..." -Console
         $kustomizationDir = Get-IngressNginxSecureConfig -Directory $props.Directory
+        # check if $kustomizationDir does not exist
+        if (!(Test-Path -Path $kustomizationDir)) {
+            Write-Log "  Applying nginx ingress manifest for $($props.Name) $($props.Directory)..." -Console
+            $kustomizationDir = Get-IngressNginxConfigDirectory -Directory $props.Directory
+        }
     }
     else {
         Write-Log "  Applying nginx ingress manifest for $($props.Name) $($props.Directory)..." -Console
@@ -974,11 +1001,23 @@ function Update-IngressForTraefik {
     )
 
     $props = Get-AddonProperties -Addon $Addon
+    $kustomizationDir = ''
+    if (Test-KeyCloakServiceAvailability) {
+        Write-Log "  Applying secure nginx ingress manifest for $($props.Name)..." -Console
+        $kustomizationDir = Get-IngressTraefikSecureConfig -Directory $props.Directory
+        # check if $kustomizationDir does not exist
+        if (!(Test-Path -Path $kustomizationDir)) {
+            Write-Log "  Applying nginx ingress manifest for $($props.Name) $($props.Directory)..." -Console
+            $kustomizationDir = Get-IngressTraefikConfig -Directory $props.Directory
+        }
+    }
+    else {
+        Write-Log "  Applying nginx ingress manifest for $($props.Name) $($props.Directory)..." -Console
+        $kustomizationDir = Get-IngressTraefikConfig -Directory $props.Directory
+    }
 
-    Write-Log "  Applying traefik ingress manifest for $($props.Name)..." -Console
-    $ingressTraefikConfig = Get-IngressTraefikConfig -Directory $props.Directory
-    
-    Invoke-Kubectl -Params 'apply', '-k', $ingressTraefikConfig | Out-Null
+    Write-Log "   Apply in cluster folder: $($kustomizationDir)" -Console
+    Invoke-Kubectl -Params 'apply', '-k', $kustomizationDir  | Out-Null
 }
 
 <#
@@ -997,6 +1036,13 @@ function Remove-IngressForTraefik {
     $ingressTraefikConfig = Get-IngressTraefikConfig -Directory $props.Directory
     
     Invoke-Kubectl -Params 'delete', '-k', $ingressTraefikConfig | Out-Null
+
+    $kustomizationDir = Get-IngressTraefikSecureConfig -Directory $props.Directory
+    if (!(Test-Path -Path $kustomizationDir)) {
+        Write-Log "  Applying nginx ingress manifest for $($props.Name) $($props.Directory)..." -Console
+        $kustomizationDir = Get-IngressTraefikConfig -Directory $props.Directory
+    }
+    Invoke-Kubectl -Params 'delete', '-k', $kustomizationDir | Out-Null
 }
 
 <#
@@ -1034,10 +1080,23 @@ function Get-AddonNameFromFolderPath {
     }
 }
 
+<#
+.DESCRIPTION
+Gets the location of traefik secure ingress yaml
+#>
+function Get-IngressTraefikSecureConfig {
+    param (
+        [Parameter(Mandatory = $false)]
+        [string]$Directory = $(throw 'Directory of the ingress traefik secure config')
+    )
+    return "$PSScriptRoot\$Directory\manifests\ingress-traefik-secure"
+}
+
 Export-ModuleMember -Function Get-EnabledAddons, Add-AddonToSetupJson, Remove-AddonFromSetupJson,
 Install-DebianPackages, Get-DebianPackageAvailableOffline, Test-IsAddonEnabled, Invoke-AddonsHooks, Copy-ScriptsToHooksDir,
 Remove-ScriptsFromHooksDir, Get-AddonConfig, Backup-Addons, Restore-Addons, Get-AddonStatus, Find-AddonManifests,
 Get-ErrCodeAddonAlreadyDisabled, Get-ErrCodeAddonAlreadyEnabled, Get-ErrCodeAddonEnableFailed, Get-ErrCodeAddonNotFound,
 Add-HostEntries, Get-AddonsConfig, Update-Addons, Update-IngressForAddon, Test-NginxIngressControllerAvailability, Test-TraefikIngressControllerAvailability,
 Test-KeyCloakServiceAvailability, Enable-IngressAddon, Remove-IngressForTraefik, Remove-IngressForNginx, Get-AddonProperties, Get-IngressNginxConfigDirectory, 
-Update-IngressForTraefik, Update-IngressForNginx, Get-IngressNginxSecureConfig, Get-IngressTraefikConfig, Enable-StorageAddon, Get-AddonNameFromFolderPath
+Update-IngressForTraefik, Update-IngressForNginx, Get-IngressNginxSecureConfig, Get-IngressTraefikConfig, Enable-StorageAddon, Get-AddonNameFromFolderPath, 
+Test-LinkerdServiceAvailability, Test-TrustManagerServiceAvailability, Test-KeyCloakServiceAvailability, Get-IngressTraefikSecureConfig

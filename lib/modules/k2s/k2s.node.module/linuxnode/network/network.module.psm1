@@ -23,7 +23,7 @@ function Add-DnsServer($switchname) {
 
     Write-Log "Setting DNSProxy(3) IP address '$ipControlPlane' as main DNS server for network interface '$switchname'"
     Set-DnsClientServerAddress -InterfaceIndex $ipindex -ServerAddresses $ipControlPlane | Out-Null
-    Set-DnsClient -InterfaceIndex $ipindex -ResetConnectionSpecificSuffix -RegisterThisConnectionsAddress $true | Out-Null
+    Set-DnsClient -InterfaceIndex $ipindex -ResetConnectionSpecificSuffix -RegisterThisConnectionsAddress $false | Out-Null
 }
 
 <#
@@ -119,6 +119,37 @@ function Reset-DnsServer($switchname) {
     }
 }
 
+function Repair-KubeSwitch {
+    $WSL = Get-ConfigWslFlag
+    if ($WSL) {
+        Write-Log 'Repair-KubeSwitch: Using WSL2 as hosting environment for the control plane node'
+        Write-Log 'Repair-KubeSwitch: No repair for WSl setup yet !'
+    }
+    else {
+        Write-Log 'Repair-KubeSwitch: Using Hyper-V as hosting environment for the control plane node'
+        # check if switch exists
+        $sw = Get-VMSwitch -Name $controlPlaneSwitchName -ErrorAction SilentlyContinue
+        if ( $sw ) {
+            Write-Log "Repair-KubeSwitch: KubeSwitch '$controlPlaneSwitchName' already exists, check ip to repair"
+            $ipindex = Get-NetIPAddress -InterfaceAlias '*$controlPlaneSwitchName*' -AddressFamily IPv4
+            if ($ipindex) {
+                Write-Log "Repair-KubeSwitch: KubeSwitch '$controlPlaneSwitchName' with IP '$($ipindex.IPAddress)' already exists, nothing to repair"
+            } else {
+                Write-Log "Repair-KubeSwitch: KubeSwitch '$controlPlaneSwitchName' exists, but has no IP, repair it"
+                Remove-KubeSwitch
+                New-KubeSwitch
+                Connect-KubeSwitch
+                Add-DnsServer $controlPlaneSwitchName
+            }
+        } else {
+            Write-Log "Repair-KubeSwitch: KubeSwitch '$controlPlaneSwitchName' does not exist, creating it"
+            New-KubeSwitch
+            Connect-KubeSwitch
+            Add-DnsServer $controlPlaneSwitchName
+        }
+    }
+}
+
 Export-ModuleMember Get-ControlPlaneNodeDefaultSwitchName,
 Add-DnsServer, 
 New-KubeSwitch, 
@@ -127,4 +158,5 @@ Remove-KubeSwitch,
 Get-WslSwitchName, 
 Reset-DnsServer, 
 Disconnect-NetworkAdapterFromVm, 
-Connect-NetworkAdapterToVm
+Connect-NetworkAdapterToVm, 
+Repair-KubeSwitch

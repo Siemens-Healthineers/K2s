@@ -27,13 +27,13 @@ function Get-CtrExePath {
 
 function Invoke-DownloadContainerdArtifacts($downloadsBaseDirectory, $Proxy, $windowsNodeArtifactsDirectory) {
     $containerdDownloadsDirectory = "$downloadsBaseDirectory\$windowsNode_ContainerdDirectory"
-    $compressedContainerdFile = 'containerd-1.7.23-windows-amd64.tar.gz'
+    $compressedContainerdFile = 'containerd-1.7.27-windows-amd64.tar.gz'
     $compressedFile = "$containerdDownloadsDirectory\$compressedContainerdFile"
 
     Write-Log "Create folder '$containerdDownloadsDirectory'"
     mkdir $containerdDownloadsDirectory | Out-Null
     Write-Log 'Download containerd'
-    Invoke-DownloadFile "$compressedFile" https://github.com/containerd/containerd/releases/download/v1.7.23/$compressedContainerdFile $true $Proxy
+    Invoke-DownloadFile "$compressedFile" https://github.com/containerd/containerd/releases/download/v1.7.27/$compressedContainerdFile $true $Proxy
     Write-Log '  ...done'
     Write-Log "Extract downloaded file '$compressedFile'"
     cmd /c tar xf `"$compressedFile`" -C `"$containerdDownloadsDirectory`"
@@ -136,11 +136,17 @@ function Invoke-DeployNerdctlArtifacts($windowsNodeArtifactsDirectory) {
 }
 
 function Set-RootPathForImagesInConfig($tomlPath) {
+   
     $template = $tomlPath + '.template'
     if (Test-Path $template) {
+        $storageLocalFolder = Get-StorageLocalFolderName                
         $storageLocalDrive = Get-StorageLocalDrive
-        (Get-Content -path $template -Raw) -replace '%BEST-DRIVE%', $storageLocalDrive | Set-Content -Path $tomlPath
-    }
+        Write-Log 'StorageLocalDrive is '
+        Write-Log $storageLocalDrive
+        $storageLocalDriveWithFolderName = $storageLocalDrive + $storageLocalFolder        
+        Write-Log "StorageLocalDriveWithFolderName is'$storageLocalDriveWithFolderName'"
+        (Get-Content -path $template -Raw) -replace '%BEST-DRIVE%', $storageLocalDriveWithFolderName | Set-Content -Path $tomlPath
+    }    
 }
 
 function Set-InstallationDirectory($tomlPath) {

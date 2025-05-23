@@ -17,7 +17,7 @@ function New-ControlPlaneNodeOnNewVM {
         [parameter(Mandatory = $false, HelpMessage = 'Number of Virtual Processors for master VM (Linux)')]
         [long] $MasterVMProcessorCount = 6,
         [parameter(Mandatory = $false, HelpMessage = 'Virtual hard disk size of master VM (Linux)')]
-        [uint64] $MasterDiskSize = 50GB,
+        [uint64] $MasterDiskSize = 10GB,
         [parameter(Mandatory = $false, HelpMessage = 'HTTP proxy if available')]
         [string] $Proxy,
         [parameter(Mandatory = $false, HelpMessage = 'DNS Addresses if available')]
@@ -94,7 +94,26 @@ function New-ControlPlaneNodeOnNewVM {
     Wait-ForSSHConnectionToLinuxVMViaSshKey
 
     Remove-ControlPlaneAccessViaUserAndPwd
-    
+
+    $addToControlPlane = {
+        Write-Host ""
+    }
+
+    $masterNodeParams = @{
+        NodeName             = $(Get-ConfigControlPlaneNodeHostname)
+        IpAddress            = $controlPlaneIpAddress
+        UserName             = $controlPlaneUserName
+        K8sVersion           = $(Get-DefaultK8sVersion)
+        ClusterCIDR          = $(Get-ConfiguredClusterCIDR)
+        ClusterCIDR_Services = $(Get-ConfiguredClusterCIDRServices)
+        KubeDnsServiceIP     = $(Get-ConfiguredKubeDnsServiceIP)
+        IP_NextHop           = $(Get-ConfiguredKubeSwitchIP)
+        NetworkInterfaceName = $(Get-NetworkInterfaceName)
+        Hook                 = $addToControlPlane
+    }
+    Set-UpMasterNode @masterNodeParams
+
+
     # add kubectl to Windows host
     Install-KubectlTool
     # copy kubectl config file into Windows host
@@ -273,10 +292,7 @@ function Start-ControlPlaneNodeOnNewVM {
     Add-DnsServer $switchname
 
     # route for VM
-    Write-Log "Remove obsolete route to $ipControlPlaneCIDR"
-    route delete $ipControlPlaneCIDR >$null 2>&1
-    Write-Log "Add route to host network for master CIDR:$ipControlPlaneCIDR with metric 3"
-    route -p add $ipControlPlaneCIDR $windowsHostIpAddress METRIC 3 | Out-Null
+    Set-RoutesToKubemaster
 
     Wait-ForSSHConnectionToLinuxVMViaSshKey
 
@@ -288,29 +304,7 @@ function Start-ControlPlaneNodeOnNewVM {
 
     Invoke-TimeSync
 
-    # Write-Log 'Set the DNS server(s) used by the Windows Host as the default DNS server(s) of the VM'    
-    # (Invoke-CmdOnControlPlaneViaSSHKey "sudo sed -i '/nameservers:/!b;n;s/addresses: \[.*\]/addresses: [$DnsServers]/' /etc/netplan/10-k2s.yaml").Output | Write-Log    
-    # (Invoke-CmdOnControlPlaneViaSSHKey 'sudo systemctl restart systemd-networkd').Output | Write-Log
-    # (Invoke-CmdOnControlPlaneViaSSHKey 'sudo systemctl restart dnsmasq').Output | Write-Log
-
-    $ipControlPlane = Get-ConfiguredIPControlPlane
-    $setupConfigRoot = Get-RootConfigk2s
-    $clusterCIDRMaster = $setupConfigRoot.psobject.properties['podNetworkMasterCIDR'].value
-    $clusterCIDRServices = $setupConfigRoot.psobject.properties['servicesCIDR'].value
-    $clusterCIDRServicesLinux = $setupConfigRoot.psobject.properties['servicesCIDRLinux'].value
-
-    # routes for Linux pods
-    Write-Log "Remove obsolete route to $clusterCIDRMaster"
-    route delete $clusterCIDRMaster >$null 2>&1
-    Write-Log "Add route to Linux master pods CIDR:$clusterCIDRMaster with metric 4"
-    route -p add $clusterCIDRMaster $ipControlPlane METRIC 4 | Out-Null
-
-    # routes for services
-    route delete $clusterCIDRServices >$null 2>&1
-    Write-Log "Remove obsolete route to $clusterCIDRServicesLinux"
-    route delete $clusterCIDRServicesLinux >$null 2>&1
-    Write-Log "Add route to Linux Services CIDR:$clusterCIDRServicesLinux with metric 6"
-    route -p add $clusterCIDRServicesLinux $ipControlPlane METRIC 6 | Out-Null
+    Set-RoutesToLinuxWorkloads
 
     # get the real switch name
     $switchRealName = Get-VirtualSwitchName($switchname)

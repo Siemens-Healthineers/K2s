@@ -4,13 +4,11 @@ SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 SPDX-License-Identifier: MIT
 -->
 
-# security addon - EXPERIMENTAL
+# security addon
 
-Enables secure communication into / out of the cluster (basic) and inside the cluster (advanced).
+Purpose: Enables secure communication into / out of the cluster (basic) and inside the cluster (enhanced).
 
-In this version only basic security is provided on an experimental level.
-
-Basic and Advanced security options for the addon will be added and improved in the next versions.
+Our strategy is to achieve **security through infrastructure**, effectively offloading fundamental security concerns like mutual TLS encryption, authentication, and authorization from the application layer. Instead of requiring every development team to build and maintain these complex security features within their own code, we leverage platform-level tools like service meshes (e.g., Linkerd), identity providers (e.g., Keycloak), and certificate managers (e.g., cert-manager). This allows application developers to focus solely on core business logic, accelerates development cycles, and ensures a consistent, standardized security posture enforced by the platform, not reinvented in every application (container or non-container).
 
 ![Upstream - downstream](doc/downstream-upstream.drawio.png)
 
@@ -22,9 +20,13 @@ The `security` addon can be enabled using the `k2s` CLI:
 k2s addons enable security
 ```
 
-These addons have currently also web applications included: **dashboard**, **logging** and **monitoring**.
-In this version in order to test the basic security model on these addons they have to be enabled **before** the security addon is enabled!
-In addition also the security settings were tested only with the **ingress nginx** addon.
+For enabling basic or enhanced security please use the parameter:
+```cmd
+ -t, --type string (basic or enhanced)
+```
+
+K2s also has many addons like **dashboard**, **logging**, **monitoring**... which are bringing in also web apps. 
+By enabling the security addon they will be automatically also secured.
 
 ## Disable security
 
@@ -40,17 +42,27 @@ After disabled security also please reset the policies (navigate to [chrome://ne
 k2s.cluster.local
 ```
 
-## Services used
+## Components used
 
-This addon installs services needed to secure the network communication by configuration. This includes:
+This addon installs workloads needed to secure the network communication by configuration. This includes:
 
 - [cert-manager](https://cert-manager.io/) - services for certificate provisioning and renewing, based on annotations. `cert-manager` observes these annotations and automates obtaining and renewing certificates.
 
 - [keycloak](https://www.keycloak.org/) - services for identity and access management. `keycloak` provides user federation, strong authentication, user management, fine-grained authorization, and more.
 
+- [trust-manager](https://cert-manager.io/docs/trust/trust-manager/) - trust-manager is a small Kubernetes operator which reduces the overhead of managing TLS trust bundles in your clusters, providing a much quicker way to update trust stores when they need to change.
+
+- [linkerd](https://linkerd.io/) - service mesh implementation. `linkerd` adds security, observability, and reliability to any Kubernetes cluster. Linkerd latest versions are adapted to work also on windows hosts for windows containers.
+
+- [ory hydra](https://github.com/ory/hydra) - using this "headless" OAuth2 and OIDC provider for providing the local user management on the windows host as part of the identity provider.
+
+- [oauth2 proxy](https://github.com/oauth2-proxy/oauth2-proxy) -  OAuth2 Proxy offloads the burden of implementing authentication logic from your applications.
+
 ## How to use it
 
-### Certificate Management
+### Certificate Management wit cert-manager
+
+Cert-manager is a powerful and widely-adopted add-on for Kubernetes that automates the management, issuance, and renewal of TLS certificates. It brings the crucial task of securing communication with Transport Layer Security (TLS) directly into the Kubernetes ecosystem, eliminating the need for manual certificate handling and reducing the risk of outages due to expired certificates.
 
 In terms of [cert-manager](https://cert-manager.io/docs/), this addon configures a global `ClusterIssuer` of type CA (Certification Authority) named: **k2s-ca-issuer**. This issuer can be used in annotations to obtain and renew certificates.  
 See: [CA Issuer](https://cert-manager.io/docs/configuration/ca/)
@@ -83,12 +95,71 @@ server certificate by visiting the dashboard URL in your browser and clicking on
 
 You can also use the command line interface `cmctl.exe` to interact with cert-manager, it is installed in the `bin` path of your K2s install directory.
 
+### Identity and access management with keycloak
+
+Keycloak is a widely adopted open-source Identity and Access Management (IAM) solution that provides a comprehensive set of features for securing modern applications and services. When deployed in Kubernetes, Keycloak acts as a centralized authentication and authorization server for applications running within the cluster and potentially external to it.
+Documentation related to `keycloak` you will find here: [keycloak docs](https://www.keycloak.org/guides).
+
+The security addon adds in addition to the already many available identity providers also one for the local windows users.
+Local users on the host where K2s was setup can than be used for identity and access management.
+
+### Linkerd Service mesh
+
+Linkerd is a lightweight, open-source service mesh designed specifically for Kubernetes. Its primary goal is to make running cloud-native applications easier and safer by providing a layer of infrastructure that handles the complexities of service-to-service communication.
+
+In order to secure your workload please use the following annotation:
+ ```cmd
+      annotations:
+        linkerd.io/inject: enabled
+ ```
+This is the only mandatory annotation to use, please check other annotations from the linkerd documenetation.
+
+For using the linkerd dashboard please first install the dashboard resources:
+ ```cmd
+linkerd viz install | kubectl apply -f -
+ ```
+After all pods are ready please start dashoboard with (you can use also another port if there is some conflict):
+ ```cmd
+linkerd viz dashboard --port 60888 &
+ ```
+
+Documentation related to `linkerd` you will find here: [linkerd docs](https://www.keycloak.org/guides).
+
+### Trust manager
+
+The primary role of trust-manager is to orchestrate and distribute bundles of trusted X.509 Certificate Authority (CA) certificates across your Kubernetes cluster.
+These bundles are crucial for applications to validate the authenticity of other services they communicate with, primarily during TLS handshakes.
+It also automates the process of keeping these trust stores up-to-date.
+
+Traditionally, trust stores might be baked into container images. trust-manager decouples this by managing trust bundles at runtime. This means you can update trusted CAs without needing to rebuild and redeploy all your application containers. 
+
+While cert-manager is a popular Kubernetes tool for automating the issuance and renewal of X.509 certificates (the actual server/client certificates), trust-manager focuses on managing the trust anchors (CA certificates) that are used to verify those certificates.
+
+### OAuth2 Proxy
+
+OAuth2 Proxy emerges as a popular and effective solution for adding an authentication layer to your services, particularly when integrated with ingress controllers. It acts as a reverse proxy that intercepts incoming requests and enforces authentication using various identity providers before forwarding the request to the actual application.
+
+Essentially, OAuth2 Proxy offloads the burden of implementing authentication logic from your applications. Instead of each application needing to handle user login, session management, and interaction with identity providers, OAuth2 Proxy handles this centrally.
+
+### Ory Hydra
+
+Ory Hydra is an open-source implementation of the OAuth 2.0 authorization framework and the OpenID Connect Core 1.0 specifications. 
+Unlike traditional identity platforms that bundle user management, Hydra is designed as a "headless" OAuth2 and OIDC provider. This means it focuses solely on the OAuth2 and OIDC protocols, delegating concerns like user login, consent flows, and user data management to separate, customizable components.
+
 ## Further Reading
 
 - Docs: <https://cert-manager.io/docs/>
 - Code: <https://github.com/cert-manager/cert-manager>
 - Docs: <https://www.keycloak.org/documentation>
 - Code: <https://github.com/keycloak/keycloak>
+- Docs: <https://linkerd.io/2-edge/overview/>
+- Code: <https://github.com/linkerd/linkerd2>
+- Docs: <https://cert-manager.io/docs/trust/trust-manager/>
+- Code: <https://github.com/cert-manager/trust-manager>
+- Docs: <https://oauth2-proxy.github.io/oauth2-proxy/>
+- Code: <https://github.com/oauth2-proxy/oauth2-proxy>
+- Docs: <https://www.ory.sh/hydra>
+- Code: <https://github.com/ory/hydra>
 
 ## Knowledge Base
 
@@ -101,3 +172,7 @@ You can also use the command line interface `cmctl.exe` to interact with cert-ma
   ```
 
   and deleting the settings for your site.
+
+## Guiding principale
+
+The guiding principle is to provide security as an inherent property of the infrastructure, rather than an optional add-on implemented per application. By deploying components that transparently handle TLS encryption (cert-manager, service mesh), manage identities and tokens (Keycloak), and mediate access (service mesh, API gateways), we abstract away the underlying complexity for application developers. This allows us to move towards a 'secure by default' environment, where essential security mechanisms are automatically applied to workloads simply by deploying them onto the meshed or protected infrastructure, without requiring explicit security code within the application itself.

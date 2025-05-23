@@ -18,7 +18,7 @@ import (
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/install/buildonly"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/install/common"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/install/core"
-	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/install/multivm"
+	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/install/linuxonly"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils/tz"
 
@@ -43,9 +43,8 @@ var (
 	# install K2s setup overwriting control-plane memory
 	k2s install --master-memory 8GB
 
-	# install multi-vm setup without Windows worker node (effectively without Windows VM)
+	# install without Windows worker node
 	k2s install --linux-only
-	Note: same effect as running 'k2s install multivm --linux-only'
 
 	# install K2s setup setting a proxy
 	k2s install --proxy http://10.11.12.13:5000
@@ -69,14 +68,12 @@ var (
 		RunE:    install,
 		Example: example,
 	}
-
-	installer          common.Installer
-	installMultiVmFunc func(cmd *cobra.Command, args []string) error
-	createTzHandleFunc func() (tz.ConfigWorkspaceHandle, error)
+	installer             common.Installer
+	createTzHandleFunc    func() (tz.ConfigWorkspaceHandle, error)
+	buildLinuxOnlyCmdFunc func(config *ic.InstallConfig) (cmd string, err error)
 )
 
 func init() {
-	InstallCmd.AddCommand(multivm.InstallCmd)
 	InstallCmd.AddCommand(buildonly.InstallCmd)
 
 	installer = &core.Installer{
@@ -91,10 +88,9 @@ func init() {
 		DeleteConfigFunc:         func(configDir string) error { return os.Remove(filepath.Join(configDir, setupinfo.ConfigFileName)) },
 	}
 
-	multivm.Installer = installer
 	buildonly.Installer = installer
-	installMultiVmFunc = multivm.Install
 	createTzHandleFunc = createTimezoneConfigHandle
+	buildLinuxOnlyCmdFunc = linuxonly.BuildCmd
 
 	bindFlags(InstallCmd)
 }
@@ -112,7 +108,7 @@ func bindFlags(cmd *cobra.Command) {
 	cmd.Flags().Bool(ic.WslFlagName, false, ic.WslFlagUsage)
 	cmd.Flags().String(ic.K8sBinFlagName, "", ic.K8sBinFlagUsage)
 
-	// convenience flag; not configurable in config file; leads to multivm setup if true
+	// convenience flag; not configurable in config file
 	cmd.Flags().Bool(ic.LinuxOnlyFlagName, false, ic.LinuxOnlyFlagUsage)
 
 	cmd.Flags().Bool(ic.AppendLogFlagName, false, ic.AppendLogFlagUsage)
@@ -148,16 +144,15 @@ func install(cmd *cobra.Command, args []string) error {
 	}
 	defer tzConfigHandle.Release()
 
-	if linuxOnly {
-		slog.Info("Switching setup type due to flag setting", "type", ic.MultivmConfigType, "flag", ic.LinuxOnlyFlagName)
+	buildCmdFunc := buildInstallCmd
 
-		if err := installMultiVmFunc(cmd, args); err != nil {
-			return err
-		}
-		return nil
+	if linuxOnly {
+		slog.Info("Switching to Linux-only")
+
+		buildCmdFunc = buildLinuxOnlyCmdFunc
 	}
 
-	return installer.Install(kind, cmd, buildInstallCmd, cmdSession)
+	return installer.Install(kind, cmd, buildCmdFunc, cmdSession)
 }
 
 func buildInstallCmd(c *ic.InstallConfig) (cmd string, err error) {

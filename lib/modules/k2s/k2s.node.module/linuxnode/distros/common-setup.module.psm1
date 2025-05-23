@@ -264,6 +264,8 @@ Function Get-KubernetesArtifactsFromInternet {
     &$downloadPackagesCommand -PackageName "kubectl=$shortKubeVers" -DebFileNamePattern 'kubectl*.deb'
     &$downloadPackagesCommand -PackageName "kubelet=$shortKubeVers" -DebFileNamePattern 'kubelet*.deb'
     &$downloadPackagesCommand -PackageName "kubeadm=$shortKubeVers" -DebFileNamePattern 'kubeadm*.deb'
+
+    &$executeRemoteCommand "cd /home/remote/apt-offline-k2s/kubernetes && sudo find . -maxdepth 1 -type f \( -name 'kubeadm_*.deb' -o -name 'kubectl_*.deb' -o -name 'kubelet_*.deb' \) ! -name '*_${shortKubeVers}_amd64.deb' -exec rm -f {} +"
 }
 
 Function Add-KubernetesArtifactsToRemoteComputer {
@@ -950,7 +952,7 @@ function Get-FlannelImages {
     Write-Log 'Get images used by flannel'
 
     &$executeRemoteCommand 'sudo crictl pull docker.io/flannel/flannel-cni-plugin:v1.5.1-flannel2'
-    &$executeRemoteCommand 'sudo crictl pull docker.io/flannel/flannel:v0.26.1'
+    &$executeRemoteCommand 'sudo crictl pull docker.io/flannel/flannel:v0.26.7'
 }
 
 function AddRegistryMirrors {
@@ -1191,10 +1193,6 @@ Function Set-UpMasterNode {
     &$executeRemoteCommand 'sudo cp /etc/kubernetes/admin.conf ~/.kube/config'
     &$executeRemoteCommand "sudo chown $UserName ~/.kube/config"
     &$executeRemoteCommand 'kubectl get nodes'
-
-    Write-Log 'Install custom DNS server'
-    &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get install dnsutils --yes'
-    &$executeRemoteCommand 'sudo DEBIAN_FRONTEND=noninteractive apt-get install dnsmasq --yes'
 
     Write-Log 'Scale down coredns to 1 replicas'
     &$executeRemoteCommand 'kubectl scale deployment coredns -n kube-system --replicas=1'
@@ -1538,33 +1536,16 @@ function New-VmImageForControlPlaneNode {
     $vmNetworkInterfaceName = Get-NetworkInterfaceName
 
     $setUpAsMasterNode = {
-        $addToControlPlane = {
-            $supportForWSLParams = @{
-                UserName             = $vmUserName
-                UserPwd              = $vmUserPwd
-                Hostname             = $Hostname
-                IpAddress            = $IpAddress
-                NetworkInterfaceName = $(Get-NetworkInterfaceName)
-                NetworkMask          = '255.255.255.0'
-                GatewayIpAddress     = $GatewayIpAddress
-            }
-            Edit-SupportForWSL @supportForWSLParams
-        }
-
-        $masterNodeParams = @{
-            NodeName             = $Hostname
-            IpAddress            = $IpAddress
+        $supportForWSLParams = @{
             UserName             = $vmUserName
             UserPwd              = $vmUserPwd
-            K8sVersion           = $kubernetesVersion
-            ClusterCIDR          = $(Get-ConfiguredClusterCIDR)
-            ClusterCIDR_Services = $(Get-ConfiguredClusterCIDRServices)
-            KubeDnsServiceIP     = $(Get-ConfiguredKubeDnsServiceIP)
-            IP_NextHop           = $GatewayIpAddress
-            NetworkInterfaceName = $vmNetworkInterfaceName
-            Hook                 = $addToControlPlane
+            Hostname             = $Hostname
+            IpAddress            = $IpAddress
+            NetworkInterfaceName = $(Get-NetworkInterfaceName)
+            NetworkMask          = '255.255.255.0'
+            GatewayIpAddress     = $GatewayIpAddress
         }
-        Set-UpMasterNode @masterNodeParams
+        Edit-SupportForWSL @supportForWSLParams
     }
 
     $kubemasterCreationParams = @{
@@ -2007,4 +1988,5 @@ Get-DirectoryOfKubenodeImagesOnWindowsHost,
 Get-DirectoryOfLinuxNodeArtifactsOnWindowsHost,
 Get-PathOfLinuxNodeArtifactsPackageOnWindowsHost,
 Copy-KubernetesImagesFromControlPlaneNodeToWindowsHost,
-Update-CoreDNSConfigurationviaSSH
+Update-CoreDNSConfigurationviaSSH,
+Set-UpMasterNode

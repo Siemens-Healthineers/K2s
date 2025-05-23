@@ -1,5 +1,6 @@
-// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2025 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
+
 package systemrunning
 
 import (
@@ -7,13 +8,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/siemens-healthineers/k2s/internal/cli"
 	"github.com/siemens-healthineers/k2s/test/framework"
-	"github.com/siemens-healthineers/k2s/test/framework/k2s/cli"
 )
 
 var suite *framework.K2sTestSuite
@@ -37,36 +36,14 @@ var _ = Describe("image reset-win-storage", func() {
 			Skip("Linux-only")
 		}
 
-		if suite.SetupInfo().SetupConfig.SetupName == setupinfo.SetupNameMultiVMK8s {
-			Skip("Multi-vm")
-		}
-
 		output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "image", "reset-win-storage")
 
 		Expect(output).To(ContainSubstring("still running"))
 	})
 
-	It("prints reinstall cluster message", func(ctx context.Context) {
-		if suite.SetupInfo().SetupConfig.SetupName == setupinfo.SetupNamek2s {
-			Skip("k2s setup")
-		}
-
-		if suite.SetupInfo().SetupConfig.LinuxOnly {
-			Skip("Linux-only")
-		}
-
-		output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "image", "reset-win-storage")
-
-		Expect(output).To(ContainSubstring("In order to clean up Win container storage for multivm setup, please re-install multivm cluster."))
-	})
-
 	It("prints not supported for linux-only", func(ctx context.Context) {
-		if suite.SetupInfo().SetupConfig.SetupName == setupinfo.SetupNamek2s {
-			Skip("k2s setup")
-		}
-
-		if suite.SetupInfo().SetupConfig.SetupName == setupinfo.SetupNameMultiVMK8s && !suite.SetupInfo().SetupConfig.LinuxOnly {
-			Skip("Multi-vm")
+		if !suite.SetupInfo().SetupConfig.LinuxOnly {
+			Skip("not Linux-only")
 		}
 
 		output := suite.K2sCli().RunWithExitCode(ctx, -1, "image", "reset-win-storage")

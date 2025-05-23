@@ -75,8 +75,8 @@ if ($All) {
 else {    
     foreach ($name in $Names) {
         $foundManifest = $null
-        $addonName = ($name -split " ")[0]
-        $implementationName = ($name -split " ")[1]
+        $addonName = ($name -split ' ')[0]
+        $implementationName = ($name -split ' ')[1]
 
         foreach ($manifest in $allManifests) {
             if ($manifest.metadata.name -eq $addonName) {
@@ -84,7 +84,7 @@ else {
 
                 # specific implementation specified
                 if ($null -ne $implementationName) {
-                    $foundManifest.spec.implementations = $foundManifest.spec.implementations | Where-Object { $_.name -eq $implementationName}
+                    $foundManifest.spec.implementations = $foundManifest.spec.implementations | Where-Object { $_.name -eq $implementationName }
                 }
                 break
             }
@@ -127,12 +127,43 @@ try {
                 $dirPath = Join-Path -Path $($manifest.dir.path) -ChildPath $($implementation.name)
             }
 
-            Write-Log "Pulling images for addon $addonName" -Console
+            Write-Log "Pulling images for addon $addonName from $dirPath" -Console
+
             Write-Log '---'
             $images = @()
             $linuxImages = @()
             $windowsImages = @()
             $files = Get-Childitem -recurse $dirPath | Where-Object { $_.Name -match '.*.yaml$' } | ForEach-Object { $_.Fullname }
+
+            # check if there is a subfolder called chart for helm charts
+            if (Test-Path -Path "$dirPath\manifests\chart") {
+                $charts = Get-Childitem -recurse "$dirPath\manifests\chart" | Where-Object { $_.Name -match '.*.tgz$' } | ForEach-Object { $_.Fullname }
+                if ($null -eq $charts -or $charts.Count -eq 0) {
+                    Write-Log "No images found for addon $addonName in form of an chart"
+                } else {
+                    Write-Log "Found images for addon $addonName in form of an chart, count: $($charts.Count)"
+                    # ensure only one entry in the list
+                    $charts = $charts | Select-Object -Unique
+                    foreach ($chart in $charts) {
+                        # extracting yaml files from the helm chart
+                        $chartFolder = "${tmpExportDir}\helm\$dirName"
+                        mkdir -Force $chartFolder | Out-Null
+                        # extracting yaml files from the helm chart
+                        $valuesFile = "$dirPath\manifests\chart\values.yaml"
+                        # extract release from chart file name by removing the .tgz extension and the version
+                        # from kubernetes-dashboard-7.12.0.tgz -> kubernetes-dashboard
+                        $chartNameParts = [System.IO.Path]::GetFileNameWithoutExtension($chart).Split('-')
+                        $release = $chartNameParts[0..($chartNameParts.Length - 2)] -join '-'
+                        # check if value file exists
+                        if ((Test-Path -Path $valuesFile)) {
+                            (Invoke-Helm -Params 'template', $release, $chart, '-f', $valuesFile, '--output-dir', $chartFolder).Output | Write-Log 
+                        } else {
+                            (Invoke-Helm -Params 'template', $release, $chart, '--output-dir', $chartFolder).Output | Write-Log 
+                        }
+                        $files += Get-Childitem -recurse $chartFolder | Where-Object { $_.Name -match '.*.yaml$' } | ForEach-Object { $_.Fullname }
+                    }
+                }
+            }
 
             foreach ($file in $files) {
                 if ($null -ne (Select-String -Path $file -Pattern '## exclude-from-export')) {
@@ -183,32 +214,18 @@ try {
 
             foreach ($image in $windowsImages) {
                 Write-Log "Pulling windows image $image"
-                if ($setupInfo.Name -eq 'MultiVMK8s') {
-                    $session = Open-DefaultWinVMRemoteSessionViaSSHKey
-                    Invoke-Command -Session $session {
-                        Set-Location "$env:SystemDrive\k"
-                        Set-ExecutionPolicy Bypass -Force -ErrorAction Stop
-
-                        Import-Module "$env:SystemDrive\k\addons\export.module.psm1"
-
-                        &$(Get-NerdctlExe) -n 'k8s.io' pull $using:image --all-platforms 2>&1 | Out-Null
-                        &$(Get-CrictlExe) pull $using:image
+                &$(Get-NerdctlExe) -n 'k8s.io' pull $image --all-platforms 2>&1 | Out-Null
+                &$(Get-CrictlExe) pull $image
+                if (!$?) {
+                    $errMsg = "Pulling linux image $image failed"
+                    if ($EncodeStructuredOutput -eq $true) {
+                        $err = New-Error -Severity Warning -Code ErrCodeAddonNotFound -Message $errMsg
+                        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+                        return
                     }
-                }
-                else {
-                    &$(Get-NerdctlExe) -n 'k8s.io' pull $image --all-platforms 2>&1 | Out-Null
-                    &$(Get-CrictlExe) pull $image
-                    if (!$?) {
-                        $errMsg = "Pulling linux image $image failed"
-                        if ($EncodeStructuredOutput -eq $true) {
-                            $err = New-Error -Severity Warning -Code ErrCodeAddonNotFound -Message $errMsg
-                            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
-                            return
-                        }
                     
-                        Write-Log $errMsg -Error
-                        exit 1
-                    }
+                    Write-Log $errMsg -Error
+                    exit 1
                 }
             }
 
@@ -284,12 +301,7 @@ try {
                 if ($repos) {
                     Write-Log 'Adding repos for debian packages download'
                     foreach ($repo in $repos) {
-                        if ($setupInfo.Name -ne 'MultiVMK8s') {
-                            $repoWithReplacedHttpProxyPlaceHolder = $repo.Replace('__LOCAL_HTTP_PROXY__', "$(Get-ConfiguredKubeSwitchIP):8181")
-                        }
-                        else {
-                            $repoWithReplacedHttpProxyPlaceHolder = $repo.Replace('__LOCAL_HTTP_PROXY__', "''")
-                        }
+                        $repoWithReplacedHttpProxyPlaceHolder = $repo.Replace('__LOCAL_HTTP_PROXY__', "$(Get-ConfiguredKubeSwitchIP):8181")
                         (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "$repoWithReplacedHttpProxyPlaceHolder").Output | Write-Log
                     }
 

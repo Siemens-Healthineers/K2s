@@ -97,6 +97,7 @@ if ($viewerStatus -ne $true) {
 }
 
 &"$PSScriptRoot\Update.ps1"
+
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'viewer' })
 
 Write-ViewerUsageForUser

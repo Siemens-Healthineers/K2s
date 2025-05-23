@@ -157,6 +157,7 @@ Copy-Item -force C:\kube\cfg\cni\net-conf-vxlan.json.template C:\etc\kube-flanne
 function Reset-WinServices {
     &"$kubeBinPath\nssm" set kubeproxy Start SERVICE_DEMAND_START | Out-Null
     &"$kubeBinPath\nssm" set kubelet Start SERVICE_DEMAND_START | Out-Null
+    &"$kubeBinPath\nssm" set httpproxy Start SERVICE_DEMAND_START | Out-Null
     &"$kubeBinPath\nssm" set flanneld Start SERVICE_DEMAND_START | Out-Null
 }
 
@@ -288,6 +289,7 @@ function Uninstall-WinNode {
         $ShallowUninstallation = $false
     )
     Remove-ServiceIfExists 'flanneld'
+    Remove-ServiceIfExists 'httpproxy'
     Remove-ServiceIfExists 'kubelet'
     Remove-ServiceIfExists 'kubeproxy'
     Remove-ServiceIfExists 'windows_exporter'
@@ -298,6 +300,8 @@ function Uninstall-WinNode {
     Write-Log 'Uninstall containerd service if existent'
     Uninstall-WinContainerd -ShallowUninstallation $ShallowUninstallation
     Uninstall-WinDocker -ShallowUninstallation $ShallowUninstallation
+
+    Remove-K2sAppLockerRules
 }
 
 
@@ -321,6 +325,7 @@ function Clear-WinNode {
     Remove-Item -Path "$kubeBinPath\cni\flanneld.exe" -Force -ErrorAction SilentlyContinue
     Remove-Item -Path "$kubeBinPath\jq.exe" -Force -ErrorAction SilentlyContinue
     Remove-Item -Path "$kubeBinPath\yq.exe" -Force -ErrorAction SilentlyContinue
+    Remove-Item -Path "$kubeBinPath\helm.exe" -Force -ErrorAction SilentlyContinue
     Remove-Item -Path "$kubeBinPath\dnsproxy.exe" -Force -ErrorAction SilentlyContinue
     Remove-Item -Path "$kubeBinPath\dnsproxy.yaml" -Force -ErrorAction SilentlyContinue
     Remove-Item -Path "$kubeBinPath\cri*.exe" -Force -ErrorAction SilentlyContinue
@@ -352,6 +357,8 @@ function Clear-WinNode {
     Remove-Nssm
 
     Invoke-DownloadsCleanup -DeleteFilesForOfflineInstallation $DeleteFilesForOfflineInstallation
+
+    Remove-Item -Path "~/.kube/cache" -Force -Recurse -ErrorAction SilentlyContinue
 }
 
 Export-ModuleMember Initialize-WinNode, Uninstall-WinNode, Clear-WinNode

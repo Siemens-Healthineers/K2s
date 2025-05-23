@@ -15,7 +15,6 @@ import (
 	"github.com/siemens-healthineers/k2s/internal/k8s"
 	bl "github.com/siemens-healthineers/k2s/internal/logging"
 	"github.com/siemens-healthineers/k2s/internal/os"
-	"github.com/siemens-healthineers/k2s/internal/powershell"
 
 	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
 
@@ -95,6 +94,10 @@ const (
 	CacheVSwitchFlagName  = "cache-vswitch"
 	CacheVSwitchFlagUsage = "Cache vswitches 'cbr0' and 'KubeSwitch' for cluster connectivity through the host machine."
 
+	IgnoreIfRunningFlagName  = "ignore-if-running"
+	IgnoreIfRunningFlagShort = "i"
+	IgnoreIfRunningFlagUsage = "Skip starting the K2s cluster if it is already running"
+
 	PreReqMarker = "[PREREQ-FAILED]"
 )
 
@@ -155,11 +158,11 @@ func CreateSystemUnableToUpgradeCmdFailure() *CmdFailure {
 	}
 }
 
-func CreateFunctionalityNotAvailableCmdFailure(setupName setupinfo.SetupName) *CmdFailure {
+func CreateFuncUnavailableForLinuxOnlyCmdFailure() *CmdFailure {
 	return &CmdFailure{
 		Severity: SeverityWarning,
-		Code:     "functionality-not-available",
-		Message:  fmt.Sprintf("This functionality is not available because '%s' setup is deprecated.", setupName),
+		Code:     "functionality-not-available-for-linux-only",
+		Message:  "This functionality is not available in Linux-only setup.",
 	}
 }
 
@@ -191,16 +194,6 @@ func StopSpinner(spinner Spinner) {
 	}
 }
 
-func DeterminePsVersion(config *setupinfo.Config) powershell.PowerShellVersion {
-	if config.SetupName == setupinfo.SetupNameMultiVMK8s && !config.LinuxOnly {
-		return powershell.PowerShellV7
-	}
-
-	return powershell.PowerShellV5
-}
-
-func GetDefaultPsVersion() powershell.PowerShellVersion { return powershell.PowerShellV5 }
-
 func GetInstallPreRequisiteError(errorLines []string) (line string, found bool) {
 	for _, line := range errorLines {
 		if strings.Contains(line, PreReqMarker) {
@@ -216,8 +209,13 @@ func GetInstallPreRequisiteError(errorLines []string) (line string, found bool) 
 
 func (c *CmdFailure) Error() string { return fmt.Sprintf("%s: %s", c.Code, c.Message) }
 
-func (s CmdSession) Finish() {
+func (s CmdSession) Finish(suppressOutput ...bool) {
 	slog.Debug("Command finished", "command", s.cmdDisplayName)
+
+	if len(suppressOutput) > 0 && suppressOutput[0] {
+		return
+	}
+
 	pterm.Success.Printfln("'%s' completed in %v", s.cmdDisplayName, time.Since(s.start))
 
 	logHint := pterm.LightCyan(fmt.Sprintf("Please see '%s' for more information", bl.GlobalLogFilePath()))

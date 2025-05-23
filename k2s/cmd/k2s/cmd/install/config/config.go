@@ -66,7 +66,6 @@ type InstallConfig struct {
 type NodeConfig struct {
 	Role      string         `mapstructure:"role"`
 	Resources ResourceConfig `mapstructure:"resources"`
-	Image     string         `mapstructure:"image"`
 }
 
 type ResourceConfig struct {
@@ -93,12 +92,10 @@ type BehaviorConfig struct {
 
 const (
 	k2sConfigType       Kind = "k2s"
-	MultivmConfigType   Kind = "multivm"
 	BuildonlyConfigType Kind = "buildonly"
 
 	SupportedApiVersion  = "v1"
 	ControlPlaneRoleName = "control-plane"
-	WorkerRoleName       = "worker"
 
 	ControlPlaneCPUsFlagName  = "master-cpus"
 	ControlPlaneCPUsFlagUsage = "Number of CPUs allocated to master VM"
@@ -108,15 +105,6 @@ const (
 
 	ControlPlaneDiskSizeFlagName  = "master-disk"
 	ControlPlaneDiskSizeFlagUsage = "Disk size allocated to the master VM (minimum 10GB, format: <number>[<unit>], where unit = KB, MB or GB)"
-
-	WorkerCPUsFlagName  = "worker-cpus"
-	WorkerCPUsFlagUsage = "Number of CPUs allocated to worker VM."
-
-	WorkerMemoryFlagName  = "worker-memory"
-	WorkerMemoryFlagUsage = "Amount of RAM to allocate to worker VM (format: <number>[<unit>], where unit = KB, MB or GB)"
-
-	WorkerDiskSizeFlagName  = "worker-disk"
-	WorkerDiskSizeFlagUsage = "Disk size allocated to the worker VM (format: <number>[<unit>], where unit = KB, MB or GB)"
 
 	ProxyFlagName      = "proxy"
 	ProxyFlagShorthand = "p"
@@ -133,7 +121,7 @@ const (
 	K8sBinFlagUsage = "Path to directory of locally built Kubernetes binaries (kubelet.exe, kube-proxy.exe, kubeadm.exe, kubectl.exe)"
 
 	LinuxOnlyFlagName  = "linux-only"
-	LinuxOnlyFlagUsage = "No Windows worker node will be set up (creates a 'multivm' setup without Windows VM)"
+	LinuxOnlyFlagUsage = "No Windows worker node will be set up"
 
 	AppendLogFlagName  = "append-log"
 	AppendLogFlagUsage = "Append logs to existing log file"
@@ -143,10 +131,6 @@ const (
 
 	RestartFlagName  = "restart-post-install-count"
 	RestartFlagUsage = "Number of times to restart cluster post installation."
-
-	ImageFlagName      = "image"
-	ImageFlagShorthand = "i"
-	ImageFlagUsage     = "Path to local Windows ISO image file; REQUIRED if not found in config file or '--linux-only' flag not set"
 )
 
 var (
@@ -155,7 +139,6 @@ var (
 
 	configFileMap map[Kind]string = map[Kind]string{
 		k2sConfigType:       "k2s.config.yaml",
-		MultivmConfigType:   "multivm.config.yaml",
 		BuildonlyConfigType: "buildonly.config.yaml"}
 )
 
@@ -276,8 +259,8 @@ func (*userConfigValidator) validate(kind Kind, config *viper.Viper) error {
 	for _, node := range nodes {
 		n := node.(map[string]any)
 
-		if n["role"] != ControlPlaneRoleName && n["role"] != WorkerRoleName {
-			return fmt.Errorf("error in user-provided config: Invalid node role name. Supported: (%s, %s), found: '%s'", ControlPlaneRoleName, WorkerRoleName, n["role"])
+		if n["role"] != ControlPlaneRoleName {
+			return fmt.Errorf("error in user-provided config: Invalid node role name. Supported: (%s), found: '%s'", ControlPlaneRoleName, n["role"])
 		}
 	}
 
@@ -317,8 +300,6 @@ func overwriteConfigWithCliParam(iConfig *InstallConfig, vConfig *viper.Viper, f
 		iConfig.Behavior.ShowOutput = vConfig.GetBool(flagName)
 	case AppendLogFlagName:
 		iConfig.Behavior.AppendLog = vConfig.GetBool(flagName)
-	case ImageFlagName:
-		(iConfig.getNodeByRolePanic(WorkerRoleName)).Image = vConfig.GetString(flagName)
 	case LinuxOnlyFlagName:
 		iConfig.LinuxOnly = vConfig.GetBool(flagName)
 	case ControlPlaneCPUsFlagName:
@@ -333,12 +314,6 @@ func overwriteConfigWithCliParam(iConfig *InstallConfig, vConfig *viper.Viper, f
 		iConfig.Env.RestartPostInstall = vConfig.GetString(flagName)
 	case SkipStartFlagName:
 		iConfig.Behavior.SkipStart = vConfig.GetBool(flagName)
-	case WorkerCPUsFlagName:
-		(iConfig.getNodeByRolePanic(WorkerRoleName)).Resources.Cpu = vConfig.GetString(flagName)
-	case WorkerDiskSizeFlagName:
-		(iConfig.getNodeByRolePanic(WorkerRoleName)).Resources.Disk = vConfig.GetString(flagName)
-	case WorkerMemoryFlagName:
-		(iConfig.getNodeByRolePanic(WorkerRoleName)).Resources.Memory = vConfig.GetString(flagName)
 	case WslFlagName:
 		iConfig.Behavior.Wsl = vConfig.GetBool(flagName)
 	case K8sBinFlagName:
