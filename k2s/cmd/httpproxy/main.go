@@ -7,7 +7,10 @@ package main
 import (
 	"flag"
 	"log"
+	"log/slog"
+	"net"
 	"net/http"
+	"os"
 	"path/filepath"
 	"sync"
 	"syscall"
@@ -23,6 +26,8 @@ import (
 const cliName = "httpproxy"
 
 var cleanupWg sync.WaitGroup // WaitGroup to synchronize cleanup tasks
+
+var listener net.Listener
 
 var kernel32 = syscall.NewLazyDLL("kernel32.dll")
 var setConsoleCtrlHandler = kernel32.NewProc("SetConsoleCtrlHandler")
@@ -52,22 +57,27 @@ func buildSystemStartupCmd() (string, []string, error) {
 
 func systemShutdownCmd() error {
 	// Build cmd and execute it
+	slog.Info("Build shutdown cmd and execute it")
 	systemPackageCommand, params, err := buildSystemShutdownCmd()
 	if err != nil {
 		return err
 	}
 	cmdResult, err := powershell.ExecutePsWithStructuredResult[*common.CmdResult](systemPackageCommand, "CmdResult", common.NewPtermWriter(), params...)
 	if err != nil {
+		// slog.Error("Shutdown cmd failed", "error", err)
 		return err
 	}
 	if cmdResult.Failure != nil {
+		// slog.Error("Shutdown cmd failed", "error", cmdResult.Failure)
 		return cmdResult.Failure
 	}
+	slog.Info("Shutdown cmd finalized")
 	return nil
 }
 
 func systemStartupCmd() error {
 	// Build cmd and execute it
+	slog.Info("Build startup cmd and execute it")
 	systemPackageCommand, params, err := buildSystemStartupCmd()
 	if err != nil {
 		return err
@@ -79,6 +89,7 @@ func systemStartupCmd() error {
 	if cmdResult.Failure != nil {
 		return cmdResult.Failure
 	}
+	slog.Info("Startup cmd finalized")
 	return nil
 }
 
@@ -86,29 +97,26 @@ func systemStartupCmd() error {
 func consoleCtrlHandler(ctrlType uint32) uintptr {
 	switch ctrlType {
 	case CTRL_CLOSE_EVENT:
-		log.Println("Console close event received. Attempting cleanup.")
-		// Perform cleanup tasks here
-		// time.Sleep(2 * time.Second)
-		log.Println("Cleanup finished.")
+		slog.Info("Console close event received.")
 		return 1 // Indicate that the event was handled
 	case CTRL_SHUTDOWN_EVENT:
 		cleanupWg.Add(1)
 		go func() {
 			defer cleanupWg.Done()
-			log.Println("Shutdown event received. Attempting cleanup.")
+			slog.Info("Shutdown event received: Attempting cleanup.")
 			systemShutdownCmd()
-			log.Println("Cleanup finished.")
+			slog.Info("Shutdown event received: Cleanup finished.")
 		}()
+		cleanupWg.Wait()
+		if listener != nil {
+			listener.Close()
+		}
 		return 1
 	case CTRL_C_EVENT:
-		log.Println("Ctrl+C received. Attempting cleanup.")
-		// Perform cleanup tasks here
-		log.Println("Cleanup finished.")
+		slog.Info("Ctrl+C received.")
 		return 1 // Indicate that the event was handled
 	case CTRL_BREAK_EVENT:
-		log.Println("Ctrl+Break received. Attempting cleanup.")
-		// Perform cleanup tasks here
-		log.Println("Cleanup finished.")
+		slog.Info("Ctrl+Break received.")
 		return 1 // Indicate that the event was handled
 	}
 	return 0 // Indicate that the event was not handled
@@ -136,17 +144,27 @@ func main() {
 		log.Fatalf("Error registering console control handler: %v\n", err)
 		return
 	}
-
 	// Call the system startup command
 	systemStartupCmd()
 
 	// start proxy
+	slog.Info("Start of proxy.")
 	proxyConfig := newProxyConfig(verbose, addr, forwardProxy, allowedCIDRs)
-
 	proxyHandler := newProxyHttpHandler(proxyConfig)
 
-	log.Fatal(http.ListenAndServe(*proxyConfig.ListenAddress, proxyHandler))
+	// Keep a reference to the listener
+	listener, err = net.Listen("tcp", *proxyConfig.ListenAddress)
+	if err != nil {
+		slog.Error("Failed to listen", "error", err)
+		return
+	}
+	http.Serve(listener, proxyHandler)
 
 	// Wait for cleanup tasks before exiting
+	slog.Info("Wait for exit of shutdown handler")
 	cleanupWg.Wait()
+
+	// flush all logs
+	slog.Info("Sync stderr log file")
+	os.Stderr.Sync()
 }
