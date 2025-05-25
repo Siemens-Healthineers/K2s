@@ -12,6 +12,7 @@ import (
 	"os"
 	"path"
 	"testing"
+	"time"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/addons/status"
 	"github.com/siemens-healthineers/k2s/internal/cli"
@@ -39,6 +40,7 @@ var proxy string
 var testFailed = false
 var workloadCreated = false
 var suite *framework.K2sTestSuite
+var testStepTimeout = time.Minute * 10
 
 func TestSecurity(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -46,7 +48,7 @@ func TestSecurity(t *testing.T) {
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
-	suite = framework.Setup(ctx, framework.SystemMustBeRunning, framework.EnsureAddonsAreDisabled)
+	suite = framework.Setup(ctx, framework.SystemMustBeRunning, framework.EnsureAddonsAreDisabled, framework.ClusterTestStepTimeout(testStepTimeout))
 	manifestDir = "workload/windows"
 	proxy = "http://172.19.1.1:8181"
 
