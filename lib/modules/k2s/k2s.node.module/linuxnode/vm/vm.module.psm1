@@ -44,8 +44,8 @@ function Invoke-SSHWithKey {
         # omit the "-n" param
         $params = $params[1..($params.Length - 1)]
     }
-
-    &ssh.exe $params 2>&1 | ForEach-Object { Write-Log $_ -Console -Raw }
+    write-log "rishabh 03"
+   &ssh.exe $params 2>&1 | Where-Object { $_ -notmatch '--token' -and $_ -notmatch '--discovery-token-ca-cert-hash' } | ForEach-Object { Write-Log $_ -Console -Raw }
 }
 
 function Invoke-CmdOnControlPlaneViaSSHKey(
@@ -103,7 +103,9 @@ function Invoke-CmdOnVmViaSSHKey(
     [uint16]$Retrycount = 1
     do {
         try {
+            write-log "rishabh 01"
             $output = Invoke-SSHWithKey -Command $CmdToExecute -Nested:$Nested -UserName $UserName -IpAddress $IpAddress
+            write-log "rishabh 03: $output"
             $success = ($LASTEXITCODE -eq 0)
 
             if (!$success -and !$IgnoreErrors) {
