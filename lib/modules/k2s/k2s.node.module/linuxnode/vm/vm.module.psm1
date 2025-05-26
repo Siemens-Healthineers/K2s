@@ -44,8 +44,20 @@ function Invoke-SSHWithKey {
         # omit the "-n" param
         $params = $params[1..($params.Length - 1)]
     }
-    write-log "rishabh 03"
-   &ssh.exe $params 2>&1 | Where-Object { $_ -notmatch '--token' -and $_ -notmatch '--discovery-token-ca-cert-hash' } | ForEach-Object { Write-Log $_ -Console -Raw }
+    &ssh.exe $params 2>&1 | ForEach-Object {
+    $originalLine = $_
+    if ($originalLine -like '*--token*') {
+        # Create a redacted version for logging only
+        $sanitizedLine = $originalLine `
+            -replace '(--token\s+)[^\s]+', '$1[REDACTED]' `
+            -replace '(--discovery-token-ca-cert-hash\s+sha256:)[^\s]+', '$1[REDACTED]'
+        Write-Output $originalLine
+        Write-Log $sanitizedLine -Raw
+    }
+    else {
+       Write-Log $_ -Console -Raw 
+    }
+}
 }
 
 function Invoke-CmdOnControlPlaneViaSSHKey(

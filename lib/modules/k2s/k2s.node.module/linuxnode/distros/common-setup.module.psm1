@@ -71,11 +71,11 @@ Function Set-UpComputerBeforeProvisioning {
             [switch]$IgnoreErrors = $false, [string]$RepairCmd = $null, [uint16]$Retries = 0
         )
         if ([string]::IsNullOrWhiteSpace($UserPwd)) {
-            Write-log "if"
-            (Invoke-CmdOnVmViaSSHKey -CmdToExecute $Command -UserName $UserName -IpAddress $IpAddress -Retries $Retries -RepairCmd $RepairCmd -IgnoreErrors:$IgnoreErrors).Output | Where-Object { $_ -notmatch '--token' -or $_ -notmatch '--discovery-token-ca-cert-hash' }| Write-Log
+            Write-log "Rishabh if"
+            (Invoke-CmdOnVmViaSSHKey -CmdToExecute $Command -UserName $UserName -IpAddress $IpAddress -Retries $Retries -RepairCmd $RepairCmd -IgnoreErrors:$IgnoreErrors).Output| Write-Log
         }
         else {
-            Write-log "else"
+            Write-log "rishabh else"
             (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $Command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd" -Retries $Retries -RepairCmd $RepairCmd -IgnoreErrors:$IgnoreErrors).Output | Write-Log
         }
     }
