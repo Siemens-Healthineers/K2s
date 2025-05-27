@@ -1185,7 +1185,12 @@ Function Set-UpMasterNode {
 
     &$executeRemoteCommand "sudo systemctl start crio" -IgnoreErrors
     
-    &$executeRemoteCommand "sudo kubeadm init --kubernetes-version $K8sVersion --apiserver-advertise-address $IpAddress --pod-network-cidr=$ClusterCIDR --service-cidr=$ClusterCIDR_Services" -IgnoreErrors
+    $kubeadmInitOutput = &$executeRemoteCommand "sudo kubeadm init --kubernetes-version $K8sVersion --apiserver-advertise-address $IpAddress --pod-network-cidr=$ClusterCIDR --service-cidr=$ClusterCIDR_Services" -IgnoreErrors -ReturnCommandOutput
+    if ($null -ne $kubeadmInitOutput) {
+        $redactedOutput = $kubeadmInitOutput -replace '--token\s+[a-zA-Z0-9]+\.[a-zA-Z0-9]+', '--token REDACT' `
+                                             -replace '--discovery-token-ca-cert-hash\s+sha256:[a-fA-F0-9]{64}', '--discovery-token-ca-cert-hash REDACT'
+        $redactedOutput | Write-Log
+    }
 
     Write-Log 'Copy K8s config file to user profile'
     &$executeRemoteCommand 'mkdir -p ~/.kube'
