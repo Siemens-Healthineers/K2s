@@ -45,19 +45,18 @@ function Invoke-SSHWithKey {
         $params = $params[1..($params.Length - 1)]
     }
     &ssh.exe $params 2>&1 | ForEach-Object {
-    $originalLine = $_
-    if ($originalLine -like '*--token*') {
-        # Create a redacted version for logging only
-        $sanitizedLine = $originalLine `
-            -replace '(--token\s+)[^\s]+', '$1[REDACTED]' `
-            -replace '(--discovery-token-ca-cert-hash\s+sha256:)[^\s]+', '$1[REDACTED]'
-        Write-Output $originalLine
-        Write-Log $sanitizedLine -Raw
+        $originalLine = $_
+        if ($originalLine -like '*--token*') {
+            $sanitizedLine = $originalLine `
+                -replace '--token\s+[a-z0-9]+\.[a-z0-9]+', '--token redact' `
+                -replace '--discovery-token-ca-cert-hash\s+sha256:[a-f0-9]{64}', '--discovery-token-ca-cert-hash redact'
+            Write-Output $originalLine
+            Write-Log $sanitizedLine -Raw
+        }
+        else {
+        Write-Log $_ -Console -Raw 
+        }
     }
-    else {
-       Write-Log $_ -Console -Raw 
-    }
-}
 }
 
 function Invoke-CmdOnControlPlaneViaSSHKey(
