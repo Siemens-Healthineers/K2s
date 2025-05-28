@@ -43,6 +43,11 @@ SPDX-License-Identifier: MIT
 
    or download them from [Microsoft](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist) directly and install the appropriate VC runtime.
 
+!!! tip
+    Environment variables HTTP_PROXY and HTTPS_PROXY shall not be used in Windows when creating a cluster. Usage of an HTTP proxy shall be configured in `control panel` at the `network and internet` section.
+    *K2s* will always take the proxy automatically from the Windows proxy configuration and will use that setting (in this case also local networks can be addressed).
+
+
 ## Installation via *k2s* CLI
 The *K2s* setup provides a variety of installation options. Based on the [Hosting Variants](../user-guide/hosting-variants.md), select one of the following setup variants:
 
@@ -61,9 +66,9 @@ To inspect the different install options, run:
     ```
 
 !!! tip
-    If you acquired *K2s* via [Cloning the *Git* repository](getting-k2s.md#option-2-cloning-git-repository), you might want to checkout a specific version first, e.g.:
+    If you acquired *K2s* via [Cloning the *Git* repository](getting-k2s.md#option-1-cloning-git-repository), you might want to checkout a specific version first, e.g.:
     ```console
-    git checkout tags/v1.1.1
+    git checkout tags/v1.4.0
     ```
 
 !!! note
@@ -99,7 +104,7 @@ Instead of assembling many command-line parameters/flags to customize the instal
 To create a user-defined configuration for any of the hosting variants, take one of the corresponding [Base Configuration Files](https://github.com/Siemens-Healthineers/K2s/tree/main/k2s/cmd/k2s/cmd/install/config/embed){target="_blank"} as a template.
 
 ### Online vs. Offline
-Downloading all dependencies (i.e. binaries) on-the-fly is referred to as *online* installation, whereas *offline* refers to an installation package containing parts of or all the dependencies. If *K2s* was acquired via [Downloading the Official Release Package](getting-k2s.md#option-1-downloading-official-release-package), parts of the dependencies are already available locally. If an offline package was create according to [Creating Offline Package](creating-offline-package.md), all dependencies are available offline.
+Downloading all dependencies (i.e. binaries) on-the-fly is referred to as *online* installation, whereas *offline* refers to an installation package containing parts of or all the dependencies. If *K2s* was acquired via [Downloading the Official Release Package](getting-k2s.md#option-2-downloading-official-release-package), parts of the dependencies are already available locally. If an offline package was create according to [Creating Offline Package](creating-offline-package.md), all dependencies are available offline.
 
 As per default, the *k2s* CLI keeps downloaded files as well as the *Linux*-based control-plane image and reuses them. To change this behavior, use the following CLI flags (they apply to all installation variants[^1]).
 

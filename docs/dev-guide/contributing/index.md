@@ -37,7 +37,7 @@ The codebase structure looks like the following:
 └── ...
 ```
 
-1. [Clone the *Git* Repository](../../op-manual/getting-k2s.md#option-2-cloning-git-repository)
+1. [Clone the *Git* Repository](../../op-manual/getting-k2s.md#option-1-cloning-git-repository)
 2. Make your changes locally, adhering to the [Licensing Obligations](licensing.md)
 3. [Build Locally](building-locally.md)
 4. Create [Automated Tests](automated-testing.md) and execute them successfully
