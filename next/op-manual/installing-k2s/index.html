@@ -1915,6 +1915,11 @@ SPDX-License-Identifier: MIT
 </ul>
 <p><code>choco install vcredist140 -y</code></p>
 <p>or download them from <a href="https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist">Microsoft</a> directly and install the appropriate VC runtime.</p>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>Environment variables HTTP_PROXY and HTTPS_PROXY shall not be used in Windows when creating a cluster. Usage of an <abbr title="Hypertext Transfer Protocol">HTTP</abbr> proxy shall be configured in <code>control panel</code> at the <code>network and internet</code> section.
+<em>K2s</em> will always take the proxy automatically from the Windows proxy configuration and will use that setting (in this case also local networks can be addressed).</p>
+</div>
 <h2 id="installation-via-k2s-cli">Installation via <em>k2s</em> <abbr title="Command-Line Interface">CLI</abbr></h2>
 <p>The <em>K2s</em> setup provides a variety of installation options. Based on the <a href="../../user-guide/hosting-variants/">Hosting Variants</a>, select one of the following setup variants:</p>
 <ul>
@@ -1932,8 +1937,8 @@ SPDX-License-Identifier: MIT
 </div>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
-<p>If you acquired <em>K2s</em> via <a href="../getting-k2s/#option-2-cloning-git-repository">Cloning the <em>Git</em> repository</a>, you might want to checkout a specific version first, e.g.:
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="go">git checkout tags/v1.1.1</span>
+<p>If you acquired <em>K2s</em> via <a href="../getting-k2s/#option-1-cloning-git-repository">Cloning the <em>Git</em> repository</a>, you might want to checkout a specific version first, e.g.:
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="go">git checkout tags/v1.4.0</span>
 </code></pre></div></p>
 </div>
 <div class="admonition note">
@@ -1977,7 +1982,7 @@ Start the installation passing this config:
 </div>
 <p>To create a user-defined configuration for any of the hosting variants, take one of the corresponding <a href="https://github.com/Siemens-Healthineers/K2s/tree/main/k2s/cmd/k2s/cmd/install/config/embed" target="_blank">Base Configuration Files</a> as a template.</p>
 <h3 id="online-vs-offline">Online vs. Offline</h3>
-<p>Downloading all dependencies (i.e. binaries) on-the-fly is referred to as <em>online</em> installation, whereas <em>offline</em> refers to an installation package containing parts of or all the dependencies. If <em>K2s</em> was acquired via <a href="../getting-k2s/#option-1-downloading-official-release-package">Downloading the Official Release Package</a>, parts of the dependencies are already available locally. If an offline package was create according to <a href="../creating-offline-package/">Creating Offline Package</a>, all dependencies are available offline.</p>
+<p>Downloading all dependencies (i.e. binaries) on-the-fly is referred to as <em>online</em> installation, whereas <em>offline</em> refers to an installation package containing parts of or all the dependencies. If <em>K2s</em> was acquired via <a href="../getting-k2s/#option-2-downloading-official-release-package">Downloading the Official Release Package</a>, parts of the dependencies are already available locally. If an offline package was create according to <a href="../creating-offline-package/">Creating Offline Package</a>, all dependencies are available offline.</p>
 <p>As per default, the <em>k2s</em> <abbr title="Command-Line Interface">CLI</abbr> keeps downloaded files as well as the <em>Linux</em>-based control-plane image and reuses them. To change this behavior, use the following <abbr title="Command-Line Interface">CLI</abbr> flags (they apply to all installation variants<sup id="fnref:1"><a class="footnote-ref" href="#fn:1">1</a></sup>).</p>
 <p>To delete all downloaded binaries and the control-plane image after installation, run:
 <div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="go">&lt;repo&gt;\k2s.exe install -d</span>

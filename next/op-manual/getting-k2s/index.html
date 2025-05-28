@@ -867,18 +867,18 @@ You're not viewing the latest release version.
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#option-1-downloading-official-release-package" class="md-nav__link">
+  <a href="#option-1-cloning-git-repository" class="md-nav__link">
     <span class="md-ellipsis">
-      [Option 1] Downloading Official Release Package
+      [Option 1] Cloning Git Repository
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#option-2-cloning-git-repository" class="md-nav__link">
+  <a href="#option-2-downloading-official-release-package" class="md-nav__link">
     <span class="md-ellipsis">
-      [Option 2] Cloning Git Repository
+      [Option 2] Downloading Official Release Package
     </span>
   </a>
   
@@ -1717,18 +1717,18 @@ You're not viewing the latest release version.
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#option-1-downloading-official-release-package" class="md-nav__link">
+  <a href="#option-1-cloning-git-repository" class="md-nav__link">
     <span class="md-ellipsis">
-      [Option 1] Downloading Official Release Package
+      [Option 1] Cloning Git Repository
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#option-2-cloning-git-repository" class="md-nav__link">
+  <a href="#option-2-downloading-official-release-package" class="md-nav__link">
     <span class="md-ellipsis">
-      [Option 2] Cloning Git Repository
+      [Option 2] Downloading Official Release Package
     </span>
   </a>
   
@@ -1766,8 +1766,8 @@ SPDX-License-Identifier: MIT
 <h1 id="getting-k2s">Getting K2s</h1>
 <p><em>K2s</em> can be acquired in two different ways, depending on the intended use:</p>
 <ul>
-<li><a href="#option-1-downloading-official-release-package">Option 1: Downloading Official Release Package</a> for e.g. use in development environments, test systems or production scenarios.</li>
-<li><a href="#option-2-cloning-git-repository">Option 2: Cloning Git Repository</a> for development of <em>K2s</em> or making use of the latest (potentially unstable) features. All dependencies get downloaded during the installation process.</li>
+<li><a href="#option-1-cloning-git-repository">Option 1: Cloning Git Repository</a> for development of <em>K2s</em> or making use of the latest (potentially unstable) features. All dependencies get downloaded during the installation process.</li>
+<li><a href="#option-2-downloading-official-release-package">Option 2: Downloading Official Release Package</a> for e.g. use in development environments, test systems or production scenarios.</li>
 </ul>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -1791,23 +1791,29 @@ SPDX-License-Identifier: MIT
 <p class="admonition-title">Tip</p>
 <p>Due to legal/license considerations, <em>K2s</em> cannot provide a full offline installation package for e.g. air-gap scenarios out-of-the-box, but you can create one yourself locally, see <a href="../creating-offline-package/">Creating an Offline Package</a>.</p>
 </div>
-<h2 id="option-1-downloading-official-release-package">[Option 1] Downloading Official Release Package</h2>
-<p>Download the latest released and officially cleared <em>K2s</em> version from <a href="https://github.com/Siemens-Healthineers/K2s/releases" target="_blank"><em>K2s</em> Releases</a>.</p>
+<h2 id="option-1-cloning-git-repository">[Option 1] Cloning <em>Git</em> Repository</h2>
+<p>To clone the Git repository into a new folder of your choice, run:
+<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="go">mkdir c:\myFolder; cd c:\myFolder</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="go">git clone https://github.com/Siemens-Healthineers/K2s .</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="go">git checkout tags/v1.4.0</span>
+</code></pre></div>
+The repo is now ready to be used.
+Proceed with the installation, see <a href="../installing-k2s/">Installing <em>K2s</em></a>.</p>
+<h2 id="option-2-downloading-official-release-package">[Option 2] Downloading Official Release Package</h2>
+<p>Download the latest released and officially cleared <em>K2s</em> version from <a href="https://github.com/Siemens-Healthineers/K2s/releases" target="_blank"><em>K2s</em> Releases</a>.
+Please move the package to a folder on your drive from the windows downloads folder. </p>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
 <p>Please make sure to check <em>Unblock</em> in the file properties dialog before extracting the zip file (if this option is available):<br/>
 <img alt="Unblock Zip Package" src="../assets/UnblockZipPackage.png" /></p>
 </div>
-<p>Extract the zip file to a target folder of your choice (e.g. <code>c:\target-dir</code>) and proceed with the installation, see <a href="../installing-k2s/">Installing <em>K2s</em></a>.</p>
+<p>Extract the zip file to a target folder of your choice (e.g. <code>c:\target-dir</code>).
+Remove the read-only attributes on the entire folder in an recursive way.
+Proceed with the installation, see <a href="../installing-k2s/">Installing <em>K2s</em></a>.</p>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
 <p>It is recommended to install <em>K2s</em> to the <em>Windows</em> system drive (most likely <code>C:\</code>), because some 3rd-party components might assume that <code>C:\</code> is the <em>Windows</em> host's system drive, e.g. <em>Windows</em>-based containers running in <em>host mode</em>.</p>
 </div>
-<h2 id="option-2-cloning-git-repository">[Option 2] Cloning <em>Git</em> Repository</h2>
-<p>To clone the Git repository into a new folder of your choice, run:
-<div class="highlight"><span class="filename">Bash Session</span><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="go">mkdir c:\myFolder; cd c:\myFolder</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="go">git clone https://github.com/Siemens-Healthineers/K2s .</span>
-</code></pre></div></p>
 <!--
 SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 SPDX-License-Identifier: MIT
