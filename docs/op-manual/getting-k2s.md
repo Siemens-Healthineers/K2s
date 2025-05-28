@@ -6,8 +6,8 @@ SPDX-License-Identifier: MIT
 # Getting K2s
 *K2s* can be acquired in two different ways, depending on the intended use:
 
-- [Option 1: Cloning Git Repository](#option-2-cloning-git-repository) for development of *K2s* or making use of the latest (potentially unstable) features. All dependencies get downloaded during the installation process.
-- [Option 2: Downloading Official Release Package](#option-1-downloading-official-release-package) for e.g. use in development environments, test systems or production scenarios.
+- [Option 1: Cloning Git Repository](#option-1-cloning-git-repository) for development of *K2s* or making use of the latest (potentially unstable) features. All dependencies get downloaded during the installation process.
+- [Option 2: Downloading Official Release Package](#option-2-downloading-official-release-package) for e.g. use in development environments, test systems or production scenarios.
 
 !!! note
     The target installation folder must fulfill the following requirements:
