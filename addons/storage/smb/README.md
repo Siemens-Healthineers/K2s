@@ -23,18 +23,36 @@ k2s addons enable storage smb
 
 ## Shared folder
 
-The smb share is available under the following paths.
+The SMB share folder mappings can be configured in the SmbStorage.json file located at: @(../../../K2s/addons/storage/smb/config/SmbStorage.json)
+This configuration allows the definition of multiple shared folder pairs between Windows and Linux environments.
 
-### Windows
+By default, the configuration contains a single shared folder mapping as shown below:
 
-```
-C:\k8s-smb-share
-```
+                [
+                    {
+                        "winMountPath": "C:\\k8s-smb-share",
+                        "linuxMountPath": "/mnt/k8s-smb-share",
+                        "storageClassName": "smb"
+                    }
+                ]
 
-### Linux
-```
-/mnt/smb/k8s-smb-share
-```
+To enable multiple shared folders, the configuration can be extended as follows. You may customize the folder names and paths based on your requirements.
+Ensure each shared folder mapping includes a unique storageClassName to avoid conflicts in your k2s environment.
   
+                  [
+                      {
+                          "winMountPath": "C:\\k8s-smb-share1",
+                          "linuxMountPath": "/mnt/k8s-smb-share1",
+                          "storageClassName": "smb1"
+                      }
+                      {
+                          "winMountPath": "C:\\k8s-smb-share2",
+                          "linuxMountPath": "/mnt/k8s-smb-share2",
+                          "storageClassName": "smb2"
+                      }
+                  ]
+
+
+ 
 ## Examples
 - [Example Workloads](../../../k2s/test/e2e/addons/storage/workloads/)
