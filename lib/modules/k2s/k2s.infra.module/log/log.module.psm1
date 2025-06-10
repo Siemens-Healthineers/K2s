@@ -97,10 +97,11 @@ function Write-ToLogFile {
         $logDir = Split-Path -Path $k2sLogFile
         mkdir -Force $logDir | Out-Null
     }
+    
+$logfileMessagePadded = $LogFileMessage.PadRight(2)
 
-    # Add separator and format log entry
-    $formattedMessage = @"
-[$Timestamp] | Caller: $Caller | Message: $LogFileMessage
+$formattedMessage = @"
+[$Timestamp] | Msg: $logfileMessagePadded | From: $Caller
 "@
 
 
@@ -299,7 +300,6 @@ function Write-ProgressMessage {
     )
 
     Write-Host $ConsoleMessage -NoNewline
-    # Use the new Write-ToLogFile function
     Write-ToLogFile -LogFileMessage $LogFileMessage -Timestamp $Timestamp -Caller $Caller
 }
 
@@ -361,7 +361,9 @@ function Get-LogFilePathPart {
 function Save-k2sLogDirectory {
     param (
         [Parameter(Mandatory = $false, HelpMessage = 'Remove var folder after saving logs')]
-        [switch] $RemoveVar = $false
+        [switch] $RemoveVar = $false,
+        [Parameter(Mandatory = $false, HelpMessage = 'Custom var log directory for testing')]
+        [string] $VarLogDirectory = 'C:\var\log'
     )
 
     if (!(Test-Path "$env:TEMP")) {
@@ -369,7 +371,7 @@ function Save-k2sLogDirectory {
     }
 
     $destinationFolder = "$env:TEMP\k2s_log_$(get-date -f yyyyMMdd_HHmmss)"
-    Copy-Item -Path 'C:\var\log' -Destination $destinationFolder -Force -Recurse
+    Copy-Item -Path $VarLogDirectory -Destination $destinationFolder -Force -Recurse
     Compress-Archive -Path $destinationFolder -DestinationPath "$destinationFolder.zip" -CompressionLevel Optimal -Force
     Remove-Item -Path "$destinationFolder" -Force -Recurse -ErrorAction SilentlyContinue
 
@@ -378,7 +380,7 @@ function Save-k2sLogDirectory {
     if ($RemoveVar) {
         # the directory '<system drive>:\var' must be deleted (regardless of the installation drive) since
         # kubelet.exe writes hardcoded to '<system drive>:\var\lib\kubelet\device-plugins' (see '\pkg\kubelet\cm\devicemanager\manager.go' under https://github.com/kubernetes/kubernetes.git)
-        $systemDriveLetter = (Get-Item $env:SystemDrive).PSDrive.Name
+        $systemDriveLetter = (Get-Item $env:SystemDrive).PSDrive.Name       
         Remove-Item -Path "$($systemDriveLetter):\var" -Force -Recurse -ErrorAction SilentlyContinue
         if ($(Get-SystemDriveLetter) -ne "$systemDriveLetter") {
             Remove-Item -Path "$(Get-SystemDriveLetter):\var" -Force -Recurse -ErrorAction SilentlyContinue
