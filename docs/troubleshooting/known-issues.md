@@ -160,8 +160,7 @@ You can check the existing *AppLocker* rules by opening `Local Group Policy Edit
 
 ![AppLocker Rules](assets/WindowsAppLockerRules.png)
 
-If Applocker is active before installing *K2s", install of K2s will activate a rule which allows the execution of windows containers.
-If Applocker is activated after *K2s* actvation, the the rule need to be added manually:
+If Applocker is activated within *K2s* usage, the the rule need to be added manually:
 
 ```
         $appLockerRules = '.\cfg\applocker\applockerrules.xml'
