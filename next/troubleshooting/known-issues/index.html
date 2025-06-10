@@ -2335,8 +2335,7 @@ If the problem is on your local <em>Windows</em> system, use the <em>standard</e
 </code></pre></div></p>
 <p>You can check the existing <em>AppLocker</em> rules by opening <code>Local Group Policy Editor</code> by running <code>gpedit.msc</code>. You can find the rules as shown below:</p>
 <p><img alt="AppLocker Rules" src="../assets/WindowsAppLockerRules.png" /></p>
-<p>If Applocker is active before installing <em>K2s", install of K2s will activate a rule which allows the execution of windows containers.
-If Applocker is activated after </em>K2s* actvation, the the rule need to be added manually:</p>
+<p>If Applocker is activated within <em>K2s</em> usage, the the rule need to be added manually:</p>
 <div class="highlight"><span class="filename">Text Only</span><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>        $appLockerRules = &#39;.\cfg\applocker\applockerrules.xml&#39;
 <a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>        Set-AppLockerPolicy -XmlPolicy $appLockerRules -Merge
 </code></pre></div>
