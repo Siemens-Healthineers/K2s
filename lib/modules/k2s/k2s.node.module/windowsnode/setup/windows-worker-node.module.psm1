@@ -228,7 +228,7 @@ function Start-WindowsWorkerNode {
 
 function Wait-NetworkL2BridgeReady {
     Param(
-    [string] $PodSubnetworkNumber = $(throw 'Argument missing: PodSubnetworkNumber')
+        [string] $PodSubnetworkNumber = $(throw 'Argument missing: PodSubnetworkNumber')
     )
     $setupConfigRoot = Get-RootConfigk2s
     # loop to check the state of the services for Kubernetes
@@ -399,10 +399,23 @@ function Set-RoutesToKubemaster {
     # route for VM
     $ipControlPlaneCIDR = Get-ConfiguredControlPlaneCIDR
     $windowsHostIpAddress = Get-ConfiguredKubeSwitchIP
-    Write-Log "Remove obsolete route to $ipControlPlaneCIDR"
-    route delete $ipControlPlaneCIDR >$null 2>&1
-    Write-Log "Add route to host network for master CIDR:$ipControlPlaneCIDR with metric 3"
-    route -p add $ipControlPlaneCIDR $windowsHostIpAddress METRIC 3 | Out-Null 
+
+    # get the index of the master node switch
+    $ipindex = Get-MasterNodeSwitchIndex
+    if (-not $ipindex) {
+        Write-Log 'No index found for master node switch, set routes to kubemaster with no interface index'
+        Write-Log "Remove obsolete route to $ipControlPlaneCIDR"
+        route delete $ipControlPlaneCIDR >$null 2>&1
+        Write-Log "Add route to host network for master CIDR:$ipControlPlaneCIDR with metric 3"
+        route -p add $ipControlPlaneCIDR $windowsHostIpAddress METRIC 3 | Out-Null 
+    }
+    else {
+        Write-Log "Index for master node switch: $ipindex"
+        Write-Log "Remove obsolete route to $ipControlPlaneCIDR"
+        route delete $ipControlPlaneCIDR >$null 2>&1
+        Write-Log "Add route to host network for master CIDR:$ipControlPlaneCIDR with metric 3"
+        route -p add $ipControlPlaneCIDR $windowsHostIpAddress METRIC 3 IF $ipindex | Out-Null 
+    }
 }
 
 function Set-RoutesToLinuxWorkloads {
