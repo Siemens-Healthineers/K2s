@@ -1,14 +1,21 @@
 # SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 # SPDX-License-Identifier: MIT
 
-# Load the module to be tested
-Import-Module "$PSScriptRoot\log.module.psm1"
+BeforeAll {
+    $module = "$PSScriptRoot\log.module.psm1"
 
+    $moduleName = (Import-Module $module -PassThru -Force).Name
+}
 
 Describe "Reset-LogFile" {
     BeforeEach {
         $mockLogFile = "$env:TEMP\mock.log"
-        $global:k2sLogFile = $mockLogFile
+        InModuleScope $moduleName {
+            $script:k2sLogFile = "$env:TEMP\mock.log"
+        }
+        if (Test-Path $mockLogFile) {
+            Remove-Item -Path $mockLogFile -Force -ErrorAction SilentlyContinue
+        }
         New-Item -ItemType File -Path $mockLogFile | Out-Null
     }
 
@@ -17,12 +24,20 @@ Describe "Reset-LogFile" {
     }
 
     It "should delete the log file when AppendLogFile is false" {
+        # Arrange
+        # (Setup done in BeforeEach)
+        # Act
         Reset-LogFile -AppendLogFile:$false
+        # Assert
         Test-Path $mockLogFile | Should -Be $false
     }
 
     It "should not delete the log file when AppendLogFile is true" {
+        # Arrange
+        # (Setup done in BeforeEach)
+        # Act
         Reset-LogFile -AppendLogFile:$true
+        # Assert
         Test-Path $mockLogFile | Should -Be $true
     }
 }
@@ -30,7 +45,13 @@ Describe "Reset-LogFile" {
 Describe "Get-k2sLogDirectory" {
     BeforeEach {
         $mockLogFile = "$env:TEMP\mock.log"
-        $global:k2sLogFile = $mockLogFile
+        InModuleScope $moduleName {
+            $script:k2sLogFile = "$env:TEMP\mock.log"
+        }
+        if (Test-Path $mockLogFile) {
+            Remove-Item -Path $mockLogFile -Force -ErrorAction SilentlyContinue
+        }
+        New-Item -ItemType File -Path $mockLogFile | Out-Null
     }
 
     AfterEach {
@@ -38,7 +59,11 @@ Describe "Get-k2sLogDirectory" {
     }
 
     It "should return the log directory path" {
+        # Arrange
+        # (Setup done in BeforeEach)
+        # Act
         $result = Get-k2sLogDirectory
+        # Assert
         $result | Should -Be (Split-Path -Path $mockLogFile -Parent)
     }
 }
@@ -46,7 +71,13 @@ Describe "Get-k2sLogDirectory" {
 Describe "Get-LogFilePath" {
     BeforeEach {
         $mockLogFile = "$env:TEMP\mock.log"
-        $global:k2sLogFile = $mockLogFile
+        InModuleScope $moduleName {
+            $script:k2sLogFile = "$env:TEMP\mock.log"
+        }
+        if (Test-Path $mockLogFile) {
+            Remove-Item -Path $mockLogFile -Force -ErrorAction SilentlyContinue
+        }
+        New-Item -ItemType File -Path $mockLogFile | Out-Null
     }
 
     AfterEach {
@@ -54,7 +85,11 @@ Describe "Get-LogFilePath" {
     }
 
     It "should return the log file path" {
+        # Arrange
+        # (Setup done in BeforeEach)
+        # Act
         $result = Get-LogFilePath
+        # Assert
         $result | Should -Be $mockLogFile
     }
 }
@@ -62,33 +97,49 @@ Describe "Get-LogFilePath" {
 Describe "Save-k2sLogDirectory" {
     BeforeEach {
         $mockVarLogDir = "$env:TEMP\mock_var_log"
-        $mockLogFile = "$mockVarLogDir\k2s.log"
-        $global:k2sLogFile = $mockLogFile
-
-        # Create mock log directory and file
+        $mockLogFile = Join-Path -Path $mockVarLogDir -ChildPath "mock.log"
+        InModuleScope $moduleName {
+            $k2sLogFile = "$mockLogFile"
+        }
+        if ((Test-Path $mockLogFile) -or (Test-Path $mockVarLogDir)) {
+            Remove-Item -Path $mockVarLogDir -Force -Recurse -ErrorAction SilentlyContinue
+            Remove-Item -Path $mockLogFile -Force -ErrorAction SilentlyContinue
+        }
         New-Item -ItemType Directory -Path $mockVarLogDir | Out-Null
         New-Item -ItemType File -Path $mockLogFile | Out-Null
     }
 
     AfterEach {
-        Remove-Item -Path "$env:TEMP\k2s_log_*" -Force -Recurse -ErrorAction SilentlyContinue
-        Remove-Item -Path "$env:TEMP\mock_var_log" -Force -Recurse -ErrorAction SilentlyContinue
+        Remove-Item -Path "$zipFilePath" -Force -ErrorAction SilentlyContinue
+        Remove-Item -Path "$mockVarLogDir" -Force -Recurse -ErrorAction SilentlyContinue
     }
 
     It "should back up logs to a zip file in the TEMP directory" {
-        Save-k2sLogDirectory -VarLogDirectory "$env:TEMP\mock_var_log"
-        $backupZip = Get-ChildItem -Path "$env:TEMP" -Filter "k2s_log_*.zip"
-        $backupZip | Should -Not -BeNullOrEmpty
-    }   
+        # Arrange
+        # (Setup done in BeforeEach)
+        # Act
+        $output = & {
+            Save-k2sLogDirectory -VarLogDirectory "$mockVarLogDir"
+        } *>&1 # Capture console output
+
+        # Extract the zip file name from the output message
+        $zipFileName = $output -match "Logs backed up in (.+\.zip)" | Out-Null
+        $zipFilePath = $matches[1]
+
+        # Assert
+        Test-Path $zipFilePath | Should -Be $true
+    }
 }
 
 Describe "Write-Log Function Tests" {
     BeforeEach {
-        # Mock the log file path
         $mockLogFile = "$env:TEMP\mock.log"
-        $global:k2sLogFile = $mockLogFile
-
-        # Create the mock log file
+        InModuleScope $moduleName {
+            $script:k2sLogFile = "$env:TEMP\mock.log"
+        }
+        if (Test-Path $mockLogFile) {
+            Remove-Item -Path $mockLogFile -Force -ErrorAction SilentlyContinue
+        }
         New-Item -ItemType File -Path $mockLogFile | Out-Null
     }
 
@@ -100,68 +151,66 @@ Describe "Write-Log Function Tests" {
     It "should write a message to the log file" {
         # Arrange
         $message = "Test log message"
-
         # Act
         Write-Log -Messages $message
-
         # Assert
         $logContent = Get-Content -Path $mockLogFile
         $logContent | Should -Match "\| Msg: Test log message \|"
-    }  
+    }
 
     It "should write a message to the console with specific format when -Console is used" {
         # Arrange
         $message = "Test console message"
         $expectedFormat = "\[\d{2}:\d{2}:\d{2}\] Test console message"
-
         # Act
         $output = & {
             Write-Log -Messages $message -Console
         } *>&1 # Capture console output
-
         # Assert
         $output | Should -Match $expectedFormat
         $logContent = Get-Content -Path $mockLogFile
         $logContent | Should -Match "\| Msg: Test console message \|"
     }
 
-    InModuleScope log.module {
-        It "should call Write-Host -NoNewline when Write-Log is called with -Progress -Console" {
-            # Arrange
+    It "should call Write-Host -NoNewline when Write-Log is called with -Progress -Console" {
+        # Arrange
+        InModuleScope $moduleName {
             $progressMessage = "ProgressTest"
             Mock Write-Host { } -ModuleName 'log.module'
-
             # Act
             Write-Log -Messages $progressMessage -Progress -Console
             Write-Log -Messages $progressMessage -Progress -Console
-
-            # Assert           
+            # Assert
             Assert-MockCalled Write-Host -Times 2 -Exactly -ParameterFilter {
                 $NoNewline -eq $true -and
                 $Object -eq $progressMessage
             }
         }
+    }
 
-        It "should output the raw message when -Raw is used" {
+    It "should output the raw message when -Raw is used" {
         # Arrange
-        $msg = "raw message"
-        # Act
-        $output = & {
-            Write-ConsoleMessage -Message $msg -ConsoleMessage "ignored" -LogFileMessage "ignored" -Raw
+        InModuleScope $moduleName {
+            $msg = "raw message"
+            # Act
+            $output = & {
+                Write-ConsoleMessage -Message $msg -ConsoleMessage "ignored" -LogFileMessage "ignored" -Raw
+            }
+            # Assert
+            $output | Should -Be $msg
         }
-        # Assert
-        $output | Should -Be $msg
-        }
+    }
 
-        It "should output the ssh-formatted message when -Ssh is used" {
+    It "should output the ssh-formatted message when -Ssh is used" {
         # Arrange
-        $msg = "ssh message"
-        # Act
-        $output = & {
-            Write-ConsoleMessage -Message $msg -ConsoleMessage "ignored" -LogFileMessage "ignored" -Ssh
-        }
-        # Assert
-        $output | Should -Be "#ssh#$msg"
+        InModuleScope $moduleName {
+            $msg = "ssh message"
+            # Act
+            $output = & {
+                Write-ConsoleMessage -Message $msg -ConsoleMessage "ignored" -LogFileMessage "ignored" -Ssh
+            }
+            # Assert
+            $output | Should -Be "#ssh#$msg"
         }
     }
 }
