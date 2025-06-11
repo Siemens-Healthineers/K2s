@@ -96,7 +96,7 @@ function New-ControlPlaneNodeOnNewVM {
     Remove-ControlPlaneAccessViaUserAndPwd
 
     $addToControlPlane = {
-        Write-Host ""
+        Write-Host ''
     }
 
     $masterNodeParams = @{
@@ -292,7 +292,7 @@ function Start-ControlPlaneNodeOnNewVM {
     Add-DnsServer $switchname
 
     # route for VM
-    Set-RoutesToKubemaster
+    # Set-RoutesToKubemaster
 
     Wait-ForSSHConnectionToLinuxVMViaSshKey
 

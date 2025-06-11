@@ -401,21 +401,21 @@ function Set-RoutesToKubemaster {
     $windowsHostIpAddress = Get-ConfiguredKubeSwitchIP
 
     # get the index of the master node switch
-    $ipindex = Get-MasterNodeSwitchIndex
-    if (-not $ipindex) {
-        Write-Log 'No index found for master node switch, set routes to kubemaster with no interface index'
-        Write-Log "Remove obsolete route to $ipControlPlaneCIDR"
-        route delete $ipControlPlaneCIDR >$null 2>&1
-        Write-Log "Add route to host network for master CIDR:$ipControlPlaneCIDR with metric 3"
-        route -p add $ipControlPlaneCIDR $windowsHostIpAddress METRIC 3 | Out-Null 
-    }
-    else {
-        Write-Log "Index for master node switch: $ipindex"
-        Write-Log "Remove obsolete route to $ipControlPlaneCIDR"
-        route delete $ipControlPlaneCIDR >$null 2>&1
-        Write-Log "Add route to host network for master CIDR:$ipControlPlaneCIDR with metric 3"
-        route -p add $ipControlPlaneCIDR $windowsHostIpAddress METRIC 3 IF $ipindex | Out-Null 
-    }
+    # $ipindex = Get-MasterNodeSwitchIndex
+    # if (-not $ipindex) {
+    Write-Log 'No index found for master node switch, set routes to kubemaster with no interface index'
+    Write-Log "Remove obsolete route to $ipControlPlaneCIDR"
+    route delete $ipControlPlaneCIDR >$null 2>&1
+    Write-Log "Add route to host network for master CIDR:$ipControlPlaneCIDR with metric 3"
+    route -p add $ipControlPlaneCIDR $windowsHostIpAddress METRIC 3 | Out-Null 
+    # }
+    # else {
+    #     Write-Log "Index for master node switch: $ipindex"
+    #     Write-Log "Remove obsolete route to $ipControlPlaneCIDR"
+    #     route delete $ipControlPlaneCIDR >$null 2>&1
+    #     Write-Log "Add route to host network for master CIDR:$ipControlPlaneCIDR with metric 3"
+    #     route -p add $ipControlPlaneCIDR $windowsHostIpAddress METRIC 3 IF $ipindex | Out-Null 
+    # }
 }
 
 function Set-RoutesToLinuxWorkloads {
@@ -457,7 +457,7 @@ function Set-RoutesToWindowsWorkloads {
 }
 
 function Repair-K2sRoutes {
-    Set-RoutesToKubemaster 
+    # Set-RoutesToKubemaster 
     Set-RoutesToLinuxWorkloads
     Set-RoutesToWindowsWorkloads
     # TODO: add routes for additional nodes
