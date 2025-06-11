@@ -19,6 +19,7 @@ import (
 	"github.com/siemens-healthineers/k2s/internal/core/users/k8s"
 	"github.com/siemens-healthineers/k2s/internal/core/users/k8s/cluster"
 	"github.com/siemens-healthineers/k2s/internal/core/users/k8s/kubeconfig"
+	"github.com/siemens-healthineers/k2s/internal/core/users/k8s/kubectl"
 	"github.com/siemens-healthineers/k2s/internal/core/users/winusers"
 	bkc "github.com/siemens-healthineers/k2s/internal/k8s/kubeconfig"
 )
@@ -41,7 +42,7 @@ type usersManagement struct {
 }
 
 type kubeconfWriterFactory struct {
-	exec common.CmdExecutor
+	kubectl common.Kubectl
 }
 
 type nodeAccess struct {
@@ -55,9 +56,9 @@ func DefaultUserProvider() UserProvider {
 	return winusers.NewWinUserProvider()
 }
 
-func NewUsersManagement(cfg config.ConfigReader, cmdExecutor common.CmdExecutor, userProvider UserProvider) (*usersManagement, error) {
+func NewUsersManagement(cfg config.ConfigReader, cmdExecutor common.CmdExecutor, userProvider UserProvider, installDir string) (*usersManagement, error) {
 	kubeconfigWriterFactory := &kubeconfWriterFactory{
-		exec: cmdExecutor,
+		kubectl: kubectl.NewKubectl(installDir, cmdExecutor),
 	}
 
 	sshOptions := ssh.ConnectionOptions{
@@ -85,7 +86,7 @@ func NewUsersManagement(cfg config.ConfigReader, cmdExecutor common.CmdExecutor,
 }
 
 func (k *kubeconfWriterFactory) NewKubeconfigWriter(filePath string) k8s.KubeconfigWriter {
-	return kubeconfig.NewKubeconfigWriter(filePath, k.exec)
+	return kubeconfig.NewKubeconfigWriter(filePath, k.kubectl)
 }
 
 func (e UserNotFoundErr) Error() string {

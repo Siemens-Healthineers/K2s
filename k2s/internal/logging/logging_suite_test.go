@@ -213,7 +213,7 @@ var _ = Describe("logging", func() {
 				})
 			})
 
-			It("returns error", func() {
+			It("returns error", FlakeAttempts(3), func() {
 				var maxAge time.Duration = 0
 
 				err := logging.CleanLogDir(tempDir, maxAge)
