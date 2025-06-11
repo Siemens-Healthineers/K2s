@@ -493,9 +493,10 @@ function Wait-ForK8sSecret {
     $startTime = Get-Date
     $endTime = $startTime.AddSeconds($TimeoutSeconds)
 
+    $kubeToolsPath = Get-KubeToolsPath
     while ((Get-Date) -lt $endTime) {
         try {
-            $secret = kubectl get secret $SecretName -n $Namespace --ignore-not-found
+            $secret = &"$kubeToolsPath\kubectl.exe" get secret $SecretName -n $Namespace --ignore-not-found
             if ($secret) {
                 Write-Log "Secret '$SecretName' is available." -Console
                 return $true
