@@ -144,6 +144,8 @@ function Write-Log {
 
                 $logFileMessage = if (!$Progress) { "[$dayTimestamp] $message" } else { $message }
 
+                $logFileMessage = Protect-SensitiveInfo -InputText  $logFileMessage
+
                 if ($message -match '^\[\d{2}:\d{2}:\d{2}\]\[([^]]+)\]') {
                     if ($script:ConsoleLogging) {
                         Write-Information $message -InformationAction Continue
@@ -196,6 +198,16 @@ function Get-LogFilePath {
 
 function Get-LogFilePathPart {
     return $k2sLogFilePart
+}
+
+function Protect-SensitiveInfo {
+    param (
+        [string]$InputText
+    )
+
+    return $InputText `
+        -replace '(\btoken[:\s]+)[^\s]+', '${1}[REDACTED]' `
+        -replace '(--discovery-token-ca-cert-hash(?:\s+sha256:)?\s*)[^\s]+', '${1}[REDACTED]'
 }
 
 function Save-k2sLogDirectory {
