@@ -291,9 +291,6 @@ function Start-ControlPlaneNodeOnNewVM {
     # add DNS proxy for cluster searches
     Add-DnsServer $switchname
 
-    # route for VM
-    # Set-RoutesToKubemaster
-
     Wait-ForSSHConnectionToLinuxVMViaSshKey
 
     EnsureCni0InterfaceIsCreated -VmName $controlPlaneVMHostName -WSL:$WSL

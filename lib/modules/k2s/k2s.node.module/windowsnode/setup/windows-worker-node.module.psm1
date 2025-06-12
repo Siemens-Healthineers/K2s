@@ -396,6 +396,7 @@ function EnsureDirectoryPathExists(
 }
 
 function Set-RoutesToKubemaster {
+    # the usage of these routes was removed because windows takes care on it's own for such routes !!!
     # route for VM
     $ipControlPlaneCIDR = Get-ConfiguredControlPlaneCIDR
     $windowsHostIpAddress = Get-ConfiguredKubeSwitchIP
@@ -457,7 +458,6 @@ function Set-RoutesToWindowsWorkloads {
 }
 
 function Repair-K2sRoutes {
-    # Set-RoutesToKubemaster 
     Set-RoutesToLinuxWorkloads
     Set-RoutesToWindowsWorkloads
     # TODO: add routes for additional nodes
