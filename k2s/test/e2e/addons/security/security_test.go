@@ -810,9 +810,9 @@ var _ = Describe("'security' addon with enhanced mode and omitHydra", Ordered, f
 			HaveField("Message", gstruct.PointTo(ContainSubstring("The keycloak API is ready")))),
 		SatisfyAll(
 			HaveField("Name", "IsHydraAvailable"),
-			HaveField("Value", true),
-			HaveField("Okay", gstruct.PointTo(BeTrue())),
-			HaveField("Message", gstruct.PointTo(ContainSubstring("The hydra API is ready")))),
+			HaveField("Value", false),
+			HaveField("Okay", gstruct.PointTo(BeFalse())),
+			HaveField("Message", gstruct.PointTo(ContainSubstring("not deployed")))),
 		))
 	})
 
