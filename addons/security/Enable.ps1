@@ -361,13 +361,14 @@ try {
 		}
 		# create previous ancher secret
 		Write-Log 'Create previous anchor secret' -Console
-		$secretYaml = kubectl get secret -n cert-manager linkerd-trust-anchor -o yaml | Out-String
+        $kubeToolsPath = Get-KubeToolsPath
+		$secretYaml = &"$kubeToolsPath\kubectl.exe" get secret -n cert-manager linkerd-trust-anchor -o yaml | Out-String
 		$modifiedYaml = $secretYaml -replace 'linkerd-trust-anchor', 'linkerd-previous-anchor'
 		$filteredYamlLines = $modifiedYaml.Split("`n") | Where-Object {
 			$_ -notmatch '^\s*(resourceVersion|uid):'
 		}
 		$filteredYaml = $filteredYamlLines -join "`n"
-		$filteredYaml | kubectl apply -f -
+		$filteredYaml | &"$kubeToolsPath\kubectl.exe" apply -f -
 
 		# install linkerd
 		$linkerdYamlCRDs = Get-LinkerdConfigDirectory

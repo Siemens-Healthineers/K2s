@@ -13,14 +13,14 @@ import (
 )
 
 type kubeconfigWriter struct {
-	path string
-	exec common.CmdExecutor
+	path    string
+	kubectl common.Kubectl
 }
 
-func NewKubeconfigWriter(filePath string, cmdExecutor common.CmdExecutor) *kubeconfigWriter {
+func NewKubeconfigWriter(filePath string, kubectl common.Kubectl) *kubeconfigWriter {
 	return &kubeconfigWriter{
-		path: filePath,
-		exec: cmdExecutor,
+		path:    filePath,
+		kubectl: kubectl,
 	}
 }
 
@@ -81,7 +81,7 @@ func (k *kubeconfigWriter) execConfCmd(params ...string) error {
 	params = arrays.Insert(params, "config", 0)
 	params = append(params, "--kubeconfig", k.path)
 
-	if err := k.exec.ExecuteCmd("kubectl", params...); err != nil {
+	if err := k.kubectl.Exec(params...); err != nil {
 		return fmt.Errorf("could not execute 'kubectl config' cmd: %w", err)
 	}
 	return nil
