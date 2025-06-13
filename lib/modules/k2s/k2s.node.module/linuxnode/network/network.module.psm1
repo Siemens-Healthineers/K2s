@@ -36,6 +36,7 @@ function New-KubeSwitch() {
     # create new switch for debian VM
     Write-Log "Create internal switch $controlPlaneSwitchName"
     New-VMSwitch -Name $controlPlaneSwitchName -SwitchType Internal -MinimumBandwidthMode Weight | Out-Null
+    Wait-ForNetIpInterface -SwitchName "vEthernet ($controlPlaneSwitchName)"
     New-NetIPAddress -IPAddress $kubeSwitchIp -PrefixLength 24 -InterfaceAlias "vEthernet ($controlPlaneSwitchName)" | Out-Null
     # set connection to private because of firewall rules
     Set-NetConnectionProfile -InterfaceAlias "vEthernet ($controlPlaneSwitchName)" -NetworkCategory Private -ErrorAction SilentlyContinue
@@ -186,6 +187,25 @@ function Get-MasterNodeSwitchIndex {
     return $null
 }
 
+function Wait-ForNetIpInterface {
+        param (
+        [string]$SwitchName = $(throw 'Argument missing: SwitchName')
+    )
+    # wait for switch
+    $switchName = $SwitchName
+    Write-Log "Wait for NetIpInterface '$switchName' to be available ..."
+    $maxWaitTime = 30  # 30 seconds
+    $startTime = Get-Date
+    while (!(Get-NetIPInterface -InterfaceAlias $switchName -AddressFamily IPv4 -ErrorAction SilentlyContinue)) {
+        if ((Get-Date) -gt $startTime.AddSeconds($maxWaitTime)) {
+            throw "Switch '$switchName' not available after $maxWaitTime seconds"
+        }
+        Start-Sleep -Seconds 1
+    }
+    Write-Log "NetIpInterface '$switchName' is available"
+}
+
+
 Export-ModuleMember Get-ControlPlaneNodeDefaultSwitchName,
 Add-DnsServer, 
 New-KubeSwitch, 
@@ -196,4 +216,5 @@ Reset-DnsServer,
 Disconnect-NetworkAdapterFromVm, 
 Connect-NetworkAdapterToVm, 
 Repair-KubeSwitch,
-Get-MasterNodeSwitchIndex
+Get-MasterNodeSwitchIndex,
+Wait-ForNetIpInterface
