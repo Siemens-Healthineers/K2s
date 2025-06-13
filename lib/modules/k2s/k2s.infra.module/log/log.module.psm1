@@ -180,6 +180,8 @@ function Write-Log {
 
                 $logFileMessage = $message
                 
+                $logFileMessage = Protect-SensitiveInfo -InputText  $logFileMessage
+                
                 $consoleMessage = Format-ConsoleMessage -Message $message -Timestamp $timestamp -Progress:$Progress
                 
                 $consoleMessage = Remove-ModuleSpecificMessages -ConsoleMessage $consoleMessage
@@ -356,6 +358,16 @@ function Get-LogFilePath {
 
 function Get-LogFilePathPart {
     return $k2sLogFilePart
+}
+
+function Protect-SensitiveInfo {
+    param (
+        [string]$InputText
+    )
+
+    return $InputText `
+        -replace '(\btoken[:\s]+)[^\s]+', '${1}[REDACTED]' `
+        -replace '(--discovery-token-ca-cert-hash(?:\s+sha256:)?\s*)[^\s]+', '${1}[REDACTED]'
 }
 
 function Save-k2sLogDirectory {
