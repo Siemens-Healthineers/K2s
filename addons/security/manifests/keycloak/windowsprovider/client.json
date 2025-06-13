@@ -5,7 +5,8 @@
   "client_secret_expires_at": 0,
   "grant_types": ["authorization_code", "refresh_token"],
   "redirect_uris": [
-    "https://k2s.cluster.local/keycloak/realms/demo-app/broker/oidc/endpoint"
+    "https://k2s.cluster.local/keycloak/realms/demo-app/broker/oidc/endpoint",
+    "http://oauth2-proxy.security.svc.cluster.local:4180/oauth2/callback"
   ],
   "response_types": ["code", "id_token"],
   "scope": "openid offline",

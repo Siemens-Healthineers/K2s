@@ -209,25 +209,43 @@ try {
 		(Invoke-Kubectl -Params 'apply', '-f', $oauth2ProxyYaml).Output | Write-Log
 		Write-Log 'Waiting for oauth2-proxy pods to be available' -Console
 		$oauth2ProxyPodStatus = Wait-ForOauth2ProxyAvailable
+		if (-not $OmitHydra) {
+			Write-Log 'Hydra and login implementation is set up (not omitted).' -Console
+			# Enable Windows Users for Keycloak
+			$winSecurityStatus = $true
+			if ($keycloakPodStatus -eq $true -and $oauth2ProxyPodStatus -eq $true) {
+				if ($setupInfo.LinuxOnly -eq $false) {
+					$winSecurityStatus = Enable-WindowsSecurityDeployments
+				} else {
+					Write-Log 'Skipping Windows security deployment because of Linux only setup'
+				}
+			}
+		}
+	} else {
+		Write-Log 'Omitting keycloak setup as per flag.' -Console
+		$keycloakPodStatus = $true
+		if (-not $OmitHydra ) {
+			Write-Log 'Using Hydra as OIDC provider for oauth2-proxy' -Console
+				if ($keycloakPodStatus -eq $true) {
+					if ($setupInfo.LinuxOnly -eq $false) {
+						$winSecurityStatus = Enable-WindowsSecurityDeployments	
+						$oauth2ProxyYaml = Get-OAuth2ProxyHydraConfig
+						# Update must be invoked to enable ingress for security before applying the oauth2-proxy
+						&"$PSScriptRoot\Update.ps1"
+						(Invoke-Kubectl -Params 'apply', '-f', $oauth2ProxyYaml).Output | Write-Log
+						Write-Log 'Waiting for oauth2-proxy pods to be available' -Console
+						$oauth2ProxyPodStatus = Wait-ForOauth2ProxyAvailable
+				} else {
+					Write-Log 'Skipping Windows security deployment because of Linux only setup'
+				}
+			}
 		} else {
-			Write-Log 'Omitting keycloak and db setup as per flag.' -Console
-			$keycloakPodStatus = $true
 			$oauth2ProxyPodStatus = $true
 		}
+	}
 
 	# Hydra/login setup (conditional)
 	if (-not $OmitHydra) {
-		Write-Log 'Hydra and login implementation is set up (not omitted).' -Console
-		# Enable Windows Users for Keycloak
-		$winSecurityStatus = $true
-		if ($keycloakPodStatus -eq $true -and $oauth2ProxyPodStatus -eq $true) {
-			if ($setupInfo.LinuxOnly -eq $false) {
-				$winSecurityStatus = Enable-WindowsSecurityDeployments
-			} else {
-				Write-Log 'Skipping Windows security deployment because of Linux only setup'
-			}
-		}
-
 		# Check if all security pods are available
 		if ($keycloakPodStatus -ne $true -or $oauth2ProxyPodStatus -ne $true -or $winSecurityStatus -ne $true) {
 			$errMsg = "All security pods could not become ready. Please use kubectl describe for more details.`nInstallation of security addon failed."
