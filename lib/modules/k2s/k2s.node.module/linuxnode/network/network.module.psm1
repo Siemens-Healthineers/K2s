@@ -131,23 +131,59 @@ function Repair-KubeSwitch {
         $sw = Get-VMSwitch -Name $controlPlaneSwitchName -ErrorAction SilentlyContinue
         if ( $sw ) {
             Write-Log "Repair-KubeSwitch: KubeSwitch '$controlPlaneSwitchName' already exists, check ip to repair"
-            $ipindex = Get-NetIPAddress -InterfaceAlias '*$controlPlaneSwitchName*' -AddressFamily IPv4  -ErrorAction SilentlyContinue
+            $ipindex = Get-NetIPAddress -InterfaceAlias '*$controlPlaneSwitchName*' -AddressFamily IPv4 -ErrorAction SilentlyContinue
             if ($ipindex) {
                 Write-Log "Repair-KubeSwitch: KubeSwitch '$controlPlaneSwitchName' with IP '$($ipindex.IPAddress)' already exists, nothing to repair"
-            } else {
+            }
+            else {
                 Write-Log "Repair-KubeSwitch: KubeSwitch '$controlPlaneSwitchName' exists, but has no IP, repair it"
                 Remove-KubeSwitch
                 New-KubeSwitch
                 Connect-KubeSwitch
                 Add-DnsServer $controlPlaneSwitchName
             }
-        } else {
+        }
+        else {
             Write-Log "Repair-KubeSwitch: KubeSwitch '$controlPlaneSwitchName' does not exist, creating it"
             New-KubeSwitch
             Connect-KubeSwitch
             Add-DnsServer $controlPlaneSwitchName
         }
     }
+}
+
+function Get-MasterNodeSwitchIndex {
+    # check if switch exists
+    $sw = Get-VMSwitch -Name "*$controlPlaneSwitchName*" -ErrorAction SilentlyContinue
+    if ( -not $sw ) {
+        Write-Log "Get-MasterNodeSwitchIndex: KubeSwitch '$controlPlaneSwitchName' does not exist"
+        $sw = Get-VMSwitch -Name '*wslSwitchName*' -ErrorAction SilentlyContinue
+        if ( -not $sw ) {
+            Write-Log 'Get-MasterNodeSwitchIndex: WSL Switch does not exist'
+            return $null
+        }
+        Write-Log "Get-MasterNodeSwitchIndex: WSL Switch '$wslSwitchName' exists, using it as control plane node switch"
+        $ipindex = Get-NetIPInterface | ? InterfaceAlias -Like "*$wslSwitchName*" | ? AddressFamily -Eq IPv4 | select -expand 'ifIndex'
+        if ( -not $ipindex ) {
+            Write-Log "Get-MasterNodeSwitchIndex: No index found for control plane node '$wslSwitchName'"
+            return $null
+        }
+        Write-Log "Get-MasterNodeSwitchIndex: Index for control plane node '$wslSwitchName' is $ipindex"
+        # return index
+        return $ipindex
+    }
+    else {
+        Write-Log "Get-MasterNodeSwitchIndex: KubeSwitch '$controlPlaneSwitchName' exists"
+        $ipindex = Get-NetIPInterface | ? InterfaceAlias -Like "*$controlPlaneSwitchName*" | ? AddressFamily -Eq IPv4 | select -expand 'ifIndex'
+        if ( -not $ipindex ) {
+            Write-Log "Get-MasterNodeSwitchIndex: No index found for control plane node '$controlPlaneSwitchName'"
+            return $null
+        }
+        Write-Log "Get-MasterNodeSwitchIndex: Index for control plane node '$controlPlaneSwitchName' is $ipindex"
+        # return index
+        return $ipindex
+    }
+    return $null
 }
 
 Export-ModuleMember Get-ControlPlaneNodeDefaultSwitchName,
@@ -159,4 +195,5 @@ Get-WslSwitchName,
 Reset-DnsServer, 
 Disconnect-NetworkAdapterFromVm, 
 Connect-NetworkAdapterToVm, 
-Repair-KubeSwitch
+Repair-KubeSwitch,
+Get-MasterNodeSwitchIndex
