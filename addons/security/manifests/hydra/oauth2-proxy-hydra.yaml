@@ -68,7 +68,7 @@ data:
     cookie_secret="ZzBkN000Wm0pQkVkKUhzMk5YPntQRUw_ME1oMTZZTy0="
     cookie_secure="true"
     # Add redirect URL configuration
-    redirect_url="http://oauth2-proxy.security.svc.cluster.local:4180/oauth2/callback"
+    redirect_url="http://k2s.cluster.local/oauth2/callback"
     # Upstream config
     http_address="0.0.0.0:4180"
     upstreams="file:///dev/null"

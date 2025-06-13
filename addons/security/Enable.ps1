@@ -222,7 +222,7 @@ try {
 			}
 		}
 	} else {
-		Write-Log 'Omitting keycloak setup as per flag.' -Console
+		Write-Log 'Omitting Keycloak setup as per flag.' -Console
 		$keycloakPodStatus = $true
 		if (-not $OmitHydra ) {
 			Write-Log 'Using Hydra as OIDC provider for oauth2-proxy' -Console
@@ -241,6 +241,8 @@ try {
 			}
 		} else {
 			$oauth2ProxyPodStatus = $true
+			Write-Log 'Omitting keycloak and hydra. Please be aware that no identity provider is running' -Console
+			Write-Log 'ALL calls will be forwarded to the server without authentication and/or authorization!!!' -Console
 		}
 	}
 
