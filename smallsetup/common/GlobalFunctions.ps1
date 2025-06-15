@@ -5,9 +5,8 @@
 # load global settings
 &$PSScriptRoot\GlobalVariables.ps1
 
-$logModule = "$PSScriptRoot\..\ps-modules\log\log.module.psm1"
-#Import logging module for backward compatibility, should be removed once the migration is complete
-Import-Module $logModule
+$infraModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
+Import-Module $infraModule
 
 # GlobalFunctions.ps1
 #   reuse methods over multiple scripts

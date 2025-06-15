@@ -9,36 +9,33 @@ $infraModule = "$PSScriptRoot/../../k2s.infra.module/k2s.infra.module.psm1"
 
 Import-Module $vmModule, $setupInfoModule, $runningStateModule, $k8sApiModule, $infraModule
 
-$script = $MyInvocation.MyCommand.Name
-
 <#
- .Synopsis
-  Determines the K8s cluster status.
+.Synopsis
+Determines the K8s cluster status.
 
-  .Description
-  Gathers status information about the K8s cluster.
+.Description
+Gathers status information about the K8s cluster.
 
-  .PARAMETER ShowProgress
-  If set to $true, shows the overalls progress on operation-level.
+.PARAMETER ShowProgress
+If set to $true, shows the overalls progress on operation-level.
 
- .Example
-  Get-Status
+.Example
+Get-Status
 
- .Example
-  Get-Status -ShowProgress $true
+.Example
+Get-Status -ShowProgress $true
 
- .OUTPUTS
-  Status object
+.OUTPUTS
+Status object
 #>
 function Get-Status {
     param(
         [Parameter(Mandatory = $false)]
         [bool]
         $ShowProgress = $false
-    )
-    $function = $MyInvocation.MyCommand.Name
+    )    
 
-    Write-Log "[$script::$function] Getting status with ShowProgress='$ShowProgress'.."
+    Write-Log "Getting status with ShowProgress='$ShowProgress'.."
 
     if ($ShowProgress -eq $true) {
         Write-Progress -Activity 'Gathering status information...' -Id 1 -Status '0/4' -PercentComplete 0 -CurrentOperation 'Getting setup type'
@@ -46,7 +43,7 @@ function Get-Status {
 
     $setupInfo = Get-SetupInfo
     if ($setupInfo.Error) {
-        Write-Log "[$script::$function] Setup type invalid, returning with error='$($setupInfo.Error)'"
+        Write-Log "Setup type invalid, returning with error='$($setupInfo.Error)'"
 
         if ($ShowProgress -eq $true) {
             Write-Progress -Activity 'Gathering status information...' -Id 1 -Completed
@@ -63,7 +60,7 @@ function Get-Status {
     $status = @{RunningState = (Get-RunningState -SetupName $setupInfo.Name) }
 
     if ($status.RunningState.IsRunning -ne $true) {
-        Write-Log "[$script::$function] cluster not running, returning"
+        Write-Log "cluster not running, returning"
 
         if ($ShowProgress -eq $true) {
             Write-Progress -Activity 'Gathering status information...' -Id 1 -Completed
@@ -84,7 +81,7 @@ function Get-Status {
     $nodes = [System.Collections.ArrayList]@()
     Get-Nodes | ForEach-Object { $nodes.Add($_) | Out-Null }
 
-    Write-Log "[$script::$function] Added '$($nodes.Count)' nodes to status"
+    Write-Log "Added '$($nodes.Count)' nodes to status"
 
     if ($ShowProgress -eq $true) {
         Write-Progress -Activity 'Gathering status information...' -Id 1 -Status '4/4' -PercentComplete 95 -CurrentOperation 'Getting K8s system pods info'
@@ -93,7 +90,7 @@ function Get-Status {
     $pods = [System.Collections.ArrayList]@()
     Get-SystemPods | ForEach-Object { $pods.Add($_) | Out-Null }
 
-    Write-Log "[$script::$function] Added '$($pods.Count)' pods to status"
+    Write-Log "Added '$($pods.Count)' pods to status"
 
     $status.Nodes = $nodes
     $status.Pods = $pods
