@@ -39,6 +39,10 @@ function Get-OAuth2ProxyConfig {
     return "$PSScriptRoot\manifests\keycloak\oauth2-proxy.yaml"
 }
 
+function Get-OAuth2ProxyHydraConfig {
+    return "$PSScriptRoot\manifests\hydra\oauth2-proxy-hydra.yaml"
+}
+
 function Get-SecurityData {
     return "$PSScriptRoot\data"
 }
@@ -74,7 +78,7 @@ function Wait-ForHydraAvailable {
     while ((Get-Date) -lt $endTime) {
         try {
             Write-Log "Checking Hydra availability at $url" -Console
-            $response = & curl.exe -s -o /dev/null -w '%{http_code}' $url
+            $response = & curl.exe -s -o /dev/null -w '%{http_code}' $url --insecure
             if ($response -eq 200) {
                 Write-Log "Hydra is available at $url" -Console
                 return $true

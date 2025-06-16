@@ -58,7 +58,20 @@ if ($keycloakProp.Value -eq $true) {
     $keycloakProp.Message = 'The keycloak API is ready'
 }
 else {
-    $keycloakProp.Message = 'The keycloak API is not ready'
+    $keycloakProp.Message = 'The keycloak API is not ready or was omitted with -OmitKeycloak'
 }
 
-return $securityProp, $certManagerProp, $caRootCertificateProp, $keycloakProp, $trustManagerProp, $linkerdProp
+# Check for hydra deployment (optional)
+$hydraDeployment = (Invoke-Kubectl -Params '-n', 'security', 'get', 'deployment', 'hydra', '--ignore-not-found').Output
+$hydraAvailable = $false
+if ($hydraDeployment -and $hydraDeployment -notmatch 'NotFound') {
+    $hydraAvailable = $true
+}
+$hydraProp = @{Name = 'IsHydraAvailable'; Value = $hydraAvailable; Okay = $hydraAvailable }
+if ($hydraProp.Value -eq $true) {
+    $hydraProp.Message = 'The hydra API is ready'
+} else {
+    $hydraProp.Message = 'The hydra API is not deployed (possibly omitted with -OmitHydra)'
+}
+
+return $securityProp, $certManagerProp, $caRootCertificateProp, $keycloakProp, $hydraProp, $trustManagerProp, $linkerdProp
