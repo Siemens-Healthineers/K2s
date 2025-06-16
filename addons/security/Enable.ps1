@@ -359,7 +359,7 @@ try {
 			Write-Log $errMsg -Error
 			throw $errMsg
 		}
-		# create previous ancher secret
+		# create previous anchor secret
 		Write-Log 'Create previous anchor secret' -Console
         $kubeToolsPath = Get-KubeToolsPath
 		$secretYaml = &"$kubeToolsPath\kubectl.exe" get secret -n cert-manager linkerd-trust-anchor -o yaml | Out-String
@@ -387,21 +387,29 @@ try {
 			throw $errMsg
 		}
 
-		# update basic security pods: redis, oauth2-proxy, keycloak to be part of the service mesh
-		Write-Log "Updating redis to be part of service mesh" -Console
-		$annotations1 = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"linkerd.io/inject\":\"enabled\",\"config.linkerd.io/opaque-ports\":\"6379\"}}}}}'
-		(Invoke-Kubectl -Params 'patch', 'deployment', 'redis', '-n', 'security', '-p', $annotations1).Output | Write-Log
 		if (-not $OmitKeycloak) {
+			# update basic security pods: redis, oauth2-proxy, keycloak to be part of the service mesh
+			Write-Log "Updating redis to be part of service mesh" -Console
+			$annotations1 = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"linkerd.io/inject\":\"enabled\",\"config.linkerd.io/opaque-ports\":\"6379\"}}}}}'
+			(Invoke-Kubectl -Params 'patch', 'deployment', 'redis', '-n', 'security', '-p', $annotations1).Output | Write-Log
 			$annotations2 = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"linkerd.io/inject\":\"enabled\",\"config.linkerd.io/opaque-ports\":\"6379\"}}}}}'
 			(Invoke-Kubectl -Params 'patch', 'deployment', 'oauth2-proxy', '-n', 'security', '-p', $annotations2).Output | Write-Log
 			$annotations3 = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"linkerd.io/inject\":\"enabled\",\"config.linkerd.io/skip-outbound-ports\":\"4444\"}}}}}'
 			(Invoke-Kubectl -Params 'patch', 'deployment', 'keycloak', '-n', 'security', '-p', $annotations3).Output | Write-Log
 			$annotations4 = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"linkerd.io/inject\":\"enabled\",\"config.linkerd.io/opaque-ports\":\"5432\"}}}}}'
 			(Invoke-Kubectl -Params 'patch', 'deployment', 'postgresql', '-n', 'security', '-p', $annotations4).Output | Write-Log
+			# wait for pods to be ready
+			Write-Log 'Waiting for security pods to be ready' -Console
+			(Invoke-Kubectl -Params 'rollout', 'status', 'deployment', '-n', 'security', '--timeout', '60s').Output | Write-Log
+		} else {
+			if (-not $OmitHydra) {
+				$annotations2 = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"linkerd.io/inject\":\"enabled\",\"config.linkerd.io/opaque-ports\":\"6379\"}}}}}'
+				(Invoke-Kubectl -Params 'patch', 'deployment', 'oauth2-proxy', '-n', 'security', '-p', $annotations2).Output | Write-Log
+			}
+			else {
+				Write-Log 'Skipping security pods linker update because of OmitKeycloak and OmitHydra flags' -Console
+			}
 		}
-		# wait for pods to be ready
-		Write-Log 'Waiting for security pods to be ready' -Console
-		(Invoke-Kubectl -Params 'rollout', 'status', 'deployment', '-n', 'security', '--timeout', '60s').Output | Write-Log
 	}
 }
 catch {

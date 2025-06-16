@@ -1,7 +1,11 @@
 # SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
 #
 # SPDX-License-Identifier: MIT
-
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: security
+---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -13,12 +17,12 @@ kind: ClusterRole
 metadata:
   name: cni-plugin-role
 rules:
-  - apiGroups: [""]
-    resources: ["pods", "services", "endpoints"]
-    verbs: ["get", "list", "watch"]
-  - apiGroups: ["networking.k8s.io"]
-    resources: ["networkpolicies"]
-    verbs: ["get", "list", "watch"]
+  - apiGroups: ['']
+    resources: ['pods', 'services', 'endpoints']
+    verbs: ['get', 'list', 'watch']
+  - apiGroups: ['networking.k8s.io']
+    resources: ['networkpolicies']
+    verbs: ['get', 'list', 'watch']
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -42,3 +46,4 @@ metadata:
     kubernetes.io/service-account.name: cni-plugin-sa
 type: kubernetes.io/service-account-token
 ---
+
