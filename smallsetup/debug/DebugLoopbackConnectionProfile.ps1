@@ -13,8 +13,8 @@ Param(
 &$PSScriptRoot\..\common\GlobalVariables.ps1
 . $PSScriptRoot\..\common\GlobalFunctions.ps1
 
-$loggingModule = "$PSScriptRoot\..\ps-modules\log\log.module.psm1"
-Import-Module $loggingModule
+$infraModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
+Import-Module $infraModule
 Initialize-Logging -ShowLogs:$true
 
 # Create loopback adapter

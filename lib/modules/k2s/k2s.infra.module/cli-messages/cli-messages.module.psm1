@@ -5,8 +5,6 @@ $logModule = "$PSScriptRoot/../log/log.module.psm1"
 
 Import-Module $logModule
 
-$script = $MyInvocation.MyCommand.Name
-
 <#
 .SYNOPSIS
 Sends a message to the standard output.
@@ -29,15 +27,14 @@ function Send-ToCli {
         [string] $MessageType = $(throw 'Please specify the message type.'),
         [parameter(Mandatory = $false, HelpMessage = 'The data message as arbitrary object')]
         [object] $Message = $(throw 'Please specify the message.')
-    )
-    $function = $MyInvocation.MyCommand.Name
+    ) 
     $maxPayloadLength = 8191    
 
-    Write-Log "[$script::$function] Converting message of type '$MessageType' to JSON.."
+    Write-Log "Converting message of type '$MessageType' to JSON.."
 
     $json = ConvertTo-Json -InputObject $Message -Compress -Depth 100
 
-    Write-Log "[$script::$function] message converted"
+    Write-Log "message converted"
 
     $memoryStream = New-Object System.IO.MemoryStream
     $compressionStream = New-Object System.IO.Compression.GZipStream($memoryStream, [System.IO.Compression.CompressionMode]::Compress)
@@ -46,11 +43,11 @@ function Send-ToCli {
     $streamWriter.Write($json)
     $streamWriter.Close();
 
-    Write-Log "[$script::$function] JSON compressed"
+    Write-Log "JSON compressed"
 
     $payload = [System.Convert]::ToBase64String($memoryStream.ToArray())
 
-    Write-Log "[$script::$function] JSON base64 encoded"
+    Write-Log "JSON base64 encoded"
 
     $cliOutput = "#pm#$MessageType#$payload"
 
@@ -60,7 +57,7 @@ function Send-ToCli {
 
     Write-Output $cliOutput
 
-    Write-Log "[$script::$function] message sent via CLI"
+    Write-Log "message sent via CLI"
 }
 
 Export-ModuleMember -Function Send-ToCli
