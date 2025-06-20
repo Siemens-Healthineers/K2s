@@ -127,6 +127,40 @@ try {
                 $dirPath = Join-Path -Path $($manifest.dir.path) -ChildPath $($implementation.name)
             }
 
+            # Write-Log "Copying the content for addon $addonName from $dirPath" -Console
+            # Copy-Item -Path "$dirPath\*" -Destination "${tmpExportDir}\addons\$dirName\content" -Recurse -Force
+
+            # # Ensure $dirPath and $tmpExportDir are defined before this
+            # $dirName = Split-Path -Path $dirPath -Leaf
+            # $destinationPath = Join-Path -Path $tmpExportDir -ChildPath "addons\$dirName\content"
+
+            # # Create the destination folder if it doesn't exist
+            # New-Item -ItemType Directory -Path $destinationPath -Force | Out-Null
+
+            # # Copy the source folder (preserving its name) into the destination
+            # Copy-Item -Path $dirPath -Destination $destinationPath -Recurse -Force
+            # Write-Log "Pulling images for addon $addonName from $dirPath" -Console
+
+            #---------------------------------------
+
+            $dirName = Split-Path -Path $dirPath -Leaf
+            $destinationPath = Join-Path -Path $tmpExportDir -ChildPath "addons\$dirName\content"
+            
+            # Make sure destination is a directory
+            if (-not (Test-Path $destinationPath)) {
+                New-Item -ItemType Directory -Path $destinationPath -Force | Out-Null
+            }
+            
+            # Copy only contents of $dirPath — not the folder itself
+            Copy-Item -Path (Join-Path $dirPath '*') -Destination $destinationPath -Recurse -Force            
+            
+            Write-Log "dirname"
+            Write-Log $dirName
+            Write-Log "destinationPath"
+            Write-Log $destinationPath
+            #-----------------------------------------------
+
+            
             Write-Log "Pulling images for addon $addonName from $dirPath" -Console
 
             Write-Log '---'

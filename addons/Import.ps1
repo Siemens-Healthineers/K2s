@@ -111,6 +111,41 @@ foreach ($addon in $addonsToImport) {
     $images += $files
     Write-Log "Importing images from ${extractionFolder}\$($addon.dirName) for addon $($addon.name)" -Console
 
+     # # Define source and destination paths
+    # $sourcePath = Join-Path -Path $extractionFolder -ChildPath "$($addon.dirName)\Content\*"
+    # $destinationPath = Join-Path -Path "$PSScriptRoot\..\addons" -ChildPath $addon.name
+
+    # Write-Log "Value of  sourcePath : $($sourcePath)"
+    # Write-Log "Value of  destinationPath : $($destinationPath)"
+
+    # # Ensure the destination directory exists
+    # New-Item -ItemType Directory -Path $destinationPath -Force | Out-Null    
+
+    # # Copy only the contents of Content\ into the destination
+    # Copy-Item -Path $sourcePath -Destination $destinationPath -Recurse -Force
+ #---------------------
+    # Extract directory name from addon.dirName (e.g., "logging")
+    $dirName = $addon.name
+
+    # Define source path — where "Content" folder lives inside the extracted addon directory
+    $dirPath = Join-Path -Path $extractionFolder -ChildPath "$($addon.dirName)\Content"
+
+    # Define destination path — where contents should be copied
+    $destinationPath = Join-Path -Path "$PSScriptRoot\..\addons" -ChildPath "$dirName"
+
+    Write-Log "Value of dirPath (source): $dirPath"
+    Write-Log "Value of destinationPath : $destinationPath"
+
+    # Ensure destination exists and is a directory
+    if (-not (Test-Path $destinationPath)) {
+        New-Item -ItemType Directory -Path $destinationPath -Force | Out-Null
+    }
+
+    # Copy only contents of Content (not the Content folder itself)
+    Copy-Item -Path (Join-Path $dirPath '*') -Destination $destinationPath -Recurse -Force
+    #--------------------
+
+    
     foreach ($image in $images) {
         $importImageScript = "$PSScriptRoot\..\lib\scripts\k2s\image\Import-Image.ps1"
         if ($image.Contains('_win')) {

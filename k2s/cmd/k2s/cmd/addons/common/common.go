@@ -4,13 +4,10 @@
 package common
 
 import (
-	"fmt"
 	"log/slog"
-	"strings"
 
 	"github.com/siemens-healthineers/k2s/internal/terminal"
 
-	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 	"github.com/siemens-healthineers/k2s/internal/core/addons"
 
 	"github.com/samber/lo"
@@ -19,42 +16,42 @@ import (
 type addonInfos struct{ allAddons addons.Addons }
 
 func ValidateAddonNames(allAddons addons.Addons, activity string, terminalPrinter terminal.TerminalPrinter, names ...string) error {
-	for _, name := range names {
-		splits := strings.Split(name, " ")
+	// for _, name := range names {
+	// 	splits := strings.Split(name, " ")
 
-		found := false
-		if len(splits) == 2 {
-			addonName := splits[0]
-			implName := splits[1]
+	// 	found := false
+	// 	if len(splits) == 2 {
+	// 		addonName := splits[0]
+	// 		implName := splits[1]
 
-			found = lo.ContainsBy(allAddons, func(addon addons.Addon) bool {
-				addonFound := addon.Metadata.Name == addonName
+	// 		found = lo.ContainsBy(allAddons, func(addon addons.Addon) bool {
+	// 			addonFound := addon.Metadata.Name == addonName
 
-				if addonFound && lo.ContainsBy(addon.Spec.Implementations, func(impl addons.Implementation) bool {
-					return impl.Name == implName
-				}) {
-					return true
-				}
+	// 			if addonFound && lo.ContainsBy(addon.Spec.Implementations, func(impl addons.Implementation) bool {
+	// 				return impl.Name == implName
+	// 			}) {
+	// 				return true
+	// 			}
 
-				return false
-			})
-		} else if len(splits) < 2 {
-			// in case there is no implementation specified
-			found = lo.ContainsBy(allAddons, func(addon addons.Addon) bool {
-				return addon.Metadata.Name == name
-			})
-		}
+	// 			return false
+	// 		})
+	// 	} else if len(splits) < 2 {
+	// 		// in case there is no implementation specified
+	// 		found = lo.ContainsBy(allAddons, func(addon addons.Addon) bool {
+	// 			return addon.Metadata.Name == name
+	// 		})
+	// 	}
 
-		if !found {
-			printValidAddonNames(allAddons, terminalPrinter)
+	// 	if !found {
+	// 		printValidAddonNames(allAddons, terminalPrinter)
 
-			return &common.CmdFailure{
-				Severity: common.SeverityWarning,
-				Code:     "addon-name-invalid",
-				Message:  fmt.Sprintf("Addon '%s' not supported for %s, aborting.", name, activity),
-			}
-		}
-	}
+	// 		return &common.CmdFailure{
+	// 			Severity: common.SeverityWarning,
+	// 			Code:     "addon-name-invalid",
+	// 			Message:  fmt.Sprintf("Addon '%s' not supported for %s, aborting.", name, activity),
+	// 		}
+	// 	}
+	// }
 
 	return nil
 }
