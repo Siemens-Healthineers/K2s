@@ -67,6 +67,47 @@ function Reset-LogFile {
     }
 }
 
+function Format-ConsoleMessage {
+    param (
+        [string] $Message,
+        [string] $Timestamp,        
+        [switch] $Progress = $false
+    )
+    if ($Error) {
+        return "[$Timestamp][ERROR] $Message"
+    } elseif (-not $Progress) {
+        return "[$Timestamp] $Message"
+    } else {
+        return $Message
+    }
+}
+
+function Write-ToLogFile {
+    param (
+        [Parameter(Mandatory = $true, HelpMessage = 'The log file message to write.')]
+        [string] $LogFileMessage,
+        [Parameter(Mandatory = $false, HelpMessage = 'The timestamp for the log entry.')]
+        [string] $Timestamp ,
+        [Parameter(Mandatory = $false, HelpMessage = 'The caller information for the log entry.')]
+        [string] $Caller = $null
+    )
+
+    # Ensure the log directory exists
+    if (-not (Test-Path -Path $k2sLogFile)) {
+        $logDir = Split-Path -Path $k2sLogFile
+        mkdir -Force $logDir | Out-Null
+    }
+    
+$logfileMessagePadded = $LogFileMessage.PadRight(2)
+
+$formattedMessage = @"
+[$Timestamp] | Msg: $logfileMessagePadded | From: $Caller
+"@
+
+
+    # Write the formatted message to the log file
+    $formattedMessage | Out-File -Append -FilePath $k2sLogFile -Encoding utf8 -Force
+}
 
 <#
 .SYNOPSIS
@@ -81,10 +122,11 @@ The message
 .EXAMPLE
 Write-Log "Hello"                      ---------> Will write the message in log file: [30-10-2023 13:20:40] Hello
 Write-Log "Hello" -Console             ---------> Will write the message in log file: [30-10-2023 13:20:40] Hello and
-                                                                                      console: [10:34:53] Hello
+console: [10:34:53] Hello
 Write-Log "Hello" -Progress            ---------> Will write the message in file with no newline
 Write-Log "Hello" -Console -Progress   ---------> Will write the message in file and in console with no newline
 #>
+
 function Write-Log {
     param (
         [Parameter(Mandatory = $false, HelpMessage = 'Messages to be logged.', ValueFromPipeline = $true)]
@@ -93,28 +135,27 @@ function Write-Log {
         [switch] $Console = $false,
         [Parameter(Mandatory = $false, HelpMessage = 'This is a progress message, do not append new line in the log file.')]
         [switch] $Progress = $false,
-        [Parameter(Mandatory = $false, HelpMessage = 'This is a error message, add to log file and console as Write-Error.')]
+        [Parameter(Mandatory = $false, HelpMessage = 'This is an error message, add to log file and console as Write-Error.')]
         [switch] $Error = $false,
         [Parameter(Mandatory = $false, HelpMessage = 'Write messages to stdout using Write-Output (default is Write-Information)')]
         [switch] $Raw = $false,
         [Parameter(Mandatory = $false, HelpMessage = "Write ssh stdout messages to stdout using Write-Output (mark message with '#ssh#')")]
-        [switch] $Ssh = $false
+        [switch] $Ssh = $false,
+        [Parameter(Mandatory = $false, HelpMessage = 'Caller script name to include in log file.')]
+        [string] $Caller = $MyInvocation.ScriptName
     )
 
     Begin {
-        if ((Test-Path -Path $k2sLogFile) -eq $false) {
+        if (-not (Test-Path -Path $k2sLogFile)) {
             $logDir = Split-Path -Path $k2sLogFile
-
-            mkdir -force $logDir | Out-Null
+            mkdir -Force $logDir | Out-Null
         }
     }
 
     Process {
-
         try {
             foreach ($message in $Messages) {
-                $message = $message -replace "[`n`r]", ' '
-                $message = $message -replace "[`0]", ''
+                $message = $message -replace "[`n`r]", ' ' -replace "[`0]", ''
 
                 if ([string]::IsNullOrWhiteSpace($message) -or ($message.Trim().Length -eq 0)) {
                     continue
@@ -122,69 +163,188 @@ function Write-Log {
 
                 $dayTimestamp = [DateTime]::Now.ToString('dd-MM-yyyy HH:mm:ss')
                 $timestamp = [DateTime]::Now.ToString('HH:mm:ss')
-
-                $consoleMessage = if ($Error) { "[$timestamp][ERROR] $message" } elseif (!$Progress) { "[$timestamp] $message" } else { $message }
-
-                if ($consoleMessage -match '\[([^]]+::[^]]+)\]\s?') {
-                    # module message, eg. [11:39:19] [cli-messages.module.psm1::Send-ToCli] message converted
-                    # module message part [cli-messages.module.psm1::Send-ToCli] should not be logged
-                    $match = ($consoleMessage | Select-String -Pattern '\[([^]]+::[^]]+)\]\s?').Matches.Value
-                    $consoleMessage = $consoleMessage.Replace($match, '')
+                
+                # Get name of the caller script and function
+                $callerScript = if (![string]::IsNullOrEmpty($Caller)) {
+                    [System.IO.Path]::GetFileName($Caller)
+                } else {
+                    $null
                 }
 
+                $stack = Get-PSCallStack
+                $callingFunction = if ($stack.Count -gt 1) {
+                    $stack[1].FunctionName
+                } else {
+                    $null
+                }
+
+                $logFileMessage = $message
+                
+                $logFileMessage = Protect-SensitiveInfo -InputText  $logFileMessage
+                
+                $consoleMessage = Format-ConsoleMessage -Message $message -Timestamp $timestamp -Progress:$Progress
+                
+                $consoleMessage = Remove-ModuleSpecificMessages -ConsoleMessage $consoleMessage
+
                 if ($script:NestedLogging) {
-                    if ($Error) {
-                        Write-Error -Message $consoleMessage
-                    }
-                    else {
-                        Write-Output "[$timestamp][$env:COMPUTERNAME] $message"
-                    }
+                    Write-NestedLogging -ConsoleMessage $consoleMessage -Message $message -Timestamp $timestamp
                     return
                 }
 
-                $logFileMessage = if (!$Progress) { "[$dayTimestamp] $message" } else { $message }
-
-                $logFileMessage = Protect-SensitiveInfo -InputText  $logFileMessage
-
+                # Handle specific log message format
                 if ($message -match '^\[\d{2}:\d{2}:\d{2}\]\[([^]]+)\]') {
-                    if ($script:ConsoleLogging) {
-                        Write-Information $message -InformationAction Continue
-                    }
-                    $logFileMessage | Out-File -Append -FilePath $k2sLogFile -Encoding utf8 -Force
+                    Write-SpecificLogMessage -Message $message -LogFileMessage $logFileMessage -Timestamp $dayTimestamp -Caller "[$callerScript]($callingFunction)"
                     return
                 }
 
                 if ($Error) {
-                    "[$dayTimestamp][ERROR] $message" | Out-File -Append -FilePath $k2sLogFile -Encoding utf8 -Force
-                    Write-Error $consoleMessage
-                }
+                    Write-ErrorMessage -Message $message -ConsoleMessage $consoleMessage -DayTimestamp $dayTimestamp -Caller "[$callerScript]($callingFunction)"
+                }               
                 elseif ($Progress -and ($Console -or $script:ConsoleLogging)) {
-                    Write-Host $consoleMessage -NoNewline
-                    $logFileMessage | Out-File -Append -FilePath $k2sLogFile -Encoding utf8 -NoNewline -Force
-                }
+                    Write-ProgressMessage  -ConsoleMessage $consoleMessage -LogFileMessage $logFileMessage -Timestamp $dayTimestamp -Caller "[$callerScript]($callingFunction)"
+                }               
                 elseif ($Console -or $script:ConsoleLogging) {
-                    if ($Raw) {
-                        Write-Output $message
-                    }
-                    elseif ($Ssh) {
-                        Write-Output "#ssh#$message"
-                    }
-                    else {
-                        Write-Information $consoleMessage -InformationAction Continue
-                    }
-                    $logFileMessage | Out-File -Append -FilePath $k2sLogFile -Encoding utf8 -Force
-                }
+                    Write-ConsoleMessage  -Message $message -ConsoleMessage $consoleMessage -LogFileMessage $logFileMessage -Timestamp $dayTimestamp -Caller "[$callerScript]($callingFunction)" -Raw:$Raw -Ssh:$Ssh 
+                }             
                 else {
-                    $logFileMessage | Out-File -Append -FilePath $k2sLogFile -Encoding utf8 -Force
+                    # Use the new Write-ToLogFile function
+                    Write-ToLogFile -LogFileMessage $logFileMessage -Timestamp $dayTimestamp -Caller "[$callerScript]($callingFunction)"
                 }
             }
-        }
-        catch [System.IO.DirectoryNotFoundException] {
+        } catch [System.IO.DirectoryNotFoundException] {
             return
         }
     }
 
     End {}
+}
+
+function Write-SpecificLogMessage {
+    param (
+        [Parameter(Mandatory = $true, HelpMessage = 'The log message to process.')]
+        [string] $Message,
+        [Parameter(Mandatory = $true, HelpMessage = 'The log file message to write.')]
+        [string] $LogFileMessage,
+        [Parameter(Mandatory = $false, HelpMessage = 'The timestamp for the log entry.')]
+        [string] $Timestamp ,
+        [Parameter(Mandatory = $false, HelpMessage = 'The caller information for the log entry.')]
+        [string] $Caller = $null
+    )
+
+    if ($script:ConsoleLogging) {
+        Write-Information $Message -InformationAction Continue
+    }
+    # Use the new Write-ToLogFile function
+    Write-ToLogFile -LogFileMessage $logFileMessage -Timestamp $Timestamp -Caller $Caller
+}
+
+function Remove-ModuleSpecificMessages {
+    param (
+        [Parameter(Mandatory = $true, HelpMessage = 'The console message to process.')]
+        [string] $ConsoleMessage
+    )
+
+    if ($ConsoleMessage -match '\[([^]]+::[^]]+)\]\s?') {
+        $match = ($ConsoleMessage | Select-String -Pattern '\[([^]]+::[^]]+)\]\s?').Matches.Value
+        return $ConsoleMessage.Replace($match, '')
+    }    
+
+    return $ConsoleMessage
+}
+    
+
+function Write-NestedLogging {
+    param (
+        [Parameter(Mandatory = $true, HelpMessage = 'Indicates if the message is an error.')]
+        [switch] $Error,
+        [Parameter(Mandatory = $true, HelpMessage = 'The console message to log.')]
+        [string] $ConsoleMessage,
+        [Parameter(Mandatory = $true, HelpMessage = 'The original message to log.')]
+        [string] $Message,
+        [Parameter(Mandatory = $true, HelpMessage = 'The timestamp for the log entry.')]
+        [string] $Timestamp
+    )
+
+    if ($Error) {
+        Write-Error -Message $ConsoleMessage
+    } else {
+        Write-Output "[$Timestamp][$env:COMPUTERNAME] $Message"
+    }
+}
+
+function Write-ErrorMessage {
+    param (
+        [Parameter(Mandatory = $true, HelpMessage = 'The log message to process.')]
+        [string] $Message,
+        [Parameter(Mandatory = $true, HelpMessage = 'The console message to display.')]
+        [string] $ConsoleMessage,
+        [Parameter(Mandatory = $true, HelpMessage = 'The timestamp for the log entry.')]
+        [string] $DayTimestamp,
+        [Parameter(Mandatory = $false, HelpMessage = 'Caller script name to include in log file.')]
+        [string] $Caller
+    )
+
+    # Use the new Write-ToLogFile function
+    Write-ToLogFile -LogFileMessage "[ERROR] $Message" -Timestamp $DayTimestamp -Caller $Caller
+    Write-Error $ConsoleMessage
+}
+
+function Write-ProgressMessage {
+    param (
+        [Parameter(Mandatory = $true, HelpMessage = 'The console message to display.')]
+        [string] $ConsoleMessage,
+        [Parameter(Mandatory = $true, HelpMessage = 'The log file message to write.')]
+        [string] $LogFileMessage,
+        [Parameter(Mandatory = $false, HelpMessage = 'The timestamp for the log entry.')]
+        [string] $Timestamp ,
+        [Parameter(Mandatory = $false, HelpMessage = 'The caller information for the log entry.')]
+        [string] $Caller = $null
+    )
+
+    Write-Host $ConsoleMessage -NoNewline
+    Write-ToLogFile -LogFileMessage $LogFileMessage -Timestamp $Timestamp -Caller $Caller
+}
+
+function Write-ConsoleMessage  {
+    param (
+        [Parameter(Mandatory = $true, HelpMessage = 'The log message to process.')]
+        [string] $Message,
+        [Parameter(Mandatory = $true, HelpMessage = 'The console message to display.')]
+        [string] $ConsoleMessage,
+        [Parameter(Mandatory = $true, HelpMessage = 'The log file message to write.')]
+        [string] $LogFileMessage,
+        [Parameter(Mandatory = $false, HelpMessage = 'The timestamp for the log entry.')]
+        [string] $Timestamp ,
+        [Parameter(Mandatory = $false, HelpMessage = 'The caller information for the log entry.')]
+        [string] $Caller = $null,
+        [Parameter(Mandatory = $false, HelpMessage = 'Indicates if raw output is enabled.')]
+        [switch] $Raw,
+        [Parameter(Mandatory = $false, HelpMessage = 'Indicates if SSH output is enabled.')]
+        [switch] $Ssh
+    )
+
+    if ($Raw) {
+        Write-Output $Message
+    } elseif ($Ssh) {
+        Write-Output "#ssh#$Message"
+    } else {
+        Write-Information $ConsoleMessage -InformationAction Continue
+    }
+    Write-ToLogFile -LogFileMessage $LogFileMessage -Timestamp $Timestamp -Caller $Caller
+}
+
+function Write-DefaultMessage {
+    param (
+        [Parameter(Mandatory = $true, HelpMessage = 'The log file message to write.')]
+        [string] $LogFileMessage,
+        [Parameter(Mandatory = $false, HelpMessage = 'The timestamp for the log entry.')]
+        [string] $Timestamp ,
+        [Parameter(Mandatory = $false, HelpMessage = 'The caller information for the log entry.')]
+        [string] $Caller = $null
+    )
+
+    # Use the new Write-ToLogFile function
+    Write-ToLogFile -LogFileMessage $LogFileMessage -Timestamp $Timestamp -Caller $Caller
 }
 
 function Get-k2sLogDirectory {
@@ -213,7 +373,9 @@ function Protect-SensitiveInfo {
 function Save-k2sLogDirectory {
     param (
         [Parameter(Mandatory = $false, HelpMessage = 'Remove var folder after saving logs')]
-        [switch] $RemoveVar = $false
+        [switch] $RemoveVar = $false,
+        [Parameter(Mandatory = $false, HelpMessage = 'Custom var log directory for testing')]
+        [string] $VarLogDirectory = 'C:\var\log'
     )
 
     if (!(Test-Path "$env:TEMP")) {
@@ -221,7 +383,7 @@ function Save-k2sLogDirectory {
     }
 
     $destinationFolder = "$env:TEMP\k2s_log_$(get-date -f yyyyMMdd_HHmmss)"
-    Copy-Item -Path 'C:\var\log' -Destination $destinationFolder -Force -Recurse
+    Copy-Item -Path $VarLogDirectory -Destination $destinationFolder -Force -Recurse
     Compress-Archive -Path $destinationFolder -DestinationPath "$destinationFolder.zip" -CompressionLevel Optimal -Force
     Remove-Item -Path "$destinationFolder" -Force -Recurse -ErrorAction SilentlyContinue
 
@@ -230,7 +392,7 @@ function Save-k2sLogDirectory {
     if ($RemoveVar) {
         # the directory '<system drive>:\var' must be deleted (regardless of the installation drive) since
         # kubelet.exe writes hardcoded to '<system drive>:\var\lib\kubelet\device-plugins' (see '\pkg\kubelet\cm\devicemanager\manager.go' under https://github.com/kubernetes/kubernetes.git)
-        $systemDriveLetter = (Get-Item $env:SystemDrive).PSDrive.Name
+        $systemDriveLetter = (Get-Item $env:SystemDrive).PSDrive.Name       
         Remove-Item -Path "$($systemDriveLetter):\var" -Force -Recurse -ErrorAction SilentlyContinue
         if ($(Get-SystemDriveLetter) -ne "$systemDriveLetter") {
             Remove-Item -Path "$(Get-SystemDriveLetter):\var" -Force -Recurse -ErrorAction SilentlyContinue

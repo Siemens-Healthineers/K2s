@@ -8,7 +8,6 @@ $nodeModule = "$PSScriptRoot/../lib/modules/k2s/k2s.node.module/k2s.node.module.
 
 Import-Module $infraModule, $clusterModule, $nodeModule
 
-$script = $MyInvocation.MyCommand.Name
 $ConfigKey_EnabledAddons = 'EnabledAddons'
 $hooksDir = "$PSScriptRoot\hooks"
 $backupFileName = 'backup_addons.json'
@@ -170,46 +169,45 @@ function Find-AddonManifests {
 	return Get-ChildItem -File -Recurse -Depth 1 -Path $Directory -Filter 'addon.manifest.yaml' | ForEach-Object { $_.FullName }
 }
 
-function Get-EnabledAddons {
-	$function = $MyInvocation.MyCommand.Name
+function Get-EnabledAddons {   
 
-	Write-Log "[$script::$function] Getting enabled addons.."
+    Write-Log "Getting enabled addons.."
 
 	$config = Get-AddonsConfig
 
 	$enabledAddons = [System.Collections.ArrayList]@()
 
-	if ($null -eq $config) {
-		Write-Log "[$script::$function] No addons config found"
+    if ($null -eq $config) {
+        Write-Log "No addons config found"
 
 		return , $enabledAddons
 	}
 
-	Write-Log "[$script::$function] Addons config found"
+    Write-Log "Addons config found"
 
-	$config | ForEach-Object {
-		$addon = $_
-		Write-Log "[$script::$function] found addon '$($_.Name)'"
-		$alreadyExistingAddon = $enabledAddons | Where-Object { $_.Name -eq $addon.Name }
-		if ($alreadyExistingAddon) {
-			$alreadyExistingAddon.Implementations.Add($addon.Implementation) | Out-Null
-			$enabledAddons = $enabledAddons | Where-Object { $_ -ne $addon.Name }
-			if ($enableAddons) {
-				$enabledAddons.Add($alreadyExistingAddon) | Out-Null
-			}
-			else {
-				$enabledAddons = [System.Collections.ArrayList]@($enabledAddons)
-			}
-		}
-		else {
-			if ($null -eq $addon.Implementation) {
-				$enabledAddons.Add([pscustomobject]@{ Name = $addon.Name }) | Out-Null
-			}
-			else {
-				$enabledAddons.Add([pscustomobject]@{ Name = $addon.Name; Implementations = [System.Collections.ArrayList]@($addon.Implementation) }) | Out-Null
-			}
-		}
-	}
+    $config | ForEach-Object {
+        $addon = $_
+        Write-Log "found addon '$($_.Name)'"
+        $alreadyExistingAddon = $enabledAddons | Where-Object { $_.Name -eq $addon.Name }
+        if ($alreadyExistingAddon) {
+            $alreadyExistingAddon.Implementations.Add($addon.Implementation) | Out-Null
+            $enabledAddons = $enabledAddons | Where-Object { $_ -ne $addon.Name }
+            if ($enableAddons) {
+                $enabledAddons.Add($alreadyExistingAddon) | Out-Null
+            }
+            else {
+                $enabledAddons = [System.Collections.ArrayList]@($enabledAddons)
+            }
+        }
+        else {
+            if ($null -eq $addon.Implementation) {
+                $enabledAddons.Add([pscustomobject]@{ Name = $addon.Name }) | Out-Null
+            }
+            else {
+                $enabledAddons.Add([pscustomobject]@{ Name = $addon.Name; Implementations = [System.Collections.ArrayList]@($addon.Implementation) }) | Out-Null
+            }
+        }
+    }
 
 	return , $enabledAddons
 }
