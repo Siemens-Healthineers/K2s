@@ -124,28 +124,62 @@ foreach ($addon in $addonsToImport) {
     # # Copy only the contents of Content\ into the destination
     # Copy-Item -Path $sourcePath -Destination $destinationPath -Recurse -Force
  #---------------------
-    # Extract directory name from addon.dirName (e.g., "logging")
-    $dirName = $addon.name
+    # # Extract directory name from addon.dirName (e.g., "logging")
+    # $dirName = $addon.name
 
-    # Define source path — where "Content" folder lives inside the extracted addon directory
-    $dirPath = Join-Path -Path $extractionFolder -ChildPath "$($addon.dirName)\Content"
+    # # Define source path — where "Content" folder lives inside the extracted addon directory
+    # $dirPath = Join-Path -Path $extractionFolder -ChildPath "$($addon.dirName)\Content"
 
-    # Define destination path — where contents should be copied
-    $destinationPath = Join-Path -Path "$PSScriptRoot\..\addons" -ChildPath "$dirName"
+    # # Define destination path — where contents should be copied
+    # $destinationPath = Join-Path -Path "$PSScriptRoot\..\addons" -ChildPath "$dirName"
 
-    Write-Log "Value of dirPath (source): $dirPath"
-    Write-Log "Value of destinationPath : $destinationPath"
-
-    # Ensure destination exists and is a directory
-    if (-not (Test-Path $destinationPath)) {
-        New-Item -ItemType Directory -Path $destinationPath -Force | Out-Null
-    }
-
-    # Copy only contents of Content (not the Content folder itself)
-    Copy-Item -Path (Join-Path $dirPath '*') -Destination $destinationPath -Recurse -Force
-    #--------------------
-
+    # Write-Log "Value of dirPath (source): $dirPath"
+    # Write-Log "Value of destinationPath : $destinationPath"
     
+    # # TO DO : Split the destination path and create a directory under by name first string and create another directory using second string and then copy the content there.
+    # # Value of destinationPath : C:\ws\k2slatest\K2s\addons\..\addons\ingress nginx
+
+    # # Ensure destination exists and is a directory
+    # if (-not (Test-Path $destinationPath)) {
+    #     New-Item -ItemType Directory -Path $destinationPath -Force | Out-Null
+    # }
+
+    # # Copy only contents of Content (not the Content folder itself)
+    # Copy-Item -Path (Join-Path $dirPath '*') -Destination $destinationPath -Recurse -Force
+    #-----------------------------------------------------------------------------------
+
+    # Begin another version
+
+            # Split addon name (e.g., "ingress nginx" → ["ingress", "nginx"])
+        $folderParts = $addon.name -split '\s+'
+
+        # Start with base addons folder
+        $destinationPath = Join-Path -Path $PSScriptRoot -ChildPath "..\addons"
+
+        # Build full nested destination path
+        foreach ($part in $folderParts) {
+            $destinationPath = Join-Path -Path $destinationPath -ChildPath $part
+        }
+
+        # Define source path (Content folder)
+        $dirPath = Join-Path -Path $extractionFolder -ChildPath "$($addon.dirName)\Content"
+
+        # Log
+        Write-Log "Value of dirPath (source): $dirPath"
+        Write-Log "Value of destinationPath : $destinationPath"
+
+        # Ensure final destination exists
+        if (-not (Test-Path $destinationPath)) {
+            New-Item -ItemType Directory -Path $destinationPath -Force | Out-Null
+        }
+
+        # Copy *only the contents* of Content (not the Content folder itself)
+        Copy-Item -Path (Join-Path $dirPath '*') -Destination $destinationPath -Recurse -Force
+
+    # End another version
+    #---------------------------------------------------------------------------------
+
+
     foreach ($image in $images) {
         $importImageScript = "$PSScriptRoot\..\lib\scripts\k2s\image\Import-Image.ps1"
         if ($image.Contains('_win')) {

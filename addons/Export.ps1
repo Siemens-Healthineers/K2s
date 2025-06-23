@@ -142,25 +142,74 @@ try {
             # Write-Log "Pulling images for addon $addonName from $dirPath" -Console
 
             #---------------------------------------
-
-            $dirName = Split-Path -Path $dirPath -Leaf
-            $destinationPath = Join-Path -Path $tmpExportDir -ChildPath "addons\$dirName\content"
+            # version that works for single addon without sub type.
+            # $dirName = Split-Path -Path $dirPath -Leaf
+            # $destinationPath = Join-Path -Path $tmpExportDir -ChildPath "addons\$dirName\content"
             
-            # Make sure destination is a directory
-            if (-not (Test-Path $destinationPath)) {
-                New-Item -ItemType Directory -Path $destinationPath -Force | Out-Null
-            }
+            # # Make sure destination is a directory
+            # if (-not (Test-Path $destinationPath)) {
+            #     New-Item -ItemType Directory -Path $destinationPath -Force | Out-Null
+            # }
             
-            # Copy only contents of $dirPath — not the folder itself
-            Copy-Item -Path (Join-Path $dirPath '*') -Destination $destinationPath -Recurse -Force            
+            # # Copy only contents of $dirPath — not the folder itself
+            # Copy-Item -Path (Join-Path $dirPath '*') -Destination $destinationPath -Recurse -Force            
             
             Write-Log "dirname"
             Write-Log $dirName
             Write-Log "destinationPath"
             Write-Log $destinationPath
+            Write-Log "dirPath"
+            Write-Log $dirPath
+            Write-Log "Addon name"
+            Write-Log $addonName
+            Write-Log "implementation.name"
+            Write-Log $implementation.name
             #-----------------------------------------------
+            #Updated version to be tried.
 
-            
+        #    # Split $addonName into folder parts based on space
+        #     $addonPathParts = $addonName -split '\s+'
+
+        #     # Combine the parts into a single relative path like "addons\ingress\nginx"
+        #     $relativeAddonPath = "addons"
+        #     foreach ($part in $addonPathParts) {
+        #         $relativeAddonPath = Join-Path -Path $relativeAddonPath -ChildPath $part
+        #     }
+
+        #     # Now add "content" at the end
+        #     $destinationPath = Join-Path -Path $tmpExportDir -ChildPath (Join-Path -Path $relativeAddonPath -ChildPath "content")
+
+        #     # Ensure destination exists
+        #     if (-not (Test-Path $destinationPath)) {
+        #         New-Item -ItemType Directory -Path $destinationPath -Force | Out-Null
+        #     }
+
+        #     # Copy only contents of $dirPath — not the folder itself
+        #     Copy-Item -Path (Join-Path $dirPath '*') -Destination $destinationPath -Recurse -Force
+
+
+            # End of updated version to be tried
+            #----------------------------------------------------------------------------------------------
+
+            #another try
+
+            # Convert addon name like "ingress nginx" to "ingress_nginx"
+            $addonFolderName = ($addonName -split '\s+') -join '_'
+
+            # Destination path: $tmpExportDir\addons\ingress_nginx\content
+            $destinationPath = Join-Path -Path $tmpExportDir -ChildPath "addons\$addonFolderName\content"
+
+            # Ensure destination directory exists
+            if (-not (Test-Path $destinationPath)) {
+                New-Item -ItemType Directory -Path $destinationPath -Force | Out-Null
+            }
+
+            # Copy only the contents of $dirPath — not the folder itself
+            Copy-Item -Path (Join-Path $dirPath '*') -Destination $destinationPath -Recurse -Force
+
+
+            #end another try
+            #----------------------------------------------------------------------------------------
             Write-Log "Pulling images for addon $addonName from $dirPath" -Console
 
             Write-Log '---'
