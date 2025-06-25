@@ -23,7 +23,7 @@ var (
 
 func TestMetricsSecurity(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "metrics Addon Acceptance Tests", Label("addon", "addon-security-enhanced-2", "acceptance", "setup-required", "invasive", "metrics", "system-running"))
+	RunSpecs(t, "metrics Addon Acceptance Tests", Label("addon", "addon-security-enhanced-3", "acceptance", "setup-required", "invasive", "metrics", "system-running"))
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
