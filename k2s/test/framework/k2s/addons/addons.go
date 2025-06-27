@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"net/url"
@@ -248,37 +249,62 @@ func GetKeycloakToken() (string, error) {
 	data.Set("password", password)
 	data.Set("grant_type", "password")
 
+	GinkgoWriter.Printf("Getting Keycloak token from %s\n", tokenUrl)
+
 	maxRetries := 5
 	for attempt := 1; attempt <= maxRetries; attempt++ {
 		resp, err := http.PostForm(tokenUrl, data)
 		if err != nil {
 			if attempt == maxRetries {
-				return "", err
+				return "", fmt.Errorf("failed to get token after %d attempts: %v", maxRetries, err)
 			}
 			GinkgoWriter.Printf("Attempt %d/%d: Failed to get token: %v\n", attempt, maxRetries, err)
-			time.Sleep(10 * time.Second)
+			backoffTime := time.Duration(attempt * 5) * time.Second
+			GinkgoWriter.Printf("Waiting %v before next attempt...\n", backoffTime)
+			time.Sleep(backoffTime)
 			continue
 		}
 		defer resp.Body.Close()
 
 		if resp.StatusCode != http.StatusOK {
+			responseBody := new(strings.Builder)
+			io.Copy(responseBody, resp.Body)
+
 			if attempt == maxRetries {
-				return "", fmt.Errorf("failed to get token after %d attempts: %s", maxRetries, resp.Status)
+				return "", fmt.Errorf("failed to get token after %d attempts: %s - Response: %s",
+					maxRetries, resp.Status, responseBody.String())
 			}
 			GinkgoWriter.Printf("Attempt %d/%d: Unexpected status code: %s\n", attempt, maxRetries, resp.Status)
-			time.Sleep(10 * time.Second)
+			GinkgoWriter.Printf("Response headers: %v\n", resp.Header)
+			GinkgoWriter.Printf("Response body: %s\n", responseBody.String())
+
+			backoffTime := time.Duration(attempt * 5) * time.Second
+			GinkgoWriter.Printf("Waiting %v before next attempt...\n", backoffTime)
+			time.Sleep(backoffTime)
 			continue
 		}
 
 		var result map[string]interface{}
 		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-			return "", err
+			return "", fmt.Errorf("failed to parse token response: %v", err)
 		}
 		accessToken, ok := result["access_token"].(string)
 		if !ok {
 			return "", fmt.Errorf("failed to parse access token")
 		}
-		GinkgoWriter.Printf("Successfully got token on attempt %d/%d\n", attempt, maxRetries)
+
+		// Log token expiration if available
+		if exp, ok := result["expires_in"].(float64); ok {
+			GinkgoWriter.Printf("Token expires in %.0f seconds\n", exp)
+		}
+
+		tokenLength := len(accessToken)
+		GinkgoWriter.Printf("Successfully got token (length: %d chars) on attempt %d/%d\n",
+			tokenLength, attempt, maxRetries)
+		if tokenLength > 20 {
+			GinkgoWriter.Printf("Token preview: %s...\n", accessToken[:20])
+		}
+
 		return accessToken, nil
 	}
 
@@ -300,6 +326,16 @@ func VerifyDeploymentReachableFromHostWithStatusCode(ctx context.Context, expect
 		if len(headers) > 0 {
 			for key, value := range headers[0] {
 				req.Header.Add(key, value)
+				// For Authorization headers, log a truncated version for debugging
+				if key == "Authorization" && strings.HasPrefix(value, "Bearer ") {
+					tokenLength := len(value) - 7 // "Bearer " is 7 chars
+					truncLength := 20
+					if tokenLength > truncLength {
+						GinkgoWriter.Printf("Using token: Bearer %s...\n", value[7:7+truncLength])
+					} else {
+						GinkgoWriter.Printf("Using token: %s\n", value)
+					}
+				}
 			}
 		}
 
@@ -310,18 +346,39 @@ func VerifyDeploymentReachableFromHostWithStatusCode(ctx context.Context, expect
 		} else {
 			defer resp.Body.Close()
 
+			// Read response body for error reporting
+			responseBody, readErr := strings.Builder{}, error(nil)
+			if resp.StatusCode != expectedStatusCode {
+				bodyBytes := make([]byte, 1024) // Read up to 1KB of response
+				n, err := resp.Body.Read(bodyBytes)
+				if err != nil && err.Error() != "EOF" {
+					readErr = err
+				}
+				responseBody.Write(bodyBytes[:n])
+			}
+
 			// Check the status code
 			if resp.StatusCode == expectedStatusCode {
 				GinkgoWriter.Printf("Attempt %d/%d: Received expected status code %d\n", attempt, maxRetries, expectedStatusCode)
 				return
 			}
 
-			GinkgoWriter.Printf("Attempt %d/%d: Unexpected status code %d (expected %d)\n", attempt, maxRetries, resp.StatusCode, expectedStatusCode)
+			GinkgoWriter.Printf("Attempt %d/%d: Unexpected status code: %d %s (expected %d)\n",
+				attempt, maxRetries, resp.StatusCode, resp.Status, expectedStatusCode)
+			GinkgoWriter.Printf("Response headers: %v\n", resp.Header)
+
+			if readErr != nil {
+				GinkgoWriter.Printf("Failed to read response body: %v\n", readErr)
+			} else if responseBody.Len() > 0 {
+				GinkgoWriter.Printf("Response body: %s\n", responseBody.String())
+			}
 		}
 
-		// Pause before the next attempt
+		// Pause before the next attempt with exponential backoff
 		if attempt < maxRetries {
-			time.Sleep(10 * time.Second)
+			backoffTime := time.Duration(attempt * 5) * time.Second
+			GinkgoWriter.Printf("Waiting %v before next attempt...\n", backoffTime)
+			time.Sleep(backoffTime)
 		}
 	}
 
