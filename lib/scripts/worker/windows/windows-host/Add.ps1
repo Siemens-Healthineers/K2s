@@ -39,7 +39,7 @@ $localPublicKey = (Get-Content -Raw $localPublicKeyFilePath).Trim()
 if ([string]::IsNullOrWhiteSpace($localPublicKey)) {
     throw "Precondition not met: the file '$localPublicKeyFilePath' is not empty."
 }
-$authorizedKeysFilePath = "C:\Users\$UserName\.ssh\authorized_keys"
+$authorizedKeysFilePath = "C:\ProgramData\ssh\administrators_authorized_keys"
 
 $authorizedKeys = (Invoke-CmdOnVmViaSSHKey -CmdToExecute "powershell.exe Get-Content $authorizedKeysFilePath" -UserName $UserName -IpAddress $IpAddress).Output
 # $authorizedKeys = (Invoke-CmdOnVmViaSSHKey -CmdToExecute "if (Test-Path $authorizedKeysFilePath) { Get-Content $authorizedKeysFilePath } else { 'File $authorizedKeysFilePath not available' }" -UserName $UserName -IpAddress $IpAddress).Output
