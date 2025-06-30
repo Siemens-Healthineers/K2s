@@ -1926,29 +1926,33 @@ Describe 'Get-StorageConfigFromRaw' -Tag 'unit', 'ci', 'addon', 'storage smb' {
                 $config = @{
                     winMountPath     = 'win\dir-a';
                     linuxMountPath   = 'linux\dir-b' ; 
+                    linuxShareName   = 'linux-smb-shareB';
+                    winShareName     = 'win-smb-shareA';
                     storageClassName = 'sc1' 
                 }, @{
                     winMountPath     = 'win\dir-c'; 
                     linuxMountPath   = 'linux\dir-d' ; 
+                    linuxShareName   = 'linux-smb-shareD';
+                    winShareName     = 'win-smb-shareC';
                     storageClassName = 'sc2' 
                 }
 
                 $actual = Get-StorageConfigFromRaw -RawConfig $config
 
                 $actual[0].WinMountPath | Should -Be 'exp\win\dir-a'
-                $actual[0].WinShareName | Should -Be 'dir-a'
-                $actual[0].WinHostRemotePath | Should -Be '\\switch-ip\dir-a'
+                $actual[0].WinShareName | Should -Be 'win-smb-shareA'
+                $actual[0].WinHostRemotePath | Should -Be '\\switch-ip\win-smb-shareA'
                 $actual[0].LinuxMountPath | Should -Be 'linux\dir-b'
-                $actual[0].LinuxShareName | Should -Be 'dir-b'
-                $actual[0].LinuxHostRemotePath | Should -Be '\\control-plane-ip\dir-b'
+                $actual[0].LinuxShareName | Should -Be 'linux-smb-shareB'
+                $actual[0].LinuxHostRemotePath | Should -Be '\\control-plane-ip\linux-smb-shareB'
                 $actual[0].StorageClassName | Should -Be 'sc1'
                 
                 $actual[1].WinMountPath | Should -Be 'exp\win\dir-c'
-                $actual[1].WinShareName | Should -Be 'dir-c'
-                $actual[1].WinHostRemotePath | Should -Be '\\switch-ip\dir-c'
+                $actual[1].WinShareName | Should -Be 'win-smb-shareC'
+                $actual[1].WinHostRemotePath | Should -Be '\\switch-ip\win-smb-shareC'
                 $actual[1].LinuxMountPath | Should -Be 'linux\dir-d'
-                $actual[1].LinuxShareName | Should -Be 'dir-d'
-                $actual[1].LinuxHostRemotePath | Should -Be '\\control-plane-ip\dir-d'
+                $actual[1].LinuxShareName | Should -Be 'linux-smb-shareD'
+                $actual[1].LinuxHostRemotePath | Should -Be '\\control-plane-ip\linux-smb-shareD'
                 $actual[1].StorageClassName | Should -Be 'sc2'
             }
         }
