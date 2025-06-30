@@ -171,43 +171,43 @@ function Find-AddonManifests {
 
 function Get-EnabledAddons {   
 
-    Write-Log "Getting enabled addons.."
+	Write-Log 'Getting enabled addons..'
 
 	$config = Get-AddonsConfig
 
 	$enabledAddons = [System.Collections.ArrayList]@()
 
-    if ($null -eq $config) {
-        Write-Log "No addons config found"
+	if ($null -eq $config) {
+		Write-Log 'No addons config found'
 
 		return , $enabledAddons
 	}
 
-    Write-Log "Addons config found"
+	Write-Log 'Addons config found'
 
-    $config | ForEach-Object {
-        $addon = $_
-        Write-Log "found addon '$($_.Name)'"
-        $alreadyExistingAddon = $enabledAddons | Where-Object { $_.Name -eq $addon.Name }
-        if ($alreadyExistingAddon) {
-            $alreadyExistingAddon.Implementations.Add($addon.Implementation) | Out-Null
-            $enabledAddons = $enabledAddons | Where-Object { $_ -ne $addon.Name }
-            if ($enableAddons) {
-                $enabledAddons.Add($alreadyExistingAddon) | Out-Null
-            }
-            else {
-                $enabledAddons = [System.Collections.ArrayList]@($enabledAddons)
-            }
-        }
-        else {
-            if ($null -eq $addon.Implementation) {
-                $enabledAddons.Add([pscustomobject]@{ Name = $addon.Name }) | Out-Null
-            }
-            else {
-                $enabledAddons.Add([pscustomobject]@{ Name = $addon.Name; Implementations = [System.Collections.ArrayList]@($addon.Implementation) }) | Out-Null
-            }
-        }
-    }
+	$config | ForEach-Object {
+		$addon = $_
+		Write-Log "found addon '$($_.Name)'"
+		$alreadyExistingAddon = $enabledAddons | Where-Object { $_.Name -eq $addon.Name }
+		if ($alreadyExistingAddon) {
+			$alreadyExistingAddon.Implementations.Add($addon.Implementation) | Out-Null
+			$enabledAddons = $enabledAddons | Where-Object { $_ -ne $addon.Name }
+			if ($enableAddons) {
+				$enabledAddons.Add($alreadyExistingAddon) | Out-Null
+			}
+			else {
+				$enabledAddons = [System.Collections.ArrayList]@($enabledAddons)
+			}
+		}
+		else {
+			if ($null -eq $addon.Implementation) {
+				$enabledAddons.Add([pscustomobject]@{ Name = $addon.Name }) | Out-Null
+			}
+			else {
+				$enabledAddons.Add([pscustomobject]@{ Name = $addon.Name; Implementations = [System.Collections.ArrayList]@($addon.Implementation) }) | Out-Null
+			}
+		}
+	}
 
 	return , $enabledAddons
 }
@@ -722,6 +722,8 @@ function Get-ErrCodeAddonEnableFailed { 'addon-enable-failed' }
 
 function Get-ErrCodeAddonNotFound { 'addon-not-found' }
 
+function Get-ErrCodeInvalidParameter { 'addon-invalid-parameter' }
+
 function Add-HostEntries {
 	param (
 		[Parameter(Mandatory = $false)]
@@ -970,7 +972,7 @@ function Update-IngressForNginx {
 	$hydraAvailable = Test-HydraAvailability
 	Write-Log "Hydra available: $hydraAvailable" -Console
 
-	if ($keycloakAvailable -or $hydraAvailable)  {
+	if ($keycloakAvailable -or $hydraAvailable) {
 		Write-Log "  Applying secure nginx ingress manifest for $($props.Name)..." -Console
 		$kustomizationDir = Get-IngressNginxSecureConfig -Directory $props.Directory
 		# check if $kustomizationDir does not exist
@@ -1026,7 +1028,7 @@ function Update-IngressForTraefik {
 	$hydraAvailable = Test-HydraAvailability
 	Write-Log "Hydra available: $hydraAvailable" -Console
 
-	if ($keycloakAvailable -or $hydraAvailable)  {
+	if ($keycloakAvailable -or $hydraAvailable) {
 		Write-Log "  Applying secure nginx ingress manifest for $($props.Name)..." -Console
 		$kustomizationDir = Get-IngressTraefikSecureConfig -Directory $props.Directory
 		# check if $kustomizationDir does not exist
@@ -1041,7 +1043,7 @@ function Update-IngressForTraefik {
 	}
 
 	Write-Log "   Apply in cluster folder: $($kustomizationDir)" -Console
-	Invoke-Kubectl -Params 'apply', '-k', $kustomizationDir  | Out-Null
+	Invoke-Kubectl -Params 'apply', '-k', $kustomizationDir | Out-Null
 }
 
 <#
@@ -1128,7 +1130,7 @@ here: chrome://net-internals/#hsts (works in Chrome and Edge) and try again.
 Export-ModuleMember -Function Get-EnabledAddons, Add-AddonToSetupJson, Remove-AddonFromSetupJson,
 Install-DebianPackages, Get-DebianPackageAvailableOffline, Test-IsAddonEnabled, Invoke-AddonsHooks, Copy-ScriptsToHooksDir,
 Remove-ScriptsFromHooksDir, Get-AddonConfig, Backup-Addons, Restore-Addons, Get-AddonStatus, Find-AddonManifests,
-Get-ErrCodeAddonAlreadyDisabled, Get-ErrCodeAddonAlreadyEnabled, Get-ErrCodeAddonEnableFailed, Get-ErrCodeAddonNotFound,
+Get-ErrCodeAddonAlreadyDisabled, Get-ErrCodeAddonAlreadyEnabled, Get-ErrCodeAddonEnableFailed, Get-ErrCodeAddonNotFound, Get-ErrCodeInvalidParameter,
 Add-HostEntries, Get-AddonsConfig, Update-Addons, Update-IngressForAddon, Test-NginxIngressControllerAvailability, Test-TraefikIngressControllerAvailability,
 Test-KeyCloakServiceAvailability, Enable-IngressAddon, Remove-IngressForTraefik, Remove-IngressForNginx, Get-AddonProperties, Get-IngressNginxConfigDirectory, 
 Update-IngressForTraefik, Update-IngressForNginx, Get-IngressNginxSecureConfig, Get-IngressTraefikConfig, Enable-StorageAddon, Get-AddonNameFromFolderPath, 
