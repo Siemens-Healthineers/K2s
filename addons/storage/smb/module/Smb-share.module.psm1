@@ -10,8 +10,6 @@ $passwordModule = "$PSScriptRoot/password.module.psm1"
 
 Import-Module $clusterModule, $infraModule, $nodeModule, $addonsModule, $passwordModule
 
-$script = $MyInvocation.MyCommand.Name
-
 $AddonName = 'storage'
 $ImplementationName = 'smb'
 
@@ -92,54 +90,70 @@ function New-SmbHostOnWindowsIfNotExisting {
     param (
         [parameter(Mandatory = $false)]
         [pscustomobject]$Config = $(throw 'Config not specified')
-    )    
-    $function = $MyInvocation.MyCommand.Name
+    )
 
-    Write-Log "[$script::$function] Checking if VM is running for Name='$Name'.."
+    Write-Log "Checking if VM is running for Name='$Name'.."
 
     $smb = Get-SmbShare -Name $Config.WinShareName -ErrorAction SilentlyContinue
     if ($smb) {
-        Write-Log "[$script::$function] SMB host '$($Config.WinShareName)' on Windows already existing, nothing to create."
+        Write-Log "SMB host '$($Config.WinShareName)' on Windows already existing, nothing to create."
         return
     }
 
-    Write-Log "[$script::$function] Setting up '$($Config.WinShareName)' SMB host on Windows.."
+    Write-Log "Setting up '$($Config.WinShareName)' SMB host on Windows.."
 
     if (Get-LocalUser -Name $smbUserName -ErrorAction SilentlyContinue) {
-        Write-Log "[$script::$function] User '$smbUserName' already exists."
+        Write-Log "User '$smbUserName' already exists."
     }
     else {
         New-LocalUser -Name $smbUserName -Password $smbPw -Description 'A K2s user account for SMB access' -ErrorAction Stop | Out-Null # Description max. length seems to be 48 chars ?!
+        $RemoteUsersGroup = 'Remote Desktop Users'
+        if ((Get-LocalGroup -Name $RemoteUsersGroup -ErrorAction SilentlyContinue).Count -gt 0) {
+            Write-Log "The '$RemoteUsersGroup' group exists, user '$smbUserName' will be added to this group."
+            Add-LocalGroupMember -Group $RemoteUsersGroup -Member $smbUserName 
+        }
+        else {
+            Write-Log "The '$RemoteUsersGroup' group does not exist, skipping adding user to this group."
+        }
     }
     
     mkdir -Path $Config.WinMountPath -Force -ErrorAction SilentlyContinue | Out-Null
     New-SmbShare -Name $Config.WinShareName -Path $Config.WinMountPath -FullAccess $smbFullUserNameWin -ErrorAction Stop | Out-Null
     Add-FirewallExceptions
 
-    Write-Log "[$script::$function] '$($Config.WinShareName)' SMB host set up Windows."
+    Write-Log " '$($Config.WinShareName)'SMB host set up Windows."
 }
 
 function Remove-SmbHostOnWindowsIfExisting {
     param (
         [parameter(Mandatory = $false)]
-        [pscustomobject]$Config = $(throw 'Config not specified')
+        [pscustomobject]$Config = $(throw 'Config not specified'),
+        [parameter(Mandatory = $false)]
+        [switch]$Keep = $false
     )
-    $function = $MyInvocation.MyCommand.Name
 
     $smb = Get-SmbShare -Name $Config.WinShareName -ErrorAction SilentlyContinue
     if ($null -eq $smb) {
-        Write-Log "[$script::$function] SMB host '$($Config.WinShareName)' on Windows not existing, nothing to remove."
+        Write-Log "SMB host '$($Config.WinShareName)' on Windows not existing, nothing to remove."
         return
     }
 
-    Write-Log "[$script::$function] Removing '$($Config.WinShareName)' SMB host from Windows.."
+    Write-Log "Removing '$($Config.WinShareName)' SMB host from Windows.."
 
     Remove-FirewallExceptions
     Remove-SmbShare -Name $($Config.WinShareName) -Confirm:$False -ErrorAction SilentlyContinue
-    Remove-Item -Force $Config.WinMountPath -Recurse -Confirm:$False -ErrorAction SilentlyContinue
+    if ( -not $Keep ) {
+        # if we do not want to keep the mount point, we remove it
+        Write-Log "Removing mount point '$($Config.WinMountPath)' from Windows.."
+        Remove-Item -Force $Config.WinMountPath -Recurse -Confirm:$False -ErrorAction SilentlyContinue
+    }
+    else {
+        Write-Log "Keeping mount point '$($Config.WinMountPath)' on Windows."
+    }
+
     Remove-LocalUser -Name $smbUserName -ErrorAction SilentlyContinue
 
-    Write-Log "[$script::$function] '$($Config.WinShareName)' SMB host removed from Windows."
+    Write-Log " '$($Config.WinShareName)' SMB host removed from Windows."
 }
 
 function New-SmbHostOnLinuxIfNotExisting {
@@ -147,19 +161,18 @@ function New-SmbHostOnLinuxIfNotExisting {
         [parameter(Mandatory = $false)]
         [pscustomobject]$Config = $(throw 'Config not specified')
     )
-    $function = $MyInvocation.MyCommand.Name
-    
+
     # We try to access the samba share on windows side.
     # If this is not possible, we set up Samba on linux and create the shared CF - NOT the mount points yet!
     # The Samba Shared CF will be \srv\samba\<linux share name>
     New-SmbGlobalMapping -RemotePath $Config.LinuxHostRemotePath -Credential $creds -UseWriteThrough $true -Persistent $true -ErrorAction SilentlyContinue
 
     if ((Test-Path $Config.LinuxHostRemotePath)) {
-        Write-Log "[$script::$function] SMB host on Linux already existing, nothing to create"
+        Write-Log 'SMB host on Linux already existing, nothing to create'
         return
     }
 
-    Write-Log "[$script::$function] Setting up SMB host on Linux (Samba Share).."
+    Write-Log 'Setting up SMB host on Linux (Samba Share)..'
 
     # restart dnsmsq in order to reconnect to dnsproxy
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo systemctl restart dnsmasq').Output | Write-Log
@@ -185,35 +198,47 @@ function New-SmbHostOnLinuxIfNotExisting {
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo sh -c 'echo directory mask = 0777 >> /etc/samba/smb.conf'").Output | Write-Log
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo systemctl restart smbd.service nmbd.service').Output | Write-Log
 
-    Write-Log "[$script::$function] SMB host on Linux (Samba Share) set up."
+    Write-Log ' SMB host on Linux (Samba Share) set up.'
 }
 
 function Remove-SmbHostOnLinux {
     param (
         [parameter(Mandatory = $false)]
-        [string]$LinuxShareName = $(throw 'LinuxShareName not specified')
-    )
-    $function = $MyInvocation.MyCommand.Name
+        [string]$LinuxShareName = $(throw 'LinuxShareName not specified'),
+        [parameter(Mandatory = $false)]
+        [switch]$Keep = $false
+    )  
 
-    Write-Log "[$script::$function] Removing SMB host on Linux (Samba Share).."
+    Write-Log 'Removing SMB host on Linux (Samba Share)..'
 
-    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo rm -rf /srv/samba/$LinuxShareName").Output | Write-Log
+    if ($Keep -eq $true) {
+        Write-Log "Keeping SMB share '$LinuxShareName' on Linux host."
+    }
+    else {
+        Write-Log "Removing SMB share '$LinuxShareName' on Linux host."
+        (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo rm -rf /srv/samba/$LinuxShareName").Output | Write-Log
+    }   
+
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo smbpasswd -x $smbUserName").Output | Write-Log
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo DEBIAN_FRONTEND=noninteractive apt-get purge cifs-utils samba samba-* -qq -y').Output | Write-Log
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo DEBIAN_FRONTEND=noninteractive apt-get autoremove -qq -y').Output | Write-Log
-    (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo rm -rf /var/cache/samba /run/samba /srv/samba /var/lib/samba /var/log/samba').Output | Write-Log
+    if ($Keep -eq $true) {
+        (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo rm -rf /var/cache/samba /run/samba /var/lib/samba /var/log/samba').Output | Write-Log
+    }
+    else {
+        (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo rm -rf /var/cache/samba /run/samba /srv/samba /var/lib/samba /var/log/samba').Output | Write-Log
+    }
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo deluser $smbUserName").Output | Write-Log
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo systemctl daemon-reload').Output | Write-Log
 
-    Write-Log "[$script::$function] SMB host on Linux (Samba Share) removed"
+    Write-Log 'SMB host on Linux (Samba Share) removed'
 }
 
-function Test-ForKnownSmbProblems {
-    $function = $MyInvocation.MyCommand.Name
+function Test-ForKnownSmbProblems {    
     $script:HasIssues = $false
 
-    Write-Log "[$script::$function] Checking known SMB problems.."
-    Write-Log "[$script::$function] Checking the setting 'access to this computer from the network'.."
+    Write-Log 'Checking known SMB problems..'
+    Write-Log "Checking the setting 'access to this computer from the network'.."
 
     # check security settings in secedit (export security setting to be able to parse them)
     secedit /export /areas USER_RIGHTS /cfg "$env:temp\secpol_tmp.cfg" | Out-Null
@@ -225,34 +250,33 @@ function Test-ForKnownSmbProblems {
     Remove-Item -force "$env:temp\secpol_tmp.cfg" -confirm:$false
 
     if ($seDenyNetworkLogonRightOnLocalUser) {
-        Write-Log "[$script::$function] Local user is set in SeDenyNetworkLogonRight (Deny access to this computer from the network):"
-        Write-Log "[$script::$function] You can find the setting here: Local Security Policy (secpol.msc) -> Local Policy -> User Right Assignment -> Deny access to this computer from the network -> Here you see the 'Local account'"
-        Write-Log "[$script::$function] For this smb-setup, 'Local account' must not be there."
-        Write-Log "[$script::$function] Your 'Organizational Units (OU) Group' might be the reason for the SeDenyNetworkLogonRight - please compare your OU with the one of your colleagues"
-        Write-Log "[$script::$function] Your OU group is..."
+        Write-Log 'Local user is set in SeDenyNetworkLogonRight (Deny access to this computer from the network):'
+        Write-Log "You can find the setting here: Local Security Policy (secpol.msc) -> Local Policy -> User Right Assignment -> Deny access to this computer from the network -> Here you see the 'Local account'"
+        Write-Log "For this smb-setup, 'Local account' must not be there."
+        Write-Log "Your 'Organizational Units (OU) Group' might be the reason for the SeDenyNetworkLogonRight - please compare your OU with the one of your colleagues"
+        Write-Log 'Your OU group is...'
         gpresult /r /scope:computer | Select-String -Pattern 'OU='
-        Write-Log "[$script::$function] You can also find the setting here: 'UCMS-ControlCenter' (also called 'User-Client Info') -> 'More details...' -> 'OU' section"
-        Write-Log "[$script::$function] Please contact your administrator and let them move you to the 'R&D OU' `n"
-        Write-Log "[$script::$function] Current workaround: fix the policy issue with powershell <installation folder>\smallsetup\helpers\SetNetworkSharePolicy.ps1 `n"
+        Write-Log "You can also find the setting here: 'UCMS-ControlCenter' (also called 'User-Client Info') -> 'More details...' -> 'OU' section"
+        Write-Log "Please contact your administrator and let them move you to the 'R&D OU' `n"
+        Write-Log "Current workaround: fix the policy issue with powershell <installation folder>\smallsetup\helpers\SetNetworkSharePolicy.ps1 `n"
 
         $script:HasIssues = $true
         return
     }
 
-    Write-Log "[$script::$function] No known SMB issues found"
+    Write-Log 'No known SMB issues found'
 }
 
 function New-SharedFolderMountOnLinuxClient {
     param (
         [parameter(Mandatory = $false)]
         [pscustomobject]$Config = $(throw 'Config not specified')
-    )
-    $function = $MyInvocation.MyCommand.Name
+    )    
 
-    Write-Log "[$script::$function] Mounting '$($Config.LinuxMountPath) -> $($Config.WinHostRemotePath)' on Linux.."
+    Write-Log "Mounting '$($Config.LinuxMountPath) -> $($Config.WinHostRemotePath)' on Linux.."
     Remove-Item -Force -ErrorAction SilentlyContinue $logFile
 
-    Write-Log "[$script::$function] Creating temporary mount script.."
+    Write-Log 'Creating temporary mount script..'
     $tempFstabFile = 'fstab.tmp'
     $tempMountOnLinuxClientScript = 'tmp_mountOnLinuxClientCmd.sh'
     $mountOnLinuxClientScript = 'mountOnLinuxClientCmd.sh'
@@ -293,9 +317,9 @@ function New-SharedFolderMountOnLinuxClient {
         (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo chown -R remote  /home/remote/$mountOnLinuxClientScript").Output | Write-Log
         (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo chmod +x /home/remote/$mountOnLinuxClientScript").Output | Write-Log
 
-        Write-Log "[$script::$function] Executing script inside Linux VM as remote user..."
+        Write-Log 'Executing script inside Linux VM as remote user...'
         $sshLog = (ssh.exe -n '-vv' -E $logFile -o StrictHostKeyChecking=no -i $(Get-SSHKeyControlPlane) $(Get-ControlPlaneRemoteUser) "sudo su -s /bin/bash -c '~/$mountOnLinuxClientScript' remote") *>&1
-        Write-Log "[$script::$function] $sshLog"
+        Write-Log " $sshLog"
 
         if ($LASTEXITCODE -eq 0) {
             # all ok
@@ -305,7 +329,7 @@ function New-SharedFolderMountOnLinuxClient {
             Test-ForKnownSmbProblems
 
             if ( $script:HasIssues -eq $true ) {
-                Write-Log "[$script::$function] Executing script to fix policy issue..."
+                Write-Log 'Executing script to fix policy issue...'
                 & "$PSScriptRoot\SetNetworkSharePolicy.ps1"
             }
         }
@@ -314,21 +338,22 @@ function New-SharedFolderMountOnLinuxClient {
             throw 'unable to mount shared CF in Linux machine, giving up'
         }
         Start-Sleep 2
-        Write-Log "[$script::$function] Retry after failure..."
+        Write-Log 'Retry after failure...'
     }
 }
 
 function Remove-SharedFolderMountOnLinuxClient {
     param (
         [parameter(Mandatory = $false)]
-        [pscustomobject]$Config = $(throw 'Config not specified')
-    )
-    $function = $MyInvocation.MyCommand.Name
+        [pscustomobject]$Config = $(throw 'Config not specified'),
+        [parameter(Mandatory = $false)]
+        [switch]$Keep = $false 
+    ) 
 
-    Write-Log "[$script::$function] Unmounting '$($Config.LinuxMountPath) -> $($Config.WinHostRemotePath)' on Linux.."
+    Write-Log "Unmounting '$($Config.LinuxMountPath) -> $($Config.WinHostRemotePath)' on Linux.."
     Remove-Item -Force -ErrorAction SilentlyContinue $logFile
 
-    Write-Log "[$script::$function] Creating temporary unmount script.."
+    Write-Log 'Creating temporary unmount script..'
 
     $tempFstabFile = 'fstab.tmp'
     $tempUnmountOnLinuxClientScript = 'tmp_unmountOnLinuxClientCmd.sh'
@@ -342,9 +367,15 @@ function Remove-SharedFolderMountOnLinuxClient {
         sudo sh -c "cat $tempFstabFile > /etc/fstab"
         sudo rm -f $tempFstabFile
         sudo systemctl daemon-reload
-        sudo rm -rf $($Config.LinuxMountPath)
         rm ~/$unmountOnLinuxClientScript
+        sudo rm -rf $($Config.LinuxMountPath)
 "@
+    # if we want to keep content of the mount point, we do not remove it
+    if (-not $Keep) {
+        $unmountOnLinuxClientCmd += @"
+        sudo rm -rf $($Config.LinuxMountPath)
+"@
+    } 
 
     # create the bash script, with \r characters removed (for Linux)
     $tempUnmountScript = "$(Get-KubePath)\$tempUnmountOnLinuxClientScript"
@@ -359,11 +390,11 @@ function Remove-SharedFolderMountOnLinuxClient {
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo chown -R remote  /home/remote/$unmountOnLinuxClientScript").Output | Write-Log
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo chmod +x /home/remote/$unmountOnLinuxClientScript").Output | Write-Log
 
-    Write-Log "[$script::$function] Executing on client unmount script inside Linux VM as remote user..."
+    Write-Log 'Executing on client unmount script inside Linux VM as remote user...'
     $sshLog = (ssh.exe -n '-vv' -E $logFile -o StrictHostKeyChecking=no -i $(Get-SSHKeyControlPlane) $(Get-ControlPlaneRemoteUser) "sudo su -s /bin/bash -c '~/$unmountOnLinuxClientScript' remote") *>&1
-    Write-Log "[$script::$function] $sshLog"
+    Write-Log " $sshLog"
 
-    $resultMsg = Write-Log "[$script::$function] Unmounting '$($Config.LinuxMountPath) -> $($Config.WinHostRemotePath)' on Linux "
+    $resultMsg = Write-Log "Unmounting '$($Config.LinuxMountPath) -> $($Config.WinHostRemotePath)' on Linux "
     if ($LASTEXITCODE -eq 0) {
         $resultMsg += 'succeeded.'
     }
@@ -378,12 +409,11 @@ function Wait-ForSharedFolderMountOnLinuxClient () {
         [parameter(Mandatory = $false)]
         [pscustomobject]$Config = $(throw 'Config not specified')
     )
-    $function = $MyInvocation.MyCommand.Name
-
-    Write-Log "[$script::$function] Waiting for shared folder mount on Linux node.."
+    
+    Write-Log 'Waiting for shared folder mount on Linux node..'
     $fstabOut = (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "cat /etc/fstab | grep -o /$($Config.WinShareName)").Output
     if (! $fstabOut) {
-        Write-Log "[$script::$function] no shared folder in fstab yet"
+        Write-Log 'no shared folder in fstab yet'
         # no entry in fstab, so no need to wait for mount
         return
     }
@@ -394,42 +424,41 @@ function Wait-ForSharedFolderMountOnLinuxClient () {
     while (! $mountOut) {
         $iteration++
         if ($iteration -ge 15) {
-            Write-Log "[$script::$function] CIFS mount still not available, checking known issues ..."
+            Write-Log 'CIFS mount still not available, checking known issues ...'
             Test-ForKnownSmbProblems
 
             if ( $script:HasIssues -eq $true ) {
-                Write-Log "[$script::$function] Executing script to fix policy issue..."
+                Write-Log 'Executing script to fix policy issue...'
                 & "$PSScriptRoot\SetNetworkSharePolicy.ps1"
             }
         }
         if ($iteration -ge 20) {
-            Write-Log "[$script::$function] CIFS mount still not available, aborting..."
+            Write-Log 'CIFS mount still not available, aborting...'
             Test-ForKnownSmbProblems
             throw 'Unable to mount shared folder with CIFS'
         }
         if ($iteration -ge 2 ) {
-            Write-Log "[$script::$function] CIFS mount not yet available, waiting for it..."
+            Write-Log 'CIFS mount not yet available, waiting for it...'
         }
         Start-Sleep 2
         (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo mount -a').Output | Write-Log
         $mountOut = (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo su -s /bin/bash -c 'sudo mount | grep /$($Config.WinShareName)' remote").Output
     }
-    Write-Log "[$script::$function] Shared folder mounted on Linux."
+    Write-Log 'Shared folder mounted on Linux.'
 }
 
 function Wait-ForSharedFolderOnLinuxHost () {
     param (
         [parameter(Mandatory = $false)]
         [pscustomobject]$Config = $(throw 'Config not specified')
-    )
-    $function = $MyInvocation.MyCommand.Name
+    )    
 
-    Write-Log "[$script::$function] Waiting for shared folder (Samba Share) hosted on Linux node.."
+    Write-Log 'Waiting for shared folder (Samba Share) hosted on Linux node..'
     $script:Success = $false
 
     $fstabOut = (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "cat /etc/fstab | grep -o $($Config.LinuxShareName)").Output
     if (! $fstabOut) {
-        Write-Log "[$script::$function] no shared folder in fstab yet"
+        Write-Log 'no shared folder in fstab yet'
         # no entry in fstab, so no need to wait for mount
         return
     }
@@ -439,19 +468,19 @@ function Wait-ForSharedFolderOnLinuxHost () {
     while (! $mountOut) {
         $iteration++
         if ($iteration -ge 15) {
-            Write-Log "[$script::$function] $($Config.LinuxMountPath) still not mounted, aborting."
+            Write-Log "$($Config.LinuxMountPath) still not mounted, aborting."
             return
         }
 
         if ($iteration -ge 2 ) {
-            Write-Log "[$script::$function] $($Config.LinuxMountPath) not yet mounted, waiting for it..."
+            Write-Log "$($Config.LinuxMountPath) not yet mounted, waiting for it..."
         }
 
         Start-Sleep 2
         (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo mount -a').Output | Write-Log
         $mountOut = (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo su -s /bin/bash -c 'sudo mount | grep /$($Config.LinuxShareName)' remote").Output
     }
-    Write-Log "[$script::$function] '$($Config.LinuxMountPath)' mounted"
+    Write-Log "'$($Config.LinuxMountPath)' mounted"
     $script:Success = $true
 }
 
@@ -459,12 +488,11 @@ function New-SharedFolderMountOnLinuxHost {
     param (
         [parameter(Mandatory = $false)]
         [pscustomobject]$Config = $(throw 'Config not specified')
-    )
-    $function = $MyInvocation.MyCommand.Name
+    )  
 
     Remove-Item -Force -ErrorAction SilentlyContinue $logFile
 
-    Write-Log "[$script::$function] Creating temporary mount script..."
+    Write-Log 'Creating temporary mount script...'
 
     $fstabCmd = @"
         findmnt $($Config.LinuxMountPath) -D >/dev/null && sudo umount $($Config.LinuxMountPath)
@@ -502,32 +530,33 @@ function New-SharedFolderMountOnLinuxHost {
         (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo chown -R remote /home/remote/tmp_fstabCmd.sh').Output | Write-Log
         (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo chmod +x /home/remote/tmp_fstabCmd.sh').Output | Write-Log
 
-        Write-Log "[$script::$function] Executing script inside VM as remote user..."
+        Write-Log 'Executing script inside VM as remote user...'
         Start-Sleep 2
         ssh.exe -n '-vv' -E $logFile -o StrictHostKeyChecking=no -i $(Get-SSHKeyControlPlane) $(Get-ControlPlaneRemoteUser) "sudo su -s /bin/bash -c '~/tmp_fstabCmd.sh' remote"
         if ($LASTEXITCODE -eq 0) {
-            Write-Log "[$script::$function] Successfully mounted '$($Config.LinuxMountPath)' on Linux."
+            Write-Log "Successfully mounted '$($Config.LinuxMountPath)' on Linux."
             break
         }
         if ($i -ge 30) {
             Test-ForKnownSmbProblems
             throw 'unable to mount shared CF in Linux machine, giving up'
         }
-        Write-Log "[$script::$function] Retry after failure..."
+        Write-Log 'Retry after failure...'
     }
 }
 
 function Remove-SharedFolderMountOnLinuxHost {
     param (
         [parameter(Mandatory = $false)]
-        [pscustomobject]$Config = $(throw 'Config not specified')
-    )
-    $function = $MyInvocation.MyCommand.Name
+        [pscustomobject]$Config = $(throw 'Config not specified'),
+        [parameter(Mandatory = $false)]
+        [switch]$Keep = $false
+    )    
 
-    Write-Log "[$script::$function] Unmounting '$($Config.LinuxMountPath)' on Linux.."
+    Write-Log "Unmounting '$($Config.LinuxMountPath)' on Linux.."
     Remove-Item -Force -ErrorAction SilentlyContinue $logFile
 
-    Write-Log "[$script::$function] Creating temporary unmount script.."
+    Write-Log 'Creating temporary unmount script..'
     $tempFstabFile = 'fstab.tmp'
     $tempUnmountOnLinuxHostScript = 'tmp_unmountOnLinuxHostCmd.sh'
     $unmountOnLinuxHostScript = 'unmountOnLinuxHostCmd.sh'
@@ -540,9 +569,14 @@ function Remove-SharedFolderMountOnLinuxHost {
         sudo sh -c "cat $tempFstabFile > /etc/fstab"
         sudo rm -f $tempFstabFile
         sudo systemctl daemon-reload
-        sudo rm -rf $($Config.LinuxMountPath)
-        rm ~/$unmountOnLinuxHostScript
+        sudo rm ~/$unmountOnLinuxHostScript
 "@
+    # if we want to keep content of the mount point, we do not remove it
+    if (-not $Keep) {
+        $unmountOnLinuxHostCmd += @"
+        sudo rm -rf $($Config.LinuxMountPath)   
+"@
+    }
 
     # create the bash script, with \r characters removed (for Linux)
     $tempUnmountScript = "$(Get-KubePath)\$tempUnmountOnLinuxHostScript"
@@ -557,13 +591,13 @@ function Remove-SharedFolderMountOnLinuxHost {
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo chown -R remote /home/remote/$unmountOnLinuxHostScript").Output | Write-Log
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo chmod +x /home/remote/$unmountOnLinuxHostScript").Output | Write-Log
 
-    Write-Log "[$script::$function] Executing on host unmount script inside VM as remote user..."
+    Write-Log 'Executing on host unmount script inside VM as remote user...'
     ssh.exe -n '-vv' -E $logFile -o StrictHostKeyChecking=no -i $(Get-SSHKeyControlPlane) $(Get-ControlPlaneRemoteUser) "sudo su -s /bin/bash -l -c '~/$unmountOnLinuxHostScript' remote"
     if ($LASTEXITCODE -eq 0) {
-        Write-Log "[$script::$function] Unmounting '$($Config.LinuxMountPath)' on Linux succeeded."
+        Write-Log "Unmounting '$($Config.LinuxMountPath)' on Linux succeeded."
     }
     else {
-        Write-Log "[$script::$function] Unmounting '$($Config.LinuxMountPath)' on Linux failed with code '$LASTEXITCODE'."
+        Write-Log "Unmounting '$($Config.LinuxMountPath)' on Linux failed with code '$LASTEXITCODE'."
     }
 }
 
@@ -572,7 +606,9 @@ function New-SharedFolderMountOnWindows {
         [parameter(Mandatory = $false)]
         [pscustomobject]$Config = $(throw 'Config not specified')
     )
+    Remove-SmbGlobalMappingIfExisting -RemotePath $Config.LinuxHostRemotePath
     Remove-LocalWinMountIfExisting -Path $Config.WinMountPath
+    Remove-MountPointInWindowsIfExisting -RemotePath $Config.LinuxHostRemotePath
     Add-SmbGlobalMappingIfNotExisting -RemotePath $Config.LinuxHostRemotePath -LocalPath $Config.WinMountPath -SmbUser $smbFullUserNameLinux -SmbPasswd $smbPw
     Add-SymLinkOnWindows -RemotePath $Config.LinuxHostRemotePath -LocalPath $Config.WinMountPath
 }
@@ -585,11 +621,10 @@ function Add-SymLinkOnWindows {
         [Parameter(Mandatory = $false)]
         [string]
         $LocalPath = $(throw 'LocalPath not specified')
-    )
-    $function = $MyInvocation.MyCommand.Name
+    )    
 
     New-Item -ItemType SymbolicLink -Path $LocalPath -Target $RemotePath | Write-Log
-    Write-Log "[$script::$function] Symbolic Link '$LocalPath --> $RemotePath' created."
+    Write-Log "Symbolic Link '$LocalPath --> $RemotePath' created."
 }
 
 function Add-SmbGlobalMappingIfNotExisting {
@@ -609,10 +644,10 @@ function Add-SmbGlobalMappingIfNotExisting {
     )
     $function = $MyInvocation.MyCommand.Name
 
-    Write-Log "[$script::$function] Mounting $LocalPath --> $RemotePath.." -Console
+    Write-Log "Mounting $LocalPath --> $RemotePath.." -Console
 
     if ($(Get-SmbGlobalMapping -RemotePath $RemotePath -ErrorAction SilentlyContinue)) {
-        Write-Log "[$script::$function] Mount $LocalPath --> $RemotePath already existing, nothing to create." -Console
+        Write-Log "Mount $LocalPath --> $RemotePath already existing, nothing to create." -Console
         return
     }
 
@@ -621,7 +656,7 @@ function Add-SmbGlobalMappingIfNotExisting {
 
     while (!$(Get-SmbGlobalMapping -RemotePath $RemotePath -ErrorAction SilentlyContinue)) {
         if ($iteration -gt 0) {
-            Write-Log "[$script::$function] Retrying.."
+            Write-Log 'Retrying..'
         }
 
         $iteration++
@@ -632,7 +667,7 @@ function Add-SmbGlobalMappingIfNotExisting {
         New-SmbGlobalMapping -RemotePath "$RemotePath" -Credential $creds -UseWriteThrough $true -Persistent $true 2>&1 | Write-Log
     }
 
-    Write-Log "[$script::$function] $LocalPath --> $RemotePath mounted." -Console
+    Write-Log "$LocalPath --> $RemotePath mounted." -Console
 }
 
 function Restore-SmbShareAndFolderWindowsHost {
@@ -645,17 +680,17 @@ function Restore-SmbShareAndFolderWindowsHost {
     )
     $function = $MyInvocation.MyCommand.Name
 
-    Write-Log "[$script::$function] Restoring SMB share (Windows host).." -Console
+    Write-Log 'Restoring SMB share (Windows host)..' -Console
 
     if ($SkipTest -ne $true) {
         Test-SharedFolderMountOnWinNode -Config $Config
 
         if ($script:Success -eq $True) {
-            Write-Log "[$script::$function] Access to shared folder '$($Config.WinMountPath)' working, nothing to do"
+            Write-Log "Access to shared folder '$($Config.WinMountPath)' working, nothing to do"
             return
         }
 
-        Write-Log "[$script::$function] No access to shared folder '$($Config.WinMountPath)' yet, establishing it.."
+        Write-Log "No access to shared folder '$($Config.WinMountPath)' yet, establishing it.."
     }
 
     New-SmbHostOnWindowsIfNotExisting -Config $Config
@@ -667,7 +702,7 @@ function Restore-SmbShareAndFolderWindowsHost {
         throw "Failed to setup SMB share '$($Config.WinMountPath)' on Windows host"
     }
 
-    Write-Log "[$script::$function] Access to shared folder '$($Config.WinMountPath)' working" -Console
+    Write-Log "Access to shared folder '$($Config.WinMountPath)' working" -Console
 }
 
 function New-StorageClassManifest {
@@ -676,15 +711,14 @@ function New-StorageClassManifest {
         [string]$RemotePath = $(throw 'RemotePath not specified'),
         [parameter(Mandatory = $false)]
         [string]$StorageClassName = $(throw 'StorageClassName not specified')
-    )   
-    $function = $MyInvocation.MyCommand.Name
+    )
 
     $manifestFileName = "$($generatedPrefix)$($StorageClassName).yaml"
     $manifestPath = "$manifestStorageClassesDir\$manifestFileName"
 
     $templateContent = Get-Content -Path $scTemplateFilePath | Out-String
 
-    Write-Log "[$script::$function] StorageClass manifest template '$scTemplateFilePath' loaded"
+    Write-Log "StorageClass manifest template '$scTemplateFilePath' loaded"
 
     $remotePath = Convert-ToUnixPath -Path $RemotePath
 
@@ -692,7 +726,7 @@ function New-StorageClassManifest {
 
     Set-Content -Value $manifestContent -Path $manifestPath -Force
 
-    Write-Log "[$script::$function] StorageClass manifest written to '$manifestPath'."
+    Write-Log "StorageClass manifest written to '$manifestPath'."
 
     return $manifestFileName
 }
@@ -705,7 +739,7 @@ function Wait-ForPodToBeReady {
     )
     $function = $MyInvocation.MyCommand.Name
 
-    Write-Log "[$script::$function] Waiting for Pod to be ready (timeout: $($TimeoutSeconds)s).." -Console
+    Write-Log "Waiting for Pod to be ready (timeout: $($TimeoutSeconds)s).." -Console
 
     $ready = Test-CsiPodsCondition -Condition 'Ready' -TimeoutSeconds $TimeoutSeconds
 
@@ -713,7 +747,7 @@ function Wait-ForPodToBeReady {
         throw "StorageClass not ready within $($TimeoutSeconds)s"
     }
 
-    Write-Log "[$script::$function] StorageClass is ready" -Console
+    Write-Log 'StorageClass is ready' -Console
 }
 
 function Wait-ForPodToBeDeleted {
@@ -722,18 +756,17 @@ function Wait-ForPodToBeDeleted {
         [int]
         $TimeoutSeconds = 30
     )
-    $function = $MyInvocation.MyCommand.Name
 
-    Write-Log "[$script::$function] Waiting for Pod to be deleted (timeout: $($TimeoutSeconds)s).." -Console
+    Write-Log " Waiting for Pod to be deleted (timeout: $($TimeoutSeconds)s).." -Console
 
     $deleted = Test-CsiPodsCondition -Condition 'Deleted' -TimeoutSeconds $TimeoutSeconds
 
     if ($true -ne $deleted) {
-        Write-Log "[$script::$function] StorageClass not deleted within $($TimeoutSeconds)s"
+        Write-Log "StorageClass not deleted within $($TimeoutSeconds)s"
         return
     }
 
-    Write-Log "[$script::$function] StorageClass is deleted successfully" -Console
+    Write-Log 'StorageClass is deleted successfully' -Console
 }
 
 function New-StorageClasses {
@@ -745,8 +778,7 @@ function New-StorageClasses {
         [bool]$LinuxOnly,
         [parameter(Mandatory = $false)]
         [pscustomobject]$Config = $(throw 'Config not specified')
-    )    
-    $function = $MyInvocation.MyCommand.Name
+    )     
 
     $manifestDir = $manifestWinDir
     if ($LinuxOnly -eq $true) {
@@ -771,7 +803,7 @@ function New-StorageClasses {
 
     $params = 'apply', '-k', $manifestDir
 
-    Write-Log "[$script::$function] Invoking kubectl with '$params'.."
+    Write-Log "Invoking kubectl with '$params'.."
 
     $result = Invoke-Kubectl -Params $params
     if ($result.Success -ne $true) {
@@ -788,7 +820,7 @@ function Remove-StorageClasses {
         [parameter(Mandatory = $false)]
         [array]$Config = $(throw 'Config not specified')
     )
-    $function = $MyInvocation.MyCommand.Name
+    
 
     $manifestDir = $manifestWinDir
     if ($LinuxOnly -eq $true) {
@@ -799,13 +831,13 @@ function Remove-StorageClasses {
         Remove-PersistentVolumeClaimsForStorageClass -StorageClass $configEntry.StorageClassName | Write-Log
     }
 
-    $params = 'delete', '-k', $manifestDir
+    $params = 'delete', '-k', $manifestDir, '--force', '--ignore-not-found'
 
-    Write-Log "[$script::$function] Invoking kubectl with '$params'.."
+    Write-Log "Invoking kubectl with '$params'.."
 
     $result = Invoke-Kubectl -Params $params
     if ($result.Success -ne $true) {
-        Write-Warning "[$script::$function] Error occurred while invoking kubectl: $($result.Output)"
+        Write-Warning "Error occurred while invoking kubectl: $($result.Output)"
         return
     }
 
@@ -818,20 +850,19 @@ function New-StorageClassKustomization {
     param (
         [parameter(Mandatory = $false)]
         [System.Collections.ArrayList] $Manifests = $(throw 'Manifests not specified')
-    )
-    $function = $MyInvocation.MyCommand.Name
+    )  
 
     $manifestPath = "$manifestStorageClassesDir\$scKustomizeFileName"
 
     $templateContent = Get-Content -Path $scKustomizeTemplateFilePath | Out-String
 
-    Write-Log "[$script::$function] StorageClass Kustomize manifest template '$scKustomizeTemplateFilePath' loaded"
+    Write-Log "StorageClass Kustomize manifest template '$scKustomizeTemplateFilePath' loaded"
 
     $manifestContent = $templateContent -replace $kustomizeResourcesPlaceholder, ($Manifests -join ',')
     
     Set-Content -Value $manifestContent -Path $manifestPath -Force
 
-    Write-Log "[$script::$function] StorageClass Kustomize manifest written to '$manifestPath'."
+    Write-Log "StorageClass Kustomize manifest written to '$manifestPath'."
 }
 
 <#
@@ -855,17 +886,18 @@ function Remove-SmbShareAndFolderWindowsHost {
         [parameter(Mandatory = $false)]
         [pscustomobject]$Config = $(throw 'Config not specified'),
         [parameter(Mandatory = $false)]
-        [switch]$SkipNodesCleanup = $false
-    )
-    $function = $MyInvocation.MyCommand.Name
+        [switch]$SkipNodesCleanup = $false,
+        [parameter(Mandatory = $false)]
+        [switch]$Keep = $false
+    )    
 
-    Write-Log "[$script::$function] Removing SMB shares and folders hosted on Windows.."
+    Write-Log 'Removing SMB shares and folders hosted on Windows..'
 
     if ($SkipNodesCleanup -ne $true) {
-        Remove-SharedFolderMountOnLinuxClient -Config $Config
+        Remove-SharedFolderMountOnLinuxClient -Config $Config -Keep:$Keep
     }
 
-    Remove-SmbHostOnWindowsIfExisting -Config $Config
+    Remove-SmbHostOnWindowsIfExisting -Config $Config -Keep:$Keep
 }
 
 function Restore-SmbShareAndFolderLinuxHost {
@@ -874,25 +906,24 @@ function Restore-SmbShareAndFolderLinuxHost {
         [pscustomobject]$Config = $(throw 'Config not specified'),
         [Parameter(Mandatory = $false)]
         [switch]$SkipTest = $false
-    )
-    $function = $MyInvocation.MyCommand.Name
+    )    
 
-    Write-Log "[$script::$function] Restoring SMB share (Linux Samba host).." -Console
+    Write-Log 'Restoring SMB share (Linux Samba host)..' -Console
 
     if ($SkipTest -ne $true) {
         Wait-ForSharedFolderOnLinuxHost -Config $Config
 
         if ($script:Success -eq $true) {
-            Write-Log "[$script::$function] Samba share on Linux already working, checking mount on Windows node.."
+            Write-Log 'Samba share on Linux already working, checking mount on Windows node..'
             Test-SharedFolderMountOnWinNode -Config $Config
         }
 
         if ($script:Success -eq $true) {
-            Write-Log "[$script::$function] Access to shared folder '$($Config.LinuxMountPath)' working, nothing to restore."
+            Write-Log "Access to shared folder '$($Config.LinuxMountPath)' working, nothing to restore."
             return
         }
 
-        Write-Log "[$script::$function] No access to shared folder '$($Config.LinuxMountPath)', establishing it.." -Console
+        Write-Log "No access to shared folder '$($Config.LinuxMountPath)', establishing it.." -Console
     }
 
     New-SmbHostOnLinuxIfNotExisting -Config $Config
@@ -903,7 +934,7 @@ function Restore-SmbShareAndFolderLinuxHost {
         throw 'Unable to mount shared folder with CIFS on Linux host'
     }
 
-    Write-Log "[$script::$function] SMB share hosted and mounted on Linux, creating mount on Windows node.." -Console
+    Write-Log 'SMB share hosted and mounted on Linux, creating mount on Windows node..' -Console
 
     New-SharedFolderMountOnWindows -Config $Config
 
@@ -913,7 +944,7 @@ function Restore-SmbShareAndFolderLinuxHost {
         throw "Unable to setup SMB share '$($Config.LinuxMountPath)' on Linux host"
     }
 
-    Write-Log "[$script::$function] Access to shared folder '$($Config.LinuxMountPath)' working" -Console
+    Write-Log "Access to shared folder '$($Config.LinuxMountPath)' working" -Console
 }
 
 function Remove-SmbShareAndFolderLinuxHost {
@@ -921,18 +952,20 @@ function Remove-SmbShareAndFolderLinuxHost {
         [parameter(Mandatory = $false)]
         [pscustomobject]$Config = $(throw 'Config not specified'),
         [parameter(Mandatory = $false)]
-        [switch]$SkipNodesCleanup = $false
-    )
-    $function = $MyInvocation.MyCommand.Name
+        [switch]$SkipNodesCleanup = $false,
+        [parameter(Mandatory = $false)]
+        [switch]$Keep = $false
+    )   
 
-    Write-Log "[$script::$function] Removing SMB shares and folders hosted on Linux.."
+    Write-Log 'Removing SMB shares and folders hosted on Linux..'
 
     Remove-SmbGlobalMappingIfExisting -RemotePath $Config.LinuxHostRemotePath
-    Remove-LocalWinMountIfExisting -Path $Config.WinMountPath
+    Remove-LocalWinMountIfExisting -Path $Config.WinMountPath -Keep:$Keep
+    Remove-MountPointInWindowsIfExisting -RemotePath $Config.LinuxHostRemotePath
 
     if ($SkipNodesCleanup -ne $true) {
-        Remove-SharedFolderMountOnLinuxHost -Config $Config
-        Remove-SmbHostOnLinux -LinuxShareName $Config.LinuxShareName
+        Remove-SharedFolderMountOnLinuxHost -Config $Config -Keep:$Keep
+        Remove-SmbHostOnLinux -LinuxShareName $Config.LinuxShareName -Keep:$Keep
     }
 }
 
@@ -941,20 +974,21 @@ function Remove-SmbShareAndFolder() {
         [parameter(Mandatory = $false)]
         [pscustomobject]$Config = $(throw 'Config not specified'),
         [parameter(Mandatory = $false)]
-        [switch]$SkipNodesCleanup = $false
-    )
-    $function = $MyInvocation.MyCommand.Name
+        [switch]$SkipNodesCleanup = $false,
+        [parameter(Mandatory = $false)]
+        [switch]$Keep = $false  
+    )    
 
-    Write-Log "[$script::$function] Removing SMB shares and folders.." -Console    
+    Write-Log 'Removing SMB shares and folders..' -Console    
 
     $smbHostType = Get-SmbHostType
 
     switch ($SmbHostType) {
         'windows' {
-            Remove-SmbShareAndFolderWindowsHost -SkipNodesCleanup:$SkipNodesCleanup -Config $Config
+            Remove-SmbShareAndFolderWindowsHost -SkipNodesCleanup:$SkipNodesCleanup -Config $Config -Keep:$Keep
         }
         'linux' {
-            Remove-SmbShareAndFolderLinuxHost -SkipNodesCleanup:$SkipNodesCleanup -Config $Config
+            Remove-SmbShareAndFolderLinuxHost -SkipNodesCleanup:$SkipNodesCleanup -Config $Config -Keep:$Keep
         }
         Default {
             throw "invalid SMB host type '$SmbHostType'"
@@ -974,9 +1008,8 @@ function Test-SharedFolderMountOnWinNode {
         [switch]
         $Nested = $false
     )
-    $function = $MyInvocation.MyCommand.Name
-
-    Write-Log "[$script::$function] Checking shared folder on Windows node.."
+    
+    Write-Log 'Checking shared folder on Windows node..'
     $script:Success = $false
 
     if (!(Test-Path -path $Config.WinMountPath -PathType Container)) {
@@ -991,14 +1024,14 @@ function Test-SharedFolderMountOnWinNode {
         Remove-Item -Force $winTestFile -ErrorAction Stop
     }
 
-    Write-Log "[$script::$function] Create test file on linux side: $linuxTestFile"
+    Write-Log "Create test file on linux side: $linuxTestFile"
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "test -d $($Config.LinuxMountPath) && sudo touch $linuxTestFile" -Nested:$Nested -Retries 10).Output | Write-Log
 
     $iteration = 15
     while ($iteration -gt 0) {
         $iteration--
         if (Test-Path $winTestFile) {
-            Write-Log "[$script::$function] Remove test file on windows side: $winTestFile"
+            Write-Log " Remove test file on windows side: $winTestFile"
             Remove-Item -Force $winTestFile -ErrorAction SilentlyContinue
 
             $script:Success = $true
@@ -1006,7 +1039,7 @@ function Test-SharedFolderMountOnWinNode {
         }
         Start-Sleep 2
     }
-    Write-Log "[$script::$function] Not accessable through windows, removing test file on linux side: $linuxTestFile ..."
+    Write-Log "Not accessable through windows, removing test file on linux side: $linuxTestFile ..."
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "test -d $($Config.LinuxMountPath) && sudo rm -f $linuxTestFile" -NoLog -Nested:$Nested).Output | Write-Log
 }
 
@@ -1095,12 +1128,13 @@ If set to $true, e.g. no Debian packages will be removed from the Linux VM (make
 function Disable-SmbShare {
     param (
         [parameter(Mandatory = $false)]
-        [switch]$SkipNodesCleanup = $false
-    )
-    $function = $MyInvocation.MyCommand.Name
+        [switch]$SkipNodesCleanup = $false,
+        [parameter(Mandatory = $false)]
+        [switch]$Keep = $false        
+    )    
 
     if ($SkipNodesCleanup -eq $true) {
-        Write-Log "[$script::$function] Skipping SMB share cleanup on VMs.."
+        Write-Log 'Skipping SMB share cleanup on VMs..'
     }
     else {
         $systemError = Test-SystemAvailability -Structured
@@ -1114,7 +1148,7 @@ function Disable-SmbShare {
         return @{Error = $err }
     }
 
-    Write-Log "[$script::$function] Disabling '$AddonName'.."
+    Write-Log " Disabling '$AddonName'.."
 
     $setupInfo = Get-SetupInfo
     $storageConfig = Get-StorageConfig
@@ -1127,7 +1161,7 @@ function Disable-SmbShare {
     Remove-TempManifests
 
     foreach ($storageEntry in $storageConfig) {
-        Remove-SmbShareAndFolder -SkipNodesCleanup:$SkipNodesCleanup -Config $storageEntry        
+        Remove-SmbShareAndFolder -SkipNodesCleanup:$SkipNodesCleanup -Config $storageEntry -Keep:$Keep        
     }   
 
     Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = $AddonName; Implementation = $ImplementationName })
@@ -1249,27 +1283,26 @@ function Backup-AddonData {
     param (
         [Parameter(Mandatory = $false, HelpMessage = 'Back-up directory to write data to (gets created if not existing).')]
         [string]$BackupDir = $(throw 'Please specify the back-up directory.')
-    )
-    $function = $MyInvocation.MyCommand.Name
+    )    
 
     $AddonDirName = "$AddonName-$ImplementationName"
     $BackupDir = "$BackupDir\$AddonDirName"
 
     if ((Test-Path $BackupDir) -ne $true) {
-        Write-Log "[$script::$function] '$AddonDirName' backup dir not existing, creating it.."
+        Write-Log "'$AddonDirName' backup dir not existing, creating it.."
         New-Item -Path $BackupDir -ItemType Directory -Force | Out-Null
     }
 
     $config = Get-StorageConfig
     $mountPaths = @($config.WinMountPath)
 
-    Write-Log "[$script::$function] Copying data from '$mountPaths' to '$BackupDir'.."
+    Write-Log "Copying data from '$mountPaths' to '$BackupDir'.."
 
     for ($i = 0; $i -lt $mountPaths.Count; $i++) {
         Copy-Item -Path $mountPaths[$i] -Destination "$BackupDir\$(Split-Path -Path $mountPaths[$i] -Leaf)_$i" -Force -Recurse
     }
 
-    Write-Log "[$script::$function] Data copied to '$BackupDir'."  
+    Write-Log "Data copied to '$BackupDir'."  
 }
 
 <#
@@ -1286,14 +1319,13 @@ function Restore-AddonData {
     param (
         [Parameter(Mandatory = $false, HelpMessage = 'Back-up directory to restore data from.')]
         [string]$BackupDir = $(throw 'Please specify the back-up directory.')
-    )
-    $function = $MyInvocation.MyCommand.Name
+    )    
 
     $AddonDirName = "$AddonName-$ImplementationName"
     $BackupDir = "$BackupDir\$AddonDirName"
 
     if ((Test-Path $BackupDir) -ne $true) {
-        Write-Log "[$script::$function] '$AddonDirName' backup dir not existing, skipping."
+        Write-Log "'$AddonDirName' backup dir not existing, skipping."
         return
     }
 
@@ -1303,11 +1335,11 @@ function Restore-AddonData {
     for ($i = 0; $i -lt $mountPaths.Count; $i++) {
         $target = $mountPaths[$i]
 
-        Write-Log "[$script::$function] Copying data from '$BackupDir' to '$target'.."
+        Write-Log "Copying data from '$BackupDir' to '$target'.."
 
         Copy-Item -Path "$BackupDir\$(Split-Path -Path $mountPaths[$i] -Leaf)_$i\*" -Destination $mountPaths[$i] -Force -Recurse
 
-        Write-Log "[$script::$function] Data copied to '$target'."
+        Write-Log "Data copied to '$target'."
     }
 }
 
@@ -1329,21 +1361,20 @@ function Remove-SmbGlobalMappingIfExisting {
         [Parameter(Mandatory = $false)]
         [string]
         $RemotePath = $(throw 'RemotePath not specified')
-    )
-    $function = $MyInvocation.MyCommand.Name
+    )    
 
-    Write-Log "[$script::$function] Removing SMB global mapping to '$RemotePath'.."
+    Write-Log "Removing SMB global mapping to '$RemotePath'.."
 
     $mapping = Get-SmbGlobalMapping -RemotePath $RemotePath -ErrorAction SilentlyContinue
 
     if ($null -eq $mapping) {
-        Write-Log "[$script::$function] Global SMB mapping to '$RemotePath' not existing, nothing to remove."
+        Write-Log "Global SMB mapping to '$RemotePath' not existing, nothing to remove."
         return
     }
 
     Remove-SmbGlobalMapping -RemotePath $RemotePath -Force
 
-    Write-Log "[$script::$function] SMB global mapping to '$RemotePath' removed."
+    Write-Log "SMB global mapping to '$RemotePath' removed."
 }
 
 <#
@@ -1362,12 +1393,13 @@ This function can be imported and executed on a Win VM node
 function Remove-LocalWinMountIfExisting {
     param (
         [parameter(Mandatory = $false)]
-        [string]$Path = $(throw 'Path not specified')
-    )
-    $function = $MyInvocation.MyCommand.Name
+        [string]$Path = $(throw 'Path not specified'),
+        [parameter(Mandatory = $false)]
+        [switch]$Keep = $false
+    )    
 
     if ((Test-Path -Path $Path) -ne $true) {
-        Write-Log "[$script::$function] Windows mount not existing, nothing to remove."
+        Write-Log 'Windows mount not existing, nothing to remove.'
         return
     }
 
@@ -1375,31 +1407,32 @@ function Remove-LocalWinMountIfExisting {
     if ( ($winMount | Select-Object -Property LinkType).LinkType -eq 'SymbolicLink') {
         $winMount.Delete()
 
-        Write-Log "[$script::$function] SymbolicLink '$Path' deleted."
+        Write-Log "SymbolicLink '$Path' deleted."
     }
     else {
+        if ($Keep -eq $true) {
+            Write-Log "Directory '$Path' kept."
+            return
+        }
         Remove-Item $Path -Recurse -Force
-
-        Write-Log "[$script::$function] Directory '$Path' deleted."
+        Write-Log "Directory '$Path' deleted."
     }
 }
 
 function New-SmbShareNamespace {
-    $function = $MyInvocation.MyCommand.Name
-
+    
     $params = 'create', 'namespace', $namespace
-    Write-Log "[$script::$function] Invoking kubectl with '$params'.."
+    Write-Log "Invoking kubectl with '$params'.."
     $result = Invoke-Kubectl -Params $params
     if ($result.Success -ne $true) {
         throw $result.Output
     }
 }
 
-function Remove-SmbShareNamespace {
-    $function = $MyInvocation.MyCommand.Name
+function Remove-SmbShareNamespace {    
 
     $params = 'delete', 'namespace', $namespace, '--ignore-not-found=true'
-    Write-Log "[$script::$function] Invoking kubectl with '$params'.."
+    Write-Log "Invoking kubectl with '$params'.."
     $result = Invoke-Kubectl -Params $params
     if ($result.Success -ne $true) {
         throw $result.Output
@@ -1414,12 +1447,11 @@ function Get-StorageConfig {
     param (       
         [parameter(Mandatory = $false)]
         [switch]$Raw = $false
-    )
-    $function = $MyInvocation.MyCommand.Name
+    )    
     
     $configPath = Get-StorageConfigPath
     
-    Write-Log "[$script::$function] Loading storage config '$configPath'"
+    Write-Log "Loading storage config '$configPath'"
 
     if (!(Test-Path $configPath)) {
         throw "Storage config file '$configPath' not found"
@@ -1460,7 +1492,32 @@ function Get-StorageConfigFromRaw {
     )
 }
 
+<#
+.SYNOPSIS
+Removes the mount point on windows side because it is not needed anymore
+
+.DESCRIPTION
+Removes the mount point on windows side because it is not needed anymore
+
+.PARAMETER RemotePath
+The SMB share remote path
+
+.NOTES
+This function can be imported
+#>
+function Remove-MountPointInWindowsIfExisting {
+    param (
+        [Parameter(Mandatory = $false)]
+        [string]
+        $RemotePath = $(throw 'RemotePath not specified')
+    )    
+
+    Write-Log "Removing mount point to '$RemotePath'.."
+    &net use $RemotePath /delete >$null 2>&1
+    Write-Log "Mount point to '$RemotePath' removed."
+}
+
 Export-ModuleMember -Function Enable-SmbShare, Disable-SmbShare, Restore-SmbShareAndFolder,
 Get-SmbHostType, Get-StorageConfig, Get-Status, Backup-AddonData, Get-StorageConfigPath, Get-StorageConfigFromRaw,
-Restore-AddonData, Remove-SmbGlobalMappingIfExisting, Remove-LocalWinMountIfExisting -Variable AddonName
+Restore-AddonData, Remove-SmbGlobalMappingIfExisting, Remove-MountPointInWindowsIfExisting, Remove-LocalWinMountIfExisting -Variable AddonName
 

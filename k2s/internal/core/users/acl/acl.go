@@ -6,6 +6,8 @@ package acl
 import (
 	"fmt"
 	"log/slog"
+	"os"
+	"path/filepath"
 
 	"github.com/siemens-healthineers/k2s/internal/core/users/common"
 )
@@ -13,6 +15,8 @@ import (
 type acl struct {
 	exec common.CmdExecutor
 }
+
+var icacls = filepath.Join(os.Getenv("SYSTEMROOT"), "System32", "icacls.exe")
 
 func NewAcl(exec common.CmdExecutor) *acl {
 	return &acl{
@@ -23,7 +27,7 @@ func NewAcl(exec common.CmdExecutor) *acl {
 func (acl *acl) SetOwner(path string, owner string) error {
 	slog.Debug("Setting owner", "path", path, "owner", owner)
 
-	if err := acl.exec.ExecuteCmd("icacls", path, "/t", "/setowner", owner); err != nil {
+	if err := acl.exec.ExecuteCmd(icacls, path, "/t", "/setowner", owner); err != nil {
 		return fmt.Errorf("could not set owner '%s' of '%s': %w", owner, path, err)
 	}
 	return nil
@@ -32,7 +36,7 @@ func (acl *acl) SetOwner(path string, owner string) error {
 func (acl *acl) RemoveInheritance(path string) error {
 	slog.Debug("Removing security inheritance", "path", path)
 
-	if err := acl.exec.ExecuteCmd("icacls", path, "/t", "/inheritance:d"); err != nil {
+	if err := acl.exec.ExecuteCmd(icacls, path, "/t", "/inheritance:d"); err != nil {
 		return fmt.Errorf("could not remove security inheritance from '%s': %w", path, err)
 	}
 	return nil
@@ -43,7 +47,7 @@ func (acl *acl) GrantFullAccess(path string, username string) error {
 
 	accessParam := fmt.Sprintf("%s:(F)", username)
 
-	if err := acl.exec.ExecuteCmd("icacls", path, "/t", "/grant", accessParam); err != nil {
+	if err := acl.exec.ExecuteCmd(icacls, path, "/t", "/grant", accessParam); err != nil {
 		return fmt.Errorf("could not grant user '%s' full access to '%s': %w", username, path, err)
 	}
 	return nil
@@ -52,7 +56,7 @@ func (acl *acl) GrantFullAccess(path string, username string) error {
 func (acl *acl) RevokeAccess(path string, username string) error {
 	slog.Debug("Revoking access", "path", path, "username", username)
 
-	if err := acl.exec.ExecuteCmd("icacls", path, "/t", "/remove:g", username); err != nil {
+	if err := acl.exec.ExecuteCmd(icacls, path, "/t", "/remove:g", username); err != nil {
 		return fmt.Errorf("could not revoke access to '%s' for '%s': %w", path, username, err)
 	}
 	return nil

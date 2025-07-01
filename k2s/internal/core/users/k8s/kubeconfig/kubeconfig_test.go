@@ -17,12 +17,12 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-type cmdExecutorMock struct {
+type kubectlMock struct {
 	mock.Mock
 }
 
-func (m *cmdExecutorMock) ExecuteCmd(name string, arg ...string) error {
-	args := m.Called(name, arg)
+func (m *kubectlMock) Exec(params ...string) error {
+	args := m.Called(params)
 
 	return args.Error(0)
 }
@@ -54,8 +54,8 @@ var _ = Describe("kubeconfig pkg", func() {
 				execErr := errors.New("oops")
 				clusterConfig := &bkc.ClusterEntry{}
 
-				execMock := &cmdExecutorMock{}
-				execMock.On(reflection.GetFunctionName(execMock.ExecuteCmd), mock.Anything, mock.MatchedBy(func(args []string) bool {
+				execMock := &kubectlMock{}
+				execMock.On(reflection.GetFunctionName(execMock.Exec), mock.MatchedBy(func(args []string) bool {
 					return args[1] == "set-cluster"
 				})).Return(execErr)
 
@@ -73,11 +73,11 @@ var _ = Describe("kubeconfig pkg", func() {
 				execErr := errors.New("oops")
 				clusterConfig := &bkc.ClusterEntry{}
 
-				execMock := &cmdExecutorMock{}
-				execMock.On(reflection.GetFunctionName(execMock.ExecuteCmd), mock.Anything, mock.MatchedBy(func(args []string) bool {
+				execMock := &kubectlMock{}
+				execMock.On(reflection.GetFunctionName(execMock.Exec), mock.MatchedBy(func(args []string) bool {
 					return args[1] == "set-cluster"
 				})).Return(nil)
-				execMock.On(reflection.GetFunctionName(execMock.ExecuteCmd), mock.Anything, mock.MatchedBy(func(args []string) bool {
+				execMock.On(reflection.GetFunctionName(execMock.Exec), mock.MatchedBy(func(args []string) bool {
 					return args[1] == "set"
 				})).Return(execErr)
 
@@ -92,7 +92,6 @@ var _ = Describe("kubeconfig pkg", func() {
 		When("successful", func() {
 			It("calls kubectl correctly", func() {
 				const path = "path"
-				const cmdName = "kubectl"
 				const configParam = "config"
 				clusterConfig := &bkc.ClusterEntry{
 					Name: "my-cluster",
@@ -102,8 +101,8 @@ var _ = Describe("kubeconfig pkg", func() {
 					},
 				}
 
-				execMock := &cmdExecutorMock{}
-				execMock.On(reflection.GetFunctionName(execMock.ExecuteCmd), cmdName, mock.MatchedBy(func(args []string) bool {
+				execMock := &kubectlMock{}
+				execMock.On(reflection.GetFunctionName(execMock.Exec), mock.MatchedBy(func(args []string) bool {
 					return args[0] == configParam &&
 						args[1] == "set-cluster" &&
 						args[2] == clusterConfig.Name &&
@@ -113,7 +112,7 @@ var _ = Describe("kubeconfig pkg", func() {
 						args[6] == path
 
 				})).Return(nil)
-				execMock.On(reflection.GetFunctionName(execMock.ExecuteCmd), cmdName, mock.MatchedBy(func(args []string) bool {
+				execMock.On(reflection.GetFunctionName(execMock.Exec), mock.MatchedBy(func(args []string) bool {
 					return args[0] == configParam &&
 						args[1] == "set" &&
 						args[2] == "clusters.my-cluster.certificate-authority-data" &&
@@ -140,8 +139,8 @@ var _ = Describe("kubeconfig pkg", func() {
 				const keyPath = "key-path"
 				execErr := errors.New("oops")
 
-				execMock := &cmdExecutorMock{}
-				execMock.On(reflection.GetFunctionName(execMock.ExecuteCmd), mock.Anything, mock.MatchedBy(func(args []string) bool {
+				execMock := &kubectlMock{}
+				execMock.On(reflection.GetFunctionName(execMock.Exec), mock.MatchedBy(func(args []string) bool {
 					return args[1] == "set-credentials"
 				})).Return(execErr)
 
@@ -156,14 +155,13 @@ var _ = Describe("kubeconfig pkg", func() {
 		When("successful", func() {
 			It("calls kubectl correctly", func() {
 				const path = "path"
-				const cmdName = "kubectl"
 				const configParam = "config"
 				const username = "username"
 				const certPath = "cert-path"
 				const keyPath = "key-path"
 
-				execMock := &cmdExecutorMock{}
-				execMock.On(reflection.GetFunctionName(execMock.ExecuteCmd), cmdName, mock.MatchedBy(func(args []string) bool {
+				execMock := &kubectlMock{}
+				execMock.On(reflection.GetFunctionName(execMock.Exec), mock.MatchedBy(func(args []string) bool {
 					return args[0] == configParam &&
 						args[1] == "set-credentials" &&
 						args[2] == username &&
@@ -194,8 +192,8 @@ var _ = Describe("kubeconfig pkg", func() {
 				const clusterName = "my-cluster"
 				execErr := errors.New("oops")
 
-				execMock := &cmdExecutorMock{}
-				execMock.On(reflection.GetFunctionName(execMock.ExecuteCmd), mock.Anything, mock.MatchedBy(func(args []string) bool {
+				execMock := &kubectlMock{}
+				execMock.On(reflection.GetFunctionName(execMock.Exec), mock.MatchedBy(func(args []string) bool {
 					return args[1] == "set-context"
 				})).Return(execErr)
 
@@ -210,14 +208,13 @@ var _ = Describe("kubeconfig pkg", func() {
 		When("successful", func() {
 			It("calls kubectl correctly", func() {
 				const path = "path"
-				const cmdName = "kubectl"
 				const configParam = "config"
 				const username = "john"
 				const context = "context"
 				const clusterName = "my-cluster"
 
-				execMock := &cmdExecutorMock{}
-				execMock.On(reflection.GetFunctionName(execMock.ExecuteCmd), cmdName, mock.MatchedBy(func(args []string) bool {
+				execMock := &kubectlMock{}
+				execMock.On(reflection.GetFunctionName(execMock.Exec), mock.MatchedBy(func(args []string) bool {
 					return args[0] == configParam &&
 						args[1] == "set-context" &&
 						args[2] == context &&
@@ -244,8 +241,8 @@ var _ = Describe("kubeconfig pkg", func() {
 				const context = "context"
 				execErr := errors.New("oops")
 
-				execMock := &cmdExecutorMock{}
-				execMock.On(reflection.GetFunctionName(execMock.ExecuteCmd), mock.Anything, mock.MatchedBy(func(args []string) bool {
+				execMock := &kubectlMock{}
+				execMock.On(reflection.GetFunctionName(execMock.Exec), mock.MatchedBy(func(args []string) bool {
 					return args[1] == "use-context"
 				})).Return(execErr)
 
@@ -260,12 +257,11 @@ var _ = Describe("kubeconfig pkg", func() {
 		When("successful", func() {
 			It("calls kubectl correctly", func() {
 				const path = "path"
-				const cmdName = "kubectl"
 				const configParam = "config"
 				const context = "context"
 
-				execMock := &cmdExecutorMock{}
-				execMock.On(reflection.GetFunctionName(execMock.ExecuteCmd), cmdName, mock.MatchedBy(func(args []string) bool {
+				execMock := &kubectlMock{}
+				execMock.On(reflection.GetFunctionName(execMock.Exec), mock.MatchedBy(func(args []string) bool {
 					return args[0] == configParam &&
 						args[1] == "use-context" &&
 						args[2] == context &&
