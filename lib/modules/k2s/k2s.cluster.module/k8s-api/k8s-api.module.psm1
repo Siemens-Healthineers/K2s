@@ -7,8 +7,6 @@ $pathModule = "$PSScriptRoot/../../k2s.infra.module/path/path.module.psm1"
 
 Import-Module $formattingModule, $logModule, $pathModule
 
-$script = $MyInvocation.MyCommand.Name
-
 class Pod {
     [string]$Status
     [string]$Namespace
@@ -32,16 +30,15 @@ function Confirm-ApiVersionIsValid {
         [Parameter(Mandatory = $false)]
         [string]
         $Version = $(throw 'API version not specified')
-    )
-    $function = $MyInvocation.MyCommand.Name
+    )    
 
-    Write-Log "[$script::$function] Validating Version='$Version'.."
+    Write-Log "Validating Version='$Version'.."
 
     if ($Version -ne $supportedApiVersion) {
         throw "expected K8s API version '$supportedApiVersion', but got '$($Version)'"
     }
 
-    Write-Log "[$script::$function] Version valid"
+    Write-Log "Version valid"
 }
 
 function Get-Age {
@@ -49,10 +46,9 @@ function Get-Age {
         [Parameter(Mandatory = $false)]
         [string]
         $Timestamp
-    )
-    $function = $MyInvocation.MyCommand.Name
+    )    
 
-    Write-Log "[$script::$function] Converting '$Timestamp' to age.."
+    Write-Log "Converting '$Timestamp' to age.."
 
     [datetime]$now = Get-Now
     [datetime]$then = [datetime]::Parse($Timestamp)
@@ -65,7 +61,7 @@ function Get-Age {
 
     $result = (Convert-ToAgeString -Duration $duration)
 
-    Write-Log "[$script::$function] returning '$result'"
+    Write-Log "returning '$result'"
 
     return $result
 }
@@ -75,28 +71,27 @@ function Get-NodeStatus {
         [Parameter(Mandatory = $false)]
         [pscustomobject[]]
         $Conditions
-    )
-    $function = $MyInvocation.MyCommand.Name
+    )    
 
-    Write-Log "[$script::$function] Extracting Node status from JSON.."
+    Write-Log "Extracting Node status from JSON.."
 
     $status = 'Unknown'
     $isReady = $false
 
     foreach ($condition in $Conditions) {
         if ($condition.status -eq 'True') {
-            Write-Log "[$script::$function] Current Node condition found"
+            Write-Log "Current Node condition found"
 
             $status = $condition.type
 
-            Write-Log "[$script::$function] Node status='$status'"
+            Write-Log "Node status='$status'"
 
             if ($status -eq 'Ready') {
-                Write-Log "[$script::$function] Node is ready"
+                Write-Log "Node is ready"
                 $isReady = $true
             }
             else {
-                Write-Log "[$script::$function] Node not ready"
+                Write-Log "Node not ready"
             }
             break
         }
@@ -104,7 +99,7 @@ function Get-NodeStatus {
 
     $result = @{StatusText = $status; IsReady = $isReady }
 
-    Write-Log "[$script::$function] returning StatusText='$StatusText' and IsReady='$IsReady'"
+    Write-Log "returning StatusText='$StatusText' and IsReady='$IsReady'"
 
     return $result
 }
@@ -114,26 +109,25 @@ function Get-NodeRole {
         [Parameter(Mandatory = $false)]
         [pscustomobject]
         $Labels
-    )
-    $function = $MyInvocation.MyCommand.Name
+    )    
 
-    Write-Log "[$script::$function] Extracting Node role from JSON.."
+    Write-Log "Extracting Node role from JSON.."
 
     foreach ($label in $Labels.PSObject.Properties) {
         if ($label.Name -eq 'node-role.kubernetes.io/control-plane') {
-            Write-Log "[$script::$function] Role 'control-plane' found"
+            Write-Log "Role 'control-plane' found"
 
             return 'control-plane'
         }
 
         if ($label.Name -eq 'kubernetes.io/role' -and $label.Value -eq 'worker') {
-            Write-Log "[$script::$function] Role 'worker' found"
+            Write-Log "Role 'worker' found"
 
             return 'worker'
         }
     }
 
-    Write-Log "[$script::$function] No role found"
+    Write-Log " No role found"
 
     return 'Unknown'
 }
@@ -143,22 +137,21 @@ function Get-NodeInternalIp {
         [Parameter(Mandatory = $false)]
         [pscustomobject[]]
         $Addresses
-    )
-    $function = $MyInvocation.MyCommand.Name
+    )   
 
-    Write-Log "[$script::$function] Extracting Node internal IP from JSON.."
+    Write-Log "Extracting Node internal IP from JSON.."
 
     foreach ($address in $Addresses) {
-        Write-Log "[$script::$function] Checking address '$address'.."
+        Write-Log "Checking address '$address'.."
 
         if ($address.type -eq 'InternalIP') {
-            Write-Log "[$script::$function] Internal IP '$($address.address)' found"
+            Write-Log "Internal IP '$($address.address)' found"
 
             return $address.address
         }
     }
 
-    Write-Log "[$script::$function] No internal IP found"
+    Write-Log "No internal IP found"
 
     return '<none>'
 }
@@ -168,10 +161,9 @@ function Get-NodeCapacity {
         [Parameter(Mandatory = $false)]
         [pscustomobject]
         $Capacity
-    )
-    $function = $MyInvocation.MyCommand.Name
+    )   
 
-    Write-Log "[$script::$function] Extracting Node capacity from JSON.."
+    Write-Log "Extracting Node capacity from JSON.."
 
     [pscustomobject]@{
         CPU     = $Capacity.cpu;
@@ -185,10 +177,9 @@ function Get-Node {
         [Parameter(Mandatory = $false)]
         [pscustomobject]
         $JsonNode = $(throw 'JSON node not specified')
-    )
-    $function = $MyInvocation.MyCommand.Name
+    )   
 
-    Write-Log "[$script::$function] Extracting Node info from JSON.."
+    Write-Log "Extracting Node info from JSON.."
 
     $status = Get-NodeStatus -Conditions $JsonNode.status.conditions
     $role = Get-NodeRole -Labels $JsonNode.metadata.labels
@@ -216,10 +207,9 @@ function Get-PodStatus {
         [Parameter(Mandatory = $false)]
         [pscustomobject]
         $JsonNode = $(throw 'JSON node not specified')
-    )
-    $function = $MyInvocation.MyCommand.Name
+    )    
 
-    Write-Log "[$script::$function] Extracting Pod status from JSON.."
+    Write-Log "Extracting Pod status from JSON.."
 
     $status = 'Running'
     $restarts = 0
@@ -227,23 +217,23 @@ function Get-PodStatus {
     $isRunning = $true
 
     if ($JsonNode.status.containerStatuses.Count -gt 0) {
-        Write-Log "[$script::$function] '$($JsonNode.status.containerStatuses.Count)' Container statuses found"
+        Write-Log "'$($JsonNode.status.containerStatuses.Count)' Container statuses found"
 
         foreach ($containerStatus in $JsonNode.status.containerStatuses) {
-            Write-Log "[$script::$function] Checking status for Container '$($containerStatus.name)'.."
+            Write-Log "Checking status for Container '$($containerStatus.name)'.."
 
             $restarts = ($restarts + $containerStatus.restartCount)
 
-            Write-Log "[$script::$function] Detected '$restarts' restarts"
+            Write-Log "Detected '$restarts' restarts"
 
             if ($containerStatus.ready -eq $true) {
-                Write-Log "[$script::$function] Container is ready"
+                Write-Log "Container is ready"
 
                 $readyCount = ($readyCount + 1)
             }
 
             if ($containerStatus.state.PSobject.Properties.Name.Contains('running') -ne $true) {
-                Write-Log "[$script::$function] Container not running"
+                Write-Log "Container not running"
 
                 $isRunning = $false
                 $status = $containerStatus.state.PSobject.Properties.Value.reason
@@ -254,14 +244,14 @@ function Get-PodStatus {
         $isRunning = $false
         $status = $JsonNode.status.phase
 
-        Write-Log "[$script::$function] Pod not running, phase='$status'"
+        Write-Log "Pod not running, phase='$status'"
     }
 
     $ready = "$($readyCount)/$($JsonNode.spec.containers.Count)"
 
     $result = @{StatusText = $status; IsRunning = $isRunning; Restarts = $restarts; Ready = $ready }
 
-    Write-Log "[$script::$function] returning StatusText='$StatusText', IsRunning='$IsRunning', Restarts='$Restarts' and Ready='$Ready'"
+    Write-Log "returning StatusText='$StatusText', IsRunning='$IsRunning', Restarts='$Restarts' and Ready='$Ready'"
 
     return $result
 }
@@ -271,10 +261,9 @@ function Get-Pod {
         [Parameter(Mandatory = $false)]
         [pscustomobject]
         $JsonNode = $(throw 'JSON node not specified')
-    )
-    $function = $MyInvocation.MyCommand.Name
+    )    
 
-    Write-Log "[$script::$function] Extracting Pod info from JSON.."
+    Write-Log "Extracting Pod info from JSON.."
 
     $status = Get-PodStatus -JsonNode $JsonNode
     $age = Get-Age -Timestamp $($JsonNode.metadata.creationTimestamp).ToString()
@@ -298,11 +287,10 @@ function Get-PodsForNamespace {
         [string]
         $Namespace = $(throw 'Namespace not specified')
     )
-    $function = $MyInvocation.MyCommand.Name
-    
+
     $params = 'get', 'pod', '-n', $Namespace, '-o', 'json'
 
-    Write-Log "[$script::$function] Invoking kubectl with '$params'.."
+    Write-Log "Invoking kubectl with '$params'.."
 
     $result = Invoke-Kubectl -Params $params
     if ($result.Success -ne $true) {
@@ -313,14 +301,14 @@ function Get-PodsForNamespace {
 
     Confirm-ApiVersionIsValid -Version $obj.apiVersion
 
-    Write-Log "[$script::$function] Found '$($obj.items.Count)' Pod nodes"
+    Write-Log "Found '$($obj.items.Count)' Pod nodes"
 
     $pods = [System.Collections.ArrayList]@()
 
     foreach ($item in $obj.items) {
         $pod = Get-Pod -JsonNode $item
 
-        Write-Log "[$script::$function] Pod '$($pod.Name)' found"
+        Write-Log "Pod '$($pod.Name)' found"
 
         $pods.Add($pod) | Out-Null
     }
@@ -343,7 +331,7 @@ function Get-PodsWithPersistentVolumeClaims {
 
     $invokeResult = Invoke-Kubectl -Params $params
     if ($invokeResult.Success -ne $true) {
-        Write-Information " Error occurred while invoking kubectl: $($invokeResult.Output)"
+        Write-Information "Error occurred while invoking kubectl: $($invokeResult.Output)"
         return
     }
 
@@ -365,7 +353,7 @@ function Get-AllPersistentVolumeClaims {
 
     $result = Invoke-Kubectl -Params $params
     if ($result.Success -ne $true) {
-        Write-Information " Error occurred while invoking kubectl: $($result.Output)"
+        Write-Information "Error occurred while invoking kubectl: $($result.Output)"
         return
     }
 
@@ -373,17 +361,17 @@ function Get-AllPersistentVolumeClaims {
 }
 
 <#
- .Synopsis
-  Prints the given nodes
+.Synopsis
+Prints the given nodes
 
- .Description
-  Prints the given nodes as table
+.Description
+Prints the given nodes as table
 
- .PARAMETER Nodes
-  The nodes to print
+.PARAMETER Nodes
+The nodes to print
 
- .Example
-  Write-Nodes -Nodes <nodes>
+.Example
+Write-Nodes -Nodes <nodes>
 #>
 function Write-Nodes {
     param (
@@ -484,12 +472,11 @@ An array of Node objects
 .EXAMPLE
 Get-Nodes
 #>
-function Get-Nodes {
-    $function = $MyInvocation.MyCommand.Name
+function Get-Nodes {    
 
     $params = 'get', 'nodes', '-o', 'json'
 
-    Write-Log "[$script::$function] Invoking kubectl with '$params'.."
+    Write-Log "Invoking kubectl with '$params'.."
 
     $result = Invoke-Kubectl -Params $params
     if ($result.Success -ne $true) {
@@ -500,14 +487,14 @@ function Get-Nodes {
 
     Confirm-ApiVersionIsValid -Version $obj.apiVersion
 
-    Write-Log "[$script::$function] Found '$($obj.items.Count)' Node nodes"
+    Write-Log "Found '$($obj.items.Count)' Node nodes"
 
     $nodes = [System.Collections.ArrayList]@()
 
     foreach ($item in $obj.items) {
         $node = Get-Node -JsonNode $item
 
-        Write-Log "[$script::$function] Node '$($node.Name)' found"
+        Write-Log "Node '$($node.Name)' found"
 
         $nodes.Add($node) | Out-Null
     }
@@ -528,27 +515,25 @@ An array of Pod objects
 .EXAMPLE
 Get-SystemPods
 #>
-function Get-SystemPods {
-    $function = $MyInvocation.MyCommand.Name
+function Get-SystemPods {    
 
-    Write-Log "[$script::$function] Getting system Pods.."
+    Write-Log "Getting system Pods.."
 
     $pods = [System.Collections.ArrayList]@()
 
     Get-PodsForNamespace -Namespace 'kube-flannel' | ForEach-Object { $pods.Add($_) | Out-Null }
     Get-PodsForNamespace -Namespace 'kube-system' | ForEach-Object { $pods.Add($_) | Out-Null }
 
-    Write-Log "[$script::$function] Found '$($pods.Count)' system Pods"
+    Write-Log "Found '$($pods.Count)' system Pods"
 
     return $pods
 }
 
-function Get-K8sVersionInfo {
-    $function = $MyInvocation.MyCommand.Name
+function Get-K8sVersionInfo {    
 
     $params = 'version', '-o', 'json'
 
-    Write-Log "[$script::$function] Invoking kubectl with '$params'.."
+    Write-Log "Invoking kubectl with '$params'.."
 
     $result = Invoke-Kubectl -Params $params
     if ($result.Success -ne $true) {
@@ -559,7 +544,7 @@ function Get-K8sVersionInfo {
 
     $result = @{K8sServerVersion = $obj.serverVersion.gitVersion; K8sClientVersion = $obj.clientVersion.gitVersion }
 
-    Write-Log "[$script::$function] returning K8sServerVersion='$($result.K8sServerVersion)' and K8sClientVersion='$($result.K8sClientVersion)'"
+    Write-Log "returning K8sServerVersion='$($result.K8sServerVersion)' and K8sClientVersion='$($result.K8sClientVersion)'"
 
     return $result
 }

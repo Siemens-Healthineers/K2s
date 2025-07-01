@@ -74,3 +74,146 @@ Waits for the dicom pods to be available.
 function Wait-ForDicomAvailable {
     return (Wait-ForPodCondition -Condition Ready -Label 'app=dicom' -Namespace 'dicom' -TimeoutSeconds 120)
 }
+
+function Wait-ForPodsReady {
+    param (
+        [string]$namespace,
+        [int]$timeoutSeconds = 300,
+        [int]$intervalSeconds = 5
+    )
+
+    $timer = [System.Diagnostics.Stopwatch]::StartNew()
+    $timeoutMs = $timeoutSeconds * 1000
+    $ready = $false
+
+    Write-Log "Waiting for all pods in namespace $namespace to be ready..." -Console
+
+    while (-not $ready -and $timer.ElapsedMilliseconds -lt $timeoutMs) {
+        $allPodsReady = $true
+        
+        # Use kubectl directly to check pod status instead of parsing JSON
+        $podList = (Invoke-Kubectl -Params 'get', 'pods', '-n', $namespace).Output
+        
+        if (-not $podList -or $podList -match "No resources found") {
+            Write-Log "No pods found in namespace $namespace" -Console
+            Start-Sleep -Seconds $intervalSeconds
+            continue
+        }
+        
+        # Use kubectl to get each pod's status
+        $podNames = @()
+        $podLines = $podList -split "`n" | Select-Object -Skip 1
+        
+        foreach ($line in $podLines) {
+            if ($line.Trim()) {
+                $parts = $line -split '\s+', 3
+                if ($parts.Count -ge 3) {
+                    $podName = $parts[0]
+                    $podNames += $podName
+                }
+            }
+        }
+        
+        foreach ($podName in $podNames) {
+            # Check if pod is ready using kubectl get pods <podname> -o jsonpath
+            $readyResult = Invoke-Kubectl -Params 'get', 'pods', $podName, '-n', $namespace, '-o', 
+                      'jsonpath={.status.containerStatuses[*].ready}'
+            
+            if (-not $readyResult.Success -or $readyResult.Output -match "false" -or $readyResult.Output -eq "") {
+                $phaseResult = Invoke-Kubectl -Params 'get', 'pods', $podName, '-n', $namespace, '-o', 
+                          'jsonpath={.status.phase}'
+                $phase = if ($phaseResult.Success) { $phaseResult.Output } else { "Unknown" }
+                          
+                Write-Log "Pod $podName is not ready (phase: $phase)" -Console
+                $allPodsReady = $false
+            } else {
+                Write-Log "Pod $podName is ready" -Console
+            }
+        }
+
+        if ($allPodsReady -and $podNames.Count -gt 0) {
+            $ready = $true
+        } else {
+            Write-Log "Waiting for pods to be ready... (elapsed: $([math]::Round($timer.Elapsed.TotalSeconds))s)" -Console
+            Start-Sleep -Seconds $intervalSeconds
+        }
+    }
+
+    $timer.Stop()
+    
+    # Final check - if there are no pods, we consider it ready
+    $finalPodList = (Invoke-Kubectl -Params 'get', 'pods', '-n', $namespace).Output
+    if ($finalPodList -match "No resources found") {
+        Write-Log "No pods found in namespace $namespace - considering ready" -Console
+        return $true
+    }
+    
+    if (-not $ready) {
+        Write-Log "Timed out waiting for pods in namespace $namespace to be ready after $timeoutSeconds seconds" -Error
+        return $false
+    }
+    
+    Write-Log "All pods in namespace $namespace are ready!" -Console
+    return $true
+}
+
+function Restart-PodsWithLinkerdAnnotation {
+    param (
+        [string]$namespace,
+        [int]$timeoutSeconds = 300
+    )
+
+    Write-Log "Checking if Linkerd service mesh is enabled..." -Console
+    $linkerdEnabled = $false
+    
+    try {
+        $linkerdNamespace = (Invoke-Kubectl -Params 'get', 'namespace', 'linkerd', '--ignore-not-found').Output
+        if ($linkerdNamespace -match 'linkerd') {
+            $linkerdEnabled = $true
+        }
+    } catch {
+        Write-Log "Linkerd is not installed, skipping annotation handling" -Console
+        return $true
+    }
+
+    if (-not $linkerdEnabled) {
+        Write-Log "Linkerd is not installed, skipping annotation handling" -Console
+        return $true
+    }
+
+    Write-Log "Linkerd is installed. Adding service mesh annotations to deployments in namespace $namespace" -Console
+
+    # Verify deployments exist before trying to patch them
+    $postgresExists = (Invoke-Kubectl -Params 'get', 'deployment', 'postgres', '-n', $namespace, '--ignore-not-found').Success
+    $dicomExists = (Invoke-Kubectl -Params 'get', 'deployment', 'dicom', '-n', $namespace, '--ignore-not-found').Success
+    
+    # Add annotations to PostgreSQL deployment
+    if ($postgresExists) {
+        $annotations = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"linkerd.io/inject\":\"enabled\",\"config.linkerd.io/opaque-ports\":\"5432\"}}}}}'
+        Write-Log "Patching postgres deployment with linkerd annotations" -Console
+        (Invoke-Kubectl -Params 'patch', 'deployment', 'postgres', '-n', $namespace, '-p', $annotations).Output | Write-Log
+    } else {
+        Write-Log "PostgreSQL deployment not found in namespace $namespace" -Console
+    }
+
+    # Add annotations to dicom/orthanc deployment
+    if ($dicomExists) {
+        $annotations = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"linkerd.io/inject\":\"enabled\",\"config.linkerd.io/opaque-ports\":\"8042,4242\"}}}}}'
+        Write-Log "Patching dicom deployment with linkerd annotations" -Console
+        (Invoke-Kubectl -Params 'patch', 'deployment', 'dicom', '-n', $namespace, '-p', $annotations).Output | Write-Log
+    } else {
+        Write-Log "DICOM deployment not found in namespace $namespace" -Console
+    }
+
+    if ($postgresExists -or $dicomExists) {
+        # Restart rollout to apply annotations and ensure pods are recreated
+        Write-Log "Restarting rollout of deployments to apply linkerd annotations..." -Console
+        (Invoke-Kubectl -Params 'rollout', 'restart', 'deployment', '-n', $namespace).Output | Write-Log
+
+        # Wait for pods to be ready after annotations are applied
+        return (Wait-ForPodsReady -namespace $namespace -timeoutSeconds $timeoutSeconds)
+    } else {
+        Write-Log "No deployments found to apply Linkerd annotations to" -Console
+        return $true
+    }
+}

@@ -10,6 +10,8 @@ metadata:
     app: dicom
 spec:
   replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: orthanc
@@ -20,7 +22,7 @@ spec:
     spec:
       containers:
         - name: orthanc
-          image: jodogne/orthanc-plugins:1.12.5
+          image: jodogne/orthanc-plugins:1.12.6
           ports:
             - containerPort: 8042
             - containerPort: 4242
@@ -29,6 +31,28 @@ spec:
               mountPath: /var/lib/orthanc/db
             - mountPath: /etc/orthanc
               name: json-configmap-volume
+        - name: health-checker
+          image: curlimages/curl:8.5.0
+          command:
+            - sh
+            - -c
+            - while true; do curl -f http://localhost:8042/patients > /dev/null && echo 'OK' > /tmp/healthy || echo 'FAIL' > /tmp/healthy; sleep 5; done
+          readinessProbe:
+            exec:
+              command:
+                - cat
+                - /tmp/healthy
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 1
+          livenessProbe:
+            exec:
+              command:
+                - cat
+                - /tmp/healthy
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            timeoutSeconds: 1
       volumes:
         - name: orthanc-storage
           persistentVolumeClaim:

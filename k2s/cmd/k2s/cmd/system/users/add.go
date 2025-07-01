@@ -9,6 +9,7 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/status"
+	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 	"github.com/siemens-healthineers/k2s/internal/core/config"
 	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
 	"github.com/siemens-healthineers/k2s/internal/core/users"
@@ -110,7 +111,7 @@ func loadSetupConfig(configDir string) (*setupinfo.Config, error) {
 func addUser(userName, userId string, cfg config.ConfigReader) error {
 	cmdExecutor := os.NewCmdExecutor(common.NewSlogWriter())
 	userProvider := users.DefaultUserProvider()
-	usersManagement, err := users.NewUsersManagement(cfg, cmdExecutor, userProvider)
+	usersManagement, err := users.NewUsersManagement(cfg, cmdExecutor, userProvider, utils.InstallDir())
 	if err != nil {
 		return err
 	}

@@ -635,6 +635,8 @@ function New-NetworkForProvisioning {
         throw "Failed to create VMSwitch '$SwitchName' after $maxRetries attempts."
     }
 
+    Wait-ForNetIpInterface -SwitchName "vEthernet ($SwitchName)"
+
 	New-NetIPAddress -IPAddress $HostIpAddress -PrefixLength $HostIpPrefixLength -InterfaceAlias "vEthernet ($SwitchName)" | Write-Log
 	Write-Log "Added IP address '$HostIpAddress' to network interface named 'vEthernet ($SwitchName)'"
 

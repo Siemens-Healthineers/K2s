@@ -21,11 +21,12 @@ k2s addons enable security
 ```
 
 For enabling basic or enhanced security please use the parameter:
+
 ```cmd
  -t, --type string (basic or enhanced)
 ```
 
-K2s also has many addons like **dashboard**, **logging**, **monitoring**... which are bringing in also web apps. 
+K2s also has many addons like **dashboard**, **logging**, **monitoring**... which are bringing in also web apps.
 By enabling the security addon they will be automatically also secured.
 
 ## Disable security
@@ -42,21 +43,43 @@ After disabled security also please reset the policies (navigate to [chrome://ne
 k2s.cluster.local
 ```
 
+## Optional Components
+
+By default, the security addon installs all components listed below. You can now selectively omit certain open source frameworks during installation using flags:
+
+- `-OmitHydra`: Omits the setup of hydra and the local login implementation (useful if no local user management is needed).
+- `-OmitKeycloak`: Omits the setup of keycloak and its database (useful if you want oauth2-proxy to reference an external OAuth2 provider).
+
+Example usage:
+
+```powershell
+# Omit hydra and login
+k2s addons enable security -OmitHydra
+
+# Omit keycloak
+k2s addons enable security -OmitKeycloak
+
+# Omit both
+k2s addons enable security -OmitHydra -OmitKeycloak
+```
+
+If a component is omitted, the corresponding authentication or user management features will not be available in the cluster, and you must provide your own external solution if needed.
+
 ## Components used
 
-This addon installs workloads needed to secure the network communication by configuration. This includes:
+This addon installs workloads needed to secure the network communication by configuration. This includes (all optional via flags except cert-manager, trust-manager, and linkerd):
 
 - [cert-manager](https://cert-manager.io/) - services for certificate provisioning and renewing, based on annotations. `cert-manager` observes these annotations and automates obtaining and renewing certificates.
 
-- [keycloak](https://www.keycloak.org/) - services for identity and access management. `keycloak` provides user federation, strong authentication, user management, fine-grained authorization, and more.
+- [keycloak](https://www.keycloak.org/) - services for identity and access management. `keycloak` provides user federation, strong authentication, user management, fine-grained authorization, and more. _(Can be omitted with -OmitKeycloak)_
 
 - [trust-manager](https://cert-manager.io/docs/trust/trust-manager/) - trust-manager is a small Kubernetes operator which reduces the overhead of managing TLS trust bundles in your clusters, providing a much quicker way to update trust stores when they need to change.
 
 - [linkerd](https://linkerd.io/) - service mesh implementation. `linkerd` adds security, observability, and reliability to any Kubernetes cluster. Linkerd latest versions are adapted to work also on windows hosts for windows containers.
 
-- [ory hydra](https://github.com/ory/hydra) - using this "headless" OAuth2 and OIDC provider for providing the local user management on the windows host as part of the identity provider.
+- [ory hydra](https://github.com/ory/hydra) - using this "headless" OAuth2 and OIDC provider for providing the local user management on the windows host as part of the identity provider. _(Can be omitted with -OmitHydra)_
 
-- [oauth2 proxy](https://github.com/oauth2-proxy/oauth2-proxy) -  OAuth2 Proxy offloads the burden of implementing authentication logic from your applications.
+- [oauth2 proxy](https://github.com/oauth2-proxy/oauth2-proxy) - OAuth2 Proxy offloads the burden of implementing authentication logic from your applications.
 
 ## How to use it
 
@@ -69,7 +92,7 @@ See: [CA Issuer](https://cert-manager.io/docs/configuration/ca/)
 
 The addon also imports the public certificate of the CA Issuer into the trusted authorities of your windows host, and installs the `cmctl.exe` CLI.
 
-In order to secure the ingress to your *Kubernetes* application, follow [this description](https://cert-manager.io/docs/usage/ingress/#how-it-works):
+In order to secure the ingress to your _Kubernetes_ application, follow [this description](https://cert-manager.io/docs/usage/ingress/#how-it-works):
 
 ```yaml
 apiVersion: networking.k8s.io/v1
@@ -108,20 +131,25 @@ Local users on the host where K2s was setup can than be used for identity and ac
 Linkerd is a lightweight, open-source service mesh designed specifically for Kubernetes. Its primary goal is to make running cloud-native applications easier and safer by providing a layer of infrastructure that handles the complexities of service-to-service communication.
 
 In order to secure your workload please use the following annotation:
- ```cmd
-      annotations:
-        linkerd.io/inject: enabled
- ```
+
+```cmd
+     annotations:
+       linkerd.io/inject: enabled
+```
+
 This is the only mandatory annotation to use, please check other annotations from the linkerd documenetation.
 
 For using the linkerd dashboard please first install the dashboard resources:
- ```cmd
+
+```cmd
 linkerd viz install | kubectl apply -f -
- ```
+```
+
 After all pods are ready please start dashoboard with (you can use also another port if there is some conflict):
- ```cmd
+
+```cmd
 linkerd viz dashboard --port 60888 &
- ```
+```
 
 Documentation related to `linkerd` you will find here: [linkerd docs](https://www.keycloak.org/guides).
 
@@ -131,7 +159,7 @@ The primary role of trust-manager is to orchestrate and distribute bundles of tr
 These bundles are crucial for applications to validate the authenticity of other services they communicate with, primarily during TLS handshakes.
 It also automates the process of keeping these trust stores up-to-date.
 
-Traditionally, trust stores might be baked into container images. trust-manager decouples this by managing trust bundles at runtime. This means you can update trusted CAs without needing to rebuild and redeploy all your application containers. 
+Traditionally, trust stores might be baked into container images. trust-manager decouples this by managing trust bundles at runtime. This means you can update trusted CAs without needing to rebuild and redeploy all your application containers.
 
 While cert-manager is a popular Kubernetes tool for automating the issuance and renewal of X.509 certificates (the actual server/client certificates), trust-manager focuses on managing the trust anchors (CA certificates) that are used to verify those certificates.
 
@@ -143,7 +171,7 @@ Essentially, OAuth2 Proxy offloads the burden of implementing authentication log
 
 ### Ory Hydra
 
-Ory Hydra is an open-source implementation of the OAuth 2.0 authorization framework and the OpenID Connect Core 1.0 specifications. 
+Ory Hydra is an open-source implementation of the OAuth 2.0 authorization framework and the OpenID Connect Core 1.0 specifications.
 Unlike traditional identity platforms that bundle user management, Hydra is designed as a "headless" OAuth2 and OIDC provider. This means it focuses solely on the OAuth2 and OIDC protocols, delegating concerns like user login, consent flows, and user data management to separate, customizable components.
 
 ## Further Reading
