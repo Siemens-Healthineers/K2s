@@ -28,14 +28,14 @@ $windowsNodeArtifactsZipFileName = 'WindowsNodeArtifacts.zip'
 $windowsNodeArtifactsZipFilePath = "$kubeBinPath\$windowsNodeArtifactsZipFileName"
 
 # Windows images
-$windowsNode_ImagesDirectory = "images"
+$windowsNode_ImagesDirectory = 'images'
 
 
 $ErrorActionPreference = 'Stop'
 
 function Get-StringFromText([string]$text, [string]$searchPattern) {
     [regex]$rx = $searchPattern
-    $foundValue = ""
+    $foundValue = ''
     $result = $rx.match($text)
     if ($result.Success -and $result.Groups.Count -gt 1) {
         $foundValue = $result.Groups[1].Value
@@ -54,7 +54,7 @@ function Invoke-DownloadWindowsImages($downloadsBaseDirectory, $Proxy) {
 
     $sandboxImageName = Get-StringFromText $tomlContent 'sandbox_image = "([^"]*)"'
 
-    if ($sandboxImageName -eq "") {
+    if ($sandboxImageName -eq '') {
         throw "The sandbox image name and/or the username and/or the password gathered from the file '$tomlFilePath' is empty"
     }
 
@@ -71,8 +71,8 @@ function Invoke-DownloadWindowsImages($downloadsBaseDirectory, $Proxy) {
     $HttpProxyVariableOriginalValue = $env:HTTP_PROXY
     $HttpsProxyVariableOriginalValue = $env:HTTPS_PROXY
     try {
-        $env:HTTP_PROXY=$Proxy
-        $env:HTTPS_PROXY=$Proxy
+        $env:HTTP_PROXY = $Proxy
+        $env:HTTPS_PROXY = $Proxy
 
         $retryNumber = 0
         $maxAmountOfRetries = 3
@@ -108,20 +108,20 @@ function Invoke-DownloadWindowsImages($downloadsBaseDirectory, $Proxy) {
         }
     }
     finally {
-        $env:HTTP_PROXY=$HttpProxyVariableOriginalValue
-        $env:HTTPS_PROXY=$HttpsProxyVariableOriginalValue
+        $env:HTTP_PROXY = $HttpProxyVariableOriginalValue
+        $env:HTTPS_PROXY = $HttpsProxyVariableOriginalValue
     }
 
     $ErrorActionPreference = 'Stop'
 
     if ($imagePulledSuccessfully) {
-        $tarFileName = $sandboxImageName.Replace(":", "_").Replace("/", "__") + ".tar"
+        $tarFileName = $sandboxImageName.Replace(':', '_').Replace('/', '__') + '.tar'
         $tarFilePath = "$windowsImagesDownloadsDirectory\$tarFileName"
 
         if (Test-Path -Path $tarFilePath -PathType 'Leaf' -ErrorAction Stop) {
             Write-Log "File '$tarFilePath' already exists. Deleting it"
             Remove-Item -Path $tarFilePath -Force -ErrorAction Stop
-            Write-Log "  done"
+            Write-Log '  done'
         }
 
         Write-Log "Export image '$sandboxImageName' to '$tarFilePath'"
@@ -130,7 +130,8 @@ function Invoke-DownloadWindowsImages($downloadsBaseDirectory, $Proxy) {
             throw "The image '$sandboxImageName' could not be exported"
         }
         Write-Log "Image '$sandboxImageName' available as '$tarFilePath'"
-    } else {
+    }
+    else {
         $filePath = "$windowsImagesDownloadsDirectory\TheImageCouldNotBePulled.txt"
         Write-Log "The image '$sandboxImageName' could not be pulled. The placeholder file '$filePath' will be written instead."
         New-Item -Path $filePath | Out-Null
@@ -150,14 +151,14 @@ function Invoke-DeployWindowsImages($windowsNodeArtifactsDirectory) {
     Write-Log "Amount of images found that matches the search pattern '$fileSearchPattern': $amountOfFiles"
     $fileIndex = 1
 
-    foreach ($file in $files){
+    foreach ($file in $files) {
         $fileFullName = $file.FullName
         Write-Log "Import image from file '$fileFullName'... ($fileIndex of $amountOfFiles)"
         &$nerdctlExe -n k8s.io load -i `"$file`"
         if (!$?) {
             throw "The file '$fileFullName' could not be imported"
         }
-        Write-Log "  done"
+        Write-Log '  done'
         $fileIndex++
     }
 }
@@ -175,12 +176,13 @@ function Invoke-DownloadWindowsNodeArtifacts {
     if (Test-Path($windowsNodeArtifactsDownloadsDirectory)) {
         Write-Log "Remove content of folder '$windowsNodeArtifactsDownloadsDirectory'"
         Remove-Item "$windowsNodeArtifactsDownloadsDirectory\*" -Recurse -Force
-    } else {
+    }
+    else {
         Write-Log "Create folder '$windowsNodeArtifactsDownloadsDirectory'"
         mkdir $windowsNodeArtifactsDownloadsDirectory | Out-Null
     }
 
-    Write-Log "Start downloading artifacts for the Windows node"
+    Write-Log 'Start downloading artifacts for the Windows node'
 
     $downloadsBaseDirectory = "$windowsNodeArtifactsDownloadsDirectory"
     if (!(Test-Path $downloadsBaseDirectory)) {
@@ -310,23 +312,25 @@ function Invoke-DeployWinArtifacts {
     if (Test-Path($windowsNodeArtifactsDirectory)) {
         Write-Log "Remove content of folder '$windowsNodeArtifactsDirectory'"
         Remove-Item "$windowsNodeArtifactsDirectory\*" -Recurse -Force
-    } else {
+    }
+    else {
         Write-Log "Create folder '$windowsNodeArtifactsDirectory'"
         mkdir $windowsNodeArtifactsDirectory -ErrorAction SilentlyContinue | Out-Null
     }
 
     Write-Log "Extract the artifacts from the file '$windowsNodeArtifactsZipFilePath' to the directory '$windowsNodeArtifactsDirectory'..."
     Expand-Archive -LiteralPath $windowsNodeArtifactsZipFilePath -DestinationPath $windowsNodeArtifactsDirectory
-    Write-Log "  done"
+    Write-Log '  done'
 
     if ($DeleteFilesForOfflineInstallation) {
         Write-Log "Remove file '$windowsNodeArtifactsZipFilePath'"
         Remove-Item "$windowsNodeArtifactsZipFilePath" -Force
-    } else {
+    }
+    else {
         Write-Log "Leave file '$windowsNodeArtifactsZipFilePath' on file system for offline installation"
     }
 
-    if(!$downloadArtifacts) {
+    if (!$downloadArtifacts) {
         # Deploy NSSM when the artifacts are already present
         Invoke-DeployNssmArtifacts $windowsNodeArtifactsDirectory
         # Deploy Helm when the artifacts are already present
@@ -370,8 +374,6 @@ function Install-WinNodeArtifacts {
 
         Invoke-DeployWindowsExporterArtifacts $windowsNodeArtifactsDirectory
         Install-WindowsExporter
-
-        Add-K2sAppLockerRules
     }
 
 }
@@ -411,7 +413,7 @@ function Install-PuttyTools {
     Invoke-DeployPuttytoolsArtifacts $windowsNodeArtifactsDirectory
 }
 
-function Install-KubectlTool{
+function Install-KubectlTool {
     if (!(Test-Path -Path $windowsNodeArtifactsDirectory)) {
         throw "Cannot install the tool 'kubectl'. The directory '$windowsNodeArtifactsDirectory' does not exist."
     }

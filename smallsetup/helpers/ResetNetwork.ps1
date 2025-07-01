@@ -17,10 +17,9 @@ Param(
 
 &$PSScriptRoot\..\common\GlobalVariables.ps1
 
-$logModule = "$PSScriptRoot\..\ps-modules\log\log.module.psm1"
-$infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
+$infraModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
 
-Import-Module $logModule, $infraModule
+Import-Module $infraModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 

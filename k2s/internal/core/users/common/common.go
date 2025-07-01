@@ -12,4 +12,8 @@ type CmdExecutor interface {
 	ExecuteCmd(name string, arg ...string) error
 }
 
+type Kubectl interface {
+	Exec(params ...string) error
+}
+
 const K2sPrefix = "k2s-"

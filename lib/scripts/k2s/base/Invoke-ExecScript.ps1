@@ -27,9 +27,9 @@ Param(
     [string] $Script
 )
 
-$logModule = "$PSScriptRoot/../../../../smallsetup/ps-modules/log/log.module.psm1"
+$infraModule = "$PSScriptRoot\..\..\..\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
 
-Import-Module $logModule
+Import-Module $infraModule
 
 if ($Script.Contains("-ShowLogs")) {
     Initialize-Logging -ShowLogs:$true
