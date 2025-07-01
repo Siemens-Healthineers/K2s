@@ -30,10 +30,9 @@ Param (
 
 $clusterModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1"
 $imageFunctionsModule = "$PSScriptRoot\ImageFunctions.module.psm1"
-$loggingModule = "$PSScriptRoot\..\ps-modules\log\log.module.psm1"
 $infraModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
 
-Import-Module $clusterModule, $imageFunctionsModule, $loggingModule, $infraModule -DisableNameChecking
+Import-Module $clusterModule, $imageFunctionsModule, $infraModule -DisableNameChecking
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
