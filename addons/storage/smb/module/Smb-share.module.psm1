@@ -1476,8 +1476,8 @@ function Get-StorageConfigFromRaw {
     )
     return @($RawConfig | ForEach-Object {
             $winMountPath = Expand-PathSMB -FilePath $_.winMountPath
-            $linuxShareName = Split-Path -Path $_.linuxMountPath -Leaf
-            $winShareName = Split-Path -Path $winMountPath -Leaf
+            $linuxShareName = $_.linuxShareName
+            $winShareName = $_.winShareName
 
             [pscustomobject]@{
                 StorageClassName    = $_.storageClassName
