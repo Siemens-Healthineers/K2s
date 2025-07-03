@@ -251,7 +251,7 @@ func GetKeycloakToken() (string, error) {
 
 	GinkgoWriter.Printf("Getting Keycloak token from %s\n", tokenUrl)
 
-	maxRetries := 5
+	maxRetries := 10
 	for attempt := 1; attempt <= maxRetries; attempt++ {
 		resp, err := http.PostForm(tokenUrl, data)
 		if err != nil {
