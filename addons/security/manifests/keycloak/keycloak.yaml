@@ -9,7 +9,7 @@ metadata:
   namespace: security
 type: Opaque
 data:
-  USER: YWRtaW4=  # base64 of 'admin'
+  USER: YWRtaW4= # base64 of 'admin'
 ---
 apiVersion: v1
 kind: Secret
@@ -18,7 +18,7 @@ metadata:
   namespace: security
 type: Opaque
 data:
-  PASSWORD: YWRtaW4=  # base64 of 'admin'
+  PASSWORD: YWRtaW4= # base64 of 'admin'
 ---
 kind: ConfigMap
 apiVersion: v1
@@ -2280,6 +2280,8 @@ metadata:
     app: keycloak
 spec:
   replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: keycloak
@@ -2295,15 +2297,15 @@ spec:
             # Use 'start' command for production
             - start
             # Keep production-relevant flags
-            - "--hostname-strict=false"
+            - '--hostname-strict=false'
             # Only include --import-realm if you are using a realm import file for initial setup
             # For ongoing realm management, you might use the admin console or Keycloak CRs/Operator
-            - "--import-realm"
-            - "--proxy=edge"
-            - "--http-relative-path=keycloak"
+            - '--import-realm'
+            - '--proxy=edge'
+            - '--http-relative-path=keycloak'
             # Add health check arguments for 'start' mode
-            - "--health-enabled=true"
-            # - "--metrics-enabled=true"           
+            - '--health-enabled=true'
+            # - "--metrics-enabled=true"
           env:
             - name: KEYCLOAK_ADMIN
               valueFrom:
@@ -2316,7 +2318,7 @@ spec:
                   name: keycloak-admin-password
                   key: PASSWORD
             - name: KC_PROXY
-              value: "edge"
+              value: 'edge'
             - name: HTTP_PROXY
               value: http://172.19.1.1:8181
             - name: HTTPS_PROXY
@@ -2325,10 +2327,10 @@ spec:
             # Replace with your actual database details and Secret references
             - name: KC_DB
               # Example: postgres, mysql, mariadb, mssql, oracle
-              value: "postgres"
+              value: 'postgres'
             - name: KC_DB_URL
               # Use the name of the PostgreSQL Service created above
-              value: "jdbc:postgresql://postgresql.security.svc.cluster.local:5432/keycloak"
+              value: 'jdbc:postgresql://postgresql.security.svc.cluster.local:5432/keycloak'
             - name: KC_DB_USERNAME
               valueFrom:
                 secretKeyRef:
@@ -2340,7 +2342,7 @@ spec:
                 secretKeyRef:
                   # Create a Kubernetes Secret containing your database password
                   name: keycloak-db-credentials
-                  key: password              
+                  key: password
           ports:
             - name: http
               containerPort: 8080
@@ -2358,7 +2360,7 @@ spec:
           #   # Add a liveness probe for production
           #   httpGet:
           #     path: /keycloak/realms/master/online
-          #     port: 8080 
+          #     port: 8080
           #   initialDelaySeconds: 60 # Increase delay
           #   periodSeconds: 15
           #   timeoutSeconds: 5
@@ -2370,10 +2372,10 @@ spec:
           resources:
             requests:
               # cpu: "1000m"
-              memory: "300Mi"
+              memory: '300Mi'
             limits:
               # cpu: "4000m"
-              memory: "2Gi"
+              memory: '2Gi'
 
           volumeMounts:
             - name: keycloak-config-volume
