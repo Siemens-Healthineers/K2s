@@ -140,7 +140,7 @@ function Get-PushedContainerImages() {
     $registryName = $(Get-RegistriesFromSetupJson) | Where-Object { $_ -match 'k2s-registry.*' }
     $auth = Get-RegistryAuthToken $registryName
     if (!$auth) {
-        Write-Error "Can't find authentification token for $registryName."
+        Write-Error "Can't find authentication token for $registryName."
         return
     }
 
@@ -184,7 +184,7 @@ function Remove-PushedImage($name, $tag) {
     $registryName = $(Get-RegistriesFromSetupJson) | Where-Object { $_ -match 'k2s-registry.*' }
     $auth = Get-RegistryAuthToken $registryName
     if (!$auth) {
-        Write-Error "Can't find authentification token for $registryName."
+        Write-Error "Can't find authentication token for $registryName."
         return
     }
 
