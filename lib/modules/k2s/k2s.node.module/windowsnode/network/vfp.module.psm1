@@ -260,7 +260,7 @@ function Get-VfpRules_HnsPolicyId() {
         [ValidateNotNullorEmpty()]
         [Guid]$PolicyListId = $(throw 'Please provide a Id for Policy List.')
     )
-    throw 'Not Implemeneted'
+    throw 'Not Implemented'
 }
 
 
