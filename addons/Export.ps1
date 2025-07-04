@@ -127,6 +127,21 @@ try {
                 $dirPath = Join-Path -Path $($manifest.dir.path) -ChildPath $($implementation.name)
             }
 
+             # Convert addon name like "ingress nginx" to "ingress_nginx"
+             $addonFolderName = ($addonName -split '\s+') -join '_'
+
+             # Destination path: $tmpExportDir\addons\ingress_nginx\content
+             $destinationPath = Join-Path -Path $tmpExportDir -ChildPath "addons\$addonFolderName\content"
+ 
+             # Ensure destination directory exists
+             if (-not (Test-Path $destinationPath)) {
+                 New-Item -ItemType Directory -Path $destinationPath -Force | Out-Null
+             }
+ 
+             # Copy only the contents of $dirPath — not the folder itself
+             Copy-Item -Path (Join-Path $dirPath '*') -Destination $destinationPath -Recurse -Force
+
+             
             Write-Log "Pulling images for addon $addonName from $dirPath" -Console
 
             Write-Log '---'

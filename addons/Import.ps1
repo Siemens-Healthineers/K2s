@@ -111,6 +111,32 @@ foreach ($addon in $addonsToImport) {
     $images += $files
     Write-Log "Importing images from ${extractionFolder}\$($addon.dirName) for addon $($addon.name)" -Console
 
+      # Split addon name (e.g., "ingress nginx" → ["ingress", "nginx"])
+      $folderParts = $addon.name -split '\s+'
+
+      # Start with base addons folder
+      $destinationPath = Join-Path -Path $PSScriptRoot -ChildPath "..\addons"
+
+      # Build full nested destination path
+      foreach ($part in $folderParts) {
+          $destinationPath = Join-Path -Path $destinationPath -ChildPath $part
+      }
+
+      # Define source path (Content folder)
+      $dirPath = Join-Path -Path $extractionFolder -ChildPath "$($addon.dirName)\Content"
+
+      # Log
+      Write-Log "Value of dirPath (source): $dirPath"
+      Write-Log "Value of destinationPath : $destinationPath"
+
+      # Ensure final destination exists
+      if (-not (Test-Path $destinationPath)) {
+          New-Item -ItemType Directory -Path $destinationPath -Force | Out-Null
+      }
+
+      # Copy *only the contents* of Content (not the Content folder itself)
+      Copy-Item -Path (Join-Path $dirPath '*') -Destination $destinationPath -Recurse -Force
+
     foreach ($image in $images) {
         $importImageScript = "$PSScriptRoot\..\lib\scripts\k2s\image\Import-Image.ps1"
         if ($image.Contains('_win')) {
