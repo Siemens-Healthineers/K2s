@@ -54,6 +54,9 @@ function Write-DashboardUsageForUser {
  The dashboard is opened in the browser.
 
  In case of the security addon enabled you need to provide a Bearer token for authentication.
+ For non security addon enabled clusters, a Bearer token is created automatically for the admin user for 24 hours.
+ If you want to create such an token, you can run the following command (or disable and enable the dashboard addon again):
+    kubectl -n dashboard create token admin-user --duration 24h
 
  Read more: https://github.com/kubernetes/dashboard/blob/master/README.md
 "@ -split "`r`n" | ForEach-Object { Write-Log $_ -Console }
