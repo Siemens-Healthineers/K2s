@@ -270,7 +270,7 @@ if (!$Windows) {
     Write-Log "Copying $source to $target"
     Copy-ToControlPlaneViaSSHKey $source $target
 
-    # copy common if avaliable
+    # copy common if available
     $source = $InputFolder + '\..\common'
     if ( Test-Path -Path $source ) {
         $target = '~/tmp/docker-build/common'

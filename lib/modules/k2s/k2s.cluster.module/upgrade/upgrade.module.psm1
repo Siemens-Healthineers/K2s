@@ -262,7 +262,7 @@ function Import-NotNamespacedResources {
 	Get-ChildItem -Path $folderResources | Foreach-Object {
 		$resource = $_.FullName
 		Write-Log " Import resource with call 'kubectl apply -f $resource'"
-		# don't show any ouput, import of resources can show some errors which have no relevance
+		# don't show any output, import of resources can show some errors which have no relevance
 		&$ExePath\kubectl.exe apply -f $resource >$null 2>&1
 	}
 }
@@ -285,7 +285,7 @@ function Import-NamespacedResources {
 		Get-ChildItem -Path $folderResources | Foreach-Object {
 			$resource = $_.FullName
 			Write-Log "Import resource with call 'kubectl apply -f $resource -n $namespace'"
-			# don't show any ouput, import of resources can show some errors which have no relevance
+			# don't show any output, import of resources can show some errors which have no relevance
 			&$ExePath\kubectl.exe apply -f $resource -n $namespace >$null 2>&1
 		}
 	}
@@ -410,7 +410,7 @@ function Enable-ClusterIsRunning {
 function Get-ClusterInstalledFolder {
 	$installFolder = Get-ConfigInstallFolder
 	if ( [string]::IsNullOrEmpty($installFolder) ) {
-		# we asume it is the old default
+		# we assume it is the old default
 		$installFolder = 'C:\k'
 	}
 	return $installFolder
@@ -419,7 +419,7 @@ function Get-ClusterInstalledFolder {
 function Get-ClusterCurrentVersion {
 	$currentVersion = Get-ConfigProductVersion
 	if ( [string]::IsNullOrEmpty($currentVersion) ) {
-		# we asume it is the old default
+		# we assume it is the old default
 		$currentVersion = '0.5'
 	}
 	return $currentVersion

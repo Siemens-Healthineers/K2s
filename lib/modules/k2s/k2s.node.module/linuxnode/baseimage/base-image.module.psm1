@@ -66,18 +66,18 @@ function Invoke-DownloadDebianImage {
         Invoke-Download $imgFile $url $false $Proxy
 
         Write-Log 'Checking file integrity...'
-        $allHashs = ''
+        $allHashes = ''
 
         if ( $Proxy -ne '') {
             Write-Log "Using Proxy $Proxy to download SHA sum from $urlRoot"
-            $allHashs = curl.exe --retry 3 --connect-timeout 60 --retry-connrefused --silent --disable --fail "$urlRoot/SHA512SUMS" --proxy $Proxy --ssl-no-revoke -k
+            $allHashes = curl.exe --retry 3 --connect-timeout 60 --retry-connrefused --silent --disable --fail "$urlRoot/SHA512SUMS" --proxy $Proxy --ssl-no-revoke -k
         }
         else {
-            $allHashs = curl.exe --retry 3 --connect-timeout 60 --retry-connrefused --silent --disable --fail "$urlRoot/SHA512SUMS" --ssl-no-revoke --noproxy '*'
+            $allHashes = curl.exe --retry 3 --connect-timeout 60 --retry-connrefused --silent --disable --fail "$urlRoot/SHA512SUMS" --ssl-no-revoke --noproxy '*'
         }
 
         $sha1Hash = Get-FileHash $imgFile -Algorithm SHA512
-        $m = [regex]::Matches($allHashs, "(?<Hash>\w{128})\s\s$urlFile")
+        $m = [regex]::Matches($allHashes, "(?<Hash>\w{128})\s\s$urlFile")
         if (-not $m[0]) { throw "Cannot get hash for $urlFile." }
         $expectedHash = $m[0].Groups['Hash'].Value
         if ($sha1Hash.Hash -ne $expectedHash) { throw "Integrity check for '$imgFile' failed." }
