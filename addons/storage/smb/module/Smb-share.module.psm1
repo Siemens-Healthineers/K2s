@@ -149,6 +149,7 @@ function Remove-SmbHostOnWindowsIfExisting {
     }
     else {
         Write-Log "Keeping mount point '$($Config.WinMountPath)' on Windows."
+        Remove-Item -Force "$($Config.WinMountPath)\\mountedInVm.txt" -Confirm:$False -ErrorAction SilentlyContinue
     }
 
     Remove-LocalUser -Name $smbUserName -ErrorAction SilentlyContinue
@@ -224,6 +225,7 @@ function Remove-SmbHostOnLinux {
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo DEBIAN_FRONTEND=noninteractive apt-get autoremove -qq -y').Output | Write-Log
     if ($Keep -eq $true) {
         (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo rm -rf /var/cache/samba /run/samba /var/lib/samba /var/log/samba').Output | Write-Log
+        (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo rm -f /srv/samba/$LinuxShareName/mountedInVm.txt").Output | Write-Log
     }
     else {
         (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo rm -rf /var/cache/samba /run/samba /srv/samba /var/lib/samba /var/log/samba').Output | Write-Log
@@ -831,7 +833,7 @@ function Remove-StorageClasses {
         Remove-PersistentVolumeClaimsForStorageClass -StorageClass $configEntry.StorageClassName | Write-Log
     }
 
-    $params = 'delete', '-k', $manifestDir, '--force', '--ignore-not-found'
+    $params = 'delete', '-k', $manifestDir, '--force', '--ignore-not-found', '--grace-period=0'
 
     Write-Log "Invoking kubectl with '$params'.."
 
@@ -1084,8 +1086,6 @@ function Enable-SmbShare {
 
     $rawStorageConfig = @(Get-StorageConfig -Raw)
 
-    Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = $AddonName; Implementation = $ImplementationName; SmbHostType = $SmbHostType; Storage = $rawStorageConfig })
-
     $storageConfig = Get-StorageConfigFromRaw -RawConfig $rawStorageConfig
 
     foreach ($storageEntry in $storageConfig) {
@@ -1094,6 +1094,9 @@ function Enable-SmbShare {
 
     New-SmbShareNamespace
     New-StorageClasses -SmbHostType $SmbHostType -LinuxOnly $setupInfo.LinuxOnly -Config $storageConfig
+
+    # Must be last action in method to ensure that the addon is added to setup.json only when no error occurred
+    Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = $AddonName; Implementation = $ImplementationName; SmbHostType = $SmbHostType; Storage = $rawStorageConfig })
 
     Write-Log -Console '********************************************************************************************'
     Write-Log -Console '** IMPORTANT                                                                              **' 
@@ -1164,9 +1167,10 @@ function Disable-SmbShare {
         Remove-SmbShareAndFolder -SkipNodesCleanup:$SkipNodesCleanup -Config $storageEntry -Keep:$Keep        
     }   
 
-    Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = $AddonName; Implementation = $ImplementationName })
     Remove-ScriptsFromHooksDir -ScriptNames @(Get-ChildItem -Path $localHooksDir | ForEach-Object { $_.Name })
-   
+
+    # Must be last call to ensure that the addon is removed from setup.json
+    Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = $AddonName; Implementation = $ImplementationName })
     return @{Error = $null }
 }
 
