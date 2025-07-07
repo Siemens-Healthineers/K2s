@@ -91,9 +91,13 @@ function New-LoopbackAdapter {
     $null = & $DevConExe @('install', '-p', "$($ENV:SystemRoot)\inf\netloop.inf", '-i', '*MSLOOP')
 
     # Find the newly added Loopback Adapter
-    $Adapter = Get-NetAdapter | Where-Object { ($_.InterfaceDescription -eq 'Microsoft KM-TEST Loopback Adapter') }
+    $Adapter = Get-NetAdapter  | Where-Object { ($_.InterfaceDescription -like 'Microsoft KM-TEST Loopback Adapter*') }
+    # check for zero or multiple entries
     if (!$Adapter) {
         Throw 'The new Loopback Adapter was not found.'
+    } # if
+    if ($Adapter.Count -gt 1) {
+        Throw 'More than one Loopback Adapter was found, this is an inconsistency on the system.'
     } # if
 
     # Rename the new Loopback adapter
