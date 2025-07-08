@@ -18,22 +18,27 @@ $loopbackAdapterCIDR = $setupConfigRoot.psobject.properties['loopbackAdapterCIDR
 
 function New-DefaultLoopbackAdapter {
     New-LoopbackAdapter -Name $defaultLoopbackAdapterName -DevConExe $devgonPath | Out-Null
-    Set-LoopbackAdapterProperties -Name $defaultLoopbackAdapterName -IPAddress $loopbackAdapterIp -Gateway $loopbackAdapterGateway
+    $AdapterName = Get-L2BridgeName
+    Set-LoopbackAdapterProperties -Name $AdapterName -IPAddress $loopbackAdapterIp -Gateway $loopbackAdapterGateway
 }
 
 function Enable-LoopbackAdapter {
-    Write-Log "Enabling network adapter $defaultLoopbackAdapterName"
-    Enable-NetAdapter -Name $defaultLoopbackAdapterName -Confirm:$false -ErrorAction SilentlyContinue
-    Set-LoopbackAdapterProperties -Name $defaultLoopbackAdapterName -IPAddress $loopbackAdapterIp -Gateway $loopbackAdapterGateway
+    $AdapterName = Get-L2BridgeName
+    Write-Log "Enabling network adapter $AdapterName"
+    Enable-NetAdapter -Name $AdapterName -Confirm:$false -ErrorAction SilentlyContinue
+    Set-LoopbackAdapterProperties -Name $AdapterName -IPAddress $loopbackAdapterIp -Gateway $loopbackAdapterGateway
 }
 
 function Disable-LoopbackAdapter {
-    Write-Log "Disabling network adapter $defaultLoopbackAdapterName"
-    Disable-NetAdapter -Name $defaultLoopbackAdapterName -Confirm:$false -ErrorAction SilentlyContinue
+    $AdapterName = Get-L2BridgeName
+    Write-Log "Disabling network adapter $AdapterName"
+    Disable-NetAdapter -Name $AdapterName -Confirm:$false -ErrorAction SilentlyContinue
 }
 
 function Uninstall-LoopbackAdapter {
-    Remove-LoopbackAdapter -Name $defaultLoopbackAdapterName -DevConExe $devgonPath
+    $AdapterName = Get-L2BridgeName
+    Write-Log "Uninstalling network adapter $AdapterName"
+    Remove-LoopbackAdapter -Name $AdapterName -DevConExe $devgonPath
 }
 
 function Get-LoopbackAdapterIP {
@@ -49,7 +54,19 @@ function Get-LoopbackAdapterCIDR {
 }
 
 function Get-L2BridgeName {
-    return $defaultLoopbackAdapterName
+    # Find the newly added Loopback Adapter
+    $Adapter = Get-NetAdapter  | Where-Object { ($_.InterfaceDescription -like 'Microsoft KM-TEST Loopback Adapter*') }
+    # check for zero or multiple entries
+    if (!$Adapter) {
+        # return the default name
+        Write-Log "No Loopback Adapter found, returning default name: $defaultLoopbackAdapterName"
+        return $defaultLoopbackAdapterName
+    } # if
+    if ($Adapter.Count -gt 1) {
+        Throw 'More than one Loopback Adapter was found, this is an inconsistency on the system.'
+    } # if
+    # return the name of the first adapter
+    return $Adapter.Name
 }
 
 function Get-DevgonExePath {
@@ -101,52 +118,24 @@ function New-LoopbackAdapter {
     } # if
 
     # Rename the new Loopback adapter
-    $Adapter | Rename-NetAdapter `
-        -NewName $Name `
-        -ErrorAction Stop
+    Set-NewNameForLoopbackAdapter -Adapter $Adapter
+
+    # get the newly renamed adapter
+    $NewName = Get-L2BridgeName
 
     # Set the metric to 254
     Set-NetIPInterface `
-        -InterfaceAlias $Name `
+        -InterfaceAlias $NewName `
         -InterfaceMetric 254 `
         -ErrorAction Stop
 
     # Pull the newly named adapter (to be safe)
     $Adapter = Get-NetAdapter `
-        -Name $Name `
+        -Name $NewName `
         -ErrorAction Stop
 
     Return $Adapter
 } # function New-LoopbackAdapter
-
-function Get-LoopbackAdapter {
-    [OutputType([Microsoft.Management.Infrastructure.CimInstance[]])]
-    [CmdLetBinding()]
-    param
-    (
-        [Parameter(
-            Position = 0)]
-        [string]
-        $Name
-    )
-    # Check for the existing Loopback Adapter
-    if ($Name) {
-        $Adapter = Get-NetAdapter `
-            -Name $Name `
-            -ErrorAction SilentlyContinue
-
-        if (!$Adapter) {
-            return
-        }
-        if ($Adapter.InterfaceDescription -ne 'Microsoft KM-TEST Loopback Adapter') {
-            Throw "The Network Adapter $Name exists but it is not a Microsoft KM-TEST Loopback Adapter."
-        } # if
-        return $Adapter
-    }
-    else {
-        Get-NetAdapter | Where-Object -Property InterfaceDescription -eq 'Microsoft KM-TEST Loopback Adapter'
-    }
-}
 
 function Remove-LoopbackAdapter {
     [CmdLetBinding()]
@@ -250,9 +239,44 @@ function Set-LoopbackAdapterExtendedProperties {
     Set-NetIPInterface -InterfaceIndex $loopbackAdapterIfIndex -InterfaceMetric 102  | Out-Null
 }
 
+function Set-NewNameForLoopbackAdapter {
+    param (
+        [Parameter()]
+        [object] $Adapter
+    )    
+    # start with the default name
+    $NewName = $defaultLoopbackAdapterName
+    # if that default name does not work, then use a next name $defaultLoopbackAdapterName + '1'
+    $iMaxLoops = 5
+    for ($i = 0; $i -lt $iMaxLoops; $i++) {
+        if ($i -gt 0) {
+            # if the default name does not work, then use a next name $defaultLoopbackAdapterName + '1'
+            $NewName = "$defaultLoopbackAdapterName$i"
+            Write-Log "Trying to rename Loopback Adapter to '$NewName'"
+        } else {
+            $NewName = $defaultLoopbackAdapterName
+            Write-Log "Trying to rename Loopback Adapter to '$defaultLoopbackAdapterName'"
+        }  
+
+        # try to rename the Loopback Adapter
+        try {
+            $Adapter | Rename-NetAdapter -NewName $NewName -ErrorAction Stop
+        }
+        catch {
+            Write-Log "Renaming Loopback Adapter to '$NewName' failed: $($_.Exception.Message)"
+            Write-Debug "Will try to rename it to the next name."
+            # if the rename fails, then try the next name
+            continue
+        }
+        # if the rename was successful, then break the loop
+        Write-Log "Renaming Loopback Adapter to '$NewName' was successful."
+        break
+    }
+}
+
 Export-ModuleMember New-LoopbackAdapter
-Export-ModuleMember Get-LoopbackAdapter
 Export-ModuleMember Remove-LoopbackAdapter
 Export-ModuleMember Set-LoopbackAdapterProperties, Get-LoopbackAdapterIP,
 Get-LoopbackAdapterGateway, Get-LoopbackAdapterCIDR, New-DefaultLoopbackAdapter, Get-L2BridgeName,
-Enable-LoopbackAdapter, Disable-LoopbackAdapter, Uninstall-LoopbackAdapter, Get-DevgonExePath, Set-LoopbackAdapterExtendedProperties
+Enable-LoopbackAdapter, Disable-LoopbackAdapter, Uninstall-LoopbackAdapter, Get-DevgonExePath, Set-LoopbackAdapterExtendedProperties,
+Set-NewNameForLoopbackAdapter
