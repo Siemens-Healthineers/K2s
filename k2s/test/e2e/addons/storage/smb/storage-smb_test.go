@@ -417,12 +417,6 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 				expectTestFilesAreAvailable(ctx, storageConfig[1].WinMountPath)
 			})
 
-			It("checks that the mount file is not available in Windows", func(ctx context.Context) {
-				// test that file storageConfig[0].WinMountPath\mountedInVm.txt is not available
-				expectFileAreNotAvailableInWindows(ctx, storageConfig[0].WinMountPath)
-				expectFileAreNotAvailableInWindows(ctx, storageConfig[1].WinMountPath)
-			})
-
 			It("deletes the test files", func(ctx context.Context) {
 				deleteTestFiles(ctx, storageConfig[0].WinMountPath)
 				deleteTestFiles(ctx, storageConfig[1].WinMountPath)
@@ -513,11 +507,6 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 			It("checks that the test files are still available 2", func(ctx context.Context) {
 				expectFileAreAvailableInLinux(ctx, "/srv/samba/linux-smb-share1")
 				expectFileAreAvailableInLinux(ctx, "/srv/samba/linux-smb-share2")
-			})
-
-			It("checks that the mount file is not available in Linux", func(ctx context.Context) {
-				expectFileAreNotAvailableInLinux(ctx, "/srv/samba/linux-smb-share1")
-				expectFileAreNotAvailableInLinux(ctx, "/srv/samba/linux-smb-share2")
 			})
 
 			It("deletes the test files", func(ctx context.Context) {
@@ -662,15 +651,4 @@ func deleteFilesOnLinuxMount(ctx context.Context) {
 	Expect(output2).To(SatisfyAll(
 		ContainSubstring("completed in"),
 	))
-}
-
-func expectFileAreNotAvailableInLinux(ctx context.Context, sharefolder string) {
-	// execute command and check output if it contains the filename file1.txt and file2.txt
-	output := suite.K2sCli().RunOrFail(ctx, "node", "exec", "-i", "172.19.1.100", "-u", "remote", "-c", fmt.Sprintf("ls %s", sharefolder))
-	Expect(output).ToNot(ContainSubstring("mountedInVm.txt"))
-}
-
-func expectFileAreNotAvailableInWindows(ctx context.Context, sharefolder string) {
-	// list in the folder on windows the files and check if the file mountedInVm.txt is not available
-	Expect(os.GetFilesMatch(sharefolder, "mountedInVm.txt")).To(BeEmpty(), fmt.Sprintf("Expected file mountedInVm.txt to not be present in %s", sharefolder))
 }

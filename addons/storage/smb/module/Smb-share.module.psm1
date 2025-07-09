@@ -148,7 +148,6 @@ function Remove-SmbHostOnWindowsIfExisting {
     }
     else {
         Write-Log "Keeping mount point '$($Config.WinMountPath)' on Windows."
-        Remove-Item -Force "$($Config.WinMountPath)\\mountedInVm.txt" -Confirm:$False -ErrorAction SilentlyContinue
     }
 
     Remove-LocalUser -Name $smbUserName -ErrorAction SilentlyContinue
@@ -224,7 +223,6 @@ function Remove-SmbHostOnLinux {
     (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo DEBIAN_FRONTEND=noninteractive apt-get autoremove -qq -y').Output | Write-Log
     if ($Keep -eq $true) {
         (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo rm -rf /var/cache/samba /run/samba /var/lib/samba /var/log/samba').Output | Write-Log
-        (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute "sudo rm -f /srv/samba/$LinuxShareName/mountedInVm.txt").Output | Write-Log
     }
     else {
         (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo rm -rf /var/cache/samba /run/samba /srv/samba /var/lib/samba /var/log/samba').Output | Write-Log
@@ -1214,6 +1212,11 @@ function Restore-SmbShareAndFolder {
             throw "invalid SMB host type '$SmbHostType'"
         }
     }
+
+    $mountTestFile = "$($Config.WinMountPath)\\mountedInVm.txt"
+    
+    Write-Log "Removing mount test file '$mountTestFile'.."
+    Remove-Item -Force $mountTestFile -ErrorAction SilentlyContinue
 }
 
 <#

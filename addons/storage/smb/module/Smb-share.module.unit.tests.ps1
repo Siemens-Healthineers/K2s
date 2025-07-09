@@ -1441,6 +1441,8 @@ Describe 'Restore-SmbShareAndFolder' -Tag 'unit', 'ci', 'addon', 'storage smb' {
     Context 'Windows host' {
         BeforeAll {
             Mock -ModuleName $moduleName Restore-SmbShareAndFolderWindowsHost {}
+            Mock -ModuleName $moduleName Write-Log {}
+            Mock -ModuleName $moduleName Remove-Item {}
         }
 
         It 'calls Windows-specific restore function skipping the tests' {
@@ -1458,11 +1460,21 @@ Describe 'Restore-SmbShareAndFolder' -Tag 'unit', 'ci', 'addon', 'storage smb' {
                 Should -Invoke Restore-SmbShareAndFolderWindowsHost -Times 1 -Scope Context -ParameterFilter { $SkipTest -eq $false }
             }
         }
+
+        It 'removes the test file' {
+            InModuleScope -ModuleName $moduleName {
+                Restore-SmbShareAndFolder -SmbHostType 'Windows' -Config @{}
+
+                Should -Invoke Remove-Item -Times 1 -Scope Context -ParameterFilter { $Path -match '.+mountedInVm\.txt' }
+            }
+        }
     }
 
     Context 'Linux host' {
         BeforeAll {
             Mock -ModuleName $moduleName Restore-SmbShareAndFolderLinuxHost {}
+            Mock -ModuleName $moduleName Write-Log {}
+            Mock -ModuleName $moduleName Remove-Item {}
         }
 
         It 'calls Linux-specific restore function skipping the tests' {
@@ -1478,6 +1490,14 @@ Describe 'Restore-SmbShareAndFolder' -Tag 'unit', 'ci', 'addon', 'storage smb' {
                 Restore-SmbShareAndFolder -SmbHostType 'Linux' -Config @{}
 
                 Should -Invoke Restore-SmbShareAndFolderLinuxHost -Times 1 -Scope Context -ParameterFilter { $SkipTest -eq $false }
+            }
+        }
+
+        It 'removes the test file' {
+            InModuleScope -ModuleName $moduleName {
+                Restore-SmbShareAndFolder -SmbHostType 'Linux' -Config @{}
+
+                Should -Invoke Remove-Item -Times 1 -Scope Context -ParameterFilter { $Path -match '.+mountedInVm\.txt' }
             }
         }
     }
