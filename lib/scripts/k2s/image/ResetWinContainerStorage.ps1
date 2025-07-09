@@ -62,7 +62,7 @@ Cleanup docker storage directory
 
 .DESCRIPTION
 Cleanup docker storage directory  from all reparse points which could lead to an inconsistent system.
-Allso delete the whole folder afterwards.
+Also delete the whole folder afterwards.
 
 # Only for docker: Cleanup in the docker way by renaming the folders
 # Get-ChildItem -Path d:\docker\windowsfilter -Directory | % {Rename-Item $_.FullName "$($_.FullName)-removing" -ErrorAction:SilentlyContinue}

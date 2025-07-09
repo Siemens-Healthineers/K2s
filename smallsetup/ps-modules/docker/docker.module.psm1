@@ -4,7 +4,7 @@
 
 &$PSScriptRoot\..\..\common\GlobalVariables.ps1
 
-function Set-DockerToExpermental {
+function Set-DockerToExperimental {
     $env:DOCKER_CLI_EXPERIMENTAL = 'enabled'
 
     &"$global:NssmInstallDirectory\nssm" restart docker
@@ -77,17 +77,17 @@ function New-DockerManifest {
         $Tag = $(throw 'Tag not specified'),
         [Parameter(Mandatory = $false)]
         [string]
-        $AmmendTag = $(throw 'AmmendTag not specified'),
+        $AmendTag = $(throw 'AmendTag not specified'),
         [parameter(Mandatory = $false, HelpMessage = 'If set to true, insecure registries like local registries are allowed.')]
         [switch] $AllowInsecureRegistries     
     )
     if ($AllowInsecureRegistries -eq $true) {
-        docker manifest create --insecure $Tag --amend $AmmendTag  
-        Write-Output "  -> CMD: docker manifest create --insecure $Tag --amend $AmmendTag"  
+        docker manifest create --insecure $Tag --amend $AmendTag  
+        Write-Output "  -> CMD: docker manifest create --insecure $Tag --amend $AmendTag"  
     }
     else {
-        docker manifest create $Tag --amend $AmmendTag
-        Write-Output "  -> CMD: docker manifest create $Tag --amend $AmmendTag" 
+        docker manifest create $Tag --amend $AmendTag
+        Write-Output "  -> CMD: docker manifest create $Tag --amend $AmendTag" 
     }            
 
     if ($LASTEXITCODE -ne 0) {
@@ -102,7 +102,7 @@ function New-DockerManifestAnnotation {
         $Tag = $(throw 'Tag not specified'),
         [Parameter(Mandatory = $false)]
         [string]
-        $AmmendTag = $(throw 'AmmendTag not specified'),
+        $AmendTag = $(throw 'AmendTag not specified'),
         [Parameter(Mandatory = $false)]
         [string]
         $OS = $(throw 'OS not specified'),
@@ -112,8 +112,8 @@ function New-DockerManifestAnnotation {
         [string]
         $OSVersion = $(throw 'OSVersion not specified')    
     )
-    docker manifest annotate --os $OS --arch $Arch --os-version $OSVersion $Tag $AmmendTag
-    Write-Output "  -> CMD: docker manifest annotate --os $OS --arch $Arch --os-version $OSVersion $Tag $AmmendTag"
+    docker manifest annotate --os $OS --arch $Arch --os-version $OSVersion $Tag $AmendTag
+    Write-Output "  -> CMD: docker manifest annotate --os $OS --arch $Arch --os-version $OSVersion $Tag $AmendTag"
 
     if ($LASTEXITCODE -ne 0) {
         throw 'error while annotating manifest'
@@ -142,4 +142,4 @@ function Push-DockerManifest {
     }
 }
 
-Export-ModuleMember -Function Set-DockerToExpermental, Start-DockerLogin, Start-BuildDockerImage, Push-DockerImage, New-DockerManifest, New-DockerManifestAnnotation, Push-DockerManifest
+Export-ModuleMember -Function Set-DockerToExperimental, Start-DockerLogin, Start-BuildDockerImage, Push-DockerImage, New-DockerManifest, New-DockerManifestAnnotation, Push-DockerManifest

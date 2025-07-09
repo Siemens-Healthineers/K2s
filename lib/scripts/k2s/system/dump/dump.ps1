@@ -173,7 +173,7 @@ try {
 }
 catch {
     $exceptionString = $_ | Out-String
-    Write-Log "Error occured: $exceptionString" -Error
+    Write-Log "Error occurred: $exceptionString" -Error
     exit -1
 }
 

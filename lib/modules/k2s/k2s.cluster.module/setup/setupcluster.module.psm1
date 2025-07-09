@@ -118,7 +118,7 @@ function Join-WindowsNode {
 
         Write-Log 'Add kubeadm to firewall rules'
         New-NetFirewallRule -DisplayName 'Allow temp Kubeadm' -Group 'k2s' -Direction Inbound -Action Allow -Program "$tempKubeadmDirectory\kubeadm.exe" -Enabled True | Out-Null
-        #Below rule is not neccessary but adding in case we perform subsequent operations.
+        #Below rule is not necessary but adding in case we perform subsequent operations.
         New-NetFirewallRule -DisplayName 'Allow Kubeadm' -Group 'k2s' -Direction Inbound -Action Allow -Program "$kubeToolsPath\kubeadm.exe" -Enabled True | Out-Null
 
         Write-Log "Host $env:COMPUTERNAME not yet available as worker node."
