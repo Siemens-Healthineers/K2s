@@ -38,7 +38,7 @@ function Initialize-Logging {
         [Parameter(Mandatory = $false, HelpMessage = 'Write all messages to only to console for nested case.')]
         [switch] $Nested = $false
     )
-    Write-Verbose "Intializing log module with ShowLogs:$ShowLogs, Nested:$Nested"
+    Write-Verbose "Initializing log module with ShowLogs:$ShowLogs, Nested:$Nested"
     $script:ConsoleLogging = $ShowLogs
     $script:NestedLogging = $Nested
 }
