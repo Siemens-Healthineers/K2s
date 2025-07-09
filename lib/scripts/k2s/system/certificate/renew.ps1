@@ -247,20 +247,20 @@ function Invoke-KubeConfigRefreshOnHost {
 try {
     Start-ControlPlaneIfNotRunning
 
-    $noErrorsOccured = $true
+    $noErrorsOccurred = $true
     $certificatesValid = Assert-CertificateExpiry
 
     if (($certificatesValid -eq $false) -or ($Force -eq $true)) {
         if ($Force -eq $true) {
             Write-Log "Triggering forced certificate renewal." -Console
         }
-        $noErrorsOccured = Invoke-CertificateRenewalInControlPlane
-        if ($noErrorsOccured -eq $true) {
+        $noErrorsOccurred = Invoke-CertificateRenewalInControlPlane
+        if ($noErrorsOccurred -eq $true) {
             Invoke-KubeConfigRefreshOnHost
         }
     }
 
-    if ($EncodeStructuredOutput -and $noErrorsOccured) {
+    if ($EncodeStructuredOutput -and $noErrorsOccurred) {
         Send-ToCli -MessageType $MessageType -Message @{Error = $null}
     }
 

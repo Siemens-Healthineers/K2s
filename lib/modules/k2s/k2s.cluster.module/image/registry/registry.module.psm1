@@ -205,7 +205,7 @@ function Connect-Buildah {
         }
         else {
             $success = (Invoke-CmdOnControlPlaneViaSSHKey "sudo buildah login --authfile /root/.config/containers/auth.json -u '$username' -p '$password' '$registry' > /dev/null 2>&1" -NoLog -IgnoreErrors).Success
-            Write-Log("cmd: sudo buildah login --authfile /root/.config/containers/auth.json -u 'user' -p '<redacted>' '$registry' > /dev/null 2>&1 (redacted ouput)")
+            Write-Log("cmd: sudo buildah login --authfile /root/.config/containers/auth.json -u 'user' -p '<redacted>' '$registry' > /dev/null 2>&1 (redacted output)")
         }
 
         if ($success) {

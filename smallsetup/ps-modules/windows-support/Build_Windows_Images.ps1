@@ -65,7 +65,7 @@ Install-WinDocker
 
 Start-Service docker
 
-Set-DockerToExpermental
+Set-DockerToExperimental
 
 Start-DockerLogin -Registry $Registry -RegUser $RegUser -RegPw $RegPw
 
@@ -97,11 +97,11 @@ try {
 
         Write-Output "  Creating manifest for '$aggregateTag' with '$targetTag'.."
 
-        New-DockerManifest -Tag $aggregateTag -AmmendTag $targetTag -AllowInsecureRegistries:$AllowInsecureRegistries
+        New-DockerManifest -Tag $aggregateTag -AmendTag $targetTag -AllowInsecureRegistries:$AllowInsecureRegistries
 
         Write-Output "  Annotating manifest '$aggregateTag' with '$targetTag', OS '$($version.OS)', arch '$($version.Arch)' and OS version '$($version.OSVersion)'.."
 
-        New-DockerManifestAnnotation -Tag $aggregateTag -AmmendTag $targetTag -OS $version.OS -Arch $version.Arch -OSVersion $version.OSVersion
+        New-DockerManifestAnnotation -Tag $aggregateTag -AmendTag $targetTag -OS $version.OS -Arch $version.Arch -OSVersion $version.OSVersion
     }
 
     Write-Output "  Pushing manifest for '$aggregateTag' to '$Registry'.."

@@ -19,7 +19,7 @@ This script assists in the following actions for K2s:
 -- etc.
 
 .PARAMETER SkipPurge
-Specifies whether to skipt the deletion of binaries, config files etc.
+Specifies whether to skip the deletion of binaries, config files etc.
 #>
 Param(
     [parameter(Mandatory = $false, HelpMessage = 'Do not purge all files')]

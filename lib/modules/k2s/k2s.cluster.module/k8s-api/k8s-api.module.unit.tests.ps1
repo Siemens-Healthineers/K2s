@@ -1723,7 +1723,7 @@ Describe 'Wait-ForPodCondition' -Tag 'unit', 'ci' {
         }
     }
 
-    Context 'Invoke-Kubectl failes' {
+    Context 'Invoke-Kubectl fails' {
         BeforeAll {
             Mock -ModuleName $moduleName Invoke-Kubectl { return [pscustomobject]@{Output = 'oops'; Success = $false } }
         }

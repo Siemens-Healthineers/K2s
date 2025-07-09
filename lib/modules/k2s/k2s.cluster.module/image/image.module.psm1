@@ -41,8 +41,8 @@ $headers = @(
     'application/vnd.docker.distribution.manifest.v1+prettyjws',
     'application/vnd.docker.distribution.manifest.v1+json'
 )
-$concatinatedHeadersString = ''
-$headers | ForEach-Object { $concatinatedHeadersString += " -H `"Accept: $_`"" }
+$concatenatedHeadersString = ''
+$headers | ForEach-Object { $concatenatedHeadersString += " -H `"Accept: $_`"" }
 
 function New-KubernetesImageJsonFileIfNotExists() {
     $fileExists = Test-Path -Path $kubernetesImagesJson
@@ -148,7 +148,7 @@ function Get-PushedContainerImages() {
     $registryName = $(Get-RegistriesFromSetupJson) | Where-Object { $_ -match 'k2s.registry.local' }
     # $auth = Get-RegistryAuthToken $registryName
     # if (!$auth) {
-    #     Write-Error "Can't find authentification token for $registryName."
+    #     Write-Error "Can't find authentication token for $registryName."
     #     return
     # }
 
@@ -203,7 +203,7 @@ function Remove-PushedImage($name, $tag) {
     $registryName = $(Get-RegistriesFromSetupJson) | Where-Object { $_ -match 'k2s.registry.*' }
     # $auth = Get-RegistryAuthToken $registryName
     # if (!$auth) {
-    #     Write-Error "Can't find authentification token for $registryName."
+    #     Write-Error "Can't find authentication token for $registryName."
     #     return
     # }
 
@@ -216,10 +216,10 @@ function Remove-PushedImage($name, $tag) {
 
     $isNodePort = $registryName -match ':'
     if (!$isNodePort) {
-        $headRequest = "curl.exe -m 10 --noproxy $registryName --retry 3 --retry-connrefused -k -I https://$registryName/v2/$name/manifests/$tag $concatinatedHeadersString -v 2>&1"
+        $headRequest = "curl.exe -m 10 --noproxy $registryName --retry 3 --retry-connrefused -k -I https://$registryName/v2/$name/manifests/$tag $concatenatedHeadersString -v 2>&1"
     }
     else {
-        $headRequest = "curl.exe -m 10 --noproxy $registryName --retry 3 --retry-connrefused -I http://$registryName/v2/$name/manifests/$tag $concatinatedHeadersString -v 2>&1"
+        $headRequest = "curl.exe -m 10 --noproxy $registryName --retry 3 --retry-connrefused -I http://$registryName/v2/$name/manifests/$tag $concatenatedHeadersString -v 2>&1"
     }
 
     $headResponse = Invoke-Expression $headRequest
@@ -233,7 +233,7 @@ function Remove-PushedImage($name, $tag) {
     }
     $imageName = $name + ':' + $tag
     if ($status -eq '200') {
-        Write-Output "Successfully retreived digest for $imageName from $registryName"
+        Write-Output "Successfully retrieved digest for $imageName from $registryName"
     }
     else {
         Write-Error "An error occurred while getting digest. HTTP Status Code: $status $statusDescription"
@@ -245,10 +245,10 @@ function Remove-PushedImage($name, $tag) {
     $digest = $match.Matches.Groups[1].Value
 
     if (!$isNodePort) {
-        $deleteRequest = "curl.exe -m 10 -k -I --noproxy $registryName --retry 3 --retry-connrefused -X DELETE https://$registryName/v2/$name/manifests/$digest $concatinatedHeadersString -v 2>&1"
+        $deleteRequest = "curl.exe -m 10 -k -I --noproxy $registryName --retry 3 --retry-connrefused -X DELETE https://$registryName/v2/$name/manifests/$digest $concatenatedHeadersString -v 2>&1"
     }
     else {
-        $deleteRequest = "curl.exe -m 10 -I --noproxy $registryName --retry 3 --retry-connrefused -X DELETE http://$registryName/v2/$name/manifests/$digest $concatinatedHeadersString -v 2>&1"
+        $deleteRequest = "curl.exe -m 10 -I --noproxy $registryName --retry 3 --retry-connrefused -X DELETE http://$registryName/v2/$name/manifests/$digest $concatenatedHeadersString -v 2>&1"
     }
     $deleteResponse = Invoke-Expression $deleteRequest
 
@@ -487,7 +487,7 @@ function New-WindowsImage {
     }
 }
 
-function Set-DockerToExpermental {
+function Set-DockerToExperimental {
     $env:DOCKER_CLI_EXPERIMENTAL = 'enabled'
 
     nssm restart docker
@@ -504,15 +504,15 @@ function New-DockerManifest {
         $Tag = $(throw 'Tag not specified'),
         [Parameter(Mandatory = $false)]
         [string]
-        $AmmendTag = $(throw 'AmmendTag not specified'),
+        $AmendTag = $(throw 'AmendTag not specified'),
         [parameter(Mandatory = $false, HelpMessage = 'If set to true, insecure registries like local registries are allowed.')]
         [switch] $AllowInsecureRegistries
     )
     if ($AllowInsecureRegistries -eq $true) {
-        &$dockerExe manifest create --insecure $Tag --amend $AmmendTag
+        &$dockerExe manifest create --insecure $Tag --amend $AmendTag
     }
     else {
-        &$dockerExe manifest create $Tag --amend $AmmendTag
+        &$dockerExe manifest create $Tag --amend $AmendTag
     }
 
     if ($LASTEXITCODE -ne 0) {
@@ -527,7 +527,7 @@ function New-DockerManifestAnnotation {
         $Tag = $(throw 'Tag not specified'),
         [Parameter(Mandatory = $false)]
         [string]
-        $AmmendTag = $(throw 'AmmendTag not specified'),
+        $AmendTag = $(throw 'AmendTag not specified'),
         [Parameter(Mandatory = $false)]
         [string]
         $OS = $(throw 'OS not specified'),
@@ -537,7 +537,7 @@ function New-DockerManifestAnnotation {
         [string]
         $OSVersion = $(throw 'OSVersion not specified')
     )
-    &$dockerExe manifest annotate --os $OS --arch $Arch --os-version $OSVersion $Tag $AmmendTag
+    &$dockerExe manifest annotate --os $OS --arch $Arch --os-version $OSVersion $Tag $AmendTag
 
     if ($LASTEXITCODE -ne 0) {
         throw 'error while annotating manifest'
@@ -575,7 +575,7 @@ Write-KubernetesImagesIntoJson,
 Get-BuildArgs,
 Get-DockerfileAbsolutePathAndPreCompileFlag,
 New-WindowsImage,
-Set-DockerToExpermental,
+Set-DockerToExperimental,
 New-DockerManifest,
 New-DockerManifestAnnotation,
 Push-DockerManifest

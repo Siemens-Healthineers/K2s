@@ -26,7 +26,7 @@ $directoryOfKubenodeImagesOnWindowsHost = "$directoryOfLinuxNodeArtifactsOnWindo
 $linuxNodeArtifactsZipFileName = 'LinuxNodeArtifacts.zip'
 $pathOfLinuxNodeArtifactsPackageOnWindowsHost = "$binPath\$linuxNodeArtifactsZipFileName"
 
-Function Assert-GeneralComputerPrequisites {
+Function Assert-GeneralComputerPrerequisites {
     Param(
         [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
         [string]$UserName = $(throw 'Argument missing: UserName'),
@@ -596,9 +596,9 @@ Function Copy-KubernetesImagesFromControlPlaneNodeToWindowsHost {
         }
 
         foreach ($imageFound in $imagesFound) {
-            $splittedImageFoundInfo = $imageFound.Split(' ')
-            $imageFullName = $splittedImageFoundInfo[0]
-            $imageId = $splittedImageFoundInfo[1]
+            $splitImageFoundInfo = $imageFound.Split(' ')
+            $imageFullName = $splitImageFoundInfo[0]
+            $imageId = $splitImageFoundInfo[1]
             $finalExportPath = "$imagesPath/$($imageFullName.Replace('/','_').Replace(':', '__')).tar"
 
             $targetFilePath = "/tmp/${imageId}.tar"
@@ -1408,7 +1408,7 @@ Function New-KubernetesNode {
         [string]$Proxy = ''
     )
 
-    Assert-GeneralComputerPrequisites -IpAddress $IpAddress -UserName $userName -UserPwd $userPwd
+    Assert-GeneralComputerPrerequisites -IpAddress $IpAddress -UserName $userName -UserPwd $userPwd
 
     Write-Log "Prepare the computer $IpAddress for provisioning"
     Set-UpComputerBeforeProvisioning -IpAddress $IpAddress -UserName $userName -UserPwd $userPwd -Proxy $Proxy

@@ -229,7 +229,7 @@ function Set-InterfacePrivate {
     Write-Log "OK: $InterfaceAlias set to private now"
 }
 
-function Set-IPAdressAndDnsClientServerAddress {
+function Set-IPAddressAndDnsClientServerAddress {
     param (
         [Parameter()]
         [ValidateNotNullOrEmpty()]
@@ -347,7 +347,7 @@ function Restart-NlaSvc {
             return;
         }
 
-        Write-Log "Network Location Awareness service found on host runnig with pid $nlaSvcPid. Initiating service restart..."
+        Write-Log "Network Location Awareness service found on host running with pid $nlaSvcPid. Initiating service restart..."
         Invoke-Expression "taskkill /f /pid $nlaSvcPid"
         Start-Sleep -seconds 10
         $serviceRestarted = $false
@@ -577,6 +577,6 @@ Export-ModuleMember Set-IndexForDefaultSwitch, Get-ConfiguredClusterCIDRHost,
 New-ExternalSwitch, Remove-ExternalSwitch,
 Set-InterfacePrivate,
 Get-L2BridgeSwitchName,
-Set-IPAdressAndDnsClientServerAddress, Set-WSLSwitch,
+Set-IPAddressAndDnsClientServerAddress, Set-WSLSwitch,
 Add-VfpRulesToWindowsNode, Remove-VfpRulesFromWindowsNode, Get-ConfiguredClusterCIDRNextHop,
 Add-VfpRoute, Remove-VfpRoute, Get-VirtualSwitchName, Set-KubeSwitchToPrivate, Invoke-HNSCommand

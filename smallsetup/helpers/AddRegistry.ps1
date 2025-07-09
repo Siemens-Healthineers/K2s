@@ -179,7 +179,7 @@ if ($setupInfo.Name -eq $global:SetupType_k2s -or $setupInfo.Name -eq $global:Se
 
     Login-Docker -username $username -password $password -registry $RegistryName
 
-    # set authentification for containerd
+    # set authentication for containerd
     Set-Containerd-Config -RegistryName $RegistryName -authJson $authJson
 
     Restart-Services -setupType $setupInfo.Name

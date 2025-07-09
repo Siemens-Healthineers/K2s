@@ -75,7 +75,7 @@ if ($Ingress -ne 'none') {
 }
 
 # Create folder structure for certificates and authentication files
-Write-Log 'Creating authentification files and secrets' -Console
+Write-Log 'Creating authentication files and secrets' -Console
 (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo mkdir -m 777 -p /registry').Output | Write-Log
 (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo mkdir -m 777 /registry/auth 2>&1').Output | Write-Log
 (Invoke-CmdOnControlPlaneViaSSHKey -Timeout 2 -CmdToExecute 'sudo mkdir -m 777 /registry/repository 2>&1').Output | Write-Log
