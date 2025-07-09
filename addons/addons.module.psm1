@@ -427,7 +427,7 @@ function Test-IsAddonEnabled {
 function Invoke-AddonsHooks {
 	param (
 		[parameter(Mandatory = $false)]
-		[ValidateSet('AfterStart', 'AfterUninstall')]
+		[ValidateSet('AfterStart', 'BeforeUninstall', 'AfterUninstall')]
 		[string]$HookType = $(throw 'No hook type specified')
 	)
 	if ((Test-Path -Path $hooksDir) -ne $true) {

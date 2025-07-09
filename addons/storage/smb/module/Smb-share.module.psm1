@@ -40,7 +40,7 @@ $generatedPrefix = 'generated_'
 $storageClassTimeoutSeconds = 600
 $namespace = 'storage-smb'
 
-$configFilePath = "$PSScriptRoot\..\Config\SmbStorage.json"
+$configFilePath = "$PSScriptRoot\..\config\SmbStorage.json"
 
 function Test-CsiPodsCondition {
     param (
@@ -91,16 +91,15 @@ function New-SmbHostOnWindowsIfNotExisting {
         [parameter(Mandatory = $false)]
         [pscustomobject]$Config = $(throw 'Config not specified')
     )
-
-    Write-Log "Checking if VM is running for Name='$Name'.."
+    Write-Log "Checking if SMB share host with name '$($Config.WinShareName)' already exists.."
 
     $smb = Get-SmbShare -Name $Config.WinShareName -ErrorAction SilentlyContinue
     if ($smb) {
-        Write-Log "SMB host '$($Config.WinShareName)' on Windows already existing, nothing to create."
+        Write-Log "SMB share host '$($Config.WinShareName)' on Windows already existing, nothing to create."
         return
     }
 
-    Write-Log "Setting up '$($Config.WinShareName)' SMB host on Windows.."
+    Write-Log "Setting up '$($Config.WinShareName)' SMB share host on Windows.."
 
     if (Get-LocalUser -Name $smbUserName -ErrorAction SilentlyContinue) {
         Write-Log "User '$smbUserName' already exists."
@@ -117,11 +116,11 @@ function New-SmbHostOnWindowsIfNotExisting {
         }
     }
     
-    mkdir -Path $Config.WinMountPath -Force -ErrorAction SilentlyContinue | Out-Null
+    New-Item -Path $Config.WinMountPath -ItemType Directory -Force -ErrorAction SilentlyContinue | Out-Null
     New-SmbShare -Name $Config.WinShareName -Path $Config.WinMountPath -FullAccess $smbFullUserNameWin -ErrorAction Stop | Out-Null
     Add-FirewallExceptions
 
-    Write-Log " '$($Config.WinShareName)'SMB host set up Windows."
+    Write-Log " '$($Config.WinShareName)'SMB share host set up Windows."
 }
 
 function Remove-SmbHostOnWindowsIfExisting {
@@ -999,6 +998,8 @@ function Remove-SmbShareAndFolder() {
 }
 
 function Remove-TempManifests {
+    Write-Log "Removing temporary manifests from '$manifestStorageClassesDir'.."
+
     Get-ChildItem -File -Path "$manifestStorageClassesDir\*" -Include "$generatedPrefix*", $scKustomizeFileName | Remove-Item -Force -ErrorAction SilentlyContinue
 }
 
@@ -1119,14 +1120,15 @@ function Enable-SmbShare {
 Disables the SMB share addon
 
 .DESCRIPTION
-Disables the SMB share addon if not already disabled
+Disables the SMB share addon
 
 .PARAMETER SkipNodesCleanup
-If set to $true, e.g. no Debian packages will be removed from the Linux VM (makes sense when uninstalling the K8s cluster). Default: $false
+If set to $false, it checks if the system is running and the addon is enabled. (Default)
+If set to $true, no VMs are cleaned up (e.g. when uninstalling K2s), only the host.
 
-.NOTES
-- only works when cluster is running
-- aborts when already removed/disabled
+.PARAMETER Keep
+If set to $true, the SMB share folders are not removed, only the mounts and the SMB share itself including the SMB users.
+
 #>
 function Disable-SmbShare {
     param (
@@ -1134,8 +1136,7 @@ function Disable-SmbShare {
         [switch]$SkipNodesCleanup = $false,
         [parameter(Mandatory = $false)]
         [switch]$Keep = $false        
-    )    
-
+    )
     if ($SkipNodesCleanup -eq $true) {
         Write-Log 'Skipping SMB share cleanup on VMs..'
     }
@@ -1143,7 +1144,7 @@ function Disable-SmbShare {
         $systemError = Test-SystemAvailability -Structured
         if ($systemError) {
             return @{Error = $systemError }
-        }
+        }        
     }
 
     if ((Test-IsAddonEnabled -Addon ([pscustomobject] @{Name = $AddonName })) -ne $true) {
@@ -1151,12 +1152,13 @@ function Disable-SmbShare {
         return @{Error = $err }
     }
 
-    Write-Log " Disabling '$AddonName'.."
+    Write-Log " Disabling '$AddonName $ImplementationName'.."
 
-    $setupInfo = Get-SetupInfo
     $storageConfig = Get-StorageConfig
 
     if ($SkipNodesCleanup -ne $true) {
+        $setupInfo = Get-SetupInfo
+
         Remove-StorageClasses -LinuxOnly $setupInfo.LinuxOnly -Config $storageConfig   
         Remove-SmbShareNamespace 
     }
@@ -1171,6 +1173,7 @@ function Disable-SmbShare {
 
     # Must be last call to ensure that the addon is removed from setup.json
     Remove-AddonFromSetupJson -Addon ([pscustomobject] @{Name = $AddonName; Implementation = $ImplementationName })
+    
     return @{Error = $null }
 }
 

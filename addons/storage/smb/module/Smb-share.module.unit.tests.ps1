@@ -259,27 +259,73 @@ Describe 'New-SmbHostOnWindowsIfNotExisting' -Tag 'unit', 'ci', 'addon', 'storag
         BeforeAll {
             Mock -ModuleName $moduleName Get-SmbShare { return $null }
             Mock -ModuleName $moduleName Write-Log { }
-            Mock -ModuleName $moduleName New-LocalUser { }
-            Mock -ModuleName $moduleName mkdir { }
+            Mock -ModuleName $moduleName New-Item { }
             Mock -ModuleName $moduleName New-SmbShare { }
             Mock -ModuleName $moduleName Add-FirewallExceptions { }
+        }
 
-            InModuleScope $moduleName {
-                $config = @{WinShareName = 'test-name'; WinMountPath = 'test-path' }
+        Context 'SMB user already existing' {
+            BeforeAll {
+                Mock -ModuleName $moduleName Get-LocalUser { return $true }
+            }
 
-                New-SmbHostOnWindowsIfNotExisting -Config $config
+            It 'does not create a local SMB user' {
+                InModuleScope $moduleName {
+                    $config = @{WinShareName = 'test-name'; WinMountPath = 'test-path' }
+
+                    New-SmbHostOnWindowsIfNotExisting -Config $config
+
+                    Should -Invoke Write-Log -Times 1 -Scope Context -ParameterFilter { $Messages[0] -match 'User .+ already exists' }
+                }
+            }
+        }
+      
+        Context 'SMB user non-existent' {
+            BeforeAll {
+                Mock -ModuleName $moduleName Get-LocalUser { return $null }
+                Mock -ModuleName $moduleName New-LocalUser {}
+            }
+
+            Context 'remote desktop users group exists' {
+                BeforeAll {
+                    Mock -ModuleName $moduleName Get-LocalGroup { return 1, 2 }
+                    Mock -ModuleName $moduleName Add-LocalGroupMember { }
+                }
+
+                It 'adds SMB user to this group' {
+                    InModuleScope $moduleName {
+                        $config = @{WinShareName = 'test-name'; WinMountPath = 'test-path' }
+
+                        New-SmbHostOnWindowsIfNotExisting -Config $config
+
+                        Should -Invoke New-LocalUser -Times 1 -Scope Context
+                        Should -Invoke Add-LocalGroupMember -Times 1 -Scope Context
+                    }
+                }
+            }
+           
+            Context 'remote desktop users group non-existent' {
+                BeforeAll {
+                    Mock -ModuleName $moduleName Get-LocalGroup { return @() }
+                }
+
+                It 'does nothing' {
+                    InModuleScope $moduleName {
+                        $config = @{WinShareName = 'test-name'; WinMountPath = 'test-path' }
+
+                        New-SmbHostOnWindowsIfNotExisting -Config $config
+
+                        Should -Invoke New-LocalUser -Times 1 -Scope Context
+                        Should -Invoke Write-Log -Times 1 -Scope Context -ParameterFilter { $Messages[0] -match 'group does not exist' }
+                    }
+                }
             }
         }
 
-        It 'creates a local SMB user' {
-            InModuleScope $moduleName {
-                Should -Invoke New-LocalUser -Times 1 -Scope Context
-            }
-        }
 
         It 'creates a local SMB directory' {
             InModuleScope $moduleName {
-                Should -Invoke mkdir -Times 1 -Scope Context
+                Should -Invoke New-Item -Times 1 -Scope Context
             }
         }
 
