@@ -38,20 +38,22 @@ if ($SkipHeaderDisplay -eq $false) {
     Write-Log 'Uninstalling K2s'
 }
 
+Invoke-AddonsHooks -HookType 'BeforeUninstall'
+
 $workerNodeParams = @{
-    SkipPurge = $SkipPurge
-    ShowLogs = $ShowLogs
+    SkipPurge          = $SkipPurge
+    ShowLogs           = $ShowLogs
     AdditionalHooksDir = $AdditionalHooksDir
-    SkipHeaderDisplay = $SkipHeaderDisplay
+    SkipHeaderDisplay  = $SkipHeaderDisplay
 }
 & "$PSScriptRoot\..\..\worker\windows\windows-host\Uninstall.ps1" @workerNodeParams
 
 $controlPlaneParams = @{
-    SkipPurge = $SkipPurge
-    ShowLogs = $ShowLogs
-    AdditionalHooksDir = $AdditionalHooksDir
+    SkipPurge                         = $SkipPurge
+    ShowLogs                          = $ShowLogs
+    AdditionalHooksDir                = $AdditionalHooksDir
     DeleteFilesForOfflineInstallation = $DeleteFilesForOfflineInstallation
-    SkipHeaderDisplay = $SkipHeaderDisplay
+    SkipHeaderDisplay                 = $SkipHeaderDisplay
 }
 & "$PSScriptRoot\..\..\control-plane\Uninstall.ps1" @controlPlaneParams
 
