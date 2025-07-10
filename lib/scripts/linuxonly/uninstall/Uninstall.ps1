@@ -41,11 +41,13 @@ Import-Module $infraModule, $nodeModule, $clusterModule, $addonsModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
-$ErrorActionPreference = 'Continue'
-
 if ($HideHeaders -eq $false) {
     Write-Log 'Uninstalling Linux-only K2s'
 }
+
+Invoke-AddonsHooks -HookType 'BeforeUninstall'
+
+$ErrorActionPreference = 'Continue'
 
 $controlPlaneParams = " -AdditionalHooksDir '$AdditionalHooksDir'"
 if ($DeleteFilesForOfflineInstallation.IsPresent) {
