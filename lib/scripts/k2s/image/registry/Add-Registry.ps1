@@ -125,7 +125,7 @@ Start-Sleep 2
 
 Connect-Nerdctl -username $username -password $password -registry $RegistryName
 
-# set authentification for containerd
+# set authentication for containerd
 $authJson = (Invoke-CmdOnControlPlaneViaSSHKey 'sudo cat /root/.config/containers/auth.json' -NoLog).Output | Out-String
 Add-RegistryAuthToContainerdConfigToml -RegistryName $RegistryName -authJson $authJson
 

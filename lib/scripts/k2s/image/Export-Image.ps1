@@ -18,7 +18,7 @@ The image id of the image to be exported
 The image name of the image to be exported
 
 .PARAMETER ExportPath
-The path where the image sould be exported
+The path where the image should be exported
 
 .PARAMETER DockerArchive
 Export as docker archive (default OCI archive)
