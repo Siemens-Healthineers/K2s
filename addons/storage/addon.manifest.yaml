@@ -49,10 +49,12 @@ spec:
                 shorthand: f
                 default: false
                 description: Disable the addon and DELETE ALL DATA without user confirmation
+                exclusionGroup: data-retention
               - name: keep
                 shorthand: k
                 default: false
                 description: Disable the addon and KEEP ALL DATA without user confirmation
+                exclusionGroup: data-retention
             examples:
               - cmd: k2s addons disable storage smb
                 comment: Removes SMB share(s) between K8s nodes and prompts for data retention/deletion

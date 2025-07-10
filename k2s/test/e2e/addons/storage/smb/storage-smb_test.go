@@ -59,6 +59,7 @@ const (
 	testFileCheckTimeout  = time.Minute * 2
 	testFileCheckInterval = time.Second * 5
 	testClusterTimeout    = time.Minute * 10
+	testStepPollInterval  = time.Millisecond * 200
 
 	testFileCreationTimeout = time.Minute * 5
 	testFileOverallTimeout  = time.Minute * 10
@@ -78,7 +79,11 @@ func TestSmbshare(t *testing.T) {
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
-	suite = framework.Setup(ctx, framework.SystemMustBeRunning, framework.EnsureAddonsAreDisabled, framework.ClusterTestStepTimeout(testClusterTimeout))
+	suite = framework.Setup(ctx,
+		framework.SystemMustBeRunning,
+		framework.EnsureAddonsAreDisabled,
+		framework.ClusterTestStepTimeout(testClusterTimeout),
+		framework.ClusterTestStepPollInterval(testStepPollInterval))
 
 	skipWindowsWorkloads = suite.SetupInfo().SetupConfig.LinuxOnly
 
@@ -158,14 +163,28 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 	})
 
 	Describe("disable command", func() {
-		It("displays already-disabled message and exits with non-zero", func(ctx context.Context) {
-			output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "disable", addonName, implementationName, "-f", "-o")
+		When("addon is disabled", func() {
+			It("displays already-disabled message and exits with non-zero", func(ctx context.Context) {
+				output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "disable", addonName, implementationName, "-f", "-o")
 
-			Expect(output).To(SatisfyAll(
-				ContainSubstring("disable"),
-				ContainSubstring(addonName),
-				MatchRegexp(`Addon \'%s %s\' is already disabled`, addonName, implementationName),
-			))
+				Expect(output).To(SatisfyAll(
+					ContainSubstring("disable"),
+					ContainSubstring(addonName),
+					ContainSubstring(implementationName),
+					MatchRegexp(`Addon \'%s %s\' is already disabled`, addonName, implementationName),
+				))
+			})
+		})
+
+		When("both mutually exclusive flags are being used", func() {
+			It("displays error and exits with non-zero", func(ctx context.Context) {
+				output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "disable", addonName, implementationName, "-f", "-k", "-o")
+
+				Expect(output).To(SatisfyAll(
+					ContainSubstring("ERROR"),
+					MatchRegexp(`.+\[force keep\] were all set`),
+				))
+			})
 		})
 	})
 
@@ -403,9 +422,9 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 				suite.Cluster().ExpectStatefulSetToBeDeleted(windowsWorkloadName2, namespace, ctx)
 			})
 
-			It("create the test files", func(ctx context.Context) {
-				createTestFiles(ctx, storageConfig[0].WinMountPath)
-				createTestFiles(ctx, storageConfig[1].WinMountPath)
+			It("create the test files", func() {
+				createTestFiles(storageConfig[0].WinMountPath)
+				createTestFiles(storageConfig[1].WinMountPath)
 			})
 
 			It("disables the addon", func(ctx context.Context) {
@@ -417,14 +436,14 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 				expectTestFilesAreAvailable(ctx, storageConfig[1].WinMountPath)
 			})
 
-			It("deletes the test files", func(ctx context.Context) {
-				deleteTestFiles(ctx, storageConfig[0].WinMountPath)
-				deleteTestFiles(ctx, storageConfig[1].WinMountPath)
+			It("deletes the test files", func() {
+				deleteTestFiles(storageConfig[0].WinMountPath)
+				deleteTestFiles(storageConfig[1].WinMountPath)
 			})
 
-			It("deletes the mount paths", func(ctx context.Context) {
-				deleteMountPath(ctx, storageConfig[0].WinMountPath)
-				deleteMountPath(ctx, storageConfig[1].WinMountPath)
+			It("deletes the mount paths", func() {
+				deleteMountPath(storageConfig[0].WinMountPath)
+				deleteMountPath(storageConfig[1].WinMountPath)
 			})
 		})
 	})
@@ -490,9 +509,9 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 				suite.Cluster().ExpectStatefulSetToBeDeleted(windowsWorkloadName2, namespace, ctx)
 			})
 
-			It("create the test files", func(ctx context.Context) {
-				createTestFiles(ctx, storageConfig[0].WinMountPath)
-				createTestFiles(ctx, storageConfig[1].WinMountPath)
+			It("create the test files", func() {
+				createTestFiles(storageConfig[0].WinMountPath)
+				createTestFiles(storageConfig[1].WinMountPath)
 			})
 
 			It("checks that the test files are still available 1", func(ctx context.Context) {
@@ -593,7 +612,7 @@ func expectEnableMessage(output string, smbHostType string) {
 	))
 }
 
-func createTestFiles(ctx context.Context, mountPath string) {
+func createTestFiles(mountPath string) {
 	fileNames := []string{"file1.txt", "file2.txt", "file3.txt"}
 	for _, fileName := range fileNames {
 		filePath := filepath.Join(mountPath, fileName)
@@ -615,7 +634,7 @@ func expectTestFilesAreAvailable(ctx context.Context, mountPath string) {
 	}
 }
 
-func deleteTestFiles(ctx context.Context, mountPath string) {
+func deleteTestFiles(mountPath string) {
 	fileNames := []string{"file1.txt", "file2.txt", "file3.txt"}
 	for _, fileName := range fileNames {
 		filePath := filepath.Join(mountPath, fileName)
@@ -624,7 +643,7 @@ func deleteTestFiles(ctx context.Context, mountPath string) {
 	}
 }
 
-func deleteMountPath(ctx context.Context, mountPath string) {
+func deleteMountPath(mountPath string) {
 	err := bos.RemoveAll(mountPath)
 	Expect(err).NotTo(HaveOccurred())
 }
