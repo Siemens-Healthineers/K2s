@@ -48,11 +48,14 @@ if ($Force -and $Keep) {
 }
 
 if (-not $Force -and -not $Keep) {
-    $answer = Read-Host 'WARNING: This DELETES ALL DATA of the shared SMB folder. Continue? (y/N)'
-    if ($answer -ne 'y') {
+    $answer = Read-Host 'Do you want to DELETE ALL DATA of the shared SMB folders? Otherwise, all data will be kept. (y/N)'
+    if ($answer -eq 'y') {
+        Write-Log 'DATA DELETION CONFIRMED. All data on the shared SMB folders will be deleted.' -Console
+    }
+    else {
         $Keep = $true
-        Write-Log 'User chose to keep data on volumes. Skipping deletion of data.'
-    }    
+        Write-Log 'DATA WILL BE KEPT. No data on the shared SMB folders will be deleted.' -Console
+    }
 }
 
 Write-Log "Disabling addon '$addonName'.."

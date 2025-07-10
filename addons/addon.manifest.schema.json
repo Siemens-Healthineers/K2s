@@ -264,6 +264,10 @@
                                                 "range"
                                             ]
                                         }
+                                    },
+                                    "exclusionGroup": {
+                                        "description": "flag group for mutually exclusive flags",
+                                        "type": "string"
                                     }
                                 },
                                 "required": [

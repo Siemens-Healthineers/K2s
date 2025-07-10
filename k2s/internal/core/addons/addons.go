@@ -87,11 +87,12 @@ type ScriptConfig struct {
 }
 
 type CliFlag struct {
-	Name        string       `yaml:"name"`
-	Shorthand   *string      `yaml:"shorthand"`
-	Default     any          `yaml:"default"`
-	Description *string      `yaml:"description"`
-	Constraints *Constraints `yaml:"constraints"`
+	Name           string       `yaml:"name"`
+	Shorthand      *string      `yaml:"shorthand"`
+	Default        any          `yaml:"default"`
+	Description    *string      `yaml:"description"`
+	Constraints    *Constraints `yaml:"constraints"`
+	ExclusionGroup *string      `yaml:"exclusionGroup"`
 }
 
 type Constraints struct {
