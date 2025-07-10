@@ -36,7 +36,7 @@ spec:
                     - linux
             examples:
               - cmd: k2s addons enable storage smb
-                comment: Creates an SMB share between K8s nodes and Windows host system
+                comment: Creates SMB share(s) between K8s nodes and Windows host system according to config in 'addons/storage/smb/config'
           script:
             subPath: smb/Enable.ps1
             parameterMappings:
@@ -55,11 +55,11 @@ spec:
                 description: Disable the addon and KEEP ALL DATA without user confirmation
             examples:
               - cmd: k2s addons disable storage smb
-                comment: Disable addon storage in k2s
+                comment: Removes SMB share(s) between K8s nodes and prompts for data retention/deletion
               - cmd: k2s addons disable storage smb -f
-                comment: Removes an SMB share between K8s nodes and Windows host system without prompting for confirmation and deletes all data
+                comment: Removes SMB share(s) between K8s nodes and DELETES ALL DATA without prompting for confirmation
               - cmd: k2s addons disable storage smb -k
-                comment: Removes an SMB share between K8s nodes and Windows host system without prompting for confirmation and keeps all data
+                comment: Removes SMB share(s) between K8s nodes and KEEPS ALL DATA without prompting for confirmation
           script:
             subPath: smb/Disable.ps1
             parameterMappings:
