@@ -26,13 +26,20 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'Message type of the encoded structure; applies only if EncodeStructuredOutput was set to $true')]
     [string] $MessageType,
     [parameter(Mandatory = $false, HelpMessage = 'The path to local builds of Kubernetes binaries')]
-    [string] $K8sBinsPath = ''
+    [string] $K8sBinsPath = '',
+    [parameter(Mandatory = $false, HelpMessage = 'Path to code signing certificate (.pfx file)')]
+    [string] $CertificatePath,
+    [parameter(Mandatory = $false, HelpMessage = 'Password for the certificate file')]
+    [SecureString] $Password,
+    [parameter(Mandatory = $false, HelpMessage = 'Create a new self-signed certificate for signing')]
+    [switch] $CreateCertificate
 )
 
 $infraModule = "$PSScriptRoot/../../../../modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
 $nodeModule = "$PSScriptRoot/../../../../modules/k2s/k2s.node.module/k2s.node.module.psm1"
 $clusterModule = "$PSScriptRoot/../../../../modules/k2s/k2s.cluster.module/k2s.cluster.module.psm1"
-Import-Module $infraModule, $nodeModule, $clusterModule
+$signingModule = "$PSScriptRoot/../../../../modules/k2s/k2s.signing.module/k2s.signing.module.psm1"
+Import-Module $infraModule, $nodeModule, $clusterModule, $signingModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -358,6 +365,81 @@ $exclusionList += $kubenodeBaseVhdxPath
 
 Write-Log 'Content of the exclusion list:' -Console
 $exclusionList | ForEach-Object { " - $_ " } | Write-Log -Console
+
+# Code signing logic (if requested)
+if ($CreateCertificate -or $CertificatePath) {
+    Write-Log 'Code signing requested - signing executables and scripts...' -Console
+    
+    try {
+        if ($CreateCertificate) {
+            Write-Log 'Creating new self-signed certificate for code signing...' -Console
+            $cert = New-K2sCodeSigningCertificate -CertificateName "K2s Code Signing"
+            $CertificatePath = $cert.FilePath
+            $Password = $cert.Password
+            Write-Log "Self-signed certificate created at: $CertificatePath" -Console
+        }
+        
+        Write-Log "Signing all executables and PowerShell scripts with certificate: $CertificatePath" -Console
+        Invoke-K2sCodeSigning -SourcePath $kubePath -CertificatePath $CertificatePath -Password $Password -ExclusionList $exclusionList
+        Write-Log 'Code signing completed successfully.' -Console
+        
+        # Additional signing for offline installation artifacts (if they were created)
+        if ($ForOfflineInstallation) {
+            Write-Log 'Signing offline installation artifacts...' -Console
+            
+            # Sign Windows Node Artifacts if it contains executables
+            if (Test-Path $winNodeArtifactsZipFilePath) {
+                Write-Log "Checking Windows Node Artifacts for signable files: $winNodeArtifactsZipFilePath" -Console
+                
+                # Extract the ZIP to a temporary directory to access executables
+                $tempExtractPath = Join-Path $env:TEMP "k2s-signing-$(Get-Random)"
+                try {
+                    New-Item -Path $tempExtractPath -ItemType Directory -Force | Out-Null
+                    Expand-Archive -LiteralPath $winNodeArtifactsZipFilePath -DestinationPath $tempExtractPath -Force
+                    
+                    # Sign executables in the extracted content
+                    $signableFiles = Get-SignableFiles -Path $tempExtractPath
+                    if ($signableFiles -and $signableFiles.Count -gt 0) {
+                        Write-Log "Found $($signableFiles.Count) signable files in Windows Node Artifacts" -Console
+                        foreach ($file in $signableFiles) {
+                            if ($file.EndsWith('.exe')) {
+                                Write-Log "Signing executable: $file" -Console
+                                Set-K2sExecutableSignature -ExecutablePath $file -CertificatePath $CertificatePath -Password $Password
+                            } elseif ($file.EndsWith('.ps1') -or $file.EndsWith('.psm1')) {
+                                Write-Log "Signing PowerShell script: $file" -Console
+                                $thumbprint = (Get-PfxCertificate -FilePath $CertificatePath).Thumbprint
+                                Set-K2sScriptSignature -ScriptPath $file -CertificateThumbprint $thumbprint
+                            }
+                        }
+                        
+                        # Re-create the ZIP with signed files
+                        Write-Log "Re-creating Windows Node Artifacts ZIP with signed files..." -Console
+                        Remove-Item -Path $winNodeArtifactsZipFilePath -Force
+                        Compress-Archive -Path "$tempExtractPath\*" -DestinationPath $winNodeArtifactsZipFilePath -CompressionLevel Optimal
+                        Write-Log "Windows Node Artifacts ZIP updated with signed files." -Console
+                    } else {
+                        Write-Log "No signable files found in Windows Node Artifacts." -Console
+                    }
+                } finally {
+                    if (Test-Path $tempExtractPath) {
+                        Remove-Item -Path $tempExtractPath -Recurse -Force -ErrorAction SilentlyContinue
+                    }
+                }
+            }
+            
+            Write-Log 'Offline installation artifacts signing completed.' -Console
+        }
+        
+    } catch {
+        Write-Log "Error during code signing: $_" -Error
+        if ($EncodeStructuredOutput -eq $true) {
+            Send-ToCli -MessageType $MessageType -Message @{Error = "Code signing failed: $_" }
+        }
+        exit 1
+    }
+} else {
+    Write-Log 'No code signing requested - creating standard package.' -Console
+}
 
 Write-Log 'Start creation of zip package...' -Console
 New-ZipArchive -ExclusionList $exclusionList -BaseDirectory $kubePath -TargetPath "$zipPackagePath"
