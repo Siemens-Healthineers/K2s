@@ -382,13 +382,23 @@ function Invoke-K2sCodeSigning {
     Write-Log "Starting code signing process for: $SourcePath" -Console
     Write-Log "Using certificate: $CertificatePath" -Console
 
-    # Import the certificate for signing
+    # Check if certificate is already imported before attempting to import
     try {
-        $cert = Import-PfxCertificate -FilePath $CertificatePath -CertStoreLocation Cert:\CurrentUser\My -Password $Password
-        Write-Log "Certificate imported successfully. Thumbprint: $($cert.Thumbprint)" -Console
+        # First, get the certificate thumbprint without importing
+        $tempCert = Get-PfxCertificate -FilePath $CertificatePath
+        $existingCert = Get-ChildItem -Path "Cert:\CurrentUser\My\$($tempCert.Thumbprint)" -ErrorAction SilentlyContinue
+        
+        if ($existingCert) {
+            Write-Log "Certificate already exists in store. Thumbprint: $($existingCert.Thumbprint)" -Console
+            $cert = $existingCert
+        } else {
+            Write-Log "Importing certificate to certificate store..." -Console
+            $cert = Import-PfxCertificate -FilePath $CertificatePath -CertStoreLocation Cert:\CurrentUser\My -Password $Password
+            Write-Log "Certificate imported successfully. Thumbprint: $($cert.Thumbprint)" -Console
+        }
     }
     catch {
-        throw "Failed to import certificate: $_"
+        throw "Failed to access or import certificate: $_"
     }
 
     # Get all signable files
