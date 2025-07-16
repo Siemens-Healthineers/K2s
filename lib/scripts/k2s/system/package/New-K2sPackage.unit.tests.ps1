@@ -74,7 +74,7 @@ BeforeAll {
         New-Item -Path $TargetPath -ItemType File -Force | Out-Null
     }
     function Global:Initialize-Logging { param($ShowLogs) }
-    function Global:Write-Log { param($Message, [switch]$Console, [switch]$Error) }
+    function Global:Write-Log { param($Message, [switch]$Console, [switch]$IsError) }
     function Global:Send-ToCli { param($MessageType, $Message) }
     function Global:New-Error { param($Code, $Message, $Severity) return @{ Code = $Code; Message = $Message } }
     function Global:Remove-Item { param($Path, [switch]$Force, [switch]$Recurse, $ErrorAction) }
