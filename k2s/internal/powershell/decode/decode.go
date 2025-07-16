@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2025 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package decode
@@ -22,13 +22,25 @@ func IsEncodedMessage(message string) bool {
 	return strings.HasPrefix(message, marker)
 }
 
-func DecodeMessage(message string, targetType string) ([]byte, error) {
-	payload, err := extractPayload(message, targetType)
-	if err != nil {
-		return nil, err
+func DecodeMessages(messages []string, targetType string) ([]byte, error) {
+	if len(messages) == 0 {
+		return nil, fmt.Errorf("no messages to decode (targetType: %s)", targetType)
 	}
 
-	decodedBytes, err := decodeBase64(payload)
+	var buffer bytes.Buffer
+	for _, message := range messages {
+		payload, err := extractPayload(message, targetType)
+		if err != nil {
+			return nil, fmt.Errorf("failed to extract payload from message: %w", err)
+		}
+
+		_, err = buffer.Write(payload)
+		if err != nil {
+			return nil, fmt.Errorf("failed to write payload to buffer: %w", err)
+		}
+	}
+
+	decodedBytes, err := decodeBase64(buffer.Bytes())
 	if err != nil {
 		return nil, err
 	}
