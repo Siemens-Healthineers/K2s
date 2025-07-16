@@ -4,7 +4,6 @@
 package powershell
 
 import (
-	"errors"
 	"log/slog"
 	"testing"
 
@@ -63,15 +62,12 @@ var _ = Describe("powershell pkg", func() {
 				It("passes message to inner writer", func() {
 					const message = "this is not encoded"
 
-					decoderMock := &decoderMock{}
-					decoderMock.On(reflection.GetFunctionName(decoderMock.IsEncodedMessage), message).Return(false)
-
 					writerMock := &writerMock{}
 					writerMock.On(reflection.GetFunctionName(writerMock.WriteStdOut), message).Once()
 
 					sut := &structuredOutputWriter{
-						decoder:   decoderMock,
-						stdWriter: writerMock,
+						isEncodedMessage: func(message string) bool { return false },
+						stdWriter:        writerMock,
 					}
 
 					sut.WriteStdOut(message)
@@ -81,59 +77,22 @@ var _ = Describe("powershell pkg", func() {
 			})
 
 			When("message is encoded", func() {
-				When("decoding fails", func() {
-					It("decoding errors are accumulated", func() {
-						const message = "faulty message"
-						const targetType = "some-type"
+				It("messages are accumulated", func() {
+					const inputMessage = "some-message"
 
-						decoderMock := &decoderMock{}
-						decoderMock.On(reflection.GetFunctionName(decoderMock.IsEncodedMessage), message).Return(true)
-						decoderMock.On(reflection.GetFunctionName(decoderMock.DecodeMessage), message, targetType).Return([]byte{}, errors.New("oops"))
+					sut := &structuredOutputWriter{
+						isEncodedMessage: func(message string) bool { return true },
+					}
 
-						sut := &structuredOutputWriter{
-							decoder:    decoderMock,
-							targetType: targetType,
-						}
+					sut.WriteStdOut(inputMessage)
+					sut.WriteStdOut(inputMessage)
+					sut.WriteStdOut(inputMessage)
 
-						sut.WriteStdOut(message)
-						sut.WriteStdOut(message)
-						sut.WriteStdOut(message)
-
-						Expect(sut.decodeErrors).To(ConsistOf(
-							MatchError("oops"),
-							MatchError("oops"),
-							MatchError("oops"),
-						))
-						Expect(sut.messages).To(BeEmpty())
-					})
-				})
-
-				When("decoding succeeds", func() {
-					It("messages are accumulated", func() {
-						const inputMessage = "some-message"
-						const targetType = "some-type"
-						decodedMessage := []byte(inputMessage)
-
-						decoderMock := &decoderMock{}
-						decoderMock.On(reflection.GetFunctionName(decoderMock.IsEncodedMessage), inputMessage).Return(true)
-						decoderMock.On(reflection.GetFunctionName(decoderMock.DecodeMessage), inputMessage, targetType).Return(decodedMessage, nil)
-
-						sut := &structuredOutputWriter{
-							decoder:    decoderMock,
-							targetType: targetType,
-						}
-
-						sut.WriteStdOut(inputMessage)
-						sut.WriteStdOut(inputMessage)
-						sut.WriteStdOut(inputMessage)
-
-						Expect(sut.messages).To(ConsistOf(
-							message(inputMessage),
-							message(inputMessage),
-							message(inputMessage),
-						))
-						Expect(sut.decodeErrors).To(BeEmpty())
-					})
+					Expect(sut.rawMessages).To(ConsistOf(
+						inputMessage,
+						inputMessage,
+						inputMessage,
+					))
 				})
 			})
 		})
@@ -193,25 +152,11 @@ var _ = Describe("powershell pkg", func() {
 	})
 
 	Describe("convertToResult", Label("unit"), func() {
-		When("number of messages is unequal 1", func() {
-			It("returns error", func() {
-				actual, err := convertToResult[string]([]message{})
-
-				Expect(err).To(MatchError(ContainSubstring("unexpected number of messages")))
-				Expect(actual).To(BeEmpty())
-
-				actual, err = convertToResult[string]([]message{{}, {}})
-
-				Expect(err).To(MatchError(ContainSubstring("unexpected number of messages")))
-				Expect(actual).To(BeEmpty())
-			})
-		})
-
 		When("unmarshalling failes", func() {
 			It("returns error", func() {
-				msg := message("non-integer")
+				message := []byte("non-integer")
 
-				actual, err := convertToResult[int]([]message{msg})
+				actual, err := convertToResult[int](message)
 
 				Expect(err).To(MatchError(ContainSubstring("could not unmarshal message")))
 				Expect(actual).To(BeZero())
@@ -219,11 +164,11 @@ var _ = Describe("powershell pkg", func() {
 		})
 
 		When("successful", func() {
-			It("returns result", func() {
+			It("returns converted result", func() {
 				expected := `["test-msg"]`
-				msg := message(expected)
+				msg := []byte(expected)
 
-				actual, err := convertToResult[[]string]([]message{msg})
+				actual, err := convertToResult[[]string](msg)
 
 				Expect(err).ToNot(HaveOccurred())
 				Expect(actual).To(Equal([]string{"test-msg"}))
