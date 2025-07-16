@@ -41,13 +41,25 @@ var _ = Describe("decode pkg", func() {
 		})
 	})
 
-	Describe("DecodeMessage", func() {
-		When("message is malformed", func() {
+	Describe("DecodeMessages", func() {
+		When("no messages passed", func() {
 			It("returns error", func() {
-				message := "malformed"
+				messages := []string{}
 				messageType := "test"
 
-				actual, err := decode.DecodeMessage(message, messageType)
+				actual, err := decode.DecodeMessages(messages, messageType)
+
+				Expect(err).To(MatchError(ContainSubstring("no messages")))
+				Expect(actual).To(BeNil())
+			})
+		})
+
+		When("message is malformed", func() {
+			It("returns error", func() {
+				messages := []string{"malformed"}
+				messageType := "test"
+
+				actual, err := decode.DecodeMessages(messages, messageType)
 
 				Expect(err).To(MatchError(ContainSubstring("malformed")))
 				Expect(actual).To(BeNil())
@@ -56,10 +68,10 @@ var _ = Describe("decode pkg", func() {
 
 		When("message type does not match", func() {
 			It("returns error", func() {
-				message := "##wrong-type#"
+				messages := []string{"##wrong-type#"}
 				messageType := "test"
 
-				actual, err := decode.DecodeMessage(message, messageType)
+				actual, err := decode.DecodeMessages(messages, messageType)
 
 				Expect(err).To(MatchError(ContainSubstring("type mismatch")))
 				Expect(actual).To(BeNil())
@@ -68,10 +80,10 @@ var _ = Describe("decode pkg", func() {
 
 		When("base64 decoding failes", func() {
 			It("returns error", func() {
-				message := "##test#invalid-base64"
+				messages := []string{"##test#invalid-base64"}
 				messageType := "test"
 
-				actual, err := decode.DecodeMessage(message, messageType)
+				actual, err := decode.DecodeMessages(messages, messageType)
 
 				var decodingErr base64.CorruptInputError
 				Expect(errors.As(err, &decodingErr)).To(BeTrue())
@@ -81,22 +93,37 @@ var _ = Describe("decode pkg", func() {
 
 		When("uncompression failes", func() {
 			It("returns error", func() {
-				message := "##test#cGF5bG9hZA=="
+				messages := []string{"##test#cGF5bG9hZA=="}
 				messageType := "test"
 
-				actual, err := decode.DecodeMessage(message, messageType)
+				actual, err := decode.DecodeMessages(messages, messageType)
 
 				Expect(err).To(MatchError(ContainSubstring("unexpected EOF")))
 				Expect(actual).To(BeNil())
 			})
 		})
 
-		When("successful", func() {
-			It("returns message", func() {
-				message := "##test#H4sIAAAAAAAAAytJLS7RzU0tLk5MTwUAWnKJhAwAAAA="
+		When("single message passed", func() {
+			It("returns decoded message", func() {
+				messages := []string{"##test#H4sIAAAAAAAAAytJLS7RzU0tLk5MTwUAWnKJhAwAAAA="}
 				messageType := "test"
 
-				actual, err := decode.DecodeMessage(message, messageType)
+				actual, err := decode.DecodeMessages(messages, messageType)
+
+				Expect(err).ToNot(HaveOccurred())
+				Expect(string(actual)).To(Equal("test-message"))
+			})
+		})
+
+		When("multiple messages passed", func() {
+			It("returns decoded message", func() {
+				messages := []string{
+					"##test#H4sIAAAAAAAAAytJLS7",
+					"##test#RzU0tLk5MTwUAWnKJhAwAAAA=",
+				}
+				messageType := "test"
+
+				actual, err := decode.DecodeMessages(messages, messageType)
 
 				Expect(err).ToNot(HaveOccurred())
 				Expect(string(actual)).To(Equal("test-message"))

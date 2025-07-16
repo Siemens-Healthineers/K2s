@@ -6,7 +6,6 @@ package powershell
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -15,34 +14,13 @@ import (
 	"github.com/siemens-healthineers/k2s/internal/powershell/decode"
 )
 
-type message []byte
-
-type Decoder interface {
-	IsEncodedMessage(message string) bool
-	DecodeMessage(message string, targetType string) ([]byte, error)
-}
-
-type messageDecoder struct{}
-
 type structuredOutputWriter struct {
-	decoder      Decoder
-	stdWriter    os.StdWriter
-	targetType   string
-	messages     []message
-	decodeErrors []error
+	isEncodedMessage func(message string) bool
+	stdWriter        os.StdWriter
+	rawMessages      []string
 }
 
-const (
-	PsCmd = "powershell"
-)
-
-func (messageDecoder) IsEncodedMessage(message string) bool {
-	return decode.IsEncodedMessage(message)
-}
-
-func (messageDecoder) DecodeMessage(message string, targetType string) ([]byte, error) {
-	return decode.DecodeMessage(message, targetType)
-}
+const PsCmd = "powershell"
 
 // ExecutePsWithStructuredResult waits until the command has finished and returns the structured data it received or errors that occurred
 // Calls to OutputWriter happen asynchronous
@@ -56,11 +34,9 @@ func ExecutePsWithStructuredResult[T any](psScriptPath string, targetType string
 	slog.Debug("PS command created", "command", cmdString)
 
 	structuredWriter := &structuredOutputWriter{
-		decoder:      messageDecoder{},
-		stdWriter:    writer,
-		targetType:   targetType,
-		messages:     []message{},
-		decodeErrors: []error{},
+		isEncodedMessage: decode.IsEncodedMessage,
+		stdWriter:        writer,
+		rawMessages:      []string{},
 	}
 	exe := os.NewCmdExecutor(structuredWriter)
 
@@ -69,12 +45,12 @@ func ExecutePsWithStructuredResult[T any](psScriptPath string, targetType string
 		return v, err
 	}
 
-	err = errors.Join(structuredWriter.decodeErrors...)
+	decodedMessage, err := decode.DecodeMessages(structuredWriter.rawMessages, targetType)
 	if err != nil {
 		return v, err
 	}
 
-	return convertToResult[T](structuredWriter.messages)
+	return convertToResult[T](decodedMessage)
 }
 
 func ExecutePs(script string, writer os.StdWriter) error {
@@ -89,20 +65,14 @@ func ExecutePs(script string, writer os.StdWriter) error {
 }
 
 func (sWriter *structuredOutputWriter) WriteStdOut(message string) {
-	if !sWriter.decoder.IsEncodedMessage(message) {
+	if !sWriter.isEncodedMessage(message) {
 		sWriter.stdWriter.WriteStdOut(message)
 		return
 	}
 
-	obj, err := sWriter.decoder.DecodeMessage(message, sWriter.targetType)
-	if err != nil {
-		sWriter.decodeErrors = append(sWriter.decodeErrors, err)
-		return
-	}
+	sWriter.rawMessages = append(sWriter.rawMessages, message)
 
-	sWriter.messages = append(sWriter.messages, obj)
-
-	slog.Debug("Message decoded")
+	slog.Debug("Raw message received")
 }
 
 func (sWriter *structuredOutputWriter) WriteStdErr(message string) {
@@ -125,13 +95,7 @@ func buildCmdString(psScriptPath string, targetType string, additionalParams ...
 	return builder.String()
 }
 
-func convertToResult[T any](messages []message) (v T, err error) {
-	if len(messages) != 1 {
-		return v, fmt.Errorf("unexpected number of messages. Expected 1, but got %d", len(messages))
-	}
-
-	message := messages[0]
-
+func convertToResult[T any](message []byte) (v T, err error) {
 	if slog.Default().Enabled(context.Background(), slog.LevelDebug) {
 		slog.Debug("Unmarshalling message", "message", string(message))
 	}
