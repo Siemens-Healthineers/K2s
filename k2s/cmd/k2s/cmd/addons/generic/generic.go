@@ -207,7 +207,7 @@ func runCmd(cmd *cobra.Command, addon addons.Addon, cmdName string, implementati
 	slog.Debug("PS command created", "command", psCmd, "params", params)
 
 	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
-	_, err = setupinfo.ReadConfig(context.Config().Host().K2sConfigDir())
+	config, err := setupinfo.ReadConfig(context.Config().Host().K2sConfigDir())
 	if err != nil {
 		if errors.Is(err, setupinfo.ErrSystemInCorruptedState) {
 			return common.CreateSystemInCorruptedStateCmdFailure()
@@ -218,7 +218,7 @@ func runCmd(cmd *cobra.Command, addon addons.Addon, cmdName string, implementati
 		return err
 	}
 
-	if err := context.EnsureK2sK8sContext(); err != nil {
+	if err := context.EnsureK2sK8sContext(config.ClusterName); err != nil {
 		return err
 	}
 

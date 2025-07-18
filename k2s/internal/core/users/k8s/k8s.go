@@ -45,6 +45,16 @@ type nodeAccess interface {
 	Exec(command string) error
 }
 
+type CreateK8sAccessParams struct {
+	NodeAccess              nodeAccess
+	FileSystem              fileSystem
+	ClusterAccess           clusterAccess
+	KubeconfigWriterFactory kubeconfigWriterFactory
+	KubeconfigReader        kubeconfigReader
+	KubeconfigDir           string
+	ClusterName             string
+}
+
 type k8sAccess struct {
 	nodeAccess              nodeAccess
 	fs                      fileSystem
@@ -53,6 +63,7 @@ type k8sAccess struct {
 	kubeconfigWriterFactory kubeconfigWriterFactory
 	kubeconfigReader        kubeconfigReader
 	k2sGroupName            string
+	clusterName             string
 }
 
 const (
@@ -65,15 +76,16 @@ const (
 	k8sCaKey        = "/etc/kubernetes/pki/ca.key"
 )
 
-func NewK8sAccess(nodeAccess nodeAccess, fs fileSystem, clusterAccess clusterAccess, kubeconfigWriterFactory kubeconfigWriterFactory, kubeconfigReader kubeconfigReader, kubeconfigDir string) *k8sAccess {
+func NewK8sAccess(params CreateK8sAccessParams) *k8sAccess {
 	return &k8sAccess{
-		nodeAccess:              nodeAccess,
-		fs:                      fs,
-		clusterAccess:           clusterAccess,
-		kubeconfigWriterFactory: kubeconfigWriterFactory,
-		kubeconfigReader:        kubeconfigReader,
-		kubeconfigDir:           kubeconfigDir,
+		nodeAccess:              params.NodeAccess,
+		fs:                      params.FileSystem,
+		clusterAccess:           params.ClusterAccess,
+		kubeconfigWriterFactory: params.KubeconfigWriterFactory,
+		kubeconfigReader:        params.KubeconfigReader,
+		kubeconfigDir:           params.KubeconfigDir,
 		k2sGroupName:            common.K2sPrefix + k2sGroupSuffix,
+		clusterName:             params.ClusterName,
 	}
 }
 
@@ -140,9 +152,9 @@ func (g *k8sAccess) addUserAccessToKubeconfig(k2sUserName, certPath, keyPath str
 		return fmt.Errorf("could not remove cert dir: %w", err)
 	}
 
-	k2sContext := k2sUserName + "@" + bk8s.K2sClusterName
+	k2sContext := k2sUserName + "@" + g.clusterName
 
-	if err := kubeconfigWriter.SetContext(k2sContext, k2sUserName, bk8s.K2sClusterName); err != nil {
+	if err := kubeconfigWriter.SetContext(k2sContext, k2sUserName, g.clusterName); err != nil {
 		return fmt.Errorf("could not add K8s context for new user in kubeconfig: %w", err)
 	}
 
@@ -185,7 +197,7 @@ func (g *k8sAccess) verifyClusterAccess(kubeConfig *kubeconfig.KubeconfigRoot, k
 	if err != nil {
 		return err
 	}
-	clusterConf, err := kubeConfig.FindCluster(bk8s.K2sClusterName)
+	clusterConf, err := kubeConfig.FindCluster(g.clusterName)
 	if err != nil {
 		return err
 	}
@@ -275,7 +287,7 @@ func (g *k8sAccess) readAdminsK2sClusterConfig() (*kubeconfig.ClusterEntry, erro
 		return nil, fmt.Errorf("could not read admin's kubeconfig '%s': %w", adminKubeconfigPath, err)
 	}
 
-	return adminConfig.FindCluster(bk8s.K2sClusterName)
+	return adminConfig.FindCluster(g.clusterName)
 }
 
 func (g *k8sAccess) removeCertDir(certPath string) error {

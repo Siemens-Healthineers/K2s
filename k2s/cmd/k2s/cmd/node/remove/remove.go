@@ -52,7 +52,7 @@ func removeNode(ccmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if err := context.EnsureK2sK8sContext(); err != nil {
+	if err := context.EnsureK2sK8sContext(config.ClusterName); err != nil {
 		return err
 	}
 

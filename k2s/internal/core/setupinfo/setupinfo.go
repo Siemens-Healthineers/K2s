@@ -22,6 +22,7 @@ type Config struct {
 	Version                  string    `json:"Version"`
 	ControlPlaneNodeHostname string    `json:"ControlPlaneNodeHostname"`
 	Corrupted                bool      `json:"Corrupted"`
+	ClusterName              string    `json:"ClusterName"`
 }
 
 const (
@@ -30,7 +31,8 @@ const (
 
 	ConfigFileName = "setup.json"
 
-	corruptedKey = "Corrupted"
+	corruptedKey      = "Corrupted"
+	legacyClusterName = "kubernetes"
 )
 
 var (
@@ -54,6 +56,11 @@ func ReadConfig(configDir string) (*Config, error) {
 	if config.Corrupted {
 		// <config> instead of <nil> so that e.g. 'k2s uninstall' cmd can use it's content
 		return config, ErrSystemInCorruptedState
+	}
+
+	if config.ClusterName == "" {
+		slog.Info("Cluster name not found in setup config, defaulting to legacy cluster name", "cluster-name", legacyClusterName)
+		config.ClusterName = legacyClusterName
 	}
 
 	return config, nil
