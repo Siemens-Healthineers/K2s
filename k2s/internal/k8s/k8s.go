@@ -15,12 +15,9 @@ type K8sContext struct {
 	k2sContext     string
 }
 
-const (
-	KubeconfigName = "config"
-	K2sClusterName = "kubernetes"
-)
+const KubeconfigName = "config"
 
-func ReadContext(kubeconfigDir string) (*K8sContext, error) {
+func ReadContext(kubeconfigDir string, clusterName string) (*K8sContext, error) {
 	path := filepath.Join(kubeconfigDir, KubeconfigName)
 
 	config, err := kubeconfig.ReadFile(path)
@@ -28,7 +25,7 @@ func ReadContext(kubeconfigDir string) (*K8sContext, error) {
 		return nil, fmt.Errorf("could not read kubeconfig from dir '%s': %w", kubeconfigDir, err)
 	}
 
-	k2sContext, err := config.FindContextByCluster(K2sClusterName)
+	k2sContext, err := config.FindContextByCluster(clusterName)
 	if err != nil {
 		return nil, fmt.Errorf("could not find K2s cluster config in kubeconfig: %w", err)
 	}

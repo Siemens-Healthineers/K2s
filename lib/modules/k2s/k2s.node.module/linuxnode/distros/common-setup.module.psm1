@@ -88,7 +88,7 @@ Function Set-UpComputerBeforeProvisioning {
             &$executeRemoteCommand -Command "echo Acquire::http::Proxy \\\""$Proxy\\\""\; | sudo tee -a /etc/apt/apt.conf.d/proxy.conf"
         }
     }
-    Write-Log "Retrieve hostname"
+    Write-Log 'Retrieve hostname'
     [string]$hostname = (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute 'hostname' -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output
     if ([string]::IsNullOrWhiteSpace($hostname) -eq $true) {
         throw "The hostname of the computer with IP '$IpAddress' could not be retrieved."
@@ -817,7 +817,7 @@ Function Install-Tools {
             $Command = $(throw 'Argument missing: Command'), 
             [switch]$IgnoreErrors = $false, [string]$RepairCmd = $null, [uint16]$Retries = 0
         )
-    (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $Command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output | Write-Log
+        (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $Command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output | Write-Log
     }
 
     Write-Log 'Start installing tools in the Linux VM'
@@ -917,7 +917,7 @@ function Install-DnsServer {
     $remoteUserPwd = $UserPwd
 
     $executeRemoteCommand = { param($Command = $(throw 'Argument missing: Command'))
-    (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $Command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output | Write-Log
+        (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $Command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output | Write-Log
     }
 
     Write-Log 'Remove existing DNS server'
@@ -944,7 +944,7 @@ function Get-FlannelImages {
     $remoteUserPwd = $UserPwd
 
     $executeRemoteCommand = { param($Command = $(throw 'Argument missing: Command'))
-    (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $Command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output | Write-Log
+        (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $Command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output | Write-Log
     }
 
     Write-Log 'Get images used by flannel'
@@ -1016,7 +1016,7 @@ function Set-Nameserver {
     $remoteUserPwd = $UserPwd
 
     $executeRemoteCommand = { param($Command = $(throw 'Argument missing: Command'))
-    (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $Command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output | Write-Log
+        (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $Command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd").Output | Write-Log
     }
 
     Write-Log 'Set nameserver'
@@ -1159,7 +1159,9 @@ Function Set-UpMasterNode {
         [string] $IP_NextHop = $(throw 'Argument missing: IP_NextHop'),
         [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
         [string] $NetworkInterfaceName = $(throw 'Argument missing: NetworkInterfaceName'),
-        [ScriptBlock] $Hook = $(throw 'Argument missing: Hook')
+        [ScriptBlock] $Hook = $(throw 'Argument missing: Hook'),
+        [ValidateScript({ !([string]::IsNullOrWhiteSpace($_)) })]
+        [string] $ClusterName = $(throw 'Argument missing: ClusterName')
     )
 
     $remoteUser = "$UserName@$IpAddress"
@@ -1177,13 +1179,31 @@ Function Set-UpMasterNode {
         else {
             (Invoke-CmdOnControlPlaneViaUserAndPwd -CmdToExecute $command -RemoteUser "$remoteUser" -RemoteUserPwd "$remoteUserPwd" -Retries $Retries -IgnoreErrors:$IgnoreErrors).Output | Write-Log
         }
-    }
+    }    
 
     Write-Log "Start setting up computer '$IpAddress' as master node"
 
-    &$executeRemoteCommand "sudo systemctl start crio" -IgnoreErrors
-    
-    &$executeRemoteCommand "sudo kubeadm init --kubernetes-version $K8sVersion --apiserver-advertise-address $IpAddress --pod-network-cidr=$ClusterCIDR --service-cidr=$ClusterCIDR_Services" -IgnoreErrors
+    &$executeRemoteCommand 'sudo systemctl start crio' -IgnoreErrors
+
+    $initConfig = @"
+apiVersion: kubeadm.k8s.io/v1beta4
+kind: InitConfiguration
+localAPIEndpoint:
+  advertiseAddress: "$IpAddress"
+---
+apiVersion: kubeadm.k8s.io/v1beta4
+kind: ClusterConfiguration
+networking:
+  serviceSubnet: "$ClusterCIDR_Services"
+  podSubnet: "$ClusterCIDR"
+kubernetesVersion: "$K8sVersion"
+clusterName: "$ClusterName"
+"@
+
+    &$executeRemoteCommand 'mkdir -p ~/tmp/kubeadm-init'
+    &$executeRemoteCommand "echo '$initConfig' | sudo tee ~/tmp/kubeadm-init/kubeadm-init.yaml"    
+    &$executeRemoteCommand 'sudo kubeadm init --config ~/tmp/kubeadm-init/kubeadm-init.yaml'
+    &$executeRemoteCommand 'rm -rf ~/tmp/kubeadm-init'
 
     Write-Log 'Copy K8s config file to user profile'
     &$executeRemoteCommand 'mkdir -p ~/.kube'
@@ -1945,7 +1965,7 @@ function Get-PathOfLinuxNodeArtifactsPackageOnWindowsHost {
 }
 
 function Update-CoreDNSConfigurationviaSSH {
-    Write-Log "Correct CoreDNS configuration on cluster"
+    Write-Log 'Correct CoreDNS configuration on cluster'
     $UserName = Get-DefaultUserNameKubeNode
     $IpAddress = Get-ConfiguredIPControlPlane
     $executeRemoteCommand = {
@@ -1954,7 +1974,7 @@ function Update-CoreDNSConfigurationviaSSH {
             [uint16]$Retries = 0,
             [switch]$IgnoreErrors = $false
         )
-            (Invoke-CmdOnVmViaSSHKey -CmdToExecute $command -UserName $UserName -IpAddress $IpAddress -Retries $Retries -IgnoreErrors:$IgnoreErrors).Output | Write-Log
+        (Invoke-CmdOnVmViaSSHKey -CmdToExecute $command -UserName $UserName -IpAddress $IpAddress -Retries $Retries -IgnoreErrors:$IgnoreErrors).Output | Write-Log
     }
 
     # exchange securitycontext for coredns to allow it to run on port 53

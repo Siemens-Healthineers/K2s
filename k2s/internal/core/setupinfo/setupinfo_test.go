@@ -71,10 +71,12 @@ var _ = Describe("setupinfo pkg", func() {
 			BeforeEach(func() {
 				dir = GinkgoT().TempDir()
 				inputConfig = &setupinfo.Config{
-					SetupName:  "test-name",
-					Registries: []string{"r1", "r2"},
-					LinuxOnly:  true,
-					Version:    "test-version",
+					SetupName:                "test-name",
+					Registries:               []string{"r1", "r2"},
+					LinuxOnly:                true,
+					Version:                  "test-version",
+					ClusterName:              "my-cluster",
+					ControlPlaneNodeHostname: "my-host",
 				}
 
 				blob, err := json.Marshal(inputConfig)
@@ -90,6 +92,8 @@ var _ = Describe("setupinfo pkg", func() {
 				Expect(config.Registries).To(Equal(inputConfig.Registries))
 				Expect(config.SetupName).To(Equal(inputConfig.SetupName))
 				Expect(config.Version).To(Equal(inputConfig.Version))
+				Expect(config.ClusterName).To(Equal(inputConfig.ClusterName))
+				Expect(config.ControlPlaneNodeHostname).To(Equal(inputConfig.ControlPlaneNodeHostname))
 			})
 		})
 
@@ -121,6 +125,38 @@ var _ = Describe("setupinfo pkg", func() {
 				Expect(config.SetupName).To(Equal(inputConfig.SetupName))
 				Expect(config.Version).To(Equal(inputConfig.Version))
 				Expect(config.Corrupted).To(Equal(inputConfig.Corrupted))
+			})
+		})
+
+		When("config file misses cluster name entry", func() {
+			var dir string
+			var inputConfig *setupinfo.Config
+
+			BeforeEach(func() {
+				dir = GinkgoT().TempDir()
+				inputConfig = &setupinfo.Config{
+					SetupName:                "test-name",
+					Registries:               []string{"r1", "r2"},
+					LinuxOnly:                true,
+					Version:                  "test-version",
+					ControlPlaneNodeHostname: "my-host",
+				}
+
+				blob, err := json.Marshal(inputConfig)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(os.WriteFile(filepath.Join(dir, setupinfo.ConfigFileName), blob, os.ModePerm)).To(Succeed())
+			})
+
+			It("returns config with legacy cluster name", func() {
+				config, err := setupinfo.ReadConfig(dir)
+
+				Expect(err).ToNot(HaveOccurred())
+				Expect(config.LinuxOnly).To(Equal(inputConfig.LinuxOnly))
+				Expect(config.Registries).To(Equal(inputConfig.Registries))
+				Expect(config.SetupName).To(Equal(inputConfig.SetupName))
+				Expect(config.Version).To(Equal(inputConfig.Version))
+				Expect(config.ClusterName).To(Equal("kubernetes"))
+				Expect(config.ControlPlaneNodeHostname).To(Equal(inputConfig.ControlPlaneNodeHostname))
 			})
 		})
 	})
