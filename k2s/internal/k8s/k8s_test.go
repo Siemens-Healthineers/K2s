@@ -34,7 +34,7 @@ var _ = Describe("k8s pkg", Ordered, func() {
 			It("returns error", func() {
 				const dir = "non-existent"
 
-				actual, err := k8s.ReadContext(dir)
+				actual, err := k8s.ReadContext(dir, "")
 
 				Expect(actual).To(BeNil())
 				Expect(err).To(MatchError(ContainSubstring("could not read kubeconfig")))
@@ -57,7 +57,7 @@ var _ = Describe("k8s pkg", Ordered, func() {
 			})
 
 			It("returns error", func() {
-				actual, err := k8s.ReadContext(dir)
+				actual, err := k8s.ReadContext(dir, "")
 
 				Expect(actual).To(BeNil())
 				Expect(err).To(MatchError(ContainSubstring("could not find K2s cluster config")))
@@ -65,6 +65,7 @@ var _ = Describe("k8s pkg", Ordered, func() {
 		})
 
 		When("successful", func() {
+			const clusterName = "my-cluster"
 			var dir string
 
 			BeforeEach(func() {
@@ -76,7 +77,7 @@ var _ = Describe("k8s pkg", Ordered, func() {
 						{
 							Name: k2sContextName,
 							Details: kubeconfig.ContextDetails{
-								Cluster: k8s.K2sClusterName,
+								Cluster: clusterName,
 							},
 						},
 					},
@@ -90,7 +91,7 @@ var _ = Describe("k8s pkg", Ordered, func() {
 			})
 
 			It("returns K8s context", func() {
-				actual, err := k8s.ReadContext(dir)
+				actual, err := k8s.ReadContext(dir, clusterName)
 
 				Expect(err).ToNot(HaveOccurred())
 				Expect(actual).ToNot(BeNil())
@@ -101,6 +102,7 @@ var _ = Describe("k8s pkg", Ordered, func() {
 	Describe("K8sContext", func() {
 		Describe("IsK2sContext", func() {
 			When("is K2s context", func() {
+				const clusterName = "my-cluster"
 				var dir string
 
 				BeforeEach(func() {
@@ -112,7 +114,7 @@ var _ = Describe("k8s pkg", Ordered, func() {
 							{
 								Name: k2sContextName,
 								Details: kubeconfig.ContextDetails{
-									Cluster: k8s.K2sClusterName,
+									Cluster: clusterName,
 								},
 							},
 						},
@@ -126,7 +128,7 @@ var _ = Describe("k8s pkg", Ordered, func() {
 				})
 
 				It("returns true", func() {
-					sut, err := k8s.ReadContext(dir)
+					sut, err := k8s.ReadContext(dir, clusterName)
 					Expect(err).ToNot(HaveOccurred())
 
 					actual := sut.IsK2sContext()
@@ -136,6 +138,7 @@ var _ = Describe("k8s pkg", Ordered, func() {
 			})
 
 			When("is not K2s context", func() {
+				const clusterName = "my-cluster"
 				var dir string
 
 				BeforeEach(func() {
@@ -147,7 +150,7 @@ var _ = Describe("k8s pkg", Ordered, func() {
 							{
 								Name: k2sContextName,
 								Details: kubeconfig.ContextDetails{
-									Cluster: k8s.K2sClusterName,
+									Cluster: clusterName,
 								},
 							},
 						},
@@ -161,7 +164,7 @@ var _ = Describe("k8s pkg", Ordered, func() {
 				})
 
 				It("returns true", func() {
-					sut, err := k8s.ReadContext(dir)
+					sut, err := k8s.ReadContext(dir, clusterName)
 					Expect(err).ToNot(HaveOccurred())
 
 					actual := sut.IsK2sContext()
@@ -172,6 +175,7 @@ var _ = Describe("k8s pkg", Ordered, func() {
 		})
 
 		Describe("K2sContextName", func() {
+			const clusterName = "my-cluster"
 			var dir string
 
 			BeforeEach(func() {
@@ -183,7 +187,7 @@ var _ = Describe("k8s pkg", Ordered, func() {
 						{
 							Name: k2sContextName,
 							Details: kubeconfig.ContextDetails{
-								Cluster: k8s.K2sClusterName,
+								Cluster: clusterName,
 							},
 						},
 					},
@@ -197,7 +201,7 @@ var _ = Describe("k8s pkg", Ordered, func() {
 			})
 
 			It("returns correct K2s context", func() {
-				sut, err := k8s.ReadContext(dir)
+				sut, err := k8s.ReadContext(dir, clusterName)
 				Expect(err).ToNot(HaveOccurred())
 
 				actual := sut.K2sContextName()

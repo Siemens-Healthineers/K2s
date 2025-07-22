@@ -262,10 +262,10 @@ func (c *CmdContext) Config() config.ConfigReader { return c.config }
 
 func (c *CmdContext) Logger() *logging.Slogger { return c.logger }
 
-func (c *CmdContext) EnsureK2sK8sContext() error {
+func (c *CmdContext) EnsureK2sK8sContext(clusterName string) error {
 	slog.Debug("Ensuring correct K8s context")
 
-	k8sContext, err := k8s.ReadContext(c.config.Host().KubeConfigDir())
+	k8sContext, err := k8s.ReadContext(c.config.Host().KubeConfigDir(), clusterName)
 	if err != nil {
 		return fmt.Errorf("could not read K8s context: %w", err)
 	}

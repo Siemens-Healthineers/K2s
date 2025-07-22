@@ -82,5 +82,6 @@
         "kube": "~/.kube",
         "docker": "~/.docker",
         "k2s": "C:\\ProgramData\\K2s"
-    }
+    },
+    "clusterName": "k2s-cluster"
 }

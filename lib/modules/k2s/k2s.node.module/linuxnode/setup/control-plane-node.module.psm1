@@ -99,6 +99,9 @@ function New-ControlPlaneNodeOnNewVM {
         Write-Host ''
     }
 
+    $clusterName = Get-ClusterName
+    Set-InstalledClusterName -Value $clusterName
+
     $masterNodeParams = @{
         NodeName             = $(Get-ConfigControlPlaneNodeHostname)
         IpAddress            = $controlPlaneIpAddress
@@ -110,9 +113,9 @@ function New-ControlPlaneNodeOnNewVM {
         IP_NextHop           = $(Get-ConfiguredKubeSwitchIP)
         NetworkInterfaceName = $(Get-NetworkInterfaceName)
         Hook                 = $addToControlPlane
+        ClusterName          = $clusterName
     }
     Set-UpMasterNode @masterNodeParams
-
 
     # add kubectl to Windows host
     Install-KubectlTool

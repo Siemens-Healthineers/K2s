@@ -155,10 +155,10 @@ function Enable-WindowsSecurityDeployments {
 
 function Remove-WindowsSecurityDeployments {
     $hydraYamlPath = "$PSScriptRoot\manifests\keycloak\windowsprovider\hydra.yaml"
-    (Invoke-Kubectl -Params 'delete','--ignore-not-found','-f', $hydraYamlPath).Output | Write-Log
+    (Invoke-Kubectl -Params 'delete', '--ignore-not-found', '-f', $hydraYamlPath).Output | Write-Log
 
     $winLoginYamlPath = "$PSScriptRoot\manifests\keycloak\windowsprovider\windows-login.yaml"
-    (Invoke-Kubectl -Params 'delete','--ignore-not-found','-f', $winLoginYamlPath).Output | Write-Log
+    (Invoke-Kubectl -Params 'delete', '--ignore-not-found', '-f', $winLoginYamlPath).Output | Write-Log
 }
 
 <#
@@ -269,7 +269,7 @@ function Remove-Cmctl {
 .DESCRIPTION
 Waits for the keycloak pods to be available.
 #>
-function Wait-ForKeyCloakAvailable($waiTime=120) {
+function Wait-ForKeyCloakAvailable($waiTime = 120) {
     return (Wait-ForPodCondition -Condition Ready -Label 'app=keycloak' -Namespace 'security' -TimeoutSeconds $waiTime)
 }
 
@@ -277,7 +277,7 @@ function Wait-ForKeyCloakAvailable($waiTime=120) {
 .DESCRIPTION
 Waits for the keycloak postgresqlpods to be available.
 #>
-function Wait-ForKeyCloakPostgresqlAvailable($waiTime=120) {
+function Wait-ForKeyCloakPostgresqlAvailable($waiTime = 120) {
     return (Wait-ForPodCondition -Condition Ready -Label 'app=postgresql' -Namespace 'security' -TimeoutSeconds $waiTime)
 }
 
@@ -355,7 +355,7 @@ function Wait-ForLinkerdVizAvailable {
     return (Wait-ForPodCondition -Condition Ready -Label 'linkerd.io/extension=viz' -Namespace 'linkerd-viz' -TimeoutSeconds 120)
 }
 
-function Wait-ForTrustManagerAvailable($waiTime=120) {
+function Wait-ForTrustManagerAvailable($waiTime = 120) {
     return (Wait-ForPodCondition -Condition Ready -Label 'app.kubernetes.io/name=trust-manager' -Namespace 'cert-manager' -TimeoutSeconds $waiTime)
 }
 
@@ -381,11 +381,11 @@ function Remove-LinkerdExecutable {
 }
 
 function Remove-LinkerdManifests {
-    $fileToRemove="$PSScriptRoot\manifests\linkerd\linkerd.yaml"
+    $fileToRemove = "$PSScriptRoot\manifests\linkerd\linkerd.yaml"
     if (Test-Path $fileToRemove) {
         Remove-Item -Path $fileToRemove -Force
     }
-    $fileToRemove="$PSScriptRoot\manifests\linkerd\linkerd-crds.yaml"
+    $fileToRemove = "$PSScriptRoot\manifests\linkerd\linkerd-crds.yaml"
     if (Test-Path $fileToRemove) {
         Remove-Item -Path $fileToRemove -Force
     }
@@ -435,8 +435,8 @@ function Remove-LinkerdManifests {
 
 function Initialize-ConfigFileForCNI {
     # Variables
-    $secretName = "cni-plugin-token"
-    $kubeconfigPath = "C:\Windows\System32\config\systemprofile\config"
+    $secretName = 'cni-plugin-token'
+    $kubeconfigPath = 'C:\Windows\System32\config\systemprofile\config'
 
     # API URL
     $apiServerUrl = (Invoke-Kubectl -Params 'config', 'view', '--minify', '-o', 'jsonpath={.clusters[0].cluster.server}').Output
@@ -446,7 +446,9 @@ function Initialize-ConfigFileForCNI {
 
     # Decode base64 token and CA cert
     $token = [System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($secret.data.token))
-    $caCert = $secret.data."ca.crt"
+    $caCert = $secret.data.'ca.crt'
+
+    $clusterName = Get-InstalledClusterName
 
     # Create the kubeconfig YAML content
     $kubeconfigContent = @"
@@ -456,11 +458,11 @@ clusters:
 - cluster:
     server: $apiServerUrl
     certificate-authority-data: $caCert
-  name: kubernetes
+  name: $clusterName
 
 contexts:
 - context:
-    cluster: kubernetes
+    cluster: $clusterName
     user: cni-plugin-sa
     namespace: security
   name: service-account-context
@@ -478,7 +480,7 @@ users:
 }
 
 function Remove-ConfigFileForCNI {
-    $kubeconfigPath = "C:\Windows\System32\config\systemprofile\config"
+    $kubeconfigPath = 'C:\Windows\System32\config\systemprofile\config'
     if (Test-Path $kubeconfigPath) {
         Remove-Item -Path $kubeconfigPath -Force
     }
@@ -486,9 +488,9 @@ function Remove-ConfigFileForCNI {
 
 function Wait-ForK8sSecret {
     param (
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [string]$SecretName,
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [string]$Namespace,
         [int]$TimeoutSeconds = 60,
         [int]$CheckIntervalSeconds = 4
@@ -505,7 +507,8 @@ function Wait-ForK8sSecret {
                 Write-Log "Secret '$SecretName' is available." -Console
                 return $true
             }
-        } catch {
+        }
+        catch {
             Write-Log "Error checking for secret: $_" -Console
         }
 

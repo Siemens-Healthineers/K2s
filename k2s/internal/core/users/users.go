@@ -56,7 +56,7 @@ func DefaultUserProvider() UserProvider {
 	return winusers.NewWinUserProvider()
 }
 
-func NewUsersManagement(cfg config.ConfigReader, cmdExecutor common.CmdExecutor, userProvider UserProvider, installDir string) (*usersManagement, error) {
+func NewUsersManagement(cfg config.ConfigReader, cmdExecutor common.CmdExecutor, userProvider UserProvider, installDir, clusterName string) (*usersManagement, error) {
 	kubeconfigWriterFactory := &kubeconfWriterFactory{
 		kubectl: kubectl.NewKubectl(installDir, cmdExecutor),
 	}
@@ -76,7 +76,18 @@ func NewUsersManagement(cfg config.ConfigReader, cmdExecutor common.CmdExecutor,
 	nodeAccess := &nodeAccess{sshOptions: sshOptions, sshDir: cfg.Host().SshDir()}
 	controlPlaneAccess := controlplane.NewControlPlaneAccess(fileSystem, keygenExec, nodeAccess, aclExec, cfg.ControlPlane().IpAddress())
 	clusterAccess := cluster.NewClusterAccess(restClient)
-	k8sAccess := k8s.NewK8sAccess(nodeAccess, fileSystem, clusterAccess, kubeconfigWriterFactory, &kubeconfigReader{}, cfg.Host().KubeConfigDir())
+
+	k8sParams := k8s.CreateK8sAccessParams{
+		NodeAccess:              nodeAccess,
+		FileSystem:              fileSystem,
+		ClusterAccess:           clusterAccess,
+		KubeconfigWriterFactory: kubeconfigWriterFactory,
+		KubeconfigReader:        &kubeconfigReader{},
+		KubeconfigDir:           cfg.Host().KubeConfigDir(),
+		ClusterName:             clusterName,
+	}
+
+	k8sAccess := k8s.NewK8sAccess(k8sParams)
 	userAdder := NewWinUserAdder(controlPlaneAccess, k8sAccess, CreateK2sUserName)
 
 	return &usersManagement{

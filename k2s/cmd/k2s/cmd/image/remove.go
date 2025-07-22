@@ -80,7 +80,7 @@ func removeImage(cmd *cobra.Command, args []string) error {
 	if config.LinuxOnly {
 		return common.CreateFuncUnavailableForLinuxOnlyCmdFailure()
 	}
-	if err := context.EnsureK2sK8sContext(); err != nil {
+	if err := context.EnsureK2sK8sContext(config.ClusterName); err != nil {
 		return err
 	}
 
