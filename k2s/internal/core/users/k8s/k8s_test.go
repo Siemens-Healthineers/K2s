@@ -155,7 +155,11 @@ var _ = Describe("k8s pkg", func() {
 					userMock.On(reflection.GetFunctionName(userMock.Name)).Return("")
 					userMock.On(reflection.GetFunctionName(userMock.HomeDir)).Return("")
 
-					sut := k8s.NewK8sAccess(nil, fsMock, nil, nil, nil, "")
+					params := k8s.CreateK8sAccessParams{
+						FileSystem: fsMock,
+					}
+
+					sut := k8s.NewK8sAccess(params)
 
 					err := sut.GrantAccessTo(userMock, "")
 
@@ -177,7 +181,12 @@ var _ = Describe("k8s pkg", func() {
 					readerMock := &readerMock{}
 					readerMock.On(reflection.GetFunctionName(readerMock.ReadFile), mock.Anything).Return(&kubeconfig.KubeconfigRoot{}, expectedError)
 
-					sut := k8s.NewK8sAccess(nil, fsMock, nil, nil, readerMock, "")
+					params := k8s.CreateK8sAccessParams{
+						FileSystem:       fsMock,
+						KubeconfigReader: readerMock,
+					}
+
+					sut := k8s.NewK8sAccess(params)
 
 					err := sut.GrantAccessTo(userMock, "")
 
@@ -199,18 +208,24 @@ var _ = Describe("k8s pkg", func() {
 					readerMock := &readerMock{}
 					readerMock.On(reflection.GetFunctionName(readerMock.ReadFile), mock.Anything).Return(adminConfig, nil)
 
-					sut := k8s.NewK8sAccess(nil, fsMock, nil, nil, readerMock, "")
+					params := k8s.CreateK8sAccessParams{
+						FileSystem:       fsMock,
+						KubeconfigReader: readerMock,
+						ClusterName:      "my-cluster",
+					}
+
+					sut := k8s.NewK8sAccess(params)
 
 					err := sut.GrantAccessTo(userMock, "")
 
-					Expect(err).To(MatchError(ContainSubstring("cluster 'kubernetes' not found")))
+					Expect(err).To(MatchError(ContainSubstring("cluster 'my-cluster' not found")))
 				})
 			})
 
 			When("setting cluster config failes", func() {
 				It("returns error", func() {
 					expectedError := errors.New("oops")
-					clusterConfig := &kubeconfig.ClusterEntry{Name: "kubernetes"}
+					clusterConfig := &kubeconfig.ClusterEntry{Name: "my-cluster"}
 					adminConfig := &kubeconfig.KubeconfigRoot{
 						Clusters: []kubeconfig.ClusterEntry{*clusterConfig},
 					}
@@ -231,7 +246,14 @@ var _ = Describe("k8s pkg", func() {
 					factoryMock := &factoryMock{}
 					factoryMock.On(reflection.GetFunctionName(factoryMock.NewKubeconfigWriter), mock.Anything).Return(writerMock)
 
-					sut := k8s.NewK8sAccess(nil, fsMock, nil, factoryMock, readerMock, "")
+					params := k8s.CreateK8sAccessParams{
+						FileSystem:              fsMock,
+						KubeconfigReader:        readerMock,
+						ClusterName:             "my-cluster",
+						KubeconfigWriterFactory: factoryMock,
+					}
+
+					sut := k8s.NewK8sAccess(params)
 
 					err := sut.GrantAccessTo(userMock, "")
 
@@ -242,7 +264,7 @@ var _ = Describe("k8s pkg", func() {
 			When("creating user cert on control-plane failes", func() {
 				It("returns error", func() {
 					expectedError := errors.New("oops")
-					clusterConfig := &kubeconfig.ClusterEntry{Name: "kubernetes"}
+					clusterConfig := &kubeconfig.ClusterEntry{Name: "my-cluster"}
 					adminConfig := &kubeconfig.KubeconfigRoot{
 						Clusters: []kubeconfig.ClusterEntry{*clusterConfig},
 					}
@@ -267,7 +289,15 @@ var _ = Describe("k8s pkg", func() {
 					nodeAccessMock := &nodeAccessMock{}
 					nodeAccessMock.On(reflection.GetFunctionName(nodeAccessMock.Exec), mock.Anything, mock.Anything).Return(expectedError)
 
-					sut := k8s.NewK8sAccess(nodeAccessMock, fsMock, nil, factoryMock, readerMock, "")
+					params := k8s.CreateK8sAccessParams{
+						FileSystem:              fsMock,
+						KubeconfigReader:        readerMock,
+						ClusterName:             "my-cluster",
+						KubeconfigWriterFactory: factoryMock,
+						NodeAccess:              nodeAccessMock,
+					}
+
+					sut := k8s.NewK8sAccess(params)
 
 					err := sut.GrantAccessTo(userMock, "")
 
@@ -278,7 +308,7 @@ var _ = Describe("k8s pkg", func() {
 			When("copying user cert from control-plane failes", func() {
 				It("returns error", func() {
 					expectedError := errors.New("oops")
-					clusterConfig := &kubeconfig.ClusterEntry{Name: "kubernetes"}
+					clusterConfig := &kubeconfig.ClusterEntry{Name: "my-cluster"}
 					adminConfig := &kubeconfig.KubeconfigRoot{
 						Clusters: []kubeconfig.ClusterEntry{*clusterConfig},
 					}
@@ -304,7 +334,15 @@ var _ = Describe("k8s pkg", func() {
 					nodeAccessMock.On(reflection.GetFunctionName(nodeAccessMock.Exec), mock.Anything, mock.Anything).Return(nil)
 					nodeAccessMock.On(reflection.GetFunctionName(nodeAccessMock.Copy), mock.Anything, mock.Anything).Return(expectedError)
 
-					sut := k8s.NewK8sAccess(nodeAccessMock, fsMock, nil, factoryMock, readerMock, "")
+					params := k8s.CreateK8sAccessParams{
+						FileSystem:              fsMock,
+						KubeconfigReader:        readerMock,
+						ClusterName:             "my-cluster",
+						KubeconfigWriterFactory: factoryMock,
+						NodeAccess:              nodeAccessMock,
+					}
+
+					sut := k8s.NewK8sAccess(params)
 
 					err := sut.GrantAccessTo(userMock, "")
 
@@ -315,7 +353,7 @@ var _ = Describe("k8s pkg", func() {
 			When("removing temp cert dir on control-plane failes", func() {
 				It("returns error", func() {
 					expectedError := errors.New("oops")
-					clusterConfig := &kubeconfig.ClusterEntry{Name: "kubernetes"}
+					clusterConfig := &kubeconfig.ClusterEntry{Name: "my-cluster"}
 					adminConfig := &kubeconfig.KubeconfigRoot{
 						Clusters: []kubeconfig.ClusterEntry{*clusterConfig},
 					}
@@ -346,7 +384,15 @@ var _ = Describe("k8s pkg", func() {
 					}), mock.Anything).Return(expectedError)
 					nodeAccessMock.On(reflection.GetFunctionName(nodeAccessMock.Copy), mock.Anything, mock.Anything).Return(nil)
 
-					sut := k8s.NewK8sAccess(nodeAccessMock, fsMock, nil, factoryMock, readerMock, "")
+					params := k8s.CreateK8sAccessParams{
+						FileSystem:              fsMock,
+						KubeconfigReader:        readerMock,
+						ClusterName:             "my-cluster",
+						KubeconfigWriterFactory: factoryMock,
+						NodeAccess:              nodeAccessMock,
+					}
+
+					sut := k8s.NewK8sAccess(params)
 
 					err := sut.GrantAccessTo(userMock, "")
 
@@ -357,7 +403,7 @@ var _ = Describe("k8s pkg", func() {
 			When("setting credentials config failes", func() {
 				It("returns error", func() {
 					expectedError := errors.New("oops")
-					clusterConfig := &kubeconfig.ClusterEntry{Name: "kubernetes"}
+					clusterConfig := &kubeconfig.ClusterEntry{Name: "my-cluster"}
 					adminConfig := &kubeconfig.KubeconfigRoot{
 						Clusters: []kubeconfig.ClusterEntry{*clusterConfig},
 					}
@@ -384,7 +430,15 @@ var _ = Describe("k8s pkg", func() {
 					nodeAccessMock.On(reflection.GetFunctionName(nodeAccessMock.Exec), mock.Anything, mock.Anything).Return(nil)
 					nodeAccessMock.On(reflection.GetFunctionName(nodeAccessMock.Copy), mock.Anything, mock.Anything).Return(nil)
 
-					sut := k8s.NewK8sAccess(nodeAccessMock, fsMock, nil, factoryMock, readerMock, "")
+					params := k8s.CreateK8sAccessParams{
+						FileSystem:              fsMock,
+						KubeconfigReader:        readerMock,
+						ClusterName:             "my-cluster",
+						KubeconfigWriterFactory: factoryMock,
+						NodeAccess:              nodeAccessMock,
+					}
+
+					sut := k8s.NewK8sAccess(params)
 
 					err := sut.GrantAccessTo(userMock, "")
 
@@ -395,7 +449,7 @@ var _ = Describe("k8s pkg", func() {
 			When("removing local cert files failes", func() {
 				It("returns error", func() {
 					expectedError := errors.New("oops")
-					clusterConfig := &kubeconfig.ClusterEntry{Name: "kubernetes"}
+					clusterConfig := &kubeconfig.ClusterEntry{Name: "my-cluster"}
 					adminConfig := &kubeconfig.KubeconfigRoot{
 						Clusters: []kubeconfig.ClusterEntry{*clusterConfig},
 					}
@@ -423,7 +477,15 @@ var _ = Describe("k8s pkg", func() {
 					nodeAccessMock.On(reflection.GetFunctionName(nodeAccessMock.Exec), mock.Anything, mock.Anything).Return(nil)
 					nodeAccessMock.On(reflection.GetFunctionName(nodeAccessMock.Copy), mock.Anything, mock.Anything).Return(nil)
 
-					sut := k8s.NewK8sAccess(nodeAccessMock, fsMock, nil, factoryMock, readerMock, "")
+					params := k8s.CreateK8sAccessParams{
+						FileSystem:              fsMock,
+						KubeconfigReader:        readerMock,
+						ClusterName:             "my-cluster",
+						KubeconfigWriterFactory: factoryMock,
+						NodeAccess:              nodeAccessMock,
+					}
+
+					sut := k8s.NewK8sAccess(params)
 
 					err := sut.GrantAccessTo(userMock, "")
 
@@ -434,7 +496,7 @@ var _ = Describe("k8s pkg", func() {
 			When("setting context config failes", func() {
 				It("returns error", func() {
 					expectedError := errors.New("oops")
-					clusterConfig := &kubeconfig.ClusterEntry{Name: "kubernetes"}
+					clusterConfig := &kubeconfig.ClusterEntry{Name: "my-cluster"}
 					adminConfig := &kubeconfig.KubeconfigRoot{
 						Clusters: []kubeconfig.ClusterEntry{*clusterConfig},
 					}
@@ -463,7 +525,15 @@ var _ = Describe("k8s pkg", func() {
 					nodeAccessMock.On(reflection.GetFunctionName(nodeAccessMock.Exec), mock.Anything, mock.Anything).Return(nil)
 					nodeAccessMock.On(reflection.GetFunctionName(nodeAccessMock.Copy), mock.Anything, mock.Anything).Return(nil)
 
-					sut := k8s.NewK8sAccess(nodeAccessMock, fsMock, nil, factoryMock, readerMock, "")
+					params := k8s.CreateK8sAccessParams{
+						FileSystem:              fsMock,
+						KubeconfigReader:        readerMock,
+						ClusterName:             "my-cluster",
+						KubeconfigWriterFactory: factoryMock,
+						NodeAccess:              nodeAccessMock,
+					}
+
+					sut := k8s.NewK8sAccess(params)
 
 					err := sut.GrantAccessTo(userMock, "")
 
@@ -476,7 +546,7 @@ var _ = Describe("k8s pkg", func() {
 					const adminDir = "admin-dir"
 					const newKubeconfigPath = "new-kubeconfig"
 					expectedError := errors.New("oops")
-					clusterConfig := &kubeconfig.ClusterEntry{Name: "kubernetes"}
+					clusterConfig := &kubeconfig.ClusterEntry{Name: "my-cluster"}
 					adminConfig := &kubeconfig.KubeconfigRoot{
 						Clusters: []kubeconfig.ClusterEntry{*clusterConfig},
 					}
@@ -508,7 +578,16 @@ var _ = Describe("k8s pkg", func() {
 					nodeAccessMock.On(reflection.GetFunctionName(nodeAccessMock.Exec), mock.Anything, mock.Anything).Return(nil)
 					nodeAccessMock.On(reflection.GetFunctionName(nodeAccessMock.Copy), mock.Anything, mock.Anything).Return(nil)
 
-					sut := k8s.NewK8sAccess(nodeAccessMock, fsMock, nil, factoryMock, readerMock, adminDir)
+					params := k8s.CreateK8sAccessParams{
+						FileSystem:              fsMock,
+						KubeconfigReader:        readerMock,
+						ClusterName:             "my-cluster",
+						KubeconfigWriterFactory: factoryMock,
+						NodeAccess:              nodeAccessMock,
+						KubeconfigDir:           adminDir,
+					}
+
+					sut := k8s.NewK8sAccess(params)
 
 					err := sut.GrantAccessTo(userMock, "")
 
@@ -521,7 +600,7 @@ var _ = Describe("k8s pkg", func() {
 					const adminDir = "admin-dir"
 					const newKubeconfigPath = "new-kubeconfig"
 					expectedError := errors.New("oops")
-					clusterConfig := &kubeconfig.ClusterEntry{Name: "kubernetes"}
+					clusterConfig := &kubeconfig.ClusterEntry{Name: "my-cluster"}
 					adminConfig := &kubeconfig.KubeconfigRoot{
 						Clusters: []kubeconfig.ClusterEntry{*clusterConfig},
 					}
@@ -555,7 +634,16 @@ var _ = Describe("k8s pkg", func() {
 					nodeAccessMock.On(reflection.GetFunctionName(nodeAccessMock.Exec), mock.Anything, mock.Anything).Return(nil)
 					nodeAccessMock.On(reflection.GetFunctionName(nodeAccessMock.Copy), mock.Anything, mock.Anything).Return(nil)
 
-					sut := k8s.NewK8sAccess(nodeAccessMock, fsMock, nil, factoryMock, readerMock, adminDir)
+					params := k8s.CreateK8sAccessParams{
+						FileSystem:              fsMock,
+						KubeconfigReader:        readerMock,
+						ClusterName:             "my-cluster",
+						KubeconfigWriterFactory: factoryMock,
+						NodeAccess:              nodeAccessMock,
+						KubeconfigDir:           adminDir,
+					}
+
+					sut := k8s.NewK8sAccess(params)
 
 					err := sut.GrantAccessTo(userMock, "")
 
@@ -568,7 +656,7 @@ var _ = Describe("k8s pkg", func() {
 					const adminDir = "admin-dir"
 					const newKubeconfigPath = "new-kubeconfig"
 					const userName = "wanna-have-access"
-					clusterConfig := &kubeconfig.ClusterEntry{Name: "kubernetes"}
+					clusterConfig := &kubeconfig.ClusterEntry{Name: "my-cluster"}
 					adminConfig := &kubeconfig.KubeconfigRoot{
 						Clusters: []kubeconfig.ClusterEntry{*clusterConfig},
 					}
@@ -608,7 +696,16 @@ var _ = Describe("k8s pkg", func() {
 					nodeAccessMock.On(reflection.GetFunctionName(nodeAccessMock.Exec), mock.Anything, mock.Anything).Return(nil)
 					nodeAccessMock.On(reflection.GetFunctionName(nodeAccessMock.Copy), mock.Anything, mock.Anything).Return(nil)
 
-					sut := k8s.NewK8sAccess(nodeAccessMock, fsMock, nil, factoryMock, readerMock, adminDir)
+					params := k8s.CreateK8sAccessParams{
+						FileSystem:              fsMock,
+						KubeconfigReader:        readerMock,
+						ClusterName:             "my-cluster",
+						KubeconfigWriterFactory: factoryMock,
+						NodeAccess:              nodeAccessMock,
+						KubeconfigDir:           adminDir,
+					}
+
+					sut := k8s.NewK8sAccess(params)
 
 					err := sut.GrantAccessTo(userMock, userName)
 
@@ -621,7 +718,7 @@ var _ = Describe("k8s pkg", func() {
 					const adminDir = "admin-dir"
 					const newKubeconfigPath = "new-kubeconfig"
 					const userName = "wanna-have-access"
-					clusterConfig := &kubeconfig.ClusterEntry{Name: "kubernetes"}
+					clusterConfig := &kubeconfig.ClusterEntry{Name: "my-cluster"}
 					adminConfig := &kubeconfig.KubeconfigRoot{
 						Clusters: []kubeconfig.ClusterEntry{*clusterConfig},
 					}
@@ -666,11 +763,20 @@ var _ = Describe("k8s pkg", func() {
 					nodeAccessMock.On(reflection.GetFunctionName(nodeAccessMock.Exec), mock.Anything, mock.Anything).Return(nil)
 					nodeAccessMock.On(reflection.GetFunctionName(nodeAccessMock.Copy), mock.Anything, mock.Anything).Return(nil)
 
-					sut := k8s.NewK8sAccess(nodeAccessMock, fsMock, nil, factoryMock, readerMock, adminDir)
+					params := k8s.CreateK8sAccessParams{
+						FileSystem:              fsMock,
+						KubeconfigReader:        readerMock,
+						ClusterName:             "my-cluster",
+						KubeconfigWriterFactory: factoryMock,
+						NodeAccess:              nodeAccessMock,
+						KubeconfigDir:           adminDir,
+					}
+
+					sut := k8s.NewK8sAccess(params)
 
 					err := sut.GrantAccessTo(userMock, userName)
 
-					Expect(err).To(MatchError(ContainSubstring("cluster 'kubernetes' not found")))
+					Expect(err).To(MatchError(ContainSubstring("cluster 'my-cluster' not found")))
 				})
 			})
 
@@ -680,7 +786,7 @@ var _ = Describe("k8s pkg", func() {
 					const newKubeconfigPath = "new-kubeconfig"
 					const userName = "wanna-have-access"
 					expectedError := errors.New("oops")
-					clusterConfig := &kubeconfig.ClusterEntry{Name: "kubernetes"}
+					clusterConfig := &kubeconfig.ClusterEntry{Name: "my-cluster"}
 					adminConfig := &kubeconfig.KubeconfigRoot{
 						Clusters: []kubeconfig.ClusterEntry{*clusterConfig},
 					}
@@ -692,7 +798,7 @@ var _ = Describe("k8s pkg", func() {
 						},
 						Clusters: []kubeconfig.ClusterEntry{
 							{
-								Name: "kubernetes",
+								Name: "my-cluster",
 							},
 						},
 					}
@@ -728,7 +834,17 @@ var _ = Describe("k8s pkg", func() {
 					clusterMock := &clusterMock{}
 					clusterMock.On(reflection.GetFunctionName(clusterMock.VerifyAccess), mock.Anything, mock.Anything).Return(expectedError)
 
-					sut := k8s.NewK8sAccess(nodeAccessMock, fsMock, clusterMock, factoryMock, readerMock, adminDir)
+					params := k8s.CreateK8sAccessParams{
+						FileSystem:              fsMock,
+						KubeconfigReader:        readerMock,
+						ClusterName:             "my-cluster",
+						KubeconfigWriterFactory: factoryMock,
+						NodeAccess:              nodeAccessMock,
+						KubeconfigDir:           adminDir,
+						ClusterAccess:           clusterMock,
+					}
+
+					sut := k8s.NewK8sAccess(params)
 
 					err := sut.GrantAccessTo(userMock, userName)
 
@@ -741,7 +857,7 @@ var _ = Describe("k8s pkg", func() {
 					const adminDir = "admin-dir"
 					const newKubeconfigPath = "new-kubeconfig"
 					const userName = "wanna-have-access"
-					clusterConfig := &kubeconfig.ClusterEntry{Name: "kubernetes"}
+					clusterConfig := &kubeconfig.ClusterEntry{Name: "my-cluster"}
 					adminConfig := &kubeconfig.KubeconfigRoot{
 						Clusters: []kubeconfig.ClusterEntry{*clusterConfig},
 					}
@@ -753,7 +869,7 @@ var _ = Describe("k8s pkg", func() {
 						},
 						Clusters: []kubeconfig.ClusterEntry{
 							{
-								Name: "kubernetes",
+								Name: "my-cluster",
 							},
 						},
 					}
@@ -789,7 +905,17 @@ var _ = Describe("k8s pkg", func() {
 					clusterMock := &clusterMock{}
 					clusterMock.On(reflection.GetFunctionName(clusterMock.VerifyAccess), mock.Anything, mock.Anything).Return(nil)
 
-					sut := k8s.NewK8sAccess(nodeAccessMock, fsMock, clusterMock, factoryMock, readerMock, adminDir)
+					params := k8s.CreateK8sAccessParams{
+						FileSystem:              fsMock,
+						KubeconfigReader:        readerMock,
+						ClusterName:             "my-cluster",
+						KubeconfigWriterFactory: factoryMock,
+						NodeAccess:              nodeAccessMock,
+						KubeconfigDir:           adminDir,
+						ClusterAccess:           clusterMock,
+					}
+
+					sut := k8s.NewK8sAccess(params)
 
 					err := sut.GrantAccessTo(userMock, userName)
 
@@ -803,7 +929,7 @@ var _ = Describe("k8s pkg", func() {
 					const adminDir = "admin-dir"
 					const newKubeconfigPath = "new-kubeconfig"
 					const userName = "wanna-have-access"
-					const clusterName = "kubernetes"
+					const clusterName = "my-cluster"
 					const otherContext = "my-other-context"
 					expectedError := errors.New("oops")
 					k2sContext := userName + "@" + clusterName
@@ -857,7 +983,17 @@ var _ = Describe("k8s pkg", func() {
 					clusterMock := &clusterMock{}
 					clusterMock.On(reflection.GetFunctionName(clusterMock.VerifyAccess), mock.Anything, mock.Anything).Return(nil)
 
-					sut := k8s.NewK8sAccess(nodeAccessMock, fsMock, clusterMock, factoryMock, readerMock, adminDir)
+					params := k8s.CreateK8sAccessParams{
+						FileSystem:              fsMock,
+						KubeconfigReader:        readerMock,
+						ClusterName:             clusterName,
+						KubeconfigWriterFactory: factoryMock,
+						NodeAccess:              nodeAccessMock,
+						KubeconfigDir:           adminDir,
+						ClusterAccess:           clusterMock,
+					}
+
+					sut := k8s.NewK8sAccess(params)
 
 					err := sut.GrantAccessTo(userMock, userName)
 
@@ -870,7 +1006,7 @@ var _ = Describe("k8s pkg", func() {
 					const adminDir = "admin-dir"
 					const newKubeconfigPath = "new-kubeconfig"
 					const userName = "wanna-have-access"
-					const clusterName = "kubernetes"
+					const clusterName = "my-cluster"
 					const otherContext = "my-other-context"
 					k2sContext := userName + "@" + clusterName
 					clusterConfig := &kubeconfig.ClusterEntry{Name: clusterName}
@@ -923,7 +1059,17 @@ var _ = Describe("k8s pkg", func() {
 					clusterMock := &clusterMock{}
 					clusterMock.On(reflection.GetFunctionName(clusterMock.VerifyAccess), mock.Anything, mock.Anything).Return(nil)
 
-					sut := k8s.NewK8sAccess(nodeAccessMock, fsMock, clusterMock, factoryMock, readerMock, adminDir)
+					params := k8s.CreateK8sAccessParams{
+						FileSystem:              fsMock,
+						KubeconfigReader:        readerMock,
+						ClusterName:             clusterName,
+						KubeconfigWriterFactory: factoryMock,
+						NodeAccess:              nodeAccessMock,
+						KubeconfigDir:           adminDir,
+						ClusterAccess:           clusterMock,
+					}
+
+					sut := k8s.NewK8sAccess(params)
 
 					err := sut.GrantAccessTo(userMock, userName)
 

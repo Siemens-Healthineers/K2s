@@ -28,6 +28,10 @@ function Add-K8sContext {
     if (!(Test-Path $kubeConfigDir)) {
         mkdir $kubeConfigDir -Force | Out-Null
     }
+
+    $clusterName = Get-InstalledClusterName
+    $userName = 'kubernetes-admin'
+
     if (!(Test-Path $env:KUBECONFIG)) {
         $source = "$kubePath\config"
         $target = $kubeConfigDir + '\config'
@@ -35,9 +39,9 @@ function Add-K8sContext {
     }
     else {
         #kubectl config view
-        &"$kubeToolsPath\kubectl.exe" config unset contexts.kubernetes-admin@kubernetes
-        &"$kubeToolsPath\kubectl.exe" config unset clusters.kubernetes
-        &"$kubeToolsPath\kubectl.exe" config unset users.kubernetes-admin
+        &"$kubeToolsPath\kubectl.exe" config unset "contexts.$userName@$clusterName"
+        &"$kubeToolsPath\kubectl.exe" config unset "clusters.$clusterName"
+        &"$kubeToolsPath\kubectl.exe" config unset "users.$userName"
         Write-Log 'Adding new context and new cluster to Kubernetes config...'
         $source = $kubeConfigDir + '\config'
         $target = $kubeConfigDir + '\config_backup'
@@ -51,7 +55,7 @@ function Add-K8sContext {
         Remove-Item -Path $target2 -Force -ErrorAction SilentlyContinue
         Move-Item -Path $target1 -Destination $target2 -Force
     }
-    &"$kubeToolsPath\kubectl.exe" config use-context kubernetes-admin@kubernetes
+    &"$kubeToolsPath\kubectl.exe" config use-context "$userName@$clusterName"
     Write-Log 'Config from user directory:'
     $env:KUBECONFIG = ''
     &"$kubeToolsPath\kubectl.exe" config view
