@@ -121,7 +121,8 @@ function Join-WindowsNode {
         Copy-Item -Path "$kubeToolsPath\kubeadm.exe" -Destination $tempKubeadmDirectory -Force
 
         Write-Log 'Add kubeadm to firewall rules'
-        New-NetFirewallRule -DisplayName 'Allow temp Kubeadm' -Group 'k2s' -Direction Inbound -Action Allow -Program "$tempKubeadmDirectory\kubeadm.exe" -Enabled True | Out-Null
+        $tempRuleName = 'Allow temp Kubeadm'
+        New-NetFirewallRule -DisplayName $tempRuleName -Group 'k2s' -Direction Inbound -Action Allow -Program "$tempKubeadmDirectory\kubeadm.exe" -Enabled True | Out-Null
         #Below rule is not necessary but adding in case we perform subsequent operations.
         New-NetFirewallRule -DisplayName 'Allow Kubeadm' -Group 'k2s' -Direction Inbound -Action Allow -Program "$kubeToolsPath\kubeadm.exe" -Enabled True | Out-Null
 
@@ -177,6 +178,8 @@ function Join-WindowsNode {
         # delete path if was created
         Remove-Item -Path $tempKubeadmDirectory\kubeadm.exe
         if ( !$bPathAvailable ) { Remove-Item -Path $tempKubeadmDirectory }
+        $rule = Get-NetFirewallRule -DisplayName $tempRuleName -ErrorAction SilentlyContinue
+        if ($rule) { Remove-NetFirewallRule -DisplayName $tempRuleName -ErrorAction SilentlyContinue }
 
         # check success in joining
         $nodefound = &"$kubeToolsPath\kubectl.exe" get nodes | Select-String -Pattern $env:COMPUTERNAME -SimpleMatch
