@@ -26,12 +26,13 @@ Param (
 $registryFunctionsModule = "$PSScriptRoot\RegistryFunctions.module.psm1"
 $clusterModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.cluster.module\k2s.cluster.module.psm1"
 $imageFunctionsModule = "$PSScriptRoot\ImageFunctions.module.psm1"
-$logModule = "$PSScriptRoot\..\ps-modules\log\log.module.psm1"
 $infraModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
 
 Import-Module $registryFunctionsModule, $clusterModule, $imageFunctionsModule, $infraModule -DisableNameChecking
 
-if (-not (Get-Module -Name $logModule -ListAvailable)) { Import-Module $logModule; Initialize-Logging -ShowLogs:$ShowLogs }
+if (-not (Get-Command -Name Write-Log -ErrorAction SilentlyContinue)) {
+    Import-Module $infraModule -DisableNameChecking
+}
 
 function Set-Containerd-Config() {
     param(
@@ -178,7 +179,7 @@ if ($setupInfo.Name -eq $global:SetupType_k2s -or $setupInfo.Name -eq $global:Se
 
     Login-Docker -username $username -password $password -registry $RegistryName
 
-    # set authentification for containerd
+    # set authentication for containerd
     Set-Containerd-Config -RegistryName $RegistryName -authJson $authJson
 
     Restart-Services -setupType $setupInfo.Name

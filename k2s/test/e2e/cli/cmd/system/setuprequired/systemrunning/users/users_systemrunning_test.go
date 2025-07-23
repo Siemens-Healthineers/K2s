@@ -95,7 +95,7 @@ var _ = Describe("system users add", Ordered, func() {
 		})
 
 		It("grants Windows SYSTEM user access to K2s", MustPassRepeatedly(2), func(ctx context.Context) {
-			sut, err := users.NewUsersManagement(suite.SetupInfo().Config, os.NewCmdExecutor(&ginkgoWriter{}), userProvider)
+			sut, err := users.NewUsersManagement(suite.SetupInfo().Config, os.NewCmdExecutor(&ginkgoWriter{}), userProvider, suite.RootDir(), suite.SetupInfo().SetupConfig.ClusterName)
 
 			Expect(err).ToNot(HaveOccurred())
 			Expect(sut).ToNot(BeNil())

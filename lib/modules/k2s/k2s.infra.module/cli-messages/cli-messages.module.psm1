@@ -5,8 +5,6 @@ $logModule = "$PSScriptRoot/../log/log.module.psm1"
 
 Import-Module $logModule
 
-$script = $MyInvocation.MyCommand.Name
-
 <#
 .SYNOPSIS
 Sends a message to the standard output.
@@ -29,15 +27,14 @@ function Send-ToCli {
         [string] $MessageType = $(throw 'Please specify the message type.'),
         [parameter(Mandatory = $false, HelpMessage = 'The data message as arbitrary object')]
         [object] $Message = $(throw 'Please specify the message.')
-    )
-    $function = $MyInvocation.MyCommand.Name
-    $maxPayloadLength = 8191    
+    ) 
+    $maxPayloadLength = 8000    
 
-    Write-Log "[$script::$function] Converting message of type '$MessageType' to JSON.."
+    Write-Log "Converting message of type '$MessageType' to JSON.."
 
     $json = ConvertTo-Json -InputObject $Message -Compress -Depth 100
 
-    Write-Log "[$script::$function] message converted"
+    Write-Log 'message converted'
 
     $memoryStream = New-Object System.IO.MemoryStream
     $compressionStream = New-Object System.IO.Compression.GZipStream($memoryStream, [System.IO.Compression.CompressionMode]::Compress)
@@ -46,21 +43,26 @@ function Send-ToCli {
     $streamWriter.Write($json)
     $streamWriter.Close();
 
-    Write-Log "[$script::$function] JSON compressed"
+    Write-Log 'JSON compressed'
 
     $payload = [System.Convert]::ToBase64String($memoryStream.ToArray())
 
-    Write-Log "[$script::$function] JSON base64 encoded"
+    Write-Log "JSON base64 encoded (length=$($payload.Length))"
 
-    $cliOutput = "#pm#$MessageType#$payload"
-
-    if ($cliOutput.Length -gt $maxPayloadLength ) {
-        throw "Payload length exceeds max length of $($maxPayloadLength): $($cliOutput.Length). This might lead to data loss."
+    if ($payload.Length -lt $maxPayloadLength) {
+        Write-Output "#pm#$MessageType#$payload"
+        Write-Log 'message sent via CLI'
+        return 
     }
 
-    Write-Output $cliOutput
+    Write-Log "message length exceeds $maxPayloadLength, chunking.."
 
-    Write-Log "[$script::$function] message sent via CLI"
+    $chunks = $payload -split "(.{$maxPayloadLength})" | Where-Object { $_ }
+
+    for ($i = 0; $i -lt $chunks.Count; $i++) {
+        Write-Output "#pm#$MessageType#$($chunks[$i])"
+        Write-Log "message $($i+1) of $($chunks.Count) sent via CLI"
+    }
 }
 
 Export-ModuleMember -Function Send-ToCli

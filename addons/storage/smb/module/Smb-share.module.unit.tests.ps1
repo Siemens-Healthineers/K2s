@@ -259,27 +259,73 @@ Describe 'New-SmbHostOnWindowsIfNotExisting' -Tag 'unit', 'ci', 'addon', 'storag
         BeforeAll {
             Mock -ModuleName $moduleName Get-SmbShare { return $null }
             Mock -ModuleName $moduleName Write-Log { }
-            Mock -ModuleName $moduleName New-LocalUser { }
-            Mock -ModuleName $moduleName mkdir { }
+            Mock -ModuleName $moduleName New-Item { }
             Mock -ModuleName $moduleName New-SmbShare { }
             Mock -ModuleName $moduleName Add-FirewallExceptions { }
+        }
 
-            InModuleScope $moduleName {
-                $config = @{WinShareName = 'test-name'; WinMountPath = 'test-path' }
+        Context 'SMB user already existing' {
+            BeforeAll {
+                Mock -ModuleName $moduleName Get-LocalUser { return $true }
+            }
 
-                New-SmbHostOnWindowsIfNotExisting -Config $config
+            It 'does not create a local SMB user' {
+                InModuleScope $moduleName {
+                    $config = @{WinShareName = 'test-name'; WinMountPath = 'test-path' }
+
+                    New-SmbHostOnWindowsIfNotExisting -Config $config
+
+                    Should -Invoke Write-Log -Times 1 -Scope Context -ParameterFilter { $Messages[0] -match 'User .+ already exists' }
+                }
+            }
+        }
+      
+        Context 'SMB user non-existent' {
+            BeforeAll {
+                Mock -ModuleName $moduleName Get-LocalUser { return $null }
+                Mock -ModuleName $moduleName New-LocalUser {}
+            }
+
+            Context 'remote desktop users group exists' {
+                BeforeAll {
+                    Mock -ModuleName $moduleName Get-LocalGroup { return 1, 2 }
+                    Mock -ModuleName $moduleName Add-LocalGroupMember { }
+                }
+
+                It 'adds SMB user to this group' {
+                    InModuleScope $moduleName {
+                        $config = @{WinShareName = 'test-name'; WinMountPath = 'test-path' }
+
+                        New-SmbHostOnWindowsIfNotExisting -Config $config
+
+                        Should -Invoke New-LocalUser -Times 1 -Scope Context
+                        Should -Invoke Add-LocalGroupMember -Times 1 -Scope Context
+                    }
+                }
+            }
+           
+            Context 'remote desktop users group non-existent' {
+                BeforeAll {
+                    Mock -ModuleName $moduleName Get-LocalGroup { return @() }
+                }
+
+                It 'does nothing' {
+                    InModuleScope $moduleName {
+                        $config = @{WinShareName = 'test-name'; WinMountPath = 'test-path' }
+
+                        New-SmbHostOnWindowsIfNotExisting -Config $config
+
+                        Should -Invoke New-LocalUser -Times 1 -Scope Context
+                        Should -Invoke Write-Log -Times 1 -Scope Context -ParameterFilter { $Messages[0] -match 'group does not exist' }
+                    }
+                }
             }
         }
 
-        It 'creates a local SMB user' {
-            InModuleScope $moduleName {
-                Should -Invoke New-LocalUser -Times 1 -Scope Context
-            }
-        }
 
         It 'creates a local SMB directory' {
             InModuleScope $moduleName {
-                Should -Invoke mkdir -Times 1 -Scope Context
+                Should -Invoke New-Item -Times 1 -Scope Context
             }
         }
 
@@ -1395,6 +1441,8 @@ Describe 'Restore-SmbShareAndFolder' -Tag 'unit', 'ci', 'addon', 'storage smb' {
     Context 'Windows host' {
         BeforeAll {
             Mock -ModuleName $moduleName Restore-SmbShareAndFolderWindowsHost {}
+            Mock -ModuleName $moduleName Write-Log {}
+            Mock -ModuleName $moduleName Remove-Item {}
         }
 
         It 'calls Windows-specific restore function skipping the tests' {
@@ -1412,11 +1460,21 @@ Describe 'Restore-SmbShareAndFolder' -Tag 'unit', 'ci', 'addon', 'storage smb' {
                 Should -Invoke Restore-SmbShareAndFolderWindowsHost -Times 1 -Scope Context -ParameterFilter { $SkipTest -eq $false }
             }
         }
+
+        It 'removes the test file' {
+            InModuleScope -ModuleName $moduleName {
+                Restore-SmbShareAndFolder -SmbHostType 'Windows' -Config @{}
+
+                Should -Invoke Remove-Item -Times 1 -Scope Context -ParameterFilter { $Path -match '.+mountedInVm\.txt' }
+            }
+        }
     }
 
     Context 'Linux host' {
         BeforeAll {
             Mock -ModuleName $moduleName Restore-SmbShareAndFolderLinuxHost {}
+            Mock -ModuleName $moduleName Write-Log {}
+            Mock -ModuleName $moduleName Remove-Item {}
         }
 
         It 'calls Linux-specific restore function skipping the tests' {
@@ -1432,6 +1490,14 @@ Describe 'Restore-SmbShareAndFolder' -Tag 'unit', 'ci', 'addon', 'storage smb' {
                 Restore-SmbShareAndFolder -SmbHostType 'Linux' -Config @{}
 
                 Should -Invoke Restore-SmbShareAndFolderLinuxHost -Times 1 -Scope Context -ParameterFilter { $SkipTest -eq $false }
+            }
+        }
+
+        It 'removes the test file' {
+            InModuleScope -ModuleName $moduleName {
+                Restore-SmbShareAndFolder -SmbHostType 'Linux' -Config @{}
+
+                Should -Invoke Remove-Item -Times 1 -Scope Context -ParameterFilter { $Path -match '.+mountedInVm\.txt' }
             }
         }
     }
@@ -1926,29 +1992,33 @@ Describe 'Get-StorageConfigFromRaw' -Tag 'unit', 'ci', 'addon', 'storage smb' {
                 $config = @{
                     winMountPath     = 'win\dir-a';
                     linuxMountPath   = 'linux\dir-b' ; 
+                    linuxShareName   = 'linux-smb-shareB';
+                    winShareName     = 'win-smb-shareA';
                     storageClassName = 'sc1' 
                 }, @{
                     winMountPath     = 'win\dir-c'; 
                     linuxMountPath   = 'linux\dir-d' ; 
+                    linuxShareName   = 'linux-smb-shareD';
+                    winShareName     = 'win-smb-shareC';
                     storageClassName = 'sc2' 
                 }
 
                 $actual = Get-StorageConfigFromRaw -RawConfig $config
 
                 $actual[0].WinMountPath | Should -Be 'exp\win\dir-a'
-                $actual[0].WinShareName | Should -Be 'dir-a'
-                $actual[0].WinHostRemotePath | Should -Be '\\switch-ip\dir-a'
+                $actual[0].WinShareName | Should -Be 'win-smb-shareA'
+                $actual[0].WinHostRemotePath | Should -Be '\\switch-ip\win-smb-shareA'
                 $actual[0].LinuxMountPath | Should -Be 'linux\dir-b'
-                $actual[0].LinuxShareName | Should -Be 'dir-b'
-                $actual[0].LinuxHostRemotePath | Should -Be '\\control-plane-ip\dir-b'
+                $actual[0].LinuxShareName | Should -Be 'linux-smb-shareB'
+                $actual[0].LinuxHostRemotePath | Should -Be '\\control-plane-ip\linux-smb-shareB'
                 $actual[0].StorageClassName | Should -Be 'sc1'
                 
                 $actual[1].WinMountPath | Should -Be 'exp\win\dir-c'
-                $actual[1].WinShareName | Should -Be 'dir-c'
-                $actual[1].WinHostRemotePath | Should -Be '\\switch-ip\dir-c'
+                $actual[1].WinShareName | Should -Be 'win-smb-shareC'
+                $actual[1].WinHostRemotePath | Should -Be '\\switch-ip\win-smb-shareC'
                 $actual[1].LinuxMountPath | Should -Be 'linux\dir-d'
-                $actual[1].LinuxShareName | Should -Be 'dir-d'
-                $actual[1].LinuxHostRemotePath | Should -Be '\\control-plane-ip\dir-d'
+                $actual[1].LinuxShareName | Should -Be 'linux-smb-shareD'
+                $actual[1].LinuxHostRemotePath | Should -Be '\\control-plane-ip\linux-smb-shareD'
                 $actual[1].StorageClassName | Should -Be 'sc2'
             }
         }

@@ -63,7 +63,7 @@ const (
 	defaultProxy       = ""
 	skipImages         = "skip-images"
 	backupDir          = "backup-dir"
-	force          	   = "force"
+	force              = "force"
 	defaultBackupDir   = ""
 )
 
@@ -117,7 +117,8 @@ func upgradeCluster(cmd *cobra.Command, args []string) error {
 	if config.LinuxOnly {
 		return common.CreateFuncUnavailableForLinuxOnlyCmdFailure()
 	}
-	if err := context.EnsureK2sK8sContext(); err != nil {
+
+	if err := context.EnsureK2sK8sContext(config.ClusterName); err != nil {
 		return err
 	}
 

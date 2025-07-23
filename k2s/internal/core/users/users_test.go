@@ -234,7 +234,7 @@ var _ = Describe("users pkg", func() {
 					userProviderMock := &userProviderMock{}
 					userProviderMock.On(reflection.GetFunctionName(userProviderMock.FindByName), userName).Return(&winusers.User{}, findError)
 
-					sut, err := users.NewUsersManagement(cfg, nil, userProviderMock)
+					sut, err := users.NewUsersManagement(cfg, nil, userProviderMock, "", "")
 
 					Expect(err).ToNot(HaveOccurred())
 
@@ -255,7 +255,7 @@ var _ = Describe("users pkg", func() {
 						userProviderMock.On(reflection.GetFunctionName(userProviderMock.FindByName), userName).Return(&winusers.User{}, nil)
 						userProviderMock.On(reflection.GetFunctionName(userProviderMock.Current)).Return(&winusers.User{}, expectedError)
 
-						sut, err := users.NewUsersManagement(cfg, nil, userProviderMock)
+						sut, err := users.NewUsersManagement(cfg, nil, userProviderMock, "", "")
 
 						Expect(err).ToNot(HaveOccurred())
 
@@ -274,7 +274,7 @@ var _ = Describe("users pkg", func() {
 						userProviderMock.On(reflection.GetFunctionName(userProviderMock.FindByName), user.Name()).Return(user, nil)
 						userProviderMock.On(reflection.GetFunctionName(userProviderMock.Current)).Return(user, nil)
 
-						sut, err := users.NewUsersManagement(cfg, nil, userProviderMock)
+						sut, err := users.NewUsersManagement(cfg, nil, userProviderMock, "", "")
 
 						Expect(err).ToNot(HaveOccurred())
 
@@ -300,7 +300,7 @@ var _ = Describe("users pkg", func() {
 					userProviderMock := &userProviderMock{}
 					userProviderMock.On(reflection.GetFunctionName(userProviderMock.FindById), userId).Return(&winusers.User{}, findError)
 
-					sut, err := users.NewUsersManagement(cfg, nil, userProviderMock)
+					sut, err := users.NewUsersManagement(cfg, nil, userProviderMock, "", "")
 
 					Expect(err).ToNot(HaveOccurred())
 
@@ -321,7 +321,7 @@ var _ = Describe("users pkg", func() {
 						userProviderMock.On(reflection.GetFunctionName(userProviderMock.FindById), userId).Return(&winusers.User{}, nil)
 						userProviderMock.On(reflection.GetFunctionName(userProviderMock.Current)).Return(&winusers.User{}, expectedError)
 
-						sut, err := users.NewUsersManagement(cfg, nil, userProviderMock)
+						sut, err := users.NewUsersManagement(cfg, nil, userProviderMock, "", "")
 
 						Expect(err).ToNot(HaveOccurred())
 
@@ -340,7 +340,7 @@ var _ = Describe("users pkg", func() {
 						userProviderMock.On(reflection.GetFunctionName(userProviderMock.FindById), user.Id()).Return(user, nil)
 						userProviderMock.On(reflection.GetFunctionName(userProviderMock.Current)).Return(user, nil)
 
-						sut, err := users.NewUsersManagement(cfg, nil, userProviderMock)
+						sut, err := users.NewUsersManagement(cfg, nil, userProviderMock, "", "")
 
 						Expect(err).ToNot(HaveOccurred())
 

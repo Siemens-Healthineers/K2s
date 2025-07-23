@@ -13,12 +13,12 @@ Param(
 &$PSScriptRoot\..\common\GlobalVariables.ps1
 . $PSScriptRoot\..\common\GlobalFunctions.ps1
 
-$loggingModule = "$PSScriptRoot\..\ps-modules\log\log.module.psm1"
-Import-Module $loggingModule
+$infraModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
+$nodeModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.node.module\k2s.node.module.psm1"
+Import-Module $infraModule, $nodeModule
 Initialize-Logging -ShowLogs:$true
 
 # Create loopback adapter
-Import-Module "$global:KubernetesPath\smallsetup\LoopbackAdapter.psm1" -Force
 Import-Module "$global:KubernetesPath\smallsetup\hns.v2.psm1" -WarningAction:SilentlyContinue -Force
 New-LoopbackAdapter -Name $global:LoopbackAdapter -DevConExe $global:DevconExe | Out-Null
 

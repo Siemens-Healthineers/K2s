@@ -96,8 +96,11 @@ function New-ControlPlaneNodeOnNewVM {
     Remove-ControlPlaneAccessViaUserAndPwd
 
     $addToControlPlane = {
-        Write-Host ""
+        Write-Host ''
     }
+
+    $clusterName = Get-ClusterName
+    Set-InstalledClusterName -Value $clusterName
 
     $masterNodeParams = @{
         NodeName             = $(Get-ConfigControlPlaneNodeHostname)
@@ -110,9 +113,9 @@ function New-ControlPlaneNodeOnNewVM {
         IP_NextHop           = $(Get-ConfiguredKubeSwitchIP)
         NetworkInterfaceName = $(Get-NetworkInterfaceName)
         Hook                 = $addToControlPlane
+        ClusterName          = $clusterName
     }
     Set-UpMasterNode @masterNodeParams
-
 
     # add kubectl to Windows host
     Install-KubectlTool
@@ -290,9 +293,6 @@ function Start-ControlPlaneNodeOnNewVM {
 
     # add DNS proxy for cluster searches
     Add-DnsServer $switchname
-
-    # route for VM
-    Set-RoutesToKubemaster
 
     Wait-ForSSHConnectionToLinuxVMViaSshKey
 

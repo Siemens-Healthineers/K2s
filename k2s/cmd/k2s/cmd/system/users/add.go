@@ -9,6 +9,7 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/status"
+	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 	"github.com/siemens-healthineers/k2s/internal/core/config"
 	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
 	"github.com/siemens-healthineers/k2s/internal/core/users"
@@ -62,9 +63,9 @@ func run(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	config := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext).Config()
+	cfg := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext).Config()
 
-	_, err = loadSetupConfig(config.Host().K2sConfigDir())
+	config, err := loadSetupConfig(cfg.Host().K2sConfigDir())
 	if err != nil {
 		return err
 	}
@@ -78,7 +79,7 @@ func run(cmd *cobra.Command, args []string) error {
 		return common.CreateSystemNotRunningCmdFailure()
 	}
 
-	err = addUser(userName, userId, config)
+	err = addUser(userName, userId, cfg, config.ClusterName)
 	if err != nil {
 		var userNotFoundErr users.UserNotFoundErr
 		if errors.As(err, &userNotFoundErr) {
@@ -107,10 +108,10 @@ func loadSetupConfig(configDir string) (*setupinfo.Config, error) {
 	return nil, fmt.Errorf("could not load setup info to add the Windows user: %w", err)
 }
 
-func addUser(userName, userId string, cfg config.ConfigReader) error {
+func addUser(userName, userId string, cfg config.ConfigReader, clusterName string) error {
 	cmdExecutor := os.NewCmdExecutor(common.NewSlogWriter())
 	userProvider := users.DefaultUserProvider()
-	usersManagement, err := users.NewUsersManagement(cfg, cmdExecutor, userProvider)
+	usersManagement, err := users.NewUsersManagement(cfg, cmdExecutor, userProvider, utils.InstallDir(), clusterName)
 	if err != nil {
 		return err
 	}

@@ -36,6 +36,7 @@ function New-KubeSwitch() {
     # create new switch for debian VM
     Write-Log "Create internal switch $controlPlaneSwitchName"
     New-VMSwitch -Name $controlPlaneSwitchName -SwitchType Internal -MinimumBandwidthMode Weight | Out-Null
+    Wait-ForNetIpInterface -SwitchName "vEthernet ($controlPlaneSwitchName)"
     New-NetIPAddress -IPAddress $kubeSwitchIp -PrefixLength 24 -InterfaceAlias "vEthernet ($controlPlaneSwitchName)" | Out-Null
     # set connection to private because of firewall rules
     Set-NetConnectionProfile -InterfaceAlias "vEthernet ($controlPlaneSwitchName)" -NetworkCategory Private -ErrorAction SilentlyContinue
@@ -131,17 +132,19 @@ function Repair-KubeSwitch {
         $sw = Get-VMSwitch -Name $controlPlaneSwitchName -ErrorAction SilentlyContinue
         if ( $sw ) {
             Write-Log "Repair-KubeSwitch: KubeSwitch '$controlPlaneSwitchName' already exists, check ip to repair"
-            $ipindex = Get-NetIPAddress -InterfaceAlias '*$controlPlaneSwitchName*' -AddressFamily IPv4
+            $ipindex = Get-NetIPAddress -InterfaceAlias '*$controlPlaneSwitchName*' -AddressFamily IPv4 -ErrorAction SilentlyContinue
             if ($ipindex) {
                 Write-Log "Repair-KubeSwitch: KubeSwitch '$controlPlaneSwitchName' with IP '$($ipindex.IPAddress)' already exists, nothing to repair"
-            } else {
+            }
+            else {
                 Write-Log "Repair-KubeSwitch: KubeSwitch '$controlPlaneSwitchName' exists, but has no IP, repair it"
                 Remove-KubeSwitch
                 New-KubeSwitch
                 Connect-KubeSwitch
                 Add-DnsServer $controlPlaneSwitchName
             }
-        } else {
+        }
+        else {
             Write-Log "Repair-KubeSwitch: KubeSwitch '$controlPlaneSwitchName' does not exist, creating it"
             New-KubeSwitch
             Connect-KubeSwitch
@@ -149,6 +152,59 @@ function Repair-KubeSwitch {
         }
     }
 }
+
+function Get-MasterNodeSwitchIndex {
+    # check if switch exists
+    $sw = Get-VMSwitch -Name "*$controlPlaneSwitchName*" -ErrorAction SilentlyContinue
+    if ( -not $sw ) {
+        Write-Log "Get-MasterNodeSwitchIndex: KubeSwitch '$controlPlaneSwitchName' does not exist"
+        $sw = Get-VMSwitch -Name '*wslSwitchName*' -ErrorAction SilentlyContinue
+        if ( -not $sw ) {
+            Write-Log 'Get-MasterNodeSwitchIndex: WSL Switch does not exist'
+            return $null
+        }
+        Write-Log "Get-MasterNodeSwitchIndex: WSL Switch '$wslSwitchName' exists, using it as control plane node switch"
+        $ipindex = Get-NetIPInterface | ? InterfaceAlias -Like "*$wslSwitchName*" | ? AddressFamily -Eq IPv4 | select -expand 'ifIndex'
+        if ( -not $ipindex ) {
+            Write-Log "Get-MasterNodeSwitchIndex: No index found for control plane node '$wslSwitchName'"
+            return $null
+        }
+        Write-Log "Get-MasterNodeSwitchIndex: Index for control plane node '$wslSwitchName' is $ipindex"
+        # return index
+        return $ipindex
+    }
+    else {
+        Write-Log "Get-MasterNodeSwitchIndex: KubeSwitch '$controlPlaneSwitchName' exists"
+        $ipindex = Get-NetIPInterface | ? InterfaceAlias -Like "*$controlPlaneSwitchName*" | ? AddressFamily -Eq IPv4 | select -expand 'ifIndex'
+        if ( -not $ipindex ) {
+            Write-Log "Get-MasterNodeSwitchIndex: No index found for control plane node '$controlPlaneSwitchName'"
+            return $null
+        }
+        Write-Log "Get-MasterNodeSwitchIndex: Index for control plane node '$controlPlaneSwitchName' is $ipindex"
+        # return index
+        return $ipindex
+    }
+    return $null
+}
+
+function Wait-ForNetIpInterface {
+        param (
+        [string]$SwitchName = $(throw 'Argument missing: SwitchName')
+    )
+    # wait for switch
+    $switchName = $SwitchName
+    Write-Log "Wait for NetIpInterface '$switchName' to be available ..."
+    $maxWaitTime = 30  # 30 seconds
+    $startTime = Get-Date
+    while (!(Get-NetIPInterface -InterfaceAlias $switchName -AddressFamily IPv4 -ErrorAction SilentlyContinue)) {
+        if ((Get-Date) -gt $startTime.AddSeconds($maxWaitTime)) {
+            throw "Switch '$switchName' not available after $maxWaitTime seconds"
+        }
+        Start-Sleep -Seconds 1
+    }
+    Write-Log "NetIpInterface '$switchName' is available"
+}
+
 
 Export-ModuleMember Get-ControlPlaneNodeDefaultSwitchName,
 Add-DnsServer, 
@@ -159,4 +215,6 @@ Get-WslSwitchName,
 Reset-DnsServer, 
 Disconnect-NetworkAdapterFromVm, 
 Connect-NetworkAdapterToVm, 
-Repair-KubeSwitch
+Repair-KubeSwitch,
+Get-MasterNodeSwitchIndex,
+Wait-ForNetIpInterface

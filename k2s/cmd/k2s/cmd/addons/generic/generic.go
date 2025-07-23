@@ -112,10 +112,8 @@ func newImplementationCmd(addon addons.Addon, cmdName string, implementation add
 	if cmdConfig.Cli != nil {
 		cmd.Example = cmdConfig.Cli.Examples.String()
 
-		for _, flag := range cmdConfig.Cli.Flags {
-			if err := addFlag(flag, cmd.Flags()); err != nil {
-				return nil, err
-			}
+		if err := addFlags(cmdConfig.Cli.Flags, cmd); err != nil {
+			return nil, err
 		}
 	}
 
@@ -123,6 +121,36 @@ func newImplementationCmd(addon addons.Addon, cmdName string, implementation add
 	cmd.Flags().PrintDefaults()
 
 	return cmd, nil
+}
+
+func addFlags(flags []addons.CliFlag, cmd *cobra.Command) error {
+	exclusionGroups := map[string][]string{}
+
+	for _, flag := range flags {
+		if err := addFlag(flag, cmd.Flags()); err != nil {
+			return err
+		}
+
+		if flag.ExclusionGroup == nil || *flag.ExclusionGroup == "" {
+			continue
+		}
+
+		if _, existing := exclusionGroups[*flag.ExclusionGroup]; !existing {
+			exclusionGroups[*flag.ExclusionGroup] = []string{flag.Name}
+		} else {
+			exclusionGroups[*flag.ExclusionGroup] = append(exclusionGroups[*flag.ExclusionGroup], flag.Name)
+		}
+	}
+
+	for groupName, flagNames := range exclusionGroups {
+		if len(flagNames) < 2 {
+			slog.Warn("Exclusion group needs more than one flag to be defined", "group", groupName, "flags", flagNames)
+			continue
+		}
+
+		cmd.MarkFlagsMutuallyExclusive(flagNames...)
+	}
+	return nil
 }
 
 func addFlag(flag addons.CliFlag, flagSet *pflag.FlagSet) error {
@@ -179,7 +207,7 @@ func runCmd(cmd *cobra.Command, addon addons.Addon, cmdName string, implementati
 	slog.Debug("PS command created", "command", psCmd, "params", params)
 
 	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
-	_, err = setupinfo.ReadConfig(context.Config().Host().K2sConfigDir())
+	config, err := setupinfo.ReadConfig(context.Config().Host().K2sConfigDir())
 	if err != nil {
 		if errors.Is(err, setupinfo.ErrSystemInCorruptedState) {
 			return common.CreateSystemInCorruptedStateCmdFailure()
@@ -190,7 +218,7 @@ func runCmd(cmd *cobra.Command, addon addons.Addon, cmdName string, implementati
 		return err
 	}
 
-	if err := context.EnsureK2sK8sContext(); err != nil {
+	if err := context.EnsureK2sK8sContext(config.ClusterName); err != nil {
 		return err
 	}
 

@@ -6,18 +6,15 @@ $infraModule = "$PSScriptRoot/../../k2s.infra.module/k2s.infra.module.psm1"
 
 Import-Module $infraModule
 
-$script = $MyInvocation.MyCommand.Name
-
 function Get-IsWslRunning {
     [CmdletBinding()]
     param (
         [Parameter()]
         [string]
         $Name = $(throw 'Name not specified')
-    )
-    $function = $MyInvocation.MyCommand.Name
+    )    
 
-    Write-Log "[$script::$function] detecting if WSL is running.."
+    Write-Log "detecting if WSL is running.."
 
     $output = wsl -l --running
 
@@ -25,12 +22,12 @@ function Get-IsWslRunning {
         # CLI session encoding issue; check current encoding with [System.Console]::OutputEncoding
         # optional: remove byte replacement and set encoding with [System.Console]::OutputEncoding = [System.Text.Encoding]::Unicode
         if ($line -replace '\x00', '' -match $Name) {
-            Write-Log "[$script::$function] WSL is running"
+            Write-Log "WSL is running"
             return $true
         }
     }
 
-    Write-Log "[$script::$function] WSL not running"
+    Write-Log "WSL not running"
 
     return $false
 }
@@ -48,13 +45,12 @@ function Get-IsVmRunning {
         [Parameter(Mandatory = $false)]
         [string]$Name = $(throw 'Name not specified')
     )
-    $function = $MyInvocation.MyCommand.Name
 
-    Write-Log "[$script::$function] Checking if VM is running for Name='$Name'.."
+    Write-Log "Checking if VM is running for Name='$Name'.."
 
     $vmState = Get-VmState -Name $Name
 
-    Write-Log "[$script::$function] Found VM state '$vmState'"
+    Write-Log "Found VM state '$vmState'"
 
     return $vmState -eq [Microsoft.HyperV.PowerShell.VMState]::Running
 }
@@ -66,11 +62,9 @@ function Get-RunningState {
     )
     if ($SetupName -ne 'k2s' -and $SetupName -ne 'BuildOnlyEnv') {
         throw "cannot get running state for invalid setup type '$SetupName'"
-    }
+    }   
 
-    $function = $MyInvocation.MyCommand.Name
-
-    Write-Log "[$script::$function] Getting running state for SetupType='$SetupName'"
+    Write-Log "Getting running state for SetupType='$SetupName'"
 
     $issues = [System.Collections.ArrayList]@()
     $allRunning = $true
@@ -79,33 +73,33 @@ function Get-RunningState {
     $isWsl = Get-ConfigWslFlag
 
     if ($isWsl -eq $true) {
-        Write-Log "[$script::$function] WSL setup type"
+        Write-Log "WSL setup type"
 
         if ((Get-IsWslRunning -Name $controlPlaneNodeName) -ne $true) {
             $msg = "control-plane '$controlPlaneNodeName' not running (WSL)"
-            Write-Log "[$script::$function] $msg"
+            Write-Log " $msg"
             $allRunning = $false
             $issues.Add($msg) | Out-Null
         }
         else {
-            Write-Log "[$script::$function] control-plane '$controlPlaneNodeName' running"
+            Write-Log "control-plane '$controlPlaneNodeName' running"
         }
     }
     else {
-        Write-Log "[$script::$function] not WSL setup type"
+        Write-Log "not WSL setup type"
 
         if ((Get-IsVmRunning -Name $controlPlaneNodeName) -ne $true) {            
             $vmState = Get-VmState -Name $controlPlaneNodeName
 
             $msg = "control-plane '$controlPlaneNodeName' not running, state is '$vmState' (VM)"
 
-            Write-Log "[$script::$function] $msg"
+            Write-Log "$msg"
 
             $allRunning = $false
             $issues.Add($msg) | Out-Null
         }
         else {
-            Write-Log "[$script::$function] control-plane '$controlPlaneNodeName' running"
+            Write-Log "control-plane '$controlPlaneNodeName' running"
         }
     }
 
@@ -113,36 +107,36 @@ function Get-RunningState {
         'k2s' {
             $linuxOnly = Get-ConfigLinuxOnly
             if ($linuxOnly) {
-                Write-Log "[$script::$function] Linux-only, no more checks needed"
+                Write-Log "Linux-only, no more checks needed"
                 break
             }
             
             $servicesToCheck = 'flanneld', 'kubelet', 'kubeproxy'
             foreach ($service in $servicesToCheck) {
-                Write-Log "[$script::$function] checking '$service' service state.."
+                Write-Log "checking '$service' service state.."
 
                 if ((Get-Service -Name $service -ErrorAction SilentlyContinue).Status -ne 'Running') {
                     $msg = "'$service' not running (service)"
 
-                    Write-Log "[$script::$function] $msg"
+                    Write-Log "$msg"
 
                     $allRunning = $false
                     $issues.Add($msg) | Out-Null
                 }
                 else {
-                    Write-Log "[$script::$function] '$service' running"
+                    Write-Log "'$service' running"
                 }
             }
         }
         Default { 
-            Write-Log "[$script::$function] no more state checks needed"
+            Write-Log "no more state checks needed"
             break 
         }
     }
 
-    Write-Log "[$script::$function] returning with IsRunning='$allRunning' and Issues='$issues'"
+    Write-Log "returning with IsRunning='$allRunning' and Issues='$issues'"
 
     return @{IsRunning = $allRunning; Issues = $issues }
 }
 
-Export-ModuleMember -Function Get-RunningState
+Export-ModuleMember -Function Get-RunningState, Get-IsVmRunning, Get-IsWslRunning

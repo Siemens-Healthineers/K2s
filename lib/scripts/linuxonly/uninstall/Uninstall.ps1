@@ -19,7 +19,7 @@ This script assists in the following actions for K2s:
 -- etc.
 
 .PARAMETER SkipPurge
-Specifies whether to skipt the deletion of binaries, config files etc.
+Specifies whether to skip the deletion of binaries, config files etc.
 #>
 Param(
     [parameter(Mandatory = $false, HelpMessage = 'Do not purge all files')]
@@ -41,11 +41,13 @@ Import-Module $infraModule, $nodeModule, $clusterModule, $addonsModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
-$ErrorActionPreference = 'Continue'
-
 if ($HideHeaders -eq $false) {
     Write-Log 'Uninstalling Linux-only K2s'
 }
+
+Invoke-AddonsHooks -HookType 'BeforeUninstall'
+
+$ErrorActionPreference = 'Continue'
 
 $controlPlaneParams = " -AdditionalHooksDir '$AdditionalHooksDir'"
 if ($DeleteFilesForOfflineInstallation.IsPresent) {

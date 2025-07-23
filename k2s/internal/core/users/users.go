@@ -19,6 +19,7 @@ import (
 	"github.com/siemens-healthineers/k2s/internal/core/users/k8s"
 	"github.com/siemens-healthineers/k2s/internal/core/users/k8s/cluster"
 	"github.com/siemens-healthineers/k2s/internal/core/users/k8s/kubeconfig"
+	"github.com/siemens-healthineers/k2s/internal/core/users/k8s/kubectl"
 	"github.com/siemens-healthineers/k2s/internal/core/users/winusers"
 	bkc "github.com/siemens-healthineers/k2s/internal/k8s/kubeconfig"
 )
@@ -41,7 +42,7 @@ type usersManagement struct {
 }
 
 type kubeconfWriterFactory struct {
-	exec common.CmdExecutor
+	kubectl common.Kubectl
 }
 
 type nodeAccess struct {
@@ -55,9 +56,9 @@ func DefaultUserProvider() UserProvider {
 	return winusers.NewWinUserProvider()
 }
 
-func NewUsersManagement(cfg config.ConfigReader, cmdExecutor common.CmdExecutor, userProvider UserProvider) (*usersManagement, error) {
+func NewUsersManagement(cfg config.ConfigReader, cmdExecutor common.CmdExecutor, userProvider UserProvider, installDir, clusterName string) (*usersManagement, error) {
 	kubeconfigWriterFactory := &kubeconfWriterFactory{
-		exec: cmdExecutor,
+		kubectl: kubectl.NewKubectl(installDir, cmdExecutor),
 	}
 
 	sshOptions := ssh.ConnectionOptions{
@@ -75,7 +76,18 @@ func NewUsersManagement(cfg config.ConfigReader, cmdExecutor common.CmdExecutor,
 	nodeAccess := &nodeAccess{sshOptions: sshOptions, sshDir: cfg.Host().SshDir()}
 	controlPlaneAccess := controlplane.NewControlPlaneAccess(fileSystem, keygenExec, nodeAccess, aclExec, cfg.ControlPlane().IpAddress())
 	clusterAccess := cluster.NewClusterAccess(restClient)
-	k8sAccess := k8s.NewK8sAccess(nodeAccess, fileSystem, clusterAccess, kubeconfigWriterFactory, &kubeconfigReader{}, cfg.Host().KubeConfigDir())
+
+	k8sParams := k8s.CreateK8sAccessParams{
+		NodeAccess:              nodeAccess,
+		FileSystem:              fileSystem,
+		ClusterAccess:           clusterAccess,
+		KubeconfigWriterFactory: kubeconfigWriterFactory,
+		KubeconfigReader:        &kubeconfigReader{},
+		KubeconfigDir:           cfg.Host().KubeConfigDir(),
+		ClusterName:             clusterName,
+	}
+
+	k8sAccess := k8s.NewK8sAccess(k8sParams)
 	userAdder := NewWinUserAdder(controlPlaneAccess, k8sAccess, CreateK2sUserName)
 
 	return &usersManagement{
@@ -85,7 +97,7 @@ func NewUsersManagement(cfg config.ConfigReader, cmdExecutor common.CmdExecutor,
 }
 
 func (k *kubeconfWriterFactory) NewKubeconfigWriter(filePath string) k8s.KubeconfigWriter {
-	return kubeconfig.NewKubeconfigWriter(filePath, k.exec)
+	return kubeconfig.NewKubeconfigWriter(filePath, k.kubectl)
 }
 
 func (e UserNotFoundErr) Error() string {

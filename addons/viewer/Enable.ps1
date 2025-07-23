@@ -101,6 +101,7 @@ if ($viewerStatus -ne $true) {
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = 'viewer' })
 
 Write-ViewerUsageForUser
+Write-BrowserWarningForUser
 
 Write-Log 'Installation of Kubernetes viewer finished.' -Console
 

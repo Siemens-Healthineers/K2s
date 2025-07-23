@@ -114,53 +114,89 @@ else {
 }
 
 Write-Log 'Installing dicom server and client..' -Console
-(Invoke-Kubectl -Params 'apply' , '-k', $dicomConfig).Output | Write-Log
+$applyResult = Invoke-Kubectl -Params 'apply', '-k', $dicomConfig
+$applyResult.Output | Write-Log
 
 Write-Log 'Checking dicom addon status' -Console
 Write-Log 'Waiting for Pods..'
-$kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'deployments', '-n', 'dicom', '--timeout=180s')
-Write-Log $kubectlCmd.Output
-if (!$kubectlCmd.Success) {
-    $errMsg = 'dicom server could not be deployed!'
+
+# Check initial deployment status
+$deploymentSuccess = $true
+$errMsg = ''
+
+# Check if deployments exist and are running properly
+Write-Log 'Verifying DICOM resources were created and running...' -Console
+Start-Sleep -Seconds 5  # Give a moment for resources to be registered
+
+$deploymentsCheck = Invoke-Kubectl -Params 'get', 'deployments', '-n', 'dicom'
+if (!$deploymentsCheck.Success -or $deploymentsCheck.Output -match "No resources found") {
+    $deploymentSuccess = $false
+    $errMsg = 'No DICOM deployments found in the namespace. This often indicates YAML formatting issues in the manifest files.'
+    
+    # Check for any events that might provide more info about failures
+    Write-Log "Checking for namespace events that might explain the failure..." -Console
+    $events = Invoke-Kubectl -Params 'get', 'events', '-n', 'dicom', '--sort-by=.metadata.creationTimestamp'
+    if ($events.Success) {
+        $events.Output | Write-Log
+    }
+} else {
+    # Continue with status checks for specific deployments
+    $dicomExists = $deploymentsCheck.Output -match "dicom"
+    $postgresExists = $deploymentsCheck.Output -match "postgres"
+    
+    if (!$dicomExists) {
+        Write-Log "The 'dicom' deployment was not created" -Error
+        $deploymentSuccess = $false
+    }
+    
+    if (!$postgresExists) {
+        Write-Log "The 'postgres' deployment was not created" -Error
+        $deploymentSuccess = $false
+    }
+    
+    # If all deployments exist, check their status
+    if ($deploymentSuccess) {
+        $kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'deployments', '-n', 'dicom', '--timeout=180s')
+        Write-Log $kubectlCmd.Output
+        if (!$kubectlCmd.Success) {
+            $deploymentSuccess = $false
+            $errMsg = 'DICOM deployments could not be deployed!'
+        }
+    } else {
+        $errMsg = 'Not all required DICOM deployments were created.'
+    }
+
+    # DICOM addon only uses deployments, no need to check for StatefulSets or DaemonSets
+}
+
+if (!$deploymentSuccess) {
     if ($EncodeStructuredOutput -eq $true) {
         $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
         Send-ToCli -MessageType $MessageType -Message @{Error = $err }
         return
     }
-
     Write-Log $errMsg -Error
     exit 1
 }
-$kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'statefulsets', '-n', 'dicom', '--timeout=180s')
-Write-Log $kubectlCmd.Output
-if (!$kubectlCmd.Success) {
-    $errMsg = 'dicom server could not be deployed!'
+
+# Handle Linkerd annotations if necessary and ensure pods are ready
+$linkerdHandlingSuccess = Restart-PodsWithLinkerdAnnotation -namespace 'dicom' -timeoutSeconds 300
+if (!$linkerdHandlingSuccess) {
+    $errMsg = 'Failed to restart pods with Linkerd annotations or pods did not become ready in time!'
     if ($EncodeStructuredOutput -eq $true) {
         $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
         Send-ToCli -MessageType $MessageType -Message @{Error = $err }
         return
     }
-
-    Write-Log $errMsg -Error
-    exit 1
-}
-$kubectlCmd = (Invoke-Kubectl -Params 'rollout', 'status', 'daemonsets', '-n', 'dicom', '--timeout=180s')
-Write-Log $kubectlCmd.Output
-if (!$kubectlCmd.Success) {
-    $errMsg = 'dicom server could not be deployed!'
-    if ($EncodeStructuredOutput -eq $true) {
-        $err = New-Error -Code (Get-ErrCodeAddonEnableFailed) -Message $errMsg
-        Send-ToCli -MessageType $MessageType -Message @{Error = $err }
-        return
-    }
-
     Write-Log $errMsg -Error
     exit 1
 }
 
 Add-AddonToSetupJson -Addon ([pscustomobject] @{Name = $addonName; StorageUsage = $StorageUsage })
 
-&"$PSScriptRoot\Update.ps1"
+# Call Update.ps1 to update ingress and other configurations
+# Skip Linkerd restart when enabling since we just deployed the pods
+&"$PSScriptRoot\Update.ps1" -SkipLinkerdRestart
 
 # adapt other addons
 Update-Addons -AddonName $addonName
@@ -168,6 +204,7 @@ Update-Addons -AddonName $addonName
 Write-Log 'dicom server installed successfully'
 
 Write-UsageForUser
+Write-BrowserWarningForUser
 
 if ($EncodeStructuredOutput -eq $true) {
     Send-ToCli -MessageType $MessageType -Message @{Error = $null }

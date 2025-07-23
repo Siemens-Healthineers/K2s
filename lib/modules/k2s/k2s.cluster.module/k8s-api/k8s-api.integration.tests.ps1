@@ -38,7 +38,7 @@ Describe 'Invoke-Kubectl' -Tag 'integration', 'setup-required', 'read-only' {
             }
         }
         
-        Context 'call failes' {
+        Context 'call fails' {
             It 'returns failure' {
                 $result = Invoke-Kubectl -Params 1234 
 

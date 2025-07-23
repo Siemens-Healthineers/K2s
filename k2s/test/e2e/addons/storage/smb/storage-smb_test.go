@@ -13,12 +13,14 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/addons/status"
 	"github.com/siemens-healthineers/k2s/test/framework"
+	"github.com/siemens-healthineers/k2s/test/framework/os"
 
 	bos "os"
 
 	"github.com/siemens-healthineers/k2s/internal/cli"
 	kos "github.com/siemens-healthineers/k2s/internal/os"
-	"github.com/siemens-healthineers/k2s/test/framework/os"
+
+	//	"github.com/siemens-healthineers/k2s/test/framework/os"
 
 	"encoding/json"
 
@@ -57,6 +59,10 @@ const (
 	testFileCheckTimeout  = time.Minute * 2
 	testFileCheckInterval = time.Second * 5
 	testClusterTimeout    = time.Minute * 10
+	testStepPollInterval  = time.Millisecond * 200
+
+	testFileCreationTimeout = time.Minute * 5
+	testFileOverallTimeout  = time.Minute * 10
 )
 
 var (
@@ -73,7 +79,11 @@ func TestSmbshare(t *testing.T) {
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
-	suite = framework.Setup(ctx, framework.SystemMustBeRunning, framework.EnsureAddonsAreDisabled, framework.ClusterTestStepTimeout(testClusterTimeout))
+	suite = framework.Setup(ctx,
+		framework.SystemMustBeRunning,
+		framework.EnsureAddonsAreDisabled,
+		framework.ClusterTestStepTimeout(testClusterTimeout),
+		framework.ClusterTestStepPollInterval(testStepPollInterval))
 
 	skipWindowsWorkloads = suite.SetupInfo().SetupConfig.LinuxOnly
 
@@ -153,14 +163,28 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 	})
 
 	Describe("disable command", func() {
-		It("displays already-disabled message and exits with non-zero", func(ctx context.Context) {
-			output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "disable", addonName, implementationName, "-f", "-o")
+		When("addon is disabled", func() {
+			It("displays already-disabled message and exits with non-zero", func(ctx context.Context) {
+				output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "disable", addonName, implementationName, "-f", "-o")
 
-			Expect(output).To(SatisfyAll(
-				ContainSubstring("disable"),
-				ContainSubstring(addonName),
-				MatchRegexp(`Addon \'%s %s\' is already disabled`, addonName, implementationName),
-			))
+				Expect(output).To(SatisfyAll(
+					ContainSubstring("disable"),
+					ContainSubstring(addonName),
+					ContainSubstring(implementationName),
+					MatchRegexp(`Addon \'%s %s\' is already disabled`, addonName, implementationName),
+				))
+			})
+		})
+
+		When("both mutually exclusive flags are being used", func() {
+			It("displays error and exits with non-zero", func(ctx context.Context) {
+				output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "disable", addonName, implementationName, "-f", "-k", "-o")
+
+				Expect(output).To(SatisfyAll(
+					ContainSubstring("ERROR"),
+					MatchRegexp(`.+\[force keep\] were all set`),
+				))
+			})
 		})
 	})
 
@@ -246,7 +270,7 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 			})
 
 			It("disables the addon", func(ctx context.Context) {
-				disableAddon(ctx)
+				disableAddon(ctx, "-f")
 			})
 		})
 	})
@@ -332,7 +356,180 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 			})
 
 			It("disables the addon", func(ctx context.Context) {
-				disableAddon(ctx)
+				disableAddon(ctx, "-f")
+			})
+		})
+	})
+
+	Describe("enable and disable with keep in Windows", func() {
+		When("SMB host type is Windows", Ordered, func() {
+			It("enables the addon", func(ctx context.Context) {
+				output := suite.K2sCli().RunOrFail(ctx, "addons", "enable", addonName, implementationName, "-o")
+
+				expectEnableMessage(output, "windows")
+			})
+
+			It("prints the status", func(ctx context.Context) {
+				expectStatusToBePrinted("windows", ctx)
+			})
+
+			It("deploys Linux-based workloads", func(ctx context.Context) {
+				suite.Kubectl().Run(ctx, "apply", "-k", linuxManifestDir)
+			})
+
+			It("deploys Windows-based workloads", func(ctx context.Context) {
+				if skipWindowsWorkloads {
+					Skip("Linux-only setup")
+				}
+
+				suite.Kubectl().Run(ctx, "apply", "-k", windowsManifestDir)
+			})
+
+			It("runs Linux-based workloads", func(ctx context.Context) {
+				// TODO: could be more generic
+				expectWorkloadToRun(ctx, linuxWorkloadName1, storageConfig[0].WinMountPath, linuxTestfileName)
+				expectWorkloadToRun(ctx, linuxWorkloadName2, storageConfig[1].WinMountPath, linuxTestfileName)
+			})
+
+			It("runs Windows-based workloads", func(ctx context.Context) {
+				expectWorkloadToRun(ctx, windowsWorkloadName1, storageConfig[0].WinMountPath, windowsTestfileName)
+				expectWorkloadToRun(ctx, windowsWorkloadName2, storageConfig[1].WinMountPath, windowsTestfileName)
+			})
+
+			It("deletes Linux-based workloads", func(ctx context.Context) {
+				suite.Kubectl().Run(ctx, "delete", "-k", linuxManifestDir)
+			})
+
+			It("deletes Windows-based workloads", func(ctx context.Context) {
+				if skipWindowsWorkloads {
+					Skip("Linux-only setup")
+				}
+
+				suite.Kubectl().Run(ctx, "delete", "-k", windowsManifestDir)
+			})
+
+			It("disposes Linux-based workloads", func(ctx context.Context) {
+				suite.Cluster().ExpectStatefulSetToBeDeleted(linuxWorkloadName1, namespace, ctx)
+				suite.Cluster().ExpectStatefulSetToBeDeleted(linuxWorkloadName2, namespace, ctx)
+			})
+
+			It("disposes Windows-based workloads", func(ctx context.Context) {
+				if skipWindowsWorkloads {
+					Skip("Linux-only setup")
+				}
+
+				suite.Cluster().ExpectStatefulSetToBeDeleted(windowsWorkloadName1, namespace, ctx)
+				suite.Cluster().ExpectStatefulSetToBeDeleted(windowsWorkloadName2, namespace, ctx)
+			})
+
+			It("create the test files", func() {
+				createTestFiles(storageConfig[0].WinMountPath)
+				createTestFiles(storageConfig[1].WinMountPath)
+			})
+
+			It("disables the addon", func(ctx context.Context) {
+				disableAddon(ctx, "-k")
+			})
+
+			It("checks that the test files are still available", func(ctx context.Context) {
+				expectTestFilesAreAvailable(ctx, storageConfig[0].WinMountPath)
+				expectTestFilesAreAvailable(ctx, storageConfig[1].WinMountPath)
+			})
+
+			It("deletes the test files", func() {
+				deleteTestFiles(storageConfig[0].WinMountPath)
+				deleteTestFiles(storageConfig[1].WinMountPath)
+			})
+
+			It("deletes the mount paths", func() {
+				deleteMountPath(storageConfig[0].WinMountPath)
+				deleteMountPath(storageConfig[1].WinMountPath)
+			})
+		})
+	})
+
+	Describe("enable and disable with keep in Linux", func() {
+		When("SMB host type is Linux", Ordered, func() {
+			It("enables the addon", func(ctx context.Context) {
+				output := suite.K2sCli().RunOrFail(ctx, "addons", "enable", addonName, implementationName, "-o", "-t", "linux")
+
+				expectEnableMessage(output, "linux")
+			})
+
+			It("prints the status", func(ctx context.Context) {
+				expectStatusToBePrinted("linux", ctx)
+			})
+
+			It("deploys Linux-based workloads", func(ctx context.Context) {
+				suite.Kubectl().Run(ctx, "apply", "-k", linuxManifestDir)
+			})
+
+			It("deploys Windows-based workloads", func(ctx context.Context) {
+				if skipWindowsWorkloads {
+					Skip("Linux-only setup")
+				}
+
+				suite.Kubectl().Run(ctx, "apply", "-k", windowsManifestDir)
+			})
+
+			It("runs Linux-based workloads", func(ctx context.Context) {
+				// TODO: could be more generic
+				expectWorkloadToRun(ctx, linuxWorkloadName1, storageConfig[0].WinMountPath, linuxTestfileName)
+				expectWorkloadToRun(ctx, linuxWorkloadName2, storageConfig[1].WinMountPath, linuxTestfileName)
+			})
+
+			It("runs Windows-based workloads", func(ctx context.Context) {
+				expectWorkloadToRun(ctx, windowsWorkloadName1, storageConfig[0].WinMountPath, windowsTestfileName)
+				expectWorkloadToRun(ctx, windowsWorkloadName2, storageConfig[1].WinMountPath, windowsTestfileName)
+			})
+
+			It("deletes Linux-based workloads", func(ctx context.Context) {
+				suite.Kubectl().Run(ctx, "delete", "-k", linuxManifestDir)
+			})
+
+			It("deletes Windows-based workloads", func(ctx context.Context) {
+				if skipWindowsWorkloads {
+					Skip("Linux-only setup")
+				}
+
+				suite.Kubectl().Run(ctx, "delete", "-k", windowsManifestDir)
+			})
+
+			It("disposes Linux-based workloads", func(ctx context.Context) {
+				suite.Cluster().ExpectStatefulSetToBeDeleted(linuxWorkloadName1, namespace, ctx)
+				suite.Cluster().ExpectStatefulSetToBeDeleted(linuxWorkloadName2, namespace, ctx)
+			})
+
+			It("disposes Windows-based workloads", func(ctx context.Context) {
+				if skipWindowsWorkloads {
+					Skip("Linux-only setup")
+				}
+
+				suite.Cluster().ExpectStatefulSetToBeDeleted(windowsWorkloadName1, namespace, ctx)
+				suite.Cluster().ExpectStatefulSetToBeDeleted(windowsWorkloadName2, namespace, ctx)
+			})
+
+			It("create the test files", func() {
+				createTestFiles(storageConfig[0].WinMountPath)
+				createTestFiles(storageConfig[1].WinMountPath)
+			})
+
+			It("checks that the test files are still available 1", func(ctx context.Context) {
+				expectFileAreAvailableInLinux(ctx, storageConfig[0].LinuxMountPath)
+				expectFileAreAvailableInLinux(ctx, storageConfig[1].LinuxMountPath)
+			})
+
+			It("disables the addon", func(ctx context.Context) {
+				disableAddon(ctx, "-k")
+			})
+
+			It("checks that the test files are still available 2", func(ctx context.Context) {
+				expectFileAreAvailableInLinux(ctx, "/srv/samba/linux-smb-share1")
+				expectFileAreAvailableInLinux(ctx, "/srv/samba/linux-smb-share2")
+			})
+
+			It("deletes the test files", func(ctx context.Context) {
+				deleteFilesOnLinuxMount(ctx)
 			})
 		})
 	})
@@ -349,8 +546,11 @@ func expectWorkloadToRun(ctx context.Context, workloadName, mountPath, testFileN
 		Should(BeTrue(), fmt.Sprintf("Expected file check to pass for %s", workloadName))
 }
 
-func disableAddon(ctx context.Context) {
-	output := suite.K2sCli().RunOrFail(ctx, "addons", "disable", addonName, implementationName, "-f", "-o")
+func disableAddon(ctx context.Context, option string) {
+	if len(option) == 0 {
+		option = "-f"
+	}
+	output := suite.K2sCli().RunOrFail(ctx, "addons", "disable", addonName, implementationName, "-o", option)
 
 	Expect(output).To(SatisfyAll(
 		ContainSubstring("disable"),
@@ -409,5 +609,65 @@ func expectEnableMessage(output string, smbHostType string) {
 	Expect(output).To(SatisfyAll(
 		MatchRegexp("Enabling addon \\'%s\\' with SMB host type \\'%s\\'", addonName, smbHostType),
 		MatchRegexp("'k2s addons enable %s %s' completed", addonName, implementationName),
+	))
+}
+
+func createTestFiles(mountPath string) {
+	fileNames := []string{"file1.txt", "file2.txt", "file3.txt"}
+	for _, fileName := range fileNames {
+		filePath := filepath.Join(mountPath, fileName)
+		err := bos.WriteFile(filePath, []byte("test content"), 0644)
+		Expect(err).NotTo(HaveOccurred())
+	}
+}
+
+func expectTestFilesAreAvailable(ctx context.Context, mountPath string) {
+	fileNames := []string{"file1.txt", "file2.txt", "file3.txt"}
+	for _, fileName := range fileNames {
+		// check only if the file exists and is not empty
+		Eventually(os.IsFileYoungerThan).
+			WithArguments(testFileCreationTimeout, mountPath, fileName).
+			WithTimeout(testFileOverallTimeout).
+			WithPolling(suite.TestStepPollInterval()).
+			WithContext(ctx).
+			Should(BeTrue(), fmt.Sprintf("Expected file %s to be available in %s", fileName, mountPath))
+	}
+}
+
+func deleteTestFiles(mountPath string) {
+	fileNames := []string{"file1.txt", "file2.txt", "file3.txt"}
+	for _, fileName := range fileNames {
+		filePath := filepath.Join(mountPath, fileName)
+		err := bos.Remove(filePath)
+		Expect(err).NotTo(HaveOccurred())
+	}
+}
+
+func deleteMountPath(mountPath string) {
+	err := bos.RemoveAll(mountPath)
+	Expect(err).NotTo(HaveOccurred())
+}
+
+func expectFileAreAvailableInLinux(ctx context.Context, sharefolder string) {
+	// execute command and check output if it contains the filename file1.txt and file2.txt
+	output := suite.K2sCli().RunOrFail(ctx, "node", "exec", "-i", "172.19.1.100", "-u", "remote", "-c", fmt.Sprintf("ls %s", sharefolder))
+	Expect(output).To(ContainSubstring("file1.txt"))
+	Expect(output).To(ContainSubstring("file2.txt"))
+	Expect(output).To(ContainSubstring("file3.txt"))
+}
+
+func deleteFilesOnLinuxMount(ctx context.Context) {
+	// if boolLinuxOnly is true, then only delete files on linux mount
+	share1 := "/srv/samba/linux-smb-share1"
+	share2 := "/srv/samba/linux-smb-share2"
+
+	// execute command and check output if it contains the filename file1.txt and file2.txt
+	output1 := suite.K2sCli().RunOrFail(ctx, "node", "exec", "-i", "172.19.1.100", "-u", "remote", "-c", fmt.Sprintf("sudo rm -r %s", share1))
+	Expect(output1).To(SatisfyAll(
+		ContainSubstring("completed in"),
+	))
+	output2 := suite.K2sCli().RunOrFail(ctx, "node", "exec", "-i", "172.19.1.100", "-u", "remote", "-c", fmt.Sprintf("sudo rm -r %s", share2))
+	Expect(output2).To(SatisfyAll(
+		ContainSubstring("completed in"),
 	))
 }

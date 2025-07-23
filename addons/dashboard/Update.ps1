@@ -13,19 +13,31 @@ Update-IngressForAddon -Addon ([pscustomobject] @{Name = 'dashboard' })
 
 $SecurityAddonEnabled = Test-SecurityAddonAvailability
 if ($SecurityAddonEnabled) {
-	Write-Log "Security addon is enabled"
-	# remove middleware if exists
-	(Invoke-Kubectl -Params 'delete', 'middleware', 'add-bearer-token', '-n', 'dashboard', '--ignore-not-found').Output | Write-Log
-} else {
+	Write-Log 'Security addon is enabled'
+	if (Test-NginxIngressControllerAvailability) {
+		# patch ingress to remove annotations
+		Write-Log 'Patching ingress to remove annotations'
+		$annotations = '{\"metadata\":{\"annotations\":{\"nginx.ingress.kubernetes.io/configuration-snippet\":null}}}'
+		(Invoke-Kubectl -Params 'patch', 'ingress', 'dashboard-nginx-cluster-local', '-n', 'dashboard', '-p', $annotations).Output | Write-Log
+	}
+	elseif (Test-TraefikIngressControllerAvailability) {
+		# remove middleware if exists
+		(Invoke-Kubectl -Params 'delete', 'middleware', 'add-bearer-token', '-n', 'dashboard', '--ignore-not-found').Output | Write-Log
+	}
+	else {
+		Write-Log 'Nginx or Traefik ingress controller is not available'
+	}	
+}
+else {
 	if (Test-NginxIngressControllerAvailability) {
 		# create Bearer token for next 24h
-		Write-Log "Creating Bearer token for next 24h"
+		Write-Log 'Creating Bearer token for next 24h'
 		$token = Get-BearerToken
 		# copy patch template to temp folder
 		$tempPath = [System.IO.Path]::GetTempPath()
 		Copy-Item -Path "$PSScriptRoot\manifests\ingress-nginx\patch.json" -Destination "$tempPath\patch.json"
 		# replace content of file
-		Write-Log "Replacing content of patch file"
+		Write-Log 'Replacing content of patch file'
 		(Get-Content -Path "$tempPath\patch.json").replace('BEARER-TOKEN', $token) | Out-File -FilePath "$tempPath\patch.json"
 		# apply patch
 		(Invoke-Kubectl -Params 'patch', 'ingress', 'dashboard-nginx-cluster-local', '-n', 'dashboard', '--patch-file', "$tempPath\patch.json", $annotations).Output | Write-Log
@@ -34,7 +46,7 @@ if ($SecurityAddonEnabled) {
 	}
 	elseif (Test-TraefikIngressControllerAvailability) {
 		# create Bearer token for next 24h
-		Write-Log "Creating Bearer token for next 24h"
+		Write-Log 'Creating Bearer token for next 24h'
 		$token = Get-BearerToken
 		# create middleware, be aware of special characters !
 		$middleware = "apiVersion: traefik.io/v1alpha1
@@ -54,13 +66,13 @@ spec:
 		Remove-Item -Path "$tempPath\middleware.yaml"
 	}
 	else {
-		Write-Log "Nginx or Traefik ingress controller is not available"
+		Write-Log 'Nginx or Traefik ingress controller is not available'
 	}
 }
 
 $EnancedSecurityEnabled = Test-LinkerdServiceAvailability
 if ($EnancedSecurityEnabled) {
-	Write-Log "Updating dashboard addon to be part of service mesh"  
+	Write-Log 'Updating dashboard addon to be part of service mesh'  
 	$annotations1 = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"linkerd.io/inject\":\"enabled\",\"config.linkerd.io/skip-inbound-ports\":\"443\"}}}}}'
 	(Invoke-Kubectl -Params 'patch', 'deployment', 'kubernetes-dashboard-kong', '-n', 'dashboard', '-p', $annotations1).Output | Write-Log
 	$annotations2 = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"linkerd.io/inject\":\"enabled\"}}}}}'
@@ -94,10 +106,11 @@ if ($EnancedSecurityEnabled) {
 	} while (-not $hasAnnotations -and $attempt -lt $maxAttempts)
 
 	if (-not $hasAnnotations) {
-		throw "Timeout waiting for patches to be applied"
+		throw 'Timeout waiting for patches to be applied'
 	}
-} else {
-	Write-Log "Updating dashboard addon to not be part of service mesh"
+}
+else {
+	Write-Log 'Updating dashboard addon to not be part of service mesh'
 	$annotations = '{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"config.linkerd.io/skip-inbound-ports\":null,\"linkerd.io/inject\":null}}}}}'
 	(Invoke-Kubectl -Params 'patch', 'deployment', 'kubernetes-dashboard-kong', '-n', 'dashboard', '-p', $annotations).Output | Write-Log
 	(Invoke-Kubectl -Params 'patch', 'deployment', 'kubernetes-dashboard-api', '-n', 'dashboard', '-p', $annotations).Output | Write-Log
@@ -127,7 +140,7 @@ if ($EnancedSecurityEnabled) {
 	} while (-not $hasNoAnnotations -and $attempt -lt $maxAttempts)
 
 	if (-not $hasNoAnnotations) {
-		throw "Timeout waiting for patches to be applied"
+		throw 'Timeout waiting for patches to be applied'
 	}
 }
 (Invoke-Kubectl -Params 'rollout', 'status', 'deployment', '-n', 'dashboard', '--timeout', '60s').Output | Write-Log

@@ -17,10 +17,10 @@ Param(
 
 &$PSScriptRoot\..\common\GlobalVariables.ps1
 
-$logModule = "$PSScriptRoot\..\ps-modules\log\log.module.psm1"
-$infraModule = "$PSScriptRoot/../../lib/modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
+$infraModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.infra.module\k2s.infra.module.psm1"
+$nodeModule = "$PSScriptRoot\..\..\lib\modules\k2s\k2s.node.module\k2s.node.module.psm1"
 
-Import-Module $logModule, $infraModule
+Import-Module $infraModule, $nodeModule
 
 Initialize-Logging -ShowLogs:$ShowLogs
 
@@ -39,7 +39,6 @@ if ($Force -ne $true) {
 }
 
 Write-Log 'Removing HNS Network' 
-Import-Module "$global:KubernetesPath\smallsetup\LoopbackAdapter.psm1" -Force
 Get-NetAdapter | Where-Object InterfaceDescription -like 'Microsoft KM-TEST Loopback Adapter*' | ForEach-Object { Remove-LoopbackAdapter -Name $_.Name -DevConExe $global:DevconExe }
 
 Get-HnsNetwork | Remove-HnsNetwork

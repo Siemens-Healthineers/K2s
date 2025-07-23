@@ -191,6 +191,7 @@ var _ = Describe("logging", func() {
 
 		When("error occurs while deleting files", func() {
 			var tempDir string
+			var fileHandle *os.File
 
 			BeforeEach(func() {
 				tempDir = GinkgoT().TempDir()
@@ -198,13 +199,14 @@ var _ = Describe("logging", func() {
 				Expect(os.WriteFile(filePath, []byte("test"), os.ModePerm)).To(Succeed())
 
 				var err error
-				fileHandle, err := os.OpenFile(filePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, fs.ModeExclusive)
+				fileHandle, err = os.OpenFile(filePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, fs.ModeExclusive)
 				Expect(err).NotTo(HaveOccurred())
 
 				GinkgoWriter.Println("Test log file <", filePath, "> opened")
 
 				DeferCleanup(func() {
 					if fileHandle == nil {
+						GinkgoWriter.Println("File handle is nil")
 						return
 					}
 
@@ -213,8 +215,10 @@ var _ = Describe("logging", func() {
 				})
 			})
 
-			It("returns error", func() {
-				var maxAge time.Duration = 0
+			It("returns error", FlakeAttempts(3), func() {
+				Expect(fileHandle).NotTo(BeNil(), "handle must not be nil, otherwise this test is invalid")
+
+				var maxAge time.Duration = -5 * time.Hour
 
 				err := logging.CleanLogDir(tempDir, maxAge)
 
