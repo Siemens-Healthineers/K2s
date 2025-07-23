@@ -36,6 +36,10 @@ func newAddCommand() *cobra.Command {
 
 	cmd.Flags().StringP(userNameFlag, "u", "", "Windows user name, e.g. 'johndoe' or 'johnsdomain\\johndoe'")
 	cmd.Flags().StringP(userIdFlag, "i", "", "Windows user id, e.g. 'S-1-2-34-567898765-4321234567-8987654321-234567'")
+
+	cmd.MarkFlagsMutuallyExclusive(userNameFlag, userIdFlag)
+	cmd.MarkFlagsOneRequired(userNameFlag, userIdFlag)
+
 	cmd.Flags().SortFlags = false
 	cmd.Flags().PrintDefaults()
 
@@ -53,14 +57,6 @@ func run(cmd *cobra.Command, args []string) error {
 	userId, err := cmd.Flags().GetString(userIdFlag)
 	if err != nil {
 		return err
-	}
-
-	if (userName == "" && userId == "") || (userName != "" && userId != "") {
-		return &common.CmdFailure{
-			Severity: common.SeverityWarning,
-			Code:     "users-add-parameter-validation-failed",
-			Message:  "either user name (-u) or user id (-i) must be specified",
-		}
 	}
 
 	cfg := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext).Config()
