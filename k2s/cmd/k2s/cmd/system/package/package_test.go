@@ -4,13 +4,10 @@
 package systempackage
 
 import (
-	"fmt"
 	"path/filepath"
-	"strconv"
 	"testing"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
-	"github.com/spf13/cobra"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -60,18 +57,6 @@ var _ = Describe("package", func() {
 				Expect(params).To(ContainElement(" -CertificatePath 'C:\\certs\\signing.pfx'"))
 			})
 
-			It("creates command with create certificate flag", func() {
-				flags := PackageCmd.Flags()
-				flags.Set(TargetDirectoryFlagName, "dir")
-				flags.Set(ZipPackageFileNameFlagName, "file.zip")
-				flags.Set(CreateCertFlagName, "true")
-
-				cmd, params, err := buildSystemPackageCmd(PackageCmd.Flags())
-				Expect(err).ToNot(HaveOccurred())
-				Expect(cmd).To(ContainSubstring(filepath.Join("lib", "scripts", "k2s", "system", "package", "New-K2sPackage.ps1")))
-				Expect(params).To(ContainElement(" -CreateCertificate"))
-			})
-
 			It("creates command with both standard and code signing parameters", func() {
 				flags := PackageCmd.Flags()
 				flags.Set(common.OutputFlagName, "true")
@@ -97,8 +82,7 @@ var _ = Describe("package", func() {
 				flags.Set(TargetDirectoryFlagName, "dir")
 				flags.Set(ZipPackageFileNameFlagName, "file.zip")
 				
-				// Explicitly ensure code signing flags are not set
-				flags.Set(CreateCertFlagName, "false")
+				// Explicitly ensure certificate flag is not set
 				flags.Set(CertificateFlagName, "")
 
 				cmd, params, err := buildSystemPackageCmd(flags)
@@ -108,56 +92,8 @@ var _ = Describe("package", func() {
 				// Verify no code signing parameters are included
 				for _, param := range params {
 					Expect(param).ToNot(ContainSubstring("CertificatePath"))
-					Expect(param).ToNot(ContainSubstring("CreateCertificate"))
 				}
 			})
-		})
-	})
-
-	Describe("Code signing flag validation", func() {
-		var cmd *cobra.Command
-
-		BeforeEach(func() {
-			// Create a fresh command for each test to avoid flag conflicts
-			cmd = &cobra.Command{}
-			cmd.Flags().String(CertificateFlagName, "", CertificateFlagUsage)
-			cmd.Flags().Bool(CreateCertFlagName, false, CreateCertFlagUsage)
-			
-			// Add the PreRunE validation
-			cmd.PreRunE = func(cmd *cobra.Command, args []string) error {
-				createCert, _ := strconv.ParseBool(cmd.Flags().Lookup(CreateCertFlagName).Value.String())
-				certPath := cmd.Flags().Lookup(CertificateFlagName).Value.String()
-
-				if createCert && certPath != "" {
-					return fmt.Errorf("--certificate and --create-cert are mutually exclusive")
-				}
-				return nil
-			}
-		})
-
-		It("allows no code signing flags", func() {
-			err := cmd.PreRunE(cmd, []string{})
-			Expect(err).ToNot(HaveOccurred())
-		})
-
-		It("allows only certificate path", func() {
-			cmd.Flags().Set(CertificateFlagName, "cert.pfx")
-			err := cmd.PreRunE(cmd, []string{})
-			Expect(err).ToNot(HaveOccurred())
-		})
-
-		It("allows only create certificate flag", func() {
-			cmd.Flags().Set(CreateCertFlagName, "true")
-			err := cmd.PreRunE(cmd, []string{})
-			Expect(err).ToNot(HaveOccurred())
-		})
-
-		It("rejects both certificate path and create certificate flag", func() {
-			cmd.Flags().Set(CertificateFlagName, "cert.pfx")
-			cmd.Flags().Set(CreateCertFlagName, "true")
-			err := cmd.PreRunE(cmd, []string{})
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("mutually exclusive"))
 		})
 	})
 

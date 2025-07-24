@@ -30,9 +30,7 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'Path to code signing certificate (.pfx file)')]
     [string] $CertificatePath,
     [parameter(Mandatory = $false, HelpMessage = 'Password for the certificate file')]
-    [SecureString] $Password,
-    [parameter(Mandatory = $false, HelpMessage = 'Create a new self-signed certificate for signing')]
-    [switch] $CreateCertificate
+    [SecureString] $Password
 )
 
 $infraModule = "$PSScriptRoot/../../../../modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
@@ -367,18 +365,10 @@ Write-Log 'Content of the exclusion list:' -Console
 $exclusionList | ForEach-Object { " - $_ " } | Write-Log -Console
 
 # Code signing logic (if requested)
-if ($CreateCertificate -or $CertificatePath) {
+if ($CertificatePath) {
     Write-Log 'Code signing requested - signing executables and scripts...' -Console
     
     try {
-        if ($CreateCertificate) {
-            Write-Log 'Creating new self-signed certificate for code signing...' -Console
-            $cert = New-K2sCodeSigningCertificate -CertificateName "K2s Code Signing"
-            $CertificatePath = $cert.FilePath
-            $Password = $cert.Password
-            Write-Log "Self-signed certificate created at: $CertificatePath" -Console
-        }
-        
         Write-Log "Signing all executables and PowerShell scripts with certificate: $CertificatePath" -Console
         Invoke-K2sCodeSigning -SourcePath $kubePath -CertificatePath $CertificatePath -Password $Password -ExclusionList $exclusionList
         Write-Log 'Code signing completed successfully.' -Console

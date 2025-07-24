@@ -3,7 +3,7 @@
 
 # Unit tests for New-K2sPackage.ps1
 # These tests execute the actual script certificate logic with mocked external dependencies
-# Focus on CertificatePath and CreateCertificate parameters as requested
+# Focus on CertificatePath parameter as requested
 
 BeforeAll {
     # Get the script path
@@ -86,8 +86,7 @@ BeforeAll {
     function Test-CertificateLogic {
         param(
             [string]$CertificatePath,
-            [System.Security.SecureString]$Password,
-            [switch]$CreateCertificate
+            [System.Security.SecureString]$Password
         )
         
         # Reset the call tracker
@@ -102,7 +101,6 @@ BeforeAll {
         }
         
         if ($CertificatePath) { $scriptParams.CertificatePath = $CertificatePath }
-        if ($CreateCertificate) { $scriptParams.CreateCertificate = $true }
         if ($Password) { $scriptParams.Password = $Password }
         
         # Execute the actual New-K2sPackage.ps1 script
@@ -118,38 +116,8 @@ BeforeAll {
     }
 }
 
-# Focus on CertificatePath and CreateCertificate parameters
+# Focus on CertificatePath parameter
 Describe "New-K2sPackage.ps1 Certificate Parameter Execution Tests" {
-
-    Context "CreateCertificate Parameter Tests" {
-        It "should create certificate when CreateCertificate switch is used" {
-            # Act - Test certificate creation logic
-            $result = Test-CertificateLogic -CreateCertificate
-            
-            # Assert - Verify certificate creation was called
-            $result.NewK2sCodeSigningCertificate.Count | Should -Be 1
-            $result.NewK2sCodeSigningCertificate[0].CertificateName | Should -Be "K2s Code Signing"
-            $result.InvokeK2sCodeSigning.Count | Should -Be 1
-        }
-
-        It "should not create certificate when CreateCertificate switch is not used" {
-            # Act - Test without certificate creation
-            $result = Test-CertificateLogic
-            
-            # Assert - Verify certificate creation was NOT called
-            $result.NewK2sCodeSigningCertificate.Count | Should -Be 0
-            $result.InvokeK2sCodeSigning.Count | Should -Be 0
-        }
-
-        It "should pass certificate name when creating certificate" {
-            # Act
-            $result = Test-CertificateLogic -CreateCertificate
-            
-            # Assert - Verify certificate creation was called with correct name
-            $result.NewK2sCodeSigningCertificate.Count | Should -Be 1
-            $result.NewK2sCodeSigningCertificate[0].CertificateName | Should -Be "K2s Code Signing"
-        }
-    }
 
     Context "CertificatePath Parameter Tests" {
         It "should use existing certificate when CertificatePath is provided" {
@@ -164,20 +132,6 @@ Describe "New-K2sPackage.ps1 Certificate Parameter Execution Tests" {
             $result.NewK2sCodeSigningCertificate.Count | Should -Be 0
             $result.InvokeK2sCodeSigning.Count | Should -Be 1
             $result.InvokeK2sCodeSigning[0].CertificatePath | Should -Be $testCertPath
-        }
-
-        It "should prioritize certificate creation over existing path when both parameters are provided" {
-            # Arrange
-            $testCertPath = Join-Path $TestDrive "existing-cert.pfx"
-            New-Item -Path $testCertPath -ItemType File -Force | Out-Null
-            
-            # Act - Test with both CertificatePath and CreateCertificate
-            $result = Test-CertificateLogic -CertificatePath $testCertPath -CreateCertificate
-            
-            # Assert - Should create new certificate (CreateCertificate takes precedence)
-            $result.NewK2sCodeSigningCertificate.Count | Should -Be 1
-            $result.InvokeK2sCodeSigning.Count | Should -Be 1
-            # The CertificatePath will be overwritten by the newly created certificate
         }
     }
 
@@ -204,31 +158,6 @@ Describe "New-K2sPackage.ps1 Certificate Parameter Execution Tests" {
             # Assert - No certificate operations should occur
             $result.NewK2sCodeSigningCertificate.Count | Should -Be 0
             $result.InvokeK2sCodeSigning.Count | Should -Be 0
-        }
-
-        It "should handle certificate creation without password" {
-            # Act - Test certificate creation without explicit password
-            $result = Test-CertificateLogic -CreateCertificate
-            
-            # Assert - Should create certificate and sign
-            $result.NewK2sCodeSigningCertificate.Count | Should -Be 1
-            $result.InvokeK2sCodeSigning.Count | Should -Be 1
-            # Note: Password is provided by the mock certificate creation, so it won't be null
-        }
-
-        It "should validate that CreateCertificate takes precedence over CertificatePath" {
-            # Arrange
-            $testCertPath = Join-Path $TestDrive "existing-cert.pfx"
-            $testPassword = ConvertTo-SecureString "mypassword" -AsPlainText -Force
-            New-Item -Path $testCertPath -ItemType File -Force | Out-Null
-            
-            # Act - Provide both certificate path and create certificate
-            $result = Test-CertificateLogic -CertificatePath $testCertPath -CreateCertificate -Password $testPassword
-            
-            # Assert - Should create new certificate (CreateCertificate takes precedence)
-            $result.NewK2sCodeSigningCertificate.Count | Should -Be 1 "Should create certificate when CreateCertificate is specified"
-            $result.InvokeK2sCodeSigning.Count | Should -Be 1 "Should still perform signing"
-            $result.NewK2sCodeSigningCertificate[0].CertificateName | Should -Be "K2s Code Signing" "Should use correct certificate name"
         }
     }
 }

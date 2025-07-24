@@ -18,9 +18,6 @@ K2s includes comprehensive code signing capabilities to meet enterprise security
 ### Create a Signed Package
 
 ```powershell
-# Create package with new self-signed certificate
-k2s system package --create-cert --output k2s-signed.zip
-
 # Create package with existing certificate
 k2s system package --certificate mycert.pfx --output k2s-signed.zip
 ```
@@ -44,15 +41,11 @@ Creates a complete K2s package with all components signed.
 **Options:**
 
 - `--certificate, -c`: Path to existing code signing certificate (.pfx)
-- `--create-cert`: Create new self-signed certificate for signing
 - `--output, -o`: Output path for signed package (required)
 
 **Examples:**
 
 ```bash
-# Create with new certificate
-k2s system package --create-cert --output ./packages/k2s-signed.zip
-
 # Use existing certificate
 k2s system package --certificate ./certs/my-cert.pfx --output ./packages/k2s-signed.zip
 ```

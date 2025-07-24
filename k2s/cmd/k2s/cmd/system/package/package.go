@@ -31,9 +31,6 @@ k2s system package --target-dir "C:\tmp" --name "k2sZipFilePackage.zip" --for-of
 # Creates K2s package with code signing using existing certificate
 k2s system package --target-dir "C:\tmp" --name "k2sZipFilePackage.zip" --certificate "path\to\cert.pfx"
 
-# Creates K2s package with code signing using new self-signed certificate
-k2s system package --target-dir "C:\tmp" --name "k2sZipFilePackage.zip" --create-cert
-
 Note: If offline artifacts are not already available due to previous installation, a 'Development Only Variant' will be installed during package creation and removed afterwards again
 `
 
@@ -73,9 +70,6 @@ const (
 	// Code signing flags
 	CertificateFlagName = "certificate"
 	CertificateFlagUsage = "Path to code signing certificate (.pfx file)"
-
-	CreateCertFlagName = "create-cert"
-	CreateCertFlagUsage = "Create a new self-signed certificate for signing"
 )
 
 func init() {
@@ -90,22 +84,9 @@ func init() {
 	
 	// Code signing flags (optional)
 	PackageCmd.Flags().StringP(CertificateFlagName, "c", "", CertificateFlagUsage)
-	PackageCmd.Flags().Bool(CreateCertFlagName, false, CreateCertFlagUsage)
 	
 	PackageCmd.Flags().SortFlags = false
 	PackageCmd.Flags().PrintDefaults()
-
-	// Add validation for code signing flags
-	PackageCmd.PreRunE = func(cmd *cobra.Command, args []string) error {
-		createCert, _ := strconv.ParseBool(cmd.Flags().Lookup(CreateCertFlagName).Value.String())
-		certPath := cmd.Flags().Lookup(CertificateFlagName).Value.String()
-
-		// Code signing flags are optional - if neither is specified, package without signing
-		if createCert && certPath != "" {
-			return fmt.Errorf("--certificate and --create-cert are mutually exclusive")
-		}
-		return nil
-	}
 }
 
 func systemPackage(cmd *cobra.Command, args []string) error {
@@ -197,11 +178,6 @@ func buildSystemPackageCmd(flags *pflag.FlagSet) (string, []string, error) {
 	}
 
 	// Code signing parameters (optional)
-	createCert, _ := strconv.ParseBool(flags.Lookup(CreateCertFlagName).Value.String())
-	if createCert {
-		params = append(params, " -CreateCertificate")
-	}
-
 	certPath := flags.Lookup(CertificateFlagName).Value.String()
 	if certPath != "" {
 		params = append(params, " -CertificatePath "+utils.EscapeWithSingleQuotes(certPath))
