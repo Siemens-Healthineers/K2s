@@ -465,7 +465,7 @@
       "type": "application"
     },
     {
-      "group": "https://github.com/containerd/containerd/releases/download/v1.7.27/cri-containerd-cni-1.7.27-windows-amd64.tar.gz",
+      "group": "https://github.com/containerd/containerd/releases/download/v2.1.3/cri-containerd-cni-2.1.3-windows-amd64.tar.gz",
       "name": "containerd-shim-runhcs-v1",
       "version": "v1.0.2",
       "description": "",
@@ -484,13 +484,13 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/containerd/containerd@v1.7.27",
+      "purl": "pkg:github/containerd/containerd@v2.1.3",
       "type": "application"
     },
     {
-      "group": "https://github.com/containerd/containerd/releases/download/v1.7.27/cri-containerd-cni-1.7.27-windows-amd64.tar.gz",
+      "group": "https://github.com/containerd/containerd/releases/download/v2.1.3/cri-containerd-cni-2.1.3-windows-amd64.tar.gz",
       "name": "containerd-stress",
-      "version": "v1.7.27",
+      "version": "v2.1.3",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -507,13 +507,13 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/containerd/containerd@v1.7.27",
+      "purl": "pkg:github/containerd/containerd@v2.1.3",
       "type": "application"
     },
     {
-      "group": "https://github.com/containerd/containerd/releases/download/v1.7.27/cri-containerd-cni-1.7.27-windows-amd64.tar.gz",
+      "group": "https://github.com/containerd/containerd/releases/download/v2.1.3/cri-containerd-cni-2.1.3-windows-amd64.tar.gz",
       "name": "containerd",
-      "version": "v1.7.27",
+      "version": "v2.1.3",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -530,13 +530,13 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/containerd/containerd@v1.7.27",
+      "purl": "pkg:github/containerd/containerd@v2.1.3",
       "type": "application"
     },
     {
-      "group": "https://github.com/containerd/containerd/releases/download/v1.7.27/cri-containerd-cni-1.7.27-windows-amd64.tar.gz",
+      "group": "https://github.com/containerd/containerd/releases/download/v2.1.3/cri-containerd-cni-2.1.3-windows-amd64.tar.gz",
       "name": "ctr",
-      "version": "v1.7.27",
+      "version": "v2.1.3",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -553,7 +553,7 @@
           "value": "k2s:core:pkg:executables"
         }
       ],
-      "purl": "pkg:github/containerd/containerd@v1.7.27",
+      "purl": "pkg:github/containerd/containerd@v2.1.3",
       "type": "application"
     },
     {
