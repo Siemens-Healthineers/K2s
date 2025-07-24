@@ -8,7 +8,11 @@ K2s Code Signing Module
 
 .DESCRIPTION
 This module provides functionality for creating and managing code signing certificates
-for K2s executables and scripts.
+for K2s executables and scripts. All certificates are stored in the LocalMachine certificate store,
+which requires administrator privileges for installation and management.
+
+.NOTES
+Administrator privileges are required to install certificates to the LocalMachine store.
 #>
 
 $ErrorActionPreference = 'Stop'
@@ -19,6 +23,7 @@ Creates a new self-signed code signing certificate for K2s
 
 .DESCRIPTION
 Creates a new self-signed certificate that can be used for signing K2s executables and PowerShell scripts.
+The certificate will be installed in the LocalMachine\My certificate store, which requires administrator privileges.
 
 .PARAMETER CertificateName
 The subject name for the certificate (default: "K2s Code Signing Certificate")
@@ -31,6 +36,9 @@ Path where the certificate file (.pfx) should be saved
 
 .PARAMETER Password
 Password for the certificate file (if not provided, will be prompted securely)
+
+.NOTES
+Requires administrator privileges to install the certificate in the LocalMachine store.
 
 .EXAMPLE
 New-K2sCodeSigningCertificate -OutputPath "C:\k2s\certificates\k2s-signing.pfx"
@@ -63,7 +71,7 @@ function New-K2sCodeSigningCertificate {
         -KeyAlgorithm RSA `
         -KeyLength 2048 `
         -NotAfter (Get-Date).AddYears($ValidityYears) `
-        -CertStoreLocation Cert:\CurrentUser\My
+        -CertStoreLocation Cert:\LocalMachine\My
 
     Write-Log "Certificate created with thumbprint: $($cert.Thumbprint)" -Console
 
@@ -91,14 +99,20 @@ function New-K2sCodeSigningCertificate {
 Imports a K2s code signing certificate into the local certificate store
 
 .DESCRIPTION
-Imports the K2s code signing certificate into the appropriate certificate stores
-for code signing validation.
+Imports the K2s code signing certificate into the LocalMachine certificate stores
+for code signing validation. The certificate will be installed in:
+- LocalMachine\My (for signing)
+- LocalMachine\TrustedPublisher (for validation)
+- LocalMachine\Root (for trust chain)
 
 .PARAMETER CertificatePath
 Path to the certificate file (.pfx)
 
 .PARAMETER Password
 Password for the certificate file
+
+.NOTES
+Requires administrator privileges to install certificates in the LocalMachine stores.
 
 .EXAMPLE
 Import-K2sCodeSigningCertificate -CertificatePath "C:\k2s\certificates\k2s-signing.pfx"
@@ -122,7 +136,7 @@ function Import-K2sCodeSigningCertificate {
 
     # Import to Personal store (for signing)
     $cert = Import-PfxCertificate -FilePath $CertificatePath `
-        -CertStoreLocation Cert:\CurrentUser\My `
+        -CertStoreLocation Cert:\LocalMachine\My `
         -Password $Password
 
     # Import to Trusted Publishers (for validation)
@@ -143,13 +157,16 @@ function Import-K2sCodeSigningCertificate {
 Signs a PowerShell script with the K2s code signing certificate
 
 .DESCRIPTION
-Signs a PowerShell script file using the K2s code signing certificate.
+Signs a PowerShell script file using the K2s code signing certificate from the LocalMachine\My store.
 
 .PARAMETER ScriptPath
 Path to the PowerShell script file to sign
 
 .PARAMETER CertificateThumbprint
-Thumbprint of the certificate to use for signing
+Thumbprint of the certificate to use for signing (must be in LocalMachine\My store)
+
+.NOTES
+The certificate must be installed in the LocalMachine\My certificate store.
 
 .EXAMPLE
 Set-K2sScriptSignature -ScriptPath "C:\k2s\scripts\example.ps1" -CertificateThumbprint "ABC123..."
@@ -166,9 +183,9 @@ function Set-K2sScriptSignature {
         throw "Script file not found: $ScriptPath"
     }
 
-    $cert = Get-ChildItem -Path Cert:\CurrentUser\My\$CertificateThumbprint -ErrorAction SilentlyContinue
+    $cert = Get-ChildItem -Path Cert:\LocalMachine\My\$CertificateThumbprint -ErrorAction SilentlyContinue
     if (-not $cert) {
-        throw "Certificate with thumbprint $CertificateThumbprint not found in CurrentUser\My store"
+        throw "Certificate with thumbprint $CertificateThumbprint not found in LocalMachine\My store"
     }
 
     Write-Log "Signing script: $ScriptPath" -Console
@@ -321,13 +338,16 @@ function Set-K2sScriptSignatures {
 Gets information about K2s code signing certificates
 
 .DESCRIPTION
-Retrieves information about installed K2s code signing certificates.
+Retrieves information about installed K2s code signing certificates from the LocalMachine\My store.
+
+.NOTES
+Searches for certificates in the LocalMachine\My certificate store.
 
 .EXAMPLE
 Get-K2sCodeSigningCertificate
 #>
 function Get-K2sCodeSigningCertificate {
-    $certs = Get-ChildItem -Path Cert:\CurrentUser\My | Where-Object {
+    $certs = Get-ChildItem -Path Cert:\LocalMachine\My | Where-Object {
         $_.Subject -like "*K2s*" -and $_.HasPrivateKey -and 
         ($_.KeyUsage -band [System.Security.Cryptography.X509Certificates.X509KeyUsageFlags]::DigitalSignature)
     }
@@ -344,7 +364,8 @@ Signs all K2s executables and PowerShell scripts in a directory
 
 .DESCRIPTION
 Recursively finds and signs all PowerShell scripts (.ps1, .psm1) and executable files (.exe)
-in the specified directory using the provided certificate.
+in the specified directory using the provided certificate. The certificate will be imported
+to the LocalMachine\My store if not already present.
 
 .PARAMETER SourcePath
 Root directory to search for files to sign
@@ -357,6 +378,9 @@ Password for the certificate file
 
 .PARAMETER ExclusionList
 Array of file paths or directory paths to exclude from signing
+
+.NOTES
+Requires administrator privileges to install the certificate in the LocalMachine\My store.
 
 .EXAMPLE
 Invoke-K2sCodeSigning -SourcePath "C:\k2s" -CertificatePath "C:\certs\signing.pfx" -Password $securePassword
@@ -386,14 +410,14 @@ function Invoke-K2sCodeSigning {
     try {
         # First, get the certificate thumbprint without importing
         $tempCert = Get-PfxCertificate -FilePath $CertificatePath
-        $existingCert = Get-ChildItem -Path "Cert:\CurrentUser\My\$($tempCert.Thumbprint)" -ErrorAction SilentlyContinue
+        $existingCert = Get-ChildItem -Path "Cert:\LocalMachine\My\$($tempCert.Thumbprint)" -ErrorAction SilentlyContinue
         
         if ($existingCert) {
             Write-Log "Certificate already exists in store. Thumbprint: $($existingCert.Thumbprint)" -Console
             $cert = $existingCert
         } else {
             Write-Log "Importing certificate to certificate store..." -Console
-            $cert = Import-PfxCertificate -FilePath $CertificatePath -CertStoreLocation Cert:\CurrentUser\My -Password $Password
+            $cert = Import-PfxCertificate -FilePath $CertificatePath -CertStoreLocation Cert:\LocalMachine\My -Password $Password
             Write-Log "Certificate imported successfully. Thumbprint: $($cert.Thumbprint)" -Console
         }
     }
@@ -515,13 +539,17 @@ Tests if a code signing certificate is valid and can be used for signing
 
 .DESCRIPTION
 Validates a code signing certificate file (.pfx) by attempting to import it
-and checking if it's suitable for code signing operations.
+to the LocalMachine\My store and checking if it's suitable for code signing operations.
+The certificate is temporarily imported and then removed for testing purposes.
 
 .PARAMETER CertificatePath
 Path to the certificate file (.pfx) to test
 
 .PARAMETER Password
 Password for the certificate file (optional)
+
+.NOTES
+Requires administrator privileges to temporarily import the certificate to LocalMachine\My store for testing.
 
 .OUTPUTS
 System.Boolean - Returns $true if certificate is valid, $false otherwise
@@ -542,7 +570,7 @@ function Test-CodeSigningCertificate {
         }
 
         # Try to import the certificate temporarily to test validity
-        $tempStore = "Cert:\CurrentUser\My"
+        $tempStore = "Cert:\LocalMachine\My"
         $cert = Import-PfxCertificate -FilePath $CertificatePath -CertStoreLocation $tempStore -Password $Password -ErrorAction Stop
         
         # Check if certificate is suitable for code signing

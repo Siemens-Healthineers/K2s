@@ -11,6 +11,8 @@ K2s includes comprehensive code signing capabilities to meet enterprise security
 - **Automated Packaging**: Create complete signed packages via `k2s system package`
 - **CI/CD Integration**: Automated signing in GitHub Actions workflows
 
+**Important**: Certificate operations require administrator privileges as certificates are stored in the LocalMachine certificate store for enterprise-wide deployment.
+
 ## Quick Start
 
 ### Create a Signed Package
@@ -26,10 +28,10 @@ k2s system package --certificate mycert.pfx --output k2s-signed.zip
 ### Install Certificate for Trust
 
 ```powershell
-# Import the signing module
+# Import the signing module (requires administrator privileges)
 Import-Module .\lib\modules\k2s\k2s.signing.module\k2s.signing.module.psm1
 
-# Import certificate from package
+# Import certificate from package (requires administrator privileges)
 Import-K2sCodeSigningCertificate -CertificatePath k2s-signing.pfx
 ```
 
@@ -57,18 +59,18 @@ k2s system package --certificate ./certs/my-cert.pfx --output ./packages/k2s-sig
 
 ## PowerShell Module Reference
 
-The `k2s.signing.module` provides low-level signing functionality:
+The `k2s.signing.module` provides low-level signing functionality. **Note**: All certificate operations require administrator privileges.
 
 ### Certificate Management
 
 ```powershell
-# Create new certificate
+# Create new certificate (requires administrator privileges)
 $cert = New-K2sCodeSigningCertificate -OutputPath "cert.pfx" -Password $securePassword
 
-# Import certificate
+# Import certificate (requires administrator privileges)
 Import-K2sCodeSigningCertificate -CertificatePath "cert.pfx" -Password $securePassword
 
-# List K2s certificates
+# List K2s certificates (requires administrator privileges)
 Get-K2sCodeSigningCertificate
 ```
 
@@ -114,7 +116,7 @@ Requirements:
 
 ### Certificate Storage
 
-- **Development**: Self-signed certificates stored in `CurrentUser\My`
+- **Development**: Self-signed certificates stored in `LocalMachine\My` (requires administrator privileges)
 - **Production**: Use HSM or secure certificate storage
 - **CI/CD**: Certificates stored as encrypted secrets
 
@@ -122,7 +124,7 @@ Requirements:
 
 The signing process installs certificates in:
 
-- `CurrentUser\My`: For signing operations
+- `LocalMachine\My`: For signing operations
 - `LocalMachine\TrustedPublisher`: For script execution
 - `LocalMachine\Root`: For trust chain validation
 
@@ -209,7 +211,7 @@ Signed packages include a `package-manifest.json` with:
 
 **"Certificate not found for signing"**
 
-- Solution: Verify certificate is in `CurrentUser\My` store
+- Solution: Verify certificate is in `LocalMachine\My` store (requires administrator privileges)
 - Check thumbprint matches signing command
 
 **"Signtool not found"**
@@ -220,11 +222,11 @@ Signed packages include a `package-manifest.json` with:
 ### Debug Signing Issues
 
 ```powershell
-# List available certificates
-Get-ChildItem Cert:\CurrentUser\My | Where-Object { $_.KeyUsage -band [System.Security.Cryptography.X509Certificates.X509KeyUsageFlags]::DigitalSignature }
+# List available certificates (requires administrator privileges)
+Get-ChildItem Cert:\LocalMachine\My | Where-Object { $_.KeyUsage -band [System.Security.Cryptography.X509Certificates.X509KeyUsageFlags]::DigitalSignature }
 
 # Test certificate
-$cert = Get-ChildItem Cert:\CurrentUser\My\THUMBPRINT
+$cert = Get-ChildItem Cert:\LocalMachine\My\THUMBPRINT
 Test-Certificate -Cert $cert -Policy SSL
 
 # Validate script signature

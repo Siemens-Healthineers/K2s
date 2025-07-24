@@ -96,7 +96,7 @@ BeforeAll {
         $mockCert | Add-Member -NotePropertyName "Subject" -NotePropertyValue "CN=K2s Code Signing Certificate"
         $mockCert | Add-Member -NotePropertyName "HasPrivateKey" -NotePropertyValue $true
         return $mockCert
-    } -ParameterFilter { $Path -like "Cert:\CurrentUser\My\*" } -ModuleName k2s.signing.module
+    } -ParameterFilter { $Path -like "Cert:\LocalMachine\My\*" } -ModuleName k2s.signing.module
     
     # Mock basic PowerShell cmdlets in the module
     Mock Test-Path { $false } -ModuleName k2s.signing.module
@@ -136,7 +136,7 @@ BeforeAll {
         
         $mockCert | Add-Member -NotePropertyName "Extensions" -NotePropertyValue @($mockExtension)
         return @($mockCert)
-    } -ParameterFilter { $Path -eq "Cert:\CurrentUser\My" } -ModuleName k2s.signing.module
+    } -ParameterFilter { $Path -eq "Cert:\LocalMachine\My" } -ModuleName k2s.signing.module
     
     # Mock signtool execution 
     $global:LASTEXITCODE = 0
@@ -316,13 +316,13 @@ Describe "Test-CodeSigningCertificate" {
 }
 
 Describe "Get-K2sCodeSigningCertificate" {
-    It "should find K2s certificates in CurrentUser store" {
+    It "should find K2s certificates in LocalMachine store" {
         # Act
         $result = Get-K2sCodeSigningCertificate
 
         # Assert
         Should -Invoke Get-ChildItem -ParameterFilter { 
-            $Path -eq "Cert:\CurrentUser\My" 
+            $Path -eq "Cert:\LocalMachine\My" 
         } -Exactly 1 -Scope It -ModuleName k2s.signing.module
         
         # Verify we get a result back with expected properties
