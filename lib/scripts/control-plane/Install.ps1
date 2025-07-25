@@ -78,7 +78,10 @@ $controlPlaneNodeParams = @{
 New-ControlPlaneNodeOnNewVM @controlPlaneNodeParams
 
 # add transparent proxy to Windows host
-Install-WinHttpProxy -Proxy $Proxy
+$proxyConfig = Get-ProxyConfig
+$proxyOverrides = if ($proxyConfig.NoProxy.Count -gt 0) { $proxyConfig.NoProxy } else { @() }
+
+Install-WinHttpProxy -Proxy $Proxy -ProxyOverrides $proxyOverrides
 $controlPlaneIpAddress = Get-ConfiguredIPControlPlane
 $windowsHostIpAddress = Get-ConfiguredKubeSwitchIP
 $transparentProxy = "http://$($windowsHostIpAddress):8181"

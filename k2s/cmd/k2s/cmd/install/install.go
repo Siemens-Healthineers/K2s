@@ -5,6 +5,8 @@ package install
 
 import (
 	"fmt"
+	"strings"
+
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -48,6 +50,9 @@ var (
 
 	# install K2s setup setting a proxy
 	k2s install --proxy http://10.11.12.13:5000
+
+	# install K2s setup setting a proxy with no-proxy hosts
+	k2s install --proxy http://10.11.12.13:5000 --no-proxy localhost,127.0.0.1,.local
 
 	# install K2s setup using a user-defined config file
 	k2s install -c 'c:\temp\my-config.yaml'
@@ -104,6 +109,7 @@ func bindFlags(cmd *cobra.Command) {
 	cmd.Flags().String(ic.ControlPlaneMemoryFlagName, "", ic.ControlPlaneMemoryFlagUsage)
 	cmd.Flags().String(ic.ControlPlaneDiskSizeFlagName, "", ic.ControlPlaneDiskSizeFlagUsage)
 	cmd.Flags().StringP(ic.ProxyFlagName, ic.ProxyFlagShorthand, "", ic.ProxyFlagUsage)
+	cmd.Flags().StringSlice(ic.NoProxyFlagName, []string{}, ic.NoProxyFlagUsage)
 	cmd.Flags().StringP(ic.ConfigFileFlagName, ic.ConfigFileFlagShorthand, "", ic.ConfigFileFlagUsage)
 	cmd.Flags().Bool(ic.WslFlagName, false, ic.WslFlagUsage)
 	cmd.Flags().String(ic.K8sBinFlagName, "", ic.K8sBinFlagUsage)
@@ -171,6 +177,9 @@ func buildInstallCmd(c *ic.InstallConfig) (cmd string, err error) {
 
 	if c.Env.Proxy != "" {
 		cmd += " -Proxy " + c.Env.Proxy
+	}
+	if len(c.Env.NoProxy) > 0 {
+		cmd += fmt.Sprintf(" -NoProxy '%s'", strings.Join(c.Env.NoProxy, "','"))
 	}
 	if c.Env.AdditionalHooksDir != "" {
 		cmd += fmt.Sprintf(" -AdditionalHooksDir '%s'", c.Env.AdditionalHooksDir)
