@@ -45,16 +45,43 @@ var _ = Describe("package", func() {
 		})
 
 		When("code signing flags set", func() {
-			It("creates command with certificate path", func() {
+			It("returns error when certificate provided without password", func() {
 				flags := PackageCmd.Flags()
 				flags.Set(TargetDirectoryFlagName, "dir")
 				flags.Set(ZipPackageFileNameFlagName, "file.zip")
 				flags.Set(CertificateFlagName, "C:\\certs\\signing.pfx")
+				// No password provided
+
+				_, _, err := buildSystemPackageCmd(PackageCmd.Flags())
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(Equal("password is required when using a certificate"))
+			})
+			
+			It("returns error when password provided without certificate", func() {
+				flags := PackageCmd.Flags()
+				flags.Set(TargetDirectoryFlagName, "dir")
+				flags.Set(ZipPackageFileNameFlagName, "file.zip")
+				flags.Set(PasswordFlagName, "secretpassword")
+				// No certificate provided
+				flags.Set(CertificateFlagName, "") // Explicitly set certificate to empty
+
+				_, _, err := buildSystemPackageCmd(PackageCmd.Flags())
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(Equal("certificate is required when providing a password"))
+			})
+
+			It("creates command with certificate path and password", func() {
+				flags := PackageCmd.Flags()
+				flags.Set(TargetDirectoryFlagName, "dir")
+				flags.Set(ZipPackageFileNameFlagName, "file.zip")
+				flags.Set(CertificateFlagName, "C:\\certs\\signing.pfx")
+				flags.Set(PasswordFlagName, "secretpassword")
 
 				cmd, params, err := buildSystemPackageCmd(PackageCmd.Flags())
 				Expect(err).ToNot(HaveOccurred())
 				Expect(cmd).To(ContainSubstring(filepath.Join("lib", "scripts", "k2s", "system", "package", "New-K2sPackage.ps1")))
 				Expect(params).To(ContainElement(" -CertificatePath 'C:\\certs\\signing.pfx'"))
+				Expect(params).To(ContainElement(" -Password (ConvertTo-SecureString -String 'secretpassword' -AsPlainText -Force)"))
 			})
 
 			It("creates command with both standard and code signing parameters", func() {
@@ -65,6 +92,7 @@ var _ = Describe("package", func() {
 				flags.Set(ProxyFlagName, "http://proxy:8080")
 				flags.Set(ForOfflineInstallationFlagName, "true")
 				flags.Set(CertificateFlagName, "signing.pfx")
+				flags.Set(PasswordFlagName, "certpassword")
 
 				cmd, params, err := buildSystemPackageCmd(PackageCmd.Flags())
 				Expect(err).ToNot(HaveOccurred())
@@ -75,6 +103,7 @@ var _ = Describe("package", func() {
 				Expect(params).To(ContainElement(" -Proxy http://proxy:8080"))
 				Expect(params).To(ContainElement(" -ForOfflineInstallation"))
 				Expect(params).To(ContainElement(" -CertificatePath 'signing.pfx'"))
+				Expect(params).To(ContainElement(" -Password (ConvertTo-SecureString -String 'certpassword' -AsPlainText -Force)"))
 			})
 
 			It("does not include code signing parameters when not specified", func() {
@@ -82,8 +111,9 @@ var _ = Describe("package", func() {
 				flags.Set(TargetDirectoryFlagName, "dir")
 				flags.Set(ZipPackageFileNameFlagName, "file.zip")
 				
-				// Explicitly ensure certificate flag is not set
+				// Explicitly ensure certificate and password flags are not set
 				flags.Set(CertificateFlagName, "")
+				flags.Set(PasswordFlagName, "")
 
 				cmd, params, err := buildSystemPackageCmd(flags)
 				Expect(err).ToNot(HaveOccurred())

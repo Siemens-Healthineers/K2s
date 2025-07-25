@@ -368,9 +368,22 @@ $exclusionList | ForEach-Object { " - $_ " } | Write-Log -Console
 if ($CertificatePath) {
     Write-Log 'Code signing requested - signing executables and scripts...' -Console
     
+    # Validate that Password is provided when using a certificate
+    if ($null -eq $Password) {
+        $errMsg = "Password is required when providing a certificate path."
+        Write-Log $errMsg -Error
+        
+        if ($EncodeStructuredOutput -eq $true) {
+            $err = New-Error -Code 'code-signing-failed' -Message $errMsg
+            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+            return
+        }
+        exit 1
+    }
+    
     try {
         Write-Log "Signing all executables and PowerShell scripts with certificate: $CertificatePath" -Console
-        Invoke-K2sCodeSigning -SourcePath $kubePath -CertificatePath $CertificatePath -Password $Password -ExclusionList $exclusionList
+        Set-K2sFileSignature -SourcePath $kubePath -CertificatePath $CertificatePath -Password $Password -ExclusionList $exclusionList
         Write-Log 'Code signing completed successfully.' -Console
         
         # Additional signing for offline installation artifacts (if they were created)
@@ -387,19 +400,24 @@ if ($CertificatePath) {
                     New-Item -Path $tempExtractPath -ItemType Directory -Force | Out-Null
                     Expand-Archive -LiteralPath $winNodeArtifactsZipFilePath -DestinationPath $tempExtractPath -Force
                     
-                    # Sign executables in the extracted content
+                    # Sign all files in the extracted content using unified approach
                     $signableFiles = Get-SignableFiles -Path $tempExtractPath
                     if ($signableFiles -and $signableFiles.Count -gt 0) {
                         Write-Log "Found $($signableFiles.Count) signable files in Windows Node Artifacts" -Console
+                        
+                        # Import certificate to get certificate object for signing
+                        $tempCert = Get-PfxCertificate -FilePath $CertificatePath
+                        $existingCert = Get-ChildItem -Path "Cert:\LocalMachine\My\$($tempCert.Thumbprint)" -ErrorAction SilentlyContinue
+                        
+                        if (-not $existingCert) {
+                            $cert = Import-PfxCertificate -FilePath $CertificatePath -CertStoreLocation Cert:\LocalMachine\My -Password $Password
+                        } else {
+                            $cert = $existingCert
+                        }
+                        
                         foreach ($file in $signableFiles) {
-                            if ($file.EndsWith('.exe')) {
-                                Write-Log "Signing executable: $file" -Console
-                                Set-K2sExecutableSignature -ExecutablePath $file -CertificatePath $CertificatePath -Password $Password
-                            } elseif ($file.EndsWith('.ps1') -or $file.EndsWith('.psm1')) {
-                                Write-Log "Signing PowerShell script: $file" -Console
-                                $thumbprint = (Get-PfxCertificate -FilePath $CertificatePath).Thumbprint
-                                Set-K2sScriptSignature -ScriptPath $file -CertificateThumbprint $thumbprint
-                            }
+                            Write-Log "Signing file: $file" -Console
+                            Set-AuthenticodeSignature -FilePath $file -Certificate $cert | Out-Null
                         }
                         
                         # Re-create the ZIP with signed files

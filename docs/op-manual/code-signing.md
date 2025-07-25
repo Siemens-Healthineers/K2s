@@ -28,8 +28,9 @@ k2s system package --certificate mycert.pfx --output k2s-signed.zip
 # Import the signing module (requires administrator privileges)
 Import-Module .\lib\modules\k2s\k2s.signing.module\k2s.signing.module.psm1
 
-# Import certificate from package (requires administrator privileges)
-Import-K2sCodeSigningCertificate -CertificatePath k2s-signing.pfx
+# Import certificate from package using standard PowerShell cmdlets (requires administrator privileges)
+Import-PfxCertificate -FilePath k2s-signing.pfx -CertStoreLocation Cert:\LocalMachine\My
+Import-Certificate -FilePath k2s-signing.pfx -CertStoreLocation Cert:\LocalMachine\TrustedPublisher
 ```
 
 ## Command Reference
@@ -57,27 +58,15 @@ The `k2s.signing.module` provides low-level signing functionality. **Note**: All
 ### Certificate Management
 
 ```powershell
-# Create new certificate (requires administrator privileges)
-$cert = New-K2sCodeSigningCertificate -OutputPath "cert.pfx" -Password $securePassword
-
-# Import certificate (requires administrator privileges)
-Import-K2sCodeSigningCertificate -CertificatePath "cert.pfx" -Password $securePassword
-
-# List K2s certificates (requires administrator privileges)
-Get-K2sCodeSigningCertificate
+# List K2s certificates (requires administrator privileges) - Use standard PowerShell cmdlets
+Get-ChildItem -Path Cert:\LocalMachine\My | Where-Object { $_.Subject -like "*K2s*" }
 ```
 
 ### Signing Operations
 
 ```powershell
-# Sign single PowerShell script
-Set-K2sScriptSignature -ScriptPath "script.ps1" -CertificateThumbprint "ABC123..."
-
-# Sign all scripts in directory
-Set-K2sScriptSignatures -RootPath "C:\k2s" -CertificateThumbprint "ABC123..."
-
-# Sign executable
-Set-K2sExecutableSignature -ExecutablePath "app.exe" -CertificatePath "cert.pfx"
+# Sign all files (executables and scripts) in directory using certificate file
+Sign-K2sFiles -SourcePath "C:\k2s" -CertificatePath "cert.pfx" -Password $securePassword
 ```
 
 ## Certificate Requirements
@@ -151,11 +140,21 @@ K2S_SIGNING_CERT_PASSWORD  # Certificate password
 
 ### Manual Certificate Creation
 
-To create certificates for CI/CD:
+To create certificates for CI/CD, use standard PowerShell cmdlets:
 
 ```powershell
-# Create certificate
-$cert = New-K2sCodeSigningCertificate -OutputPath "k2s-ci.pfx"
+# Create certificate using standard PowerShell
+$cert = New-SelfSignedCertificate -Subject "CN=K2s Code Signing Certificate" `
+    -Type CodeSigningCert `
+    -KeyUsage DigitalSignature `
+    -KeyAlgorithm RSA `
+    -KeyLength 2048 `
+    -NotAfter (Get-Date).AddYears(10) `
+    -CertStoreLocation Cert:\LocalMachine\My
+
+# Export to PFX file
+$password = ConvertTo-SecureString "YourPassword" -AsPlainText -Force
+Export-PfxCertificate -Cert $cert -FilePath "k2s-ci.pfx" -Password $password
 
 # Convert to base64 for GitHub Secrets
 $bytes = [System.IO.File]::ReadAllBytes("k2s-ci.pfx")
@@ -199,7 +198,7 @@ Signed packages include a `package-manifest.json` with:
 
 **"Execution policy does not allow this script"**
 
-- Solution: Install certificate with `Import-K2sCodeSigningCertificate`
+- Solution: Install certificate using standard PowerShell cmdlets (`Import-PfxCertificate`, `Import-Certificate`)
 - Alternative: Set execution policy to `RemoteSigned`
 
 **"Certificate not found for signing"**

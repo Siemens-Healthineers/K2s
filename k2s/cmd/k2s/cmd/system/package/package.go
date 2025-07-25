@@ -28,8 +28,8 @@ k2s system package --target-dir "C:\tmp" --name "k2sZipFilePackage.zip"
 # Creates K2s package for offline installation
 k2s system package --target-dir "C:\tmp" --name "k2sZipFilePackage.zip" --for-offline-installation
 
-# Creates K2s package with code signing using existing certificate
-k2s system package --target-dir "C:\tmp" --name "k2sZipFilePackage.zip" --certificate "path\to\cert.pfx"
+# Creates K2s package with code signing (certificate and password are both required)
+k2s system package --target-dir "C:\tmp" --name "k2sZipFilePackage.zip" --certificate "path\to\cert.pfx" --password "mycertpassword"
 
 Note: If offline artifacts are not already available due to previous installation, a 'Development Only Variant' will be installed during package creation and removed afterwards again
 `
@@ -70,6 +70,9 @@ const (
 	// Code signing flags
 	CertificateFlagName = "certificate"
 	CertificateFlagUsage = "Path to code signing certificate (.pfx file)"
+	
+	PasswordFlagName  = "password"
+	PasswordFlagUsage = "Password for the code signing certificate"
 )
 
 func init() {
@@ -82,8 +85,9 @@ func init() {
 	PackageCmd.Flags().Bool(ForOfflineInstallationFlagName, false, ForOfflineInstallationFlagUsage)
 	PackageCmd.Flags().String(K8sBinsFlagName, "", K8sBinsFlagUsage)
 	
-	// Code signing flags (optional)
+	// Code signing flags
 	PackageCmd.Flags().StringP(CertificateFlagName, "c", "", CertificateFlagUsage)
+	PackageCmd.Flags().StringP(PasswordFlagName, "w", "", PasswordFlagUsage)
 	
 	PackageCmd.Flags().SortFlags = false
 	PackageCmd.Flags().PrintDefaults()
@@ -177,10 +181,18 @@ func buildSystemPackageCmd(flags *pflag.FlagSet) (string, []string, error) {
 		params = append(params, fmt.Sprintf(" -K8sBinsPath '%s'", k8sBins))
 	}
 
-	// Code signing parameters (optional)
+	// Code signing parameters
 	certPath := flags.Lookup(CertificateFlagName).Value.String()
+	password := flags.Lookup(PasswordFlagName).Value.String()
+	
 	if certPath != "" {
+		if password == "" {
+			return "", nil, fmt.Errorf("password is required when using a certificate")
+		}
 		params = append(params, " -CertificatePath "+utils.EscapeWithSingleQuotes(certPath))
+		params = append(params, " -Password (ConvertTo-SecureString -String "+utils.EscapeWithSingleQuotes(password)+" -AsPlainText -Force)")
+	} else if password != "" {
+		return "", nil, fmt.Errorf("certificate is required when providing a password")
 	}
 
 	return systemPackageCommand, params, nil
