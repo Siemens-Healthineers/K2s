@@ -17,7 +17,9 @@ function Get-K2sHosts() {
     $clusterServicesCidr = Get-ConfiguredClusterCIDRServices
     $clusterCidr = Get-ConfiguredClusterCIDR
     $ipControlPlaneCidr = Get-ConfiguredControlPlaneCIDR
-    if ($null -eq $clusterServicesCidr -or $null -eq $clusterCidr -or $null -eq $ipControlPlaneCidr) {
+    if ([string]::IsNullOrWhiteSpace($clusterServicesCidr) -or 
+        [string]::IsNullOrWhiteSpace($clusterCidr) -or 
+        [string]::IsNullOrWhiteSpace($ipControlPlaneCidr)) {
         throw "One or more required CIDR values are null. Please check cluster configuration."
     }
     return @($clusterServicesCidr, $clusterCidr, $ipControlPlaneCidr, "local", "svc.cluster.local")
