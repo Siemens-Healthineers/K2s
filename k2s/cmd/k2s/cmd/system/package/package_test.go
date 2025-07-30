@@ -106,6 +106,26 @@ var _ = Describe("package", func() {
 				Expect(params).To(ContainElement(" -Password (ConvertTo-SecureString -String 'certpassword' -AsPlainText -Force)"))
 			})
 
+			It("creates command with both offline installation and code signing", func() {
+				flags := PackageCmd.Flags()
+				flags.Set(TargetDirectoryFlagName, "output")
+				flags.Set(ZipPackageFileNameFlagName, "signed-offline-package.zip")
+				flags.Set(ForOfflineInstallationFlagName, "true")
+				flags.Set(CertificateFlagName, "C:\\certificates\\codesign.pfx")
+				flags.Set(PasswordFlagName, "mysecretpassword")
+
+				cmd, params, err := buildSystemPackageCmd(PackageCmd.Flags())
+				Expect(err).ToNot(HaveOccurred())
+				Expect(cmd).To(ContainSubstring(filepath.Join("lib", "scripts", "k2s", "system", "package", "New-K2sPackage.ps1")))
+				
+				// Verify all expected parameters are present
+				Expect(params).To(ContainElement(" -TargetDirectory 'output'"))
+				Expect(params).To(ContainElement(" -ZipPackageFileName 'signed-offline-package.zip'"))
+				Expect(params).To(ContainElement(" -ForOfflineInstallation"))
+				Expect(params).To(ContainElement(" -CertificatePath 'C:\\certificates\\codesign.pfx'"))
+				Expect(params).To(ContainElement(" -Password (ConvertTo-SecureString -String 'mysecretpassword' -AsPlainText -Force)"))
+			})
+
 			It("does not include code signing parameters when not specified", func() {
 				flags := PackageCmd.Flags()
 				flags.Set(TargetDirectoryFlagName, "dir")

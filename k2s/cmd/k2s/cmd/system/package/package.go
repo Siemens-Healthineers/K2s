@@ -31,6 +31,9 @@ k2s system package --target-dir "C:\tmp" --name "k2sZipFilePackage.zip" --for-of
 # Creates K2s package with code signing (certificate and password are both required)
 k2s system package --target-dir "C:\tmp" --name "k2sZipFilePackage.zip" --certificate "path\to\cert.pfx" --password "mycertpassword"
 
+# Creates K2s package for offline installation with code signing
+k2s system package --target-dir "C:\tmp" --name "k2sZipFilePackage.zip" --for-offline-installation --certificate "path\to\cert.pfx" --password "mycertpassword"
+
 Note: If offline artifacts are not already available due to previous installation, a 'Development Only Variant' will be installed during package creation and removed afterwards again
 `
 
