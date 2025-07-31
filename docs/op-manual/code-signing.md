@@ -35,7 +35,7 @@ Import-Certificate -FilePath k2s-signing.pfx -CertStoreLocation Cert:\LocalMachi
 
 ### Create Self-Signed Certificate for Testing
 
-For development and testing purposes, you can create a self-signed code signing certificate:
+For development and testing purposes, you can create a self-signed code signing certificate. **Important**: Self-signed certificates must be installed to the Trusted Root store to avoid trust warnings.
 
 ```powershell
 # Create a self-signed code signing certificate (requires administrator privileges)
@@ -45,19 +45,28 @@ $cert = New-SelfSignedCertificate -Subject "CN=K2s Test Code Signing" `
     -KeyAlgorithm RSA `
     -KeyLength 2048 `
     -NotAfter (Get-Date).AddYears(5) `
-    -CertStoreLocation Cert:\LocalMachine\My
+    -CertStoreLocation Cert:\LocalMachine\My `
+    -KeyExportPolicy Exportable
 
 # Export to PFX file with password
 $password = ConvertTo-SecureString "TestPassword123" -AsPlainText -Force
 Export-PfxCertificate -Cert $cert -FilePath "k2s-test-signing.pfx" -Password $password
 
-# Import the certificate to TrustedPublisher store for script execution
-# (The certificate is already in LocalMachine\My from the New-SelfSignedCertificate command)
-$trustedCert = Import-PfxCertificate -FilePath "k2s-test-signing.pfx" -CertStoreLocation Cert:\LocalMachine\TrustedPublisher -Password $password
+# Export the public certificate for trust installation
+Export-Certificate -Cert $cert -FilePath "k2s-test-signing.cer"
 
-# Now you can use the certificate for signing
+# Install to Trusted Root Certification Authorities (makes the certificate trusted)
+Import-Certificate -FilePath "k2s-test-signing.cer" -CertStoreLocation Cert:\LocalMachine\Root
+
+# Install to TrustedPublisher store for PowerShell script execution
+Import-Certificate -FilePath "k2s-test-signing.cer" -CertStoreLocation Cert:\LocalMachine\TrustedPublisher
+
+# Test the certificate with K2s package creation
 k2s system package --target-dir "C:\tmp" --name "k2s-test-signed.zip" --certificate "k2s-test-signing.pfx" --password "TestPassword123"
 ```
+
+**Why install to Trusted Root?**
+Self-signed certificates are not trusted by default. Installing the certificate to `Cert:\LocalMachine\Root` makes Windows trust the certificate, preventing "certificate chain terminated in a root certificate which is not trusted" errors during code signing verification.
 
 ## Command Reference
 

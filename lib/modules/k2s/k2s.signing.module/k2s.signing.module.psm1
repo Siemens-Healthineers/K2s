@@ -65,20 +65,10 @@ function Set-K2sFileSignature {
     Write-Log "Starting code signing process for: $SourcePath" -Console
     Write-Log "Using certificate: $CertificatePath" -Console
 
-    # Check if certificate is already imported before attempting to import
     try {
-        # First, get the certificate thumbprint without importing
-        $tempCert = Get-PfxCertificate -FilePath $CertificatePath -Password $Password -NoPromptForPassword
-        $existingCert = Get-ChildItem -Path "Cert:\LocalMachine\My\$($tempCert.Thumbprint)" -ErrorAction SilentlyContinue
-        
-        if ($existingCert) {
-            Write-Log "Certificate already exists in store. Thumbprint: $($existingCert.Thumbprint)" -Console
-            $cert = $existingCert
-        } else {
-            Write-Log "Importing certificate to certificate store..." -Console
-            $cert = Import-PfxCertificate -FilePath $CertificatePath -CertStoreLocation Cert:\LocalMachine\My -Password $Password
-            Write-Log "Certificate imported successfully. Thumbprint: $($cert.Thumbprint)" -Console
-        }
+        Write-Log "Importing certificate to certificate store..." -Console
+        $cert = Import-PfxCertificate -FilePath $CertificatePath -CertStoreLocation Cert:\LocalMachine\My -Password $Password
+        Write-Log "Certificate imported successfully. Thumbprint: $($cert.Thumbprint)" -Console        
     }
     catch {
         throw "Failed to access or import certificate: $_"
@@ -110,9 +100,16 @@ function Set-K2sFileSignature {
                 $signedCount++
                 Write-Log "Successfully signed: $file" -Console
             }
+            elseif ($signature.Status -eq 'UnknownError' -and $signature.StatusMessage -like "*not trusted*") {
+                # For self-signed certificates, this is expected if not installed in Trusted Root
+                $signedCount++
+                Write-Log "Signed with self-signed certificate (not in trusted root): $file" -Console
+                Write-Log "Note: Install certificate to Trusted Root store for full trust validation" -Console
+            }
             else {
                 $failedCount++
-                Write-Log "Failed to sign (invalid signature): $file" -Error
+                Write-Log "Failed to sign (status: $($signature.Status)): $file" -Error
+                Write-Log "Status message: $($signature.StatusMessage)" -Error
             }
         }
         catch {

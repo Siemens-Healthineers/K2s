@@ -142,18 +142,7 @@ Describe "Sign-K2sFiles" {
         # Mock Get-SignableFiles to return an empty array
         Mock Get-SignableFiles { return @() }
     }
-    
-    It "should handle no files to sign gracefully" -Skip {
-        # This test is skipped because it requires mocking complex certificate operations
-        # that involve admin privileges and real certificate store interactions.
-        # The function behavior is validated through integration tests instead.
-        Mock Test-Path { $true } -ParameterFilter { $Path -eq "C:\test" }
-        Mock Test-Path { $true } -ParameterFilter { $Path -eq "C:\test\cert.pfx" }
-        
-        $securePassword = ConvertTo-SecureString "testpassword" -AsPlainText -Force
-        { Set-K2sFileSignature -SourcePath "C:\test" -CertificatePath "C:\test\cert.pfx" -Password $securePassword } | Should -Not -Throw
-    }
-    
+
     It "should throw when source path does not exist" {
         # This is a simple validation that happens early in the function
         # We can test it directly without mocking all the certificate functions

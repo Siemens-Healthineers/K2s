@@ -389,52 +389,27 @@ if ($CertificatePath) {
         # Additional signing for offline installation artifacts (if they were created)
         if ($ForOfflineInstallation) {
             Write-Log 'Signing offline installation artifacts...' -Console
-            
             # Sign Windows Node Artifacts if it contains executables
             if (Test-Path $winNodeArtifactsZipFilePath) {
-                Write-Log "Checking Windows Node Artifacts for signable files: $winNodeArtifactsZipFilePath" -Console
-                
+                Write-Log "Signing Windows Node Artifacts: $winNodeArtifactsZipFilePath" -Console
                 # Extract the ZIP to a temporary directory to access executables
                 $tempExtractPath = Join-Path $env:TEMP "k2s-signing-$(Get-Random)"
                 try {
                     New-Item -Path $tempExtractPath -ItemType Directory -Force | Out-Null
                     Expand-Archive -LiteralPath $winNodeArtifactsZipFilePath -DestinationPath $tempExtractPath -Force
-                    
-                    # Sign all files in the extracted content using unified approach
-                    $signableFiles = Get-SignableFiles -Path $tempExtractPath
-                    if ($signableFiles -and $signableFiles.Count -gt 0) {
-                        Write-Log "Found $($signableFiles.Count) signable files in Windows Node Artifacts" -Console
-                        
-                        # Import certificate to get certificate object for signing
-                        $tempCert = Get-PfxCertificate -FilePath $CertificatePath
-                        $existingCert = Get-ChildItem -Path "Cert:\LocalMachine\My\$($tempCert.Thumbprint)" -ErrorAction SilentlyContinue
-                        
-                        if (-not $existingCert) {
-                            $cert = Import-PfxCertificate -FilePath $CertificatePath -CertStoreLocation Cert:\LocalMachine\My -Password $Password
-                        } else {
-                            $cert = $existingCert
-                        }
-                        
-                        foreach ($file in $signableFiles) {
-                            Write-Log "Signing file: $file" -Console
-                            Set-AuthenticodeSignature -FilePath $file -Certificate $cert | Out-Null
-                        }
-                        
-                        # Re-create the ZIP with signed files
-                        Write-Log "Re-creating Windows Node Artifacts ZIP with signed files..." -Console
-                        Remove-Item -Path $winNodeArtifactsZipFilePath -Force
-                        Compress-Archive -Path "$tempExtractPath\*" -DestinationPath $winNodeArtifactsZipFilePath -CompressionLevel Optimal
-                        Write-Log "Windows Node Artifacts ZIP updated with signed files." -Console
-                    } else {
-                        Write-Log "No signable files found in Windows Node Artifacts." -Console
-                    }
+                    # Use Set-K2sFileSignature to sign all files in the extracted content
+                    Set-K2sFileSignature -SourcePath $tempExtractPath -CertificatePath $CertificatePath -Password $Password -ExclusionList @()
+                    # Re-create the ZIP with signed files
+                    Write-Log "Re-creating Windows Node Artifacts ZIP with signed files..." -Console
+                    Remove-Item -Path $winNodeArtifactsZipFilePath -Force
+                    Compress-Archive -Path "$tempExtractPath\*" -DestinationPath $winNodeArtifactsZipFilePath -CompressionLevel Optimal
+                    Write-Log "Windows Node Artifacts ZIP updated with signed files." -Console
                 } finally {
                     if (Test-Path $tempExtractPath) {
                         Remove-Item -Path $tempExtractPath -Recurse -Force -ErrorAction SilentlyContinue
                     }
                 }
             }
-            
             Write-Log 'Offline installation artifacts signing completed.' -Console
         }
         
