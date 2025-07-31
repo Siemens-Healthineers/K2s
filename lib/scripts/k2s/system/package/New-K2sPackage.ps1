@@ -381,9 +381,48 @@ if ($CertificatePath) {
         exit 1
     }
     
+    # Create temporary directory for signing to avoid file locking issues
+    $tempSigningPath = Join-Path $env:TEMP "k2s-package-signing-$(Get-Random)"
+    
     try {
+        Write-Log "Creating temporary copy for signing to avoid file locking issues..." -Console
+        Write-Log "Temporary signing directory: $tempSigningPath" -Console
+        
+        # Create temporary directory and copy all files
+        New-Item -Path $tempSigningPath -ItemType Directory -Force | Out-Null
+        
+        # Copy the entire kubePath structure to temp directory, excluding items in exclusion list
+        $files = Get-ChildItem -Path $kubePath -Force -Recurse
+        foreach ($file in $files) {
+            $relativePath = $file.FullName.Replace("$kubePath\", '')
+            $targetPath = Join-Path $tempSigningPath $relativePath
+            
+            # Skip files in exclusion list
+            $shouldExclude = $false
+            foreach ($exclusion in $exclusionList) {
+                if ($file.FullName.StartsWith($exclusion)) {
+                    $shouldExclude = $true
+                    break
+                }
+            }
+            
+            if (-not $shouldExclude) {
+                if ($file.PSIsContainer) {
+                    New-Item -Path $targetPath -ItemType Directory -Force | Out-Null
+                } else {
+                    $targetDir = Split-Path -Path $targetPath -Parent
+                    if (-not (Test-Path $targetDir)) {
+                        New-Item -Path $targetDir -ItemType Directory -Force | Out-Null
+                    }
+                    Copy-Item -Path $file.FullName -Destination $targetPath -Force
+                }
+            }
+        }
+        
         Write-Log "Signing all executables and PowerShell scripts with certificate: $CertificatePath" -Console
-        Set-K2sFileSignature -SourcePath $kubePath -CertificatePath $CertificatePath -Password $Password -ExclusionList $exclusionList
+        # Sign files in temporary directory
+        Set-K2sFileSignature -SourcePath $tempSigningPath -CertificatePath $CertificatePath -Password $Password -ExclusionList @()
+        
         Write-Log 'Code signing completed successfully.' -Console
         
         # Additional signing for offline installation artifacts (if they were created)
@@ -413,19 +452,29 @@ if ($CertificatePath) {
             Write-Log 'Offline installation artifacts signing completed.' -Console
         }
         
+        Write-Log 'Start creation of zip package from signed files...' -Console
+        # Use signed files from temporary directory for ZIP creation
+        New-ZipArchive -ExclusionList @() -BaseDirectory $tempSigningPath -TargetPath "$zipPackagePath"
+        
     } catch {
         Write-Log "Error during code signing: $_" -Error
         if ($EncodeStructuredOutput -eq $true) {
             Send-ToCli -MessageType $MessageType -Message @{Error = "Code signing failed: $_" }
         }
         exit 1
+    } finally {
+        # Clean up temporary signing directory
+        if (Test-Path $tempSigningPath) {
+            Write-Log "Cleaning up temporary signing directory..." -Console
+            Remove-Item -Path $tempSigningPath -Recurse -Force -ErrorAction SilentlyContinue
+        }
     }
 } else {
     Write-Log 'No code signing requested - creating standard package.' -Console
+    Write-Log 'Start creation of zip package...' -Console
+    New-ZipArchive -ExclusionList $exclusionList -BaseDirectory $kubePath -TargetPath "$zipPackagePath"
 }
 
-Write-Log 'Start creation of zip package...' -Console
-New-ZipArchive -ExclusionList $exclusionList -BaseDirectory $kubePath -TargetPath "$zipPackagePath"
 Write-Log "Zip package available at '$zipPackagePath'." -Console
 
 Write-Log 'Removing implicitly created K2s config dir'
