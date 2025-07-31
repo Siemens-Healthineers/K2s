@@ -19,18 +19,44 @@ K2s includes comprehensive code signing capabilities to meet enterprise security
 
 ```powershell
 # Create package with existing certificate
-k2s system package --certificate mycert.pfx --output k2s-signed.zip
+k2s system package --target-dir "C:\tmp" --name "k2s-signed.zip" --certificate "mycert.pfx" --password "mycertpassword"
+
+# Create package for offline installation with code signing
+k2s system package --target-dir "C:\tmp" --name "k2s-offline-signed.zip" --for-offline-installation --certificate "mycert.pfx" --password "mycertpassword"
 ```
 
 ### Install Certificate for Trust
 
 ```powershell
-# Import the signing module (requires administrator privileges)
-Import-Module .\lib\modules\k2s\k2s.signing.module\k2s.signing.module.psm1
-
 # Import certificate from package using standard PowerShell cmdlets (requires administrator privileges)
 Import-PfxCertificate -FilePath k2s-signing.pfx -CertStoreLocation Cert:\LocalMachine\My
 Import-Certificate -FilePath k2s-signing.pfx -CertStoreLocation Cert:\LocalMachine\TrustedPublisher
+```
+
+### Create Self-Signed Certificate for Testing
+
+For development and testing purposes, you can create a self-signed code signing certificate:
+
+```powershell
+# Create a self-signed code signing certificate (requires administrator privileges)
+$cert = New-SelfSignedCertificate -Subject "CN=K2s Test Code Signing" `
+    -Type CodeSigningCert `
+    -KeyUsage DigitalSignature `
+    -KeyAlgorithm RSA `
+    -KeyLength 2048 `
+    -NotAfter (Get-Date).AddYears(5) `
+    -CertStoreLocation Cert:\LocalMachine\My
+
+# Export to PFX file with password
+$password = ConvertTo-SecureString "TestPassword123" -AsPlainText -Force
+Export-PfxCertificate -Cert $cert -FilePath "k2s-test-signing.pfx" -Password $password
+
+# Import the certificate to TrustedPublisher store for script execution
+# (The certificate is already in LocalMachine\My from the New-SelfSignedCertificate command)
+$trustedCert = Import-PfxCertificate -FilePath "k2s-test-signing.pfx" -CertStoreLocation Cert:\LocalMachine\TrustedPublisher -Password $password
+
+# Now you can use the certificate for signing
+k2s system package --target-dir "C:\tmp" --name "k2s-test-signed.zip" --certificate "k2s-test-signing.pfx" --password "TestPassword123"
 ```
 
 ## Command Reference
@@ -39,17 +65,42 @@ Import-Certificate -FilePath k2s-signing.pfx -CertStoreLocation Cert:\LocalMachi
 
 Creates a complete K2s package with all components signed.
 
-**Options:**
+**Required Options:**
 
-- `--certificate, -c`: Path to existing code signing certificate (.pfx)
-- `--output, -o`: Output path for signed package (required)
+- `--target-dir, -d`: Target directory for the package
+- `--name, -n`: The name of the zip package (must have .zip extension)
+
+**Code Signing Options:**
+
+- `--certificate, -c`: Path to code signing certificate (.pfx file)
+- `--password, -w`: Password for the certificate file
+
+**Additional Options:**
+
+- `--for-offline-installation`: Creates a package for offline installation
+- `--proxy, -p`: HTTP proxy if available
+- `--master-cpus`: Number of CPUs allocated to master VM
+- `--master-memory`: Amount of RAM to allocate to master VM (minimum 2GB)
+- `--master-disk`: Disk size allocated to the master VM (minimum 10GB)
+- `--k8s-bins`: Path to directory of locally built Kubernetes binaries
 
 **Examples:**
 
 ```bash
-# Use existing certificate
-k2s system package --certificate ./certs/my-cert.pfx --output ./packages/k2s-signed.zip
+# Basic package creation
+k2s system package --target-dir "C:\tmp" --name "k2s-package.zip"
+
+# Package for offline installation
+k2s system package --target-dir "C:\tmp" --name "k2s-offline.zip" --for-offline-installation
+
+# Signed package with existing certificate
+k2s system package --target-dir "C:\tmp" --name "k2s-signed.zip" --certificate "./certs/my-cert.pfx" --password "certpassword"
+
+# Signed offline package with all options
+k2s system package --target-dir "C:\tmp" --name "k2s-complete.zip" --for-offline-installation --certificate "./certs/my-cert.pfx" --password "certpassword" --proxy "http://proxy:8080"
 ```
+
+**Note**: When using code signing, both `--certificate` and `--password` must be provided together.
 
 ## PowerShell Module Reference
 
@@ -66,7 +117,7 @@ Get-ChildItem -Path Cert:\LocalMachine\My | Where-Object { $_.Subject -like "*K2
 
 ```powershell
 # Sign all files (executables and scripts) in directory using certificate file
-Sign-K2sFiles -SourcePath "C:\k2s" -CertificatePath "cert.pfx" -Password $securePassword
+Set-K2sFileSignature -SourcePath "C:\k2s" -CertificatePath "cert.pfx" -Password $securePassword
 ```
 
 ## Certificate Requirements
