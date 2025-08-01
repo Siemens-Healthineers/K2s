@@ -395,8 +395,9 @@ if ($CertificatePath) {
         New-Item -Path $tempSigningPath -ItemType Directory -Force | Out-Null
         
         # Copy the entire kubePath structure to temp directory, excluding items in exclusion list
-        $files = Get-ChildItem -Path $kubePath -Force -Recurse
-        foreach ($file in $files) {
+        # For offline installation, we need special handling of large files
+        $filesToCopy = Get-ChildItem -Path $kubePath -Force -Recurse
+        foreach ($file in $filesToCopy) {
             $relativePath = $file.FullName.Replace("$kubePath\", '')
             $targetPath = Join-Path $tempSigningPath $relativePath
             
@@ -407,6 +408,11 @@ if ($CertificatePath) {
                     $shouldExclude = $true
                     break
                 }
+            }
+        
+            if ($ForOfflineInstallation -and -not $shouldExclude) {
+                # No additional exclusions - let Set-K2sFileSignature handle file type filtering
+                Write-Log "Including file for potential signing: $($file.FullName)" -Console
             }
             
             if (-not $shouldExclude) {
@@ -428,31 +434,37 @@ if ($CertificatePath) {
         
         Write-Log 'Code signing completed successfully.' -Console
         
-        # Additional signing for offline installation artifacts (if they were created)
+        # For offline installation, sign contents of ZIP files that were copied to temp directory
         if ($ForOfflineInstallation) {
-            Write-Log 'Signing offline installation artifacts...' -Console
-            # Sign Windows Node Artifacts if it contains executables
-            if (Test-Path $winNodeArtifactsZipFilePath) {
-                Write-Log "Signing Windows Node Artifacts: $winNodeArtifactsZipFilePath" -Console
-                # Extract the ZIP to a temporary directory to access executables
-                $tempExtractPath = Join-Path $env:TEMP "k2s-signing-$(Get-Random)"
+            Write-Log 'Signing contents of offline installation ZIP files...' -Console
+            
+            # Sign Windows Node Artifacts ZIP contents
+            $winArtifactsZipInTemp = Join-Path $tempSigningPath (Split-Path $winNodeArtifactsZipFilePath -Leaf)
+            if (Test-Path $winArtifactsZipInTemp) {
+                Write-Log "Signing contents of Windows Node Artifacts: $winArtifactsZipInTemp" -Console
+                $winArtifactsExtractPath = Join-Path $tempSigningPath "win-artifacts-extract"
+                
                 try {
-                    New-Item -Path $tempExtractPath -ItemType Directory -Force | Out-Null
-                    Expand-Archive -LiteralPath $winNodeArtifactsZipFilePath -DestinationPath $tempExtractPath -Force
-                    # Use Set-K2sFileSignature to sign all files in the extracted content
-                    Set-K2sFileSignature -SourcePath $tempExtractPath -CertificatePath $CertificatePath -Password $securePassword -ExclusionList @()
-                    # Re-create the ZIP with signed files
-                    Write-Log "Re-creating Windows Node Artifacts ZIP with signed files..." -Console
-                    Remove-Item -Path $winNodeArtifactsZipFilePath -Force
-                    Compress-Archive -Path "$tempExtractPath\*" -DestinationPath $winNodeArtifactsZipFilePath -CompressionLevel Optimal
-                    Write-Log "Windows Node Artifacts ZIP updated with signed files." -Console
+                    # Extract the ZIP
+                    New-Item -Path $winArtifactsExtractPath -ItemType Directory -Force | Out-Null
+                    Expand-Archive -Path $winArtifactsZipInTemp -DestinationPath $winArtifactsExtractPath -Force
+                    
+                    # Sign contents
+                    Set-K2sFileSignature -SourcePath $winArtifactsExtractPath -CertificatePath $CertificatePath -Password $securePassword -ExclusionList @()
+                    
+                    # Remove old ZIP and create new one with signed contents
+                    Remove-Item -Path $winArtifactsZipInTemp -Force
+                    Compress-Archive -Path "$winArtifactsExtractPath\*" -DestinationPath $winArtifactsZipInTemp -CompressionLevel Optimal
+                    
+                    Write-Log "Windows Node Artifacts contents signed and repackaged." -Console
                 } finally {
-                    if (Test-Path $tempExtractPath) {
-                        Remove-Item -Path $tempExtractPath -Recurse -Force -ErrorAction SilentlyContinue
+                    if (Test-Path $winArtifactsExtractPath) {
+                        Remove-Item -Path $winArtifactsExtractPath -Recurse -Force -ErrorAction SilentlyContinue
                     }
                 }
             }
-            Write-Log 'Offline installation artifacts signing completed.' -Console
+            
+            Write-Log 'Offline installation ZIP contents signing completed.' -Console
         }
         
         Write-Log 'Start creation of zip package from signed files...' -Console
