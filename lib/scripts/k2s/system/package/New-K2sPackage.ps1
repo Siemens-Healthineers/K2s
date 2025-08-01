@@ -30,7 +30,7 @@ Param(
     [parameter(Mandatory = $false, HelpMessage = 'Path to code signing certificate (.pfx file)')]
     [string] $CertificatePath,
     [parameter(Mandatory = $false, HelpMessage = 'Password for the certificate file')]
-    [SecureString] $Password
+    [string] $Password
 )
 
 $infraModule = "$PSScriptRoot/../../../../modules/k2s/k2s.infra.module/k2s.infra.module.psm1"
@@ -369,7 +369,7 @@ if ($CertificatePath) {
     Write-Log 'Code signing requested - signing executables and scripts...' -Console
     
     # Validate that Password is provided when using a certificate
-    if ($null -eq $Password) {
+    if ([string]::IsNullOrEmpty($Password)) {
         $errMsg = "Password is required when providing a certificate path."
         Write-Log $errMsg -Error
         
@@ -380,6 +380,9 @@ if ($CertificatePath) {
         }
         exit 1
     }
+    
+    # Convert string password to SecureString for internal use
+    $securePassword = ConvertTo-SecureString $Password -AsPlainText -Force
     
     # Create temporary directory for signing to avoid file locking issues
     $tempSigningPath = Join-Path $env:TEMP "k2s-package-signing-$(Get-Random)"
@@ -421,7 +424,7 @@ if ($CertificatePath) {
         
         Write-Log "Signing all executables and PowerShell scripts with certificate: $CertificatePath" -Console
         # Sign files in temporary directory
-        Set-K2sFileSignature -SourcePath $tempSigningPath -CertificatePath $CertificatePath -Password $Password -ExclusionList @()
+        Set-K2sFileSignature -SourcePath $tempSigningPath -CertificatePath $CertificatePath -Password $securePassword -ExclusionList @()
         
         Write-Log 'Code signing completed successfully.' -Console
         
@@ -437,7 +440,7 @@ if ($CertificatePath) {
                     New-Item -Path $tempExtractPath -ItemType Directory -Force | Out-Null
                     Expand-Archive -LiteralPath $winNodeArtifactsZipFilePath -DestinationPath $tempExtractPath -Force
                     # Use Set-K2sFileSignature to sign all files in the extracted content
-                    Set-K2sFileSignature -SourcePath $tempExtractPath -CertificatePath $CertificatePath -Password $Password -ExclusionList @()
+                    Set-K2sFileSignature -SourcePath $tempExtractPath -CertificatePath $CertificatePath -Password $securePassword -ExclusionList @()
                     # Re-create the ZIP with signed files
                     Write-Log "Re-creating Windows Node Artifacts ZIP with signed files..." -Console
                     Remove-Item -Path $winNodeArtifactsZipFilePath -Force

@@ -81,7 +81,7 @@ var _ = Describe("package", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(cmd).To(ContainSubstring(filepath.Join("lib", "scripts", "k2s", "system", "package", "New-K2sPackage.ps1")))
 				Expect(params).To(ContainElement(" -CertificatePath 'C:\\certs\\signing.pfx'"))
-				Expect(params).To(ContainElement(" -Password (ConvertTo-SecureString -String 'secretpassword' -AsPlainText -Force)"))
+				Expect(params).To(ContainElement(" -Password 'secretpassword'"))
 			})
 
 			It("creates command with both standard and code signing parameters", func() {
@@ -103,7 +103,7 @@ var _ = Describe("package", func() {
 				Expect(params).To(ContainElement(" -Proxy http://proxy:8080"))
 				Expect(params).To(ContainElement(" -ForOfflineInstallation"))
 				Expect(params).To(ContainElement(" -CertificatePath 'signing.pfx'"))
-				Expect(params).To(ContainElement(" -Password (ConvertTo-SecureString -String 'certpassword' -AsPlainText -Force)"))
+				Expect(params).To(ContainElement(" -Password 'certpassword'"))
 			})
 
 			It("creates command with both offline installation and code signing", func() {
@@ -123,7 +123,7 @@ var _ = Describe("package", func() {
 				Expect(params).To(ContainElement(" -ZipPackageFileName 'signed-offline-package.zip'"))
 				Expect(params).To(ContainElement(" -ForOfflineInstallation"))
 				Expect(params).To(ContainElement(" -CertificatePath 'C:\\certificates\\codesign.pfx'"))
-				Expect(params).To(ContainElement(" -Password (ConvertTo-SecureString -String 'mysecretpassword' -AsPlainText -Force)"))
+				Expect(params).To(ContainElement(" -Password 'mysecretpassword'"))
 			})
 
 			It("does not include code signing parameters when not specified", func() {

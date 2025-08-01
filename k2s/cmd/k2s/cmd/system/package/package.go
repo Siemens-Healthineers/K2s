@@ -193,7 +193,7 @@ func buildSystemPackageCmd(flags *pflag.FlagSet) (string, []string, error) {
 			return "", nil, fmt.Errorf("password is required when using a certificate")
 		}
 		params = append(params, " -CertificatePath "+utils.EscapeWithSingleQuotes(certPath))
-		params = append(params, " -Password (ConvertTo-SecureString -String "+utils.EscapeWithSingleQuotes(password)+" -AsPlainText -Force)")
+		params = append(params, " -Password "+utils.EscapeWithSingleQuotes(password))
 	} else if password != "" {
 		return "", nil, fmt.Errorf("certificate is required when providing a password")
 	}
