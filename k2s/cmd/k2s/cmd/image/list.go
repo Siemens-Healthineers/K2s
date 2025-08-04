@@ -10,7 +10,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
+	cconfig "github.com/siemens-healthineers/k2s/internal/contracts/config"
+	"github.com/siemens-healthineers/k2s/internal/core/config"
 	"github.com/siemens-healthineers/k2s/internal/powershell"
 	"github.com/siemens-healthineers/k2s/internal/terminal"
 
@@ -106,17 +107,17 @@ func listImages(cmd *cobra.Command, args []string) error {
 	terminalPrinter := terminal.NewTerminalPrinter()
 
 	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
-	_, err = setupinfo.ReadConfig(context.Config().Host().K2sConfigDir())
+	_, err = config.ReadRuntimeConfig(context.Config().Host().K2sSetupConfigDir())
 	if err != nil {
-		if errors.Is(err, setupinfo.ErrSystemInCorruptedState) {
+		if errors.Is(err, cconfig.ErrSystemInCorruptedState) {
 			if outputOption == jsonOption {
-				return printSystemErrJson(terminalPrinter.Println, setupinfo.ErrSystemInCorruptedState, common.CreateSystemInCorruptedStateCmdFailure)
+				return printSystemErrJson(terminalPrinter.Println, cconfig.ErrSystemInCorruptedState, common.CreateSystemInCorruptedStateCmdFailure)
 			}
 			return common.CreateSystemInCorruptedStateCmdFailure()
 		}
-		if errors.Is(err, setupinfo.ErrSystemNotInstalled) {
+		if errors.Is(err, cconfig.ErrSystemNotInstalled) {
 			if outputOption == jsonOption {
-				return printSystemErrJson(terminalPrinter.Println, setupinfo.ErrSystemNotInstalled, common.CreateSystemNotInstalledCmdFailure)
+				return printSystemErrJson(terminalPrinter.Println, cconfig.ErrSystemNotInstalled, common.CreateSystemNotInstalledCmdFailure)
 			}
 			return common.CreateSystemNotInstalledCmdFailure()
 		}

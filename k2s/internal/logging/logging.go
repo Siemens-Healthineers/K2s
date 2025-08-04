@@ -6,6 +6,7 @@ package logging
 import (
 	"errors"
 	"fmt"
+	"io/fs"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -33,7 +34,7 @@ func GlobalLogFilePath() string {
 func InitializeLogFile(path string) *os.File {
 	dir := filepath.Dir(path)
 
-	if err := kos.CreateDirIfNotExisting(dir); err != nil {
+	if err := os.MkdirAll(dir, fs.ModePerm); err != nil {
 		panic(err)
 	}
 

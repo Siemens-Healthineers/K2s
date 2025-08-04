@@ -12,7 +12,7 @@ import (
 
 	cc "github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 
-	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
+	"github.com/siemens-healthineers/k2s/internal/contracts/config"
 	"github.com/siemens-healthineers/k2s/internal/os"
 	"github.com/siemens-healthineers/k2s/internal/version"
 
@@ -36,7 +36,7 @@ type Installer struct {
 	GetVersionFunc           func() version.Version
 	GetPlatformFunc          func() string
 	GetInstallDirFunc        func() string
-	LoadConfigFunc           func(configDir string) (*setupinfo.Config, error)
+	LoadConfigFunc           func(configDir string) (*config.K2sRuntimeConfig, error)
 	MarkSetupAsCorruptedFunc func(configDir string) error
 	DeleteConfigFunc         func(configDir string) error
 }
@@ -47,21 +47,21 @@ func (i *Installer) Install(
 	buildCmdFunc func(config *ic.InstallConfig) (cmd string, err error),
 	cmdSession cc.CmdSession) error {
 	context := ccmd.Context().Value(cc.ContextKeyCmdContext).(*cc.CmdContext)
-	configDir := context.Config().Host().K2sConfigDir()
+	configDir := context.Config().Host().K2sSetupConfigDir()
 
-	setupConfig, err := i.LoadConfigFunc(configDir)
+	runtimeConfig, err := i.LoadConfigFunc(configDir)
 
-	if errors.Is(err, setupinfo.ErrSystemInCorruptedState) {
+	if errors.Is(err, config.ErrSystemInCorruptedState) {
 		return cc.CreateSystemInCorruptedStateCmdFailure()
 	}
-	if err != nil && !errors.Is(err, setupinfo.ErrSystemNotInstalled) {
+	if err != nil && !errors.Is(err, config.ErrSystemNotInstalled) {
 		return err
 	}
-	if err == nil && setupConfig.SetupName != "" {
+	if err == nil && runtimeConfig.InstallConfig().SetupName() != "" {
 		return &cc.CmdFailure{
 			Severity: cc.SeverityWarning,
 			Code:     "system-already-installed",
-			Message:  fmt.Sprintf("'%s' setup already installed, please uninstall with 'k2s uninstall' first and re-run the install command afterwards", setupConfig.SetupName),
+			Message:  fmt.Sprintf("'%s' setup already installed, please uninstall with 'k2s uninstall' first and re-run the install command afterwards", runtimeConfig.InstallConfig().SetupName()),
 		}
 	}
 

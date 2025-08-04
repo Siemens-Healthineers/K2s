@@ -18,8 +18,10 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 
+	cconfig "github.com/siemens-healthineers/k2s/internal/contracts/config"
 	cc "github.com/siemens-healthineers/k2s/internal/core/clusterconfig"
-	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
+	"github.com/siemens-healthineers/k2s/internal/core/config"
+	"github.com/siemens-healthineers/k2s/internal/definitions"
 	"github.com/siemens-healthineers/k2s/internal/powershell"
 )
 
@@ -41,12 +43,12 @@ func stopk8s(cmd *cobra.Command, args []string) error {
 	pterm.Printfln("🛑 Stopping K2s cluster")
 
 	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
-	config, err := setupinfo.ReadConfig(context.Config().Host().K2sConfigDir())
+	runtimeConfig, err := config.ReadRuntimeConfig(context.Config().Host().K2sSetupConfigDir())
 	if err != nil {
-		if errors.Is(err, setupinfo.ErrSystemInCorruptedState) {
+		if errors.Is(err, cconfig.ErrSystemInCorruptedState) {
 			return common.CreateSystemInCorruptedStateCmdFailure()
 		}
-		if errors.Is(err, setupinfo.ErrSystemNotInstalled) {
+		if errors.Is(err, cconfig.ErrSystemNotInstalled) {
 			return common.CreateSystemNotInstalledCmdFailure()
 		}
 		return err
@@ -58,7 +60,7 @@ func stopk8s(cmd *cobra.Command, args []string) error {
 		slog.Warn("Failures during stopping of additional nodes", "err", err)
 	}
 
-	stopCmd, err := buildStopCmd(cmd.Flags(), config)
+	stopCmd, err := buildStopCmd(cmd.Flags(), runtimeConfig)
 	if err != nil {
 		return err
 	}
@@ -75,7 +77,7 @@ func stopk8s(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func buildStopCmd(flags *pflag.FlagSet, config *setupinfo.Config) (string, error) {
+func buildStopCmd(flags *pflag.FlagSet, config *cconfig.K2sRuntimeConfig) (string, error) {
 	outputFlag, err := strconv.ParseBool(flags.Lookup(common.OutputFlagName).Value.String())
 	if err != nil {
 		return "", err
@@ -90,20 +92,20 @@ func buildStopCmd(flags *pflag.FlagSet, config *setupinfo.Config) (string, error
 
 	var cmd string
 
-	switch config.SetupName {
-	case setupinfo.SetupNamek2s:
+	switch config.InstallConfig().SetupName() {
+	case definitions.SetupNameK2s:
 		setup := "k2s"
-		if config.LinuxOnly {
+		if config.InstallConfig().LinuxOnly() {
 			setup = "linuxonly"
 		}
 		cmd = utils.FormatScriptFilePath(fmt.Sprintf("%s\\lib\\scripts\\%s\\stop\\stop.ps1", utils.InstallDir(), setup))
 		if additionalHooksdir != "" {
 			cmd += " -AdditionalHooksDir " + utils.EscapeWithSingleQuotes(additionalHooksdir)
 		}
-		if cacheVSwitches && !config.LinuxOnly {
+		if cacheVSwitches && !config.InstallConfig().LinuxOnly() {
 			cmd += " -CacheK2sVSwitches"
 		}
-	case setupinfo.SetupNameBuildOnlyEnv:
+	case definitions.SetupNameBuildOnlyEnv:
 		return "", errors.New("there is no cluster to stop in build-only setup mode ;-). Aborting")
 	default:
 		return "", errors.New("could not determine the setup type, aborting. If you are sure you have a K2s setup installed, call the correct stop script directly")
@@ -123,7 +125,7 @@ func stopAdditionalNodes(context *common.CmdContext, flags *pflag.FlagSet) error
 		return nil
 	}
 
-	clusterConfig, err := cc.Read(context.Config().Host().K2sConfigDir())
+	clusterConfig, err := cc.Read(context.Config().Host().K2sSetupConfigDir())
 	if err != nil {
 		return err
 	}
