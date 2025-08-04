@@ -509,7 +509,7 @@ if ($CertificatePath) {
             Write-Log 'Signing contents of offline installation ZIP files...' -Console
             
             # Sign Windows Node Artifacts ZIP contents
-            $winArtifactsZipInTemp = Join-Path $tempSigningPath "bin" (Split-Path $winNodeArtifactsZipFilePath -Leaf)
+            $winArtifactsZipInTemp = Join-Path (Join-Path $tempSigningPath "bin") (Split-Path $winNodeArtifactsZipFilePath -Leaf)
             if (Test-Path $winArtifactsZipInTemp) {
                 Write-Log "Signing contents of Windows Node Artifacts: $winArtifactsZipInTemp" -Console
                 $winArtifactsExtractPath = Join-Path $tempSigningPath "win-artifacts-extract"
