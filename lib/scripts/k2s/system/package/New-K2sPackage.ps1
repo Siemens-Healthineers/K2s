@@ -184,64 +184,134 @@ function New-ZipArchive() {
         [parameter(Mandatory = $true)]
         [string] $TargetPath
     )
+    
+    Write-Log "Creating ZIP archive: $TargetPath from base directory: $BaseDirectory" -Console
+    
     $files = Get-ChildItem -Path $BaseDirectory -Force -Recurse | ForEach-Object { $_.FullName }
+    Write-Log "Found $($files.Count) total files and directories to process" -Console
+    
     $fileStreamMode = [System.IO.FileMode]::Create
     $zipMode = [System.IO.Compression.ZipArchiveMode]::Create
     $compressionLevel = [System.IO.Compression.CompressionLevel]::Optimal
 
+    $zipFileStream = $null
+    $zipFile = $null
+    
     try {
-        try {
-            $zipFileStream = [System.IO.File]::Open($TargetPath, $fileStreamMode)
-            $zipFile = [System.IO.Compression.ZipArchive]::new($zipFileStream, $zipMode)
-        }
-        catch {
-            Write-Log "ERROR in New-ZipArchive: $_"
-            $zipFile, $zipFileStream | ForEach-Object Dispose
-
-            if ($EncodeStructuredOutput -eq $true) {
-                $err = New-Error -Code 'build-package-failed' -Message $_
-                Send-ToCli -MessageType $MessageType -Message @{Error = $err }
-                return
-            }
+        $zipFileStream = [System.IO.File]::Open($TargetPath, $fileStreamMode)
+        $zipFile = [System.IO.Compression.ZipArchive]::new($zipFileStream, $zipMode)
+        Write-Log "ZIP archive opened successfully" -Console
         
-            Write-Log $_ -Error
-            exit 1
-        }
-
+        $addedCount = 0
+        $skippedCount = 0
+        
         foreach ($file in $files) {
+            $sourceFileStream = $null
+            $zipFileStreamEntry = $null
+            
             try {
-                if ($ExclusionList.Contains($file) -or
-                       ($ExclusionList | Foreach-Object { $file.StartsWith($_) }) -contains $true) {
-                    Write-Log "File or directory '$file' not included because of exclusion list"
-                    Continue
+                # Check exclusion list
+                $shouldSkip = $false
+                foreach ($exclusion in $ExclusionList) {
+                    if ($file.StartsWith($exclusion)) {
+                        Write-Log "Skipping excluded file: $file"
+                        $shouldSkip = $true
+                        $skippedCount++
+                        break
+                    }
+                }
+                
+                if ($shouldSkip) {
+                    continue
                 }
 
                 $relativeFilePath = $file.Replace("$BaseDirectory\", '')
                 $isDirectory = (Get-Item $file) -is [System.IO.DirectoryInfo]
+                
                 if ($isDirectory) {
-                    Write-Log "Adding directory '$file' into zip file..."
+                    Write-Log "Adding directory: $relativeFilePath"
                     $zipFileEntry = $zipFile.CreateEntry("$relativeFilePath\")
-                    Write-Log '...done.'
+                    $addedCount++
                 }
                 else {
+                    # Check if file exists and is accessible
+                    if (-not (Test-Path $file -PathType Leaf)) {
+                        Write-Log "Warning: File not found or not accessible: $file" -Console
+                        continue
+                    }
+                    
+                    Write-Log "Adding file: $relativeFilePath (Size: $((Get-Item $file).Length) bytes)"
                     $zipFileEntry = $zipFile.CreateEntry($relativeFilePath, $compressionLevel)
                     $zipFileStreamEntry = $zipFileEntry.Open()
-                    Write-Log "Adding file '$file' into zip file..."
                     $sourceFileStream = [System.IO.File]::OpenRead($file)
                     $sourceFileStream.CopyTo($zipFileStreamEntry)
-                    Write-Log '...done.'
+                    $addedCount++
                 }
             }
             catch {
-                Write-Error $_
+                Write-Log "Error adding file '$file' to ZIP: $_" -Error
+                # Don't break the entire process for one file error, but log it
+                $skippedCount++
             }
             finally {
-                $sourceFileStream, $zipFileStreamEntry | ForEach-Object Dispose
+                # Properly dispose of streams for this file
+                if ($sourceFileStream) { $sourceFileStream.Dispose() }
+                if ($zipFileStreamEntry) { $zipFileStreamEntry.Dispose() }
             }
         }
+        
+        Write-Log "ZIP creation completed. Added: $addedCount, Skipped: $skippedCount" -Console
+        
+    }
+    catch {
+        Write-Log "CRITICAL ERROR in New-ZipArchive: $_" -Error
+        
+        # Clean up the partial ZIP file
+        if ($zipFile) { $zipFile.Dispose() }
+        if ($zipFileStream) { $zipFileStream.Dispose() }
+        if (Test-Path $TargetPath) {
+            Remove-Item $TargetPath -Force -ErrorAction SilentlyContinue
+        }
+
+        if ($EncodeStructuredOutput -eq $true) {
+            $err = New-Error -Code 'build-package-failed' -Message "ZIP creation failed: $_"
+            Send-ToCli -MessageType $MessageType -Message @{Error = $err }
+            return
+        }
+    
+        Write-Log "ZIP creation failed: $_" -Error
+        exit 1
     }
     finally {
-        $zipFile, $zipFileStream | ForEach-Object Dispose
+        # Properly dispose of main ZIP resources
+        if ($zipFile) { 
+            $zipFile.Dispose() 
+            Write-Log "ZIP file disposed successfully" -Console
+        }
+        if ($zipFileStream) { 
+            $zipFileStream.Dispose() 
+            Write-Log "ZIP file stream disposed successfully" -Console
+        }
+    }
+    
+    # Verify the created ZIP file
+    if (Test-Path $TargetPath) {
+        $zipSize = (Get-Item $TargetPath).Length
+        Write-Log "ZIP file created successfully. Size: $zipSize bytes" -Console
+        
+        # Quick verification that the ZIP is readable
+        try {
+            $testZip = [System.IO.Compression.ZipFile]::OpenRead($TargetPath)
+            $entryCount = $testZip.Entries.Count
+            $testZip.Dispose()
+            Write-Log "ZIP verification successful. Contains $entryCount entries" -Console
+        }
+        catch {
+            Write-Log "Warning: ZIP file may be corrupted. Verification failed: $_" -Error
+        }
+    }
+    else {
+        Write-Log "ERROR: ZIP file was not created at expected path: $TargetPath" -Error
     }
 }
 
@@ -439,7 +509,7 @@ if ($CertificatePath) {
             Write-Log 'Signing contents of offline installation ZIP files...' -Console
             
             # Sign Windows Node Artifacts ZIP contents
-            $winArtifactsZipInTemp = Join-Path $tempSigningPath (Split-Path $winNodeArtifactsZipFilePath -Leaf)
+            $winArtifactsZipInTemp = Join-Path $tempSigningPath "bin" (Split-Path $winNodeArtifactsZipFilePath -Leaf)
             if (Test-Path $winArtifactsZipInTemp) {
                 Write-Log "Signing contents of Windows Node Artifacts: $winArtifactsZipInTemp" -Console
                 $winArtifactsExtractPath = Join-Path $tempSigningPath "win-artifacts-extract"
@@ -468,6 +538,19 @@ if ($CertificatePath) {
         }
         
         Write-Log 'Start creation of zip package from signed files...' -Console
+        
+        # Add debugging information
+        Write-Log "About to create ZIP with the following parameters:" -Console
+        Write-Log "- Source directory: $tempSigningPath" -Console  
+        Write-Log "- Target ZIP: $zipPackagePath" -Console
+        
+        # Check if temp directory has content
+        $tempFiles = Get-ChildItem -Path $tempSigningPath -Recurse -Force
+        Write-Log "Temp directory contains $($tempFiles.Count) items" -Console
+        if ($tempFiles.Count -eq 0) {
+            Write-Log "WARNING: Temp signing directory is empty!" -Error
+        }
+        
         # Use signed files from temporary directory for ZIP creation
         New-ZipArchive -ExclusionList @() -BaseDirectory $tempSigningPath -TargetPath "$zipPackagePath"
         
