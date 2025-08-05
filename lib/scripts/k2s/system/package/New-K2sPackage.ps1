@@ -46,6 +46,7 @@ Write-Log "- Target Directory: $TargetDirectory"
 Write-Log "- Package file name: $ZipPackageFileName"
 
 Add-type -AssemblyName System.IO.Compression
+Add-Type -AssemblyName System.IO.Compression.FileSystem
 
 function New-ProvisionedKubemasterBaseImage($WindowsNodeArtifactsZip, $OutputPath) {
     # Expand windows node artifacts directory.
@@ -182,7 +183,9 @@ function New-ZipArchive() {
         [parameter(Mandatory = $true)]
         [string] $BaseDirectory,
         [parameter(Mandatory = $true)]
-        [string] $TargetPath
+        [string] $TargetPath,
+        [parameter(Mandatory = $false)]
+        [bool] $PreserveK2sStructure = $false
     )
     
     Write-Log "Creating ZIP archive: $TargetPath from base directory: $BaseDirectory" -Console
@@ -226,6 +229,12 @@ function New-ZipArchive() {
                 }
 
                 $relativeFilePath = $file.Replace("$BaseDirectory\", '')
+                
+                # If preserving K2s structure (temp directory case), add k2s prefix
+                if ($PreserveK2sStructure) {
+                    $relativeFilePath = "k2s\$relativeFilePath"
+                }
+                
                 $isDirectory = (Get-Item $file) -is [System.IO.DirectoryInfo]
                 
                 if ($isDirectory) {
@@ -486,14 +495,14 @@ if ($CertificatePath) {
             }
             
             if (-not $shouldExclude) {
-                if ($file.PSIsContainer) {
-                    New-Item -Path $targetPath -ItemType Directory -Force | Out-Null
-                } else {
-                    $targetDir = Split-Path -Path $targetPath -Parent
-                    if (-not (Test-Path $targetDir)) {
-                        New-Item -Path $targetDir -ItemType Directory -Force | Out-Null
-                    }
-                    Copy-Item -Path $file.FullName -Destination $targetPath -Force
+            if ($file.PSIsContainer) {
+                New-Item -Path $targetPath -ItemType Directory -Force | Out-Null
+            } else {
+                $targetDir = Split-Path -Path $targetPath -Parent
+                if (-not (Test-Path $targetDir)) {
+                    New-Item -Path $targetDir -ItemType Directory -Force | Out-Null
+                }
+                Copy-Item -Path $file.FullName -Destination $targetPath -Force
                 }
             }
         }
