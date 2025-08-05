@@ -4,6 +4,7 @@
 package install
 
 import (
+	"context"
 	"testing"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils/tz"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 
+	"github.com/siemens-healthineers/k2s/internal/contracts/config"
 	r "github.com/siemens-healthineers/k2s/internal/reflection"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -44,7 +46,7 @@ func SetupTimezoneConfigMock() {
 	mockTimezoneConfigWorkspaceHandle := &mockTzConfigWorkspaceHandle{}
 	mockTimezoneConfigWorkspaceHandle.On(r.GetFunctionName(mockTimezoneConfigWorkspaceHandle.Release)).Return(nil)
 
-	createTzHandleFunc = func() (tz.ConfigWorkspaceHandle, error) {
+	createTzHandleFunc = func(config *config.KubeConfig) (tz.ConfigWorkspaceHandle, error) {
 		return mockTimezoneConfigWorkspaceHandle, nil
 	}
 }
@@ -66,8 +68,11 @@ var _ = Describe("install", func() {
 		})
 
 		When("successful", func() {
-			It("calls installer", func() {
+			It("calls installer", func(ctx context.Context) {
 				cmd := &cobra.Command{}
+				config := config.NewK2sConfig(config.NewHostConfig(nil, nil, "", ""), nil)
+				cmd.SetContext(context.WithValue(ctx, common.ContextKeyCmdContext, common.NewCmdContext(config, nil)))
+
 				flags := cmd.Flags()
 				flags.Bool(ic.LinuxOnlyFlagName, false, "")
 

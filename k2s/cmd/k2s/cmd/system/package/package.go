@@ -11,7 +11,8 @@ import (
 	"strconv"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
-	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
+	cconfig "github.com/siemens-healthineers/k2s/internal/contracts/config"
+	"github.com/siemens-healthineers/k2s/internal/core/config"
 	"github.com/siemens-healthineers/k2s/internal/powershell"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
@@ -88,17 +89,17 @@ func systemPackage(cmd *cobra.Command, args []string) error {
 	slog.Debug("PS command created", "command", systemPackageCommand, "params", params)
 
 	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
-	setupConfig, err := setupinfo.ReadConfig(context.Config().Host().K2sConfigDir())
+	runtimeConfig, err := config.ReadRuntimeConfig(context.Config().Host().K2sSetupConfigDir())
 	if err != nil {
-		if errors.Is(err, setupinfo.ErrSystemInCorruptedState) {
+		if errors.Is(err, cconfig.ErrSystemInCorruptedState) {
 			return common.CreateSystemInCorruptedStateCmdFailure()
 		}
 	}
-	if err == nil && setupConfig.SetupName != "" {
+	if err == nil && runtimeConfig.InstallConfig().SetupName() != "" {
 		return &common.CmdFailure{
 			Severity: common.SeverityWarning,
 			Code:     "system-already-installed",
-			Message:  fmt.Sprintf("'%s' is installed on your system. Please uninstall '%s' first and try again.", setupConfig.SetupName, setupConfig.SetupName),
+			Message:  fmt.Sprintf("'%s' is installed on your system. Please uninstall '%s' first and try again.", runtimeConfig.InstallConfig().SetupName(), runtimeConfig.InstallConfig().SetupName()),
 		}
 	}
 

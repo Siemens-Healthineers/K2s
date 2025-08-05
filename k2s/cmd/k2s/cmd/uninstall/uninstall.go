@@ -8,6 +8,9 @@ import (
 	"log/slog"
 	"strconv"
 
+	cconfig "github.com/siemens-healthineers/k2s/internal/contracts/config"
+	"github.com/siemens-healthineers/k2s/internal/core/config"
+	"github.com/siemens-healthineers/k2s/internal/definitions"
 	"github.com/siemens-healthineers/k2s/internal/powershell"
 	"github.com/siemens-healthineers/k2s/internal/version"
 
@@ -18,8 +21,6 @@ import (
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
-
-	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
 )
 
 var (
@@ -46,17 +47,17 @@ func uninstallk8s(cmd *cobra.Command, args []string) error {
 	pterm.Printfln("🤖 Uninstalling K2s %s", version)
 
 	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
-	config, err := setupinfo.ReadConfig(context.Config().Host().K2sConfigDir())
+	runtimeConfig, err := config.ReadRuntimeConfig(context.Config().Host().K2sSetupConfigDir())
 	if err != nil {
-		if errors.Is(err, setupinfo.ErrSystemNotInstalled) {
+		if errors.Is(err, cconfig.ErrSystemNotInstalled) {
 			return common.CreateSystemNotInstalledCmdFailure()
 		}
-		if !errors.Is(err, setupinfo.ErrSystemInCorruptedState) {
+		if !errors.Is(err, cconfig.ErrSystemInCorruptedState) {
 			return err
 		}
 	}
 
-	uninstallCmd, err := buildUninstallCmd(cmd.Flags(), config)
+	uninstallCmd, err := buildUninstallCmd(cmd.Flags(), runtimeConfig)
 	if err != nil {
 		return err
 	}
@@ -73,7 +74,7 @@ func uninstallk8s(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func buildUninstallCmd(flags *pflag.FlagSet, config *setupinfo.Config) (string, error) {
+func buildUninstallCmd(flags *pflag.FlagSet, config *cconfig.K2sRuntimeConfig) (string, error) {
 	skipPurgeFlag, err := strconv.ParseBool(flags.Lookup(skipPurge).Value.String())
 	if err != nil {
 		return "", err
@@ -93,18 +94,18 @@ func buildUninstallCmd(flags *pflag.FlagSet, config *setupinfo.Config) (string, 
 
 	var cmd string
 
-	switch config.SetupName {
-	case setupinfo.SetupNamek2s:
-		if config.LinuxOnly {
+	switch config.InstallConfig().SetupName() {
+	case definitions.SetupNameK2s:
+		if config.InstallConfig().LinuxOnly() {
 			cmd = buildLinuxOnlyUninstallCmd(skipPurgeFlag, outputFlag, additionalHooksDir, deleteFilesForOfflineInstallation)
 		} else {
 			cmd = buildk2sUninstallCmd(skipPurgeFlag, outputFlag, additionalHooksDir, deleteFilesForOfflineInstallation)
 		}
-	case setupinfo.SetupNameBuildOnlyEnv:
+	case definitions.SetupNameBuildOnlyEnv:
 		cmd = buildBuildOnlyUninstallCmd(outputFlag, deleteFilesForOfflineInstallation)
 
 	default:
-		slog.Warn("Uninstall", "Found invalid setup type", string(config.SetupName))
+		slog.Warn("Uninstall", "Found invalid setup type", config.InstallConfig().SetupName())
 		pterm.Warning.Printfln("could not determine the setup type, proceeding uninstall with default variant 'k2s'")
 		cmd = buildk2sUninstallCmd(skipPurgeFlag, outputFlag, additionalHooksDir, deleteFilesForOfflineInstallation)
 	}

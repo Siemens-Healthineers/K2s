@@ -8,6 +8,8 @@ import (
 	"log/slog"
 	"strconv"
 
+	contracts "github.com/siemens-healthineers/k2s/internal/contracts/config"
+
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -16,11 +18,13 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/status"
+	cconfig "github.com/siemens-healthineers/k2s/internal/contracts/config"
+	"github.com/siemens-healthineers/k2s/internal/definitions"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 
 	cc "github.com/siemens-healthineers/k2s/internal/core/clusterconfig"
-	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
+	"github.com/siemens-healthineers/k2s/internal/core/config"
 	"github.com/siemens-healthineers/k2s/internal/powershell"
 )
 
@@ -52,27 +56,27 @@ func startk8s(ccmd *cobra.Command, args []string) error {
 	}
 
 	context := ccmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
-	config, err := setupinfo.ReadConfig(context.Config().Host().K2sConfigDir())
+	runtimeConfig, err := config.ReadRuntimeConfig(context.Config().Host().K2sSetupConfigDir())
 	if err != nil {
-		if errors.Is(err, setupinfo.ErrSystemInCorruptedState) {
+		if errors.Is(err, cconfig.ErrSystemInCorruptedState) {
 			return common.CreateSystemInCorruptedStateCmdFailure()
 		}
-		if errors.Is(err, setupinfo.ErrSystemNotInstalled) {
+		if errors.Is(err, cconfig.ErrSystemNotInstalled) {
 			return common.CreateSystemNotInstalledCmdFailure()
 		}
 		return err
 	}
 
-	if err := context.EnsureK2sK8sContext(config.ClusterName); err != nil {
+	if err := context.EnsureK2sK8sContext(runtimeConfig.ClusterConfig().Name()); err != nil {
 		return err
 	}
 
-	startCmd, err := buildStartCmd(ccmd.Flags(), config)
+	startCmd, err := buildStartCmd(ccmd.Flags(), runtimeConfig)
 	if err != nil {
 		return err
 	}
 
-	tzConfigHandle, err := createTimezoneConfigHandle()
+	tzConfigHandle, err := createTimezoneConfigHandle(context.Config().Host().KubeConfig())
 	if err != nil {
 		return err
 	}
@@ -85,7 +89,7 @@ func startk8s(ccmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	err = startAdditionalNodes(context, ccmd.Flags(), config)
+	err = startAdditionalNodes(context, ccmd.Flags(), runtimeConfig)
 	if err != nil {
 		// Start of additional nodes shall not impact the k2s cluster, any errors during startup should be treated as warnings.
 		slog.Warn("Failures during starting of additional nodes", "err", err)
@@ -96,8 +100,8 @@ func startk8s(ccmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func startAdditionalNodes(context *common.CmdContext, flags *pflag.FlagSet, config *setupinfo.Config) error {
-	clusterConfig, err := cc.Read(context.Config().Host().K2sConfigDir())
+func startAdditionalNodes(context *common.CmdContext, flags *pflag.FlagSet, config *cconfig.K2sRuntimeConfig) error {
+	clusterConfig, err := cc.Read(context.Config().Host().K2sSetupConfigDir())
 	if err != nil {
 		return err
 	}
@@ -185,7 +189,7 @@ func buildNodeStartCmd(flags *pflag.FlagSet, nodeConfig cc.Node) string {
 	return cmd
 }
 
-func buildStartCmd(flags *pflag.FlagSet, config *setupinfo.Config) (string, error) {
+func buildStartCmd(flags *pflag.FlagSet, config *cconfig.K2sRuntimeConfig) (string, error) {
 	outputFlag, err := strconv.ParseBool(flags.Lookup(common.OutputFlagName).Value.String())
 	if err != nil {
 		return "", err
@@ -200,14 +204,14 @@ func buildStartCmd(flags *pflag.FlagSet, config *setupinfo.Config) (string, erro
 
 	var cmd string
 
-	switch config.SetupName {
-	case setupinfo.SetupNamek2s:
-		if config.LinuxOnly {
+	switch config.InstallConfig().SetupName() {
+	case definitions.SetupNameK2s:
+		if config.InstallConfig().LinuxOnly() {
 			cmd = buildLinuxOnlyStartCmd(outputFlag, additionalHooksDir)
 		} else {
 			cmd = buildk2sStartCmd(outputFlag, additionalHooksDir, autouseCachedVSwitch)
 		}
-	case setupinfo.SetupNameBuildOnlyEnv:
+	case definitions.SetupNameBuildOnlyEnv:
 		return "", errors.New("there is no cluster to start in build-only setup mode ;-). Aborting")
 	default:
 		return "", errors.New("could not determine the setup type, aborting. If you are sure you have a K2s setup installed, call the correct start script directly")
@@ -248,8 +252,8 @@ func buildLinuxOnlyStartCmd(showLogs bool, additionalHooksDir string) string {
 	return cmd
 }
 
-func createTimezoneConfigHandle() (tz.ConfigWorkspaceHandle, error) {
-	tzConfigWorkspace, err := tz.NewTimezoneConfigWorkspace()
+func createTimezoneConfigHandle(config *contracts.KubeConfig) (tz.ConfigWorkspaceHandle, error) {
+	tzConfigWorkspace, err := tz.NewTimezoneConfigWorkspace(config)
 	if err != nil {
 		return nil, err
 	}

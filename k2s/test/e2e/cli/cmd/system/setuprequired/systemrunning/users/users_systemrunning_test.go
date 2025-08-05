@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2025 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package users_test
@@ -17,17 +17,15 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/siemens-healthineers/k2s/internal/cli"
-	"github.com/siemens-healthineers/k2s/internal/core/users"
-	"github.com/siemens-healthineers/k2s/internal/core/users/winusers"
-	"github.com/siemens-healthineers/k2s/internal/os"
+	contracts "github.com/siemens-healthineers/k2s/internal/contracts/users"
+	"github.com/siemens-healthineers/k2s/internal/providers/winusers"
+	integration "github.com/siemens-healthineers/k2s/internal/users"
 	"github.com/siemens-healthineers/k2s/test/framework"
 )
 
-type ginkgoWriter struct{}
-
 type winUserProvider struct {
-	findByName func(name string) (*winusers.User, error)
-	getCurrent func() (*winusers.User, error)
+	findByName func(name string) (*contracts.OSUser, error)
+	getCurrent func() (*contracts.OSUser, error)
 }
 
 const systemUserId = "S-1-5-18"
@@ -35,27 +33,15 @@ const systemUserName = "NT AUTHORITY\\SYSTEM"
 
 var suite *framework.K2sTestSuite
 
-func (gw *ginkgoWriter) WriteStdOut(message string) {
-	GinkgoWriter.Println(message)
-}
-
-func (gw *ginkgoWriter) WriteStdErr(message string) {
-	GinkgoWriter.Println(message)
-}
-
-func (gw *ginkgoWriter) Flush() {
-	// stub
-}
-
-func (p *winUserProvider) FindByName(name string) (*winusers.User, error) {
+func (p *winUserProvider) FindByName(name string) (*contracts.OSUser, error) {
 	return p.findByName(name)
 }
 
-func (p *winUserProvider) FindById(id string) (*winusers.User, error) {
+func (p *winUserProvider) FindById(id string) (*contracts.OSUser, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (p *winUserProvider) Current() (*winusers.User, error) {
+func (p *winUserProvider) CurrentUser() (*contracts.OSUser, error) {
 	return p.getCurrent()
 }
 
@@ -66,6 +52,7 @@ func TestUsers(t *testing.T) {
 
 var _ = BeforeSuite(func(ctx context.Context) {
 	suite = framework.Setup(ctx, framework.SystemMustBeRunning, framework.ClusterTestStepPollInterval(100*time.Millisecond))
+
 	slog.SetDefault(slog.New(logr.ToSlogHandler(GinkgoLogr)))
 })
 
@@ -75,7 +62,7 @@ var _ = AfterSuite(func(ctx context.Context) {
 
 var _ = Describe("system users add", Ordered, func() {
 	When("user is SYSTEM user", func() {
-		var userProvider *winUserProvider
+		var userProvider integration.UsersProvider
 		var expectedKeyPath string
 		var expectedRemoteUser string
 
@@ -86,21 +73,18 @@ var _ = Describe("system users add", Ordered, func() {
 			expectedRemoteUser = "remote@" + suite.SetupInfo().Config.ControlPlane().IpAddress()
 			expectedKeyPath = filepath.Join(fakeHomeDir, `.ssh\k2s\id_rsa`)
 
-			systemUserWithFakeHomeDir := winusers.NewUser(systemUserId, systemUserName, fakeHomeDir)
+			systemUserWithFakeHomeDir := contracts.NewOSUser(systemUserId, systemUserName, fakeHomeDir)
 
 			userProvider = &winUserProvider{
-				findByName: func(_ string) (*winusers.User, error) { return systemUserWithFakeHomeDir, nil },
-				getCurrent: winusers.NewWinUserProvider().Current,
+				findByName: func(_ string) (*contracts.OSUser, error) { return systemUserWithFakeHomeDir, nil },
+				getCurrent: winusers.Current,
 			}
 		})
 
 		It("grants Windows SYSTEM user access to K2s", MustPassRepeatedly(2), func(ctx context.Context) {
-			sut, err := users.NewUsersManagement(suite.SetupInfo().Config, os.NewCmdExecutor(&ginkgoWriter{}), userProvider, suite.RootDir(), suite.SetupInfo().SetupConfig.ClusterName)
+			sut := integration.NewAddUserIntegration(&suite.SetupInfo().Config, &suite.SetupInfo().RuntimeConfig, userProvider)
 
-			Expect(err).ToNot(HaveOccurred())
-			Expect(sut).ToNot(BeNil())
-
-			Expect(sut.AddUserByName(systemUserName)).To(Succeed())
+			Expect(sut.AddByName(systemUserName)).To(Succeed())
 
 			output := suite.Cli().ExecOrFail(ctx, "ssh.exe", "-n", "-o", "StrictHostKeyChecking=no", "-i", expectedKeyPath, expectedRemoteUser, "echo 'SSH access test successful'")
 
@@ -141,8 +125,7 @@ var _ = Describe("system users add", Ordered, func() {
 
 			Expect(output).To(SatisfyAll(
 				ContainSubstring("ERROR"),
-				ContainSubstring("cannot overwrite"),
-				ContainSubstring("current Windows user"),
+				ContainSubstring("cannot overwrite access of current user"),
 				ContainSubstring(currentUser.Uid),
 				ContainSubstring(currentUser.Username),
 			))

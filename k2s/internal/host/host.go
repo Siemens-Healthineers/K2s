@@ -15,11 +15,12 @@ import (
 // Note: This string has already the backslash '\' attached, because Go's filepath.Join() would otherwise not be able to correctly join the drive and other path components
 // (see https://github.com/golang/go/issues/26953).
 func SystemDrive() string {
+	// TODO: move to windows package
 	return "C:\\"
 }
 
-// ResolveTildePrefix replaces the leading tilde ('~') in the given path with the current user's home directory.
-func ResolveTildePrefix(path string) (string, error) {
+// ResolveTildePrefixForCurrentUser replaces the leading tilde ('~') in the given path with the current user's home directory.
+func ResolveTildePrefixForCurrentUser(path string) (string, error) {
 	if !strings.HasPrefix(path, "~") {
 		return path, nil
 	}
@@ -28,5 +29,10 @@ func ResolveTildePrefix(path string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to determine user home dir: %w", err)
 	}
-	return filepath.Clean(strings.Replace(path, "~", homeDir, 1)), nil
+	return ResolveTildePrefix(path, homeDir), nil
+}
+
+// ResolveTildePrefix replaces the first tilde ('~') in the given path with the given path for replacement.
+func ResolveTildePrefix(pathWithTilde, pathToReplaceTildeWith string) string {
+	return filepath.Clean(strings.Replace(pathWithTilde, "~", pathToReplaceTildeWith, 1))
 }

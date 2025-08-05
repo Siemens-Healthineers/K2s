@@ -37,7 +37,7 @@ func TestRollout(t *testing.T) {
 
 var _ = BeforeSuite(func(ctx context.Context) {
 	suite = framework.Setup(ctx, framework.SystemMustBeRunning, framework.EnsureAddonsAreDisabled, framework.ClusterTestStepTimeout(testClusterTimeout))
-	linuxOnly = suite.SetupInfo().SetupConfig.LinuxOnly
+	linuxOnly = suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly()
 })
 
 var _ = AfterSuite(func(ctx context.Context) {
