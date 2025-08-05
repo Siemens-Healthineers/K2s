@@ -9,14 +9,13 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/status"
 
-	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
-
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	"github.com/siemens-healthineers/k2s/internal/cli"
+	"github.com/siemens-healthineers/k2s/internal/contracts/config"
 	"github.com/siemens-healthineers/k2s/test/framework"
 )
 
@@ -62,7 +61,7 @@ var _ = Describe("status", Ordered, func() {
 		})
 
 		It("contains system-not-installed info", func() {
-			Expect(*status.Error).To(Equal(setupinfo.ErrSystemNotInstalled.Error()))
+			Expect(*status.Error).To(Equal(config.ErrSystemNotInstalled.Error()))
 		})
 
 		It("does not contain any other info", func() {
