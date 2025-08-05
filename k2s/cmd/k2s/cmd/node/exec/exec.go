@@ -9,16 +9,18 @@ import (
 	"time"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
-	"github.com/siemens-healthineers/k2s/internal/core/node"
-	"github.com/siemens-healthineers/k2s/internal/core/node/ssh"
-	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
+	cconfig "github.com/siemens-healthineers/k2s/internal/contracts/config"
+	cssh "github.com/siemens-healthineers/k2s/internal/contracts/ssh"
+	"github.com/siemens-healthineers/k2s/internal/core/config"
+	"github.com/siemens-healthineers/k2s/internal/definitions"
+	"github.com/siemens-healthineers/k2s/internal/providers/ssh"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
 
 type cmdOptions struct {
 	cmd               string
-	connectionOptions ssh.ConnectionOptions
+	connectionOptions cssh.ConnectionOptions
 	rawOutput         bool
 }
 
@@ -55,8 +57,8 @@ func NewCmd() *cobra.Command {
 	cmd.MarkFlagRequired(usernameFlag)
 	cmd.MarkFlagRequired(commandFlag)
 
-	cmd.Flags().Uint16P(portFlag, "p", ssh.DefaultPort, "Port for remote connection")
-	cmd.Flags().String(timeoutFlag, ssh.DefaultTimeout.String(), "Connection timeout, e.g. '1m20s', allowed time units are 'ns', 'us' (or 'µs'), 'ms', 's', 'm', 'h'")
+	cmd.Flags().Uint16P(portFlag, "p", definitions.SSHDefaultPort, "Port for remote connection")
+	cmd.Flags().String(timeoutFlag, definitions.SSHDefaultTimeout.String(), "Connection timeout, e.g. '1m20s', allowed time units are 'ns', 'us' (or 'µs'), 'ms', 's', 'm', 'h'")
 	cmd.Flags().BoolP(rawFlag, "r", false, "Print only the remote output, no other information")
 
 	cmd.Flags().SortFlags = false
@@ -72,21 +74,21 @@ func exec(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to extract exec options: %w", err)
 	}
 
-	config := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext).Config()
-	_, err = setupinfo.ReadConfig(config.Host().K2sConfigDir())
+	k2sConfig := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext).Config()
+	_, err = config.ReadRuntimeConfig(k2sConfig.Host().K2sSetupConfigDir())
 	if err != nil {
-		if errors.Is(err, setupinfo.ErrSystemNotInstalled) {
+		if errors.Is(err, cconfig.ErrSystemNotInstalled) {
 			return common.CreateSystemNotInstalledCmdFailure()
 		}
-		if errors.Is(err, setupinfo.ErrSystemInCorruptedState) {
+		if errors.Is(err, cconfig.ErrSystemInCorruptedState) {
 			return common.CreateSystemInCorruptedStateCmdFailure()
 		}
 		return fmt.Errorf("failed to read setup config: %w", err)
 	}
 
-	cmdOptions.connectionOptions.SshKeyPath = ssh.SshKeyPath(config.Host().SshDir())
+	cmdOptions.connectionOptions.SshPrivateKeyPath = k2sConfig.Host().SshConfig().CurrentPrivateKeyPath()
 
-	err = node.Exec(cmdOptions.cmd, cmdOptions.connectionOptions)
+	err = ssh.Exec(cmdOptions.cmd, cmdOptions.connectionOptions)
 	if err != nil {
 		return fmt.Errorf("failed to exec: %w", err)
 	}
@@ -134,7 +136,7 @@ func extractOptions(flags *pflag.FlagSet) (*cmdOptions, error) {
 
 	return &cmdOptions{
 		cmd: command,
-		connectionOptions: ssh.ConnectionOptions{
+		connectionOptions: cssh.ConnectionOptions{
 			IpAddress:  ipAddress,
 			RemoteUser: username,
 			Timeout:    timeout,

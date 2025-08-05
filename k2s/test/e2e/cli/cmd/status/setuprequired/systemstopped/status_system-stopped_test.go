@@ -8,8 +8,6 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/status"
 
-	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
-
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -47,7 +45,7 @@ var _ = Describe("status", Ordered, func() {
 		})
 
 		It("prints setup", func(ctx context.Context) {
-			Expect(output).To(MatchRegexp("Setup: .+%s.+,", suite.SetupInfo().SetupConfig.SetupName))
+			Expect(output).To(MatchRegexp("Setup: .+%s.+,", suite.SetupInfo().RuntimeConfig.InstallConfig().SetupName()))
 		})
 
 		It("prints version", func(ctx context.Context) {
@@ -76,7 +74,7 @@ var _ = Describe("status", Ordered, func() {
 		})
 
 		It("prints setup", func(ctx context.Context) {
-			Expect(output).To(MatchRegexp("Setup: .+%s.+,", suite.SetupInfo().SetupConfig.SetupName))
+			Expect(output).To(MatchRegexp("Setup: .+%s.+,", suite.SetupInfo().RuntimeConfig.InstallConfig().SetupName()))
 		})
 
 		It("prints version", func(ctx context.Context) {
@@ -103,9 +101,9 @@ var _ = Describe("status", Ordered, func() {
 		})
 
 		It("contains setup info", func() {
-			Expect(setupinfo.SetupName(status.SetupInfo.Name)).To(Equal(suite.SetupInfo().SetupConfig.SetupName))
+			Expect(status.SetupInfo.Name).To(Equal(suite.SetupInfo().RuntimeConfig.InstallConfig().SetupName()))
 			Expect(status.SetupInfo.Version).To(MatchRegexp(regex.VersionRegex))
-			Expect(status.SetupInfo.LinuxOnly).To(Equal(suite.SetupInfo().SetupConfig.LinuxOnly))
+			Expect(status.SetupInfo.LinuxOnly).To(Equal(suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly()))
 		})
 
 		It("contains running state", func() {
