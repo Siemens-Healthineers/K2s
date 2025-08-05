@@ -190,6 +190,10 @@ function New-ZipArchive() {
     
     Write-Log "Creating ZIP archive: $TargetPath from base directory: $BaseDirectory" -Console
     
+    # Normalize the base directory to its full path to avoid 8.3 vs long name issues
+    $normalizedBaseDirectory = (Get-Item $BaseDirectory).FullName
+    Write-Log "BaseDirectory normalized: $normalizedBaseDirectory" -Console
+    
     $files = Get-ChildItem -Path $BaseDirectory -Force -Recurse | ForEach-Object { $_.FullName }
     Write-Log "Found $($files.Count) total files and directories to process" -Console
     
@@ -228,7 +232,31 @@ function New-ZipArchive() {
                     continue
                 }
 
-                $relativeFilePath = $file.Replace("$BaseDirectory\", '')
+                $relativeFilePath = $file.Replace("$normalizedBaseDirectory\", '')
+                
+                # Debug: Check if the replacement worked properly
+                if ($relativeFilePath -eq $file) {
+                    # Replacement didn't work, try alternative method
+                    Write-Log "WARNING: Standard replacement failed for file: $file" -Console
+                    Write-Log "BaseDirectory: $normalizedBaseDirectory" -Console
+                    
+                    # Try using Resolve-Path or manual substring
+                    try {
+                        $filePathResolved = (Resolve-Path $file).Path
+                        if ($filePathResolved.StartsWith($normalizedBaseDirectory)) {
+                            $relativeFilePath = $filePathResolved.Substring($normalizedBaseDirectory.Length).TrimStart('\')
+                            Write-Log "Alternative method worked. Relative path: $relativeFilePath" -Console
+                        } else {
+                            Write-Log "ERROR: File path doesn't start with base directory!" -Error
+                            Write-Log "File: $filePathResolved" -Error
+                            Write-Log "Base: $normalizedBaseDirectory" -Error
+                            continue
+                        }
+                    } catch {
+                        Write-Log "ERROR: Could not resolve paths for relative calculation: $_" -Error
+                        continue
+                    }
+                }
                 
                 # If preserving K2s structure (temp directory case), add k2s prefix
                 if ($PreserveK2sStructure) {
@@ -561,7 +589,7 @@ if ($CertificatePath) {
         }
         
         # Use signed files from temporary directory for ZIP creation
-        New-ZipArchive -ExclusionList @() -BaseDirectory $tempSigningPath -TargetPath "$zipPackagePath"
+        New-ZipArchive -ExclusionList @() -BaseDirectory $tempSigningPath -TargetPath "$zipPackagePath" -PreserveK2sStructure $true
         
     } catch {
         Write-Log "Error during code signing: $_" -Error
