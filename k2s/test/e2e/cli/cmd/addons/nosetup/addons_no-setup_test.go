@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/addons/status"
+	"github.com/siemens-healthineers/k2s/internal/contracts/config"
 	"github.com/siemens-healthineers/k2s/internal/core/addons"
-	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -94,7 +94,7 @@ var _ = Describe("addons commands", func() {
 
 						Expect(status.Enabled).To(BeNil())
 						Expect(status.Name).To(Equal(addon.Metadata.Name))
-						Expect(*status.Error).To(Equal(setupinfo.ErrSystemNotInstalled.Error()))
+						Expect(*status.Error).To(Equal(config.ErrSystemNotInstalled.Error()))
 						Expect(status.Props).To(BeEmpty())
 					}
 				}

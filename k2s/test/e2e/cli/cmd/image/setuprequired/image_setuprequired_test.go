@@ -47,7 +47,7 @@ var _ = Describe("image", func() {
 	Describe("rm", Label("rm", "invasive"), func() {
 		When("functionality is not supported in setup type", func() {
 			It("fails", func(ctx context.Context) {
-				if !suite.SetupInfo().SetupConfig.LinuxOnly {
+				if !suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
 					Skip("setup type must be Linux-only")
 				}
 
@@ -60,7 +60,7 @@ var _ = Describe("image", func() {
 		When("functionality is supported in setup type", func() {
 			When("wrong K8s context is in use", func() {
 				BeforeEach(func(ctx context.Context) {
-					if suite.SetupInfo().SetupConfig.LinuxOnly {
+					if suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
 						Skip("setup type must not be Linux-only")
 					}
 

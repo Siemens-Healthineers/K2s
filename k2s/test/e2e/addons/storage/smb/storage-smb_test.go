@@ -85,7 +85,7 @@ var _ = BeforeSuite(func(ctx context.Context) {
 		framework.ClusterTestStepTimeout(testClusterTimeout),
 		framework.ClusterTestStepPollInterval(testStepPollInterval))
 
-	skipWindowsWorkloads = suite.SetupInfo().SetupConfig.LinuxOnly
+	skipWindowsWorkloads = suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly()
 
 	GinkgoWriter.Println("Creating namespace <", namespace, "> on cluster..")
 

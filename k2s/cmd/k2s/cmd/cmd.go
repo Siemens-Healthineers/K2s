@@ -53,7 +53,7 @@ func CreateRootCmd(logger *logging.Slogger) (*cobra.Command, error) {
 
 			// TODO: always load setup config and determine PS version?
 
-			config, err := config.LoadConfig(utils.InstallDir())
+			config, err := config.ReadK2sConfig(utils.InstallDir())
 			if err != nil {
 				return err
 			}
