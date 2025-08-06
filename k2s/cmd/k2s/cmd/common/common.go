@@ -261,7 +261,7 @@ func (c *CmdContext) Config() *config.K2sConfig { return c.config }
 func (c *CmdContext) Logger() *logging.Slogger { return c.logger }
 
 func (c *CmdContext) EnsureK2sK8sContext(clusterName string) error {
-	slog.Debug("Ensuring correct K8s context")
+	slog.Debug("Ensuring correct K8s context", "cluster-name", clusterName)
 
 	k8sContext, err := k8s.ReadContext(c.config.Host().KubeConfig().CurrentDir(), clusterName)
 	if err != nil {
