@@ -29,12 +29,18 @@ k2s system package --target-dir "C:\tmp" --name "k2sZipFilePackage.zip"
 # Creates K2s package for offline installation
 k2s system package --target-dir "C:\tmp" --name "k2sZipFilePackage.zip" --for-offline-installation
 
+# Creates K2s package with code signing (certificate and password are both required)
+k2s system package --target-dir "C:\tmp" --name "k2sZipFilePackage.zip" --certificate "path\to\cert.pfx" --password "mycertpassword"
+
+# Creates K2s package for offline installation with code signing
+k2s system package --target-dir "C:\tmp" --name "k2sZipFilePackage.zip" --for-offline-installation --certificate "path\to\cert.pfx" --password "mycertpassword"
+
 Note: If offline artifacts are not already available due to previous installation, a 'Development Only Variant' will be installed during package creation and removed afterwards again
 `
 
 	PackageCmd = &cobra.Command{
 		Use:     "package",
-		Short:   "Build K2s zip package",
+		Short:   "Build K2s zip package with optional code signing",
 		RunE:    systemPackage,
 		Example: example,
 	}
@@ -64,6 +70,13 @@ const (
 
 	K8sBinsFlagName  = "k8s-bins"
 	K8sBinsFlagUsage = "Path to directory of locally built Kubernetes binaries (kubelet.exe, kube-proxy.exe, kubeadm.exe, kubectl.exe)"
+
+	// Code signing flags
+	CertificateFlagName = "certificate"
+	CertificateFlagUsage = "Path to code signing certificate (.pfx file)"
+	
+	PasswordFlagName  = "password"
+	PasswordFlagUsage = "Password for the code signing certificate"
 )
 
 func init() {
@@ -75,6 +88,11 @@ func init() {
 	PackageCmd.Flags().StringP(ZipPackageFileNameFlagName, "n", "", ZipPackageFileNameFlagUsage)
 	PackageCmd.Flags().Bool(ForOfflineInstallationFlagName, false, ForOfflineInstallationFlagUsage)
 	PackageCmd.Flags().String(K8sBinsFlagName, "", K8sBinsFlagUsage)
+	
+	// Code signing flags
+	PackageCmd.Flags().StringP(CertificateFlagName, "c", "", CertificateFlagUsage)
+	PackageCmd.Flags().StringP(PasswordFlagName, "w", "", PasswordFlagUsage)
+	
 	PackageCmd.Flags().SortFlags = false
 	PackageCmd.Flags().PrintDefaults()
 }
@@ -165,6 +183,20 @@ func buildSystemPackageCmd(flags *pflag.FlagSet) (string, []string, error) {
 	k8sBins := flags.Lookup(K8sBinsFlagName).Value.String()
 	if k8sBins != "" {
 		params = append(params, fmt.Sprintf(" -K8sBinsPath '%s'", k8sBins))
+	}
+
+	// Code signing parameters
+	certPath := flags.Lookup(CertificateFlagName).Value.String()
+	password := flags.Lookup(PasswordFlagName).Value.String()
+	
+	if certPath != "" {
+		if password == "" {
+			return "", nil, fmt.Errorf("password is required when using a certificate")
+		}
+		params = append(params, " -CertificatePath "+utils.EscapeWithSingleQuotes(certPath))
+		params = append(params, " -Password "+utils.EscapeWithSingleQuotes(password))
+	} else if password != "" {
+		return "", nil, fmt.Errorf("certificate is required when providing a password")
 	}
 
 	return systemPackageCommand, params, nil
