@@ -183,9 +183,7 @@ function New-ZipArchive() {
         [parameter(Mandatory = $true)]
         [string] $BaseDirectory,
         [parameter(Mandatory = $true)]
-        [string] $TargetPath,
-        [parameter(Mandatory = $false)]
-        [bool] $PreserveK2sStructure = $false
+        [string] $TargetPath
     )
     
     Write-Log "Creating ZIP archive: $TargetPath from base directory: $BaseDirectory" -Console
@@ -256,11 +254,6 @@ function New-ZipArchive() {
                         Write-Log "ERROR: Could not resolve paths for relative calculation: $_" -Error
                         continue
                     }
-                }
-                
-                # If preserving K2s structure (temp directory case), add k2s prefix
-                if ($PreserveK2sStructure) {
-                    $relativeFilePath = "k2s\$relativeFilePath"
                 }
                 
                 $isDirectory = (Get-Item $file) -is [System.IO.DirectoryInfo]
@@ -589,7 +582,7 @@ if ($CertificatePath) {
         }
         
         # Use signed files from temporary directory for ZIP creation
-        New-ZipArchive -ExclusionList @() -BaseDirectory $tempSigningPath -TargetPath "$zipPackagePath" -PreserveK2sStructure $true
+        New-ZipArchive -ExclusionList @() -BaseDirectory $tempSigningPath -TargetPath "$zipPackagePath"
         
     } catch {
         Write-Log "Error during code signing: $_" -Error
