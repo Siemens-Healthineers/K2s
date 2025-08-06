@@ -22,9 +22,11 @@ $ErrorActionPreference = 'Stop'
 Signs all K2s executables and PowerShell scripts in a directory
 
 .DESCRIPTION
-Recursively finds and signs all PowerShell scripts (.ps1, .psm1) and executable files (.exe)
-in the specified directory using the provided certificate. The certificate will be imported
-to the LocalMachine\My store if not already present.
+Recursively finds and signs all PowerShell scripts (.ps1, .psm1), executable files (.exe, .dll), 
+and installer packages (.msi) in the specified directory using the provided certificate. 
+The certificate will be imported to the LocalMachine\My store if not already present.
+
+Note: CMD and BAT files cannot be Authenticode signed as they are plain text files.
 
 .PARAMETER SourcePath
 Root directory to search for files to sign
@@ -130,8 +132,10 @@ function Set-K2sFileSignature {
 Gets a list of files that can be code signed
 
 .DESCRIPTION
-Recursively searches a directory for PowerShell scripts and executable files
-that can be code signed, excluding specified paths.
+Recursively searches a directory for PowerShell scripts, executable files, dynamic libraries,
+and installer packages that can be Authenticode signed, excluding specified paths.
+
+Note: CMD and BAT files are excluded as they cannot be Authenticode signed.
 
 .PARAMETER Path
 Root directory to search
@@ -153,14 +157,13 @@ function Get-SignableFiles {
         throw "Path does not exist: $Path"
     }
 
-    # Extensions of files that can be signed
+    # Extensions of files that can be Authenticode signed
+    # Note: CMD and BAT files are plain text and cannot be Authenticode signed
     $signableExtensions = @(
         '*.ps1',    # PowerShell scripts
         '*.psm1',   # PowerShell modules  
         '*.exe',    # Executables
         '*.dll',    # Dynamic libraries
-        '*.cmd',    # Command scripts
-        '*.bat',    # Batch scripts
         '*.msi'     # Installer packages
     )
     
