@@ -346,4 +346,4 @@ Invoke-Pester -Output Detailed .\lib\modules\k2s\k2s.signing.module\k2s.signing.
 
 The unit tests serve as both validation and documentation of proper mocking techniques for external dependencies like certificate operations, file system access, and external tool execution.
 
-For detailed information about PowerShell module unit testing best practices, see [Automated Testing](../dev-guide/contributing/automated-testing.md#powershell-module-unit-testing-best-practices).
+For detailed information about PowerShell module unit testing best practices, see [Automated Testing with Pester](../dev-guide/contributing/automated-testing.md#automated-testing-with-pester).
