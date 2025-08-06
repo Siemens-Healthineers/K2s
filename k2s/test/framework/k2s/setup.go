@@ -11,40 +11,41 @@ import (
 
 	//lint:ignore ST1001 test framework code
 	. "github.com/onsi/gomega"
+	cconfig "github.com/siemens-healthineers/k2s/internal/contracts/config"
 	"github.com/siemens-healthineers/k2s/internal/core/clusterconfig"
 	"github.com/siemens-healthineers/k2s/internal/core/config"
-	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
+	"github.com/siemens-healthineers/k2s/internal/definitions"
 )
 
 type SetupInfo struct {
-	Config        config.ConfigReader
-	SetupConfig   setupinfo.Config
+	Config        cconfig.K2sConfig
+	RuntimeConfig cconfig.K2sRuntimeConfig
 	ClusterConfig *clusterconfig.Cluster
 	WinNodeName   string
 }
 
 func CreateSetupInfo(installDir string) *SetupInfo {
-	config, err := config.LoadConfig(installDir)
+	config, err := config.ReadK2sConfig(installDir)
 	Expect(err).ToNot(HaveOccurred())
 
 	return &SetupInfo{
-		Config: config,
+		Config: *config,
 	}
 }
 
 func (si *SetupInfo) LoadSetupConfig() {
-	setupConfig, err := setupinfo.ReadConfig(si.Config.Host().K2sConfigDir())
+	runtimeConfig, err := config.ReadRuntimeConfig(si.Config.Host().K2sSetupConfigDir())
 	Expect(err).ToNot(HaveOccurred())
 
-	winNodeName, err := getWinNodeName(setupConfig.SetupName)
+	winNodeName, err := getWinNodeName(runtimeConfig.InstallConfig().SetupName())
 	Expect(err).ToNot(HaveOccurred())
 
 	si.WinNodeName = winNodeName
-	si.SetupConfig = *setupConfig
+	si.RuntimeConfig = *runtimeConfig
 }
 
 func (si *SetupInfo) LoadClusterConfig() {
-	clusterConfig, err := clusterconfig.Read(si.Config.Host().K2sConfigDir())
+	clusterConfig, err := clusterconfig.Read(si.Config.Host().K2sSetupConfigDir())
 	Expect(err).ToNot(HaveOccurred())
 
 	if clusterConfig != nil {
@@ -67,9 +68,9 @@ func (si *SetupInfo) GetProxyForNode(nodeName string) string {
 	return proxy
 }
 
-func getWinNodeName(setupName setupinfo.SetupName) (string, error) {
+func getWinNodeName(setupName string) (string, error) {
 	switch setupName {
-	case setupinfo.SetupNamek2s:
+	case definitions.SetupNameK2s:
 		name, err := os.Hostname()
 		if err != nil {
 			return "", err

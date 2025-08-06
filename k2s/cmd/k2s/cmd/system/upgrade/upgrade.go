@@ -5,7 +5,9 @@ package upgrade
 
 import (
 	"errors"
+	"io/fs"
 	"log/slog"
+	"os"
 	"path/filepath"
 	"strconv"
 	"time"
@@ -16,13 +18,14 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils/logging"
+	"github.com/siemens-healthineers/k2s/internal/core/config"
+	"github.com/siemens-healthineers/k2s/internal/definitions"
 	bl "github.com/siemens-healthineers/k2s/internal/logging"
-	"github.com/siemens-healthineers/k2s/internal/os"
+	kos "github.com/siemens-healthineers/k2s/internal/os"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils"
 
-	"github.com/siemens-healthineers/k2s/internal/core/config"
-	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
+	cconfig "github.com/siemens-healthineers/k2s/internal/contracts/config"
 	"github.com/siemens-healthineers/k2s/internal/powershell"
 )
 
@@ -63,7 +66,7 @@ const (
 	defaultProxy       = ""
 	skipImages         = "skip-images"
 	backupDir          = "backup-dir"
-	force          	   = "force"
+	force              = "force"
 	defaultBackupDir   = ""
 )
 
@@ -103,21 +106,22 @@ func upgradeCluster(cmd *cobra.Command, args []string) error {
 
 	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
 
-	config, err := readConfigLegacyAware(context.Config())
+	runtimeConfig, err := readConfigLegacyAware(context.Config())
 	if err != nil {
-		if errors.Is(err, setupinfo.ErrSystemInCorruptedState) {
+		if errors.Is(err, cconfig.ErrSystemInCorruptedState) {
 			return common.CreateSystemInCorruptedStateCmdFailure()
 		}
-		if errors.Is(err, setupinfo.ErrSystemNotInstalled) {
+		if errors.Is(err, cconfig.ErrSystemNotInstalled) {
 			return common.CreateSystemNotInstalledCmdFailure()
 		}
 		return err
 	}
 
-	if config.LinuxOnly {
+	if runtimeConfig.InstallConfig().LinuxOnly() {
 		return common.CreateFuncUnavailableForLinuxOnlyCmdFailure()
 	}
-	if err := context.EnsureK2sK8sContext(); err != nil {
+
+	if err := context.EnsureK2sK8sContext(runtimeConfig.ClusterConfig().Name()); err != nil {
 		return err
 	}
 
@@ -146,43 +150,43 @@ func upgradeCluster(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func readConfigLegacyAware(cfg config.ConfigReader) (*setupinfo.Config, error) {
-	slog.Info("Trying to read the config file", "config-dir", cfg.Host().K2sConfigDir())
+func readConfigLegacyAware(k2sConfig *cconfig.K2sConfig) (*cconfig.K2sRuntimeConfig, error) {
+	slog.Info("Trying to read the config file", "config-dir", k2sConfig.Host().K2sSetupConfigDir())
 
-	config, err := setupinfo.ReadConfig(cfg.Host().K2sConfigDir())
+	runtimeConfig, err := config.ReadRuntimeConfig(k2sConfig.Host().K2sSetupConfigDir())
 	if err != nil {
-		if !errors.Is(err, setupinfo.ErrSystemNotInstalled) {
+		if !errors.Is(err, cconfig.ErrSystemNotInstalled) {
 			return nil, err
 		}
 
-		slog.Info("Config file not found, trying to read the config file from legacy dir", "legacy-dir", cfg.Host().KubeConfigDir())
+		slog.Info("Config file not found, trying to read the config file from legacy dir", "legacy-dir", k2sConfig.Host().KubeConfig().CurrentDir())
 
-		config, err = setupinfo.ReadConfig(cfg.Host().KubeConfigDir())
+		runtimeConfig, err = config.ReadRuntimeConfig(k2sConfig.Host().KubeConfig().CurrentDir())
 		if err != nil {
 			return nil, err
 		}
 
-		if err := copyLegacyConfigFile(cfg.Host().KubeConfigDir(), cfg.Host().K2sConfigDir()); err != nil {
+		if err := copyLegacyConfigFile(k2sConfig.Host().KubeConfig().CurrentDir(), k2sConfig.Host().K2sSetupConfigDir()); err != nil {
 			return nil, err
 		}
 	}
 
 	slog.Info("Config file read")
 
-	return config, nil
+	return runtimeConfig, nil
 }
 
 func copyLegacyConfigFile(legacyDir string, targetDir string) error {
 	slog.Info("Copying config file from legacy dir to target dir", "legacy-dir", legacyDir, "target-dir", targetDir)
 
-	if err := os.CreateDirIfNotExisting(targetDir); err != nil {
+	if err := os.MkdirAll(targetDir, fs.ModePerm); err != nil {
 		return err
 	}
 
-	source := filepath.Join(legacyDir, setupinfo.ConfigFileName)
-	target := filepath.Join(targetDir, setupinfo.ConfigFileName)
+	source := filepath.Join(legacyDir, definitions.K2sRuntimeConfigFileName)
+	target := filepath.Join(targetDir, definitions.K2sRuntimeConfigFileName)
 
-	return os.CopyFile(source, target)
+	return kos.CopyFile(source, target)
 }
 
 func createUpgradeCommand(cmd *cobra.Command) string {

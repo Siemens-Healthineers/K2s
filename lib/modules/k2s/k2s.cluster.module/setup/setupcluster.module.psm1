@@ -28,6 +28,10 @@ function Add-K8sContext {
     if (!(Test-Path $kubeConfigDir)) {
         mkdir $kubeConfigDir -Force | Out-Null
     }
+
+    $clusterName = Get-InstalledClusterName
+    $userName = 'kubernetes-admin'
+
     if (!(Test-Path $env:KUBECONFIG)) {
         $source = "$kubePath\config"
         $target = $kubeConfigDir + '\config'
@@ -35,9 +39,9 @@ function Add-K8sContext {
     }
     else {
         #kubectl config view
-        &"$kubeToolsPath\kubectl.exe" config unset contexts.kubernetes-admin@kubernetes
-        &"$kubeToolsPath\kubectl.exe" config unset clusters.kubernetes
-        &"$kubeToolsPath\kubectl.exe" config unset users.kubernetes-admin
+        &"$kubeToolsPath\kubectl.exe" config unset "contexts.$userName@$clusterName"
+        &"$kubeToolsPath\kubectl.exe" config unset "clusters.$clusterName"
+        &"$kubeToolsPath\kubectl.exe" config unset "users.$userName"
         Write-Log 'Adding new context and new cluster to Kubernetes config...'
         $source = $kubeConfigDir + '\config'
         $target = $kubeConfigDir + '\config_backup'
@@ -51,7 +55,7 @@ function Add-K8sContext {
         Remove-Item -Path $target2 -Force -ErrorAction SilentlyContinue
         Move-Item -Path $target1 -Destination $target2 -Force
     }
-    &"$kubeToolsPath\kubectl.exe" config use-context kubernetes-admin@kubernetes
+    &"$kubeToolsPath\kubectl.exe" config use-context "$userName@$clusterName"
     Write-Log 'Config from user directory:'
     $env:KUBECONFIG = ''
     &"$kubeToolsPath\kubectl.exe" config view
@@ -117,7 +121,8 @@ function Join-WindowsNode {
         Copy-Item -Path "$kubeToolsPath\kubeadm.exe" -Destination $tempKubeadmDirectory -Force
 
         Write-Log 'Add kubeadm to firewall rules'
-        New-NetFirewallRule -DisplayName 'Allow temp Kubeadm' -Group 'k2s' -Direction Inbound -Action Allow -Program "$tempKubeadmDirectory\kubeadm.exe" -Enabled True | Out-Null
+        $tempRuleName = 'Allow temp Kubeadm'
+        New-NetFirewallRule -DisplayName $tempRuleName -Group 'k2s' -Direction Inbound -Action Allow -Program "$tempKubeadmDirectory\kubeadm.exe" -Enabled True | Out-Null
         #Below rule is not necessary but adding in case we perform subsequent operations.
         New-NetFirewallRule -DisplayName 'Allow Kubeadm' -Group 'k2s' -Direction Inbound -Action Allow -Program "$kubeToolsPath\kubeadm.exe" -Enabled True | Out-Null
 
@@ -173,6 +178,8 @@ function Join-WindowsNode {
         # delete path if was created
         Remove-Item -Path $tempKubeadmDirectory\kubeadm.exe
         if ( !$bPathAvailable ) { Remove-Item -Path $tempKubeadmDirectory }
+        $rule = Get-NetFirewallRule -DisplayName $tempRuleName -ErrorAction SilentlyContinue
+        if ($rule) { Remove-NetFirewallRule -DisplayName $tempRuleName -ErrorAction SilentlyContinue }
 
         # check success in joining
         $nodefound = &"$kubeToolsPath\kubectl.exe" get nodes | Select-String -Pattern $env:COMPUTERNAME -SimpleMatch

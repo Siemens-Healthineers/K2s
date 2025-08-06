@@ -11,12 +11,10 @@ import (
 	"time"
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/utils/logging"
-	"github.com/siemens-healthineers/k2s/internal/core/config"
-	"github.com/siemens-healthineers/k2s/internal/k8s"
+	"github.com/siemens-healthineers/k2s/internal/contracts/config"
 	bl "github.com/siemens-healthineers/k2s/internal/logging"
 	"github.com/siemens-healthineers/k2s/internal/os"
-
-	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
+	"github.com/siemens-healthineers/k2s/internal/providers/k8s"
 
 	"github.com/pterm/pterm"
 )
@@ -54,7 +52,7 @@ type SlogWriter struct {
 }
 
 type CmdContext struct {
-	config config.ConfigReader
+	config *config.K2sConfig
 	logger *logging.Slogger
 }
 
@@ -110,7 +108,7 @@ func NewPtermWriter() *PtermWriter {
 
 func NewSlogWriter() os.StdWriter { return &SlogWriter{} }
 
-func NewCmdContext(config config.ConfigReader, logger *logging.Slogger) *CmdContext {
+func NewCmdContext(config *config.K2sConfig, logger *logging.Slogger) *CmdContext {
 	return &CmdContext{
 		config: config,
 		logger: logger,
@@ -137,7 +135,7 @@ func CreateSystemInCorruptedStateCmdResult() CmdResult {
 func CreateSystemNotInstalledCmdFailure() *CmdFailure {
 	return &CmdFailure{
 		Severity: SeverityWarning,
-		Code:     setupinfo.ErrSystemNotInstalled.Error(),
+		Code:     config.ErrSystemNotInstalled.Error(),
 		Message:  ErrSystemNotInstalledMsg,
 	}
 }
@@ -145,7 +143,7 @@ func CreateSystemNotInstalledCmdFailure() *CmdFailure {
 func CreateSystemInCorruptedStateCmdFailure() *CmdFailure {
 	return &CmdFailure{
 		Severity: SeverityError,
-		Code:     setupinfo.ErrSystemInCorruptedState.Error(),
+		Code:     config.ErrSystemInCorruptedState.Error(),
 		Message:  ErrSystemInCorruptedStateMsg,
 	}
 }
@@ -258,14 +256,14 @@ func (*SlogWriter) WriteStdErr(message string) { slog.Error(message) }
 
 func (*SlogWriter) Flush() { /*empty*/ }
 
-func (c *CmdContext) Config() config.ConfigReader { return c.config }
+func (c *CmdContext) Config() *config.K2sConfig { return c.config }
 
 func (c *CmdContext) Logger() *logging.Slogger { return c.logger }
 
-func (c *CmdContext) EnsureK2sK8sContext() error {
+func (c *CmdContext) EnsureK2sK8sContext(clusterName string) error {
 	slog.Debug("Ensuring correct K8s context")
 
-	k8sContext, err := k8s.ReadContext(c.config.Host().KubeConfigDir())
+	k8sContext, err := k8s.ReadContext(c.config.Host().KubeConfig().CurrentDir(), clusterName)
 	if err != nil {
 		return fmt.Errorf("could not read K8s context: %w", err)
 	}

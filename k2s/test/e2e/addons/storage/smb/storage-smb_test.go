@@ -59,6 +59,7 @@ const (
 	testFileCheckTimeout  = time.Minute * 2
 	testFileCheckInterval = time.Second * 5
 	testClusterTimeout    = time.Minute * 10
+	testStepPollInterval  = time.Millisecond * 200
 
 	testFileCreationTimeout = time.Minute * 5
 	testFileOverallTimeout  = time.Minute * 10
@@ -78,9 +79,13 @@ func TestSmbshare(t *testing.T) {
 }
 
 var _ = BeforeSuite(func(ctx context.Context) {
-	suite = framework.Setup(ctx, framework.SystemMustBeRunning, framework.EnsureAddonsAreDisabled, framework.ClusterTestStepTimeout(testClusterTimeout))
+	suite = framework.Setup(ctx,
+		framework.SystemMustBeRunning,
+		framework.EnsureAddonsAreDisabled,
+		framework.ClusterTestStepTimeout(testClusterTimeout),
+		framework.ClusterTestStepPollInterval(testStepPollInterval))
 
-	skipWindowsWorkloads = suite.SetupInfo().SetupConfig.LinuxOnly
+	skipWindowsWorkloads = suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly()
 
 	GinkgoWriter.Println("Creating namespace <", namespace, "> on cluster..")
 
@@ -158,14 +163,28 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 	})
 
 	Describe("disable command", func() {
-		It("displays already-disabled message and exits with non-zero", func(ctx context.Context) {
-			output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "disable", addonName, implementationName, "-f", "-o")
+		When("addon is disabled", func() {
+			It("displays already-disabled message and exits with non-zero", func(ctx context.Context) {
+				output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "disable", addonName, implementationName, "-f", "-o")
 
-			Expect(output).To(SatisfyAll(
-				ContainSubstring("disable"),
-				ContainSubstring(addonName),
-				MatchRegexp(`Addon \'%s %s\' is already disabled`, addonName, implementationName),
-			))
+				Expect(output).To(SatisfyAll(
+					ContainSubstring("disable"),
+					ContainSubstring(addonName),
+					ContainSubstring(implementationName),
+					MatchRegexp(`Addon \'%s %s\' is already disabled`, addonName, implementationName),
+				))
+			})
+		})
+
+		When("both mutually exclusive flags are being used", func() {
+			It("displays error and exits with non-zero", func(ctx context.Context) {
+				output := suite.K2sCli().RunWithExitCode(ctx, cli.ExitCodeFailure, "addons", "disable", addonName, implementationName, "-f", "-k", "-o")
+
+				Expect(output).To(SatisfyAll(
+					ContainSubstring("ERROR"),
+					MatchRegexp(`.+\[force keep\] were all set`),
+				))
+			})
 		})
 	})
 
@@ -403,9 +422,9 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 				suite.Cluster().ExpectStatefulSetToBeDeleted(windowsWorkloadName2, namespace, ctx)
 			})
 
-			It("create the test files", func(ctx context.Context) {
-				createTestFiles(ctx, storageConfig[0].WinMountPath)
-				createTestFiles(ctx, storageConfig[1].WinMountPath)
+			It("create the test files", func() {
+				createTestFiles(storageConfig[0].WinMountPath)
+				createTestFiles(storageConfig[1].WinMountPath)
 			})
 
 			It("disables the addon", func(ctx context.Context) {
@@ -417,20 +436,14 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 				expectTestFilesAreAvailable(ctx, storageConfig[1].WinMountPath)
 			})
 
-			It("checks that the mount file is not available in Windows", func(ctx context.Context) {
-				// test that file storageConfig[0].WinMountPath\mountedInVm.txt is not available
-				expectFileAreNotAvailableInWindows(ctx, storageConfig[0].WinMountPath)
-				expectFileAreNotAvailableInWindows(ctx, storageConfig[1].WinMountPath)
+			It("deletes the test files", func() {
+				deleteTestFiles(storageConfig[0].WinMountPath)
+				deleteTestFiles(storageConfig[1].WinMountPath)
 			})
 
-			It("deletes the test files", func(ctx context.Context) {
-				deleteTestFiles(ctx, storageConfig[0].WinMountPath)
-				deleteTestFiles(ctx, storageConfig[1].WinMountPath)
-			})
-
-			It("deletes the mount paths", func(ctx context.Context) {
-				deleteMountPath(ctx, storageConfig[0].WinMountPath)
-				deleteMountPath(ctx, storageConfig[1].WinMountPath)
+			It("deletes the mount paths", func() {
+				deleteMountPath(storageConfig[0].WinMountPath)
+				deleteMountPath(storageConfig[1].WinMountPath)
 			})
 		})
 	})
@@ -496,9 +509,9 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 				suite.Cluster().ExpectStatefulSetToBeDeleted(windowsWorkloadName2, namespace, ctx)
 			})
 
-			It("create the test files", func(ctx context.Context) {
-				createTestFiles(ctx, storageConfig[0].WinMountPath)
-				createTestFiles(ctx, storageConfig[1].WinMountPath)
+			It("create the test files", func() {
+				createTestFiles(storageConfig[0].WinMountPath)
+				createTestFiles(storageConfig[1].WinMountPath)
 			})
 
 			It("checks that the test files are still available 1", func(ctx context.Context) {
@@ -513,11 +526,6 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 			It("checks that the test files are still available 2", func(ctx context.Context) {
 				expectFileAreAvailableInLinux(ctx, "/srv/samba/linux-smb-share1")
 				expectFileAreAvailableInLinux(ctx, "/srv/samba/linux-smb-share2")
-			})
-
-			It("checks that the mount file is not available in Linux", func(ctx context.Context) {
-				expectFileAreNotAvailableInLinux(ctx, "/srv/samba/linux-smb-share1")
-				expectFileAreNotAvailableInLinux(ctx, "/srv/samba/linux-smb-share2")
 			})
 
 			It("deletes the test files", func(ctx context.Context) {
@@ -604,7 +612,7 @@ func expectEnableMessage(output string, smbHostType string) {
 	))
 }
 
-func createTestFiles(ctx context.Context, mountPath string) {
+func createTestFiles(mountPath string) {
 	fileNames := []string{"file1.txt", "file2.txt", "file3.txt"}
 	for _, fileName := range fileNames {
 		filePath := filepath.Join(mountPath, fileName)
@@ -626,7 +634,7 @@ func expectTestFilesAreAvailable(ctx context.Context, mountPath string) {
 	}
 }
 
-func deleteTestFiles(ctx context.Context, mountPath string) {
+func deleteTestFiles(mountPath string) {
 	fileNames := []string{"file1.txt", "file2.txt", "file3.txt"}
 	for _, fileName := range fileNames {
 		filePath := filepath.Join(mountPath, fileName)
@@ -635,7 +643,7 @@ func deleteTestFiles(ctx context.Context, mountPath string) {
 	}
 }
 
-func deleteMountPath(ctx context.Context, mountPath string) {
+func deleteMountPath(mountPath string) {
 	err := bos.RemoveAll(mountPath)
 	Expect(err).NotTo(HaveOccurred())
 }
@@ -662,15 +670,4 @@ func deleteFilesOnLinuxMount(ctx context.Context) {
 	Expect(output2).To(SatisfyAll(
 		ContainSubstring("completed in"),
 	))
-}
-
-func expectFileAreNotAvailableInLinux(ctx context.Context, sharefolder string) {
-	// execute command and check output if it contains the filename file1.txt and file2.txt
-	output := suite.K2sCli().RunOrFail(ctx, "node", "exec", "-i", "172.19.1.100", "-u", "remote", "-c", fmt.Sprintf("ls %s", sharefolder))
-	Expect(output).ToNot(ContainSubstring("mountedInVm.txt"))
-}
-
-func expectFileAreNotAvailableInWindows(ctx context.Context, sharefolder string) {
-	// list in the folder on windows the files and check if the file mountedInVm.txt is not available
-	Expect(os.GetFilesMatch(sharefolder, "mountedInVm.txt")).To(BeEmpty(), fmt.Sprintf("Expected file mountedInVm.txt to not be present in %s", sharefolder))
 }

@@ -16,6 +16,7 @@ import (
 	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/mock"
 )
@@ -404,6 +405,88 @@ var _ = Describe("generic pkg", func() {
 
 				Expect(err).To(HaveOccurred())
 				Expect(result).To(BeNil())
+			})
+		})
+	})
+
+	Describe("addFlags", func() {
+		When("flags have no exclusion group", func() {
+			It("marks no flag as mutually exclusive", func() {
+				flags := []addons.CliFlag{
+					{
+						Name:    "test-flag-1",
+						Default: false,
+					},
+					{
+						Name:    "test-flag-2",
+						Default: false,
+					},
+				}
+				cmd := &cobra.Command{}
+
+				err := addFlags(flags, cmd)
+
+				Expect(err).ToNot(HaveOccurred())
+				Expect(cmd.Flags().HasAvailableFlags()).To(BeTrue())
+
+				cmd.Flags().VisitAll(func(f *pflag.Flag) {
+					Expect(f.Annotations).ToNot(HaveKey("cobra_annotation_mutually_exclusive"))
+				})
+			})
+		})
+
+		When("only one flag has exclusion group", func() {
+			It("marks no flag as mutually exclusive", func() {
+				flags := []addons.CliFlag{
+					{
+						Name:           "test-flag-1",
+						Default:        false,
+						ExclusionGroup: func(s string) *string { return &s }("group"),
+					},
+					{
+						Name:    "test-flag-2",
+						Default: false,
+					},
+				}
+				cmd := &cobra.Command{}
+
+				err := addFlags(flags, cmd)
+
+				Expect(err).ToNot(HaveOccurred())
+				Expect(cmd.Flags().HasAvailableFlags()).To(BeTrue())
+
+				cmd.Flags().VisitAll(func(f *pflag.Flag) {
+					Expect(f.Annotations).ToNot(HaveKey("cobra_annotation_mutually_exclusive"))
+				})
+			})
+		})
+
+		When("flags have same exclusion group", func() {
+			It("marks flags as mutually exclusive", func() {
+				group := func(s string) *string { return &s }("group")
+				flags := []addons.CliFlag{
+					{
+						Name:           "test-flag-1",
+						Default:        false,
+						ExclusionGroup: group,
+					},
+					{
+						Name:           "test-flag-2",
+						Default:        false,
+						ExclusionGroup: group,
+					},
+				}
+				cmd := &cobra.Command{}
+
+				err := addFlags(flags, cmd)
+
+				Expect(err).ToNot(HaveOccurred())
+				Expect(cmd.Flags().HasAvailableFlags()).To(BeTrue())
+
+				cmd.Flags().VisitAll(func(f *pflag.Flag) {
+					Expect(f.Annotations).To(HaveKey("cobra_annotation_mutually_exclusive"))
+					Expect(f.Annotations["cobra_annotation_mutually_exclusive"]).To(ConsistOf("test-flag-1 test-flag-2"))
+				})
 			})
 		})
 	})

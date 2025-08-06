@@ -30,7 +30,7 @@ function Expand-Path {
 
 $configDir = $rootConfig.psobject.properties['configDir'].value
 $configuredStorageLocalDriveLetter = $smallsetup.psobject.properties['storageLocalDriveLetter'].value
-$configuredstorageLocalDriveFolder= $smallsetup.psobject.properties['storageLocalDriveFolder'].value
+$configuredstorageLocalDriveFolder = $smallsetup.psobject.properties['storageLocalDriveFolder'].value
 
 $kubeConfigDir = Expand-Path $configDir.psobject.properties['kube'].value
 $sshConfigDir = Expand-Path $configDir.psobject.properties['ssh'].value
@@ -55,6 +55,9 @@ $kubeDnsServiceIP = $smallsetup.psobject.properties['kubeDnsServiceIP'].value
 
 # Master network cni interface IP address
 $masterNetworkInterfaceCni0IP = $smallsetup.psobject.properties['masterNetworkInterfaceCni0IP'].value
+
+$legacyClusterName = 'kubernetes'
+$clusterName = $rootConfig.psobject.properties['clusterName'].value
 
 #CONSTANTS
 New-Variable -Name 'SetupJsonFile' -Value "$k2sConfigDir\setup.json" -Option Constant
@@ -156,6 +159,10 @@ function Get-DefaultTempPwd {
 
 function Get-ConfiguredClusterNetworkPrefix {
     return $ipControlPlaneCIDR.Substring($ipControlPlaneCIDR.IndexOf('/') + 1)
+}
+
+function Get-ClusterName {
+    return $clusterName
 }
 
 <#
@@ -444,7 +451,7 @@ function Get-MinimalProvisioningBaseImageDiskSize {
     return 10GB
 }
 function Get-DefaultK8sVersion {
-    return 'v1.32.5'
+    return 'v1.33.3'
 }
 
 <#
@@ -473,6 +480,21 @@ function Get-MirrorRegistries {
     $rootConfig = Get-RootConfigk2s
     $mirrorRegistries = $rootConfig.psobject.properties['mirrorRegistries'].value
     return $mirrorRegistries
+}
+
+function Get-InstalledClusterName {
+    $value = Get-ConfigValue -Path $SetupJsonFile -Key 'ClusterName'
+    if ($value) {
+        return $value
+    }
+    return $legacyClusterName
+}
+
+function Set-InstalledClusterName {
+    param (
+        [object] $Value = $(throw 'Please provide the config value.')
+    )
+    Set-ConfigValue -Path $SetupJsonFile -Key 'ClusterName' -Value $Value
 }
 
 Export-ModuleMember -Function Get-ConfigValue,
@@ -530,4 +552,7 @@ Get-WindowsLocalSharePath,
 Get-ConfigWinBuildEnabledFlag,
 Set-ConfigWinBuildEnabledFlag,
 Get-ConfiguredClusterNetworkPrefix,
-Get-MirrorRegistries
+Get-MirrorRegistries,
+Get-ClusterName,
+Get-InstalledClusterName,
+Set-InstalledClusterName
