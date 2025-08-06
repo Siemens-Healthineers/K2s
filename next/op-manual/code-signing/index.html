@@ -2054,11 +2054,13 @@ SPDX-License-Identifier: MIT
 <h2 id="overview">Overview</h2>
 <p>K2s includes comprehensive code signing capabilities to meet enterprise security requirements:</p>
 <ul>
-<li><strong>PowerShell Scripts</strong>: All <code>.ps1</code> files are signed with Authenticode signatures</li>
-<li><strong>Executables</strong>: All <code>.exe</code> files are signed with code signing certificates</li>
+<li><strong>PowerShell Scripts</strong>: All <code>.ps1</code>, <code>.psm1</code> files are signed with Authenticode signatures</li>
+<li><strong>Executables</strong>: All <code>.exe</code>, <code>.dll</code> files are signed with code signing certificates</li>
+<li><strong>Installer Packages</strong>: All <code>.msi</code> files are signed with code signing certificates</li>
 <li><strong>Automated Packaging</strong>: Create complete signed packages via <code>k2s system package</code></li>
 <li><strong><abbr title="Continuous Integration">CI</abbr>/<abbr title="Continuous Delivery/Deployment (even though delivery and deployment might be different activities)">CD</abbr> Integration</strong>: Automated signing in GitHub Actions workflows</li>
 </ul>
+<p><strong>Note</strong>: CMD and BAT files cannot be Authenticode signed as they are plain text files and are excluded from the signing process.</p>
 <p><strong>Important</strong>: Certificate operations require administrator privileges as certificates are stored in the LocalMachine certificate store for enterprise-wide deployment.</p>
 <h2 id="quick-start">Quick Start</h2>
 <h3 id="create-a-signed-package">Create a Signed Package</h3>
