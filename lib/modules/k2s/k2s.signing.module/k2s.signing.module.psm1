@@ -154,7 +154,15 @@ function Get-SignableFiles {
     }
 
     # Extensions of files that can be signed
-    $signableExtensions = @('*.ps1', '*.psm1', '*.exe')
+    $signableExtensions = @(
+        '*.ps1',    # PowerShell scripts
+        '*.psm1',   # PowerShell modules  
+        '*.exe',    # Executables
+        '*.dll',    # Dynamic libraries
+        '*.cmd',    # Command scripts
+        '*.bat',    # Batch scripts
+        '*.msi'     # Installer packages
+    )
     
     $allFiles = @()
     
