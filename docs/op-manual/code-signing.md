@@ -11,10 +11,13 @@ This document describes the K2s code signing functionality that ensures all exec
 
 K2s includes comprehensive code signing capabilities to meet enterprise security requirements:
 
-- **PowerShell Scripts**: All `.ps1` files are signed with Authenticode signatures
-- **Executables**: All `.exe` files are signed with code signing certificates
+- **PowerShell Scripts**: All `.ps1`, `.psm1` files are signed with Authenticode signatures
+- **Executables**: All `.exe`, `.dll` files are signed with code signing certificates
+- **Installer Packages**: All `.msi` files are signed with code signing certificates
 - **Automated Packaging**: Create complete signed packages via `k2s system package`
 - **CI/CD Integration**: Automated signing in GitHub Actions workflows
+
+**Note**: CMD and BAT files cannot be Authenticode signed as they are plain text files and are excluded from the signing process.
 
 **Important**: Certificate operations require administrator privileges as certificates are stored in the LocalMachine certificate store for enterprise-wide deployment.
 
