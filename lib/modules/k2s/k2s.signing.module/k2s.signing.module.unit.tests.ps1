@@ -1,4 +1,8 @@
-﻿#Requires -Modules Pester
+﻿# SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+#
+# SPDX-License-Identifier: MIT
+
+#Requires -Modules Pester
 
 BeforeAll {
     # Use script-level variables instead of globals

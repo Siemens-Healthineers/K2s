@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+SPDX-License-Identifier: MIT
+-->
+
 # K2s Code Signing
 
 This document describes the K2s code signing functionality that ensures all executables and PowerShell scripts are signed with a trusted certificate.
