@@ -7,5 +7,4 @@ kind: Kustomization
 
 resources:
   - ../base
-  - csi-proxy.yaml
-  - csi-smb-node-windows.yaml
+  - csi-smb-node-windows-hp.yaml
