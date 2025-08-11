@@ -9,8 +9,7 @@ updates:
     directory: "/k2s/" # Location of package manifests
     schedule:
       interval: daily
-      time: "20:00"
-      timezone: CET
+      time: "17:00" # time in UTC
     ignore:
       - dependency-name: sigs.k8s.io/gateway-api
         update-types: [version-update:semver-major, version-update:semver-minor]
