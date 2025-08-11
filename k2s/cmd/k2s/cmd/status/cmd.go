@@ -9,7 +9,8 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 
-	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
+	cconfig "github.com/siemens-healthineers/k2s/internal/contracts/config"
+	"github.com/siemens-healthineers/k2s/internal/core/config"
 	"github.com/siemens-healthineers/k2s/internal/json"
 	"github.com/siemens-healthineers/k2s/internal/terminal"
 
@@ -63,17 +64,17 @@ func printStatus(cmd *cobra.Command, args []string) error {
 	terminalPrinter := terminal.NewTerminalPrinter()
 
 	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
-	config, err := setupinfo.ReadConfig(context.Config().Host().K2sConfigDir())
+	runtimeConfig, err := config.ReadRuntimeConfig(context.Config().Host().K2sSetupConfigDir())
 	if err != nil {
-		if errors.Is(err, setupinfo.ErrSystemInCorruptedState) {
+		if errors.Is(err, cconfig.ErrSystemInCorruptedState) {
 			if outputOption == jsonOption {
-				return printSystemErrJson(terminalPrinter.Println, setupinfo.ErrSystemInCorruptedState, common.CreateSystemInCorruptedStateCmdFailure)
+				return printSystemErrJson(terminalPrinter.Println, cconfig.ErrSystemInCorruptedState, common.CreateSystemInCorruptedStateCmdFailure)
 			}
 			return common.CreateSystemInCorruptedStateCmdFailure()
 		}
-		if errors.Is(err, setupinfo.ErrSystemNotInstalled) {
+		if errors.Is(err, cconfig.ErrSystemNotInstalled) {
 			if outputOption == jsonOption {
-				return printSystemErrJson(terminalPrinter.Println, setupinfo.ErrSystemNotInstalled, common.CreateSystemNotInstalledCmdFailure)
+				return printSystemErrJson(terminalPrinter.Println, cconfig.ErrSystemNotInstalled, common.CreateSystemNotInstalledCmdFailure)
 			}
 			return common.CreateSystemNotInstalledCmdFailure()
 		}
@@ -81,16 +82,16 @@ func printStatus(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if err := context.EnsureK2sK8sContext(config.ClusterName); err != nil {
+	if err := context.EnsureK2sK8sContext(runtimeConfig.ClusterConfig().Name()); err != nil {
 		return err
 	}
 
-	printer := determinePrinter(outputOption, config, terminalPrinter)
+	printer := determinePrinter(outputOption, runtimeConfig, terminalPrinter)
 
 	return printer.Print()
 }
 
-func determinePrinter(outputOption string, config *setupinfo.Config, terminalPrinter TerminalPrinter) StatusPrinter {
+func determinePrinter(outputOption string, config *cconfig.K2sRuntimeConfig, terminalPrinter TerminalPrinter) StatusPrinter {
 	loadFunc := func() (*LoadedStatus, error) {
 		return LoadStatus()
 	}

@@ -6,30 +6,29 @@ import (
 	"context"
 	"path/filepath"
 
-	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
-
 	//lint:ignore ST1001 test framework code
 	. "github.com/onsi/ginkgo/v2"
+	"github.com/siemens-healthineers/k2s/internal/contracts/config"
 )
 
 type KubeProxyRestarter struct {
-	setupInfo    setupinfo.Config
-	cliExecutor  CliExecutor
-	K2sCliRunner K2sCliRunner
-	nssmPath     string
+	runtimeConfig config.K2sRuntimeConfig
+	cliExecutor   CliExecutor
+	K2sCliRunner  K2sCliRunner
+	nssmPath      string
 }
 
-func NewKubeProxyRestarter(rootDir string, setupInfo setupinfo.Config, cliExecutor CliExecutor, K2sCliRunner K2sCliRunner) *KubeProxyRestarter {
+func NewKubeProxyRestarter(rootDir string, setupInfo config.K2sRuntimeConfig, cliExecutor CliExecutor, K2sCliRunner K2sCliRunner) *KubeProxyRestarter {
 	return &KubeProxyRestarter{
-		setupInfo:    setupInfo,
-		cliExecutor:  cliExecutor,
-		K2sCliRunner: K2sCliRunner,
-		nssmPath:     filepath.Join(rootDir, "bin", "nssm.exe"),
+		runtimeConfig: setupInfo,
+		cliExecutor:   cliExecutor,
+		K2sCliRunner:  K2sCliRunner,
+		nssmPath:      filepath.Join(rootDir, "bin", "nssm.exe"),
 	}
 }
 
 func (r *KubeProxyRestarter) Restart(ctx context.Context) {
-	if r.setupInfo.LinuxOnly {
+	if r.runtimeConfig.InstallConfig().LinuxOnly() {
 		GinkgoWriter.Println("Linux-only setup, skipping kubeproxy restart")
 	} else {
 		r.restart(ctx)
