@@ -175,9 +175,9 @@ Function Set-KubernetesAptRepository {
     $crioAptKeyFilePath = '/usr/share/keyrings/cri-o-apt-keyring.gpg'
     &$executeRemoteCommand "sudo rm -f $crioPublicKeyFilePath" -Retries 2 
     &$executeRemoteCommand "sudo rm -f $crioAptKeyFilePath" -Retries 2 
-    &$executeRemoteCommand "sudo curl --retry 3 --retry-all-errors -fsSL https://pkgs.k8s.io/addons:/cri-o:/stable:/$pkgShortK8sVersion/deb/Release.key$proxyToAdd -o $crioPublicKeyFilePath" -IgnoreErrors
+    &$executeRemoteCommand "sudo curl --retry 3 --retry-all-errors -fsSL https://download.opensuse.org/repositories/isv:/cri-o:/stable:/$pkgShortK8sVersion/deb/Release.key$proxyToAdd -o $crioPublicKeyFilePath" -IgnoreErrors
     &$executeRemoteCommand "sudo gpg --dearmor -o $crioAptKeyFilePath $crioPublicKeyFilePath" -IgnoreErrors
-    &$executeRemoteCommand "echo 'deb [signed-by=$crioAptKeyFilePath] https://pkgs.k8s.io/addons:/cri-o:/stable:/$pkgShortK8sVersion/deb/ /' | sudo tee /etc/apt/sources.list.d/cri-o.list" 
+    &$executeRemoteCommand "echo 'deb [signed-by=$crioAptKeyFilePath] https://download.opensuse.org/repositories/isv:/cri-o:/stable:/$pkgShortK8sVersion/deb/ /' | sudo tee /etc/apt/sources.list.d/cri-o.list" 
     &$executeRemoteCommand "sudo rm -f $crioPublicKeyFilePath" -IgnoreErrors 
 
     # update apt information

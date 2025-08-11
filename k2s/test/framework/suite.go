@@ -11,6 +11,7 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/siemens-healthineers/k2s/internal/definitions"
 	"github.com/siemens-healthineers/k2s/test/framework/k2s/addons"
 	sos "github.com/siemens-healthineers/k2s/test/framework/os"
 
@@ -18,7 +19,6 @@ import (
 
 	"github.com/siemens-healthineers/k2s/test/framework/k2s"
 
-	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
 	"github.com/siemens-healthineers/k2s/test/framework/http"
 
 	//lint:ignore ST1001 test framework code
@@ -135,13 +135,13 @@ func Setup(ctx context.Context, args ...any) *K2sTestSuite {
 
 	testSuite.setupInfo.LoadSetupConfig()
 
-	GinkgoWriter.Println("Found setup type <", testSuite.setupInfo.SetupConfig.SetupName, "( Linux-only:", testSuite.setupInfo.SetupConfig.LinuxOnly, ") > in dir <", rootDir, ">")
+	GinkgoWriter.Println("Found setup type <", testSuite.setupInfo.RuntimeConfig.InstallConfig().SetupName(), "( Linux-only:", testSuite.setupInfo.RuntimeConfig.InstallConfig().LinuxOnly(), ") > in dir <", rootDir, ">")
 
-	if testSuite.setupInfo.SetupConfig.SetupName != setupinfo.SetupNamek2s {
-		Fail(fmt.Sprintf("Unsupported setup type detected: '%s'", testSuite.setupInfo.SetupConfig.SetupName))
+	if testSuite.setupInfo.RuntimeConfig.InstallConfig().SetupName() != definitions.SetupNameK2s {
+		Fail(fmt.Sprintf("Unsupported setup type detected: '%s'", testSuite.setupInfo.RuntimeConfig.InstallConfig().SetupName()))
 	}
 
-	testSuite.kubeProxyRestarter = k2s.NewKubeProxyRestarter(rootDir, testSuite.setupInfo.SetupConfig, cli, *k2sCli)
+	testSuite.kubeProxyRestarter = k2s.NewKubeProxyRestarter(rootDir, testSuite.setupInfo.RuntimeConfig, cli, *k2sCli)
 	testSuite.kubectl = k8s.NewCli(cli, rootDir)
 	testSuite.cluster = k8s.NewCluster(clusterTestStepTimeout, clusterTestStepPollInterval)
 

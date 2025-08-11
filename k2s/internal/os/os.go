@@ -31,18 +31,6 @@ type CmdExecutor struct {
 	ctx       context.Context
 }
 
-func CreateDirIfNotExisting(path string) error {
-	if PathExists(path) {
-		return nil
-	}
-	slog.Debug("Dir not existing, creating it", "path", path)
-
-	if err := bos.MkdirAll(path, bos.ModePerm); err != nil {
-		return fmt.Errorf("could not create directory '%s': %w", path, err)
-	}
-	return nil
-}
-
 func ExecutableDir() (string, error) {
 	exePath, err := bos.Executable()
 	if err != nil {
@@ -129,8 +117,113 @@ func FilesInDir(dir string) (files Files, err error) {
 	return files, nil
 }
 
-func NewCmdExecutor(stdWriter StdWriter) *CmdExecutor {
+func NewCmdExecutor(stdWriter StdWriter) *CmdExecutor { // TODO: use optional out and err writer std. interfaces + flush callback instead?
 	return &CmdExecutor{stdWriter: stdWriter}
+}
+
+type stdWriter func(msg string, args ...any)
+
+type cmdBuilder struct {
+	cmd          string
+	ctx          context.Context
+	args         []string
+	stdOutWriter stdWriter
+	stdErrWriter stdWriter
+}
+
+var nilWriter stdWriter = func(msg string, args ...any) {}
+
+func NewCmd(cmd string) *cmdBuilder {
+	return &cmdBuilder{
+		cmd:          cmd,
+		args:         []string{},
+		stdOutWriter: nilWriter,
+		stdErrWriter: nilWriter,
+	}
+}
+
+// TODO: add param guards
+func (c *cmdBuilder) WithArgs(arg ...string) *cmdBuilder {
+	c.args = append(c.args, arg...)
+	return c
+}
+
+func (c *cmdBuilder) WithStdOutWriter(writer stdWriter) *cmdBuilder {
+	c.stdOutWriter = writer
+	return c
+}
+
+func (c *cmdBuilder) WithStdErrWriter(writer stdWriter) *cmdBuilder {
+	c.stdErrWriter = writer
+	return c
+}
+
+func (c *cmdBuilder) WithContext(ctx context.Context) *cmdBuilder {
+	c.ctx = ctx
+	return c
+}
+
+func (c *cmdBuilder) Exec() error {
+	var cmd *exec.Cmd
+	if c.ctx == nil {
+		cmd = exec.Command(c.cmd, c.args...)
+	} else {
+		cmd = exec.CommandContext(c.ctx, c.cmd, c.args...)
+	}
+
+	cmd.Stdin = bos.Stdin
+	stdOut, err := cmd.StdoutPipe()
+	if err != nil {
+		return err
+	}
+
+	stdErr, err := cmd.StderrPipe()
+	if err != nil {
+		return err
+	}
+
+	stdOutChan := make(chan string)
+	stdErrChan := make(chan string)
+
+	go readStream(stdOut, stdOutChan)
+	go readStream(stdErr, stdErrChan)
+
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("failed to start command '%s': %w", c.cmd, err)
+	}
+
+	slog.Debug("Command started", "command", c.cmd)
+
+	for stdOutChan != nil || stdErrChan != nil {
+		select {
+		case errMsg, ok := <-stdErrChan:
+			if !ok {
+				stdErrChan = nil
+
+				slog.Debug("Channel closed", "channel", "stderr")
+				continue
+			}
+			c.stdErrWriter(errMsg)
+		case outMsg, ok := <-stdOutChan:
+			if !ok {
+				stdOutChan = nil
+
+				slog.Debug("Channel closed", "channel", "stdout")
+				continue
+			}
+			c.stdOutWriter(outMsg)
+		}
+	}
+
+	slog.Debug("Waiting for command to finish", "command", c.cmd)
+
+	if err := cmd.Wait(); err != nil {
+		return fmt.Errorf("command '%s' failed: %w", c.cmd, err)
+	}
+
+	slog.Debug("Command finished", "command", c.cmd)
+
+	return nil
 }
 
 func (exe *CmdExecutor) WithContext(ctx context.Context) *CmdExecutor {
@@ -138,6 +231,7 @@ func (exe *CmdExecutor) WithContext(ctx context.Context) *CmdExecutor {
 	return exe
 }
 
+// TODO: clone
 func (exe *CmdExecutor) ExecuteCmd(name string, arg ...string) error {
 	var cmd *exec.Cmd
 	if exe.ctx == nil {

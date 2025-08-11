@@ -10,12 +10,11 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/image"
 
-	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	"github.com/siemens-healthineers/k2s/internal/cli"
+	"github.com/siemens-healthineers/k2s/internal/contracts/config"
 	"github.com/siemens-healthineers/k2s/test/framework"
 )
 
@@ -67,7 +66,7 @@ var _ = Describe("image", func() {
 			Expect(images.ContainerImages).To(BeNil())
 			Expect(images.ContainerRegistry).To(BeNil())
 			Expect(images.PushedImages).To(BeNil())
-			Expect(*images.Error).To(Equal(setupinfo.ErrSystemNotInstalled.Error()))
+			Expect(*images.Error).To(Equal(config.ErrSystemNotInstalled.Error()))
 		})
 	})
 })

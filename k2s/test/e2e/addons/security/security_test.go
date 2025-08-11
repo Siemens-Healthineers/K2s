@@ -54,7 +54,7 @@ var _ = BeforeSuite(func(ctx context.Context) {
 
 	k2s = dsl.NewK2s(suite)
 
-	if suite.SetupInfo().SetupConfig.LinuxOnly {
+	if suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
 		GinkgoWriter.Println("Found Linux-only setup, skipping Windows-based workloads")
 		manifestDir = "workload/base"
 	}
@@ -110,7 +110,7 @@ func DeployWorkloads(ctx context.Context) {
 		suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", deploymentName, namespace)
 	}
 
-	if !suite.SetupInfo().SetupConfig.LinuxOnly {
+	if !suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
 		for _, deploymentName := range winDeploymentNames {
 			suite.Cluster().ExpectDeploymentToBeAvailable(deploymentName, namespace)
 			suite.Cluster().ExpectPodsUnderDeploymentReady(ctx, "app", deploymentName, namespace)
@@ -216,7 +216,7 @@ var _ = Describe("'security' addon", Ordered, func() {
 	})
 
 	DescribeTable("Deployment is reachable from host using bearer token ", func(ctx context.Context, name string, skipOnLinuxOnly bool) {
-		if skipOnLinuxOnly && suite.SetupInfo().SetupConfig.LinuxOnly {
+		if skipOnLinuxOnly && suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
 			Skip("Linux-only")
 		}
 
@@ -302,41 +302,41 @@ var _ = Describe("'security' addon with enhanced mode", Ordered, func() {
 		Expect(*status.Enabled).To(BeTrue())
 		Expect(status.Props).NotTo(BeNil())
 		Expect(status.Props).To(ContainElements(
-		SatisfyAll(
-			HaveField("Name", "Type of security"),
-			HaveField("Value", true),
-			HaveField("Okay", gstruct.PointTo(BeTrue())),
-			HaveField("Message", gstruct.PointTo(ContainSubstring("enhanced")))),
-		SatisfyAll(
-			HaveField("Name", "IsCertManagerAvailable"),
-			HaveField("Value", true),
-			HaveField("Okay", gstruct.PointTo(BeTrue())),
-			HaveField("Message", gstruct.PointTo(ContainSubstring("The cert-manager API is ready")))),
-		SatisfyAll(
-			HaveField("Name", "IsCaRootCertificateAvailable"),
-			HaveField("Value", true),
-			HaveField("Message", gstruct.PointTo(MatchRegexp("The CA root certificate is available"))),
-			HaveField("Okay", gstruct.PointTo(BeTrue()))),
-		SatisfyAll(
-			HaveField("Name", "IsTrustManagerAvailable"),
-			HaveField("Value", true),
-			HaveField("Message", gstruct.PointTo(MatchRegexp("The trust-manager API is ready"))),
-			HaveField("Okay", gstruct.PointTo(BeTrue()))),
-		SatisfyAll(
-			HaveField("Name", "Type of security"),
-			HaveField("Value", true),
-			HaveField("Message", gstruct.PointTo(MatchRegexp("The linkerd API is ready"))),
-			HaveField("Okay", gstruct.PointTo(BeTrue()))),
-		SatisfyAll(
-			HaveField("Name", "IsKeycloakAvailable"),
-			HaveField("Value", true),
-			HaveField("Okay", gstruct.PointTo(BeTrue())),
-			HaveField("Message", gstruct.PointTo(ContainSubstring("The keycloak API is ready")))),
-		SatisfyAll(
-			HaveField("Name", "IsHydraAvailable"),
-			HaveField("Value", true),
-			HaveField("Okay", gstruct.PointTo(BeTrue())),
-			HaveField("Message", gstruct.PointTo(ContainSubstring("The hydra API is ready")))),
+			SatisfyAll(
+				HaveField("Name", "Type of security"),
+				HaveField("Value", true),
+				HaveField("Okay", gstruct.PointTo(BeTrue())),
+				HaveField("Message", gstruct.PointTo(ContainSubstring("enhanced")))),
+			SatisfyAll(
+				HaveField("Name", "IsCertManagerAvailable"),
+				HaveField("Value", true),
+				HaveField("Okay", gstruct.PointTo(BeTrue())),
+				HaveField("Message", gstruct.PointTo(ContainSubstring("The cert-manager API is ready")))),
+			SatisfyAll(
+				HaveField("Name", "IsCaRootCertificateAvailable"),
+				HaveField("Value", true),
+				HaveField("Message", gstruct.PointTo(MatchRegexp("The CA root certificate is available"))),
+				HaveField("Okay", gstruct.PointTo(BeTrue()))),
+			SatisfyAll(
+				HaveField("Name", "IsTrustManagerAvailable"),
+				HaveField("Value", true),
+				HaveField("Message", gstruct.PointTo(MatchRegexp("The trust-manager API is ready"))),
+				HaveField("Okay", gstruct.PointTo(BeTrue()))),
+			SatisfyAll(
+				HaveField("Name", "Type of security"),
+				HaveField("Value", true),
+				HaveField("Message", gstruct.PointTo(MatchRegexp("The linkerd API is ready"))),
+				HaveField("Okay", gstruct.PointTo(BeTrue()))),
+			SatisfyAll(
+				HaveField("Name", "IsKeycloakAvailable"),
+				HaveField("Value", true),
+				HaveField("Okay", gstruct.PointTo(BeTrue())),
+				HaveField("Message", gstruct.PointTo(ContainSubstring("The keycloak API is ready")))),
+			SatisfyAll(
+				HaveField("Name", "IsHydraAvailable"),
+				HaveField("Value", true),
+				HaveField("Okay", gstruct.PointTo(BeTrue())),
+				HaveField("Message", gstruct.PointTo(ContainSubstring("The hydra API is ready")))),
 		))
 	})
 
@@ -363,7 +363,7 @@ var _ = Describe("'security' addon with enhanced mode", Ordered, func() {
 
 	Describe("Communication", func() {
 		DescribeTable("Deployments Availability", func(name string, skipOnLinuxOnly bool) {
-			if skipOnLinuxOnly && suite.SetupInfo().SetupConfig.LinuxOnly {
+			if skipOnLinuxOnly && suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
 				Skip("Linux-only")
 			}
 
@@ -379,7 +379,7 @@ var _ = Describe("'security' addon with enhanced mode", Ordered, func() {
 			Entry("curl1 is available", "curl1", false))
 
 		DescribeTable("Deployment is not reachable from Host due to StatusForbidden for pods with linkerd.io/inject: enabled", func(ctx context.Context, name string, skipOnLinuxOnly bool) {
-			if skipOnLinuxOnly && suite.SetupInfo().SetupConfig.LinuxOnly {
+			if skipOnLinuxOnly && suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
 				Skip("Linux-only")
 			}
 			url := fmt.Sprintf("http://%s.%s.svc.cluster.local/%s", name, namespace, name)
@@ -391,7 +391,7 @@ var _ = Describe("'security' addon with enhanced mode", Ordered, func() {
 			Entry("albums-win2 is NOT reachable from host", "albums-win2", true))
 
 		DescribeTable("Deployment is reachable from Host due to StatusOK for pods without linkerd.io/inject: enabled", func(ctx context.Context, name string, skipOnLinuxOnly bool) {
-			if skipOnLinuxOnly && suite.SetupInfo().SetupConfig.LinuxOnly {
+			if skipOnLinuxOnly && suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
 				Skip("Linux-only")
 			}
 			url := fmt.Sprintf("http://%s.%s.svc.cluster.local/%s", name, namespace, name)
@@ -406,7 +406,7 @@ var _ = Describe("'security' addon with enhanced mode", Ordered, func() {
 			})
 
 			It("Deployment albums-win1 is reachable from Pod of Deployment curl", func(ctx SpecContext) {
-				if suite.SetupInfo().SetupConfig.LinuxOnly {
+				if suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
 					Skip("Linux-only")
 				}
 
@@ -418,7 +418,7 @@ var _ = Describe("'security' addon with enhanced mode", Ordered, func() {
 			})
 
 			It("Deployment albums-win2 is reachable from Pod of Deployment curl", func(ctx SpecContext) {
-				if suite.SetupInfo().SetupConfig.LinuxOnly {
+				if suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
 					Skip("Linux-only")
 				}
 
@@ -432,7 +432,7 @@ var _ = Describe("'security' addon with enhanced mode", Ordered, func() {
 			})
 
 			It("Deployment albums-win3 is reachable from Pod of Deployment curl", func(ctx SpecContext) {
-				if suite.SetupInfo().SetupConfig.LinuxOnly {
+				if suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
 					Skip("Linux-only")
 				}
 				suite.Cluster().ExpectDeploymentToBeReachableFromPodOfOtherDeployment("albums-win3", namespace, "curl", namespace, ctx)
@@ -445,7 +445,7 @@ var _ = Describe("'security' addon with enhanced mode", Ordered, func() {
 			})
 
 			It("Deployment albums-win1 is NOT reachable from Pod of Deployment curl", func(ctx SpecContext) {
-				if suite.SetupInfo().SetupConfig.LinuxOnly {
+				if suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
 					Skip("Linux-only")
 				}
 
@@ -457,7 +457,7 @@ var _ = Describe("'security' addon with enhanced mode", Ordered, func() {
 			})
 
 			It("Deployment albums-win2 is NOT reachable from Pod of Deployment curl1", func(ctx SpecContext) {
-				if suite.SetupInfo().SetupConfig.LinuxOnly {
+				if suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
 					Skip("Linux-only")
 				}
 
@@ -471,13 +471,13 @@ var _ = Describe("'security' addon with enhanced mode", Ordered, func() {
 			})
 
 			It("Deployment albums-win3 is reachable from Pod of Deployment curl1", func(ctx SpecContext) {
-				if suite.SetupInfo().SetupConfig.LinuxOnly {
+				if suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
 					Skip("Linux-only")
 				}
 				suite.Cluster().ExpectDeploymentToBeReachableFromPodOfOtherDeployment("albums-win3", namespace, "curl1", namespace, ctx)
 			})
 		})
- 	})
+	})
 
 	It("Delete the workloads", func(ctx context.Context) {
 		DeleteWorkloads(ctx)
@@ -598,7 +598,7 @@ var _ = Describe("'security' addon with optional components", Ordered, func() {
 		))
 	})
 
-		It("disables the addon", func(ctx context.Context) {
+	It("disables the addon", func(ctx context.Context) {
 		suite.K2sCli().RunOrFail(ctx, "addons", "disable", addonName, "-o")
 	})
 
@@ -636,57 +636,56 @@ var _ = Describe("'security' addon with enhanced mode and omitKeycloak", Ordered
 			MatchRegexp(`Addon .+%s.+ is .+enabled.+`, addonName),
 			MatchRegexp("The cert-manager API is ready"),
 			MatchRegexp("The CA root certificate is available"),
-			
 		))
 	})
 	It("prints the status as JSON", func(ctx context.Context) {
-	output := suite.K2sCli().RunOrFail(ctx, "addons", "status", addonName, "-o", "json")
+		output := suite.K2sCli().RunOrFail(ctx, "addons", "status", addonName, "-o", "json")
 
-	var status status.AddonPrintStatus
+		var status status.AddonPrintStatus
 
-	Expect(json.Unmarshal([]byte(output), &status)).To(Succeed())
+		Expect(json.Unmarshal([]byte(output), &status)).To(Succeed())
 
-	Expect(status.Name).To(Equal(addonName))
-	Expect(status.Error).To(BeNil())
-	Expect(status.Enabled).NotTo(BeNil())
-	Expect(*status.Enabled).To(BeTrue())
-	Expect(status.Props).NotTo(BeNil())
-	Expect(status.Props).To(ContainElements(
-		SatisfyAll(
-			HaveField("Name", "Type of security"),
-			HaveField("Value", true),
-			HaveField("Okay", gstruct.PointTo(BeTrue())),
-			HaveField("Message", gstruct.PointTo(ContainSubstring("enhanced")))),
-		SatisfyAll(
-			HaveField("Name", "IsCertManagerAvailable"),
-			HaveField("Value", true),
-			HaveField("Okay", gstruct.PointTo(BeTrue())),
-			HaveField("Message", gstruct.PointTo(ContainSubstring("The cert-manager API is ready")))),
-		SatisfyAll(
-			HaveField("Name", "IsCaRootCertificateAvailable"),
-			HaveField("Value", true),
-			HaveField("Message", gstruct.PointTo(MatchRegexp("The CA root certificate is available"))),
-			HaveField("Okay", gstruct.PointTo(BeTrue()))),
-		SatisfyAll(
-			HaveField("Name", "IsTrustManagerAvailable"),
-			HaveField("Value", true),
-			HaveField("Message", gstruct.PointTo(MatchRegexp("The trust-manager API is ready"))),
-			HaveField("Okay", gstruct.PointTo(BeTrue()))),
-		SatisfyAll(
-			HaveField("Name", "Type of security"),
-			HaveField("Value", true),
-			HaveField("Message", gstruct.PointTo(MatchRegexp("The linkerd API is ready"))),
-			HaveField("Okay", gstruct.PointTo(BeTrue()))),
-		SatisfyAll(
-			HaveField("Name", "IsKeycloakAvailable"),
-			HaveField("Value", false),
-			HaveField("Okay", gstruct.PointTo(BeFalse())),
-			HaveField("Message", gstruct.PointTo(ContainSubstring("not ready or was omitted")))),
-		SatisfyAll(
-			HaveField("Name", "IsHydraAvailable"),
-			HaveField("Value", true),
-			HaveField("Okay", gstruct.PointTo(BeTrue())),
-			HaveField("Message", gstruct.PointTo(ContainSubstring("The hydra API is ready")))),
+		Expect(status.Name).To(Equal(addonName))
+		Expect(status.Error).To(BeNil())
+		Expect(status.Enabled).NotTo(BeNil())
+		Expect(*status.Enabled).To(BeTrue())
+		Expect(status.Props).NotTo(BeNil())
+		Expect(status.Props).To(ContainElements(
+			SatisfyAll(
+				HaveField("Name", "Type of security"),
+				HaveField("Value", true),
+				HaveField("Okay", gstruct.PointTo(BeTrue())),
+				HaveField("Message", gstruct.PointTo(ContainSubstring("enhanced")))),
+			SatisfyAll(
+				HaveField("Name", "IsCertManagerAvailable"),
+				HaveField("Value", true),
+				HaveField("Okay", gstruct.PointTo(BeTrue())),
+				HaveField("Message", gstruct.PointTo(ContainSubstring("The cert-manager API is ready")))),
+			SatisfyAll(
+				HaveField("Name", "IsCaRootCertificateAvailable"),
+				HaveField("Value", true),
+				HaveField("Message", gstruct.PointTo(MatchRegexp("The CA root certificate is available"))),
+				HaveField("Okay", gstruct.PointTo(BeTrue()))),
+			SatisfyAll(
+				HaveField("Name", "IsTrustManagerAvailable"),
+				HaveField("Value", true),
+				HaveField("Message", gstruct.PointTo(MatchRegexp("The trust-manager API is ready"))),
+				HaveField("Okay", gstruct.PointTo(BeTrue()))),
+			SatisfyAll(
+				HaveField("Name", "Type of security"),
+				HaveField("Value", true),
+				HaveField("Message", gstruct.PointTo(MatchRegexp("The linkerd API is ready"))),
+				HaveField("Okay", gstruct.PointTo(BeTrue()))),
+			SatisfyAll(
+				HaveField("Name", "IsKeycloakAvailable"),
+				HaveField("Value", false),
+				HaveField("Okay", gstruct.PointTo(BeFalse())),
+				HaveField("Message", gstruct.PointTo(ContainSubstring("not ready or was omitted")))),
+			SatisfyAll(
+				HaveField("Name", "IsHydraAvailable"),
+				HaveField("Value", true),
+				HaveField("Okay", gstruct.PointTo(BeTrue())),
+				HaveField("Message", gstruct.PointTo(ContainSubstring("The hydra API is ready")))),
 		))
 	})
 
@@ -706,7 +705,7 @@ var _ = Describe("'security' addon with enhanced mode and omitKeycloak", Ordered
 		output := suite.Kubectl().Run(ctx, "get", "secrets", "-n", "cert-manager", "ca-issuer-root-secret")
 		Expect(output).To(ContainSubstring("ca-issuer-root-secret"))
 	})
-	
+
 	It("disables the addon", func(ctx context.Context) {
 		suite.K2sCli().RunOrFail(ctx, "addons", "disable", addonName, "-o")
 	})
@@ -778,41 +777,41 @@ var _ = Describe("'security' addon with enhanced mode and omitHydra", Ordered, f
 		Expect(*status.Enabled).To(BeTrue())
 		Expect(status.Props).NotTo(BeNil())
 		Expect(status.Props).To(ContainElements(
-		SatisfyAll(
-			HaveField("Name", "Type of security"),
-			HaveField("Value", true),
-			HaveField("Okay", gstruct.PointTo(BeTrue())),
-			HaveField("Message", gstruct.PointTo(ContainSubstring("enhanced")))),
-		SatisfyAll(
-			HaveField("Name", "IsCertManagerAvailable"),
-			HaveField("Value", true),
-			HaveField("Okay", gstruct.PointTo(BeTrue())),
-			HaveField("Message", gstruct.PointTo(ContainSubstring("The cert-manager API is ready")))),
-		SatisfyAll(
-			HaveField("Name", "IsCaRootCertificateAvailable"),
-			HaveField("Value", true),
-			HaveField("Message", gstruct.PointTo(MatchRegexp("The CA root certificate is available"))),
-			HaveField("Okay", gstruct.PointTo(BeTrue()))),
-		SatisfyAll(
-			HaveField("Name", "IsTrustManagerAvailable"),
-			HaveField("Value", true),
-			HaveField("Message", gstruct.PointTo(MatchRegexp("The trust-manager API is ready"))),
-			HaveField("Okay", gstruct.PointTo(BeTrue()))),
-		SatisfyAll(
-			HaveField("Name", "Type of security"),
-			HaveField("Value", true),
-			HaveField("Message", gstruct.PointTo(MatchRegexp("The linkerd API is ready"))),
-			HaveField("Okay", gstruct.PointTo(BeTrue()))),
-		SatisfyAll(
-			HaveField("Name", "IsKeycloakAvailable"),
-			HaveField("Value", true),
-			HaveField("Okay", gstruct.PointTo(BeTrue())),
-			HaveField("Message", gstruct.PointTo(ContainSubstring("The keycloak API is ready")))),
-		SatisfyAll(
-			HaveField("Name", "IsHydraAvailable"),
-			HaveField("Value", false),
-			HaveField("Okay", gstruct.PointTo(BeFalse())),
-			HaveField("Message", gstruct.PointTo(ContainSubstring("not deployed")))),
+			SatisfyAll(
+				HaveField("Name", "Type of security"),
+				HaveField("Value", true),
+				HaveField("Okay", gstruct.PointTo(BeTrue())),
+				HaveField("Message", gstruct.PointTo(ContainSubstring("enhanced")))),
+			SatisfyAll(
+				HaveField("Name", "IsCertManagerAvailable"),
+				HaveField("Value", true),
+				HaveField("Okay", gstruct.PointTo(BeTrue())),
+				HaveField("Message", gstruct.PointTo(ContainSubstring("The cert-manager API is ready")))),
+			SatisfyAll(
+				HaveField("Name", "IsCaRootCertificateAvailable"),
+				HaveField("Value", true),
+				HaveField("Message", gstruct.PointTo(MatchRegexp("The CA root certificate is available"))),
+				HaveField("Okay", gstruct.PointTo(BeTrue()))),
+			SatisfyAll(
+				HaveField("Name", "IsTrustManagerAvailable"),
+				HaveField("Value", true),
+				HaveField("Message", gstruct.PointTo(MatchRegexp("The trust-manager API is ready"))),
+				HaveField("Okay", gstruct.PointTo(BeTrue()))),
+			SatisfyAll(
+				HaveField("Name", "Type of security"),
+				HaveField("Value", true),
+				HaveField("Message", gstruct.PointTo(MatchRegexp("The linkerd API is ready"))),
+				HaveField("Okay", gstruct.PointTo(BeTrue()))),
+			SatisfyAll(
+				HaveField("Name", "IsKeycloakAvailable"),
+				HaveField("Value", true),
+				HaveField("Okay", gstruct.PointTo(BeTrue())),
+				HaveField("Message", gstruct.PointTo(ContainSubstring("The keycloak API is ready")))),
+			SatisfyAll(
+				HaveField("Name", "IsHydraAvailable"),
+				HaveField("Value", false),
+				HaveField("Okay", gstruct.PointTo(BeFalse())),
+				HaveField("Message", gstruct.PointTo(ContainSubstring("not deployed")))),
 		))
 	})
 
@@ -826,7 +825,7 @@ var _ = Describe("'security' addon with enhanced mode and omitHydra", Ordered, f
 		output := suite.Kubectl().Run(ctx, "get", "secrets", "-n", "cert-manager", "ca-issuer-root-secret")
 		Expect(output).To(ContainSubstring("ca-issuer-root-secret"))
 	})
-	
+
 	It("disables the addon", func(ctx context.Context) {
 		suite.K2sCli().RunOrFail(ctx, "addons", "disable", addonName, "-o")
 	})
@@ -882,7 +881,6 @@ var _ = Describe("'security' addon with enhanced mode and omitHydra and omitKeyc
 			MatchRegexp(`Addon .+%s.+ is .+enabled.+`, addonName),
 			MatchRegexp("The cert-manager API is ready"),
 			MatchRegexp("The CA root certificate is available"),
-			
 		))
 	})
 
@@ -947,7 +945,7 @@ var _ = Describe("'security' addon with enhanced mode and omitHydra and omitKeyc
 		output := suite.Kubectl().Run(ctx, "get", "secrets", "-n", "cert-manager", "ca-issuer-root-secret")
 		Expect(output).To(ContainSubstring("ca-issuer-root-secret"))
 	})
-	
+
 	It("disables the addon", func(ctx context.Context) {
 		suite.K2sCli().RunOrFail(ctx, "addons", "disable", addonName, "-o")
 	})
