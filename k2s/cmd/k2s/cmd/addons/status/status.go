@@ -14,10 +14,11 @@ import (
 
 	"github.com/siemens-healthineers/k2s/cmd/k2s/cmd/common"
 
-	"github.com/siemens-healthineers/k2s/internal/core/setupinfo"
 	"github.com/siemens-healthineers/k2s/internal/terminal"
 
+	cconfig "github.com/siemens-healthineers/k2s/internal/contracts/config"
 	"github.com/siemens-healthineers/k2s/internal/core/addons"
+	"github.com/siemens-healthineers/k2s/internal/core/config"
 	"github.com/siemens-healthineers/k2s/internal/json"
 )
 
@@ -98,19 +99,19 @@ func runStatusCmd(cmd *cobra.Command, addon addons.Addon, implementation string,
 	printer := determinePrinterFunc(outputOption)
 
 	context := cmd.Context().Value(common.ContextKeyCmdContext).(*common.CmdContext)
-	config, err := setupinfo.ReadConfig(context.Config().Host().K2sConfigDir())
+	runtimeConfig, err := config.ReadRuntimeConfig(context.Config().Host().K2sSetupConfigDir())
 	if err != nil {
-		if errors.Is(err, setupinfo.ErrSystemInCorruptedState) {
-			return printer.PrintSystemError(addon.Metadata.Name, setupinfo.ErrSystemInCorruptedState, common.CreateSystemInCorruptedStateCmdFailure)
+		if errors.Is(err, cconfig.ErrSystemInCorruptedState) {
+			return printer.PrintSystemError(addon.Metadata.Name, cconfig.ErrSystemInCorruptedState, common.CreateSystemInCorruptedStateCmdFailure)
 		}
-		if errors.Is(err, setupinfo.ErrSystemNotInstalled) {
-			return printer.PrintSystemError(addon.Metadata.Name, setupinfo.ErrSystemNotInstalled, common.CreateSystemNotInstalledCmdFailure)
+		if errors.Is(err, cconfig.ErrSystemNotInstalled) {
+			return printer.PrintSystemError(addon.Metadata.Name, cconfig.ErrSystemNotInstalled, common.CreateSystemNotInstalledCmdFailure)
 		}
 
 		return err
 	}
 
-	if err := context.EnsureK2sK8sContext(config.ClusterName); err != nil {
+	if err := context.EnsureK2sK8sContext(runtimeConfig.ClusterConfig().Name()); err != nil {
 		return err
 	}
 

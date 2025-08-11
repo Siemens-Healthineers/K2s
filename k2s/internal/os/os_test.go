@@ -76,35 +76,6 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = Describe("os pkg", Ordered, func() {
-	Describe("CreateDirIfNotExisting", Label("integration"), func() {
-		var dirToCreate string
-
-		BeforeEach(func() {
-			dirToCreate = filepath.Join(GinkgoT().TempDir(), "create", "me")
-
-			GinkgoWriter.Println("Dir to create:", dirToCreate)
-		})
-
-		Context("dir not existing", func() {
-			It("creates the dir", func() {
-				Expect(os.PathExists(dirToCreate)).To(BeFalse())
-
-				Expect(os.CreateDirIfNotExisting(dirToCreate)).To(Succeed())
-
-				Expect(os.PathExists(dirToCreate)).To(BeTrue())
-			})
-		})
-
-		Context("dir already existing", func() {
-			It("returns without error", func() {
-				Expect(bos.MkdirAll(dirToCreate, bos.ModePerm)).To(Succeed())
-				Expect(os.PathExists(dirToCreate)).To(BeTrue())
-
-				Expect(os.CreateDirIfNotExisting(dirToCreate)).To(Succeed())
-			})
-		})
-	})
-
 	Describe("ExecutableDir", Label("integration"), func() {
 		It("returns an existing directory", func() {
 			dir, err := os.ExecutableDir()
@@ -318,6 +289,95 @@ var _ = Describe("os pkg", Ordered, func() {
 					HaveField("Name()", "file-1"),
 					HaveField("Name()", "file-2"),
 				))
+			})
+		})
+	})
+
+	Describe("Exec", Label("integration"), func() {
+		When("command cannot be started", func() {
+			It("returns error", func(ctx context.Context) {
+				sut := os.NewCmd("this-should-fail").WithContext(ctx)
+
+				err := sut.Exec()
+
+				Expect(err).To(MatchError(ContainSubstring("failed to start command")))
+			})
+		})
+
+		When("command outputs text over stderr", func() {
+			It("calls stderr writer", func(ctx context.Context) {
+				const (
+					scriptLoC     = 4
+					resultLines   = 1
+					errorLines    = 3
+					linesPerError = scriptLoC + resultLines + errorLines
+					script        = `
+						for ($i = 0; $i -lt 5; $i++) {
+							Write-Error "$i"
+						}
+						exit 0
+						`
+				)
+
+				lineCounter := 0
+				numberCounter := 0
+
+				stdErrWriter := func(msg string, args ...any) {
+					if (lineCounter+scriptLoC)%linesPerError == 0 {
+						Expect(msg).To(MatchRegexp(".*: %d", numberCounter))
+
+						numberCounter++
+					}
+					lineCounter++
+				}
+
+				sut := os.NewCmd("powershell").WithArgs(script).WithContext(ctx).WithStdErrWriter(stdErrWriter)
+
+				err := sut.Exec()
+
+				Expect(err).ToNot(HaveOccurred())
+				Expect(lineCounter).To(Equal(5 * linesPerError))
+			})
+		})
+
+		When("command outputs text over stdout", func() {
+			It("calls stdout writer", func(ctx context.Context) {
+				const script = `
+						for ($i = 0; $i -lt 5; $i++) {
+							Write-Output "$i"
+						}
+						`
+				lineCounter := 0
+
+				stdOutWriter := func(msg string, args ...any) {
+					number, err := strconv.Atoi(msg)
+
+					Expect(err).ToNot(HaveOccurred())
+
+					Expect(number).To(Equal(lineCounter))
+
+					lineCounter++
+				}
+
+				sut := os.NewCmd("powershell").WithArgs(script).WithContext(ctx).WithStdOutWriter(stdOutWriter)
+
+				err := sut.Exec()
+
+				Expect(err).ToNot(HaveOccurred())
+				Expect(lineCounter).To(Equal(5))
+			})
+		})
+
+		When("command exits with non-zero exit code", func() {
+			It("returns error with exit status text", func(ctx context.Context) {
+				sut := os.NewCmd("powershell").WithArgs("exit 123").WithContext(ctx)
+
+				err := sut.Exec()
+
+				Expect(err).To(MatchError(SatisfyAll(
+					ContainSubstring("command 'powershell' failed"),
+					ContainSubstring("exit status 123"),
+				)))
 			})
 		})
 	})
