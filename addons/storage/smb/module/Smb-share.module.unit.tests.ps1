@@ -139,25 +139,6 @@ Describe 'Test-CsiPodsCondition' -Tag 'unit', 'ci', 'addon', 'storage smb' {
                 }
             }
 
-            Context 'proxy Pod not running' {
-                BeforeAll {
-                    Mock -ModuleName $moduleName Wait-ForPodCondition { return $true } -ParameterFilter {
-                        $Condition -eq 'Ready' -and $Label -eq 'app=csi-smb-node' -and $Namespace -eq 'storage-smb' -and $TimeoutSeconds -eq 0 }
-                    Mock -ModuleName $moduleName Wait-ForPodCondition { return $true } -ParameterFilter {
-                        $Condition -eq 'Ready' -and $Label -eq 'app=csi-smb-controller' -and $Namespace -eq 'storage-smb' -and $TimeoutSeconds -eq 0 }
-                    Mock -ModuleName $moduleName Wait-ForPodCondition { return $true } -ParameterFilter {
-                        $Condition -eq 'Ready' -and $Label -eq 'app=csi-smb-node-win' -and $Namespace -eq 'storage-smb' -and $TimeoutSeconds -eq 0 }
-                    Mock -ModuleName $moduleName Wait-ForPodCondition { return $false } -ParameterFilter {
-                        $Condition -eq 'Ready' -and $Label -eq 'k8s-app=csi-proxy' -and $Namespace -eq 'storage-smb' -and $TimeoutSeconds -eq 0 }
-                }
-
-                It 'returns $false' {
-                    InModuleScope -ModuleName $moduleName {
-                        Test-CsiPodsCondition | Should -BeFalse
-                    }
-                }
-            }
-
             Context 'all Pods running' {
                 BeforeAll {
                     Mock -ModuleName $moduleName Wait-ForPodCondition { return $true } -ParameterFilter {
@@ -166,8 +147,6 @@ Describe 'Test-CsiPodsCondition' -Tag 'unit', 'ci', 'addon', 'storage smb' {
                         $Condition -eq 'Ready' -and $Label -eq 'app=csi-smb-controller' -and $Namespace -eq 'storage-smb' -and $TimeoutSeconds -eq 0 }
                     Mock -ModuleName $moduleName Wait-ForPodCondition { return $true } -ParameterFilter {
                         $Condition -eq 'Ready' -and $Label -eq 'app=csi-smb-node-win' -and $Namespace -eq 'storage-smb' -and $TimeoutSeconds -eq 0 }
-                    Mock -ModuleName $moduleName Wait-ForPodCondition { return $true } -ParameterFilter {
-                        $Condition -eq 'Ready' -and $Label -eq 'k8s-app=csi-proxy' -and $Namespace -eq 'storage-smb' -and $TimeoutSeconds -eq 0 }
                 }
 
                 It 'returns $true' {
@@ -196,25 +175,6 @@ Describe 'Test-CsiPodsCondition' -Tag 'unit', 'ci', 'addon', 'storage smb' {
                 }
             }
 
-            Context 'proxy Pod not deleted' {
-                BeforeAll {
-                    Mock -ModuleName $moduleName Wait-ForPodCondition { return $true } -ParameterFilter {
-                        $Condition -eq 'Deleted' -and $Label -eq 'app=csi-smb-node' -and $Namespace -eq 'storage-smb' -and $TimeoutSeconds -eq 123 }
-                    Mock -ModuleName $moduleName Wait-ForPodCondition { return $true } -ParameterFilter {
-                        $Condition -eq 'Deleted' -and $Label -eq 'app=csi-smb-controller' -and $Namespace -eq 'storage-smb' -and $TimeoutSeconds -eq 123 }
-                    Mock -ModuleName $moduleName Wait-ForPodCondition { return $true } -ParameterFilter {
-                        $Condition -eq 'Deleted' -and $Label -eq 'app=csi-smb-node-win' -and $Namespace -eq 'storage-smb' -and $TimeoutSeconds -eq 123 }
-                    Mock -ModuleName $moduleName Wait-ForPodCondition { return $false } -ParameterFilter {
-                        $Condition -eq 'Deleted' -and $Label -eq 'k8s-app=csi-proxy' -and $Namespace -eq 'storage-smb' -and $TimeoutSeconds -eq 123 }
-                }
-
-                It 'returns $false' {
-                    InModuleScope -ModuleName $moduleName {
-                        Test-CsiPodsCondition -Condition 'Deleted' -TimeoutSeconds 123 | Should -BeFalse
-                    }
-                }
-            }
-
             Context 'all Pods deleted' {
                 BeforeAll {
                     Mock -ModuleName $moduleName Wait-ForPodCondition { return $true } -ParameterFilter {
@@ -223,8 +183,6 @@ Describe 'Test-CsiPodsCondition' -Tag 'unit', 'ci', 'addon', 'storage smb' {
                         $Condition -eq 'Deleted' -and $Label -eq 'app=csi-smb-controller' -and $Namespace -eq 'storage-smb' -and $TimeoutSeconds -eq 123 }
                     Mock -ModuleName $moduleName Wait-ForPodCondition { return $true } -ParameterFilter {
                         $Condition -eq 'Deleted' -and $Label -eq 'app=csi-smb-node-win' -and $Namespace -eq 'storage-smb' -and $TimeoutSeconds -eq 123 }
-                    Mock -ModuleName $moduleName Wait-ForPodCondition { return $true } -ParameterFilter {
-                        $Condition -eq 'Deleted' -and $Label -eq 'k8s-app=csi-proxy' -and $Namespace -eq 'storage-smb' -and $TimeoutSeconds -eq 123 }
                 }
 
                 It 'returns $true' {
@@ -887,12 +845,8 @@ Describe 'Restore-SmbShareAndFolderLinuxHost' -Tag 'unit', 'ci', 'addon', 'stora
             Mock -ModuleName $moduleName Wait-ForSharedFolderOnLinuxHost {
                 InModuleScope -ModuleName $moduleName { $script:Success = $true }
             }
-            Mock -ModuleName $moduleName Test-SharedFolderMountOnWinNode {
-                InModuleScope -ModuleName $moduleName { $script:Success = $true }
-            }
             Mock -ModuleName $moduleName New-SmbHostOnLinuxIfNotExisting {}
             Mock -ModuleName $moduleName New-SharedFolderMountOnLinuxHost {}
-            Mock -ModuleName $moduleName New-SharedFolderMountOnWindows {}
 
             InModuleScope -ModuleName $moduleName {
                 Restore-SmbShareAndFolderLinuxHost -SkipTest -Config @{}
@@ -902,10 +856,8 @@ Describe 'Restore-SmbShareAndFolderLinuxHost' -Tag 'unit', 'ci', 'addon', 'stora
         It 'creates SMB share and mount' {
             InModuleScope -ModuleName $moduleName {
                 Should -Invoke Wait-ForSharedFolderOnLinuxHost -Times 1 -Scope Context
-                Should -Invoke Test-SharedFolderMountOnWinNode -Times 1 -Scope Context
                 Should -Invoke New-SmbHostOnLinuxIfNotExisting -Times 1 -Scope Context
                 Should -Invoke New-SharedFolderMountOnLinuxHost -Times 1 -Scope Context
-                Should -Invoke New-SharedFolderMountOnWindows -Times 1 -Scope Context
             }
         }
     }
@@ -915,11 +867,6 @@ Describe 'Restore-SmbShareAndFolderLinuxHost' -Tag 'unit', 'ci', 'addon', 'stora
             BeforeAll {
                 Mock -ModuleName $moduleName Write-Log {}
                 Mock -ModuleName $moduleName Wait-ForSharedFolderOnLinuxHost {
-                    InModuleScope -ModuleName $moduleName {
-                        $script:Success = $true
-                    }
-                }
-                Mock -ModuleName $moduleName Test-SharedFolderMountOnWinNode {
                     InModuleScope -ModuleName $moduleName {
                         $script:Success = $true
                     }
@@ -951,14 +898,8 @@ Describe 'Restore-SmbShareAndFolderLinuxHost' -Tag 'unit', 'ci', 'addon', 'stora
                         }
                     }
                 }
-                Mock -ModuleName $moduleName Test-SharedFolderMountOnWinNode {
-                    InModuleScope -ModuleName $moduleName {
-                        $script:Success = $true
-                    }
-                }
                 Mock -ModuleName $moduleName New-SmbHostOnLinuxIfNotExisting {}
                 Mock -ModuleName $moduleName New-SharedFolderMountOnLinuxHost {}
-                Mock -ModuleName $moduleName New-SharedFolderMountOnWindows {}
 
                 InModuleScope -ModuleName $moduleName {
                     Restore-SmbShareAndFolderLinuxHost -Config @{}
@@ -969,44 +910,6 @@ Describe 'Restore-SmbShareAndFolderLinuxHost' -Tag 'unit', 'ci', 'addon', 'stora
                 InModuleScope -ModuleName $moduleName {
                     Should -Invoke New-SmbHostOnLinuxIfNotExisting -Times 1 -Scope Context
                     Should -Invoke New-SharedFolderMountOnLinuxHost -Times 1 -Scope Context
-                    Should -Invoke New-SharedFolderMountOnWindows -Times 1 -Scope Context
-                }
-            }
-        }
-
-        Context 'SMB mount on Windows not working' {
-            BeforeAll {
-                Mock -ModuleName $moduleName Write-Log {}
-                Mock -ModuleName $moduleName Wait-ForSharedFolderOnLinuxHost {
-                    InModuleScope -ModuleName $moduleName {
-                        $script:Success = $true
-                    }
-                }
-                Mock -ModuleName $moduleName Test-SharedFolderMountOnWinNode {
-                    InModuleScope -ModuleName $moduleName {
-                        if ($script:testFlag3 -eq $true) {
-                            $script:Success = $true
-                        }
-                        else {
-                            $script:Success = $false
-                            $script:testFlag3 = $true
-                        }
-                    }
-                }
-                Mock -ModuleName $moduleName New-SmbHostOnLinuxIfNotExisting {}
-                Mock -ModuleName $moduleName New-SharedFolderMountOnLinuxHost {}
-                Mock -ModuleName $moduleName New-SharedFolderMountOnWindows {}
-
-                InModuleScope -ModuleName $moduleName {
-                    Restore-SmbShareAndFolderLinuxHost -Config @{}
-                }
-            }
-
-            It 'creates SMB share and mount' {
-                InModuleScope -ModuleName $moduleName {
-                    Should -Invoke New-SmbHostOnLinuxIfNotExisting -Times 1 -Scope Context
-                    Should -Invoke New-SharedFolderMountOnLinuxHost -Times 1 -Scope Context
-                    Should -Invoke New-SharedFolderMountOnWindows -Times 1 -Scope Context
                 }
             }
         }
@@ -1020,46 +923,13 @@ Describe 'Restore-SmbShareAndFolderLinuxHost' -Tag 'unit', 'ci', 'addon', 'stora
                     $script:Success = $false
                 }
             }
-            Mock -ModuleName $moduleName Test-SharedFolderMountOnWinNode {}
             Mock -ModuleName $moduleName New-SmbHostOnLinuxIfNotExisting {}
             Mock -ModuleName $moduleName New-SharedFolderMountOnLinuxHost {}
-            Mock -ModuleName $moduleName New-SharedFolderMountOnWindows {}
         }
 
         It 'throws' {
             InModuleScope -ModuleName $moduleName {
                 { Restore-SmbShareAndFolderLinuxHost -Config @{} } | Should -Throw -ExpectedMessage 'Unable to mount shared folder with CIFS on Linux host'
-            }
-        }
-    }
-
-    Context 'SMB mount on Windows failed' {
-        BeforeAll {
-            Mock -ModuleName $moduleName Write-Log {}
-            Mock -ModuleName $moduleName Wait-ForSharedFolderOnLinuxHost {
-                InModuleScope -ModuleName $moduleName {
-                    if ($script:testFlag4 -eq $true) {
-                        $script:Success = $true
-                    }
-                    else {
-                        $script:Success = $false
-                        $script:testFlag4 = $true
-                    }
-                }
-            }
-            Mock -ModuleName $moduleName Test-SharedFolderMountOnWinNode {
-                InModuleScope -ModuleName $moduleName {
-                    $script:Success = $false
-                }
-            }
-            Mock -ModuleName $moduleName New-SmbHostOnLinuxIfNotExisting {}
-            Mock -ModuleName $moduleName New-SharedFolderMountOnLinuxHost {}
-            Mock -ModuleName $moduleName New-SharedFolderMountOnWindows {}
-        }
-
-        It 'throws' {
-            InModuleScope -ModuleName $moduleName {
-                { Restore-SmbShareAndFolderLinuxHost -Config @{} } | Should -Throw -ExpectedMessage "Unable to setup SMB share '$windowsLocalPath' on Linux host"
             }
         }
     }
@@ -1069,8 +939,6 @@ Describe 'Remove-SmbShareAndFolderLinuxHost' -Tag 'unit', 'ci', 'addon', 'storag
     Context 'nodes cleanup skipped' {
         BeforeAll {
             Mock -ModuleName $moduleName Write-Log {}
-            Mock -ModuleName $moduleName Remove-SmbGlobalMappingIfExisting {}
-            Mock -ModuleName $moduleName Remove-LocalWinMountIfExisting {}
             Mock -ModuleName $moduleName Remove-SharedFolderMountOnLinuxHost {}
             Mock -ModuleName $moduleName Remove-SmbHostOnLinux {}
         }
@@ -1079,8 +947,6 @@ Describe 'Remove-SmbShareAndFolderLinuxHost' -Tag 'unit', 'ci', 'addon', 'storag
             InModuleScope -ModuleName $moduleName {
                 Remove-SmbShareAndFolderLinuxHost -SkipNodesCleanup -Config @{}
 
-                Should -Invoke Remove-SmbGlobalMappingIfExisting -Times 1 -Scope Context
-                Should -Invoke Remove-LocalWinMountIfExisting -Times 1 -Scope Context
                 Should -Invoke Remove-SharedFolderMountOnLinuxHost -Times 0 -Scope Context
                 Should -Invoke Remove-SmbHostOnLinux -Times 0 -Scope Context
             }
@@ -1090,8 +956,6 @@ Describe 'Remove-SmbShareAndFolderLinuxHost' -Tag 'unit', 'ci', 'addon', 'storag
     Context 'nodes cleanup not skipped' {
         BeforeAll {
             Mock -ModuleName $moduleName Write-Log {}
-            Mock -ModuleName $moduleName Remove-SmbGlobalMappingIfExisting {}
-            Mock -ModuleName $moduleName Remove-LocalWinMountIfExisting {}
             Mock -ModuleName $moduleName Remove-SharedFolderMountOnLinuxHost {}
             Mock -ModuleName $moduleName Remove-SmbHostOnLinux {}
         }
@@ -1100,8 +964,6 @@ Describe 'Remove-SmbShareAndFolderLinuxHost' -Tag 'unit', 'ci', 'addon', 'storag
             InModuleScope -ModuleName $moduleName {
                 Remove-SmbShareAndFolderLinuxHost -Config @{}
 
-                Should -Invoke Remove-SmbGlobalMappingIfExisting -Times 1 -Scope Context
-                Should -Invoke Remove-LocalWinMountIfExisting -Times 1 -Scope Context
                 Should -Invoke Remove-SharedFolderMountOnLinuxHost -Times 1 -Scope Context
                 Should -Invoke Remove-SmbHostOnLinux -Times 1 -Scope Context
             }
@@ -1777,123 +1639,6 @@ Describe 'Restore-AddonData'-Tag 'unit', 'ci', 'addon', 'storage smb' {
             InModuleScope -ModuleName $moduleName {
                 Should -Invoke Copy-Item -Times 1 -ParameterFilter { $Path -eq 'test-dir\storage-smb\dir1_0\*' -and $Destination -eq 'c:\win\dir1' } -Scope Context
                 Should -Invoke Copy-Item -Times 1 -ParameterFilter { $Path -eq 'test-dir\storage-smb\dir2_1\*' -and $Destination -eq 'c:\win\dir2' } -Scope Context
-            }
-        }
-    }
-}
-
-Describe 'Remove-SmbGlobalMappingIfExisting' -Tag 'unit', 'ci', 'addon', 'storage smb' {
-    Context 'remote path not specified' {
-        It 'throws' {
-            { Remove-SmbGlobalMappingIfExisting } | Should -Throw -ExpectedMessage 'RemotePath not specified'
-        }
-    }
-
-    Context 'mapping non-existent' {
-        BeforeAll {
-            Mock -ModuleName $moduleName Write-Log {}
-            Mock -ModuleName $moduleName Get-SmbGlobalMapping { return $null } -ParameterFilter { $RemotePath -eq 'test-path' }
-            Mock -ModuleName $moduleName Get-SmbGlobalMapping { throw 'unexpected' } -ParameterFilter { $RemotePath -ne 'test-path' }
-            Mock -ModuleName $moduleName Remove-SmbGlobalMapping { }
-
-            InModuleScope -ModuleName $moduleName {
-                Remove-SmbGlobalMappingIfExisting -RemotePath 'test-path'
-            }
-        }
-
-        It 'skips the removal' {
-            InModuleScope -ModuleName $moduleName {
-                Should -Invoke Write-Log -Times 1 -Scope Context -ParameterFilter { $Messages[0] -match 'not existing, nothing to remove' }
-                Should -Invoke Remove-SmbGlobalMapping -Times 0 -Scope Context
-            }
-        }
-    }
-
-    Context 'mapping existnet' {
-        BeforeAll {
-            Mock -ModuleName $moduleName Write-Log {}
-            Mock -ModuleName $moduleName Get-SmbGlobalMapping { return 'existent' } -ParameterFilter { $RemotePath -eq 'test-path' }
-            Mock -ModuleName $moduleName Get-SmbGlobalMapping { throw 'unexpected' } -ParameterFilter { $RemotePath -ne 'test-path' }
-            Mock -ModuleName $moduleName Remove-SmbGlobalMapping { }
-
-            InModuleScope -ModuleName $moduleName {
-                Remove-SmbGlobalMappingIfExisting -RemotePath 'test-path'
-            }
-        }
-
-        It 'removes the mapping' {
-            InModuleScope -ModuleName $moduleName {
-                Should -Invoke Remove-SmbGlobalMapping -Times 1 -Scope Context -ParameterFilter { $RemotePath -eq 'test-path' }
-            }
-        }
-    }
-}
-
-Describe 'Remove-LocalWinMountIfExisting' -Tag 'unit', 'ci', 'addon', 'storage smb' {
-    Context 'path not specified' {
-        It 'throws' {
-            { Remove-LocalWinMountIfExisting } | Should -Throw -ExpectedMessage 'Path not specified'
-        }
-    }
-
-    Context 'local mount not existing' {
-        BeforeAll {
-            Mock -ModuleName $moduleName Test-Path { return $false } -ParameterFilter { $Path -eq 'test-path' }
-            Mock -ModuleName $moduleName Write-Log {}
-
-            InModuleScope -ModuleName $moduleName {
-                Remove-LocalWinMountIfExisting -Path 'test-path'
-            }
-        }
-
-        It 'skips the removal' {
-            InModuleScope -ModuleName $moduleName {
-                Should -Invoke Write-Log -Times 1 -Scope Context -ParameterFilter { $Messages[0] -match 'not existing, nothing to remove' }
-            }
-        }
-    }
-
-    Context 'local mount is symbolic link' {
-        BeforeAll {
-            class Deleter {
-                [void] Delete() { $this.Deleted = $true }
-                [string]$LinkType = 'SymbolicLink'
-                [bool]$Deleted = $false
-            }
-
-            $script:deleter = [Deleter]::new()
-
-            Mock -ModuleName $moduleName Test-Path { return $true } -ParameterFilter { $Path -eq 'test-path' }
-            Mock -ModuleName $moduleName Write-Log {}
-            Mock -ModuleName $moduleName Get-Item { return $script:deleter }
-
-            InModuleScope -ModuleName $moduleName {
-                Remove-LocalWinMountIfExisting -Path 'test-path'
-            }
-        }
-
-        It 'removes the link' {
-            InModuleScope -ModuleName $moduleName -Parameters @{deleter = $script:deleter } {
-                $deleter.Deleted | Should -BeTrue
-            }
-        }
-    }
-
-    Context 'local mount is directory' {
-        BeforeAll {
-            Mock -ModuleName $moduleName Test-Path { return $true } -ParameterFilter { $Path -eq 'test-path' }
-            Mock -ModuleName $moduleName Write-Log {}
-            Mock -ModuleName $moduleName Get-Item { 'dir' }
-            Mock -ModuleName $moduleName Remove-Item { }
-
-            InModuleScope -ModuleName $moduleName {
-                Remove-LocalWinMountIfExisting -Path 'test-path'
-            }
-        }
-
-        It 'removes the directory' {
-            InModuleScope -ModuleName $moduleName {
-                Should -Invoke Remove-Item -Times 1 -Scope Context -ParameterFilter { $Path -eq 'test-path' }
             }
         }
     }

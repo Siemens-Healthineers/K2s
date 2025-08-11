@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText:  © 2024 Siemens Healthineers AG
+// SPDX-FileCopyrightText:  © 2025 Siemens Healthineers AG
 // SPDX-License-Identifier:   MIT
 
 package smb_share
@@ -6,6 +6,7 @@ package smb_share
 import (
 	"context"
 	"fmt"
+	"io/fs"
 	"path/filepath"
 	"regexp"
 	"testing"
@@ -20,8 +21,6 @@ import (
 	"github.com/siemens-healthineers/k2s/internal/cli"
 	kos "github.com/siemens-healthineers/k2s/internal/os"
 
-	//	"github.com/siemens-healthineers/k2s/test/framework/os"
-
 	"encoding/json"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -34,6 +33,8 @@ type config []configEntry
 type configEntry struct {
 	WinMountPath     string `json:"winMountPath"`
 	LinuxMountPath   string `json:"linuxMountPath"`
+	WinShareName     string `json:"winShareName"`
+	LinuxShareName   string `json:"linuxShareName"`
 	StorageClassName string `json:"storageClassName"`
 }
 
@@ -277,6 +278,12 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 
 	Describe("enable command", func() {
 		When("SMB host type is linux", Ordered, func() {
+			var smbHostPrefix string
+
+			BeforeAll(func() {
+				smbHostPrefix = `\\` + suite.SetupInfo().Config.ControlPlane().IpAddress() + `\`
+			})
+
 			It("enables the addon", func(ctx context.Context) {
 				output := suite.K2sCli().RunOrFail(ctx, "addons", "enable", addonName, implementationName, "-o", "-t", "linux")
 
@@ -306,13 +313,13 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 			})
 
 			It("runs Linux-based workloads", func(ctx context.Context) {
-				expectWorkloadToRun(ctx, linuxWorkloadName1, storageConfig[0].WinMountPath, linuxTestfileName)
-				expectWorkloadToRun(ctx, linuxWorkloadName2, storageConfig[1].WinMountPath, linuxTestfileName)
+				expectWorkloadToRun(ctx, linuxWorkloadName1, smbHostPrefix+storageConfig[0].LinuxShareName, linuxTestfileName)
+				expectWorkloadToRun(ctx, linuxWorkloadName2, smbHostPrefix+storageConfig[1].LinuxShareName, linuxTestfileName)
 			})
 
 			It("runs Windows-based workloads", func(ctx context.Context) {
-				expectWorkloadToRun(ctx, windowsWorkloadName1, storageConfig[0].WinMountPath, windowsTestfileName)
-				expectWorkloadToRun(ctx, windowsWorkloadName2, storageConfig[1].WinMountPath, windowsTestfileName)
+				expectWorkloadToRun(ctx, windowsWorkloadName1, smbHostPrefix+storageConfig[0].LinuxShareName, windowsTestfileName)
+				expectWorkloadToRun(ctx, windowsWorkloadName2, smbHostPrefix+storageConfig[1].LinuxShareName, windowsTestfileName)
 			})
 
 			It("restarts the cluster", func(ctx context.Context) {
@@ -320,13 +327,13 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 			})
 
 			It("still runs Linux-based workloads after cluster restart", func(ctx context.Context) {
-				expectWorkloadToRun(ctx, linuxWorkloadName1, storageConfig[0].WinMountPath, linuxTestfileName)
-				expectWorkloadToRun(ctx, linuxWorkloadName2, storageConfig[1].WinMountPath, linuxTestfileName)
+				expectWorkloadToRun(ctx, linuxWorkloadName1, smbHostPrefix+storageConfig[0].LinuxShareName, linuxTestfileName)
+				expectWorkloadToRun(ctx, linuxWorkloadName2, smbHostPrefix+storageConfig[1].LinuxShareName, linuxTestfileName)
 			})
 
 			It("still runs Windows-based workloads after cluster restart", func(ctx context.Context) {
-				expectWorkloadToRun(ctx, windowsWorkloadName1, storageConfig[0].WinMountPath, windowsTestfileName)
-				expectWorkloadToRun(ctx, windowsWorkloadName2, storageConfig[1].WinMountPath, windowsTestfileName)
+				expectWorkloadToRun(ctx, windowsWorkloadName1, smbHostPrefix+storageConfig[0].LinuxShareName, windowsTestfileName)
+				expectWorkloadToRun(ctx, windowsWorkloadName2, smbHostPrefix+storageConfig[1].LinuxShareName, windowsTestfileName)
 			})
 
 			It("deletes Linux-based workloads", func(ctx context.Context) {
@@ -450,6 +457,12 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 
 	Describe("enable and disable with keep in Linux", func() {
 		When("SMB host type is Linux", Ordered, func() {
+			var smbHostPrefix string
+
+			BeforeAll(func() {
+				smbHostPrefix = `\\` + suite.SetupInfo().Config.ControlPlane().IpAddress() + `\`
+			})
+
 			It("enables the addon", func(ctx context.Context) {
 				output := suite.K2sCli().RunOrFail(ctx, "addons", "enable", addonName, implementationName, "-o", "-t", "linux")
 
@@ -474,13 +487,13 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 
 			It("runs Linux-based workloads", func(ctx context.Context) {
 				// TODO: could be more generic
-				expectWorkloadToRun(ctx, linuxWorkloadName1, storageConfig[0].WinMountPath, linuxTestfileName)
-				expectWorkloadToRun(ctx, linuxWorkloadName2, storageConfig[1].WinMountPath, linuxTestfileName)
+				expectWorkloadToRun(ctx, linuxWorkloadName1, smbHostPrefix+storageConfig[0].LinuxShareName, linuxTestfileName)
+				expectWorkloadToRun(ctx, linuxWorkloadName2, smbHostPrefix+storageConfig[1].LinuxShareName, linuxTestfileName)
 			})
 
 			It("runs Windows-based workloads", func(ctx context.Context) {
-				expectWorkloadToRun(ctx, windowsWorkloadName1, storageConfig[0].WinMountPath, windowsTestfileName)
-				expectWorkloadToRun(ctx, windowsWorkloadName2, storageConfig[1].WinMountPath, windowsTestfileName)
+				expectWorkloadToRun(ctx, windowsWorkloadName1, smbHostPrefix+storageConfig[0].LinuxShareName, windowsTestfileName)
+				expectWorkloadToRun(ctx, windowsWorkloadName2, smbHostPrefix+storageConfig[1].LinuxShareName, windowsTestfileName)
 			})
 
 			It("deletes Linux-based workloads", func(ctx context.Context) {
@@ -510,11 +523,11 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 			})
 
 			It("create the test files", func() {
-				createTestFiles(storageConfig[0].WinMountPath)
-				createTestFiles(storageConfig[1].WinMountPath)
+				createTestFiles(smbHostPrefix + storageConfig[0].LinuxShareName)
+				createTestFiles(smbHostPrefix + storageConfig[1].LinuxShareName)
 			})
 
-			It("checks that the test files are still available 1", func(ctx context.Context) {
+			It("checks that the test files are available", func(ctx context.Context) {
 				expectFileAreAvailableInLinux(ctx, storageConfig[0].LinuxMountPath)
 				expectFileAreAvailableInLinux(ctx, storageConfig[1].LinuxMountPath)
 			})
@@ -523,7 +536,7 @@ var _ = Describe(fmt.Sprintf("%s Addon, %s Implementation", addonName, implement
 				disableAddon(ctx, "-k")
 			})
 
-			It("checks that the test files are still available 2", func(ctx context.Context) {
+			It("checks that the test files are still available", func(ctx context.Context) {
 				expectFileAreAvailableInLinux(ctx, "/srv/samba/linux-smb-share1")
 				expectFileAreAvailableInLinux(ctx, "/srv/samba/linux-smb-share2")
 			})
@@ -616,7 +629,7 @@ func createTestFiles(mountPath string) {
 	fileNames := []string{"file1.txt", "file2.txt", "file3.txt"}
 	for _, fileName := range fileNames {
 		filePath := filepath.Join(mountPath, fileName)
-		err := bos.WriteFile(filePath, []byte("test content"), 0644)
+		err := bos.WriteFile(filePath, []byte("test content"), fs.ModePerm)
 		Expect(err).NotTo(HaveOccurred())
 	}
 }
