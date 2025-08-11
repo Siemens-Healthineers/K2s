@@ -2,6 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+# v1.18.0
 ---
 kind: Deployment
 apiVersion: apps/v1
@@ -37,15 +38,20 @@ spec:
         - key: "node-role.kubernetes.io/control-plane"
           operator: "Exists"
           effect: "NoSchedule"
+        - key: "CriticalAddonsOnly"
+          operator: "Exists"
+          effect: "NoSchedule"
       containers:
         - name: csi-provisioner
-          image: registry.k8s.io/sig-storage/csi-provisioner:v3.5.0
+          image: registry.k8s.io/sig-storage/csi-provisioner:v5.2.0
           args:
             - "-v=2"
             - "--csi-address=$(ADDRESS)"
             - "--leader-election"
             - "--leader-election-namespace=storage-smb"
+            - "--feature-gates=HonorPVReclaimPolicy=true"
             - "--extra-create-metadata=true"
+            - "--retry-interval-max=30m"
           env:
             - name: ADDRESS
               value: /csi/csi.sock
@@ -55,16 +61,45 @@ spec:
           resources:
             limits:
               cpu: "1"
-              memory: 300Mi
+              memory: 400Mi
             requests:
               cpu: 10m
               memory: 20Mi
+          securityContext:
+            capabilities:
+              drop:
+                - ALL
+        - name: csi-resizer
+          image: registry.k8s.io/sig-storage/csi-resizer:v1.13.2
+          args:
+            - "-csi-address=$(ADDRESS)"
+            - "-v=2"
+            - "-leader-election"
+            - "--leader-election-namespace=storage-smb"
+            - "-handle-volume-inuse-error=false"
+          env:
+            - name: ADDRESS
+              value: /csi/csi.sock
+          volumeMounts:
+            - name: socket-dir
+              mountPath: /csi
+          resources:
+            limits:
+              cpu: "1"
+              memory: 400Mi
+            requests:
+              cpu: 10m
+              memory: 20Mi
+          securityContext:
+            capabilities:
+              drop:
+                - ALL
         - name: liveness-probe
-          image: registry.k8s.io/sig-storage/livenessprobe:v2.10.0
+          image: registry.k8s.io/sig-storage/livenessprobe:v2.15.0
           args:
             - --csi-address=/csi/csi.sock
             - --probe-timeout=3s
-            - --health-port=29642
+            - --http-endpoint=localhost:29642
             - --v=2
           volumeMounts:
             - name: socket-dir
@@ -76,25 +111,27 @@ spec:
             requests:
               cpu: 10m
               memory: 20Mi
+          securityContext:
+            capabilities:
+              drop:
+                - ALL
         - name: smb
-          image: registry.k8s.io/sig-storage/smbplugin:v1.12.0
+          image: registry.k8s.io/sig-storage/smbplugin:v1.18.0
           imagePullPolicy: IfNotPresent
           args:
             - "--v=5"
             - "--endpoint=$(CSI_ENDPOINT)"
             - "--metrics-address=0.0.0.0:29644"
           ports:
-            - containerPort: 29642
-              name: healthz
-              protocol: TCP
             - containerPort: 29644
               name: metrics
               protocol: TCP
           livenessProbe:
             failureThreshold: 5
             httpGet:
+              host: localhost
               path: /healthz
-              port: healthz
+              port: 29642
             initialDelaySeconds: 30
             timeoutSeconds: 10
             periodSeconds: 30
@@ -103,11 +140,15 @@ spec:
               value: unix:///csi/csi.sock
           securityContext:
             privileged: true
+            capabilities:
+              drop:
+                - ALL
           volumeMounts:
             - mountPath: /csi
               name: socket-dir
           resources:
             limits:
+              cpu: "1"
               memory: 200Mi
             requests:
               cpu: 10m
