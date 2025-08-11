@@ -10,7 +10,7 @@ require (
 	github.com/Microsoft/hcsshim v0.9.8
 	github.com/Microsoft/windows-container-networking v0.3.0
 	github.com/alecthomas/units v0.0.0-20231202071711-9a357b53e9c9
-	github.com/cloudflare/cfssl v1.6.3
+	github.com/cloudflare/cfssl v1.6.5
 	github.com/containernetworking/cni v0.8.1
 	github.com/elazarl/goproxy v0.0.0-20221015165544-a0805db90819
 	github.com/failsafe-go/failsafe-go v0.6.9
@@ -38,6 +38,7 @@ require (
 	golang.org/x/sys v0.33.0
 	golang.org/x/term v0.32.0
 	golang.org/x/text v0.25.0
+	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/api v0.28.3
 	k8s.io/apimachinery v0.28.3
@@ -151,7 +152,6 @@ require (
 	google.golang.org/protobuf v1.36.1 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
-	gopkg.in/yaml.v2 v2.4.0 // indirect
 	k8s.io/klog/v2 v2.100.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20230717233707-2695361300d9 // indirect
 	k8s.io/utils v0.0.0-20230406110748-d93618cff8a2 // indirect
