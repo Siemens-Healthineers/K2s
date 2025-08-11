@@ -32,7 +32,7 @@ var _ = AfterSuite(func(ctx context.Context) {
 
 var _ = Describe("image reset-win-storage", func() {
 	It("prints system-running message and exits with non-zero", func(ctx context.Context) {
-		if suite.SetupInfo().SetupConfig.LinuxOnly {
+		if suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
 			Skip("Linux-only")
 		}
 
@@ -42,7 +42,7 @@ var _ = Describe("image reset-win-storage", func() {
 	})
 
 	It("prints not supported for linux-only", func(ctx context.Context) {
-		if !suite.SetupInfo().SetupConfig.LinuxOnly {
+		if !suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {
 			Skip("not Linux-only")
 		}
 
