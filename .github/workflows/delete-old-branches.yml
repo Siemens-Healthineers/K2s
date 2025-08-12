@@ -1,0 +1,45 @@
+# .github/workflows/delete-old-branches.yml
+
+name: Delete Old Branches
+
+# This workflow is scheduled to run every Sunday at midnight.
+# You can customize the cron schedule to your needs.
+# For more information on cron syntax, see https://crontab.guru/
+on:
+  schedule:
+    - cron: '0 0 * * 0'
+  # You can also run this workflow manually from the Actions tab.
+  workflow_dispatch:
+
+jobs:
+  delete_old_branches:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # Required to delete branches
+      # This action also requires the pull-requests permission to check if a branch
+      # has an open PR.
+      pull-requests: write
+
+    steps:
+      - name: Delete branches older than 6 months
+        # Using a different action that supports regex for branch protection
+        uses: SFTtech/action-delete-old-branches@v2.2.0
+        with:
+          # Your GitHub token is required to interact with the repository.
+          # The default GITHUB_TOKEN has the necessary permissions.
+          token: ${{ secrets.AUTOCOMMITKEY }}
+          
+          # The age of branches to be considered for deletion.
+          # You can specify this in a format like '180d' for days or '6M' for months.
+          age: '6M'
+
+          # This is the key you need to use for regex patterns.
+          # It protects branches that match this regular expression.
+          # The pattern below protects branches named 'main', 'master', and any
+          # branch starting with 'release-1.2.'.
+          ignore-branch-regex: '^(main|master|release-*)$'
+
+          # A dry run will only log which branches would be deleted without
+          # actually deleting them. This is highly recommended for the first few runs.
+          # Change this to 'false' to enable actual deletion.
+          dry-run: true
