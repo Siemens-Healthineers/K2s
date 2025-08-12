@@ -40,7 +40,7 @@ jobs:
 
           # A regular expression defining branch names that are exempt from cleanup.
           # This protects 'main', 'master', and any branch starting with 'release-1.2.'.
-          exempt-branches-regex: '^(main|master|release-*)$'
+          exempt-branches-regex: '^(main|master|release-*|gh-pages)$'
 
           # A dry run will only log which branches would be deleted without
           # actually deleting them. This is highly recommended for the first few runs.
