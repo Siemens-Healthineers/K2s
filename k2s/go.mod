@@ -10,7 +10,7 @@ require (
 	github.com/Microsoft/hcsshim v0.9.8
 	github.com/Microsoft/windows-container-networking v0.3.0
 	github.com/alecthomas/units v0.0.0-20231202071711-9a357b53e9c9
-	github.com/cloudflare/cfssl v1.6.3
+	github.com/cloudflare/cfssl v1.6.5
 	github.com/containernetworking/cni v0.8.1
 	github.com/elazarl/goproxy v0.0.0-20221015165544-a0805db90819
 	github.com/failsafe-go/failsafe-go v0.6.9
