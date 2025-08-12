@@ -50,7 +50,10 @@ jobs:
         ls
 
     - name: Run go mod tidy
-      run: go mod tidy
+      run: |
+        cd /k2s
+        go mod tidy
+        cd ..
 
     - name: Build all k2s executables
       run: |
