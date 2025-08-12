@@ -1,6 +1,6 @@
 # .github/workflows/delete-old-branches.yml
 
-name: Delete old branches
+name: Delete old branches (6 months)
 
 # This workflow is scheduled to run every Sunday at midnight.
 # You can customize the cron schedule to your needs.
@@ -45,4 +45,4 @@ jobs:
           # A dry run will only log which branches would be deleted without
           # actually deleting them. This is highly recommended for the first few runs.
           # Change this to 'false' to enable actual deletion.
-          dry-run: true
+          dry-run: false
