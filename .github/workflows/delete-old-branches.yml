@@ -1,6 +1,6 @@
 # .github/workflows/delete-old-branches.yml
 
-name: Delete Old Branches
+name: Delete old branches
 
 # This workflow is scheduled to run every Sunday at midnight.
 # You can customize the cron schedule to your needs.
@@ -27,7 +27,7 @@ jobs:
         with:
           # Your GitHub token is required to interact with the repository.
           # The default GITHUB_TOKEN has the necessary permissions.
-          github-token: ${{ secrets.AUTOCOMMITKEY }}
+          github-token: ${{ secrets.DELETE_BRANCHES_TOKEN }}
           
           # The number of days a branch must be stale before it's considered for deletion.
           # 6 months is approximately 180 days.
