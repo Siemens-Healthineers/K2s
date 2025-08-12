@@ -23,7 +23,7 @@ jobs:
     steps:
       - name: Delete branches older than 6 months
         # Using a different action that supports regex for branch protection
-        uses: fpicalausa/remove-stale-branches@v2.0.0
+        uses: fpicalausa/remove-stale-branches@v2.4.0
         with:
           # Your GitHub token is required to interact with the repository.
           # The default GITHUB_TOKEN has the necessary permissions.
