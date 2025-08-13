@@ -12,7 +12,7 @@ require (
 	github.com/alecthomas/units v0.0.0-20231202071711-9a357b53e9c9
 	github.com/cloudflare/cfssl v1.6.5
 	github.com/containernetworking/cni v1.1.2
-	github.com/elazarl/goproxy v0.0.0-20221015165544-a0805db90819
+	github.com/elazarl/goproxy v1.2.1
 	github.com/failsafe-go/failsafe-go v0.6.9
 	github.com/gentlemanautomaton/windevice v0.0.0-20230228225025-9f4f02d0964b
 	github.com/gin-gonic/gin v1.10.0
