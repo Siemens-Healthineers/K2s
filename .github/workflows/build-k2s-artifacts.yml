@@ -49,6 +49,13 @@ jobs:
       run: |
         ls
 
+    - name: Run go mod tidy
+      run: |
+        cd k2s
+        rm go.sum
+        go mod tidy
+        cd ..
+
     - name: Build all k2s executables
       run: |
         .\smallsetup\common\BuildGoExe.ps1 -BuildAll
@@ -67,6 +74,6 @@ jobs:
     - name: Commit k2s executables
       run: |
         git status
-        git add k2s.exe bin/cloudinitisobuilder.exe bin/devgon.exe bin/httpproxy.exe bin/zap.exe bin/yaml2json.exe bin/cni/bridge.exe bin/cni/vfprules.exe bin/cni/l4proxy.exe
+        git add k2s.exe bin/cloudinitisobuilder.exe bin/devgon.exe bin/httpproxy.exe bin/zap.exe bin/yaml2json.exe bin/cni/bridge.exe bin/cni/vfprules.exe bin/cni/l4proxy.exe k2s/go.mod k2s/go.sum 
         git commit -m "${{ env.CI_COMMIT_MESSAGE }}"
         git push
