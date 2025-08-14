@@ -71,15 +71,15 @@ jobs:
       - uses: dependabot/fetch-metadata@v2.4.0
         id: metadata
         with:
-          github-token: "${{ secrets.AUTOCOMMITKEY }}"
+          github-token: ${{ secrets.AUTOCOMMIT_TOKEN }}
           
       - name: Approve PR
         run: gh pr review --approve "${{ github.event.pull_request.html_url }}"
         env:
-          GH_TOKEN: ${{ secrets.AUTOCOMMITKEY }}
+          GH_TOKEN: ${{ secrets.AUTOCOMMIT_TOKEN }}
           
       - name: Merge PR
         run: gh pr merge "${{ github.event.pull_request.html_url }}" --auto --squash
         env:
-          GH_TOKEN: ${{ secrets.AUTOCOMMITKEY }}
+          GH_TOKEN: ${{ secrets.AUTOCOMMIT_TOKEN }}
   
