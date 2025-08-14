@@ -1,4 +1,7 @@
-name: Test and Check-in Dependabot PR
+# SPDX-FileCopyrightText: © 2025 Siemens Healthineers AG
+# SPDX-License-Identifier: MIT
+
+name: Automerge from Dependabot PR
 
 on:
   pull_request_target:
