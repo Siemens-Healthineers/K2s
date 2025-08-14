@@ -16,7 +16,7 @@ require (
 	github.com/failsafe-go/failsafe-go v0.6.9
 	github.com/gentlemanautomaton/windevice v0.0.0-20230228225025-9f4f02d0964b
 	github.com/gin-gonic/gin v1.10.0
-	github.com/go-logr/logr v1.4.2
+	github.com/go-logr/logr v1.4.3
 	github.com/google/uuid v1.6.0
 	github.com/hectane/go-acl v0.0.0-20230122075934-ca0b05cb1adb
 	github.com/kdomanski/iso9660 v0.3.4
