@@ -8,11 +8,11 @@ name: "Build - vfprules.dll"
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - "main"
-    paths:
-      - "k2s/cmd/vfprules/vfprules/**"
+#  push:
+#    branches:
+#      - "main"
+#    paths:
+#      - "k2s/cmd/vfprules/vfprules/**"
 
 jobs:
   build-vfp-dll:
