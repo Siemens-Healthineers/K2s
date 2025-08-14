@@ -32,12 +32,19 @@ jobs:
       uses: actions/checkout@v4      
       
     - name: Configure SSH known_hosts
+      # Use PowerShell to run native Windows commands
+      shell: pwsh
       run: |
-        mkdir -p ~/.ssh
+        # Use cmd.exe style commands for filesystem operations
+        # This creates the .ssh directory
+        mkdir ~/.ssh
+        
+        # This command appends the host key
         ssh-keyscan github.com >> ~/.ssh/known_hosts
-        # This command ensures proper file permissions on Windows
+
+        # Now, use icacls with PowerShell's syntax. 
+        # Note the different way of passing arguments.
         icacls "$env:HOME\.ssh\known_hosts" /grant "Users:F"
-      shell: bash
 
       # use an older version since under windows it caues an key verification error
     - uses: webfactory/ssh-agent@v0.9.1
