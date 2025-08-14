@@ -11,7 +11,7 @@ require (
 	github.com/Microsoft/windows-container-networking v0.3.1
 	github.com/alecthomas/units v0.0.0-20231202071711-9a357b53e9c9
 	github.com/cloudflare/cfssl v1.6.5
-	github.com/containernetworking/cni v1.1.2
+	github.com/containernetworking/cni v1.3.0
 	github.com/elazarl/goproxy v1.7.2
 	github.com/failsafe-go/failsafe-go v0.6.9
 	github.com/gentlemanautomaton/windevice v0.0.0-20230228225025-9f4f02d0964b
@@ -126,6 +126,7 @@ require (
 	github.com/tklauser/numcpus v0.6.1 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.2.12 // indirect
+	github.com/vishvananda/netns v0.0.4 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/xeipuuv/gojsonpointer v0.0.0-20180127040702-4e3ac2762d5f // indirect
 	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
