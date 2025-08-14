@@ -68,15 +68,18 @@ jobs:
           .\test\execute_all_tests.ps1 -Tags ci -ExcludeTags unit, integration -V -ThrowOnFailure
 
       # Approve and merge if tests succeed
-      - uses: dependabot/fetch-metadata@v1.1.1
+      - uses: dependabot/fetch-metadata@v2.4.0
         id: metadata
         with:
           github-token: "${{ secrets.AUTOCOMMITKEY }}"
+          
       - name: Approve PR
         run: gh pr review --approve "${{ github.event.pull_request.html_url }}"
         env:
           GH_TOKEN: ${{ secrets.AUTOCOMMITKEY }}
+          
       - name: Merge PR
         run: gh pr merge "${{ github.event.pull_request.html_url }}" --auto --squash
         env:
           GH_TOKEN: ${{ secrets.AUTOCOMMITKEY }}
+  
