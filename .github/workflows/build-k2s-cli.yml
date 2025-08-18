@@ -107,7 +107,7 @@ jobs:
       id: pr
       uses: peter-evans/create-pull-request@v5
       with:
-        token: ${{ secrets.AUTOCOMMITKEY }}
+        token: ${{ secrets.AUTOCOMMIT_TOKEN }}
         title: "${{ env.CI_COMMIT_MESSAGE }}"
         commit-message: "${{ env.CI_COMMIT_MESSAGE }}"
         base: main
