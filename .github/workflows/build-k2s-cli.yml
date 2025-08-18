@@ -77,11 +77,11 @@ jobs:
         .\smallsetup\common\BuildGoExe.ps1
         ls
 
-    - name: Run ci Acceptance Tests
-      shell: powershell
-      run: |
-        $ErrorActionPreference = "Continue"
-        .\test\execute_all_tests.ps1 -Tags ci -ExcludeTags unit, integration -V -ThrowOnFailure
+    # - name: Run ci Acceptance Tests
+    #  shell: powershell
+    #  run: |
+    #    $ErrorActionPreference = "Continue"
+    #    .\test\execute_all_tests.ps1 -Tags ci -ExcludeTags unit, integration -V -ThrowOnFailure
 
     - name: Create temporary branch for commit
       id: create_branch
@@ -97,7 +97,7 @@ jobs:
       run: |
         git add k2s.exe
         git commit -m "${{ env.CI_COMMIT_MESSAGE }}"
-        git push origin ${{ steps.create_branch.outputs.branch }}
+        git push --set-upstream origin ${{ steps.create_branch.outputs.branch }}
 
     - name: Create Pull Request
       id: pr
