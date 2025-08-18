@@ -94,6 +94,7 @@ jobs:
       shell: powershell
 
     - name: Commit changes
+      shell: powershell
       run: |
         git add k2s.exe
         git commit -m "${{ env.CI_COMMIT_MESSAGE }}"
