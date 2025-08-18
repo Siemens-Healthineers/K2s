@@ -83,8 +83,51 @@ jobs:
         $ErrorActionPreference = "Continue"
         .\test\execute_all_tests.ps1 -Tags ci -ExcludeTags unit, integration -V -ThrowOnFailure
 
-    - name: Commit k2s cli
+    - name: Create temporary branch for commit
+      id: create_branch
+      run: |
+        $branchName = "temp-auto-commit-" + (Get-Date -Format "yyyyMMddHHmmss")
+        echo "branchName=$branchName" | Out-File -FilePath env.txt -Encoding ascii
+        Write-Host "Created branch $branchName"
+        git checkout -b $branchName
+        echo ::set-output name=branch::$branchName
+      shell: powershell
+
+    - name: Commit changes
       run: |
         git add k2s.exe
-        git commit -m  "${{ env.CI_COMMIT_MESSAGE }}"
-        git push
+        git commit -m "${{ env.CI_COMMIT_MESSAGE }}"
+        git push origin ${{ steps.create_branch.outputs.branch }}
+
+    - name: Create Pull Request
+      id: pr
+      uses: peter-evans/create-pull-request@v5
+      with:
+        token: ${{ secrets.AUTOCOMMITKEY }}
+        title: "${{ env.CI_COMMIT_MESSAGE }}"
+        commit-message: "${{ env.CI_COMMIT_MESSAGE }}"
+        base: main
+        head: ${{ steps.create_branch.outputs.branch }}
+        draft: false
+        body: "Automatic PR created by workflow"
+
+    - name: Approve Pull Request
+      uses: hmarr/auto-approve-action@v2.1.0
+      with:
+        github-token: ${{ secrets.AUTOCOMMIT_TOKEN }}
+      if: steps.pr.outputs.pull-request-number != ''
+
+    - name: Merge Pull Request
+      uses: pascalgn/automerge-action@v0.15.4
+      with:
+        github_token: ${{ secrets.AUTOCOMMIT_TOKEN }}
+        merge_method: merge
+        pull_request_number: ${{ steps.pr.outputs.pull-request-number }}
+        delete_branch: true
+      if: steps.pr.outputs.pull-request-number != ''
+
+    # - name: Commit k2s cli
+    #  run: |
+    #    git add k2s.exe
+    #    git commit -m  "${{ env.CI_COMMIT_MESSAGE }}"
+    #    git push
