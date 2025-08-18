@@ -31,25 +31,25 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4      
       
-    - name: Configure SSH known_hosts
-      # Use PowerShell to run native Windows commands
-      shell: pwsh
-      run: |
+    # - name: Configure SSH known_hosts
+    # Use PowerShell to run native Windows commands
+    #  shell: pwsh
+    #  run: |
         # Use cmd.exe style commands for filesystem operations
         # This creates the .ssh directory
-        mkdir ~/.ssh
+    #    mkdir ~/.ssh
         
         # This command appends the host key
-        ssh-keyscan github.com >> ~/.ssh/known_hosts
+    #   ssh-keyscan github.com >> ~/.ssh/known_hosts
 
         # Now, use icacls with PowerShell's syntax. 
         # Note the different way of passing arguments.
-        icacls "$env:HOME\.ssh\known_hosts" /grant "Users:F"
+    #    icacls "$env:HOME\.ssh\known_hosts" /grant "Users:F"
 
       # use an older version since under windows it caues an key verification error
-    - uses: webfactory/ssh-agent@v0.9.1
-      with:
-          ssh-private-key: ${{ secrets.AUTOCOMMITKEY }}
+    # - uses: webfactory/ssh-agent@v0.9.1
+    #  with:
+    #      ssh-private-key: ${{ secrets.AUTOCOMMITKEY }}
 
     - name: Set up Golang
       uses: actions/setup-go@v5
@@ -61,6 +61,7 @@ jobs:
       run: |
         git config --local user.email github-actions@github.com
         git config --local user.name github-actions
+        git remote set-url origin https://x-access-token:${{ secrets.AUTOCOMMITKEY }}@github.com/${{ github.repository }}
         git remote -v
 
     - name: Show all diff
