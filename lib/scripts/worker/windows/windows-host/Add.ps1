@@ -76,7 +76,7 @@ if ($Proxy -eq '') {
     $proxyConfig = Get-ProxyConfig
     $Proxy = $proxyConfig.HttpProxy
 }
-
+$joinCommand = New-JoinCommand
 # Add Windows worker node
 $workerNodeParams = @{
     NodeName = $NodeName
@@ -85,6 +85,8 @@ $workerNodeParams = @{
     WindowsHostIpAddress = $WindowsHostIpAddress
     Proxy = $Proxy
     AdditionalHooksDir= $AdditionalHooksDir
+    PodSubnetworkNumber               = '1'
+    JoinCommand                       = $JoinCommand
 }
 Add-WindowsWorkerNodeOnWindowsHostRemote @workerNodeParams
 

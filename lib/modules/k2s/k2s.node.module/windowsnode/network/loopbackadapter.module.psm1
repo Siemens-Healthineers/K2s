@@ -453,6 +453,7 @@ function Set-NewNameForLoopbackAdapter {
 
 Export-ModuleMember New-LoopbackAdapter
 Export-ModuleMember Remove-LoopbackAdapter
+Export-ModuleMember New-DefaultLoopbackAdaterRemote
 Export-ModuleMember Set-LoopbackAdapterProperties, Get-LoopbackAdapterIP,
 Get-LoopbackAdapterGateway, Get-LoopbackAdapterCIDR, New-DefaultLoopbackAdapter, Get-L2BridgeName,
 Enable-LoopbackAdapter, Disable-LoopbackAdapter, Uninstall-LoopbackAdapter, Get-DevgonExePath, Set-LoopbackAdapterExtendedProperties,

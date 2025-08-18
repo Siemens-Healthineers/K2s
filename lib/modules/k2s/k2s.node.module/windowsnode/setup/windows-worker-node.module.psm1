@@ -25,7 +25,10 @@ function Add-WindowsWorkerNodeOnWindowsHostRemote {
         [parameter(Mandatory = $true, HelpMessage = 'IP address of the remote machine')]
         [string] $IpAddress,
         [parameter(Mandatory = $true, HelpMessage = 'Username for the remote machine')]
-        [string] $UserName
+        [string] $UserName,
+        [parameter(Mandatory = $true, HelpMessage = 'NodeName for the remote machine')]
+        [string] $NodeName,
+        [string] $WindowsHostIpAddress
     )
 
     Stop-InstallIfNoMandatoryServiceIsRunningRemote -UserName $UserName -IpAddress $IpAddress
@@ -513,6 +516,7 @@ function Repair-K2sRoutes {
 }
 
 Export-ModuleMember -Function Add-WindowsWorkerNodeOnWindowsHost,
+Add-WindowsWorkerNodeOnWindowsHostRemote,
 Remove-WindowsWorkerNodeOnWindowsHost,
 Start-WindowsWorkerNodeOnWindowsHost,
 Stop-WindowsWorkerNodeOnWindowsHost,

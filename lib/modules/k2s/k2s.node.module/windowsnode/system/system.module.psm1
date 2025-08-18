@@ -344,6 +344,7 @@ function Remove-K2sAppLockerRules {
 }
 
 Export-ModuleMember -Function Add-K2sToDefenderExclusion,
+Stop-InstallIfNoMandatoryServiceIsRunningRemote,
 Test-WindowsPrerequisites,
 Set-WSL,
 Get-StorageLocalDrive,
