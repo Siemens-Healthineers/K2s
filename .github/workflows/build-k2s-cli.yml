@@ -79,15 +79,9 @@ jobs:
         git commit -m "${{ env.CI_COMMIT_MESSAGE }}"
         git push --set-upstream origin ${{ steps.create_branch.outputs.branch }}
 
-    - name: Create Pull Request
-      id: pr
-      uses: peter-evans/create-pull-request@v5
-      with:
-        token: ${{ secrets.AUTOCOMMIT_TOKEN }}
-        title: "${{ env.CI_COMMIT_MESSAGE }}"
-        commit-message: "${{ env.CI_COMMIT_MESSAGE }}"
-        base: main
-        branch: "${{ steps.create_branch.outputs.branch }}"
-        draft: false
-        body: "Automatic PR created by workflow"
+    - name: Create PR with gh
+      run: gh pr create --base main --head ${{ steps.create_branch.outputs.branch }} --title "${{ env.CI_COMMIT_MESSAGE }}" --body "Automatic PR created by for ci build for k2s cli"
+      env:
+        GITHUB_TOKEN: ${{ secrets.AUTOCOMMIT_TOKEN }}
+
 
