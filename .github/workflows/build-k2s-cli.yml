@@ -61,10 +61,10 @@ jobs:
       id: create_branch
       shell: powershell
       run: |
-        $branchName = "ci-auto-commit-binary-" + (Get-Date -Format "yyyyMMddHHmmss")
-        Write-Host "Created branch $branchName"
-        git checkout -b $branchName
-        echo "branch=$branchName" >> $GITHUB_OUTPUT
+         $branchName = "ci-auto-commit-binary-" + (Get-Date -Format "yyyyMMddHHmmss")
+         Write-Host "Created branch $branchName"
+         git checkout -b $branchName
+         echo "branch=$branchName" >> $GITHUB_OUTPUT
 
     - name: Configure git to auto set upstream on push
       run: git config --global push.autoSetupRemote true
