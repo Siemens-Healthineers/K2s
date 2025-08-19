@@ -80,15 +80,17 @@ jobs:
         git push --set-upstream origin ${{ steps.create_branch.outputs.branch }}
 
     - name: Create PR with gh
+      shell: pwsh
       run: |
-        gh pr create \
-          --base main \
-          --head ${{ steps.create_branch.outputs.branch }} \
-          --title "${{ env.CI_COMMIT_MESSAGE }}" \
-          --body "Automatic PR created for CI build for k2s cli" \
+        gh pr create `
+          --base main `
+          --head ci-auto-commit-binary-20250819114141 `
+          --title "ci: auto-commit k2s cli" `
+          --body "Automatic PR created for CI build for k2s cli" `
           --label automerge
       env:
         GITHUB_TOKEN: ${{ secrets.AUTOCOMMIT_TOKEN }}
+
 
 
 
