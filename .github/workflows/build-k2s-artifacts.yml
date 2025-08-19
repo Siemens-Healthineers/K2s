@@ -24,8 +24,9 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+      
       # use an older version since under windows it caues an key verification error
-    - uses: webfactory/ssh-agent@v0.9.1
+    - uses: webfactory/ssh-agent@v0.7.0
       with:
         ssh-private-key: ${{ secrets.AUTOCOMMITKEY }}
 
