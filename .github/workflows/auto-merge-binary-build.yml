@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
 # SPDX-License-Identifier: MIT
 
-name: Merge Auto-Commit PR for binary build
+name: Automerge from PR for binary build
 
 on:
   pull_request:
