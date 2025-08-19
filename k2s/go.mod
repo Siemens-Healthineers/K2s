@@ -19,7 +19,7 @@ require (
 	github.com/go-logr/logr v1.4.3
 	github.com/google/uuid v1.6.0
 	github.com/hectane/go-acl v0.0.0-20230122075934-ca0b05cb1adb
-	github.com/kdomanski/iso9660 v0.3.4
+	github.com/kdomanski/iso9660 v0.4.0
 	github.com/onsi/ginkgo/v2 v2.24.0
 	github.com/onsi/gomega v1.38.0
 	github.com/ory/hydra-client-go v1.11.8
