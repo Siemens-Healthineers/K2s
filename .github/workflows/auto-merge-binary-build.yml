@@ -1,0 +1,28 @@
+# SPDX-FileCopyrightText: © 2024 Siemens Healthineers AG
+# SPDX-License-Identifier: MIT
+
+name: Merge Auto-Commit PR for binary build
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+permissions:
+  pull-requests: write
+  contents: write
+  
+jobs:
+  auto-merge-temp-pr:
+    if: startsWith(github.head_ref, 'ci-auto-commit-binary-')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Auto-approve PR
+        uses: hmarr/auto-approve-action@v2.1.0
+        with:
+          github-token: ${{ secrets.AUTOCOMMIT_TOKEN }}
+
+      - name: Merge PR
+        uses: pascalgn/automerge-action@v0.15.4
+        with:
+          github_token: ${{ secrets.AUTOCOMMIT_TOKEN }}
+          merge_method: merge
+          delete_branch: true
