@@ -31,26 +31,6 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4      
       
-    # - name: Configure SSH known_hosts
-    # Use PowerShell to run native Windows commands
-    #  shell: pwsh
-    #  run: |
-        # Use cmd.exe style commands for filesystem operations
-        # This creates the .ssh directory
-    #    mkdir ~/.ssh
-        
-        # This command appends the host key
-    #   ssh-keyscan github.com >> ~/.ssh/known_hosts
-
-        # Now, use icacls with PowerShell's syntax. 
-        # Note the different way of passing arguments.
-    #    icacls "$env:HOME\.ssh\known_hosts" /grant "Users:F"
-
-      # use an older version since under windows it caues an key verification error
-    # - uses: webfactory/ssh-agent@v0.9.1
-    #  with:
-    #      ssh-private-key: ${{ secrets.AUTOCOMMITKEY }}
-
     - name: Set up Golang
       uses: actions/setup-go@v5
       with:
@@ -77,16 +57,10 @@ jobs:
         .\smallsetup\common\BuildGoExe.ps1
         ls
 
-    # - name: Run ci Acceptance Tests
-    #  shell: powershell
-    #  run: |
-    #    $ErrorActionPreference = "Continue"
-    #    .\test\execute_all_tests.ps1 -Tags ci -ExcludeTags unit, integration -V -ThrowOnFailure
-
     - name: Create temporary branch for commit
       id: create_branch
       run: |
-        $branchName = "temp-auto-commit-" + (Get-Date -Format "yyyyMMddHHmmss")
+        $branchName = "ci-auto-commit-binary-" + (Get-Date -Format "yyyyMMddHHmmss")
         echo "branchName=$branchName" | Out-File -FilePath env.txt -Encoding ascii
         Write-Host "Created branch $branchName"
         git checkout -b $branchName
@@ -115,23 +89,3 @@ jobs:
         draft: false
         body: "Automatic PR created by workflow"
 
-    - name: Approve Pull Request
-      uses: hmarr/auto-approve-action@v2.1.0
-      with:
-        github-token: ${{ secrets.AUTOCOMMIT_TOKEN }}
-      if: steps.pr.outputs.pull-request-number != ''
-
-    - name: Merge Pull Request
-      uses: pascalgn/automerge-action@v0.15.4
-      with:
-        github_token: ${{ secrets.AUTOCOMMIT_TOKEN }}
-        merge_method: merge
-        pull_request_number: ${{ steps.pr.outputs.pull-request-number }}
-        delete_branch: true
-      if: steps.pr.outputs.pull-request-number != ''
-
-    # - name: Commit k2s cli
-    #  run: |
-    #    git add k2s.exe
-    #    git commit -m  "${{ env.CI_COMMIT_MESSAGE }}"
-    #    git push
