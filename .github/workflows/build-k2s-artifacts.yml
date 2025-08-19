@@ -8,7 +8,9 @@ name: "Build - All K2s artifacts"
 
 on:
   workflow_dispatch:
-
+  schedule:
+    - cron: '30 17 * * *'  # 19:30 local = 17:30 UTC
+    
 env:
   GOVERSION: "1.24.2"
 
