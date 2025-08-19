@@ -17,7 +17,8 @@ jobs:
     steps:
       - name: Merge PR
         uses: pascalgn/automerge-action@v0.15.4
-        with:
-          github_token: ${{ secrets.AUTOCOMMIT_TOKEN }}
-          merge_method: merge
-          delete_branch: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.AUTOCOMMIT_TOKEN }}
+          MERGE_METHOD: merge
+          DELETE_BRANCH: true
+
