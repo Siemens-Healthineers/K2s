@@ -9,7 +9,7 @@ updates:
     schedule:
       interval: daily
       time: "17:00" # time in UTC
-    open-pull-requests-limit: 1
+    open-pull-requests-limit: 5
     ignore:
       - dependency-name: sigs.k8s.io/gateway-api
         update-types: [version-update:semver-major, version-update:semver-minor]
