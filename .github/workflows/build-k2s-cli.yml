@@ -59,26 +59,15 @@ jobs:
 
     - name: Create temporary branch for commit
       id: create_branch
+      shell: powershell
       run: |
         $branchName = "ci-auto-commit-binary-" + (Get-Date -Format "yyyyMMddHHmmss")
-        echo "branchName=$branchName" | Out-File -FilePath env.txt -Encoding ascii
         Write-Host "Created branch $branchName"
         git checkout -b $branchName
-        echo ::set-output name=branch::$branchName
-      shell: powershell
+        echo "branch=$branchName" >> $GITHUB_OUTPUT
 
     - name: Configure git to auto set upstream on push
       run: git config --global push.autoSetupRemote true
-
-    - name: Add env.txt to .gitignore if missing
-      shell: powershell
-      run: |
-        if (-not (Select-String -Path .gitignore -Pattern '^env\.txt$' -Quiet)) {
-          Add-Content -Path .gitignore -Value "env.txt"
-          Write-Host "Added env.txt to .gitignore"
-        } else {
-          Write-Host "env.txt is already in .gitignore"
-        }
         
     - name: Commit changes
       shell: powershell
