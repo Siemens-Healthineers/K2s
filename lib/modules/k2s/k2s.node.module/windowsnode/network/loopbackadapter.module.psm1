@@ -32,6 +32,17 @@ function New-DefaultLoopbackAdaterRemote {
         [parameter(Mandatory = $false)]
         [string] $Proxy = ''
     )
+     # Define the remote path for devgon.exe
+     $remoteDevgonPath = "C:\Windows\Temp\devgon.exe"
+
+     # Copy devgon.exe to the remote machine
+     Write-Log "Copying devgon.exe to remote machine at $IpAddress..."
+     if (-not [string]::IsNullOrWhiteSpace($UserPwd)) {
+         # Use username and password for file transfer
+         Copy-ToRemoteComputerViaUserAndPwd -SourcePath $devgonPath -DestinationPath $remoteDevgonPath -HostName $IpAddress -UserName $UserName -Password $UserPwd
+     } else {
+         Copy-ToRemoteComputerViaSshKey -Source $devgonPath -Target $remoteDevgonPath -IpAddress $IpAddress -UserName $UserName
+     }
     New-LoopbackAdapterRemote -Name $defaultLoopbackAdapterName -DevConExe $devgonPath -UserName $UserName -IpAddress $IpAddress | Out-Null
     Set-LoopbackAdapterPropertiesRemote -Name $defaultLoopbackAdapterName -IPAddress $loopbackAdapterIp -Gateway $loopbackAdapterGateway
 }
