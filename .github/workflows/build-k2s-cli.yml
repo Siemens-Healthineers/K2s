@@ -64,8 +64,8 @@ jobs:
          $branchName = "ci-auto-commit-binary-" + (Get-Date -Format "yyyyMMddHHmmss")
          Write-Host "Created branch $branchName"
          git checkout -b $branchName
-         echo "branch=$branchName" >> $GITHUB_OUTPUT
-
+         Add-Content -Path $env:GITHUB_OUTPUT -Value "branch=$branchName"
+         
     - name: Configure git to auto set upstream on push
       run: git config --global push.autoSetupRemote true
       
