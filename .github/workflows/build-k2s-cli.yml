@@ -87,7 +87,7 @@ jobs:
         title: "${{ env.CI_COMMIT_MESSAGE }}"
         commit-message: "${{ env.CI_COMMIT_MESSAGE }}"
         base: main
-        head: "${{ steps.create_branch.outputs.branch }}"
+        branch: "${{ steps.create_branch.outputs.branch }}"
         draft: false
         body: "Automatic PR created by workflow"
 
