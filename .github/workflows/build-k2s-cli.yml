@@ -79,17 +79,25 @@ jobs:
         git commit -m "${{ env.CI_COMMIT_MESSAGE }}"
         git push --set-upstream origin ${{ steps.create_branch.outputs.branch }}
 
-    - name: Create PR with auto-merge
+    - name: Ensure automerge label exists
+      run: |
+        gh label create automerge --color FF0000 --description "Automatically merge PRs" || echo "Label exists"
+      env:
+        GITHUB_TOKEN: ${{ secrets.AUTOCOMMIT_TOKEN }}
+    
+    - name: Create PR
       shell: pwsh
       run: |
         gh pr create `
           --base main `
-          --head ci-auto-commit-binary-20250819114141 `
+          --head ${{ steps.create_branch.outputs.branch }} `
           --title "ci: auto-commit k2s cli" `
-          --body "Automatic PR created for CI build for k2s cli" `
-          --enable-auto-merge
+          --body "Automatic PR created for CI build" `
+          --label automerge
       env:
         GITHUB_TOKEN: ${{ secrets.AUTOCOMMIT_TOKEN }}
+
+
 
 
 
