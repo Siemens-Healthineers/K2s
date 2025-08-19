@@ -68,6 +68,9 @@ jobs:
 
     - name: Configure git to auto set upstream on push
       run: git config --global push.autoSetupRemote true
+
+    - name: Debug branch output
+      run: echo "Branch name: ${{ steps.create_branch.outputs.branch }}"
         
     - name: Commit changes
       shell: powershell
@@ -84,7 +87,7 @@ jobs:
         title: "${{ env.CI_COMMIT_MESSAGE }}"
         commit-message: "${{ env.CI_COMMIT_MESSAGE }}"
         base: main
-        head: ${{ steps.create_branch.outputs.branch }}
+        head: "${{ steps.create_branch.outputs.branch }}"
         draft: false
         body: "Automatic PR created by workflow"
 
