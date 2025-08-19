@@ -79,7 +79,7 @@ jobs:
         git commit -m "${{ env.CI_COMMIT_MESSAGE }}"
         git push --set-upstream origin ${{ steps.create_branch.outputs.branch }}
 
-    - name: Create PR with gh
+    - name: Create PR with auto-merge
       shell: pwsh
       run: |
         gh pr create `
@@ -87,9 +87,10 @@ jobs:
           --head ci-auto-commit-binary-20250819114141 `
           --title "ci: auto-commit k2s cli" `
           --body "Automatic PR created for CI build for k2s cli" `
-          --label automerge
+          --enable-auto-merge
       env:
         GITHUB_TOKEN: ${{ secrets.AUTOCOMMIT_TOKEN }}
+
 
 
 
