@@ -319,9 +319,9 @@
     },
     {
       "type": "application",
-      "group": "https://github.com/flannel-io/flannel/releases/download/0.26.1/flanneld.exe",
+      "group": "https://github.com/flannel-io/flannel/releases/download/0.27.2/flanneld.exe",
       "name": "flanneld",
-      "version": "v0.26.7",
+      "version": "v0.27.2",
       "description": "",
       "scope": "required",
       "licenses": [
@@ -332,7 +332,7 @@
           }
         }
       ],
-      "purl": "pkg:github/flannel-io/flannel@v0.26.7",
+      "purl": "pkg:github/flannel-io/flannel@v0.27.2",
       "properties": [
         {
           "name": "sw360:projectName",
@@ -200682,10 +200682,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/flannel-io/flannel@v0.26.7",
+      "bom-ref": "pkg:golang/github.com/flannel-io/flannel@v0.27.2",
       "name": "github.com/flannel-io/flannel",
-      "version": "v0.26.7",
-      "purl": "pkg:golang/github.com/flannel-io/flannel@v0.26.7",
+      "version": "v0.27.2",
+      "purl": "pkg:golang/github.com/flannel-io/flannel@v0.27.2",
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
@@ -379122,10 +379122,10 @@
     },
     {
       "type": "library",
-      "bom-ref": "pkg:golang/github.com/flannel-io/flannel@v0.26.7",
+      "bom-ref": "pkg:golang/github.com/flannel-io/flannel@v0.27.2",
       "name": "github.com/flannel-io/flannel",
-      "version": "v0.26.7",
-      "purl": "pkg:golang/github.com/flannel-io/flannel@v0.26.7",
+      "version": "v0.27.2",
+      "purl": "pkg:golang/github.com/flannel-io/flannel@v0.27.2",
       "properties": [
         {
           "name": "aquasecurity:trivy:PkgType",
@@ -483794,7 +483794,7 @@
     {
       "ref": "27002a4f-af3c-4868-90fc-8f1eee39bcc0",
       "dependsOn": [
-        "pkg:golang/github.com/flannel-io/flannel@v0.26.7"
+        "pkg:golang/github.com/flannel-io/flannel@v0.27.2"
       ]
     },
     {
@@ -484264,7 +484264,7 @@
       "dependsOn": []
     },
     {
-      "ref": "pkg:golang/github.com/flannel-io/flannel@v0.26.7",
+      "ref": "pkg:golang/github.com/flannel-io/flannel@v0.27.2",
       "dependsOn": [
         "a53367a0-6c2f-430b-94b3-f0cd07043349",
         "pkg:golang/github.com/avast/retry-go/v4@v4.6.1",
@@ -516449,7 +516449,7 @@
     {
       "ref": "b12de0f1-9d30-4853-a4b8-10c62f2fd790",
       "dependsOn": [
-        "pkg:golang/github.com/flannel-io/flannel@v0.26.7"
+        "pkg:golang/github.com/flannel-io/flannel@v0.27.2"
       ]
     },
     {
@@ -530246,7 +530246,7 @@
       "dependsOn": []
     },
     {
-      "ref": "pkg:golang/github.com/flannel-io/flannel@v0.26.7",
+      "ref": "pkg:golang/github.com/flannel-io/flannel@v0.27.2",
       "dependsOn": [
         "02b448fd-0471-4277-93db-6d1a5393184f",
         "054dc640-3af9-4bca-9ade-9cb2a5115247",

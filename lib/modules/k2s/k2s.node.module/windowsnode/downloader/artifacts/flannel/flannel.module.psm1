@@ -25,7 +25,7 @@ $windowsNode_Flannel64exe = 'flannel-amd64.exe'
 
 function Invoke-DownloadFlannelArtifacts($downloadsBaseDirectory, $Proxy) {
     $flannelDownloadsDirectory = "$downloadsBaseDirectory\$windowsNode_FlannelDirectory"
-    $flannelVersion = 'v0.26.7'
+    $flannelVersion = 'v0.27.2'
     $file = "$flannelDownloadsDirectory\$windowsNode_FlanneldExe"
 
     Write-Log "Create folder '$flannelDownloadsDirectory'"
