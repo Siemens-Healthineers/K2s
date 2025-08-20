@@ -19,10 +19,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        # use an older version since under windows it caues an key verification error
-      - uses: webfactory/ssh-agent@v0.9.1
-        with:
-          ssh-private-key: ${{ secrets.AUTOCOMMITKEY }}
   
       - name: Set up Golang
         uses: actions/setup-go@v5
