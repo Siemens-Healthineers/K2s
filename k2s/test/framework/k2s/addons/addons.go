@@ -234,6 +234,54 @@ func Foreach(addons addons.Addons, iteratee func(addonName, implementationName, 
 	}
 }
 
+func waitForKeycloakReady(keycloakServer, realm string) error {
+	realmUrl := fmt.Sprintf("%s/keycloak/realms/%s", keycloakServer, realm)
+	maxRetries := 30 // Wait up to 5 minutes (30 * 10s)
+	
+	GinkgoWriter.Printf("Checking Keycloak readiness at %s\n", realmUrl)
+	
+	client := &http.Client{
+		Timeout: 10 * time.Second,
+	}
+	
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		resp, err := client.Get(realmUrl)
+		if err != nil {
+			GinkgoWriter.Printf("Readiness check %d/%d: Failed to connect to Keycloak: %v\n", attempt, maxRetries, err)
+		} else {
+			resp.Body.Close()
+			if resp.StatusCode == http.StatusOK {
+				GinkgoWriter.Printf("Keycloak is ready (realm accessible) after %d attempts\n", attempt)
+				
+				// Additional check: verify the token endpoint is accessible
+				tokenEndpointUrl := fmt.Sprintf("%s/protocol/openid-connect/token", realmUrl)
+				tokenResp, tokenErr := client.Get(tokenEndpointUrl)
+				if tokenErr != nil {
+					GinkgoWriter.Printf("Token endpoint check failed: %v\n", tokenErr)
+				} else {
+					tokenResp.Body.Close()
+					// Token endpoint should return 405 (Method Not Allowed) for GET, which means it's accessible
+					if tokenResp.StatusCode == http.StatusMethodNotAllowed || tokenResp.StatusCode == http.StatusBadRequest {
+						GinkgoWriter.Printf("Token endpoint is accessible (status: %d)\n", tokenResp.StatusCode)
+						return nil
+					}
+					GinkgoWriter.Printf("Token endpoint returned unexpected status: %d\n", tokenResp.StatusCode)
+				}
+			} else {
+				GinkgoWriter.Printf("Readiness check %d/%d: Realm not ready (status: %d)\n", attempt, maxRetries, resp.StatusCode)
+			}
+		}
+		
+		if attempt < maxRetries {
+			backoffTime := 10 * time.Second
+			GinkgoWriter.Printf("Waiting %v before next readiness check...\n", backoffTime)
+			time.Sleep(backoffTime)
+		}
+	}
+	
+	return fmt.Errorf("keycloak did not become ready after %d attempts", maxRetries)
+}
+
 func GetKeycloakToken() (string, error) {
 	keycloakServer := "https://k2s.cluster.local"
 	realm := "demo-app"
@@ -242,6 +290,12 @@ func GetKeycloakToken() (string, error) {
 	username := "demo-user"
 	password := "password"
 	tokenUrl := fmt.Sprintf("%s/keycloak/realms/%s/protocol/openid-connect/token", keycloakServer, realm)
+	
+	// First, wait for Keycloak to be fully operational
+	if err := waitForKeycloakReady(keycloakServer, realm); err != nil {
+		return "", fmt.Errorf("keycloak is not ready: %v", err)
+	}
+	
 	data := url.Values{}
 	data.Set("client_id", clientId)
 	data.Set("client_secret", clientSecret)
@@ -251,17 +305,30 @@ func GetKeycloakToken() (string, error) {
 
 	GinkgoWriter.Printf("Getting Keycloak token from %s\n", tokenUrl)
 
-	maxRetries := 10
+	maxRetries := 15 // Increased from 10 to handle sporadic failures
+	client := &http.Client{
+		Timeout: 30 * time.Second, // Increased timeout for better reliability
+	}
+	
 	for attempt := 1; attempt <= maxRetries; attempt++ {
-		resp, err := http.PostForm(tokenUrl, data)
+		req, err := http.NewRequest("POST", tokenUrl, strings.NewReader(data.Encode()))
+		if err != nil {
+			return "", fmt.Errorf("failed to create request: %v", err)
+		}
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		
+		resp, err := client.Do(req)
 		if err != nil {
 			if attempt == maxRetries {
 				return "", fmt.Errorf("failed to get token after %d attempts: %v", maxRetries, err)
 			}
 			GinkgoWriter.Printf("Attempt %d/%d: Failed to get token: %v\n", attempt, maxRetries, err)
-			backoffTime := time.Duration(attempt * 5) * time.Second
-			GinkgoWriter.Printf("Waiting %v before next attempt...\n", backoffTime)
-			time.Sleep(backoffTime)
+			// Add jitter to avoid thundering herd
+			backoffTime := time.Duration(attempt*5) * time.Second
+			jitter := time.Duration(attempt*500) * time.Millisecond
+			totalWait := backoffTime + jitter
+			GinkgoWriter.Printf("Waiting %v before next attempt...\n", totalWait)
+			time.Sleep(totalWait)
 			continue
 		}
 		defer resp.Body.Close()
@@ -278,9 +345,12 @@ func GetKeycloakToken() (string, error) {
 			GinkgoWriter.Printf("Response headers: %v\n", resp.Header)
 			GinkgoWriter.Printf("Response body: %s\n", responseBody.String())
 
-			backoffTime := time.Duration(attempt * 5) * time.Second
-			GinkgoWriter.Printf("Waiting %v before next attempt...\n", backoffTime)
-			time.Sleep(backoffTime)
+			// Use the same improved backoff with jitter for HTTP errors
+			backoffTime := time.Duration(attempt*5) * time.Second
+			jitter := time.Duration(attempt*500) * time.Millisecond
+			totalWait := backoffTime + jitter
+			GinkgoWriter.Printf("Waiting %v before next attempt...\n", totalWait)
+			time.Sleep(totalWait)
 			continue
 		}
 
