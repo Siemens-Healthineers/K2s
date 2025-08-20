@@ -39,7 +39,9 @@ var _ = BeforeSuite(func(ctx context.Context) {
 	manifestDir = "workload/windows"
 	proxy = "http://172.19.1.1:8181"
 
-	suite = framework.Setup(ctx, framework.SystemMustBeRunning, framework.ClusterTestStepPollInterval(time.Millisecond*200))
+	suite = framework.Setup(ctx, framework.SystemMustBeRunning, 
+		framework.ClusterTestStepPollInterval(time.Millisecond*200),
+		framework.ClusterTestStepTimeout(8*time.Minute)) // Increased timeout for Windows workloads
 	k2s = dsl.NewK2s(suite)
 
 	if suite.SetupInfo().RuntimeConfig.InstallConfig().LinuxOnly() {

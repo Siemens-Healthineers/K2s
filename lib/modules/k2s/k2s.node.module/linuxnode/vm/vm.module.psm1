@@ -520,6 +520,10 @@ function Wait-ForSshPossible {
         [switch]$Nested = $false
     )
     $iteration = 0
+    $maxIterations = 40  # Increased from 25 to handle sporadic failures better
+    $baseDelay = 3       # Base delay in seconds
+    $maxDelay = 15       # Maximum delay between attempts
+    
     Write-Log "Performing SSH login into VM with $($User)..."
     while ($true) {
         $iteration++
@@ -527,10 +531,10 @@ function Wait-ForSshPossible {
 
         if ($SshKey -ne '') {
             if ($Nested) {
-                $result = ssh.exe -o StrictHostKeyChecking=no -i $SshKey $User "$($SshTestCommand)" 2>&1
+                $result = ssh.exe -o StrictHostKeyChecking=no -o ConnectTimeout=10 -i $SshKey $User "$($SshTestCommand)" 2>&1
             }
             else {
-                $result = ssh.exe -n -o StrictHostKeyChecking=no -i $SshKey $User "$($SshTestCommand)" 2>&1
+                $result = ssh.exe -n -o StrictHostKeyChecking=no -o ConnectTimeout=10 -i $SshKey $User "$($SshTestCommand)" 2>&1
             }
         }
         else {
@@ -548,20 +552,41 @@ function Wait-ForSshPossible {
             }
         }
 
-        if ($iteration -eq 25) {
-            Write-Log "SSH login into VM with $($User) still not available, ssh result is '$($result)' aborting..." -Console
-            throw "Unable to SSH login into VM"
+        if ($iteration -eq $maxIterations) {
+            Write-Log "SSH login into VM with $($User) still not available after $maxIterations attempts, ssh result is '$($result)' aborting..." -Console
+            throw "Unable to SSH login into VM after $maxIterations attempts"
         }
-        if ($iteration -ge 3 ) {
-            Write-Log "SSH login into VM with $($User) not yet possible, current result is '$($result)' waiting for it..."
+        
+        # Enhanced logging for sporadic failure diagnosis
+        if ($iteration -ge 3) {
+            $timeWaited = ($iteration - 1) * $baseDelay
+            Write-Log "SSH login into VM with $($User) not yet possible (attempt $iteration/$maxIterations, waited ${timeWaited}s), current result is '$($result)' waiting for it..."
         }
-        Start-Sleep 4
+        
+        # Implement progressive backoff for better handling of sporadic failures
+        if ($iteration -le 5) {
+            # Quick retries for the first few attempts
+            $delayTime = $baseDelay
+        } elseif ($iteration -le 15) {
+            # Medium delays for intermediate attempts
+            $delayTime = [Math]::Min($baseDelay + ($iteration - 5), $maxDelay)
+        } else {
+            # Longer delays for later attempts to handle slow VM initialization
+            $delayTime = $maxDelay
+        }
+        
+        # Add small random jitter to prevent thundering herd in concurrent scenarios
+        $jitter = Get-Random -Minimum 0 -Maximum 2
+        $finalDelay = $delayTime + $jitter
+        
+        Start-Sleep $finalDelay
     }
     if ($iteration -eq 1) {
         Write-Log "SSH login into VM with $($User) possible, no waiting needed."
     }
     else {
-        Write-Log "SSH login into VM with $($User) now possible."
+        $totalTime = ($iteration - 1) * $baseDelay
+        Write-Log "SSH login into VM with $($User) now possible after $iteration attempts (${totalTime}s total)."
     }
 }
 
