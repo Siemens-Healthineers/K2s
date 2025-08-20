@@ -14,7 +14,7 @@ require (
 	github.com/containernetworking/cni v1.3.0
 	github.com/elazarl/goproxy v1.7.2
 	github.com/failsafe-go/failsafe-go v0.6.9
-	github.com/gentlemanautomaton/windevice v0.0.0-20230228225025-9f4f02d0964b
+	github.com/gentlemanautomaton/windevice v0.0.0-20250112023717-77498d8a77fe
 	github.com/gin-gonic/gin v1.10.0
 	github.com/go-logr/logr v1.4.3
 	github.com/google/uuid v1.6.0
@@ -71,7 +71,7 @@ require (
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/fxamacker/cbor/v2 v2.7.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.3 // indirect
-	github.com/gentlemanautomaton/winguid v0.0.0-20190307223039-3f364f74ee74 // indirect
+	github.com/gentlemanautomaton/winguid v0.0.0-20250403232820-a284bb765ec0 // indirect
 	github.com/gin-contrib/sse v0.1.0 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
 	github.com/go-openapi/jsonpointer v0.21.0 // indirect

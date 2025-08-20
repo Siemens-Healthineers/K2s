@@ -357,8 +357,12 @@ github.com/gabriel-vasile/mimetype v1.4.3/go.mod h1:d8uq/6HKRL6CGdk+aubisF/M5GcP
 github.com/garyburd/redigo v0.0.0-20150301180006-535138d7bcd7/go.mod h1:NR3MbYisc3/PwhQ00EMzDiPmrwpPxAn5GI05/YaO1SY=
 github.com/gentlemanautomaton/windevice v0.0.0-20230228225025-9f4f02d0964b h1:qAkdVwVQ+cwLaIFGyOBBfLm5XEjekOZsnZGyvlhLud8=
 github.com/gentlemanautomaton/windevice v0.0.0-20230228225025-9f4f02d0964b/go.mod h1:yZwIa7s4IOx8T2lQrgkG84UJDA+zWffM/ug93dkugEk=
+github.com/gentlemanautomaton/windevice v0.0.0-20250112023717-77498d8a77fe h1:VtRezCd8in6S3iShK/EhbxIuJ4zKG3dtkm3vGlRr0qY=
+github.com/gentlemanautomaton/windevice v0.0.0-20250112023717-77498d8a77fe/go.mod h1:pKE4SaCEbbZq9qLCggXqsx6gWQM1ILP1i6wjK30cjO4=
 github.com/gentlemanautomaton/winguid v0.0.0-20190307223039-3f364f74ee74 h1:KBOUk7aWPrrx9pu4UntVtVJXWwLE1Z5w/vqOFLrsvhQ=
 github.com/gentlemanautomaton/winguid v0.0.0-20190307223039-3f364f74ee74/go.mod h1:w5CgCbxt8D1rCLKpdgBQLXc+19nItCmTwA8r+pDvlro=
+github.com/gentlemanautomaton/winguid v0.0.0-20250403232820-a284bb765ec0 h1:UKD1G12mAz2k1ACQkRqGVFHOoAz7O+84OmZhayw3ecw=
+github.com/gentlemanautomaton/winguid v0.0.0-20250403232820-a284bb765ec0/go.mod h1:nrXisjRLNZ7BZups5Zxj+WbD2/2XdQ7Z+OTZEGD+4B8=
 github.com/ghodss/yaml v0.0.0-20150909031657-73d445a93680/go.mod h1:4dBDuWmgqj2HViK6kFavaiC9ZROes6MMH2rRYeMEF04=
 github.com/ghodss/yaml v1.0.0/go.mod h1:4dBDuWmgqj2HViK6kFavaiC9ZROes6MMH2rRYeMEF04=
 github.com/gin-contrib/sse v0.1.0 h1:Y/yl/+YNO8GZSjAhjMsSuLt29uWRFHdHYUb5lYOV9qE=
