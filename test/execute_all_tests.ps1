@@ -83,7 +83,7 @@ if ($ExcludePowershellTests -and $ExcludeGoTests) {
 Import-Module "$PSScriptRoot\test.module.psm1" -Force
 
 $pesterVersion = '5.6.1'
-$ginkgoVersion = '2.23.3'
+$ginkgoVersion = '2.24.0'
 $rootDir = "$PSScriptRoot\..\"
 
 # switch to drive
