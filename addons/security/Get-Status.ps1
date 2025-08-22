@@ -74,4 +74,13 @@ if ($hydraProp.Value -eq $true) {
     $hydraProp.Message = 'The hydra API is not deployed (possibly omitted with -OmitHydra)'
 }
 
-return $securityProp, $certManagerProp, $caRootCertificateProp, $keycloakProp, $hydraProp, $trustManagerProp, $linkerdProp
+# Check for OAuth2 proxy deployment (optional)
+$oauth2ProxyAvailable = Test-OAuth2ProxyServiceAvailability
+$oauth2ProxyProp = @{Name = 'IsOAuth2ProxyAvailable'; Value = $oauth2ProxyAvailable; Okay = $oauth2ProxyAvailable }
+if ($oauth2ProxyProp.Value -eq $true) {
+    $oauth2ProxyProp.Message = 'The OAuth2 proxy is ready'
+} else {
+    $oauth2ProxyProp.Message = 'The OAuth2 proxy is not deployed (possibly omitted with -OmitOAuth2Proxy)'
+}
+
+return $securityProp, $certManagerProp, $caRootCertificateProp, $keycloakProp, $hydraProp, $oauth2ProxyProp, $trustManagerProp, $linkerdProp
